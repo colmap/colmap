@@ -1,0 +1,22 @@
+set(FOLDER_NAME "estimators")
+
+COLMAP_ADD_LIBRARY(estimators
+    essential_matrix.h essential_matrix.cc
+    euclidean_transform.h
+    fundamental_matrix.h fundamental_matrix.cc
+    homography_matrix.h homography_matrix.cc
+    p3p.h p3p.cc
+    pose.h pose.cc
+    similarity_transform.h
+    translation_transform.h
+    triangulation.h triangulation.cc
+    two_view_geometry.h two_view_geometry.cc
+    utils.h utils.cc
+)
+
+COLMAP_ADD_TEST(essential_matrix_test essential_matrix_test.cc)
+COLMAP_ADD_TEST(fundamental_matrix_test fundamental_matrix_test.cc)
+COLMAP_ADD_TEST(homography_matrix_test homography_matrix_test.cc)
+COLMAP_ADD_TEST(p3p_test p3p_test.cc)
+COLMAP_ADD_TEST(translation_transform_test translation_transform_test.cc)
+COLMAP_ADD_TEST(utils_test utils_test.cc)

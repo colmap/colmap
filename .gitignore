@@ -1,0 +1,40 @@
+# Custom files
+LocalConfig.cmake
+
+# Custom directories
+.idea/
+.DS_Store
+build-debug/
+build-release/
+data/
+doc/_build
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+*.pyc
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app

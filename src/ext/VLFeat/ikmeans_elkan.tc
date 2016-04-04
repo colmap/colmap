@@ -1,0 +1,360 @@
+/** @file ikmeans_elkan.tc
+ ** @brief Integer K-Means - Elkan Algorithm - Definition
+ ** @author Andrea Vedaldi
+ **/
+
+/*
+Copyright (C) 2007-12 Andrea Vedaldi and Brian Fulkerson.
+All rights reserved.
+
+This file is part of the VLFeat library and is made available under
+the terms of the BSD license (see the COPYING file).
+*/
+
+#include "mathop.h"
+
+/** @internal
+ ** Update inter cluster distance table.
+ **/
+
+static void
+vl_ikm_elkan_update_inter_dist (VlIKMFilt *f)
+{
+  vl_uindex i, k, kp ;
+
+  /* inter cluster distances */
+  for(k = 0 ; k < f->K ; ++ k) {
+    for(kp = 0 ; kp < f->K ; ++ kp) {
+      vl_ikmacc_t dist = 0 ;
+      if (k != kp) {
+        for(i = 0 ; i < f->M ; ++i) {
+          vl_ikmacc_t delta  = f->centers [kp * f->M + i] - f->centers [k * f->M + i] ;
+          dist  += delta * delta ;
+        }
+      }
+      f->inter_dist [k * f->K + kp] = f->inter_dist [kp * f->K + k] = dist >> 2 ;
+    }
+  }
+}
+
+/** @internal
+ ** @brief Helper function to initialize filter for Triangle algorithm
+ ** @param f filter.
+ **/
+
+static void
+vl_ikm_init_elkan (VlIKMFilt *f)
+{
+  if (f->inter_dist) {
+    vl_free (f-> inter_dist) ;
+  }
+  f->inter_dist = vl_malloc (sizeof(*f->inter_dist) * f->K * f->K) ;
+  vl_ikm_elkan_update_inter_dist (f) ;
+}
+
+
+/** @internal
+ ** @brief Elkan algorithm
+ ** @param f     IKM quantizer.
+ ** @param data  Data to quantize.
+ ** @param N     Number of data elements.
+ **/
+
+static int
+vl_ikm_train_elkan (VlIKMFilt* f, vl_uint8 const* data, vl_size N)
+{
+  /* REMARK !! All distances are squared !! */
+  vl_uindex i,pass,c,cp,x,cx ;
+  vl_size dist_calc = 0 ;
+
+  vl_ikmacc_t dist ;
+  vl_ikmacc_t *m_pt = vl_malloc(sizeof(*m_pt) * f->M * f->K) ; /* new centers (temp) */
+  vl_ikmacc_t *u_pt = vl_malloc(sizeof(*u_pt) * N) ; /* upper bound (may str) */
+  char *r_pt = vl_malloc(sizeof(*r_pt) * 1 * N) ; /* flag: u is strict */
+  vl_ikmacc_t *s_pt = vl_malloc(sizeof(*s_pt) * f->K) ; /* min cluster dist. */
+  vl_ikmacc_t *l_pt = vl_malloc(sizeof(*l_pt) * N * f->K) ; /* lower bound  */
+  vl_ikmacc_t *d_pt = f->inter_dist ; /* half inter clst dist  */
+  vl_uint32 *asgn = vl_malloc (sizeof(*asgn) * N) ;
+  vl_uint32 *counts =vl_malloc (sizeof(*counts) * N) ;
+
+  int done = 0 ;
+
+  /* do passes */
+  vl_ikm_elkan_update_inter_dist (f) ;
+
+  /* init */
+  memset(l_pt, 0, sizeof(*l_pt) * N * f->K) ;
+  memset(u_pt, 0, sizeof(*u_pt) * N) ;
+  memset(r_pt, 0, sizeof(*r_pt) * N) ;
+  for(x = 0 ; x < N ; ++x) {
+    vl_ikmacc_t best_dist ;
+
+    /* do first cluster `by hand' */
+    dist_calc ++ ;
+    for(dist = 0, i = 0 ; i < f->M ; ++i) {
+      vl_ikmacc_t delta = (vl_ikmacc_t)data[x * f->M + i] - f->centers[i] ;
+      dist += delta*delta ;
+    }
+    cx = 0 ;
+    best_dist = dist ;
+    l_pt[x] = dist ;
+
+    /* do other clusters */
+    for(c = 1 ; c < f->K ; ++c) {
+      if(d_pt[f->K * cx + c] < best_dist) {
+        /* might need to be updated */
+
+        dist_calc++ ;
+        for(dist=0, i = 0 ; i < f->M ; ++i) {
+          vl_ikmacc_t delta =
+          (vl_ikmacc_t)data[x * f->M + i]
+          - f->centers[c * f->M + i] ;
+          dist += delta * delta ;
+        }
+
+        /* lower bound */
+        l_pt[N*c + x] = dist ;
+
+        if(dist < best_dist) {
+          best_dist = dist ;
+          cx        = c ;
+        }
+      }
+    }
+
+    asgn[x] = (vl_uint32)cx ;
+    u_pt[x] = best_dist ;
+  }
+
+  /* --------------------------------------------------------------------
+   *                                                               Passes
+   * ------------------------------------------------------------------ */
+
+  for (pass = 0 ; 1 ; ++ pass) {
+
+    /* ------------------------------------------------------------------
+     *                                                 Re-calculate means
+     * ---------------------------------------------------------------- */
+    memset(m_pt, 0, sizeof(*m_pt) * f->M * f->K) ;
+    memset(counts, 0, sizeof(*counts) * f->K) ;
+
+    /* accumulate */
+    for(x = 0 ; x < N ; ++x) {
+      int cx = asgn[x] ;
+      ++ counts[ cx ] ;
+      for(i = 0 ; i < f->M ; ++i) {
+        m_pt[cx * f->M + i] += data[x * f->M + i] ;
+      }
+    }
+
+    /* normalize */
+    for(c = 0 ; c < f->K ; ++c) {
+      vl_ikmacc_t n = counts[c] ;
+      if(n > 0) {
+        for(i = 0 ; i < f->M ; ++i) {
+          m_pt[c * f->M + i] /= n ;
+        }
+      } else {
+        for(i = 0 ; i < f->M ; ++i) {
+          /*m_pt[c*M + i] = data[pairs_pt[c].j*M + i] ;*/
+        }
+      }
+    }
+
+    /* ------------------------------------------------------------------
+     *                                                      Update bounds
+     * --------------------------------------------------------------- */
+    for(c = 0 ; c < f->K ; ++c) {
+
+      /* distance d(m(c),c) and update c */
+      dist_calc++ ;
+      for(dist = 0, i = 0 ; i < f->M ; ++i) {
+        vl_ikmacc_t delta =
+        (vl_ikmacc_t)m_pt[c * f->M + i]
+        - f->centers[c * f->M + i] ;
+        f->centers[c * f->M + i] = m_pt[c * f->M +i] ;
+        dist += delta * delta ;
+      }
+      for(x = 0 ; x < N ; ++x) {
+        vl_ikmacc_t lxc = l_pt[c * N + x] ;
+        vl_uindex cx  = (int) asgn[x] ;
+
+        /* lower bound */
+        if(dist < lxc) {
+          lxc = (vl_ikmacc_t) (lxc + dist - 2*(vl_fast_sqrt_ui64(lxc)+1)*(vl_fast_sqrt_ui64(dist)+1)) ;
+        } else {
+          lxc = 0 ;
+        }
+        l_pt[c*N + x]  = lxc ;
+
+        /* upper bound */
+        if(c == cx) {
+          vl_ikmacc_t ux = u_pt[x] ;
+          u_pt[x] = (vl_ikmacc_t) (ux + dist + 2 * (vl_fast_sqrt_ui64(ux)+1)*(vl_fast_sqrt_ui64(dist)+1)) ;
+          r_pt[x] = 1 ;
+        }
+      }
+    }
+
+    /* inter cluster distances */
+    for(c = 0 ; c < f->K ; ++c) {
+      for(cp = 0 ; cp < f->K ; ++cp) {
+        dist = 0 ;
+        if( c != cp ) {
+          dist_calc++;
+          for(i = 0 ; i < f->M ; ++i) {
+            vl_ikmacc_t delta = f->centers[cp * f->M + i] - f->centers[ c * f->M + i] ;
+            dist += delta*delta ;
+          }
+        }
+        d_pt[c * f->K + cp] = d_pt[cp * f->K + c] = dist>>2 ;
+      }
+    }
+
+    /* closest cluster distance */
+    for(c = 0  ; c < f->K ; ++c) {
+      vl_ikmacc_t best_dist = VL_IKMACC_MAX ;
+      for(cp = 0 ; cp < f->K ; ++cp) {
+        dist = d_pt[c * f->K + cp] ;
+        if(c != cp && dist < best_dist) best_dist = dist ;
+      }
+      s_pt[c] = best_dist >> 2 ;
+    }
+
+
+    /* ------------------------------------------------------------------
+     * Assign data to centers
+     * ---------------------------------------------------------------- */
+    done = 1 ;
+    for(x = 0 ; x < N ; ++x) {
+      vl_uindex cx = (vl_uindex) asgn[x] ;
+      vl_ikmacc_t ux = u_pt[x] ;
+
+      /* ux is an upper bound of the distance of x to its
+         current center cx. s_pt[cx] is half of the minum distance
+         between the cluster cx and any other cluster center.  If
+         ux <= s_pt[cx] then x remains attached to cx. */
+
+      if(ux <= s_pt[cx])  continue ;
+
+      for(c = 0 ; c < f->K ; ++c) {
+        vl_ikmacc_t dist = 0 ;
+        /* so x might need to be re-associated from cx to c. We can
+           exclude c if
+
+           1 - cx = c (trivial) or
+           2 - u(x) <= l(x,c)    as this implies d(x,cx) <= d(x,c) or
+           3 - u(x) <= d(cx,c)/2 as this implies d(x,cx) <= d(x,c).
+        */
+        if(c  == cx ||
+           ux <= l_pt[N * c +  x] ||
+           ux <= d_pt[f->K * c + cx])
+          continue ;
+
+        /* we need to make a true comparison */
+
+        /* if u_pt[x] is stale (i.e. not strictly equal to
+           d(x,cx)), then re-calcualte it. */
+        if( r_pt[x] ) {
+          dist_calc++;
+          for(dist = 0, i = 0 ; i < f->M ; ++i) {
+            vl_ikmacc_t delta = (vl_ikmacc_t)data[x * f->M + i] - f->centers[cx * f->M + i] ;
+            dist += delta*delta ;
+          }
+          ux = u_pt[x] = dist ;
+          r_pt[x] = 0 ;
+
+          /* now that u_pt[x] is updated, we check the conditions
+             again */
+          if(
+             ux <= l_pt[N * c +  x]  ||
+             ux <= d_pt[f->K * c + cx]  )
+            continue ;
+        }
+
+        /* no way... we need to compute the distance d(x,c) */
+        dist_calc++ ;
+        for(dist = 0, i = 0 ; i < f->M ; ++i) {
+          vl_ikmacc_t delta = (vl_ikmacc_t)data[ x * f->M + i] - f->centers[c * f->M + i] ;
+          dist += delta * delta ;
+        }
+
+        l_pt[N * c + x] =  dist ;
+
+        if (dist < ux) {
+          ux = u_pt[x] = dist ;
+          /* r_pt[x] already 0 */
+          asgn[x] = (vl_uint32)c ;
+          done = 0 ;
+        }
+      }
+    } /* next data point */
+
+      /* stopping condition */
+    if(done || pass == f->max_niters) {
+      break ;
+    }
+  }
+
+  vl_free (counts) ;
+  vl_free (asgn) ;
+  vl_free (l_pt) ;
+  vl_free (s_pt) ;
+  vl_free (r_pt) ;
+  vl_free (u_pt) ;
+  vl_free (m_pt) ;
+
+  if (f-> verb) {
+    VL_PRINTF ("ikm: Elkan algorithm: total iterations: %d\n", pass) ;
+    VL_PRINTF ("ikm: Elkan algorithm: distance calculations: %d (speedup: %.2f)\n",
+               dist_calc, (float)N * f->K * (pass+2) / dist_calc - 1) ;
+  }
+  return 0 ;
+}
+
+/** @internal
+ ** @brief Elkan algorithm
+ ** @param f    IKM quantizer.
+ ** @param asgn Assignment of data to centers (out).
+ ** @param data Data to quantize.
+ ** @param N    Number of data elements.
+ **/
+
+static void
+vl_ikm_push_elkan (VlIKMFilt *f, vl_uint32 *asgn, vl_uint8 const *data, vl_size N)
+{
+  vl_uindex i,c,cx,x ;
+  vl_size dist_calc = 0 ;
+  vl_ikmacc_t dist, best_dist ;
+  vl_ikmacc_t *d_pt = f->inter_dist ;
+
+  /* assign data to centers */
+  for(x = 0 ; x < N ; ++x) {
+    best_dist = VL_IKMACC_MAX ;
+    cx = 0 ;
+
+    for(c = 0 ; c < f->K ; ++c) {
+      if(d_pt[f->K * cx + c] < best_dist) {
+        /* might need to be updated */
+        dist_calc ++ ;
+        for(dist=0, i = 0 ; i < f->M ; ++i) {
+          vl_ikmacc_t delta = data[x * f->M + i] - f->centers[c * f->M + i] ;
+          dist += delta * delta ;
+        }
+
+        /* u_pt is strict at the beginning */
+        if(dist < best_dist) {
+          best_dist = dist ;
+          cx        = c ;
+        }
+      }
+    }
+    asgn[x] = (vl_uint32)cx ;
+  }
+}
+
+/*
+ * Local Variables: *
+ * mode: C *
+ * End: *
+ */

@@ -1,0 +1,168 @@
+/** @file ikmeans_init.tc
+ ** @brief Integer K-Means - Initialization - Definition
+ ** @author Andrea Vedaldi
+ **/
+
+/*
+Copyright (C) 2007-12 Andrea Vedaldi and Brian Fulkerson.
+All rights reserved.
+
+This file is part of the VLFeat library and is made available under
+the terms of the BSD license (see the COPYING file).
+*/
+
+#include "random.h"
+
+/* pairs are used to generate random permutations of data */
+typedef struct
+{
+  vl_index w;
+  vl_index j;
+} pair_t;
+
+static int cmp_pair (void const *a, void const *b)
+{
+  pair_t *pa = (pair_t *) a;
+  pair_t *pb = (pair_t *) b;
+  int d = (int)(pa->w - pb->w) ;
+  if (d) return d ;
+  /* break ties based on index (compensates for qsort not being stable) */
+  return (int)(pa->j - pb->j);
+}
+
+VL_INLINE vl_ikmacc_t calc_dist2 (vl_ikmacc_t const* A, vl_uint8 const* B, vl_size M)
+{
+  vl_ikmacc_t acc = 0 ;
+  vl_uindex i = 0 ;
+  for (i = 0 ; i < M ; ++i) {
+    vl_ikmacc_t dist = (vl_ikmacc_t)A[i] - (vl_ikmacc_t)B[i] ;
+    acc += (vl_uindex)(dist * dist) ;
+  }
+  return acc ;
+}
+
+/** @internal
+ ** @brief Helper function to allocate memory for an IKM quantizer
+ ** @param f quantizer.
+ ** @param M data dimensionality.
+ ** @param K number of clusters.
+ **/
+
+static void alloc (VlIKMFilt *f, vl_size M, vl_size K)
+{
+  if (f->centers) vl_free(f->centers) ;
+  f->K = K ;
+  f->M = M ;
+  f->centers = vl_malloc(sizeof(vl_ikmacc_t) * M * K) ;
+}
+
+
+/** @brief Helper function to initialize the quantizer
+ ** @param f IKM quantizer.
+ **/
+
+static
+void vl_ikm_init_helper (VlIKMFilt *f)
+{
+  switch (f-> method) {
+  case VL_IKM_LLOYD: vl_ikm_init_lloyd (f) ; break ;
+  case VL_IKM_ELKAN: vl_ikm_init_elkan (f) ; break ;
+  }
+}
+
+/** @brief Initialize quantizer with centers
+ ** @param f IKM quantizer.
+ ** @param centers centers.
+ ** @param M data dimensionality.
+ ** @param K number of clusters.
+ **/
+
+VL_EXPORT void
+vl_ikm_init (VlIKMFilt* f, vl_ikmacc_t const * centers, vl_size M, vl_size K)
+{
+  alloc (f, M, K) ;
+  memcpy (f->centers, centers, sizeof(vl_ikmacc_t) * M * K) ;
+  vl_ikm_init_helper (f) ;
+}
+
+/** @brief Initialize quantizer with random centers
+ ** @param f IKM quantizer.
+ ** @param M data dimensionality.
+ ** @param K number of clusters.
+ **/
+
+VL_EXPORT void
+vl_ikm_init_rand
+(VlIKMFilt* f, vl_size M, vl_size K)
+{
+  vl_uindex k, i ;
+  VlRand * rand = vl_get_rand() ;
+
+  alloc (f, M, K) ;
+
+  for (k = 0 ; k < K ; ++ k) {
+    for (i = 0 ; i < M ; ++ i) {
+      f-> centers [k * M + i] = (vl_ikmacc_t) (vl_rand_uint32 (rand)) ;
+    }
+  }
+
+  vl_ikm_init_helper (f) ;
+}
+
+/** @brief Initialize with centers from random data
+ ** @param f IKM quantizer.
+ ** @param data data.
+ ** @param M data dimensionality.
+ ** @param N number of data.
+ ** @param K number of clusters.
+ **/
+
+VL_EXPORT void
+vl_ikm_init_rand_data
+(VlIKMFilt* f, vl_uint8 const* data, vl_size M, vl_size N, vl_size K)
+{
+  vl_uindex i, j, k ;
+  VlRand *rand = vl_get_rand () ;
+  pair_t *pairs = (pair_t *) vl_malloc (sizeof(pair_t) * N);
+
+  alloc (f, M, K) ;
+
+  /* permute the data randomly */
+  for (j = 0 ; j < N ; ++j) {
+    pairs[j].j = j ;
+    pairs[j].w = ((vl_int32) vl_rand_uint32 (rand)) >> 2 ;
+  }
+
+  qsort (pairs, N, sizeof(pair_t), cmp_pair);
+
+  /* initialize centers from random data points */
+  for (j = 0, k = 0 ; k < K ; ++ k) {
+
+    /* search for the next candidate which is not a dup */
+    for ( ; j < N - 1 ; ++j) {
+      vl_uindex prevk = 0 ;
+      for (prevk = 0 ; prevk < k ; ++ prevk) {
+        vl_ikmacc_t dist = calc_dist2(f-> centers + prevk * M,
+                                      data + pairs[j].j * M,
+                                      M) ;
+        if (dist == 0)  break ;
+      }
+      if (prevk == k) break ;
+    }
+
+    for (i = 0 ; i < M ; ++ i) {
+      f-> centers [k * M + i] = data [(vl_uint64)pairs[j].j * M + i] ;
+    }
+
+    if (j < N - 1) ++ j ;
+  }
+
+  vl_free (pairs) ;
+  vl_ikm_init_helper (f) ;
+}
+
+/*
+ * Local Variables: *
+ * mode: C *
+ * End: *
+ */
