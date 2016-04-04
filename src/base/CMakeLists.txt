@@ -1,0 +1,52 @@
+set(FOLDER_NAME "base")
+
+COLMAP_ADD_LIBRARY(base
+    camera.h camera.cc
+    camera_database.h camera_database.cc
+    camera_models.h camera_models.cc
+    database.h database.cc
+    database_cache.h database_cache.cc
+    essential_matrix.h essential_matrix.cc
+    feature.h feature.cc
+    feature_extraction.h feature_extraction.cc
+    feature_matching.h feature_matching.cc
+    gps.h gps.cc
+    homography_matrix.h homography_matrix.cc
+    image.h image.cc
+    point2d.h point2d.cc
+    point3d.h point3d.cc
+    pose.h pose.cc
+    projection.h projection.cc
+    reconstruction.h reconstruction.cc
+    scene_graph.h scene_graph.cc
+    similarity_transform.h similarity_transform.cc
+    track.h track.cc
+    triangulation.h triangulation.cc
+    undistortion.h undistortion.cc
+    visibility_pyramid.h visibility_pyramid.cc
+    vocabulary_tree.h vocabulary_tree.cc
+    warp.h warp.cc
+)
+
+COLMAP_ADD_TEST(camera_database_test camera_database_test.cc)
+COLMAP_ADD_TEST(camera_models_test camera_models_test.cc)
+COLMAP_ADD_TEST(camera_test camera_test.cc)
+COLMAP_ADD_TEST(cost_functions_test cost_functions_test.cc)
+COLMAP_ADD_TEST(database_cache_test database_cache_test.cc)
+COLMAP_ADD_TEST(database_test database_test.cc)
+COLMAP_ADD_TEST(essential_matrix_utils_test essential_matrix_test.cc)
+COLMAP_ADD_TEST(feature_test feature_test.cc)
+COLMAP_ADD_TEST(homography_matrix_utils_test homography_matrix_test.cc)
+COLMAP_ADD_TEST(image_test image_test.cc)
+COLMAP_ADD_TEST(point2d_test point2d_test.cc)
+COLMAP_ADD_TEST(point3d_test point3d_test.cc)
+COLMAP_ADD_TEST(pose_test pose_test.cc)
+COLMAP_ADD_TEST(projection_test projection_test.cc)
+COLMAP_ADD_TEST(reconstruction_test reconstruction_test.cc)
+COLMAP_ADD_TEST(scene_graph_test scene_graph_test.cc)
+COLMAP_ADD_TEST(similarity_transform_test similarity_transform_test.cc)
+COLMAP_ADD_TEST(track_test track_test.cc)
+COLMAP_ADD_TEST(triangulation_test triangulation_test.cc)
+COLMAP_ADD_TEST(undistortion_test undistortion_test.cc)
+COLMAP_ADD_TEST(visibility_pyramid_test visibility_pyramid_test.cc)
+COLMAP_ADD_TEST(warp_test warp_test.cc)
