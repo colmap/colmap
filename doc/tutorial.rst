@@ -218,7 +218,7 @@ matching modes, that are intended for different input scenarios:
   EXIF and uses it for spatial nearest neighbor search. If accurate prior
   location information is available, this is the recommended matching mode.
 
-* **Custom Matching**: This mode allows to specify individual image pairs fpr
+* **Custom Matching**: This mode allows to specify individual image pairs for
   matching or to import individual feature matches. To specify image pairs, you
   have to provide a text file with one image pair per line::
 
