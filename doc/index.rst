@@ -13,7 +13,9 @@ General Public License. If you use this project for your research, please cite::
         year={2016},
     }
 
-The source code is available at https://github.com/colmap/colmap.
+The source code is available at https://github.com/colmap/colmap. COLMAP builds
+on top of existing work and when using specific algorithms within COLMAP, please
+also consider citing the original works, as specified in the source code.
 
 
 Getting Started
@@ -23,8 +25,8 @@ Getting Started
    http://people.inf.ethz.ch/jschoenb/colmap/ or build the library manually
    (see :ref:`Installation <installation>`).
 2. Watch the short introductory video at
-   `YouTube <https://www.youtube.com/watch?v=P-EC0DzeVEU>`_ or read the tutorial
-   for more details (see :ref:`Tutorial <tutorial>`).
+   `YouTube <https://www.youtube.com/watch?v=P-EC0DzeVEU>`_ or read the
+   :ref:`Tutorial <tutorial>` for more details.
 
 
 .. toctree::
@@ -33,4 +35,16 @@ Getting Started
    install
    tutorial
    database
+   gui
+   contribution
+   license
    bibliography
+
+
+Acknowledgments
+---------------
+
+The library was written by `Johannes L. Schönberger
+<http://people.inf.ethz.ch/jschoenb/>`_. Funding was provided by his PhD advisor
+`Jan-Michael Frahm <http://frahm.web.unc.edu/>`_ through the grants NSF No.
+IIS-1349074, No. CNS-1405847, and the MITRE Corp.

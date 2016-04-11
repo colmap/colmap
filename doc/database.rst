@@ -10,12 +10,12 @@ language of your choice (see ``scripts/python/*`` for examples).
 
 The database contains the following tables:
 
-* cameras
-* images
-* keypoints
-* descriptors
-* matches
-* inlier_matches
+- cameras
+- images
+- keypoints
+- descriptors
+- matches
+- inlier_matches
 
 To initialize an empty SQLite database file with the required schema, you can
 either create a new project in the GUI or execute `src/exe/database_create.cc`.

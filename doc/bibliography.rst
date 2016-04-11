@@ -8,6 +8,10 @@ Bibliography
     "Accurate, dense, and robust multiview stereopsis."
     IEEE Transactions on Pattern Analysis and Machine Intelligence, 2010.
 
+.. [hofer16] Hofer, M., Maurer, M., and Bischof, H.
+    Efficient 3D Scene Abstraction Using Line Segments,
+    Computer Vision and Image Understanding, 2016.
+
 .. [jancosek11] Jancosek, Michal, and Tomás Pajdla.
     "Multi-view reconstruction preserving weakly-supported surfaces."
     IEEE Conference on Computer Vision and Pattern Recognition, 2011.

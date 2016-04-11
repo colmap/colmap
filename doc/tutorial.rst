@@ -13,9 +13,9 @@ reconstruction of the object, and the reconstructed intrinsic and extrinsic
 camera parameters of all images. Typically, Structure-from-Motion systems divide
 this process into three stages:
 
-    1) Feature detection and extraction
-    2) Feature matching and geometric verification
-    3) Structure and motion reconstruction
+1) Feature detection and extraction
+2) Feature matching and geometric verification
+3) Structure and motion reconstruction
 
 COLMAP reflects these stages in different modules, that can be combined
 depending on the application. More information on Structure-from-Motion in
@@ -24,19 +24,19 @@ general and the algorithms in COLMAP can be found in [schoenberger16]_.
 If you have control over the picture capture process, please follow these
 guidelines for optimal reconstruction results:
 
-* Capture images with **good texture**. Avoid completely texture-less images
+- Capture images with **good texture**. Avoid completely texture-less images
   (e.g., a white wall or empty desk). If the scene does not contain enough
   texture itself, you could place additional background objects, such as
   posters, etc.
 
-* Capture images at **similar illumination** conditions. Avoid high dynamic
+- Capture images at **similar illumination** conditions. Avoid high dynamic
   range scenes (e.g., pictures against the sun with shadows or pictures
   through doors/windows). Avoid specularities on shiny surfaces.
 
-* Capture images with **high visual overlap**. Make sure that each object is
+- Capture images with **high visual overlap**. Make sure that each object is
   seen in at least 3 images -- the more images the better.
 
-* Capture images from **different viewpoints**. Do not take images from the
+- Capture images from **different viewpoints**. Do not take images from the
   same location by only rotating the camera, e.g., make a few steps after each
   shot. At the same time, try to have enough images from a relatively similar
   viewpoint.
@@ -68,7 +68,7 @@ same zoom-factor and lens. A camera defines the intrinsic projection model in
 COLMAP. A single camera can take multiple images with the same resolution,
 intrinsic parameters, and distortion characteristics. The term **image** is
 associated with a bitmap file, e.g., a JPEG or PNG file on disk. COLMAP detects
-**keypoints** in each each image whose appearance is described by numerical
+**keypoints** in each image whose appearance is described by numerical
 **descriptors**. Pure appearance-based correspondences between
 keypoints/descriptors are defined by **matches**, while **inlier matches** are
 geometrically verified and used for the reconstruction procedure.
@@ -88,19 +88,22 @@ reconstruction, the relative folder structure should be preserved. COLMAP does
 not modify the input images or directory and all extracted data is stored in a
 single, self-contained SQLite database file (see :doc:`database`).
 
-The first step is to create a new project by choosing ``File > New project``. In
-this dialog, you must select where to store the database and the folder that
-contains the images. For convenience, you can save the entire project settings
-to a configuration file by choosing ``File > Save project``. The project
-configuration stores the absolute path information of the database and image
-folder in addition to any other parameter settings. If you decide to move the
-database or image folder, you must change the paths accordingly by creating a
-new project. Alternatively, the resulting `.ini` configuration file can be
-directly modified in a text editor of your choice. To reopen an existing
+The first step is to start the graphical user interface of COLMAP by running the
+pre-built binaries (Windows: `COLMAP.bat`, Mac: `COLMAP.app`) or by executing
+``./src/exe/colmap``. Next, create a new project by choosing ``File > New
+project``. In this dialog, you must select where to store the database and the
+folder that contains the input images. For convenience, you can save the entire
+project settings to a configuration file by choosing ``File > Save project``.
+The project configuration stores the absolute path information of the database
+and image folder in addition to any other parameter settings. If you decide to
+move the database or image folder, you must change the paths accordingly by
+creating a new project. Alternatively, the resulting `.ini` configuration file
+can be directly modified in a text editor of your choice. To reopen an existing
 project, you can simply open the configuration file by choosing ``File > Open
-project``. Note that all COLMAP executables can be started from the command-line
-by either specifying individual settings as command-line arguments or by
-providing the path to the project configuration file.
+project`` and all parameter settings should be recovered. Note that all COLMAP
+executables can be started from the command-line by either specifying individual
+settings as command-line arguments or by providing the path to the project
+configuration file (see :ref:`Interface <interface>`).
 
 An example folder structure could look like this::
 
@@ -114,7 +117,8 @@ An example folder structure could look like this::
     +── project.ini
 
 In this example, you would select `/path/to/project/images` as the image folder
-path and `/path/to/project/database.db` as the database file path.
+path, `/path/to/project/database.db` as the database file path, and save the
+project configuration to `/path/to/project/project.ini`.
 
 
 Feature Detection and Extraction
@@ -136,17 +140,17 @@ is recommended to share intrinsics between all images. Note that the program
 will exit ungracefully if the same camera model is shared among all images but
 not all images have the same size or EXIF focal length. If you have several
 groups of images that share the same intrinsic camera parameters, you can easily
-modify the camera models at a later point (see :ref:`Database Management
+modify the camera models at a later point as well (see :ref:`Database Management
 <database-management>`). If in doubt what to choose in this step, simply stick
 to the default parameters.
 
 You can either detect and extract new features from the images or import
-existing features from text files. COLMAP extracts [lowe04]_ features either on
-the GPU or the CPU. The GPU version requires an attached display, while the CPU
-version is recommended for use on a server. In general, the GPU version is
-favorable as it has a customized feature detection mode that often produces
-higher quality features in the case of high contrast images. If you import
-existing features, every image must have a text file next to it (e.g.,
+existing features from text files. COLMAP extracts SIFT [lowe04]_ features
+either on the GPU or the CPU. The GPU version requires an attached display,
+while the CPU version is recommended for use on a server. In general, the GPU
+version is favorable as it has a customized feature detection mode that often
+produces higher quality features in the case of high contrast images. If you
+import existing features, every image must have a text file next to it (e.g.,
 `/path/to/image1.jpg` and `/path/to/image1.jpg.txt`) in the following format::
 
     NUM_FEATURES 128
@@ -181,10 +185,10 @@ Feature Matching and Geometric Verification
 In the second step, feature matching and geometric verification finds
 correspondences between the feature points in different images.
 
-Please, choose ``Processing > Match features`` and select on of the provided
+Please, choose ``Processing > Match features`` and select one of the provided
 matching modes, that are intended for different input scenarios:
 
-* **Exhaustive Matching**: If the number of images in your dataset is
+- **Exhaustive Matching**: If the number of images in your dataset is
   relatively low (up to several hundreds), this matching mode should be fast
   enough and leads to the best reconstruction results. Here, every image is
   matched against every other image, while the block size determines how many
@@ -193,7 +197,7 @@ matching modes, that are intended for different input scenarios:
   Typically though, vocabulary tree matching yields better results than
   preemptive matching [schoenberger15]_.
 
-* **Sequential Matching**: This mode is useful if the images are acquired in
+- **Sequential Matching**: This mode is useful if the images are acquired in
   sequential order, e.g., by a video camera. In this case, consecutive frames
   have visual overlap and there is no need to match all image pairs
   exhaustively. Instead, consecutively captured images are matched against
@@ -206,19 +210,19 @@ matching modes, that are intended for different input scenarios:
   loop detection requires a pre-trained vocabulary tree, that can be downloaded
   from http://people.inf.ethz.ch/jschoenb/colmap/.
 
-* **Vocabulary Tree Matching**: In this matching mode, every image is matched
+- **Vocabulary Tree Matching**: In this matching mode, every image is matched
   against its visual nearest neighbors using a vocabulary tree. This is the
   recommended matching mode for large image collections (several thousands).
   This requires a pre-trained vocabulary tree, that can be downloaded from
   http://people.inf.ethz.ch/jschoenb/colmap/.
 
-* **Spatial Matching**: This matching mode matches every image against its
+- **Spatial Matching**: This matching mode matches every image against its
   spatial nearest neighbors. Spatial locations can be manually set in the
   database management. By default, COLMAP also extracts GPS information from
   EXIF and uses it for spatial nearest neighbor search. If accurate prior
   location information is available, this is the recommended matching mode.
 
-* **Custom Matching**: This mode allows to specify individual image pairs for
+- **Custom Matching**: This mode allows to specify individual image pairs for
   matching or to import individual feature matches. To specify image pairs, you
   have to provide a text file with one image pair per line::
 
@@ -272,8 +276,8 @@ system has multiple CUDA-enabled GPUs, you can select specific GPUs with the
 `gpu_index` option.
 
 
-Structure and motion reconstruction
------------------------------------
+Incremental 3D Reconstruction
+-----------------------------
 
 After producing the scene graph in the previous two steps, you can start the
 incremental reconstruction process by choosing ``Reconstruction > Start``.
@@ -291,11 +295,11 @@ section (`use_pba=true`).
 Ideally, the reconstruction works fine and all images are registered. If this is
 not the case, it is recommended to:
 
-* Perform additional matching. For best results, use exhaustive matching,
+- Perform additional matching. For best results, use exhaustive matching,
   increase the number of nearest neighbors in vocabulary tree matching, or
   increase the overlap in sequential matching, etc.
 
-* Manually choose an initial image pair, if COLMAP fails to initialize. Choose
+- Manually choose an initial image pair, if COLMAP fails to initialize. Choose
   ``Reconstruction > Reconstruction options > Init`` and set images from the
   database management tool that have enough matches from different viewpoints.
 
@@ -310,12 +314,12 @@ format by choosing ``File > Export`` to export the currently viewed model or
 exported in the selected folder using separate text files for the reconstructed
 cameras, images, and points. When exporting in COLMAP's data format, you can re-
 import the reconstruction for later visualization, image undistortion, or to
-continue an existing reconstruction from where it left off. To import a model,
-choose ``File > Import`` and select the export folder path. Alternatively, you
-can also export the model in various other formats, such as Bundler, VisualSfM
-[#f1]_, PLY, or VRML by choosing ``File > Export as...``. COLMAP can visualize
-plain PLY point cloud files with RGB information by choosing ``File > Import
-From...``.
+continue an existing reconstruction from where it left off (e.g., after
+importing and matching new images). To import a model, choose ``File > Import``
+and select the export folder path. Alternatively, you can also export the model
+in various other formats, such as Bundler, VisualSfM [#f1]_, PLY, or VRML by
+choosing ``File > Export as...``. COLMAP can visualize plain PLY point cloud
+files with RGB information by choosing ``File > Import From...``.
 
 For post-processing by dense reconstruction software, such as CMVS/PMVS
 [furukawa10]_ or CMP-MVS [jancosek11]_, please choose ``Extras > Undistort
@@ -330,18 +334,25 @@ where `/path/to/undistortion/folder` is the folder selected in the undistortion
 dialog. Make sure not to forget the trailing slash in
 `/path/to/undistortion/folder/pmvs/` in the above command-line arguments.
 
+There is a number of external software packages that support COLMAP output:
+
+- `CMVS/PMVS <http://www.di.ens.fr/pmvs/>`_ [furukawa10]_
+- `CMP-MVS <http://ptak.felk.cvut.cz/sfmservice/websfm.pl>`_ [jancosek11]_
+- `Line3D++ <https://github.com/manhofer/Line3Dpp>`_ [hofer16]_.
+
 
 .. _database-management:
 
 Database Management
 -------------------
 
-You can review and manage the import cameras, images, and feature matches in the
-database management tool. Choose ``Processing > Manage database``. In the
+You can review and manage the imported cameras, images, and feature matches in
+the database management tool. Choose ``Processing > Manage database``. In the
 opening dialog, you can see the list of imported images and cameras. You can
 view the features and matches for each image by clicking ``Show image`` and
-``Show matches``. Note that any changes to the database are only effective after
-clicking ``Save``.
+``Show matches``. Individual entries in the database tables can be modified by
+double clicking specific cells. Note that any changes to the database are only
+effective after clicking ``Save``.
 
 To share intrinsic camera parameters between arbitrary groups of images, select
 a single or multiple images, choose ``Set camera`` and set the `camera_id`,
@@ -361,15 +372,19 @@ your own features and matches to only use COLMAP's incremental reconstruction
 algorithm.
 
 
+.. _interface:
+
 Graphical and Command-line Interface
 ------------------------------------
 
-Most of COLMAP's features are accessible from the graphical and the command-line
-interface. All binaries accept a ``./bin -h`` (help) argument to list the
-available options. You can provide the options directly as command-line
+Most of COLMAP's features are accessible from both the graphical and the
+command-line interface. All binaries accept a ``./bin -h`` (help) argument to
+list the available options. You can provide the options directly as command-line
 arguments or you can provide a `.ini` project configuration file containing the
-options as the ``./bin --project_path`` argument. To start the GUI application,
-please execute `src/exe/colmap`.
+options as the ``./bin --project_path path/to/project.ini`` argument. To start
+the GUI application, please execute ``./src/exe/colmap`` or directly specify a
+project configuration as ``./src/exe/colmap --project_path path/to/project.ini``
+to avoid tedious selection in the GUI.
 
 
 .. rubric:: Footnotes

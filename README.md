@@ -13,6 +13,10 @@ General Public License. If you use this project for your research, please cite:
         year={2016},
     }
 
+The source code is available at https://github.com/colmap/colmap. COLMAP builds
+on top of existing work and when using specific algorithms within COLMAP, please
+also consider citing the original works, as specified in the source code.
+
 
 Getting Started
 ---------------
@@ -36,6 +40,15 @@ Support
 
 Please, use the GitHub issue tracker at https://github.com/colmap/colmap for bug
 reports, questions, suggestions, etc.
+
+
+Acknowledgments
+---------------
+
+The library was written by Johannes L. Schönberger
+(http://people.inf.ethz.ch/jschoenb/). Funding was provided by his PhD advisor
+Jan-Michael Frahm (http://frahm.web.unc.edu/) through the grants NSF No.
+IIS-1349074, No. CNS-1405847, and the MITRE Corp.
 
 
 Contribution
