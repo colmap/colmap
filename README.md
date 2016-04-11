@@ -18,8 +18,8 @@ Getting Started
 ---------------
 
 1. Download the pre-built binaries from
-   https://drive.google.com/folderview?id=0B_oNOlzQHU_Ha2hkdlRQYzQ4RDA#list
-   or build the library manually as described in the documentation.
+   http://people.inf.ethz.ch/jschoenb/colmap/ or build the library manually as
+   described in the documentation.
 2. Watch the short introductory video at
    https://www.youtube.com/watch?v=P-EC0DzeVEU or read the tutorial
    in the documentation for more details.

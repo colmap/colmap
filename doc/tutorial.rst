@@ -204,13 +204,13 @@ matching modes, that are intended for different input scenarios:
   `image0002.jpg`, etc.). You can verify the correct order in the database
   management tool (see :ref:`Database Format <database-format>`). Note that
   loop detection requires a pre-trained vocabulary tree, that can be downloaded
-  from the project website.
+  from http://people.inf.ethz.ch/jschoenb/colmap/.
 
 * **Vocabulary Tree Matching**: In this matching mode, every image is matched
   against its visual nearest neighbors using a vocabulary tree. This is the
   recommended matching mode for large image collections (several thousands).
   This requires a pre-trained vocabulary tree, that can be downloaded from
-  the project website.
+  http://people.inf.ethz.ch/jschoenb/colmap/.
 
 * **Spatial Matching**: This matching mode matches every image against its
   spatial nearest neighbors. Spatial locations can be manually set in the
@@ -359,6 +359,18 @@ control over the data, you must directly modify the SQLite database (see
 you can use COLMAP only for feature extraction and matching or you can import
 your own features and matches to only use COLMAP's incremental reconstruction
 algorithm.
+
+
+Graphical and Command-line Interface
+------------------------------------
+
+Most of COLMAP's features are accessible from the graphical and the command-line
+interface. All binaries accept a ``./bin -h`` (help) argument to list the
+available options. You can provide the options directly as command-line
+arguments or you can provide a `.ini` project configuration file containing the
+options as the ``./bin --project_path`` argument. To start the GUI application,
+please execute `src/exe/colmap`.
+
 
 .. rubric:: Footnotes
 

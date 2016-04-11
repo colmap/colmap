@@ -3,15 +3,18 @@
 Installation
 ============
 
-You can either download one of the pre-built binaries from the project website
-or build the source code manually. It builds on all major platforms with minimal
-effort: Linux, Mac, and Windows. First, checkout the latest source code::
+You can either download one of the pre-built binaries from
+http://people.inf.ethz.ch/jschoenb/colmap/ or build the source code manually. It
+builds on all major platforms (Linux, Mac, Windows) with minimal effort. First,
+checkout the latest source code::
 
     git clone https://github.com/colmap/colmap
 
 
 Linux
 -----
+
+*Recommended dependencies:* CUDA.
 
 Dependencies from default Ubuntu 14.04 repositories::
 
@@ -47,13 +50,11 @@ Configure and compile COLMAP::
     cmake ..
     make -j
 
-External dependencies: Ceres-Solver .
-
-*Recommended dependencies:* CUDA.
-
 
 Mac
 ---
+
+*Recommended dependencies:* CUDA.
 
 Dependencies from `Homebrew <http://brew.sh/>`_::
 
@@ -72,7 +73,6 @@ Dependencies from `Homebrew <http://brew.sh/>`_::
 
 Create `LocalConfig.cmake` in COLMAP base directory with::
 
-    message(STATUS "NOTE: Using LocalConfig.cmake to override CMake settings in the GUI")
     set(Qt5_CMAKE_DIR "/usr/local/opt/qt5/lib/cmake")
     set(Qt5Core_DIR ${Qt5_CMAKE_DIR}/Qt5Core)
     set(Qt5OpenGL_DIR ${Qt5_CMAKE_DIR}/Qt5OpenGL)
@@ -84,8 +84,6 @@ Configure and compile COLMAP::
     cmake ..
     make -j
 
-*Recommended dependencies:* CUDA.
-
 
 Windows
 -------
@@ -94,6 +92,8 @@ On Windows you have to install the above dependencies manually. To make the
 process of configuring CMake less painful, please have a look at
 `LocalConfigExample.config`. MSVC12 (Microsoft Visual Studio 2013) and newer are
 confirmed to compile COLMAP without any issues.
+
+*Recommended dependencies:* CUDA.
 
 
 Documentation

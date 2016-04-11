@@ -13,15 +13,15 @@ General Public License. If you use this project for your research, please cite::
         year={2016},
     }
 
-The latest source code is available at https://github.com/colmap/colmap.
+The source code is available at https://github.com/colmap/colmap.
 
 
 Getting Started
 ---------------
 
-1. Download the pre-built binaries from `Google Drive
-   <https://drive.google.com/folderview?id=0B_oNOlzQHU_Ha2hkdlRQYzQ4RDA#list>`_
-   or build the library manually (see :ref:`Installation <installation>`).
+1. Download the pre-built binaries from
+   http://people.inf.ethz.ch/jschoenb/colmap/ or build the library manually
+   (see :ref:`Installation <installation>`).
 2. Watch the short introductory video at
    `YouTube <https://www.youtube.com/watch?v=P-EC0DzeVEU>`_ or read the tutorial
    for more details (see :ref:`Tutorial <tutorial>`).
