@@ -46,6 +46,7 @@ class IncrementalMapperController : public QThread {
   bool IsRunning();
   bool IsStarted();
   bool IsPaused();
+  bool IsFinished();
 
   // Access reconstructed models.
   inline size_t NumModels() const;
@@ -74,9 +75,9 @@ class IncrementalMapperController : public QThread {
   bool pause_;
   bool running_;
   bool started_;
+  bool finished_;
 
-  QMutex pause_mutex_;
-  QMutex terminate_mutex_;
+  QMutex control_mutex_;
   QWaitCondition pause_condition_;
 
   const OptionManager options_;

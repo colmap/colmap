@@ -867,7 +867,7 @@ void MainWindow::ReconstructionStart() {
     return;
   }
 
-  if (!mapper_controller->IsPaused() && HasSelectedModel()) {
+  if (mapper_controller->IsFinished() && HasSelectedModel()) {
     QMessageBox::critical(this, "",
                           tr("Reset reconstruction before starting."));
     return;
@@ -888,6 +888,12 @@ void MainWindow::ReconstructionStart() {
 }
 
 void MainWindow::ReconstructionStep() {
+  if (mapper_controller->IsFinished() && HasSelectedModel()) {
+    QMessageBox::critical(this, "",
+                          tr("Reset reconstruction before starting."));
+    return;
+  }
+
   action_reconstruction_step_->setEnabled(false);
   ReconstructionStart();
   ReconstructionPause();

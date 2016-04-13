@@ -163,6 +163,7 @@ IncrementalMapperController::IncrementalMapperController(
       pause_(false),
       running_(false),
       started_(false),
+      finished_(false),
       options_(options) {}
 
 IncrementalMapperController::IncrementalMapperController(
@@ -173,36 +174,49 @@ IncrementalMapperController::IncrementalMapperController(
 
 void IncrementalMapperController::Stop() {
   {
-    QMutexLocker terminate_locker(&terminate_mutex_);
+    QMutexLocker control_locker(&control_mutex_);
     terminate_ = true;
     running_ = false;
+    finished_ = true;
   }
   Resume();
 }
 
 void IncrementalMapperController::Pause() {
-  QMutexLocker pause_locker(&pause_mutex_);
+  QMutexLocker control_locker(&control_mutex_);
+  if (pause_) {
+    return;
+  }
   pause_ = true;
   running_ = false;
-  pause_condition_.wakeAll();
 }
 
 void IncrementalMapperController::Resume() {
-  QMutexLocker pause_locker(&pause_mutex_);
+  QMutexLocker control_locker(&control_mutex_);
+  if (!pause_) {
+    return;
+  }
   pause_ = false;
   running_ = true;
   pause_condition_.wakeAll();
 }
 
 bool IncrementalMapperController::IsRunning() {
-  QMutexLocker pause_locker(&pause_mutex_);
-  QMutexLocker terminate_locker(&terminate_mutex_);
+  QMutexLocker control_locker(&control_mutex_);
   return running_;
 }
 
-bool IncrementalMapperController::IsStarted() { return started_; }
+bool IncrementalMapperController::IsStarted() {
+  QMutexLocker control_locker(&control_mutex_);
+  return started_;
+}
 
-bool IncrementalMapperController::IsPaused() { return pause_; }
+bool IncrementalMapperController::IsPaused() {
+  QMutexLocker control_locker(&control_mutex_);
+  return pause_;
+}
+
+bool IncrementalMapperController::IsFinished() { return finished_; }
 
 size_t IncrementalMapperController::AddModel() {
   const size_t model_idx = models_.size();
@@ -212,7 +226,7 @@ size_t IncrementalMapperController::AddModel() {
 
 void IncrementalMapperController::Render() {
   {
-    QMutexLocker terminate_locker(&terminate_mutex_);
+    QMutexLocker control_locker(&control_mutex_);
     if (terminate_) {
       return;
     }
@@ -225,7 +239,7 @@ void IncrementalMapperController::Render() {
 
 void IncrementalMapperController::RenderNow() {
   {
-    QMutexLocker terminate_locker(&terminate_mutex_);
+    QMutexLocker control_locker(&control_mutex_);
     if (terminate_) {
       return;
     }
@@ -238,7 +252,9 @@ void IncrementalMapperController::RenderNow() {
 
 void IncrementalMapperController::Finish() {
   {
-    QMutexLocker terminate_locker(&terminate_mutex_);
+    QMutexLocker control_locker(&control_mutex_);
+    running_ = false;
+    finished_ = true;
     if (terminate_) {
       return;
     }
@@ -255,12 +271,12 @@ void IncrementalMapperController::run() {
   }
 
   {
-    QMutexLocker pause_locker(&pause_mutex_);
-    QMutexLocker terminate_locker(&terminate_mutex_);
+    QMutexLocker control_locker(&control_mutex_);
     terminate_ = false;
     pause_ = false;
     running_ = true;
     started_ = true;
+    finished_ = false;
   }
 
   const MapperOptions& mapper_options = *options_.mapper_options;
@@ -304,16 +320,12 @@ void IncrementalMapperController::run() {
   for (int num_trials = 0; num_trials < mapper_options.init_num_trials;
        ++num_trials) {
     {
-      QMutexLocker pause_locker(&pause_mutex_);
+      QMutexLocker control_locker(&control_mutex_);
       if (pause_ && !terminate_) {
         total_timer.Pause();
-        pause_condition_.wait(&pause_mutex_);
+        pause_condition_.wait(&control_mutex_);
         total_timer.Resume();
-      }
-    }
-    {
-      QMutexLocker terminate_locker(&terminate_mutex_);
-      if (terminate_) {
+      } else if (terminate_) {
         break;
       }
     }
@@ -393,15 +405,12 @@ void IncrementalMapperController::run() {
 
     while (reg_next_success) {
       {
-        QMutexLocker pause_locker(&pause_mutex_);
-        if (pause_ && !terminate_) {
+        QMutexLocker control_locker(&control_mutex_);
+        if (pause_) {
           total_timer.Pause();
-          pause_condition_.wait(&pause_mutex_);
+          pause_condition_.wait(&control_mutex_);
           total_timer.Resume();
         }
-      }
-      {
-        QMutexLocker terminate_locker(&terminate_mutex_);
         if (terminate_) {
           break;
         }
@@ -479,7 +488,7 @@ void IncrementalMapperController::run() {
     }
 
     {
-      QMutexLocker terminate_locker(&terminate_mutex_);
+      QMutexLocker control_locker(&control_mutex_);
       if (terminate_) {
         const bool kDiscardReconstruction = false;
         mapper.EndReconstruction(kDiscardReconstruction);
@@ -524,15 +533,8 @@ void IncrementalMapperController::run() {
 
   total_timer.PrintMinutes();
 
-  // Final re-render without active camera
   RenderNow();
   Finish();
-
-  {
-    QMutexLocker pause_locker(&pause_mutex_);
-    QMutexLocker terminate_locker(&terminate_mutex_);
-    running_ = false;
-  }
 
   exit(0);
 }
