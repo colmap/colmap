@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef COLMAP_SRC_BASE_BUNDLE_ADJUSTMENT_H_
-#define COLMAP_SRC_BASE_BUNDLE_ADJUSTMENT_H_
+#ifndef COLMAP_SRC_OPTIM_BUNDLE_ADJUSTMENT_H_
+#define COLMAP_SRC_OPTIM_BUNDLE_ADJUSTMENT_H_
 
 #include <memory>
 #include <unordered_set>
@@ -185,7 +185,7 @@ class ParallelBundleAdjuster {
     // Maximum number of iterations.
     int max_num_iterations = 50;
 
-    // Index of the GPU used for feature matching.
+    // Index of the GPU used for bundle adjustment.
     int gpu_index = -1;
 
     void Check() const;
@@ -223,4 +223,4 @@ void PrintSolverSummary(const ceres::Solver::Summary& summary);
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_BASE_BUNDLE_ADJUSTMENT_H_
+#endif  // COLMAP_SRC_OPTIM_BUNDLE_ADJUSTMENT_H_
