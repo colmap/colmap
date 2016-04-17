@@ -36,6 +36,7 @@ Getting Started
    tutorial
    database
    gui
+   faq
    contribution
    license
    bibliography
