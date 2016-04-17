@@ -32,7 +32,7 @@ namespace colmap {
 // This file defines several different camera models and arbitrary new camera
 // models can be added by the following steps:
 //
-//  1. Add a new struct in this file which implements all th necessary methods.
+//  1. Add a new struct in this file which implements all the necessary methods.
 //  2. Define an unique name and model_id for the camera model and add it to
 //     the struct and update `CameraModelIdToName` and `CameraModelNameToId`.
 //  3. Add camera model to `CAMERA_MODEL_CASES` macro in this file.
@@ -98,7 +98,8 @@ static const int kInvalidCameraModelId = -1;
   CAMERA_MODEL_CASE(RadialCameraModel)        \
   CAMERA_MODEL_CASE(OpenCVCameraModel)        \
   CAMERA_MODEL_CASE(OpenCVFisheyeCameraModel) \
-  CAMERA_MODEL_CASE(FullOpenCVCameraModel)
+  CAMERA_MODEL_CASE(FullOpenCVCameraModel)    \
+  CAMERA_MODEL_CASE(FOVCameraModel)
 #endif
 
 #ifndef CAMERA_MODEL_SWITCH_CASES
@@ -250,6 +251,26 @@ struct OpenCVFisheyeCameraModel
 // http://docs.opencv.org/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 struct FullOpenCVCameraModel : public BaseCameraModel<FullOpenCVCameraModel> {
   CAMERA_MODEL_DEFINITIONS(6, 12)
+};
+
+// FOV camera model.
+//
+// Based on the pinhole camera model. Additionally models radial distortion.
+//
+// Parameter list is expected in the following order:
+//
+//    fx, fy, cx, cy, omega
+//
+// See:
+// Frederic Devernay, Olivier Faugeras. Straight lines have to be straight:
+// automatic calibration and removal of distortion from scenes of structured
+// enviroments.
+struct FOVCameraModel : public BaseCameraModel<FOVCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(7, 5)
+
+  template <typename T>
+  static void Undistortion(const T* extra_params, const T u, const T v, T* du,
+                           T* dv);
 };
 
 // Convert camera name to unique camera model identifier.
@@ -987,6 +1008,119 @@ void FullOpenCVCameraModel::Distortion(const T* extra_params, const T u,
                    (T(1) + k4 * r2 + k5 * r4 + k6 * r6);
   *du = u * radial + T(2) * p1 * uv + p2 * (r2 + T(2) * u2) - u;
   *dv = v * radial + T(2) * p2 * uv + p1 * (r2 + T(2) * v2) - v;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// FOVCameraModel
+
+std::string FOVCameraModel::InitializeParamsInfo() {
+  return "fx, fy, cx, cy, omega";
+}
+
+std::vector<size_t> FOVCameraModel::InitializeFocalLengthIdxs() {
+  std::vector<size_t> idxs(2);
+  idxs[0] = 0;
+  idxs[1] = 1;
+  return idxs;
+}
+
+std::vector<size_t> FOVCameraModel::InitializePrincipalPointIdxs() {
+  std::vector<size_t> idxs(2);
+  idxs[0] = 2;
+  idxs[1] = 3;
+  return idxs;
+}
+
+std::vector<size_t> FOVCameraModel::InitializeExtraParamsIdxs() {
+  std::vector<size_t> idxs(1);
+  idxs[0] = 4;
+  return idxs;
+}
+
+template <typename T>
+void FOVCameraModel::WorldToImage(const T* params, const T u, const T v,
+                                  T* x, T* y) {
+  const T f1 = params[0];
+  const T f2 = params[1];
+  const T c1 = params[2];
+  const T c2 = params[3];
+
+  // Distortion
+  T du, dv;
+  Distortion(&params[4], u, v, &du, &dv);
+  *x = u + du;
+  *y = v + dv;
+
+  // Transform to image coordinates
+  *x = f1 * *x + c1;
+  *y = f2 * *y + c2;
+}
+
+template <typename T>
+void FOVCameraModel::ImageToWorld(const T* params, const T x, const T y,
+                                  T* u, T* v) {
+  const T f1 = params[0];
+  const T f2 = params[1];
+  const T c1 = params[2];
+  const T c2 = params[3];
+
+  // Lift points to normalized plane
+  *u = (x - c1) / f1;
+  *v = (y - c2) / f2;
+
+  // Undistortion
+  T du, dv;
+  Undistortion(&params[4], *u, *v, &du, &dv);
+  *u = *u + du;
+  *v = *v + dv;
+}
+
+template <typename T>
+void FOVCameraModel::Distortion(const T* extra_params, const T u,
+                                const T v, T* du, T* dv) {
+  const T omega = extra_params[0];
+  
+  const T radius = ceres::sqrt(u * u + v * v);
+  T radial;
+  const T kEpsilon = T(1e-6);  // Chosen arbitrarily.
+  if (radius < kEpsilon) {
+    // Derivation of this case with Matlab:
+    // syms radius omega;
+    // factor(radius) = atan(radius * 2 * tan(omega / 2)) / ...
+    //                  (radius * omega);
+    // limit(factor, radius, 0, 'right')
+    radial = (T(2) * ceres::tan(omega / T(2))) / omega;
+  } else {
+    const T numerator = ceres::atan(radius * T(2) * ceres::tan(omega / T(2)));
+    radial = numerator / (radius * omega);
+  }
+  
+  *du = u * radial - u;
+  *dv = v * radial - v;
+}
+
+template <typename T>
+void FOVCameraModel::Undistortion(const T* extra_params, const T u,
+                                  const T v, T* du, T* dv) {
+  const T omega = extra_params[0];
+  
+  const T radius = ceres::sqrt(u * u + v * v);
+  T radial;
+  const T kEpsilon = T(1e-6);  // Chosen arbitrarily.
+  if (radius < kEpsilon) {
+    // Derivation of this case with Matlab:
+    // syms radius omega;
+    // factor(radius) = tan(radius * omega) / ...
+    //                  (radius * 2*tan(omega/2));
+    // limit(factor, radius, 0, 'right')
+    radial = omega / (T(2) * ceres::tan(omega / T(2)));
+  } else {
+    const T numerator = ceres::tan(radius * omega);
+    radial = numerator / (radius * T(2) * ceres::tan(omega / T(2)));
+  }
+  
+  *du = u * radial - u;
+  *dv = v * radial - v;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
