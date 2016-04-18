@@ -410,13 +410,21 @@ bool Bitmap::Write(const std::string& path, const FREE_IMAGE_FORMAT format,
     save_format = format;
   }
 
-  if (flags == 0) {
-    FreeImage_Save(save_format, data_.get(), path.c_str());
-  } else {
-    FreeImage_Save(save_format, data_.get(), path.c_str(), flags);
+  int save_flags = flags;
+  if (save_format == FIF_JPEG && flags == 0) {
+    // Use superb JPEG quality by default to avoid artifacts.
+    save_flags = JPEG_QUALITYSUPERB;
   }
 
-  return true;
+  bool success = false;
+  if (save_flags == 0) {
+    success = FreeImage_Save(save_format, data_.get(), path.c_str());
+  } else {
+    success = FreeImage_Save(save_format, data_.get(), path.c_str(),
+                             save_flags);
+  }
+
+  return success;
 }
 
 Bitmap Bitmap::Rescale(const int new_width, const int new_height,
