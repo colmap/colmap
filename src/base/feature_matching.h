@@ -171,7 +171,7 @@ class ExhaustiveFeatureMatcher : public FeatureMatcher {
  public:
   struct ExhaustiveOptions {
     // Block size, i.e. number of images to simultaneously load into memory.
-    int block_size = 100;
+    int block_size = 35;
 
     // Whether to enable preemptive matching as described in
     // "Towards Linear-time Incremental Structure from Motion",
