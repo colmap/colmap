@@ -107,9 +107,13 @@ void NewProjectWidget::Create() {
 }
 
 void NewProjectWidget::SelectNewDatabasePath() {
-  database_path_text_->setText(QFileDialog::getSaveFileName(
+  QString database_path = QFileDialog::getSaveFileName(
       this, tr("Select database file"), DefaultDirectory(),
-      tr("SQLite3 Database (*.db)")));
+      tr("SQLite3 Database (*.db)"));
+  if (!HasFileExtension(database_path.toUtf8().constData(), ".db")) {
+    database_path += ".db";
+  }
+  database_path_text_->setText(database_path);
 }
 
 void NewProjectWidget::SelectExistingDatabasePath() {
