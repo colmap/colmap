@@ -323,16 +323,23 @@ files with RGB information by choosing ``File > Import From...``.
 
 For post-processing by dense reconstruction software, such as CMVS/PMVS
 [furukawa10]_ or CMP-MVS [jancosek11]_, please choose ``Extras > Undistort
-images`` and select the appropriate format. To run CMVS and PMVS2, please run
-the following commands::
+images`` and select the appropriate format. To run PMVS2, please execute the
+following commands::
 
-    ./path/to/cmvs /path/to/undistortion/folder/pmvs/
-    ./path/to/genOption /path/to/undistortion/folder/pmvs/
-    ./path/to/pmvs2 /path/to/undistortion/folder/pmvs/
+    ./path/to/pmvs2 /path/to/undistortion/folder/pmvs/ option-all
 
 where `/path/to/undistortion/folder` is the folder selected in the undistortion
 dialog. Make sure not to forget the trailing slash in
 `/path/to/undistortion/folder/pmvs/` in the above command-line arguments.
+
+For large datasets, you probably want to first run CMVS to cluster the scene
+into more manageable parts and then run PMVS2::
+
+    cd ./path/to/cmvs-pmvs-binaries
+    ./cmvs /path/to/undistortion/folder/pmvs/
+    ./genOption /path/to/undistortion/folder/pmvs/
+    sh /path/to/undistortion/folder/pmvs/pmvs.sh
+
 
 There is a number of external software packages that support COLMAP output:
 
