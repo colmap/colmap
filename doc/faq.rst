@@ -26,8 +26,18 @@ model that is complex enough to model the distortion effects:
   that all other models are not really capable of modeling the distortion
   effects of fisheye lenses.
 
+You can inspect the estimated intrinsic parameters by double-clicking specific
+images in the model viewer or by exporting the model and opening the
+`cameras.txt` file.
+
 To achieve optimal reconstruction results, you might have to try different
-camera models for your problem. You can also share intrinsics between multiple
+camera models for your problem. Generally, when the reconstruction fails and the
+estimated focal length values / distortion coefficients are grossly wrong, it is
+a sign of using a too complex camera model. Contrary, if COLMAP uses many
+iterative local and global bundle adjustments, it is a sign of using a too
+simple camera model that is not able to fully model the distortion effects.
+
+You can also share intrinsics between multiple
 images to obtain more reliable results
 (see :ref:`Share intrinsic camera parameters <faq-share-intrinsics>`) or you can
 fix the intrinsic parameters during the reconstruction
