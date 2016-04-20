@@ -6,9 +6,9 @@ Tutorial
 Structure-from-Motion
 ---------------------
 
-Structure-from-Motion is the process of reconstructing 3D structure from its
-projections into a series of images. The input is a set of overlapping images of
-the same object, taken from different viewpoints. The output is a 3-D
+Structure-from-Motion (SfM) is the process of reconstructing 3D structure from
+its projections into a series of images. The input is a set of overlapping
+images of the same object, taken from different viewpoints. The output is a 3-D
 reconstruction of the object, and the reconstructed intrinsic and extrinsic
 camera parameters of all images. Typically, Structure-from-Motion systems divide
 this process into three stages:

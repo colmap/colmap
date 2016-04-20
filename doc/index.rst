@@ -1,10 +1,11 @@
 COLMAP
 ======
 
-COLMAP is a general-purpose Structure-from-Motion pipeline with a graphical and
-command-line interface. It offers a wide range of features for reconstruction of
-ordered and unordered image collections. The software is licensed under the GNU
-General Public License. If you use this project for your research, please cite::
+COLMAP is a general-purpose Structure-from-Motion (SfM) pipeline with a
+graphical and command-line interface. It offers a wide range of features for
+reconstruction of ordered and unordered image collections. The software is
+licensed under the GNU General Public License. If you use this project for your
+research, please cite::
 
     @inproceedings{schoenberger2016sfm,
         author = {Sch\"{o}nberger, Johannes Lutz and Frahm, Jan-Michael},
