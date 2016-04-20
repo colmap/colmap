@@ -18,7 +18,11 @@ Model Viewer Controls
 - **Change point size**: <CTRL>-scroll (<CMD>-scroll).
 - **Change camera size**: <ALT>-scroll.
 - **Select point**: Double-left-click point (change point size if too small).
+  The green lines visualize the projections into the images that see the point.
+  The opening window shows the projected locations of the point in all images.
 - **Select camera**: Double-left-click camera (change camera size if too small).
+  The purple lines visualize images that see at least one common point with the
+  selected image. The opening window shows a few statistics of the image.
 - **Reset view**: To reset all viewing settings, choose ``Render > Reset view``.
 
 
