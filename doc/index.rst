@@ -24,7 +24,9 @@ Getting Started
 1. Download the pre-built binaries from
    http://people.inf.ethz.ch/jschoenb/colmap/ or build the library manually
    (see :ref:`Installation <installation>`).
-2. Watch the short introductory video at
+2. Download one of the provided datasets at
+   http://people.inf.ethz.ch/jschoenb/colmap/datasets/.
+3. Watch the short introductory video at
    `YouTube <https://www.youtube.com/watch?v=P-EC0DzeVEU>`_ or read the
    :ref:`Tutorial <tutorial>` for more details.
 
@@ -37,6 +39,7 @@ Getting Started
    database
    gui
    faq
+   datasets
    contribution
    license
    bibliography
