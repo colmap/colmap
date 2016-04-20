@@ -87,3 +87,14 @@ images are reconstructed, the problem is most often constrained enough that you
 can try to refine the principal point in global bundle adjustment, especially
 when sharing intrinsic parameters between multiple images. Please, refer to
 :ref:`Fix intrinsics <faq-fix-intrinsics>` for more information.
+
+
+Increase number of 3D points
+----------------------------
+
+By default, COLMAP ignores two-view feature tracks in triangulation, resulting
+in fewer 3D points than possible. Triangulation of two-view tracks can in rare
+cases improve the stability of sparse image collections by providing additional
+constraints in bundle adjustment. To also triangulate two-view tracks, unselect
+the option ``Reconstruction > Reconstruction options > Triangulation >
+ignore_two_view_tracks``.
