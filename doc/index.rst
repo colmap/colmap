@@ -38,9 +38,11 @@ Getting Started
    install
    tutorial
    database
+   cameras
+   format
+   datasets
    gui
    faq
-   datasets
    contribution
    license
    bibliography
