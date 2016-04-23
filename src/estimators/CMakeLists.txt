@@ -1,6 +1,7 @@
 set(FOLDER_NAME "estimators")
 
 COLMAP_ADD_LIBRARY(estimators
+    epnp.h epnp.cc
     essential_matrix.h essential_matrix.cc
     euclidean_transform.h
     fundamental_matrix.h fundamental_matrix.cc
@@ -14,6 +15,7 @@ COLMAP_ADD_LIBRARY(estimators
     utils.h utils.cc
 )
 
+COLMAP_ADD_TEST(epnp_test epnp_test.cc)
 COLMAP_ADD_TEST(essential_matrix_test essential_matrix_test.cc)
 COLMAP_ADD_TEST(fundamental_matrix_test fundamental_matrix_test.cc)
 COLMAP_ADD_TEST(homography_matrix_test homography_matrix_test.cc)

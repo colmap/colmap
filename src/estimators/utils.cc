@@ -113,4 +113,56 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
                                          Etx2_0 * Etx2_0 + Etx2_1 * Etx2_1);
   }
 }
+
+void ComputeSquaredReprojectionError(
+    const std::vector<Eigen::Vector2d>& points2D,
+    const std::vector<Eigen::Vector3d>& points3D,
+    const Eigen::Matrix3x4d& proj_matrix, std::vector<double>* residuals) {
+  CHECK_EQ(points2D.size(), points3D.size());
+
+  residuals->resize(points2D.size());
+
+  // Note that this code might not be as nice as Eigen expressions,
+  // but it is significantly faster in various tests.
+
+  const double P_00 = proj_matrix(0, 0);
+  const double P_01 = proj_matrix(0, 1);
+  const double P_02 = proj_matrix(0, 2);
+  const double P_03 = proj_matrix(0, 3);
+  const double P_10 = proj_matrix(1, 0);
+  const double P_11 = proj_matrix(1, 1);
+  const double P_12 = proj_matrix(1, 2);
+  const double P_13 = proj_matrix(1, 3);
+  const double P_20 = proj_matrix(2, 0);
+  const double P_21 = proj_matrix(2, 1);
+  const double P_22 = proj_matrix(2, 2);
+  const double P_23 = proj_matrix(2, 3);
+
+  for (size_t i = 0; i < points2D.size(); ++i) {
+    const double x_0 = points2D[i](0);
+    const double x_1 = points2D[i](1);
+
+    const double X_0 = points3D[i](0);
+    const double X_1 = points3D[i](1);
+    const double X_2 = points3D[i](2);
+
+    // Project 3D point from world to camera.
+    const double px_2 = P_20 * X_0 + P_21 * X_1 + P_22 * X_2 + P_23;
+
+    // Check if 3D point infront of camera.
+    if (px_2 > std::numeric_limits<double>::epsilon()) {
+      const double px_0 = P_00 * X_0 + P_01 * X_1 + P_02 * X_2 + P_03;
+      const double px_1 = P_10 * X_0 + P_11 * X_1 + P_12 * X_2 + P_13;
+
+      const double inv_px_2 = 1.0 / px_2;
+      const double dx_0 = x_0 - px_0 * inv_px_2;
+      const double dx_1 = x_1 - px_1 * inv_px_2;
+
+      (*residuals)[i] = dx_0 * dx_0 + dx_1 * dx_1;
+    } else {
+      (*residuals)[i] = std::numeric_limits<double>::max();
+    }
+  }
 }
+
+}  // namespace colmap

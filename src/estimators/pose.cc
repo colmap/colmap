@@ -20,6 +20,7 @@
 #include "base/cost_functions.h"
 #include "base/essential_matrix.h"
 #include "base/pose.h"
+#include "estimators/epnp.h"
 #include "estimators/essential_matrix.h"
 #include "estimators/p3p.h"
 #include "optim/bundle_adjustment.h"
@@ -29,7 +30,9 @@
 namespace colmap {
 namespace {
 
-RANSAC<P3PEstimator>::Report EstimateAbsolutePoseKernel(
+typedef LORANSAC<P3PEstimator, EPnPEstimator> AbsolutePoseRANSAC_t;
+
+AbsolutePoseRANSAC_t::Report EstimateAbsolutePoseKernel(
     const Camera& camera, const double focal_length_factor,
     const std::vector<Eigen::Vector2d>& points2D,
     const std::vector<Eigen::Vector3d>& points3D, RANSACOptions options) {
@@ -48,7 +51,7 @@ RANSAC<P3PEstimator>::Report EstimateAbsolutePoseKernel(
 
   // Estimate pose for given focal length.
   options.max_error = scaled_camera.ImageToWorldThreshold(options.max_error);
-  RANSAC<P3PEstimator> ransac(options);
+  AbsolutePoseRANSAC_t ransac(options);
   const auto report = ransac.Estimate(points2D_N, points3D);
 
   return report;
@@ -81,7 +84,7 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
     focal_length_factors.push_back(1);
   }
 
-  std::vector<std::future<typename RANSAC<P3PEstimator>::Report>> futures;
+  std::vector<std::future<typename AbsolutePoseRANSAC_t::Report>> futures;
   futures.reserve(focal_length_factors.size());
 
   ThreadPool thread_pool(std::min(

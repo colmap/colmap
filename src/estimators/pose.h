@@ -25,7 +25,7 @@
 
 #include "base/camera.h"
 #include "base/camera_models.h"
-#include "optim/ransac.h"
+#include "optim/loransac.h"
 #include "util/logging.h"
 #include "util/threading.h"
 #include "util/types.h"

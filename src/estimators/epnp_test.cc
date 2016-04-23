@@ -15,14 +15,14 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define BOOST_TEST_MAIN
-#define BOOST_TEST_MODULE "base/p3p"
+#define BOOST_TEST_MODULE "base/epnp"
 #include <boost/test/unit_test.hpp>
 
 #include <Eigen/Core>
 
 #include "base/similarity_transform.h"
+#include "estimators/epnp.h"
 #include "estimators/essential_matrix.h"
-#include "estimators/p3p.h"
 #include "optim/ransac.h"
 #include "util/random.h"
 
@@ -65,25 +65,25 @@ BOOST_AUTO_TEST_CASE(Estimate) {
       RANSACOptions options;
       options.max_error = 1e-5;
 
-      RANSAC<P3PEstimator> ransac(options);
+      RANSAC<EPnPEstimator> ransac(options);
 
       const auto report = ransac.Estimate(points2D, points3D);
 
-      // Test if correct transformation has been determined
+      // Test if correct transformation has been determined.
       const double matrix_diff =
           (orig_tform.Matrix().topLeftCorner<3, 4>() - report.model).norm();
-      BOOST_CHECK(matrix_diff < 1e-2);
+      BOOST_CHECK(matrix_diff < 1e-3);
 
-      // Test residuals of exact points
+      // Test residuals of exact points.
       std::vector<double> residuals;
-      P3PEstimator::Residuals(points2D, points3D, report.model, &residuals);
+      EPnPEstimator::Residuals(points2D, points3D, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
         BOOST_CHECK(residuals[i] < 1e-3);
       }
 
       // Test residuals of faulty points
-      P3PEstimator::Residuals(points2D, points3D_faulty, report.model,
-                              &residuals);
+      EPnPEstimator::Residuals(points2D, points3D_faulty, report.model,
+                               &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
         BOOST_CHECK(residuals[i] > 0.1);
       }
