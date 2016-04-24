@@ -17,6 +17,7 @@ Model Viewer Controls
 - **Zoom model**: Scroll.
 - **Change point size**: <CTRL>-scroll (<CMD>-scroll).
 - **Change camera size**: <ALT>-scroll.
+- **Adjust clipping plane**: <SHIFT>-scroll.
 - **Select point**: Double-left-click point (change point size if too small).
   The green lines visualize the projections into the images that see the point.
   The opening window shows the projected locations of the point in all images.
