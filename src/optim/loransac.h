@@ -134,7 +134,8 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
         best_model_is_local = false;
 
         // Estimate locally optimized model from inliers.
-        if (support.num_inliers >= LocalEstimator::MinNumSamples()) {
+        if (support.num_inliers > Estimator::MinNumSamples() &&
+            support.num_inliers >= LocalEstimator::MinNumSamples()) {
           X_inlier.clear();
           Y_inlier.clear();
           X_inlier.reserve(support.num_inliers);
