@@ -37,9 +37,9 @@ void TriangulationEstimator::SetResidualType(const ResidualType residual_type) {
   residual_type_ = residual_type;
 }
 
-std::vector<TriangulationEstimator::M_t>
-TriangulationEstimator::Estimate(const std::vector<X_t> &point_data,
-                                 const std::vector<Y_t> &pose_data) const {
+std::vector<TriangulationEstimator::M_t> TriangulationEstimator::Estimate(
+    const std::vector<X_t>& point_data,
+    const std::vector<Y_t>& pose_data) const {
   CHECK_GE(point_data.size(), 2);
   CHECK_EQ(point_data.size(), pose_data.size());
 
@@ -72,7 +72,7 @@ TriangulationEstimator::Estimate(const std::vector<X_t> &point_data,
     const M_t xyz = TriangulateMultiViewPoint(proj_matrices, points);
 
     // Check for cheirality constraint.
-    for (const auto &pose : pose_data) {
+    for (const auto& pose : pose_data) {
       if (!HasPointPositiveDepth(pose.proj_matrix, xyz)) {
         return std::vector<M_t>();
       }
@@ -93,10 +93,10 @@ TriangulationEstimator::Estimate(const std::vector<X_t> &point_data,
   return std::vector<M_t>();
 }
 
-void TriangulationEstimator::Residuals(const std::vector<X_t> &point_data,
-                                       const std::vector<Y_t> &pose_data,
-                                       const M_t &xyz,
-                                       std::vector<double> *residuals) const {
+void TriangulationEstimator::Residuals(const std::vector<X_t>& point_data,
+                                       const std::vector<Y_t>& pose_data,
+                                       const M_t& xyz,
+                                       std::vector<double>* residuals) const {
   CHECK_EQ(point_data.size(), pose_data.size());
 
   residuals->resize(point_data.size());
@@ -118,10 +118,10 @@ void TriangulationEstimator::Residuals(const std::vector<X_t> &point_data,
 }
 
 bool EstimateTriangulation(
-    const EstimateTriangulationOptions &options,
-    const std::vector<TriangulationEstimator::PointData> &point_data,
-    const std::vector<TriangulationEstimator::PoseData> &pose_data,
-    std::vector<bool> *inlier_mask, Eigen::Vector3d *xyz) {
+    const EstimateTriangulationOptions& options,
+    const std::vector<TriangulationEstimator::PointData>& point_data,
+    const std::vector<TriangulationEstimator::PoseData>& pose_data,
+    std::vector<bool>* inlier_mask, Eigen::Vector3d* xyz) {
   CHECK_NOTNULL(inlier_mask);
   CHECK_NOTNULL(xyz);
   CHECK_GE(point_data.size(), 2);
@@ -134,6 +134,8 @@ bool EstimateTriangulation(
       ransac(options.ransac_options);
   ransac.estimator.SetMinTriAngle(options.min_tri_angle);
   ransac.estimator.SetResidualType(options.residual_type);
+  ransac.local_estimator.SetResidualType(options.residual_type);
+  ransac.local_estimator.SetResidualType(options.residual_type);
   const auto report = ransac.Estimate(point_data, pose_data);
   if (!report.success) {
     return false;
@@ -145,4 +147,4 @@ bool EstimateTriangulation(
   return report.success;
 }
 
-} // namespace colmap
+}  // namespace colmap
