@@ -512,7 +512,7 @@ void MapperOptions::Reset() {
   ba_refine_principal_point = false;
   ba_refine_extra_params = true;
 
-  ba_local_max_refinements = 5;
+  ba_local_max_refinements = 3;
   ba_local_max_refinement_change = 0.001;
   ba_global_max_refinements = 5;
   ba_global_max_refinement_change = 0.0005;
