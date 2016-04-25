@@ -75,6 +75,9 @@ struct AbsolutePoseRefinementOptions {
   // Whether to refine the focal length parameter group.
   bool refine_focal_length = true;
 
+  // Whether to refine the extra parameter group.
+  bool refine_extra_params = true;
+
   // Whether to print final summary.
   bool print_summary = true;
 

@@ -557,7 +557,8 @@ bool MapperOptions::Check() {
 
 IncrementalMapper::Options MapperOptions::IncrementalMapperOptions() const {
   IncrementalMapper::Options options = incremental_mapper.Options();
-  options.abs_pose_estimate_focal_length = ba_refine_focal_length;
+  options.abs_pose_refine_focal_length = ba_refine_focal_length;
+  options.abs_pose_refine_extra_params = ba_refine_extra_params;
   options.min_focal_length_ratio = min_focal_length_ratio;
   options.max_focal_length_ratio = max_focal_length_ratio;
   options.max_extra_param = max_extra_param;

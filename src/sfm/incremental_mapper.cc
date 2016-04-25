@@ -436,6 +436,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       camera.SetParams(database_cache_->Camera(image.CameraId()).Params());
       abs_pose_options.estimate_focal_length = !camera.HasPriorFocalLength();
       abs_pose_refinement_options.refine_focal_length = true;
+      abs_pose_refinement_options.refine_extra_params = true;
     } else {
       abs_pose_options.estimate_focal_length = false;
       abs_pose_refinement_options.refine_focal_length = false;
@@ -444,11 +445,16 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
     // Camera not refined before.
     abs_pose_options.estimate_focal_length = !camera.HasPriorFocalLength();
     abs_pose_refinement_options.refine_focal_length = true;
+    abs_pose_refinement_options.refine_extra_params = true;
   }
 
-  if (!options.abs_pose_estimate_focal_length) {
+  if (!options.abs_pose_refine_focal_length) {
     abs_pose_options.estimate_focal_length = false;
     abs_pose_refinement_options.refine_focal_length = false;
+  }
+
+  if (!options.abs_pose_refine_extra_params) {
+    abs_pose_refinement_options.refine_extra_params = false;
   }
 
   size_t num_inliers;
@@ -558,10 +564,6 @@ IncrementalMapper::AdjustLocalBundle(
       ba_config.SetConstantTvec(local_bundle[local_bundle.size() - 2], {0});
       constant_image_id = local_bundle[local_bundle.size() - 1];
     }
-
-    // Fixed images should have fixed camera parameters.
-    const Image& constant_image = reconstruction_->Image(constant_image_id);
-    ba_config.SetConstantCamera(constant_image.CameraId());
 
     // Make sure, we refine all new and short-track 3D points, no matter if
     // they are fully contained in the local image set or not. Do not include

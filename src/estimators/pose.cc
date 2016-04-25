@@ -225,24 +225,38 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     problem.SetParameterization(qvec_data, quaternion_parameterization);
 
     // Camera parameterization.
-    if (options.refine_focal_length) {
+    if (!options.refine_focal_length && !options.refine_extra_params) {
+      problem.SetParameterBlockConstant(camera->ParamsData());
+    } else {
+      // Always set the principal point as fixed.
       std::vector<int> camera_params_const;
       const std::vector<size_t>& principal_point_idxs =
           camera->PrincipalPointIdxs();
       camera_params_const.insert(camera_params_const.end(),
                                  principal_point_idxs.begin(),
                                  principal_point_idxs.end());
-      const std::vector<size_t>& extra_params_idxs = camera->ExtraParamsIdxs();
-      camera_params_const.insert(camera_params_const.end(),
-                                 extra_params_idxs.begin(),
-                                 extra_params_idxs.end());
+
+      if (!options.refine_focal_length) {
+        const std::vector<size_t>& focal_length_idxs =
+            camera->FocalLengthIdxs();
+        camera_params_const.insert(camera_params_const.end(),
+                                   focal_length_idxs.begin(),
+                                   focal_length_idxs.end());
+      }
+
+      if (!options.refine_extra_params) {
+        const std::vector<size_t>& extra_params_idxs =
+            camera->ExtraParamsIdxs();
+        camera_params_const.insert(camera_params_const.end(),
+                                   extra_params_idxs.begin(),
+                                   extra_params_idxs.end());
+      }
+
       ceres::SubsetParameterization* camera_params_parameterization =
           new ceres::SubsetParameterization(
               static_cast<int>(camera->NumParams()), camera_params_const);
       problem.SetParameterization(camera->ParamsData(),
                                   camera_params_parameterization);
-    } else {
-      problem.SetParameterBlockConstant(camera->ParamsData());
     }
   }
 
