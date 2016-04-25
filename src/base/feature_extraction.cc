@@ -143,6 +143,21 @@ void ScaleBitmap(const Camera& camera, const int max_image_size,
   }
 }
 
+// Recursively collect list of files in sorted order.
+std::vector<std::string> GetRecursiveFileList(const std::string& path) {
+  namespace fs = boost::filesystem;
+  std::vector<std::string> file_list;
+  for (auto it = fs::recursive_directory_iterator(path);
+       it != fs::recursive_directory_iterator(); ++it) {
+    if (fs::is_regular_file(*it)) {
+      const fs::path file_path = *it;
+      file_list.push_back(file_path.string());
+    }
+  }
+  std::sort(file_list.begin(), file_list.end());
+  return file_list;
+}
+
 }  // namespace
 
 void SIFTOptions::Check() const {
@@ -355,12 +370,6 @@ void SiftCPUFeatureExtractor::CPUOptions::Check() const {
 void SiftCPUFeatureExtractor::DoExtraction() {
   PrintHeading1("Feature extraction (CPU)");
 
-  namespace fs = boost::filesystem;
-
-  const size_t num_files =
-      std::distance(fs::recursive_directory_iterator(image_path_),
-                    fs::recursive_directory_iterator());
-
   //////////////////////////////////////////////////////////////////////////////
   // Extract features
   //////////////////////////////////////////////////////////////////////////////
@@ -370,35 +379,36 @@ void SiftCPUFeatureExtractor::DoExtraction() {
   const size_t batch_size = static_cast<size_t>(cpu_options_.batch_size_factor *
                                                 thread_pool.NumThreads());
 
-  size_t i_file = 0;
-  auto dir_iter = fs::recursive_directory_iterator(image_path_);
-  auto it = dir_iter;
-  while (it != fs::recursive_directory_iterator()) {
+  const std::vector<std::string> file_list = GetRecursiveFileList(image_path_);
+
+  size_t file_idx = 0;
+  while (file_idx < file_list.size()) {
+    {
+      QMutexLocker locker(&mutex_);
+      if (stop_) {
+        return;
+      }
+    }
+
     PrintHeading2("Preparing batch");
 
-    std::vector<size_t> i_files;
+    std::vector<size_t> file_idxs;
     std::vector<Image> images;
     std::vector<std::future<ExtractionResult>> futures;
-    for (; futures.size() < batch_size &&
-           it != fs::recursive_directory_iterator();
-         ++it) {
-      const fs::path& image_path = *it;
-      i_file += 1;
+    for (; futures.size() < batch_size && file_idx < file_list.size();
+         ++file_idx) {
+      std::cout << "Preparing file [" << file_idx + 1 << "/" << file_list.size()
+                << "]" << std::endl;
 
-      if (!fs::is_regular_file(image_path)) {
-        continue;
-      }
-
-      std::cout << "Preparing file [" << i_file << "/" << num_files << "]"
-                << std::endl;
+      const std::string image_path = file_list[file_idx];
 
       Image image;
       Bitmap bitmap;
-      if (!ReadImage(image_path.string(), &image, &bitmap)) {
+      if (!ReadImage(image_path, &image, &bitmap)) {
         continue;
       }
 
-      i_files.push_back(i_file);
+      file_idxs.push_back(file_idx);
       images.push_back(image);
       futures.push_back(
           thread_pool.AddTask(SiftCPUFeatureExtractor::DoExtractionKernel,
@@ -408,13 +418,6 @@ void SiftCPUFeatureExtractor::DoExtraction() {
     PrintHeading2("Processing batch");
 
     for (size_t i = 0; i < futures.size(); ++i) {
-      {
-        QMutexLocker locker(&mutex_);
-        if (stop_) {
-          return;
-        }
-      }
-
       Image& image = images[i];
       const ExtractionResult result = futures[i].get();
 
@@ -435,7 +438,7 @@ void SiftCPUFeatureExtractor::DoExtraction() {
       }
 
       std::cout << "  Features:       " << result.keypoints.size() << " ["
-                << i_files[i] << "/" << num_files << "]" << std::endl;
+                << file_idxs[i] << "/" << file_list.size() << "]" << std::endl;
 
       database_.EndTransaction();
     }
@@ -632,12 +635,6 @@ void SiftGPUFeatureExtractor::DoExtraction() {
 
   context_->makeCurrent(surface_);
 
-  namespace fs = boost::filesystem;
-
-  const size_t num_files =
-      std::distance(fs::recursive_directory_iterator(image_path_),
-                    fs::recursive_directory_iterator());
-
   //////////////////////////////////////////////////////////////////////////////
   // Set up SiftGPU
   //////////////////////////////////////////////////////////////////////////////
@@ -698,16 +695,9 @@ void SiftGPUFeatureExtractor::DoExtraction() {
   // Extract features
   //////////////////////////////////////////////////////////////////////////////
 
-  size_t i_file = 0;
-  auto dir_iter = fs::recursive_directory_iterator(image_path_);
-  for (auto it = dir_iter; it != fs::recursive_directory_iterator(); ++it) {
-    const fs::path& image_path = *it;
-    i_file += 1;
+  const std::vector<std::string> file_list = GetRecursiveFileList(image_path_);
 
-    if (!fs::is_regular_file(image_path)) {
-      continue;
-    }
-
+  for (size_t file_idx = 0; file_idx < file_list.size(); ++file_idx) {
     {
       QMutexLocker locker(&mutex_);
       if (stop_) {
@@ -716,8 +706,10 @@ void SiftGPUFeatureExtractor::DoExtraction() {
       }
     }
 
-    std::cout << "Processing file [" << i_file << "/" << num_files << "]"
-              << std::endl;
+    std::cout << "Processing file [" << file_idx + 1 << "/" << file_list.size()
+              << "]" << std::endl;
+
+    const std::string image_path = file_list[file_idx];
 
     ////////////////////////////////////////////////////////////////////////////
     // Read image
@@ -725,7 +717,7 @@ void SiftGPUFeatureExtractor::DoExtraction() {
 
     Image image;
     Bitmap bitmap;
-    if (!ReadImage(image_path.string(), &image, &bitmap)) {
+    if (!ReadImage(image_path, &image, &bitmap)) {
       continue;
     }
 
@@ -818,35 +810,18 @@ FeatureImporter::FeatureImporter(const Options& options,
       import_path_(EnsureTrailingSlash(import_path)) {}
 
 void FeatureImporter::DoExtraction() {
-  namespace fs = boost::filesystem;
-
   PrintHeading1("Feature import");
 
-  if (!fs::exists(import_path_)) {
+  if (!boost::filesystem::exists(import_path_)) {
     std::cerr << "  ERROR: Path does not exist." << std::endl;
     return;
   }
 
-  const size_t num_files =
-      std::distance(fs::recursive_directory_iterator(import_path_),
-                    fs::recursive_directory_iterator());
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Import features
-  //////////////////////////////////////////////////////////////////////////////
-
   last_camera_.SetModelIdFromName(options_.camera_model);
 
-  size_t i_file = 0;
-  auto dir_iter = fs::recursive_directory_iterator(image_path_);
-  for (auto it = dir_iter; it != fs::recursive_directory_iterator(); ++it) {
-    const fs::path& image_path = *it;
-    i_file += 1;
+  const std::vector<std::string> file_list = GetRecursiveFileList(image_path_);
 
-    if (!fs::is_regular_file(image_path)) {
-      continue;
-    }
-
+  for (size_t file_idx = 0; file_idx < file_list.size(); ++file_idx) {
     {
       QMutexLocker locker(&mutex_);
       if (stop_) {
@@ -854,19 +829,21 @@ void FeatureImporter::DoExtraction() {
       }
     }
 
-    std::cout << "Processing file [" << i_file << "/" << num_files << "]"
-              << std::endl;
+    std::cout << "Processing file [" << file_idx + 1 << "/" << file_list.size()
+              << "]" << std::endl;
+
+    const std::string image_path = file_list[file_idx];
 
     // Load image data and possibly save camera to database.
     Bitmap bitmap;
     Image image;
-    if (!ReadImage(image_path.string(), &image, &bitmap)) {
+    if (!ReadImage(image_path, &image, &bitmap)) {
       continue;
     }
 
     const std::string path = import_path_ + image.Name() + ".txt";
 
-    if (fs::exists(path)) {
+    if (boost::filesystem::exists(path)) {
       if (!LoadFeaturesFromTextFile(path, &database_, &image)) {
         std::cout << "  SKIP: Image already processed." << std::endl;
       }
