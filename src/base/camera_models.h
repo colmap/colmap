@@ -256,6 +256,8 @@ struct FullOpenCVCameraModel : public BaseCameraModel<FullOpenCVCameraModel> {
 // FOV camera model.
 //
 // Based on the pinhole camera model. Additionally models radial distortion.
+// This model is for example used by Project Tango for its equidistant
+// calibration type.
 //
 // Parameter list is expected in the following order:
 //
@@ -263,8 +265,8 @@ struct FullOpenCVCameraModel : public BaseCameraModel<FullOpenCVCameraModel> {
 //
 // See:
 // Frederic Devernay, Olivier Faugeras. Straight lines have to be straight:
-// automatic calibration and removal of distortion from scenes of structured
-// enviroments.
+// Automatic calibration and removal of distortion from scenes of structured
+// environments. Machine vision and applications, 2001.
 struct FOVCameraModel : public BaseCameraModel<FOVCameraModel> {
   CAMERA_MODEL_DEFINITIONS(7, 5)
 
@@ -1038,8 +1040,8 @@ std::vector<size_t> FOVCameraModel::InitializeExtraParamsIdxs() {
 }
 
 template <typename T>
-void FOVCameraModel::WorldToImage(const T* params, const T u, const T v,
-                                  T* x, T* y) {
+void FOVCameraModel::WorldToImage(const T* params, const T u, const T v, T* x,
+                                  T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
@@ -1057,8 +1059,8 @@ void FOVCameraModel::WorldToImage(const T* params, const T u, const T v,
 }
 
 template <typename T>
-void FOVCameraModel::ImageToWorld(const T* params, const T x, const T y,
-                                  T* u, T* v) {
+void FOVCameraModel::ImageToWorld(const T* params, const T x, const T y, T* u,
+                                  T* v) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
@@ -1076,10 +1078,10 @@ void FOVCameraModel::ImageToWorld(const T* params, const T x, const T y,
 }
 
 template <typename T>
-void FOVCameraModel::Distortion(const T* extra_params, const T u,
-                                const T v, T* du, T* dv) {
+void FOVCameraModel::Distortion(const T* extra_params, const T u, const T v,
+                                T* du, T* dv) {
   const T omega = extra_params[0];
-  
+
   const T radius = ceres::sqrt(u * u + v * v);
   T radial;
   const T kEpsilon = T(1e-6);  // Chosen arbitrarily.
@@ -1094,16 +1096,16 @@ void FOVCameraModel::Distortion(const T* extra_params, const T u,
     const T numerator = ceres::atan(radius * T(2) * ceres::tan(omega / T(2)));
     radial = numerator / (radius * omega);
   }
-  
+
   *du = u * radial - u;
   *dv = v * radial - v;
 }
 
 template <typename T>
-void FOVCameraModel::Undistortion(const T* extra_params, const T u,
-                                  const T v, T* du, T* dv) {
+void FOVCameraModel::Undistortion(const T* extra_params, const T u, const T v,
+                                  T* du, T* dv) {
   const T omega = extra_params[0];
-  
+
   const T radius = ceres::sqrt(u * u + v * v);
   T radial;
   const T kEpsilon = T(1e-6);  // Chosen arbitrarily.
@@ -1118,7 +1120,7 @@ void FOVCameraModel::Undistortion(const T* extra_params, const T u,
     const T numerator = ceres::tan(radius * omega);
     radial = numerator / (radius * T(2) * ceres::tan(omega / T(2)));
   }
-  
+
   *du = u * radial - u;
   *dv = v * radial - v;
 }
