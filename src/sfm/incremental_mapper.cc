@@ -554,15 +554,12 @@ IncrementalMapper::AdjustLocalBundle(
       ba_config.AddImage(local_image_id);
     }
 
-    image_t constant_image_id = kInvalidImageId;
     if (local_bundle.size() == 1) {
       ba_config.SetConstantPose(local_bundle[0]);
       ba_config.SetConstantTvec(image_id, {0});
-      constant_image_id = local_bundle[0];
     } else if (local_bundle.size() > 1) {
       ba_config.SetConstantPose(local_bundle[local_bundle.size() - 1]);
       ba_config.SetConstantTvec(local_bundle[local_bundle.size() - 2], {0});
-      constant_image_id = local_bundle[local_bundle.size() - 1];
     }
 
     // Make sure, we refine all new and short-track 3D points, no matter if
