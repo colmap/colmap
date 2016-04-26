@@ -24,37 +24,42 @@ using namespace colmap;
 
 template <typename CameraModel>
 void TestWorldToImageToWorld(const std::vector<double> camera_params,
-                             const double x0, const double y0) {
-  double u, v, x, y;
-  CameraModel::WorldToImage(camera_params.data(), x0, y0, &u, &v);
-  CameraModel::ImageToWorld(camera_params.data(), u, v, &x, &y);
-  BOOST_CHECK(std::abs(x - x0) < 1e-6);
-  BOOST_CHECK(std::abs(y - y0) < 1e-6);
-}
-
-template <typename CameraModel>
-void TestImageToWorldToImage(const std::vector<double> camera_params,
                              const double u0, const double v0) {
   double u, v, x, y;
-  CameraModel::ImageToWorld(camera_params.data(), u0, v0, &x, &y);
-  CameraModel::WorldToImage(camera_params.data(), x, y, &u, &v);
+  CameraModel::WorldToImage(camera_params.data(), u0, v0, &x, &y);
+  CameraModel::ImageToWorld(camera_params.data(), x, y, &u, &v);
   BOOST_CHECK(std::abs(u - u0) < 1e-6);
   BOOST_CHECK(std::abs(v - v0) < 1e-6);
 }
 
 template <typename CameraModel>
+void TestImageToWorldToImage(const std::vector<double> camera_params,
+                             const double x0, const double y0) {
+  double u, v, x, y;
+  CameraModel::ImageToWorld(camera_params.data(), x0, y0, &u, &v);
+  CameraModel::WorldToImage(camera_params.data(), u, v, &x, &y);
+  BOOST_CHECK(std::abs(x - x0) < 1e-6);
+  BOOST_CHECK(std::abs(y - y0) < 1e-6);
+}
+
+template <typename CameraModel>
 void TestModel(const std::vector<double>& camera_params) {
-  for (double x0 = -0.5; x0 <= 0.5; x0 += 0.1) {
-    for (double y0 = -0.5; y0 <= 0.5; y0 += 0.1) {
-      TestWorldToImageToWorld<CameraModel>(camera_params, x0, y0);
+  for (double u = -0.5; u <= 0.5; u += 0.1) {
+    for (double v = -0.5; v <= 0.5; v += 0.1) {
+      TestWorldToImageToWorld<CameraModel>(camera_params, u, v);
     }
   }
 
-  for (double u0 = 0; u0 <= 800; u0 += 50) {
-    for (double v0 = 0; v0 <= 800; v0 += 50) {
-      TestImageToWorldToImage<CameraModel>(camera_params, u0, v0);
+  for (double x = 0; x <= 800; x += 50) {
+    for (double y = 0; y <= 800; y += 50) {
+      TestImageToWorldToImage<CameraModel>(camera_params, x, y);
     }
   }
+
+  const auto pp_idxs = CameraModel::principal_point_idxs;
+  TestImageToWorldToImage<CameraModel>(camera_params,
+                                       camera_params[pp_idxs.at(0)],
+                                       camera_params[pp_idxs.at(1)]);
 }
 
 BOOST_AUTO_TEST_CASE(TestSimplePinhole) {
