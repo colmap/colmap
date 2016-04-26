@@ -91,14 +91,16 @@ static const int kInvalidCameraModelId = -1;
 #endif
 
 #ifndef CAMERA_MODEL_CASES
-#define CAMERA_MODEL_CASES                    \
-  CAMERA_MODEL_CASE(SimplePinholeCameraModel) \
-  CAMERA_MODEL_CASE(PinholeCameraModel)       \
-  CAMERA_MODEL_CASE(SimpleRadialCameraModel)  \
-  CAMERA_MODEL_CASE(RadialCameraModel)        \
-  CAMERA_MODEL_CASE(OpenCVCameraModel)        \
-  CAMERA_MODEL_CASE(OpenCVFisheyeCameraModel) \
-  CAMERA_MODEL_CASE(FullOpenCVCameraModel)    \
+#define CAMERA_MODEL_CASES                          \
+  CAMERA_MODEL_CASE(SimplePinholeCameraModel)       \
+  CAMERA_MODEL_CASE(PinholeCameraModel)             \
+  CAMERA_MODEL_CASE(SimpleRadialCameraModel)        \
+  CAMERA_MODEL_CASE(SimpleRadialFisheyeCameraModel) \
+  CAMERA_MODEL_CASE(RadialCameraModel)              \
+  CAMERA_MODEL_CASE(RadialFisheyeCameraModel)       \
+  CAMERA_MODEL_CASE(OpenCVCameraModel)              \
+  CAMERA_MODEL_CASE(OpenCVFisheyeCameraModel)       \
+  CAMERA_MODEL_CASE(FullOpenCVCameraModel)          \
   CAMERA_MODEL_CASE(FOVCameraModel)
 #endif
 
@@ -273,6 +275,36 @@ struct FOVCameraModel : public BaseCameraModel<FOVCameraModel> {
   template <typename T>
   static void Undistortion(const T* extra_params, const T u, const T v, T* du,
                            T* dv);
+};
+
+// Simple camera model with one focal length and one radial distortion
+// parameter, suitable for fish-eye cameras.
+//
+// This model is equivalent to the OpenCVFisheyeCameraModel but has only one
+// radial distortion coefficient.
+//
+// Parameter list is expected in the following order:
+//
+//    f, cx, cy, k
+//
+struct SimpleRadialFisheyeCameraModel
+    : public BaseCameraModel<SimpleRadialFisheyeCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(8, 4)
+};
+
+// Simple camera model with one focal length and two radial distortion
+// parameters, suitable for fish-eye cameras.
+//
+// This model is equivalent to the OpenCVFisheyeCameraModel but has only two
+// radial distortion coefficients.
+//
+// Parameter list is expected in the following order:
+//
+//    f, cx, cy, k1, k2
+//
+struct RadialFisheyeCameraModel
+    : public BaseCameraModel<RadialFisheyeCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(9, 5)
 };
 
 // Convert camera name to unique camera model identifier.
@@ -1145,6 +1177,194 @@ void FOVCameraModel::Undistortion(const T* extra_params, const T uu, const T vv,
 
   *u = uu * factor;
   *v = vv * factor;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// SimpleRadialFisheyeCameraModel
+
+std::string SimpleRadialFisheyeCameraModel::InitializeParamsInfo() {
+  return "f, cx, cy, k";
+}
+
+std::vector<size_t>
+SimpleRadialFisheyeCameraModel::InitializeFocalLengthIdxs() {
+  std::vector<size_t> idxs(1);
+  idxs[0] = 0;
+  return idxs;
+}
+
+std::vector<size_t>
+SimpleRadialFisheyeCameraModel::InitializePrincipalPointIdxs() {
+  std::vector<size_t> idxs(2);
+  idxs[0] = 1;
+  idxs[1] = 2;
+  return idxs;
+}
+
+std::vector<size_t>
+SimpleRadialFisheyeCameraModel::InitializeExtraParamsIdxs() {
+  std::vector<size_t> idxs(1);
+  idxs[0] = 3;
+  return idxs;
+}
+
+template <typename T>
+void SimpleRadialFisheyeCameraModel::WorldToImage(const T* params, const T u,
+                                                  const T v, T* x, T* y) {
+  const T f = params[0];
+  const T c1 = params[1];
+  const T c2 = params[2];
+
+  const T r = ceres::sqrt(u * u + v * v);
+
+  T uu, vv;
+  if (r > T(std::numeric_limits<double>::epsilon())) {
+    const T theta = ceres::atan2(r, T(1));
+    uu = theta * u / r;
+    vv = theta * v / r;
+  } else {
+    uu = u;
+    vv = v;
+  }
+
+  // Distortion
+  T du, dv;
+  Distortion(&params[3], uu, vv, &du, &dv);
+  *x = uu + du;
+  *y = vv + dv;
+
+  // Transform to image coordinates
+  *x = f * *x + c1;
+  *y = f * *y + c2;
+}
+
+template <typename T>
+void SimpleRadialFisheyeCameraModel::ImageToWorld(const T* params, const T x,
+                                                  const T y, T* u, T* v) {
+  const T f = params[0];
+  const T c1 = params[1];
+  const T c2 = params[2];
+
+  // Lift points to normalized plane
+  *u = (x - c1) / f;
+  *v = (y - c2) / f;
+
+  IterativeUndistortion(&params[3], u, v);
+
+  const T theta = ceres::sqrt(*u * *u + *v * *v);
+  const T theta_cos_theta = theta * ceres::cos(theta);
+  if (theta_cos_theta > T(std::numeric_limits<double>::epsilon())) {
+    const T scale = ceres::sin(theta) / theta_cos_theta;
+    *u *= scale;
+    *v *= scale;
+  }
+}
+
+template <typename T>
+void SimpleRadialFisheyeCameraModel::Distortion(const T* extra_params,
+                                                const T u, const T v, T* du,
+                                                T* dv) {
+  const T k = extra_params[0];
+
+  const T u2 = u * u;
+  const T v2 = v * v;
+  const T r2 = u2 + v2;
+  const T radial = k * r2;
+  *du = u * radial;
+  *dv = v * radial;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// RadialFisheyeCameraModel
+
+std::string RadialFisheyeCameraModel::InitializeParamsInfo() {
+  return "f, cx, cy, k1, k2";
+}
+
+std::vector<size_t> RadialFisheyeCameraModel::InitializeFocalLengthIdxs() {
+  std::vector<size_t> idxs(1);
+  idxs[0] = 0;
+  return idxs;
+}
+
+std::vector<size_t> RadialFisheyeCameraModel::InitializePrincipalPointIdxs() {
+  std::vector<size_t> idxs(2);
+  idxs[0] = 1;
+  idxs[1] = 2;
+  return idxs;
+}
+
+std::vector<size_t> RadialFisheyeCameraModel::InitializeExtraParamsIdxs() {
+  std::vector<size_t> idxs(2);
+  idxs[0] = 3;
+  idxs[1] = 4;
+  return idxs;
+}
+
+template <typename T>
+void RadialFisheyeCameraModel::WorldToImage(const T* params, const T u,
+                                            const T v, T* x, T* y) {
+  const T f = params[0];
+  const T c1 = params[1];
+  const T c2 = params[2];
+
+  const T r = ceres::sqrt(u * u + v * v);
+
+  T uu, vv;
+  if (r > T(std::numeric_limits<double>::epsilon())) {
+    const T theta = ceres::atan2(r, T(1));
+    uu = theta * u / r;
+    vv = theta * v / r;
+  } else {
+    uu = u;
+    vv = v;
+  }
+
+  // Distortion
+  T du, dv;
+  Distortion(&params[3], uu, vv, &du, &dv);
+  *x = uu + du;
+  *y = vv + dv;
+
+  // Transform to image coordinates
+  *x = f * *x + c1;
+  *y = f * *y + c2;
+}
+
+template <typename T>
+void RadialFisheyeCameraModel::ImageToWorld(const T* params, const T x,
+                                            const T y, T* u, T* v) {
+  const T f = params[0];
+  const T c1 = params[1];
+  const T c2 = params[2];
+
+  // Lift points to normalized plane
+  *u = (x - c1) / f;
+  *v = (y - c2) / f;
+
+  IterativeUndistortion(&params[3], u, v);
+
+  const T theta = ceres::sqrt(*u * *u + *v * *v);
+  const T theta_cos_theta = theta * ceres::cos(theta);
+  if (theta_cos_theta > T(std::numeric_limits<double>::epsilon())) {
+    const T scale = ceres::sin(theta) / theta_cos_theta;
+    *u *= scale;
+    *v *= scale;
+  }
+}
+
+template <typename T>
+void RadialFisheyeCameraModel::Distortion(const T* extra_params, const T u,
+                                          const T v, T* du, T* dv) {
+  const T k1 = extra_params[0];
+  const T k2 = extra_params[1];
+
+  const T u2 = u * u;
+  const T v2 = v * v;
+  const T r2 = u2 + v2;
+  const T radial = k1 * r2 + k2 * r2 * r2;
+  *du = u * radial;
+  *dv = v * radial;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

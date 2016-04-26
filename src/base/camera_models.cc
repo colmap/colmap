@@ -43,8 +43,12 @@ int CameraModelNameToId(const std::string& name) {
     return PinholeCameraModel::model_id;
   } else if (uppercast_name == "SIMPLE_RADIAL") {
     return SimpleRadialCameraModel::model_id;
+  } else if (uppercast_name == "SIMPLE_RADIAL_FISHEYE") {
+    return SimpleRadialFisheyeCameraModel::model_id;
   } else if (uppercast_name == "RADIAL") {
     return RadialCameraModel::model_id;
+  } else if (uppercast_name == "RADIAL_FISHEYE") {
+    return RadialFisheyeCameraModel::model_id;
   } else if (uppercast_name == "OPENCV") {
     return OpenCVCameraModel::model_id;
   } else if (uppercast_name == "OPENCV_FISHEYE") {
@@ -64,8 +68,12 @@ std::string CameraModelIdToName(const int model_id) {
     return "PINHOLE";
   } else if (model_id == SimpleRadialCameraModel::model_id) {
     return "SIMPLE_RADIAL";
+  } else if (model_id == SimpleRadialFisheyeCameraModel::model_id) {
+    return "SIMPLE_RADIAL_FISHEYE";
   } else if (model_id == RadialCameraModel::model_id) {
     return "RADIAL";
+  } else if (model_id == RadialFisheyeCameraModel::model_id) {
+    return "RADIAL_FISHEYE";
   } else if (model_id == OpenCVCameraModel::model_id) {
     return "OPENCV";
   } else if (model_id == OpenCVFisheyeCameraModel::model_id) {

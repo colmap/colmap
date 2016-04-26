@@ -86,6 +86,8 @@ BOOST_AUTO_TEST_CASE(TestRadial) {
   TestModel<RadialCameraModel>(params);
   params[3] = 0.05;
   TestModel<RadialCameraModel>(params);
+  params[4] = 0.03;
+  TestModel<RadialCameraModel>(params);
 }
 
 BOOST_AUTO_TEST_CASE(TestOpenCV) {
@@ -114,4 +116,22 @@ BOOST_AUTO_TEST_CASE(TestFOV) {
   TestModel<FOVCameraModel>(params);
   params[4] = 1e-8;
   TestModel<FOVCameraModel>(params);
+}
+
+BOOST_AUTO_TEST_CASE(TestSimpleRadialFisheye) {
+  std::vector<double> params = {651.123, 386.123, 511.123, 0};
+  TestModel<SimpleRadialFisheyeCameraModel>(params);
+  params[3] = 0.1;
+  TestModel<SimpleRadialFisheyeCameraModel>(params);
+}
+
+BOOST_AUTO_TEST_CASE(TestRadialFisheye) {
+  std::vector<double> params = {651.123, 386.123, 511.123, 0, 0};
+  TestModel<RadialFisheyeCameraModel>(params);
+  params[3] = 0.1;
+  TestModel<RadialFisheyeCameraModel>(params);
+  params[3] = 0.05;
+  TestModel<RadialFisheyeCameraModel>(params);
+  params[4] = 0.03;
+  TestModel<RadialFisheyeCameraModel>(params);
 }
