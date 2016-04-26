@@ -1048,10 +1048,7 @@ void FOVCameraModel::WorldToImage(const T* params, const T u, const T v, T* x,
   const T c2 = params[3];
 
   // Distortion
-  T du, dv;
-  Distortion(&params[4], u, v, &du, &dv);
-  *x = u + du;
-  *y = v + dv;
+  Distortion(&params[4], u, v, x, y);
 
   // Transform to image coordinates
   *x = f1 * *x + c1;
@@ -1067,62 +1064,87 @@ void FOVCameraModel::ImageToWorld(const T* params, const T x, const T y, T* u,
   const T c2 = params[3];
 
   // Lift points to normalized plane
-  *u = (x - c1) / f1;
-  *v = (y - c2) / f2;
+  const T uu = (x - c1) / f1;
+  const T vv = (y - c2) / f2;
 
   // Undistortion
-  T du, dv;
-  Undistortion(&params[4], *u, *v, &du, &dv);
-  *u = *u + du;
-  *v = *v + dv;
+  Undistortion(&params[4], uu, vv, u, v);
 }
 
 template <typename T>
-void FOVCameraModel::Distortion(const T* extra_params, const T u, const T v,
-                                T* du, T* dv) {
+void FOVCameraModel::Distortion(const T* extra_params, const T uu, const T vv,
+                                T* u, T* v) {
   const T omega = extra_params[0];
 
-  const T radius = ceres::sqrt(u * u + v * v);
-  T radial;
-  const T kEpsilon = T(1e-6);  // Chosen arbitrarily.
-  if (radius < kEpsilon) {
+  // Chosen arbitrarily.
+  const T kEpsilon = T(1e-4);
+
+  const T radius2 = uu * uu + vv * vv;
+  const T omega2 = omega * omega;
+
+  T factor;
+  if (omega2 < kEpsilon) {
     // Derivation of this case with Matlab:
     // syms radius omega;
     // factor(radius) = atan(radius * 2 * tan(omega / 2)) / ...
     //                  (radius * omega);
-    // limit(factor, radius, 0, 'right')
-    radial = (T(2) * ceres::tan(omega / T(2))) / omega;
+    // simplify(taylor(factor, omega, 'order', 3))
+    factor = (omega2 * radius2) / T(3) - omega2 / T(12) + T(1);
+  } else if (radius2 < kEpsilon) {
+    // Derivation of this case with Matlab:
+    // syms radius omega;
+    // factor(radius) = atan(radius * 2 * tan(omega / 2)) / ...
+    //                  (radius * omega);
+    // simplify(taylor(factor, radius, 'order', 3))
+    const T tan_half_omega = ceres::tan(omega / T(2));
+    factor = (T(-2) * tan_half_omega *
+              (T(4) * radius2 * tan_half_omega * tan_half_omega - T(3))) /
+             (T(3) * omega);
   } else {
+    const T radius = ceres::sqrt(radius2);
     const T numerator = ceres::atan(radius * T(2) * ceres::tan(omega / T(2)));
-    radial = numerator / (radius * omega);
+    factor = numerator / (radius * omega);
   }
 
-  *du = u * radial - u;
-  *dv = v * radial - v;
+  *u = uu * factor;
+  *v = vv * factor;
 }
 
 template <typename T>
-void FOVCameraModel::Undistortion(const T* extra_params, const T u, const T v,
-                                  T* du, T* dv) {
-  const T omega = extra_params[0];
+void FOVCameraModel::Undistortion(const T* extra_params, const T uu, const T vv,
+                                  T* u, T* v) {
+  T omega = extra_params[0];
 
-  const T radius = ceres::sqrt(u * u + v * v);
-  T radial;
-  const T kEpsilon = T(1e-6);  // Chosen arbitrarily.
-  if (radius < kEpsilon) {
+  // Chosen arbitrarily.
+  const T kEpsilon = T(1e-4);
+
+  const T radius2 = uu * uu + vv * vv;
+  const T omega2 = omega * omega;
+
+  T factor;
+  if (omega2 < kEpsilon) {
     // Derivation of this case with Matlab:
     // syms radius omega;
     // factor(radius) = tan(radius * omega) / ...
     //                  (radius * 2*tan(omega/2));
-    // limit(factor, radius, 0, 'right')
-    radial = omega / (T(2) * ceres::tan(omega / T(2)));
+    // simplify(taylor(factor, omega, 'order', 3))
+    factor = (omega2 * radius2) / T(3) - omega2 / T(12) + T(1);
+  } else if (radius2 < kEpsilon) {
+    // Derivation of this case with Matlab:
+    // syms radius omega;
+    // factor(radius) = tan(radius * omega) / ...
+    //                  (radius * 2*tan(omega/2));
+    // simplify(taylor(factor, radius, 'order', 3))
+    factor = (omega * (omega * omega * radius2 + T(3))) /
+             (T(6) * ceres::tan(omega / T(2)));
   } else {
+    const T radius = ceres::sqrt(radius2);
     const T numerator = ceres::tan(radius * omega);
-    radial = numerator / (radius * T(2) * ceres::tan(omega / T(2)));
+    factor = numerator / (radius * T(2) * ceres::tan(omega / T(2)));
   }
 
-  *du = u * radial - u;
-  *dv = v * radial - v;
+  *u = uu * factor;
+  *v = vv * factor;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

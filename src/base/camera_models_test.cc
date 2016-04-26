@@ -110,4 +110,8 @@ BOOST_AUTO_TEST_CASE(TestFullOpenCV) {
 BOOST_AUTO_TEST_CASE(TestFOV) {
   std::vector<double> params = {651.123, 655.123, 386.123, 511.123, 0.9};
   TestModel<FOVCameraModel>(params);
+  params[4] = 0;
+  TestModel<FOVCameraModel>(params);
+  params[4] = 1e-8;
+  TestModel<FOVCameraModel>(params);
 }
