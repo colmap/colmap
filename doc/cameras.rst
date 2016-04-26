@@ -19,9 +19,11 @@ model that is complex enough to model the distortion effects:
   estimate the parameters, if you share the intrinsics for multiple images. Note
   that the automatic estimation of parameters will most likely fail, if every
   image has a separate set of intrinsic parameters.
-- *OpenCVFisheyeCameraModel*: Use this camera model for fisheye lenses and note
-  that all other models are not really capable of modeling the distortion
-  effects of fisheye lenses.
+- *SimpleRadialFisheyeCameraModel*, *RadialFisheyeCameraModel*,
+  *OpenCVFisheyeCameraModel*, *FOVCameraModel*: Use these camera models for
+  fisheye lenses and note that all other models are not really capable of
+  modeling the distortion effects of fisheye lenses. The *FOVCameraModel* is
+  used by Google Project Tango (make sure to not initialize `omega` to zero).
 
 You can inspect the estimated intrinsic parameters by double-clicking specific
 images in the model viewer or by exporting the model and opening the
