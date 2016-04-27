@@ -1,0 +1,3 @@
+COLMAP 1.0 (4/4/2016)
+---------------------
+- Initial release of COLMAP.
