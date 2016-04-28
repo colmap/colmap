@@ -5,6 +5,9 @@ if(NOT IS_MSVC)
 endif()
 
 if(CUDA_ENABLED)
+    # Fix for Ubuntu 16.04.
+    add_definitions("-D_FORCE_INLINES")
+
     if(CUDA_VERSION_MAJOR LESS 7)
         list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_11,code=sm_11)
         list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_12,code=sm_12)
