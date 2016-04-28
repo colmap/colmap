@@ -26,7 +26,7 @@
 
 namespace colmap {
 
-extern thread_local std::mt19937* rand_PRNG;
+extern thread_local std::mt19937* PRNG;
 
 static const unsigned kRandomPRNGSeed = std::numeric_limits<unsigned>::max();
 
@@ -48,6 +48,12 @@ T RandomInteger(const T min, const T max);
 template <typename T>
 T RandomReal(const T min, const T max);
 
+// Generate Gaussian distributed random real number.
+//
+// This implementation is unbiased and thread-safe in contrast to `rand()`.
+template <typename T>
+T RandomGaussian(const T mean, const T stddev);
+
 // Fisher-Yates shuffling.
 //
 // Note that the vector may not contain more values than UINT32_MAX. This
@@ -66,24 +72,34 @@ void Shuffle(const uint32_t num_to_shuffle, std::vector<T>* elems);
 
 template <typename T>
 T RandomInteger(const T min, const T max) {
-  if (rand_PRNG == nullptr) {
+  if (PRNG == nullptr) {
     SetPRNGSeed();
   }
 
   std::uniform_int_distribution<T> distribution(min, max);
 
-  return distribution(*rand_PRNG);
+  return distribution(*PRNG);
 }
 
 template <typename T>
 T RandomReal(const T min, const T max) {
-  if (rand_PRNG == nullptr) {
+  if (PRNG == nullptr) {
     SetPRNGSeed();
   }
 
   std::uniform_real_distribution<T> distribution(min, max);
 
-  return distribution(*rand_PRNG);
+  return distribution(*PRNG);
+}
+
+template <typename T>
+T RandomGaussian(const T mean, const T stddev) {
+  if (PRNG == nullptr) {
+    SetPRNGSeed();
+  }
+
+  std::normal_distribution<T> distribution(mean, stddev);
+  return distribution(*PRNG);
 }
 
 template <typename T>

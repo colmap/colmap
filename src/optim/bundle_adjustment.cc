@@ -27,7 +27,6 @@
 #include "base/cost_functions.h"
 #include "base/pose.h"
 #include "base/projection.h"
-#include "ext/ANNfloat/ANN.h"
 #include "ext/PBA/pba.h"
 #include "util/logging.h"
 #include "util/misc.h"

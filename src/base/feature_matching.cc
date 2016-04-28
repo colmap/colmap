@@ -27,11 +27,10 @@
 #include "base/camera_models.h"
 #include "base/database.h"
 #include "base/gps.h"
-#include "base/vocabulary_tree.h"
 #include "estimators/essential_matrix.h"
 #include "estimators/two_view_geometry.h"
-#include "ext/ANNfloat/ANN.h"
 #include "optim/ransac.h"
+#include "retrieval/visual_index.h"
 #include "util/misc.h"
 
 namespace colmap {
@@ -771,8 +770,8 @@ void SequentialFeatureMatcher::DoMatching() {
     return;
   }
 
-  VocabularyTree vocab_tree;
-  vocab_tree.Read(sequential_options_.vocab_tree_path);
+  retrieval::VisualIndex visual_index;
+  visual_index.Read(sequential_options_.vocab_tree_path);
 
   for (size_t i = 0; i < ordered_images.size(); ++i) {
     if (IsStopped()) {
@@ -788,16 +787,20 @@ void SequentialFeatureMatcher::DoMatching() {
                      ordered_images.size()
               << std::flush;
 
-    const auto descritpors = database_.ReadDescriptors(image.ImageId());
-    vocab_tree.Index(image.ImageId(), descritpors);
+    retrieval::VisualIndex::Desc descriptors =
+        database_.ReadDescriptors(image.ImageId());
+    visual_index.Add(retrieval::VisualIndex::IndexOptions(), image.ImageId(),
+                     descriptors);
 
     PrintElapsedTime(timer);
   }
 
-  vocab_tree.Prepare();
+  visual_index.Prepare();
 
-  const size_t loop_detection_num_images = std::min<size_t>(
-      sequential_options_.loop_detection_num_images, ordered_images.size());
+  retrieval::VisualIndex::QueryOptions query_options;
+  query_options.max_num_images = sequential_options_.loop_detection_num_images;
+
+  std::vector<retrieval::ImageScore> image_scores;
 
   for (size_t i = 0; i < ordered_images.size();
        i += sequential_options_.loop_detection_period) {
@@ -814,15 +817,15 @@ void SequentialFeatureMatcher::DoMatching() {
                      ordered_images.size()
               << std::flush;
 
-    auto descriptors = database_.ReadDescriptors(image.ImageId());
+    retrieval::VisualIndex::Desc descriptors =
+        database_.ReadDescriptors(image.ImageId());
     descriptors_cache_[image.ImageId()] = descriptors;
 
-    const auto retrievals =
-        vocab_tree.Retrieve(descriptors, loop_detection_num_images);
+    visual_index.Query(query_options, descriptors, &image_scores);
 
     image_pairs.clear();
-    for (const auto retrieval : retrievals) {
-      image_pairs.emplace_back(image.ImageId(), retrieval.first);
+    for (const auto image_score : image_scores) {
+      image_pairs.emplace_back(image.ImageId(), image_score.image_id);
     }
 
     MatchImagePairs(image_pairs);
@@ -855,8 +858,8 @@ void VocabTreeFeatureMatcher::DoMatching() {
 
   std::vector<std::pair<image_t, image_t>> image_pairs;
 
-  VocabularyTree vocab_tree;
-  vocab_tree.Read(vocab_tree_options_.vocab_tree_path);
+  retrieval::VisualIndex visual_index;
+  visual_index.Read(vocab_tree_options_.vocab_tree_path);
 
   for (size_t i = 0; i < ordered_images.size(); ++i) {
     if (IsStopped()) {
@@ -872,16 +875,20 @@ void VocabTreeFeatureMatcher::DoMatching() {
                      ordered_images.size()
               << std::flush;
 
-    const auto descritpors = database_.ReadDescriptors(image.ImageId());
-    vocab_tree.Index(image.ImageId(), descritpors);
+    retrieval::VisualIndex::Desc descriptors =
+        database_.ReadDescriptors(image.ImageId());
+    visual_index.Add(retrieval::VisualIndex::IndexOptions(), image.ImageId(),
+                     descriptors);
 
     PrintElapsedTime(timer);
   }
 
-  vocab_tree.Prepare();
+  visual_index.Prepare();
 
-  const size_t num_images =
-      std::min<image_t>(vocab_tree_options_.num_images, ordered_images.size());
+  retrieval::VisualIndex::QueryOptions query_options;
+  query_options.max_num_images = vocab_tree_options_.num_images;
+
+  std::vector<retrieval::ImageScore> image_scores;
 
   for (size_t i = 0; i < ordered_images.size(); ++i) {
     if (IsStopped()) {
@@ -897,14 +904,15 @@ void VocabTreeFeatureMatcher::DoMatching() {
                      ordered_images.size()
               << std::flush;
 
-    auto descriptors = database_.ReadDescriptors(image.ImageId());
+    retrieval::VisualIndex::Desc descriptors =
+        database_.ReadDescriptors(image.ImageId());
     descriptors_cache_[image.ImageId()] = descriptors;
 
-    const auto retrievals = vocab_tree.Retrieve(descriptors, num_images);
+    visual_index.Query(query_options, descriptors, &image_scores);
 
     image_pairs.clear();
-    for (const auto retrieval : retrievals) {
-      image_pairs.emplace_back(image.ImageId(), retrieval.first);
+    for (const auto image_score : image_scores) {
+      image_pairs.emplace_back(image.ImageId(), image_score.image_id);
     }
 
     MatchImagePairs(image_pairs);
@@ -926,8 +934,6 @@ SpatialFeatureMatcher::SpatialFeatureMatcher(
 }
 
 void SpatialFeatureMatcher::DoMatching() {
-  using namespace ANNfloat;
-
   PrintHeading1("Spatial feature matching");
 
   std::vector<Image> ordered_images;
@@ -949,16 +955,17 @@ void SpatialFeatureMatcher::DoMatching() {
 
   GPSTransform gps_transform;
 
-  int num_locations = 0;
-  ANNpointArray locations =
-      annAllocPts(static_cast<int>(ordered_images.size()), 3);
+  size_t num_locations = 0;
+  Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor> location_matrix(
+      ordered_images.size(), 3);
+
   std::vector<size_t> location_idxs;
   location_idxs.reserve(ordered_images.size());
 
   std::vector<Eigen::Vector3d> ells(1);
 
-  for (size_t i = 0; i < ordered_images.size(); ++i) {
-    const auto& image = ordered_images[i];
+  for (size_t idx = 0; idx < ordered_images.size(); ++idx) {
+    const auto& image = ordered_images[idx];
 
     if ((image.TvecPrior(0) == 0 && image.TvecPrior(1) == 0 &&
          spatial_options_.ignore_z) ||
@@ -967,7 +974,7 @@ void SpatialFeatureMatcher::DoMatching() {
       continue;
     }
 
-    location_idxs.push_back(i);
+    location_idxs.push_back(idx);
 
     if (spatial_options_.is_gps) {
       ells[0](0) = image.TvecPrior(0);
@@ -976,13 +983,15 @@ void SpatialFeatureMatcher::DoMatching() {
 
       const auto xyzs = gps_transform.EllToXYZ(ells);
 
-      locations[num_locations][0] = static_cast<float>(xyzs[0](0));
-      locations[num_locations][1] = static_cast<float>(xyzs[0](1));
-      locations[num_locations][2] = static_cast<float>(xyzs[0](2));
+      location_matrix(num_locations, 0) = static_cast<float>(xyzs[0](0));
+      location_matrix(num_locations, 1) = static_cast<float>(xyzs[0](1));
+      location_matrix(num_locations, 2) = static_cast<float>(xyzs[0](2));
     } else {
-      locations[num_locations][0] = static_cast<float>(image.TvecPrior(0));
-      locations[num_locations][1] = static_cast<float>(image.TvecPrior(1));
-      locations[num_locations][2] = static_cast<float>(
+      location_matrix(num_locations, 0) =
+          static_cast<float>(image.TvecPrior(0));
+      location_matrix(num_locations, 1) =
+          static_cast<float>(image.TvecPrior(1));
+      location_matrix(num_locations, 2) = static_cast<float>(
           spatial_options_.ignore_z ? 0 : image.TvecPrior(2));
     }
 
@@ -997,37 +1006,65 @@ void SpatialFeatureMatcher::DoMatching() {
 
   timer.Restart();
 
-  std::cout << "Building hierarchical tree" << std::flush;
-  ANNkd_tree pose_kdtree(locations, num_locations, 3);
+  std::cout << "Building search index..." << std::flush;
+
+  flann::Matrix<float> locations(location_matrix.data(), num_locations,
+                                 location_matrix.cols());
+
+  flann::AutotunedIndexParams index_params;
+  index_params["target_precision"] = 0.99f;
+  flann::AutotunedIndex<flann::L2<float>> search_index(index_params);
+  search_index.buildIndex(locations);
 
   PrintElapsedTime(timer);
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Searching spatial index
+  //////////////////////////////////////////////////////////////////////////////
+
+  timer.Restart();
+
+  std::cout << "Searching for nearest neighbors..." << std::flush;
+
+  const int knn =
+      std::min<int>(spatial_options_.max_num_neighbors, num_locations);
+
+  Eigen::Matrix<size_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+      index_matrix(num_locations, knn);
+  flann::Matrix<size_t> indices(index_matrix.data(), num_locations, knn);
+
+  Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+      distance_matrix(num_locations, knn);
+  flann::Matrix<float> distances(distance_matrix.data(), num_locations, knn);
+
+  flann::SearchParams search_params(flann::FLANN_CHECKS_AUTOTUNED);
+  if (options_.num_threads == ThreadPool::kMaxNumThreads) {
+    search_params.cores = std::thread::hardware_concurrency();
+  } else {
+    search_params.cores = options_.num_threads;
+  }
+  if (search_params.cores <= 0) {
+    search_params.cores = 1;
+  }
+
+  search_index.knnSearch(locations, indices, distances, knn, search_params);
 
   //////////////////////////////////////////////////////////////////////////////
   // Matching
   //////////////////////////////////////////////////////////////////////////////
 
-  const int k = std::min(spatial_options_.max_num_neighbors, num_locations);
-
   const float max_distance = static_cast<float>(spatial_options_.max_distance *
                                                 spatial_options_.max_distance);
 
-  ANNidxArray nn_idxs = new ANNidx[k];
-  ANNdistArray nn_dists = new ANNdist[k];
-
   std::vector<std::pair<image_t, image_t>> image_pairs;
-  image_pairs.reserve(static_cast<size_t>(k));
+  image_pairs.reserve(static_cast<size_t>(knn));
 
-  for (int i = 0; i < num_locations; ++i) {
+  for (size_t i = 0; i < num_locations; ++i) {
     if (IsStopped()) {
       return;
     }
 
     timer.Restart();
-
-    const size_t idx = location_idxs[i];
-    const auto& image = ordered_images[idx];
-
-    pose_kdtree.annkSearch(locations[i], k, nn_idxs, nn_dists);
 
     std::cout << boost::format("Matching image [%d/%d]") % (i + 1) %
                      num_locations
@@ -1035,28 +1072,28 @@ void SpatialFeatureMatcher::DoMatching() {
 
     image_pairs.clear();
 
-    for (int j = 0; j < k; ++j) {
+    for (int j = 0; j < knn; ++j) {
       // Query equals result.
-      if (nn_idxs[j] == i) {
+      if (index_matrix(i, j) == i) {
         continue;
       }
 
-      if (nn_dists[j] > max_distance) {
+      if (distance_matrix(i, j) > max_distance) {
         break;
       }
 
-      const size_t nn_idx = location_idxs[nn_idxs[j]];
-      image_pairs.emplace_back(image.ImageId(),
-                               ordered_images[nn_idx].ImageId());
+      const size_t idx = location_idxs[i];
+      const Image& image = ordered_images.at(idx);
+
+      const size_t nn_idx = location_idxs.at(index_matrix(i, j));
+      const Image& nn_image = ordered_images.at(nn_idx);
+
+      image_pairs.emplace_back(image.ImageId(), nn_image.ImageId());
     }
 
     MatchImagePairs(image_pairs);
     PrintElapsedTime(timer);
   }
-
-  annDeallocPts(locations);
-  delete[] nn_idxs;
-  delete[] nn_dists;
 }
 
 ImagePairsFeatureMatcher::ImagePairsFeatureMatcher(

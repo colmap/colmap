@@ -21,16 +21,17 @@
 #include <numeric>
 #include <vector>
 
+#include "util/math.h"
 #include "util/random.h"
 
 using namespace colmap;
 
 BOOST_AUTO_TEST_CASE(TestPRNGSeed) {
-  BOOST_CHECK(rand_PRNG == nullptr);
+  BOOST_CHECK(PRNG == nullptr);
   SetPRNGSeed();
-  BOOST_CHECK(rand_PRNG != nullptr);
+  BOOST_CHECK(PRNG != nullptr);
   SetPRNGSeed(0);
-  BOOST_CHECK(rand_PRNG != nullptr);
+  BOOST_CHECK(PRNG != nullptr);
 }
 
 BOOST_AUTO_TEST_CASE(TestRepeatability) {
@@ -74,6 +75,19 @@ BOOST_AUTO_TEST_CASE(TestRandomReal) {
     BOOST_CHECK_GE(RandomReal(-100.0, 100.0), -100.0);
     BOOST_CHECK_LE(RandomReal(-100.0, 100.0), 100.0);
   }
+}
+
+BOOST_AUTO_TEST_CASE(TestRandomGaussian) {
+  SetPRNGSeed(0);
+  const double kMean = 1.0;
+  const double kSigma = 1.0;
+  const size_t kNumValues = 100000;
+  std::vector<double> values;
+  for (size_t i = 0; i < kNumValues; ++i) {
+    values.push_back(RandomGaussian(kMean, kSigma));
+  }
+  BOOST_CHECK_LE(std::abs(Mean(values) - kMean), 1e-3);
+  BOOST_CHECK_LE(std::abs(StdDev(values) - kSigma), 1e-3);
 }
 
 BOOST_AUTO_TEST_CASE(TestShuffleNone) {

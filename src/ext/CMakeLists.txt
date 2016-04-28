@@ -8,12 +8,9 @@ if(NOT IS_MSVC)
     string(REPLACE "-Wall" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
-add_subdirectory(ANNchar)
-add_subdirectory(ANNfloat)
 add_subdirectory(PBA)
 add_subdirectory(SiftGPU)
 add_subdirectory(SQLite)
 add_subdirectory(VLFeat)
-add_subdirectory(VocabLib)
 
 COLMAP_UNSET_THIRD_PARTY_FOLDER()

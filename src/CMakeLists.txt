@@ -24,14 +24,12 @@ set(COLMAP_LIBRARIES
     util
     estimators
     optim
+    retrieval
     base
     util
     pba
     sqlite3
     sift_gpu
-    vocab_lib
-    ann_char
-    ann_float
     vlfeat
     ${Boost_LIBRARIES}
     ${GLOG_LIBRARIES}
@@ -52,6 +50,7 @@ add_subdirectory(estimators)
 add_subdirectory(exe)
 add_subdirectory(ext)
 add_subdirectory(optim)
+add_subdirectory(retrieval)
 add_subdirectory(sfm)
 add_subdirectory(tools)
 add_subdirectory(ui)
@@ -84,12 +83,10 @@ endmacro(ADD_SOURCE_DIR)
 
 ADD_SOURCE_DIR(base BASE_SRC *.h *.cc)
 ADD_SOURCE_DIR(exe EXE_SRC *.h *.cc)
-ADD_SOURCE_DIR(ext/ANNchar EXT_ANNCHAR_SRC *.h *.cpp)
-ADD_SOURCE_DIR(ext/ANNfloat EXT_ANNFLOAT_SRC *.h *.cpp)
+ADD_SOURCE_DIR(ext/FLANN EXT_FLANN_SRC *.h *.cpp *.hpp *.cu)
 ADD_SOURCE_DIR(ext/PBA EXT_PBA_SRC *.h *.cpp *.cu)
 ADD_SOURCE_DIR(ext/SiftGPU EXT_SIFTGPU_SRC *.h *.cpp *.cu)
 ADD_SOURCE_DIR(ext/SQLite EXT_SQLITE_SRC *.h *.c)
-ADD_SOURCE_DIR(ext/VocabLib EXT_VOCABLIB_SRC *.h *.c *.cpp)
 ADD_SOURCE_DIR(optim OPTIM_SRC *.h *.cc)
 ADD_SOURCE_DIR(sfm SFM_SRC *.h *.cc)
 ADD_SOURCE_DIR(tools TOOLS_SRC *.h *.cc)
@@ -103,11 +100,10 @@ add_library(
     ${COLMAP_SRC_ROOT_FOLDER}
     ${BASE_SRC}
     ${EXE_SRC}
-    ${EXT_ANNCHAR_SRC}
-    ${EXT_ANNFLOAT_SRC}
+    ${EXT_FLANN_SRC}
+    ${EXT_PBA_SRC}
     ${EXT_SIFTGPU_SRC}
     ${EXT_SQLITE_SRC}
-    ${EXT_VOCABLIB_SRC}
     ${OPTIM_SRC}
     ${SFM_SRC}
     ${TOOLS_SRC}

@@ -18,12 +18,12 @@
 
 namespace colmap {
 
-thread_local std::mt19937* rand_PRNG = nullptr;
+thread_local std::mt19937* PRNG = nullptr;
 
 void SetPRNGSeed(unsigned seed) {
   // Overwrite existing PRNG
-  if (rand_PRNG != nullptr) {
-    delete rand_PRNG;
+  if (PRNG != nullptr) {
+    delete PRNG;
   }
 
   if (seed == kRandomPRNGSeed) {
@@ -31,7 +31,7 @@ void SetPRNGSeed(unsigned seed) {
         std::chrono::system_clock::now().time_since_epoch().count());
   }
 
-  rand_PRNG = new std::mt19937(seed);
+  PRNG = new std::mt19937(seed);
 }
 
 }  // namespace colmap
