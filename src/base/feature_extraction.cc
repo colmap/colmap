@@ -553,7 +553,7 @@ SiftCPUFeatureExtractor::DoExtractionKernel(const Camera camera,
           level_keypoints.back()[level_idx].scale *= inv_scale_xy;
         }
 
-        Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic> desc(1, 128);
+        Eigen::MatrixXf desc(1, 128);
         vl_sift_calc_keypoint_descriptor(sift.get(), desc.data(),
                                          &vl_keypoints[i], angles[o]);
         if (sift_options.normalization == SIFTOptions::Normalization::L2) {

@@ -154,6 +154,8 @@ ImportFeaturesWidget::ImportFeaturesWidget(QWidget* parent,
 }
 
 void ImportFeaturesWidget::Run() {
+  WriteOptions();
+
   if (!boost::filesystem::is_directory(import_path_)) {
     QMessageBox::critical(this, "", tr("Path is not a directory."));
     return;
@@ -324,7 +326,7 @@ void FeatureExtractionWidget::Extract() {
     return;
   }
 
-  ((ExtractionWidget*)tab_widget_->currentWidget())->Run();
+  static_cast<ExtractionWidget*>(tab_widget_->currentWidget())->Run();
 
   camera_params_text_->setText(old_camera_params_text);
 }
