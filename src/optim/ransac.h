@@ -235,11 +235,12 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
 
   estimator.Residuals(X, Y, report.model, &residuals);
 
-  report.inlier_mask.resize(num_samples, false);
-
+  report.inlier_mask.resize(num_samples);
   for (size_t i = 0; i < residuals.size(); ++i) {
     if (residuals[i] <= max_residual) {
       report.inlier_mask[i] = true;
+    } else {
+      report.inlier_mask[i] = false;
     }
   }
 
