@@ -75,6 +75,7 @@ struct MatchOptions : public BaseOptions {
   double min_inlier_ratio;
   int min_num_inliers;
   bool multiple_models;
+  bool guided_matching;
 };
 
 struct ExhaustiveMatchOptions : public BaseOptions {

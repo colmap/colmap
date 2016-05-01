@@ -295,9 +295,9 @@ section (`use_pba=true`).
 Ideally, the reconstruction works fine and all images are registered. If this is
 not the case, it is recommended to:
 
-- Perform additional matching. For best results, use exhaustive matching,
-  increase the number of nearest neighbors in vocabulary tree matching, or
-  increase the overlap in sequential matching, etc.
+- Perform additional matching. For best results, use exhaustive matching, enable
+  guided matching, increase the number of nearest neighbors in vocabulary tree
+  matching, or increase the overlap in sequential matching, etc.
 
 - Manually choose an initial image pair, if COLMAP fails to initialize. Choose
   ``Reconstruction > Reconstruction options > Init`` and set images from the

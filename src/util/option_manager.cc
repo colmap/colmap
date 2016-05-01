@@ -154,6 +154,7 @@ void MatchOptions::Reset() {
   min_inlier_ratio = options.min_inlier_ratio;
   min_num_inliers = options.min_num_inliers;
   multiple_models = options.multiple_models;
+  guided_matching = options.guided_matching;
 }
 
 bool MatchOptions::Check() {
@@ -190,6 +191,7 @@ FeatureMatcher::Options MatchOptions::Options() const {
   options.min_inlier_ratio = min_inlier_ratio;
   options.min_num_inliers = min_num_inliers;
   options.multiple_models = multiple_models;
+  options.guided_matching = guided_matching;
   return options;
 }
 
@@ -788,6 +790,7 @@ void OptionManager::AddMatchOptions() {
   ADD_OPTION_DEFAULT(MatchOptions, match_options, min_inlier_ratio);
   ADD_OPTION_DEFAULT(MatchOptions, match_options, min_num_inliers);
   ADD_OPTION_DEFAULT(MatchOptions, match_options, multiple_models);
+  ADD_OPTION_DEFAULT(MatchOptions, match_options, guided_matching);
 }
 
 void OptionManager::AddExhaustiveMatchOptions() {

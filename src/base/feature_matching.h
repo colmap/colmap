@@ -17,6 +17,7 @@
 #ifndef COLMAP_SRC_BASE_FEATURE_MATCHING_H_
 #define COLMAP_SRC_BASE_FEATURE_MATCHING_H_
 
+#include <array>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -85,6 +86,9 @@ class FeatureMatcher : public QThread {
     // Whether to attempt to estimate multiple models per image pair.
     bool multiple_models = false;
 
+    // Whether to perform guided matching, if geometric verification succeeds.
+    bool guided_matching = false;
+
     void Check() const;
   };
 
@@ -116,8 +120,17 @@ class FeatureMatcher : public QThread {
   const FeatureDescriptors& CacheDescriptors(const image_t image_id);
   void CleanCache(const std::unordered_set<image_t>& keep_image_ids);
 
+  void UploadKeypoints(const int index, const image_t image_id);
+  void UploadDescriptors(const int index, const image_t image_id);
+
+  void ExtractMatchesFromBuffer(const size_t num_matches,
+                                FeatureMatches* matches) const;
+
   void MatchImagePairs(
       const std::vector<std::pair<image_t, image_t>>& image_pairs);
+  void MatchImagePairGuided(
+      const image_t image_id1, const image_t image_id2,
+      TwoViewGeometry* two_view_geometry);
   static TwoViewGeometry VerifyImagePair(const GeometricVerificationData data,
                                          const bool multiple_models);
 
@@ -138,10 +151,19 @@ class FeatureMatcher : public QThread {
   SiftMatchGPU* sift_match_gpu_;
   ThreadPool* verifier_thread_pool_;
 
+  // All cameras and images in the database, loaded after calling SetupData.
   std::unordered_map<camera_t, Camera> cameras_;
   std::unordered_map<image_t, Image> images_;
+
+  // The cached feature data.
   std::unordered_map<image_t, FeatureKeypoints> keypoints_cache_;
   std::unordered_map<image_t, FeatureDescriptors> descriptors_cache_;
+
+  // The previously uploaded keypoints and descriptors to the GPU.
+  std::array<image_t, 2> prev_uploaded_image_ids_;
+
+  // Buffer for feature match indices.
+  std::vector<int> matches_buffer_;
 };
 
 // Exhaustively match images by processing each block in the exhaustive match

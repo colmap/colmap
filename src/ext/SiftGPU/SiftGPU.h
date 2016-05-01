@@ -323,11 +323,11 @@ public:
 	//the function returns the number of matches.
 	SIFTGPU_EXPORT virtual int  GetGuidedSiftMatch(
 					int max_match, int match_buffer[][2], //buffer to recieve
-					float H[3][3],			//homography matrix,  (Set NULL to skip)
-					float F[3][3],			//fundamental matrix, (Set NULL to skip)
+					float* H,			//homography matrix,  (Set NULL to skip)
+					float* F,			//fundamental matrix, (Set NULL to skip)
 					float distmax = 0.7,	//maximum distance of sift descriptor
 					float ratiomax = 0.8,   //maximum distance ratio
-					float hdistmax = 32,    //threshold for |H * x1 - x2|_1
+					float hdistmax = 32,    //threshold for |H * x1 - x2|_2
 					float fdistmax = 16,    //threshold for sampson error of x2'FX1
 					int mutual_best_match = 1); //mutual best or one way
 

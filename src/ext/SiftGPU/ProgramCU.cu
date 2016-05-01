@@ -1570,9 +1570,10 @@ void __global__ MultiplyDescriptorG_Kernel(int* d_result, int num1, int num2, in
 			x[0] = H.mat[0][0] * locx + H.mat[0][1] * locy + H.mat[0][2];
 			x[1] = H.mat[1][0] * locx + H.mat[1][1] * locy + H.mat[1][2];
 			x[2] = H.mat[2][0] * locx + H.mat[2][1] * locy + H.mat[2][2];
-			diff[0] = fabs(FDIV(x[0], x[2]) - loc2.x);
-			diff[1] = fabs(FDIV(x[1], x[2]) - loc2.y);
-			if(diff[0] < hdistmax && diff[1] < hdistmax)
+			diff[0] = FDIV(x[0], x[2]) - loc2.x;
+			diff[1] = FDIV(x[1], x[2]) - loc2.y;
+      float hdist = diff[0] * diff[0] + diff[1] * diff[1];
+			if(hdist < hdistmax)
 			{
 				//check fundamental matrix
 				float fx1[3], ftx2[3], x2fx1, se;
@@ -1656,7 +1657,7 @@ void __global__ MultiplyDescriptorG_Kernel(int* d_result, int num1, int num2, in
 
 void ProgramCU::MultiplyDescriptorG(CuTexImage* des1, CuTexImage* des2,
 		CuTexImage* loc1, CuTexImage* loc2, CuTexImage* texDot, CuTexImage* texCRT,
-		float H[3][3], float hdistmax, float F[3][3], float fdistmax)
+		float* H, float hdistmax, float* F, float fdistmax)
 {
 	int num1 = des1->GetImgWidth() / 8;
 	int num2 = des2->GetImgWidth() / 8;

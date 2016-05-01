@@ -11,10 +11,10 @@
 //	documentation for educational, research and non-profit purposes, without
 //	fee, and without a written agreement is hereby granted, provided that the
 //	above copyright notice and the following paragraph appear in all copies.
-//	
+//
 //	The University of North Carolina at Chapel Hill make no representations
 //	about the suitability of this software for any purpose. It is provided
-//	'as is' without express or implied warranty. 
+//	'as is' without express or implied warranty.
 //
 //	Please send BUG REPORTS to ccwu@cs.unc.edu
 //
@@ -48,9 +48,9 @@ SiftMatchGL::SiftMatchGL(int max_sift, int use_glsl): SiftMatchGPU()
 	_num_sift[0] = _num_sift[1] = 0;
 	_id_sift[0] = _id_sift[1] = 0;
 	_have_loc[0] = _have_loc[1] = 0;
-	_max_sift = max_sift <=0 ? 4096 : ((max_sift + 31)/ 32 * 32) ; 
+	_max_sift = max_sift <=0 ? 4096 : ((max_sift + 31)/ 32 * 32) ;
 	_pixel_per_sift = 32; //must be 32
-	_sift_num_stripe = 1; 
+	_sift_num_stripe = 1;
 	_sift_per_stripe = 1;
 	_sift_per_row = _sift_per_stripe * _sift_num_stripe;
 	_initialized = 0;
@@ -66,7 +66,7 @@ SiftMatchGL::~SiftMatchGL()
 
 void SiftMatchGL::SetMaxSift(int max_sift)
 {
-	
+
 	max_sift = ((max_sift + 31)/32)*32;
 	if(max_sift > GlobalUtil::_texMaxDimGL) max_sift = GlobalUtil::_texMaxDimGL;
 	if(max_sift > _max_sift)
@@ -86,10 +86,10 @@ void SiftMatchGL::SetMaxSift(int max_sift)
 void SiftMatchGL::AllocateSiftMatch()
 {
 	//parameters, number of sift is limited by the texture size
-	if(_max_sift > GlobalUtil::_texMaxDimGL) _max_sift = GlobalUtil::_texMaxDimGL;	
+	if(_max_sift > GlobalUtil::_texMaxDimGL) _max_sift = GlobalUtil::_texMaxDimGL;
 	///
-	int h = _max_sift / _sift_per_row; 
-	int n = (GlobalUtil::_texMaxDimGL + h - 1) / GlobalUtil::_texMaxDimGL; 
+	int h = _max_sift / _sift_per_row;
+	int n = (GlobalUtil::_texMaxDimGL + h - 1) / GlobalUtil::_texMaxDimGL;
 	if ( n > 1) {_sift_num_stripe *= n; _sift_per_row *= n; }
 
 	//initialize
@@ -124,12 +124,12 @@ void SiftMatchGL::InitSiftMatch()
 	if(GlobalUtil::_GoodOpenGL == 0) return;
 	AllocateSiftMatch();
 	LoadSiftMatchShadersGLSL();
-	_initialized = 1; 
+	_initialized = 1;
 }
 
 
 void SiftMatchGL::SetDescriptors(int index, int num, const unsigned char* descriptors, int id)
-{	
+{
 	if(_initialized == 0) return;
 	if (index > 1) index = 1;
 	if (index < 0) index = 0;
@@ -143,12 +143,12 @@ void SiftMatchGL::SetDescriptors(int index, int num, const unsigned char* descri
 
 	sift_buffer.resize(num * 128 /4);
 	memcpy(&sift_buffer[0], descriptors, 128 * num);
-	_num_sift[index] = num; 
+	_num_sift[index] = num;
 	int w = _sift_per_row * _pixel_per_sift;
-	int h = (num + _sift_per_row  - 1)/ _sift_per_row; 
+	int h = (num + _sift_per_row  - 1)/ _sift_per_row;
 	sift_buffer.resize(w * h * 4, 0);
 	_texDes[index].SetImageSize(w , h);
-	_texDes[index].BindTex(); 
+	_texDes[index].BindTex();
 	if(_sift_num_stripe == 1)
 	{
 		glTexSubImage2D(GlobalUtil::_texTarget, 0, 0, 0, w, h, GL_RGBA,  GL_UNSIGNED_BYTE, &sift_buffer[0]);
@@ -158,7 +158,7 @@ void SiftMatchGL::SetDescriptors(int index, int num, const unsigned char* descri
 		{
 			int ws = _sift_per_stripe * _pixel_per_sift;
 			int x = i * ws;
-			int pos = i * ws * h * 4; 
+			int pos = i * ws * h * 4;
 			glTexSubImage2D(GlobalUtil::_texTarget, 0, x, 0, ws, h, GL_RGBA, GL_UNSIGNED_BYTE, &sift_buffer[pos]);
 		}
 	}
@@ -170,7 +170,7 @@ void SiftMatchGL::SetFeautreLocation(int index, const float* locations, int gap)
 {
 	if(_num_sift[index] <=0) return;
 	int w = _sift_per_row ;
-	int h = (_num_sift[index] + _sift_per_row  - 1)/ _sift_per_row; 
+	int h = (_num_sift[index] + _sift_per_row  - 1)/ _sift_per_row;
 	sift_buffer.resize(_num_sift[index] * 2);
 	if(gap == 0)
 	{
@@ -186,7 +186,7 @@ void SiftMatchGL::SetFeautreLocation(int index, const float* locations, int gap)
 	}
 	sift_buffer.resize(w * h * 2, 0);
 	_texLoc[index].SetImageSize(w , h);
-	_texLoc[index].BindTex(); 
+	_texLoc[index].BindTex();
 	if(_sift_num_stripe == 1)
 	{
 		glTexSubImage2D(GlobalUtil::_texTarget, 0, 0, 0, w, h, GL_LUMINANCE_ALPHA , GL_FLOAT , &sift_buffer[0]);
@@ -196,7 +196,7 @@ void SiftMatchGL::SetFeautreLocation(int index, const float* locations, int gap)
 		{
 			int ws = _sift_per_stripe;
 			int x = i * ws;
-			int pos = i * ws * h * 2; 
+			int pos = i * ws * h * 2;
 			glTexSubImage2D(GlobalUtil::_texTarget, 0, x, 0, ws, h, GL_LUMINANCE_ALPHA , GL_FLOAT, &sift_buffer[pos]);
 		}
 	}
@@ -205,7 +205,7 @@ void SiftMatchGL::SetFeautreLocation(int index, const float* locations, int gap)
 }
 
 void SiftMatchGL::SetDescriptors(int index, int num, const float* descriptors, int id)
-{	
+{
 	if(_initialized == 0) return;
 	if (index > 1) index = 1;
 	if (index < 0) index = 0;
@@ -213,7 +213,7 @@ void SiftMatchGL::SetDescriptors(int index, int num, const float* descriptors, i
 
 	//the same feature is already set
 	if(id !=-1 && id == _id_sift[index]) return ;
-	_id_sift[index] = id; 
+	_id_sift[index] = id;
 
 	if(num > _max_sift) num = _max_sift;
 
@@ -223,9 +223,9 @@ void SiftMatchGL::SetDescriptors(int index, int num, const float* descriptors, i
 	{
 		pub[i] = int(512 * descriptors[i] + 0.5);
 	}
-	_num_sift[index] = num; 
+	_num_sift[index] = num;
 	int w = _sift_per_row * _pixel_per_sift;
-	int h = (num + _sift_per_row  - 1)/ _sift_per_row; 
+	int h = (num + _sift_per_row  - 1)/ _sift_per_row;
 	sift_buffer.resize(w * h * 4, 0);
 	_texDes[index].SetImageSize(w, h);
 	_texDes[index].BindTex();
@@ -238,7 +238,7 @@ void SiftMatchGL::SetDescriptors(int index, int num, const float* descriptors, i
 		{
 			int ws = _sift_per_stripe * _pixel_per_sift;
 			int x = i * ws;
-			int pos = i * ws * h * 4; 
+			int pos = i * ws * h * 4;
 			glTexSubImage2D(GlobalUtil::_texTarget, 0, x, 0, ws, h, GL_RGBA, GL_UNSIGNED_BYTE, &sift_buffer[pos]);
 		}
 	}
@@ -254,7 +254,7 @@ void SiftMatchGL::LoadSiftMatchShadersGLSL()
 	out <<  "#pragma optionNV(ifcvt none)\n"
 			"#pragma optionNV(unroll all)\n";
 
-    out <<  "#define SIFT_PER_STRIPE " << _sift_per_stripe << ".0\n" 
+    out <<  "#define SIFT_PER_STRIPE " << _sift_per_stripe << ".0\n"
 			"#define PIXEL_PER_SIFT " << _pixel_per_sift << "\n"
 			"uniform sampler2DRect tex1, tex2; uniform vec2	size;\n"
 			"void main()		\n"
@@ -284,7 +284,7 @@ void SiftMatchGL::LoadSiftMatchShadersGLSL()
 			"}"
 		<<	'\0';
 
-	s_multiply = program= new ProgramGLSL(out.str().c_str()); 
+	s_multiply = program= new ProgramGLSL(out.str().c_str());
 
 	_param_multiply_tex1 = glGetUniformLocation(*program, "tex1");
 	_param_multiply_tex2 = glGetUniformLocation(*program, "tex2");
@@ -295,7 +295,7 @@ void SiftMatchGL::LoadSiftMatchShadersGLSL()
     out <<  "#pragma optionNV(ifcvt none)\n"
 			"#pragma optionNV(unroll all)\n";
 
-    out <<  "#define SIFT_PER_STRIPE " << _sift_per_stripe << ".0\n" 
+    out <<  "#define SIFT_PER_STRIPE " << _sift_per_stripe << ".0\n"
 			"#define PIXEL_PER_SIFT " << _pixel_per_sift << "\n"
 			"uniform sampler2DRect tex1, tex2;\n"
 			"uniform sampler2DRect texL1;\n"
@@ -315,19 +315,19 @@ void SiftMatchGL::LoadSiftMatchShadersGLSL()
 			"	vec2 temp_floor2 = floor(temp_div2);\n"
 			"   vec2 index_v = temp_floor2 + vec2(0.5);\n "
 			"   vec2 index_h = vec2(SIFT_PER_STRIPE)* (temp_div2 - temp_floor2);\n"
-			
+
 			//read feature location data
 			"   vec4 tlpos = vec4((index_h + stripe_index * vec2(SIFT_PER_STRIPE)) + 0.5, index_v);\n"
 			"   vec3 loc1 = vec3(texture2DRect(texL1, tlpos.xz).xw, 1.0);\n"
 			"   vec3 loc2 = vec3(texture2DRect(texL2, tlpos.yw).xw, 1.0);\n"
-			
+
 			//check the guiding homography
 			"   vec3 hxloc1 = H* loc1;\n"
-			"   vec2 diff = abs(loc2.xy- (hxloc1.xy/hxloc1.z));\n"
-			"   float disth = max(diff.x, diff.y);\n"
+			"   vec2 diff = loc2.xy- (hxloc1.xy/hxloc1.z);\n"
+			"   float disth = diff.x * diff.x + diff.y * diff.y;\n"
 			"   if(disth > size.z ) {gl_FragColor = vec4(0.0, index, 0.0); return;}\n"
 
-			//check the guiding fundamental 
+			//check the guiding fundamental
 			"   vec3 fx1 = (F * loc1), ftx2 = (loc2 * F);\n"
 			"   float x2tfx1 = dot(loc2, fx1);\n"
 			"   vec4 temp = vec4(fx1.xy, ftx2.xy); \n"
@@ -377,7 +377,7 @@ void SiftMatchGL::LoadSiftMatchShadersGLSL()
 			"	gl_FragColor = vec4(imax, bestv, index);\n"
 			"}"
 		<<  '\0';
-	s_row_max = program= new ProgramGLSL(out.str().c_str()); 
+	s_row_max = program= new ProgramGLSL(out.str().c_str());
 	_param_rowmax_param = glGetUniformLocation(*program, "param");
 
 	out.seekp(ios::beg);
@@ -397,18 +397,18 @@ void SiftMatchGL::LoadSiftMatchShadersGLSL()
 			"	gl_FragColor = vec4(imax, bestv, index);\n"
 			"}"
 		<<  '\0';
-	s_col_max = program =new ProgramGLSL(out.str().c_str()); 
+	s_col_max = program =new ProgramGLSL(out.str().c_str());
 	_param_colmax_param = glGetUniformLocation(*program, "param");
 
 
 }
 
-int  SiftMatchGL::GetGuidedSiftMatch(int max_match, int match_buffer[][2], float H[3][3], float F[3][3],
+int  SiftMatchGL::GetGuidedSiftMatch(int max_match, int match_buffer[][2], float* H, float* F,
 									 float distmax, float ratiomax, float hdistmax, float fdistmax, int mbm)
 {
 
 	int dw = _num_sift[1];
-	int dh = _num_sift[0]; 
+	int dh = _num_sift[0];
 	if(_initialized ==0) return 0;
 	if(dw <= 0 || dh <=0) return 0;
 	if(_have_loc[0] == 0 || _have_loc[1] == 0) return 0;
@@ -440,8 +440,8 @@ int  SiftMatchGL::GetGuidedSiftMatch(int max_match, int match_buffer[][2], float
 	glUniform1i(_param_guided_mult_tex2, 1);
 	glUniform1i(_param_guided_mult_texl1, 2);
 	glUniform1i(_param_guided_mult_texl2, 3);
-	glUniformMatrix3fv(_param_guided_mult_h, 1, GL_TRUE, H[0]);
-	glUniformMatrix3fv(_param_guided_mult_f, 1, GL_TRUE, F[0]);
+	glUniformMatrix3fv(_param_guided_mult_h, 1, GL_TRUE, H);
+	glUniformMatrix3fv(_param_guided_mult_f, 1, GL_TRUE, F);
 	glUniform4fv(_param_guided_mult_param, 1, dot_param);
 
 	_texDot.DrawQuad();
@@ -511,7 +511,7 @@ int SiftMatchGL::GetBestMatch(int max_match, int match_buffer[][2], float distma
 int  SiftMatchGL::GetSiftMatch(int max_match, int match_buffer[][2], float distmax, float ratiomax, int mbm)
 {
 	int dw = _num_sift[1];
-	int dh =  _num_sift[0]; 
+	int dh =  _num_sift[0];
 	if(_initialized ==0) return 0;
 	if(dw <= 0 || dh <=0) return 0;
 
@@ -527,7 +527,7 @@ int  SiftMatchGL::GetSiftMatch(int max_match, int match_buffer[][2], float distm
 	glActiveTexture(GL_TEXTURE1);
 	_texDes[1].BindTex();
 
-	//////////////////	
+	//////////////////
 	//multiply the descriptor matrices
 	s_multiply->UseProgram();
 	//set parameters
@@ -565,25 +565,25 @@ int SiftMatchGPU::_CreateContextGL()
 int SiftMatchGPU::_VerifyContextGL()
 {
 	if(__matcher) return GlobalUtil::_GoodOpenGL;
-	
+
 #ifdef CUDA_SIFTGPU_ENABLED
 
     if(__language >= SIFTMATCH_CUDA) {}
     else if(__language == SIFTMATCH_SAME_AS_SIFTGPU && GlobalUtil::_UseCUDA){}
-    else  GlobalUtil::InitGLParam(0); 
+    else  GlobalUtil::InitGLParam(0);
     if(GlobalUtil::_GoodOpenGL == 0) __language = SIFTMATCH_CUDA;
 
-    if(((__language == SIFTMATCH_SAME_AS_SIFTGPU && GlobalUtil::_UseCUDA) || __language >= SIFTMATCH_CUDA) 
+    if(((__language == SIFTMATCH_SAME_AS_SIFTGPU && GlobalUtil::_UseCUDA) || __language >= SIFTMATCH_CUDA)
         && SiftMatchCU::CheckCudaDevice (GlobalUtil::_DeviceIndex))
     {
 		__language = SIFTMATCH_CUDA;
 		__matcher = new SiftMatchCU(__max_sift);
 	}else
 #else
-    if((__language == SIFTMATCH_SAME_AS_SIFTGPU && GlobalUtil::_UseCUDA) || __language >= SIFTMATCH_CUDA) 
+    if((__language == SIFTMATCH_SAME_AS_SIFTGPU && GlobalUtil::_UseCUDA) || __language >= SIFTMATCH_CUDA)
     {
 	    std::cerr	<< "---------------------------------------------------------------------------\n"
-				    << "CUDA not supported in this binary! To enable it, please use SiftGPU_CUDA_Enable\n" 
+				    << "CUDA not supported in this binary! To enable it, please use SiftGPU_CUDA_Enable\n"
 				    << "Project for VS2005+ or set siftgpu_enable_cuda to 1 in makefile\n"
 				    << "----------------------------------------------------------------------------\n";
     }
@@ -602,12 +602,12 @@ int SiftMatchGPU::_VerifyContextGL()
 
 void* SiftMatchGPU::operator new (size_t  size){
   void * p = malloc(size);
-  if (p == 0)  
+  if (p == 0)
   {
 	  const std::bad_alloc ba;
-	  throw ba; 
+	  throw ba;
   }
-  return p; 
+  return p;
 }
 
 
@@ -623,7 +623,7 @@ void SiftMatchGPU::SetLanguage(int language)
 	if(__matcher) return;
     ////////////////////////
 #ifdef CUDA_SIFTGPU_ENABLED
-	if(language >= SIFTMATCH_CUDA) GlobalUtil::_DeviceIndex = language - SIFTMATCH_CUDA; 
+	if(language >= SIFTMATCH_CUDA) GlobalUtil::_DeviceIndex = language - SIFTMATCH_CUDA;
 #endif
     __language = language > SIFTMATCH_CUDA ? SIFTMATCH_CUDA : language;
 }
@@ -660,7 +660,7 @@ void SiftMatchGPU::SetFeautreLocation(int index, const float* locations, int gap
 	__matcher->SetFeautreLocation(index, locations, gap);
 
 }
-int  SiftMatchGPU::GetGuidedSiftMatch(int max_match, int match_buffer[][2], float H[3][3], float F[3][3], 
+int  SiftMatchGPU::GetGuidedSiftMatch(int max_match, int match_buffer[][2], float* H, float* F,
 				float distmax, float ratiomax, float hdistmax, float fdistmax, int mutual_best_match)
 {
 	if(H == NULL && F == NULL)
@@ -668,7 +668,7 @@ int  SiftMatchGPU::GetGuidedSiftMatch(int max_match, int match_buffer[][2], floa
 		return __matcher->GetSiftMatch(max_match, match_buffer, distmax, ratiomax, mutual_best_match);
 	}else
 	{
-		float Z[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}, ti = (1.0e+20F);
+		float Z[9] = {1, 0, 0, 0, 1, 0, 0, 0, 1}, ti = (1.0e+20F);
 
 		return __matcher->GetGuidedSiftMatch(max_match, match_buffer, H? H : Z, F? F : Z,
 			distmax, ratiomax, H? hdistmax: ti,  F? fdistmax: ti, mutual_best_match);

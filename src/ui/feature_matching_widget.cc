@@ -67,6 +67,7 @@ class FeatureMatchingTab : public OptionsWidget {
                     "min_inlier_ratio", 0, 1, 0.001, 3);
     AddOptionInt(&options_->match_options->min_num_inliers, "min_num_inliers");
     AddOptionBool(&options_->match_options->multiple_models, "multiple_models");
+    AddOptionBool(&options_->match_options->guided_matching, "guided_matching");
 
     AddSpacer();
 
