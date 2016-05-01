@@ -196,6 +196,10 @@ class ParallelBundleAdjuster {
 
   bool Solve(Reconstruction* reconstruction);
 
+  // Check whether PBA is supported for the given reconstruction. If the
+  // reconstruction is not supported, the PBA solver will exit ungracefully.
+  static bool IsReconstructionSupported(const Reconstruction& reconstruction);
+
  private:
   void SetUp(Reconstruction* reconstruction);
   void TearDown(Reconstruction* reconstruction);
