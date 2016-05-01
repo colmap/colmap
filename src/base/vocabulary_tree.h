@@ -18,7 +18,7 @@
 #define COLMAP_SRC_BASE_VOCABULARY_TREE_H_
 
 #include "base/database.h"
-#include "ext/VocabLib/VocabTree.h"
+#include "VocabLib/VocabTree.h"
 
 namespace colmap {
 

@@ -30,7 +30,7 @@
 #include "base/vocabulary_tree.h"
 #include "estimators/essential_matrix.h"
 #include "estimators/two_view_geometry.h"
-#include "ext/ANNfloat/ANN.h"
+#include "ann_float/ANN.h"
 #include "optim/ransac.h"
 #include "util/misc.h"
 
@@ -926,7 +926,7 @@ SpatialFeatureMatcher::SpatialFeatureMatcher(
 }
 
 void SpatialFeatureMatcher::DoMatching() {
-  using namespace ANNfloat;
+  using namespace ann_float;
 
   PrintHeading1("Spatial feature matching");
 

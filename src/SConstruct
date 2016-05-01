@@ -1,0 +1,11 @@
+from glob import glob
+from cvai.builder.scons import env_append_common
+
+env = DefaultEnvironment()
+env_append_common(env, 'eigen3', 'qt5', 'boost_system', 'boost_chrono', 'boost_program_options', 'boost_filesystem', 'boost_regex', 'freeimage', 'ceres', 'pba', 'sqlite3', 'vlfeat', 'siftgpu', 'vocab', 'ann_float', 'pthread')
+env.Append(CPPPATH=['.']+['/usr/include/qt5/' + i for i in ('QtCore','QtGui', 'QtWidgets')])
+srcs = []
+for i in ('base', 'estimators', 'sfm', 'util', 'optim'):
+    srcs += glob('{}/*.cc'.format(i))
+srcs = [i for i in srcs if not i.endswith('_test.cc') and 'opengl' not in i]
+SharedLibrary('colmap.so', srcs)

@@ -38,3 +38,8 @@ doc/_build
 *.exe
 *.out
 *.app
+
+*.os
+.*
+!.gitignore
+build/

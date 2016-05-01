@@ -30,8 +30,8 @@
 #include <QThread>
 
 #include "base/database.h"
-#include "ext/SiftGPU/SiftGPU.h"
-#include "ext/VocabLib/VocabTree.h"
+#include "SiftGPU.h"
+#include "VocabLib/VocabTree.h"
 #include "util/bitmap.h"
 #include "util/threading.h"
 #include "util/timer.h"

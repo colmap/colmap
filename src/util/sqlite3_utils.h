@@ -21,7 +21,7 @@
 #include <cstdlib>
 #include <string>
 
-#include "ext/SQLite/sqlite3.h"
+#include "sqlite3.h"
 
 namespace colmap {
 

@@ -22,8 +22,8 @@
 
 #include "base/camera_models.h"
 #include "base/feature.h"
-#include "ext/SiftGPU/SiftGPU.h"
-#include "ext/VLFeat/sift.h"
+#include "SiftGPU.h"
+#include "vlfeat/sift.h"
 #include "util/math.h"
 #include "util/misc.h"
 #include "util/threading.h"
@@ -681,7 +681,7 @@ void SiftGPUFeatureExtractor::DoExtraction() {
   };
 
   SiftGPU sift_gpu;
-  sift_gpu.ParseParam(kNumArgs, sift_gpu_args);
+  sift_gpu.ParseParam(kNumArgs, (char**) sift_gpu_args);
 
   if (sift_gpu.VerifyContextGL() != SiftGPU::SIFTGPU_FULL_SUPPORTED) {
     std::cerr << "ERROR: SiftGPU not fully supported." << std::endl;
