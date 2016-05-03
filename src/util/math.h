@@ -266,19 +266,23 @@ double RadToDeg(const double rad) {
 
 template <typename T>
 double Median(const std::vector<T>& elems) {
-  size_t size = elems.size();
-  size_t mid = size / 2;
-  if (size == 0) {
-    return std::numeric_limits<T>::quiet_NaN();
+  if (elems.size() == 0) {
+    return std::numeric_limits<double>::quiet_NaN();
   }
 
-  std::vector<T> sorted_elems = elems;
-  std::sort(sorted_elems.begin(), sorted_elems.end());
+  const size_t mid_idx = elems.size() / 2;
 
-  if (size % 2 == 0) {
-    return (sorted_elems[mid] + sorted_elems[mid - 1]) / 2.0;
+  std::vector<T> ordered_elems = elems;
+
+  std::nth_element(ordered_elems.begin(), ordered_elems.begin() + mid_idx,
+                   ordered_elems.end());
+  if (elems.size() % 2 == 0) {
+    const T mid_element1 = ordered_elems[mid_idx];
+    const T mid_element2 = *std::max_element(ordered_elems.begin(),
+                                             ordered_elems.begin() + mid_idx);
+    return (mid_element1 + mid_element2) / 2.0;
   } else {
-    return sorted_elems[mid];
+    return ordered_elems[mid_idx];
   }
 }
 

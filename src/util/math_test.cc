@@ -92,6 +92,7 @@ BOOST_AUTO_TEST_CASE(TestRadToDeg) {
 }
 
 BOOST_AUTO_TEST_CASE(TestMedian) {
+  BOOST_CHECK(IsNaN(Median<int>({})));
   BOOST_CHECK_EQUAL(Median<int>({1, 2, 3, 4}), 2.5);
   BOOST_CHECK_EQUAL(Median<int>({1, 2, 3, 100}), 2.5);
   BOOST_CHECK_EQUAL(Median<int>({1, 2, 3, 4, 100}), 3);
