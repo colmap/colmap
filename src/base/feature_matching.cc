@@ -849,19 +849,13 @@ VocabTreeFeatureMatcher::VocabTreeFeatureMatcher(
 void VocabTreeFeatureMatcher::DoMatching() {
   PrintHeading1("Vocabulary tree feature matching");
 
-  std::vector<Image> ordered_images;
-  ordered_images.reserve(images_.size());
-
-  for (const auto& image : images_) {
-    ordered_images.push_back(image.second);
-  }
-
   std::vector<std::pair<image_t, image_t>> image_pairs;
 
   retrieval::VisualIndex visual_index;
   visual_index.Read(vocab_tree_options_.vocab_tree_path);
 
-  for (size_t i = 0; i < ordered_images.size(); ++i) {
+  size_t i = 0;
+  for (const auto& image : images_) {
     if (IsStopped()) {
       return;
     }
@@ -869,16 +863,15 @@ void VocabTreeFeatureMatcher::DoMatching() {
     Timer timer;
     timer.Start();
 
-    const auto& image = ordered_images[i];
+    i += 1;
 
-    std::cout << boost::format("Indexing image [%d/%d]") % (i + 1) %
-                     ordered_images.size()
+    std::cout << boost::format("Indexing image [%d/%d]") % i % images_.size()
               << std::flush;
 
     retrieval::VisualIndex::Desc descriptors =
-        database_.ReadDescriptors(image.ImageId());
-    visual_index.Add(retrieval::VisualIndex::IndexOptions(), image.ImageId(),
-                     descriptors);
+        database_.ReadDescriptors(image.second.ImageId());
+    visual_index.Add(retrieval::VisualIndex::IndexOptions(),
+                     image.second.ImageId(), descriptors);
 
     PrintElapsedTime(timer);
   }
@@ -890,7 +883,8 @@ void VocabTreeFeatureMatcher::DoMatching() {
 
   std::vector<retrieval::ImageScore> image_scores;
 
-  for (size_t i = 0; i < ordered_images.size(); ++i) {
+  i = 0;
+  for (const auto& image : images_) {
     if (IsStopped()) {
       return;
     }
@@ -898,21 +892,20 @@ void VocabTreeFeatureMatcher::DoMatching() {
     Timer timer;
     timer.Start();
 
-    const auto& image = ordered_images[i];
+    i += 1;
 
-    std::cout << boost::format("Matching image [%d/%d]") % (i + 1) %
-                     ordered_images.size()
+    std::cout << boost::format("Matching image [%d/%d]") % i % images_.size()
               << std::flush;
 
     retrieval::VisualIndex::Desc descriptors =
-        database_.ReadDescriptors(image.ImageId());
-    descriptors_cache_[image.ImageId()] = descriptors;
+        database_.ReadDescriptors(image.second.ImageId());
+    descriptors_cache_[image.second.ImageId()] = descriptors;
 
     visual_index.Query(query_options, descriptors, &image_scores);
 
     image_pairs.clear();
     for (const auto image_score : image_scores) {
-      image_pairs.emplace_back(image.ImageId(), image_score.image_id);
+      image_pairs.emplace_back(image.second.ImageId(), image_score.image_id);
     }
 
     MatchImagePairs(image_pairs);
