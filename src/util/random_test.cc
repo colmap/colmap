@@ -86,8 +86,8 @@ BOOST_AUTO_TEST_CASE(TestRandomGaussian) {
   for (size_t i = 0; i < kNumValues; ++i) {
     values.push_back(RandomGaussian(kMean, kSigma));
   }
-  BOOST_CHECK_LE(std::abs(Mean(values) - kMean), 1e-3);
-  BOOST_CHECK_LE(std::abs(StdDev(values) - kSigma), 1e-3);
+  BOOST_CHECK_LE(std::abs(Mean(values) - kMean), 1e-2);
+  BOOST_CHECK_LE(std::abs(StdDev(values) - kSigma), 1e-2);
 }
 
 BOOST_AUTO_TEST_CASE(TestShuffleNone) {
