@@ -132,6 +132,7 @@ void MainWindow::CreateWidgets() {
   undistort_widget_ = new UndistortWidget(this, &options_);
   model_manager_widget_ = new ModelManagerWidget(this);
   model_stats_widget_ = new ModelStatsWidget(this);
+  match_matrix_widget_ = new MatchMatrixWidget(this, &options_);
 
   dock_log_widget_ = new QDockWidget("Log", this);
   dock_log_widget_->setWidget(log_widget_);
@@ -311,6 +312,11 @@ void MainWindow::CreateActions() {
   connect(action_model_stats_, &QAction::triggered, this,
           &MainWindow::ShowModelStats);
 
+  action_match_matrix_ =
+      new QAction(QIcon(":/media/match-matrix.png"), tr("Match matrix"), this);
+  connect(action_match_matrix_, &QAction::triggered, this,
+          &MainWindow::ShowMatchMatrix);
+
   action_log_show_ =
       new QAction(QIcon(":/media/log.png"), tr("Show log"), this);
   connect(action_log_show_, &QAction::triggered, this, &MainWindow::ShowLog);
@@ -404,6 +410,7 @@ void MainWindow::CreateMenus() {
 
   QMenu* extras_menu = new QMenu(tr("Extras"), this);
   extras_menu->addAction(action_model_stats_);
+  extras_menu->addAction(action_match_matrix_);
   extras_menu->addAction(action_log_show_);
   extras_menu->addAction(action_grab_image_);
   extras_menu->addAction(action_grab_movie_);
@@ -456,6 +463,7 @@ void MainWindow::CreateToolbar() {
 
   extras_toolbar_ = addToolBar(tr("Extras"));
   extras_toolbar_->addAction(action_model_stats_);
+  extras_toolbar_->addAction(action_match_matrix_);
   extras_toolbar_->addAction(action_log_show_);
   extras_toolbar_->addAction(action_grab_image_);
   extras_toolbar_->addAction(action_grab_movie_);
@@ -1071,6 +1079,12 @@ void MainWindow::ShowModelStats() {
   model_stats_widget_->Update(mapper_controller->Model(SelectedModelIdx()));
   model_stats_widget_->show();
   model_stats_widget_->raise();
+}
+
+void MainWindow::ShowMatchMatrix() {
+  match_matrix_widget_->Update();
+  match_matrix_widget_->show();
+  match_matrix_widget_->raise();
 }
 
 void MainWindow::ShowLog() {

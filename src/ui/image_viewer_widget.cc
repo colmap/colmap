@@ -25,7 +25,7 @@
 
 namespace colmap {
 
-static const double kZoomFactor = 1.33;
+const double BasicImageViewerWidget::kZoomFactor = 1.33;
 
 BasicImageViewerWidget::BasicImageViewerWidget(QWidget* parent,
                                                const std::string& switch_text)

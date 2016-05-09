@@ -40,6 +40,8 @@ class BasicImageViewerWidget : public QWidget {
             const std::vector<bool>& tri_mask);
 
  protected:
+  static const double kZoomFactor;
+
   void closeEvent(QCloseEvent* event);
 
   void UpdateImage();

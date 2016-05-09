@@ -14,6 +14,7 @@ COLMAP_ADD_LIBRARY(ui
     line_painter.h line_painter.cc
     log_widget.h log_widget.cc
     main_window.h main_window.cc
+    match_matrix_widget.h match_matrix_widget.cc
     model_manager_widget.h model_manager_widget.cc
     model_stats_widget.h model_stats_widget.cc
     movie_grabber_widget.h movie_grabber_widget.cc
