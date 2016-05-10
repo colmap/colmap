@@ -312,8 +312,8 @@ void MainWindow::CreateActions() {
   connect(action_model_stats_, &QAction::triggered, this,
           &MainWindow::ShowModelStats);
 
-  action_match_matrix_ =
-      new QAction(QIcon(":/media/match-matrix.png"), tr("Match matrix"), this);
+  action_match_matrix_ = new QAction(QIcon(":/media/match-matrix.png"),
+                                     tr("Show match matrix"), this);
   connect(action_match_matrix_, &QAction::triggered, this,
           &MainWindow::ShowMatchMatrix);
 
