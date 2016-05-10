@@ -458,13 +458,15 @@ QImage OpenGLWindow::GrabImage() {
 void OpenGLWindow::GrabMovie() { movie_grabber_widget_->show(); }
 
 void OpenGLWindow::ShowPointInfo(const point3D_t point3D_id) {
-  point_viewer_widget_->Show(point3D_id);
   point_viewer_widget_->show();
+  point_viewer_widget_->raise();
+  point_viewer_widget_->Show(point3D_id);
 }
 
 void OpenGLWindow::ShowImageInfo(const image_t image_id) {
-  image_viewer_widget_->Show(image_id);
   image_viewer_widget_->show();
+  image_viewer_widget_->raise();
+  image_viewer_widget_->Show(image_id);
 }
 
 float OpenGLWindow::PointSize() const { return point_size_; }

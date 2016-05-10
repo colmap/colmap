@@ -29,7 +29,10 @@ const double BasicImageViewerWidget::kZoomFactor = 1.33;
 
 BasicImageViewerWidget::BasicImageViewerWidget(QWidget* parent,
                                                const std::string& switch_text)
-    : QWidget(parent), zoom_(-1), switch_(true), switch_text_(switch_text) {
+    : QWidget(parent),
+      current_scale_(1.0),
+      switch_(true),
+      switch_text_(switch_text) {
   setWindowFlags(Qt::Window);
   resize(parent->width() - 20, parent->height() - 20);
 
@@ -43,6 +46,8 @@ BasicImageViewerWidget::BasicImageViewerWidget(QWidget* parent,
   image_label_ = new QLabel(this);
   image_scroll_area_ = new QScrollArea(this);
   image_scroll_area_->setWidget(image_label_);
+  image_scroll_area_->setSizePolicy(QSizePolicy::Expanding,
+                                    QSizePolicy::Expanding);
 
   grid_->addWidget(image_scroll_area_, 1, 0);
 
@@ -55,18 +60,18 @@ BasicImageViewerWidget::BasicImageViewerWidget(QWidget* parent,
   connect(show_button_, &QPushButton::released, this,
           &BasicImageViewerWidget::ShowOrHide);
 
-  zoom_in_button_ = new QPushButton(tr("+"), this);
-  zoom_in_button_->setFont(font);
-  zoom_in_button_->setFixedWidth(50);
-  button_layout_->addWidget(zoom_in_button_);
-  connect(zoom_in_button_, &QPushButton::released, this,
+  QPushButton* zoom_in_button = new QPushButton(tr("+"), this);
+  zoom_in_button->setFont(font);
+  zoom_in_button->setFixedWidth(50);
+  button_layout_->addWidget(zoom_in_button);
+  connect(zoom_in_button, &QPushButton::released, this,
           &BasicImageViewerWidget::ZoomIn);
 
-  zoom_out_button_ = new QPushButton(tr("-"), this);
-  zoom_out_button_->setFont(font);
-  zoom_out_button_->setFixedWidth(50);
-  button_layout_->addWidget(zoom_out_button_);
-  connect(zoom_out_button_, &QPushButton::released, this,
+  QPushButton* zoom_out_button = new QPushButton(tr("-"), this);
+  zoom_out_button->setFont(font);
+  zoom_out_button->setFixedWidth(50);
+  button_layout_->addWidget(zoom_out_button);
+  connect(zoom_out_button, &QPushButton::released, this,
           &BasicImageViewerWidget::ZoomOut);
 
   grid_->addLayout(button_layout_, 2, 0, Qt::AlignRight);
@@ -114,39 +119,32 @@ void BasicImageViewerWidget::Show(const std::string& path,
   DrawKeypoints(&image2_, keypoints_tri, Qt::magenta);
   DrawKeypoints(&image2_, keypoints_not_tri, Qt::red);
 
-  // Save original size for resizing
-  orig_width_ = image1_.width();
-
-  UpdateImage();
+  current_scale_ = 1.0;
+  const double scale = (image_scroll_area_->height() - 5) /
+                       static_cast<double>(image1_.height());
+  ScaleImage(scale);
 }
 
-void BasicImageViewerWidget::UpdateImage() {
-  if (zoom_ == -1) {
-    zoom_ = (width() - 40) / static_cast<double>(orig_width_);
-  }
+void BasicImageViewerWidget::ScaleImage(const double scale) {
+  current_scale_ *= scale;
 
-  const Qt::TransformationMode tform_mode =
-      zoom_ > 1.25 ? Qt::FastTransformation : Qt::SmoothTransformation;
+  const Qt::TransformationMode transform_mode =
+      current_scale_ > 1.0 ? Qt::FastTransformation : Qt::SmoothTransformation;
 
   if (switch_) {
     image_label_->setPixmap(image2_.scaledToWidth(
-        static_cast<int>(zoom_ * orig_width_), tform_mode));
+        static_cast<int>(current_scale_ * image2_.width()), transform_mode));
   } else {
     image_label_->setPixmap(image1_.scaledToWidth(
-        static_cast<int>(zoom_ * orig_width_), tform_mode));
+        static_cast<int>(current_scale_ * image1_.width()), transform_mode));
   }
+
   image_label_->adjustSize();
 }
 
-void BasicImageViewerWidget::ZoomIn() {
-  zoom_ *= kZoomFactor;
-  UpdateImage();
-}
+void BasicImageViewerWidget::ZoomIn() { ScaleImage(kZoomFactor); }
 
-void BasicImageViewerWidget::ZoomOut() {
-  zoom_ /= kZoomFactor;
-  UpdateImage();
-}
+void BasicImageViewerWidget::ZoomOut() { ScaleImage(1.0 / kZoomFactor); }
 
 void BasicImageViewerWidget::ShowOrHide() {
   if (switch_) {
@@ -155,7 +153,7 @@ void BasicImageViewerWidget::ShowOrHide() {
     show_button_->setText(tr(std::string("Hide " + switch_text_).c_str()));
   }
   switch_ = !switch_;
-  UpdateImage();
+  ScaleImage(1.0);
 }
 
 MatchesImageViewerWidget::MatchesImageViewerWidget(QWidget* parent)
@@ -180,9 +178,10 @@ void MatchesImageViewerWidget::Show(const std::string& path1,
   image1_ = ShowImagesSideBySide(image1, image2);
   image2_ = DrawMatches(image1, image2, keypoints1, keypoints2, matches);
 
-  orig_width_ = image1_.width();
-
-  UpdateImage();
+  current_scale_ = 1.0;
+  const double scale = (image_scroll_area_->height() - 5) /
+                       static_cast<double>(image1_.height());
+  ScaleImage(scale);
 }
 
 ImageViewerWidget::ImageViewerWidget(QWidget* parent,
@@ -201,19 +200,16 @@ ImageViewerWidget::ImageViewerWidget(QWidget* parent,
   font.setPointSize(10);
   table_widget_->setFont(font);
 
+  table_widget_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+
   table_widget_->setEditTriggers(QAbstractItemView::NoEditTriggers);
   table_widget_->setSelectionMode(QAbstractItemView::SingleSelection);
   table_widget_->setShowGrid(true);
 
-  table_widget_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-  table_widget_->horizontalHeader()->setDisabled(true);
+  table_widget_->horizontalHeader()->setStretchLastSection(true);
+  table_widget_->horizontalHeader()->setVisible(false);
   table_widget_->verticalHeader()->setVisible(false);
   table_widget_->verticalHeader()->setDefaultSectionSize(18);
-
-  QStringList table_header;
-  table_header << "Property"
-               << "Value";
-  table_widget_->setHorizontalHeaderLabels(table_header);
 
   int row = 0;
 
@@ -280,7 +276,7 @@ ImageViewerWidget::ImageViewerWidget(QWidget* parent,
   delete_button_->setFont(font);
   button_layout_->addWidget(delete_button_);
   connect(delete_button_, &QPushButton::released, this,
-          &ImageViewerWidget::Delete);
+          &ImageViewerWidget::DeleteImage);
 }
 
 void ImageViewerWidget::Show(const image_t image_id) {
@@ -317,6 +313,8 @@ void ImageViewerWidget::Show(const image_t image_id) {
   num_obs_item_->setText(QString::number(image.NumObservations()));
   name_item_->setText(QString::fromStdString(image.Name()));
 
+  ResizeTable();
+
   FeatureKeypoints keypoints(image.NumPoints2D());
   for (point2D_t i = 0; i < image.NumPoints2D(); ++i) {
     keypoints[i].x = static_cast<float>(image.Point2D(i).X());
@@ -326,12 +324,10 @@ void ImageViewerWidget::Show(const image_t image_id) {
   const std::string path =
       EnsureTrailingSlash(*options_->image_path) + image.Name();
   BasicImageViewerWidget::Show(path, keypoints, tri_mask);
-
-  Resize();
 }
 
-void ImageViewerWidget::Resize() {
-  // Set fixed table dimensions
+void ImageViewerWidget::ResizeTable() {
+  // Set fixed table dimensions.
   table_widget_->resizeColumnsToContents();
   int height = table_widget_->horizontalHeader()->height() +
                2 * table_widget_->frameWidth();
@@ -341,7 +337,7 @@ void ImageViewerWidget::Resize() {
   table_widget_->setFixedHeight(height);
 }
 
-void ImageViewerWidget::Delete() {
+void ImageViewerWidget::DeleteImage() {
   QMessageBox::StandardButton reply = QMessageBox::question(
       this, "", tr("Do you really want to delete this image?"),
       QMessageBox::Yes | QMessageBox::No);

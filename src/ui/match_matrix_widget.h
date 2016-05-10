@@ -36,7 +36,7 @@ class MatchMatrixWidget : public QWidget {
 
   void closeEvent(QCloseEvent* event);
 
-  void UpdateImage();
+  void ScaleImage(const double scale);
   void ZoomIn();
   void ZoomOut();
 
@@ -44,9 +44,9 @@ class MatchMatrixWidget : public QWidget {
 
   QLabel* image_label_;
   QPixmap image_;
+  QScrollArea* image_scroll_area_;
 
-  int orig_width_;
-  double zoom_;
+  double current_scale_;
 };
 
 }  // namespace colmap

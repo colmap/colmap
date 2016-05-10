@@ -23,7 +23,7 @@ namespace colmap {
 const double MatchMatrixWidget::kZoomFactor = 1.33;
 
 MatchMatrixWidget::MatchMatrixWidget(QWidget* parent, OptionManager* options)
-    : QWidget(parent), options_(options), zoom_(-1) {
+    : QWidget(parent), options_(options), current_scale_(1.0) {
   setWindowFlags(Qt::Window);
   resize(parent->width() - 20, parent->height() - 20);
   setWindowTitle("Match matrix");
@@ -32,10 +32,10 @@ MatchMatrixWidget::MatchMatrixWidget(QWidget* parent, OptionManager* options)
   grid->setContentsMargins(5, 5, 5, 5);
 
   image_label_ = new QLabel(this);
-  QScrollArea* image_scroll_area = new QScrollArea(this);
-  image_scroll_area->setWidget(image_label_);
+  image_scroll_area_ = new QScrollArea(this);
+  image_scroll_area_->setWidget(image_label_);
 
-  grid->addWidget(image_scroll_area, 0, 0);
+  grid->addWidget(image_scroll_area_, 0, 0);
 
   QHBoxLayout* button_layout = new QHBoxLayout();
 
@@ -84,7 +84,6 @@ void MatchMatrixWidget::Update() {
   std::vector<int> num_inliers;
   database.ReadInlierMatchesGraph(&image_pairs, &num_inliers);
 
-
   // Fill the match matrix.
   const double max_value =
       std::log(1.0 + *std::max_element(num_inliers.begin(), num_inliers.end()));
@@ -101,11 +100,10 @@ void MatchMatrixWidget::Update() {
 
   // Remember the original image for zoom in/out.
   image_ = QPixmap::fromImage(match_matrix);
-  image_label_->setPixmap(image_);
 
-  orig_width_ = image_.width();
-
-  UpdateImage();
+  const double scale =
+      (image_scroll_area_->height() - 5) / static_cast<double>(image_.height());
+  ScaleImage(scale);
 }
 
 void MatchMatrixWidget::closeEvent(QCloseEvent* event) {
@@ -113,28 +111,20 @@ void MatchMatrixWidget::closeEvent(QCloseEvent* event) {
   image_label_->clear();
 }
 
-void MatchMatrixWidget::UpdateImage() {
-  if (zoom_ == -1) {
-    zoom_ = (width() - 40) / static_cast<double>(orig_width_);
-  }
+void MatchMatrixWidget::ScaleImage(const double scale) {
+  current_scale_ *= scale;
 
-  const Qt::TransformationMode tform_mode =
-      zoom_ > 1.25 ? Qt::FastTransformation : Qt::SmoothTransformation;
+  const Qt::TransformationMode transform_mode =
+      current_scale_ > 1.0 ? Qt::FastTransformation : Qt::SmoothTransformation;
 
-  image_label_->setPixmap(
-      image_.scaledToWidth(static_cast<int>(zoom_ * orig_width_), tform_mode));
+  image_label_->setPixmap(image_.scaledToWidth(
+      static_cast<int>(current_scale_ * image_.width()), transform_mode));
 
   image_label_->adjustSize();
 }
 
-void MatchMatrixWidget::ZoomIn() {
-  zoom_ *= kZoomFactor;
-  UpdateImage();
-}
+void MatchMatrixWidget::ZoomIn() { ScaleImage(kZoomFactor); }
 
-void MatchMatrixWidget::ZoomOut() {
-  zoom_ /= kZoomFactor;
-  UpdateImage();
-}
+void MatchMatrixWidget::ZoomOut() { ScaleImage(1.0 / kZoomFactor); }
 
 }  // namespace colmap

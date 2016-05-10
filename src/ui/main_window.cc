@@ -1076,15 +1076,15 @@ void MainWindow::ShowModelStats() {
   if (!IsSelectedModelValid()) {
     return;
   }
-  model_stats_widget_->Update(mapper_controller->Model(SelectedModelIdx()));
   model_stats_widget_->show();
   model_stats_widget_->raise();
+  model_stats_widget_->Update(mapper_controller->Model(SelectedModelIdx()));
 }
 
 void MainWindow::ShowMatchMatrix() {
-  match_matrix_widget_->Update();
   match_matrix_widget_->show();
   match_matrix_widget_->raise();
+  match_matrix_widget_->Update();
 }
 
 void MainWindow::ShowLog() {

@@ -44,7 +44,7 @@ class BasicImageViewerWidget : public QWidget {
 
   void closeEvent(QCloseEvent* event);
 
-  void UpdateImage();
+  void ScaleImage(const double scale);
   void ZoomIn();
   void ZoomOut();
   void ShowOrHide();
@@ -58,13 +58,10 @@ class BasicImageViewerWidget : public QWidget {
   QPixmap image2_;
 
   QPushButton* show_button_;
-  QPushButton* zoom_in_button_;
-  QPushButton* zoom_out_button_;
-  QScrollArea* image_scroll_area_;
   QLabel* image_label_;
+  QScrollArea* image_scroll_area_;
 
-  int orig_width_;
-  double zoom_;
+  double current_scale_;
   bool switch_;
   const std::string switch_text_;
 };
@@ -86,8 +83,8 @@ class ImageViewerWidget : public BasicImageViewerWidget {
   void Show(const image_t image_id);
 
  private:
-  void Resize();
-  void Delete();
+  void ResizeTable();
+  void DeleteImage();
 
   OpenGLWindow* opengl_window_;
 

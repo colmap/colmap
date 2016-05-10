@@ -85,14 +85,13 @@ void MatchesTab::ShowMatches() {
   const auto keypoints1 = database_->ReadKeypoints(image_->ImageId());
   const auto keypoints2 = database_->ReadKeypoints(selection.first->ImageId());
 
-  matches_viewer_->Show(path1, path2, keypoints1, keypoints2, selection.second);
+  matches_viewer_->show();
+  matches_viewer_->raise();
 
   matches_viewer_->setWindowTitle(QString::fromStdString(
       "Matches for image pair " + std::to_string(image_->ImageId()) + " - " +
       std::to_string(selection.first->ImageId())));
-
-  matches_viewer_->show();
-  matches_viewer_->raise();
+  matches_viewer_->Show(path1, path2, keypoints1, keypoints2, selection.second);
 }
 
 void MatchesTab::FillTable() {
@@ -423,11 +422,13 @@ void ImageTab::ShowImage() {
   const auto keypoints = database_->ReadKeypoints(image.ImageId());
   const std::vector<bool> tri_mask(keypoints.size(), false);
 
+  image_viewer_->show();
+  image_viewer_->raise();
+
   image_viewer_->Show(EnsureTrailingSlash(*options_->image_path) + image.Name(),
                       keypoints, tri_mask);
   image_viewer_->setWindowTitle(
       QString::fromStdString("Image " + std::to_string(image.ImageId())));
-  image_viewer_->show();
 }
 
 void ImageTab::ShowMatches() {
