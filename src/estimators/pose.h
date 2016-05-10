@@ -128,8 +128,8 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
 //
 // @return                     Number of RANSAC inliers.
 size_t EstimateRelativePose(const RANSACOptions& ransac_options,
-                            const std::vector<Eigen::Vector2d>& points1,
-                            const std::vector<Eigen::Vector2d>& points2,
+                            const std::vector<Eigen::Vector3d>& points1,
+                            const std::vector<Eigen::Vector3d>& points2,
                             Eigen::Vector4d* qvec, Eigen::Vector3d* tvec);
 
 // Refine absolute pose (optionally focal length) from 2D-3D correspondences.
@@ -173,8 +173,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 //
 // @return                 Flag indicating if solution is usable.
 bool RefineRelativePose(const ceres::Solver::Options& options,
-                        const std::vector<Eigen::Vector2d>& points1,
-                        const std::vector<Eigen::Vector2d>& points2,
+                        const std::vector<Eigen::Vector3d>& points1,
+                        const std::vector<Eigen::Vector3d>& points2,
                         Eigen::Vector4d* qvec, Eigen::Vector3d* tvec);
 
 }  // namespace colmap

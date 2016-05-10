@@ -56,33 +56,6 @@ void DecomposeEssentialMatrix(const Eigen::Matrix3d& E, Eigen::Matrix3d* R1,
   *t = U.col(2).normalized();
 }
 
-void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
-                             const std::vector<Eigen::Vector2d>& points1,
-                             const std::vector<Eigen::Vector2d>& points2,
-                             Eigen::Matrix3d* R, Eigen::Vector3d* t,
-                             std::vector<Eigen::Vector3d>* points3D) {
-  CHECK_EQ(points1.size(), points2.size());
-
-  Eigen::Matrix3d R1;
-  Eigen::Matrix3d R2;
-  DecomposeEssentialMatrix(E, &R1, &R2, t);
-
-  // Generate all possible projection matrix combinations.
-  const std::array<Eigen::Matrix3d, 4> R_cmbs{{R1, R2, R1, R2}};
-  const std::array<Eigen::Vector3d, 4> t_cmbs{{*t, *t, -*t, -*t}};
-
-  points3D->clear();
-  for (size_t i = 0; i < R_cmbs.size(); ++i) {
-    std::vector<Eigen::Vector3d> points3D_cmb;
-    CheckCheirality(R_cmbs[i], t_cmbs[i], points1, points2, &points3D_cmb);
-    if (points3D_cmb.size() >= points3D->size()) {
-      *R = R_cmbs[i];
-      *t = t_cmbs[i];
-      *points3D = points3D_cmb;
-    }
-  }
-}
-
 Eigen::Matrix3d EssentialMatrixFromPose(const Eigen::Matrix3d& R,
                                         const Eigen::Vector3d& t) {
   assert(t.norm() - 1.0 < std::numeric_limits<double>::epsilon());
@@ -107,37 +80,37 @@ Eigen::Matrix3d EssentialMatrixFromAbsolutePoses(
   return EssentialMatrixFromPose(R, t);
 }
 
-void FindOptimalImageObservations(const Eigen::Matrix3d& E,
-                                  const Eigen::Vector2d& point1,
-                                  const Eigen::Vector2d& point2,
-                                  Eigen::Vector2d* optimal_point1,
-                                  Eigen::Vector2d* optimal_point2) {
-  const Eigen::Vector3d& point1h = point1.homogeneous();
-  const Eigen::Vector3d& point2h = point2.homogeneous();
+// void FindOptimalImageObservations(const Eigen::Matrix3d& E,
+//                                   const Eigen::Vector3d& point1,
+//                                   const Eigen::Vector3d& point2,
+//                                   Eigen::Vector3d* optimal_point1,
+//                                   Eigen::Vector3d* optimal_point2) {
+//   const Eigen::Vector3d& point1h = point1;
+//   const Eigen::Vector3d& point2h = point2;
 
-  Eigen::Matrix<double, 2, 3> S;
-  S << 1, 0, 0, 0, 1, 0;
+//   Eigen::Matrix<double, 2, 3> S;
+//   S << 1, 0, 0, 0, 1, 0;
 
-  // Epipolar lines.
-  Eigen::Vector2d n1 = S * E * point2h;
-  Eigen::Vector2d n2 = S * E.transpose() * point1h;
+//   // Epipolar lines.
+//   Eigen::Vector2d n1 = S * E * point2h;
+//   Eigen::Vector2d n2 = S * E.transpose() * point1h;
 
-  const Eigen::Matrix2d E_tilde = E.block<2, 2>(0, 0);
+//   const Eigen::Matrix2d E_tilde = E.block<2, 2>(0, 0);
 
-  const double a = n1.transpose() * E_tilde * n2;
-  const double b = (n1.squaredNorm() + n2.squaredNorm()) / 2.0;
-  const double c = point1h.transpose() * E * point2h;
-  const double d = sqrt(b * b - a * c);
-  double lambda = c / (b + d);
+//   const double a = n1.transpose() * E_tilde * n2;
+//   const double b = (n1.squaredNorm() + n2.squaredNorm()) / 2.0;
+//   const double c = point1h.transpose() * E * point2h;
+//   const double d = sqrt(b * b - a * c);
+//   double lambda = c / (b + d);
 
-  n1 -= E_tilde * lambda * n1;
-  n2 -= E_tilde.transpose() * lambda * n2;
+//   n1 -= E_tilde * lambda * n1;
+//   n2 -= E_tilde.transpose() * lambda * n2;
 
-  lambda *= (2.0 * d) / (n1.squaredNorm() + n2.squaredNorm());
+//   lambda *= (2.0 * d) / (n1.squaredNorm() + n2.squaredNorm());
 
-  *optimal_point1 = (point1h - S.transpose() * lambda * n1).hnormalized();
-  *optimal_point2 = (point2h - S.transpose() * lambda * n2).hnormalized();
-}
+//   *optimal_point1 = (point1h - S.transpose() * lambda * n1).normalized();
+//   *optimal_point2 = (point2h - S.transpose() * lambda * n2).normalized();
+// }
 
 Eigen::Vector3d EpipoleFromEssentialMatrix(const Eigen::Matrix3d& E,
                                            const bool left_image) {
@@ -156,9 +129,36 @@ Eigen::Matrix3d InvertEssentialMatrix(const Eigen::Matrix3d& E) {
   return E.transpose();
 }
 
+void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
+                             const std::vector<Eigen::Vector3d>& points1,
+                             const std::vector<Eigen::Vector3d>& points2,
+                             Eigen::Matrix3d* R, Eigen::Vector3d* t,
+                             std::vector<Eigen::Vector3d>* points3D) {
+  CHECK_EQ(points1.size(), points2.size());
+
+  Eigen::Matrix3d R1;
+  Eigen::Matrix3d R2;
+  DecomposeEssentialMatrix(E, &R1, &R2, t);
+
+  // Generate all possible projection matrix combinations.
+  const std::array<Eigen::Matrix3d, 4> R_cmbs{{R1, R2, R1, R2}};
+  const std::array<Eigen::Vector3d, 4> t_cmbs{{*t, *t, -*t, -*t}};
+
+  points3D->clear();
+  for (size_t i = 0; i < R_cmbs.size(); ++i) {
+    std::vector<Eigen::Vector3d> points3D_cmb;
+    CheckCheirality(R_cmbs[i], t_cmbs[i], points1, points2, &points3D_cmb);
+    if (points3D_cmb.size() >= points3D->size()) {
+      *R = R_cmbs[i];
+      *t = t_cmbs[i];
+      *points3D = points3D_cmb;
+    }
+  }
+}
+
 bool RefineEssentialMatrix(const ceres::Solver::Options& options,
-                           const std::vector<Eigen::Vector2d>& points1,
-                           const std::vector<Eigen::Vector2d>& points2,
+                           const std::vector<Eigen::Vector3d>& points1,
+                           const std::vector<Eigen::Vector3d>& points2,
                            const std::vector<bool>& inlier_mask,
                            Eigen::Matrix3d* E) {
   CHECK_EQ(points1.size(), points2.size());
@@ -174,8 +174,8 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
     }
   }
 
-  std::vector<Eigen::Vector2d> inlier_points1(num_inliers);
-  std::vector<Eigen::Vector2d> inlier_points2(num_inliers);
+  std::vector<Eigen::Vector3d> inlier_points1(num_inliers);
+  std::vector<Eigen::Vector3d> inlier_points2(num_inliers);
   size_t j = 0;
   for (size_t i = 0; i < inlier_mask.size(); ++i) {
     if (inlier_mask[i]) {
@@ -190,8 +190,8 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
   Eigen::Matrix3d R;
   Eigen::Vector3d tvec;
   std::vector<Eigen::Vector3d> points3D;
-  PoseFromEssentialMatrix(*E, inlier_points1, inlier_points2, &R, &tvec,
-                          &points3D);
+  PoseFromEssentialMatrix(
+      *E, inlier_points1, inlier_points2, &R, &tvec, &points3D);
 
   Eigen::Vector4d qvec = RotationMatrixToQuaternion(R);
 

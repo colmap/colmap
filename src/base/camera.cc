@@ -179,10 +179,10 @@ void Camera::InitializeWithName(const std::string& model_name,
                    height);
 }
 
-Eigen::Vector2d Camera::ImageToWorld(const Eigen::Vector2d& image_point) const {
-  Eigen::Vector2d world_point;
+Eigen::Vector3d Camera::ImageToWorld(const Eigen::Vector2d& image_point) const {
+  Eigen::Vector3d world_point;
   CameraModelImageToWorld(model_id_, params_, image_point(0), image_point(1),
-                          &world_point(0), &world_point(1));
+                          &world_point(0), &world_point(1), &world_point(2));
   return world_point;
 }
 
@@ -190,10 +190,9 @@ double Camera::ImageToWorldThreshold(const double threshold) const {
   return CameraModelImageToWorldThreshold(model_id_, params_, threshold);
 }
 
-Eigen::Vector2d Camera::WorldToImage(const Eigen::Vector2d& world_point) const {
+Eigen::Vector2d Camera::WorldToImage(const Eigen::Vector3d& world_point) const {
   Eigen::Vector2d image_point;
-  CameraModelWorldToImage(model_id_, params_, world_point(0), world_point(1),
-                          &image_point(0), &image_point(1));
+  CameraModelWorldToImage(model_id_, params_, world_point(0), world_point(1), world_point(2), &image_point(0), &image_point(1));
   return image_point;
 }
 

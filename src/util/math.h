@@ -329,6 +329,16 @@ T ScaleSigmoid(T x, const T alpha, const T x0) {
   return x;
 }
 
+template <typename T>
+T calc_w(T u, T v) {
+  return sqrt(1 - u*u- v*v);
+}
+
+template <typename T>
+Eigen::Matrix<T,3,1> calc_w_vec(T u, T v) {
+  return (Eigen::Matrix<T,3,1>() << u, v, calc_w(u, v)).finished();
+}
+
 }  // namespace colmap
 
 #endif  // COLMAP_SRC_UTIL_MATH_H_

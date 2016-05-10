@@ -82,11 +82,11 @@ static const int kInvalidCameraModelId = -1;
   static inline std::vector<size_t> InitializeExtraParamsIdxs();               \
                                                                                \
   template <typename T>                                                        \
-  static void WorldToImage(const T* params, const T u, const T v, T* x, T* y); \
+  static void WorldToImage(const T* params, T u, T v, T w, T* x, T* y); \
+  template <typename T>                                                 \
+  static void ImageToWorld(const T* params, const T x, const T y, T* u, T* v, T *w); \
   template <typename T>                                                        \
-  static void ImageToWorld(const T* params, const T x, const T y, T* u, T* v); \
-  template <typename T>                                                        \
-  static void Distortion(const T* extra_params, const T u, const T v, T* du,   \
+  static void Distortion(const T* extra_params, T u, T v, T* du,   \
                          T* dv);
 #endif
 
@@ -101,7 +101,9 @@ static const int kInvalidCameraModelId = -1;
   CAMERA_MODEL_CASE(OpenCVCameraModel)              \
   CAMERA_MODEL_CASE(OpenCVFisheyeCameraModel)       \
   CAMERA_MODEL_CASE(FullOpenCVCameraModel)          \
-  CAMERA_MODEL_CASE(FOVCameraModel)
+  CAMERA_MODEL_CASE(FOVCameraModel) \
+  CAMERA_MODEL_CASE(SphericalCentralCameraModel)
+
 #endif
 
 #ifndef CAMERA_MODEL_SWITCH_CASES
@@ -273,7 +275,7 @@ struct FOVCameraModel : public BaseCameraModel<FOVCameraModel> {
   CAMERA_MODEL_DEFINITIONS(7, 5)
 
   template <typename T>
-  static void Undistortion(const T* extra_params, const T u, const T v, T* du,
+  static void Undistortion(const T* extra_params, T u, T v, T* du,
                            T* dv);
 };
 
@@ -384,7 +386,7 @@ bool CameraModelHasBogusParams(const int model_id,
 // @param x, y         Output image coordinates in pixels.
 inline void CameraModelWorldToImage(const int model_id,
                                     const std::vector<double>& params,
-                                    const double u, const double v, double* x,
+                                    const double u, const double v, const double w, double* x,
                                     double* y);
 
 // Transform image coordinates to world coordinates in camera coordinate system.
@@ -398,7 +400,7 @@ inline void CameraModelWorldToImage(const int model_id,
 inline void CameraModelImageToWorld(const int model_id,
                                     const std::vector<double>& params,
                                     const double x, const double y, double* u,
-                                    double* v);
+                                    double* v, double *w);
 
 // Convert pixel threshold in image plane to world space by dividing
 // the threshold through the mean focal length.
@@ -509,8 +511,8 @@ void BaseCameraModel<CameraModel>::IterativeUndistortion(const T* params, T* u,
 
   for (size_t i = 0; i < kNumUndistortionIterations; ++i) {
     CameraModel::Distortion(params, uu, vv, &du, &dv);
-    const T uu_prev = uu;
-    const T vv_prev = vv;
+    T uu_prev = uu;
+    T vv_prev = vv;
     uu = *u - du;
     vv = *v - dv;
     if (std::abs(uu_prev - uu) < kUndistortionEpsilon &&
@@ -549,8 +551,8 @@ std::vector<size_t> SimplePinholeCameraModel::InitializeExtraParamsIdxs() {
 }
 
 template <typename T>
-void SimplePinholeCameraModel::WorldToImage(const T* params, const T u,
-                                            const T v, T* x, T* y) {
+void SimplePinholeCameraModel::WorldToImage(const T* params, T u,
+                                            T v, T w, T* x, T* y) {
   const T f = params[0];
   const T c1 = params[1];
   const T c2 = params[2];
@@ -558,19 +560,20 @@ void SimplePinholeCameraModel::WorldToImage(const T* params, const T u,
   // No Distortion
 
   // Transform to image coordinates
-  *x = f * u + c1;
-  *y = f * v + c2;
+  *x = f * u/w + c1;
+  *y = f * v/w + c2;
 }
 
 template <typename T>
 void SimplePinholeCameraModel::ImageToWorld(const T* params, const T x,
-                                            const T y, T* u, T* v) {
+                                            const T y, T* u, T* v, T *w) {
   const T f = params[0];
   const T c1 = params[1];
   const T c2 = params[2];
 
   *u = (x - c1) / f;
   *v = (y - c2) / f;
+  *w = 1;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -600,23 +603,19 @@ std::vector<size_t> PinholeCameraModel::InitializeExtraParamsIdxs() {
 }
 
 template <typename T>
-void PinholeCameraModel::WorldToImage(const T* params, const T u, const T v,
-                                      T* x, T* y) {
+void PinholeCameraModel::WorldToImage(const T* params, T u, T v, T w, T* x, T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
   const T c2 = params[3];
 
-  // No Distortion
-
-  // Transform to image coordinates
-  *x = f1 * u + c1;
-  *y = f2 * v + c2;
+  *x = f1 * u/w + c1;
+  *y = f2 * v/w + c2;
 }
 
 template <typename T>
 void PinholeCameraModel::ImageToWorld(const T* params, const T x, const T y,
-                                      T* u, T* v) {
+                                      T* u, T* v, T* w) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
@@ -624,6 +623,7 @@ void PinholeCameraModel::ImageToWorld(const T* params, const T x, const T y,
 
   *u = (x - c1) / f1;
   *v = (y - c2) / f2;
+  *w = 1;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -653,14 +653,15 @@ std::vector<size_t> SimpleRadialCameraModel::InitializeExtraParamsIdxs() {
 }
 
 template <typename T>
-void SimpleRadialCameraModel::WorldToImage(const T* params, const T u,
-                                           const T v, T* x, T* y) {
+void SimpleRadialCameraModel::WorldToImage(const T* params, T u,
+                                           T v, T w, T* x, T* y) {
   const T f = params[0];
   const T c1 = params[1];
   const T c2 = params[2];
 
   // Distortion
   T du, dv;
+  u = u/w, v = v/w;
   Distortion(&params[3], u, v, &du, &dv);
   *x = u + du;
   *y = v + dv;
@@ -672,7 +673,7 @@ void SimpleRadialCameraModel::WorldToImage(const T* params, const T u,
 
 template <typename T>
 void SimpleRadialCameraModel::ImageToWorld(const T* params, const T x,
-                                           const T y, T* u, T* v) {
+                                           const T y, T* u, T* v, T *w) {
   const T f = params[0];
   const T c1 = params[1];
   const T c2 = params[2];
@@ -680,17 +681,16 @@ void SimpleRadialCameraModel::ImageToWorld(const T* params, const T x,
   // Lift points to normalized plane
   *u = (x - c1) / f;
   *v = (y - c2) / f;
-
+  *w = 1;
   IterativeUndistortion(&params[3], u, v);
 }
 
 template <typename T>
-void SimpleRadialCameraModel::Distortion(const T* extra_params, const T u,
-                                         const T v, T* du, T* dv) {
+void SimpleRadialCameraModel::Distortion(const T* extra_params, T u,
+                                         T v, T* du, T* dv) {
   const T k = extra_params[0];
-
-  const T u2 = u * u;
-  const T v2 = v * v;
+  T u2 = u * u;
+  T v2 = v * v;
   const T r2 = u2 + v2;
   const T radial = k * r2;
   *du = u * radial;
@@ -725,13 +725,14 @@ std::vector<size_t> RadialCameraModel::InitializeExtraParamsIdxs() {
 }
 
 template <typename T>
-void RadialCameraModel::WorldToImage(const T* params, const T u, const T v,
-                                     T* x, T* y) {
+void RadialCameraModel::WorldToImage(const T* params, T u, T v,
+                                     T w, T* x, T* y) {
   const T f = params[0];
   const T c1 = params[1];
   const T c2 = params[2];
 
   // Distortion
+  u = u/w, v = v/w;
   T du, dv;
   Distortion(&params[3], u, v, &du, &dv);
   *x = u + du;
@@ -744,7 +745,7 @@ void RadialCameraModel::WorldToImage(const T* params, const T u, const T v,
 
 template <typename T>
 void RadialCameraModel::ImageToWorld(const T* params, const T x, const T y,
-                                     T* u, T* v) {
+                                     T* u, T* v, T* w) {
   const T f = params[0];
   const T c1 = params[1];
   const T c2 = params[2];
@@ -752,18 +753,17 @@ void RadialCameraModel::ImageToWorld(const T* params, const T x, const T y,
   // Lift points to normalized plane
   *u = (x - c1) / f;
   *v = (y - c2) / f;
-
+  *w = 1;
   IterativeUndistortion(&params[3], u, v);
 }
 
 template <typename T>
-void RadialCameraModel::Distortion(const T* extra_params, const T u, const T v,
+void RadialCameraModel::Distortion(const T* extra_params, T u, T v,
                                    T* du, T* dv) {
   const T k1 = extra_params[0];
   const T k2 = extra_params[1];
-
-  const T u2 = u * u;
-  const T v2 = v * v;
+  T u2 = u * u;
+  T v2 = v * v;
   const T r2 = u2 + v2;
   const T radial = k1 * r2 + k2 * r2 * r2;
   *du = u * radial;
@@ -801,14 +801,15 @@ std::vector<size_t> OpenCVCameraModel::InitializeExtraParamsIdxs() {
 }
 
 template <typename T>
-void OpenCVCameraModel::WorldToImage(const T* params, const T u, const T v,
-                                     T* x, T* y) {
+void OpenCVCameraModel::WorldToImage(const T* params, T u, T v,
+                                     T w, T* x, T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
   const T c2 = params[3];
 
   // Distortion
+  u = u/w, v = v/w;
   T du, dv;
   Distortion(&params[4], u, v, &du, &dv);
   *x = u + du;
@@ -821,7 +822,7 @@ void OpenCVCameraModel::WorldToImage(const T* params, const T u, const T v,
 
 template <typename T>
 void OpenCVCameraModel::ImageToWorld(const T* params, const T x, const T y,
-                                     T* u, T* v) {
+                                     T* u, T* v, T *w) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
@@ -830,21 +831,21 @@ void OpenCVCameraModel::ImageToWorld(const T* params, const T x, const T y,
   // Lift points to normalized plane
   *u = (x - c1) / f1;
   *v = (y - c2) / f2;
-
+  *w = 1;
   IterativeUndistortion(&params[4], u, v);
 }
 
 template <typename T>
-void OpenCVCameraModel::Distortion(const T* extra_params, const T u, const T v,
+void OpenCVCameraModel::Distortion(const T* extra_params, T u, T v,
                                    T* du, T* dv) {
   const T k1 = extra_params[0];
   const T k2 = extra_params[1];
   const T p1 = extra_params[2];
   const T p2 = extra_params[3];
 
-  const T u2 = u * u;
-  const T uv = u * v;
-  const T v2 = v * v;
+  T u2 = u * u;
+  T uv = u * v;
+  T v2 = v * v;
   const T r2 = u2 + v2;
   const T radial = k1 * r2 + k2 * r2 * r2;
   *du = u * radial + T(2) * p1 * uv + p2 * (r2 + T(2) * u2);
@@ -882,13 +883,14 @@ std::vector<size_t> OpenCVFisheyeCameraModel::InitializeExtraParamsIdxs() {
 }
 
 template <typename T>
-void OpenCVFisheyeCameraModel::WorldToImage(const T* params, const T u,
-                                            const T v, T* x, T* y) {
+void OpenCVFisheyeCameraModel::WorldToImage(const T* params, T u,
+                                            T v, T w, T* x, T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
   const T c2 = params[3];
 
+  u = u/w, v = v/w;
   const T r = ceres::sqrt(u * u + v * v);
 
   T uu, vv;
@@ -914,7 +916,7 @@ void OpenCVFisheyeCameraModel::WorldToImage(const T* params, const T u,
 
 template <typename T>
 void OpenCVFisheyeCameraModel::ImageToWorld(const T* params, const T x,
-                                            const T y, T* u, T* v) {
+                                            const T y, T* u, T* v, T *w) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
@@ -923,7 +925,7 @@ void OpenCVFisheyeCameraModel::ImageToWorld(const T* params, const T x,
   // Lift points to normalized plane
   *u = (x - c1) / f1;
   *v = (y - c2) / f2;
-
+  *w = 1;
   IterativeUndistortion(&params[4], u, v);
 
   const T theta = ceres::sqrt(*u * *u + *v * *v);
@@ -936,16 +938,16 @@ void OpenCVFisheyeCameraModel::ImageToWorld(const T* params, const T x,
 }
 
 template <typename T>
-void OpenCVFisheyeCameraModel::Distortion(const T* extra_params, const T u,
-                                          const T v, T* du, T* dv) {
+void OpenCVFisheyeCameraModel::Distortion(const T* extra_params, T u,
+                                          T v, T* du, T* dv) {
   const T k1 = extra_params[0];
   const T k2 = extra_params[1];
   const T p1 = extra_params[2];
   const T p2 = extra_params[3];
 
-  const T u2 = u * u;
-  const T uv = u * v;
-  const T v2 = v * v;
+  T u2 = u * u;
+  T uv = u * v;
+  T v2 = v * v;
   const T r2 = u2 + v2;
   const T radial = k1 * r2 + k2 * r2 * r2;
   *du = u * radial + T(2) * p1 * uv + p2 * (r2 + T(2) * u2);
@@ -987,13 +989,15 @@ std::vector<size_t> FullOpenCVCameraModel::InitializeExtraParamsIdxs() {
 }
 
 template <typename T>
-void FullOpenCVCameraModel::WorldToImage(const T* params, const T u, const T v,
+void FullOpenCVCameraModel::WorldToImage(const T* params, T u, T v,
+                                         T w,
                                          T* x, T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
   const T c2 = params[3];
 
+  u = u/w, v = v/w;
   // Distortion
   T du, dv;
   Distortion(&params[4], u, v, &du, &dv);
@@ -1007,7 +1011,7 @@ void FullOpenCVCameraModel::WorldToImage(const T* params, const T u, const T v,
 
 template <typename T>
 void FullOpenCVCameraModel::ImageToWorld(const T* params, const T x, const T y,
-                                         T* u, T* v) {
+                                         T* u, T* v, T *w) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
@@ -1016,13 +1020,13 @@ void FullOpenCVCameraModel::ImageToWorld(const T* params, const T x, const T y,
   // Lift points to normalized plane
   *u = (x - c1) / f1;
   *v = (y - c2) / f2;
-
+  *w = 1;
   IterativeUndistortion(&params[4], u, v);
 }
 
 template <typename T>
-void FullOpenCVCameraModel::Distortion(const T* extra_params, const T u,
-                                       const T v, T* du, T* dv) {
+void FullOpenCVCameraModel::Distortion(const T* extra_params, T u,
+                                       T v, T* du, T* dv) {
   const T k1 = extra_params[0];
   const T k2 = extra_params[1];
   const T p1 = extra_params[2];
@@ -1032,9 +1036,9 @@ void FullOpenCVCameraModel::Distortion(const T* extra_params, const T u,
   const T k5 = extra_params[6];
   const T k6 = extra_params[7];
 
-  const T u2 = u * u;
-  const T uv = u * v;
-  const T v2 = v * v;
+  T u2 = u * u;
+  T uv = u * v;
+  T v2 = v * v;
   const T r2 = u2 + v2;
   const T r4 = r2 * r2;
   const T r6 = r4 * r2;
@@ -1072,12 +1076,13 @@ std::vector<size_t> FOVCameraModel::InitializeExtraParamsIdxs() {
 }
 
 template <typename T>
-void FOVCameraModel::WorldToImage(const T* params, const T u, const T v, T* x,
+void FOVCameraModel::WorldToImage(const T* params, T u, T v, T w, T* x,
                                   T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
   const T c2 = params[3];
+  u = u/w, v = v/w;
 
   // Distortion
   Distortion(&params[4], u, v, x, y);
@@ -1089,22 +1094,23 @@ void FOVCameraModel::WorldToImage(const T* params, const T u, const T v, T* x,
 
 template <typename T>
 void FOVCameraModel::ImageToWorld(const T* params, const T x, const T y, T* u,
-                                  T* v) {
+                                  T* v, T*w) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
   const T c2 = params[3];
 
   // Lift points to normalized plane
-  const T uu = (x - c1) / f1;
-  const T vv = (y - c2) / f2;
+  T uu = (x - c1) / f1;
+  T vv = (y - c2) / f2;
 
   // Undistortion
   Undistortion(&params[4], uu, vv, u, v);
+  *w = 1;
 }
 
 template <typename T>
-void FOVCameraModel::Distortion(const T* extra_params, const T uu, const T vv,
+void FOVCameraModel::Distortion(const T* extra_params, T uu, T vv,
                                 T* u, T* v) {
   const T omega = extra_params[0];
 
@@ -1143,7 +1149,7 @@ void FOVCameraModel::Distortion(const T* extra_params, const T uu, const T vv,
 }
 
 template <typename T>
-void FOVCameraModel::Undistortion(const T* extra_params, const T uu, const T vv,
+void FOVCameraModel::Undistortion(const T* extra_params, T uu, T vv,
                                   T* u, T* v) {
   T omega = extra_params[0];
 
@@ -1209,12 +1215,14 @@ SimpleRadialFisheyeCameraModel::InitializeExtraParamsIdxs() {
 }
 
 template <typename T>
-void SimpleRadialFisheyeCameraModel::WorldToImage(const T* params, const T u,
-                                                  const T v, T* x, T* y) {
+void SimpleRadialFisheyeCameraModel::WorldToImage(const T* params, T u,
+                                                  T v, const T w,
+                                                  T* x, T* y) {
   const T f = params[0];
   const T c1 = params[1];
   const T c2 = params[2];
 
+  u = u/w, v = v/w;
   const T r = ceres::sqrt(u * u + v * v);
 
   T uu, vv;
@@ -1240,7 +1248,7 @@ void SimpleRadialFisheyeCameraModel::WorldToImage(const T* params, const T u,
 
 template <typename T>
 void SimpleRadialFisheyeCameraModel::ImageToWorld(const T* params, const T x,
-                                                  const T y, T* u, T* v) {
+                                                  const T y, T* u, T* v, T*w) {
   const T f = params[0];
   const T c1 = params[1];
   const T c2 = params[2];
@@ -1248,7 +1256,7 @@ void SimpleRadialFisheyeCameraModel::ImageToWorld(const T* params, const T x,
   // Lift points to normalized plane
   *u = (x - c1) / f;
   *v = (y - c2) / f;
-
+  *w = 1;
   IterativeUndistortion(&params[3], u, v);
 
   const T theta = ceres::sqrt(*u * *u + *v * *v);
@@ -1262,12 +1270,12 @@ void SimpleRadialFisheyeCameraModel::ImageToWorld(const T* params, const T x,
 
 template <typename T>
 void SimpleRadialFisheyeCameraModel::Distortion(const T* extra_params,
-                                                const T u, const T v, T* du,
+                                                T u, T v, T* du,
                                                 T* dv) {
   const T k = extra_params[0];
 
-  const T u2 = u * u;
-  const T v2 = v * v;
+  T u2 = u * u;
+  T v2 = v * v;
   const T r2 = u2 + v2;
   const T radial = k * r2;
   *du = u * radial;
@@ -1302,12 +1310,13 @@ std::vector<size_t> RadialFisheyeCameraModel::InitializeExtraParamsIdxs() {
 }
 
 template <typename T>
-void RadialFisheyeCameraModel::WorldToImage(const T* params, const T u,
-                                            const T v, T* x, T* y) {
+void RadialFisheyeCameraModel::WorldToImage(const T* params, T u,
+                                            T v, T w, T* x, T* y) {
   const T f = params[0];
   const T c1 = params[1];
   const T c2 = params[2];
 
+  u = u/w, v = v/w;
   const T r = ceres::sqrt(u * u + v * v);
 
   T uu, vv;
@@ -1333,7 +1342,7 @@ void RadialFisheyeCameraModel::WorldToImage(const T* params, const T u,
 
 template <typename T>
 void RadialFisheyeCameraModel::ImageToWorld(const T* params, const T x,
-                                            const T y, T* u, T* v) {
+                                            const T y, T* u, T* v, T*w) {
   const T f = params[0];
   const T c1 = params[1];
   const T c2 = params[2];
@@ -1341,7 +1350,7 @@ void RadialFisheyeCameraModel::ImageToWorld(const T* params, const T x,
   // Lift points to normalized plane
   *u = (x - c1) / f;
   *v = (y - c2) / f;
-
+  *w = 1;
   IterativeUndistortion(&params[3], u, v);
 
   const T theta = ceres::sqrt(*u * *u + *v * *v);
@@ -1354,13 +1363,13 @@ void RadialFisheyeCameraModel::ImageToWorld(const T* params, const T x,
 }
 
 template <typename T>
-void RadialFisheyeCameraModel::Distortion(const T* extra_params, const T u,
-                                          const T v, T* du, T* dv) {
+void RadialFisheyeCameraModel::Distortion(const T* extra_params, T u,
+                                          T v, T* du, T* dv) {
   const T k1 = extra_params[0];
   const T k2 = extra_params[1];
 
-  const T u2 = u * u;
-  const T v2 = v * v;
+  T u2 = u * u;
+  T v2 = v * v;
   const T r2 = u2 + v2;
   const T radial = k1 * r2 + k2 * r2 * r2;
   *du = u * radial;
@@ -1369,13 +1378,78 @@ void RadialFisheyeCameraModel::Distortion(const T* extra_params, const T u,
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// added by daley
+// Spherical camera model
+// f, cx, cy
+static const int central_model_start_id = 100;
+template <typename CameraModel>
+static inline bool IsCentralCameraModel() {
+  return CameraModel::model_id > central_model_start_id;
+}
+
+struct SphericalCentralCameraModel: public BaseCameraModel<SphericalCentralCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(central_model_start_id+1, 3)
+};
+
+std::string SphericalCentralCameraModel::InitializeParamsInfo() {
+  return "f, cx, cy";
+}
+
+std::vector<size_t> SphericalCentralCameraModel::InitializeFocalLengthIdxs() {
+  std::vector<size_t> idxs(1);
+  idxs[0] = 0;
+  return idxs;
+}
+
+std::vector<size_t> SphericalCentralCameraModel::InitializePrincipalPointIdxs() {
+  std::vector<size_t> idxs(2);
+  idxs[0] = 1;
+  idxs[1] = 2;
+  return idxs;
+}
+
+std::vector<size_t> SphericalCentralCameraModel::InitializeExtraParamsIdxs() {
+  std::vector<size_t> idxs;
+  return idxs;
+}
+
+template <typename T>
+void SphericalCentralCameraModel::WorldToImage(const T* params, T u,
+                                               T v, T w, T* x, T* y) {
+  const T f = params[0];
+  const T c1 = params[1];
+  const T c2 = params[2];
+
+  T l = ceres::sqrt(u * u + v * v + w * w);
+  u = u/l, v = v/l, w = w/l;
+  T p = ceres::atan2(u, w), t = -ceres::asin(v);
+
+  *x = p*f+ c1;
+  *y = -t*f + c2;
+}
+
+template <typename T>
+void SphericalCentralCameraModel::ImageToWorld(const T* params, const T x,
+                                               const T y, T* u, T* v, T *w) {
+  const T f = params[0];
+  const T c1 = params[1];
+  const T c2 = params[2];
+
+  auto p = (x - c1) / f, t = -(y - c2) / f;
+  auto cos_t = ceres::cos(t);
+  *u = cos_t * ceres::sin(p);
+  *v = -ceres::sin(t);
+  *w = cos_t * ceres::cos(p);
+}
+
+
 void CameraModelWorldToImage(const int model_id,
                              const std::vector<double>& params, const double u,
-                             const double v, double* x, double* y) {
+                             const double v, const double w, double* x, double* y) {
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                    \
   case CameraModel::model_id:                             \
-    CameraModel::WorldToImage(params.data(), u, v, x, y); \
+          CameraModel::WorldToImage(params.data(), u, v, w, x, y);      \
     break;
 
     CAMERA_MODEL_SWITCH_CASES
@@ -1386,11 +1460,11 @@ void CameraModelWorldToImage(const int model_id,
 
 void CameraModelImageToWorld(const int model_id,
                              const std::vector<double>& params, const double x,
-                             const double y, double* u, double* v) {
+                             const double y, double* u, double* v, double *w) {
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                    \
   case CameraModel::model_id:                             \
-    CameraModel::ImageToWorld(params.data(), x, y, u, v); \
+          CameraModel::ImageToWorld(params.data(), x, y, u, v, w);      \
     break;
 
     CAMERA_MODEL_SWITCH_CASES

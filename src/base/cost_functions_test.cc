@@ -84,7 +84,7 @@ BOOST_AUTO_TEST_CASE(TestBundleAdjustmentConstantPoseCostFunction) {
 
 BOOST_AUTO_TEST_CASE(TestRelativePoseCostFunction) {
   ceres::CostFunction* cost_function = RelativePoseCostFunction::Create(
-      Eigen::Vector2d(0, 0), Eigen::Vector2d(0, 0));
+      Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(0, 0, 1));
   double qvec[4] = {1, 0, 0, 0};
   double tvec[3] = {0, 1, 0};
   double residuals[1];
@@ -92,13 +92,13 @@ BOOST_AUTO_TEST_CASE(TestRelativePoseCostFunction) {
   BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
   BOOST_CHECK_EQUAL(residuals[0], 0);
 
-  cost_function = RelativePoseCostFunction::Create(Eigen::Vector2d(0, 0),
-                                                   Eigen::Vector2d(1, 0));
+  cost_function = RelativePoseCostFunction::Create(Eigen::Vector3d(0, 0, 1),
+                                                   Eigen::Vector3d(1, 0, 1));
   BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
   BOOST_CHECK_EQUAL(residuals[0], 0.5);
 
-  cost_function = RelativePoseCostFunction::Create(Eigen::Vector2d(0, 0),
-                                                   Eigen::Vector2d(1, 1));
+  cost_function = RelativePoseCostFunction::Create(Eigen::Vector3d(0, 0,1 ),
+                                                   Eigen::Vector3d(1, 1, 1));
   BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
   BOOST_CHECK_EQUAL(residuals[0], 0.5);
 }

@@ -421,6 +421,8 @@ void IncrementalMapperController::run() {
       const std::vector<image_t> next_images =
           mapper.FindNextImages(mapper_options.IncrementalMapperOptions());
 
+      std::cerr <<"next images" << next_images.size() << " " << reconstruction.NumRegImages() << " " << reconstruction.NumPoints3D() <<  std::endl;
+
       if (next_images.empty()) {
         break;
       }
@@ -512,6 +514,8 @@ void IncrementalMapperController::run() {
          reconstruction.NumRegImages() < min_model_size) ||
         reconstruction.NumRegImages() == 0) {
       const bool kDiscardReconstruction = true;
+       std::cerr <<"  => discard reconstruction. mapper_options.multiple_models: "<<mapper_options.multiple_models<<" && reconstruction.NumRegImages():"<< reconstruction.NumRegImages() << " < min_model_size:"<< min_model_size << ") || reconstruction.NumRegImages() == 0" << std::endl;
+
       mapper.EndReconstruction(kDiscardReconstruction);
       models_.pop_back();
     } else {

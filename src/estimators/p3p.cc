@@ -26,9 +26,9 @@
 namespace colmap {
 namespace {
 
-Eigen::Vector3d LiftImagePoint(const Eigen::Vector2d& point) {
-  return point.homogeneous() / std::sqrt(point.squaredNorm() + 1);
-}
+// Eigen::Vector3d LiftImagePoint(const Eigen::Vector2d& point) {
+//   return point.homogeneous() / std::sqrt(point.squaredNorm() + 1);
+// }
 
 }  // namespace
 
@@ -42,9 +42,9 @@ std::vector<P3PEstimator::M_t> P3PEstimator::Estimate(
   points3D_world.col(1) = points3D[1];
   points3D_world.col(2) = points3D[2];
 
-  const Eigen::Vector3d u = LiftImagePoint(points2D[0]);
-  const Eigen::Vector3d v = LiftImagePoint(points2D[1]);
-  const Eigen::Vector3d w = LiftImagePoint(points2D[2]);
+  const Eigen::Vector3d u = points2D[0].normalized();
+  const Eigen::Vector3d v = points2D[1].normalized();
+  const Eigen::Vector3d w = points2D[2].normalized();
 
   // Angles between 2D points.
   const double cos_uv = u.transpose() * v;

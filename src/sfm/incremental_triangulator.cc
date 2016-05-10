@@ -489,8 +489,7 @@ size_t IncrementalTriangulator::Create(
   // Setup estimation options.
   EstimateTriangulationOptions tri_options;
   tri_options.min_tri_angle = DegToRad(options.min_angle);
-  tri_options.residual_type =
-      TriangulationEstimator::ResidualType::ANGULAR_ERROR;
+  tri_options.residual_type = TriangulationEstimator::ResidualType::ANGULAR_ERROR;
   tri_options.ransac_options.max_error =
       DegToRad(options.create_max_angle_error);
   tri_options.ransac_options.confidence = 0.9999;

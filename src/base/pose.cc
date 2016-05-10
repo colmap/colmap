@@ -22,6 +22,7 @@
 #include "base/triangulation.h"
 #include "util/logging.h"
 #include "util/math.h"
+#include "../common.hh"
 
 namespace colmap {
 
@@ -140,8 +141,8 @@ Eigen::Vector3d CalculateBaseline(const Eigen::Vector4d& qvec1,
 }
 
 bool CheckCheirality(const Eigen::Matrix3d& R, const Eigen::Vector3d& t,
-                     const std::vector<Eigen::Vector2d>& points1,
-                     const std::vector<Eigen::Vector2d>& points2,
+                     const std::vector<Eigen::Vector3d>& points1,
+                     const std::vector<Eigen::Vector3d>& points2,
                      std::vector<Eigen::Vector3d>* points3D) {
   CHECK_EQ(points1.size(), points2.size());
   const Eigen::Matrix3x4d proj_matrix1 = Eigen::Matrix3x4d::Identity();
@@ -149,15 +150,27 @@ bool CheckCheirality(const Eigen::Matrix3d& R, const Eigen::Vector3d& t,
   const double kMinDepth = std::numeric_limits<double>::epsilon();
   const double max_depth = 1000.0f * (R.transpose() * t).norm();
   points3D->clear();
+  int dist_tp;
+  if (is_ray(points1[0]))
+    dist_tp = 3;
+  else
+    dist_tp = 2;
+
   for (size_t i = 0; i < points1.size(); ++i) {
     const Eigen::Vector3d point3D =
         TriangulatePoint(proj_matrix1, proj_matrix2, points1[i], points2[i]);
-    const double depth1 = CalculateDepth(proj_matrix1, point3D);
-    if (depth1 > kMinDepth && depth1 < max_depth) {
-      const double depth2 = CalculateDepth(proj_matrix2, point3D);
-      if (depth2 > kMinDepth && depth2 < max_depth) {
-        points3D->push_back(point3D);
-      }
+    double depth1, depth2;
+    if (dist_tp == 2) {
+      depth1 = CalculateDepth(proj_matrix1, point3D);
+      depth2 = CalculateDepth(proj_matrix2, point3D);
+    } else {
+      depth1 = (proj_matrix1 * point3D.homogeneous()).norm();
+      depth2 = (proj_matrix2 * point3D.homogeneous()).norm();
+    }
+
+    if (depth1 > kMinDepth && depth1 < max_depth
+        && depth2 > kMinDepth && depth2 < max_depth) {
+      points3D->push_back(point3D);
     }
   }
   return !points3D->empty();

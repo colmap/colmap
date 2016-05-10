@@ -310,7 +310,7 @@ void PMVSUndistorter::run() {
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
       Point2D& point2D = undistorted_bitmap.Point2D(point2D_idx);
-      const Eigen::Vector2d world_point = camera.ImageToWorld(point2D.XY());
+      auto world_point = camera.ImageToWorld(point2D.XY());
       point2D.SetXY(undistorted_camera.WorldToImage(world_point));
     }
 
@@ -527,14 +527,14 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
 
   for (size_t y = 0; y < camera.Height(); ++y) {
     // Left border.
-    const Eigen::Vector2d world_point1 =
+    auto world_point1 =
         camera.ImageToWorld(Eigen::Vector2d(0.5, y + 0.5));
     const Eigen::Vector2d undistorted_point1 =
         undistorted_camera.WorldToImage(world_point1);
     left_min_x = std::min(left_min_x, undistorted_point1(0));
     left_max_x = std::max(left_max_x, undistorted_point1(0));
     // Right border.
-    const Eigen::Vector2d world_point2 =
+    auto world_point2 =
         camera.ImageToWorld(Eigen::Vector2d(camera.Width() - 0.5, y + 0.5));
     const Eigen::Vector2d undistorted_point2 =
         undistorted_camera.WorldToImage(world_point2);
@@ -551,14 +551,14 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
 
   for (size_t x = 0; x < camera.Width(); ++x) {
     // Top border.
-    const Eigen::Vector2d world_point1 =
+    auto world_point1 =
         camera.ImageToWorld(Eigen::Vector2d(x + 0.5, 0.5));
     const Eigen::Vector2d undistorted_point1 =
         undistorted_camera.WorldToImage(world_point1);
     top_min_y = std::min(top_min_y, undistorted_point1(1));
     top_max_y = std::max(top_max_y, undistorted_point1(1));
     // Bottom border.
-    const Eigen::Vector2d world_point2 =
+    auto world_point2 =
         camera.ImageToWorld(Eigen::Vector2d(x + 0.5, camera.Height() - 0.5));
     const Eigen::Vector2d undistorted_point2 =
         undistorted_camera.WorldToImage(world_point2);

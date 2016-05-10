@@ -17,7 +17,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_MODULE "base/homography_matrix"
 #include <boost/test/unit_test.hpp>
-
+#include <iostream>
 #include <Eigen/Geometry>
 
 #include "base/homography_matrix.h"
@@ -74,16 +74,16 @@ BOOST_AUTO_TEST_CASE(TestPoseFromHomographyMatrix) {
   const Eigen::Matrix3d H =
       HomographyMatrixFromPose(K1, K2, R_ref, t_ref, n_ref, d_ref);
 
-  std::vector<Eigen::Vector2d> points1;
-  points1.emplace_back(0.1, 0.4);
-  points1.emplace_back(0.2, 0.3);
-  points1.emplace_back(0.3, 0.2);
-  points1.emplace_back(0.4, 0.1);
+  std::vector<Eigen::Vector3d> points1;
+  points1.emplace_back(0.1, 0.4, 1);
+  points1.emplace_back(0.2, 0.3, 1);
+  points1.emplace_back(0.3, 0.2, 1);
+  points1.emplace_back(0.4, 0.1, 1);
 
-  std::vector<Eigen::Vector2d> points2;
+  std::vector<Eigen::Vector3d> points2;
   for (const auto& point1 : points1) {
-    const Eigen::Vector3d point2 = H * point1.homogeneous();
-    points2.push_back(point2.hnormalized());
+    const Eigen::Vector3d point2 = H * point1;
+    points2.push_back(point2.hnormalized().homogeneous());
   }
 
   Eigen::Matrix3d R;

@@ -9,10 +9,14 @@ include_directories(
     ${GLEW_INCLUDE_DIRS}
     ${Qt5Core_INCLUDE_DIRS}
     ${Qt5OpenGL_INCLUDE_DIRS}
+    ${PROJECT_SOURCE_DIR}/../include
+    /usr/local/include
 )
 
 link_directories(
     ${Boost_LIBRARY_DIRS}
+    ${PROJECT_SOURCE_DIR}/../lib
+    /usr/local/lib
 )
 
 set(COLMAP_LIBRARIES
@@ -21,15 +25,13 @@ set(COLMAP_LIBRARIES
     util
     estimators
     base
-    util
-    estimators
     optim
     base
     util
     pba
     sqlite3
-    sift_gpu
-    vocab_lib
+    siftgpu
+    vocab
     ann_char
     ann_float
     vlfeat
@@ -50,7 +52,6 @@ set(COLMAP_QT_MODULES Core Widgets OpenGL)
 add_subdirectory(base)
 add_subdirectory(estimators)
 add_subdirectory(exe)
-add_subdirectory(ext)
 add_subdirectory(optim)
 add_subdirectory(sfm)
 add_subdirectory(tools)
@@ -84,12 +85,6 @@ endmacro(ADD_SOURCE_DIR)
 
 ADD_SOURCE_DIR(base BASE_SRC *.h *.cc)
 ADD_SOURCE_DIR(exe EXE_SRC *.h *.cc)
-ADD_SOURCE_DIR(ext/ANNchar EXT_ANNCHAR_SRC *.h *.cpp)
-ADD_SOURCE_DIR(ext/ANNfloat EXT_ANNFLOAT_SRC *.h *.cpp)
-ADD_SOURCE_DIR(ext/PBA EXT_PBA_SRC *.h *.cpp *.cu)
-ADD_SOURCE_DIR(ext/SiftGPU EXT_SIFTGPU_SRC *.h *.cpp *.cu)
-ADD_SOURCE_DIR(ext/SQLite EXT_SQLITE_SRC *.h *.c)
-ADD_SOURCE_DIR(ext/VocabLib EXT_VOCABLIB_SRC *.h *.c *.cpp)
 ADD_SOURCE_DIR(optim OPTIM_SRC *.h *.cc)
 ADD_SOURCE_DIR(sfm SFM_SRC *.h *.cc)
 ADD_SOURCE_DIR(tools TOOLS_SRC *.h *.cc)
@@ -103,16 +98,12 @@ add_library(
     ${COLMAP_SRC_ROOT_FOLDER}
     ${BASE_SRC}
     ${EXE_SRC}
-    ${EXT_ANNCHAR_SRC}
-    ${EXT_ANNFLOAT_SRC}
-    ${EXT_SIFTGPU_SRC}
-    ${EXT_SQLITE_SRC}
-    ${EXT_VOCABLIB_SRC}
     ${OPTIM_SRC}
     ${SFM_SRC}
     ${TOOLS_SRC}
     ${UI_SRC}
-    ${UTIL_SRC})
+    ${UTIL_SRC}
+)
 
 # Prevent the library from being compiled automatically.
 set_target_properties(

@@ -46,11 +46,25 @@ Eigen::Matrix3x4d InvertProjectionMatrix(const Eigen::Matrix3x4d& proj_matrix) {
   return inv_proj_matrix;
 }
 
+
+double CalculateDepth(const Eigen::Matrix3x4d& proj_matrix,
+                      const Eigen::Vector3d& point3D) {
+  const double d = (proj_matrix.row(2) * point3D.homogeneous()).sum();
+  return d * proj_matrix.col(2).norm();
+}
+
+bool HasPointPositiveDepth(const Eigen::Matrix3x4d& proj_matrix,
+                           const Eigen::Vector3d& point3D) {
+  return (proj_matrix(2, 0) * point3D(0) + proj_matrix(2, 1) * point3D(1) +
+          proj_matrix(2, 2) * point3D(2) + proj_matrix(2, 3)) >
+         std::numeric_limits<double>::epsilon();
+}
+
 Eigen::Vector2d ProjectPointToImage(const Eigen::Vector3d& point3D,
                                     const Eigen::Matrix3x4d& proj_matrix,
                                     const Camera& camera) {
   const Eigen::Vector3d world_point = proj_matrix * point3D.homogeneous();
-  return camera.WorldToImage(world_point.hnormalized());
+  return camera.WorldToImage(world_point);
 }
 
 double CalculateReprojectionError(const Eigen::Vector2d& point2D,
@@ -65,29 +79,14 @@ double CalculateAngularError(const Eigen::Vector2d& point2D,
                              const Eigen::Vector3d& point3D,
                              const Eigen::Matrix3x4d& proj_matrix,
                              const Camera& camera) {
-  return CalculateAngularError(camera.ImageToWorld(point2D), point3D,
-                               proj_matrix);
+  return CalculateAngularError(camera.ImageToWorld(point2D), point3D, proj_matrix);
 }
 
-double CalculateAngularError(const Eigen::Vector2d& point2D,
+double CalculateAngularError(const Eigen::Vector3d& ray1,
                              const Eigen::Vector3d& point3D,
                              const Eigen::Matrix3x4d& proj_matrix) {
-  const Eigen::Vector3d ray1 = point2D.homogeneous();
   const Eigen::Vector3d ray2 = proj_matrix * point3D.homogeneous();
   return std::acos(ray1.normalized().transpose() * ray2.normalized());
-}
-
-double CalculateDepth(const Eigen::Matrix3x4d& proj_matrix,
-                      const Eigen::Vector3d& point3D) {
-  const double d = (proj_matrix.row(2) * point3D.homogeneous()).sum();
-  return d * proj_matrix.col(2).norm();
-}
-
-bool HasPointPositiveDepth(const Eigen::Matrix3x4d& proj_matrix,
-                           const Eigen::Vector3d& point3D) {
-  return (proj_matrix(2, 0) * point3D(0) + proj_matrix(2, 1) * point3D(1) +
-          proj_matrix(2, 2) * point3D(2) + proj_matrix(2, 3)) >
-         std::numeric_limits<double>::epsilon();
 }
 
 }  // namespace colmap

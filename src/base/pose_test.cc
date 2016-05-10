@@ -211,17 +211,17 @@ BOOST_AUTO_TEST_CASE(TestCheckCheirality) {
   const Eigen::Matrix3d R = Eigen::Matrix3d::Identity();
   const Eigen::Vector3d t(1, 0, 0);
 
-  std::vector<Eigen::Vector2d> points1;
-  std::vector<Eigen::Vector2d> points2;
+  std::vector<Eigen::Vector3d> points1;
+  std::vector<Eigen::Vector3d> points2;
   std::vector<Eigen::Vector3d> points3D;
 
-  points1.emplace_back(0, 0);
-  points2.emplace_back(0.1, 0);
+  points1.emplace_back(0, 0, 1);
+  points2.emplace_back(0.1, 0, 1);
   BOOST_CHECK(CheckCheirality(R, t, points1, points2, &points3D));
   BOOST_CHECK_EQUAL(points3D.size(), 1);
 
-  points1.emplace_back(0, 0);
-  points2.emplace_back(-0.1, 0);
+  points1.emplace_back(0, 0, 1);
+  points2.emplace_back(-0.1, 0, 1);
   BOOST_CHECK(CheckCheirality(R, t, points1, points2, &points3D));
   BOOST_CHECK_EQUAL(points3D.size(), 1);
 

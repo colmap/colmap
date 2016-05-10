@@ -44,7 +44,7 @@ AbsolutePoseRANSAC_t::Report EstimateAbsolutePoseKernel(
   }
 
   // Normalize image coordinates with current camera hypothesis.
-  std::vector<Eigen::Vector2d> points2D_N(points2D.size());
+  std::vector<Eigen::Vector3d> points2D_N(points2D.size());
   for (size_t i = 0; i < points2D.size(); ++i) {
     points2D_N[i] = scaled_camera.ImageToWorld(points2D[i]);
   }
@@ -133,44 +133,6 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
   }
 
   return true;
-}
-
-size_t EstimateRelativePose(const RANSACOptions& ransac_options,
-                            const std::vector<Eigen::Vector2d>& points1,
-                            const std::vector<Eigen::Vector2d>& points2,
-                            Eigen::Vector4d* qvec, Eigen::Vector3d* tvec) {
-  RANSAC<EssentialMatrixFivePointEstimator> ransac(ransac_options);
-  const auto report = ransac.Estimate(points1, points2);
-
-  if (!report.success) {
-    return 0;
-  }
-
-  std::vector<Eigen::Vector2d> inliers1(report.support.num_inliers);
-  std::vector<Eigen::Vector2d> inliers2(report.support.num_inliers);
-
-  size_t j = 0;
-  for (size_t i = 0; i < points1.size(); ++i) {
-    if (report.inlier_mask[i]) {
-      inliers1[j] = points1[i];
-      inliers2[j] = points2[i];
-      j += 1;
-    }
-  }
-
-  Eigen::Matrix3d R;
-
-  std::vector<Eigen::Vector3d> points3D;
-  PoseFromEssentialMatrix(report.model, inliers1, inliers2, &R, tvec,
-                          &points3D);
-
-  *qvec = RotationMatrixToQuaternion(R);
-
-  if (IsNaN(*qvec) || IsNaN(*tvec)) {
-    return 0;
-  }
-
-  return points3D.size();
 }
 
 bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
@@ -285,9 +247,10 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   return summary.IsSolutionUsable();
 }
 
+
 bool RefineRelativePose(const ceres::Solver::Options& options,
-                        const std::vector<Eigen::Vector2d>& points1,
-                        const std::vector<Eigen::Vector2d>& points2,
+                        const std::vector<Eigen::Vector3d>& points1,
+                        const std::vector<Eigen::Vector3d>& points2,
                         Eigen::Vector4d* qvec, Eigen::Vector3d* tvec) {
   CHECK_EQ(points1.size(), points2.size());
 
@@ -299,8 +262,7 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
   ceres::Problem problem;
 
   for (size_t i = 0; i < points1.size(); ++i) {
-    ceres::CostFunction* cost_function =
-        RelativePoseCostFunction::Create(points1[i], points2[i]);
+    ceres::CostFunction* cost_function = RelativePoseCostFunction::Create(points1[i], points2[i]);
     problem.AddResidualBlock(cost_function, loss_function, qvec->data(),
                              tvec->data());
   }
@@ -319,6 +281,43 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
   ceres::Solve(options, &problem, &summary);
 
   return summary.IsSolutionUsable();
+}
+
+size_t EstimateRelativePose(const RANSACOptions& ransac_options,
+                            const std::vector<Eigen::Vector3d>& points1,
+                            const std::vector<Eigen::Vector3d>& points2,
+                            Eigen::Vector4d* qvec, Eigen::Vector3d* tvec) {
+  RANSAC<EssentialMatrixFivePointEstimator> ransac(ransac_options);
+  const auto report = ransac.Estimate(points1, points2);
+
+  if (!report.success) {
+    return 0;
+  }
+
+  std::vector<Eigen::Vector3d> inliers1(report.support.num_inliers);
+  std::vector<Eigen::Vector3d> inliers2(report.support.num_inliers);
+
+  size_t j = 0;
+  for (size_t i = 0; i < points1.size(); ++i) {
+    if (report.inlier_mask[i]) {
+      inliers1[j] = points1[i];
+      inliers2[j] = points2[i];
+      j += 1;
+    }
+  }
+
+  Eigen::Matrix3d R;
+
+  std::vector<Eigen::Vector3d> points3D;
+  PoseFromEssentialMatrix(report.model, inliers1, inliers2, &R, tvec, &points3D);
+
+  *qvec = RotationMatrixToQuaternion(R);
+
+  if (IsNaN(*qvec) || IsNaN(*tvec)) {
+    return 0;
+  }
+
+  return points3D.size();
 }
 
 }  // namespace colmap

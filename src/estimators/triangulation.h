@@ -36,6 +36,7 @@ namespace colmap {
 //
 // An observation is composed of an image measurement and the corresponding
 // camera pose and calibration.
+
 class TriangulationEstimator {
  public:
   enum class ResidualType {
@@ -45,12 +46,12 @@ class TriangulationEstimator {
 
   struct PointData {
     PointData() {}
-    PointData(const Eigen::Vector2d& point_, const Eigen::Vector2d& point_N_)
+    PointData(const Eigen::Vector2d& point_, const Eigen::Vector3d& point_N_)
         : point(point_), point_normalized(point_N_) {}
     // Image observation in pixels. Only needs to be set for REPROJECTION_ERROR.
     Eigen::Vector2d point;
     // Normalized image observation. Must always be set.
-    Eigen::Vector2d point_normalized;
+    Eigen::Vector3d point_normalized;
   };
 
   struct PoseData {
@@ -83,8 +84,8 @@ class TriangulationEstimator {
   // @param point_data        Camera poses.
   //
   // @return                  Triangulated point if successful, otherwise none.
-  std::vector<M_t> Estimate(const std::vector<X_t>& point_data,
-                            const std::vector<Y_t>& pose_data) const;
+  std::vector<TriangulationEstimator::M_t>
+          Estimate(const std::vector<X_t>& point_data, const std::vector<Y_t>& pose_data) const;
 
   // Calculate residuals in terms of squared reprojection or angular error.
   //
@@ -107,8 +108,7 @@ struct EstimateTriangulationOptions {
   double min_tri_angle = 0.0;
 
   // The employed residual type.
-  TriangulationEstimator::ResidualType residual_type =
-      TriangulationEstimator::ResidualType::ANGULAR_ERROR;
+  TriangulationEstimator::ResidualType residual_type = TriangulationEstimator::ResidualType::ANGULAR_ERROR;
 
   // RANSAC options for TriangulationEstimator.
   RANSACOptions ransac_options;

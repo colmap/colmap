@@ -39,7 +39,7 @@ namespace colmap {
 // ported to Eigen and contains several improvements over the original code.
 class EPnPEstimator {
  public:
-  typedef Eigen::Vector2d X_t;
+  typedef Eigen::Vector3d X_t;
   typedef Eigen::Vector3d Y_t;
   typedef Eigen::Matrix3x4d M_t;
 
@@ -68,7 +68,7 @@ class EPnPEstimator {
                         const M_t& proj_matrix, std::vector<double>* residuals);
 
  private:
-  bool ComputePose(const std::vector<Eigen::Vector2d>& points2D,
+  bool ComputePose(const std::vector<Eigen::Vector3d>& points2D,
                    const std::vector<Eigen::Vector3d>& points3D,
                    Eigen::Matrix3x4d* proj_matrix);
 
@@ -109,7 +109,7 @@ class EPnPEstimator {
   double ComputeTotalReprojectionError(const Eigen::Matrix3d& R,
                                        const Eigen::Vector3d& t);
 
-  std::vector<Eigen::Vector2d> points2D_;
+  std::vector<Eigen::Vector3d> points2D_;
   std::vector<Eigen::Vector3d> points3D_;
   std::vector<Eigen::Vector3d> pcs_;
   std::vector<Eigen::Vector4d> alphas_;

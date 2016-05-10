@@ -36,7 +36,7 @@ void WarpImageBetweenCameras(const Camera& source_camera,
     for (int x = 0; x < target_image->Width(); ++x) {
       image_point.x() = x + 0.5;
       // Camera models assume that the upper left pixel center is (0.5, 0.5).
-      const Eigen::Vector2d world_point =
+      auto world_point =
           target_camera.ImageToWorld(image_point);
       const Eigen::Vector2d source_point =
           source_camera.WorldToImage(world_point);
