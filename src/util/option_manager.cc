@@ -502,7 +502,7 @@ void MapperOptions::Reset() {
   ba_local_num_images = 6;
   ba_local_max_num_iterations = 25;
 
-  ba_global_use_pba = false;
+  ba_global_use_pba = true;
   ba_global_images_ratio = 1.05;
   ba_global_points_ratio = 1.05;
   ba_global_images_freq = 500;

@@ -187,6 +187,8 @@ BOOST_AUTO_TEST_CASE(TestKeypoints) {
   image.SetName("test");
   image.SetCameraId(camera.CameraId());
   image.SetImageId(database.WriteImage(image));
+  BOOST_CHECK_EQUAL(database.NumKeypoints(), 0);
+  BOOST_CHECK_EQUAL(database.NumKeypointsForImage(image.ImageId()), 0);
   const FeatureKeypoints keypoints = FeatureKeypoints(10);
   database.WriteKeypoints(image.ImageId(), keypoints);
   const FeatureKeypoints keypoints_read =
@@ -199,6 +201,7 @@ BOOST_AUTO_TEST_CASE(TestKeypoints) {
     BOOST_CHECK_EQUAL(keypoints[i].orientation, keypoints_read[i].orientation);
   }
   BOOST_CHECK_EQUAL(database.NumKeypoints(), 10);
+  BOOST_CHECK_EQUAL(database.NumKeypointsForImage(image.ImageId()), 10);
 }
 
 BOOST_AUTO_TEST_CASE(TestDescriptors) {
@@ -210,6 +213,8 @@ BOOST_AUTO_TEST_CASE(TestDescriptors) {
   image.SetName("test");
   image.SetCameraId(camera.CameraId());
   image.SetImageId(database.WriteImage(image));
+  BOOST_CHECK_EQUAL(database.NumDescriptors(), 0);
+  BOOST_CHECK_EQUAL(database.NumDescriptorsForImage(image.ImageId()), 0);
   const FeatureDescriptors descriptors = FeatureDescriptors::Random(10, 128);
   database.WriteDescriptors(image.ImageId(), descriptors);
   const FeatureDescriptors descriptors_read =
@@ -222,6 +227,7 @@ BOOST_AUTO_TEST_CASE(TestDescriptors) {
     }
   }
   BOOST_CHECK_EQUAL(database.NumDescriptors(), 10);
+  BOOST_CHECK_EQUAL(database.NumDescriptorsForImage(image.ImageId()), 10);
 }
 
 BOOST_AUTO_TEST_CASE(TestMatches) {

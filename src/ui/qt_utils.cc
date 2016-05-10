@@ -43,17 +43,17 @@ QMatrix4x4 EigenToQMatrix(const Eigen::Matrix4f& matrix) {
 }
 
 QImage BitmapToQImageRGB(const Bitmap& bitmap) {
-  QImage pixmap(bitmap.Width(), bitmap.Height(), QImage::Format_RGB32);
-  for (int y = 0; y < pixmap.height(); ++y) {
-    QRgb* pixmap_line = (QRgb*)pixmap.scanLine(y);
-    for (int x = 0; x < pixmap.width(); ++x) {
+  QImage image(bitmap.Width(), bitmap.Height(), QImage::Format_RGB32);
+  for (int y = 0; y < image.height(); ++y) {
+    QRgb* image_line = (QRgb*)image.scanLine(y);
+    for (int x = 0; x < image.width(); ++x) {
       Eigen::Vector3ub rgb;
       if (bitmap.GetPixel(x, y, &rgb)) {
-        pixmap_line[x] = qRgba(rgb(0), rgb(1), rgb(2), 255);
+        image_line[x] = qRgba(rgb(0), rgb(1), rgb(2), 255);
       }
     }
   }
-  return pixmap;
+  return image;
 }
 
 QPixmap ShowImagesSideBySide(const QPixmap& image1, const QPixmap& image2) {

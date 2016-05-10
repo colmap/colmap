@@ -259,8 +259,16 @@ size_t Database::NumImages() const { return CountRows("images"); }
 
 size_t Database::NumKeypoints() const { return SumColumn("rows", "keypoints"); }
 
+size_t Database::NumKeypointsForImage(const image_t image_id) const {
+  return CountRowsForEntry(sql_stmt_num_keypoints_, image_id);
+}
+
 size_t Database::NumDescriptors() const {
   return SumColumn("rows", "descriptors");
+}
+
+size_t Database::NumDescriptorsForImage(const image_t image_id) const {
+  return CountRowsForEntry(sql_stmt_num_descriptors_, image_id);
 }
 
 size_t Database::NumMatches() const { return SumColumn("rows", "matches"); }
@@ -659,6 +667,19 @@ void Database::PrepareSQLStatements() {
   //////////////////////////////////////////////////////////////////////////////
   // exists_*
   //////////////////////////////////////////////////////////////////////////////
+  sql = "SELECT rows FROM keypoints WHERE image_id = ?;";
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
+                                  &sql_stmt_num_keypoints_, 0));
+  sql_stmts_.push_back(sql_stmt_num_keypoints_);
+
+  sql = "SELECT rows FROM descriptors WHERE image_id = ?;";
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
+                                  &sql_stmt_num_descriptors_, 0));
+  sql_stmts_.push_back(sql_stmt_num_descriptors_);
+
+  //////////////////////////////////////////////////////////////////////////////
+  // exists_*
+  //////////////////////////////////////////////////////////////////////////////
   sql = "SELECT 1 FROM cameras WHERE camera_id = ?;";
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
                                   &sql_stmt_exists_camera_, 0));
@@ -945,7 +966,8 @@ void Database::UpdateSchema() const {
   SQLITE3_EXEC(database_, update_user_version_sql.c_str(), nullptr);
 }
 
-bool Database::ExistsRowId(sqlite3_stmt* sql_stmt, const size_t row_id) const {
+bool Database::ExistsRowId(sqlite3_stmt* sql_stmt,
+                           const sqlite3_int64 row_id) const {
   SQLITE3_CALL(
       sqlite3_bind_int64(sql_stmt, 1, static_cast<sqlite3_int64>(row_id)));
 
@@ -986,6 +1008,21 @@ size_t Database::CountRows(const std::string& table) const {
   }
 
   SQLITE3_CALL(sqlite3_finalize(sql_stmt));
+
+  return count;
+}
+
+size_t Database::CountRowsForEntry(sqlite3_stmt* sql_stmt,
+                                   const sqlite3_int64 row_id) const {
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt, 1, row_id));
+
+  size_t count = 0;
+  const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt));
+  if (rc == SQLITE_ROW) {
+    count = static_cast<size_t>(sqlite3_column_int64(sql_stmt, 0));
+  }
+
+  SQLITE3_CALL(sqlite3_reset(sql_stmt));
 
   return count;
 }

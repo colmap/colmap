@@ -81,9 +81,15 @@ class Database {
   // Sum of `rows` column in `keypoints` table, i.e. number of total keypoints.
   size_t NumKeypoints() const;
 
+  // Number of descriptors for specific image.
+  size_t NumKeypointsForImage(const image_t image_id) const;
+
   // Sum of `rows` column in `descriptors` table,
   // i.e. number of total descriptors.
   size_t NumDescriptors() const;
+
+  // Number of descriptors for specific image.
+  size_t NumDescriptorsForImage(const image_t image_id) const;
 
   // Sum of `rows` column in `matches` table, i.e. number of total matches.
   size_t NumMatches() const;
@@ -189,17 +195,23 @@ class Database {
   // Keep track of database schema version.
   void UpdateSchema() const;
 
-  bool ExistsRowId(sqlite3_stmt* sql_stmt, const size_t row_id) const;
+  bool ExistsRowId(sqlite3_stmt* sql_stmt, const sqlite3_int64 row_id) const;
   bool ExistsRowString(sqlite3_stmt* sql_stmt,
                        const std::string& row_entry) const;
 
   size_t CountRows(const std::string& table) const;
+  size_t CountRowsForEntry(sqlite3_stmt* sql_stmt,
+                           const sqlite3_int64 row_id) const;
   size_t SumColumn(const std::string& column, const std::string& table) const;
 
   sqlite3* database_;
 
   // A collection of all `sqlite3_stmt` objects for deletion in the destructor.
   std::vector<sqlite3_stmt*> sql_stmts_;
+
+  // num_*
+  sqlite3_stmt* sql_stmt_num_keypoints_;
+  sqlite3_stmt* sql_stmt_num_descriptors_;
 
   // exists_*
   sqlite3_stmt* sql_stmt_exists_camera_;

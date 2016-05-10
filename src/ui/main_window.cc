@@ -132,6 +132,7 @@ void MainWindow::CreateWidgets() {
   undistort_widget_ = new UndistortWidget(this, &options_);
   model_manager_widget_ = new ModelManagerWidget(this);
   model_stats_widget_ = new ModelStatsWidget(this);
+  match_matrix_widget_ = new MatchMatrixWidget(this, &options_);
 
   dock_log_widget_ = new QDockWidget("Log", this);
   dock_log_widget_->setWidget(log_widget_);
@@ -311,6 +312,11 @@ void MainWindow::CreateActions() {
   connect(action_model_stats_, &QAction::triggered, this,
           &MainWindow::ShowModelStats);
 
+  action_match_matrix_ = new QAction(QIcon(":/media/match-matrix.png"),
+                                     tr("Show match matrix"), this);
+  connect(action_match_matrix_, &QAction::triggered, this,
+          &MainWindow::ShowMatchMatrix);
+
   action_log_show_ =
       new QAction(QIcon(":/media/log.png"), tr("Show log"), this);
   connect(action_log_show_, &QAction::triggered, this, &MainWindow::ShowLog);
@@ -404,6 +410,7 @@ void MainWindow::CreateMenus() {
 
   QMenu* extras_menu = new QMenu(tr("Extras"), this);
   extras_menu->addAction(action_model_stats_);
+  extras_menu->addAction(action_match_matrix_);
   extras_menu->addAction(action_log_show_);
   extras_menu->addAction(action_grab_image_);
   extras_menu->addAction(action_grab_movie_);
@@ -456,6 +463,7 @@ void MainWindow::CreateToolbar() {
 
   extras_toolbar_ = addToolBar(tr("Extras"));
   extras_toolbar_->addAction(action_model_stats_);
+  extras_toolbar_->addAction(action_match_matrix_);
   extras_toolbar_->addAction(action_log_show_);
   extras_toolbar_->addAction(action_grab_image_);
   extras_toolbar_->addAction(action_grab_movie_);
@@ -1073,6 +1081,12 @@ void MainWindow::ShowModelStats() {
   model_stats_widget_->raise();
 }
 
+void MainWindow::ShowMatchMatrix() {
+  match_matrix_widget_->Update();
+  match_matrix_widget_->show();
+  match_matrix_widget_->raise();
+}
+
 void MainWindow::ShowLog() {
   log_widget_->show();
   log_widget_->raise();
@@ -1129,11 +1143,42 @@ void MainWindow::License() {
 
   license_content += "<h2>External</h2>";
 
-  license_content += "<h3>ANN</h3>";
+  license_content += "<h3>FLANN</h3>";
   license_content +=
-      "The ANN Library (all versions) is provided under the terms and<br>"
-      "conditions of the GNU Lesser General Public Library, which is stated<br>"
-      "below. It can also be found at: http://www.gnu.org/copyleft/lesser.html";
+      "The BSD License<br>"
+      "<br>"
+      "Copyright (c) 2008-2011  Marius Muja (mariusm@cs.ubc.ca). "
+      "All rights reserved.<br>"
+      "Copyright (c) 2008-2011  David G. Lowe (lowe@cs.ubc.ca). "
+      "All rights reserved.<br>"
+      "<br>"
+      "Redistribution and use in source and binary forms, with or without<br>"
+      "modification, are permitted provided that the following conditions<br>"
+      "are met:<br>"
+      "<br>"
+      " * Redistributions of source code must retain the above copyright<br>"
+      "   notice, this list of conditions and the following disclaimer.<br>"
+      " * Redistributions in binary form must reproduce the above copyright<br>"
+      "   notice, this list of conditions and the following disclaimer in<br>"
+      "   the documentation and/or other materials provided with the<br>"
+      "   distribution.<br>"
+      " * Neither the name of the \"University of British Columbia\" nor<br>"
+      "   the names of its contributors may be used to endorse or promote<br>"
+      "   products derived from this software without specific prior<br>"
+      "   written permission.<br>"
+      "<br>"
+      "THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS<br>"
+      "\"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT<br>"
+      "LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS<br>"
+      "FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE<br>"
+      "COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,<br>"
+      "INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES<br>"
+      "(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS<br>"
+      "OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS<br>"
+      "INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,<br>"
+      "WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE<br>"
+      "OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,<br>"
+      "EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
   license_content += "<h3>PBA</h3>";
   license_content +=
@@ -1201,40 +1246,6 @@ void MainWindow::License() {
       "LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN<br>"
       "ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE<br>"
       "POSSIBILITY OF SUCH DAMAGE.";
-
-  license_content += "<h3>VocabLib</h3>";
-  license_content +=
-      "Copyright 2011-2012 Noah Snavely, Cornell University<br>"
-      "(snavely@cs.cornell.edu).  All rights reserved.<br>"
-      "<br>"
-      "Redistribution and use in source and binary forms, with or without<br>"
-      "modification, are permitted provided that the following conditions<br>"
-      "are met:<br>"
-      "1. Redistributions of source code must retain the above copyright<br>"
-      "   notice, this list of conditions and the following disclaimer.<br>"
-      "<br>"
-      "2. Redistributions in binary form must reproduce the above<br>"
-      "   copyright notice, this list of conditions and the following<br>"
-      "   disclaimer in the documentation and/or other materials provided<br>"
-      "   with the distribution.<br>"
-      "<br>"
-      "THIS SOFTWARE IS PROVIDED BY NOAH SNAVELY ''AS IS'' AND ANY EXPRESS<br>"
-      "OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED<br>"
-      "WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE<br>"
-      "ARE DISCLAIMED. IN NO EVENT SHALL NOAH SNAVELY OR CONTRIBUTORS BE<br>"
-      "LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR<br>"
-      "CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT<br>"
-      "OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR<br>"
-      "BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF<br>"
-      "LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT<br>"
-      "(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE<br>"
-      "USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH<br>"
-      "DAMAGE.<br>"
-      "<br>"
-      "The views and conclusions contained in the software and<br>"
-      "documentation are those of the authors and should not be<br>"
-      "interpreted as representing official policies, either expressed or<br>"
-      "implied, of Cornell University.";
 
   text_viewer->setHtml(license_content);
   text_viewer->show();

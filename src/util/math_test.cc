@@ -109,6 +109,22 @@ BOOST_AUTO_TEST_CASE(TestMean) {
   BOOST_CHECK_EQUAL(Mean<int>({-1, -2, 3, 4}), 1);
 }
 
+BOOST_AUTO_TEST_CASE(TestVariance) {
+  BOOST_CHECK_LE(std::abs(Variance<int>({1, 2, 3, 4}) - 1.66666666), 1e-6);
+  BOOST_CHECK_LE(std::abs(Variance<int>({1, 2, 3, 100}) - 2401.66666666), 1e-6);
+  BOOST_CHECK_LE(std::abs(Variance<int>({1, 2, 3, 4, 100}) - 1902.5), 1e-6);
+  BOOST_CHECK_LE(std::abs(Variance<int>({-100, 1, 2, 3, 4}) - 2102.5), 1e-6);
+  BOOST_CHECK_LE(std::abs(Variance<int>({-1, -2, -3, -4}) - 1.66666666), 1e-6);
+  BOOST_CHECK_LE(std::abs(Variance<int>({-1, -2, 3, 4}) - 8.66666666), 1e-6);
+}
+
+BOOST_AUTO_TEST_CASE(TestStdDev) {
+  BOOST_CHECK_LE(std::abs(std::sqrt(Variance<int>({1, 2, 3, 4})) -
+                          StdDev<int>({1, 2, 3, 4})), 1e-6);
+  BOOST_CHECK_LE(std::abs(std::sqrt(Variance<int>({1, 2, 3, 100})) -
+                          StdDev<int>({1, 2, 3, 100})), 1e-6);
+}
+
 BOOST_AUTO_TEST_CASE(TestAnyLessThan) {
   BOOST_CHECK(AnyLessThan<int>({1, 2, 3, 4}, 5));
   BOOST_CHECK(AnyLessThan<int>({1, 2, 3, 4}, 4));

@@ -133,6 +133,18 @@ void TwoViewGeometry::EstimateWithRelativePose(
   // need further down in this method.
   EstimateCalibrated(camera1, points1, camera2, points2, matches, options);
 
+  // Extract normalized inlier points.
+  std::vector<Eigen::Vector2d> inlier_points1_N;
+  inlier_points1_N.reserve(inlier_matches.size());
+  std::vector<Eigen::Vector2d> inlier_points2_N;
+  inlier_points2_N.reserve(inlier_matches.size());
+  for (const auto& match : inlier_matches) {
+    const point2D_t idx1 = match.point2D_idx1;
+    const point2D_t idx2 = match.point2D_idx2;
+    inlier_points1_N.push_back(camera1.ImageToWorld(points1[idx1]));
+    inlier_points2_N.push_back(camera2.ImageToWorld(points2[idx2]));
+  }
+
   Eigen::Matrix3d R;
   std::vector<Eigen::Vector3d> points3D;
 
@@ -154,19 +166,9 @@ void TwoViewGeometry::EstimateWithRelativePose(
     // configurations. In the uncalibrated case, this most likely leads to a
     // ill-defined reconstruction, but sometimes it succeeds anyways after e.g.
     // subsequent bundle-adjustment etc.
-
-    PoseFromEssentialMatrix(E, inlier_points1_N, inlier_points2_N, &R, &tvec, &points3D);
+    PoseFromEssentialMatrix(E, inlier_points1_N, inlier_points2_N, &R, &tvec,
+                            &points3D);
   } else {
-    // Extract inlier points.
-    // std::vector<Eigen::Vector2d> inlier_points1;
-    // inlier_points1.reserve(inlier_matches.size());
-    // std::vector<Eigen::Vector2d> inlier_points2;
-    // inlier_points2.reserve(inlier_matches.size());
-    // for (const auto& match : inlier_matches) {
-    //   inlier_points1.push_back(points1[match.point2D_idx1]);
-    //   inlier_points2.push_back(points2[match.point2D_idx2]);
-    // }
-
     Eigen::Vector3d n;
     PoseFromHomographyMatrix(H, camera1.CalibrationMatrix(),
                              camera2.CalibrationMatrix(), inlier_points1_N,

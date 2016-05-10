@@ -27,8 +27,7 @@
 #include "base/cost_functions.h"
 #include "base/pose.h"
 #include "base/projection.h"
-#include "ann_float/ANN.h"
-#include "pba/pba.h"
+#include "ext/PBA/pba.h"
 #include "util/logging.h"
 #include "util/misc.h"
 #include "util/timer.h"
@@ -561,6 +560,22 @@ bool ParallelBundleAdjuster::Solve(Reconstruction* reconstruction) {
   return true;
 }
 
+bool ParallelBundleAdjuster::IsReconstructionSupported(
+    const Reconstruction& reconstruction) {
+  std::set<camera_t> camera_ids;
+  for (const auto& image : reconstruction.Images()) {
+    if (image.second.IsRegistered()) {
+      if (camera_ids.count(image.second.CameraId()) != 0 ||
+          reconstruction.Camera(image.second.CameraId()).ModelId() !=
+              SimpleRadialCameraModel::model_id) {
+        return false;
+      }
+      camera_ids.insert(image.second.CameraId());
+    }
+  }
+  return true;
+}
+
 void ParallelBundleAdjuster::SetUp(Reconstruction* reconstruction) {
   // Important: PBA requires the track of 3D points to be stored
   // contiguously, i.e. the point3D_idxs_ vector contains consecutive indices.
@@ -604,7 +619,7 @@ void ParallelBundleAdjuster::FillImages(Reconstruction* reconstruction) {
 
     const Camera& camera = reconstruction->Camera(image.CameraId());
     CHECK_EQ(camera.ModelId(), SimpleRadialCameraModel::model_id)
-        << "PBA only supports SimpleRadial camera model";
+        << "PBA only supports the SIMPLE_RADIAL camera model";
 
     // Note: Do not use PBA's quaternion methods as they seem to lead to
     // numerical instability or other issues.
@@ -617,6 +632,8 @@ void ParallelBundleAdjuster::FillImages(Reconstruction* reconstruction) {
     pba_camera.SetMatrixRotation(rotation_matrix.data());
     pba_camera.SetTranslation(image.Tvec().data());
 
+    CHECK(!config_.HasConstantTvec(image_id))
+        << "PBA cannot fix partial extrinsics";
     if (config_.HasConstantPose(image_id)) {
       CHECK(config_.IsConstantCamera(image.CameraId()))
           << "PBA cannot fix extrinsics only";

@@ -27,6 +27,8 @@
 
 #include <Eigen/Core>
 
+#include "util/logging.h"
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846264338327950288
 #endif
@@ -69,9 +71,17 @@ inline double RadToDeg(const double rad);
 template <typename T>
 double Median(const std::vector<T>& elems);
 
-// Determine mean value in vector.
+// Determine mean value in a vector.
 template <typename T>
 double Mean(const std::vector<T>& elems);
+
+// Determine sample variance in a vector.
+template <typename T>
+double Variance(const std::vector<T>& elems);
+
+// Determine sample standard deviation in a vector.
+template <typename T>
+double StdDev(const std::vector<T>& elems);
 
 // Check if any of the values in the vector is less than the given threshold.
 template <typename T>
@@ -266,29 +276,48 @@ double RadToDeg(const double rad) {
 
 template <typename T>
 double Median(const std::vector<T>& elems) {
-  size_t size = elems.size();
-  size_t mid = size / 2;
-  if (size == 0) {
-    return std::numeric_limits<T>::quiet_NaN();
-  }
+  CHECK(!elems.empty());
 
-  std::vector<T> sorted_elems = elems;
-  std::sort(sorted_elems.begin(), sorted_elems.end());
+  const size_t mid_idx = elems.size() / 2;
 
-  if (size % 2 == 0) {
-    return (sorted_elems[mid] + sorted_elems[mid - 1]) / 2.0;
+  std::vector<T> ordered_elems = elems;
+
+  std::nth_element(ordered_elems.begin(), ordered_elems.begin() + mid_idx,
+                   ordered_elems.end());
+  if (elems.size() % 2 == 0) {
+    const T mid_element1 = ordered_elems[mid_idx];
+    const T mid_element2 = *std::max_element(ordered_elems.begin(),
+                                             ordered_elems.begin() + mid_idx);
+    return (mid_element1 + mid_element2) / 2.0;
   } else {
-    return sorted_elems[mid];
+    return ordered_elems[mid_idx];
   }
 }
 
 template <typename T>
 double Mean(const std::vector<T>& elems) {
+  CHECK(!elems.empty());
   double sum = 0;
   for (const auto el : elems) {
     sum += static_cast<double>(el);
   }
   return sum / elems.size();
+}
+
+template <typename T>
+double Variance(const std::vector<T>& elems) {
+  const double mean = Mean(elems);
+  double var = 0;
+  for (const auto el : elems) {
+    const double diff = el - mean;
+    var += diff * diff;
+  }
+  return var / (elems.size() - 1);
+}
+
+template <typename T>
+double StdDev(const std::vector<T>& elems) {
+  return std::sqrt(Variance(elems));
 }
 
 template <typename T>

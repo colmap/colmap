@@ -26,14 +26,12 @@ set(COLMAP_LIBRARIES
     estimators
     base
     optim
+    retrieval
     base
     util
     pba
     sqlite3
-    siftgpu
-    vocab
-    ann_char
-    ann_float
+    sift_gpu
     vlfeat
     ${Boost_LIBRARIES}
     ${GLOG_LIBRARIES}
@@ -53,6 +51,7 @@ add_subdirectory(base)
 add_subdirectory(estimators)
 add_subdirectory(exe)
 add_subdirectory(optim)
+add_subdirectory(retrieval)
 add_subdirectory(sfm)
 add_subdirectory(tools)
 add_subdirectory(ui)
@@ -85,6 +84,10 @@ endmacro(ADD_SOURCE_DIR)
 
 ADD_SOURCE_DIR(base BASE_SRC *.h *.cc)
 ADD_SOURCE_DIR(exe EXE_SRC *.h *.cc)
+ADD_SOURCE_DIR(ext/FLANN EXT_FLANN_SRC *.h *.cpp *.hpp *.cu)
+ADD_SOURCE_DIR(ext/PBA EXT_PBA_SRC *.h *.cpp *.cu)
+ADD_SOURCE_DIR(ext/SiftGPU EXT_SIFTGPU_SRC *.h *.cpp *.cu)
+ADD_SOURCE_DIR(ext/SQLite EXT_SQLITE_SRC *.h *.c)
 ADD_SOURCE_DIR(optim OPTIM_SRC *.h *.cc)
 ADD_SOURCE_DIR(sfm SFM_SRC *.h *.cc)
 ADD_SOURCE_DIR(tools TOOLS_SRC *.h *.cc)
@@ -98,6 +101,10 @@ add_library(
     ${COLMAP_SRC_ROOT_FOLDER}
     ${BASE_SRC}
     ${EXE_SRC}
+    ${EXT_FLANN_SRC}
+    ${EXT_PBA_SRC}
+    ${EXT_SIFTGPU_SRC}
+    ${EXT_SQLITE_SRC}
     ${OPTIM_SRC}
     ${SFM_SRC}
     ${TOOLS_SRC}
@@ -110,4 +117,3 @@ set_target_properties(
     ${COLMAP_SRC_ROOT_FOLDER} PROPERTIES
     EXCLUDE_FROM_ALL 1
     EXCLUDE_FROM_DEFAULT_BUILD 1)
-

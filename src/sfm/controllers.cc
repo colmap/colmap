@@ -81,7 +81,8 @@ void AdjustGlobalBundle(const MapperOptions& options,
   }
 
   PrintHeading1("Global bundle adjustment");
-  if (options.ba_global_use_pba && num_reg_images >= kMinNumRegImages) {
+  if (options.ba_global_use_pba && num_reg_images >= kMinNumRegImages &&
+      ParallelBundleAdjuster::IsReconstructionSupported(reconstruction)) {
     mapper->AdjustParallelGlobalBundle(
         options.ParallelGlobalBundleAdjustmentOptions());
   } else {

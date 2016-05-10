@@ -33,6 +33,7 @@
 #include "ui/feature_extraction_widget.h"
 #include "ui/feature_matching_widget.h"
 #include "ui/log_widget.h"
+#include "ui/match_matrix_widget.h"
 #include "ui/model_manager_widget.h"
 #include "ui/model_stats_widget.h"
 #include "ui/new_project_widget.h"
@@ -117,6 +118,7 @@ class MainWindow : public QMainWindow {
   void UndistortImages();
 
   void ShowModelStats();
+  void ShowMatchMatrix();
   void ShowLog();
   void ResetOptions();
 
@@ -150,6 +152,7 @@ class MainWindow : public QMainWindow {
   UndistortWidget* undistort_widget_;
   ModelManagerWidget* model_manager_widget_;
   ModelStatsWidget* model_stats_widget_;
+  MatchMatrixWidget* match_matrix_widget_;
 
   QToolBar* file_toolbar_;
   QToolBar* preprocessing_toolbar_;
@@ -196,9 +199,8 @@ class MainWindow : public QMainWindow {
   QAction* action_render_options_;
 
   QAction* action_model_stats_;
-
+  QAction* action_match_matrix_;
   QAction* action_log_show_;
-
   QAction* action_grab_image_;
   QAction* action_grab_movie_;
 
