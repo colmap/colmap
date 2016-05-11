@@ -21,16 +21,16 @@
 
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
-#include "../common.hh"
+#include "util/types.h"
 
 namespace colmap {
 
 template <typename T>
-static inline T ceres_calc_w(T u, T v) {
+static inline T CeresCalcW(T u, T v) {
   return ceres::sqrt(T(1) - u*v - v*v);
 }
 template <typename T>
-static inline T calc_len(T x, T y, T z) {
+static inline T CeresCalcLen(T x, T y, T z) {
   return ceres::sqrt(x*x + y*y + z*z);
 }
 
@@ -60,17 +60,6 @@ class BundleAdjustmentCostFunction {
     point3D_local[1] += tvec[1];
     point3D_local[2] += tvec[2];
 
-    if (IsCentralCameraModel<CameraModel>()) {
-      T l = calc_len(point3D_local[0], point3D_local[1], point3D_local[2]);
-      point3D_local[0] /= l;
-      point3D_local[1] /= l;
-      point3D_local[2] /= l;
-    } else {
-      // Normalize to image plane
-      point3D_local[0] /= point3D_local[2];
-      point3D_local[1] /= point3D_local[2];
-      point3D_local[2] = T(1);
-    }
     // Distort and transform to pixel space.
     T x, y;
     CameraModel::WorldToImage(camera_params, point3D_local[0], point3D_local[1], point3D_local[2], &x, &y);
@@ -117,19 +106,6 @@ class BundleAdjustmentConstantPoseCostFunction {
     point3D_local[1] += T(tvec_(1));
     point3D_local[2] += T(tvec_(2));
 
-    // Normalize to image plane.
-    if (IsCentralCameraModel<CameraModel>()) {
-      T l = calc_len(point3D_local[0], point3D_local[1], point3D_local[2]);
-      point3D_local[0] /= l;
-      point3D_local[1] /= l;
-      point3D_local[2] /= l;
-    } else {
-      // Normalize to image plane
-      point3D_local[0] /= point3D_local[2];
-      point3D_local[1] /= point3D_local[2];
-      point3D_local[2] = T(1);
-    }
-
     // Distort and transform to pixel space.
     T x, y;
     CameraModel::WorldToImage(camera_params, point3D_local[0], point3D_local[1], point3D_local[2], &x, &y);
@@ -157,7 +133,7 @@ class BundleAdjustmentConstantPoseCostFunction {
 class RelativePoseCostFunction {
  public:
 RelativePoseCostFunction(const Eigen::Vector3d& x1, const Eigen::Vector3d& x2)
-        : x1_(x1), x2_(x2) {dist_tp_ = is_ray(x1) ? 3 : 2;}
+        : x1_(x1), x2_(x2) {dist_tp_ = IsNormalized(x1) ? 3 : 2;}
 
   static ceres::CostFunction* Create(const Eigen::Vector3d& x1,
                                      const Eigen::Vector3d& x2) {

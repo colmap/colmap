@@ -21,8 +21,8 @@
 #include "base/projection.h"
 #include "base/triangulation.h"
 #include "util/logging.h"
+#include "util/types.h"
 #include "util/math.h"
-#include "../common.hh"
 
 namespace colmap {
 
@@ -151,7 +151,7 @@ bool CheckCheirality(const Eigen::Matrix3d& R, const Eigen::Vector3d& t,
   const double max_depth = 1000.0f * (R.transpose() * t).norm();
   points3D->clear();
   int dist_tp;
-  if (is_ray(points1[0]))
+  if (IsNormalized(points1[0]))
     dist_tp = 3;
   else
     dist_tp = 2;

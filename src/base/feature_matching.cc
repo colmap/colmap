@@ -927,11 +927,6 @@ SpatialFeatureMatcher::SpatialFeatureMatcher(
 }
 
 void SpatialFeatureMatcher::DoMatching() {
-<<<<<<< HEAD
-  using namespace ann_float;
-
-=======
->>>>>>> 831df9933ebf6a4e3107cd788c1cc5a7a7f3bb13
   PrintHeading1("Spatial feature matching");
 
   std::vector<Image> ordered_images;

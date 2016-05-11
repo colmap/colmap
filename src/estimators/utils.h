@@ -22,7 +22,6 @@
 #include <Eigen/Core>
 
 #include "util/types.h"
-#include "../common.hh"
 
 namespace colmap {
 

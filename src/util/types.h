@@ -75,6 +75,11 @@ const image_pair_t kInvalidImagePairId =
 const point2D_t kInvalidPoint2DIdx = std::numeric_limits<point2D_t>::max();
 const point3D_t kInvalidPoint3DId = std::numeric_limits<point3D_t>::max();
 
+template<typename T>
+static inline bool IsNormalized(T &p) {
+  return p(2) != 1;
+}
+
 }  // namespace colmap
 
 #endif  // COLMAP_SRC_UTIL_INTTYPES_H_

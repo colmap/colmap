@@ -7,7 +7,7 @@
 #include "optim/loransac.h"
 #include "util/logging.h"
 #include "util/math.h"
-#include "../common.hh"
+#include "util/types.h"
 #include "triangulation.h"
 
 namespace colmap {
@@ -61,10 +61,10 @@ std::vector<TriangulationEstimator::M_t> TriangulationEstimator::Estimate(
     if (CalculateTriangulationAngle(pose_data[0].proj_center,
                                     pose_data[1].proj_center,
                                     xyz) >= min_tri_angle_) {
-      if ((!is_ray(point_data[0].point_normalized) &&
+      if ((!IsNormalized(point_data[0].point_normalized) &&
            HasPointPositiveDepth(pose_data[0].proj_matrix, xyz) &&
            HasPointPositiveDepth(pose_data[1].proj_matrix, xyz))
-          || is_ray(point_data[0].point_normalized)) {
+          || IsNormalized(point_data[0].point_normalized)) {
         return std::vector<M_t>{xyz};
       }
     }
@@ -84,7 +84,7 @@ std::vector<TriangulationEstimator::M_t> TriangulationEstimator::Estimate(
 
     // Check for cheirality constraint.
     for (const auto& pose : pose_data) {
-      if (!is_ray(points[0]) && !HasPointPositiveDepth(pose.proj_matrix, xyz)) {
+      if (!IsNormalized(points[0]) && !HasPointPositiveDepth(pose.proj_matrix, xyz)) {
         return std::vector<M_t>();
       }
     }

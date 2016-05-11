@@ -133,22 +133,6 @@ void TwoViewGeometry::EstimateWithRelativePose(
   // need further down in this method.
   EstimateCalibrated(camera1, points1, camera2, points2, matches, options);
 
-  // Extract normalized inlier points.
-  std::vector<Eigen::Vector2d> inlier_points1_N;
-  inlier_points1_N.reserve(inlier_matches.size());
-  std::vector<Eigen::Vector2d> inlier_points2_N;
-  inlier_points2_N.reserve(inlier_matches.size());
-  for (const auto& match : inlier_matches) {
-    const point2D_t idx1 = match.point2D_idx1;
-    const point2D_t idx2 = match.point2D_idx2;
-    inlier_points1_N.push_back(camera1.ImageToWorld(points1[idx1]));
-    inlier_points2_N.push_back(camera2.ImageToWorld(points2[idx2]));
-  }
-
-  Eigen::Matrix3d R;
-  std::vector<Eigen::Vector3d> points3D;
-
-  //colmap BUG here
     // Extract normalized inlier points.
   std::vector<Eigen::Vector3d> inlier_points1_N;
   inlier_points1_N.reserve(inlier_matches.size());
@@ -160,6 +144,9 @@ void TwoViewGeometry::EstimateWithRelativePose(
     inlier_points1_N.push_back(camera1.ImageToWorld(points1[idx1]));
     inlier_points2_N.push_back(camera2.ImageToWorld(points2[idx2]));
   }
+
+  Eigen::Matrix3d R;
+  std::vector<Eigen::Vector3d> points3D;
 
   if (config == CALIBRATED || config == UNCALIBRATED) {
     // Try to recover relative pose for calibrated and uncalibrated
