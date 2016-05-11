@@ -226,7 +226,7 @@ Eigen::MatrixXi VisualIndex::FindWordIds(Desc& descriptors,
                                descriptors.cols());
 
   flann::SearchParams search_params(num_checks);
-  if (num_threads == kMaxNumThreads) {
+  if (num_threads < 0) {
     search_params.cores = std::thread::hardware_concurrency();
   } else {
     search_params.cores = num_threads;

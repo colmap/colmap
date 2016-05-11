@@ -775,6 +775,9 @@ void SequentialFeatureMatcher::DoMatching() {
   retrieval::VisualIndex visual_index;
   visual_index.Read(sequential_options_.vocab_tree_path);
 
+  retrieval::VisualIndex::IndexOptions index_options;
+  index_options.num_threads = options_.num_threads;
+
   for (size_t i = 0; i < ordered_images.size(); ++i) {
     if (IsStopped()) {
       return;
@@ -791,8 +794,7 @@ void SequentialFeatureMatcher::DoMatching() {
 
     retrieval::VisualIndex::Desc descriptors =
         database_.ReadDescriptors(image.ImageId());
-    visual_index.Add(retrieval::VisualIndex::IndexOptions(), image.ImageId(),
-                     descriptors);
+    visual_index.Add(index_options, image.ImageId(), descriptors);
 
     PrintElapsedTime(timer);
   }
@@ -801,6 +803,7 @@ void SequentialFeatureMatcher::DoMatching() {
 
   retrieval::VisualIndex::QueryOptions query_options;
   query_options.max_num_images = sequential_options_.loop_detection_num_images;
+  query_options.num_threads = options_.num_threads;
 
   std::vector<retrieval::ImageScore> image_scores;
 
@@ -856,6 +859,9 @@ void VocabTreeFeatureMatcher::DoMatching() {
   retrieval::VisualIndex visual_index;
   visual_index.Read(vocab_tree_options_.vocab_tree_path);
 
+  retrieval::VisualIndex::IndexOptions index_options;
+  index_options.num_threads = options_.num_threads;
+
   size_t i = 0;
   for (const auto& image : images_) {
     if (IsStopped()) {
@@ -872,8 +878,7 @@ void VocabTreeFeatureMatcher::DoMatching() {
 
     retrieval::VisualIndex::Desc descriptors =
         database_.ReadDescriptors(image.second.ImageId());
-    visual_index.Add(retrieval::VisualIndex::IndexOptions(),
-                     image.second.ImageId(), descriptors);
+    visual_index.Add(index_options, image.second.ImageId(), descriptors);
 
     PrintElapsedTime(timer);
   }
@@ -882,6 +887,7 @@ void VocabTreeFeatureMatcher::DoMatching() {
 
   retrieval::VisualIndex::QueryOptions query_options;
   query_options.max_num_images = vocab_tree_options_.num_images;
+  query_options.num_threads = options_.num_threads;
 
   std::vector<retrieval::ImageScore> image_scores;
 
