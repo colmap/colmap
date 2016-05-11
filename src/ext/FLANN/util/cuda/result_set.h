@@ -54,7 +54,7 @@ struct SingleResultSet
     DistanceType bestDist;
     const DistanceType epsError;
 
-    __device__
+    __device__ __host__
     SingleResultSet( DistanceType eps ) : bestIndex(-1),bestDist(INFINITY), epsError(eps){ }
 
     __device__
@@ -129,7 +129,7 @@ struct KnnResultSet
     const DistanceType epsError;
 
 
-    __device__
+    __device__ __host__
     KnnResultSet(int knn, bool sortResults, DistanceType eps) : foundNeighbors(0),largestHeapDist(INFINITY),k(knn), sorted(sortResults), epsError(eps){ }
 
     //          __host__ __device__
@@ -229,7 +229,7 @@ struct CountingRadiusResultSet
     DistanceType radius_sq_;
     int max_neighbors_;
 
-    __device__
+    __device__ __host__
     CountingRadiusResultSet(DistanceType radius, int max_neighbors) : count_(0),radius_sq_(radius), max_neighbors_(max_neighbors){ }
 
     __device__
@@ -279,7 +279,7 @@ struct RadiusKnnResultSet
     //          int count_;
 
 
-    __device__
+    __device__ __host__
     RadiusKnnResultSet(DistanceType radius, int knn, int* segment_starts, bool sortResults) : foundNeighbors(0),largestHeapDist(radius),k(knn), sorted(sortResults), radius_sq_(radius),segment_starts_(segment_starts) { }
 
     //          __host__ __device__
@@ -381,7 +381,7 @@ struct KnnRadiusResultSet
     const DistanceType radius_sq;
 
 
-    __device__
+    __device__ __host__
     KnnRadiusResultSet(int knn, bool sortResults, DistanceType eps, DistanceType radius) : foundNeighbors(0),largestHeapDist(radius),k(knn), sorted(sortResults), epsError(eps),radius_sq(radius){ }
 
     //          __host__ __device__
@@ -484,7 +484,7 @@ struct RadiusResultSet
     int count_;
     bool sorted_;
 
-    __device__
+    __device__ __host__
     RadiusResultSet(DistanceType radius, int* segment_starts, bool sorted) : radius_sq_(radius), segment_starts_(segment_starts), count_(0), sorted_(sorted){ }
 
     __device__

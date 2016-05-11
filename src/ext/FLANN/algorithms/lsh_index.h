@@ -69,9 +69,9 @@ struct LshIndexParams : public IndexParams
 };
 
 /**
- * Randomized kd-tree index
+ * Locality-sensitive hashing  index
  *
- * Contains the k-d trees and other information for indexing a set of points
+ * Contains the tables and other information for indexing a set of points
  * for nearest-neighbor matching.
  */
 template<typename Distance>
@@ -396,7 +396,7 @@ private:
         if (level == 0) return;
         for (int index = lowest_index - 1; index >= 0; --index) {
             // Create a new key
-            lsh::BucketKey new_key = key | (1 << index);
+            lsh::BucketKey new_key = key | (lsh::BucketKey(1) << index);
             fill_xor_mask(new_key, index, level - 1, xor_masks);
         }
     }

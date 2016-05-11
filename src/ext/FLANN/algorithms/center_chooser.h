@@ -13,6 +13,63 @@
 namespace flann
 {
 
+template <typename Distance, typename ElementType>
+struct squareDistance
+{
+    typedef typename Distance::ResultType ResultType;
+    ResultType operator()( ResultType dist ) { return dist*dist; }
+};
+
+
+template <typename ElementType>
+struct squareDistance<L2_Simple<ElementType>, ElementType>
+{
+    typedef typename L2_Simple<ElementType>::ResultType ResultType;
+    ResultType operator()( ResultType dist ) { return dist; }
+};
+
+template <typename ElementType>
+struct squareDistance<L2_3D<ElementType>, ElementType>
+{
+    typedef typename L2_3D<ElementType>::ResultType ResultType;
+    ResultType operator()( ResultType dist ) { return dist; }
+};
+
+template <typename ElementType>
+struct squareDistance<L2<ElementType>, ElementType>
+{
+    typedef typename L2<ElementType>::ResultType ResultType;
+    ResultType operator()( ResultType dist ) { return dist; }
+};
+
+
+template <typename ElementType>
+struct squareDistance<HellingerDistance<ElementType>, ElementType>
+{
+    typedef typename HellingerDistance<ElementType>::ResultType ResultType;
+    ResultType operator()( ResultType dist ) { return dist; }
+};
+
+
+template <typename ElementType>
+struct squareDistance<ChiSquareDistance<ElementType>, ElementType>
+{
+    typedef typename ChiSquareDistance<ElementType>::ResultType ResultType;
+    ResultType operator()( ResultType dist ) { return dist; }
+};
+
+
+template <typename Distance>
+typename Distance::ResultType ensureSquareDistance( typename Distance::ResultType dist )
+{
+    typedef typename Distance::ElementType ElementType;
+
+    squareDistance<Distance, ElementType> dummy;
+    return dummy( dist );
+}
+
+
+
 template <typename Distance>
 class CenterChooser
 {
@@ -20,14 +77,11 @@ public:
     typedef typename Distance::ElementType ElementType;
     typedef typename Distance::ResultType DistanceType;
 
-    CenterChooser(const Distance& distance) : distance_(distance) {};
-
-    void setDataset(const flann::Matrix<ElementType>& dataset)
-    {
-    	dataset_ = dataset;
-    }
+    CenterChooser(const Distance& distance, const std::vector<ElementType*>& points) : distance_(distance), points_(points) {};
 
     virtual ~CenterChooser() {};
+
+    void setDataSize(size_t cols) { cols_ = cols; }
 
     /**
      * Chooses cluster centers
@@ -41,8 +95,9 @@ public:
 	virtual void operator()(int k, int* indices, int indices_length, int* centers, int& centers_length) = 0;
 
 protected:
-	flann::Matrix<ElementType> dataset_;
-	Distance distance_;
+	const Distance distance_;
+    const std::vector<ElementType*>& points_;
+    size_t cols_;
 };
 
 
@@ -52,11 +107,12 @@ class RandomCenterChooser : public CenterChooser<Distance>
 public:
     typedef typename Distance::ElementType ElementType;
     typedef typename Distance::ResultType DistanceType;
-    using CenterChooser<Distance>::dataset_;
+    using CenterChooser<Distance>::points_;
     using CenterChooser<Distance>::distance_;
+    using CenterChooser<Distance>::cols_;
 
-    RandomCenterChooser(const Distance& distance) :
-    	CenterChooser<Distance>(distance) {}
+    RandomCenterChooser(const Distance& distance, const std::vector<ElementType*>& points) :
+    	CenterChooser<Distance>(distance, points) {}
 
     void operator()(int k, int* indices, int indices_length, int* centers, int& centers_length)
     {
@@ -77,7 +133,7 @@ public:
                 centers[index] = indices[rnd];
 
                 for (int j=0; j<index; ++j) {
-                    DistanceType sq = distance_(dataset_[centers[index]], dataset_[centers[j]], dataset_.cols);
+                    DistanceType sq = distance_(points_[centers[index]], points_[centers[j]], cols_);
                     if (sq<1e-16) {
                         duplicate = true;
                     }
@@ -101,10 +157,12 @@ public:
     typedef typename Distance::ElementType ElementType;
     typedef typename Distance::ResultType DistanceType;
 
-    using CenterChooser<Distance>::dataset_;
+    using CenterChooser<Distance>::points_;
     using CenterChooser<Distance>::distance_;
+    using CenterChooser<Distance>::cols_;
 
-    GonzalesCenterChooser(const Distance& distance) : CenterChooser<Distance>( distance) {}
+    GonzalesCenterChooser(const Distance& distance, const std::vector<ElementType*>& points) :
+        CenterChooser<Distance>(distance, points) {}
 
     void operator()(int k, int* indices, int indices_length, int* centers, int& centers_length)
     {
@@ -121,9 +179,9 @@ public:
             int best_index = -1;
             DistanceType best_val = 0;
             for (int j=0; j<n; ++j) {
-            	DistanceType dist = distance_(dataset_[centers[0]],dataset_[indices[j]],dataset_.cols);
+            	DistanceType dist = distance_(points_[centers[0]],points_[indices[j]],cols_);
                 for (int i=1; i<index; ++i) {
-                    DistanceType tmp_dist = distance_(dataset_[centers[i]],dataset_[indices[j]],dataset_.cols);
+                    DistanceType tmp_dist = distance_(points_[centers[i]],points_[indices[j]],cols_);
                     if (tmp_dist<dist) {
                         dist = tmp_dist;
                     }
@@ -156,10 +214,12 @@ public:
     typedef typename Distance::ElementType ElementType;
     typedef typename Distance::ResultType DistanceType;
 
-    using CenterChooser<Distance>::dataset_;
+    using CenterChooser<Distance>::points_;
     using CenterChooser<Distance>::distance_;
+    using CenterChooser<Distance>::cols_;
 
-    KMeansppCenterChooser(const Distance& distance) : CenterChooser<Distance>(distance) {}
+    KMeansppCenterChooser(const Distance& distance, const std::vector<ElementType*>& points) :
+        CenterChooser<Distance>(distance, points) {}
 
     void operator()(int k, int* indices, int indices_length, int* centers, int& centers_length)
     {
@@ -173,8 +233,11 @@ public:
         assert(index >=0 && index < n);
         centers[0] = indices[index];
 
+        // Computing distance^2 will have the advantage of even higher probability further to pick new centers
+        // far from previous centers (and this complies to "k-means++: the advantages of careful seeding" article)
         for (int i = 0; i < n; i++) {
-            closestDistSq[i] = distance_(dataset_[indices[i]], dataset_[indices[index]], dataset_.cols);
+            closestDistSq[i] = distance_(points_[indices[i]], points_[indices[index]], cols_);
+            closestDistSq[i] = ensureSquareDistance<Distance>( closestDistSq[i] );
             currentPot += closestDistSq[i];
         }
 
@@ -200,7 +263,10 @@ public:
 
                 // Compute the new potential
                 double newPot = 0;
-                for (int i = 0; i < n; i++) newPot += std::min( distance_(dataset_[indices[i]], dataset_[indices[index]], dataset_.cols), closestDistSq[i] );
+                for (int i = 0; i < n; i++) {
+                    DistanceType dist = distance_(points_[indices[i]], points_[indices[index]], cols_);
+                    newPot += std::min( ensureSquareDistance<Distance>(dist), closestDistSq[i] );
+                }
 
                 // Store the best result
                 if ((bestNewPot < 0)||(newPot < bestNewPot)) {
@@ -212,7 +278,98 @@ public:
             // Add the appropriate center
             centers[centerCount] = indices[bestNewIndex];
             currentPot = bestNewPot;
-            for (int i = 0; i < n; i++) closestDistSq[i] = std::min( distance_(dataset_[indices[i]], dataset_[indices[bestNewIndex]], dataset_.cols), closestDistSq[i] );
+            for (int i = 0; i < n; i++) {
+                DistanceType dist = distance_(points_[indices[i]], points_[indices[bestNewIndex]], cols_);
+                closestDistSq[i] = std::min( ensureSquareDistance<Distance>(dist), closestDistSq[i] );
+            }
+        }
+
+        centers_length = centerCount;
+
+        delete[] closestDistSq;
+    }
+};
+
+
+
+/**
+ * Chooses the initial centers in a way inspired by Gonzales (by Pierre-Emmanuel Viel):
+ * select the first point of the list as a candidate, then parse the points list. If another
+ * point is further than current candidate from the other centers, test if it is a good center
+ * of a local aggregation. If it is, replace current candidate by this point. And so on...
+ *
+ * Used with KMeansIndex that computes centers coordinates by averaging positions of clusters points,
+ * this doesn't make a real difference with previous methods. But used with HierarchicalClusteringIndex
+ * class that pick centers among existing points instead of computing the barycenters, there is a real
+ * improvement.
+ */
+template <typename Distance>
+class GroupWiseCenterChooser : public CenterChooser<Distance>
+{
+public:
+    typedef typename Distance::ElementType ElementType;
+    typedef typename Distance::ResultType DistanceType;
+
+    using CenterChooser<Distance>::points_;
+    using CenterChooser<Distance>::distance_;
+    using CenterChooser<Distance>::cols_;
+
+    GroupWiseCenterChooser(const Distance& distance, const std::vector<ElementType*>& points) :
+        CenterChooser<Distance>(distance, points) {}
+
+    void operator()(int k, int* indices, int indices_length, int* centers, int& centers_length)
+    {
+        const float kSpeedUpFactor = 1.3f;
+
+        int n = indices_length;
+
+        DistanceType* closestDistSq = new DistanceType[n];
+
+        // Choose one random center and set the closestDistSq values
+        int index = rand_int(n);
+        assert(index >=0 && index < n);
+        centers[0] = indices[index];
+
+        for (int i = 0; i < n; i++) {
+            closestDistSq[i] = distance_(points_[indices[i]], points_[indices[index]], cols_);
+        }
+
+
+        // Choose each center
+        int centerCount;
+        for (centerCount = 1; centerCount < k; centerCount++) {
+
+            // Repeat several trials
+            double bestNewPot = -1;
+            int bestNewIndex = 0;
+            DistanceType furthest = 0;
+            for (index = 0; index < n; index++) {
+
+                // We will test only the potential of the points further than current candidate
+                if( closestDistSq[index] > kSpeedUpFactor * (float)furthest ) {
+
+                    // Compute the new potential
+                    double newPot = 0;
+                    for (int i = 0; i < n; i++) {
+                        newPot += std::min( distance_(points_[indices[i]], points_[indices[index]], cols_)
+                                            , closestDistSq[i] );
+                    }
+
+                    // Store the best result
+                    if ((bestNewPot < 0)||(newPot <= bestNewPot)) {
+                        bestNewPot = newPot;
+                        bestNewIndex = index;
+                        furthest = closestDistSq[index];
+                    }
+                }
+            }
+
+            // Add the appropriate center
+            centers[centerCount] = indices[bestNewIndex];
+            for (int i = 0; i < n; i++) {
+                closestDistSq[i] = std::min( distance_(points_[indices[i]], points_[indices[bestNewIndex]], cols_)
+                                             , closestDistSq[i] );
+            }
         }
 
         centers_length = centerCount;

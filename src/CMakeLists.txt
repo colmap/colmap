@@ -27,6 +27,7 @@ set(COLMAP_LIBRARIES
     retrieval
     base
     util
+    flann
     pba
     sqlite3
     sift_gpu

@@ -38,6 +38,10 @@
 #include <limits>
 #include <cmath>
 
+#ifndef SIZE_MAX
+#define SIZE_MAX ((size_t) -1)
+#endif
+
 #include "ext/FLANN/general.h"
 #include "ext/FLANN/algorithms/nn_index.h"
 #include "ext/FLANN/algorithms/dist.h"
@@ -126,9 +130,10 @@ public:
         leaf_max_size_ = get_param(index_params_,"leaf_max_size",100);
 
         initCenterChooser();
-        chooseCenters_->setDataset(inputData);
 
         setDataset(inputData);
+
+        chooseCenters_->setDataSize(veclen_);
     }
 
 
@@ -158,14 +163,17 @@ public:
     {
         switch(centers_init_) {
         case FLANN_CENTERS_RANDOM:
-        	chooseCenters_ = new RandomCenterChooser<Distance>(distance_);
+        	chooseCenters_ = new RandomCenterChooser<Distance>(distance_, points_);
         	break;
         case FLANN_CENTERS_GONZALES:
-        	chooseCenters_ = new GonzalesCenterChooser<Distance>(distance_);
+        	chooseCenters_ = new GonzalesCenterChooser<Distance>(distance_, points_);
         	break;
         case FLANN_CENTERS_KMEANSPP:
-            chooseCenters_ = new KMeansppCenterChooser<Distance>(distance_);
+            chooseCenters_ = new KMeansppCenterChooser<Distance>(distance_, points_);
         	break;
+        case FLANN_CENTERS_GROUPWISE:
+            chooseCenters_ = new GroupWiseCenterChooser<Distance>(distance_, points_);
+            break;
         default:
             throw FLANNException("Unknown algorithm for choosing initial centers.");
         }
@@ -296,6 +304,8 @@ protected:
      */
     void buildIndexImpl()
     {
+        chooseCenters_->setDataSize(veclen_);
+
         if (branching_<2) {
             throw FLANNException("Branching factor must be at least 2");
         }
@@ -355,6 +365,10 @@ private:
          */
         std::vector<PointInfo> points;
 
+		Node(){
+			pivot = NULL;
+			pivot_index = SIZE_MAX;
+		}
         /**
          * destructor
          * calling Node destructor explicitly
@@ -363,6 +377,8 @@ private:
         {
         	for(size_t i=0; i<childs.size(); i++){
         		childs[i]->~Node();
+				pivot = NULL;
+				pivot_index = -1;
         	}
         };
 
@@ -374,7 +390,10 @@ private:
     		Index* obj = static_cast<Index*>(ar.getObject());
     		ar & pivot_index;
     		if (Archive::is_loading::value) {
-    			pivot = obj->points_[pivot_index];
+				if (pivot_index != SIZE_MAX)
+					pivot = obj->points_[pivot_index];
+				else
+					pivot = NULL;
     		}
     		size_t childs_size;
     		if (Archive::is_saving::value) {

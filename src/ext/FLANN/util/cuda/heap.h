@@ -43,7 +43,7 @@ __device__ __host__ void swap( T& x, T& y )
 namespace heap
 {
 
-//! moves an element down the heap until all children are smaller than the elemnent
+//! moves an element down the heap until all children are smaller than the element
 //! if c is a less-than comparator, it do this until all children are larger
 template <class GreaterThan, class RandomAccessIterator>
 __host__ __device__ void
@@ -94,7 +94,7 @@ is_heap( RandomAccessIterator begin, size_t length, GreaterThan c = GreaterThan(
 }
 
 
-//! moves an element down the heap until all children are smaller than the elemnent
+//! moves an element down the heap until all children are smaller than the element
 //! if c is a less-than comparator, it do this until all children are larger
 template <class GreaterThan, class RandomAccessIterator, class RandomAccessIterator2>
 __host__ __device__ void

@@ -8,6 +8,7 @@ if(NOT IS_MSVC)
     string(REPLACE "-Wall" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
+add_subdirectory(FLANN)
 add_subdirectory(PBA)
 add_subdirectory(SiftGPU)
 add_subdirectory(SQLite)

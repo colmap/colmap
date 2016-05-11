@@ -252,12 +252,10 @@ public:
 #endif
             {
                 // Check for duplicate indices
-                size_t j = i - 1;
-                while (dist_index_[j].dist_ == dist) {
+                for (size_t j = i - 1; dist_index_[j].dist_ == dist && j--;) {
                     if (dist_index_[j].index_ == index) {
                         return;
                     }
-                    --j;
                 }
                 break;
             }

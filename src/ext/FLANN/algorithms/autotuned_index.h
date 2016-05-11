@@ -208,16 +208,20 @@ public:
 
     void saveIndex(FILE* stream)
     {
-    	serialization::SaveArchive sa(stream);
-    	sa & *this;
+        {
+            serialization::SaveArchive sa(stream);
+            sa & *this;
+        }
 
     	bestIndex_->saveIndex(stream);
     }
 
     void loadIndex(FILE* stream)
     {
-    	serialization::LoadArchive la(stream);
-    	la & *this;
+        {
+            serialization::LoadArchive la(stream);
+            la & *this;
+        }
 
         IndexParams params;
         flann_algorithm_t index_type = get_param<flann_algorithm_t>(bestParams_,"algorithm");
@@ -225,7 +229,7 @@ public:
         bestIndex_->loadIndex(stream);
     }
 
-    int knnSearch(const Matrix<ElementType>& queries,
+        int knnSearch(const Matrix<ElementType>& queries,
             Matrix<size_t>& indices,
             Matrix<DistanceType>& dists,
             size_t knn,

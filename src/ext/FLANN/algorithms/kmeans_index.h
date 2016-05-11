@@ -117,8 +117,6 @@ public:
         cb_index_  = get_param(params,"cb_index",0.4f);
 
         initCenterChooser();
-        chooseCenters_->setDataset(inputData);
-
         setDataset(inputData);
     }
 
@@ -168,13 +166,13 @@ public:
     {
         switch(centers_init_) {
         case FLANN_CENTERS_RANDOM:
-        	chooseCenters_ = new RandomCenterChooser<Distance>(distance_);
+        	chooseCenters_ = new RandomCenterChooser<Distance>(distance_, points_);
         	break;
         case FLANN_CENTERS_GONZALES:
-        	chooseCenters_ = new GonzalesCenterChooser<Distance>(distance_);
+        	chooseCenters_ = new GonzalesCenterChooser<Distance>(distance_, points_);
         	break;
         case FLANN_CENTERS_KMEANSPP:
-            chooseCenters_ = new KMeansppCenterChooser<Distance>(distance_);
+            chooseCenters_ = new KMeansppCenterChooser<Distance>(distance_, points_);
         	break;
         default:
             throw FLANNException("Unknown algorithm for choosing initial centers.");
@@ -330,6 +328,8 @@ protected:
      */
     void buildIndexImpl()
     {
+        chooseCenters_->setDataSize(veclen_);
+
         if (branching_<2) {
             throw FLANNException("Branching factor must be at least 2");
         }
@@ -416,6 +416,7 @@ private:
     		Index* obj = static_cast<Index*>(ar.getObject());
 
     		if (Archive::is_loading::value) {
+    			delete[] pivot;
     			pivot = new DistanceType[obj->veclen_];
     		}
     		ar & serialization::make_binary_object(pivot, obj->veclen_*sizeof(DistanceType));
@@ -524,6 +525,7 @@ private:
 
         node->variance = variance;
         node->radius = radius;
+        delete[] node->pivot;
         node->pivot = mean;
     }
 

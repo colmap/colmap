@@ -36,6 +36,7 @@
 #include <cassert>
 #include <cstring>
 #include <stdarg.h>
+#include <cmath>
 
 #include "ext/FLANN/general.h"
 #include "ext/FLANN/algorithms/nn_index.h"
@@ -298,15 +299,19 @@ private:
          * Point data
          */
         ElementType* point;
-        /**
-         * The child nodes.
-         */
-        Node* child1, * child2;
+		/**
+		* The child nodes.
+		*/
+		Node* child1, *child2;
+		Node(){
+			child1 = NULL;
+			child2 = NULL;
+		}
+		~Node() {
+			if (child1 != NULL) { child1->~Node(); child1 = NULL; }
 
-        ~Node() {
-        	if (child1!=NULL) child1->~Node();
-        	if (child2!=NULL) child2->~Node();
-        }
+			if (child2 != NULL) { child2->~Node(); child2 = NULL; }
+		}
 
     private:
     	template<typename Archive>

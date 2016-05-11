@@ -40,7 +40,7 @@
 #ifdef FLANN_SIGNATURE_
 #undef FLANN_SIGNATURE_
 #endif
-#define FLANN_SIGNATURE_ "FLANN_INDEX"
+#define FLANN_SIGNATURE_ "FLANN_INDEX_v1.1"
 
 namespace flann
 {
@@ -50,33 +50,31 @@ namespace flann
  */
 struct IndexHeader
 {
-    char signature[16];
-    char version[16];
-    flann_datatype_t data_type;
-    flann_algorithm_t index_type;
-    flann_distance_t distance_type;
-    size_t rows;
-    size_t cols;
-
+    IndexHeaderStruct h;
 
     IndexHeader()
 	{
-        memset(signature, 0, sizeof(signature));
-        strcpy(signature, FLANN_SIGNATURE_);
-        memset(version, 0, sizeof(version));
-        strcpy(version, FLANN_VERSION_);
+        memset(h.signature, 0, sizeof(h.signature));
+        strcpy(h.signature, FLANN_SIGNATURE_);
+        memset(h.version, 0, sizeof(h.version));
+        strcpy(h.version, FLANN_VERSION_);
+
+        h.compression = 0;
+        h.first_block_size = 0;
 	}
 
 private:
     template<typename Archive>
     void serialize(Archive& ar)
     {
-    	ar & signature;
-    	ar & version;
-    	ar & data_type;
-    	ar & index_type;
-    	ar & rows;
-    	ar & cols;
+        ar & h.signature;
+        ar & h.version;
+        ar & h.data_type;
+        ar & h.index_type;
+        ar & h.rows;
+        ar & h.cols;
+        ar & h.compression;
+        ar & h.first_block_size;
     }
     friend struct serialization::access;
 };
@@ -91,10 +89,10 @@ template<typename Index>
 void save_header(FILE* stream, const Index& index)
 {
     IndexHeader header;
-    header.data_type = flann_datatype_value<typename Index::ElementType>::value;
-    header.index_type = index.getType();
-    header.rows = index.size();
-    header.cols = index.veclen();
+    header.h.data_type = flann_datatype_value<typename Index::ElementType>::value;
+    header.h.index_type = index.getType();
+    header.h.rows = index.size();
+    header.h.cols = index.veclen();
 
     fwrite(&header, sizeof(header),1,stream);
 }
@@ -110,11 +108,13 @@ inline IndexHeader load_header(FILE* stream)
     IndexHeader header;
     int read_size = fread(&header,sizeof(header),1,stream);
 
-    if (read_size!=1) {
+    if (read_size != 1) {
         throw FLANNException("Invalid index file, cannot read");
     }
 
-    if (strcmp(header.signature,FLANN_SIGNATURE_)!=0) {
+    if (strncmp(header.h.signature,
+                FLANN_SIGNATURE_,
+                strlen(FLANN_SIGNATURE_) - strlen("v0.0")) != 0) {
         throw FLANNException("Invalid index file, wrong signature");
     }
 
