@@ -83,9 +83,11 @@ FeatureMatcher::FeatureMatcher(const Options& options,
     : stop_(false),
       options_(options),
       database_path_(database_path),
-      parent_thread_(QThread::currentThread()),
-      prev_uploaded_image_ids_{{kInvalidImageId, kInvalidImageId}} {
+      parent_thread_(QThread::currentThread()) {
   options_.Check();
+
+  prev_uploaded_image_ids_[0] = kInvalidImageId;
+  prev_uploaded_image_ids_[1] = kInvalidImageId;
 
 #ifdef CUDA_ENABLED
   if (options_.gpu_index < 0) {

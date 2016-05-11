@@ -10,7 +10,7 @@ namespace flann
 namespace serialization
 {
 
-struct access 
+struct access
 {
     template<typename Archive, typename T>
     static inline void serialize(Archive& ar, T& type)
@@ -89,8 +89,9 @@ BASIC_TYPE_SERIALIZER(unsigned long);
 BASIC_TYPE_SERIALIZER(float);
 BASIC_TYPE_SERIALIZER(double);
 BASIC_TYPE_SERIALIZER(bool);
-
-
+#ifdef _MSC_VER
+BASIC_TYPE_SERIALIZER(unsigned long long);
+#endif
 
 // serializer for std::vector
 template<typename T>
@@ -241,7 +242,7 @@ struct Serializer<binary_object>
 
 
 
-template <bool C_> 
+template <bool C_>
 struct bool_ {
     static const bool value = C_;
     typedef bool value_type;
@@ -287,7 +288,7 @@ protected:
 public:
     typedef bool_<false> is_loading;
     typedef bool_<true> is_saving;
-    
+
     template<typename T>
     Archive& operator& (const T& val)
     {
@@ -384,7 +385,7 @@ public:
     	// don't save pointers
         //fwrite(&val, sizeof(val), 1, handle_);
     }
-    
+
     template<typename T>
     void save_binary(T* ptr, size_t size)
     {

@@ -45,7 +45,7 @@ struct InvertedFileEntry {
 template <int N>
 void InvertedFileEntry<N>::Read(std::ifstream* ifs) {
   static_assert(N <= 64, "Dimensionality too large");
-  static_assert(sizeof(unsigned long) >= 8,
+  static_assert(sizeof(unsigned long long) >= 8,
                 "Expected unsigned long to be at least 8 byte");
 
   int32_t image_id = 0;
@@ -60,12 +60,12 @@ void InvertedFileEntry<N>::Read(std::ifstream* ifs) {
 template <int N>
 void InvertedFileEntry<N>::Write(std::ofstream* ofs) const {
   static_assert(N <= 64, "Dimensionality too large");
-  static_assert(sizeof(unsigned long) >= 8,
+  static_assert(sizeof(unsigned long long) >= 8,
                 "Expected unsigned long to be at least 8 byte");
 
   ofs->write(reinterpret_cast<const char*>(&image_id), sizeof(int32_t));
 
-  uint64_t bin_desc = static_cast<uint64_t>(descriptor.to_ulong());
+  uint64_t bin_desc = static_cast<uint64_t>(descriptor.to_ullong());
   ofs->write(reinterpret_cast<const char*>(&bin_desc), sizeof(uint64_t));
 }
 

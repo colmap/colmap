@@ -40,7 +40,7 @@ namespace retrieval {
 template <int N>
 class InvertedIndex {
  public:
-  const static int kInvalidWordId = std::numeric_limits<int>::max();
+  const static int kInvalidWordId;
   typedef Eigen::Matrix<uint8_t, Eigen::Dynamic, 128, Eigen::RowMajor> Desc;
   typedef Eigen::Matrix<float, N, 128> ProjMatrix;
   typedef Eigen::Matrix<float, N, 1> ProjDesc;
@@ -73,8 +73,7 @@ class InvertedIndex {
   void ClearEntries();
 
   // Query the inverted file and return a list of sorted images.
-  void Query(const Desc& descriptors,
-             const Eigen::MatrixXi& word_ids,
+  void Query(const Desc& descriptors, const Eigen::MatrixXi& word_ids,
              std::vector<ImageScore>* image_scores) const;
 
   // Compute the self-similarity for the image.
@@ -104,6 +103,9 @@ class InvertedIndex {
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
+
+template <int N>
+const int InvertedIndex<N>::kInvalidWordId = std::numeric_limits<int>::max();
 
 template <int N>
 InvertedIndex<N>::InvertedIndex() {
@@ -194,10 +196,9 @@ void InvertedIndex<N>::ClearEntries() {
 }
 
 template <int N>
-void InvertedIndex<N>::Query(
-    const Desc& descriptors,
-    const Eigen::MatrixXi& word_ids,
-    std::vector<ImageScore>* image_scores) const {
+void InvertedIndex<N>::Query(const Desc& descriptors,
+                             const Eigen::MatrixXi& word_ids,
+                             std::vector<ImageScore>* image_scores) const {
   image_scores->clear();
 
   // Computes the self-similarity score for the query image.
