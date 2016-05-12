@@ -120,49 +120,79 @@ void VisualIndex::Build(const BuildOptions& options, Desc& descriptors) {
 }
 
 void VisualIndex::Read(const std::string& path) {
-  FILE* fout = fopen(path.c_str(), "rb");
-  CHECK_NOTNULL(fout);
+  long int file_offset = 0;
 
-  if (visual_words_.ptr() != nullptr) {
-    delete[] visual_words_.ptr();
-  }
+  // Read the visual words.
 
   {
-    flann::serialization::LoadArchive archive(fout);
-    archive& visual_words_;
+    if (visual_words_.ptr() != nullptr) {
+      delete[] visual_words_.ptr();
+    }
+
+    std::ifstream file(path, std::ios::binary);
+    uint64_t rows;
+    file.read(reinterpret_cast<char*>(&rows), sizeof(uint64_t));
+    uint64_t cols;
+    file.read(reinterpret_cast<char*>(&cols), sizeof(uint64_t));
+    uint8_t* visual_words_data = new uint8_t[rows * cols];
+    file.read(reinterpret_cast<char*>(visual_words_data), rows * cols);
+    visual_words_ = flann::Matrix<uint8_t>(visual_words_data, rows, cols);
+    file_offset = file.tellg();
   }
 
+  // Read the visual words search index.
+
   visual_word_index_ = flann::AutotunedIndex<flann::L2<uint8_t>>(visual_words_);
-  visual_word_index_.loadIndex(fout);
 
-  const auto fout_position = ftell(fout);
+  {
+    FILE* fin = fopen(path.c_str(), "rb");
+    CHECK_NOTNULL(fin);
+    fseek(fin, file_offset, SEEK_SET);
+    visual_word_index_.loadIndex(fin);
+    file_offset = ftell(fin);
+    fclose(fin);
+  }
 
-  fclose(fout);
+  // Read the inverted index.
 
-  std::ifstream ifs(path, std::ios::binary);
-  CHECK(ifs);
-  ifs.seekg(fout_position, std::ios::beg);
-  inverted_index_.Read(&ifs);
-  ifs.close();
+  {
+    std::ifstream file(path, std::ios::binary);
+    CHECK(file);
+    file.seekg(file_offset, std::ios::beg);
+    inverted_index_.Read(&file);
+  }
 }
 
 void VisualIndex::Write(const std::string& path) {
-  FILE* fout = fopen(path.c_str(), "wb");
-  CHECK_NOTNULL(fout);
+  // Write the visual words.
 
   {
-    flann::serialization::SaveArchive archive(fout);
-    archive& visual_words_;
+    CHECK_NOTNULL(visual_words_.ptr());
+    std::ofstream file(path, std::ios::binary);
+    const uint64_t rows = static_cast<uint64_t>(visual_words_.rows);
+    file.write(reinterpret_cast<const char*>(&rows), sizeof(uint64_t));
+    const uint64_t cols = static_cast<uint64_t>(visual_words_.cols);
+    file.write(reinterpret_cast<const char*>(&cols), sizeof(uint64_t));
+    file.write(reinterpret_cast<const char*>(visual_words_.ptr()),
+               visual_words_.rows * visual_words_.cols);
   }
 
-  visual_word_index_.saveIndex(fout);
+  // Write the visual words search index.
 
-  fclose(fout);
+  {
+    FILE* fout = fopen(path.c_str(), "ab");
+    CHECK_NOTNULL(fout);
+    visual_word_index_.saveIndex(fout);
+    fclose(fout);
+  }
 
-  std::ofstream ofs(path, std::ios::app | std::ios::binary);
-  CHECK(ofs);
-  inverted_index_.Write(&ofs);
-  ofs.close();
+  // Write the inverted index.
+
+  {
+    std::ofstream file(path, std::ios::binary | std::ios::app);
+    CHECK(file);
+    inverted_index_.Write(&file);
+  }
 }
 
 void VisualIndex::Quantize(const BuildOptions& options, Desc& descriptors) {
