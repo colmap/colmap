@@ -194,7 +194,7 @@ matching modes, that are intended for different input scenarios:
   matched against every other image, while the block size determines how many
   images are loaded from disk into memory at the same time. The preemptive
   option filters image pairs that are not likely to match [wu13]_.
-  Typically though, vocabulary tree matching yields better results than
+  Typically though, vocabulary tree matching yields much better results than
   preemptive matching [schoenberger15]_.
 
 - **Sequential Matching**: This mode is useful if the images are acquired in
@@ -284,13 +284,14 @@ incremental reconstruction process by choosing ``Reconstruction > Start``.
 COLMAP first loads all extracted data from the database into memory and seeds
 the reconstruction from an initial image pair. Then, the scene is incrementally
 extended by registering new images and triangulating new points. The results are
-visualized in "real-time" during this reconstruction process. COLMAP attempts to
-reconstruct multiple models if not all images are registered into the same
-model. The different models can be selected from the drop-down menu in the
-toolbar. If all your images use the `SIMPLE_RADIAL` camera model (default)
-without shared intrinsics, you can use PBA [wu11]_ for fast bundle adjustment,
-which can be activated in the reconstruction options under the bundle adjustment
-section (`use_pba=true`).
+visualized in "real-time" during this reconstruction process. Refer to the
+:ref:`Graphical User Interface <gui>` section for more details about the
+available controls. COLMAP attempts to reconstruct multiple models if not all
+images are registered into the same model. The different models can be selected
+from the drop-down menu in the toolbar. If all your images use the
+`SIMPLE_RADIAL` camera model (default) without shared intrinsics, you can use
+PBA [wu11]_ for fast bundle adjustment, which can be activated in the
+reconstruction options under the bundle adjustment section (`use_pba=true`).
 
 Ideally, the reconstruction works fine and all images are registered. If this is
 not the case, it is recommended to:
@@ -391,7 +392,8 @@ arguments or you can provide a `.ini` project configuration file containing the
 options as the ``./bin --project_path path/to/project.ini`` argument. To start
 the GUI application, please execute ``./src/exe/colmap`` or directly specify a
 project configuration as ``./src/exe/colmap --project_path path/to/project.ini``
-to avoid tedious selection in the GUI.
+to avoid tedious selection in the GUI. The :ref:`Graphical User Interface <gui>`
+section provides more details about the available controls.
 
 
 .. rubric:: Footnotes

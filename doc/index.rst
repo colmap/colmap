@@ -26,7 +26,7 @@ Getting Started
    http://people.inf.ethz.ch/jschoenb/colmap/ or build the library manually
    (see :ref:`Installation <installation>`).
 2. Download one of the provided datasets at
-   http://people.inf.ethz.ch/jschoenb/colmap/datasets/.
+   http://people.inf.ethz.ch/jschoenb/colmap/datasets/ or use your own images.
 3. Watch the short introductory video at
    `YouTube <https://www.youtube.com/watch?v=P-EC0DzeVEU>`_ or read the
    :ref:`Tutorial <tutorial>` for more details.

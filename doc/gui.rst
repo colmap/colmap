@@ -1,3 +1,5 @@
+.. _gui:
+
 Graphical User Interface
 ========================
 

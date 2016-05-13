@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
 
   std::cout << "Building index for visual words..." << std::endl;
   visual_index.Build(build_options, descriptors);
-  std::cout << "  => Quantized descriptor space using "
+  std::cout << " => Quantized descriptor space using "
             << visual_index.NumVisualWords() << " visual words" << std::endl;
 
   std::cout << "Saving index to file..." << std::endl;
