@@ -150,8 +150,9 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
   };
 
   void DoExtraction() override;
-  static ExtractionResult DoExtractionKernel(const Camera camera,
-                                             const Image image, Bitmap bitmap,
+  static ExtractionResult DoExtractionKernel(const Camera& camera,
+                                             const Image& image,
+                                             const Bitmap& bitmap,
                                              const SIFTOptions& sift_options);
 
   SIFTOptions sift_options_;

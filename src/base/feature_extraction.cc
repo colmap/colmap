@@ -410,9 +410,9 @@ void SiftCPUFeatureExtractor::DoExtraction() {
 
       file_idxs.push_back(file_idx);
       images.push_back(image);
-      futures.push_back(
-          thread_pool.AddTask(SiftCPUFeatureExtractor::DoExtractionKernel,
-                              last_camera_, image, bitmap, sift_options_));
+      futures.push_back(thread_pool.AddTask(
+          SiftCPUFeatureExtractor::DoExtractionKernel, last_camera_, image,
+          std::move(bitmap), sift_options_));
     }
 
     PrintHeading2("Processing batch");
@@ -446,8 +446,9 @@ void SiftCPUFeatureExtractor::DoExtraction() {
 }
 
 SiftCPUFeatureExtractor::ExtractionResult
-SiftCPUFeatureExtractor::DoExtractionKernel(const Camera camera,
-                                            const Image image, Bitmap bitmap,
+SiftCPUFeatureExtractor::DoExtractionKernel(const Camera& camera,
+                                            const Image& image,
+                                            const Bitmap& bitmap,
                                             const SIFTOptions& sift_options) {
   ExtractionResult result;
 
@@ -455,9 +456,11 @@ SiftCPUFeatureExtractor::DoExtractionKernel(const Camera camera,
   // Read image
   ////////////////////////////////////////////////////////////////////////////
 
+  Bitmap scaled_bitmap = bitmap.Clone();
   double scale_x;
   double scale_y;
-  ScaleBitmap(camera, sift_options.max_image_size, &scale_x, &scale_y, &bitmap);
+  ScaleBitmap(camera, sift_options.max_image_size, &scale_x, &scale_y,
+              &scaled_bitmap);
 
   ////////////////////////////////////////////////////////////////////////////
   // Extract features
@@ -469,8 +472,9 @@ SiftCPUFeatureExtractor::DoExtractionKernel(const Camera camera,
 
   // Setup SIFT.
   std::unique_ptr<VlSiftFilt, void (*)(VlSiftFilt*)> sift(
-      vl_sift_new(bitmap.Width(), bitmap.Height(), sift_options.num_octaves,
-                  sift_options.octave_resolution, sift_options.first_octave),
+      vl_sift_new(scaled_bitmap.Width(), scaled_bitmap.Height(),
+                  sift_options.num_octaves, sift_options.octave_resolution,
+                  sift_options.first_octave),
       &vl_sift_delete);
   vl_sift_set_peak_thresh(sift.get(), sift_options.peak_threshold);
   vl_sift_set_edge_thresh(sift.get(), sift_options.edge_threshold);
@@ -482,7 +486,8 @@ SiftCPUFeatureExtractor::DoExtractionKernel(const Camera camera,
   bool first_octave = true;
   while (true) {
     if (first_octave) {
-      const std::vector<uint8_t> data_uint8 = bitmap.ConvertToRowMajorArray();
+      const std::vector<uint8_t> data_uint8 =
+          scaled_bitmap.ConvertToRowMajorArray();
       std::vector<float> data_float(data_uint8.size());
       for (size_t i = 0; i < data_uint8.size(); ++i) {
         data_float[i] = static_cast<float>(data_uint8[i]) / 255.0f;

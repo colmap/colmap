@@ -27,11 +27,10 @@
 
 namespace colmap {
 
-Bitmap::Bitmap() : width_(0), height_(0), channels_(0) {}
+Bitmap::Bitmap()
+    : data_(nullptr, &FreeImage_Unload), width_(0), height_(0), channels_(0) {}
 
-Bitmap::Bitmap(FIBITMAP* data) {
-  data_.reset(data, &FreeImage_Unload);
-
+Bitmap::Bitmap(FIBITMAP* data) : data_(data, &FreeImage_Unload) {
   width_ = FreeImage_GetWidth(data);
   height_ = FreeImage_GetHeight(data);
 
@@ -43,7 +42,7 @@ Bitmap::Bitmap(FIBITMAP* data) {
 
   if (!is_grey && !is_rgb) {
     FIBITMAP* data_converted = FreeImage_ConvertTo24Bits(data);
-    data_.reset(data_converted, &FreeImage_Unload);
+    data_ = FIBitmapPtr(data_converted, &FreeImage_Unload);
     channels_ = 3;
   } else {
     channels_ = is_rgb ? 3 : 1;
@@ -63,7 +62,7 @@ bool Bitmap::Allocate(const int width, const int height, const bool as_rgb) {
     data = FreeImage_Allocate(width, height, kNumBitsPerPixel);
     channels_ = 1;
   }
-  data_.reset(data, &FreeImage_Unload);
+  data_ = FIBitmapPtr(data, &FreeImage_Unload);
   return data != nullptr;
 }
 
@@ -377,7 +376,7 @@ bool Bitmap::Read(const std::string& path, const bool as_rgb) {
   }
 
   FIBITMAP* fi_bitmap = FreeImage_Load(format, path.c_str());
-  data_.reset(fi_bitmap, &FreeImage_Unload);
+  data_ = FIBitmapPtr(fi_bitmap, &FreeImage_Unload);
 
   const FREE_IMAGE_COLOR_TYPE color_type = FreeImage_GetColorType(fi_bitmap);
 
@@ -388,10 +387,10 @@ bool Bitmap::Read(const std::string& path, const bool as_rgb) {
 
   if (!is_rgb && as_rgb) {
     FIBITMAP* converted_bitmap = FreeImage_ConvertTo24Bits(fi_bitmap);
-    data_.reset(converted_bitmap, &FreeImage_Unload);
+    data_ = FIBitmapPtr(converted_bitmap, &FreeImage_Unload);
   } else if (!is_grey && !as_rgb) {
     FIBITMAP* converted_bitmap = FreeImage_ConvertToGreyscale(fi_bitmap);
-    data_.reset(converted_bitmap, &FreeImage_Unload);
+    data_ = FIBitmapPtr(converted_bitmap, &FreeImage_Unload);
   }
 
   width_ = FreeImage_GetWidth(data_.get());
@@ -420,8 +419,8 @@ bool Bitmap::Write(const std::string& path, const FREE_IMAGE_FORMAT format,
   if (save_flags == 0) {
     success = FreeImage_Save(save_format, data_.get(), path.c_str());
   } else {
-    success = FreeImage_Save(save_format, data_.get(), path.c_str(),
-                             save_flags);
+    success =
+        FreeImage_Save(save_format, data_.get(), path.c_str(), save_flags);
   }
 
   return success;

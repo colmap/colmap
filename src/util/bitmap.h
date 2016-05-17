@@ -120,7 +120,8 @@ class Bitmap {
                    std::string* result) const;
 
  private:
-  std::shared_ptr<FIBITMAP> data_;
+  typedef std::unique_ptr<FIBITMAP, decltype(&FreeImage_Unload)> FIBitmapPtr;
+  FIBitmapPtr data_;
   int width_;
   int height_;
   int channels_;
