@@ -85,22 +85,25 @@ void MatchMatrixWidget::Update() {
   database.ReadInlierMatchesGraph(&image_pairs, &num_inliers);
 
   // Fill the match matrix.
-  const double max_value =
-      std::log(1.0 + *std::max_element(num_inliers.begin(), num_inliers.end()));
-  for (size_t i = 0; i < image_pairs.size(); ++i) {
-    const double value = std::log(1.0 + num_inliers[i]) / max_value;
-    const size_t idx1 = image_id_to_idx.at(image_pairs[i].first);
-    const size_t idx2 = image_id_to_idx.at(image_pairs[i].second);
-    const QColor color(255 * JetColormap::Red(value),
-                       255 * JetColormap::Green(value),
-                       255 * JetColormap::Blue(value));
-    match_matrix.setPixel(idx1, idx2, color.rgba());
-    match_matrix.setPixel(idx2, idx1, color.rgba());
+  if (!num_inliers.empty()) {
+    const double max_value = std::log(
+        1.0 + *std::max_element(num_inliers.begin(), num_inliers.end()));
+    for (size_t i = 0; i < image_pairs.size(); ++i) {
+      const double value = std::log(1.0 + num_inliers[i]) / max_value;
+      const size_t idx1 = image_id_to_idx.at(image_pairs[i].first);
+      const size_t idx2 = image_id_to_idx.at(image_pairs[i].second);
+      const QColor color(255 * JetColormap::Red(value),
+                         255 * JetColormap::Green(value),
+                         255 * JetColormap::Blue(value));
+      match_matrix.setPixel(idx1, idx2, color.rgba());
+      match_matrix.setPixel(idx2, idx1, color.rgba());
+    }
   }
 
   // Remember the original image for zoom in/out.
   image_ = QPixmap::fromImage(match_matrix);
 
+  current_scale_ = 1.0;
   const double scale =
       (image_scroll_area_->height() - 5) / static_cast<double>(image_.height());
   ScaleImage(scale);
