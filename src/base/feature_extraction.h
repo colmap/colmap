@@ -153,10 +153,9 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
   };
 
   void DoExtraction() override;
-  static ExtractionResult DoExtractionKernel(const Camera& camera,
-                                             const Image& image,
-                                             const Bitmap& bitmap,
-                                             const SIFTOptions& sift_options);
+  static ExtractionResult DoExtractionKernel(
+      const Camera& camera, const Image& image,
+      const std::shared_ptr<Bitmap>& bitmap, const SIFTOptions& sift_options);
 
   SIFTOptions sift_options_;
   CPUOptions cpu_options_;

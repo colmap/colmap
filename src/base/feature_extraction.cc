@@ -404,16 +404,16 @@ void SiftCPUFeatureExtractor::DoExtraction() {
       const std::string image_path = file_list[file_idx];
 
       Image image;
-      Bitmap bitmap;
-      if (!ReadImage(image_path, &image, &bitmap)) {
+      std::shared_ptr<Bitmap> bitmap = std::make_shared<Bitmap>();
+      if (!ReadImage(image_path, &image, bitmap.get())) {
         continue;
       }
 
       file_idxs.push_back(file_idx);
       images.push_back(image);
-      futures.push_back(thread_pool.AddTask(
-          SiftCPUFeatureExtractor::DoExtractionKernel, last_camera_, image,
-          std::move(bitmap), sift_options_));
+      futures.push_back(
+          thread_pool.AddTask(SiftCPUFeatureExtractor::DoExtractionKernel,
+                              last_camera_, image, bitmap, sift_options_));
     }
 
     PrintHeading2("Processing batch");
@@ -447,25 +447,24 @@ void SiftCPUFeatureExtractor::DoExtraction() {
 }
 
 SiftCPUFeatureExtractor::ExtractionResult
-SiftCPUFeatureExtractor::DoExtractionKernel(const Camera& camera,
-                                            const Image& image,
-                                            const Bitmap& bitmap,
-                                            const SIFTOptions& sift_options) {
+SiftCPUFeatureExtractor::DoExtractionKernel(
+    const Camera& camera, const Image& image,
+    const std::shared_ptr<Bitmap>& bitmap, const SIFTOptions& sift_options) {
   ExtractionResult result;
 
-  ////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
   // Read image
-  ////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
 
-  Bitmap scaled_bitmap = bitmap.Clone();
+  Bitmap scaled_bitmap = bitmap->Clone();
   double scale_x;
   double scale_y;
   ScaleBitmap(camera, sift_options.max_image_size, &scale_x, &scale_y,
               &scaled_bitmap);
 
-  ////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
   // Extract features
-  ////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
 
   const float inv_scale_x = static_cast<float>(1.0 / scale_x);
   const float inv_scale_y = static_cast<float>(1.0 / scale_y);
