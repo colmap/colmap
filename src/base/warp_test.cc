@@ -23,17 +23,15 @@
 using namespace colmap;
 namespace {
 
-Bitmap GenerateRandomBitmap(const int width, const int height,
-                            const bool as_rgb) {
-  Bitmap bitmap;
-  bitmap.Allocate(width, height, as_rgb);
+void GenerateRandomBitmap(const int width, const int height, const bool as_rgb,
+                          Bitmap* bitmap) {
+  bitmap->Allocate(width, height, as_rgb);
   for (int x = 0; x < width; ++x) {
     for (int y = 0; y < height; ++y) {
       Eigen::Vector3ub color = Eigen::Vector3ub::Random();
-      bitmap.SetPixel(x, y, color);
+      bitmap->SetPixel(x, y, color);
     }
   }
-  return bitmap;
 }
 
 void CheckBitmapsEqual(const Bitmap& bitmap1, const Bitmap& bitmap2) {
@@ -58,12 +56,14 @@ BOOST_AUTO_TEST_CASE(TestIdenticalCameras) {
   Camera source_camera;
   source_camera.InitializeWithName("PINHOLE", 1, 100, 100);
   Camera target_camera = source_camera;
-  Bitmap source_image_gray = GenerateRandomBitmap(100, 100, false);
+  Bitmap source_image_gray;
+  GenerateRandomBitmap(100, 100, false, &source_image_gray);
   Bitmap target_image_gray;
   WarpImageBetweenCameras(source_camera, target_camera, source_image_gray,
                           &target_image_gray);
   CheckBitmapsEqual(source_image_gray, target_image_gray);
-  Bitmap source_image_rgb = GenerateRandomBitmap(100, 100, true);
+  Bitmap source_image_rgb;
+  GenerateRandomBitmap(100, 100, true, &source_image_rgb);
   Bitmap target_image_rgb;
   WarpImageBetweenCameras(source_camera, target_camera, source_image_rgb,
                           &target_image_rgb);
@@ -75,7 +75,8 @@ BOOST_AUTO_TEST_CASE(TestShiftedCameras) {
   source_camera.InitializeWithName("PINHOLE", 1, 100, 100);
   Camera target_camera = source_camera;
   target_camera.SetPrincipalPointX(0.0);
-  Bitmap source_image_gray = GenerateRandomBitmap(100, 100, true);
+  Bitmap source_image_gray;
+  GenerateRandomBitmap(100, 100, true, &source_image_gray);
   Bitmap target_image_gray;
   WarpImageBetweenCameras(source_camera, target_camera, source_image_gray,
                           &target_image_gray);
