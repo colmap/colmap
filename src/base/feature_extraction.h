@@ -54,6 +54,9 @@ struct SIFTOptions {
   // Maximum number of orientations per keypoint.
   int max_num_orientations = 2;
 
+  // Fix the orientation to 0 for upright features.
+  bool upright = false;
+
   enum class Normalization {
     // L1-normalizes each descriptor followed by element-wise square rooting.
     // This normalization is usually better than standard L2-normalization.

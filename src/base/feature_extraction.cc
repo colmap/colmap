@@ -166,6 +166,7 @@ void SIFTOptions::Check() const {
   CHECK_GT(octave_resolution, 0);
   CHECK_GT(peak_threshold, 0.0);
   CHECK_GT(edge_threshold, 0.0);
+  CHECK_GT(max_num_orientations, 0);
 }
 
 void FeatureExtractor::Options::Check() const {
@@ -537,8 +538,14 @@ SiftCPUFeatureExtractor::DoExtractionKernel(const Camera& camera,
 
       // Extract feature orientations.
       double angles[4];
-      const int num_orientations = vl_sift_calc_keypoint_orientations(
-          sift.get(), angles, &vl_keypoints[i]);
+      int num_orientations;
+      if (sift_options.upright) {
+        num_orientations = 1;
+        angles[0] = 0.0;
+      } else {
+        num_orientations = vl_sift_calc_keypoint_orientations(
+            sift.get(), angles, &vl_keypoints[i]);
+      }
 
       // Note that this is different from SiftGPU, which selects the top
       // global maxima as orientations while this selects the first two
@@ -644,49 +651,60 @@ void SiftGPUFeatureExtractor::DoExtraction() {
   // Set up SiftGPU
   //////////////////////////////////////////////////////////////////////////////
 
-  const std::string max_image_size_str =
-      std::to_string(sift_options_.max_image_size);
-  const std::string max_num_features_str =
-      std::to_string(sift_options_.max_num_features);
-  const std::string first_octave_str =
-      std::to_string(sift_options_.first_octave);
-  const std::string num_octaves_str = std::to_string(sift_options_.num_octaves);
-  const std::string octave_resolution_str =
-      std::to_string(sift_options_.octave_resolution);
-  const std::string peak_threshold_str =
-      std::to_string(sift_options_.peak_threshold);
-  const std::string edge_threshold_str =
-      std::to_string(sift_options_.edge_threshold);
-  const std::string max_num_orientations_str =
-      std::to_string(sift_options_.max_num_orientations);
+  std::vector<std::string> sift_gpu_args;
 
-  const int kNumArgs = 19;
-  const char* sift_gpu_args[kNumArgs] = {
-      // Darkness adaptivity (hidden feature). Significantly improves
-      // distribution of features. Only available in GLSL version.
-      "-da",
-      // No verbose logging.
-      "-v", "0",
-      // Fixed maximum image dimension.
-      "-maxd", max_image_size_str.c_str(),
-      // Keep the highest level features.
-      "-tc2", max_num_features_str.c_str(),
-      // First octave level.
-      "-fo", first_octave_str.c_str(),
-      // First octave level.
-      "-no", num_octaves_str.c_str(),
-      // Number of octave levels.
-      "-d", octave_resolution_str.c_str(),
-      // Peak threshold.
-      "-t", peak_threshold_str.c_str(),
-      // Edge threshold.
-      "-e", edge_threshold_str.c_str(),
-      // Maximum number of orientations.
-      "-mo", max_num_orientations_str.c_str(),
-  };
+  // Darkness adaptivity (hidden feature). Significantly improves
+  // distribution of features. Only available in GLSL version.
+  sift_gpu_args.push_back("-da");
+
+  // No verbose logging.
+  sift_gpu_args.push_back("-v");
+  sift_gpu_args.push_back("0");
+
+  // Fixed maximum image dimension.
+  sift_gpu_args.push_back("-maxd");
+  sift_gpu_args.push_back(std::to_string(sift_options_.max_image_size));
+
+  // Keep the highest level features.
+  sift_gpu_args.push_back("-tc2");
+  sift_gpu_args.push_back(std::to_string(sift_options_.max_num_features));
+
+  // First octave level.
+  sift_gpu_args.push_back("-fo");
+  sift_gpu_args.push_back(std::to_string(sift_options_.first_octave));
+
+  // Number of octave levels.
+  sift_gpu_args.push_back("-d");
+  sift_gpu_args.push_back(std::to_string(sift_options_.octave_resolution));
+
+  // Peak threshold.
+  sift_gpu_args.push_back("-t");
+  sift_gpu_args.push_back(std::to_string(sift_options_.peak_threshold));
+
+  // Edge threshold.
+  sift_gpu_args.push_back("-e");
+  sift_gpu_args.push_back(std::to_string(sift_options_.edge_threshold));
+
+  if (sift_options_.upright) {
+    // Fix the orientation to 0 for upright features.
+    sift_gpu_args.push_back("-ofix");
+    // Maximum number of orientations.
+    sift_gpu_args.push_back("-mo");
+    sift_gpu_args.push_back("1");
+  } else {
+    // Maximum number of orientations.
+    sift_gpu_args.push_back("-mo");
+    sift_gpu_args.push_back(std::to_string(sift_options_.max_num_orientations));
+  }
+
+  std::vector<const char*> sift_gpu_args_cstr;
+  sift_gpu_args_cstr.reserve(sift_gpu_args.size());
+  for (const auto& arg : sift_gpu_args) {
+    sift_gpu_args_cstr.push_back(arg.c_str());
+  }
 
   SiftGPU sift_gpu;
-  sift_gpu.ParseParam(kNumArgs, sift_gpu_args);
+  sift_gpu.ParseParam(sift_gpu_args_cstr.size(), sift_gpu_args_cstr.data());
 
   if (sift_gpu.VerifyContextGL() != SiftGPU::SIFTGPU_FULL_SUPPORTED) {
     std::cerr << "ERROR: SiftGPU not fully supported." << std::endl;

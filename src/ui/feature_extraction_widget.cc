@@ -103,6 +103,7 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
                   0.0001, 4);
   AddOptionDouble(&sift_options.edge_threshold, "edge_threshold");
   AddOptionInt(&sift_options.max_num_orientations, "max_num_orientations");
+  AddOptionBool(&sift_options.upright, "upright");
 
   SiftCPUFeatureExtractor::CPUOptions& cpu_options =
       options->extraction_options->cpu_options;

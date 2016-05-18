@@ -124,6 +124,7 @@ bool ExtractionOptions::Check() {
   CHECK_OPTION(ExtractionOptions, sift_options.octave_resolution, > 0);
   CHECK_OPTION(ExtractionOptions, sift_options.peak_threshold, > 0);
   CHECK_OPTION(ExtractionOptions, sift_options.edge_threshold, > 0);
+  CHECK_OPTION(ExtractionOptions, sift_options.max_num_orientations, > 0);
   CHECK_OPTION(ExtractionOptions, cpu_options.batch_size_factor, > 0);
 
   return verified;
@@ -765,6 +766,10 @@ void OptionManager::AddExtractionOptions() {
                      sift_options.peak_threshold);
   ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
                      sift_options.edge_threshold);
+  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
+                     sift_options.max_num_orientations);
+  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
+                     sift_options.upright);
 
   ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
                      cpu_options.batch_size_factor);
