@@ -104,8 +104,8 @@ class Bitmap {
              const int flags = 0) const;
 
   // Rescale image to the new dimensions.
-  Bitmap Rescale(const int new_width, const int new_height,
-                 const FREE_IMAGE_FILTER filter = FILTER_BILINEAR);
+  void Rescale(const int new_width, const int new_height,
+               const FREE_IMAGE_FILTER filter = FILTER_BILINEAR);
 
   // Clone the image to a new bitmap object.
   Bitmap Clone() const;
@@ -121,6 +121,9 @@ class Bitmap {
 
  private:
   typedef std::unique_ptr<FIBITMAP, decltype(&FreeImage_Unload)> FIBitmapPtr;
+
+  void SetPtr(FIBITMAP* data);
+
   FIBitmapPtr data_;
   int width_;
   int height_;

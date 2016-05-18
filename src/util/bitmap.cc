@@ -30,23 +30,8 @@ namespace colmap {
 Bitmap::Bitmap()
     : data_(nullptr, &FreeImage_Unload), width_(0), height_(0), channels_(0) {}
 
-Bitmap::Bitmap(FIBITMAP* data) : data_(data, &FreeImage_Unload) {
-  width_ = FreeImage_GetWidth(data);
-  height_ = FreeImage_GetHeight(data);
-
-  const FREE_IMAGE_COLOR_TYPE color_type = FreeImage_GetColorType(data);
-
-  const bool is_grey =
-      color_type == FIC_MINISBLACK && FreeImage_GetBPP(data) == 8;
-  const bool is_rgb = color_type == FIC_RGB && FreeImage_GetBPP(data) == 24;
-
-  if (!is_grey && !is_rgb) {
-    FIBITMAP* data_converted = FreeImage_ConvertTo24Bits(data);
-    data_ = FIBitmapPtr(data_converted, &FreeImage_Unload);
-    channels_ = 3;
-  } else {
-    channels_ = is_rgb ? 3 : 1;
-  }
+Bitmap::Bitmap(FIBITMAP* data) : Bitmap() {
+  SetPtr(data);
 }
 
 bool Bitmap::Allocate(const int width, const int height, const bool as_rgb) {
@@ -426,11 +411,9 @@ bool Bitmap::Write(const std::string& path, const FREE_IMAGE_FORMAT format,
   return success;
 }
 
-Bitmap Bitmap::Rescale(const int new_width, const int new_height,
-                       const FREE_IMAGE_FILTER filter) {
-  FIBITMAP* rescaled =
-      FreeImage_Rescale(data_.get(), new_width, new_height, filter);
-  return Bitmap(rescaled);
+void Bitmap::Rescale(const int new_width, const int new_height,
+                     const FREE_IMAGE_FILTER filter) {
+  SetPtr(FreeImage_Rescale(data_.get(), new_width, new_height, filter));
 }
 
 Bitmap Bitmap::Clone() const { return Bitmap(FreeImage_Clone(data_.get())); }
@@ -473,6 +456,27 @@ bool Bitmap::ReadExifTag(const FREE_IMAGE_MDMODEL model,
       *result = FreeImage_TagToString(model, tag);
     }
     return true;
+  }
+}
+
+void Bitmap::SetPtr(FIBITMAP* data) {
+  data_ = FIBitmapPtr(data, &FreeImage_Unload);
+
+  width_ = FreeImage_GetWidth(data);
+  height_ = FreeImage_GetHeight(data);
+
+  const FREE_IMAGE_COLOR_TYPE color_type = FreeImage_GetColorType(data);
+
+  const bool is_grey =
+      color_type == FIC_MINISBLACK && FreeImage_GetBPP(data) == 8;
+  const bool is_rgb = color_type == FIC_RGB && FreeImage_GetBPP(data) == 24;
+
+  if (!is_grey && !is_rgb) {
+    FIBITMAP* data_converted = FreeImage_ConvertTo24Bits(data);
+    data_ = FIBitmapPtr(data_converted, &FreeImage_Unload);
+    channels_ = 3;
+  } else {
+    channels_ = is_rgb ? 3 : 1;
   }
 }
 

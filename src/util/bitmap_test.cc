@@ -205,11 +205,13 @@ BOOST_AUTO_TEST_CASE(TestInterpolateBilinear) {
 BOOST_AUTO_TEST_CASE(TestRescaleRGB) {
   Bitmap bitmap;
   bitmap.Allocate(100, 100, true);
-  const Bitmap bitmap1 = bitmap.Rescale(50, 25);
+  Bitmap bitmap1 = bitmap.Clone();
+  bitmap1.Rescale(50, 25);
   BOOST_CHECK_EQUAL(bitmap1.Width(), 50);
   BOOST_CHECK_EQUAL(bitmap1.Height(), 25);
   BOOST_CHECK_EQUAL(bitmap1.Channels(), 3);
-  const Bitmap bitmap2 = bitmap.Rescale(150, 20);
+  Bitmap bitmap2 = bitmap.Clone();
+  bitmap2.Rescale(150, 20);
   BOOST_CHECK_EQUAL(bitmap2.Width(), 150);
   BOOST_CHECK_EQUAL(bitmap2.Height(), 20);
   BOOST_CHECK_EQUAL(bitmap2.Channels(), 3);
@@ -218,11 +220,13 @@ BOOST_AUTO_TEST_CASE(TestRescaleRGB) {
 BOOST_AUTO_TEST_CASE(TestRescaleGrey) {
   Bitmap bitmap;
   bitmap.Allocate(100, 100, false);
-  const Bitmap bitmap1 = bitmap.Rescale(50, 25);
+  Bitmap bitmap1 = bitmap.Clone();
+  bitmap1.Rescale(50, 25);
   BOOST_CHECK_EQUAL(bitmap1.Width(), 50);
   BOOST_CHECK_EQUAL(bitmap1.Height(), 25);
   BOOST_CHECK_EQUAL(bitmap1.Channels(), 1);
-  const Bitmap bitmap2 = bitmap.Rescale(150, 20);
+  Bitmap bitmap2 = bitmap.Clone();
+  bitmap2.Rescale(150, 20);
   BOOST_CHECK_EQUAL(bitmap2.Width(), 150);
   BOOST_CHECK_EQUAL(bitmap2.Height(), 20);
   BOOST_CHECK_EQUAL(bitmap2.Channels(), 1);

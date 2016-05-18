@@ -136,7 +136,7 @@ void ScaleBitmap(const Camera& camera, const int max_image_size,
     *scale_x = static_cast<double>(new_width) / camera.Width();
     *scale_y = static_cast<double>(new_height) / camera.Height();
 
-    *bitmap = bitmap->Rescale(new_width, new_height);
+    bitmap->Rescale(new_width, new_height);
   } else {
     *scale_x = 1.0;
     *scale_y = 1.0;
