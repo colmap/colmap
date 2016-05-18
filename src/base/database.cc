@@ -659,13 +659,23 @@ void Database::UpdateImage(const Image& image) {
   SQLITE3_CALL(sqlite3_reset(sql_stmt_update_image_));
 }
 
+void Database::ClearMatches() const {
+  SQLITE3_CALL(sqlite3_step(sql_stmt_clear_matches_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_matches_));
+}
+
+void Database::ClearInlierMatches() const {
+  SQLITE3_CALL(sqlite3_step(sql_stmt_clear_inlier_matches_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_inlier_matches_));
+}
+
 void Database::PrepareSQLStatements() {
   sql_stmts_.clear();
 
   std::string sql;
 
   //////////////////////////////////////////////////////////////////////////////
-  // exists_*
+  // num_*
   //////////////////////////////////////////////////////////////////////////////
   sql = "SELECT rows FROM keypoints WHERE image_id = ?;";
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
@@ -841,6 +851,19 @@ void Database::PrepareSQLStatements() {
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
                                   &sql_stmt_write_inlier_matches_, 0));
   sql_stmts_.push_back(sql_stmt_write_inlier_matches_);
+
+  //////////////////////////////////////////////////////////////////////////////
+  // clear_*
+  //////////////////////////////////////////////////////////////////////////////
+  sql = "DELETE FROM matches;";
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
+                                  &sql_stmt_clear_matches_, 0));
+  sql_stmts_.push_back(sql_stmt_clear_matches_);
+
+  sql = "DELETE FROM inlier_matches;";
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
+                                  &sql_stmt_clear_inlier_matches_, 0));
+  sql_stmts_.push_back(sql_stmt_clear_inlier_matches_);
 }
 
 void Database::FinalizeSQLStatements() {

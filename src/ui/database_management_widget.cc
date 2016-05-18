@@ -657,19 +657,31 @@ DatabaseManagementWidget::DatabaseManagementWidget(QWidget* parent,
   camera_tab_ = new CameraTab(this, &database_);
   tab_widget_->addTab(camera_tab_, tr("Cameras"));
 
-  grid->addWidget(tab_widget_, 0, 0, 1, 2);
+  grid->addWidget(tab_widget_, 0, 0, 1, 4);
+
+  QPushButton* clear_matches_button =
+      new QPushButton(tr("Clear Matches"), this);
+  connect(clear_matches_button, &QPushButton::released, this,
+          &DatabaseManagementWidget::ClearMatches);
+  grid->addWidget(clear_matches_button, 1, 0, Qt::AlignLeft);
+
+  QPushButton* clear_inlier_matcjes_button =
+      new QPushButton(tr("Clear Inlier Matches"), this);
+  connect(clear_inlier_matcjes_button, &QPushButton::released, this,
+          &DatabaseManagementWidget::ClearInlierMatches);
+  grid->addWidget(clear_inlier_matcjes_button, 1, 1, Qt::AlignLeft);
 
   QPushButton* save_button = new QPushButton(tr("Save"), this);
   connect(save_button, &QPushButton::released, this,
           &DatabaseManagementWidget::Save);
-  grid->addWidget(save_button, 1, 0, Qt::AlignRight);
+  grid->addWidget(save_button, 1, 2, Qt::AlignRight);
 
   QPushButton* cancel_button = new QPushButton(tr("Cancel"), this);
   connect(cancel_button, &QPushButton::released, this,
           &DatabaseManagementWidget::close);
-  grid->addWidget(cancel_button, 1, 1, Qt::AlignRight);
+  grid->addWidget(cancel_button, 1, 3, Qt::AlignRight);
 
-  grid->setColumnStretch(0, 1);
+  grid->setColumnStretch(1, 1);
 }
 
 void DatabaseManagementWidget::showEvent(QShowEvent* event) {
@@ -695,6 +707,26 @@ void DatabaseManagementWidget::Save() {
   camera_tab_->Save();
 
   QMessageBox::information(this, "", tr("Saved changes"));
+}
+
+void DatabaseManagementWidget::ClearMatches() {
+  QMessageBox::StandardButton reply = QMessageBox::question(
+      this, "", tr("Do you really want to clear all matches?"),
+      QMessageBox::Yes | QMessageBox::No);
+  if (reply == QMessageBox::No) {
+    return;
+  }
+  database_.ClearMatches();
+}
+
+void DatabaseManagementWidget::ClearInlierMatches() {
+  QMessageBox::StandardButton reply = QMessageBox::question(
+      this, "", tr("Do you really want to clear all inlier matches?"),
+      QMessageBox::Yes | QMessageBox::No);
+  if (reply == QMessageBox::No) {
+    return;
+  }
+  database_.ClearInlierMatches();
 }
 
 }  // namespace colmap

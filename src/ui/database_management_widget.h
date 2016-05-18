@@ -153,6 +153,8 @@ class DatabaseManagementWidget : public QWidget {
   void hideEvent(QHideEvent* event);
 
   void Save();
+  void ClearMatches();
+  void ClearInlierMatches();
 
   QWidget* parent_;
 

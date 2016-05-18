@@ -177,6 +177,12 @@ class Database {
   // making sure that the entry already exists.
   void UpdateImage(const Image& image);
 
+  // Clear the entire matches table.
+  void ClearMatches() const;
+
+  // Clear the entire inlier matches table.
+  void ClearInlierMatches() const;
+
  private:
   // Prepare SQL statements once at construction of the database, and reuse
   // the statements for multiple queries by resetting their states.
@@ -249,6 +255,10 @@ class Database {
   sqlite3_stmt* sql_stmt_write_descriptors_;
   sqlite3_stmt* sql_stmt_write_matches_;
   sqlite3_stmt* sql_stmt_write_inlier_matches_;
+
+  // clear_*
+  sqlite3_stmt* sql_stmt_clear_matches_;
+  sqlite3_stmt* sql_stmt_clear_inlier_matches_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
