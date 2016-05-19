@@ -1,3 +1,21 @@
+COLMAP 1.1 (5/19/2016)
+----------------------
+- Implementation of state-of-the-art image retrieval system using Hamming
+  embedding for vocabulary tree matching. This should lead to much improved
+  matching results as compared to the previous implementation.
+- Guided matching as an optional functionality.
+- New demo datasets for download.
+- Automatically switch to PBA if supported by the project.
+- Implementation of EPNP solver for local pose optimization in RANSAC.
+- Add option to extract upright SIFT features.
+- Saving JPEGs in superb quality by default in export.
+- Add option to clear matches and inlier matches in the project.
+- New fisheye camera models, including the FOV camera model used by Google
+  Project Tango (Thomas Schoeps).
+- Extended documentation based on user feedback.
+- Fixed typo in documentation (Thomas Schoeps).
+
+
 COLMAP 1.0 (4/4/2016)
 ---------------------
 - Initial release of COLMAP.
