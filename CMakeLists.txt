@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 
 project(COLMAP)
-add_definitions("-DCOLMAP_VERSION=\"1.0\"")
+add_definitions("-DCOLMAP_VERSION=\"1.1\"")
 
 
 ################################################################################
