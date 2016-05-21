@@ -6,6 +6,12 @@ Tutorial
 Structure-from-Motion
 ---------------------
 
+.. figure:: images/incremental-sfm.png
+    :alt: Incremental Structure-from-Motion pipeline
+    :figclass: align-center
+
+    COLMAP's incremental Structure-from-Motion pipeline.
+
 Structure-from-Motion (SfM) is the process of reconstructing 3D structure from
 its projections into a series of images. The input is a set of overlapping
 images of the same object, taken from different viewpoints. The output is a 3-D

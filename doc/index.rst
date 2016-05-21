@@ -2,7 +2,7 @@ COLMAP
 ======
 
 .. figure:: images/rome-reconstruction.png
-    :alt: alternate text
+    :alt: Reconstruction of central Rome.
     :figclass: align-center
 
     Reconstruction of central Rome using 21K photos produced by COLMAP.
