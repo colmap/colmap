@@ -19,10 +19,10 @@
 
 #include <boost/filesystem.hpp>
 
-#include <QMutex>
-#include <QOffscreenSurface>
-#include <QOpenGLContext>
-#include <QThread>
+#include <QtCore/QMutex>
+#include <QtGui/QOffscreenSurface>
+#include <QtGui/QOpenGLContext>
+#include <QtCore/QThread>
 
 #include "base/database.h"
 #include "util/bitmap.h"

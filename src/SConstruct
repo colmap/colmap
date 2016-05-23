@@ -1,0 +1,16 @@
+#!/usr/bin/python3
+from glob import glob
+from cvai.builder.scons import env_append_common, env_enable_cuda
+
+env = DefaultEnvironment()
+env_append_common(env, 'eigen3', 'qt5', 'ceres', 'boost_common', 'boost_chrono', 'boost_regex', 'freeimage', 'vlfeat', 'sqlite3', 'siftgpu', 'pba', 'pthread', 'GL')
+env_enable_cuda(env)
+env.Append(CPPPATH=['.'])
+
+srcs = []
+for i in ['base', 'optim', 'util', 'retrieval', 'sfm', 'estimators']:
+    for j in glob(i+'/*.cc'):
+        if not '_test' in j:
+            srcs.append(j)
+
+SharedLibrary('colmap', srcs)

@@ -149,24 +149,21 @@ bool CheckCheirality(const Eigen::Matrix3d& R, const Eigen::Vector3d& t,
   const Eigen::Matrix3x4d proj_matrix2 = ComposeProjectionMatrix(R, t);
   const double kMinDepth = std::numeric_limits<double>::epsilon();
   const double max_depth = 1000.0f * (R.transpose() * t).norm();
-  points3D->clear();
-  int dist_tp;
-  if (IsNormalized(points1[0]))
-    dist_tp = 3;
-  else
-    dist_tp = 2;
 
+  points3D->clear();
   for (size_t i = 0; i < points1.size(); ++i) {
     const Eigen::Vector3d point3D =
         TriangulatePoint(proj_matrix1, proj_matrix2, points1[i], points2[i]);
+    double angular_error = CalculateAngularError(points1[i], point3D, proj_matrix1);
+    if (angular_error > M_PI/2)
+      continue;
+    angular_error = CalculateAngularError(points2[i], point3D, proj_matrix2);
+    if (angular_error > M_PI/2)
+      continue;
+
     double depth1, depth2;
-    if (dist_tp == 2) {
-      depth1 = CalculateDepth(proj_matrix1, point3D);
-      depth2 = CalculateDepth(proj_matrix2, point3D);
-    } else {
-      depth1 = (proj_matrix1 * point3D.homogeneous()).norm();
-      depth2 = (proj_matrix2 * point3D.homogeneous()).norm();
-    }
+    depth1 = (proj_matrix1 * point3D.homogeneous()).norm();
+    depth2 = (proj_matrix2 * point3D.homogeneous()).norm();
 
     if (depth1 > kMinDepth && depth1 < max_depth
         && depth2 > kMinDepth && depth2 < max_depth) {

@@ -20,10 +20,10 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
-#include <QAction>
-#include <QMutex>
-#include <QThread>
-#include <QWaitCondition>
+#include <QtWidgets/QAction>
+#include <QtCore/QMutex>
+#include <QtCore/QThread>
+#include <QtCore/QWaitCondition>
 
 #include "sfm/incremental_mapper.h"
 #include "util/option_manager.h"
