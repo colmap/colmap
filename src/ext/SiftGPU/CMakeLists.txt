@@ -49,7 +49,7 @@ set(SIFT_GPU_SOURCE_FILES
     SiftPyramid.h
 )
 
-if(CUDA_ENABLED AND NOT APPLE)
+if(CUDA_ENABLED)
     add_definitions("-DCUDA_SIFTGPU_ENABLED")
     # Fix for Ubuntu 16.04.
     add_definitions("-D_FORCE_INLINES")

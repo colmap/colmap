@@ -947,6 +947,9 @@ void OptionManager::AddMapperOptions() {
   ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_local_num_images);
   ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
                      ba_local_max_num_iterations);
+  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_local_max_refinements);
+  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+                     ba_local_max_refinement_change);
 
   // Global bundle adjustment.
   ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_global_use_pba);
@@ -957,6 +960,9 @@ void OptionManager::AddMapperOptions() {
   ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
                      ba_global_max_num_iterations);
   ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_global_pba_gpu_index);
+  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_global_max_refinements);
+  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+                     ba_global_max_refinement_change);
 }
 
 void OptionManager::AddRenderOptions() {
