@@ -48,7 +48,7 @@ namespace config = boost::program_options;
     option_str = StringReplace(option_str, ".", "_");                      \
     const std::string option_name =                                        \
         std::string(#option_class) + "." + option_str;                     \
-    desc->add_options()(                                                   \
+    desc_->add_options()(                                                  \
         option_name.c_str(),                                               \
         config::value<decltype(option_attr->option)>(&option_attr->option) \
             ->required());                                                 \
@@ -63,7 +63,7 @@ namespace config = boost::program_options;
     option_str = StringReplace(option_str, ".", "_");                      \
     const std::string option_name =                                        \
         std::string(#option_class) + "." + option_str;                     \
-    desc->add_options()(                                                   \
+    desc_->add_options()(                                                  \
         option_name.c_str(),                                               \
         config::value<decltype(option_attr->option)>(&option_attr->option) \
             ->default_value(option_class().option));                       \
@@ -663,7 +663,7 @@ OptionManager::OptionManager() {
 
   Reset();
 
-  desc->add_options()(
+  desc_->add_options()(
       "help,h",
       "Configuration can either be specified via command_line or by "
       "defining the parameters in a .ini project_file (see `--project_path`).")(
@@ -695,13 +695,13 @@ void OptionManager::AddDebugOptions() {
   added_debug_options_ = true;
 
   const int kDefaultDebugLog = false;
-  desc->add_options()(
+  desc_->add_options()(
       "General.debug_log_to_stderr",
       config::value<bool>(&FLAGS_logtostderr)->default_value(kDefaultDebugLog));
   RegisterOption("General.debug_log_to_stderr", &FLAGS_logtostderr);
 
   const int kDefaultDebugLevel = 2;
-  desc->add_options()(
+  desc_->add_options()(
       "General.debug_log_level",
       config::value<int>(&FLAGS_v)->default_value(kDefaultDebugLevel));
   RegisterOption("General.debug_log_level", &FLAGS_v);
@@ -713,7 +713,7 @@ void OptionManager::AddDatabaseOptions() {
   }
   added_database_options_ = true;
 
-  desc->add_options()(
+  desc_->add_options()(
       "General.database_path",
       config::value<std::string>(database_path.get())->required());
   RegisterOption("General.database_path", database_path.get());
@@ -725,8 +725,9 @@ void OptionManager::AddImageOptions() {
   }
   added_image_options_ = true;
 
-  desc->add_options()("General.image_path",
-                      config::value<std::string>(image_path.get())->required());
+  desc_->add_options()(
+      "General.image_path",
+      config::value<std::string>(image_path.get())->required());
   RegisterOption("General.image_path", image_path.get());
 }
 
@@ -736,7 +737,7 @@ void OptionManager::AddLogOptions() {
   }
   added_log_options_ = true;
 
-  desc->add_options()(
+  desc_->add_options()(
       "General.log_path",
       config::value<std::string>(log_path.get())->default_value(""));
   RegisterOption("General.log_path", log_path.get());
@@ -994,7 +995,7 @@ void OptionManager::Reset() {
   mapper_options->Reset();
   render_options->Reset();
 
-  desc.reset(new boost::program_options::options_description());
+  desc_.reset(new boost::program_options::options_description());
 
   options_bool_.clear();
   options_int_.clear();
@@ -1020,10 +1021,10 @@ bool OptionManager::Parse(const int argc, char** argv) {
   config::variables_map vmap;
 
   try {
-    config::store(config::parse_command_line(argc, argv, *desc), vmap);
+    config::store(config::parse_command_line(argc, argv, *desc_), vmap);
 
     if (vmap.count("help")) {
-      std::cout << *desc << std::endl;
+      std::cout << *desc_ << std::endl;
       return true;
     }
 
@@ -1055,7 +1056,7 @@ bool OptionManager::Read(const std::string& path) {
 
   try {
     std::ifstream file(path.c_str());
-    config::store(config::parse_config_file(file, *desc), vmap);
+    config::store(config::parse_config_file(file, *desc_), vmap);
     file.close();
 
     vmap.notify();

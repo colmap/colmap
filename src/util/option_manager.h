@@ -314,8 +314,6 @@ class OptionManager {
 
   bool Check();
 
-  std::shared_ptr<boost::program_options::options_description> desc;
-
   std::shared_ptr<std::string> project_path;
   std::shared_ptr<std::string> log_path;
   std::shared_ptr<std::string> database_path;
@@ -334,6 +332,8 @@ class OptionManager {
  private:
   template <typename T>
   void RegisterOption(const std::string& name, const T* option);
+
+  std::shared_ptr<boost::program_options::options_description> desc_;
 
   std::vector<std::pair<std::string, const bool*>> options_bool_;
   std::vector<std::pair<std::string, const int*>> options_int_;
@@ -362,16 +362,16 @@ class OptionManager {
 template <typename T>
 void OptionManager::AddRequiredOption(const std::string& name, T* option,
                                       const std::string& help_text) {
-  desc->add_options()(name.c_str(),
-                      boost::program_options::value<T>(option)->required(),
-                      help_text.c_str());
+  desc_->add_options()(name.c_str(),
+                       boost::program_options::value<T>(option)->required(),
+                       help_text.c_str());
 }
 
 template <typename T>
 void OptionManager::AddDefaultOption(const std::string& name,
                                      const T& default_option, T* option,
                                      const std::string& help_text) {
-  desc->add_options()(
+  desc_->add_options()(
       name.c_str(),
       boost::program_options::value<T>(option)->default_value(default_option),
       help_text.c_str());
