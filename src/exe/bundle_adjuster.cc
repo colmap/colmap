@@ -32,10 +32,8 @@ int main(int argc, char** argv) {
 
   OptionManager options;
   options.AddBundleAdjustmentOptions();
-  options.desc->add_options()(
-      "input_path", config::value<std::string>(&input_path)->required());
-  options.desc->add_options()(
-      "output_path", config::value<std::string>(&output_path)->required());
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
 
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;

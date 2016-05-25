@@ -35,27 +35,19 @@ int main(int argc, char** argv) {
 
   OptionManager options;
   options.AddImageOptions();
-  options.desc->add_options()(
-      "input_path", config::value<std::string>(&input_path)->required());
-  options.desc->add_options()(
-      "output_path", config::value<std::string>(&output_path)->required());
-  options.desc->add_options()(
-      "output_type", config::value<std::string>(&output_type)->required(),
-      "{'Default', 'PMVS', 'CMP-MVS'}");
-  options.desc->add_options()(
-      "blank_pixels",
-      config::value<double>(&undistort_camera_options.blank_pixels)
-          ->default_value(undistort_camera_options.blank_pixels));
-  options.desc->add_options()(
-      "min_scale", config::value<double>(&undistort_camera_options.min_scale)
-                       ->default_value(undistort_camera_options.min_scale));
-  options.desc->add_options()(
-      "max_scale", config::value<double>(&undistort_camera_options.max_scale)
-                       ->default_value(undistort_camera_options.max_scale));
-  options.desc->add_options()(
-      "max_image_size",
-      config::value<int>(&undistort_camera_options.max_image_size)
-          ->default_value(undistort_camera_options.max_image_size));
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddRequiredOption("output_type", &output_type);
+  options.AddDefaultOption("blank_pixels",
+                           undistort_camera_options.blank_pixels,
+                           &undistort_camera_options.blank_pixels);
+  options.AddDefaultOption("min_scale", undistort_camera_options.min_scale,
+                           &undistort_camera_options.min_scale);
+  options.AddDefaultOption("max_scale", undistort_camera_options.max_scale,
+                           &undistort_camera_options.max_scale);
+  options.AddDefaultOption("max_image_size",
+                           undistort_camera_options.max_image_size,
+                           &undistort_camera_options.max_image_size);
 
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;

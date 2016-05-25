@@ -36,8 +36,7 @@ int main(int argc, char** argv) {
   options.AddDatabaseOptions();
   options.AddImageOptions();
   options.AddExtractionOptions();
-  options.desc->add_options()(
-      "use_gpu", config::value<bool>(&use_gpu)->default_value(use_gpu));
+  options.AddDefaultOption("use_gpu", use_gpu, &use_gpu);
 
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;

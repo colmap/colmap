@@ -35,8 +35,7 @@ int main(int argc, char** argv) {
   options.AddDatabaseOptions();
   options.AddImageOptions();
   options.AddExtractionOptions();
-  options.desc->add_options()(
-      "import_path", config::value<std::string>(&import_path)->required());
+  options.AddRequiredOption("import_path", &import_path);
 
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;

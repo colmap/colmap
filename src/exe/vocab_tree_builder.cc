@@ -85,21 +85,14 @@ int main(int argc, char** argv) {
 
   OptionManager options;
   options.AddDatabaseOptions();
-  options.desc->add_options()(
-      "vocab_tree_path",
-      config::value<std::string>(&vocab_tree_path)->required());
-  options.desc->add_options()(
-      "num_visual_words", config::value<int>(&build_options.num_visual_words)
-                              ->default_value(build_options.num_visual_words));
-  options.desc->add_options()("branching",
-                              config::value<int>(&build_options.branching)
-                                  ->default_value(build_options.branching));
-  options.desc->add_options()(
-      "num_iterations", config::value<int>(&build_options.num_iterations)
-                            ->default_value(build_options.num_iterations));
-  options.desc->add_options()(
-      "max_num_images",
-      config::value<int>(&max_num_images)->default_value(max_num_images));
+  options.AddRequiredOption("vocab_tree_path", &vocab_tree_path);
+  options.AddDefaultOption("num_visual_words", build_options.num_visual_words,
+                           &build_options.num_visual_words);
+  options.AddDefaultOption("branching", build_options.branching,
+                           &build_options.branching);
+  options.AddDefaultOption("num_iterations", build_options.num_iterations,
+                           &build_options.num_iterations);
+  options.AddDefaultOption("max_num_images", max_num_images, &max_num_images);
 
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
