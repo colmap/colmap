@@ -37,7 +37,6 @@ int main(int argc, char** argv) {
   options.AddDatabaseOptions();
   options.AddImageOptions();
   options.AddMapperOptions();
-  options.AddBundleAdjustmentOptions();
   options.desc->add_options()(
       "import_path", config::value<std::string>(&import_path)->required());
   options.desc->add_options()(
@@ -60,12 +59,6 @@ int main(int argc, char** argv) {
     std::cerr << "ERROR: `export_path` is not a directory" << std::endl;
     return EXIT_FAILURE;
   }
-
-  google::InitGoogleLogging(argv[0]);
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Image registration
-  //////////////////////////////////////////////////////////////////////////////
 
   PrintHeading1("Loading database");
 
@@ -112,10 +105,6 @@ int main(int argc, char** argv) {
 
   const bool kDiscardReconstruction = false;
   mapper.EndReconstruction(kDiscardReconstruction);
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Export models
-  //////////////////////////////////////////////////////////////////////////////
 
   export_path = EnsureTrailingSlash(export_path);
   reconstruction.Write(export_path);
