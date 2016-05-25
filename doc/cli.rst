@@ -60,6 +60,10 @@ Executables
   database after running ``mapper``. Note that no bundle adjustment or
   triangulation is performed.
 
+- ``bundle_adjuster``: Run global bundle adjustment on a reconstructed scene,
+  e.g., when a refinement of the intrinsics is needed or
+  after running the ``image_registrator``.
+
 - ``database_creator``: Create an empty COLMAP SQLite database with the
   necessary database schema information.
 
