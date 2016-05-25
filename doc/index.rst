@@ -49,6 +49,7 @@ Getting Started
    format
    datasets
    gui
+   cli
    faq
    contribution
    license

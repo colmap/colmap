@@ -399,7 +399,8 @@ options as the ``./bin --project_path path/to/project.ini`` argument. To start
 the GUI application, please execute ``./src/exe/colmap`` or directly specify a
 project configuration as ``./src/exe/colmap --project_path path/to/project.ini``
 to avoid tedious selection in the GUI. The :ref:`Graphical User Interface <gui>`
-section provides more details about the available controls.
+and :ref:`Command-line Interface <cli>` sections provide more details about the
+available controls.
 
 
 .. rubric:: Footnotes
