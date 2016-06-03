@@ -42,6 +42,10 @@ class BundleAdjustmentConfiguration {
   size_t NumVariablePoints() const;
   size_t NumConstantPoints() const;
 
+  // Determine the number of residuals for the given reconstruction. The number
+  // of residuals equals the number of observations times two.
+  size_t NumResiduals(const Reconstruction& reconstruction) const;
+
   // Add / remove images from the configuration.
   void AddImage(const image_t image_id);
   bool HasImage(const image_t image_id) const;
@@ -187,6 +191,9 @@ class ParallelBundleAdjuster {
 
     // Index of the GPU used for bundle adjustment.
     int gpu_index = -1;
+
+    // Number of threads for CPU based bundle adjustment.
+    int num_threads = -1;
 
     void Check() const;
   };

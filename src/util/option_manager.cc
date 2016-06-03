@@ -622,6 +622,7 @@ MapperOptions::ParallelGlobalBundleAdjustmentOptions() const {
   options.max_num_iterations = ba_global_max_num_iterations;
   options.print_summary = true;
   options.gpu_index = ba_global_pba_gpu_index;
+  options.num_threads = num_threads;
   return options;
 }
 

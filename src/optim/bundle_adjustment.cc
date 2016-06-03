@@ -64,6 +64,39 @@ size_t BundleAdjustmentConfiguration::NumConstantPoints() const {
   return constant_point3D_ids_.size();
 }
 
+size_t BundleAdjustmentConfiguration::NumResiduals(
+    const Reconstruction& reconstruction) const {
+  // Count the number of observations for all added images.
+  size_t num_observations = 0;
+  for (const image_t image_id : image_ids_) {
+    num_observations += reconstruction.Image(image_id).NumPoints3D();
+  }
+
+  // Count the number of observations for all added 3D points that are not
+  // already added as part of the images above.
+
+  auto NumObservationsForPoint = [this,
+                                  &reconstruction](const point3D_t point3D_id) {
+    size_t num_observations_for_point = 0;
+    const auto& point3D = reconstruction.Point3D(point3D_id);
+    for (const auto& track_el : point3D.Track().Elements()) {
+      if (image_ids_.count(track_el.image_id) == 0) {
+        num_observations_for_point += 1;
+      }
+    }
+    return num_observations_for_point;
+  };
+
+  for (const auto point3D_id : variable_point3D_ids_) {
+    num_observations += NumObservationsForPoint(point3D_id);
+  }
+  for (const auto point3D_id : constant_point3D_ids_) {
+    num_observations += NumObservationsForPoint(point3D_id);
+  }
+
+  return 2 * num_observations;
+}
+
 void BundleAdjustmentConfiguration::AddImage(const image_t image_id) {
   image_ids_.insert(image_id);
 }
@@ -509,18 +542,27 @@ bool ParallelBundleAdjuster::Solve(Reconstruction* reconstruction) {
   SetUp(reconstruction);
 
   pba::ParallelBA::DeviceT device;
-  if (options_.gpu_index < 0) {
-    device = pba::ParallelBA::PBA_CUDA_DEVICE_DEFAULT;
+  const size_t kMaxNumResidualsFloat = 10 * 1000 * 1000;
+  if (config_.NumResiduals(*reconstruction) > kMaxNumResidualsFloat) {
+    // The threshold for using double precision is empirically chosen and
+    // ensures that the system can be reliable solved.
+    device = pba::ParallelBA::PBA_CPU_DOUBLE;
   } else {
-    device = static_cast<pba::ParallelBA::DeviceT>(
-        pba::ParallelBA::PBA_CUDA_DEVICE0 + options_.gpu_index);
+    if (options_.gpu_index < 0) {
+      device = pba::ParallelBA::PBA_CUDA_DEVICE_DEFAULT;
+    } else {
+      device = static_cast<pba::ParallelBA::DeviceT>(
+          pba::ParallelBA::PBA_CUDA_DEVICE0 + options_.gpu_index);
+    }
   }
 
-  pba::ParallelBA pba(device);
+  pba::ParallelBA pba(device, options_.num_threads);
   pba.SetNextBundleMode(pba::ParallelBA::BUNDLE_FULL);
   pba.EnableRadialDistortion(pba::ParallelBA::PBA_PROJECTION_DISTORTION);
 
   pba::ConfigBA* pba_config = pba.GetInternalConfig();
+  pba_config->__lm_delta_threshold /= 100.0f;
+  pba_config->__lm_gradient_threshold /= 100.0f;
   pba_config->__lm_mse_threshold = 0.0f;
   pba_config->__cg_min_iteration = 10;
   pba_config->__verbose_level = 2;

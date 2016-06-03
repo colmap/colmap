@@ -2544,7 +2544,7 @@ void ComputeJtE_(size_t nproj, size_t ncam, size_t npt, const Float* ee,
 using namespace ProgramCPU;
 
 template <class Float>
-SparseBundleCPU<Float>::SparseBundleCPU()
+SparseBundleCPU<Float>::SparseBundleCPU(const int num_threads)
     : ParallelBA(PBA_INVALID_DEVICE),
       _num_camera(0),
       _num_point(0),
@@ -2557,10 +2557,14 @@ SparseBundleCPU<Float>::SparseBundleCPU()
       _point_idx(NULL),
       _projection_sse(0) {
   __cpu_data_precision = sizeof(Float);
-  if (__num_cpu_cores == 0) __num_cpu_cores = FindProcessorCoreNum();
+  if (num_threads <= 0) {
+    __num_cpu_cores = FindProcessorCoreNum();
+  } else {
+    __num_cpu_cores = num_threads;
+  }
   if (__verbose_level)
     std::cout << "CPU " << (__cpu_data_precision == 4 ? "single" : "double")
-              << "-precisoin solver; " << __num_cpu_cores << " cores"
+              << "-precision solver; " << __num_cpu_cores << " cores"
 #ifdef CPUPBA_USE_AVX
               << " (AVX)"
 #endif
@@ -4350,13 +4354,13 @@ int SparseBundleCPU<Float>::FindProcessorCoreNum() {
 #endif
 }
 
-ParallelBA* NewSparseBundleCPU(bool dp) {
+ParallelBA* NewSparseBundleCPU(bool dp, const int num_threads) {
 #ifndef SIMD_NO_DOUBLE
   if (dp)
-    return new SparseBundleCPU<double>;
+    return new SparseBundleCPU<double>(num_threads);
   else
 #endif
-    return new SparseBundleCPU<float>;
+    return new SparseBundleCPU<float>(num_threads);
 }
 
 }  // namespace pba
