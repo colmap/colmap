@@ -55,7 +55,7 @@ BOOST_AUTO_TEST_CASE(TestTwoView) {
   matches[1].point2D_idx2 = 2;
   matches[2].point2D_idx1 = 3;
   matches[2].point2D_idx2 = 7;
-  matches[3].point2D_idx1 = 3;
+  matches[3].point2D_idx1 = 4;
   matches[3].point2D_idx2 = 8;
   scene_graph.AddCorrespondences(0, 1, matches);
   BOOST_CHECK_EQUAL(scene_graph.NumObservationsForImage(0), 0);
@@ -86,23 +86,23 @@ BOOST_AUTO_TEST_CASE(TestTwoView) {
   BOOST_CHECK(scene_graph.IsTwoViewObservation(1, 2));
   BOOST_CHECK_EQUAL(scene_graph.FindCorrespondences(1, 2).at(0).image_id, 0);
   BOOST_CHECK_EQUAL(scene_graph.FindCorrespondences(1, 2).at(0).point2D_idx, 1);
-  BOOST_CHECK_EQUAL(scene_graph.FindCorrespondences(0, 3).size(), 2);
+  BOOST_CHECK_EQUAL(scene_graph.FindCorrespondences(0, 4).size(), 1);
   BOOST_CHECK(scene_graph.HasCorrespondences(0, 3));
-  BOOST_CHECK(!scene_graph.IsTwoViewObservation(0, 3));
+  BOOST_CHECK(scene_graph.IsTwoViewObservation(0, 4));
   BOOST_CHECK_EQUAL(scene_graph.FindCorrespondences(0, 3).at(0).image_id, 1);
   BOOST_CHECK_EQUAL(scene_graph.FindCorrespondences(0, 3).at(0).point2D_idx, 7);
-  BOOST_CHECK_EQUAL(scene_graph.FindCorrespondences(0, 3).at(1).image_id, 1);
-  BOOST_CHECK_EQUAL(scene_graph.FindCorrespondences(0, 3).at(1).point2D_idx, 8);
+  BOOST_CHECK_EQUAL(scene_graph.FindCorrespondences(0, 4).at(0).image_id, 1);
+  BOOST_CHECK_EQUAL(scene_graph.FindCorrespondences(0, 4).at(0).point2D_idx, 8);
   BOOST_CHECK_EQUAL(scene_graph.FindCorrespondences(1, 7).size(), 1);
   BOOST_CHECK(scene_graph.HasCorrespondences(1, 7));
-  BOOST_CHECK(!scene_graph.IsTwoViewObservation(1, 7));
+  BOOST_CHECK(scene_graph.IsTwoViewObservation(1, 7));
   BOOST_CHECK_EQUAL(scene_graph.FindCorrespondences(1, 7).at(0).image_id, 0);
   BOOST_CHECK_EQUAL(scene_graph.FindCorrespondences(1, 7).at(0).point2D_idx, 3);
   BOOST_CHECK_EQUAL(scene_graph.FindCorrespondences(1, 8).size(), 1);
   BOOST_CHECK(scene_graph.HasCorrespondences(1, 8));
-  BOOST_CHECK(!scene_graph.IsTwoViewObservation(1, 8));
+  BOOST_CHECK(scene_graph.IsTwoViewObservation(1, 8));
   BOOST_CHECK_EQUAL(scene_graph.FindCorrespondences(1, 8).at(0).image_id, 0);
-  BOOST_CHECK_EQUAL(scene_graph.FindCorrespondences(1, 8).at(0).point2D_idx, 3);
+  BOOST_CHECK_EQUAL(scene_graph.FindCorrespondences(1, 8).at(0).point2D_idx, 4);
   for (size_t i = 0; i < 10; ++i) {
     BOOST_CHECK_EQUAL(scene_graph.FindTransitiveCorrespondences(0, i, 0).size(),
                       0);
@@ -117,14 +117,9 @@ BOOST_AUTO_TEST_CASE(TestTwoView) {
     BOOST_CHECK_EQUAL(
         scene_graph.FindCorrespondences(1, i).size(),
         scene_graph.FindTransitiveCorrespondences(1, i, 1).size());
-    if (i == 7 || i == 8) {
-      BOOST_CHECK_EQUAL(
-          scene_graph.FindTransitiveCorrespondences(1, i, 2).size(), 2);
-    } else {
-      BOOST_CHECK_EQUAL(
-          scene_graph.FindCorrespondences(1, i).size(),
-          scene_graph.FindTransitiveCorrespondences(1, i, 2).size());
-    }
+    BOOST_CHECK_EQUAL(
+        scene_graph.FindCorrespondences(1, i).size(),
+        scene_graph.FindTransitiveCorrespondences(1, i, 2).size());
   }
   const auto corrs01 = scene_graph.FindCorrespondencesBetweenImages(0, 1);
   const auto corrs10 = scene_graph.FindCorrespondencesBetweenImages(1, 0);
@@ -137,7 +132,7 @@ BOOST_AUTO_TEST_CASE(TestTwoView) {
     BOOST_CHECK_EQUAL(matches[i].point2D_idx2, corrs01[i].second);
   }
   scene_graph.Finalize();
-  BOOST_CHECK_EQUAL(scene_graph.NumObservationsForImage(0), 3);
+  BOOST_CHECK_EQUAL(scene_graph.NumObservationsForImage(0), 4);
   BOOST_CHECK_EQUAL(scene_graph.NumObservationsForImage(1), 4);
   BOOST_CHECK_EQUAL(scene_graph.NumCorrespondencesForImage(0), 4);
   BOOST_CHECK_EQUAL(scene_graph.NumCorrespondencesForImage(1), 4);
@@ -303,18 +298,22 @@ BOOST_AUTO_TEST_CASE(TestOutOfBounds) {
 BOOST_AUTO_TEST_CASE(TestDuplicate) {
   SceneGraph scene_graph;
   scene_graph.AddImage(0, 10);
-  scene_graph.AddImage(1, 4);
-  FeatureMatches matches(3);
+  scene_graph.AddImage(1, 10);
+  FeatureMatches matches(5);
   matches[0].point2D_idx1 = 0;
   matches[0].point2D_idx2 = 0;
   matches[1].point2D_idx1 = 1;
   matches[1].point2D_idx2 = 1;
   matches[2].point2D_idx1 = 1;
   matches[2].point2D_idx2 = 1;
+  matches[3].point2D_idx1 = 3;
+  matches[3].point2D_idx2 = 3;
+  matches[4].point2D_idx1 = 3;
+  matches[4].point2D_idx2 = 4;
   scene_graph.AddCorrespondences(0, 1, matches);
-  BOOST_CHECK_EQUAL(scene_graph.NumCorrespondencesForImage(0), 2);
-  BOOST_CHECK_EQUAL(scene_graph.NumCorrespondencesForImage(1), 2);
+  BOOST_CHECK_EQUAL(scene_graph.NumCorrespondencesForImage(0), 3);
+  BOOST_CHECK_EQUAL(scene_graph.NumCorrespondencesForImage(1), 3);
   const image_pair_t pair_id = Database::ImagePairToPairId(0, 1);
   BOOST_CHECK_EQUAL(scene_graph.NumCorrespondencesBetweenImages().at(pair_id),
-                    2);
+                    3);
 }
