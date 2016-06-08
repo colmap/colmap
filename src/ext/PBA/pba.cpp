@@ -26,7 +26,7 @@
 
 namespace pba {
 
-ParallelBA::ParallelBA(DeviceT device) {
+ParallelBA::ParallelBA(DeviceT device, const int num_threads) {
   // The wrapper intends to provide different implementations.
 
   if (device >= PBA_CUDA_DEVICE_DEFAULT)
@@ -45,9 +45,9 @@ ParallelBA::ParallelBA(DeviceT device) {
     device = PBA_CPU_FLOAT;
 #endif
       if (device == PBA_CPU_FLOAT)
-    _optimizer = NewSparseBundleCPU(false);
+    _optimizer = NewSparseBundleCPU(false, num_threads);
   else if (device == PBA_CPU_DOUBLE)
-    _optimizer = NewSparseBundleCPU(true);
+    _optimizer = NewSparseBundleCPU(true, num_threads);
   else
     _optimizer = NULL;
 }

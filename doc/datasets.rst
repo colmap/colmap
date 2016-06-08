@@ -11,3 +11,9 @@ http://people.inf.ethz.ch/jschoenb/colmap/datasets/
   Hill. The images are taken with the same camera using a wide-angle lens.
 - **South Building**: 128 images of the "South" building at UNC Chapel Hill. The
   images are taken with the same camera, kindly provided by Christopher Zach.
+
+A number of sample reconstructions produced by COLMAP can be viewed here:
+
+- https://www.youtube.com/watch?v=Gb086k7b0wg
+- https://www.youtube.com/watch?v=DIv1aGKqSIk
+- https://www.youtube.com/watch?v=xu-nWgjWKI0

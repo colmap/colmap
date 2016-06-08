@@ -149,6 +149,30 @@ void GenerateReconstruction(const size_t num_images, const size_t num_points,
   }
 }
 
+BOOST_AUTO_TEST_CASE(TestConfigNumObservations) {
+  Reconstruction reconstruction;
+  SceneGraph scene_graph;
+  GenerateReconstruction(4, 100, &reconstruction, &scene_graph);
+
+  BundleAdjustmentConfiguration config;
+
+  config.AddImage(0);
+  config.AddImage(1);
+  BOOST_CHECK_EQUAL(config.NumResiduals(reconstruction), 400);
+
+  config.AddVariablePoint(1);
+  BOOST_CHECK_EQUAL(config.NumResiduals(reconstruction), 404);
+
+  config.AddConstantPoint(2);
+  BOOST_CHECK_EQUAL(config.NumResiduals(reconstruction), 408);
+
+  config.AddImage(2);
+  BOOST_CHECK_EQUAL(config.NumResiduals(reconstruction), 604);
+
+  config.AddImage(3);
+  BOOST_CHECK_EQUAL(config.NumResiduals(reconstruction), 800);
+}
+
 BOOST_AUTO_TEST_CASE(TestTwoView) {
   Reconstruction reconstruction;
   SceneGraph scene_graph;

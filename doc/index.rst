@@ -1,6 +1,13 @@
 COLMAP
 ======
 
+.. figure:: images/rome-reconstruction.png
+    :alt: Reconstruction of central Rome.
+    :figclass: align-center
+
+    Reconstruction of central Rome using 21K photos produced by COLMAP.
+
+
 COLMAP is a general-purpose Structure-from-Motion (SfM) pipeline with a
 graphical and command-line interface. It offers a wide range of features for
 reconstruction of ordered and unordered image collections. The software is
@@ -42,6 +49,7 @@ Getting Started
    format
    datasets
    gui
+   cli
    faq
    contribution
    license

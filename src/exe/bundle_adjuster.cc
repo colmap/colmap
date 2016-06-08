@@ -14,10 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include <QtGui>
-
-#include "base/camera_models.h"
-#include "base/feature_extraction.h"
+#include "base/reconstruction.h"
+#include "sfm/controllers.h"
 #include "util/logging.h"
 #include "util/misc.h"
 #include "util/option_manager.h"
@@ -29,13 +27,13 @@ namespace config = boost::program_options;
 int main(int argc, char** argv) {
   InitializeGlog(argv);
 
-  std::string import_path;
+  std::string input_path;
+  std::string output_path;
 
   OptionManager options;
-  options.AddDatabaseOptions();
-  options.AddImageOptions();
-  options.AddExtractionOptions();
-  options.AddRequiredOption("import_path", &import_path);
+  options.AddBundleAdjustmentOptions();
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
 
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
@@ -45,23 +43,14 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
-  const std::vector<double> camera_params =
-      CSVToVector<double>(options.extraction_options->camera_params);
-  const int camera_model_id =
-      CameraModelNameToId(options.extraction_options->camera_model);
+  Reconstruction reconstruction;
+  reconstruction.Read(input_path);
 
-  if (camera_params.size() > 0 &&
-      !CameraModelVerifyParams(camera_model_id, camera_params)) {
-    std::cerr << "ERROR: Invalid camera parameters" << std::endl;
-    return EXIT_FAILURE;
-  }
+  BundleAdjustmentController ba_controller(options);
+  ba_controller.reconstruction = &reconstruction;
+  ba_controller.run();
 
-  FeatureImporter* feature_importer = new FeatureImporter(
-      options.extraction_options->Options(), *options.database_path,
-      *options.image_path, import_path);
-
-  feature_importer->start();
-  feature_importer->wait();
+  reconstruction.Write(output_path);
 
   return EXIT_SUCCESS;
 }

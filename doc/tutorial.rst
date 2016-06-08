@@ -6,6 +6,12 @@ Tutorial
 Structure-from-Motion
 ---------------------
 
+.. figure:: images/incremental-sfm.png
+    :alt: Incremental Structure-from-Motion pipeline
+    :figclass: align-center
+
+    COLMAP's incremental Structure-from-Motion pipeline.
+
 Structure-from-Motion (SfM) is the process of reconstructing 3D structure from
 its projections into a series of images. The input is a set of overlapping
 images of the same object, taken from different viewpoints. The output is a 3-D
@@ -393,7 +399,8 @@ options as the ``./bin --project_path path/to/project.ini`` argument. To start
 the GUI application, please execute ``./src/exe/colmap`` or directly specify a
 project configuration as ``./src/exe/colmap --project_path path/to/project.ini``
 to avoid tedious selection in the GUI. The :ref:`Graphical User Interface <gui>`
-section provides more details about the available controls.
+and :ref:`Command-line Interface <cli>` sections provide more details about the
+available controls.
 
 
 .. rubric:: Footnotes

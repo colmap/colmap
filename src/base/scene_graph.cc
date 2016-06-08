@@ -84,15 +84,21 @@ void SceneGraph::AddCorrespondences(const image_t image_id1,
     const bool valid_idx2 = point2D_idx2 < image2.corrs.size();
 
     if (valid_idx1 && valid_idx2) {
-      const bool duplicate =
-          std::find_if(image1.corrs[point2D_idx1].begin(),
-                       image1.corrs[point2D_idx1].end(),
-                       [image_id2, point2D_idx2](const Correspondence& corr) {
-                         return corr.image_id == image_id2 &&
-                                corr.point2D_idx == point2D_idx2;
-                       }) != image1.corrs[point2D_idx1].end();
+      auto& corrs1 = image1.corrs[point2D_idx1];
+      auto& corrs2 = image2.corrs[point2D_idx2];
 
-      if (duplicate) {
+      const bool duplicate1 =
+          std::find_if(corrs1.begin(), corrs1.end(),
+                       [image_id2](const Correspondence& corr) {
+                         return corr.image_id == image_id2;
+                       }) != corrs1.end();
+      const bool duplicate2 =
+          std::find_if(corrs2.begin(), corrs2.end(),
+                       [image_id1](const Correspondence& corr) {
+                         return corr.image_id == image_id1;
+                       }) != corrs2.end();
+
+      if (duplicate1 || duplicate2) {
         image1.num_correspondences -= 1;
         image2.num_correspondences -= 1;
         num_correspondences -= 1;
@@ -103,10 +109,7 @@ void SceneGraph::AddCorrespondences(const image_t image_id1,
                          point2D_idx1 % image_id1 % point2D_idx2 % image_id2
                   << std::endl;
       } else {
-        std::vector<Correspondence>& corrs1 = image1.corrs[point2D_idx1];
         corrs1.emplace_back(image_id2, point2D_idx2);
-
-        std::vector<Correspondence>& corrs2 = image2.corrs[point2D_idx2];
         corrs2.emplace_back(image_id1, point2D_idx1);
       }
     } else {

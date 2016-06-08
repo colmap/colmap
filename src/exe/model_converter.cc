@@ -31,13 +31,10 @@ int main(int argc, char** argv) {
   std::string output_type;
 
   OptionManager options;
-  options.desc->add_options()(
-      "input_path", config::value<std::string>(&input_path)->required());
-  options.desc->add_options()(
-      "output_path", config::value<std::string>(&output_path)->required());
-  options.desc->add_options()(
-      "output_type", config::value<std::string>(&output_type)->required(),
-      "{'NVM', 'Bundler', 'VRML', 'PLY'}");
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddRequiredOption("output_type", &output_type,
+                            "{'NVM', 'Bundler', 'VRML', 'PLY'}");
 
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;

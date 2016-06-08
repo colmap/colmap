@@ -1,5 +1,8 @@
 set(FOLDER_NAME "exe")
 
+COLMAP_ADD_QT_EXECUTABLE(bundle_adjuster bundle_adjuster.cc)
+target_link_libraries(bundle_adjuster ${COLMAP_LIBRARIES})
+
 COLMAP_ADD_QT_EXECUTABLE(colmap colmap.cc)
 target_link_libraries(colmap ${COLMAP_UI_LIBRARIES} ${COLMAP_LIBRARIES})
 

@@ -38,8 +38,7 @@ int main(int argc, char** argv) {
   options.AddDatabaseOptions();
   options.AddMatchOptions();
   options.AddExhaustiveMatchOptions();
-  options.desc->add_options()(
-      "no_opengl", config::value<bool>(&no_opengl)->default_value(no_opengl));
+  options.AddDefaultOption("no_opengl", no_opengl, &no_opengl);
 
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;

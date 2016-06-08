@@ -143,6 +143,8 @@ class avec {
 template <class Float>
 class SparseBundleCPU : public ParallelBA, public ConfigBA {
  public:
+  SparseBundleCPU(const int num_threads);
+
   typedef avec<Float> VectorF;
   typedef vector<int> VectorI;
   typedef float float_t;
@@ -278,7 +280,7 @@ class SparseBundleCPU : public ParallelBA, public ConfigBA {
   virtual int RunBundleAdjustment();
 };
 
-ParallelBA* NewSparseBundleCPU(bool dp);
+ParallelBA* NewSparseBundleCPU(bool dp, const int num_threads);
 
 }  // namespace pba
 

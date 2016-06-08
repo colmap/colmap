@@ -37,12 +37,8 @@ int main(int argc, char** argv) {
   options.AddDatabaseOptions();
   options.AddImageOptions();
   options.AddMapperOptions();
-  options.AddBundleAdjustmentOptions();
-  options.desc->add_options()(
-      "import_path",
-      config::value<std::string>(&import_path)->default_value(""));
-  options.desc->add_options()(
-      "export_path", config::value<std::string>(&export_path)->required());
+  options.AddDefaultOption("import_path", import_path, &import_path);
+  options.AddRequiredOption("export_path", &export_path);
 
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;

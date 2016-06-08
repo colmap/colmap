@@ -38,20 +38,15 @@ int main(int argc, char** argv) {
 #endif
 
   std::string match_list_path;
-  std::string match_type;
+  std::string match_type = "pairs";
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddMatchOptions();
-  options.desc->add_options()(
-      "match_list_path",
-      config::value<std::string>(&match_list_path)->required());
-  options.desc->add_options()(
-      "match_type",
-      config::value<std::string>(&match_type)->default_value("pairs"),
-      "{'pairs', 'raw', 'inliers'}");
-  options.desc->add_options()(
-      "no_opengl", config::value<bool>(&no_opengl)->default_value(no_opengl));
+  options.AddRequiredOption("match_list_path", &match_list_path);
+  options.AddDefaultOption("match_type", match_type, &match_type,
+                           "{'pairs', 'raw', 'inliers'}");
+  options.AddDefaultOption("no_opengl", no_opengl, &no_opengl);
 
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
