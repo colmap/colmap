@@ -252,11 +252,15 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                                    extra_params_idxs.end());
       }
 
-      ceres::SubsetParameterization* camera_params_parameterization =
-          new ceres::SubsetParameterization(
-              static_cast<int>(camera->NumParams()), camera_params_const);
-      problem.SetParameterization(camera->ParamsData(),
-                                  camera_params_parameterization);
+      if (camera_params_const.size() == camera->NumParams()) {
+        problem.SetParameterBlockConstant(camera->ParamsData());
+      } else {
+        ceres::SubsetParameterization* camera_params_parameterization =
+            new ceres::SubsetParameterization(
+                static_cast<int>(camera->NumParams()), camera_params_const);
+        problem.SetParameterization(camera->ParamsData(),
+                                    camera_params_parameterization);
+      }
     }
   }
 
