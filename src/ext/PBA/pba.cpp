@@ -37,7 +37,7 @@ ParallelBA::ParallelBA(DeviceT device, const int num_threads) {
       _optimizer = cuba;
     } else {
       device = PBA_CPU_FLOAT;
-      _optimizer = NewSparseBundleCPU(false);
+      _optimizer = NewSparseBundleCPU(false, num_threads);
       delete cuba;
     }
   } else
