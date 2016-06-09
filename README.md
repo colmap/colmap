@@ -29,7 +29,7 @@ Getting Started
    http://people.inf.ethz.ch/jschoenb/colmap/datasets/ or use your own images.
 3. Watch the short introductory video at
    https://www.youtube.com/watch?v=P-EC0DzeVEU or read the tutorial
-   in the documentation for more details.
+   in the documentation at https://colmap.github.io/ for more details.
 
 
 Documentation
@@ -41,8 +41,10 @@ The documentation is available at https://colmap.github.io/.
 Support
 -------
 
-Please, use the GitHub issue tracker at https://github.com/colmap/colmap for bug
-reports, questions, suggestions, etc.
+Please, use the COLMAP Google Group at
+https://groups.google.com/forum/#!forum/colmap for questions and the GitHub
+issue tracker at https://github.com/colmap/colmap for bug reports, feature
+requests/additions, etc.
 
 
 Acknowledgments

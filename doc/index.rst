@@ -39,6 +39,17 @@ Getting Started
    :ref:`Tutorial <tutorial>` for more details.
 
 
+Support
+-------
+
+Please, use the `Google Group <https://groups.google.com/forum/#!forum/colmap>`_
+for questions and the `GitHub issue tracker <https://github.com/colmap/colmap>`_
+for bug reports, feature requests/additions, etc.
+
+
+Contents
+--------
+
 .. toctree::
    :maxdepth: 2
 
