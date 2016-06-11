@@ -21,19 +21,20 @@ research, please cite::
         year={2016},
     }
 
-The source code is available at https://github.com/colmap/colmap. COLMAP builds
-on top of existing work and when using specific algorithms within COLMAP, please
-also consider citing the original works, as specified in the source code.
+The latest source code is available at `GitHub
+<https://github.com/colmap/colmap>`_. COLMAP builds on top of existing work and
+when using specific algorithms within COLMAP, please also consider citing the
+original works, as specified in the source code.
 
 
 Getting Started
 ---------------
 
-1. Download the pre-built binaries from
-   http://people.inf.ethz.ch/jschoenb/colmap/ or build the library manually
+1. Download the `pre-built binaries
+   <http://people.inf.ethz.ch/jschoenb/colmap/>`_ or build the library manually
    (see :ref:`Installation <installation>`).
-2. Download one of the provided datasets at
-   http://people.inf.ethz.ch/jschoenb/colmap/datasets/ or use your own images.
+2. Download one of the provided datasets (see :ref:`Datasets <datasets>`)
+   or use your own images.
 3. Watch the short introductory video at
    `YouTube <https://www.youtube.com/watch?v=P-EC0DzeVEU>`_ or read the
    :ref:`Tutorial <tutorial>` for more details.
@@ -43,8 +44,9 @@ Support
 -------
 
 Please, use the `Google Group <https://groups.google.com/forum/#!forum/colmap>`_
-for questions and the `GitHub issue tracker <https://github.com/colmap/colmap>`_
-for bug reports, feature requests/additions, etc.
+(colmap@googlegroups.com) for questions and the `GitHub issue tracker
+<https://github.com/colmap/colmap>`_ for bug reports, feature
+requests/additions, etc.
 
 
 Contents

@@ -10,6 +10,8 @@ checkout the latest source code::
 
     git clone https://github.com/colmap/colmap
 
+Then follow the build instructions for your platform as detailed below.
+
 
 Linux
 -----

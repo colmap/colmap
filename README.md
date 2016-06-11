@@ -14,9 +14,9 @@ research, please cite:
         year={2016},
     }
 
-The source code is available at https://github.com/colmap/colmap. COLMAP builds
-on top of existing work and when using specific algorithms within COLMAP, please
-also consider citing the original works, as specified in the source code.
+The latest source code is available at https://github.com/colmap/colmap. COLMAP
+builds on top of existing work and when using specific algorithms within COLMAP,
+please also consider citing the original works, as specified in the source code.
 
 
 Getting Started
@@ -42,9 +42,9 @@ Support
 -------
 
 Please, use the COLMAP Google Group at
-https://groups.google.com/forum/#!forum/colmap for questions and the GitHub
-issue tracker at https://github.com/colmap/colmap for bug reports, feature
-requests/additions, etc.
+https://groups.google.com/forum/#!forum/colmap (colmap@googlegroups.com) for
+questions and the GitHub issue tracker at https://github.com/colmap/colmap for
+bug reports, feature requests/additions, etc.
 
 
 Acknowledgments
