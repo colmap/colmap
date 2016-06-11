@@ -883,13 +883,19 @@ void Reconstruction::ExportNVM(const std::string& path) const {
 
     std::ostringstream line;
 
+    std::unordered_set<image_t> image_ids;
     for (const auto& track_el : point3D.second.Track().Elements()) {
-      const class Image& image = Image(track_el.image_id);
-      const Point2D& point2D = image.Point2D(track_el.point2D_idx);
-      line << image_id_to_idx_[track_el.image_id] << " ";
-      line << track_el.point2D_idx << " ";
-      line << point2D.X() << " ";
-      line << point2D.Y() << " ";
+      // Make sure that each point only has a single observation per image,
+      // since VisualSfM does not support with multiple observations.
+      if (image_ids.count(track_el.image_id) == 0) {
+        const class Image& image = Image(track_el.image_id);
+        const Point2D& point2D = image.Point2D(track_el.point2D_idx);
+        line << image_id_to_idx_[track_el.image_id] << " ";
+        line << track_el.point2D_idx << " ";
+        line << point2D.X() << " ";
+        line << point2D.Y() << " ";
+        image_ids.insert(track_el.image_id);
+      }
     }
 
     std::string line_string = line.str();
