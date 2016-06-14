@@ -879,7 +879,6 @@ void Reconstruction::ExportNVM(const std::string& path) const {
     file << static_cast<int>(point3D.second.Color(0)) << " ";
     file << static_cast<int>(point3D.second.Color(1)) << " ";
     file << static_cast<int>(point3D.second.Color(2)) << " ";
-    file << point3D.second.Track().Length() << " ";
 
     std::ostringstream line;
 
@@ -901,6 +900,7 @@ void Reconstruction::ExportNVM(const std::string& path) const {
     std::string line_string = line.str();
     line_string = line_string.substr(0, line_string.size() - 1);
 
+    file << image_ids.size() << " ";
     file << line_string << std::endl;
   }
 
