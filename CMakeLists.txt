@@ -89,6 +89,11 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-unused-parameter")
 endif()
 
+if(IS_GNU)
+    # Hide incorrect warnings for uninitialized Eigen variables under GCC.
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-maybe-uninitialized")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-maybe-uninitialized")
+endif()
 
 if(OPENMP_ENABLED AND OPENMP_FOUND)
     message(STATUS "Enabling OpenMP support")
