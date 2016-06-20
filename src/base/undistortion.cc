@@ -21,7 +21,6 @@
 #include <iostream>
 
 #include <boost/filesystem.hpp>
-#include <boost/format.hpp>
 
 #include "base/camera_models.h"
 #include "base/projection.h"
@@ -141,8 +140,8 @@ void ImageUndistorter::run() {
 
     std::function<size_t(void)> UndistortFunc = [=]() {
       if (fs::exists(output_image_path)) {
-        std::cout << boost::format("SKIP: Already undistorted [%d/%d]") %
-                         (i + 1) % reg_image_ids.size()
+        std::cout << StringPrintf("SKIP: Already undistorted [%d/%d]", i + 1,
+                                  reg_image_ids.size())
                   << std::endl;
         return i;
       }
@@ -183,8 +182,8 @@ void ImageUndistorter::run() {
       }
     }
 
-    std::cout << boost::format("Undistorting image [%d/%d]") %
-                     (future.get() + 1) % reg_image_ids.size()
+    std::cout << StringPrintf("Undistorting image [%d/%d]", future.get() + 1,
+                              reg_image_ids.size())
               << std::endl;
   }
 
@@ -246,22 +245,22 @@ void PMVSUndistorter::run() {
 
     const std::string input_image_path = image_path_ + image.Name();
     const std::string output_image_path =
-        (visualize_path / fs::path((boost::format("%08d.jpg") % i).str()))
-            .string();
+        (visualize_path / fs::path(StringPrintf("%08d.jpg", i))).string();
     const std::string proj_matrix_path =
-        (txt_path / fs::path((boost::format("%08d.txt") % i).str())).string();
+        (txt_path / fs::path(StringPrintf("%08d.txt", i))).string();
 
     std::function<size_t(void)> UndistortFunc = [=]() {
       if (fs::exists(output_image_path) && fs::exists(proj_matrix_path)) {
-        std::cout << boost::format("SKIP: Already undistorted [%d/%d]") %
-                         (i + 1) % reg_image_ids.size()
+        std::cout << StringPrintf("SKIP: Already undistorted [%d/%d]", i + 1,
+                                  reg_image_ids.size())
                   << std::endl;
         return i;
       }
       Bitmap distorted_bitmap;
 
       if (!distorted_bitmap.Read(input_image_path, true)) {
-        std::cerr << "ERROR: Cannot read image at path " << input_image_path
+        std::cerr << StringPrintf("ERROR: Cannot read image at path %s",
+                                  input_image_path.c_str())
                   << std::endl;
         return i;
       }
@@ -314,8 +313,8 @@ void PMVSUndistorter::run() {
       point2D.SetXY(undistorted_camera.WorldToImage(world_point));
     }
 
-    std::cout << boost::format("Undistorting image [%d/%d]") % (i + 1) %
-                     reg_image_ids.size()
+    std::cout << StringPrintf("Undistorting image [%d/%d]", i + 1,
+                              reg_image_ids.size())
               << std::endl;
   }
 
@@ -435,16 +434,14 @@ void CMPMVSUndistorter::run() {
     const std::string path = image_path_ + image.Name();
 
     const std::string output_image_path =
-        (output_path / fs::path((boost::format("%05d.jpg") % (i + 1)).str()))
-            .string();
+        (output_path / fs::path(StringPrintf("%05d.jpg", i + 1))).string();
     const std::string proj_matrix_path =
-        (output_path / fs::path((boost::format("%05d_P.txt") % (i + 1)).str()))
-            .string();
+        (output_path / fs::path(StringPrintf("%05d_P.txt", i + 1))).string();
 
     std::function<size_t(void)> UndistortFunc = [=]() {
       if (fs::exists(output_image_path) && fs::exists(proj_matrix_path)) {
-        std::cout << boost::format("SKIP: Already undistorted [%d/%d]") %
-                         (i + 1) % reg_image_ids.size()
+        std::cout << StringPrintf("SKIP: Already undistorted [%d/%d]", i + 1,
+                                  reg_image_ids.size())
                   << std::endl;
         return i;
       }
@@ -480,8 +477,8 @@ void CMPMVSUndistorter::run() {
       }
     }
 
-    std::cout << boost::format("Undistorting image [%d/%d]") %
-                     (future.get() + 1) % reg_image_ids.size()
+    std::cout << StringPrintf("Undistorting image [%d/%d]", future.get() + 1,
+                              reg_image_ids.size())
               << std::endl;
   }
 

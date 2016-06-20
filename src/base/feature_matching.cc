@@ -21,7 +21,6 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
-#include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include "base/camera_models.h"
@@ -200,7 +199,7 @@ bool FeatureMatcher::IsStopped() {
 }
 
 void FeatureMatcher::PrintElapsedTime(const Timer& timer) {
-  std::cout << boost::format(" in %.3fs") % timer.ElapsedSeconds() << std::endl;
+  std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
 }
 
 const FeatureKeypoints& FeatureMatcher::CacheKeypoints(const image_t image_id) {
@@ -595,9 +594,9 @@ void ExhaustiveFeatureMatcher::DoMatching() {
       Timer timer;
       timer.Start();
 
-      std::cout << boost::format("Matching block [%d/%d, %d/%d]") %
-                       (start_idx1 / block_size + 1) % num_blocks %
-                       (start_idx2 / block_size + 1) % num_blocks
+      std::cout << StringPrintf("Matching block [%d/%d, %d/%d]",
+                                start_idx1 / block_size + 1, num_blocks,
+                                start_idx2 / block_size + 1, num_blocks)
                 << std::flush;
 
       image_pairs.clear();
@@ -681,8 +680,8 @@ ExhaustiveFeatureMatcher::PreemptivelyFilterImagePairs(
 
   database_.EndTransaction();
 
-  std::cout << boost::format(" P(%d/%d)") % filtered_image_pairs.size() %
-                   image_pairs.size()
+  std::cout << StringPrintf(" P(%d/%d)", filtered_image_pairs.size(),
+                            image_pairs.size())
             << std::flush;
 
   return filtered_image_pairs;
@@ -739,8 +738,8 @@ void SequentialFeatureMatcher::DoMatching() {
 
     const auto& image1 = ordered_images[i];
 
-    std::cout << boost::format("Matching image [%d/%d]") % (i + 1) %
-                     ordered_images.size()
+    std::cout << StringPrintf("Matching image [%d/%d]", i + 1,
+                              ordered_images.size())
               << std::flush;
 
     image_pairs.clear();
@@ -788,8 +787,8 @@ void SequentialFeatureMatcher::DoMatching() {
 
     const auto& image = ordered_images[i];
 
-    std::cout << boost::format("Indexing image [%d/%d]") % (i + 1) %
-                     ordered_images.size()
+    std::cout << StringPrintf("Indexing image [%d/%d]", i + 1,
+                              ordered_images.size())
               << std::flush;
 
     retrieval::VisualIndex::Desc descriptors =
@@ -818,8 +817,8 @@ void SequentialFeatureMatcher::DoMatching() {
 
     const auto& image = ordered_images[i];
 
-    std::cout << boost::format("Detecting loops [%d/%d]") % (i + 1) %
-                     ordered_images.size()
+    std::cout << StringPrintf("Detecting loops [%d/%d]", i + 1,
+                              ordered_images.size())
               << std::flush;
 
     retrieval::VisualIndex::Desc descriptors =
@@ -873,7 +872,7 @@ void VocabTreeFeatureMatcher::DoMatching() {
 
     i += 1;
 
-    std::cout << boost::format("Indexing image [%d/%d]") % i % images_.size()
+    std::cout << StringPrintf("Indexing image [%d/%d]", i, images_.size())
               << std::flush;
 
     retrieval::VisualIndex::Desc descriptors =
@@ -902,7 +901,7 @@ void VocabTreeFeatureMatcher::DoMatching() {
 
     i += 1;
 
-    std::cout << boost::format("Matching image [%d/%d]") % i % images_.size()
+    std::cout << StringPrintf("Matching image [%d/%d]", i, images_.size())
               << std::flush;
 
     retrieval::VisualIndex::Desc descriptors =
@@ -1067,8 +1066,7 @@ void SpatialFeatureMatcher::DoMatching() {
 
     timer.Restart();
 
-    std::cout << boost::format("Matching image [%d/%d]") % (i + 1) %
-                     num_locations
+    std::cout << StringPrintf("Matching image [%d/%d]", i + 1, num_locations)
               << std::flush;
 
     image_pairs.clear();
@@ -1122,8 +1120,8 @@ void ImagePairsFeatureMatcher::DoMatching() {
 
     timer.Restart();
 
-    std::cout << boost::format("Matching block [%d/%d]") %
-                     (i / kBlockSize + 1) % num_match_blocks
+    std::cout << StringPrintf("Matching block [%d/%d]", i / kBlockSize + 1,
+                              num_match_blocks)
               << std::flush;
 
     block_image_pairs.clear();
@@ -1245,15 +1243,19 @@ void FeaturePairsFeatureMatcher::run() {
       break;
     }
 
-    std::cout << image_name1 << " - " << image_name2 << std::endl;
+    std::cout << StringPrintf("%s - %s", image_name1.c_str(),
+                              image_name2.c_str())
+              << std::endl;
 
     if (name_to_image.count(image_name1) == 0) {
-      std::cout << "SKIP: Image " << image_name1 << " not found in database."
+      std::cout << StringPrintf("SKIP: Image %s not found in database.",
+                                image_name1.c_str())
                 << std::endl;
       break;
     }
     if (name_to_image.count(image_name2) == 0) {
-      std::cout << "SKIP: Image " << image_name2 << " not found in database."
+      std::cout << StringPrintf("SKIP: Image %s not found in database.",
+                                image_name2.c_str())
                 << std::endl;
       break;
     }

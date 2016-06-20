@@ -16,6 +16,8 @@
 
 #include "util/timer.h"
 
+#include "util/misc.h"
+
 using namespace boost::chrono;
 
 namespace colmap {
@@ -73,20 +75,17 @@ double Timer::ElapsedMinutes() const { return ElapsedSeconds() / 60; }
 double Timer::ElapsedHours() const { return ElapsedMinutes() / 60; }
 
 void Timer::PrintSeconds() const {
-  std::cout << "Elapsed time: " << std::setiosflags(std::ios::fixed)
-            << std::setprecision(5) << ElapsedSeconds() << " [seconds]"
+  std::cout << StringPrintf("Elapsed time: %.5f [seconds]", ElapsedSeconds())
             << std::endl;
 }
 
 void Timer::PrintMinutes() const {
-  std::cout << "Elapsed time: " << std::setiosflags(std::ios::fixed)
-            << std::setprecision(2) << ElapsedMinutes() << " [minutes]"
+  std::cout << StringPrintf("Elapsed time: %.5f [minutes]", ElapsedMinutes())
             << std::endl;
 }
 
 void Timer::PrintHours() const {
-  std::cout << "Elapsed time: " << std::setiosflags(std::ios::fixed)
-            << std::setprecision(2) << ElapsedHours() << " [hours]"
+  std::cout << StringPrintf("Elapsed time: %.5f [hours]", ElapsedHours())
             << std::endl;
 }
 

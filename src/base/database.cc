@@ -18,8 +18,9 @@
 
 #include <fstream>
 
-#include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
+
+#include "util/misc.h"
 
 namespace colmap {
 namespace {
@@ -895,24 +896,22 @@ void Database::CreateCameraTable() const {
 }
 
 void Database::CreateImageTable() const {
-  const std::string sql =
-      (boost::format(
-           "CREATE TABLE IF NOT EXISTS images"
-           "   (image_id   INTEGER  PRIMARY KEY AUTOINCREMENT  NOT NULL,"
-           "    name       TEXT                                NOT NULL UNIQUE,"
-           "    camera_id  INTEGER                             NOT NULL,"
-           "    prior_qw   REAL,"
-           "    prior_qx   REAL,"
-           "    prior_qy   REAL,"
-           "    prior_qz   REAL,"
-           "    prior_tx   REAL,"
-           "    prior_ty   REAL,"
-           "    prior_tz   REAL,"
-           "CONSTRAINT image_id_check CHECK(image_id >= 0 and image_id < %d),"
-           "FOREIGN KEY(camera_id) REFERENCES cameras(camera_id));"
-           "CREATE UNIQUE INDEX IF NOT EXISTS index_name ON images(name);") %
-       kMaxNumImages)
-          .str();
+  const std::string sql = StringPrintf(
+      "CREATE TABLE IF NOT EXISTS images"
+      "   (image_id   INTEGER  PRIMARY KEY AUTOINCREMENT  NOT NULL,"
+      "    name       TEXT                                NOT NULL UNIQUE,"
+      "    camera_id  INTEGER                             NOT NULL,"
+      "    prior_qw   REAL,"
+      "    prior_qx   REAL,"
+      "    prior_qy   REAL,"
+      "    prior_qz   REAL,"
+      "    prior_tx   REAL,"
+      "    prior_ty   REAL,"
+      "    prior_tz   REAL,"
+      "CONSTRAINT image_id_check CHECK(image_id >= 0 and image_id < %d),"
+      "FOREIGN KEY(camera_id) REFERENCES cameras(camera_id));"
+      "CREATE UNIQUE INDEX IF NOT EXISTS index_name ON images(name);",
+      kMaxNumImages);
 
   SQLITE3_EXEC(database_, sql.c_str(), nullptr);
 }

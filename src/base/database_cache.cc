@@ -14,12 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "database_cache.h"
-
-#include <boost/format.hpp>
+#include "base/database_cache.h"
 
 #include <iostream>
 
+#include "util/misc.h"
 #include "util/timer.h"
 
 namespace colmap {
@@ -56,8 +55,8 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
     }
   }
 
-  std::cout << boost::format(" %d in %.3fs") % cameras_.size() %
-                   timer.ElapsedSeconds()
+  std::cout << StringPrintf(" %d in %.3fs", cameras_.size(),
+                            timer.ElapsedSeconds())
             << std::endl;
 
   //////////////////////////////////////////////////////////////////////////////
@@ -70,8 +69,8 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
   const std::vector<std::pair<image_pair_t, TwoViewGeometry>> image_pairs =
       database.ReadAllInlierMatches();
 
-  std::cout << boost::format(" %d in %.3fs") % image_pairs.size() %
-                   timer.ElapsedSeconds()
+  std::cout << StringPrintf(" %d in %.3fs", image_pairs.size(),
+                            timer.ElapsedSeconds())
             << std::endl;
 
   auto UseInlierMatchesCheck = [min_num_matches, ignore_watermarks](
@@ -119,8 +118,9 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
       }
     }
 
-    std::cout << boost::format(" %d in %.3fs (connected %d)") % images.size() %
-                     timer.ElapsedSeconds() % connected_image_ids.size()
+    std::cout << StringPrintf(" %d in %.3fs (connected %d)", images.size(),
+                              timer.ElapsedSeconds(),
+                              connected_image_ids.size())
               << std::endl;
   }
 
@@ -158,8 +158,8 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
         scene_graph_.NumCorrespondencesForImage(image.first));
   }
 
-  std::cout << boost::format(" in %.3fs (ignored %d)") %
-                   timer.ElapsedSeconds() % num_ignored_image_pairs
+  std::cout << StringPrintf(" in %.3fs (ignored %d)", timer.ElapsedSeconds(),
+                            num_ignored_image_pairs)
             << std::endl;
 }
 

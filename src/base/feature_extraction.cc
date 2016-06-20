@@ -18,8 +18,6 @@
 
 #include <fstream>
 
-#include <boost/format.hpp>
-
 #include "base/camera_models.h"
 #include "base/feature.h"
 #include "ext/SiftGPU/SiftGPU.h"
@@ -125,10 +123,10 @@ void ScaleBitmap(const Camera& camera, const int max_image_size,
     const int new_width = static_cast<int>(camera.Width() * scale);
     const int new_height = static_cast<int>(camera.Height() * scale);
 
-    std::cout << boost::format(
+    std::cout << StringPrintf(
                      "  WARNING: Image exceeds maximum dimensions "
-                     "- resizing to %dx%d.") %
-                     new_width % new_height
+                     "- resizing to %dx%d.",
+                     new_width, new_height)
               << std::endl;
 
     // These scales differ from `scale`, if we round one of the dimensions.
@@ -339,10 +337,9 @@ bool FeatureExtractor::ReadImage(const std::string& image_path, Image* image,
   if (bitmap->ExifLatitude(&image->TvecPrior(0)) &&
       bitmap->ExifLongitude(&image->TvecPrior(1)) &&
       bitmap->ExifAltitude(&image->TvecPrior(2))) {
-    std::cout << boost::format(
-                     "  EXIF GPS:       LAT=%.3f, LON=%.3f, ALT=%.3f") %
-                     image->TvecPrior(0) % image->TvecPrior(1) %
-                     image->TvecPrior(2)
+    std::cout << StringPrintf("  EXIF GPS:       LAT=%.3f, LON=%.3f, ALT=%.3f",
+                              image->TvecPrior(0), image->TvecPrior(1),
+                              image->TvecPrior(2))
               << std::endl;
   } else {
     image->TvecPrior(0) = std::numeric_limits<double>::quiet_NaN();

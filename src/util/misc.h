@@ -26,6 +26,11 @@
 
 namespace colmap {
 
+// Format string by replacing embedded format specifiers with their respective
+// values, see `printf` for more details. This is a modified implementation
+// of Google's BSD-licensed StringPrintf function.
+std::string StringPrintf(const char* format, ...);
+
 // Append trailing slash to string if it does not yet end with a slash.
 //
 // @param str    Input string.

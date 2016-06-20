@@ -19,9 +19,8 @@
 #include <iostream>
 #include <unordered_set>
 
-#include <boost/format.hpp>
-
 #include "util/logging.h"
+#include "util/misc.h"
 
 namespace colmap {
 
@@ -102,11 +101,11 @@ void SceneGraph::AddCorrespondences(const image_t image_id1,
         image1.num_correspondences -= 1;
         image2.num_correspondences -= 1;
         num_correspondences -= 1;
-        std::cout << boost::format(
+        std::cout << StringPrintf(
                          "WARNING: Duplicate correspondence between "
                          "point2D_idx=%d in image_id=%d and point2D_idx=%d in "
-                         "image_id=%d") %
-                         point2D_idx1 % image_id1 % point2D_idx2 % image_id2
+                         "image_id=%d",
+                         point2D_idx1, image_id1, point2D_idx2, image_id2)
                   << std::endl;
       } else {
         corrs1.emplace_back(image_id2, point2D_idx2);
@@ -118,16 +117,16 @@ void SceneGraph::AddCorrespondences(const image_t image_id1,
       num_correspondences -= 1;
       if (!valid_idx1) {
         std::cout
-            << boost::format(
-                   "WARNING: point2D_idx=%d in image_id=%d does not exist") %
-                   point2D_idx1 % image_id1
+            << StringPrintf(
+                   "WARNING: point2D_idx=%d in image_id=%d does not exist",
+                   point2D_idx1, image_id1)
             << std::endl;
       }
       if (!valid_idx2) {
         std::cout
-            << boost::format(
-                   "WARNING: point2D_idx=%d in image_id=%d does not exist") %
-                   point2D_idx2 % image_id2
+            << StringPrintf(
+                   "WARNING: point2D_idx=%d in image_id=%d does not exist",
+                   point2D_idx2, image_id2)
             << std::endl;
       }
     }

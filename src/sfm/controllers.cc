@@ -17,7 +17,6 @@
 #include "sfm/controllers.h"
 
 #include <boost/filesystem.hpp>
-#include <boost/format.hpp>
 
 #include "util/misc.h"
 
@@ -147,8 +146,9 @@ void IterativeGlobalRefinement(const MapperOptions& options,
 void ExtractColors(const std::string& image_path, const image_t image_id,
                    Reconstruction* reconstruction) {
   if (!reconstruction->ExtractColorsForImage(image_id, image_path)) {
-    std::cout << boost::format("WARNING: Could not read image %s at path %s.") %
-                     reconstruction->Image(image_id).Name() % image_path
+    std::cout << StringPrintf("WARNING: Could not read image %s at path %s.",
+                              reconstruction->Image(image_id).Name().c_str(),
+                              image_path.c_str())
               << std::endl;
   }
 }
@@ -364,8 +364,8 @@ void IncrementalMapperController::run() {
         }
       }
 
-      PrintHeading1("Initializing with images #" + std::to_string(image_id1) +
-                    " and #" + std::to_string(image_id2));
+      PrintHeading1(StringPrintf("Initializing with images #%d and #%d",
+                                 image_id1, image_id2));
       const bool reg_init_success = mapper.RegisterInitialImagePair(
           mapper_options.IncrementalMapperOptions(), image_id1, image_id2);
 
@@ -430,12 +430,12 @@ void IncrementalMapperController::run() {
         const image_t next_image_id = next_images[reg_trial];
         const Image& next_image = reconstruction.Image(next_image_id);
 
-        PrintHeading1("Processing image #" + std::to_string(next_image_id) +
-                      " (" + std::to_string(reconstruction.NumRegImages() + 1) +
-                      ")");
+        PrintHeading1(StringPrintf("Registering image #%d (%d)", next_image_id,
+                                   reconstruction.NumRegImages() + 1));
 
-        std::cout << "  => Image sees " << next_image.NumVisiblePoints3D()
-                  << " / " << next_image.NumObservations() << " points."
+        std::cout << StringPrintf(" => Image sees %d / %d points",
+                                  next_image.NumVisiblePoints3D(),
+                                  next_image.NumObservations())
                   << std::endl;
 
         reg_next_success = mapper.RegisterNextImage(

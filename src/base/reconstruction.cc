@@ -21,7 +21,6 @@
 #include <sstream>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include "base/pose.h"
@@ -1194,8 +1193,8 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
 
     Bitmap bitmap;
     if (!bitmap.Read(image_path)) {
-      std::cout << boost::format("Could not read image %s at path %s.") %
-                       image.Name() % image_path
+      std::cout << StringPrintf("Could not read image %s at path %s.",
+                                image.Name().c_str(), image_path.c_str())
                 << std::endl;
       continue;
     }

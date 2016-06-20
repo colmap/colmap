@@ -77,8 +77,10 @@ namespace {
 bool CheckOption(const bool value, const std::string& option_class,
                  const std::string& option, const std::string& expression) {
   if (!value) {
-    std::cerr << "ERROR: Option " << option_class << "." << option
-              << " failed check - " << expression << std::endl;
+    std::cerr << StringPrintf("ERROR: Option %s.%s failed check - %s",
+                              option_class.c_str(), option.c_str(),
+                              expression.c_str())
+              << std::endl;
   }
   return value;
 }
