@@ -146,7 +146,7 @@ void IterativeGlobalRefinement(const MapperOptions& options,
 
 void ExtractColors(const std::string& image_path, const image_t image_id,
                    Reconstruction* reconstruction) {
-  if (!reconstruction->ExtractColors(image_id, image_path)) {
+  if (!reconstruction->ExtractColorsForImage(image_id, image_path)) {
     std::cout << boost::format("WARNING: Could not read image %s at path %s.") %
                      reconstruction->Image(image_id).Name() % image_path
               << std::endl;

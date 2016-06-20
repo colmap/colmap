@@ -337,6 +337,10 @@ void MainWindow::CreateActions() {
           &MainWindow::UndistortImages);
   blocking_actions_.push_back(action_undistort_);
 
+  action_extract_colors_ = new QAction(tr("Extract colors"), this);
+  connect(action_extract_colors_, &QAction::triggered, this,
+          &MainWindow::ExtractColors);
+
   action_reset_options_ = new QAction(tr("Restore default options"), this);
   connect(action_reset_options_, &QAction::triggered, this,
           &MainWindow::ResetOptions);
@@ -415,6 +419,7 @@ void MainWindow::CreateMenus() {
   extras_menu->addAction(action_grab_image_);
   extras_menu->addAction(action_grab_movie_);
   extras_menu->addAction(action_undistort_);
+  extras_menu->addAction(action_extract_colors_);
   extras_menu->addAction(action_reset_options_);
   menuBar()->addAction(extras_menu->menuAction());
 
@@ -517,6 +522,10 @@ void MainWindow::CreateFutures() {
   export_watcher_ = new QFutureWatcher<void>(this);
   connect(export_watcher_, &QFutureWatcher<void>::finished, this,
           &MainWindow::ExportFinished);
+
+  extract_colors_watcher_ = new QFutureWatcher<void>(this);
+  connect(extract_colors_watcher_, &QFutureWatcher<void>::finished, this,
+          &MainWindow::ExtractColorsFinished);
 }
 
 void MainWindow::CreateProgressBar() {
@@ -1092,6 +1101,26 @@ void MainWindow::ShowLog() {
   log_widget_->raise();
   dock_log_widget_->show();
   dock_log_widget_->raise();
+}
+
+void MainWindow::ExtractColors() {
+  if (!IsSelectedModelValid()) {
+    return;
+  }
+
+  progress_bar_->setLabelText(tr("Extracting colors"));
+  progress_bar_->raise();
+  progress_bar_->show();
+
+  extract_colors_watcher_->setFuture(QtConcurrent::run([this]() {
+    auto& model = mapper_controller->Model(SelectedModelIdx());
+    model.ExtractColorsForAllImages(*this->options_.image_path);
+  }));
+}
+
+void MainWindow::ExtractColorsFinished() {
+  RenderNow();
+  progress_bar_->hide();
 }
 
 void MainWindow::ResetOptions() {

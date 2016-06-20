@@ -222,7 +222,14 @@ class Reconstruction {
   //                      root path and the name of the image.
   //
   // @return              True if image could be read at given path.
-  bool ExtractColors(const image_t image_id, const std::string& path);
+  bool ExtractColorsForImage(const image_t image_id, const std::string& path);
+
+  // Extract colors for all 3D points by computing the mean color of all images.
+  //
+  // @param path          Absolute or relative path to root folder of image.
+  //                      The image path is determined by concatenating the
+  //                      root path and the name of the image.
+  void ExtractColorsForAllImages(const std::string& path);
 
  private:
   size_t FilterPoints3DWithSmallTriangulationAngle(

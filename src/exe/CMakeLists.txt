@@ -6,6 +6,9 @@ target_link_libraries(bundle_adjuster ${COLMAP_LIBRARIES})
 COLMAP_ADD_QT_EXECUTABLE(colmap colmap.cc)
 target_link_libraries(colmap ${COLMAP_UI_LIBRARIES} ${COLMAP_LIBRARIES})
 
+COLMAP_ADD_QT_EXECUTABLE(color_extractor color_extractor.cc)
+target_link_libraries(color_extractor ${COLMAP_LIBRARIES})
+
 COLMAP_ADD_QT_EXECUTABLE(database_creator database_creator.cc)
 target_link_libraries(database_creator ${COLMAP_LIBRARIES})
 

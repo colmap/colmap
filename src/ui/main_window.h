@@ -120,6 +120,8 @@ class MainWindow : public QMainWindow {
   void ShowModelStats();
   void ShowMatchMatrix();
   void ShowLog();
+  void ExtractColors();
+  void ExtractColorsFinished();
   void ResetOptions();
 
   void About();
@@ -203,9 +205,8 @@ class MainWindow : public QMainWindow {
   QAction* action_log_show_;
   QAction* action_grab_image_;
   QAction* action_grab_movie_;
-
   QAction* action_undistort_;
-
+  QAction* action_extract_colors_;
   QAction* action_reset_options_;
 
   QAction* action_about_;
@@ -215,6 +216,7 @@ class MainWindow : public QMainWindow {
 
   QFutureWatcher<void>* import_watcher_;
   QFutureWatcher<void>* export_watcher_;
+  QFutureWatcher<void>* extract_colors_watcher_;
 
   std::vector<QAction*> blocking_actions_;
 

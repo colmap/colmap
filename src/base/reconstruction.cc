@@ -21,6 +21,7 @@
 #include <sstream>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include "base/pose.h"
@@ -1155,8 +1156,8 @@ void Reconstruction::ExportVRML(const std::string& images_path,
   points3D_file.close();
 }
 
-bool Reconstruction::ExtractColors(const image_t image_id,
-                                   const std::string& path) {
+bool Reconstruction::ExtractColorsForImage(const image_t image_id,
+                                           const std::string& path) {
   const class Image& image = Image(image_id);
 
   Bitmap bitmap;
@@ -1179,6 +1180,53 @@ bool Reconstruction::ExtractColors(const image_t image_id,
   }
 
   return true;
+}
+
+void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
+  const std::string base_path = EnsureTrailingSlash(path);
+
+  std::unordered_map<point3D_t, Eigen::Vector3d> colors;
+  std::unordered_map<point3D_t, size_t> color_counts;
+
+  for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
+    const class Image& image = Image(reg_image_ids_[i]);
+    const std::string image_path = base_path + image.Name();
+
+    Bitmap bitmap;
+    if (!bitmap.Read(image_path)) {
+      std::cout << boost::format("Could not read image %s at path %s.") %
+                       image.Name() % image_path
+                << std::endl;
+      continue;
+    }
+
+    for (const Point2D point2D : image.Points2D()) {
+      if (point2D.HasPoint3D()) {
+        Eigen::Vector3d color;
+        if (bitmap.InterpolateBilinear(point2D.X(), point2D.Y(), &color)) {
+          if (colors.count(point2D.Point3DId())) {
+            colors[point2D.Point3DId()] += color;
+            color_counts[point2D.Point3DId()] += 1;
+          } else {
+            colors.emplace(point2D.Point3DId(), color);
+            color_counts.emplace(point2D.Point3DId(), 1);
+          }
+        }
+      }
+    }
+  }
+
+  const Eigen::Vector3ub kBlackColor(0, 0, 0);
+  for (auto& point3D : points3D_) {
+    if (colors.count(point3D.first)) {
+      Eigen::Vector3d color =
+          colors[point3D.first] / color_counts[point3D.first];
+      color.unaryExpr(std::ptr_fun<double, double>(std::round));
+      point3D.second.SetColor(color.cast<uint8_t>());
+    } else {
+      point3D.second.SetColor(kBlackColor);
+    }
+  }
 }
 
 size_t Reconstruction::FilterPoints3DWithSmallTriangulationAngle(
