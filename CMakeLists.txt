@@ -30,6 +30,7 @@ enable_testing()
 option(OPENMP_ENABLED "Whether to enable OpenMP" ON)
 option(LTO_ENABLED "Whether to enable link-time optimization" ON)
 option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
+option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 
 set(Boost_USE_STATIC_LIBS ON)
 
@@ -126,6 +127,14 @@ if(CUDA_FOUND)
 else()
     set(CUDA_ENABLED FALSE)
     message(STATUS "Disabling CUDA support")
+endif()
+
+if(PROFILING_ENABLED)
+    message(STATUS "Enabling profiling support")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -lprofiler -ltcmalloc")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lprofiler -ltcmalloc")
+else()
+    message(STATUS "Disabling profiling support")
 endif()
 
 # Qt5 was built with -reduce-relocations.
