@@ -70,6 +70,8 @@ Executables
 - ``model_converter``: Convert the COLMAP export format to another format,
   such as PLY or NVM.
 
+- ``color_extractor``: Extract mean colors for all 3D points of a model.
+
 - ``vocab_tree_builder``: Create a vocabulary tree from a database with
   extracted images. This is an offline procedure and can be run once, while the
   same vocabulary tree can be reused for other datasets. Note that, as a rule of
