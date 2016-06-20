@@ -16,6 +16,9 @@
 
 #include "util/misc.h"
 
+#include <stdarg.h>
+#include <stdio.h>
+#include <cstdarg>
 #include <fstream>
 #include <sstream>
 
