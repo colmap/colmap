@@ -36,6 +36,10 @@ The ``name`` column in the images table is the unique relative path in the image
 folder. As such, the database file and image folder can be moved to different
 locations, as long as the relative folder structure is preserved.
 
+When manually inserting images and cameras into the database, make sure
+that all identifiers are positive and non-zero, i.e. ``image_id > 0``
+and ``camera_id > 0``.
+
 
 Keypoints and Descriptors
 -------------------------
