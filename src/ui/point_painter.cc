@@ -28,6 +28,13 @@ PointPainter::~PointPainter() {
 }
 
 void PointPainter::Setup() {
+  vao_.destroy();
+  vbo_.destroy();
+  if (shader_program_.isLinked()) {
+    shader_program_.release();
+    shader_program_.removeAllShaders();
+  }
+
   shader_program_.addShaderFromSourceFile(QOpenGLShader::Vertex,
                                           ":/shaders/points.v.glsl");
   shader_program_.addShaderFromSourceFile(QOpenGLShader::Fragment,
@@ -45,6 +52,9 @@ void PointPainter::Setup() {
 
 void PointPainter::Upload(const std::vector<PointPainter::Data>& data) {
   num_geoms_ = data.size();
+  if (num_geoms_ == 0) {
+    return;
+  }
 
   vao_.bind();
   vbo_.bind();

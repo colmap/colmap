@@ -28,6 +28,13 @@ LinePainter::~LinePainter() {
 }
 
 void LinePainter::Setup() {
+  vao_.destroy();
+  vbo_.destroy();
+  if (shader_program_.isLinked()) {
+    shader_program_.release();
+    shader_program_.removeAllShaders();
+  }
+
   shader_program_.addShaderFromSourceFile(QOpenGLShader::Vertex,
                                           ":/shaders/lines.v.glsl");
   shader_program_.addShaderFromSourceFile(QOpenGLShader::Geometry,
@@ -47,6 +54,9 @@ void LinePainter::Setup() {
 
 void LinePainter::Upload(const std::vector<LinePainter::Data>& data) {
   num_geoms_ = data.size();
+  if (num_geoms_ == 0) {
+    return;
+  }
 
   vao_.bind();
   vbo_.bind();

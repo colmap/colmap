@@ -28,6 +28,13 @@ TrianglePainter::~TrianglePainter() {
 }
 
 void TrianglePainter::Setup() {
+  vao_.destroy();
+  vbo_.destroy();
+  if (shader_program_.isLinked()) {
+    shader_program_.release();
+    shader_program_.removeAllShaders();
+  }
+
   shader_program_.addShaderFromSourceFile(QOpenGLShader::Vertex,
                                           ":/shaders/triangles.v.glsl");
   shader_program_.addShaderFromSourceFile(QOpenGLShader::Fragment,
@@ -45,6 +52,9 @@ void TrianglePainter::Setup() {
 
 void TrianglePainter::Upload(const std::vector<TrianglePainter::Data>& data) {
   num_geoms_ = data.size();
+  if (num_geoms_ == 0) {
+    return;
+  }
 
   vao_.bind();
   vbo_.bind();

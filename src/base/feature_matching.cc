@@ -94,7 +94,7 @@ FeatureMatcher::FeatureMatcher(const Options& options,
     surface_ = new QOffscreenSurface();
     surface_->create();
     context_ = new QOpenGLContext();
-    context_->create();
+    CHECK(context_->create());
     context_->makeCurrent(surface_);
     context_->doneCurrent();
     context_->moveToThread(this);

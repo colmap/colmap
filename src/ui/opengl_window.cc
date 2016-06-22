@@ -188,6 +188,8 @@ OpenGLWindow::OpenGLWindow(QWidget* parent, OptionManager* options,
 }
 
 void OpenGLWindow::Update() {
+  CHECK_NOTNULL(reconstruction);
+
   cameras = reconstruction->Cameras();
   points3D = reconstruction->Points3D();
   reg_image_ids = reconstruction->RegImageIds();
@@ -212,6 +214,7 @@ void OpenGLWindow::Upload() {
   UploadMovieGrabberData();
   UploadPointConnectionData();
   UploadImageConnectionData();
+
   PaintGL();
 }
 
@@ -220,6 +223,7 @@ void OpenGLWindow::Clear() {
   images.clear();
   points3D.clear();
   reg_image_ids.clear();
+  reconstruction = nullptr;
   Upload();
 }
 
@@ -561,7 +565,7 @@ void OpenGLWindow::SetupGL() {
   // Create an OpenGL context
   context_ = new QOpenGLContext(this);
   context_->setFormat(format);
-  context_->create();
+  CHECK(context_->create());
 
   InitializeGL();
 
