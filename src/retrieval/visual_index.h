@@ -45,7 +45,7 @@ class VisualIndex {
     int num_neighbors = 1;
 
     // The number of checks in the nearest neighbor search.
-    int num_checks = flann::FLANN_CHECKS_AUTOTUNED;
+    int num_checks = 256;
 
     // The number of threads used in the index.
     int num_threads = kMaxNumThreads;
@@ -60,7 +60,7 @@ class VisualIndex {
     int num_neighbors = 5;
 
     // The number of checks in the nearest neighbor search.
-    int num_checks = flann::FLANN_CHECKS_AUTOTUNED;
+    int num_checks = 256;
 
     // The number of threads used in the index.
     int num_threads = kMaxNumThreads;
@@ -81,7 +81,7 @@ class VisualIndex {
     double target_precision = 0.9;
 
     // The number of checks in the nearest neighbor search.
-    int num_checks = flann::FLANN_CHECKS_AUTOTUNED;
+    int num_checks = 256;
 
     // The number of threads used in the index.
     int num_threads = kMaxNumThreads;
