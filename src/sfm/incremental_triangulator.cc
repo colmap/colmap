@@ -685,6 +685,8 @@ size_t IncrementalTriangulator::Complete(const Options& options,
     queue.emplace_back(track_el.image_id, track_el.point2D_idx);
   }
 
+  std::unordered_map<image_t, std::unordered_set<point2D_t>> visited_corrs;
+
   const int max_transitivity = options.complete_max_transitivity;
   for (int transitivity = 0; transitivity < max_transitivity; ++transitivity) {
     if (queue.empty()) {
@@ -702,9 +704,12 @@ size_t IncrementalTriangulator::Complete(const Options& options,
       for (const auto corr : corrs) {
         // Avoid correspondence cycles, where the correspondence graph leads
         // back to the seed image.
-        if (corr.image_id == queue_elem.image_id) {
+        if (visited_corrs.count(corr.image_id) &&
+            visited_corrs[corr.image_id].count(corr.point2D_idx)) {
           continue;
         }
+
+        visited_corrs[corr.image_id].insert(corr.point2D_idx);
 
         const Image& image = reconstruction_->Image(corr.image_id);
         if (!image.IsRegistered()) {
@@ -738,7 +743,9 @@ size_t IncrementalTriangulator::Complete(const Options& options,
         changed_point3D_ids_.insert(point3D_id);
 
         // Recursively complete track for this new correspondence.
-        queue.emplace_back(corr.image_id, corr.point2D_idx);
+        if (transitivity < max_transitivity - 1) {
+          queue.emplace_back(corr.image_id, corr.point2D_idx);
+        }
 
         num_completed += 1;
       }
