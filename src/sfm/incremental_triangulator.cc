@@ -582,10 +582,8 @@ size_t IncrementalTriangulator::Continue(
 
 size_t IncrementalTriangulator::Merge(const Options& options,
                                       const point3D_t point3D_id) {
-  size_t num_merged = 0;
-
   if (!reconstruction_->ExistsPoint3D(point3D_id)) {
-    return num_merged;
+    return 0;
   }
 
   const auto& point3D = reconstruction_->Point3D(point3D_id);
@@ -623,7 +621,7 @@ size_t IncrementalTriangulator::Merge(const Options& options,
           (point3D.Track().Length() + corr_point3D.Track().Length());
 
       // Count number of inlier track elements of the merged track.
-      size_t num_inliers = 0;
+      bool merge_success = true;
       for (const Track* track : {&point3D.Track(), &corr_point3D.Track()}) {
         for (const auto test_track_el : track->Elements()) {
           const Image& test_image =
@@ -636,21 +634,23 @@ size_t IncrementalTriangulator::Merge(const Options& options,
           const Eigen::Matrix3x4d test_proj_matrix =
               test_image.ProjectionMatrix();
 
-          if (HasPointPositiveDepth(test_proj_matrix, merged_xyz) &&
+          if (!HasPointPositiveDepth(test_proj_matrix, merged_xyz) ||
               CalculateReprojectionError(test_point2D.XY(), merged_xyz,
-                                         test_proj_matrix, test_camera) <=
+                                         test_proj_matrix, test_camera) >
                   options.merge_max_reproj_error) {
-            num_inliers += 1;
-          } else {
+            merge_success = false;
             break;
           }
+        }
+        if (!merge_success) {
+          break;
         }
       }
 
       // Only accept merge if all track elements are inliers.
-      if (num_inliers ==
-          point3D.Track().Length() + corr_point3D.Track().Length()) {
-        num_merged += num_inliers;
+      if (merge_success) {
+        const size_t num_merged =
+            point3D.Track().Length() + corr_point3D.Track().Length();
 
         const point3D_t merged_point3D_id = reconstruction_->MergePoints3D(
             point3D_id, corr_point2D.Point3DId());
@@ -665,7 +665,7 @@ size_t IncrementalTriangulator::Merge(const Options& options,
     }
   }
 
-  return num_merged;
+  return 0;
 }
 
 size_t IncrementalTriangulator::Complete(const Options& options,
