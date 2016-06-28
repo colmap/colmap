@@ -594,7 +594,7 @@ size_t IncrementalTriangulator::Merge(const Options& options,
                                           track_el.point2D_idx);
 
     for (const auto corr : corrs) {
-      Image& image = reconstruction_->Image(corr.image_id);
+      const auto& image = reconstruction_->Image(corr.image_id);
       if (!image.IsRegistered()) {
         continue;
       }
@@ -660,7 +660,12 @@ size_t IncrementalTriangulator::Merge(const Options& options,
         changed_point3D_ids_.insert(merged_point3D_id);
 
         // Merge merged 3D point and return, as the original points are deleted.
-        return num_merged + Merge(options, merged_point3D_id);
+        const size_t num_merged_recursive = Merge(options, merged_point3D_id);
+        if (num_merged_recursive > 0) {
+          return num_merged_recursive;
+        } else {
+          return num_merged;
+        }
       }
     }
   }
