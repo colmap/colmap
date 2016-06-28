@@ -107,7 +107,8 @@ void IterativeLocalRefinement(const MapperOptions& options,
         (report.num_merged_observations + report.num_completed_observations +
          report.num_filtered_observations) /
         static_cast<double>(report.num_adjusted_observations);
-    std::cout << "  => Changed observations: " << changed << std::endl;
+    std::cout << StringPrintf("  => Changed observations: %.6f", changed)
+              << std::endl;
     if (changed < options.ba_local_max_refinement_change) {
       break;
     }
@@ -134,7 +135,8 @@ void IterativeGlobalRefinement(const MapperOptions& options,
     num_changed_observations += FilterPoints(options, mapper);
     const double changed =
         static_cast<double>(num_changed_observations) / num_observations;
-    std::cout << "  => Changed observations: " << changed << std::endl;
+    std::cout << StringPrintf("  => Changed observations: %.6f", changed)
+              << std::endl;
     if (changed < options.ba_global_max_refinement_change) {
       break;
     }
