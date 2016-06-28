@@ -80,12 +80,12 @@ void Timer::PrintSeconds() const {
 }
 
 void Timer::PrintMinutes() const {
-  std::cout << StringPrintf("Elapsed time: %.5f [minutes]", ElapsedMinutes())
+  std::cout << StringPrintf("Elapsed time: %.3f [minutes]", ElapsedMinutes())
             << std::endl;
 }
 
 void Timer::PrintHours() const {
-  std::cout << StringPrintf("Elapsed time: %.5f [hours]", ElapsedHours())
+  std::cout << StringPrintf("Elapsed time: %.3f [hours]", ElapsedHours())
             << std::endl;
 }
 
