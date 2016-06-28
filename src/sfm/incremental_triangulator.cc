@@ -122,6 +122,16 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
     return num_tris;
   }
 
+  // Setup estimation options.
+  EstimateTriangulationOptions tri_options;
+  tri_options.min_tri_angle = DegToRad(options.min_angle);
+  tri_options.residual_type =
+      TriangulationEstimator::ResidualType::REPROJECTION_ERROR;
+  tri_options.ransac_options.max_error = options.complete_max_reproj_error;
+  tri_options.ransac_options.confidence = 0.9999;
+  tri_options.ransac_options.min_inlier_ratio = 0.02;
+  tri_options.ransac_options.max_num_trials = 10000;
+
   // Correspondence data for reference observation in given image. We iterate
   // over all observations of the image and each observation once becomes
   // the reference correspondence.
@@ -173,16 +183,6 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
       pose_data[i].proj_center = corr_data.image->ProjectionCenter();
       pose_data[i].camera = corr_data.camera;
     }
-
-    // Setup estimation options.
-    EstimateTriangulationOptions tri_options;
-    tri_options.min_tri_angle = DegToRad(options.min_angle);
-    tri_options.residual_type =
-        TriangulationEstimator::ResidualType::REPROJECTION_ERROR;
-    tri_options.ransac_options.max_error = options.complete_max_reproj_error;
-    tri_options.ransac_options.confidence = 0.9999;
-    tri_options.ransac_options.min_inlier_ratio = 0.02;
-    tri_options.ransac_options.max_num_trials = 10000;
 
     // Enforce exhaustive sampling for small track lengths.
     const size_t kExhaustiveSamplingThreshold = 15;
@@ -683,14 +683,7 @@ size_t IncrementalTriangulator::Complete(const Options& options,
 
   const Point3D& point3D = reconstruction_->Point3D(point3D_id);
 
-  std::vector<TrackElement> queue;
-  queue.reserve(point3D.Track().Length());
-
-  for (const auto& track_el : point3D.Track().Elements()) {
-    queue.emplace_back(track_el.image_id, track_el.point2D_idx);
-  }
-
-  std::unordered_map<image_t, std::unordered_set<point2D_t>> visited_corrs;
+  std::vector<TrackElement> queue = point3D.Track().Elements();
 
   const int max_transitivity = options.complete_max_transitivity;
   for (int transitivity = 0; transitivity < max_transitivity; ++transitivity) {
@@ -707,15 +700,6 @@ size_t IncrementalTriangulator::Complete(const Options& options,
                                             queue_elem.point2D_idx);
 
       for (const auto corr : corrs) {
-        // Avoid correspondence cycles, where the correspondence graph leads
-        // back to the seed image.
-        if (visited_corrs.count(corr.image_id) &&
-            visited_corrs[corr.image_id].count(corr.point2D_idx)) {
-          continue;
-        }
-
-        visited_corrs[corr.image_id].insert(corr.point2D_idx);
-
         const Image& image = reconstruction_->Image(corr.image_id);
         if (!image.IsRegistered()) {
           continue;
