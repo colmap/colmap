@@ -112,6 +112,15 @@ Eigen::Vector3d ProjectionCenterFromParameters(const Eigen::Vector4d& qvec,
   return quat * -tvec;
 }
 
+void ComputeRelativePose(const Eigen::Vector4d& qvec1,
+                         const Eigen::Vector3d& tvec1,
+                         const Eigen::Vector4d& qvec2,
+                         const Eigen::Vector3d& tvec2, Eigen::Vector4d* qvec12,
+                         Eigen::Vector3d* tvec12) {
+  *qvec12 = ConcatenateQuaternions(InvertQuaternion(qvec1), qvec2);
+  *tvec12 = tvec2 - QuaternionRotatePoint(*qvec12, tvec1);
+}
+
 void InterpolatePose(const Eigen::Vector4d& qvec1, const Eigen::Vector3d& tvec1,
                      const Eigen::Vector4d& qvec2, const Eigen::Vector3d& tvec2,
                      const double t, Eigen::Vector4d* qveci,

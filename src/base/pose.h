@@ -75,7 +75,7 @@ Eigen::Vector4d NormalizeQuaternion(const Eigen::Vector4d& qvec);
 Eigen::Vector4d InvertQuaternion(const Eigen::Vector4d& qvec);
 
 // Concatenate Quaternion rotations such that the rotation of `qvec1` is applied
-// befor the rotation of `qvec2`.
+// before the rotation of `qvec2`.
 //
 // @param qvec1         Quaternion rotation coefficients (w, x, y, z).
 // @param qvec2         Quaternion rotation coefficients (w, x, y, z).
@@ -110,6 +110,17 @@ Eigen::Vector3d ProjectionCenterFromMatrix(
 // @return               3x1 camera projection center.
 Eigen::Vector3d ProjectionCenterFromParameters(const Eigen::Vector4d& qvec,
                                                const Eigen::Vector3d& tvec);
+
+// Compute the relative transformation from pose 1 to 2.
+//
+// @param qvec1, tvec1      First amera pose.
+// @param qvec2, tvec2      Second camera pose.
+// @param qvec12, tvec12    Relative pose.
+void ComputeRelativePose(const Eigen::Vector4d& qvec1,
+                         const Eigen::Vector3d& tvec1,
+                         const Eigen::Vector4d& qvec2,
+                         const Eigen::Vector3d& tvec2, Eigen::Vector4d* qvec12,
+                         Eigen::Vector3d* tvec12);
 
 // Linearly interpolate camera pose.
 //

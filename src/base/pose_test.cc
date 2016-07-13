@@ -172,6 +172,50 @@ BOOST_AUTO_TEST_CASE(TestPoseFromProjectionParameters) {
   BOOST_CHECK((inv_proj_matrix.rightCols<1>() - pose).norm() < 1e-6);
 }
 
+BOOST_AUTO_TEST_CASE(TestComputeRelativePose) {
+  Eigen::Vector4d qvec12;
+  Eigen::Vector3d tvec12;
+
+  ComputeRelativePose(Eigen::Vector4d(1, 0, 0, 0), Eigen::Vector3d(0, 0, 0),
+                      Eigen::Vector4d(1, 0, 0, 0), Eigen::Vector3d(0, 0, 0),
+                      &qvec12, &tvec12);
+  BOOST_CHECK_EQUAL(qvec12, Eigen::Vector4d(1, 0, 0, 0));
+  BOOST_CHECK_EQUAL(tvec12, Eigen::Vector3d(0, 0, 0));
+
+  ComputeRelativePose(Eigen::Vector4d(1, 0, 0, 0), Eigen::Vector3d(0, 0, 0),
+                      Eigen::Vector4d(1, 0, 0, 0), Eigen::Vector3d(1, 0, 0),
+                      &qvec12, &tvec12);
+  BOOST_CHECK_EQUAL(qvec12, Eigen::Vector4d(1, 0, 0, 0));
+  BOOST_CHECK_EQUAL(tvec12, Eigen::Vector3d(1, 0, 0));
+
+  ComputeRelativePose(Eigen::Vector4d(1, 0, 0, 0), Eigen::Vector3d(0, 0, 0),
+                      Eigen::Vector4d(1, 1, 0, 0), Eigen::Vector3d(0, 0, 0),
+                      &qvec12, &tvec12);
+  BOOST_CHECK_LT((qvec12 - Eigen::Vector4d(0.707107, 0.707107, 0, 0)).norm(),
+                 1e-6);
+  BOOST_CHECK_EQUAL(tvec12, Eigen::Vector3d(0, 0, 0));
+
+  ComputeRelativePose(Eigen::Vector4d(1, 0, 0, 0), Eigen::Vector3d(0, 0, 0),
+                      Eigen::Vector4d(1, 1, 0, 0), Eigen::Vector3d(1, 0, 0),
+                      &qvec12, &tvec12);
+  BOOST_CHECK_LT((qvec12 - Eigen::Vector4d(0.707107, 0.707107, 0, 0)).norm(),
+                 1e-6);
+  BOOST_CHECK_EQUAL(tvec12, Eigen::Vector3d(1, 0, 0));
+
+  ComputeRelativePose(Eigen::Vector4d(1, 1, 0, 0), Eigen::Vector3d(0, 0, 0),
+                      Eigen::Vector4d(1, 1, 0, 0), Eigen::Vector3d(1, 0, 0),
+                      &qvec12, &tvec12);
+  BOOST_CHECK_LT((qvec12 - Eigen::Vector4d(1, 0, 0, 0)).norm(), 1e-6);
+  BOOST_CHECK_EQUAL(tvec12, Eigen::Vector3d(1, 0, 0));
+
+  ComputeRelativePose(Eigen::Vector4d(1, 0, 0, 0), Eigen::Vector3d(0, 0, 1),
+                      Eigen::Vector4d(1, 1, 0, 0), Eigen::Vector3d(0, 0, 0),
+                      &qvec12, &tvec12);
+  BOOST_CHECK_LT((qvec12 - Eigen::Vector4d(0.707107, 0.707107, 0, 0)).norm(),
+                 1e-6);
+  BOOST_CHECK_LT((tvec12 - Eigen::Vector3d(0, 1, 0)).norm(), 1e-6);
+}
+
 BOOST_AUTO_TEST_CASE(TestInterpolatePose) {
   const Eigen::Vector4d qvec1 = Eigen::Vector4d::Random().normalized();
   const Eigen::Vector3d tvec1 = Eigen::Vector3d::Random();
