@@ -21,8 +21,6 @@
 
 using namespace colmap;
 
-namespace config = boost::program_options;
-
 int main(int argc, char** argv) {
   InitializeGlog(argv);
 

@@ -22,8 +22,6 @@
 
 using namespace colmap;
 
-namespace config = boost::program_options;
-
 // Loads descriptors for training from the database. Loads all descriptors from
 // the database if max_num_images < 0, otherwise the descriptors of a random
 // subset of images are selected.

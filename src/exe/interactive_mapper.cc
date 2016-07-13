@@ -16,15 +16,11 @@
 
 #include <boost/filesystem.hpp>
 
-#include <glog/logging.h>
-
 #include "sfm/controllers.h"
 #include "util/logging.h"
 #include "util/option_manager.h"
 
 using namespace colmap;
-
-namespace config = boost::program_options;
 
 int main(int argc, char** argv) {
   InitializeGlog(argv);
