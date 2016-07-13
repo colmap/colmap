@@ -22,8 +22,6 @@
 #include "optim/bundle_adjustment.h"
 #include "util/random.h"
 
-// TODO: Add tests for BundleAdjustmentConfiguration, ParallelBundleAdjuster.
-
 #define CheckVariableCamera(camera, orig_camera)       \
   {                                                    \
     const size_t focal_length_idx =                    \
@@ -603,6 +601,53 @@ BOOST_AUTO_TEST_CASE(TestConstantExtraParam) {
               orig_camera1.Params(focal_length_idx));
   BOOST_CHECK(camera1.Params(extra_param_idx) ==
               orig_camera1.Params(extra_param_idx));
+
+  for (const auto& point3D : reconstruction.Points3D()) {
+    CheckVariablePoint(point3D.second,
+                       orig_reconstruction.Point3D(point3D.first));
+  }
+}
+
+BOOST_AUTO_TEST_CASE(TestParallelReconstructionSupported) {
+  Reconstruction reconstruction;
+  SceneGraph scene_graph;
+  GenerateReconstruction(2, 100, &reconstruction, &scene_graph);
+  BOOST_CHECK(
+      ParallelBundleAdjuster::IsReconstructionSupported(reconstruction));
+
+  reconstruction.Camera(0).SetModelIdFromName("SIMPLE_PINHOLE");
+  BOOST_CHECK(
+      !ParallelBundleAdjuster::IsReconstructionSupported(reconstruction));
+}
+
+BOOST_AUTO_TEST_CASE(TestParallelTwoView) {
+  Reconstruction reconstruction;
+  SceneGraph scene_graph;
+  GenerateReconstruction(2, 100, &reconstruction, &scene_graph);
+  const auto orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfiguration config;
+  config.AddImage(0);
+  config.AddImage(1);
+
+  ParallelBundleAdjuster::Options options;
+  ParallelBundleAdjuster bundle_adjuster(options, config);
+  BOOST_CHECK(bundle_adjuster.Solve(&reconstruction));
+
+  const auto summary = bundle_adjuster.Summary();
+
+  // 100 points, 2 images, 2 residuals per point per image
+  BOOST_CHECK_EQUAL(summary.num_residuals_reduced, 400);
+  // 100 x 3 point parameters
+  // + 12 image parameters
+  // + 2 x 2 camera parameters
+  BOOST_CHECK_EQUAL(summary.num_effective_parameters_reduced, 316);
+
+  CheckVariableCamera(reconstruction.Camera(0), orig_reconstruction.Camera(0));
+  CheckVariableImage(reconstruction.Image(0), orig_reconstruction.Image(0));
+
+  CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
+  CheckVariableImage(reconstruction.Image(1), orig_reconstruction.Image(1));
 
   for (const auto& point3D : reconstruction.Points3D()) {
     CheckVariablePoint(point3D.second,

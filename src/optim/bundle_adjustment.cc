@@ -526,7 +526,7 @@ void ParallelBundleAdjuster::Options::Check() const {
 
 ParallelBundleAdjuster::ParallelBundleAdjuster(
     const Options& options, const BundleAdjustmentConfiguration& config)
-    : config_(config), options_(options), num_measurements_(0) {
+    : options_(options), config_(config), num_measurements_(0) {
   options_.Check();
   CHECK(config_.NumConstantTvecs() == 0)
       << "PBA does not allow to set individual translational elements constant";
@@ -579,27 +579,30 @@ bool ParallelBundleAdjuster::Solve(Reconstruction* reconstruction) {
   timer.Pause();
 
   // Compose Ceres solver summary from PBA options.
-  ceres::Solver::Summary summary;
-  summary.num_residuals_reduced = static_cast<int>(2 * measurements_.size());
-  summary.num_effective_parameters_reduced =
+  summary_.num_residuals_reduced = static_cast<int>(2 * measurements_.size());
+  summary_.num_effective_parameters_reduced =
       static_cast<int>(8 * config_.NumImages() -
                        2 * config_.NumConstantCameras() + 3 * points3D_.size());
-  summary.num_successful_steps = pba_config->GetIterationsLM();
-  summary.termination_type = ceres::TerminationType::USER_SUCCESS;
-  summary.initial_cost =
-      pba_config->GetInitialMSE() * summary.num_residuals_reduced / 4;
-  summary.final_cost =
-      pba_config->GetFinalMSE() * summary.num_residuals_reduced / 4;
-  summary.total_time_in_seconds = timer.ElapsedSeconds();
+  summary_.num_successful_steps = pba_config->GetIterationsLM();
+  summary_.termination_type = ceres::TerminationType::USER_SUCCESS;
+  summary_.initial_cost =
+      pba_config->GetInitialMSE() * summary_.num_residuals_reduced / 4;
+  summary_.final_cost =
+      pba_config->GetFinalMSE() * summary_.num_residuals_reduced / 4;
+  summary_.total_time_in_seconds = timer.ElapsedSeconds();
 
   TearDown(reconstruction);
 
   if (options_.print_summary) {
     PrintHeading2("Bundle Adjustment Report");
-    PrintSolverSummary(summary);
+    PrintSolverSummary(summary_);
   }
 
   return true;
+}
+
+ceres::Solver::Summary ParallelBundleAdjuster::Summary() const {
+  return summary_;
 }
 
 bool ParallelBundleAdjuster::IsReconstructionSupported(

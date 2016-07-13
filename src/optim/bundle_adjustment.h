@@ -203,6 +203,9 @@ class ParallelBundleAdjuster {
 
   bool Solve(Reconstruction* reconstruction);
 
+  // Get the Ceres solver summary for the last call to `Solve`.
+  ceres::Solver::Summary Summary() const;
+
   // Check whether PBA is supported for the given reconstruction. If the
   // reconstruction is not supported, the PBA solver will exit ungracefully.
   static bool IsReconstructionSupported(const Reconstruction& reconstruction);
@@ -214,8 +217,9 @@ class ParallelBundleAdjuster {
   void FillImages(Reconstruction* reconstruction);
   void FillPoints(Reconstruction* reconstruction);
 
-  BundleAdjustmentConfiguration config_;
   const Options options_;
+  BundleAdjustmentConfiguration config_;
+  ceres::Solver::Summary summary_;
 
   size_t num_measurements_;
   std::vector<pba::CameraT> cameras_;
