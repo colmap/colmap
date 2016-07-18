@@ -26,6 +26,8 @@
 #include <fstream>
 #include <sstream>
 #include <iomanip>
+#include <cmath>
+
 using std::vector;
 using std::cout;
 using std::pair;
