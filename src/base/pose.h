@@ -60,6 +60,9 @@ Eigen::Vector4d RotationMatrixToQuaternion(const Eigen::Matrix3d& rot_mat);
 // @return               3x3 rotation matrix.
 Eigen::Matrix3d QuaternionToRotationMatrix(const Eigen::Vector4d& qvec);
 
+// Compose the Quaternion vector corresponding to a  identity transformation.
+inline Eigen::Vector4d ComposeIdentityQuaternion();
+
 // Normalize Quaternion vector.
 //
 // @param qvec          Quaternion rotation coefficients (w, x, y, z).
@@ -93,6 +96,18 @@ Eigen::Vector4d ConcatenateQuaternions(const Eigen::Vector4d& qvec1,
 Eigen::Vector3d QuaternionRotatePoint(const Eigen::Vector4d& qvec,
                                       const Eigen::Vector3d& point);
 
+// Compute the weighted average of multiple Quaternions according to:
+//
+//    Markley, F. Landis, et al. "Averaging quaternions."
+//    Journal of Guidance, Control, and Dynamics 30.4 (2007): 1193-1197.
+//
+// @param qvecs         The Quaternions to be averaged.
+// @param weights       Non-negative weights.
+//
+// @return              The average Quaternion.
+Eigen::Vector4d AverageQuaternions(const std::vector<Eigen::Vector4d>& qvecs,
+                                   const std::vector<double>& weights);
+
 // Extract camera projection center from projection matrix, i.e. the projection
 // center in world coordinates `-R^T t`.
 //
@@ -113,7 +128,7 @@ Eigen::Vector3d ProjectionCenterFromParameters(const Eigen::Vector4d& qvec,
 
 // Compute the relative transformation from pose 1 to 2.
 //
-// @param qvec1, tvec1      First amera pose.
+// @param qvec1, tvec1      First camera pose.
 // @param qvec2, tvec2      Second camera pose.
 // @param qvec12, tvec12    Relative pose.
 void ComputeRelativePose(const Eigen::Vector4d& qvec1,
@@ -121,6 +136,23 @@ void ComputeRelativePose(const Eigen::Vector4d& qvec1,
                          const Eigen::Vector4d& qvec2,
                          const Eigen::Vector3d& tvec2, Eigen::Vector4d* qvec12,
                          Eigen::Vector3d* tvec12);
+
+// Concatenate the transformations of the two poses.
+//
+// @param qvec1, tvec1      First camera pose.
+// @param qvec2, tvec2      Second camera pose.
+// @param qvec12, tvec12    Concatenated pose.
+void ConcatenatePoses(const Eigen::Vector4d& qvec1,
+                      const Eigen::Vector3d& tvec1,
+                      const Eigen::Vector4d& qvec2,
+                      const Eigen::Vector3d& tvec2, Eigen::Vector4d* qvec12,
+                      Eigen::Vector3d* tvec12);
+
+// Invert transformation of the pose.
+// @param qvec, tvec          Input camera pose.
+// @param inv_qvec, inv_tvec  Inverse camera pose.
+void InvertPose(const Eigen::Vector4d& qvec, const Eigen::Vector3d& tvec,
+                Eigen::Vector4d* inv_qvec, Eigen::Vector3d* inv_tvec);
 
 // Linearly interpolate camera pose.
 //
@@ -163,6 +195,14 @@ bool CheckCheirality(const Eigen::Matrix3d& R, const Eigen::Vector3d& t,
                      const std::vector<Eigen::Vector2d>& points1,
                      const std::vector<Eigen::Vector2d>& points2,
                      std::vector<Eigen::Vector3d>* points3D);
+
+////////////////////////////////////////////////////////////////////////////////
+// Implementation
+////////////////////////////////////////////////////////////////////////////////
+
+Eigen::Vector4d ComposeIdentityQuaternion() {
+  return Eigen::Vector4d(1, 0, 0, 0);
+}
 
 }  // namespace colmap
 

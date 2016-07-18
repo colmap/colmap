@@ -22,40 +22,40 @@
 #include "optim/bundle_adjustment.h"
 #include "util/random.h"
 
-#define CheckVariableCamera(camera, orig_camera)       \
-  {                                                    \
-    const size_t focal_length_idx =                    \
-        SimpleRadialCameraModel::focal_length_idxs[0]; \
-    const size_t extra_param_idx =                     \
-        SimpleRadialCameraModel::extra_params_idxs[0]; \
-    BOOST_CHECK(camera.Params(focal_length_idx) !=     \
-                orig_camera.Params(focal_length_idx)); \
-    BOOST_CHECK(camera.Params(extra_param_idx) !=      \
-                orig_camera.Params(extra_param_idx));  \
+#define CheckVariableCamera(camera, orig_camera)          \
+  {                                                       \
+    const size_t focal_length_idx =                       \
+        SimpleRadialCameraModel::focal_length_idxs[0];    \
+    const size_t extra_param_idx =                        \
+        SimpleRadialCameraModel::extra_params_idxs[0];    \
+    BOOST_CHECK_NE(camera.Params(focal_length_idx),       \
+                   orig_camera.Params(focal_length_idx)); \
+    BOOST_CHECK_NE(camera.Params(extra_param_idx),        \
+                   orig_camera.Params(extra_param_idx));  \
   }
 
-#define CheckConstantCamera(camera, orig_camera)       \
-  {                                                    \
-    const size_t focal_length_idx =                    \
-        SimpleRadialCameraModel::focal_length_idxs[0]; \
-    const size_t extra_param_idx =                     \
-        SimpleRadialCameraModel::extra_params_idxs[0]; \
-    BOOST_CHECK(camera.Params(focal_length_idx) ==     \
-                orig_camera.Params(focal_length_idx)); \
-    BOOST_CHECK(camera.Params(extra_param_idx) ==      \
-                orig_camera.Params(extra_param_idx));  \
+#define CheckConstantCamera(camera, orig_camera)             \
+  {                                                          \
+    const size_t focal_length_idx =                          \
+        SimpleRadialCameraModel::focal_length_idxs[0];       \
+    const size_t extra_param_idx =                           \
+        SimpleRadialCameraModel::extra_params_idxs[0];       \
+    BOOST_CHECK_EQUAL(camera.Params(focal_length_idx),       \
+                      orig_camera.Params(focal_length_idx)); \
+    BOOST_CHECK_EQUAL(camera.Params(extra_param_idx),        \
+                      orig_camera.Params(extra_param_idx));  \
   }
 
-#define CheckVariableImage(image, orig_image)                   \
-  {                                                             \
-    BOOST_CHECK((image.Qvec() - orig_image.Qvec()).norm() > 0); \
-    BOOST_CHECK((image.Tvec() - orig_image.Tvec()).norm() > 0); \
+#define CheckVariableImage(image, orig_image)        \
+  {                                                  \
+    BOOST_CHECK_NE(image.Qvec(), orig_image.Qvec()); \
+    BOOST_CHECK_NE(image.Tvec(), orig_image.Tvec()); \
   }
 
-#define CheckConstantImage(image, orig_image)       \
-  {                                                 \
-    BOOST_CHECK(image.Qvec() == orig_image.Qvec()); \
-    BOOST_CHECK(image.Tvec() == orig_image.Tvec()); \
+#define CheckConstantImage(image, orig_image)           \
+  {                                                     \
+    BOOST_CHECK_EQUAL(image.Qvec(), orig_image.Qvec()); \
+    BOOST_CHECK_EQUAL(image.Tvec(), orig_image.Tvec()); \
   }
 
 #define CheckConstantXImage(image, orig_image)            \
@@ -64,11 +64,31 @@
     BOOST_CHECK_EQUAL(image.Tvec(0), orig_image.Tvec(0)); \
   }
 
+#define CheckConstantCameraRig(camera_rig, orig_camera_rig, camera_id) \
+  {                                                                    \
+    BOOST_CHECK_EQUAL(camera_rig.RelativeQvec(camera_id),              \
+                      orig_camera_rig.RelativeQvec(camera_id));        \
+    BOOST_CHECK_EQUAL(camera_rig.RelativeTvec(camera_id),              \
+                      orig_camera_rig.RelativeTvec(camera_id));        \
+  }
+
+#define CheckVariableCameraRig(camera_rig, orig_camera_rig, camera_id) \
+  {                                                                    \
+    if (camera_rig.RefCameraId() == camera_id) {                       \
+      CheckConstantCameraRig(camera_rig, orig_camera_rig, camera_id);  \
+    } else {                                                           \
+      BOOST_CHECK_NE(camera_rig.RelativeQvec(camera_id),               \
+                     orig_camera_rig.RelativeQvec(camera_id));         \
+      BOOST_CHECK_NE(camera_rig.RelativeTvec(camera_id),               \
+                     orig_camera_rig.RelativeTvec(camera_id));         \
+    }                                                                  \
+  }
+
 #define CheckVariablePoint(point, orig_point) \
-  { BOOST_CHECK(point.XYZ() != orig_point.XYZ()); }
+  { BOOST_CHECK_NE(point.XYZ(), orig_point.XYZ()); }
 
 #define CheckConstantPoint(point, orig_point) \
-  { BOOST_CHECK(point.XYZ() == orig_point.XYZ()); }
+  { BOOST_CHECK_EQUAL(point.XYZ(), orig_point.XYZ()); }
 
 using namespace colmap;
 
@@ -110,7 +130,7 @@ void GenerateReconstruction(const size_t num_images, const size_t num_points,
     image.SetImageId(image_id);
     image.SetCameraId(camera_id);
     image.SetName(std::to_string(i));
-    image.Qvec() = Eigen::Vector4d(1, 0, 0, 0);
+    image.Qvec() = ComposeIdentityQuaternion();
     image.Tvec() =
         Eigen::Vector3d(RandomReal(-1.0, 1.0), RandomReal(-1.0, 1.0), 10);
     image.SetRegistered(true);
@@ -152,7 +172,7 @@ BOOST_AUTO_TEST_CASE(TestConfigNumObservations) {
   SceneGraph scene_graph;
   GenerateReconstruction(4, 100, &reconstruction, &scene_graph);
 
-  BundleAdjustmentConfiguration config;
+  BundleAdjustmentConfig config;
 
   config.AddImage(0);
   config.AddImage(1);
@@ -177,7 +197,7 @@ BOOST_AUTO_TEST_CASE(TestTwoView) {
   GenerateReconstruction(2, 100, &reconstruction, &scene_graph);
   const auto orig_reconstruction = reconstruction;
 
-  BundleAdjustmentConfiguration config;
+  BundleAdjustmentConfig config;
   config.AddImage(0);
   config.AddImage(1);
   config.SetConstantPose(0);
@@ -214,7 +234,7 @@ BOOST_AUTO_TEST_CASE(TestTwoViewConstantCamera) {
   GenerateReconstruction(2, 100, &reconstruction, &scene_graph);
   const auto orig_reconstruction = reconstruction;
 
-  BundleAdjustmentConfiguration config;
+  BundleAdjustmentConfig config;
   config.AddImage(0);
   config.AddImage(1);
   config.SetConstantPose(0);
@@ -255,7 +275,7 @@ BOOST_AUTO_TEST_CASE(TestPartiallyContainedTracks) {
 
   const auto orig_reconstruction = reconstruction;
 
-  BundleAdjustmentConfiguration config;
+  BundleAdjustmentConfig config;
   config.AddImage(0);
   config.AddImage(1);
   config.SetConstantPose(0);
@@ -307,7 +327,7 @@ BOOST_AUTO_TEST_CASE(TestPartiallyContainedTracksForceToOptimizePoint) {
 
   const auto orig_reconstruction = reconstruction;
 
-  BundleAdjustmentConfiguration config;
+  BundleAdjustmentConfig config;
   config.AddImage(0);
   config.AddImage(1);
   config.SetConstantPose(0);
@@ -360,7 +380,7 @@ BOOST_AUTO_TEST_CASE(TestConstantPoints) {
   const point3D_t constant_point3D_id1 = 1;
   const point3D_t constant_point3D_id2 = 2;
 
-  BundleAdjustmentConfiguration config;
+  BundleAdjustmentConfig config;
   config.AddImage(0);
   config.AddImage(1);
   config.SetConstantPose(0);
@@ -404,7 +424,7 @@ BOOST_AUTO_TEST_CASE(TestVariableImage) {
   GenerateReconstruction(3, 100, &reconstruction, &scene_graph);
   const auto orig_reconstruction = reconstruction;
 
-  BundleAdjustmentConfiguration config;
+  BundleAdjustmentConfig config;
   config.AddImage(0);
   config.AddImage(1);
   config.AddImage(2);
@@ -446,7 +466,7 @@ BOOST_AUTO_TEST_CASE(TestConstantFocalLength) {
   GenerateReconstruction(2, 100, &reconstruction, &scene_graph);
   const auto orig_reconstruction = reconstruction;
 
-  BundleAdjustmentConfiguration config;
+  BundleAdjustmentConfig config;
   config.AddImage(0);
   config.AddImage(1);
   config.SetConstantPose(0);
@@ -498,7 +518,7 @@ BOOST_AUTO_TEST_CASE(TestVariablePrincipalPoint) {
   GenerateReconstruction(2, 100, &reconstruction, &scene_graph);
   const auto orig_reconstruction = reconstruction;
 
-  BundleAdjustmentConfiguration config;
+  BundleAdjustmentConfig config;
   config.AddImage(0);
   config.AddImage(1);
   config.SetConstantPose(0);
@@ -562,7 +582,7 @@ BOOST_AUTO_TEST_CASE(TestConstantExtraParam) {
   GenerateReconstruction(2, 100, &reconstruction, &scene_graph);
   const auto orig_reconstruction = reconstruction;
 
-  BundleAdjustmentConfiguration config;
+  BundleAdjustmentConfig config;
   config.AddImage(0);
   config.AddImage(1);
   config.SetConstantPose(0);
@@ -626,7 +646,7 @@ BOOST_AUTO_TEST_CASE(TestParallelTwoView) {
   GenerateReconstruction(2, 100, &reconstruction, &scene_graph);
   const auto orig_reconstruction = reconstruction;
 
-  BundleAdjustmentConfiguration config;
+  BundleAdjustmentConfig config;
   config.AddImage(0);
   config.AddImage(1);
 
@@ -648,6 +668,166 @@ BOOST_AUTO_TEST_CASE(TestParallelTwoView) {
 
   CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
   CheckVariableImage(reconstruction.Image(1), orig_reconstruction.Image(1));
+
+  for (const auto& point3D : reconstruction.Points3D()) {
+    CheckVariablePoint(point3D.second,
+                       orig_reconstruction.Point3D(point3D.first));
+  }
+}
+
+BOOST_AUTO_TEST_CASE(TestRigTwoView) {
+  Reconstruction reconstruction;
+  SceneGraph scene_graph;
+  GenerateReconstruction(2, 100, &reconstruction, &scene_graph);
+  const auto orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(0);
+  config.AddImage(1);
+
+  std::vector<CameraRig> camera_rigs;
+  camera_rigs.emplace_back();
+  camera_rigs[0].AddCamera(0, ComposeIdentityQuaternion(),
+                           Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddCamera(1, ComposeIdentityQuaternion(),
+                           Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddSnapshot({0, 1});
+  camera_rigs[0].SetRefCameraId(0);
+  const auto orig_camera_rigs = camera_rigs;
+
+  RigBundleAdjuster::Options options;
+  RigBundleAdjuster::RigOptions rig_options;
+  RigBundleAdjuster bundle_adjuster(options, rig_options, config);
+  BOOST_CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
+
+  const auto summary = bundle_adjuster.Summary();
+
+  // 100 points, 2 images, 2 residuals per point per image
+  BOOST_CHECK_EQUAL(summary.num_residuals_reduced, 400);
+  // 100 x 3 point parameters
+  // + 6 pose parameters for camera rig
+  // + 1 x 6 relative pose parameters for camera rig
+  // + 2 x 2 camera parameters
+  BOOST_CHECK_EQUAL(summary.num_effective_parameters_reduced, 316);
+
+  CheckVariableCamera(reconstruction.Camera(0), orig_reconstruction.Camera(0));
+  CheckVariableImage(reconstruction.Image(0), orig_reconstruction.Image(0));
+
+  CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
+  CheckVariableImage(reconstruction.Image(1), orig_reconstruction.Image(1));
+
+  CheckVariableCameraRig(camera_rigs[0], orig_camera_rigs[0], 0);
+  CheckVariableCameraRig(camera_rigs[0], orig_camera_rigs[0], 1);
+
+  for (const auto& point3D : reconstruction.Points3D()) {
+    CheckVariablePoint(point3D.second,
+                       orig_reconstruction.Point3D(point3D.first));
+  }
+}
+
+BOOST_AUTO_TEST_CASE(TestRigFourView) {
+  Reconstruction reconstruction;
+  SceneGraph scene_graph;
+  GenerateReconstruction(4, 100, &reconstruction, &scene_graph);
+  reconstruction.Image(2).SetCameraId(0);
+  reconstruction.Image(3).SetCameraId(1);
+  const auto orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(0);
+  config.AddImage(1);
+  config.AddImage(2);
+  config.AddImage(3);
+
+  std::vector<CameraRig> camera_rigs;
+  camera_rigs.emplace_back();
+  camera_rigs[0].AddCamera(0, ComposeIdentityQuaternion(),
+                           Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddCamera(1, ComposeIdentityQuaternion(),
+                           Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddSnapshot({0, 1});
+  camera_rigs[0].AddSnapshot({2, 3});
+  camera_rigs[0].SetRefCameraId(0);
+  const auto orig_camera_rigs = camera_rigs;
+
+  RigBundleAdjuster::Options options;
+  RigBundleAdjuster::RigOptions rig_options;
+  RigBundleAdjuster bundle_adjuster(options, rig_options, config);
+  BOOST_CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
+
+  const auto summary = bundle_adjuster.Summary();
+
+  // 100 points, 2 images, 2 residuals per point per image
+  BOOST_CHECK_EQUAL(summary.num_residuals_reduced, 800);
+  // 100 x 3 point parameters
+  // + 2 x 6 pose parameters for camera rig
+  // + 1 x 6 relative pose parameters for camera rig
+  // + 2 x 2 camera parameters
+  BOOST_CHECK_EQUAL(summary.num_effective_parameters_reduced, 322);
+
+  CheckVariableCamera(reconstruction.Camera(0), orig_reconstruction.Camera(0));
+  CheckVariableImage(reconstruction.Image(0), orig_reconstruction.Image(0));
+
+  CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
+  CheckVariableImage(reconstruction.Image(1), orig_reconstruction.Image(1));
+
+  CheckVariableCameraRig(camera_rigs[0], orig_camera_rigs[0], 0);
+  CheckVariableCameraRig(camera_rigs[0], orig_camera_rigs[0], 1);
+
+  for (const auto& point3D : reconstruction.Points3D()) {
+    CheckVariablePoint(point3D.second,
+                       orig_reconstruction.Point3D(point3D.first));
+  }
+}
+
+BOOST_AUTO_TEST_CASE(TestConstantRigFourView) {
+  Reconstruction reconstruction;
+  SceneGraph scene_graph;
+  GenerateReconstruction(4, 100, &reconstruction, &scene_graph);
+  reconstruction.Image(2).SetCameraId(0);
+  reconstruction.Image(3).SetCameraId(1);
+  const auto orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(0);
+  config.AddImage(1);
+  config.AddImage(2);
+  config.AddImage(3);
+
+  std::vector<CameraRig> camera_rigs;
+  camera_rigs.emplace_back();
+  camera_rigs[0].AddCamera(0, ComposeIdentityQuaternion(),
+                           Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddCamera(1, ComposeIdentityQuaternion(),
+                           Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddSnapshot({0, 1});
+  camera_rigs[0].AddSnapshot({2, 3});
+  camera_rigs[0].SetRefCameraId(0);
+  const auto orig_camera_rigs = camera_rigs;
+
+  RigBundleAdjuster::Options options;
+  RigBundleAdjuster::RigOptions rig_options;
+  rig_options.refine_relative_poses = false;
+  RigBundleAdjuster bundle_adjuster(options, rig_options, config);
+  BOOST_CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
+
+  const auto summary = bundle_adjuster.Summary();
+
+  // 100 points, 2 images, 2 residuals per point per image
+  BOOST_CHECK_EQUAL(summary.num_residuals_reduced, 800);
+  // 100 x 3 point parameters
+  // + 2 x 6 pose parameters for camera rig
+  // + 2 x 2 camera parameters
+  BOOST_CHECK_EQUAL(summary.num_effective_parameters_reduced, 316);
+
+  CheckVariableCamera(reconstruction.Camera(0), orig_reconstruction.Camera(0));
+  CheckVariableImage(reconstruction.Image(0), orig_reconstruction.Image(0));
+
+  CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
+  CheckVariableImage(reconstruction.Image(1), orig_reconstruction.Image(1));
+
+  CheckConstantCameraRig(camera_rigs[0], orig_camera_rigs[0], 0);
+  CheckConstantCameraRig(camera_rigs[0], orig_camera_rigs[0], 1);
 
   for (const auto& point3D : reconstruction.Points3D()) {
     CheckVariablePoint(point3D.second,

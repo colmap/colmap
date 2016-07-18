@@ -264,7 +264,7 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
     return false;
   }
 
-  image1.Qvec() = Eigen::Vector4d(1, 0, 0, 0);
+  image1.Qvec() = ComposeIdentityQuaternion();
   image1.Tvec() = Eigen::Vector3d(0, 0, 0);
   image2.Qvec() = prev_init_two_view_geometry_.qvec;
   image2.Tvec() = prev_init_two_view_geometry_.tvec;
@@ -548,7 +548,7 @@ IncrementalMapper::AdjustLocalBundle(
 
   // Do the bundle adjustment only if there is any connected images.
   if (local_bundle.size() > 0) {
-    BundleAdjustmentConfiguration ba_config;
+    BundleAdjustmentConfig ba_config;
     ba_config.AddImage(image_id);
     for (const image_t local_image_id : local_bundle) {
       ba_config.AddImage(local_image_id);
@@ -630,7 +630,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   reconstruction_->FilterObservationsWithNegativeDepth();
 
   // Configure bundle adjustment.
-  BundleAdjustmentConfiguration ba_config;
+  BundleAdjustmentConfig ba_config;
   for (const image_t image_id : reg_image_ids) {
     ba_config.AddImage(image_id);
   }
@@ -663,7 +663,7 @@ bool IncrementalMapper::AdjustParallelGlobalBundle(
   reconstruction_->FilterObservationsWithNegativeDepth();
 
   // Configure bundle adjustment.
-  BundleAdjustmentConfiguration ba_config;
+  BundleAdjustmentConfig ba_config;
   for (const image_t image_id : reg_image_ids) {
     ba_config.AddImage(image_id);
   }

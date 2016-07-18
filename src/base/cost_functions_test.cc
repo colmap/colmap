@@ -20,6 +20,7 @@
 
 #include "base/camera_models.h"
 #include "base/cost_functions.h"
+#include "base/pose.h"
 
 using namespace colmap;
 
@@ -55,13 +56,46 @@ BOOST_AUTO_TEST_CASE(TestBundleAdjustmentCostFunction) {
 
 BOOST_AUTO_TEST_CASE(TestBundleAdjustmentConstantPoseCostFunction) {
   ceres::CostFunction* cost_function = BundleAdjustmentConstantPoseCostFunction<
-      SimplePinholeCameraModel>::Create(Eigen::Vector4d(1, 0, 0, 0),
+      SimplePinholeCameraModel>::Create(ComposeIdentityQuaternion(),
                                         Eigen::Vector3d::Zero(),
                                         Eigen::Vector2d::Zero());
   double point3D[3] = {0, 0, 1};
   double camera_params[3] = {1, 0, 0};
   double residuals[2];
   const double* parameters[2] = {point3D, camera_params};
+  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
+  BOOST_CHECK_EQUAL(residuals[0], 0);
+  BOOST_CHECK_EQUAL(residuals[1], 0);
+
+  point3D[1] = 1;
+  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
+  BOOST_CHECK_EQUAL(residuals[0], 0);
+  BOOST_CHECK_EQUAL(residuals[1], 1);
+
+  camera_params[0] = 2;
+  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
+  BOOST_CHECK_EQUAL(residuals[0], 0);
+  BOOST_CHECK_EQUAL(residuals[1], 2);
+
+  point3D[0] = -1;
+  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
+  BOOST_CHECK_EQUAL(residuals[0], -2);
+  BOOST_CHECK_EQUAL(residuals[1], 2);
+}
+
+BOOST_AUTO_TEST_CASE(TestRigBundleAdjustmentCostFunction) {
+  ceres::CostFunction* cost_function =
+      RigBundleAdjustmentCostFunction<SimplePinholeCameraModel>::Create(
+          Eigen::Vector2d::Zero());
+  double rig_qvec[4] = {1, 0, 0, 0};
+  double rig_tvec[3] = {0, 0, -1};
+  double rel_qvec[4] = {1, 0, 0, 0};
+  double rel_tvec[3] = {0, 0, 1};
+  double point3D[3] = {0, 0, 1};
+  double camera_params[3] = {1, 0, 0};
+  double residuals[2];
+  const double* parameters[6] = {rig_qvec, rig_tvec, rel_qvec,
+                                 rel_tvec, point3D,  camera_params};
   BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
   BOOST_CHECK_EQUAL(residuals[0], 0);
   BOOST_CHECK_EQUAL(residuals[1], 0);

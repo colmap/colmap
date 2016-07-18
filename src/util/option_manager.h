@@ -154,8 +154,6 @@ struct BundleAdjustmentOptions : public BaseOptions {
 
   bool minimizer_progress_to_stdout;
 
-  int min_observations_per_image;
-
   double loss_function_scale;
 
   bool refine_focal_length;

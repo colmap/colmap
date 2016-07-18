@@ -75,7 +75,7 @@ BOOST_AUTO_TEST_CASE(TestCalculateReprojectionError) {
 }
 
 BOOST_AUTO_TEST_CASE(TestCalculateAngularError) {
-  const Eigen::Vector4d qvec = Eigen::Vector4d(1, 0, 0, 0);
+  const Eigen::Vector4d qvec = ComposeIdentityQuaternion();
   const Eigen::Vector3d tvec = Eigen::Vector3d(0, 0, 0);
 
   const auto proj_matrix = ComposeProjectionMatrix(qvec, tvec);

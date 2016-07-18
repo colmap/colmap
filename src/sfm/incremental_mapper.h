@@ -227,7 +227,7 @@ class IncrementalMapper {
   // Class that holds all necessary data from database in memory.
   const DatabaseCache* database_cache_;
 
-  // Class that that holds data of the reconstruction.
+  // Class that holds data of the reconstruction.
   Reconstruction* reconstruction_;
 
   // Class that is responsible for incremental triangulation.

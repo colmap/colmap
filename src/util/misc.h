@@ -26,11 +26,6 @@
 
 namespace colmap {
 
-// Format string by replacing embedded format specifiers with their respective
-// values, see `printf` for more details. This is a modified implementation
-// of Google's BSD-licensed StringPrintf function.
-std::string StringPrintf(const char* format, ...);
-
 // Append trailing slash to string if it does not yet end with a slash.
 //
 // @param str    Input string.
@@ -51,6 +46,11 @@ void PrintHeading1(const std::string& heading);
 // @param heading      Heading text as a single line.
 void PrintHeading2(const std::string& heading);
 
+// Format string by replacing embedded format specifiers with their respective
+// values, see `printf` for more details. This is a modified implementation
+// of Google's BSD-licensed StringPrintf function.
+std::string StringPrintf(const char* format, ...);
+
 // Replace all occurrences of `old_str` with `new_str` in the given string.
 //
 // @param str      String to which to apply the replacement.
@@ -70,6 +70,9 @@ std::string StringReplace(const std::string& str, const std::string& old_str,
 // @return       The words of the string.
 std::vector<std::string> StringSplit(const std::string& str,
                                      const std::string& delim);
+
+// Check whether a string starts with a certain prefix.
+bool StringStartsWith(const std::string& str, const std::string& prefix);
 
 // Check if vector contains elements.
 template <typename T>

@@ -23,6 +23,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+#include "base/pose.h"
 #include "base/similarity_transform.h"
 #include "estimators/similarity_transform.h"
 #include "optim/ransac.h"
@@ -76,10 +77,11 @@ BOOST_AUTO_TEST_CASE(TestSimilarityTransform) {
   const size_t num_samples = 1000;
   const size_t num_outliers = 400;
 
-  // Create some arbitrary transformation
-  SimilarityTransform3 orig_tform(2, 0, 0, 0, 1, 100, 10, 10);
+  // Create some arbitrary transformation.
+  const SimilarityTransform3 orig_tform(2, ComposeIdentityQuaternion(),
+                                        Eigen::Vector3d(100, 10, 10));
 
-  // Generate exact data
+  // Generate exact data.
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> dst;
   for (size_t i = 0; i < num_samples; ++i) {
@@ -88,14 +90,14 @@ BOOST_AUTO_TEST_CASE(TestSimilarityTransform) {
     orig_tform.TransformPoint(&dst.back());
   }
 
-  // Add some faulty data
+  // Add some faulty data.
   for (size_t i = 0; i < num_outliers; ++i) {
     dst[i] = Eigen::Vector3d(RandomReal(-3000.0, -2000.0),
                              RandomReal(-4000.0, -3000.0),
                              RandomReal(-5000.0, -4000.0));
   }
 
-  // Robustly estimate transformation using RANSAC
+  // Robustly estimate transformation using RANSAC.
   SetPRNGSeed(0);
 
   RANSACOptions options;
@@ -117,7 +119,7 @@ BOOST_AUTO_TEST_CASE(TestSimilarityTransform) {
     }
   }
 
-  // Make sure original transformation is estimated correctly
+  // Make sure original transformation is estimated correctly.
   const double matrix_diff =
       (orig_tform.Matrix().topLeftCorner<3, 4>() - report.model).norm();
   BOOST_CHECK(std::abs(matrix_diff) < 1e-6);

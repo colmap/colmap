@@ -18,6 +18,7 @@
 #define BOOST_TEST_MODULE "base/reconstruction"
 #include <boost/test/unit_test.hpp>
 
+#include "base/pose.h"
 #include "base/reconstruction.h"
 
 using namespace colmap;
@@ -272,6 +273,22 @@ BOOST_AUTO_TEST_CASE(TestNormalize) {
   BOOST_CHECK_LT(std::abs(reconstruction.Image(5).Tvec(2) + 2.5), 1e-6);
   BOOST_CHECK_LT(std::abs(reconstruction.Image(6).Tvec(2) - 2.5), 1e-6);
   BOOST_CHECK_LT(std::abs(reconstruction.Image(7).Tvec(2) - 3.75), 1e-6);
+}
+
+BOOST_AUTO_TEST_CASE(TestTransform) {
+  Reconstruction reconstruction;
+  SceneGraph scene_graph;
+  GenerateReconstruction(3, &reconstruction, &scene_graph);
+  const point3D_t point3D_id =
+      reconstruction.AddPoint3D(Eigen::Vector3d(1, 1, 1), Track());
+  reconstruction.AddObservation(point3D_id, TrackElement(1, 1));
+  reconstruction.AddObservation(point3D_id, TrackElement(2, 1));
+  reconstruction.Transform(2, ComposeIdentityQuaternion(),
+                           Eigen::Vector3d(0, 1, 2));
+  BOOST_CHECK_EQUAL(reconstruction.Image(1).ProjectionCenter(),
+                    Eigen::Vector3d(0, 1, 2));
+  BOOST_CHECK_EQUAL(reconstruction.Point3D(point3D_id).XYZ(),
+                    Eigen::Vector3d(2, 3, 4));
 }
 
 BOOST_AUTO_TEST_CASE(TestFindImageWithName) {

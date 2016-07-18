@@ -704,7 +704,7 @@ void BundleAdjustmentController::run() {
   ba_options.solver_options.minimizer_progress_to_stdout = true;
 
   // Configure bundle adjustment.
-  BundleAdjustmentConfiguration ba_config;
+  BundleAdjustmentConfig ba_config;
   for (const image_t image_id : reg_image_ids) {
     ba_config.AddImage(image_id);
   }

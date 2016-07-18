@@ -50,7 +50,7 @@ class BundleAdjustmentCostFunction {
     point3D_local[1] += tvec[1];
     point3D_local[2] += tvec[2];
 
-    // Normalize to image plane
+    // Normalize to image plane.
     point3D_local[0] /= point3D_local[2];
     point3D_local[1] /= point3D_local[2];
 
@@ -120,6 +120,68 @@ class BundleAdjustmentConstantPoseCostFunction {
  private:
   const Eigen::Vector4d qvec_;
   const Eigen::Vector3d tvec_;
+  const Eigen::Vector2d point2D_;
+};
+
+// Rig bundle adjustment cost function for variable camera pose and calibration
+// and point parameters. Different from the standard bundle adjustment function,
+// this cost function is suitable for camera rigs with consistent relative poses
+// of the cameras within the rig. The cost function first projects points into
+// the local system of the camera rig and then into the local system of the
+// camera within the rig.
+template <typename CameraModel>
+class RigBundleAdjustmentCostFunction {
+ public:
+  RigBundleAdjustmentCostFunction(const Eigen::Vector2d& point2D)
+      : point2D_(point2D) {}
+
+  static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
+    return (new ceres::AutoDiffCostFunction<
+            RigBundleAdjustmentCostFunction<CameraModel>, 2, 4, 3, 4, 3, 3,
+            CameraModel::num_params>(
+        new RigBundleAdjustmentCostFunction(point2D)));
+  }
+
+  template <typename T>
+  bool operator()(const T* const rig_qvec, const T* const rig_tvec,
+                  const T* const rel_qvec, const T* const rel_tvec,
+                  const T* const point3D, const T* const camera_params,
+                  T* residuals) const {
+    // Concatenate rotations.
+    T qvec[4];
+    ceres::QuaternionProduct(rel_qvec, rig_qvec, qvec);
+
+    // Concatenate translations.
+    T tvec[3];
+    ceres::UnitQuaternionRotatePoint(rel_qvec, rig_tvec, tvec);
+    tvec[0] += rel_tvec[0];
+    tvec[1] += rel_tvec[1];
+    tvec[2] += rel_tvec[2];
+
+    // Rotate and translate.
+    T point3D_local[3];
+    ceres::UnitQuaternionRotatePoint(qvec, point3D, point3D_local);
+    point3D_local[0] += tvec[0];
+    point3D_local[1] += tvec[1];
+    point3D_local[2] += tvec[2];
+
+    // Normalize to image plane.
+    point3D_local[0] /= point3D_local[2];
+    point3D_local[1] /= point3D_local[2];
+
+    // Distort and transform to pixel space.
+    T x, y;
+    CameraModel::WorldToImage(camera_params, point3D_local[0], point3D_local[1],
+                              &x, &y);
+
+    // Re-projection error.
+    residuals[0] = x - T(point2D_(0));
+    residuals[1] = y - T(point2D_(1));
+
+    return true;
+  }
+
+ private:
   const Eigen::Vector2d point2D_;
 };
 

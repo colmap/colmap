@@ -145,6 +145,10 @@ class Reconstruction {
   void Normalize(const double extent = 10.0, const double p0 = 0.1,
                  const double p1 = 0.9, const bool use_images = true);
 
+  // Apply the 3D similarity transformation to all images and points.
+  void Transform(const double scale, const Eigen::Vector4d& qvec,
+                 const Eigen::Vector3d& tvec);
+
   // Find image with name.
   //
   // @param name        Name of the image.

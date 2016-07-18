@@ -36,9 +36,8 @@ class SimilarityTransform3 {
   SimilarityTransform3(
       const Eigen::Transform<double, 3, Eigen::Affine>& transform);
 
-  SimilarityTransform3(const double scale, const double qw, const double qx,
-                       const double qy, const double qz, const double tx,
-                       const double ty, const double tz);
+  SimilarityTransform3(const double scale, const Eigen::Vector4d& qvec,
+                       const Eigen::Vector3d& tvec);
 
   void Estimate(const std::vector<Eigen::Vector3d>& src,
                 const std::vector<Eigen::Vector3d>& dst);

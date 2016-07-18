@@ -25,6 +25,7 @@
 
 #include "base/pose.h"
 #include "base/projection.h"
+#include "base/similarity_transform.h"
 #include "base/triangulation.h"
 #include "reconstruction.h"
 #include "util/bitmap.h"
@@ -376,6 +377,18 @@ void Reconstruction::Normalize(const double extent, const double p0,
   for (auto& point3D : points3D_) {
     point3D.second.XYZ() -= translation;
     point3D.second.XYZ() *= scale;
+  }
+}
+
+void Reconstruction::Transform(const double scale, const Eigen::Vector4d& qvec,
+                               const Eigen::Vector3d& tvec) {
+  CHECK_GT(scale, 0);
+  const SimilarityTransform3 tform(scale, qvec, tvec);
+  for (auto& image : images_) {
+    tform.TransformPose(&image.second.Qvec(), &image.second.Tvec());
+  }
+  for (auto& point3D : points3D_) {
+    tform.TransformPoint(&point3D.second.XYZ());
   }
 }
 

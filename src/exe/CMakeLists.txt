@@ -39,6 +39,9 @@ target_link_libraries(matches_importer ${COLMAP_LIBRARIES})
 COLMAP_ADD_QT_EXECUTABLE(model_converter model_converter.cc)
 target_link_libraries(model_converter ${COLMAP_LIBRARIES})
 
+COLMAP_ADD_QT_EXECUTABLE(rig_bundle_adjuster rig_bundle_adjuster.cc)
+target_link_libraries(rig_bundle_adjuster ${COLMAP_LIBRARIES})
+
 COLMAP_ADD_QT_EXECUTABLE(sequential_matcher sequential_matcher)
 target_link_libraries(sequential_matcher ${COLMAP_LIBRARIES})
 

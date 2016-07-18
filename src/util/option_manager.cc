@@ -330,7 +330,6 @@ void BundleAdjustmentOptions::Reset() {
   minimizer_progress_to_stdout = false;
 
   BundleAdjuster::Options options;
-  min_observations_per_image = options.min_observations_per_image;
   loss_function_scale = options.loss_function_scale;
   refine_focal_length = options.refine_focal_length;
   refine_principal_point = options.refine_principal_point;
@@ -346,7 +345,6 @@ bool BundleAdjustmentOptions::Check() {
   CHECK_OPTION(BundleAdjustmentOptions, function_tolerance, >= 0);
   CHECK_OPTION(BundleAdjustmentOptions, gradient_tolerance, >= 0);
   CHECK_OPTION(BundleAdjustmentOptions, parameter_tolerance, >= 0);
-  CHECK_OPTION(BundleAdjustmentOptions, min_observations_per_image, >= 0);
 
   return verified;
 }
@@ -366,7 +364,6 @@ BundleAdjuster::Options BundleAdjustmentOptions::Options() const {
   options.solver_options.use_nonmonotonic_steps = use_nonmonotonic_steps;
   options.solver_options.minimizer_progress_to_stdout =
       minimizer_progress_to_stdout;
-  options.min_observations_per_image = min_observations_per_image;
   options.loss_function_scale = loss_function_scale;
   options.refine_focal_length = refine_focal_length;
   options.refine_principal_point = refine_principal_point;

@@ -39,6 +39,18 @@ BOOST_AUTO_TEST_CASE(TestHasFileExtension) {
   BOOST_CHECK_EQUAL(HasFileExtension("test.", "."), true);
 }
 
+BOOST_AUTO_TEST_CASE(TestStringPrintf) {
+  BOOST_CHECK_EQUAL(StringPrintf("%s", "test"), "test");
+  BOOST_CHECK_EQUAL(StringPrintf("%d", 1), "1");
+  BOOST_CHECK_EQUAL(StringPrintf("%.3f", 1.234), "1.234");
+  BOOST_CHECK_EQUAL(StringPrintf("test%s", "test"), "testtest");
+  BOOST_CHECK_EQUAL(StringPrintf("test%d", 1), "test1");
+  BOOST_CHECK_EQUAL(StringPrintf("test%.3f", 1.234), "test1.234");
+  BOOST_CHECK_EQUAL(StringPrintf("%s%s", "test", "test"), "testtest");
+  BOOST_CHECK_EQUAL(StringPrintf("%d%s", 1, "test"), "1test");
+  BOOST_CHECK_EQUAL(StringPrintf("%.3f%s", 1.234, "test"), "1.234test");
+}
+
 BOOST_AUTO_TEST_CASE(TestStringReplace) {
   BOOST_CHECK_EQUAL(StringReplace("test", "-", ""), "test");
   BOOST_CHECK_EQUAL(StringReplace("test", "t", "a"), "aesa");
@@ -84,6 +96,16 @@ BOOST_AUTO_TEST_CASE(TestStringSplit) {
   BOOST_CHECK_EQUAL(list5[3], "4");
   BOOST_CHECK_EQUAL(list5[4], "5");
   BOOST_CHECK_EQUAL(list5[5], "6");
+}
+
+BOOST_AUTO_TEST_CASE(TestStringStartsWith) {
+  BOOST_CHECK(!StringStartsWith("", ""));
+  BOOST_CHECK(!StringStartsWith("a", ""));
+  BOOST_CHECK(!StringStartsWith("", "a"));
+  BOOST_CHECK(StringStartsWith("a", "a"));
+  BOOST_CHECK(StringStartsWith("aa", "a"));
+  BOOST_CHECK(StringStartsWith("aa", "aa"));
+  BOOST_CHECK(StringStartsWith("aaaaaaaaa", "aa"));
 }
 
 BOOST_AUTO_TEST_CASE(TestVectorContains) {

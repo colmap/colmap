@@ -16,6 +16,7 @@
 
 #include "base/pose.h"
 
+#include <Eigen/Eigenvalues>
 #include <Eigen/Geometry>
 
 #include "base/projection.h"
@@ -86,8 +87,8 @@ Eigen::Vector4d ConcatenateQuaternions(const Eigen::Vector4d& qvec1,
   const Eigen::Quaterniond quat2(normalized_qvec2(0), normalized_qvec2(1),
                                  normalized_qvec2(2), normalized_qvec2(3));
   const Eigen::Quaterniond cat_quat = quat2 * quat1;
-  return Eigen::Vector4d(cat_quat.w(), cat_quat.x(), cat_quat.y(),
-                         cat_quat.z());
+  return NormalizeQuaternion(
+      Eigen::Vector4d(cat_quat.w(), cat_quat.x(), cat_quat.y(), cat_quat.z()));
 }
 
 Eigen::Vector3d QuaternionRotatePoint(const Eigen::Vector4d& qvec,
@@ -96,6 +97,33 @@ Eigen::Vector3d QuaternionRotatePoint(const Eigen::Vector4d& qvec,
   const Eigen::Quaterniond quat(normalized_qvec(0), normalized_qvec(1),
                                 normalized_qvec(2), normalized_qvec(3));
   return quat * point;
+}
+
+Eigen::Vector4d AverageQuaternions(const std::vector<Eigen::Vector4d>& qvecs,
+                                   const std::vector<double>& weights) {
+  CHECK_EQ(qvecs.size(), weights.size());
+  CHECK_GT(qvecs.size(), 0);
+
+  if (qvecs.size() == 1) {
+    return qvecs[0];
+  }
+
+  Eigen::Matrix4d A = Eigen::Matrix4d::Zero();
+  double weight_sum = 0;
+
+  for (size_t i = 0; i < qvecs.size(); ++i) {
+    CHECK_GT(weights[i], 0);
+    const Eigen::Vector4d qvec = NormalizeQuaternion(qvecs[i]);
+    A += weights[i] * qvec * qvec.transpose();
+    weight_sum += weights[i];
+  }
+
+  A.array() /= weight_sum;
+
+  const Eigen::Matrix4d eigenvectors =
+      Eigen::SelfAdjointEigenSolver<Eigen::Matrix4d>(A).eigenvectors();
+
+  return eigenvectors.col(3);
 }
 
 Eigen::Vector3d ProjectionCenterFromMatrix(
@@ -117,8 +145,24 @@ void ComputeRelativePose(const Eigen::Vector4d& qvec1,
                          const Eigen::Vector4d& qvec2,
                          const Eigen::Vector3d& tvec2, Eigen::Vector4d* qvec12,
                          Eigen::Vector3d* tvec12) {
-  *qvec12 = ConcatenateQuaternions(InvertQuaternion(qvec1), qvec2);
+  const Eigen::Vector4d inv_qvec1 = InvertQuaternion(qvec1);
+  *qvec12 = ConcatenateQuaternions(inv_qvec1, qvec2);
   *tvec12 = tvec2 - QuaternionRotatePoint(*qvec12, tvec1);
+}
+
+void ConcatenatePoses(const Eigen::Vector4d& qvec1,
+                      const Eigen::Vector3d& tvec1,
+                      const Eigen::Vector4d& qvec2,
+                      const Eigen::Vector3d& tvec2, Eigen::Vector4d* qvec12,
+                      Eigen::Vector3d* tvec12) {
+  *qvec12 = ConcatenateQuaternions(qvec1, qvec2);
+  *tvec12 = tvec2 + QuaternionRotatePoint(qvec2, tvec1);
+}
+
+void InvertPose(const Eigen::Vector4d& qvec, const Eigen::Vector3d& tvec,
+                Eigen::Vector4d* inv_qvec, Eigen::Vector3d* inv_tvec) {
+  *inv_qvec = InvertQuaternion(qvec);
+  *inv_tvec = -QuaternionRotatePoint(*inv_qvec, tvec);
 }
 
 void InterpolatePose(const Eigen::Vector4d& qvec1, const Eigen::Vector3d& tvec1,

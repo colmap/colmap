@@ -16,11 +16,11 @@
 
 #include "util/misc.h"
 
-#include <stdarg.h>
-#include <stdio.h>
 #include <cstdarg>
 #include <fstream>
 #include <sstream>
+#include <stdarg.h>
+#include <stdio.h>
 
 #include <boost/algorithm/string.hpp>
 
@@ -82,15 +82,6 @@ void StringAppendV(std::string* dst, const char* format, va_list ap) {
 
 }  // namespace
 
-std::string StringPrintf(const char* format, ...) {
-  va_list ap;
-  va_start(ap, format);
-  std::string result;
-  StringAppendV(&result, format, ap);
-  va_end(ap);
-  return result;
-}
-
 std::string EnsureTrailingSlash(const std::string& str) {
   if (str.length() > 0) {
     if (str.at(str.length() - 1) != '/') {
@@ -126,6 +117,15 @@ void PrintHeading2(const std::string& heading) {
   std::cout << std::string(std::min<int>(heading.size(), 78), '-') << std::endl;
 }
 
+std::string StringPrintf(const char* format, ...) {
+  va_list ap;
+  va_start(ap, format);
+  std::string result;
+  StringAppendV(&result, format, ap);
+  va_end(ap);
+  return result;
+}
+
 std::string StringReplace(const std::string& str, const std::string& old_str,
                           const std::string& new_str) {
   if (old_str.empty()) {
@@ -145,6 +145,11 @@ std::vector<std::string> StringSplit(const std::string& str,
   std::vector<std::string> elems;
   boost::split(elems, str, boost::is_any_of(delim), boost::token_compress_on);
   return elems;
+}
+
+bool StringStartsWith(const std::string& str, const std::string& prefix) {
+  return !prefix.empty() && prefix.size() <= str.size() &&
+         str.substr(0, prefix.size()) == prefix;
 }
 
 }  // namespace colmap

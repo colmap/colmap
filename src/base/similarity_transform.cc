@@ -23,7 +23,8 @@
 namespace colmap {
 
 SimilarityTransform3::SimilarityTransform3() {
-  SimilarityTransform3(1, 1, 0, 0, 0, 0, 0, 0);
+  SimilarityTransform3(1, ComposeIdentityQuaternion(),
+                       Eigen::Vector3d(0, 0, 0));
 }
 
 SimilarityTransform3::SimilarityTransform3(const Eigen::Matrix3x4d& matrix) {
@@ -34,17 +35,12 @@ SimilarityTransform3::SimilarityTransform3(
     const Eigen::Transform<double, 3, Eigen::Affine>& transform)
     : transform_(transform) {}
 
-SimilarityTransform3::SimilarityTransform3(const double scale, const double qw,
-                                           const double qx, const double qy,
-                                           const double qz, const double tx,
-                                           const double ty, const double tz) {
-  const Eigen::Vector4d qvec(qw, qx, qy, qz);
-  const Eigen::Vector3d tvec(tx, ty, tz);
-
+SimilarityTransform3::SimilarityTransform3(const double scale,
+                                           const Eigen::Vector4d& qvec,
+                                           const Eigen::Vector3d& tvec) {
   Eigen::Matrix4d matrix = Eigen::MatrixXd::Identity(4, 4);
   matrix.topLeftCorner<3, 4>() = ComposeProjectionMatrix(qvec, tvec);
   matrix.block<3, 3>(0, 0) *= scale;
-
   transform_.matrix() = matrix;
 }
 

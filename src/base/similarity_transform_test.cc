@@ -20,16 +20,16 @@
 
 #include <Eigen/Core>
 
+#include "base/pose.h"
 #include "base/similarity_transform.h"
 
 using namespace colmap;
 
 BOOST_AUTO_TEST_CASE(TestInitialization) {
-  Eigen::Vector4d qvec(0.1, 0.3, 0.2, 0.4);
-  qvec = qvec.normalized();
+  const Eigen::Vector4d qvec =
+      NormalizeQuaternion(Eigen::Vector4d(0.1, 0.3, 0.2, 0.4));
 
-  SimilarityTransform3 tform(2, qvec(0), qvec(1), qvec(2), qvec(3), 100, 10,
-                             0.5);
+  const SimilarityTransform3 tform(2, qvec, Eigen::Vector3d(100, 10, 0.5));
 
   BOOST_CHECK_CLOSE(tform.Scale(), 2, 1e-10);
 
@@ -44,11 +44,8 @@ BOOST_AUTO_TEST_CASE(TestInitialization) {
 }
 
 void TestEstimationWithNumCoords(const size_t num_coords) {
-  Eigen::Vector4d qvec(0.1, 0.3, 0.2, 0.4);
-  qvec = qvec.normalized();
-
-  SimilarityTransform3 orig_tform(2, qvec(0), qvec(1), qvec(2), qvec(3), 100,
-                                  10, 0.5);
+  const SimilarityTransform3 orig_tform(2, Eigen::Vector4d(0.1, 0.3, 0.2, 0.4),
+                                        Eigen::Vector3d(100, 10, 0.5));
 
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> dst;

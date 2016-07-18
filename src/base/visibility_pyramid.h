@@ -40,7 +40,6 @@ class VisibilityPyramid {
   VisibilityPyramid(const size_t num_levels, const size_t width,
                     const size_t height);
 
-  // Add point
   void SetPoint(const double x, const double y);
   void ResetPoint(const double x, const double y);
 

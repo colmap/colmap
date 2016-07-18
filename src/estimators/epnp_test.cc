@@ -20,6 +20,7 @@
 
 #include <Eigen/Core>
 
+#include "base/pose.h"
 #include "base/similarity_transform.h"
 #include "estimators/epnp.h"
 #include "estimators/essential_matrix.h"
@@ -48,11 +49,8 @@ BOOST_AUTO_TEST_CASE(Estimate) {
 
   for (double qx = 0; qx < 1; qx += 0.2) {
     for (double tx = 0; tx < 1; tx += 0.1) {
-      Eigen::Vector4d qvec(1, 0, 0, 0);
-      qvec = qvec.normalized();
-
-      SimilarityTransform3 orig_tform(1, qvec(0), qvec(1), qvec(2), qvec(3), tx,
-                                      0, 0);
+      SimilarityTransform3 orig_tform(1, ComposeIdentityQuaternion(),
+                                      Eigen::Vector3d(tx, 0, 0));
 
       // Project points to camera coordinate system
       std::vector<Eigen::Vector2d> points2D;

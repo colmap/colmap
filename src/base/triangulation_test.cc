@@ -36,9 +36,10 @@ BOOST_AUTO_TEST_CASE(TestTriangulatePoint) {
 
   Eigen::Matrix3x4d proj_matrix1 = Eigen::MatrixXd::Identity(3, 4);
 
-  for (double qw = 0; qw < 1; qw += 0.2) {
+  for (double qz = 0; qz < 1; qz += 0.2) {
     for (double tx = 0; tx < 10; tx += 2) {
-      SimilarityTransform3 tform(1, 0.2, 0.3, 0.4, qw, tx, 2, 3);
+      SimilarityTransform3 tform(1, Eigen::Vector4d(0.2, 0.3, 0.4, qz),
+                                 Eigen::Vector3d(tx, 2, 3));
 
       Eigen::Matrix3x4d proj_matrix2 = tform.Matrix().topLeftCorner<3, 4>();
 
