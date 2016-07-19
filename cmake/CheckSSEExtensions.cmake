@@ -1,5 +1,13 @@
 include(CheckCXXSourceRuns)
 
+################################################################################
+# SSE
+################################################################################
+
+if(IS_GNU OR IS_CLANG)
+    set(CMAKE_REQUIRED_FLAGS "-msse")
+endif()
+
 CHECK_CXX_SOURCE_RUNS("
         #include <xmmintrin.h>
         int main() {
@@ -11,7 +19,15 @@ CHECK_CXX_SOURCE_RUNS("
             _mm_storeu_ps(vals, b);
             return 0;
         }"
-        HAS_SSE_EXTENIONS)
+        HAS_SSE_EXTENSION)
+
+################################################################################
+# SSE 2
+################################################################################
+
+if(IS_GNU OR IS_CLANG)
+    set(CMAKE_REQUIRED_FLAGS "-msse2")
+endif()
 
 CHECK_CXX_SOURCE_RUNS("
         #include <emmintrin.h>
@@ -23,7 +39,15 @@ CHECK_CXX_SOURCE_RUNS("
             _mm_storeu_pd(vals, b);
             return 0;
         }"
-        HAS_SSE2_EXTENIONS)
+        HAS_SSE2_EXTENSION)
+
+################################################################################
+# SSE 3
+################################################################################
+
+if(IS_GNU OR IS_CLANG)
+    set(CMAKE_REQUIRED_FLAGS "-msse3")
+endif()
 
 CHECK_CXX_SOURCE_RUNS("
         #include <pmmintrin.h>
@@ -35,7 +59,15 @@ CHECK_CXX_SOURCE_RUNS("
             _mm_storeu_pd(vals, b);
             return 0;
         }"
-        HAS_SSE3_EXTENIONS)
+        HAS_SSE3_EXTENSION)
+
+################################################################################
+# SSE 4.1
+################################################################################
+
+if(IS_GNU OR IS_CLANG)
+    set(CMAKE_REQUIRED_FLAGS "-msse4.1")
+endif()
 
 CHECK_CXX_SOURCE_RUNS("
         #include <smmintrin.h>
@@ -49,7 +81,15 @@ CHECK_CXX_SOURCE_RUNS("
           _mm_storeu_ps(vals, b);
           return 0;
         }"
-        HAS_SSE41_EXTENIONS)
+        HAS_SSE41_EXTENSION)
+
+################################################################################
+# SSE 4.2
+################################################################################
+
+if(IS_GNU OR IS_CLANG)
+    set(CMAKE_REQUIRED_FLAGS "-msse4.2")
+endif()
 
 CHECK_CXX_SOURCE_RUNS("
         #include <emmintrin.h>
@@ -67,7 +107,15 @@ CHECK_CXX_SOURCE_RUNS("
           else
             return 1;
         }"
-        HAS_SSE42_EXTENIONS)
+        HAS_SSE42_EXTENSION)
+
+################################################################################
+# AVX
+################################################################################
+
+if(IS_GNU OR IS_CLANG)
+    set(CMAKE_REQUIRED_FLAGS "-mavx")
+endif()
 
 CHECK_CXX_SOURCE_RUNS("
         #include <immintrin.h>
@@ -79,4 +127,48 @@ CHECK_CXX_SOURCE_RUNS("
           float* f = (float*)&c;
           return 0;
         }"
-        HAS_AVX_EXTENIONS)
+        HAS_AVX_EXTENSION)
+
+################################################################################
+# Setup the compile flags
+################################################################################
+
+# Clear the set flags from above.
+set(CMAKE_REQUIRED_FLAGS)
+
+# Set the compile flags for the supported extensions.
+set(SSE_FLAGS)
+
+if(HAS_SSE_EXTENSION)
+    set(SSE_FLAGS "${SSE_FLAGS} -msse")
+endif()
+
+if(HAS_SSE2_EXTENSION)
+    set(SSE_FLAGS "${SSE_FLAGS} -msse2")
+endif()
+
+if(HAS_SSE3_EXTENSION)
+    set(SSE_FLAGS "${SSE_FLAGS} -msse3")
+endif()
+
+if(HAS_SSE41_EXTENSION)
+    set(SSE_FLAGS "${SSE_FLAGS} -msse4.1")
+endif()
+
+if(HAS_SSE41_EXTENSION)
+    set(SSE_FLAGS "${SSE_FLAGS} -msse4.2")
+endif()
+
+if(HAS_AVX_EXTENSION)
+    set(SSE_FLAGS "${SSE_FLAGS} -mavx")
+endif()
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SSE_FLAGS}")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${SSE_FLAGS}")
+set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} ${SSE_FLAGS}")
+set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${SSE_FLAGS}")
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SSE_FLAGS}")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${SSE_FLAGS}")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${SSE_FLAGS}")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${SSE_FLAGS}")

@@ -1,8 +1,8 @@
-if(NOT HAS_AVX_EXTENSIONS)
+if(NOT HAS_AVX_EXTENSION)
     add_definitions(-DVL_DISABLE_AVX)
 endif()
 
-if(NOT HAS_SSE2_EXTENSIONS)
+if(NOT HAS_SSE2_EXTENSION)
     add_definitions(-DVL_DISABLE_SSE2)
 endif()
 
