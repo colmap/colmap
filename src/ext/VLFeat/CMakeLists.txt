@@ -1,15 +1,9 @@
-CHECK_CXX_COMPILER_FLAG("-mavx" HAS_AVX)
-if(NOT HAS_AVX)
+if(NOT HAS_AVX_EXTENSIONS)
     add_definitions(-DVL_DISABLE_AVX)
-else()
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mavx")
 endif()
 
-CHECK_CXX_COMPILER_FLAG("-msse2" HAS_SSE2)
-if(NOT HAS_SSE2)
+if(NOT HAS_SSE2_EXTENSIONS)
     add_definitions(-DVL_DISABLE_SSE2)
-else()
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -msse2")
 endif()
 
 if(NOT OPENMP_ENABLED OR NOT OPENMP_FOUND)

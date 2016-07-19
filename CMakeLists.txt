@@ -10,11 +10,11 @@ add_definitions("-DCOLMAP_VERSION=\"1.1\"")
 
 set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
-include(CheckCXXCompilerFlag)
-
 # Include helper macros and commands, and allow the included file to override
 # the CMake policies in this file
-include(${CMAKE_SOURCE_DIR}/cmake/cmake_helper.cmake NO_POLICY_SCOPE)
+include(${CMAKE_SOURCE_DIR}/cmake/CMakeHelper.cmake NO_POLICY_SCOPE)
+
+include(${CMAKE_SOURCE_DIR}/cmake/CheckSSEExtensions.cmake)
 
 if(EXISTS ${CMAKE_SOURCE_DIR}/LocalConfig.cmake)
     include(${CMAKE_SOURCE_DIR}/LocalConfig.cmake)
@@ -154,8 +154,8 @@ add_subdirectory(src)
 # Uninstall script
 ################################################################################
 
-configure_file("${CMAKE_SOURCE_DIR}/cmake/cmake_uninstall.cmake"
-               "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+configure_file("${CMAKE_SOURCE_DIR}/cmake/CMakeUninstall.cmake"
+               "${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake"
                IMMEDIATE @ONLY)
-add_custom_target(uninstall COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
+add_custom_target(uninstall COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake)
 set_target_properties(uninstall PROPERTIES FOLDER ${CMAKE_TARGETS_ROOT_FOLDER})
