@@ -5,11 +5,11 @@ else()
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mavx")
 endif()
 
-CHECK_CXX_COMPILER_FLAG("--msse2" HAS_SSE2)
+CHECK_CXX_COMPILER_FLAG("-msse2" HAS_SSE2)
 if(NOT HAS_SSE2)
     add_definitions(-DVL_DISABLE_SSE2)
 else()
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --msse2")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -msse2")
 endif()
 
 if(NOT OPENMP_ENABLED OR NOT OPENMP_FOUND)
