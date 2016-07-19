@@ -33,30 +33,6 @@ set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER
 set(COLMAP_TARGETS_ROOT_FOLDER "colmap_targets")
 set(COLMAP_SRC_ROOT_FOLDER "colmap_src")
 
-# Add the enhanced Release debugging flag if Visual Studio 2013 is being used.
-set(ADDED_ENHANCED_RELEASE_DEBUGGING FALSE)
-if(MSVC12)
-    # CXX Flags
-    if(NOT CMAKE_CXX_FLAGS MATCHES "/Zo")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zo")
-        set(ADDED_ENHANCED_RELEASE_DEBUGGING TRUE)
-    endif()
-    # C Flags
-    if(NOT CMAKE_C_FLAGS MATCHES "/Zo")
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Zo")
-        set(ADDED_ENHANCED_RELEASE_DEBUGGING TRUE)
-    endif()
-endif()
-if(ADDED_ENHANCED_RELEASE_DEBUGGING)
-    set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} CACHE STRING
-        "Flags used by the compiler during all build types." FORCE)
-    set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} CACHE STRING
-        "Flags used by the compiler during all build types." FORCE)
-    message("Adding enhanced Release debugging flag for Visual Studio 2013.")
-    message("Make sure that the 'Enable native Edit and Continue' "
-        "option is disabled in the Debugging option menu.")
-endif()
-
 # Remove the default warning level set by CMake so that later code can allow
 # the user to specify a custom warning level.
 set(REMOVED_WARNING_LEVEL FALSE)
