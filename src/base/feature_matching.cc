@@ -951,7 +951,7 @@ void SpatialFeatureMatcher::DoMatching() {
 
   timer.Restart();
 
-  std::cout << "Indexing images" << std::flush;
+  std::cout << "Indexing images..." << std::flush;
 
   GPSTransform gps_transform;
 
@@ -999,6 +999,11 @@ void SpatialFeatureMatcher::DoMatching() {
   }
 
   PrintElapsedTime(timer);
+
+  if (num_locations == 0) {
+    std::cout << " => No images with location data." << std::endl;
+    return;
+  }
 
   //////////////////////////////////////////////////////////////////////////////
   // Building spatial index
