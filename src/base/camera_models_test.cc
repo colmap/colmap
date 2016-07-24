@@ -25,19 +25,19 @@ using namespace colmap;
 template <typename CameraModel>
 void TestWorldToImageToWorld(const std::vector<double> camera_params,
                              const double u0, const double v0) {
-  double u, v, x, y;
-  CameraModel::WorldToImage(camera_params.data(), u0, v0, &x, &y);
-  CameraModel::ImageToWorld(camera_params.data(), x, y, &u, &v);
-  BOOST_CHECK(std::abs(u - u0) < 1e-6);
-  BOOST_CHECK(std::abs(v - v0) < 1e-6);
+  double u, v, w=1, x, y;
+  CameraModel::WorldToImage(camera_params.data(), u0, v0, w, &x, &y);
+  CameraModel::ImageToWorld(camera_params.data(), x, y, &u, &v, &w);
+  BOOST_CHECK(std::abs(u/w - u0) < 1e-6);
+  BOOST_CHECK(std::abs(v/w - v0) < 1e-6);
 }
 
 template <typename CameraModel>
 void TestImageToWorldToImage(const std::vector<double> camera_params,
                              const double x0, const double y0) {
-  double u, v, x, y;
-  CameraModel::ImageToWorld(camera_params.data(), x0, y0, &u, &v);
-  CameraModel::WorldToImage(camera_params.data(), u, v, &x, &y);
+  double u, v, w=1, x, y;
+  CameraModel::ImageToWorld(camera_params.data(), x0, y0, &u, &v, &w);
+  CameraModel::WorldToImage(camera_params.data(), u, v, w, &x, &y);
   BOOST_CHECK(std::abs(x - x0) < 1e-6);
   BOOST_CHECK(std::abs(y - y0) < 1e-6);
 }
@@ -134,4 +134,9 @@ BOOST_AUTO_TEST_CASE(TestRadialFisheye) {
   TestModel<RadialFisheyeCameraModel>(params);
   params[4] = 0.03;
   TestModel<RadialFisheyeCameraModel>(params);
+}
+
+BOOST_AUTO_TEST_CASE(TestSphericalCentral) {
+  std::vector<double> params = {651.123, 386.123, 511.123};
+  TestModel<SphericalCentralCameraModel>(params);
 }

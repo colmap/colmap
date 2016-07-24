@@ -53,6 +53,10 @@ void CenterAndNormalizeImagePoints(const std::vector<Eigen::Vector2d>& points,
 // @param points2     Second set of corresponding points as Nx2 matrix.
 // @param E           3x3 fundamental or essential matrix.
 // @param residuals   Output vector of residuals.
+void ComputeSquaredSampsonError(const std::vector<Eigen::Vector3d>& points1,
+                                const std::vector<Eigen::Vector3d>& points2,
+                                const Eigen::Matrix3d& E,
+                                std::vector<double>* residuals);
 void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
                                 const std::vector<Eigen::Vector2d>& points2,
                                 const Eigen::Matrix3d& E,
@@ -68,6 +72,10 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
 // @param residuals     Output vector of residuals.
 void ComputeSquaredReprojectionError(
     const std::vector<Eigen::Vector2d>& points2D,
+    const std::vector<Eigen::Vector3d>& points3D,
+    const Eigen::Matrix3x4d& proj_matrix, std::vector<double>* residuals);
+void ComputeSquaredReprojectionError(
+    const std::vector<Eigen::Vector3d>& points2D,
     const std::vector<Eigen::Vector3d>& points3D,
     const Eigen::Matrix3x4d& proj_matrix, std::vector<double>* residuals);
 

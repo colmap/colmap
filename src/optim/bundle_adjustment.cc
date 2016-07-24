@@ -635,7 +635,7 @@ void ParallelBundleAdjuster::SetUp(Reconstruction* reconstruction) {
 void ParallelBundleAdjuster::TearDown(Reconstruction* reconstruction) {
   for (size_t i = 0; i < cameras_.size(); ++i) {
     const image_t image_id = ordered_image_ids_[i];
-    const pba::CameraT& pba_camera = cameras_[i];
+    pba::CameraT& pba_camera = cameras_[i];
 
     // Note: Do not use PBA's quaternion methods as they seem to lead to
     // numerical instability or other issues.

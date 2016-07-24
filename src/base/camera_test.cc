@@ -279,13 +279,13 @@ BOOST_AUTO_TEST_CASE(TestImageToWorldThreshold) {
 
 BOOST_AUTO_TEST_CASE(TestWorldToImage) {
   Camera camera;
-  BOOST_CHECK_THROW(camera.WorldToImage(Eigen::Vector2d::Zero()),
+  BOOST_CHECK_THROW(camera.WorldToImage(Eigen::Vector3d::Zero()),
                     std::domain_error);
   camera.InitializeWithName("SIMPLE_PINHOLE", 1.0, 1, 1);
-  BOOST_CHECK_EQUAL(camera.WorldToImage(Eigen::Vector2d(0.0, 0.0))(0), 0.5);
-  BOOST_CHECK_EQUAL(camera.WorldToImage(Eigen::Vector2d(0.0, 0.0))(1), 0.5);
-  BOOST_CHECK_EQUAL(camera.WorldToImage(Eigen::Vector2d(-0.5, -0.5))(0), 0.0);
-  BOOST_CHECK_EQUAL(camera.WorldToImage(Eigen::Vector2d(-0.5, -0.5))(1), 0.0);
+  BOOST_CHECK_EQUAL(camera.WorldToImage(Eigen::Vector3d(0.0, 0.0, 1))(0), 0.5);
+  BOOST_CHECK_EQUAL(camera.WorldToImage(Eigen::Vector3d(0.0, 0.0, 1))(1), 0.5);
+  BOOST_CHECK_EQUAL(camera.WorldToImage(Eigen::Vector3d(-0.5, -0.5, 1))(0), 0.0);
+  BOOST_CHECK_EQUAL(camera.WorldToImage(Eigen::Vector3d(-0.5, -0.5, 1))(1), 0.0);
 }
 
 BOOST_AUTO_TEST_CASE(TestRescale) {

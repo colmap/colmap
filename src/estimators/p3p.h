@@ -34,7 +34,7 @@ namespace colmap {
 //    http://www.mmrc.iss.ac.cn/~xgao/paper/ieee.pdf
 class P3PEstimator {
  public:
-  typedef Eigen::Vector2d X_t;
+  typedef Eigen::Vector3d X_t;
   typedef Eigen::Vector3d Y_t;
   typedef Eigen::Matrix3x4d M_t;
 

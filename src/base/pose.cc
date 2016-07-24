@@ -21,6 +21,7 @@
 #include "base/projection.h"
 #include "base/triangulation.h"
 #include "util/logging.h"
+#include "util/types.h"
 #include "util/math.h"
 
 namespace colmap {
@@ -149,24 +150,33 @@ Eigen::Vector3d CalculateBaseline(const Eigen::Vector4d& qvec1,
 }
 
 bool CheckCheirality(const Eigen::Matrix3d& R, const Eigen::Vector3d& t,
-                     const std::vector<Eigen::Vector2d>& points1,
-                     const std::vector<Eigen::Vector2d>& points2,
+                     const std::vector<Eigen::Vector3d>& points1,
+                     const std::vector<Eigen::Vector3d>& points2,
                      std::vector<Eigen::Vector3d>* points3D) {
   CHECK_EQ(points1.size(), points2.size());
   const Eigen::Matrix3x4d proj_matrix1 = Eigen::Matrix3x4d::Identity();
   const Eigen::Matrix3x4d proj_matrix2 = ComposeProjectionMatrix(R, t);
   const double kMinDepth = std::numeric_limits<double>::epsilon();
   const double max_depth = 1000.0f * (R.transpose() * t).norm();
+
   points3D->clear();
   for (size_t i = 0; i < points1.size(); ++i) {
     const Eigen::Vector3d point3D =
         TriangulatePoint(proj_matrix1, proj_matrix2, points1[i], points2[i]);
-    const double depth1 = CalculateDepth(proj_matrix1, point3D);
-    if (depth1 > kMinDepth && depth1 < max_depth) {
-      const double depth2 = CalculateDepth(proj_matrix2, point3D);
-      if (depth2 > kMinDepth && depth2 < max_depth) {
-        points3D->push_back(point3D);
-      }
+    double angular_error = CalculateAngularError(points1[i], point3D, proj_matrix1);
+    if (angular_error > M_PI/2)
+      continue;
+    angular_error = CalculateAngularError(points2[i], point3D, proj_matrix2);
+    if (angular_error > M_PI/2)
+      continue;
+
+    double depth1, depth2;
+    depth1 = (proj_matrix1 * point3D.homogeneous()).norm();
+    depth2 = (proj_matrix2 * point3D.homogeneous()).norm();
+
+    if (depth1 > kMinDepth && depth1 < max_depth
+        && depth2 > kMinDepth && depth2 < max_depth) {
+      points3D->push_back(point3D);
     }
   }
   return !points3D->empty();

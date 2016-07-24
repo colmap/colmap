@@ -55,11 +55,11 @@ BOOST_AUTO_TEST_CASE(Estimate) {
                                       0, 0);
 
       // Project points to camera coordinate system
-      std::vector<Eigen::Vector2d> points2D;
+      std::vector<Eigen::Vector3d> points2D;
       for (size_t i = 0; i < points3D.size(); ++i) {
         Eigen::Vector3d point3D_camera = points3D[i];
         orig_tform.TransformPoint(&point3D_camera);
-        points2D.push_back(point3D_camera.hnormalized());
+        points2D.push_back(point3D_camera.normalized());
       }
 
       RANSACOptions options;

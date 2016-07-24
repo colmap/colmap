@@ -132,11 +132,14 @@ void TwoViewGeometry::EstimateWithRelativePose(
   // Warning: Do not change this call to another `Estimate*` method, since E is
   // need further down in this method.
   EstimateCalibrated(camera1, points1, camera2, points2, matches, options);
-
-  // Extract normalized inlier points.
-  std::vector<Eigen::Vector2d> inlier_points1_N;
+  if (inlier_matches.size() == 0 || config == DEGENERATE) {
+    std::cerr << "degenerated" << std::endl;
+    return;
+  }
+    // Extract normalized inlier points.
+  std::vector<Eigen::Vector3d> inlier_points1_N;
   inlier_points1_N.reserve(inlier_matches.size());
-  std::vector<Eigen::Vector2d> inlier_points2_N;
+  std::vector<Eigen::Vector3d> inlier_points2_N;
   inlier_points2_N.reserve(inlier_matches.size());
   for (const auto& match : inlier_matches) {
     const point2D_t idx1 = match.point2D_idx1;
@@ -161,9 +164,7 @@ void TwoViewGeometry::EstimateWithRelativePose(
                              camera2.CalibrationMatrix(), inlier_points1_N,
                              inlier_points2_N, &R, &tvec, &n, &points3D);
   }
-
   qvec = RotationMatrixToQuaternion(R);
-
   // Determine triangulation angle.
   const Eigen::Matrix3x4d proj_matrix1 = Eigen::Matrix3x4d::Identity();
   const Eigen::Matrix3x4d proj_matrix2 = ComposeProjectionMatrix(R, tvec);
@@ -171,6 +172,7 @@ void TwoViewGeometry::EstimateWithRelativePose(
   if (points3D.empty()) {
     tri_angle = 0;
   } else {
+    std::cerr << "point3d "<< points3D.size() << "/" << inlier_matches.size() << std::endl;
     tri_angle = Median(
         CalculateTriangulationAngles(proj_matrix1, proj_matrix2, points3D));
   }
@@ -199,8 +201,8 @@ void TwoViewGeometry::EstimateCalibrated(
   // Extract corresponding points.
   std::vector<Eigen::Vector2d> matched_points1(matches.size());
   std::vector<Eigen::Vector2d> matched_points2(matches.size());
-  std::vector<Eigen::Vector2d> matched_points1_N(matches.size());
-  std::vector<Eigen::Vector2d> matched_points2_N(matches.size());
+  std::vector<Eigen::Vector3d> matched_points1_N(matches.size());
+  std::vector<Eigen::Vector3d> matched_points2_N(matches.size());
   for (size_t i = 0; i < matches.size(); ++i) {
     const point2D_t idx1 = matches[i].point2D_idx1;
     const point2D_t idx2 = matches[i].point2D_idx2;

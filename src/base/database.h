@@ -26,7 +26,7 @@
 #include "base/feature.h"
 #include "base/image.h"
 #include "estimators/two_view_geometry.h"
-#include "ext/SQLite/sqlite3.h"
+#include "sqlite3.h"
 #include "util/sqlite3_utils.h"
 #include "util/types.h"
 

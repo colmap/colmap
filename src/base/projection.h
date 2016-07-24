@@ -115,7 +115,7 @@ double CalculateAngularError(const Eigen::Vector2d& point2D,
 // @param proj_matrix      3x4 projection matrix.
 //
 // @return                 Angular error.
-double CalculateAngularError(const Eigen::Vector2d& point2D,
+double CalculateAngularError(const Eigen::Vector3d& ray1,
                              const Eigen::Vector3d& point3D,
                              const Eigen::Matrix3x4d& proj_matrix);
 

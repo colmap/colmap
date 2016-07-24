@@ -50,13 +50,22 @@ BOOST_AUTO_TEST_CASE(TestTriangulatePoint) {
         point2D1 /= point2D1(2);
         point2D2 /= point2D2(2);
 
-        const Eigen::Vector2d point2D1_N(point2D1(0), point2D1(1));
-        const Eigen::Vector2d point2D2_N(point2D2(0), point2D2(1));
+        const Eigen::Vector3d point2D1_N(point2D1(0), point2D1(1), 1);
+        const Eigen::Vector3d point2D2_N(point2D2(0), point2D2(1), 1);
 
-        const Eigen::Vector3d tri_point3D = TriangulatePoint(
+        Eigen::Vector3d tri_point3D = TriangulatePoint(
             proj_matrix1, proj_matrix2, point2D1_N, point2D2_N);
 
         BOOST_CHECK((point3D - tri_point3D).norm() < 1e-10);
+
+        point2D1 = point2D1.normalized();
+        point2D2 = point2D2.normalized();
+
+        tri_point3D = TriangulatePoint(
+            proj_matrix1, proj_matrix2, point2D1, point2D2);
+
+        BOOST_CHECK((point3D - tri_point3D).norm() < 1e-10);
+
       }
     }
   }

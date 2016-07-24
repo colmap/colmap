@@ -25,7 +25,7 @@
 #include <ceres/ceres.h>
 
 #include "base/reconstruction.h"
-#include "ext/PBA/pba.h"
+#include "pba/pba.h"
 
 namespace colmap {
 
