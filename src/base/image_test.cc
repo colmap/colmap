@@ -331,25 +331,21 @@ BOOST_AUTO_TEST_CASE(TestNormalizeQvec) {
 
 BOOST_AUTO_TEST_CASE(TestProjectionMatrix) {
   Image image;
-  BOOST_CHECK_LT(
-      (image.ProjectionMatrix() - Eigen::Matrix3x4d::Identity()).norm(), 1e-10);
+  BOOST_CHECK(image.ProjectionMatrix().isApprox(Eigen::Matrix3x4d::Identity()));
 }
 
 BOOST_AUTO_TEST_CASE(TestInverseProjectionMatrix) {
   Image image;
-  BOOST_CHECK_LT(
-      (image.InverseProjectionMatrix() - Eigen::Matrix3x4d::Identity()).norm(),
-      1e-10);
+  BOOST_CHECK(
+      image.InverseProjectionMatrix().isApprox(Eigen::Matrix3x4d::Identity()));
 }
 
 BOOST_AUTO_TEST_CASE(TestRotationMatrix) {
   Image image;
-  BOOST_CHECK_LT((image.RotationMatrix() - Eigen::Matrix3d::Identity()).norm(),
-                 1e-10);
+  BOOST_CHECK(image.RotationMatrix().isApprox(Eigen::Matrix3d::Identity()));
 }
 
 BOOST_AUTO_TEST_CASE(TestProjectionCenter) {
   Image image;
-  BOOST_CHECK_LT((image.ProjectionCenter() - Eigen::Vector3d::Zero()).norm(),
-                 1e-10);
+  BOOST_CHECK(image.ProjectionCenter().isApprox(Eigen::Vector3d::Zero()));
 }

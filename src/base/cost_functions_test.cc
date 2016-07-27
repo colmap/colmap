@@ -144,11 +144,10 @@ BOOST_AUTO_TEST_CASE(TestUnitTranslationPlus) {
   Eigen::Vector3d x_plus_delta(0, 0, 1);
   BOOST_CHECK(function(x.data(), delta.data(), x_plus_delta.data()));
   BOOST_CHECK_EQUAL(x_plus_delta.norm(), 1);
-  BOOST_CHECK_EQUAL((x_plus_delta - x).norm(), 0);
+  BOOST_CHECK_EQUAL(x_plus_delta, x);
 
   delta = Eigen::Vector3d(0, 1, 0);
   BOOST_CHECK(function(x.data(), delta.data(), x_plus_delta.data()));
   BOOST_CHECK_LT(std::abs(x_plus_delta.norm() - 1), 1e-6);
-  BOOST_CHECK_EQUAL(
-      (x_plus_delta - Eigen::Vector3d(0, 1, 1).normalized()).norm(), 0);
+  BOOST_CHECK_EQUAL(x_plus_delta, Eigen::Vector3d(0, 1, 1).normalized());
 }

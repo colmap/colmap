@@ -84,8 +84,8 @@ BOOST_AUTO_TEST_CASE(TestPoseFromEssentialMatrix) {
 
   BOOST_CHECK_EQUAL(points3D.size(), 4);
 
-  BOOST_CHECK_LT((RR - R).norm(), 1e-10);
-  BOOST_CHECK_LT((tt - t).norm(), 1e-10);
+  BOOST_CHECK(RR.isApprox(R));
+  BOOST_CHECK(tt.isApprox(t));
 }
 
 BOOST_AUTO_TEST_CASE(TestFindOptimalImageObservations) {
@@ -114,8 +114,8 @@ BOOST_AUTO_TEST_CASE(TestFindOptimalImageObservations) {
     Eigen::Vector2d optimal_point2;
     FindOptimalImageObservations(E, point1, point2, &optimal_point1,
                                  &optimal_point2);
-    BOOST_CHECK_LT((point1 - optimal_point1).norm(), 1e-10);
-    BOOST_CHECK_LT((point2 - optimal_point2).norm(), 1e-10);
+    BOOST_CHECK(point1.isApprox(optimal_point1));
+    BOOST_CHECK(point2.isApprox(optimal_point2));
   }
 }
 
@@ -126,8 +126,8 @@ BOOST_AUTO_TEST_CASE(TestEpipoleFromEssentialMatrix) {
 
   const Eigen::Vector3d left_epipole = EpipoleFromEssentialMatrix(E, true);
   const Eigen::Vector3d right_epipole = EpipoleFromEssentialMatrix(E, false);
-  BOOST_CHECK_LT((left_epipole - Eigen::Vector3d(0, 0, 1)).norm(), 1e-10);
-  BOOST_CHECK_LT((right_epipole - Eigen::Vector3d(0, 0, 1)).norm(), 1e-10);
+  BOOST_CHECK(left_epipole.isApprox(Eigen::Vector3d(0, 0, 1)));
+  BOOST_CHECK(right_epipole.isApprox(Eigen::Vector3d(0, 0, 1)));
 }
 
 BOOST_AUTO_TEST_CASE(TestInvertEssentialMatrix) {
@@ -137,7 +137,7 @@ BOOST_AUTO_TEST_CASE(TestInvertEssentialMatrix) {
     const Eigen::Matrix3d E = EssentialMatrixFromPose(R, t);
     const Eigen::Matrix3d inv_inv_E =
         InvertEssentialMatrix(InvertEssentialMatrix(E));
-    BOOST_CHECK_LT((E - inv_inv_E).norm(), 1e-10);
+    BOOST_CHECK(E.isApprox(inv_inv_E));
   }
 }
 

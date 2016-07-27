@@ -156,18 +156,11 @@ BOOST_AUTO_TEST_CASE(TestMergePoints3D) {
                     merged_point3D_id);
   BOOST_CHECK_EQUAL(reconstruction.Image(2).Point2D(1).Point3DId(),
                     merged_point3D_id);
-  BOOST_CHECK_LT(
-      std::abs(reconstruction.Point3D(merged_point3D_id).XYZ(0) - 0.5), 1e-6);
-  BOOST_CHECK_LT(
-      std::abs(reconstruction.Point3D(merged_point3D_id).XYZ(1) - 0.5), 1e-6);
-  BOOST_CHECK_LT(
-      std::abs(reconstruction.Point3D(merged_point3D_id).XYZ(2) - 0.5), 1e-6);
-  BOOST_CHECK_EQUAL(
-      std::abs(reconstruction.Point3D(merged_point3D_id).Color(0) - 10), 0);
-  BOOST_CHECK_EQUAL(
-      std::abs(reconstruction.Point3D(merged_point3D_id).Color(1) - 10), 0);
-  BOOST_CHECK_EQUAL(
-      std::abs(reconstruction.Point3D(merged_point3D_id).Color(2) - 10), 0);
+  BOOST_CHECK(reconstruction.Point3D(merged_point3D_id)
+                  .XYZ()
+                  .isApprox(Eigen::Vector3d(0.5, 0.5, 0.5)));
+  BOOST_CHECK_EQUAL(reconstruction.Point3D(merged_point3D_id).Color(),
+                    Eigen::Vector3ub(10, 10, 10));
 }
 
 BOOST_AUTO_TEST_CASE(TestDeletePoint3D) {
