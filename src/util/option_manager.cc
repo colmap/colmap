@@ -665,8 +665,8 @@ OptionManager::OptionManager() {
 
   desc_->add_options()(
       "help,h",
-      "Configuration can either be specified via command_line or by "
-      "defining the parameters in a .ini project_file (see `--project_path`).")(
+      "Configuration can either be specified via command-line or by defining "
+      "the options in a .ini project file provided as `--project_path`.")(
       "project_path", config::value<std::string>());
 
   AddDebugOptions();
