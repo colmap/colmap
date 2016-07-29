@@ -76,7 +76,10 @@ bool StringStartsWith(const std::string& str, const std::string& prefix);
 
 // Check if vector contains elements.
 template <typename T>
-bool VectorContains(const std::vector<T>& vector, const T value);
+bool VectorContainsValue(const std::vector<T>& vector, const T value);
+
+template <typename T>
+bool VectorContainsDuplicateValues(const std::vector<T>& vector);
 
 // Parse CSV line to a list of values.
 //
@@ -99,10 +102,17 @@ std::string VectorToCSV(const std::vector<T>& values);
 ////////////////////////////////////////////////////////////////////////////////
 
 template <typename T>
-bool VectorContains(const std::vector<T>& vector, const T value) {
+bool VectorContainsValue(const std::vector<T>& vector, const T value) {
   return std::find_if(vector.begin(), vector.end(), [value](const T element) {
            return element == value;
          }) != vector.end();
+}
+
+template <typename T>
+bool VectorContainsDuplicateValues(const std::vector<T>& vector) {
+  std::vector<T> unique_vector = vector;
+  return std::unique(unique_vector.begin(), unique_vector.end()) !=
+         unique_vector.end();
 }
 
 template <typename T>

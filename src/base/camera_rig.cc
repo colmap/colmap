@@ -18,6 +18,7 @@
 
 #include "base/pose.h"
 #include "util/logging.h"
+#include "util/misc.h"
 
 namespace colmap {
 
@@ -64,7 +65,8 @@ void CameraRig::AddCamera(const camera_t camera_id,
 
 void CameraRig::AddSnapshot(const std::vector<image_t>& image_ids) {
   CHECK(!image_ids.empty());
-  CHECK_EQ(image_ids.size(), NumCameras());
+  CHECK_LE(image_ids.size(), NumCameras());
+  CHECK(!VectorContainsDuplicateValues(image_ids));
   snapshots_.push_back(image_ids);
 }
 

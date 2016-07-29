@@ -143,9 +143,7 @@ void BundleAdjustmentConfig::SetConstantTvec(const image_t image_id,
   CHECK_LE(idxs.size(), 3);
   CHECK(HasImage(image_id));
   CHECK(!HasConstantPose(image_id));
-  std::vector<int> unique_idxs = idxs;
-  CHECK(std::unique(unique_idxs.begin(), unique_idxs.end()) ==
-        unique_idxs.end())
+  CHECK(!VectorContainsDuplicateValues(idxs))
       << "Tvec indices must not contain duplicates";
   constant_tvecs_.emplace(image_id, idxs);
 }

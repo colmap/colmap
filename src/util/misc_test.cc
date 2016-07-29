@@ -108,9 +108,22 @@ BOOST_AUTO_TEST_CASE(TestStringStartsWith) {
   BOOST_CHECK(StringStartsWith("aaaaaaaaa", "aa"));
 }
 
-BOOST_AUTO_TEST_CASE(TestVectorContains) {
-  BOOST_CHECK(VectorContains<int>({1, 2, 3}, 1));
-  BOOST_CHECK(!VectorContains<int>({2, 3}, 1));
+BOOST_AUTO_TEST_CASE(TestVectorContainsValue) {
+  BOOST_CHECK(VectorContainsValue<int>({1, 2, 3}, 1));
+  BOOST_CHECK(!VectorContainsValue<int>({2, 3}, 1));
+}
+
+BOOST_AUTO_TEST_CASE(TestVectorContainsDuplicateValues) {
+  BOOST_CHECK(!VectorContainsDuplicateValues<int>({}));
+  BOOST_CHECK(!VectorContainsDuplicateValues<int>({1}));
+  BOOST_CHECK(!VectorContainsDuplicateValues<int>({1, 2}));
+  BOOST_CHECK(!VectorContainsDuplicateValues<int>({1, 2, 3}));
+  BOOST_CHECK(VectorContainsDuplicateValues<int>({1, 1, 2, 3}));
+  BOOST_CHECK(VectorContainsDuplicateValues<int>({1, 1, 2, 2, 3}));
+  BOOST_CHECK(VectorContainsDuplicateValues<int>({1, 2, 3, 3}));
+  BOOST_CHECK(!VectorContainsDuplicateValues<std::string>({"a"}));
+  BOOST_CHECK(!VectorContainsDuplicateValues<std::string>({"a", "b"}));
+  BOOST_CHECK(VectorContainsDuplicateValues<std::string>({"a", "a"}));
 }
 
 BOOST_AUTO_TEST_CASE(TestCSVToVector) {

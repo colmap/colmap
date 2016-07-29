@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <numeric>
 
+#include "util/misc.h"
 #include "util/random.h"
 
 namespace colmap {
@@ -81,8 +82,7 @@ std::vector<size_t> ProgressiveSampler::Sample() {
     while (true) {
       const size_t random_idx =
           RandomInteger<uint32_t>(0, max_random_sample_idx);
-      if (std::find(sampled_idxs.begin(), sampled_idxs.end(), random_idx) ==
-          sampled_idxs.end()) {
+      if (!VectorContainsValue(sampled_idxs, random_idx)) {
         sampled_idxs.push_back(random_idx);
         break;
       }
