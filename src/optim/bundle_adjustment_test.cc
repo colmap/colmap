@@ -834,3 +834,59 @@ BOOST_AUTO_TEST_CASE(TestConstantRigFourView) {
                        orig_reconstruction.Point3D(point3D.first));
   }
 }
+
+BOOST_AUTO_TEST_CASE(TestRigFourViewPartial) {
+  Reconstruction reconstruction;
+  SceneGraph scene_graph;
+  GenerateReconstruction(4, 100, &reconstruction, &scene_graph);
+  reconstruction.Image(2).SetCameraId(0);
+  reconstruction.Image(3).SetCameraId(1);
+  const auto orig_reconstruction = reconstruction;
+
+  BundleAdjustmentConfig config;
+  config.AddImage(0);
+  config.AddImage(1);
+  config.AddImage(2);
+  config.AddImage(3);
+
+  std::vector<CameraRig> camera_rigs;
+  camera_rigs.emplace_back();
+  camera_rigs[0].AddCamera(0, ComposeIdentityQuaternion(),
+                           Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddCamera(1, ComposeIdentityQuaternion(),
+                           Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddSnapshot({0, 1});
+  camera_rigs[0].AddSnapshot({2});
+  camera_rigs[0].SetRefCameraId(0);
+  const auto orig_camera_rigs = camera_rigs;
+
+  RigBundleAdjuster::Options options;
+  RigBundleAdjuster::RigOptions rig_options;
+  RigBundleAdjuster bundle_adjuster(options, rig_options, config);
+  BOOST_CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
+
+  const auto summary = bundle_adjuster.Summary();
+
+  // 100 points, 2 images, 2 residuals per point per image
+  BOOST_CHECK_EQUAL(summary.num_residuals_reduced, 800);
+  // 100 x 3 point parameters
+  // + 2 x 6 pose parameters for camera rig
+  // + 1 x 6 relative pose parameters for camera rig
+  // + 1 x 6 pose parameters for individual image
+  // + 2 x 2 camera parameters
+  BOOST_CHECK_EQUAL(summary.num_effective_parameters_reduced, 328);
+
+  CheckVariableCamera(reconstruction.Camera(0), orig_reconstruction.Camera(0));
+  CheckVariableImage(reconstruction.Image(0), orig_reconstruction.Image(0));
+
+  CheckVariableCamera(reconstruction.Camera(1), orig_reconstruction.Camera(1));
+  CheckVariableImage(reconstruction.Image(1), orig_reconstruction.Image(1));
+
+  CheckVariableCameraRig(camera_rigs[0], orig_camera_rigs[0], 0);
+  CheckVariableCameraRig(camera_rigs[0], orig_camera_rigs[0], 1);
+
+  for (const auto& point3D : reconstruction.Points3D()) {
+    CheckVariablePoint(point3D.second,
+                       orig_reconstruction.Point3D(point3D.first));
+  }
+}

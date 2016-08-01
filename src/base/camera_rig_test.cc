@@ -252,6 +252,23 @@ BOOST_AUTO_TEST_CASE(TestComputeRelativePoses) {
   BOOST_CHECK_EQUAL(camera_rig.RelativeTvec(0), Eigen::Vector3d(0, 0, 0));
   BOOST_CHECK_EQUAL(camera_rig.RelativeQvec(1), ComposeIdentityQuaternion());
   BOOST_CHECK_EQUAL(camera_rig.RelativeTvec(1), Eigen::Vector3d(1.5, 3, 4.5));
+
+  const std::vector<image_t> image_ids3 = {4};
+  camera_rig.AddSnapshot(image_ids3);
+
+  Image image5;
+  image5.SetImageId(4);
+  image5.SetCameraId(camera1.CameraId());
+  image5.SetQvec(ComposeIdentityQuaternion());
+  image5.SetTvec(Eigen::Vector3d(0, 0, 0));
+  reconstruction.AddImage(image5);
+
+  camera_rig.Check(reconstruction);
+  camera_rig.ComputeRelativePoses(reconstruction);
+  BOOST_CHECK_EQUAL(camera_rig.RelativeQvec(0), ComposeIdentityQuaternion());
+  BOOST_CHECK_EQUAL(camera_rig.RelativeTvec(0), Eigen::Vector3d(0, 0, 0));
+  BOOST_CHECK_EQUAL(camera_rig.RelativeQvec(1), ComposeIdentityQuaternion());
+  BOOST_CHECK_EQUAL(camera_rig.RelativeTvec(1), Eigen::Vector3d(1.5, 3, 4.5));
 }
 
 BOOST_AUTO_TEST_CASE(TestComputeAbsolutePose) {

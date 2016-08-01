@@ -746,12 +746,13 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
   CHECK(!problem_) << "Cannot use the same BundleAdjuster multiple times";
 
   // Check the validity of the provided camera rigs.
+  std::unordered_set<camera_t> rig_camera_ids;
   for (auto& camera_rig : *camera_rigs) {
     camera_rig.Check(*reconstruction);
     for (const auto& camera_id : camera_rig.GetCameraIds()) {
-      CHECK_EQ(camera_id_to_camera_rig_.count(camera_id), 0)
+      CHECK_EQ(rig_camera_ids.count(camera_id), 0)
           << "Camera must not be part of multiple camera rigs";
-      camera_id_to_camera_rig_.emplace(camera_id, &camera_rig);
+      rig_camera_ids.insert(camera_id);
     }
 
     for (const auto& snapshot : camera_rig.Snapshots()) {
@@ -881,18 +882,30 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
   double* rig_qvec_data = nullptr;
   double* rig_tvec_data = nullptr;
   double* camera_params_data = camera.ParamsData();
-
   CameraRig* camera_rig = nullptr;
-  if (camera_id_to_camera_rig_.count(image.CameraId()) > 0) {
+  Eigen::Matrix3x4d rig_proj_matrix = Eigen::Matrix3x4d::Zero();
+
+  if (image_id_to_camera_rig_.count(image_id) > 0) {
     CHECK(!constant_pose)
         << "Images contained in a camera rig must not have constant pose";
     CHECK(!constant_tvec)
         << "Images contained in a camera rig must not have constant tvec";
-    camera_rig = camera_id_to_camera_rig_.at(image.CameraId());
+    camera_rig = image_id_to_camera_rig_.at(image_id);
     rig_qvec_data = image_id_to_rig_qvec_.at(image_id)->data();
     rig_tvec_data = image_id_to_rig_tvec_.at(image_id)->data();
     qvec_data = camera_rig->RelativeQvec(image.CameraId()).data();
     tvec_data = camera_rig->RelativeTvec(image.CameraId()).data();
+
+    // Concatenate the absolute pose of the rig and the relative pose the camera
+    // within the rig to detect outlier observations.
+    Eigen::Vector4d rig_concat_qvec;
+    Eigen::Vector3d rig_concat_tvec;
+    ConcatenatePoses(*image_id_to_rig_qvec_.at(image_id),
+                     *image_id_to_rig_tvec_.at(image_id),
+                     camera_rig->RelativeQvec(image.CameraId()),
+                     camera_rig->RelativeTvec(image.CameraId()),
+                     &rig_concat_qvec, &rig_concat_tvec);
+    rig_proj_matrix = ComposeProjectionMatrix(rig_concat_qvec, rig_concat_tvec);
   } else {
     // CostFunction assumes unit quaternions.
     image.NormalizeQvec();
@@ -903,17 +916,6 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
   // Collect cameras for final parameterization.
   CHECK(image.HasCamera());
   camera_ids_.insert(image.CameraId());
-
-  // Concatenate the absolute pose of the rig and the relative pose the camera
-  // within the rig to detect outlier observations.
-  Eigen::Vector4d concat_qvec;
-  Eigen::Vector3d concat_tvec;
-  ConcatenatePoses(
-      *image_id_to_rig_qvec_.at(image_id), *image_id_to_rig_tvec_.at(image_id),
-      camera_rig->RelativeQvec(image.CameraId()),
-      camera_rig->RelativeTvec(image.CameraId()), &concat_qvec, &concat_tvec);
-  const Eigen::Matrix3x4d proj_matrix =
-      ComposeProjectionMatrix(concat_qvec, concat_tvec);
 
   // The number of added observations for the current image.
   size_t num_observations = 0;
@@ -927,9 +929,11 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
     Point3D& point3D = reconstruction->Point3D(point2D.Point3DId());
     assert(point3D.Track().Length() > 1);
 
-    if (!HasPointPositiveDepth(proj_matrix, point3D.XYZ()) ||
-        CalculateReprojectionError(point2D.XY(), point3D.XYZ(), proj_matrix,
-                                   camera) > rig_options_.max_reproj_error) {
+    if (camera_rig != nullptr &&
+        (!HasPointPositiveDepth(rig_proj_matrix, point3D.XYZ()) ||
+         CalculateReprojectionError(point2D.XY(), point3D.XYZ(),
+                                    rig_proj_matrix,
+                                    camera) > rig_options_.max_reproj_error)) {
       continue;
     }
 
@@ -990,16 +994,18 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
 
   if (num_observations > 0) {
     parameterized_qvec_data_.insert(qvec_data);
-    parameterized_qvec_data_.insert(rig_qvec_data);
 
-    // Set the relative pose of the camera constant if relative pose refinement
-    // is disabled or if it is the reference camera to avoid over-
-    // parameterization of the camera pose.
-    if (camera_rig != nullptr &&
-        (!rig_options_.refine_relative_poses ||
-         image.CameraId() == camera_rig->RefCameraId())) {
-      problem_->SetParameterBlockConstant(qvec_data);
-      problem_->SetParameterBlockConstant(tvec_data);
+    if (camera_rig != nullptr) {
+      parameterized_qvec_data_.insert(rig_qvec_data);
+
+      // Set the relative pose of the camera constant if relative pose
+      // refinement is disabled or if it is the reference camera to avoid over-
+      // parameterization of the camera pose.
+      if (!rig_options_.refine_relative_poses ||
+          image.CameraId() == camera_rig->RefCameraId()) {
+        problem_->SetParameterBlockConstant(qvec_data);
+        problem_->SetParameterBlockConstant(tvec_data);
+      }
     }
 
     // Set pose parameterization.

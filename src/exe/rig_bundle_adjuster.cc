@@ -55,15 +55,16 @@ using namespace colmap;
 //   }
 // ]
 //
-// This file specifies the configuration for a single camera rig and note that
-// you could potentially define multiple camera rigs. The rig is composed of 4
+// This file specifies the configuration for a single camera rig and that you
+// could potentially define multiple camera rigs. The rig is composed of 4
 // cameras: all images of the first camera must have "left1_image" as a name
 // prefix, e.g., "left1_image_frame000.png" or "left1_image/frame000.png".
 // Images with the same suffix ("_frame000.png" and "/frame000.png") are
 // assigned to the same snapshot, i.e., they are assumed to be captured at the
-// same time. Only snapshots with all images registered will be added to the
-// bundle adjustment problem. The above configuration could have the following
-// input image file structure:
+// same time. Only snapshots with the reference image registered will be added
+// to the bundle adjustment problem. The remaining images will be added with
+// independent poses to the bundle adjustment problem. The above configuration
+// could have the following input image file structure:
 //
 //    /path/to/images/...
 //        left1_image/...
@@ -87,9 +88,9 @@ using namespace colmap;
 //            frame002.png
 //            ...
 //
-// TODO: Provide an option to manually set the relative extrinsics of the camera
-// rig. At the moment, the relative extrinsics are automatically inferred from
-// the reconstruction.
+// TODO: Provide an option to manually / explicitly set the relative extrinsics
+// of the camera rig. At the moment, the relative extrinsics are automatically
+// inferred from the reconstruction.
 std::vector<CameraRig> ReadCameraRigConfig(
     const std::string& rig_config_path, const Reconstruction& reconstruction) {
   boost::property_tree::ptree pt;
@@ -112,7 +113,6 @@ std::vector<CameraRig> ReadCameraRigConfig(
     std::unordered_map<std::string, std::vector<image_t>> snapshots;
     for (const auto image_id : reconstruction.RegImageIds()) {
       const auto& image = reconstruction.Image(image_id);
-      CHECK(camera_rig.HasCamera(image.CameraId()));
       for (const auto& image_prefix : image_prefixes) {
         if (StringStartsWith(image.Name(), image_prefix)) {
           const std::string image_suffix =
@@ -123,7 +123,15 @@ std::vector<CameraRig> ReadCameraRigConfig(
     }
 
     for (const auto& snapshot : snapshots) {
-      if (snapshot.second.size() == camera_rig.NumCameras()) {
+      bool has_ref_camera = false;
+      for (const auto image_id : snapshot.second) {
+        const auto& image = reconstruction.Image(image_id);
+        if (image.CameraId() == camera_rig.RefCameraId()) {
+          has_ref_camera = true;
+        }
+      }
+
+      if (has_ref_camera) {
         camera_rig.AddSnapshot(snapshot.second);
       }
     }
@@ -174,11 +182,9 @@ int main(int argc, char** argv) {
     std::cout << StringPrintf("Snapshots: %d", camera_rig.NumSnapshots())
               << std::endl;
 
-    // Add all snapshot images to the bundle adjustment configuration.
-    for (const auto& snapshot : camera_rig.Snapshots()) {
-      for (const auto image_id : snapshot) {
-        config.AddImage(image_id);
-      }
+    // Add all registered images to the bundle adjustment configuration.
+    for (const auto image_id : reconstruction.RegImageIds()) {
+      config.AddImage(image_id);
     }
   }
 

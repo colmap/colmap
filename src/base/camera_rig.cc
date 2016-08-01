@@ -79,14 +79,20 @@ void CameraRig::Check(const Reconstruction& reconstruction) const {
 
   std::unordered_set<image_t> all_image_ids;
   for (const auto& snapshot : snapshots_) {
-    CHECK_EQ(snapshot.size(), NumCameras());
+    CHECK(!snapshot.empty());
+    CHECK_LE(snapshot.size(), NumCameras());
+    bool has_ref_camera = false;
     for (const auto image_id : snapshot) {
       CHECK(reconstruction.ExistsImage(image_id));
       CHECK_EQ(all_image_ids.count(image_id), 0);
       all_image_ids.insert(image_id);
       const auto& image = reconstruction.Image(image_id);
       CHECK(HasCamera(image.CameraId()));
+      if (image.CameraId() == ref_camera_id_) {
+        has_ref_camera = true;
+      }
     }
+    CHECK(has_ref_camera);
   }
 }
 
@@ -156,6 +162,7 @@ void CameraRig::ComputeRelativePoses(const Reconstruction& reconstruction) {
   std::unordered_map<camera_t, std::vector<Eigen::Vector4d>> rel_qvecs;
 
   for (const auto& snapshot : snapshots_) {
+    // Find the image of the reference camera in the current snapshot.
     const Image* ref_image = nullptr;
     for (const auto image_id : snapshot) {
       const auto& image = reconstruction.Image(image_id);
@@ -166,6 +173,8 @@ void CameraRig::ComputeRelativePoses(const Reconstruction& reconstruction) {
 
     CHECK_NOTNULL(ref_image);
 
+    // Compute the relative poses from all cameras in the current snapshot to
+    // the reference camera.
     for (const auto image_id : snapshot) {
       const auto& image = reconstruction.Image(image_id);
       if (image.CameraId() != ref_camera_id_) {
@@ -183,12 +192,19 @@ void CameraRig::ComputeRelativePoses(const Reconstruction& reconstruction) {
   RelativeQvec(ref_camera_id_) = ComposeIdentityQuaternion();
   RelativeTvec(ref_camera_id_) = Eigen::Vector3d(0, 0, 0);
 
+  // Compute the average relative poses.
   for (auto& rig_camera : rig_cameras_) {
     if (rig_camera.first != ref_camera_id_) {
-      const std::vector<double> rel_qvec_weights(NumSnapshots(), 1.0);
+      CHECK_GT(rel_qvecs.count(rig_camera.first), 0)
+          << "Need at least one snapshot with an image of camera "
+          << rig_camera.first << " and the reference camera " << ref_camera_id_
+          << " to compute its relative pose in the camera rig";
+      const std::vector<Eigen::Vector4d>& camera_rel_qvecs =
+          rel_qvecs.at(rig_camera.first);
+      const std::vector<double> rel_qvec_weights(camera_rel_qvecs.size(), 1.0);
       rig_camera.second.rel_qvec =
-          AverageQuaternions(rel_qvecs.at(rig_camera.first), rel_qvec_weights);
-      rig_camera.second.rel_tvec /= NumSnapshots();
+          AverageQuaternions(camera_rel_qvecs, rel_qvec_weights);
+      rig_camera.second.rel_tvec /= camera_rel_qvecs.size();
     }
   }
 }

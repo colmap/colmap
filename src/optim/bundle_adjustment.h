@@ -272,8 +272,7 @@ class RigBundleAdjuster : public BundleAdjuster {
 
   const RigOptions rig_options_;
 
-  // Mapping from cameras to camera rigs.
-  std::unordered_map<camera_t, CameraRig*> camera_id_to_camera_rig_;
+  // Mapping from images to camera rigs.
   std::unordered_map<image_t, CameraRig*> image_id_to_camera_rig_;
 
   // Mapping from images to the absolute camera rig poses.
