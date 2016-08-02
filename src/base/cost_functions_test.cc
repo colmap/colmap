@@ -136,18 +136,3 @@ BOOST_AUTO_TEST_CASE(TestRelativePoseCostFunction) {
   BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
   BOOST_CHECK_EQUAL(residuals[0], 0.5);
 }
-
-BOOST_AUTO_TEST_CASE(TestUnitTranslationPlus) {
-  UnitTranslationPlus function;
-  Eigen::Vector3d x(0, 0, 1);
-  Eigen::Vector3d delta(0, 0, 1);
-  Eigen::Vector3d x_plus_delta(0, 0, 1);
-  BOOST_CHECK(function(x.data(), delta.data(), x_plus_delta.data()));
-  BOOST_CHECK_EQUAL(x_plus_delta.norm(), 1);
-  BOOST_CHECK_EQUAL(x_plus_delta, x);
-
-  delta = Eigen::Vector3d(0, 1, 0);
-  BOOST_CHECK(function(x.data(), delta.data(), x_plus_delta.data()));
-  BOOST_CHECK_LT(std::abs(x_plus_delta.norm() - 1), 1e-6);
-  BOOST_CHECK_EQUAL(x_plus_delta, Eigen::Vector3d(0, 1, 1).normalized());
-}

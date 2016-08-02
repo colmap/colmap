@@ -191,7 +191,7 @@ class RigBundleAdjustmentCostFunction {
 // pose is assumed to be on the unit sphere around the first pose, i.e. the
 // pose of the second camera is parameterized by a 3D rotation and a
 // 3D translation with unit norm. `tvec` is therefore over-parameterized as is
-// and should be down-projected using `UnitTranslationPlus`.
+// and should be down-projected using `HomogeneousVectorParameterization`.
 class RelativePoseCostFunction {
  public:
   RelativePoseCostFunction(const Eigen::Vector2d& x1, const Eigen::Vector2d& x2)
