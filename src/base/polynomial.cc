@@ -144,9 +144,9 @@ bool FindPolynomialRootsDurandKerner(const Eigen::VectorXd& coeffs_all,
 
   // Initialize roots.
   Eigen::VectorXcd roots(degree);
-  roots(0) = std::complex<double>(1, 0);
-  for (int i = 1; i < degree; ++i) {
-    roots(i) = roots(i - 1) * std::complex<double>(1, 1);
+  roots(degree - 1) = std::complex<double>(1, 0);
+  for (int i = degree - 2; i >= 0; --i) {
+    roots(i) = roots(i + 1) * std::complex<double>(1, 1);
   }
 
   // Iterative solver.
@@ -156,15 +156,15 @@ bool FindPolynomialRootsDurandKerner(const Eigen::VectorXd& coeffs_all,
     double max_root_change = 0.0;
     for (int i = 0; i < degree; ++i) {
       const std::complex<double> root_i = roots(i);
-      std::complex<double> nom = coeffs[0];
-      std::complex<double> denom = coeffs[0];
+      std::complex<double> numerator = coeffs[0];
+      std::complex<double> denominator = coeffs[0];
       for (int j = 0; j < degree; ++j) {
-        nom = nom * root_i + coeffs[j + 1];
-        if (j != i) {
-          denom = denom * (root_i - roots(j));
+        numerator = numerator * root_i + coeffs[j + 1];
+        if (i != j) {
+          denominator = denominator * (root_i - roots(j));
         }
-      };
-      const std::complex<double> root_i_change = nom / denom;
+      }
+      const std::complex<double> root_i_change = numerator / denominator;
       roots(i) = root_i - root_i_change;
       max_root_change =
           std::max(max_root_change, std::abs(root_i_change.real()));

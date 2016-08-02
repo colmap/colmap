@@ -105,10 +105,10 @@ BOOST_AUTO_TEST_CASE(TestFindPolynomialRootsDurandKerner) {
   BOOST_CHECK(FindPolynomialRootsDurandKerner(coeffs, &real, &imag));
   // Reference values generated with OpenCV/Matlab.
   Eigen::VectorXd ref_real(4);
-  ref_real << 0.451826, 0.451826, -0.201826, -0.201826;
+  ref_real << -0.201826, -0.201826, 0.451826, 0.451826;
   BOOST_CHECK(real.isApprox(ref_real, 1e-6));
   Eigen::VectorXd ref_imag(4);
-  ref_imag << 0.160867, -0.160867, 0.627696, -0.627696;
+  ref_imag << -0.627696, 0.627696, 0.160867, -0.160867;
   BOOST_CHECK(imag.isApprox(ref_imag, 1e-6));
 }
 
