@@ -18,8 +18,6 @@
 #define BOOST_TEST_MODULE "estimators/fundamental_matrix"
 #include <boost/test/unit_test.hpp>
 
-#include <Eigen/Core>
-
 #include "estimators/fundamental_matrix.h"
 
 using namespace colmap;
@@ -43,9 +41,9 @@ BOOST_AUTO_TEST_CASE(TestSevenPoint) {
   }
 
   FundamentalMatrixSevenPointEstimator estimator;
-  const auto F = estimator.Estimate(points1, points2)[0];
+  const auto F = estimator.Estimate(points1, points2)[2];
 
-  // Reference values obtained from Matlab
+  // Reference values obtained from Matlab.
   BOOST_CHECK_CLOSE(F(0, 0), 4.81441976, 1e-6);
   BOOST_CHECK_CLOSE(F(0, 1), -8.16978909, 1e-6);
   BOOST_CHECK_CLOSE(F(0, 2), 6.73133404, 1e-6);
@@ -56,7 +54,7 @@ BOOST_AUTO_TEST_CASE(TestSevenPoint) {
   BOOST_CHECK_CLOSE(F(2, 1), 3.64159554, 1e-6);
   BOOST_CHECK_CLOSE(F(2, 2), 1., 1e-6);
 }
-#include <iostream>
+
 BOOST_AUTO_TEST_CASE(TestEightPoint) {
   const double points1_raw[] = {1.839035, 1.924743, 0.543582,  0.375221,
                                 0.473240, 0.142522, 0.964910,  0.598376,

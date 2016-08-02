@@ -201,32 +201,3 @@ BOOST_AUTO_TEST_CASE(TestNChooseK) {
 
   BOOST_CHECK_EQUAL(NChooseK(500, 3), 20708500);
 }
-
-BOOST_AUTO_TEST_CASE(TestEvaluatePolynomial) {
-  BOOST_CHECK_EQUAL(EvaluatePolynomial({1, -3, 3, -5, 10}, 1),
-                    std::complex<double>(1 - 3 + 3 - 5 + 10, 0));
-  BOOST_CHECK_CLOSE(std::abs(EvaluatePolynomial({1, -3, 3, -5}, 2)),
-                    std::abs(1 * 2 * 2 * 2 - 3 * 2 * 2 + 3 * 2 - 5), 1e-6);
-}
-
-BOOST_AUTO_TEST_CASE(TestSolvePolynomial) {
-  std::vector<double> coeffs;
-  coeffs.push_back(1);
-  coeffs.push_back(-3);
-  coeffs.push_back(3);
-  coeffs.push_back(-5);
-  coeffs.push_back(10);
-
-  std::vector<std::complex<double>> roots = SolvePolynomialN(coeffs);
-
-  // Generated with OpenCV
-  std::vector<std::complex<double>> ref;
-  ref.push_back(std::complex<double>(0.451826, 0.160867));
-  ref.push_back(std::complex<double>(0.451826, -0.160867));
-  ref.push_back(std::complex<double>(-0.201826, 0.627696));
-  ref.push_back(std::complex<double>(-0.201826, -0.627696));
-
-  for (size_t i = 0; i < roots.size(); ++i) {
-    BOOST_CHECK_CLOSE(std::abs(roots[i]), std::abs(ref[i]), 0.0001);
-  }
-}

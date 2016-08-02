@@ -22,6 +22,7 @@
 #include <Eigen/LU>
 #include <Eigen/SVD>
 
+#include "base/polynomial.h"
 #include "estimators/utils.h"
 #include "util/logging.h"
 #include "util/math.h"
@@ -88,21 +89,25 @@ EssentialMatrixFivePointEstimator::Estimate(const std::vector<X_t>& points1,
   }
 
   // Step 5: Extraction of roots from the degree 10 polynomial
-  std::vector<double> coeffs(11);
+  Eigen::Matrix<double, 11, 1> coeffs;
 #include "estimators/essential_matrix_coeff.h"
 
-  std::vector<std::complex<double>> roots = SolvePolynomialN(coeffs);
+  Eigen::VectorXd roots_real;
+  Eigen::VectorXd roots_imag;
+  if (!FindPolynomialRootsCompanionMatrix(coeffs, &roots_real, &roots_imag)) {
+    return {};
+  }
 
   std::vector<M_t> models;
 
   const double kEps = 1e-10;
 
-  for (size_t i = 0; i < roots.size(); ++i) {
-    if (std::abs(roots[i].imag()) > kEps) {
+  for (Eigen::VectorXd::Index i = 0; i < roots_imag.size(); ++i) {
+    if (std::abs(roots_imag(i)) > kEps) {
       continue;
     }
 
-    const double z1 = roots[i].real();
+    const double z1 = roots_real(i);
     const double z2 = z1 * z1;
     const double z3 = z2 * z1;
     const double z4 = z3 * z1;

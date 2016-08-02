@@ -16,6 +16,7 @@ COLMAP_ADD_LIBRARY(base
     image.h image.cc
     point2d.h point2d.cc
     point3d.h point3d.cc
+    polynomial.h polynomial.cc
     pose.h pose.cc
     projection.h projection.cc
     reconstruction.h reconstruction.cc
@@ -41,6 +42,7 @@ COLMAP_ADD_TEST(homography_matrix_utils_test homography_matrix_test.cc)
 COLMAP_ADD_TEST(image_test image_test.cc)
 COLMAP_ADD_TEST(point2d_test point2d_test.cc)
 COLMAP_ADD_TEST(point3d_test point3d_test.cc)
+COLMAP_ADD_TEST(polynomial_test polynomial_test.cc)
 COLMAP_ADD_TEST(pose_test pose_test.cc)
 COLMAP_ADD_TEST(projection_test projection_test.cc)
 COLMAP_ADD_TEST(reconstruction_test reconstruction_test.cc)

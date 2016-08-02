@@ -18,9 +18,9 @@
 
 #include <Eigen/Geometry>
 
+#include "base/polynomial.h"
 #include "estimators/utils.h"
 #include "util/logging.h"
-#include "util/math.h"
 #include "util/types.h"
 
 namespace colmap {
@@ -76,28 +76,33 @@ std::vector<P3PEstimator::M_t> P3PEstimator::Estimate(
   const double r5 = r4 * r;
 
   // Build polynomial coefficients: a4*x^4 + a3*x^3 + a2*x^2 + a1*x + a0 = 0.
-  std::vector<double> coeffs_a(5);
-  coeffs_a[4] = -2 * b + b2 + a2 + 1 + a * b * (2 - r2) - 2 * a;  // a4
-  coeffs_a[3] = -2 * q * a2 - r * p * b2 + 4 * q * a + (2 * q + p * r) * b +
-                (r2 * q - 2 * q + r * p) * a * b - 2 * q;  // a3
-  coeffs_a[2] = (2 + q2) * a2 + (p2 + r2 - 2) * b2 - (4 + 2 * q2) * a -
-                (p * q * r + p2) * b - (p * q * r + r2) * a * b + q2 + 2;  // a2
-  coeffs_a[1] = -2 * q * a2 - r * p * b2 + 4 * q * a +
-                (p * r + q * p2 - 2 * q) * b + (r * p + 2 * q) * a * b -
-                2 * q;                                           // a1
-  coeffs_a[0] = a2 + b2 - 2 * a + (2 - p2) * b - 2 * a * b + 1;  // a0
+  Eigen::Matrix<double, 5, 1> coeffs;
+  coeffs(0) = -2 * b + b2 + a2 + 1 + a * b * (2 - r2) - 2 * a;
+  coeffs(1) = -2 * q * a2 - r * p * b2 + 4 * q * a + (2 * q + p * r) * b +
+              (r2 * q - 2 * q + r * p) * a * b - 2 * q;
+  coeffs(2) = (2 + q2) * a2 + (p2 + r2 - 2) * b2 - (4 + 2 * q2) * a -
+              (p * q * r + p2) * b - (p * q * r + r2) * a * b + q2 + 2;
+  coeffs(3) = -2 * q * a2 - r * p * b2 + 4 * q * a +
+              (p * r + q * p2 - 2 * q) * b + (r * p + 2 * q) * a * b - 2 * q;
+  coeffs(4) = a2 + b2 - 2 * a + (2 - p2) * b - 2 * a * b + 1;
 
-  const std::vector<std::complex<double>> roots_a = SolvePolynomialN(coeffs_a);
+  Eigen::VectorXd roots_real;
+  Eigen::VectorXd roots_imag;
+  if (!FindPolynomialRootsCompanionMatrix(coeffs, &roots_real, &roots_imag)) {
+    return {};
+  }
 
   std::vector<M_t> models;
 
   const double kEps = 1e-10;
 
-  for (const auto root_a : roots_a) {
-    const double x = root_a.real();
+  for (Eigen::VectorXd::Index i = 0; i < roots_real.size(); ++i) {
+    const double x = roots_real(i);
+    if (x < 0) {
+      continue;
+    }
 
-    // Neglect all complex results as degenerate cases.
-    if (root_a.imag() > kEps || x < 0) {
+    if (roots_imag(i) > kEps) {
       continue;
     }
 
@@ -105,9 +110,9 @@ std::vector<P3PEstimator::M_t> P3PEstimator::Estimate(
     const double x3 = x2 * x;
 
     // Build polynomial coefficients: b1*y + b0 = 0.
-    const double _b1 =
+    const double bb1 =
         (p2 - p * q * r + r2) * a + (p2 - r2) * b - p2 + p * q * r - r2;
-    const double b1 = b * _b1 * _b1;
+    const double b1 = b * bb1 * bb1;
     const double b0 =
         ((1 - a - b) * x2 + (a - 1) * q * x - a + b + 1) *
         (r3 * (a2 + b2 - 2 * a - 2 * b + (2 - r2) * a * b + 1) * x3 +

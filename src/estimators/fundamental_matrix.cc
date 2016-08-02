@@ -24,9 +24,9 @@
 #include <Eigen/LU>
 #include <Eigen/SVD>
 
+#include "base/polynomial.h"
 #include "estimators/utils.h"
 #include "util/logging.h"
-#include "util/math.h"
 
 namespace colmap {
 
@@ -66,57 +66,58 @@ FundamentalMatrixSevenPointEstimator::Estimate(
 
   // Normalize, such that lambda + mu = 1
   // and add constraint det(F) = det(lambda * f1 + (1 - lambda) * f2).
+
   const double t0 = f1(4) * f1(8) - f1(5) * f1(7);
   const double t1 = f1(3) * f1(8) - f1(5) * f1(6);
   const double t2 = f1(3) * f1(7) - f1(4) * f1(6);
-
-  const double c0 = f1(0) * t0 - f1(1) * t1 + f1(2) * t2;
-
-  const double c1 = f2(0) * t0 - f2(1) * t1 + f2(2) * t2 -
-                    f2(3) * (f1(1) * f1(8) - f1(2) * f1(7)) +
-                    f2(4) * (f1(0) * f1(8) - f1(2) * f1(6)) -
-                    f2(5) * (f1(0) * f1(7) - f1(1) * f1(6)) +
-                    f2(6) * (f1(1) * f1(5) - f1(2) * f1(4)) -
-                    f2(7) * (f1(0) * f1(5) - f1(2) * f1(3)) +
-                    f2(8) * (f1(0) * f1(4) - f1(1) * f1(3));
-
   const double t3 = f2(4) * f2(8) - f2(5) * f2(7);
   const double t4 = f2(3) * f2(8) - f2(5) * f2(6);
   const double t5 = f2(3) * f2(7) - f2(4) * f2(6);
 
-  const double c2 = f1(0) * t3 - f1(1) * t4 + f1(2) * t5 -
-                    f1(3) * (f2(1) * f2(8) - f2(2) * f2(7)) +
-                    f1(4) * (f2(0) * f2(8) - f2(2) * f2(6)) -
-                    f1(5) * (f2(0) * f2(7) - f2(1) * f2(6)) +
-                    f1(6) * (f2(1) * f2(5) - f2(2) * f2(4)) -
-                    f1(7) * (f2(0) * f2(5) - f2(2) * f2(3)) +
-                    f1(8) * (f2(0) * f2(4) - f2(1) * f2(3));
+  Eigen::Vector4d coeffs;
+  coeffs(0) = f1(0) * t0 - f1(1) * t1 + f1(2) * t2;
+  coeffs(1) = f2(0) * t0 - f2(1) * t1 + f2(2) * t2 -
+              f2(3) * (f1(1) * f1(8) - f1(2) * f1(7)) +
+              f2(4) * (f1(0) * f1(8) - f1(2) * f1(6)) -
+              f2(5) * (f1(0) * f1(7) - f1(1) * f1(6)) +
+              f2(6) * (f1(1) * f1(5) - f1(2) * f1(4)) -
+              f2(7) * (f1(0) * f1(5) - f1(2) * f1(3)) +
+              f2(8) * (f1(0) * f1(4) - f1(1) * f1(3));
+  coeffs(2) = f1(0) * t3 - f1(1) * t4 + f1(2) * t5 -
+              f1(3) * (f2(1) * f2(8) - f2(2) * f2(7)) +
+              f1(4) * (f2(0) * f2(8) - f2(2) * f2(6)) -
+              f1(5) * (f2(0) * f2(7) - f2(1) * f2(6)) +
+              f1(6) * (f2(1) * f2(5) - f2(2) * f2(4)) -
+              f1(7) * (f2(0) * f2(5) - f2(2) * f2(3)) +
+              f1(8) * (f2(0) * f2(4) - f2(1) * f2(3));
+  coeffs(3) = f2(0) * t3 - f2(1) * t4 + f2(2) * t5;
 
-  const double c3 = f2(0) * t3 - f2(1) * t4 + f2(2) * t5;
 
-  const std::vector<double> roots = SolvePolynomial3(c0, c1, c2, c3);
+  Eigen::VectorXd roots_real;
+  if (!FindPolynomialRootsCompanionMatrix(coeffs, &roots_real, nullptr)) {
+    return {};
+  }
 
-  std::vector<M_t> models(roots.size());
-
-  const double kEps = 1e-10;
+  std::vector<M_t> models;
+  models.reserve(roots_real.size());
 
   // Build F for each root.
-  for (size_t i = 0; i < roots.size(); ++i) {
-    const double lambda = roots[i];
+  for (Eigen::VectorXd::Index i = 0; i < roots_real.size(); ++i) {
+    const double lambda = roots_real(i);
     const double mu = 1;
 
     Eigen::MatrixXd F = lambda * f1 + mu * f2;
 
     F.resize(3, 3);
 
-    // Normalize such that F(3, 3) = 1.
-    if (std::abs(F(2, 2)) > kEps) {
-      F /= F(2, 2);
-    } else {
-      F(2, 2) = 0;
+    const double kEps = 1e-10;
+    if (std::abs(F(2, 2)) < kEps) {
+      continue;
     }
 
-    models[i] = F.transpose();
+    F /= F(2, 2);
+
+    models.push_back(F.transpose());
   }
 
   return models;

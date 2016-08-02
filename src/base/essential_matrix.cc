@@ -30,7 +30,6 @@
 #include "base/triangulation.h"
 #include "estimators/pose.h"
 #include "util/logging.h"
-#include "util/math.h"
 
 namespace colmap {
 
