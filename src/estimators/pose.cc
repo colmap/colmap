@@ -295,10 +295,11 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
                         Eigen::Vector4d* qvec, Eigen::Vector3d* tvec) {
   CHECK_EQ(points1.size(), points2.size());
 
-  // CostFunction assumes unit quaternions
+  // CostFunction assumes unit quaternions.
   *qvec = NormalizeQuaternion(*qvec);
 
-  ceres::LossFunction* loss_function = new ceres::CauchyLoss(1);
+  const double kMaxL2Error = 1.0;
+  ceres::LossFunction* loss_function = new ceres::CauchyLoss(kMaxL2Error);
 
   ceres::Problem problem;
 
@@ -313,11 +314,9 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
       new ceres::QuaternionParameterization;
   problem.SetParameterization(qvec->data(), quaternion_parameterization);
 
-  // Use local parameterization for translation, since the translation vector
-  // must have unit length.
-  ceres::LocalParameterization* local_parameterization =
-      new ceres::AutoDiffLocalParameterization<UnitTranslationPlus, 3, 2>;
-  problem.SetParameterization(tvec->data(), local_parameterization);
+  ceres::HomogeneousVectorParameterization* homogeneous_parameterization =
+      new ceres::HomogeneousVectorParameterization(3);
+  problem.SetParameterization(tvec->data(), homogeneous_parameterization);
 
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);

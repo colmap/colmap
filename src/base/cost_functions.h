@@ -236,29 +236,6 @@ class RelativePoseCostFunction {
   const Eigen::Vector2d x2_;
 };
 
-// Plus operation of 2D local parameterization of unit translation in 3D.
-struct UnitTranslationPlus {
-  template <typename T>
-  bool operator()(const T* x, const T* delta, T* x_plus_delta) const {
-    x_plus_delta[0] = x[0] + delta[0];
-    x_plus_delta[1] = x[1] + delta[1];
-    x_plus_delta[2] = x[2] + delta[2];
-
-    const T squared_norm = x_plus_delta[0] * x_plus_delta[0] +
-                           x_plus_delta[1] * x_plus_delta[1] +
-                           x_plus_delta[2] * x_plus_delta[2];
-
-    if (squared_norm > T(0)) {
-      const T norm = T(1.0) / ceres::sqrt(squared_norm);
-      x_plus_delta[0] *= norm;
-      x_plus_delta[1] *= norm;
-      x_plus_delta[2] *= norm;
-    }
-
-    return true;
-  }
-};
-
 }  // namespace colmap
 
 #endif  // COLMAP_SRC_BASE_COST_FUNCTIONS_H_
