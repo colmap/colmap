@@ -5,6 +5,7 @@ COLMAP_ADD_LIBRARY(estimators
     essential_matrix.h essential_matrix.cc
     euclidean_transform.h
     fundamental_matrix.h fundamental_matrix.cc
+    gp3p.h gp3p.cc
     homography_matrix.h homography_matrix.cc
     p3p.h p3p.cc
     pose.h pose.cc
@@ -18,6 +19,7 @@ COLMAP_ADD_LIBRARY(estimators
 COLMAP_ADD_TEST(epnp_test epnp_test.cc)
 COLMAP_ADD_TEST(essential_matrix_test essential_matrix_test.cc)
 COLMAP_ADD_TEST(fundamental_matrix_test fundamental_matrix_test.cc)
+COLMAP_ADD_TEST(gp3p_test gp3p_test.cc)
 COLMAP_ADD_TEST(homography_matrix_test homography_matrix_test.cc)
 COLMAP_ADD_TEST(p3p_test p3p_test.cc)
 COLMAP_ADD_TEST(translation_transform_test translation_transform_test.cc)
