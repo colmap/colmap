@@ -97,6 +97,7 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
   const double max_residual = options_.max_error * options_.max_error;
 
   std::vector<double> residuals(num_samples);
+
   std::vector<typename LocalEstimator::X_t> X_inlier;
   std::vector<typename LocalEstimator::Y_t> Y_inlier;
 
@@ -125,6 +126,8 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
     // Iterate through all estimated models
     for (const auto& sample_model : sample_models) {
       estimator.Residuals(X, Y, sample_model, &residuals);
+      CHECK_EQ(residuals.size(), X.size());
+
       const auto support = support_measurer.Evaluate(residuals, max_residual);
 
       // Do local optimization if better than all previous subsets.
@@ -152,6 +155,8 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
 
           for (const auto& local_model : local_models) {
             local_estimator.Residuals(X, Y, local_model, &residuals);
+            CHECK_EQ(residuals.size(), X.size());
+
             const auto local_support =
                 support_measurer.Evaluate(residuals, max_residual);
 
@@ -197,6 +202,8 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
   } else {
     estimator.Residuals(X, Y, report.model, &residuals);
   }
+
+  CHECK_EQ(residuals.size(), X.size());
 
   report.inlier_mask.resize(num_samples);
   for (size_t i = 0; i < residuals.size(); ++i) {

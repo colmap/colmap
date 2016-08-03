@@ -199,6 +199,8 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
     // Iterate through all estimated models.
     for (const auto& sample_model : sample_models) {
       estimator.Residuals(X, Y, sample_model, &residuals);
+      CHECK_EQ(residuals.size(), X.size());
+
       const auto support = support_measurer.Evaluate(residuals, max_residual);
 
       // Save as best subset if better than all previous subsets.
@@ -234,6 +236,7 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
   // evaluated model. Some benchmarking revealed that this approach is faster.
 
   estimator.Residuals(X, Y, report.model, &residuals);
+  CHECK_EQ(residuals.size(), X.size());
 
   report.inlier_mask.resize(num_samples);
   for (size_t i = 0; i < residuals.size(); ++i) {
