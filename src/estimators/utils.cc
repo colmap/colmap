@@ -139,9 +139,6 @@ void ComputeSquaredReprojectionError(
   const double P_23 = proj_matrix(2, 3);
 
   for (size_t i = 0; i < points2D.size(); ++i) {
-    const double x_0 = points2D[i](0);
-    const double x_1 = points2D[i](1);
-
     const double X_0 = points3D[i](0);
     const double X_1 = points3D[i](1);
     const double X_2 = points3D[i](2);
@@ -149,10 +146,13 @@ void ComputeSquaredReprojectionError(
     // Project 3D point from world to camera.
     const double px_2 = P_20 * X_0 + P_21 * X_1 + P_22 * X_2 + P_23;
 
-    // Check if 3D point infront of camera.
+    // Check if 3D point is in front of camera.
     if (px_2 > std::numeric_limits<double>::epsilon()) {
       const double px_0 = P_00 * X_0 + P_01 * X_1 + P_02 * X_2 + P_03;
       const double px_1 = P_10 * X_0 + P_11 * X_1 + P_12 * X_2 + P_13;
+
+      const double x_0 = points2D[i](0);
+      const double x_1 = points2D[i](1);
 
       const double inv_px_2 = 1.0 / px_2;
       const double dx_0 = x_0 - px_0 * inv_px_2;
