@@ -49,10 +49,10 @@ BOOST_AUTO_TEST_CASE(Estimate) {
 
   for (double qx = 0; qx < 1; qx += 0.2) {
     for (double tx = 0; tx < 1; tx += 0.1) {
-      SimilarityTransform3 orig_tform(1, ComposeIdentityQuaternion(),
-                                      Eigen::Vector3d(tx, 0, 0));
+      const SimilarityTransform3 orig_tform(1, Eigen::Vector4d(1, qx, 0, 0),
+                                            Eigen::Vector3d(tx, 0, 0));
 
-      // Project points to camera coordinate system
+      // Project points to camera coordinate system.
       std::vector<Eigen::Vector2d> points2D;
       for (size_t i = 0; i < points3D.size(); ++i) {
         Eigen::Vector3d point3D_camera = points3D[i];
@@ -62,10 +62,10 @@ BOOST_AUTO_TEST_CASE(Estimate) {
 
       RANSACOptions options;
       options.max_error = 1e-5;
-
       RANSAC<EPnPEstimator> ransac(options);
-
       const auto report = ransac.Estimate(points2D, points3D);
+
+      BOOST_CHECK_EQUAL(report.success, true);
 
       // Test if correct transformation has been determined.
       const double matrix_diff =
@@ -79,7 +79,7 @@ BOOST_AUTO_TEST_CASE(Estimate) {
         BOOST_CHECK(residuals[i] < 1e-3);
       }
 
-      // Test residuals of faulty points
+      // Test residuals of faulty points.
       EPnPEstimator::Residuals(points2D, points3D_faulty, report.model,
                                &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
