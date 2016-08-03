@@ -134,9 +134,6 @@ void FeatureMatcher::run() {
     context_->doneCurrent();
     context_->moveToThread(parent_thread_);
     database_.Close();
-    delete sift_gpu_;
-    delete sift_match_gpu_;
-    delete verifier_thread_pool_;
 #ifdef CUDA_ENABLED
   }
 #endif
@@ -151,8 +148,8 @@ void FeatureMatcher::SetupWorkers() {
   }
 #endif
 
-  sift_gpu_ = new SiftGPU();
-  sift_match_gpu_ = new SiftMatchGPU(options_.max_num_matches);
+  sift_gpu_.reset(new SiftGPU());
+  sift_match_gpu_.reset(new SiftMatchGPU(options_.max_num_matches));
 
   sift_gpu_->SetVerbose(0);
 #ifdef CUDA_ENABLED
@@ -172,7 +169,7 @@ void FeatureMatcher::SetupWorkers() {
   }
 
   // Setup geometric verification workers.
-  verifier_thread_pool_ = new ThreadPool(options_.num_threads);
+  verifier_thread_pool_.reset(new ThreadPool(options_.num_threads));
 }
 
 void FeatureMatcher::SetupData() {

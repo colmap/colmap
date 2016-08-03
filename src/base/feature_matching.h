@@ -146,9 +146,9 @@ class FeatureMatcher : public QThread {
   QOpenGLContext* context_;
   QOffscreenSurface* surface_;
 
-  SiftGPU* sift_gpu_;
-  SiftMatchGPU* sift_match_gpu_;
-  ThreadPool* verifier_thread_pool_;
+  std::unique_ptr<SiftGPU> sift_gpu_;
+  std::unique_ptr<SiftMatchGPU> sift_match_gpu_;
+  std::unique_ptr<ThreadPool> verifier_thread_pool_;
 
   // All cameras and images in the database, loaded after calling SetupData.
   std::unordered_map<camera_t, Camera> cameras_;
