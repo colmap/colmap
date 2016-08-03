@@ -86,24 +86,6 @@ class IncrementalMapperController : public QThread {
   std::vector<std::unique_ptr<class Reconstruction>> models_;
 };
 
-// Warning: This class is not feature-complete.
-class InteractiveMapperController : public QThread {
- public:
-  InteractiveMapperController(const OptionManager& options);
-
-  void run();
-
- private:
-  void PrintCommandPrompt();
-  bool HandleHelp(const std::vector<std::string>& commands);
-  bool HandleStats(const std::vector<std::string>& commands);
-  bool HandleExport(const std::vector<std::string>& commands);
-  bool HandleRegister(const std::vector<std::string>& commands);
-  bool HandleBundleAdjustment(const std::vector<std::string>& commands);
-
-  const OptionManager options_;
-};
-
 class BundleAdjustmentController : public QThread {
  public:
   BundleAdjustmentController(const OptionManager& options);
