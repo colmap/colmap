@@ -69,11 +69,8 @@ BOOST_AUTO_TEST_CASE(TestSimilarityTransform) {
   }
 
   // Robustly estimate transformation using RANSAC.
-  SetPRNGSeed(0);
-
   RANSACOptions options;
   options.max_error = 10;
-
   LORANSAC<SimilarityTransformEstimator<3>, SimilarityTransformEstimator<3>>
       ransac(options);
   const auto report = ransac.Estimate(src, dst);
