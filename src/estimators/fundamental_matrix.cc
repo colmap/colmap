@@ -94,15 +94,20 @@ FundamentalMatrixSevenPointEstimator::Estimate(
 
 
   Eigen::VectorXd roots_real;
-  if (!FindPolynomialRootsCompanionMatrix(coeffs, &roots_real, nullptr)) {
+  Eigen::VectorXd roots_imag;
+  if (!FindPolynomialRootsCompanionMatrix(coeffs, &roots_real, &roots_imag)) {
     return {};
   }
 
   std::vector<M_t> models;
   models.reserve(roots_real.size());
 
-  // Build F for each root.
   for (Eigen::VectorXd::Index i = 0; i < roots_real.size(); ++i) {
+    const double kMaxRootImag = 1e-10;
+    if (std::abs(roots_imag(i)) > kMaxRootImag) {
+      continue;
+    }
+
     const double lambda = roots_real(i);
     const double mu = 1;
 

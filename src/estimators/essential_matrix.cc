@@ -94,10 +94,9 @@ EssentialMatrixFivePointEstimator::Estimate(const std::vector<X_t>& points1,
   std::vector<M_t> models;
   models.reserve(roots_real.size());
 
-  const double kEps = 1e-10;
-
   for (Eigen::VectorXd::Index i = 0; i < roots_imag.size(); ++i) {
-    if (std::abs(roots_imag(i)) > kEps) {
+    const double kMaxRootImag = 1e-10;
+    if (std::abs(roots_imag(i)) > kMaxRootImag) {
       continue;
     }
 
@@ -117,7 +116,8 @@ EssentialMatrixFivePointEstimator::Estimate(const std::vector<X_t>& points1,
     const Eigen::JacobiSVD<Eigen::Matrix3d> svd(Bz, Eigen::ComputeFullV);
     const Eigen::Vector3d X = svd.matrixV().block<3, 1>(0, 2);
 
-    if (std::abs(X(2)) < kEps) {
+    const double kMaxX3 = 1e-10;
+    if (std::abs(X(2)) < kMaxX3) {
       continue;
     }
 

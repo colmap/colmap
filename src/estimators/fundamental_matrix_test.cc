@@ -41,7 +41,7 @@ BOOST_AUTO_TEST_CASE(TestSevenPoint) {
   }
 
   FundamentalMatrixSevenPointEstimator estimator;
-  const auto F = estimator.Estimate(points1, points2)[2];
+  const auto F = estimator.Estimate(points1, points2)[0];
 
   // Reference values obtained from Matlab.
   BOOST_CHECK_CLOSE(F(0, 0), 4.81441976, 1e-6);

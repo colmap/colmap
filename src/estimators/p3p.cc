@@ -93,16 +93,16 @@ std::vector<P3PEstimator::M_t> P3PEstimator::Estimate(
   }
 
   std::vector<M_t> models;
-
-  const double kEps = 1e-10;
+  models.reserve(roots_real.size());
 
   for (Eigen::VectorXd::Index i = 0; i < roots_real.size(); ++i) {
-    const double x = roots_real(i);
-    if (x < 0) {
+    const double kMaxRootImag = 1e-10;
+    if (std::abs(roots_imag(i)) > kMaxRootImag) {
       continue;
     }
 
-    if (roots_imag(i) > kEps) {
+    const double x = roots_real(i);
+    if (x < 0) {
       continue;
     }
 
@@ -151,12 +151,10 @@ std::vector<P3PEstimator::M_t> P3PEstimator::Estimate(
     points3D_camera.col(1) = v * dist_PB;  // B'
     points3D_camera.col(2) = w * dist_PC;  // C'
 
-    // Find transformation from world to camera system (similarity transform
-    // without scale - Euclidean transform).
-    const Eigen::Matrix4d matrix =
+    // Find transformation from the world to the camera system.
+    const Eigen::Matrix4d transform =
         Eigen::umeyama(points3D_world, points3D_camera, false);
-
-    models.push_back(matrix.topLeftCorner<3, 4>());
+    models.push_back(transform.topLeftCorner<3, 4>());
   }
 
   return models;

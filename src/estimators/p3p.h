@@ -34,8 +34,11 @@ namespace colmap {
 //    http://www.mmrc.iss.ac.cn/~xgao/paper/ieee.pdf
 class P3PEstimator {
  public:
+  // The 2D image feature observations.
   typedef Eigen::Vector2d X_t;
+  // The observed 3D features in the world frame.
   typedef Eigen::Vector3d Y_t;
+  // The transformation from the world to the camera frame.
   typedef Eigen::Matrix3x4d M_t;
 
   // The minimum number of samples needed to estimate a model.
