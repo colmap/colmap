@@ -34,7 +34,7 @@ EssentialMatrixFivePointEstimator::Estimate(const std::vector<X_t>& points1,
                                             const std::vector<Y_t>& points2) {
   CHECK_EQ(points1.size(), points2.size());
 
-  // Step 1: Extraction of the nullspace x, y, z, w
+  // Step 1: Extraction of the nullspace x, y, z, w.
 
   Eigen::Matrix<double, Eigen::Dynamic, 9> Q(points1.size(), 9);
   for (size_t i = 0; i < points1.size(); ++i) {
@@ -53,44 +53,37 @@ EssentialMatrixFivePointEstimator::Estimate(const std::vector<X_t>& points1,
     Q(i, 8) = 1;
   }
 
-  // Extract the 4 Eigen vectors corresponding to the smallest singular values
-  Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
+  // Extract the 4 Eigen vectors corresponding to the smallest singular values.
+  const Eigen::JacobiSVD<Eigen::Matrix<double, Eigen::Dynamic, 9>> svd(
       Q, Eigen::ComputeFullV);
-  Eigen::Matrix<double, 4, 9, Eigen::RowMajor> E =
-      svd.matrixV().block<9, 4>(0, 5).transpose();
+  const Eigen::Matrix<double, 9, 4> E = svd.matrixV().block<9, 4>(0, 5);
 
-  // Step 3: Gauss-Jordan elimination with partial pivoting on the
-  //         10x20 matrix A
+  // Step 3: Gauss-Jordan elimination with partial pivoting on A.
 
-  Eigen::Matrix<double, 10, 20, Eigen::ColMajor> A;
+  Eigen::Matrix<double, 10, 20> A;
 #include "estimators/essential_matrix_poly.h"
   Eigen::Matrix<double, 10, 10> AA =
       A.block<10, 10>(0, 0).partialPivLu().solve(A.block<10, 10>(0, 10));
 
   // Step 4: Expansion of the determinant polynomial of the 3x3 polynomial
-  //         matrix B to obtain the tenth degree polynomial
+  //         matrix B to obtain the tenth degree polynomial.
 
   Eigen::Matrix<double, 13, 3> B;
-  Eigen::Matrix<double, 1, 13> B_row1, B_row2;
-  B_row1(0, 0) = 0;
-  B_row1(0, 4) = 0;
-  B_row1(0, 8) = 0;
-  B_row2(0, 3) = 0;
-  B_row2(0, 7) = 0;
-  B_row2(0, 12) = 0;
   for (size_t i = 0; i < 3; ++i) {
-    B_row1.block<1, 3>(0, 1) = AA.block<1, 3>(i * 2 + 4, 0);
-    B_row1.block<1, 3>(0, 5) = AA.block<1, 3>(i * 2 + 4, 3);
-    B_row1.block<1, 4>(0, 9) = AA.block<1, 4>(i * 2 + 4, 6);
-    B_row2.block<1, 3>(0, 0) = AA.block<1, 3>(i * 2 + 5, 0);
-    B_row2.block<1, 3>(0, 4) = AA.block<1, 3>(i * 2 + 5, 3);
-    B_row2.block<1, 4>(0, 8) = AA.block<1, 4>(i * 2 + 5, 6);
-    B.col(i) = B_row1 - B_row2;
+    B(0, i) = 0;
+    B(4, i) = 0;
+    B(8, i) = 0;
+    B.block<3, 1>(1, i) = AA.block<1, 3>(i * 2 + 4, 0);
+    B.block<3, 1>(5, i) = AA.block<1, 3>(i * 2 + 4, 3);
+    B.block<4, 1>(9, i) = AA.block<1, 4>(i * 2 + 4, 6);
+    B.block<3, 1>(0, i) -= AA.block<1, 3>(i * 2 + 5, 0);
+    B.block<3, 1>(4, i) -= AA.block<1, 3>(i * 2 + 5, 3);
+    B.block<4, 1>(8, i) -= AA.block<1, 4>(i * 2 + 5, 6);
   }
 
-  // Step 5: Extraction of roots from the degree 10 polynomial
+  // Step 5: Extraction of roots from the degree 10 polynomial.
   Eigen::Matrix<double, 11, 1> coeffs;
-#include "estimators/essential_matrix_coeff.h"
+#include "estimators/essential_matrix_coeffs.h"
 
   Eigen::VectorXd roots_real;
   Eigen::VectorXd roots_imag;
@@ -99,6 +92,7 @@ EssentialMatrixFivePointEstimator::Estimate(const std::vector<X_t>& points1,
   }
 
   std::vector<M_t> models;
+  models.reserve(roots_real.size());
 
   const double kEps = 1e-10;
 
@@ -114,29 +108,27 @@ EssentialMatrixFivePointEstimator::Estimate(const std::vector<X_t>& points1,
 
     Eigen::Matrix3d Bz;
     for (size_t j = 0; j < 3; ++j) {
-      const double* br = b + j * 13;
-      Bz(j, 0) = br[0] * z3 + br[1] * z2 + br[2] * z1 + br[3];
-      Bz(j, 1) = br[4] * z3 + br[5] * z2 + br[6] * z1 + br[7];
-      Bz(j, 2) = br[8] * z4 + br[9] * z3 + br[10] * z2 + br[11] * z1 + br[12];
+      Bz(j, 0) = B(0, j) * z3 + B(1, j) * z2 + B(2, j) * z1 + B(3, j);
+      Bz(j, 1) = B(4, j) * z3 + B(5, j) * z2 + B(6, j) * z1 + B(7, j);
+      Bz(j, 2) = B(8, j) * z4 + B(9, j) * z3 + B(10, j) * z2 + B(11, j) * z1 +
+                 B(12, j);
     }
 
-    Eigen::JacobiSVD<Eigen::Matrix3d> svd(Bz, Eigen::ComputeFullV);
+    const Eigen::JacobiSVD<Eigen::Matrix3d> svd(Bz, Eigen::ComputeFullV);
     const Eigen::Vector3d X = svd.matrixV().block<3, 1>(0, 2);
 
     if (std::abs(X(2)) < kEps) {
       continue;
     }
 
-    Eigen::MatrixXd essential_vec = E.row(0) * (X(0) / X(2)) +
-                                    E.row(1) * (X(1) / X(2)) + E.row(2) * z1 +
-                                    E.row(3);
+    Eigen::MatrixXd essential_vec = E.col(0) * (X(0) / X(2)) +
+                                    E.col(1) * (X(1) / X(2)) + E.col(2) * z1 +
+                                    E.col(3);
+    essential_vec /= essential_vec.norm();
 
-    const double inv_norm = 1.0 / essential_vec.norm();
-    essential_vec *= inv_norm;
-
-    essential_vec.resize(3, 3);
-    const Eigen::Matrix3d essential_matrix = essential_vec.transpose();
-
+    const Eigen::Matrix3d essential_matrix =
+        Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>>(
+            essential_vec.data());
     models.push_back(essential_matrix);
   }
 
