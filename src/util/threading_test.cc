@@ -18,14 +18,241 @@
 #define BOOST_TEST_MODULE "util/threading"
 #include <boost/test/unit_test.hpp>
 
-#include <vector>
 #include <chrono>
+#include <vector>
 
 #include "util/threading.h"
 
 using namespace colmap;
 
-BOOST_AUTO_TEST_CASE(TestNoArgNoReturn) {
+BOOST_AUTO_TEST_CASE(TestThreadWait) {
+  class TestThread : public Thread {
+    void Run() { std::this_thread::sleep_for(std::chrono::milliseconds(200)); }
+  };
+
+  TestThread thread;
+  BOOST_CHECK(!thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(!thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  thread.Start();
+  BOOST_CHECK(thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  thread.Wait();
+  BOOST_CHECK(thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(!thread.IsRunning());
+  BOOST_CHECK(thread.IsFinished());
+}
+
+BOOST_AUTO_TEST_CASE(TestThreadPause) {
+  class TestThread : public Thread {
+    void Run() {
+      std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      WaitIfPaused();
+      std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+  };
+
+  TestThread thread;
+  BOOST_CHECK(!thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(!thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  thread.Start();
+  BOOST_CHECK(thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  thread.Pause();
+  std::this_thread::sleep_for(std::chrono::milliseconds(300));
+  BOOST_CHECK(thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(thread.IsPaused());
+  BOOST_CHECK(!thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  thread.Resume();
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  BOOST_CHECK(thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  thread.Wait();
+  BOOST_CHECK(thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(!thread.IsRunning());
+  BOOST_CHECK(thread.IsFinished());
+}
+
+BOOST_AUTO_TEST_CASE(TestThreadStop) {
+  class TestThread : public Thread {
+    void Run() {
+      std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      if (IsStopped()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        return;
+      }
+    }
+  };
+
+  TestThread thread;
+  BOOST_CHECK(!thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(!thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  thread.Start();
+  BOOST_CHECK(thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  thread.Stop();
+  std::this_thread::sleep_for(std::chrono::milliseconds(250));
+  BOOST_CHECK(thread.IsStarted());
+  BOOST_CHECK(thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  thread.Wait();
+  BOOST_CHECK(thread.IsStarted());
+  BOOST_CHECK(thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(!thread.IsRunning());
+  BOOST_CHECK(thread.IsFinished());
+}
+
+BOOST_AUTO_TEST_CASE(TestThreadPauseStop) {
+  class TestThread : public Thread {
+    void Run() {
+      std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      WaitIfPaused();
+      if (IsStopped()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        return;
+      }
+    }
+  };
+
+  TestThread thread;
+  BOOST_CHECK(!thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(!thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  thread.Start();
+  BOOST_CHECK(thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  thread.Pause();
+  std::this_thread::sleep_for(std::chrono::milliseconds(300));
+  BOOST_CHECK(thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(thread.IsPaused());
+  BOOST_CHECK(!thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  thread.Stop();
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  BOOST_CHECK(thread.IsStarted());
+  BOOST_CHECK(thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  thread.Wait();
+  BOOST_CHECK(thread.IsStarted());
+  BOOST_CHECK(thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(!thread.IsRunning());
+  BOOST_CHECK(thread.IsFinished());
+}
+
+BOOST_AUTO_TEST_CASE(TestThreadRestart) {
+  class TestThread : public Thread {
+    void Run() { std::this_thread::sleep_for(std::chrono::milliseconds(200)); }
+  };
+
+  TestThread thread;
+  BOOST_CHECK(!thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(!thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  for (size_t i = 0; i < 2; ++i) {
+    thread.Start();
+    BOOST_CHECK(thread.IsStarted());
+    BOOST_CHECK(!thread.IsStopped());
+    BOOST_CHECK(!thread.IsPaused());
+    BOOST_CHECK(thread.IsRunning());
+    BOOST_CHECK(!thread.IsFinished());
+
+    thread.Wait();
+    BOOST_CHECK(thread.IsStarted());
+    BOOST_CHECK(!thread.IsStopped());
+    BOOST_CHECK(!thread.IsPaused());
+    BOOST_CHECK(!thread.IsRunning());
+    BOOST_CHECK(thread.IsFinished());
+  }
+}
+
+BOOST_AUTO_TEST_CASE(TestThreadTimer) {
+  class TestThread : public Thread {
+    void Run() {
+      std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      WaitIfPaused();
+      std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+  };
+
+  TestThread thread;
+  thread.Start();
+  thread.Wait();
+  const auto elapsed_seconds1 = thread.Timer().ElapsedSeconds();
+  BOOST_CHECK_GT(elapsed_seconds1, 0.35);
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+  BOOST_CHECK_EQUAL(thread.Timer().ElapsedSeconds(), elapsed_seconds1);
+
+  thread.Start();
+  BOOST_CHECK_LT(thread.Timer().ElapsedSeconds(), elapsed_seconds1);
+
+  thread.Pause();
+  std::this_thread::sleep_for(std::chrono::milliseconds(250));
+  const auto elapsed_seconds2 = thread.Timer().ElapsedSeconds();
+  BOOST_CHECK_LT(elapsed_seconds2, 0.225);
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  BOOST_CHECK_EQUAL(thread.Timer().ElapsedSeconds(), elapsed_seconds2);
+
+  thread.Resume();
+  thread.Wait();
+  BOOST_CHECK_GT(thread.Timer().ElapsedSeconds(), elapsed_seconds2);
+  BOOST_CHECK_GT(thread.Timer().ElapsedSeconds(), 0.35);
+}
+
+BOOST_AUTO_TEST_CASE(TestThreadPoolNoArgNoReturn) {
   std::function<void(void)> Func = []() {
     int num = 0;
     for (int i = 0; i < 1000; ++i) {
@@ -45,7 +272,7 @@ BOOST_AUTO_TEST_CASE(TestNoArgNoReturn) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestArgNoReturn) {
+BOOST_AUTO_TEST_CASE(TestThreadPoolArgNoReturn) {
   std::function<void(int)> Func = [](int num) {
     for (int i = 0; i < 1000; ++i) {
       num += i;
@@ -64,7 +291,7 @@ BOOST_AUTO_TEST_CASE(TestArgNoReturn) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestNoArgReturn) {
+BOOST_AUTO_TEST_CASE(TestThreadPoolNoArgReturn) {
   std::function<int(void)> Func = []() { return 0; };
 
   ThreadPool pool(4);
@@ -79,7 +306,7 @@ BOOST_AUTO_TEST_CASE(TestNoArgReturn) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestArgReturn) {
+BOOST_AUTO_TEST_CASE(TestThreadPoolArgReturn) {
   std::function<int(int)> Func = [](int num) {
     for (int i = 0; i < 1000; ++i) {
       num += i;
@@ -99,7 +326,7 @@ BOOST_AUTO_TEST_CASE(TestArgReturn) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestDestructor) {
+BOOST_AUTO_TEST_CASE(TestThreadPoolDestructor) {
   std::vector<bool> results(1000, false);
   std::function<void(int)> Func = [&results](int num) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -124,7 +351,7 @@ BOOST_AUTO_TEST_CASE(TestDestructor) {
   BOOST_CHECK(missing_result);
 }
 
-BOOST_AUTO_TEST_CASE(TestStop) {
+BOOST_AUTO_TEST_CASE(TestThreadPoolStop) {
   std::function<int(int)> Func = [](int num) {
     for (int i = 0; i < 1000; ++i) {
       num += i;
@@ -146,11 +373,9 @@ BOOST_AUTO_TEST_CASE(TestStop) {
   pool.Stop();
 }
 
-BOOST_AUTO_TEST_CASE(TestWait) {
+BOOST_AUTO_TEST_CASE(TestThreadPoolWait) {
   std::vector<bool> results(1000, false);
-  std::function<void(int)> Func = [&results](int num) {
-    results[num] = true;
-  };
+  std::function<void(int)> Func = [&results](int num) { results[num] = true; };
 
   ThreadPool pool(4);
   std::vector<std::future<void>> futures;

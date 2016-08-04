@@ -16,12 +16,101 @@
 
 #include "util/threading.h"
 
-#include <iostream>
+#include "util/logging.h"
 
 namespace colmap {
 
+Thread::Thread()
+    : started_(false),
+      stopped_(false),
+      paused_(false),
+      pausing_(false),
+      finished_(false) {}
+
+void Thread::Start() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  CHECK(!started_ || finished_);
+  timer_.Restart();
+  thread_ = std::thread(&Thread::RunFunc, this);
+  started_ = true;
+  stopped_ = false;
+  paused_ = false;
+  pausing_ = false;
+  finished_ = false;
+}
+
+void Thread::Stop() {
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+    stopped_ = true;
+  }
+  Resume();
+}
+
+void Thread::Pause() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  paused_ = true;
+}
+
+void Thread::Resume() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  if (paused_) {
+    paused_ = false;
+    pause_condition_.notify_all();
+  }
+}
+
+void Thread::Wait() { thread_.join(); }
+
+bool Thread::IsStarted() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  return started_;
+}
+
+bool Thread::IsStopped() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  return stopped_;
+}
+
+bool Thread::IsPaused() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  return paused_;
+}
+
+bool Thread::IsRunning() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  return started_ && !pausing_ && !finished_;
+}
+
+bool Thread::IsFinished() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  return finished_;
+}
+
+const class Timer& Thread::Timer() const { return timer_; }
+
+void Thread::WaitIfPaused() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  if (paused_) {
+    pausing_ = true;
+    timer_.Pause();
+    pause_condition_.wait(lock);
+    pausing_ = false;
+    timer_.Resume();
+  }
+}
+
+void Thread::RunFunc() {
+  Run();
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+    finished_ = true;
+    timer_.Pause();
+  }
+}
+
 ThreadPool::ThreadPool(const int num_threads)
-    : stop_(false), num_active_workers_(0) {
+    : stopped_(false), num_active_workers_(0) {
   int num_effective_threads = num_threads;
   if (num_threads == kMaxNumThreads) {
     num_effective_threads = std::thread::hardware_concurrency();
@@ -37,17 +126,15 @@ ThreadPool::ThreadPool(const int num_threads)
   }
 }
 
-ThreadPool::~ThreadPool() {
-  Stop();
-}
+ThreadPool::~ThreadPool() { Stop(); }
 
 void ThreadPool::Stop() {
   {
     std::unique_lock<std::mutex> lock(mutex_);
-    if (stop_) {
+    if (stopped_) {
       return;
     }
-    stop_ = true;
+    stopped_ = true;
   }
 
   {
@@ -72,8 +159,9 @@ void ThreadPool::WorkerFunc() {
     std::function<void()> task;
     {
       std::unique_lock<std::mutex> lock(mutex_);
-      task_condition_.wait(lock, [this] { return stop_ || !tasks_.empty(); });
-      if (stop_ && tasks_.empty()) {
+      task_condition_.wait(lock,
+                           [this] { return stopped_ || !tasks_.empty(); });
+      if (stopped_ && tasks_.empty()) {
         return;
       }
       task = std::move(tasks_.front());

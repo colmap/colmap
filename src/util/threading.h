@@ -22,6 +22,8 @@
 #include <future>
 #include <queue>
 
+#include "util/timer.h"
+
 namespace colmap {
 
 #ifdef __clang__
@@ -46,6 +48,77 @@ namespace colmap {
 #ifdef __clang__
 #pragma clang diagnostic pop  // -Wkeyword-macro
 #endif
+
+// Helper class to create single threads with simple controls and timing, e.g.:
+//
+//      class MyThread : public Thread {
+//        void Run() {
+//          // Some pre-processing...
+//          for (const auto& item : items) {
+//            WaitIfPaused();
+//            if (IsStopped()) {
+//              // Tear down...
+//              return;
+//            }
+//            // Process item...
+//          }
+//        }
+//      };
+//
+//      MyThread thread;
+//      thread.Start();
+//      // Pause, resume, stop, ...
+//      thread.Wait();
+//      thread.Timer().PrintElapsedSeconds();
+//
+class Thread {
+ public:
+  Thread();
+
+  // Control the state of the thread.
+  void Start();
+  void Stop();
+  void Pause();
+  void Resume();
+  void Wait();
+
+  // Check the state of the thread.
+  bool IsStarted();
+  bool IsStopped();
+  bool IsPaused();
+  bool IsRunning();
+  bool IsFinished();
+
+  // Get timing information of the thread, properly accounting for pause times.
+  const class Timer& Timer() const;
+
+ protected:
+  // This is the main run function to be implemented by the child class. If you
+  // are looping over data and want to support the pause operation, call
+  // `WaitIfPaused` at appropriate places in the loop. To support the stop
+  // operation, check the `IsStopped` state and early return from this method.
+  virtual void Run() = 0;
+
+  // To be called from inside the main run function. This blocks the main
+  // caller, if the thread is paused, until the thread is resumed.
+  void WaitIfPaused();
+
+ private:
+  // Wrapper around the main run function to set the finished flag.
+  void RunFunc();
+
+  std::thread thread_;
+  std::mutex mutex_;
+  std::condition_variable pause_condition_;
+
+  class Timer timer_;
+
+  bool started_;
+  bool stopped_;
+  bool paused_;
+  bool pausing_;
+  bool finished_;
+};
 
 class ThreadPool {
  public:
@@ -77,7 +150,7 @@ class ThreadPool {
   std::condition_variable task_condition_;
   std::condition_variable finished_condition_;
 
-  bool stop_;
+  bool stopped_;
   int num_active_workers_;
 };
 
@@ -99,7 +172,7 @@ auto ThreadPool::AddTask(func_t&& f, args_t&&... args)
 
   {
     std::unique_lock<std::mutex> lock(mutex_);
-    if (stop_) {
+    if (stopped_) {
       throw std::runtime_error("Cannot add task to stopped thread pool.");
     }
     tasks_.emplace([task]() { (*task)(); });
