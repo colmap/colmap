@@ -21,9 +21,6 @@ target_link_libraries(feature_extractor ${COLMAP_LIBRARIES})
 COLMAP_ADD_QT_EXECUTABLE(feature_importer feature_importer.cc)
 target_link_libraries(feature_importer ${COLMAP_LIBRARIES})
 
-COLMAP_ADD_QT_EXECUTABLE(interactive_mapper interactive_mapper.cc)
-target_link_libraries(interactive_mapper ${COLMAP_LIBRARIES})
-
 COLMAP_ADD_QT_EXECUTABLE(image_registrator image_registrator.cc)
 target_link_libraries(image_registrator ${COLMAP_LIBRARIES})
 
