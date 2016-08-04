@@ -30,6 +30,7 @@ Thread::Thread()
 void Thread::Start() {
   std::unique_lock<std::mutex> lock(mutex_);
   CHECK(!started_ || finished_);
+  Wait();
   timer_.Restart();
   thread_ = std::thread(&Thread::RunFunc, this);
   started_ = true;
@@ -60,7 +61,11 @@ void Thread::Resume() {
   }
 }
 
-void Thread::Wait() { thread_.join(); }
+void Thread::Wait() {
+  if (thread_.joinable()) {
+    thread_.join();
+  }
+}
 
 bool Thread::IsStarted() {
   std::unique_lock<std::mutex> lock(mutex_);
@@ -87,7 +92,20 @@ bool Thread::IsFinished() {
   return finished_;
 }
 
-const class Timer& Thread::Timer() const { return timer_; }
+void Thread::SetCallback(const std::string& name,
+                         const std::function<void()>& func) {
+  callbacks_.emplace(name, func);
+}
+
+void Thread::ResetCallback(const std::string& name) { callbacks_.erase(name); }
+
+void Thread::Callback(const std::string& name) const {
+  if (callbacks_.count(name) > 0) {
+    callbacks_.at(name)();
+  }
+}
+
+const class Timer& Thread::GetTimer() const { return timer_; }
 
 void Thread::WaitIfPaused() {
   std::unique_lock<std::mutex> lock(mutex_);

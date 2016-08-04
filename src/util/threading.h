@@ -21,6 +21,7 @@
 #include <functional>
 #include <future>
 #include <queue>
+#include <unordered_map>
 
 #include "util/timer.h"
 
@@ -73,6 +74,8 @@ namespace colmap {
 //
 class Thread {
  public:
+
+
   Thread();
 
   // Control the state of the thread.
@@ -89,8 +92,12 @@ class Thread {
   bool IsRunning();
   bool IsFinished();
 
+  // Set callbacks that can be triggered within the main run function.
+  void SetCallback(const std::string& name, const std::function<void()>& func);
+  void ResetCallback(const std::string& name);
+
   // Get timing information of the thread, properly accounting for pause times.
-  const class Timer& Timer() const;
+  const Timer& GetTimer() const;
 
  protected:
   // This is the main run function to be implemented by the child class. If you
@@ -103,6 +110,9 @@ class Thread {
   // caller, if the thread is paused, until the thread is resumed.
   void WaitIfPaused();
 
+  // Call back to the function with the specified name, if it exists.
+  void Callback(const std::string& name) const;
+
  private:
   // Wrapper around the main run function to set the finished flag.
   void RunFunc();
@@ -111,13 +121,15 @@ class Thread {
   std::mutex mutex_;
   std::condition_variable pause_condition_;
 
-  class Timer timer_;
+  Timer timer_;
 
   bool started_;
   bool stopped_;
   bool paused_;
   bool pausing_;
   bool finished_;
+
+  std::unordered_map<std::string, std::function<void()>> callbacks_;
 };
 
 class ThreadPool {

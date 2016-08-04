@@ -219,6 +219,48 @@ BOOST_AUTO_TEST_CASE(TestThreadRestart) {
   }
 }
 
+BOOST_AUTO_TEST_CASE(TestCallback) {
+  class TestThread : public Thread {
+    void Run() {
+      Callback("callback1");
+      Callback("callback2");
+    }
+  };
+
+  bool called_back1 = false;
+  std::function<void()> CallbackFunc1 = [&called_back1]() {
+    called_back1 = true;
+  };
+
+  bool called_back2 = false;
+  std::function<void()> CallbackFunc2 = [&called_back2]() {
+    called_back2 = true;
+  };
+
+  TestThread thread;
+  thread.SetCallback("callback1", CallbackFunc1);
+  thread.Start();
+  thread.Wait();
+  BOOST_CHECK(called_back1);
+  BOOST_CHECK(!called_back2);
+
+  called_back1 = false;
+  called_back2 = false;
+  thread.SetCallback("callback2", CallbackFunc2);
+  thread.Start();
+  thread.Wait();
+  BOOST_CHECK(called_back1);
+  BOOST_CHECK(called_back2);
+
+  called_back1 = false;
+  called_back2 = false;
+  thread.ResetCallback("callback1");
+  thread.Start();
+  thread.Wait();
+  BOOST_CHECK(!called_back1);
+  BOOST_CHECK(called_back2);
+}
+
 BOOST_AUTO_TEST_CASE(TestThreadTimer) {
   class TestThread : public Thread {
     void Run() {
@@ -231,25 +273,25 @@ BOOST_AUTO_TEST_CASE(TestThreadTimer) {
   TestThread thread;
   thread.Start();
   thread.Wait();
-  const auto elapsed_seconds1 = thread.Timer().ElapsedSeconds();
+  const auto elapsed_seconds1 = thread.GetTimer().ElapsedSeconds();
   BOOST_CHECK_GT(elapsed_seconds1, 0.35);
   std::this_thread::sleep_for(std::chrono::milliseconds(200));
-  BOOST_CHECK_EQUAL(thread.Timer().ElapsedSeconds(), elapsed_seconds1);
+  BOOST_CHECK_EQUAL(thread.GetTimer().ElapsedSeconds(), elapsed_seconds1);
 
   thread.Start();
-  BOOST_CHECK_LT(thread.Timer().ElapsedSeconds(), elapsed_seconds1);
+  BOOST_CHECK_LT(thread.GetTimer().ElapsedSeconds(), elapsed_seconds1);
 
   thread.Pause();
   std::this_thread::sleep_for(std::chrono::milliseconds(250));
-  const auto elapsed_seconds2 = thread.Timer().ElapsedSeconds();
+  const auto elapsed_seconds2 = thread.GetTimer().ElapsedSeconds();
   BOOST_CHECK_LT(elapsed_seconds2, 0.225);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
-  BOOST_CHECK_EQUAL(thread.Timer().ElapsedSeconds(), elapsed_seconds2);
+  BOOST_CHECK_EQUAL(thread.GetTimer().ElapsedSeconds(), elapsed_seconds2);
 
   thread.Resume();
   thread.Wait();
-  BOOST_CHECK_GT(thread.Timer().ElapsedSeconds(), elapsed_seconds2);
-  BOOST_CHECK_GT(thread.Timer().ElapsedSeconds(), 0.35);
+  BOOST_CHECK_GT(thread.GetTimer().ElapsedSeconds(), elapsed_seconds2);
+  BOOST_CHECK_GT(thread.GetTimer().ElapsedSeconds(), 0.35);
 }
 
 BOOST_AUTO_TEST_CASE(TestThreadPoolNoArgNoReturn) {
