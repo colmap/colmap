@@ -16,9 +16,12 @@
 
 #include "util/threading.h"
 
+#include <iostream>
+
 namespace colmap {
 
-ThreadPool::ThreadPool(const int num_threads) : stop_(false) {
+ThreadPool::ThreadPool(const int num_threads)
+    : stop_(false), num_active_workers_(0) {
   int num_effective_threads = num_threads;
   if (num_threads == kMaxNumThreads) {
     num_effective_threads = std::thread::hardware_concurrency();
@@ -35,18 +38,7 @@ ThreadPool::ThreadPool(const int num_threads) : stop_(false) {
 }
 
 ThreadPool::~ThreadPool() {
-  {
-    std::unique_lock<std::mutex> lock(mutex_);
-    if (stop_) {
-      return;
-    }
-    stop_ = true;
-  }
-
-  condition_.notify_all();
-  for (auto& worker : workers_) {
-    worker.join();
-  }
+  Stop();
 }
 
 void ThreadPool::Stop() {
@@ -63,10 +55,16 @@ void ThreadPool::Stop() {
     std::swap(tasks_, empty_tasks);
   }
 
-  condition_.notify_all();
+  task_condition_.notify_all();
   for (auto& worker : workers_) {
     worker.join();
   }
+}
+
+void ThreadPool::Wait() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  finished_condition_.wait(
+      lock, [this]() { return tasks_.empty() && num_active_workers_ == 0; });
 }
 
 void ThreadPool::WorkerFunc() {
@@ -74,14 +72,19 @@ void ThreadPool::WorkerFunc() {
     std::function<void()> task;
     {
       std::unique_lock<std::mutex> lock(mutex_);
-      condition_.wait(lock, [this] { return stop_ || !tasks_.empty(); });
+      task_condition_.wait(lock, [this] { return stop_ || !tasks_.empty(); });
       if (stop_ && tasks_.empty()) {
         return;
       }
       task = std::move(tasks_.front());
       tasks_.pop();
+      num_active_workers_ += 1;
     }
+
     task();
+
+    num_active_workers_ -= 1;
+    finished_condition_.notify_one();
   }
 }
 

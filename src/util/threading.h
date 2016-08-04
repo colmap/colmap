@@ -56,13 +56,16 @@ class ThreadPool {
 
   inline int NumThreads() const;
 
-  // Add new task to thread pool.
+  // Add new task to the thread pool.
   template <class func_t, class... args_t>
   auto AddTask(func_t&& f, args_t&&... args)
       -> std::future<typename std::result_of<func_t(args_t...)>::type>;
 
   // Stop the execution of all workers.
   void Stop();
+
+  // Wait until tasks are finished.
+  void Wait();
 
  private:
   void WorkerFunc();
@@ -71,8 +74,11 @@ class ThreadPool {
   std::queue<std::function<void()>> tasks_;
 
   std::mutex mutex_;
-  std::condition_variable condition_;
+  std::condition_variable task_condition_;
+  std::condition_variable finished_condition_;
+
   bool stop_;
+  int num_active_workers_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -99,7 +105,7 @@ auto ThreadPool::AddTask(func_t&& f, args_t&&... args)
     tasks_.emplace([task]() { (*task)(); });
   }
 
-  condition_.notify_one();
+  task_condition_.notify_one();
 
   return result;
 }

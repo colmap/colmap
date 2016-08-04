@@ -19,6 +19,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include <vector>
+#include <chrono>
 
 #include "util/threading.h"
 
@@ -98,6 +99,31 @@ BOOST_AUTO_TEST_CASE(TestArgReturn) {
   }
 }
 
+BOOST_AUTO_TEST_CASE(TestDestructor) {
+  std::vector<bool> results(1000, false);
+  std::function<void(int)> Func = [&results](int num) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    results[num] = true;
+  };
+
+  {
+    ThreadPool pool(4);
+    for (int i = 0; i < results.size(); ++i) {
+      pool.AddTask(Func, i);
+    }
+  }
+
+  bool missing_result = false;
+  for (const auto result : results) {
+    if (!result) {
+      missing_result = true;
+      break;
+    }
+  }
+
+  BOOST_CHECK(missing_result);
+}
+
 BOOST_AUTO_TEST_CASE(TestStop) {
   std::function<int(int)> Func = [](int num) {
     for (int i = 0; i < 1000; ++i) {
@@ -118,4 +144,23 @@ BOOST_AUTO_TEST_CASE(TestStop) {
   BOOST_CHECK_THROW(pool.AddTask(Func, 1000), std::runtime_error);
 
   pool.Stop();
+}
+
+BOOST_AUTO_TEST_CASE(TestWait) {
+  std::vector<bool> results(1000, false);
+  std::function<void(int)> Func = [&results](int num) {
+    results[num] = true;
+  };
+
+  ThreadPool pool(4);
+  std::vector<std::future<void>> futures;
+  for (int i = 0; i < results.size(); ++i) {
+    futures.push_back(pool.AddTask(Func, i));
+  }
+
+  pool.Wait();
+
+  for (const auto result : results) {
+    BOOST_CHECK_EQUAL(result, true);
+  }
 }
