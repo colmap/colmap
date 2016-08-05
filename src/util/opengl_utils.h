@@ -46,7 +46,6 @@ class OpenGLContextManager : public QObject {
   QThread* parent_thread_;
   QThread* current_thread_;
   QAction* make_current_action_;
-  QMutex make_current_mutex_;
 };
 
 void GLError(const char* file, const int line);
