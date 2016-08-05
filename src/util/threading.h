@@ -53,20 +53,22 @@ namespace colmap {
 // Helper class to create single threads with simple controls and timing, e.g.:
 //
 //      class MyThread : public Thread {
-//        void Run() {
+//        void Run() override {
 //          // Some pre-processing...
 //          for (const auto& item : items) {
 //            WaitIfPaused();
 //            if (IsStopped()) {
 //              // Tear down...
-//              return;
+//              break;
 //            }
 //            // Process item...
 //          }
+//          Callback("Finished");
 //        }
 //      };
 //
 //      MyThread thread;
+//      thread.SetCallback("Finished", []() { std::cout << "Finished"; })
 //      thread.Start();
 //      // Pause, resume, stop, ...
 //      thread.Wait();
@@ -74,9 +76,8 @@ namespace colmap {
 //
 class Thread {
  public:
-
-
   Thread();
+  virtual ~Thread() = default;
 
   // Control the state of the thread.
   void Start();
