@@ -14,39 +14,28 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef COLMAP_SRC_SFM_MAP_CONTROLLER_H_
-#define COLMAP_SRC_SFM_MAP_CONTROLLER_H_
-
-#include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
-
-#include <QAction>
-#include <QMutex>
-#include <QThread>
-#include <QWaitCondition>
+#ifndef COLMAP_SRC_SFM_CONTROLLERS_H_
+#define COLMAP_SRC_SFM_CONTROLLERS_H_
 
 #include "sfm/incremental_mapper.h"
 #include "util/option_manager.h"
+#include "util/threading.h"
 #include "util/timer.h"
 
 namespace colmap {
 
-class IncrementalMapperController : public QThread {
+// Class that controls the incremental mapping procedure by iteratively
+// initializing reconstructions from the same scene graph.
+// The following callbacks are available:
+//  - "InitialImagePairRegistered"
+//  - "NextImageRegistered"
+//  - "LastImageRegistered"
+//  - "Finished"
+class IncrementalMapperController : public Thread {
  public:
   IncrementalMapperController(const OptionManager& options);
   IncrementalMapperController(const OptionManager& options,
-                              class Reconstruction* initial_model);
-
-  void run();
-
-  void Stop();
-  void Pause();
-  void Resume();
-
-  bool IsRunning();
-  bool IsStarted();
-  bool IsPaused();
-  bool IsFinished();
+                              Reconstruction* initial_reconstruction);
 
   // Access reconstructed models.
   inline size_t NumModels() const;
@@ -57,57 +46,28 @@ class IncrementalMapperController : public QThread {
   // Add new model and return its index.
   size_t AddModel();
 
-  // Events that are triggered in the respective stages of the reconstruction.
-  // The events are only triggered if the objects are not null. A render
-  // event is triggered whenever a new image is registered. A render_now
-  // event is triggered when the last image in the model was registered.
-  // A finish event is triggered when the reconstruction finishes.
-  QAction* action_render;
-  QAction* action_render_now;
-  QAction* action_finish;
-
  private:
-  void Render();
-  void RenderNow();
-  void Finish();
-
-  bool terminate_;
-  bool pause_;
-  bool running_;
-  bool started_;
-  bool finished_;
-
-  QMutex control_mutex_;
-  QWaitCondition pause_condition_;
+  void Run() override;
 
   const OptionManager options_;
 
   // Collection of reconstructed models.
-  std::vector<std::unique_ptr<class Reconstruction>> models_;
+  std::vector<std::unique_ptr<Reconstruction>> models_;
 };
 
-class BundleAdjustmentController : public QThread {
+// Class that controls the global bundle adjustment procedure.
+// The class implements the "Finished" callback.
+class BundleAdjustmentController : public Thread {
  public:
   BundleAdjustmentController(const OptionManager& options);
-
-  void run();
-
-  // Check whether bundle adjustment is running.
-  bool IsRunning();
 
   // The model to be adjusted, must be set prior to starting the thread.
   Reconstruction* reconstruction;
 
-  // Event that is triggered when the bundle adjustment finishes. The event
-  // is only triggered if the object is not null.
-  QAction* action_finish;
-
  private:
+  void Run() override;
+
   const OptionManager options_;
-
-  bool running_;
-
-  QMutex mutex_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -134,4 +94,4 @@ inline Reconstruction& IncrementalMapperController::Model(const size_t idx) {
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_SFM_MAP_CONTROLLER_H_
+#endif  // COLMAP_SRC_SFM_CONTROLLERS_H_

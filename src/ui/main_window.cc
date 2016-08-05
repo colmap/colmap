@@ -91,13 +91,10 @@ void MainWindow::closeEvent(QCloseEvent* event) {
   if (reply == QMessageBox::No) {
     event->ignore();
   } else {
-    if (mapper_controller->IsRunning()) {
-      mapper_controller->Resume();
-    }
-
     mapper_controller->Stop();
-    mapper_controller->wait();
-    mapper_controller->Stop();
+    mapper_controller->Wait();
+    ba_controller->Stop();
+    ba_controller->Wait();
 
     log_widget_->close();
     event->accept();
@@ -497,21 +494,40 @@ void MainWindow::CreateStatusbar() {
 void MainWindow::CreateControllers() {
   if (mapper_controller) {
     mapper_controller->Stop();
-    mapper_controller->wait();
+    mapper_controller->Wait();
   }
 
   mapper_controller.reset(new IncrementalMapperController(options_));
-  mapper_controller->action_render = action_render_;
-  mapper_controller->action_render_now = action_render_now_;
-  mapper_controller->action_finish = action_reconstruction_finish_;
+  mapper_controller->SetCallback("InitialImagePairRegistered", [this]() {
+    if (!mapper_controller->IsStopped()) {
+      action_render_now_->trigger();
+    }
+  });
+  mapper_controller->SetCallback("NextImageRegistered", [this]() {
+    if (!mapper_controller->IsStopped()) {
+      action_render_->trigger();
+    }
+  });
+  mapper_controller->SetCallback("LastImageRegistered", [this]() {
+    if (!mapper_controller->IsStopped()) {
+      action_render_now_->trigger();
+    }
+  });
+  mapper_controller->SetCallback("Finished", [this]() {
+    if (!mapper_controller->IsStopped()) {
+      action_render_now_->trigger();
+      action_reconstruction_finish_->trigger();
+    }
+  });
 
   if (ba_controller) {
-    ba_controller->wait();
-    ba_controller->terminate();
+    ba_controller->Stop();
+    ba_controller->Wait();
   }
 
   ba_controller.reset(new BundleAdjustmentController(options_));
-  ba_controller->action_finish = action_bundle_adjustment_finish_;
+  ba_controller->SetCallback(
+      "Finished", [this]() { action_bundle_adjustment_finish_->trigger(); });
 }
 
 void MainWindow::CreateFutures() {
@@ -897,7 +913,7 @@ void MainWindow::ReconstructionStart() {
   } else {
     // Start new reconstruction.
     timer_.Restart();
-    mapper_controller->start();
+    mapper_controller->Start();
   }
 
   DisableBlockingActions();
@@ -964,7 +980,7 @@ void MainWindow::BundleAdjustment() {
   action_reconstruction_pause_->setDisabled(true);
 
   ba_controller->reconstruction = &mapper_controller->Model(SelectedModelIdx());
-  ba_controller->start();
+  ba_controller->Start();
 }
 
 void MainWindow::BundleAdjustmentFinish() {

@@ -159,137 +159,26 @@ void ExtractColors(const std::string& image_path, const image_t image_id,
 
 IncrementalMapperController::IncrementalMapperController(
     const OptionManager& options)
-    : action_render(nullptr),
-      action_render_now(nullptr),
-      action_finish(nullptr),
-      terminate_(false),
-      pause_(false),
-      running_(false),
-      started_(false),
-      finished_(false),
-      options_(options) {}
+    : options_(options) {}
 
 IncrementalMapperController::IncrementalMapperController(
-    const OptionManager& options, class Reconstruction* initial_model)
+    const OptionManager& options, Reconstruction* initial_reconstruction)
     : IncrementalMapperController(options) {
-  models_.emplace_back(initial_model);
+  models_.emplace_back(initial_reconstruction);
 }
-
-void IncrementalMapperController::Stop() {
-  {
-    QMutexLocker control_locker(&control_mutex_);
-    terminate_ = true;
-    running_ = false;
-    finished_ = true;
-  }
-  Resume();
-}
-
-void IncrementalMapperController::Pause() {
-  QMutexLocker control_locker(&control_mutex_);
-  if (pause_) {
-    return;
-  }
-  pause_ = true;
-  running_ = false;
-}
-
-void IncrementalMapperController::Resume() {
-  QMutexLocker control_locker(&control_mutex_);
-  if (!pause_) {
-    return;
-  }
-  pause_ = false;
-  running_ = true;
-  pause_condition_.wakeAll();
-}
-
-bool IncrementalMapperController::IsRunning() {
-  QMutexLocker control_locker(&control_mutex_);
-  return running_;
-}
-
-bool IncrementalMapperController::IsStarted() {
-  QMutexLocker control_locker(&control_mutex_);
-  return started_;
-}
-
-bool IncrementalMapperController::IsPaused() {
-  QMutexLocker control_locker(&control_mutex_);
-  return pause_;
-}
-
-bool IncrementalMapperController::IsFinished() { return finished_; }
 
 size_t IncrementalMapperController::AddModel() {
   const size_t model_idx = models_.size();
-  models_.emplace_back(new class Reconstruction());
+  models_.emplace_back(new Reconstruction());
   return model_idx;
 }
 
-void IncrementalMapperController::Render() {
-  {
-    QMutexLocker control_locker(&control_mutex_);
-    if (terminate_) {
-      return;
-    }
-  }
-
-  if (action_render != nullptr) {
-    action_render->trigger();
-  }
-}
-
-void IncrementalMapperController::RenderNow() {
-  {
-    QMutexLocker control_locker(&control_mutex_);
-    if (terminate_) {
-      return;
-    }
-  }
-
-  if (action_render_now != nullptr) {
-    action_render_now->trigger();
-  }
-}
-
-void IncrementalMapperController::Finish() {
-  {
-    QMutexLocker control_locker(&control_mutex_);
-    running_ = false;
-    finished_ = true;
-    if (terminate_) {
-      return;
-    }
-  }
-
-  if (action_finish != nullptr) {
-    action_finish->trigger();
-  }
-}
-
-void IncrementalMapperController::run() {
-  if (IsRunning()) {
-    exit(0);
-  }
-
-  {
-    QMutexLocker control_locker(&control_mutex_);
-    terminate_ = false;
-    pause_ = false;
-    running_ = true;
-    started_ = true;
-    finished_ = false;
-  }
-
+void IncrementalMapperController::Run() {
   const MapperOptions& mapper_options = *options_.mapper_options;
 
   //////////////////////////////////////////////////////////////////////////////
   // Load data from database
   //////////////////////////////////////////////////////////////////////////////
-
-  Timer total_timer;
-  total_timer.Start();
 
   PrintHeading1("Loading database");
 
@@ -322,15 +211,9 @@ void IncrementalMapperController::run() {
 
   for (int num_trials = 0; num_trials < mapper_options.init_num_trials;
        ++num_trials) {
-    {
-      QMutexLocker control_locker(&control_mutex_);
-      if (pause_ && !terminate_) {
-        total_timer.Pause();
-        pause_condition_.wait(&control_mutex_);
-        total_timer.Resume();
-      } else if (terminate_) {
-        break;
-      }
+    WaitIfPaused();
+    if (IsStopped()) {
+      break;
     }
 
     if (!initial_model_given || num_trials > 0) {
@@ -394,7 +277,7 @@ void IncrementalMapperController::run() {
       }
     }
 
-    RenderNow();
+    Callback("InitialImagePairRegistered");
 
     ////////////////////////////////////////////////////////////////////////////
     // Incremental mapping
@@ -405,18 +288,10 @@ void IncrementalMapperController::run() {
     int num_global_bas = 1;
 
     bool reg_next_success = true;
-
     while (reg_next_success) {
-      {
-        QMutexLocker control_locker(&control_mutex_);
-        if (pause_) {
-          total_timer.Pause();
-          pause_condition_.wait(&control_mutex_);
-          total_timer.Resume();
-        }
-        if (terminate_) {
-          break;
-        }
+      WaitIfPaused();
+      if (IsStopped()) {
+        break;
       }
 
       reg_next_success = false;
@@ -465,7 +340,7 @@ void IncrementalMapperController::run() {
             ExtractColors(*options_.image_path, next_image_id, &reconstruction);
           }
 
-          Render();
+          Callback("NextImageRegistered");
 
           break;
         } else {
@@ -490,13 +365,10 @@ void IncrementalMapperController::run() {
       }
     }
 
-    {
-      QMutexLocker control_locker(&control_mutex_);
-      if (terminate_) {
-        const bool kDiscardReconstruction = false;
-        mapper.EndReconstruction(kDiscardReconstruction);
-        break;
-      }
+    if (IsStopped()) {
+      const bool kDiscardReconstruction = false;
+      mapper.EndReconstruction(kDiscardReconstruction);
+      break;
     }
 
     // Only run final global BA, if last incremental BA was not global.
@@ -520,8 +392,9 @@ void IncrementalMapperController::run() {
     } else {
       const bool kDiscardReconstruction = false;
       mapper.EndReconstruction(kDiscardReconstruction);
-      RenderNow();
     }
+
+    Callback("LastImageRegistered");
 
     const size_t max_num_models =
         static_cast<size_t>(mapper_options.max_num_models);
@@ -533,45 +406,25 @@ void IncrementalMapperController::run() {
   }
 
   std::cout << std::endl;
+  GetTimer().PrintMinutes();
 
-  total_timer.PrintMinutes();
-
-  RenderNow();
-  Finish();
-
-  exit(0);
+  Callback("Finished");
 }
 
 BundleAdjustmentController::BundleAdjustmentController(
     const OptionManager& options)
-    : reconstruction(nullptr), options_(options), running_(false) {}
+    : reconstruction(nullptr), options_(options) {}
 
-bool BundleAdjustmentController::IsRunning() {
-  QMutexLocker locker(&mutex_);
-  return running_;
-}
-
-void BundleAdjustmentController::run() {
+void BundleAdjustmentController::Run() {
   CHECK_NOTNULL(reconstruction);
-
-  if (IsRunning()) {
-    exit(0);
-  }
-
-  {
-    QMutexLocker locker(&mutex_);
-    running_ = true;
-  }
-
-  Timer timer;
-  timer.Start();
 
   PrintHeading1("Global bundle adjustment");
 
   const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
 
   if (reg_image_ids.size() < 2) {
-    exit(0);
+    std::cout << "ERROR: Need at least two views." << std::endl;
+    return;
   }
 
   // Avoid degeneracies in bundle adjustment.
@@ -596,18 +449,9 @@ void BundleAdjustmentController::run() {
   // to avoid large scale changes in viewer.
   reconstruction->Normalize();
 
-  timer.PrintMinutes();
+  GetTimer().PrintMinutes();
 
-  if (action_finish != nullptr) {
-    action_finish->trigger();
-  }
-
-  {
-    QMutexLocker locker(&mutex_);
-    running_ = false;
-  }
-
-  exit(0);
+  Callback("Finished");
 }
 
 }  // namespace colmap
