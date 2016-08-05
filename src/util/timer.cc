@@ -16,6 +16,7 @@
 
 #include "util/timer.h"
 
+#include "util/logging.h"
 #include "util/misc.h"
 
 using namespace boost::chrono;
@@ -25,10 +26,9 @@ namespace colmap {
 Timer::Timer() : started_(false), paused_(false) {}
 
 void Timer::Start() {
-  if (started_) {
-    return;
-  }
+  CHECK(!started_);
   started_ = true;
+  paused_ = false;
   start_time_ = high_resolution_clock::now();
 }
 
@@ -38,14 +38,13 @@ void Timer::Restart() {
 }
 
 void Timer::Pause() {
+  CHECK(!paused_);
   paused_ = true;
   pause_time_ = high_resolution_clock::now();
 }
 
 void Timer::Resume() {
-  if (!paused_) {
-    return;
-  }
+  CHECK(paused_);
   paused_ = false;
   start_time_ += high_resolution_clock::now() - pause_time_;
 }
