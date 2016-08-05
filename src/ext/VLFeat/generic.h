@@ -54,6 +54,9 @@ typedef vl_uint32 vl_type ;
  ** ::VL_TYPE_UINT8, ::VL_TYPE_UINT16, ::VL_TYPE_UINT32, ::VL_TYPE_UINT64.
  **/
 
+void vl_constructor();
+void vl_destructor();
+
 VL_INLINE char const *
 vl_get_type_name (vl_type type)
 {

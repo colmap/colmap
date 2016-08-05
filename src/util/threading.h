@@ -32,7 +32,7 @@ namespace colmap {
 #pragma clang diagnostic ignored "-Wkeyword-macro"
 #endif
 
-// Define `thread_local` cross-platform
+// Define `thread_local` cross-platform.
 #ifndef thread_local
 #if __STDC_VERSION__ >= 201112 && !defined __STDC_NO_THREADS__
 #define thread_local _Thread_local

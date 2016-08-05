@@ -20,6 +20,7 @@
 
 #include "base/camera_models.h"
 #include "base/feature.h"
+#include "ext/VLFeat/context.h"
 #include "ext/VLFeat/sift.h"
 #include "util/math.h"
 #include "util/misc.h"
@@ -27,6 +28,8 @@
 
 namespace colmap {
 namespace {
+
+VLContextManager vl_context_manager;
 
 bool LoadFeaturesFromTextFile(const std::string& path, Database* database,
                               Image* image) {
