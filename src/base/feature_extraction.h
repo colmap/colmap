@@ -20,6 +20,7 @@
 #include <boost/filesystem.hpp>
 
 #include <QThread>
+#include <QtOpenGL>
 
 #include "base/database.h"
 #include "ext/SiftGPU/SiftGPU.h"
