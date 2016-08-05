@@ -14,12 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef COLMAP_SRC_UI_OPENGL_UTILS_H_
-#define COLMAP_SRC_UI_OPENGL_UTILS_H_
+#ifndef COLMAP_SRC_OPENGL_UTILS_H_
+#define COLMAP_SRC_OPENGL_UTILS_H_
 
-#include <iostream>
-
-#include <QtOpenGL>
+#include <QAction>
+#include <QOffscreenSurface>
+#include <QOpenGLContext>
+#include <QThread>
+#include <QWaitCondition>
 
 namespace colmap {
 
@@ -29,8 +31,27 @@ namespace colmap {
 #define glDebugLog()
 #endif
 
-void GLError(const char* file, int line);
+// This class manages a thread-safe OpenGL context. Note that this class must be
+// instantiated in the main Qt thread, since an OpenGL context must be created
+// in it. The context can then be made current in any other thread.
+class OpenGLContextManager : public QObject {
+ public:
+  OpenGLContextManager();
+
+  void MakeCurrent();
+
+ private:
+  QOffscreenSurface surface_;
+  QOpenGLContext context_;
+  QThread* parent_thread_;
+  QThread* current_thread_;
+  QAction* make_current_action_;
+  QMutex make_current_mutex_;
+  QWaitCondition make_current_done_;
+};
+
+void GLError(const char* file, const int line);
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_UI_OPENGL_UTILS_H_
+#endif  // COLMAP_SRC_OPENGL_UTILS_H_

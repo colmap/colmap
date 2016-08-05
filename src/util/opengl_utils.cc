@@ -16,9 +16,42 @@
 
 #include "util/opengl_utils.h"
 
+#include <QCoreApplication>
+
+#include "util/logging.h"
+
 namespace colmap {
 
-void GLError(const char* file, int line) {
+OpenGLContextManager::OpenGLContextManager()
+    : parent_thread_(QThread::currentThread()),
+      current_thread_(nullptr),
+      make_current_action_(new QAction(this)) {
+  CHECK_NOTNULL(QCoreApplication::instance());
+  CHECK_EQ(QCoreApplication::instance()->thread(), QThread::currentThread());
+
+  surface_.create();
+  CHECK(context_.create());
+  context_.makeCurrent(&surface_);
+
+  connect(make_current_action_, &QAction::triggered, this, [this]() {
+    CHECK_NOTNULL(current_thread_);
+    context_.doneCurrent();
+    context_.moveToThread(current_thread_);
+    make_current_done_.wakeAll();
+  });
+}
+
+void OpenGLContextManager::MakeCurrent() {
+  current_thread_ = QThread::currentThread();
+  make_current_action_->trigger();
+  {
+    QMutexLocker locker(&make_current_mutex_);
+    make_current_done_.wait(&make_current_mutex_);
+  }
+  context_.makeCurrent(&surface_);
+}
+
+void GLError(const char* file, const int line) {
   GLenum error_code(glGetError());
   while (error_code != GL_NO_ERROR) {
     std::string error_name;
