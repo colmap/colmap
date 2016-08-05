@@ -14,8 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include <QtGui>
-#include <QtWidgets>
+#include <QApplication>
 
 #include "base/feature_matching.h"
 #include "util/logging.h"
