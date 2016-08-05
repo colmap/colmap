@@ -27,8 +27,7 @@ using namespace colmap;
 // subset of images are selected.
 FeatureDescriptors LoadDescriptors(const std::string& database_path,
                                    const int max_num_images) {
-  Database database;
-  database.Open(database_path);
+  Database database(database_path);
 
   database.BeginTransaction();
 

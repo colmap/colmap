@@ -185,8 +185,7 @@ void IncrementalMapperController::Run() {
   DatabaseCache database_cache;
 
   {
-    Database database;
-    database.Open(*options_.database_path);
+    Database database(*options_.database_path);
     Timer timer;
     timer.Start();
     const size_t min_num_matches =

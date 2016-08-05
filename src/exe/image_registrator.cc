@@ -59,8 +59,7 @@ int main(int argc, char** argv) {
   DatabaseCache database_cache;
 
   {
-    Database database;
-    database.Open(*options.database_path);
+    Database database(*options.database_path);
     Timer timer;
     timer.Start();
     const size_t min_num_matches =

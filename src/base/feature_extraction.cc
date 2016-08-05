@@ -18,6 +18,8 @@
 
 #include <fstream>
 
+#include <boost/filesystem.hpp>
+
 #include "base/camera_models.h"
 #include "base/feature.h"
 #include "ext/VLFeat/context.h"
@@ -30,89 +32,6 @@ namespace colmap {
 namespace {
 
 VLContextManager vl_context_manager;
-
-bool LoadFeaturesFromTextFile(const std::string& path, Database* database,
-                              Image* image) {
-  std::ifstream file(path.c_str());
-
-  std::string line;
-  std::string item;
-
-  std::getline(file, line);
-  std::stringstream header_line_stream(line);
-
-  std::getline(header_line_stream, item, ' ');
-  boost::trim(item);
-  const point2D_t num_features = boost::lexical_cast<point2D_t>(item);
-
-  std::getline(header_line_stream, item, ' ');
-  boost::trim(item);
-  const size_t dim = boost::lexical_cast<size_t>(item);
-
-  FeatureKeypoints keypoints(num_features);
-  FeatureDescriptors descriptors(num_features, dim);
-
-  for (size_t i = 0; i < num_features; ++i) {
-    std::getline(file, line);
-    std::stringstream feature_line_stream(line);
-
-    // X
-    std::getline(feature_line_stream, item, ' ');
-    boost::trim(item);
-    keypoints[i].x = boost::lexical_cast<float>(item);
-
-    // Y
-    std::getline(feature_line_stream, item, ' ');
-    boost::trim(item);
-    keypoints[i].y = boost::lexical_cast<float>(item);
-
-    // Scale
-    std::getline(feature_line_stream, item, ' ');
-    boost::trim(item);
-    keypoints[i].scale = boost::lexical_cast<float>(item);
-
-    // Orientation
-    std::getline(feature_line_stream, item, ' ');
-    boost::trim(item);
-    keypoints[i].orientation = boost::lexical_cast<float>(item);
-
-    // Descriptor
-    for (size_t j = 0; j < dim; ++j) {
-      std::getline(feature_line_stream, item, ' ');
-      boost::trim(item);
-      const int value = boost::lexical_cast<int>(item);
-      if (value < 0) {
-        descriptors(i, j) = 0;
-      } else if (value > 255) {
-        descriptors(i, j) = 255;
-      } else {
-        descriptors(i, j) = static_cast<uint8_t>(value);
-      }
-    }
-  }
-
-  std::cout << "  Features:       " << num_features << std::endl;
-
-  file.close();
-
-  database->BeginTransaction();
-
-  if (image->ImageId() == kInvalidImageId) {
-    image->SetImageId(database->WriteImage(*image));
-  }
-
-  if (!database->ExistsKeypoints(image->ImageId())) {
-    database->WriteKeypoints(image->ImageId(), keypoints);
-  }
-
-  if (!database->ExistsDescriptors(image->ImageId())) {
-    database->WriteDescriptors(image->ImageId(), descriptors);
-  }
-
-  database->EndTransaction();
-
-  return true;
-}
 
 void ScaleBitmap(const int max_image_size, double* scale_x, double* scale_y,
                  Bitmap* bitmap) {
@@ -142,21 +61,6 @@ void ScaleBitmap(const int max_image_size, double* scale_x, double* scale_y,
   }
 }
 
-// Recursively collect list of files in sorted order.
-std::vector<std::string> GetRecursiveFileList(const std::string& path) {
-  namespace fs = boost::filesystem;
-  std::vector<std::string> file_list;
-  for (auto it = fs::recursive_directory_iterator(path);
-       it != fs::recursive_directory_iterator(); ++it) {
-    if (fs::is_regular_file(*it)) {
-      const fs::path file_path = *it;
-      file_list.push_back(file_path.string());
-    }
-  }
-  std::sort(file_list.begin(), file_list.end());
-  return file_list;
-}
-
 }  // namespace
 
 void SiftOptions::Check() const {
@@ -168,7 +72,7 @@ void SiftOptions::Check() const {
   CHECK_GT(max_num_orientations, 0);
 }
 
-void FeatureExtractor::Options::Check() const {
+void ImageReader::Options::Check() const {
   CHECK_GT(default_focal_length_factor, 0.0);
   const int model_id = CameraModelNameToId(camera_model);
   CHECK_NE(model_id, -1);
@@ -178,62 +82,71 @@ void FeatureExtractor::Options::Check() const {
   }
 }
 
-FeatureExtractor::FeatureExtractor(const Options& options,
-                                   const std::string& database_path,
-                                   const std::string& image_path)
-    : options_(options),
-      database_path_(database_path),
-      image_path_(image_path) {
+ImageReader::ImageReader(const Options& options)
+    : options_(options), image_index_(0) {
   options_.Check();
+
   // Ensure trailing slash, so that we can build the correct image name.
-  image_path_ = StringReplace(image_path_, "\\", "/");
-  image_path_ = EnsureTrailingSlash(image_path_);
+  options_.image_path =
+      EnsureTrailingSlash(StringReplace(options_.image_path, "\\", "/"));
+
+  // Get a list of all files in the image path, sorted by image name.
+  image_list_ = GetRecursiveFileList(options_.image_path);
+  std::sort(image_list_.begin(), image_list_.end());
+
+  // Set the manually specified camera parameters.
+  prev_camera_.SetCameraId(kInvalidCameraId);
+  prev_camera_.SetModelIdFromName(options_.camera_model);
+  if (!options_.camera_params.empty()) {
+    prev_camera_.SetParamsFromString(options_.camera_params);
+  }
 }
 
-void FeatureExtractor::Run() {
-  last_camera_.SetModelIdFromName(options_.camera_model);
-  last_camera_id_ = kInvalidCameraId;
-  if (!options_.camera_params.empty() &&
-      !last_camera_.SetParamsFromString(options_.camera_params)) {
-    std::cerr << "  ERROR: Invalid camera parameters." << std::endl;
-    return;
+bool ImageReader::Next(Image* image, Bitmap* bitmap) {
+  CHECK_NOTNULL(image);
+  CHECK_NOTNULL(bitmap);
+
+  image_index_ += 1;
+  if (image_index_ > image_list_.size()) {
+    return false;
   }
 
-  database_.Open(database_path_);
-  DoExtraction();
-  database_.Close();
+  const std::string image_path = image_list_.at(image_index_ - 1);
 
-  GetTimer().PrintMinutes();
+  Database database(options_.database_path);
 
-  Callback("Finished");
-}
+  //////////////////////////////////////////////////////////////////////////////
+  // Set the image name.
+  //////////////////////////////////////////////////////////////////////////////
 
-bool FeatureExtractor::ReadImage(const std::string& image_path, Image* image,
-                                 Bitmap* bitmap) {
   image->SetName(image_path);
   image->SetName(StringReplace(image->Name(), "\\", "/"));
-  image->SetName(StringReplace(image->Name(), image_path_, ""));
+  image->SetName(StringReplace(image->Name(), options_.image_path, ""));
 
   std::cout << "  Name:           " << image->Name() << std::endl;
 
-  const bool exists_image = database_.ExistsImageName(image->Name());
+  //////////////////////////////////////////////////////////////////////////////
+  // Check if image already read.
+  //////////////////////////////////////////////////////////////////////////////
+
+  const bool exists_image = database.ExistsImageName(image->Name());
 
   if (exists_image) {
-    database_.BeginTransaction();
-    *image = database_.ReadImageFromName(image->Name());
-    const bool exists_keypoints = database_.ExistsKeypoints(image->ImageId());
+    database.BeginTransaction();
+    *image = database.ReadImageFromName(image->Name());
+    const bool exists_keypoints = database.ExistsKeypoints(image->ImageId());
     const bool exists_descriptors =
-        database_.ExistsDescriptors(image->ImageId());
-    database_.EndTransaction();
+        database.ExistsDescriptors(image->ImageId());
+    database.EndTransaction();
 
     if (exists_keypoints && exists_descriptors) {
-      std::cout << "  SKIP: Image already processed." << std::endl;
+      std::cout << "  SKIP: Features already extracted." << std::endl;
       return false;
     }
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  // Read image
+  // Read image.
   //////////////////////////////////////////////////////////////////////////////
 
   if (!bitmap->Read(image_path, false)) {
@@ -247,11 +160,11 @@ bool FeatureExtractor::ReadImage(const std::string& image_path, Image* image,
   //////////////////////////////////////////////////////////////////////////////
 
   if (exists_image) {
-    const Camera camera = database_.ReadCamera(image->CameraId());
+    const Camera camera = database.ReadCamera(image->CameraId());
 
-    if (options_.single_camera && last_camera_id_ != kInvalidCameraId &&
-        (camera.Width() != last_camera_.Width() ||
-         camera.Height() != last_camera_.Height())) {
+    if (options_.single_camera && prev_camera_.CameraId() != kInvalidCameraId &&
+        (camera.Width() != prev_camera_.Width() ||
+         camera.Height() != prev_camera_.Height())) {
       std::cerr << "  ERROR: Single camera specified, but images have "
                    "different dimensions."
                 << std::endl;
@@ -267,65 +180,65 @@ bool FeatureExtractor::ReadImage(const std::string& image_path, Image* image,
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  // Extract image dimensions
+  // Extract image dimensions.
   //////////////////////////////////////////////////////////////////////////////
 
-  if (options_.single_camera && last_camera_id_ != kInvalidCameraId &&
-      (last_camera_.Width() != static_cast<size_t>(bitmap->Width()) ||
-       last_camera_.Height() != static_cast<size_t>(bitmap->Height()))) {
+  if (options_.single_camera && prev_camera_.CameraId() != kInvalidCameraId &&
+      (prev_camera_.Width() != static_cast<size_t>(bitmap->Width()) ||
+       prev_camera_.Height() != static_cast<size_t>(bitmap->Height()))) {
     std::cerr << "  ERROR: Single camera specified, but images have "
-                 "different dimensions"
+                 "different dimensions."
               << std::endl;
     return false;
   }
 
-  last_camera_.SetWidth(static_cast<size_t>(bitmap->Width()));
-  last_camera_.SetHeight(static_cast<size_t>(bitmap->Height()));
+  prev_camera_.SetWidth(static_cast<size_t>(bitmap->Width()));
+  prev_camera_.SetHeight(static_cast<size_t>(bitmap->Height()));
 
-  std::cout << "  Width:          " << last_camera_.Width() << "px"
+  std::cout << "  Width:          " << prev_camera_.Width() << "px"
             << std::endl;
-  std::cout << "  Height:         " << last_camera_.Height() << "px"
+  std::cout << "  Height:         " << prev_camera_.Height() << "px"
             << std::endl;
 
   //////////////////////////////////////////////////////////////////////////////
   // Extract camera model and focal length
   //////////////////////////////////////////////////////////////////////////////
 
-  if (!options_.single_camera || last_camera_id_ == kInvalidCameraId) {
+  if (!options_.single_camera || prev_camera_.CameraId() == kInvalidCameraId) {
     if (options_.camera_params.empty()) {
       // Extract focal length.
       double focal_length = 0.0;
       if (bitmap->ExifFocalLength(&focal_length)) {
-        last_camera_.SetPriorFocalLength(true);
+        prev_camera_.SetPriorFocalLength(true);
         std::cout << "  Focal length:   " << focal_length << "px (EXIF)"
                   << std::endl;
       } else {
         focal_length = options_.default_focal_length_factor *
                        std::max(bitmap->Width(), bitmap->Height());
-        last_camera_.SetPriorFocalLength(false);
+        prev_camera_.SetPriorFocalLength(false);
         std::cout << "  Focal length:   " << focal_length << "px" << std::endl;
       }
 
-      last_camera_.InitializeWithId(last_camera_.ModelId(), focal_length,
-                                    last_camera_.Width(),
-                                    last_camera_.Height());
+      prev_camera_.InitializeWithId(prev_camera_.ModelId(), focal_length,
+                                    prev_camera_.Width(),
+                                    prev_camera_.Height());
     }
 
-    if (!last_camera_.VerifyParams()) {
+    if (!prev_camera_.VerifyParams()) {
       std::cerr << "  ERROR: Invalid camera parameters." << std::endl;
       return false;
     }
 
-    last_camera_id_ = database_.WriteCamera(last_camera_);
+    prev_camera_.SetCameraId(database.WriteCamera(prev_camera_));
   }
 
-  image->SetCameraId(last_camera_id_);
+  image->SetCameraId(prev_camera_.CameraId());
 
-  std::cout << "  Camera ID:      " << last_camera_id_ << std::endl;
-  std::cout << "  Camera Model:   " << last_camera_.ModelName() << std::endl;
+  std::cout << "  Camera ID:      " << prev_camera_.CameraId() << std::endl;
+  std::cout << "  Camera Model:   " << prev_camera_.ModelName() << std::endl;
 
   //////////////////////////////////////////////////////////////////////////////
-  // Extract GPS data
+  // Extract GPS data.
   //////////////////////////////////////////////////////////////////////////////
 
   if (bitmap->ExifLatitude(&image->TvecPrior(0)) &&
@@ -344,65 +257,67 @@ bool FeatureExtractor::ReadImage(const std::string& image_path, Image* image,
   return true;
 }
 
+size_t ImageReader::NextIndex() const { return image_index_; }
+
+size_t ImageReader::NumImages() const { return image_list_.size(); }
+
 SiftCPUFeatureExtractor::SiftCPUFeatureExtractor(
-    const Options& options, const SiftOptions& sift_options,
-    const CPUOptions& cpu_options, const std::string& database_path,
-    const std::string& image_path)
-    : FeatureExtractor(options, database_path, image_path),
+    const ImageReader::Options& reader_options, const SiftOptions& sift_options,
+    const Options& cpu_options)
+    : reader_options_(reader_options),
       sift_options_(sift_options),
       cpu_options_(cpu_options) {
   sift_options_.Check();
   cpu_options_.Check();
 }
 
-void SiftCPUFeatureExtractor::CPUOptions::Check() const {
+void SiftCPUFeatureExtractor::Options::Check() const {
   CHECK_GT(batch_size_factor, 0);
 }
 
-void SiftCPUFeatureExtractor::DoExtraction() {
+void SiftCPUFeatureExtractor::Run() {
   PrintHeading1("Feature extraction (CPU)");
 
-  //////////////////////////////////////////////////////////////////////////////
-  // Extract features
-  //////////////////////////////////////////////////////////////////////////////
+  ImageReader image_reader(reader_options_);
 
   ThreadPool thread_pool(cpu_options_.num_threads);
 
   const size_t batch_size = static_cast<size_t>(cpu_options_.batch_size_factor *
                                                 thread_pool.NumThreads());
 
-  const std::vector<std::string> file_list = GetRecursiveFileList(image_path_);
-
   struct ExtractionResult {
     FeatureKeypoints keypoints;
     FeatureDescriptors descriptors;
   };
 
-  size_t file_idx = 0;
-  while (file_idx < file_list.size()) {
+  while (image_reader.NextIndex() < image_reader.NumImages()) {
     if (IsStopped()) {
       break;
     }
 
     PrintHeading2("Preparing batch");
 
-    std::vector<size_t> file_idxs;
+    std::vector<size_t> image_idxs;
     std::vector<Image> images;
     std::vector<std::future<ExtractionResult>> futures;
-    for (; futures.size() < batch_size && file_idx < file_list.size();
-         ++file_idx) {
-      std::cout << "Preparing file [" << file_idx + 1 << "/" << file_list.size()
-                << "]" << std::endl;
+    while (futures.size() < batch_size &&
+           image_reader.NextIndex() < image_reader.NumImages()) {
+      if (IsStopped()) {
+        break;
+      }
 
-      const std::string image_path = file_list[file_idx];
+      std::cout << StringPrintf("Preparing file [%d/%d]",
+                                image_reader.NextIndex() + 1,
+                                image_reader.NumImages())
+                << std::endl;
 
       Image image;
       std::shared_ptr<Bitmap> bitmap = std::make_shared<Bitmap>();
-      if (!ReadImage(image_path, &image, bitmap.get())) {
+      if (!image_reader.Next(&image, bitmap.get())) {
         continue;
       }
 
-      file_idxs.push_back(file_idx);
+      image_idxs.push_back(image_reader.NextIndex());
       images.push_back(image);
       futures.push_back(thread_pool.AddTask([this, bitmap]() {
         ExtractionResult result;
@@ -414,43 +329,53 @@ void SiftCPUFeatureExtractor::DoExtraction() {
       }));
     }
 
+    if (futures.empty()) {
+      break;
+    }
+
     PrintHeading2("Processing batch");
+
+    Database database(reader_options_.database_path);
 
     for (size_t i = 0; i < futures.size(); ++i) {
       Image& image = images[i];
       const ExtractionResult result = futures[i].get();
 
-      database_.BeginTransaction();
+      database.BeginTransaction();
 
       if (image.ImageId() == kInvalidImageId) {
-        image.SetImageId(database_.WriteImage(image));
+        image.SetImageId(database.WriteImage(image));
       }
 
-      if (!database_.ExistsKeypoints(image.ImageId())) {
-        database_.WriteKeypoints(image.ImageId(), result.keypoints);
+      if (!database.ExistsKeypoints(image.ImageId())) {
+        database.WriteKeypoints(image.ImageId(), result.keypoints);
       }
 
-      if (!database_.ExistsDescriptors(image.ImageId())) {
-        database_.WriteDescriptors(image.ImageId(), result.descriptors);
+      if (!database.ExistsDescriptors(image.ImageId())) {
+        database.WriteDescriptors(image.ImageId(), result.descriptors);
       }
 
-      std::cout << "  Features:       " << result.keypoints.size() << " ["
-                << file_idxs[i] << "/" << file_list.size() << "]" << std::endl;
+      std::cout << StringPrintf("  Features:       %d [%d/%d]",
+                                result.keypoints.size(), image_idxs[i],
+                                image_reader.NumImages())
+                << std::endl;
 
-      database_.EndTransaction();
+      database.EndTransaction();
     }
   }
+
+  GetTimer().PrintMinutes();
+
+  Callback("Finished");
 }
 
 SiftGPUFeatureExtractor::SiftGPUFeatureExtractor(
-    const Options& options, const SiftOptions& sift_options,
-    const std::string& database_path, const std::string& image_path)
-    : FeatureExtractor(options, database_path, image_path),
-      sift_options_(sift_options) {
+    const ImageReader::Options& reader_options, const SiftOptions& sift_options)
+    : reader_options_(reader_options), sift_options_(sift_options) {
   sift_options_.Check();
 }
 
-void SiftGPUFeatureExtractor::DoExtraction() {
+void SiftGPUFeatureExtractor::Run() {
   PrintHeading1("Feature extraction (GPU)");
 
   SiftGPU sift_gpu;
@@ -459,25 +384,21 @@ void SiftGPUFeatureExtractor::DoExtraction() {
     return;
   }
 
-  const std::vector<std::string> file_list = GetRecursiveFileList(image_path_);
+  ImageReader image_reader(reader_options_);
 
-  for (size_t file_idx = 0; file_idx < file_list.size(); ++file_idx) {
+  while (image_reader.NextIndex() < image_reader.NumImages()) {
     if (IsStopped()) {
-      return;
+      break;
     }
 
-    std::cout << "Processing file [" << file_idx + 1 << "/" << file_list.size()
-              << "]" << std::endl;
-
-    const std::string image_path = file_list[file_idx];
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Read image
-    ////////////////////////////////////////////////////////////////////////////
+    std::cout << StringPrintf("Processing file [%d/%d]",
+                              image_reader.NextIndex() + 1,
+                              image_reader.NumImages())
+              << std::endl;
 
     Image image;
     Bitmap bitmap;
-    if (!ReadImage(image_path, &image, &bitmap)) {
+    if (!image_reader.Next(&image, &bitmap)) {
       continue;
     }
 
@@ -489,34 +410,37 @@ void SiftGPUFeatureExtractor::DoExtraction() {
       continue;
     }
 
-    database_.BeginTransaction();
+    Database database(reader_options_.database_path);
+    database.BeginTransaction();
 
     if (image.ImageId() == kInvalidImageId) {
-      image.SetImageId(database_.WriteImage(image));
+      image.SetImageId(database.WriteImage(image));
     }
 
-    if (!database_.ExistsKeypoints(image.ImageId())) {
-      database_.WriteKeypoints(image.ImageId(), keypoints);
+    if (!database.ExistsKeypoints(image.ImageId())) {
+      database.WriteKeypoints(image.ImageId(), keypoints);
     }
 
-    if (!database_.ExistsDescriptors(image.ImageId())) {
-      database_.WriteDescriptors(image.ImageId(), descriptors);
+    if (!database.ExistsDescriptors(image.ImageId())) {
+      database.WriteDescriptors(image.ImageId(), descriptors);
     }
 
     std::cout << "  Features:       " << keypoints.size() << std::endl;
 
-    database_.EndTransaction();
+    database.EndTransaction();
   }
+
+  GetTimer().PrintMinutes();
+
+  Callback("Finished");
 }
 
-FeatureImporter::FeatureImporter(const Options& options,
-                                 const std::string& database_path,
-                                 const std::string& image_path,
+FeatureImporter::FeatureImporter(const ImageReader::Options& reader_options,
                                  const std::string& import_path)
-    : FeatureExtractor(options, database_path, image_path),
+    : reader_options_(reader_options),
       import_path_(EnsureTrailingSlash(import_path)) {}
 
-void FeatureImporter::DoExtraction() {
+void FeatureImporter::Run() {
   PrintHeading1("Feature import");
 
   if (!boost::filesystem::exists(import_path_)) {
@@ -524,37 +448,61 @@ void FeatureImporter::DoExtraction() {
     return;
   }
 
-  last_camera_.SetModelIdFromName(options_.camera_model);
+  ImageReader image_reader(reader_options_);
 
-  const std::vector<std::string> file_list = GetRecursiveFileList(image_path_);
-
-  for (size_t file_idx = 0; file_idx < file_list.size(); ++file_idx) {
+  while (image_reader.NextIndex() < image_reader.NumImages()) {
     if (IsStopped()) {
-      return;
+      break;
     }
 
-    std::cout << "Processing file [" << file_idx + 1 << "/" << file_list.size()
-              << "]" << std::endl;
-
-    const std::string image_path = file_list[file_idx];
+    std::cout << StringPrintf("Processing file [%d/%d]",
+                              image_reader.NextIndex() + 1,
+                              image_reader.NumImages())
+              << std::endl;
 
     // Load image data and possibly save camera to database.
     Bitmap bitmap;
     Image image;
-    if (!ReadImage(image_path, &image, &bitmap)) {
+    if (!image_reader.Next(&image, &bitmap)) {
       continue;
     }
 
     const std::string path = import_path_ + image.Name() + ".txt";
 
     if (boost::filesystem::exists(path)) {
-      if (!LoadFeaturesFromTextFile(path, &database_, &image)) {
-        std::cout << "  SKIP: Image already processed." << std::endl;
+      FeatureKeypoints keypoints;
+      FeatureDescriptors descriptors;
+      LoadSiftFeaturesFromTextFile(path, &keypoints, &descriptors);
+
+      std::cout << "  Features:       " << keypoints.size() << std::endl;
+
+      Database database(reader_options_.database_path);
+
+      database.BeginTransaction();
+
+      if (image.ImageId() == kInvalidImageId) {
+        image.SetImageId(database.WriteImage(image));
       }
+
+      if (!database.ExistsKeypoints(image.ImageId())) {
+        database.WriteKeypoints(image.ImageId(), keypoints);
+      }
+
+      if (!database.ExistsDescriptors(image.ImageId())) {
+        database.WriteDescriptors(image.ImageId(), descriptors);
+      }
+
+      database.EndTransaction();
+
+      std::cout << "  SKIP: Image already processed." << std::endl;
     } else {
       std::cout << "  SKIP: No features found at " << path << std::endl;
     }
   }
+
+  GetTimer().PrintMinutes();
+
+  Callback("Finished");
 }
 
 bool ExtractSiftFeaturesCPU(const SiftOptions& sift_options,
@@ -855,6 +803,72 @@ bool ExtractSiftFeaturesGPU(const SiftOptions& sift_options,
   *descriptors = FeatureDescriptorsToUnsignedByte(descriptors_float);
 
   return true;
+}
+
+void LoadSiftFeaturesFromTextFile(const std::string& path,
+                                  FeatureKeypoints* keypoints,
+                                  FeatureDescriptors* descriptors) {
+  CHECK_NOTNULL(keypoints);
+  CHECK_NOTNULL(descriptors);
+
+  std::ifstream file(path.c_str());
+  CHECK(file.is_open());
+
+  std::string line;
+  std::string item;
+
+  std::getline(file, line);
+  std::stringstream header_line_stream(line);
+
+  std::getline(header_line_stream, item, ' ');
+  boost::trim(item);
+  const point2D_t num_features = boost::lexical_cast<point2D_t>(item);
+
+  std::getline(header_line_stream, item, ' ');
+  boost::trim(item);
+  const size_t dim = boost::lexical_cast<size_t>(item);
+
+  keypoints->resize(num_features);
+  descriptors->resize(num_features, dim);
+
+  for (size_t i = 0; i < num_features; ++i) {
+    std::getline(file, line);
+    std::stringstream feature_line_stream(line);
+
+    // X
+    std::getline(feature_line_stream, item, ' ');
+    boost::trim(item);
+    (*keypoints)[i].x = boost::lexical_cast<float>(item);
+
+    // Y
+    std::getline(feature_line_stream, item, ' ');
+    boost::trim(item);
+    (*keypoints)[i].y = boost::lexical_cast<float>(item);
+
+    // Scale
+    std::getline(feature_line_stream, item, ' ');
+    boost::trim(item);
+    (*keypoints)[i].scale = boost::lexical_cast<float>(item);
+
+    // Orientation
+    std::getline(feature_line_stream, item, ' ');
+    boost::trim(item);
+    (*keypoints)[i].orientation = boost::lexical_cast<float>(item);
+
+    // Descriptor
+    for (size_t j = 0; j < dim; ++j) {
+      std::getline(feature_line_stream, item, ' ');
+      boost::trim(item);
+      const int value = boost::lexical_cast<int>(item);
+      if (value < 0) {
+        (*descriptors)(i, j) = 0;
+      } else if (value > 255) {
+        (*descriptors)(i, j) = 255;
+      } else {
+        (*descriptors)(i, j) = static_cast<uint8_t>(value);
+      }
+    }
+  }
 }
 
 }  // namespace colmap

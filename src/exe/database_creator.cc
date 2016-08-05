@@ -34,8 +34,7 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
-  Database database;
-  database.Open(*options.database_path);
+  Database database(*options.database_path);
 
   return EXIT_SUCCESS;
 }

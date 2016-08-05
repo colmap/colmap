@@ -114,7 +114,7 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
   AddOptionInt(&sift_options.max_num_orientations, "max_num_orientations");
   AddOptionBool(&sift_options.upright, "upright");
 
-  SiftCPUFeatureExtractor::CPUOptions& cpu_options =
+  SiftCPUFeatureExtractor::Options& cpu_options =
       options->extraction_options->cpu_options;
   AddOptionInt(&cpu_options.num_threads, "cpu_num_threads", -1);
   AddOptionInt(&cpu_options.batch_size_factor, "cpu_batch_size_factor");
@@ -123,17 +123,18 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
 void SIFTExtractionWidget::Run() {
   WriteOptions();
 
+  ImageReader::Options reader_options =
+      options_->extraction_options->reader_options;
+  reader_options.database_path = *options_->database_path;
+  reader_options.image_path = *options_->image_path;
+
   if (sift_gpu_->isChecked()) {
     extractor_.reset(new SiftGPUFeatureExtractor(
-        options_->extraction_options->Options(),
-        options_->extraction_options->sift_options, *options_->database_path,
-        *options_->image_path));
+        reader_options, options_->extraction_options->sift_options));
   } else {
     extractor_.reset(new SiftCPUFeatureExtractor(
-        options_->extraction_options->Options(),
-        options_->extraction_options->sift_options,
-        options_->extraction_options->cpu_options, *options_->database_path,
-        *options_->image_path));
+        reader_options, options_->extraction_options->sift_options,
+        options_->extraction_options->cpu_options));
   }
 
   extractor_->SetCallback("Finished", [this]() { destructor_->trigger(); });
@@ -156,9 +157,13 @@ void ImportFeaturesWidget::Run() {
     return;
   }
 
-  extractor_.reset(new FeatureImporter(
-      options_->extraction_options->Options(), *options_->database_path,
-      *options_->image_path, EnsureTrailingSlash(import_path_)));
+  ImageReader::Options reader_options =
+      options_->extraction_options->reader_options;
+  reader_options.database_path = *options_->database_path;
+  reader_options.image_path = *options_->image_path;
+
+  extractor_.reset(
+      new FeatureImporter(reader_options, EnsureTrailingSlash(import_path_)));
 
   extractor_->SetCallback("Finished", [this]() { destructor_->trigger(); });
   extractor_->Start();
@@ -259,8 +264,8 @@ void FeatureExtractionWidget::hideEvent(QHideEvent* event) {
 }
 
 void FeatureExtractionWidget::ReadOptions() {
-  const auto camera_code =
-      CameraModelNameToId(options_->extraction_options->camera_model);
+  const auto camera_code = CameraModelNameToId(
+      options_->extraction_options->reader_options.camera_model);
   for (size_t i = 0; i < camera_model_ids_.size(); ++i) {
     if (camera_model_ids_[i] == camera_code) {
       SelectCameraModel(i);
@@ -268,16 +273,18 @@ void FeatureExtractionWidget::ReadOptions() {
       break;
     }
   }
-  single_camera_cb_->setChecked(options_->extraction_options->single_camera);
-  camera_params_text_->setText(
-      QString::fromStdString(options_->extraction_options->camera_params));
+  single_camera_cb_->setChecked(
+      options_->extraction_options->reader_options.single_camera);
+  camera_params_text_->setText(QString::fromStdString(
+      options_->extraction_options->reader_options.camera_params));
 }
 
 void FeatureExtractionWidget::WriteOptions() {
-  options_->extraction_options->camera_model =
+  options_->extraction_options->reader_options.camera_model =
       CameraModelIdToName(camera_model_ids_[camera_model_cb_->currentIndex()]);
-  options_->extraction_options->single_camera = single_camera_cb_->isChecked();
-  options_->extraction_options->camera_params =
+  options_->extraction_options->reader_options.single_camera =
+      single_camera_cb_->isChecked();
+  options_->extraction_options->reader_options.camera_params =
       camera_params_text_->text().toUtf8().constData();
 }
 
@@ -297,10 +304,10 @@ void FeatureExtractionWidget::Extract() {
 
   WriteOptions();
 
-  const std::vector<double> camera_params =
-      CSVToVector<double>(options_->extraction_options->camera_params);
-  const auto camera_code =
-      CameraModelNameToId(options_->extraction_options->camera_model);
+  const std::vector<double> camera_params = CSVToVector<double>(
+      options_->extraction_options->reader_options.camera_params);
+  const auto camera_code = CameraModelNameToId(
+      options_->extraction_options->reader_options.camera_model);
 
   if (camera_params_custom_rb_->isChecked() &&
       !CameraModelVerifyParams(camera_code, camera_params)) {

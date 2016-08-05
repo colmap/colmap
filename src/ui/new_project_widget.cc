@@ -99,8 +99,7 @@ void NewProjectWidget::Create() {
     *options_->image_path = ImagePath();
 
     // Create empty database file.
-    Database database;
-    database.Open(*options_->database_path);
+    Database database(*options_->database_path);
 
     hide();
   }

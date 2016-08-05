@@ -41,10 +41,10 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
-  const std::vector<double> camera_params =
-      CSVToVector<double>(options.extraction_options->camera_params);
-  const int camera_model_id =
-      CameraModelNameToId(options.extraction_options->camera_model);
+  const std::vector<double> camera_params = CSVToVector<double>(
+      options.extraction_options->reader_options.camera_params);
+  const int camera_model_id = CameraModelNameToId(
+      options.extraction_options->reader_options.camera_model);
 
   if (camera_params.size() > 0 &&
       !CameraModelVerifyParams(camera_model_id, camera_params)) {
@@ -52,9 +52,12 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  FeatureImporter feature_importer(options.extraction_options->Options(),
-                                   *options.database_path, *options.image_path,
-                                   import_path);
+  ImageReader::Options reader_options =
+      options.extraction_options->reader_options;
+  reader_options.database_path = *options.database_path;
+  reader_options.image_path = *options.image_path;
+
+  FeatureImporter feature_importer(reader_options, import_path);
 
   feature_importer.Start();
   feature_importer.Wait();

@@ -44,15 +44,9 @@ struct ExtractionOptions : public BaseOptions {
   void Reset() override;
   bool Check() override;
 
-  FeatureExtractor::Options Options() const;
-
-  std::string camera_model;
-  bool single_camera;
-  std::string camera_params;
-  double default_focal_length_factor;
-
+  ImageReader::Options reader_options;
   SiftOptions sift_options;
-  SiftCPUFeatureExtractor::CPUOptions cpu_options;
+  SiftCPUFeatureExtractor::Options cpu_options;
 };
 
 struct MatchOptions : public BaseOptions {

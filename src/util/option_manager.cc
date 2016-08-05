@@ -94,28 +94,26 @@ bool BaseOptions::Check() { return false; }
 ExtractionOptions::ExtractionOptions() { Reset(); }
 
 void ExtractionOptions::Reset() {
-  FeatureExtractor::Options options;
-  camera_model = options.camera_model;
-  single_camera = options.single_camera;
-  camera_params = options.camera_params;
-  default_focal_length_factor = options.default_focal_length_factor;
+  reader_options = ImageReader::Options();
   sift_options = SiftOptions();
-  cpu_options = SiftCPUFeatureExtractor::CPUOptions();
+  cpu_options = SiftCPUFeatureExtractor::Options();
 }
 
 bool ExtractionOptions::Check() {
   bool verified = true;
 
-  CHECK_OPTION(ExtractionOptions, default_focal_length_factor, > 0);
+  CHECK_OPTION(ExtractionOptions, reader_options.default_focal_length_factor,
+               > 0);
 
-  if (!camera_model.empty()) {
-    const auto model_id = CameraModelNameToId(camera_model);
-    VERIFY_OPTION_MSG(ExtractionOptions, camera_model, model_id != -1,
-                      "Camera model does not exist");
+  if (!reader_options.camera_model.empty()) {
+    const auto model_id = CameraModelNameToId(reader_options.camera_model);
+    VERIFY_OPTION_MSG(ExtractionOptions, reader_options.camera_model,
+                      model_id != -1, "Camera model does not exist");
 
-    if (!camera_params.empty()) {
-      const auto camera_params_vector = CSVToVector<double>(camera_params);
-      VERIFY_OPTION_MSG(ExtractionOptions, camera_params,
+    if (!reader_options.camera_params.empty()) {
+      const auto camera_params_vector =
+          CSVToVector<double>(reader_options.camera_params);
+      VERIFY_OPTION_MSG(ExtractionOptions, reader_options.camera_params,
                         CameraModelVerifyParams(model_id, camera_params_vector),
                         "Invalid camera parameters");
     }
@@ -130,15 +128,6 @@ bool ExtractionOptions::Check() {
   CHECK_OPTION(ExtractionOptions, cpu_options.batch_size_factor, > 0);
 
   return verified;
-}
-
-FeatureExtractor::Options ExtractionOptions::Options() const {
-  FeatureExtractor::Options options;
-  options.camera_model = camera_model;
-  options.single_camera = single_camera;
-  options.camera_params = camera_params;
-  options.default_focal_length_factor = default_focal_length_factor;
-  return options;
 }
 
 MatchOptions::MatchOptions() { Reset(); }
@@ -749,11 +738,14 @@ void OptionManager::AddExtractionOptions() {
   }
   added_extraction_options_ = true;
 
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options, camera_model);
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options, single_camera);
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options, camera_params);
   ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
-                     default_focal_length_factor);
+                     reader_options.camera_model);
+  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
+                     reader_options.single_camera);
+  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
+                     reader_options.camera_params);
+  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
+                     reader_options.default_focal_length_factor);
 
   ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
                      sift_options.max_image_size);
