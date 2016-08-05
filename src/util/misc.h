@@ -36,6 +36,9 @@ std::string EnsureTrailingSlash(const std::string& str);
 // Check whether file name has the file extension (case insensitive).
 bool HasFileExtension(const std::string& file_name, const std::string& ext);
 
+// Return list of files, recursively in all sub-directories.
+std::vector<std::string> GetRecursiveFileList(const std::string& path);
+
 // Print first-order heading with over- and underscores to `std::cout`.
 //
 // @param heading      Heading text as a single line.

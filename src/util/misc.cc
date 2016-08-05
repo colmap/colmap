@@ -23,6 +23,7 @@
 #include <stdio.h>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 
 #include "util/logging.h"
 
@@ -104,6 +105,18 @@ bool HasFileExtension(const std::string& file_name, const std::string& ext) {
     return true;
   }
   return false;
+}
+
+std::vector<std::string> GetRecursiveFileList(const std::string& path) {
+  std::vector<std::string> file_list;
+  for (auto it = boost::filesystem::recursive_directory_iterator(path);
+       it != boost::filesystem::recursive_directory_iterator(); ++it) {
+    if (boost::filesystem::is_regular_file(*it)) {
+      const boost::filesystem::path file_path = *it;
+      file_list.push_back(file_path.string());
+    }
+  }
+  return file_list;
 }
 
 void PrintHeading1(const std::string& heading) {
