@@ -52,12 +52,12 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  FeatureImporter* feature_importer = new FeatureImporter(
-      options.extraction_options->Options(), *options.database_path,
-      *options.image_path, import_path);
+  FeatureImporter feature_importer(options.extraction_options->Options(),
+                                   *options.database_path, *options.image_path,
+                                   import_path);
 
-  feature_importer->start();
-  feature_importer->wait();
+  feature_importer.Start();
+  feature_importer.Wait();
 
   return EXIT_SUCCESS;
 }

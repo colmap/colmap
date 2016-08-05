@@ -49,8 +49,7 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  IncrementalMapperController* mapper_controller =
-      new IncrementalMapperController(options);
+  IncrementalMapperController mapper_controller(options);
 
   if (import_path != "") {
     if (!boost::filesystem::is_directory(import_path)) {
@@ -58,16 +57,16 @@ int main(int argc, char** argv) {
       return EXIT_FAILURE;
     }
 
-    const size_t model_idx = mapper_controller->AddModel();
-    mapper_controller->Model(model_idx).Read(import_path);
+    const size_t model_idx = mapper_controller.AddModel();
+    mapper_controller.Model(model_idx).Read(import_path);
   }
 
-  mapper_controller->start();
-  mapper_controller->wait();
+  mapper_controller.Start();
+  mapper_controller.Wait();
 
   export_path = EnsureTrailingSlash(export_path);
 
-  for (size_t i = 0; i < mapper_controller->NumModels(); ++i) {
+  for (size_t i = 0; i < mapper_controller.NumModels(); ++i) {
     const std::string model_path = export_path + std::to_string(i);
 
     if (!boost::filesystem::is_directory(model_path)) {
@@ -75,7 +74,7 @@ int main(int argc, char** argv) {
     }
 
     options.Write(model_path + "/project.ini");
-    mapper_controller->Model(i).Write(model_path);
+    mapper_controller.Model(i).Write(model_path);
   }
 
   return EXIT_SUCCESS;

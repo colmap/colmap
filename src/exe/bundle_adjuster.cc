@@ -48,7 +48,9 @@ int main(int argc, char** argv) {
 
   BundleAdjustmentController ba_controller(options);
   ba_controller.reconstruction = &reconstruction;
-  ba_controller.run();
+
+  ba_controller.Start();
+  ba_controller.Wait();
 
   reconstruction.Write(output_path);
 
