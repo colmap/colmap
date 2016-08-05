@@ -24,22 +24,23 @@ using namespace colmap;
 
 const static std::string kMemoryDatabasePath = ":memory:";
 
+BOOST_AUTO_TEST_CASE(TestOpenCloseConstructorDestructor) {
+  Database database(kMemoryDatabasePath);
+}
+
 BOOST_AUTO_TEST_CASE(TestOpenClose) {
-  Database database;
-  database.Open(kMemoryDatabasePath);
+  Database database(kMemoryDatabasePath);
   database.Close();
 }
 
 BOOST_AUTO_TEST_CASE(TestTransaction) {
-  Database database;
-  database.Open(kMemoryDatabasePath);
+  Database database(kMemoryDatabasePath);
   database.BeginTransaction();
   database.EndTransaction();
 }
 
 BOOST_AUTO_TEST_CASE(TestEmpty) {
-  Database database;
-  database.Open(kMemoryDatabasePath);
+  Database database(kMemoryDatabasePath);
   BOOST_CHECK_EQUAL(database.NumCameras(), 0);
   BOOST_CHECK_EQUAL(database.NumImages(), 0);
   BOOST_CHECK_EQUAL(database.NumKeypoints(), 0);
@@ -81,8 +82,7 @@ BOOST_AUTO_TEST_CASE(TestSwapImagePair) {
 }
 
 BOOST_AUTO_TEST_CASE(TestCamera) {
-  Database database;
-  database.Open(kMemoryDatabasePath);
+  Database database(kMemoryDatabasePath);
   BOOST_CHECK_EQUAL(database.NumCameras(), 0);
   Camera camera;
   camera.InitializeWithName("SIMPLE_PINHOLE", 1.0, 1, 1);
@@ -116,8 +116,7 @@ BOOST_AUTO_TEST_CASE(TestCamera) {
 }
 
 BOOST_AUTO_TEST_CASE(TestImage) {
-  Database database;
-  database.Open(kMemoryDatabasePath);
+  Database database(kMemoryDatabasePath);
   Camera camera;
   camera.InitializeWithName("SIMPLE_PINHOLE", 1.0, 1, 1);
   camera.SetCameraId(database.WriteCamera(camera));
@@ -179,8 +178,7 @@ BOOST_AUTO_TEST_CASE(TestImage) {
 }
 
 BOOST_AUTO_TEST_CASE(TestKeypoints) {
-  Database database;
-  database.Open(kMemoryDatabasePath);
+  Database database(kMemoryDatabasePath);
   Camera camera;
   camera.SetCameraId(database.WriteCamera(camera));
   Image image;
@@ -205,8 +203,7 @@ BOOST_AUTO_TEST_CASE(TestKeypoints) {
 }
 
 BOOST_AUTO_TEST_CASE(TestDescriptors) {
-  Database database;
-  database.Open(kMemoryDatabasePath);
+  Database database(kMemoryDatabasePath);
   Camera camera;
   camera.SetCameraId(database.WriteCamera(camera));
   Image image;
@@ -231,8 +228,7 @@ BOOST_AUTO_TEST_CASE(TestDescriptors) {
 }
 
 BOOST_AUTO_TEST_CASE(TestMatches) {
-  Database database;
-  database.Open(kMemoryDatabasePath);
+  Database database(kMemoryDatabasePath);
   const image_t image_id1 = 1;
   const image_t image_id2 = 2;
   const FeatureMatches matches = FeatureMatches(1000);
@@ -253,8 +249,7 @@ BOOST_AUTO_TEST_CASE(TestMatches) {
 }
 
 BOOST_AUTO_TEST_CASE(TestInlierMatches) {
-  Database database;
-  database.Open(kMemoryDatabasePath);
+  Database database(kMemoryDatabasePath);
   const image_t image_id1 = 1;
   const image_t image_id2 = 2;
   TwoViewGeometry two_view_geometry;

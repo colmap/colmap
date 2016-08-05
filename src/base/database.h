@@ -48,6 +48,7 @@ class Database {
   const static size_t kMaxNumImages;
 
   Database();
+  Database(const std::string& path);
   ~Database();
 
   // Open and close database. The same database should not be opened

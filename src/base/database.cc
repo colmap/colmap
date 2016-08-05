@@ -174,6 +174,8 @@ const size_t Database::kMaxNumImages =
 
 Database::Database() { database_ = nullptr; }
 
+Database::Database(const std::string& path) : Database() { Open(path); }
+
 Database::~Database() { Close(); }
 
 void Database::Open(const std::string& path) {
