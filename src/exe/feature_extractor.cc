@@ -14,8 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include <QtGui>
-#include <QtWidgets>
+#include <QApplication>
 
 #include "base/camera_models.h"
 #include "base/feature_extraction.h"
@@ -55,24 +54,30 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  std::unique_ptr<QApplication> app;
-  FeatureExtractor* feature_extractor = nullptr;
   if (use_gpu) {
-    app.reset(new QApplication(argc, argv));
-    feature_extractor = new SiftGPUFeatureExtractor(
+    QApplication app(argc, argv);
+    SiftGPUFeatureExtractor feature_extractor(
         options.extraction_options->Options(),
         options.extraction_options->sift_options, *options.database_path,
         *options.image_path);
+
+    std::thread thread([&app, &feature_extractor]() {
+      feature_extractor.Start();
+      feature_extractor.Wait();
+      app.exit();
+    });
+
+    app.exec();
+    thread.join();
   } else {
-    feature_extractor = new SiftCPUFeatureExtractor(
+    SiftCPUFeatureExtractor feature_extractor(
         options.extraction_options->Options(),
         options.extraction_options->sift_options,
         options.extraction_options->cpu_options, *options.database_path,
         *options.image_path);
+    feature_extractor.Start();
+    feature_extractor.Wait();
   }
-
-  feature_extractor->start();
-  feature_extractor->wait();
 
   return EXIT_SUCCESS;
 }

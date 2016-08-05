@@ -32,12 +32,12 @@ class ExtractionWidget : public OptionsWidget {
   virtual void Run() = 0;
 
  protected:
-  void CreateProgressBar();
   void ShowProgressBar();
 
   OptionManager* options_;
-
   QProgressDialog* progress_bar_;
+  QAction* destructor_;
+  std::unique_ptr<Thread> extractor_;
 };
 
 class SIFTExtractionWidget : public ExtractionWidget {
@@ -62,20 +62,29 @@ class ImportFeaturesWidget : public ExtractionWidget {
 };
 
 ExtractionWidget::ExtractionWidget(QWidget* parent, OptionManager* options)
-    : OptionsWidget(parent), options_(options) {}
-
-void ExtractionWidget::CreateProgressBar() {
-  progress_bar_ = new QProgressDialog(this);
-  progress_bar_->setWindowModality(Qt::ApplicationModal);
-  progress_bar_->setLabel(new QLabel(tr("Extracting..."), this));
-  progress_bar_->setMaximum(0);
-  progress_bar_->setMinimum(0);
-  progress_bar_->setValue(0);
-  progress_bar_->hide();
-  progress_bar_->close();
+    : OptionsWidget(parent), options_(options), progress_bar_(nullptr) {
+  destructor_ = new QAction(this);
+  connect(destructor_, &QAction::triggered, this, [this]() {
+    if (extractor_) {
+      extractor_->Stop();
+      extractor_->Wait();
+      extractor_.reset();
+    }
+    progress_bar_->hide();
+  });
 }
 
 void ExtractionWidget::ShowProgressBar() {
+  if (progress_bar_ == nullptr) {
+    progress_bar_ = new QProgressDialog(this);
+    progress_bar_->setWindowModality(Qt::ApplicationModal);
+    progress_bar_->setLabel(new QLabel(tr("Extracting..."), this));
+    progress_bar_->setMaximum(0);
+    progress_bar_->setMinimum(0);
+    progress_bar_->setValue(0);
+    connect(progress_bar_, &QProgressDialog::canceled,
+            [this]() { destructor_->trigger(); });
+  }
   progress_bar_->show();
   progress_bar_->raise();
 }
@@ -93,7 +102,7 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
 
   AddSpacer();
 
-  SIFTOptions& sift_options = options->extraction_options->sift_options;
+  SiftOptions& sift_options = options->extraction_options->sift_options;
   AddOptionInt(&sift_options.max_image_size, "max_image_size");
   AddOptionInt(&sift_options.max_num_features, "max_num_features");
   AddOptionInt(&sift_options.first_octave, "first_octave", -5);
@@ -114,36 +123,21 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
 void SIFTExtractionWidget::Run() {
   WriteOptions();
 
-  FeatureExtractor* feature_extractor = nullptr;
-
   if (sift_gpu_->isChecked()) {
-    feature_extractor = new SiftGPUFeatureExtractor(
+    extractor_.reset(new SiftGPUFeatureExtractor(
         options_->extraction_options->Options(),
         options_->extraction_options->sift_options, *options_->database_path,
-        *options_->image_path);
+        *options_->image_path));
   } else {
-    feature_extractor = new SiftCPUFeatureExtractor(
+    extractor_.reset(new SiftCPUFeatureExtractor(
         options_->extraction_options->Options(),
         options_->extraction_options->sift_options,
         options_->extraction_options->cpu_options, *options_->database_path,
-        *options_->image_path);
+        *options_->image_path));
   }
 
-  feature_extractor->start();
-  CreateProgressBar();
-
-  connect(feature_extractor, &QThread::finished, progress_bar_,
-          [this, feature_extractor]() {
-            this->progress_bar_->hide();
-            feature_extractor->deleteLater();
-          });
-
-  connect(progress_bar_, &QProgressDialog::canceled, [feature_extractor]() {
-    if (feature_extractor->isRunning()) {
-      feature_extractor->Stop();
-      feature_extractor->wait();
-    }
-  });
+  extractor_->SetCallback("Finished", [this]() { destructor_->trigger(); });
+  extractor_->Start();
 
   ShowProgressBar();
 }
@@ -162,25 +156,12 @@ void ImportFeaturesWidget::Run() {
     return;
   }
 
-  FeatureImporter* feature_importer = new FeatureImporter(
+  extractor_.reset(new FeatureImporter(
       options_->extraction_options->Options(), *options_->database_path,
-      *options_->image_path, EnsureTrailingSlash(import_path_));
+      *options_->image_path, EnsureTrailingSlash(import_path_)));
 
-  feature_importer->start();
-  CreateProgressBar();
-
-  // Hide progress bar after finishing
-  connect(feature_importer, &QThread::finished, progress_bar_,
-          [this, feature_importer]() {
-            this->progress_bar_->hide();
-            feature_importer->deleteLater();
-          });
-
-  connect(progress_bar_, &QProgressDialog::canceled, [feature_importer]() {
-    feature_importer->Stop();
-    feature_importer->wait();
-  });
-
+  extractor_->SetCallback("Finished", [this]() { destructor_->trigger(); });
+  extractor_->Start();
   ShowProgressBar();
 }
 

@@ -99,7 +99,7 @@ void ExtractionOptions::Reset() {
   single_camera = options.single_camera;
   camera_params = options.camera_params;
   default_focal_length_factor = options.default_focal_length_factor;
-  sift_options = SIFTOptions();
+  sift_options = SiftOptions();
   cpu_options = SiftCPUFeatureExtractor::CPUOptions();
 }
 

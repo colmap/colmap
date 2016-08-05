@@ -51,7 +51,7 @@ struct ExtractionOptions : public BaseOptions {
   std::string camera_params;
   double default_focal_length_factor;
 
-  SIFTOptions sift_options;
+  SiftOptions sift_options;
   SiftCPUFeatureExtractor::CPUOptions cpu_options;
 };
 

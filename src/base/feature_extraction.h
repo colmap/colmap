@@ -19,17 +19,17 @@
 
 #include <boost/filesystem.hpp>
 
-#include <QMutex>
-#include <QOffscreenSurface>
-#include <QOpenGLContext>
 #include <QThread>
 
 #include "base/database.h"
+#include "ext/SiftGPU/SiftGPU.h"
 #include "util/bitmap.h"
+#include "util/opengl_utils.h"
+#include "util/threading.h"
 
 namespace colmap {
 
-struct SIFTOptions {
+struct SiftOptions {
   // Maximum image size, otherwise image will be down-scaled.
   int max_image_size = 3200;
 
@@ -72,7 +72,7 @@ struct SIFTOptions {
 };
 
 // Abstract feature extraction class.
-class FeatureExtractor : public QThread {
+class FeatureExtractor : public Thread {
  public:
   struct Options {
     // Name of the camera model.
@@ -96,17 +96,11 @@ class FeatureExtractor : public QThread {
   FeatureExtractor(const Options& options, const std::string& database_path,
                    const std::string& image_path);
 
-  void run();
-  void Stop();
-
  protected:
   // To be implemented by feature extraction class.
   virtual void DoExtraction() = 0;
 
   bool ReadImage(const std::string& image_path, Image* image, Bitmap* bitmap);
-
-  bool stop_;
-  QMutex mutex_;
 
   Options options_;
 
@@ -124,6 +118,9 @@ class FeatureExtractor : public QThread {
 
   // Identifier of last processed camera.
   camera_t last_camera_id_;
+
+ private:
+  void Run() override;
 };
 
 // Extract DoG SIFT features using the CPU.
@@ -141,23 +138,15 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
   };
 
   SiftCPUFeatureExtractor(const Options& options,
-                          const SIFTOptions& sift_options,
+                          const SiftOptions& sift_options,
                           const CPUOptions& cpu_options,
                           const std::string& database_path,
                           const std::string& image_path);
 
  private:
-  struct ExtractionResult {
-    FeatureKeypoints keypoints;
-    FeatureDescriptors descriptors;
-  };
-
   void DoExtraction() override;
-  static ExtractionResult DoExtractionKernel(
-      const Camera& camera, const Image& image,
-      const std::shared_ptr<Bitmap>& bitmap, const SIFTOptions& sift_options);
 
-  SIFTOptions sift_options_;
+  SiftOptions sift_options_;
   CPUOptions cpu_options_;
 };
 
@@ -165,21 +154,15 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
 class SiftGPUFeatureExtractor : public FeatureExtractor {
  public:
   SiftGPUFeatureExtractor(const Options& options,
-                          const SIFTOptions& sift_options,
+                          const SiftOptions& sift_options,
                           const std::string& database_path,
                           const std::string& image_path);
 
-  ~SiftGPUFeatureExtractor();
-
  private:
-  void TearDown();
   void DoExtraction() override;
 
-  SIFTOptions sift_options_;
-
-  QThread* parent_thread_;
-  QOpenGLContext* context_;
-  QOffscreenSurface* surface_;
+  SiftOptions sift_options_;
+  OpenGLContextManager opengl_context_;
 };
 
 // Import features from text files.
@@ -213,6 +196,24 @@ class FeatureImporter : public FeatureExtractor {
 
   std::string import_path_;
 };
+
+// Extract SIFT features for the given image on the CPU.
+bool ExtractSiftFeaturesCPU(const SiftOptions& sift_options,
+                            const Bitmap& bitmap, FeatureKeypoints* keypoints,
+                            FeatureDescriptors* descriptors);
+
+// Create a SiftGPU feature extractor. Note that the OpenGLContextManager must
+// be created in the main thread of the Qt application. The same SiftGPU
+// instance can be used to extract features for  multiple images.
+bool CreateSiftGPU(const SiftOptions& sift_options,
+                   OpenGLContextManager* opengl_context, SiftGPU* sift_gpu);
+
+// Extract SIFT features for the given image on the GPU.
+// SiftGPU must already be initialized using `CreateSiftGPU`.
+bool ExtractSiftFeaturesGPU(const SiftOptions& sift_options,
+                            const Bitmap& bitmap, SiftGPU* sift_gpu,
+                            FeatureKeypoints* keypoints,
+                            FeatureDescriptors* descriptors);
 
 }  // namespace colmap
 
