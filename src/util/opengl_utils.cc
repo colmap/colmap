@@ -37,17 +37,12 @@ OpenGLContextManager::OpenGLContextManager()
     CHECK_NOTNULL(current_thread_);
     context_.doneCurrent();
     context_.moveToThread(current_thread_);
-    make_current_done_.wakeAll();
-  });
+  }, Qt::BlockingQueuedConnection);
 }
 
 void OpenGLContextManager::MakeCurrent() {
   current_thread_ = QThread::currentThread();
   make_current_action_->trigger();
-  {
-    QMutexLocker locker(&make_current_mutex_);
-    make_current_done_.wait(&make_current_mutex_);
-  }
   context_.makeCurrent(&surface_);
 }
 
