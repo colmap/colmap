@@ -44,7 +44,7 @@ class SIFTExtractionWidget : public ExtractionWidget {
  public:
   SIFTExtractionWidget(QWidget* parent, OptionManager* options);
 
-  void Run() override;
+  void Run();
 
  private:
   QRadioButton* sift_gpu_;
@@ -55,7 +55,7 @@ class ImportFeaturesWidget : public ExtractionWidget {
  public:
   ImportFeaturesWidget(QWidget* parent, OptionManager* options);
 
-  void Run() override;
+  void Run();
 
  private:
   std::string import_path_;

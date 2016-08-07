@@ -45,7 +45,7 @@ class ImageUndistorter : public Thread {
                    const std::string& output_path);
 
  private:
-  void Run() override;
+  void Run();
 
   void Undistort(const size_t reg_image_idx) const;
 
@@ -64,7 +64,7 @@ class PMVSUndistorter : public Thread {
                   const std::string& output_path);
 
  private:
-  void Run() override;
+  void Run();
 
   void Undistort(const size_t reg_image_idx) const;
   void WriteVisibilityData(const std::string& path) const;
@@ -85,7 +85,7 @@ class CMPMVSUndistorter : public Thread {
                     const std::string& output_path);
 
  private:
-  void Run() override;
+  void Run();
 
   void Undistort(const size_t reg_image_idx) const;
 

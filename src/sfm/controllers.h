@@ -47,7 +47,7 @@ class IncrementalMapperController : public Thread {
   size_t AddModel();
 
  private:
-  void Run() override;
+  void Run();
 
   const OptionManager options_;
 
@@ -65,7 +65,7 @@ class BundleAdjustmentController : public Thread {
   Reconstruction* reconstruction;
 
  private:
-  void Run() override;
+  void Run();
 
   const OptionManager options_;
 };

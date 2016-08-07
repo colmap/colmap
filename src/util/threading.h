@@ -53,7 +53,7 @@ namespace colmap {
 // Helper class to create single threads with simple controls and timing, e.g.:
 //
 //      class MyThread : public Thread {
-//        void Run() override {
+//        void Run() {
 //          // Some pre-processing...
 //          for (const auto& item : items) {
 //            WaitIfPaused();

@@ -132,7 +132,7 @@ class SiftCPUFeatureExtractor : public Thread {
                           const Options& cpu_options);
 
  private:
-  void Run() override;
+  void Run();
 
   ImageReader::Options reader_options_;
   SiftOptions sift_options_;
@@ -146,7 +146,7 @@ class SiftGPUFeatureExtractor : public Thread {
                           const SiftOptions& sift_options);
 
  private:
-  void Run() override;
+  void Run();
 
   ImageReader::Options reader_options_;
   SiftOptions sift_options_;
@@ -161,7 +161,7 @@ class FeatureImporter : public Thread {
                   const std::string& import_path);
 
  private:
-  void Run() override;
+  void Run();
 
   ImageReader::Options reader_options_;
   std::string import_path_;
