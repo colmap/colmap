@@ -137,10 +137,9 @@ void LogWidget::SaveLog() {
     return;
   }
 
-  std::ofstream file;
-  file.open(log_path.c_str(), std::ios::app);
+  std::ofstream file(log_path.c_str(), std::ios::app);
+  CHECK(file.is_open());
   file << text_box_->toPlainText().toUtf8().constData();
-  file.close();
 }
 
 void LogWidget::SetLogPath() {
@@ -156,6 +155,7 @@ void LogWidget::SetLogPath() {
     log_file_.close();
   } else {
     log_file_.open(options_->log_path->c_str(), std::ios::app);
+    CHECK(log_file_.is_open());
   }
 }
 

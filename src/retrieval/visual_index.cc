@@ -130,6 +130,7 @@ void VisualIndex::Read(const std::string& path) {
     }
 
     std::ifstream file(path, std::ios::binary);
+    CHECK(file.is_open());
     uint64_t rows;
     file.read(reinterpret_cast<char*>(&rows), sizeof(uint64_t));
     uint64_t cols;
@@ -157,7 +158,7 @@ void VisualIndex::Read(const std::string& path) {
 
   {
     std::ifstream file(path, std::ios::binary);
-    CHECK(file);
+    CHECK(file.is_open());
     file.seekg(file_offset, std::ios::beg);
     inverted_index_.Read(&file);
   }
@@ -169,6 +170,7 @@ void VisualIndex::Write(const std::string& path) {
   {
     CHECK_NOTNULL(visual_words_.ptr());
     std::ofstream file(path, std::ios::binary);
+    CHECK(file.is_open());
     const uint64_t rows = static_cast<uint64_t>(visual_words_.rows);
     file.write(reinterpret_cast<const char*>(&rows), sizeof(uint64_t));
     const uint64_t cols = static_cast<uint64_t>(visual_words_.cols);
@@ -190,7 +192,7 @@ void VisualIndex::Write(const std::string& path) {
 
   {
     std::ofstream file(path, std::ios::binary | std::ios::app);
-    CHECK(file);
+    CHECK(file.is_open());
     inverted_index_.Write(&file);
   }
 }

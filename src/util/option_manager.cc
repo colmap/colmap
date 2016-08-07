@@ -1048,9 +1048,8 @@ bool OptionManager::Read(const std::string& path) {
 
   try {
     std::ifstream file(path.c_str());
+    CHECK(file.is_open());
     config::store(config::parse_config_file(file, *desc_), vmap);
-    file.close();
-
     vmap.notify();
   } catch (std::exception& e) {
     std::cerr << "Error occurred while parsing options: " << e.what() << "."
