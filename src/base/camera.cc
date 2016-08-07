@@ -166,9 +166,9 @@ bool Camera::HasBogusParams(const double min_focal_length_ratio,
 
 void Camera::InitializeWithId(const int model_id, const double focal_length,
                               const size_t width, const size_t height) {
-  this->model_id_ = model_id;
-  this->width_ = width;
-  this->height_ = height;
+  model_id_ = model_id;
+  width_ = width;
+  height_ = height;
   CameraModelInitializeParams(model_id, focal_length, width, height, &params_);
 }
 
