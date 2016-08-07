@@ -228,12 +228,9 @@ void PMVSUndistorter::Run() {
 
   std::cout << "Writing bundle file" << std::endl;
   const std::string bundle_path = output_path_ + "pmvs/bundle.rd.out";
-  try {
-    undistorted_reconstruction.ExportBundler(bundle_path,
-                                             bundle_path + ".list.txt");
-  } catch (std::domain_error& error) {
-    std::cerr << "WARNING: " << error.what() << std::endl;
-  }
+
+  undistorted_reconstruction.ExportBundler(bundle_path,
+                                           bundle_path + ".list.txt");
 
   std::cout << "Writing visibility file" << std::endl;
   const std::string vis_path = output_path_ + "pmvs/vis.dat";

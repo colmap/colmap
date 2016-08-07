@@ -835,7 +835,7 @@ void Reconstruction::ImportPLY(const std::string& path) {
   }
 }
 
-void Reconstruction::ExportNVM(const std::string& path) const {
+bool Reconstruction::ExportNVM(const std::string& path) const {
   std::ofstream file(path.c_str(), std::ios::trunc);
   CHECK(file.is_open());
 
@@ -851,7 +851,9 @@ void Reconstruction::ExportNVM(const std::string& path) const {
     const class Camera& camera = Camera(image.CameraId());
 
     if (camera.ModelId() != SimpleRadialCameraModel::model_id) {
-      throw std::domain_error("NVM only supports `SIMPLE_RADIAL` camera model");
+      std::cout << "WARNING: NVM only supports `SIMPLE_RADIAL` camera model."
+                << std::endl;
+      return false;
     }
 
     const double f =
@@ -909,9 +911,11 @@ void Reconstruction::ExportNVM(const std::string& path) const {
     file << image_ids.size() << " ";
     file << line_string << std::endl;
   }
+
+  return true;
 }
 
-void Reconstruction::ExportBundler(const std::string& path,
+bool Reconstruction::ExportBundler(const std::string& path,
                                    const std::string& list_path) const {
   std::ofstream file(path.c_str(), std::ios::trunc);
   CHECK(file.is_open());
@@ -947,9 +951,10 @@ void Reconstruction::ExportBundler(const std::string& path,
       k1 = camera.Params(RadialCameraModel::extra_params_idxs[0]);
       k2 = camera.Params(RadialCameraModel::extra_params_idxs[1]);
     } else {
-      throw std::domain_error(
-          "Bundler only supports `SIMPLE_RADIAL` or "
-          "`RADIAL` camera model");
+      std::cout << "WARNING: Bundler only supports `SIMPLE_RADIAL` and "
+                   "`RADIAL` camera models."
+                << std::endl;
+      return false;
     }
 
     file << f << " " << k1 << " " << k2 << std::endl;
@@ -1005,6 +1010,8 @@ void Reconstruction::ExportBundler(const std::string& path,
 
     file << line_string << std::endl;
   }
+
+  return true;
 }
 
 void Reconstruction::ExportPLY(const std::string& path) const {

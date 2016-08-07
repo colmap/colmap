@@ -843,20 +843,16 @@ void MainWindow::ExportAs() {
 
   export_watcher_->setFuture(QtConcurrent::run([this, path, default_filter]() {
     const Reconstruction& model = mapper_controller->Model(SelectedModelIdx());
-    try {
-      if (default_filter == "NVM (*.nvm)") {
-        model.ExportNVM(path);
-      } else if (default_filter == "Bundler (*.out)") {
-        model.ExportBundler(path, path + ".list.txt");
-      } else if (default_filter == "PLY (*.ply)") {
-        model.ExportPLY(path);
-      } else if (default_filter == "VRML (*.wrl)") {
-        const auto base_path = path.substr(0, path.find_last_of("."));
-        model.ExportVRML(base_path + ".images.wrl", base_path + ".points3D.wrl",
-                         1, Eigen::Vector3d(1, 0, 0));
-      }
-    } catch (std::domain_error& error) {
-      std::cerr << "ERROR: " << error.what() << std::endl;
+    if (default_filter == "NVM (*.nvm)") {
+      model.ExportNVM(path);
+    } else if (default_filter == "Bundler (*.out)") {
+      model.ExportBundler(path, path + ".list.txt");
+    } else if (default_filter == "PLY (*.ply)") {
+      model.ExportPLY(path);
+    } else if (default_filter == "VRML (*.wrl)") {
+      const auto base_path = path.substr(0, path.find_last_of("."));
+      model.ExportVRML(base_path + ".images.wrl", base_path + ".points3D.wrl",
+                       1, Eigen::Vector3d(1, 0, 0));
     }
   }));
 }

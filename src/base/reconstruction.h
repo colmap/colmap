@@ -209,8 +209,8 @@ class Reconstruction {
   void ImportPLY(const std::string& path);
 
   // Export to other data formats.
-  void ExportNVM(const std::string& path) const;
-  void ExportBundler(const std::string& path,
+  bool ExportNVM(const std::string& path) const;
+  bool ExportBundler(const std::string& path,
                      const std::string& list_path) const;
   void ExportPLY(const std::string& path) const;
   void ExportVRML(const std::string& images_path,
