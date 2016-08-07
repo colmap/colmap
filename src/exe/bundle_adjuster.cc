@@ -17,7 +17,6 @@
 #include "base/reconstruction.h"
 #include "sfm/controllers.h"
 #include "util/logging.h"
-#include "util/misc.h"
 #include "util/option_manager.h"
 
 using namespace colmap;

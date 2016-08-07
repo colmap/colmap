@@ -18,7 +18,7 @@
 
 #include <iostream>
 
-#include "util/misc.h"
+#include "util/string.h"
 #include "util/timer.h"
 
 namespace colmap {

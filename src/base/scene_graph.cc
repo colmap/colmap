@@ -20,7 +20,7 @@
 #include <unordered_set>
 
 #include "util/logging.h"
-#include "util/misc.h"
+#include "util/string.h"
 
 namespace colmap {
 

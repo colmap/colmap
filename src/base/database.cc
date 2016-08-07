@@ -20,7 +20,7 @@
 
 #include <boost/lexical_cast.hpp>
 
-#include "util/misc.h"
+#include "util/string.h"
 
 namespace colmap {
 namespace {

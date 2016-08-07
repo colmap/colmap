@@ -821,11 +821,11 @@ void LoadSiftFeaturesFromTextFile(const std::string& path,
   std::stringstream header_line_stream(line);
 
   std::getline(header_line_stream, item, ' ');
-  boost::trim(item);
+  StringTrim(&item);
   const point2D_t num_features = boost::lexical_cast<point2D_t>(item);
 
   std::getline(header_line_stream, item, ' ');
-  boost::trim(item);
+  StringTrim(&item);
   const size_t dim = boost::lexical_cast<size_t>(item);
 
   keypoints->resize(num_features);
@@ -837,36 +837,32 @@ void LoadSiftFeaturesFromTextFile(const std::string& path,
 
     // X
     std::getline(feature_line_stream, item, ' ');
-    boost::trim(item);
+    StringTrim(&item);
     (*keypoints)[i].x = boost::lexical_cast<float>(item);
 
     // Y
     std::getline(feature_line_stream, item, ' ');
-    boost::trim(item);
+    StringTrim(&item);
     (*keypoints)[i].y = boost::lexical_cast<float>(item);
 
     // Scale
     std::getline(feature_line_stream, item, ' ');
-    boost::trim(item);
+    StringTrim(&item);
     (*keypoints)[i].scale = boost::lexical_cast<float>(item);
 
     // Orientation
     std::getline(feature_line_stream, item, ' ');
-    boost::trim(item);
+    StringTrim(&item);
     (*keypoints)[i].orientation = boost::lexical_cast<float>(item);
 
     // Descriptor
     for (size_t j = 0; j < dim; ++j) {
       std::getline(feature_line_stream, item, ' ');
-      boost::trim(item);
+      StringTrim(&item);
       const int value = boost::lexical_cast<int>(item);
-      if (value < 0) {
-        (*descriptors)(i, j) = 0;
-      } else if (value > 255) {
-        (*descriptors)(i, j) = 255;
-      } else {
-        (*descriptors)(i, j) = static_cast<uint8_t>(value);
-      }
+      CHECK_GE(value, 0);
+      CHECK_LE(value, 255);
+      (*descriptors)(i, j) = static_cast<uint8_t>(value);
     }
   }
 }

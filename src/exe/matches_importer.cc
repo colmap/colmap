@@ -16,11 +16,8 @@
 
 #include <QApplication>
 
-#include "base/database.h"
 #include "base/feature_matching.h"
-#include "util/bitmap.h"
 #include "util/logging.h"
-#include "util/misc.h"
 #include "util/option_manager.h"
 
 using namespace colmap;

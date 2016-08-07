@@ -16,7 +16,6 @@
 
 #include <QtGui>
 
-#include "sfm/controllers.h"
 #include "ui/main_window.h"
 #include "util/logging.h"
 

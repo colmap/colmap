@@ -17,7 +17,6 @@
 #ifndef COLMAP_SRC_BASE_FEATURE_EXTRACTION_H_
 #define COLMAP_SRC_BASE_FEATURE_EXTRACTION_H_
 
-#include <QThread>
 #include <QtOpenGL>
 
 #include "base/database.h"

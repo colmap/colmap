@@ -18,7 +18,7 @@
 
 #include <boost/algorithm/string.hpp>
 
-#include "util/misc.h"
+#include "util/string.h"
 
 namespace colmap {
 

@@ -560,8 +560,8 @@ void Reconstruction::Write(const std::string& cameras_path,
 }
 
 void Reconstruction::WriteCameras(const std::string& path) const {
-  std::ofstream file;
-  file.open(path.c_str(), std::ios::trunc);
+  std::ofstream file(path.c_str(), std::ios::trunc);
+  CHECK(file.is_open());
 
   file << "# Camera list with one line of data per camera:" << std::endl;
   file << "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]" << std::endl;
@@ -584,13 +584,11 @@ void Reconstruction::WriteCameras(const std::string& path) const {
 
     file << line_string << std::endl;
   }
-
-  file.close();
 }
 
 void Reconstruction::WriteImages(const std::string& path) const {
-  std::ofstream file;
-  file.open(path.c_str(), std::ios::trunc);
+  std::ofstream file(path.c_str(), std::ios::trunc);
+  CHECK(file.is_open());
 
   file << "# Image list with two lines of data per image:" << std::endl;
   file << "#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, "
@@ -646,13 +644,11 @@ void Reconstruction::WriteImages(const std::string& path) const {
     line_string = line_string.substr(0, line_string.size() - 1);
     file << line_string << std::endl;
   }
-
-  file.close();
 }
 
 void Reconstruction::WritePoints3D(const std::string& path) const {
-  std::ofstream file;
-  file.open(path.c_str(), std::ios::trunc);
+  std::ofstream file(path.c_str(), std::ios::trunc);
+  CHECK(file.is_open());
 
   file << "# 3D point list with one line of data per point:" << std::endl;
   file << "#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, "
@@ -683,14 +679,13 @@ void Reconstruction::WritePoints3D(const std::string& path) const {
 
     file << line_string << std::endl;
   }
-
-  file.close();
 }
 
 void Reconstruction::ImportPLY(const std::string& path) {
   points3D_.clear();
 
   std::ifstream file(path.c_str());
+  CHECK(file.is_open());
 
   std::string line;
 
@@ -714,7 +709,7 @@ void Reconstruction::ImportPLY(const std::string& path) {
 
   int index = 0;
   while (std::getline(file, line)) {
-    boost::trim(line);
+    StringTrim(&line);
 
     if (line.empty()) {
       continue;
@@ -813,14 +808,14 @@ void Reconstruction::ImportPLY(const std::string& path) {
     }
   } else {
     while (std::getline(file, line)) {
-      boost::trim(line);
+      StringTrim(&line);
       std::stringstream line_stream(line);
 
       std::string item;
       std::vector<std::string> items;
       while (!line_stream.eof()) {
         std::getline(line_stream, item, ' ');
-        boost::trim(item);
+        StringTrim(&item);
         items.push_back(item);
       }
 
@@ -838,13 +833,11 @@ void Reconstruction::ImportPLY(const std::string& path) {
       Point3D(point3D_id).SetColor(rgb.cast<uint8_t>());
     }
   }
-
-  file.close();
 }
 
 void Reconstruction::ExportNVM(const std::string& path) const {
-  std::ofstream file;
-  file.open(path.c_str(), std::ios::trunc);
+  std::ofstream file(path.c_str(), std::ios::trunc);
+  CHECK(file.is_open());
 
   file << "NVM_V3" << std::endl << std::endl;
 
@@ -916,17 +909,15 @@ void Reconstruction::ExportNVM(const std::string& path) const {
     file << image_ids.size() << " ";
     file << line_string << std::endl;
   }
-
-  file.close();
 }
 
 void Reconstruction::ExportBundler(const std::string& path,
                                    const std::string& list_path) const {
-  std::ofstream file;
-  file.open(path.c_str(), std::ios::trunc);
+  std::ofstream file(path.c_str(), std::ios::trunc);
+  CHECK(file.is_open());
 
-  std::ofstream list_file;
-  list_file.open(list_path.c_str(), std::ios::trunc);
+  std::ofstream list_file(list_path.c_str(), std::ios::trunc);
+  CHECK(list_file.is_open());
 
   file << "# Bundle file v0.3" << std::endl;
 
@@ -1014,14 +1005,11 @@ void Reconstruction::ExportBundler(const std::string& path,
 
     file << line_string << std::endl;
   }
-
-  file.close();
-  list_file.close();
 }
 
 void Reconstruction::ExportPLY(const std::string& path) const {
-  std::ofstream file;
-  file.open(path.c_str(), std::ios::trunc);
+  std::ofstream file(path.c_str(), std::ios::trunc);
+  CHECK(file.is_open());
 
   file << "ply" << std::endl;
   file << "format ascii 1.0" << std::endl;
@@ -1044,16 +1032,14 @@ void Reconstruction::ExportPLY(const std::string& path) const {
   }
 
   file << std::endl;
-
-  file.close();
 }
 
 void Reconstruction::ExportVRML(const std::string& images_path,
                                 const std::string& points3D_path,
                                 const double image_scale,
                                 const Eigen::Vector3d& image_rgb) const {
-  std::ofstream images_file;
-  images_file.open(images_path.c_str(), std::ios::trunc);
+  std::ofstream images_file(images_path.c_str(), std::ios::trunc);
+  CHECK(images_file.is_open());
 
   const double six = image_scale * 0.15;
   const double siy = image_scale * 0.1;
@@ -1133,12 +1119,10 @@ void Reconstruction::ExportVRML(const std::string& images_path,
     images_file << "} }\n";
   }
 
-  images_file.close();
-
   // Write 3D points
 
-  std::ofstream points3D_file;
-  points3D_file.open(points3D_path.c_str(), std::ios::trunc);
+  std::ofstream points3D_file(points3D_path.c_str(), std::ios::trunc);
+  CHECK(points3D_file.is_open());
 
   points3D_file << "#VRML V2.0 utf8\n";
   points3D_file << "Background { skyColor [1.0 1.0 1.0] } \n";
@@ -1164,8 +1148,6 @@ void Reconstruction::ExportVRML(const std::string& images_path,
   }
 
   points3D_file << " ] } } }\n";
-
-  points3D_file.close();
 }
 
 bool Reconstruction::ExtractColorsForImage(const image_t image_id,
@@ -1374,12 +1356,13 @@ void Reconstruction::ReadCameras(const std::string& path) {
   cameras_.clear();
 
   std::ifstream file(path.c_str());
+  CHECK(file.is_open());
 
   std::string line;
   std::string item;
 
   while (std::getline(file, line)) {
-    boost::trim(line);
+    StringTrim(&line);
 
     if (line.empty() || line[0] == '#') {
       continue;
@@ -1391,28 +1374,28 @@ void Reconstruction::ReadCameras(const std::string& path) {
 
     // ID
     std::getline(line_stream, item, ' ');
-    boost::trim(item);
+    StringTrim(&item);
     camera.SetCameraId(boost::lexical_cast<camera_t>(item));
 
     // MODEL
     std::getline(line_stream, item, ' ');
-    boost::trim(item);
+    StringTrim(&item);
     camera.SetModelIdFromName(item);
 
     // WIDTH
     std::getline(line_stream, item, ' ');
-    boost::trim(item);
+    StringTrim(&item);
     camera.SetWidth(boost::lexical_cast<size_t>(item));
 
     // HEIGHT
     std::getline(line_stream, item, ' ');
-    boost::trim(item);
+    StringTrim(&item);
     camera.SetHeight(boost::lexical_cast<size_t>(item));
 
     // PARAMS
     while (!line_stream.eof()) {
       std::getline(line_stream, item, ' ');
-      boost::trim(item);
+      StringTrim(&item);
       camera.Params().push_back(boost::lexical_cast<double>(item));
     }
     camera.Params().shrink_to_fit();
@@ -1429,12 +1412,13 @@ void Reconstruction::ReadImages(const std::string& path) {
   images_.clear();
 
   std::ifstream file(path.c_str());
+  CHECK(file.is_open());
 
   std::string line;
   std::string item;
 
   while (std::getline(file, line)) {
-    boost::trim(line);
+    StringTrim(&line);
 
     if (line.empty() || line[0] == '#') {
       continue;
@@ -1487,7 +1471,7 @@ void Reconstruction::ReadImages(const std::string& path) {
 
     // POINTS2D
     std::getline(file, line);
-    boost::trim(line);
+    StringTrim(&line);
     std::stringstream line_stream2(line);
 
     std::vector<Eigen::Vector2d> points;
@@ -1530,12 +1514,13 @@ void Reconstruction::ReadPoints3D(const std::string& path) {
   points3D_.clear();
 
   std::ifstream file(path.c_str());
+  CHECK(file.is_open());
 
   std::string line;
   std::string item;
 
   while (std::getline(file, line)) {
-    boost::trim(line);
+    StringTrim(&line);
 
     if (line.empty() || line[0] == '#') {
       continue;
@@ -1582,7 +1567,7 @@ void Reconstruction::ReadPoints3D(const std::string& path) {
       TrackElement track_el;
 
       std::getline(line_stream, item, ' ');
-      boost::trim(item);
+      StringTrim(&item);
       if (item.empty()) {
         break;
       }

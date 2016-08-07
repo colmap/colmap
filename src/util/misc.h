@@ -24,13 +24,11 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include "util/string.h"
+
 namespace colmap {
 
 // Append trailing slash to string if it does not yet end with a slash.
-//
-// @param str    Input string.
-//
-// @return       Input string, with a trailing slash.
 std::string EnsureTrailingSlash(const std::string& str);
 
 // Check whether file name has the file extension (case insensitive).
@@ -45,37 +43,7 @@ std::vector<std::string> GetRecursiveFileList(const std::string& path);
 void PrintHeading1(const std::string& heading);
 
 // Print second-order heading with underscores to `std::cout`.
-//
-// @param heading      Heading text as a single line.
 void PrintHeading2(const std::string& heading);
-
-// Format string by replacing embedded format specifiers with their respective
-// values, see `printf` for more details. This is a modified implementation
-// of Google's BSD-licensed StringPrintf function.
-std::string StringPrintf(const char* format, ...);
-
-// Replace all occurrences of `old_str` with `new_str` in the given string.
-//
-// @param str      String to which to apply the replacement.
-// @param old_str  Old string token for replacement.
-// @param new_str  New string token for replacement.
-//
-// @ return        String with all occurences of old replaced with new string.
-std::string StringReplace(const std::string& str, const std::string& old_str,
-                          const std::string& new_str);
-
-// Split string into list of words using the given delimiters.
-//
-// @param str    String to split.
-// @param delim  Delimiters used to split the string. May contain multiple
-//               delimiters in the same string.
-//
-// @return       The words of the string.
-std::vector<std::string> StringSplit(const std::string& str,
-                                     const std::string& delim);
-
-// Check whether a string starts with a certain prefix.
-bool StringStartsWith(const std::string& str, const std::string& prefix);
 
 // Check if vector contains elements.
 template <typename T>
@@ -85,18 +53,10 @@ template <typename T>
 bool VectorContainsDuplicateValues(const std::vector<T>& vector);
 
 // Parse CSV line to a list of values.
-//
-// @param values    The comma-separated string as a single line.
-//
-// @return   T       he elements of the CSV line.
 template <typename T>
 std::vector<T> CSVToVector(const std::string& csv);
 
 // Concatenate values in list to comma-separated list.
-//
-// @param values     The list of elements to concatenate.
-//
-// @return           The concatenated list of elements as string.
 template <typename T>
 std::string VectorToCSV(const std::vector<T>& values);
 

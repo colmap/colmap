@@ -1148,13 +1148,14 @@ ImagePairsFeatureMatcher::ReadImagePairsList() {
   }
 
   std::ifstream file(match_list_path_.c_str());
+  CHECK(file.is_open());
 
   std::vector<std::pair<image_t, image_t>> image_pairs;
 
   std::string line;
 
   while (std::getline(file, line)) {
-    boost::trim(line);
+    StringTrim(&line);
 
     if (line.empty() || line[0] == '#') {
       continue;
@@ -1166,9 +1167,9 @@ ImagePairsFeatureMatcher::ReadImagePairsList() {
     std::string image_name2;
 
     std::getline(line_stream, image_name1, ' ');
-    boost::trim(image_name1);
+    StringTrim(&image_name1);
     std::getline(line_stream, image_name2, ' ');
-    boost::trim(image_name2);
+    StringTrim(&image_name2);
 
     if (name_to_image.count(image_name1) == 0) {
       std::cerr << "ERROR: Image " << image_name1 << " does not exist."
@@ -1185,8 +1186,6 @@ ImagePairsFeatureMatcher::ReadImagePairsList() {
     const Image& image2 = *name_to_image.at(image_name2);
     image_pairs.emplace_back(image1.ImageId(), image2.ImageId());
   }
-
-  file.close();
 
   return image_pairs;
 }
@@ -1221,6 +1220,7 @@ void FeaturePairsFeatureMatcher::run() {
   }
 
   std::ifstream file(match_list_path_.c_str());
+  CHECK(file.is_open());
 
   std::string line;
   std::string item;
@@ -1230,7 +1230,7 @@ void FeaturePairsFeatureMatcher::run() {
   database.BeginTransaction();
 
   while (std::getline(file, line)) {
-    boost::trim(line);
+    StringTrim(&line);
     if (line.empty()) {
       continue;
     }
@@ -1276,7 +1276,7 @@ void FeaturePairsFeatureMatcher::run() {
     matches.clear();
 
     while (std::getline(file, line)) {
-      boost::trim(line);
+      StringTrim(&line);
 
       if (line.empty()) {
         break;
@@ -1341,8 +1341,6 @@ void FeaturePairsFeatureMatcher::run() {
                                   two_view_geometry);
     }
   }
-
-  file.close();
 
   database.EndTransaction();
 }
