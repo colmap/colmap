@@ -53,6 +53,12 @@ bool HasFileExtension(const std::string& file_name, const std::string& ext) {
   return false;
 }
 
+void CreateDirIfNotExists(const std::string& path) {
+  if (!boost::filesystem::is_directory(path)) {
+    CHECK(boost::filesystem::create_directory(path));
+  }
+}
+
 std::vector<std::string> GetRecursiveFileList(const std::string& path) {
   std::vector<std::string> file_list;
   for (auto it = boost::filesystem::recursive_directory_iterator(path);

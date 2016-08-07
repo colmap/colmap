@@ -40,6 +40,7 @@ class UndistortWidget : public QWidget {
  private:
   void Undistort();
   void SelectOutputPath();
+  void ShowProgressBar();
 
   OptionManager* options_;
 
@@ -51,6 +52,8 @@ class UndistortWidget : public QWidget {
   QLineEdit* output_path_text_;
 
   QProgressDialog* progress_bar_;
+  QAction* destructor_;
+  std::unique_ptr<Thread> undistorter_;
 };
 
 }  // namespace colmap

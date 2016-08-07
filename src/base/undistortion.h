@@ -17,11 +17,9 @@
 #ifndef COLMAP_SRC_BASE_UNDISTORTION_H_
 #define COLMAP_SRC_BASE_UNDISTORTION_H_
 
-#include <QtCore>
-#include <QtGui>
-
 #include "base/reconstruction.h"
 #include "util/bitmap.h"
+#include "util/threading.h"
 
 namespace colmap {
 
@@ -39,53 +37,62 @@ struct UndistortCameraOptions {
 };
 
 // Undistort images and export undistorted cameras.
-class ImageUndistorter : public QThread {
+class ImageUndistorter : public Thread {
  public:
   ImageUndistorter(const UndistortCameraOptions& options,
                    const Reconstruction& reconstruction,
                    const std::string& image_path,
                    const std::string& output_path);
 
-  void Stop();
+ private:
+  void Run() override;
 
- protected:
-  virtual void run();
+  void Undistort(const size_t reg_image_idx) const;
 
-  QMutex mutex_;
-
-  bool stop_;
-
+  UndistortCameraOptions options_;
   std::string image_path_;
   std::string output_path_;
-  UndistortCameraOptions options_;
   const Reconstruction& reconstruction_;
 };
 
 // Undistort images and prepare data for CMVS/PMVS.
-class PMVSUndistorter : public ImageUndistorter {
+class PMVSUndistorter : public Thread {
  public:
   PMVSUndistorter(const UndistortCameraOptions& options,
                   const Reconstruction& reconstruction,
                   const std::string& image_path,
                   const std::string& output_path);
 
- protected:
-  void run() override;
+ private:
+  void Run() override;
 
+  void Undistort(const size_t reg_image_idx) const;
   void WriteVisibilityData(const std::string& path) const;
   void WriteOptionFile(const std::string& path) const;
+
+  UndistortCameraOptions options_;
+  std::string image_path_;
+  std::string output_path_;
+  const Reconstruction& reconstruction_;
 };
 
 // Undistort images and prepare data for CMP-MVS.
-class CMPMVSUndistorter : public ImageUndistorter {
+class CMPMVSUndistorter : public Thread {
  public:
   CMPMVSUndistorter(const UndistortCameraOptions& options,
                     const Reconstruction& reconstruction,
                     const std::string& image_path,
                     const std::string& output_path);
 
- protected:
-  void run() override;
+ private:
+  void Run() override;
+
+  void Undistort(const size_t reg_image_idx) const;
+
+  UndistortCameraOptions options_;
+  std::string image_path_;
+  std::string output_path_;
+  const Reconstruction& reconstruction_;
 };
 
 // Undistort camera by resizing the image and shifting the principal point.

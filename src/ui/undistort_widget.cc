@@ -21,7 +21,7 @@
 namespace colmap {
 
 UndistortWidget::UndistortWidget(QWidget* parent, OptionManager* options)
-    : QWidget(parent), options_(options) {
+    : QWidget(parent), options_(options), progress_bar_(nullptr) {
   setWindowFlags(Qt::Dialog);
   setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Undistort images");
@@ -83,14 +83,15 @@ UndistortWidget::UndistortWidget(QWidget* parent, OptionManager* options)
           &UndistortWidget::Undistort);
   grid->addWidget(undistort_button, grid->rowCount(), 2);
 
-  progress_bar_ = new QProgressDialog(this);
-  progress_bar_->setWindowModality(Qt::ApplicationModal);
-  progress_bar_->setLabel(new QLabel(tr("Undistorting..."), this));
-  progress_bar_->setMaximum(0);
-  progress_bar_->setMinimum(0);
-  progress_bar_->setValue(0);
-  progress_bar_->hide();
-  progress_bar_->close();
+  destructor_ = new QAction(this);
+  connect(destructor_, &QAction::triggered, this, [this]() {
+    if (undistorter_) {
+      undistorter_->Stop();
+      undistorter_->Wait();
+      undistorter_.reset();
+    }
+    progress_bar_->hide();
+  });
 }
 
 bool UndistortWidget::IsValid() {
@@ -106,49 +107,49 @@ void UndistortWidget::SelectOutputPath() {
       this, tr("Select output path..."), "", QFileDialog::ShowDirsOnly));
 }
 
+void UndistortWidget::ShowProgressBar() {
+  if (progress_bar_ == nullptr) {
+    progress_bar_ = new QProgressDialog(this);
+    progress_bar_->setWindowModality(Qt::ApplicationModal);
+    progress_bar_->setLabel(new QLabel(tr("Undistorting..."), this));
+    progress_bar_->setMaximum(0);
+    progress_bar_->setMinimum(0);
+    progress_bar_->setValue(0);
+    connect(progress_bar_, &QProgressDialog::canceled,
+            [this]() { destructor_->trigger(); });
+  }
+  progress_bar_->show();
+  progress_bar_->raise();
+}
+
 void UndistortWidget::Undistort() {
   if (!IsValid()) {
     QMessageBox::critical(this, "", tr("Invalid output path"));
   } else {
-    progress_bar_->show();
-    progress_bar_->raise();
-
     UndistortCameraOptions options;
     options.min_scale = min_scale_sb_->value();
     options.max_scale = max_scale_sb_->value();
     options.blank_pixels = blank_pixels_sb_->value();
     options.max_image_size = max_image_size_sb_->value();
 
-    ImageUndistorter* undistorter = nullptr;
-
     if (combo_box_->currentIndex() == 0) {
-      undistorter = new ImageUndistorter(
-          options, reconstruction, *options_->image_path, GetOutputPath());
+      undistorter_.reset(new ImageUndistorter(
+          options, reconstruction, *options_->image_path, GetOutputPath()));
     } else if (combo_box_->currentIndex() == 1) {
-      undistorter = new PMVSUndistorter(options, reconstruction,
-                                        *options_->image_path, GetOutputPath());
+      undistorter_.reset(new PMVSUndistorter(
+          options, reconstruction, *options_->image_path, GetOutputPath()));
     } else if (combo_box_->currentIndex() == 2) {
-      undistorter = new CMPMVSUndistorter(
-          options, reconstruction, *options_->image_path, GetOutputPath());
+      undistorter_.reset(new CMPMVSUndistorter(
+          options, reconstruction, *options_->image_path, GetOutputPath()));
     } else {
       QMessageBox::critical(this, "", tr("Invalid output format"));
       return;
     }
 
-    // Execute after finished.
-    connect(undistorter, &QThread::finished, progress_bar_,
-            [this, undistorter]() {
-              this->progress_bar_->hide();
-              QMessageBox::information(this, "", tr("Undistortion finished"));
-              undistorter->deleteLater();
-            });
+    undistorter_->SetCallback("Finished", [this]() { destructor_->trigger(); });
+    undistorter_->Start();
 
-    connect(progress_bar_, &QProgressDialog::canceled, [undistorter]() {
-      undistorter->Stop();
-      undistorter->wait();
-    });
-
-    undistorter->start();
+    ShowProgressBar();
   }
 }
 

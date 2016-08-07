@@ -57,25 +57,26 @@ int main(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
-  ImageUndistorter* undistorter = nullptr;
-
+  std::unique_ptr<Thread> undistorter;
   if (output_type == "Default") {
-    undistorter = new ImageUndistorter(undistort_camera_options, reconstruction,
-                                       *options.image_path, output_path);
+    undistorter.reset(new ImageUndistorter(undistort_camera_options,
+                                           reconstruction, *options.image_path,
+                                           output_path));
   } else if (output_type == "PMVS") {
-    undistorter = new PMVSUndistorter(undistort_camera_options, reconstruction,
-                                      *options.image_path, output_path);
+    undistorter.reset(new PMVSUndistorter(undistort_camera_options,
+                                          reconstruction, *options.image_path,
+                                          output_path));
   } else if (output_type == "CMP-MVS") {
-    undistorter =
-        new CMPMVSUndistorter(undistort_camera_options, reconstruction,
-                              *options.image_path, output_path);
+    undistorter.reset(new CMPMVSUndistorter(undistort_camera_options,
+                                            reconstruction, *options.image_path,
+                                            output_path));
   } else {
     std::cerr << "ERROR: Invalid `output_type`" << std::endl;
     return EXIT_FAILURE;
   }
 
-  undistorter->start();
-  undistorter->wait();
+  undistorter->Start();
+  undistorter->Wait();
 
   return EXIT_SUCCESS;
 }

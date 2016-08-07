@@ -34,6 +34,9 @@ std::string EnsureTrailingSlash(const std::string& str);
 // Check whether file name has the file extension (case insensitive).
 bool HasFileExtension(const std::string& file_name, const std::string& ext);
 
+// Create the directory if it does not exist.
+void CreateDirIfNotExists(const std::string& path);
+
 // Return list of files, recursively in all sub-directories.
 std::vector<std::string> GetRecursiveFileList(const std::string& path);
 

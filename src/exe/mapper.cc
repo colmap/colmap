@@ -68,11 +68,7 @@ int main(int argc, char** argv) {
 
   for (size_t i = 0; i < mapper_controller.NumModels(); ++i) {
     const std::string model_path = export_path + std::to_string(i);
-
-    if (!boost::filesystem::is_directory(model_path)) {
-      boost::filesystem::create_directory(model_path);
-    }
-
+    CreateDirIfNotExists(model_path);
     options.Write(model_path + "/project.ini");
     mapper_controller.Model(i).Write(model_path);
   }

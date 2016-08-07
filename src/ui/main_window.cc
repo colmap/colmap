@@ -811,11 +811,7 @@ void MainWindow::ExportAll() {
   export_watcher_->setFuture(QtConcurrent::run([this, path]() {
     for (size_t i = 0; i < this->mapper_controller->NumModels(); ++i) {
       const std::string model_path = path + std::to_string(i);
-
-      if (!boost::filesystem::is_directory(model_path)) {
-        boost::filesystem::create_directory(model_path);
-      }
-
+      CreateDirIfNotExists(model_path);
       this->options_.Write(model_path + "/project.ini");
       this->mapper_controller->Model(i).Write(model_path);
     }

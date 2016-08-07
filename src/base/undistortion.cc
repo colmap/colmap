@@ -35,8 +35,8 @@ namespace {
 
 // Write camera parameters to file.
 void WriteCameraParams(const std::string& path, const Camera& camera) {
-  std::ofstream file;
-  file.open(path.c_str(), std::ios::trunc);
+  std::ofstream file(path.c_str(), std::ios::trunc);
+  CHECK(file.is_open());
 
   std::ostringstream line;
 
@@ -63,8 +63,8 @@ void WriteProjectionMatrix(const std::string& path, const Camera& camera,
                            const Image& image, const std::string& header) {
   CHECK_EQ(camera.ModelId(), PinholeCameraModel::model_id);
 
-  std::ofstream file;
-  file.open(path.c_str(), std::ios::trunc);
+  std::ofstream file(path.c_str(), std::ios::trunc);
+  CHECK(file.is_open());
 
   Eigen::Matrix3d calib_matrix = Eigen::Matrix3d::Identity();
   calib_matrix(0, 0) = camera.FocalLengthX();
@@ -102,242 +102,183 @@ ImageUndistorter::ImageUndistorter(const UndistortCameraOptions& options,
                                    const Reconstruction& reconstruction,
                                    const std::string& image_path,
                                    const std::string& output_path)
-    : stop_(false),
+    : options_(options),
       image_path_(EnsureTrailingSlash(image_path)),
-      output_path_(output_path),
-      options_(options),
+      output_path_(EnsureTrailingSlash(output_path)),
       reconstruction_(reconstruction) {}
 
-void ImageUndistorter::Stop() {
-  QMutexLocker locker(&mutex_);
-  stop_ = true;
-}
-
-void ImageUndistorter::run() {
-  Timer total_timer;
-  total_timer.Start();
-
-  PrintHeading1("Image undistortion");
-
-  namespace fs = boost::filesystem;
-
-  const std::vector<image_t>& reg_image_ids = reconstruction_.RegImageIds();
-
-  const fs::path output_path(output_path_);
+void ImageUndistorter::Run() {
+  PrintHeading1("Image Undistortion");
 
   ThreadPool thread_pool;
-  std::vector<std::future<size_t>> futures;
-
-  for (size_t i = 0; i < reg_image_ids.size(); ++i) {
-    const image_t image_id = reg_image_ids[i];
-    const Image& image = reconstruction_.Image(image_id);
-    const Camera& camera = reconstruction_.Camera(image.CameraId());
-
-    const std::string path = image_path_ + image.Name();
-
-    const std::string output_image_path =
-        (output_path / fs::path(image.Name())).string();
-
-    std::function<size_t(void)> UndistortFunc = [=]() {
-      if (fs::exists(output_image_path)) {
-        std::cout << StringPrintf("SKIP: Already undistorted [%d/%d]", i + 1,
-                                  reg_image_ids.size())
-                  << std::endl;
-        return i;
-      }
-
-      Bitmap distorted_bitmap;
-
-      if (!distorted_bitmap.Read(path, true)) {
-        std::cerr << "ERROR: Cannot read image at path " << path << std::endl;
-        return i;
-      }
-
-      Bitmap undistorted_bitmap;
-      Camera undistorted_camera;
-      UndistortImage(options_, distorted_bitmap, camera, &undistorted_bitmap,
-                     &undistorted_camera);
-
-      undistorted_bitmap.Write(output_image_path);
-
-      const std::string camera_params_path = output_image_path + ".camera.txt";
-      WriteCameraParams(camera_params_path.c_str(), undistorted_camera);
-
-      const std::string proj_matrix_path =
-          output_image_path + ".proj_matrix.txt";
-      WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image, "");
-
-      return i;
-    };
-
-    futures.push_back(thread_pool.AddTask(UndistortFunc));
+  std::vector<std::future<void>> futures;
+  futures.reserve(reconstruction_.NumRegImages());
+  for (size_t i = 0; i < reconstruction_.NumRegImages(); ++i) {
+    futures.push_back(
+        thread_pool.AddTask(&ImageUndistorter::Undistort, this, i));
   }
 
-  for (auto& future : futures) {
-    {
-      QMutexLocker locker(&mutex_);
-      if (stop_) {
-        thread_pool.Stop();
-        break;
-      }
+  for (size_t i = 0; i < futures.size(); ++i) {
+    if (IsStopped()) {
+      break;
     }
 
-    std::cout << StringPrintf("Undistorting image [%d/%d]", future.get() + 1,
-                              reg_image_ids.size())
+    std::cout << StringPrintf("Undistorting image [%d/%d]", i + 1,
+                              futures.size())
               << std::endl;
+
+    futures[i].get();
   }
 
-  total_timer.PrintMinutes();
+  GetTimer().PrintMinutes();
+
+  Callback("Finished");
+}
+
+void ImageUndistorter::Undistort(const size_t reg_image_idx) const {
+  const image_t image_id = reconstruction_.RegImageIds().at(reg_image_idx);
+  const Image& image = reconstruction_.Image(image_id);
+  const Camera& camera = reconstruction_.Camera(image.CameraId());
+
+  Bitmap distorted_bitmap;
+  const std::string input_image_path = image_path_ + image.Name();
+  if (!distorted_bitmap.Read(input_image_path)) {
+    std::cerr << "ERROR: Cannot read image at path " << input_image_path
+              << std::endl;
+    return;
+  }
+
+  Bitmap undistorted_bitmap;
+  Camera undistorted_camera;
+  UndistortImage(options_, distorted_bitmap, camera, &undistorted_bitmap,
+                 &undistorted_camera);
+
+  const std::string output_image_path = output_path_ + image.Name();
+  undistorted_bitmap.Write(output_image_path);
+
+  const std::string camera_params_path = output_image_path + ".camera.txt";
+  WriteCameraParams(camera_params_path.c_str(), undistorted_camera);
+
+  const std::string proj_matrix_path = output_image_path + ".proj_matrix.txt";
+  WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image, "");
 }
 
 PMVSUndistorter::PMVSUndistorter(const UndistortCameraOptions& options,
                                  const Reconstruction& reconstruction,
                                  const std::string& image_path,
                                  const std::string& output_path)
-    : ImageUndistorter(options, reconstruction, image_path, output_path) {}
+    : options_(options),
+      image_path_(EnsureTrailingSlash(image_path)),
+      output_path_(EnsureTrailingSlash(output_path)),
+      reconstruction_(reconstruction) {}
 
-void PMVSUndistorter::run() {
-  Timer total_timer;
-  total_timer.Start();
+void PMVSUndistorter::Run() {
+  PrintHeading1("Image Undistortion (CMVS/PMVS)");
 
-  PrintHeading1("Image undistortion for CMVS/PMVS");
+  CreateDirIfNotExists(output_path_ + "pmvs/");
+  CreateDirIfNotExists(output_path_ + "pmvs/txt/");
+  CreateDirIfNotExists(output_path_ + "pmvs/visualize/");
+  CreateDirIfNotExists(output_path_ + "pmvs/models/");
 
-  namespace fs = boost::filesystem;
-
-  const fs::path output_path(output_path_);
-  const fs::path pmvs_path(output_path / fs::path("pmvs"));
-  const fs::path txt_path(pmvs_path / fs::path("txt"));
-  const fs::path visualize_path(pmvs_path / fs::path("visualize"));
-  const fs::path models_path(pmvs_path / fs::path("models"));
-  const fs::path bundle_path(pmvs_path / fs::path("bundle.rd.out"));
-  const fs::path vis_path(pmvs_path / fs::path("vis.dat"));
-  const fs::path option_path(pmvs_path / fs::path("option-all"));
-
-  // Create directories
-
-  if (!fs::is_directory(output_path)) {
-    fs::create_directory(output_path);
-  }
-  if (!fs::is_directory(pmvs_path)) {
-    fs::create_directory(pmvs_path);
-  }
-  if (!fs::is_directory(txt_path)) {
-    fs::create_directory(txt_path);
-  }
-  if (!fs::is_directory(visualize_path)) {
-    fs::create_directory(visualize_path);
-  }
-  if (!fs::is_directory(models_path)) {
-    fs::create_directory(models_path);
+  ThreadPool thread_pool;
+  std::vector<std::future<void>> futures;
+  futures.reserve(reconstruction_.NumRegImages());
+  for (size_t i = 0; i < reconstruction_.NumRegImages(); ++i) {
+    futures.push_back(
+        thread_pool.AddTask(&PMVSUndistorter::Undistort, this, i));
   }
 
   // Reconstruction with undistorted cameras, exported to bundle file.
   Reconstruction undistorted_reconstruction = reconstruction_;
 
-  ThreadPool thread_pool;
-  std::vector<std::future<size_t>> futures;
-
-  const std::vector<image_t>& reg_image_ids = reconstruction_.RegImageIds();
-  for (size_t i = 0; i < reg_image_ids.size(); ++i) {
-    const image_t image_id = reg_image_ids[i];
-    const Image& image = reconstruction_.Image(image_id);
-    const Camera& camera = reconstruction_.Camera(image.CameraId());
-
-    const std::string input_image_path = image_path_ + image.Name();
-    const std::string output_image_path =
-        (visualize_path / fs::path(StringPrintf("%08d.jpg", i))).string();
-    const std::string proj_matrix_path =
-        (txt_path / fs::path(StringPrintf("%08d.txt", i))).string();
-
-    std::function<size_t(void)> UndistortFunc = [=]() {
-      if (fs::exists(output_image_path) && fs::exists(proj_matrix_path)) {
-        std::cout << StringPrintf("SKIP: Already undistorted [%d/%d]", i + 1,
-                                  reg_image_ids.size())
-                  << std::endl;
-        return i;
-      }
-      Bitmap distorted_bitmap;
-
-      if (!distorted_bitmap.Read(input_image_path, true)) {
-        std::cerr << StringPrintf("ERROR: Cannot read image at path %s",
-                                  input_image_path.c_str())
-                  << std::endl;
-        return i;
-      }
-
-      // Undistort the camera and the image.
-      Bitmap undistorted_bitmap;
-      Camera undistorted_camera;
-      UndistortImage(options_, distorted_bitmap, camera, &undistorted_bitmap,
-                     &undistorted_camera);
-
-      undistorted_bitmap.Write(output_image_path);
-      WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image,
-                            "CONTOUR");
-
-      return i;
-    };
-
-    futures.push_back(thread_pool.AddTask(UndistortFunc));
-  }
-
-  for (auto& future : futures) {
-    {
-      QMutexLocker locker(&mutex_);
-      if (stop_) {
-        thread_pool.Stop();
-        std::cout << "WARNING: Stopped the undistortion process. Image point "
-                     "locations and camera parameters for not yet processed "
-                     "images in the Bundler output file is probably wrong."
-                  << std::endl;
-        break;
-      }
+  for (size_t i = 0; i < futures.size(); ++i) {
+    if (IsStopped()) {
+      thread_pool.Stop();
+      std::cout << "WARNING: Stopped the undistortion process. Image point "
+                   "locations and camera parameters for not yet processed "
+                   "images in the Bundler output file is probably wrong."
+                << std::endl;
+      break;
     }
 
-    const size_t i = future.get();
+    std::cout << StringPrintf("Undistorting image [%d/%d]", i + 1,
+                              futures.size())
+              << std::endl;
 
-    const image_t image_id = reg_image_ids[i];
+    futures[i].get();
+
+    // Undistort the camera and the image points. Note that this operation needs
+    // to be done sequentially, otherwise we end up with race conditions when
+    // modifying the reconstruction in parallel.
+    const image_t image_id = reconstruction_.RegImageIds()[i];
     const Image& image = reconstruction_.Image(image_id);
     const Camera& camera = reconstruction_.Camera(image.CameraId());
     Camera& undistorted_camera =
         undistorted_reconstruction.Camera(image.CameraId());
     undistorted_camera = UndistortCamera(options_, camera);
-
-    // Undistort the image points.
-    Image& undistorted_bitmap =
+    Image& undistorted_image =
         undistorted_reconstruction.Image(image.ImageId());
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
-      Point2D& point2D = undistorted_bitmap.Point2D(point2D_idx);
+      Point2D& point2D = undistorted_image.Point2D(point2D_idx);
       const Eigen::Vector2d world_point = camera.ImageToWorld(point2D.XY());
       point2D.SetXY(undistorted_camera.WorldToImage(world_point));
     }
-
-    std::cout << StringPrintf("Undistorting image [%d/%d]", i + 1,
-                              reg_image_ids.size())
-              << std::endl;
   }
 
   std::cout << "Writing bundle file" << std::endl;
+  const std::string bundle_path = output_path_ + "pmvs/bundle.rd.out";
   try {
-    undistorted_reconstruction.ExportBundler(
-        bundle_path.string(), bundle_path.string() + ".list.txt");
+    undistorted_reconstruction.ExportBundler(bundle_path,
+                                             bundle_path + ".list.txt");
   } catch (std::domain_error& error) {
     std::cerr << "WARNING: " << error.what() << std::endl;
   }
 
   std::cout << "Writing visibility file" << std::endl;
-  WriteVisibilityData(vis_path.string());
+  const std::string vis_path = output_path_ + "pmvs/vis.dat";
+  WriteVisibilityData(vis_path);
 
   std::cout << "Writing option file" << std::endl;
-  WriteOptionFile(option_path.string());
+  const std::string option_path = output_path_ + "pmvs/option-all";
+  WriteOptionFile(option_path);
 
-  total_timer.PrintMinutes();
+  GetTimer().PrintMinutes();
+
+  Callback("Finished");
+}
+
+void PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
+  const image_t image_id = reconstruction_.RegImageIds().at(reg_image_idx);
+  const Image& image = reconstruction_.Image(image_id);
+  const Camera& camera = reconstruction_.Camera(image.CameraId());
+
+  Bitmap distorted_bitmap;
+  const std::string input_image_path = image_path_ + image.Name();
+  if (!distorted_bitmap.Read(input_image_path)) {
+    std::cerr << StringPrintf("ERROR: Cannot read image at path %s",
+                              input_image_path.c_str())
+              << std::endl;
+    return;
+  }
+
+  Bitmap undistorted_bitmap;
+  Camera undistorted_camera;
+  UndistortImage(options_, distorted_bitmap, camera, &undistorted_bitmap,
+                 &undistorted_camera);
+
+  const std::string output_image_path =
+      output_path_ + StringPrintf("pmvs/visualize/%08d.jpg", reg_image_idx);
+  undistorted_bitmap.Write(output_image_path);
+
+  const std::string proj_matrix_path =
+      output_path_ + StringPrintf("pmvs/txt/%08d.txt", reg_image_idx);
+  WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image, "CONTOUR");
 }
 
 void PMVSUndistorter::WriteVisibilityData(const std::string& path) const {
-  std::ofstream file;
-  file.open(path.c_str(), std::ios::trunc);
+  std::ofstream file(path.c_str(), std::ios::trunc);
+  CHECK(file.is_open());
 
   file << "VISDATA" << std::endl;
   file << reconstruction_.NumRegImages() << std::endl;
@@ -376,8 +317,8 @@ void PMVSUndistorter::WriteVisibilityData(const std::string& path) const {
 }
 
 void PMVSUndistorter::WriteOptionFile(const std::string& path) const {
-  std::ofstream file;
-  file.open(path.c_str(), std::ios::trunc);
+  std::ofstream file(path.c_str(), std::ios::trunc);
+  CHECK(file.is_open());
 
   file << "# Generated by COLMAP - all images, no clustering." << std::endl;
 
@@ -409,80 +350,64 @@ CMPMVSUndistorter::CMPMVSUndistorter(const UndistortCameraOptions& options,
                                      const Reconstruction& reconstruction,
                                      const std::string& image_path,
                                      const std::string& output_path)
-    : ImageUndistorter(options, reconstruction, image_path, output_path) {}
+    : options_(options),
+      image_path_(EnsureTrailingSlash(image_path)),
+      output_path_(EnsureTrailingSlash(output_path)),
+      reconstruction_(reconstruction) {}
 
-void CMPMVSUndistorter::run() {
-  Timer total_timer;
-  total_timer.Start();
-
-  PrintHeading1("Image undistortion for CMP-MVS");
-
-  namespace fs = boost::filesystem;
-
-  const std::vector<image_t>& reg_image_ids = reconstruction_.RegImageIds();
-
-  const fs::path output_path(output_path_);
+void CMPMVSUndistorter::Run() {
+  PrintHeading1("Image Undistortion (CMP-MVS)");
 
   ThreadPool thread_pool;
-  std::vector<std::future<size_t>> futures;
-
-  for (size_t i = 0; i < reg_image_ids.size(); ++i) {
-    const image_t image_id = reg_image_ids[i];
-    const Image& image = reconstruction_.Image(image_id);
-    const Camera& camera = reconstruction_.Camera(image.CameraId());
-
-    const std::string path = image_path_ + image.Name();
-
-    const std::string output_image_path =
-        (output_path / fs::path(StringPrintf("%05d.jpg", i + 1))).string();
-    const std::string proj_matrix_path =
-        (output_path / fs::path(StringPrintf("%05d_P.txt", i + 1))).string();
-
-    std::function<size_t(void)> UndistortFunc = [=]() {
-      if (fs::exists(output_image_path) && fs::exists(proj_matrix_path)) {
-        std::cout << StringPrintf("SKIP: Already undistorted [%d/%d]", i + 1,
-                                  reg_image_ids.size())
-                  << std::endl;
-        return i;
-      }
-
-      Bitmap distorted_bitmap;
-
-      if (!distorted_bitmap.Read(path, true)) {
-        std::cerr << "ERROR: Cannot read image at path " << path << std::endl;
-        return i;
-      }
-
-      Bitmap undistorted_bitmap;
-      Camera undistorted_camera;
-      UndistortImage(options_, distorted_bitmap, camera, &undistorted_bitmap,
-                     &undistorted_camera);
-
-      undistorted_bitmap.Write(output_image_path);
-      WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image,
-                            "CONTOUR");
-
-      return i;
-    };
-
-    futures.push_back(thread_pool.AddTask(UndistortFunc));
+  std::vector<std::future<void>> futures;
+  futures.reserve(reconstruction_.NumRegImages());
+  for (size_t i = 0; i < reconstruction_.NumRegImages(); ++i) {
+    futures.push_back(
+        thread_pool.AddTask(&CMPMVSUndistorter::Undistort, this, i));
   }
 
-  for (auto& future : futures) {
-    {
-      QMutexLocker locker(&mutex_);
-      if (stop_) {
-        thread_pool.Stop();
-        break;
-      }
+  for (size_t i = 0; i < futures.size(); ++i) {
+    if (IsStopped()) {
+      break;
     }
 
-    std::cout << StringPrintf("Undistorting image [%d/%d]", future.get() + 1,
-                              reg_image_ids.size())
+    std::cout << StringPrintf("Undistorting image [%d/%d]", i + 1,
+                              futures.size())
               << std::endl;
+
+    futures[i].get();
   }
 
-  total_timer.PrintMinutes();
+  GetTimer().PrintMinutes();
+
+  Callback("Finished");
+}
+
+void CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
+  const image_t image_id = reconstruction_.RegImageIds().at(reg_image_idx);
+  const Image& image = reconstruction_.Image(image_id);
+  const Camera& camera = reconstruction_.Camera(image.CameraId());
+
+  Bitmap distorted_bitmap;
+  const std::string input_image_path = image_path_ + image.Name();
+  if (!distorted_bitmap.Read(input_image_path)) {
+    std::cerr << "ERROR: Cannot read image at path " << input_image_path
+              << std::endl;
+    return;
+  }
+
+  Bitmap undistorted_bitmap;
+  Camera undistorted_camera;
+  UndistortImage(options_, distorted_bitmap, camera, &undistorted_bitmap,
+                 &undistorted_camera);
+
+  const std::string output_image_path =
+      output_path_ + StringPrintf("%05d.jpg", reg_image_idx + 1);
+  undistorted_bitmap.Write(output_image_path);
+
+  const std::string proj_matrix_path =
+      output_path_ + StringPrintf("%05d_P.txt", reg_image_idx + 1);
+  WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image, "CONTOUR");
 }
 
 Camera UndistortCamera(const UndistortCameraOptions& options,
