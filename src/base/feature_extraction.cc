@@ -381,7 +381,7 @@ void SiftGPUFeatureExtractor::Run() {
   PrintHeading1("Feature extraction (GPU)");
 
   SiftGPU sift_gpu;
-  if (!CreateSiftGPU(sift_options_, &opengl_context_, &sift_gpu)) {
+  if (!CreateSiftGPUExtractor(sift_options_, &opengl_context_, &sift_gpu)) {
     std::cerr << "ERROR: SiftGPU not fully supported." << std::endl;
     return;
   }
@@ -672,8 +672,9 @@ bool ExtractSiftFeaturesCPU(const SiftOptions& sift_options,
   return true;
 }
 
-bool CreateSiftGPU(const SiftOptions& sift_options,
-                   OpenGLContextManager* opengl_context, SiftGPU* sift_gpu) {
+bool CreateSiftGPUExtractor(const SiftOptions& sift_options,
+                            OpenGLContextManager* opengl_context,
+                            SiftGPU* sift_gpu) {
   opengl_context->MakeCurrent();
 
   std::vector<std::string> sift_gpu_args;

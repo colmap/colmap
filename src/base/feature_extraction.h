@@ -185,8 +185,9 @@ bool ExtractSiftFeaturesCPU(const SiftOptions& sift_options,
 // Create a SiftGPU feature extractor. Note that the OpenGLContextManager must
 // be created in the main thread of the Qt application. The same SiftGPU
 // instance can be used to extract features for  multiple images.
-bool CreateSiftGPU(const SiftOptions& sift_options,
-                   OpenGLContextManager* opengl_context, SiftGPU* sift_gpu);
+bool CreateSiftGPUExtractor(const SiftOptions& sift_options,
+                            OpenGLContextManager* opengl_context,
+                            SiftGPU* sift_gpu);
 
 // Extract SIFT features for the given image on the GPU.
 // SiftGPU must already be initialized using `CreateSiftGPU`.
