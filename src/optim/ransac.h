@@ -70,7 +70,7 @@ class RANSAC {
     typename SupportMeasurer::Support support;
 
     // Boolean mask which is true if a sample is an inlier.
-    std::vector<bool> inlier_mask;
+    std::vector<char> inlier_mask;
 
     // The estimated model.
     typename Estimator::M_t model;

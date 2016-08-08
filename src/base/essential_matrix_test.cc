@@ -174,7 +174,7 @@ BOOST_AUTO_TEST_CASE(TestRefineEssentialMatrix) {
   Eigen::Matrix3d E_refined = E_pertubated;
   ceres::Solver::Options options;
   RefineEssentialMatrix(options, points1, points2,
-                        std::vector<bool>(points1.size(), true), &E_refined);
+                        std::vector<char>(points1.size(), true), &E_refined);
 
   BOOST_CHECK_LE((E - E_refined).norm(), (E - E_pertubated).norm());
 }

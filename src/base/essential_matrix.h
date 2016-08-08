@@ -136,7 +136,7 @@ Eigen::Matrix3d InvertEssentialMatrix(const Eigen::Matrix3d& matrix);
 bool RefineEssentialMatrix(const ceres::Solver::Options& options,
                            const std::vector<Eigen::Vector2d>& points1,
                            const std::vector<Eigen::Vector2d>& points2,
-                           const std::vector<bool>& inlier_mask,
+                           const std::vector<char>& inlier_mask,
                            Eigen::Matrix3d* E);
 
 }  // namespace colmap

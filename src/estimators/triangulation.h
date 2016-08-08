@@ -126,7 +126,7 @@ bool EstimateTriangulation(
     const EstimateTriangulationOptions& options,
     const std::vector<TriangulationEstimator::PointData>& point_data,
     const std::vector<TriangulationEstimator::PoseData>& pose_data,
-    std::vector<bool>* inlier_mask, Eigen::Vector3d* xyz);
+    std::vector<char>* inlier_mask, Eigen::Vector3d* xyz);
 
 }  // namespace colmap
 

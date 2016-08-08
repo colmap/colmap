@@ -37,7 +37,7 @@ class BasicImageViewerWidget : public QWidget {
   BasicImageViewerWidget(QWidget* parent, const std::string& switch_text);
 
   void Show(const std::string& path, const FeatureKeypoints& keypoints,
-            const std::vector<bool>& tri_mask);
+            const std::vector<char>& tri_mask);
 
  protected:
   static const double kZoomFactor;

@@ -64,7 +64,7 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                           const std::vector<Eigen::Vector3d>& points3D,
                           Eigen::Vector4d* qvec, Eigen::Vector3d* tvec,
                           Camera* camera, size_t* num_inliers,
-                          std::vector<bool>* inlier_mask) {
+                          std::vector<char>* inlier_mask) {
   options.Check();
 
   std::vector<double> focal_length_factors;
@@ -174,7 +174,7 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
 }
 
 bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
-                        const std::vector<bool>& inlier_mask,
+                        const std::vector<char>& inlier_mask,
                         const std::vector<Eigen::Vector2d>& points2D,
                         const std::vector<Eigen::Vector3d>& points3D,
                         Eigen::Vector4d* qvec, Eigen::Vector3d* tvec,

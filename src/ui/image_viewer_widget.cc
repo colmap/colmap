@@ -86,7 +86,7 @@ void BasicImageViewerWidget::closeEvent(QCloseEvent* event) {
 
 void BasicImageViewerWidget::Show(const std::string& path,
                                   const FeatureKeypoints& keypoints,
-                                  const std::vector<bool>& tri_mask) {
+                                  const std::vector<char>& tri_mask) {
   Bitmap bitmap;
   if (!bitmap.Read(path, true)) {
     std::cerr << "ERROR: Cannot read image at path " << path << std::endl;
@@ -304,7 +304,7 @@ void ImageViewerWidget::Show(const image_t image_id) {
                             QString::number(camera.Height()));
   num_points2D_item_->setText(QString::number(image.NumPoints2D()));
 
-  std::vector<bool> tri_mask(image.NumPoints2D());
+  std::vector<char> tri_mask(image.NumPoints2D());
   for (size_t i = 0; i < image.NumPoints2D(); ++i) {
     tri_mask[i] = image.Point2D(i).HasPoint3D();
   }

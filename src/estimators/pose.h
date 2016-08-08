@@ -111,7 +111,7 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                           const std::vector<Eigen::Vector3d>& points3D,
                           Eigen::Vector4d* qvec, Eigen::Vector3d* tvec,
                           Camera* camera, size_t* num_inliers,
-                          std::vector<bool>* inlier_mask);
+                          std::vector<char>* inlier_mask);
 
 // Estimate relative from 2D-2D correspondences.
 //
@@ -146,7 +146,7 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
 //
 // @return                     Whether the solution is usable.
 bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
-                        const std::vector<bool>& inlier_mask,
+                        const std::vector<char>& inlier_mask,
                         const std::vector<Eigen::Vector2d>& points2D,
                         const std::vector<Eigen::Vector3d>& points3D,
                         Eigen::Vector4d* qvec, Eigen::Vector3d* tvec,

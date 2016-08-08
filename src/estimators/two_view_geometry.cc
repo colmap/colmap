@@ -35,7 +35,7 @@ namespace {
 
 FeatureMatches ExtractInlierMatches(const FeatureMatches& matches,
                                     const size_t num_inliers,
-                                    const std::vector<bool>& inlier_mask) {
+                                    const std::vector<char>& inlier_mask) {
   FeatureMatches inlier_matches(num_inliers);
   size_t j = 0;
   for (size_t i = 0; i < matches.size(); ++i) {
@@ -49,7 +49,7 @@ FeatureMatches ExtractInlierMatches(const FeatureMatches& matches,
 
 FeatureMatches ExtractOutlierMatches(const FeatureMatches& matches,
                                      const size_t num_inliers,
-                                     const std::vector<bool>& inlier_mask) {
+                                     const std::vector<char>& inlier_mask) {
   FeatureMatches outlier_matches(matches.size() - num_inliers);
   size_t j = 0;
   for (size_t i = 0; i < matches.size(); ++i) {
@@ -256,7 +256,7 @@ void TwoViewGeometry::EstimateCalibrated(
   const double H_E_inlier_ratio =
       static_cast<double>(H_num_inliers) / E_num_inliers;
 
-  const std::vector<bool>* best_inlier_mask = nullptr;
+  const std::vector<char>* best_inlier_mask = nullptr;
   size_t num_inliers = 0;
 
   if (E_report.success && E_F_inlier_ratio > options.min_E_F_inlier_ratio &&
@@ -386,7 +386,7 @@ void TwoViewGeometry::EstimateUncalibrated(
 bool TwoViewGeometry::DetectWatermark(
     const Camera& camera1, const std::vector<Eigen::Vector2d>& points1,
     const Camera& camera2, const std::vector<Eigen::Vector2d>& points2,
-    const size_t num_inliers, const std::vector<bool>& inlier_mask,
+    const size_t num_inliers, const std::vector<char>& inlier_mask,
     const Options& options) {
   options.Check();
 

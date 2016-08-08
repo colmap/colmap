@@ -205,7 +205,7 @@ struct TwoViewGeometry {
                               const Camera& camera2,
                               const std::vector<Eigen::Vector2d>& points2,
                               const size_t num_inliers,
-                              const std::vector<bool>& inlier_mask,
+                              const std::vector<char>& inlier_mask,
                               const Options& options);
 
   // One of `ConfigurationType`.
@@ -224,7 +224,7 @@ struct TwoViewGeometry {
 
   // Inlier matches of the configuration.
   FeatureMatches inlier_matches;
-  std::vector<bool> inlier_mask;
+  std::vector<char> inlier_mask;
 
   // Median triangulation angle.
   double tri_angle;

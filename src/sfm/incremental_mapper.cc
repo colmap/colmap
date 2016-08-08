@@ -458,7 +458,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   }
 
   size_t num_inliers;
-  std::vector<bool> inlier_mask;
+  std::vector<char> inlier_mask;
 
   if (!EstimateAbsolutePose(abs_pose_options, tri_points2D, tri_points3D,
                             &image.Qvec(), &image.Tvec(), &camera, &num_inliers,

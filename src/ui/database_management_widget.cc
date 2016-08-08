@@ -420,7 +420,7 @@ void ImageTab::ShowImage() {
   const auto& image = images_[select->selectedRows().begin()->row()];
 
   const auto keypoints = database_->ReadKeypoints(image.ImageId());
-  const std::vector<bool> tri_mask(keypoints.size(), false);
+  const std::vector<char> tri_mask(keypoints.size(), false);
 
   image_viewer_->show();
   image_viewer_->raise();
