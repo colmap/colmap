@@ -174,7 +174,7 @@ class ThreadPool {
   std::condition_variable finished_condition_;
 
   bool stopped_;
-  int num_active_workers_;
+  std::atomic_int num_active_workers_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

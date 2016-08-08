@@ -381,22 +381,22 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolArgReturn) {
 }
 
 BOOST_AUTO_TEST_CASE(TestThreadPoolDestructor) {
-  std::vector<bool> results(1000, false);
-  std::function<void(int)> Func = [&results](int num) {
+  std::vector<uint8_t> results(1000, 0);
+  std::function<void(int)> Func = [&results](const int num) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    results[num] = true;
+    results[num] = 1;
   };
 
   {
     ThreadPool pool(4);
-    for (int i = 0; i < results.size(); ++i) {
+    for (size_t i = 0; i < results.size(); ++i) {
       pool.AddTask(Func, i);
     }
   }
 
   bool missing_result = false;
   for (const auto result : results) {
-    if (!result) {
+    if (result == 0) {
       missing_result = true;
       break;
     }
@@ -428,18 +428,19 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolStop) {
 }
 
 BOOST_AUTO_TEST_CASE(TestThreadPoolWait) {
-  std::vector<bool> results(1000, false);
-  std::function<void(int)> Func = [&results](int num) { results[num] = true; };
+  std::vector<uint8_t> results(1000, 0);
+  std::function<void(int)> Func = [&results](const int num) {
+    results[num] = 1;
+  };
 
   ThreadPool pool(4);
-  std::vector<std::future<void>> futures;
-  for (int i = 0; i < results.size(); ++i) {
-    futures.push_back(pool.AddTask(Func, i));
+  for (size_t i = 0; i < results.size(); ++i) {
+    pool.AddTask(Func, i);
   }
 
   pool.Wait();
 
   for (const auto result : results) {
-    BOOST_CHECK_EQUAL(result, true);
+    BOOST_CHECK_EQUAL(result, 1);
   }
 }
