@@ -135,18 +135,23 @@ void UndistortWidget::Undistort() {
     if (combo_box_->currentIndex() == 0) {
       undistorter_.reset(new ImageUndistorter(
           options, reconstruction, *options_->image_path, GetOutputPath()));
+      undistorter_->SetCallback(ImageUndistorter::FINISHED,
+                                [this]() { destructor_->trigger(); });
     } else if (combo_box_->currentIndex() == 1) {
       undistorter_.reset(new PMVSUndistorter(
           options, reconstruction, *options_->image_path, GetOutputPath()));
+      undistorter_->SetCallback(PMVSUndistorter::FINISHED,
+                                [this]() { destructor_->trigger(); });
     } else if (combo_box_->currentIndex() == 2) {
       undistorter_.reset(new CMPMVSUndistorter(
           options, reconstruction, *options_->image_path, GetOutputPath()));
+      undistorter_->SetCallback(CMPMVSUndistorter::FINISHED,
+                                [this]() { destructor_->trigger(); });
     } else {
       QMessageBox::critical(this, "", tr("Invalid output format"));
       return;
     }
 
-    undistorter_->SetCallback("Finished", [this]() { destructor_->trigger(); });
     undistorter_->Start();
 
     ShowProgressBar();

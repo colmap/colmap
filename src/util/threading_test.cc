@@ -221,9 +221,21 @@ BOOST_AUTO_TEST_CASE(TestThreadRestart) {
 
 BOOST_AUTO_TEST_CASE(TestCallback) {
   class TestThread : public Thread {
+   public:
+    enum Callbacks {
+      CALLBACK1,
+      CALLBACK2,
+    };
+
+    TestThread() {
+      RegisterCallback(CALLBACK1);
+      RegisterCallback(CALLBACK2);
+    }
+
+   private:
     void Run() {
-      Callback("callback1");
-      Callback("callback2");
+      Callback(CALLBACK1);
+      Callback(CALLBACK2);
     }
   };
 
@@ -238,7 +250,7 @@ BOOST_AUTO_TEST_CASE(TestCallback) {
   };
 
   TestThread thread;
-  thread.SetCallback("callback1", CallbackFunc1);
+  thread.SetCallback(TestThread::CALLBACK1, CallbackFunc1);
   thread.Start();
   thread.Wait();
   BOOST_CHECK(called_back1);
@@ -246,7 +258,7 @@ BOOST_AUTO_TEST_CASE(TestCallback) {
 
   called_back1 = false;
   called_back2 = false;
-  thread.SetCallback("callback2", CallbackFunc2);
+  thread.SetCallback(TestThread::CALLBACK2, CallbackFunc2);
   thread.Start();
   thread.Wait();
   BOOST_CHECK(called_back1);
@@ -254,7 +266,7 @@ BOOST_AUTO_TEST_CASE(TestCallback) {
 
   called_back1 = false;
   called_back2 = false;
-  thread.ResetCallback("callback1");
+  thread.ResetCallback(TestThread::CALLBACK1);
   thread.Start();
   thread.Wait();
   BOOST_CHECK(!called_back1);

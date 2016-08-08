@@ -269,6 +269,7 @@ SiftCPUFeatureExtractor::SiftCPUFeatureExtractor(
       cpu_options_(cpu_options) {
   sift_options_.Check();
   cpu_options_.Check();
+  RegisterCallback(FINISHED);
 }
 
 void SiftCPUFeatureExtractor::Options::Check() const {
@@ -366,13 +367,14 @@ void SiftCPUFeatureExtractor::Run() {
 
   GetTimer().PrintMinutes();
 
-  Callback("Finished");
+  Callback(FINISHED);
 }
 
 SiftGPUFeatureExtractor::SiftGPUFeatureExtractor(
     const ImageReader::Options& reader_options, const SiftOptions& sift_options)
     : reader_options_(reader_options), sift_options_(sift_options) {
   sift_options_.Check();
+  RegisterCallback(FINISHED);
 }
 
 void SiftGPUFeatureExtractor::Run() {
@@ -432,13 +434,15 @@ void SiftGPUFeatureExtractor::Run() {
 
   GetTimer().PrintMinutes();
 
-  Callback("Finished");
+  Callback(FINISHED);
 }
 
 FeatureImporter::FeatureImporter(const ImageReader::Options& reader_options,
                                  const std::string& import_path)
     : reader_options_(reader_options),
-      import_path_(EnsureTrailingSlash(import_path)) {}
+      import_path_(EnsureTrailingSlash(import_path)) {
+  RegisterCallback(FINISHED);
+}
 
 void FeatureImporter::Run() {
   PrintHeading1("Feature import");
@@ -502,7 +506,7 @@ void FeatureImporter::Run() {
 
   GetTimer().PrintMinutes();
 
-  Callback("Finished");
+  Callback(FINISHED);
 }
 
 bool ExtractSiftFeaturesCPU(const SiftOptions& sift_options,

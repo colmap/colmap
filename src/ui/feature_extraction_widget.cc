@@ -131,13 +131,16 @@ void SIFTExtractionWidget::Run() {
   if (sift_gpu_->isChecked()) {
     extractor_.reset(new SiftGPUFeatureExtractor(
         reader_options, options_->extraction_options->sift_options));
+    extractor_->SetCallback(SiftGPUFeatureExtractor::FINISHED,
+                            [this]() { destructor_->trigger(); });
   } else {
     extractor_.reset(new SiftCPUFeatureExtractor(
         reader_options, options_->extraction_options->sift_options,
         options_->extraction_options->cpu_options));
+    extractor_->SetCallback(SiftGPUFeatureExtractor::FINISHED,
+                            [this]() { destructor_->trigger(); });
   }
 
-  extractor_->SetCallback("Finished", [this]() { destructor_->trigger(); });
   extractor_->Start();
 
   ShowProgressBar();
@@ -165,7 +168,8 @@ void ImportFeaturesWidget::Run() {
   extractor_.reset(
       new FeatureImporter(reader_options, EnsureTrailingSlash(import_path_)));
 
-  extractor_->SetCallback("Finished", [this]() { destructor_->trigger(); });
+  extractor_->SetCallback(FeatureImporter::FINISHED,
+                          [this]() { destructor_->trigger(); });
   extractor_->Start();
   ShowProgressBar();
 }

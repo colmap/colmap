@@ -125,6 +125,10 @@ class SiftCPUFeatureExtractor : public Thread {
     void Check() const;
   };
 
+  enum Callbacks {
+    FINISHED,
+  };
+
   SiftCPUFeatureExtractor(const ImageReader::Options& reader_options,
                           const SiftOptions& sift_options,
                           const Options& cpu_options);
@@ -140,6 +144,10 @@ class SiftCPUFeatureExtractor : public Thread {
 // Extract DoG SIFT features using the GPU.
 class SiftGPUFeatureExtractor : public Thread {
  public:
+  enum Callbacks {
+    FINISHED,
+  };
+
   SiftGPUFeatureExtractor(const ImageReader::Options& reader_options,
                           const SiftOptions& sift_options);
 
@@ -155,6 +163,10 @@ class SiftGPUFeatureExtractor : public Thread {
 // file with the same name and an additional ".txt" suffix.
 class FeatureImporter : public Thread {
  public:
+  enum Callbacks {
+    FINISHED,
+  };
+
   FeatureImporter(const ImageReader::Options& reader_options,
                   const std::string& import_path);
 

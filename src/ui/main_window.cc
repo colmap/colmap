@@ -498,27 +498,31 @@ void MainWindow::CreateControllers() {
   }
 
   mapper_controller.reset(new IncrementalMapperController(options_));
-  mapper_controller->SetCallback("InitialImagePairRegistered", [this]() {
-    if (!mapper_controller->IsStopped()) {
-      action_render_now_->trigger();
-    }
-  });
-  mapper_controller->SetCallback("NextImageRegistered", [this]() {
-    if (!mapper_controller->IsStopped()) {
-      action_render_->trigger();
-    }
-  });
-  mapper_controller->SetCallback("LastImageRegistered", [this]() {
-    if (!mapper_controller->IsStopped()) {
-      action_render_now_->trigger();
-    }
-  });
-  mapper_controller->SetCallback("Finished", [this]() {
-    if (!mapper_controller->IsStopped()) {
-      action_render_now_->trigger();
-      action_reconstruction_finish_->trigger();
-    }
-  });
+  mapper_controller->SetCallback(
+      IncrementalMapperController::INITIAL_IMAGE_PAIR_REG, [this]() {
+        if (!mapper_controller->IsStopped()) {
+          action_render_now_->trigger();
+        }
+      });
+  mapper_controller->SetCallback(IncrementalMapperController::NEXT_IMAGE_REG,
+                                 [this]() {
+                                   if (!mapper_controller->IsStopped()) {
+                                     action_render_->trigger();
+                                   }
+                                 });
+  mapper_controller->SetCallback(IncrementalMapperController::LAST_IMAGE_REG,
+                                 [this]() {
+                                   if (!mapper_controller->IsStopped()) {
+                                     action_render_now_->trigger();
+                                   }
+                                 });
+  mapper_controller->SetCallback(IncrementalMapperController::FINISHED,
+                                 [this]() {
+                                   if (!mapper_controller->IsStopped()) {
+                                     action_render_now_->trigger();
+                                     action_reconstruction_finish_->trigger();
+                                   }
+                                 });
 
   if (ba_controller) {
     ba_controller->Stop();
@@ -526,8 +530,9 @@ void MainWindow::CreateControllers() {
   }
 
   ba_controller.reset(new BundleAdjustmentController(options_));
-  ba_controller->SetCallback(
-      "Finished", [this]() { action_bundle_adjustment_finish_->trigger(); });
+  ba_controller->SetCallback(BundleAdjustmentController::FINISHED, [this]() {
+    action_bundle_adjustment_finish_->trigger();
+  });
 }
 
 void MainWindow::CreateFutures() {

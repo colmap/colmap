@@ -24,11 +24,11 @@
 #include <Eigen/Core>
 
 #include "base/camera.h"
+#include "base/database_cache.h"
 #include "base/image.h"
 #include "base/point2d.h"
 #include "base/point3d.h"
 #include "base/track.h"
-#include "database_cache.h"
 #include "util/types.h"
 
 namespace colmap {

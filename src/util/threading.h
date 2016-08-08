@@ -53,6 +53,11 @@ namespace colmap {
 // Helper class to create single threads with simple controls and timing, e.g.:
 //
 //      class MyThread : public Thread {
+//        enum Callbacks {
+//          FINISHED
+//        };
+//
+//        MyThread() { RegisterCallback(FINISHED); }
 //        void Run() {
 //          // Some pre-processing...
 //          for (const auto& item : items) {
@@ -63,12 +68,12 @@ namespace colmap {
 //            }
 //            // Process item...
 //          }
-//          Callback("Finished");
+//          Callback(FINISHED);
 //        }
 //      };
 //
 //      MyThread thread;
-//      thread.SetCallback("Finished", []() { std::cout << "Finished"; })
+//      thread.SetCallback(MyThread::FINISHED, []() { std::cout << "Test"; })
 //      thread.Start();
 //      // Pause, resume, stop, ...
 //      thread.Wait();
@@ -94,8 +99,8 @@ class Thread {
   bool IsFinished();
 
   // Set callbacks that can be triggered within the main run function.
-  void SetCallback(const std::string& name, const std::function<void()>& func);
-  void ResetCallback(const std::string& name);
+  void SetCallback(const int id, const std::function<void()>& func);
+  void ResetCallback(const int id);
 
   // Get timing information of the thread, properly accounting for pause times.
   const Timer& GetTimer() const;
@@ -111,8 +116,13 @@ class Thread {
   // caller, if the thread is paused, until the thread is resumed.
   void WaitIfPaused();
 
+  // Register a new callback. Note that only registered callbacks can be
+  // set/reset and called from within the thread. Hence, this method should be
+  // called from the derived thread constructor.
+  void RegisterCallback(const int id);
+
   // Call back to the function with the specified name, if it exists.
-  void Callback(const std::string& name) const;
+  void Callback(const int id) const;
 
  private:
   // Wrapper around the main run function to set the finished flag.
@@ -130,7 +140,7 @@ class Thread {
   bool pausing_;
   bool finished_;
 
-  std::unordered_map<std::string, std::function<void()>> callbacks_;
+  std::unordered_map<int, std::function<void()>> callbacks_;
 };
 
 class ThreadPool {

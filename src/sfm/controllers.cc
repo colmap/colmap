@@ -159,7 +159,12 @@ void ExtractColors(const std::string& image_path, const image_t image_id,
 
 IncrementalMapperController::IncrementalMapperController(
     const OptionManager& options)
-    : options_(options) {}
+    : options_(options) {
+  RegisterCallback(INITIAL_IMAGE_PAIR_REG);
+  RegisterCallback(NEXT_IMAGE_REG);
+  RegisterCallback(LAST_IMAGE_REG);
+  RegisterCallback(FINISHED);
+}
 
 IncrementalMapperController::IncrementalMapperController(
     const OptionManager& options, Reconstruction* initial_reconstruction)
@@ -276,7 +281,7 @@ void IncrementalMapperController::Run() {
       }
     }
 
-    Callback("InitialImagePairRegistered");
+    Callback(INITIAL_IMAGE_PAIR_REG);
 
     ////////////////////////////////////////////////////////////////////////////
     // Incremental mapping
@@ -339,7 +344,7 @@ void IncrementalMapperController::Run() {
             ExtractColors(*options_.image_path, next_image_id, &reconstruction);
           }
 
-          Callback("NextImageRegistered");
+          Callback(NEXT_IMAGE_REG);
 
           break;
         } else {
@@ -393,7 +398,7 @@ void IncrementalMapperController::Run() {
       mapper.EndReconstruction(kDiscardReconstruction);
     }
 
-    Callback("LastImageRegistered");
+    Callback(LAST_IMAGE_REG);
 
     const size_t max_num_models =
         static_cast<size_t>(mapper_options.max_num_models);
@@ -407,12 +412,14 @@ void IncrementalMapperController::Run() {
   std::cout << std::endl;
   GetTimer().PrintMinutes();
 
-  Callback("Finished");
+  Callback(FINISHED);
 }
 
 BundleAdjustmentController::BundleAdjustmentController(
     const OptionManager& options)
-    : reconstruction(nullptr), options_(options) {}
+    : reconstruction(nullptr), options_(options) {
+  RegisterCallback(FINISHED);
+}
 
 void BundleAdjustmentController::Run() {
   CHECK_NOTNULL(reconstruction);
@@ -450,7 +457,7 @@ void BundleAdjustmentController::Run() {
 
   GetTimer().PrintMinutes();
 
-  Callback("Finished");
+  Callback(FINISHED);
 }
 
 }  // namespace colmap
