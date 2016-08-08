@@ -17,8 +17,6 @@
 #ifndef COLMAP_SRC_BASE_FEATURE_EXTRACTION_H_
 #define COLMAP_SRC_BASE_FEATURE_EXTRACTION_H_
 
-#include <QtOpenGL>
-
 #include "base/database.h"
 #include "ext/SiftGPU/SiftGPU.h"
 #include "util/bitmap.h"

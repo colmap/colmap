@@ -24,12 +24,11 @@
 
 #include <Eigen/Core>
 
-extern "C" {
-// Make sure that defined DLL_API in FreeImage does not mess up other libraries.
-#undef DLL_API
+#ifdef _WIN32
+#define NOMINMAX
+#include <Windows.h>
+#endif
 #include <FreeImage.h>
-#undef DLL_API
-}
 
 #include "util/types.h"
 
