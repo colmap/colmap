@@ -56,12 +56,6 @@ class Database {
   void Open(const std::string& path);
   void Close();
 
-  // Combine multiple queries into one transaction by wrapping a code section
-  // into a `BeginTransaction` and `EndTransaction`. Combining queries
-  // results in faster transaction time due to reduced locking of database etc.
-  void BeginTransaction() const;
-  void EndTransaction() const;
-
   // Check if entry already exists in database. For image pairs, the order of
   // `image_id1` and `image_id2` does not matter.
   bool ExistsCamera(const camera_t camera_id) const;
@@ -185,6 +179,16 @@ class Database {
   void ClearInlierMatches() const;
 
  private:
+  friend class DatabaseTransaction;
+
+  // Combine multiple queries into one transaction by wrapping a code section
+  // into a `BeginTransaction` and `EndTransaction`. You can create a scoped
+  // transaction with `DatabaseTransaction` that ends when the transaction
+  // object is destructed. Combining queries results in faster transaction time
+  // due to reduced locking of the database etc.
+  void BeginTransaction() const;
+  void EndTransaction() const;
+
   // Prepare SQL statements once at construction of the database, and reuse
   // the statements for multiple queries by resetting their states.
   void PrepareSQLStatements();
@@ -260,6 +264,20 @@ class Database {
   // clear_*
   sqlite3_stmt* sql_stmt_clear_matches_;
   sqlite3_stmt* sql_stmt_clear_inlier_matches_;
+};
+
+// This class automatically manages the scope of a database transaction by
+// calling `BeginTransaction` and `EndTransaction` during construction and
+// destruction, respectively.
+class DatabaseTransaction {
+ public:
+  DatabaseTransaction(const Database* database);
+  ~DatabaseTransaction();
+
+ private:
+  NON_COPYABLE(DatabaseTransaction);
+  NON_MOVABLE(DatabaseTransaction);
+  const Database* database_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -35,8 +35,7 @@ BOOST_AUTO_TEST_CASE(TestOpenClose) {
 
 BOOST_AUTO_TEST_CASE(TestTransaction) {
   Database database(kMemoryDatabasePath);
-  database.BeginTransaction();
-  database.EndTransaction();
+  DatabaseTransaction database_transaction(&database);
 }
 
 BOOST_AUTO_TEST_CASE(TestEmpty) {

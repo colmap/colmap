@@ -172,7 +172,7 @@ Image ReadImageRow(sqlite3_stmt* sql_stmt) {
 const size_t Database::kMaxNumImages =
     static_cast<size_t>(std::numeric_limits<int32_t>::max());
 
-Database::Database() { database_ = nullptr; }
+Database::Database() : database_(nullptr) {}
 
 Database::Database(const std::string& path) : Database() { Open(path); }
 
@@ -214,14 +214,6 @@ void Database::Close() {
     sqlite3_close_v2(database_);
     database_ = nullptr;
   }
-}
-
-void Database::BeginTransaction() const {
-  SQLITE3_EXEC(database_, "BEGIN TRANSACTION", nullptr);
-}
-
-void Database::EndTransaction() const {
-  SQLITE3_EXEC(database_, "END TRANSACTION", nullptr);
 }
 
 bool Database::ExistsCamera(const camera_t camera_id) const {
@@ -672,6 +664,14 @@ void Database::ClearInlierMatches() const {
   SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_inlier_matches_));
 }
 
+void Database::BeginTransaction() const {
+  SQLITE3_EXEC(database_, "BEGIN TRANSACTION", nullptr);
+}
+
+void Database::EndTransaction() const {
+  SQLITE3_EXEC(database_, "END TRANSACTION", nullptr);
+}
+
 void Database::PrepareSQLStatements() {
   sql_stmts_.clear();
 
@@ -1068,5 +1068,13 @@ size_t Database::SumColumn(const std::string& column,
 
   return sum;
 }
+
+DatabaseTransaction::DatabaseTransaction(const Database* database)
+    : database_(database) {
+  CHECK_NOTNULL(database_);
+  database_->BeginTransaction();
+}
+
+DatabaseTransaction::~DatabaseTransaction() { database_->EndTransaction(); }
 
 }  // namespace colmap
