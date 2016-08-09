@@ -133,7 +133,7 @@ bool ExtractionOptions::Check() {
 MatchOptions::MatchOptions() { Reset(); }
 
 void MatchOptions::Reset() {
-  FeatureMatcher::Options options;
+  SiftMatchOptions options;
   num_threads = options.num_threads;
   gpu_index = options.gpu_index;
   max_ratio = options.max_ratio;
@@ -169,8 +169,8 @@ bool MatchOptions::Check() {
   return verified;
 }
 
-FeatureMatcher::Options MatchOptions::Options() const {
-  FeatureMatcher::Options options;
+SiftMatchOptions MatchOptions::Options() const {
+  SiftMatchOptions options;
   options.num_threads = num_threads;
   options.gpu_index = gpu_index;
   options.max_ratio = max_ratio;
@@ -190,7 +190,7 @@ FeatureMatcher::Options MatchOptions::Options() const {
 ExhaustiveMatchOptions::ExhaustiveMatchOptions() { Reset(); }
 
 void ExhaustiveMatchOptions::Reset() {
-  ExhaustiveFeatureMatcher::ExhaustiveOptions options;
+  ExhaustiveFeatureMatcher::Options options;
   block_size = options.block_size;
   preemptive = options.preemptive;
   preemptive_num_features = options.preemptive_num_features;
@@ -209,9 +209,8 @@ bool ExhaustiveMatchOptions::Check() {
   return verified;
 }
 
-ExhaustiveFeatureMatcher::ExhaustiveOptions ExhaustiveMatchOptions::Options()
-    const {
-  ExhaustiveFeatureMatcher::ExhaustiveOptions options;
+ExhaustiveFeatureMatcher::Options ExhaustiveMatchOptions::Options() const {
+  ExhaustiveFeatureMatcher::Options options;
   options.block_size = block_size;
   options.preemptive = preemptive;
   options.preemptive_num_features = preemptive_num_features;
@@ -222,7 +221,7 @@ ExhaustiveFeatureMatcher::ExhaustiveOptions ExhaustiveMatchOptions::Options()
 SequentialMatchOptions::SequentialMatchOptions() { Reset(); }
 
 void SequentialMatchOptions::Reset() {
-  SequentialFeatureMatcher::SequentialOptions options;
+  SequentialFeatureMatcher::Options options;
   overlap = options.overlap;
   loop_detection = options.loop_detection;
   loop_detection_period = options.loop_detection_period;
@@ -239,9 +238,8 @@ bool SequentialMatchOptions::Check() {
   return verified;
 }
 
-SequentialFeatureMatcher::SequentialOptions SequentialMatchOptions::Options()
-    const {
-  SequentialFeatureMatcher::SequentialOptions options;
+SequentialFeatureMatcher::Options SequentialMatchOptions::Options() const {
+  SequentialFeatureMatcher::Options options;
   options.overlap = overlap;
   options.loop_detection = loop_detection;
   options.loop_detection_period = loop_detection_period;
@@ -253,7 +251,7 @@ SequentialFeatureMatcher::SequentialOptions SequentialMatchOptions::Options()
 VocabTreeMatchOptions::VocabTreeMatchOptions() { Reset(); }
 
 void VocabTreeMatchOptions::Reset() {
-  VocabTreeFeatureMatcher::VocabTreeOptions options;
+  VocabTreeFeatureMatcher::Options options;
   num_images = options.num_images;
   vocab_tree_path = options.vocab_tree_path;
 }
@@ -266,9 +264,8 @@ bool VocabTreeMatchOptions::Check() {
   return verified;
 }
 
-VocabTreeFeatureMatcher::VocabTreeOptions VocabTreeMatchOptions::Options()
-    const {
-  VocabTreeFeatureMatcher::VocabTreeOptions options;
+VocabTreeFeatureMatcher::Options VocabTreeMatchOptions::Options() const {
+  VocabTreeFeatureMatcher::Options options;
   options.num_images = num_images;
   options.vocab_tree_path = vocab_tree_path;
   return options;
@@ -277,7 +274,7 @@ VocabTreeFeatureMatcher::VocabTreeOptions VocabTreeMatchOptions::Options()
 SpatialMatchOptions::SpatialMatchOptions() { Reset(); }
 
 void SpatialMatchOptions::Reset() {
-  SpatialFeatureMatcher::SpatialOptions options;
+  SpatialFeatureMatcher::Options options;
   is_gps = options.is_gps;
   ignore_z = options.ignore_z;
   max_num_neighbors = options.max_num_neighbors;
@@ -293,8 +290,8 @@ bool SpatialMatchOptions::Check() {
   return verified;
 }
 
-SpatialFeatureMatcher::SpatialOptions SpatialMatchOptions::Options() const {
-  SpatialFeatureMatcher::SpatialOptions options;
+SpatialFeatureMatcher::Options SpatialMatchOptions::Options() const {
+  SpatialFeatureMatcher::Options options;
   options.is_gps = is_gps;
   options.ignore_z = ignore_z;
   options.max_num_neighbors = max_num_neighbors;

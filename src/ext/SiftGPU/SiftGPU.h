@@ -303,7 +303,7 @@ public:
 	//Given two normalized descriptor d1,d2, the distance here is acos(d1 *d2);
 	SIFTGPU_EXPORT virtual int  GetSiftMatch(
 				int max_match,	// the length of the match_buffer.
-				int match_buffer[][2], //buffer to receive the matched feature indices
+				uint32_t match_buffer[][2], //buffer to receive the matched feature indices
 				float distmax = 0.7,	//maximum distance of sift descriptor
 				float ratiomax = 0.8,	//maximum distance ratio
 				int mutual_best_match = 1); //mutual best match or one way
@@ -322,7 +322,7 @@ public:
 	//use a guiding Homography H and a guiding Fundamental Matrix F to compute feature matches
 	//the function returns the number of matches.
 	SIFTGPU_EXPORT virtual int  GetGuidedSiftMatch(
-					int max_match, int match_buffer[][2], //buffer to recieve
+					int max_match, uint32_t match_buffer[][2], //buffer to recieve
 					float* H,			//homography matrix,  (Set NULL to skip)
 					float* F,			//fundamental matrix, (Set NULL to skip)
 					float distmax = 0.7,	//maximum distance of sift descriptor

@@ -77,8 +77,7 @@ BOOST_AUTO_TEST_CASE(TestExtractSiftFeaturesGPU) {
     const Bitmap bitmap = CreateImageWithSquare(256);
 
     SiftGPU sift_gpu;
-    BOOST_CHECK(
-        CreateSiftGPUExtractor(SiftOptions(), &opengl_context, &sift_gpu));
+    BOOST_CHECK(CreateSiftGPUExtractor(SiftOptions(), &sift_gpu));
 
     FeatureKeypoints keypoints;
     FeatureDescriptors descriptors;

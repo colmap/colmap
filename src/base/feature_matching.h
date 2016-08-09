@@ -22,151 +22,140 @@
 #include <unordered_set>
 #include <vector>
 
-#include <boost/filesystem.hpp>
-
-#include <QMutex>
-#include <QOffscreenSurface>
-#include <QOpenGLContext>
-#include <QThread>
-
 #include "base/database.h"
 #include "ext/SiftGPU/SiftGPU.h"
-#include "util/bitmap.h"
+#include "util/cache.h"
+#include "util/opengl_utils.h"
 #include "util/threading.h"
 #include "util/timer.h"
 
 namespace colmap {
 
-// Abstract feature matching base class. It implements basic feature matching
-// and geometric verification for image pairs. The job of the child classes is
-// only to select the image pairs to be matched by implementing the DoMatching
-// method and calling the MatchImagePairs for batches of image pairs. This class
-// automatically caches keypoints and descriptors between consecutive calls to
-// MatchImagePairs to reduce disk access.
-class FeatureMatcher : public QThread {
+struct SiftMatchOptions {
+  // Number of threads for geometric verification.
+  int num_threads = ThreadPool::kMaxNumThreads;
+
+  // Index of the GPU used for feature matching.
+  int gpu_index = -1;
+
+  // Maximum distance ratio between first and second best match.
+  double max_ratio = 0.8;
+
+  // Maximum distance to best match.
+  double max_distance = 0.7;
+
+  // Whether to enable cross checking in matching.
+  bool cross_check = true;
+
+  // Maximum number of matches.
+  int max_num_matches = 8192;
+
+  // Maximum epipolar error in pixels for geometric verification.
+  double max_error = 4.0;
+
+  // Confidence threshold for geometric verification.
+  double confidence = 0.999;
+
+  // Maximum number of RANSAC iterations. Note that this option overrules
+  // the min_inlier_ratio option.
+  int max_num_trials = 10000;
+
+  // A priori assumed minimum inlier ratio, which determines the maximum
+  // number of iterations.
+  double min_inlier_ratio = 0.25;
+
+  // Minimum number of inliers for an image pair to be considered as
+  // geometrically verified.
+  int min_num_inliers = 15;
+
+  // Whether to attempt to estimate multiple geometric models per image pair.
+  bool multiple_models = false;
+
+  // Whether to perform guided matching, if geometric verification succeeds.
+  bool guided_matching = false;
+
+  void Check() const;
+};
+
+// Cache for feature matching to minimize database access during matching.
+class FeatureMatcherCache {
  public:
-  struct Options {
-    // Number of threads for geometric verification.
-    int num_threads = ThreadPool::kMaxNumThreads;
+  FeatureMatcherCache(const size_t cache_size, const Database* database);
 
-    // Index of the GPU used for feature matching.
-    int gpu_index = -1;
+  const Camera& GetCamera(const camera_t camera_id) const;
+  const Image& GetImage(const image_t image_id) const;
+  const FeatureKeypoints& GetKeypoints(const image_t image_id) const;
+  const FeatureDescriptors& GetDescriptors(const image_t image_id) const;
 
-    // Maximum distance ratio between first and second best match.
-    double max_ratio = 0.8;
+  std::vector<image_t> GetImageIds() const;
 
-    // Maximum distance to best match.
-    double max_distance = 0.7;
+ private:
+  std::unordered_map<camera_t, Camera> cameras_cache_;
+  std::unordered_map<image_t, Image> images_cache_;
+  std::unique_ptr<LRUCache<image_t, FeatureKeypoints>> keypoints_cache_;
+  std::unique_ptr<LRUCache<image_t, FeatureDescriptors>> descriptors_cache_;
+};
 
-    // Whether to enable cross checking in matching.
-    bool cross_check = true;
+// SIFT GPU feature matcher, which writes the computed results to the database
+// and skips already matched pairs. To improve performance of the matching by
+// taking advantage of caching and database transactions, pass multiple images
+// to the `MatchImagePairs` function. Note that the database must not be in an
+// active transaction when calling `MatchImagePairs`.
+class SiftGPUFeatureMatcher {
+ public:
+  SiftGPUFeatureMatcher(const SiftMatchOptions& options);
 
-    // Maximum number of matches.
-    int max_num_matches = 8192;
+  // Setup the feature matcher and return if successful.
+  bool Setup(const Database* database, const FeatureMatcherCache* cache);
 
-    // Maximum epipolar error in pixels for geometric verification.
-    double max_error = 4.0;
-
-    // Confidence threshold for geometric verification.
-    double confidence = 0.999;
-
-    // Maximum number of RANSAC iterations. Note that this option overrules
-    // the min_inlier_ratio option.
-    int max_num_trials = 10000;
-
-    // A priori assumed minimum inlier ratio, which determines the maximum
-    // number of iterations.
-    double min_inlier_ratio = 0.25;
-
-    // Minimum number of inliers for an image pair to be considered as
-    // geometrically verified.
-    int min_num_inliers = 15;
-
-    // Whether to attempt to estimate multiple models per image pair.
-    bool multiple_models = false;
-
-    // Whether to perform guided matching, if geometric verification succeeds.
-    bool guided_matching = false;
-
-    void Check() const;
-  };
-
-  FeatureMatcher(const Options& options, const std::string& database_path);
-  ~FeatureMatcher();
-
-  void run();
-  virtual void Stop();
-
- protected:
-  struct GeometricVerificationData {
-    const Camera* camera1;
-    const Camera* camera2;
-    const FeatureKeypoints* keypoints1;
-    const FeatureKeypoints* keypoints2;
-    const FeatureMatches* matches;
-    TwoViewGeometry::Options* options;
-  };
-
-  // To be implemented by the matching class.
-  virtual void DoMatching() = 0;
-
-  void SetupWorkers();
-  void SetupData();
-  bool IsStopped();
-  void PrintElapsedTime(const Timer& timer);
-
-  const FeatureKeypoints& CacheKeypoints(const image_t image_id);
-  const FeatureDescriptors& CacheDescriptors(const image_t image_id);
-  void CleanCache(const std::unordered_set<image_t>& keep_image_ids);
-
-  void UploadKeypoints(const int index, const image_t image_id);
-  void UploadDescriptors(const int index, const image_t image_id);
-
-  void ExtractMatchesFromBuffer(const size_t num_matches,
-                                FeatureMatches* matches) const;
-
+  // Match one batch of multiple image pairs.
   void MatchImagePairs(
       const std::vector<std::pair<image_t, image_t>>& image_pairs);
-  void MatchImagePairGuided(
-      const image_t image_id1, const image_t image_id2,
-      TwoViewGeometry* two_view_geometry);
+
+  // Perform preemptive matching to filter image pairs before full matching.
+  // Preemptive matching is described in "Towards Linear-time Incremental
+  // Structure from Motion", Chanchang Wu, 3DV 2013.
+  void MatchImagePairsWithPreemptiveFilter(
+      const size_t preemptive_num_features,
+      const size_t preemptive_min_num_matches,
+      const std::vector<std::pair<image_t, image_t>>& image_pairs);
+
+ private:
+  struct GeometricVerificationData {
+    const Camera* camera1 = nullptr;
+    const Camera* camera2 = nullptr;
+    const FeatureKeypoints* keypoints1 = nullptr;
+    const FeatureKeypoints* keypoints2 = nullptr;
+    const FeatureMatches* matches = nullptr;
+    const TwoViewGeometry::Options* options = nullptr;
+  };
+
+  void GetKeypoints(const int index, const image_t image_id,
+                    const FeatureDescriptors* const descriptors_ptr,
+                    const FeatureKeypoints** keypoints_ptr);
+  void GetDescriptors(const int index, const image_t image_id,
+                      const FeatureDescriptors** descriptors_ptr);
+
+  void MatchImagePairGuided(const image_t image_id1, const image_t image_id2,
+                            TwoViewGeometry* two_view_geometry);
+
   static TwoViewGeometry VerifyImagePair(const GeometricVerificationData data,
-                                         const bool multiple_models);
+                                         const SiftMatchOptions& options);
 
-  Timer total_timer_;
+  const SiftMatchOptions options_;
+  const Database* database_;
+  const FeatureMatcherCache* cache_;
 
-  bool stop_;
-  QMutex stop_mutex_;
-
-  Options options_;
-  Database database_;
-  std::string database_path_;
-
-  QThread* parent_thread_;
-  QOpenGLContext* context_;
-  QOffscreenSurface* surface_;
-
-  std::unique_ptr<SiftGPU> sift_gpu_;
+  std::unique_ptr<OpenGLContextManager> opengl_context_;
   std::unique_ptr<SiftMatchGPU> sift_match_gpu_;
   std::unique_ptr<ThreadPool> verifier_thread_pool_;
 
-  // All cameras and images in the database, loaded after calling SetupData.
-  std::unordered_map<camera_t, Camera> cameras_;
-  std::unordered_map<image_t, Image> images_;
-
-  // The cached feature data.
-  std::unordered_map<image_t, FeatureKeypoints> keypoints_cache_;
-  std::unordered_map<image_t, FeatureDescriptors> descriptors_cache_;
-
   // The previously uploaded keypoints and descriptors to the GPU.
   std::array<image_t, 2> prev_uploaded_image_ids_;
-
-  // Buffer for feature match indices.
-  std::vector<int> matches_buffer_;
 };
 
 // Exhaustively match images by processing each block in the exhaustive match
-// matrix as one batch:
+// matrix in one batch:
 //
 // +----+----+-----------------> images[i]
 // |#000|0000|
@@ -188,9 +177,9 @@ class FeatureMatcher : public QThread {
 //
 // Pairs will only be matched if 1, to avoid duplicate pairs. Pairs with #
 // are on the main diagonal and denote pairs of the same image.
-class ExhaustiveFeatureMatcher : public FeatureMatcher {
+class ExhaustiveFeatureMatcher : public Thread {
  public:
-  struct ExhaustiveOptions {
+  struct Options {
     // Block size, i.e. number of images to simultaneously load into memory.
     int block_size = 35;
 
@@ -208,17 +197,25 @@ class ExhaustiveFeatureMatcher : public FeatureMatcher {
     void Check() const;
   };
 
+  enum Callbacks {
+    FINISHED,
+  };
+
   ExhaustiveFeatureMatcher(const Options& options,
-                           const ExhaustiveOptions& exhaustive_options,
+                           const SiftMatchOptions& match_options,
                            const std::string& database_path);
 
  private:
-  virtual void DoMatching();
+  void Run();
+  void Match();
 
   std::vector<std::pair<image_t, image_t>> PreemptivelyFilterImagePairs(
       const std::vector<std::pair<image_t, image_t>>& image_pairs);
 
-  ExhaustiveOptions exhaustive_options_;
+  const Options options_;
+  const SiftMatchOptions match_options_;
+  const std::string database_path_;
+  SiftGPUFeatureMatcher matcher_;
 };
 
 // Sequentially match images within neighborhood:
@@ -237,9 +234,9 @@ class ExhaustiveFeatureMatcher : public FeatureMatcher {
 // Invoke loop detection if `(i mod loop_detection_period) == 0`, retrieve
 // most similar `loop_detection_num_images` images from vocabulary tree,
 // and perform matching and verification.
-class SequentialFeatureMatcher : public FeatureMatcher {
+class SequentialFeatureMatcher : public Thread {
  public:
-  struct SequentialOptions {
+  struct Options {
     // Number of overlapping image pairs.
     int overlap = 5;
 
@@ -259,20 +256,28 @@ class SequentialFeatureMatcher : public FeatureMatcher {
     void Check() const;
   };
 
+  enum Callbacks {
+    FINISHED,
+  };
+
   SequentialFeatureMatcher(const Options& options,
-                           const SequentialOptions& sequential_options,
+                           const SiftMatchOptions& match_options,
                            const std::string& database_path);
 
  private:
-  virtual void DoMatching();
+  void Run();
+  void Match();
 
-  SequentialOptions sequential_options_;
+  const Options options_;
+  const SiftMatchOptions match_options_;
+  const std::string database_path_;
+  SiftGPUFeatureMatcher matcher_;
 };
 
-// Match each image against nearest neighbor in vocabulary tree.
-class VocabTreeFeatureMatcher : public FeatureMatcher {
+// Match each image against its nearest neighbors in a vocabulary tree.
+class VocabTreeFeatureMatcher : public Thread {
  public:
-  struct VocabTreeOptions {
+  struct Options {
     // Number of images to retrieve for each query image.
     int num_images = 100;
 
@@ -282,21 +287,29 @@ class VocabTreeFeatureMatcher : public FeatureMatcher {
     void Check() const;
   };
 
+  enum Callbacks {
+    FINISHED,
+  };
+
   VocabTreeFeatureMatcher(const Options& options,
-                          const VocabTreeOptions& vocab_tree_options,
+                          const SiftMatchOptions& match_options,
                           const std::string& database_path);
 
  private:
-  virtual void DoMatching();
+  void Run();
+  void Match();
 
-  VocabTreeOptions vocab_tree_options_;
+  const Options options_;
+  const SiftMatchOptions match_options_;
+  const std::string database_path_;
+  SiftGPUFeatureMatcher matcher_;
 };
 
 // Match images against spatial nearest neighbors using prior location
 // information, e.g. provided manually or extracted from EXIF.
-class SpatialFeatureMatcher : public FeatureMatcher {
+class SpatialFeatureMatcher : public Thread {
  public:
-  struct SpatialOptions {
+  struct Options {
     // Whether the location priors in the database are GPS coordinates in
     // the form of longitude and latitude coordinates in degrees.
     bool is_gps = true;
@@ -314,14 +327,22 @@ class SpatialFeatureMatcher : public FeatureMatcher {
     void Check() const;
   };
 
+  enum Callbacks {
+    FINISHED,
+  };
+
   SpatialFeatureMatcher(const Options& options,
-                        const SpatialOptions& spatial_options,
+                        const SiftMatchOptions& match_options,
                         const std::string& database_path);
 
  private:
-  virtual void DoMatching();
+  void Run();
+  void Match();
 
-  SpatialOptions spatial_options_;
+  const Options options_;
+  const SiftMatchOptions match_options_;
+  const std::string database_path_;
+  SiftGPUFeatureMatcher matcher_;
 };
 
 // Match images manually specified in a list of image pairs.
@@ -333,18 +354,24 @@ class SpatialFeatureMatcher : public FeatureMatcher {
 //    image_name2 image_name3
 //    ...
 //
-class ImagePairsFeatureMatcher : public FeatureMatcher {
+class ImagePairsFeatureMatcher : public Thread {
  public:
-  ImagePairsFeatureMatcher(const Options& options,
+  enum Callbacks {
+    FINISHED,
+  };
+
+  ImagePairsFeatureMatcher(const SiftMatchOptions& match_options,
                            const std::string& database_path,
                            const std::string& match_list_path);
 
  private:
-  virtual void DoMatching();
+  void Run();
+  void Match();
 
-  std::vector<std::pair<image_t, image_t>> ReadImagePairsList();
-
-  std::string match_list_path_;
+  const SiftMatchOptions match_options_;
+  const std::string database_path_;
+  const std::string match_list_path_;
+  SiftGPUFeatureMatcher matcher_;
 };
 
 // Import feature matches from a text file.
@@ -362,28 +389,49 @@ class ImagePairsFeatureMatcher : public FeatureMatcher {
 //      2 3
 //      ...
 //
-// Note that this class does not inherit from the FeatureMatcher class as it
-// does not use any SiftGPU functionality.
-class FeaturePairsFeatureMatcher : public QThread {
+class FeaturePairsFeatureMatcher : public Thread {
  public:
-  FeaturePairsFeatureMatcher(const FeatureMatcher::Options& options,
+  enum Callbacks {
+    FINISHED,
+  };
+
+  FeaturePairsFeatureMatcher(const SiftMatchOptions& match_options,
                              const bool compute_inliers,
                              const std::string& database_path,
                              const std::string& match_list_path);
 
-  void run();
-  void Stop();
-
  private:
-  bool stop_;
+  void Run();
+  void Match();
 
-  QMutex mutex_;
-
-  std::string database_path_;
-  std::string match_list_path_;
-  FeatureMatcher::Options options_;
-  bool compute_inliers_;
+  const SiftMatchOptions match_options_;
+  const bool compute_inliers_;
+  const std::string database_path_;
+  const std::string match_list_path_;
 };
+
+// Create a SiftGPU feature matcher. Note that if CUDA is not available or the
+// gpu_index is -1, the OpenGLContextManager must be created in the main thread
+// of the Qt application before calling this function. The same SiftMatchGPU
+// instance can be used to match features between multiple image pairs.
+bool CreateSiftGPUMatcher(const SiftMatchOptions& match_options,
+                          SiftMatchGPU* sift_match_gpu);
+
+// Match the given SIFT features on the GPU. If either of the descriptors is
+// NULL, the keypoints/descriptors will not be uploaded and the previously
+// uploaded descriptors will be reused for the matching.
+void MatchSiftFeaturesGPU(const SiftMatchOptions& match_options,
+                          const FeatureDescriptors* descriptors1,
+                          const FeatureDescriptors* descriptors2,
+                          SiftMatchGPU* sift_match_gpu,
+                          FeatureMatches* matches);
+void MatchGuidedSiftFeaturesGPU(const SiftMatchOptions& match_options,
+                                const FeatureKeypoints* keypoints1,
+                                const FeatureKeypoints* keypoints2,
+                                const FeatureDescriptors* descriptors1,
+                                const FeatureDescriptors* descriptors2,
+                                SiftMatchGPU* sift_match_gpu,
+                                TwoViewGeometry* two_view_geometry);
 
 }  // namespace colmap
 

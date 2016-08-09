@@ -169,7 +169,7 @@ int main(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
-  PrintHeading1("Camera Rig Configuration");
+  PrintHeading1("Camera rig configuration");
 
   auto camera_rigs = ReadCameraRigConfig(rig_config_path, reconstruction);
 
@@ -188,7 +188,7 @@ int main(int argc, char** argv) {
     }
   }
 
-  PrintHeading1("Rig Bundle Adjustment");
+  PrintHeading1("Rig bundle adjustment");
 
   RigBundleAdjuster::Options ba_options;
   ba_options.solver_options.minimizer_progress_to_stdout = true;

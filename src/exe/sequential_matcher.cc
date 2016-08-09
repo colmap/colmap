@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
   }
 
   std::unique_ptr<QApplication> app;
-  FeatureMatcher::Options match_options = options.match_options->Options();
+  SiftMatchOptions match_options = options.match_options->Options();
   if (no_opengl) {
     if (match_options.gpu_index < 0) {
       match_options.gpu_index = 0;
@@ -55,12 +55,16 @@ int main(int argc, char** argv) {
     app.reset(new QApplication(argc, argv));
   }
 
-  SequentialFeatureMatcher* feature_matcher = new SequentialFeatureMatcher(
-      match_options, options.sequential_match_options->Options(),
+  SequentialFeatureMatcher feature_matcher(
+      options.sequential_match_options->Options(), match_options,
       *options.database_path);
 
-  feature_matcher->start();
-  feature_matcher->wait();
+  if (no_opengl) {
+    feature_matcher.Start();
+    feature_matcher.Wait();
+  } else {
+    RunThreadWithOpenGLContext(app.get(), &feature_matcher);
+  }
 
   return EXIT_SUCCESS;
 }

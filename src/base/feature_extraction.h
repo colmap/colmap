@@ -136,9 +136,9 @@ class SiftCPUFeatureExtractor : public Thread {
  private:
   void Run();
 
-  ImageReader::Options reader_options_;
-  SiftOptions sift_options_;
-  Options cpu_options_;
+  const ImageReader::Options reader_options_;
+  const SiftOptions sift_options_;
+  const Options cpu_options_;
 };
 
 // Extract DoG SIFT features using the GPU.
@@ -154,8 +154,8 @@ class SiftGPUFeatureExtractor : public Thread {
  private:
   void Run();
 
-  ImageReader::Options reader_options_;
-  SiftOptions sift_options_;
+  const ImageReader::Options reader_options_;
+  const SiftOptions sift_options_;
   OpenGLContextManager opengl_context_;
 };
 
@@ -173,8 +173,8 @@ class FeatureImporter : public Thread {
  private:
   void Run();
 
-  ImageReader::Options reader_options_;
-  std::string import_path_;
+  const ImageReader::Options reader_options_;
+  const std::string import_path_;
 };
 
 // Extract SIFT features for the given image on the CPU.
@@ -182,11 +182,10 @@ bool ExtractSiftFeaturesCPU(const SiftOptions& sift_options,
                             const Bitmap& bitmap, FeatureKeypoints* keypoints,
                             FeatureDescriptors* descriptors);
 
-// Create a SiftGPU feature extractor. Note that the OpenGLContextManager must
-// be created in the main thread of the Qt application. The same SiftGPU
-// instance can be used to extract features for  multiple images.
+// Create a SiftGPU feature extractor. The same SiftGPU instance can be used to
+// extract features for multiple images. Note a OpenGL context must be made
+// current in the thread of the caller.
 bool CreateSiftGPUExtractor(const SiftOptions& sift_options,
-                            OpenGLContextManager* opengl_context,
                             SiftGPU* sift_gpu);
 
 // Extract SIFT features for the given image on the GPU.

@@ -347,11 +347,10 @@ void ImageTab::Update() {
 }
 
 void ImageTab::Save() {
-  database_->BeginTransaction();
+  DatabaseTransaction database_transaction(database_);
   for (const auto& image : images_) {
     database_->UpdateImage(image);
   }
-  database_->EndTransaction();
 }
 
 void ImageTab::Clear() {
@@ -565,11 +564,10 @@ void CameraTab::Update() {
 }
 
 void CameraTab::Save() {
-  database_->BeginTransaction();
+  DatabaseTransaction database_transaction(database_);
   for (const Camera& camera : cameras_) {
     database_->UpdateCamera(camera);
   }
-  database_->EndTransaction();
 }
 
 void CameraTab::Clear() {

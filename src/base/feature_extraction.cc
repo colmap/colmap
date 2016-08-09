@@ -132,12 +132,11 @@ bool ImageReader::Next(Image* image, Bitmap* bitmap) {
   const bool exists_image = database.ExistsImageName(image->Name());
 
   if (exists_image) {
-    database.BeginTransaction();
+    const DatabaseTransaction database_transaction(&database);
     *image = database.ReadImageFromName(image->Name());
     const bool exists_keypoints = database.ExistsKeypoints(image->ImageId());
     const bool exists_descriptors =
         database.ExistsDescriptors(image->ImageId());
-    database.EndTransaction();
 
     if (exists_keypoints && exists_descriptors) {
       std::cout << "  SKIP: Features already extracted." << std::endl;
@@ -280,6 +279,7 @@ void SiftCPUFeatureExtractor::Run() {
   PrintHeading1("Feature extraction (CPU)");
 
   ImageReader image_reader(reader_options_);
+  Database database(reader_options_.database_path);
 
   ThreadPool thread_pool(cpu_options_.num_threads);
 
@@ -336,13 +336,11 @@ void SiftCPUFeatureExtractor::Run() {
 
     PrintHeading2("Processing batch");
 
-    Database database(reader_options_.database_path);
+    DatabaseTransaction database_transaction(&database);
 
     for (size_t i = 0; i < futures.size(); ++i) {
       Image& image = images[i];
       const ExtractionResult result = futures[i].get();
-
-      database.BeginTransaction();
 
       if (image.ImageId() == kInvalidImageId) {
         image.SetImageId(database.WriteImage(image));
@@ -360,8 +358,6 @@ void SiftCPUFeatureExtractor::Run() {
                                 result.keypoints.size(), image_idxs[i],
                                 image_reader.NumImages())
                 << std::endl;
-
-      database.EndTransaction();
     }
   }
 
@@ -380,13 +376,16 @@ SiftGPUFeatureExtractor::SiftGPUFeatureExtractor(
 void SiftGPUFeatureExtractor::Run() {
   PrintHeading1("Feature extraction (GPU)");
 
+  opengl_context_.MakeCurrent();
+
   SiftGPU sift_gpu;
-  if (!CreateSiftGPUExtractor(sift_options_, &opengl_context_, &sift_gpu)) {
+  if (!CreateSiftGPUExtractor(sift_options_, &sift_gpu)) {
     std::cerr << "ERROR: SiftGPU not fully supported." << std::endl;
     return;
   }
 
   ImageReader image_reader(reader_options_);
+  Database database(reader_options_.database_path);
 
   while (image_reader.NextIndex() < image_reader.NumImages()) {
     if (IsStopped()) {
@@ -412,8 +411,7 @@ void SiftGPUFeatureExtractor::Run() {
       continue;
     }
 
-    Database database(reader_options_.database_path);
-    database.BeginTransaction();
+    DatabaseTransaction database_transaction(&database);
 
     if (image.ImageId() == kInvalidImageId) {
       image.SetImageId(database.WriteImage(image));
@@ -428,8 +426,6 @@ void SiftGPUFeatureExtractor::Run() {
     }
 
     std::cout << "  Features:       " << keypoints.size() << std::endl;
-
-    database.EndTransaction();
   }
 
   GetTimer().PrintMinutes();
@@ -453,6 +449,7 @@ void FeatureImporter::Run() {
   }
 
   ImageReader image_reader(reader_options_);
+  Database database(reader_options_.database_path);
 
   while (image_reader.NextIndex() < image_reader.NumImages()) {
     if (IsStopped()) {
@@ -480,9 +477,7 @@ void FeatureImporter::Run() {
 
       std::cout << "  Features:       " << keypoints.size() << std::endl;
 
-      Database database(reader_options_.database_path);
-
-      database.BeginTransaction();
+      DatabaseTransaction database_transaction(&database);
 
       if (image.ImageId() == kInvalidImageId) {
         image.SetImageId(database.WriteImage(image));
@@ -496,8 +491,6 @@ void FeatureImporter::Run() {
         database.WriteDescriptors(image.ImageId(), descriptors);
       }
 
-      database.EndTransaction();
-
       std::cout << "  SKIP: Image already processed." << std::endl;
     } else {
       std::cout << "  SKIP: No features found at " << path << std::endl;
@@ -509,13 +502,17 @@ void FeatureImporter::Run() {
   Callback(FINISHED);
 }
 
-bool ExtractSiftFeaturesCPU(const SiftOptions& sift_options,
-                            const Bitmap& bitmap, FeatureKeypoints* keypoints,
+bool ExtractSiftFeaturesCPU(const SiftOptions& options, const Bitmap& bitmap,
+                            FeatureKeypoints* keypoints,
                             FeatureDescriptors* descriptors) {
+  options.Check();
+  CHECK_NOTNULL(keypoints);
+  CHECK_NOTNULL(descriptors);
+
   Bitmap scaled_bitmap = bitmap.Clone();
   double scale_x;
   double scale_y;
-  ScaleBitmap(sift_options.max_image_size, &scale_x, &scale_y, &scaled_bitmap);
+  ScaleBitmap(options.max_image_size, &scale_x, &scale_y, &scaled_bitmap);
 
   //////////////////////////////////////////////////////////////////////////////
   // Extract features
@@ -528,15 +525,15 @@ bool ExtractSiftFeaturesCPU(const SiftOptions& sift_options,
   // Setup SIFT extractor.
   std::unique_ptr<VlSiftFilt, void (*)(VlSiftFilt*)> sift(
       vl_sift_new(scaled_bitmap.Width(), scaled_bitmap.Height(),
-                  sift_options.num_octaves, sift_options.octave_resolution,
-                  sift_options.first_octave),
+                  options.num_octaves, options.octave_resolution,
+                  options.first_octave),
       &vl_sift_delete);
   if (!sift) {
     return false;
   }
 
-  vl_sift_set_peak_thresh(sift.get(), sift_options.peak_threshold);
-  vl_sift_set_edge_thresh(sift.get(), sift_options.edge_threshold);
+  vl_sift_set_peak_thresh(sift.get(), options.peak_threshold);
+  vl_sift_set_edge_thresh(sift.get(), options.edge_threshold);
 
   // Iterate through octaves.
   std::vector<size_t> level_num_features;
@@ -585,10 +582,10 @@ bool ExtractSiftFeaturesCPU(const SiftOptions& sift_options,
         // Add containers for new DOG level.
         level_idx = 0;
         level_num_features.push_back(0);
-        level_keypoints.emplace_back(sift_options.max_num_orientations *
+        level_keypoints.emplace_back(options.max_num_orientations *
                                      num_keypoints);
         level_descriptors.emplace_back(
-            sift_options.max_num_orientations * num_keypoints, 128);
+            options.max_num_orientations * num_keypoints, 128);
       }
 
       level_num_features.back() += 1;
@@ -597,7 +594,7 @@ bool ExtractSiftFeaturesCPU(const SiftOptions& sift_options,
       // Extract feature orientations.
       double angles[4];
       int num_orientations;
-      if (sift_options.upright) {
+      if (options.upright) {
         num_orientations = 1;
         angles[0] = 0.0;
       } else {
@@ -609,7 +606,7 @@ bool ExtractSiftFeaturesCPU(const SiftOptions& sift_options,
       // global maxima as orientations while this selects the first two
       // local maxima. It is not clear which procedure is better.
       const int num_used_orientations =
-          std::min(num_orientations, sift_options.max_num_orientations);
+          std::min(num_orientations, options.max_num_orientations);
 
       for (int o = 0; o < num_used_orientations; ++o) {
         level_keypoints.back()[level_idx].x = vl_keypoints[i].x + 0.5f;
@@ -626,9 +623,9 @@ bool ExtractSiftFeaturesCPU(const SiftOptions& sift_options,
         Eigen::MatrixXf desc(1, 128);
         vl_sift_calc_keypoint_descriptor(sift.get(), desc.data(),
                                          &vl_keypoints[i], angles[o]);
-        if (sift_options.normalization == SiftOptions::Normalization::L2) {
+        if (options.normalization == SiftOptions::Normalization::L2) {
           desc = L2NormalizeFeatureDescriptors(desc);
-        } else if (sift_options.normalization ==
+        } else if (options.normalization ==
                    SiftOptions::Normalization::L1_ROOT) {
           desc = L1RootNormalizeFeatureDescriptors(desc);
         }
@@ -651,7 +648,7 @@ bool ExtractSiftFeaturesCPU(const SiftOptions& sift_options,
   for (int i = level_keypoints.size() - 1; i >= 0; --i) {
     num_features += level_num_features[i];
     num_features_with_orientations += level_keypoints[i].size();
-    if (num_features > sift_options.max_num_features) {
+    if (num_features > options.max_num_features) {
       first_level_to_keep = i;
       break;
     }
@@ -672,10 +669,9 @@ bool ExtractSiftFeaturesCPU(const SiftOptions& sift_options,
   return true;
 }
 
-bool CreateSiftGPUExtractor(const SiftOptions& sift_options,
-                            OpenGLContextManager* opengl_context,
-                            SiftGPU* sift_gpu) {
-  opengl_context->MakeCurrent();
+bool CreateSiftGPUExtractor(const SiftOptions& options, SiftGPU* sift_gpu) {
+  options.Check();
+  CHECK_NOTNULL(sift_gpu);
 
   std::vector<std::string> sift_gpu_args;
 
@@ -689,29 +685,29 @@ bool CreateSiftGPUExtractor(const SiftOptions& sift_options,
 
   // Fixed maximum image dimension.
   sift_gpu_args.push_back("-maxd");
-  sift_gpu_args.push_back(std::to_string(sift_options.max_image_size));
+  sift_gpu_args.push_back(std::to_string(options.max_image_size));
 
   // Keep the highest level features.
   sift_gpu_args.push_back("-tc2");
-  sift_gpu_args.push_back(std::to_string(sift_options.max_num_features));
+  sift_gpu_args.push_back(std::to_string(options.max_num_features));
 
   // First octave level.
   sift_gpu_args.push_back("-fo");
-  sift_gpu_args.push_back(std::to_string(sift_options.first_octave));
+  sift_gpu_args.push_back(std::to_string(options.first_octave));
 
   // Number of octave levels.
   sift_gpu_args.push_back("-d");
-  sift_gpu_args.push_back(std::to_string(sift_options.octave_resolution));
+  sift_gpu_args.push_back(std::to_string(options.octave_resolution));
 
   // Peak threshold.
   sift_gpu_args.push_back("-t");
-  sift_gpu_args.push_back(std::to_string(sift_options.peak_threshold));
+  sift_gpu_args.push_back(std::to_string(options.peak_threshold));
 
   // Edge threshold.
   sift_gpu_args.push_back("-e");
-  sift_gpu_args.push_back(std::to_string(sift_options.edge_threshold));
+  sift_gpu_args.push_back(std::to_string(options.edge_threshold));
 
-  if (sift_options.upright) {
+  if (options.upright) {
     // Fix the orientation to 0 for upright features.
     sift_gpu_args.push_back("-ofix");
     // Maximum number of orientations.
@@ -720,7 +716,7 @@ bool CreateSiftGPUExtractor(const SiftOptions& sift_options,
   } else {
     // Maximum number of orientations.
     sift_gpu_args.push_back("-mo");
-    sift_gpu_args.push_back(std::to_string(sift_options.max_num_orientations));
+    sift_gpu_args.push_back(std::to_string(options.max_num_orientations));
   }
 
   std::vector<const char*> sift_gpu_args_cstr;
@@ -738,11 +734,13 @@ bool CreateSiftGPUExtractor(const SiftOptions& sift_options,
   return true;
 }
 
-bool ExtractSiftFeaturesGPU(const SiftOptions& sift_options,
-                            const Bitmap& bitmap, SiftGPU* sift_gpu,
-                            FeatureKeypoints* keypoints,
+bool ExtractSiftFeaturesGPU(const SiftOptions& options, const Bitmap& bitmap,
+                            SiftGPU* sift_gpu, FeatureKeypoints* keypoints,
                             FeatureDescriptors* descriptors) {
-  CHECK_EQ(sift_options.max_image_size, sift_gpu->GetMaxDimension());
+  options.Check();
+  CHECK_NOTNULL(keypoints);
+  CHECK_NOTNULL(descriptors);
+  CHECK_EQ(options.max_image_size, sift_gpu->GetMaxDimension());
 
   Bitmap scaled_bitmap = bitmap.Clone();
 
@@ -799,10 +797,9 @@ bool ExtractSiftFeaturesGPU(const SiftOptions& sift_options,
   }
 
   // Save and normalize the descriptors.
-  if (sift_options.normalization == SiftOptions::Normalization::L2) {
+  if (options.normalization == SiftOptions::Normalization::L2) {
     descriptors_float = L2NormalizeFeatureDescriptors(descriptors_float);
-  } else if (sift_options.normalization ==
-             SiftOptions::Normalization::L1_ROOT) {
+  } else if (options.normalization == SiftOptions::Normalization::L1_ROOT) {
     descriptors_float = L1RootNormalizeFeatureDescriptors(descriptors_float);
   }
   *descriptors = FeatureDescriptorsToUnsignedByte(descriptors_float);

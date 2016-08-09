@@ -23,309 +23,273 @@ namespace colmap {
 
 class FeatureMatchingTab : public OptionsWidget {
  public:
-  FeatureMatchingTab() {}
-
-  FeatureMatchingTab(QWidget* parent, OptionManager* options)
-      : OptionsWidget(parent), options_(options) {}
+  FeatureMatchingTab(QWidget* parent, OptionManager* options);
 
   virtual void Run() = 0;
 
  protected:
-  void CreateProgressBar() {
-    progress_bar_ = new QProgressDialog(this);
-    progress_bar_->setWindowModality(Qt::ApplicationModal);
-    progress_bar_->setLabel(new QLabel(tr("Matching..."), this));
-    progress_bar_->setMaximum(0);
-    progress_bar_->setMinimum(0);
-    progress_bar_->setValue(0);
-    progress_bar_->hide();
-    progress_bar_->close();
-  }
-
-  void ShowProgressBar() {
-    progress_bar_->show();
-    progress_bar_->raise();
-  }
-
-  void CreateGeneralOptions() {
-    AddSpacer();
-    AddSpacer();
-    AddSection("General Options");
-    AddSpacer();
-
-    AddOptionInt(&options_->match_options->num_threads, "num_threads", -1);
-    AddOptionInt(&options_->match_options->gpu_index, "gpu_index", -1);
-    AddOptionDouble(&options_->match_options->max_ratio, "max_ratio");
-    AddOptionDouble(&options_->match_options->max_distance, "max_distance");
-    AddOptionBool(&options_->match_options->cross_check, "cross_check");
-    AddOptionInt(&options_->match_options->max_num_matches, "max_num_matches");
-    AddOptionDouble(&options_->match_options->max_error, "max_error");
-    AddOptionDouble(&options_->match_options->confidence, "confidence", 0, 1,
-                    0.00001, 5);
-    AddOptionInt(&options_->match_options->max_num_trials, "max_num_trials");
-    AddOptionDouble(&options_->match_options->min_inlier_ratio,
-                    "min_inlier_ratio", 0, 1, 0.001, 3);
-    AddOptionInt(&options_->match_options->min_num_inliers, "min_num_inliers");
-    AddOptionBool(&options_->match_options->multiple_models, "multiple_models");
-    AddOptionBool(&options_->match_options->guided_matching, "guided_matching");
-
-    AddSpacer();
-
-    QPushButton* run_button = new QPushButton(tr("Run"), this);
-    grid_layout_->addWidget(run_button, grid_layout_->rowCount(), 1);
-    connect(run_button, &QPushButton::released, this, &FeatureMatchingTab::Run);
-  }
+  void ShowProgressBar();
+  void CreateGeneralOptions();
 
   OptionManager* options_;
   QProgressDialog* progress_bar_;
+  QAction* destructor_;
+  std::unique_ptr<Thread> matcher_;
 };
 
 class ExhaustiveMatchingTab : public FeatureMatchingTab {
  public:
-  ExhaustiveMatchingTab(QWidget* parent, OptionManager* options)
-      : FeatureMatchingTab(parent, options) {
-    AddOptionInt(&options->exhaustive_match_options->block_size, "block_size");
-    AddOptionBool(&options->exhaustive_match_options->preemptive, "preemptive");
-    AddOptionInt(&options->exhaustive_match_options->preemptive_num_features,
-                 "preemptive_num_features");
-    AddOptionInt(&options->exhaustive_match_options->preemptive_min_num_matches,
-                 "preemptive_min_num_matches");
-
-    CreateGeneralOptions();
-  }
-
-  void Run() override {
-    WriteOptions();
-
-    ExhaustiveFeatureMatcher* feature_matcher = new ExhaustiveFeatureMatcher(
-        options_->match_options->Options(),
-        options_->exhaustive_match_options->Options(),
-        *options_->database_path);
-
-    feature_matcher->start();
-    CreateProgressBar();
-
-    connect(feature_matcher, &QThread::finished, progress_bar_,
-            [this, feature_matcher]() {
-              this->progress_bar_->hide();
-              feature_matcher->deleteLater();
-            });
-
-    connect(progress_bar_, &QProgressDialog::canceled, [feature_matcher]() {
-      feature_matcher->Stop();
-      feature_matcher->wait();
-    });
-
-    ShowProgressBar();
-  }
+  ExhaustiveMatchingTab(QWidget* parent, OptionManager* options);
+  void Run() override;
 };
 
 class SequentialMatchingTab : public FeatureMatchingTab {
  public:
-  SequentialMatchingTab(QWidget* parent, OptionManager* options)
-      : FeatureMatchingTab(parent, options) {
-    AddOptionInt(&options->sequential_match_options->overlap, "overlap");
-    AddOptionBool(&options->sequential_match_options->loop_detection,
-                  "loop_detection");
-    AddOptionInt(&options->sequential_match_options->loop_detection_period,
-                 "loop_detection_period");
-    AddOptionInt(&options->sequential_match_options->loop_detection_num_images,
-                 "loop_detection_num_images");
-    AddOptionFilePath(&options->sequential_match_options->vocab_tree_path,
-                      "vocab_tree_path");
-
-    CreateGeneralOptions();
-  }
-
-  void Run() override {
-    WriteOptions();
-
-    if (options_->sequential_match_options->loop_detection &&
-        !boost::filesystem::is_regular_file(
-            options_->sequential_match_options->vocab_tree_path)) {
-      QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
-      return;
-    }
-
-    SequentialFeatureMatcher* feature_matcher = new SequentialFeatureMatcher(
-        options_->match_options->Options(),
-        options_->sequential_match_options->Options(),
-        *options_->database_path);
-
-    feature_matcher->start();
-    CreateProgressBar();
-
-    connect(feature_matcher, &QThread::finished, progress_bar_,
-            [this, feature_matcher]() {
-              this->progress_bar_->hide();
-              feature_matcher->deleteLater();
-            });
-
-    connect(progress_bar_, &QProgressDialog::canceled, [feature_matcher]() {
-      feature_matcher->Stop();
-      feature_matcher->wait();
-    });
-
-    ShowProgressBar();
-  }
+  SequentialMatchingTab(QWidget* parent, OptionManager* options);
+  void Run() override;
 };
 
 class VocabTreeMatchingTab : public FeatureMatchingTab {
  public:
-  VocabTreeMatchingTab(QWidget* parent, OptionManager* options)
-      : FeatureMatchingTab(parent, options) {
-    AddOptionInt(&options->vocab_tree_match_options->num_images, "num_images");
-    AddOptionFilePath(&options->vocab_tree_match_options->vocab_tree_path,
-                      "vocab_tree_path");
-
-    CreateGeneralOptions();
-  }
-
-  void Run() override {
-    WriteOptions();
-
-    if (!boost::filesystem::is_regular_file(
-            options_->vocab_tree_match_options->vocab_tree_path)) {
-      QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
-      return;
-    }
-
-    VocabTreeFeatureMatcher* feature_matcher = new VocabTreeFeatureMatcher(
-        options_->match_options->Options(),
-        options_->vocab_tree_match_options->Options(),
-        *options_->database_path);
-
-    feature_matcher->start();
-    CreateProgressBar();
-
-    connect(feature_matcher, &QThread::finished, progress_bar_,
-            [this, feature_matcher]() {
-              this->progress_bar_->hide();
-              feature_matcher->deleteLater();
-            });
-
-    connect(progress_bar_, &QProgressDialog::canceled, [feature_matcher]() {
-      feature_matcher->Stop();
-      feature_matcher->wait();
-    });
-
-    ShowProgressBar();
-  }
+  VocabTreeMatchingTab(QWidget* parent, OptionManager* options);
+  void Run() override;
 };
 
 class SpatialMatchingTab : public FeatureMatchingTab {
  public:
-  SpatialMatchingTab(QWidget* parent, OptionManager* options)
-      : FeatureMatchingTab(parent, options) {
-    AddOptionBool(&options->spatial_match_options->is_gps, "is_gps");
-    AddOptionBool(&options->spatial_match_options->ignore_z, "ignore_z");
-    AddOptionInt(&options->spatial_match_options->max_num_neighbors,
-                 "max_num_neighbors");
-    AddOptionDouble(&options->spatial_match_options->max_distance,
-                    "max_distance");
-
-    CreateGeneralOptions();
-  }
-
-  void Run() override {
-    WriteOptions();
-
-    SpatialFeatureMatcher* feature_matcher = new SpatialFeatureMatcher(
-        options_->match_options->Options(),
-        options_->spatial_match_options->Options(), *options_->database_path);
-
-    feature_matcher->start();
-    CreateProgressBar();
-
-    connect(feature_matcher, &QThread::finished, progress_bar_,
-            [this, feature_matcher]() {
-              this->progress_bar_->hide();
-              feature_matcher->deleteLater();
-            });
-
-    connect(progress_bar_, &QProgressDialog::canceled, [feature_matcher]() {
-      feature_matcher->Stop();
-      feature_matcher->wait();
-    });
-
-    ShowProgressBar();
-  }
+  SpatialMatchingTab(QWidget* parent, OptionManager* options);
+  void Run() override;
 };
 
 class CustomMatchingTab : public FeatureMatchingTab {
  public:
-  CustomMatchingTab(QWidget* parent, OptionManager* options)
-      : FeatureMatchingTab(parent, options) {
-    match_type_cb_ = new QComboBox(this);
-    match_type_cb_->addItem(QString("Image pairs"));
-    match_type_cb_->addItem(QString("Raw feature matches"));
-    match_type_cb_->addItem(QString("Inlier feature matches"));
-    grid_layout_->addWidget(match_type_cb_, grid_layout_->rowCount(), 1);
-
-    AddOptionFilePath(&match_list_path_, "match_list_path");
-
-    CreateGeneralOptions();
-  }
-
-  void Run() override {
-    WriteOptions();
-
-    if (!boost::filesystem::exists(match_list_path_)) {
-      QMessageBox::critical(this, "", tr("Path does not exist!"));
-      return;
-    }
-
-    WriteOptions();
-
-    // Match list selected
-    if (match_type_cb_->currentIndex() == 0) {
-      ImagePairsFeatureMatcher* feature_matcher = new ImagePairsFeatureMatcher(
-          options_->match_options->Options(), *options_->database_path,
-          match_list_path_);
-
-      feature_matcher->start();
-      CreateProgressBar();
-
-      connect(feature_matcher, &QThread::finished, progress_bar_,
-              [this]() { this->progress_bar_->hide(); });
-
-      connect(progress_bar_, &QProgressDialog::canceled, [feature_matcher]() {
-        feature_matcher->Stop();
-        feature_matcher->wait();
-      });
-    } else {
-      bool compute_inliers = false;
-
-      if (match_type_cb_->currentIndex() == 1) {
-        compute_inliers = true;
-      } else if (match_type_cb_->currentIndex() == 2) {
-        compute_inliers = false;
-      }
-
-      FeaturePairsFeatureMatcher* feature_matcher =
-          new FeaturePairsFeatureMatcher(
-              options_->match_options->Options(), compute_inliers,
-              *options_->database_path, match_list_path_);
-
-      feature_matcher->start();
-      CreateProgressBar();
-
-      connect(feature_matcher, &QThread::finished, progress_bar_,
-              [this]() { this->progress_bar_->hide(); });
-
-      connect(progress_bar_, &QProgressDialog::canceled, [feature_matcher]() {
-        feature_matcher->Stop();
-        feature_matcher->wait();
-      });
-    }
-
-    ShowProgressBar();
-  }
+  CustomMatchingTab(QWidget* parent, OptionManager* options);
+  void Run() override;
 
  private:
   std::string match_list_path_;
   QComboBox* match_type_cb_;
 };
+
+FeatureMatchingTab::FeatureMatchingTab(QWidget* parent, OptionManager* options)
+    : OptionsWidget(parent), options_(options), progress_bar_(nullptr) {
+  destructor_ = new QAction(this);
+  connect(destructor_, &QAction::triggered, this, [this]() {
+    if (matcher_) {
+      matcher_->Stop();
+      matcher_->Wait();
+      matcher_.reset();
+    }
+    progress_bar_->hide();
+  });
+}
+
+void FeatureMatchingTab::ShowProgressBar() {
+  if (progress_bar_ == nullptr) {
+    progress_bar_ = new QProgressDialog(this);
+    progress_bar_->setWindowModality(Qt::ApplicationModal);
+    progress_bar_->setLabel(new QLabel(tr("Extracting..."), this));
+    progress_bar_->setMaximum(0);
+    progress_bar_->setMinimum(0);
+    progress_bar_->setValue(0);
+    connect(progress_bar_, &QProgressDialog::canceled,
+            [this]() { destructor_->trigger(); });
+  }
+  progress_bar_->show();
+  progress_bar_->raise();
+}
+
+void FeatureMatchingTab::CreateGeneralOptions() {
+  AddSpacer();
+  AddSpacer();
+  AddSection("General Options");
+  AddSpacer();
+
+  AddOptionInt(&options_->match_options->num_threads, "num_threads", -1);
+  AddOptionInt(&options_->match_options->gpu_index, "gpu_index", -1);
+  AddOptionDouble(&options_->match_options->max_ratio, "max_ratio");
+  AddOptionDouble(&options_->match_options->max_distance, "max_distance");
+  AddOptionBool(&options_->match_options->cross_check, "cross_check");
+  AddOptionInt(&options_->match_options->max_num_matches, "max_num_matches");
+  AddOptionDouble(&options_->match_options->max_error, "max_error");
+  AddOptionDouble(&options_->match_options->confidence, "confidence", 0, 1,
+                  0.00001, 5);
+  AddOptionInt(&options_->match_options->max_num_trials, "max_num_trials");
+  AddOptionDouble(&options_->match_options->min_inlier_ratio,
+                  "min_inlier_ratio", 0, 1, 0.001, 3);
+  AddOptionInt(&options_->match_options->min_num_inliers, "min_num_inliers");
+  AddOptionBool(&options_->match_options->multiple_models, "multiple_models");
+  AddOptionBool(&options_->match_options->guided_matching, "guided_matching");
+
+  AddSpacer();
+
+  QPushButton* run_button = new QPushButton(tr("Run"), this);
+  grid_layout_->addWidget(run_button, grid_layout_->rowCount(), 1);
+  connect(run_button, &QPushButton::released, this, &FeatureMatchingTab::Run);
+}
+
+ExhaustiveMatchingTab::ExhaustiveMatchingTab(QWidget* parent,
+                                             OptionManager* options)
+    : FeatureMatchingTab(parent, options) {
+  AddOptionInt(&options->exhaustive_match_options->block_size, "block_size");
+  AddOptionBool(&options->exhaustive_match_options->preemptive, "preemptive");
+  AddOptionInt(&options->exhaustive_match_options->preemptive_num_features,
+               "preemptive_num_features");
+  AddOptionInt(&options->exhaustive_match_options->preemptive_min_num_matches,
+               "preemptive_min_num_matches");
+
+  CreateGeneralOptions();
+}
+
+void ExhaustiveMatchingTab::Run() {
+  WriteOptions();
+
+  matcher_.reset(new ExhaustiveFeatureMatcher(
+      options_->exhaustive_match_options->Options(),
+      options_->match_options->Options(), *options_->database_path));
+  matcher_->SetCallback(ExhaustiveFeatureMatcher::FINISHED,
+                        [this]() { destructor_->trigger(); });
+  matcher_->Start();
+
+  ShowProgressBar();
+}
+
+SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
+                                             OptionManager* options)
+    : FeatureMatchingTab(parent, options) {
+  AddOptionInt(&options->sequential_match_options->overlap, "overlap");
+  AddOptionBool(&options->sequential_match_options->loop_detection,
+                "loop_detection");
+  AddOptionInt(&options->sequential_match_options->loop_detection_period,
+               "loop_detection_period");
+  AddOptionInt(&options->sequential_match_options->loop_detection_num_images,
+               "loop_detection_num_images");
+  AddOptionFilePath(&options->sequential_match_options->vocab_tree_path,
+                    "vocab_tree_path");
+
+  CreateGeneralOptions();
+}
+
+void SequentialMatchingTab::Run() {
+  WriteOptions();
+
+  if (options_->sequential_match_options->loop_detection &&
+      !boost::filesystem::is_regular_file(
+          options_->sequential_match_options->vocab_tree_path)) {
+    QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
+    return;
+  }
+
+  matcher_.reset(new SequentialFeatureMatcher(
+      options_->sequential_match_options->Options(),
+      options_->match_options->Options(), *options_->database_path));
+  matcher_->SetCallback(SequentialFeatureMatcher::FINISHED,
+                        [this]() { destructor_->trigger(); });
+  matcher_->Start();
+
+  ShowProgressBar();
+}
+
+VocabTreeMatchingTab::VocabTreeMatchingTab(QWidget* parent,
+                                           OptionManager* options)
+    : FeatureMatchingTab(parent, options) {
+  AddOptionInt(&options->vocab_tree_match_options->num_images, "num_images");
+  AddOptionFilePath(&options->vocab_tree_match_options->vocab_tree_path,
+                    "vocab_tree_path");
+
+  CreateGeneralOptions();
+}
+
+void VocabTreeMatchingTab::Run() {
+  WriteOptions();
+
+  if (!boost::filesystem::is_regular_file(
+          options_->vocab_tree_match_options->vocab_tree_path)) {
+    QMessageBox::critical(this, "", tr("Invalid vocabulary tree path."));
+    return;
+  }
+
+  matcher_.reset(new VocabTreeFeatureMatcher(
+      options_->vocab_tree_match_options->Options(),
+      options_->match_options->Options(), *options_->database_path));
+  matcher_->SetCallback(VocabTreeFeatureMatcher::FINISHED,
+                        [this]() { destructor_->trigger(); });
+  matcher_->Start();
+
+  ShowProgressBar();
+}
+
+SpatialMatchingTab::SpatialMatchingTab(QWidget* parent, OptionManager* options)
+    : FeatureMatchingTab(parent, options) {
+  AddOptionBool(&options->spatial_match_options->is_gps, "is_gps");
+  AddOptionBool(&options->spatial_match_options->ignore_z, "ignore_z");
+  AddOptionInt(&options->spatial_match_options->max_num_neighbors,
+               "max_num_neighbors");
+  AddOptionDouble(&options->spatial_match_options->max_distance,
+                  "max_distance");
+
+  CreateGeneralOptions();
+}
+
+void SpatialMatchingTab::Run() {
+  WriteOptions();
+
+  matcher_.reset(new SpatialFeatureMatcher(
+      options_->spatial_match_options->Options(),
+      options_->match_options->Options(), *options_->database_path));
+  matcher_->SetCallback(SpatialFeatureMatcher::FINISHED,
+                        [this]() { destructor_->trigger(); });
+  matcher_->Start();
+
+  ShowProgressBar();
+}
+
+CustomMatchingTab::CustomMatchingTab(QWidget* parent, OptionManager* options)
+    : FeatureMatchingTab(parent, options) {
+  match_type_cb_ = new QComboBox(this);
+  match_type_cb_->addItem(QString("Image pairs"));
+  match_type_cb_->addItem(QString("Raw feature matches"));
+  match_type_cb_->addItem(QString("Inlier feature matches"));
+  grid_layout_->addWidget(match_type_cb_, grid_layout_->rowCount(), 1);
+
+  AddOptionFilePath(&match_list_path_, "match_list_path");
+
+  CreateGeneralOptions();
+}
+
+void CustomMatchingTab::Run() {
+  WriteOptions();
+
+  if (!boost::filesystem::exists(match_list_path_)) {
+    QMessageBox::critical(this, "", tr("Path does not exist!"));
+    return;
+  }
+
+  if (match_type_cb_->currentIndex() == 0) {
+    matcher_.reset(new ImagePairsFeatureMatcher(
+        options_->match_options->Options(), *options_->database_path,
+        match_list_path_));
+    matcher_->SetCallback(ImagePairsFeatureMatcher::FINISHED,
+                          [this]() { destructor_->trigger(); });
+  } else {
+    bool compute_inliers = false;
+    if (match_type_cb_->currentIndex() == 1) {
+      compute_inliers = true;
+    } else if (match_type_cb_->currentIndex() == 2) {
+      compute_inliers = false;
+    }
+
+    matcher_.reset(new FeaturePairsFeatureMatcher(
+        options_->match_options->Options(), compute_inliers,
+        *options_->database_path, match_list_path_));
+    matcher_->SetCallback(FeaturePairsFeatureMatcher::FINISHED,
+                          [this]() { destructor_->trigger(); });
+  }
+
+  matcher_->Start();
+
+  ShowProgressBar();
+}
 
 FeatureMatchingWidget::FeatureMatchingWidget(QWidget* parent,
                                              OptionManager* options)

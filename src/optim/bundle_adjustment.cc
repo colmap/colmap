@@ -284,7 +284,7 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   }
 
   if (options_.print_summary) {
-    PrintHeading2("Bundle Adjustment Report");
+    PrintHeading2("Bundle adjustment report");
     PrintSolverSummary(summary_);
   }
 
@@ -583,7 +583,7 @@ bool ParallelBundleAdjuster::Solve(Reconstruction* reconstruction) {
   TearDown(reconstruction);
 
   if (options_.print_summary) {
-    PrintHeading2("Bundle Adjustment Report");
+    PrintHeading2("Bundle adjustment report");
     PrintSolverSummary(summary_);
   }
 
@@ -812,7 +812,7 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
   }
 
   if (options_.print_summary) {
-    PrintHeading2("Rig Bundle Adjustment Report");
+    PrintHeading2("Rig Bundle adjustment report");
     PrintSolverSummary(summary_);
   }
 

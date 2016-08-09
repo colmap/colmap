@@ -282,7 +282,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   }
 
   if (options.print_summary) {
-    PrintHeading2("Pose Refinement Report");
+    PrintHeading2("Pose refinement report");
     PrintSolverSummary(summary);
   }
 

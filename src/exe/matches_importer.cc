@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
   }
 
   std::unique_ptr<QApplication> app;
-  FeatureMatcher::Options match_options = options.match_options->Options();
+  SiftMatchOptions match_options = options.match_options->Options();
   if (no_opengl) {
     if (match_options.gpu_index < 0) {
       match_options.gpu_index = 0;
@@ -60,22 +60,26 @@ int main(int argc, char** argv) {
     app.reset(new QApplication(argc, argv));
   }
 
-  QThread* feature_matcher = nullptr;
+  std::unique_ptr<Thread> feature_matcher;
   if (match_type == "pairs") {
-    feature_matcher = new ImagePairsFeatureMatcher(
-        match_options, *options.database_path, match_list_path);
+    feature_matcher.reset(new ImagePairsFeatureMatcher(
+        match_options, *options.database_path, match_list_path));
   } else if (match_type == "raw" || match_type == "inliers") {
     const bool compute_inliers = match_type == "raw";
-    feature_matcher =
-        new FeaturePairsFeatureMatcher(match_options, compute_inliers,
-                                       *options.database_path, match_list_path);
+    feature_matcher.reset(new FeaturePairsFeatureMatcher(
+        match_options, compute_inliers, *options.database_path,
+        match_list_path));
   } else {
     std::cerr << "ERROR: Invalid `match_type`";
     return EXIT_FAILURE;
   }
 
-  feature_matcher->start();
-  feature_matcher->wait();
+  if (no_opengl) {
+    feature_matcher->Start();
+    feature_matcher->Wait();
+  } else {
+    RunThreadWithOpenGLContext(app.get(), feature_matcher.get());
+  }
 
   return EXIT_SUCCESS;
 }

@@ -55,7 +55,7 @@ struct MatchOptions : public BaseOptions {
   void Reset() override;
   bool Check() override;
 
-  FeatureMatcher::Options Options() const;
+  SiftMatchOptions Options() const;
 
   int num_threads;
   int gpu_index;
@@ -78,7 +78,7 @@ struct ExhaustiveMatchOptions : public BaseOptions {
   void Reset() override;
   bool Check() override;
 
-  ExhaustiveFeatureMatcher::ExhaustiveOptions Options() const;
+  ExhaustiveFeatureMatcher::Options Options() const;
 
   int block_size;
   bool preemptive;
@@ -92,7 +92,7 @@ struct SequentialMatchOptions : public BaseOptions {
   void Reset() override;
   bool Check() override;
 
-  SequentialFeatureMatcher::SequentialOptions Options() const;
+  SequentialFeatureMatcher::Options Options() const;
 
   int overlap;
   bool loop_detection;
@@ -107,7 +107,7 @@ struct VocabTreeMatchOptions : public BaseOptions {
   void Reset() override;
   bool Check() override;
 
-  VocabTreeFeatureMatcher::VocabTreeOptions Options() const;
+  VocabTreeFeatureMatcher::Options Options() const;
 
   int num_images;
   std::string vocab_tree_path;
@@ -119,7 +119,7 @@ struct SpatialMatchOptions : public BaseOptions {
   void Reset() override;
   bool Check() override;
 
-  SpatialFeatureMatcher::SpatialOptions Options() const;
+  SpatialFeatureMatcher::Options Options() const;
 
   bool is_gps;
   bool ignore_z;

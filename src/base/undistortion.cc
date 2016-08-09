@@ -110,7 +110,7 @@ ImageUndistorter::ImageUndistorter(const UndistortCameraOptions& options,
 }
 
 void ImageUndistorter::Run() {
-  PrintHeading1("Image Undistortion");
+  PrintHeading1("Image undistortion");
 
   ThreadPool thread_pool;
   std::vector<std::future<void>> futures;
@@ -177,7 +177,7 @@ PMVSUndistorter::PMVSUndistorter(const UndistortCameraOptions& options,
 }
 
 void PMVSUndistorter::Run() {
-  PrintHeading1("Image Undistortion (CMVS/PMVS)");
+  PrintHeading1("Image undistortion (CMVS/PMVS)");
 
   CreateDirIfNotExists(output_path_ + "pmvs/");
   CreateDirIfNotExists(output_path_ + "pmvs/txt/");
@@ -359,7 +359,7 @@ CMPMVSUndistorter::CMPMVSUndistorter(const UndistortCameraOptions& options,
 }
 
 void CMPMVSUndistorter::Run() {
-  PrintHeading1("Image Undistortion (CMP-MVS)");
+  PrintHeading1("Image undistortion (CMP-MVS)");
 
   ThreadPool thread_pool;
   std::vector<std::future<void>> futures;

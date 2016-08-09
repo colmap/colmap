@@ -403,7 +403,7 @@ void SiftMatchGL::LoadSiftMatchShadersGLSL()
 
 }
 
-int  SiftMatchGL::GetGuidedSiftMatch(int max_match, int match_buffer[][2], float* H, float* F,
+int  SiftMatchGL::GetGuidedSiftMatch(int max_match, uint32_t match_buffer[][2], float* H, float* F,
 									 float distmax, float ratiomax, float hdistmax, float fdistmax, int mbm)
 {
 
@@ -451,7 +451,7 @@ int  SiftMatchGL::GetGuidedSiftMatch(int max_match, int match_buffer[][2], float
 	return GetBestMatch(max_match, match_buffer, distmax, ratiomax, mbm);
 }
 
-int SiftMatchGL::GetBestMatch(int max_match, int match_buffer[][2], float distmax, float ratiomax, int mbm)
+int SiftMatchGL::GetBestMatch(int max_match, uint32_t match_buffer[][2], float distmax, float ratiomax, int mbm)
 {
 
 	glActiveTexture(GL_TEXTURE0);
@@ -508,7 +508,7 @@ int SiftMatchGL::GetBestMatch(int max_match, int match_buffer[][2], float distma
 	return nmatch;
 }
 
-int  SiftMatchGL::GetSiftMatch(int max_match, int match_buffer[][2], float distmax, float ratiomax, int mbm)
+int  SiftMatchGL::GetSiftMatch(int max_match, uint32_t match_buffer[][2], float distmax, float ratiomax, int mbm)
 {
 	int dw = _num_sift[1];
 	int dh =  _num_sift[0];
@@ -660,7 +660,7 @@ void SiftMatchGPU::SetFeautreLocation(int index, const float* locations, int gap
 	__matcher->SetFeautreLocation(index, locations, gap);
 
 }
-int  SiftMatchGPU::GetGuidedSiftMatch(int max_match, int match_buffer[][2], float* H, float* F,
+int  SiftMatchGPU::GetGuidedSiftMatch(int max_match, uint32_t match_buffer[][2], float* H, float* F,
 				float distmax, float ratiomax, float hdistmax, float fdistmax, int mutual_best_match)
 {
 	if(H == NULL && F == NULL)
@@ -675,7 +675,7 @@ int  SiftMatchGPU::GetGuidedSiftMatch(int max_match, int match_buffer[][2], floa
 	}
 }
 
-int  SiftMatchGPU::GetSiftMatch(int max_match, int match_buffer[][2], float distmax, float ratiomax, int mutual_best_match)
+int  SiftMatchGPU::GetSiftMatch(int max_match, uint32_t match_buffer[][2], float distmax, float ratiomax, int mutual_best_match)
 {
 	return __matcher->GetSiftMatch(max_match, match_buffer, distmax, ratiomax, mutual_best_match);
 }

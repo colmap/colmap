@@ -123,7 +123,7 @@ void SiftMatchCU::SetFeautreLocation(int index, const float* locations, int gap)
 	_have_loc[index] = 1;
 }
 
-int  SiftMatchCU::GetGuidedSiftMatch(int max_match, int match_buffer[][2], float* H, float* F,
+int  SiftMatchCU::GetGuidedSiftMatch(int max_match, uint32_t match_buffer[][2], float* H, float* F,
 									 float distmax, float ratiomax, float hdistmax, float fdistmax, int mbm)
 {
 
@@ -136,7 +136,7 @@ int  SiftMatchCU::GetGuidedSiftMatch(int max_match, int match_buffer[][2], float
 }
 
 
-int  SiftMatchCU::GetSiftMatch(int max_match, int match_buffer[][2], float distmax, float ratiomax, int mbm)
+int  SiftMatchCU::GetSiftMatch(int max_match, uint32_t match_buffer[][2], float distmax, float ratiomax, int mbm)
 {
 	if(_initialized ==0) return 0;
 	if(_num_sift[0] <= 0 || _num_sift[1] <=0) return 0;
@@ -145,7 +145,7 @@ int  SiftMatchCU::GetSiftMatch(int max_match, int match_buffer[][2], float distm
 }
 
 
-int SiftMatchCU::GetBestMatch(int max_match, int match_buffer[][2], float distmax, float ratiomax, int mbm)
+int SiftMatchCU::GetBestMatch(int max_match, uint32_t match_buffer[][2], float distmax, float ratiomax, int mbm)
 {
 	sift_buffer.resize(_num_sift[0] + _num_sift[1]);
 	int * buffer1 =  (int*) &sift_buffer[0], * buffer2 = (int*) &sift_buffer[_num_sift[0]];
