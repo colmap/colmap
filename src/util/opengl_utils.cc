@@ -16,7 +16,7 @@
 
 #include "util/opengl_utils.h"
 
-#include <QCoreApplication>
+#include <QApplication>
 
 #include "util/logging.h"
 
@@ -33,17 +33,30 @@ OpenGLContextManager::OpenGLContextManager()
   CHECK(context_.create());
   context_.makeCurrent(&surface_);
 
-  connect(make_current_action_, &QAction::triggered, this, [this]() {
-    CHECK_NOTNULL(current_thread_);
-    context_.doneCurrent();
-    context_.moveToThread(current_thread_);
-  }, Qt::BlockingQueuedConnection);
+  connect(make_current_action_, &QAction::triggered, this,
+          [this]() {
+            CHECK_NOTNULL(current_thread_);
+            context_.doneCurrent();
+            context_.moveToThread(current_thread_);
+          },
+          Qt::BlockingQueuedConnection);
 }
 
 void OpenGLContextManager::MakeCurrent() {
   current_thread_ = QThread::currentThread();
   make_current_action_->trigger();
   context_.makeCurrent(&surface_);
+}
+
+void RunThreadWithOpenGLContext(QApplication* app, Thread* thread) {
+  std::thread wrapper_thread([&app, &thread]() {
+    thread->Start();
+    thread->Wait();
+    app->exit();
+  });
+
+  app->exec();
+  wrapper_thread.join();
 }
 
 void GLError(const char* file, const int line) {

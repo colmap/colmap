@@ -42,3 +42,19 @@ BOOST_AUTO_TEST_CASE(TestOpenGLContextManager) {
   app.exec();
   thread.join();
 }
+
+BOOST_AUTO_TEST_CASE(TestRunThreadWithOpenGLContext) {
+  char app_name[] = "Test";
+  int argc = 1;
+  char* argv[] = {app_name};
+  QApplication app(argc, argv);
+
+  class TestThread : public Thread {
+   private:
+    void Run() { opengl_context_.MakeCurrent(); }
+    OpenGLContextManager opengl_context_;
+  };
+
+  TestThread thread;
+  RunThreadWithOpenGLContext(&app, &thread);
+}

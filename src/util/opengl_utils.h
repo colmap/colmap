@@ -23,6 +23,8 @@
 #include <QThread>
 #include <QWaitCondition>
 
+#include "util/threading.h"
+
 namespace colmap {
 
 #ifdef DEBUG
@@ -48,6 +50,20 @@ class OpenGLContextManager : public QObject {
   QAction* make_current_action_;
 };
 
+// Run and wait for the thread, that uses the OpenGLContextManager, e.g.:
+//
+//    class TestThread : public Thread {
+//     private:
+//      void Run() { opengl_context_.MakeCurrent(); }
+//      OpenGLContextManager opengl_context_;
+//    };
+//    QApplication app(argc, argv);
+//    TestThread thread;
+//    RunThreadWithOpenGLContext(&app, &thread);
+//
+void RunThreadWithOpenGLContext(QApplication* app, Thread* thread);
+
+// Get the OpenGL errors and print them to stderr.
 void GLError(const char* file, const int line);
 
 }  // namespace colmap
