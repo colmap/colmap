@@ -18,8 +18,6 @@
 #define BOOST_TEST_MODULE "base/feature_extraction_test"
 #include <boost/test/unit_test.hpp>
 
-#include <thread>
-
 #include <QApplication>
 
 #include "base/feature_extraction.h"
@@ -69,41 +67,41 @@ BOOST_AUTO_TEST_CASE(TestExtractSiftFeaturesGPU) {
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
-  OpenGLContextManager opengl_context;
+  class TestThread : public Thread {
+   private:
+    void Run() {
+      opengl_context_.MakeCurrent();
 
-  std::thread thread([&opengl_context]() {
-    opengl_context.MakeCurrent();
+      const Bitmap bitmap = CreateImageWithSquare(256);
 
-    const Bitmap bitmap = CreateImageWithSquare(256);
+      SiftGPU sift_gpu;
+      BOOST_CHECK(CreateSiftGPUExtractor(SiftOptions(), &sift_gpu));
 
-    SiftGPU sift_gpu;
-    BOOST_CHECK(CreateSiftGPUExtractor(SiftOptions(), &sift_gpu));
+      FeatureKeypoints keypoints;
+      FeatureDescriptors descriptors;
+      BOOST_CHECK(ExtractSiftFeaturesGPU(SiftOptions(), bitmap, &sift_gpu,
+                                         &keypoints, &descriptors));
 
-    FeatureKeypoints keypoints;
-    FeatureDescriptors descriptors;
-    BOOST_CHECK(ExtractSiftFeaturesGPU(SiftOptions(), bitmap, &sift_gpu,
-                                       &keypoints, &descriptors));
+      BOOST_CHECK_EQUAL(keypoints.size(), 24);
+      for (size_t i = 0; i < keypoints.size(); ++i) {
+        BOOST_CHECK_GE(keypoints[i].x, 0);
+        BOOST_CHECK_GE(keypoints[i].y, 0);
+        BOOST_CHECK_LE(keypoints[i].x, bitmap.Width());
+        BOOST_CHECK_LE(keypoints[i].y, bitmap.Height());
+        BOOST_CHECK_GT(keypoints[i].scale, 0);
+        BOOST_CHECK_GT(keypoints[i].orientation, 0);
+        BOOST_CHECK_LT(keypoints[i].orientation, 2 * M_PI);
+      }
 
-    BOOST_CHECK_EQUAL(keypoints.size(), 24);
-    for (size_t i = 0; i < keypoints.size(); ++i) {
-      BOOST_CHECK_GE(keypoints[i].x, 0);
-      BOOST_CHECK_GE(keypoints[i].y, 0);
-      BOOST_CHECK_LE(keypoints[i].x, bitmap.Width());
-      BOOST_CHECK_LE(keypoints[i].y, bitmap.Height());
-      BOOST_CHECK_GT(keypoints[i].scale, 0);
-      BOOST_CHECK_GT(keypoints[i].orientation, 0);
-      BOOST_CHECK_LT(keypoints[i].orientation, 2 * M_PI);
+      BOOST_CHECK_EQUAL(descriptors.rows(), 24);
+      for (FeatureDescriptors::Index i = 0; i < descriptors.rows(); ++i) {
+        BOOST_CHECK_LT(std::abs(descriptors.row(i).cast<float>().norm() - 512),
+                       1);
+      }
     }
+    OpenGLContextManager opengl_context_;
+  };
 
-    BOOST_CHECK_EQUAL(descriptors.rows(), 24);
-    for (FeatureDescriptors::Index i = 0; i < descriptors.rows(); ++i) {
-      BOOST_CHECK_LT(std::abs(descriptors.row(i).cast<float>().norm() - 512),
-                     1);
-    }
-
-    qApp->exit();
-  });
-
-  app.exec();
-  thread.join();
+  TestThread thread;
+  RunThreadWithOpenGLContext(&app, &thread);
 }

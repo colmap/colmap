@@ -1338,12 +1338,14 @@ void MatchSiftFeaturesGPU(const SiftMatchOptions& match_options,
   CHECK_NOTNULL(matches);
 
   if (descriptors1 != nullptr) {
+    CHECK_GT(descriptors1->rows(), 0);
     CHECK_EQ(descriptors1->cols(), 128);
     sift_match_gpu->SetDescriptors(0, descriptors1->rows(),
                                    descriptors1->data());
   }
 
   if (descriptors2 != nullptr) {
+    CHECK_GT(descriptors2->rows(), 0);
     CHECK_EQ(descriptors2->cols(), 128);
     sift_match_gpu->SetDescriptors(1, descriptors2->rows(),
                                    descriptors2->data());
@@ -1377,6 +1379,7 @@ void MatchGuidedSiftFeaturesGPU(const SiftMatchOptions& match_options,
 
   if (descriptors1 != nullptr) {
     CHECK_NOTNULL(keypoints1);
+    CHECK_GT(descriptors1->rows(), 0);
     CHECK_EQ(descriptors1->rows(), keypoints1->size());
     CHECK_EQ(descriptors1->cols(), 128);
     const size_t kIndex = 0;
@@ -1388,6 +1391,7 @@ void MatchGuidedSiftFeaturesGPU(const SiftMatchOptions& match_options,
 
   if (descriptors2 != nullptr) {
     CHECK_NOTNULL(keypoints2);
+    CHECK_GT(descriptors2->rows(), 0);
     CHECK_EQ(descriptors2->rows(), keypoints2->size());
     CHECK_EQ(descriptors2->cols(), 128);
     const size_t kIndex = 1;
