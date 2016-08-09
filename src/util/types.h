@@ -34,6 +34,12 @@ typedef unsigned __int64 uint64_t;
 #include <cstdint>
 #endif
 
+// Define non-copyable or non-movable classes.
+#define NON_COPYABLE(class_name)          \
+  class_name(class_name const&) = delete; \
+  void operator=(class_name const& obj) = delete;
+#define NON_MOVABLE(class_name) class_name(class_name&&) = delete;
+
 #include <Eigen/Core>
 
 namespace Eigen {
