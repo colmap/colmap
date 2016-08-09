@@ -275,8 +275,8 @@ class DatabaseTransaction {
   ~DatabaseTransaction();
 
  private:
-  NON_COPYABLE(DatabaseTransaction);
-  NON_MOVABLE(DatabaseTransaction);
+  NON_COPYABLE(DatabaseTransaction)
+  NON_MOVABLE(DatabaseTransaction)
   const Database* database_;
 };
 
