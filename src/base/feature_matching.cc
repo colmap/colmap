@@ -154,8 +154,14 @@ SiftGPUFeatureMatcher::SiftGPUFeatureMatcher(const SiftMatchOptions& options)
 
 bool SiftGPUFeatureMatcher::Setup(const Database* database,
                                   const FeatureMatcherCache* cache) {
-  CHECK(opengl_context_);
-  opengl_context_->MakeCurrent();
+#ifdef CUDA_ENABLED
+  if (options_.gpu_index < 0) {
+#endif
+    CHECK(opengl_context_);
+    opengl_context_->MakeCurrent();
+#ifdef CUDA_ENABLED
+  }
+#endif
 
   sift_match_gpu_.reset(new SiftMatchGPU());
   if (!CreateSiftGPUMatcher(options_, sift_match_gpu_.get())) {
@@ -303,7 +309,7 @@ void SiftGPUFeatureMatcher::MatchImagePairs(
       MatchSiftFeaturesGPU(options_, descriptors1_ptr, descriptors2_ptr,
                            sift_match_gpu_.get(), &match_result.matches);
 
-      if (match_result.matches.size() < options_.min_num_inliers) {
+      if (match_result.matches.size() < min_num_inliers) {
         match_result.matches = {};
       }
 
@@ -364,7 +370,7 @@ void SiftGPUFeatureMatcher::MatchImagePairs(
       MatchGuidedSiftFeaturesGPU(options_, keypoints1_ptr, keypoints2_ptr,
                                  descriptors1_ptr, descriptors2_ptr,
                                  sift_match_gpu_.get(), &result);
-      if (result.inlier_matches.size() < options_.min_num_inliers) {
+      if (result.inlier_matches.size() < min_num_inliers) {
         result = TwoViewGeometry();
       }
     }
@@ -480,7 +486,8 @@ TwoViewGeometry SiftGPUFeatureMatcher::VerifyImagePair(
                                *data.matches, *data.options);
   }
 
-  if (two_view_geometry.inlier_matches.size() < options.min_num_inliers) {
+  if (two_view_geometry.inlier_matches.size() <
+      static_cast<size_t>(options.min_num_inliers)) {
     two_view_geometry = TwoViewGeometry();
   }
 

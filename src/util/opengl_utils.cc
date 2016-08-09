@@ -32,6 +32,7 @@ OpenGLContextManager::OpenGLContextManager()
   surface_.create();
   CHECK(context_.create());
   context_.makeCurrent(&surface_);
+  CHECK(context_.isValid()) << "Could not create valid OpenGL context";
 
   connect(make_current_action_, &QAction::triggered, this,
           [this]() {
@@ -46,6 +47,7 @@ void OpenGLContextManager::MakeCurrent() {
   current_thread_ = QThread::currentThread();
   make_current_action_->trigger();
   context_.makeCurrent(&surface_);
+  CHECK(context_.isValid()) << "Could not create valid OpenGL context";
 }
 
 void RunThreadWithOpenGLContext(QApplication* app, Thread* thread) {
