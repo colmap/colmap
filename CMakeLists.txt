@@ -33,12 +33,6 @@ option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(BOOST_STATIC "Whether to enable static boost library linker flags" ON)
 
-if(BOOST_STATIC)
-  set(Boost_USE_STATIC_LIBS ON)
-else()
-  add_definitions(-DBOOST_TEST_DYN_LINK)
-endif()
-
 ################################################################################
 # Find packages
 ################################################################################
@@ -138,6 +132,12 @@ if(PROFILING_ENABLED)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lprofiler -ltcmalloc")
 else()
     message(STATUS "Disabling profiling support")
+endif()
+
+if(BOOST_STATIC)
+    set(Boost_USE_STATIC_LIBS ON)
+else()
+    add_definitions(-DBOOST_TEST_DYN_LINK)
 endif()
 
 # Qt5 was built with -reduce-relocations.
