@@ -1513,8 +1513,8 @@ vl_thread_specific_state_delete (VlThreadState * self)
  */
 
 #if (defined(VL_OS_LINUX) || defined(VL_OS_MACOSX)) && defined(VL_COMPILER_GNUC)
-void vl_constructor () __attribute__ ((constructor)) ;
-void vl_destructor () __attribute__ ((destructor))  ;
+// void vl_constructor () __attribute__ ((constructor)) ;
+// void vl_destructor () __attribute__ ((destructor))  ;
 #endif
 
 #if defined(VL_OS_WIN)
