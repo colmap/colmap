@@ -31,9 +31,13 @@ option(OPENMP_ENABLED "Whether to enable OpenMP" ON)
 option(LTO_ENABLED "Whether to enable link-time optimization" ON)
 option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
+option(BOOST_STATIC "Whether to enable static boost library linker flags" ON)
 
-set(Boost_USE_STATIC_LIBS ON)
-
+if(BOOST_STATIC)
+  set(Boost_USE_STATIC_LIBS ON)
+else()
+  add_definitions(-DBOOST_TEST_DYN_LINK)
+endif()
 
 ################################################################################
 # Find packages
