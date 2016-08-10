@@ -153,6 +153,17 @@ class Thread {
   std::unordered_map<int, std::function<void()>> callbacks_;
 };
 
+// A thread pool class to submit generic tasks (functors) to a pool of workers:
+//
+//    ThreadPool thread_pool;
+//    thread_pool.AddTask([]() { /* Do some work */ });
+//    auto future = thread_pool.AddTask([]() { /* Do some work */ return 1; });
+//    const auto result = future.get();
+//    for (int i = 0; i < 10; ++i) {
+//      thread_pool.AddTask([](const int i) { /* Do some work */ });
+//    }
+//    thread_pool.Wait();
+//
 class ThreadPool {
  public:
   static const int kMaxNumThreads = -1;
