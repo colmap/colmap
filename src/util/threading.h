@@ -198,6 +198,48 @@ class ThreadPool {
   std::atomic_int num_active_workers_;
 };
 
+// A job queue class for the producer-consumer paradigm.
+//
+//    JobQueue<int> job_queue;
+//
+//    std::thread producer_thread([&job_queue]() {
+//      for (int i = 0; i < 10; ++i) {
+//        job_queue.Push(i);
+//      }
+//    });
+//
+//    std::thread consumer_thread([&job_queue]() {
+//      for (int i = 0; i < 10; ++i) {
+//        job_queue.Pop();
+//      }
+//    });
+//
+//    producer_thread.join();
+//    consumer_thread.join();
+//
+template <typename T>
+class JobQueue {
+ public:
+  JobQueue();
+  JobQueue(const size_t max_num_jobs);
+
+  // The number of pushed and not popped jobs in the queue.
+  size_t Size();
+
+  // Push a new job to the queue. Waits if the number of jobs is exceeded.
+  void Push(const T& job);
+
+  // Pop a job from the queue. Waits if there is no job in the queue.
+  T Pop();
+
+ private:
+  size_t max_num_jobs_;
+  std::queue<T> jobs_;
+  std::mutex mutex_;
+  std::condition_variable push_condition_;
+  std::condition_variable pop_condition_;
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
@@ -225,6 +267,41 @@ auto ThreadPool::AddTask(func_t&& f, args_t&&... args)
   task_condition_.notify_one();
 
   return result;
+}
+
+template <typename T>
+JobQueue<T>::JobQueue() : JobQueue(std::numeric_limits<size_t>::max()) {}
+
+template <typename T>
+JobQueue<T>::JobQueue(const size_t max_num_jobs)
+    : max_num_jobs_(max_num_jobs) {}
+
+template <typename T>
+size_t JobQueue<T>::Size() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  return jobs_.size();
+}
+
+template <typename T>
+void JobQueue<T>::Push(const T& job) {
+  std::unique_lock<std::mutex> lock(mutex_);
+  if (jobs_.size() == max_num_jobs_) {
+    pop_condition_.wait(lock);
+  }
+  jobs_.push(job);
+  push_condition_.notify_one();
+}
+
+template <typename T>
+T JobQueue<T>::Pop() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  if (jobs_.empty()) {
+    push_condition_.wait(lock);
+  }
+  const T job = jobs_.front();
+  jobs_.pop();
+  pop_condition_.notify_one();
+  return job;
 }
 
 }  // namespace colmap

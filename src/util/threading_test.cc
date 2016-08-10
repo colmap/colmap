@@ -21,9 +21,13 @@
 #include <chrono>
 #include <vector>
 
+#include "util/logging.h"
 #include "util/threading.h"
 
 using namespace colmap;
+
+// BOOST_CHECK is not thread-safe, hence fall back to glog's CHECK.
+#define BOOST_THREAD_SAFE_CHECK(exp) CHECK(exp)
 
 BOOST_AUTO_TEST_CASE(TestThreadWait) {
   class TestThread : public Thread {
@@ -473,4 +477,141 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolWait) {
   for (const auto result : results) {
     BOOST_CHECK_EQUAL(result, 1);
   }
+}
+
+BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerSingleConsumer) {
+  JobQueue<int> job_queue;
+
+  std::thread producer_thread([&job_queue]() {
+    for (int i = 0; i < 10; ++i) {
+      job_queue.Push(i);
+    }
+  });
+
+  std::thread consumer_thread([&job_queue]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    BOOST_THREAD_SAFE_CHECK(job_queue.Size() == 10);
+    for (int i = 0; i < 10; ++i) {
+      BOOST_THREAD_SAFE_CHECK(job_queue.Pop() == i);
+    }
+  });
+
+  producer_thread.join();
+  consumer_thread.join();
+}
+
+BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerSingleConsumerMaxNumJobs) {
+  JobQueue<int> job_queue(2);
+
+  std::thread producer_thread([&job_queue]() {
+    for (int i = 0; i < 10; ++i) {
+      job_queue.Push(i);
+    }
+  });
+
+  std::thread consumer_thread([&job_queue]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    BOOST_THREAD_SAFE_CHECK(job_queue.Size() == 2);
+    for (int i = 0; i < 10; ++i) {
+      BOOST_THREAD_SAFE_CHECK(job_queue.Pop() == i);
+    }
+  });
+
+  producer_thread.join();
+  consumer_thread.join();
+}
+
+BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerSingleConsumer) {
+  JobQueue<int> job_queue(1);
+
+  std::thread producer_thread1([&job_queue]() {
+    for (int i = 0; i < 10; ++i) {
+      job_queue.Push(i);
+    }
+  });
+
+  std::thread producer_thread2([&job_queue]() {
+    for (int i = 0; i < 10; ++i) {
+      job_queue.Push(i);
+    }
+  });
+
+  std::thread consumer_thread([&job_queue]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    BOOST_THREAD_SAFE_CHECK(job_queue.Size() == 1);
+    for (int i = 0; i < 20; ++i) {
+      BOOST_THREAD_SAFE_CHECK(job_queue.Pop() < 10);
+    }
+  });
+
+  producer_thread1.join();
+  producer_thread2.join();
+  consumer_thread.join();
+}
+
+BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerMultipleConsumer) {
+  JobQueue<int> job_queue(1);
+
+  std::thread producer_thread([&job_queue]() {
+    for (int i = 0; i < 20; ++i) {
+      job_queue.Push(i);
+    }
+  });
+
+  std::thread consumer_thread1([&job_queue]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    BOOST_CHECK_LE(job_queue.Size(), 1);
+    for (int i = 0; i < 10; ++i) {
+      BOOST_THREAD_SAFE_CHECK(job_queue.Pop() < 20);
+    }
+  });
+
+  std::thread consumer_thread2([&job_queue]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    BOOST_CHECK_LE(job_queue.Size(), 1);
+    for (int i = 0; i < 10; ++i) {
+      BOOST_THREAD_SAFE_CHECK(job_queue.Pop() < 20);
+    }
+  });
+
+  producer_thread.join();
+  consumer_thread1.join();
+  consumer_thread2.join();
+}
+
+BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerMultipleConsumer) {
+  JobQueue<int> job_queue(1);
+
+  std::thread producer_thread1([&job_queue]() {
+    for (int i = 0; i < 10; ++i) {
+      job_queue.Push(i);
+    }
+  });
+
+  std::thread producer_thread2([&job_queue]() {
+    for (int i = 0; i < 10; ++i) {
+      job_queue.Push(i);
+    }
+  });
+
+  std::thread consumer_thread1([&job_queue]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    BOOST_CHECK_LE(job_queue.Size(), 1);
+    for (int i = 0; i < 10; ++i) {
+      BOOST_THREAD_SAFE_CHECK(job_queue.Pop() < 10);
+    }
+  });
+
+  std::thread consumer_thread2([&job_queue]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    BOOST_CHECK_LE(job_queue.Size(), 1);
+    for (int i = 0; i < 10; ++i) {
+      BOOST_THREAD_SAFE_CHECK(job_queue.Pop() < 10);
+    }
+  });
+
+  producer_thread1.join();
+  producer_thread2.join();
+  consumer_thread1.join();
+  consumer_thread2.join();
 }
