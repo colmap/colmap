@@ -144,11 +144,11 @@ class Thread {
 
   Timer timer_;
 
-  bool started_;
-  bool stopped_;
-  bool paused_;
-  bool pausing_;
-  bool finished_;
+  std::atomic_bool started_;
+  std::atomic_bool stopped_;
+  std::atomic_bool paused_;
+  std::atomic_bool pausing_;
+  std::atomic_bool finished_;
 
   std::unordered_map<int, std::function<void()>> callbacks_;
 };
@@ -210,7 +210,9 @@ class ThreadPool {
 //
 //    std::thread consumer_thread([&job_queue]() {
 //      for (int i = 0; i < 10; ++i) {
-//        job_queue.Pop();
+//        const auto job = job_queue.Pop();
+//        if (job.IsValid()) { /* Do some work */ }
+//        else { break; }
 //      }
 //    });
 //
@@ -220,20 +222,42 @@ class ThreadPool {
 template <typename T>
 class JobQueue {
  public:
+  class Job {
+   public:
+    Job() : valid_(false) {}
+    Job(const T& data) : data_(data), valid_(true) {}
+
+    // Check whether the data is valid.
+    bool IsValid() const { return valid_; }
+
+    // Get reference to the data.
+    T& Data() { return data_; }
+    const T& Data() const { return data_; }
+
+   private:
+    T data_;
+    bool valid_;
+  };
+
   JobQueue();
   JobQueue(const size_t max_num_jobs);
+  ~JobQueue();
 
   // The number of pushed and not popped jobs in the queue.
   size_t Size();
 
   // Push a new job to the queue. Waits if the number of jobs is exceeded.
-  void Push(const T& job);
+  bool Push(const T& data);
 
   // Pop a job from the queue. Waits if there is no job in the queue.
-  T Pop();
+  Job Pop();
+
+  // Stop the queue and return from all push/pop calls with false.
+  void Stop();
 
  private:
   size_t max_num_jobs_;
+  std::atomic_bool stop_;
   std::queue<T> jobs_;
   std::mutex mutex_;
   std::condition_variable push_condition_;
@@ -274,7 +298,12 @@ JobQueue<T>::JobQueue() : JobQueue(std::numeric_limits<size_t>::max()) {}
 
 template <typename T>
 JobQueue<T>::JobQueue(const size_t max_num_jobs)
-    : max_num_jobs_(max_num_jobs) {}
+    : max_num_jobs_(max_num_jobs), stop_(false) {}
+
+template <typename T>
+JobQueue<T>::~JobQueue() {
+  Stop();
+}
 
 template <typename T>
 size_t JobQueue<T>::Size() {
@@ -283,25 +312,43 @@ size_t JobQueue<T>::Size() {
 }
 
 template <typename T>
-void JobQueue<T>::Push(const T& job) {
+bool JobQueue<T>::Push(const T& data) {
   std::unique_lock<std::mutex> lock(mutex_);
-  if (jobs_.size() == max_num_jobs_) {
+  while (jobs_.size() >= max_num_jobs_ && !stop_) {
     pop_condition_.wait(lock);
   }
-  jobs_.push(job);
-  push_condition_.notify_one();
+  if (stop_) {
+    return false;
+  } else {
+    jobs_.push(data);
+    push_condition_.notify_one();
+    return true;
+  }
 }
 
 template <typename T>
-T JobQueue<T>::Pop() {
+typename JobQueue<T>::Job JobQueue<T>::Pop() {
   std::unique_lock<std::mutex> lock(mutex_);
-  if (jobs_.empty()) {
+  while (jobs_.empty() && !stop_) {
     push_condition_.wait(lock);
   }
-  const T job = jobs_.front();
-  jobs_.pop();
-  pop_condition_.notify_one();
-  return job;
+  if (stop_) {
+    return Job();
+  } else {
+    const T data = jobs_.front();
+    jobs_.pop();
+    pop_condition_.notify_one();
+    return Job(data);
+  }
+
+}
+
+template <typename T>
+void JobQueue<T>::Stop() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  stop_ = true;
+  push_condition_.notify_all();
+  pop_condition_.notify_all();
 }
 
 }  // namespace colmap

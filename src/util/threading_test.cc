@@ -26,9 +26,6 @@
 
 using namespace colmap;
 
-// BOOST_CHECK is not thread-safe, hence fall back to glog's CHECK.
-#define BOOST_THREAD_SAFE_CHECK(exp) CHECK(exp)
-
 BOOST_AUTO_TEST_CASE(TestThreadWait) {
   class TestThread : public Thread {
     void Run() { std::this_thread::sleep_for(std::chrono::milliseconds(200)); }
@@ -484,15 +481,17 @@ BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerSingleConsumer) {
 
   std::thread producer_thread([&job_queue]() {
     for (int i = 0; i < 10; ++i) {
-      job_queue.Push(i);
+      CHECK(job_queue.Push(i));
     }
   });
 
   std::thread consumer_thread([&job_queue]() {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    BOOST_THREAD_SAFE_CHECK(job_queue.Size() == 10);
+    CHECK_EQ(job_queue.Size(), 10);
     for (int i = 0; i < 10; ++i) {
-      BOOST_THREAD_SAFE_CHECK(job_queue.Pop() == i);
+      const auto job = job_queue.Pop();
+      CHECK(job.IsValid());
+      CHECK_EQ(job.Data(), i);
     }
   });
 
@@ -505,15 +504,17 @@ BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerSingleConsumerMaxNumJobs) {
 
   std::thread producer_thread([&job_queue]() {
     for (int i = 0; i < 10; ++i) {
-      job_queue.Push(i);
+      CHECK(job_queue.Push(i));
     }
   });
 
   std::thread consumer_thread([&job_queue]() {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    BOOST_THREAD_SAFE_CHECK(job_queue.Size() == 2);
+    CHECK_EQ(job_queue.Size(), 2);
     for (int i = 0; i < 10; ++i) {
-      BOOST_THREAD_SAFE_CHECK(job_queue.Pop() == i);
+      const auto job = job_queue.Pop();
+      CHECK(job.IsValid());
+      CHECK_EQ(job.Data(), i);
     }
   });
 
@@ -526,21 +527,23 @@ BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerSingleConsumer) {
 
   std::thread producer_thread1([&job_queue]() {
     for (int i = 0; i < 10; ++i) {
-      job_queue.Push(i);
+      CHECK(job_queue.Push(i));
     }
   });
 
   std::thread producer_thread2([&job_queue]() {
     for (int i = 0; i < 10; ++i) {
-      job_queue.Push(i);
+      CHECK(job_queue.Push(i));
     }
   });
 
   std::thread consumer_thread([&job_queue]() {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    BOOST_THREAD_SAFE_CHECK(job_queue.Size() == 1);
+    CHECK_EQ(job_queue.Size(), 1);
     for (int i = 0; i < 20; ++i) {
-      BOOST_THREAD_SAFE_CHECK(job_queue.Pop() < 10);
+      const auto job = job_queue.Pop();
+      CHECK(job.IsValid());
+      CHECK_LT(job.Data(), 10);
     }
   });
 
@@ -554,23 +557,27 @@ BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerMultipleConsumer) {
 
   std::thread producer_thread([&job_queue]() {
     for (int i = 0; i < 20; ++i) {
-      job_queue.Push(i);
+      CHECK(job_queue.Push(i));
     }
   });
 
   std::thread consumer_thread1([&job_queue]() {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    BOOST_CHECK_LE(job_queue.Size(), 1);
+    CHECK_LE(job_queue.Size(), 1);
     for (int i = 0; i < 10; ++i) {
-      BOOST_THREAD_SAFE_CHECK(job_queue.Pop() < 20);
+      const auto job = job_queue.Pop();
+      CHECK(job.IsValid());
+      CHECK_LT(job.Data(), 20);
     }
   });
 
   std::thread consumer_thread2([&job_queue]() {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    BOOST_CHECK_LE(job_queue.Size(), 1);
+    CHECK_LE(job_queue.Size(), 1);
     for (int i = 0; i < 10; ++i) {
-      BOOST_THREAD_SAFE_CHECK(job_queue.Pop() < 20);
+      const auto job = job_queue.Pop();
+      CHECK(job.IsValid());
+      CHECK_LT(job.Data(), 20);
     }
   });
 
@@ -584,29 +591,33 @@ BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerMultipleConsumer) {
 
   std::thread producer_thread1([&job_queue]() {
     for (int i = 0; i < 10; ++i) {
-      job_queue.Push(i);
+      CHECK(job_queue.Push(i));
     }
   });
 
   std::thread producer_thread2([&job_queue]() {
     for (int i = 0; i < 10; ++i) {
-      job_queue.Push(i);
+      CHECK(job_queue.Push(i));
     }
   });
 
   std::thread consumer_thread1([&job_queue]() {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    BOOST_CHECK_LE(job_queue.Size(), 1);
+    CHECK_LE(job_queue.Size(), 1);
     for (int i = 0; i < 10; ++i) {
-      BOOST_THREAD_SAFE_CHECK(job_queue.Pop() < 10);
+      const auto job = job_queue.Pop();
+      CHECK(job.IsValid());
+      CHECK_LT(job.Data(), 10);
     }
   });
 
   std::thread consumer_thread2([&job_queue]() {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    BOOST_CHECK_LE(job_queue.Size(), 1);
+    CHECK_LE(job_queue.Size(), 1);
     for (int i = 0; i < 10; ++i) {
-      BOOST_THREAD_SAFE_CHECK(job_queue.Pop() < 10);
+      const auto job = job_queue.Pop();
+      CHECK(job.IsValid());
+      CHECK_LT(job.Data(), 10);
     }
   });
 
@@ -614,4 +625,44 @@ BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerMultipleConsumer) {
   producer_thread2.join();
   consumer_thread1.join();
   consumer_thread2.join();
+}
+
+BOOST_AUTO_TEST_CASE(TestJobQueueStopProducer) {
+  JobQueue<int> job_queue(1);
+
+  std::thread producer_thread([&job_queue]() {
+    CHECK(job_queue.Push(0));
+    CHECK(!job_queue.Push(0));
+  });
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  BOOST_CHECK_EQUAL(job_queue.Size(), 1);
+
+  job_queue.Stop();
+  producer_thread.join();
+
+  BOOST_CHECK(!job_queue.Push(0));
+  BOOST_CHECK(!job_queue.Pop().IsValid());
+}
+
+BOOST_AUTO_TEST_CASE(TestJobQueueStopConsumer) {
+  JobQueue<int> job_queue(1);
+
+  BOOST_CHECK(job_queue.Push(0));
+
+  std::thread consumer_thread([&job_queue]() {
+    const auto job = job_queue.Pop();
+    CHECK(job.IsValid());
+    CHECK_EQ(job.Data(), 0);
+    CHECK(!job_queue.Pop().IsValid());
+  });
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  BOOST_CHECK_EQUAL(job_queue.Size(), 0);
+
+  job_queue.Stop();
+  consumer_thread.join();
+
+  BOOST_CHECK(!job_queue.Push(0));
+  BOOST_CHECK(!job_queue.Pop().IsValid());
 }
