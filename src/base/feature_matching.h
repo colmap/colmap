@@ -197,10 +197,6 @@ class ExhaustiveFeatureMatcher : public Thread {
     void Check() const;
   };
 
-  enum Callbacks {
-    FINISHED,
-  };
-
   ExhaustiveFeatureMatcher(const Options& options,
                            const SiftMatchOptions& match_options,
                            const std::string& database_path);
@@ -256,10 +252,6 @@ class SequentialFeatureMatcher : public Thread {
     void Check() const;
   };
 
-  enum Callbacks {
-    FINISHED,
-  };
-
   SequentialFeatureMatcher(const Options& options,
                            const SiftMatchOptions& match_options,
                            const std::string& database_path);
@@ -285,10 +277,6 @@ class VocabTreeFeatureMatcher : public Thread {
     std::string vocab_tree_path = "";
 
     void Check() const;
-  };
-
-  enum Callbacks {
-    FINISHED,
   };
 
   VocabTreeFeatureMatcher(const Options& options,
@@ -327,10 +315,6 @@ class SpatialFeatureMatcher : public Thread {
     void Check() const;
   };
 
-  enum Callbacks {
-    FINISHED,
-  };
-
   SpatialFeatureMatcher(const Options& options,
                         const SiftMatchOptions& match_options,
                         const std::string& database_path);
@@ -356,10 +340,6 @@ class SpatialFeatureMatcher : public Thread {
 //
 class ImagePairsFeatureMatcher : public Thread {
  public:
-  enum Callbacks {
-    FINISHED,
-  };
-
   ImagePairsFeatureMatcher(const SiftMatchOptions& match_options,
                            const std::string& database_path,
                            const std::string& match_list_path);
@@ -391,10 +371,6 @@ class ImagePairsFeatureMatcher : public Thread {
 //
 class FeaturePairsFeatureMatcher : public Thread {
  public:
-  enum Callbacks {
-    FINISHED,
-  };
-
   FeaturePairsFeatureMatcher(const SiftMatchOptions& match_options,
                              const bool compute_inliers,
                              const std::string& database_path,

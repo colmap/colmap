@@ -160,10 +160,9 @@ void ExtractColors(const std::string& image_path, const image_t image_id,
 IncrementalMapperController::IncrementalMapperController(
     const OptionManager& options)
     : options_(options) {
-  RegisterCallback(INITIAL_IMAGE_PAIR_REG);
-  RegisterCallback(NEXT_IMAGE_REG);
-  RegisterCallback(LAST_IMAGE_REG);
-  RegisterCallback(FINISHED);
+  RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
+  RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
+  RegisterCallback(LAST_IMAGE_REG_CALLBACK);
 }
 
 IncrementalMapperController::IncrementalMapperController(
@@ -281,7 +280,7 @@ void IncrementalMapperController::Run() {
       }
     }
 
-    Callback(INITIAL_IMAGE_PAIR_REG);
+    Callback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
 
     ////////////////////////////////////////////////////////////////////////////
     // Incremental mapping
@@ -344,7 +343,7 @@ void IncrementalMapperController::Run() {
             ExtractColors(*options_.image_path, next_image_id, &reconstruction);
           }
 
-          Callback(NEXT_IMAGE_REG);
+          Callback(NEXT_IMAGE_REG_CALLBACK);
 
           break;
         } else {
@@ -398,7 +397,7 @@ void IncrementalMapperController::Run() {
       mapper.EndReconstruction(kDiscardReconstruction);
     }
 
-    Callback(LAST_IMAGE_REG);
+    Callback(LAST_IMAGE_REG_CALLBACK);
 
     const size_t max_num_models =
         static_cast<size_t>(mapper_options.max_num_models);
@@ -411,15 +410,11 @@ void IncrementalMapperController::Run() {
 
   std::cout << std::endl;
   GetTimer().PrintMinutes();
-
-  Callback(FINISHED);
 }
 
 BundleAdjustmentController::BundleAdjustmentController(
     const OptionManager& options)
-    : reconstruction(nullptr), options_(options) {
-  RegisterCallback(FINISHED);
-}
+    : reconstruction(nullptr), options_(options) {}
 
 void BundleAdjustmentController::Run() {
   CHECK_NOTNULL(reconstruction);
@@ -456,8 +451,6 @@ void BundleAdjustmentController::Run() {
   reconstruction->Normalize();
 
   GetTimer().PrintMinutes();
-
-  Callback(FINISHED);
 }
 
 }  // namespace colmap

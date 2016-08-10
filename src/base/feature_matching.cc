@@ -510,13 +510,11 @@ ExhaustiveFeatureMatcher::ExhaustiveFeatureMatcher(
       matcher_(match_options) {
   options_.Check();
   match_options_.Check();
-  RegisterCallback(FINISHED);
 }
 
 void ExhaustiveFeatureMatcher::Run() {
   Match();
   GetTimer().PrintMinutes();
-  Callback(FINISHED);
 }
 
 void ExhaustiveFeatureMatcher::Match() {
@@ -602,13 +600,11 @@ SequentialFeatureMatcher::SequentialFeatureMatcher(
       matcher_(match_options) {
   options_.Check();
   match_options_.Check();
-  RegisterCallback(FINISHED);
 }
 
 void SequentialFeatureMatcher::Run() {
   Match();
   GetTimer().PrintMinutes();
-  Callback(FINISHED);
 }
 
 void SequentialFeatureMatcher::Match() {
@@ -762,13 +758,11 @@ VocabTreeFeatureMatcher::VocabTreeFeatureMatcher(
       matcher_(match_options) {
   options_.Check();
   match_options_.Check();
-  RegisterCallback(FINISHED);
 }
 
 void VocabTreeFeatureMatcher::Run() {
   Match();
   GetTimer().PrintMinutes();
-  Callback(FINISHED);
 }
 
 void VocabTreeFeatureMatcher::Match() {
@@ -861,13 +855,11 @@ SpatialFeatureMatcher::SpatialFeatureMatcher(
       matcher_(match_options) {
   options_.Check();
   match_options_.Check();
-  RegisterCallback(FINISHED);
 }
 
 void SpatialFeatureMatcher::Run() {
   Match();
   GetTimer().PrintMinutes();
-  Callback(FINISHED);
 }
 
 void SpatialFeatureMatcher::Match() {
@@ -1047,13 +1039,11 @@ ImagePairsFeatureMatcher::ImagePairsFeatureMatcher(
       match_list_path_(match_list_path),
       matcher_(match_options) {
   match_options_.Check();
-  RegisterCallback(FINISHED);
 }
 
 void ImagePairsFeatureMatcher::Run() {
   Match();
   GetTimer().PrintMinutes();
-  Callback(FINISHED);
 }
 
 void ImagePairsFeatureMatcher::Match() {
@@ -1156,13 +1146,11 @@ FeaturePairsFeatureMatcher::FeaturePairsFeatureMatcher(
       database_path_(database_path),
       match_list_path_(match_list_path) {
   match_options_.Check();
-  RegisterCallback(FINISHED);
 }
 
 void FeaturePairsFeatureMatcher::Run() {
   Match();
   GetTimer().PrintMinutes();
-  Callback(FINISHED);
 }
 
 void FeaturePairsFeatureMatcher::Match() {

@@ -147,7 +147,7 @@ void ExhaustiveMatchingTab::Run() {
   matcher_.reset(new ExhaustiveFeatureMatcher(
       options_->exhaustive_match_options->Options(),
       options_->match_options->Options(), *options_->database_path));
-  matcher_->SetCallback(ExhaustiveFeatureMatcher::FINISHED,
+  matcher_->SetCallback(ExhaustiveFeatureMatcher::FINISHED_CALLBACK,
                         [this]() { destructor_->trigger(); });
   matcher_->Start();
 
@@ -183,7 +183,7 @@ void SequentialMatchingTab::Run() {
   matcher_.reset(new SequentialFeatureMatcher(
       options_->sequential_match_options->Options(),
       options_->match_options->Options(), *options_->database_path));
-  matcher_->SetCallback(SequentialFeatureMatcher::FINISHED,
+  matcher_->SetCallback(SequentialFeatureMatcher::FINISHED_CALLBACK,
                         [this]() { destructor_->trigger(); });
   matcher_->Start();
 
@@ -212,7 +212,7 @@ void VocabTreeMatchingTab::Run() {
   matcher_.reset(new VocabTreeFeatureMatcher(
       options_->vocab_tree_match_options->Options(),
       options_->match_options->Options(), *options_->database_path));
-  matcher_->SetCallback(VocabTreeFeatureMatcher::FINISHED,
+  matcher_->SetCallback(VocabTreeFeatureMatcher::FINISHED_CALLBACK,
                         [this]() { destructor_->trigger(); });
   matcher_->Start();
 
@@ -237,7 +237,7 @@ void SpatialMatchingTab::Run() {
   matcher_.reset(new SpatialFeatureMatcher(
       options_->spatial_match_options->Options(),
       options_->match_options->Options(), *options_->database_path));
-  matcher_->SetCallback(SpatialFeatureMatcher::FINISHED,
+  matcher_->SetCallback(SpatialFeatureMatcher::FINISHED_CALLBACK,
                         [this]() { destructor_->trigger(); });
   matcher_->Start();
 
@@ -269,7 +269,7 @@ void CustomMatchingTab::Run() {
     matcher_.reset(new ImagePairsFeatureMatcher(
         options_->match_options->Options(), *options_->database_path,
         match_list_path_));
-    matcher_->SetCallback(ImagePairsFeatureMatcher::FINISHED,
+    matcher_->SetCallback(ImagePairsFeatureMatcher::FINISHED_CALLBACK,
                           [this]() { destructor_->trigger(); });
   } else {
     bool compute_inliers = false;
@@ -282,7 +282,7 @@ void CustomMatchingTab::Run() {
     matcher_.reset(new FeaturePairsFeatureMatcher(
         options_->match_options->Options(), compute_inliers,
         *options_->database_path, match_list_path_));
-    matcher_->SetCallback(FeaturePairsFeatureMatcher::FINISHED,
+    matcher_->SetCallback(FeaturePairsFeatureMatcher::FINISHED_CALLBACK,
                           [this]() { destructor_->trigger(); });
   }
 

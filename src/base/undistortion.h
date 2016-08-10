@@ -39,10 +39,6 @@ struct UndistortCameraOptions {
 // Undistort images and export undistorted cameras.
 class ImageUndistorter : public Thread {
  public:
-  enum Callbacks {
-    FINISHED,
-  };
-
   ImageUndistorter(const UndistortCameraOptions& options,
                    const Reconstruction& reconstruction,
                    const std::string& image_path,
@@ -62,10 +58,6 @@ class ImageUndistorter : public Thread {
 // Undistort images and prepare data for CMVS/PMVS.
 class PMVSUndistorter : public Thread {
  public:
-  enum Callbacks {
-    FINISHED,
-  };
-
   PMVSUndistorter(const UndistortCameraOptions& options,
                   const Reconstruction& reconstruction,
                   const std::string& image_path,
@@ -87,10 +79,6 @@ class PMVSUndistorter : public Thread {
 // Undistort images and prepare data for CMP-MVS.
 class CMPMVSUndistorter : public Thread {
  public:
-  enum Callbacks {
-    FINISHED,
-  };
-
   CMPMVSUndistorter(const UndistortCameraOptions& options,
                     const Reconstruction& reconstruction,
                     const std::string& image_path,

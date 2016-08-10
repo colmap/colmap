@@ -273,6 +273,36 @@ BOOST_AUTO_TEST_CASE(TestCallback) {
   BOOST_CHECK(called_back2);
 }
 
+BOOST_AUTO_TEST_CASE(TestDefaultCallback) {
+  class TestThread : public Thread {
+   private:
+    void Run() {
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+  };
+
+  bool called_back1 = false;
+  std::function<void()> CallbackFunc1 = [&called_back1]() {
+    called_back1 = true;
+  };
+
+  bool called_back2 = false;
+  std::function<void()> CallbackFunc2 = [&called_back2]() {
+    called_back2 = true;
+  };
+
+  TestThread thread;
+  thread.SetCallback(TestThread::STARTED_CALLBACK, CallbackFunc1);
+  thread.SetCallback(TestThread::FINISHED_CALLBACK, CallbackFunc2);
+  thread.Start();
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  BOOST_CHECK(called_back1);
+  BOOST_CHECK(!called_back2);
+  thread.Wait();
+  BOOST_CHECK(called_back1);
+  BOOST_CHECK(called_back2);
+}
+
 BOOST_AUTO_TEST_CASE(TestThreadTimer) {
   class TestThread : public Thread {
     void Run() {

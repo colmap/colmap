@@ -53,11 +53,11 @@ namespace colmap {
 // Helper class to create single threads with simple controls and timing, e.g.:
 //
 //      class MyThread : public Thread {
-//        enum Callbacks {
-//          FINISHED
+//        enum {
+//          PROCESSED_CALLBACK,
 //        };
 //
-//        MyThread() { RegisterCallback(FINISHED); }
+//        MyThread() { RegisterCallback(PROCESSED_CALLBACK); }
 //        void Run() {
 //          // Some pre-processing...
 //          for (const auto& item : items) {
@@ -67,13 +67,18 @@ namespace colmap {
 //              break;
 //            }
 //            // Process item...
+//            Callback(CUSTOM_CALLBACK);
 //          }
-//          Callback(FINISHED);
 //        }
 //      };
 //
 //      MyThread thread;
-//      thread.SetCallback(MyThread::FINISHED, []() { std::cout << "Test"; })
+//      thread.SetCallback(MyThread::PROCESSED_CALLBACK, []() {
+//        std::cout << "Processed item"; })
+//      thread.SetCallback(MyThread::STARTED_CALLBACK, []() {
+//        std::cout << "Start"; })
+//      thread.SetCallback(MyThread::FINISHED_CALLBACK, []() {
+//        std::cout << "Finished"; })
 //      thread.Start();
 //      // Pause, resume, stop, ...
 //      thread.Wait();
@@ -81,6 +86,11 @@ namespace colmap {
 //
 class Thread {
  public:
+  enum {
+    STARTED_CALLBACK = std::numeric_limits<int>::min(),
+    FINISHED_CALLBACK,
+  };
+
   Thread();
   virtual ~Thread() = default;
 

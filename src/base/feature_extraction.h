@@ -125,10 +125,6 @@ class SiftCPUFeatureExtractor : public Thread {
     void Check() const;
   };
 
-  enum Callbacks {
-    FINISHED,
-  };
-
   SiftCPUFeatureExtractor(const ImageReader::Options& reader_options,
                           const SiftOptions& sift_options,
                           const Options& cpu_options);
@@ -144,10 +140,6 @@ class SiftCPUFeatureExtractor : public Thread {
 // Extract DoG SIFT features using the GPU.
 class SiftGPUFeatureExtractor : public Thread {
  public:
-  enum Callbacks {
-    FINISHED,
-  };
-
   SiftGPUFeatureExtractor(const ImageReader::Options& reader_options,
                           const SiftOptions& sift_options);
 
@@ -163,10 +155,6 @@ class SiftGPUFeatureExtractor : public Thread {
 // file with the same name and an additional ".txt" suffix.
 class FeatureImporter : public Thread {
  public:
-  enum Callbacks {
-    FINISHED,
-  };
-
   FeatureImporter(const ImageReader::Options& reader_options,
                   const std::string& import_path);
 
@@ -185,8 +173,7 @@ bool ExtractSiftFeaturesCPU(const SiftOptions& sift_options,
 // Create a SiftGPU feature extractor. The same SiftGPU instance can be used to
 // extract features for multiple images. Note a OpenGL context must be made
 // current in the thread of the caller.
-bool CreateSiftGPUExtractor(const SiftOptions& sift_options,
-                            SiftGPU* sift_gpu);
+bool CreateSiftGPUExtractor(const SiftOptions& sift_options, SiftGPU* sift_gpu);
 
 // Extract SIFT features for the given image on the GPU.
 // SiftGPU must already be initialized using `CreateSiftGPU`.

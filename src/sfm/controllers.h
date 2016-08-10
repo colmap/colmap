@@ -33,11 +33,10 @@ namespace colmap {
 //  - "Finished"
 class IncrementalMapperController : public Thread {
  public:
-  enum Callbacks {
-    INITIAL_IMAGE_PAIR_REG,
-    NEXT_IMAGE_REG,
-    LAST_IMAGE_REG,
-    FINISHED,
+  enum {
+    INITIAL_IMAGE_PAIR_REG_CALLBACK,
+    NEXT_IMAGE_REG_CALLBACK,
+    LAST_IMAGE_REG_CALLBACK,
   };
 
   IncrementalMapperController(const OptionManager& options);
@@ -66,10 +65,6 @@ class IncrementalMapperController : public Thread {
 // The class implements the "Finished" callback.
 class BundleAdjustmentController : public Thread {
  public:
-  enum Callbacks {
-    FINISHED,
-  };
-
   BundleAdjustmentController(const OptionManager& options);
 
   // The model to be adjusted, must be set prior to starting the thread.

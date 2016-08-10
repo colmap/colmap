@@ -499,24 +499,24 @@ void MainWindow::CreateControllers() {
 
   mapper_controller.reset(new IncrementalMapperController(options_));
   mapper_controller->SetCallback(
-      IncrementalMapperController::INITIAL_IMAGE_PAIR_REG, [this]() {
+      IncrementalMapperController::INITIAL_IMAGE_PAIR_REG_CALLBACK, [this]() {
         if (!mapper_controller->IsStopped()) {
           action_render_now_->trigger();
         }
       });
-  mapper_controller->SetCallback(IncrementalMapperController::NEXT_IMAGE_REG,
-                                 [this]() {
-                                   if (!mapper_controller->IsStopped()) {
-                                     action_render_->trigger();
-                                   }
-                                 });
-  mapper_controller->SetCallback(IncrementalMapperController::LAST_IMAGE_REG,
-                                 [this]() {
-                                   if (!mapper_controller->IsStopped()) {
-                                     action_render_now_->trigger();
-                                   }
-                                 });
-  mapper_controller->SetCallback(IncrementalMapperController::FINISHED,
+  mapper_controller->SetCallback(
+      IncrementalMapperController::NEXT_IMAGE_REG_CALLBACK, [this]() {
+        if (!mapper_controller->IsStopped()) {
+          action_render_->trigger();
+        }
+      });
+  mapper_controller->SetCallback(
+      IncrementalMapperController::LAST_IMAGE_REG_CALLBACK, [this]() {
+        if (!mapper_controller->IsStopped()) {
+          action_render_now_->trigger();
+        }
+      });
+  mapper_controller->SetCallback(IncrementalMapperController::FINISHED_CALLBACK,
                                  [this]() {
                                    if (!mapper_controller->IsStopped()) {
                                      action_render_now_->trigger();
@@ -530,9 +530,9 @@ void MainWindow::CreateControllers() {
   }
 
   ba_controller.reset(new BundleAdjustmentController(options_));
-  ba_controller->SetCallback(BundleAdjustmentController::FINISHED, [this]() {
-    action_bundle_adjustment_finish_->trigger();
-  });
+  ba_controller->SetCallback(
+      BundleAdjustmentController::FINISHED_CALLBACK,
+      [this]() { action_bundle_adjustment_finish_->trigger(); });
 }
 
 void MainWindow::CreateFutures() {

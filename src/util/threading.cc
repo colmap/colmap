@@ -25,7 +25,10 @@ Thread::Thread()
       stopped_(false),
       paused_(false),
       pausing_(false),
-      finished_(false) {}
+      finished_(false) {
+  RegisterCallback(STARTED_CALLBACK);
+  RegisterCallback(FINISHED_CALLBACK);
+}
 
 void Thread::Start() {
   std::unique_lock<std::mutex> lock(mutex_);
@@ -127,12 +130,14 @@ void Thread::WaitIfPaused() {
 }
 
 void Thread::RunFunc() {
+  Callback(STARTED_CALLBACK);
   Run();
   {
     std::unique_lock<std::mutex> lock(mutex_);
     finished_ = true;
     timer_.Pause();
   }
+  Callback(FINISHED_CALLBACK);
 }
 
 ThreadPool::ThreadPool(const int num_threads)

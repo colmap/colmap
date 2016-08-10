@@ -105,9 +105,7 @@ ImageUndistorter::ImageUndistorter(const UndistortCameraOptions& options,
     : options_(options),
       image_path_(EnsureTrailingSlash(image_path)),
       output_path_(EnsureTrailingSlash(output_path)),
-      reconstruction_(reconstruction) {
-  RegisterCallback(FINISHED);
-}
+      reconstruction_(reconstruction) {}
 
 void ImageUndistorter::Run() {
   PrintHeading1("Image undistortion");
@@ -133,8 +131,6 @@ void ImageUndistorter::Run() {
   }
 
   GetTimer().PrintMinutes();
-
-  Callback(FINISHED);
 }
 
 void ImageUndistorter::Undistort(const size_t reg_image_idx) const {
@@ -172,9 +168,7 @@ PMVSUndistorter::PMVSUndistorter(const UndistortCameraOptions& options,
     : options_(options),
       image_path_(EnsureTrailingSlash(image_path)),
       output_path_(EnsureTrailingSlash(output_path)),
-      reconstruction_(reconstruction) {
-  RegisterCallback(FINISHED);
-}
+      reconstruction_(reconstruction) {}
 
 void PMVSUndistorter::Run() {
   PrintHeading1("Image undistortion (CMVS/PMVS)");
@@ -245,8 +239,6 @@ void PMVSUndistorter::Run() {
   WriteOptionFile(option_path);
 
   GetTimer().PrintMinutes();
-
-  Callback(FINISHED);
 }
 
 void PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
@@ -354,9 +346,7 @@ CMPMVSUndistorter::CMPMVSUndistorter(const UndistortCameraOptions& options,
     : options_(options),
       image_path_(EnsureTrailingSlash(image_path)),
       output_path_(EnsureTrailingSlash(output_path)),
-      reconstruction_(reconstruction) {
-  RegisterCallback(FINISHED);
-}
+      reconstruction_(reconstruction) {}
 
 void CMPMVSUndistorter::Run() {
   PrintHeading1("Image undistortion (CMP-MVS)");
@@ -382,8 +372,6 @@ void CMPMVSUndistorter::Run() {
   }
 
   GetTimer().PrintMinutes();
-
-  Callback(FINISHED);
 }
 
 void CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
