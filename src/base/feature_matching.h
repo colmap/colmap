@@ -84,12 +84,14 @@ class FeatureMatcherCache {
 
   const Camera& GetCamera(const camera_t camera_id) const;
   const Image& GetImage(const image_t image_id) const;
-  const FeatureKeypoints& GetKeypoints(const image_t image_id) const;
-  const FeatureDescriptors& GetDescriptors(const image_t image_id) const;
+  const FeatureKeypoints& GetKeypoints(const image_t image_id);
+  const FeatureDescriptors& GetDescriptors(const image_t image_id);
 
   std::vector<image_t> GetImageIds() const;
 
  private:
+  std::mutex keypoints_cache_mutex_;
+  std::mutex descriptors_cache_mutex_;
   std::unordered_map<camera_t, Camera> cameras_cache_;
   std::unordered_map<image_t, Image> images_cache_;
   std::unique_ptr<LRUCache<image_t, FeatureKeypoints>> keypoints_cache_;
@@ -103,10 +105,11 @@ class FeatureMatcherCache {
 // active transaction when calling `MatchImagePairs`.
 class SiftGPUFeatureMatcher {
  public:
-  SiftGPUFeatureMatcher(const SiftMatchOptions& options);
+  SiftGPUFeatureMatcher(const SiftMatchOptions& options, Database* database,
+                        FeatureMatcherCache* cache);
 
   // Setup the feature matcher and return if successful.
-  bool Setup(const Database* database, const FeatureMatcherCache* cache);
+  bool Setup();
 
   // Match one batch of multiple image pairs.
   void MatchImagePairs(
@@ -143,8 +146,8 @@ class SiftGPUFeatureMatcher {
                                          const SiftMatchOptions& options);
 
   const SiftMatchOptions options_;
-  const Database* database_;
-  const FeatureMatcherCache* cache_;
+  Database* database_;
+  FeatureMatcherCache* cache_;
 
   std::unique_ptr<OpenGLContextManager> opengl_context_;
   std::unique_ptr<SiftMatchGPU> sift_match_gpu_;
@@ -203,14 +206,11 @@ class ExhaustiveFeatureMatcher : public Thread {
 
  private:
   void Run();
-  void Match();
-
-  std::vector<std::pair<image_t, image_t>> PreemptivelyFilterImagePairs(
-      const std::vector<std::pair<image_t, image_t>>& image_pairs);
 
   const Options options_;
   const SiftMatchOptions match_options_;
-  const std::string database_path_;
+  Database database_;
+  FeatureMatcherCache cache_;
   SiftGPUFeatureMatcher matcher_;
 };
 
@@ -258,15 +258,19 @@ class SequentialFeatureMatcher : public Thread {
 
  private:
   void Run();
-  void Match();
+
+  std::vector<image_t> GetOrderedImageIds() const;
+  void RunSequentialMatching(const std::vector<image_t>& image_ids);
+  void RunLoopDetection(const std::vector<image_t>& image_ids);
 
   const Options options_;
   const SiftMatchOptions match_options_;
-  const std::string database_path_;
+  Database database_;
+  FeatureMatcherCache cache_;
   SiftGPUFeatureMatcher matcher_;
 };
 
-// Match each image against its nearest neighbors in a vocabulary tree.
+// Match each image against its nearest neighbors using a vocabulary tree.
 class VocabTreeFeatureMatcher : public Thread {
  public:
   struct Options {
@@ -285,11 +289,11 @@ class VocabTreeFeatureMatcher : public Thread {
 
  private:
   void Run();
-  void Match();
 
   const Options options_;
   const SiftMatchOptions match_options_;
-  const std::string database_path_;
+  Database database_;
+  FeatureMatcherCache cache_;
   SiftGPUFeatureMatcher matcher_;
 };
 
@@ -321,11 +325,11 @@ class SpatialFeatureMatcher : public Thread {
 
  private:
   void Run();
-  void Match();
 
   const Options options_;
   const SiftMatchOptions match_options_;
-  const std::string database_path_;
+  Database database_;
+  FeatureMatcherCache cache_;
   SiftGPUFeatureMatcher matcher_;
 };
 
@@ -345,13 +349,15 @@ class ImagePairsFeatureMatcher : public Thread {
                            const std::string& match_list_path);
 
  private:
+  const static size_t kBlockSize = 100;
+
   void Run();
-  void Match();
 
   const SiftMatchOptions match_options_;
-  const std::string database_path_;
-  const std::string match_list_path_;
+  Database database_;
+  FeatureMatcherCache cache_;
   SiftGPUFeatureMatcher matcher_;
+  const std::string match_list_path_;
 };
 
 // Import feature matches from a text file.
@@ -377,12 +383,14 @@ class FeaturePairsFeatureMatcher : public Thread {
                              const std::string& match_list_path);
 
  private:
+  const static size_t kBlockSize = 100;
+
   void Run();
-  void Match();
 
   const SiftMatchOptions match_options_;
   const bool compute_inliers_;
-  const std::string database_path_;
+  Database database_;
+  FeatureMatcherCache cache_;
   const std::string match_list_path_;
 };
 

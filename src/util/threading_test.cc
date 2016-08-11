@@ -627,6 +627,37 @@ BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerMultipleConsumer) {
   consumer_thread2.join();
 }
 
+BOOST_AUTO_TEST_CASE(TestJobQueueWait) {
+  JobQueue<int> job_queue;
+
+  std::thread producer_thread([&job_queue]() {
+    for (int i = 0; i < 10; ++i) {
+      CHECK(job_queue.Push(i));
+    }
+  });
+
+  std::thread consumer_thread([&job_queue]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    CHECK_EQ(job_queue.Size(), 10);
+    for (int i = 0; i < 10; ++i) {
+      const auto job = job_queue.Pop();
+      CHECK(job.IsValid());
+      CHECK_EQ(job.Data(), i);
+    }
+  });
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+  job_queue.Wait();
+
+  BOOST_CHECK_EQUAL(job_queue.Size(), 0);
+  BOOST_CHECK(!job_queue.Push(0));
+  BOOST_CHECK(!job_queue.Pop().IsValid());
+
+  producer_thread.join();
+  consumer_thread.join();
+}
+
 BOOST_AUTO_TEST_CASE(TestJobQueueStopProducer) {
   JobQueue<int> job_queue(1);
 

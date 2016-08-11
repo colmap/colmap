@@ -252,6 +252,9 @@ class JobQueue {
   // Pop a job from the queue. Waits if there is no job in the queue.
   Job Pop();
 
+  // Wait for all jobs to be popped and then stop the queue.
+  void Wait();
+
   // Stop the queue and return from all push/pop calls with false.
   void Stop();
 
@@ -262,6 +265,7 @@ class JobQueue {
   std::mutex mutex_;
   std::condition_variable push_condition_;
   std::condition_variable pop_condition_;
+  std::condition_variable empty_condition_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -338,14 +342,24 @@ typename JobQueue<T>::Job JobQueue<T>::Pop() {
     const T data = jobs_.front();
     jobs_.pop();
     pop_condition_.notify_one();
+    if (jobs_.empty()) {
+      empty_condition_.notify_all();
+    }
     return Job(data);
   }
+}
 
+template <typename T>
+void JobQueue<T>::Wait() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  while (!jobs_.empty()) {
+    empty_condition_.wait(lock);
+  }
+  Stop();
 }
 
 template <typename T>
 void JobQueue<T>::Stop() {
-  std::unique_lock<std::mutex> lock(mutex_);
   stop_ = true;
   push_condition_.notify_all();
   pop_condition_.notify_all();

@@ -35,6 +35,11 @@
 namespace colmap {
 namespace {
 
+void PrintElapsedTime(const Timer& timer) {
+  std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
+}
+
+// Extract the descriptors corresponding to the largest scale features.
 FeatureDescriptors ExtractTopScaleDescriptors(
     const FeatureKeypoints& keypoints, const FeatureDescriptors& descriptors,
     const size_t num_features) {
@@ -64,8 +69,92 @@ FeatureDescriptors ExtractTopScaleDescriptors(
   return top_scale_descriptors;
 }
 
-void PrintElapsedTime(const Timer& timer) {
-  std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
+void IndexImagesInVisualIndex(const int num_threads,
+                              const std::vector<image_t>& image_ids,
+                              Thread* thread, Database* database,
+                              FeatureMatcherCache* cache,
+                              retrieval::VisualIndex* visual_index) {
+  DatabaseTransaction database_transaction(database);
+
+  retrieval::VisualIndex::IndexOptions index_options;
+  index_options.num_threads = num_threads;
+
+  for (size_t i = 0; i < image_ids.size(); ++i) {
+    if (thread->IsStopped()) {
+      return;
+    }
+
+    Timer timer;
+    timer.Start();
+
+    std::cout << StringPrintf("Indexing image [%d/%d]", i + 1, image_ids.size())
+              << std::flush;
+
+    retrieval::VisualIndex::Desc descriptors =
+        cache->GetDescriptors(image_ids[i]);
+    visual_index->Add(index_options, image_ids[i], descriptors);
+
+    PrintElapsedTime(timer);
+  }
+
+  // Compute the TF-IDF weights, etc.
+  visual_index->Prepare();
+}
+
+void MatchNearestNeighborsInVisualIndex(const int num_threads,
+                                        const int num_images,
+                                        const std::vector<image_t>& image_ids,
+                                        Thread* thread,
+                                        FeatureMatcherCache* cache,
+                                        retrieval::VisualIndex* visual_index,
+                                        SiftGPUFeatureMatcher* matcher) {
+  retrieval::VisualIndex::QueryOptions query_options;
+  query_options.max_num_images = num_images;
+
+  // Start a thread pool to retrieve the nearest neighbors. Use a job queue to
+  // limit the number of retrieval results in memory.
+  ThreadPool retrieval_thread_pool(num_threads);
+  JobQueue<std::vector<retrieval::ImageScore>> retrieval_queue(num_threads);
+  for (size_t i = 0; i < image_ids.size(); ++i) {
+    if (thread->IsStopped()) {
+      return;
+    }
+
+    retrieval_thread_pool.AddTask([&]() {
+      std::vector<retrieval::ImageScore> image_scores;
+      retrieval::VisualIndex::Desc descriptors =
+          cache->GetDescriptors(image_ids[i]);
+      visual_index->Query(query_options, descriptors, &image_scores);
+      retrieval_queue.Push(image_scores);
+    });
+  }
+
+  // Pop the finished retrieval results and enqueue them for feature matching.
+  for (size_t i = 0; i < image_ids.size(); ++i) {
+    if (thread->IsStopped()) {
+      retrieval_queue.Stop();
+      return;
+    }
+
+    Timer timer;
+    timer.Start();
+
+    std::cout << StringPrintf("Matching image [%d/%d]", i + 1, image_ids.size())
+              << std::flush;
+
+    const auto image_scores = retrieval_queue.Pop();
+    CHECK(image_scores.IsValid());
+
+    std::vector<std::pair<image_t, image_t>> image_pairs;
+    image_pairs.reserve(image_scores.Data().size());
+    for (const auto image_score : image_scores.Data()) {
+      image_pairs.emplace_back(image_ids[i], image_score.image_id);
+    }
+
+    matcher->MatchImagePairs(image_pairs);
+
+    PrintElapsedTime(timer);
+  }
 }
 
 }  // namespace
@@ -117,12 +206,14 @@ const Image& FeatureMatcherCache::GetImage(const image_t image_id) const {
 }
 
 const FeatureKeypoints& FeatureMatcherCache::GetKeypoints(
-    const image_t image_id) const {
+    const image_t image_id) {
+  std::unique_lock<std::mutex> lock(keypoints_cache_mutex_);
   return keypoints_cache_->Get(image_id);
 }
 
 const FeatureDescriptors& FeatureMatcherCache::GetDescriptors(
-    const image_t image_id) const {
+    const image_t image_id) {
+  std::unique_lock<std::mutex> lock(descriptors_cache_mutex_);
   return descriptors_cache_->Get(image_id);
 }
 
@@ -135,8 +226,10 @@ std::vector<image_t> FeatureMatcherCache::GetImageIds() const {
   return image_ids;
 }
 
-SiftGPUFeatureMatcher::SiftGPUFeatureMatcher(const SiftMatchOptions& options)
-    : options_(options) {
+SiftGPUFeatureMatcher::SiftGPUFeatureMatcher(const SiftMatchOptions& options,
+                                             Database* database,
+                                             FeatureMatcherCache* cache)
+    : options_(options), database_(database), cache_(cache) {
   options_.Check();
 
 // Create an OpenGL context.
@@ -152,8 +245,7 @@ SiftGPUFeatureMatcher::SiftGPUFeatureMatcher(const SiftMatchOptions& options)
   prev_uploaded_image_ids_[1] = kInvalidImageId;
 }
 
-bool SiftGPUFeatureMatcher::Setup(const Database* database,
-                                  const FeatureMatcherCache* cache) {
+bool SiftGPUFeatureMatcher::Setup() {
 #ifdef CUDA_ENABLED
   if (options_.gpu_index < 0) {
 #endif
@@ -171,8 +263,6 @@ bool SiftGPUFeatureMatcher::Setup(const Database* database,
     return false;
   }
 
-  database_ = database;
-  cache_ = cache;
   verifier_thread_pool_.reset(new ThreadPool(options_.num_threads));
 
   return true;
@@ -190,13 +280,11 @@ void SiftGPUFeatureMatcher::MatchImagePairs(
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  // Load data from database
+  // Determine image pairs to match
   //////////////////////////////////////////////////////////////////////////////
 
   std::vector<std::pair<bool, bool>> exists_mask;
   exists_mask.reserve(image_pairs.size());
-  std::unordered_set<image_t> image_ids;
-  image_ids.reserve(image_pairs.size());
   std::unordered_set<image_pair_t> pair_ids;
   pair_ids.reserve(image_pairs.size());
 
@@ -228,11 +316,6 @@ void SiftGPUFeatureMatcher::MatchImagePairs(
 
     exists_all = exists_all && exists_matches && exists_inlier_matches;
     exists_mask.emplace_back(exists_matches, exists_inlier_matches);
-
-    if (!exists_matches || !exists_inlier_matches) {
-      image_ids.insert(image_pair.first);
-      image_ids.insert(image_pair.second);
-    }
   }
 
   if (exists_all) {
@@ -246,10 +329,10 @@ void SiftGPUFeatureMatcher::MatchImagePairs(
   const size_t min_num_inliers = static_cast<size_t>(options_.min_num_inliers);
 
   struct MatchResult {
-    image_t image_id1;
-    image_t image_id2;
+    image_t image_id1 = kInvalidImageId;
+    image_t image_id2 = kInvalidImageId;
     FeatureMatches matches;
-    bool write;
+    bool write = true;
   };
 
   std::vector<MatchResult> match_results;
@@ -276,7 +359,6 @@ void SiftGPUFeatureMatcher::MatchImagePairs(
 
   for (size_t i = 0; i < image_pairs.size(); ++i) {
     const auto exists = exists_mask[i];
-
     if (exists.first && exists.second) {
       continue;
     }
@@ -388,6 +470,10 @@ void SiftGPUFeatureMatcher::MatchImagePairsWithPreemptiveFilter(
     const size_t preemptive_num_features,
     const size_t preemptive_min_num_matches,
     const std::vector<std::pair<image_t, image_t>>& image_pairs) {
+  if (image_pairs.empty()) {
+    return;
+  }
+
   std::unordered_map<image_t, FeatureDescriptors> top_descriptors;
 
   image_t prev_image_id1 = kInvalidImageId;
@@ -434,6 +520,8 @@ void SiftGPUFeatureMatcher::MatchImagePairsWithPreemptiveFilter(
     }
   }
 
+  database_transaction.reset();
+
   prev_uploaded_image_ids_[0] = kInvalidImageId;
   prev_uploaded_image_ids_[1] = kInvalidImageId;
 
@@ -441,7 +529,6 @@ void SiftGPUFeatureMatcher::MatchImagePairsWithPreemptiveFilter(
                             image_pairs.size())
             << std::flush;
 
-  database_transaction.reset();
   MatchImagePairs(filtered_image_pairs);
 }
 
@@ -506,34 +593,27 @@ ExhaustiveFeatureMatcher::ExhaustiveFeatureMatcher(
     const std::string& database_path)
     : options_(options),
       match_options_(match_options),
-      database_path_(database_path),
-      matcher_(match_options) {
+      database_(database_path),
+      cache_(2 * options_.block_size, &database_),
+      matcher_(match_options, &database_, &cache_) {
   options_.Check();
   match_options_.Check();
 }
 
 void ExhaustiveFeatureMatcher::Run() {
-  Match();
-  GetTimer().PrintMinutes();
-}
-
-void ExhaustiveFeatureMatcher::Match() {
   PrintHeading1("Exhaustive feature matching");
 
-  const size_t block_size = static_cast<size_t>(options_.block_size);
-  const size_t cache_size = 3 * block_size;
-
-  Database database(database_path_);
-  FeatureMatcherCache cache(cache_size, &database);
-  if (!matcher_.Setup(&database, &cache)) {
+  if (!matcher_.Setup()) {
     return;
   }
 
-  const std::vector<image_t> image_ids = cache.GetImageIds();
+  const std::vector<image_t> image_ids = cache_.GetImageIds();
+
+  const size_t block_size = static_cast<size_t>(options_.block_size);
   const size_t num_blocks = static_cast<size_t>(
       std::ceil(static_cast<double>(image_ids.size()) / block_size));
+  const size_t num_pairs_per_block = block_size * (block_size - 1) / 2;
 
-  std::vector<std::pair<image_t, image_t>> image_pairs;
   for (size_t start_idx1 = 0; start_idx1 < image_ids.size();
        start_idx1 += block_size) {
     const size_t end_idx1 =
@@ -544,6 +624,7 @@ void ExhaustiveFeatureMatcher::Match() {
           std::min(image_ids.size(), start_idx2 + block_size) - 1;
 
       if (IsStopped()) {
+        GetTimer().PrintMinutes();
         return;
       }
 
@@ -555,8 +636,8 @@ void ExhaustiveFeatureMatcher::Match() {
                                 start_idx2 / block_size + 1, num_blocks)
                 << std::flush;
 
-      image_pairs.clear();
-
+      std::vector<std::pair<image_t, image_t>> image_pairs;
+      image_pairs.reserve(num_pairs_per_block);
       for (size_t idx1 = start_idx1; idx1 <= end_idx1; ++idx1) {
         for (size_t idx2 = start_idx2; idx2 <= end_idx2; ++idx2) {
           const size_t block_id1 = idx1 % block_size;
@@ -580,6 +661,8 @@ void ExhaustiveFeatureMatcher::Match() {
       PrintElapsedTime(timer);
     }
   }
+
+  GetTimer().PrintMinutes();
 }
 
 void SequentialFeatureMatcher::Options::Check() const {
@@ -596,44 +679,58 @@ SequentialFeatureMatcher::SequentialFeatureMatcher(
     const std::string& database_path)
     : options_(options),
       match_options_(match_options),
-      database_path_(database_path),
-      matcher_(match_options) {
+      database_(database_path),
+      cache_(std::max(5 * options_.loop_detection_num_images,
+                      5 * options_.overlap),
+             &database_),
+      matcher_(match_options, &database_, &cache_) {
   options_.Check();
   match_options_.Check();
 }
 
 void SequentialFeatureMatcher::Run() {
-  Match();
-  GetTimer().PrintMinutes();
-}
-
-void SequentialFeatureMatcher::Match() {
   PrintHeading1("Sequential feature matching");
 
-  const size_t cache_size = 5 * static_cast<size_t>(options_.overlap);
-
-  Database database(database_path_);
-  FeatureMatcherCache cache(cache_size, &database);
-  if (!matcher_.Setup(&database, &cache)) {
+  if (!matcher_.Setup()) {
     return;
   }
 
-  const std::vector<image_t> image_ids = cache.GetImageIds();
+  const std::vector<image_t> ordered_image_ids = GetOrderedImageIds();
 
-  // Make sure, images are ordered in sequential order.
+  RunSequentialMatching(ordered_image_ids);
+  if (options_.loop_detection) {
+    RunLoopDetection(ordered_image_ids);
+  }
+
+  GetTimer().PrintMinutes();
+}
+
+std::vector<image_t> SequentialFeatureMatcher::GetOrderedImageIds() const {
+  const std::vector<image_t> image_ids = cache_.GetImageIds();
+
   std::vector<Image> ordered_images;
   ordered_images.reserve(image_ids.size());
   for (const auto image_id : image_ids) {
-    ordered_images.push_back(cache.GetImage(image_id));
+    ordered_images.push_back(cache_.GetImage(image_id));
   }
+
   std::sort(ordered_images.begin(), ordered_images.end(),
             [](const Image& image1, const Image& image2) {
               return image1.Name() < image2.Name();
             });
 
-  std::vector<image_t> image_idxs_nh;
-  std::vector<std::pair<image_t, image_t>> image_pairs;
-  for (size_t i = 0; i < ordered_images.size(); ++i) {
+  std::vector<image_t> ordered_image_ids;
+  ordered_image_ids.reserve(image_ids.size());
+  for (const auto& image : ordered_images) {
+    ordered_image_ids.push_back(image.ImageId());
+  }
+
+  return ordered_image_ids;
+}
+
+void SequentialFeatureMatcher::RunSequentialMatching(
+    const std::vector<image_t>& image_ids) {
+  for (size_t i = 0; i < image_ids.size(); ++i) {
     if (IsStopped()) {
       return;
     }
@@ -641,107 +738,47 @@ void SequentialFeatureMatcher::Match() {
     Timer timer;
     timer.Start();
 
-    const auto& image1 = ordered_images[i];
-
-    std::cout << StringPrintf("Matching image [%d/%d]", i + 1,
-                              ordered_images.size())
+    std::cout << StringPrintf("Matching image [%d/%d]", i + 1, image_ids.size())
               << std::flush;
 
-    image_pairs.clear();
-
-    // Iterate through all images in local neighborhood.
-    for (size_t j = 0; j < image_idxs_nh.size(); ++j) {
-      const auto& image2 = ordered_images[image_idxs_nh[j]];
-      image_pairs.emplace_back(image1.ImageId(), image2.ImageId());
+    const size_t max_image_idx =
+        std::min(i + options_.overlap, image_ids.size());
+    std::vector<std::pair<image_t, image_t>> image_pairs;
+    for (size_t j = i; j < max_image_idx; ++j) {
+      image_pairs.emplace_back(image_ids[i], image_ids[j]);
     }
 
     matcher_.MatchImagePairs(image_pairs);
+
     PrintElapsedTime(timer);
-
-    // Remove "oldest" image in local neighborhood if overlap is exceeded.
-    if (image_idxs_nh.size() > static_cast<size_t>(options_.overlap)) {
-      image_idxs_nh.erase(image_idxs_nh.begin());
-    }
-
-    // Add current image to neighborhood for next iteration.
-    image_idxs_nh.push_back(i);
   }
+}
 
-  //////////////////////////////////////////////////////////////////////////////
-  // Loop detection
-  //////////////////////////////////////////////////////////////////////////////
-
-  if (!options_.loop_detection) {
-    return;
-  }
-
+void SequentialFeatureMatcher::RunLoopDetection(
+    const std::vector<image_t>& image_ids) {
+  // Read the pre-trained vocabulary tree from disk.
   retrieval::VisualIndex visual_index;
   visual_index.Read(options_.vocab_tree_path);
 
-  {
-    DatabaseTransaction database_transaction(&database);
+  // Index all images in the visual index.
+  IndexImagesInVisualIndex(match_options_.num_threads, image_ids, this,
+                           &database_, &cache_, &visual_index);
 
-    retrieval::VisualIndex::IndexOptions index_options;
-    index_options.num_threads = match_options_.num_threads;
-
-    for (size_t i = 0; i < ordered_images.size(); ++i) {
-      if (IsStopped()) {
-        return;
-      }
-
-      Timer timer;
-      timer.Start();
-
-      const auto& image = ordered_images[i];
-
-      std::cout << StringPrintf("Indexing image [%d/%d]", i + 1,
-                                ordered_images.size())
-                << std::flush;
-
-      retrieval::VisualIndex::Desc descriptors =
-          cache.GetDescriptors(image.ImageId());
-      visual_index.Add(index_options, image.ImageId(), descriptors);
-
-      PrintElapsedTime(timer);
-    }
+  if (IsStopped()) {
+    return;
   }
 
-  visual_index.Prepare();
-
-  retrieval::VisualIndex::QueryOptions query_options;
-  query_options.max_num_images = options_.loop_detection_num_images;
-  query_options.num_threads = match_options_.num_threads;
-
-  std::vector<retrieval::ImageScore> image_scores;
-
-  for (size_t i = 0; i < ordered_images.size();
+  // Only perform loop detection for every n-th image.
+  std::vector<image_t> match_image_ids;
+  for (size_t i = 0; i < image_ids.size();
        i += options_.loop_detection_period) {
-    if (IsStopped()) {
-      return;
-    }
-
-    Timer timer;
-    timer.Start();
-
-    const auto& image = ordered_images[i];
-
-    std::cout << StringPrintf("Detecting loops [%d/%d]", i + 1,
-                              ordered_images.size())
-              << std::flush;
-
-    retrieval::VisualIndex::Desc descriptors =
-        cache.GetDescriptors(image.ImageId());
-
-    visual_index.Query(query_options, descriptors, &image_scores);
-
-    image_pairs.clear();
-    for (const auto image_score : image_scores) {
-      image_pairs.emplace_back(image.ImageId(), image_score.image_id);
-    }
-
-    matcher_.MatchImagePairs(image_pairs);
-    PrintElapsedTime(timer);
+    match_image_ids.push_back(image_ids[i]);
   }
+  MatchNearestNeighborsInVisualIndex(
+      match_options_.num_threads, options_.loop_detection_num_images,
+      match_image_ids, this, &cache_, &visual_index, &matcher_);
+
+  GetTimer().PrintMinutes();
 }
 
 void VocabTreeFeatureMatcher::Options::Check() const {
@@ -754,91 +791,41 @@ VocabTreeFeatureMatcher::VocabTreeFeatureMatcher(
     const std::string& database_path)
     : options_(options),
       match_options_(match_options),
-      database_path_(database_path),
-      matcher_(match_options) {
+      database_(database_path),
+      cache_(5 * options_.num_images, &database_),
+      matcher_(match_options, &database_, &cache_) {
   options_.Check();
   match_options_.Check();
 }
 
 void VocabTreeFeatureMatcher::Run() {
-  Match();
-  GetTimer().PrintMinutes();
-}
-
-void VocabTreeFeatureMatcher::Match() {
   PrintHeading1("Vocabulary tree feature matching");
 
-  const size_t cache_size = 5 * static_cast<size_t>(options_.num_images);
-
-  Database database(database_path_);
-  FeatureMatcherCache cache(cache_size, &database);
-  if (!matcher_.Setup(&database, &cache)) {
+  if (!matcher_.Setup()) {
     return;
   }
 
-  const std::vector<image_t> image_ids = cache.GetImageIds();
-
+  // Read the pre-trained vocabulary tree from disk.
   retrieval::VisualIndex visual_index;
   visual_index.Read(options_.vocab_tree_path);
 
-  {
-    DatabaseTransaction database_transaction(&database);
+  const std::vector<image_t> image_ids = cache_.GetImageIds();
 
-    retrieval::VisualIndex::IndexOptions index_options;
-    index_options.num_threads = match_options_.num_threads;
+  // Index all images in the visual index.
+  IndexImagesInVisualIndex(match_options_.num_threads, image_ids, this,
+                           &database_, &cache_, &visual_index);
 
-    for (size_t i = 0; i < image_ids.size(); ++i) {
-      if (IsStopped()) {
-        return;
-      }
-
-      Timer timer;
-      timer.Start();
-
-      std::cout << StringPrintf("Indexing image [%d/%d]", i + 1,
-                                image_ids.size())
-                << std::flush;
-
-      const auto image_id = image_ids[i];
-      retrieval::VisualIndex::Desc descriptors = cache.GetDescriptors(image_id);
-      visual_index.Add(index_options, image_id, descriptors);
-
-      PrintElapsedTime(timer);
-    }
+  if (IsStopped()) {
+    GetTimer().PrintMinutes();
+    return;
   }
 
-  visual_index.Prepare();
+  // Match all images in the visual index.
+  MatchNearestNeighborsInVisualIndex(match_options_.num_threads,
+                                     options_.num_images, image_ids, this,
+                                     &cache_, &visual_index, &matcher_);
 
-  retrieval::VisualIndex::QueryOptions query_options;
-  query_options.max_num_images = options_.num_images;
-  query_options.num_threads = match_options_.num_threads;
-
-  std::vector<retrieval::ImageScore> image_scores;
-  std::vector<std::pair<image_t, image_t>> image_pairs;
-  for (size_t i = 0; i < image_ids.size(); ++i) {
-    if (IsStopped()) {
-      return;
-    }
-
-    Timer timer;
-    timer.Start();
-
-    std::cout << StringPrintf("Matching image [%d/%d]", i + 1, image_ids.size())
-              << std::flush;
-
-    const auto image_id = image_ids[i];
-    retrieval::VisualIndex::Desc descriptors = cache.GetDescriptors(image_id);
-
-    visual_index.Query(query_options, descriptors, &image_scores);
-
-    image_pairs.clear();
-    for (const auto image_score : image_scores) {
-      image_pairs.emplace_back(image_id, image_score.image_id);
-    }
-
-    matcher_.MatchImagePairs(image_pairs);
-    PrintElapsedTime(timer);
-  }
+  GetTimer().PrintMinutes();
 }
 
 void SpatialFeatureMatcher::Options::Check() const {
@@ -851,29 +838,21 @@ SpatialFeatureMatcher::SpatialFeatureMatcher(
     const std::string& database_path)
     : options_(options),
       match_options_(match_options),
-      database_path_(database_path),
-      matcher_(match_options) {
+      database_(database_path),
+      cache_(5 * options_.max_num_neighbors, &database_),
+      matcher_(match_options, &database_, &cache_) {
   options_.Check();
   match_options_.Check();
 }
 
 void SpatialFeatureMatcher::Run() {
-  Match();
-  GetTimer().PrintMinutes();
-}
-
-void SpatialFeatureMatcher::Match() {
   PrintHeading1("Spatial feature matching");
 
-  const size_t cache_size = 5 * static_cast<size_t>(options_.max_num_neighbors);
-
-  Database database(database_path_);
-  FeatureMatcherCache cache(cache_size, &database);
-  if (!matcher_.Setup(&database, &cache)) {
+  if (!matcher_.Setup()) {
     return;
   }
 
-  const std::vector<image_t> image_ids = cache.GetImageIds();
+  const std::vector<image_t> image_ids = cache_.GetImageIds();
 
   //////////////////////////////////////////////////////////////////////////////
   // Spatial indexing
@@ -897,7 +876,7 @@ void SpatialFeatureMatcher::Match() {
 
   for (size_t i = 0; i < image_ids.size(); ++i) {
     const auto image_id = image_ids[i];
-    const auto& image = cache.GetImage(image_id);
+    const auto& image = cache_.GetImage(image_id);
 
     if ((image.TvecPrior(0) == 0 && image.TvecPrior(1) == 0 &&
          options_.ignore_z) ||
@@ -934,7 +913,7 @@ void SpatialFeatureMatcher::Match() {
 
   if (num_locations == 0) {
     std::cout << " => No images with location data." << std::endl;
-
+    GetTimer().PrintMinutes();
     return;
   }
 
@@ -995,11 +974,9 @@ void SpatialFeatureMatcher::Match() {
   const float max_distance =
       static_cast<float>(options_.max_distance * options_.max_distance);
 
-  std::vector<std::pair<image_t, image_t>> image_pairs;
-  image_pairs.reserve(static_cast<size_t>(knn));
-
   for (size_t i = 0; i < num_locations; ++i) {
     if (IsStopped()) {
+      GetTimer().PrintMinutes();
       return;
     }
 
@@ -1008,13 +985,14 @@ void SpatialFeatureMatcher::Match() {
     std::cout << StringPrintf("Matching image [%d/%d]", i + 1, num_locations)
               << std::flush;
 
-    image_pairs.clear();
+    std::vector<std::pair<image_t, image_t>> image_pairs;
     for (int j = 0; j < knn; ++j) {
-      // Query equals result.
+      // Check if query equals result.
       if (index_matrix(i, j) == i) {
         continue;
       }
 
+      // Since the nearest neighbors are sorted by distance, we can break.
       if (distance_matrix(i, j) > max_distance) {
         break;
       }
@@ -1027,33 +1005,28 @@ void SpatialFeatureMatcher::Match() {
     }
 
     matcher_.MatchImagePairs(image_pairs);
+
     PrintElapsedTime(timer);
   }
+
+  GetTimer().PrintMinutes();
 }
 
 ImagePairsFeatureMatcher::ImagePairsFeatureMatcher(
     const SiftMatchOptions& match_options, const std::string& database_path,
     const std::string& match_list_path)
     : match_options_(match_options),
-      database_path_(database_path),
-      match_list_path_(match_list_path),
-      matcher_(match_options) {
+      database_(database_path),
+      cache_(kBlockSize, &database_),
+      matcher_(match_options, &database_, &cache_),
+      match_list_path_(match_list_path) {
   match_options_.Check();
 }
 
 void ImagePairsFeatureMatcher::Run() {
-  Match();
-  GetTimer().PrintMinutes();
-}
-
-void ImagePairsFeatureMatcher::Match() {
   PrintHeading1("Custom feature matching");
 
-  const size_t kBlockSize = 100;
-
-  Database database(database_path_);
-  FeatureMatcherCache cache(kBlockSize, &database);
-  if (!matcher_.Setup(&database, &cache)) {
+  if (!matcher_.Setup()) {
     return;
   }
 
@@ -1062,9 +1035,9 @@ void ImagePairsFeatureMatcher::Match() {
   //////////////////////////////////////////////////////////////////////////////
 
   std::unordered_map<std::string, image_t> image_name_to_image_id;
-  image_name_to_image_id.reserve(cache.GetImageIds().size());
-  for (const auto image_id : cache.GetImageIds()) {
-    const auto& image = cache.GetImage(image_id);
+  image_name_to_image_id.reserve(cache_.GetImageIds().size());
+  for (const auto image_id : cache_.GetImageIds()) {
+    const auto& image = cache_.GetImage(image_id);
     image_name_to_image_id.emplace(image.Name(), image_id);
   }
 
@@ -1115,6 +1088,7 @@ void ImagePairsFeatureMatcher::Match() {
 
   for (size_t i = 0; i < image_pairs.size(); i += kBlockSize) {
     if (IsStopped()) {
+      GetTimer().PrintMinutes();
       return;
     }
 
@@ -1123,19 +1097,23 @@ void ImagePairsFeatureMatcher::Match() {
 
     std::cout << StringPrintf("Matching block [%d/%d]", i / kBlockSize + 1,
                               num_match_blocks)
-              << std::flush;
+              << std::endl;
 
-    block_image_pairs.clear();
     const size_t block_end = i + kBlockSize <= image_pairs.size()
                                  ? i + kBlockSize
                                  : image_pairs.size();
+    std::vector<std::pair<image_t, image_t>> block_image_pairs;
+    block_image_pairs.reserve(kBlockSize);
     for (size_t j = i; j < block_end; ++j) {
       block_image_pairs.push_back(image_pairs[j]);
     }
 
     matcher_.MatchImagePairs(block_image_pairs);
+
     PrintElapsedTime(timer);
   }
+
+  GetTimer().PrintMinutes();
 }
 
 FeaturePairsFeatureMatcher::FeaturePairsFeatureMatcher(
@@ -1143,38 +1121,34 @@ FeaturePairsFeatureMatcher::FeaturePairsFeatureMatcher(
     const std::string& database_path, const std::string& match_list_path)
     : match_options_(match_options),
       compute_inliers_(compute_inliers),
-      database_path_(database_path),
+      database_(database_path),
+      cache_(kBlockSize, &database_),
       match_list_path_(match_list_path) {
   match_options_.Check();
 }
 
 void FeaturePairsFeatureMatcher::Run() {
-  Match();
-  GetTimer().PrintMinutes();
-}
-
-void FeaturePairsFeatureMatcher::Match() {
   PrintHeading1("Importing matches");
 
-  const size_t kCacheSize = 100;
-
-  Database database(database_path_);
-  FeatureMatcherCache cache(kCacheSize, &database);
-
   std::unordered_map<std::string, const Image*> image_name_to_image;
-  image_name_to_image.reserve(cache.GetImageIds().size());
-  for (const auto image_id : cache.GetImageIds()) {
-    const auto& image = cache.GetImage(image_id);
+  image_name_to_image.reserve(cache_.GetImageIds().size());
+  for (const auto image_id : cache_.GetImageIds()) {
+    const auto& image = cache_.GetImage(image_id);
     image_name_to_image.emplace(image.Name(), &image);
   }
 
   std::ifstream file(match_list_path_.c_str());
   CHECK(file.is_open());
 
-  DatabaseTransaction database_transaction(&database);
+  DatabaseTransaction database_transaction(&database_);
 
   std::string line;
   while (std::getline(file, line)) {
+    if (IsStopped()) {
+      GetTimer().PrintMinutes();
+      return;
+    }
+
     StringTrim(&line);
     if (line.empty()) {
       continue;
@@ -1211,7 +1185,7 @@ void FeaturePairsFeatureMatcher::Match() {
     const Image& image2 = *image_name_to_image[image_name2];
 
     bool skip_pair = false;
-    if (database.ExistsInlierMatches(image1.ImageId(), image2.ImageId())) {
+    if (database_.ExistsInlierMatches(image1.ImageId(), image2.ImageId())) {
       std::cout << "SKIP: Matches for image pair already exist in database."
                 << std::endl;
       skip_pair = true;
@@ -1242,14 +1216,14 @@ void FeaturePairsFeatureMatcher::Match() {
       continue;
     }
 
-    const Camera& camera1 = cache.GetCamera(image1.CameraId());
-    const Camera& camera2 = cache.GetCamera(image2.CameraId());
+    const Camera& camera1 = cache_.GetCamera(image1.CameraId());
+    const Camera& camera2 = cache_.GetCamera(image2.CameraId());
 
     if (compute_inliers_) {
-      database.WriteMatches(image1.ImageId(), image2.ImageId(), matches);
+      database_.WriteMatches(image1.ImageId(), image2.ImageId(), matches);
 
-      const auto keypoints1 = cache.GetKeypoints(image1.ImageId());
-      const auto keypoints2 = cache.GetKeypoints(image2.ImageId());
+      const auto keypoints1 = cache_.GetKeypoints(image1.ImageId());
+      const auto keypoints2 = cache_.GetKeypoints(image2.ImageId());
 
       TwoViewGeometry two_view_geometry;
       TwoViewGeometry::Options two_view_geometry_options;
@@ -1269,8 +1243,8 @@ void FeaturePairsFeatureMatcher::Match() {
           FeatureKeypointsToPointsVector(keypoints2), matches,
           two_view_geometry_options);
 
-      database.WriteInlierMatches(image1.ImageId(), image2.ImageId(),
-                                  two_view_geometry);
+      database_.WriteInlierMatches(image1.ImageId(), image2.ImageId(),
+                                   two_view_geometry);
     } else {
       TwoViewGeometry two_view_geometry;
 
@@ -1282,10 +1256,12 @@ void FeaturePairsFeatureMatcher::Match() {
 
       two_view_geometry.inlier_matches = matches;
 
-      database.WriteInlierMatches(image1.ImageId(), image2.ImageId(),
-                                  two_view_geometry);
+      database_.WriteInlierMatches(image1.ImageId(), image2.ImageId(),
+                                   two_view_geometry);
     }
   }
+
+  GetTimer().PrintMinutes();
 }
 
 bool CreateSiftGPUMatcher(const SiftMatchOptions& match_options,
