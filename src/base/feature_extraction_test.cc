@@ -24,20 +24,19 @@
 
 using namespace colmap;
 
-Bitmap CreateImageWithSquare(const int size) {
-  Bitmap bitmap;
-  bitmap.Allocate(size, size, false);
-  bitmap.Fill(Eigen::Vector3ub::Zero());
+void CreateImageWithSquare(const int size, Bitmap* bitmap) {
+  bitmap->Allocate(size, size, false);
+  bitmap->Fill(Eigen::Vector3ub::Zero());
   for (int r = size / 2 - size / 8; r < size / 2 + size / 8; ++r) {
     for (int c = size / 2 - size / 8; c < size / 2 + size / 8; ++c) {
-      bitmap.SetPixel(r, c, Eigen::Vector3ub(255, 255, 255));
+      bitmap->SetPixel(r, c, Eigen::Vector3ub(255, 255, 255));
     }
   }
-  return bitmap;
 }
 
 BOOST_AUTO_TEST_CASE(TestExtractSiftFeaturesCPU) {
-  const Bitmap bitmap = CreateImageWithSquare(256);
+  Bitmap bitmap;
+  CreateImageWithSquare(256, &bitmap);
 
   FeatureKeypoints keypoints;
   FeatureDescriptors descriptors;
@@ -72,7 +71,8 @@ BOOST_AUTO_TEST_CASE(TestExtractSiftFeaturesGPU) {
     void Run() {
       opengl_context_.MakeCurrent();
 
-      const Bitmap bitmap = CreateImageWithSquare(256);
+      Bitmap bitmap;
+      CreateImageWithSquare(256, &bitmap);
 
       SiftGPU sift_gpu;
       BOOST_CHECK(CreateSiftGPUExtractor(SiftOptions(), &sift_gpu));

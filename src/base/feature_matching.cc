@@ -329,10 +329,10 @@ void SiftGPUFeatureMatcher::MatchImagePairs(
   const size_t min_num_inliers = static_cast<size_t>(options_.min_num_inliers);
 
   struct MatchResult {
-    image_t image_id1 = kInvalidImageId;
-    image_t image_id2 = kInvalidImageId;
+    image_t image_id1;
+    image_t image_id2;
     FeatureMatches matches;
-    bool write = true;
+    bool write;
   };
 
   std::vector<MatchResult> match_results;

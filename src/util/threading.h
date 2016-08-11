@@ -87,7 +87,7 @@ namespace colmap {
 class Thread {
  public:
   enum {
-    STARTED_CALLBACK = std::numeric_limits<int>::min(),
+    STARTED_CALLBACK = INT_MIN,
     FINISHED_CALLBACK,
   };
 
@@ -144,11 +144,11 @@ class Thread {
 
   Timer timer_;
 
-  std::atomic_bool started_;
-  std::atomic_bool stopped_;
-  std::atomic_bool paused_;
-  std::atomic_bool pausing_;
-  std::atomic_bool finished_;
+  std::atomic<bool> started_;
+  std::atomic<bool> stopped_;
+  std::atomic<bool> paused_;
+  std::atomic<bool> pausing_;
+  std::atomic<bool> finished_;
 
   std::unordered_map<int, std::function<void()>> callbacks_;
 };
@@ -195,7 +195,7 @@ class ThreadPool {
   std::condition_variable finished_condition_;
 
   bool stopped_;
-  std::atomic_int num_active_workers_;
+  std::atomic<int> num_active_workers_;
 };
 
 // A job queue class for the producer-consumer paradigm.
@@ -260,7 +260,7 @@ class JobQueue {
 
  private:
   size_t max_num_jobs_;
-  std::atomic_bool stop_;
+  std::atomic<bool> stop_;
   std::queue<T> jobs_;
   std::mutex mutex_;
   std::condition_variable push_condition_;
