@@ -83,6 +83,7 @@ macro(ADD_SOURCE_DIR SRC_DIR SRC_VAR)
 endmacro(ADD_SOURCE_DIR)
 
 ADD_SOURCE_DIR(base BASE_SRC *.h *.cc)
+ADD_SOURCE_DIR(estimators ESTIMATORS_SRC *.h *.cc)
 ADD_SOURCE_DIR(exe EXE_SRC *.h *.cc)
 ADD_SOURCE_DIR(ext/FLANN EXT_FLANN_SRC *.h *.cpp *.hpp *.cu)
 ADD_SOURCE_DIR(ext/PBA EXT_PBA_SRC *.h *.cpp *.cu)
@@ -101,6 +102,7 @@ ADD_SOURCE_DIR(util UTIL_SRC *.h *.cc)
 add_library(
     ${COLMAP_SRC_ROOT_FOLDER}
     ${BASE_SRC}
+    ${ESTIMATORS_SRC}
     ${EXE_SRC}
     ${EXT_FLANN_SRC}
     ${EXT_PBA_SRC}
