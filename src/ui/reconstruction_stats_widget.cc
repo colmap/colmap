@@ -14,14 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "ui/model_stats_widget.h"
+#include "ui/reconstruction_stats_widget.h"
 
 namespace colmap {
 
-ModelStatsWidget::ModelStatsWidget(QWidget* parent) : QWidget(parent) {
+ReconstructionStatsWidget::ReconstructionStatsWidget(QWidget* parent)
+    : QWidget(parent) {
   setWindowFlags(Qt::Window);
   resize(parent->width() - 20, parent->height() - 20);
-  setWindowTitle("Model statistics");
+  setWindowTitle("Reconstruction statistics");
 
   stats_table_ = new QTableWidget(this);
   stats_table_->setColumnCount(2);
@@ -33,27 +34,30 @@ ModelStatsWidget::ModelStatsWidget(QWidget* parent) : QWidget(parent) {
   grid->addWidget(stats_table_);
 }
 
-void ModelStatsWidget::Update(const Reconstruction& model) {
+void ReconstructionStatsWidget::Show(const Reconstruction& reconstruction) {
   QString stats;
 
   stats_table_->clearContents();
   stats_table_->setRowCount(0);
 
-  AddStatistic("Cameras", QString::number(model.NumCameras()));
-  AddStatistic("Images", QString::number(model.NumImages()));
-  AddStatistic("Registered images", QString::number(model.NumRegImages()));
-  AddStatistic("Points", QString::number(model.NumPoints3D()));
-  AddStatistic("Observations", QString::number(model.ComputeNumObservations()));
+  AddStatistic("Cameras", QString::number(reconstruction.NumCameras()));
+  AddStatistic("Images", QString::number(reconstruction.NumImages()));
+  AddStatistic("Registered images",
+               QString::number(reconstruction.NumRegImages()));
+  AddStatistic("Points", QString::number(reconstruction.NumPoints3D()));
+  AddStatistic("Observations",
+               QString::number(reconstruction.ComputeNumObservations()));
   AddStatistic("Mean track length",
-               QString::number(model.ComputeMeanTrackLength()));
-  AddStatistic("Mean observations per image",
-               QString::number(model.ComputeMeanObservationsPerRegImage()));
+               QString::number(reconstruction.ComputeMeanTrackLength()));
+  AddStatistic(
+      "Mean observations per image",
+      QString::number(reconstruction.ComputeMeanObservationsPerRegImage()));
   AddStatistic("Mean point error",
-               QString::number(model.ComputeMeanReprojectionError()));
+               QString::number(reconstruction.ComputeMeanReprojectionError()));
 }
 
-void ModelStatsWidget::AddStatistic(const QString& header,
-                                    const QString& content) {
+void ReconstructionStatsWidget::AddStatistic(const QString& header,
+                                             const QString& content) {
   const int row = stats_table_->rowCount();
   stats_table_->insertRow(row);
   stats_table_->setItem(row, 0, new QTableWidgetItem(header));

@@ -14,27 +14,31 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef COLMAP_SRC_UI_MODEL_STATS_WIDGET_H_
-#define COLMAP_SRC_UI_MODEL_STATS_WIDGET_H_
+#ifndef COLMAP_SRC_UI_RECONSTRUCTION_MANAGER_WIDGET_H_
+#define COLMAP_SRC_UI_RECONSTRUCTION_MANAGER_WIDGET_H_
 
 #include <QtWidgets>
 
-#include "base/reconstruction.h"
+#include "base/reconstruction_manager.h"
 
 namespace colmap {
 
-class ModelStatsWidget : public QWidget {
+class ReconstructionManagerWidget : public QComboBox {
  public:
-  ModelStatsWidget(QWidget* parent);
+  const static size_t kNewestReconstructionIdx;
 
-  void Update(const Reconstruction& model);
+  ReconstructionManagerWidget(
+      QWidget* parent, const ReconstructionManager* reconstruction_manager);
+
+  void Update();
+
+  size_t SelectedReconstructionIdx() const;
+  void SelectReconstruction(const size_t idx);
 
  private:
-  void AddStatistic(const QString& header, const QString& content);
-
-  QTableWidget* stats_table_;
+  const ReconstructionManager* reconstruction_manager_;
 };
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_UI_MODEL_STATS_WIDGET_H_
+#endif  // COLMAP_SRC_UI_RECONSTRUCTION_MANAGER_WIDGET_H_

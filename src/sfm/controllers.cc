@@ -158,23 +158,11 @@ void ExtractColors(const std::string& image_path, const image_t image_id,
 }  // namespace
 
 IncrementalMapperController::IncrementalMapperController(
-    const OptionManager& options)
-    : options_(options) {
+    const OptionManager& options, ReconstructionManager* reconstruction_manager)
+    : options_(options), reconstruction_manager_(reconstruction_manager) {
   RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
   RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
   RegisterCallback(LAST_IMAGE_REG_CALLBACK);
-}
-
-IncrementalMapperController::IncrementalMapperController(
-    const OptionManager& options, Reconstruction* initial_reconstruction)
-    : IncrementalMapperController(options) {
-  models_.emplace_back(initial_reconstruction);
-}
-
-size_t IncrementalMapperController::AddModel() {
-  const size_t model_idx = models_.size();
-  models_.emplace_back(new Reconstruction());
-  return model_idx;
 }
 
 void IncrementalMapperController::Run() {
@@ -210,7 +198,10 @@ void IncrementalMapperController::Run() {
 
   // Is there a sub-model before we start the reconstruction? I.e. the user
   // has imported an existing reconstruction.
-  const bool initial_model_given = !models_.empty();
+  const bool initial_reconstruction_given = reconstruction_manager_->Size() > 0;
+  CHECK_LE(reconstruction_manager_->Size(), 1) << "Can only resume from a "
+                                                  "single reconstruction, but "
+                                                  "multiple are given.";
 
   for (int num_trials = 0; num_trials < mapper_options.init_num_trials;
        ++num_trials) {
@@ -219,12 +210,16 @@ void IncrementalMapperController::Run() {
       break;
     }
 
-    if (!initial_model_given || num_trials > 0) {
-      AddModel();
+    size_t reconstruction_idx;
+    if (!initial_reconstruction_given || num_trials > 0) {
+      reconstruction_idx = reconstruction_manager_->Add();
+    } else {
+      reconstruction_idx = 0;
     }
 
-    const size_t model_idx = initial_model_given ? 0 : NumModels() - 1;
-    Reconstruction& reconstruction = Model(model_idx);
+    Reconstruction& reconstruction =
+        reconstruction_manager_->Get(reconstruction_idx);
+
     mapper.BeginReconstruction(&reconstruction);
 
     ////////////////////////////////////////////////////////////////////////////
@@ -247,7 +242,7 @@ void IncrementalMapperController::Run() {
           std::cerr << "  => Could not find good initial pair." << std::endl;
           const bool kDiscardReconstruction = true;
           mapper.EndReconstruction(kDiscardReconstruction);
-          models_.pop_back();
+          reconstruction_manager_->Delete(reconstruction_idx);
           break;
         }
       }
@@ -271,7 +266,7 @@ void IncrementalMapperController::Run() {
           reconstruction.NumPoints3D() == 0) {
         const bool kDiscardReconstruction = true;
         mapper.EndReconstruction(kDiscardReconstruction);
-        models_.pop_back();
+        reconstruction_manager_->Delete(reconstruction_idx);
         continue;
       }
 
@@ -313,7 +308,7 @@ void IncrementalMapperController::Run() {
         PrintHeading1(StringPrintf("Registering image #%d (%d)", next_image_id,
                                    reconstruction.NumRegImages() + 1));
 
-        std::cout << StringPrintf(" => Image sees %d / %d points",
+        std::cout << StringPrintf("  => Image sees %d / %d points",
                                   next_image.NumVisiblePoints3D(),
                                   next_image.NumObservations())
                   << std::endl;
@@ -391,7 +386,7 @@ void IncrementalMapperController::Run() {
         reconstruction.NumRegImages() == 0) {
       const bool kDiscardReconstruction = true;
       mapper.EndReconstruction(kDiscardReconstruction);
-      models_.pop_back();
+      reconstruction_manager_->Delete(reconstruction_idx);
     } else {
       const bool kDiscardReconstruction = false;
       mapper.EndReconstruction(kDiscardReconstruction);
@@ -401,8 +396,8 @@ void IncrementalMapperController::Run() {
 
     const size_t max_num_models =
         static_cast<size_t>(mapper_options.max_num_models);
-    if (initial_model_given || !mapper_options.multiple_models ||
-        models_.size() >= max_num_models ||
+    if (initial_reconstruction_given || !mapper_options.multiple_models ||
+        reconstruction_manager_->Size() >= max_num_models ||
         mapper.NumTotalRegImages() >= database_cache.NumImages() - 1) {
       break;
     }
@@ -451,7 +446,7 @@ void BundleAdjustmentController::Run() {
   // to avoid large scale changes in viewer.
   reconstruction->Normalize();
 
-  reconstruction = nullptr
+  reconstruction = nullptr;
 
   GetTimer().PrintMinutes();
 }

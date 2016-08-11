@@ -34,11 +34,11 @@
 #include "ui/feature_matching_widget.h"
 #include "ui/log_widget.h"
 #include "ui/match_matrix_widget.h"
-#include "ui/model_manager_widget.h"
-#include "ui/model_stats_widget.h"
 #include "ui/new_project_widget.h"
 #include "ui/opengl_window.h"
+#include "ui/reconstruction_manager_widget.h"
 #include "ui/reconstruction_options_widget.h"
+#include "ui/reconstruction_stats_widget.h"
 #include "ui/render_options_widget.h"
 #include "ui/undistort_widget.h"
 #include "util/bitmap.h"
@@ -49,10 +49,9 @@ class MainWindow : public QMainWindow {
  public:
   MainWindow(const OptionManager& options);
 
-  bool OverwriteReconstruction();
+  const ReconstructionManager& GetReconstructionManager() const;
 
-  std::unique_ptr<IncrementalMapperController> mapper_controller;
-  std::unique_ptr<BundleAdjustmentController> ba_controller;
+  bool OverwriteReconstruction();
 
  protected:
   void showEvent(QShowEvent* event);
@@ -106,18 +105,18 @@ class MainWindow : public QMainWindow {
   void RenderNow();
   void RenderToggle();
   void RenderOptions();
-  void RenderSelectedModel();
+  void RenderSelectedReconstruction();
   void RenderClear();
 
-  void SelectModelIdx(const size_t);
-  size_t SelectedModelIdx();
-  bool HasSelectedModel();
-  bool IsSelectedModelValid();
+  void SelectReconstructionIdx(const size_t);
+  size_t SelectedReconstructionIdx();
+  bool HasSelectedReconstruction();
+  bool IsSelectedReconstructionValid();
 
   void GrabImage();
   void UndistortImages();
 
-  void ShowModelStats();
+  void ShowReconstructionStats();
   void ShowMatchMatrix();
   void ShowLog();
   void ExtractColors();
@@ -137,6 +136,10 @@ class MainWindow : public QMainWindow {
 
   OptionManager options_;
 
+  ReconstructionManager reconstruction_manager_;
+  std::unique_ptr<IncrementalMapperController> mapper_controller_;
+  std::unique_ptr<BundleAdjustmentController> ba_controller_;
+
   OpenGLWindow* opengl_window_;
 
   Timer timer_;
@@ -152,8 +155,8 @@ class MainWindow : public QMainWindow {
   RenderOptionsWidget* render_options_widget_;
   LogWidget* log_widget_;
   UndistortWidget* undistort_widget_;
-  ModelManagerWidget* model_manager_widget_;
-  ModelStatsWidget* model_stats_widget_;
+  ReconstructionManagerWidget* reconstruction_manager_widget_;
+  ReconstructionStatsWidget* reconstruction_stats_widget_;
   MatchMatrixWidget* match_matrix_widget_;
 
   QToolBar* file_toolbar_;
@@ -200,7 +203,7 @@ class MainWindow : public QMainWindow {
   QAction* action_render_reset_view_;
   QAction* action_render_options_;
 
-  QAction* action_model_stats_;
+  QAction* action_reconstruction_stats_;
   QAction* action_match_matrix_;
   QAction* action_log_show_;
   QAction* action_grab_image_;

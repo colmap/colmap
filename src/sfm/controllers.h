@@ -17,6 +17,7 @@
 #ifndef COLMAP_SRC_SFM_CONTROLLERS_H_
 #define COLMAP_SRC_SFM_CONTROLLERS_H_
 
+#include "base/reconstruction_manager.h"
 #include "sfm/incremental_mapper.h"
 #include "util/option_manager.h"
 #include "util/threading.h"
@@ -34,26 +35,14 @@ class IncrementalMapperController : public Thread {
     LAST_IMAGE_REG_CALLBACK,
   };
 
-  IncrementalMapperController(const OptionManager& options);
   IncrementalMapperController(const OptionManager& options,
-                              Reconstruction* initial_reconstruction);
-
-  // Access reconstructed models.
-  inline size_t NumModels() const;
-  inline const std::vector<std::unique_ptr<Reconstruction>>& Models() const;
-  inline const Reconstruction& Model(const size_t idx) const;
-  inline Reconstruction& Model(const size_t idx);
-
-  // Add new model and return its index.
-  size_t AddModel();
+                              ReconstructionManager* reconstruction_manager);
 
  private:
   void Run();
 
   const OptionManager options_;
-
-  // Collection of reconstructed models.
-  std::vector<std::unique_ptr<Reconstruction>> models_;
+  ReconstructionManager* reconstruction_manager_;
 };
 
 // Class that controls the global bundle adjustment procedure.
@@ -69,28 +58,6 @@ class BundleAdjustmentController : public Thread {
 
   const OptionManager options_;
 };
-
-////////////////////////////////////////////////////////////////////////////////
-// Implementation
-////////////////////////////////////////////////////////////////////////////////
-
-inline size_t IncrementalMapperController::NumModels() const {
-  return models_.size();
-}
-
-const std::vector<std::unique_ptr<Reconstruction>>&
-IncrementalMapperController::Models() const {
-  return models_;
-}
-
-inline const Reconstruction& IncrementalMapperController::Model(
-    const size_t idx) const {
-  return *models_.at(idx);
-}
-
-inline Reconstruction& IncrementalMapperController::Model(const size_t idx) {
-  return *models_.at(idx);
-}
 
 }  // namespace colmap
 

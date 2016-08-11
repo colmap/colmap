@@ -20,6 +20,7 @@ COLMAP_ADD_LIBRARY(base
     pose.h pose.cc
     projection.h projection.cc
     reconstruction.h reconstruction.cc
+    reconstruction_manager.h reconstruction_manager.cc
     scene_graph.h scene_graph.cc
     similarity_transform.h similarity_transform.cc
     track.h track.cc
@@ -48,6 +49,7 @@ COLMAP_ADD_TEST(polynomial_test polynomial_test.cc)
 COLMAP_ADD_TEST(pose_test pose_test.cc)
 COLMAP_ADD_TEST(projection_test projection_test.cc)
 COLMAP_ADD_TEST(reconstruction_test reconstruction_test.cc)
+COLMAP_ADD_TEST(reconstruction_manager_test reconstruction_manager_test.cc)
 COLMAP_ADD_TEST(scene_graph_test scene_graph_test.cc)
 COLMAP_ADD_TEST(similarity_transform_test similarity_transform_test.cc)
 COLMAP_ADD_TEST(track_test track_test.cc)

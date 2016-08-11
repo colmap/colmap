@@ -14,30 +14,27 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef COLMAP_SRC_UI_MODEL_MANAGER_WIDGET_H_
-#define COLMAP_SRC_UI_MODEL_MANAGER_WIDGET_H_
+#ifndef COLMAP_SRC_UI_RECONSTRUCTION_STATS_WIDGET_H_
+#define COLMAP_SRC_UI_RECONSTRUCTION_STATS_WIDGET_H_
 
 #include <QtWidgets>
 
-#include "sfm/incremental_mapper.h"
+#include "base/reconstruction.h"
 
 namespace colmap {
 
-class ModelManagerWidget : public QComboBox {
+class ReconstructionStatsWidget : public QWidget {
  public:
-  const static size_t kNewestModelIdx;
+  ReconstructionStatsWidget(QWidget* parent);
 
-  ModelManagerWidget(QWidget* parent);
-
-  size_t ModelIdx() const;
-  void SetModelIdx(const size_t idx);
-
-  void UpdateModels(const std::vector<std::unique_ptr<Reconstruction>>& models);
+  void Show(const Reconstruction& reconstruction);
 
  private:
-  std::vector<size_t> model_idxs_;
+  void AddStatistic(const QString& header, const QString& content);
+
+  QTableWidget* stats_table_;
 };
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_UI_MODEL_MANAGER_WIDGET_H_
+#endif  // COLMAP_SRC_UI_RECONSTRUCTION_STATS_WIDGET_H_

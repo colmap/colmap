@@ -49,29 +49,20 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  IncrementalMapperController mapper_controller(options);
-
+  ReconstructionManager reconstruction_manager;
   if (import_path != "") {
     if (!boost::filesystem::is_directory(import_path)) {
       std::cerr << "ERROR: `import_path` is not a directory." << std::endl;
       return EXIT_FAILURE;
     }
-
-    const size_t model_idx = mapper_controller.AddModel();
-    mapper_controller.Model(model_idx).Read(import_path);
+    reconstruction_manager.Read(import_path);
   }
 
-  mapper_controller.Start();
-  mapper_controller.Wait();
+  IncrementalMapperController mapper(options, &reconstruction_manager);
+  mapper.Start();
+  mapper.Wait();
 
-  export_path = EnsureTrailingSlash(export_path);
-
-  for (size_t i = 0; i < mapper_controller.NumModels(); ++i) {
-    const std::string model_path = export_path + std::to_string(i);
-    CreateDirIfNotExists(model_path);
-    options.Write(model_path + "/project.ini");
-    mapper_controller.Model(i).Write(model_path);
-  }
+  reconstruction_manager.Write(export_path, &options);
 
   return EXIT_SUCCESS;
 }

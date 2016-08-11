@@ -26,13 +26,13 @@
     <file>media/reconstruction-reset.png</file>
     <file>media/reconstruction-normalize.png</file>
     <file>media/reconstruction-options.png</file>
+    <file>media/reconstruction-stats.png</file>
     <file>media/bundle-adjustment.png</file>
     <file>media/bundle-adjustment-options.png</file>
     <file>media/render-enabled.png</file>
     <file>media/render-disabled.png</file>
     <file>media/render-reset-view.png</file>
     <file>media/render-options.png</file>
-    <file>media/model-stats.png</file>
     <file>media/match-matrix.png</file>
     <file>media/log.png</file>
     <file>media/grab-image.png</file>

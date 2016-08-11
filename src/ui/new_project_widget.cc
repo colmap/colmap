@@ -90,7 +90,7 @@ void NewProjectWidget::Create() {
   if (!IsValid()) {
     QMessageBox::critical(this, "", tr("Invalid paths."));
   } else {
-    if (main_window_->mapper_controller->NumModels() > 0) {
+    if (main_window_->GetReconstructionManager().Size() > 0) {
       if (!main_window_->OverwriteReconstruction()) {
         return;
       }

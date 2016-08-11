@@ -42,8 +42,12 @@ MainWindow::MainWindow(const OptionManager& options)
   options_.AddAllOptions();
 }
 
+const ReconstructionManager& MainWindow::GetReconstructionManager() const {
+  return reconstruction_manager_;
+}
+
 bool MainWindow::OverwriteReconstruction() {
-  if (mapper_controller->NumModels() > 0) {
+  if (reconstruction_manager_.Size() > 0) {
     QMessageBox::StandardButton reply = QMessageBox::question(
         this, "",
         tr("Do you really want to overwrite the existing reconstruction?"),
@@ -91,10 +95,10 @@ void MainWindow::closeEvent(QCloseEvent* event) {
   if (reply == QMessageBox::No) {
     event->ignore();
   } else {
-    mapper_controller->Stop();
-    mapper_controller->Wait();
-    ba_controller->Stop();
-    ba_controller->Wait();
+    mapper_controller_->Stop();
+    mapper_controller_->Wait();
+    ba_controller_->Stop();
+    ba_controller_->Wait();
 
     log_widget_->close();
     event->accept();
@@ -127,8 +131,9 @@ void MainWindow::CreateWidgets() {
       new RenderOptionsWidget(this, &options_, opengl_window_);
   log_widget_ = new LogWidget(this, &options_);
   undistort_widget_ = new UndistortWidget(this, &options_);
-  model_manager_widget_ = new ModelManagerWidget(this);
-  model_stats_widget_ = new ModelStatsWidget(this);
+  reconstruction_manager_widget_ =
+      new ReconstructionManagerWidget(this, &reconstruction_manager_);
+  reconstruction_stats_widget_ = new ReconstructionStatsWidget(this);
   match_matrix_widget_ = new MatchMatrixWidget(this, &options_);
 
   dock_log_widget_ = new QDockWidget("Log", this);
@@ -296,18 +301,19 @@ void MainWindow::CreateActions() {
   connect(action_render_options_, &QAction::triggered, this,
           &MainWindow::RenderOptions);
 
-  connect(model_manager_widget_, static_cast<void (QComboBox::*)(int)>(
-                                     &QComboBox::currentIndexChanged),
-          this, &MainWindow::SelectModelIdx);
+  connect(reconstruction_manager_widget_, static_cast<void (QComboBox::*)(int)>(
+                                              &QComboBox::currentIndexChanged),
+          this, &MainWindow::SelectReconstructionIdx);
 
   //////////////////////////////////////////////////////////////////////////////
   // Extras actions
   //////////////////////////////////////////////////////////////////////////////
 
-  action_model_stats_ = new QAction(QIcon(":/media/model-stats.png"),
-                                    tr("Show model statistics"), this);
-  connect(action_model_stats_, &QAction::triggered, this,
-          &MainWindow::ShowModelStats);
+  action_reconstruction_stats_ =
+      new QAction(QIcon(":/media/reconstruction-stats.png"),
+                  tr("Show reconstruction statistics"), this);
+  connect(action_reconstruction_stats_, &QAction::triggered, this,
+          &MainWindow::ShowReconstructionStats);
 
   action_match_matrix_ = new QAction(QIcon(":/media/match-matrix.png"),
                                      tr("Show match matrix"), this);
@@ -410,7 +416,7 @@ void MainWindow::CreateMenus() {
   menuBar()->addAction(render_menu->menuAction());
 
   QMenu* extras_menu = new QMenu(tr("Extras"), this);
-  extras_menu->addAction(action_model_stats_);
+  extras_menu->addAction(action_reconstruction_stats_);
   extras_menu->addAction(action_match_matrix_);
   extras_menu->addAction(action_log_show_);
   extras_menu->addAction(action_grab_image_);
@@ -460,11 +466,11 @@ void MainWindow::CreateToolbar() {
   render_toolbar_->addAction(action_render_toggle_);
   render_toolbar_->addAction(action_render_reset_view_);
   render_toolbar_->addAction(action_render_options_);
-  render_toolbar_->addWidget(model_manager_widget_);
+  render_toolbar_->addWidget(reconstruction_manager_widget_);
   render_toolbar_->setIconSize(QSize(16, 16));
 
   extras_toolbar_ = addToolBar(tr("Extras"));
-  extras_toolbar_->addAction(action_model_stats_);
+  extras_toolbar_->addAction(action_reconstruction_stats_);
   extras_toolbar_->addAction(action_match_matrix_);
   extras_toolbar_->addAction(action_log_show_);
   extras_toolbar_->addAction(action_grab_image_);
@@ -492,45 +498,46 @@ void MainWindow::CreateStatusbar() {
 }
 
 void MainWindow::CreateControllers() {
-  if (mapper_controller) {
-    mapper_controller->Stop();
-    mapper_controller->Wait();
+  if (mapper_controller_) {
+    mapper_controller_->Stop();
+    mapper_controller_->Wait();
   }
 
-  mapper_controller.reset(new IncrementalMapperController(options_));
-  mapper_controller->SetCallback(
+  mapper_controller_.reset(
+      new IncrementalMapperController(options_, &reconstruction_manager_));
+  mapper_controller_->SetCallback(
       IncrementalMapperController::INITIAL_IMAGE_PAIR_REG_CALLBACK, [this]() {
-        if (!mapper_controller->IsStopped()) {
+        if (!mapper_controller_->IsStopped()) {
           action_render_now_->trigger();
         }
       });
-  mapper_controller->SetCallback(
+  mapper_controller_->SetCallback(
       IncrementalMapperController::NEXT_IMAGE_REG_CALLBACK, [this]() {
-        if (!mapper_controller->IsStopped()) {
+        if (!mapper_controller_->IsStopped()) {
           action_render_->trigger();
         }
       });
-  mapper_controller->SetCallback(
+  mapper_controller_->SetCallback(
       IncrementalMapperController::LAST_IMAGE_REG_CALLBACK, [this]() {
-        if (!mapper_controller->IsStopped()) {
+        if (!mapper_controller_->IsStopped()) {
           action_render_now_->trigger();
         }
       });
-  mapper_controller->SetCallback(IncrementalMapperController::FINISHED_CALLBACK,
-                                 [this]() {
-                                   if (!mapper_controller->IsStopped()) {
-                                     action_render_now_->trigger();
-                                     action_reconstruction_finish_->trigger();
-                                   }
-                                 });
+  mapper_controller_->SetCallback(
+      IncrementalMapperController::FINISHED_CALLBACK, [this]() {
+        if (!mapper_controller_->IsStopped()) {
+          action_render_now_->trigger();
+          action_reconstruction_finish_->trigger();
+        }
+      });
 
-  if (ba_controller) {
-    ba_controller->Stop();
-    ba_controller->Wait();
+  if (ba_controller_) {
+    ba_controller_->Stop();
+    ba_controller_->Wait();
   }
 
-  ba_controller.reset(new BundleAdjustmentController(options_));
-  ba_controller->SetCallback(
+  ba_controller_.reset(new BundleAdjustmentController(options_));
+  ba_controller_->SetCallback(
       BundleAdjustmentController::FINISHED_CALLBACK,
       [this]() { action_bundle_adjustment_finish_->trigger(); });
 }
@@ -687,10 +694,9 @@ void MainWindow::Import() {
   progress_bar_->show();
 
   import_watcher_->setFuture(QtConcurrent::run([this, path]() {
-    const size_t model_idx = this->mapper_controller->AddModel();
-    this->mapper_controller->Model(model_idx).Read(path);
-    model_manager_widget_->UpdateModels(mapper_controller->Models());
-    model_manager_widget_->SetModelIdx(model_idx);
+    const size_t idx = reconstruction_manager_.Read(path);
+    reconstruction_manager_widget_->Update();
+    reconstruction_manager_widget_->SelectReconstruction(idx);
     action_bundle_adjustment_->setEnabled(true);
   }));
 }
@@ -726,22 +732,22 @@ void MainWindow::ImportFrom() {
   progress_bar_->show();
 
   import_watcher_->setFuture(QtConcurrent::run([this, path]() {
-    const size_t model_idx = this->mapper_controller->AddModel();
-    this->mapper_controller->Model(model_idx).ImportPLY(path);
-    this->options_.render_options->min_track_len = 0;
-    model_manager_widget_->UpdateModels(mapper_controller->Models());
-    model_manager_widget_->SetModelIdx(model_idx);
+    const size_t reconstruction_idx = reconstruction_manager_.Add();
+    reconstruction_manager_.Get(reconstruction_idx).ImportPLY(path);
+    options_.render_options->min_track_len = 0;
+    reconstruction_manager_widget_->Update();
+    reconstruction_manager_widget_->SelectReconstruction(reconstruction_idx);
     action_bundle_adjustment_->setEnabled(true);
   }));
 }
 
 void MainWindow::ImportFinished() {
-  RenderSelectedModel();
+  RenderSelectedReconstruction();
   progress_bar_->hide();
 }
 
 void MainWindow::Export() {
-  if (!IsSelectedModelValid()) {
+  if (!IsSelectedReconstructionValid()) {
     return;
   }
 
@@ -786,13 +792,13 @@ void MainWindow::Export() {
   progress_bar_->show();
 
   export_watcher_->setFuture(QtConcurrent::run([this, path, project_path]() {
-    this->options_.Write(project_path);
-    this->mapper_controller->Model(SelectedModelIdx()).Write(path);
+    reconstruction_manager_.Get(SelectedReconstructionIdx()).Write(path);
+    options_.Write(project_path);
   }));
 }
 
 void MainWindow::ExportAll() {
-  if (!IsSelectedModelValid()) {
+  if (!IsSelectedReconstructionValid()) {
     return;
   }
 
@@ -813,18 +819,12 @@ void MainWindow::ExportAll() {
   progress_bar_->raise();
   progress_bar_->show();
 
-  export_watcher_->setFuture(QtConcurrent::run([this, path]() {
-    for (size_t i = 0; i < this->mapper_controller->NumModels(); ++i) {
-      const std::string model_path = path + std::to_string(i);
-      CreateDirIfNotExists(model_path);
-      this->options_.Write(model_path + "/project.ini");
-      this->mapper_controller->Model(i).Write(model_path);
-    }
-  }));
+  export_watcher_->setFuture(QtConcurrent::run(
+      [this, path]() { reconstruction_manager_.Write(path, &options_); }));
 }
 
 void MainWindow::ExportAs() {
-  if (!IsSelectedModelValid()) {
+  if (!IsSelectedReconstructionValid()) {
     return;
   }
 
@@ -847,17 +847,19 @@ void MainWindow::ExportAs() {
   progress_bar_->show();
 
   export_watcher_->setFuture(QtConcurrent::run([this, path, default_filter]() {
-    const Reconstruction& model = mapper_controller->Model(SelectedModelIdx());
+    const Reconstruction& reconstruction =
+        reconstruction_manager_.Get(SelectedReconstructionIdx());
     if (default_filter == "NVM (*.nvm)") {
-      model.ExportNVM(path);
+      reconstruction.ExportNVM(path);
     } else if (default_filter == "Bundler (*.out)") {
-      model.ExportBundler(path, path + ".list.txt");
+      reconstruction.ExportBundler(path, path + ".list.txt");
     } else if (default_filter == "PLY (*.ply)") {
-      model.ExportPLY(path);
+      reconstruction.ExportPLY(path);
     } else if (default_filter == "VRML (*.wrl)") {
       const auto base_path = path.substr(0, path.find_last_of("."));
-      model.ExportVRML(base_path + ".images.wrl", base_path + ".points3D.wrl",
-                       1, Eigen::Vector3d(1, 0, 0));
+      reconstruction.ExportVRML(base_path + ".images.wrl",
+                                base_path + ".points3D.wrl", 1,
+                                Eigen::Vector3d(1, 0, 0));
     }
   }));
 }
@@ -892,25 +894,25 @@ void MainWindow::DatabaseManagement() {
 }
 
 void MainWindow::ReconstructionStart() {
-  if (!mapper_controller->IsStarted() && !options_.Check()) {
+  if (!mapper_controller_->IsStarted() && !options_.Check()) {
     ShowInvalidProjectError();
     return;
   }
 
-  if (mapper_controller->IsFinished() && HasSelectedModel()) {
+  if (mapper_controller_->IsFinished() && HasSelectedReconstruction()) {
     QMessageBox::critical(this, "",
                           tr("Reset reconstruction before starting."));
     return;
   }
 
-  if (mapper_controller->IsStarted()) {
+  if (mapper_controller_->IsStarted()) {
     // Resume existing reconstruction.
     timer_.Resume();
-    mapper_controller->Resume();
+    mapper_controller_->Resume();
   } else {
     // Start new reconstruction.
     timer_.Restart();
-    mapper_controller->Start();
+    mapper_controller_->Start();
   }
 
   DisableBlockingActions();
@@ -918,7 +920,7 @@ void MainWindow::ReconstructionStart() {
 }
 
 void MainWindow::ReconstructionStep() {
-  if (mapper_controller->IsFinished() && HasSelectedModel()) {
+  if (mapper_controller_->IsFinished() && HasSelectedReconstruction()) {
     QMessageBox::critical(this, "",
                           tr("Reset reconstruction before starting."));
     return;
@@ -932,7 +934,7 @@ void MainWindow::ReconstructionStep() {
 
 void MainWindow::ReconstructionPause() {
   timer_.Pause();
-  mapper_controller->Pause();
+  mapper_controller_->Pause();
   EnableBlockingActions();
   action_reconstruction_pause_->setEnabled(false);
 }
@@ -944,7 +946,7 @@ void MainWindow::ReconstructionOptions() {
 
 void MainWindow::ReconstructionFinish() {
   timer_.Pause();
-  mapper_controller->Stop();
+  mapper_controller_->Stop();
   EnableBlockingActions();
   action_reconstruction_step_->setEnabled(false);
   action_reconstruction_pause_->setEnabled(false);
@@ -960,24 +962,25 @@ void MainWindow::ReconstructionReset() {
 }
 
 void MainWindow::ReconstructionNormalize() {
-  if (!IsSelectedModelValid()) {
+  if (!IsSelectedReconstructionValid()) {
     return;
   }
   action_reconstruction_step_->setEnabled(false);
-  mapper_controller->Model(SelectedModelIdx()).Normalize();
+  reconstruction_manager_.Get(SelectedReconstructionIdx()).Normalize();
   action_reconstruction_step_->setEnabled(true);
 }
 
 void MainWindow::BundleAdjustment() {
-  if (!IsSelectedModelValid()) {
+  if (!IsSelectedReconstructionValid()) {
     return;
   }
 
   DisableBlockingActions();
   action_reconstruction_pause_->setDisabled(true);
 
-  ba_controller->reconstruction = &mapper_controller->Model(SelectedModelIdx());
-  ba_controller->Start();
+  ba_controller_->reconstruction =
+      &reconstruction_manager_.Get(SelectedReconstructionIdx());
+  ba_controller_->Start();
 }
 
 void MainWindow::BundleAdjustmentFinish() {
@@ -991,15 +994,16 @@ void MainWindow::BundleAdjustmentOptions() {
 }
 
 void MainWindow::Render() {
-  if (mapper_controller->NumModels() == 0) {
+  if (reconstruction_manager_.Size() == 0) {
     return;
   }
 
-  const Reconstruction& model = mapper_controller->Model(SelectedModelIdx());
+  const Reconstruction& reconstruction =
+      reconstruction_manager_.Get(SelectedReconstructionIdx());
 
   int refresh_rate;
   if (options_.render_options->adapt_refresh_rate) {
-    refresh_rate = static_cast<int>(model.NumRegImages() / 50 + 1);
+    refresh_rate = static_cast<int>(reconstruction.NumRegImages() / 50 + 1);
   } else {
     refresh_rate = options_.render_options->refresh_rate;
   }
@@ -1016,23 +1020,25 @@ void MainWindow::Render() {
 }
 
 void MainWindow::RenderNow() {
-  model_manager_widget_->UpdateModels(mapper_controller->Models());
-  RenderSelectedModel();
+  reconstruction_manager_widget_->Update();
+  RenderSelectedReconstruction();
 }
 
-void MainWindow::RenderSelectedModel() {
-  if (mapper_controller->NumModels() == 0) {
+void MainWindow::RenderSelectedReconstruction() {
+  if (reconstruction_manager_.Size() == 0) {
     RenderClear();
     return;
   }
 
-  const size_t model_idx = SelectedModelIdx();
-  opengl_window_->reconstruction = &mapper_controller->Model(model_idx);
+  const size_t reconstruction_idx = SelectedReconstructionIdx();
+  opengl_window_->reconstruction =
+      &reconstruction_manager_.Get(reconstruction_idx);
   opengl_window_->Update();
 }
 
 void MainWindow::RenderClear() {
-  model_manager_widget_->SetModelIdx(ModelManagerWidget::kNewestModelIdx);
+  reconstruction_manager_widget_->SelectReconstruction(
+      ReconstructionManagerWidget::kNewestReconstructionIdx);
   opengl_window_->Clear();
 }
 
@@ -1041,31 +1047,37 @@ void MainWindow::RenderOptions() {
   render_options_widget_->raise();
 }
 
-void MainWindow::SelectModelIdx(const size_t) { RenderSelectedModel(); }
-
-size_t MainWindow::SelectedModelIdx() {
-  size_t model_idx = model_manager_widget_->ModelIdx();
-  if (model_idx == ModelManagerWidget::kNewestModelIdx) {
-    if (mapper_controller->NumModels() > 0) {
-      model_idx = mapper_controller->NumModels() - 1;
-    }
-  }
-  return model_idx;
+void MainWindow::SelectReconstructionIdx(const size_t) {
+  RenderSelectedReconstruction();
 }
 
-bool MainWindow::HasSelectedModel() {
-  const size_t model_idx = model_manager_widget_->ModelIdx();
-  if (model_idx == ModelManagerWidget::kNewestModelIdx) {
-    if (mapper_controller->NumModels() == 0) {
+size_t MainWindow::SelectedReconstructionIdx() {
+  size_t reconstruction_idx =
+      reconstruction_manager_widget_->SelectedReconstructionIdx();
+  if (reconstruction_idx ==
+      ReconstructionManagerWidget::kNewestReconstructionIdx) {
+    if (reconstruction_manager_.Size() > 0) {
+      reconstruction_idx = reconstruction_manager_.Size() - 1;
+    }
+  }
+  return reconstruction_idx;
+}
+
+bool MainWindow::HasSelectedReconstruction() {
+  const size_t reconstruction_idx =
+      reconstruction_manager_widget_->SelectedReconstructionIdx();
+  if (reconstruction_idx ==
+      ReconstructionManagerWidget::kNewestReconstructionIdx) {
+    if (reconstruction_manager_.Size() == 0) {
       return false;
     }
   }
   return true;
 }
 
-bool MainWindow::IsSelectedModelValid() {
-  if (!HasSelectedModel()) {
-    QMessageBox::critical(this, "", tr("No model selected."));
+bool MainWindow::IsSelectedReconstructionValid() {
+  if (!HasSelectedReconstruction()) {
+    QMessageBox::critical(this, "", tr("No reconstruction selected."));
     return false;
   }
   return true;
@@ -1085,22 +1097,23 @@ void MainWindow::GrabImage() {
 }
 
 void MainWindow::UndistortImages() {
-  if (!IsSelectedModelValid()) {
+  if (!IsSelectedReconstructionValid()) {
     return;
   }
   undistort_widget_->reconstruction =
-      mapper_controller->Model(SelectedModelIdx());
+      reconstruction_manager_.Get(SelectedReconstructionIdx());
   undistort_widget_->show();
   undistort_widget_->raise();
 }
 
-void MainWindow::ShowModelStats() {
-  if (!IsSelectedModelValid()) {
+void MainWindow::ShowReconstructionStats() {
+  if (!IsSelectedReconstructionValid()) {
     return;
   }
-  model_stats_widget_->show();
-  model_stats_widget_->raise();
-  model_stats_widget_->Update(mapper_controller->Model(SelectedModelIdx()));
+  reconstruction_stats_widget_->show();
+  reconstruction_stats_widget_->raise();
+  reconstruction_stats_widget_->Show(
+      reconstruction_manager_.Get(SelectedReconstructionIdx()));
 }
 
 void MainWindow::ShowMatchMatrix() {
@@ -1117,7 +1130,7 @@ void MainWindow::ShowLog() {
 }
 
 void MainWindow::ExtractColors() {
-  if (!IsSelectedModelValid()) {
+  if (!IsSelectedReconstructionValid()) {
     return;
   }
 
@@ -1126,8 +1139,9 @@ void MainWindow::ExtractColors() {
   progress_bar_->show();
 
   extract_colors_watcher_->setFuture(QtConcurrent::run([this]() {
-    auto& model = mapper_controller->Model(SelectedModelIdx());
-    model.ExtractColorsForAllImages(*this->options_.image_path);
+    auto& reconstruction =
+        reconstruction_manager_.Get(SelectedReconstructionIdx());
+    reconstruction.ExtractColorsForAllImages(*options_.image_path);
   }));
 }
 
