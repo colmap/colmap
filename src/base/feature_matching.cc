@@ -120,7 +120,7 @@ void MatchNearestNeighborsInVisualIndex(const int num_threads,
       return;
     }
 
-    retrieval_thread_pool.AddTask([&]() {
+    retrieval_thread_pool.AddTask([&, i]() {
       std::vector<retrieval::ImageScore> image_scores;
       retrieval::VisualIndex::Desc descriptors =
           cache->GetDescriptors(image_ids[i]);
@@ -777,8 +777,6 @@ void SequentialFeatureMatcher::RunLoopDetection(
   MatchNearestNeighborsInVisualIndex(
       match_options_.num_threads, options_.loop_detection_num_images,
       match_image_ids, this, &cache_, &visual_index, &matcher_);
-
-  GetTimer().PrintMinutes();
 }
 
 void VocabTreeFeatureMatcher::Options::Check() const {
