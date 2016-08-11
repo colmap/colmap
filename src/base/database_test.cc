@@ -18,6 +18,8 @@
 #define BOOST_TEST_MODULE "base/database"
 #include <boost/test/unit_test.hpp>
 
+#include <thread>
+
 #include "base/database.h"
 
 using namespace colmap;
@@ -36,6 +38,23 @@ BOOST_AUTO_TEST_CASE(TestOpenClose) {
 BOOST_AUTO_TEST_CASE(TestTransaction) {
   Database database(kMemoryDatabasePath);
   DatabaseTransaction database_transaction(&database);
+}
+
+BOOST_AUTO_TEST_CASE(TestTransactionMultiThreaded) {
+  Database database(kMemoryDatabasePath);
+
+  std::thread thread1([&database]() {
+    DatabaseTransaction database_transaction(&database);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  });
+
+  std::thread thread2([&database]() {
+    DatabaseTransaction database_transaction(&database);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  });
+
+  thread1.join();
+  thread2.join();
 }
 
 BOOST_AUTO_TEST_CASE(TestEmpty) {

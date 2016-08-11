@@ -1069,8 +1069,8 @@ size_t Database::SumColumn(const std::string& column,
   return sum;
 }
 
-DatabaseTransaction::DatabaseTransaction(const Database* database)
-    : database_(database) {
+DatabaseTransaction::DatabaseTransaction(Database* database)
+    : database_(database), database_lock_(database->transaction_mutex_) {
   CHECK_NOTNULL(database_);
   database_->BeginTransaction();
 }

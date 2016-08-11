@@ -217,6 +217,9 @@ class Database {
 
   sqlite3* database_;
 
+  // Used to ensure that only one transaction is active at the same time.
+  std::mutex transaction_mutex_;
+
   // A collection of all `sqlite3_stmt` objects for deletion in the destructor.
   std::vector<sqlite3_stmt*> sql_stmts_;
 
@@ -271,13 +274,14 @@ class Database {
 // destruction, respectively.
 class DatabaseTransaction {
  public:
-  DatabaseTransaction(const Database* database);
+  DatabaseTransaction(Database* database);
   ~DatabaseTransaction();
 
  private:
   NON_COPYABLE(DatabaseTransaction)
   NON_MOVABLE(DatabaseTransaction)
-  const Database* database_;
+  Database* database_;
+  std::unique_lock<std::mutex> database_lock_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
