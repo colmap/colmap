@@ -425,6 +425,7 @@ void BundleAdjustmentController::Run() {
 
   if (reg_image_ids.size() < 2) {
     std::cout << "ERROR: Need at least two views." << std::endl;
+    reconstruction = nullptr;
     return;
   }
 
@@ -449,6 +450,8 @@ void BundleAdjustmentController::Run() {
   // Normalize scene for numerical stability and
   // to avoid large scale changes in viewer.
   reconstruction->Normalize();
+
+  reconstruction = nullptr
 
   GetTimer().PrintMinutes();
 }
