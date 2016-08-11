@@ -26,11 +26,6 @@ namespace colmap {
 
 // Class that controls the incremental mapping procedure by iteratively
 // initializing reconstructions from the same scene graph.
-// The following callbacks are available:
-//  - "InitialImagePairRegistered"
-//  - "NextImageRegistered"
-//  - "LastImageRegistered"
-//  - "Finished"
 class IncrementalMapperController : public Thread {
  public:
   enum {
@@ -62,7 +57,6 @@ class IncrementalMapperController : public Thread {
 };
 
 // Class that controls the global bundle adjustment procedure.
-// The class implements the "Finished" callback.
 class BundleAdjustmentController : public Thread {
  public:
   BundleAdjustmentController(const OptionManager& options);
