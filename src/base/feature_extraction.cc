@@ -496,6 +496,7 @@ bool ExtractSiftFeaturesCPU(const SiftOptions& options, const Bitmap& bitmap,
                             FeatureKeypoints* keypoints,
                             FeatureDescriptors* descriptors) {
   options.Check();
+  CHECK(bitmap.IsGrey());
   CHECK_NOTNULL(keypoints);
   CHECK_NOTNULL(descriptors);
 
@@ -728,6 +729,7 @@ bool ExtractSiftFeaturesGPU(const SiftOptions& options, const Bitmap& bitmap,
                             SiftGPU* sift_gpu, FeatureKeypoints* keypoints,
                             FeatureDescriptors* descriptors) {
   options.Check();
+  CHECK(bitmap.IsGrey());
   CHECK_NOTNULL(keypoints);
   CHECK_NOTNULL(descriptors);
   CHECK_EQ(options.max_image_size, sift_gpu->GetMaxDimension());
