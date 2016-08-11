@@ -948,15 +948,23 @@ void MainWindow::ReconstructionFinish() {
   timer_.Pause();
   mapper_controller_->Stop();
   EnableBlockingActions();
+  action_reconstruction_start_->setEnabled(false);
   action_reconstruction_step_->setEnabled(false);
   action_reconstruction_pause_->setEnabled(false);
 }
 
 void MainWindow::ReconstructionReset() {
+  CreateControllers();
+
+  reconstruction_manager_.Clear();
+  reconstruction_manager_widget_->Update();
+
   timer_.Reset();
   UpdateTimer();
-  CreateControllers();
+
   EnableBlockingActions();
+  action_reconstruction_pause_->setEnabled(false);
+
   RenderClear();
   log_widget_->Clear();
 }

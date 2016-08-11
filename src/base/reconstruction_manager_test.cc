@@ -53,3 +53,15 @@ BOOST_AUTO_TEST_CASE(TestDelete) {
     BOOST_CHECK_EQUAL(reconstruction_manager.Size(), 9 - i);
   }
 }
+
+BOOST_AUTO_TEST_CASE(TestClear) {
+  ReconstructionManager reconstruction_manager;
+  BOOST_CHECK_EQUAL(reconstruction_manager.Size(), 0);
+  for (size_t i = 0; i < 10; ++i) {
+    reconstruction_manager.Add();
+  }
+
+  BOOST_CHECK_EQUAL(reconstruction_manager.Size(), 10);
+  reconstruction_manager.Clear();
+  BOOST_CHECK_EQUAL(reconstruction_manager.Size(), 0);
+}

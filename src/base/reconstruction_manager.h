@@ -37,6 +37,9 @@ class ReconstructionManager {
   // Delete a specific reconstruction.
   void Delete(const size_t idx);
 
+  // Delete all reconstructions.
+  void Clear();
+
   // Read and add a new reconstruction and return its index.
   size_t Read(const std::string& path);
 
