@@ -1193,7 +1193,7 @@ void MainWindow::License() {
 
   license_content += "<h2>COLMAP</h2>";
   license_content +=
-      "Copyright (C) 2016  Johannes L. Schoenberger <jsch at cs.unc.edu><br>"
+      "Copyright (C) 2016  Johannes L. Schoenberger <jsch at inf.ethz.ch><br>"
       "This program is free software: you can redistribute it and/or modify<br>"
       "it under the terms of the GNU General Public License as published by<br>"
       "the Free Software Foundation, either version 3 of the License, or<br>"

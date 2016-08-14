@@ -1,5 +1,5 @@
 # COLMAP - Structure-from-Motion.
-# Copyright (C) 2016  Johannes L. Schoenberger <jsch at cs.unc.edu>
+# Copyright (C) 2016  Johannes L. Schoenberger <jsch at inf.ethz.ch>
 #                     Filip Radenovic <filip.radenovic at cmp.felk.cvut.cz>
 #
 # This program is free software: you can redistribute it and/or modify
