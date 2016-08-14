@@ -63,6 +63,9 @@ std::vector<T> CSVToVector(const std::string& csv);
 template <typename T>
 std::string VectorToCSV(const std::vector<T>& values);
 
+// Check the order in which bytes are stored in computer memory.
+bool IsBigEndian();
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
