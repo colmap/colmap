@@ -76,6 +76,9 @@ class Bitmap {
   bool GetPixel(const int x, const int y, Eigen::Vector3ub* color) const;
   bool SetPixel(const int x, const int y, const Eigen::Vector3ub& color);
 
+  // Get pointer to y-th scanline, where the 0-th scanline is at the top.
+  const uint8_t* GetScanline(const int y) const;
+
   // Fill entire bitmap with uniform color. For grayscale images, the first
   // element of the vector is used.
   void Fill(const Eigen::Vector3ub& color);

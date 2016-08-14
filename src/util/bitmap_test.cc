@@ -159,6 +159,36 @@ BOOST_AUTO_TEST_CASE(TestGetAndSetPixelGrey) {
   BOOST_CHECK_EQUAL(color, Eigen::Vector3ub(1, 1, 1));
 }
 
+BOOST_AUTO_TEST_CASE(TestGetScanlineRGB) {
+  Bitmap bitmap;
+  bitmap.Allocate(3, 3, true);
+  bitmap.Fill(Eigen::Vector3ub(1, 2, 3));
+  for (size_t r = 0; r < 3; ++r) {
+    const uint8_t* scanline = bitmap.GetScanline(r);
+    for (size_t c = 0; c < 3; ++c) {
+      Eigen::Vector3ub color;
+      BOOST_CHECK(bitmap.GetPixel(r, c, &color));
+      BOOST_CHECK_EQUAL(scanline[c * 3 + FI_RGBA_RED], color(0));
+      BOOST_CHECK_EQUAL(scanline[c * 3 + FI_RGBA_GREEN], color(1));
+      BOOST_CHECK_EQUAL(scanline[c * 3 + FI_RGBA_BLUE], color(2));
+    }
+  }
+}
+
+BOOST_AUTO_TEST_CASE(TestGetScanlineGrey) {
+  Bitmap bitmap;
+  bitmap.Allocate(3, 3, false);
+  bitmap.Fill(Eigen::Vector3ub(1, 2, 3));
+  for (size_t r = 0; r < 3; ++r) {
+    const uint8_t* scanline = bitmap.GetScanline(r);
+    for (size_t c = 0; c < 3; ++c) {
+      Eigen::Vector3ub color;
+      BOOST_CHECK(bitmap.GetPixel(r, c, &color));
+      BOOST_CHECK_EQUAL(scanline[c], color(0));
+    }
+  }
+}
+
 BOOST_AUTO_TEST_CASE(TestFill) {
   Bitmap bitmap;
   bitmap.Allocate(100, 100, true);

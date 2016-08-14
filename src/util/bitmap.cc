@@ -140,6 +140,12 @@ bool Bitmap::SetPixel(const int x, const int y, const Eigen::Vector3ub& color) {
   return false;
 }
 
+const uint8_t* Bitmap::GetScanline(const int y) const {
+  CHECK_GE(y, 0);
+  CHECK_LT(y, height_);
+  return FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
+}
+
 void Bitmap::Fill(const Eigen::Vector3ub& color) {
   for (int y = 0; y < height_; ++y) {
     uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
