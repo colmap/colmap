@@ -17,15 +17,12 @@
 #include "util/misc.h"
 
 #include <cstdarg>
-#include <fstream>
 #include <sstream>
 #include <stdarg.h>
 #include <stdio.h>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
-
-#include "util/logging.h"
 
 namespace colmap {
 

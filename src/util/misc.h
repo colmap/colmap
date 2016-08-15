@@ -17,6 +17,7 @@
 #ifndef COLMAP_SRC_UTIL_MISC_H_
 #define COLMAP_SRC_UTIL_MISC_H_
 
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -24,6 +25,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include "util/logging.h"
 #include "util/string.h"
 
 namespace colmap {
@@ -41,8 +43,6 @@ void CreateDirIfNotExists(const std::string& path);
 std::vector<std::string> GetRecursiveFileList(const std::string& path);
 
 // Print first-order heading with over- and underscores to `std::cout`.
-//
-// @param heading      Heading text as a single line.
 void PrintHeading1(const std::string& heading);
 
 // Print second-order heading with underscores to `std::cout`.
@@ -65,6 +65,14 @@ std::string VectorToCSV(const std::vector<T>& values);
 
 // Check the order in which bytes are stored in computer memory.
 bool IsBigEndian();
+
+// Read contiguous binary blob from file.
+template <typename T>
+void ReadBinaryBlobFromFile(const std::string& path, std::vector<T>* data);
+
+// Write contiguous binary blob to file.
+template <typename T>
+void WriteBinaryBlob(const std::string& path, const std::vector<T>& data);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -110,6 +118,26 @@ std::string VectorToCSV(const std::vector<T>& values) {
     string += std::to_string(value) + ", ";
   }
   return string.substr(0, string.length() - 2);
+}
+
+template <typename T>
+void ReadBinaryBlob(const std::string& path, std::vector<T>* data) {
+  std::ifstream file(path, std::ios_base::binary | std::ios::ate);
+  CHECK(file.is_open()) << path;
+  file.seekg(0, std::ios::end);
+  const size_t num_bytes = file.tellg();
+  CHECK_EQ(num_bytes % sizeof(T), 0);
+  data->resize(num_bytes / sizeof(T));
+  file.seekg(0, std::ios::beg);
+  file.read(reinterpret_cast<char*>(data->data()), num_bytes);
+}
+
+template <typename T>
+void WriteBinaryBlob(const std::string& path, const std::vector<T>& data) {
+  std::ofstream file(path, std::ios_base::binary);
+  CHECK(file.is_open()) << path;
+  file.write(reinterpret_cast<const char*>(data.data()),
+             data.size() * sizeof(T));
 }
 
 }  // namespace colmap
