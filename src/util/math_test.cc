@@ -201,3 +201,12 @@ BOOST_AUTO_TEST_CASE(TestNChooseK) {
 
   BOOST_CHECK_EQUAL(NChooseK(500, 3), 20708500);
 }
+
+BOOST_AUTO_TEST_CASE(TestTruncateCast) {
+  BOOST_CHECK_EQUAL((TruncateCast<int, int8_t>(-129)), -128);
+  BOOST_CHECK_EQUAL((TruncateCast<int, int8_t>(128)), 127);
+  BOOST_CHECK_EQUAL((TruncateCast<int, uint8_t>(-1)), 0);
+  BOOST_CHECK_EQUAL((TruncateCast<int, uint8_t>(256)), 255);
+  BOOST_CHECK_EQUAL((TruncateCast<int, uint16_t>(-1)), 0);
+  BOOST_CHECK_EQUAL((TruncateCast<int, uint16_t>(65536)), 65535);
+}

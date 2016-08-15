@@ -16,6 +16,8 @@
 
 #include "base/feature.h"
 
+#include "util/math.h"
+
 namespace colmap {
 
 std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
@@ -53,7 +55,7 @@ FeatureDescriptors FeatureDescriptorsToUnsignedByte(
     for (Eigen::MatrixXf::Index c = 0; c < descriptors.cols(); ++c) {
       const float scaled_value = std::round(512.0f * descriptors(r, c));
       descriptors_unsigned_byte(r, c) =
-          static_cast<uint8_t>(std::min(255.0f, scaled_value));
+          TruncateCast<float, uint8_t>(scaled_value);
     }
   }
   return descriptors_unsigned_byte;

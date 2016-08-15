@@ -117,6 +117,11 @@ T ScaleSigmoid(T x, const T alpha = 1, const T x0 = 10);
 // Binomial coefficient or all combinations, defined as n! / ((n - k)! k!).
 size_t NChooseK(const size_t n, const size_t k);
 
+// Cast value from one type to another and truncate instead of overflow, if the
+// input value is out of range of the output data type.
+template <typename T1, typename T2>
+T2 TruncateCast(const T1 value);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
@@ -286,6 +291,13 @@ T ScaleSigmoid(T x, const T alpha, const T x0) {
   const T t1 = Sigmoid(x0, alpha);
   x = (Sigmoid(2 * x0 * x - x0, alpha) - t0) / (t1 - t0);
   return x;
+}
+
+template <typename T1, typename T2>
+T2 TruncateCast(const T1 value) {
+  return std::min(
+      static_cast<T1>(std::numeric_limits<T2>::max()),
+      std::max(static_cast<T1>(std::numeric_limits<T2>::min()), value));
 }
 
 }  // namespace colmap
