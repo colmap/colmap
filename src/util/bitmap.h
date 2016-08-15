@@ -66,7 +66,7 @@ class Bitmap {
   inline bool IsRGB() const;
   inline bool IsGrey() const;
 
-  // Copy raw image data raw arrays.
+  // Copy raw image data to array.
   std::vector<uint8_t> ConvertToRawBits() const;
   std::vector<uint8_t> ConvertToRowMajorArray() const;
   std::vector<uint8_t> ConvertToColMajorArray() const;
@@ -104,6 +104,9 @@ class Bitmap {
   bool Write(const std::string& path,
              const FREE_IMAGE_FORMAT format = FIF_UNKNOWN,
              const int flags = 0) const;
+
+  // Smooth the image using a Gaussian kernel.
+  void Smooth(const float sigma_x, const float sigma_y);
 
   // Rescale image to the new dimensions.
   void Rescale(const int new_width, const int new_height,

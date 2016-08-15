@@ -22,7 +22,9 @@
 #include <boost/regex.hpp>
 
 #include "base/camera_database.h"
+#include "ext/VLFeat/imopv.h"
 #include "util/logging.h"
+#include "util/math.h"
 #include "util/misc.h"
 
 namespace colmap {
@@ -30,9 +32,7 @@ namespace colmap {
 Bitmap::Bitmap()
     : data_(nullptr, &FreeImage_Unload), width_(0), height_(0), channels_(0) {}
 
-Bitmap::Bitmap(FIBITMAP* data) : Bitmap() {
-  SetPtr(data);
-}
+Bitmap::Bitmap(FIBITMAP* data) : Bitmap() { SetPtr(data); }
 
 bool Bitmap::Allocate(const int width, const int height, const bool as_rgb) {
   FIBITMAP* data = nullptr;
@@ -63,38 +63,33 @@ std::vector<uint8_t> Bitmap::ConvertToRawBits() const {
 }
 
 std::vector<uint8_t> Bitmap::ConvertToRowMajorArray() const {
-  const unsigned int scan_width = ScanWidth();
-  const std::vector<uint8_t> raw_bits = ConvertToRawBits();
-  std::vector<uint8_t> array(width_ * height_ * channels_, 0);
-
+  std::vector<uint8_t> array(width_ * height_ * channels_);
   size_t i = 0;
   for (int y = 0; y < height_; ++y) {
+    const uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
     for (int x = 0; x < width_; ++x) {
       for (int d = 0; d < channels_; ++d) {
-        array[i] = raw_bits[y * scan_width + x * channels_ + d];
+        array[i] = line[x * channels_ + d];
         i += 1;
       }
     }
   }
-
   return array;
 }
 
 std::vector<uint8_t> Bitmap::ConvertToColMajorArray() const {
-  const unsigned int scan_width = ScanWidth();
-  const std::vector<uint8_t> raw_bits = ConvertToRawBits();
-  std::vector<uint8_t> array(width_ * height_ * channels_, 0);
-
+  std::vector<uint8_t> array(width_ * height_ * channels_);
   size_t i = 0;
   for (int d = 0; d < channels_; ++d) {
     for (int x = 0; x < width_; ++x) {
       for (int y = 0; y < height_; ++y) {
-        array[i] = raw_bits[y * scan_width + x * channels_ + d];
+        const uint8_t* line =
+            FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
+        array[i] = line[x * channels_ + d];
         i += 1;
       }
     }
   }
-
   return array;
 }
 
@@ -415,6 +410,34 @@ bool Bitmap::Write(const std::string& path, const FREE_IMAGE_FORMAT format,
   }
 
   return success;
+}
+
+void Bitmap::Smooth(const float sigma_x, const float sigma_y) {
+  std::vector<float> array(width_ * height_);
+  std::vector<float> array_smoothed(width_ * height_);
+  for (int d = 0; d < channels_; ++d) {
+    size_t i = 0;
+    for (int y = 0; y < height_; ++y) {
+      const uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
+      for (int x = 0; x < width_; ++x) {
+        array[i] = line[x * channels_ + d];
+        i += 1;
+      }
+    }
+
+    vl_imsmooth_f(array_smoothed.data(), width_, array.data(), width_, height_,
+                  width_, sigma_x, sigma_y);
+
+    i = 0;
+    for (int y = 0; y < height_; ++y) {
+      uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
+      for (int x = 0; x < width_; ++x) {
+        line[x * channels_ + d] =
+            TruncateCast<float, uint8_t>(array_smoothed[i]);
+        i += 1;
+      }
+    }
+  }
 }
 
 void Bitmap::Rescale(const int new_width, const int new_height,

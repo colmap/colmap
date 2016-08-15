@@ -232,6 +232,44 @@ BOOST_AUTO_TEST_CASE(TestInterpolateBilinear) {
   BOOST_CHECK_EQUAL(color, Eigen::Vector3d(0.25, 0.5, 0.75));
 }
 
+BOOST_AUTO_TEST_CASE(TestSmoothRGB) {
+  Bitmap bitmap;
+  bitmap.Allocate(50, 50, true);
+  for (int x = 0; x < 50; ++x) {
+    for (int y = 0; y < 50; ++y) {
+      bitmap.SetPixel(x, y,
+                      Eigen::Vector3ub(y * 50 + x, y * 50 + x, y * 50 + x));
+    }
+  }
+  bitmap.Smooth(1, 1);
+  BOOST_CHECK_EQUAL(bitmap.Width(), 50);
+  BOOST_CHECK_EQUAL(bitmap.Height(), 50);
+  BOOST_CHECK_EQUAL(bitmap.Channels(), 3);
+  for (int x = 0; x < 50; ++x) {
+    for (int y = 0; y < 50; ++y) {
+      Eigen::Vector3ub color;
+      BOOST_CHECK(bitmap.GetPixel(x, y, &color));
+      BOOST_CHECK_EQUAL(color(0), color(1));
+      BOOST_CHECK_EQUAL(color(0), color(2));
+    }
+  }
+}
+
+BOOST_AUTO_TEST_CASE(TestSmoothGrey) {
+  Bitmap bitmap;
+  bitmap.Allocate(50, 50, false);
+  for (int x = 0; x < 50; ++x) {
+    for (int y = 0; y < 50; ++y) {
+      bitmap.SetPixel(x, y,
+                      Eigen::Vector3ub(y * 50 + x, y * 50 + x, y * 50 + x));
+    }
+  }
+  bitmap.Smooth(1, 1);
+  BOOST_CHECK_EQUAL(bitmap.Width(), 50);
+  BOOST_CHECK_EQUAL(bitmap.Height(), 50);
+  BOOST_CHECK_EQUAL(bitmap.Channels(), 1);
+}
+
 BOOST_AUTO_TEST_CASE(TestRescaleRGB) {
   Bitmap bitmap;
   bitmap.Allocate(100, 100, true);

@@ -1504,57 +1504,6 @@ vl_thread_specific_state_delete (VlThreadState * self)
 #endif
   free (self) ;
 }
-/* ---------------------------------------------------------------- */
-/*                                        DLL entry and exit points */
-/* ---------------------------------------------------------------- */
-/* A constructor and a destructor must be called to initialize or dispose of VLFeat
- * state when the DLL is loaded or unloaded. This is obtained
- * in different ways depending on the operating system.
- */
-
-#if (defined(VL_OS_LINUX) || defined(VL_OS_MACOSX)) && defined(VL_COMPILER_GNUC)
-// void vl_constructor () __attribute__ ((constructor)) ;
-// void vl_destructor () __attribute__ ((destructor))  ;
-#endif
-
-#if defined(VL_OS_WIN)
-
-BOOL WINAPI DllMain(
-    HINSTANCE hinstDLL,  // handle to DLL module
-    DWORD fdwReason,     // reason for calling function
-    LPVOID lpReserved )  // reserved
-{
-  VlState * state ;
-  VlThreadState * threadState ;
-  switch (fdwReason) {
-    case DLL_PROCESS_ATTACH:
-      /* Initialize once for each new process */
-      vl_constructor () ;
-      break ;
-
-    case DLL_THREAD_ATTACH:
-      /* Do thread-specific initialization */
-      break ;
-
-    case DLL_THREAD_DETACH:
-      /* Do thread-specific cleanup */
-#if ! defined(VL_DISABLE_THREADS) && defined(VL_THREADS_WIN)
-      state = vl_get_state() ;
-      threadState = (VlThreadState*) TlsGetValue(state->tlsIndex) ;
-      if (threadState) {
-        vl_thread_specific_state_delete (threadState) ;
-      }
-#endif
-      break;
-
-    case DLL_PROCESS_DETACH:
-      /* Perform any necessary cleanup */
-      vl_destructor () ;
-      break;
-    }
-    return TRUE ; /* Successful DLL_PROCESS_ATTACH */
-}
-#endif /* VL_OS_WIN */
 
 /* ---------------------------------------------------------------- */
 /*                               Library constructor and destructor */
@@ -1696,3 +1645,37 @@ vl_destructor ()
   printf("VLFeat DEBUG: destructor ends.\n") ;
 #endif
 }
+
+/* ---------------------------------------------------------------- */
+/*                    Cross-platform call to constructor/destructor */
+/* ---------------------------------------------------------------- */
+
+#ifdef __cplusplus
+    #define INITIALIZER(f) \
+        static void f(void); \
+        struct f##_t_ { f##_t_(void) { f(); } }; static f##_t_ f##_; \
+        static void f(void)
+#elif defined(_MSC_VER)
+    #pragma section(".CRT$XCU",read)
+    #define INITIALIZER2_(f,p) \
+        static void f(void); \
+        __declspec(allocate(".CRT$XCU")) void (*f##_)(void) = f; \
+        __pragma(comment(linker,"/include:" p #f "_")) \
+        static void f(void)
+    #ifdef _WIN64
+        #define INITIALIZER(f) INITIALIZER2_(f,"")
+    #else
+        #define INITIALIZER(f) INITIALIZER2_(f,"_")
+    #endif
+#else
+    #define INITIALIZER(f) \
+        static void f(void) __attribute__((constructor)); \
+        static void f(void)
+#endif
+
+INITIALIZER(vl_initialize)
+{
+    vl_constructor();
+    atexit(vl_destructor);
+}
+

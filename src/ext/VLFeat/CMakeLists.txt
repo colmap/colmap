@@ -15,7 +15,6 @@ set(VLFEAT_SOURCE_FILES
     aib.h
     array.c
     array.h
-    context.h
     covdet.c
     covdet.h
     dsift.c
