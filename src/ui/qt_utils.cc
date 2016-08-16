@@ -47,9 +47,9 @@ QImage BitmapToQImageRGB(const Bitmap& bitmap) {
   for (int y = 0; y < image.height(); ++y) {
     QRgb* image_line = (QRgb*)image.scanLine(y);
     for (int x = 0; x < image.width(); ++x) {
-      Eigen::Vector3ub rgb;
-      if (bitmap.GetPixel(x, y, &rgb)) {
-        image_line[x] = qRgba(rgb(0), rgb(1), rgb(2), 255);
+      BitmapColor<uint8_t> color;
+      if (bitmap.GetPixel(x, y, &color)) {
+        image_line[x] = qRgba(color.r, color.g, color.b, 255);
       }
     }
   }

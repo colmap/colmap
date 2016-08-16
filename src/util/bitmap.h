@@ -17,12 +17,11 @@
 #ifndef COLMAP_SRC_UTIL_BITMAP_H_
 #define COLMAP_SRC_UTIL_BITMAP_H_
 
+#include <cmath>
 #include <ios>
 #include <memory>
 #include <string>
 #include <vector>
-
-#include <Eigen/Core>
 
 #ifdef _WIN32
 #define NOMINMAX
@@ -30,9 +29,30 @@
 #endif
 #include <FreeImage.h>
 
-#include "util/types.h"
+#include "util/string.h"
 
 namespace colmap {
+
+// Templated bitmap color class.
+template <typename T>
+struct BitmapColor {
+  BitmapColor();
+  BitmapColor(const T r, const T g, const T b);
+
+  template <typename D>
+  BitmapColor<D> Cast() const;
+
+  bool operator==(const BitmapColor<T>& rhs) const;
+  bool operator!=(const BitmapColor<T>& rhs) const;
+
+  template <typename D>
+  friend std::ostream& operator<<(std::ostream& output,
+                                  const BitmapColor<D>& color);
+
+  T r;
+  T g;
+  T b;
+};
 
 // Wrapper class around FreeImage bitmaps.
 class Bitmap {
@@ -71,23 +91,23 @@ class Bitmap {
   std::vector<uint8_t> ConvertToRowMajorArray() const;
   std::vector<uint8_t> ConvertToColMajorArray() const;
 
-  // Manipulate individual pixels. For grayscale images, the first element of
-  // the vector is used.
-  bool GetPixel(const int x, const int y, Eigen::Vector3ub* color) const;
-  bool SetPixel(const int x, const int y, const Eigen::Vector3ub& color);
+  // Manipulate individual pixels. For grayscale images, only the red element
+  // of the RGB color is used.
+  bool GetPixel(const int x, const int y, BitmapColor<uint8_t>* color) const;
+  bool SetPixel(const int x, const int y, const BitmapColor<uint8_t>& color);
 
   // Get pointer to y-th scanline, where the 0-th scanline is at the top.
   const uint8_t* GetScanline(const int y) const;
 
   // Fill entire bitmap with uniform color. For grayscale images, the first
   // element of the vector is used.
-  void Fill(const Eigen::Vector3ub& color);
+  void Fill(const BitmapColor<uint8_t>& color);
 
   // Interpolate color at given floating point position.
   bool InterpolateNearestNeighbor(const double x, const double y,
-                                  Eigen::Vector3ub* color) const;
+                                  BitmapColor<uint8_t>* color) const;
   bool InterpolateBilinear(const double x, const double y,
-                           Eigen::Vector3d* color) const;
+                           BitmapColor<float>* color) const;
 
   // Extract EXIF information from bitmap. Returns false if no EXIF information
   // is embedded in the bitmap.
@@ -138,6 +158,41 @@ class Bitmap {
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
+
+template <typename T>
+BitmapColor<T>::BitmapColor() : r(0), g(0), b(0) {}
+
+template <typename T>
+BitmapColor<T>::BitmapColor(const T r, const T g, const T b)
+    : r(r), g(g), b(b) {}
+
+template <typename T>
+template <typename D>
+BitmapColor<D> BitmapColor<T>::Cast() const {
+  BitmapColor<D> color;
+  color.r = static_cast<D>(std::round(r));
+  color.g = static_cast<D>(std::round(g));
+  color.b = static_cast<D>(std::round(b));
+  return color;
+}
+
+template <typename T>
+bool BitmapColor<T>::operator==(const BitmapColor<T>& rhs) const {
+  return r == rhs.r && g == rhs.g && b == rhs.b;
+}
+
+template <typename T>
+bool BitmapColor<T>::operator!=(const BitmapColor<T>& rhs) const {
+  return r != rhs.r || g != rhs.g || b != rhs.b;
+}
+
+template <typename T>
+std::ostream& operator<<(std::ostream& output, const BitmapColor<T>& color) {
+  output << StringPrintf("RGB(%f, %f, %f)", static_cast<double>(color.r),
+                         static_cast<double>(color.g),
+                         static_cast<double>(color.b));
+  return output;
+}
 
 FIBITMAP* Bitmap::Data() { return data_.get(); }
 const FIBITMAP* Bitmap::Data() const { return data_.get(); }

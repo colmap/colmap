@@ -93,7 +93,8 @@ std::vector<uint8_t> Bitmap::ConvertToColMajorArray() const {
   return array;
 }
 
-bool Bitmap::GetPixel(const int x, const int y, Eigen::Vector3ub* color) const {
+bool Bitmap::GetPixel(const int x, const int y,
+                      BitmapColor<uint8_t>* color) const {
   if (x < 0 || x >= width_ || y < 0 || y >= height_) {
     return false;
   }
@@ -101,21 +102,20 @@ bool Bitmap::GetPixel(const int x, const int y, Eigen::Vector3ub* color) const {
   const uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
 
   if (IsGrey()) {
-    (*color)(0) = line[x];
-    (*color)(1) = (*color)(0);
-    (*color)(2) = (*color)(0);
+    color->r = line[x];
     return true;
   } else if (IsRGB()) {
-    (*color)(0) = line[3 * x + FI_RGBA_RED];
-    (*color)(1) = line[3 * x + FI_RGBA_GREEN];
-    (*color)(2) = line[3 * x + FI_RGBA_BLUE];
+    color->r = line[3 * x + FI_RGBA_RED];
+    color->g = line[3 * x + FI_RGBA_GREEN];
+    color->b = line[3 * x + FI_RGBA_BLUE];
     return true;
   }
 
   return false;
 }
 
-bool Bitmap::SetPixel(const int x, const int y, const Eigen::Vector3ub& color) {
+bool Bitmap::SetPixel(const int x, const int y,
+                      const BitmapColor<uint8_t>& color) {
   if (x < 0 || x >= width_ || y < 0 || y >= height_) {
     return false;
   }
@@ -123,12 +123,12 @@ bool Bitmap::SetPixel(const int x, const int y, const Eigen::Vector3ub& color) {
   uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
 
   if (IsGrey()) {
-    line[x] = color(0);
+    line[x] = color.r;
     return true;
   } else if (IsRGB()) {
-    line[3 * x + FI_RGBA_RED] = color(0);
-    line[3 * x + FI_RGBA_GREEN] = color(1);
-    line[3 * x + FI_RGBA_BLUE] = color(2);
+    line[3 * x + FI_RGBA_RED] = color.r;
+    line[3 * x + FI_RGBA_GREEN] = color.g;
+    line[3 * x + FI_RGBA_BLUE] = color.b;
     return true;
   }
 
@@ -141,30 +141,30 @@ const uint8_t* Bitmap::GetScanline(const int y) const {
   return FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
 }
 
-void Bitmap::Fill(const Eigen::Vector3ub& color) {
+void Bitmap::Fill(const BitmapColor<uint8_t>& color) {
   for (int y = 0; y < height_; ++y) {
     uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
     for (int x = 0; x < width_; ++x) {
       if (IsGrey()) {
-        line[x] = color(0);
+        line[x] = color.r;
       } else if (IsRGB()) {
-        line[3 * x + FI_RGBA_RED] = color(0);
-        line[3 * x + FI_RGBA_GREEN] = color(1);
-        line[3 * x + FI_RGBA_BLUE] = color(2);
+        line[3 * x + FI_RGBA_RED] = color.r;
+        line[3 * x + FI_RGBA_GREEN] = color.g;
+        line[3 * x + FI_RGBA_BLUE] = color.b;
       }
     }
   }
 }
 
 bool Bitmap::InterpolateNearestNeighbor(const double x, const double y,
-                                        Eigen::Vector3ub* color) const {
+                                        BitmapColor<uint8_t>* color) const {
   const int xx = static_cast<int>(std::round(x));
   const int yy = static_cast<int>(std::round(y));
   return GetPixel(xx, yy, color);
 }
 
 bool Bitmap::InterpolateBilinear(const double x, const double y,
-                                 Eigen::Vector3d* color) const {
+                                 BitmapColor<float>* color) const {
   // FreeImage's coordinate system origin is in the lower left of the image.
   const double inv_y = height_ - 1 - y;
 
@@ -193,9 +193,7 @@ bool Bitmap::InterpolateBilinear(const double x, const double y,
     const double v1 = dx_1 * line1[x0] + dx * line1[x1];
 
     // Row-wise linear interpolation.
-    (*color)(0) = dy_1 * v0 + dy * v1;
-    (*color)(1) = (*color)(0);
-    (*color)(2) = (*color)(0);
+    color->r = dy_1 * v0 + dy * v1;
     return true;
   } else if (IsRGB()) {
     const uint8_t* p00 = &line0[3 * x0];
@@ -214,9 +212,9 @@ bool Bitmap::InterpolateBilinear(const double x, const double y,
     const double v1_b = dx_1 * p10[FI_RGBA_BLUE] + dx * p11[FI_RGBA_BLUE];
 
     // Row-wise linear interpolation.
-    (*color)(0) = dy_1 * v0_r + dy * v1_r;
-    (*color)(1) = dy_1 * v0_g + dy * v1_g;
-    (*color)(2) = dy_1 * v0_b + dy * v1_b;
+    color->r = dy_1 * v0_r + dy * v1_r;
+    color->g = dy_1 * v0_g + dy * v1_g;
+    color->b = dy_1 * v0_b + dy * v1_b;
     return true;
   }
 

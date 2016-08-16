@@ -1171,10 +1171,11 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
     if (point2D.HasPoint3D()) {
       class Point3D& point3D = Point3D(point2D.Point3DId());
       if (point3D.Color() == kBlackColor) {
-        Eigen::Vector3d color;
+        BitmapColor<float> color;
         if (bitmap.InterpolateBilinear(point2D.X(), point2D.Y(), &color)) {
-          color.unaryExpr(std::ptr_fun<double, double>(std::round));
-          point3D.SetColor(color.cast<uint8_t>());
+          const BitmapColor<uint8_t> color_ub = color.Cast<uint8_t>();
+          point3D.SetColor(
+              Eigen::Vector3ub(color_ub.r, color_ub.g, color_ub.b));
         }
       }
     }
@@ -1186,7 +1187,7 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
 void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
   const std::string base_path = EnsureTrailingSlash(path);
 
-  std::unordered_map<point3D_t, Eigen::Vector3d> colors;
+  std::unordered_map<point3D_t, Eigen::Vector3d> color_sums;
   std::unordered_map<point3D_t, size_t> color_counts;
 
   for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
@@ -1203,13 +1204,17 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
 
     for (const Point2D point2D : image.Points2D()) {
       if (point2D.HasPoint3D()) {
-        Eigen::Vector3d color;
+        BitmapColor<float> color;
         if (bitmap.InterpolateBilinear(point2D.X(), point2D.Y(), &color)) {
-          if (colors.count(point2D.Point3DId())) {
-            colors[point2D.Point3DId()] += color;
+          if (color_sums.count(point2D.Point3DId())) {
+            Eigen::Vector3d& color_sum = color_sums[point2D.Point3DId()];
+            color_sum(0) += color.r;
+            color_sum(1) += color.g;
+            color_sum(2) += color.b;
             color_counts[point2D.Point3DId()] += 1;
           } else {
-            colors.emplace(point2D.Point3DId(), color);
+            color_sums.emplace(point2D.Point3DId(),
+                               Eigen::Vector3d(color.r, color.g, color.b));
             color_counts.emplace(point2D.Point3DId(), 1);
           }
         }
@@ -1219,9 +1224,9 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
 
   const Eigen::Vector3ub kBlackColor(0, 0, 0);
   for (auto& point3D : points3D_) {
-    if (colors.count(point3D.first)) {
+    if (color_sums.count(point3D.first)) {
       Eigen::Vector3d color =
-          colors[point3D.first] / color_counts[point3D.first];
+          color_sums[point3D.first] / color_counts[point3D.first];
       color.unaryExpr(std::ptr_fun<double, double>(std::round));
       point3D.second.SetColor(color.cast<uint8_t>());
     } else {

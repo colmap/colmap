@@ -65,10 +65,10 @@ BOOST_AUTO_TEST_CASE(TestBitsPerPixel) {
 BOOST_AUTO_TEST_CASE(TestConvertToRowMajorArrayRGB) {
   Bitmap bitmap;
   bitmap.Allocate(2, 2, true);
-  bitmap.SetPixel(0, 0, Eigen::Vector3ub(0, 0, 0));
-  bitmap.SetPixel(0, 1, Eigen::Vector3ub(1, 0, 0));
-  bitmap.SetPixel(1, 0, Eigen::Vector3ub(2, 0, 0));
-  bitmap.SetPixel(1, 1, Eigen::Vector3ub(3, 0, 0));
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0, 0, 0));
+  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(1, 0, 0));
+  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2, 0, 0));
+  bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(3, 0, 0));
   const std::vector<uint8_t> array = bitmap.ConvertToRowMajorArray();
   BOOST_CHECK_EQUAL(array.size(), 12);
   BOOST_CHECK_EQUAL(array[0], 0);
@@ -88,10 +88,10 @@ BOOST_AUTO_TEST_CASE(TestConvertToRowMajorArrayRGB) {
 BOOST_AUTO_TEST_CASE(TestConvertToRowMajorArrayGrey) {
   Bitmap bitmap;
   bitmap.Allocate(2, 2, false);
-  bitmap.SetPixel(0, 0, Eigen::Vector3ub(0, 0, 0));
-  bitmap.SetPixel(0, 1, Eigen::Vector3ub(1, 0, 0));
-  bitmap.SetPixel(1, 0, Eigen::Vector3ub(2, 0, 0));
-  bitmap.SetPixel(1, 1, Eigen::Vector3ub(3, 0, 0));
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0, 0, 0));
+  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(1, 0, 0));
+  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2, 0, 0));
+  bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(3, 0, 0));
   const std::vector<uint8_t> array = bitmap.ConvertToRowMajorArray();
   BOOST_CHECK_EQUAL(array.size(), 4);
   BOOST_CHECK_EQUAL(array[0], 0);
@@ -103,10 +103,10 @@ BOOST_AUTO_TEST_CASE(TestConvertToRowMajorArrayGrey) {
 BOOST_AUTO_TEST_CASE(TestConvertToColMajorArrayRGB) {
   Bitmap bitmap;
   bitmap.Allocate(2, 2, true);
-  bitmap.SetPixel(0, 0, Eigen::Vector3ub(0, 0, 0));
-  bitmap.SetPixel(0, 1, Eigen::Vector3ub(1, 0, 0));
-  bitmap.SetPixel(1, 0, Eigen::Vector3ub(2, 0, 0));
-  bitmap.SetPixel(1, 1, Eigen::Vector3ub(3, 0, 0));
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0, 0, 0));
+  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(1, 0, 0));
+  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2, 0, 0));
+  bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(3, 0, 0));
   const std::vector<uint8_t> array = bitmap.ConvertToColMajorArray();
   BOOST_CHECK_EQUAL(array.size(), 12);
   BOOST_CHECK_EQUAL(array[0], 0);
@@ -126,10 +126,10 @@ BOOST_AUTO_TEST_CASE(TestConvertToColMajorArrayRGB) {
 BOOST_AUTO_TEST_CASE(TestConvertToColMajorArrayGrey) {
   Bitmap bitmap;
   bitmap.Allocate(2, 2, false);
-  bitmap.SetPixel(0, 0, Eigen::Vector3ub(0, 0, 0));
-  bitmap.SetPixel(0, 1, Eigen::Vector3ub(1, 0, 0));
-  bitmap.SetPixel(1, 0, Eigen::Vector3ub(2, 0, 0));
-  bitmap.SetPixel(1, 1, Eigen::Vector3ub(3, 0, 0));
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0, 0, 0));
+  bitmap.SetPixel(0, 1, BitmapColor<uint8_t>(1, 0, 0));
+  bitmap.SetPixel(1, 0, BitmapColor<uint8_t>(2, 0, 0));
+  bitmap.SetPixel(1, 1, BitmapColor<uint8_t>(3, 0, 0));
   const std::vector<uint8_t> array = bitmap.ConvertToColMajorArray();
   BOOST_CHECK_EQUAL(array.size(), 4);
   BOOST_CHECK_EQUAL(array[0], 0);
@@ -141,36 +141,36 @@ BOOST_AUTO_TEST_CASE(TestConvertToColMajorArrayGrey) {
 BOOST_AUTO_TEST_CASE(TestGetAndSetPixelRGB) {
   Bitmap bitmap;
   bitmap.Allocate(1, 1, true);
-  bitmap.SetPixel(0, 0, Eigen::Vector3ub(1, 2, 3));
-  Eigen::Vector3ub color;
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(1, 2, 3));
+  BitmapColor<uint8_t> color;
   BOOST_CHECK(bitmap.GetPixel(0, 0, &color));
-  BOOST_CHECK_EQUAL(color, Eigen::Vector3ub(1, 2, 3));
+  BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(1, 2, 3));
 }
 
 BOOST_AUTO_TEST_CASE(TestGetAndSetPixelGrey) {
   Bitmap bitmap;
   bitmap.Allocate(1, 1, false);
-  bitmap.SetPixel(0, 0, Eigen::Vector3ub(0, 2, 3));
-  Eigen::Vector3ub color;
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(0, 2, 3));
+  BitmapColor<uint8_t> color;
   BOOST_CHECK(bitmap.GetPixel(0, 0, &color));
-  BOOST_CHECK_EQUAL(color, Eigen::Vector3ub(0, 0, 0));
-  bitmap.SetPixel(0, 0, Eigen::Vector3ub(1, 2, 3));
+  BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(0, 0, 0));
+  bitmap.SetPixel(0, 0, BitmapColor<uint8_t>(1, 2, 3));
   BOOST_CHECK(bitmap.GetPixel(0, 0, &color));
-  BOOST_CHECK_EQUAL(color, Eigen::Vector3ub(1, 1, 1));
+  BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(1, 0, 0));
 }
 
 BOOST_AUTO_TEST_CASE(TestGetScanlineRGB) {
   Bitmap bitmap;
   bitmap.Allocate(3, 3, true);
-  bitmap.Fill(Eigen::Vector3ub(1, 2, 3));
+  bitmap.Fill(BitmapColor<uint8_t>(1, 2, 3));
   for (size_t r = 0; r < 3; ++r) {
     const uint8_t* scanline = bitmap.GetScanline(r);
     for (size_t c = 0; c < 3; ++c) {
-      Eigen::Vector3ub color;
+      BitmapColor<uint8_t> color;
       BOOST_CHECK(bitmap.GetPixel(r, c, &color));
-      BOOST_CHECK_EQUAL(scanline[c * 3 + FI_RGBA_RED], color(0));
-      BOOST_CHECK_EQUAL(scanline[c * 3 + FI_RGBA_GREEN], color(1));
-      BOOST_CHECK_EQUAL(scanline[c * 3 + FI_RGBA_BLUE], color(2));
+      BOOST_CHECK_EQUAL(scanline[c * 3 + FI_RGBA_RED], color.r);
+      BOOST_CHECK_EQUAL(scanline[c * 3 + FI_RGBA_GREEN], color.g);
+      BOOST_CHECK_EQUAL(scanline[c * 3 + FI_RGBA_BLUE], color.b);
     }
   }
 }
@@ -178,13 +178,13 @@ BOOST_AUTO_TEST_CASE(TestGetScanlineRGB) {
 BOOST_AUTO_TEST_CASE(TestGetScanlineGrey) {
   Bitmap bitmap;
   bitmap.Allocate(3, 3, false);
-  bitmap.Fill(Eigen::Vector3ub(1, 2, 3));
+  bitmap.Fill(BitmapColor<uint8_t>(1, 2, 3));
   for (size_t r = 0; r < 3; ++r) {
     const uint8_t* scanline = bitmap.GetScanline(r);
     for (size_t c = 0; c < 3; ++c) {
-      Eigen::Vector3ub color;
+      BitmapColor<uint8_t> color;
       BOOST_CHECK(bitmap.GetPixel(r, c, &color));
-      BOOST_CHECK_EQUAL(scanline[c], color(0));
+      BOOST_CHECK_EQUAL(scanline[c], color.r);
     }
   }
 }
@@ -192,12 +192,12 @@ BOOST_AUTO_TEST_CASE(TestGetScanlineGrey) {
 BOOST_AUTO_TEST_CASE(TestFill) {
   Bitmap bitmap;
   bitmap.Allocate(100, 100, true);
-  bitmap.Fill(Eigen::Vector3ub(1, 2, 3));
+  bitmap.Fill(BitmapColor<uint8_t>(1, 2, 3));
   for (int y = 0; y < bitmap.Height(); ++y) {
     for (int x = 0; x < bitmap.Width(); ++x) {
-      Eigen::Vector3ub color;
+      BitmapColor<uint8_t> color;
       BOOST_CHECK(bitmap.GetPixel(x, y, &color));
-      BOOST_CHECK_EQUAL(color, Eigen::Vector3ub(1, 2, 3));
+      BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(1, 2, 3));
     }
   }
 }
@@ -205,31 +205,31 @@ BOOST_AUTO_TEST_CASE(TestFill) {
 BOOST_AUTO_TEST_CASE(TestInterpolateNearestNeighbor) {
   Bitmap bitmap;
   bitmap.Allocate(11, 11, true);
-  bitmap.Fill(Eigen::Vector3ub(0, 0, 0));
-  bitmap.SetPixel(5, 5, Eigen::Vector3ub(1, 2, 3));
-  Eigen::Vector3ub color;
+  bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
+  bitmap.SetPixel(5, 5, BitmapColor<uint8_t>(1, 2, 3));
+  BitmapColor<uint8_t> color;
   BOOST_CHECK(bitmap.InterpolateNearestNeighbor(5, 5, &color));
-  BOOST_CHECK_EQUAL(color, Eigen::Vector3ub(1, 2, 3));
+  BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(1, 2, 3));
   BOOST_CHECK(bitmap.InterpolateNearestNeighbor(5.4999, 5.4999, &color));
-  BOOST_CHECK_EQUAL(color, Eigen::Vector3ub(1, 2, 3));
+  BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(1, 2, 3));
   BOOST_CHECK(bitmap.InterpolateNearestNeighbor(5.5, 5.5, &color));
-  BOOST_CHECK_EQUAL(color, Eigen::Vector3ub(0, 0, 0));
+  BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(0, 0, 0));
   BOOST_CHECK(bitmap.InterpolateNearestNeighbor(4.5, 5.4999, &color));
-  BOOST_CHECK_EQUAL(color, Eigen::Vector3ub(1, 2, 3));
+  BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(1, 2, 3));
 }
 
 BOOST_AUTO_TEST_CASE(TestInterpolateBilinear) {
   Bitmap bitmap;
   bitmap.Allocate(11, 11, true);
-  bitmap.Fill(Eigen::Vector3ub(0, 0, 0));
-  bitmap.SetPixel(5, 5, Eigen::Vector3ub(1, 2, 3));
-  Eigen::Vector3d color;
+  bitmap.Fill(BitmapColor<uint8_t>(0, 0, 0));
+  bitmap.SetPixel(5, 5, BitmapColor<uint8_t>(1, 2, 3));
+  BitmapColor<float> color;
   BOOST_CHECK(bitmap.InterpolateBilinear(5, 5, &color));
-  BOOST_CHECK_EQUAL(color, Eigen::Vector3d(1, 2, 3));
+  BOOST_CHECK_EQUAL(color, BitmapColor<float>(1, 2, 3));
   BOOST_CHECK(bitmap.InterpolateBilinear(5.5, 5, &color));
-  BOOST_CHECK_EQUAL(color, Eigen::Vector3d(0.5, 1, 1.5));
+  BOOST_CHECK_EQUAL(color, BitmapColor<float>(0.5, 1, 1.5));
   BOOST_CHECK(bitmap.InterpolateBilinear(5.5, 5.5, &color));
-  BOOST_CHECK_EQUAL(color, Eigen::Vector3d(0.25, 0.5, 0.75));
+  BOOST_CHECK_EQUAL(color, BitmapColor<float>(0.25, 0.5, 0.75));
 }
 
 BOOST_AUTO_TEST_CASE(TestSmoothRGB) {
@@ -238,7 +238,7 @@ BOOST_AUTO_TEST_CASE(TestSmoothRGB) {
   for (int x = 0; x < 50; ++x) {
     for (int y = 0; y < 50; ++y) {
       bitmap.SetPixel(x, y,
-                      Eigen::Vector3ub(y * 50 + x, y * 50 + x, y * 50 + x));
+                      BitmapColor<uint8_t>(y * 50 + x, y * 50 + x, y * 50 + x));
     }
   }
   bitmap.Smooth(1, 1);
@@ -247,10 +247,10 @@ BOOST_AUTO_TEST_CASE(TestSmoothRGB) {
   BOOST_CHECK_EQUAL(bitmap.Channels(), 3);
   for (int x = 0; x < 50; ++x) {
     for (int y = 0; y < 50; ++y) {
-      Eigen::Vector3ub color;
+      BitmapColor<uint8_t> color;
       BOOST_CHECK(bitmap.GetPixel(x, y, &color));
-      BOOST_CHECK_EQUAL(color(0), color(1));
-      BOOST_CHECK_EQUAL(color(0), color(2));
+      BOOST_CHECK_EQUAL(color.r, color.g);
+      BOOST_CHECK_EQUAL(color.r, color.b);
     }
   }
 }
@@ -261,7 +261,7 @@ BOOST_AUTO_TEST_CASE(TestSmoothGrey) {
   for (int x = 0; x < 50; ++x) {
     for (int y = 0; y < 50; ++y) {
       bitmap.SetPixel(x, y,
-                      Eigen::Vector3ub(y * 50 + x, y * 50 + x, y * 50 + x));
+                      BitmapColor<uint8_t>(y * 50 + x, y * 50 + x, y * 50 + x));
     }
   }
   bitmap.Smooth(1, 1);

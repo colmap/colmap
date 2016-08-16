@@ -81,7 +81,7 @@ BOOST_AUTO_TEST_CASE(TestUndistortCameraBlankPixels) {
 
   Bitmap distorted_image;
   distorted_image.Allocate(100, 100, false);
-  distorted_image.Fill(Eigen::Vector3ub(255, 255, 255));
+  distorted_image.Fill(BitmapColor<uint8_t>(255, 255, 255));
 
   Bitmap undistorted_image;
   Camera undistorted_camera;
@@ -100,9 +100,9 @@ BOOST_AUTO_TEST_CASE(TestUndistortCameraBlankPixels) {
   size_t num_blank_pixels = 0;
   for (int y = 0; y < undistorted_image.Height(); ++y) {
     for (int x = 0; x < undistorted_image.Width(); ++x) {
-      Eigen::Vector3ub color;
+      BitmapColor<uint8_t> color;
       BOOST_CHECK(undistorted_image.GetPixel(x, y, &color));
-      if (color.sum() == 0) {
+      if (color == BitmapColor<uint8_t>(0, 0, 0)) {
         num_blank_pixels += 1;
       }
     }
@@ -121,7 +121,7 @@ BOOST_AUTO_TEST_CASE(TestUndistortCameraNoBlankPixels) {
 
   Bitmap distorted_image;
   distorted_image.Allocate(100, 100, false);
-  distorted_image.Fill(Eigen::Vector3ub(255, 255, 255));
+  distorted_image.Fill(BitmapColor<uint8_t>(255, 255, 255));
 
   Bitmap undistorted_image;
   Camera undistorted_camera;
@@ -139,11 +139,11 @@ BOOST_AUTO_TEST_CASE(TestUndistortCameraNoBlankPixels) {
   // Make sure that there is no blank pixel.
   for (int y = 0; y < undistorted_image.Height(); ++y) {
     for (int x = 0; x < undistorted_image.Width(); ++x) {
-      Eigen::Vector3ub color;
+      BitmapColor<uint8_t> color;
       BOOST_CHECK(undistorted_image.GetPixel(x, y, &color));
-      BOOST_CHECK_NE(color[0], 0);
-      BOOST_CHECK_NE(color[1], 0);
-      BOOST_CHECK_NE(color[2], 0);
+      BOOST_CHECK_NE(color.r, 0);
+      BOOST_CHECK_EQUAL(color.g, 0);
+      BOOST_CHECK_EQUAL(color.b, 0);
     }
   }
 }

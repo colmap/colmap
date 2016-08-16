@@ -42,14 +42,13 @@ void WarpImageBetweenCameras(const Camera& source_camera,
       const Eigen::Vector2d source_point =
           source_camera.WorldToImage(world_point);
 
-      Eigen::Vector3d color;
-      if (!source_image.InterpolateBilinear(source_point.x() - 0.5,
-                                            source_point.y() - 0.5, &color)) {
-        color.setZero();
+      BitmapColor<float> color;
+      if (source_image.InterpolateBilinear(source_point.x() - 0.5,
+                                           source_point.y() - 0.5, &color)) {
+        target_image->SetPixel(x, y, color.Cast<uint8_t>());
+      } else {
+        target_image->SetPixel(x, y, BitmapColor<uint8_t>(0, 0, 0));
       }
-
-      color.unaryExpr(std::ptr_fun<double, double>(std::round));
-      target_image->SetPixel(x, y, color.cast<uint8_t>());
     }
   }
 }

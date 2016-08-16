@@ -19,6 +19,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include "base/warp.h"
+#include "util/random.h"
 
 using namespace colmap;
 namespace {
@@ -28,7 +29,10 @@ void GenerateRandomBitmap(const int width, const int height, const bool as_rgb,
   bitmap->Allocate(width, height, as_rgb);
   for (int x = 0; x < width; ++x) {
     for (int y = 0; y < height; ++y) {
-      Eigen::Vector3ub color = Eigen::Vector3ub::Random();
+      BitmapColor<uint8_t> color;
+      color.r = RandomInteger<uint8_t>(0, 255);
+      color.g = RandomInteger<uint8_t>(0, 255);
+      color.b = RandomInteger<uint8_t>(0, 255);
       bitmap->SetPixel(x, y, color);
     }
   }
@@ -41,8 +45,8 @@ void CheckBitmapsEqual(const Bitmap& bitmap1, const Bitmap& bitmap2) {
   BOOST_REQUIRE_EQUAL(bitmap1.Height(), bitmap2.Height());
   for (int x = 0; x < bitmap1.Width(); ++x) {
     for (int y = 0; y < bitmap1.Height(); ++y) {
-      Eigen::Vector3ub color1;
-      Eigen::Vector3ub color2;
+      BitmapColor<uint8_t> color1;
+      BitmapColor<uint8_t> color2;
       BOOST_CHECK(bitmap1.GetPixel(x, y, &color1));
       BOOST_CHECK(bitmap1.GetPixel(x, y, &color2));
       BOOST_CHECK_EQUAL(color1, color2);
@@ -82,14 +86,14 @@ BOOST_AUTO_TEST_CASE(TestShiftedCameras) {
                           &target_image_gray);
   for (int x = 0; x < target_image_gray.Width(); ++x) {
     for (int y = 0; y < target_image_gray.Height(); ++y) {
-      Eigen::Vector3ub color;
+      BitmapColor<uint8_t> color;
       BOOST_CHECK(target_image_gray.GetPixel(x, y, &color));
       if (x >= 50) {
-        BOOST_CHECK_EQUAL(color, Eigen::Vector3ub::Zero());
+        BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(0, 0, 0));
       } else {
-        Eigen::Vector3ub source_color;
+        BitmapColor<uint8_t> source_color;
         if (source_image_gray.GetPixel(x + 50, y, &source_color) &&
-            color != Eigen::Vector3ub::Zero()) {
+            color != BitmapColor<uint8_t>(0, 0, 0)) {
           BOOST_CHECK_EQUAL(color, source_color);
         }
       }
