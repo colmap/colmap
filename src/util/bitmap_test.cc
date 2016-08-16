@@ -25,6 +25,22 @@
 
 using namespace colmap;
 
+BOOST_AUTO_TEST_CASE(TestBitmapColorEmpty) {
+  BitmapColor<uint8_t> color;
+  BOOST_CHECK_EQUAL(color.r, 0);
+  BOOST_CHECK_EQUAL(color.g, 0);
+  BOOST_CHECK_EQUAL(color.b, 0);
+  BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(0, 0, 0));
+}
+
+BOOST_AUTO_TEST_CASE(TestBitmapColorCast) {
+  BitmapColor<float> color1(1.1, 2.9, -3.0);
+  BitmapColor<uint8_t> color2 = color1.Cast<uint8_t>();
+  BOOST_CHECK_EQUAL(color2.r, 1);
+  BOOST_CHECK_EQUAL(color2.g, 3);
+  BOOST_CHECK_EQUAL(color2.b, 0);
+}
+
 BOOST_AUTO_TEST_CASE(TestEmpty) {
   Bitmap bitmap;
   BOOST_CHECK_EQUAL(bitmap.Width(), 0);
