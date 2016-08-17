@@ -17,7 +17,6 @@ link_directories(
 
 set(COLMAP_LIBRARIES
     sfm
-    mvs
     base
     util
     estimators
@@ -38,6 +37,10 @@ set(COLMAP_LIBRARIES
     ${FREEIMAGE_LIBRARIES}
     ${CERES_LIBRARIES}
     ${OPENGL_LIBRARIES})
+
+if(CUDA_ENABLED)
+    set(COLMAP_LIBRARIES "${COLMAP_LIBRARIES} mvs")
+endif()
 
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
     set(COLMAP_LIBRARIES ${COLMAP_LIBRARIES} pthread dl)
