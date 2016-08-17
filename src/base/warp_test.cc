@@ -30,9 +30,9 @@ void GenerateRandomBitmap(const int width, const int height, const bool as_rgb,
   for (int x = 0; x < width; ++x) {
     for (int y = 0; y < height; ++y) {
       BitmapColor<uint8_t> color;
-      color.r = RandomInteger<uint8_t>(0, 255);
-      color.g = RandomInteger<uint8_t>(0, 255);
-      color.b = RandomInteger<uint8_t>(0, 255);
+      color.r = RandomInteger<int>(0, 255);
+      color.g = RandomInteger<int>(0, 255);
+      color.b = RandomInteger<int>(0, 255);
       bitmap->SetPixel(x, y, color);
     }
   }
