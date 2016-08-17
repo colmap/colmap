@@ -16,7 +16,7 @@ if(CUDA_ENABLED)
         normal_map.h normal_map.cc
         patch_match.h patch_match.cc
     )
-    
+
     # Workaround for Visual Studio compiler error,
     # due problems with compiling too complex code.
     set(ZO_FLAG_ENABLED FALSE)
