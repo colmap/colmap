@@ -95,6 +95,7 @@ ADD_SOURCE_DIR(ext/PBA EXT_PBA_SRC *.h *.cpp *.cu)
 ADD_SOURCE_DIR(ext/SiftGPU EXT_SIFTGPU_SRC *.h *.cpp *.cu)
 ADD_SOURCE_DIR(ext/SQLite EXT_SQLITE_SRC *.h *.c)
 ADD_SOURCE_DIR(ext/VLFeat EXT_VLFEAT_SRC *.h *.c *.tc)
+ADD_SOURCE_DIR(mvs MVS_SRC *.h *.cc *.cu)
 ADD_SOURCE_DIR(optim OPTIM_SRC *.h *.cc)
 ADD_SOURCE_DIR(sfm SFM_SRC *.h *.cc)
 ADD_SOURCE_DIR(tools TOOLS_SRC *.h *.cc)
@@ -114,6 +115,7 @@ add_library(
     ${EXT_SIFTGPU_SRC}
     ${EXT_SQLITE_SRC}
     ${EXT_VLFEAT_SRC}
+    ${MVS_SRC}
     ${OPTIM_SRC}
     ${SFM_SRC}
     ${TOOLS_SRC}
