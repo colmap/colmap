@@ -84,7 +84,7 @@ class StereoFuser {
   std::vector<ImageData> image_data_;
   PointStat point_stat_;
   float max_squared_reproj_error_;
-  float max_cos_normal_error_;
+  float min_cos_normal_error_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -151,7 +151,7 @@ StereoFuser::StereoFuser(const StereoFusionOptions& options,
     : options_(options),
       max_squared_reproj_error_(options_.max_reproj_error *
                                 options_.max_reproj_error),
-      max_cos_normal_error_(std::cos(options_.max_normal_error)) {
+      min_cos_normal_error_(std::cos(options_.max_normal_error)) {
   CHECK_EQ(images.size(), used_image_mask.size());
   CHECK_EQ(images.size(), depth_maps.size());
   CHECK_EQ(images.size(), normal_maps.size());
@@ -174,6 +174,8 @@ StereoFuser::StereoFuser(const StereoFusionOptions& options,
     }
 
     auto& image_data = image_data_[image_id];
+
+    image_data.used = true;
 
     image_data.image = &images[image_id];
     image_data.depth_map = &depth_maps[image_id];
@@ -315,7 +317,7 @@ void StereoFuser::FusePoint(const int image_id, const int row, const int col,
   // Check for consistent normal direction with reference normal.
   if (traversal_depth > 0) {
     const float cos_normal_error = point_stat_.normals[0].dot(normal);
-    if (cos_normal_error > max_cos_normal_error_) {
+    if (cos_normal_error < min_cos_normal_error_) {
       return;
     }
   }
