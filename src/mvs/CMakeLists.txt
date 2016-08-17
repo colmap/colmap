@@ -1,10 +1,6 @@
 set(FOLDER_NAME "mvs")
 
 if(CUDA_ENABLED)
-    if(NOT IS_MSVC)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11")
-        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --std=c++11")
-    endif()
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --use_fast_math")
 
     COLMAP_ADD_LIBRARY(mvs
