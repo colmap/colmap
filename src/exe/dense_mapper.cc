@@ -26,6 +26,7 @@
 #include "mvs/patch_match.h"
 #include "util/math.h"
 #include "util/misc.h"
+#include "util/threading.h"
 
 using namespace colmap;
 using namespace colmap::mvs;
@@ -397,14 +398,18 @@ bool ReadProblems(const std::string& problem_path, std::vector<Config>* configs,
   std::cout << "Resizing data..." << std::endl;
   CHECK(!(image_max_size != -1 && image_scale_factor != -1.0f))
       << "Error: Cannot both set `image_max_size` and `image_scale_factor`";
-  if (image_max_size != -1) {
-    for (auto& image : *images) {
-      image.Downsize(image_max_size, image_max_size);
+  {
+    ThreadPool thread_pool;
+    for (size_t image_id = 0; image_id < images->size(); ++image_id) {
+      thread_pool.AddTask([&, image_id]() {
+        if (image_max_size != -1) {
+          images->at(image_id).Downsize(image_max_size, image_max_size);
+        } else if (image_scale_factor != -1.0f) {
+          images->at(image_id).Rescale(image_scale_factor);
+        }
+      });
     }
-  } else if (image_scale_factor != -1.0f) {
-    for (auto& image : *images) {
-      image.Rescale(image_scale_factor);
-    }
+    thread_pool.Wait();
   }
 
   // Read input data.
