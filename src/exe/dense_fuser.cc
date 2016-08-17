@@ -109,7 +109,7 @@ bool ReadInput(const std::string& path, std::vector<uint8_t>* used_image_mask,
       inputs.emplace(image_id, input);
     }
   } catch (std::exception const& exc) {
-    std::cerr << "Error: Problem with configuration file - " << exc.what()
+    std::cerr << "ERROR: Problem with configuration file - " << exc.what()
               << std::endl;
     return false;
   }
@@ -133,7 +133,7 @@ bool ReadInput(const std::string& path, std::vector<uint8_t>* used_image_mask,
       return false;
     }
   } else {
-    std::cerr << "Error: Unknown input type" << std::endl;
+    std::cerr << "ERROR: Unknown input type" << std::endl;
     return false;
   }
 
@@ -184,10 +184,9 @@ int main(int argc, char* argv[]) {
   InitializeGlog(argv);
 
   if (argc < 2) {
-    std::cout << "Error: Configuration file not specified, "
-                 "call as "
-              << argv[0] << " <json-config-file-path>" << std::endl;
-    exit(EXIT_FAILURE);
+    std::cout << "ERROR: Configuration file not specified, call as " << argv[0]
+              << " <json-config-file-path>" << std::endl;
+    return EXIT_FAILURE;
   }
 
   std::vector<uint8_t> used_image_mask;
@@ -199,7 +198,7 @@ int main(int argc, char* argv[]) {
   StereoFusionOptions options;
   if (!ReadInput(argv[1], &used_image_mask, &images, &depth_maps, &normal_maps,
                  &consistency_graph, &output_path, &options)) {
-    exit(EXIT_FAILURE);
+    return EXIT_FAILURE;
   }
 
   std::cout << std::endl;
@@ -209,9 +208,9 @@ int main(int argc, char* argv[]) {
   const auto points = StereoFusion(options, used_image_mask, images, depth_maps,
                                    normal_maps, consistency_graph);
 
-  std::cout << "Number of fused points " << points.size() << std::endl;
+  std::cout << "Number of fused points: " << points.size() << std::endl;
 
-  std::cout << "Writing output" << std::endl;
+  std::cout << "Writing output: " << output_path << std::endl;
   WritePlyBinary(output_path, points);
 
   return EXIT_SUCCESS;

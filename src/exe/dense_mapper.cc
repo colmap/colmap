@@ -226,7 +226,7 @@ bool ReadProblems(const std::string& problem_path, std::vector<Config>* configs,
             image_id.second.get_value<int>());
       }
       if (config.problem.src_image_ids.empty()) {
-        std::cerr << "Error: Need at least one source image" << std::endl;
+        std::cerr << "ERROR: Need at least one source image" << std::endl;
         return false;
       }
 
@@ -235,7 +235,7 @@ bool ReadProblems(const std::string& problem_path, std::vector<Config>* configs,
       configs->push_back(config);
     }
   } catch (std::exception const& exc) {
-    std::cerr << "Error: Problem with configuration file - " << exc.what()
+    std::cerr << "ERROR: Problem with configuration file - " << exc.what()
               << std::endl;
     return false;
   }
@@ -262,7 +262,7 @@ bool ReadProblems(const std::string& problem_path, std::vector<Config>* configs,
       return false;
     }
   } else {
-    std::cerr << "Error: Unknown input type" << std::endl;
+    std::cerr << "ERROR: Unknown input type" << std::endl;
     return false;
   }
 
@@ -397,7 +397,7 @@ bool ReadProblems(const std::string& problem_path, std::vector<Config>* configs,
   // Downsample images if necessary.
   std::cout << "Resizing data..." << std::endl;
   CHECK(!(image_max_size != -1 && image_scale_factor != -1.0f))
-      << "Error: Cannot both set `image_max_size` and `image_scale_factor`";
+      << "ERROR: Cannot both set `image_max_size` and `image_scale_factor`";
   {
     ThreadPool thread_pool;
     for (size_t image_id = 0; image_id < images->size(); ++image_id) {
@@ -445,10 +445,9 @@ int main(int argc, char* argv[]) {
   InitializeGlog(argv);
 
   if (argc < 2) {
-    std::cout << "Error: Configuration file not specified, "
-                 "call as ./bin <json-config-file-path>"
-              << std::endl;
-    exit(EXIT_FAILURE);
+    std::cout << "ERROR: Configuration file not specified, call as " << argv[0]
+              << " <json-config-file-path>" << std::endl;
+    return EXIT_FAILURE;
   }
 
   std::vector<Config> configs;
@@ -456,7 +455,7 @@ int main(int argc, char* argv[]) {
   std::vector<DepthMap> depth_maps;
   std::vector<NormalMap> normal_maps;
   if (!ReadProblems(argv[1], &configs, &images, &depth_maps, &normal_maps)) {
-    exit(EXIT_FAILURE);
+    return EXIT_FAILURE;
   }
 
   for (size_t i = 0; i < configs.size(); ++i) {
@@ -477,7 +476,7 @@ int main(int argc, char* argv[]) {
     patch_match.Run();
 
     if (config.problem.src_image_ids.empty()) {
-      std::cout << "Warning: No source images defined - skipping image."
+      std::cout << "WARNING: No source images defined - skipping image."
                 << std::endl;
       continue;
     }
