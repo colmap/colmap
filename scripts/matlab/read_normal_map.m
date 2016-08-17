@@ -1,0 +1,32 @@
+% COLMAP - Structure-from-Motion.
+% Copyright (C) 2016  Johannes L. Schoenberger <jsch at inf.ethz.ch>
+%
+% This program is free software: you can redistribute it and/or modify
+% it under the terms of the GNU General Public License as published by
+% the Free Software Foundation, either version 3 of the License, or
+% (at your option) any later version.
+%
+% This program is distributed in the hope that it will be useful,
+% but WITHOUT ANY WARRANTY; without even the implied warranty of
+% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+% GNU General Public License for more details.
+%
+% You should have received a copy of the GNU General Public License
+% along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+function [normal_map, normal_map_rgb] = read_normal_map(path, varargin)
+
+normal_map = read_array(path);
+
+normal_map_rgb = -[normal_map(:,:,1) normal_map(:,:,2) ...
+                   2 * normal_map(:,:,3) + 1];
+normal_map_rgb = reshape(normal_map_rgb, ...
+                         size(normal_map,1), size(normal_map,2), 3);
+normal_map_rgb = uint8(((normal_map_rgb + 1) ./ 2) .* 255);
+
+if length(varargin) == 1
+    depth_map = varargin{1};
+    normal_map_rgb(repmat(isnan(depth_map), [1, 1, 3])) = 0;
+end
+
+end
