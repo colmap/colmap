@@ -17,6 +17,7 @@ link_directories(
 
 set(COLMAP_LIBRARIES
     sfm
+    mvs
     base
     util
     estimators
@@ -50,6 +51,7 @@ add_subdirectory(base)
 add_subdirectory(estimators)
 add_subdirectory(exe)
 add_subdirectory(ext)
+add_subdirectory(mvs)
 add_subdirectory(optim)
 add_subdirectory(retrieval)
 add_subdirectory(sfm)
@@ -120,4 +122,3 @@ set_target_properties(
     ${COLMAP_SRC_ROOT_FOLDER} PROPERTIES
     EXCLUDE_FROM_ALL 1
     EXCLUDE_FROM_DEFAULT_BUILD 1)
-

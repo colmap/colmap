@@ -201,19 +201,23 @@ macro(COLMAP_ADD_EXECUTABLE TARGET_NAME)
     # ${ARGN} will store the list of source files passed to this function.
     add_executable(${TARGET_NAME} ${ARGN})
     target_link_libraries(${TARGET_NAME} ${COLMAP_LIBRARIES})
+    qt5_use_modules(${TARGET_NAME} ${COLMAP_QT_MODULES})
     COLMAP_ADD_TARGET_HELPER(${TARGET_NAME})
     install(TARGETS ${TARGET_NAME} DESTINATION bin/)
 endmacro(COLMAP_ADD_EXECUTABLE)
 
-# Wrapper for Qt executables
-macro(COLMAP_ADD_QT_EXECUTABLE TARGET_NAME)
+# Replacement for the normal add_executable() command. The syntax remains the
+# same in that the first argument is the target name, and the following
+# arguments are the source files to use when building the target.
+macro(COLMAP_ADD_UI_EXECUTABLE TARGET_NAME)
     # ${ARGN} will store the list of source files passed to this function.
     add_executable(${TARGET_NAME} ${ARGN})
-    target_link_libraries(${TARGET_NAME} ${COLMAP_LIBRARIES})
+    target_link_libraries(${TARGET_NAME}
+                          ${COLMAP_UI_LIBRARIES} ${COLMAP_LIBRARIES})
     qt5_use_modules(${TARGET_NAME} ${COLMAP_QT_MODULES})
     COLMAP_ADD_TARGET_HELPER(${TARGET_NAME})
     install(TARGETS ${TARGET_NAME} DESTINATION bin/)
-endmacro(COLMAP_ADD_QT_EXECUTABLE)
+endmacro(COLMAP_ADD_UI_EXECUTABLE)
 
 # Wrapper for test executables
 macro(COLMAP_ADD_TEST TARGET_NAME)
@@ -224,3 +228,13 @@ macro(COLMAP_ADD_TEST TARGET_NAME)
     add_test("${FOLDER_NAME}/${TARGET_NAME}" ${TARGET_NAME})
     install(TARGETS ${TARGET_NAME} DESTINATION test/)
 endmacro(COLMAP_ADD_TEST)
+
+# Wrapper for CUDA test executables
+macro(COLMAP_CUDA_ADD_TEST TARGET_NAME)
+    # ${ARGN} will store the list of source files passed to this function.
+    cuda_add_executable(${TARGET_NAME} ${ARGN})
+    target_link_libraries(${TARGET_NAME} ${COLMAP_LIBRARIES})
+    COLMAP_ADD_TARGET_HELPER(${TARGET_NAME})
+    add_test("${FOLDER_NAME}/${TARGET_NAME}" ${TARGET_NAME})
+    install(TARGETS ${TARGET_NAME} DESTINATION test/)
+endmacro(COLMAP_CUDA_ADD_TEST)
