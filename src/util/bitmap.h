@@ -58,6 +58,7 @@ struct BitmapColor {
 class Bitmap {
  public:
   Bitmap();
+  Bitmap(const Bitmap& other);
 
   // Create bitmap object from existing FreeImage bitmap object. Note that
   // this class takes ownership of the object.
