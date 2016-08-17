@@ -29,6 +29,20 @@ void WarpImageBetweenCameras(const Camera& source_camera,
                              const Camera& target_camera,
                              const Bitmap& source_image, Bitmap* target_image);
 
+// Resample row-major image using bilinear interpolation.
+void ResampleImageBilinear(const float* data, const int rows, const int cols,
+                           const int new_rows, const int new_cols,
+                           float* resampled);
+
+// Smooth row-major image using a Gaussian filter kernel.
+void SmoothImage(const float* data, const int rows, const int cols,
+                 const float sigma_r, const float sigma_c, float* smoothed);
+
+// Downsample row-major image by first smoothing and then resampling.
+void DownsampleImage(const float* data, const int rows, const int cols,
+                     const int new_rows, const int new_cols,
+                     float* downsampled);
+
 }  // namespace colmap
 
 #endif  // COLMAP_SRC_BASE_WARP_H_

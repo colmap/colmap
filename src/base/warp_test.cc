@@ -100,3 +100,52 @@ BOOST_AUTO_TEST_CASE(TestShiftedCameras) {
     }
   }
 }
+
+BOOST_AUTO_TEST_CASE(TestResampleImageBilinear) {
+  std::vector<float> image(16);
+  for (size_t i = 0; i < image.size(); ++i) {
+    image[i] = i;
+  }
+
+  std::vector<float> resampled(4);
+  ResampleImageBilinear(image.data(), 4, 4, 2, 2, resampled.data());
+
+  BOOST_CHECK_EQUAL(resampled[0], 2.5);
+  BOOST_CHECK_EQUAL(resampled[1], 4.5);
+  BOOST_CHECK_EQUAL(resampled[2], 10.5);
+  BOOST_CHECK_EQUAL(resampled[3], 12.5);
+}
+
+BOOST_AUTO_TEST_CASE(TestSmoothImage) {
+  std::vector<float> image(16);
+  for (size_t i = 0; i < image.size(); ++i) {
+    image[i] = i;
+  }
+
+  std::vector<float> smoothed(16);
+  SmoothImage(image.data(), 4, 4, 1, 1, smoothed.data());
+
+  BOOST_CHECK_CLOSE(smoothed[0], 1.81673253, 1e-3);
+  BOOST_CHECK_CLOSE(smoothed[1], 2.51182437, 1e-3);
+  BOOST_CHECK_CLOSE(smoothed[2], 3.39494729, 1e-3);
+  BOOST_CHECK_CLOSE(smoothed[3], 4.09003973, 1e-3);
+  BOOST_CHECK_CLOSE(smoothed[4], 4.59710073, 1e-3);
+  BOOST_CHECK_CLOSE(smoothed[5], 5.29219341, 1e-3);
+  BOOST_CHECK_CLOSE(smoothed[6], 6.17531633, 1e-3);
+  BOOST_CHECK_CLOSE(smoothed[7], 6.87040806, 1e-3);
+}
+
+BOOST_AUTO_TEST_CASE(TestDownsampleImage) {
+  std::vector<float> image(16);
+  for (size_t i = 0; i < image.size(); ++i) {
+    image[i] = i;
+  }
+
+  std::vector<float> downsampled(4);
+  DownsampleImage(image.data(), 4, 4, 2, 2, downsampled.data());
+
+  BOOST_CHECK_CLOSE(downsampled[0], 2.76810598, 1e-3);
+  BOOST_CHECK_CLOSE(downsampled[1], 4.66086388, 1e-3);
+  BOOST_CHECK_CLOSE(downsampled[2], 10.3391361, 1e-3);
+  BOOST_CHECK_CLOSE(downsampled[3], 12.2318935, 1e-3);
+}
