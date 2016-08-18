@@ -25,12 +25,6 @@
 #include "mvs/image.h"
 #include "mvs/normal_map.h"
 
-// We must not include "util/math.h" to avoid any Eigen includes here,
-// since Visual Studio cannot compile some of the Eigen/Boost expressions.
-#ifndef DEG2RAD
-#define DEG2RAD(deg) deg * 0.0174532925199432
-#endif
-
 namespace colmap {
 namespace mvs {
 
@@ -47,6 +41,9 @@ class PatchMatch {
   const static size_t kMaxWindowRadius = 32;
 
   struct Options {
+    // Index of the GPU used for patch match.
+    int gpu_index = -1;
+
     // Depth range in which to randomly sample depth hypotheses.
     float depth_min = 0.0f;
     float depth_max = 1.0f;
@@ -64,8 +61,8 @@ class PatchMatch {
     // Spread of the NCC likelihood function.
     float ncc_sigma = 0.6f;
 
-    // Minimum triangulation angle in radians.
-    float min_triangulation_angle = DEG2RAD(0.5f);
+    // Minimum triangulation angle in degrees.
+    float min_triangulation_angle = 0.5f;
 
     // Spread of the incident angle likelihood function.
     float incident_angle_sigma = 0.9f;
@@ -89,11 +86,11 @@ class PatchMatch {
     // Whether to enable filtering.
     bool filter = true;
 
-    // Minimum selection probability for pixel to be photo-consistent.
+    // Minimum NCC coefficient for pixel to be photo-consistent.
     float filter_min_ncc = 0.1f;
 
-    // Minimum selection probability for pixel to be photo-consistent.
-    float filter_min_triangulation_angle = DEG2RAD(3.0f);
+    // Minimum triangulation angle to be stable.
+    float filter_min_triangulation_angle = 3.0f;
 
     // Minimum number of source images have to be consistent
     // for pixel not to be filtered.

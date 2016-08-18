@@ -59,7 +59,7 @@ struct FusionOptions {
   float max_depth_error = 0.01f;
 
   // Maximum difference between normals of pixels to be fused.
-  float max_normal_error = DegToRad(10.0f);
+  float max_normal_error = 10.0f;
 
   // Check the options for validity.
   void Check() const;

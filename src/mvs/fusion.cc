@@ -149,7 +149,7 @@ StereoFuser::StereoFuser(const FusionOptions& options,
     : options_(options),
       max_squared_reproj_error_(options_.max_reproj_error *
                                 options_.max_reproj_error),
-      min_cos_normal_error_(std::cos(options_.max_normal_error)) {
+      min_cos_normal_error_(std::cos(DegToRad(options_.max_normal_error))) {
   CHECK_EQ(images.size(), used_image_mask.size());
   CHECK_EQ(images.size(), depth_maps.size());
   CHECK_EQ(images.size(), normal_maps.size());

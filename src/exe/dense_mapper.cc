@@ -26,6 +26,7 @@
 #include "mvs/patch_match.h"
 #include "util/math.h"
 #include "util/misc.h"
+#include "util/option_manager.h"
 #include "util/threading.h"
 
 using namespace colmap;
@@ -43,120 +44,13 @@ struct Input {
   std::string normal_map_path;
 };
 
-void ReadPatchMatchOptions(const boost::property_tree::ptree& pt,
-                           PatchMatch::Options* options) {
-  boost::optional<float> window_radius =
-      pt.get_optional<float>("window_radius");
-  if (window_radius) {
-    options->window_radius = window_radius.get();
-  }
-
-  boost::optional<float> num_samples = pt.get_optional<float>("num_samples");
-  if (num_samples) {
-    options->num_samples = num_samples.get();
-  }
-
-  boost::optional<float> ncc_sigma = pt.get_optional<float>("ncc_sigma");
-  if (ncc_sigma) {
-    options->ncc_sigma = ncc_sigma.get();
-  }
-
-  boost::optional<float> min_triangulation_angle =
-      pt.get_optional<float>("min_triangulation_angle");
-  if (min_triangulation_angle) {
-    options->min_triangulation_angle = DegToRad(min_triangulation_angle.get());
-  }
-
-  boost::optional<float> incident_angle_sigma =
-      pt.get_optional<float>("incident_angle_sigma");
-  if (incident_angle_sigma) {
-    options->incident_angle_sigma = incident_angle_sigma.get();
-  }
-
-  boost::optional<float> num_iterations =
-      pt.get_optional<float>("num_iterations");
-  if (num_iterations) {
-    options->num_iterations = num_iterations.get();
-  }
-
-  boost::optional<float> depth_min = pt.get_optional<float>("depth_min");
-  if (depth_min) {
-    options->depth_min = depth_min.get();
-  }
-
-  boost::optional<float> depth_max = pt.get_optional<float>("depth_max");
-  if (depth_max) {
-    options->depth_max = depth_max.get();
-  }
-
-  boost::optional<float> sigma_spatial =
-      pt.get_optional<float>("sigma_spatial");
-  if (sigma_spatial) {
-    options->sigma_spatial = sigma_spatial.get();
-  }
-
-  boost::optional<float> sigma_color = pt.get_optional<float>("sigma_color");
-  if (sigma_color) {
-    options->sigma_color = sigma_color.get();
-  }
-
-  boost::optional<bool> geom_consistency =
-      pt.get_optional<bool>("geom_consistency");
-  if (geom_consistency) {
-    options->geom_consistency = geom_consistency.get();
-  }
-
-  boost::optional<float> geom_consistency_regularizer =
-      pt.get_optional<float>("geom_consistency_regularizer");
-  if (geom_consistency_regularizer) {
-    options->geom_consistency_regularizer = geom_consistency_regularizer.get();
-  }
-
-  boost::optional<float> geom_consistency_max_cost =
-      pt.get_optional<float>("geom_consistency_max_cost");
-  if (geom_consistency_max_cost) {
-    options->geom_consistency_max_cost = geom_consistency_max_cost.get();
-  }
-
-  boost::optional<bool> filter = pt.get_optional<bool>("filter");
-  if (filter) {
-    options->filter = filter.get();
-  }
-
-  boost::optional<int> filter_min_num_consistent =
-      pt.get_optional<int>("filter_min_num_consistent");
-  if (filter_min_num_consistent) {
-    options->filter_min_num_consistent = filter_min_num_consistent.get();
-  }
-
-  boost::optional<float> filter_min_ncc =
-      pt.get_optional<float>("filter_min_ncc");
-  if (filter_min_ncc) {
-    options->filter_min_ncc = filter_min_ncc.get();
-  }
-
-  boost::optional<float> filter_min_triangulation_angle =
-      pt.get_optional<float>("filter_min_triangulation_angle");
-  if (filter_min_triangulation_angle) {
-    options->filter_min_triangulation_angle =
-        DegToRad(filter_min_triangulation_angle.get());
-  }
-
-  boost::optional<float> filter_geom_consistency_max_cost =
-      pt.get_optional<float>("filter_geom_consistency_max_cost");
-  if (filter_geom_consistency_max_cost) {
-    options->filter_geom_consistency_max_cost =
-        filter_geom_consistency_max_cost.get();
-  }
-}
-
-bool ReadProblems(const std::string& problem_path, std::vector<Config>* configs,
-                  std::vector<Image>* images, std::vector<DepthMap>* depth_maps,
-                  std::vector<NormalMap>* normal_maps) {
+bool ReadConfigs(const PatchMatch::Options default_options,
+                 const std::string& config_path, std::vector<Config>* configs,
+                 std::vector<mvs::Image>* images,
+                 std::vector<DepthMap>* depth_maps,
+                 std::vector<NormalMap>* normal_maps) {
   std::string input_path;
   std::string input_type;
-
-  PatchMatch::Options default_options;
 
   int gpu_id = -1;
   int image_max_size = -1;
@@ -166,10 +60,7 @@ bool ReadProblems(const std::string& problem_path, std::vector<Config>* configs,
   std::cout << "Reading configuration..." << std::endl;
   try {
     boost::property_tree::ptree pt;
-    boost::property_tree::read_json(problem_path.c_str(), pt);
-
-    PatchMatch::Options default_options;
-    ReadPatchMatchOptions(pt, &default_options);
+    boost::property_tree::read_json(config_path.c_str(), pt);
 
     input_path = pt.get<std::string>("input_path");
     input_type = pt.get<std::string>("input_type");
@@ -216,9 +107,6 @@ bool ReadProblems(const std::string& problem_path, std::vector<Config>* configs,
     boost::property_tree::ptree output_list = pt.get_child("output_list");
     for (const auto& output : output_list) {
       Config config;
-
-      config.options = default_options;
-      ReadPatchMatchOptions(output.second, &config.options);
 
       config.problem.ref_image_id = output.second.get<int>("ref_image_id");
       for (const auto& image_id : output.second.get_child("src_image_ids")) {
@@ -444,17 +332,26 @@ bool ReadProblems(const std::string& problem_path, std::vector<Config>* configs,
 int main(int argc, char* argv[]) {
   InitializeGlog(argv);
 
-  if (argc < 2) {
-    std::cout << "ERROR: Configuration file not specified, call as " << argv[0]
-              << " <json-config-file-path>" << std::endl;
+  std::string config_path;
+
+  OptionManager options;
+  options.AddDenseMapperOptions();
+  options.AddRequiredOption("config_path", &config_path);
+
+  if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
   }
 
+  if (options.ParseHelp(argc, argv)) {
+    return EXIT_SUCCESS;
+  }
+
   std::vector<Config> configs;
-  std::vector<Image> images;
+  std::vector<mvs::Image> images;
   std::vector<DepthMap> depth_maps;
   std::vector<NormalMap> normal_maps;
-  if (!ReadProblems(argv[1], &configs, &images, &depth_maps, &normal_maps)) {
+  if (!ReadConfigs(options.dense_mapper_options->patch_match, config_path,
+                   &configs, &images, &depth_maps, &normal_maps)) {
     return EXIT_FAILURE;
   }
 

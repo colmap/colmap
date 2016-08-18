@@ -31,6 +31,12 @@
 // since the templated window sizes rely on this value.
 #define THREADS_PER_BLOCK 32
 
+// We must not include "util/math.h" to avoid any Eigen includes here,
+// since Visual Studio cannot compile some of the Eigen/Boost expressions.
+#ifndef DEG2RAD
+#define DEG2RAD(deg) deg * 0.0174532925199432
+#endif
+
 namespace colmap {
 namespace mvs {
 
@@ -1115,6 +1121,7 @@ PatchMatchCuda::PatchMatchCuda(const PatchMatch::Options& options,
       ref_width_(0),
       ref_height_(0),
       rotation_in_half_pi_(0) {
+  SetBestCudaDevice(options_.gpu_index);
   InitRefImage();
   InitSourceImages();
   InitTransforms();
@@ -1235,14 +1242,14 @@ void PatchMatchCuda::RunWithWindowSize() {
   sweep_options.sigma_color = options_.sigma_color;
   sweep_options.num_samples = options_.num_samples;
   sweep_options.ncc_sigma = options_.ncc_sigma;
-  sweep_options.min_triangulation_angle = options_.min_triangulation_angle;
+  sweep_options.min_triangulation_angle = DEG2RAD(options_.min_triangulation_angle);
   sweep_options.incident_angle_sigma = options_.incident_angle_sigma;
   sweep_options.geom_consistency_regularizer =
       options_.geom_consistency_regularizer;
   sweep_options.geom_consistency_max_cost = options_.geom_consistency_max_cost;
   sweep_options.filter_min_ncc = options_.filter_min_ncc;
   sweep_options.filter_min_triangulation_angle =
-      options_.filter_min_triangulation_angle;
+      DEG2RAD(options_.filter_min_triangulation_angle);
   sweep_options.filter_min_num_consistent = options_.filter_min_num_consistent;
   sweep_options.filter_geom_consistency_max_cost =
       options_.filter_geom_consistency_max_cost;

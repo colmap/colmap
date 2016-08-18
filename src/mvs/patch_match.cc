@@ -129,7 +129,7 @@ void PatchMatch::Check() const {
   CHECK_GT(options_.num_samples, 0);
   CHECK_GT(options_.ncc_sigma, 0.0f);
   CHECK_GE(options_.min_triangulation_angle, 0.0f);
-  CHECK_LT(options_.min_triangulation_angle, DEG2RAD(180.0f));
+  CHECK_LT(options_.min_triangulation_angle, 180.0f);
   CHECK_GT(options_.incident_angle_sigma, 0.0f);
   CHECK_GT(options_.num_iterations, 0);
   CHECK_GE(options_.geom_consistency_regularizer, 0.0f);
@@ -137,7 +137,7 @@ void PatchMatch::Check() const {
   CHECK_GE(options_.filter_min_ncc, -1.0f);
   CHECK_LE(options_.filter_min_ncc, 1.0f);
   CHECK_GE(options_.filter_min_triangulation_angle, 0.0f);
-  CHECK_LE(options_.filter_min_triangulation_angle, DEG2RAD(180.0f));
+  CHECK_LE(options_.filter_min_triangulation_angle, 180.0f);
   CHECK_GE(options_.filter_min_num_consistent, 0);
   CHECK_GE(options_.filter_geom_consistency_max_cost, 0.0f);
 }

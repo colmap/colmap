@@ -626,9 +626,7 @@ bool DenseMapperOptions::Check() {
 
   bool verified = true;
 
-  CHECK_OPTION(DenseMapperOptions, patch_match.depth_min, > 0);
-  CHECK_OPTION(DenseMapperOptions, patch_match.depth_max,
-               > patch_match.depth_max);
+  CHECK_OPTION(DenseMapperOptions, patch_match.gpu_index, >= -1);
   CHECK_OPTION(DenseMapperOptions, patch_match.window_radius, > 0);
   CHECK_OPTION(DenseMapperOptions, patch_match.window_radius,
                <= kMaxWindowRadius);
@@ -1039,9 +1037,7 @@ void OptionManager::AddDenseMapperOptions() {
   added_dense_mapper_options_ = true;
 
   ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
-                     patch_match.depth_min);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
-                     patch_match.depth_max);
+                     patch_match.gpu_index);
   ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
                      patch_match.window_radius);
   ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,

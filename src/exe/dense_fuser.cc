@@ -27,6 +27,7 @@
 #include "mvs/normal_map.h"
 #include "util/math.h"
 #include "util/misc.h"
+#include "util/option_manager.h"
 
 using namespace colmap;
 using namespace colmap::mvs;
@@ -37,11 +38,11 @@ struct Input {
   std::string consistency_graph_path;
 };
 
-bool ReadInput(const std::string& path, std::vector<uint8_t>* used_image_mask,
-               std::vector<Image>* images, std::vector<DepthMap>* depth_maps,
-               std::vector<NormalMap>* normal_maps,
-               std::vector<std::vector<int>>* consistency_graph,
-               std::string* output_path, FusionOptions* options) {
+bool ReadConfig(const std::string& path, std::vector<uint8_t>* used_image_mask,
+                std::vector<mvs::Image>* images,
+                std::vector<DepthMap>* depth_maps,
+                std::vector<NormalMap>* normal_maps,
+                std::vector<std::vector<int>>* consistency_graph) {
   std::string input_path;
   std::string input_type;
 
@@ -55,43 +56,6 @@ bool ReadInput(const std::string& path, std::vector<uint8_t>* used_image_mask,
 
     input_path = pt.get<std::string>("input_path");
     input_type = pt.get<std::string>("input_type");
-    *output_path = pt.get<std::string>("output_path");
-
-    boost::optional<int> min_num_pixels =
-        pt.get_optional<int>("min_num_pixels");
-    if (min_num_pixels) {
-      options->min_num_pixels = min_num_pixels.get();
-    }
-
-    boost::optional<int> max_num_pixels =
-        pt.get_optional<int>("max_num_pixels");
-    if (max_num_pixels) {
-      options->max_num_pixels = max_num_pixels.get();
-    }
-
-    boost::optional<int> max_traversal_depth =
-        pt.get_optional<int>("max_traversal_depth");
-    if (max_traversal_depth) {
-      options->max_traversal_depth = max_traversal_depth.get();
-    }
-
-    boost::optional<float> max_reproj_error =
-        pt.get_optional<float>("max_reproj_error");
-    if (max_reproj_error) {
-      options->max_reproj_error = max_reproj_error.get();
-    }
-
-    boost::optional<float> max_depth_error =
-        pt.get_optional<float>("max_depth_error");
-    if (max_depth_error) {
-      options->max_depth_error = max_depth_error.get();
-    }
-
-    boost::optional<float> max_normal_error =
-        pt.get_optional<float>("max_normal_error");
-    if (max_normal_error) {
-      options->max_normal_error = DegToRad(max_normal_error.get());
-    }
 
     for (const auto& input_elem : pt.get_child("input_list")) {
       Input input;
@@ -183,30 +147,39 @@ bool ReadInput(const std::string& path, std::vector<uint8_t>* used_image_mask,
 int main(int argc, char* argv[]) {
   InitializeGlog(argv);
 
-  if (argc < 2) {
-    std::cout << "ERROR: Configuration file not specified, call as " << argv[0]
-              << " <json-config-file-path>" << std::endl;
+  std::string config_path;
+  std::string output_path;
+
+  OptionManager options;
+  options.AddDenseMapperOptions();
+  options.AddRequiredOption("config_path", &config_path);
+  options.AddRequiredOption("output_path", &output_path);
+
+  if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
+  }
+
+  if (options.ParseHelp(argc, argv)) {
+    return EXIT_SUCCESS;
   }
 
   std::vector<uint8_t> used_image_mask;
-  std::vector<Image> images;
+  std::vector<mvs::Image> images;
   std::vector<DepthMap> depth_maps;
   std::vector<NormalMap> normal_maps;
   std::vector<std::vector<int>> consistency_graph;
-  std::string output_path;
-  FusionOptions options;
-  if (!ReadInput(argv[1], &used_image_mask, &images, &depth_maps, &normal_maps,
-                 &consistency_graph, &output_path, &options)) {
+  if (!ReadConfig(config_path, &used_image_mask, &images, &depth_maps,
+                  &normal_maps, &consistency_graph)) {
     return EXIT_FAILURE;
   }
 
   std::cout << std::endl;
-  options.Print();
+  options.dense_mapper_options->fusion.Print();
   std::cout << std::endl;
 
-  const auto points = StereoFusion(options, used_image_mask, images, depth_maps,
-                                   normal_maps, consistency_graph);
+  const auto points =
+      StereoFusion(options.dense_mapper_options->fusion, used_image_mask,
+                   images, depth_maps, normal_maps, consistency_graph);
 
   std::cout << "Number of fused points: " << points.size() << std::endl;
 
