@@ -50,16 +50,16 @@ struct StereoFusionOptions {
   int max_num_pixels = 1000;
 
   // Maximum depth in consistency graph traversal.
-  int max_traversal_depth = 3;
+  int max_traversal_depth = 100;
 
   // Maximum relative difference between measured and projected pixel.
-  float max_reproj_error = 3.0f;
+  float max_reproj_error = 2.0f;
 
   // Maximum relative difference between measured and projected depth.
   float max_depth_error = 0.01f;
 
   // Maximum difference between normals of pixels to be fused.
-  float max_normal_error = DegToRad(15.0f);
+  float max_normal_error = DegToRad(10.0f);
 
   // Print the options to stdout.
   void Print() const;

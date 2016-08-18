@@ -69,20 +69,17 @@ class StereoFuser {
     Eigen::Matrix3f inv_R;
   };
 
-  struct PointStat {
-    std::vector<float> x;
-    std::vector<float> y;
-    std::vector<float> z;
-    std::vector<Eigen::Vector3f> normals;
-    uint32_t r = 0;
-    uint32_t g = 0;
-    uint32_t b = 0;
-  };
+  Eigen::Vector4f fused_ref_point_;
+  Eigen::Vector3f fused_ref_normal_;
+  std::vector<float> fused_points_x_;
+  std::vector<float> fused_points_y_;
+  std::vector<float> fused_points_z_;
+  Eigen::Vector3d fused_normal_sum_;
+  BitmapColor<uint32_t> fused_color_sum_;
 
   const StereoFusionOptions options_;
   ConsistencyGraph consistency_graph_;
   std::vector<ImageData> image_data_;
-  PointStat point_stat_;
   float max_squared_reproj_error_;
   float min_cos_normal_error_;
 };
@@ -131,14 +128,15 @@ void ConsistencyGraph::GetConsistentImageIds(
 
 float Median(std::vector<float>* elems) {
   CHECK(!elems->empty());
-  const size_t mid = elems->size() / 2;
-
-  std::sort(elems->begin(), elems->end());
-
+  const size_t mid_idx = elems->size() / 2;
+  std::nth_element(elems->begin(), elems->begin() + mid_idx, elems->end());
   if (elems->size() % 2 == 0) {
-    return ((*elems)[mid] + (*elems)[mid - 1]) / 2.0f;
+    const float mid_element1 = (*elems)[mid_idx];
+    const float mid_element2 =
+        *std::max_element(elems->begin(), elems->begin() + mid_idx);
+    return (mid_element1 + mid_element2) / 2.0f;
   } else {
-    return (*elems)[mid];
+    return (*elems)[mid_idx];
   }
 }
 
@@ -216,36 +214,34 @@ std::vector<FusedPoint> StereoFuser::Run() {
           continue;
         }
 
-        point_stat_.x.clear();
-        point_stat_.y.clear();
-        point_stat_.z.clear();
-        point_stat_.normals.clear();
-        point_stat_.r = 0;
-        point_stat_.g = 0;
-        point_stat_.b = 0;
+        fused_points_x_.clear();
+        fused_points_y_.clear();
+        fused_points_z_.clear();
+        fused_normal_sum_.setZero();
+        fused_color_sum_ = BitmapColor<uint32_t>(0, 0, 0);
 
         FusePoint(image_id, row, col, 0);
 
-        if (point_stat_.normals.size() >= min_num_pixels) {
-          Eigen::Vector3d mean_normal = Eigen::Vector3d::Zero();
-          for (const auto& normal : point_stat_.normals) {
-            mean_normal += normal.cast<double>();
-          }
-          mean_normal /= mean_normal.norm();
-
+        const size_t num_pixels = fused_points_x_.size();
+        if (num_pixels >= min_num_pixels) {
           FusedPoint fused_point;
-          fused_point.x = internal::Median(&point_stat_.x);
-          fused_point.y = internal::Median(&point_stat_.y);
-          fused_point.z = internal::Median(&point_stat_.z);
+
+          fused_point.x = internal::Median(&fused_points_x_);
+          fused_point.y = internal::Median(&fused_points_y_);
+          fused_point.z = internal::Median(&fused_points_z_);
+
+          const Eigen::Vector3d mean_normal = fused_normal_sum_.normalized();
           fused_point.nx = static_cast<float>(mean_normal(0));
           fused_point.ny = static_cast<float>(mean_normal(1));
           fused_point.nz = static_cast<float>(mean_normal(2));
-          fused_point.r = round(static_cast<float>(point_stat_.r) /
-                                point_stat_.normals.size());
-          fused_point.g = round(static_cast<float>(point_stat_.g) /
-                                point_stat_.normals.size());
-          fused_point.b = round(static_cast<float>(point_stat_.b) /
-                                point_stat_.normals.size());
+
+          fused_point.r = TruncateCast<double, uint8_t>(
+              std::round(static_cast<double>(fused_color_sum_.r) / num_pixels));
+          fused_point.g = TruncateCast<double, uint8_t>(
+              std::round(static_cast<double>(fused_color_sum_.g) / num_pixels));
+          fused_point.b = TruncateCast<double, uint8_t>(
+              std::round(static_cast<double>(fused_color_sum_.b) / num_pixels));
+
           fused_points.push_back(fused_point);
         }
       }
@@ -287,9 +283,7 @@ void StereoFuser::FusePoint(const int image_id, const int row, const int col,
   // has already been added and we need to check for consistency.
   if (traversal_depth > 0) {
     // Project reference point into current view.
-    const Eigen::Vector4f xyzw(point_stat_.x[0], point_stat_.y[0],
-                               point_stat_.z[0], 1.0f);
-    const Eigen::Vector3f proj = image_data.P * xyzw;
+    const Eigen::Vector3f proj = image_data.P * fused_ref_point_;
 
     // Depth error of reference depth with current depth.
     const float depth_error = std::abs((proj(2) - depth) / depth);
@@ -316,7 +310,7 @@ void StereoFuser::FusePoint(const int image_id, const int row, const int col,
 
   // Check for consistent normal direction with reference normal.
   if (traversal_depth > 0) {
-    const float cos_normal_error = point_stat_.normals[0].dot(normal);
+    const float cos_normal_error = fused_ref_normal_.dot(normal);
     if (cos_normal_error < min_cos_normal_error_) {
       return;
     }
@@ -326,30 +320,34 @@ void StereoFuser::FusePoint(const int image_id, const int row, const int col,
   const Eigen::Vector3f xyz =
       image_data.inv_P * Eigen::Vector4f(col * depth, row * depth, depth, 1.0f);
 
+  // Read the color of the pixel.
+  BitmapColor<uint8_t> color;
+  image_data.image->GetBitmap().GetPixel(col, row, &color);
+
   // Set the current pixel as visited.
   image_data.visited_mask.Set(row, col, 0, true);
 
   // Accumulate statistics for fused point.
-  point_stat_.x.push_back(xyz(0));
-  point_stat_.y.push_back(xyz(1));
-  point_stat_.z.push_back(xyz(2));
-  point_stat_.normals.push_back(normal);
-  BitmapColor<uint8_t> color;
-  image_data.image->GetBitmap().GetPixel(col, row, &color);
-  point_stat_.r += color.r;
-  point_stat_.g += color.g;
-  point_stat_.b += color.b;
+  fused_points_x_.push_back(xyz(0));
+  fused_points_y_.push_back(xyz(1));
+  fused_points_z_.push_back(xyz(2));
+  fused_normal_sum_ += normal.cast<double>();
+  fused_color_sum_.r += color.r;
+  fused_color_sum_.g += color.g;
+  fused_color_sum_.b += color.b;
+
+  // Remember the first pixel as the reference.
+  if (traversal_depth == 0) {
+    fused_ref_point_ = Eigen::Vector4f(xyz(0), xyz(1), xyz(2), 1.0f);
+    fused_ref_normal_ = normal;
+  }
 
   const int next_traversal_depth = traversal_depth + 1;
 
-  // Do not traverse the graph infinitely in one branch.
-  if (next_traversal_depth >= options_.max_traversal_depth) {
-    return;
-  }
-
-  // Upper limit of fused pixels in one point, to avoid stack overflow.
-  if (point_stat_.normals.size() >=
-      static_cast<size_t>(options_.max_num_pixels)) {
+  // Do not traverse the graph infinitely in one branch and limit the maximum
+  // number of pixels fused in one point to avoid stack overflow.
+  if (next_traversal_depth >= options_.max_traversal_depth ||
+      fused_points_x_.size() >= static_cast<size_t>(options_.max_num_pixels)) {
     return;
   }
 
@@ -455,6 +453,7 @@ void StereoFusionOptions::Print() const {
   std::cout << "-------------------------" << std::endl;
   PrintOption(min_num_pixels);
   PrintOption(max_num_pixels);
+  PrintOption(max_traversal_depth);
   PrintOption(max_reproj_error);
   PrintOption(max_depth_error);
   PrintOption(max_normal_error);
