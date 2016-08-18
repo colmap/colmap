@@ -123,6 +123,11 @@ void UndistortImage(const UndistortCameraOptions& options,
                     const Camera& distorted_camera, Bitmap* undistorted_image,
                     Camera* undistorted_camera);
 
+// Undistort all cameras in the reconstruction and accordingly all
+// observations in their corresponding images.
+void UndistortReconstruction(const UndistortCameraOptions& options,
+                             Reconstruction* reconstruction);
+
 }  // namespace colmap
 
 #endif  // COLMAP_SRC_BASE_UNDISTORTION_H_

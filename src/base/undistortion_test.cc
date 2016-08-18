@@ -147,3 +147,39 @@ BOOST_AUTO_TEST_CASE(TestUndistortCameraNoBlankPixels) {
     }
   }
 }
+
+BOOST_AUTO_TEST_CASE(TestUndistortReconstruction) {
+  const size_t kNumImages = 10;
+  const size_t kNumPoints2D = 10;
+
+  Reconstruction reconstruction;
+
+  Camera camera;
+  camera.SetCameraId(1);
+  camera.InitializeWithName("OPENCV", 1, 1, 1);
+  camera.Params(4) = 1.0;
+  reconstruction.AddCamera(camera);
+
+  for (image_t image_id = 1; image_id <= kNumImages; ++image_id) {
+    Image image;
+    image.SetImageId(image_id);
+    image.SetCameraId(1);
+    image.SetName("image" + std::to_string(image_id));
+    image.SetPoints2D(
+        std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Ones()));
+    reconstruction.AddImage(image);
+    reconstruction.RegisterImage(image_id);
+  }
+
+  UndistortCameraOptions options;
+  UndistortReconstruction(options, &reconstruction);
+  for (const auto& camera : reconstruction.Cameras()) {
+    BOOST_CHECK_EQUAL(camera.second.ModelName(), "PINHOLE");
+  }
+
+  for (const auto& image : reconstruction.Images()) {
+    for (const auto& point2D : image.second.Points2D()) {
+      BOOST_CHECK_NE(point2D.XY(), Eigen::Vector2d::Ones());
+    }
+  }
+}

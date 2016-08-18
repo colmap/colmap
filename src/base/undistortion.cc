@@ -554,4 +554,25 @@ void UndistortImage(const UndistortCameraOptions& options,
                           distorted_bitmap, undistorted_bitmap);
 }
 
+void UndistortReconstruction(const UndistortCameraOptions& options,
+                             Reconstruction* reconstruction) {
+  const auto distorted_cameras = reconstruction->Cameras();
+  for (auto& camera : distorted_cameras) {
+    reconstruction->Camera(camera.first) =
+        UndistortCamera(options, camera.second);
+  }
+
+  for (const auto& distorted_image : reconstruction->Images()) {
+    auto& image = reconstruction->Image(distorted_image.first);
+    const auto& distorted_camera = distorted_cameras.at(image.CameraId());
+    const auto& undistorted_camera = reconstruction->Camera(image.CameraId());
+    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+         ++point2D_idx) {
+      auto& point2D = image.Point2D(point2D_idx);
+      point2D.SetXY(undistorted_camera.WorldToImage(
+          distorted_camera.ImageToWorld(point2D.XY())));
+    }
+  }
+}
+
 }  // namespace colmap
