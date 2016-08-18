@@ -130,7 +130,7 @@ void MainWindow::CreateWidgets() {
   render_options_widget_ =
       new RenderOptionsWidget(this, &options_, opengl_window_);
   log_widget_ = new LogWidget(this, &options_);
-  undistort_widget_ = new UndistortWidget(this, &options_);
+  undistortion_widget_ = new UndistortionWidget(this, &options_);
   reconstruction_manager_widget_ =
       new ReconstructionManagerWidget(this, &reconstruction_manager_);
   reconstruction_stats_widget_ = new ReconstructionStatsWidget(this);
@@ -1108,10 +1108,10 @@ void MainWindow::UndistortImages() {
   if (!IsSelectedReconstructionValid()) {
     return;
   }
-  undistort_widget_->reconstruction =
+  undistortion_widget_->reconstruction =
       reconstruction_manager_.Get(SelectedReconstructionIdx());
-  undistort_widget_->show();
-  undistort_widget_->raise();
+  undistortion_widget_->show();
+  undistortion_widget_->raise();
 }
 
 void MainWindow::ShowReconstructionStats() {

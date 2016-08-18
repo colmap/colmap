@@ -41,7 +41,7 @@ bool ReadInput(const std::string& path, std::vector<uint8_t>* used_image_mask,
                std::vector<Image>* images, std::vector<DepthMap>* depth_maps,
                std::vector<NormalMap>* normal_maps,
                std::vector<std::vector<int>>* consistency_graph,
-               std::string* output_path, StereoFusionOptions* options) {
+               std::string* output_path, FusionOptions* options) {
   std::string input_path;
   std::string input_type;
 
@@ -195,7 +195,7 @@ int main(int argc, char* argv[]) {
   std::vector<NormalMap> normal_maps;
   std::vector<std::vector<int>> consistency_graph;
   std::string output_path;
-  StereoFusionOptions options;
+  FusionOptions options;
   if (!ReadInput(argv[1], &used_image_mask, &images, &depth_maps, &normal_maps,
                  &consistency_graph, &output_path, &options)) {
     return EXIT_FAILURE;

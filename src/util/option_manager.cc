@@ -94,38 +94,37 @@ bool BaseOptions::Check() { return false; }
 ExtractionOptions::ExtractionOptions() { Reset(); }
 
 void ExtractionOptions::Reset() {
-  reader_options = ImageReader::Options();
-  sift_options = SiftOptions();
-  cpu_options = SiftCPUFeatureExtractor::Options();
+  reader = ImageReader::Options();
+  sift = SiftOptions();
+  cpu = SiftCPUFeatureExtractor::Options();
 }
 
 bool ExtractionOptions::Check() {
   bool verified = true;
 
-  CHECK_OPTION(ExtractionOptions, reader_options.default_focal_length_factor,
-               > 0);
+  CHECK_OPTION(ExtractionOptions, reader.default_focal_length_factor, > 0);
 
-  if (!reader_options.camera_model.empty()) {
-    const auto model_id = CameraModelNameToId(reader_options.camera_model);
-    VERIFY_OPTION_MSG(ExtractionOptions, reader_options.camera_model,
-                      model_id != -1, "Camera model does not exist");
+  if (!reader.camera_model.empty()) {
+    const auto model_id = CameraModelNameToId(reader.camera_model);
+    VERIFY_OPTION_MSG(ExtractionOptions, reader.camera_model, model_id != -1,
+                      "Camera model does not exist");
 
-    if (!reader_options.camera_params.empty()) {
+    if (!reader.camera_params.empty()) {
       const auto camera_params_vector =
-          CSVToVector<double>(reader_options.camera_params);
-      VERIFY_OPTION_MSG(ExtractionOptions, reader_options.camera_params,
+          CSVToVector<double>(reader.camera_params);
+      VERIFY_OPTION_MSG(ExtractionOptions, reader.camera_params,
                         CameraModelVerifyParams(model_id, camera_params_vector),
                         "Invalid camera parameters");
     }
   }
 
-  CHECK_OPTION(ExtractionOptions, sift_options.max_image_size, > 0);
-  CHECK_OPTION(ExtractionOptions, sift_options.max_num_features, > 0);
-  CHECK_OPTION(ExtractionOptions, sift_options.octave_resolution, > 0);
-  CHECK_OPTION(ExtractionOptions, sift_options.peak_threshold, > 0);
-  CHECK_OPTION(ExtractionOptions, sift_options.edge_threshold, > 0);
-  CHECK_OPTION(ExtractionOptions, sift_options.max_num_orientations, > 0);
-  CHECK_OPTION(ExtractionOptions, cpu_options.batch_size_factor, > 0);
+  CHECK_OPTION(ExtractionOptions, sift.max_image_size, > 0);
+  CHECK_OPTION(ExtractionOptions, sift.max_num_features, > 0);
+  CHECK_OPTION(ExtractionOptions, sift.octave_resolution, > 0);
+  CHECK_OPTION(ExtractionOptions, sift.peak_threshold, > 0);
+  CHECK_OPTION(ExtractionOptions, sift.edge_threshold, > 0);
+  CHECK_OPTION(ExtractionOptions, sift.max_num_orientations, > 0);
+  CHECK_OPTION(ExtractionOptions, cpu.batch_size_factor, > 0);
 
   return verified;
 }
@@ -428,21 +427,21 @@ void IncrementalMapperOptions::Reset() {
 bool IncrementalMapperOptions::Check() {
   bool verified = true;
 
-  CHECK_OPTION(MapperOptions, init_min_num_inliers, > 0);
-  CHECK_OPTION(MapperOptions, init_max_error, > 0);
-  CHECK_OPTION(MapperOptions, init_max_forward_motion, >= 0);
-  CHECK_OPTION(MapperOptions, init_max_forward_motion, <= 1);
-  CHECK_OPTION(MapperOptions, init_min_tri_angle, > 0);
+  CHECK_OPTION(SparseMapperOptions, init_min_num_inliers, > 0);
+  CHECK_OPTION(SparseMapperOptions, init_max_error, > 0);
+  CHECK_OPTION(SparseMapperOptions, init_max_forward_motion, >= 0);
+  CHECK_OPTION(SparseMapperOptions, init_max_forward_motion, <= 1);
+  CHECK_OPTION(SparseMapperOptions, init_min_tri_angle, > 0);
 
-  CHECK_OPTION(MapperOptions, abs_pose_max_error, > 0);
-  CHECK_OPTION(MapperOptions, abs_pose_min_num_inliers, > 0);
-  CHECK_OPTION(MapperOptions, abs_pose_min_inlier_ratio, >= 0);
-  CHECK_OPTION(MapperOptions, abs_pose_min_inlier_ratio, <= 1);
+  CHECK_OPTION(SparseMapperOptions, abs_pose_max_error, > 0);
+  CHECK_OPTION(SparseMapperOptions, abs_pose_min_num_inliers, > 0);
+  CHECK_OPTION(SparseMapperOptions, abs_pose_min_inlier_ratio, >= 0);
+  CHECK_OPTION(SparseMapperOptions, abs_pose_min_inlier_ratio, <= 1);
 
-  CHECK_OPTION(MapperOptions, filter_max_reproj_error, > 0);
-  CHECK_OPTION(MapperOptions, filter_min_tri_angle, > 0);
+  CHECK_OPTION(SparseMapperOptions, filter_max_reproj_error, > 0);
+  CHECK_OPTION(SparseMapperOptions, filter_min_tri_angle, > 0);
 
-  CHECK_OPTION(MapperOptions, max_reg_trials, > 0);
+  CHECK_OPTION(SparseMapperOptions, max_reg_trials, > 0);
 
   return verified;
 }
@@ -462,9 +461,9 @@ IncrementalMapper::Options IncrementalMapperOptions::Options() const {
   return options;
 }
 
-MapperOptions::MapperOptions() { Reset(); }
+SparseMapperOptions::SparseMapperOptions() { Reset(); }
 
-void MapperOptions::Reset() {
+void SparseMapperOptions::Reset() {
   min_num_matches = 15;
   ignore_watermarks = false;
 
@@ -509,33 +508,33 @@ void MapperOptions::Reset() {
   triangulation.Reset();
 }
 
-bool MapperOptions::Check() {
+bool SparseMapperOptions::Check() {
   bool verified = true;
 
-  CHECK_OPTION(MapperOptions, min_num_matches, > 0);
-  CHECK_OPTION(MapperOptions, max_num_models, > 0);
-  CHECK_OPTION(MapperOptions, max_model_overlap, > 0);
-  CHECK_OPTION(MapperOptions, min_model_size, >= 0);
+  CHECK_OPTION(SparseMapperOptions, min_num_matches, > 0);
+  CHECK_OPTION(SparseMapperOptions, max_num_models, > 0);
+  CHECK_OPTION(SparseMapperOptions, max_model_overlap, > 0);
+  CHECK_OPTION(SparseMapperOptions, min_model_size, >= 0);
 
-  CHECK_OPTION(MapperOptions, init_num_trials, > 0);
+  CHECK_OPTION(SparseMapperOptions, init_num_trials, > 0);
 
-  CHECK_OPTION(MapperOptions, min_focal_length_ratio, > 0);
-  CHECK_OPTION(MapperOptions, max_focal_length_ratio, > 0);
-  CHECK_OPTION(MapperOptions, max_extra_param, >= 0);
+  CHECK_OPTION(SparseMapperOptions, min_focal_length_ratio, > 0);
+  CHECK_OPTION(SparseMapperOptions, max_focal_length_ratio, > 0);
+  CHECK_OPTION(SparseMapperOptions, max_extra_param, >= 0);
 
-  CHECK_OPTION(MapperOptions, ba_local_num_images, >= 2);
-  CHECK_OPTION(MapperOptions, ba_local_max_num_iterations, >= 0);
+  CHECK_OPTION(SparseMapperOptions, ba_local_num_images, >= 2);
+  CHECK_OPTION(SparseMapperOptions, ba_local_max_num_iterations, >= 0);
 
-  CHECK_OPTION(MapperOptions, ba_global_images_ratio, > 1.0);
-  CHECK_OPTION(MapperOptions, ba_global_points_ratio, > 1.0);
-  CHECK_OPTION(MapperOptions, ba_global_images_freq, > 0);
-  CHECK_OPTION(MapperOptions, ba_global_points_freq, > 0);
-  CHECK_OPTION(MapperOptions, ba_global_max_num_iterations, > 0);
+  CHECK_OPTION(SparseMapperOptions, ba_global_images_ratio, > 1.0);
+  CHECK_OPTION(SparseMapperOptions, ba_global_points_ratio, > 1.0);
+  CHECK_OPTION(SparseMapperOptions, ba_global_images_freq, > 0);
+  CHECK_OPTION(SparseMapperOptions, ba_global_points_freq, > 0);
+  CHECK_OPTION(SparseMapperOptions, ba_global_max_num_iterations, > 0);
 
-  CHECK_OPTION(MapperOptions, ba_local_max_refinements, > 0);
-  CHECK_OPTION(MapperOptions, ba_local_max_refinement_change, >= 0);
-  CHECK_OPTION(MapperOptions, ba_global_max_refinements, > 0);
-  CHECK_OPTION(MapperOptions, ba_global_max_refinement_change, >= 0);
+  CHECK_OPTION(SparseMapperOptions, ba_local_max_refinements, > 0);
+  CHECK_OPTION(SparseMapperOptions, ba_local_max_refinement_change, >= 0);
+  CHECK_OPTION(SparseMapperOptions, ba_global_max_refinements, > 0);
+  CHECK_OPTION(SparseMapperOptions, ba_global_max_refinement_change, >= 0);
 
   verified = verified && incremental_mapper.Check();
   verified = verified && triangulation.Check();
@@ -543,7 +542,8 @@ bool MapperOptions::Check() {
   return verified;
 }
 
-IncrementalMapper::Options MapperOptions::IncrementalMapperOptions() const {
+IncrementalMapper::Options SparseMapperOptions::IncrementalMapperOptions()
+    const {
   IncrementalMapper::Options options = incremental_mapper.Options();
   options.abs_pose_refine_focal_length = ba_refine_focal_length;
   options.abs_pose_refine_extra_params = ba_refine_extra_params;
@@ -554,7 +554,8 @@ IncrementalMapper::Options MapperOptions::IncrementalMapperOptions() const {
   return options;
 }
 
-IncrementalTriangulator::Options MapperOptions::TriangulationOptions() const {
+IncrementalTriangulator::Options SparseMapperOptions::TriangulationOptions()
+    const {
   IncrementalTriangulator::Options options = triangulation.Options();
   options.min_focal_length_ratio = min_focal_length_ratio;
   options.max_focal_length_ratio = max_focal_length_ratio;
@@ -562,7 +563,8 @@ IncrementalTriangulator::Options MapperOptions::TriangulationOptions() const {
   return options;
 }
 
-BundleAdjuster::Options MapperOptions::LocalBundleAdjustmentOptions() const {
+BundleAdjuster::Options SparseMapperOptions::LocalBundleAdjustmentOptions()
+    const {
   BundleAdjuster::Options options;
   options.solver_options.function_tolerance = 0.0;
   options.solver_options.gradient_tolerance = 10.0;
@@ -582,7 +584,8 @@ BundleAdjuster::Options MapperOptions::LocalBundleAdjustmentOptions() const {
   return options;
 }
 
-BundleAdjuster::Options MapperOptions::GlobalBundleAdjustmentOptions() const {
+BundleAdjuster::Options SparseMapperOptions::GlobalBundleAdjustmentOptions()
+    const {
   BundleAdjuster::Options options;
   options.solver_options.function_tolerance = 0.0;
   options.solver_options.gradient_tolerance = 1.0;
@@ -602,13 +605,62 @@ BundleAdjuster::Options MapperOptions::GlobalBundleAdjustmentOptions() const {
 }
 
 ParallelBundleAdjuster::Options
-MapperOptions::ParallelGlobalBundleAdjustmentOptions() const {
+SparseMapperOptions::ParallelGlobalBundleAdjustmentOptions() const {
   ParallelBundleAdjuster::Options options;
   options.max_num_iterations = ba_global_max_num_iterations;
   options.print_summary = true;
   options.gpu_index = ba_global_pba_gpu_index;
   options.num_threads = num_threads;
   return options;
+}
+
+DenseMapperOptions::DenseMapperOptions() { Reset(); }
+
+void DenseMapperOptions::Reset() {
+  patch_match = mvs::PatchMatch::Options();
+  fusion = mvs::FusionOptions();
+}
+
+bool DenseMapperOptions::Check() {
+  const int kMaxWindowRadius = mvs::PatchMatch::kMaxWindowRadius;
+
+  bool verified = true;
+
+  CHECK_OPTION(DenseMapperOptions, patch_match.depth_min, > 0);
+  CHECK_OPTION(DenseMapperOptions, patch_match.depth_max,
+               > patch_match.depth_max);
+  CHECK_OPTION(DenseMapperOptions, patch_match.window_radius, > 0);
+  CHECK_OPTION(DenseMapperOptions, patch_match.window_radius,
+               <= kMaxWindowRadius);
+  CHECK_OPTION(DenseMapperOptions, patch_match.sigma_spatial, > 0);
+  CHECK_OPTION(DenseMapperOptions, patch_match.sigma_color, > 0);
+  CHECK_OPTION(DenseMapperOptions, patch_match.num_samples, > 0);
+  CHECK_OPTION(DenseMapperOptions, patch_match.ncc_sigma, > 0);
+  CHECK_OPTION(DenseMapperOptions, patch_match.min_triangulation_angle, >= 0);
+  CHECK_OPTION(DenseMapperOptions, patch_match.min_triangulation_angle, < 180);
+  CHECK_OPTION(DenseMapperOptions, patch_match.incident_angle_sigma, > 0);
+  CHECK_OPTION(DenseMapperOptions, patch_match.num_iterations, > 0);
+  CHECK_OPTION(DenseMapperOptions, patch_match.geom_consistency_regularizer,
+               >= 0);
+  CHECK_OPTION(DenseMapperOptions, patch_match.geom_consistency_max_cost, >= 0);
+  CHECK_OPTION(DenseMapperOptions, patch_match.filter_min_ncc, >= -1);
+  CHECK_OPTION(DenseMapperOptions, patch_match.filter_min_ncc, <= 1);
+  CHECK_OPTION(DenseMapperOptions, patch_match.filter_min_triangulation_angle,
+               >= 0);
+  CHECK_OPTION(DenseMapperOptions, patch_match.filter_min_num_consistent,
+               <= 180);
+  CHECK_OPTION(DenseMapperOptions, patch_match.filter_geom_consistency_max_cost,
+               >= 0);
+
+  CHECK_OPTION(DenseMapperOptions, fusion.min_num_pixels, >= 0);
+  CHECK_OPTION(DenseMapperOptions, fusion.max_num_pixels,
+               >= fusion.min_num_pixels);
+  CHECK_OPTION(DenseMapperOptions, fusion.max_traversal_depth, > 0);
+  CHECK_OPTION(DenseMapperOptions, fusion.max_reproj_error, >= 0);
+  CHECK_OPTION(DenseMapperOptions, fusion.max_depth_error, >= 0);
+  CHECK_OPTION(DenseMapperOptions, fusion.max_normal_error, >= 0);
+
+  return verified;
 }
 
 RenderOptions::RenderOptions() { Reset(); }
@@ -644,7 +696,8 @@ OptionManager::OptionManager() {
   vocab_tree_match_options.reset(new VocabTreeMatchOptions());
   spatial_match_options.reset(new SpatialMatchOptions());
   ba_options.reset(new BundleAdjustmentOptions());
-  mapper_options.reset(new MapperOptions());
+  sparse_mapper_options.reset(new SparseMapperOptions());
+  dense_mapper_options.reset(new DenseMapperOptions());
   render_options.reset(new RenderOptions());
 
   Reset();
@@ -670,7 +723,8 @@ void OptionManager::AddAllOptions() {
   AddVocabTreeMatchOptions();
   AddSpatialMatchOptions();
   AddBundleAdjustmentOptions();
-  AddMapperOptions();
+  AddSparseMapperOptions();
+  AddDenseMapperOptions();
   AddRenderOptions();
 }
 
@@ -736,35 +790,32 @@ void OptionManager::AddExtractionOptions() {
   added_extraction_options_ = true;
 
   ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
-                     reader_options.camera_model);
+                     reader.camera_model);
   ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
-                     reader_options.single_camera);
+                     reader.single_camera);
   ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
-                     reader_options.camera_params);
+                     reader.camera_params);
   ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
-                     reader_options.default_focal_length_factor);
+                     reader.default_focal_length_factor);
 
   ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
-                     sift_options.max_image_size);
+                     sift.max_image_size);
   ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
-                     sift_options.max_num_features);
+                     sift.max_num_features);
+  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options, sift.first_octave);
   ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
-                     sift_options.first_octave);
+                     sift.octave_resolution);
   ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
-                     sift_options.octave_resolution);
+                     sift.peak_threshold);
   ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
-                     sift_options.peak_threshold);
+                     sift.edge_threshold);
   ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
-                     sift_options.edge_threshold);
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
-                     sift_options.max_num_orientations);
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
-                     sift_options.upright);
+                     sift.max_num_orientations);
+  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options, sift.upright);
 
   ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
-                     cpu_options.batch_size_factor);
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
-                     cpu_options.num_threads);
+                     cpu.batch_size_factor);
+  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options, cpu.num_threads);
 }
 
 void OptionManager::AddMatchOptions() {
@@ -864,95 +915,178 @@ void OptionManager::AddBundleAdjustmentOptions() {
   ADD_OPTION_DEFAULT(BundleAdjustmentOptions, ba_options, refine_extra_params);
 }
 
-void OptionManager::AddMapperOptions() {
-  if (added_mapper_options_) {
+void OptionManager::AddSparseMapperOptions() {
+  if (added_sparse_mapper_options_) {
     return;
   }
-  added_mapper_options_ = true;
+  added_sparse_mapper_options_ = true;
 
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, min_num_matches);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, multiple_models);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, max_num_models);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, max_model_overlap);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, min_model_size);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, init_image_id1);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, init_image_id2);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, init_num_trials);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, extract_colors);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, num_threads);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, min_focal_length_ratio);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, max_focal_length_ratio);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, max_extra_param);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     min_num_matches);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     multiple_models);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     max_num_models);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     max_model_overlap);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     min_model_size);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     init_image_id1);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     init_image_id2);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     init_num_trials);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     extract_colors);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options, num_threads);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     min_focal_length_ratio);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     max_focal_length_ratio);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     max_extra_param);
 
   // IncrementalMapper.
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      incremental_mapper.init_min_num_inliers);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      incremental_mapper.init_max_error);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      incremental_mapper.init_max_forward_motion);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      incremental_mapper.init_min_tri_angle);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      incremental_mapper.abs_pose_max_error);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      incremental_mapper.abs_pose_min_num_inliers);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      incremental_mapper.abs_pose_min_inlier_ratio);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      incremental_mapper.filter_max_reproj_error);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      incremental_mapper.filter_min_tri_angle);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      incremental_mapper.max_reg_trials);
 
   // IncrementalTriangulator.
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      triangulation.max_transitivity);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      triangulation.create_max_angle_error);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      triangulation.continue_max_angle_error);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      triangulation.merge_max_reproj_error);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      triangulation.complete_max_reproj_error);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      triangulation.complete_max_transitivity);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      triangulation.re_max_angle_error);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, triangulation.re_min_ratio);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     triangulation.re_min_ratio);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      triangulation.re_max_trials);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, triangulation.min_angle);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     triangulation.min_angle);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      triangulation.ignore_two_view_tracks);
 
   // General bundle adjustment.
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_refine_focal_length);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_refine_principal_point);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_refine_extra_params);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     ba_refine_focal_length);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     ba_refine_principal_point);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     ba_refine_extra_params);
 
   // Local bundle adjustment.
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_local_num_images);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     ba_local_num_images);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      ba_local_max_num_iterations);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_local_max_refinements);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     ba_local_max_refinements);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      ba_local_max_refinement_change);
 
   // Global bundle adjustment.
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_global_use_pba);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_global_images_ratio);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_global_images_freq);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_global_points_ratio);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_global_points_freq);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     ba_global_use_pba);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     ba_global_images_ratio);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     ba_global_images_freq);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     ba_global_points_ratio);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     ba_global_points_freq);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      ba_global_max_num_iterations);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_global_pba_gpu_index);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_global_max_refinements);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     ba_global_pba_gpu_index);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
+                     ba_global_max_refinements);
+  ADD_OPTION_DEFAULT(SparseMapperOptions, sparse_mapper_options,
                      ba_global_max_refinement_change);
+}
+
+void OptionManager::AddDenseMapperOptions() {
+  if (added_dense_mapper_options_) {
+    return;
+  }
+  added_dense_mapper_options_ = true;
+
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     patch_match.depth_min);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     patch_match.depth_max);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     patch_match.window_radius);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     patch_match.sigma_spatial);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     patch_match.sigma_color);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     patch_match.num_samples);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     patch_match.ncc_sigma);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     patch_match.min_triangulation_angle);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     patch_match.incident_angle_sigma);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     patch_match.num_iterations);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     patch_match.geom_consistency);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     patch_match.geom_consistency_regularizer);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     patch_match.geom_consistency_max_cost);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     patch_match.filter);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     patch_match.filter_min_ncc);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     patch_match.filter_min_triangulation_angle);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     patch_match.filter_min_num_consistent);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     patch_match.filter_geom_consistency_max_cost);
+
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     fusion.min_num_pixels);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     fusion.max_num_pixels);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     fusion.max_traversal_depth);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     fusion.max_reproj_error);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     fusion.max_depth_error);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     fusion.max_normal_error);
 }
 
 void OptionManager::AddRenderOptions() {
@@ -981,7 +1115,7 @@ void OptionManager::Reset() {
   vocab_tree_match_options->Reset();
   spatial_match_options->Reset();
   ba_options->Reset();
-  mapper_options->Reset();
+  sparse_mapper_options->Reset();
   render_options->Reset();
 
   desc_.reset(new boost::program_options::options_description());
@@ -1002,7 +1136,8 @@ void OptionManager::Reset() {
   added_vocab_tree_match_options_ = false;
   added_spatial_match_options_ = false;
   added_ba_options_ = false;
-  added_mapper_options_ = false;
+  added_sparse_mapper_options_ = false;
+  added_dense_mapper_options_ = false;
   added_render_options_ = false;
 }
 
@@ -1103,7 +1238,8 @@ bool OptionManager::Check() {
   verified = verified && vocab_tree_match_options->Check();
   verified = verified && spatial_match_options->Check();
   verified = verified && ba_options->Check();
-  verified = verified && mapper_options->Check();
+  verified = verified && sparse_mapper_options->Check();
+  verified = verified && dense_mapper_options->Check();
   verified = verified && render_options->Check();
 
   return verified;

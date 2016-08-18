@@ -42,7 +42,7 @@ struct FusedPoint {
   uint8_t b = 0;
 };
 
-struct StereoFusionOptions {
+struct FusionOptions {
   // Minimum number of fused pixels to produce a point.
   int min_num_pixels = 3;
 
@@ -61,6 +61,9 @@ struct StereoFusionOptions {
   // Maximum difference between normals of pixels to be fused.
   float max_normal_error = DegToRad(10.0f);
 
+  // Check the options for validity.
+  void Check() const;
+
   // Print the options to stdout.
   void Print() const;
 };
@@ -68,7 +71,7 @@ struct StereoFusionOptions {
 // Fuse the multi-view stereo depth and normal maps into a consistent global
 // dense point cloud with normal information.
 std::vector<FusedPoint> StereoFusion(
-    const StereoFusionOptions& options,
+    const FusionOptions& options,
     const std::vector<uint8_t>& used_image_mask,
     const std::vector<Image>& images, const std::vector<DepthMap>& depth_maps,
     const std::vector<NormalMap>& normal_maps,

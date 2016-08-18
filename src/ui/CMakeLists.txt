@@ -27,6 +27,6 @@ COLMAP_ADD_LIBRARY(ui
     reconstruction_stats_widget.h reconstruction_stats_widget.cc
     render_options_widget.h render_options_widget.cc
     triangle_painter.h triangle_painter.cc
-    undistort_widget.h undistort_widget.cc
+    undistortion_widget.h undistortion_widget.cc
     ${QT_RESOURCES}
 )

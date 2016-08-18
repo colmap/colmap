@@ -43,10 +43,10 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
-  const std::vector<double> camera_params = CSVToVector<double>(
-      options.extraction_options->reader_options.camera_params);
-  const int camera_model_id = CameraModelNameToId(
-      options.extraction_options->reader_options.camera_model);
+  const std::vector<double> camera_params =
+      CSVToVector<double>(options.extraction_options->reader.camera_params);
+  const int camera_model_id =
+      CameraModelNameToId(options.extraction_options->reader.camera_model);
 
   if (camera_params.size() > 0 &&
       !CameraModelVerifyParams(camera_model_id, camera_params)) {
@@ -54,15 +54,14 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  ImageReader::Options reader_options =
-      options.extraction_options->reader_options;
+  ImageReader::Options reader_options = options.extraction_options->reader;
   reader_options.database_path = *options.database_path;
   reader_options.image_path = *options.image_path;
 
   if (use_gpu) {
     QApplication app(argc, argv);
-    SiftGPUFeatureExtractor feature_extractor(
-        reader_options, options.extraction_options->sift_options);
+    SiftGPUFeatureExtractor feature_extractor(reader_options,
+                                              options.extraction_options->sift);
 
     std::thread thread([&app, &feature_extractor]() {
       feature_extractor.Start();
@@ -73,9 +72,9 @@ int main(int argc, char** argv) {
     app.exec();
     thread.join();
   } else {
-    SiftCPUFeatureExtractor feature_extractor(
-        reader_options, options.extraction_options->sift_options,
-        options.extraction_options->cpu_options);
+    SiftCPUFeatureExtractor feature_extractor(reader_options,
+                                              options.extraction_options->sift,
+                                              options.extraction_options->cpu);
     feature_extractor.Start();
     feature_extractor.Wait();
   }

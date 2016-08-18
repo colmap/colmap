@@ -40,7 +40,7 @@
 #include "ui/reconstruction_options_widget.h"
 #include "ui/reconstruction_stats_widget.h"
 #include "ui/render_options_widget.h"
-#include "ui/undistort_widget.h"
+#include "ui/undistortion_widget.h"
 #include "util/bitmap.h"
 
 namespace colmap {
@@ -154,7 +154,7 @@ class MainWindow : public QMainWindow {
   BundleAdjustmentOptionsWidget* bundle_adjustment_options_widget_;
   RenderOptionsWidget* render_options_widget_;
   LogWidget* log_widget_;
-  UndistortWidget* undistort_widget_;
+  UndistortionWidget* undistortion_widget_;
   ReconstructionManagerWidget* reconstruction_manager_widget_;
   ReconstructionStatsWidget* reconstruction_stats_widget_;
   MatchMatrixWidget* match_matrix_widget_;

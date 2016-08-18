@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
-  options.AddMapperOptions();
+  options.AddSparseMapperOptions();
   options.AddRequiredOption("import_path", &import_path);
   options.AddRequiredOption("export_path", &export_path);
 
@@ -63,9 +63,9 @@ int main(int argc, char** argv) {
     Timer timer;
     timer.Start();
     const size_t min_num_matches =
-        static_cast<size_t>(options.mapper_options->min_num_matches);
+        static_cast<size_t>(options.sparse_mapper_options->min_num_matches);
     database_cache.Load(database, min_num_matches,
-                        options.mapper_options->ignore_watermarks);
+                        options.sparse_mapper_options->ignore_watermarks);
     std::cout << std::endl;
     timer.PrintMinutes();
   }
@@ -79,7 +79,7 @@ int main(int argc, char** argv) {
   mapper.BeginReconstruction(&reconstruction);
 
   const IncrementalMapper::Options inc_mapper_options =
-      options.mapper_options->IncrementalMapperOptions();
+      options.sparse_mapper_options->IncrementalMapperOptions();
 
   for (const auto& image : reconstruction.Images()) {
     if (image.second.IsRegistered()) {

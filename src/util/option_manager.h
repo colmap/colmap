@@ -27,6 +27,8 @@
 
 #include "base/feature_extraction.h"
 #include "base/feature_matching.h"
+#include "mvs/fusion.h"
+#include "mvs/patch_match.h"
 #include "optim/bundle_adjustment.h"
 #include "sfm/incremental_mapper.h"
 #include "sfm/incremental_triangulator.h"
@@ -44,9 +46,9 @@ struct ExtractionOptions : public BaseOptions {
   void Reset() override;
   bool Check() override;
 
-  ImageReader::Options reader_options;
-  SiftOptions sift_options;
-  SiftCPUFeatureExtractor::Options cpu_options;
+  ImageReader::Options reader;
+  SiftOptions sift;
+  SiftCPUFeatureExtractor::Options cpu;
 };
 
 struct MatchOptions : public BaseOptions {
@@ -201,8 +203,8 @@ struct IncrementalMapperOptions : public BaseOptions {
   int max_reg_trials;
 };
 
-struct MapperOptions : public BaseOptions {
-  MapperOptions();
+struct SparseMapperOptions : public BaseOptions {
+  SparseMapperOptions();
 
   void Reset() override;
   bool Check() override;
@@ -257,6 +259,16 @@ struct MapperOptions : public BaseOptions {
   struct TriangulationOptions triangulation;
 };
 
+struct DenseMapperOptions : public BaseOptions {
+  DenseMapperOptions();
+
+  void Reset() override;
+  bool Check() override;
+
+  mvs::PatchMatch::Options patch_match;
+  mvs::FusionOptions fusion;
+};
+
 struct RenderOptions : public BaseOptions {
   RenderOptions();
 
@@ -286,7 +298,8 @@ class OptionManager {
   void AddVocabTreeMatchOptions();
   void AddSpatialMatchOptions();
   void AddBundleAdjustmentOptions();
-  void AddMapperOptions();
+  void AddSparseMapperOptions();
+  void AddDenseMapperOptions();
   void AddRenderOptions();
 
   template <typename T>
@@ -318,7 +331,8 @@ class OptionManager {
   std::shared_ptr<VocabTreeMatchOptions> vocab_tree_match_options;
   std::shared_ptr<SpatialMatchOptions> spatial_match_options;
   std::shared_ptr<BundleAdjustmentOptions> ba_options;
-  std::shared_ptr<MapperOptions> mapper_options;
+  std::shared_ptr<SparseMapperOptions> sparse_mapper_options;
+  std::shared_ptr<DenseMapperOptions> dense_mapper_options;
   std::shared_ptr<RenderOptions> render_options;
 
  private:
@@ -343,7 +357,8 @@ class OptionManager {
   bool added_vocab_tree_match_options_;
   bool added_spatial_match_options_;
   bool added_ba_options_;
-  bool added_mapper_options_;
+  bool added_sparse_mapper_options_;
+  bool added_dense_mapper_options_;
   bool added_render_options_;
 };
 

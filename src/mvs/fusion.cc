@@ -43,7 +43,7 @@ class ConsistencyGraph {
 
 class StereoFuser {
  public:
-  StereoFuser(const StereoFusionOptions& options,
+  StereoFuser(const FusionOptions& options,
               const std::vector<uint8_t>& used_image_mask,
               const std::vector<Image>& images,
               const std::vector<DepthMap>& depth_maps,
@@ -77,7 +77,7 @@ class StereoFuser {
   Eigen::Vector3d fused_normal_sum_;
   BitmapColor<uint32_t> fused_color_sum_;
 
-  const StereoFusionOptions options_;
+  const FusionOptions options_;
   ConsistencyGraph consistency_graph_;
   std::vector<ImageData> image_data_;
   float max_squared_reproj_error_;
@@ -140,7 +140,7 @@ float Median(std::vector<float>* elems) {
   }
 }
 
-StereoFuser::StereoFuser(const StereoFusionOptions& options,
+StereoFuser::StereoFuser(const FusionOptions& options,
                          const std::vector<uint8_t>& used_image_mask,
                          const std::vector<Image>& images,
                          const std::vector<DepthMap>& depth_maps,
@@ -447,7 +447,7 @@ void WritePlyBinary(const std::string& path,
   binary_file.close();
 }
 
-void StereoFusionOptions::Print() const {
+void FusionOptions::Print() const {
 #define PrintOption(option) std::cout << #option ": " << option << std::endl
   std::cout << "StereoFusion::Options" << std::endl;
   std::cout << "-------------------------" << std::endl;
@@ -460,12 +460,21 @@ void StereoFusionOptions::Print() const {
 #undef PrintOption
 }
 
+void FusionOptions::Check() const {
+  CHECK_GE(min_num_pixels, 0);
+  CHECK_LE(min_num_pixels, max_num_pixels);
+  CHECK_GT(max_traversal_depth, 0);
+  CHECK_GE(max_reproj_error, 0);
+  CHECK_GE(max_depth_error, 0);
+  CHECK_GE(max_normal_error, 0);
+}
+
 std::vector<FusedPoint> StereoFusion(
-    const StereoFusionOptions& options,
-    const std::vector<uint8_t>& used_image_mask,
+    const FusionOptions& options, const std::vector<uint8_t>& used_image_mask,
     const std::vector<Image>& images, const std::vector<DepthMap>& depth_maps,
     const std::vector<NormalMap>& normal_maps,
     const std::vector<std::vector<int>>& consistency_graph) {
+  options.Check();
   internal::StereoFuser stereo_fuser(options, used_image_mask, images,
                                      depth_maps, normal_maps,
                                      consistency_graph);
