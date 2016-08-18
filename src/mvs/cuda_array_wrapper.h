@@ -42,10 +42,7 @@ class CudaArrayWrapper {
 
   void CopyToDevice(const T* data);
   void CopyToHost(const T* data);
-
-  // `kind` must be one of cudaMemcpyHostToHost, cudaMemcpyHostToDevice,
-  // cudaMemcpyDeviceToHost, or cudaMemcpyDeviceToDevice.
-  void CopyFromArray(const GpuMat<T>& array);
+  void CopyFromGpuMat(const GpuMat<T>& array);
 
  private:
   // Define class as non-copyable and non-movable.
@@ -126,7 +123,7 @@ void CudaArrayWrapper<T>::CopyToHost(const T* data) {
 }
 
 template <typename T>
-void CudaArrayWrapper<T>::CopyFromArray(const GpuMat<T>& array) {
+void CudaArrayWrapper<T>::CopyFromGpuMat(const GpuMat<T>& array) {
   Allocate();
   cudaMemcpy3DParms parameters = {0};
   parameters.extent = make_cudaExtent(width_, height_, depth_);

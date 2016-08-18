@@ -1364,7 +1364,7 @@ void PatchMatchCuda::InitRefImage() {
 
   ref_image_device_.reset(
       new CudaArrayWrapper<uint8_t>(ref_width_, ref_height_, 1));
-  ref_image_device_->CopyFromArray(*ref_image_->image);
+  ref_image_device_->CopyFromGpuMat(*ref_image_->image);
 
   // Create texture.
   ref_image_texture.addressMode[0] = cudaAddressModeBorder;
@@ -1669,7 +1669,7 @@ void PatchMatchCuda::Rotate() {
 
   // Bind rotated reference image to texture.
   ref_image_device_.reset(new CudaArrayWrapper<uint8_t>(width, height, 1));
-  ref_image_device_->CopyFromArray(*ref_image_->image);
+  ref_image_device_->CopyFromGpuMat(*ref_image_->image);
   CUDA_SAFE_CALL(cudaUnbindTexture(ref_image_texture));
   CUDA_SAFE_CALL(
       cudaBindTextureToArray(ref_image_texture, ref_image_device_->GetPtr()));
