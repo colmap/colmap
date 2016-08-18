@@ -41,16 +41,28 @@ void NormalMap::Rescale(const float factor) {
   const size_t new_height = std::round(height_ * factor);
   std::vector<float> new_data(new_width * new_height);
 
-  for (size_t i = 0; i < 3; ++i) {
-    const int offset = i * width_ * height_;
-    DownsampleImage(data_.data() + offset, height_, width_,
-                    new_height, new_width, new_data.data());
+  // Resample the normal map.
+  for (size_t d = 0; d < 3; ++d) {
+    const int offset = d * width_ * height_;
+    DownsampleImage(data_.data() + offset, height_, width_, new_height,
+                    new_width, new_data.data());
     std::copy(new_data.begin(), new_data.end(), data_.begin() + offset);
   }
 
   data_ = new_data;
   width_ = new_width;
   height_ = new_height;
+
+  // Re-normalize the normal vectors.
+  for (size_t r = 0; r < height_; ++r) {
+    for (size_t c = 0; c < width_; ++c) {
+      Eigen::Vector3f normal(Get(r, c, 0), Get(r, c, 1), Get(r, c, 2));
+      normal /= normal.norm();
+      Set(r, c, 0, normal(0));
+      Set(r, c, 1, normal(1));
+      Set(r, c, 2, normal(2));
+    }
+  }
 }
 
 void NormalMap::Downsize(const size_t max_width, const size_t max_height) {
