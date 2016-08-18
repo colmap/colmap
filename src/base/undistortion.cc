@@ -98,24 +98,31 @@ void WriteProjectionMatrix(const std::string& path, const Camera& camera,
 
 }  // namespace
 
-ImageUndistorter::ImageUndistorter(const UndistortCameraOptions& options,
-                                   const Reconstruction& reconstruction,
-                                   const std::string& image_path,
-                                   const std::string& output_path)
+COLMAPUndistorter::COLMAPUndistorter(const UndistortCameraOptions& options,
+                                     const Reconstruction& reconstruction,
+                                     const std::string& image_path,
+                                     const std::string& output_path)
     : options_(options),
       image_path_(EnsureTrailingSlash(image_path)),
       output_path_(EnsureTrailingSlash(output_path)),
       reconstruction_(reconstruction) {}
 
-void ImageUndistorter::Run() {
+void COLMAPUndistorter::Run() {
   PrintHeading1("Image undistortion");
+
+  CreateDirIfNotExists(output_path_ + "images");
+  CreateDirIfNotExists(output_path_ + "sparse");
+  CreateDirIfNotExists(output_path_ + "dense");
+  CreateDirIfNotExists(output_path_ + "dense/depth_maps");
+  CreateDirIfNotExists(output_path_ + "dense/normal_maps");
+  CreateDirIfNotExists(output_path_ + "dense/consistency_graphs");
 
   ThreadPool thread_pool;
   std::vector<std::future<void>> futures;
   futures.reserve(reconstruction_.NumRegImages());
   for (size_t i = 0; i < reconstruction_.NumRegImages(); ++i) {
     futures.push_back(
-        thread_pool.AddTask(&ImageUndistorter::Undistort, this, i));
+        thread_pool.AddTask(&COLMAPUndistorter::Undistort, this, i));
   }
 
   for (size_t i = 0; i < futures.size(); ++i) {
@@ -130,10 +137,15 @@ void ImageUndistorter::Run() {
     futures[i].get();
   }
 
+  std::cout << "Writing reconstruction..." << std::endl;
+  Reconstruction undistorted_reconstruction = reconstruction_;
+  UndistortReconstruction(options_, &undistorted_reconstruction);
+  undistorted_reconstruction.Write(output_path_ + "sparse");
+
   GetTimer().PrintMinutes();
 }
 
-void ImageUndistorter::Undistort(const size_t reg_image_idx) const {
+void COLMAPUndistorter::Undistort(const size_t reg_image_idx) const {
   const image_t image_id = reconstruction_.RegImageIds().at(reg_image_idx);
   const Image& image = reconstruction_.Image(image_id);
   const Camera& camera = reconstruction_.Camera(image.CameraId());
@@ -151,14 +163,8 @@ void ImageUndistorter::Undistort(const size_t reg_image_idx) const {
   UndistortImage(options_, distorted_bitmap, camera, &undistorted_bitmap,
                  &undistorted_camera);
 
-  const std::string output_image_path = output_path_ + image.Name();
+  const std::string output_image_path = output_path_ + "images/" + image.Name();
   undistorted_bitmap.Write(output_image_path);
-
-  const std::string camera_params_path = output_image_path + ".camera.txt";
-  WriteCameraParams(camera_params_path.c_str(), undistorted_camera);
-
-  const std::string proj_matrix_path = output_image_path + ".proj_matrix.txt";
-  WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image, "");
 }
 
 PMVSUndistorter::PMVSUndistorter(const UndistortCameraOptions& options,
@@ -173,10 +179,10 @@ PMVSUndistorter::PMVSUndistorter(const UndistortCameraOptions& options,
 void PMVSUndistorter::Run() {
   PrintHeading1("Image undistortion (CMVS/PMVS)");
 
-  CreateDirIfNotExists(output_path_ + "pmvs/");
-  CreateDirIfNotExists(output_path_ + "pmvs/txt/");
-  CreateDirIfNotExists(output_path_ + "pmvs/visualize/");
-  CreateDirIfNotExists(output_path_ + "pmvs/models/");
+  CreateDirIfNotExists(output_path_ + "pmvs");
+  CreateDirIfNotExists(output_path_ + "pmvs/txt");
+  CreateDirIfNotExists(output_path_ + "pmvs/visualize");
+  CreateDirIfNotExists(output_path_ + "pmvs/models");
 
   ThreadPool thread_pool;
   std::vector<std::future<void>> futures;
@@ -185,9 +191,6 @@ void PMVSUndistorter::Run() {
     futures.push_back(
         thread_pool.AddTask(&PMVSUndistorter::Undistort, this, i));
   }
-
-  // Reconstruction with undistorted cameras, exported to bundle file.
-  Reconstruction undistorted_reconstruction = reconstruction_;
 
   for (size_t i = 0; i < futures.size(); ++i) {
     if (IsStopped()) {
@@ -204,37 +207,20 @@ void PMVSUndistorter::Run() {
               << std::endl;
 
     futures[i].get();
-
-    // Undistort the camera and the image points. Note that this operation needs
-    // to be done sequentially, otherwise we end up with race conditions when
-    // modifying the reconstruction in parallel.
-    const image_t image_id = reconstruction_.RegImageIds()[i];
-    const Image& image = reconstruction_.Image(image_id);
-    const Camera& camera = reconstruction_.Camera(image.CameraId());
-    Camera& undistorted_camera =
-        undistorted_reconstruction.Camera(image.CameraId());
-    undistorted_camera = UndistortCamera(options_, camera);
-    Image& undistorted_image =
-        undistorted_reconstruction.Image(image.ImageId());
-    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
-         ++point2D_idx) {
-      Point2D& point2D = undistorted_image.Point2D(point2D_idx);
-      const Eigen::Vector2d world_point = camera.ImageToWorld(point2D.XY());
-      point2D.SetXY(undistorted_camera.WorldToImage(world_point));
-    }
   }
 
-  std::cout << "Writing bundle file" << std::endl;
+  std::cout << "Writing bundle file..." << std::endl;
+  Reconstruction undistorted_reconstruction = reconstruction_;
+  UndistortReconstruction(options_, &undistorted_reconstruction);
   const std::string bundle_path = output_path_ + "pmvs/bundle.rd.out";
-
   undistorted_reconstruction.ExportBundler(bundle_path,
                                            bundle_path + ".list.txt");
 
-  std::cout << "Writing visibility file" << std::endl;
+  std::cout << "Writing visibility file..." << std::endl;
   const std::string vis_path = output_path_ + "pmvs/vis.dat";
   WriteVisibilityData(vis_path);
 
-  std::cout << "Writing option file" << std::endl;
+  std::cout << "Writing option file..." << std::endl;
   const std::string option_path = output_path_ + "pmvs/option-all";
   WriteOptionFile(option_path);
 

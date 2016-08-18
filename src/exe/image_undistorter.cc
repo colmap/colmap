@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
 
   std::string input_path;
   std::string output_path;
-  std::string output_type;
+  std::string output_type = "COLMAP";
 
   UndistortCameraOptions undistort_camera_options;
 
@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
   options.AddImageOptions();
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddRequiredOption("output_type", &output_type);
+  options.AddDefaultOption("output_type", output_type, &output_type);
   options.AddDefaultOption("blank_pixels",
                            undistort_camera_options.blank_pixels,
                            &undistort_camera_options.blank_pixels);
@@ -58,10 +58,10 @@ int main(int argc, char** argv) {
   reconstruction.Read(input_path);
 
   std::unique_ptr<Thread> undistorter;
-  if (output_type == "Default") {
-    undistorter.reset(new ImageUndistorter(undistort_camera_options,
-                                           reconstruction, *options.image_path,
-                                           output_path));
+  if (output_type == "COLMAP") {
+    undistorter.reset(new COLMAPUndistorter(undistort_camera_options,
+                                            reconstruction, *options.image_path,
+                                            output_path));
   } else if (output_type == "PMVS") {
     undistorter.reset(new PMVSUndistorter(undistort_camera_options,
                                           reconstruction, *options.image_path,
@@ -71,7 +71,9 @@ int main(int argc, char** argv) {
                                             reconstruction, *options.image_path,
                                             output_path));
   } else {
-    std::cerr << "ERROR: Invalid `output_type`" << std::endl;
+    std::cerr << "ERROR: Invalid `output_type` - supported values are "
+                 "{'COLMAP', 'PMVS', 'CMP-MVS'}."
+              << std::endl;
     return EXIT_FAILURE;
   }
 

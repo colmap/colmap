@@ -37,12 +37,12 @@ struct UndistortCameraOptions {
 };
 
 // Undistort images and export undistorted cameras.
-class ImageUndistorter : public Thread {
+class COLMAPUndistorter : public Thread {
  public:
-  ImageUndistorter(const UndistortCameraOptions& options,
-                   const Reconstruction& reconstruction,
-                   const std::string& image_path,
-                   const std::string& output_path);
+  COLMAPUndistorter(const UndistortCameraOptions& options,
+                    const Reconstruction& reconstruction,
+                    const std::string& image_path,
+                    const std::string& output_path);
 
  private:
   void Run();

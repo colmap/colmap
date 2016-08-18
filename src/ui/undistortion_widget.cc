@@ -14,13 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "ui/undistort_widget.h"
+#include "ui/undistortion_widget.h"
 
 #include "base/undistortion.h"
 
 namespace colmap {
 
-UndistortWidget::UndistortWidget(QWidget* parent, OptionManager* options)
+UndistortionWidget::UndistortionWidget(QWidget* parent, OptionManager* options)
     : QWidget(parent), options_(options), progress_bar_(nullptr) {
   setWindowFlags(Qt::Dialog);
   setWindowModality(Qt::ApplicationModal);
@@ -30,7 +30,7 @@ UndistortWidget::UndistortWidget(QWidget* parent, OptionManager* options)
 
   grid->addWidget(new QLabel(tr("Format"), this), grid->rowCount(), 0);
   combo_box_ = new QComboBox(this);
-  combo_box_->addItem("Default");
+  combo_box_->addItem("COLMAP");
   combo_box_->addItem("PMVS");
   combo_box_->addItem("CMP-MVS");
   grid->addWidget(combo_box_, grid->rowCount() - 1, 1);
@@ -75,12 +75,12 @@ UndistortWidget::UndistortWidget(QWidget* parent, OptionManager* options)
 
   QPushButton* output_path_select = new QPushButton(tr("Select"), this);
   connect(output_path_select, &QPushButton::released, this,
-          &UndistortWidget::SelectOutputPath);
+          &UndistortionWidget::SelectOutputPath);
   grid->addWidget(output_path_select, grid->rowCount() - 1, 2);
 
   QPushButton* undistort_button = new QPushButton(tr("Undistort"), this);
   connect(undistort_button, &QPushButton::released, this,
-          &UndistortWidget::Undistort);
+          &UndistortionWidget::Undistort);
   grid->addWidget(undistort_button, grid->rowCount(), 2);
 
   destructor_ = new QAction(this);
@@ -94,20 +94,20 @@ UndistortWidget::UndistortWidget(QWidget* parent, OptionManager* options)
   });
 }
 
-bool UndistortWidget::IsValid() {
+bool UndistortionWidget::IsValid() {
   return boost::filesystem::is_directory(GetOutputPath());
 }
 
-std::string UndistortWidget::GetOutputPath() {
+std::string UndistortionWidget::GetOutputPath() {
   return EnsureTrailingSlash(output_path_text_->text().toUtf8().constData());
 }
 
-void UndistortWidget::SelectOutputPath() {
+void UndistortionWidget::SelectOutputPath() {
   output_path_text_->setText(QFileDialog::getExistingDirectory(
       this, tr("Select output path..."), "", QFileDialog::ShowDirsOnly));
 }
 
-void UndistortWidget::ShowProgressBar() {
+void UndistortionWidget::ShowProgressBar() {
   if (progress_bar_ == nullptr) {
     progress_bar_ = new QProgressDialog(this);
     progress_bar_->setWindowModality(Qt::ApplicationModal);
@@ -122,7 +122,7 @@ void UndistortWidget::ShowProgressBar() {
   progress_bar_->raise();
 }
 
-void UndistortWidget::Undistort() {
+void UndistortionWidget::Undistort() {
   if (!IsValid()) {
     QMessageBox::critical(this, "", tr("Invalid output path"));
   } else {
@@ -133,9 +133,9 @@ void UndistortWidget::Undistort() {
     options.max_image_size = max_image_size_sb_->value();
 
     if (combo_box_->currentIndex() == 0) {
-      undistorter_.reset(new ImageUndistorter(
+      undistorter_.reset(new COLMAPUndistorter(
           options, reconstruction, *options_->image_path, GetOutputPath()));
-      undistorter_->SetCallback(ImageUndistorter::FINISHED_CALLBACK,
+      undistorter_->SetCallback(COLMAPUndistorter::FINISHED_CALLBACK,
                                 [this]() { destructor_->trigger(); });
     } else if (combo_box_->currentIndex() == 1) {
       undistorter_.reset(new PMVSUndistorter(

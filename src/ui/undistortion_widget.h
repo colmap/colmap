@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef COLMAP_SRC_UI_UNDISTORT_WIDGET_H_
-#define COLMAP_SRC_UI_UNDISTORT_WIDGET_H_
+#ifndef COLMAP_SRC_UI_UNDISTORTION_WIDGET_H_
+#define COLMAP_SRC_UI_UNDISTORTION_WIDGET_H_
 
 #include <boost/filesystem.hpp>
 
@@ -27,9 +27,9 @@
 
 namespace colmap {
 
-class UndistortWidget : public QWidget {
+class UndistortionWidget : public QWidget {
  public:
-  UndistortWidget(QWidget* parent, OptionManager* options);
+  UndistortionWidget(QWidget* parent, OptionManager* options);
 
   std::string GetOutputPath();
 
@@ -58,4 +58,4 @@ class UndistortWidget : public QWidget {
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_UI_UNDISTORT_WIDGET_H_
+#endif  // COLMAP_SRC_UI_UNDISTORTION_WIDGET_H_
