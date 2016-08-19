@@ -19,6 +19,7 @@
 
 #include <cmath>
 #include <ios>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -160,6 +161,17 @@ class Bitmap {
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
+namespace internal {
+
+template <typename T1, typename T2>
+T2 BitmapColorCast(const T1 value) {
+  return std::min(
+      static_cast<T1>(std::numeric_limits<T2>::max()),
+      std::max(static_cast<T1>(std::numeric_limits<T2>::min()), std::round(value)));
+}
+
+}  // namespace internal
+
 template <typename T>
 BitmapColor<T>::BitmapColor() : r(0), g(0), b(0) {}
 
@@ -171,9 +183,9 @@ template <typename T>
 template <typename D>
 BitmapColor<D> BitmapColor<T>::Cast() const {
   BitmapColor<D> color;
-  color.r = static_cast<D>(std::round(r));
-  color.g = static_cast<D>(std::round(g));
-  color.b = static_cast<D>(std::round(b));
+  color.r = internal::BitmapColorCast<T, D>(r);
+  color.g = internal::BitmapColorCast<T, D>(g);
+  color.b = internal::BitmapColorCast<T, D>(b);
   return color;
 }
 
