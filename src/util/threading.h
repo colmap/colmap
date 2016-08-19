@@ -171,7 +171,7 @@ class ThreadPool {
   ThreadPool(const int num_threads = kMaxNumThreads);
   ~ThreadPool();
 
-  inline int NumThreads() const;
+  inline size_t NumThreads() const;
 
   // Add new task to the thread pool.
   template <class func_t, class... args_t>
@@ -272,7 +272,7 @@ class JobQueue {
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-int ThreadPool::NumThreads() const { return workers_.size(); }
+size_t ThreadPool::NumThreads() const { return workers_.size(); }
 
 template <class func_t, class... args_t>
 auto ThreadPool::AddTask(func_t&& f, args_t&&... args)

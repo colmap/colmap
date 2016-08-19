@@ -125,10 +125,9 @@ void MatchNearestNeighborsInVisualIndex(const int num_threads,
 
   // Initially, make all retrieval threads busy and continue with the matching.
   size_t image_idx = 0;
-  const size_t initial_num_tasks =
-      std::min(image_ids.size(),
-               2 * static_cast<size_t>(retrieval_thread_pool.NumThreads()));
-  for (; image_idx < initial_num_tasks; ++image_idx) {
+  const size_t init_num_tasks =
+      std::min(image_ids.size(), 2 * retrieval_thread_pool.NumThreads());
+  for (; image_idx < init_num_tasks; ++image_idx) {
     const retrieval::VisualIndex::Desc& descriptors =
         cache->GetDescriptors(image_ids[image_idx]);
     retrieval_thread_pool.AddTask(QueryFunc, descriptors);
