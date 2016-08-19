@@ -31,9 +31,10 @@ namespace mvs {
 
 class Image {
  public:
-  void Load(const float* K, const float* R, const float* T,
-            const std::string& path, const bool as_rgb,
-            const bool extract_principal_point);
+  Image(const std::string& path, const float* K, const float* R,
+        const float* T);
+
+  void Read(const bool as_rgb);
 
   inline size_t GetWidth() const;
   inline size_t GetHeight() const;
@@ -53,9 +54,10 @@ class Image {
   void Downsize(const size_t max_width, const size_t max_height);
 
  private:
+  std::string path_;
+  float K_[9];
   float R_[9];
   float T_[3];
-  float K_[9];
   float P_[12];
   float inv_P_[12];
   Bitmap bitmap_;

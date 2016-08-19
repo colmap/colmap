@@ -163,11 +163,10 @@ void ImportFeaturesWidget::Run() {
   reader_options.database_path = *options_->database_path;
   reader_options.image_path = *options_->image_path;
 
-  extractor_.reset(
-      new FeatureImporter(reader_options, EnsureTrailingSlash(import_path_)));
-
+  extractor_.reset(new FeatureImporter(reader_options, import_path_));
   extractor_->SetCallback(FeatureImporter::FINISHED_CALLBACK,
                           [this]() { destructor_->trigger(); });
+
   extractor_->Start();
   ShowProgressBar();
 }

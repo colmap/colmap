@@ -531,10 +531,9 @@ double Reconstruction::ComputeMeanReprojectionError() const {
 }
 
 void Reconstruction::Read(const std::string& path) {
-  const std::string path_with_slash = EnsureTrailingSlash(path);
-  ReadCameras(path_with_slash + "cameras.txt");
-  ReadImages(path_with_slash + "images.txt");
-  ReadPoints3D(path_with_slash + "points3D.txt");
+  ReadCameras(JoinPaths(path, "cameras.txt"));
+  ReadImages(JoinPaths(path, "images.txt"));
+  ReadPoints3D(JoinPaths(path, "points3D.txt"));
 }
 
 void Reconstruction::Read(const std::string& cameras_path,
@@ -546,10 +545,9 @@ void Reconstruction::Read(const std::string& cameras_path,
 }
 
 void Reconstruction::Write(const std::string& path) const {
-  const std::string path_with_slash = EnsureTrailingSlash(path);
-  WriteCameras(path_with_slash + "cameras.txt");
-  WriteImages(path_with_slash + "images.txt");
-  WritePoints3D(path_with_slash + "points3D.txt");
+  WriteCameras(JoinPaths(path, "cameras.txt"));
+  WriteImages(JoinPaths(path, "images.txt"));
+  WritePoints3D(JoinPaths(path, "points3D.txt"));
 }
 
 void Reconstruction::Write(const std::string& cameras_path,
@@ -1000,7 +998,7 @@ bool Reconstruction::ExportBundler(const std::string& path,
 
       const Point2D& point2D = image.Point2D(track_el.point2D_idx);
 
-      line << image_id_to_idx_[track_el.image_id] << " ";
+      line << image_id_to_idx_.at(track_el.image_id) << " ";
       line << track_el.point2D_idx << " ";
       line << point2D.X() - camera.PrincipalPointX() << " ";
       line << camera.PrincipalPointY() - point2D.Y() << " ";
@@ -1163,7 +1161,7 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
   const class Image& image = Image(image_id);
 
   Bitmap bitmap;
-  if (!bitmap.Read(EnsureTrailingSlash(path) + image.Name())) {
+  if (!bitmap.Read(JoinPaths(path, image.Name()))) {
     return false;
   }
 
@@ -1186,14 +1184,12 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
 }
 
 void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
-  const std::string base_path = EnsureTrailingSlash(path);
-
   std::unordered_map<point3D_t, Eigen::Vector3d> color_sums;
   std::unordered_map<point3D_t, size_t> color_counts;
 
   for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
     const class Image& image = Image(reg_image_ids_[i]);
-    const std::string image_path = base_path + image.Name();
+    const std::string image_path = JoinPaths(path, image.Name());
 
     Bitmap bitmap;
     if (!bitmap.Read(image_path)) {
@@ -1237,15 +1233,14 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
 }
 
 void Reconstruction::CreateImageDirs(const std::string& path) const {
-  const std::string path_with_slash = EnsureTrailingSlash(path);
   std::set<std::string> image_dirs;
   for (const auto& image : images_) {
     const std::vector<std::string> name_split =
-        StringSplit(StringReplace(image.second.Name(), "\\", "/"), "/");
+        StringSplit(image.second.Name(), "/");
     if (name_split.size() > 1) {
-      std::string dir = path_with_slash;
+      std::string dir = path;
       for (size_t i = 0; i < name_split.size() - 1; ++i) {
-        dir += name_split[i] + "/";
+        dir = JoinPaths(dir, name_split[i]);
         image_dirs.insert(dir);
       }
     }

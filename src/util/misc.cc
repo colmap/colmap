@@ -22,13 +22,12 @@
 #include <stdio.h>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
 
 namespace colmap {
 
 std::string EnsureTrailingSlash(const std::string& str) {
   if (str.length() > 0) {
-    if (str.at(str.length() - 1) != '/') {
+    if (str.back() != '/') {
       return str + "/";
     }
   } else {
@@ -53,6 +52,16 @@ bool HasFileExtension(const std::string& file_name, const std::string& ext) {
 void CreateDirIfNotExists(const std::string& path) {
   if (!boost::filesystem::is_directory(path)) {
     CHECK(boost::filesystem::create_directory(path));
+  }
+}
+
+std::string GetPathBaseName(const std::string& path) {
+  const std::vector<std::string> names =
+      StringSplit(StringReplace(path, "\\", "/"), "/");
+  if (names.size() > 1 && names.back() == "") {
+    return names[names.size() - 2];
+  } else {
+    return names.back();
   }
 }
 

@@ -99,7 +99,6 @@ int main(int argc, char** argv) {
   const bool kDiscardReconstruction = false;
   mapper.EndReconstruction(kDiscardReconstruction);
 
-  export_path = EnsureTrailingSlash(export_path);
   reconstruction.Write(export_path);
 
   return EXIT_SUCCESS;

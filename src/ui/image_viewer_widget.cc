@@ -322,7 +322,7 @@ void ImageViewerWidget::Show(const image_t image_id) {
   }
 
   const std::string path =
-      EnsureTrailingSlash(*options_->image_path) + image.Name();
+      JoinPaths(*options_->image_path, image.Name());
   BasicImageViewerWidget::Show(path, keypoints, tri_mask);
 }
 

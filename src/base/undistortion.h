@@ -48,6 +48,9 @@ class COLMAPUndistorter : public Thread {
   void Run();
 
   void Undistort(const size_t reg_image_idx) const;
+  void WritePatchMatchConfig() const;
+  void WriteFusionConfig() const;
+  void WriteScript() const;
 
   UndistortCameraOptions options_;
   std::string image_path_;
@@ -67,8 +70,8 @@ class PMVSUndistorter : public Thread {
   void Run();
 
   void Undistort(const size_t reg_image_idx) const;
-  void WriteVisibilityData(const std::string& path) const;
-  void WriteOptionFile(const std::string& path) const;
+  void WriteVisibilityData() const;
+  void WriteOptionFile() const;
 
   UndistortCameraOptions options_;
   std::string image_path_;

@@ -112,7 +112,7 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
                                                     proj_matrix, camera);
 
     const std::string path =
-        EnsureTrailingSlash(*options_->image_path) + image.Name();
+        JoinPaths(*options_->image_path, image.Name());
 
     Bitmap bitmap;
     if (!bitmap.Read(path, true)) {

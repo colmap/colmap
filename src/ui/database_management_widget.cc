@@ -78,10 +78,9 @@ void MatchesTab::ShowMatches() {
   const size_t idx =
       sorted_matches_idxs_[select->selectedRows().begin()->row()];
   const auto& selection = matches_[idx];
-  const std::string path1 =
-      EnsureTrailingSlash(*options_->image_path) + image_->Name();
+  const std::string path1 = JoinPaths(*options_->image_path, image_->Name());
   const std::string path2 =
-      EnsureTrailingSlash(*options_->image_path) + selection.first->Name();
+      JoinPaths(*options_->image_path, selection.first->Name());
   const auto keypoints1 = database_->ReadKeypoints(image_->ImageId());
   const auto keypoints2 = database_->ReadKeypoints(selection.first->ImageId());
 
@@ -424,8 +423,8 @@ void ImageTab::ShowImage() {
   image_viewer_->show();
   image_viewer_->raise();
 
-  image_viewer_->Show(EnsureTrailingSlash(*options_->image_path) + image.Name(),
-                      keypoints, tri_mask);
+  image_viewer_->Show(JoinPaths(*options_->image_path, image.Name()), keypoints,
+                      tri_mask);
   image_viewer_->setWindowTitle(
       QString::fromStdString("Image " + std::to_string(image.ImageId())));
 }

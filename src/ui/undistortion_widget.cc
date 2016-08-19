@@ -99,7 +99,7 @@ bool UndistortionWidget::IsValid() {
 }
 
 std::string UndistortionWidget::GetOutputPath() {
-  return EnsureTrailingSlash(output_path_text_->text().toUtf8().constData());
+  return output_path_text_->text().toUtf8().constData();
 }
 
 void UndistortionWidget::SelectOutputPath() {

@@ -31,133 +31,76 @@
 using namespace colmap;
 using namespace colmap::mvs;
 
-struct Input {
-  int image_id = -1;
-  std::string depth_map_path;
-  std::string normal_map_path;
-};
+void ReadConfig(const DenseMapperOptions& options,
+                const std::string& workspace_path,
+                const std::string& workspace_format, Model* model,
+                std::vector<PatchMatch::Problem>* problems) {
+  std::cout << "Reading model..." << std::endl;
+  model->Read(workspace_path, workspace_format);
 
-struct Output {
-  PatchMatch::Options options;
-  PatchMatch::Problem problem;
-  std::string output_prefix;
-};
+  std::cout << "Reading configuration..." << std::endl;
 
-void ReadConfig(const PatchMatch::Options default_options,
-                const std::string& config_path, std::vector<Input>* inputs,
-                std::vector<Output>* outputs, int* image_max_size,
-                float* image_scale_factor) {
-  try {
-    boost::property_tree::ptree pt;
-    boost::property_tree::read_json(config_path.c_str(), pt);
+  std::ifstream file(JoinPaths(workspace_path, "dense/patch-match.cfg"));
+  CHECK(file.is_open());
 
-    const auto input_list = pt.get_child_optional("input_list");
-    if (input_list) {
-      for (const auto& input_elem : input_list.get()) {
-        Input input;
-        input.image_id = input_elem.second.get<int>("image_id");
-        const auto depth_map_path =
-            input_elem.second.get_optional<std::string>("depth_map_path");
-        if (depth_map_path) {
-          input.depth_map_path = depth_map_path.get();
-        }
-        const auto normal_map_path =
-            input_elem.second.get_optional<std::string>("normal_map_path");
-        if (normal_map_path) {
-          input.normal_map_path = normal_map_path.get();
-        }
-        inputs->push_back(input);
-      }
-    }
-
-    boost::property_tree::ptree output_list = pt.get_child("output_list");
-    for (const auto& output_list_el : output_list) {
-      Output output;
-
-      output.options = default_options;
-
-      output.problem.ref_image_id =
-          output_list_el.second.get<int>("ref_image_id");
-      for (const auto& image_id :
-           output_list_el.second.get_child("src_image_ids")) {
-        output.problem.src_image_ids.push_back(
-            image_id.second.get_value<int>());
-      }
-      CHECK(!output.problem.src_image_ids.empty())
-          << "ERROR: Need at least one source image.";
-
-      output.output_prefix =
-          output_list_el.second.get<std::string>("output_prefix");
-
-      outputs->push_back(output);
-    }
-  } catch (std::exception const& exc) {
-    LOG(ERROR) << "ERROR: Problem with configuration file - " << exc.what();
-  }
-}
-
-void ReadModel(const std::string& input_path, const std::string& input_type,
-               Model* model, bool* extract_principal_point) {
-  if (input_type == "COLMAP") {
-    *extract_principal_point = false;
-    CHECK(model->LoadFromCOLMAP(input_path));
-  } else if (input_type == "NVM") {
-    *extract_principal_point = true;
-    CHECK(model->LoadFromNVM(input_path));
-  } else if (input_type == "PMVS") {
-    *extract_principal_point = true;
-    CHECK(model->LoadFromPMVS(input_path));
-  } else if (input_type == "Middlebury") {
-    *extract_principal_point = false;
-    CHECK(model->LoadFromMiddleBurry(input_path));
-  } else {
-    LOG(FATAL) << "Unknown input type.";
-  }
-}
-
-void SetupProblem(const std::string& input_type, const Model& model,
-                  std::set<int>* used_image_ids, std::vector<Output>* outputs) {
+  std::set<int> used_image_ids;
   std::vector<std::map<int, int>> shared_points;
 
-  for (auto& output : *outputs) {
-    used_image_ids->insert(output.problem.ref_image_id);
+  std::string line;
+  std::string ref_image_name;
+  while (std::getline(file, line)) {
+    StringTrim(&line);
 
-    if (output.problem.src_image_ids.size() == 1 &&
-        output.problem.src_image_ids[0] == -1) {
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+
+    if (ref_image_name.empty()) {
+      ref_image_name = line;
+      continue;
+    }
+
+    PatchMatch::Problem problem;
+
+    problem.images = &model->images;
+    problem.depth_maps = &model->depth_maps;
+    problem.normal_maps = &model->normal_maps;
+
+    problem.ref_image_id = model->GetImageId(ref_image_name);
+
+    const std::vector<std::string> src_image_names =
+        CSVToVector<std::string>(line);
+
+    if (src_image_names.size() == 1 && src_image_names[0] == "__all__") {
       // Use all images as source images.
-
-      output.problem.src_image_ids.clear();
-      output.problem.src_image_ids.reserve(model.views.size() - 1);
-      for (size_t image_id = 0; image_id < model.views.size(); ++image_id) {
-        if (static_cast<int>(image_id) != output.problem.ref_image_id) {
-          output.problem.src_image_ids.push_back(image_id);
-          used_image_ids->insert(image_id);
+      problem.src_image_ids.clear();
+      problem.src_image_ids.reserve(model->images.size() - 1);
+      for (size_t image_id = 0; image_id < model->images.size(); ++image_id) {
+        if (static_cast<int>(image_id) != problem.ref_image_id) {
+          problem.src_image_ids.push_back(image_id);
+          used_image_ids.insert(image_id);
         }
       }
-    } else if (output.problem.src_image_ids.size() == 2 &&
-               output.problem.src_image_ids[0] == -2) {
+    } else if (src_image_names.size() == 2 &&
+               src_image_names[0] == "__auto__") {
       // Use maximum number of overlapping images as source images. Overlapping
       // will be sorted based on the number of shared points to the reference
       // image and the top ranked images are selected.
 
-      CHECK_NE(input_type, "Middlebury");
-
       if (shared_points.empty()) {
-        shared_points = model.ComputeSharedPoints();
+        shared_points = model->ComputeSharedPoints();
       }
 
-      const size_t max_num_src_images = output.problem.src_image_ids[1];
+      const size_t max_num_src_images =
+          boost::lexical_cast<int>(src_image_names[1]);
 
-      output.problem.src_image_ids.clear();
-
-      const auto& overlapping_images =
-          shared_points.at(output.problem.ref_image_id);
+      const auto& overlapping_images = shared_points.at(problem.ref_image_id);
 
       if (max_num_src_images >= overlapping_images.size()) {
-        output.problem.src_image_ids.reserve(overlapping_images.size());
+        problem.src_image_ids.reserve(overlapping_images.size());
         for (const auto& image : overlapping_images) {
-          output.problem.src_image_ids.push_back(image.first);
-          used_image_ids->insert(image.first);
+          problem.src_image_ids.push_back(image.first);
+          used_image_ids.insert(image.first);
         }
       } else {
         std::vector<std::pair<int, int>> src_images;
@@ -173,116 +116,77 @@ void SetupProblem(const std::string& input_type, const Model& model,
               return image1.second > image2.second;
             });
 
-        output.problem.src_image_ids.reserve(max_num_src_images);
+        problem.src_image_ids.reserve(max_num_src_images);
         for (size_t i = 0; i < max_num_src_images; ++i) {
-          output.problem.src_image_ids.push_back(src_images[i].first);
-          used_image_ids->insert(src_images[i].first);
+          problem.src_image_ids.push_back(src_images[i].first);
+          used_image_ids.insert(src_images[i].first);
         }
       }
+    } else {
+      problem.src_image_ids.reserve(src_image_names.size());
+      for (const auto& src_image_name : src_image_names) {
+        problem.src_image_ids.push_back(model->GetImageId(src_image_name));
+      }
     }
+
+    CHECK(!problem.src_image_ids.empty()) << "Need at least one source image";
+
+    problems->push_back(problem);
+
+    ref_image_name.clear();
   }
-}
 
-bool ReadInputsAndOutputs(
-    const PatchMatch::Options default_options, const std::string& input_path,
-    const std::string& input_type, const std::string& config_path,
-    std::vector<mvs::Image>* images, std::vector<DepthMap>* depth_maps,
-    std::vector<NormalMap>* normal_maps, std::vector<Output>* outputs) {
-  std::cout << "Reading configuration..." << std::endl;
-  std::vector<Input> inputs;
-  int image_max_size;
-  float image_scale_factor;
-  ReadConfig(default_options, config_path, &inputs, outputs, &image_max_size,
-             &image_scale_factor);
-
-  std::cout << "Reading model..." << std::endl;
-  Model model;
-  bool extract_principal_point;
-  ReadModel(input_path, input_type, &model, &extract_principal_point);
-
-  std::cout << "Setting up problem..." << std::endl;
-  std::set<int> used_image_ids;
-  SetupProblem(input_type, model, &used_image_ids, outputs);
-
-  std::cout << "Reading images..." << std::endl;
-  images->resize(model.views.size());
+  std::cout << "Reading inputs..." << std::endl;
   for (const auto image_id : used_image_ids) {
-    const auto& view = model.views.at(image_id);
-    auto& image = images->at(image_id);
-    image.Load(view.K.data(), view.R.data(), view.T.data(), view.path, false,
-               extract_principal_point);
-  }
-
-  std::cout << "Computing depth ranges..." << std::endl;
-  if (input_type == "NVM" || input_type == "PMVS") {
-    const auto& depth_ranges = model.ComputeDepthRanges();
-    for (auto& output : *outputs) {
-      output.options.depth_min =
-          depth_ranges.at(output.problem.ref_image_id).first;
-      output.options.depth_max =
-          depth_ranges.at(output.problem.ref_image_id).second;
+    auto& image = model->images.at(image_id);
+    const bool kReadImageAsRGB = false;
+    image.Read(kReadImageAsRGB);
+    if (options.patch_match.geom_consistency) {
+      const std::string file_name =
+          model->GetImageName(image_id) + ".photometric.bin";
+      auto& depth_map = model->depth_maps.at(image_id);
+      depth_map.Read(JoinPaths(workspace_path, "dense/depth_maps", file_name));
+      auto& normal_map = model->normal_maps.at(image_id);
+      normal_map.Read(
+          JoinPaths(workspace_path, "dense/normal_maps", file_name));
     }
   }
 
-  // Downsample images if necessary.
-  std::cout << "Resizing data..." << std::endl;
-  CHECK(!(image_max_size != -1 && image_scale_factor != -1.0f))
+  std::cout << "Resampling model..." << std::endl;
+  CHECK(!(options.image_max_size > 0 && options.image_scale_factor > 0))
       << "ERROR: Cannot both set `image_max_size` and `image_scale_factor`";
-  {
-    ThreadPool thread_pool;
-    for (size_t image_id = 0; image_id < images->size(); ++image_id) {
-      thread_pool.AddTask([&, image_id]() {
-        if (image_max_size != -1) {
-          images->at(image_id).Downsize(image_max_size, image_max_size);
-        } else if (image_scale_factor != -1.0f) {
-          images->at(image_id).Rescale(image_scale_factor);
-        }
-      });
-    }
-    thread_pool.Wait();
-  }
-
-  // Read input data.
-  std::cout << "Reading input data..." << std::endl;
-  depth_maps->resize(images->size());
-  normal_maps->resize(images->size());
-  for (const auto& input : inputs) {
-    CHECK_GE(input.image_id, 0);
-    CHECK_LT(input.image_id, images->size());
-    CHECK_LT(input.image_id, images->size());
-    if (!input.depth_map_path.empty()) {
-      (*depth_maps)[input.image_id].Read(input.depth_map_path);
-      if (image_max_size != -1) {
-        (*depth_maps)[input.image_id].Downsize(image_max_size, image_max_size);
-      } else if (image_scale_factor != -1.0f) {
-        (*depth_maps)[input.image_id].Rescale(image_scale_factor);
+  ThreadPool resample_thread_pool;
+  for (size_t image_id = 0; image_id < model->images.size(); ++image_id) {
+    resample_thread_pool.AddTask([&, image_id]() {
+      if (options.image_max_size > 0) {
+        model->images.at(image_id).Downsize(options.image_max_size,
+                                            options.image_max_size);
+        model->depth_maps.at(image_id).Downsize(options.image_max_size,
+                                                options.image_max_size);
+        model->normal_maps.at(image_id).Downsize(options.image_max_size,
+                                                 options.image_max_size);
+      } else if (options.image_scale_factor > 0) {
+        model->images.at(image_id).Rescale(options.image_scale_factor);
+        model->depth_maps.at(image_id).Rescale(options.image_scale_factor);
+        model->normal_maps.at(image_id).Rescale(options.image_scale_factor);
       }
-    }
-    if (!input.normal_map_path.empty()) {
-      (*normal_maps)[input.image_id].Read(input.normal_map_path);
-      if (image_max_size != -1) {
-        (*normal_maps)[input.image_id].Downsize(image_max_size, image_max_size);
-      } else if (image_scale_factor != -1.0f) {
-        (*normal_maps)[input.image_id].Rescale(image_scale_factor);
-      }
-    }
+    });
   }
-
-  return true;
+  resample_thread_pool.Wait();
 }
 
 int main(int argc, char* argv[]) {
   InitializeGlog(argv);
 
-  std::string input_path;
-  std::string input_type;
+  std::string workspace_path;
+  std::string workspace_format;
+  std::string output_path;
   std::string config_path;
 
   OptionManager options;
   options.AddDenseMapperOptions();
-  options.AddRequiredOption("input_path", &input_path);
-  options.AddRequiredOption("input_type", &input_type);
-  options.AddRequiredOption("config_path", &config_path);
+  options.AddRequiredOption("workspace_path", &workspace_path);
+  options.AddRequiredOption("workspace_format", &workspace_format);
 
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
@@ -292,51 +196,56 @@ int main(int argc, char* argv[]) {
     return EXIT_SUCCESS;
   }
 
-  if (input_type != "COLMAP" && input_type != "NVM" && input_type != "PMVS" &&
-      input_type != "Middlebury") {
-    std::cout << "ERROR: Invalid `input_type` - supported values are "
-                 "{'COLMAP', 'NVM', PMVS', 'Middlebury'}."
+  if (workspace_format != "COLMAP" && workspace_format != "PMVS") {
+    std::cout << "ERROR: Invalid `workspace_format` - supported values are "
+                 "'COLMAP' or 'PMVS'."
               << std::endl;
     return EXIT_FAILURE;
   }
 
-  std::vector<mvs::Image> images;
-  std::vector<DepthMap> depth_maps;
-  std::vector<NormalMap> normal_maps;
-  std::vector<Output> outputs;
-  if (!ReadInputsAndOutputs(options.dense_mapper_options->patch_match,
-                            input_path, input_type, config_path, &images,
-                            &depth_maps, &normal_maps, &outputs)) {
-    return EXIT_FAILURE;
-  }
+  Model model;
+  std::vector<PatchMatch::Problem> problems;
+  ReadConfig(*options.dense_mapper_options, workspace_path, workspace_format,
+             &model, &problems);
 
-  for (size_t i = 0; i < outputs.size(); ++i) {
+  const auto depth_ranges = model.ComputeDepthRanges();
+
+  for (size_t i = 0; i < problems.size(); ++i) {
     PrintHeading1(
-        StringPrintf("Processing output %d / %d", i + 1, outputs.size()));
+        StringPrintf("Processing view %d / %d", i + 1, problems.size()));
 
-    auto& output = outputs[i];
-    output.problem.images = &images;
-    output.problem.depth_maps = &depth_maps;
-    output.problem.normal_maps = &normal_maps;
+    const auto& problem = problems[i];
+    problem.Print();
 
-    output.options.Print();
-    output.problem.Print();
+    PatchMatch::Options patch_match_options =
+        options.dense_mapper_options->patch_match;
+    patch_match_options.depth_min = depth_ranges.at(problem.ref_image_id).first;
+    patch_match_options.depth_max =
+        depth_ranges.at(problem.ref_image_id).second;
+    patch_match_options.Print();
 
-    PatchMatch patch_match(output.options, output.problem);
+    PatchMatch patch_match(patch_match_options, problem);
     patch_match.Run();
 
-    if (output.problem.src_image_ids.empty()) {
-      std::cout << "WARNING: No source images defined - skipping image."
-                << std::endl;
-      continue;
+    std::string output_suffix;
+    if (patch_match_options.geom_consistency) {
+      output_suffix = "geometric";
+    } else {
+      output_suffix = "photometric";
     }
 
-    std::cout << std::endl
-              << "Writing output: " << output.output_prefix << std::endl;
-    patch_match.GetDepthMap().Write(output.output_prefix + ".depth_map.txt");
-    patch_match.GetNormalMap().Write(output.output_prefix + ".normal_map.txt");
-    WriteBinaryBlob(output.output_prefix + ".consistency_graph.bin",
-                    patch_match.GetConsistentImageIds());
+    const std::string image_name = model.GetImageName(problem.ref_image_id);
+    const std::string file_name =
+        StringPrintf("%s.%s.bin", image_name.c_str(), output_suffix.c_str());
+    std::cout << std::endl << "Writing output: " << file_name << std::endl;
+
+    patch_match.GetDepthMap().Write(
+        JoinPaths(workspace_path, "dense/depth_maps", file_name));
+    patch_match.GetNormalMap().Write(
+        JoinPaths(workspace_path, "dense/normal_maps", file_name));
+    WriteBinaryBlob(
+        JoinPaths(workspace_path, "dense/consistency_graphs", file_name),
+        patch_match.GetConsistentImageIds());
   }
 
   return EXIT_SUCCESS;

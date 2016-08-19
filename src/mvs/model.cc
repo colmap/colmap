@@ -16,73 +16,49 @@
 
 #include "mvs/model.h"
 
-#include "base/reconstruction.h"
 #include "base/pose.h"
+#include "base/reconstruction.h"
 #include "util/logging.h"
 #include "util/misc.h"
 #include "util/string.h"
 
 namespace colmap {
 namespace mvs {
-namespace nvm {
 
-void QuaternionToRotationMatrix(const double q[4], double R[9]) {
-  const double qq = sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
-  double qw, qx, qy, qz;
-  if (qq > 0) {
-    qw = q[0] / qq;
-    qx = q[1] / qq;
-    qy = q[2] / qq;
-    qz = q[3] / qq;
+void Model::Read(const std::string& path, const std::string& format) {
+  if (format == "COLMAP") {
+    ReadFromCOLMAP(path);
+  } else if (format == "PMVS") {
+    ReadFromPMVS(path);
   } else {
-    qw = 1;
-    qx = qy = qz = 0;
+    LOG(FATAL) << "Invalid input format";
   }
-
-  R[0] = (qw * qw + qx * qx - qz * qz - qy * qy);
-  R[1] = (2 * qx * qy - 2 * qz * qw);
-  R[2] = (2 * qy * qw + 2 * qz * qx);
-  R[3] = (2 * qx * qy + 2 * qw * qz);
-  R[4] = (qy * qy + qw * qw - qz * qz - qx * qx);
-  R[5] = (2 * qz * qy - 2 * qx * qw);
-  R[6] = (2 * qx * qz - 2 * qy * qw);
-  R[7] = (2 * qy * qz + 2 * qw * qx);
-  R[8] = (qz * qz + qw * qw - qy * qy - qx * qx);
 }
 
-// T = -R * C
-void CameraCenterToTranslation(const double R[9], const double C[3],
-                               double T[3]) {
-  T[0] = -(R[0] * C[0] + R[1] * C[1] + R[2] * C[2]);
-  T[1] = -(R[3] * C[0] + R[4] * C[1] + R[5] * C[2]);
-  T[2] = -(R[6] * C[0] + R[7] * C[1] + R[8] * C[2]);
-}
-
-}  // namespace
-
-bool Model::LoadFromCOLMAP(const std::string& folder_path) {
-  const std::string image_path = EnsureTrailingSlash(folder_path) + "images/";
-
+void Model::ReadFromCOLMAP(const std::string& path) {
   Reconstruction reconstruction;
-  reconstruction.Read(EnsureTrailingSlash(folder_path) + "sparse");
+  reconstruction.Read(JoinPaths(path, "sparse"));
 
-  views.resize(reconstruction.NumRegImages());
-  std::unordered_map<image_t, size_t> image_id_to_view_id;
-  for (size_t view_id = 0; view_id < views.size(); ++view_id) {
-    auto& view = views[view_id];
-
-    const auto image_id = reconstruction.RegImageIds()[view_id];
+  images.reserve(reconstruction.NumRegImages());
+  std::unordered_map<image_t, size_t> image_id_map;
+  for (size_t i = 0; i < reconstruction.NumRegImages(); ++i) {
+    const auto image_id = reconstruction.RegImageIds()[i];
     const auto& image = reconstruction.Image(image_id);
     const auto& camera = reconstruction.Camera(image.CameraId());
 
     CHECK_EQ(camera.ModelId(), PinholeCameraModel::model_id);
 
-    view.path = image_path + image.Name();
-    view.K = camera.CalibrationMatrix().cast<float>();
-    view.R = QuaternionToRotationMatrix(image.Qvec()).cast<float>();
-    view.T = image.Tvec().cast<float>();
+    const std::string image_path = JoinPaths(path, "images", image.Name());
+    const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K =
+        camera.CalibrationMatrix().cast<float>();
+    const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> R =
+        QuaternionToRotationMatrix(image.Qvec()).cast<float>();
+    const Eigen::Vector3f T = image.Tvec().cast<float>();
 
-    image_id_to_view_id.emplace(image_id, view_id);
+    images.emplace_back(image_path, K.data(), R.data(), T.data());
+    image_id_map.emplace(image_id, i);
+    image_names_.push_back(image.Name());
+    image_name_to_id_.emplace(image.Name(), i);
   }
 
   points.reserve(reconstruction.NumPoints3D());
@@ -91,124 +67,18 @@ bool Model::LoadFromCOLMAP(const std::string& folder_path) {
     point.X = point3D.second.XYZ().cast<float>();
     point.track.reserve(point3D.second.Track().Length());
     for (const auto& track_el : point3D.second.Track().Elements()) {
-      point.track.push_back(image_id_to_view_id.at(track_el.image_id));
+      point.track.push_back(image_id_map.at(track_el.image_id));
     }
     points.push_back(point);
   }
 
-  return true;
+  depth_maps.resize(images.size());
+  normal_maps.resize(images.size());
+  consistency_graph.resize(images.size());
 }
 
-bool Model::LoadFromMiddleBurry(const std::string& file_path) {
-  std::ifstream file(file_path);
-  CHECK(file.is_open()) << file_path;
-
-  int num_images;
-  file >> num_images;
-
-  views.resize(num_images);
-  for (int image_id = 0; image_id < num_images; ++image_id) {
-    auto& view = views[image_id];
-
-    file >> view.path;
-
-    for (size_t i = 0; i < 9; ++i) {
-      file >> view.K(i);
-    }
-
-    for (size_t i = 0; i < 9; ++i) {
-      file >> view.R(i);
-    }
-
-    for (size_t i = 0; i < 3; ++i) {
-      file >> view.T(i);
-    }
-  }
-
-  return true;
-}
-
-bool Model::LoadFromNVM(const std::string& file_path) {
-  std::ifstream file(file_path);
-  CHECK(file.is_open()) << file_path;
-
-  std::string token;
-  if (file.peek() == 'N') {
-    file >> token;
-    if (!strstr(token.c_str(), "NVM_V3")) {
-      return false;
-    }
-  } else {
-    return false;
-  }
-
-  int num_images = 0;
-  int num_points = 0;
-  file >> num_images;
-
-  // Read the camera parameters.
-  views.resize(num_images);
-  for (int image_id = 0; image_id < num_images; ++image_id) {
-    auto& view = views[image_id];
-
-    file >> view.path;
-
-    file >> view.K(0, 0);
-    view.K(1, 1) = view.K(0, 0);
-
-    double quat[4];
-    for (size_t i = 0; i < 4; ++i) {
-      file >> quat[i];
-    }
-
-    double C[3];
-    file >> C[0] >> C[1] >> C[2];
-
-    float k1, k2;
-    file >> k1 >> k2;
-    CHECK_EQ(k1, 0.0f);
-    CHECK_EQ(k2, 0.0f);
-
-    double R[9];
-    nvm::QuaternionToRotationMatrix(quat, R);
-    for (size_t i = 0; i < 9; ++i) {
-      view.R(i) = static_cast<float>(R[i]);
-    }
-
-    double T[3];
-    nvm::CameraCenterToTranslation(R, C, T);
-    for (size_t i = 0; i < 3; ++i) {
-      view.T(i) = static_cast<float>(T[i]);
-    }
-  }
-
-  points.resize(num_points);
-  for (int point_id = 0; point_id < num_points; ++point_id) {
-    auto& point = points[point_id];
-
-    file >> point.X(0) >> point.X(1) >> point.X(2);
-
-    int color[3];
-    file >> color[0] >> color[1] >> color[2];
-
-    int track_len;
-    file >> track_len;
-    point.track.resize(track_len);
-
-    for (int i = 0; i < track_len; ++i) {
-      int feature_idx;
-      float imx, imy;
-      file >> point.track[i] >> feature_idx >> imx >> imy;
-      CHECK_LT(point.track[i], views.size());
-    }
-  }
-
-  return true;
-}
-
-bool Model::LoadFromPMVS(const std::string& folder_path) {
-  const std::string base_path = EnsureTrailingSlash(folder_path);
-  const std::string bundle_file_path = base_path + "bundle.rd.out";
+void Model::ReadFromPMVS(const std::string& path) {
+  const std::string bundle_file_path = JoinPaths(path, "bundle.rd.out");
 
   std::ifstream file(bundle_file_path);
   CHECK(file.is_open()) << bundle_file_path;
@@ -220,30 +90,36 @@ bool Model::LoadFromPMVS(const std::string& folder_path) {
   int num_images, num_points;
   file >> num_images >> num_points;
 
-  views.resize(num_images);
+  images.reserve(num_images);
   for (int image_id = 0; image_id < num_images; ++image_id) {
-    auto& view = views[image_id];
+    const std::string image_name = StringPrintf("%08d.jpg", image_id);
+    const std::string image_path = JoinPaths(path, "visualize", image_name);
 
-    view.path = base_path + StringPrintf("visualize/%08d.jpg", image_id);
-
-    file >> view.K(0, 0);
-    view.K(1, 1) = view.K(0, 0);
+    float K[9] = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+    file >> K[0];
+    K[4] = K[0];
 
     float k1, k2;
     file >> k1 >> k2;
     CHECK_EQ(k1, 0.0f);
     CHECK_EQ(k2, 0.0f);
 
-    file >> view.R(0) >> view.R(1) >> view.R(2);
-    file >> view.R(3) >> view.R(4) >> view.R(5);
-    file >> view.R(6) >> view.R(7) >> view.R(8);
+    float R[9];
+    for (size_t i = 0; i < 9; ++i) {
+      file >> R[i];
+    }
     for (size_t i = 3; i < 9; ++i) {
-      view.R(i) = -view.R(i);
+      R[i] = -R[i];
     }
 
-    file >> view.T(0) >> view.T(1) >> view.T(2);
-    view.T(1) = -view.T(1);
-    view.T(2) = -view.T(2);
+    float T[3];
+    file >> T[0] >> T[1] >> T[2];
+    T[1] = -T[1];
+    T[2] = -T[2];
+
+    images.emplace_back(image_path, K, R, T);
+    image_names_.push_back(image_name);
+    image_name_to_id_.emplace(image_name, image_id);
   }
 
   points.resize(num_points);
@@ -263,19 +139,35 @@ bool Model::LoadFromPMVS(const std::string& folder_path) {
       int feature_idx;
       float imx, imy;
       file >> point.track[i] >> feature_idx >> imx >> imy;
-      CHECK_LT(point.track[i], views.size());
+      CHECK_LT(point.track[i], images.size());
     }
   }
 
-  return true;
+  depth_maps.resize(images.size());
+  normal_maps.resize(images.size());
+  consistency_graph.resize(images.size());
+}
+
+int Model::GetImageId(const std::string& name) const {
+  CHECK_GT(image_name_to_id_.count(name), 0) << "Image with name `" << name
+                                             << "` does not exist";
+  return image_name_to_id_.at(name);
+}
+
+std::string Model::GetImageName(const int image_id) const {
+  CHECK_GE(image_id, 0);
+  CHECK_LT(image_id, image_names_.size());
+  return image_names_.at(image_id);
 }
 
 std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
-  std::vector<std::vector<float>> depths(views.size());
+  std::vector<std::vector<float>> depths(images.size());
   for (const auto& point : points) {
     for (const auto& image_id : point.track) {
-      const auto& view = views.at(image_id);
-      const float depth = view.R.row(2) * point.X + view.T(2);
+      const auto& image = images.at(image_id);
+      const float depth =
+          Eigen::Map<const Eigen::Vector3f>(&image.GetR()[6]).dot(point.X) +
+          image.GetT()[2];
       depths[image_id].push_back(depth);
     }
   }
@@ -308,7 +200,7 @@ std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
 }
 
 std::vector<std::map<int, int>> Model::ComputeSharedPoints() const {
-  std::vector<std::map<int, int>> shared_points(views.size());
+  std::vector<std::map<int, int>> shared_points(images.size());
   for (const auto& point : points) {
     for (size_t i = 0; i < point.track.size(); ++i) {
       const int image_id1 = point.track[i];

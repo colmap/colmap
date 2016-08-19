@@ -427,7 +427,7 @@ void SiftGPUFeatureExtractor::Run() {
 FeatureImporter::FeatureImporter(const ImageReader::Options& reader_options,
                                  const std::string& import_path)
     : reader_options_(reader_options),
-      import_path_(EnsureTrailingSlash(import_path)) {}
+      import_path_(import_path) {}
 
 void FeatureImporter::Run() {
   PrintHeading1("Feature import");
@@ -457,7 +457,7 @@ void FeatureImporter::Run() {
       continue;
     }
 
-    const std::string path = import_path_ + image.Name() + ".txt";
+    const std::string path = JoinPaths(import_path_, image.Name() + ".txt");
 
     if (boost::filesystem::exists(path)) {
       FeatureKeypoints keypoints;

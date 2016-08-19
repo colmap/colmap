@@ -22,32 +22,33 @@
 #include <map>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <Eigen/Core>
+
+#include "mvs/image.h"
+#include "mvs/depth_map.h"
+#include "mvs/normal_map.h"
 
 namespace colmap {
 namespace mvs {
 
 // Simple sparse model class.
 struct Model {
-  struct View {
-    Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K = Eigen::Matrix3f::Identity();
-    Eigen::Matrix<float, 3, 3, Eigen::RowMajor> R = Eigen::Matrix3f::Identity();
-    Eigen::Vector3f T = Eigen::Vector3f::Zero();
-    std::string path = "";
-  };
-
   struct Point {
     Eigen::Vector3f X = Eigen::Vector3f::Zero();
     std::vector<int> track;
   };
 
-  // Load sparse model from Middlebury, VisualSfM or PMVS file format.
-  bool LoadFromCOLMAP(const std::string& folder_path);
-  bool LoadFromMiddleBurry(const std::string& file_path);
-  bool LoadFromNVM(const std::string& file_path);
-  bool LoadFromPMVS(const std::string& folder_path);
+  // Read the model from different data formats.
+  void Read(const std::string& path, const std::string& format);
+  void ReadFromCOLMAP(const std::string& path);
+  void ReadFromPMVS(const std::string& path);
+
+  // Get the image identifier for the given image name.
+  int GetImageId(const std::string& name) const;
+  std::string GetImageName(const int image_id) const;
 
   // Compute the robust minimum and maximum depths from the sparse point cloud.
   std::vector<std::pair<float, float>> ComputeDepthRanges() const;
@@ -55,8 +56,15 @@ struct Model {
   // Compute the number of shared points between all possible pairs of images.
   std::vector<std::map<int, int>> ComputeSharedPoints() const;
 
-  std::vector<View> views;
+  std::vector<Image> images;
   std::vector<Point> points;
+  std::vector<DepthMap> depth_maps;
+  std::vector<NormalMap> normal_maps;
+  std::vector<std::vector<int>> consistency_graph;
+
+ private:
+  std::vector<std::string> image_names_;
+  std::unordered_map<std::string, int> image_name_to_id_;
 };
 
 }  // namespace mvs

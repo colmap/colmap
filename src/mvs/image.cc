@@ -25,27 +25,27 @@
 namespace colmap {
 namespace mvs {
 
-void Image::Load(const float* K, const float* R, const float* T,
-                 const std::string& path, const bool as_rgb,
-                 const bool extract_principal_point) {
-  CHECK(bitmap_.Read(path, as_rgb));
-
+Image::Image(const std::string& path, const float* K, const float* R,
+             const float* T)
+    : path_(path) {
   memcpy(K_, K, 9 * sizeof(float));
   memcpy(R_, R, 9 * sizeof(float));
   memcpy(T_, T, 3 * sizeof(float));
-
-  if (extract_principal_point) {
-    K_[2] = static_cast<float>(bitmap_.Width()) / 2.0f;
-    K_[5] = static_cast<float>(bitmap_.Height()) / 2.0f;
-  }
-
   ComposeProjectionMatrix(K_, R_, T_, P_);
   ComposeInverseProjectionMatrix(K_, R_, T_, inv_P_);
+}
+
+void Image::Read(const bool as_rgb) {
+  CHECK(bitmap_.Read(path_, as_rgb)) << path_;
 }
 
 void Image::Rescale(const float factor) { Rescale(factor, factor); }
 
 void Image::Rescale(const float factor_x, const float factor_y) {
+  if (bitmap_.Width() * bitmap_.Height() == 0) {
+    return;
+  }
+
   const size_t new_width = std::round(bitmap_.Width() * factor_x);
   const size_t new_height = std::round(bitmap_.Height() * factor_y);
   const float scale_x = new_width / static_cast<float>(bitmap_.Width());

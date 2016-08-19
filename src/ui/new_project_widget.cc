@@ -75,7 +75,7 @@ std::string NewProjectWidget::DatabasePath() const {
 }
 
 std::string NewProjectWidget::ImagePath() const {
-  return EnsureTrailingSlash(image_path_text_->text().toUtf8().constData());
+  return image_path_text_->text().toUtf8().constData();
 }
 
 void NewProjectWidget::SetDatabasePath(const std::string& path) {

@@ -645,7 +645,7 @@ void MainWindow::Import() {
     return;
   }
 
-  std::string path =
+  const std::string path =
       QFileDialog::getExistingDirectory(this, tr("Select source..."), "",
                                         QFileDialog::ShowDirsOnly)
           .toUtf8()
@@ -656,12 +656,10 @@ void MainWindow::Import() {
     return;
   }
 
-  path = EnsureTrailingSlash(path);
-
-  const std::string project_path = path + "project.ini";
-  const std::string cameras_path = path + "cameras.txt";
-  const std::string images_path = path + "images.txt";
-  const std::string points3D_path = path + "points3D.txt";
+  const std::string project_path = JoinPaths(path, "project.ini");
+  const std::string cameras_path = JoinPaths(path, "cameras.txt");
+  const std::string images_path = JoinPaths(path, "images.txt");
+  const std::string points3D_path = JoinPaths(path, "points3D.txt");
 
   if (!boost::filesystem::is_regular_file(cameras_path) ||
       !boost::filesystem::is_regular_file(images_path) ||
@@ -751,7 +749,7 @@ void MainWindow::Export() {
     return;
   }
 
-  std::string path =
+  const std::string path =
       QFileDialog::getExistingDirectory(this, tr("Select destination..."), "",
                                         QFileDialog::ShowDirsOnly)
           .toUtf8()
@@ -762,14 +760,12 @@ void MainWindow::Export() {
     return;
   }
 
-  path = EnsureTrailingSlash(path);
-
-  const std::string project_path = path + "project.ini";
-  const std::string cameras_path = path + "cameras.txt";
-  const std::string images_path = path + "images.txt";
-  const std::string points3D_path = path + "points3D.txt";
-  const std::string images_vrml_path = path + "images.wrl";
-  const std::string points3D_vrml_path = path + "points3D.wrl";
+  const std::string project_path = JoinPaths(path, "project.ini");
+  const std::string cameras_path = JoinPaths(path, "cameras.txt");
+  const std::string images_path = JoinPaths(path, "images.txt");
+  const std::string points3D_path = JoinPaths(path, "points3D.txt");
+  const std::string images_vrml_path = JoinPaths(path, "images.wrl");
+  const std::string points3D_vrml_path = JoinPaths(path, "points3D.wrl");
 
   if (boost::filesystem::is_regular_file(project_path) ||
       boost::filesystem::is_regular_file(cameras_path) ||
@@ -802,7 +798,7 @@ void MainWindow::ExportAll() {
     return;
   }
 
-  std::string path =
+  const std::string path =
       QFileDialog::getExistingDirectory(this, tr("Select destination..."), "",
                                         QFileDialog::ShowDirsOnly)
           .toUtf8()
@@ -812,8 +808,6 @@ void MainWindow::ExportAll() {
   if (path == "") {
     return;
   }
-
-  path = EnsureTrailingSlash(path);
 
   progress_bar_->setLabelText(tr("Exporting models"));
   progress_bar_->raise();

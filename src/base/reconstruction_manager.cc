@@ -41,9 +41,7 @@ void ReconstructionManager::Delete(const size_t idx) {
   reconstructions_.erase(reconstructions_.begin() + idx);
 }
 
-void ReconstructionManager::Clear() {
-  reconstructions_.clear();
-}
+void ReconstructionManager::Clear() { reconstructions_.clear(); }
 
 size_t ReconstructionManager::Read(const std::string& path) {
   const size_t idx = Add();
@@ -53,13 +51,12 @@ size_t ReconstructionManager::Read(const std::string& path) {
 
 void ReconstructionManager::Write(const std::string& path,
                                   const OptionManager* options) const {
-  const std::string base_path = EnsureTrailingSlash(path);
   for (size_t i = 0; i < reconstructions_.size(); ++i) {
-    const std::string reconstruction_path = base_path + std::to_string(i);
+    const std::string reconstruction_path = JoinPaths(path, std::to_string(i));
     CreateDirIfNotExists(reconstruction_path);
     reconstructions_[i]->Write(reconstruction_path);
     if (options != nullptr) {
-      options->Write(reconstruction_path + "/project.ini");
+      options->Write(JoinPaths(reconstruction_path, "project.ini"));
     }
   }
 }

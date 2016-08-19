@@ -32,96 +32,46 @@
 using namespace colmap;
 using namespace colmap::mvs;
 
-struct Input {
-  std::string depth_map_path;
-  std::string normal_map_path;
-  std::string consistency_graph_path;
-};
-
-bool ReadConfig(const std::string& path, std::vector<uint8_t>* used_image_mask,
-                std::vector<mvs::Image>* images,
-                std::vector<DepthMap>* depth_maps,
-                std::vector<NormalMap>* normal_maps,
-                std::vector<std::vector<int>>* consistency_graph) {
-  std::string input_path;
-  std::string input_type;
-
-  std::unordered_map<int, Input> inputs;
-  std::set<int> used_image_ids;
+bool ReadConfig(const std::string& workspace_path,
+                const std::string& workspace_format,
+                const std::string& input_type, Model* model,
+                std::vector<uint8_t>* used_image_mask) {
+  std::cout << "Reading model..." << std::endl;
+  model->Read(workspace_path, workspace_format);
+  used_image_mask->resize(model->images.size(), false);
 
   std::cout << "Reading configuration..." << std::endl;
-  try {
-    boost::property_tree::ptree pt;
-    boost::property_tree::read_json(path.c_str(), pt);
 
-    input_path = pt.get<std::string>("input_path");
-    input_type = pt.get<std::string>("input_type");
+  std::ifstream file(JoinPaths(workspace_path, "dense/fusion.cfg"));
+  CHECK(file.is_open());
 
-    for (const auto& input_elem : pt.get_child("input_list")) {
-      Input input;
-      const int image_id = input_elem.second.get<int>("image_id");
-      used_image_ids.insert(image_id);
-      input.depth_map_path =
-          input_elem.second.get<std::string>("depth_map_path");
-      input.normal_map_path =
-          input_elem.second.get<std::string>("normal_map_path");
-      const auto consistency_graph_path =
-          input_elem.second.get_optional<std::string>("consistency_graph_path");
-      if (consistency_graph_path) {
-        input.consistency_graph_path = consistency_graph_path.get();
-      }
-      inputs.emplace(image_id, input);
+  std::string line;
+  while (std::getline(file, line)) {
+    StringTrim(&line);
+
+    if (line.empty() || line[0] == '#') {
+      continue;
     }
-  } catch (std::exception const& exc) {
-    std::cerr << "ERROR: Problem with configuration file - " << exc.what()
-              << std::endl;
-    return false;
-  }
 
-  std::cout << "Reading model..." << std::endl;
-  Model model;
-  bool extract_principal_point = false;
-  if (input_type == "NVM") {
-    extract_principal_point = true;
-    if (!model.LoadFromNVM(input_path)) {
-      return false;
-    }
-  } else if (input_type == "PMVS") {
-    extract_principal_point = true;
-    if (!model.LoadFromPMVS(input_path)) {
-      return false;
-    }
-  } else if (input_type == "Middlebury") {
-    extract_principal_point = false;
-    if (!model.LoadFromMiddleBurry(input_path)) {
-      return false;
-    }
-  } else {
-    std::cerr << "ERROR: Unknown input type" << std::endl;
-    return false;
-  }
-
-  std::cout << "Reading images, depth maps, and normal maps..." << std::endl;
-  images->resize(model.views.size());
-  used_image_mask->resize(images->size(), false);
-  depth_maps->resize(images->size());
-  normal_maps->resize(images->size());
-  consistency_graph->resize(images->size());
-  for (const auto& elem : inputs) {
-    const int image_id = elem.first;
-    const auto& input = elem.second;
-    const auto& view = model.views.at(image_id);
-
-    auto& image = images->at(image_id);
-    image.Load(view.K.data(), view.R.data(), view.T.data(), view.path, true,
-               extract_principal_point);
+    const std::string image_name = line;
+    const int image_id = model->GetImageId(image_name);
 
     used_image_mask->at(image_id) = true;
 
-    auto& depth_map = depth_maps->at(image_id);
-    auto& normal_map = normal_maps->at(image_id);
-    depth_map.Read(input.depth_map_path);
-    normal_map.Read(input.normal_map_path);
+    auto& image = model->images.at(image_id);
+    auto& depth_map = model->depth_maps.at(image_id);
+    auto& normal_map = model->normal_maps.at(image_id);
+
+    const std::string file_name =
+        StringPrintf("%s.%s.bin", image_name.c_str(), input_type.c_str());
+    depth_map.Read(JoinPaths(workspace_path, "dense/depth_maps", file_name));
+    normal_map.Read(JoinPaths(workspace_path, "dense/normal_maps", file_name));
+    ReadBinaryBlob<int>(
+        JoinPaths(workspace_path, "dense/consistency_graphs", file_name),
+        &model->consistency_graph.at(image_id));
+
+    const bool kReadImageAsRGB = true;
+    image.Read(kReadImageAsRGB);
 
     CHECK_EQ(depth_map.GetWidth(), normal_map.GetWidth());
     CHECK_EQ(depth_map.GetHeight(), normal_map.GetHeight());
@@ -134,11 +84,6 @@ bool ReadConfig(const std::string& path, std::vector<uint8_t>* used_image_mask,
       CHECK_EQ(image.GetWidth(), depth_map.GetWidth());
       CHECK_EQ(image.GetHeight(), depth_map.GetHeight());
     }
-
-    if (!input.consistency_graph_path.empty()) {
-      ReadBinaryBlob<int>(input.consistency_graph_path,
-                          &consistency_graph->at(image_id));
-    }
   }
 
   return true;
@@ -147,12 +92,17 @@ bool ReadConfig(const std::string& path, std::vector<uint8_t>* used_image_mask,
 int main(int argc, char* argv[]) {
   InitializeGlog(argv);
 
-  std::string config_path;
+  std::string workspace_path;
+  std::string input_type;
+  std::string workspace_format;
   std::string output_path;
+  std::string config_path;
 
   OptionManager options;
   options.AddDenseMapperOptions();
-  options.AddRequiredOption("config_path", &config_path);
+  options.AddRequiredOption("workspace_path", &workspace_path);
+  options.AddRequiredOption("workspace_format", &workspace_format);
+  options.AddRequiredOption("input_type", &input_type);
   options.AddRequiredOption("output_path", &output_path);
 
   if (!options.Parse(argc, argv)) {
@@ -163,13 +113,17 @@ int main(int argc, char* argv[]) {
     return EXIT_SUCCESS;
   }
 
+  if (input_type != "photometric" && input_type != "geometric") {
+    std::cout << "ERROR: Invalid input type - supported values are "
+                 "'photometric' and 'geometric'."
+              << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  Model model;
   std::vector<uint8_t> used_image_mask;
-  std::vector<mvs::Image> images;
-  std::vector<DepthMap> depth_maps;
-  std::vector<NormalMap> normal_maps;
-  std::vector<std::vector<int>> consistency_graph;
-  if (!ReadConfig(config_path, &used_image_mask, &images, &depth_maps,
-                  &normal_maps, &consistency_graph)) {
+  if (!ReadConfig(workspace_path, workspace_format, input_type, &model,
+                  &used_image_mask)) {
     return EXIT_FAILURE;
   }
 
@@ -177,9 +131,9 @@ int main(int argc, char* argv[]) {
   options.dense_mapper_options->fusion.Print();
   std::cout << std::endl;
 
-  const auto points =
-      StereoFusion(options.dense_mapper_options->fusion, used_image_mask,
-                   images, depth_maps, normal_maps, consistency_graph);
+  const auto points = StereoFusion(
+      options.dense_mapper_options->fusion, used_image_mask, model.images,
+      model.depth_maps, model.normal_maps, model.consistency_graph);
 
   std::cout << "Number of fused points: " << points.size() << std::endl;
 

@@ -39,6 +39,41 @@ BOOST_AUTO_TEST_CASE(TestHasFileExtension) {
   BOOST_CHECK_EQUAL(HasFileExtension("test.", "."), true);
 }
 
+BOOST_AUTO_TEST_CASE(TestGetPathBaseName) {
+  BOOST_CHECK_EQUAL(GetPathBaseName(""), "");
+  BOOST_CHECK_EQUAL(GetPathBaseName("test"), "test");
+  BOOST_CHECK_EQUAL(GetPathBaseName("/test"), "test");
+  BOOST_CHECK_EQUAL(GetPathBaseName("test/"), "test");
+  BOOST_CHECK_EQUAL(GetPathBaseName("/test/"), "test");
+  BOOST_CHECK_EQUAL(GetPathBaseName("test1/test2"), "test2");
+  BOOST_CHECK_EQUAL(GetPathBaseName("/test1/test2"), "test2");
+  BOOST_CHECK_EQUAL(GetPathBaseName("/test1/test2/"), "test2");
+  BOOST_CHECK_EQUAL(GetPathBaseName("/test1/test2/"), "test2");
+  BOOST_CHECK_EQUAL(GetPathBaseName("\\test1/test2/"), "test2");
+  BOOST_CHECK_EQUAL(GetPathBaseName("\\test1\\test2\\"), "test2");
+  BOOST_CHECK_EQUAL(GetPathBaseName("/test1/test2/test3.ext"), "test3.ext");
+}
+
+BOOST_AUTO_TEST_CASE(TestJoinPaths) {
+  BOOST_CHECK_EQUAL(JoinPaths(""), "");
+  BOOST_CHECK_EQUAL(JoinPaths("test"), "test");
+  BOOST_CHECK_EQUAL(JoinPaths("/test"), "/test");
+  BOOST_CHECK_EQUAL(JoinPaths("test/"), "test/");
+  BOOST_CHECK_EQUAL(JoinPaths("/test/"), "/test/");
+  BOOST_CHECK_EQUAL(JoinPaths("test1/test2"), "test1/test2");
+  BOOST_CHECK_EQUAL(JoinPaths("/test1/test2"), "/test1/test2");
+  BOOST_CHECK_EQUAL(JoinPaths("/test1/test2/"), "/test1/test2/");
+  BOOST_CHECK_EQUAL(JoinPaths("/test1/test2/"), "/test1/test2/");
+  BOOST_CHECK_EQUAL(JoinPaths("\\test1/test2/"), "\\test1/test2/");
+  BOOST_CHECK_EQUAL(JoinPaths("\\test1\\test2\\"), "\\test1\\test2\\");
+  BOOST_CHECK_EQUAL(JoinPaths("test1", "test2"), "test1/test2");
+  BOOST_CHECK_EQUAL(JoinPaths("/test1", "test2"), "/test1/test2");
+  BOOST_CHECK_EQUAL(JoinPaths("/test1", "/test2"), "/test1/test2");
+  BOOST_CHECK_EQUAL(JoinPaths("/test1", "/test2/"), "/test1/test2/");
+  BOOST_CHECK_EQUAL(JoinPaths("/test1", "/test2/", "test3.ext"),
+                    "/test1/test2/test3.ext");
+}
+
 BOOST_AUTO_TEST_CASE(TestVectorContainsValue) {
   BOOST_CHECK(VectorContainsValue<int>({1, 2, 3}, 1));
   BOOST_CHECK(!VectorContainsValue<int>({2, 3}, 1));

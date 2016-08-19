@@ -43,6 +43,10 @@ DepthMap::DepthMap(const Mat<float>& mat, const float depth_min,
 }
 
 void DepthMap::Rescale(const float factor) {
+  if (width_ * height_ == 0) {
+    return;
+  }
+
   const size_t new_width = std::round(width_ * factor);
   const size_t new_height = std::round(height_ * factor);
   std::vector<float> new_data(new_width * new_height);

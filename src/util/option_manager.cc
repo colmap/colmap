@@ -617,6 +617,8 @@ SparseMapperOptions::ParallelGlobalBundleAdjustmentOptions() const {
 DenseMapperOptions::DenseMapperOptions() { Reset(); }
 
 void DenseMapperOptions::Reset() {
+  image_max_size = 0;
+  image_scale_factor = 0;
   patch_match = mvs::PatchMatch::Options();
   fusion = mvs::FusionOptions();
 }
@@ -625,6 +627,9 @@ bool DenseMapperOptions::Check() {
   const int kMaxWindowRadius = mvs::PatchMatch::kMaxWindowRadius;
 
   bool verified = true;
+
+  CHECK_OPTION(DenseMapperOptions, image_max_size, >= 0);
+  CHECK_OPTION(DenseMapperOptions, image_scale_factor, >= 0);
 
   CHECK_OPTION(DenseMapperOptions, patch_match.gpu_index, >= -1);
   CHECK_OPTION(DenseMapperOptions, patch_match.window_radius, > 0);
@@ -1035,6 +1040,10 @@ void OptionManager::AddDenseMapperOptions() {
     return;
   }
   added_dense_mapper_options_ = true;
+
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options, image_max_size);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     image_scale_factor);
 
   ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
                      patch_match.gpu_index);

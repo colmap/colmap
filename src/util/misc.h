@@ -24,6 +24,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/filesystem.hpp>
 
 #include "util/logging.h"
 #include "util/string.h"
@@ -38,6 +39,13 @@ bool HasFileExtension(const std::string& file_name, const std::string& ext);
 
 // Create the directory if it does not exist.
 void CreateDirIfNotExists(const std::string& path);
+
+// Extract the base name of a path, e.g., "image.jpg" for "/dir/image.jpg".
+std::string GetPathBaseName(const std::string& path);
+
+// Join multiple paths into one path.
+template <typename... T>
+std::string JoinPaths(T const&... paths);
 
 // Return list of files, recursively in all sub-directories.
 std::vector<std::string> GetRecursiveFileList(const std::string& path);
@@ -78,6 +86,14 @@ void WriteBinaryBlob(const std::string& path, const std::vector<T>& data);
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
+template <typename... T>
+std::string JoinPaths(T const&... paths) {
+  boost::filesystem::path result;
+  int unpack[]{0, (result = result / boost::filesystem::path(paths), 0)...};
+  static_cast<void>(unpack);
+  return result.string();
+}
+
 template <typename T>
 bool VectorContainsValue(const std::vector<T>& vector, const T value) {
   return std::find_if(vector.begin(), vector.end(), [value](const T element) {
@@ -98,7 +114,7 @@ std::vector<T> CSVToVector(const std::string& csv) {
   std::vector<T> values;
   values.reserve(elems.size());
   for (auto& elem : elems) {
-    boost::erase_all(elem, " ");
+    StringTrim(&elem);
     if (elem.empty()) {
       continue;
     }
