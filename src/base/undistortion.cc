@@ -33,31 +33,6 @@
 namespace colmap {
 namespace {
 
-// Write camera parameters to file.
-void WriteCameraParams(const std::string& path, const Camera& camera) {
-  std::ofstream file(path.c_str(), std::ios::trunc);
-  CHECK(file.is_open());
-
-  std::ostringstream line;
-
-  file << "# MODEL, WIDTH, HEIGHT, PARAMS[]" << std::endl;
-
-  line << camera.ModelName() << " ";
-  line << camera.Width() << " ";
-  line << camera.Height() << " ";
-
-  for (const double param : camera.Params()) {
-    line << param << " ";
-  }
-
-  std::string line_string = line.str();
-  line_string = line_string.substr(0, line_string.size() - 1);
-
-  file << line_string << std::endl;
-
-  file.close();
-}
-
 // Write projection matrix P = K * [R t] to file and prepend given header.
 void WriteProjectionMatrix(const std::string& path, const Camera& camera,
                            const Image& image, const std::string& header) {
@@ -116,6 +91,10 @@ void COLMAPUndistorter::Run() {
   CreateDirIfNotExists(output_path_ + "dense/depth_maps");
   CreateDirIfNotExists(output_path_ + "dense/normal_maps");
   CreateDirIfNotExists(output_path_ + "dense/consistency_graphs");
+  reconstruction_.CreateImageDirs(output_path_ + "images");
+  reconstruction_.CreateImageDirs(output_path_ + "dense/depth_maps");
+  reconstruction_.CreateImageDirs(output_path_ + "dense/normal_maps");
+  reconstruction_.CreateImageDirs(output_path_ + "dense/consistency_graphs");
 
   ThreadPool thread_pool;
   std::vector<std::future<void>> futures;
