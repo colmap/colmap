@@ -18,6 +18,7 @@
 
 #include <cmath>
 #include <fstream>
+#include <set>
 #include <sstream>
 
 #include <boost/algorithm/string.hpp>
@@ -1232,6 +1233,25 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
     } else {
       point3D.second.SetColor(kBlackColor);
     }
+  }
+}
+
+void Reconstruction::CreateImageDirs(const std::string& path) const {
+  const std::string path_with_slash = EnsureTrailingSlash(path);
+  std::set<std::string> image_dirs;
+  for (const auto& image : images_) {
+    const std::vector<std::string> name_split =
+        StringSplit(StringReplace(image.second.Name(), "\\", "/"), "/");
+    if (name_split.size() > 1) {
+      std::string dir = path_with_slash;
+      for (size_t i = 0; i < name_split.size() - 1; ++i) {
+        dir += name_split[i] + "/";
+        image_dirs.insert(dir);
+      }
+    }
+  }
+  for (const auto& dir : image_dirs) {
+    CreateDirIfNotExists(dir);
   }
 }
 

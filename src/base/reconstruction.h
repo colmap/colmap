@@ -235,6 +235,9 @@ class Reconstruction {
   //                      root path and the name of the image.
   void ExtractColorsForAllImages(const std::string& path);
 
+  // Create all image sub-directories in the given path.
+  void CreateImageDirs(const std::string& path) const;
+
  private:
   size_t FilterPoints3DWithSmallTriangulationAngle(
       const double min_tri_angle,
