@@ -108,25 +108,30 @@ void MatchNearestNeighborsInVisualIndex(const int num_threads,
                                         FeatureMatcherCache* cache,
                                         retrieval::VisualIndex* visual_index,
                                         SiftGPUFeatureMatcher* matcher) {
-  retrieval::VisualIndex::QueryOptions query_options;
-  query_options.max_num_images = num_images;
-
-  // Start a thread pool to retrieve the nearest neighbors. Use a job queue to
-  // limit the number of retrieval results in memory.
+  // Start a thread pool to retrieve the nearest neighbors.
   ThreadPool retrieval_thread_pool(num_threads);
   JobQueue<std::vector<retrieval::ImageScore>> retrieval_queue(num_threads);
-  for (size_t i = 0; i < image_ids.size(); ++i) {
-    if (thread->IsStopped()) {
-      return;
-    }
 
-    retrieval_thread_pool.AddTask([&, i]() {
-      std::vector<retrieval::ImageScore> image_scores;
-      retrieval::VisualIndex::Desc descriptors =
-          cache->GetDescriptors(image_ids[i]);
-      visual_index->Query(query_options, descriptors, &image_scores);
-      retrieval_queue.Push(image_scores);
-    });
+  // The retrieval thread kernel function. Note that the descriptors should be
+  // extracted outside of this function sequentially to avoid any concurrent
+  // access to the database causing race conditions.
+  retrieval::VisualIndex::QueryOptions query_options;
+  query_options.max_num_images = num_images;
+  auto QueryFunc = [&](retrieval::VisualIndex::Desc descriptors) {
+    std::vector<retrieval::ImageScore> image_scores;
+    visual_index->Query(query_options, descriptors, &image_scores);
+    retrieval_queue.Push(image_scores);
+  };
+
+  // Initially, make all retrieval threads busy and continue with the matching.
+  size_t image_idx = 0;
+  const size_t initial_num_tasks =
+      std::min(image_ids.size(),
+               2 * static_cast<size_t>(retrieval_thread_pool.NumThreads()));
+  for (; image_idx < initial_num_tasks; ++image_idx) {
+    const retrieval::VisualIndex::Desc& descriptors =
+        cache->GetDescriptors(image_ids[image_idx]);
+    retrieval_thread_pool.AddTask(QueryFunc, descriptors);
   }
 
   // Pop the finished retrieval results and enqueue them for feature matching.
@@ -142,9 +147,17 @@ void MatchNearestNeighborsInVisualIndex(const int num_threads,
     std::cout << StringPrintf("Matching image [%d/%d]", i + 1, image_ids.size())
               << std::flush;
 
+    // Push the next image to the retrieval queue.
+    const retrieval::VisualIndex::Desc& descriptors =
+        cache->GetDescriptors(image_ids[image_idx]);
+    retrieval_thread_pool.AddTask(QueryFunc, descriptors);
+    image_idx += 1;
+
+    // Pop the next results from the retrieval queue.
     const auto image_scores = retrieval_queue.Pop();
     CHECK(image_scores.IsValid());
 
+    // Compose the image pairs from the scores.
     std::vector<std::pair<image_t, image_t>> image_pairs;
     image_pairs.reserve(image_scores.Data().size());
     for (const auto image_score : image_scores.Data()) {
