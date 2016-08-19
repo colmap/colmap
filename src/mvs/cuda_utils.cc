@@ -16,8 +16,8 @@
 
 #include "mvs/cuda_utils.h"
 
-#include <iostream>
 #include <algorithm>
+#include <iostream>
 #include <vector>
 
 namespace colmap {
@@ -81,33 +81,31 @@ void CudaCheckError(const char* file, const int line) {
 }
 
 void SetBestCudaDevice(const int gpu_id) {
-  int selected_gpu_id = -1;
+  int selected_gpu_index = -1;
   if (gpu_id >= 0) {
-    selected_gpu_id = gpu_id;
+    selected_gpu_index = gpu_id;
   } else {
     int num_devices;
     cudaGetDeviceCount(&num_devices);
-
     if (num_devices > 1) {
       std::vector<cudaDeviceProp> all_devices(num_devices);
       for (int device_id = 0; device_id < num_devices; ++device_id) {
         cudaGetDeviceProperties(&all_devices[device_id], device_id);
       }
       std::sort(all_devices.begin(), all_devices.end(), CompareCudaDevice);
-      CUDA_SAFE_CALL(cudaChooseDevice(&selected_gpu_id, all_devices.data()));
+      CUDA_SAFE_CALL(cudaChooseDevice(&selected_gpu_index, all_devices.data()));
     } else if (num_devices == 0) {
-      std::cerr << "Error: No nVidia GPU is detected in the machine"
+      std::cerr << "Error: No CUDA device is detected in the machine"
                 << std::endl;
       exit(EXIT_FAILURE);
     } else {
-      selected_gpu_id = 0;
+      selected_gpu_index = 0;
     }
   }
 
   cudaDeviceProp device;
-  cudaGetDeviceProperties(&device, selected_gpu_id);
-  std::cout << device.name << " (ID=" << selected_gpu_id << ")" << std::endl;
-  cudaSetDevice(selected_gpu_id);
+  cudaGetDeviceProperties(&device, selected_gpu_index);
+  CUDA_SAFE_CALL(cudaSetDevice(selected_gpu_index));
 }
 
 void CheckGlobalMemSize() {

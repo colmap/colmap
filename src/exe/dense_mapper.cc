@@ -20,7 +20,6 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
-#include "mvs/cuda_utils.h"
 #include "mvs/image.h"
 #include "mvs/model.h"
 #include "mvs/patch_match.h"
@@ -32,58 +31,25 @@
 using namespace colmap;
 using namespace colmap::mvs;
 
-struct Config {
-  PatchMatch::Options options;
-  PatchMatch::Problem problem;
-  std::string output_prefix;
-};
-
 struct Input {
   int image_id = -1;
   std::string depth_map_path;
   std::string normal_map_path;
 };
 
-bool ReadConfigs(const PatchMatch::Options default_options,
-                 const std::string& config_path, std::vector<Config>* configs,
-                 std::vector<mvs::Image>* images,
-                 std::vector<DepthMap>* depth_maps,
-                 std::vector<NormalMap>* normal_maps) {
-  std::string input_path;
-  std::string input_type;
+struct Output {
+  PatchMatch::Options options;
+  PatchMatch::Problem problem;
+  std::string output_prefix;
+};
 
-  int gpu_id = -1;
-  int image_max_size = -1;
-  float image_scale_factor = -1.0f;
-  std::vector<Input> inputs;
-
-  std::cout << "Reading configuration..." << std::endl;
+void ReadConfig(const PatchMatch::Options default_options,
+                const std::string& config_path, std::vector<Input>* inputs,
+                std::vector<Output>* outputs, int* image_max_size,
+                float* image_scale_factor) {
   try {
     boost::property_tree::ptree pt;
     boost::property_tree::read_json(config_path.c_str(), pt);
-
-    input_path = pt.get<std::string>("input_path");
-    input_type = pt.get<std::string>("input_type");
-
-    boost::optional<int> gpu_id_optional = pt.get_optional<int>("gpu_id");
-    if (gpu_id_optional) {
-      gpu_id = gpu_id_optional.get();
-      CHECK_GE(gpu_id, 0);
-    }
-
-    boost::optional<int> image_max_size_optional =
-        pt.get_optional<int>("image_max_size");
-    if (image_max_size_optional) {
-      image_max_size = image_max_size_optional.get();
-      CHECK_GT(image_max_size, 0);
-    }
-
-    boost::optional<float> image_scale_factor_optional =
-        pt.get_optional<float>("image_scale_factor");
-    if (image_scale_factor_optional) {
-      image_scale_factor = image_scale_factor_optional.get();
-      CHECK_GT(image_scale_factor, 0.0f);
-    }
 
     const auto input_list = pt.get_child_optional("input_list");
     if (input_list) {
@@ -100,81 +66,76 @@ bool ReadConfigs(const PatchMatch::Options default_options,
         if (normal_map_path) {
           input.normal_map_path = normal_map_path.get();
         }
-        inputs.push_back(input);
+        inputs->push_back(input);
       }
     }
 
     boost::property_tree::ptree output_list = pt.get_child("output_list");
-    for (const auto& output : output_list) {
-      Config config;
+    for (const auto& output_list_el : output_list) {
+      Output output;
 
-      config.problem.ref_image_id = output.second.get<int>("ref_image_id");
-      for (const auto& image_id : output.second.get_child("src_image_ids")) {
-        config.problem.src_image_ids.push_back(
+      output.options = default_options;
+
+      output.problem.ref_image_id =
+          output_list_el.second.get<int>("ref_image_id");
+      for (const auto& image_id :
+           output_list_el.second.get_child("src_image_ids")) {
+        output.problem.src_image_ids.push_back(
             image_id.second.get_value<int>());
       }
-      if (config.problem.src_image_ids.empty()) {
-        std::cerr << "ERROR: Need at least one source image" << std::endl;
-        return false;
-      }
+      CHECK(!output.problem.src_image_ids.empty())
+          << "ERROR: Need at least one source image.";
 
-      config.output_prefix = output.second.get<std::string>("output_prefix");
+      output.output_prefix =
+          output_list_el.second.get<std::string>("output_prefix");
 
-      configs->push_back(config);
+      outputs->push_back(output);
     }
   } catch (std::exception const& exc) {
-    std::cerr << "ERROR: Problem with configuration file - " << exc.what()
-              << std::endl;
-    return false;
+    LOG(ERROR) << "ERROR: Problem with configuration file - " << exc.what();
   }
+}
 
-  std::cout << "Selecting GPU... " << std::flush;
-  SetBestCudaDevice(gpu_id);
-
-  std::cout << "Reading model..." << std::endl;
-  Model model;
-  bool extract_principal_point = false;
-  if (input_type == "NVM") {
-    extract_principal_point = true;
-    if (!model.LoadFromNVM(input_path)) {
-      return false;
-    }
+void ReadModel(const std::string& input_path, const std::string& input_type,
+               Model* model, bool* extract_principal_point) {
+  if (input_type == "COLMAP") {
+    *extract_principal_point = false;
+    CHECK(model->LoadFromCOLMAP(input_path));
+  } else if (input_type == "NVM") {
+    *extract_principal_point = true;
+    CHECK(model->LoadFromNVM(input_path));
   } else if (input_type == "PMVS") {
-    extract_principal_point = true;
-    if (!model.LoadFromPMVS(input_path)) {
-      return false;
-    }
+    *extract_principal_point = true;
+    CHECK(model->LoadFromPMVS(input_path));
   } else if (input_type == "Middlebury") {
-    extract_principal_point = false;
-    if (!model.LoadFromMiddleBurry(input_path)) {
-      return false;
-    }
+    *extract_principal_point = false;
+    CHECK(model->LoadFromMiddleBurry(input_path));
   } else {
-    std::cerr << "ERROR: Unknown input type" << std::endl;
-    return false;
+    LOG(FATAL) << "Unknown input type.";
   }
+}
 
-  // Set source images.
-  std::cout << "Setting up problem..." << std::endl;
+void SetupProblem(const std::string& input_type, const Model& model,
+                  std::set<int>* used_image_ids, std::vector<Output>* outputs) {
   std::vector<std::map<int, int>> shared_points;
-  std::set<int> used_image_ids;
-  for (auto& config : *configs) {
-    used_image_ids.insert(config.problem.ref_image_id);
 
-    if (config.problem.src_image_ids.size() == 1 &&
-        config.problem.src_image_ids[0] == -1) {
+  for (auto& output : *outputs) {
+    used_image_ids->insert(output.problem.ref_image_id);
+
+    if (output.problem.src_image_ids.size() == 1 &&
+        output.problem.src_image_ids[0] == -1) {
       // Use all images as source images.
 
-      config.problem.src_image_ids.clear();
-      config.problem.src_image_ids.reserve(model.views.size() - 1);
+      output.problem.src_image_ids.clear();
+      output.problem.src_image_ids.reserve(model.views.size() - 1);
       for (size_t image_id = 0; image_id < model.views.size(); ++image_id) {
-        if (static_cast<int>(image_id) != config.problem.ref_image_id) {
-          config.problem.src_image_ids.push_back(image_id);
-          used_image_ids.insert(image_id);
+        if (static_cast<int>(image_id) != output.problem.ref_image_id) {
+          output.problem.src_image_ids.push_back(image_id);
+          used_image_ids->insert(image_id);
         }
       }
-    } else if (config.problem.src_image_ids.size() == 2 &&
-               config.problem.src_image_ids[0] == -2) {
+    } else if (output.problem.src_image_ids.size() == 2 &&
+               output.problem.src_image_ids[0] == -2) {
       // Use maximum number of overlapping images as source images. Overlapping
       // will be sorted based on the number of shared points to the reference
       // image and the top ranked images are selected.
@@ -185,18 +146,18 @@ bool ReadConfigs(const PatchMatch::Options default_options,
         shared_points = model.ComputeSharedPoints();
       }
 
-      const size_t max_num_src_images = config.problem.src_image_ids[1];
+      const size_t max_num_src_images = output.problem.src_image_ids[1];
 
-      config.problem.src_image_ids.clear();
+      output.problem.src_image_ids.clear();
 
       const auto& overlapping_images =
-          shared_points.at(config.problem.ref_image_id);
+          shared_points.at(output.problem.ref_image_id);
 
       if (max_num_src_images >= overlapping_images.size()) {
-        config.problem.src_image_ids.reserve(overlapping_images.size());
+        output.problem.src_image_ids.reserve(overlapping_images.size());
         for (const auto& image : overlapping_images) {
-          config.problem.src_image_ids.push_back(image.first);
-          used_image_ids.insert(image.first);
+          output.problem.src_image_ids.push_back(image.first);
+          used_image_ids->insert(image.first);
         }
       } else {
         std::vector<std::pair<int, int>> src_images;
@@ -212,55 +173,36 @@ bool ReadConfigs(const PatchMatch::Options default_options,
               return image1.second > image2.second;
             });
 
-        config.problem.src_image_ids.reserve(max_num_src_images);
+        output.problem.src_image_ids.reserve(max_num_src_images);
         for (size_t i = 0; i < max_num_src_images; ++i) {
-          config.problem.src_image_ids.push_back(src_images[i].first);
-          used_image_ids.insert(src_images[i].first);
+          output.problem.src_image_ids.push_back(src_images[i].first);
+          used_image_ids->insert(src_images[i].first);
         }
       }
-    } else if (config.problem.src_image_ids.size() == 2 &&
-               config.problem.src_image_ids[0] == -3) {
-      // Use maximum number of images as source images, ranked by the viewing
-      // direction distance between the reference image and all other images.
-
-      const size_t max_num_src_images = config.problem.src_image_ids[1];
-
-      config.problem.src_image_ids.clear();
-
-      const float* ref_viewing_direction =
-          images->at(config.problem.ref_image_id).GetViewingDirection();
-
-      std::vector<std::pair<int, float>> src_images;
-      src_images.reserve(model.views.size());
-      for (size_t image_id = 0; image_id < model.views.size(); ++image_id) {
-        if (static_cast<int>(image_id) != config.problem.ref_image_id) {
-          const float* src_viewing_direction =
-              images->at(image_id).GetViewingDirection();
-          const float viewing_direction_dist =
-              ref_viewing_direction[0] * src_viewing_direction[0] +
-              ref_viewing_direction[1] * src_viewing_direction[1] +
-              ref_viewing_direction[2] * src_viewing_direction[2];
-          src_images.emplace_back(image_id, viewing_direction_dist);
-        }
-      }
-
-      std::partial_sort(
-          src_images.begin(), src_images.begin() + max_num_src_images,
-          src_images.end(), [](const std::pair<int, float> image1,
-                               const std::pair<int, float> image2) {
-            return image1.second > image2.second;
-          });
-
-      config.problem.src_image_ids.reserve(max_num_src_images);
-      for (size_t i = 0; i < max_num_src_images; ++i) {
-        config.problem.src_image_ids.push_back(src_images[i].first);
-        used_image_ids.insert(src_images[i].first);
-      }
-    } else {
-      used_image_ids.insert(config.problem.src_image_ids.begin(),
-                            config.problem.src_image_ids.end());
     }
   }
+}
+
+bool ReadInputsAndOutputs(
+    const PatchMatch::Options default_options, const std::string& input_path,
+    const std::string& input_type, const std::string& config_path,
+    std::vector<mvs::Image>* images, std::vector<DepthMap>* depth_maps,
+    std::vector<NormalMap>* normal_maps, std::vector<Output>* outputs) {
+  std::cout << "Reading configuration..." << std::endl;
+  std::vector<Input> inputs;
+  int image_max_size;
+  float image_scale_factor;
+  ReadConfig(default_options, config_path, &inputs, outputs, &image_max_size,
+             &image_scale_factor);
+
+  std::cout << "Reading model..." << std::endl;
+  Model model;
+  bool extract_principal_point;
+  ReadModel(input_path, input_type, &model, &extract_principal_point);
+
+  std::cout << "Setting up problem..." << std::endl;
+  std::set<int> used_image_ids;
+  SetupProblem(input_type, model, &used_image_ids, outputs);
 
   std::cout << "Reading images..." << std::endl;
   images->resize(model.views.size());
@@ -274,11 +216,11 @@ bool ReadConfigs(const PatchMatch::Options default_options,
   std::cout << "Computing depth ranges..." << std::endl;
   if (input_type == "NVM" || input_type == "PMVS") {
     const auto& depth_ranges = model.ComputeDepthRanges();
-    for (auto& config : *configs) {
-      config.options.depth_min =
-          depth_ranges.at(config.problem.ref_image_id).first;
-      config.options.depth_max =
-          depth_ranges.at(config.problem.ref_image_id).second;
+    for (auto& output : *outputs) {
+      output.options.depth_min =
+          depth_ranges.at(output.problem.ref_image_id).first;
+      output.options.depth_max =
+          depth_ranges.at(output.problem.ref_image_id).second;
     }
   }
 
@@ -332,10 +274,14 @@ bool ReadConfigs(const PatchMatch::Options default_options,
 int main(int argc, char* argv[]) {
   InitializeGlog(argv);
 
+  std::string input_path;
+  std::string input_type;
   std::string config_path;
 
   OptionManager options;
   options.AddDenseMapperOptions();
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("input_type", &input_type);
   options.AddRequiredOption("config_path", &config_path);
 
   if (!options.Parse(argc, argv)) {
@@ -346,43 +292,50 @@ int main(int argc, char* argv[]) {
     return EXIT_SUCCESS;
   }
 
-  std::vector<Config> configs;
-  std::vector<mvs::Image> images;
-  std::vector<DepthMap> depth_maps;
-  std::vector<NormalMap> normal_maps;
-  if (!ReadConfigs(options.dense_mapper_options->patch_match, config_path,
-                   &configs, &images, &depth_maps, &normal_maps)) {
+  if (input_type != "COLMAP" && input_type != "NVM" && input_type != "PMVS" &&
+      input_type != "Middlebury") {
+    std::cout << "ERROR: Invalid `input_type` - supported values are "
+                 "{'COLMAP', 'NVM', PMVS', 'Middlebury'}."
+              << std::endl;
     return EXIT_FAILURE;
   }
 
-  for (size_t i = 0; i < configs.size(); ++i) {
-    auto config = configs[i];
-    config.problem.images = &images;
-    config.problem.depth_maps = &depth_maps;
-    config.problem.normal_maps = &normal_maps;
+  std::vector<mvs::Image> images;
+  std::vector<DepthMap> depth_maps;
+  std::vector<NormalMap> normal_maps;
+  std::vector<Output> outputs;
+  if (!ReadInputsAndOutputs(options.dense_mapper_options->patch_match,
+                            input_path, input_type, config_path, &images,
+                            &depth_maps, &normal_maps, &outputs)) {
+    return EXIT_FAILURE;
+  }
 
+  for (size_t i = 0; i < outputs.size(); ++i) {
     PrintHeading1(
-        StringPrintf("Processing view %d / %d", i + 1, configs.size()));
+        StringPrintf("Processing output %d / %d", i + 1, outputs.size()));
 
-    config.options.Print();
-    std::cout << std::endl;
-    config.problem.Print();
-    std::cout << std::endl;
+    auto& output = outputs[i];
+    output.problem.images = &images;
+    output.problem.depth_maps = &depth_maps;
+    output.problem.normal_maps = &normal_maps;
 
-    PatchMatch patch_match(config.options, config.problem);
+    output.options.Print();
+    output.problem.Print();
+
+    PatchMatch patch_match(output.options, output.problem);
     patch_match.Run();
 
-    if (config.problem.src_image_ids.empty()) {
+    if (output.problem.src_image_ids.empty()) {
       std::cout << "WARNING: No source images defined - skipping image."
                 << std::endl;
       continue;
     }
 
     std::cout << std::endl
-              << "Writing output: " << config.output_prefix << std::endl;
-    patch_match.GetDepthMap().Write(config.output_prefix + ".depth_map.txt");
-    patch_match.GetNormalMap().Write(config.output_prefix + ".normal_map.txt");
-    WriteBinaryBlob(config.output_prefix + ".consistency_graph.bin",
+              << "Writing output: " << output.output_prefix << std::endl;
+    patch_match.GetDepthMap().Write(output.output_prefix + ".depth_map.txt");
+    patch_match.GetNormalMap().Write(output.output_prefix + ".normal_map.txt");
+    WriteBinaryBlob(output.output_prefix + ".consistency_graph.bin",
                     patch_match.GetConsistentImageIds());
   }
 

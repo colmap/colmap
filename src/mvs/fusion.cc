@@ -449,8 +449,7 @@ void WritePlyBinary(const std::string& path,
 
 void FusionOptions::Print() const {
 #define PrintOption(option) std::cout << #option ": " << option << std::endl
-  std::cout << "StereoFusion::Options" << std::endl;
-  std::cout << "-------------------------" << std::endl;
+  PrintHeading2("StereoFusion::Options");
   PrintOption(min_num_pixels);
   PrintOption(max_num_pixels);
   PrintOption(max_traversal_depth);

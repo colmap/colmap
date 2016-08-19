@@ -16,16 +16,18 @@
 
 #include "mvs/model.h"
 
+#include "base/reconstruction.h"
+#include "base/pose.h"
 #include "util/logging.h"
 #include "util/misc.h"
 #include "util/string.h"
 
 namespace colmap {
 namespace mvs {
-namespace {
+namespace nvm {
 
 void QuaternionToRotationMatrix(const double q[4], double R[9]) {
-  double qq = sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+  const double qq = sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
   double qw, qx, qy, qz;
   if (qq > 0) {
     qw = q[0] / qq;
@@ -58,9 +60,48 @@ void CameraCenterToTranslation(const double R[9], const double C[3],
 
 }  // namespace
 
-bool Model::LoadFromMiddleBurry(const std::string& file_name) {
-  std::ifstream file(file_name);
-  CHECK(file.is_open()) << file_name;
+bool Model::LoadFromCOLMAP(const std::string& folder_path) {
+  const std::string image_path = EnsureTrailingSlash(folder_path) + "images/";
+
+  Reconstruction reconstruction;
+  reconstruction.Read(EnsureTrailingSlash(folder_path) + "sparse");
+
+  views.resize(reconstruction.NumRegImages());
+  std::unordered_map<image_t, size_t> image_id_to_view_id;
+  for (size_t view_id = 0; view_id < views.size(); ++view_id) {
+    auto& view = views[view_id];
+
+    const auto image_id = reconstruction.RegImageIds()[view_id];
+    const auto& image = reconstruction.Image(image_id);
+    const auto& camera = reconstruction.Camera(image.CameraId());
+
+    CHECK_EQ(camera.ModelId(), PinholeCameraModel::model_id);
+
+    view.path = image_path + image.Name();
+    view.K = camera.CalibrationMatrix().cast<float>();
+    view.R = QuaternionToRotationMatrix(image.Qvec()).cast<float>();
+    view.T = image.Tvec().cast<float>();
+
+    image_id_to_view_id.emplace(image_id, view_id);
+  }
+
+  points.reserve(reconstruction.NumPoints3D());
+  for (const auto& point3D : reconstruction.Points3D()) {
+    Point point;
+    point.X = point3D.second.XYZ().cast<float>();
+    point.track.reserve(point3D.second.Track().Length());
+    for (const auto& track_el : point3D.second.Track().Elements()) {
+      point.track.push_back(image_id_to_view_id.at(track_el.image_id));
+    }
+    points.push_back(point);
+  }
+
+  return true;
+}
+
+bool Model::LoadFromMiddleBurry(const std::string& file_path) {
+  std::ifstream file(file_path);
+  CHECK(file.is_open()) << file_path;
 
   int num_images;
   file >> num_images;
@@ -87,9 +128,9 @@ bool Model::LoadFromMiddleBurry(const std::string& file_name) {
   return true;
 }
 
-bool Model::LoadFromNVM(const std::string& file_name) {
-  std::ifstream file(file_name);
-  CHECK(file.is_open()) << file_name;
+bool Model::LoadFromNVM(const std::string& file_path) {
+  std::ifstream file(file_path);
+  CHECK(file.is_open()) << file_path;
 
   std::string token;
   if (file.peek() == 'N') {
@@ -129,13 +170,13 @@ bool Model::LoadFromNVM(const std::string& file_name) {
     CHECK_EQ(k2, 0.0f);
 
     double R[9];
-    QuaternionToRotationMatrix(quat, R);
+    nvm::QuaternionToRotationMatrix(quat, R);
     for (size_t i = 0; i < 9; ++i) {
       view.R(i) = static_cast<float>(R[i]);
     }
 
     double T[3];
-    CameraCenterToTranslation(R, C, T);
+    nvm::CameraCenterToTranslation(R, C, T);
     for (size_t i = 0; i < 3; ++i) {
       view.T(i) = static_cast<float>(T[i]);
     }
@@ -165,8 +206,8 @@ bool Model::LoadFromNVM(const std::string& file_name) {
   return true;
 }
 
-bool Model::LoadFromPMVS(const std::string& folder_name) {
-  const std::string base_path = EnsureTrailingSlash(folder_name);
+bool Model::LoadFromPMVS(const std::string& folder_path) {
+  const std::string base_path = EnsureTrailingSlash(folder_path);
   const std::string bundle_file_path = base_path + "bundle.rd.out";
 
   std::ifstream file(bundle_file_path);
@@ -183,8 +224,7 @@ bool Model::LoadFromPMVS(const std::string& folder_name) {
   for (int image_id = 0; image_id < num_images; ++image_id) {
     auto& view = views[image_id];
 
-    view.path =
-        base_path + StringPrintf("visualize/%08d.jpg", image_id);
+    view.path = base_path + StringPrintf("visualize/%08d.jpg", image_id);
 
     file >> view.K(0, 0);
     view.K(1, 1) = view.K(0, 0);

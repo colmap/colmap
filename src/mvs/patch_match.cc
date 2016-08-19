@@ -19,6 +19,7 @@
 #include <cmath>
 
 #include "mvs/patch_match_cuda.h"
+#include "util/misc.h"
 
 #define PrintOption(option) std::cout << #option ": " << option << std::endl
 
@@ -26,13 +27,13 @@ namespace colmap {
 namespace mvs {
 
 PatchMatch::PatchMatch(const Options& options, const Problem& problem)
-    : options_(options), problem_(problem) {}
+    : options_(options), problem_(problem) {
+}
 
 PatchMatch::~PatchMatch() {}
 
 void PatchMatch::Options::Print() const {
-  std::cout << "PatchMatch::Options" << std::endl;
-  std::cout << "-------------------" << std::endl;
+  PrintHeading2("PatchMatch::Options");
   PrintOption(depth_min);
   PrintOption(depth_max);
   PrintOption(window_radius);
@@ -54,8 +55,8 @@ void PatchMatch::Options::Print() const {
 }
 
 void PatchMatch::Problem::Print() const {
-  std::cout << "PatchMatch::Problem" << std::endl;
-  std::cout << "-------------------" << std::endl;
+  PrintHeading2("PatchMatch::Problem");
+
   PrintOption(ref_image_id);
 
   std::cout << "src_image_ids: ";
@@ -143,8 +144,7 @@ void PatchMatch::Check() const {
 }
 
 void PatchMatch::Run() {
-  std::cout << "PatchMatch::Run" << std::endl;
-  std::cout << "---------------" << std::endl;
+  PrintHeading2("PatchMatch::Run");
 
   Check();
 

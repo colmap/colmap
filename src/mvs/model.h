@@ -44,9 +44,10 @@ struct Model {
   };
 
   // Load sparse model from Middlebury, VisualSfM or PMVS file format.
-  bool LoadFromMiddleBurry(const std::string& file_name);
-  bool LoadFromNVM(const std::string& file_name);
-  bool LoadFromPMVS(const std::string& folder_name);
+  bool LoadFromCOLMAP(const std::string& folder_path);
+  bool LoadFromMiddleBurry(const std::string& file_path);
+  bool LoadFromNVM(const std::string& file_path);
+  bool LoadFromPMVS(const std::string& folder_path);
 
   // Compute the robust minimum and maximum depths from the sparse point cloud.
   std::vector<std::pair<float, float>> ComputeDepthRanges() const;
