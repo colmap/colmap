@@ -332,16 +332,17 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 
   // Collect cameras for final parameterization.
   CHECK(image.HasCamera());
-  camera_ids_.insert(image.CameraId());
 
   const bool constant_pose = config_.HasConstantPose(image_id);
 
   // Add residuals to bundle adjustment problem.
+  size_t num_observations = 0;
   for (const Point2D& point2D : image.Points2D()) {
     if (!point2D.HasPoint3D()) {
       continue;
     }
 
+    num_observations += 1;
     point3D_num_images_[point2D.Point3DId()] += 1;
 
     Point3D& point3D = reconstruction->Point3D(point2D.Point3DId());
@@ -383,7 +384,8 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
   }
 
   // Set pose parameterization.
-  if (!constant_pose) {
+  if (num_observations > 0 && !constant_pose) {
+    camera_ids_.insert(image.CameraId());
     ceres::LocalParameterization* quaternion_parameterization =
         new ceres::QuaternionParameterization;
     problem_->SetParameterization(qvec_data, quaternion_parameterization);
