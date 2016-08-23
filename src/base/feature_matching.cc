@@ -1107,7 +1107,7 @@ void ImagePairsFeatureMatcher::Run() {
 
     std::cout << StringPrintf("Matching block [%d/%d]", i / kBlockSize + 1,
                               num_match_blocks)
-              << std::endl;
+              << std::flush;
 
     const size_t block_end = i + kBlockSize <= image_pairs.size()
                                  ? i + kBlockSize
