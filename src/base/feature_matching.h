@@ -280,6 +280,9 @@ class VocabTreeFeatureMatcher : public Thread {
     // Path to the vocabulary tree.
     std::string vocab_tree_path = "";
 
+    // Optional path to file with specific image names to match.
+    std::string match_list_path = "";
+
     void Check() const;
   };
 
@@ -344,20 +347,28 @@ class SpatialFeatureMatcher : public Thread {
 //
 class ImagePairsFeatureMatcher : public Thread {
  public:
-  ImagePairsFeatureMatcher(const SiftMatchOptions& match_options,
-                           const std::string& database_path,
-                           const std::string& match_list_path);
+  struct Options {
+    // Number of image pairs to match in one batch.
+    int block_size = 100;
+
+    // Path to the file with the matches.
+    std::string match_list_path = "";
+
+    void Check() const;
+  };
+
+  ImagePairsFeatureMatcher(const Options& options,
+                           const SiftMatchOptions& match_options,
+                           const std::string& database_path);
 
  private:
-  const static size_t kBlockSize = 100;
-
   void Run();
 
+  const Options options_;
   const SiftMatchOptions match_options_;
   Database database_;
   FeatureMatcherCache cache_;
   SiftGPUFeatureMatcher matcher_;
-  const std::string match_list_path_;
 };
 
 // Import feature matches from a text file.
@@ -377,21 +388,29 @@ class ImagePairsFeatureMatcher : public Thread {
 //
 class FeaturePairsFeatureMatcher : public Thread {
  public:
-  FeaturePairsFeatureMatcher(const SiftMatchOptions& match_options,
-                             const bool compute_inliers,
-                             const std::string& database_path,
-                             const std::string& match_list_path);
+  struct Options {
+    // Whether to geometrically verify the given matches.
+    bool verify_matches = true;
+
+    // Path to the file with the matches.
+    std::string match_list_path = "";
+
+    void Check() const;
+  };
+
+  FeaturePairsFeatureMatcher(const Options& options,
+                             const SiftMatchOptions& match_options,
+                             const std::string& database_path);
 
  private:
-  const static size_t kBlockSize = 100;
+  const static size_t kCacheSize = 100;
 
   void Run();
 
+  const Options options_;
   const SiftMatchOptions match_options_;
-  const bool compute_inliers_;
   Database database_;
   FeatureMatcherCache cache_;
-  const std::string match_list_path_;
 };
 
 // Create a SiftGPU feature matcher. Note that if CUDA is not available or the

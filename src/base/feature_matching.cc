@@ -147,10 +147,12 @@ void MatchNearestNeighborsInVisualIndex(const int num_threads,
               << std::flush;
 
     // Push the next image to the retrieval queue.
-    const retrieval::VisualIndex::Desc& descriptors =
-        cache->GetDescriptors(image_ids[image_idx]);
-    retrieval_thread_pool.AddTask(QueryFunc, descriptors);
-    image_idx += 1;
+    if (image_idx < image_ids.size()) {
+      const retrieval::VisualIndex::Desc& descriptors =
+          cache->GetDescriptors(image_ids[image_idx]);
+      retrieval_thread_pool.AddTask(QueryFunc, descriptors);
+      image_idx += 1;
+    }
 
     // Pop the next results from the retrieval queue.
     const auto image_scores = retrieval_queue.Pop();
@@ -819,10 +821,40 @@ void VocabTreeFeatureMatcher::Run() {
   retrieval::VisualIndex visual_index;
   visual_index.Read(options_.vocab_tree_path);
 
-  const std::vector<image_t> image_ids = cache_.GetImageIds();
+  const std::vector<image_t> all_image_ids = cache_.GetImageIds();
+  std::vector<image_t> image_ids;
+  if (options_.match_list_path == "") {
+    image_ids = cache_.GetImageIds();
+  } else {
+    // Map image names to image identifiers.
+    std::unordered_map<std::string, image_t> image_name_to_image_id;
+    image_name_to_image_id.reserve(all_image_ids.size());
+    for (const auto image_id : all_image_ids) {
+      const auto& image = cache_.GetImage(image_id);
+      image_name_to_image_id.emplace(image.Name(), image_id);
+    }
+
+    // Read the match list path.
+    std::ifstream file(options_.match_list_path);
+    CHECK(file.is_open());
+    std::string line;
+    while (std::getline(file, line)) {
+      StringTrim(&line);
+
+      if (line.empty() || line[0] == '#') {
+        continue;
+      }
+
+      if (image_name_to_image_id.count(line) == 0) {
+        std::cerr << "ERROR: Image " << line << " does not exist." << std::endl;
+      } else {
+        image_ids.push_back(image_name_to_image_id.at(line));
+      }
+    }
+  }
 
   // Index all images in the visual index.
-  IndexImagesInVisualIndex(match_options_.num_threads, image_ids, this,
+  IndexImagesInVisualIndex(match_options_.num_threads, all_image_ids, this,
                            &database_, &cache_, &visual_index);
 
   if (IsStopped()) {
@@ -1022,14 +1054,20 @@ void SpatialFeatureMatcher::Run() {
   GetTimer().PrintMinutes();
 }
 
+void ImagePairsFeatureMatcher::Options::Check() const {
+  CHECK_GT(block_size, 0);
+  CHECK(boost::filesystem::exists(match_list_path));
+}
+
 ImagePairsFeatureMatcher::ImagePairsFeatureMatcher(
-    const SiftMatchOptions& match_options, const std::string& database_path,
-    const std::string& match_list_path)
-    : match_options_(match_options),
+    const Options& options, const SiftMatchOptions& match_options,
+    const std::string& database_path)
+    : options_(options),
+      match_options_(match_options),
       database_(database_path),
-      cache_(kBlockSize, &database_),
-      matcher_(match_options, &database_, &cache_),
-      match_list_path_(match_list_path) {
+      cache_(options.block_size, &database_),
+      matcher_(match_options, &database_, &cache_) {
+  options_.Check();
   match_options_.Check();
 }
 
@@ -1051,7 +1089,7 @@ void ImagePairsFeatureMatcher::Run() {
     image_name_to_image_id.emplace(image.Name(), image_id);
   }
 
-  std::ifstream file(match_list_path_);
+  std::ifstream file(options_.match_list_path);
   CHECK(file.is_open());
 
   std::string line;
@@ -1092,11 +1130,11 @@ void ImagePairsFeatureMatcher::Run() {
   // Feature matching
   //////////////////////////////////////////////////////////////////////////////
 
-  const size_t num_match_blocks = image_pairs.size() / kBlockSize + 1;
+  const size_t num_match_blocks = image_pairs.size() / options_.block_size + 1;
   std::vector<std::pair<image_t, image_t>> block_image_pairs;
-  block_image_pairs.reserve(kBlockSize);
+  block_image_pairs.reserve(options_.block_size);
 
-  for (size_t i = 0; i < image_pairs.size(); i += kBlockSize) {
+  for (size_t i = 0; i < image_pairs.size(); i += options_.block_size) {
     if (IsStopped()) {
       GetTimer().PrintMinutes();
       return;
@@ -1105,15 +1143,15 @@ void ImagePairsFeatureMatcher::Run() {
     Timer timer;
     timer.Start();
 
-    std::cout << StringPrintf("Matching block [%d/%d]", i / kBlockSize + 1,
-                              num_match_blocks)
+    std::cout << StringPrintf("Matching block [%d/%d]",
+                              i / options_.block_size + 1, num_match_blocks)
               << std::flush;
 
-    const size_t block_end = i + kBlockSize <= image_pairs.size()
-                                 ? i + kBlockSize
+    const size_t block_end = i + options_.block_size <= image_pairs.size()
+                                 ? i + options_.block_size
                                  : image_pairs.size();
     std::vector<std::pair<image_t, image_t>> block_image_pairs;
-    block_image_pairs.reserve(kBlockSize);
+    block_image_pairs.reserve(options_.block_size);
     for (size_t j = i; j < block_end; ++j) {
       block_image_pairs.push_back(image_pairs[j]);
     }
@@ -1126,14 +1164,18 @@ void ImagePairsFeatureMatcher::Run() {
   GetTimer().PrintMinutes();
 }
 
+void FeaturePairsFeatureMatcher::Options::Check() const {
+  CHECK(boost::filesystem::exists(match_list_path));
+}
+
 FeaturePairsFeatureMatcher::FeaturePairsFeatureMatcher(
-    const SiftMatchOptions& match_options, const bool compute_inliers,
-    const std::string& database_path, const std::string& match_list_path)
-    : match_options_(match_options),
-      compute_inliers_(compute_inliers),
+    const Options& options, const SiftMatchOptions& match_options,
+    const std::string& database_path)
+    : options_(options),
+      match_options_(match_options),
       database_(database_path),
-      cache_(kBlockSize, &database_),
-      match_list_path_(match_list_path) {
+      cache_(kCacheSize, &database_) {
+  options_.Check();
   match_options_.Check();
 }
 
@@ -1147,7 +1189,7 @@ void FeaturePairsFeatureMatcher::Run() {
     image_name_to_image.emplace(image.Name(), &image);
   }
 
-  std::ifstream file(match_list_path_.c_str());
+  std::ifstream file(options_.match_list_path);
   CHECK(file.is_open());
 
   DatabaseTransaction database_transaction(&database_);
@@ -1229,7 +1271,7 @@ void FeaturePairsFeatureMatcher::Run() {
     const Camera& camera1 = cache_.GetCamera(image1.CameraId());
     const Camera& camera2 = cache_.GetCamera(image2.CameraId());
 
-    if (compute_inliers_) {
+    if (options_.verify_matches) {
       database_.WriteMatches(image1.ImageId(), image2.ImageId(), matches);
 
       const auto keypoints1 = cache_.GetKeypoints(image1.ImageId());

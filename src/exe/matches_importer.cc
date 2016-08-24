@@ -62,13 +62,16 @@ int main(int argc, char** argv) {
 
   std::unique_ptr<Thread> feature_matcher;
   if (match_type == "pairs") {
+    ImagePairsFeatureMatcher::Options matcher_options;
+    matcher_options.match_list_path = match_list_path;
     feature_matcher.reset(new ImagePairsFeatureMatcher(
-        match_options, *options.database_path, match_list_path));
+        matcher_options, match_options, *options.database_path));
   } else if (match_type == "raw" || match_type == "inliers") {
-    const bool compute_inliers = match_type == "raw";
+    FeaturePairsFeatureMatcher::Options matcher_options;
+    matcher_options.match_list_path = match_list_path;
+    matcher_options.verify_matches = match_type == "raw";
     feature_matcher.reset(new FeaturePairsFeatureMatcher(
-        match_options, compute_inliers, *options.database_path,
-        match_list_path));
+        matcher_options, match_options, *options.database_path));
   } else {
     std::cerr << "ERROR: Invalid `match_type`";
     return EXIT_FAILURE;

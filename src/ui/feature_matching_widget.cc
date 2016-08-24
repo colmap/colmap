@@ -266,22 +266,25 @@ void CustomMatchingTab::Run() {
   }
 
   if (match_type_cb_->currentIndex() == 0) {
+    ImagePairsFeatureMatcher::Options matcher_options;
+    matcher_options.match_list_path = match_list_path_;
     matcher_.reset(new ImagePairsFeatureMatcher(
-        options_->match_options->Options(), *options_->database_path,
-        match_list_path_));
+        matcher_options, options_->match_options->Options(),
+        *options_->database_path));
     matcher_->SetCallback(ImagePairsFeatureMatcher::FINISHED_CALLBACK,
                           [this]() { destructor_->trigger(); });
   } else {
-    bool compute_inliers = false;
+    FeaturePairsFeatureMatcher::Options matcher_options;
+    matcher_options.match_list_path = match_list_path_;
     if (match_type_cb_->currentIndex() == 1) {
-      compute_inliers = true;
+      matcher_options.verify_matches = true;
     } else if (match_type_cb_->currentIndex() == 2) {
-      compute_inliers = false;
+      matcher_options.verify_matches = false;
     }
 
     matcher_.reset(new FeaturePairsFeatureMatcher(
-        options_->match_options->Options(), compute_inliers,
-        *options_->database_path, match_list_path_));
+        matcher_options, options_->match_options->Options(),
+        *options_->database_path));
     matcher_->SetCallback(FeaturePairsFeatureMatcher::FINISHED_CALLBACK,
                           [this]() { destructor_->trigger(); });
   }
