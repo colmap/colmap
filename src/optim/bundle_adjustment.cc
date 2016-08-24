@@ -383,18 +383,21 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
     }
   }
 
-  // Set pose parameterization.
-  if (num_observations > 0 && !constant_pose) {
+  if (num_observations > 0) {
     camera_ids_.insert(image.CameraId());
-    ceres::LocalParameterization* quaternion_parameterization =
-        new ceres::QuaternionParameterization;
-    problem_->SetParameterization(qvec_data, quaternion_parameterization);
-    if (config_.HasConstantTvec(image_id)) {
-      const std::vector<int>& constant_tvec_idxs =
-          config_.ConstantTvec(image_id);
-      ceres::SubsetParameterization* tvec_parameterization =
-          new ceres::SubsetParameterization(3, constant_tvec_idxs);
-      problem_->SetParameterization(tvec_data, tvec_parameterization);
+
+    // Set pose parameterization.
+    if (!constant_pose) {
+      ceres::LocalParameterization* quaternion_parameterization =
+          new ceres::QuaternionParameterization;
+      problem_->SetParameterization(qvec_data, quaternion_parameterization);
+      if (config_.HasConstantTvec(image_id)) {
+        const std::vector<int>& constant_tvec_idxs =
+            config_.ConstantTvec(image_id);
+        ceres::SubsetParameterization* tvec_parameterization =
+            new ceres::SubsetParameterization(3, constant_tvec_idxs);
+        problem_->SetParameterization(tvec_data, tvec_parameterization);
+      }
     }
   }
 }
