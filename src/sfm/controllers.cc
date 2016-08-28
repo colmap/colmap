@@ -241,11 +241,24 @@ void IncrementalMapperController::Run() {
             mapper_options.IncrementalMapperOptions(), &image_id1, &image_id2);
 
         if (!find_init_success) {
-          std::cerr << "  => Could not find good initial pair." << std::endl;
+          std::cout << "  => Could not find good initial pair." << std::endl;
           const bool kDiscardReconstruction = true;
           mapper.EndReconstruction(kDiscardReconstruction);
           reconstruction_manager_->Delete(reconstruction_idx);
           break;
+        }
+      } else {
+        if (!reconstruction.ExistsImage(image_id1) ||
+            !reconstruction.ExistsImage(image_id2)) {
+          std::cout
+              << StringPrintf(
+                     "  => Initial image pair #%d and #%d does not exist.",
+                     image_id1, image_id2)
+              << std::endl;
+          const bool kDiscardReconstruction = true;
+          mapper.EndReconstruction(kDiscardReconstruction);
+          reconstruction_manager_->Delete(reconstruction_idx);
+          return;
         }
       }
 
