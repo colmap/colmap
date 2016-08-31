@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
   if (import_path == "") {
     reconstruction_manager.Write(export_path, &options);
   } else {
-    CHECK_EQ(reconstruction_manager.Size(), 1);
+    CHECK_LE(reconstruction_manager.Size(), 1);
     reconstruction_manager.Get(0).Write(export_path);
   }
 
