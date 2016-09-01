@@ -145,7 +145,8 @@ class PatchMatch {
   //
   // where r, c are the row and column image coordinates of the pixel,
   // N is the number of consistent images, followed by the N image identifiers.
-  // Note that only pixels are listed which are not filtered.
+  // Note that only pixels are listed which are not filtered and that the
+  // consistency graph is only filled if filtering is enabled.
   std::vector<int> GetConsistentImageIds() const;
 
  private:
