@@ -29,12 +29,11 @@
 #include "util/threading.h"
 
 using namespace colmap;
-using namespace colmap::mvs;
 
 void ReadConfig(const DenseMapperOptions& options,
                 const std::string& workspace_path,
-                const std::string& workspace_format, Model* model,
-                std::vector<PatchMatch::Problem>* problems) {
+                const std::string& workspace_format, mvs::Model* model,
+                std::vector<mvs::PatchMatch::Problem>* problems) {
   std::cout << "Reading model..." << std::endl;
   model->Read(workspace_path, workspace_format);
 
@@ -60,7 +59,7 @@ void ReadConfig(const DenseMapperOptions& options,
       continue;
     }
 
-    PatchMatch::Problem problem;
+    mvs::PatchMatch::Problem problem;
 
     problem.images = &model->images;
     problem.depth_maps = &model->depth_maps;
@@ -203,8 +202,8 @@ int main(int argc, char* argv[]) {
     return EXIT_FAILURE;
   }
 
-  Model model;
-  std::vector<PatchMatch::Problem> problems;
+  mvs::Model model;
+  std::vector<mvs::PatchMatch::Problem> problems;
   ReadConfig(*options.dense_mapper_options, workspace_path, workspace_format,
              &model, &problems);
 
@@ -217,14 +216,14 @@ int main(int argc, char* argv[]) {
     const auto& problem = problems[i];
     problem.Print();
 
-    PatchMatch::Options patch_match_options =
+    mvs::PatchMatch::Options patch_match_options =
         options.dense_mapper_options->patch_match;
     patch_match_options.depth_min = depth_ranges.at(problem.ref_image_id).first;
     patch_match_options.depth_max =
         depth_ranges.at(problem.ref_image_id).second;
     patch_match_options.Print();
 
-    PatchMatch patch_match(patch_match_options, problem);
+    mvs::PatchMatch patch_match(patch_match_options, problem);
     patch_match.Run();
 
     std::string output_suffix;

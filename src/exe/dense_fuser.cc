@@ -30,11 +30,10 @@
 #include "util/option_manager.h"
 
 using namespace colmap;
-using namespace colmap::mvs;
 
 bool ReadConfig(const std::string& workspace_path,
                 const std::string& workspace_format,
-                const std::string& input_type, Model* model,
+                const std::string& input_type, mvs::Model* model,
                 std::vector<uint8_t>* used_image_mask) {
   std::cout << "Reading model..." << std::endl;
   model->Read(workspace_path, workspace_format);
@@ -120,7 +119,7 @@ int main(int argc, char* argv[]) {
     return EXIT_FAILURE;
   }
 
-  Model model;
+  mvs::Model model;
   std::vector<uint8_t> used_image_mask;
   if (!ReadConfig(workspace_path, workspace_format, input_type, &model,
                   &used_image_mask)) {
@@ -131,7 +130,7 @@ int main(int argc, char* argv[]) {
   options.dense_mapper_options->fusion.Print();
   std::cout << std::endl;
 
-  const auto points = StereoFusion(
+  const auto points = mvs::StereoFusion(
       options.dense_mapper_options->fusion, used_image_mask, model.images,
       model.depth_maps, model.normal_maps, model.consistency_graph);
 

@@ -186,6 +186,7 @@ void COLMAPUndistorter::WriteScript() const {
   file << "$COLMAP_EXE_PATH/dense_mapper \\" << std::endl;
   file << "  --workspace_path . \\" << std::endl;
   file << "  --workspace_format COLMAP \\" << std::endl;
+  file << "  --DenseMapperOptions.image_max_size 0 \\" << std::endl;
   file << "  --DenseMapperOptions.patch_match_filter false \\" << std::endl;
   file << "  --DenseMapperOptions.patch_match_geom_consistency false"
        << std::endl;
@@ -193,6 +194,7 @@ void COLMAPUndistorter::WriteScript() const {
   file << "$COLMAP_EXE_PATH/dense_mapper \\" << std::endl;
   file << "  --workspace_path . \\" << std::endl;
   file << "  --workspace_format COLMAP \\" << std::endl;
+  file << "  --DenseMapperOptions.image_max_size 0 \\" << std::endl;
   file << "  --DenseMapperOptions.patch_match_filter true \\" << std::endl;
   file << "  --DenseMapperOptions.patch_match_geom_consistency true"
        << std::endl;
@@ -200,7 +202,8 @@ void COLMAPUndistorter::WriteScript() const {
   file << "$COLMAP_EXE_PATH/dense_fuser \\" << std::endl;
   file << "  --workspace_path . \\" << std::endl;
   file << "  --workspace_format COLMAP \\" << std::endl;
-  file << "  --config_path dense/patch-match.cfg \\" << std::endl;
+  file << "  --input_type geometric \\" << std::endl;
+  file << "  --output_path point-cloud.ply" << std::endl;
 }
 
 PMVSUndistorter::PMVSUndistorter(const UndistortCameraOptions& options,
