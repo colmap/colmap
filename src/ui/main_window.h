@@ -28,7 +28,7 @@
 
 #include "base/reconstruction.h"
 #include "sfm/controllers.h"
-#include "ui/bundle_adjustment_options_widget.h"
+#include "ui/bundle_adjustment_widget.h"
 #include "ui/database_management_widget.h"
 #include "ui/feature_extraction_widget.h"
 #include "ui/feature_matching_widget.h"
@@ -99,8 +99,6 @@ class MainWindow : public QMainWindow {
   bool ReconstructionOverwrite();
 
   void BundleAdjustment();
-  void BundleAdjustmentOptions();
-  void BundleAdjustmentFinish();
 
   void Render();
   void RenderNow();
@@ -117,8 +115,8 @@ class MainWindow : public QMainWindow {
   void GrabImage();
   void UndistortImages();
 
-  void ShowReconstructionStats();
-  void ShowMatchMatrix();
+  void ReconstructionStats();
+  void MatchMatrix();
   void ShowLog();
   void ExtractColors();
   void ExtractColorsFinished();
@@ -138,7 +136,6 @@ class MainWindow : public QMainWindow {
 
   ReconstructionManager reconstruction_manager_;
   std::unique_ptr<IncrementalMapperController> mapper_controller_;
-  std::unique_ptr<BundleAdjustmentController> ba_controller_;
 
   OpenGLWindow* opengl_window_;
 
@@ -151,7 +148,7 @@ class MainWindow : public QMainWindow {
   FeatureMatchingWidget* feature_matching_widget_;
   DatabaseManagementWidget* database_management_widget_;
   ReconstructionOptionsWidget* reconstruction_options_widget_;
-  BundleAdjustmentOptionsWidget* bundle_adjustment_options_widget_;
+  BundleAdjustmentWidget* bundle_adjustment_widget_;
   RenderOptionsWidget* render_options_widget_;
   LogWidget* log_widget_;
   UndistortionWidget* undistortion_widget_;
@@ -196,8 +193,6 @@ class MainWindow : public QMainWindow {
   QAction* action_reconstruction_options_;
 
   QAction* action_bundle_adjustment_;
-  QAction* action_bundle_adjustment_finish_;
-  QAction* action_bundle_adjustment_options_;
 
   QAction* action_render_;
   QAction* action_render_now_;

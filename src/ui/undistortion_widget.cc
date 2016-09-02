@@ -16,72 +16,40 @@
 
 #include "ui/undistortion_widget.h"
 
-#include "base/undistortion.h"
-
 namespace colmap {
 
-UndistortionWidget::UndistortionWidget(QWidget* parent, OptionManager* options)
-    : QWidget(parent), options_(options), progress_bar_(nullptr) {
+UndistortionWidget::UndistortionWidget(QWidget* parent,
+                                       const OptionManager* options)
+    : OptionsWidget(parent),
+      options_(options),
+      reconstruction_(nullptr),
+      progress_bar_(nullptr) {
   setWindowFlags(Qt::Dialog);
   setWindowModality(Qt::ApplicationModal);
-  setWindowTitle("Undistort images");
+  setWindowTitle("Undistortion");
 
-  QGridLayout* grid = new QGridLayout(this);
+  output_format_ = new QComboBox(this);
+  output_format_->addItem("COLMAP");
+  output_format_->addItem("PMVS");
+  output_format_->addItem("CMP-MVS");
+  output_format_->setFont(font());
 
-  grid->addWidget(new QLabel(tr("Format"), this), grid->rowCount(), 0);
-  combo_box_ = new QComboBox(this);
-  combo_box_->addItem("COLMAP");
-  combo_box_->addItem("PMVS");
-  combo_box_->addItem("CMP-MVS");
-  grid->addWidget(combo_box_, grid->rowCount() - 1, 1);
+  AddOptionRow("format", output_format_);
 
   UndistortCameraOptions default_options;
 
-  grid->addWidget(new QLabel(tr("min_scale"), this), grid->rowCount(), 0);
-  min_scale_sb_ = new QDoubleSpinBox(this);
-  min_scale_sb_->setMinimum(0);
-  min_scale_sb_->setSingleStep(0.01);
-  min_scale_sb_->setDecimals(2);
-  min_scale_sb_->setValue(default_options.min_scale);
-  grid->addWidget(min_scale_sb_, grid->rowCount() - 1, 1);
+  AddOptionDouble(&undistortion_options_.min_scale, "min_scale", 0);
+  AddOptionDouble(&undistortion_options_.max_scale, "max_scale", 0);
+  AddOptionInt(&undistortion_options_.max_image_size, "max_image_size", -1);
+  AddOptionDouble(&undistortion_options_.blank_pixels, "blank_pixels", 0);
+  AddOptionDirPath(&output_path_, "output_path");
 
-  grid->addWidget(new QLabel(tr("max_scale"), this), grid->rowCount(), 0);
-  max_scale_sb_ = new QDoubleSpinBox(this);
-  max_scale_sb_->setMinimum(0);
-  max_scale_sb_->setSingleStep(0.01);
-  max_scale_sb_->setDecimals(2);
-  max_scale_sb_->setValue(default_options.max_scale);
-  grid->addWidget(max_scale_sb_, grid->rowCount() - 1, 1);
-
-  grid->addWidget(new QLabel(tr("max_image_size"), this), grid->rowCount(), 0);
-  max_image_size_sb_ = new QSpinBox(this);
-  max_image_size_sb_->setMinimum(-1);
-  max_image_size_sb_->setMaximum(1e6);
-  max_image_size_sb_->setValue(default_options.max_image_size);
-  grid->addWidget(max_image_size_sb_, grid->rowCount() - 1, 1);
-
-  grid->addWidget(new QLabel(tr("blank_pixels"), this), grid->rowCount(), 0);
-  blank_pixels_sb_ = new QDoubleSpinBox(this);
-  blank_pixels_sb_->setMinimum(0);
-  blank_pixels_sb_->setMaximum(1);
-  blank_pixels_sb_->setSingleStep(0.01);
-  blank_pixels_sb_->setDecimals(2);
-  blank_pixels_sb_->setValue(default_options.blank_pixels);
-  grid->addWidget(blank_pixels_sb_, grid->rowCount() - 1, 1);
-
-  grid->addWidget(new QLabel(tr("Path"), this), grid->rowCount(), 0);
-  output_path_text_ = new QLineEdit(this);
-  grid->addWidget(output_path_text_, grid->rowCount() - 1, 1);
-
-  QPushButton* output_path_select = new QPushButton(tr("Select"), this);
-  connect(output_path_select, &QPushButton::released, this,
-          &UndistortionWidget::SelectOutputPath);
-  grid->addWidget(output_path_select, grid->rowCount() - 1, 2);
+  AddSpacer();
 
   QPushButton* undistort_button = new QPushButton(tr("Undistort"), this);
   connect(undistort_button, &QPushButton::released, this,
           &UndistortionWidget::Undistort);
-  grid->addWidget(undistort_button, grid->rowCount(), 2);
+  grid_layout_->addWidget(undistort_button, grid_layout_->rowCount(), 1);
 
   destructor_ = new QAction(this);
   connect(destructor_, &QAction::triggered, this, [this]() {
@@ -94,17 +62,14 @@ UndistortionWidget::UndistortionWidget(QWidget* parent, OptionManager* options)
   });
 }
 
-bool UndistortionWidget::IsValid() {
-  return boost::filesystem::is_directory(GetOutputPath());
+void UndistortionWidget::Show(const Reconstruction& reconstruction) {
+  reconstruction_ = &reconstruction;
+  show();
+  raise();
 }
 
-std::string UndistortionWidget::GetOutputPath() {
-  return output_path_text_->text().toUtf8().constData();
-}
-
-void UndistortionWidget::SelectOutputPath() {
-  output_path_text_->setText(QFileDialog::getExistingDirectory(
-      this, tr("Select output path..."), "", QFileDialog::ShowDirsOnly));
+bool UndistortionWidget::IsValid() const {
+  return boost::filesystem::is_directory(output_path_);
 }
 
 void UndistortionWidget::ShowProgressBar() {
@@ -123,28 +88,29 @@ void UndistortionWidget::ShowProgressBar() {
 }
 
 void UndistortionWidget::Undistort() {
+  CHECK_NOTNULL(reconstruction_);
+
+  WriteOptions();
+
   if (!IsValid()) {
     QMessageBox::critical(this, "", tr("Invalid output path"));
   } else {
-    UndistortCameraOptions options;
-    options.min_scale = min_scale_sb_->value();
-    options.max_scale = max_scale_sb_->value();
-    options.blank_pixels = blank_pixels_sb_->value();
-    options.max_image_size = max_image_size_sb_->value();
-
-    if (combo_box_->currentIndex() == 0) {
-      undistorter_.reset(new COLMAPUndistorter(
-          options, reconstruction, *options_->image_path, GetOutputPath()));
+    if (output_format_->currentIndex() == 0) {
+      undistorter_.reset(
+          new COLMAPUndistorter(undistortion_options_, *reconstruction_,
+                                *options_->image_path, output_path_));
       undistorter_->SetCallback(COLMAPUndistorter::FINISHED_CALLBACK,
                                 [this]() { destructor_->trigger(); });
-    } else if (combo_box_->currentIndex() == 1) {
-      undistorter_.reset(new PMVSUndistorter(
-          options, reconstruction, *options_->image_path, GetOutputPath()));
+    } else if (output_format_->currentIndex() == 1) {
+      undistorter_.reset(
+          new PMVSUndistorter(undistortion_options_, *reconstruction_,
+                              *options_->image_path, output_path_));
       undistorter_->SetCallback(PMVSUndistorter::FINISHED_CALLBACK,
                                 [this]() { destructor_->trigger(); });
-    } else if (combo_box_->currentIndex() == 2) {
-      undistorter_.reset(new CMPMVSUndistorter(
-          options, reconstruction, *options_->image_path, GetOutputPath()));
+    } else if (output_format_->currentIndex() == 2) {
+      undistorter_.reset(
+          new CMPMVSUndistorter(undistortion_options_, *reconstruction_,
+                                *options_->image_path, output_path_));
       undistorter_->SetCallback(CMPMVSUndistorter::FINISHED_CALLBACK,
                                 [this]() { destructor_->trigger(); });
     } else {

@@ -5,7 +5,7 @@ set(COLMAP_QT_MODULES Core OpenGL)
 qt5_add_resources(QT_RESOURCES resources.qrc)
 
 COLMAP_ADD_LIBRARY(ui
-    bundle_adjustment_options_widget.h bundle_adjustment_options_widget.cc
+    bundle_adjustment_widget.h bundle_adjustment_widget.cc
     colormaps.h colormaps.cc
     database_management_widget.h database_management_widget.cc
     feature_extraction_widget.h feature_extraction_widget.cc

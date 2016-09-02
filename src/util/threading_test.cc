@@ -57,7 +57,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPause) {
   class TestThread : public Thread {
     void Run() {
       std::this_thread::sleep_for(std::chrono::milliseconds(200));
-      WaitIfPaused();
+      BlockIfPaused();
       std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
   };
@@ -145,7 +145,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPauseStop) {
   class TestThread : public Thread {
     void Run() {
       std::this_thread::sleep_for(std::chrono::milliseconds(200));
-      WaitIfPaused();
+      BlockIfPaused();
       if (IsStopped()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         return;
@@ -308,7 +308,7 @@ BOOST_AUTO_TEST_CASE(TestThreadTimer) {
   class TestThread : public Thread {
     void Run() {
       std::this_thread::sleep_for(std::chrono::milliseconds(200));
-      WaitIfPaused();
+      BlockIfPaused();
       std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
   };

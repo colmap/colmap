@@ -61,7 +61,7 @@ namespace colmap {
 //        void Run() {
 //          // Some pre-processing...
 //          for (const auto& item : items) {
-//            WaitIfPaused();
+//            BlockIfPaused();
 //            if (IsStopped()) {
 //              // Tear down...
 //              break;
@@ -108,6 +108,10 @@ class Thread {
   bool IsRunning();
   bool IsFinished();
 
+  // To be called from inside the main run function. This blocks the main
+  // caller, if the thread is paused, until the thread is resumed.
+  void BlockIfPaused();
+
   // Set callbacks that can be triggered within the main run function.
   void SetCallback(const int id, const std::function<void()>& func);
   void ResetCallback(const int id);
@@ -118,13 +122,9 @@ class Thread {
  protected:
   // This is the main run function to be implemented by the child class. If you
   // are looping over data and want to support the pause operation, call
-  // `WaitIfPaused` at appropriate places in the loop. To support the stop
+  // `BlockIfPaused` at appropriate places in the loop. To support the stop
   // operation, check the `IsStopped` state and early return from this method.
   virtual void Run() = 0;
-
-  // To be called from inside the main run function. This blocks the main
-  // caller, if the thread is paused, until the thread is resumed.
-  void WaitIfPaused();
 
   // Register a new callback. Note that only registered callbacks can be
   // set/reset and called from within the thread. Hence, this method should be

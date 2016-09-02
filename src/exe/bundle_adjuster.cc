@@ -45,9 +45,7 @@ int main(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
-  BundleAdjustmentController ba_controller(options);
-  ba_controller.reconstruction = &reconstruction;
-
+  BundleAdjustmentController ba_controller(options, &reconstruction);
   ba_controller.Start();
   ba_controller.Wait();
 

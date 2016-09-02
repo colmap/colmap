@@ -22,34 +22,30 @@
 #include <QtCore>
 #include <QtWidgets>
 
+#include "base/undistortion.h"
 #include "ui/opengl_window.h"
+#include "ui/options_widget.h"
 #include "util/misc.h"
 
 namespace colmap {
 
-class UndistortionWidget : public QWidget {
+class UndistortionWidget : public OptionsWidget {
  public:
-  UndistortionWidget(QWidget* parent, OptionManager* options);
+  UndistortionWidget(QWidget* parent, const OptionManager* options);
 
-  std::string GetOutputPath();
-
-  bool IsValid();
-
-  Reconstruction reconstruction;
+  void Show(const Reconstruction& reconstruction);
+  bool IsValid() const;
 
  private:
   void Undistort();
-  void SelectOutputPath();
   void ShowProgressBar();
 
-  OptionManager* options_;
+  const OptionManager* options_;
+  const Reconstruction* reconstruction_;
 
-  QComboBox* combo_box_;
-  QDoubleSpinBox* min_scale_sb_;
-  QDoubleSpinBox* max_scale_sb_;
-  QSpinBox* max_image_size_sb_;
-  QDoubleSpinBox* blank_pixels_sb_;
-  QLineEdit* output_path_text_;
+  QComboBox* output_format_;
+  UndistortCameraOptions undistortion_options_;
+  std::string output_path_;
 
   QProgressDialog* progress_bar_;
   QAction* destructor_;

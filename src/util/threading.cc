@@ -118,7 +118,7 @@ void Thread::Callback(const int id) const {
 
 const class Timer& Thread::GetTimer() const { return timer_; }
 
-void Thread::WaitIfPaused() {
+void Thread::BlockIfPaused() {
   std::unique_lock<std::mutex> lock(mutex_);
   if (paused_) {
     pausing_ = true;

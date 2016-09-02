@@ -81,8 +81,6 @@ void MainWindow::closeEvent(QCloseEvent* event) {
   } else {
     mapper_controller_->Stop();
     mapper_controller_->Wait();
-    ba_controller_->Stop();
-    ba_controller_->Wait();
 
     log_widget_->close();
     event->accept();
@@ -109,8 +107,7 @@ void MainWindow::CreateWidgets() {
   database_management_widget_ = new DatabaseManagementWidget(this, &options_);
   reconstruction_options_widget_ =
       new ReconstructionOptionsWidget(this, &options_);
-  bundle_adjustment_options_widget_ =
-      new BundleAdjustmentOptionsWidget(this, &options_);
+  bundle_adjustment_widget_ = new BundleAdjustmentWidget(this, &options_);
   render_options_widget_ =
       new RenderOptionsWidget(this, &options_, opengl_window_);
   log_widget_ = new LogWidget(this, &options_);
@@ -195,19 +192,20 @@ void MainWindow::CreateActions() {
   //////////////////////////////////////////////////////////////////////////////
 
   action_feature_extraction_ = new QAction(
-      QIcon(":/media/feature-extraction.png"), tr("Extract features"), this);
+      QIcon(":/media/feature-extraction.png"), tr("Feature extraction"), this);
   connect(action_feature_extraction_, &QAction::triggered, this,
           &MainWindow::FeatureExtraction);
   blocking_actions_.push_back(action_feature_extraction_);
 
   action_feature_matching_ = new QAction(QIcon(":/media/feature-matching.png"),
-                                         tr("Match features"), this);
+                                         tr("Feature matching"), this);
   connect(action_feature_matching_, &QAction::triggered, this,
           &MainWindow::FeatureMatching);
   blocking_actions_.push_back(action_feature_matching_);
 
-  action_database_management_ = new QAction(
-      QIcon(":/media/database-management.png"), tr("Manage database"), this);
+  action_database_management_ =
+      new QAction(QIcon(":/media/database-management.png"),
+                  tr("Database management"), this);
   connect(action_database_management_, &QAction::triggered, this,
           &MainWindow::DatabaseManagement);
   blocking_actions_.push_back(action_database_management_);
@@ -218,7 +216,7 @@ void MainWindow::CreateActions() {
 
   action_reconstruction_start_ =
       new QAction(QIcon(":/media/reconstruction-start.png"),
-                  tr("Start / resume reconstruction"), this);
+                  tr("Start reconstruction"), this);
   connect(action_reconstruction_start_, &QAction::triggered, this,
           &MainWindow::ReconstructionStart);
   blocking_actions_.push_back(action_reconstruction_start_);
@@ -265,13 +263,6 @@ void MainWindow::CreateActions() {
   action_bundle_adjustment_->setEnabled(false);
   blocking_actions_.push_back(action_bundle_adjustment_);
 
-  action_bundle_adjustment_options_ =
-      new QAction(QIcon(":/media/bundle-adjustment-options.png"),
-                  tr("Bundle adjustment options"), this);
-  connect(action_bundle_adjustment_options_, &QAction::triggered, this,
-          &MainWindow::BundleAdjustmentOptions);
-  blocking_actions_.push_back(action_bundle_adjustment_options_);
-
   //////////////////////////////////////////////////////////////////////////////
   // Render actions
   //////////////////////////////////////////////////////////////////////////////
@@ -303,12 +294,12 @@ void MainWindow::CreateActions() {
       new QAction(QIcon(":/media/reconstruction-stats.png"),
                   tr("Show reconstruction statistics"), this);
   connect(action_reconstruction_stats_, &QAction::triggered, this,
-          &MainWindow::ShowReconstructionStats);
+          &MainWindow::ReconstructionStats);
 
   action_match_matrix_ = new QAction(QIcon(":/media/match-matrix.png"),
                                      tr("Show match matrix"), this);
   connect(action_match_matrix_, &QAction::triggered, this,
-          &MainWindow::ShowMatchMatrix);
+          &MainWindow::MatchMatrix);
 
   action_log_show_ =
       new QAction(QIcon(":/media/log.png"), tr("Show log"), this);
@@ -325,7 +316,7 @@ void MainWindow::CreateActions() {
           &OpenGLWindow::GrabMovie);
 
   action_undistort_ =
-      new QAction(QIcon(":/media/undistort.png"), tr("Undistort images"), this);
+      new QAction(QIcon(":/media/undistort.png"), tr("Undistortion"), this);
   connect(action_undistort_, &QAction::triggered, this,
           &MainWindow::UndistortImages);
   blocking_actions_.push_back(action_undistort_);
@@ -355,11 +346,6 @@ void MainWindow::CreateActions() {
       new QAction(tr("Finish reconstruction"), this);
   connect(action_reconstruction_finish_, &QAction::triggered, this,
           &MainWindow::ReconstructionFinish, Qt::BlockingQueuedConnection);
-
-  action_bundle_adjustment_finish_ =
-      new QAction(tr("Finish bundle-adjustment"), this);
-  connect(action_bundle_adjustment_finish_, &QAction::triggered, this,
-          &MainWindow::BundleAdjustmentFinish);
 
   action_about_ = new QAction(tr("About"), this);
   connect(action_about_, &QAction::triggered, this, &MainWindow::About);
@@ -398,7 +384,6 @@ void MainWindow::CreateMenus() {
   reconstruction_menu->addAction(action_reconstruction_normalize_);
   reconstruction_menu->addAction(action_reconstruction_options_);
   reconstruction_menu->addAction(action_bundle_adjustment_);
-  reconstruction_menu->addAction(action_bundle_adjustment_options_);
   menuBar()->addAction(reconstruction_menu->menuAction());
 
   QMenu* render_menu = new QMenu(tr("Render"), this);
@@ -452,7 +437,6 @@ void MainWindow::CreateToolbar() {
   reconstruction_toolbar_->addAction(action_reconstruction_normalize_);
   reconstruction_toolbar_->addAction(action_reconstruction_options_);
   reconstruction_toolbar_->addAction(action_bundle_adjustment_);
-  reconstruction_toolbar_->addAction(action_bundle_adjustment_options_);
   reconstruction_toolbar_->setIconSize(QSize(16, 16));
 
   render_toolbar_ = addToolBar(tr("Render"));
@@ -523,16 +507,6 @@ void MainWindow::CreateControllers() {
           action_reconstruction_finish_->trigger();
         }
       });
-
-  if (ba_controller_) {
-    ba_controller_->Stop();
-    ba_controller_->Wait();
-  }
-
-  ba_controller_.reset(new BundleAdjustmentController(options_));
-  ba_controller_->SetCallback(
-      BundleAdjustmentController::FINISHED_CALLBACK,
-      [this]() { action_bundle_adjustment_finish_->trigger(); });
 }
 
 void MainWindow::CreateFutures() {
@@ -900,6 +874,7 @@ void MainWindow::ReconstructionStart() {
     // Start new reconstruction.
     timer_.Restart();
     mapper_controller_->Start();
+    action_reconstruction_start_->setText(tr("Resume reconstruction"));
   }
 
   DisableBlockingActions();
@@ -950,6 +925,7 @@ void MainWindow::ReconstructionReset() {
   UpdateTimer();
 
   EnableBlockingActions();
+  action_reconstruction_start_->setText(tr("Start reconstruction"));
   action_reconstruction_pause_->setEnabled(false);
 
   RenderClear();
@@ -988,22 +964,8 @@ void MainWindow::BundleAdjustment() {
     return;
   }
 
-  DisableBlockingActions();
-  action_reconstruction_pause_->setDisabled(true);
-
-  ba_controller_->reconstruction =
-      &reconstruction_manager_.Get(SelectedReconstructionIdx());
-  ba_controller_->Start();
-}
-
-void MainWindow::BundleAdjustmentFinish() {
-  EnableBlockingActions();
-  RenderNow();
-}
-
-void MainWindow::BundleAdjustmentOptions() {
-  bundle_adjustment_options_widget_->show();
-  bundle_adjustment_options_widget_->raise();
+  bundle_adjustment_widget_->Show(
+      &reconstruction_manager_.Get(SelectedReconstructionIdx()));
 }
 
 void MainWindow::Render() {
@@ -1113,13 +1075,11 @@ void MainWindow::UndistortImages() {
   if (!IsSelectedReconstructionValid()) {
     return;
   }
-  undistortion_widget_->reconstruction =
-      reconstruction_manager_.Get(SelectedReconstructionIdx());
-  undistortion_widget_->show();
-  undistortion_widget_->raise();
+  undistortion_widget_->Show(
+      reconstruction_manager_.Get(SelectedReconstructionIdx()));
 }
 
-void MainWindow::ShowReconstructionStats() {
+void MainWindow::ReconstructionStats() {
   if (!IsSelectedReconstructionValid()) {
     return;
   }
@@ -1129,7 +1089,7 @@ void MainWindow::ShowReconstructionStats() {
       reconstruction_manager_.Get(SelectedReconstructionIdx()));
 }
 
-void MainWindow::ShowMatchMatrix() {
+void MainWindow::MatchMatrix() {
   match_matrix_widget_->show();
   match_matrix_widget_->raise();
   match_matrix_widget_->Update();
