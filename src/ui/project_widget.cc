@@ -14,15 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "ui/new_project_widget.h"
+#include "ui/project_widget.h"
 
 #include "sfm/controllers.h"
-#include "ui/main_window.h"
 
 namespace colmap {
 
-NewProjectWidget::NewProjectWidget(MainWindow* parent, OptionManager* options)
-    : main_window_(parent), options_(options), prev_selected_(false) {
+ProjectWidget::ProjectWidget(QWidget* parent, OptionManager* options)
+    : QWidget(parent), options_(options), prev_selected_(false) {
   setWindowFlags(Qt::Dialog);
   setWindowModality(Qt::ApplicationModal);
   setWindowTitle("New project");
@@ -30,10 +29,10 @@ NewProjectWidget::NewProjectWidget(MainWindow* parent, OptionManager* options)
   // Database path.
   QPushButton* databse_path_new = new QPushButton(tr("New"), this);
   connect(databse_path_new, &QPushButton::released, this,
-          &NewProjectWidget::SelectNewDatabasePath);
+          &ProjectWidget::SelectNewDatabasePath);
   QPushButton* databse_path_open = new QPushButton(tr("Open"), this);
   connect(databse_path_open, &QPushButton::released, this,
-          &NewProjectWidget::SelectExistingDatabasePath);
+          &ProjectWidget::SelectExistingDatabasePath);
   database_path_text_ = new QLineEdit(this);
   database_path_text_->setText(
       QString::fromStdString(*options_->database_path));
@@ -41,14 +40,13 @@ NewProjectWidget::NewProjectWidget(MainWindow* parent, OptionManager* options)
   // Image path.
   QPushButton* image_path_select = new QPushButton(tr("Select"), this);
   connect(image_path_select, &QPushButton::released, this,
-          &NewProjectWidget::SelectImagePath);
+          &ProjectWidget::SelectImagePath);
   image_path_text_ = new QLineEdit(this);
   image_path_text_->setText(QString::fromStdString(*options_->image_path));
 
-  // Create button.
-  QPushButton* create_button = new QPushButton(tr("Create"), this);
-  connect(create_button, &QPushButton::released, this,
-          &NewProjectWidget::Create);
+  // Save button.
+  QPushButton* create_button = new QPushButton(tr("Save"), this);
+  connect(create_button, &QPushButton::released, this, &ProjectWidget::Save);
 
   QGridLayout* grid = new QGridLayout(this);
 
@@ -64,51 +62,51 @@ NewProjectWidget::NewProjectWidget(MainWindow* parent, OptionManager* options)
   grid->addWidget(create_button, 2, 2);
 }
 
-bool NewProjectWidget::IsValid() {
+bool ProjectWidget::IsValid() const {
   return boost::filesystem::is_directory(ImagePath()) &&
          boost::filesystem::is_directory(
              boost::filesystem::path(DatabasePath()).parent_path());
 }
 
-std::string NewProjectWidget::DatabasePath() const {
+void ProjectWidget::Reset() {
+  database_path_text_->clear();
+  image_path_text_->clear();
+}
+
+std::string ProjectWidget::DatabasePath() const {
   return database_path_text_->text().toUtf8().constData();
 }
 
-std::string NewProjectWidget::ImagePath() const {
+std::string ProjectWidget::ImagePath() const {
   return image_path_text_->text().toUtf8().constData();
 }
 
-void NewProjectWidget::SetDatabasePath(const std::string& path) {
+void ProjectWidget::SetDatabasePath(const std::string& path) {
   database_path_text_->setText(QString::fromStdString(path));
 }
 
-void NewProjectWidget::SetImagePath(const std::string& path) {
+void ProjectWidget::SetImagePath(const std::string& path) {
   image_path_text_->setText(QString::fromStdString(path));
 }
 
-void NewProjectWidget::Create() {
+void ProjectWidget::Save() {
   if (!IsValid()) {
     QMessageBox::critical(this, "", tr("Invalid paths."));
   } else {
-    if (main_window_->GetReconstructionManager().Size() > 0) {
-      if (!main_window_->OverwriteReconstruction()) {
-        return;
-      }
-    }
     *options_->database_path = DatabasePath();
     *options_->image_path = ImagePath();
 
-    // Create empty database file.
+    // Save empty database file.
     Database database(*options_->database_path);
 
     hide();
   }
 }
 
-void NewProjectWidget::SelectNewDatabasePath() {
+void ProjectWidget::SelectNewDatabasePath() {
   QString database_path = QFileDialog::getSaveFileName(
       this, tr("Select database file"), DefaultDirectory(),
-      tr("SQLite3 Database (*.db)"));
+      tr("SQLite3 database (*.db)"));
   if (database_path != "" &&
       !HasFileExtension(database_path.toUtf8().constData(), ".db")) {
     database_path += ".db";
@@ -116,19 +114,19 @@ void NewProjectWidget::SelectNewDatabasePath() {
   database_path_text_->setText(database_path);
 }
 
-void NewProjectWidget::SelectExistingDatabasePath() {
+void ProjectWidget::SelectExistingDatabasePath() {
   database_path_text_->setText(QFileDialog::getOpenFileName(
       this, tr("Select database file"), DefaultDirectory(),
-      tr("SQLite3 Database (*.db)")));
+      tr("SQLite3 database (*.db)")));
 }
 
-void NewProjectWidget::SelectImagePath() {
+void ProjectWidget::SelectImagePath() {
   image_path_text_->setText(QFileDialog::getExistingDirectory(
       this, tr("Select image path..."), DefaultDirectory(),
       QFileDialog::ShowDirsOnly));
 }
 
-QString NewProjectWidget::DefaultDirectory() {
+QString ProjectWidget::DefaultDirectory() {
   std::string directory_path = "";
   if (!prev_selected_ && !options_->project_path->empty()) {
     const boost::filesystem::path parent_path =

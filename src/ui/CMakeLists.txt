@@ -16,11 +16,11 @@ COLMAP_ADD_LIBRARY(ui
     main_window.h main_window.cc
     match_matrix_widget.h match_matrix_widget.cc
     movie_grabber_widget.h movie_grabber_widget.cc
-    new_project_widget.h new_project_widget.cc
     opengl_window.h opengl_window.cc
     options_widget.h options_widget.cc
     point_painter.h point_painter.cc
     point_viewer_widget.h point_viewer_widget.cc
+    project_widget.h project_widget.cc
     qt_utils.h qt_utils.cc
     reconstruction_manager_widget.h reconstruction_manager_widget.cc
     reconstruction_options_widget.h reconstruction_options_widget.cc

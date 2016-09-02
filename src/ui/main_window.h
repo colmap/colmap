@@ -34,7 +34,7 @@
 #include "ui/feature_matching_widget.h"
 #include "ui/log_widget.h"
 #include "ui/match_matrix_widget.h"
-#include "ui/new_project_widget.h"
+#include "ui/project_widget.h"
 #include "ui/opengl_window.h"
 #include "ui/reconstruction_manager_widget.h"
 #include "ui/reconstruction_options_widget.h"
@@ -50,8 +50,6 @@ class MainWindow : public QMainWindow {
   MainWindow(const OptionManager& options);
 
   const ReconstructionManager& GetReconstructionManager() const;
-
-  bool OverwriteReconstruction();
 
  protected:
   void showEvent(QShowEvent* event);
@@ -75,6 +73,7 @@ class MainWindow : public QMainWindow {
 
   void NewProject();
   bool OpenProject();
+  void EditProject();
   void SaveProject();
   void SaveProjectAs();
   void Import();
@@ -96,6 +95,7 @@ class MainWindow : public QMainWindow {
   void ReconstructionOptions();
   void ReconstructionFinish();
   void ReconstructionNormalize();
+  bool ReconstructionOverwrite();
 
   void BundleAdjustment();
   void BundleAdjustmentOptions();
@@ -146,7 +146,7 @@ class MainWindow : public QMainWindow {
 
   QTimer* after_show_event_timer_;
 
-  NewProjectWidget* new_project_widget_;
+  ProjectWidget* project_widget_;
   FeatureExtractionWidget* feature_extraction_widget_;
   FeatureMatchingWidget* feature_matching_widget_;
   DatabaseManagementWidget* database_management_widget_;
@@ -172,6 +172,7 @@ class MainWindow : public QMainWindow {
 
   QAction* action_new_project_;
   QAction* action_open_project_;
+  QAction* action_edit_project_;
   QAction* action_save_project_;
   QAction* action_save_project_as_;
   QAction* action_import_;

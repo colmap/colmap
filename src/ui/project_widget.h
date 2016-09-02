@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef COLMAP_SRC_UI_NEW_PROJECT_WIDGET_H_
-#define COLMAP_SRC_UI_NEW_PROJECT_WIDGET_H_
+#ifndef COLMAP_SRC_UI_PROJECT_WIDGET_H_
+#define COLMAP_SRC_UI_PROJECT_WIDGET_H_
 
 #include <boost/filesystem.hpp>
 
@@ -27,13 +27,12 @@
 
 namespace colmap {
 
-class MainWindow;
-
-class NewProjectWidget : public QWidget {
+class ProjectWidget : public QWidget {
  public:
-  NewProjectWidget(MainWindow* parent, OptionManager* options);
+  ProjectWidget(QWidget* parent, OptionManager* options);
 
-  bool IsValid();
+  bool IsValid() const;
+  void Reset();
 
   std::string DatabasePath() const;
   std::string ImagePath() const;
@@ -41,13 +40,11 @@ class NewProjectWidget : public QWidget {
   void SetImagePath(const std::string& path);
 
  private:
-  void Create();
+  void Save();
   void SelectNewDatabasePath();
   void SelectExistingDatabasePath();
   void SelectImagePath();
   QString DefaultDirectory();
-
-  MainWindow* main_window_;
 
   OptionManager* options_;
 
@@ -61,4 +58,4 @@ class NewProjectWidget : public QWidget {
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_UI_NEW_PROJECT_WIDGET_H_
+#endif  // COLMAP_SRC_UI_PROJECT_WIDGET_H_

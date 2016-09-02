@@ -46,22 +46,6 @@ const ReconstructionManager& MainWindow::GetReconstructionManager() const {
   return reconstruction_manager_;
 }
 
-bool MainWindow::OverwriteReconstruction() {
-  if (reconstruction_manager_.Size() > 0) {
-    QMessageBox::StandardButton reply = QMessageBox::question(
-        this, "",
-        tr("Do you really want to overwrite the existing reconstruction?"),
-        QMessageBox::Yes | QMessageBox::No);
-    if (reply == QMessageBox::No) {
-      return false;
-    } else {
-      ReconstructionReset();
-      log_widget_->Clear();
-    }
-  }
-  return true;
-}
-
 void MainWindow::showEvent(QShowEvent* event) {
   after_show_event_timer_ = new QTimer(this);
   connect(after_show_event_timer_, &QTimer::timeout, this,
@@ -77,7 +61,7 @@ void MainWindow::closeEvent(QCloseEvent* event) {
     return;
   }
 
-  if (new_project_widget_->IsValid() && *options_.project_path == "") {
+  if (project_widget_->IsValid() && *options_.project_path == "") {
     // Project was created, but not yet saved
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(
@@ -116,9 +100,9 @@ void MainWindow::CreateWidgets() {
   opengl_window_ = new OpenGLWindow(this, &options_);
   setCentralWidget(QWidget::createWindowContainer(opengl_window_));
 
-  new_project_widget_ = new NewProjectWidget(this, &options_);
-  new_project_widget_->SetDatabasePath(*options_.database_path);
-  new_project_widget_->SetImagePath(*options_.image_path);
+  project_widget_ = new ProjectWidget(this, &options_);
+  project_widget_->SetDatabasePath(*options_.database_path);
+  project_widget_->SetImagePath(*options_.image_path);
 
   feature_extraction_widget_ = new FeatureExtractionWidget(this, &options_);
   feature_matching_widget_ = new FeatureMatchingWidget(this, &options_);
@@ -157,6 +141,11 @@ void MainWindow::CreateActions() {
   action_open_project_->setShortcuts(QKeySequence::Open);
   connect(action_open_project_, &QAction::triggered, this,
           &MainWindow::OpenProject);
+
+  action_edit_project_ =
+      new QAction(QIcon(":/media/project-edit.png"), tr("Edit project"), this);
+  connect(action_edit_project_, &QAction::triggered, this,
+          &MainWindow::EditProject);
 
   action_save_project_ =
       new QAction(QIcon(":/media/project-save.png"), tr("Save project"), this);
@@ -252,7 +241,7 @@ void MainWindow::CreateActions() {
       new QAction(QIcon(":/media/reconstruction-reset.png"),
                   tr("Reset reconstruction"), this);
   connect(action_reconstruction_reset_, &QAction::triggered, this,
-          &MainWindow::OverwriteReconstruction);
+          &MainWindow::ReconstructionOverwrite);
 
   action_reconstruction_normalize_ =
       new QAction(QIcon(":/media/reconstruction-normalize.png"),
@@ -381,6 +370,7 @@ void MainWindow::CreateMenus() {
   QMenu* file_menu = new QMenu(tr("File"), this);
   file_menu->addAction(action_new_project_);
   file_menu->addAction(action_open_project_);
+  file_menu->addAction(action_edit_project_);
   file_menu->addAction(action_save_project_);
   file_menu->addAction(action_save_project_as_);
   file_menu->addAction(action_import_);
@@ -441,6 +431,7 @@ void MainWindow::CreateToolbar() {
   file_toolbar_ = addToolBar(tr("File"));
   file_toolbar_->addAction(action_new_project_);
   file_toolbar_->addAction(action_open_project_);
+  file_toolbar_->addAction(action_edit_project_);
   file_toolbar_->addAction(action_save_project_);
   file_toolbar_->addAction(action_import_);
   file_toolbar_->addAction(action_export_);
@@ -575,12 +566,15 @@ void MainWindow::CenterProgressBar() {
 }
 
 void MainWindow::NewProject() {
-  new_project_widget_->show();
-  new_project_widget_->raise();
+  if (ReconstructionOverwrite()) {
+    project_widget_->Reset();
+    project_widget_->show();
+    project_widget_->raise();
+  }
 }
 
 bool MainWindow::OpenProject() {
-  if (!OverwriteReconstruction()) {
+  if (!ReconstructionOverwrite()) {
     return false;
   }
 
@@ -593,14 +587,19 @@ bool MainWindow::OpenProject() {
   if (project_path != "") {
     if (options_.ReRead(project_path)) {
       *options_.project_path = project_path;
-      new_project_widget_->SetDatabasePath(*options_.database_path);
-      new_project_widget_->SetImagePath(*options_.image_path);
+      project_widget_->SetDatabasePath(*options_.database_path);
+      project_widget_->SetImagePath(*options_.image_path);
       UpdateWindowTitle();
       return true;
     }
   }
 
   return false;
+}
+
+void MainWindow::EditProject() {
+  project_widget_->show();
+  project_widget_->raise();
 }
 
 void MainWindow::SaveProject() {
@@ -641,10 +640,6 @@ void MainWindow::SaveProjectAs() {
 }
 
 void MainWindow::Import() {
-  if (!OverwriteReconstruction()) {
-    return;
-  }
-
   const std::string path =
       QFileDialog::getExistingDirectory(this, tr("Select source..."), "",
                                         QFileDialog::ShowDirsOnly)
@@ -700,11 +695,7 @@ void MainWindow::Import() {
 }
 
 void MainWindow::ImportFrom() {
-  if (!OverwriteReconstruction()) {
-    return;
-  }
-
-  std::string path =
+  const std::string path =
       QFileDialog::getOpenFileName(this, tr("Select source..."), "")
           .toUtf8()
           .constData();
@@ -970,6 +961,24 @@ void MainWindow::ReconstructionNormalize() {
   action_reconstruction_step_->setEnabled(false);
   reconstruction_manager_.Get(SelectedReconstructionIdx()).Normalize();
   action_reconstruction_step_->setEnabled(true);
+}
+
+bool MainWindow::ReconstructionOverwrite() {
+  if (reconstruction_manager_.Size() == 0) {
+    return true;
+  }
+
+  QMessageBox::StandardButton reply = QMessageBox::question(
+      this, "",
+      tr("Do you really want to overwrite the existing reconstruction?"),
+      QMessageBox::Yes | QMessageBox::No);
+  if (reply == QMessageBox::No) {
+    return false;
+  } else {
+    ReconstructionReset();
+    log_widget_->Clear();
+    return true;
+  }
 }
 
 void MainWindow::BundleAdjustment() {
