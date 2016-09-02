@@ -31,6 +31,8 @@ class OptionsWidget : public QWidget {
   void closeEvent(QCloseEvent* event);
   void hideEvent(QHideEvent* event);
 
+  void AddOptionRow(const std::string& label_text, QWidget* widget);
+
   QSpinBox* AddOptionInt(int* option, const std::string& label_text,
                          const int min = 0,
                          const int max = static_cast<int>(1e7));

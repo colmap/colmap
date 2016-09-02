@@ -40,18 +40,24 @@ void OptionsWidget::closeEvent(QCloseEvent* event) { WriteOptions(); }
 
 void OptionsWidget::hideEvent(QHideEvent* event) { WriteOptions(); }
 
-QSpinBox* OptionsWidget::AddOptionInt(int* option,
-                                      const std::string& label_text,
-                                      const int min, const int max) {
+void OptionsWidget::AddOptionRow(const std::string& label_text,
+                                 QWidget* widget) {
   QLabel* label = new QLabel(tr(label_text.c_str()), this);
   label->setFont(font());
   label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
   grid_layout_->addWidget(label, grid_layout_->rowCount(), 0);
+  widget->setFont(font());
+  grid_layout_->addWidget(widget, grid_layout_->rowCount() - 1, 1);
+}
 
+QSpinBox* OptionsWidget::AddOptionInt(int* option,
+                                      const std::string& label_text,
+                                      const int min, const int max) {
   QSpinBox* spinbox = new QSpinBox(this);
   spinbox->setMinimum(min);
   spinbox->setMaximum(max);
-  grid_layout_->addWidget(spinbox, grid_layout_->rowCount() - 1, 1);
+
+  AddOptionRow(label_text, spinbox);
 
   options_int_.emplace_back(spinbox, option);
 
@@ -61,17 +67,13 @@ QSpinBox* OptionsWidget::AddOptionInt(int* option,
 QDoubleSpinBox* OptionsWidget::AddOptionDouble(
     double* option, const std::string& label_text, const double min,
     const double max, const double step, const int decimals) {
-  QLabel* label = new QLabel(tr(label_text.c_str()), this);
-  label->setFont(font());
-  label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-  grid_layout_->addWidget(label, grid_layout_->rowCount(), 0);
-
   QDoubleSpinBox* spinbox = new QDoubleSpinBox(this);
   spinbox->setMinimum(min);
   spinbox->setMaximum(max);
   spinbox->setSingleStep(step);
   spinbox->setDecimals(decimals);
-  grid_layout_->addWidget(spinbox, grid_layout_->rowCount() - 1, 1);
+
+  AddOptionRow(label_text, spinbox);
 
   options_double_.emplace_back(spinbox, option);
 
@@ -81,17 +83,13 @@ QDoubleSpinBox* OptionsWidget::AddOptionDouble(
 QDoubleSpinBox* OptionsWidget::AddOptionDoubleLog(
     double* option, const std::string& label_text, const double min,
     const double max, const double step, const int decimals) {
-  QLabel* label = new QLabel(tr(label_text.c_str()), this);
-  label->setFont(font());
-  label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-  grid_layout_->addWidget(label, grid_layout_->rowCount(), 0);
-
   QDoubleSpinBox* spinbox = new QDoubleSpinBox(this);
   spinbox->setMinimum(min);
   spinbox->setMaximum(max);
   spinbox->setSingleStep(step);
   spinbox->setDecimals(decimals);
-  grid_layout_->addWidget(spinbox, grid_layout_->rowCount() - 1, 1);
+
+  AddOptionRow(label_text, spinbox);
 
   options_double_log_.emplace_back(spinbox, option);
 
@@ -100,13 +98,9 @@ QDoubleSpinBox* OptionsWidget::AddOptionDoubleLog(
 
 QCheckBox* OptionsWidget::AddOptionBool(bool* option,
                                         const std::string& label_text) {
-  QLabel* label = new QLabel(tr(label_text.c_str()), this);
-  label->setFont(font());
-  label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-  grid_layout_->addWidget(label, grid_layout_->rowCount(), 0);
-
   QCheckBox* checkbox = new QCheckBox(this);
-  grid_layout_->addWidget(checkbox, grid_layout_->rowCount() - 1, 1);
+
+  AddOptionRow(label_text, checkbox);
 
   options_bool_.emplace_back(checkbox, option);
 
@@ -115,13 +109,9 @@ QCheckBox* OptionsWidget::AddOptionBool(bool* option,
 
 QLineEdit* OptionsWidget::AddOptionText(std::string* option,
                                         const std::string& label_text) {
-  QLabel* label = new QLabel(tr(label_text.c_str()), this);
-  label->setFont(font());
-  label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-  grid_layout_->addWidget(label, grid_layout_->rowCount(), 0);
-
   QLineEdit* line_edit = new QLineEdit(this);
-  grid_layout_->addWidget(line_edit, grid_layout_->rowCount() - 1, 1);
+
+  AddOptionRow(label_text, line_edit);
 
   options_text_.emplace_back(line_edit, option);
 
@@ -130,13 +120,9 @@ QLineEdit* OptionsWidget::AddOptionText(std::string* option,
 
 QLineEdit* OptionsWidget::AddOptionFilePath(std::string* option,
                                             const std::string& label_text) {
-  QLabel* label = new QLabel(tr(label_text.c_str()), this);
-  label->setFont(font());
-  label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-  grid_layout_->addWidget(label, grid_layout_->rowCount(), 0);
-
   QLineEdit* line_edit = new QLineEdit(this);
-  grid_layout_->addWidget(line_edit, grid_layout_->rowCount() - 1, 1);
+
+  AddOptionRow(label_text, line_edit);
 
   auto SelectPathFunc = [this, line_edit]() {
     line_edit->setText(QFileDialog::getOpenFileName(this, tr("Select path")));
@@ -154,13 +140,9 @@ QLineEdit* OptionsWidget::AddOptionFilePath(std::string* option,
 
 QLineEdit* OptionsWidget::AddOptionDirPath(std::string* option,
                                            const std::string& label_text) {
-  QLabel* label = new QLabel(tr(label_text.c_str()), this);
-  label->setFont(font());
-  label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-  grid_layout_->addWidget(label, grid_layout_->rowCount(), 0);
-
   QLineEdit* line_edit = new QLineEdit(this);
-  grid_layout_->addWidget(line_edit, grid_layout_->rowCount() - 1, 1);
+
+  AddOptionRow(label_text, line_edit);
 
   auto SelectPathFunc = [this, line_edit]() {
     line_edit->setText(
