@@ -11,6 +11,7 @@ COLMAP_ADD_LIBRARY(ui
     feature_extraction_widget.h feature_extraction_widget.cc
     feature_matching_widget.h feature_matching_widget.cc
     image_viewer_widget.h image_viewer_widget.cc
+    license_widget.h license_widget.cc
     line_painter.h line_painter.cc
     log_widget.h log_widget.cc
     main_window.h main_window.cc

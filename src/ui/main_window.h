@@ -32,6 +32,7 @@
 #include "ui/database_management_widget.h"
 #include "ui/feature_extraction_widget.h"
 #include "ui/feature_matching_widget.h"
+#include "ui/license_widget.h"
 #include "ui/log_widget.h"
 #include "ui/match_matrix_widget.h"
 #include "ui/project_widget.h"
@@ -124,7 +125,6 @@ class MainWindow : public QMainWindow {
   void ResetOptions();
 
   void About();
-  void License();
 
   void ShowInvalidProjectError();
   void UpdateTimer();
@@ -158,6 +158,7 @@ class MainWindow : public QMainWindow {
   ReconstructionManagerWidget* reconstruction_manager_widget_;
   ReconstructionStatsWidget* reconstruction_stats_widget_;
   MatchMatrixWidget* match_matrix_widget_;
+  LicenseWidget* license_widget_;
 
   QToolBar* file_toolbar_;
   QToolBar* preprocessing_toolbar_;
