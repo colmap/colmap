@@ -24,7 +24,7 @@ ProjectWidget::ProjectWidget(QWidget* parent, OptionManager* options)
     : QWidget(parent), options_(options), prev_selected_(false) {
   setWindowFlags(Qt::Dialog);
   setWindowModality(Qt::ApplicationModal);
-  setWindowTitle("New project");
+  setWindowTitle("Project");
 
   // Database path.
   QPushButton* databse_path_new = new QPushButton(tr("New"), this);
@@ -90,9 +90,7 @@ void ProjectWidget::SetImagePath(const std::string& path) {
 }
 
 void ProjectWidget::Save() {
-  if (!IsValid()) {
-    QMessageBox::critical(this, "", tr("Invalid paths."));
-  } else {
+  if (IsValid()) {
     *options_->database_path = DatabasePath();
     *options_->image_path = ImagePath();
 
@@ -100,6 +98,8 @@ void ProjectWidget::Save() {
     Database database(*options_->database_path);
 
     hide();
+  } else {
+    QMessageBox::critical(this, "", tr("Invalid paths."));
   }
 }
 

@@ -71,11 +71,11 @@ class MainWindow : public QMainWindow {
 
   void CenterProgressBar();
 
-  void NewProject();
-  bool OpenProject();
-  void EditProject();
-  void SaveProject();
-  void SaveProjectAs();
+  void ProjectNew();
+  bool ProjectOpen();
+  void ProjectEdit();
+  void ProjectSave();
+  void ProjectSaveAs();
   void Import();
   void ImportFrom();
   void ImportFinished();
@@ -170,11 +170,11 @@ class MainWindow : public QMainWindow {
   QTimer* statusbar_timer_;
   QLabel* statusbar_timer_label_;
 
-  QAction* action_new_project_;
-  QAction* action_open_project_;
-  QAction* action_edit_project_;
-  QAction* action_save_project_;
-  QAction* action_save_project_as_;
+  QAction* action_project_new_;
+  QAction* action_project_open_;
+  QAction* action_project_edit_;
+  QAction* action_project_save_;
+  QAction* action_project_save_as_;
   QAction* action_import_;
   QAction* action_import_from_;
   QAction* action_export_;

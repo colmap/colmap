@@ -69,7 +69,7 @@ void MainWindow::closeEvent(QCloseEvent* event) {
         tr("You have not saved your project. Do you want to save it?"),
         QMessageBox::Yes | QMessageBox::No);
     if (reply == QMessageBox::Yes) {
-      SaveProject();
+      ProjectSave();
     }
   }
 
@@ -130,34 +130,34 @@ void MainWindow::CreateActions() {
   // File actions
   //////////////////////////////////////////////////////////////////////////////
 
-  action_new_project_ =
+  action_project_new_ =
       new QAction(QIcon(":/media/project-new.png"), tr("New project"), this);
-  action_new_project_->setShortcuts(QKeySequence::New);
-  connect(action_new_project_, &QAction::triggered, this,
-          &MainWindow::NewProject);
+  action_project_new_->setShortcuts(QKeySequence::New);
+  connect(action_project_new_, &QAction::triggered, this,
+          &MainWindow::ProjectNew);
 
-  action_open_project_ =
+  action_project_open_ =
       new QAction(QIcon(":/media/project-open.png"), tr("Open project"), this);
-  action_open_project_->setShortcuts(QKeySequence::Open);
-  connect(action_open_project_, &QAction::triggered, this,
-          &MainWindow::OpenProject);
+  action_project_open_->setShortcuts(QKeySequence::Open);
+  connect(action_project_open_, &QAction::triggered, this,
+          &MainWindow::ProjectOpen);
 
-  action_edit_project_ =
+  action_project_edit_ =
       new QAction(QIcon(":/media/project-edit.png"), tr("Edit project"), this);
-  connect(action_edit_project_, &QAction::triggered, this,
-          &MainWindow::EditProject);
+  connect(action_project_edit_, &QAction::triggered, this,
+          &MainWindow::ProjectEdit);
 
-  action_save_project_ =
+  action_project_save_ =
       new QAction(QIcon(":/media/project-save.png"), tr("Save project"), this);
-  action_save_project_->setShortcuts(QKeySequence::Save);
-  connect(action_save_project_, &QAction::triggered, this,
-          &MainWindow::SaveProject);
+  action_project_save_->setShortcuts(QKeySequence::Save);
+  connect(action_project_save_, &QAction::triggered, this,
+          &MainWindow::ProjectSave);
 
-  action_save_project_as_ = new QAction(QIcon(":/media/project-save-as.png"),
+  action_project_save_as_ = new QAction(QIcon(":/media/project-save-as.png"),
                                         tr("Save project as..."), this);
-  action_save_project_as_->setShortcuts(QKeySequence::SaveAs);
-  connect(action_save_project_as_, &QAction::triggered, this,
-          &MainWindow::SaveProjectAs);
+  action_project_save_as_->setShortcuts(QKeySequence::SaveAs);
+  connect(action_project_save_as_, &QAction::triggered, this,
+          &MainWindow::ProjectSaveAs);
 
   action_import_ =
       new QAction(QIcon(":/media/import.png"), tr("Import model"), this);
@@ -368,11 +368,11 @@ void MainWindow::CreateActions() {
 
 void MainWindow::CreateMenus() {
   QMenu* file_menu = new QMenu(tr("File"), this);
-  file_menu->addAction(action_new_project_);
-  file_menu->addAction(action_open_project_);
-  file_menu->addAction(action_edit_project_);
-  file_menu->addAction(action_save_project_);
-  file_menu->addAction(action_save_project_as_);
+  file_menu->addAction(action_project_new_);
+  file_menu->addAction(action_project_open_);
+  file_menu->addAction(action_project_edit_);
+  file_menu->addAction(action_project_save_);
+  file_menu->addAction(action_project_save_as_);
   file_menu->addAction(action_import_);
   file_menu->addAction(action_import_from_);
   file_menu->addAction(action_export_);
@@ -429,10 +429,10 @@ void MainWindow::CreateMenus() {
 
 void MainWindow::CreateToolbar() {
   file_toolbar_ = addToolBar(tr("File"));
-  file_toolbar_->addAction(action_new_project_);
-  file_toolbar_->addAction(action_open_project_);
-  file_toolbar_->addAction(action_edit_project_);
-  file_toolbar_->addAction(action_save_project_);
+  file_toolbar_->addAction(action_project_new_);
+  file_toolbar_->addAction(action_project_open_);
+  file_toolbar_->addAction(action_project_edit_);
+  file_toolbar_->addAction(action_project_save_);
   file_toolbar_->addAction(action_import_);
   file_toolbar_->addAction(action_export_);
   file_toolbar_->setIconSize(QSize(16, 16));
@@ -565,7 +565,7 @@ void MainWindow::CenterProgressBar() {
                       global.y() - progress_bar_->height() / 2);
 }
 
-void MainWindow::NewProject() {
+void MainWindow::ProjectNew() {
   if (ReconstructionOverwrite()) {
     project_widget_->Reset();
     project_widget_->show();
@@ -573,7 +573,7 @@ void MainWindow::NewProject() {
   }
 }
 
-bool MainWindow::OpenProject() {
+bool MainWindow::ProjectOpen() {
   if (!ReconstructionOverwrite()) {
     return false;
   }
@@ -597,12 +597,12 @@ bool MainWindow::OpenProject() {
   return false;
 }
 
-void MainWindow::EditProject() {
+void MainWindow::ProjectEdit() {
   project_widget_->show();
   project_widget_->raise();
 }
 
-void MainWindow::SaveProject() {
+void MainWindow::ProjectSave() {
   if (!boost::filesystem::is_regular_file(*options_.project_path)) {
     std::string project_path =
         QFileDialog::getSaveFileName(this, tr("Select project file"), "",
@@ -625,7 +625,7 @@ void MainWindow::SaveProject() {
   UpdateWindowTitle();
 }
 
-void MainWindow::SaveProjectAs() {
+void MainWindow::ProjectSaveAs() {
   const std::string new_project_path =
       QFileDialog::getSaveFileName(this, tr("Select project file"), "",
                                    tr("Project file (*.ini)"))
@@ -674,7 +674,7 @@ void MainWindow::Import() {
                      "now (or press No to only load and visualize the model)?"),
         QMessageBox::Yes | QMessageBox::No);
     if (reply == QMessageBox::Yes) {
-      OpenProject();
+      ProjectOpen();
     }
   } else {
     if (options_.ReRead(project_path)) {
