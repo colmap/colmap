@@ -17,11 +17,6 @@
 #ifndef COLMAP_SRC_UI_MAIN_WINDOW_H_
 #define COLMAP_SRC_UI_MAIN_WINDOW_H_
 
-#include <boost/filesystem.hpp>
-#include <boost/thread.hpp>
-
-#include <Eigen/Core>
-
 #include <QtCore>
 #include <QtGui>
 #include <QtWidgets>

@@ -16,7 +16,7 @@
 
 #include "ui/main_window.h"
 
-#include <QtConcurrent/QtConcurrentRun>
+#include <boost/filesystem.hpp>
 
 namespace colmap {
 
