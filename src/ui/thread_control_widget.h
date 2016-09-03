@@ -14,42 +14,28 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef COLMAP_SRC_UI_UNDISTORTION_WIDGET_H_
-#define COLMAP_SRC_UI_UNDISTORTION_WIDGET_H_
-
-#include <boost/filesystem.hpp>
+#ifndef COLMAP_SRC_UI_THREAD_CONTROL_WIDGET_WIDGET_H_
+#define COLMAP_SRC_UI_THREAD_CONTROL_WIDGET_WIDGET_H_
 
 #include <QtCore>
 #include <QtWidgets>
 
-#include "base/undistortion.h"
-#include "ui/opengl_window.h"
-#include "ui/options_widget.h"
-#include "ui/thread_control_widget.h"
-#include "util/misc.h"
+#include "util/threading.h"
 
 namespace colmap {
 
-class UndistortionWidget : public OptionsWidget {
+class ThreadControlWidget : public QWidget {
  public:
-  UndistortionWidget(QWidget* parent, const OptionManager* options);
+  ThreadControlWidget(QWidget* parent);
 
-  void Show(const Reconstruction& reconstruction);
-  bool IsValid() const;
+  void Start(const QString& progress_text, Thread* thread);
 
- private:
-  void Undistort();
-
-  const OptionManager* options_;
-  const Reconstruction* reconstruction_;
-
-  ThreadControlWidget* thread_control_widget_;
-
-  QComboBox* output_format_;
-  UndistortCameraOptions undistortion_options_;
-  std::string output_path_;
+private:
+  QProgressDialog* progress_bar_;
+  QAction* destructor_;
+  std::unique_ptr<Thread> thread_;
 };
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_UI_UNDISTORTION_WIDGET_H_
+#endif  // COLMAP_SRC_UI_THREAD_CONTROL_WIDGET_WIDGET_H_

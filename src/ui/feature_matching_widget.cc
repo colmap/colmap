@@ -18,6 +18,7 @@
 
 #include "base/feature_matching.h"
 #include "ui/options_widget.h"
+#include "ui/thread_control_widget.h"
 
 namespace colmap {
 
@@ -28,13 +29,10 @@ class FeatureMatchingTab : public OptionsWidget {
   virtual void Run() = 0;
 
  protected:
-  void ShowProgressBar();
   void CreateGeneralOptions();
 
   OptionManager* options_;
-  QProgressDialog* progress_bar_;
-  QAction* destructor_;
-  std::unique_ptr<Thread> matcher_;
+  ThreadControlWidget* thread_control_widget_;
 };
 
 class ExhaustiveMatchingTab : public FeatureMatchingTab {
@@ -72,32 +70,9 @@ class CustomMatchingTab : public FeatureMatchingTab {
 };
 
 FeatureMatchingTab::FeatureMatchingTab(QWidget* parent, OptionManager* options)
-    : OptionsWidget(parent), options_(options), progress_bar_(nullptr) {
-  destructor_ = new QAction(this);
-  connect(destructor_, &QAction::triggered, this, [this]() {
-    if (matcher_) {
-      matcher_->Stop();
-      matcher_->Wait();
-      matcher_.reset();
-    }
-    progress_bar_->hide();
-  });
-}
-
-void FeatureMatchingTab::ShowProgressBar() {
-  if (progress_bar_ == nullptr) {
-    progress_bar_ = new QProgressDialog(this);
-    progress_bar_->setWindowModality(Qt::ApplicationModal);
-    progress_bar_->setLabel(new QLabel(tr("Extracting..."), this));
-    progress_bar_->setMaximum(0);
-    progress_bar_->setMinimum(0);
-    progress_bar_->setValue(0);
-    connect(progress_bar_, &QProgressDialog::canceled,
-            [this]() { destructor_->trigger(); });
-  }
-  progress_bar_->show();
-  progress_bar_->raise();
-}
+    : OptionsWidget(parent),
+      options_(options),
+      thread_control_widget_(new ThreadControlWidget(this)) {}
 
 void FeatureMatchingTab::CreateGeneralOptions() {
   AddSpacer();
@@ -144,14 +119,10 @@ ExhaustiveMatchingTab::ExhaustiveMatchingTab(QWidget* parent,
 void ExhaustiveMatchingTab::Run() {
   WriteOptions();
 
-  matcher_.reset(new ExhaustiveFeatureMatcher(
+  Thread* matcher = new ExhaustiveFeatureMatcher(
       options_->exhaustive_match_options->Options(),
-      options_->match_options->Options(), *options_->database_path));
-  matcher_->SetCallback(ExhaustiveFeatureMatcher::FINISHED_CALLBACK,
-                        [this]() { destructor_->trigger(); });
-  matcher_->Start();
-
-  ShowProgressBar();
+      options_->match_options->Options(), *options_->database_path);
+  thread_control_widget_->Start("Matching...", matcher);
 }
 
 SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
@@ -180,14 +151,10 @@ void SequentialMatchingTab::Run() {
     return;
   }
 
-  matcher_.reset(new SequentialFeatureMatcher(
+  Thread* matcher = new SequentialFeatureMatcher(
       options_->sequential_match_options->Options(),
-      options_->match_options->Options(), *options_->database_path));
-  matcher_->SetCallback(SequentialFeatureMatcher::FINISHED_CALLBACK,
-                        [this]() { destructor_->trigger(); });
-  matcher_->Start();
-
-  ShowProgressBar();
+      options_->match_options->Options(), *options_->database_path);
+  thread_control_widget_->Start("Matching...", matcher);
 }
 
 VocabTreeMatchingTab::VocabTreeMatchingTab(QWidget* parent,
@@ -209,14 +176,10 @@ void VocabTreeMatchingTab::Run() {
     return;
   }
 
-  matcher_.reset(new VocabTreeFeatureMatcher(
+  Thread* matcher = new VocabTreeFeatureMatcher(
       options_->vocab_tree_match_options->Options(),
-      options_->match_options->Options(), *options_->database_path));
-  matcher_->SetCallback(VocabTreeFeatureMatcher::FINISHED_CALLBACK,
-                        [this]() { destructor_->trigger(); });
-  matcher_->Start();
-
-  ShowProgressBar();
+      options_->match_options->Options(), *options_->database_path);
+  thread_control_widget_->Start("Matching...", matcher);
 }
 
 SpatialMatchingTab::SpatialMatchingTab(QWidget* parent, OptionManager* options)
@@ -234,14 +197,10 @@ SpatialMatchingTab::SpatialMatchingTab(QWidget* parent, OptionManager* options)
 void SpatialMatchingTab::Run() {
   WriteOptions();
 
-  matcher_.reset(new SpatialFeatureMatcher(
+  Thread* matcher = new SpatialFeatureMatcher(
       options_->spatial_match_options->Options(),
-      options_->match_options->Options(), *options_->database_path));
-  matcher_->SetCallback(SpatialFeatureMatcher::FINISHED_CALLBACK,
-                        [this]() { destructor_->trigger(); });
-  matcher_->Start();
-
-  ShowProgressBar();
+      options_->match_options->Options(), *options_->database_path);
+  thread_control_widget_->Start("Matching...", matcher);
 }
 
 CustomMatchingTab::CustomMatchingTab(QWidget* parent, OptionManager* options)
@@ -265,14 +224,13 @@ void CustomMatchingTab::Run() {
     return;
   }
 
+  Thread* matcher = nullptr;
   if (match_type_cb_->currentIndex() == 0) {
     ImagePairsFeatureMatcher::Options matcher_options;
     matcher_options.match_list_path = match_list_path_;
-    matcher_.reset(new ImagePairsFeatureMatcher(
-        matcher_options, options_->match_options->Options(),
-        *options_->database_path));
-    matcher_->SetCallback(ImagePairsFeatureMatcher::FINISHED_CALLBACK,
-                          [this]() { destructor_->trigger(); });
+    matcher = new ImagePairsFeatureMatcher(matcher_options,
+                                           options_->match_options->Options(),
+                                           *options_->database_path);
   } else {
     FeaturePairsFeatureMatcher::Options matcher_options;
     matcher_options.match_list_path = match_list_path_;
@@ -282,16 +240,12 @@ void CustomMatchingTab::Run() {
       matcher_options.verify_matches = false;
     }
 
-    matcher_.reset(new FeaturePairsFeatureMatcher(
-        matcher_options, options_->match_options->Options(),
-        *options_->database_path));
-    matcher_->SetCallback(FeaturePairsFeatureMatcher::FINISHED_CALLBACK,
-                          [this]() { destructor_->trigger(); });
+    matcher = new FeaturePairsFeatureMatcher(matcher_options,
+                                             options_->match_options->Options(),
+                                             *options_->database_path);
   }
 
-  matcher_->Start();
-
-  ShowProgressBar();
+  thread_control_widget_->Start("Matching...", matcher);
 }
 
 FeatureMatchingWidget::FeatureMatchingWidget(QWidget* parent,

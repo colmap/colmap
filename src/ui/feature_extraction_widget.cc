@@ -20,11 +20,10 @@
 #include "base/feature_extraction.h"
 #include "ui/options_widget.h"
 #include "ui/qt_utils.h"
+#include "ui/thread_control_widget.h"
 
 namespace colmap {
 
-// The following classes define groups of widgets to be displayed depending on
-// the type of feature extraction that has been selected via the Tab.
 class ExtractionWidget : public OptionsWidget {
  public:
   ExtractionWidget(QWidget* parent, OptionManager* options);
@@ -32,19 +31,15 @@ class ExtractionWidget : public OptionsWidget {
   virtual void Run() = 0;
 
  protected:
-  void ShowProgressBar();
-
   OptionManager* options_;
-  QProgressDialog* progress_bar_;
-  QAction* destructor_;
-  std::unique_ptr<Thread> extractor_;
+  ThreadControlWidget* thread_control_widget_;
 };
 
 class SIFTExtractionWidget : public ExtractionWidget {
  public:
   SIFTExtractionWidget(QWidget* parent, OptionManager* options);
 
-  void Run();
+  void Run() override;
 
  private:
   QRadioButton* sift_gpu_;
@@ -55,39 +50,15 @@ class ImportFeaturesWidget : public ExtractionWidget {
  public:
   ImportFeaturesWidget(QWidget* parent, OptionManager* options);
 
-  void Run();
+  void Run() override;
 
  private:
   std::string import_path_;
 };
 
 ExtractionWidget::ExtractionWidget(QWidget* parent, OptionManager* options)
-    : OptionsWidget(parent), options_(options), progress_bar_(nullptr) {
-  destructor_ = new QAction(this);
-  connect(destructor_, &QAction::triggered, this, [this]() {
-    if (extractor_) {
-      extractor_->Stop();
-      extractor_->Wait();
-      extractor_.reset();
-    }
-    progress_bar_->hide();
-  });
-}
-
-void ExtractionWidget::ShowProgressBar() {
-  if (progress_bar_ == nullptr) {
-    progress_bar_ = new QProgressDialog(this);
-    progress_bar_->setWindowModality(Qt::ApplicationModal);
-    progress_bar_->setLabel(new QLabel(tr("Extracting..."), this));
-    progress_bar_->setMaximum(0);
-    progress_bar_->setMinimum(0);
-    progress_bar_->setValue(0);
-    connect(progress_bar_, &QProgressDialog::canceled,
-            [this]() { destructor_->trigger(); });
-  }
-  progress_bar_->show();
-  progress_bar_->raise();
-}
+    : options_(options),
+      thread_control_widget_(new ThreadControlWidget(this)) {}
 
 SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
                                            OptionManager* options)
@@ -127,22 +98,17 @@ void SIFTExtractionWidget::Run() {
   reader_options.database_path = *options_->database_path;
   reader_options.image_path = *options_->image_path;
 
+  Thread* extractor = nullptr;
   if (sift_gpu_->isChecked()) {
-    extractor_.reset(new SiftGPUFeatureExtractor(
-        reader_options, options_->extraction_options->sift));
-    extractor_->SetCallback(SiftGPUFeatureExtractor::FINISHED_CALLBACK,
-                            [this]() { destructor_->trigger(); });
+    extractor = new SiftGPUFeatureExtractor(reader_options,
+                                            options_->extraction_options->sift);
   } else {
-    extractor_.reset(new SiftCPUFeatureExtractor(
-        reader_options, options_->extraction_options->sift,
-        options_->extraction_options->cpu));
-    extractor_->SetCallback(SiftGPUFeatureExtractor::FINISHED_CALLBACK,
-                            [this]() { destructor_->trigger(); });
+    extractor = new SiftCPUFeatureExtractor(reader_options,
+                                            options_->extraction_options->sift,
+                                            options_->extraction_options->cpu);
   }
 
-  extractor_->Start();
-
-  ShowProgressBar();
+  thread_control_widget_->Start("Extracting...", extractor);
 }
 
 ImportFeaturesWidget::ImportFeaturesWidget(QWidget* parent,
@@ -155,7 +121,7 @@ void ImportFeaturesWidget::Run() {
   WriteOptions();
 
   if (!boost::filesystem::is_directory(import_path_)) {
-    QMessageBox::critical(this, "", tr("Path is not a directory."));
+    QMessageBox::critical(this, "", tr("Path is not a directory"));
     return;
   }
 
@@ -163,12 +129,8 @@ void ImportFeaturesWidget::Run() {
   reader_options.database_path = *options_->database_path;
   reader_options.image_path = *options_->image_path;
 
-  extractor_.reset(new FeatureImporter(reader_options, import_path_));
-  extractor_->SetCallback(FeatureImporter::FINISHED_CALLBACK,
-                          [this]() { destructor_->trigger(); });
-
-  extractor_->Start();
-  ShowProgressBar();
+  Thread* importer = new FeatureImporter(reader_options, import_path_);
+  thread_control_widget_->Start("Importing...", importer);
 }
 
 FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
@@ -312,7 +274,7 @@ void FeatureExtractionWidget::Extract() {
 
   if (camera_params_custom_rb_->isChecked() &&
       !CameraModelVerifyParams(camera_code, camera_params)) {
-    QMessageBox::critical(this, "", tr("Invalid camera parameters."));
+    QMessageBox::critical(this, "", tr("Invalid camera parameters"));
     return;
   }
 

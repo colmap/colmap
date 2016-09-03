@@ -23,7 +23,7 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(QWidget* parent,
     : OptionsWidget(parent),
       options_(options),
       reconstruction_(nullptr),
-      progress_bar_(nullptr) {
+      thread_control_widget_(new ThreadControlWidget(this)) {
   setWindowTitle("Bundle adjustment");
 
   AddOptionInt(&options->ba_options->max_num_iterations, "max_num_iterations");
@@ -48,16 +48,6 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(QWidget* parent,
   grid_layout_->addWidget(run_button, grid_layout_->rowCount(), 1);
   connect(run_button, &QPushButton::released, this,
           &BundleAdjustmentWidget::Run);
-
-  destructor_ = new QAction(this);
-  connect(destructor_, &QAction::triggered, this, [this]() {
-    if (ba_controller_) {
-      ba_controller_->Stop();
-      ba_controller_->Wait();
-      ba_controller_.reset();
-    }
-    progress_bar_->hide();
-  });
 }
 
 void BundleAdjustmentWidget::Show(Reconstruction* reconstruction) {
@@ -66,33 +56,13 @@ void BundleAdjustmentWidget::Show(Reconstruction* reconstruction) {
   raise();
 }
 
-void BundleAdjustmentWidget::ShowProgressBar() {
-  if (progress_bar_ == nullptr) {
-    progress_bar_ = new QProgressDialog(this);
-    progress_bar_->setWindowModality(Qt::ApplicationModal);
-    progress_bar_->setLabel(new QLabel(tr("Bundle adjusting..."), this));
-    progress_bar_->setMaximum(0);
-    progress_bar_->setMinimum(0);
-    progress_bar_->setValue(0);
-    connect(progress_bar_, &QProgressDialog::canceled,
-            [this]() { destructor_->trigger(); });
-  }
-  progress_bar_->show();
-  progress_bar_->raise();
-}
-
 void BundleAdjustmentWidget::Run() {
   CHECK_NOTNULL(reconstruction_);
 
   WriteOptions();
-
-  ba_controller_.reset(
+  thread_control_widget_->Start(
+      "Bundle adjusting...",
       new BundleAdjustmentController(*options_, reconstruction_));
-  ba_controller_->SetCallback(BundleAdjustmentController::FINISHED_CALLBACK,
-                              [this]() { destructor_->trigger(); });
-  ba_controller_->Start();
-
-  ShowProgressBar();
 }
 
 }  // namespace colmap

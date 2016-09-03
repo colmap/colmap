@@ -22,6 +22,7 @@
 
 #include "sfm/controllers.h"
 #include "ui/options_widget.h"
+#include "ui/thread_control_widget.h"
 #include "util/option_manager.h"
 
 namespace colmap {
@@ -33,14 +34,11 @@ class BundleAdjustmentWidget : public OptionsWidget {
   void Show(Reconstruction* reconstruction);
 
 private:
-  void ShowProgressBar();
   void Run();
 
   OptionManager* options_;
   Reconstruction* reconstruction_;
-  QProgressDialog* progress_bar_;
-  QAction* destructor_;
-  std::unique_ptr<BundleAdjustmentController> ba_controller_;
+  ThreadControlWidget* thread_control_widget_;
 };
 
 }  // namespace colmap

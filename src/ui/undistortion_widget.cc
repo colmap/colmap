@@ -23,7 +23,7 @@ UndistortionWidget::UndistortionWidget(QWidget* parent,
     : OptionsWidget(parent),
       options_(options),
       reconstruction_(nullptr),
-      progress_bar_(nullptr) {
+      thread_control_widget_(new ThreadControlWidget(this)) {
   setWindowFlags(Qt::Dialog);
   setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Undistortion");
@@ -50,16 +50,6 @@ UndistortionWidget::UndistortionWidget(QWidget* parent,
   connect(undistort_button, &QPushButton::released, this,
           &UndistortionWidget::Undistort);
   grid_layout_->addWidget(undistort_button, grid_layout_->rowCount(), 1);
-
-  destructor_ = new QAction(this);
-  connect(destructor_, &QAction::triggered, this, [this]() {
-    if (undistorter_) {
-      undistorter_->Stop();
-      undistorter_->Wait();
-      undistorter_.reset();
-    }
-    progress_bar_->hide();
-  });
 }
 
 void UndistortionWidget::Show(const Reconstruction& reconstruction) {
@@ -72,55 +62,33 @@ bool UndistortionWidget::IsValid() const {
   return boost::filesystem::is_directory(output_path_);
 }
 
-void UndistortionWidget::ShowProgressBar() {
-  if (progress_bar_ == nullptr) {
-    progress_bar_ = new QProgressDialog(this);
-    progress_bar_->setWindowModality(Qt::ApplicationModal);
-    progress_bar_->setLabel(new QLabel(tr("Undistorting..."), this));
-    progress_bar_->setMaximum(0);
-    progress_bar_->setMinimum(0);
-    progress_bar_->setValue(0);
-    connect(progress_bar_, &QProgressDialog::canceled,
-            [this]() { destructor_->trigger(); });
-  }
-  progress_bar_->show();
-  progress_bar_->raise();
-}
-
 void UndistortionWidget::Undistort() {
   CHECK_NOTNULL(reconstruction_);
 
   WriteOptions();
 
-  if (!IsValid()) {
-    QMessageBox::critical(this, "", tr("Invalid output path"));
-  } else {
+  if (IsValid()) {
+    Thread* undistorter = nullptr;
+
     if (output_format_->currentIndex() == 0) {
-      undistorter_.reset(
+      undistorter =
           new COLMAPUndistorter(undistortion_options_, *reconstruction_,
-                                *options_->image_path, output_path_));
-      undistorter_->SetCallback(COLMAPUndistorter::FINISHED_CALLBACK,
-                                [this]() { destructor_->trigger(); });
+                                *options_->image_path, output_path_);
     } else if (output_format_->currentIndex() == 1) {
-      undistorter_.reset(
-          new PMVSUndistorter(undistortion_options_, *reconstruction_,
-                              *options_->image_path, output_path_));
-      undistorter_->SetCallback(PMVSUndistorter::FINISHED_CALLBACK,
-                                [this]() { destructor_->trigger(); });
+      undistorter = new PMVSUndistorter(undistortion_options_, *reconstruction_,
+                                        *options_->image_path, output_path_);
     } else if (output_format_->currentIndex() == 2) {
-      undistorter_.reset(
+      undistorter =
           new CMPMVSUndistorter(undistortion_options_, *reconstruction_,
-                                *options_->image_path, output_path_));
-      undistorter_->SetCallback(CMPMVSUndistorter::FINISHED_CALLBACK,
-                                [this]() { destructor_->trigger(); });
+                                *options_->image_path, output_path_);
     } else {
       QMessageBox::critical(this, "", tr("Invalid output format"));
       return;
     }
 
-    undistorter_->Start();
-
-    ShowProgressBar();
+    thread_control_widget_->Start("Undistorting...", undistorter);
+  } else {
+    QMessageBox::critical(this, "", tr("Invalid output path"));
   }
 }
 
