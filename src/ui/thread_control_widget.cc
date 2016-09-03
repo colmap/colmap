@@ -35,8 +35,8 @@ ThreadControlWidget::ThreadControlWidget(QWidget* parent)
   });
 }
 
-void ThreadControlWidget::Start(const QString& progress_text,
-                                Thread* thread) {
+void ThreadControlWidget::StartThread(const QString& progress_text,
+                                      const bool stoppable, Thread* thread) {
   CHECK(!thread_);
   CHECK_NOTNULL(thread);
 
@@ -45,6 +45,9 @@ void ThreadControlWidget::Start(const QString& progress_text,
   if (progress_bar_ == nullptr) {
     progress_bar_ = new QProgressDialog(this);
     progress_bar_->setWindowModality(Qt::ApplicationModal);
+    progress_bar_->setWindowFlags(Qt::Dialog | Qt::WindowTitleHint |
+                                  Qt::CustomizeWindowHint);
+    progress_bar_->setLabel(new QLabel(this));
     progress_bar_->setMaximum(0);
     progress_bar_->setMinimum(0);
     progress_bar_->setValue(0);
@@ -52,13 +55,39 @@ void ThreadControlWidget::Start(const QString& progress_text,
             [this]() { destructor_->trigger(); });
   }
 
-  progress_bar_->setLabel(new QLabel(progress_text, this));
+  // Enable the cancel button if the thread is stoppable.
+  QPushButton* cancel_button =
+      progress_bar_->findChildren<QPushButton*>().at(0);
+  cancel_button->setEnabled(stoppable);
+
+  progress_bar_->setLabelText(progress_text);
+
+  // Center the progress bar wrt. the parent widget.
+  const QPoint global =
+      parentWidget()->mapToGlobal(parentWidget()->rect().center());
+  progress_bar_->move(global.x() - progress_bar_->width() / 2,
+                      global.y() - progress_bar_->height() / 2);
+
   progress_bar_->show();
   progress_bar_->raise();
 
   thread_->SetCallback(Thread::FINISHED_CALLBACK,
                        [this]() { destructor_->trigger(); });
   thread_->Start();
+}
+
+void ThreadControlWidget::StartFunction(const QString& progress_text,
+                                        const std::function<void()>& func) {
+  class FunctionThread : public Thread {
+   public:
+    FunctionThread(const std::function<void()>& func) : func_(func) {}
+
+   private:
+    void Run() { func_(); }
+    const std::function<void()> func_;
+  };
+
+  StartThread(progress_text, false, new FunctionThread(func));
 }
 
 }  // namespace colmap

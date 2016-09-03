@@ -108,7 +108,7 @@ void SIFTExtractionWidget::Run() {
                                             options_->extraction_options->cpu);
   }
 
-  thread_control_widget_->Start("Extracting...", extractor);
+  thread_control_widget_->StartThread("Extracting...", true, extractor);
 }
 
 ImportFeaturesWidget::ImportFeaturesWidget(QWidget* parent,
@@ -130,7 +130,7 @@ void ImportFeaturesWidget::Run() {
   reader_options.image_path = *options_->image_path;
 
   Thread* importer = new FeatureImporter(reader_options, import_path_);
-  thread_control_widget_->Start("Importing...", importer);
+  thread_control_widget_->StartThread("Importing...", true, importer);
 }
 
 FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,

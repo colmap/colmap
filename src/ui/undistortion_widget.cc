@@ -86,7 +86,7 @@ void UndistortionWidget::Undistort() {
       return;
     }
 
-    thread_control_widget_->Start("Undistorting...", undistorter);
+    thread_control_widget_->StartThread("Undistorting...", true, undistorter);
   } else {
     QMessageBox::critical(this, "", tr("Invalid output path"));
   }

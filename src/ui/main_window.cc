@@ -22,8 +22,7 @@ namespace colmap {
 
 MainWindow::MainWindow(const OptionManager& options)
     : options_(options),
-      import_watcher_(nullptr),
-      export_watcher_(nullptr),
+      thread_control_widget_(new ThreadControlWidget(this)),
       window_closed_(false) {
   resize(1024, 600);
   UpdateWindowTitle();
@@ -34,8 +33,6 @@ MainWindow::MainWindow(const OptionManager& options)
   CreateToolbar();
   CreateStatusbar();
   CreateControllers();
-  CreateFutures();
-  CreateProgressBar();
 
   ShowLog();
 
@@ -52,8 +49,6 @@ void MainWindow::showEvent(QShowEvent* event) {
           &MainWindow::afterShowEvent);
   after_show_event_timer_->start(100);
 }
-
-void MainWindow::moveEvent(QMoveEvent* event) { CenterProgressBar(); }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
   if (window_closed_) {
@@ -89,10 +84,7 @@ void MainWindow::closeEvent(QCloseEvent* event) {
   }
 }
 
-void MainWindow::afterShowEvent() {
-  after_show_event_timer_->stop();
-  CenterProgressBar();
-}
+void MainWindow::afterShowEvent() { after_show_event_timer_->stop(); }
 
 void MainWindow::CreateWidgets() {
   opengl_window_ = new OpenGLWindow(this, &options_);
@@ -509,38 +501,6 @@ void MainWindow::CreateControllers() {
       });
 }
 
-void MainWindow::CreateFutures() {
-  import_watcher_ = new QFutureWatcher<void>(this);
-  connect(import_watcher_, &QFutureWatcher<void>::finished, this,
-          &MainWindow::ImportFinished);
-
-  export_watcher_ = new QFutureWatcher<void>(this);
-  connect(export_watcher_, &QFutureWatcher<void>::finished, this,
-          &MainWindow::ExportFinished);
-
-  extract_colors_watcher_ = new QFutureWatcher<void>(this);
-  connect(extract_colors_watcher_, &QFutureWatcher<void>::finished, this,
-          &MainWindow::ExtractColorsFinished);
-}
-
-void MainWindow::CreateProgressBar() {
-  progress_bar_ = new QProgressDialog(this);
-  progress_bar_->setWindowModality(Qt::ApplicationModal);
-  progress_bar_->setWindowFlags(Qt::Popup);
-  progress_bar_->setCancelButton(nullptr);
-  progress_bar_->setMaximum(0);
-  progress_bar_->setMinimum(0);
-  progress_bar_->setValue(0);
-  progress_bar_->hide();
-  progress_bar_->close();
-}
-
-void MainWindow::CenterProgressBar() {
-  const QPoint global = mapToGlobal(rect().center());
-  progress_bar_->move(global.x() - progress_bar_->width() / 2,
-                      global.y() - progress_bar_->height() / 2);
-}
-
 void MainWindow::ProjectNew() {
   if (ReconstructionOverwrite()) {
     project_widget_->Reset();
@@ -658,16 +618,13 @@ void MainWindow::Import() {
     }
   }
 
-  progress_bar_->setLabelText(tr("Importing model"));
-  progress_bar_->raise();
-  progress_bar_->show();
-
-  import_watcher_->setFuture(QtConcurrent::run([this, path]() {
+  thread_control_widget_->StartFunction("Importing...", [this, path]() {
     const size_t idx = reconstruction_manager_.Read(path);
     reconstruction_manager_widget_->Update();
     reconstruction_manager_widget_->SelectReconstruction(idx);
     action_bundle_adjustment_->setEnabled(true);
-  }));
+    action_render_now_->trigger();
+  });
 }
 
 void MainWindow::ImportFrom() {
@@ -692,23 +649,15 @@ void MainWindow::ImportFrom() {
     return;
   }
 
-  progress_bar_->setLabelText(tr("Importing model"));
-  progress_bar_->raise();
-  progress_bar_->show();
-
-  import_watcher_->setFuture(QtConcurrent::run([this, path]() {
+  thread_control_widget_->StartFunction("Importing...", [this, path]() {
     const size_t reconstruction_idx = reconstruction_manager_.Add();
     reconstruction_manager_.Get(reconstruction_idx).ImportPLY(path);
     options_.render_options->min_track_len = 0;
     reconstruction_manager_widget_->Update();
     reconstruction_manager_widget_->SelectReconstruction(reconstruction_idx);
     action_bundle_adjustment_->setEnabled(true);
-  }));
-}
-
-void MainWindow::ImportFinished() {
-  RenderSelectedReconstruction();
-  progress_bar_->hide();
+    action_render_now_->trigger();
+  });
 }
 
 void MainWindow::Export() {
@@ -731,33 +680,26 @@ void MainWindow::Export() {
   const std::string cameras_path = JoinPaths(path, "cameras.txt");
   const std::string images_path = JoinPaths(path, "images.txt");
   const std::string points3D_path = JoinPaths(path, "points3D.txt");
-  const std::string images_vrml_path = JoinPaths(path, "images.wrl");
-  const std::string points3D_vrml_path = JoinPaths(path, "points3D.wrl");
 
   if (boost::filesystem::is_regular_file(project_path) ||
       boost::filesystem::is_regular_file(cameras_path) ||
       boost::filesystem::is_regular_file(images_path) ||
-      boost::filesystem::is_regular_file(points3D_path) ||
-      boost::filesystem::is_regular_file(images_vrml_path) ||
-      boost::filesystem::is_regular_file(points3D_vrml_path)) {
+      boost::filesystem::is_regular_file(points3D_path)) {
     QMessageBox::StandardButton reply = QMessageBox::question(
-        this, "", tr("The files `cameras.txt`, `images.txt`, `points3D.txt`, "
-                     "`images.wrl`, and `points3D.wrl` already exist in the "
-                     "selected destination. Do you want to overwrite them?"),
+        this, "",
+        tr("The files `cameras.txt`, `images.txt`, or `points3D.txt` already "
+           "exist in the selected destination. Do you want to overwrite them?"),
         QMessageBox::Yes | QMessageBox::No);
     if (reply == QMessageBox::No) {
       return;
     }
   }
 
-  progress_bar_->setLabelText(tr("Exporting model"));
-  progress_bar_->raise();
-  progress_bar_->show();
-
-  export_watcher_->setFuture(QtConcurrent::run([this, path, project_path]() {
-    reconstruction_manager_.Get(SelectedReconstructionIdx()).Write(path);
-    options_.Write(project_path);
-  }));
+  thread_control_widget_->StartFunction(
+      "Exporting...", [this, path, project_path]() {
+        reconstruction_manager_.Get(SelectedReconstructionIdx()).Write(path);
+        options_.Write(project_path);
+      });
 }
 
 void MainWindow::ExportAll() {
@@ -776,12 +718,9 @@ void MainWindow::ExportAll() {
     return;
   }
 
-  progress_bar_->setLabelText(tr("Exporting models"));
-  progress_bar_->raise();
-  progress_bar_->show();
-
-  export_watcher_->setFuture(QtConcurrent::run(
-      [this, path]() { reconstruction_manager_.Write(path, &options_); }));
+  thread_control_widget_->StartFunction("Exporting...", [this, path]() {
+    reconstruction_manager_.Write(path, &options_);
+  });
 }
 
 void MainWindow::ExportAs() {
@@ -803,29 +742,24 @@ void MainWindow::ExportAs() {
     return;
   }
 
-  progress_bar_->setLabelText(tr("Exporting model"));
-  progress_bar_->raise();
-  progress_bar_->show();
-
-  export_watcher_->setFuture(QtConcurrent::run([this, path, default_filter]() {
-    const Reconstruction& reconstruction =
-        reconstruction_manager_.Get(SelectedReconstructionIdx());
-    if (default_filter == "NVM (*.nvm)") {
-      reconstruction.ExportNVM(path);
-    } else if (default_filter == "Bundler (*.out)") {
-      reconstruction.ExportBundler(path, path + ".list.txt");
-    } else if (default_filter == "PLY (*.ply)") {
-      reconstruction.ExportPLY(path);
-    } else if (default_filter == "VRML (*.wrl)") {
-      const auto base_path = path.substr(0, path.find_last_of("."));
-      reconstruction.ExportVRML(base_path + ".images.wrl",
-                                base_path + ".points3D.wrl", 1,
-                                Eigen::Vector3d(1, 0, 0));
-    }
-  }));
+  thread_control_widget_->StartFunction(
+      "Exporting...", [this, path, default_filter]() {
+        const Reconstruction& reconstruction =
+            reconstruction_manager_.Get(SelectedReconstructionIdx());
+        if (default_filter == "NVM (*.nvm)") {
+          reconstruction.ExportNVM(path);
+        } else if (default_filter == "Bundler (*.out)") {
+          reconstruction.ExportBundler(path, path + ".list.txt");
+        } else if (default_filter == "PLY (*.ply)") {
+          reconstruction.ExportPLY(path);
+        } else if (default_filter == "VRML (*.wrl)") {
+          const auto base_path = path.substr(0, path.find_last_of("."));
+          reconstruction.ExportVRML(base_path + ".images.wrl",
+                                    base_path + ".points3D.wrl", 1,
+                                    Eigen::Vector3d(1, 0, 0));
+        }
+      });
 }
-
-void MainWindow::ExportFinished() { progress_bar_->hide(); }
 
 void MainWindow::FeatureExtraction() {
   if (options_.Check()) {
@@ -1107,20 +1041,11 @@ void MainWindow::ExtractColors() {
     return;
   }
 
-  progress_bar_->setLabelText(tr("Extracting colors"));
-  progress_bar_->raise();
-  progress_bar_->show();
-
-  extract_colors_watcher_->setFuture(QtConcurrent::run([this]() {
+  thread_control_widget_->StartFunction("Extracting colors...", [this]() {
     auto& reconstruction =
         reconstruction_manager_.Get(SelectedReconstructionIdx());
     reconstruction.ExtractColorsForAllImages(*options_.image_path);
-  }));
-}
-
-void MainWindow::ExtractColorsFinished() {
-  RenderNow();
-  progress_bar_->hide();
+  });
 }
 
 void MainWindow::ResetOptions() {

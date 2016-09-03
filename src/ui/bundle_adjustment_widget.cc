@@ -60,8 +60,8 @@ void BundleAdjustmentWidget::Run() {
   CHECK_NOTNULL(reconstruction_);
 
   WriteOptions();
-  thread_control_widget_->Start(
-      "Bundle adjusting...",
+  thread_control_widget_->StartThread(
+      "Bundle adjusting...", true,
       new BundleAdjustmentController(*options_, reconstruction_));
 }
 

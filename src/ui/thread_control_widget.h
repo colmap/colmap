@@ -28,9 +28,12 @@ class ThreadControlWidget : public QWidget {
  public:
   ThreadControlWidget(QWidget* parent);
 
-  void Start(const QString& progress_text, Thread* thread);
+  void StartThread(const QString& progress_text, const bool stoppable,
+                   Thread* thread);
+  void StartFunction(const QString& progress_text,
+                     const std::function<void()>& func);
 
-private:
+ private:
   QProgressDialog* progress_bar_;
   QAction* destructor_;
   std::unique_ptr<Thread> thread_;

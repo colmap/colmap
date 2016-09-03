@@ -54,7 +54,6 @@ class MainWindow : public QMainWindow {
 
  protected:
   void showEvent(QShowEvent* event);
-  void moveEvent(QMoveEvent* event);
   void closeEvent(QCloseEvent* event);
 
   // Custom event that is called after `showEvent` by a timer.
@@ -67,10 +66,6 @@ class MainWindow : public QMainWindow {
   void CreateToolbar();
   void CreateStatusbar();
   void CreateControllers();
-  void CreateFutures();
-  void CreateProgressBar();
-
-  void CenterProgressBar();
 
   void ProjectNew();
   bool ProjectOpen();
@@ -79,11 +74,9 @@ class MainWindow : public QMainWindow {
   void ProjectSaveAs();
   void Import();
   void ImportFrom();
-  void ImportFinished();
   void Export();
   void ExportAll();
   void ExportAs();
-  void ExportFinished();
 
   void FeatureExtraction();
   void FeatureMatching();
@@ -119,7 +112,6 @@ class MainWindow : public QMainWindow {
   void MatchMatrix();
   void ShowLog();
   void ExtractColors();
-  void ExtractColorsFinished();
   void ResetOptions();
 
   void About();
@@ -156,6 +148,7 @@ class MainWindow : public QMainWindow {
   ReconstructionStatsWidget* reconstruction_stats_widget_;
   MatchMatrixWidget* match_matrix_widget_;
   LicenseWidget* license_widget_;
+  ThreadControlWidget* thread_control_widget_;
 
   QToolBar* file_toolbar_;
   QToolBar* preprocessing_toolbar_;
@@ -211,12 +204,6 @@ class MainWindow : public QMainWindow {
 
   QAction* action_about_;
   QAction* action_license_;
-
-  QProgressDialog* progress_bar_;
-
-  QFutureWatcher<void>* import_watcher_;
-  QFutureWatcher<void>* export_watcher_;
-  QFutureWatcher<void>* extract_colors_watcher_;
 
   std::vector<QAction*> blocking_actions_;
 

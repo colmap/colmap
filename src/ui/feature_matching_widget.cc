@@ -122,7 +122,7 @@ void ExhaustiveMatchingTab::Run() {
   Thread* matcher = new ExhaustiveFeatureMatcher(
       options_->exhaustive_match_options->Options(),
       options_->match_options->Options(), *options_->database_path);
-  thread_control_widget_->Start("Matching...", matcher);
+  thread_control_widget_->StartThread("Matching...", true, matcher);
 }
 
 SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
@@ -154,7 +154,7 @@ void SequentialMatchingTab::Run() {
   Thread* matcher = new SequentialFeatureMatcher(
       options_->sequential_match_options->Options(),
       options_->match_options->Options(), *options_->database_path);
-  thread_control_widget_->Start("Matching...", matcher);
+  thread_control_widget_->StartThread("Matching...", true, matcher);
 }
 
 VocabTreeMatchingTab::VocabTreeMatchingTab(QWidget* parent,
@@ -179,7 +179,7 @@ void VocabTreeMatchingTab::Run() {
   Thread* matcher = new VocabTreeFeatureMatcher(
       options_->vocab_tree_match_options->Options(),
       options_->match_options->Options(), *options_->database_path);
-  thread_control_widget_->Start("Matching...", matcher);
+  thread_control_widget_->StartThread("Matching...", true, matcher);
 }
 
 SpatialMatchingTab::SpatialMatchingTab(QWidget* parent, OptionManager* options)
@@ -200,7 +200,7 @@ void SpatialMatchingTab::Run() {
   Thread* matcher = new SpatialFeatureMatcher(
       options_->spatial_match_options->Options(),
       options_->match_options->Options(), *options_->database_path);
-  thread_control_widget_->Start("Matching...", matcher);
+  thread_control_widget_->StartThread("Matching...", true, matcher);
 }
 
 CustomMatchingTab::CustomMatchingTab(QWidget* parent, OptionManager* options)
@@ -245,7 +245,7 @@ void CustomMatchingTab::Run() {
                                              *options_->database_path);
   }
 
-  thread_control_widget_->Start("Matching...", matcher);
+  thread_control_widget_->StartThread("Matching...", true, matcher);
 }
 
 FeatureMatchingWidget::FeatureMatchingWidget(QWidget* parent,
