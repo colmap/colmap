@@ -1068,7 +1068,7 @@ void MainWindow::About() {
       this, tr("About"),
       QString().sprintf("COLMAP %s<br /><br />"
                         "Author:<br />Johannes L. Schönberger<br /><br />"
-                        "Email:<br />jsch@cs.unc.edu",
+                        "Email:<br />jsch at inf.ethz.ch",
                         COLMAP_VERSION));
 }
 
