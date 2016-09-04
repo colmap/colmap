@@ -135,6 +135,13 @@ void COLMAPUndistorter::Undistort(const size_t reg_image_idx) const {
   const Image& image = reconstruction_.Image(image_id);
   const Camera& camera = reconstruction_.Camera(image.CameraId());
 
+  const std::string output_image_path =
+      JoinPaths(output_path_, "images", image.Name());
+
+  if (boost::filesystem::exists(output_image_path)) {
+    return;
+  }
+
   Bitmap distorted_bitmap;
   const std::string input_image_path = JoinPaths(image_path_, image.Name());
   if (!distorted_bitmap.Read(input_image_path)) {
@@ -148,8 +155,6 @@ void COLMAPUndistorter::Undistort(const size_t reg_image_idx) const {
   UndistortImage(options_, distorted_bitmap, camera, &undistorted_bitmap,
                  &undistorted_camera);
 
-  const std::string output_image_path =
-      JoinPaths(output_path_, "images", image.Name());
   undistorted_bitmap.Write(output_image_path);
 }
 
@@ -265,6 +270,16 @@ void PMVSUndistorter::Run() {
 }
 
 void PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
+  const std::string output_image_path = JoinPaths(
+      output_path_, StringPrintf("pmvs/visualize/%08d.jpg", reg_image_idx));
+  const std::string proj_matrix_path =
+      JoinPaths(output_path_, StringPrintf("pmvs/txt/%08d.txt", reg_image_idx));
+
+  if (boost::filesystem::exists(output_image_path) &&
+      boost::filesystem::exists(proj_matrix_path)) {
+    return;
+  }
+
   const image_t image_id = reconstruction_.RegImageIds().at(reg_image_idx);
   const Image& image = reconstruction_.Image(image_id);
   const Camera& camera = reconstruction_.Camera(image.CameraId());
@@ -283,12 +298,7 @@ void PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
   UndistortImage(options_, distorted_bitmap, camera, &undistorted_bitmap,
                  &undistorted_camera);
 
-  const std::string output_image_path = JoinPaths(
-      output_path_, StringPrintf("pmvs/visualize/%08d.jpg", reg_image_idx));
   undistorted_bitmap.Write(output_image_path);
-
-  const std::string proj_matrix_path =
-      JoinPaths(output_path_, StringPrintf("pmvs/txt/%08d.txt", reg_image_idx));
   WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image, "CONTOUR");
 }
 
@@ -399,6 +409,16 @@ void CMPMVSUndistorter::Run() {
 }
 
 void CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
+  const std::string output_image_path =
+      JoinPaths(output_path_, StringPrintf("%05d.jpg", reg_image_idx + 1));
+  const std::string proj_matrix_path =
+      JoinPaths(output_path_, StringPrintf("%05d_P.txt", reg_image_idx + 1));
+
+  if (boost::filesystem::exists(output_image_path) &&
+      boost::filesystem::exists(proj_matrix_path)) {
+    return;
+  }
+
   const image_t image_id = reconstruction_.RegImageIds().at(reg_image_idx);
   const Image& image = reconstruction_.Image(image_id);
   const Camera& camera = reconstruction_.Camera(image.CameraId());
@@ -416,12 +436,7 @@ void CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
   UndistortImage(options_, distorted_bitmap, camera, &undistorted_bitmap,
                  &undistorted_camera);
 
-  const std::string output_image_path =
-      JoinPaths(output_path_, StringPrintf("%05d.jpg", reg_image_idx + 1));
   undistorted_bitmap.Write(output_image_path);
-
-  const std::string proj_matrix_path =
-      JoinPaths(output_path_, StringPrintf("%05d_P.txt", reg_image_idx + 1));
   WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image, "CONTOUR");
 }
 

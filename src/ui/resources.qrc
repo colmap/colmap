@@ -29,6 +29,7 @@
     <file>media/reconstruction-options.png</file>
     <file>media/reconstruction-stats.png</file>
     <file>media/bundle-adjustment.png</file>
+    <file>media/multi-view-stereo.png</file>
     <file>media/render-enabled.png</file>
     <file>media/render-disabled.png</file>
     <file>media/render-reset-view.png</file>
