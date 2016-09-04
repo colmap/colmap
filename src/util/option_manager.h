@@ -266,9 +266,7 @@ struct DenseMapperOptions : public BaseOptions {
   void Reset() override;
   bool Check() override;
 
-  int image_max_size;
-  double image_scale_factor;
-
+  int max_image_size;
   mvs::PatchMatch::Options patch_match;
   mvs::FusionOptions fusion;
 };

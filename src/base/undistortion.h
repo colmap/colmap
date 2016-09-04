@@ -36,7 +36,8 @@ struct UndistortCameraOptions {
   int max_image_size = -1;
 };
 
-// Undistort images and export undistorted cameras.
+// Undistort images and export undistorted cameras, as required by the
+// mvs::PatchMatchProcessor class.
 class COLMAPUndistorter : public Thread {
  public:
   COLMAPUndistorter(const UndistortCameraOptions& options,

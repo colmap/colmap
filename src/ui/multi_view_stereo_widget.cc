@@ -25,11 +25,8 @@ namespace colmap {
 MultiViewStereoOptionsWidget::MultiViewStereoOptionsWidget(
     QWidget* parent, OptionManager* options)
     : OptionsWidget(parent) {
-  AddOptionInt(&options->dense_mapper_options->image_max_size, "image_max_size",
+  AddOptionInt(&options->dense_mapper_options->max_image_size, "max_image_size",
                0);
-  AddOptionDouble(&options->dense_mapper_options->image_scale_factor,
-                  "image_scale_factor", 0);
-
   AddOptionInt(&options->dense_mapper_options->patch_match.gpu_index,
                "gpu_index", -1);
   AddOptionInt(&options->dense_mapper_options->patch_match.window_radius,

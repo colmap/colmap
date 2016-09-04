@@ -23,7 +23,9 @@
 
 #include "mvs/depth_map.h"
 #include "mvs/image.h"
+#include "mvs/model.h"
 #include "mvs/normal_map.h"
+#include "util/threading.h"
 
 namespace colmap {
 namespace mvs {
@@ -153,6 +155,50 @@ class PatchMatch {
   const Options options_;
   const Problem problem_;
   std::unique_ptr<PatchMatchCuda> patch_match_cuda_;
+};
+
+// This thread processes all problems in a workspace. A workspace has the
+// following file structure, if the workspace format is "COLMAP":
+//
+//    images/*
+//    sparse/{cameras.txt, images.txt, points3D.txt}
+//    dense/
+//      depth_maps/*
+//      normal_maps/*
+//      consistency_graphs/*
+//    patch-match.cfg
+//
+// The `patch-match.cfg` file specifies the images to be processed as:
+//
+//    image_name1.jpg
+//    __all__
+//    image_name2.jpg
+//    __auto__, 20
+//    image_name3.jpg
+//    image_name1.jpg, image_name2.jpg
+//
+// Two consecutive lines specify the images used to compute one patch match
+// problem. The first line specifies the reference image and the second line the
+// source images. Image names are relative to the `images` directory. In this
+// example, the first reference image uses all other images as source images,
+// the second reference image uses the 20 most connected images as source
+// images, and the third reference image uses the first and second as source
+// images. Note that all specified images must be reconstructed in the COLMAP
+// reconstruction provided in the `sparse` folder.
+class PatchMatchProcessor : public Thread {
+ public:
+  PatchMatchProcessor(const PatchMatch::Options& options,
+                      const std::string& workspace_path,
+                      const std::string& workspace_format,
+                      const int max_image_size);
+
+ private:
+  void Run();
+
+  const PatchMatch::Options options_;
+  const std::string workspace_path_;
+  const std::string& workspace_format_;
+  const int max_image_size_;
 };
 
 }  // namespace mvs
