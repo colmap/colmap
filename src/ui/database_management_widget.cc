@@ -638,8 +638,6 @@ void CameraTab::Add() {
 DatabaseManagementWidget::DatabaseManagementWidget(QWidget* parent,
                                                    OptionManager* options)
     : parent_(parent), options_(options) {
-  // Do not change flag, to make sure feature database is not accessed from
-  // multiple threads
   setWindowFlags(Qt::Window);
   setWindowTitle("Database management");
   resize(parent->size().width() - 20, parent->size().height() - 20);

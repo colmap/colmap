@@ -99,7 +99,7 @@ void ProjectWidget::Save() {
 
     hide();
   } else {
-    QMessageBox::critical(this, "", tr("Invalid paths."));
+    QMessageBox::critical(this, "", tr("Invalid paths"));
   }
 }
 

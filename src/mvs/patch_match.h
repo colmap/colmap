@@ -45,27 +45,27 @@ class PatchMatch {
     int gpu_index = -1;
 
     // Depth range in which to randomly sample depth hypotheses.
-    float depth_min = 0.0f;
-    float depth_max = 1.0f;
+    double depth_min = 0.0f;
+    double depth_max = 1.0f;
 
     // Half window size to compute NCC photo-consistency cost.
     int window_radius = 5;
 
     // Parameters for bilaterally weighted NCC.
-    float sigma_spatial = window_radius;
-    float sigma_color = 0.2f;
+    double sigma_spatial = window_radius;
+    double sigma_color = 0.2f;
 
     // Number of random samples to draw in Monte Carlo sampling.
     int num_samples = 15;
 
     // Spread of the NCC likelihood function.
-    float ncc_sigma = 0.6f;
+    double ncc_sigma = 0.6f;
 
     // Minimum triangulation angle in degrees.
-    float min_triangulation_angle = 0.5f;
+    double min_triangulation_angle = 0.5f;
 
     // Spread of the incident angle likelihood function.
-    float incident_angle_sigma = 0.9f;
+    double incident_angle_sigma = 0.9f;
 
     // Number of coordinate descent iterations. Each iteration consists
     // of four sweeps from left to right, top to bottom, and vice versa.
@@ -77,28 +77,28 @@ class PatchMatch {
 
     // The relative weight of the geometric consistency term w.r.t. to
     // the photo-consistency term.
-    float geom_consistency_regularizer = 0.3f;
+    double geom_consistency_regularizer = 0.3f;
 
     // Maximum geometric consistency cost in terms of the forward-backward
     // reprojection error in pixels.
-    float geom_consistency_max_cost = 3.0f;
+    double geom_consistency_max_cost = 3.0f;
 
     // Whether to enable filtering.
     bool filter = true;
 
     // Minimum NCC coefficient for pixel to be photo-consistent.
-    float filter_min_ncc = 0.1f;
+    double filter_min_ncc = 0.1f;
 
     // Minimum triangulation angle to be stable.
-    float filter_min_triangulation_angle = 3.0f;
+    double filter_min_triangulation_angle = 3.0f;
 
     // Minimum number of source images have to be consistent
     // for pixel not to be filtered.
-    float filter_min_num_consistent = 2;
+    int filter_min_num_consistent = 2;
 
     // Maximum forward-backward reprojection error for pixel
     // to be geometrically consistent.
-    float filter_geom_consistency_max_cost = 1.0f;
+    double filter_geom_consistency_max_cost = 1.0f;
 
     // Print the options to stdout.
     void Print() const;

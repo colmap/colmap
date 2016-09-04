@@ -793,7 +793,7 @@ struct SweepOptions {
   float geom_consistency_max_cost = 5.0f;
   float filter_min_ncc = 0.1f;
   float filter_min_triangulation_angle = 3.0f;
-  float filter_min_num_consistent = 2;
+  int filter_min_num_consistent = 2;
   float filter_geom_consistency_max_cost = 1.0f;
 };
 

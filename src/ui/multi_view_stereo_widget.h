@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef COLMAP_SRC_UI_BUNDLE_ADJUSTMENT_WIDGET_H_
-#define COLMAP_SRC_UI_BUNDLE_ADJUSTMENT_WIDGET_H_
+#ifndef COLMAP_SRC_UI_MULTI_VIEW_STEREO_WIDGET_H_
+#define COLMAP_SRC_UI_MULTI_VIEW_STEREO_WIDGET_H_
 
 #include <QtCore>
 #include <QtWidgets>
@@ -26,20 +26,29 @@
 
 namespace colmap {
 
-class BundleAdjustmentWidget : public OptionsWidget {
+class MultiViewStereoOptionsWidget : public OptionsWidget {
  public:
-  BundleAdjustmentWidget(QWidget* parent, OptionManager* options);
+  MultiViewStereoOptionsWidget(QWidget* parent, OptionManager* options);
+};
+
+class MultiViewStereoWidget : public QWidget {
+ public:
+  MultiViewStereoWidget(QWidget* parent, OptionManager* options);
 
   void Show(Reconstruction* reconstruction);
 
-private:
+ private:
   void Run();
+  void SelectWorkspacePath();
 
   OptionManager* options_;
   Reconstruction* reconstruction_;
   ThreadControlWidget* thread_control_widget_;
+  MultiViewStereoOptionsWidget* options_widget_;
+  QLineEdit* workspace_path_text_;
+  QTableWidget* table_widget_;
 };
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_UI_BUNDLE_ADJUSTMENT_WIDGET_H_
+#endif  // COLMAP_SRC_UI_MULTI_VIEW_STEREO_WIDGET_H_

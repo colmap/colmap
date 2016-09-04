@@ -16,6 +16,8 @@
 
 #include "ui/bundle_adjustment_widget.h"
 
+#include "sfm/controllers.h"
+
 namespace colmap {
 
 BundleAdjustmentWidget::BundleAdjustmentWidget(QWidget* parent,

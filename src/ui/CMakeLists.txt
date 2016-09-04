@@ -17,6 +17,7 @@ COLMAP_ADD_LIBRARY(ui
     main_window.h main_window.cc
     match_matrix_widget.h match_matrix_widget.cc
     movie_grabber_widget.h movie_grabber_widget.cc
+    multi_view_stereo_widget.h multi_view_stereo_widget.cc
     opengl_window.h opengl_window.cc
     options_widget.h options_widget.cc
     point_painter.h point_painter.cc

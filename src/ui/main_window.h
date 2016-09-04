@@ -30,6 +30,7 @@
 #include "ui/license_widget.h"
 #include "ui/log_widget.h"
 #include "ui/match_matrix_widget.h"
+#include "ui/multi_view_stereo_widget.h"
 #include "ui/project_widget.h"
 #include "ui/opengl_window.h"
 #include "ui/reconstruction_manager_widget.h"
@@ -87,6 +88,7 @@ class MainWindow : public QMainWindow {
   bool ReconstructionOverwrite();
 
   void BundleAdjustment();
+  void MultiViewStereo();
 
   void Render();
   void RenderNow();
@@ -136,6 +138,7 @@ class MainWindow : public QMainWindow {
   DatabaseManagementWidget* database_management_widget_;
   ReconstructionOptionsWidget* reconstruction_options_widget_;
   BundleAdjustmentWidget* bundle_adjustment_widget_;
+  MultiViewStereoWidget* multi_view_stereo_widget_;
   RenderOptionsWidget* render_options_widget_;
   LogWidget* log_widget_;
   UndistortionWidget* undistortion_widget_;
@@ -181,6 +184,7 @@ class MainWindow : public QMainWindow {
   QAction* action_reconstruction_options_;
 
   QAction* action_bundle_adjustment_;
+  QAction* action_multi_view_stereo_;
 
   QAction* action_render_;
   QAction* action_render_now_;

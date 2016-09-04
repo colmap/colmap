@@ -57,7 +57,8 @@ class ImportFeaturesWidget : public ExtractionWidget {
 };
 
 ExtractionWidget::ExtractionWidget(QWidget* parent, OptionManager* options)
-    : options_(options),
+    : OptionsWidget(parent),
+      options_(options),
       thread_control_widget_(new ThreadControlWidget(this)) {}
 
 SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,

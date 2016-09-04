@@ -100,6 +100,7 @@ void MainWindow::CreateWidgets() {
   reconstruction_options_widget_ =
       new ReconstructionOptionsWidget(this, &options_);
   bundle_adjustment_widget_ = new BundleAdjustmentWidget(this, &options_);
+  multi_view_stereo_widget_ = new MultiViewStereoWidget(this, &options_);
   render_options_widget_ =
       new RenderOptionsWidget(this, &options_, opengl_window_);
   log_widget_ = new LogWidget(this, &options_);
@@ -255,6 +256,13 @@ void MainWindow::CreateActions() {
   action_bundle_adjustment_->setEnabled(false);
   blocking_actions_.push_back(action_bundle_adjustment_);
 
+  action_multi_view_stereo_ = new QAction(
+      QIcon(":/media/multi-view-stereo.png"), tr("Multi-view stereo"), this);
+  connect(action_multi_view_stereo_, &QAction::triggered, this,
+          &MainWindow::MultiViewStereo);
+  action_multi_view_stereo_->setEnabled(false);
+  blocking_actions_.push_back(action_multi_view_stereo_);
+
   //////////////////////////////////////////////////////////////////////////////
   // Render actions
   //////////////////////////////////////////////////////////////////////////////
@@ -376,6 +384,7 @@ void MainWindow::CreateMenus() {
   reconstruction_menu->addAction(action_reconstruction_normalize_);
   reconstruction_menu->addAction(action_reconstruction_options_);
   reconstruction_menu->addAction(action_bundle_adjustment_);
+  reconstruction_menu->addAction(action_multi_view_stereo_);
   menuBar()->addAction(reconstruction_menu->menuAction());
 
   QMenu* render_menu = new QMenu(tr("Render"), this);
@@ -429,6 +438,7 @@ void MainWindow::CreateToolbar() {
   reconstruction_toolbar_->addAction(action_reconstruction_normalize_);
   reconstruction_toolbar_->addAction(action_reconstruction_options_);
   reconstruction_toolbar_->addAction(action_bundle_adjustment_);
+  reconstruction_toolbar_->addAction(action_multi_view_stereo_);
   reconstruction_toolbar_->setIconSize(QSize(16, 16));
 
   render_toolbar_ = addToolBar(tr("Render"));
@@ -899,6 +909,15 @@ void MainWindow::BundleAdjustment() {
   }
 
   bundle_adjustment_widget_->Show(
+      &reconstruction_manager_.Get(SelectedReconstructionIdx()));
+}
+
+void MainWindow::MultiViewStereo() {
+  if (!IsSelectedReconstructionValid()) {
+    return;
+  }
+
+  multi_view_stereo_widget_->Show(
       &reconstruction_manager_.Get(SelectedReconstructionIdx()));
 }
 
