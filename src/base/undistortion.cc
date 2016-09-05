@@ -165,7 +165,7 @@ void COLMAPUndistorter::WritePatchMatchConfig() const {
   for (const auto image_id : reconstruction_.RegImageIds()) {
     const auto& image = reconstruction_.Image(image_id);
     file << image.Name() << std::endl;
-    file << "__auto__, 30" << std::endl;
+    file << "__auto__, 20" << std::endl;
   }
 }
 
