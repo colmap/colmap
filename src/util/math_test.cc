@@ -100,6 +100,23 @@ BOOST_AUTO_TEST_CASE(TestMedian) {
   BOOST_CHECK_EQUAL(Median<int>({-1, -2, 3, 4}), 1);
 }
 
+BOOST_AUTO_TEST_CASE(TestPercentile) {
+  BOOST_CHECK_EQUAL(Percentile<int>({0}, 0), 0);
+  BOOST_CHECK_EQUAL(Percentile<int>({0}, 50), 0);
+  BOOST_CHECK_EQUAL(Percentile<int>({0}, 100), 0);
+  BOOST_CHECK_EQUAL(Percentile<int>({0, 1}, 0), 0);
+  BOOST_CHECK_EQUAL(Percentile<int>({0, 1}, 50), 1);
+  BOOST_CHECK_EQUAL(Percentile<int>({0, 1}, 100), 1);
+  BOOST_CHECK_EQUAL(Percentile<int>({0, 1, 2}, 0), 0);
+  BOOST_CHECK_EQUAL(Percentile<int>({0, 1, 2}, 50), 1);
+  BOOST_CHECK_EQUAL(Percentile<int>({0, 1, 2}, 100), 2);
+  BOOST_CHECK_EQUAL(Percentile<int>({0, 1, 1, 2}, 0), 0);
+  BOOST_CHECK_EQUAL(Percentile<int>({0, 1, 1, 2}, 33), 1);
+  BOOST_CHECK_EQUAL(Percentile<int>({0, 1, 1, 2}, 50), 1);
+  BOOST_CHECK_EQUAL(Percentile<int>({0, 1, 1, 2}, 66), 1);
+  BOOST_CHECK_EQUAL(Percentile<int>({0, 1, 1, 2}, 100), 2);
+}
+
 BOOST_AUTO_TEST_CASE(TestMean) {
   BOOST_CHECK_EQUAL(Mean<int>({1, 2, 3, 4}), 2.5);
   BOOST_CHECK_EQUAL(Mean<int>({1, 2, 3, 100}), 26.5);

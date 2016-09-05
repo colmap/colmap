@@ -122,6 +122,10 @@ size_t NChooseK(const size_t n, const size_t k);
 template <typename T1, typename T2>
 T2 TruncateCast(const T1 value);
 
+// Compute the n-th percentile in the given sequence.
+template <typename T>
+T Percentile(const std::vector<T>& elems, const double p);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
@@ -216,9 +220,9 @@ double Median(const std::vector<T>& elems) {
   const size_t mid_idx = elems.size() / 2;
 
   std::vector<T> ordered_elems = elems;
-
   std::nth_element(ordered_elems.begin(), ordered_elems.begin() + mid_idx,
                    ordered_elems.end());
+
   if (elems.size() % 2 == 0) {
     const T mid_element1 = ordered_elems[mid_idx];
     const T mid_element2 = *std::max_element(ordered_elems.begin(),
@@ -227,6 +231,23 @@ double Median(const std::vector<T>& elems) {
   } else {
     return ordered_elems[mid_idx];
   }
+}
+
+template <typename T>
+T Percentile(const std::vector<T>& elems, const double p) {
+  CHECK(!elems.empty());
+  CHECK_GE(p, 0);
+  CHECK_LE(p, 100);
+
+  const int idx = static_cast<int>(std::round(p / 100 * (elems.size() - 1)));
+  const size_t percentile_idx =
+      std::max(0, std::min(static_cast<int>(elems.size() - 1), idx));
+
+  std::vector<T> ordered_elems = elems;
+  std::nth_element(ordered_elems.begin(),
+                   ordered_elems.begin() + percentile_idx, ordered_elems.end());
+
+  return ordered_elems.at(percentile_idx);
 }
 
 template <typename T>
