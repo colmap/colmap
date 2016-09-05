@@ -23,11 +23,46 @@
 #include "util/misc.h"
 
 namespace colmap {
+namespace {
+
+// Read the specified reference image names from a patch match configuration.
+std::vector<std::string> ReadRefImageNamesFromConfig(
+    const std::string& config_path) {
+  std::ifstream file(config_path);
+  CHECK(file.is_open());
+
+  std::string line;
+  std::string ref_image_name;
+  std::vector<std::string> ref_image_names;
+  while (std::getline(file, line)) {
+    StringTrim(&line);
+
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+
+    if (ref_image_name.empty()) {
+      ref_image_name = line;
+      ref_image_names.push_back(ref_image_name);
+      continue;
+    } else {
+      ref_image_name.clear();
+    }
+  }
+
+  return ref_image_names;
+}
+}
 
 MultiViewStereoOptionsWidget::MultiViewStereoOptionsWidget(
     QWidget* parent, OptionManager* options)
     : OptionsWidget(parent) {
   setWindowTitle("Multi-view stereo options");
+
+  // Set a relatively small default image size to avoid too long computation.
+  if (options->dense_mapper_options->max_image_size == 0) {
+    options->dense_mapper_options->max_image_size = 1600;
+  }
 
   AddOptionInt(&options->dense_mapper_options->max_image_size, "max_image_size",
                0);
@@ -85,10 +120,10 @@ MultiViewStereoWidget::MultiViewStereoWidget(QWidget* parent,
 
   QGridLayout* grid = new QGridLayout(this);
 
-  QPushButton* prepare_button = new QPushButton(tr("Prepare"), this);
-  connect(prepare_button, &QPushButton::released, this,
+  prepare_button_ = new QPushButton(tr("Prepare"), this);
+  connect(prepare_button_, &QPushButton::released, this,
           &MultiViewStereoWidget::Prepare);
-  grid->addWidget(prepare_button, 0, 0, Qt::AlignLeft);
+  grid->addWidget(prepare_button_, 0, 0, Qt::AlignLeft);
 
   run_button_ = new QPushButton(tr("Run"), this);
   connect(run_button_, &QPushButton::released, this,
@@ -105,6 +140,8 @@ MultiViewStereoWidget::MultiViewStereoWidget(QWidget* parent,
 
   workspace_path_text_ = new QLineEdit(this);
   grid->addWidget(workspace_path_text_, 0, 4, Qt::AlignRight);
+  connect(workspace_path_text_, &QLineEdit::textChanged, this,
+          &MultiViewStereoWidget::RefreshWorkspace);
 
   QPushButton* workspace_path_button = new QPushButton(tr("Select"), this);
   connect(workspace_path_button, &QPushButton::released, this,
@@ -112,8 +149,8 @@ MultiViewStereoWidget::MultiViewStereoWidget(QWidget* parent,
   grid->addWidget(workspace_path_button, 0, 5, Qt::AlignRight);
 
   QStringList table_header;
-  table_header << "image_id"
-               << "image_name"
+  table_header << "image_name"
+               << ""
                << "photometric"
                << "geometric";
 
@@ -125,12 +162,13 @@ MultiViewStereoWidget::MultiViewStereoWidget(QWidget* parent,
   table_widget_->setSelectionBehavior(QAbstractItemView::SelectRows);
   table_widget_->setSelectionMode(QAbstractItemView::SingleSelection);
   table_widget_->setEditTriggers(QAbstractItemView::NoEditTriggers);
-  table_widget_->verticalHeader()->setVisible(false);
-  table_widget_->verticalHeader()->setDefaultSectionSize(20);
+  table_widget_->verticalHeader()->setDefaultSectionSize(25);
 
   grid->addWidget(table_widget_, 1, 0, 1, 6);
 
   grid->setColumnStretch(2, 1);
+
+  image_viewer_widget_ = new ImageViewerWidget(this);
 
   RefreshWorkspace();
 }
@@ -197,26 +235,107 @@ std::string MultiViewStereoWidget::GetWorkspacePath() {
 void MultiViewStereoWidget::RefreshWorkspace() {
   const std::string workspace_path =
       workspace_path_text_->text().toUtf8().constData();
-  if (!boost::filesystem::is_directory(workspace_path)) {
+  if (boost::filesystem::is_directory(workspace_path)) {
+    prepare_button_->setEnabled(true);
+  } else {
+    prepare_button_->setEnabled(false);
     run_button_->setEnabled(false);
     return;
   }
 
-  if (boost::filesystem::is_directory(JoinPaths(workspace_path, "images")) &&
+  images_path_ = JoinPaths(workspace_path, "images");
+  depth_maps_path_ = JoinPaths(workspace_path, "dense/depth_maps");
+  normal_maps_path_ = JoinPaths(workspace_path, "dense/normal_maps");
+  const std::string config_path =
+      JoinPaths(workspace_path, "dense/patch-match.cfg");
+
+  if (boost::filesystem::is_directory(images_path_) &&
+      boost::filesystem::is_directory(depth_maps_path_) &&
+      boost::filesystem::is_directory(normal_maps_path_) &&
       boost::filesystem::is_directory(JoinPaths(workspace_path, "sparse")) &&
       boost::filesystem::is_directory(
-          JoinPaths(workspace_path, "dense/depth_maps")) &&
-      boost::filesystem::is_directory(
-          JoinPaths(workspace_path, "dense/normal_maps")) &&
-      boost::filesystem::is_directory(
           JoinPaths(workspace_path, "dense/consistency_graphs")) &&
-      boost::filesystem::exists(
-          JoinPaths(workspace_path, "dense/patch-match.cfg"))) {
+      boost::filesystem::exists(config_path)) {
     run_button_->setEnabled(true);
   } else {
     run_button_->setEnabled(false);
     return;
   }
+
+  const std::vector<std::string> image_names =
+      ReadRefImageNamesFromConfig(config_path);
+
+  table_widget_->clearContents();
+  table_widget_->setRowCount(image_names.size());
+
+  for (size_t i = 0; i < image_names.size(); ++i) {
+    const std::string image_name = image_names[i];
+    const std::string image_path = JoinPaths(images_path_, image_name);
+
+    QTableWidgetItem* image_name_item =
+        new QTableWidgetItem(QString::fromStdString(image_name));
+    table_widget_->setItem(i, 0, image_name_item);
+
+    QPushButton* image_button = new QPushButton("Image");
+    connect(image_button, &QPushButton::released,
+            [this, image_name, image_path]() {
+              image_viewer_widget_->setWindowTitle(
+                  QString("Image for %1").arg(image_name.c_str()));
+              image_viewer_widget_->ReadAndShow(image_path, true);
+            });
+    table_widget_->setCellWidget(i, 1, image_button);
+
+    table_widget_->setCellWidget(
+        i, 2, GenerateTableButtonWidget(image_name, ".photometric.bin"));
+    table_widget_->setCellWidget(
+        i, 3, GenerateTableButtonWidget(image_name, ".geometric.bin"));
+  }
+
+  table_widget_->resizeColumnsToContents();
+}
+
+QWidget* MultiViewStereoWidget::GenerateTableButtonWidget(
+    const std::string& image_name, const std::string& suffix) {
+  const std::string depth_map_path =
+      JoinPaths(depth_maps_path_, image_name + suffix);
+  const std::string normal_map_path =
+      JoinPaths(normal_maps_path_, image_name + suffix);
+
+  QWidget* button_widget = new QWidget();
+  QGridLayout* button_layout = new QGridLayout(button_widget);
+  button_layout->setContentsMargins(1, 1, 1, 1);
+
+  QPushButton* depth_map_button = new QPushButton("Depth map", button_widget);
+  if (boost::filesystem::exists(depth_map_path)) {
+    connect(depth_map_button, &QPushButton::released,
+            [this, image_name, depth_map_path]() {
+              mvs::DepthMap depth_map;
+              depth_map.Read(depth_map_path);
+              image_viewer_widget_->setWindowTitle(
+                  QString("Depth map for %1").arg(image_name.c_str()));
+              image_viewer_widget_->ShowBitmap(depth_map.ToBitmap(2, 98), true);
+            });
+  } else {
+    depth_map_button->setEnabled(false);
+  }
+  button_layout->addWidget(depth_map_button, 0, 1, Qt::AlignLeft);
+
+  QPushButton* normal_map_button = new QPushButton("Normal map", button_widget);
+  if (boost::filesystem::exists(normal_map_path)) {
+    connect(normal_map_button, &QPushButton::released,
+            [this, image_name, normal_map_path]() {
+              mvs::NormalMap normal_map;
+              normal_map.Read(normal_map_path);
+              image_viewer_widget_->setWindowTitle(
+                  QString("Normal map for %1").arg(image_name.c_str()));
+              image_viewer_widget_->ShowBitmap(normal_map.ToBitmap(), true);
+            });
+  } else {
+    normal_map_button->setEnabled(false);
+  }
+  button_layout->addWidget(normal_map_button, 0, 2, Qt::AlignLeft);
+
+  return button_widget;
 }
 
 }  // namespace colmap

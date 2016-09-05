@@ -17,36 +17,20 @@
 #ifndef COLMAP_SRC_UI_MATCH_MATRIX_WIDGET_H_
 #define COLMAP_SRC_UI_MATCH_MATRIX_WIDGET_H_
 
-#include <QtWidgets>
-
-#include "base/database.h"
+#include "ui/image_viewer_widget.h"
 #include "util/option_manager.h"
 
 namespace colmap {
 
 // Widget to visualize match matrix.
-class MatchMatrixWidget : public QWidget {
+class MatchMatrixWidget : public ImageViewerWidget {
  public:
   MatchMatrixWidget(QWidget* parent, OptionManager* options);
 
   void Update();
 
  private:
-  static const double kZoomFactor;
-
-  void closeEvent(QCloseEvent* event);
-
-  void ScaleImage(const double scale);
-  void ZoomIn();
-  void ZoomOut();
-
   OptionManager* options_;
-
-  QLabel* image_label_;
-  QPixmap image_;
-  QScrollArea* image_scroll_area_;
-
-  double current_scale_;
 };
 
 }  // namespace colmap

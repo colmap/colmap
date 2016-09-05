@@ -32,55 +32,60 @@ namespace colmap {
 
 class OpenGLWindow;
 
-class BasicImageViewerWidget : public QWidget {
+class ImageViewerWidget : public QWidget {
  public:
-  BasicImageViewerWidget(QWidget* parent, const std::string& switch_text);
+  ImageViewerWidget(QWidget* parent);
 
-  void Show(const std::string& path, const FeatureKeypoints& keypoints,
-            const std::vector<char>& tri_mask);
+  void ShowBitmap(const Bitmap& bitmap, const bool rescale);
+  void ShowPixmap(const QPixmap& pixmap, const bool rescale);
+  void ReadAndShow(const std::string& path, const bool rescale);
 
  protected:
   static const double kZoomFactor;
 
   void closeEvent(QCloseEvent* event);
-
-  void ScaleImage(const double scale);
+  void Rescale(const double scale);
   void ZoomIn();
   void ZoomOut();
-  void ShowOrHide();
 
-  OpenGLWindow* opengl_window_;
-
-  QGridLayout* grid_;
+  QPixmap pixmap_;
+  QGridLayout* grid_layout_;
   QHBoxLayout* button_layout_;
+  QLabel* image_label_;
+  QScrollArea* image_scroll_area_;
+  double zoom_scale_;
+};
+
+class FeatureImageViewerWidget : public ImageViewerWidget {
+ public:
+  FeatureImageViewerWidget(QWidget* parent, const std::string& switch_text);
+
+  void ReadAndShowWithKeypoints(const std::string& path,
+                                const FeatureKeypoints& keypoints,
+                                const std::vector<char>& tri_mask);
+
+  void ReadAndShowWithMatches(const std::string& path1,
+                              const std::string& path2,
+                              const FeatureKeypoints& keypoints1,
+                              const FeatureKeypoints& keypoints2,
+                              const FeatureMatches& matches);
+
+ protected:
+  void ShowOrHide(const bool rescale);
 
   QPixmap image1_;
   QPixmap image2_;
-
-  QPushButton* show_button_;
-  QLabel* image_label_;
-  QScrollArea* image_scroll_area_;
-
-  double current_scale_;
-  bool switch_;
+  bool switch_state_;
+  QPushButton* switch_button_;
   const std::string switch_text_;
 };
 
-class MatchesImageViewerWidget : public BasicImageViewerWidget {
+class DatabaseImageViewerWidget : public FeatureImageViewerWidget {
  public:
-  MatchesImageViewerWidget(QWidget* parent);
+  DatabaseImageViewerWidget(QWidget* parent, OpenGLWindow* opengl_window,
+                            OptionManager* options);
 
-  void Show(const std::string& path1, const std::string& path2,
-            const FeatureKeypoints& keypoints1,
-            const FeatureKeypoints& keypoints2, const FeatureMatches& matches);
-};
-
-class ImageViewerWidget : public BasicImageViewerWidget {
- public:
-  ImageViewerWidget(QWidget* parent, OpenGLWindow* opengl_window,
-                    OptionManager* options);
-
-  void Show(const image_t image_id);
+  void ShowImageWithId(const image_t image_id);
 
  private:
   void ResizeTable();

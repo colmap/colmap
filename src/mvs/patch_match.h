@@ -197,7 +197,7 @@ class PatchMatchProcessor : public Thread {
 
   const PatchMatch::Options options_;
   const std::string workspace_path_;
-  const std::string& workspace_format_;
+  const std::string workspace_format_;
   const int max_image_size_;
 };
 

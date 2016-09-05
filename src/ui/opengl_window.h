@@ -170,7 +170,7 @@ class OpenGLWindow : public QWindow {
   TrianglePainter movie_grabber_triangle_painter_;
 
   PointViewerWidget* point_viewer_widget_;
-  ImageViewerWidget* image_viewer_widget_;
+  DatabaseImageViewerWidget* image_viewer_widget_;
   MovieGrabberWidget* movie_grabber_widget_;
 
   ProjectionType projection_type_;

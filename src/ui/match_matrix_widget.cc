@@ -16,47 +16,14 @@
 
 #include "ui/match_matrix_widget.h"
 
+#include "base/database.h"
 #include "ui/colormaps.h"
 
 namespace colmap {
 
-const double MatchMatrixWidget::kZoomFactor = 1.33;
-
 MatchMatrixWidget::MatchMatrixWidget(QWidget* parent, OptionManager* options)
-    : QWidget(parent), options_(options), current_scale_(1.0) {
-  setWindowFlags(Qt::Window);
-  resize(parent->width() - 20, parent->height() - 20);
+    : ImageViewerWidget(parent), options_(options) {
   setWindowTitle("Match matrix");
-
-  QGridLayout* grid = new QGridLayout(this);
-  grid->setContentsMargins(5, 5, 5, 5);
-
-  image_label_ = new QLabel(this);
-  image_scroll_area_ = new QScrollArea(this);
-  image_scroll_area_->setWidget(image_label_);
-
-  grid->addWidget(image_scroll_area_, 0, 0);
-
-  QHBoxLayout* button_layout = new QHBoxLayout();
-
-  QFont font;
-  font.setPointSize(10);
-
-  QPushButton* zoom_in_button = new QPushButton(tr("+"), this);
-  zoom_in_button->setFont(font);
-  zoom_in_button->setFixedWidth(50);
-  button_layout->addWidget(zoom_in_button);
-  connect(zoom_in_button, &QPushButton::released, this,
-          &MatchMatrixWidget::ZoomIn);
-
-  QPushButton* zoom_out_button = new QPushButton(tr("-"), this);
-  zoom_out_button->setFont(font);
-  zoom_out_button->setFixedWidth(50);
-  button_layout->addWidget(zoom_out_button);
-  connect(zoom_out_button, &QPushButton::released, this,
-          &MatchMatrixWidget::ZoomOut);
-
-  grid->addLayout(button_layout, 1, 0, Qt::AlignRight);
 }
 
 void MatchMatrixWidget::Update() {
@@ -70,8 +37,9 @@ void MatchMatrixWidget::Update() {
             });
 
   // Allocate the match matrix image.
-  QImage match_matrix(images.size(), images.size(), QImage::Format_RGB32);
-  match_matrix.fill(Qt::white);
+  Bitmap match_matrix;
+  match_matrix.Allocate(images.size(), images.size(), true);
+  match_matrix.Fill(BitmapColor<uint8_t>(255, 255, 255));
 
   // Map image identifiers to match matrix locations.
   std::unordered_map<image_t, size_t> image_id_to_idx;
@@ -91,42 +59,15 @@ void MatchMatrixWidget::Update() {
       const double value = std::log(1.0 + num_inliers[i]) / max_value;
       const size_t idx1 = image_id_to_idx.at(image_pairs[i].first);
       const size_t idx2 = image_id_to_idx.at(image_pairs[i].second);
-      const QColor color(255 * JetColormap::Red(value),
-                         255 * JetColormap::Green(value),
-                         255 * JetColormap::Blue(value));
-      match_matrix.setPixel(idx1, idx2, color.rgba());
-      match_matrix.setPixel(idx2, idx1, color.rgba());
+      const BitmapColor<float> color(255 * JetColormap::Red(value),
+                                     255 * JetColormap::Green(value),
+                                     255 * JetColormap::Blue(value));
+      match_matrix.SetPixel(idx1, idx2, color.Cast<uint8_t>());
+      match_matrix.SetPixel(idx2, idx1, color.Cast<uint8_t>());
     }
   }
 
-  // Remember the original image for zoom in/out.
-  image_ = QPixmap::fromImage(match_matrix);
-
-  current_scale_ = 1.0;
-  const double scale =
-      (image_scroll_area_->height() - 5) / static_cast<double>(image_.height());
-  ScaleImage(scale);
+  ShowBitmap(match_matrix, true);
 }
-
-void MatchMatrixWidget::closeEvent(QCloseEvent* event) {
-  image_ = QPixmap();
-  image_label_->clear();
-}
-
-void MatchMatrixWidget::ScaleImage(const double scale) {
-  current_scale_ *= scale;
-
-  const Qt::TransformationMode transform_mode =
-      current_scale_ > 1.0 ? Qt::FastTransformation : Qt::SmoothTransformation;
-
-  image_label_->setPixmap(image_.scaledToWidth(
-      static_cast<int>(current_scale_ * image_.width()), transform_mode));
-
-  image_label_->adjustSize();
-}
-
-void MatchMatrixWidget::ZoomIn() { ScaleImage(kZoomFactor); }
-
-void MatchMatrixWidget::ZoomOut() { ScaleImage(1.0 / kZoomFactor); }
 
 }  // namespace colmap

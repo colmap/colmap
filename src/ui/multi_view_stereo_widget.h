@@ -20,6 +20,7 @@
 #include <QtCore>
 #include <QtWidgets>
 
+#include "ui/image_viewer_widget.h"
 #include "ui/options_widget.h"
 #include "ui/thread_control_widget.h"
 #include "util/option_manager.h"
@@ -40,17 +41,27 @@ class MultiViewStereoWidget : public QWidget {
  private:
   void Prepare();
   void Run();
+
   void SelectWorkspacePath();
   std::string GetWorkspacePath();
   void RefreshWorkspace();
+
+  QWidget* GenerateTableButtonWidget(const std::string& image_name,
+                                     const std::string& suffix);
 
   OptionManager* options_;
   Reconstruction* reconstruction_;
   ThreadControlWidget* thread_control_widget_;
   MultiViewStereoOptionsWidget* options_widget_;
+  ImageViewerWidget* image_viewer_widget_;
   QLineEdit* workspace_path_text_;
   QTableWidget* table_widget_;
+  QPushButton* prepare_button_;
   QPushButton* run_button_;
+
+  std::string images_path_;
+  std::string depth_maps_path_;
+  std::string normal_maps_path_;
 };
 
 }  // namespace colmap

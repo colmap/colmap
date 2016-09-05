@@ -57,7 +57,7 @@ class MatchesTab : public QWidget {
 
   QTableWidget* table_widget_;
   QLabel* info_label_;
-  MatchesImageViewerWidget* matches_viewer_;
+  FeatureImageViewerWidget* matches_viewer_widget_;
 };
 
 class RawMatchesTab : public MatchesTab {
@@ -121,7 +121,7 @@ class ImageTab : public QWidget {
 
   MatchesWidget* matches_widget_;
 
-  BasicImageViewerWidget* image_viewer_;
+  FeatureImageViewerWidget* image_viewer_widget_;
 };
 
 class CameraTab : public QWidget {

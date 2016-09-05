@@ -165,7 +165,8 @@ OpenGLWindow::OpenGLWindow(QWidget* parent, OptionManager* options,
     : QWindow(screen),
       options_(options),
       point_viewer_widget_(new PointViewerWidget(parent, this, options)),
-      image_viewer_widget_(new ImageViewerWidget(parent, this, options)),
+      image_viewer_widget_(
+          new DatabaseImageViewerWidget(parent, this, options)),
       movie_grabber_widget_(new MovieGrabberWidget(parent, this)),
       projection_type_(ProjectionType::ORTHOGRAPHIC),
       mouse_is_pressed_(false),
@@ -462,15 +463,11 @@ QImage OpenGLWindow::GrabImage() {
 void OpenGLWindow::GrabMovie() { movie_grabber_widget_->show(); }
 
 void OpenGLWindow::ShowPointInfo(const point3D_t point3D_id) {
-  point_viewer_widget_->show();
-  point_viewer_widget_->raise();
   point_viewer_widget_->Show(point3D_id);
 }
 
 void OpenGLWindow::ShowImageInfo(const image_t image_id) {
-  image_viewer_widget_->show();
-  image_viewer_widget_->raise();
-  image_viewer_widget_->Show(image_id);
+  image_viewer_widget_->ShowImageWithId(image_id);
 }
 
 float OpenGLWindow::PointSize() const { return point_size_; }
