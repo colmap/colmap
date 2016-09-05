@@ -157,6 +157,20 @@ class Bitmap {
   int channels_;
 };
 
+// Jet colormap inspired by Matlab. Grayvalues are expected in the range [0, 1]
+// and are converted to RGB values in the same range.
+class JetColormap {
+ public:
+  static float Red(const float gray);
+  static float Green(const float gray);
+  static float Blue(const float gray);
+
+ private:
+  static float Interpolate(const float val, const float y0, const float x0,
+                           const float y1, const float x1);
+  static float Base(const float val);
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
