@@ -38,8 +38,11 @@ class MultiViewStereoWidget : public QWidget {
   void Show(Reconstruction* reconstruction);
 
  private:
+  void Prepare();
   void Run();
   void SelectWorkspacePath();
+  std::string GetWorkspacePath();
+  void RefreshWorkspace();
 
   OptionManager* options_;
   Reconstruction* reconstruction_;
@@ -47,6 +50,7 @@ class MultiViewStereoWidget : public QWidget {
   MultiViewStereoOptionsWidget* options_widget_;
   QLineEdit* workspace_path_text_;
   QTableWidget* table_widget_;
+  QPushButton* run_button_;
 };
 
 }  // namespace colmap

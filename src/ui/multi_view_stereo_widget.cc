@@ -19,12 +19,16 @@
 #include <boost/filesystem.hpp>
 
 #include "base/undistortion.h"
+#include "mvs/patch_match.h"
+#include "util/misc.h"
 
 namespace colmap {
 
 MultiViewStereoOptionsWidget::MultiViewStereoOptionsWidget(
     QWidget* parent, OptionManager* options)
     : OptionsWidget(parent) {
+  setWindowTitle("Multi-view stereo options");
+
   AddOptionInt(&options->dense_mapper_options->max_image_size, "max_image_size",
                0);
   AddOptionInt(&options->dense_mapper_options->patch_match.gpu_index,
@@ -77,30 +81,35 @@ MultiViewStereoWidget::MultiViewStereoWidget(QWidget* parent,
       options_widget_(new MultiViewStereoOptionsWidget(this, options)) {
   setWindowFlags(Qt::Window);
   setWindowTitle("Multi-view stereo");
-  resize(parent->size().width() - 20, parent->size().height() - 20);
+  resize(parent->size().width() - 340, parent->size().height() - 20);
 
   QGridLayout* grid = new QGridLayout(this);
 
-  QPushButton* run_button = new QPushButton(tr("Run"), this);
-  connect(run_button, &QPushButton::released, this,
+  QPushButton* prepare_button = new QPushButton(tr("Prepare"), this);
+  connect(prepare_button, &QPushButton::released, this,
+          &MultiViewStereoWidget::Prepare);
+  grid->addWidget(prepare_button, 0, 0, Qt::AlignLeft);
+
+  run_button_ = new QPushButton(tr("Run"), this);
+  connect(run_button_, &QPushButton::released, this,
           &MultiViewStereoWidget::Run);
-  grid->addWidget(run_button, 0, 0, Qt::AlignLeft);
+  grid->addWidget(run_button_, 0, 1, Qt::AlignLeft);
 
   QPushButton* options_button = new QPushButton(tr("Options"), this);
   connect(options_button, &QPushButton::released, options_widget_,
           &OptionsWidget::show);
-  grid->addWidget(options_button, 0, 1, Qt::AlignLeft);
+  grid->addWidget(options_button, 0, 2, Qt::AlignLeft);
 
   QLabel* workspace_path_label = new QLabel("Workspace", this);
-  grid->addWidget(workspace_path_label, 0, 2, Qt::AlignRight);
+  grid->addWidget(workspace_path_label, 0, 3, Qt::AlignRight);
 
   workspace_path_text_ = new QLineEdit(this);
-  grid->addWidget(workspace_path_text_, 0, 3, Qt::AlignRight);
+  grid->addWidget(workspace_path_text_, 0, 4, Qt::AlignRight);
 
   QPushButton* workspace_path_button = new QPushButton(tr("Select"), this);
   connect(workspace_path_button, &QPushButton::released, this,
           &MultiViewStereoWidget::SelectWorkspacePath);
-  grid->addWidget(workspace_path_button, 0, 4, Qt::AlignRight);
+  grid->addWidget(workspace_path_button, 0, 5, Qt::AlignRight);
 
   QStringList table_header;
   table_header << "image_id"
@@ -119,9 +128,11 @@ MultiViewStereoWidget::MultiViewStereoWidget(QWidget* parent,
   table_widget_->verticalHeader()->setVisible(false);
   table_widget_->verticalHeader()->setDefaultSectionSize(20);
 
-  grid->addWidget(table_widget_, 1, 0, 1, 5);
+  grid->addWidget(table_widget_, 1, 0, 1, 6);
 
-  grid->setColumnStretch(1, 1);
+  grid->setColumnStretch(2, 1);
+
+  RefreshWorkspace();
 }
 
 void MultiViewStereoWidget::Show(Reconstruction* reconstruction) {
@@ -130,20 +141,32 @@ void MultiViewStereoWidget::Show(Reconstruction* reconstruction) {
   raise();
 }
 
-void MultiViewStereoWidget::Run() {
-  const std::string workspace_path =
-      workspace_path_text_->text().toUtf8().constData();
-  if (!boost::filesystem::is_directory(workspace_path)) {
-    QMessageBox::critical(this, "", tr("Invalid workspace path"));
+void MultiViewStereoWidget::Prepare() {
+  const std::string workspace_path = GetWorkspacePath();
+  if (workspace_path.empty()) {
     return;
   }
 
-  thread_control_widget_->StartFunction("", [this, workspace_path]() {
-    COLMAPUndistorter undistorter(UndistortCameraOptions(), *reconstruction_,
-                                  *options_->image_path, workspace_path);
-    undistorter.Start();
-    undistorter.Wait();
-  });
+  COLMAPUndistorter* undistorter =
+      new COLMAPUndistorter(UndistortCameraOptions(), *reconstruction_,
+                            *options_->image_path, workspace_path);
+  thread_control_widget_->StartThread("Preparing...", true, undistorter);
+}
+
+void MultiViewStereoWidget::Run() {
+  const std::string workspace_path = GetWorkspacePath();
+  if (workspace_path.empty()) {
+    return;
+  }
+
+#ifdef CUDA_ENABLED
+  mvs::PatchMatchProcessor* processor = new mvs::PatchMatchProcessor(
+      options_->dense_mapper_options->patch_match, workspace_path, "COLMAP",
+      options_->dense_mapper_options->max_image_size);
+  thread_control_widget_->StartThread("Processing...", true, processor);
+#else
+  QMessageBox::critical(this, "", tr("CUDA not supported"));
+#endif
 }
 
 void MultiViewStereoWidget::SelectWorkspacePath() {
@@ -156,6 +179,44 @@ void MultiViewStereoWidget::SelectWorkspacePath() {
   workspace_path_text_->setText(QFileDialog::getExistingDirectory(
       this, tr("Select workspace path..."),
       QString::fromStdString(directory_path), QFileDialog::ShowDirsOnly));
+
+  RefreshWorkspace();
+}
+
+std::string MultiViewStereoWidget::GetWorkspacePath() {
+  const std::string workspace_path =
+      workspace_path_text_->text().toUtf8().constData();
+  if (boost::filesystem::is_directory(workspace_path)) {
+    return workspace_path;
+  } else {
+    QMessageBox::critical(this, "", tr("Invalid workspace path"));
+    return "";
+  }
+}
+
+void MultiViewStereoWidget::RefreshWorkspace() {
+  const std::string workspace_path =
+      workspace_path_text_->text().toUtf8().constData();
+  if (!boost::filesystem::is_directory(workspace_path)) {
+    run_button_->setEnabled(false);
+    return;
+  }
+
+  if (boost::filesystem::is_directory(JoinPaths(workspace_path, "images")) &&
+      boost::filesystem::is_directory(JoinPaths(workspace_path, "sparse")) &&
+      boost::filesystem::is_directory(
+          JoinPaths(workspace_path, "dense/depth_maps")) &&
+      boost::filesystem::is_directory(
+          JoinPaths(workspace_path, "dense/normal_maps")) &&
+      boost::filesystem::is_directory(
+          JoinPaths(workspace_path, "dense/consistency_graphs")) &&
+      boost::filesystem::exists(
+          JoinPaths(workspace_path, "dense/patch-match.cfg"))) {
+    run_button_->setEnabled(true);
+  } else {
+    run_button_->setEnabled(false);
+    return;
+  }
 }
 
 }  // namespace colmap
