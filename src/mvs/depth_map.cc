@@ -21,6 +21,7 @@
 
 #include "base/warp.h"
 #include "util/logging.h"
+#include "util/math.h"
 
 namespace colmap {
 namespace mvs {
@@ -65,6 +66,47 @@ void DepthMap::Downsize(const size_t max_width, const size_t max_height) {
   const float factor_y = static_cast<float>(max_height) / height_;
   const float factor = std::min(factor_x, factor_y);
   Rescale(factor);
+}
+
+Bitmap DepthMap::ToBitmap(const float min_percentile,
+                          const float max_percentile) const {
+  CHECK_GT(width_, 0);
+  CHECK_GT(height_, 0);
+
+  Bitmap bitmap;
+  bitmap.Allocate(width_, height_, true);
+
+  std::vector<float> valid_depths;
+  valid_depths.reserve(data_.size());
+  for (const float depth : data_) {
+    if (depth > 0) {
+      valid_depths.push_back(depth);
+    }
+  }
+
+  const float robust_depth_min = Percentile(valid_depths, min_percentile);
+  const float robust_depth_max = Percentile(valid_depths, max_percentile);
+
+  const float robust_depth_range = robust_depth_max - robust_depth_min;
+  for (size_t y = 0; y < height_; ++y) {
+    for (size_t x = 0; x < width_; ++x) {
+      const float depth = Get(y, x);
+      if (depth > 0) {
+        const float robust_depth =
+            std::max(robust_depth_min, std::min(robust_depth_max, depth));
+        const float gray =
+            (robust_depth - robust_depth_min) / robust_depth_range;
+        const BitmapColor<float> color(255 * JetColormap::Red(gray),
+                                       255 * JetColormap::Green(gray),
+                                       255 * JetColormap::Blue(gray));
+        bitmap.SetPixel(x, y, color.Cast<uint8_t>());
+      } else {
+        bitmap.SetPixel(x, y, BitmapColor<uint8_t>(0, 0, 0));
+      }
+    }
+  }
+
+  return bitmap;
 }
 
 }  // namespace mvs

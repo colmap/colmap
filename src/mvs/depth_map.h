@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "mvs/mat.h"
+#include "util/bitmap.h"
 
 namespace colmap {
 namespace mvs {
@@ -39,6 +40,8 @@ class DepthMap : public Mat<float> {
 
   void Rescale(const float factor);
   void Downsize(const size_t max_width, const size_t max_height);
+
+  Bitmap ToBitmap(const float min_percentile, const float max_percentile) const;
 
  private:
   float depth_min_ = -1.0f;

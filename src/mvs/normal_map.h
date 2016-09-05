@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "mvs/mat.h"
+#include "util/bitmap.h"
 
 namespace colmap {
 namespace mvs {
@@ -34,6 +35,8 @@ class NormalMap : public Mat<float> {
 
   void Rescale(const float factor);
   void Downsize(const size_t max_width, const size_t max_height);
+
+  Bitmap ToBitmap() const;
 };
 
 }  // namespace mvs

@@ -79,5 +79,31 @@ void NormalMap::Downsize(const size_t max_width, const size_t max_height) {
   Rescale(factor);
 }
 
+Bitmap NormalMap::ToBitmap() const {
+  CHECK_GT(width_, 0);
+  CHECK_GT(height_, 0);
+  CHECK_EQ(depth_, 3);
+
+  Bitmap bitmap;
+  bitmap.Allocate(width_, height_, true);
+
+  for (size_t y = 0; y < height_; ++y) {
+    for (size_t x = 0; x < width_; ++x) {
+      float normal[3];
+      GetSlice(y, x, normal);
+      if (normal[0] != 0 || normal[1] != 0 || normal[2] != 0) {
+        const BitmapColor<float> color(127.5 * (-normal[0] + 1),
+                                       127.5 * (-normal[1] + 1),
+                                       -255.0 * normal[2]);
+        bitmap.SetPixel(x, y, color.Cast<uint8_t>());
+      } else {
+        bitmap.SetPixel(x, y, BitmapColor<uint8_t>(0, 0, 0));
+      }
+    }
+  }
+
+  return bitmap;
+}
+
 }  // namespace mvs
 }  // namespace colmap

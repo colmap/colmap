@@ -37,6 +37,7 @@ class Mat {
   size_t GetDepth() const;
 
   T Get(const size_t row, const size_t col, const size_t slice) const;
+  void GetSlice(const size_t row, const size_t col, T* values) const;
   T* GetPtr();
   const T* GetPtr() const;
 
@@ -88,6 +89,13 @@ size_t Mat<T>::GetDepth() const {
 template <typename T>
 T Mat<T>::Get(const size_t row, const size_t col, const size_t slice) const {
   return data_.at(slice * width_ * height_ + row * width_ + col);
+}
+
+template <typename T>
+void Mat<T>::GetSlice(const size_t row, const size_t col, T* values) const {
+  for (size_t slice = 0; slice < depth_; ++slice) {
+    values[slice] = Get(row, col, slice);
+  }
 }
 
 template <typename T>
