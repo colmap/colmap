@@ -255,8 +255,7 @@ SiftGPUFeatureMatcher::SiftGPUFeatureMatcher(const SiftMatchOptions& options,
   }
 #endif
 
-  prev_uploaded_image_ids_[0] = kInvalidImageId;
-  prev_uploaded_image_ids_[1] = kInvalidImageId;
+  ClearGPUData();
 }
 
 bool SiftGPUFeatureMatcher::Setup() {
@@ -398,9 +397,9 @@ void SiftGPUFeatureMatcher::MatchImagePairs(
       match_result.write = false;
     } else {
       const FeatureDescriptors* descriptors1_ptr;
-      GetDescriptors(0, image_id1, &descriptors1_ptr);
+      GetGPUDescriptors(0, image_id1, &descriptors1_ptr);
       const FeatureDescriptors* descriptors2_ptr;
-      GetDescriptors(1, image_id2, &descriptors2_ptr);
+      GetGPUDescriptors(1, image_id2, &descriptors2_ptr);
 
       MatchSiftFeaturesGPU(options_, descriptors1_ptr, descriptors2_ptr,
                            sift_match_gpu_.get(), &match_result.matches);
@@ -450,19 +449,24 @@ void SiftGPUFeatureMatcher::MatchImagePairs(
     }
   }
 
+  // Clear the previously uploaded images, so that the keypoints are uploaded.
+  if (options_.guided_matching) {
+    ClearGPUData();
+  }
+
   for (size_t i = 0; i < verification_results.size(); ++i) {
     const auto& image_pair = verification_image_pairs[i];
     auto result = verification_results[i].get();
     if (result.inlier_matches.size() >= min_num_inliers &&
         options_.guided_matching) {
       const FeatureDescriptors* descriptors1_ptr;
-      GetDescriptors(0, image_pair.first, &descriptors1_ptr);
+      GetGPUDescriptors(0, image_pair.first, &descriptors1_ptr);
       const FeatureKeypoints* keypoints1_ptr;
-      GetKeypoints(0, image_pair.first, descriptors1_ptr, &keypoints1_ptr);
+      GetGPUKeypoints(0, image_pair.first, descriptors1_ptr, &keypoints1_ptr);
       const FeatureDescriptors* descriptors2_ptr;
-      GetDescriptors(1, image_pair.second, &descriptors2_ptr);
+      GetGPUDescriptors(1, image_pair.second, &descriptors2_ptr);
       const FeatureKeypoints* keypoints2_ptr;
-      GetKeypoints(1, image_pair.second, descriptors2_ptr, &keypoints2_ptr);
+      GetGPUKeypoints(1, image_pair.second, descriptors2_ptr, &keypoints2_ptr);
       MatchGuidedSiftFeaturesGPU(options_, keypoints1_ptr, keypoints2_ptr,
                                  descriptors1_ptr, descriptors2_ptr,
                                  sift_match_gpu_.get(), &result);
@@ -536,8 +540,7 @@ void SiftGPUFeatureMatcher::MatchImagePairsWithPreemptiveFilter(
 
   database_transaction.reset();
 
-  prev_uploaded_image_ids_[0] = kInvalidImageId;
-  prev_uploaded_image_ids_[1] = kInvalidImageId;
+  ClearGPUData();
 
   std::cout << StringPrintf(" P(%d/%d)", filtered_image_pairs.size(),
                             image_pairs.size())
@@ -546,7 +549,7 @@ void SiftGPUFeatureMatcher::MatchImagePairsWithPreemptiveFilter(
   MatchImagePairs(filtered_image_pairs);
 }
 
-void SiftGPUFeatureMatcher::GetKeypoints(
+void SiftGPUFeatureMatcher::GetGPUKeypoints(
     const int index, const image_t image_id,
     const FeatureDescriptors* const descriptors_ptr,
     const FeatureKeypoints** keypoints_ptr) {
@@ -556,11 +559,12 @@ void SiftGPUFeatureMatcher::GetKeypoints(
   if (descriptors_ptr == nullptr) {
     *keypoints_ptr = nullptr;
   } else {
-    *keypoints_ptr = &cache_->GetKeypoints(image_id);
+    prev_uploaded_keypoints_[index] = cache_->GetKeypoints(image_id);
+    *keypoints_ptr = &prev_uploaded_keypoints_[index];
   }
 }
 
-void SiftGPUFeatureMatcher::GetDescriptors(
+void SiftGPUFeatureMatcher::GetGPUDescriptors(
     const int index, const image_t image_id,
     const FeatureDescriptors** descriptors_ptr) {
   CHECK_GE(index, 0);
@@ -568,9 +572,15 @@ void SiftGPUFeatureMatcher::GetDescriptors(
   if (prev_uploaded_image_ids_[index] == image_id) {
     *descriptors_ptr = nullptr;
   } else {
-    *descriptors_ptr = &cache_->GetDescriptors(image_id);
+    prev_uploaded_descriptors_[index] = cache_->GetDescriptors(image_id);
+    *descriptors_ptr = &prev_uploaded_descriptors_[index];
     prev_uploaded_image_ids_[index] = image_id;
   }
+}
+
+void SiftGPUFeatureMatcher::ClearGPUData() {
+  prev_uploaded_image_ids_[0] = kInvalidImageId;
+  prev_uploaded_image_ids_[1] = kInvalidImageId;
 }
 
 TwoViewGeometry SiftGPUFeatureMatcher::VerifyImagePair(

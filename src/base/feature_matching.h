@@ -133,11 +133,12 @@ class SiftGPUFeatureMatcher {
     const TwoViewGeometry::Options* options = nullptr;
   };
 
-  void GetKeypoints(const int index, const image_t image_id,
-                    const FeatureDescriptors* const descriptors_ptr,
-                    const FeatureKeypoints** keypoints_ptr);
-  void GetDescriptors(const int index, const image_t image_id,
-                      const FeatureDescriptors** descriptors_ptr);
+  void GetGPUKeypoints(const int index, const image_t image_id,
+                       const FeatureDescriptors* const descriptors_ptr,
+                       const FeatureKeypoints** keypoints_ptr);
+  void GetGPUDescriptors(const int index, const image_t image_id,
+                         const FeatureDescriptors** descriptors_ptr);
+  void ClearGPUData();
 
   void MatchImagePairGuided(const image_t image_id1, const image_t image_id2,
                             TwoViewGeometry* two_view_geometry);
@@ -153,8 +154,14 @@ class SiftGPUFeatureMatcher {
   std::unique_ptr<SiftMatchGPU> sift_match_gpu_;
   std::unique_ptr<ThreadPool> verifier_thread_pool_;
 
-  // The previously uploaded keypoints and descriptors to the GPU.
+  // The previously uploaded images to the GPU.
   std::array<image_t, 2> prev_uploaded_image_ids_;
+  // Temporary storage for keypoints and descriptors to be uploaded. This is
+  // necessary, since consecutive calls to GetGPUKeypoints / GetGPUDescriptors
+  // might invalidate the pointers because the keypoint/descriptor LRUCache
+  // can overflow in-between two consecutive calls.
+  std::array<FeatureKeypoints, 2> prev_uploaded_keypoints_;
+  std::array<FeatureDescriptors, 2> prev_uploaded_descriptors_;
 };
 
 // Exhaustively match images by processing each block in the exhaustive match
