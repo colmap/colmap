@@ -64,7 +64,9 @@ void Model::ReadFromCOLMAP(const std::string& path) {
   points.reserve(reconstruction.NumPoints3D());
   for (const auto& point3D : reconstruction.Points3D()) {
     Point point;
-    point.X = point3D.second.XYZ().cast<float>();
+    point.x = point3D.second.X();
+    point.y = point3D.second.Y();
+    point.z = point3D.second.Z();
     point.track.reserve(point3D.second.Track().Length());
     for (const auto& track_el : point3D.second.Track().Elements()) {
       point.track.push_back(image_id_map.at(track_el.image_id));
@@ -126,7 +128,7 @@ void Model::ReadFromPMVS(const std::string& path) {
   for (int point_id = 0; point_id < num_points; ++point_id) {
     auto& point = points[point_id];
 
-    file >> point.X(0) >> point.X(1) >> point.X(2);
+    file >> point.x >> point.y >> point.z;
 
     int color[3];
     file >> color[0] >> color[1] >> color[2];
@@ -163,10 +165,11 @@ std::string Model::GetImageName(const int image_id) const {
 std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
   std::vector<std::vector<float>> depths(images.size());
   for (const auto& point : points) {
+    const Eigen::Vector3f X(point.x, point.y, point.z);
     for (const auto& image_id : point.track) {
       const auto& image = images.at(image_id);
       const float depth =
-          Eigen::Map<const Eigen::Vector3f>(&image.GetR()[6]).dot(point.X) +
+          Eigen::Map<const Eigen::Vector3f>(&image.GetR()[6]).dot(X) +
           image.GetT()[2];
       depths[image_id].push_back(depth);
     }

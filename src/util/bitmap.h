@@ -17,6 +17,7 @@
 #ifndef COLMAP_SRC_UTIL_BITMAP_H_
 #define COLMAP_SRC_UTIL_BITMAP_H_
 
+#include <algorithm>
 #include <cmath>
 #include <ios>
 #include <limits>

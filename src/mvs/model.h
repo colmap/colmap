@@ -25,8 +25,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <Eigen/Core>
-
 #include "mvs/image.h"
 #include "mvs/depth_map.h"
 #include "mvs/normal_map.h"
@@ -37,7 +35,9 @@ namespace mvs {
 // Simple sparse model class.
 struct Model {
   struct Point {
-    Eigen::Vector3f X = Eigen::Vector3f::Zero();
+    float x = 0;
+    float y = 0;
+    float z = 0;
     std::vector<int> track;
   };
 
