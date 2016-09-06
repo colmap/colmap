@@ -95,6 +95,9 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
     return;
   }
 
+  show();
+  raise();
+
   point3D_id_ = point3D_id;
 
   setWindowTitle(QString::fromStdString("Point " + std::to_string(point3D_id)));
