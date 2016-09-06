@@ -58,6 +58,7 @@ class MultiViewStereoWidget : public QWidget {
   QTableWidget* table_widget_;
   QPushButton* prepare_button_;
   QPushButton* run_button_;
+  QAction* refresh_workspace_action_;
 
   std::string images_path_;
   std::string depth_maps_path_;

@@ -260,8 +260,6 @@ void MainWindow::CreateActions() {
       QIcon(":/media/multi-view-stereo.png"), tr("Multi-view stereo"), this);
   connect(action_multi_view_stereo_, &QAction::triggered, this,
           &MainWindow::MultiViewStereo);
-  action_multi_view_stereo_->setEnabled(false);
-  blocking_actions_.push_back(action_multi_view_stereo_);
 
   //////////////////////////////////////////////////////////////////////////////
   // Render actions
@@ -913,12 +911,12 @@ void MainWindow::BundleAdjustment() {
 }
 
 void MainWindow::MultiViewStereo() {
-  if (!IsSelectedReconstructionValid()) {
-    return;
+  if (HasSelectedReconstruction()) {
+    multi_view_stereo_widget_->Show(
+        &reconstruction_manager_.Get(SelectedReconstructionIdx()));
+  } else {
+    multi_view_stereo_widget_->Show(nullptr);
   }
-
-  multi_view_stereo_widget_->Show(
-      &reconstruction_manager_.Get(SelectedReconstructionIdx()));
 }
 
 void MainWindow::Render() {
@@ -1005,7 +1003,7 @@ bool MainWindow::HasSelectedReconstruction() {
 
 bool MainWindow::IsSelectedReconstructionValid() {
   if (!HasSelectedReconstruction()) {
-    QMessageBox::critical(this, "", tr("No reconstruction selected."));
+    QMessageBox::critical(this, "", tr("No reconstruction selected"));
     return false;
   }
   return true;

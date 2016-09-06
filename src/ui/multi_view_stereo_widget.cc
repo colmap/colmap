@@ -112,6 +112,7 @@ MultiViewStereoWidget::MultiViewStereoWidget(QWidget* parent,
                                              OptionManager* options)
     : QWidget(parent),
       options_(options),
+      reconstruction_(nullptr),
       thread_control_widget_(new ThreadControlWidget(this)),
       options_widget_(new MultiViewStereoOptionsWidget(this, options)) {
   setWindowFlags(Qt::Window);
@@ -170,6 +171,10 @@ MultiViewStereoWidget::MultiViewStereoWidget(QWidget* parent,
 
   image_viewer_widget_ = new ImageViewerWidget(this);
 
+  refresh_workspace_action_ = new QAction(this);
+  connect(refresh_workspace_action_, &QAction::triggered, this,
+          &MultiViewStereoWidget::RefreshWorkspace);
+
   RefreshWorkspace();
 }
 
@@ -185,9 +190,16 @@ void MultiViewStereoWidget::Prepare() {
     return;
   }
 
+  if (reconstruction_ == nullptr || reconstruction_->NumRegImages() < 2) {
+    QMessageBox::critical(this, "",
+                          tr("No reconstruction selected in main window"));
+  }
+
   COLMAPUndistorter* undistorter =
       new COLMAPUndistorter(UndistortCameraOptions(), *reconstruction_,
                             *options_->image_path, workspace_path);
+  undistorter->AddCallback(Thread::FINISHED_CALLBACK,
+                           [this]() { refresh_workspace_action_->trigger(); });
   thread_control_widget_->StartThread("Preparing...", true, undistorter);
 }
 
@@ -201,6 +213,8 @@ void MultiViewStereoWidget::Run() {
   mvs::PatchMatchProcessor* processor = new mvs::PatchMatchProcessor(
       options_->dense_mapper_options->patch_match, workspace_path, "COLMAP",
       options_->dense_mapper_options->max_image_size);
+  processor->AddCallback(Thread::FINISHED_CALLBACK,
+                         [this]() { refresh_workspace_action_->trigger(); });
   thread_control_widget_->StartThread("Processing...", true, processor);
 #else
   QMessageBox::critical(this, "", tr("CUDA not supported"));
@@ -208,15 +222,17 @@ void MultiViewStereoWidget::Run() {
 }
 
 void MultiViewStereoWidget::SelectWorkspacePath() {
-  std::string directory_path = "";
+  std::string workspace_path;
   if (workspace_path_text_->text().isEmpty()) {
-    directory_path =
+    workspace_path =
         boost::filesystem::path(*options_->project_path).parent_path().string();
+  } else {
+    workspace_path = workspace_path_text_->text().toUtf8().constData();
   }
 
   workspace_path_text_->setText(QFileDialog::getExistingDirectory(
       this, tr("Select workspace path..."),
-      QString::fromStdString(directory_path), QFileDialog::ShowDirsOnly));
+      QString::fromStdString(workspace_path), QFileDialog::ShowDirsOnly));
 
   RefreshWorkspace();
 }
@@ -233,6 +249,9 @@ std::string MultiViewStereoWidget::GetWorkspacePath() {
 }
 
 void MultiViewStereoWidget::RefreshWorkspace() {
+  table_widget_->clearContents();
+  table_widget_->setRowCount(0);
+
   const std::string workspace_path =
       workspace_path_text_->text().toUtf8().constData();
   if (boost::filesystem::is_directory(workspace_path)) {
@@ -264,8 +283,6 @@ void MultiViewStereoWidget::RefreshWorkspace() {
 
   const std::vector<std::string> image_names =
       ReadRefImageNamesFromConfig(config_path);
-
-  table_widget_->clearContents();
   table_widget_->setRowCount(image_names.size());
 
   for (size_t i = 0; i < image_names.size(); ++i) {
