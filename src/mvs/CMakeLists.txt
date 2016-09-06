@@ -1,11 +1,8 @@
 set(FOLDER_NAME "mvs")
 
 if(CUDA_ENABLED)
-    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}
-        --use_fast_math
-        -std=c++11
-        -Xcompiler
-        -D__CORRECT_ISO_CPP11_MATH_H_PROTO)
+    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --use_fast_math -std=c++11")
+    set(CUDA_PROPAGATE_HOST_FLAGS OFF)
 
     COLMAP_ADD_LIBRARY(mvs
         cuda_utils.h cuda_utils.cc
@@ -19,21 +16,13 @@ if(CUDA_ENABLED)
 
     # Workaround for Visual Studio compiler error,
     # due problems with compiling too complex code.
-    set(ZO_FLAG_ENABLED FALSE)
-    if ("${CMAKE_CXX_FLAGS}" MATCHES "/Zo")
-        set(ZO_FLAG_ENABLED TRUE)
-        string(REPLACE "/Zo" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    endif()
+    string(REPLACE "/Zo" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
     COLMAP_CUDA_ADD_LIBRARY(mvs_cuda
         gpu_mat_prng.h gpu_mat_prng.cu
         gpu_mat_ref_image.h gpu_mat_ref_image.cu
         patch_match_cuda.h patch_match_cuda.cu
     )
-
-    if(ZO_FLAG_ENABLED)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zo")
-    endif()
 
     # MSVC/NVCC cannot compile the Boost unit test suite.
     if(NOT IS_MSVC)
