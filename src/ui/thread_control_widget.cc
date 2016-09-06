@@ -71,7 +71,7 @@ void ThreadControlWidget::StartThread(const QString& progress_text,
   progress_bar_->show();
   progress_bar_->raise();
 
-  thread_->SetCallback(Thread::FINISHED_CALLBACK,
+  thread_->AddCallback(Thread::FINISHED_CALLBACK,
                        [this]() { destructor_->trigger(); });
   thread_->Start();
 }

@@ -484,25 +484,25 @@ void MainWindow::CreateControllers() {
 
   mapper_controller_.reset(
       new IncrementalMapperController(options_, &reconstruction_manager_));
-  mapper_controller_->SetCallback(
+  mapper_controller_->AddCallback(
       IncrementalMapperController::INITIAL_IMAGE_PAIR_REG_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {
           action_render_now_->trigger();
         }
       });
-  mapper_controller_->SetCallback(
+  mapper_controller_->AddCallback(
       IncrementalMapperController::NEXT_IMAGE_REG_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {
           action_render_->trigger();
         }
       });
-  mapper_controller_->SetCallback(
+  mapper_controller_->AddCallback(
       IncrementalMapperController::LAST_IMAGE_REG_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {
           action_render_now_->trigger();
         }
       });
-  mapper_controller_->SetCallback(
+  mapper_controller_->AddCallback(
       IncrementalMapperController::FINISHED_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {
           action_render_now_->trigger();

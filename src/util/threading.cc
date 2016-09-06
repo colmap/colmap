@@ -95,23 +95,19 @@ bool Thread::IsFinished() {
   return finished_;
 }
 
-void Thread::SetCallback(const int id, const std::function<void()>& func) {
+void Thread::AddCallback(const int id, const std::function<void()>& func) {
   CHECK(func);
-  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered.";
-  callbacks_.at(id) = func;
+  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
+  callbacks_.at(id).push_back(func);
 }
 
-void Thread::ResetCallback(const int id) {
-  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered.";
-  callbacks_.at(id) = nullptr;
+void Thread::RegisterCallback(const int id) {
+  callbacks_.emplace(id, std::list<std::function<void()>>());
 }
-
-void Thread::RegisterCallback(const int id) { callbacks_.emplace(id, nullptr); }
 
 void Thread::Callback(const int id) const {
-  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered.";
-  const auto callback = callbacks_.at(id);
-  if (callback) {
+  CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
+  for (const auto& callback : callbacks_.at(id)) {
     callback();
   }
 }

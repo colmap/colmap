@@ -20,6 +20,7 @@
 #include <atomic>
 #include <functional>
 #include <future>
+#include <list>
 #include <queue>
 #include <unordered_map>
 
@@ -73,11 +74,11 @@ namespace colmap {
 //      };
 //
 //      MyThread thread;
-//      thread.SetCallback(MyThread::PROCESSED_CALLBACK, []() {
+//      thread.AddCallback(MyThread::PROCESSED_CALLBACK, []() {
 //        std::cout << "Processed item"; })
-//      thread.SetCallback(MyThread::STARTED_CALLBACK, []() {
+//      thread.AddCallback(MyThread::STARTED_CALLBACK, []() {
 //        std::cout << "Start"; })
-//      thread.SetCallback(MyThread::FINISHED_CALLBACK, []() {
+//      thread.AddCallback(MyThread::FINISHED_CALLBACK, []() {
 //        std::cout << "Finished"; })
 //      thread.Start();
 //      // Pause, resume, stop, ...
@@ -113,8 +114,7 @@ class Thread {
   void BlockIfPaused();
 
   // Set callbacks that can be triggered within the main run function.
-  void SetCallback(const int id, const std::function<void()>& func);
-  void ResetCallback(const int id);
+  void AddCallback(const int id, const std::function<void()>& func);
 
   // Get timing information of the thread, properly accounting for pause times.
   const Timer& GetTimer() const;
@@ -150,7 +150,7 @@ class Thread {
   std::atomic<bool> pausing_;
   std::atomic<bool> finished_;
 
-  std::unordered_map<int, std::function<void()>> callbacks_;
+  std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
 };
 
 // A thread pool class to submit generic tasks (functors) to a pool of workers:

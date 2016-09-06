@@ -250,28 +250,37 @@ BOOST_AUTO_TEST_CASE(TestCallback) {
     called_back2 = true;
   };
 
+  bool called_back3 = false;
+  std::function<void()> CallbackFunc3 = [&called_back3]() {
+    called_back3 = true;
+  };
+
   TestThread thread;
-  thread.SetCallback(TestThread::CALLBACK1, CallbackFunc1);
+  thread.AddCallback(TestThread::CALLBACK1, CallbackFunc1);
   thread.Start();
   thread.Wait();
   BOOST_CHECK(called_back1);
   BOOST_CHECK(!called_back2);
+  BOOST_CHECK(!called_back3);
 
   called_back1 = false;
   called_back2 = false;
-  thread.SetCallback(TestThread::CALLBACK2, CallbackFunc2);
+  thread.AddCallback(TestThread::CALLBACK2, CallbackFunc2);
   thread.Start();
   thread.Wait();
   BOOST_CHECK(called_back1);
   BOOST_CHECK(called_back2);
+  BOOST_CHECK(!called_back3);
 
   called_back1 = false;
   called_back2 = false;
-  thread.ResetCallback(TestThread::CALLBACK1);
+  called_back3 = false;
+  thread.AddCallback(TestThread::CALLBACK1, CallbackFunc3);
   thread.Start();
   thread.Wait();
-  BOOST_CHECK(!called_back1);
+  BOOST_CHECK(called_back1);
   BOOST_CHECK(called_back2);
+  BOOST_CHECK(called_back3);
 }
 
 BOOST_AUTO_TEST_CASE(TestDefaultCallback) {
@@ -293,8 +302,8 @@ BOOST_AUTO_TEST_CASE(TestDefaultCallback) {
   };
 
   TestThread thread;
-  thread.SetCallback(TestThread::STARTED_CALLBACK, CallbackFunc1);
-  thread.SetCallback(TestThread::FINISHED_CALLBACK, CallbackFunc2);
+  thread.AddCallback(TestThread::STARTED_CALLBACK, CallbackFunc1);
+  thread.AddCallback(TestThread::FINISHED_CALLBACK, CallbackFunc2);
   thread.Start();
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
   BOOST_CHECK(called_back1);
