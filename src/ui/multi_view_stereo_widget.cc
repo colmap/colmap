@@ -52,7 +52,8 @@ std::vector<std::string> ReadRefImageNamesFromConfig(
 
   return ref_image_names;
 }
-}
+
+}  // namepspace
 
 MultiViewStereoOptionsWidget::MultiViewStereoOptionsWidget(
     QWidget* parent, OptionManager* options)
