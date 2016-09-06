@@ -1,7 +1,11 @@
 set(FOLDER_NAME "mvs")
 
 if(CUDA_ENABLED)
-    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --use_fast_math")
+    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS}
+        --use_fast_math
+        -std=c++11
+        -Xcompiler
+        -D__CORRECT_ISO_CPP11_MATH_H_PROTO)
 
     COLMAP_ADD_LIBRARY(mvs
         cuda_utils.h cuda_utils.cc
