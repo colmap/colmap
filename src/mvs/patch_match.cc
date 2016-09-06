@@ -27,6 +27,7 @@ namespace colmap {
 namespace mvs {
 namespace {
 
+// Read patch match problems from workspace.
 void ReadPatchMatchProblems(const PatchMatch::Options& options,
                             const std::string& workspace_path,
                             const std::string& workspace_format,
@@ -308,16 +309,16 @@ std::vector<int> PatchMatch::GetConsistentImageIds() const {
   return patch_match_cuda_->GetConsistentImageIds();
 }
 
-PatchMatchProcessor::PatchMatchProcessor(const PatchMatch::Options& options,
-                                         const std::string& workspace_path,
-                                         const std::string& workspace_format,
-                                         const int max_image_size)
+PatchMatchController::PatchMatchController(const PatchMatch::Options& options,
+                                           const std::string& workspace_path,
+                                           const std::string& workspace_format,
+                                           const int max_image_size)
     : options_(options),
       workspace_path_(workspace_path),
       workspace_format_(workspace_format),
       max_image_size_(max_image_size) {}
 
-void PatchMatchProcessor::Run() {
+void PatchMatchController::Run() {
   Model model;
   std::vector<PatchMatch::Problem> problems;
   ReadPatchMatchProblems(options_, workspace_path_, workspace_format_,
@@ -365,6 +366,8 @@ void PatchMatchProcessor::Run() {
         JoinPaths(workspace_path_, "dense/consistency_graphs", file_name),
         patch_match.GetConsistentImageIds());
   }
+
+  GetTimer().PrintMinutes();
 }
 
 }  // namespace mvs

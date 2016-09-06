@@ -31,63 +31,6 @@
 
 using namespace colmap;
 
-bool ReadConfig(const std::string& workspace_path,
-                const std::string& workspace_format,
-                const std::string& input_type, mvs::Model* model,
-                std::vector<uint8_t>* used_image_mask) {
-  std::cout << "Reading model..." << std::endl;
-  model->Read(workspace_path, workspace_format);
-  used_image_mask->resize(model->images.size(), false);
-
-  std::cout << "Reading configuration..." << std::endl;
-
-  std::ifstream file(JoinPaths(workspace_path, "dense/fusion.cfg"));
-  CHECK(file.is_open());
-
-  std::string line;
-  while (std::getline(file, line)) {
-    StringTrim(&line);
-
-    if (line.empty() || line[0] == '#') {
-      continue;
-    }
-
-    const std::string image_name = line;
-    const int image_id = model->GetImageId(image_name);
-
-    used_image_mask->at(image_id) = true;
-
-    auto& image = model->images.at(image_id);
-    auto& depth_map = model->depth_maps.at(image_id);
-    auto& normal_map = model->normal_maps.at(image_id);
-
-    const std::string file_name =
-        StringPrintf("%s.%s.bin", image_name.c_str(), input_type.c_str());
-    depth_map.Read(JoinPaths(workspace_path, "dense/depth_maps", file_name));
-    normal_map.Read(JoinPaths(workspace_path, "dense/normal_maps", file_name));
-    ReadBinaryBlob<int>(
-        JoinPaths(workspace_path, "dense/consistency_graphs", file_name),
-        &model->consistency_graph.at(image_id));
-
-    const bool kReadImageAsRGB = true;
-    image.Read(kReadImageAsRGB);
-
-    CHECK_EQ(depth_map.GetWidth(), normal_map.GetWidth());
-    CHECK_EQ(depth_map.GetHeight(), normal_map.GetHeight());
-
-    if (depth_map.GetWidth() != image.GetWidth() ||
-        depth_map.GetHeight() != image.GetHeight()) {
-      image.Rescale(
-          depth_map.GetWidth() / static_cast<float>(image.GetWidth()),
-          depth_map.GetHeight() / static_cast<float>(image.GetHeight()));
-      CHECK_EQ(image.GetWidth(), depth_map.GetWidth());
-      CHECK_EQ(image.GetHeight(), depth_map.GetHeight());
-    }
-  }
-
-  return true;
-}
-
 int main(int argc, char* argv[]) {
   InitializeGlog(argv);
 
@@ -119,25 +62,14 @@ int main(int argc, char* argv[]) {
     return EXIT_FAILURE;
   }
 
-  mvs::Model model;
-  std::vector<uint8_t> used_image_mask;
-  if (!ReadConfig(workspace_path, workspace_format, input_type, &model,
-                  &used_image_mask)) {
-    return EXIT_FAILURE;
-  }
+  mvs::StereoFusion fuser(options.dense_mapper_options->fusion, workspace_path,
+                          workspace_format, input_type);
 
-  std::cout << std::endl;
-  options.dense_mapper_options->fusion.Print();
-  std::cout << std::endl;
-
-  const auto points = mvs::StereoFusion(
-      options.dense_mapper_options->fusion, used_image_mask, model.images,
-      model.depth_maps, model.normal_maps, model.consistency_graph);
-
-  std::cout << "Number of fused points: " << points.size() << std::endl;
+  fuser.Start();
+  fuser.Wait();
 
   std::cout << "Writing output: " << output_path << std::endl;
-  WritePlyBinary(output_path, points);
+  WritePlyBinary(output_path, fuser.GetFusedPoints());
 
   return EXIT_SUCCESS;
 }

@@ -663,9 +663,25 @@ void MainWindow::ImportFrom() {
     options_.render_options->min_track_len = 0;
     reconstruction_manager_widget_->Update();
     reconstruction_manager_widget_->SelectReconstruction(reconstruction_idx);
-    action_bundle_adjustment_->setEnabled(true);
     action_render_now_->trigger();
   });
+}
+
+void MainWindow::ImportFusedPoints(const std::vector<mvs::FusedPoint>& points) {
+  const size_t reconstruction_idx = reconstruction_manager_.Add();
+  auto& reconstruction = reconstruction_manager_.Get(reconstruction_idx);
+
+  for (const auto& point : points) {
+    const Eigen::Vector3d xyz(point.x, point.y, point.z);
+    const point3D_t point3D_id = reconstruction.AddPoint3D(xyz, Track());
+    const Eigen::Vector3ub rgb(point.r, point.g, point.b);
+    reconstruction.Point3D(point3D_id).SetColor(rgb);
+  }
+
+  options_.render_options->min_track_len = 0;
+  reconstruction_manager_widget_->Update();
+  reconstruction_manager_widget_->SelectReconstruction(reconstruction_idx);
+  RenderNow();
 }
 
 void MainWindow::Export() {
@@ -736,12 +752,11 @@ void MainWindow::ExportAs() {
     return;
   }
 
-  QString default_filter("NVM (*.nvm)");
+  QString filter("NVM (*.nvm)");
   const std::string path =
       QFileDialog::getSaveFileName(
-          this, tr("Select project file"), "",
-          "NVM (*.nvm);;Bundler (*.out);;PLY (*.ply);;VRML (*.wrl)",
-          &default_filter)
+          this, tr("Select destination..."), "",
+          "NVM (*.nvm);;Bundler (*.out);;PLY (*.ply);;VRML (*.wrl)", &filter)
           .toUtf8()
           .constData();
 
@@ -750,23 +765,22 @@ void MainWindow::ExportAs() {
     return;
   }
 
-  thread_control_widget_->StartFunction(
-      "Exporting...", [this, path, default_filter]() {
-        const Reconstruction& reconstruction =
-            reconstruction_manager_.Get(SelectedReconstructionIdx());
-        if (default_filter == "NVM (*.nvm)") {
-          reconstruction.ExportNVM(path);
-        } else if (default_filter == "Bundler (*.out)") {
-          reconstruction.ExportBundler(path, path + ".list.txt");
-        } else if (default_filter == "PLY (*.ply)") {
-          reconstruction.ExportPLY(path);
-        } else if (default_filter == "VRML (*.wrl)") {
-          const auto base_path = path.substr(0, path.find_last_of("."));
-          reconstruction.ExportVRML(base_path + ".images.wrl",
-                                    base_path + ".points3D.wrl", 1,
-                                    Eigen::Vector3d(1, 0, 0));
-        }
-      });
+  thread_control_widget_->StartFunction("Exporting...", [this, path, filter]() {
+    const Reconstruction& reconstruction =
+        reconstruction_manager_.Get(SelectedReconstructionIdx());
+    if (filter == "NVM (*.nvm)") {
+      reconstruction.ExportNVM(path);
+    } else if (filter == "Bundler (*.out)") {
+      reconstruction.ExportBundler(path, path + ".list.txt");
+    } else if (filter == "PLY (*.ply)") {
+      reconstruction.ExportPLY(path);
+    } else if (filter == "VRML (*.wrl)") {
+      const auto base_path = path.substr(0, path.find_last_of("."));
+      reconstruction.ExportVRML(base_path + ".images.wrl",
+                                base_path + ".points3D.wrl", 1,
+                                Eigen::Vector3d(1, 0, 0));
+    }
+  });
 }
 
 void MainWindow::FeatureExtraction() {

@@ -37,7 +37,7 @@ struct UndistortCameraOptions {
 };
 
 // Undistort images and export undistorted cameras, as required by the
-// mvs::PatchMatchProcessor class.
+// mvs::PatchMatchController class.
 class COLMAPUndistorter : public Thread {
  public:
   COLMAPUndistorter(const UndistortCameraOptions& options,

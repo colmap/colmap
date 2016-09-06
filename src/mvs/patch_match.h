@@ -185,12 +185,12 @@ class PatchMatch {
 // images, and the third reference image uses the first and second as source
 // images. Note that all specified images must be reconstructed in the COLMAP
 // reconstruction provided in the `sparse` folder.
-class PatchMatchProcessor : public Thread {
+class PatchMatchController : public Thread {
  public:
-  PatchMatchProcessor(const PatchMatch::Options& options,
-                      const std::string& workspace_path,
-                      const std::string& workspace_format,
-                      const int max_image_size);
+  PatchMatchController(const PatchMatch::Options& options,
+                       const std::string& workspace_path,
+                       const std::string& workspace_format,
+                       const int max_image_size);
 
  private:
   void Run();

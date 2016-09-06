@@ -55,11 +55,12 @@ int main(int argc, char* argv[]) {
     return EXIT_FAILURE;
   }
 
-  mvs::PatchMatchProcessor processor(
+  mvs::PatchMatchController controller(
       options.dense_mapper_options->patch_match, workspace_path,
       workspace_format, options.dense_mapper_options->max_image_size);
-  processor.Start();
-  processor.Wait();
+
+  controller.Start();
+  controller.Wait();
 
   return EXIT_SUCCESS;
 }

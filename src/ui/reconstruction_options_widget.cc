@@ -191,17 +191,16 @@ ReconstructionOptionsWidget::ReconstructionOptionsWidget(QWidget* parent,
 
   QGridLayout* grid = new QGridLayout(this);
 
-  QTabWidget* tab_widget_ = new QTabWidget(this);
-  tab_widget_->setElideMode(Qt::TextElideMode::ElideRight);
-  tab_widget_->addTab(new GeneralTab(this, options), tr("General"));
-  tab_widget_->addTab(new InitTab(this, options), tr("Init"));
-  tab_widget_->addTab(new TriangulationTab(this, options), tr("Triangulation"));
-  tab_widget_->addTab(new MultiModelTab(this, options), tr("Multi-Model"));
-  tab_widget_->addTab(new BundleAdjustmentTab(this, options),
-                      tr("Bundle-Adj."));
-  tab_widget_->addTab(new FilterTab(this, options), tr("Filter"));
+  QTabWidget* tab_widget = new QTabWidget(this);
+  tab_widget->setElideMode(Qt::TextElideMode::ElideRight);
+  tab_widget->addTab(new GeneralTab(this, options), tr("General"));
+  tab_widget->addTab(new InitTab(this, options), tr("Init"));
+  tab_widget->addTab(new TriangulationTab(this, options), tr("Triangulation"));
+  tab_widget->addTab(new MultiModelTab(this, options), tr("Multi-Model"));
+  tab_widget->addTab(new BundleAdjustmentTab(this, options), tr("Bundle-Adj."));
+  tab_widget->addTab(new FilterTab(this, options), tr("Filter"));
 
-  grid->addWidget(tab_widget_, 0, 0);
+  grid->addWidget(tab_widget, 0, 0);
 }
 
 }  // namespace colmap

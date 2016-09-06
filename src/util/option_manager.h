@@ -268,7 +268,7 @@ struct DenseMapperOptions : public BaseOptions {
 
   int max_image_size;
   mvs::PatchMatch::Options patch_match;
-  mvs::FusionOptions fusion;
+  mvs::StereoFusion::Options fusion;
 };
 
 struct RenderOptions : public BaseOptions {

@@ -25,107 +25,6 @@ namespace colmap {
 namespace mvs {
 namespace internal {
 
-class ConsistencyGraph {
- public:
-  ConsistencyGraph();
-  ConsistencyGraph(const std::vector<Image>& images,
-                   const std::vector<std::vector<int>>* consistency_graph);
-
-  void GetConsistentImageIds(const int image_id, const int row, const int col,
-                             int* num_consistent,
-                             const int** consistent_image_ids) const;
-
- private:
-  const static int kNoConsistentImageIds = -1;
-  const std::vector<std::vector<int>>* consistency_graph_;
-  std::vector<Eigen::MatrixXi> image_maps_;
-};
-
-class StereoFuser {
- public:
-  StereoFuser(const FusionOptions& options,
-              const std::vector<uint8_t>& used_image_mask,
-              const std::vector<Image>& images,
-              const std::vector<DepthMap>& depth_maps,
-              const std::vector<NormalMap>& normal_maps,
-              const std::vector<std::vector<int>>& consistency_graph);
-
-  std::vector<FusedPoint> Run();
-
- private:
-  void AllocateVisitedMasks();
-  void ExtractPoses();
-  void FusePoint(const int image_id, const int row, const int col,
-                 const size_t traversal_depth);
-
-  struct ImageData {
-    bool used = false;
-    const Image* image = nullptr;
-    const DepthMap* depth_map = nullptr;
-    const NormalMap* normal_map = nullptr;
-    Mat<uint8_t> visited_mask;
-    Eigen::Matrix<float, 3, 4> P;
-    Eigen::Matrix<float, 3, 4> inv_P;
-    Eigen::Matrix3f inv_R;
-  };
-
-  Eigen::Vector4f fused_ref_point_;
-  Eigen::Vector3f fused_ref_normal_;
-  std::vector<float> fused_points_x_;
-  std::vector<float> fused_points_y_;
-  std::vector<float> fused_points_z_;
-  Eigen::Vector3d fused_normal_sum_;
-  BitmapColor<uint32_t> fused_color_sum_;
-
-  const FusionOptions options_;
-  ConsistencyGraph consistency_graph_;
-  std::vector<ImageData> image_data_;
-  float max_squared_reproj_error_;
-  float min_cos_normal_error_;
-};
-
-////////////////////////////////////////////////////////////////////////////////
-// Implementation
-////////////////////////////////////////////////////////////////////////////////
-
-ConsistencyGraph::ConsistencyGraph() : consistency_graph_(nullptr) {}
-
-ConsistencyGraph::ConsistencyGraph(
-    const std::vector<Image>& images,
-    const std::vector<std::vector<int>>* consistency_graph)
-    : consistency_graph_(consistency_graph) {
-  CHECK_EQ(images.size(), consistency_graph->size());
-  image_maps_.resize(images.size());
-  for (size_t image_id = 0; image_id < images.size(); ++image_id) {
-    const auto& image = images[image_id];
-    const auto& consistency_list = (*consistency_graph)[image_id];
-    auto& image_map = image_maps_[image_id];
-    image_map.resize(image.GetHeight(), image.GetWidth());
-    image_map.setConstant(kNoConsistentImageIds);
-    for (size_t i = 0; i < consistency_list.size();) {
-      const int col = consistency_list[i++];
-      const int row = consistency_list[i++];
-      image_map(row, col) = i;
-      const int num_consistent = consistency_list[i++];
-      i += num_consistent;
-    }
-  }
-}
-
-void ConsistencyGraph::GetConsistentImageIds(
-    const int image_id, const int row, const int col, int* num_consistent,
-    const int** consistent_image_ids) const {
-  const int index = image_maps_.at(image_id)(row, col);
-  if (index == kNoConsistentImageIds) {
-    *num_consistent = 0;
-    *consistent_image_ids = nullptr;
-  } else {
-    const auto& consistency_list = consistency_graph_->at(image_id);
-    *num_consistent = consistency_list.at(index);
-    *consistent_image_ids = &consistency_list[index + 1];
-  }
-}
-
 float Median(std::vector<float>* elems) {
   CHECK(!elems->empty());
   const size_t mid_idx = elems->size() / 2;
@@ -140,74 +39,77 @@ float Median(std::vector<float>* elems) {
   }
 }
 
-StereoFuser::StereoFuser(const FusionOptions& options,
-                         const std::vector<uint8_t>& used_image_mask,
-                         const std::vector<Image>& images,
-                         const std::vector<DepthMap>& depth_maps,
-                         const std::vector<NormalMap>& normal_maps,
-                         const std::vector<std::vector<int>>& consistency_graph)
-    : options_(options),
-      max_squared_reproj_error_(options_.max_reproj_error *
-                                options_.max_reproj_error),
-      min_cos_normal_error_(std::cos(DegToRad(options_.max_normal_error))) {
-  CHECK_EQ(images.size(), used_image_mask.size());
-  CHECK_EQ(images.size(), depth_maps.size());
-  CHECK_EQ(images.size(), normal_maps.size());
-  CHECK_EQ(images.size(), consistency_graph.size());
+}  // namespace internal
 
-  for (size_t i = 0; i < images.size(); ++i) {
-    CHECK_EQ(images[i].GetWidth(), depth_maps[i].GetWidth());
-    CHECK_EQ(images[i].GetHeight(), depth_maps[i].GetHeight());
-    CHECK_EQ(images[i].GetWidth(), normal_maps[i].GetWidth());
-    CHECK_EQ(images[i].GetHeight(), normal_maps[i].GetHeight());
-  }
-
-  std::cout << "Preparing fusion" << std::endl;
-  consistency_graph_ = ConsistencyGraph(images, &consistency_graph);
-
-  image_data_.resize(images.size());
-  for (size_t image_id = 0; image_id < images.size(); ++image_id) {
-    if (!used_image_mask[image_id]) {
-      continue;
-    }
-
-    auto& image_data = image_data_[image_id];
-
-    image_data.used = true;
-
-    image_data.image = &images[image_id];
-    image_data.depth_map = &depth_maps[image_id];
-    image_data.normal_map = &normal_maps[image_id];
-
-    image_data.visited_mask = Mat<uint8_t>(image_data.image->GetWidth(),
-                                           image_data.image->GetHeight(), 1);
-    image_data.visited_mask.Fill(false);
-
-    image_data.P =
-        Eigen::Map<const Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>(
-            image_data.image->GetP());
-    image_data.inv_P =
-        Eigen::Map<const Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>(
-            image_data.image->GetInvP());
-    image_data.inv_R =
-        Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(
-            image_data.image->GetR())
-            .transpose();
-    ;
-  }
+void StereoFusion::Options::Print() const {
+#define PrintOption(option) std::cout << #option ": " << option << std::endl
+  PrintHeading2("StereoFusion::Options");
+  PrintOption(min_num_pixels);
+  PrintOption(max_num_pixels);
+  PrintOption(max_traversal_depth);
+  PrintOption(max_reproj_error);
+  PrintOption(max_depth_error);
+  PrintOption(max_normal_error);
+#undef PrintOption
 }
 
-std::vector<FusedPoint> StereoFuser::Run() {
+void StereoFusion::Options::Check() const {
+  CHECK_GE(min_num_pixels, 0);
+  CHECK_LE(min_num_pixels, max_num_pixels);
+  CHECK_GT(max_traversal_depth, 0);
+  CHECK_GE(max_reproj_error, 0);
+  CHECK_GE(max_depth_error, 0);
+  CHECK_GE(max_normal_error, 0);
+}
+
+StereoFusion::StereoFusion(const Options& options,
+                           const std::string& workspace_path,
+                           const std::string& workspace_format,
+                           const std::string& input_type)
+    : options_(options),
+      workspace_path_(workspace_path),
+      workspace_format_(workspace_format),
+      input_type_(input_type),
+      max_squared_reproj_error_(options_.max_reproj_error *
+                                options_.max_reproj_error),
+      min_cos_normal_error_(std::cos(DegToRad(options_.max_normal_error))) {}
+
+const std::vector<FusedPoint>& StereoFusion::GetFusedPoints() const {
+  return fused_points_;
+}
+
+void StereoFusion::Run() {
+  fused_points_.clear();
+
+  options_.Print();
+  std::cout << std::endl;
+
+  Read();
+  if (IsStopped()) {
+    GetTimer().PrintMinutes();
+    return;
+  }
+
+  Prepare();
+  if (IsStopped()) {
+    GetTimer().PrintMinutes();
+    return;
+  }
+
   const size_t min_num_pixels = static_cast<size_t>(options_.min_num_pixels);
 
-  std::vector<FusedPoint> fused_points;
-
   for (size_t image_id = 0; image_id < image_data_.size(); ++image_id) {
-    const auto& image_data = image_data_[image_id];
+    if (IsStopped()) {
+      break;
+    }
+
+    Timer timer;
+    timer.Start();
 
     std::cout << "Fusing image " << image_id + 1 << " / " << image_data_.size()
-              << std::endl;
+              << std::flush;
 
+    const auto& image_data = image_data_[image_id];
     for (size_t row = 0; row < image_data.image->GetHeight(); ++row) {
       for (size_t col = 0; col < image_data.image->GetWidth(); ++col) {
         if (image_data.visited_mask.Get(row, col, 0)) {
@@ -242,19 +144,130 @@ std::vector<FusedPoint> StereoFuser::Run() {
           fused_point.b = TruncateCast<double, uint8_t>(
               std::round(static_cast<double>(fused_color_sum_.b) / num_pixels));
 
-          fused_points.push_back(fused_point);
+          fused_points_.push_back(fused_point);
         }
       }
     }
+
+    std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
   }
 
-  fused_points.shrink_to_fit();
+  fused_points_.shrink_to_fit();
 
-  return fused_points;
+  std::cout << "Number of fused points: " << fused_points_.size() << std::endl;
+  GetTimer().PrintMinutes();
 }
 
-void StereoFuser::FusePoint(const int image_id, const int row, const int col,
-                            const size_t traversal_depth) {
+void StereoFusion::Read() {
+  std::cout << "Reading model..." << std::endl;
+  model_.Read(workspace_path_, workspace_format_);
+  used_image_mask_.resize(model_.images.size(), false);
+
+  std::cout << "Reading configuration..." << std::endl;
+
+  std::ifstream file(JoinPaths(workspace_path_, "dense/fusion.cfg"));
+  CHECK(file.is_open());
+
+  std::string line;
+  while (std::getline(file, line)) {
+    if (IsStopped()) {
+      return;
+    }
+
+    StringTrim(&line);
+
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+
+    const std::string image_name = line;
+    const int image_id = model_.GetImageId(image_name);
+
+    used_image_mask_.at(image_id) = true;
+
+    auto& image = model_.images.at(image_id);
+    auto& depth_map = model_.depth_maps.at(image_id);
+    auto& normal_map = model_.normal_maps.at(image_id);
+
+    const std::string file_name =
+        StringPrintf("%s.%s.bin", image_name.c_str(), input_type_.c_str());
+    depth_map.Read(JoinPaths(workspace_path_, "dense/depth_maps", file_name));
+    normal_map.Read(JoinPaths(workspace_path_, "dense/normal_maps", file_name));
+    ReadBinaryBlob<int>(
+        JoinPaths(workspace_path_, "dense/consistency_graphs", file_name),
+        &model_.consistency_graph.at(image_id));
+
+    const bool kReadImageAsRGB = true;
+    image.Read(kReadImageAsRGB);
+
+    CHECK_EQ(depth_map.GetWidth(), normal_map.GetWidth());
+    CHECK_EQ(depth_map.GetHeight(), normal_map.GetHeight());
+
+    if (depth_map.GetWidth() != image.GetWidth() ||
+        depth_map.GetHeight() != image.GetHeight()) {
+      image.Rescale(
+          depth_map.GetWidth() / static_cast<float>(image.GetWidth()),
+          depth_map.GetHeight() / static_cast<float>(image.GetHeight()));
+      CHECK_EQ(image.GetWidth(), depth_map.GetWidth());
+      CHECK_EQ(image.GetHeight(), depth_map.GetHeight());
+    }
+  }
+}
+
+void StereoFusion::Prepare() {
+  CHECK_EQ(model_.images.size(), used_image_mask_.size());
+  CHECK_EQ(model_.images.size(), model_.depth_maps.size());
+  CHECK_EQ(model_.images.size(), model_.normal_maps.size());
+  CHECK_EQ(model_.images.size(), model_.consistency_graph.size());
+
+  for (size_t i = 0; i < model_.images.size(); ++i) {
+    CHECK_EQ(model_.images[i].GetWidth(), model_.depth_maps[i].GetWidth());
+    CHECK_EQ(model_.images[i].GetHeight(), model_.depth_maps[i].GetHeight());
+    CHECK_EQ(model_.images[i].GetWidth(), model_.normal_maps[i].GetWidth());
+    CHECK_EQ(model_.images[i].GetHeight(), model_.normal_maps[i].GetHeight());
+  }
+
+  std::cout << "Preparing fusion..." << std::endl;
+  consistency_graph_ =
+      ConsistencyGraph(model_.images, &model_.consistency_graph);
+
+  image_data_.resize(model_.images.size());
+  for (size_t image_id = 0; image_id < model_.images.size(); ++image_id) {
+    if (IsStopped()) {
+      return;
+    }
+
+    if (!used_image_mask_[image_id]) {
+      continue;
+    }
+
+    auto& image_data = image_data_[image_id];
+
+    image_data.used = true;
+
+    image_data.image = &model_.images[image_id];
+    image_data.depth_map = &model_.depth_maps[image_id];
+    image_data.normal_map = &model_.normal_maps[image_id];
+
+    image_data.visited_mask = Mat<char>(image_data.image->GetWidth(),
+                                        image_data.image->GetHeight(), 1);
+    image_data.visited_mask.Fill(false);
+
+    image_data.P =
+        Eigen::Map<const Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>(
+            image_data.image->GetP());
+    image_data.inv_P =
+        Eigen::Map<const Eigen::Matrix<float, 3, 4, Eigen::RowMajor>>(
+            image_data.image->GetInvP());
+    image_data.inv_R =
+        Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(
+            image_data.image->GetR())
+            .transpose();
+  }
+}
+
+void StereoFusion::FusePoint(const int image_id, const int row, const int col,
+                             const size_t traversal_depth) {
   auto& image_data = image_data_.at(image_id);
 
   if (!image_data.used) {
@@ -368,7 +381,44 @@ void StereoFuser::FusePoint(const int image_id, const int row, const int col,
   }
 }
 
-}  // namespace internal
+StereoFusion::ConsistencyGraph::ConsistencyGraph()
+    : consistency_graph_(nullptr) {}
+
+StereoFusion::ConsistencyGraph::ConsistencyGraph(
+    const std::vector<Image>& images,
+    const std::vector<std::vector<int>>* consistency_graph)
+    : consistency_graph_(consistency_graph) {
+  CHECK_EQ(images.size(), consistency_graph->size());
+  image_maps_.resize(images.size());
+  for (size_t image_id = 0; image_id < images.size(); ++image_id) {
+    const auto& image = images[image_id];
+    const auto& consistency_list = (*consistency_graph)[image_id];
+    auto& image_map = image_maps_[image_id];
+    image_map.resize(image.GetHeight(), image.GetWidth());
+    image_map.setConstant(kNoConsistentImageIds);
+    for (size_t i = 0; i < consistency_list.size();) {
+      const int col = consistency_list[i++];
+      const int row = consistency_list[i++];
+      image_map(row, col) = i;
+      const int num_consistent = consistency_list[i++];
+      i += num_consistent;
+    }
+  }
+}
+
+void StereoFusion::ConsistencyGraph::GetConsistentImageIds(
+    const int image_id, const int row, const int col, int* num_consistent,
+    const int** consistent_image_ids) const {
+  const int index = image_maps_.at(image_id)(row, col);
+  if (index == kNoConsistentImageIds) {
+    *num_consistent = 0;
+    *consistent_image_ids = nullptr;
+  } else {
+    const auto& consistency_list = consistency_graph_->at(image_id);
+    *num_consistent = consistency_list.at(index);
+    *consistent_image_ids = &consistency_list[index + 1];
+  }
+}
 
 void WritePlyText(const std::string& path,
                   const std::vector<FusedPoint>& points) {
@@ -445,39 +495,6 @@ void WritePlyBinary(const std::string& path,
                       3 * sizeof(uint8_t));
   }
   binary_file.close();
-}
-
-void FusionOptions::Print() const {
-#define PrintOption(option) std::cout << #option ": " << option << std::endl
-  PrintHeading2("StereoFusion::Options");
-  PrintOption(min_num_pixels);
-  PrintOption(max_num_pixels);
-  PrintOption(max_traversal_depth);
-  PrintOption(max_reproj_error);
-  PrintOption(max_depth_error);
-  PrintOption(max_normal_error);
-#undef PrintOption
-}
-
-void FusionOptions::Check() const {
-  CHECK_GE(min_num_pixels, 0);
-  CHECK_LE(min_num_pixels, max_num_pixels);
-  CHECK_GT(max_traversal_depth, 0);
-  CHECK_GE(max_reproj_error, 0);
-  CHECK_GE(max_depth_error, 0);
-  CHECK_GE(max_normal_error, 0);
-}
-
-std::vector<FusedPoint> StereoFusion(
-    const FusionOptions& options, const std::vector<uint8_t>& used_image_mask,
-    const std::vector<Image>& images, const std::vector<DepthMap>& depth_maps,
-    const std::vector<NormalMap>& normal_maps,
-    const std::vector<std::vector<int>>& consistency_graph) {
-  options.Check();
-  internal::StereoFuser stereo_fuser(options, used_image_mask, images,
-                                     depth_maps, normal_maps,
-                                     consistency_graph);
-  return stereo_fuser.Run();
 }
 
 }  // namespace mvs

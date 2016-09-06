@@ -20,6 +20,7 @@
 #include <QtCore>
 #include <QtWidgets>
 
+#include "mvs/fusion.h"
 #include "ui/image_viewer_widget.h"
 #include "ui/options_widget.h"
 #include "ui/thread_control_widget.h"
@@ -27,28 +28,34 @@
 
 namespace colmap {
 
-class MultiViewStereoOptionsWidget : public OptionsWidget {
+class MainWindow;
+
+class MultiViewStereoOptionsWidget : public QWidget {
  public:
   MultiViewStereoOptionsWidget(QWidget* parent, OptionManager* options);
 };
 
 class MultiViewStereoWidget : public QWidget {
  public:
-  MultiViewStereoWidget(QWidget* parent, OptionManager* options);
+  MultiViewStereoWidget(MainWindow* main_window, OptionManager* options);
 
   void Show(Reconstruction* reconstruction);
 
  private:
   void Prepare();
   void Run();
+  void Fuse();
 
   void SelectWorkspacePath();
   std::string GetWorkspacePath();
   void RefreshWorkspace();
 
-  QWidget* GenerateTableButtonWidget(const std::string& image_name,
-                                     const std::string& suffix);
+  void WriteFusedPoints();
 
+  QWidget* GenerateTableButtonWidget(const std::string& image_name,
+                                     const std::string& type);
+
+  MainWindow* main_window_;
   OptionManager* options_;
   Reconstruction* reconstruction_;
   ThreadControlWidget* thread_control_widget_;
@@ -58,11 +65,18 @@ class MultiViewStereoWidget : public QWidget {
   QTableWidget* table_widget_;
   QPushButton* prepare_button_;
   QPushButton* run_button_;
+  QPushButton* fuse_button_;
   QAction* refresh_workspace_action_;
+  QAction* write_fused_points_action_;
+
+  bool photometric_done_;
+  bool geometric_done_;
 
   std::string images_path_;
   std::string depth_maps_path_;
   std::string normal_maps_path_;
+
+  std::vector<mvs::FusedPoint> fused_points_;
 };
 
 }  // namespace colmap

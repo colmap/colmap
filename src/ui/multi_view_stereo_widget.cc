@@ -20,10 +20,84 @@
 
 #include "base/undistortion.h"
 #include "mvs/patch_match.h"
+#include "ui/main_window.h"
 #include "util/misc.h"
 
 namespace colmap {
 namespace {
+
+class PatchMatchOptionsTab : public OptionsWidget {
+ public:
+  PatchMatchOptionsTab(QWidget* parent, OptionManager* options)
+      : OptionsWidget(parent) {
+    // Set a relatively small default image size to avoid too long computation.
+    if (options->dense_mapper_options->max_image_size == 0) {
+      options->dense_mapper_options->max_image_size = 1600;
+    }
+
+    AddOptionInt(&options->dense_mapper_options->max_image_size,
+                 "max_image_size", 0);
+    AddOptionInt(&options->dense_mapper_options->patch_match.gpu_index,
+                 "gpu_index", -1);
+    AddOptionInt(&options->dense_mapper_options->patch_match.window_radius,
+                 "window_radius");
+    AddOptionDouble(&options->dense_mapper_options->patch_match.sigma_spatial,
+                    "sigma_spatial");
+    AddOptionDouble(&options->dense_mapper_options->patch_match.sigma_color,
+                    "sigma_color");
+    AddOptionInt(&options->dense_mapper_options->patch_match.num_samples,
+                 "num_samples");
+    AddOptionDouble(&options->dense_mapper_options->patch_match.ncc_sigma,
+                    "ncc_sigma");
+    AddOptionDouble(
+        &options->dense_mapper_options->patch_match.min_triangulation_angle,
+        "min_triangulation_angle");
+    AddOptionDouble(
+        &options->dense_mapper_options->patch_match.incident_angle_sigma,
+        "incident_angle_sigma");
+    AddOptionInt(&options->dense_mapper_options->patch_match.num_iterations,
+                 "num_iterations");
+    AddOptionDouble(&options->dense_mapper_options->patch_match
+                         .geom_consistency_regularizer,
+                    "geom_consistency_regularizer");
+    AddOptionDouble(
+        &options->dense_mapper_options->patch_match.geom_consistency_max_cost,
+        "geom_consistency_max_cost");
+    AddOptionDouble(&options->dense_mapper_options->patch_match.filter_min_ncc,
+                    "filter_min_ncc");
+    AddOptionDouble(&options->dense_mapper_options->patch_match
+                         .filter_min_triangulation_angle,
+                    "filter_min_triangulation_angle");
+    AddOptionInt(
+        &options->dense_mapper_options->patch_match.filter_min_num_consistent,
+        "filter_min_num_consistent");
+    AddOptionDouble(&options->dense_mapper_options->patch_match
+                         .filter_min_triangulation_angle,
+                    "filter_min_triangulation_angle");
+    AddOptionDouble(&options->dense_mapper_options->patch_match
+                         .filter_geom_consistency_max_cost,
+                    "filter_geom_consistency_max_cost");
+  }
+};
+
+class StereoFusionOptionsTab : public OptionsWidget {
+ public:
+  StereoFusionOptionsTab(QWidget* parent, OptionManager* options)
+      : OptionsWidget(parent) {
+    AddOptionInt(&options->dense_mapper_options->fusion.min_num_pixels,
+                 "min_num_pixels", 0);
+    AddOptionInt(&options->dense_mapper_options->fusion.max_num_pixels,
+                 "max_num_pixels", 0);
+    AddOptionInt(&options->dense_mapper_options->fusion.max_traversal_depth,
+                 "max_traversal_depth", 1);
+    AddOptionDouble(&options->dense_mapper_options->fusion.max_reproj_error,
+                    "max_reproj_error", 0);
+    AddOptionDouble(&options->dense_mapper_options->fusion.max_depth_error,
+                    "max_depth_error", 0, 1, 0.0001, 4);
+    AddOptionDouble(&options->dense_mapper_options->fusion.max_normal_error,
+                    "max_normal_error", 0, 180);
+  }
+};
 
 // Read the specified reference image names from a patch match configuration.
 std::vector<std::string> ReadRefImageNamesFromConfig(
@@ -57,68 +131,34 @@ std::vector<std::string> ReadRefImageNamesFromConfig(
 
 MultiViewStereoOptionsWidget::MultiViewStereoOptionsWidget(
     QWidget* parent, OptionManager* options)
-    : OptionsWidget(parent) {
+    : QWidget(parent) {
+  setWindowFlags(Qt::Dialog);
+  setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Multi-view stereo options");
 
-  // Set a relatively small default image size to avoid too long computation.
-  if (options->dense_mapper_options->max_image_size == 0) {
-    options->dense_mapper_options->max_image_size = 1600;
-  }
+  QGridLayout* grid = new QGridLayout(this);
 
-  AddOptionInt(&options->dense_mapper_options->max_image_size, "max_image_size",
-               0);
-  AddOptionInt(&options->dense_mapper_options->patch_match.gpu_index,
-               "gpu_index", -1);
-  AddOptionInt(&options->dense_mapper_options->patch_match.window_radius,
-               "window_radius");
-  AddOptionDouble(&options->dense_mapper_options->patch_match.sigma_spatial,
-                  "sigma_spatial");
-  AddOptionDouble(&options->dense_mapper_options->patch_match.sigma_color,
-                  "sigma_color");
-  AddOptionInt(&options->dense_mapper_options->patch_match.num_samples,
-               "num_samples");
-  AddOptionDouble(&options->dense_mapper_options->patch_match.ncc_sigma,
-                  "ncc_sigma");
-  AddOptionDouble(
-      &options->dense_mapper_options->patch_match.min_triangulation_angle,
-      "min_triangulation_angle");
-  AddOptionDouble(
-      &options->dense_mapper_options->patch_match.incident_angle_sigma,
-      "incident_angle_sigma");
-  AddOptionInt(&options->dense_mapper_options->patch_match.num_iterations,
-               "num_iterations");
-  AddOptionDouble(
-      &options->dense_mapper_options->patch_match.geom_consistency_regularizer,
-      "geom_consistency_regularizer");
-  AddOptionDouble(
-      &options->dense_mapper_options->patch_match.geom_consistency_max_cost,
-      "geom_consistency_max_cost");
-  AddOptionDouble(&options->dense_mapper_options->patch_match.filter_min_ncc,
-                  "filter_min_ncc");
-  AddOptionDouble(&options->dense_mapper_options->patch_match
-                       .filter_min_triangulation_angle,
-                  "filter_min_triangulation_angle");
-  AddOptionInt(
-      &options->dense_mapper_options->patch_match.filter_min_num_consistent,
-      "filter_min_num_consistent");
-  AddOptionDouble(&options->dense_mapper_options->patch_match
-                       .filter_min_triangulation_angle,
-                  "filter_min_triangulation_angle");
-  AddOptionDouble(&options->dense_mapper_options->patch_match
-                       .filter_geom_consistency_max_cost,
-                  "filter_geom_consistency_max_cost");
+  QTabWidget* tab_widget = new QTabWidget(this);
+  tab_widget->setElideMode(Qt::TextElideMode::ElideRight);
+  tab_widget->addTab(new PatchMatchOptionsTab(this, options), "PatchMatch");
+  tab_widget->addTab(new StereoFusionOptionsTab(this, options), "Fusion");
+
+  grid->addWidget(tab_widget, 0, 0);
 }
 
-MultiViewStereoWidget::MultiViewStereoWidget(QWidget* parent,
+MultiViewStereoWidget::MultiViewStereoWidget(MainWindow* main_window,
                                              OptionManager* options)
-    : QWidget(parent),
+    : QWidget(main_window),
+      main_window_(main_window),
       options_(options),
       reconstruction_(nullptr),
       thread_control_widget_(new ThreadControlWidget(this)),
-      options_widget_(new MultiViewStereoOptionsWidget(this, options)) {
+      options_widget_(new MultiViewStereoOptionsWidget(this, options)),
+      photometric_done_(false),
+      geometric_done_(false) {
   setWindowFlags(Qt::Window);
   setWindowTitle("Multi-view stereo");
-  resize(parent->size().width() - 340, parent->size().height() - 20);
+  resize(main_window->size().width() - 240, main_window->size().height() - 20);
 
   QGridLayout* grid = new QGridLayout(this);
 
@@ -132,23 +172,28 @@ MultiViewStereoWidget::MultiViewStereoWidget(QWidget* parent,
           &MultiViewStereoWidget::Run);
   grid->addWidget(run_button_, 0, 1, Qt::AlignLeft);
 
+  fuse_button_ = new QPushButton(tr("Fuse"), this);
+  connect(fuse_button_, &QPushButton::released, this,
+          &MultiViewStereoWidget::Fuse);
+  grid->addWidget(fuse_button_, 0, 2, Qt::AlignLeft);
+
   QPushButton* options_button = new QPushButton(tr("Options"), this);
   connect(options_button, &QPushButton::released, options_widget_,
           &OptionsWidget::show);
-  grid->addWidget(options_button, 0, 2, Qt::AlignLeft);
+  grid->addWidget(options_button, 0, 3, Qt::AlignLeft);
 
   QLabel* workspace_path_label = new QLabel("Workspace", this);
-  grid->addWidget(workspace_path_label, 0, 3, Qt::AlignRight);
+  grid->addWidget(workspace_path_label, 0, 4, Qt::AlignRight);
 
   workspace_path_text_ = new QLineEdit(this);
-  grid->addWidget(workspace_path_text_, 0, 4, Qt::AlignRight);
+  grid->addWidget(workspace_path_text_, 0, 5, Qt::AlignRight);
   connect(workspace_path_text_, &QLineEdit::textChanged, this,
           &MultiViewStereoWidget::RefreshWorkspace);
 
   QPushButton* workspace_path_button = new QPushButton(tr("Select"), this);
   connect(workspace_path_button, &QPushButton::released, this,
           &MultiViewStereoWidget::SelectWorkspacePath);
-  grid->addWidget(workspace_path_button, 0, 5, Qt::AlignRight);
+  grid->addWidget(workspace_path_button, 0, 6, Qt::AlignRight);
 
   QStringList table_header;
   table_header << "image_name"
@@ -166,15 +211,19 @@ MultiViewStereoWidget::MultiViewStereoWidget(QWidget* parent,
   table_widget_->setEditTriggers(QAbstractItemView::NoEditTriggers);
   table_widget_->verticalHeader()->setDefaultSectionSize(25);
 
-  grid->addWidget(table_widget_, 1, 0, 1, 6);
+  grid->addWidget(table_widget_, 1, 0, 1, 7);
 
-  grid->setColumnStretch(2, 1);
+  grid->setColumnStretch(3, 1);
 
   image_viewer_widget_ = new ImageViewerWidget(this);
 
   refresh_workspace_action_ = new QAction(this);
   connect(refresh_workspace_action_, &QAction::triggered, this,
           &MultiViewStereoWidget::RefreshWorkspace);
+
+  write_fused_points_action_ = new QAction(this);
+  connect(write_fused_points_action_, &QAction::triggered, this,
+          &MultiViewStereoWidget::WriteFusedPoints);
 
   RefreshWorkspace();
 }
@@ -211,7 +260,7 @@ void MultiViewStereoWidget::Run() {
   }
 
 #ifdef CUDA_ENABLED
-  mvs::PatchMatchProcessor* processor = new mvs::PatchMatchProcessor(
+  mvs::PatchMatchController* processor = new mvs::PatchMatchController(
       options_->dense_mapper_options->patch_match, workspace_path, "COLMAP",
       options_->dense_mapper_options->max_image_size);
   processor->AddCallback(Thread::FINISHED_CALLBACK,
@@ -220,6 +269,32 @@ void MultiViewStereoWidget::Run() {
 #else
   QMessageBox::critical(this, "", tr("CUDA not supported"));
 #endif
+}
+
+void MultiViewStereoWidget::Fuse() {
+  const std::string workspace_path = GetWorkspacePath();
+  if (workspace_path.empty()) {
+    return;
+  }
+
+  std::string input_type;
+  if (geometric_done_) {
+    input_type = "geometric";
+  } else if (photometric_done_) {
+    input_type = "photometric";
+  } else {
+    QMessageBox::critical(this, "",
+                          tr("All images must be processed prior to fusion"));
+  }
+
+  mvs::StereoFusion* fuser =
+      new mvs::StereoFusion(options_->dense_mapper_options->fusion,
+                            workspace_path, "COLMAP", input_type);
+  fuser->AddCallback(Thread::FINISHED_CALLBACK, [this, fuser]() {
+    fused_points_ = fuser->GetFusedPoints();
+    write_fused_points_action_->trigger();
+  });
+  thread_control_widget_->StartThread("Fusing...", true, fuser);
 }
 
 void MultiViewStereoWidget::SelectWorkspacePath() {
@@ -260,6 +335,7 @@ void MultiViewStereoWidget::RefreshWorkspace() {
   } else {
     prepare_button_->setEnabled(false);
     run_button_->setEnabled(false);
+    fuse_button_->setEnabled(false);
     return;
   }
 
@@ -279,6 +355,7 @@ void MultiViewStereoWidget::RefreshWorkspace() {
     run_button_->setEnabled(true);
   } else {
     run_button_->setEnabled(false);
+    fuse_button_->setEnabled(false);
     return;
   }
 
@@ -304,24 +381,77 @@ void MultiViewStereoWidget::RefreshWorkspace() {
     table_widget_->setCellWidget(i, 1, image_button);
 
     table_widget_->setCellWidget(
-        i, 2, GenerateTableButtonWidget(image_name, ".photometric.bin"));
+        i, 2, GenerateTableButtonWidget(image_name, "photometric"));
     table_widget_->setCellWidget(
-        i, 3, GenerateTableButtonWidget(image_name, ".geometric.bin"));
+        i, 3, GenerateTableButtonWidget(image_name, "geometric"));
   }
 
   table_widget_->resizeColumnsToContents();
+
+  fuse_button_->setEnabled(photometric_done_ || geometric_done_);
+}
+
+void MultiViewStereoWidget::WriteFusedPoints() {
+  int reply = QMessageBox::question(
+      this, "", tr("Do you want to visualize the point cloud?"),
+      QMessageBox::Yes | QMessageBox::No);
+  if (reply == QMessageBox::Yes) {
+    main_window_->ImportFusedPoints(fused_points_);
+  }
+
+  reply = QMessageBox::question(
+      this, "", tr("Do you want to export the point cloud?"),
+      QMessageBox::Yes | QMessageBox::No);
+  if (reply == QMessageBox::No) {
+    fused_points_ = {};
+    return;
+  }
+
+  QString filter("Binary PLY (*.ply)");
+  const std::string path = QFileDialog::getSaveFileName(
+                               this, tr("Select destination..."), "",
+                               "Binary PLY (*.ply);; Text PLY (*.ply)", &filter)
+                               .toUtf8()
+                               .constData();
+
+  // Selection canceled?
+  if (path == "") {
+    fused_points_ = {};
+    return;
+  }
+
+  thread_control_widget_->StartFunction("Exporting...", [this, path, filter]() {
+    if (filter == "Binary PLY (*.ply)") {
+      mvs::WritePlyBinary(path, fused_points_);
+    } else if (filter == "Text PLY (*.ply)") {
+      mvs::WritePlyText(path, fused_points_);
+    }
+
+    fused_points_ = {};
+  });
 }
 
 QWidget* MultiViewStereoWidget::GenerateTableButtonWidget(
-    const std::string& image_name, const std::string& suffix) {
+    const std::string& image_name, const std::string& type) {
+  CHECK(type == "photometric" || type == "geometric");
+  const bool photometric = type == "photometric";
+
+  if (photometric) {
+    photometric_done_ = true;
+  } else {
+    geometric_done_ = true;
+  }
+
   const std::string depth_map_path =
-      JoinPaths(depth_maps_path_, image_name + suffix);
+      JoinPaths(depth_maps_path_,
+                StringPrintf("%s.%s.bin", image_name.c_str(), type.c_str()));
   const std::string normal_map_path =
-      JoinPaths(normal_maps_path_, image_name + suffix);
+      JoinPaths(normal_maps_path_,
+                StringPrintf("%s.%s.bin", image_name.c_str(), type.c_str()));
 
   QWidget* button_widget = new QWidget();
   QGridLayout* button_layout = new QGridLayout(button_widget);
-  button_layout->setContentsMargins(1, 1, 1, 1);
+  button_layout->setContentsMargins(0, 0, 0, 0);
 
   QPushButton* depth_map_button = new QPushButton("Depth map", button_widget);
   if (boost::filesystem::exists(depth_map_path)) {
@@ -335,6 +465,11 @@ QWidget* MultiViewStereoWidget::GenerateTableButtonWidget(
             });
   } else {
     depth_map_button->setEnabled(false);
+    if (photometric) {
+      photometric_done_ = false;
+    } else {
+      geometric_done_ = false;
+    }
   }
   button_layout->addWidget(depth_map_button, 0, 1, Qt::AlignLeft);
 
@@ -350,6 +485,11 @@ QWidget* MultiViewStereoWidget::GenerateTableButtonWidget(
             });
   } else {
     normal_map_button->setEnabled(false);
+    if (photometric) {
+      photometric_done_ = false;
+    } else {
+      geometric_done_ = false;
+    }
   }
   button_layout->addWidget(normal_map_button, 0, 2, Qt::AlignLeft);
 

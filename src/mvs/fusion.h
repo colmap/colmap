@@ -24,8 +24,10 @@
 #include "mvs/depth_map.h"
 #include "mvs/image.h"
 #include "mvs/mat.h"
+#include "mvs/model.h"
 #include "mvs/normal_map.h"
 #include "util/math.h"
+#include "util/threading.h"
 
 namespace colmap {
 namespace mvs {
@@ -42,40 +44,98 @@ struct FusedPoint {
   uint8_t b = 0;
 };
 
-struct FusionOptions {
-  // Minimum number of fused pixels to produce a point.
-  int min_num_pixels = 3;
+class StereoFusion : public Thread {
+ public:
+  struct Options {
+    // Minimum number of fused pixels to produce a point.
+    int min_num_pixels = 3;
 
-  // Maximum number of pixels to fuse into a single point.
-  int max_num_pixels = 1000;
+    // Maximum number of pixels to fuse into a single point.
+    int max_num_pixels = 1000;
 
-  // Maximum depth in consistency graph traversal.
-  int max_traversal_depth = 100;
+    // Maximum depth in consistency graph traversal.
+    int max_traversal_depth = 100;
 
-  // Maximum relative difference between measured and projected pixel.
-  float max_reproj_error = 2.0f;
+    // Maximum relative difference between measured and projected pixel.
+    double max_reproj_error = 2.0f;
 
-  // Maximum relative difference between measured and projected depth.
-  float max_depth_error = 0.01f;
+    // Maximum relative difference between measured and projected depth.
+    double max_depth_error = 0.01f;
 
-  // Maximum difference between normals of pixels to be fused.
-  float max_normal_error = 10.0f;
+    // Maximum difference between normals of pixels to be fused.
+    double max_normal_error = 10.0f;
 
-  // Check the options for validity.
-  void Check() const;
+    // Check the options for validity.
+    void Check() const;
 
-  // Print the options to stdout.
-  void Print() const;
+    // Print the options to stdout.
+    void Print() const;
+  };
+
+  StereoFusion(const Options& options,
+                        const std::string& workspace_path,
+                        const std::string& workspace_format,
+                        const std::string& input_type);
+
+  const std::vector<FusedPoint>& GetFusedPoints() const;
+
+ private:
+  void Run();
+  void Read();
+  void Prepare();
+  void FusePoint(const int image_id, const int row, const int col,
+                 const size_t traversal_depth);
+
+  struct ImageData {
+    bool used = false;
+    const Image* image = nullptr;
+    const DepthMap* depth_map = nullptr;
+    const NormalMap* normal_map = nullptr;
+    Mat<char> visited_mask;
+    Eigen::Matrix<float, 3, 4> P;
+    Eigen::Matrix<float, 3, 4> inv_P;
+    Eigen::Matrix3f inv_R;
+  };
+
+  // Consistency graph representation that efficiently maps each pixel in
+  // an image to its consistent image identifies.
+  class ConsistencyGraph {
+   public:
+    ConsistencyGraph();
+    ConsistencyGraph(const std::vector<Image>& images,
+                     const std::vector<std::vector<int>>* consistency_graph);
+
+    void GetConsistentImageIds(const int image_id, const int row, const int col,
+                               int* num_consistent,
+                               const int** consistent_image_ids) const;
+
+   private:
+    const static int kNoConsistentImageIds = -1;
+    const std::vector<std::vector<int>>* consistency_graph_;
+    std::vector<Eigen::MatrixXi> image_maps_;
+  };
+
+  const Options options_;
+  const std::string workspace_path_;
+  const std::string workspace_format_;
+  const std::string input_type_;
+  const float max_squared_reproj_error_;
+  const float min_cos_normal_error_;
+
+  Model model_;
+  std::vector<char> used_image_mask_;
+  ConsistencyGraph consistency_graph_;
+  std::vector<ImageData> image_data_;
+  std::vector<FusedPoint> fused_points_;
+
+  Eigen::Vector4f fused_ref_point_;
+  Eigen::Vector3f fused_ref_normal_;
+  std::vector<float> fused_points_x_;
+  std::vector<float> fused_points_y_;
+  std::vector<float> fused_points_z_;
+  Eigen::Vector3d fused_normal_sum_;
+  BitmapColor<uint32_t> fused_color_sum_;
 };
-
-// Fuse the multi-view stereo depth and normal maps into a consistent global
-// dense point cloud with normal information.
-std::vector<FusedPoint> StereoFusion(
-    const FusionOptions& options,
-    const std::vector<uint8_t>& used_image_mask,
-    const std::vector<Image>& images, const std::vector<DepthMap>& depth_maps,
-    const std::vector<NormalMap>& normal_maps,
-    const std::vector<std::vector<int>>& consistency_graph);
 
 // Write the point cloud to PLY file.
 void WritePlyText(const std::string& path,

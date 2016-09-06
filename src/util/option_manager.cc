@@ -621,7 +621,7 @@ DenseMapperOptions::DenseMapperOptions() { Reset(); }
 void DenseMapperOptions::Reset() {
   max_image_size = 0;
   patch_match = mvs::PatchMatch::Options();
-  fusion = mvs::FusionOptions();
+  fusion = mvs::StereoFusion::Options();
 }
 
 bool DenseMapperOptions::Check() {
