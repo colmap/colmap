@@ -27,7 +27,7 @@ class MatchMatrixWidget : public ImageViewerWidget {
  public:
   MatchMatrixWidget(QWidget* parent, OptionManager* options);
 
-  void Update();
+  void Show();
 
  private:
   OptionManager* options_;

@@ -1055,9 +1055,7 @@ void MainWindow::ReconstructionStats() {
 }
 
 void MainWindow::MatchMatrix() {
-  match_matrix_widget_->show();
-  match_matrix_widget_->raise();
-  match_matrix_widget_->Update();
+  match_matrix_widget_->Show();
 }
 
 void MainWindow::ShowLog() {

@@ -26,8 +26,12 @@ MatchMatrixWidget::MatchMatrixWidget(QWidget* parent, OptionManager* options)
   setWindowTitle("Match matrix");
 }
 
-void MatchMatrixWidget::Update() {
+void MatchMatrixWidget::Show() {
   Database database(*options_->database_path);
+
+  if (database.NumImages() == 0) {
+    return;
+  }
 
   // Sort the images according to their name.
   std::vector<Image> images = database.ReadAllImages();
