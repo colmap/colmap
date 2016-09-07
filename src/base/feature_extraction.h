@@ -53,6 +53,10 @@ struct SiftOptions {
   // Fix the orientation to 0 for upright features.
   bool upright = false;
 
+  // Whether to adapt the feature detection depending on the image darkness.
+  // Note that this feature is only available in the OpenGL SiftGPU version.
+  bool darkness_adaptivity = true;
+
   enum class Normalization {
     // L1-normalizes each descriptor followed by element-wise square rooting.
     // This normalization is usually better than standard L2-normalization.

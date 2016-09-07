@@ -663,9 +663,13 @@ bool CreateSiftGPUExtractor(const SiftOptions& options, SiftGPU* sift_gpu) {
 
   std::vector<std::string> sift_gpu_args;
 
+  sift_gpu_args.push_back("./binary");
+
   // Darkness adaptivity (hidden feature). Significantly improves
   // distribution of features. Only available in GLSL version.
-  sift_gpu_args.push_back("-da");
+  if (options.darkness_adaptivity) {
+    sift_gpu_args.push_back("-da");
+  }
 
   // No verbose logging.
   sift_gpu_args.push_back("-v");
