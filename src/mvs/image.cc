@@ -98,8 +98,9 @@ void ComposeInverseProjectionMatrix(const float K[9], const float R[9],
   Eigen::Matrix<float, 4, 4, Eigen::RowMajor> P;
   ComposeProjectionMatrix(K, R, T, P.data());
   P.row(3) = Eigen::Vector4f(0, 0, 0, 1);
+  const Eigen::Matrix4f inv_P_temp = P.inverse();
   Eigen::Map<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> inv_P_m(inv_P);
-  inv_P_m = P.inverse().topRows<3>();
+  inv_P_m = inv_P_temp.topRows<3>();
 }
 
 void ComputeProjectionCenter(const float R[9], const float T[3], float C[3]) {
