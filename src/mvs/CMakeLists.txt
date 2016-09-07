@@ -1,16 +1,14 @@
 set(FOLDER_NAME "mvs")
 
-if(CUDA_ENABLED)
-    COLMAP_ADD_LIBRARY(mvs
-        cuda_utils.h cuda_utils.cc
-        depth_map.h depth_map.cc
-        fusion.h fusion.cc
-        image.h image.cc
-        model.h model.cc
-        normal_map.h normal_map.cc
-        patch_match.h patch_match.cc
-    )
+COLMAP_ADD_LIBRARY(mvs
+    depth_map.h depth_map.cc
+    fusion.h fusion.cc
+    image.h image.cc
+    model.h model.cc
+    normal_map.h normal_map.cc
+)
 
+if(CUDA_ENABLED)
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --use_fast_math")
 
     if(MSVC)
@@ -23,8 +21,10 @@ if(CUDA_ENABLED)
     endif()
 
     COLMAP_CUDA_ADD_LIBRARY(mvs_cuda
+        cuda_utils.h cuda_utils.cc
         gpu_mat_prng.h gpu_mat_prng.cu
         gpu_mat_ref_image.h gpu_mat_ref_image.cu
+        patch_match.h patch_match.cc
         patch_match_cuda.h patch_match_cuda.cu
     )
 

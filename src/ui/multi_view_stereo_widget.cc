@@ -288,7 +288,6 @@ void MultiViewStereoWidget::Fuse() {
                           tr("All images must be processed prior to fusion"));
   }
 
-#ifdef CUDA_ENABLED
   mvs::StereoFusion* fuser =
       new mvs::StereoFusion(options_->dense_mapper_options->fusion,
                             workspace_path, "COLMAP", input_type);
@@ -297,9 +296,6 @@ void MultiViewStereoWidget::Fuse() {
     write_fused_points_action_->trigger();
   });
   thread_control_widget_->StartThread("Fusing...", true, fuser);
-#else
-  QMessageBox::critical(this, "", tr("CUDA not supported"));
-#endif
 }
 
 void MultiViewStereoWidget::SelectWorkspacePath() {
@@ -385,12 +381,10 @@ void MultiViewStereoWidget::RefreshWorkspace() {
             });
     table_widget_->setCellWidget(i, 1, image_button);
 
-#ifdef CUDA_ENABLED
     table_widget_->setCellWidget(
         i, 2, GenerateTableButtonWidget(image_name, "photometric"));
     table_widget_->setCellWidget(
         i, 3, GenerateTableButtonWidget(image_name, "geometric"));
-#endif
   }
 
   table_widget_->resizeColumnsToContents();
@@ -399,7 +393,6 @@ void MultiViewStereoWidget::RefreshWorkspace() {
 }
 
 void MultiViewStereoWidget::WriteFusedPoints() {
-#ifdef CUDA_ENABLED
   int reply = QMessageBox::question(
       this, "", tr("Do you want to visualize the point cloud?"),
       QMessageBox::Yes | QMessageBox::No);
@@ -437,14 +430,10 @@ void MultiViewStereoWidget::WriteFusedPoints() {
 
     fused_points_ = {};
   });
-#else
-  QMessageBox::critical(this, "", tr("CUDA not supported"));
-#endif
 }
 
 QWidget* MultiViewStereoWidget::GenerateTableButtonWidget(
     const std::string& image_name, const std::string& type) {
-#ifdef CUDA_ENABLED
   CHECK(type == "photometric" || type == "geometric");
   const bool photometric = type == "photometric";
 
@@ -506,9 +495,6 @@ QWidget* MultiViewStereoWidget::GenerateTableButtonWidget(
   button_layout->addWidget(normal_map_button, 0, 2, Qt::AlignLeft);
 
   return button_widget;
-#else
-  return nullptr;
-#endif
 }
 
 }  // namespace colmap

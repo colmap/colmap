@@ -16,6 +16,7 @@ link_directories(
 )
 
 set(COLMAP_LIBRARIES
+    mvs
     sfm
     base
     util
@@ -29,6 +30,7 @@ set(COLMAP_LIBRARIES
     util
     flann
     pba
+    poisson_recon
     sqlite3
     sift_gpu
     vlfeat
@@ -39,7 +41,7 @@ set(COLMAP_LIBRARIES
     ${OPENGL_LIBRARIES})
 
 if(CUDA_ENABLED)
-    set(COLMAP_LIBRARIES mvs mvs_cuda mvs ${COLMAP_LIBRARIES})
+    set(COLMAP_LIBRARIES mvs mvs_cuda ${COLMAP_LIBRARIES})
 endif()
 
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
