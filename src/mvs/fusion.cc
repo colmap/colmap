@@ -106,7 +106,8 @@ void StereoFusion::Run() {
     Timer timer;
     timer.Start();
 
-    std::cout << "Fusing image " << image_id + 1 << " / " << image_data_.size()
+    std::cout << StringPrintf("Fusing image [%d/%d]", image_id + 1,
+                              image_data_.size())
               << std::flush;
 
     const auto& image_data = image_data_[image_id];
@@ -180,8 +181,14 @@ void StereoFusion::Read() {
       continue;
     }
 
+    Timer timer;
+    timer.Start();
+
     const std::string image_name = line;
     const int image_id = model_.GetImageId(image_name);
+
+    std::cout << StringPrintf("Loading image %s", image_name.c_str())
+              << std::flush;
 
     used_image_mask_.at(image_id) = true;
 
@@ -211,6 +218,8 @@ void StereoFusion::Read() {
       CHECK_EQ(image.GetWidth(), depth_map.GetWidth());
       CHECK_EQ(image.GetHeight(), depth_map.GetHeight());
     }
+
+    std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
   }
 }
 
@@ -389,6 +398,7 @@ StereoFusion::ConsistencyGraph::ConsistencyGraph(
     const std::vector<std::vector<int>>* consistency_graph)
     : consistency_graph_(consistency_graph) {
   CHECK_EQ(images.size(), consistency_graph->size());
+  const int kNoConsistentImageIds = -1;
   image_maps_.resize(images.size());
   for (size_t image_id = 0; image_id < images.size(); ++image_id) {
     const auto& image = images[image_id];
@@ -409,6 +419,7 @@ StereoFusion::ConsistencyGraph::ConsistencyGraph(
 void StereoFusion::ConsistencyGraph::GetConsistentImageIds(
     const int image_id, const int row, const int col, int* num_consistent,
     const int** consistent_image_ids) const {
+  const int kNoConsistentImageIds = -1;
   const int index = image_maps_.at(image_id)(row, col);
   if (index == kNoConsistentImageIds) {
     *num_consistent = 0;

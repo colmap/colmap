@@ -110,7 +110,6 @@ class StereoFusion : public Thread {
                                const int** consistent_image_ids) const;
 
    private:
-    const static int kNoConsistentImageIds = -1;
     const std::vector<std::vector<int>>* consistency_graph_;
     std::vector<Eigen::MatrixXi> image_maps_;
   };
