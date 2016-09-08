@@ -21,9 +21,13 @@ Bibliography
     Efficiency in Structure-from-Motion." IEEE Conference on Computer Vision and
     Pattern Recognition, 2015.
 
-.. [schoenberger16] Schönberger, Johannes Lutz and Frahm, Jan-Michael.
+.. [schoenberger16sfm] Schönberger, Johannes Lutz and Frahm, Jan-Michael.
     "Structure-from-Motion Revisited." IEEE Conference on Computer Vision and
     Pattern Recognition, 2016.
+
+.. [schoenberger16mvs] Schönberger, Johannes Lutz and Zheng, Enliang and Pollefeys, Marc and Frahm, Jan-Michael.
+    "Pixelwise View Selection for Unstructured Multi-View Stereo."
+    European Conference on Computer Vision, 2016.
 
 .. [lowe04] Lowe, David G. "Distinctive image features from scale-invariant
     keypoints". International journal of computer vision 60.2 (2004): 91-110.

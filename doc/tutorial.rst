@@ -25,7 +25,7 @@ this process into three stages:
 
 COLMAP reflects these stages in different modules, that can be combined
 depending on the application. More information on Structure-from-Motion in
-general and the algorithms in COLMAP can be found in [schoenberger16]_.
+general and the algorithms in COLMAP can be found in [schoenberger16sfm]_.
 
 If you have control over the picture capture process, please follow these
 guidelines for optimal reconstruction results:

@@ -1,11 +1,14 @@
 COLMAP
 ======
 
-COLMAP is a general-purpose Structure-from-Motion (SfM) pipeline with a
-graphical and command-line interface. It offers a wide range of features for
-reconstruction of ordered and unordered image collections. The software is
-licensed under the GNU General Public License. If you use this project for your
-research, please cite:
+About
+-----
+
+COLMAP is a general-purpose Structure-from-Motion (SfM) and Multi-View Stereo
+(MVS) pipeline with a graphical and command-line interface. It offers a wide
+range of features for reconstruction of ordered and unordered image collections.
+The software is licensed under the GNU General Public License. If you use this
+project for your research, please cite:
 
     @inproceedings{schoenberger2016sfm,
         author = {Sch\"{o}nberger, Johannes Lutz and Frahm, Jan-Michael},
@@ -14,9 +17,16 @@ research, please cite:
         year={2016},
     }
 
+    @inproceedings{schoenberger2016mvs,
+        author = {Sch\"{o}nberger, Johannes Lutz and Zheng, Enliang and Pollefeys, Marc and Frahm, Jan-Michael},
+        title = {Pixelwise View Selection for Unstructured Multi-View Stereo},
+        booktitle={European Conference on Computer Vision (ECCV)},
+        year={2016},
+    }
+
 The latest source code is available at https://github.com/colmap/colmap. COLMAP
-builds on top of existing work and when using specific algorithms within COLMAP,
-please also consider citing the original works, as specified in the source code.
+builds on top of existing works and when using specific algorithms within
+COLMAP, please also cite the original authors, as specified in the source code.
 
 
 Getting Started
