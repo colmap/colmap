@@ -433,7 +433,7 @@ bool IncrementalMapperOptions::Check() {
   CHECK_OPTION(MapperOptions, init_max_error, > 0);
   CHECK_OPTION(MapperOptions, init_max_forward_motion, >= 0);
   CHECK_OPTION(MapperOptions, init_max_forward_motion, <= 1);
-  CHECK_OPTION(MapperOptions, init_min_tri_angle, > 0);
+  CHECK_OPTION(MapperOptions, init_min_tri_angle, >= 0);
 
   CHECK_OPTION(MapperOptions, abs_pose_max_error, > 0);
   CHECK_OPTION(MapperOptions, abs_pose_min_num_inliers, > 0);
