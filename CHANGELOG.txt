@@ -1,3 +1,13 @@
+COLMAP 2.0 (9/8/2016)
+---------------------
+- Implementation of dense reconstruction pipeline
+- Improved feature matching performance
+- New bundle adjuster for rigidly mounted multi-camera systems
+- New generalized absolute pose solver for multi-camera systems
+- New executable to extract colors from all images
+- Boost can now be linked in shared and static mode
+- Various bug fixes and performance improvements
+
 COLMAP 1.1 (5/19/2016)
 ----------------------
 - Implementation of state-of-the-art image retrieval system using Hamming
