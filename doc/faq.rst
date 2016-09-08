@@ -55,3 +55,14 @@ cases improve the stability of sparse image collections by providing additional
 constraints in bundle adjustment. To also triangulate two-view tracks, unselect
 the option ``Reconstruction > Reconstruction options > Triangulation >
 ignore_two_view_tracks``.
+
+
+.. _faq-dense-memory-usage:
+
+Reduce memory usage during dense reconstruction
+-----------------------------------------------
+
+You can either reduce the maximum image resolution by setting the option
+``DenseMapperOptions.patch_match.max_image_size`` or reduce the number of
+sources images in the ``dense/patch-match.cfg`` from e.g. ``__auto__ 30`` to
+``__auto__ 10`` file.

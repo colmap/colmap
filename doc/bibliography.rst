@@ -16,6 +16,10 @@ Bibliography
     "Multi-view reconstruction preserving weakly-supported surfaces."
     IEEE Conference on Computer Vision and Pattern Recognition, 2011.
 
+.. [kazhdan2013] Kazhdan, Michael and Hoppe, Hugues
+    "Screened poisson surface reconstruction."
+    ACM Transactions on Graphics (TOG), 2013.
+
 .. [schoenberger15] Schönberger, Johannes Lutz and Berg, Alexander C. and
     Frahm, Jan-Michael. "PAIGE: PAirwise Image Geometry Encoding for Improved
     Efficiency in Structure-from-Motion." IEEE Conference on Computer Vision and
@@ -25,7 +29,8 @@ Bibliography
     "Structure-from-Motion Revisited." IEEE Conference on Computer Vision and
     Pattern Recognition, 2016.
 
-.. [schoenberger16mvs] Schönberger, Johannes Lutz and Zheng, Enliang and Pollefeys, Marc and Frahm, Jan-Michael.
+.. [schoenberger16mvs] Schönberger, Johannes Lutz and Zheng, Enliang and
+    Pollefeys, Marc and Frahm, Jan-Michael.
     "Pixelwise View Selection for Unstructured Multi-View Stereo."
     European Conference on Computer Vision, 2016.
 

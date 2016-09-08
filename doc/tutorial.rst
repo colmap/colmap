@@ -3,6 +3,11 @@
 Tutorial
 ========
 
+3D reconstruction from images traditionally first recovers a sparse
+representation of the scene and the camera poses of the input images using
+Structure-from-Motion. This output then serves as the input to Multi-View Stereo
+to recover a dense representation of the scene.
+
 Structure-from-Motion
 ---------------------
 
@@ -48,13 +53,25 @@ guidelines for optimal reconstruction results:
   viewpoint.
 
 
+Multi-View Stereo
+-----------------
+
+Multi-View Stereo (MVS) takes the output of SfM to compute depth and/or normal
+information for every pixel in an image. Fusion of the depth and normal maps of
+multiple images in 3D then produces a dense point cloud of the scene. Using the
+depth and normal information of the fused point cloud, algorithms such as the
+(screened) Poisson surface reconstruction [kazhdan2013]_ can then recover the 3D
+surface geometry of the scene. More information on Multi-View Stereo in general
+and the algorithms in COLMAP can be found in [schoenberger16mvs]_.
+
+
 Preface
 -------
 
 COLMAP requires only few steps to do a standard reconstruction for a general
 user. For more experienced users, the program exposes many different parameters,
-only some of which are intuitive to a general user. The program should work
-without the need to modify any parameters. The defaults are chosen as a tradeoff
+only some of which are intuitive to a beginner. The program should work without
+the need to modify any parameters. The defaults are chosen as a trade-off
 between reconstruction robustness/quality and speed. If in doubt what setting to
 choose, stick to the defaults. The source code contains more documentation about
 all parameters.
@@ -282,8 +299,8 @@ system has multiple CUDA-enabled GPUs, you can select specific GPUs with the
 `gpu_index` option.
 
 
-Incremental 3D Reconstruction
------------------------------
+Incremental Sparse Reconstruction
+---------------------------------
 
 After producing the scene graph in the previous two steps, you can start the
 incremental reconstruction process by choosing ``Reconstruction > Start``.
@@ -311,8 +328,8 @@ not the case, it is recommended to:
   database management tool that have enough matches from different viewpoints.
 
 
-Exporting results
------------------
+Importing and Exporting
+-----------------------
 
 COLMAP provides several export options for further processing. For full
 flexibility, it is recommended to export the reconstruction in COLMAP's data
@@ -328,10 +345,37 @@ in various other formats, such as Bundler, VisualSfM [#f1]_, PLY, or VRML by
 choosing ``File > Export as...``. COLMAP can visualize plain PLY point cloud
 files with RGB information by choosing ``File > Import From...``.
 
-For post-processing by dense reconstruction software, such as CMVS/PMVS
-[furukawa10]_ or CMP-MVS [jancosek11]_, please choose ``Extras > Undistort
-images`` and select the appropriate format. To run PMVS2, please execute the
-following commands::
+
+Dense Reconstruction
+--------------------
+
+After recovering a sparse representation of the scene and the camera poses of
+the input images, MVS can now recover denser scene geometry. COLMAP has an
+integrated dense reconstruction pipeline to produce depth and normal maps for
+all registered images, to fuse the depth and normal maps into a dense point
+cloud with normal information, and to finally reconstruct a dense surface from
+the fused point cloud.
+
+To get started, import your sparse 3D model into COLMAP (or select the
+reconstructed model after finishing the previous sparse reconstruction steps).
+Then, choose ``Reconstruction > Multi-view stereo`` and select an empty or
+existing workspace folder, which is used for the output and of all dense
+reconstruction results. The first step is to ``undistort`` the images, second to
+compute the depth and normal maps using ``Stereo``, third to ``fuse`` the depth
+and normals maps to a point cloud, followed by a final, optional point cloud
+``meshing`` step. During the stereo reconstruction process, the display might
+freeze due to heavy compute load and, if your GPU does not have enough memory,
+the reconstruction process might ungracefully crash. Please, refer to the
+:ref:`FAQ <faq-dense-memory-usage>` for information on how to reduce the memory
+usage. Note that the reconstructed normals of the point cloud cannot be directly
+visualized in COLMAP, but e.g. using Meshlab and ``Render > Show
+Normal/Curvature``. Similarly, the reconstructed dense surface must be
+visualized with external software.
+
+In addition to the internal dense reconstruction functionality, COLMAP exports
+to several other dense reconstruction software, such as CMVS/PMVS [furukawa10]_
+or CMP-MVS [jancosek11]_. Please choose ``Extras > Undistort images`` and select
+the appropriate format. To run PMVS2, execute the following commands::
 
     ./path/to/pmvs2 /path/to/undistortion/folder/pmvs/ option-all
 
@@ -348,7 +392,7 @@ into more manageable parts and then run PMVS2::
     sh /path/to/undistortion/folder/pmvs/pmvs.sh
 
 
-There is a number of external software packages that support COLMAP output:
+There is a number of external software packages that support COLMAP's output:
 
 - `CMVS/PMVS <http://www.di.ens.fr/pmvs/>`_ [furukawa10]_
 - `CMP-MVS <http://ptak.felk.cvut.cz/sfmservice/websfm.pl>`_ [jancosek11]_

@@ -1,6 +1,10 @@
 Output Format
 =============
 
+---------------------
+Sparse Reconstruction
+---------------------
+
 COLMAP exports three text files for every reconstructed model: `cameras.txt`,
 `images.txt`, and `points3D.txt`. Comments start with a leading "#" character.
 
@@ -81,3 +85,57 @@ dataset using one line per point, e.g.::
 Here, there are three reconstructed 3D points, where `POINT2D_IDX` defines the
 zero-based index of the keypoint in the `images.txt` file. The error is given in
 pixels of reprojection error and is only updated after global bundle adjustment.
+
+
+--------------------
+Dense Reconstruction
+--------------------
+
+COLMAP uses the following workspace folder structure::
+
+    +── dense
+    │   +── consistency_graphs
+    │   │   +── image1.jpg.photometric.bin
+    │   │   +── image2.jpg.photometric.bin
+    │   │   +── ...
+    │   +── depth_maps
+    │   │   +── image1.jpg.photometric.bin
+    │   │   +── image2.jpg.photometric.bin
+    │   │   +── ...
+    │   +── fusion.cfg
+    │   +── normal_maps
+    │   │   +── image1.jpg.photometric.bin
+    │   │   +── image2.jpg.photometric.bin
+    │   │   +── ...
+    │   +── patch-match.cfg
+    +── dense-reconstruction.sh
+    +── fused2.ply
+    +── images
+    │   +── image1.jpg
+    │   +── image2.jpg
+    +── fused.ply
+    +── meshed.ply
+    +── sparse
+        +── cameras.txt
+        +── images.txt
+        +── points3D.txt
+
+
+Depth and Normal Maps
+---------------------
+
+The depth maps are stored as mixed text and binary files. The text header
+defines the dimensions of the image in the format ``with&height&channels&``
+followed by row-major `float32` binary data. For depth maps ``channels=1`` and
+for normal maps ``channels=3``.
+
+
+Consistency Graphs
+------------------
+
+The consistency graph defines, for all pixels in an image, the source images a
+pixel is consistent with. the graph is stored as a continuous list of `int32`
+values in the format ``<row><col><N><image_idx1>...<image_idxN>``, where ``(row,
+col)``  defines the location of the pixel in the image followed by a list of
+``N`` image indices. The indices are specified w.r.t. the ordering in the
+``images.txt`` file.

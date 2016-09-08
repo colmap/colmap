@@ -87,11 +87,19 @@ Executables
   ``spatial_matcher``, ``matches_importer``: Perform feature matching after
   performing feature extraction.
 
-- ``mapper``: 3D reconstruction / mapping of the dataset after performing
-  feature extraction and matching.
+- ``mapper``: Sparse 3D reconstruction / mapping of the dataset using SfM after
+  performing feature extraction and matching.
 
-- ``image_undistorter``: Undistort images and/or export them to external dense
-  reconstruction software, such as CMVS/PMVS.
+- ``image_undistorter``: Undistort images and/or export them for MVS or to
+  external dense reconstruction software, such as CMVS/PMVS.
+
+- ``dense_mapper``: Dense 3D reconstruction / mapping using MVS after running
+  the ``image_undistorter`` to initialize the workspace.
+
+- ``dense_fuser``: Fusion of MVS depth and normal maps to a colored point cloud.
+
+- ``dense_mesher``: Meshing of the fused point cloud using Poisson surface
+  reconstruction.
 
 - ``image_registrator``: Register new images in the database against an existing
   model, e.g., when extracting features and matching newly added images in a
