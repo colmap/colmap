@@ -8,6 +8,7 @@ endif()
 
 add_subdirectory(FLANN)
 add_subdirectory(PBA)
+add_subdirectory(PoissonRecon)
 add_subdirectory(SiftGPU)
 add_subdirectory(SQLite)
 add_subdirectory(VLFeat)

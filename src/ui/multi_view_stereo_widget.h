@@ -42,9 +42,10 @@ class MultiViewStereoWidget : public QWidget {
   void Show(Reconstruction* reconstruction);
 
  private:
-  void Prepare();
-  void Run();
-  void Fuse();
+  void Undistort();
+  void Stereo();
+  void Fusion();
+  void Meshing();
 
   void SelectWorkspacePath();
   std::string GetWorkspacePath();
@@ -63,9 +64,10 @@ class MultiViewStereoWidget : public QWidget {
   ImageViewerWidget* image_viewer_widget_;
   QLineEdit* workspace_path_text_;
   QTableWidget* table_widget_;
-  QPushButton* prepare_button_;
-  QPushButton* run_button_;
-  QPushButton* fuse_button_;
+  QPushButton* undistortion_button_;
+  QPushButton* stereo_button_;
+  QPushButton* fusion_button_;
+  QPushButton* meshing_button_;
   QAction* refresh_workspace_action_;
   QAction* write_fused_points_action_;
 

@@ -47,6 +47,7 @@ void ThreadControlWidget::StartThread(const QString& progress_text,
     progress_bar_->setWindowModality(Qt::ApplicationModal);
     progress_bar_->setWindowFlags(Qt::Dialog | Qt::WindowTitleHint |
                                   Qt::CustomizeWindowHint);
+    progress_bar_->setWindowTitle("");
     progress_bar_->setLabel(new QLabel(this));
     progress_bar_->setMaximum(0);
     progress_bar_->setMinimum(0);

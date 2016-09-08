@@ -28,6 +28,7 @@
 #include "base/feature_extraction.h"
 #include "base/feature_matching.h"
 #include "mvs/fusion.h"
+#include "mvs/meshing.h"
 #include "mvs/patch_match.h"
 #include "optim/bundle_adjustment.h"
 #include "sfm/incremental_mapper.h"
@@ -204,8 +205,8 @@ struct IncrementalMapperOptions : public BaseOptions {
   int max_reg_trials;
 };
 
-struct SparseMapperOptions : public BaseOptions {
-  SparseMapperOptions();
+struct MapperOptions : public BaseOptions {
+  MapperOptions();
 
   void Reset() override;
   bool Check() override;
@@ -269,6 +270,7 @@ struct DenseMapperOptions : public BaseOptions {
   int max_image_size;
   mvs::PatchMatch::Options patch_match;
   mvs::StereoFusion::Options fusion;
+  mvs::PoissonReconstructionOptions poisson;
 };
 
 struct RenderOptions : public BaseOptions {
@@ -300,7 +302,7 @@ class OptionManager {
   void AddVocabTreeMatchOptions();
   void AddSpatialMatchOptions();
   void AddBundleAdjustmentOptions();
-  void AddSparseMapperOptions();
+  void AddMapperOptions();
   void AddDenseMapperOptions();
   void AddRenderOptions();
 
@@ -333,7 +335,7 @@ class OptionManager {
   std::shared_ptr<VocabTreeMatchOptions> vocab_tree_match_options;
   std::shared_ptr<SpatialMatchOptions> spatial_match_options;
   std::shared_ptr<BundleAdjustmentOptions> ba_options;
-  std::shared_ptr<SparseMapperOptions> sparse_mapper_options;
+  std::shared_ptr<MapperOptions> sparse_mapper_options;
   std::shared_ptr<DenseMapperOptions> dense_mapper_options;
   std::shared_ptr<RenderOptions> render_options;
 

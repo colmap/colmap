@@ -43,7 +43,7 @@ class BundleAdjustmentIterationCallback : public ceres::IterationCallback {
   Thread* thread_;
 };
 
-size_t TriangulateImage(const SparseMapperOptions& options, const Image& image,
+size_t TriangulateImage(const MapperOptions& options, const Image& image,
                         IncrementalMapper* mapper) {
   std::cout << "  => Continued observations: " << image.NumPoints3D()
             << std::endl;
@@ -53,7 +53,7 @@ size_t TriangulateImage(const SparseMapperOptions& options, const Image& image,
   return num_tris;
 }
 
-size_t CompleteAndMergeTracks(const SparseMapperOptions& options,
+size_t CompleteAndMergeTracks(const MapperOptions& options,
                               IncrementalMapper* mapper) {
   const size_t num_completed_observations =
       mapper->CompleteTracks(options.TriangulationOptions());
@@ -66,8 +66,7 @@ size_t CompleteAndMergeTracks(const SparseMapperOptions& options,
   return num_completed_observations + num_merged_observations;
 }
 
-size_t FilterPoints(const SparseMapperOptions& options,
-                    IncrementalMapper* mapper) {
+size_t FilterPoints(const MapperOptions& options, IncrementalMapper* mapper) {
   const size_t num_filtered_observations =
       mapper->FilterPoints(options.IncrementalMapperOptions());
   std::cout << "  => Filtered observations: " << num_filtered_observations
@@ -75,15 +74,14 @@ size_t FilterPoints(const SparseMapperOptions& options,
   return num_filtered_observations;
 }
 
-size_t FilterImages(const SparseMapperOptions& options,
-                    IncrementalMapper* mapper) {
+size_t FilterImages(const MapperOptions& options, IncrementalMapper* mapper) {
   const size_t num_filtered_images =
       mapper->FilterImages(options.IncrementalMapperOptions());
   std::cout << "  => Filtered images: " << num_filtered_images << std::endl;
   return num_filtered_images;
 }
 
-void AdjustGlobalBundle(const SparseMapperOptions& options,
+void AdjustGlobalBundle(const MapperOptions& options,
                         const Reconstruction& reconstruction,
                         IncrementalMapper* mapper) {
   BundleAdjuster::Options custom_options =
@@ -111,7 +109,7 @@ void AdjustGlobalBundle(const SparseMapperOptions& options,
   }
 }
 
-void IterativeLocalRefinement(const SparseMapperOptions& options,
+void IterativeLocalRefinement(const MapperOptions& options,
                               const image_t image_id,
                               IncrementalMapper* mapper) {
   auto ba_options = options.LocalBundleAdjustmentOptions();
@@ -140,7 +138,7 @@ void IterativeLocalRefinement(const SparseMapperOptions& options,
   }
 }
 
-void IterativeGlobalRefinement(const SparseMapperOptions& options,
+void IterativeGlobalRefinement(const MapperOptions& options,
                                const Reconstruction& reconstruction,
                                IncrementalMapper* mapper) {
   PrintHeading1("Retriangulation");
@@ -188,7 +186,7 @@ IncrementalMapperController::IncrementalMapperController(
 }
 
 void IncrementalMapperController::Run() {
-  const SparseMapperOptions& mapper_options = *options_.sparse_mapper_options;
+  const MapperOptions& mapper_options = *options_.sparse_mapper_options;
 
   //////////////////////////////////////////////////////////////////////////////
   // Load data from database

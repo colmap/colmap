@@ -10,6 +10,8 @@ COLMAP_ADD_EXECUTABLE(database_creator database_creator.cc)
 
 COLMAP_ADD_EXECUTABLE(dense_fuser dense_fuser.cc)
 
+COLMAP_ADD_EXECUTABLE(dense_mesher dense_mesher.cc)
+
 COLMAP_ADD_EXECUTABLE(exhaustive_matcher exhaustive_matcher)
 
 COLMAP_ADD_EXECUTABLE(feature_extractor feature_extractor.cc)

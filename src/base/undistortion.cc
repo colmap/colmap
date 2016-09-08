@@ -191,7 +191,7 @@ void COLMAPUndistorter::WriteScript() const {
   file << "$COLMAP_EXE_PATH/dense_mapper \\" << std::endl;
   file << "  --workspace_path . \\" << std::endl;
   file << "  --workspace_format COLMAP \\" << std::endl;
-  file << "  --DenseMapperOptions.max_image_size 0 \\" << std::endl;
+  file << "  --DenseMapperOptions.max_image_size 2000 \\" << std::endl;
   file << "  --DenseMapperOptions.patch_match_filter false \\" << std::endl;
   file << "  --DenseMapperOptions.patch_match_geom_consistency false"
        << std::endl;
@@ -199,7 +199,7 @@ void COLMAPUndistorter::WriteScript() const {
   file << "$COLMAP_EXE_PATH/dense_mapper \\" << std::endl;
   file << "  --workspace_path . \\" << std::endl;
   file << "  --workspace_format COLMAP \\" << std::endl;
-  file << "  --DenseMapperOptions.max_image_size 0 \\" << std::endl;
+  file << "  --DenseMapperOptions.max_image_size 2000 \\" << std::endl;
   file << "  --DenseMapperOptions.patch_match_filter true \\" << std::endl;
   file << "  --DenseMapperOptions.patch_match_geom_consistency true"
        << std::endl;

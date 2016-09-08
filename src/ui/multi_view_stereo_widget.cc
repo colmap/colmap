@@ -19,6 +19,7 @@
 #include <boost/filesystem.hpp>
 
 #include "base/undistortion.h"
+#include "mvs/meshing.h"
 #include "mvs/patch_match.h"
 #include "ui/main_window.h"
 #include "util/misc.h"
@@ -26,13 +27,16 @@
 namespace colmap {
 namespace {
 
+const static std::string kFusedFileName = "fused.ply";
+const static std::string kMeshedFileName = "meshed.ply";
+
 class PatchMatchOptionsTab : public OptionsWidget {
  public:
   PatchMatchOptionsTab(QWidget* parent, OptionManager* options)
       : OptionsWidget(parent) {
     // Set a relatively small default image size to avoid too long computation.
     if (options->dense_mapper_options->max_image_size == 0) {
-      options->dense_mapper_options->max_image_size = 1600;
+      options->dense_mapper_options->max_image_size = 2000;
     }
 
     AddOptionInt(&options->dense_mapper_options->max_image_size,
@@ -99,6 +103,17 @@ class StereoFusionOptionsTab : public OptionsWidget {
   }
 };
 
+class PoissonReconstructionOptionsTab : public OptionsWidget {
+ public:
+  PoissonReconstructionOptionsTab(QWidget* parent, OptionManager* options)
+      : OptionsWidget(parent) {
+    AddOptionDouble(&options->dense_mapper_options->poisson.point_weight,
+                    "point_weight", 0);
+    AddOptionInt(&options->dense_mapper_options->poisson.depth, "depth", 1);
+    AddOptionDouble(&options->dense_mapper_options->poisson.trim, "trim", 0);
+  }
+};
+
 // Read the specified reference image names from a patch match configuration.
 std::vector<std::string> ReadRefImageNamesFromConfig(
     const std::string& config_path) {
@@ -140,8 +155,10 @@ MultiViewStereoOptionsWidget::MultiViewStereoOptionsWidget(
 
   QTabWidget* tab_widget = new QTabWidget(this);
   tab_widget->setElideMode(Qt::TextElideMode::ElideRight);
-  tab_widget->addTab(new PatchMatchOptionsTab(this, options), "PatchMatch");
+  tab_widget->addTab(new PatchMatchOptionsTab(this, options), "Stereo");
   tab_widget->addTab(new StereoFusionOptionsTab(this, options), "Fusion");
+  tab_widget->addTab(new PoissonReconstructionOptionsTab(this, options),
+                     "Meshing");
 
   grid->addWidget(tab_widget, 0, 0);
 }
@@ -156,45 +173,51 @@ MultiViewStereoWidget::MultiViewStereoWidget(MainWindow* main_window,
       options_widget_(new MultiViewStereoOptionsWidget(this, options)),
       photometric_done_(false),
       geometric_done_(false) {
-  setWindowFlags(Qt::Window);
+  setWindowFlags(Qt::Dialog);
+  setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Multi-view stereo");
-  resize(main_window_->size().width() - 240,
+  resize(main_window_->size().width() - 200,
          main_window_->size().height() - 20);
 
   QGridLayout* grid = new QGridLayout(this);
 
-  prepare_button_ = new QPushButton(tr("Prepare"), this);
-  connect(prepare_button_, &QPushButton::released, this,
-          &MultiViewStereoWidget::Prepare);
-  grid->addWidget(prepare_button_, 0, 0, Qt::AlignLeft);
+  undistortion_button_ = new QPushButton(tr("Undistortion"), this);
+  connect(undistortion_button_, &QPushButton::released, this,
+          &MultiViewStereoWidget::Undistort);
+  grid->addWidget(undistortion_button_, 0, 0, Qt::AlignLeft);
 
-  run_button_ = new QPushButton(tr("Run"), this);
-  connect(run_button_, &QPushButton::released, this,
-          &MultiViewStereoWidget::Run);
-  grid->addWidget(run_button_, 0, 1, Qt::AlignLeft);
+  stereo_button_ = new QPushButton(tr("Stereo"), this);
+  connect(stereo_button_, &QPushButton::released, this,
+          &MultiViewStereoWidget::Stereo);
+  grid->addWidget(stereo_button_, 0, 1, Qt::AlignLeft);
 
-  fuse_button_ = new QPushButton(tr("Fuse"), this);
-  connect(fuse_button_, &QPushButton::released, this,
-          &MultiViewStereoWidget::Fuse);
-  grid->addWidget(fuse_button_, 0, 2, Qt::AlignLeft);
+  fusion_button_ = new QPushButton(tr("Fusion"), this);
+  connect(fusion_button_, &QPushButton::released, this,
+          &MultiViewStereoWidget::Fusion);
+  grid->addWidget(fusion_button_, 0, 2, Qt::AlignLeft);
+
+  meshing_button_ = new QPushButton(tr("Meshing"), this);
+  connect(meshing_button_, &QPushButton::released, this,
+          &MultiViewStereoWidget::Meshing);
+  grid->addWidget(meshing_button_, 0, 3, Qt::AlignLeft);
 
   QPushButton* options_button = new QPushButton(tr("Options"), this);
   connect(options_button, &QPushButton::released, options_widget_,
           &OptionsWidget::show);
-  grid->addWidget(options_button, 0, 3, Qt::AlignLeft);
+  grid->addWidget(options_button, 0, 4, Qt::AlignLeft);
 
   QLabel* workspace_path_label = new QLabel("Workspace", this);
-  grid->addWidget(workspace_path_label, 0, 4, Qt::AlignRight);
+  grid->addWidget(workspace_path_label, 0, 5, Qt::AlignRight);
 
   workspace_path_text_ = new QLineEdit(this);
-  grid->addWidget(workspace_path_text_, 0, 5, Qt::AlignRight);
+  grid->addWidget(workspace_path_text_, 0, 6, Qt::AlignRight);
   connect(workspace_path_text_, &QLineEdit::textChanged, this,
           &MultiViewStereoWidget::RefreshWorkspace);
 
   QPushButton* workspace_path_button = new QPushButton(tr("Select"), this);
   connect(workspace_path_button, &QPushButton::released, this,
           &MultiViewStereoWidget::SelectWorkspacePath);
-  grid->addWidget(workspace_path_button, 0, 6, Qt::AlignRight);
+  grid->addWidget(workspace_path_button, 0, 7, Qt::AlignRight);
 
   QStringList table_header;
   table_header << "image_name"
@@ -212,11 +235,13 @@ MultiViewStereoWidget::MultiViewStereoWidget(MainWindow* main_window,
   table_widget_->setEditTriggers(QAbstractItemView::NoEditTriggers);
   table_widget_->verticalHeader()->setDefaultSectionSize(25);
 
-  grid->addWidget(table_widget_, 1, 0, 1, 7);
+  grid->addWidget(table_widget_, 1, 0, 1, 8);
 
-  grid->setColumnStretch(3, 1);
+  grid->setColumnStretch(4, 1);
 
   image_viewer_widget_ = new ImageViewerWidget(this);
+  image_viewer_widget_->setWindowFlags(Qt::Dialog);
+  image_viewer_widget_->setWindowModality(Qt::ApplicationModal);
 
   refresh_workspace_action_ = new QAction(this);
   connect(refresh_workspace_action_, &QAction::triggered, this,
@@ -235,7 +260,7 @@ void MultiViewStereoWidget::Show(Reconstruction* reconstruction) {
   raise();
 }
 
-void MultiViewStereoWidget::Prepare() {
+void MultiViewStereoWidget::Undistort() {
   const std::string workspace_path = GetWorkspacePath();
   if (workspace_path.empty()) {
     return;
@@ -254,7 +279,7 @@ void MultiViewStereoWidget::Prepare() {
   thread_control_widget_->StartThread("Preparing...", true, undistorter);
 }
 
-void MultiViewStereoWidget::Run() {
+void MultiViewStereoWidget::Stereo() {
   const std::string workspace_path = GetWorkspacePath();
   if (workspace_path.empty()) {
     return;
@@ -272,7 +297,7 @@ void MultiViewStereoWidget::Run() {
 #endif
 }
 
-void MultiViewStereoWidget::Fuse() {
+void MultiViewStereoWidget::Fusion() {
   const std::string workspace_path = GetWorkspacePath();
   if (workspace_path.empty()) {
     return;
@@ -296,6 +321,22 @@ void MultiViewStereoWidget::Fuse() {
     write_fused_points_action_->trigger();
   });
   thread_control_widget_->StartThread("Fusing...", true, fuser);
+}
+
+void MultiViewStereoWidget::Meshing() {
+  const std::string workspace_path = GetWorkspacePath();
+  if (workspace_path.empty()) {
+    return;
+  }
+
+  if (boost::filesystem::exists(JoinPaths(workspace_path, kFusedFileName))) {
+    thread_control_widget_->StartFunction(
+        "Meshing...", [this, workspace_path]() {
+          mvs::PoissonReconstruction(options_->dense_mapper_options->poisson,
+                                     JoinPaths(workspace_path, kFusedFileName),
+                                     kMeshedFileName);
+        });
+  }
 }
 
 void MultiViewStereoWidget::SelectWorkspacePath() {
@@ -332,11 +373,12 @@ void MultiViewStereoWidget::RefreshWorkspace() {
   const std::string workspace_path =
       workspace_path_text_->text().toUtf8().constData();
   if (boost::filesystem::is_directory(workspace_path)) {
-    prepare_button_->setEnabled(true);
+    undistortion_button_->setEnabled(true);
   } else {
-    prepare_button_->setEnabled(false);
-    run_button_->setEnabled(false);
-    fuse_button_->setEnabled(false);
+    undistortion_button_->setEnabled(false);
+    stereo_button_->setEnabled(false);
+    fusion_button_->setEnabled(false);
+    meshing_button_->setEnabled(false);
     return;
   }
 
@@ -353,10 +395,11 @@ void MultiViewStereoWidget::RefreshWorkspace() {
       boost::filesystem::is_directory(
           JoinPaths(workspace_path, "dense/consistency_graphs")) &&
       boost::filesystem::exists(config_path)) {
-    run_button_->setEnabled(true);
+    stereo_button_->setEnabled(true);
   } else {
-    run_button_->setEnabled(false);
-    fuse_button_->setEnabled(false);
+    stereo_button_->setEnabled(false);
+    fusion_button_->setEnabled(false);
+    meshing_button_->setEnabled(false);
     return;
   }
 
@@ -389,47 +432,32 @@ void MultiViewStereoWidget::RefreshWorkspace() {
 
   table_widget_->resizeColumnsToContents();
 
-  fuse_button_->setEnabled(photometric_done_ || geometric_done_);
+  fusion_button_->setEnabled(photometric_done_ || geometric_done_);
+  meshing_button_->setEnabled(
+      boost::filesystem::exists(JoinPaths(workspace_path, kFusedFileName)));
 }
 
 void MultiViewStereoWidget::WriteFusedPoints() {
-  int reply = QMessageBox::question(
+  const int reply = QMessageBox::question(
       this, "", tr("Do you want to visualize the point cloud?"),
       QMessageBox::Yes | QMessageBox::No);
   if (reply == QMessageBox::Yes) {
     main_window_->ImportFusedPoints(fused_points_);
   }
 
-  reply = QMessageBox::question(this, "",
-                                tr("Do you want to export the point cloud?"),
-                                QMessageBox::Yes | QMessageBox::No);
-  if (reply == QMessageBox::No) {
+  const std::string workspace_path =
+      workspace_path_text_->text().toUtf8().constData();
+  if (workspace_path.empty()) {
     fused_points_ = {};
     return;
   }
 
-  QString filter("Binary PLY (*.ply)");
-  const std::string path = QFileDialog::getSaveFileName(
-                               this, tr("Select destination..."), "",
-                               "Binary PLY (*.ply);; Text PLY (*.ply)", &filter)
-                               .toUtf8()
-                               .constData();
-
-  // Selection canceled?
-  if (path == "") {
-    fused_points_ = {};
-    return;
-  }
-
-  thread_control_widget_->StartFunction("Exporting...", [this, path, filter]() {
-    if (filter == "Binary PLY (*.ply)") {
-      mvs::WritePlyBinary(path, fused_points_);
-    } else if (filter == "Text PLY (*.ply)") {
-      mvs::WritePlyText(path, fused_points_);
-    }
-
-    fused_points_ = {};
-  });
+  thread_control_widget_->StartFunction(
+      "Exporting...", [this, workspace_path]() {
+        mvs::WritePlyBinary(JoinPaths(workspace_path, kFusedFileName),
+                            fused_points_);
+        fused_points_ = {};
+      });
 }
 
 QWidget* MultiViewStereoWidget::GenerateTableButtonWidget(
