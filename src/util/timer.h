@@ -18,8 +18,6 @@
 #define COLMAP_SRC_UTIL_TIMER_H_
 
 #include <boost/chrono.hpp>
-#include <iomanip>
-#include <iostream>
 
 namespace colmap {
 

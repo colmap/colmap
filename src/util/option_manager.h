@@ -257,6 +257,9 @@ struct MapperOptions : public BaseOptions {
   int ba_local_max_refinements;
   double ba_local_max_refinement_change;
 
+  std::string snapshot_path;
+  int snapshot_images_freq;
+
   struct IncrementalMapperOptions incremental_mapper;
   struct TriangulationOptions triangulation;
 };
@@ -335,7 +338,7 @@ class OptionManager {
   std::shared_ptr<VocabTreeMatchOptions> vocab_tree_match_options;
   std::shared_ptr<SpatialMatchOptions> spatial_match_options;
   std::shared_ptr<BundleAdjustmentOptions> ba_options;
-  std::shared_ptr<MapperOptions> sparse_mapper_options;
+  std::shared_ptr<MapperOptions> mapper_options;
   std::shared_ptr<DenseMapperOptions> dense_mapper_options;
   std::shared_ptr<RenderOptions> render_options;
 
@@ -361,7 +364,7 @@ class OptionManager {
   bool added_vocab_tree_match_options_;
   bool added_spatial_match_options_;
   bool added_ba_options_;
-  bool added_sparse_mapper_options_;
+  bool added_mapper_options_;
   bool added_dense_mapper_options_;
   bool added_render_options_;
 };

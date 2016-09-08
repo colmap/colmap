@@ -175,6 +175,22 @@ void ExtractColors(const std::string& image_path, const image_t image_id,
   }
 }
 
+void WriteSnapshot(const Reconstruction& reconstruction,
+                   const std::string& snapshot_path) {
+  PrintHeading1("Creating snapshot");
+      // Get the current timestamp in milliseconds.
+      const size_t timestamp =
+          boost::chrono::duration_cast<boost::chrono::milliseconds>(
+              boost::chrono::high_resolution_clock::now().time_since_epoch())
+              .count();
+  // Write reconstruction to unique path with current timestamp.
+  const std::string path =
+      JoinPaths(snapshot_path, StringPrintf("%010d", timestamp));
+  CreateDirIfNotExists(path);
+  std::cout << "  => Writing to " << path << std::endl;
+  reconstruction.Write(path);
+}
+
 }  // namespace
 
 IncrementalMapperController::IncrementalMapperController(
@@ -186,7 +202,7 @@ IncrementalMapperController::IncrementalMapperController(
 }
 
 void IncrementalMapperController::Run() {
-  const MapperOptions& mapper_options = *options_.sparse_mapper_options;
+  const MapperOptions& mapper_options = *options_.mapper_options;
 
   //////////////////////////////////////////////////////////////////////////////
   // Load data from database
@@ -314,8 +330,9 @@ void IncrementalMapperController::Run() {
     // Incremental mapping
     ////////////////////////////////////////////////////////////////////////////
 
-    size_t prev_num_reg_images = reconstruction.NumRegImages();
-    size_t prev_num_points = reconstruction.NumPoints3D();
+    size_t snapshot_prev_num_reg_images = reconstruction.NumRegImages();
+    size_t ba_prev_num_reg_images = reconstruction.NumRegImages();
+    size_t ba_prev_num_points = reconstruction.NumPoints3D();
     int num_global_bas = 1;
 
     bool reg_next_success = true;
@@ -354,21 +371,31 @@ void IncrementalMapperController::Run() {
           IterativeLocalRefinement(mapper_options, next_image_id, &mapper);
 
           if (reconstruction.NumRegImages() >=
-                  mapper_options.ba_global_images_ratio * prev_num_reg_images ||
+                  mapper_options.ba_global_images_ratio *
+                      ba_prev_num_reg_images ||
               reconstruction.NumRegImages() >=
-                  mapper_options.ba_global_images_freq + prev_num_reg_images ||
+                  mapper_options.ba_global_images_freq +
+                      ba_prev_num_reg_images ||
               reconstruction.NumPoints3D() >=
-                  mapper_options.ba_global_points_ratio * prev_num_points ||
+                  mapper_options.ba_global_points_ratio * ba_prev_num_points ||
               reconstruction.NumPoints3D() >=
-                  mapper_options.ba_global_points_freq + prev_num_points) {
+                  mapper_options.ba_global_points_freq + ba_prev_num_points) {
             IterativeGlobalRefinement(mapper_options, reconstruction, &mapper);
-            prev_num_points = reconstruction.NumPoints3D();
-            prev_num_reg_images = reconstruction.NumRegImages();
+            ba_prev_num_points = reconstruction.NumPoints3D();
+            ba_prev_num_reg_images = reconstruction.NumRegImages();
             num_global_bas += 1;
           }
 
           if (mapper_options.extract_colors) {
             ExtractColors(*options_.image_path, next_image_id, &reconstruction);
+          }
+
+          if (mapper_options.snapshot_images_freq > 0 &&
+              reconstruction.NumRegImages() >=
+                  mapper_options.snapshot_images_freq +
+                      snapshot_prev_num_reg_images) {
+            snapshot_prev_num_reg_images = reconstruction.NumRegImages();
+            WriteSnapshot(reconstruction, mapper_options.snapshot_path);
           }
 
           Callback(NEXT_IMAGE_REG_CALLBACK);
@@ -404,8 +431,8 @@ void IncrementalMapperController::Run() {
 
     // Only run final global BA, if last incremental BA was not global.
     if (reconstruction.NumRegImages() >= 2 &&
-        reconstruction.NumRegImages() != prev_num_reg_images &&
-        reconstruction.NumPoints3D() != prev_num_points) {
+        reconstruction.NumRegImages() != ba_prev_num_reg_images &&
+        reconstruction.NumPoints3D() != ba_prev_num_points) {
       IterativeGlobalRefinement(mapper_options, reconstruction, &mapper);
     }
 

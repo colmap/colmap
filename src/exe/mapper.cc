@@ -59,13 +59,34 @@ int main(int argc, char** argv) {
   }
 
   IncrementalMapperController mapper(options, &reconstruction_manager);
+
+  // In case a new reconstruction is started, write results of individual sub-
+  // models to as their reconstruction finishes instead of writing all results
+  // after all reconstructions finished.
+  size_t prev_num_reconstructions = 0;
+  if (import_path == "") {
+    mapper.AddCallback(
+        IncrementalMapperController::LAST_IMAGE_REG_CALLBACK, [&]() {
+          // If the number of reconstructions has not changed, the last model
+          // was discarded for some reason.
+          if (reconstruction_manager.Size() > prev_num_reconstructions) {
+            const std::string reconstruction_path = JoinPaths(
+                export_path, std::to_string(prev_num_reconstructions));
+            const auto& reconstruction =
+                reconstruction_manager.Get(prev_num_reconstructions);
+            CreateDirIfNotExists(reconstruction_path);
+            reconstruction.Write(reconstruction_path);
+            prev_num_reconstructions = reconstruction_manager.Size();
+          }
+        });
+  }
+
   mapper.Start();
   mapper.Wait();
 
-  if (import_path == "") {
-    reconstruction_manager.Write(export_path, &options);
-  } else {
-    CHECK_LE(reconstruction_manager.Size(), 1);
+  // In case the reconstruction is continued from an existing reconstruction, do
+  // not create sub-folders but directly write the results.
+  if (import_path != "" && reconstruction_manager.Size() > 0) {
     reconstruction_manager.Get(0).Write(export_path);
   }
 
