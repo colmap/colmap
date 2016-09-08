@@ -32,6 +32,8 @@ LicenseWidget::LicenseWidget(QWidget* parent) : QTextEdit(parent) {
   licenses += GetFLANNLicense();
   licenses += "<h3>PBA</h3>";
   licenses += GetPBALicense();
+  licenses += "<h3>PoissonRecon</h3>";
+  licenses += GetPoissonReconLicense();
   licenses += "<h3>SiftGPU</h3>";
   licenses += GetSiftGPULicense();
   licenses += "<h3>SQLite</h3>";
@@ -110,6 +112,34 @@ QString LicenseWidget::GetPBALicense() const {
       "but WITHOUT ANY WARRANTY; without even the implied warranty of<br>"
       "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU<br>"
       "General Public License for more details.";
+  return license;
+}
+
+QString LicenseWidget::GetPoissonReconLicense() const {
+  const QString license =
+      "The MIT License (MIT)<br>"
+      "<br>"
+      "Copyright (c) 2015 mkazhdan<br>"
+      "<br>"
+      "Permission is hereby granted, free of charge, to any person<br>"
+      "obtaining a copy of this software and associated documentation<br>"
+      "files (the \"Software\"), to deal in the Software without<br>"
+      "restriction, including without limitation the rights to use, copy,<br>"
+      "modify, merge, publish, distribute, sublicense, and/or sell copies<br>"
+      "of the Software, and to permit persons to whom the Software is<br>"
+      "furnished to do so, subject to the following conditions:<br>"
+      "<br>"
+      "The above copyright notice and this permission notice shall be<br>"
+      "included in all copies or substantial portions of the Software.<br>"
+      "<br>"
+      "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND,<br>"
+      "EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF<br>"
+      "MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND<br>"
+      "NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS<br>"
+      "BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN<br>"
+      "ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN<br>"
+      "CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE<br>"
+      "SOFTWARE.";
   return license;
 }
 
