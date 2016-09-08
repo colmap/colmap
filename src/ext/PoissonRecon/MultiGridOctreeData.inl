@@ -8,14 +8,14 @@ are permitted provided that the following conditions are met:
 Redistributions of source code must retain the above copyright notice, this list of
 conditions and the following disclaimer. Redistributions in binary form must reproduce
 the above copyright notice, this list of conditions and the following disclaimer
-in the documentation and/or other materials provided with the distribution. 
+in the documentation and/or other materials provided with the distribution.
 
 Neither the name of the Johns Hopkins University nor the names of its contributors
 may be used to endorse or promote products derived from this software without specific
-prior written permission. 
+prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
-EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO THE IMPLIED WARRANTIES 
+EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO THE IMPLIED WARRANTIES
 OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
 SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
 INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
@@ -104,7 +104,7 @@ void Octree< Real >::_setFullDepth( int depth )
 }
 template< class Real >
 template< class PointReal , int NormalDegree , int WeightDegree , int DataDegree , class Data , class _Data >
-int Octree< Real >::SetTree( OrientedPointStream< PointReal >* pointStream , int minDepth , int maxDepth , int fullDepth , 
+int Octree< Real >::SetTree( OrientedPointStream< PointReal >* pointStream , int minDepth , int maxDepth , int fullDepth ,
 							int splatDepth , Real samplesPerNode , Real scaleFactor ,
 							bool useConfidence , bool useNormalWeights , Real constraintWeight , int adaptiveExponent ,
 							SparseNodeData< Real , WeightDegree >& densityWeights , SparseNodeData< PointData< Real > , 0 >& pointInfo , SparseNodeData< Point3D< Real > , NormalDegree >& normalInfo , SparseNodeData< Real , NormalDegree >& nodeWeights ,
@@ -332,8 +332,8 @@ int Octree< Real >::SetTree( OrientedPointStream< PointReal >* pointStream , int
 				points[idx].weight *= Real( constraintWeight );
 			}
 #if FORCE_NEUMANN_FIELD
-#pragma message( "[WARNING] This is likely wrong as it only forces the normal component of the coefficient to be zero, not the actual vector-field" )
-	if( !_dirichlet ) 
+// #pragma message( "[WARNING] This is likely wrong as it only forces the normal component of the coefficient to be zero, not the actual vector-field" )
+	if( !_dirichlet )
 		for( TreeOctNode* node=_tree.nextNode() ; node ; node=_tree.nextNode( node ) )
 		{
 			int d , off[3] , res;

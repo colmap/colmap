@@ -57,7 +57,7 @@ void DumpOutput2( std::vector< char* >& comments , const char* format , ... );
 #define XSTR(x) STR(x)
 #define STR(x) #x
 #if DEFAULT_FULL_DEPTH
-#pragma message ( "[WARNING] Setting default full depth to " XSTR(DEFAULT_FULL_DEPTH) )
+// #pragma message ( "[WARNING] Setting default full depth to " XSTR(DEFAULT_FULL_DEPTH) )
 #endif // DEFAULT_FULL_DEPTH
 
 #include <stdarg.h>
