@@ -16,6 +16,12 @@ http://people.inf.ethz.ch/jschoenb/colmap/datasets/
 
 A number of sample reconstructions produced by COLMAP can be viewed here:
 
+**Sparse reconstructions**:
+
 - https://www.youtube.com/watch?v=Gb086k7b0wg
 - https://www.youtube.com/watch?v=DIv1aGKqSIk
 - https://www.youtube.com/watch?v=xu-nWgjWKI0
+
+**Dense reconstructions**:
+
+- https://www.youtube.com/watch?v=GRW2APWn9wY
