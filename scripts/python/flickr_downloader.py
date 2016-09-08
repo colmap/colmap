@@ -1,4 +1,4 @@
-# COLMAP - Structure-from-Motion.
+# COLMAP - Structure-from-Motion and Multi-View Stereo.
 # Copyright (C) 2016  Johannes L. Schoenberger <jsch at inf.ethz.ch>
 #                     Filip Radenovic <filip.radenovic at cmp.felk.cvut.cz>
 #

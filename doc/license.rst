@@ -7,7 +7,7 @@ disclosing your modifications, please contact the authors.
 
 .. code-block:: text
 
-    COLMAP - Structure-from-Motion.
+    COLMAP - Structure-from-Motion and Multi-View Stereo.
     Copyright (C) 2016  Johannes L. Schoenberger <jsch at inf.ethz.ch>
 
     This program is free software: you can redistribute it and/or modify
