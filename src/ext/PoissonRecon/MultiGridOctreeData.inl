@@ -224,7 +224,7 @@ int Octree< Real >::SetTree( OrientedPointStream< PointReal >* pointStream , int
 		n *= Real(-1.);
 		if( !_InBounds(p) ) continue;
 		Real normalLength = Real( Length( n ) );
-		if( isnan( normalLength ) || !isfinite( normalLength ) || normalLength<=EPSILON ) continue;
+		if(std::isnan( normalLength ) || !std::isfinite( normalLength ) || normalLength<=EPSILON ) continue;
 		if( !useConfidence ) n /= normalLength;
 
 		Real pointWeight = Real(1.f);
