@@ -87,15 +87,15 @@ void COLMAPUndistorter::Run() {
 
   CreateDirIfNotExists(JoinPaths(output_path_, "images"));
   CreateDirIfNotExists(JoinPaths(output_path_, "sparse"));
-  CreateDirIfNotExists(JoinPaths(output_path_, "dense"));
-  CreateDirIfNotExists(JoinPaths(output_path_, "dense/depth_maps"));
-  CreateDirIfNotExists(JoinPaths(output_path_, "dense/normal_maps"));
-  CreateDirIfNotExists(JoinPaths(output_path_, "dense/consistency_graphs"));
+  CreateDirIfNotExists(JoinPaths(output_path_, "stereo"));
+  CreateDirIfNotExists(JoinPaths(output_path_, "stereo/depth_maps"));
+  CreateDirIfNotExists(JoinPaths(output_path_, "stereo/normal_maps"));
+  CreateDirIfNotExists(JoinPaths(output_path_, "stereo/consistency_graphs"));
   reconstruction_.CreateImageDirs(JoinPaths(output_path_, "images"));
-  reconstruction_.CreateImageDirs(JoinPaths(output_path_, "dense/depth_maps"));
-  reconstruction_.CreateImageDirs(JoinPaths(output_path_, "dense/normal_maps"));
+  reconstruction_.CreateImageDirs(JoinPaths(output_path_, "stereo/depth_maps"));
+  reconstruction_.CreateImageDirs(JoinPaths(output_path_, "stereo/normal_maps"));
   reconstruction_.CreateImageDirs(
-      JoinPaths(output_path_, "dense/consistency_graphs"));
+      JoinPaths(output_path_, "stereo/consistency_graphs"));
 
   ThreadPool thread_pool;
   std::vector<std::future<void>> futures;
@@ -159,7 +159,7 @@ void COLMAPUndistorter::Undistort(const size_t reg_image_idx) const {
 }
 
 void COLMAPUndistorter::WritePatchMatchConfig() const {
-  std::ofstream file(JoinPaths(output_path_, "dense/patch-match.cfg"),
+  std::ofstream file(JoinPaths(output_path_, "stereo/patch-match.cfg"),
                      std::ios::trunc);
   CHECK(file.is_open());
   for (const auto image_id : reconstruction_.RegImageIds()) {
@@ -170,7 +170,7 @@ void COLMAPUndistorter::WritePatchMatchConfig() const {
 }
 
 void COLMAPUndistorter::WriteFusionConfig() const {
-  std::ofstream file(JoinPaths(output_path_, "dense/fusion.cfg"),
+  std::ofstream file(JoinPaths(output_path_, "stereo/fusion.cfg"),
                      std::ios::trunc);
   CHECK(file.is_open());
   for (const auto image_id : reconstruction_.RegImageIds()) {
@@ -208,7 +208,11 @@ void COLMAPUndistorter::WriteScript() const {
   file << "  --workspace_path . \\" << std::endl;
   file << "  --workspace_format COLMAP \\" << std::endl;
   file << "  --input_type geometric \\" << std::endl;
-  file << "  --output_path point-cloud.ply" << std::endl;
+  file << "  --output_path fused.ply" << std::endl;
+
+  file << "$COLMAP_EXE_PATH/dense_mesher \\" << std::endl;
+  file << "  --input_path fused.ply \\" << std::endl;
+  file << "  --output_path meshed.ply" << std::endl;
 }
 
 PMVSUndistorter::PMVSUndistorter(const UndistortCameraOptions& options,

@@ -38,7 +38,7 @@ void ReadPatchMatchProblems(const PatchMatch::Options& options,
 
   std::cout << "Reading configuration..." << std::endl;
 
-  std::ifstream file(JoinPaths(workspace_path, "dense/patch-match.cfg"));
+  std::ifstream file(JoinPaths(workspace_path, "stereo/patch-match.cfg"));
   CHECK(file.is_open());
 
   std::set<int> used_image_ids;
@@ -144,10 +144,10 @@ void ReadPatchMatchProblems(const PatchMatch::Options& options,
       const std::string file_name =
           model->GetImageName(image_id) + ".photometric.bin";
       auto& depth_map = model->depth_maps.at(image_id);
-      depth_map.Read(JoinPaths(workspace_path, "dense/depth_maps", file_name));
+      depth_map.Read(JoinPaths(workspace_path, "stereo/depth_maps", file_name));
       auto& normal_map = model->normal_maps.at(image_id);
       normal_map.Read(
-          JoinPaths(workspace_path, "dense/normal_maps", file_name));
+          JoinPaths(workspace_path, "stereo/normal_maps", file_name));
     }
   }
 
@@ -359,11 +359,11 @@ void PatchMatchController::Run() {
     std::cout << std::endl << "Writing output: " << file_name << std::endl;
 
     patch_match.GetDepthMap().Write(
-        JoinPaths(workspace_path_, "dense/depth_maps", file_name));
+        JoinPaths(workspace_path_, "stereo/depth_maps", file_name));
     patch_match.GetNormalMap().Write(
-        JoinPaths(workspace_path_, "dense/normal_maps", file_name));
+        JoinPaths(workspace_path_, "stereo/normal_maps", file_name));
     WriteBinaryBlob(
-        JoinPaths(workspace_path_, "dense/consistency_graphs", file_name),
+        JoinPaths(workspace_path_, "stereo/consistency_graphs", file_name),
         patch_match.GetConsistentImageIds());
   }
 

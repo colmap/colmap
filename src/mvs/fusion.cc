@@ -166,7 +166,7 @@ void StereoFusion::Read() {
 
   std::cout << "Reading configuration..." << std::endl;
 
-  std::ifstream file(JoinPaths(workspace_path_, "dense/fusion.cfg"));
+  std::ifstream file(JoinPaths(workspace_path_, "stereo/fusion.cfg"));
   CHECK(file.is_open());
 
   std::string line;
@@ -198,10 +198,11 @@ void StereoFusion::Read() {
 
     const std::string file_name =
         StringPrintf("%s.%s.bin", image_name.c_str(), input_type_.c_str());
-    depth_map.Read(JoinPaths(workspace_path_, "dense/depth_maps", file_name));
-    normal_map.Read(JoinPaths(workspace_path_, "dense/normal_maps", file_name));
+    depth_map.Read(JoinPaths(workspace_path_, "stereo/depth_maps", file_name));
+    normal_map.Read(
+        JoinPaths(workspace_path_, "stereo/normal_maps", file_name));
     ReadBinaryBlob<int>(
-        JoinPaths(workspace_path_, "dense/consistency_graphs", file_name),
+        JoinPaths(workspace_path_, "stereo/consistency_graphs", file_name),
         &model_.consistency_graph.at(image_id));
 
     const bool kReadImageAsRGB = true;

@@ -93,7 +93,15 @@ Dense Reconstruction
 
 COLMAP uses the following workspace folder structure::
 
-    +── dense
+    +── images
+    │   +── image1.jpg
+    │   +── image2.jpg
+    │   +── ...
+    +── sparse
+    │   +── cameras.txt
+    │   +── images.txt
+    │   +── points3D.txt
+    +── stereo
     │   +── consistency_graphs
     │   │   +── image1.jpg.photometric.bin
     │   │   +── image2.jpg.photometric.bin
@@ -102,23 +110,21 @@ COLMAP uses the following workspace folder structure::
     │   │   +── image1.jpg.photometric.bin
     │   │   +── image2.jpg.photometric.bin
     │   │   +── ...
-    │   +── fusion.cfg
     │   +── normal_maps
     │   │   +── image1.jpg.photometric.bin
     │   │   +── image2.jpg.photometric.bin
     │   │   +── ...
     │   +── patch-match.cfg
+    │   +── fusion.cfg
     +── dense-reconstruction.sh
-    +── fused2.ply
-    +── images
-    │   +── image1.jpg
-    │   +── image2.jpg
     +── fused.ply
     +── meshed.ply
-    +── sparse
-        +── cameras.txt
-        +── images.txt
-        +── points3D.txt
+
+Here, the `images` folder contains the undistorted images, the `sparse` folder
+contains the sparse reconstruction with undistorted cameras, the `stereo` folder
+contains the stereo reconstruction results, `fused.ply` and `meshed.ply` are the
+results of the fusion and meshing procedure, and `dense-reconstruction.sh`
+contains example command-line usage to perform the dense reconstruction.
 
 
 Depth and Normal Maps

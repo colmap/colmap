@@ -63,9 +63,10 @@ Reduce memory usage during dense reconstruction
 -----------------------------------------------
 
 You can either reduce the maximum image resolution by setting the option
-``max_image_size`` or reduce the number of sources images in the ``dense/patch-
-match.cfg`` file from e.g. ``__auto__ 30`` to ``__auto__ 10`` file. Note that
-enabling the ``geom_consistency`` option increases the required GPU memory.
+``max_image_size`` or reduce the number of sources images in the
+``stereo/patch-match.cfg`` file from e.g. ``__auto__ 30`` to ``__auto__ 10``
+file. Note that enabling the ``geom_consistency`` option increases the required
+GPU memory.
 
 For large-scale reconstructions of several thousands of images, you should split
 your sparse reconstruction into more manageable clusters of images using e.g.

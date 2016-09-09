@@ -387,17 +387,17 @@ void MultiViewStereoWidget::RefreshWorkspace() {
   }
 
   images_path_ = JoinPaths(workspace_path, "images");
-  depth_maps_path_ = JoinPaths(workspace_path, "dense/depth_maps");
-  normal_maps_path_ = JoinPaths(workspace_path, "dense/normal_maps");
+  depth_maps_path_ = JoinPaths(workspace_path, "stereo/depth_maps");
+  normal_maps_path_ = JoinPaths(workspace_path, "stereo/normal_maps");
   const std::string config_path =
-      JoinPaths(workspace_path, "dense/patch-match.cfg");
+      JoinPaths(workspace_path, "stereo/patch-match.cfg");
 
   if (boost::filesystem::is_directory(images_path_) &&
       boost::filesystem::is_directory(depth_maps_path_) &&
       boost::filesystem::is_directory(normal_maps_path_) &&
       boost::filesystem::is_directory(JoinPaths(workspace_path, "sparse")) &&
       boost::filesystem::is_directory(
-          JoinPaths(workspace_path, "dense/consistency_graphs")) &&
+          JoinPaths(workspace_path, "stereo/consistency_graphs")) &&
       boost::filesystem::exists(config_path)) {
     stereo_button_->setEnabled(true);
   } else {

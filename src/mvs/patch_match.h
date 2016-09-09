@@ -162,7 +162,7 @@ class PatchMatch {
 //
 //    images/*
 //    sparse/{cameras.txt, images.txt, points3D.txt}
-//    dense/
+//    stereo/
 //      depth_maps/*
 //      normal_maps/*
 //      consistency_graphs/*
