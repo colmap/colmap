@@ -63,6 +63,13 @@ Reduce memory usage during dense reconstruction
 -----------------------------------------------
 
 You can either reduce the maximum image resolution by setting the option
-``DenseMapperOptions.patch_match.max_image_size`` or reduce the number of
-sources images in the ``dense/patch-match.cfg`` from e.g. ``__auto__ 30`` to
-``__auto__ 10`` file.
+``max_image_size`` or reduce the number of sources images in the ``dense/patch-
+match.cfg`` file from e.g. ``__auto__ 30`` to ``__auto__ 10`` file. Note that
+enabling the ``geom_consistency`` option increases the required GPU memory.
+
+For large-scale reconstructions of several thousands of images, you should split
+your sparse reconstruction into more manageable clusters of images using e.g.
+CMVS [furukawa10]_. Otherwise, the fusion procedure might run out of memory, as
+the implementation requires all depth and normal maps to be loaded at the same
+time. Note that, for this use case, COLMAP's dense reconstruction pipeline also
+supports the PMVS/CMVS folder structure when executed from the command-line.

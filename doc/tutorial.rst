@@ -299,8 +299,8 @@ system has multiple CUDA-enabled GPUs, you can select specific GPUs with the
 `gpu_index` option.
 
 
-Incremental Sparse Reconstruction
----------------------------------
+Sparse Reconstruction
+---------------------
 
 After producing the scene graph in the previous two steps, you can start the
 incremental reconstruction process by choosing ``Reconstruction > Start``.
@@ -349,12 +349,12 @@ files with RGB information by choosing ``File > Import From...``.
 Dense Reconstruction
 --------------------
 
-After recovering a sparse representation of the scene and the camera poses of
-the input images, MVS can now recover denser scene geometry. COLMAP has an
+After reconstructing a sparse representation of the scene and the camera poses
+of the input images, MVS can now recover denser scene geometry. COLMAP has an
 integrated dense reconstruction pipeline to produce depth and normal maps for
 all registered images, to fuse the depth and normal maps into a dense point
-cloud with normal information, and to finally reconstruct a dense surface from
-the fused point cloud.
+cloud with normal information, and to finally estimate a dense surface from the
+fused point cloud using Poisson reconstruction [kazhdan2013]_.
 
 To get started, import your sparse 3D model into COLMAP (or select the
 reconstructed model after finishing the previous sparse reconstruction steps).
@@ -368,12 +368,20 @@ freeze due to heavy compute load and, if your GPU does not have enough memory,
 the reconstruction process might ungracefully crash. Please, refer to the
 :ref:`FAQ <faq-dense-memory-usage>` for information on how to reduce the memory
 usage. Note that the reconstructed normals of the point cloud cannot be directly
-visualized in COLMAP, but e.g. using Meshlab and ``Render > Show
-Normal/Curvature``. Similarly, the reconstructed dense surface must be
-visualized with external software.
+visualized in COLMAP, but e.g. in Meshlab by enabling ``Render > Show
+Normal/Curvature``. Similarly, the reconstructed dense surface mesh model must
+be visualized with external software.
+
+By default, COLMAP only computes photometrically consistent depth and normal
+maps as a trade-off between reconstruction quality and speed. For highest
+reconstruction quality, you can compute both photometrically and geometrically
+consistent depth and normal maps: first, perform stereo processing and
+disable the ``filter`` option. After processing all images (before fusion and
+meshing), you must re-run stereo processing and enable both the ``filter`` and
+``geom_consistency`` options. Finally, perform the fusion and meshing steps.
 
 In addition to the internal dense reconstruction functionality, COLMAP exports
-to several other dense reconstruction software, such as CMVS/PMVS [furukawa10]_
+to several other dense reconstruction libraries, such as CMVS/PMVS [furukawa10]_
 or CMP-MVS [jancosek11]_. Please choose ``Extras > Undistort images`` and select
 the appropriate format. To run PMVS2, execute the following commands::
 
@@ -390,7 +398,6 @@ into more manageable parts and then run PMVS2::
     ./cmvs /path/to/undistortion/folder/pmvs/
     ./genOption /path/to/undistortion/folder/pmvs/
     sh /path/to/undistortion/folder/pmvs/pmvs.sh
-
 
 There is a number of external software packages that support COLMAP's output:
 
