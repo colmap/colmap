@@ -71,7 +71,7 @@ class FeatureImageViewerWidget : public ImageViewerWidget {
                               const FeatureMatches& matches);
 
  protected:
-  void ShowOrHide(const bool rescale);
+  void ShowOrHide();
 
   QPixmap image1_;
   QPixmap image2_;

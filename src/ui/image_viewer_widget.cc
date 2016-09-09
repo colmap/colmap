@@ -127,13 +127,13 @@ void ImageViewerWidget::ZoomOut() { Rescale(1.0 / kZoomFactor); }
 FeatureImageViewerWidget::FeatureImageViewerWidget(
     QWidget* parent, const std::string& switch_text)
     : ImageViewerWidget(parent),
-      switch_state_(false),
+      switch_state_(true),
       switch_text_(switch_text) {
   switch_button_ = new QPushButton(tr(("Hide " + switch_text_).c_str()), this);
   switch_button_->setFont(font());
   button_layout_->addWidget(switch_button_);
-  connect(switch_button_, &QPushButton::released,
-          [this]() { ShowOrHide(false); });
+  connect(switch_button_, &QPushButton::released, this,
+          &FeatureImageViewerWidget::ShowOrHide);
 }
 
 void FeatureImageViewerWidget::ReadAndShowWithKeypoints(
@@ -168,7 +168,8 @@ void FeatureImageViewerWidget::ReadAndShowWithKeypoints(
   DrawKeypoints(&image2_, keypoints_tri, Qt::magenta);
   DrawKeypoints(&image2_, keypoints_not_tri, Qt::red);
 
-  ShowOrHide(true);
+  switch_state_ = true;
+  ShowPixmap(image2_, true);
 }
 
 void FeatureImageViewerWidget::ReadAndShowWithMatches(
@@ -189,17 +190,18 @@ void FeatureImageViewerWidget::ReadAndShowWithMatches(
   image1_ = ShowImagesSideBySide(image1, image2);
   image2_ = DrawMatches(image1, image2, keypoints1, keypoints2, matches);
 
-  ShowOrHide(true);
+  switch_state_ = true;
+  ShowPixmap(image2_, true);
 }
 
-void FeatureImageViewerWidget::ShowOrHide(const bool rescale) {
+void FeatureImageViewerWidget::ShowOrHide() {
   if (switch_state_) {
-    switch_button_->setText(tr(std::string("Show " + switch_text_).c_str()));
-    ShowPixmap(image1_, rescale);
+    switch_button_->setText(std::string("Show " + switch_text_).c_str());
+    ShowPixmap(image1_, false);
     switch_state_ = false;
   } else {
-    switch_button_->setText(tr(std::string("Hide " + switch_text_).c_str()));
-    ShowPixmap(image2_, rescale);
+    switch_button_->setText(std::string("Hide " + switch_text_).c_str());
+    ShowPixmap(image2_, false);
     switch_state_ = true;
   }
 }
