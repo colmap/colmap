@@ -61,12 +61,15 @@ class PatchMatchOptionsTab : public OptionsWidget {
         "incident_angle_sigma");
     AddOptionInt(&options->dense_mapper_options->patch_match.num_iterations,
                  "num_iterations");
+    AddOptionBool(&options->dense_mapper_options->patch_match.geom_consistency,
+                  "geom_consistency");
     AddOptionDouble(&options->dense_mapper_options->patch_match
                          .geom_consistency_regularizer,
                     "geom_consistency_regularizer");
     AddOptionDouble(
         &options->dense_mapper_options->patch_match.geom_consistency_max_cost,
         "geom_consistency_max_cost");
+    AddOptionBool(&options->dense_mapper_options->patch_match.filter, "filter");
     AddOptionDouble(&options->dense_mapper_options->patch_match.filter_min_ncc,
                     "filter_min_ncc");
     AddOptionDouble(&options->dense_mapper_options->patch_match
@@ -115,14 +118,14 @@ class PoissonReconstructionOptionsTab : public OptionsWidget {
 };
 
 // Read the specified reference image names from a patch match configuration.
-std::vector<std::string> ReadRefImageNamesFromConfig(
+std::vector<std::pair<std::string, std::string>> ReadPatchMatchConfig(
     const std::string& config_path) {
   std::ifstream file(config_path);
   CHECK(file.is_open());
 
   std::string line;
   std::string ref_image_name;
-  std::vector<std::string> ref_image_names;
+  std::vector<std::pair<std::string, std::string>> images;
   while (std::getline(file, line)) {
     StringTrim(&line);
 
@@ -132,14 +135,13 @@ std::vector<std::string> ReadRefImageNamesFromConfig(
 
     if (ref_image_name.empty()) {
       ref_image_name = line;
-      ref_image_names.push_back(ref_image_name);
-      continue;
     } else {
+      images.emplace_back(ref_image_name, line);
       ref_image_name.clear();
     }
   }
 
-  return ref_image_names;
+  return images;
 }
 
 }  // namepspace
@@ -223,7 +225,8 @@ MultiViewStereoWidget::MultiViewStereoWidget(MainWindow* main_window,
   table_header << "image_name"
                << ""
                << "photometric"
-               << "geometric";
+               << "geometric"
+               << "src_images";
 
   table_widget_ = new QTableWidget(this);
   table_widget_->setColumnCount(table_header.size());
@@ -276,7 +279,7 @@ void MultiViewStereoWidget::Undistort() {
                             *options_->image_path, workspace_path);
   undistorter->AddCallback(Thread::FINISHED_CALLBACK,
                            [this]() { refresh_workspace_action_->trigger(); });
-  thread_control_widget_->StartThread("Preparing...", true, undistorter);
+  thread_control_widget_->StartThread("Undistorting...", true, undistorter);
 }
 
 void MultiViewStereoWidget::Stereo() {
@@ -291,7 +294,7 @@ void MultiViewStereoWidget::Stereo() {
       options_->dense_mapper_options->max_image_size);
   processor->AddCallback(Thread::FINISHED_CALLBACK,
                          [this]() { refresh_workspace_action_->trigger(); });
-  thread_control_widget_->StartThread("Processing...", true, processor);
+  thread_control_widget_->StartThread("Stereo processing...", true, processor);
 #else
   QMessageBox::critical(this, "", tr("CUDA not supported"));
 #endif
@@ -319,6 +322,7 @@ void MultiViewStereoWidget::Fusion() {
   fuser->AddCallback(Thread::FINISHED_CALLBACK, [this, fuser]() {
     fused_points_ = fuser->GetFusedPoints();
     write_fused_points_action_->trigger();
+    refresh_workspace_action_->trigger();
   });
   thread_control_widget_->StartThread("Fusing...", true, fuser);
 }
@@ -403,12 +407,12 @@ void MultiViewStereoWidget::RefreshWorkspace() {
     return;
   }
 
-  const std::vector<std::string> image_names =
-      ReadRefImageNamesFromConfig(config_path);
-  table_widget_->setRowCount(image_names.size());
+  const auto images = ReadPatchMatchConfig(config_path);
+  table_widget_->setRowCount(images.size());
 
-  for (size_t i = 0; i < image_names.size(); ++i) {
-    const std::string image_name = image_names[i];
+  for (size_t i = 0; i < images.size(); ++i) {
+    const std::string image_name = images[i].first;
+    const std::string src_images = images[i].second;
     const std::string image_path = JoinPaths(images_path_, image_name);
 
     QTableWidgetItem* image_name_item =
@@ -428,6 +432,10 @@ void MultiViewStereoWidget::RefreshWorkspace() {
         i, 2, GenerateTableButtonWidget(image_name, "photometric"));
     table_widget_->setCellWidget(
         i, 3, GenerateTableButtonWidget(image_name, "geometric"));
+
+    QTableWidgetItem* src_images_item =
+        new QTableWidgetItem(QString::fromStdString(src_images));
+    table_widget_->setItem(i, 4, src_images_item);
   }
 
   table_widget_->resizeColumnsToContents();
