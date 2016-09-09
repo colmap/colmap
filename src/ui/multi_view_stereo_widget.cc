@@ -334,12 +334,12 @@ void MultiViewStereoWidget::Meshing() {
   }
 
   if (boost::filesystem::exists(JoinPaths(workspace_path, kFusedFileName))) {
-    thread_control_widget_->StartFunction(
-        "Meshing...", [this, workspace_path]() {
-          mvs::PoissonReconstruction(options_->dense_mapper_options->poisson,
-                                     JoinPaths(workspace_path, kFusedFileName),
-                                     kMeshedFileName);
-        });
+    thread_control_widget_->StartFunction("Meshing...", [this,
+                                                         workspace_path]() {
+      mvs::PoissonReconstruction(options_->dense_mapper_options->poisson,
+                                 JoinPaths(workspace_path, kFusedFileName),
+                                 JoinPaths(workspace_path, kMeshedFileName));
+    });
   }
 }
 
