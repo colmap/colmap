@@ -178,11 +178,11 @@ void ExtractColors(const std::string& image_path, const image_t image_id,
 void WriteSnapshot(const Reconstruction& reconstruction,
                    const std::string& snapshot_path) {
   PrintHeading1("Creating snapshot");
-      // Get the current timestamp in milliseconds.
-      const size_t timestamp =
-          boost::chrono::duration_cast<boost::chrono::milliseconds>(
-              boost::chrono::high_resolution_clock::now().time_since_epoch())
-              .count();
+  // Get the current timestamp in milliseconds.
+  const size_t timestamp =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::high_resolution_clock::now().time_since_epoch())
+          .count();
   // Write reconstruction to unique path with current timestamp.
   const std::string path =
       JoinPaths(snapshot_path, StringPrintf("%010d", timestamp));

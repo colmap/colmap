@@ -53,7 +53,6 @@ find_package(Boost COMPONENTS
              program_options
              filesystem
              system
-             chrono
              regex
              unit_test_framework
              REQUIRED)

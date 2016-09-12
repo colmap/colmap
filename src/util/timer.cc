@@ -19,7 +19,7 @@
 #include "util/logging.h"
 #include "util/misc.h"
 
-using namespace boost::chrono;
+using namespace std::chrono;
 
 namespace colmap {
 

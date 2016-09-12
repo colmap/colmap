@@ -17,7 +17,7 @@
 #ifndef COLMAP_SRC_UTIL_TIMER_H_
 #define COLMAP_SRC_UTIL_TIMER_H_
 
-#include <boost/chrono.hpp>
+#include <chrono>
 
 namespace colmap {
 
@@ -43,8 +43,8 @@ class Timer {
  private:
   bool started_;
   bool paused_;
-  boost::chrono::high_resolution_clock::time_point start_time_;
-  boost::chrono::high_resolution_clock::time_point pause_time_;
+  std::chrono::high_resolution_clock::time_point start_time_;
+  std::chrono::high_resolution_clock::time_point pause_time_;
 };
 
 }  // namespace colmap
