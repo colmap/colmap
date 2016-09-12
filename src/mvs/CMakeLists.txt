@@ -9,6 +9,10 @@ COLMAP_ADD_LIBRARY(mvs
     normal_map.h normal_map.cc
 )
 
+COLMAP_ADD_TEST(depth_map_test depth_map_test.cc)
+COLMAP_ADD_TEST(mat_test mat_test.cc)
+COLMAP_ADD_TEST(normal_map_test normal_map_test.cc)
+
 if(CUDA_ENABLED)
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --use_fast_math")
 

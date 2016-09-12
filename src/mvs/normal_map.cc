@@ -43,7 +43,7 @@ void NormalMap::Rescale(const float factor) {
 
   const size_t new_width = std::round(width_ * factor);
   const size_t new_height = std::round(height_ * factor);
-  std::vector<float> new_data(new_width * new_height);
+  std::vector<float> new_data(new_width * new_height * 3);
 
   // Resample the normal map.
   for (size_t d = 0; d < 3; ++d) {
@@ -92,9 +92,9 @@ Bitmap NormalMap::ToBitmap() const {
       float normal[3];
       GetSlice(y, x, normal);
       if (normal[0] != 0 || normal[1] != 0 || normal[2] != 0) {
-        const BitmapColor<float> color(127.5 * (-normal[0] + 1),
-                                       127.5 * (-normal[1] + 1),
-                                       -255.0 * normal[2]);
+        const BitmapColor<float> color(127.5f * (-normal[0] + 1),
+                                       127.5f * (-normal[1] + 1),
+                                       -255.0f * normal[2]);
         bitmap.SetPixel(x, y, color.Cast<uint8_t>());
       } else {
         bitmap.SetPixel(x, y, BitmapColor<uint8_t>(0, 0, 0));
