@@ -30,6 +30,7 @@ DAMAGE.
 #include <stdlib.h>
 #include <math.h>
 #include <float.h>
+#include <cmath>
 #ifdef _WIN32
 #include <Windows.h>
 #include <Psapi.h>

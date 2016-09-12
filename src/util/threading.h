@@ -18,6 +18,7 @@
 #define COLMAP_SRC_UTIL_THREADING_
 
 #include <atomic>
+#include <climits>
 #include <functional>
 #include <future>
 #include <list>
