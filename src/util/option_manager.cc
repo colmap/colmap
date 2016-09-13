@@ -667,7 +667,10 @@ bool DenseMapperOptions::Check() {
 
   CHECK_OPTION(DenseMapperOptions, poisson.point_weight, >= 0);
   CHECK_OPTION(DenseMapperOptions, poisson.depth, > 0);
+  CHECK_OPTION(DenseMapperOptions, poisson.color, >= 0);
   CHECK_OPTION(DenseMapperOptions, poisson.trim, >= 0);
+  CHECK_OPTION(DenseMapperOptions, poisson.num_threads, >= -1);
+  CHECK_OPTION(DenseMapperOptions, poisson.num_threads, != 0);
 
   return verified;
 }
@@ -1080,7 +1083,10 @@ void OptionManager::AddDenseMapperOptions() {
   ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
                      poisson.point_weight);
   ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options, poisson.depth);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options, poisson.color);
   ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options, poisson.trim);
+  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+                     poisson.num_threads);
 }
 
 void OptionManager::AddRenderOptions() {

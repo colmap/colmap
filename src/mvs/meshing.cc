@@ -28,7 +28,10 @@ namespace mvs {
 void PoissonReconstructionOptions::Check() const {
   CHECK_GE(point_weight, 0);
   CHECK_GT(depth, 0);
+  CHECK_GE(color, 0);
   CHECK_GE(trim, 0);
+  CHECK_GE(num_threads, -1);
+  CHECK_NE(num_threads, 0);
 }
 
 bool PoissonReconstruction(const PoissonReconstructionOptions& options,
@@ -52,9 +55,15 @@ bool PoissonReconstruction(const PoissonReconstructionOptions& options,
   args.push_back("--depth");
   args.push_back(std::to_string(options.depth));
 
-  // The recommended value from the paper.
-  args.push_back("--color");
-  args.push_back(std::to_string(16));
+  if (options.color > 0) {
+    args.push_back("--color");
+    args.push_back(std::to_string(options.color));
+  }
+
+  if (options.num_threads > 0) {
+    args.push_back("--num_threads");
+    args.push_back(std::to_string(options.num_threads));
+  }
 
   if (options.trim > 0) {
     args.push_back("--density");

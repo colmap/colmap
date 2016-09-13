@@ -113,7 +113,10 @@ class PoissonReconstructionOptionsTab : public OptionsWidget {
     AddOptionDouble(&options->dense_mapper_options->poisson.point_weight,
                     "point_weight", 0);
     AddOptionInt(&options->dense_mapper_options->poisson.depth, "depth", 1);
+    AddOptionDouble(&options->dense_mapper_options->poisson.color, "color", 0);
     AddOptionDouble(&options->dense_mapper_options->poisson.trim, "trim", 0);
+    AddOptionInt(&options->dense_mapper_options->poisson.num_threads,
+                 "num_threads", -1);
   }
 };
 
