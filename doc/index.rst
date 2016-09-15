@@ -44,6 +44,13 @@ when using specific algorithms within COLMAP, please also cite the original
 authors, as specified in the source code.
 
 
+Download
+--------
+
+Executables and other resources can be downloaded from
+http://people.inf.ethz.ch/jschoenb/colmap/.
+
+
 Getting Started
 ---------------
 
