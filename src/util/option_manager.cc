@@ -77,7 +77,7 @@ namespace {
 bool CheckOption(const bool value, const std::string& option_class,
                  const std::string& option, const std::string& expression) {
   if (!value) {
-    std::cerr << StringPrintf("ERROR: Option %s.%s failed check - %s",
+    std::cout << StringPrintf("ERROR: Option %s.%s failed check: %s",
                               option_class.c_str(), option.c_str(),
                               expression.c_str())
               << std::endl;
@@ -1154,16 +1154,17 @@ bool OptionManager::Parse(const int argc, char** argv) {
 
     if (vmap.count("project_path")) {
       *project_path = vmap["project_path"].as<std::string>();
-      Read(*project_path);
+      return Read(*project_path);
     } else {
       vmap.notify();
     }
   } catch (std::exception& e) {
-    std::cerr << "Error occurred while parsing options: " << e.what() << "."
+    std::cout << "ERROR: Failed to parse options " << e.what() << "."
               << std::endl;
     return false;
   } catch (...) {
-    std::cerr << "Unknown error occurred while parsing options." << std::endl;
+    std::cout << "ERROR: Failed to parse options for unknown reason."
+              << std::endl;
     return false;
   }
 
@@ -1178,17 +1179,23 @@ bool OptionManager::ParseHelp(const int argc, char** argv) {
 bool OptionManager::Read(const std::string& path) {
   config::variables_map vmap;
 
+  if (!boost::filesystem::exists(path)) {
+    std::cout << "ERROR: Configuration file does not exist." << std::endl;
+    return false;
+  }
+
   try {
     std::ifstream file(path.c_str());
     CHECK(file.is_open());
     config::store(config::parse_config_file(file, *desc_), vmap);
     vmap.notify();
   } catch (std::exception& e) {
-    std::cerr << "Error occurred while parsing options: " << e.what() << "."
+    std::cout << "ERROR: Failed to parse options " << e.what() << "."
               << std::endl;
     return false;
   } catch (...) {
-    std::cerr << "Unknown error occurred while parsing options." << std::endl;
+    std::cout << "ERROR: Failed to parse options for unknown reason."
+              << std::endl;
     return false;
   }
 
