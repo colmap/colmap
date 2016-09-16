@@ -88,8 +88,10 @@ ImageReader::ImageReader(const Options& options)
       EnsureTrailingSlash(StringReplace(options_.image_path, "\\", "/"));
 
   // Get a list of all files in the image path, sorted by image name.
-  image_list_ = GetRecursiveFileList(options_.image_path);
-  std::sort(image_list_.begin(), image_list_.end());
+  if (options_.image_list.empty()) {
+    options_.image_list = GetRecursiveFileList(options_.image_path);
+    std::sort(options_.image_list.begin(), options_.image_list.end());
+  }
 
   // Set the manually specified camera parameters.
   prev_camera_.SetCameraId(kInvalidCameraId);
@@ -104,11 +106,11 @@ bool ImageReader::Next(Image* image, Bitmap* bitmap) {
   CHECK_NOTNULL(bitmap);
 
   image_index_ += 1;
-  if (image_index_ > image_list_.size()) {
+  if (image_index_ > options_.image_list.size()) {
     return false;
   }
 
-  const std::string image_path = image_list_.at(image_index_ - 1);
+  const std::string image_path = options_.image_list.at(image_index_ - 1);
 
   Database database(options_.database_path);
 
@@ -255,7 +257,7 @@ bool ImageReader::Next(Image* image, Bitmap* bitmap) {
 
 size_t ImageReader::NextIndex() const { return image_index_; }
 
-size_t ImageReader::NumImages() const { return image_list_.size(); }
+size_t ImageReader::NumImages() const { return options_.image_list.size(); }
 
 SiftCPUFeatureExtractor::SiftCPUFeatureExtractor(
     const ImageReader::Options& reader_options, const SiftOptions& sift_options,

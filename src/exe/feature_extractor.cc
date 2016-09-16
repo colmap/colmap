@@ -24,16 +24,39 @@
 
 using namespace colmap;
 
+std::vector<std::string> ReadImageList(const std::string& image_list_path,
+                                       const std::string& image_path) {
+  std::ifstream file(image_list_path.c_str());
+  CHECK(file.is_open());
+
+  std::string line;
+  std::vector<std::string> image_list;
+  while (std::getline(file, line)) {
+    StringTrim(&line);
+
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+
+    image_list.push_back(JoinPaths(image_path, line));
+  }
+
+  return image_list;
+}
+
 int main(int argc, char** argv) {
   InitializeGlog(argv);
 
   bool use_gpu = true;
+  std::string image_list_path;
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
   options.AddExtractionOptions();
   options.AddDefaultOption("use_gpu", use_gpu, &use_gpu);
+  options.AddDefaultOption("image_list_path", image_list_path,
+                           &image_list_path);
 
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
@@ -41,6 +64,11 @@ int main(int argc, char** argv) {
 
   if (options.ParseHelp(argc, argv)) {
     return EXIT_SUCCESS;
+  }
+
+  if (!image_list_path.empty()) {
+    options.extraction_options->reader.image_list =
+        ReadImageList(image_list_path, *options.image_path);
   }
 
   const std::vector<double> camera_params =

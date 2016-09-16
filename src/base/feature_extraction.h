@@ -80,6 +80,10 @@ class ImageReader {
     // Root path to folder which contains the image.
     std::string image_path = "";
 
+    // Optional list of images to read. The list must contain the relative path
+    // of the images with respect to the image_path.
+    std::vector<std::string> image_list;
+
     // Name of the camera model.
     std::string camera_model = "SIMPLE_RADIAL";
 
@@ -107,8 +111,6 @@ class ImageReader {
  private:
   // Image reader options.
   Options options_;
-  // List of images in the folder.
-  std::vector<std::string> image_list_;
   // Index of previously processed image.
   size_t image_index_;
   // Previously processed camera.
