@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
     reconstruction_manager.Read(import_path);
   }
 
-  IncrementalMapperController mapper(options, &reconstruction_manager);
+  IncrementalMapperController mapper(&options, &reconstruction_manager);
 
   // In case a new reconstruction is started, write results of individual sub-
   // models to as their reconstruction finishes instead of writing all results

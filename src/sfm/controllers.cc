@@ -194,7 +194,7 @@ void WriteSnapshot(const Reconstruction& reconstruction,
 }  // namespace
 
 IncrementalMapperController::IncrementalMapperController(
-    const OptionManager& options, ReconstructionManager* reconstruction_manager)
+    const OptionManager* options, ReconstructionManager* reconstruction_manager)
     : options_(options), reconstruction_manager_(reconstruction_manager) {
   RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
   RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
@@ -206,26 +206,27 @@ void IncrementalMapperController::Run() {
     return;
   }
 
-  MapperOptions mapper_options = *options_.mapper_options;
-  Reconstruct(mapper_options);
+  IncrementalMapper::Options init_inc_mapper_options =
+      options_->mapper_options->IncrementalMapperOptions();
+  Reconstruct(init_inc_mapper_options);
 
   const size_t kNumInitRelaxations = 2;
   for (size_t i = 0; i < kNumInitRelaxations; ++i) {
-    if (reconstruction_manager_->Size() > 0) {
+    if (reconstruction_manager_->Size() > 0 || IsStopped()) {
       break;
     }
 
     std::cout << "  => Relaxing the initialization constraints." << std::endl;
-    mapper_options.incremental_mapper.init_min_num_inliers /= 2;
-    Reconstruct(mapper_options);
+    init_inc_mapper_options.init_min_num_inliers /= 2;
+    Reconstruct(init_inc_mapper_options);
 
-    if (reconstruction_manager_->Size() > 0) {
+    if (reconstruction_manager_->Size() > 0 || IsStopped()) {
       break;
     }
 
     std::cout << "  => Relaxing the initialization constraints." << std::endl;
-    mapper_options.incremental_mapper.init_min_tri_angle /= 2;
-    Reconstruct(mapper_options);
+    init_inc_mapper_options.init_min_tri_angle /= 2;
+    Reconstruct(init_inc_mapper_options);
   }
 
   std::cout << std::endl;
@@ -235,13 +236,13 @@ void IncrementalMapperController::Run() {
 bool IncrementalMapperController::LoadDatabase() {
   PrintHeading1("Loading database");
 
-  Database database(*options_.database_path);
+  Database database(*options_->database_path);
   Timer timer;
   timer.Start();
   const size_t min_num_matches =
-      static_cast<size_t>(options_.mapper_options->min_num_matches);
+      static_cast<size_t>(options_->mapper_options->min_num_matches);
   database_cache_.Load(database, min_num_matches,
-                       options_.mapper_options->ignore_watermarks);
+                       options_->mapper_options->ignore_watermarks);
   std::cout << std::endl;
   timer.PrintMinutes();
 
@@ -258,7 +259,8 @@ bool IncrementalMapperController::LoadDatabase() {
 }
 
 void IncrementalMapperController::Reconstruct(
-    const MapperOptions& mapper_options) {
+    const IncrementalMapper::Options& init_inc_mapper_options) {
+  const MapperOptions& mapper_options = *options_->mapper_options;
   const bool kDiscardReconstruction = true;
 
   //////////////////////////////////////////////////////////////////////////////
@@ -305,7 +307,7 @@ void IncrementalMapperController::Reconstruct(
       if (mapper_options.init_image_id1 == -1 ||
           mapper_options.init_image_id2 == -1) {
         const bool find_init_success = mapper.FindInitialImagePair(
-            mapper_options.IncrementalMapperOptions(), &image_id1, &image_id2);
+            init_inc_mapper_options, &image_id1, &image_id2);
         if (!find_init_success) {
           std::cout << "  => No good initial image pair found." << std::endl;
           mapper.EndReconstruction(kDiscardReconstruction);
@@ -328,7 +330,7 @@ void IncrementalMapperController::Reconstruct(
       PrintHeading1(StringPrintf("Initializing with image pair #%d and #%d",
                                  image_id1, image_id2));
       const bool reg_init_success = mapper.RegisterInitialImagePair(
-          mapper_options.IncrementalMapperOptions(), image_id1, image_id2);
+          init_inc_mapper_options, image_id1, image_id2);
       if (!reg_init_success) {
         std::cout << "  => Initialization failed - possible solutions:"
                   << std::endl
@@ -361,7 +363,7 @@ void IncrementalMapperController::Reconstruct(
       }
 
       if (mapper_options.extract_colors) {
-        ExtractColors(*options_.image_path, image_id1, &reconstruction);
+        ExtractColors(*options_->image_path, image_id1, &reconstruction);
       }
     }
 
@@ -428,7 +430,8 @@ void IncrementalMapperController::Reconstruct(
           }
 
           if (mapper_options.extract_colors) {
-            ExtractColors(*options_.image_path, next_image_id, &reconstruction);
+            ExtractColors(*options_->image_path, next_image_id,
+                          &reconstruction);
           }
 
           if (mapper_options.snapshot_images_freq > 0 &&

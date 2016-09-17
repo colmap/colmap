@@ -35,15 +35,15 @@ class IncrementalMapperController : public Thread {
     LAST_IMAGE_REG_CALLBACK,
   };
 
-  IncrementalMapperController(const OptionManager& options,
+  IncrementalMapperController(const OptionManager* options,
                               ReconstructionManager* reconstruction_manager);
 
  private:
   void Run();
   bool LoadDatabase();
-  void Reconstruct(const MapperOptions& mapper_options);
+  void Reconstruct(const IncrementalMapper::Options& init_inc_mapper_options);
 
-  const OptionManager options_;
+  const OptionManager* options_;
   ReconstructionManager* reconstruction_manager_;
   DatabaseCache database_cache_;
 };

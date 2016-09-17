@@ -481,7 +481,7 @@ void MainWindow::CreateControllers() {
   }
 
   mapper_controller_.reset(
-      new IncrementalMapperController(options_, &reconstruction_manager_));
+      new IncrementalMapperController(&options_, &reconstruction_manager_));
   mapper_controller_->AddCallback(
       IncrementalMapperController::INITIAL_IMAGE_PAIR_REG_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {
@@ -613,19 +613,21 @@ void MainWindow::Import() {
     return;
   }
 
-  if (!boost::filesystem::is_regular_file(project_path)) {
+  if (!ReconstructionOverwrite()) {
+    return;
+  }
+
+  if (boost::filesystem::is_regular_file(project_path)) {
+    options_.ReRead(project_path);
+  } else {
     QMessageBox::StandardButton reply = QMessageBox::question(
         this, "", tr("Directory does not contain a `project.ini`. In order to "
                      "resume the reconstruction you need to specify a valid "
                      "database and image path. Do you want to select the paths "
-                     "now (or press No to only load and visualize the model)?"),
+                     "now (or press 'No' to only visualize the model)?"),
         QMessageBox::Yes | QMessageBox::No);
     if (reply == QMessageBox::Yes) {
       ProjectOpen();
-    }
-  } else {
-    if (options_.ReRead(project_path)) {
-      ReconstructionReset();
     }
   }
 
