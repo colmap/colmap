@@ -180,9 +180,9 @@ namespace internal {
 
 template <typename T1, typename T2>
 T2 BitmapColorCast(const T1 value) {
-  return std::min(
-      static_cast<T1>(std::numeric_limits<T2>::max()),
-      std::max(static_cast<T1>(std::numeric_limits<T2>::min()), std::round(value)));
+  return std::min(static_cast<T1>(std::numeric_limits<T2>::max()),
+                  std::max(static_cast<T1>(std::numeric_limits<T2>::min()),
+                           std::round(value)));
 }
 
 }  // namespace internal
