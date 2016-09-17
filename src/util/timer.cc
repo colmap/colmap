@@ -26,7 +26,6 @@ namespace colmap {
 Timer::Timer() : started_(false), paused_(false) {}
 
 void Timer::Start() {
-  CHECK(!started_);
   started_ = true;
   paused_ = false;
   start_time_ = high_resolution_clock::now();
@@ -38,13 +37,11 @@ void Timer::Restart() {
 }
 
 void Timer::Pause() {
-  CHECK(!paused_);
   paused_ = true;
   pause_time_ = high_resolution_clock::now();
 }
 
 void Timer::Resume() {
-  CHECK(paused_);
   paused_ = false;
   start_time_ += high_resolution_clock::now() - pause_time_;
 }

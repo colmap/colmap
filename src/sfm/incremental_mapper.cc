@@ -148,11 +148,11 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
   }
 
   // Try to find good initial pair.
-
   for (size_t i1 = 0; i1 < image_ids1.size(); ++i1) {
     *image_id1 = image_ids1[i1];
 
-    const std::vector<image_t> image_ids2 = FindSecondInitialImage(*image_id1);
+    const std::vector<image_t> image_ids2 =
+        FindSecondInitialImage(options, *image_id1);
 
     for (size_t i2 = 0; i2 < image_ids2.size(); ++i2) {
       *image_id2 = image_ids2[i2];
@@ -173,7 +173,7 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
     }
   }
 
-  // No suitable pair found in entire dataset
+  // No suitable pair found in entire dataset.
   *image_id1 = kInvalidImageId;
   *image_id2 = kInvalidImageId;
 
@@ -781,7 +781,7 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage() const {
 }
 
 std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
-    const image_t image_id1) const {
+    const Options& options, const image_t image_id1) const {
   const SceneGraph& scene_graph = database_cache_->SceneGraph();
 
   // Collect images that are connected to the first seed image and have
@@ -811,13 +811,15 @@ std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
   std::vector<ImageInfo> image_infos;
   image_infos.reserve(reconstruction_->NumImages());
   for (const auto elem : num_correspondences) {
-    const class Image& image = reconstruction_->Image(elem.first);
-    const class Camera& camera = reconstruction_->Camera(image.CameraId());
-    ImageInfo image_info;
-    image_info.image_id = elem.first;
-    image_info.prior_focal_length = camera.HasPriorFocalLength();
-    image_info.num_correspondences = elem.second;
-    image_infos.push_back(image_info);
+    if (elem.second >= options.init_min_num_inliers) {
+      const class Image& image = reconstruction_->Image(elem.first);
+      const class Camera& camera = reconstruction_->Camera(image.CameraId());
+      ImageInfo image_info;
+      image_info.image_id = elem.first;
+      image_info.prior_focal_length = camera.HasPriorFocalLength();
+      image_info.num_correspondences = elem.second;
+      image_infos.push_back(image_info);
+    }
   }
 
   // Sort images such that images with a prior focal length and more

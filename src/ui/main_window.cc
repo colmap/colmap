@@ -506,6 +506,9 @@ void MainWindow::CreateControllers() {
           action_render_now_->trigger();
           action_reconstruction_finish_->trigger();
         }
+        if (reconstruction_manager_.Size() == 0) {
+          action_reconstruction_reset_->trigger();
+        }
       });
 }
 
@@ -885,7 +888,6 @@ void MainWindow::ReconstructionReset() {
   action_reconstruction_pause_->setEnabled(false);
 
   RenderClear();
-  log_widget_->Clear();
 }
 
 void MainWindow::ReconstructionNormalize() {
@@ -899,6 +901,7 @@ void MainWindow::ReconstructionNormalize() {
 
 bool MainWindow::ReconstructionOverwrite() {
   if (reconstruction_manager_.Size() == 0) {
+    ReconstructionReset();
     return true;
   }
 
@@ -910,7 +913,6 @@ bool MainWindow::ReconstructionOverwrite() {
     return false;
   } else {
     ReconstructionReset();
-    log_widget_->Clear();
     return true;
   }
 }

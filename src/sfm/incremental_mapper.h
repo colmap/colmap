@@ -49,7 +49,7 @@ class IncrementalMapper {
  public:
   struct Options {
     // Minimum number of inliers for initial image pair.
-    int init_min_num_inliers = 50;
+    int init_min_num_inliers = 100;
 
     // Maximum error in pixels for two-view geometry estimation for initial
     // image pair.
@@ -59,7 +59,7 @@ class IncrementalMapper {
     double init_max_forward_motion = 0.95;
 
     // Minimum triangulation angle for initial image pair.
-    double init_min_tri_angle = 4.0;
+    double init_min_tri_angle = 16.0;
 
     // Maximum reprojection error in absolute pose estimation.
     double abs_pose_max_error = 12.0;
@@ -207,7 +207,8 @@ class IncrementalMapper {
   // first image. Suitable second images have a large number of correspondences
   // to the first image and have camera calibration priors. The returned list is
   // ordered such that most suitable images are in the front.
-  std::vector<image_t> FindSecondInitialImage(const image_t image_id1) const;
+  std::vector<image_t> FindSecondInitialImage(const Options& options,
+                                              const image_t image_id1) const;
 
   // Find local bundle for given image in the reconstruction. The local bundle
   // is defined as the images that are most connected, i.e. maximum number of

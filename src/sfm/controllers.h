@@ -40,9 +40,12 @@ class IncrementalMapperController : public Thread {
 
  private:
   void Run();
+  bool LoadDatabase();
+  void Reconstruct(const MapperOptions& mapper_options);
 
   const OptionManager options_;
   ReconstructionManager* reconstruction_manager_;
+  DatabaseCache database_cache_;
 };
 
 // Class that controls the global bundle adjustment procedure.

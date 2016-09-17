@@ -202,35 +202,70 @@ IncrementalMapperController::IncrementalMapperController(
 }
 
 void IncrementalMapperController::Run() {
-  const MapperOptions& mapper_options = *options_.mapper_options;
+  if (!LoadDatabase()) {
+    return;
+  }
 
-  //////////////////////////////////////////////////////////////////////////////
-  // Load data from database
-  //////////////////////////////////////////////////////////////////////////////
+  MapperOptions mapper_options = *options_.mapper_options;
+  Reconstruct(mapper_options);
 
-  PrintHeading1("Loading database");
+  const size_t kNumInitRelaxations = 2;
+  for (size_t i = 0; i < kNumInitRelaxations; ++i) {
+    if (reconstruction_manager_->Size() > 0) {
+      break;
+    }
 
-  DatabaseCache database_cache;
+    std::cout << "  => Relaxing the initialization constraints." << std::endl;
+    mapper_options.incremental_mapper.init_min_num_inliers /= 2;
+    Reconstruct(mapper_options);
 
-  {
-    Database database(*options_.database_path);
-    Timer timer;
-    timer.Start();
-    const size_t min_num_matches =
-        static_cast<size_t>(mapper_options.min_num_matches);
-    database_cache.Load(database, min_num_matches,
-                        mapper_options.ignore_watermarks);
-    std::cout << std::endl;
-    timer.PrintMinutes();
+    if (reconstruction_manager_->Size() > 0) {
+      break;
+    }
+
+    std::cout << "  => Relaxing the initialization constraints." << std::endl;
+    mapper_options.incremental_mapper.init_min_tri_angle /= 2;
+    Reconstruct(mapper_options);
   }
 
   std::cout << std::endl;
+  GetTimer().PrintMinutes();
+}
+
+bool IncrementalMapperController::LoadDatabase() {
+  PrintHeading1("Loading database");
+
+  Database database(*options_.database_path);
+  Timer timer;
+  timer.Start();
+  const size_t min_num_matches =
+      static_cast<size_t>(options_.mapper_options->min_num_matches);
+  database_cache_.Load(database, min_num_matches,
+                       options_.mapper_options->ignore_watermarks);
+  std::cout << std::endl;
+  timer.PrintMinutes();
+
+  std::cout << std::endl;
+
+  if (database_cache_.NumImages() == 0) {
+    std::cout << "WARNING: No images with matches found in the database."
+              << std::endl
+              << std::endl;
+    return false;
+  }
+
+  return true;
+}
+
+void IncrementalMapperController::Reconstruct(
+    const MapperOptions& mapper_options) {
+  const bool kDiscardReconstruction = true;
 
   //////////////////////////////////////////////////////////////////////////////
   // Main loop
   //////////////////////////////////////////////////////////////////////////////
 
-  IncrementalMapper mapper(&database_cache);
+  IncrementalMapper mapper(&database_cache_);
 
   // Is there a sub-model before we start the reconstruction? I.e. the user
   // has imported an existing reconstruction.
@@ -263,20 +298,16 @@ void IncrementalMapperController::Run() {
     ////////////////////////////////////////////////////////////////////////////
 
     if (reconstruction.NumRegImages() == 0) {
-      image_t image_id1, image_id2;
+      image_t image_id1 = static_cast<image_t>(mapper_options.init_image_id1);
+      image_t image_id2 = static_cast<image_t>(mapper_options.init_image_id2);
 
-      image_id1 = static_cast<image_t>(mapper_options.init_image_id1);
-      image_id2 = static_cast<image_t>(mapper_options.init_image_id2);
-
-      // Try to find good initial pair
+      // Try to find good initial pair.
       if (mapper_options.init_image_id1 == -1 ||
           mapper_options.init_image_id2 == -1) {
         const bool find_init_success = mapper.FindInitialImagePair(
             mapper_options.IncrementalMapperOptions(), &image_id1, &image_id2);
-
         if (!find_init_success) {
-          std::cout << "  => Could not find good initial pair." << std::endl;
-          const bool kDiscardReconstruction = true;
+          std::cout << "  => No good initial image pair found." << std::endl;
           mapper.EndReconstruction(kDiscardReconstruction);
           reconstruction_manager_->Delete(reconstruction_idx);
           break;
@@ -284,25 +315,29 @@ void IncrementalMapperController::Run() {
       } else {
         if (!reconstruction.ExistsImage(image_id1) ||
             !reconstruction.ExistsImage(image_id2)) {
-          std::cout
-              << StringPrintf(
-                     "  => Initial image pair #%d and #%d does not exist.",
-                     image_id1, image_id2)
-              << std::endl;
-          const bool kDiscardReconstruction = true;
+          std::cout << StringPrintf(
+                           "  => Initial image pair #%d and #%d do not exist.",
+                           image_id1, image_id2)
+                    << std::endl;
           mapper.EndReconstruction(kDiscardReconstruction);
           reconstruction_manager_->Delete(reconstruction_idx);
           return;
         }
       }
 
-      PrintHeading1(StringPrintf("Initializing with images #%d and #%d",
+      PrintHeading1(StringPrintf("Initializing with image pair #%d and #%d",
                                  image_id1, image_id2));
       const bool reg_init_success = mapper.RegisterInitialImagePair(
           mapper_options.IncrementalMapperOptions(), image_id1, image_id2);
-
       if (!reg_init_success) {
-        std::cout << "  => Initialization failed." << std::endl;
+        std::cout << "  => Initialization failed - possible solutions:"
+                  << std::endl
+                  << "     - try to relax the initialization constraints"
+                  << std::endl
+                  << "     - manually select an initial image pair"
+                  << std::endl;
+        mapper.EndReconstruction(kDiscardReconstruction);
+        reconstruction_manager_->Delete(reconstruction_idx);
         break;
       }
 
@@ -313,10 +348,16 @@ void IncrementalMapperController::Run() {
       // Initial image pair failed to register.
       if (reconstruction.NumRegImages() == 0 ||
           reconstruction.NumPoints3D() == 0) {
-        const bool kDiscardReconstruction = true;
         mapper.EndReconstruction(kDiscardReconstruction);
         reconstruction_manager_->Delete(reconstruction_idx);
-        continue;
+        // If both initial images are manually specified, there is no need for
+        // further initialization trials.
+        if (mapper_options.init_image_id1 != -1 &&
+            mapper_options.init_image_id2 != -1) {
+          break;
+        } else {
+          continue;
+        }
       }
 
       if (mapper_options.extract_colors) {
@@ -439,12 +480,11 @@ void IncrementalMapperController::Run() {
     // If the total number of images is small then do not enforce the minimum
     // model size so that we can reconstruct small image collections.
     const size_t min_model_size =
-        std::min(database_cache.NumImages(),
+        std::min(database_cache_.NumImages(),
                  static_cast<size_t>(mapper_options.min_model_size));
     if ((mapper_options.multiple_models &&
          reconstruction.NumRegImages() < min_model_size) ||
         reconstruction.NumRegImages() == 0) {
-      const bool kDiscardReconstruction = true;
       mapper.EndReconstruction(kDiscardReconstruction);
       reconstruction_manager_->Delete(reconstruction_idx);
     } else {
@@ -458,13 +498,10 @@ void IncrementalMapperController::Run() {
         static_cast<size_t>(mapper_options.max_num_models);
     if (initial_reconstruction_given || !mapper_options.multiple_models ||
         reconstruction_manager_->Size() >= max_num_models ||
-        mapper.NumTotalRegImages() >= database_cache.NumImages() - 1) {
+        mapper.NumTotalRegImages() >= database_cache_.NumImages() - 1) {
       break;
     }
   }
-
-  std::cout << std::endl;
-  GetTimer().PrintMinutes();
 }
 
 BundleAdjustmentController::BundleAdjustmentController(
