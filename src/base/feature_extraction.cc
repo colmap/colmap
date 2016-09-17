@@ -856,10 +856,10 @@ void LoadSiftFeaturesFromTextFile(const std::string& path,
     for (size_t j = 0; j < dim; ++j) {
       std::getline(feature_line_stream, item, ' ');
       StringTrim(&item);
-      const int value = boost::lexical_cast<int>(item);
+      const double value = boost::lexical_cast<double>(item);
       CHECK_GE(value, 0);
       CHECK_LE(value, 255);
-      (*descriptors)(i, j) = static_cast<uint8_t>(value);
+      (*descriptors)(i, j) = TruncateCast<double, uint8_t>(value);
     }
   }
 }
