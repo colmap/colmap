@@ -330,7 +330,7 @@ void ImageTab::Update() {
     table_widget_->setItem(
         i, 5, new QTableWidgetItem(QString::number(image.QvecPrior(2))));
     table_widget_->setItem(
-        i, 6, new QTableWidgetItem(QString::number(image.QvecPrior(2))));
+        i, 6, new QTableWidgetItem(QString::number(image.QvecPrior(3))));
     table_widget_->setItem(
         i, 7, new QTableWidgetItem(QString::number(image.TvecPrior(0))));
     table_widget_->setItem(
