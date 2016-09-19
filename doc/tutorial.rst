@@ -365,12 +365,12 @@ compute the depth and normal maps using ``Stereo``, third to ``fuse`` the depth
 and normals maps to a point cloud, followed by a final, optional point cloud
 ``meshing`` step. During the stereo reconstruction process, the display might
 freeze due to heavy compute load and, if your GPU does not have enough memory,
-the reconstruction process might ungracefully crash. Please, refer to the
-:ref:`FAQ <faq-dense-memory-usage>` for information on how to reduce the memory
-usage. Note that the reconstructed normals of the point cloud cannot be directly
-visualized in COLMAP, but e.g. in Meshlab by enabling ``Render > Show
-Normal/Curvature``. Similarly, the reconstructed dense surface mesh model must
-be visualized with external software.
+the reconstruction process might ungracefully crash. Please, refer to the FAQ
+(:ref:`freeze <faq-dense-timeout>` and :ref:`memory <faq-dense-memory>`) for
+information on how to avoid these problems. Note that the reconstructed normals
+of the point cloud cannot be directly visualized in COLMAP, but e.g. in Meshlab
+by enabling ``Render > Show Normal/Curvature``. Similarly, the reconstructed
+dense surface mesh model must be visualized with external software.
 
 By default, COLMAP only computes photometrically consistent depth and normal
 maps as a trade-off between reconstruction quality and speed. For highest

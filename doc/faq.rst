@@ -57,7 +57,7 @@ the option ``Reconstruction > Reconstruction options > Triangulation >
 ignore_two_view_tracks``.
 
 
-.. _faq-dense-memory-usage:
+.. _faq-dense-memory:
 
 Reduce memory usage during dense reconstruction
 -----------------------------------------------
@@ -74,3 +74,39 @@ CMVS [furukawa10]_. Otherwise, the fusion procedure might run out of memory, as
 the implementation requires all depth and normal maps to be loaded at the same
 time. Note that, for this use case, COLMAP's dense reconstruction pipeline also
 supports the PMVS/CMVS folder structure when executed from the command-line.
+
+
+.. _faq-dense-timeout:
+
+Fix GPU freezes and timeouts during dense reconstruction
+--------------------------------------------------------
+
+The stereo reconstruction pipeline runs on the GPU using CUDA and puts the GPU
+under heavy load. You might experience a display freeze or even a program crash
+during the reconstruction. As a solution to this problem, you could use a
+secondary GPU in your system, that is not connected to your display.
+Alternatively, you can increase the GPU timeouts of your system, as detailed in
+the following.
+
+By default, the Windows operating system detects response problems from the GPU,
+and recovers to a functional desktop by resetting the card and aborting the
+stereo reconstruction process. The solution is to increase the so-called
+"Timeout Detection & Recovery" (TDR) delay to a larger value. Please, refer to
+the `NVIDIA Nsight documentation <https://goo.gl/d17IhT>`_ or to the `Microsoft
+documentation <http://www.microsoft.com/whdc/device/display/wddm_timeout.mspx>`_
+on how to increase the delay time under Windows.
+
+The X window system under Linux/Unix has a similar feature and detects response
+problems of the GPU. The easiest solution to avoid timeout problems under the X
+window system is to shut it down and run the stereo reconstruction from the
+command-line. Under Ubuntu, you could first stop X using::
+
+    sudo service lightdm stop
+
+And then run the dense reconstruction code from the command-line::
+
+    ./src/exe/dense_mapper ...
+
+Finally, you can restart your desktop environment with the following command::
+
+    sudo service lightdm start
