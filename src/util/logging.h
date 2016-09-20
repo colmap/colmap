@@ -14,6 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#ifndef COLMAP_SRC_UTIL_LOGGING_H_
+#define COLMAP_SRC_UTIL_LOGGING_H_
+
 #include <glog/logging.h>
 
 namespace colmap {
@@ -21,3 +24,5 @@ namespace colmap {
 void InitializeGlog(char** argv);
 
 }  // namespace colmap
+
+#endif  // COLMAP_SRC_UTIL_LOGGING_H_
