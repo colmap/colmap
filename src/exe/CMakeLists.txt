@@ -38,6 +38,8 @@ COLMAP_ADD_EXECUTABLE(vocab_tree_builder vocab_tree_builder.cc)
 
 COLMAP_ADD_EXECUTABLE(vocab_tree_matcher vocab_tree_matcher)
 
+COLMAP_ADD_EXECUTABLE(vocab_tree_retriever vocab_tree_retriever)
+
 if(CUDA_ENABLED)
     COLMAP_ADD_EXECUTABLE(dense_mapper dense_mapper.cc)
     target_include_directories(dense_mapper PUBLIC ${CUDA_INCLUDE_DIRS})
