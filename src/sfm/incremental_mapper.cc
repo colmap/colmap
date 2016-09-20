@@ -807,11 +807,14 @@ std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
     point2D_t num_correspondences;
   };
 
+  const size_t init_min_num_inliers =
+      static_cast<size_t>(options.init_min_num_inliers);
+
   // Compose image information in a compact form for sorting.
   std::vector<ImageInfo> image_infos;
   image_infos.reserve(reconstruction_->NumImages());
   for (const auto elem : num_correspondences) {
-    if (elem.second >= options.init_min_num_inliers) {
+    if (elem.second >= init_min_num_inliers) {
       const class Image& image = reconstruction_->Image(elem.first);
       const class Camera& camera = reconstruction_->Camera(image.CameraId());
       ImageInfo image_info;
