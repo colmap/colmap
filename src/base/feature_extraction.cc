@@ -91,6 +91,10 @@ ImageReader::ImageReader(const Options& options)
   if (options_.image_list.empty()) {
     options_.image_list = GetRecursiveFileList(options_.image_path);
     std::sort(options_.image_list.begin(), options_.image_list.end());
+  } else {
+    for (auto& image_name : options_.image_list) {
+      image_name = JoinPaths(options_.image_path, image_name);
+    }
   }
 
   // Set the manually specified camera parameters.
@@ -128,11 +132,11 @@ bool ImageReader::Next(Image* image, Bitmap* bitmap) {
   // Check if image already read.
   //////////////////////////////////////////////////////////////////////////////
 
-  const bool exists_image = database.ExistsImageName(image->Name());
+  const bool exists_image = database.ExistsImageWithName(image->Name());
 
   if (exists_image) {
     const DatabaseTransaction database_transaction(&database);
-    *image = database.ReadImageFromName(image->Name());
+    *image = database.ReadImageWithName(image->Name());
     const bool exists_keypoints = database.ExistsKeypoints(image->ImageId());
     const bool exists_descriptors =
         database.ExistsDescriptors(image->ImageId());

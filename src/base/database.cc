@@ -224,7 +224,7 @@ bool Database::ExistsImage(const image_t image_id) const {
   return ExistsRowId(sql_stmt_exists_image_id_, image_id);
 }
 
-bool Database::ExistsImageName(std::string name) const {
+bool Database::ExistsImageWithName(std::string name) const {
   return ExistsRowString(sql_stmt_exists_image_name_, name);
 }
 
@@ -320,7 +320,7 @@ Image Database::ReadImage(const image_t image_id) const {
   return image;
 }
 
-Image Database::ReadImageFromName(const std::string& name) const {
+Image Database::ReadImageWithName(const std::string& name) const {
   SQLITE3_CALL(sqlite3_bind_text(sql_stmt_read_image_name_, 1, name.c_str(),
                                  static_cast<int>(name.size()), SQLITE_STATIC));
 

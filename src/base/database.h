@@ -61,7 +61,7 @@ class Database {
   // `image_id1` and `image_id2` does not matter.
   bool ExistsCamera(const camera_t camera_id) const;
   bool ExistsImage(const image_t image_id) const;
-  bool ExistsImageName(std::string name) const;
+  bool ExistsImageWithName(std::string name) const;
   bool ExistsKeypoints(const image_t image_id) const;
   bool ExistsDescriptors(const image_t image_id) const;
   bool ExistsMatches(const image_t image_id1, const image_t image_id2) const;
@@ -123,7 +123,7 @@ class Database {
   std::vector<Camera> ReadAllCameras() const;
 
   Image ReadImage(const image_t image_id) const;
-  Image ReadImageFromName(const std::string& name) const;
+  Image ReadImageWithName(const std::string& name) const;
   std::vector<Image> ReadAllImages() const;
 
   FeatureKeypoints ReadKeypoints(const image_t image_id) const;

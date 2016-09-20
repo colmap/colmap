@@ -24,26 +24,6 @@
 
 using namespace colmap;
 
-std::vector<std::string> ReadImageList(const std::string& image_list_path,
-                                       const std::string& image_path) {
-  std::ifstream file(image_list_path.c_str());
-  CHECK(file.is_open());
-
-  std::string line;
-  std::vector<std::string> image_list;
-  while (std::getline(file, line)) {
-    StringTrim(&line);
-
-    if (line.empty() || line[0] == '#') {
-      continue;
-    }
-
-    image_list.push_back(JoinPaths(image_path, line));
-  }
-
-  return image_list;
-}
-
 int main(int argc, char** argv) {
   InitializeGlog(argv);
 
@@ -66,9 +46,12 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
+  ImageReader::Options reader_options = options.extraction_options->reader;
+  reader_options.database_path = *options.database_path;
+  reader_options.image_path = *options.image_path;
+
   if (!image_list_path.empty()) {
-    options.extraction_options->reader.image_list =
-        ReadImageList(image_list_path, *options.image_path);
+    reader_options.image_list = ReadTextFileLines(image_list_path);
   }
 
   const std::vector<double> camera_params =
@@ -81,10 +64,6 @@ int main(int argc, char** argv) {
     std::cerr << "ERROR: Invalid camera parameters" << std::endl;
     return EXIT_FAILURE;
   }
-
-  ImageReader::Options reader_options = options.extraction_options->reader;
-  reader_options.database_path = *options.database_path;
-  reader_options.image_path = *options.image_path;
 
   if (use_gpu) {
     QApplication app(argc, argv);

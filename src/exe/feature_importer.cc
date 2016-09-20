@@ -26,12 +26,15 @@ int main(int argc, char** argv) {
   InitializeGlog(argv);
 
   std::string import_path;
+  std::string image_list_path;
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
   options.AddExtractionOptions();
   options.AddRequiredOption("import_path", &import_path);
+  options.AddDefaultOption("image_list_path", image_list_path,
+                           &image_list_path);
 
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
@@ -39,6 +42,14 @@ int main(int argc, char** argv) {
 
   if (options.ParseHelp(argc, argv)) {
     return EXIT_SUCCESS;
+  }
+
+  ImageReader::Options reader_options = options.extraction_options->reader;
+  reader_options.database_path = *options.database_path;
+  reader_options.image_path = *options.image_path;
+
+  if (!image_list_path.empty()) {
+    reader_options.image_list = ReadTextFileLines(image_list_path);
   }
 
   const std::vector<double> camera_params =
@@ -52,12 +63,7 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  ImageReader::Options reader_options = options.extraction_options->reader;
-  reader_options.database_path = *options.database_path;
-  reader_options.image_path = *options.image_path;
-
   FeatureImporter feature_importer(reader_options, import_path);
-
   feature_importer.Start();
   feature_importer.Wait();
 
