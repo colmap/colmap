@@ -115,6 +115,8 @@ class MainWindow : public QMainWindow {
   void ResetOptions();
 
   void About();
+  void Documentation();
+  void Support();
 
   void ShowInvalidProjectError();
   void UpdateTimer();
@@ -205,6 +207,8 @@ class MainWindow : public QMainWindow {
   QAction* action_reset_options_;
 
   QAction* action_about_;
+  QAction* action_documentation_;
+  QAction* action_support_;
   QAction* action_license_;
 
   std::vector<QAction*> blocking_actions_;

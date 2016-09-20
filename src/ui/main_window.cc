@@ -347,6 +347,11 @@ void MainWindow::CreateActions() {
 
   action_about_ = new QAction(tr("About"), this);
   connect(action_about_, &QAction::triggered, this, &MainWindow::About);
+  action_documentation_ = new QAction(tr("Documentation"), this);
+  connect(action_documentation_, &QAction::triggered, this,
+          &MainWindow::Documentation);
+  action_support_ = new QAction(tr("Support"), this);
+  connect(action_support_, &QAction::triggered, this, &MainWindow::Support);
   action_license_ = new QAction(tr("License"), this);
   connect(action_license_, &QAction::triggered, license_widget_,
           &QTextEdit::show);
@@ -404,6 +409,8 @@ void MainWindow::CreateMenus() {
 
   QMenu* help_menu = new QMenu(tr("Help"), this);
   help_menu->addAction(action_about_);
+  help_menu->addAction(action_documentation_);
+  help_menu->addAction(action_support_);
   help_menu->addAction(action_license_);
   menuBar()->addAction(help_menu->menuAction());
 
@@ -1058,9 +1065,7 @@ void MainWindow::ReconstructionStats() {
       reconstruction_manager_.Get(SelectedReconstructionIdx()));
 }
 
-void MainWindow::MatchMatrix() {
-  match_matrix_widget_->Show();
-}
+void MainWindow::MatchMatrix() { match_matrix_widget_->Show(); }
 
 void MainWindow::ShowLog() {
   log_widget_->show();
@@ -1103,6 +1108,15 @@ void MainWindow::About() {
                         "Author:<br />Johannes L. Schönberger<br /><br />"
                         "Email:<br />jsch at inf.ethz.ch",
                         COLMAP_VERSION));
+}
+
+void MainWindow::Documentation() {
+  QDesktopServices::openUrl(QUrl("https://colmap.github.io/"));
+}
+
+void MainWindow::Support() {
+  QDesktopServices::openUrl(
+      QUrl("https://groups.google.com/forum/#!forum/colmap"));
 }
 
 void MainWindow::RenderToggle() {
