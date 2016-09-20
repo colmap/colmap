@@ -96,4 +96,23 @@ bool IsBigEndian() {
   return bin.c[0] == 1;
 }
 
+std::vector<std::string> ReadTextFileLines(const std::string& path) {
+  std::ifstream file(path.c_str());
+  CHECK(file.is_open());
+
+  std::string line;
+  std::vector<std::string> image_list;
+  while (std::getline(file, line)) {
+    StringTrim(&line);
+
+    if (line.empty()) {
+      continue;
+    }
+
+    image_list.push_back(line);
+  }
+
+  return image_list;
+}
+
 }  // namespace colmap

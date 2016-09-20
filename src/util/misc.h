@@ -82,6 +82,10 @@ void ReadBinaryBlobFromFile(const std::string& path, std::vector<T>* data);
 template <typename T>
 void WriteBinaryBlob(const std::string& path, const std::vector<T>& data);
 
+// Read each line of a text file into a separate element. Empty lines are
+// ignored and leading/trailing whitespace is removed.
+std::vector<std::string> ReadTextFileLines(const std::string& path);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
