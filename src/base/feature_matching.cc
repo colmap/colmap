@@ -1437,6 +1437,8 @@ void MatchGuidedSiftFeaturesGPU(const SiftMatchOptions& match_options,
                  TwoViewGeometry::PLANAR_OR_PANORAMIC) {
     H = two_view_geometry->H.cast<float>();
     H_ptr = H.data();
+  } else {
+    return;
   }
 
   CHECK(F_ptr != nullptr || H_ptr != nullptr);
