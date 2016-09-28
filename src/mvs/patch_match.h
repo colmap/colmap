@@ -25,7 +25,9 @@
 #include "mvs/image.h"
 #include "mvs/model.h"
 #include "mvs/normal_map.h"
+#ifndef __CUDACC__
 #include "util/threading.h"
+#endif
 
 namespace colmap {
 namespace mvs {
@@ -185,6 +187,9 @@ class PatchMatch {
 // images, and the third reference image uses the first and second as source
 // images. Note that all specified images must be reconstructed in the COLMAP
 // reconstruction provided in the `sparse` folder.
+
+#ifndef __CUDACC__
+
 class PatchMatchController : public Thread {
  public:
   PatchMatchController(const PatchMatch::Options& options,
@@ -200,6 +205,8 @@ class PatchMatchController : public Thread {
   const std::string workspace_format_;
   const int max_image_size_;
 };
+
+#endif
 
 }  // namespace mvs
 }  // namespace colmap
