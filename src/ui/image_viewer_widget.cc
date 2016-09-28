@@ -102,13 +102,16 @@ void ImageViewerWidget::ReadAndShow(const std::string& path,
   Bitmap bitmap;
   if (!bitmap.Read(path, true)) {
     std::cerr << "ERROR: Cannot read image at path " << path << std::endl;
-    return;
   }
 
   ShowBitmap(bitmap, rescale);
 }
 
 void ImageViewerWidget::Rescale(const double scale) {
+  if (pixmap_.isNull()) {
+    return;
+  }
+
   zoom_scale_ *= scale;
 
   const Qt::TransformationMode transform_mode =
@@ -116,7 +119,6 @@ void ImageViewerWidget::Rescale(const double scale) {
   const int scaled_width =
       static_cast<int>(std::round(zoom_scale_ * pixmap_.width()));
   image_label_->setPixmap(pixmap_.scaledToWidth(scaled_width, transform_mode));
-
   image_label_->adjustSize();
 }
 
@@ -142,7 +144,6 @@ void FeatureImageViewerWidget::ReadAndShowWithKeypoints(
   Bitmap bitmap;
   if (!bitmap.Read(path, true)) {
     std::cerr << "ERROR: Cannot read image at path " << path << std::endl;
-    return;
   }
 
   image1_ = QPixmap::fromImage(BitmapToQImageRGB(bitmap));

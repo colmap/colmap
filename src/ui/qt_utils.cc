@@ -69,13 +69,17 @@ QPixmap ShowImagesSideBySide(const QPixmap& image1, const QPixmap& image2) {
   return image;
 }
 
-void DrawKeypoints(QPixmap* image, const FeatureKeypoints& points,
+void DrawKeypoints(QPixmap* pixmap, const FeatureKeypoints& points,
                    const QColor& color) {
-  const int pen_width = std::max(image->width(), image->height()) / 2048 + 1;
+  if (pixmap->isNull()) {
+    return;
+  }
+
+  const int pen_width = std::max(pixmap->width(), pixmap->height()) / 2048 + 1;
   const int radius = 3 * pen_width + (3 * pen_width) % 2;
   const float radius2 = radius / 2.0f;
 
-  QPainter painter(image);
+  QPainter painter(pixmap);
   painter.setRenderHint(QPainter::Antialiasing);
 
   QPen pen;
