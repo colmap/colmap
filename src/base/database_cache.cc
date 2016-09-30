@@ -17,6 +17,7 @@
 #include "base/database_cache.h"
 
 #include <iostream>
+#include <unordered_set>
 
 #include "util/string.h"
 #include "util/timer.h"
@@ -37,7 +38,8 @@ void DatabaseCache::AddImage(const class Image& image) {
 }
 
 void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
-                         const bool ignore_watermarks) {
+                         const bool ignore_watermarks,
+                         const std::set<std::string>& image_names) {
   //////////////////////////////////////////////////////////////////////////////
   // Load cameras
   //////////////////////////////////////////////////////////////////////////////
@@ -88,19 +90,36 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
   timer.Restart();
   std::cout << "Loading images..." << std::flush;
 
+  std::unordered_set<image_t> image_ids;
+
   {
     const std::vector<class Image> images = database.ReadAllImages();
 
+    // Determines for which images data should be loaded.
+    if (image_names.empty()) {
+      for (const auto& image : images) {
+        image_ids.insert(image.ImageId());
+      }
+    } else {
+      for (const auto& image : images) {
+        if (image_names.count(image.Name()) > 0) {
+          image_ids.insert(image.ImageId());
+        }
+      }
+    }
+
     // Collect all images that are connected in the scene graph.
     std::unordered_set<image_t> connected_image_ids;
-    connected_image_ids.reserve(images.size());
+    connected_image_ids.reserve(image_ids.size());
     for (const auto& image_pair : image_pairs) {
       if (UseInlierMatchesCheck(image_pair.second)) {
         image_t image_id1;
         image_t image_id2;
         Database::PairIdToImagePair(image_pair.first, &image_id1, &image_id2);
-        connected_image_ids.insert(image_id1);
-        connected_image_ids.insert(image_id2);
+        if (image_ids.count(image_id1) > 0 && image_ids.count(image_id2) > 0) {
+          connected_image_ids.insert(image_id1);
+          connected_image_ids.insert(image_id2);
+        }
       }
     }
 
@@ -108,7 +127,8 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
     // correspondences, as those images are useless for SfM.
     images_.reserve(connected_image_ids.size());
     for (const class Image& image : images) {
-      if (connected_image_ids.count(image.ImageId()) > 0) {
+      if (image_ids.count(image.ImageId()) > 0 &&
+          connected_image_ids.count(image.ImageId()) > 0) {
         images_.emplace(image.ImageId(), image);
         const FeatureKeypoints keypoints =
             database.ReadKeypoints(image.ImageId());
@@ -141,8 +161,12 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
       image_t image_id1;
       image_t image_id2;
       Database::PairIdToImagePair(image_pair.first, &image_id1, &image_id2);
-      scene_graph_.AddCorrespondences(image_id1, image_id2,
-                                      image_pair.second.inlier_matches);
+      if (image_ids.count(image_id1) > 0 && image_ids.count(image_id2) > 0) {
+         scene_graph_.AddCorrespondences(image_id1, image_id2,
+                                         image_pair.second.inlier_matches);
+      } else {
+        num_ignored_image_pairs += 1;
+      }
     } else {
       num_ignored_image_pairs += 1;
     }

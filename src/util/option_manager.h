@@ -19,6 +19,7 @@
 
 #include <fstream>
 #include <memory>
+#include <unordered_set>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
@@ -259,6 +260,8 @@ struct MapperOptions : public BaseOptions {
 
   std::string snapshot_path;
   int snapshot_images_freq;
+
+  std::set<std::string> image_names;
 
   struct IncrementalMapperOptions incremental_mapper;
   struct TriangulationOptions triangulation;

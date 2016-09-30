@@ -28,6 +28,7 @@ int main(int argc, char** argv) {
 
   std::string import_path;
   std::string export_path;
+  std::string image_list_path;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -35,6 +36,8 @@ int main(int argc, char** argv) {
   options.AddMapperOptions();
   options.AddDefaultOption("import_path", import_path, &import_path);
   options.AddRequiredOption("export_path", &export_path);
+  options.AddDefaultOption("image_list_path", image_list_path,
+                           &image_list_path);
 
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
@@ -47,6 +50,12 @@ int main(int argc, char** argv) {
   if (!boost::filesystem::is_directory(export_path)) {
     std::cerr << "ERROR: `export_path` is not a directory." << std::endl;
     return EXIT_FAILURE;
+  }
+
+  if (!image_list_path.empty()) {
+    const auto image_names = ReadTextFileLines(image_list_path);
+    options.mapper_options->image_names =
+        std::set<std::string>(image_names.begin(), image_names.end());
   }
 
   ReconstructionManager reconstruction_manager;

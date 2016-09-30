@@ -509,6 +509,8 @@ void MapperOptions::Reset() {
   snapshot_path = "";
   snapshot_images_freq = 0;
 
+  image_names.clear();
+
   incremental_mapper.Reset();
   triangulation.Reset();
 }
