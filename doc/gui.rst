@@ -50,9 +50,9 @@ To create a video screen capture of the reconstructed model, choose ``Extras >
 Grab movie``. This dialog allows you to set individual control viewpoints by
 choosing ``Add``. COLMAP generates a fixed number of frames per second between
 each control viewpoint by smoothly interpolating the linear trajectory, and to
-interpolate the employed point and the camera sizes at the time of clicking
+interpolate the configured point and the camera sizes at the time of clicking
 ``Add``. To change the number of frames between two viewpoints or to reorder
-individual viewpoints, modify the time of the viewpoint by double- clicking the
+individual viewpoints, modify the time of the viewpoint by double-clicking the
 respective cell in the table. Note that the video capture requires to set the
 perspective projection model in the render options. You can review the
 trajectory in the viewer, which is rendered in light blue. Choose ``Assemble
