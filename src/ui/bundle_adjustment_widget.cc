@@ -25,6 +25,7 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(QWidget* parent,
     : OptionsWidget(parent),
       options_(options),
       reconstruction_(nullptr),
+      action_render_now_(nullptr),
       thread_control_widget_(new ThreadControlWidget(this)) {
   setWindowTitle("Bundle adjustment");
 
@@ -52,8 +53,10 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(QWidget* parent,
           &BundleAdjustmentWidget::Run);
 }
 
-void BundleAdjustmentWidget::Show(Reconstruction* reconstruction) {
+void BundleAdjustmentWidget::Show(Reconstruction* reconstruction,
+                                  QAction* action_render_now) {
   reconstruction_ = reconstruction;
+  action_render_now_ = action_render_now;
   show();
   raise();
 }
@@ -62,9 +65,12 @@ void BundleAdjustmentWidget::Run() {
   CHECK_NOTNULL(reconstruction_);
 
   WriteOptions();
-  thread_control_widget_->StartThread(
-      "Bundle adjusting...", true,
-      new BundleAdjustmentController(*options_, reconstruction_));
+
+  Thread* thread = new BundleAdjustmentController(*options_, reconstruction_);
+  thread->AddCallback(Thread::FINISHED_CALLBACK,
+                      [this]() { action_render_now_->trigger(); });
+
+  thread_control_widget_->StartThread("Bundle adjusting...", true, thread);
 }
 
 }  // namespace colmap

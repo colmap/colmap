@@ -30,13 +30,15 @@ class BundleAdjustmentWidget : public OptionsWidget {
  public:
   BundleAdjustmentWidget(QWidget* parent, OptionManager* options);
 
-  void Show(Reconstruction* reconstruction);
+  void Show(Reconstruction* reconstruction,
+            QAction* action_render_now);
 
 private:
   void Run();
 
   OptionManager* options_;
   Reconstruction* reconstruction_;
+  QAction* action_render_now_;
   ThreadControlWidget* thread_control_widget_;
 };
 
