@@ -149,6 +149,13 @@ class Reconstruction {
   void Transform(const double scale, const Eigen::Vector4d& qvec,
                  const Eigen::Vector3d& tvec);
 
+  // Merge the given reconstruction into this reconstruction by registering the
+  // images registered in the given but not in this reconstruction and by
+  // merging the two clouds and their tracks. The coordinate frames of the two
+  // reconstructions are aligned using the projection centers of common
+  // registered images. Return true if the two reconstructions could be merged.
+  bool Merge(const Reconstruction& reconstruction, const int min_common_images);
+
   // Find image with name.
   //
   // @param name        Name of the image.

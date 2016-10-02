@@ -57,6 +57,28 @@ the option ``Reconstruction > Reconstruction options > Triangulation >
 ignore_two_view_tracks``.
 
 
+.. _faq-merge-models:
+
+Merge disconnected models
+-------------------------
+
+Sometimes COLMAP fails to reconstruct all images into the same model and hence
+produces multiple sub-models. If those sub-models have common registered images,
+they can be merged into a single model as post-processing step::
+
+    ./src/exe/model_merger \
+        --input_path1 /path/to/sub-model1 \
+        --input_path2 /path/to/sub-model2 \
+        --output_path /path/to/merged-model
+
+To improve the quality of the alignment between the two sub-models, it is
+recommended to run another global bundle adjustment after the merge::
+
+    ./src/exe/bundle_adjuster \
+        --input_path /path/to/merged-model \
+        --output_path /path/to/refined-merged-model
+
+
 .. _faq-dense-memory:
 
 Reduce memory usage during dense reconstruction

@@ -116,6 +116,9 @@ Executables
 - ``model_converter``: Convert the COLMAP export format to another format,
   such as PLY or NVM.
 
+- ``model_merger``: Attempt to merge two disconnected reconstructions,
+  if they have common registered images.
+
 - ``color_extractor``: Extract mean colors for all 3D points of a model.
 
 - ``vocab_tree_builder``: Create a vocabulary tree from a database with
