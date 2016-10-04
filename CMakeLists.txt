@@ -52,6 +52,7 @@ endif()
 find_package(Boost COMPONENTS
              program_options
              filesystem
+             regex
              system
              unit_test_framework
              REQUIRED)

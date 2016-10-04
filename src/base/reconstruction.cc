@@ -411,7 +411,7 @@ bool Reconstruction::Merge(const Reconstruction& reconstruction,
     }
   }
 
-  if (common_image_ids.size() < min_common_images) {
+  if (common_image_ids.size() < static_cast<size_t>(min_common_images)) {
     return false;
   }
 

@@ -373,7 +373,7 @@ private:
         /**
          * The cluster center.
          */
-        DistanceType* pivot=nullptr;
+        DistanceType* pivot=NULL;
         /**
          * The cluster radius.
          */
