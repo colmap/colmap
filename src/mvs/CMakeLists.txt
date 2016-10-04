@@ -20,6 +20,10 @@ if(CUDA_ENABLED)
         # Workaround for Visual Studio compiler error,
         # due problems with compiling too complex code.
         string(REPLACE "/Zo" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+
+        # Avoid pulling in too many header files through <windows.h>
+        add_definitions(-DWIN32_LEAN_AND_MEAN)
+
     else()
         set(CUDA_PROPAGATE_HOST_FLAGS OFF)
         set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++11")
