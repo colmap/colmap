@@ -101,7 +101,7 @@ std::vector<std::string> ReadTextFileLines(const std::string& path) {
   CHECK(file.is_open());
 
   std::string line;
-  std::vector<std::string> image_list;
+  std::vector<std::string> lines;
   while (std::getline(file, line)) {
     StringTrim(&line);
 
@@ -109,10 +109,10 @@ std::vector<std::string> ReadTextFileLines(const std::string& path) {
       continue;
     }
 
-    image_list.push_back(line);
+    lines.push_back(line);
   }
 
-  return image_list;
+  return lines;
 }
 
 }  // namespace colmap
