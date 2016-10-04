@@ -65,7 +65,8 @@ int main(int argc, char** argv) {
     const size_t min_num_matches =
         static_cast<size_t>(options.mapper_options->min_num_matches);
     database_cache.Load(database, min_num_matches,
-                        options.mapper_options->ignore_watermarks);
+                        options.mapper_options->ignore_watermarks,
+                        options.mapper_options->image_names);
     std::cout << std::endl;
     timer.PrintMinutes();
   }

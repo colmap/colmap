@@ -932,7 +932,8 @@ void MainWindow::BundleAdjustment() {
   }
 
   bundle_adjustment_widget_->Show(
-      &reconstruction_manager_.Get(SelectedReconstructionIdx()));
+      &reconstruction_manager_.Get(SelectedReconstructionIdx()),
+      action_render_now_);
 }
 
 void MainWindow::MultiViewStereo() {

@@ -40,6 +40,17 @@ BOOST_AUTO_TEST_CASE(TestDecomposeEssentialMatrix) {
   BOOST_CHECK((tt - t).norm() < 1e-10 || (tt + t).norm() < 1e-10);
 }
 
+BOOST_AUTO_TEST_CASE(TestEssentialMatrixFromPose) {
+  BOOST_CHECK_EQUAL(
+      EssentialMatrixFromPose(EulerAnglesToRotationMatrix(0, 0, 0),
+                              Eigen::Vector3d(0, 0, 1)),
+      (Eigen::MatrixXd(3, 3) << 0, -1, 0, 1, 0, 0, 0, 0, 0).finished());
+  BOOST_CHECK_EQUAL(
+      EssentialMatrixFromPose(EulerAnglesToRotationMatrix(0, 0, 0),
+                              Eigen::Vector3d(0, 0, 2)),
+      (Eigen::MatrixXd(3, 3) << 0, -1, 0, 1, 0, 0, 0, 0, 0).finished());
+}
+
 BOOST_AUTO_TEST_CASE(TestEssentialMatrixFromPoses) {
   const Eigen::Matrix3d R1 = EulerAnglesToRotationMatrix(0, 0, 0);
   const Eigen::Matrix3d R2 = EulerAnglesToRotationMatrix(0, 1, 2);

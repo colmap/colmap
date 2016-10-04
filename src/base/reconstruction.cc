@@ -393,6 +393,102 @@ void Reconstruction::Transform(const double scale, const Eigen::Vector4d& qvec,
   }
 }
 
+bool Reconstruction::Merge(const Reconstruction& reconstruction,
+                           const int min_common_images) {
+  CHECK_GE(min_common_images, 3);
+
+  // Find common and missing images in the two reconstructions.
+
+  std::set<image_t> common_image_ids;
+  std::set<image_t> missing_image_ids;
+  for (const auto& image_id : reconstruction.RegImageIds()) {
+    if (ExistsImage(image_id)) {
+      CHECK(IsImageRegistered(image_id))
+          << "Make sure to tear down the reconstructions before merging";
+      common_image_ids.insert(image_id);
+    } else {
+      missing_image_ids.insert(image_id);
+    }
+  }
+
+  if (common_image_ids.size() < min_common_images) {
+    return false;
+  }
+
+  // Estimate the similarity transformation between the two reconstructions.
+
+  std::vector<Eigen::Vector3d> src;
+  src.reserve(common_image_ids.size());
+  std::vector<Eigen::Vector3d> dst;
+  dst.reserve(common_image_ids.size());
+  for (const auto image_id : common_image_ids) {
+    src.push_back(reconstruction.Image(image_id).ProjectionCenter());
+    dst.push_back(Image(image_id).ProjectionCenter());
+  }
+
+  SimilarityTransform3 tform;
+  tform.Estimate(src, dst);
+
+  // Register the missing images in this reconstruction.
+
+  for (const auto image_id : missing_image_ids) {
+    auto reg_image = reconstruction.Image(image_id);
+    reg_image.SetRegistered(false);
+    AddImage(reg_image);
+    RegisterImage(image_id);
+    if (!ExistsCamera(reg_image.CameraId())) {
+      AddCamera(reconstruction.Camera(reg_image.CameraId()));
+    }
+    auto& image = Image(image_id);
+    tform.TransformPose(&image.Qvec(), &image.Tvec());
+  }
+
+  // Merge the two point clouds using the following two rules:
+  //    - copy points to this reconstruction with non-conflicting tracks,
+  //      i.e. points that do not have an already triangulated observation
+  //      in this reconstruction.
+  //    - merge tracks that are unambiguous, i.e. only merge points in the two
+  //      reconstructions if they have a one-to-one mapping.
+  // Note that in both cases no cheirality or reprojection test is performed.
+
+  for (const auto& point3D : reconstruction.Points3D()) {
+    Track new_track;
+    Track old_track;
+    std::set<point3D_t> old_point3D_ids;
+    for (const auto& track_el : point3D.second.Track().Elements()) {
+      if (common_image_ids.count(track_el.image_id) > 0) {
+        const auto& point2D =
+            Image(track_el.image_id).Point2D(track_el.point2D_idx);
+        if (point2D.HasPoint3D()) {
+          old_track.AddElement(track_el);
+          old_point3D_ids.insert(point2D.Point3DId());
+        } else {
+          new_track.AddElement(track_el);
+        }
+      } else if (missing_image_ids.count(track_el.image_id) > 0) {
+        Image(track_el.image_id).ResetPoint3DForPoint2D(track_el.point2D_idx);
+        new_track.AddElement(track_el);
+      }
+    }
+
+    const bool create_new_point = new_track.Length() >= 2;
+    const bool merge_new_and_old_point =
+        (new_track.Length() + old_track.Length()) >= 2 &&
+        old_point3D_ids.size() == 1;
+    if (create_new_point || merge_new_and_old_point) {
+      Eigen::Vector3d xyz = point3D.second.XYZ();
+      tform.TransformPoint(&xyz);
+      const auto point3D_id = AddPoint3D(xyz, new_track);
+      Point3D(point3D_id).SetColor(point3D.second.Color());
+      if (old_point3D_ids.size() == 1) {
+        MergePoints3D(point3D_id, *old_point3D_ids.begin());
+      }
+    }
+  }
+
+  return true;
+}
+
 const class Image* Reconstruction::FindImageWithName(
     const std::string& name) const {
   for (const auto& elem : images_) {
