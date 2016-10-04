@@ -471,7 +471,6 @@ std::vector<image_t> Reconstruction::FilterImages(
     const class Image& image = Image(image_id);
     const class Camera& camera = Camera(image.CameraId());
     if (image.NumPoints3D() == 0) {
-      DeRegisterImage(image_id);
       filtered_image_ids.push_back(image_id);
     } else if (camera.HasBogusParams(min_focal_length_ratio,
                                      max_focal_length_ratio, max_extra_param)) {
