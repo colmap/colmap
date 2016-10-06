@@ -326,15 +326,35 @@ void PatchMatchController::Run() {
 
   const auto depth_ranges = model.ComputeDepthRanges();
 
+  const std::string output_suffix =
+      options_.geom_consistency ? "geometric" : "photometric";
+
   for (size_t i = 0; i < problems.size(); ++i) {
     if (IsStopped()) {
       break;
     }
 
+    const auto& problem = problems[i];
+
+    const std::string image_name = model.GetImageName(problem.ref_image_id);
+    const std::string file_name =
+        StringPrintf("%s.%s.bin", image_name.c_str(), output_suffix.c_str());
+    const std::string depth_map_path =
+        JoinPaths(workspace_path_, "stereo/depth_maps", file_name);
+    const std::string normal_map_path =
+        JoinPaths(workspace_path_, "stereo/normal_maps", file_name);
+    const std::string consistency_graph_path =
+        JoinPaths(workspace_path_, "stereo/consistency_graphs", file_name);
+
+    if (boost::filesystem::exists(depth_map_path) &&
+        boost::filesystem::exists(normal_map_path) &&
+        boost::filesystem::exists(consistency_graph_path)) {
+      continue;
+    }
+
     PrintHeading1(
         StringPrintf("Processing view %d / %d", i + 1, problems.size()));
 
-    const auto& problem = problems[i];
     problem.Print();
 
     PatchMatch::Options patch_match_options = options_;
@@ -346,25 +366,12 @@ void PatchMatchController::Run() {
     PatchMatch patch_match(patch_match_options, problem);
     patch_match.Run();
 
-    std::string output_suffix;
-    if (patch_match_options.geom_consistency) {
-      output_suffix = "geometric";
-    } else {
-      output_suffix = "photometric";
-    }
-
-    const std::string image_name = model.GetImageName(problem.ref_image_id);
-    const std::string file_name =
-        StringPrintf("%s.%s.bin", image_name.c_str(), output_suffix.c_str());
     std::cout << std::endl << "Writing output: " << file_name << std::endl;
 
-    patch_match.GetDepthMap().Write(
-        JoinPaths(workspace_path_, "stereo/depth_maps", file_name));
-    patch_match.GetNormalMap().Write(
-        JoinPaths(workspace_path_, "stereo/normal_maps", file_name));
-    WriteBinaryBlob(
-        JoinPaths(workspace_path_, "stereo/consistency_graphs", file_name),
-        patch_match.GetConsistentImageIds());
+    patch_match.GetDepthMap().Write(depth_map_path);
+    patch_match.GetNormalMap().Write(normal_map_path);
+    WriteBinaryBlob(consistency_graph_path,
+                    patch_match.GetConsistentImageIds());
   }
 
   GetTimer().PrintMinutes();
