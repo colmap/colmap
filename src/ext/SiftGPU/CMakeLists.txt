@@ -75,7 +75,7 @@ if(CUDA_ENABLED)
         list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_30,code=sm_30)
         list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_35,code=sm_35)
         list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_50,code=sm_50)
-    elseif(CUDA_VERSION_MAJOR LESS 7)
+    elseif(CUDA_VERSION_MAJOR GREATER 7)
         list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_61,code=sm_61)
     endif()
 
