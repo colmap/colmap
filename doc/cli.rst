@@ -113,6 +113,9 @@ Executables
 - ``database_creator``: Create an empty COLMAP SQLite database with the
   necessary database schema information.
 
+- ``model_aligner``: Align/geo-register model to coordinate system of given
+  camera centers.
+
 - ``model_converter``: Convert the COLMAP export format to another format,
   such as PLY or NVM.
 

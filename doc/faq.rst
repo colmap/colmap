@@ -79,6 +79,31 @@ recommended to run another global bundle adjustment after the merge::
         --output_path /path/to/refined-merged-model
 
 
+Geo-register models
+-------------------
+
+Geo-registration of models is possible by providing the 3D locations for the
+camera centers of a subset or all registered images. The 3D similarity
+transformation between the reconstructed model and the target coordinate frame
+of the geo-registration is determined from these correspondences.
+
+The geo-registered 3D coordinates of the camera centers for images must be
+specified in a text-file with the following format::
+
+    image_name1.jpg X1 Y1 Z1
+    image_name2.jpg X2 Y2 Z2
+    image_name3.jpg X3 Y3 Z3
+    ...
+
+Note that at least 3 images must be specified to estimate a 3D similarity
+transformation. Then, the model can be geo-registered using::
+
+    ./src/exe/model_merger \
+        --input_path2 /path/to/model \
+        --output_path /path/to/geo-registered-model \
+        --ref_images_path /path/to/text-file
+
+
 .. _faq-dense-memory:
 
 Reduce memory usage during dense reconstruction
