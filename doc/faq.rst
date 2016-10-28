@@ -79,8 +79,8 @@ recommended to run another global bundle adjustment after the merge::
         --output_path /path/to/refined-merged-model
 
 
-Geo-register models
--------------------
+Geo-registration
+----------------
 
 Geo-registration of models is possible by providing the 3D locations for the
 camera centers of a subset or all registered images. The 3D similarity
@@ -98,8 +98,8 @@ specified in a text-file with the following format::
 Note that at least 3 images must be specified to estimate a 3D similarity
 transformation. Then, the model can be geo-registered using::
 
-    ./src/exe/model_merger \
-        --input_path2 /path/to/model \
+    ./src/exe/model_aligner \
+        --input_path /path/to/model \
         --output_path /path/to/geo-registered-model \
         --ref_images_path /path/to/text-file
 
