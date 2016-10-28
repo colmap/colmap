@@ -489,6 +489,49 @@ bool Reconstruction::Merge(const Reconstruction& reconstruction,
   return true;
 }
 
+bool Reconstruction::AlignToCameraPositions(
+    const std::vector<std::string>& image_names,
+    const std::vector<Eigen::Vector3d>& camera_positions,
+    const int min_common_images) {
+  CHECK_GE(min_common_images, 3);
+  CHECK_EQ(image_names.size(), camera_positions.size());
+
+  // Find out which images are contained in the reconstruction and get the
+  // positions of their camera centers.
+  std::set<image_t> common_image_ids;
+  std::vector<Eigen::Vector3d> src;
+  std::vector<Eigen::Vector3d> dst;
+  int num_reference_images = static_cast<int>(image_names.size());
+  for (int i = 0; i < num_reference_images; ++i) {
+    const class Image* image_ptr = FindImageWithName(image_names[i]);
+    if (image_ptr == nullptr) continue;
+
+    if (!IsImageRegistered(image_ptr->ImageId())) continue;
+
+    src.push_back(image_ptr->ProjectionCenter());
+    dst.push_back(camera_positions[i]);
+  }
+
+  // Only compute the alignment if there are enough correspondences.
+  if (src.size() < static_cast<size_t>(min_common_images)) {
+    return false;
+  }
+
+  // Estimate the similarity transformation between the two reconstructions.
+  SimilarityTransform3 tform;
+  tform.Estimate(src, dst);
+
+  // Update the cameras and points using the estimated transform.
+  for (auto& image : images_) {
+    tform.TransformPose(&image.second.Qvec(), &image.second.Tvec());
+  }
+  for (auto& point3D : points3D_) {
+    tform.TransformPoint(&point3D.second.XYZ());
+  }
+
+  return true;
+}
+
 const class Image* Reconstruction::FindImageWithName(
     const std::string& name) const {
   for (const auto& elem : images_) {

@@ -26,6 +26,8 @@ COLMAP_ADD_EXECUTABLE(mapper mapper.cc)
 
 COLMAP_ADD_EXECUTABLE(matches_importer matches_importer.cc)
 
+COLMAP_ADD_EXECUTABLE(model_aligner model_aligner.cc)
+
 COLMAP_ADD_EXECUTABLE(model_converter model_converter.cc)
 
 COLMAP_ADD_EXECUTABLE(model_merger model_merger.cc)
