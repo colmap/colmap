@@ -489,31 +489,39 @@ bool Reconstruction::Merge(const Reconstruction& reconstruction,
   return true;
 }
 
-bool Reconstruction::AlignToCameraPositions(
-    const std::vector<std::string>& image_names,
-    const std::vector<Eigen::Vector3d>& camera_positions,
-    const int min_common_images) {
+bool Reconstruction::Align(const std::vector<std::string>& image_names,
+                           const std::vector<Eigen::Vector3d>& locations,
+                           const int min_common_images) {
   CHECK_GE(min_common_images, 3);
-  CHECK_EQ(image_names.size(), camera_positions.size());
+  CHECK_EQ(image_names.size(), locations.size());
 
   // Find out which images are contained in the reconstruction and get the
   // positions of their camera centers.
   std::set<image_t> common_image_ids;
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> dst;
-  int num_reference_images = static_cast<int>(image_names.size());
-  for (int i = 0; i < num_reference_images; ++i) {
-    const class Image* image_ptr = FindImageWithName(image_names[i]);
-    if (image_ptr == nullptr) continue;
+  for (size_t i = 0; i < image_names.size(); ++i) {
+    const class Image* image = FindImageWithName(image_names[i]);
+    if (image == nullptr) {
+      continue;
+    }
 
-    if (!IsImageRegistered(image_ptr->ImageId())) continue;
+    if (!IsImageRegistered(image->ImageId())) {
+      continue;
+    }
 
-    src.push_back(image_ptr->ProjectionCenter());
-    dst.push_back(camera_positions[i]);
+    // Ignore duplicate images.
+    if (common_image_ids.count(image->ImageId()) > 0) {
+      continue;
+    }
+
+    common_image_ids.insert(image->ImageId());
+    src.push_back(image->ProjectionCenter());
+    dst.push_back(locations[i]);
   }
 
   // Only compute the alignment if there are enough correspondences.
-  if (src.size() < static_cast<size_t>(min_common_images)) {
+  if (common_image_ids.size() < static_cast<size_t>(min_common_images)) {
     return false;
   }
 

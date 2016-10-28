@@ -23,34 +23,33 @@
 
 using namespace colmap;
 
-void ReadReferenceCameras(
-    const std::string& path, std::vector<std::string>* reference_image_names,
-    std::vector<Eigen::Vector3d>* reference_camera_positions) {
+void ReadReferenceImages(const std::string& path,
+                         std::vector<std::string>* ref_image_names,
+                         std::vector<Eigen::Vector3d>* ref_locations) {
   std::vector<std::string> lines = ReadTextFileLines(path);
-
   for (const auto line : lines) {
     std::stringstream line_parser(line);
     std::string image_name = "";
     Eigen::Vector3d camera_position;
-    line_parser >> image_name >> camera_position[0] >> camera_position[1]
-                >> camera_position[2];
-    reference_image_names->push_back(image_name);
-    reference_camera_positions->push_back(camera_position);
+    line_parser >> image_name >> camera_position[0] >> camera_position[1] >>
+        camera_position[2];
+    ref_image_names->push_back(image_name);
+    ref_locations->push_back(camera_position);
   }
 }
 
 int main(int argc, char** argv) {
   InitializeGlog(argv);
 
-  std::string input_model_path;
-  std::string reference_cameras_path;
-  std::string output_model_path;
+  std::string input_path;
+  std::string ref_images_path;
+  std::string output_path;
   int min_common_images = 3;
 
   OptionManager options;
-  options.AddRequiredOption("input_model_path", &input_model_path);
-  options.AddRequiredOption("reference_cameras_path", &reference_cameras_path);
-  options.AddRequiredOption("output_model_path", &output_model_path);
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("ref_images_path", &ref_images_path);
+  options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("min_common_images", min_common_images,
                            &min_common_images);
 
@@ -62,25 +61,22 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
-  std::vector<std::string> reference_image_names;
-  std::vector<Eigen::Vector3d> reference_camera_positions;
-  ReadReferenceCameras(reference_cameras_path, &reference_image_names,
-                       &reference_camera_positions);
+  std::vector<std::string> ref_image_names;
+  std::vector<Eigen::Vector3d> ref_locations;
+  ReadReferenceImages(ref_images_path, &ref_image_names, &ref_locations);
 
   Reconstruction reconstruction;
-  reconstruction.Read(input_model_path);
-  PrintHeading2("Reconstruction ");
+  reconstruction.Read(input_path);
+  PrintHeading2("Reconstruction");
   std::cout << StringPrintf("Images: %d", reconstruction.NumRegImages())
             << std::endl;
   std::cout << StringPrintf("Points: %d", reconstruction.NumPoints3D())
             << std::endl;
 
   PrintHeading2("Aligning reconstruction");
-  if (reconstruction.AlignToCameraPositions(reference_image_names,
-                                            reference_camera_positions,
-                                            min_common_images)) {
+  if (reconstruction.Align(ref_image_names, ref_locations, min_common_images)) {
     std::cout << "=> Alignment succeeded" << std::endl;
-    reconstruction.Write(output_model_path);
+    reconstruction.Write(output_path);
   } else {
     std::cout << "=> Alignment failed" << std::endl;
   }
