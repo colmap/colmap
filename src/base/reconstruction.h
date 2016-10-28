@@ -156,6 +156,16 @@ class Reconstruction {
   // registered images. Return true if the two reconstructions could be merged.
   bool Merge(const Reconstruction& reconstruction, const int min_common_images);
 
+  // Align the given reconstruction with a set of pre-defined camera positions.
+  // Assuming that camera_position[i] gives the 3D coordinates of the center
+  // of projection of the image with name image_names[i], use all images from
+  // camera_names also contained in this reconstruction to align the model
+  // with the specified coordinates using a similarity transformation.
+  bool AlignToCameraPositions(
+      const std::vector<std::string>& image_names,
+      const std::vector<Eigen::Vector3d>& camera_positions,
+      const int min_common_images);
+
   // Find image with name.
   //
   // @param name        Name of the image.
