@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#include "base/feature.h"
 #include "retrieval/visual_index.h"
 #include "util/logging.h"
 #include "util/misc.h"
@@ -41,7 +42,8 @@ std::vector<Image> ReadImageList(const std::string& path, Database* database) {
   return images;
 }
 
-void IndexImagesInVisualIndex(const std::vector<Image>& images,
+void IndexImagesInVisualIndex(const int max_num_features,
+                              const std::vector<Image>& images,
                               Database* database,
                               retrieval::VisualIndex* visual_index) {
   DatabaseTransaction database_transaction(database);
@@ -55,6 +57,12 @@ void IndexImagesInVisualIndex(const std::vector<Image>& images,
 
     retrieval::VisualIndex::Desc descriptors =
         database->ReadDescriptors(images[i].ImageId());
+    if (descriptors.rows() > max_num_features) {
+      const auto keypoints = database->ReadKeypoints(images[i].ImageId());
+      descriptors =
+          ExtractTopScaleDescriptors(keypoints, descriptors, max_num_features);
+    }
+
     visual_index->Add(retrieval::VisualIndex::IndexOptions(),
                       images[i].ImageId(), descriptors);
 
@@ -65,7 +73,8 @@ void IndexImagesInVisualIndex(const std::vector<Image>& images,
   visual_index->Prepare();
 }
 
-void QueryImagesInVisualIndex(const std::vector<Image>& database_images,
+void QueryImagesInVisualIndex(const int max_num_features,
+                              const std::vector<Image>& database_images,
                               const std::vector<Image>& query_images,
                               const int num_images, Database* database,
                               retrieval::VisualIndex* visual_index) {
@@ -91,6 +100,12 @@ void QueryImagesInVisualIndex(const std::vector<Image>& database_images,
 
     retrieval::VisualIndex::Desc descriptors =
         database->ReadDescriptors(query_images[i].ImageId());
+    if (descriptors.rows() > max_num_features) {
+      const auto keypoints = database->ReadKeypoints(query_images[i].ImageId());
+      descriptors =
+          ExtractTopScaleDescriptors(keypoints, descriptors, max_num_features);
+    }
+
     std::vector<retrieval::ImageScore> image_scores;
     visual_index->Query(query_options, descriptors, &image_scores);
 
@@ -112,6 +127,7 @@ int main(int argc, char** argv) {
   std::string database_image_list_path;
   std::string query_image_list_path;
   int num_images = std::numeric_limits<int>::max();
+  int max_num_features = 1000;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -121,6 +137,8 @@ int main(int argc, char** argv) {
   options.AddDefaultOption("query_image_list_path", query_image_list_path,
                            &query_image_list_path);
   options.AddDefaultOption("num_images", num_images, &num_images);
+  options.AddDefaultOption("max_num_features", max_num_features,
+                           &max_num_features);
 
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
@@ -139,9 +157,10 @@ int main(int argc, char** argv) {
       ReadImageList(database_image_list_path, &database);
   const auto query_images = ReadImageList(query_image_list_path, &database);
 
-  IndexImagesInVisualIndex(database_images, &database, &visual_index);
-  QueryImagesInVisualIndex(database_images, query_images, num_images, &database,
+  IndexImagesInVisualIndex(max_num_features, database_images, &database,
                            &visual_index);
+  QueryImagesInVisualIndex(max_num_features, database_images, query_images,
+                           num_images, &database, &visual_index);
 
   return EXIT_SUCCESS;
 }

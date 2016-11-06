@@ -61,4 +61,36 @@ FeatureDescriptors FeatureDescriptorsToUnsignedByte(
   return descriptors_unsigned_byte;
 }
 
+FeatureDescriptors ExtractTopScaleDescriptors(
+    const FeatureKeypoints& keypoints, const FeatureDescriptors& descriptors,
+    const size_t num_features) {
+  CHECK_EQ(keypoints.size(), descriptors.rows());
+  CHECK_GT(num_features, 0);
+
+  FeatureDescriptors top_scale_descriptors;
+
+  if (static_cast<size_t>(descriptors.rows()) <= num_features) {
+    top_scale_descriptors = descriptors;
+  } else {
+    std::vector<std::pair<size_t, float>> scales;
+    scales.reserve(static_cast<size_t>(keypoints.size()));
+    for (size_t i = 0; i < keypoints.size(); ++i) {
+      scales.emplace_back(i, keypoints[i].scale);
+    }
+
+    std::partial_sort(scales.begin(), scales.begin() + num_features,
+                      scales.end(), [](const std::pair<size_t, float> scale1,
+                                       const std::pair<size_t, float> scale2) {
+                        return scale1.second > scale2.second;
+                      });
+
+    top_scale_descriptors.resize(num_features, descriptors.cols());
+    for (size_t i = 0; i < num_features; ++i) {
+      top_scale_descriptors.row(i) = descriptors.row(scales[i].first);
+    }
+  }
+
+  return top_scale_descriptors;
+}
+
 }  // namespace colmap

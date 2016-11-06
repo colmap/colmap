@@ -253,6 +253,10 @@ class SequentialFeatureMatcher : public Thread {
     // be significantly bigger than the sequential matching overlap.
     int loop_detection_num_images = 30;
 
+    // The maximum number of features to use for indexing an image. If an
+    // image has more features, only the largest-scale features will be indexed.
+    int loop_detection_max_num_features = 1000;
+
     // Path to the vocabulary tree.
     std::string vocab_tree_path = "";
 
@@ -283,6 +287,10 @@ class VocabTreeFeatureMatcher : public Thread {
   struct Options {
     // Number of images to retrieve for each query image.
     int num_images = 100;
+
+    // The maximum number of features to use for indexing an image. If an
+    // image has more features, only the largest-scale features will be indexed.
+    int max_num_features = 1000;
 
     // Path to the vocabulary tree.
     std::string vocab_tree_path = "";

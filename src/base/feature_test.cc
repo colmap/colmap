@@ -103,3 +103,28 @@ BOOST_AUTO_TEST_CASE(TestFeatureDescriptorsToUnsignedByte) {
     }
   }
 }
+
+BOOST_AUTO_TEST_CASE(TestExtractTopScaleDescriptors) {
+  FeatureKeypoints keypoints(5);
+  keypoints[0].scale = 3;
+  keypoints[1].scale = 4;
+  keypoints[2].scale = 1;
+  keypoints[3].scale = 5;
+  keypoints[4].scale = 2;
+  const FeatureDescriptors descriptors = FeatureDescriptors::Random(5, 128);
+  const auto top_descriptors2 =
+      ExtractTopScaleDescriptors(keypoints, descriptors, 2);
+  BOOST_CHECK_EQUAL(top_descriptors2.rows(), 2);
+  BOOST_CHECK_EQUAL(top_descriptors2.row(0), descriptors.row(3));
+  BOOST_CHECK_EQUAL(top_descriptors2.row(1), descriptors.row(1));
+
+  const auto top_descriptors5 =
+      ExtractTopScaleDescriptors(keypoints, descriptors, 5);
+  BOOST_CHECK_EQUAL(top_descriptors5.rows(), 5);
+  BOOST_CHECK_EQUAL(top_descriptors5, descriptors);
+
+  const auto top_descriptors6 =
+      ExtractTopScaleDescriptors(keypoints, descriptors, 6);
+  BOOST_CHECK_EQUAL(top_descriptors6.rows(), 5);
+  BOOST_CHECK_EQUAL(top_descriptors6, descriptors);
+}

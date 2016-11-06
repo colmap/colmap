@@ -39,37 +39,7 @@ void PrintElapsedTime(const Timer& timer) {
   std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
 }
 
-// Extract the descriptors corresponding to the largest scale features.
-FeatureDescriptors ExtractTopScaleDescriptors(
-    const FeatureKeypoints& keypoints, const FeatureDescriptors& descriptors,
-    const size_t num_features) {
-  FeatureDescriptors top_scale_descriptors;
-
-  if (static_cast<size_t>(descriptors.rows()) <= num_features) {
-    top_scale_descriptors = descriptors;
-  } else {
-    std::vector<std::pair<size_t, float>> scales;
-    scales.reserve(static_cast<size_t>(keypoints.size()));
-    for (size_t i = 0; i < keypoints.size(); ++i) {
-      scales.emplace_back(i, keypoints[i].scale);
-    }
-
-    std::partial_sort(scales.begin(), scales.begin() + num_features,
-                      scales.end(), [](const std::pair<size_t, float> scale1,
-                                       const std::pair<size_t, float> scale2) {
-                        return scale1.second > scale2.second;
-                      });
-
-    top_scale_descriptors.resize(num_features, descriptors.cols());
-    for (size_t i = 0; i < num_features; ++i) {
-      top_scale_descriptors.row(i) = descriptors.row(scales[i].first);
-    }
-  }
-
-  return top_scale_descriptors;
-}
-
-void IndexImagesInVisualIndex(const int num_threads,
+void IndexImagesInVisualIndex(const int num_threads, const int max_num_features,
                               const std::vector<image_t>& image_ids,
                               Thread* thread, Database* database,
                               FeatureMatcherCache* cache,
@@ -92,6 +62,12 @@ void IndexImagesInVisualIndex(const int num_threads,
 
     retrieval::VisualIndex::Desc descriptors =
         cache->GetDescriptors(image_ids[i]);
+    if (descriptors.rows() > max_num_features) {
+      const auto keypoints = cache->GetKeypoints(image_ids[i]);
+      descriptors =
+          ExtractTopScaleDescriptors(keypoints, descriptors, max_num_features);
+    }
+
     visual_index->Add(index_options, image_ids[i], descriptors);
 
     PrintElapsedTime(timer);
@@ -101,13 +77,11 @@ void IndexImagesInVisualIndex(const int num_threads,
   visual_index->Prepare();
 }
 
-void MatchNearestNeighborsInVisualIndex(const int num_threads,
-                                        const int num_images,
-                                        const std::vector<image_t>& image_ids,
-                                        Thread* thread,
-                                        FeatureMatcherCache* cache,
-                                        retrieval::VisualIndex* visual_index,
-                                        SiftGPUFeatureMatcher* matcher) {
+void MatchNearestNeighborsInVisualIndex(
+    const int num_threads, const int num_images, const int max_num_features,
+    const std::vector<image_t>& image_ids, Thread* thread,
+    FeatureMatcherCache* cache, retrieval::VisualIndex* visual_index,
+    SiftGPUFeatureMatcher* matcher) {
   // Start a thread pool to retrieve the nearest neighbors.
   ThreadPool retrieval_thread_pool(num_threads);
   JobQueue<std::vector<retrieval::ImageScore>> retrieval_queue(num_threads);
@@ -148,8 +122,13 @@ void MatchNearestNeighborsInVisualIndex(const int num_threads,
 
     // Push the next image to the retrieval queue.
     if (image_idx < image_ids.size()) {
-      const retrieval::VisualIndex::Desc& descriptors =
+      retrieval::VisualIndex::Desc descriptors =
           cache->GetDescriptors(image_ids[image_idx]);
+      if (descriptors.rows() > max_num_features) {
+        const auto keypoints = cache->GetKeypoints(image_ids[image_idx]);
+        descriptors = ExtractTopScaleDescriptors(keypoints, descriptors,
+                                                 max_num_features);
+      }
       retrieval_thread_pool.AddTask(QueryFunc, descriptors);
       image_idx += 1;
     }
@@ -693,6 +672,7 @@ void SequentialFeatureMatcher::Options::Check() const {
   CHECK_GT(overlap, 0);
   CHECK_GT(loop_detection_period, 0);
   CHECK_GT(loop_detection_num_images, 0);
+  CHECK_GT(loop_detection_max_num_features, 0);
   if (loop_detection) {
     CHECK(boost::filesystem::exists(vocab_tree_path));
   }
@@ -785,8 +765,9 @@ void SequentialFeatureMatcher::RunLoopDetection(
   visual_index.Read(options_.vocab_tree_path);
 
   // Index all images in the visual index.
-  IndexImagesInVisualIndex(match_options_.num_threads, image_ids, this,
-                           &database_, &cache_, &visual_index);
+  IndexImagesInVisualIndex(match_options_.num_threads,
+                           options_.loop_detection_max_num_features, image_ids,
+                           this, &database_, &cache_, &visual_index);
 
   if (IsStopped()) {
     return;
@@ -800,11 +781,13 @@ void SequentialFeatureMatcher::RunLoopDetection(
   }
   MatchNearestNeighborsInVisualIndex(
       match_options_.num_threads, options_.loop_detection_num_images,
-      match_image_ids, this, &cache_, &visual_index, &matcher_);
+      options_.loop_detection_max_num_features, match_image_ids, this, &cache_,
+      &visual_index, &matcher_);
 }
 
 void VocabTreeFeatureMatcher::Options::Check() const {
   CHECK_GT(num_images, 0);
+  CHECK_GT(max_num_features, 0);
   CHECK(boost::filesystem::exists(vocab_tree_path));
 }
 
@@ -864,7 +847,8 @@ void VocabTreeFeatureMatcher::Run() {
   }
 
   // Index all images in the visual index.
-  IndexImagesInVisualIndex(match_options_.num_threads, all_image_ids, this,
+  IndexImagesInVisualIndex(match_options_.num_threads,
+                           options_.max_num_features, all_image_ids, this,
                            &database_, &cache_, &visual_index);
 
   if (IsStopped()) {
@@ -874,7 +858,8 @@ void VocabTreeFeatureMatcher::Run() {
 
   // Match all images in the visual index.
   MatchNearestNeighborsInVisualIndex(match_options_.num_threads,
-                                     options_.num_images, image_ids, this,
+                                     options_.num_images,
+                                     options_.max_num_features, image_ids, this,
                                      &cache_, &visual_index, &matcher_);
 
   GetTimer().PrintMinutes();

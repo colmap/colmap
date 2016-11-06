@@ -225,6 +225,7 @@ void SequentialMatchOptions::Reset() {
   loop_detection = options.loop_detection;
   loop_detection_period = options.loop_detection_period;
   loop_detection_num_images = options.loop_detection_num_images;
+  loop_detection_max_num_features = options.loop_detection_max_num_features;
   vocab_tree_path = options.vocab_tree_path;
 }
 
@@ -233,6 +234,7 @@ bool SequentialMatchOptions::Check() {
 
   CHECK_OPTION(SequentialMatchOptions, loop_detection_period, > 0);
   CHECK_OPTION(SequentialMatchOptions, loop_detection_num_images, > 0);
+  CHECK_OPTION(SequentialMatchOptions, loop_detection_max_num_features, > 0);
 
   return verified;
 }
@@ -243,6 +245,7 @@ SequentialFeatureMatcher::Options SequentialMatchOptions::Options() const {
   options.loop_detection = loop_detection;
   options.loop_detection_period = loop_detection_period;
   options.loop_detection_num_images = loop_detection_num_images;
+  options.loop_detection_max_num_features = loop_detection_max_num_features;
   options.vocab_tree_path = vocab_tree_path;
   return options;
 }
@@ -252,6 +255,7 @@ VocabTreeMatchOptions::VocabTreeMatchOptions() { Reset(); }
 void VocabTreeMatchOptions::Reset() {
   VocabTreeFeatureMatcher::Options options;
   num_images = options.num_images;
+  max_num_features = options.max_num_features;
   vocab_tree_path = options.vocab_tree_path;
   match_list_path = options.match_list_path;
 }
@@ -260,6 +264,7 @@ bool VocabTreeMatchOptions::Check() {
   bool verified = true;
 
   CHECK_OPTION(VocabTreeMatchOptions, num_images, > 0);
+  CHECK_OPTION(VocabTreeMatchOptions, max_num_features, > 0);
 
   return verified;
 }
@@ -267,6 +272,7 @@ bool VocabTreeMatchOptions::Check() {
 VocabTreeFeatureMatcher::Options VocabTreeMatchOptions::Options() const {
   VocabTreeFeatureMatcher::Options options;
   options.num_images = num_images;
+  options.max_num_features = max_num_features;
   options.vocab_tree_path = vocab_tree_path;
   options.match_list_path = match_list_path;
   return options;
@@ -883,6 +889,8 @@ void OptionManager::AddSequentialMatchOptions() {
   ADD_OPTION_DEFAULT(SequentialMatchOptions, sequential_match_options,
                      loop_detection_num_images);
   ADD_OPTION_DEFAULT(SequentialMatchOptions, sequential_match_options,
+                     loop_detection_max_num_features);
+  ADD_OPTION_DEFAULT(SequentialMatchOptions, sequential_match_options,
                      vocab_tree_path);
 }
 
@@ -894,6 +902,8 @@ void OptionManager::AddVocabTreeMatchOptions() {
 
   ADD_OPTION_DEFAULT(VocabTreeMatchOptions, vocab_tree_match_options,
                      num_images);
+  ADD_OPTION_DEFAULT(VocabTreeMatchOptions, vocab_tree_match_options,
+                     max_num_features);
   ADD_OPTION_DEFAULT(VocabTreeMatchOptions, vocab_tree_match_options,
                      vocab_tree_path);
   ADD_OPTION_DEFAULT(VocabTreeMatchOptions, vocab_tree_match_options,

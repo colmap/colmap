@@ -70,6 +70,11 @@ Eigen::MatrixXf L1RootNormalizeFeatureDescriptors(
 FeatureDescriptors FeatureDescriptorsToUnsignedByte(
     const Eigen::MatrixXf& descriptors);
 
+// Extract the descriptors corresponding to the largest-scale features.
+FeatureDescriptors ExtractTopScaleDescriptors(
+    const FeatureKeypoints& keypoints, const FeatureDescriptors& descriptors,
+    const size_t num_features);
+
 }  // namespace colmap
 
 #endif  // COLMAP_SRC_BASE_FEATURE_H_

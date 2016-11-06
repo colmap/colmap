@@ -102,6 +102,7 @@ struct SequentialMatchOptions : public BaseOptions {
   bool loop_detection;
   int loop_detection_period;
   int loop_detection_num_images;
+  int loop_detection_max_num_features;
   std::string vocab_tree_path;
 };
 
@@ -114,6 +115,7 @@ struct VocabTreeMatchOptions : public BaseOptions {
   VocabTreeFeatureMatcher::Options Options() const;
 
   int num_images;
+  int max_num_features;
   std::string vocab_tree_path;
   std::string match_list_path;
 };
