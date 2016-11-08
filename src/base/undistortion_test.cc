@@ -18,6 +18,7 @@
 #define BOOST_TEST_MODULE "base/undistortion"
 #include <boost/test/unit_test.hpp>
 
+#include "base/pose.h"
 #include "base/undistortion.h"
 
 using namespace colmap;
@@ -182,4 +183,39 @@ BOOST_AUTO_TEST_CASE(TestUndistortReconstruction) {
       BOOST_CHECK_NE(point2D.XY(), Eigen::Vector2d::Ones());
     }
   }
+}
+
+BOOST_AUTO_TEST_CASE(TestRectifyStereoCameras) {
+  Camera camera1;
+  camera1.SetCameraId(1);
+  camera1.InitializeWithName("PINHOLE", 1, 1, 1);
+
+  Camera camera2;
+  camera2.SetCameraId(1);
+  camera2.InitializeWithName("PINHOLE", 1, 1, 1);
+
+  const Eigen::Vector4d qvec =
+      RotationMatrixToQuaternion(EulerAnglesToRotationMatrix(0.1, 0.2, 0.3));
+  const Eigen::Vector3d tvec(0.1, 0.2, 0.3);
+
+  Camera rectified_camera1;
+  Camera rectified_camera2;
+  Eigen::Matrix3d H1;
+  Eigen::Matrix3d H2;
+  Eigen::Matrix4d Q;
+  RectifyStereoCameras(camera1, camera2, qvec, tvec, &H1, &H2, &Q);
+
+  Eigen::Matrix3d H1_ref;
+  H1_ref << -0.202759, -0.815848, -0.897034, 0.416329, 0.733069, -0.199657,
+      0.910839, -0.175408, 0.942638;
+  BOOST_CHECK(H1.isApprox(H1_ref, 1e-5));
+
+  Eigen::Matrix3d H2_ref;
+  H2_ref << -0.082173, -1.01288, -0.698868, 0.301854, 0.472844, -0.465336,
+      0.963533, 0.292411, 1.12528;
+  BOOST_CHECK(H2.isApprox(H2_ref, 1e-5));
+
+  Eigen::Matrix4d Q_ref;
+  Q_ref << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -2.67261, -0.5, -0.5, 1, 0;
+  BOOST_CHECK(Q.isApprox(Q_ref, 1e-5));
 }

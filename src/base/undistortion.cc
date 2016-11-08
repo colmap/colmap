@@ -93,7 +93,8 @@ void COLMAPUndistorter::Run() {
   CreateDirIfNotExists(JoinPaths(output_path_, "stereo/consistency_graphs"));
   reconstruction_.CreateImageDirs(JoinPaths(output_path_, "images"));
   reconstruction_.CreateImageDirs(JoinPaths(output_path_, "stereo/depth_maps"));
-  reconstruction_.CreateImageDirs(JoinPaths(output_path_, "stereo/normal_maps"));
+  reconstruction_.CreateImageDirs(
+      JoinPaths(output_path_, "stereo/normal_maps"));
   reconstruction_.CreateImageDirs(
       JoinPaths(output_path_, "stereo/consistency_graphs"));
 
@@ -616,6 +617,74 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
           distorted_camera.ImageToWorld(point2D.XY())));
     }
   }
+}
+
+template <typename Derived>
+Eigen::MatrixBase<Derived> MRDivide2(const Eigen::MatrixBase<Derived>& a,
+                                     const Eigen::MatrixBase<Derived>& b) {
+  return a * b.inverse();
+}
+
+void RectifyStereoCameras(const Camera& camera1, const Camera& camera2,
+                          const Eigen::Vector4d& qvec,
+                          const Eigen::Vector3d& tvec, Eigen::Matrix3d* H1,
+                          Eigen::Matrix3d* H2, Eigen::Matrix4d* Q) {
+  CHECK(camera1.ModelId() == SimplePinholeCameraModel::model_id ||
+        camera1.ModelId() == PinholeCameraModel::model_id);
+  CHECK(camera2.ModelId() == SimplePinholeCameraModel::model_id ||
+        camera2.ModelId() == PinholeCameraModel::model_id);
+
+  // Compute the average rotation between the first and the second camera.
+  Eigen::AngleAxisd rvec(
+      Eigen::Quaterniond(qvec(0), qvec(1), qvec(2), qvec(3)));
+  rvec.angle() *= -0.5;
+
+  Eigen::Matrix3d R2 = rvec.toRotationMatrix();
+  Eigen::Matrix3d R1 = R2.transpose();
+
+  // Determine the translation, such that it coincides with the X-axis.
+  Eigen::Vector3d t = R2 * tvec;
+
+  Eigen::Vector3d x_unit_vector(1, 0, 0);
+  if (t.transpose() * x_unit_vector < 0) {
+    x_unit_vector *= -1;
+  }
+
+  const Eigen::Vector3d rotation_axis = t.cross(x_unit_vector);
+
+  Eigen::Matrix3d R_x;
+  if (rotation_axis.norm() < std::numeric_limits<double>::epsilon()) {
+    R_x = Eigen::Matrix3d::Identity();
+  } else {
+    const double angle = std::acos(std::abs(t.transpose() * x_unit_vector) /
+                                   (t.norm() * x_unit_vector.norm()));
+    R_x = Eigen::AngleAxisd(angle, rotation_axis.normalized());
+  }
+
+  // Apply the X-axis correction.
+  R1 = R_x * R1;
+  R2 = R_x * R2;
+  t = R_x * t;
+
+  // Determine the intrinsic calibration matrix.
+  Eigen::Matrix3d K = Eigen::Matrix3d::Identity();
+  K(0, 0) = std::min(camera1.MeanFocalLength(), camera2.MeanFocalLength());
+  K(1, 1) = K(0, 0);
+  K(0, 2) = camera1.PrincipalPointX();
+  K(1, 2) = (camera1.PrincipalPointY() + camera2.PrincipalPointY()) / 2;
+
+  // Compose the homographies.
+  *H1 = (K * R1 * camera1.CalibrationMatrix().inverse()).transpose();
+  *H2 = (K * R2 * camera2.CalibrationMatrix().inverse()).transpose();
+
+  // Determine the inverse projection matrix that transforms disparity values
+  // to 3D world coordinates: [x, y, disparity, 1] * Q = [X, Y, Z, 1] * w.
+  *Q = Eigen::Matrix4d::Identity();
+  (*Q)(3, 0) = -K(1, 2);
+  (*Q)(3, 1) = -K(0, 2);
+  (*Q)(3, 2) = K(0, 0);
+  (*Q)(2, 3) = -1 / t(0);
+  (*Q)(3, 3) = 0;
 }
 
 }  // namespace colmap

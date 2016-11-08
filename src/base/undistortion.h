@@ -132,6 +132,16 @@ void UndistortImage(const UndistortCameraOptions& options,
 void UndistortReconstruction(const UndistortCameraOptions& options,
                              Reconstruction* reconstruction);
 
+// Compute stereo rectification homographies that transform two images,
+// such that corresponding pixels in one image lie on the same scanline in the
+// other image. The matrix Q transforms disparity values to world coordinates
+// as [x, y, disparity, 1] * Q = [X, Y, Z, 1] * w. Note that this function
+// assumes that the two cameras are already undistorted.
+void RectifyStereoCameras(const Camera& camera1, const Camera& camera2,
+                          const Eigen::Vector4d& qvec,
+                          const Eigen::Vector3d& tvec, Eigen::Matrix3d* H1,
+                          Eigen::Matrix3d* H2, Eigen::Matrix4d* Q);
+
 }  // namespace colmap
 
 #endif  // COLMAP_SRC_BASE_UNDISTORTION_H_
