@@ -142,6 +142,15 @@ void RectifyStereoCameras(const Camera& camera1, const Camera& camera2,
                           const Eigen::Vector3d& tvec, Eigen::Matrix3d* H1,
                           Eigen::Matrix3d* H2, Eigen::Matrix4d* Q);
 
+// Rectify and undistort the stereo image pair using the given geometry.
+void RectifyAndUndistortStereoImages(
+    const UndistortCameraOptions& options, const Bitmap& distorted_image1,
+    const Bitmap& distorted_image2, const Camera& distorted_camera1,
+    const Camera& distorted_camera2, const Eigen::Vector4d& qvec,
+    const Eigen::Vector3d& tvec, Bitmap* undistorted_image1,
+    Bitmap* undistorted_image2, Camera* undistorted_camera1,
+    Camera* undistorted_camera2, Eigen::Matrix4d* Q);
+
 }  // namespace colmap
 
 #endif  // COLMAP_SRC_BASE_UNDISTORTION_H_

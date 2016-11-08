@@ -619,12 +619,6 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
   }
 }
 
-template <typename Derived>
-Eigen::MatrixBase<Derived> MRDivide2(const Eigen::MatrixBase<Derived>& a,
-                                     const Eigen::MatrixBase<Derived>& b) {
-  return a * b.inverse();
-}
-
 void RectifyStereoCameras(const Camera& camera1, const Camera& camera2,
                           const Eigen::Vector4d& qvec,
                           const Eigen::Vector3d& tvec, Eigen::Matrix3d* H1,
@@ -685,6 +679,43 @@ void RectifyStereoCameras(const Camera& camera1, const Camera& camera2,
   (*Q)(3, 2) = K(0, 0);
   (*Q)(2, 3) = -1 / t(0);
   (*Q)(3, 3) = 0;
+}
+
+void RectifyAndUndistortStereoImages(
+    const UndistortCameraOptions& options, const Bitmap& distorted_image1,
+    const Bitmap& distorted_image2, const Camera& distorted_camera1,
+    const Camera& distorted_camera2, const Eigen::Vector4d& qvec,
+    const Eigen::Vector3d& tvec, Bitmap* undistorted_image1,
+    Bitmap* undistorted_image2, Camera* undistorted_camera1,
+    Camera* undistorted_camera2, Eigen::Matrix4d* Q) {
+  CHECK_EQ(distorted_camera1.Width(), distorted_image1.Width());
+  CHECK_EQ(distorted_camera1.Height(), distorted_image1.Height());
+  CHECK_EQ(distorted_camera2.Width(), distorted_image2.Width());
+  CHECK_EQ(distorted_camera2.Height(), distorted_image2.Height());
+
+  *undistorted_camera1 = UndistortCamera(options, distorted_camera1);
+  undistorted_image1->Allocate(static_cast<int>(undistorted_camera1->Width()),
+                               static_cast<int>(undistorted_camera1->Height()),
+                               distorted_image1.IsRGB());
+  distorted_image1.CloneMetadata(undistorted_image1);
+
+  *undistorted_camera2 = UndistortCamera(options, distorted_camera2);
+  undistorted_image2->Allocate(static_cast<int>(undistorted_camera2->Width()),
+                               static_cast<int>(undistorted_camera2->Height()),
+                               distorted_image2.IsRGB());
+  distorted_image2.CloneMetadata(undistorted_image2);
+
+  Eigen::Matrix3d H1;
+  Eigen::Matrix3d H2;
+  RectifyStereoCameras(*undistorted_camera1, *undistorted_camera2, qvec, tvec,
+                       &H1, &H2, Q);
+
+  WarpImageWithHomographyBetweenCameras(H1, distorted_camera1,
+                                        *undistorted_camera1, distorted_image1,
+                                        undistorted_image1);
+  WarpImageWithHomographyBetweenCameras(H2, distorted_camera2,
+                                        *undistorted_camera2, distorted_image2,
+                                        undistorted_image2);
 }
 
 }  // namespace colmap

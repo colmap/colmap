@@ -121,17 +121,17 @@ BOOST_AUTO_TEST_CASE(TestShiftedCameras) {
 
 BOOST_AUTO_TEST_CASE(TestWarpImageWithHomographyIdentity) {
   Bitmap source_image_gray;
-  GenerateRandomBitmap(50, 50, false, &source_image_gray);
+  GenerateRandomBitmap(100, 100, false, &source_image_gray);
   Bitmap target_image_gray;
-  target_image_gray.Allocate(50, 50, false);
+  target_image_gray.Allocate(100, 100, false);
   WarpImageWithHomography(Eigen::Matrix3d::Identity(), source_image_gray,
                           &target_image_gray);
   CheckBitmapsEqual(source_image_gray, target_image_gray);
 
   Bitmap source_image_rgb;
-  GenerateRandomBitmap(50, 50, true, &source_image_rgb);
+  GenerateRandomBitmap(100, 100, true, &source_image_rgb);
   Bitmap target_image_rgb;
-  target_image_rgb.Allocate(50, 50, true);
+  target_image_rgb.Allocate(100, 100, true);
   WarpImageWithHomography(Eigen::Matrix3d::Identity(), source_image_rgb,
                           &target_image_rgb);
   CheckBitmapsEqual(source_image_rgb, target_image_rgb);
@@ -142,17 +142,66 @@ BOOST_AUTO_TEST_CASE(TestWarpImageWithHomographyTransposed) {
   H << 0, 1, 0, 1, 0, 0, 0, 0, 1;
 
   Bitmap source_image_gray;
-  GenerateRandomBitmap(50, 50, false, &source_image_gray);
+  GenerateRandomBitmap(100, 100, false, &source_image_gray);
   Bitmap target_image_gray;
-  target_image_gray.Allocate(50, 50, false);
+  target_image_gray.Allocate(100, 100, false);
   WarpImageWithHomography(H, source_image_gray, &target_image_gray);
   CheckBitmapsTransposed(source_image_gray, target_image_gray);
 
   Bitmap source_image_rgb;
-  GenerateRandomBitmap(50, 50, true, &source_image_rgb);
+  GenerateRandomBitmap(100, 100, true, &source_image_rgb);
   Bitmap target_image_rgb;
-  target_image_rgb.Allocate(50, 50, true);
+  target_image_rgb.Allocate(100, 100, true);
   WarpImageWithHomography(H, source_image_rgb, &target_image_rgb);
+  CheckBitmapsTransposed(source_image_rgb, target_image_rgb);
+}
+
+BOOST_AUTO_TEST_CASE(TestWarpImageWithHomographyBetweenCamerasIdentity) {
+  Camera source_camera;
+  source_camera.InitializeWithName("PINHOLE", 1, 100, 100);
+  Camera target_camera = source_camera;
+
+  Bitmap source_image_gray;
+  GenerateRandomBitmap(100, 100, false, &source_image_gray);
+  Bitmap target_image_gray;
+  target_image_gray.Allocate(100, 100, false);
+  WarpImageWithHomographyBetweenCameras(Eigen::Matrix3d::Identity(),
+                                        source_camera, target_camera,
+                                        source_image_gray, &target_image_gray);
+  CheckBitmapsEqual(source_image_gray, target_image_gray);
+
+  Bitmap source_image_rgb;
+  GenerateRandomBitmap(100, 100, true, &source_image_rgb);
+  Bitmap target_image_rgb;
+  target_image_rgb.Allocate(100, 100, true);
+  WarpImageWithHomographyBetweenCameras(Eigen::Matrix3d::Identity(),
+                                        source_camera, target_camera,
+                                        source_image_rgb, &target_image_rgb);
+  CheckBitmapsEqual(source_image_rgb, target_image_rgb);
+}
+
+BOOST_AUTO_TEST_CASE(TestWarpImageWithHomographyBetweenCamerasTransposed) {
+  Camera source_camera;
+  source_camera.InitializeWithName("PINHOLE", 1, 100, 100);
+  Camera target_camera = source_camera;
+
+  Eigen::Matrix3d H;
+  H << 0, 1, 0, 1, 0, 0, 0, 0, 1;
+
+  Bitmap source_image_gray;
+  GenerateRandomBitmap(100, 100, false, &source_image_gray);
+  Bitmap target_image_gray;
+  target_image_gray.Allocate(100, 100, false);
+  WarpImageWithHomographyBetweenCameras(H, source_camera, target_camera,
+                                        source_image_gray, &target_image_gray);
+  CheckBitmapsTransposed(source_image_gray, target_image_gray);
+
+  Bitmap source_image_rgb;
+  GenerateRandomBitmap(100, 100, true, &source_image_rgb);
+  Bitmap target_image_rgb;
+  target_image_rgb.Allocate(100, 100, true);
+  WarpImageWithHomographyBetweenCameras(H, source_camera, target_camera,
+                                        source_image_rgb, &target_image_rgb);
   CheckBitmapsTransposed(source_image_rgb, target_image_rgb);
 }
 

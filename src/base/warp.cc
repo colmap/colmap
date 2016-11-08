@@ -94,6 +94,46 @@ void WarpImageWithHomography(const Eigen::Matrix3d& H,
   }
 }
 
+void WarpImageWithHomographyBetweenCameras(const Eigen::Matrix3d& H,
+                                           const Camera& source_camera,
+                                           const Camera& target_camera,
+                                           const Bitmap& source_image,
+                                           Bitmap* target_image) {
+  CHECK_EQ(source_camera.Width(), source_image.Width());
+  CHECK_EQ(source_camera.Height(), source_image.Height());
+  CHECK_NOTNULL(target_image);
+
+  target_image->Allocate(static_cast<int>(target_camera.Width()),
+                         static_cast<int>(target_camera.Height()),
+                         source_image.IsRGB());
+
+  Eigen::Vector2d image_point;
+  for (int y = 0; y < target_image->Height(); ++y) {
+    image_point.y() = y + 0.5;
+    for (int x = 0; x < target_image->Width(); ++x) {
+      image_point.x() = x + 0.5;
+      // Camera models assume that the upper left pixel center is (0.5, 0.5).
+      const Eigen::Vector2d world_point =
+          target_camera.ImageToWorld(image_point);
+      const Eigen::Vector2d source_point =
+          source_camera.WorldToImage(world_point);
+      const Eigen::Vector3d source_point_homogeneous =
+          source_point.homogeneous();
+
+      const Eigen::Vector2d source_pixel =
+          (H * source_point_homogeneous).hnormalized();
+
+      BitmapColor<float> color;
+      if (source_image.InterpolateBilinear(source_pixel.x() - 0.5,
+                                           source_pixel.y() - 0.5, &color)) {
+        target_image->SetPixel(x, y, color.Cast<uint8_t>());
+      } else {
+        target_image->SetPixel(x, y, BitmapColor<uint8_t>(0, 0, 0));
+      }
+    }
+  }
+}
+
 void ResampleImageBilinear(const float* data, const int rows, const int cols,
                            const int new_rows, const int new_cols,
                            float* resampled) {

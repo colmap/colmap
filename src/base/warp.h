@@ -35,6 +35,16 @@ void WarpImageBetweenCameras(const Camera& source_camera,
 void WarpImageWithHomography(const Eigen::Matrix3d& H,
                              const Bitmap& source_image, Bitmap* target_image);
 
+// First, warp source image to target image by projecting the pixels of the
+// target image up to infinity and projecting it down into the source image
+// (i.e. an inverse mapping). Second, warp the coordinates from the first
+// warping with the given homography. The function allocates the target image.
+void WarpImageWithHomographyBetweenCameras(const Eigen::Matrix3d& H,
+                                           const Camera& source_camera,
+                                           const Camera& target_camera,
+                                           const Bitmap& source_image,
+                                           Bitmap* target_image);
+
 // Resample row-major image using bilinear interpolation.
 void ResampleImageBilinear(const float* data, const int rows, const int cols,
                            const int new_rows, const int new_cols,
