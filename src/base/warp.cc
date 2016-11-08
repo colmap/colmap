@@ -16,6 +16,8 @@
 
 #include "base/warp.h"
 
+#include <Eigen/Geometry>
+
 #include "ext/VLFeat/imopv.h"
 #include "util/logging.h"
 
@@ -58,6 +60,32 @@ void WarpImageBetweenCameras(const Camera& source_camera,
       BitmapColor<float> color;
       if (source_image.InterpolateBilinear(source_point.x() - 0.5,
                                            source_point.y() - 0.5, &color)) {
+        target_image->SetPixel(x, y, color.Cast<uint8_t>());
+      } else {
+        target_image->SetPixel(x, y, BitmapColor<uint8_t>(0, 0, 0));
+      }
+    }
+  }
+}
+
+void WarpImageWithHomography(const Eigen::Matrix3d& H,
+                             const Bitmap& source_image, Bitmap* target_image) {
+  CHECK_NOTNULL(target_image);
+  CHECK_GT(target_image->Width(), 0);
+  CHECK_GT(target_image->Height(), 0);
+  CHECK_EQ(source_image.IsRGB(), target_image->IsRGB());
+
+  Eigen::Vector3d target_pixel(0, 0, 1);
+  for (int y = 0; y < target_image->Height(); ++y) {
+    target_pixel.y() = y + 0.5;
+    for (int x = 0; x < target_image->Width(); ++x) {
+      target_pixel.x() = x + 0.5;
+
+      const Eigen::Vector2d source_pixel = (H * target_pixel).hnormalized();
+
+      BitmapColor<float> color;
+      if (source_image.InterpolateBilinear(source_pixel.x() - 0.5,
+                                           source_pixel.y() - 0.5, &color)) {
         target_image->SetPixel(x, y, color.Cast<uint8_t>());
       } else {
         target_image->SetPixel(x, y, BitmapColor<uint8_t>(0, 0, 0));

@@ -38,17 +38,35 @@ void GenerateRandomBitmap(const int width, const int height, const bool as_rgb,
   }
 }
 
+// Check that the two bitmaps are equal, ignoring a 1px boundary.
 void CheckBitmapsEqual(const Bitmap& bitmap1, const Bitmap& bitmap2) {
   BOOST_REQUIRE_EQUAL(bitmap1.IsGrey(), bitmap2.IsGrey());
   BOOST_REQUIRE_EQUAL(bitmap1.IsRGB(), bitmap2.IsRGB());
   BOOST_REQUIRE_EQUAL(bitmap1.Width(), bitmap2.Width());
   BOOST_REQUIRE_EQUAL(bitmap1.Height(), bitmap2.Height());
-  for (int x = 0; x < bitmap1.Width(); ++x) {
-    for (int y = 0; y < bitmap1.Height(); ++y) {
+  for (int x = 1; x < bitmap1.Width() - 1; ++x) {
+    for (int y = 1; y < bitmap1.Height() - 1; ++y) {
       BitmapColor<uint8_t> color1;
       BitmapColor<uint8_t> color2;
       BOOST_CHECK(bitmap1.GetPixel(x, y, &color1));
-      BOOST_CHECK(bitmap1.GetPixel(x, y, &color2));
+      BOOST_CHECK(bitmap2.GetPixel(x, y, &color2));
+      BOOST_CHECK_EQUAL(color1, color2);
+    }
+  }
+}
+
+// Check that the two bitmaps are equal, ignoring a 1px boundary.
+void CheckBitmapsTransposed(const Bitmap& bitmap1, const Bitmap& bitmap2) {
+  BOOST_REQUIRE_EQUAL(bitmap1.IsGrey(), bitmap2.IsGrey());
+  BOOST_REQUIRE_EQUAL(bitmap1.IsRGB(), bitmap2.IsRGB());
+  BOOST_REQUIRE_EQUAL(bitmap1.Width(), bitmap2.Width());
+  BOOST_REQUIRE_EQUAL(bitmap1.Height(), bitmap2.Height());
+  for (int x = 1; x < bitmap1.Width() - 1; ++x) {
+    for (int y = 1; y < bitmap1.Height() - 1; ++y) {
+      BitmapColor<uint8_t> color1;
+      BitmapColor<uint8_t> color2;
+      BOOST_CHECK(bitmap1.GetPixel(x, y, &color1));
+      BOOST_CHECK(bitmap2.GetPixel(y, x, &color2));
       BOOST_CHECK_EQUAL(color1, color2);
     }
   }
@@ -99,6 +117,43 @@ BOOST_AUTO_TEST_CASE(TestShiftedCameras) {
       }
     }
   }
+}
+
+BOOST_AUTO_TEST_CASE(TestWarpImageWithHomographyIdentity) {
+  Bitmap source_image_gray;
+  GenerateRandomBitmap(50, 50, false, &source_image_gray);
+  Bitmap target_image_gray;
+  target_image_gray.Allocate(50, 50, false);
+  WarpImageWithHomography(Eigen::Matrix3d::Identity(), source_image_gray,
+                          &target_image_gray);
+  CheckBitmapsEqual(source_image_gray, target_image_gray);
+
+  Bitmap source_image_rgb;
+  GenerateRandomBitmap(50, 50, true, &source_image_rgb);
+  Bitmap target_image_rgb;
+  target_image_rgb.Allocate(50, 50, true);
+  WarpImageWithHomography(Eigen::Matrix3d::Identity(), source_image_rgb,
+                          &target_image_rgb);
+  CheckBitmapsEqual(source_image_rgb, target_image_rgb);
+}
+
+BOOST_AUTO_TEST_CASE(TestWarpImageWithHomographyTransposed) {
+  Eigen::Matrix3d H;
+  H << 0, 1, 0, 1, 0, 0, 0, 0, 1;
+
+  Bitmap source_image_gray;
+  GenerateRandomBitmap(50, 50, false, &source_image_gray);
+  Bitmap target_image_gray;
+  target_image_gray.Allocate(50, 50, false);
+  WarpImageWithHomography(H, source_image_gray, &target_image_gray);
+  CheckBitmapsTransposed(source_image_gray, target_image_gray);
+
+  Bitmap source_image_rgb;
+  GenerateRandomBitmap(50, 50, true, &source_image_rgb);
+  Bitmap target_image_rgb;
+  target_image_rgb.Allocate(50, 50, true);
+  WarpImageWithHomography(H, source_image_rgb, &target_image_rgb);
+  CheckBitmapsTransposed(source_image_rgb, target_image_rgb);
 }
 
 BOOST_AUTO_TEST_CASE(TestResampleImageBilinear) {
