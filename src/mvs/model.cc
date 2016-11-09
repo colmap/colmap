@@ -171,7 +171,9 @@ std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
       const float depth =
           Eigen::Map<const Eigen::Vector3f>(&image.GetR()[6]).dot(X) +
           image.GetT()[2];
-      depths[image_id].push_back(depth);
+      if (depth > 0) {
+        depths[image_id].push_back(depth);
+      }
     }
   }
 
