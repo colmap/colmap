@@ -21,19 +21,56 @@ Assume you stored the images of your project in the following folder structure::
 
 Then, an exemplary sequence of commands to reconstruct the scene would be::
 
+    # The project folder must contain a folder "images" with all the images.
+    PROJECT_PATH=/path/to/project
+
     $ ./src/exe/feature_extractor \
-        --General.database_path /path/to/project/database.db \
-        --General.image_path /path/to/project/images
+       --General.database_path $PROJECT_PATH/database.db \
+       --General.image_path $PROJECT_PATH/images
 
     $ ./src/exe/exhaustive_matcher \
-        --General.database_path /path/to/project/database.db
+       --General.database_path $PROJECT_PATH/database.db
 
-    $ mkdir /path/to/project/results
+    $ mkdir $PROJECT_PATH/sparse
 
     $ ./src/exe/mapper \
-        --General.database_path /path/to/project/database.db \
-        --General.image_path /path/to/project/images \
-        --export_path /path/to/project/results
+        --General.database_path $PROJECT_PATH/database.db \
+        --General.image_path $PROJECT_PATH/images \
+        --export_path $PROJECT_PATH/sparse
+
+    $ mkdir $PROJECT_PATH/dense
+
+    $ ./src/exe/image_undistorter \
+        --General.image_path $PROJECT_PATH/images \
+        --input_path $PROJECT_PATH/sparse \
+        --output_path $PROJECT_PATH/dense \
+        --output_type COLMAP \
+        --max_image_size 2000
+
+    $ ./src/exe/dense_mapper \
+        --workspace_path $PROJECT_PATH/dense \
+        --workspace_format COLMAP \
+        --DenseMapperOptions.max_image_size 0 \
+        --DenseMapperOptions.patch_match_filter false \
+        --DenseMapperOptions.patch_match_geom_consistency false \
+        --DenseMapperOptions.patch_match_num_iterations 4
+
+    $ ./exe/dense_mapper \
+        --workspace_path $PROJECT_PATH/dense \
+        --workspace_format COLMAP \
+        --DenseMapperOptions.max_image_size 0 \
+        --DenseMapperOptions.patch_match_filter true \
+        --DenseMapperOptions.patch_match_geom_consistency true
+
+    $ ./exe/dense_fuser \
+        --workspace_path $PROJECT_PATH/dense \
+        --workspace_format COLMAP \
+        --input_type geometric \
+        --output_path $PROJECT_PATH/dense/point-cloud.ply
+
+    $ ./src/exe/dense_mesher \
+        --input_path $PROJECT_PATH/dense/point-cloud.ply \
+        --output_path $PROJECT_PATH/dense/mesh.ply
 
 
 Help
