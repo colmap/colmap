@@ -130,6 +130,9 @@ Executables
 - ``image_undistorter``: Undistort images and/or export them for MVS or to
   external dense reconstruction software, such as CMVS/PMVS.
 
+- ``image_rectifier``: Stereo rectify cameras and undistort images for stereo
+  disparity estimation.
+
 - ``dense_mapper``: Dense 3D reconstruction / mapping using MVS after running
   the ``image_undistorter`` to initialize the workspace.
 

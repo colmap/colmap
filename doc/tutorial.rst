@@ -364,7 +364,7 @@ reconstructed model after finishing the previous sparse reconstruction steps).
 Then, choose ``Reconstruction > Multi-view stereo`` and select an empty or
 existing workspace folder, which is used for the output and of all dense
 reconstruction results. The first step is to ``undistort`` the images, second to
-compute the depth and normal maps using ``Stereo``, third to ``fuse`` the depth
+compute the depth and normal maps using ``stereo``, third to ``fuse`` the depth
 and normals maps to a point cloud, followed by a final, optional point cloud
 ``meshing`` step. During the stereo reconstruction process, the display might
 freeze due to heavy compute load and, if your GPU does not have enough memory,

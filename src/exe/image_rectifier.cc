@@ -22,6 +22,14 @@
 
 using namespace colmap;
 
+// Read stereo image pair names from a text file. The text file is expected to
+// have one image pair per line, e.g.:
+//
+//      image_name1.jpg image_name2.jpg
+//      image_name3.jpg image_name4.jpg
+//      image_name5.jpg image_name6.jpg
+//      ...
+//
 std::vector<std::pair<image_t, image_t>> ReadStereoImagePairs(
     const std::string& path, const Reconstruction& reconstruction) {
   const std::vector<std::string> stereo_pair_lines = ReadTextFileLines(path);
