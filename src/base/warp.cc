@@ -107,25 +107,22 @@ void WarpImageWithHomographyBetweenCameras(const Eigen::Matrix3d& H,
                          static_cast<int>(target_camera.Height()),
                          source_image.IsRGB());
 
-  Eigen::Vector2d image_point;
+  Eigen::Vector3d image_point(0, 0, 1);
   for (int y = 0; y < target_image->Height(); ++y) {
     image_point.y() = y + 0.5;
     for (int x = 0; x < target_image->Width(); ++x) {
       image_point.x() = x + 0.5;
+
       // Camera models assume that the upper left pixel center is (0.5, 0.5).
+      const Eigen::Vector3d warped_point = H * image_point;
       const Eigen::Vector2d world_point =
-          target_camera.ImageToWorld(image_point);
+          target_camera.ImageToWorld(warped_point.hnormalized());
       const Eigen::Vector2d source_point =
           source_camera.WorldToImage(world_point);
-      const Eigen::Vector3d source_point_homogeneous =
-          source_point.homogeneous();
-
-      const Eigen::Vector2d source_pixel =
-          (H * source_point_homogeneous).hnormalized();
 
       BitmapColor<float> color;
-      if (source_image.InterpolateBilinear(source_pixel.x() - 0.5,
-                                           source_pixel.y() - 0.5, &color)) {
+      if (source_image.InterpolateBilinear(source_point.x() - 0.5,
+                                           source_point.y() - 0.5, &color)) {
         target_image->SetPixel(x, y, color.Cast<uint8_t>());
       } else {
         target_image->SetPixel(x, y, BitmapColor<uint8_t>(0, 0, 0));

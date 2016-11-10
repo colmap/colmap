@@ -23,6 +23,7 @@
 #include <boost/filesystem.hpp>
 
 #include "base/camera_models.h"
+#include "base/pose.h"
 #include "base/projection.h"
 #include "base/warp.h"
 #include "util/bitmap.h"
@@ -32,6 +33,18 @@
 
 namespace colmap {
 namespace {
+
+template <typename Derived>
+void WriteMatrix(const Eigen::MatrixBase<Derived>& matrix,
+                 std::ofstream* file) {
+  typedef typename Eigen::MatrixBase<Derived>::Index index_t;
+  for (index_t r = 0; r < matrix.rows(); ++r) {
+    for (index_t c = 0; c < matrix.cols() - 1; ++c) {
+      *file << matrix(r, c) << " ";
+    }
+    *file << matrix(r, matrix.cols() - 1) << std::endl;
+  }
+}
 
 // Write projection matrix P = K * [R t] to file and prepend given header.
 void WriteProjectionMatrix(const std::string& path, const Camera& camera,
@@ -53,22 +66,7 @@ void WriteProjectionMatrix(const std::string& path, const Camera& camera,
     file << header << std::endl;
   }
 
-  file << proj_matrix(0, 0) << " ";
-  file << proj_matrix(0, 1) << " ";
-  file << proj_matrix(0, 2) << " ";
-  file << proj_matrix(0, 3) << std::endl;
-
-  file << proj_matrix(1, 0) << " ";
-  file << proj_matrix(1, 1) << " ";
-  file << proj_matrix(1, 2) << " ";
-  file << proj_matrix(1, 3) << std::endl;
-
-  file << proj_matrix(2, 0) << " ";
-  file << proj_matrix(2, 1) << " ";
-  file << proj_matrix(2, 2) << " ";
-  file << proj_matrix(2, 3) << std::endl;
-
-  file.close();
+  WriteMatrix(proj_matrix, &file);
 }
 
 }  // namespace
@@ -445,6 +443,104 @@ void CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
   WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image, "CONTOUR");
 }
 
+StereoImageRectifier::StereoImageRectifier(
+    const UndistortCameraOptions& options, const Reconstruction& reconstruction,
+    const std::string& image_path, const std::string& output_path,
+    const std::vector<std::pair<image_t, image_t>>& stereo_pairs)
+    : options_(options),
+      image_path_(image_path),
+      output_path_(output_path),
+      stereo_pairs_(stereo_pairs),
+      reconstruction_(reconstruction) {}
+
+void StereoImageRectifier::Run() {
+  PrintHeading1("Stereo rectification");
+
+  ThreadPool thread_pool;
+  std::vector<std::future<void>> futures;
+  futures.reserve(stereo_pairs_.size());
+  for (const auto& stereo_pair : stereo_pairs_) {
+    futures.push_back(thread_pool.AddTask(&StereoImageRectifier::Rectify, this,
+                                          stereo_pair.first,
+                                          stereo_pair.second));
+  }
+
+  for (size_t i = 0; i < futures.size(); ++i) {
+    if (IsStopped()) {
+      break;
+    }
+
+    std::cout << StringPrintf("Rectifying image pair [%d/%d]", i + 1,
+                              futures.size())
+              << std::endl;
+
+    futures[i].get();
+  }
+
+  GetTimer().PrintMinutes();
+}
+
+void StereoImageRectifier::Rectify(const image_t image_id1,
+                                   const image_t image_id2) const {
+  const Image& image1 = reconstruction_.Image(image_id1);
+  const Image& image2 = reconstruction_.Image(image_id2);
+  const Camera& camera1 = reconstruction_.Camera(image1.CameraId());
+  const Camera& camera2 = reconstruction_.Camera(image2.CameraId());
+
+  const std::string stereo_pair_name =
+      StringPrintf("%s-%s", image1.Name().c_str(), image2.Name().c_str());
+
+  CreateDirIfNotExists(JoinPaths(output_path_, stereo_pair_name));
+
+  const std::string output_image1_path =
+      JoinPaths(output_path_, stereo_pair_name, image1.Name());
+  const std::string output_image2_path =
+      JoinPaths(output_path_, stereo_pair_name, image2.Name());
+
+  if (boost::filesystem::exists(output_image1_path) &&
+      boost::filesystem::exists(output_image2_path)) {
+    return;
+  }
+
+  Bitmap distorted_bitmap1;
+  const std::string input_image1_path = JoinPaths(image_path_, image1.Name());
+  if (!distorted_bitmap1.Read(input_image1_path)) {
+    std::cerr << "ERROR: Cannot read image at path " << input_image1_path
+              << std::endl;
+    return;
+  }
+
+  Bitmap distorted_bitmap2;
+  const std::string input_image2_path = JoinPaths(image_path_, image2.Name());
+  if (!distorted_bitmap2.Read(input_image2_path)) {
+    std::cerr << "ERROR: Cannot read image at path " << input_image2_path
+              << std::endl;
+    return;
+  }
+
+  Eigen::Vector4d qvec;
+  Eigen::Vector3d tvec;
+  ComputeRelativePose(image1.Qvec(), image1.Tvec(), image2.Qvec(),
+                      image2.Tvec(), &qvec, &tvec);
+
+  Bitmap undistorted_bitmap1;
+  Bitmap undistorted_bitmap2;
+  Camera undistorted_camera;
+  Eigen::Matrix4d Q;
+  RectifyAndUndistortStereoImages(
+      options_, distorted_bitmap1, distorted_bitmap2, camera1, camera2, qvec,
+      tvec, &undistorted_bitmap1, &undistorted_bitmap2, &undistorted_camera,
+      &Q);
+
+  undistorted_bitmap1.Write(output_image1_path);
+  undistorted_bitmap2.Write(output_image2_path);
+
+  std::ofstream Q_file(JoinPaths(output_path_, stereo_pair_name, "Q.txt"),
+                       std::ios::trunc);
+  CHECK(Q_file.is_open());
+  WriteMatrix(Q, &Q_file);
+}
+
 Camera UndistortCamera(const UndistortCameraOptions& options,
                        const Camera& camera) {
   CHECK_GE(options.blank_pixels, 0);
@@ -668,8 +764,8 @@ void RectifyStereoCameras(const Camera& camera1, const Camera& camera2,
   K(1, 2) = (camera1.PrincipalPointY() + camera2.PrincipalPointY()) / 2;
 
   // Compose the homographies.
-  *H1 = (K * R1 * camera1.CalibrationMatrix().inverse()).transpose();
-  *H2 = (K * R2 * camera2.CalibrationMatrix().inverse()).transpose();
+  *H1 = K * R1 * camera1.CalibrationMatrix().inverse();
+  *H2 = K * R2 * camera2.CalibrationMatrix().inverse();
 
   // Determine the inverse projection matrix that transforms disparity values
   // to 3D world coordinates: [x, y, disparity, 1] * Q = [X, Y, Z, 1] * w.
@@ -686,35 +782,34 @@ void RectifyAndUndistortStereoImages(
     const Bitmap& distorted_image2, const Camera& distorted_camera1,
     const Camera& distorted_camera2, const Eigen::Vector4d& qvec,
     const Eigen::Vector3d& tvec, Bitmap* undistorted_image1,
-    Bitmap* undistorted_image2, Camera* undistorted_camera1,
-    Camera* undistorted_camera2, Eigen::Matrix4d* Q) {
+    Bitmap* undistorted_image2, Camera* undistorted_camera,
+    Eigen::Matrix4d* Q) {
   CHECK_EQ(distorted_camera1.Width(), distorted_image1.Width());
   CHECK_EQ(distorted_camera1.Height(), distorted_image1.Height());
   CHECK_EQ(distorted_camera2.Width(), distorted_image2.Width());
   CHECK_EQ(distorted_camera2.Height(), distorted_image2.Height());
 
-  *undistorted_camera1 = UndistortCamera(options, distorted_camera1);
-  undistorted_image1->Allocate(static_cast<int>(undistorted_camera1->Width()),
-                               static_cast<int>(undistorted_camera1->Height()),
+  *undistorted_camera = UndistortCamera(options, distorted_camera1);
+  undistorted_image1->Allocate(static_cast<int>(undistorted_camera->Width()),
+                               static_cast<int>(undistorted_camera->Height()),
                                distorted_image1.IsRGB());
   distorted_image1.CloneMetadata(undistorted_image1);
 
-  *undistorted_camera2 = UndistortCamera(options, distorted_camera2);
-  undistorted_image2->Allocate(static_cast<int>(undistorted_camera2->Width()),
-                               static_cast<int>(undistorted_camera2->Height()),
+  undistorted_image2->Allocate(static_cast<int>(undistorted_camera->Width()),
+                               static_cast<int>(undistorted_camera->Height()),
                                distorted_image2.IsRGB());
   distorted_image2.CloneMetadata(undistorted_image2);
 
   Eigen::Matrix3d H1;
   Eigen::Matrix3d H2;
-  RectifyStereoCameras(*undistorted_camera1, *undistorted_camera2, qvec, tvec,
+  RectifyStereoCameras(*undistorted_camera, *undistorted_camera, qvec, tvec,
                        &H1, &H2, Q);
 
-  WarpImageWithHomographyBetweenCameras(H1, distorted_camera1,
-                                        *undistorted_camera1, distorted_image1,
+  WarpImageWithHomographyBetweenCameras(H1.inverse(), distorted_camera1,
+                                        *undistorted_camera, distorted_image1,
                                         undistorted_image1);
-  WarpImageWithHomographyBetweenCameras(H2, distorted_camera2,
-                                        *undistorted_camera2, distorted_image2,
+  WarpImageWithHomographyBetweenCameras(H2.inverse(), distorted_camera2,
+                                        *undistorted_camera, distorted_image2,
                                         undistorted_image2);
 }
 

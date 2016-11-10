@@ -99,6 +99,27 @@ class CMPMVSUndistorter : public Thread {
   const Reconstruction& reconstruction_;
 };
 
+// Rectify stereo image pairs.
+class StereoImageRectifier : public Thread {
+ public:
+  StereoImageRectifier(
+      const UndistortCameraOptions& options,
+      const Reconstruction& reconstruction, const std::string& image_path,
+      const std::string& output_path,
+      const std::vector<std::pair<image_t, image_t>>& stereo_pairs);
+
+ private:
+  void Run();
+
+  void Rectify(const image_t image_id1, const image_t image_id2) const;
+
+  UndistortCameraOptions options_;
+  std::string image_path_;
+  std::string output_path_;
+  const std::vector<std::pair<image_t, image_t>>& stereo_pairs_;
+  const Reconstruction& reconstruction_;
+};
+
 // Undistort camera by resizing the image and shifting the principal point.
 //
 // The scaling factor is computed such that no blank pixels are in the
@@ -148,8 +169,7 @@ void RectifyAndUndistortStereoImages(
     const Bitmap& distorted_image2, const Camera& distorted_camera1,
     const Camera& distorted_camera2, const Eigen::Vector4d& qvec,
     const Eigen::Vector3d& tvec, Bitmap* undistorted_image1,
-    Bitmap* undistorted_image2, Camera* undistorted_camera1,
-    Camera* undistorted_camera2, Eigen::Matrix4d* Q);
+    Bitmap* undistorted_image2, Camera* undistorted_camera, Eigen::Matrix4d* Q);
 
 }  // namespace colmap
 
