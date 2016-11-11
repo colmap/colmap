@@ -208,12 +208,12 @@ BOOST_AUTO_TEST_CASE(TestRectifyStereoCameras) {
   Eigen::Matrix3d H1_ref;
   H1_ref << -0.202759, -0.815848, -0.897034, 0.416329, 0.733069, -0.199657,
       0.910839, -0.175408, 0.942638;
-  BOOST_CHECK(H1.isApprox(H1_ref, 1e-5));
+  BOOST_CHECK(H1.isApprox(H1_ref.transpose(), 1e-5));
 
   Eigen::Matrix3d H2_ref;
   H2_ref << -0.082173, -1.01288, -0.698868, 0.301854, 0.472844, -0.465336,
       0.963533, 0.292411, 1.12528;
-  BOOST_CHECK(H2.isApprox(H2_ref, 1e-5));
+  BOOST_CHECK(H2.isApprox(H2_ref.transpose(), 1e-5));
 
   Eigen::Matrix4d Q_ref;
   Q_ref << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -2.67261, -0.5, -0.5, 1, 0;
