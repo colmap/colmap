@@ -487,15 +487,18 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
   const Camera& camera1 = reconstruction_.Camera(image1.CameraId());
   const Camera& camera2 = reconstruction_.Camera(image2.CameraId());
 
+  const std::string image_name1 = StringReplace(image1.Name(), "/", "-");
+  const std::string image_name2 = StringReplace(image2.Name(), "/", "-");
+
   const std::string stereo_pair_name =
-      StringPrintf("%s-%s", image1.Name().c_str(), image2.Name().c_str());
+      StringPrintf("%s-%s", image_name1.c_str(), image_name2.c_str());
 
   CreateDirIfNotExists(JoinPaths(output_path_, stereo_pair_name));
 
   const std::string output_image1_path =
-      JoinPaths(output_path_, stereo_pair_name, image1.Name());
+      JoinPaths(output_path_, stereo_pair_name, image_name1);
   const std::string output_image2_path =
-      JoinPaths(output_path_, stereo_pair_name, image2.Name());
+      JoinPaths(output_path_, stereo_pair_name, image_name2);
 
   if (boost::filesystem::exists(output_image1_path) &&
       boost::filesystem::exists(output_image2_path)) {
