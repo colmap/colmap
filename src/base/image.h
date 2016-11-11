@@ -173,6 +173,9 @@ class Image {
   // Extract the projection center in world space.
   Eigen::Vector3d ProjectionCenter() const;
 
+  // Extract the viewing direction of the image.
+  Eigen::Vector3d ViewingDirection() const;
+
  private:
   // Identifier of the image, if not specified `kInvalidImageId`.
   image_t image_id_;

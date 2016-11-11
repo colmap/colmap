@@ -349,3 +349,8 @@ BOOST_AUTO_TEST_CASE(TestProjectionCenter) {
   Image image;
   BOOST_CHECK(image.ProjectionCenter().isApprox(Eigen::Vector3d::Zero()));
 }
+
+BOOST_AUTO_TEST_CASE(TestViewingDirection) {
+  Image image;
+  BOOST_CHECK(image.ViewingDirection().isApprox(Eigen::Vector3d(0, 0, 1)));
+}

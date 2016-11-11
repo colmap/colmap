@@ -129,4 +129,8 @@ Eigen::Vector3d Image::ProjectionCenter() const {
   return ProjectionCenterFromParameters(qvec_, tvec_);
 }
 
+Eigen::Vector3d Image::ViewingDirection() const {
+  return RotationMatrix().row(2);
+}
+
 }  // namespace colmap
