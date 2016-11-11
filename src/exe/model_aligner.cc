@@ -67,18 +67,33 @@ int main(int argc, char** argv) {
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
-  PrintHeading2("Reconstruction");
-  std::cout << StringPrintf("Images: %d", reconstruction.NumRegImages())
-            << std::endl;
-  std::cout << StringPrintf("Points: %d", reconstruction.NumPoints3D())
-            << std::endl;
 
   PrintHeading2("Aligning reconstruction");
+
+  std::cout << StringPrintf(" => Using %d reference images",
+                            ref_image_names.size())
+            << std::endl;
+
   if (reconstruction.Align(ref_image_names, ref_locations, min_common_images)) {
-    std::cout << "=> Alignment succeeded" << std::endl;
+    std::cout << " => Alignment succeeded" << std::endl;
     reconstruction.Write(output_path);
+
+    double positional_error = 0;
+    size_t num_aligned = 0;
+    for (size_t i = 0; i < ref_image_names.size(); ++i) {
+      const Image* image = reconstruction.FindImageWithName(ref_image_names[i]);
+      if (image != nullptr) {
+        positional_error +=
+            (image->ProjectionCenter() - ref_locations[i]).norm();
+        num_aligned += 1;
+      }
+    }
+
+    std::cout << StringPrintf(" => Alignment error: %f",
+                              positional_error / num_aligned)
+              << std::endl;
   } else {
-    std::cout << "=> Alignment failed" << std::endl;
+    std::cout << " => Alignment failed" << std::endl;
   }
 
   return EXIT_SUCCESS;
