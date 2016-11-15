@@ -163,6 +163,12 @@ class Reconstruction {
              const std::vector<Eigen::Vector3d>& locations,
              const int min_common_images);
 
+  // Robust alignment using RANSAC.
+  bool AlignRobust(const std::vector<std::string>& image_names,
+                   const std::vector<Eigen::Vector3d>& locations,
+                   const int min_common_images,
+                   const RANSACOptions& ransac_options);
+
   // Find image with name.
   //
   // @param name        Name of the image.

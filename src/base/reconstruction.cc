@@ -28,6 +28,8 @@
 #include "base/projection.h"
 #include "base/similarity_transform.h"
 #include "base/triangulation.h"
+#include "estimators/similarity_transform.h"
+#include "optim/loransac.h"
 #include "reconstruction.h"
 #include "util/bitmap.h"
 #include "util/logging.h"
@@ -528,6 +530,65 @@ bool Reconstruction::Align(const std::vector<std::string>& image_names,
   // Estimate the similarity transformation between the two reconstructions.
   SimilarityTransform3 tform;
   tform.Estimate(src, dst);
+
+  // Update the cameras and points using the estimated transform.
+  for (auto& image : images_) {
+    tform.TransformPose(&image.second.Qvec(), &image.second.Tvec());
+  }
+  for (auto& point3D : points3D_) {
+    tform.TransformPoint(&point3D.second.XYZ());
+  }
+
+  return true;
+}
+
+bool Reconstruction::AlignRobust(const std::vector<std::string>& image_names,
+                                 const std::vector<Eigen::Vector3d>& locations,
+                                 const int min_common_images,
+                                 const RANSACOptions& ransac_options) {
+  CHECK_GE(min_common_images, 3);
+  CHECK_EQ(image_names.size(), locations.size());
+
+  // Find out which images are contained in the reconstruction and get the
+  // positions of their camera centers.
+  std::set<image_t> common_image_ids;
+  std::vector<Eigen::Vector3d> src;
+  std::vector<Eigen::Vector3d> dst;
+  for (size_t i = 0; i < image_names.size(); ++i) {
+    const class Image* image = FindImageWithName(image_names[i]);
+    if (image == nullptr) {
+      continue;
+    }
+
+    if (!IsImageRegistered(image->ImageId())) {
+      continue;
+    }
+
+    // Ignore duplicate images.
+    if (common_image_ids.count(image->ImageId()) > 0) {
+      continue;
+    }
+
+    common_image_ids.insert(image->ImageId());
+    src.push_back(image->ProjectionCenter());
+    dst.push_back(locations[i]);
+  }
+
+  // Only compute the alignment if there are enough correspondences.
+  if (common_image_ids.size() < static_cast<size_t>(min_common_images)) {
+    return false;
+  }
+
+  LORANSAC<SimilarityTransformEstimator<3>, SimilarityTransformEstimator<3>>
+      ransac(ransac_options);
+
+  const auto report = ransac.Estimate(src, dst);
+
+  if (report.support.num_inliers < min_common_images) {
+    return false;
+  }
+
+  SimilarityTransform3 tform(report.model);
 
   // Update the cameras and points using the estimated transform.
   for (auto& image : images_) {

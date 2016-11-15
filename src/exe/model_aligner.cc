@@ -45,6 +45,8 @@ int main(int argc, char** argv) {
   std::string ref_images_path;
   std::string output_path;
   int min_common_images = 3;
+  bool robust_alignment = true;
+  RANSACOptions ransac_options;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
@@ -52,6 +54,10 @@ int main(int argc, char** argv) {
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("min_common_images", min_common_images,
                            &min_common_images);
+  options.AddDefaultOption("robust_alignment", robust_alignment,
+                           &robust_alignment);
+  options.AddDefaultOption("robust_alignment_max_error",
+                           ransac_options.max_error, &ransac_options.max_error);
 
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
@@ -74,7 +80,16 @@ int main(int argc, char** argv) {
                             ref_image_names.size())
             << std::endl;
 
-  if (reconstruction.Align(ref_image_names, ref_locations, min_common_images)) {
+  bool alignment_success = false;
+  if (robust_alignment) {
+    alignment_success = reconstruction.AlignRobust(
+        ref_image_names, ref_locations, min_common_images, ransac_options);
+  } else {
+    alignment_success =
+        reconstruction.Align(ref_image_names, ref_locations, min_common_images);
+  }
+
+  if (alignment_success) {
     std::cout << " => Alignment succeeded" << std::endl;
     reconstruction.Write(output_path);
 
