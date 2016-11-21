@@ -584,7 +584,7 @@ bool Reconstruction::AlignRobust(const std::vector<std::string>& image_names,
 
   const auto report = ransac.Estimate(src, dst);
 
-  if (report.support.num_inliers < min_common_images) {
+  if (report.support.num_inliers < static_cast<size_t>(min_common_images)) {
     return false;
   }
 

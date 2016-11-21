@@ -93,19 +93,18 @@ int main(int argc, char** argv) {
     std::cout << " => Alignment succeeded" << std::endl;
     reconstruction.Write(output_path);
 
-    double positional_error = 0;
-    size_t num_aligned = 0;
+    std::vector<double> errors;
+    errors.reserve(ref_image_names.size());
+
     for (size_t i = 0; i < ref_image_names.size(); ++i) {
       const Image* image = reconstruction.FindImageWithName(ref_image_names[i]);
       if (image != nullptr) {
-        positional_error +=
-            (image->ProjectionCenter() - ref_locations[i]).norm();
-        num_aligned += 1;
+        errors.push_back((image->ProjectionCenter() - ref_locations[i]).norm());
       }
     }
 
-    std::cout << StringPrintf(" => Alignment error: %f",
-                              positional_error / num_aligned)
+    std::cout << StringPrintf(" => Alignment error: %f (mean), %f (median)",
+                              Mean(errors), Median(errors))
               << std::endl;
   } else {
     std::cout << " => Alignment failed" << std::endl;

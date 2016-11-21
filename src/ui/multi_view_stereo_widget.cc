@@ -79,9 +79,6 @@ class PatchMatchOptionsTab : public OptionsWidget {
         &options->dense_mapper_options->patch_match.filter_min_num_consistent,
         "filter_min_num_consistent");
     AddOptionDouble(&options->dense_mapper_options->patch_match
-                         .filter_min_triangulation_angle,
-                    "filter_min_triangulation_angle");
-    AddOptionDouble(&options->dense_mapper_options->patch_match
                          .filter_geom_consistency_max_cost,
                     "filter_geom_consistency_max_cost");
   }
