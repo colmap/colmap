@@ -69,7 +69,7 @@ namespace colmap {
 //              break;
 //            }
 //            // Process item...
-//            Callback(CUSTOM_CALLBACK);
+//            Callback(PROCESSED_CALLBACK);
 //          }
 //        }
 //      };
