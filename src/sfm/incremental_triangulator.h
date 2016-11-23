@@ -19,6 +19,7 @@
 
 #include "base/database_cache.h"
 #include "base/reconstruction.h"
+#include "util/alignment.h"
 
 namespace colmap {
 

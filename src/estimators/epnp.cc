@@ -32,10 +32,10 @@ std::vector<EPnPEstimator::M_t> EPnPEstimator::Estimate(
   EPnPEstimator epnp;
   M_t proj_matrix;
   if (!epnp.ComputePose(points2D, points3D, &proj_matrix)) {
-    return {};
+    return std::vector<EPnPEstimator::M_t>({});
   }
 
-  return {proj_matrix};
+  return std::vector<EPnPEstimator::M_t>({proj_matrix});
 }
 
 void EPnPEstimator::Residuals(const std::vector<X_t>& points2D,

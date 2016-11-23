@@ -20,6 +20,7 @@
 #include "base/camera.h"
 #include "base/feature.h"
 #include "optim/ransac.h"
+#include "util/alignment.h"
 #include "util/logging.h"
 
 namespace colmap {

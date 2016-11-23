@@ -21,6 +21,7 @@
 
 #include <Eigen/Core>
 
+#include "util/alignment.h"
 #include "util/types.h"
 
 namespace colmap {
@@ -34,23 +35,23 @@ namespace colmap {
 // This class is based on an original implementation by Federico Camposeco.
 class GP3PEstimator {
  public:
-  // The generalized image feature observations, which is composed of the
-  // relative pose of the specific camera in the generalized camera and its 2D
-  // image observation.
+  // The generalized image observations, which is composed of the relative pose
+  // of the specific camera in the generalized camera and its image observation.
   struct X_t {
     // The relative transformation from the generalized camera to the camera
     // frame of the observation.
-    Eigen::Matrix3x4d rel_tform;
+    Eigen::Matrix<double, 3, 4, Eigen::DontAlign> rel_tform;
     // The 2D image feature observation.
-    Eigen::Vector2d xy;
+    Eigen::Matrix<double, 2, 1, Eigen::DontAlign> xy;
   };
+
   // The observed 3D feature points in the world frame.
   typedef Eigen::Vector3d Y_t;
   // The transformation from the world to the generalized camera frame.
   typedef Eigen::Matrix3x4d M_t;
 
   // The minimum number of samples needed to estimate a model.
-  static size_t MinNumSamples() { return 3; }
+  static const int kMinNumSamples = 3;
 
   // Estimate the most probable solution of the GP3P problem from a set of
   // three 2D-3D point correspondences.

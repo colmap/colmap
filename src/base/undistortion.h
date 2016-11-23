@@ -18,6 +18,7 @@
 #define COLMAP_SRC_BASE_UNDISTORTION_H_
 
 #include "base/reconstruction.h"
+#include "util/alignment.h"
 #include "util/bitmap.h"
 #include "util/threading.h"
 

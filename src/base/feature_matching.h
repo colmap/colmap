@@ -24,6 +24,7 @@
 
 #include "base/database.h"
 #include "ext/SiftGPU/SiftGPU.h"
+#include "util/alignment.h"
 #include "util/cache.h"
 #include "util/opengl_utils.h"
 #include "util/threading.h"

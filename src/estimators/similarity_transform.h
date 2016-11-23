@@ -23,6 +23,7 @@
 #include <Eigen/Geometry>
 
 #include "base/projection.h"
+#include "util/alignment.h"
 #include "util/logging.h"
 #include "util/types.h"
 
@@ -49,7 +50,7 @@ class SimilarityTransformEstimator {
   // The minimum number of samples needed to estimate a model. Note that
   // this only returns the true minimal sample in the two-dimensional case.
   // For higher dimensions, the system will alway be over-determined.
-  static size_t MinNumSamples() { return kDim; }
+  static const int kMinNumSamples = kDim;
 
   // Estimate the similarity transform.
   //

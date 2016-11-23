@@ -22,6 +22,7 @@
 #include <Eigen/Core>
 
 #include "estimators/homography_matrix.h"
+#include "util/alignment.h"
 #include "util/types.h"
 
 namespace colmap {
@@ -41,7 +42,7 @@ class FundamentalMatrixSevenPointEstimator {
   typedef Eigen::Matrix3d M_t;
 
   // The minimum number of samples needed to estimate a model.
-  static size_t MinNumSamples() { return 7; }
+  static const int kMinNumSamples = 7;
 
   // Estimate either 1 or 3 possible fundamental matrix solutions from a set of
   // corresponding points.
@@ -81,7 +82,7 @@ class FundamentalMatrixEightPointEstimator {
   typedef Eigen::Matrix3d M_t;
 
   // The minimum number of samples needed to estimate a model.
-  static size_t MinNumSamples() { return 8; }
+  static const int kMinNumSamples = 8;
 
   // Estimate fundamental matrix solutions from a set of corresponding points.
   //

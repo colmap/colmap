@@ -21,6 +21,7 @@
 
 #include <Eigen/Core>
 
+#include "util/alignment.h"
 #include "util/types.h"
 
 namespace colmap {

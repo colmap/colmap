@@ -29,6 +29,7 @@
 #include "base/point2d.h"
 #include "base/point3d.h"
 #include "base/track.h"
+#include "util/alignment.h"
 #include "util/types.h"
 
 namespace colmap {

@@ -25,6 +25,7 @@
 #include "optim/random_sampler.h"
 #include "optim/ransac.h"
 #include "optim/support_measurement.h"
+#include "util/alignment.h"
 #include "util/logging.h"
 
 namespace colmap {
@@ -84,7 +85,7 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
   report.success = false;
   report.num_trials = 0;
 
-  if (num_samples < Estimator::MinNumSamples()) {
+  if (num_samples < Estimator::kMinNumSamples) {
     return report;
   }
 
@@ -101,8 +102,8 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
   std::vector<typename LocalEstimator::X_t> X_inlier;
   std::vector<typename LocalEstimator::Y_t> Y_inlier;
 
-  std::vector<typename Estimator::X_t> X_rand(Estimator::MinNumSamples());
-  std::vector<typename Estimator::Y_t> Y_rand(Estimator::MinNumSamples());
+  std::vector<typename Estimator::X_t> X_rand(Estimator::kMinNumSamples);
+  std::vector<typename Estimator::Y_t> Y_rand(Estimator::kMinNumSamples);
 
   sampler.Initialize(num_samples);
 
@@ -137,8 +138,8 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
         best_model_is_local = false;
 
         // Estimate locally optimized model from inliers.
-        if (support.num_inliers > Estimator::MinNumSamples() &&
-            support.num_inliers >= LocalEstimator::MinNumSamples()) {
+        if (support.num_inliers > Estimator::kMinNumSamples &&
+            support.num_inliers >= LocalEstimator::kMinNumSamples) {
           X_inlier.clear();
           Y_inlier.clear();
           X_inlier.reserve(support.num_inliers);
@@ -187,7 +188,7 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
   report.model = best_model;
 
   // No valid model was found
-  if (report.support.num_inliers < estimator.MinNumSamples()) {
+  if (report.support.num_inliers < estimator.kMinNumSamples) {
     return report;
   }
 

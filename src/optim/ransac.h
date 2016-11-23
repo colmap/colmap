@@ -24,6 +24,7 @@
 
 #include "optim/random_sampler.h"
 #include "optim/support_measurement.h"
+#include "util/alignment.h"
 #include "util/logging.h"
 
 namespace colmap {
@@ -117,7 +118,7 @@ class RANSAC {
 template <typename Estimator, typename SupportMeasurer, typename Sampler>
 RANSAC<Estimator, SupportMeasurer, Sampler>::RANSAC(
     const RANSACOptions& options)
-    : sampler(Sampler(Estimator::MinNumSamples())), options_(options) {
+    : sampler(Sampler(Estimator::kMinNumSamples)), options_(options) {
   options.Check();
 
   // Determine max_num_trials based on assumed `min_inlier_ratio`.
@@ -140,7 +141,7 @@ size_t RANSAC<Estimator, SupportMeasurer, Sampler>::ComputeNumTrials(
     return std::numeric_limits<size_t>::max();
   }
 
-  const double denom = 1 - std::pow(inlier_ratio, Estimator::MinNumSamples());
+  const double denom = 1 - std::pow(inlier_ratio, Estimator::kMinNumSamples);
   if (denom <= 0) {
     return 1;
   }
@@ -161,7 +162,7 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
   report.success = false;
   report.num_trials = 0;
 
-  if (num_samples < Estimator::MinNumSamples()) {
+  if (num_samples < Estimator::kMinNumSamples) {
     return report;
   }
 
@@ -174,8 +175,8 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
 
   std::vector<double> residuals(num_samples);
 
-  std::vector<typename Estimator::X_t> X_rand(Estimator::MinNumSamples());
-  std::vector<typename Estimator::Y_t> Y_rand(Estimator::MinNumSamples());
+  std::vector<typename Estimator::X_t> X_rand(Estimator::kMinNumSamples);
+  std::vector<typename Estimator::Y_t> Y_rand(Estimator::kMinNumSamples);
 
   sampler.Initialize(num_samples);
 
@@ -225,7 +226,7 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
   report.model = best_model;
 
   // No valid model was found.
-  if (report.support.num_inliers < estimator.MinNumSamples()) {
+  if (report.support.num_inliers < estimator.kMinNumSamples) {
     return report;
   }
 

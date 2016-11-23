@@ -29,6 +29,7 @@
 #include "base/database.h"
 #include "base/image.h"
 #include "base/scene_graph.h"
+#include "util/alignment.h"
 #include "util/types.h"
 
 namespace colmap {

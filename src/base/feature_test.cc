@@ -19,6 +19,7 @@
 #include <boost/test/unit_test.hpp>
 
 #include "base/feature.h"
+#include "util/alignment.h"
 
 using namespace colmap;
 

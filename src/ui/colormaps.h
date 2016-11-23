@@ -20,6 +20,7 @@
 #include <Eigen/Core>
 
 #include "base/reconstruction.h"
+#include "util/alignment.h"
 #include "util/types.h"
 
 namespace colmap {

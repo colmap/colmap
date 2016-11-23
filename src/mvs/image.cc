@@ -19,6 +19,7 @@
 #include <Eigen/Core>
 
 #include "base/projection.h"
+#include "util/alignment.h"
 #include "util/bitmap.h"
 #include "util/logging.h"
 

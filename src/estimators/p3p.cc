@@ -89,7 +89,7 @@ std::vector<P3PEstimator::M_t> P3PEstimator::Estimate(
   Eigen::VectorXd roots_real;
   Eigen::VectorXd roots_imag;
   if (!FindPolynomialRootsCompanionMatrix(coeffs, &roots_real, &roots_imag)) {
-    return {};
+    return std::vector<P3PEstimator::M_t>({});
   }
 
   std::vector<M_t> models;

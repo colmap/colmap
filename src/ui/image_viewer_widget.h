@@ -17,8 +17,6 @@
 #ifndef COLMAP_SRC_UI_IMAGE_VIEWER_WIDGET_H_
 #define COLMAP_SRC_UI_IMAGE_VIEWER_WIDGET_H_
 
-#include <Eigen/Core>
-
 #include <QtCore>
 #include <QtWidgets>
 

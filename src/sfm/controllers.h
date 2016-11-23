@@ -19,6 +19,7 @@
 
 #include "base/reconstruction_manager.h"
 #include "sfm/incremental_mapper.h"
+#include "util/alignment.h"
 #include "util/option_manager.h"
 #include "util/threading.h"
 #include "util/timer.h"

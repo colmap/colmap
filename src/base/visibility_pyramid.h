@@ -21,6 +21,8 @@
 
 #include <Eigen/Core>
 
+#include "util/alignment.h"
+
 namespace colmap {
 
 // A class that captures the distribution of points in a 2D grid.

@@ -21,6 +21,7 @@
 
 #include <Eigen/Core>
 
+#include "util/alignment.h"
 #include "util/types.h"
 
 namespace colmap {
@@ -35,7 +36,7 @@ class HomographyMatrixEstimator {
   typedef Eigen::Matrix3d M_t;
 
   // The minimum number of samples needed to estimate a model.
-  static size_t MinNumSamples() { return 4; }
+  static const int kMinNumSamples = 4;
 
   // Estimate the projective transformation (homography).
   //

@@ -152,7 +152,7 @@ BOOST_AUTO_TEST_CASE(TestAverageQuaternions) {
   std::vector<Eigen::Vector4d> qvecs;
   std::vector<double> weights;
 
-  qvecs = {ComposeIdentityQuaternion()};
+  qvecs = {{ComposeIdentityQuaternion()}};
   weights = {1.0};
   BOOST_CHECK_EQUAL(AverageQuaternions(qvecs, weights),
                     ComposeIdentityQuaternion());

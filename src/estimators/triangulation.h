@@ -24,6 +24,7 @@
 #include <Eigen/Core>
 
 #include "optim/ransac.h"
+#include "util/alignment.h"
 #include "util/math.h"
 #include "util/types.h"
 
@@ -75,7 +76,7 @@ class TriangulationEstimator {
   void SetResidualType(const ResidualType residual_type);
 
   // The minimum number of samples needed to estimate a model.
-  static size_t MinNumSamples() { return 2; }
+  static const int kMinNumSamples = 2;
 
   // Estimate a 3D point from a two-view observation.
   //

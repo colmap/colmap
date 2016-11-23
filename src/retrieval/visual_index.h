@@ -23,6 +23,7 @@
 #include "ext/FLANN/flann.hpp"
 #include "retrieval/inverted_file.h"
 #include "retrieval/inverted_index.h"
+#include "util/alignment.h"
 
 namespace colmap {
 namespace retrieval {

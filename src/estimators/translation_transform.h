@@ -22,6 +22,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+#include "util/alignment.h"
 #include "util/logging.h"
 #include "util/types.h"
 
@@ -36,7 +37,7 @@ class TranslationTransformEstimator {
   typedef Eigen::Matrix<double, kDim, 1> M_t;
 
   // The minimum number of samples needed to estimate a model.
-  static size_t MinNumSamples() { return 1; }
+  static const int kMinNumSamples = 1;
 
   // Estimate the 2D translation transform.
   //

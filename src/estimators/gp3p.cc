@@ -150,7 +150,7 @@ std::vector<Eigen::Vector3d> ComputeDepthsSylvester(
   Eigen::VectorXd roots_real;
   Eigen::VectorXd roots_imag;
   if (!FindPolynomialRootsCompanionMatrix(coeffs, &roots_real, &roots_imag)) {
-    return {};
+    return std::vector<Eigen::Vector3d>();
   }
 
   // Back-substitute every lambda_3 to the system of equations.
@@ -198,7 +198,7 @@ std::vector<GP3PEstimator::M_t> GP3PEstimator::Estimate(
   CHECK_EQ(points3D.size(), 3);
 
   if (CheckCollinearPoints(points3D[0], points3D[1], points3D[2])) {
-    return {};
+    return std::vector<GP3PEstimator::M_t>({});
   }
 
   // Transform 2D points into compact Pluecker line representation.
@@ -209,7 +209,7 @@ std::vector<GP3PEstimator::M_t> GP3PEstimator::Estimate(
 
   if (CheckParallelRays(plueckers[0].head<3>(), plueckers[1].head<3>(),
                         plueckers[2].head<3>())) {
-    return {};
+    return std::vector<GP3PEstimator::M_t>({});
   }
 
   // Compute the coefficients k1, k2, k3 using Eq. 4.
@@ -219,7 +219,7 @@ std::vector<GP3PEstimator::M_t> GP3PEstimator::Estimate(
   // Compute the depths along the Pluecker lines of the observations.
   const std::vector<Eigen::Vector3d> depths = ComputeDepthsSylvester(K);
   if (depths.empty()) {
-    return {};
+    return std::vector<GP3PEstimator::M_t>({});
   }
 
   // For all valid depth values, compute the transformation between points in

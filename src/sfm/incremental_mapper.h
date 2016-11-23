@@ -22,6 +22,7 @@
 #include "base/reconstruction.h"
 #include "optim/bundle_adjustment.h"
 #include "sfm/incremental_triangulator.h"
+#include "util/alignment.h"
 
 namespace colmap {
 

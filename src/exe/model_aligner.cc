@@ -17,6 +17,7 @@
 #include "base/reconstruction.h"
 #include "util/logging.h"
 #include "util/misc.h"
+#include "util/alignment.h"
 #include "util/option_manager.h"
 
 #include <sstream>

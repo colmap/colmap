@@ -27,6 +27,7 @@
 #include "base/camera_rig.h"
 #include "base/reconstruction.h"
 #include "ext/PBA/pba.h"
+#include "util/alignment.h"
 
 namespace colmap {
 

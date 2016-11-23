@@ -25,6 +25,7 @@
 #include "base/camera.h"
 #include "base/point2d.h"
 #include "base/visibility_pyramid.h"
+#include "util/alignment.h"
 #include "util/logging.h"
 #include "util/math.h"
 #include "util/types.h"

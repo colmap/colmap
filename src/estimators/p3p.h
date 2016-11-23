@@ -21,6 +21,7 @@
 
 #include <Eigen/Core>
 
+#include "util/alignment.h"
 #include "util/types.h"
 
 namespace colmap {
@@ -42,7 +43,7 @@ class P3PEstimator {
   typedef Eigen::Matrix3x4d M_t;
 
   // The minimum number of samples needed to estimate a model.
-  static size_t MinNumSamples() { return 3; }
+  static const int kMinNumSamples = 3;
 
   // Estimate the most probable solution of the P3P problem from a set of
   // three 2D-3D point correspondences.
