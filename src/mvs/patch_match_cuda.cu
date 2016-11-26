@@ -321,12 +321,13 @@ struct PhotoConsistencyCostComputer {
 
   __device__ inline float Compute() const {
     const float kMaxCost = 2.0f;
+    const int kWindowRadius = kWindowSize / 2;
 
     const int thread_id = threadIdx.x;
-    const int row_start = row - kWindowSize / 2;
-    const int col_start = col - kWindowSize / 2;
-    const int row_end = row + kWindowSize / 2;
-    const int col_end = col + kWindowSize / 2;
+    const int row_start = row - kWindowRadius;
+    const int col_start = col - kWindowRadius;
+    const int row_end = row + kWindowRadius;
+    const int col_end = col + kWindowRadius;
 
     if (row_start < 0 || col_start < 0 || row_end >= ref_image_height ||
         col_end >= ref_image_width) {
@@ -343,13 +344,12 @@ struct PhotoConsistencyCostComputer {
     float base_row_src = row_src;
     float base_z = z;
 
-    int ref_image_idx = THREADS_PER_BLOCK - kWindowSize / 2 + thread_id;
+    int ref_image_idx = THREADS_PER_BLOCK - kWindowRadius + thread_id;
     int ref_image_base_idx = ref_image_idx;
 
     const float center_ref =
-        local_ref_image[ref_image_idx +
-                        kWindowSize / 2 * 3 * THREADS_PER_BLOCK +
-                        kWindowSize / 2];
+        local_ref_image[ref_image_idx + kWindowRadius * 3 * THREADS_PER_BLOCK +
+                        kWindowRadius];
     const float sum_ref = local_ref_sum;
     const float sum_ref_ref = local_ref_squared_sum;
     float sum_src = 0.0f;
@@ -373,7 +373,7 @@ struct PhotoConsistencyCostComputer {
                                        norm_row_src, src_image_id);
 
         const float bilateral_weight =
-            ComputeBilateralWeight(kWindowSize / 2, kWindowSize / 2, row, col,
+            ComputeBilateralWeight(kWindowRadius, kWindowRadius, row, col,
                                    center_ref, ref, sigma_spatial, sigma_color);
 
         sum_src_row += bilateral_weight * src;
@@ -490,7 +490,7 @@ __device__ inline float ComputeGeomConsistencyCost(const float row,
   return min(max_cost, sqrt(diff_col * diff_col + diff_row * diff_row));
 }
 
-// Find index of minimum in given values. Length of cost values must be 3.
+// Find index of minimum in given values.
 template <int kNumCosts>
 __device__ inline int FindMinCost(const float costs[kNumCosts]) {
   float min_cost = costs[0];
@@ -609,6 +609,7 @@ class LikelihoodComputer {
     return exp(cost * cost * inv_ncc_sigma_square_) * ncc_norm_factor_;
   }
 
+  // Compute the triangulation angle probability.
   __device__ inline float ComputeTriProb(
       const float cos_triangulation_angle) const {
     const float abs_cos_triangulation_angle = abs(cos_triangulation_angle);
@@ -623,14 +624,17 @@ class LikelihoodComputer {
     }
   }
 
+  // Compute the incident angle probability.
   __device__ inline float ComputeIncProb(const float cos_incident_angle) const {
     const float x = 1.0f - max(0.0f, cos_incident_angle);
     return exp(x * x * inv_incident_angle_sigma_square_);
   }
 
+  // Compute the warping/resolution prior probability.
   template <int kWindowSize>
-  __device__ inline float ComputeWarpProb(const float H[9], const float row,
-                                          const float col) const {
+  __device__ inline float ComputeResolutionProb(const float H[9],
+                                                const float row,
+                                                const float col) const {
     const int kWindowRadius = kWindowSize / 2;
 
     // Warp corners of patch in reference image to source image.
@@ -941,10 +945,10 @@ __global__ void SweepFromTopToBottom(
       float H[9];
       ComposeHomography(image_id, row, col, curr_param_state.depth,
                         curr_param_state.normal, H);
-      const float warp_prob =
-          likelihood_computer.ComputeWarpProb<kWindowSize>(H, row, col);
+      const float res_prob =
+          likelihood_computer.ComputeResolutionProb<kWindowSize>(H, row, col);
 
-      sampling_probs[image_id] = sel_prob * tri_prob * inc_prob * warp_prob;
+      sampling_probs[image_id] = sel_prob * tri_prob * inc_prob * res_prob;
     }
 
     TransformPDFToCDF(sampling_probs, cost_map.GetDepth());
@@ -1242,7 +1246,8 @@ void PatchMatchCuda::RunWithWindowSize() {
   sweep_options.sigma_color = options_.sigma_color;
   sweep_options.num_samples = options_.num_samples;
   sweep_options.ncc_sigma = options_.ncc_sigma;
-  sweep_options.min_triangulation_angle = DEG2RAD(options_.min_triangulation_angle);
+  sweep_options.min_triangulation_angle =
+      DEG2RAD(options_.min_triangulation_angle);
   sweep_options.incident_angle_sigma = options_.incident_angle_sigma;
   sweep_options.geom_consistency_regularizer =
       options_.geom_consistency_regularizer;
