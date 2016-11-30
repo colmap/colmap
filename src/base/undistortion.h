@@ -159,10 +159,14 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
 // other image. The matrix Q transforms disparity values to world coordinates
 // as [x, y, disparity, 1] * Q = [X, Y, Z, 1] * w. Note that this function
 // assumes that the two cameras are already undistorted.
-void RectifyStereoCameras(const Camera& camera1, const Camera& camera2,
+void RectifyStereoCameras(const Camera& distorted_camera1,
+                          const Camera& distorted_camera2,
+                          const Camera& camera1, const Camera& camera2,
                           const Eigen::Vector4d& qvec,
                           const Eigen::Vector3d& tvec, Eigen::Matrix3d* H1,
-                          Eigen::Matrix3d* H2, Eigen::Matrix4d* Q);
+                          Eigen::Matrix3d* H2, Eigen::Matrix3d* R1,
+                          Eigen::Matrix3d* R2, Eigen::Matrix4d* Q,
+                          Camera* rectified_camera);
 
 // Rectify and undistort the stereo image pair using the given geometry.
 void RectifyAndUndistortStereoImages(
@@ -170,7 +174,8 @@ void RectifyAndUndistortStereoImages(
     const Bitmap& distorted_image2, const Camera& distorted_camera1,
     const Camera& distorted_camera2, const Eigen::Vector4d& qvec,
     const Eigen::Vector3d& tvec, Bitmap* undistorted_image1,
-    Bitmap* undistorted_image2, Camera* undistorted_camera, Eigen::Matrix4d* Q);
+    Bitmap* undistorted_image2, Camera* undistorted_camera, Eigen::Matrix3d* R1,
+    Eigen::Matrix3d* R2, Eigen::Matrix4d* Q, Camera* rectified_camera);
 
 }  // namespace colmap
 

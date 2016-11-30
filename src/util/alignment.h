@@ -24,13 +24,9 @@
 #include <memory>
 #include <vector>
 
-// For MSVC, this macro is sometimes not defined so we need to define it here.
-#ifndef EIGEN_ALIGNED_ALLOCATOR
-#define EIGEN_ALIGNED_ALLOCATOR Eigen::aligned_allocator
-#endif
-
 // Equivalent to EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION but with support for
-// initializer lists, which is a C++11 feature and supported by the Eigen.
+// initializer lists, which is a C++11 feature and not supported by the Eigen.
+// The initializer list extension is inspired by Theia and StackOverflow code.
 #define EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(...)                  \
   namespace std {                                                           \
   template <>                                                               \
@@ -58,7 +54,6 @@
       vector_base::operator=(x);                                            \
       return *this;                                                         \
     }                                                                       \
-    /* This initializer list is the only thing modified! */                 \
     vector(initializer_list<__VA_ARGS__> list)                              \
         : vector_base(list.begin(), list.end()) {}                          \
   };                                                                        \
