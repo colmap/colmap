@@ -23,10 +23,12 @@ if(CUDA_ENABLED)
 
         # Avoid pulling in too many header files through <windows.h>
         add_definitions(-DWIN32_LEAN_AND_MEAN)
-
     else()
         set(CUDA_PROPAGATE_HOST_FLAGS OFF)
         set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++11")
+
+        # Fix for Ubuntu 16.04.
+        add_definitions("-D_MWAITXINTRIN_H_INCLUDED")
     endif()
 
     COLMAP_CUDA_ADD_LIBRARY(mvs_cuda

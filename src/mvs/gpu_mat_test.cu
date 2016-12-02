@@ -33,7 +33,8 @@ BOOST_AUTO_TEST_CASE(TestFillWithVector) {
 }
 
 template <typename T>
-void TestTransposeImage(const int width, const int height, const int depth) {
+void TestTransposeImage(const size_t width, const size_t height,
+                        const size_t depth) {
   GpuMat<T> array(width, height, depth);
 
   GpuMatPRNG prng_array(width, height);
@@ -61,11 +62,11 @@ void TestTransposeImage(const int width, const int height, const int depth) {
 }
 
 BOOST_AUTO_TEST_CASE(TestTranspose) {
-  for (int w = 1; w <= 5; ++w) {
-    for (int h = 1; h <= 5; ++h) {
-      for (int d = 1; d <= 3; ++d) {
-        const int width = 20 * w;
-        const int height = 20 * h;
+  for (size_t w = 1; w <= 5; ++w) {
+    for (size_t h = 1; h <= 5; ++h) {
+      for (size_t d = 1; d <= 3; ++d) {
+        const size_t width = 20 * w;
+        const size_t height = 20 * h;
         TestTransposeImage<int8_t>(width, height, d);
         TestTransposeImage<int16_t>(width, height, d);
         TestTransposeImage<int32_t>(width, height, d);
@@ -78,8 +79,8 @@ BOOST_AUTO_TEST_CASE(TestTranspose) {
 }
 
 template <typename T>
-void TestFlipHorizontalImage(const int width, const int height,
-                             const int depth) {
+void TestFlipHorizontalImage(const size_t width, const size_t height,
+                             const size_t depth) {
   GpuMat<T> array(width, height, depth);
 
   GpuMatPRNG prng_array(width, height);
@@ -106,11 +107,11 @@ void TestFlipHorizontalImage(const int width, const int height,
 }
 
 BOOST_AUTO_TEST_CASE(TestFlipHorizontal) {
-  for (int w = 1; w <= 5; ++w) {
-    for (int h = 1; h <= 5; ++h) {
-      for (int d = 1; d <= 3; ++d) {
-        const int width = 20 * w;
-        const int height = 20 * h;
+  for (size_t w = 1; w <= 5; ++w) {
+    for (size_t h = 1; h <= 5; ++h) {
+      for (size_t d = 1; d <= 3; ++d) {
+        const size_t width = 20 * w;
+        const size_t height = 20 * h;
         TestFlipHorizontalImage<int8_t>(width, height, d);
         TestFlipHorizontalImage<int16_t>(width, height, d);
         TestFlipHorizontalImage<int32_t>(width, height, d);
@@ -123,7 +124,8 @@ BOOST_AUTO_TEST_CASE(TestFlipHorizontal) {
 }
 
 template <typename T>
-void TestRotateImage(const int width, const int height, const int depth) {
+void TestRotateImage(const size_t width, const size_t height,
+                     const size_t depth) {
   GpuMat<T> array(width, height, depth);
 
   GpuMatPRNG prng_array(width, height);
@@ -144,10 +146,10 @@ void TestRotateImage(const int width, const int height, const int depth) {
   for (size_t r = 0; r < height; ++r) {
     for (size_t c = 0; c < width; ++c) {
       for (size_t d = 0; d < depth; ++d) {
-        const int rotc =
+        const size_t rotc =
             std::round(std::cos(angle) * (c - arrayCenterH) -
                        std::sin(angle) * (r - arrayCenterV) + arrayCenterV);
-        const int rotr =
+        const size_t rotr =
             std::round(std::sin(angle) * (c - arrayCenterH) +
                        std::cos(angle) * (r - arrayCenterV) + arrayCenterH);
         BOOST_CHECK_EQUAL(
@@ -159,11 +161,11 @@ void TestRotateImage(const int width, const int height, const int depth) {
 }
 
 BOOST_AUTO_TEST_CASE(TestRotate) {
-  for (int w = 1; w <= 5; ++w) {
-    for (int h = 1; h <= 5; ++h) {
-      for (int d = 1; d <= 3; ++d) {
-        const int width = 20 * w;
-        const int height = 20 * h;
+  for (size_t w = 1; w <= 5; ++w) {
+    for (size_t h = 1; h <= 5; ++h) {
+      for (size_t d = 1; d <= 3; ++d) {
+        const size_t width = 20 * w;
+        const size_t height = 20 * h;
         TestRotateImage<int8_t>(width, height, d);
         TestRotateImage<int16_t>(width, height, d);
         TestRotateImage<int32_t>(width, height, d);
