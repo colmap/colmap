@@ -74,7 +74,7 @@ class MovieGrabberWidget : public QWidget {
     float image_size = -1.0f;
   };
 
-  EIGEN_STL_UMAP(QTableWidgetItem*, ViewData) view_data_;
+  EIGEN_STL_UMAP(const QTableWidgetItem*, ViewData) view_data_;
 };
 
 }  // namespace colmap
