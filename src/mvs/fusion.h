@@ -47,6 +47,8 @@ struct FusedPoint {
 
 class StereoFusion : public Thread {
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
   struct Options {
     // Minimum number of fused pixels to produce a point.
     int min_num_pixels = 3;
@@ -88,6 +90,7 @@ class StereoFusion : public Thread {
                  const size_t traversal_depth);
 
   struct ImageData {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     bool used = false;
     const Image* image = nullptr;
     const DepthMap* depth_map = nullptr;

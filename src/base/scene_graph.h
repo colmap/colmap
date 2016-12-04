@@ -127,7 +127,7 @@ class SceneGraph {
   };
 
   // The nodes of the scene graph are images.
-  std::unordered_map<image_t, Image> images_;
+  EIGEN_STL_UMAP(image_t, Image) images_;
 
   // The number of correspondences between pairs of images.
   std::unordered_map<image_pair_t, point2D_t> image_pairs_;

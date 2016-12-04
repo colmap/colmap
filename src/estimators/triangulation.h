@@ -45,6 +45,7 @@ class TriangulationEstimator {
   };
 
   struct PointData {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     PointData() {}
     PointData(const Eigen::Vector2d& point_, const Eigen::Vector2d& point_N_)
         : point(point_), point_normalized(point_N_) {}
@@ -55,6 +56,7 @@ class TriangulationEstimator {
   };
 
   struct PoseData {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     PoseData() : camera(nullptr) {}
     PoseData(const Eigen::Matrix3x4d& proj_matrix_,
              const Eigen::Vector3d& pose_, const Camera* camera_)

@@ -51,8 +51,8 @@ class DatabaseCache {
   inline const class Image& Image(const image_t image_id) const;
 
   // Get all objects.
-  inline const std::unordered_map<camera_t, class Camera>& Cameras() const;
-  inline const std::unordered_map<image_t, class Image>& Images() const;
+  inline const EIGEN_STL_UMAP(camera_t, class Camera) & Cameras() const;
+  inline const EIGEN_STL_UMAP(image_t, class Image) & Images() const;
 
   // Check whether specific object exists.
   inline bool ExistsCamera(const camera_t camera_id) const;
@@ -80,8 +80,8 @@ class DatabaseCache {
  private:
   class SceneGraph scene_graph_;
 
-  std::unordered_map<camera_t, class Camera> cameras_;
-  std::unordered_map<image_t, class Image> images_;
+  EIGEN_STL_UMAP(camera_t, class Camera) cameras_;
+  EIGEN_STL_UMAP(image_t, class Image) images_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -107,12 +107,11 @@ const class Image& DatabaseCache::Image(const image_t image_id) const {
   return images_.at(image_id);
 }
 
-const std::unordered_map<camera_t, class Camera>& DatabaseCache::Cameras()
-    const {
+const EIGEN_STL_UMAP(camera_t, class Camera) & DatabaseCache::Cameras() const {
   return cameras_;
 }
 
-const std::unordered_map<image_t, class Image>& DatabaseCache::Images() const {
+const EIGEN_STL_UMAP(image_t, class Image) & DatabaseCache::Images() const {
   return images_;
 }
 

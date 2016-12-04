@@ -301,7 +301,7 @@ void Reconstruction::Normalize(const double extent, const double p0,
     return;
   }
 
-  std::unordered_map<class Image*, Eigen::Vector3d> proj_centers;
+  EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
 
   for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
     class Image& image = Image(reg_image_ids_[i]);
@@ -1391,7 +1391,7 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
 }
 
 void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
-  std::unordered_map<point3D_t, Eigen::Vector3d> color_sums;
+  EIGEN_STL_UMAP(point3D_t, Eigen::Vector3d) color_sums;
   std::unordered_map<point3D_t, size_t> color_counts;
 
   for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
@@ -1467,7 +1467,7 @@ size_t Reconstruction::FilterPoints3DWithSmallTriangulationAngle(
   const double min_tri_angle_rad = DegToRad(min_tri_angle);
 
   // Cache for image projection centers.
-  std::unordered_map<image_t, Eigen::Vector3d> proj_centers;
+  EIGEN_STL_UMAP(image_t, Eigen::Vector3d) proj_centers;
 
   for (const auto point3D_id : point3D_ids) {
     if (!ExistsPoint3D(point3D_id)) {
@@ -1526,7 +1526,7 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
   size_t num_filtered = 0;
 
   // Cache for projection matrices.
-  std::unordered_map<image_t, Eigen::Matrix3x4d> proj_matrices;
+  EIGEN_STL_UMAP(image_t, Eigen::Matrix3x4d) proj_matrices;
 
   for (const auto point3D_id : point3D_ids) {
     if (!ExistsPoint3D(point3D_id)) {

@@ -29,6 +29,8 @@ namespace colmap {
 template <typename CameraModel>
 class BundleAdjustmentCostFunction {
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
   BundleAdjustmentCostFunction(const Eigen::Vector2d& point2D)
       : point2D_(point2D) {}
 
@@ -75,6 +77,8 @@ class BundleAdjustmentCostFunction {
 template <typename CameraModel>
 class BundleAdjustmentConstantPoseCostFunction {
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
   BundleAdjustmentConstantPoseCostFunction(const Eigen::Vector4d& qvec,
                                            const Eigen::Vector3d& tvec,
                                            const Eigen::Vector2d& point2D)
@@ -132,6 +136,8 @@ class BundleAdjustmentConstantPoseCostFunction {
 template <typename CameraModel>
 class RigBundleAdjustmentCostFunction {
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
   RigBundleAdjustmentCostFunction(const Eigen::Vector2d& point2D)
       : point2D_(point2D) {}
 
@@ -194,6 +200,8 @@ class RigBundleAdjustmentCostFunction {
 // and should be down-projected using `HomogeneousVectorParameterization`.
 class RelativePoseCostFunction {
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
   RelativePoseCostFunction(const Eigen::Vector2d& x1, const Eigen::Vector2d& x2)
       : x1_(x1), x2_(x2) {}
 

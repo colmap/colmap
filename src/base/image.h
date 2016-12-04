@@ -37,6 +37,11 @@ namespace colmap {
 // share a camera with multiple other images, if its intrinsics are the same.
 class Image {
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+  typedef std::vector<class Point2D, Eigen::aligned_allocator<class Point2D>>
+      point2D_vector_t;
+
   // The number of levels in the 3D point multi-resolution visibility pyramid.
   static const int kNumPoint3DVisibilityPyramidLevels = 6;
 
@@ -130,7 +135,7 @@ class Image {
   // Access the coordinates of image points.
   inline const class Point2D& Point2D(const point2D_t point2D_idx) const;
   inline class Point2D& Point2D(const point2D_t point2D_idx);
-  inline const std::vector<class Point2D>& Points2D() const;
+  inline const point2D_vector_t& Points2D() const;
   void SetPoints2D(const std::vector<Eigen::Vector2d>& points);
 
   // Set the point as triangulated, i.e. it is part of a 3D point track.
@@ -216,7 +221,7 @@ class Image {
   Eigen::Vector3d tvec_prior_;
 
   // All image points, including points that are not part of a 3D point track.
-  std::vector<class Point2D> points2D_;
+  point2D_vector_t points2D_;
 
   // Per image point, the number of correspondences that have a 3D point.
   std::vector<image_t> num_correspondences_have_point3D_;
@@ -333,7 +338,7 @@ class Point2D& Image::Point2D(const point2D_t point2D_idx) {
   return points2D_.at(point2D_idx);
 }
 
-const std::vector<class Point2D>& Image::Points2D() const { return points2D_; }
+const Image::point2D_vector_t& Image::Points2D() const { return points2D_; }
 
 bool Image::IsPoint3DVisible(const point2D_t point2D_idx) const {
   return num_correspondences_have_point3D_.at(point2D_idx) > 0;

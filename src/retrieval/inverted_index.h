@@ -91,7 +91,8 @@ class InvertedIndex {
   void ComputeWeightsAndNormalizationConstants();
 
   // The individual inverted indices.
-  std::vector<InvertedFile<N>> inverted_files_;
+  std::vector<InvertedFile<N>, Eigen::aligned_allocator<InvertedFile<N>>>
+      inverted_files_;
 
   // For each image in the database, a normalization factor to be used to
   // normalize the votes.

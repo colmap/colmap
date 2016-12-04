@@ -109,9 +109,9 @@ class OpenGLWindow : public QWindow {
 
   // Copy of current scene data that is displayed
   Reconstruction* reconstruction;
-  std::unordered_map<camera_t, Camera> cameras;
-  std::unordered_map<image_t, Image> images;
-  std::unordered_map<point3D_t, Point3D> points3D;
+  EIGEN_STL_UMAP(camera_t, Camera) cameras;
+  EIGEN_STL_UMAP(image_t, Image) images;
+  EIGEN_STL_UMAP(point3D_t, Point3D) points3D;
   std::vector<image_t> reg_image_ids;
 
   QLabel* statusbar_status_label;

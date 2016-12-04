@@ -68,12 +68,13 @@ class MovieGrabberWidget : public QWidget {
   QDoubleSpinBox* smoothness_sb_;
 
   struct ViewData {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     QMatrix4x4 model_view_matrix;
     float point_size = -1.0f;
     float image_size = -1.0f;
   };
 
-  std::unordered_map<QTableWidgetItem*, ViewData> view_data_;
+  EIGEN_STL_UMAP(QTableWidgetItem*, ViewData) view_data_;
 };
 
 }  // namespace colmap

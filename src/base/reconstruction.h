@@ -66,10 +66,10 @@ class Reconstruction {
       const image_t image_id1, const image_t image_id2) const;
 
   // Get reference to all objects.
-  inline const std::unordered_map<camera_t, class Camera>& Cameras() const;
-  inline const std::unordered_map<image_t, class Image>& Images() const;
+  inline const EIGEN_STL_UMAP(camera_t, class Camera)& Cameras() const;
+  inline const EIGEN_STL_UMAP(image_t, class Image)& Images() const;
   inline const std::vector<image_t>& RegImageIds() const;
-  inline const std::unordered_map<point3D_t, class Point3D>& Points3D() const;
+  inline const EIGEN_STL_UMAP(point3D_t, class Point3D)& Points3D() const;
   inline const std::unordered_map<image_pair_t, std::pair<size_t, size_t>>&
   ImagePairs() const;
 
@@ -279,9 +279,9 @@ class Reconstruction {
 
   const SceneGraph* scene_graph_;
 
-  std::unordered_map<camera_t, class Camera> cameras_;
-  std::unordered_map<image_t, class Image> images_;
-  std::unordered_map<point3D_t, class Point3D> points3D_;
+  EIGEN_STL_UMAP(camera_t, class Camera) cameras_;
+  EIGEN_STL_UMAP(image_t, class Image) images_;
+  EIGEN_STL_UMAP(point3D_t, class Point3D) points3D_;
   std::unordered_map<image_pair_t, std::pair<size_t, size_t>> image_pairs_;
 
   // { image_id, ... } where `images_.at(image_id).registered == true`.
@@ -351,11 +351,11 @@ std::pair<size_t, size_t>& Reconstruction::ImagePair(const image_t image_id1,
   return image_pairs_.at(pair_id);
 }
 
-const std::unordered_map<camera_t, Camera>& Reconstruction::Cameras() const {
+const EIGEN_STL_UMAP(camera_t, Camera)& Reconstruction::Cameras() const {
   return cameras_;
 }
 
-const std::unordered_map<image_t, Image>& Reconstruction::Images() const {
+const EIGEN_STL_UMAP(image_t, class Image)& Reconstruction::Images() const {
   return images_;
 }
 
@@ -363,7 +363,7 @@ const std::vector<image_t>& Reconstruction::RegImageIds() const {
   return reg_image_ids_;
 }
 
-const std::unordered_map<point3D_t, Point3D>& Reconstruction::Points3D() const {
+const EIGEN_STL_UMAP(point3D_t, Point3D)& Reconstruction::Points3D() const {
   return points3D_;
 }
 

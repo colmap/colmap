@@ -54,11 +54,12 @@ float PointColormapBase::AdjustScale(const float gray) {
   }
 }
 
-void PointColormapPhotometric::Prepare(
-    std::unordered_map<camera_t, Camera>& cameras,
-    std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, Point3D>& points3D,
-    std::vector<image_t>& reg_image_ids) {}
+void PointColormapPhotometric::Prepare(EIGEN_STL_UMAP(camera_t, Camera) &
+                                           cameras,
+                                       EIGEN_STL_UMAP(image_t, Image) & images,
+                                       EIGEN_STL_UMAP(point3D_t, Point3D) &
+                                           points3D,
+                                       std::vector<image_t>& reg_image_ids) {}
 
 Eigen::Vector3f PointColormapPhotometric::ComputeColor(
     const point3D_t point3D_id, const Point3D& point3D) {
@@ -66,11 +67,10 @@ Eigen::Vector3f PointColormapPhotometric::ComputeColor(
                          point3D.Color(2) / 255.0f);
 }
 
-void PointColormapError::Prepare(
-    std::unordered_map<camera_t, Camera>& cameras,
-    std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, Point3D>& points3D,
-    std::vector<image_t>& reg_image_ids) {
+void PointColormapError::Prepare(EIGEN_STL_UMAP(camera_t, Camera) & cameras,
+                                 EIGEN_STL_UMAP(image_t, Image) & images,
+                                 EIGEN_STL_UMAP(point3D_t, Point3D) & points3D,
+                                 std::vector<image_t>& reg_image_ids) {
   std::vector<float> errors;
   errors.reserve(points3D.size());
 
@@ -88,11 +88,11 @@ Eigen::Vector3f PointColormapError::ComputeColor(const point3D_t point3D_id,
                          JetColormap::Blue(gray));
 }
 
-void PointColormapTrackLen::Prepare(
-    std::unordered_map<camera_t, Camera>& cameras,
-    std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, Point3D>& points3D,
-    std::vector<image_t>& reg_image_ids) {
+void PointColormapTrackLen::Prepare(EIGEN_STL_UMAP(camera_t, Camera) & cameras,
+                                    EIGEN_STL_UMAP(image_t, Image) & images,
+                                    EIGEN_STL_UMAP(point3D_t, Point3D) &
+                                        points3D,
+                                    std::vector<image_t>& reg_image_ids) {
   std::vector<float> track_lengths;
   track_lengths.reserve(points3D.size());
 
@@ -111,15 +111,15 @@ Eigen::Vector3f PointColormapTrackLen::ComputeColor(const point3D_t point3D_id,
 }
 
 void PointColormapGroundResolution::Prepare(
-    std::unordered_map<camera_t, Camera>& cameras,
-    std::unordered_map<image_t, Image>& images,
-    std::unordered_map<point3D_t, Point3D>& points3D,
+    EIGEN_STL_UMAP(camera_t, Camera) & cameras,
+    EIGEN_STL_UMAP(image_t, Image) & images,
+    EIGEN_STL_UMAP(point3D_t, Point3D) & points3D,
     std::vector<image_t>& reg_image_ids) {
   std::vector<float> resolutions;
   resolutions.reserve(points3D.size());
 
   std::unordered_map<camera_t, float> focal_lengths;
-  std::unordered_map<camera_t, Eigen::Vector2f> principal_points;
+  EIGEN_STL_UMAP(camera_t, Eigen::Vector2f) principal_points;
   for (const auto& camera : cameras) {
     focal_lengths[camera.first] =
         static_cast<float>(camera.second.MeanFocalLength());
@@ -128,7 +128,7 @@ void PointColormapGroundResolution::Prepare(
                         static_cast<float>(camera.second.PrincipalPointY()));
   }
 
-  std::unordered_map<image_t, Eigen::Vector3f> proj_centers;
+  EIGEN_STL_UMAP(image_t, Eigen::Vector3f) proj_centers;
   for (const auto& image : images) {
     proj_centers[image.first] = image.second.ProjectionCenter().cast<float>();
   }

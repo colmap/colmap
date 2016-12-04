@@ -27,6 +27,8 @@ namespace colmap {
 
 // Two-view geometry estimator.
 struct TwoViewGeometry {
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
   // The configuration of the estimated two-view geometry.
   enum ConfigurationType {
     UNDEFINED = 0,

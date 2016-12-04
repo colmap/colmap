@@ -93,8 +93,8 @@ class FeatureMatcherCache {
  private:
   std::mutex keypoints_cache_mutex_;
   std::mutex descriptors_cache_mutex_;
-  std::unordered_map<camera_t, Camera> cameras_cache_;
-  std::unordered_map<image_t, Image> images_cache_;
+  EIGEN_STL_UMAP(camera_t, Camera) cameras_cache_;
+  EIGEN_STL_UMAP(image_t, Image) images_cache_;
   std::unique_ptr<LRUCache<image_t, FeatureKeypoints>> keypoints_cache_;
   std::unique_ptr<LRUCache<image_t, FeatureDescriptors>> descriptors_cache_;
 };
