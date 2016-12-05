@@ -17,9 +17,9 @@
 #ifndef COLMAP_SRC_BASE_DATABASE_H_
 #define COLMAP_SRC_BASE_DATABASE_H_
 
+#include <mutex>
 #include <unordered_map>
 #include <vector>
-#include <mutex>
 
 #include <Eigen/Core>
 
@@ -135,8 +135,9 @@ class Database {
 
   TwoViewGeometry ReadInlierMatches(const image_t image_id1,
                                     const image_t image_id2) const;
-  std::vector<std::pair<image_pair_t, TwoViewGeometry>> ReadAllInlierMatches()
-      const;
+  void ReadAllInlierMatches(
+      std::vector<image_pair_t>* image_pair_ids,
+      std::vector<TwoViewGeometry>* two_view_geometries) const;
 
   // Read all image pairs that have an entry in the `inlier_matches` table with
   // at least one inlier match and their corresponding number of inlier matches.

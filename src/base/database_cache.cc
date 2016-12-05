@@ -68,10 +68,11 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
   timer.Restart();
   std::cout << "Loading matches..." << std::flush;
 
-  const std::vector<std::pair<image_pair_t, TwoViewGeometry>> image_pairs =
-      database.ReadAllInlierMatches();
+  std::vector<image_pair_t> image_pair_ids;
+  std::vector<TwoViewGeometry> two_view_geometries;
+  database.ReadAllInlierMatches(&image_pair_ids, &two_view_geometries);
 
-  std::cout << StringPrintf(" %d in %.3fs", image_pairs.size(),
+  std::cout << StringPrintf(" %d in %.3fs", image_pair_ids.size(),
                             timer.ElapsedSeconds())
             << std::endl;
 
@@ -111,11 +112,11 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
     // Collect all images that are connected in the scene graph.
     std::unordered_set<image_t> connected_image_ids;
     connected_image_ids.reserve(image_ids.size());
-    for (const auto& image_pair : image_pairs) {
-      if (UseInlierMatchesCheck(image_pair.second)) {
+    for (size_t i = 0; i < image_pair_ids.size(); ++i) {
+      if (UseInlierMatchesCheck(two_view_geometries[i])) {
         image_t image_id1;
         image_t image_id2;
-        Database::PairIdToImagePair(image_pair.first, &image_id1, &image_id2);
+        Database::PairIdToImagePair(image_pair_ids[i], &image_id1, &image_id2);
         if (image_ids.count(image_id1) > 0 && image_ids.count(image_id2) > 0) {
           connected_image_ids.insert(image_id1);
           connected_image_ids.insert(image_id2);
@@ -156,14 +157,14 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
   }
 
   size_t num_ignored_image_pairs = 0;
-  for (const auto& image_pair : image_pairs) {
-    if (UseInlierMatchesCheck(image_pair.second)) {
+  for (size_t i = 0; i < image_pair_ids.size(); ++i) {
+    if (UseInlierMatchesCheck(two_view_geometries[i])) {
       image_t image_id1;
       image_t image_id2;
-      Database::PairIdToImagePair(image_pair.first, &image_id1, &image_id2);
+      Database::PairIdToImagePair(image_pair_ids[i], &image_id1, &image_id2);
       if (image_ids.count(image_id1) > 0 && image_ids.count(image_id2) > 0) {
          scene_graph_.AddCorrespondences(image_id1, image_id2,
-                                         image_pair.second.inlier_matches);
+                                         two_view_geometries[i].inlier_matches);
       } else {
         num_ignored_image_pairs += 1;
       }

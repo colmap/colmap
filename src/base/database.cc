@@ -436,30 +436,26 @@ TwoViewGeometry Database::ReadInlierMatches(const image_t image_id1,
   return two_view_geometry;
 }
 
-std::vector<std::pair<image_pair_t, TwoViewGeometry>>
-Database::ReadAllInlierMatches() const {
-  std::vector<std::pair<image_pair_t, TwoViewGeometry>> results;
-
+void Database::ReadAllInlierMatches(
+    std::vector<image_pair_t>* image_pair_ids,
+    std::vector<TwoViewGeometry>* two_view_geometries) const {
   int rc;
   while ((rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_inlier_matches_all_))) ==
          SQLITE_ROW) {
     const image_pair_t pair_id = static_cast<image_pair_t>(
         sqlite3_column_int64(sql_stmt_read_inlier_matches_all_, 0));
+    image_pair_ids->push_back(pair_id);
 
     TwoViewGeometry two_view_geometry;
     const FeatureMatchesBlob blob = ReadMatrixBlob<FeatureMatchesBlob>(
         sql_stmt_read_inlier_matches_all_, rc, 1);
     two_view_geometry.config = static_cast<int>(
         sqlite3_column_int64(sql_stmt_read_inlier_matches_all_, 4));
-
     two_view_geometry.inlier_matches = FeatureMatchesFromBlob(blob);
-
-    results.emplace_back(pair_id, two_view_geometry);
+    two_view_geometries->push_back(two_view_geometry);
   }
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_inlier_matches_all_));
-
-  return results;
 }
 
 void Database::ReadInlierMatchesGraph(

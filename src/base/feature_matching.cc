@@ -330,12 +330,15 @@ void SiftGPUFeatureMatcher::MatchImagePairs(
   std::vector<MatchResult> match_results;
   match_results.reserve(image_pairs.size());
 
-  std::vector<std::future<TwoViewGeometry>> verification_results;
-  verification_results.reserve(image_pairs.size());
+  size_t num_verifications = 0;
+  std::vector<std::future<void>> verification_futures;
+  verification_futures.reserve(image_pairs.size());
+  std::vector<TwoViewGeometry> verification_results;
+  verification_results.resize(image_pairs.size());
   std::vector<std::pair<image_t, image_t>> verification_image_pairs;
   verification_image_pairs.reserve(image_pairs.size());
 
-  std::vector<std::pair<image_t, image_t>> empty_verification_results;
+  std::vector<std::pair<image_t, image_t>> empty_verification_image_pairs;
 
   TwoViewGeometry::Options two_view_geometry_options;
   two_view_geometry_options.min_num_inliers =
@@ -405,14 +408,16 @@ void SiftGPUFeatureMatcher::MatchImagePairs(
         data.keypoints2 = &cache_->GetKeypoints(image_id2);
         data.matches = &match_result.matches;
         data.options = &two_view_geometry_options;
-        std::function<TwoViewGeometry(GeometricVerificationData,
-                                      const SiftMatchOptions&)>
+        std::function<void(GeometricVerificationData, const SiftMatchOptions&,
+                           TwoViewGeometry*)>
             verifier_func = SiftGPUFeatureMatcher::VerifyImagePair;
-        verification_results.push_back(
-            verifier_thread_pool_->AddTask(verifier_func, data, options_));
+        verification_futures.push_back(verifier_thread_pool_->AddTask(
+            verifier_func, data, options_,
+            &verification_results.at(num_verifications)));
         verification_image_pairs.push_back(image_pair);
+        num_verifications += 1;
       } else {
-        empty_verification_results.push_back(image_pair);
+        empty_verification_image_pairs.push_back(image_pair);
       }
     }
   }
@@ -433,9 +438,10 @@ void SiftGPUFeatureMatcher::MatchImagePairs(
     ClearGPUData();
   }
 
-  for (size_t i = 0; i < verification_results.size(); ++i) {
+  for (size_t i = 0; i < num_verifications; ++i) {
     const auto& image_pair = verification_image_pairs[i];
-    auto result = verification_results[i].get();
+    verification_futures.at(i).get();
+    auto result = verification_results.at(i);
     if (result.inlier_matches.size() >= min_num_inliers &&
         options_.guided_matching) {
       const FeatureDescriptors* descriptors1_ptr;
@@ -457,8 +463,8 @@ void SiftGPUFeatureMatcher::MatchImagePairs(
     database_->WriteInlierMatches(image_pair.first, image_pair.second, result);
   }
 
-  for (const auto& result : empty_verification_results) {
-    database_->WriteInlierMatches(result.first, result.second,
+  for (const auto& image_pair : empty_verification_image_pairs) {
+    database_->WriteInlierMatches(image_pair.first, image_pair.second,
                                   TwoViewGeometry());
   }
 }
@@ -562,26 +568,26 @@ void SiftGPUFeatureMatcher::ClearGPUData() {
   prev_uploaded_image_ids_[1] = kInvalidImageId;
 }
 
-TwoViewGeometry SiftGPUFeatureMatcher::VerifyImagePair(
-    const GeometricVerificationData data, const SiftMatchOptions& options) {
-  TwoViewGeometry two_view_geometry;
+void SiftGPUFeatureMatcher::VerifyImagePair(
+    const GeometricVerificationData data, const SiftMatchOptions& options,
+    TwoViewGeometry* two_view_geometry) {
+  *two_view_geometry = TwoViewGeometry();
+
   const auto points1 = FeatureKeypointsToPointsVector(*data.keypoints1);
   const auto points2 = FeatureKeypointsToPointsVector(*data.keypoints2);
 
   if (options.multiple_models) {
-    two_view_geometry.EstimateMultiple(*data.camera1, points1, *data.camera2,
-                                       points2, *data.matches, *data.options);
+    two_view_geometry->EstimateMultiple(*data.camera1, points1, *data.camera2,
+                                        points2, *data.matches, *data.options);
   } else {
-    two_view_geometry.Estimate(*data.camera1, points1, *data.camera2, points2,
-                               *data.matches, *data.options);
+    two_view_geometry->Estimate(*data.camera1, points1, *data.camera2, points2,
+                                *data.matches, *data.options);
   }
 
-  if (two_view_geometry.inlier_matches.size() <
+  if (two_view_geometry->inlier_matches.size() <
       static_cast<size_t>(options.min_num_inliers)) {
-    two_view_geometry = TwoViewGeometry();
+    *two_view_geometry = TwoViewGeometry();
   }
-
-  return two_view_geometry;
 }
 
 void ExhaustiveFeatureMatcher::Options::Check() const {

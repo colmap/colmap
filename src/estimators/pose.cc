@@ -32,10 +32,12 @@ namespace {
 
 typedef LORANSAC<P3PEstimator, EPnPEstimator> AbsolutePoseRANSAC_t;
 
-AbsolutePoseRANSAC_t::Report EstimateAbsolutePoseKernel(
-    const Camera& camera, const double focal_length_factor,
-    const std::vector<Eigen::Vector2d>& points2D,
-    const std::vector<Eigen::Vector3d>& points3D, RANSACOptions options) {
+void EstimateAbsolutePoseKernel(const Camera& camera,
+                                const double focal_length_factor,
+                                const std::vector<Eigen::Vector2d>& points2D,
+                                const std::vector<Eigen::Vector3d>& points3D,
+                                const RANSACOptions& options,
+                                AbsolutePoseRANSAC_t::Report* report) {
   // Scale the focal length by the given factor.
   Camera scaled_camera = camera;
   const std::vector<size_t>& focal_length_idxs = camera.FocalLengthIdxs();
@@ -50,11 +52,11 @@ AbsolutePoseRANSAC_t::Report EstimateAbsolutePoseKernel(
   }
 
   // Estimate pose for given focal length.
-  options.max_error = scaled_camera.ImageToWorldThreshold(options.max_error);
-  AbsolutePoseRANSAC_t ransac(options);
-  const auto report = ransac.Estimate(points2D_N, points3D);
-
-  return report;
+  auto custom_options = options;
+  custom_options.max_error =
+      scaled_camera.ImageToWorldThreshold(options.max_error);
+  AbsolutePoseRANSAC_t ransac(custom_options);
+  *report = ransac.Estimate(points2D_N, points3D);
 }
 
 }  // namespace
@@ -84,16 +86,20 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
     focal_length_factors.push_back(1);
   }
 
-  std::vector<std::future<typename AbsolutePoseRANSAC_t::Report>> futures;
-  futures.reserve(focal_length_factors.size());
+  std::vector<std::future<void>> futures;
+  futures.resize(focal_length_factors.size());
+  std::vector<typename AbsolutePoseRANSAC_t::Report,
+              Eigen::aligned_allocator<typename AbsolutePoseRANSAC_t::Report>>
+      reports;
+  reports.resize(focal_length_factors.size());
 
   ThreadPool thread_pool(std::min(
       options.num_threads, static_cast<int>(focal_length_factors.size())));
 
-  for (const double focal_length_factor : focal_length_factors) {
-    futures.push_back(thread_pool.AddTask(EstimateAbsolutePoseKernel, *camera,
-                                          focal_length_factor, points2D,
-                                          points3D, options.ransac_options));
+  for (size_t i = 0; i < focal_length_factors.size(); ++i) {
+    futures[i] = thread_pool.AddTask(
+        EstimateAbsolutePoseKernel, *camera, focal_length_factors[i], points2D,
+        points3D, options.ransac_options, &reports[i]);
   }
 
   double focal_length_factor = 0;
@@ -103,7 +109,8 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
 
   // Find best model among all focal lengths.
   for (size_t i = 0; i < focal_length_factors.size(); ++i) {
-    const auto report = futures[i].get();
+    futures[i].get();
+    const auto report = reports[i];
     if (report.success && report.support.num_inliers > *num_inliers) {
       *num_inliers = report.support.num_inliers;
       proj_matrix = report.model;

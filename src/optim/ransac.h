@@ -61,6 +61,8 @@ template <typename Estimator, typename SupportMeasurer = InlierSupportMeasurer,
 class RANSAC {
  public:
   struct Report {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
     // Whether the estimation was successful.
     bool success = false;
 

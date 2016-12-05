@@ -144,8 +144,9 @@ class SiftGPUFeatureMatcher {
   void MatchImagePairGuided(const image_t image_id1, const image_t image_id2,
                             TwoViewGeometry* two_view_geometry);
 
-  static TwoViewGeometry VerifyImagePair(const GeometricVerificationData data,
-                                         const SiftMatchOptions& options);
+  static void VerifyImagePair(const GeometricVerificationData data,
+                              const SiftMatchOptions& options,
+                              TwoViewGeometry* two_view_geometry);
 
   const SiftMatchOptions options_;
   Database* database_;
