@@ -120,4 +120,6 @@ void Point3D::SetTrack(const class Track& track) { track_ = track; }
 
 }  // namespace colmap
 
+EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(colmap::Point3D)
+
 #endif  // COLMAP_SRC_BASE_POINT3D_H_

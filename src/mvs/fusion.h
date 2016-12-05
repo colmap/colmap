@@ -75,10 +75,9 @@ class StereoFusion : public Thread {
     void Print() const;
   };
 
-  StereoFusion(const Options& options,
-                        const std::string& workspace_path,
-                        const std::string& workspace_format,
-                        const std::string& input_type);
+  StereoFusion(const Options& options, const std::string& workspace_path,
+               const std::string& workspace_format,
+               const std::string& input_type);
 
   const std::vector<FusedPoint>& GetFusedPoints() const;
 
@@ -128,7 +127,7 @@ class StereoFusion : public Thread {
   Model model_;
   std::vector<char> used_image_mask_;
   ConsistencyGraph consistency_graph_;
-  std::vector<ImageData> image_data_;
+  std::vector<ImageData, Eigen::aligned_allocator<ImageData>> image_data_;
   std::vector<FusedPoint> fused_points_;
 
   Eigen::Vector4f fused_ref_point_;

@@ -240,4 +240,6 @@ struct TwoViewGeometry {
 
 }  // namespace colmap
 
+EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(colmap::TwoViewGeometry)
+
 #endif  // COLMAP_SRC_ESTIMATORS_TWO_VIEW_GEOMETRY_H_

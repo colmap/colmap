@@ -19,6 +19,7 @@
 
 #include <Eigen/Core>
 
+#include "util/alignment.h"
 #include "util/types.h"
 
 namespace colmap {
@@ -76,5 +77,7 @@ void Point2D::SetPoint3DId(const point3D_t point3D_id) {
 }
 
 }  // namespace colmap
+
+EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(colmap::Point2D)
 
 #endif  // COLMAP_SRC_BASE_POINT2D_H_

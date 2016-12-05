@@ -73,7 +73,7 @@ EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(Eigen::Quaternionf)
 EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(Eigen::Matrix<float, 3, 4>)
 EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(Eigen::Matrix<double, 3, 4>)
 
-#define EIGEN_STL_UMAP(KEY, VALUE)                               \
+#define EIGEN_STL_UMAP(KEY, VALUE)                                   \
   std::unordered_map<KEY, VALUE, std::hash<KEY>, std::equal_to<KEY>, \
                      Eigen::aligned_allocator<std::pair<KEY const, VALUE>>>
 

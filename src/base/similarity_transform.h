@@ -61,4 +61,6 @@ class SimilarityTransform3 {
 
 }  // namespace colmap
 
+EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(colmap::SimilarityTransform3)
+
 #endif  // COLMAP_SRC_BASE_SIMILARITY_TRANSFORM_H_
