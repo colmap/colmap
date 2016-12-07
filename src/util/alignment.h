@@ -17,12 +17,17 @@
 #ifndef COLMAP_SRC_UTIL_ALIGNMENT_H_
 #define COLMAP_SRC_UTIL_ALIGNMENT_H_
 
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-#include <Eigen/StdVector>
 #include <initializer_list>
 #include <memory>
 #include <vector>
+
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+#include <Eigen/StdVector>
+
+#ifndef EIGEN_ALIGNED_ALLOCATOR
+#define EIGEN_ALIGNED_ALLOCATOR Eigen::aligned_allocator
+#endif
 
 // Equivalent to EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION but with support for
 // initializer lists, which is a C++11 feature and not supported by the Eigen.
