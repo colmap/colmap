@@ -1,3 +1,19 @@
+COLMAP 2.1 (12/7/2016)
+----------------------
+- Support to only index and match specific images in vocabulary tree matching
+- Support to perform image retrieval using vocabulary tree
+- Several bug fixes and improvements for multi-view stereo module
+- Improved Structure-from-Motion initialization strategy
+- Support to only reconstruct the scene using specific images in the database
+- Add support to merge two models using overlapping registered images
+- Add support to geo-register/align models using known camera locations
+- Support to only extract specific images in feature extraction module
+- Support for snapshot model export during reconstruction
+- Skip already undistorted images if they exist in output directory
+- Support to limit the number of features in image retrieval for improved speed
+- Miscellaneous bug fixes and improvements
+
+
 COLMAP 2.0 (9/8/2016)
 ---------------------
 - Implementation of dense reconstruction pipeline
@@ -7,6 +23,7 @@ COLMAP 2.0 (9/8/2016)
 - New executable to extract colors from all images
 - Boost can now be linked in shared and static mode
 - Various bug fixes and performance improvements
+
 
 COLMAP 1.1 (5/19/2016)
 ----------------------
