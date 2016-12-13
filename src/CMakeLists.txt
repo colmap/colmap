@@ -99,6 +99,7 @@ ADD_SOURCE_DIR(ext/SQLite EXT_SQLITE_SRC *.h *.c)
 ADD_SOURCE_DIR(ext/VLFeat EXT_VLFEAT_SRC *.h *.c *.tc)
 ADD_SOURCE_DIR(mvs MVS_SRC *.h *.cc *.cu)
 ADD_SOURCE_DIR(optim OPTIM_SRC *.h *.cc)
+ADD_SOURCE_DIR(retrieval RETRIEVAL_SRC *.h *.cc)
 ADD_SOURCE_DIR(sfm SFM_SRC *.h *.cc)
 ADD_SOURCE_DIR(tools TOOLS_SRC *.h *.cc)
 ADD_SOURCE_DIR(ui UI_SRC *.h *.cc)
@@ -119,6 +120,7 @@ add_library(
     ${EXT_VLFEAT_SRC}
     ${MVS_SRC}
     ${OPTIM_SRC}
+    ${RETRIEVAL_SRC}
     ${SFM_SRC}
     ${TOOLS_SRC}
     ${UI_SRC}
