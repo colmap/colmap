@@ -12,7 +12,7 @@ COLMAP_ADD_EXECUTABLE(dense_fuser dense_fuser.cc)
 
 COLMAP_ADD_EXECUTABLE(dense_mesher dense_mesher.cc)
 
-COLMAP_ADD_EXECUTABLE(exhaustive_matcher exhaustive_matcher)
+COLMAP_ADD_EXECUTABLE(exhaustive_matcher exhaustive_matcher.cc)
 
 COLMAP_ADD_EXECUTABLE(feature_extractor feature_extractor.cc)
 
@@ -42,9 +42,9 @@ COLMAP_ADD_EXECUTABLE(spatial_matcher spatial_matcher.cc)
 
 COLMAP_ADD_EXECUTABLE(vocab_tree_builder vocab_tree_builder.cc)
 
-COLMAP_ADD_EXECUTABLE(vocab_tree_matcher vocab_tree_matcher)
+COLMAP_ADD_EXECUTABLE(vocab_tree_matcher vocab_tree_matcher.cc)
 
-COLMAP_ADD_EXECUTABLE(vocab_tree_retriever vocab_tree_retriever)
+COLMAP_ADD_EXECUTABLE(vocab_tree_retriever vocab_tree_retriever.cc)
 
 if(CUDA_ENABLED)
     COLMAP_ADD_EXECUTABLE(dense_mapper dense_mapper.cc)
