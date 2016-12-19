@@ -69,27 +69,23 @@ set(VLFEAT_SOURCE_FILES
     vlad.c
     vlad.h)
 
-if(IS_GNU OR IS_CLANG)
-    if(HAS_AVX_EXTENSION)
-        list(APPEND VLFEAT_SOURCE_FILES
-             mathop_avx.c
-             mathop_avx.h)
-    else()
-        add_definitions(-DVL_DISABLE_AVX)
-    endif()
+if(SIMD_ENABLED AND IS_X86 AND NOT MSVC)
+    set(AVX_SOURCES
+        mathop_avx.c
+        mathop_avx.h)
 
-    if(HAS_SSE2_EXTENSION)
-        list(APPEND VLFEAT_SOURCE_FILES
-             mathop_sse2.c
-             mathop_sse2.h
-             imopv_sse2.c
-             imopv_sse2.h)
-    else()
-        add_definitions(-DVL_DISABLE_SSE2)
-    endif()
+    set(SSE2_SOURCES
+        imopv_sse2.c
+        imopv_sse2.h
+        mathop_sse2.c
+        mathop_sse2.h)
 
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SSE_FLAGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SSE_FLAGS}")
+    list(APPEND VLFEAT_SOURCE_FILES ${AVX_SOURCES} ${SSE2_SOURCES})
+
+    set_source_files_properties(${AVX_SOURCES}
+        PROPERTIES COMPILE_FLAGS "-mavx")
+    set_source_files_properties(${SSE2_SOURCES}
+        PROPERTIES COMPILE_FLAGS "-msse2")
 else()
     add_definitions(-DVL_DISABLE_AVX)
     add_definitions(-DVL_DISABLE_SSE2)
