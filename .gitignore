@@ -6,6 +6,7 @@ LocalConfig.cmake
 .DS_Store
 build-debug/
 build-release/
+build-relwithdeb/
 install-debug/
 install-release/
 data/
