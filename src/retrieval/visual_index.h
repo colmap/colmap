@@ -94,10 +94,11 @@ class VisualIndex {
   size_t NumVisualWords() const;
 
   // Add image to the visual index.
-  void Add(const IndexOptions& options, const int image_id, Desc& descriptors);
+  void Add(const IndexOptions& options, const int image_id,
+           const Desc& descriptors);
 
   // Query for most similar images in the visual index.
-  void Query(const QueryOptions& options, Desc& descriptors,
+  void Query(const QueryOptions& options, const Desc& descriptors,
              std::vector<ImageScore>* image_scores) const;
 
   // Prepare the index after adding images and before querying.
@@ -105,7 +106,7 @@ class VisualIndex {
 
   // Build a visual index from a set of training descriptors by quantizing the
   // descriptor space into visual words and compute their Hamming embedding.
-  void Build(const BuildOptions& options, Desc& descriptors);
+  void Build(const BuildOptions& options, const Desc& descriptors);
 
   // Read and write the visual index. This can be done for an index with and
   // without indexed images.
@@ -114,10 +115,10 @@ class VisualIndex {
 
  private:
   // Quantize the descriptor space into visual words.
-  void Quantize(const BuildOptions& options, Desc& descriptors);
+  void Quantize(const BuildOptions& options, const Desc& descriptors);
 
   // Find the nearest neighbor visual words for the given descriptors.
-  Eigen::MatrixXi FindWordIds(Desc& descriptors, const int num_neighbors,
+  Eigen::MatrixXi FindWordIds(const Desc& descriptors, const int num_neighbors,
                               const int num_checks,
                               const int num_threads) const;
 

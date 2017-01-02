@@ -33,7 +33,7 @@ VisualIndex::~VisualIndex() {
 size_t VisualIndex::NumVisualWords() const { return visual_words_.rows; }
 
 void VisualIndex::Add(const IndexOptions& options, const int image_id,
-                      Desc& descriptors) {
+                      const Desc& descriptors) {
   CHECK(image_ids_.count(image_id) == 0);
   image_ids_.insert(image_id);
 
@@ -57,7 +57,7 @@ void VisualIndex::Add(const IndexOptions& options, const int image_id,
   }
 }
 
-void VisualIndex::Query(const QueryOptions& options, Desc& descriptors,
+void VisualIndex::Query(const QueryOptions& options, const Desc& descriptors,
                         std::vector<ImageScore>* image_scores) const {
   CHECK(prepared_);
 
@@ -94,7 +94,7 @@ void VisualIndex::Prepare() {
   prepared_ = true;
 }
 
-void VisualIndex::Build(const BuildOptions& options, Desc& descriptors) {
+void VisualIndex::Build(const BuildOptions& options, const Desc& descriptors) {
   // Quantize the descriptor space into visual words.
   Quantize(options, descriptors);
 
@@ -197,14 +197,16 @@ void VisualIndex::Write(const std::string& path) {
   }
 }
 
-void VisualIndex::Quantize(const BuildOptions& options, Desc& descriptors) {
+void VisualIndex::Quantize(const BuildOptions& options,
+                           const Desc& descriptors) {
   static_assert(Desc::IsRowMajor, "Descriptors must be row-major.");
 
   CHECK_GE(options.num_visual_words, options.branching);
   CHECK_GE(descriptors.rows(), options.num_visual_words);
 
   const flann::Matrix<uint8_t> descriptor_matrix(
-      descriptors.data(), descriptors.rows(), descriptors.cols());
+      const_cast<uint8_t*>(descriptors.data()), descriptors.rows(),
+      descriptors.cols());
 
   std::vector<float> centers_data(options.num_visual_words *
                                   descriptors.cols());
@@ -234,7 +236,7 @@ void VisualIndex::Quantize(const BuildOptions& options, Desc& descriptors) {
                                          descriptors.cols());
 }
 
-Eigen::MatrixXi VisualIndex::FindWordIds(Desc& descriptors,
+Eigen::MatrixXi VisualIndex::FindWordIds(const Desc& descriptors,
                                          const int num_neighbors,
                                          const int num_checks,
                                          const int num_threads) const {
@@ -254,8 +256,8 @@ Eigen::MatrixXi VisualIndex::FindWordIds(Desc& descriptors,
   flann::Matrix<float> distances(distance_matrix.data(), descriptors.rows(),
                                  num_neighbors);
 
-  flann::Matrix<uint8_t> query(descriptors.data(), descriptors.rows(),
-                               descriptors.cols());
+  const flann::Matrix<uint8_t> query(const_cast<uint8_t*>(descriptors.data()),
+                                     descriptors.rows(), descriptors.cols());
 
   flann::SearchParams search_params(num_checks);
   if (num_threads < 0) {
