@@ -422,6 +422,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       options.abs_pose_min_inlier_ratio;
   // Use high confidence to avoid preemptive termination of P3P RANSAC
   // - too early termination may lead to bad registration.
+  abs_pose_options.ransac_options.min_num_trials = 30;
   abs_pose_options.ransac_options.confidence = 0.9999;
 
   AbsolutePoseRefinementOptions abs_pose_refinement_options;
