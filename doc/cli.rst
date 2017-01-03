@@ -42,7 +42,7 @@ Then, an exemplary sequence of commands to reconstruct the scene would be::
 
     $ ./src/exe/image_undistorter \
         --General.image_path $PROJECT_PATH/images \
-        --input_path $PROJECT_PATH/sparse \
+        --input_path $PROJECT_PATH/sparse/0 \
         --output_path $PROJECT_PATH/dense \
         --output_type COLMAP \
         --max_image_size 2000
@@ -72,6 +72,10 @@ Then, an exemplary sequence of commands to reconstruct the scene would be::
         --input_path $PROJECT_PATH/dense/point-cloud.ply \
         --output_path $PROJECT_PATH/dense/mesh.ply
 
+If you want to run COLMAP on a computer (e.g., cluster or cloud service) without
+an attached display, you should run the ``feature_extractor`` with the option
+``--use_gpu false`` and the ``*_matcher`` with ``--gpu_index 0`` if a CUDA
+device is available or with ``--use_gpu false`` for CPU-based matching.
 
 Help
 ----
