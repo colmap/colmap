@@ -430,6 +430,18 @@ class FeaturePairsFeatureMatcher : public Thread {
   FeatureMatcherCache cache_;
 };
 
+// Match the given SIFT features on the CPU.
+void MatchSiftFeaturesCPU(const SiftMatchOptions& match_options,
+                          const FeatureDescriptors& descriptors1,
+                          const FeatureDescriptors& descriptors2,
+                          FeatureMatches* matches);
+void MatchGuidedSiftFeaturesCPU(const SiftMatchOptions& match_options,
+                                const FeatureKeypoints& keypoints1,
+                                const FeatureKeypoints& keypoints2,
+                                const FeatureDescriptors& descriptors1,
+                                const FeatureDescriptors& descriptors2,
+                                TwoViewGeometry* two_view_geometry);
+
 // Create a SiftGPU feature matcher. Note that if CUDA is not available or the
 // gpu_index is -1, the OpenGLContextManager must be created in the main thread
 // of the Qt application before calling this function. The same SiftMatchGPU
