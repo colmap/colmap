@@ -81,6 +81,7 @@ void FeatureMatchingTab::CreateGeneralOptions() {
   AddSpacer();
 
   AddOptionInt(&options_->match_options->num_threads, "num_threads", -1);
+  AddOptionBool(&options_->match_options->use_gpu, "use_gpu");
   AddOptionInt(&options_->match_options->gpu_index, "gpu_index", -1);
   AddOptionDouble(&options_->match_options->max_ratio, "max_ratio");
   AddOptionDouble(&options_->match_options->max_distance, "max_distance");

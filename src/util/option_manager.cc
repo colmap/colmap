@@ -134,6 +134,7 @@ MatchOptions::MatchOptions() { Reset(); }
 void MatchOptions::Reset() {
   SiftMatchOptions options;
   num_threads = options.num_threads;
+  use_gpu = options.use_gpu;
   gpu_index = options.gpu_index;
   max_ratio = options.max_ratio;
   max_distance = options.max_distance;
@@ -171,6 +172,7 @@ bool MatchOptions::Check() {
 SiftMatchOptions MatchOptions::Options() const {
   SiftMatchOptions options;
   options.num_threads = num_threads;
+  options.use_gpu = use_gpu;
   options.gpu_index = gpu_index;
   options.max_ratio = max_ratio;
   options.max_distance = max_distance;
@@ -845,6 +847,7 @@ void OptionManager::AddMatchOptions() {
   added_match_options_ = true;
 
   ADD_OPTION_DEFAULT(MatchOptions, match_options, num_threads);
+  ADD_OPTION_DEFAULT(MatchOptions, match_options, use_gpu);
   ADD_OPTION_DEFAULT(MatchOptions, match_options, gpu_index);
   ADD_OPTION_DEFAULT(MatchOptions, match_options, max_ratio);
   ADD_OPTION_DEFAULT(MatchOptions, match_options, max_distance);

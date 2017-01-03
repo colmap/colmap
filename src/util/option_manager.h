@@ -62,6 +62,7 @@ struct MatchOptions : public BaseOptions {
   SiftMatchOptions Options() const;
 
   int num_threads;
+  bool use_gpu;
   int gpu_index;
   double max_ratio;
   double max_distance;

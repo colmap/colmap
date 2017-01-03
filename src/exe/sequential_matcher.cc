@@ -47,19 +47,21 @@ int main(int argc, char** argv) {
 
   std::unique_ptr<QApplication> app;
   SiftMatchOptions match_options = options.match_options->Options();
-  if (no_opengl) {
-    if (match_options.gpu_index < 0) {
-      match_options.gpu_index = 0;
+  if (match_options.use_gpu) {
+    if (no_opengl) {
+      if (match_options.gpu_index < 0) {
+        match_options.gpu_index = 0;
+      }
+    } else {
+      app.reset(new QApplication(argc, argv));
     }
-  } else {
-    app.reset(new QApplication(argc, argv));
   }
 
   SequentialFeatureMatcher feature_matcher(
       options.sequential_match_options->Options(), match_options,
       *options.database_path);
 
-  if (no_opengl) {
+  if (!match_options.use_gpu || no_opengl) {
     feature_matcher.Start();
     feature_matcher.Wait();
   } else {
