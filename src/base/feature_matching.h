@@ -52,7 +52,7 @@ struct SiftMatchOptions {
   bool cross_check = true;
 
   // Maximum number of matches.
-  int max_num_matches = 8192;
+  int max_num_matches = 16384;
 
   // Maximum epipolar error in pixels for geometric verification.
   double max_error = 4.0;

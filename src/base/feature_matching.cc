@@ -1606,34 +1606,6 @@ void FeaturePairsFeatureMatcher::Run() {
   GetTimer().PrintMinutes();
 }
 
-bool CreateSiftGPUMatcher(const SiftMatchOptions& match_options,
-                          SiftMatchGPU* sift_match_gpu) {
-  match_options.Check();
-  CHECK_NOTNULL(sift_match_gpu);
-
-  SiftGPU sift_gpu;
-  sift_gpu.SetVerbose(0);
-
-  *sift_match_gpu = SiftMatchGPU(match_options.max_num_matches);
-
-#ifdef CUDA_ENABLED
-  if (match_options.gpu_index >= 0) {
-    sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_CUDA_DEVICE0 +
-                                match_options.gpu_index);
-  } else {
-    sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_GLSL);
-  }
-#else  // CUDA_ENABLED
-    sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_GLSL);
-#endif  // CUDA_ENABLED
-
-  if (sift_match_gpu->VerifyContextGL() == 0) {
-    return false;
-  }
-
-  return true;
-}
-
 void MatchSiftFeaturesCPU(const SiftMatchOptions& match_options,
                           const FeatureDescriptors& descriptors1,
                           const FeatureDescriptors& descriptors2,
@@ -1698,6 +1670,34 @@ void MatchGuidedSiftFeaturesCPU(const SiftMatchOptions& match_options,
   FindBestMatches(dists, match_options.max_ratio, match_options.max_distance,
                   match_options.cross_check,
                   &two_view_geometry->inlier_matches);
+}
+
+bool CreateSiftGPUMatcher(const SiftMatchOptions& match_options,
+                          SiftMatchGPU* sift_match_gpu) {
+  match_options.Check();
+  CHECK_NOTNULL(sift_match_gpu);
+
+  SiftGPU sift_gpu;
+  sift_gpu.SetVerbose(0);
+
+  *sift_match_gpu = SiftMatchGPU(match_options.max_num_matches);
+
+#ifdef CUDA_ENABLED
+  if (match_options.gpu_index >= 0) {
+    sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_CUDA_DEVICE0 +
+                                match_options.gpu_index);
+  } else {
+    sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_GLSL);
+  }
+#else  // CUDA_ENABLED
+    sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_GLSL);
+#endif  // CUDA_ENABLED
+
+  if (sift_match_gpu->VerifyContextGL() == 0) {
+    return false;
+  }
+
+  return true;
 }
 
 void MatchSiftFeaturesGPU(const SiftMatchOptions& match_options,
