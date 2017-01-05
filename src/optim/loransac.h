@@ -170,14 +170,13 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
           }
         }
 
-        if (report.num_trials >= options_.min_num_trials) {
-          dyn_max_num_trials =
-              RANSAC<Estimator, SupportMeasurer, Sampler>::ComputeNumTrials(
-                  best_support.num_inliers, num_samples, options_.confidence);
-        }
+        dyn_max_num_trials =
+            RANSAC<Estimator, SupportMeasurer, Sampler>::ComputeNumTrials(
+                best_support.num_inliers, num_samples, options_.confidence);
       }
 
-      if (report.num_trials >= dyn_max_num_trials) {
+      if (report.num_trials >= dyn_max_num_trials &&
+          report.num_trials >= options_.min_num_trials) {
         abort = true;
         break;
       }
