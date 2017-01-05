@@ -858,18 +858,6 @@ void RigBundleAdjuster::TearDown(Reconstruction* reconstruction,
                      camera_rig.RelativeTvec(image.CameraId()), &image.Qvec(),
                      &image.Tvec());
   }
-
-  for (const auto& camera_rig : camera_rigs) {
-    for (size_t snapshot_idx = 0; snapshot_idx < camera_rig.NumSnapshots();
-         ++snapshot_idx) {
-      const auto& snapshot = camera_rig.Snapshots()[snapshot_idx];
-      for (size_t image_idx = 0; image_idx < snapshot.size(); ++image_idx) {
-        const auto image_id = snapshot[image_idx];
-        if (config_.HasImage(image_id)) {
-        }
-      }
-    }
-  }
 }
 
 void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
