@@ -134,7 +134,7 @@ bool EstimateTriangulation(
       ransac(options.ransac_options);
   ransac.estimator.SetMinTriAngle(options.min_tri_angle);
   ransac.estimator.SetResidualType(options.residual_type);
-  ransac.local_estimator.SetResidualType(options.residual_type);
+  ransac.local_estimator.SetMinTriAngle(options.min_tri_angle);
   ransac.local_estimator.SetResidualType(options.residual_type);
   const auto report = ransac.Estimate(point_data, pose_data);
   if (!report.success) {
