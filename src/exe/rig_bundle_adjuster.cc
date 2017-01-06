@@ -190,7 +190,7 @@ int main(int argc, char** argv) {
 
   PrintHeading1("Rig bundle adjustment");
 
-  RigBundleAdjuster::Options ba_options;
+  RigBundleAdjuster::Options ba_options = options.ba_options->Options();
   ba_options.solver_options.minimizer_progress_to_stdout = true;
   RigBundleAdjuster::RigOptions rig_ba_options;
   RigBundleAdjuster bundle_adjuster(ba_options, rig_ba_options, config);
