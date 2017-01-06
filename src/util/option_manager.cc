@@ -236,7 +236,7 @@ bool SequentialMatchOptions::Check() {
 
   CHECK_OPTION(SequentialMatchOptions, loop_detection_period, > 0);
   CHECK_OPTION(SequentialMatchOptions, loop_detection_num_images, > 0);
-  CHECK_OPTION(SequentialMatchOptions, loop_detection_max_num_features, > 0);
+  CHECK_OPTION(SequentialMatchOptions, loop_detection_max_num_features, >= -1);
 
   return verified;
 }
@@ -266,7 +266,7 @@ bool VocabTreeMatchOptions::Check() {
   bool verified = true;
 
   CHECK_OPTION(VocabTreeMatchOptions, num_images, > 0);
-  CHECK_OPTION(VocabTreeMatchOptions, max_num_features, > 0);
+  CHECK_OPTION(VocabTreeMatchOptions, max_num_features, >= -1);
 
   return verified;
 }

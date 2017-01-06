@@ -62,7 +62,7 @@ void IndexImagesInVisualIndex(const int num_threads, const int max_num_features,
 
     retrieval::VisualIndex::Desc descriptors =
         cache->GetDescriptors(image_ids[i]);
-    if (descriptors.rows() > max_num_features) {
+    if (max_num_features > 0 && descriptors.rows() > max_num_features) {
       const auto keypoints = cache->GetKeypoints(image_ids[i]);
       descriptors =
           ExtractTopScaleDescriptors(keypoints, descriptors, max_num_features);
@@ -124,7 +124,7 @@ void MatchNearestNeighborsInVisualIndex(
     if (image_idx < image_ids.size()) {
       retrieval::VisualIndex::Desc descriptors =
           cache->GetDescriptors(image_ids[image_idx]);
-      if (descriptors.rows() > max_num_features) {
+      if (max_num_features > 0 && descriptors.rows() > max_num_features) {
         const auto keypoints = cache->GetKeypoints(image_ids[image_idx]);
         descriptors = ExtractTopScaleDescriptors(keypoints, descriptors,
                                                  max_num_features);
@@ -1082,7 +1082,6 @@ void SequentialFeatureMatcher::RunLoopDetection(
 
 void VocabTreeFeatureMatcher::Options::Check() const {
   CHECK_GT(num_images, 0);
-  CHECK_GT(max_num_features, 0);
   CHECK(boost::filesystem::exists(vocab_tree_path));
 }
 

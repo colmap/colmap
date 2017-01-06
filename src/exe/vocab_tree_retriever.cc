@@ -57,7 +57,7 @@ void IndexImagesInVisualIndex(const int max_num_features,
 
     retrieval::VisualIndex::Desc descriptors =
         database->ReadDescriptors(images[i].ImageId());
-    if (descriptors.rows() > max_num_features) {
+    if (max_num_features > 0 && descriptors.rows() > max_num_features) {
       const auto keypoints = database->ReadKeypoints(images[i].ImageId());
       descriptors =
           ExtractTopScaleDescriptors(keypoints, descriptors, max_num_features);
@@ -100,7 +100,7 @@ void QueryImagesInVisualIndex(const int max_num_features,
 
     retrieval::VisualIndex::Desc descriptors =
         database->ReadDescriptors(query_images[i].ImageId());
-    if (descriptors.rows() > max_num_features) {
+    if (max_num_features > 0 && descriptors.rows() > max_num_features) {
       const auto keypoints = database->ReadKeypoints(query_images[i].ImageId());
       descriptors =
           ExtractTopScaleDescriptors(keypoints, descriptors, max_num_features);
@@ -127,7 +127,7 @@ int main(int argc, char** argv) {
   std::string database_image_list_path;
   std::string query_image_list_path;
   int num_images = std::numeric_limits<int>::max();
-  int max_num_features = 1000;
+  int max_num_features = -1;
 
   OptionManager options;
   options.AddDatabaseOptions();

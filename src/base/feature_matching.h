@@ -282,7 +282,7 @@ class SequentialFeatureMatcher : public Thread {
 
     // The maximum number of features to use for indexing an image. If an
     // image has more features, only the largest-scale features will be indexed.
-    int loop_detection_max_num_features = 1000;
+    int loop_detection_max_num_features = -1;
 
     // Path to the vocabulary tree.
     std::string vocab_tree_path = "";
@@ -317,7 +317,7 @@ class VocabTreeFeatureMatcher : public Thread {
 
     // The maximum number of features to use for indexing an image. If an
     // image has more features, only the largest-scale features will be indexed.
-    int max_num_features = 1000;
+    int max_num_features = -1;
 
     // Path to the vocabulary tree.
     std::string vocab_tree_path = "";
