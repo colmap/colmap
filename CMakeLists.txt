@@ -27,13 +27,16 @@ endif()
 # Options
 ################################################################################
 
-enable_testing()
-
 option(OPENMP_ENABLED "Whether to enable OpenMP" ON)
 option(LTO_ENABLED "Whether to enable link-time optimization" ON)
 option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(BOOST_STATIC "Whether to enable static boost library linker flags" ON)
+option(WITH_TESTS "Whether to build test binaries" ON)
+
+if(WITH_TESTS)
+    enable_testing()
+endif()
 
 if(BOOST_STATIC)
     set(Boost_USE_STATIC_LIBS ON)
