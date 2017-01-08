@@ -30,11 +30,11 @@ endif()
 option(OPENMP_ENABLED "Whether to enable OpenMP" ON)
 option(LTO_ENABLED "Whether to enable link-time optimization" ON)
 option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
+option(TESTS_ENABLED "Whether to build test binaries" ON)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(BOOST_STATIC "Whether to enable static boost library linker flags" ON)
-option(WITH_TESTS "Whether to build test binaries" ON)
 
-if(WITH_TESTS)
+if(TESTS_ENABLED)
     enable_testing()
 endif()
 

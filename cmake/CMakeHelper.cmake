@@ -221,7 +221,7 @@ endmacro(COLMAP_ADD_UI_EXECUTABLE)
 
 # Wrapper for test executables
 macro(COLMAP_ADD_TEST TARGET_NAME)
-    if(WITH_TESTS)
+    if(TESTS_ENABLED)
         # ${ARGN} will store the list of source files passed to this function.
         add_executable(${TARGET_NAME} ${ARGN})
         target_link_libraries(${TARGET_NAME} ${COLMAP_LIBRARIES})
@@ -233,7 +233,7 @@ endmacro(COLMAP_ADD_TEST)
 
 # Wrapper for CUDA test executables
 macro(COLMAP_CUDA_ADD_TEST TARGET_NAME)
-    if(WITH_TESTS)
+    if(TESTS_ENABLED)
         # ${ARGN} will store the list of source files passed to this function.
         cuda_add_executable(${TARGET_NAME} ${ARGN})
         target_link_libraries(${TARGET_NAME} ${COLMAP_LIBRARIES})
