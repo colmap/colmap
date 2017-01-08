@@ -274,6 +274,17 @@ void FindBestMatches(const Eigen::MatrixXi& dists, const float max_ratio,
   }
 }
 
+void WarnIfMaxNumMatchesReachedGPU(const SiftMatchGPU& sift_match_gpu,
+                                   const FeatureDescriptors& descriptors) {
+  if (sift_match_gpu.GetMaxSift() < descriptors.rows()) {
+    std::cout << StringPrintf(
+                     "WARNING: Clamping features from %d to %d - consider "
+                     "increasing the maximum number of matches.",
+                     descriptors.rows(), sift_match_gpu.GetMaxSift())
+              << std::endl;
+  }
+}
+
 }  // namespace
 
 void SiftMatchOptions::Check() const {
@@ -1710,12 +1721,14 @@ void MatchSiftFeaturesGPU(const SiftMatchOptions& match_options,
 
   if (descriptors1 != nullptr) {
     CHECK_EQ(descriptors1->cols(), 128);
+    WarnIfMaxNumMatchesReachedGPU(*sift_match_gpu, *descriptors1);
     sift_match_gpu->SetDescriptors(0, descriptors1->rows(),
                                    descriptors1->data());
   }
 
   if (descriptors2 != nullptr) {
     CHECK_EQ(descriptors2->cols(), 128);
+    WarnIfMaxNumMatchesReachedGPU(*sift_match_gpu, *descriptors2);
     sift_match_gpu->SetDescriptors(1, descriptors2->rows(),
                                    descriptors2->data());
   }
@@ -1750,6 +1763,7 @@ void MatchGuidedSiftFeaturesGPU(const SiftMatchOptions& match_options,
     CHECK_NOTNULL(keypoints1);
     CHECK_EQ(descriptors1->rows(), keypoints1->size());
     CHECK_EQ(descriptors1->cols(), 128);
+    WarnIfMaxNumMatchesReachedGPU(*sift_match_gpu, *descriptors1);
     const size_t kIndex = 0;
     sift_match_gpu->SetDescriptors(kIndex, descriptors1->rows(),
                                    descriptors1->data());
@@ -1761,6 +1775,7 @@ void MatchGuidedSiftFeaturesGPU(const SiftMatchOptions& match_options,
     CHECK_NOTNULL(keypoints2);
     CHECK_EQ(descriptors2->rows(), keypoints2->size());
     CHECK_EQ(descriptors2->cols(), 128);
+    WarnIfMaxNumMatchesReachedGPU(*sift_match_gpu, *descriptors2);
     const size_t kIndex = 1;
     sift_match_gpu->SetDescriptors(kIndex, descriptors2->rows(),
                                    descriptors2->data());

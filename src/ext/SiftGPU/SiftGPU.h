@@ -306,7 +306,8 @@ public:
 	SIFTGPU_EXPORT virtual void SetDeviceParam(int argc, char**argv);
 
 	//change the maximum of features to match whenever you want
-	SIFTGPU_EXPORT virtual void SetMaxSift(int max_sift);
+  SIFTGPU_EXPORT virtual void SetMaxSift(int max_sift);
+  SIFTGPU_EXPORT virtual int GetMaxSift() const { return __max_sift; };
 	//desctructor
 	SIFTGPU_EXPORT virtual ~SiftMatchGPU();
 
