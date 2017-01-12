@@ -6,7 +6,7 @@ should be submitted in the form of new issues and/or pull requests on GitHub.
 
 Please, adhere to the Google coding style guide::
 
-    http://google-styleguide.googlecode.com/svn/trunk/cppguide.html
+    https://google.github.io/styleguide/cppguide.html
 
 by using the provided ".clang-format" file.
 
