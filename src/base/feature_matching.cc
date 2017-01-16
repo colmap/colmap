@@ -1668,7 +1668,6 @@ void MatchGuidedSiftFeaturesCPU(const SiftMatchOptions& match_options,
       return ((H * p1).hnormalized() - p2).squaredNorm() > max_residual;
     };
   } else {
-    two_view_geometry->inlier_matches.clear();
     return;
   }
 
@@ -1798,7 +1797,6 @@ void MatchGuidedSiftFeaturesGPU(const SiftMatchOptions& match_options,
     H = two_view_geometry->H.cast<float>();
     H_ptr = H.data();
   } else {
-    two_view_geometry->inlier_matches.clear();
     return;
   }
 
