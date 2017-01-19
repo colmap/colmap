@@ -978,7 +978,6 @@ void SequentialFeatureMatcher::Options::Check() const {
   CHECK_GT(overlap, 0);
   CHECK_GT(loop_detection_period, 0);
   CHECK_GT(loop_detection_num_images, 0);
-  CHECK_GT(loop_detection_max_num_features, 0);
   if (loop_detection) {
     CHECK(boost::filesystem::exists(vocab_tree_path));
   }
