@@ -254,7 +254,7 @@ void FindBestMatches(const Eigen::MatrixXi& dists, const float max_ratio,
     matches->reserve(std::min(num_matches12, num_matches21));
     for (size_t i1 = 0; i1 < matches12.size(); ++i1) {
       if (matches12[i1] != -1 && matches21[matches12[i1]] != -1 &&
-          matches21[matches12[i1]] == i1) {
+          matches21[matches12[i1]] == static_cast<int>(i1)) {
         FeatureMatch match;
         match.point2D_idx1 = i1;
         match.point2D_idx2 = matches12[i1];
