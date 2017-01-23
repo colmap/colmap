@@ -1,3 +1,4 @@
 [submodule "doc/_build/html"]
 	path = doc/_build/html
 	url = https://github.com/colmap/colmap.github.io.git
+	ignore = all
