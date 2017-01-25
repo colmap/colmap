@@ -662,8 +662,9 @@ bool DenseMapperOptions::Check() {
   CHECK_OPTION(DenseMapperOptions, patch_match.filter_min_ncc, <= 1);
   CHECK_OPTION(DenseMapperOptions, patch_match.filter_min_triangulation_angle,
                >= 0);
-  CHECK_OPTION(DenseMapperOptions, patch_match.filter_min_num_consistent,
+  CHECK_OPTION(DenseMapperOptions, patch_match.filter_min_triangulation_angle,
                <= 180);
+  CHECK_OPTION(DenseMapperOptions, patch_match.filter_min_num_consistent, >= 0);
   CHECK_OPTION(DenseMapperOptions, patch_match.filter_geom_consistency_max_cost,
                >= 0);
 
