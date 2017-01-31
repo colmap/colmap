@@ -725,11 +725,8 @@ bool CreateSiftGPUExtractor(const SiftOptions& options, SiftGPU* sift_gpu) {
 
   sift_gpu->ParseParam(sift_gpu_args_cstr.size(), sift_gpu_args_cstr.data());
 
-  if (sift_gpu->VerifyContextGL() != SiftGPU::SIFTGPU_FULL_SUPPORTED) {
-    return false;
-  }
+  return sift_gpu->VerifyContextGL() == SiftGPU::SIFTGPU_FULL_SUPPORTED;
 
-  return true;
 }
 
 bool ExtractSiftFeaturesGPU(const SiftOptions& options, const Bitmap& bitmap,
@@ -826,6 +823,8 @@ void LoadSiftFeaturesFromTextFile(const std::string& path,
 
   std::getline(header_line_stream >> std::ws, item, ' ');
   const size_t dim = boost::lexical_cast<size_t>(item);
+
+  CHECK_EQ(dim, 128) << "SIFT features must have 128 dimensions";
 
   keypoints->resize(num_features);
   descriptors->resize(num_features, dim);
