@@ -15,12 +15,8 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "base/reconstruction.h"
-#include "util/logging.h"
 #include "util/misc.h"
-#include "util/alignment.h"
 #include "util/option_manager.h"
-
-#include <sstream>
 
 using namespace colmap;
 
@@ -67,6 +63,11 @@ int main(int argc, char** argv) {
   if (options.ParseHelp(argc, argv)) {
     return EXIT_SUCCESS;
   }
+  
+  if (robust_alignment && ransac_options.max_error <= 0) {
+    std::cout << "ERROR: You must provide a maximum alignment error > 0" << std::endl;
+    return EXIT_FAILURE;
+  }
 
   std::vector<std::string> ref_image_names;
   std::vector<Eigen::Vector3d> ref_locations;
@@ -81,7 +82,7 @@ int main(int argc, char** argv) {
                             ref_image_names.size())
             << std::endl;
 
-  bool alignment_success = false;
+  bool alignment_success;
   if (robust_alignment) {
     alignment_success = reconstruction.AlignRobust(
         ref_image_names, ref_locations, min_common_images, ransac_options);
