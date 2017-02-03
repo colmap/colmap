@@ -4,6 +4,7 @@ LocalConfig.cmake
 # Custom directories
 .idea/
 .DS_Store
+build/
 build-debug/
 build-release/
 build-relwithdeb/
