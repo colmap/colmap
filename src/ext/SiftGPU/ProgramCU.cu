@@ -1710,7 +1710,7 @@ void __global__  RowMatch_Kernel(int*d_dot, int* d_result, int num2, float distm
 	{
 		if(threadIdx.x + i < num2)
 		{
-			int v = tex1Dfetch(texDOT, base_address + threadIdx.x + i);//d_dot[base_address + threadIdx.x + i];//
+			int v = d_dot[base_address + threadIdx.x + i]; // tex1Dfetch(texDOT, base_address + threadIdx.x + i);
 			bool test = v > t_dotmax;
 			t_dotnxt = test? t_dotmax : max(t_dotnxt, v);
 			t_dotidx = test? (threadIdx.x + i) : t_dotidx;
@@ -1753,7 +1753,7 @@ void ProgramCU::GetRowMatch(CuTexImage* texDot, CuTexImage* texMatch, float dist
 	int num2 = texDot->GetImgWidth();
 	dim3 grid(1, num1/ROWMATCH_BLOCK_HEIGHT);
 	dim3 block(ROWMATCH_BLOCK_WIDTH, ROWMATCH_BLOCK_HEIGHT);
-	texDot->BindTexture(texDOT);
+	// texDot->BindTexture(texDOT);
 	RowMatch_Kernel<<<grid, block>>>((int*)texDot->_cuData,
 		(int*)texMatch->_cuData, num2, distmax, ratiomax);
 }
