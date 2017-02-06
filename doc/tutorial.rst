@@ -383,9 +383,10 @@ disable the ``filter`` option. After processing all images (before fusion and
 meshing), you must re-run stereo processing and enable both the ``filter`` and
 ``geom_consistency`` options. Finally, perform the fusion and meshing steps.
 
-In addition to the internal dense reconstruction functionality, COLMAP exports
-to several other dense reconstruction libraries, such as CMVS/PMVS [furukawa10]_
-or CMP-MVS [jancosek11]_. Please choose ``Extras > Undistort images`` and select
+Note that COLMAP requires a CUDA-enabled GPU, so in addition to the internal
+dense reconstruction functionality, COLMAP exports to several other dense
+reconstruction libraries, such as CMVS/PMVS [furukawa10]_ or
+CMP-MVS [jancosek11]_. Please choose ``Extras > Undistort images`` and select
 the appropriate format. To run PMVS2, execute the following commands::
 
     ./path/to/pmvs2 /path/to/undistortion/folder/pmvs/ option-all
