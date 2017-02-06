@@ -1065,7 +1065,7 @@ bool Reconstruction::ExportNVM(const std::string& path) const {
     const double f =
         camera.Params(SimpleRadialCameraModel::focal_length_idxs[0]);
     const double k =
-        camera.Params(SimpleRadialCameraModel::extra_params_idxs[0]);
+        camera.Params(SimpleRadialCameraModel::extra_params_idxs[0]) * f * f;
     const Eigen::Vector3d proj_center = image.ProjectionCenter();
 
     file << image.Name() << " ";
