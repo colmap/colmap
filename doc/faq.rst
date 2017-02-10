@@ -121,6 +121,9 @@ CMVS [furukawa10]_. Otherwise, the fusion procedure might run out of memory, as
 the implementation requires all depth and normal maps to be loaded at the same
 time. Note that, for this use case, COLMAP's dense reconstruction pipeline also
 supports the PMVS/CMVS folder structure when executed from the command-line.
+Please, refer to the workspace folder for example shell scripts. To reduce the
+number of images using CMVS, you must modify the shell scripts accordingly. For
+example, ``cmvs pmvs/ 30`` to limit each cluster to 30 images.
 
 
 .. _faq-dense-timeout:

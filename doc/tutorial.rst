@@ -385,9 +385,11 @@ meshing), you must re-run stereo processing and enable both the ``filter`` and
 
 Note that COLMAP requires a CUDA-enabled GPU, so in addition to the internal
 dense reconstruction functionality, COLMAP exports to several other dense
-reconstruction libraries, such as CMVS/PMVS [furukawa10]_ or
-CMP-MVS [jancosek11]_. Please choose ``Extras > Undistort images`` and select
-the appropriate format. To run PMVS2, execute the following commands::
+reconstruction libraries, such as CMVS/PMVS [furukawa10]_ or CMP-MVS
+[jancosek11]_. Please choose ``Extras > Undistort images`` and select the
+appropriate format. The output folders contain the reconstruction and the
+undistorted images. In addition, the folders contain sample shell scripts to
+perform the dense reconstruction. To run PMVS2, execute the following commands::
 
     ./path/to/pmvs2 /path/to/undistortion/folder/pmvs/ option-all
 
@@ -396,14 +398,9 @@ dialog. Make sure not to forget the trailing slash in
 `/path/to/undistortion/folder/pmvs/` in the above command-line arguments.
 
 For large datasets, you probably want to first run CMVS to cluster the scene
-into more manageable parts and then run PMVS2::
-
-    cd ./path/to/cmvs-pmvs-binaries
-    ./cmvs /path/to/undistortion/folder/pmvs/
-    ./genOption /path/to/undistortion/folder/pmvs/
-    sh /path/to/undistortion/folder/pmvs/pmvs.sh
-
-There is a number of external software packages that support COLMAP's output:
+into more manageable parts and then run COLMAP or PMVS2. Please, refer to the
+sample shell scripts on how to run CMVS in combination with COLMAP or PMVS2.
+Moreover, there are a number of external libraries that support COLMAP's output:
 
 - `CMVS/PMVS <http://www.di.ens.fr/pmvs/>`_ [furukawa10]_
 - `CMP-MVS <http://ptak.felk.cvut.cz/sfmservice/websfm.pl>`_ [jancosek11]_
