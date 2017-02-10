@@ -6,6 +6,7 @@ if(NOT IS_MSVC)
     string(REPLACE "-std=c++11" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
+add_subdirectory(CMVS-PMVS)
 add_subdirectory(FLANN)
 add_subdirectory(PBA)
 add_subdirectory(PoissonRecon)
