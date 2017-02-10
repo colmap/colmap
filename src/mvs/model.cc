@@ -102,6 +102,11 @@ void Model::ReadFromPMVS(const std::string& path) {
     file >> K[0];
     K[4] = K[0];
 
+    Bitmap bitmap;
+    CHECK(bitmap.Read(image_path));
+    K[2] = bitmap.Width() / 2.0f;
+    K[5] = bitmap.Height() / 2.0f;
+
     float k1, k2;
     file >> k1 >> k2;
     CHECK_EQ(k1, 0.0f);

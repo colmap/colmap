@@ -24,11 +24,14 @@ int main(int argc, char* argv[]) {
 
   std::string workspace_path;
   std::string workspace_format;
+  std::string pmvs_option_name = "option-all";
 
   OptionManager options;
   options.AddDenseMapperOptions();
   options.AddRequiredOption("workspace_path", &workspace_path);
   options.AddRequiredOption("workspace_format", &workspace_format);
+  options.AddDefaultOption("pmvs_option_name", pmvs_option_name,
+                           &pmvs_option_name);
 
   if (!options.Parse(argc, argv)) {
     return EXIT_FAILURE;
@@ -47,7 +50,8 @@ int main(int argc, char* argv[]) {
 
   mvs::PatchMatchController controller(
       options.dense_mapper_options->patch_match, workspace_path,
-      workspace_format, options.dense_mapper_options->max_image_size);
+      workspace_format, pmvs_option_name,
+      options.dense_mapper_options->max_image_size);
 
   controller.Start();
   controller.Wait();

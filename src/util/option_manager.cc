@@ -1175,7 +1175,7 @@ bool OptionManager::Parse(const int argc, char** argv) {
       vmap.notify();
     }
   } catch (std::exception& e) {
-    std::cout << "ERROR: Failed to parse options " << e.what() << "."
+    std::cout << "ERROR: Failed to parse options: " << e.what() << "."
               << std::endl;
     return false;
   } catch (...) {

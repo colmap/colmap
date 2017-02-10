@@ -27,14 +27,64 @@ namespace colmap {
 namespace mvs {
 namespace {
 
+void ImportPMVSOption(const Model& model, const std::string& path,
+                      const std::string& option_name) {
+  CreateDirIfNotExists(JoinPaths(path, "stereo"));
+  CreateDirIfNotExists(JoinPaths(path, "stereo/depth_maps"));
+  CreateDirIfNotExists(JoinPaths(path, "stereo/normal_maps"));
+  CreateDirIfNotExists(JoinPaths(path, "stereo/consistency_graphs"));
+
+  const auto option_lines = ReadTextFileLines(JoinPaths(path, option_name));
+  for (const auto& line : option_lines) {
+    if (StringStartsWith(line, "timages")) {
+      const auto elems = StringSplit(line, " ");
+      const int num_images = std::stoi(elems[1]);
+      CHECK_EQ(num_images + 2, elems.size());
+      std::vector<std::string> image_names;
+      image_names.reserve(num_images);
+      for (size_t i = 2; i < elems.size(); ++i) {
+        const int image_id = std::stoi(elems[i]);
+        const std::string image_name = model.GetImageName(image_id);
+        image_names.push_back(image_name);
+      }
+
+      std::ofstream patch_match_file(JoinPaths(path, "stereo/patch-match.cfg"),
+                                     std::ios::trunc);
+      std::ofstream fusion_file(JoinPaths(path, "stereo/fusion.cfg"),
+                                std::ios::trunc);
+      CHECK(patch_match_file.is_open());
+      CHECK(fusion_file.is_open());
+      for (const auto ref_image_name : image_names) {
+        patch_match_file << ref_image_name << std::endl;
+        fusion_file << ref_image_name << std::endl;
+        std::ostringstream line;
+        for (const auto& image_name : image_names) {
+          if (ref_image_name != image_name) {
+            line << image_name << ",";
+          }
+        }
+        const auto line_string = line.str();
+        patch_match_file << line_string.substr(0, line_string.size() - 1)
+                         << std::endl;
+      }
+    }
+  }
+}
+
 // Read patch match problems from workspace.
 void ReadPatchMatchProblems(const PatchMatch::Options& options,
                             const std::string& workspace_path,
                             const std::string& workspace_format,
+                            const std::string& pmvs_option_name,
                             const int max_image_size, Model* model,
                             std::vector<PatchMatch::Problem>* problems) {
   std::cout << "Reading model..." << std::endl;
   model->Read(workspace_path, workspace_format);
+
+  if (workspace_format == "PMVS") {
+    std::cout << "Importing PMVS options..." << std::endl;
+    ImportPMVSOption(*model, workspace_path, pmvs_option_name);
+  }
 
   std::cout << "Reading configuration..." << std::endl;
 
@@ -312,17 +362,19 @@ std::vector<int> PatchMatch::GetConsistentImageIds() const {
 PatchMatchController::PatchMatchController(const PatchMatch::Options& options,
                                            const std::string& workspace_path,
                                            const std::string& workspace_format,
+                                           const std::string& pmvs_option_name,
                                            const int max_image_size)
     : options_(options),
       workspace_path_(workspace_path),
       workspace_format_(workspace_format),
+      pmvs_option_name_(pmvs_option_name),
       max_image_size_(max_image_size) {}
 
 void PatchMatchController::Run() {
   Model model;
   std::vector<PatchMatch::Problem> problems;
   ReadPatchMatchProblems(options_, workspace_path_, workspace_format_,
-                         max_image_size_, &model, &problems);
+                         pmvs_option_name_, max_image_size_, &model, &problems);
 
   const auto depth_ranges = model.ComputeDepthRanges();
 

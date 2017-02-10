@@ -195,6 +195,7 @@ class PatchMatchController : public Thread {
   PatchMatchController(const PatchMatch::Options& options,
                        const std::string& workspace_path,
                        const std::string& workspace_format,
+                       const std::string& pmvs_option_name,
                        const int max_image_size);
 
  private:
@@ -203,6 +204,7 @@ class PatchMatchController : public Thread {
   const PatchMatch::Options options_;
   const std::string workspace_path_;
   const std::string workspace_format_;
+  const std::string pmvs_option_name_;
   const int max_image_size_;
 };
 

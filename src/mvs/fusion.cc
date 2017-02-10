@@ -103,6 +103,10 @@ void StereoFusion::Run() {
       break;
     }
 
+    if (!used_image_mask_[image_id]) {
+      continue;
+    }
+
     Timer timer;
     timer.Start();
 
