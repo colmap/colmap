@@ -290,7 +290,7 @@ void MultiViewStereoWidget::Stereo() {
 
 #ifdef CUDA_ENABLED
   mvs::PatchMatchController* processor = new mvs::PatchMatchController(
-      options_->dense_mapper_options->patch_match, workspace_path, "COLMAP",
+      options_->dense_mapper_options->patch_match, workspace_path, "COLMAP", "",
       options_->dense_mapper_options->max_image_size);
   processor->AddCallback(Thread::FINISHED_CALLBACK,
                          [this]() { refresh_workspace_action_->trigger(); });
