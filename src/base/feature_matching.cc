@@ -1269,9 +1269,8 @@ void SpatialFeatureMatcher::Run() {
   flann::Matrix<float> locations(location_matrix.data(), num_locations,
                                  location_matrix.cols());
 
-  flann::AutotunedIndexParams index_params;
-  index_params["target_precision"] = 0.99f;
-  flann::AutotunedIndex<flann::L2<float>> search_index(index_params);
+  flann::LinearIndexParams index_params;
+  flann::LinearIndex<flann::L2<float>> search_index(index_params);
   search_index.buildIndex(locations);
 
   PrintElapsedTime(timer);
