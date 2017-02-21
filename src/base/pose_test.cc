@@ -196,6 +196,32 @@ BOOST_AUTO_TEST_CASE(TestAverageQuaternions) {
                   .isApprox(Eigen::Vector4d(0.850651, 0.525731, 0, 0), 1e-6));
 }
 
+BOOST_AUTO_TEST_CASE(TestRotationFromUnitVectors) {
+  BOOST_CHECK_EQUAL(RotationFromUnitVectors(Eigen::Vector3d(0, 0, 1),
+                                            Eigen::Vector3d(0, 0, 1)),
+                    Eigen::Matrix3d::Identity());
+  BOOST_CHECK_EQUAL(RotationFromUnitVectors(Eigen::Vector3d(0, 0, 2),
+                                            Eigen::Vector3d(0, 0, 2)),
+                    Eigen::Matrix3d::Identity());
+
+  Eigen::Matrix3d ref_matrix1;
+  ref_matrix1 << 1, 0, 0, 0, 0, 1, 0, -1, 0;
+  BOOST_CHECK_EQUAL(RotationFromUnitVectors(Eigen::Vector3d(0, 0, 1),
+                                            Eigen::Vector3d(0, 1, 0)),
+                    ref_matrix1);
+  BOOST_CHECK_EQUAL(ref_matrix1 * Eigen::Vector3d(0, 0, 1),
+                    Eigen::Vector3d(0, 1, 0));
+  BOOST_CHECK_EQUAL(RotationFromUnitVectors(Eigen::Vector3d(0, 0, 2),
+                                            Eigen::Vector3d(0, 2, 0)),
+                    ref_matrix1);
+  BOOST_CHECK_EQUAL(ref_matrix1 * Eigen::Vector3d(0, 0, 2),
+                    Eigen::Vector3d(0, 2, 0));
+
+  BOOST_CHECK_EQUAL(RotationFromUnitVectors(Eigen::Vector3d(0, 0, 1),
+                                            Eigen::Vector3d(0, 0, -1)),
+                    Eigen::Matrix3d::Identity());
+}
+
 BOOST_AUTO_TEST_CASE(TestPoseFromProjectionMatrix) {
   const Eigen::Vector4d qvec = Eigen::Vector4d::Random().normalized();
   const Eigen::Vector3d tvec(3, 4, 5);

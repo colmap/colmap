@@ -112,6 +112,12 @@ Eigen::Vector3d QuaternionRotatePoint(const Eigen::Vector4d& qvec,
 Eigen::Vector4d AverageQuaternions(const std::vector<Eigen::Vector4d>& qvecs,
                                    const std::vector<double>& weights);
 
+// Compose rotation matrix that rotates unit vector 1 to unit vector 2.
+// Note that when vector 1 points into the opposite direction of vector 2,
+// the function returns an identity rotation.
+Eigen::Matrix3d RotationFromUnitVectors(const Eigen::Vector3d& vec1,
+                                        const Eigen::Vector3d& vec2);
+
 // Extract camera projection center from projection matrix, i.e. the projection
 // center in world coordinates `-R^T t`.
 //

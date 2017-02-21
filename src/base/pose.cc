@@ -133,6 +133,20 @@ Eigen::Vector4d AverageQuaternions(const std::vector<Eigen::Vector4d>& qvecs,
   return eigenvectors.col(3);
 }
 
+Eigen::Matrix3d RotationFromUnitVectors(const Eigen::Vector3d& vector1,
+                                        const Eigen::Vector3d& vector2) {
+  const Eigen::Vector3d v1 = vector1.normalized();
+  const Eigen::Vector3d v2 = vector2.normalized();
+  const Eigen::Vector3d v = v1.cross(v2);
+  const Eigen::Matrix3d v_x = CrossProductMatrix(v);
+  const double c = v1.dot(v2);
+  if (c == -1) {
+    return Eigen::Matrix3d::Identity();
+  } else {
+    return Eigen::Matrix3d::Identity() + v_x + 1 / (1 + c) * (v_x * v_x);
+  }
+}
+
 Eigen::Vector3d ProjectionCenterFromMatrix(
     const Eigen::Matrix3x4d& proj_matrix) {
   return -proj_matrix.leftCols<3>().transpose() * proj_matrix.rightCols<1>();
