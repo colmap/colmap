@@ -84,12 +84,7 @@ void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
 
 Eigen::Matrix3d EssentialMatrixFromPose(const Eigen::Matrix3d& R,
                                         const Eigen::Vector3d& t) {
-  const Eigen::Vector3d t_normed = t.normalized();
-  // Matrix representation of the cross product for t.
-  Eigen::Matrix3d t_normed_x;
-  t_normed_x << 0, -t_normed(2), t_normed(1), t_normed(2), 0, -t_normed(0),
-      -t_normed(1), t_normed(0), 0;
-  return t_normed_x * R;
+  return CrossProductMatrix(t.normalized()) * R;
 }
 
 Eigen::Matrix3d EssentialMatrixFromAbsolutePoses(

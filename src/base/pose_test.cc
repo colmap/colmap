@@ -25,6 +25,14 @@
 
 using namespace colmap;
 
+BOOST_AUTO_TEST_CASE(TestCrossProductMatrix) {
+  BOOST_CHECK_EQUAL(CrossProductMatrix(Eigen::Vector3d(0, 0, 0)),
+                    Eigen::Matrix3d::Zero());
+  Eigen::Matrix3d ref_matrix;
+  ref_matrix << 0, -3, 2, 3, 0, -1, -2, 1, 0;
+  BOOST_CHECK_EQUAL(CrossProductMatrix(Eigen::Vector3d(1, 2, 3)), ref_matrix);
+}
+
 BOOST_AUTO_TEST_CASE(TestEulerAnglesX) {
   const double rx = 0.3;
   const double ry = 0;

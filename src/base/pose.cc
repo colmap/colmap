@@ -26,6 +26,13 @@
 
 namespace colmap {
 
+Eigen::Matrix3d CrossProductMatrix(const Eigen::Vector3d& vector) {
+  Eigen::Matrix3d matrix;
+  matrix << 0, -vector(2), vector(1), vector(2), 0, -vector(0), -vector(1),
+      vector(0), 0;
+  return matrix;
+}
+
 void RotationMatrixToEulerAngles(const Eigen::Matrix3d& R, double* rx,
                                  double* ry, double* rz) {
   *rx = std::atan2(-R(1, 2), R(2, 2));
