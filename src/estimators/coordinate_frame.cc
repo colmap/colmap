@@ -254,12 +254,10 @@ Eigen::Matrix3d EstimateCoordinateFrame(
 
   if (rightward_axes.size() > 0 && downward_axes.size() > 0) {
     frame.col(2) = frame.col(0).cross(frame.col(1));
-    Eigen::Matrix3d orthonormal_frame = frame.householderQr().householderQ();
-    for (size_t i = 0; i < 3; ++i) {
-      if (orthonormal_frame.col(i).dot(frame.col(i)) < 0) {
-        orthonormal_frame.col(i) = -orthonormal_frame.col(i);
-      }
-    }
+    Eigen::JacobiSVD<Eigen::Matrix3d> svd(
+        frame, Eigen::ComputeFullV | Eigen::ComputeFullU);
+    const Eigen::Matrix3d orthonormal_frame =
+        svd.matrixU() * Eigen::Matrix3d::Identity() * svd.matrixV().transpose();
     frame = orthonormal_frame;
   }
 
