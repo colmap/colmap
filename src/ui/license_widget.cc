@@ -30,6 +30,8 @@ LicenseWidget::LicenseWidget(QWidget* parent) : QTextEdit(parent) {
   licenses += "<h2>External</h2>";
   licenses += "<h3>FLANN</h3>";
   licenses += GetFLANNLicense();
+  licenses += "<h3>LSD</h3>";
+  licenses += GetLSDLicense();
   licenses += "<h3>PBA</h3>";
   licenses += GetPBALicense();
   licenses += "<h3>PoissonRecon</h3>";
@@ -95,6 +97,35 @@ QString LicenseWidget::GetFLANNLicense() const {
       "WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE<br>"
       "OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,<br>"
       "EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
+  return license;
+}
+
+QString LicenseWidget::GetLSDLicense() const {
+  const QString license =
+      "LSD - Line Segment Detector on digital images"
+      "<br>"
+      "This code is part of the following publication and was subject"
+      "to peer review:"
+      "<br>"
+      "  \"LSD: a Line Segment Detector\" by Rafael Grompone von Gioi,"
+      "  Jeremie Jakubowicz, Jean-Michel Morel, and Gregory Randall,"
+      "  Image Processing On Line, 2012. DOI:10.5201/ipol.2012.gjmr-lsd"
+      "  http://dx.doi.org/10.5201/ipol.2012.gjmr-lsd"
+      "<br>"
+      "Copyright (c) 2007-2011 rafael grompone von gioi <grompone@gmail.com>"
+      "<br>"
+      "This program is free software: you can redistribute it and/or modify"
+      "it under the terms of the GNU Affero General Public License as"
+      "published by the Free Software Foundation, either version 3 of the"
+      "License, or (at your option) any later version."
+      "<br>"
+      "This program is distributed in the hope that it will be useful,"
+      "but WITHOUT ANY WARRANTY; without even the implied warranty of"
+      "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the"
+      "GNU Affero General Public License for more details."
+      "<br>"
+      "You should have received a copy of the GNU Affero General Public License"
+      "along with this program. If not, see <http://www.gnu.org/licenses/>.";
   return license;
 }
 
