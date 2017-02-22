@@ -34,6 +34,8 @@ COLMAP_ADD_EXECUTABLE(model_converter model_converter.cc)
 
 COLMAP_ADD_EXECUTABLE(model_merger model_merger.cc)
 
+COLMAP_ADD_EXECUTABLE(model_orientation_aligner model_orientation_aligner.cc)
+
 COLMAP_ADD_EXECUTABLE(rig_bundle_adjuster rig_bundle_adjuster.cc)
 
 COLMAP_ADD_EXECUTABLE(sequential_matcher sequential_matcher)

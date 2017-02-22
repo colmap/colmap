@@ -17,6 +17,7 @@ COLMAP_ADD_LIBRARY(estimators
     utils.h utils.cc
 )
 
+COLMAP_ADD_TEST(coordinate_frame_test coordinate_frame_test.cc)
 COLMAP_ADD_TEST(epnp_test epnp_test.cc)
 COLMAP_ADD_TEST(essential_matrix_test essential_matrix_test.cc)
 COLMAP_ADD_TEST(fundamental_matrix_test fundamental_matrix_test.cc)

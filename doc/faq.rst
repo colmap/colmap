@@ -104,6 +104,16 @@ transformation. Then, the model can be geo-registered using::
         --ref_images_path /path/to/text-file
 
 
+Manhattan world alignment
+-------------------------
+
+COLMAP has functionality to align the coordinate axes of a reconstruction using
+a Manhattan world assumption, i.e. COLMAP can automatically determine the
+gravity axis and the major horizontal axis of the Manhattan world through
+vanishing point detection in the images. Please, refer to the
+``model_orientation_aligner`` for more details.
+
+
 .. _faq-dense-memory:
 
 Reduce memory usage during dense reconstruction

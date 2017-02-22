@@ -160,6 +160,9 @@ Executables
 - ``model_aligner``: Align/geo-register model to coordinate system of given
   camera centers.
 
+- ``model_orientation_aligner``: Align the coordinate axis of a model using a
+  Manhattan world assumption.
+
 - ``model_converter``: Convert the COLMAP export format to another format,
   such as PLY or NVM.
 
