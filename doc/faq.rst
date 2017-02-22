@@ -120,10 +120,9 @@ Reduce memory usage during dense reconstruction
 -----------------------------------------------
 
 You can either reduce the maximum image resolution by setting the option
-``max_image_size`` or reduce the number of sources images in the
-``stereo/patch-match.cfg`` file from e.g. ``__auto__ 30`` to ``__auto__ 10``
-file. Note that enabling the ``geom_consistency`` option increases the required
-GPU memory.
+``max_image_size`` or reduce the number of source images in the ``stereo/patch-
+match.cfg`` file from e.g. ``__auto__ 30`` to ``__auto__ 10``. Note that
+enabling the ``geom_consistency`` option increases the required GPU memory.
 
 For large-scale reconstructions of several thousands of images, you should split
 your sparse reconstruction into more manageable clusters of images using e.g.
@@ -134,6 +133,25 @@ supports the PMVS/CMVS folder structure when executed from the command-line.
 Please, refer to the workspace folder for example shell scripts. To reduce the
 number of images using CMVS, you must modify the shell scripts accordingly. For
 example, ``cmvs pmvs/ 30`` to limit each cluster to 30 images.
+
+
+Manual specification of source images during dense reconstruction
+-----------------------------------------------------------------
+
+You can change the number of source images in the ``stereo/patch-match.cfg``
+file from e.g. ``__auto__ 30`` to ``__auto__ 10``. This selects the images
+with the most visual overlap automatically as source images. Alternatively, you
+can manually specify images with their name, for example::
+
+    image1.jpg
+    image2.jpg image3.jpg
+    image2.jpg
+    image1.jpg image3.jpg
+    image3.jpg
+    image1.jpg image2.jpg
+
+Here, ``image2.jpg`` and ``image3.jpg`` are used as source images for
+``image1.jpg``, etc.
 
 
 .. _faq-dense-timeout:
