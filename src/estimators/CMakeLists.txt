@@ -1,6 +1,7 @@
 set(FOLDER_NAME "estimators")
 
 COLMAP_ADD_LIBRARY(estimators
+    coordinate_frame.h coordinate_frame.cc
     epnp.h epnp.cc
     essential_matrix.h essential_matrix.cc
     euclidean_transform.h

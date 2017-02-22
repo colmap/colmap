@@ -14,6 +14,7 @@ COLMAP_ADD_LIBRARY(base
     gps.h gps.cc
     homography_matrix.h homography_matrix.cc
     image.h image.cc
+    line.h line.cc
     point2d.h point2d.cc
     point3d.h point3d.cc
     polynomial.h polynomial.cc
@@ -43,6 +44,7 @@ COLMAP_ADD_TEST(feature_extraction_test feature_extraction_test.cc)
 COLMAP_ADD_TEST(feature_matching_test feature_matching_test.cc)
 COLMAP_ADD_TEST(homography_matrix_utils_test homography_matrix_test.cc)
 COLMAP_ADD_TEST(image_test image_test.cc)
+COLMAP_ADD_TEST(line_test line_test.cc)
 COLMAP_ADD_TEST(point2d_test point2d_test.cc)
 COLMAP_ADD_TEST(point3d_test point3d_test.cc)
 COLMAP_ADD_TEST(polynomial_test polynomial_test.cc)
