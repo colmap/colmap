@@ -64,9 +64,13 @@ int main(int argc, char* argv[]) {
     std::cout << "Aligning horizontal and vertical axes" << std::endl;
   }
 
+  std::cout << "using the rotation matrix:" << std::endl;
+  std::cout << tform << std::endl;
+
   reconstruction.Transform(1, RotationMatrixToQuaternion(tform),
                            Eigen::Vector3d(0, 0, 0));
 
+  std::cout << "Writing aligned reconstruction..." << std::endl;
   reconstruction.Write(output_path);
 
   return EXIT_SUCCESS;

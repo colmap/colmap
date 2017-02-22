@@ -46,9 +46,8 @@ struct VanishingPointEstimator {
     return {lines[0].cross(lines[1])};
   }
 
-  // Calculate the squared distance of each line segment to the vanishing point,
-  // normalized by the the squared distance from the midpoint of the line
-  // segment to the vanishing point.
+  // Calculate the squared distance of each line segment's end point to the line
+  // connecting the vanishing point and the midpoint of the line segment.
   static void Residuals(const std::vector<X_t>& line_segments,
                         const std::vector<Y_t>& lines,
                         const M_t& vanishing_point,
@@ -58,7 +57,7 @@ struct VanishingPointEstimator {
     // Check if vanishing point is at infinity.
     if (vanishing_point[2] == 0) {
       std::fill(residuals->begin(), residuals->end(),
-                std::numeric_limits<double>::infinity());
+                std::numeric_limits<double>::max());
       return;
     }
 
