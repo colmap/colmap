@@ -62,10 +62,9 @@ struct VanishingPointEstimator {
     }
 
     for (size_t i = 0; i < lines.size(); ++i) {
-      const Eigen::Vector2d midpoint =
-          0.5 * (line_segments[i].start + line_segments[i].end);
-      const Eigen::Vector3d connecting_line =
-          midpoint.homogeneous().cross(vanishing_point);
+      const Eigen::Vector3d midpoint =
+          (0.5 * (line_segments[i].start + line_segments[i].end)).homogeneous();
+      const Eigen::Vector3d connecting_line = midpoint.cross(vanishing_point);
       const double signed_distance =
           connecting_line.dot(line_segments[i].end.homogeneous()) /
           connecting_line.head<2>().norm();
@@ -164,8 +163,10 @@ Eigen::Matrix3d EstimateCoordinateFrame(
     std::vector<Eigen::Vector3d> vertical_lines;
     for (size_t i = 0; i < line_segments.size(); ++i) {
       const auto line_segment = line_segments[i];
-      const Eigen::Vector3d line = line_segment.start.homogeneous().cross(
-          line_segment.end.homogeneous());
+      const Eigen::Vector3d line_segment_start =
+          line_segment.start.homogeneous();
+      const Eigen::Vector3d line_segment_end = line_segment.end.homogeneous();
+      const Eigen::Vector3d line = line_segment_start.cross(line_segment_end);
       if (line_orientations[i] == LineSegmentOrientation::HORIZONTAL) {
         horizontal_line_segments.push_back(line_segment);
         horizontal_lines.push_back(line);
