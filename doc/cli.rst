@@ -73,9 +73,11 @@ Then, an exemplary sequence of commands to reconstruct the scene would be::
         --output_path $PROJECT_PATH/dense/mesh.ply
 
 If you want to run COLMAP on a computer (e.g., cluster or cloud service) without
-an attached display, you should run the ``feature_extractor`` with the option
-``--use_gpu false`` and the ``*_matcher`` with ``--gpu_index 0`` if a CUDA
-device is available or with ``--use_gpu false`` for CPU-based matching.
+an attached display, you should run the ``feature_extractor`` and set the
+``--ExtractionOptions.gpu_index 0`` explicitly if a CUDA device is available or
+with the option ``--use_gpu false``. Then, you should run the ``*_matcher`` with
+``--gpu_index 0`` if a CUDA device is available or with ``--use_gpu false`` for
+CPU-based feature matching.
 
 Help
 ----
