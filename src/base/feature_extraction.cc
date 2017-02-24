@@ -366,9 +366,7 @@ void SiftCPUFeatureExtractor::Run() {
   GetTimer().PrintMinutes();
 }
 
-void SiftGPUFeatureExtractor::Options::Check() const {
-  CHECK_GE(index, -1);
-}
+void SiftGPUFeatureExtractor::Options::Check() const { CHECK_GE(index, -1); }
 
 SiftGPUFeatureExtractor::SiftGPUFeatureExtractor(
     const ImageReader::Options& reader_options, const SiftOptions& sift_options,
@@ -696,6 +694,11 @@ bool CreateSiftGPUExtractor(const SiftOptions& options, const int gpu_index,
   // Darkness adaptivity (hidden feature). Significantly improves
   // distribution of features. Only available in GLSL version.
   if (options.darkness_adaptivity) {
+    if (gpu_index >= 0) {
+      std::cout << "WARNING: Darkness adaptivity only available for GLSL "
+                   "but CUDA version selected."
+                << std::endl;
+    }
     sift_gpu_args.push_back("-da");
   }
 

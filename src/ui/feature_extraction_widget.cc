@@ -86,6 +86,10 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
   AddOptionInt(&sift_options.max_num_orientations, "max_num_orientations");
   AddOptionBool(&sift_options.upright, "upright");
 
+  SiftGPUFeatureExtractor::Options& gpu_options =
+      options->extraction_options->gpu;
+  AddOptionInt(&gpu_options.index, "gpu_index", -1);
+
   SiftCPUFeatureExtractor::Options& cpu_options =
       options->extraction_options->cpu;
   AddOptionInt(&cpu_options.num_threads, "cpu_num_threads", -1);
@@ -102,7 +106,8 @@ void SIFTExtractionWidget::Run() {
   Thread* extractor = nullptr;
   if (sift_gpu_->isChecked()) {
     extractor = new SiftGPUFeatureExtractor(reader_options,
-                                            options_->extraction_options->sift);
+                                            options_->extraction_options->sift,
+                                            options_->extraction_options->gpu);
   } else {
     extractor = new SiftCPUFeatureExtractor(reader_options,
                                             options_->extraction_options->sift,
