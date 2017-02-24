@@ -366,19 +366,35 @@ void SiftCPUFeatureExtractor::Run() {
   GetTimer().PrintMinutes();
 }
 
+void SiftGPUFeatureExtractor::Options::Check() const {
+  CHECK_GE(index, -1);
+}
+
 SiftGPUFeatureExtractor::SiftGPUFeatureExtractor(
-    const ImageReader::Options& reader_options, const SiftOptions& sift_options)
-    : reader_options_(reader_options), sift_options_(sift_options) {
+    const ImageReader::Options& reader_options, const SiftOptions& sift_options,
+    const Options& gpu_options)
+    : reader_options_(reader_options),
+      sift_options_(sift_options),
+      gpu_options_(gpu_options) {
   sift_options_.Check();
+  gpu_options_.Check();
+
+  // Create an OpenGL context.
+  if (gpu_options_.index < 0) {
+    opengl_context_.reset(new OpenGLContextManager());
+  }
 }
 
 void SiftGPUFeatureExtractor::Run() {
   PrintHeading1("Feature extraction (GPU)");
 
-  opengl_context_.MakeCurrent();
+  if (gpu_options_.index < 0) {
+    CHECK(opengl_context_);
+    opengl_context_->MakeCurrent();
+  }
 
   SiftGPU sift_gpu;
-  if (!CreateSiftGPUExtractor(sift_options_, &sift_gpu)) {
+  if (!CreateSiftGPUExtractor(sift_options_, gpu_options_.index, &sift_gpu)) {
     std::cerr << "ERROR: SiftGPU not fully supported." << std::endl;
     return;
   }
@@ -432,8 +448,7 @@ void SiftGPUFeatureExtractor::Run() {
 
 FeatureImporter::FeatureImporter(const ImageReader::Options& reader_options,
                                  const std::string& import_path)
-    : reader_options_(reader_options),
-      import_path_(import_path) {}
+    : reader_options_(reader_options), import_path_(import_path) {}
 
 void FeatureImporter::Run() {
   PrintHeading1("Feature import");
@@ -663,13 +678,20 @@ bool ExtractSiftFeaturesCPU(const SiftOptions& options, const Bitmap& bitmap,
   return true;
 }
 
-bool CreateSiftGPUExtractor(const SiftOptions& options, SiftGPU* sift_gpu) {
+bool CreateSiftGPUExtractor(const SiftOptions& options, const int gpu_index,
+                            SiftGPU* sift_gpu) {
   options.Check();
+  CHECK_GE(gpu_index, -1);
   CHECK_NOTNULL(sift_gpu);
 
   std::vector<std::string> sift_gpu_args;
 
   sift_gpu_args.push_back("./binary");
+
+  if (gpu_index >= 0) {
+    sift_gpu_args.push_back("-cuda");
+    sift_gpu_args.push_back(std::to_string(gpu_index));
+  }
 
   // Darkness adaptivity (hidden feature). Significantly improves
   // distribution of features. Only available in GLSL version.
@@ -726,7 +748,6 @@ bool CreateSiftGPUExtractor(const SiftOptions& options, SiftGPU* sift_gpu) {
   sift_gpu->ParseParam(sift_gpu_args_cstr.size(), sift_gpu_args_cstr.data());
 
   return sift_gpu->VerifyContextGL() == SiftGPU::SIFTGPU_FULL_SUPPORTED;
-
 }
 
 bool ExtractSiftFeaturesGPU(const SiftOptions& options, const Bitmap& bitmap,

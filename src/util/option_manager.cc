@@ -97,6 +97,7 @@ void ExtractionOptions::Reset() {
   reader = ImageReader::Options();
   sift = SiftOptions();
   cpu = SiftCPUFeatureExtractor::Options();
+  gpu = SiftGPUFeatureExtractor::Options();
 }
 
 bool ExtractionOptions::Check() {
@@ -125,6 +126,7 @@ bool ExtractionOptions::Check() {
   CHECK_OPTION(ExtractionOptions, sift.edge_threshold, > 0);
   CHECK_OPTION(ExtractionOptions, sift.max_num_orientations, > 0);
   CHECK_OPTION(ExtractionOptions, cpu.batch_size_factor, > 0);
+  CHECK_OPTION(ExtractionOptions, gpu.index, >= -1);
 
   return verified;
 }
@@ -839,6 +841,8 @@ void OptionManager::AddExtractionOptions() {
   ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
                      cpu.batch_size_factor);
   ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options, cpu.num_threads);
+
+  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options, gpu.index);
 }
 
 void OptionManager::AddMatchOptions() {

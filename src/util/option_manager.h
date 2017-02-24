@@ -51,6 +51,7 @@ struct ExtractionOptions : public BaseOptions {
   ImageReader::Options reader;
   SiftOptions sift;
   SiftCPUFeatureExtractor::Options cpu;
+  SiftGPUFeatureExtractor::Options gpu;
 };
 
 struct MatchOptions : public BaseOptions {

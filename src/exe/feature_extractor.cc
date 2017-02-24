@@ -65,25 +65,27 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
+  std::unique_ptr<QApplication> app;
+  if (use_gpu && options.extraction_options->gpu.index < 0) {
+    app.reset(new QApplication(argc, argv));
+  }
+
+  std::unique_ptr<Thread> feature_extractor;
   if (use_gpu) {
-    QApplication app(argc, argv);
-    SiftGPUFeatureExtractor feature_extractor(reader_options,
-                                              options.extraction_options->sift);
-
-    std::thread thread([&app, &feature_extractor]() {
-      feature_extractor.Start();
-      feature_extractor.Wait();
-      app.exit();
-    });
-
-    app.exec();
-    thread.join();
+    feature_extractor.reset(new SiftGPUFeatureExtractor(
+        reader_options, options.extraction_options->sift,
+        options.extraction_options->gpu));
   } else {
-    SiftCPUFeatureExtractor feature_extractor(reader_options,
-                                              options.extraction_options->sift,
-                                              options.extraction_options->cpu);
-    feature_extractor.Start();
-    feature_extractor.Wait();
+    feature_extractor.reset(new SiftCPUFeatureExtractor(
+        reader_options, options.extraction_options->sift,
+        options.extraction_options->cpu));
+  }
+
+  if (use_gpu && options.extraction_options->gpu.index < 0) {
+    RunThreadWithOpenGLContext(app.get(), feature_extractor.get());
+  } else {
+    feature_extractor->Start();
+    feature_extractor->Wait();
   }
 
   return EXIT_SUCCESS;
