@@ -232,7 +232,7 @@ Eigen::Matrix3d EstimateCoordinateFrame(
 
   PrintHeading1("Computing coordinate frame");
 
-  Eigen::Matrix3d frame;
+  Eigen::Matrix3d frame = Eigen::Matrix3d::Zero();
 
   if (rightward_axes.size() > 0) {
     frame.col(0) =
