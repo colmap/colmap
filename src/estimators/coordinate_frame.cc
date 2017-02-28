@@ -237,8 +237,6 @@ Eigen::Matrix3d EstimateCoordinateFrame(
   if (rightward_axes.size() > 0) {
     frame.col(0) =
         FindBestConsensusAxis(rightward_axes, options.max_axis_distance);
-  } else {
-    frame.col(0) = Eigen::Vector3d::Zero();
   }
 
   std::cout << "Found rightward axis: " << frame.col(0).transpose()
@@ -247,8 +245,6 @@ Eigen::Matrix3d EstimateCoordinateFrame(
   if (downward_axes.size() > 0) {
     frame.col(1) =
         FindBestConsensusAxis(downward_axes, options.max_axis_distance);
-  } else {
-    frame.col(1) = Eigen::Vector3d::Zero();
   }
 
   std::cout << "Found downward axis: " << frame.col(1).transpose() << std::endl;

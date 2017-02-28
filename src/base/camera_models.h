@@ -24,6 +24,7 @@
 #include <boost/algorithm/string.hpp>
 
 #include <Eigen/Core>
+#include <Eigen/Dense>
 
 #include <ceres/jet.h>
 
@@ -497,30 +498,45 @@ template <typename CameraModel>
 template <typename T>
 void BaseCameraModel<CameraModel>::IterativeUndistortion(const T* params, T* u,
                                                          T* v) {
-  // Number of iterations for iterative undistortion, 100 should be enough
-  // even for complex camera models with higher order terms.
-  const size_t kNumUndistortionIterations = 100;
-  const double kUndistortionEpsilon = 1e-10;
+  // Parameters for Newton iteration using numerical differentiation with
+  // central differences, 100 iterations should be enough even for complex
+  // camera models with higher order terms.
+  const size_t kNumIterations = 100;
+  const double kMaxStepNorm = 1e-10;
+  const double kRelStepSize = 1e-6;
 
-  T uu = *u;
-  T vv = *v;
-  T du;
-  T dv;
+  Eigen::Matrix2d J;
+  const Eigen::Vector2d x0(*u, *v);
+  Eigen::Vector2d x(*u, *v);
+  Eigen::Vector2d dx;
+  Eigen::Vector2d dx_0b;
+  Eigen::Vector2d dx_0f;
+  Eigen::Vector2d dx_1b;
+  Eigen::Vector2d dx_1f;
 
-  for (size_t i = 0; i < kNumUndistortionIterations; ++i) {
-    CameraModel::Distortion(params, uu, vv, &du, &dv);
-    const T uu_prev = uu;
-    const T vv_prev = vv;
-    uu = *u - du;
-    vv = *v - dv;
-    if (std::abs(uu_prev - uu) < kUndistortionEpsilon &&
-        std::abs(vv_prev - vv) < kUndistortionEpsilon) {
+  for (size_t i = 0; i < kNumIterations; ++i) {
+    const double step0 = std::max(std::numeric_limits<double>::epsilon(),
+                                  std::abs(kRelStepSize * x(0)));
+    const double step1 = std::max(std::numeric_limits<double>::epsilon(),
+                                  std::abs(kRelStepSize * x(1)));
+    CameraModel::Distortion(params, x(0), x(1), &dx(0), &dx(1));
+    CameraModel::Distortion(params, x(0) - step0, x(1), &dx_0b(0), &dx_0b(1));
+    CameraModel::Distortion(params, x(0) + step0, x(1), &dx_0f(0), &dx_0f(1));
+    CameraModel::Distortion(params, x(0), x(1) - step1, &dx_1b(0), &dx_1b(1));
+    CameraModel::Distortion(params, x(0), x(1) + step1, &dx_1f(0), &dx_1f(1));
+    J(0, 0) = 1 + (dx_0f(0) - dx_0b(0)) / (2 * step0);
+    J(0, 1) = (dx_1f(0) - dx_1b(0)) / (2 * step1);
+    J(1, 0) = (dx_0f(1) - dx_0b(1)) / (2 * step0);
+    J(1, 1) = 1 + (dx_1f(1) - dx_1b(1)) / (2 * step1);
+    const Eigen::Vector2d step_x = J.inverse() * (x + dx - x0);
+    x -= step_x;
+    if (step_x.squaredNorm() < kMaxStepNorm) {
       break;
     }
   }
 
-  *u = uu;
-  *v = vv;
+  *u = x(0);
+  *v = x(1);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
