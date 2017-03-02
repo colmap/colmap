@@ -379,9 +379,9 @@ void IncrementalMapperController::Reconstruct(
     size_t snapshot_prev_num_reg_images = reconstruction.NumRegImages();
     size_t ba_prev_num_reg_images = reconstruction.NumRegImages();
     size_t ba_prev_num_points = reconstruction.NumPoints3D();
-    int num_global_bas = 1;
 
     bool reg_next_success = true;
+    bool prev_reg_next_success = true;
     while (reg_next_success) {
       BlockIfPaused();
       if (IsStopped()) {
@@ -429,7 +429,6 @@ void IncrementalMapperController::Reconstruct(
             IterativeGlobalRefinement(mapper_options, reconstruction, &mapper);
             ba_prev_num_points = reconstruction.NumPoints3D();
             ba_prev_num_reg_images = reconstruction.NumRegImages();
-            num_global_bas += 1;
           }
 
           if (mapper_options.extract_colors) {
@@ -467,6 +466,17 @@ void IncrementalMapperController::Reconstruct(
           static_cast<size_t>(mapper_options.max_model_overlap);
       if (mapper.NumSharedRegImages() >= max_model_overlap) {
         break;
+      }
+
+      // If no image could be registered, try a single final global iterative
+      // bundle adjustment and try again to register one image. If this fails
+      // once, then exit the incremental mapping.
+      if (!reg_next_success && prev_reg_next_success) {
+        reg_next_success = true;
+        prev_reg_next_success = false;
+        IterativeGlobalRefinement(mapper_options, reconstruction, &mapper);
+      } else {
+        prev_reg_next_success = reg_next_success;
       }
     }
 
