@@ -7,8 +7,7 @@ include_directories(
     ${CERES_INCLUDE_DIRS}
     ${GLUT_INCLUDE_DIR}
     ${GLEW_INCLUDE_DIRS}
-    ${Qt5Core_INCLUDE_DIRS}
-    ${Qt5OpenGL_INCLUDE_DIRS}
+    ${Qt5_INCLUDE_DIRS}
 )
 
 link_directories(

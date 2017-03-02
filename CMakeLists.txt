@@ -76,15 +76,16 @@ if(CUDA_ENABLED)
     find_package(CUDA QUIET)
 endif()
 
-find_package(Qt5Core REQUIRED)
-find_package(Qt5OpenGL REQUIRED)
+find_package(Qt5 REQUIRED)
 
 
 ################################################################################
 # Compiler specific configuration
 ################################################################################
 
-if(NOT CMAKE_BUILD_TYPE)
+if(CMAKE_BUILD_TYPE)
+    message(STATUS "Build type specified as ${CMAKE_BUILD_TYPE}")
+else()
     message(STATUS "Build type not specified, using RelWithDebInfo")
     set(CMAKE_BUILD_TYPE RelWithDebInfo)
     set(IS_DEBUG TRUE)
