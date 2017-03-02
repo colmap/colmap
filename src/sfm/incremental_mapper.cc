@@ -537,8 +537,8 @@ size_t IncrementalMapper::MergeTracks(
 IncrementalMapper::LocalBundleAdjustmentReport
 IncrementalMapper::AdjustLocalBundle(
     const Options& options, const BundleAdjuster::Options& ba_options,
-    const IncrementalTriangulator::Options& tri_options,
-    const image_t image_id) {
+    const IncrementalTriangulator::Options& tri_options, const image_t image_id,
+    const std::unordered_set<point3D_t>& point3D_ids) {
   CHECK_NOTNULL(reconstruction_);
   options.Check();
 
@@ -555,6 +555,7 @@ IncrementalMapper::AdjustLocalBundle(
       ba_config.AddImage(local_image_id);
     }
 
+    // Fix 7 DOF to avoid scale/rotation/translation drift in bundle adjustment.
     if (local_bundle.size() == 1) {
       ba_config.SetConstantPose(local_bundle[0]);
       ba_config.SetConstantTvec(image_id, {0});
@@ -569,7 +570,7 @@ IncrementalMapper::AdjustLocalBundle(
     // to them to bundle adjustment and track merging/completion would slow
     // down the local bundle adjustment significantly.
     std::unordered_set<point3D_t> variable_point3D_ids;
-    for (const point3D_t point3D_id : triangulator_->ChangedPoints3D()) {
+    for (const point3D_t point3D_id : point3D_ids) {
       const Point3D& point3D = reconstruction_->Point3D(point3D_id);
       const size_t kMaxTrackLength = 15;
       if (!point3D.HasError() || point3D.Track().Length() <= kMaxTrackLength) {
@@ -599,9 +600,9 @@ IncrementalMapper::AdjustLocalBundle(
   }
 
   // Filter both the modified images and all changed 3D points to make sure
-  // there are no outlier points in the model. This results in duplicate work
-  // as many of the changed 3D points are contained in the adjusted images,
-  // but the filtering is not a bottleneck at this point.
+  // there are no outlier points in the model. This results in duplicate work as
+  // many of the provided 3D points may also be contained in the adjusted
+  // images, but the filtering is not a bottleneck at this point.
   std::unordered_set<image_t> filter_image_ids;
   filter_image_ids.insert(image_id);
   filter_image_ids.insert(local_bundle.begin(), local_bundle.end());
@@ -610,9 +611,7 @@ IncrementalMapper::AdjustLocalBundle(
       filter_image_ids);
   report.num_filtered_observations += reconstruction_->FilterPoints3D(
       options.filter_max_reproj_error, options.filter_min_tri_angle,
-      triangulator_->ChangedPoints3D());
-
-  triangulator_->ClearChangedPoints3D();
+      point3D_ids);
 
   return report;
 }
@@ -719,6 +718,13 @@ size_t IncrementalMapper::NumTotalRegImages() const {
 
 size_t IncrementalMapper::NumSharedRegImages() const {
   return num_shared_reg_images_;
+}
+
+const std::unordered_set<point3D_t>& IncrementalMapper::GetModifiedPoints3D() {
+  return triangulator_->GetModifiedPoints3D();
+}
+void IncrementalMapper::ClearModifiedPoints3D() {
+  triangulator_->ClearModifiedPoints3D();
 }
 
 std::vector<image_t> IncrementalMapper::FindFirstInitialImage() const {
@@ -873,10 +879,8 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
     }
   }
 
-  std::vector<std::pair<image_t, size_t>> local_bundle;
-  for (const auto elem : num_shared_observations) {
-    local_bundle.emplace_back(elem.first, elem.second);
-  }
+  std::vector<std::pair<image_t, size_t>> local_bundle(
+      num_shared_observations.begin(), num_shared_observations.end());
 
   // The local bundle is composed of the given image and its most connected
   // neighbor images, hence the subtraction of 1.
@@ -894,9 +898,11 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
 
   // Extract most connected images.
   std::vector<image_t> image_ids(num_eff_images);
-  for (size_t i = 0; i < num_eff_images; ++i) {
-    image_ids[i] = local_bundle[i].first;
-  }
+  std::transform(local_bundle.begin(), local_bundle.begin() + num_eff_images,
+                 image_ids.begin(),
+                 [](const std::pair<image_t, size_t>& image_num_shared) {
+                   return image_num_shared.first;
+                 });
 
   return image_ids;
 }

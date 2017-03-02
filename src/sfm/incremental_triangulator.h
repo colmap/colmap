@@ -120,11 +120,11 @@ class IncrementalTriangulator {
   // inlier matches between the image pair.
   size_t Retriangulate(const Options& options);
 
-  // Get changed 3D points, since the last call to `ClearChangedPoints3D`.
-  std::unordered_set<point3D_t> ChangedPoints3D() const;
+  // Get changed 3D points, since the last call to `ClearModifiedPoints3D`.
+  const std::unordered_set<point3D_t>& GetModifiedPoints3D();
 
   // Clear the collection of changed 3D points.
-  void ClearChangedPoints3D();
+  void ClearModifiedPoints3D();
 
   // Data for a correspondence / element of a track, used to store all
   // relevant data for triangulation, in order to avoid duplicate lookup
@@ -182,8 +182,8 @@ class IncrementalTriangulator {
   std::unordered_map<image_pair_t, int> re_num_trials_;
 
   // Changed 3D points, i.e. if a 3D point is modified (created, continued,
-  // deleted, merged, etc.). Cleared once `ChangedPoints3D` is called.
-  std::unordered_set<point3D_t> changed_point3D_ids_;
+  // deleted, merged, etc.). Cleared once `ModifiedPoints3D` is called.
+  std::unordered_set<point3D_t> modified_point3D_ids_;
 };
 
 }  // namespace colmap

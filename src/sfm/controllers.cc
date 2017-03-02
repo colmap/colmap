@@ -114,9 +114,10 @@ void IterativeLocalRefinement(const MapperOptions& options,
                               IncrementalMapper* mapper) {
   auto ba_options = options.LocalBundleAdjustmentOptions();
   for (int i = 0; i < options.ba_local_max_refinements; ++i) {
-    const auto report = mapper->AdjustLocalBundle(
-        options.IncrementalMapperOptions(), ba_options,
-        options.TriangulationOptions(), image_id);
+    const auto report =
+        mapper->AdjustLocalBundle(options.IncrementalMapperOptions(),
+                                  ba_options, options.TriangulationOptions(),
+                                  image_id, mapper->GetModifiedPoints3D());
     std::cout << "  => Merged observations: " << report.num_merged_observations
               << std::endl;
     std::cout << "  => Completed observations: "
@@ -136,6 +137,7 @@ void IterativeLocalRefinement(const MapperOptions& options,
     ba_options.loss_function_type =
         BundleAdjuster::Options::LossFunctionType::TRIVIAL;
   }
+  mapper->ClearModifiedPoints3D();
 }
 
 void IterativeGlobalRefinement(const MapperOptions& options,

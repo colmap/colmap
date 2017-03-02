@@ -211,7 +211,7 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
     }
 
     const point3D_t point3D_id = reconstruction_->AddPoint3D(xyz, track);
-    changed_point3D_ids_.insert(point3D_id);
+    modified_point3D_ids_.insert(point3D_id);
   }
 
   return num_tris;
@@ -382,23 +382,22 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
   return num_tris;
 }
 
-std::unordered_set<point3D_t> IncrementalTriangulator::ChangedPoints3D() const {
-  std::unordered_set<point3D_t> point3D_ids;
-
-  // Assume that all 3D points actually still exist
-  point3D_ids.reserve(changed_point3D_ids_.size());
-
-  for (const point3D_t point3D_id : changed_point3D_ids_) {
-    if (reconstruction_->ExistsPoint3D(point3D_id)) {
-      point3D_ids.insert(point3D_id);
+const std::unordered_set<point3D_t>&
+IncrementalTriangulator::GetModifiedPoints3D() {
+  // First remove any missing 3D points from the set.
+  for (auto it = modified_point3D_ids_.begin();
+       it != modified_point3D_ids_.end();) {
+    if (reconstruction_->ExistsPoint3D(*it)) {
+      ++it;
+    } else {
+      modified_point3D_ids_.erase(it++);
     }
   }
-
-  return point3D_ids;
+  return modified_point3D_ids_;
 }
 
-void IncrementalTriangulator::ClearChangedPoints3D() {
-  changed_point3D_ids_.clear();
+void IncrementalTriangulator::ClearModifiedPoints3D() {
+  modified_point3D_ids_.clear();
 }
 
 void IncrementalTriangulator::ClearCaches() {
@@ -523,7 +522,7 @@ size_t IncrementalTriangulator::Create(
 
   // Add estimated point to reconstruction.
   const point3D_t point3D_id = reconstruction_->AddPoint3D(xyz, track);
-  changed_point3D_ids_.insert(point3D_id);
+  modified_point3D_ids_.insert(point3D_id);
 
   const size_t kMinRecursiveTrackLength = 3;
   if (create_corrs_data.size() - track.Length() >= kMinRecursiveTrackLength) {
@@ -573,7 +572,7 @@ size_t IncrementalTriangulator::Continue(
     const TrackElement track_el(ref_corr_data.image_id,
                                 ref_corr_data.point2D_idx);
     reconstruction_->AddObservation(corr_data.point2D->Point3DId(), track_el);
-    changed_point3D_ids_.insert(corr_data.point2D->Point3DId());
+    modified_point3D_ids_.insert(corr_data.point2D->Point3DId());
     return 1;
   }
 
@@ -655,9 +654,9 @@ size_t IncrementalTriangulator::Merge(const Options& options,
         const point3D_t merged_point3D_id = reconstruction_->MergePoints3D(
             point3D_id, corr_point2D.Point3DId());
 
-        changed_point3D_ids_.erase(point3D_id);
-        changed_point3D_ids_.erase(corr_point2D.Point3DId());
-        changed_point3D_ids_.insert(merged_point3D_id);
+        modified_point3D_ids_.erase(point3D_id);
+        modified_point3D_ids_.erase(corr_point2D.Point3DId());
+        modified_point3D_ids_.insert(merged_point3D_id);
 
         // Merge merged 3D point and return, as the original points are deleted.
         const size_t num_merged_recursive = Merge(options, merged_point3D_id);
@@ -729,7 +728,7 @@ size_t IncrementalTriangulator::Complete(const Options& options,
         // Success, add observation to point track.
         const TrackElement track_el(corr.image_id, corr.point2D_idx);
         reconstruction_->AddObservation(point3D_id, track_el);
-        changed_point3D_ids_.insert(point3D_id);
+        modified_point3D_ids_.insert(point3D_id);
 
         // Recursively complete track for this new correspondence.
         if (transitivity < max_transitivity - 1) {

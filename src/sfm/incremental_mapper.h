@@ -172,15 +172,15 @@ class IncrementalMapper {
   // the redundancy in subsequent bundle adjustments.
   size_t MergeTracks(const IncrementalTriangulator::Options& tri_options);
 
-  // Adjust locally connected images and points of a reference image. This will
-  // also refine any recently changed observations since the last call to this
-  // function. Only cameras connected to the reference image are optimized. If
-  // points are changed but their images are not connected, the cameras are set
-  // as constant in the adjustment.
+  // Adjust locally connected images and points of a reference image. In
+  // addition, refine the provided 3D points. Only images connected to the
+  // reference image are optimized. If the provided 3D points are not locally
+  // connected to the reference image, their observing images are set as
+  // constant in the adjustment.
   LocalBundleAdjustmentReport AdjustLocalBundle(
       const Options& options, const BundleAdjuster::Options& ba_options,
       const IncrementalTriangulator::Options& tri_options,
-      const image_t image_id);
+      const image_t image_id, const std::unordered_set<point3D_t>& point3D_ids);
 
   // Global bundle adjustment using Ceres Solver or PBA.
   bool AdjustGlobalBundle(const BundleAdjuster::Options& ba_options);
@@ -197,6 +197,12 @@ class IncrementalMapper {
   // Number of shared images between current reconstruction and all other
   // previous reconstructions.
   size_t NumSharedRegImages() const;
+
+  // Get changed 3D points, since the last call to `ClearModifiedPoints3D`.
+  const std::unordered_set<point3D_t>& GetModifiedPoints3D();
+
+  // Clear the collection of changed 3D points.
+  void ClearModifiedPoints3D();
 
  private:
   // Find seed images for incremental reconstruction. Suitable seed images have
