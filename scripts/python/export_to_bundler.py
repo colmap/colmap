@@ -94,7 +94,7 @@ def main():
         with open(key_file_name, "w") as fid:
             fid.write("%d %d\n" % (keypoints.shape[0], descriptors.shape[1]))
             for r in range(keypoints.shape[0]):
-                fid.write("%f %f %f %f\n" % (keypoints[r, 0], keypoints[r, 1],
+                fid.write("%f %f %f %f\n" % (keypoints[r, 1], keypoints[r, 0],
                                              keypoints[r, 2], keypoints[r, 3]))
                 fid.write(descriptor_str)
 
