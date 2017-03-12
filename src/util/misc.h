@@ -37,6 +37,11 @@ std::string EnsureTrailingSlash(const std::string& str);
 // Check whether file name has the file extension (case insensitive).
 bool HasFileExtension(const std::string& file_name, const std::string& ext);
 
+// Split the path into its root and extension, for example,
+// "dir/file.jpg" into "dir/file" and ".jpg".
+void SplitFileExtension(const std::string& path, std::string* root,
+                        std::string* ext);
+
 // Create the directory if it does not exist.
 void CreateDirIfNotExists(const std::string& path);
 

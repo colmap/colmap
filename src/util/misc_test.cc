@@ -39,6 +39,44 @@ BOOST_AUTO_TEST_CASE(TestHasFileExtension) {
   BOOST_CHECK_EQUAL(HasFileExtension("test.", "."), true);
 }
 
+BOOST_AUTO_TEST_CASE(TestSplitFileExtension) {
+  std::string root;
+  std::string ext;
+  SplitFileExtension("", &root, &ext);
+  BOOST_CHECK_EQUAL(root, "");
+  BOOST_CHECK_EQUAL(ext, "");
+  SplitFileExtension(".", &root, &ext);
+  BOOST_CHECK_EQUAL(root, "");
+  BOOST_CHECK_EQUAL(ext, "");
+  SplitFileExtension("file", &root, &ext);
+  BOOST_CHECK_EQUAL(root, "file");
+  BOOST_CHECK_EQUAL(ext, "");
+  SplitFileExtension("file.", &root, &ext);
+  BOOST_CHECK_EQUAL(root, "file");
+  BOOST_CHECK_EQUAL(ext, "");
+  SplitFileExtension("file.jpg", &root, &ext);
+  BOOST_CHECK_EQUAL(root, "file");
+  BOOST_CHECK_EQUAL(ext, ".jpg");
+  SplitFileExtension("dir/file.jpg", &root, &ext);
+  BOOST_CHECK_EQUAL(root, "dir/file");
+  BOOST_CHECK_EQUAL(ext, ".jpg");
+  SplitFileExtension("/dir/file.jpg", &root, &ext);
+  BOOST_CHECK_EQUAL(root, "/dir/file");
+  BOOST_CHECK_EQUAL(ext, ".jpg");
+  SplitFileExtension("dir/file.suffix.jpg", &root, &ext);
+  BOOST_CHECK_EQUAL(root, "dir/file.suffix");
+  BOOST_CHECK_EQUAL(ext, ".jpg");
+  SplitFileExtension("dir.suffix/file.suffix.jpg", &root, &ext);
+  BOOST_CHECK_EQUAL(root, "dir.suffix/file.suffix");
+  BOOST_CHECK_EQUAL(ext, ".jpg");
+  SplitFileExtension("dir.suffix/file.", &root, &ext);
+  BOOST_CHECK_EQUAL(root, "dir.suffix/file");
+  BOOST_CHECK_EQUAL(ext, "");
+  SplitFileExtension("./dir.suffix/file.", &root, &ext);
+  BOOST_CHECK_EQUAL(root, "./dir.suffix/file");
+  BOOST_CHECK_EQUAL(ext, "");
+}
+
 BOOST_AUTO_TEST_CASE(TestGetPathBaseName) {
   BOOST_CHECK_EQUAL(GetPathBaseName(""), "");
   BOOST_CHECK_EQUAL(GetPathBaseName("test"), "test");

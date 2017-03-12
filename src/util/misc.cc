@@ -49,6 +49,27 @@ bool HasFileExtension(const std::string& file_name, const std::string& ext) {
   return false;
 }
 
+void SplitFileExtension(const std::string& path, std::string* root,
+                        std::string* ext) {
+  const auto parts = StringSplit(path, ".");
+  CHECK_GT(parts.size(), 0);
+  if (parts.size() == 1) {
+    *root = parts[0];
+    *ext = "";
+  } else {
+    *root = "";
+    for (size_t i = 0; i < parts.size() - 1; ++i) {
+      *root += parts[i] + ".";
+    }
+    *root = root->substr(0, root->length() - 1);
+    if (parts.back() == "") {
+      *ext = "";
+    } else {
+      *ext = "." + parts.back();
+    }
+  }
+}
+
 void CreateDirIfNotExists(const std::string& path) {
   if (!boost::filesystem::is_directory(path)) {
     CHECK(boost::filesystem::create_directory(path));
