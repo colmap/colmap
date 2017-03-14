@@ -443,7 +443,7 @@ void PMVSUndistorter::WriteCOLMAPScript(const bool geometric) const {
 
   file << "# You must set $COLMAP_EXE_PATH to " << std::endl
        << "# the directory containing the COLMAP executables." << std::endl;
-  WriteCOLMAPCommands(geometric, "pmvs", "PMVS", "$option_name", "option-all-",
+  WriteCOLMAPCommands(geometric, "pmvs", "PMVS", "option-all", "option-all-",
                       "", &file);
 }
 
