@@ -79,6 +79,16 @@ BOOST_AUTO_TEST_CASE(TestStringSplit) {
   BOOST_CHECK_EQUAL(list5[3], "4");
   BOOST_CHECK_EQUAL(list5[4], "5");
   BOOST_CHECK_EQUAL(list5[5], "6");
+  const std::vector<std::string> list6 = StringSplit(",1,,2,,3,4,5 , 6 ", ", ");
+  BOOST_CHECK_EQUAL(list6.size(), 8);
+  BOOST_CHECK_EQUAL(list6[0], "");
+  BOOST_CHECK_EQUAL(list6[1], "1");
+  BOOST_CHECK_EQUAL(list6[2], "2");
+  BOOST_CHECK_EQUAL(list6[3], "3");
+  BOOST_CHECK_EQUAL(list6[4], "4");
+  BOOST_CHECK_EQUAL(list6[5], "5");
+  BOOST_CHECK_EQUAL(list6[6], "6");
+  BOOST_CHECK_EQUAL(list6[7], "");
 }
 
 BOOST_AUTO_TEST_CASE(TestStringStartsWith) {
