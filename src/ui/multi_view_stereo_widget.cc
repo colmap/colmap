@@ -322,7 +322,6 @@ void MultiViewStereoWidget::Fusion() {
   fuser->AddCallback(Thread::FINISHED_CALLBACK, [this, fuser]() {
     fused_points_ = fuser->GetFusedPoints();
     write_fused_points_action_->trigger();
-    refresh_workspace_action_->trigger();
   });
   thread_control_widget_->StartThread("Fusing...", true, fuser);
 }
@@ -465,6 +464,7 @@ void MultiViewStereoWidget::WriteFusedPoints() {
         mvs::WritePlyBinary(JoinPaths(workspace_path, kFusedFileName),
                             fused_points_);
         fused_points_ = {};
+        meshing_button_->setEnabled(true);
       });
 }
 
