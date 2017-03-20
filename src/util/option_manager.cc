@@ -41,33 +41,14 @@ namespace config = boost::program_options;
       verified && CheckOption((expression), #option_class, #option, error)
 #endif
 
-#ifndef ADD_OPTION_REQUIRED
-#define ADD_OPTION_REQUIRED(option_class, option_attr, option)             \
-  {                                                                        \
-    std::string option_str = #option;                                      \
-    option_str = StringReplace(option_str, ".", "_");                      \
-    const std::string option_name =                                        \
-        std::string(#option_class) + "." + option_str;                     \
-    desc_->add_options()(                                                  \
-        option_name.c_str(),                                               \
-        config::value<decltype(option_attr->option)>(&option_attr->option) \
-            ->required());                                                 \
-    RegisterOption(option_name, &option_attr->option);                     \
-  }
-#endif
-
-#ifndef ADD_OPTION_DEFAULT
-#define ADD_OPTION_DEFAULT(option_class, option_attr, option)              \
-  {                                                                        \
-    std::string option_str = #option;                                      \
-    option_str = StringReplace(option_str, ".", "_");                      \
-    const std::string option_name =                                        \
-        std::string(#option_class) + "." + option_str;                     \
-    desc_->add_options()(                                                  \
-        option_name.c_str(),                                               \
-        config::value<decltype(option_attr->option)>(&option_attr->option) \
-            ->default_value(option_class().option));                       \
-    RegisterOption(option_name, &option_attr->option);                     \
+#ifndef ADD_DEFAULT_OPTION
+#define ADD_DEFAULT_OPTION(option_class, option_attr, option)                 \
+  {                                                                           \
+    std::string option_str = #option;                                         \
+    option_str = StringReplace(option_str, ".", "_");                         \
+    const std::string option_name =                                           \
+        std::string(#option_class) + "." + option_str;                        \
+    AddDefaultOption(option_name, option_attr->option, &option_attr->option); \
   }
 #endif
 
@@ -759,17 +740,12 @@ void OptionManager::AddDebugOptions() {
   }
   added_debug_options_ = true;
 
-  const int kDefaultDebugLog = false;
-  desc_->add_options()(
-      "General.debug_log_to_stderr",
-      config::value<bool>(&FLAGS_logtostderr)->default_value(kDefaultDebugLog));
-  RegisterOption("General.debug_log_to_stderr", &FLAGS_logtostderr);
+  const bool kDefaultDebugLog = false;
+  AddDefaultOption("General.debug_log_to_stderr", kDefaultDebugLog,
+                   &FLAGS_logtostderr);
 
   const int kDefaultDebugLevel = 2;
-  desc_->add_options()(
-      "General.debug_log_level",
-      config::value<int>(&FLAGS_v)->default_value(kDefaultDebugLevel));
-  RegisterOption("General.debug_log_level", &FLAGS_v);
+  AddDefaultOption("General.debug_log_level", kDefaultDebugLevel, &FLAGS_v);
 }
 
 void OptionManager::AddDatabaseOptions() {
@@ -778,10 +754,7 @@ void OptionManager::AddDatabaseOptions() {
   }
   added_database_options_ = true;
 
-  desc_->add_options()(
-      "General.database_path",
-      config::value<std::string>(database_path.get())->required());
-  RegisterOption("General.database_path", database_path.get());
+  AddRequiredOption("General.database_path", database_path.get());
 }
 
 void OptionManager::AddImageOptions() {
@@ -790,10 +763,7 @@ void OptionManager::AddImageOptions() {
   }
   added_image_options_ = true;
 
-  desc_->add_options()(
-      "General.image_path",
-      config::value<std::string>(image_path.get())->required());
-  RegisterOption("General.image_path", image_path.get());
+  AddRequiredOption("General.image_path", image_path.get());
 }
 
 void OptionManager::AddLogOptions() {
@@ -802,10 +772,7 @@ void OptionManager::AddLogOptions() {
   }
   added_log_options_ = true;
 
-  desc_->add_options()(
-      "General.log_path",
-      config::value<std::string>(log_path.get())->default_value(""));
-  RegisterOption("General.log_path", log_path.get());
+  AddRequiredOption("General.log_path", log_path.get());
 }
 
 void OptionManager::AddExtractionOptions() {
@@ -814,35 +781,35 @@ void OptionManager::AddExtractionOptions() {
   }
   added_extraction_options_ = true;
 
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
+  ADD_DEFAULT_OPTION(ExtractionOptions, extraction_options,
                      reader.camera_model);
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
+  ADD_DEFAULT_OPTION(ExtractionOptions, extraction_options,
                      reader.single_camera);
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
+  ADD_DEFAULT_OPTION(ExtractionOptions, extraction_options,
                      reader.camera_params);
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
+  ADD_DEFAULT_OPTION(ExtractionOptions, extraction_options,
                      reader.default_focal_length_factor);
 
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
+  ADD_DEFAULT_OPTION(ExtractionOptions, extraction_options,
                      sift.max_image_size);
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
+  ADD_DEFAULT_OPTION(ExtractionOptions, extraction_options,
                      sift.max_num_features);
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options, sift.first_octave);
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
+  ADD_DEFAULT_OPTION(ExtractionOptions, extraction_options, sift.first_octave);
+  ADD_DEFAULT_OPTION(ExtractionOptions, extraction_options,
                      sift.octave_resolution);
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
+  ADD_DEFAULT_OPTION(ExtractionOptions, extraction_options,
                      sift.peak_threshold);
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
+  ADD_DEFAULT_OPTION(ExtractionOptions, extraction_options,
                      sift.edge_threshold);
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
+  ADD_DEFAULT_OPTION(ExtractionOptions, extraction_options,
                      sift.max_num_orientations);
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options, sift.upright);
+  ADD_DEFAULT_OPTION(ExtractionOptions, extraction_options, sift.upright);
 
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options,
+  ADD_DEFAULT_OPTION(ExtractionOptions, extraction_options,
                      cpu.batch_size_factor);
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options, cpu.num_threads);
+  ADD_DEFAULT_OPTION(ExtractionOptions, extraction_options, cpu.num_threads);
 
-  ADD_OPTION_DEFAULT(ExtractionOptions, extraction_options, gpu.index);
+  ADD_DEFAULT_OPTION(ExtractionOptions, extraction_options, gpu.index);
 }
 
 void OptionManager::AddMatchOptions() {
@@ -851,20 +818,20 @@ void OptionManager::AddMatchOptions() {
   }
   added_match_options_ = true;
 
-  ADD_OPTION_DEFAULT(MatchOptions, match_options, num_threads);
-  ADD_OPTION_DEFAULT(MatchOptions, match_options, use_gpu);
-  ADD_OPTION_DEFAULT(MatchOptions, match_options, gpu_index);
-  ADD_OPTION_DEFAULT(MatchOptions, match_options, max_ratio);
-  ADD_OPTION_DEFAULT(MatchOptions, match_options, max_distance);
-  ADD_OPTION_DEFAULT(MatchOptions, match_options, cross_check);
-  ADD_OPTION_DEFAULT(MatchOptions, match_options, max_error);
-  ADD_OPTION_DEFAULT(MatchOptions, match_options, max_num_matches);
-  ADD_OPTION_DEFAULT(MatchOptions, match_options, confidence);
-  ADD_OPTION_DEFAULT(MatchOptions, match_options, max_num_trials);
-  ADD_OPTION_DEFAULT(MatchOptions, match_options, min_inlier_ratio);
-  ADD_OPTION_DEFAULT(MatchOptions, match_options, min_num_inliers);
-  ADD_OPTION_DEFAULT(MatchOptions, match_options, multiple_models);
-  ADD_OPTION_DEFAULT(MatchOptions, match_options, guided_matching);
+  ADD_DEFAULT_OPTION(MatchOptions, match_options, num_threads);
+  ADD_DEFAULT_OPTION(MatchOptions, match_options, use_gpu);
+  ADD_DEFAULT_OPTION(MatchOptions, match_options, gpu_index);
+  ADD_DEFAULT_OPTION(MatchOptions, match_options, max_ratio);
+  ADD_DEFAULT_OPTION(MatchOptions, match_options, max_distance);
+  ADD_DEFAULT_OPTION(MatchOptions, match_options, cross_check);
+  ADD_DEFAULT_OPTION(MatchOptions, match_options, max_error);
+  ADD_DEFAULT_OPTION(MatchOptions, match_options, max_num_matches);
+  ADD_DEFAULT_OPTION(MatchOptions, match_options, confidence);
+  ADD_DEFAULT_OPTION(MatchOptions, match_options, max_num_trials);
+  ADD_DEFAULT_OPTION(MatchOptions, match_options, min_inlier_ratio);
+  ADD_DEFAULT_OPTION(MatchOptions, match_options, min_num_inliers);
+  ADD_DEFAULT_OPTION(MatchOptions, match_options, multiple_models);
+  ADD_DEFAULT_OPTION(MatchOptions, match_options, guided_matching);
 }
 
 void OptionManager::AddExhaustiveMatchOptions() {
@@ -873,13 +840,13 @@ void OptionManager::AddExhaustiveMatchOptions() {
   }
   added_exhaustive_match_options_ = true;
 
-  ADD_OPTION_DEFAULT(ExhaustiveMatchOptions, exhaustive_match_options,
+  ADD_DEFAULT_OPTION(ExhaustiveMatchOptions, exhaustive_match_options,
                      block_size);
-  ADD_OPTION_DEFAULT(ExhaustiveMatchOptions, exhaustive_match_options,
+  ADD_DEFAULT_OPTION(ExhaustiveMatchOptions, exhaustive_match_options,
                      preemptive);
-  ADD_OPTION_DEFAULT(ExhaustiveMatchOptions, exhaustive_match_options,
+  ADD_DEFAULT_OPTION(ExhaustiveMatchOptions, exhaustive_match_options,
                      preemptive_num_features);
-  ADD_OPTION_DEFAULT(ExhaustiveMatchOptions, exhaustive_match_options,
+  ADD_DEFAULT_OPTION(ExhaustiveMatchOptions, exhaustive_match_options,
                      preemptive_min_num_matches);
 }
 
@@ -889,16 +856,16 @@ void OptionManager::AddSequentialMatchOptions() {
   }
   added_sequential_match_options_ = true;
 
-  ADD_OPTION_DEFAULT(SequentialMatchOptions, sequential_match_options, overlap);
-  ADD_OPTION_DEFAULT(SequentialMatchOptions, sequential_match_options,
+  ADD_DEFAULT_OPTION(SequentialMatchOptions, sequential_match_options, overlap);
+  ADD_DEFAULT_OPTION(SequentialMatchOptions, sequential_match_options,
                      loop_detection);
-  ADD_OPTION_DEFAULT(SequentialMatchOptions, sequential_match_options,
+  ADD_DEFAULT_OPTION(SequentialMatchOptions, sequential_match_options,
                      loop_detection_period);
-  ADD_OPTION_DEFAULT(SequentialMatchOptions, sequential_match_options,
+  ADD_DEFAULT_OPTION(SequentialMatchOptions, sequential_match_options,
                      loop_detection_num_images);
-  ADD_OPTION_DEFAULT(SequentialMatchOptions, sequential_match_options,
+  ADD_DEFAULT_OPTION(SequentialMatchOptions, sequential_match_options,
                      loop_detection_max_num_features);
-  ADD_OPTION_DEFAULT(SequentialMatchOptions, sequential_match_options,
+  ADD_DEFAULT_OPTION(SequentialMatchOptions, sequential_match_options,
                      vocab_tree_path);
 }
 
@@ -908,13 +875,13 @@ void OptionManager::AddVocabTreeMatchOptions() {
   }
   added_vocab_tree_match_options_ = true;
 
-  ADD_OPTION_DEFAULT(VocabTreeMatchOptions, vocab_tree_match_options,
+  ADD_DEFAULT_OPTION(VocabTreeMatchOptions, vocab_tree_match_options,
                      num_images);
-  ADD_OPTION_DEFAULT(VocabTreeMatchOptions, vocab_tree_match_options,
+  ADD_DEFAULT_OPTION(VocabTreeMatchOptions, vocab_tree_match_options,
                      max_num_features);
-  ADD_OPTION_DEFAULT(VocabTreeMatchOptions, vocab_tree_match_options,
+  ADD_DEFAULT_OPTION(VocabTreeMatchOptions, vocab_tree_match_options,
                      vocab_tree_path);
-  ADD_OPTION_DEFAULT(VocabTreeMatchOptions, vocab_tree_match_options,
+  ADD_DEFAULT_OPTION(VocabTreeMatchOptions, vocab_tree_match_options,
                      match_list_path);
 }
 
@@ -924,11 +891,11 @@ void OptionManager::AddSpatialMatchOptions() {
   }
   added_spatial_match_options_ = true;
 
-  ADD_OPTION_DEFAULT(SpatialMatchOptions, spatial_match_options, is_gps);
-  ADD_OPTION_DEFAULT(SpatialMatchOptions, spatial_match_options, ignore_z);
-  ADD_OPTION_DEFAULT(SpatialMatchOptions, spatial_match_options,
+  ADD_DEFAULT_OPTION(SpatialMatchOptions, spatial_match_options, is_gps);
+  ADD_DEFAULT_OPTION(SpatialMatchOptions, spatial_match_options, ignore_z);
+  ADD_DEFAULT_OPTION(SpatialMatchOptions, spatial_match_options,
                      max_num_neighbors);
-  ADD_OPTION_DEFAULT(SpatialMatchOptions, spatial_match_options, max_distance);
+  ADD_DEFAULT_OPTION(SpatialMatchOptions, spatial_match_options, max_distance);
 }
 
 void OptionManager::AddBundleAdjustmentOptions() {
@@ -937,16 +904,16 @@ void OptionManager::AddBundleAdjustmentOptions() {
   }
   added_ba_options_ = true;
 
-  ADD_OPTION_DEFAULT(BundleAdjustmentOptions, ba_options, max_num_iterations);
-  ADD_OPTION_DEFAULT(BundleAdjustmentOptions, ba_options,
+  ADD_DEFAULT_OPTION(BundleAdjustmentOptions, ba_options, max_num_iterations);
+  ADD_DEFAULT_OPTION(BundleAdjustmentOptions, ba_options,
                      max_linear_solver_iterations);
-  ADD_OPTION_DEFAULT(BundleAdjustmentOptions, ba_options, function_tolerance);
-  ADD_OPTION_DEFAULT(BundleAdjustmentOptions, ba_options, gradient_tolerance);
-  ADD_OPTION_DEFAULT(BundleAdjustmentOptions, ba_options, parameter_tolerance);
-  ADD_OPTION_DEFAULT(BundleAdjustmentOptions, ba_options, refine_focal_length);
-  ADD_OPTION_DEFAULT(BundleAdjustmentOptions, ba_options,
+  ADD_DEFAULT_OPTION(BundleAdjustmentOptions, ba_options, function_tolerance);
+  ADD_DEFAULT_OPTION(BundleAdjustmentOptions, ba_options, gradient_tolerance);
+  ADD_DEFAULT_OPTION(BundleAdjustmentOptions, ba_options, parameter_tolerance);
+  ADD_DEFAULT_OPTION(BundleAdjustmentOptions, ba_options, refine_focal_length);
+  ADD_DEFAULT_OPTION(BundleAdjustmentOptions, ba_options,
                      refine_principal_point);
-  ADD_OPTION_DEFAULT(BundleAdjustmentOptions, ba_options, refine_extra_params);
+  ADD_DEFAULT_OPTION(BundleAdjustmentOptions, ba_options, refine_extra_params);
 }
 
 void OptionManager::AddMapperOptions() {
@@ -955,93 +922,93 @@ void OptionManager::AddMapperOptions() {
   }
   added_mapper_options_ = true;
 
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, min_num_matches);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, multiple_models);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, max_num_models);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, max_model_overlap);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, min_model_size);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, init_image_id1);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, init_image_id2);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, init_num_trials);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, extract_colors);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, num_threads);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, min_focal_length_ratio);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, max_focal_length_ratio);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, max_extra_param);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, min_num_matches);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, multiple_models);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, max_num_models);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, max_model_overlap);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, min_model_size);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, init_image_id1);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, init_image_id2);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, init_num_trials);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, extract_colors);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, num_threads);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, min_focal_length_ratio);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, max_focal_length_ratio);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, max_extra_param);
 
   // IncrementalMapper.
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      incremental_mapper.init_min_num_inliers);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      incremental_mapper.init_max_error);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      incremental_mapper.init_max_forward_motion);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      incremental_mapper.init_min_tri_angle);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      incremental_mapper.abs_pose_max_error);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      incremental_mapper.abs_pose_min_num_inliers);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      incremental_mapper.abs_pose_min_inlier_ratio);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      incremental_mapper.filter_max_reproj_error);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      incremental_mapper.filter_min_tri_angle);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      incremental_mapper.max_reg_trials);
 
   // IncrementalTriangulator.
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      triangulation.max_transitivity);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      triangulation.create_max_angle_error);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      triangulation.continue_max_angle_error);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      triangulation.merge_max_reproj_error);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      triangulation.complete_max_reproj_error);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      triangulation.complete_max_transitivity);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      triangulation.re_max_angle_error);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, triangulation.re_min_ratio);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, triangulation.re_min_ratio);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      triangulation.re_max_trials);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, triangulation.min_angle);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, triangulation.min_angle);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      triangulation.ignore_two_view_tracks);
 
   // General bundle adjustment.
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_refine_focal_length);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_refine_principal_point);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_refine_extra_params);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, ba_refine_focal_length);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, ba_refine_principal_point);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, ba_refine_extra_params);
 
   // Local bundle adjustment.
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_local_num_images);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, ba_local_num_images);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      ba_local_max_num_iterations);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_local_max_refinements);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, ba_local_max_refinements);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      ba_local_max_refinement_change);
 
   // Global bundle adjustment.
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_global_use_pba);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_global_images_ratio);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_global_images_freq);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_global_points_ratio);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_global_points_freq);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, ba_global_use_pba);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, ba_global_images_ratio);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, ba_global_images_freq);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, ba_global_points_ratio);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, ba_global_points_freq);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      ba_global_max_num_iterations);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_global_pba_gpu_index);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, ba_global_max_refinements);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options,
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, ba_global_pba_gpu_index);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, ba_global_max_refinements);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options,
                      ba_global_max_refinement_change);
 
   // Snapshot options.
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, snapshot_path);
-  ADD_OPTION_DEFAULT(MapperOptions, mapper_options, snapshot_images_freq);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, snapshot_path);
+  ADD_DEFAULT_OPTION(MapperOptions, mapper_options, snapshot_images_freq);
 }
 
 void OptionManager::AddDenseMapperOptions() {
@@ -1050,62 +1017,62 @@ void OptionManager::AddDenseMapperOptions() {
   }
   added_dense_mapper_options_ = true;
 
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options, max_image_size);
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options, max_image_size);
 
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      patch_match.gpu_index);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      patch_match.window_radius);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      patch_match.sigma_spatial);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      patch_match.sigma_color);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      patch_match.num_samples);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      patch_match.ncc_sigma);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      patch_match.min_triangulation_angle);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      patch_match.incident_angle_sigma);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      patch_match.num_iterations);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      patch_match.geom_consistency);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      patch_match.geom_consistency_regularizer);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      patch_match.geom_consistency_max_cost);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      patch_match.filter);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      patch_match.filter_min_ncc);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      patch_match.filter_min_triangulation_angle);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      patch_match.filter_min_num_consistent);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      patch_match.filter_geom_consistency_max_cost);
 
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      fusion.min_num_pixels);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      fusion.max_num_pixels);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      fusion.max_traversal_depth);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      fusion.max_reproj_error);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      fusion.max_depth_error);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      fusion.max_normal_error);
 
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      poisson.point_weight);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options, poisson.depth);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options, poisson.color);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options, poisson.trim);
-  ADD_OPTION_DEFAULT(DenseMapperOptions, dense_mapper_options,
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options, poisson.depth);
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options, poisson.color);
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options, poisson.trim);
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      poisson.num_threads);
 }
 
@@ -1115,11 +1082,11 @@ void OptionManager::AddRenderOptions() {
   }
   added_render_options_ = true;
 
-  ADD_OPTION_DEFAULT(RenderOptions, render_options, min_track_len);
-  ADD_OPTION_DEFAULT(RenderOptions, render_options, max_error);
-  ADD_OPTION_DEFAULT(RenderOptions, render_options, refresh_rate);
-  ADD_OPTION_DEFAULT(RenderOptions, render_options, adapt_refresh_rate);
-  ADD_OPTION_DEFAULT(RenderOptions, render_options, image_connections);
+  ADD_DEFAULT_OPTION(RenderOptions, render_options, min_track_len);
+  ADD_DEFAULT_OPTION(RenderOptions, render_options, max_error);
+  ADD_DEFAULT_OPTION(RenderOptions, render_options, refresh_rate);
+  ADD_DEFAULT_OPTION(RenderOptions, render_options, adapt_refresh_rate);
+  ADD_DEFAULT_OPTION(RenderOptions, render_options, image_connections);
 }
 
 void OptionManager::Reset() {
