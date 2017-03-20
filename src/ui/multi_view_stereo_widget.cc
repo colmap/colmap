@@ -41,8 +41,8 @@ class PatchMatchOptionsTab : public OptionsWidget {
 
     AddOptionInt(&options->dense_mapper_options->max_image_size,
                  "max_image_size", 0);
-    AddOptionInt(&options->dense_mapper_options->patch_match.gpu_index,
-                 "gpu_index", -1);
+    AddOptionText(&options->dense_mapper_options->patch_match.gpu_index,
+                  "gpu_index");
     AddOptionInt(&options->dense_mapper_options->patch_match.window_radius,
                  "window_radius");
     AddOptionDouble(&options->dense_mapper_options->patch_match.sigma_spatial,
