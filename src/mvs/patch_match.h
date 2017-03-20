@@ -46,7 +46,7 @@ class PatchMatch {
 
   struct Options {
     // Index of the GPU used for patch match.
-    int gpu_index = -1;
+    std::string gpu_index = "-1";
 
     // Depth range in which to randomly sample depth hypotheses.
     double depth_min = 0.0f;

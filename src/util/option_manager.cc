@@ -626,7 +626,6 @@ bool DenseMapperOptions::Check() {
 
   CHECK_OPTION(DenseMapperOptions, max_image_size, >= 0);
 
-  CHECK_OPTION(DenseMapperOptions, patch_match.gpu_index, >= -1);
   CHECK_OPTION(DenseMapperOptions, patch_match.window_radius, > 0);
   CHECK_OPTION(DenseMapperOptions, patch_match.window_radius,
                <= kMaxWindowRadius);

@@ -225,6 +225,7 @@ PatchMatch::~PatchMatch() {}
 
 void PatchMatch::Options::Print() const {
   PrintHeading2("PatchMatch::Options");
+  PrintOption(gpu_index);
   PrintOption(depth_min);
   PrintOption(depth_max);
   PrintOption(window_radius);
@@ -262,6 +263,11 @@ void PatchMatch::Problem::Print() const {
 }
 
 void PatchMatch::Check() const {
+  CHECK(!options_.gpu_index.empty());
+  const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
+  CHECK_EQ(gpu_indices.size(), 1);
+  CHECK_GE(gpu_indices[0], -1);
+
   CHECK_NOTNULL(problem_.images);
   if (options_.geom_consistency) {
     CHECK_NOTNULL(problem_.depth_maps);
@@ -377,16 +383,21 @@ void PatchMatchController::Run() {
                          pmvs_option_name_, max_image_size_, &model, &problems);
 
   const auto depth_ranges = model.ComputeDepthRanges();
+  const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
 
   const std::string output_suffix =
       options_.geom_consistency ? "geometric" : "photometric";
 
-  for (size_t i = 0; i < problems.size(); ++i) {
+  ThreadPool thread_pool(gpu_indices.size());
+
+  auto process_problem = [&](const size_t problem_idx) {
     if (IsStopped()) {
-      break;
+      return;
     }
 
-    const auto& problem = problems[i];
+    const auto& problem = problems[problem_idx];
+    const int gpu_index = gpu_indices.at(thread_pool.GetThreadIndex());
+    CHECK_GE(gpu_index, -1);
 
     const std::string image_name = model.GetImageName(problem.ref_image_id);
     const std::string file_name =
@@ -401,11 +412,11 @@ void PatchMatchController::Run() {
     if (boost::filesystem::exists(depth_map_path) &&
         boost::filesystem::exists(normal_map_path) &&
         boost::filesystem::exists(consistency_graph_path)) {
-      continue;
+      return;
     }
 
-    PrintHeading1(
-        StringPrintf("Processing view %d / %d", i + 1, problems.size()));
+    PrintHeading1(StringPrintf("Processing view %d / %d", problem_idx + 1,
+                               problems.size()));
 
     problem.Print();
 
@@ -413,6 +424,7 @@ void PatchMatchController::Run() {
     patch_match_options.depth_min = depth_ranges.at(problem.ref_image_id).first;
     patch_match_options.depth_max =
         depth_ranges.at(problem.ref_image_id).second;
+    patch_match_options.gpu_index = std::to_string(gpu_index);
     patch_match_options.Print();
 
     PatchMatch patch_match(patch_match_options, problem);
@@ -424,7 +436,13 @@ void PatchMatchController::Run() {
     patch_match.GetNormalMap().Write(normal_map_path);
     WriteBinaryBlob(consistency_graph_path,
                     patch_match.GetConsistentImageIds());
+  };
+
+  for (size_t problem_idx = 0; problem_idx < problems.size(); ++problem_idx) {
+    thread_pool.AddTask(process_problem, problem_idx);
   }
+
+  thread_pool.Wait();
 
   GetTimer().PrintMinutes();
 }

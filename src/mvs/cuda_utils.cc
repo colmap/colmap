@@ -20,6 +20,8 @@
 #include <iostream>
 #include <vector>
 
+#include "util/logging.h"
+
 namespace colmap {
 namespace mvs {
 namespace {
@@ -80,28 +82,26 @@ void CudaCheckError(const char* file, const int line) {
   }
 }
 
-void SetBestCudaDevice(const int gpu_id) {
+void SetBestCudaDevice(const int gpu_index) {
+  int num_cuda_devices;
+  cudaGetDeviceCount(&num_cuda_devices);
+  CHECK_GT(num_cuda_devices, 0) << "No CUDA devices available";
+
   int selected_gpu_index = -1;
-  if (gpu_id >= 0) {
-    selected_gpu_index = gpu_id;
+  if (gpu_index >= 0) {
+    selected_gpu_index = gpu_index;
   } else {
-    int num_devices;
-    cudaGetDeviceCount(&num_devices);
-    if (num_devices > 1) {
-      std::vector<cudaDeviceProp> all_devices(num_devices);
-      for (int device_id = 0; device_id < num_devices; ++device_id) {
-        cudaGetDeviceProperties(&all_devices[device_id], device_id);
-      }
-      std::sort(all_devices.begin(), all_devices.end(), CompareCudaDevice);
-      CUDA_SAFE_CALL(cudaChooseDevice(&selected_gpu_index, all_devices.data()));
-    } else if (num_devices == 0) {
-      std::cerr << "Error: No CUDA device is detected in the machine"
-                << std::endl;
-      exit(EXIT_FAILURE);
-    } else {
-      selected_gpu_index = 0;
+    std::vector<cudaDeviceProp> all_devices(num_cuda_devices);
+    for (int device_id = 0; device_id < num_cuda_devices; ++device_id) {
+      cudaGetDeviceProperties(&all_devices[device_id], device_id);
     }
+    std::sort(all_devices.begin(), all_devices.end(), CompareCudaDevice);
+    CUDA_SAFE_CALL(cudaChooseDevice(&selected_gpu_index, all_devices.data()));
   }
+
+  CHECK_GE(selected_gpu_index, 0);
+  CHECK_LT(selected_gpu_index, num_cuda_devices)
+      << "Invalid CUDA GPU selected";
 
   cudaDeviceProp device;
   cudaGetDeviceProperties(&device, selected_gpu_index);

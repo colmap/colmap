@@ -1125,7 +1125,7 @@ PatchMatchCuda::PatchMatchCuda(const PatchMatch::Options& options,
       ref_width_(0),
       ref_height_(0),
       rotation_in_half_pi_(0) {
-  SetBestCudaDevice(options_.gpu_index);
+  SetBestCudaDevice(std::stoi(options_.gpu_index));
   InitRefImage();
   InitSourceImages();
   InitTransforms();
