@@ -147,8 +147,9 @@ ThreadPool::ThreadPool(const int num_threads)
     num_effective_threads = 1;
   }
 
-  for (int i = 0; i < num_effective_threads; ++i) {
-    std::function<void(void)> worker = std::bind(&ThreadPool::WorkerFunc, this);
+  for (int index = 0; index < num_effective_threads; ++index) {
+    std::function<void(void)> worker =
+        std::bind(&ThreadPool::WorkerFunc, this, index);
     workers_.emplace_back(worker);
   }
 }
@@ -181,7 +182,12 @@ void ThreadPool::Wait() {
       lock, [this]() { return tasks_.empty() && num_active_workers_ == 0; });
 }
 
-void ThreadPool::WorkerFunc() {
+void ThreadPool::WorkerFunc(const int index) {
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    thread_id_to_index_.emplace(GetThreadId(), index);
+  }
+
   while (true) {
     std::function<void()> task;
     {
@@ -201,6 +207,15 @@ void ThreadPool::WorkerFunc() {
     num_active_workers_ -= 1;
     finished_condition_.notify_one();
   }
+}
+
+std::thread::id ThreadPool::GetThreadId() const {
+  return std::this_thread::get_id();
+}
+
+int ThreadPool::GetThreadIndex() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  return thread_id_to_index_.at(GetThreadId());
 }
 
 }  // namespace colmap

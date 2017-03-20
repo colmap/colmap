@@ -185,8 +185,16 @@ class ThreadPool {
   // Wait until tasks are finished.
   void Wait();
 
+  // Get the unique identifier of the current thread.
+  std::thread::id GetThreadId() const;
+
+  // Get the index of the current thread. In a thread pool of size N,
+  // the thread index defines the 0-based index of the thread in the pool.
+  // In other words, there are the thread indices 0, ..., N-1.
+  int GetThreadIndex();
+
  private:
-  void WorkerFunc();
+  void WorkerFunc(const int index);
 
   std::vector<std::thread> workers_;
   std::queue<std::function<void()>> tasks_;
@@ -197,6 +205,8 @@ class ThreadPool {
 
   bool stopped_;
   std::atomic<int> num_active_workers_;
+
+  std::unordered_map<std::thread::id, int> thread_id_to_index_;
 };
 
 // A job queue class for the producer-consumer paradigm.

@@ -474,6 +474,8 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolWait) {
   };
 
   ThreadPool pool(4);
+  pool.Wait();
+
   for (size_t i = 0; i < results.size(); ++i) {
     pool.AddTask(Func, i);
   }
@@ -482,6 +484,27 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolWait) {
 
   for (const auto result : results) {
     BOOST_CHECK_EQUAL(result, 1);
+  }
+}
+
+BOOST_AUTO_TEST_CASE(TestThreadPoolGetThreadIndex) {
+  ThreadPool pool(4);
+
+  std::vector<int> results(1000, -1);
+  std::function<void(int)> Func = [&](const int num) {
+    results[num] = pool.GetThreadIndex();
+  };
+
+
+  for (size_t i = 0; i < results.size(); ++i) {
+    pool.AddTask(Func, i);
+  }
+
+  pool.Wait();
+
+  for (const auto result : results) {
+    BOOST_CHECK_GE(result, 0);
+    BOOST_CHECK_LE(result, 3);
   }
 }
 
