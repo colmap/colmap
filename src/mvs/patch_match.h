@@ -168,7 +168,7 @@ class PatchMatch {
 //      depth_maps/*
 //      normal_maps/*
 //      consistency_graphs/*
-//    patch-match.cfg
+//      patch-match.cfg
 //
 // The `patch-match.cfg` file specifies the images to be processed as:
 //
