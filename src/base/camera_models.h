@@ -102,7 +102,8 @@ static const int kInvalidCameraModelId = -1;
   CAMERA_MODEL_CASE(OpenCVCameraModel)              \
   CAMERA_MODEL_CASE(OpenCVFisheyeCameraModel)       \
   CAMERA_MODEL_CASE(FullOpenCVCameraModel)          \
-  CAMERA_MODEL_CASE(FOVCameraModel)
+  CAMERA_MODEL_CASE(FOVCameraModel)                 \
+  CAMERA_MODEL_CASE(ThinPrismFisheyeCameraModel)
 #endif
 
 #ifndef CAMERA_MODEL_SWITCH_CASES
@@ -306,6 +307,23 @@ struct SimpleRadialFisheyeCameraModel
 struct RadialFisheyeCameraModel
     : public BaseCameraModel<RadialFisheyeCameraModel> {
   CAMERA_MODEL_DEFINITIONS(9, 5)
+};
+
+// Camera model with radial and tangential distortion coefficients and
+// additional coefficients accounting for thin-prism distortion.
+//
+// This camera model is described in
+//
+//    "Camera Calibration with Distortion Models and Accuracy Evaluation",
+//    J Weng et al., TPAMI, 1992.
+//
+// Parameter list is expected in the following order:
+//
+//    fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, sx1, sy1
+//
+struct ThinPrismFisheyeCameraModel
+    : public BaseCameraModel<ThinPrismFisheyeCameraModel> {
+  CAMERA_MODEL_DEFINITIONS(10, 12)
 };
 
 // Convert camera name to unique camera model identifier.
@@ -1381,6 +1399,119 @@ void RadialFisheyeCameraModel::Distortion(const T* extra_params, const T u,
   const T radial = k1 * r2 + k2 * r2 * r2;
   *du = u * radial;
   *dv = v * radial;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// ThinPrismFisheyeCameraModel
+
+std::string ThinPrismFisheyeCameraModel::InitializeParamsInfo() {
+  return "fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, sx1, sy1";
+}
+
+std::vector<size_t> ThinPrismFisheyeCameraModel::InitializeFocalLengthIdxs() {
+  std::vector<size_t> idxs(2);
+  idxs[0] = 0;
+  idxs[1] = 1;
+  return idxs;
+}
+
+std::vector<size_t>
+ThinPrismFisheyeCameraModel::InitializePrincipalPointIdxs() {
+  std::vector<size_t> idxs(2);
+  idxs[0] = 2;
+  idxs[1] = 3;
+  return idxs;
+}
+
+std::vector<size_t> ThinPrismFisheyeCameraModel::InitializeExtraParamsIdxs() {
+  std::vector<size_t> idxs(8);
+  idxs[0] = 4;
+  idxs[1] = 5;
+  idxs[2] = 6;
+  idxs[3] = 7;
+  idxs[4] = 8;
+  idxs[5] = 9;
+  idxs[6] = 10;
+  idxs[7] = 11;
+  return idxs;
+}
+
+template <typename T>
+void ThinPrismFisheyeCameraModel::WorldToImage(const T* params, const T u,
+                                               const T v, T* x, T* y) {
+  const T f1 = params[0];
+  const T f2 = params[1];
+  const T c1 = params[2];
+  const T c2 = params[3];
+
+  const T r = ceres::sqrt(u * u + v * v);
+
+  T uu, vv;
+  if (r > T(std::numeric_limits<double>::epsilon())) {
+    const T theta = ceres::atan2(r, T(1));
+    uu = theta * u / r;
+    vv = theta * v / r;
+  } else {
+    uu = u;
+    vv = v;
+  }
+
+  // Distortion
+  T du, dv;
+  Distortion(&params[4], uu, vv, &du, &dv);
+  *x = uu + du;
+  *y = vv + dv;
+
+  // Transform to image coordinates
+  *x = f1 * *x + c1;
+  *y = f2 * *y + c2;
+}
+
+template <typename T>
+void ThinPrismFisheyeCameraModel::ImageToWorld(const T* params, const T x,
+                                               const T y, T* u, T* v) {
+  const T f1 = params[0];
+  const T f2 = params[1];
+  const T c1 = params[2];
+  const T c2 = params[3];
+
+  // Lift points to normalized plane
+  *u = (x - c1) / f1;
+  *v = (y - c2) / f2;
+
+  IterativeUndistortion(&params[4], u, v);
+
+  const T theta = ceres::sqrt(*u * *u + *v * *v);
+  const T theta_cos_theta = theta * ceres::cos(theta);
+  if (theta_cos_theta > T(std::numeric_limits<double>::epsilon())) {
+    const T scale = ceres::sin(theta) / theta_cos_theta;
+    *u *= scale;
+    *v *= scale;
+  }
+}
+
+template <typename T>
+void ThinPrismFisheyeCameraModel::Distortion(const T* extra_params, const T u,
+                                             const T v, T* du, T* dv) {
+  const T k1 = extra_params[0];
+  const T k2 = extra_params[1];
+  const T p1 = extra_params[2];
+  const T p2 = extra_params[3];
+  const T k3 = extra_params[4];
+  const T k4 = extra_params[5];
+  const T sx1 = extra_params[6];
+  const T sy1 = extra_params[7];
+
+  const T u2 = u * u;
+  const T uv = u * v;
+  const T v2 = v * v;
+  const T r2 = u2 + v2;
+  const T r4 = r2 * r2;
+  const T r6 = r4 * r2;
+  const T r8 = r6 * r2;
+  const T radial = k1 * r2 + k2 * r4 + k3 * r6 + k4 * r8;
+  *du = u * radial + T(2) * p1 * uv + p2 * (r2 + T(2) * u2) + sx1 * r2;
+  *dv = v * radial + T(2) * p2 * uv + p1 * (r2 + T(2) * v2) + sy1 * r2;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

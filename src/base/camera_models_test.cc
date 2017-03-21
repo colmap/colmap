@@ -135,3 +135,10 @@ BOOST_AUTO_TEST_CASE(TestRadialFisheye) {
   params[4] = 0.03;
   TestModel<RadialFisheyeCameraModel>(params);
 }
+
+BOOST_AUTO_TEST_CASE(TestThinPrismFisheye) {
+  std::vector<double> params = {651.123, 655.123, 386.123, 511.123,
+                                -0.471,  0.223,   -0.001,  0.001,
+                                0.001,   0.02,    -0.02,   0.001};
+  TestModel<ThinPrismFisheyeCameraModel>(params);
+}

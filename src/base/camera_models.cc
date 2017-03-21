@@ -57,6 +57,8 @@ int CameraModelNameToId(const std::string& name) {
     return FullOpenCVCameraModel::model_id;
   } else if (uppercast_name == "FOV") {
     return FOVCameraModel::model_id;
+  } else if (uppercast_name == "THIN_PRISM_FISHEYE") {
+    return ThinPrismFisheyeCameraModel::model_id;
   }
   return kInvalidCameraModelId;
 }
@@ -82,6 +84,8 @@ std::string CameraModelIdToName(const int model_id) {
     return "FULL_OPENCV";
   } else if (model_id == FOVCameraModel::model_id) {
     return "FOV";
+  } else if (model_id == ThinPrismFisheyeCameraModel::model_id) {
+    return "THIN_PRISM_FISHEYE";
   }
   return "INVALID_CAMERA_MODEL";
 }
