@@ -114,6 +114,13 @@ vanishing point detection in the images. Please, refer to the
 ``model_orientation_aligner`` for more details.
 
 
+Trading off completeness and accuracy in dense reconstruction
+-------------------------------------------------------------
+
+If the reconstruction contains too many outliers and too much noise, try to
+increase the value of option ``--DenseMapperOptions.fusion_min_num_pixels``.
+
+
 .. _faq-dense-memory:
 
 Reduce memory usage during dense reconstruction
