@@ -63,9 +63,10 @@ int main(int argc, char** argv) {
   if (options.ParseHelp(argc, argv)) {
     return EXIT_SUCCESS;
   }
-  
+
   if (robust_alignment && ransac_options.max_error <= 0) {
-    std::cout << "ERROR: You must provide a maximum alignment error > 0" << std::endl;
+    std::cout << "ERROR: You must provide a maximum alignment error > 0"
+              << std::endl;
     return EXIT_FAILURE;
   }
 
