@@ -117,8 +117,14 @@ vanishing point detection in the images. Please, refer to the
 Trading off completeness and accuracy in dense reconstruction
 -------------------------------------------------------------
 
-If the reconstruction contains too many outliers and too much noise, try to
+If the dense point cloud contains too many outliers and too much noise, try to
 increase the value of option ``--DenseMapperOptions.fusion_min_num_pixels``.
+
+If the reconstructed dense surface mesh model contains no surface or there are
+too many outlier surfaces, you should reduce the value of option
+``--DenseMapperOptions.poisson_trim`` to decrease the surface are and vice versa
+to increase it. Also consider to try the reduce the outliers or increase the
+completeness in the fusion stage, as described above.
 
 
 .. _faq-dense-memory:
