@@ -411,6 +411,8 @@ void OptionManager::RegisterOption(const std::string& name, const T* option) {
   } else if (std::is_same<T, std::string>::value) {
     options_string_.emplace_back(name,
                                  reinterpret_cast<const std::string*>(option));
+  } else {
+    LOG(FATAL) << "Unsupported option type";
   }
 }
 
