@@ -24,10 +24,6 @@ using namespace colmap;
 int main(int argc, char** argv) {
   InitializeGlog(argv);
 
-  Q_INIT_RESOURCE(resources);
-
-  QApplication app(argc, argv);
-
   OptionManager options;
 
   if (argc > 1) {
@@ -42,6 +38,10 @@ int main(int argc, char** argv) {
       return EXIT_SUCCESS;
     }
   }
+
+  Q_INIT_RESOURCE(resources);
+
+  QApplication app(argc, argv);
 
   MainWindow main_window(options);
   main_window.show();
