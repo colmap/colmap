@@ -16,8 +16,6 @@
 
 #include "util/version.h"
 
-using namespace std::chrono;
-
 namespace colmap {
 
 std::string GetVersionInfo() {
