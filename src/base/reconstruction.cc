@@ -1704,29 +1704,34 @@ void Reconstruction::ReadImages(const std::string& path) {
     image.SetName(item);
 
     // POINTS2D
-    std::getline(file, line);
+    if (!std::getline(file, line)) {
+      break;
+    }
+
     StringTrim(&line);
     std::stringstream line_stream2(line);
 
     std::vector<Eigen::Vector2d> points;
     std::vector<point3D_t> point3D_ids;
 
-    while (!line_stream2.eof()) {
-      Eigen::Vector2d point;
+    if (!line.empty()) {
+      while (!line_stream2.eof()) {
+        Eigen::Vector2d point;
 
-      std::getline(line_stream2, item, ' ');
-      point.x() = boost::lexical_cast<double>(item);
+        std::getline(line_stream2, item, ' ');
+        point.x() = boost::lexical_cast<double>(item);
 
-      std::getline(line_stream2, item, ' ');
-      point.y() = boost::lexical_cast<double>(item);
+        std::getline(line_stream2, item, ' ');
+        point.y() = boost::lexical_cast<double>(item);
 
-      points.push_back(point);
+        points.push_back(point);
 
-      std::getline(line_stream2, item, ' ');
-      if (item == "-1") {
-        point3D_ids.push_back(kInvalidPoint3DId);
-      } else {
-        point3D_ids.push_back(boost::lexical_cast<point3D_t>(item));
+        std::getline(line_stream2, item, ' ');
+        if (item == "-1") {
+          point3D_ids.push_back(kInvalidPoint3DId);
+        } else {
+          point3D_ids.push_back(boost::lexical_cast<point3D_t>(item));
+        }
       }
     }
 
