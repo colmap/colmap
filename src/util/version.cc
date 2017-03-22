@@ -18,6 +18,14 @@
 
 namespace colmap {
 
+#ifdef _MSC_VER
+const static std::string COMMIT_ID = STRINGIFY(GIT_COMMIT_ID);
+const static std::string COMMIT_DATE = STRINGIFY(GIT_COMMIT_DATE);
+#else
+const static std::string COMMIT_ID = GIT_COMMIT_ID;
+const static std::string COMMIT_DATE = GIT_COMMIT_DATE;
+#endif
+
 std::string GetVersionInfo() {
   return StringPrintf("COLMAP version %s", STRINGIFY(COLMAP_VERSION));
 }

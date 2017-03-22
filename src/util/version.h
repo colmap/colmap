@@ -21,9 +21,6 @@
 
 namespace colmap {
 
-const static std::string COMMIT_ID = GIT_COMMIT_ID;
-const static std::string COMMIT_DATE = GIT_COMMIT_DATE;
-
 std::string GetVersionInfo();
 std::string GetBuildInfo();
 
