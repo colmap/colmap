@@ -71,6 +71,7 @@ find_package(Ceres REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
 find_package(Glew REQUIRED)
+find_package(Git REQUIRED)
 
 if(CUDA_ENABLED)
     find_package(CUDA QUIET)
@@ -82,6 +83,8 @@ find_package(Qt5 REQUIRED)
 ################################################################################
 # Compiler specific configuration
 ################################################################################
+
+include(AddVersionDefinitions)
 
 if(CMAKE_BUILD_TYPE)
     message(STATUS "Build type specified as ${CMAKE_BUILD_TYPE}")

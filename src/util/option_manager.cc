@@ -26,6 +26,7 @@
 
 #include "base/camera_models.h"
 #include "util/misc.h"
+#include "util/version.h"
 
 namespace config = boost::program_options;
 
@@ -1134,13 +1135,11 @@ bool OptionManager::Parse(const int argc, char** argv) {
     config::store(config::parse_command_line(argc, argv, *desc_), vmap);
 
     if (vmap.count("help")) {
-      std::cout << "COLMAP version " << COLMAP_VERSION;
-#ifdef CUDA_ENABLED
-      std::cout << " (with CUDA support)";
-#else
-      std::cout << " (without CUDA support)";
-#endif
-      std::cout << std::endl << std::endl << *desc_ << std::endl;
+      std::cout << StringPrintf("%s (%s)", GetVersionInfo().c_str(),
+                                GetBuildInfo().c_str())
+                << std::endl
+                << std::endl;
+      std::cout << *desc_ << std::endl;
       return true;
     }
 

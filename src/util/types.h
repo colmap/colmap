@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef COLMAP_SRC_UTIL_INTTYPES_H_
-#define COLMAP_SRC_UTIL_INTTYPES_H_
+#ifndef COLMAP_SRC_UTIL_TYPES_H_
+#define COLMAP_SRC_UTIL_TYPES_H_
 
 #include "util/alignment.h"
 
@@ -86,4 +86,4 @@ const point3D_t kInvalidPoint3DId = std::numeric_limits<point3D_t>::max();
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_UTIL_INTTYPES_H_
+#endif  // COLMAP_SRC_UTIL_TYPES_H_

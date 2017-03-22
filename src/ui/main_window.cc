@@ -18,6 +18,8 @@
 
 #include <boost/filesystem.hpp>
 
+#include "util/version.h"
+
 namespace colmap {
 
 MainWindow::MainWindow(const OptionManager& options)
@@ -1105,10 +1107,10 @@ void MainWindow::ResetOptions() {
 void MainWindow::About() {
   QMessageBox::about(
       this, tr("About"),
-      QString().sprintf("COLMAP %s<br /><br />"
+      QString().sprintf("%s<br />(%s)<br /><br />"
                         "Author:<br />Johannes L. Schönberger<br /><br />"
                         "Email:<br />jsch at inf.ethz.ch",
-                        COLMAP_VERSION));
+                        GetVersionInfo().c_str(), GetBuildInfo().c_str()));
 }
 
 void MainWindow::Documentation() {

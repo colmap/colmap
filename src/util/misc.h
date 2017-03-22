@@ -23,13 +23,18 @@
 #include <vector>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include "util/logging.h"
 #include "util/string.h"
 
 namespace colmap {
+
+#ifndef STRINGIFY
+#define STRINGIFY(s) STRINGIFY_(s)
+#define STRINGIFY_(s) #s
+#endif  // STRINGIFY
 
 // Append trailing slash to string if it does not yet end with a slash.
 std::string EnsureTrailingSlash(const std::string& str);

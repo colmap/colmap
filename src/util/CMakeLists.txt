@@ -12,6 +12,7 @@ COLMAP_ADD_LIBRARY(util
     threading.h threading.cc
     opengl_utils.h opengl_utils.cc
     logging.h logging.cc
+    version.h version.cc
 )
 
 COLMAP_ADD_TEST(bitmap_test bitmap_test.cc)
