@@ -386,6 +386,7 @@ void OptionManager::AddRequiredOption(const std::string& name, T* option,
   desc_->add_options()(name.c_str(),
                        boost::program_options::value<T>(option)->required(),
                        help_text.c_str());
+  RegisterOption(name, option);
 }
 
 template <typename T>
@@ -396,6 +397,7 @@ void OptionManager::AddDefaultOption(const std::string& name,
       name.c_str(),
       boost::program_options::value<T>(option)->default_value(default_option),
       help_text.c_str());
+  RegisterOption(name, option);
 }
 
 template <typename T>
