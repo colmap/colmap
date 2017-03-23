@@ -708,11 +708,8 @@ OptionManager::OptionManager() {
 
   Reset();
 
-  desc_->add_options()(
-      "help,h",
-      "Configuration can either be specified via command-line or by defining "
-      "the options in a .ini project file provided as `--project_path`.")(
-      "project_path", config::value<std::string>());
+  desc_->add_options()("help,h", "");
+  desc_->add_options()("project_path", config::value<std::string>());
 
   AddDebugOptions();
 }
@@ -1139,6 +1136,12 @@ bool OptionManager::Parse(const int argc, char** argv) {
                                 GetBuildInfo().c_str())
                 << std::endl
                 << std::endl;
+      std::cout
+          << "Options can either be specified via command-line or by defining"
+          << std::endl
+          << "them in a .ini project file passed to `--project_path`."
+          << std::endl
+          << std::endl;
       std::cout << *desc_ << std::endl;
       return true;
     }

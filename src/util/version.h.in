@@ -21,7 +21,12 @@
 
 namespace colmap {
 
+const static std::string COLMAP_VERSION = "${COLMAP_VERSION}";
+const static std::string COLMAP_COMMIT_ID = "${GIT_COMMIT_ID}";
+const static std::string COLMAP_COMMIT_DATE = "${GIT_COMMIT_DATE}";
+
 std::string GetVersionInfo();
+
 std::string GetBuildInfo();
 
 }  // namespace colmap

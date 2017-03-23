@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
 
 project(COLMAP)
-add_definitions("-DCOLMAP_VERSION=2.1")
+
+set(COLMAP_VERSION "2.1")
 
 
 ################################################################################
@@ -84,8 +85,6 @@ find_package(Qt5 REQUIRED)
 # Compiler specific configuration
 ################################################################################
 
-include(AddVersionDefinitions)
-
 if(CMAKE_BUILD_TYPE)
     message(STATUS "Build type specified as ${CMAKE_BUILD_TYPE}")
 else()
@@ -157,6 +156,8 @@ endif()
 ################################################################################
 # Add sources
 ################################################################################
+
+include(GenerateVersionDefinitions)
 
 add_subdirectory(src)
 

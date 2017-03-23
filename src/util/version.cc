@@ -18,16 +18,8 @@
 
 namespace colmap {
 
-#ifdef _MSC_VER
-const static std::string COMMIT_ID = STRINGIFY(GIT_COMMIT_ID);
-const static std::string COMMIT_DATE = STRINGIFY(GIT_COMMIT_DATE);
-#else
-const static std::string COMMIT_ID = GIT_COMMIT_ID;
-const static std::string COMMIT_DATE = GIT_COMMIT_DATE;
-#endif
-
 std::string GetVersionInfo() {
-  return StringPrintf("COLMAP version %s", STRINGIFY(COLMAP_VERSION));
+  return StringPrintf("COLMAP version %s", COLMAP_VERSION.c_str());
 }
 
 std::string GetBuildInfo() {
@@ -36,8 +28,8 @@ std::string GetBuildInfo() {
 #else
   const std::string cuda_info = "without CUDA";
 #endif
-  return StringPrintf("Commit %s on %s %s", COMMIT_ID.c_str(),
-                      COMMIT_DATE.c_str(), cuda_info.c_str());
+  return StringPrintf("Commit %s on %s %s", COLMAP_COMMIT_ID.c_str(),
+                      COLMAP_COMMIT_DATE.c_str(), cuda_info.c_str());
 }
 
 }  // namespace colmap

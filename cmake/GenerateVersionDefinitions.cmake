@@ -10,5 +10,5 @@ execute_process(COMMAND
     OUTPUT_VARIABLE GIT_COMMIT_DATE
     ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-add_definitions("-DGIT_COMMIT_ID=\"${GIT_COMMIT_ID}\"")
-add_definitions("-DGIT_COMMIT_DATE=\"${GIT_COMMIT_DATE}\"")
+configure_file("${CMAKE_SOURCE_DIR}/src/util/version.h.in"
+               "${CMAKE_SOURCE_DIR}/src/util/version.h")
