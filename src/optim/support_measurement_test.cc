@@ -14,9 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#define BOOST_TEST_MAIN
-#define BOOST_TEST_MODULE "optim/support_measurement"
-#include <boost/test/unit_test.hpp>
+#define TEST_NAME "optim/support_measurement"
+#include "util/testing.h"
 
 #include <unordered_set>
 

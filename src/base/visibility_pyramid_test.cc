@@ -14,9 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#define BOOST_TEST_MAIN
-#define BOOST_TEST_MODULE "base/visibility_pyramid"
-#include <boost/test/unit_test.hpp>
+#define TEST_NAME "base/visibility_pyramid"
+#include "util/testing.h"
 
 #include "base/visibility_pyramid.h"
 

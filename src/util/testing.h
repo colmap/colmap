@@ -14,31 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#define TEST_NAME "base/camera_database"
-#include "util/testing.h"
+#ifndef COLMAP_SRC_UTIL_TESTING_H_
+#define COLMAP_SRC_UTIL_TESTING_H_
 
-#include "base/camera_database.h"
+#include <iostream>
 
-using namespace colmap;
+#define BOOST_TEST_MAIN
 
-BOOST_AUTO_TEST_CASE(TestInitialization) {
-  CameraDatabase database;
-  camera_specs_t specs = InitializeCameraSpecs();
-  BOOST_CHECK_EQUAL(database.NumEntries(), specs.size());
-}
+#ifndef TEST_NAME
+#error "TEST_NAME not defined"
+#endif
 
-BOOST_AUTO_TEST_CASE(TestExactMatch) {
-  CameraDatabase database;
-  double sensor_width;
-  BOOST_CHECK(
-      database.QuerySensorWidth("canon", "digitalixus100is", &sensor_width));
-  BOOST_CHECK_EQUAL(sensor_width, 6.1600f);
-}
+#define BOOST_TEST_MODULE TEST_NAME
 
-BOOST_AUTO_TEST_CASE(TestAmbiguousMatch) {
-  CameraDatabase database;
-  double sensor_width;
-  BOOST_CHECK(
-      !database.QuerySensorWidth("canon", "digitalixus", &sensor_width));
-  BOOST_CHECK_EQUAL(sensor_width, 6.1600f);
-}
+#include <boost/test/unit_test.hpp>
+
+#endif  // COLMAP_SRC_UTIL_TESTING_H_

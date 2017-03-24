@@ -14,9 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#define BOOST_TEST_MAIN
-#define BOOST_TEST_MODULE "estimators/coordinate_frame"
-#include <boost/test/unit_test.hpp>
+#define TEST_NAME "estimators/coordinate_frame"
+#include "util/testing.h"
 
 #include "estimators/coordinate_frame.h"
 

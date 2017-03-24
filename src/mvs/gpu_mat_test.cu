@@ -14,9 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#define BOOST_TEST_MAIN
-#define BOOST_TEST_MODULE "mvs/gpu_mat_test"
-#include <boost/test/unit_test.hpp>
+#define TEST_NAME "mvs/gpu_mat_test"
+#include "util/testing.h"
 
 #include "mvs/gpu_mat.h"
 #include "mvs/gpu_mat_prng.h"

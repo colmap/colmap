@@ -399,8 +399,9 @@ dialog. Make sure not to forget the trailing slash in
 
 For large datasets, you probably want to first run CMVS to cluster the scene
 into more manageable parts and then run COLMAP or PMVS2. Please, refer to the
-sample shell scripts on how to run CMVS in combination with COLMAP or PMVS2.
-Moreover, there are a number of external libraries that support COLMAP's output:
+sample shell scripts in the undistortion output folder on how to run CMVS in
+combination with COLMAP or PMVS2. Moreover, there are a number of external
+libraries that support COLMAP's output:
 
 - `CMVS/PMVS <http://www.di.ens.fr/pmvs/>`_ [furukawa10]_
 - `CMP-MVS <http://ptak.felk.cvut.cz/sfmservice/websfm.pl>`_ [jancosek11]_
