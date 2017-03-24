@@ -1623,6 +1623,11 @@ bool CreateSiftGPUMatcher(const SiftMatchOptions& match_options,
   match_options.Check();
   CHECK_NOTNULL(sift_match_gpu);
 
+  // SiftGPU uses many global static state variables and the initialization must
+  // be thread-safe in order to work correctly. This is enforced here.
+  static std::mutex mutex;
+  std::unique_lock<std::mutex> lock(mutex);
+
   const std::vector<int> gpu_indices =
       CSVToVector<int>(match_options.gpu_index);
   CHECK_EQ(gpu_indices.size(), 1) << "SiftGPU can only run on one GPU";
