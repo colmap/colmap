@@ -432,23 +432,15 @@ SiftGPUFeatureMatcher::SiftGPUFeatureMatcher(const SiftMatchOptions& options,
   prev_uploaded_image_ids_[0] = kInvalidImageId;
   prev_uploaded_image_ids_[1] = kInvalidImageId;
 
-#ifdef CUDA_ENABLED
-  if (options_.gpu_index < 0) {
-#endif
-    opengl_context_.reset(new OpenGLContextManager());
-#ifdef CUDA_ENABLED
-  }
+#ifndef CUDA_ENABLED
+  opengl_context_.reset(new OpenGLContextManager());
 #endif
 }
 
 void SiftGPUFeatureMatcher::Run() {
-#ifdef CUDA_ENABLED
-  if (options_.gpu_index < 0) {
-#endif
-    CHECK(opengl_context_);
-    opengl_context_->MakeCurrent();
-#ifdef CUDA_ENABLED
-  }
+#ifndef CUDA_ENABLED
+  CHECK(opengl_context_);
+  opengl_context_->MakeCurrent();
 #endif
 
   SiftMatchGPU sift_match_gpu;
@@ -521,7 +513,7 @@ void GuidedSiftCPUFeatureMatcher::Run() {
       output.two_view_geometry = input.two_view_geometry;
 
       if (output.two_view_geometry.inlier_matches.size() <
-          options_.min_num_inliers) {
+          static_cast<size_t>(options_.min_num_inliers)) {
         output_queue_->Push(output);
         continue;
       }
@@ -552,23 +544,15 @@ GuidedSiftGPUFeatureMatcher::GuidedSiftGPUFeatureMatcher(
   prev_uploaded_image_ids_[0] = kInvalidImageId;
   prev_uploaded_image_ids_[1] = kInvalidImageId;
 
-#ifdef CUDA_ENABLED
-  if (options_.gpu_index < 0) {
-#endif
-    opengl_context_.reset(new OpenGLContextManager());
-#ifdef CUDA_ENABLED
-  }
+#ifndef CUDA_ENABLED
+  opengl_context_.reset(new OpenGLContextManager());
 #endif
 }
 
 void GuidedSiftGPUFeatureMatcher::Run() {
-#ifdef CUDA_ENABLED
-  if (options_.gpu_index < 0) {
-#endif
-    CHECK(opengl_context_);
-    opengl_context_->MakeCurrent();
-#ifdef CUDA_ENABLED
-  }
+#ifndef CUDA_ENABLED
+  CHECK(opengl_context_);
+  opengl_context_->MakeCurrent();
 #endif
 
   SiftMatchGPU sift_match_gpu;
@@ -591,7 +575,7 @@ void GuidedSiftGPUFeatureMatcher::Run() {
       output.two_view_geometry = input.two_view_geometry;
 
       if (output.two_view_geometry.inlier_matches.size() <
-          options_.min_num_inliers) {
+          static_cast<size_t>(options_.min_num_inliers)) {
         output_queue_->Push(output);
         continue;
       }
@@ -664,7 +648,8 @@ void TwoViewGeometryVerifier::Run() {
       output.image_id2 = input.image_id2;
       output.matches = input.matches;
 
-      if (output.matches.size() < options_.min_num_inliers) {
+      if (output.matches.size() <
+          static_cast<size_t>(options_.min_num_inliers)) {
         output_queue_->Push(output);
         continue;
       }
@@ -694,8 +679,9 @@ void TwoViewGeometryVerifier::Run() {
 }
 
 SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchOptions& options,
+                                       Database* database,
                                        FeatureMatcherCache* cache)
-    : options_(options), cache_(cache) {
+    : options_(options), database_(database), cache_(cache) {
   options_.Check();
 
   const int num_threads = GetEffectiveNumThreads(options_.num_threads);
@@ -790,11 +776,14 @@ SiftFeatureMatcher::~SiftFeatureMatcher() {
 
 void SiftFeatureMatcher::Match(
     const std::vector<std::pair<image_t, image_t>>& image_pairs) {
+  CHECK_NOTNULL(database_);
   CHECK_NOTNULL(cache_);
 
   if (image_pairs.empty()) {
     return;
   }
+
+  DatabaseTransaction database_transaction(database_);
 
   //////////////////////////////////////////////////////////////////////////////
   // Match the image pairs
@@ -882,15 +871,13 @@ ExhaustiveFeatureMatcher::ExhaustiveFeatureMatcher(
       match_options_(match_options),
       database_(database_path),
       cache_(2 * options_.block_size, &database_),
-      matcher_(match_options, &cache_) {
+      matcher_(match_options, &database_, &cache_) {
   options_.Check();
   match_options_.Check();
 }
 
 void ExhaustiveFeatureMatcher::Run() {
   PrintHeading1("Exhaustive feature matching");
-
-  DatabaseTransaction database_transaction(&database_);
 
   const std::vector<image_t> image_ids = cache_.GetImageIds();
 
@@ -962,15 +949,13 @@ SequentialFeatureMatcher::SequentialFeatureMatcher(
       cache_(std::max(5 * options_.loop_detection_num_images,
                       5 * options_.overlap),
              &database_),
-      matcher_(match_options, &cache_) {
+      matcher_(match_options, &database_, &cache_) {
   options_.Check();
   match_options_.Check();
 }
 
 void SequentialFeatureMatcher::Run() {
   PrintHeading1("Sequential feature matching");
-
-  DatabaseTransaction database_transaction(&database_);
 
   const std::vector<image_t> ordered_image_ids = GetOrderedImageIds();
 
@@ -1070,15 +1055,13 @@ VocabTreeFeatureMatcher::VocabTreeFeatureMatcher(
       match_options_(match_options),
       database_(database_path),
       cache_(5 * options_.num_images, &database_),
-      matcher_(match_options, &cache_) {
+      matcher_(match_options, &database_, &cache_) {
   options_.Check();
   match_options_.Check();
 }
 
 void VocabTreeFeatureMatcher::Run() {
   PrintHeading1("Vocabulary tree feature matching");
-
-  DatabaseTransaction database_transaction(&database_);
 
   // Read the pre-trained vocabulary tree from disk.
   retrieval::VisualIndex visual_index;
@@ -1147,15 +1130,13 @@ SpatialFeatureMatcher::SpatialFeatureMatcher(
       match_options_(match_options),
       database_(database_path),
       cache_(5 * options_.max_num_neighbors, &database_),
-      matcher_(match_options, &cache_) {
+      matcher_(match_options, &database_, &cache_) {
   options_.Check();
   match_options_.Check();
 }
 
 void SpatialFeatureMatcher::Run() {
   PrintHeading1("Spatial feature matching");
-
-  DatabaseTransaction database_transaction(&database_);
 
   const std::vector<image_t> image_ids = cache_.GetImageIds();
 
@@ -1328,15 +1309,13 @@ ImagePairsFeatureMatcher::ImagePairsFeatureMatcher(
       match_options_(match_options),
       database_(database_path),
       cache_(options.block_size, &database_),
-      matcher_(match_options, &cache_) {
+      matcher_(match_options, &database_, &cache_) {
   options_.Check();
   match_options_.Check();
 }
 
 void ImagePairsFeatureMatcher::Run() {
   PrintHeading1("Custom feature matching");
-
-  DatabaseTransaction database_transaction(&database_);
 
   //////////////////////////////////////////////////////////////////////////////
   // Reading image pairs list
@@ -1441,8 +1420,6 @@ FeaturePairsFeatureMatcher::FeaturePairsFeatureMatcher(
 
 void FeaturePairsFeatureMatcher::Run() {
   PrintHeading1("Importing matches");
-
-  DatabaseTransaction database_transaction(&database_);
 
   std::unordered_map<std::string, const Image*> image_name_to_image;
   image_name_to_image.reserve(cache_.GetImageIds().size());
@@ -1660,10 +1637,10 @@ bool CreateSiftGPUMatcher(const SiftMatchOptions& match_options,
     sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_CUDA_DEVICE0 +
                                 gpu_indices[0]);
   } else {
-    sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_CUDA_DEVICE);
+    sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_CUDA);
   }
 #else  // CUDA_ENABLED
-    sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_GLSL);
+  sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_GLSL);
 #endif  // CUDA_ENABLED
 
   if (sift_match_gpu->VerifyContextGL() == 0) {

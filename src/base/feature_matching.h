@@ -252,7 +252,7 @@ class TwoViewGeometryVerifier : public Thread {
 // database should be in an active transaction while calling `Match`.
 class SiftFeatureMatcher {
  public:
-  SiftFeatureMatcher(const SiftMatchOptions& options,
+  SiftFeatureMatcher(const SiftMatchOptions& options, Database* database,
                      FeatureMatcherCache* cache);
 
   ~SiftFeatureMatcher();
@@ -262,6 +262,7 @@ class SiftFeatureMatcher {
 
  private:
   const SiftMatchOptions options_;
+  Database* database_;
   FeatureMatcherCache* cache_;
 
   std::vector<std::unique_ptr<Thread>> matchers_;

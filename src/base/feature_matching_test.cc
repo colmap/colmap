@@ -64,7 +64,7 @@ BOOST_AUTO_TEST_CASE(TestCreateSiftGPUMatcherCUDA) {
 #ifdef CUDA_ENABLED
   SiftMatchGPU sift_match_gpu;
   SiftMatchOptions match_options;
-  match_options.gpu_index = 0;
+  match_options.gpu_index = "0";
   BOOST_CHECK(CreateSiftGPUMatcher(match_options, &sift_match_gpu));
 #endif
 }
