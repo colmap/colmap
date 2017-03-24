@@ -115,6 +115,40 @@ vanishing point detection in the images. Please, refer to the
 ``model_orientation_aligner`` for more details.
 
 
+Register/localize new images into an existing reconstruction
+------------------------------------------------------------
+
+If you have an existing reconstruction of images and want to register/localize
+new images within this reconstruction, you can follow these steps::
+
+    ./src/exe/feature_extractor \
+        --General.database_path $PROJECT_PATH/database.db \
+        --General.image_path $PROJECT_PATH/images \
+        --image_list_path /path/to/image-list.txt
+
+    ./src/exe/vocab_tree_matcher \
+        --General.database_path $PROJECT_PATH/database.db \
+        --VocabTreeMatchOptions.vocab_tree_path /path/to/vocab-tree.bin \
+        --VocabTreeMatchOptions.match_list_path /path/to/image-list.txt
+
+    ./src/exe/image_registrator \
+        --General.database_path $PROJECT_PATH/database.db \
+        --General.image_path $PROJECT_PATH/images \
+        --import_path /path/to/existing-model \
+        --export_path /path/to/model-with-new-images
+
+Note that this first extracts features for the new images, then matches them to
+the existing images in the database, and finally registers them into the model.
+
+
+Multi-GPU support in feature matching
+-------------------------------------
+
+You can run feature matching on multiple GPUs by specifying multiple indices for
+CUDA-enabled GPUs, e.g., ``--MatchOptions.gpu_index=0,1,2,3`` runs the dense
+reconstruction on 4 GPUs in parallel.
+
+
 Trading off completeness and accuracy in dense reconstruction
 -------------------------------------------------------------
 

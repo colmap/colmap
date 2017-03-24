@@ -428,6 +428,7 @@ SiftGPUFeatureMatcher::SiftGPUFeatureMatcher(const SiftMatchOptions& options,
       input_queue_(input_queue),
       output_queue_(output_queue) {
   options_.Check();
+
   prev_uploaded_image_ids_[0] = kInvalidImageId;
   prev_uploaded_image_ids_[1] = kInvalidImageId;
 
