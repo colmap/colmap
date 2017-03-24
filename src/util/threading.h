@@ -269,6 +269,12 @@ class JobQueue {
   // Stop the queue and return from all push/pop calls with false.
   void Stop();
 
+  // Reset the job queue to its initial empty state.
+  void Reset();
+
+  // Clear all pushed and not popped jobs from the queue.
+  void Clear();
+
  private:
   size_t max_num_jobs_;
   std::atomic<bool> stop_;
@@ -374,6 +380,22 @@ void JobQueue<T>::Stop() {
   stop_ = true;
   push_condition_.notify_all();
   pop_condition_.notify_all();
+}
+
+template <typename T>
+void JobQueue<T>::Reset() {
+  Stop();
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+    stop_ = false;
+  }
+}
+
+template <typename T>
+void JobQueue<T>::Clear() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  std::queue<T> empty_jobs;
+  std::swap(jobs_, empty_jobs);
 }
 
 }  // namespace colmap
