@@ -390,7 +390,7 @@ void PatchMatchController::Run() {
 
   ThreadPool thread_pool(gpu_indices.size());
 
-  auto process_problem = [&](const size_t problem_idx) {
+  auto ProcessProblem = [&](const size_t problem_idx) {
     if (IsStopped()) {
       return;
     }
@@ -439,7 +439,7 @@ void PatchMatchController::Run() {
   };
 
   for (size_t problem_idx = 0; problem_idx < problems.size(); ++problem_idx) {
-    thread_pool.AddTask(process_problem, problem_idx);
+    thread_pool.AddTask(ProcessProblem, problem_idx);
   }
 
   thread_pool.Wait();
