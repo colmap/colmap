@@ -135,6 +135,9 @@ class Thread {
   // Call back to the function with the specified name, if it exists.
   void Callback(const int id) const;
 
+  // Get the unique identifier of the current thread.
+  std::thread::id GetThreadId() const;
+
  private:
   // Wrapper around the main run function to set the finished flag.
   void RunFunc();
@@ -269,9 +272,6 @@ class JobQueue {
   // Stop the queue and return from all push/pop calls with false.
   void Stop();
 
-  // Reset the job queue to its initial empty state.
-  void Reset();
-
   // Clear all pushed and not popped jobs from the queue.
   void Clear();
 
@@ -284,6 +284,10 @@ class JobQueue {
   std::condition_variable pop_condition_;
   std::condition_variable empty_condition_;
 };
+
+// Return the number of logical CPU cores if num_threads <= 0,
+// otherwise return the input value of num_threads.
+int GetEffectiveNumThreads(const int num_threads);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -372,7 +376,6 @@ void JobQueue<T>::Wait() {
   while (!jobs_.empty()) {
     empty_condition_.wait(lock);
   }
-  Stop();
 }
 
 template <typename T>
@@ -380,15 +383,6 @@ void JobQueue<T>::Stop() {
   stop_ = true;
   push_condition_.notify_all();
   pop_condition_.notify_all();
-}
-
-template <typename T>
-void JobQueue<T>::Reset() {
-  Stop();
-  {
-    std::unique_lock<std::mutex> lock(mutex_);
-    stop_ = false;
-  }
 }
 
 template <typename T>

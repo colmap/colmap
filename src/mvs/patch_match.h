@@ -45,7 +45,8 @@ class PatchMatch {
   const static size_t kMaxWindowRadius = 32;
 
   struct Options {
-    // Index of the GPU used for patch match.
+    // Index of the GPU used for patch match. For multi-GPU usage,
+    // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
     std::string gpu_index = "-1";
 
     // Depth range in which to randomly sample depth hypotheses.

@@ -64,7 +64,7 @@ struct MatchOptions : public BaseOptions {
 
   int num_threads;
   bool use_gpu;
-  int gpu_index;
+  std::string gpu_index;
   double max_ratio;
   double max_distance;
   bool cross_check;
@@ -87,9 +87,6 @@ struct ExhaustiveMatchOptions : public BaseOptions {
   ExhaustiveFeatureMatcher::Options Options() const;
 
   int block_size;
-  bool preemptive;
-  int preemptive_num_features;
-  int preemptive_min_num_matches;
 };
 
 struct SequentialMatchOptions : public BaseOptions {

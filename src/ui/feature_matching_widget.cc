@@ -82,7 +82,7 @@ void FeatureMatchingTab::CreateGeneralOptions() {
 
   AddOptionInt(&options_->match_options->num_threads, "num_threads", -1);
   AddOptionBool(&options_->match_options->use_gpu, "use_gpu");
-  AddOptionInt(&options_->match_options->gpu_index, "gpu_index", -1);
+  AddOptionText(&options_->match_options->gpu_index, "gpu_index");
   AddOptionDouble(&options_->match_options->max_ratio, "max_ratio");
   AddOptionDouble(&options_->match_options->max_distance, "max_distance");
   AddOptionBool(&options_->match_options->cross_check, "cross_check");
@@ -108,11 +108,6 @@ ExhaustiveMatchingTab::ExhaustiveMatchingTab(QWidget* parent,
                                              OptionManager* options)
     : FeatureMatchingTab(parent, options) {
   AddOptionInt(&options->exhaustive_match_options->block_size, "block_size");
-  AddOptionBool(&options->exhaustive_match_options->preemptive, "preemptive");
-  AddOptionInt(&options->exhaustive_match_options->preemptive_num_features,
-               "preemptive_num_features");
-  AddOptionInt(&options->exhaustive_match_options->preemptive_min_num_matches,
-               "preemptive_min_num_matches");
 
   CreateGeneralOptions();
 }

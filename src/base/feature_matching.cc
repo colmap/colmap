@@ -41,11 +41,8 @@ void PrintElapsedTime(const Timer& timer) {
 
 void IndexImagesInVisualIndex(const int num_threads, const int max_num_features,
                               const std::vector<image_t>& image_ids,
-                              Thread* thread, Database* database,
-                              FeatureMatcherCache* cache,
+                              Thread* thread, FeatureMatcherCache* cache,
                               retrieval::VisualIndex* visual_index) {
-  DatabaseTransaction database_transaction(database);
-
   retrieval::VisualIndex::IndexOptions index_options;
   index_options.num_threads = num_threads;
 
@@ -144,7 +141,7 @@ void MatchNearestNeighborsInVisualIndex(
       image_pairs.emplace_back(image_ids[i], image_score.image_id);
     }
 
-    matcher->MatchImagePairs(image_pairs);
+    matcher->Match(image_pairs);
 
     PrintElapsedTime(timer);
   }
@@ -288,7 +285,7 @@ void WarnIfMaxNumMatchesReachedGPU(const SiftMatchGPU& sift_match_gpu,
 }  // namespace
 
 void SiftMatchOptions::Check() const {
-  CHECK_GE(gpu_index, -1);
+  CHECK_GT(CSVToVector<int>(gpu_index).size(), 0);
   CHECK_GT(max_ratio, 0.0);
   CHECK_GT(max_distance, 0.0);
   CHECK_GT(max_error, 0.0);
@@ -361,517 +358,128 @@ std::vector<image_t> FeatureMatcherCache::GetImageIds() const {
   return image_ids;
 }
 
-SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchOptions& options,
-                                       Database* database,
-                                       FeatureMatcherCache* cache)
-    : options_(options), database_(database), cache_(cache) {
+bool FeatureMatcherCache::ExistsMatches(const image_t image_id1,
+                                        const image_t image_id2) {
+  std::unique_lock<std::mutex> lock(database_mutex_);
+  return database_->ExistsMatches(image_id1, image_id2);
+}
+bool FeatureMatcherCache::ExistsInlierMatches(const image_t image_id1,
+                                              const image_t image_id2) {
+  std::unique_lock<std::mutex> lock(database_mutex_);
+  return database_->ExistsInlierMatches(image_id1, image_id2);
+}
+
+void FeatureMatcherCache::WriteMatches(const image_t image_id1,
+                                       const image_t image_id2,
+                                       const FeatureMatches& matches) {
+  std::unique_lock<std::mutex> lock(database_mutex_);
+  database_->WriteMatches(image_id1, image_id2, matches);
+}
+void FeatureMatcherCache::WriteInlierMatches(
+    const image_t image_id1, const image_t image_id2,
+    const TwoViewGeometry& two_view_geometry) {
+  std::unique_lock<std::mutex> lock(database_mutex_);
+  database_->WriteInlierMatches(image_id1, image_id2, two_view_geometry);
+}
+
+SiftCPUFeatureMatcher::SiftCPUFeatureMatcher(const SiftMatchOptions& options,
+                                             FeatureMatcherCache* cache,
+                                             JobQueue<Input>* input_queue,
+                                             JobQueue<Output>* output_queue)
+    : options_(options),
+      cache_(cache),
+      input_queue_(input_queue),
+      output_queue_(output_queue) {
   options_.Check();
+}
 
-  if (options_.use_gpu) {
-// Create an OpenGL context.
+void SiftCPUFeatureMatcher::Run() {
+  while (true) {
+    if (IsStopped()) {
+      break;
+    }
+
+    const auto input_job = input_queue_->Pop();
+    if (input_job.IsValid()) {
+      const auto& input = input_job.Data();
+
+      Output output;
+      output.image_id1 = input.image_id1;
+      output.image_id2 = input.image_id2;
+
+      const FeatureDescriptors descriptors1 =
+          cache_->GetDescriptors(input.image_id1);
+      const FeatureDescriptors descriptors2 =
+          cache_->GetDescriptors(input.image_id2);
+      MatchSiftFeaturesCPU(options_, descriptors1, descriptors2,
+                           &output.matches);
+
+      CHECK(output_queue_->Push(output));
+    }
+  }
+}
+
+SiftGPUFeatureMatcher::SiftGPUFeatureMatcher(const SiftMatchOptions& options,
+                                             FeatureMatcherCache* cache,
+                                             JobQueue<Input>* input_queue,
+                                             JobQueue<Output>* output_queue)
+    : options_(options),
+      cache_(cache),
+      input_queue_(input_queue),
+      output_queue_(output_queue) {
+  options_.Check();
+  prev_uploaded_image_ids_[0] = kInvalidImageId;
+  prev_uploaded_image_ids_[1] = kInvalidImageId;
+
 #ifdef CUDA_ENABLED
-    if (options_.gpu_index < 0) {
+  if (options_.gpu_index < 0) {
 #endif
-      opengl_context_.reset(new OpenGLContextManager());
+    opengl_context_.reset(new OpenGLContextManager());
 #ifdef CUDA_ENABLED
-    }
-#endif
-
-    ClearGPUData();
   }
+#endif
 }
 
-bool SiftFeatureMatcher::Setup() {
-  if (options_.use_gpu) {
+void SiftGPUFeatureMatcher::Run() {
 #ifdef CUDA_ENABLED
-    if (options_.gpu_index < 0) {
+  if (options_.gpu_index < 0) {
 #endif
-      CHECK(opengl_context_);
-      opengl_context_->MakeCurrent();
+    CHECK(opengl_context_);
+    opengl_context_->MakeCurrent();
 #ifdef CUDA_ENABLED
-    }
+  }
 #endif
 
-    sift_match_gpu_.reset(new SiftMatchGPU());
-    if (!CreateSiftGPUMatcher(options_, sift_match_gpu_.get())) {
-      opengl_context_.reset();
-      sift_match_gpu_.reset();
-      std::cerr << "ERROR: SiftGPU not fully supported." << std::endl;
-      return false;
-    }
-  }
+  SiftMatchGPU sift_match_gpu;
+  CHECK(CreateSiftGPUMatcher(options_, &sift_match_gpu))
+      << "ERROR: SiftGPU not fully supported";
 
-  thread_pool_.reset(new ThreadPool(options_.num_threads));
-
-  return true;
-}
-
-void SiftFeatureMatcher::MatchImagePairs(
-    const std::vector<std::pair<image_t, image_t>>& image_pairs) {
-  CHECK_NOTNULL(database_);
-  CHECK_NOTNULL(cache_);
-  CHECK(thread_pool_);
-
-  if (image_pairs.empty()) {
-    return;
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Determine image pairs to match
-  //////////////////////////////////////////////////////////////////////////////
-
-  std::vector<std::pair<bool, bool>> exists_mask;
-  exists_mask.reserve(image_pairs.size());
-  std::unordered_set<image_pair_t> pair_ids;
-  pair_ids.reserve(image_pairs.size());
-
-  bool exists_all = true;
-
-  DatabaseTransaction database_transaction(database_);
-
-  for (const auto image_pair : image_pairs) {
-    // Avoid self-matches.
-    if (image_pair.first == image_pair.second) {
-      exists_mask.emplace_back(true, true);
-      continue;
+  while (true) {
+    if (IsStopped()) {
+      break;
     }
 
-    // Avoid duplicate image pairs.
-    const image_pair_t pair_id =
-        Database::ImagePairToPairId(image_pair.first, image_pair.second);
-    if (pair_ids.count(pair_id) > 0) {
-      exists_mask.emplace_back(true, true);
-      continue;
-    }
+    const auto input_job = input_queue_->Pop();
+    if (input_job.IsValid()) {
+      const auto& input = input_job.Data();
 
-    pair_ids.insert(pair_id);
+      Output output;
+      output.image_id1 = input.image_id1;
+      output.image_id2 = input.image_id2;
 
-    const bool exists_matches =
-        database_->ExistsMatches(image_pair.first, image_pair.second);
-    const bool exists_inlier_matches =
-        database_->ExistsInlierMatches(image_pair.first, image_pair.second);
-
-    exists_all = exists_all && exists_matches && exists_inlier_matches;
-    exists_mask.emplace_back(exists_matches, exists_inlier_matches);
-  }
-
-  if (exists_all) {
-    return;
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Match the image pairs
-  //////////////////////////////////////////////////////////////////////////////
-
-  std::vector<MatchResult> match_results;
-  std::vector<InlierMatchResult> inlier_match_results;
-
-  if (options_.use_gpu) {
-    MatchImagePairsGPU(image_pairs, exists_mask, &match_results,
-                       &inlier_match_results);
-  } else {
-    MatchImagePairsCPU(image_pairs, exists_mask, &match_results,
-                       &inlier_match_results);
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Write results to database
-  //////////////////////////////////////////////////////////////////////////////
-
-  for (const auto& result : match_results) {
-    database_->WriteMatches(result.image_id1, result.image_id2, result.matches);
-  }
-
-  for (const auto& result : inlier_match_results) {
-    database_->WriteInlierMatches(result.image_id1, result.image_id2,
-                                  result.two_view_geometry);
-  }
-}
-
-void SiftFeatureMatcher::MatchImagePairsWithPreemptiveFilter(
-    const size_t preemptive_num_features,
-    const size_t preemptive_min_num_matches,
-    const std::vector<std::pair<image_t, image_t>>& image_pairs) {
-  if (image_pairs.empty()) {
-    return;
-  }
-
-  std::unordered_map<image_t, FeatureDescriptors> top_descriptors;
-
-  image_t prev_image_id1 = kInvalidImageId;
-  image_t prev_image_id2 = kInvalidImageId;
-
-  std::unique_ptr<DatabaseTransaction> database_transaction(
-      new DatabaseTransaction(database_));
-
-  std::vector<std::pair<image_t, image_t>> filtered_image_pairs;
-  for (const auto image_pair : image_pairs) {
-    if (top_descriptors.count(image_pair.first) == 0) {
-      top_descriptors.emplace(
-          image_pair.first,
-          ExtractTopScaleDescriptors(cache_->GetKeypoints(image_pair.first),
-                                     cache_->GetDescriptors(image_pair.first),
-                                     preemptive_num_features));
-    }
-    if (top_descriptors.count(image_pair.second) == 0) {
-      top_descriptors.emplace(
-          image_pair.second,
-          ExtractTopScaleDescriptors(cache_->GetKeypoints(image_pair.second),
-                                     cache_->GetDescriptors(image_pair.second),
-                                     preemptive_num_features));
-    }
-
-    FeatureMatches preemptive_matches;
-    if (options_.use_gpu) {
-      const FeatureDescriptors* descriptors1_ptr = nullptr;
-      if (image_pair.first != prev_image_id1) {
-        descriptors1_ptr = &top_descriptors.at(image_pair.first);
-        prev_image_id1 = image_pair.first;
-      }
-
-      const FeatureDescriptors* descriptors2_ptr = nullptr;
-      if (image_pair.second != prev_image_id2) {
-        descriptors2_ptr = &top_descriptors.at(image_pair.second);
-        prev_image_id2 = image_pair.second;
-      }
-      MatchSiftFeaturesGPU(options_, descriptors1_ptr, descriptors2_ptr,
-                           sift_match_gpu_.get(), &preemptive_matches);
-    } else {
-      MatchSiftFeaturesCPU(options_, top_descriptors.at(image_pair.first),
-                           top_descriptors.at(image_pair.second),
-                           &preemptive_matches);
-    }
-
-    if (preemptive_matches.size() >= preemptive_min_num_matches) {
-      filtered_image_pairs.push_back(image_pair);
-    }
-  }
-
-  database_transaction.reset();
-
-  std::cout << StringPrintf(" P(%d/%d)", filtered_image_pairs.size(),
-                            image_pairs.size())
-            << std::flush;
-
-  MatchImagePairs(filtered_image_pairs);
-}
-
-void SiftFeatureMatcher::MatchImagePairsCPU(
-    const std::vector<std::pair<image_t, image_t>>& image_pairs,
-    const std::vector<std::pair<bool, bool>>& exists_mask,
-    std::vector<MatchResult>* match_results,
-    std::vector<InlierMatchResult>* inlier_match_results) {
-  CHECK_EQ(image_pairs.size(), exists_mask.size());
-
-  const size_t min_num_inliers = static_cast<size_t>(options_.min_num_inliers);
-
-  TwoViewGeometry::Options two_view_geometry_options;
-  two_view_geometry_options.min_num_inliers =
-      static_cast<size_t>(options_.min_num_inliers);
-  two_view_geometry_options.ransac_options.max_error = options_.max_error;
-  two_view_geometry_options.ransac_options.confidence = options_.confidence;
-  two_view_geometry_options.ransac_options.max_num_trials =
-      static_cast<size_t>(options_.max_num_trials);
-  two_view_geometry_options.ransac_options.min_inlier_ratio =
-      options_.min_inlier_ratio;
-
-  match_results->clear();
-  match_results->reserve(image_pairs.size());
-  inlier_match_results->clear();
-  inlier_match_results->reserve(image_pairs.size());
-
-  std::vector<std::future<void>> futures;
-  futures.reserve(image_pairs.size());
-  std::vector<FeatureMatches> match_results_raw;
-  match_results_raw.reserve(image_pairs.size());
-  std::vector<TwoViewGeometry> inlier_match_results_raw;
-  inlier_match_results_raw.reserve(image_pairs.size());
-
-  for (size_t i = 0; i < image_pairs.size(); ++i) {
-    const auto exists = exists_mask[i];
-    const auto image_pair = image_pairs[i];
-
-    match_results_raw.emplace_back();
-    inlier_match_results_raw.emplace_back();
-
-    FeatureMatches* matches_ptr = &match_results_raw.back();
-    TwoViewGeometry* inlier_matches_ptr = &inlier_match_results_raw.back();
-
-    futures.push_back(thread_pool_->AddTask([this, &min_num_inliers,
-                                             &two_view_geometry_options, exists,
-                                             image_pair, matches_ptr,
-                                             inlier_matches_ptr]() {
-      if (exists.first && exists.second) {
-        return;
-      }
-
-      // Feature matching
-
-      if (exists.first) {
-        *matches_ptr = cache_->GetMatches(image_pair.first, image_pair.second);
-      } else {
-        const FeatureDescriptors descriptors1 =
-            cache_->GetDescriptors(image_pair.first);
-        const FeatureDescriptors descriptors2 =
-            cache_->GetDescriptors(image_pair.second);
-        MatchSiftFeaturesCPU(options_, descriptors1, descriptors2, matches_ptr);
-        if (matches_ptr->size() < min_num_inliers) {
-          *matches_ptr = {};
-        }
-      }
-
-      // Geometric verification.
-
-      if (!exists.second && matches_ptr->size() >= min_num_inliers) {
-        GeometricVerificationData data;
-        data.camera1 =
-            cache_->GetCamera(cache_->GetImage(image_pair.first).CameraId());
-        data.camera2 =
-            cache_->GetCamera(cache_->GetImage(image_pair.second).CameraId());
-        data.keypoints1 = cache_->GetKeypoints(image_pair.first);
-        data.keypoints2 = cache_->GetKeypoints(image_pair.second);
-        data.matches = *matches_ptr;
-        data.options = two_view_geometry_options;
-        VerifyImagePair(data, options_, inlier_matches_ptr);
-      }
-
-      if (inlier_matches_ptr->inlier_matches.size() >= min_num_inliers &&
-          options_.guided_matching) {
-        const FeatureKeypoints keypoints1 =
-            cache_->GetKeypoints(image_pair.first);
-        const FeatureKeypoints keypoints2 =
-            cache_->GetKeypoints(image_pair.second);
-        const FeatureDescriptors descriptors1 =
-            cache_->GetDescriptors(image_pair.first);
-        const FeatureDescriptors descriptors2 =
-            cache_->GetDescriptors(image_pair.second);
-        MatchGuidedSiftFeaturesCPU(options_, keypoints1, keypoints2,
-                                   descriptors1, descriptors2,
-                                   inlier_matches_ptr);
-        if (inlier_matches_ptr->inlier_matches.size() < min_num_inliers) {
-          inlier_matches_ptr->inlier_matches = {};
-        }
-      }
-    }));
-  }
-
-  CHECK_EQ(image_pairs.size(), futures.size());
-  CHECK_EQ(image_pairs.size(), match_results_raw.size());
-  CHECK_EQ(image_pairs.size(), inlier_match_results_raw.size());
-
-  for (size_t i = 0; i < image_pairs.size(); ++i) {
-    const auto exists = exists_mask[i];
-    if (exists.first && exists.second) {
-      continue;
-    }
-
-    const auto& image_pair = image_pairs[i];
-
-    futures[i].get();
-
-    if (!exists.first) {
-      MatchResult match_result;
-      match_result.image_id1 = image_pair.first;
-      match_result.image_id2 = image_pair.second;
-      match_result.matches = match_results_raw[i];
-      match_results->push_back(match_result);
-    }
-
-    if (!exists.second) {
-      InlierMatchResult inlier_match_result;
-      inlier_match_result.image_id1 = image_pair.first;
-      inlier_match_result.image_id2 = image_pair.second;
-      inlier_match_result.two_view_geometry = inlier_match_results_raw[i];
-      inlier_match_results->push_back(inlier_match_result);
-    }
-  }
-}
-
-void SiftFeatureMatcher::MatchImagePairsGPU(
-    const std::vector<std::pair<image_t, image_t>>& image_pairs,
-    const std::vector<std::pair<bool, bool>>& exists_mask,
-    std::vector<MatchResult>* match_results,
-    std::vector<InlierMatchResult>* inlier_match_results) {
-  CHECK_EQ(image_pairs.size(), exists_mask.size());
-  CHECK(sift_match_gpu_);
-
-  ClearGPUData();
-
-  const size_t min_num_inliers = static_cast<size_t>(options_.min_num_inliers);
-
-  match_results->clear();
-  match_results->reserve(image_pairs.size());
-  inlier_match_results->clear();
-  inlier_match_results->reserve(image_pairs.size());
-
-  std::vector<std::future<void>> verification_futures;
-  verification_futures.reserve(image_pairs.size());
-  std::vector<TwoViewGeometry> verification_results;
-  verification_results.reserve(image_pairs.size());
-  std::vector<std::pair<image_t, image_t>> verification_image_pairs;
-  verification_image_pairs.reserve(image_pairs.size());
-
-  TwoViewGeometry::Options two_view_geometry_options;
-  two_view_geometry_options.min_num_inliers =
-      static_cast<size_t>(options_.min_num_inliers);
-  two_view_geometry_options.ransac_options.max_error = options_.max_error;
-  two_view_geometry_options.ransac_options.confidence = options_.confidence;
-  two_view_geometry_options.ransac_options.max_num_trials =
-      static_cast<size_t>(options_.max_num_trials);
-  two_view_geometry_options.ransac_options.min_inlier_ratio =
-      options_.min_inlier_ratio;
-
-  for (size_t i = 0; i < image_pairs.size(); ++i) {
-    const auto exists = exists_mask[i];
-    if (exists.first && exists.second) {
-      continue;
-    }
-
-    const auto image_pair = image_pairs[i];
-    const image_t image_id1 = image_pair.first;
-    const image_t image_id2 = image_pair.second;
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Feature matching
-    ////////////////////////////////////////////////////////////////////////////
-
-    MatchResult match_result;
-    match_result.image_id1 = image_id1;
-    match_result.image_id2 = image_id2;
-
-    if (exists.first) {
-      // Matches already computed previously. No need to re-compute or write
-      // matches. We just need them for geometric verification.
-      match_result.matches = cache_->GetMatches(image_id1, image_id2);
-    } else {
       const FeatureDescriptors* descriptors1_ptr;
-      GetGPUDescriptors(0, image_id1, &descriptors1_ptr);
+      GetDescriptorData(0, input.image_id1, &descriptors1_ptr);
       const FeatureDescriptors* descriptors2_ptr;
-      GetGPUDescriptors(1, image_id2, &descriptors2_ptr);
-
+      GetDescriptorData(1, input.image_id2, &descriptors2_ptr);
       MatchSiftFeaturesGPU(options_, descriptors1_ptr, descriptors2_ptr,
-                           sift_match_gpu_.get(), &match_result.matches);
+                           &sift_match_gpu, &output.matches);
 
-      if (match_result.matches.size() < min_num_inliers) {
-        match_result.matches = {};
-      }
-
-      match_results->push_back(match_result);
+      CHECK(output_queue_->Push(output));
     }
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Geometric verification
-    ////////////////////////////////////////////////////////////////////////////
-
-    if (!exists.second) {
-      if (match_result.matches.size() >= min_num_inliers) {
-        GeometricVerificationData data;
-        data.camera1 =
-            cache_->GetCamera(cache_->GetImage(image_id1).CameraId());
-        data.camera2 =
-            cache_->GetCamera(cache_->GetImage(image_id2).CameraId());
-        data.keypoints1 = cache_->GetKeypoints(image_id1);
-        data.keypoints2 = cache_->GetKeypoints(image_id2);
-        data.matches = match_result.matches;
-        data.options = two_view_geometry_options;
-
-        verification_image_pairs.push_back(image_pair);
-        verification_results.emplace_back();
-
-        std::function<void(GeometricVerificationData, const SiftMatchOptions&,
-                           TwoViewGeometry*)>
-            verifier_func = SiftFeatureMatcher::VerifyImagePair;
-        verification_futures.push_back(thread_pool_->AddTask(
-            verifier_func, data, options_, &verification_results.back()));
-      } else {
-        InlierMatchResult inlier_match_result;
-        inlier_match_result.image_id1 = image_id1;
-        inlier_match_result.image_id2 = image_id2;
-        inlier_match_results->push_back(inlier_match_result);
-      }
-    }
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Guided matching
-  //////////////////////////////////////////////////////////////////////////////
-
-  if (options_.guided_matching) {
-    ClearGPUData();
-  }
-
-  CHECK_EQ(verification_image_pairs.size(), verification_futures.size());
-  CHECK_EQ(verification_image_pairs.size(), verification_results.size());
-
-  for (size_t i = 0; i < verification_results.size(); ++i) {
-    const auto& image_pair = verification_image_pairs[i];
-    verification_futures[i].get();
-    InlierMatchResult inlier_match_result;
-    inlier_match_result.image_id1 = image_pair.first;
-    inlier_match_result.image_id2 = image_pair.second;
-    inlier_match_result.two_view_geometry = verification_results[i];
-    if (inlier_match_result.two_view_geometry.inlier_matches.size() >=
-            min_num_inliers &&
-        options_.guided_matching) {
-      const FeatureDescriptors* descriptors1_ptr;
-      GetGPUDescriptors(0, image_pair.first, &descriptors1_ptr);
-      const FeatureKeypoints* keypoints1_ptr;
-      GetGPUKeypoints(0, image_pair.first, descriptors1_ptr, &keypoints1_ptr);
-      const FeatureDescriptors* descriptors2_ptr;
-      GetGPUDescriptors(1, image_pair.second, &descriptors2_ptr);
-      const FeatureKeypoints* keypoints2_ptr;
-      GetGPUKeypoints(1, image_pair.second, descriptors2_ptr, &keypoints2_ptr);
-      MatchGuidedSiftFeaturesGPU(options_, keypoints1_ptr, keypoints2_ptr,
-                                 descriptors1_ptr, descriptors2_ptr,
-                                 sift_match_gpu_.get(),
-                                 &inlier_match_result.two_view_geometry);
-      if (inlier_match_result.two_view_geometry.inlier_matches.size() <
-          min_num_inliers) {
-        inlier_match_result.two_view_geometry = TwoViewGeometry();
-      }
-    }
-    inlier_match_results->push_back(inlier_match_result);
   }
 }
 
-void SiftFeatureMatcher::VerifyImagePair(const GeometricVerificationData data,
-                                         const SiftMatchOptions& options,
-                                         TwoViewGeometry* two_view_geometry) {
-  *two_view_geometry = TwoViewGeometry();
-
-  const auto points1 = FeatureKeypointsToPointsVector(data.keypoints1);
-  const auto points2 = FeatureKeypointsToPointsVector(data.keypoints2);
-
-  if (options.multiple_models) {
-    two_view_geometry->EstimateMultiple(data.camera1, points1, data.camera2,
-                                        points2, data.matches, data.options);
-  } else {
-    two_view_geometry->Estimate(data.camera1, points1, data.camera2, points2,
-                                data.matches, data.options);
-  }
-
-  if (two_view_geometry->inlier_matches.size() <
-      static_cast<size_t>(options.min_num_inliers)) {
-    *two_view_geometry = TwoViewGeometry();
-  }
-}
-
-void SiftFeatureMatcher::GetGPUKeypoints(
-    const int index, const image_t image_id,
-    const FeatureDescriptors* const descriptors_ptr,
-    const FeatureKeypoints** keypoints_ptr) {
-  CHECK_GE(index, 0);
-  CHECK_LE(index, 1);
-  CHECK_EQ(image_id, prev_uploaded_image_ids_[index]);
-  if (descriptors_ptr == nullptr) {
-    *keypoints_ptr = nullptr;
-  } else {
-    prev_uploaded_keypoints_[index] = cache_->GetKeypoints(image_id);
-    *keypoints_ptr = &prev_uploaded_keypoints_[index];
-  }
-}
-
-void SiftFeatureMatcher::GetGPUDescriptors(
+void SiftGPUFeatureMatcher::GetDescriptorData(
     const int index, const image_t image_id,
     const FeatureDescriptors** descriptors_ptr) {
   CHECK_GE(index, 0);
@@ -885,16 +493,385 @@ void SiftFeatureMatcher::GetGPUDescriptors(
   }
 }
 
-void SiftFeatureMatcher::ClearGPUData() {
+GuidedSiftCPUFeatureMatcher::GuidedSiftCPUFeatureMatcher(
+    const SiftMatchOptions& options, FeatureMatcherCache* cache,
+    JobQueue<Input>* input_queue, JobQueue<Output>* output_queue)
+    : options_(options),
+      cache_(cache),
+      input_queue_(input_queue),
+      output_queue_(output_queue) {
+  options_.Check();
+}
+
+void GuidedSiftCPUFeatureMatcher::Run() {
+  while (true) {
+    if (IsStopped()) {
+      break;
+    }
+
+    const auto input_job = input_queue_->Pop();
+    if (input_job.IsValid()) {
+      const auto& input = input_job.Data();
+
+      Output output;
+      output.image_id1 = input.image_id1;
+      output.image_id2 = input.image_id2;
+      output.matches = input.matches;
+      output.two_view_geometry = input.two_view_geometry;
+
+      if (output.two_view_geometry.inlier_matches.size() <
+          options_.min_num_inliers) {
+        output_queue_->Push(output);
+        continue;
+      }
+
+      const FeatureKeypoints keypoints1 = cache_->GetKeypoints(input.image_id1);
+      const FeatureKeypoints keypoints2 = cache_->GetKeypoints(input.image_id2);
+      const FeatureDescriptors descriptors1 =
+          cache_->GetDescriptors(input.image_id1);
+      const FeatureDescriptors descriptors2 =
+          cache_->GetDescriptors(input.image_id2);
+      MatchGuidedSiftFeaturesCPU(options_, keypoints1, keypoints2, descriptors1,
+                                 descriptors2, &output.two_view_geometry);
+
+      CHECK(output_queue_->Push(output));
+    }
+  }
+}
+
+GuidedSiftGPUFeatureMatcher::GuidedSiftGPUFeatureMatcher(
+    const SiftMatchOptions& options, FeatureMatcherCache* cache,
+    JobQueue<Input>* input_queue, JobQueue<Output>* output_queue)
+    : options_(options),
+      cache_(cache),
+      input_queue_(input_queue),
+      output_queue_(output_queue) {
+  options_.Check();
+
   prev_uploaded_image_ids_[0] = kInvalidImageId;
   prev_uploaded_image_ids_[1] = kInvalidImageId;
+
+#ifdef CUDA_ENABLED
+  if (options_.gpu_index < 0) {
+#endif
+    opengl_context_.reset(new OpenGLContextManager());
+#ifdef CUDA_ENABLED
+  }
+#endif
+}
+
+void GuidedSiftGPUFeatureMatcher::Run() {
+#ifdef CUDA_ENABLED
+  if (options_.gpu_index < 0) {
+#endif
+    CHECK(opengl_context_);
+    opengl_context_->MakeCurrent();
+#ifdef CUDA_ENABLED
+  }
+#endif
+
+  SiftMatchGPU sift_match_gpu;
+  CHECK(CreateSiftGPUMatcher(options_, &sift_match_gpu))
+      << "ERROR: SiftGPU not fully supported";
+
+  while (true) {
+    if (IsStopped()) {
+      break;
+    }
+
+    const auto input_job = input_queue_->Pop();
+    if (input_job.IsValid()) {
+      const auto& input = input_job.Data();
+
+      Output output;
+      output.image_id1 = input.image_id1;
+      output.image_id2 = input.image_id2;
+      output.matches = input.matches;
+      output.two_view_geometry = input.two_view_geometry;
+
+      if (output.two_view_geometry.inlier_matches.size() <
+          options_.min_num_inliers) {
+        output_queue_->Push(output);
+        continue;
+      }
+
+      const FeatureDescriptors* descriptors1_ptr;
+      const FeatureKeypoints* keypoints1_ptr;
+      GetFeatureData(0, input.image_id1, &keypoints1_ptr, &descriptors1_ptr);
+      const FeatureDescriptors* descriptors2_ptr;
+      const FeatureKeypoints* keypoints2_ptr;
+      GetFeatureData(1, input.image_id2, &keypoints2_ptr, &descriptors2_ptr);
+
+      MatchGuidedSiftFeaturesGPU(options_, keypoints1_ptr, keypoints2_ptr,
+                                 descriptors1_ptr, descriptors2_ptr,
+                                 &sift_match_gpu, &output.two_view_geometry);
+
+      CHECK(output_queue_->Push(output));
+    }
+  }
+}
+
+void GuidedSiftGPUFeatureMatcher::GetFeatureData(
+    const int index, const image_t image_id,
+    const FeatureKeypoints** keypoints_ptr,
+    const FeatureDescriptors** descriptors_ptr) {
+  CHECK_GE(index, 0);
+  CHECK_LE(index, 1);
+  if (prev_uploaded_image_ids_[index] == image_id) {
+    *keypoints_ptr = nullptr;
+    *descriptors_ptr = nullptr;
+  } else {
+    prev_uploaded_keypoints_[index] = cache_->GetKeypoints(image_id);
+    prev_uploaded_descriptors_[index] = cache_->GetDescriptors(image_id);
+    *keypoints_ptr = &prev_uploaded_keypoints_[index];
+    *descriptors_ptr = &prev_uploaded_descriptors_[index];
+    prev_uploaded_image_ids_[index] = image_id;
+  }
+}
+
+TwoViewGeometryVerifier::TwoViewGeometryVerifier(
+    const SiftMatchOptions& options, FeatureMatcherCache* cache,
+    JobQueue<Input>* input_queue, JobQueue<Output>* output_queue)
+    : options_(options),
+      cache_(cache),
+      input_queue_(input_queue),
+      output_queue_(output_queue) {
+  options_.Check();
+
+  two_view_geometry_options_.min_num_inliers =
+      static_cast<size_t>(options_.min_num_inliers);
+  two_view_geometry_options_.ransac_options.max_error = options_.max_error;
+  two_view_geometry_options_.ransac_options.confidence = options_.confidence;
+  two_view_geometry_options_.ransac_options.max_num_trials =
+      static_cast<size_t>(options_.max_num_trials);
+  two_view_geometry_options_.ransac_options.min_inlier_ratio =
+      options_.min_inlier_ratio;
+}
+
+void TwoViewGeometryVerifier::Run() {
+  while (true) {
+    if (IsStopped()) {
+      break;
+    }
+
+    const auto input_job = input_queue_->Pop();
+    if (input_job.IsValid()) {
+      const auto& input = input_job.Data();
+
+      Output output;
+      output.image_id1 = input.image_id1;
+      output.image_id2 = input.image_id2;
+      output.matches = input.matches;
+
+      if (output.matches.size() < options_.min_num_inliers) {
+        output_queue_->Push(output);
+        continue;
+      }
+
+      const auto& camera1 =
+          cache_->GetCamera(cache_->GetImage(input.image_id1).CameraId());
+      const auto& camera2 =
+          cache_->GetCamera(cache_->GetImage(input.image_id2).CameraId());
+      const auto keypoints1 = cache_->GetKeypoints(input.image_id1);
+      const auto keypoints2 = cache_->GetKeypoints(input.image_id2);
+      const auto points1 = FeatureKeypointsToPointsVector(keypoints1);
+      const auto points2 = FeatureKeypointsToPointsVector(keypoints2);
+
+      if (options_.multiple_models) {
+        output.two_view_geometry.EstimateMultiple(camera1, points1, camera2,
+                                                  points2, input.matches,
+                                                  two_view_geometry_options_);
+      } else {
+        output.two_view_geometry.Estimate(camera1, points1, camera2, points2,
+                                          input.matches,
+                                          two_view_geometry_options_);
+      }
+
+      output_queue_->Push(output);
+    }
+  }
+}
+
+SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchOptions& options,
+                                       FeatureMatcherCache* cache)
+    : options_(options), cache_(cache) {
+  options_.Check();
+
+  const int num_threads = GetEffectiveNumThreads(options_.num_threads);
+  CHECK_GT(num_threads, 0);
+
+  const auto gpu_indices = CSVToVector<int>(options_.gpu_index);
+  CHECK_GT(gpu_indices.size(), 0);
+
+  if (options_.use_gpu) {
+    auto gpu_options = options;
+    matchers_.reserve(gpu_indices.size());
+    for (const auto& gpu_index : gpu_indices) {
+      gpu_options.gpu_index = std::to_string(gpu_index);
+      matchers_.emplace_back(new SiftGPUFeatureMatcher(
+          gpu_options, cache, &matcher_queue_, &verifier_queue_));
+    }
+  } else {
+    matchers_.reserve(num_threads);
+    for (int i = 0; i < num_threads; ++i) {
+      matchers_.emplace_back(new SiftCPUFeatureMatcher(
+          options, cache, &matcher_queue_, &verifier_queue_));
+    }
+  }
+
+  verifiers_.reserve(num_threads);
+  if (options_.guided_matching) {
+    for (int i = 0; i < num_threads; ++i) {
+      verifiers_.emplace_back(new TwoViewGeometryVerifier(
+          options, cache, &verifier_queue_, &guided_matcher_queue_));
+    }
+
+    if (options_.use_gpu) {
+      auto gpu_options = options;
+      guided_matchers_.reserve(gpu_indices.size());
+      for (const auto& gpu_index : gpu_indices) {
+        gpu_options.gpu_index = std::to_string(gpu_index);
+        guided_matchers_.emplace_back(new GuidedSiftGPUFeatureMatcher(
+            gpu_options, cache, &guided_matcher_queue_, &output_queue_));
+      }
+    } else {
+      guided_matchers_.reserve(num_threads);
+      for (int i = 0; i < num_threads; ++i) {
+        guided_matchers_.emplace_back(new GuidedSiftCPUFeatureMatcher(
+            options, cache, &guided_matcher_queue_, &output_queue_));
+      }
+    }
+  } else {
+    for (int i = 0; i < num_threads; ++i) {
+      verifiers_.emplace_back(new TwoViewGeometryVerifier(
+          options, cache, &verifier_queue_, &output_queue_));
+    }
+  }
+
+  for (auto& matcher : matchers_) {
+    matcher->Start();
+  }
+
+  for (auto& verifier : verifiers_) {
+    verifier->Start();
+  }
+
+  for (auto& guided_matcher : guided_matchers_) {
+    guided_matcher->Start();
+  }
+}
+
+SiftFeatureMatcher::~SiftFeatureMatcher() {
+  matcher_queue_.Wait();
+  verifier_queue_.Wait();
+  guided_matcher_queue_.Wait();
+  output_queue_.Wait();
+  matcher_queue_.Stop();
+  verifier_queue_.Stop();
+  guided_matcher_queue_.Stop();
+  output_queue_.Stop();
+
+  for (auto& matcher : matchers_) {
+    matcher->Stop();
+    matcher->Wait();
+  }
+
+  for (auto& verifier : verifiers_) {
+    verifier->Stop();
+    verifier->Wait();
+  }
+
+  for (auto& guided_matcher : guided_matchers_) {
+    guided_matcher->Stop();
+    guided_matcher->Wait();
+  }
+}
+
+void SiftFeatureMatcher::Match(
+    const std::vector<std::pair<image_t, image_t>>& image_pairs) {
+  CHECK_NOTNULL(cache_);
+
+  if (image_pairs.empty()) {
+    return;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Match the image pairs
+  //////////////////////////////////////////////////////////////////////////////
+
+  std::unordered_set<image_pair_t> image_pair_ids;
+  image_pair_ids.reserve(image_pairs.size());
+
+  size_t num_outputs = 0;
+  for (const auto image_pair : image_pairs) {
+    // Avoid self-matches.
+    if (image_pair.first == image_pair.second) {
+      continue;
+    }
+
+    // Avoid duplicate image pairs.
+    const image_pair_t pair_id =
+        Database::ImagePairToPairId(image_pair.first, image_pair.second);
+    if (image_pair_ids.count(pair_id) > 0) {
+      continue;
+    }
+
+    image_pair_ids.insert(pair_id);
+
+    const bool exists_matches =
+        cache_->ExistsMatches(image_pair.first, image_pair.second);
+    const bool exists_inlier_matches =
+        cache_->ExistsInlierMatches(image_pair.first, image_pair.second);
+
+    if (exists_matches && exists_inlier_matches) {
+      continue;
+    }
+
+    num_outputs += 1;
+
+    if (exists_matches) {
+      internal::MatchData match_data;
+      match_data.image_id1 = image_pair.first;
+      match_data.image_id2 = image_pair.second;
+      match_data.matches =
+          cache_->GetMatches(image_pair.first, image_pair.second);
+      verifier_queue_.Push(match_data);
+    } else {
+      internal::ImagePairData image_pair_data;
+      image_pair_data.image_id1 = image_pair.first;
+      image_pair_data.image_id2 = image_pair.second;
+      matcher_queue_.Push(image_pair_data);
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Write results to database
+  //////////////////////////////////////////////////////////////////////////////
+
+  for (size_t i = 0; i < num_outputs; ++i) {
+    const auto output_job = output_queue_.Pop();
+    CHECK(output_job.IsValid());
+    auto output = output_job.Data();
+
+    if (output.matches.size() < static_cast<size_t>(options_.min_num_inliers)) {
+      output.matches = {};
+    }
+
+    if (output.two_view_geometry.inlier_matches.size() <
+        static_cast<size_t>(options_.min_num_inliers)) {
+      output.two_view_geometry = TwoViewGeometry();
+    }
+
+    cache_->WriteMatches(output.image_id1, output.image_id2, output.matches);
+    cache_->WriteInlierMatches(output.image_id1, output.image_id2,
+                               output.two_view_geometry);
+  }
+
+  CHECK_EQ(output_queue_.Size(), 0);
 }
 
 void ExhaustiveFeatureMatcher::Options::Check() const {
   CHECK_GT(block_size, 1);
-  CHECK_GT(preemptive_num_features, 0);
-  CHECK_GE(preemptive_min_num_matches, 0);
-  CHECK_LE(preemptive_min_num_matches, preemptive_num_features);
 }
 
 ExhaustiveFeatureMatcher::ExhaustiveFeatureMatcher(
@@ -904,7 +881,7 @@ ExhaustiveFeatureMatcher::ExhaustiveFeatureMatcher(
       match_options_(match_options),
       database_(database_path),
       cache_(2 * options_.block_size, &database_),
-      matcher_(match_options, &database_, &cache_) {
+      matcher_(match_options, &cache_) {
   options_.Check();
   match_options_.Check();
 }
@@ -912,9 +889,7 @@ ExhaustiveFeatureMatcher::ExhaustiveFeatureMatcher(
 void ExhaustiveFeatureMatcher::Run() {
   PrintHeading1("Exhaustive feature matching");
 
-  if (!matcher_.Setup()) {
-    return;
-  }
+  DatabaseTransaction database_transaction(&database_);
 
   const std::vector<image_t> image_ids = cache_.GetImageIds();
 
@@ -959,13 +934,7 @@ void ExhaustiveFeatureMatcher::Run() {
         }
       }
 
-      if (options_.preemptive) {
-        matcher_.MatchImagePairsWithPreemptiveFilter(
-            options_.preemptive_num_features,
-            options_.preemptive_min_num_matches, image_pairs);
-      } else {
-        matcher_.MatchImagePairs(image_pairs);
-      }
+      matcher_.Match(image_pairs);
 
       PrintElapsedTime(timer);
     }
@@ -992,7 +961,7 @@ SequentialFeatureMatcher::SequentialFeatureMatcher(
       cache_(std::max(5 * options_.loop_detection_num_images,
                       5 * options_.overlap),
              &database_),
-      matcher_(match_options, &database_, &cache_) {
+      matcher_(match_options, &cache_) {
   options_.Check();
   match_options_.Check();
 }
@@ -1000,9 +969,7 @@ SequentialFeatureMatcher::SequentialFeatureMatcher(
 void SequentialFeatureMatcher::Run() {
   PrintHeading1("Sequential feature matching");
 
-  if (!matcher_.Setup()) {
-    return;
-  }
+  DatabaseTransaction database_transaction(&database_);
 
   const std::vector<image_t> ordered_image_ids = GetOrderedImageIds();
 
@@ -1057,7 +1024,7 @@ void SequentialFeatureMatcher::RunSequentialMatching(
       image_pairs.emplace_back(image_ids[i], image_ids[j]);
     }
 
-    matcher_.MatchImagePairs(image_pairs);
+    matcher_.Match(image_pairs);
 
     PrintElapsedTime(timer);
   }
@@ -1072,7 +1039,7 @@ void SequentialFeatureMatcher::RunLoopDetection(
   // Index all images in the visual index.
   IndexImagesInVisualIndex(match_options_.num_threads,
                            options_.loop_detection_max_num_features, image_ids,
-                           this, &database_, &cache_, &visual_index);
+                           this, &cache_, &visual_index);
 
   if (IsStopped()) {
     return;
@@ -1102,7 +1069,7 @@ VocabTreeFeatureMatcher::VocabTreeFeatureMatcher(
       match_options_(match_options),
       database_(database_path),
       cache_(5 * options_.num_images, &database_),
-      matcher_(match_options, &database_, &cache_) {
+      matcher_(match_options, &cache_) {
   options_.Check();
   match_options_.Check();
 }
@@ -1110,9 +1077,7 @@ VocabTreeFeatureMatcher::VocabTreeFeatureMatcher(
 void VocabTreeFeatureMatcher::Run() {
   PrintHeading1("Vocabulary tree feature matching");
 
-  if (!matcher_.Setup()) {
-    return;
-  }
+  DatabaseTransaction database_transaction(&database_);
 
   // Read the pre-trained vocabulary tree from disk.
   retrieval::VisualIndex visual_index;
@@ -1153,7 +1118,7 @@ void VocabTreeFeatureMatcher::Run() {
   // Index all images in the visual index.
   IndexImagesInVisualIndex(match_options_.num_threads,
                            options_.max_num_features, all_image_ids, this,
-                           &database_, &cache_, &visual_index);
+                           &cache_, &visual_index);
 
   if (IsStopped()) {
     GetTimer().PrintMinutes();
@@ -1181,7 +1146,7 @@ SpatialFeatureMatcher::SpatialFeatureMatcher(
       match_options_(match_options),
       database_(database_path),
       cache_(5 * options_.max_num_neighbors, &database_),
-      matcher_(match_options, &database_, &cache_) {
+      matcher_(match_options, &cache_) {
   options_.Check();
   match_options_.Check();
 }
@@ -1189,9 +1154,7 @@ SpatialFeatureMatcher::SpatialFeatureMatcher(
 void SpatialFeatureMatcher::Run() {
   PrintHeading1("Spatial feature matching");
 
-  if (!matcher_.Setup()) {
-    return;
-  }
+  DatabaseTransaction database_transaction(&database_);
 
   const std::vector<image_t> image_ids = cache_.GetImageIds();
 
@@ -1344,7 +1307,7 @@ void SpatialFeatureMatcher::Run() {
       image_pairs.emplace_back(image_id, nn_image_id);
     }
 
-    matcher_.MatchImagePairs(image_pairs);
+    matcher_.Match(image_pairs);
 
     PrintElapsedTime(timer);
   }
@@ -1364,7 +1327,7 @@ ImagePairsFeatureMatcher::ImagePairsFeatureMatcher(
       match_options_(match_options),
       database_(database_path),
       cache_(options.block_size, &database_),
-      matcher_(match_options, &database_, &cache_) {
+      matcher_(match_options, &cache_) {
   options_.Check();
   match_options_.Check();
 }
@@ -1372,9 +1335,7 @@ ImagePairsFeatureMatcher::ImagePairsFeatureMatcher(
 void ImagePairsFeatureMatcher::Run() {
   PrintHeading1("Custom feature matching");
 
-  if (!matcher_.Setup()) {
-    return;
-  }
+  DatabaseTransaction database_transaction(&database_);
 
   //////////////////////////////////////////////////////////////////////////////
   // Reading image pairs list
@@ -1454,7 +1415,7 @@ void ImagePairsFeatureMatcher::Run() {
       block_image_pairs.push_back(image_pairs[j]);
     }
 
-    matcher_.MatchImagePairs(block_image_pairs);
+    matcher_.Match(block_image_pairs);
 
     PrintElapsedTime(timer);
   }
@@ -1480,6 +1441,8 @@ FeaturePairsFeatureMatcher::FeaturePairsFeatureMatcher(
 void FeaturePairsFeatureMatcher::Run() {
   PrintHeading1("Importing matches");
 
+  DatabaseTransaction database_transaction(&database_);
+
   std::unordered_map<std::string, const Image*> image_name_to_image;
   image_name_to_image.reserve(cache_.GetImageIds().size());
   for (const auto image_id : cache_.GetImageIds()) {
@@ -1489,8 +1452,6 @@ void FeaturePairsFeatureMatcher::Run() {
 
   std::ifstream file(options_.match_list_path);
   CHECK(file.is_open());
-
-  DatabaseTransaction database_transaction(&database_);
 
   std::string line;
   while (std::getline(file, line)) {
@@ -1684,17 +1645,21 @@ bool CreateSiftGPUMatcher(const SiftMatchOptions& match_options,
   match_options.Check();
   CHECK_NOTNULL(sift_match_gpu);
 
+  const std::vector<int> gpu_indices =
+      CSVToVector<int>(match_options.gpu_index);
+  CHECK_EQ(gpu_indices.size(), 1) << "SiftGPU can only run on one GPU";
+
   SiftGPU sift_gpu;
   sift_gpu.SetVerbose(0);
 
   *sift_match_gpu = SiftMatchGPU(match_options.max_num_matches);
 
 #ifdef CUDA_ENABLED
-  if (match_options.gpu_index >= 0) {
+  if (gpu_indices[0] >= 0) {
     sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_CUDA_DEVICE0 +
-                                match_options.gpu_index);
+                                gpu_indices[0]);
   } else {
-    sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_GLSL);
+    sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_CUDA_DEVICE);
   }
 #else  // CUDA_ENABLED
     sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_GLSL);

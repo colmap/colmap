@@ -47,14 +47,8 @@ int main(int argc, char** argv) {
 
   std::unique_ptr<QApplication> app;
   SiftMatchOptions match_options = options.match_options->Options();
-  if (match_options.use_gpu) {
-    if (no_opengl) {
-      if (match_options.gpu_index < 0) {
-        match_options.gpu_index = 0;
-      }
-    } else {
-      app.reset(new QApplication(argc, argv));
-    }
+  if (match_options.use_gpu && !no_opengl) {
+    app.reset(new QApplication(argc, argv));
   }
 
   VocabTreeFeatureMatcher feature_matcher(

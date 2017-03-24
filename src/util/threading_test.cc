@@ -682,8 +682,8 @@ BOOST_AUTO_TEST_CASE(TestJobQueueWait) {
   job_queue.Wait();
 
   BOOST_CHECK_EQUAL(job_queue.Size(), 0);
-  BOOST_CHECK(!job_queue.Push(0));
-  BOOST_CHECK(!job_queue.Pop().IsValid());
+  BOOST_CHECK(job_queue.Push(0));
+  BOOST_CHECK(job_queue.Pop().IsValid());
 
   producer_thread.join();
   consumer_thread.join();
@@ -729,30 +729,6 @@ BOOST_AUTO_TEST_CASE(TestJobQueueStopConsumer) {
   BOOST_CHECK(!job_queue.Pop().IsValid());
 }
 
-BOOST_AUTO_TEST_CASE(TestJobQueueReset) {
-  JobQueue<int> job_queue(1);
-
-  BOOST_CHECK(job_queue.Push(0));
-
-  std::thread consumer_thread([&job_queue]() {
-    const auto job = job_queue.Pop();
-    CHECK(job.IsValid());
-    CHECK_EQ(job.Data(), 0);
-    CHECK(!job_queue.Pop().IsValid());
-  });
-
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  BOOST_CHECK_EQUAL(job_queue.Size(), 0);
-
-  job_queue.Stop();
-  consumer_thread.join();
-
-  job_queue.Reset();
-
-  BOOST_CHECK(job_queue.Push(0));
-  BOOST_CHECK(job_queue.Pop().IsValid());
-}
-
 BOOST_AUTO_TEST_CASE(TestJobQueueClear) {
   JobQueue<int> job_queue(1);
 
@@ -761,4 +737,13 @@ BOOST_AUTO_TEST_CASE(TestJobQueueClear) {
 
   job_queue.Clear();
   BOOST_CHECK_EQUAL(job_queue.Size(), 0);
+}
+
+BOOST_AUTO_TEST_CASE(TestGetEffectiveNumThreads) {
+  BOOST_CHECK_GT(GetEffectiveNumThreads(-2), 0);
+  BOOST_CHECK_GT(GetEffectiveNumThreads(-1), 0);
+  BOOST_CHECK_GT(GetEffectiveNumThreads(0), 0);
+  BOOST_CHECK_EQUAL(GetEffectiveNumThreads(1), 1);
+  BOOST_CHECK_EQUAL(GetEffectiveNumThreads(2), 2);
+  BOOST_CHECK_EQUAL(GetEffectiveNumThreads(3), 3);
 }

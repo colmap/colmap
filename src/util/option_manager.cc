@@ -137,7 +137,6 @@ bool MatchOptions::Check() {
   bool verified = true;
 
   CHECK_OPTION(MatchOptions, num_threads, >= -1);
-  CHECK_OPTION(MatchOptions, gpu_index, >= -1);
   CHECK_OPTION(MatchOptions, max_ratio, >= 0);
   CHECK_OPTION(MatchOptions, max_ratio, <= 1);
   CHECK_OPTION(MatchOptions, max_distance, >= 0);
@@ -177,19 +176,12 @@ ExhaustiveMatchOptions::ExhaustiveMatchOptions() { Reset(); }
 void ExhaustiveMatchOptions::Reset() {
   ExhaustiveFeatureMatcher::Options options;
   block_size = options.block_size;
-  preemptive = options.preemptive;
-  preemptive_num_features = options.preemptive_num_features;
-  preemptive_min_num_matches = options.preemptive_min_num_matches;
 }
 
 bool ExhaustiveMatchOptions::Check() {
   bool verified = true;
 
   CHECK_OPTION(ExhaustiveMatchOptions, block_size, > 1);
-  CHECK_OPTION(ExhaustiveMatchOptions, preemptive_num_features, > 0);
-  CHECK_OPTION(ExhaustiveMatchOptions, preemptive_min_num_matches, > 0);
-  CHECK_OPTION(ExhaustiveMatchOptions, preemptive_min_num_matches,
-               <= preemptive_num_features);
 
   return verified;
 }
@@ -197,9 +189,6 @@ bool ExhaustiveMatchOptions::Check() {
 ExhaustiveFeatureMatcher::Options ExhaustiveMatchOptions::Options() const {
   ExhaustiveFeatureMatcher::Options options;
   options.block_size = block_size;
-  options.preemptive = preemptive;
-  options.preemptive_num_features = preemptive_num_features;
-  options.preemptive_min_num_matches = preemptive_min_num_matches;
   return options;
 }
 
@@ -839,12 +828,6 @@ void OptionManager::AddExhaustiveMatchOptions() {
 
   ADD_DEFAULT_OPTION(ExhaustiveMatchOptions, exhaustive_match_options,
                      block_size);
-  ADD_DEFAULT_OPTION(ExhaustiveMatchOptions, exhaustive_match_options,
-                     preemptive);
-  ADD_DEFAULT_OPTION(ExhaustiveMatchOptions, exhaustive_match_options,
-                     preemptive_num_features);
-  ADD_DEFAULT_OPTION(ExhaustiveMatchOptions, exhaustive_match_options,
-                     preemptive_min_num_matches);
 }
 
 void OptionManager::AddSequentialMatchOptions() {

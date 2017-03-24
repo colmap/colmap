@@ -112,6 +112,10 @@ void Thread::Callback(const int id) const {
   }
 }
 
+std::thread::id Thread::GetThreadId() const {
+  return std::this_thread::get_id();
+}
+
 const class Timer& Thread::GetTimer() const { return timer_; }
 
 void Thread::BlockIfPaused() {
@@ -138,15 +142,7 @@ void Thread::RunFunc() {
 
 ThreadPool::ThreadPool(const int num_threads)
     : stopped_(false), num_active_workers_(0) {
-  int num_effective_threads = num_threads;
-  if (num_threads == kMaxNumThreads) {
-    num_effective_threads = std::thread::hardware_concurrency();
-  }
-
-  if (num_effective_threads <= 0) {
-    num_effective_threads = 1;
-  }
-
+  const int num_effective_threads = GetEffectiveNumThreads(num_threads);
   for (int index = 0; index < num_effective_threads; ++index) {
     std::function<void(void)> worker =
         std::bind(&ThreadPool::WorkerFunc, this, index);
@@ -216,6 +212,19 @@ std::thread::id ThreadPool::GetThreadId() const {
 int ThreadPool::GetThreadIndex() {
   std::unique_lock<std::mutex> lock(mutex_);
   return thread_id_to_index_.at(GetThreadId());
+}
+
+int GetEffectiveNumThreads(const int num_threads) {
+  int num_effective_threads = num_threads;
+  if (num_threads <= 0) {
+    num_effective_threads = std::thread::hardware_concurrency();
+  }
+
+  if (num_effective_threads <= 0) {
+    num_effective_threads = 1;
+  }
+
+  return num_effective_threads;
 }
 
 }  // namespace colmap
