@@ -870,7 +870,7 @@ ExhaustiveFeatureMatcher::ExhaustiveFeatureMatcher(
     : options_(options),
       match_options_(match_options),
       database_(database_path),
-      cache_(2 * options_.block_size, &database_),
+      cache_(5 * options_.block_size, &database_),
       matcher_(match_options, &database_, &cache_) {
   options_.Check();
   match_options_.Check();
