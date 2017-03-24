@@ -24,7 +24,8 @@
 #include <cstdint>
 #include <sstream>
 
-#include "mvs/cuda_utils.h"
+#include "util/cuda.h"
+#include "util/cudacc.h"
 #include "util/logging.h"
 
 // The number of threads per Cuda thread. Warning: Do not change this value,
@@ -1270,13 +1271,14 @@ void PatchMatchCuda::RunWithWindowSize() {
 
       const bool last_sweep = iter == options_.num_iterations - 1 && sweep == 3;
 
-#define CALL_SWEEP_FUNC                                                      \
-  SweepFromTopToBottom<                                                      \
-      kWindowSize, kGeomConsistencyTerm, kFilterPhotoConsistency,            \
-      kFilterGeomConsistency><<<sweep_grid_size_, sweep_block_size_>>>(      \
-      *global_workspace_, *rand_state_map_, *cost_map_, *depth_map_,         \
-      *normal_map_, *consistency_mask_, *sel_prob_map_, *prev_sel_prob_map_, \
-      *ref_image_->sum_image, *ref_image_->squared_sum_image, sweep_options);
+#define CALL_SWEEP_FUNC                                                  \
+  SweepFromTopToBottom<kWindowSize, kGeomConsistencyTerm,                \
+                       kFilterPhotoConsistency, kFilterGeomConsistency>  \
+      <<<sweep_grid_size_, sweep_block_size_>>>(                         \
+          *global_workspace_, *rand_state_map_, *cost_map_, *depth_map_, \
+          *normal_map_, *consistency_mask_, *sel_prob_map_,              \
+          *prev_sel_prob_map_, *ref_image_->sum_image,                   \
+          *ref_image_->squared_sum_image, sweep_options);
 
       if (last_sweep) {
         if (options_.filter) {

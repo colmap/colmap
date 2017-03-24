@@ -15,6 +15,13 @@ COLMAP_ADD_LIBRARY(util
     version.h version.cc
 )
 
+if(CUDA_ENABLED)
+    COLMAP_CUDA_ADD_LIBRARY(util_cuda
+        cuda.h cuda.cc
+        cudacc.h cudacc.cc
+    )
+endif()
+
 COLMAP_ADD_TEST(bitmap_test bitmap_test.cc)
 COLMAP_ADD_TEST(cache_test cache_test.cc)
 COLMAP_ADD_TEST(math_test math_test.cc)

@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef COLMAP_SRC_MVS_CUDA_UTILS_H_
-#define COLMAP_SRC_MVS_CUDA_UTILS_H_
+#ifndef COLMAP_SRC_UTIL_CUDACC_H_
+#define COLMAP_SRC_UTIL_CUDACC_H_
 
 #include <string>
 
@@ -25,7 +25,6 @@
 #define CUDA_CHECK_ERROR() CudaCheckError(__FILE__, __LINE__)
 
 namespace colmap {
-namespace mvs {
 
 class CudaTimer {
  public:
@@ -45,13 +44,6 @@ void CudaSafeCall(const cudaError_t error, const std::string file,
 
 void CudaCheckError(const char* file, const int line);
 
-void SetBestCudaDevice(const int gpu_id);
-
-void CheckGlobalMemSize();
-
-void CheckSharedMem(const size_t shared_memory_used);
-
-}  // namespace mvs
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_MVS_CUDA_UTILS_H_
+#endif  // COLMAP_SRC_UTIL_CUDACC_H_

@@ -18,7 +18,7 @@
 
 #include <iostream>
 
-#include "mvs/cuda_utils.h"
+#include "util/cudacc.h"
 
 namespace colmap {
 namespace mvs {

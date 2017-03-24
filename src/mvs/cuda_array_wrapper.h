@@ -21,8 +21,8 @@
 
 #include <cuda_runtime.h>
 
-#include "mvs/cuda_utils.h"
 #include "mvs/gpu_mat.h"
+#include "util/cudacc.h"
 
 namespace colmap {
 namespace mvs {

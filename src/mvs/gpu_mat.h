@@ -28,8 +28,9 @@
 #include "mvs/cuda_flip.h"
 #include "mvs/cuda_rotate.h"
 #include "mvs/cuda_transpose.h"
-#include "mvs/cuda_utils.h"
 #include "mvs/mat.h"
+#include "util/cuda.h"
+#include "util/cudacc.h"
 
 namespace colmap {
 namespace mvs {
@@ -256,8 +257,8 @@ void GpuMat<T>::FillWithVector(const T* values) {
   T* values_device;
   cudaMalloc((void**)&values_device, depth_ * sizeof(T));
   cudaMemcpy(values_device, values, depth_ * sizeof(T), cudaMemcpyHostToDevice);
-  internal::FillWithVectorKernel<T><<<gridSize_, blockSize_>>>(values_device,
-                                                               *this);
+  internal::FillWithVectorKernel<T>
+      <<<gridSize_, blockSize_>>>(values_device, *this);
   cudaFree(values_device);
   CUDA_CHECK_ERROR();
 }
@@ -265,8 +266,8 @@ void GpuMat<T>::FillWithVector(const T* values) {
 template <typename T>
 void GpuMat<T>::FillWithRandomNumbers(const T min_value, const T max_value,
                                       const GpuMat<curandState> random_state) {
-  internal::FillWithRandomNumbersKernel<T><<<gridSize_, blockSize_>>>(
-      *this, random_state, min_value, max_value);
+  internal::FillWithRandomNumbersKernel<T>
+      <<<gridSize_, blockSize_>>>(*this, random_state, min_value, max_value);
   CUDA_CHECK_ERROR();
 }
 
@@ -364,9 +365,9 @@ void GpuMat<T>::Write(const std::string& file_name) {
   text_file << width_ << "&" << height_ << "&" << depth_ << "&";
   text_file.close();
 
-  std::fstream binary_file(file_name, std::ios_base::out |
-                                          std::ios_base::binary |
-                                          std::ios_base::app);
+  std::fstream binary_file(
+      file_name,
+      std::ios_base::out | std::ios_base::binary | std::ios_base::app);
   binary_file.write((char*)dest.data(), sizeof(T) * width_ * height_ * depth_);
   binary_file.close();
 }
@@ -383,9 +384,9 @@ void GpuMat<T>::Write(const std::string& file_name, const size_t slice) {
   text_file << width_ << "&" << height_ << "&" << 1 << "&";
   text_file.close();
 
-  std::fstream binary_file(file_name, std::ios_base::out |
-                                          std::ios_base::binary |
-                                          std::ios_base::app);
+  std::fstream binary_file(
+      file_name,
+      std::ios_base::out | std::ios_base::binary | std::ios_base::app);
 
   binary_file.write((char*)dest.data(), sizeof(T) * width_ * height_);
   binary_file.close();

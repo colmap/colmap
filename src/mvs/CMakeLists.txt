@@ -32,7 +32,6 @@ if(CUDA_ENABLED)
     endif()
 
     COLMAP_CUDA_ADD_LIBRARY(mvs_cuda
-        cuda_utils.h cuda_utils.cc
         gpu_mat_prng.h gpu_mat_prng.cu
         gpu_mat_ref_image.h gpu_mat_ref_image.cu
         patch_match.h patch_match.cc

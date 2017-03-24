@@ -30,6 +30,7 @@
 #include "estimators/two_view_geometry.h"
 #include "optim/ransac.h"
 #include "retrieval/visual_index.h"
+#include "util/cuda.h"
 #include "util/misc.h"
 
 namespace colmap {
@@ -687,8 +688,17 @@ SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchOptions& options,
   const int num_threads = GetEffectiveNumThreads(options_.num_threads);
   CHECK_GT(num_threads, 0);
 
-  const auto gpu_indices = CSVToVector<int>(options_.gpu_index);
+  std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
   CHECK_GT(gpu_indices.size(), 0);
+
+#ifdef CUDA_ENABLED
+  if (gpu_indices.size() == 1 && gpu_indices[0] == -1) {
+    const int num_cuda_devices = GetNumCudaDevices();
+    CHECK_GT(num_cuda_devices, 0);
+    gpu_indices.resize(num_cuda_devices);
+    std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
+  }
+#endif
 
   if (options_.use_gpu) {
     auto gpu_options = options;
