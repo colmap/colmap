@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
   reconstruction.Read(input_path);
 
   if (output_type == "NVM") {
-    reconstruction.ExportNVM(output_path);
+    reconstruction.ExportNVM(output_path,*options.image_path);
   } else if (output_type == "Bundler") {
     reconstruction.ExportBundler(output_path + ".bundle.out",
                                  output_path + ".list.txt");

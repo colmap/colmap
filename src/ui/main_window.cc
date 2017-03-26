@@ -783,7 +783,7 @@ void MainWindow::ExportAs() {
     const Reconstruction& reconstruction =
         reconstruction_manager_.Get(SelectedReconstructionIdx());
     if (filter == "NVM (*.nvm)") {
-      reconstruction.ExportNVM(path);
+      reconstruction.ExportNVM(path,*options_.image_path);
     } else if (filter == "Bundler (*.out)") {
       reconstruction.ExportBundler(path, path + ".list.txt");
     } else if (filter == "PLY (*.ply)") {

@@ -1041,7 +1041,7 @@ void Reconstruction::ImportPLY(const std::string& path) {
   }
 }
 
-bool Reconstruction::ExportNVM(const std::string& path) const {
+bool Reconstruction::ExportNVM(const std::string& path, const std::string& image_path) const {
   std::ofstream file(path.c_str(), std::ios::trunc);
   CHECK(file.is_open());
 
@@ -1068,6 +1068,13 @@ bool Reconstruction::ExportNVM(const std::string& path) const {
         -1 * camera.Params(SimpleRadialCameraModel::extra_params_idxs[0]);
     const Eigen::Vector3d proj_center = image.ProjectionCenter();
 
+    //fix white space in nvm path acordingly
+    std::string image_path_nvm = image_path ;
+    std::transform(image_path_nvm.begin(), image_path_nvm.end(), image_path_nvm.begin(), [](char ch) {
+    	return ch == ' ' ? '"' : ch;
+    });
+
+    file << image_path_nvm << "/";
     file << image.Name() << " ";
     file << f << " ";
     file << image.Qvec(0) << " ";
