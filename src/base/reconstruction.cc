@@ -1074,8 +1074,7 @@ bool Reconstruction::ExportNVM(const std::string& path, const std::string& image
     	return ch == ' ' ? '"' : ch;
     });
 
-    file << image_path_nvm << "/";
-    file << image.Name() << " ";
+    file << JoinPaths(image_path_nvm, image.Name()) << " ";
     file << f << " ";
     file << image.Qvec(0) << " ";
     file << image.Qvec(1) << " ";
