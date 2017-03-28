@@ -139,6 +139,57 @@ else()
     message(STATUS "Disabling CUDA support")
 endif()
 
+if (CUDA_ENABLED)
+    # Configure the NVCC flags:
+    #   CUDA >= 5.0 <6.5:
+    #     SASS:   sm_20, sm_30, sm_35
+    #     PTX:    compute_35
+    #   CUDA == 6.5:
+    #     SASS:   sm_20, sm_30, sm_35, sm_37 sm_50
+    #     PTX:    compute_50
+    #   CUDA >= 7.0
+    #     SASS:   sm_20, sm_30, sm_35, sm_37, sm_50, sm_52
+    #     PTX:    compute_52
+    #   CUDA >= 8.0
+    #     SASS:   sm_20, sm_30, sm_35, sm_37, sm_50, sm_52, sm_60, sm_61
+    #     PTX:    compute_60, compute_61
+
+    list(APPEND CUDA_NVCC_FLAGS "-Wno-deprecated-gpu-targets")
+
+    # Add flags to generate SASS code.
+
+    list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_20,code=sm_20")
+    list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_30,code=sm_30")
+    list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_35,code=sm_35")
+
+    if(NOT CUDA_VERSION VERSION_LESS "6.5") # >= 6.5
+        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_37,code=sm_37")
+        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_50,code=sm_50")
+    endif()
+
+    if(NOT CUDA_VERSION VERSION_LESS "7.0") # >= 7.0
+        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_52,code=sm_52")
+    endif()
+
+    if(NOT CUDA_VERSION VERSION_LESS "8.0") # >= 8.0
+        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_60,code=sm_60")
+        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_61,code=sm_61")
+    endif()
+
+    # Add flags to generate PTX code.
+
+    if(CUDA_VERSION VERSION_LESS "6.5")
+        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_35,code=compute_35")
+    elseif(CUDA_VERSION VERSION_LESS "7.0")
+        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_50,code=compute_50")
+    elseif(CUDA_VERSION VERSION_LESS "8.0")
+        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_52,code=compute_52")
+    else() # >= 8.0
+        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_60,code=compute_60")
+        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_61,code=compute_61")
+    endif()
+endif()
+
 if(PROFILING_ENABLED)
     message(STATUS "Enabling profiling support")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -lprofiler -ltcmalloc")

@@ -6,19 +6,6 @@ if(CUDA_ENABLED)
     # Fix for Ubuntu 16.04.
     add_definitions("-D_FORCE_INLINES")
 
-    if(CUDA_VERSION_MAJOR LESS 7)
-        list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_11,code=sm_11)
-        list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_12,code=sm_12)
-        list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_13,code=sm_13)
-    elseif(CUDA_VERSION_MAJOR EQUAL 7)
-        list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_20,code=sm_20)
-        list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_30,code=sm_30)
-        list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_35,code=sm_35)
-        list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_50,code=sm_50)
-    elseif(CUDA_VERSION_MAJOR GREATER 7)
-        list(APPEND CUDA_NVCC_FLAGS -gencode arch=compute_61,code=sm_61)
-    endif()
-
     set(PBA_GPU_SOURCE_FILES
         ConfigBA.cpp
         ConfigBA.h
