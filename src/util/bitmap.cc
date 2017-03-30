@@ -36,7 +36,29 @@ Bitmap::Bitmap(const Bitmap& other) : Bitmap() {
   SetPtr(FreeImage_Clone(data_.get()));
 }
 
+Bitmap::Bitmap(Bitmap&& other) : Bitmap() {
+  data_ = std::move(other.data_);
+  width_ = other.width_;
+  height_ = other.height_;
+  channels_ = other.channels_;
+}
+
 Bitmap::Bitmap(FIBITMAP* data) : Bitmap() { SetPtr(data); }
+
+Bitmap& Bitmap::operator=(const Bitmap& other) {
+  SetPtr(FreeImage_Clone(other.data_.get()));
+  return *this;
+}
+
+Bitmap& Bitmap::operator=(Bitmap&& other) {
+  if (this != &other) {
+    data_ = std::move(other.data_);
+    width_ = other.width_;
+    height_ = other.height_;
+    channels_ = other.channels_;
+  }
+  return *this;
+}
 
 bool Bitmap::Allocate(const int width, const int height, const bool as_rgb) {
   FIBITMAP* data = nullptr;

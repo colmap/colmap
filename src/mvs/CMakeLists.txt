@@ -1,12 +1,14 @@
 set(FOLDER_NAME "mvs")
 
 COLMAP_ADD_LIBRARY(mvs
+    consistency_graph.h consistency_graph.cc
     depth_map.h depth_map.cc
     fusion.h fusion.cc
     image.h image.cc
     meshing.h meshing.cc
     model.h model.cc
     normal_map.h normal_map.cc
+    workspace.h workspace.cc
 )
 
 COLMAP_ADD_TEST(depth_map_test depth_map_test.cc)

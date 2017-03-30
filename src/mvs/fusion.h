@@ -26,7 +26,9 @@
 #include "mvs/mat.h"
 #include "mvs/model.h"
 #include "mvs/normal_map.h"
+#include "mvs/workspace.h"
 #include "util/alignment.h"
+#include "util/cache.h"
 #include "util/math.h"
 #include "util/threading.h"
 
@@ -45,13 +47,15 @@ struct FusedPoint {
   uint8_t b = 0;
 };
 
+class StereoFusionCache;
+
 class StereoFusion : public Thread {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   struct Options {
     // Minimum number of fused pixels to produce a point.
-    int min_num_pixels = 3;
+    int min_num_pixels = 5;
 
     // Maximum number of pixels to fuse into a single point.
     int max_num_pixels = 1000;
@@ -68,6 +72,13 @@ class StereoFusion : public Thread {
     // Maximum difference between normals of pixels to be fused.
     double max_normal_error = 10.0f;
 
+    // Cache size for fusion. The fusion keeps the bitmaps, depth maps, normal
+    // maps, and consistency graphs of this number of images in memory. A higher
+    // value here leads to less disk access and faster fusion, while a larger
+    // value leads to reduced memory usage. Note that a single image can consume
+    // a lot of memory, if the consistency graph is dense.
+    int cache_size = 500;
+
     // Check the options for validity.
     void Check() const;
 
@@ -83,39 +94,9 @@ class StereoFusion : public Thread {
 
  private:
   void Run();
-  void Read();
-  void Prepare();
-  void FusePoint(const int image_id, const int row, const int col,
-                 const size_t traversal_depth);
 
-  struct ImageData {
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    bool used = false;
-    const Image* image = nullptr;
-    const DepthMap* depth_map = nullptr;
-    const NormalMap* normal_map = nullptr;
-    Mat<char> visited_mask;
-    Eigen::Matrix<float, 3, 4> P;
-    Eigen::Matrix<float, 3, 4> inv_P;
-    Eigen::Matrix3f inv_R;
-  };
-
-  // Consistency graph representation that efficiently maps each pixel in
-  // an image to its consistent image identifies.
-  class ConsistencyGraph {
-   public:
-    ConsistencyGraph();
-    ConsistencyGraph(const std::vector<Image>& images,
-                     const std::vector<std::vector<int>>* consistency_graph);
-
-    void GetConsistentImageIds(const int image_id, const int row, const int col,
-                               int* num_consistent,
-                               const int** consistent_image_ids) const;
-
-   private:
-    const std::vector<std::vector<int>>* consistency_graph_;
-    std::vector<Eigen::MatrixXi> image_maps_;
-  };
+  void Fuse(const int image_id, const int row, const int col,
+            const size_t traversal_depth);
 
   const Options options_;
   const std::string workspace_path_;
@@ -124,12 +105,15 @@ class StereoFusion : public Thread {
   const float max_squared_reproj_error_;
   const float min_cos_normal_error_;
 
-  Model model_;
-  std::vector<char> used_image_mask_;
-  ConsistencyGraph consistency_graph_;
-  std::vector<ImageData, Eigen::aligned_allocator<ImageData>> image_data_;
-  std::vector<FusedPoint> fused_points_;
+  std::unique_ptr<Workspace> workspace_;
+  std::vector<char> used_images_;
+  std::vector<Mat<bool>> visited_masks_;
+  std::vector<std::pair<float, float>> bitmap_scales_;
+  std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> P_;
+  std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> inv_P_;
+  std::vector<Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> inv_R_;
 
+  std::vector<FusedPoint> fused_points_;
   Eigen::Vector4f fused_ref_point_;
   Eigen::Vector3f fused_ref_normal_;
   std::vector<float> fused_points_x_;

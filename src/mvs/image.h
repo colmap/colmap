@@ -31,17 +31,18 @@ namespace mvs {
 
 class Image {
  public:
-  Image(const std::string& path, const float* K, const float* R,
-        const float* T);
+  Image();
+  Image(const std::string& path, const size_t width, const size_t height,
+        const float* K, const float* R, const float* T);
 
   void Read(const bool as_rgb);
 
   inline size_t GetWidth() const;
   inline size_t GetHeight() const;
-  inline size_t GetChannels() const;
 
   inline const Bitmap& GetBitmap() const;
 
+  inline const std::string& GetPath() const;
   inline const float* GetR() const;
   inline const float* GetT() const;
   inline const float* GetK() const;
@@ -55,6 +56,8 @@ class Image {
 
  private:
   std::string path_;
+  size_t width_;
+  size_t height_;
   float K_[9];
   float R_[9];
   float T_[3];
@@ -81,13 +84,13 @@ void RotatePose(const float RR[9], float R[9], float T[3]);
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-size_t Image::GetWidth() const { return bitmap_.Width(); }
+size_t Image::GetWidth() const { return width_; }
 
-size_t Image::GetHeight() const { return bitmap_.Height(); }
-
-size_t Image::GetChannels() const { return bitmap_.IsRGB() ? 3 : 1; }
+size_t Image::GetHeight() const { return height_; }
 
 const Bitmap& Image::GetBitmap() const { return bitmap_; }
+
+const std::string& Image::GetPath() const { return path_; }
 
 const float* Image::GetR() const { return R_; }
 

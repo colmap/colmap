@@ -49,9 +49,8 @@ class GpuMat {
   __host__ __device__ size_t GetHeight() const;
   __host__ __device__ size_t GetDepth() const;
 
-  __device__ T Get(const size_t row, const size_t col) const;
   __device__ T Get(const size_t row, const size_t col,
-                   const size_t slice) const;
+                   const size_t slice = 0) const;
   __device__ void GetSlice(const size_t row, const size_t col, T* values) const;
 
   __device__ T& GetRef(const size_t row, const size_t col);
@@ -80,9 +79,9 @@ class GpuMat {
   // Rotate array in counter-clockwise direction.
   void Rotate(GpuMat<T>* output);
 
-  void Read(const std::string& file_name);
-  void Write(const std::string& file_name);
-  void Write(const std::string& file_name, const size_t slice);
+  void Read(const std::string& path);
+  void Write(const std::string& path);
+  void Write(const std::string& path, const size_t slice);
 
  protected:
   void ComputeCudaConfig();
@@ -197,11 +196,6 @@ __host__ __device__ size_t GpuMat<T>::GetDepth() const {
 }
 
 template <typename T>
-__device__ T GpuMat<T>::Get(const size_t row, const size_t col) const {
-  return Get(row, col, 0);
-}
-
-template <typename T>
 __device__ T GpuMat<T>::Get(const size_t row, const size_t col,
                             const size_t slice) const {
   return *((T*)((char*)array_ptr_ + pitch_ * (slice * height_ + row)) + col);
@@ -306,11 +300,10 @@ void GpuMat<T>::Transpose(GpuMat<T>* output) {
 template <typename T>
 void GpuMat<T>::FlipHorizontal(GpuMat<T>* output) {
   for (size_t slice = 0; slice < depth_; ++slice) {
-    CudaFlipHorizontal(
-        array_ptr_ + slice * pitch_ / sizeof(T) * GetHeight(),
-        output->GetPtr() +
-            slice * output->pitch_ / sizeof(T) * output->GetHeight(),
-        width_, height_, pitch_, output->pitch_);
+    CudaFlipHorizontal(array_ptr_ + slice * pitch_ / sizeof(T) * GetHeight(),
+                       output->GetPtr() + slice * output->pitch_ / sizeof(T) *
+                                              output->GetHeight(),
+                       width_, height_, pitch_, output->pitch_);
     CUDA_CHECK_ERROR();
   }
 }
@@ -331,9 +324,9 @@ void GpuMat<T>::Rotate(GpuMat<T>* output) {
 }
 
 template <typename T>
-void GpuMat<T>::Read(const std::string& file_name) {
-  std::fstream text_file(file_name, std::ios_base::in | std::ios_base::binary);
-  CHECK(text_file.is_open()) << file_name;
+void GpuMat<T>::Read(const std::string& path) {
+  std::fstream text_file(path, std::ios_base::in | std::ios_base::binary);
+  CHECK(text_file.is_open()) << path;
 
   size_t width;
   size_t height;
@@ -344,8 +337,7 @@ void GpuMat<T>::Read(const std::string& file_name) {
   std::streampos pos = text_file.tellg();
   text_file.close();
 
-  std::fstream binary_file(file_name,
-                           std::ios_base::in | std::ios_base::binary);
+  std::fstream binary_file(path, std::ios_base::in | std::ios_base::binary);
   binary_file.seekg(pos);
 
   std::vector<T> source(width_ * height_ * depth_);
@@ -357,36 +349,34 @@ void GpuMat<T>::Read(const std::string& file_name) {
 }
 
 template <typename T>
-void GpuMat<T>::Write(const std::string& file_name) {
+void GpuMat<T>::Write(const std::string& path) {
   std::vector<T> dest(width_ * height_ * depth_);
   CopyToHost(dest.data(), width_ * sizeof(T));
 
-  std::fstream text_file(file_name, std::ios_base::out);
+  std::fstream text_file(path, std::ios_base::out);
   text_file << width_ << "&" << height_ << "&" << depth_ << "&";
   text_file.close();
 
   std::fstream binary_file(
-      file_name,
-      std::ios_base::out | std::ios_base::binary | std::ios_base::app);
+      path, std::ios_base::out | std::ios_base::binary | std::ios_base::app);
   binary_file.write((char*)dest.data(), sizeof(T) * width_ * height_ * depth_);
   binary_file.close();
 }
 
 template <typename T>
-void GpuMat<T>::Write(const std::string& file_name, const size_t slice) {
+void GpuMat<T>::Write(const std::string& path, const size_t slice) {
   std::vector<T> dest(width_ * height_);
   CUDA_SAFE_CALL(cudaMemcpy2D(
       (void*)dest.data(), width_ * sizeof(T),
       (void*)(array_ptr_ + slice * height_ * pitch_ / sizeof(T)), pitch_,
       width_ * sizeof(T), height_, cudaMemcpyDeviceToHost));
 
-  std::fstream text_file(file_name, std::ios_base::out);
+  std::fstream text_file(path, std::ios_base::out);
   text_file << width_ << "&" << height_ << "&" << 1 << "&";
   text_file.close();
 
   std::fstream binary_file(
-      file_name,
-      std::ios_base::out | std::ios_base::binary | std::ios_base::app);
+      path, std::ios_base::out | std::ios_base::binary | std::ios_base::app);
 
   binary_file.write((char*)dest.data(), sizeof(T) * width_ * height_);
   binary_file.close();

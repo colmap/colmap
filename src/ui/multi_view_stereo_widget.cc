@@ -100,6 +100,8 @@ class StereoFusionOptionsTab : public OptionsWidget {
                     "max_depth_error", 0, 1, 0.0001, 4);
     AddOptionDouble(&options->dense_mapper_options->fusion.max_normal_error,
                     "max_normal_error", 0, 180);
+    AddOptionInt(&options->dense_mapper_options->fusion.cache_size,
+                 "cache_size", 2);
   }
 };
 
@@ -144,7 +146,7 @@ std::vector<std::pair<std::string, std::string>> ReadPatchMatchConfig(
   return images;
 }
 
-}  // namepspace
+}  // namespace
 
 MultiViewStereoOptionsWidget::MultiViewStereoOptionsWidget(
     QWidget* parent, OptionManager* options)

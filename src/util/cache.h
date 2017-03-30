@@ -17,6 +17,7 @@
 #ifndef COLMAP_SRC_UTIL_CACHE_H_
 #define COLMAP_SRC_UTIL_CACHE_H_
 
+#include <iostream>
 #include <list>
 #include <unordered_map>
 
@@ -36,11 +37,12 @@ class LRUCache {
   // Check whether the element with the given key exists.
   bool Exists(const key_t& key) const;
 
-  // Manually set the value of an element.
-  void Set(const key_t& key, const value_t& value);
-
   // Get the value of an element either from the cache or compute the new value.
   const value_t& Get(const key_t& key);
+
+  // Manually set the value of an element. Note that the ownership of the value
+  // is moved to the cache, which invalidates the object on the caller side.
+  void Set(const key_t& key, value_t&& value);
 
  private:
   typedef typename std::pair<key_t, value_t> key_value_pair_t;
@@ -82,9 +84,21 @@ bool LRUCache<key_t, value_t>::Exists(const key_t& key) const {
 }
 
 template <typename key_t, typename value_t>
-void LRUCache<key_t, value_t>::Set(const key_t& key, const value_t& value) {
+const value_t& LRUCache<key_t, value_t>::Get(const key_t& key) {
+  const auto it = elems_map_.find(key);
+  if (it == elems_map_.end()) {
+    Set(key, std::move(getter_func_(key)));
+    return elems_map_[key]->second;
+  } else {
+    elems_list_.splice(elems_list_.begin(), elems_list_, it->second);
+    return it->second->second;
+  }
+}
+
+template <typename key_t, typename value_t>
+void LRUCache<key_t, value_t>::Set(const key_t& key, value_t&& value) {
   auto it = elems_map_.find(key);
-  elems_list_.push_front(key_value_pair_t(key, value));
+  elems_list_.push_front(key_value_pair_t(key, std::move(value)));
   if (it != elems_map_.end()) {
     elems_list_.erase(it->second);
     elems_map_.erase(it);
@@ -96,18 +110,6 @@ void LRUCache<key_t, value_t>::Set(const key_t& key, const value_t& value) {
     --last;
     elems_map_.erase(last->first);
     elems_list_.pop_back();
-  }
-}
-
-template <typename key_t, typename value_t>
-const value_t& LRUCache<key_t, value_t>::Get(const key_t& key) {
-  const auto it = elems_map_.find(key);
-  if (it == elems_map_.end()) {
-    Set(key, getter_func_(key));
-    return elems_map_[key]->second;
-  } else {
-    elems_list_.splice(elems_list_.begin(), elems_list_, it->second);
-    return it->second->second;
   }
 }
 

@@ -56,7 +56,8 @@ void Model::ReadFromCOLMAP(const std::string& path) {
         QuaternionToRotationMatrix(image.Qvec()).cast<float>();
     const Eigen::Vector3f T = image.Tvec().cast<float>();
 
-    images.emplace_back(image_path, K.data(), R.data(), T.data());
+    images.emplace_back(image_path, camera.Width(), camera.Height(), K.data(),
+                        R.data(), T.data());
     image_id_map.emplace(image_id, i);
     image_names_.push_back(image.Name());
     image_name_to_id_.emplace(image.Name(), i);
@@ -74,10 +75,6 @@ void Model::ReadFromCOLMAP(const std::string& path) {
     }
     points.push_back(point);
   }
-
-  depth_maps.resize(images.size());
-  normal_maps.resize(images.size());
-  consistency_graph.resize(images.size());
 }
 
 void Model::ReadFromPMVS(const std::string& path) {
@@ -125,7 +122,7 @@ void Model::ReadFromPMVS(const std::string& path) {
     T[1] = -T[1];
     T[2] = -T[2];
 
-    images.emplace_back(image_path, K, R, T);
+    images.emplace_back(image_path, bitmap.Width(), bitmap.Height(), K, R, T);
     image_names_.push_back(image_name);
     image_name_to_id_.emplace(image_name, image_id);
   }
@@ -150,15 +147,11 @@ void Model::ReadFromPMVS(const std::string& path) {
       CHECK_LT(point.track[i], images.size());
     }
   }
-
-  depth_maps.resize(images.size());
-  normal_maps.resize(images.size());
-  consistency_graph.resize(images.size());
 }
 
 int Model::GetImageId(const std::string& name) const {
-  CHECK_GT(image_name_to_id_.count(name), 0) << "Image with name `" << name
-                                             << "` does not exist";
+  CHECK_GT(image_name_to_id_.count(name), 0)
+      << "Image with name `" << name << "` does not exist";
   return image_name_to_id_.at(name);
 }
 

@@ -77,9 +77,13 @@ void ReadPatchMatchProblems(const PatchMatch::Options& options,
                             const std::string& workspace_format,
                             const std::string& pmvs_option_name,
                             const int max_image_size, Model* model,
-                            std::vector<PatchMatch::Problem>* problems) {
+                            std::vector<PatchMatch::Problem>* problems,
+                            std::vector<DepthMap>* depth_maps,
+                            std::vector<NormalMap>* normal_maps) {
   std::cout << "Reading model..." << std::endl;
   model->Read(workspace_path, workspace_format);
+  depth_maps->resize(model->images.size());
+  normal_maps->resize(model->images.size());
 
   if (workspace_format == "PMVS") {
     std::cout << "Importing PMVS options..." << std::endl;
@@ -111,8 +115,8 @@ void ReadPatchMatchProblems(const PatchMatch::Options& options,
     PatchMatch::Problem problem;
 
     problem.images = &model->images;
-    problem.depth_maps = &model->depth_maps;
-    problem.normal_maps = &model->normal_maps;
+    problem.depth_maps = depth_maps;
+    problem.normal_maps = normal_maps;
 
     problem.ref_image_id = model->GetImageId(ref_image_name);
     used_image_ids.insert(problem.ref_image_id);
@@ -158,12 +162,13 @@ void ReadPatchMatchProblems(const PatchMatch::Options& options,
           src_images.emplace_back(image.first, image.second);
         }
 
-        std::partial_sort(
-            src_images.begin(), src_images.begin() + max_num_src_images,
-            src_images.end(), [](const std::pair<int, int> image1,
-                                 const std::pair<int, int> image2) {
-              return image1.second > image2.second;
-            });
+        std::partial_sort(src_images.begin(),
+                          src_images.begin() + max_num_src_images,
+                          src_images.end(),
+                          [](const std::pair<int, int> image1,
+                             const std::pair<int, int> image2) {
+                            return image1.second > image2.second;
+                          });
 
         problem.src_image_ids.reserve(max_num_src_images);
         for (size_t i = 0; i < max_num_src_images; ++i) {
@@ -193,27 +198,26 @@ void ReadPatchMatchProblems(const PatchMatch::Options& options,
     if (options.geom_consistency) {
       const std::string file_name =
           model->GetImageName(image_id) + ".photometric.bin";
-      auto& depth_map = model->depth_maps.at(image_id);
+      auto& depth_map = depth_maps->at(image_id);
       depth_map.Read(JoinPaths(workspace_path, "stereo/depth_maps", file_name));
-      auto& normal_map = model->normal_maps.at(image_id);
+      auto& normal_map = normal_maps->at(image_id);
       normal_map.Read(
           JoinPaths(workspace_path, "stereo/normal_maps", file_name));
     }
   }
 
-  std::cout << "Resampling model..." << std::endl;
-  ThreadPool resample_thread_pool;
-  for (size_t image_id = 0; image_id < model->images.size(); ++image_id) {
-    resample_thread_pool.AddTask([&, image_id]() {
-      if (max_image_size > 0) {
+  if (max_image_size > 0) {
+    std::cout << "Resampling model..." << std::endl;
+    ThreadPool resample_thread_pool;
+    for (size_t image_id = 0; image_id < model->images.size(); ++image_id) {
+      resample_thread_pool.AddTask([&, image_id]() {
         model->images.at(image_id).Downsize(max_image_size, max_image_size);
-        model->depth_maps.at(image_id).Downsize(max_image_size, max_image_size);
-        model->normal_maps.at(image_id).Downsize(max_image_size,
-                                                 max_image_size);
-      }
-    });
+        depth_maps->at(image_id).Downsize(max_image_size, max_image_size);
+        normal_maps->at(image_id).Downsize(max_image_size, max_image_size);
+      });
+    }
+    resample_thread_pool.Wait();
   }
-  resample_thread_pool.Wait();
 }
 
 }  // namespace
@@ -291,9 +295,9 @@ void PatchMatch::Check() const {
     CHECK_LT(image_id, problem_.images->size()) << image_id;
 
     const Image& image = problem_.images->at(image_id);
-    CHECK_GT(image.GetWidth(), 0) << image_id;
-    CHECK_GT(image.GetHeight(), 0) << image_id;
-    CHECK_EQ(image.GetChannels(), 1) << image_id;
+    CHECK_GT(image.GetBitmap().Width(), 0) << image_id;
+    CHECK_GT(image.GetBitmap().Height(), 0) << image_id;
+    CHECK(image.GetBitmap().IsGrey()) << image_id;
 
     // Make sure, the calibration matrix only contains fx, fy, cx, cy.
     CHECK_LT(std::abs(image.GetK()[1] - 0.0f), 1e-6f) << image_id;
@@ -361,8 +365,10 @@ Mat<float> PatchMatch::GetSelProbMap() const {
   return patch_match_cuda_->GetSelProbMap();
 }
 
-std::vector<int> PatchMatch::GetConsistentImageIds() const {
-  return patch_match_cuda_->GetConsistentImageIds();
+ConsistencyGraph PatchMatch::GetConsistencyGraph() const {
+  const auto& ref_image = problem_.images->at(problem_.ref_image_id);
+  return ConsistencyGraph(ref_image.GetWidth(), ref_image.GetHeight(),
+                          patch_match_cuda_->GetConsistentImageIds());
 }
 
 PatchMatchController::PatchMatchController(const PatchMatch::Options& options,
@@ -379,11 +385,21 @@ PatchMatchController::PatchMatchController(const PatchMatch::Options& options,
 void PatchMatchController::Run() {
   Model model;
   std::vector<PatchMatch::Problem> problems;
+  std::vector<DepthMap> depth_maps;
+  std::vector<NormalMap> normal_maps;
   ReadPatchMatchProblems(options_, workspace_path_, workspace_format_,
-                         pmvs_option_name_, max_image_size_, &model, &problems);
+                         pmvs_option_name_, max_image_size_, &model, &problems,
+                         &depth_maps, &normal_maps);
 
   const auto depth_ranges = model.ComputeDepthRanges();
-  const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
+
+  std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
+  if (gpu_indices.size() == 1 && gpu_indices[0] == -1) {
+    const int num_cuda_devices = GetNumCudaDevices();
+    CHECK_GT(num_cuda_devices, 0);
+    gpu_indices.resize(num_cuda_devices);
+    std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
+  }
 
   const std::string output_suffix =
       options_.geom_consistency ? "geometric" : "photometric";
@@ -434,8 +450,7 @@ void PatchMatchController::Run() {
 
     patch_match.GetDepthMap().Write(depth_map_path);
     patch_match.GetNormalMap().Write(normal_map_path);
-    WriteBinaryBlob(consistency_graph_path,
-                    patch_match.GetConsistentImageIds());
+    patch_match.GetConsistencyGraph().Write(consistency_graph_path);
   };
 
   for (size_t problem_idx = 0; problem_idx < problems.size(); ++problem_idx) {

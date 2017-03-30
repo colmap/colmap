@@ -58,9 +58,6 @@ struct Model {
 
   std::vector<Image> images;
   std::vector<Point> points;
-  std::vector<DepthMap> depth_maps;
-  std::vector<NormalMap> normal_maps;
-  std::vector<std::vector<int>> consistency_graph;
 
  private:
   std::vector<std::string> image_names_;

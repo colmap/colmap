@@ -647,6 +647,7 @@ bool DenseMapperOptions::Check() {
   CHECK_OPTION(DenseMapperOptions, fusion.max_reproj_error, >= 0);
   CHECK_OPTION(DenseMapperOptions, fusion.max_depth_error, >= 0);
   CHECK_OPTION(DenseMapperOptions, fusion.max_normal_error, >= 0);
+  CHECK_OPTION(DenseMapperOptions, fusion.cache_size, > 1);
 
   CHECK_OPTION(DenseMapperOptions, poisson.point_weight, >= 0);
   CHECK_OPTION(DenseMapperOptions, poisson.depth, > 0);
@@ -1046,6 +1047,8 @@ void OptionManager::AddDenseMapperOptions() {
                      fusion.max_depth_error);
   ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      fusion.max_normal_error);
+  ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
+                     fusion.cache_size);
 
   ADD_DEFAULT_OPTION(DenseMapperOptions, dense_mapper_options,
                      poisson.point_weight);

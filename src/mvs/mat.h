@@ -36,20 +36,21 @@ class Mat {
   size_t GetHeight() const;
   size_t GetDepth() const;
 
-  T Get(const size_t row, const size_t col, const size_t slice) const;
+  T Get(const size_t row, const size_t col, const size_t slice = 0) const;
   void GetSlice(const size_t row, const size_t col, T* values) const;
   T* GetPtr();
   const T* GetPtr() const;
 
   const std::vector<T>& GetData() const;
 
+  void Set(const size_t row, const size_t col, const T value);
   void Set(const size_t row, const size_t col, const size_t slice,
            const T value);
 
   void Fill(const T value);
 
-  void Read(const std::string& file_name);
-  void Write(const std::string& file_name) const;
+  void Read(const std::string& path);
+  void Write(const std::string& path) const;
 
  protected:
   size_t width_ = 0;
@@ -114,6 +115,11 @@ const std::vector<T>& Mat<T>::GetData() const {
 }
 
 template <typename T>
+void Mat<T>::Set(const size_t row, const size_t col, const T value) {
+  Set(row, col, 0, value);
+}
+
+template <typename T>
 void Mat<T>::Set(const size_t row, const size_t col, const size_t slice,
                  const T value) {
   data_.at(slice * width_ * height_ + row * width_ + col) = value;
@@ -125,9 +131,9 @@ void Mat<T>::Fill(const T value) {
 }
 
 template <typename T>
-void Mat<T>::Read(const std::string& file_name) {
-  std::fstream text_file(file_name, std::ios_base::in | std::ios_base::binary);
-  CHECK(text_file.is_open()) << file_name;
+void Mat<T>::Read(const std::string& path) {
+  std::fstream text_file(path, std::ios_base::in | std::ios_base::binary);
+  CHECK(text_file.is_open()) << path;
 
   char unused_char;
   text_file >> width_ >> unused_char >> height_ >> unused_char >> depth_ >>
@@ -140,9 +146,8 @@ void Mat<T>::Read(const std::string& file_name) {
   CHECK_GT(depth_, 0);
   data_.resize(width_ * height_ * depth_);
 
-  std::fstream binary_file(file_name,
-                           std::ios_base::in | std::ios_base::binary);
-  CHECK(binary_file.is_open()) << file_name;
+  std::fstream binary_file(path, std::ios_base::in | std::ios_base::binary);
+  CHECK(binary_file.is_open()) << path;
   binary_file.seekg(pos);
   binary_file.read(reinterpret_cast<char*>(data_.data()),
                    data_.size() * sizeof(T));
@@ -150,16 +155,15 @@ void Mat<T>::Read(const std::string& file_name) {
 }
 
 template <typename T>
-void Mat<T>::Write(const std::string& file_name) const {
-  std::fstream text_file(file_name, std::ios_base::out);
-  CHECK(text_file.is_open()) << file_name;
+void Mat<T>::Write(const std::string& path) const {
+  std::fstream text_file(path, std::ios_base::out);
+  CHECK(text_file.is_open()) << path;
   text_file << width_ << "&" << height_ << "&" << depth_ << "&";
   text_file.close();
 
-  std::fstream binary_file(file_name, std::ios_base::out |
-                                          std::ios_base::binary |
-                                          std::ios_base::app);
-  CHECK(binary_file.is_open()) << file_name;
+  std::fstream binary_file(
+      path, std::ios_base::out | std::ios_base::binary | std::ios_base::app);
+  CHECK(binary_file.is_open()) << path;
   binary_file.write(reinterpret_cast<const char*>(data_.data()),
                     sizeof(T) * width_ * height_ * depth_);
   binary_file.close();

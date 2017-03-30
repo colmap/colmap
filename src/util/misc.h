@@ -86,7 +86,7 @@ bool IsBigEndian();
 
 // Read contiguous binary blob from file.
 template <typename T>
-void ReadBinaryBlobFromFile(const std::string& path, std::vector<T>* data);
+void ReadBinaryBlob(const std::string& path, std::vector<T>* data);
 
 // Write contiguous binary blob to file.
 template <typename T>
