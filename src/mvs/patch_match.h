@@ -21,7 +21,6 @@
 #include <memory>
 #include <vector>
 
-#include "mvs/consistency_graph.h"
 #include "mvs/depth_map.h"
 #include "mvs/image.h"
 #include "mvs/model.h"
@@ -33,6 +32,7 @@
 namespace colmap {
 namespace mvs {
 
+class ConsistencyGraph;
 class PatchMatchCuda;
 
 // This is a wrapper class around the actual PatchMatchCuda implementation. This
