@@ -388,19 +388,17 @@ bool Bitmap::Read(const std::string& path, const bool as_rgb) {
   FIBITMAP* fi_bitmap = FreeImage_Load(format, path.c_str());
   data_ = FIBitmapPtr(fi_bitmap, &FreeImage_Unload);
 
-  const FREE_IMAGE_COLOR_TYPE color_type = FreeImage_GetColorType(fi_bitmap);
-
-  const bool is_grey =
-      color_type == FIC_MINISBLACK && FreeImage_GetBPP(fi_bitmap) == 8;
-  const bool is_rgb =
-      color_type == FIC_RGB && FreeImage_GetBPP(fi_bitmap) == 24;
-
-  if (!is_rgb && as_rgb) {
+  if (!IsPtrRGB(data_.get()) && as_rgb) {
     FIBITMAP* converted_bitmap = FreeImage_ConvertTo24Bits(fi_bitmap);
     data_ = FIBitmapPtr(converted_bitmap, &FreeImage_Unload);
-  } else if (!is_grey && !as_rgb) {
+  } else if (!IsPtrGrey(data_.get()) && !as_rgb) {
     FIBITMAP* converted_bitmap = FreeImage_ConvertToGreyscale(fi_bitmap);
     data_ = FIBitmapPtr(converted_bitmap, &FreeImage_Unload);
+  }
+
+  if (!IsPtrSupported(data_.get())) {
+    data_.reset();
+    return false;
   }
 
   width_ = FreeImage_GetWidth(data_.get());
@@ -513,24 +511,33 @@ bool Bitmap::ReadExifTag(const FREE_IMAGE_MDMODEL model,
 }
 
 void Bitmap::SetPtr(FIBITMAP* data) {
-  data_ = FIBitmapPtr(data, &FreeImage_Unload);
+  CHECK(IsPtrSupported(data));
 
+  data_ = FIBitmapPtr(data, &FreeImage_Unload);
   width_ = FreeImage_GetWidth(data);
   height_ = FreeImage_GetHeight(data);
 
-  const FREE_IMAGE_COLOR_TYPE color_type = FreeImage_GetColorType(data);
-
-  const bool is_grey =
-      color_type == FIC_MINISBLACK && FreeImage_GetBPP(data) == 8;
-  const bool is_rgb = color_type == FIC_RGB && FreeImage_GetBPP(data) == 24;
-
-  if (!is_grey && !is_rgb) {
+  if (!IsPtrGrey(data) && !IsPtrRGB(data)) {
     FIBITMAP* data_converted = FreeImage_ConvertTo24Bits(data);
     data_ = FIBitmapPtr(data_converted, &FreeImage_Unload);
     channels_ = 3;
   } else {
-    channels_ = is_rgb ? 3 : 1;
+    channels_ = IsPtrRGB(data) ? 3 : 1;
   }
+}
+
+bool Bitmap::IsPtrGrey(FIBITMAP* data) {
+  return FreeImage_GetColorType(data) == FIC_MINISBLACK &&
+         FreeImage_GetBPP(data) == 8;
+}
+
+bool Bitmap::IsPtrRGB(FIBITMAP* data) {
+  return FreeImage_GetColorType(data) == FIC_RGB &&
+         FreeImage_GetBPP(data) == 24;
+}
+
+bool Bitmap::IsPtrSupported(FIBITMAP* data) {
+  return IsPtrGrey(data) || IsPtrRGB(data);
 }
 
 float JetColormap::Red(const float gray) { return Base(gray - 0.25f); }

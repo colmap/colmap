@@ -161,6 +161,10 @@ class Bitmap {
 
   void SetPtr(FIBITMAP* data);
 
+  static bool IsPtrGrey(FIBITMAP* data);
+  static bool IsPtrRGB(FIBITMAP* data);
+  static bool IsPtrSupported(FIBITMAP* data);
+
   FIBitmapPtr data_;
   int width_;
   int height_;
