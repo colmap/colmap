@@ -97,6 +97,6 @@ Acknowledgments
 ---------------
 
 The library was written by `Johannes L. Schönberger
-<http://people.inf.ethz.ch/jschoenb/>`_. Funding was provided by his PhD advisor
-`Jan-Michael Frahm <http://frahm.web.unc.edu/>`_ through the grants NSF No.
-IIS-1349074, No. CNS-1405847, and the MITRE Corp.
+<http://people.inf.ethz.ch/jschoenb/>`_. Funding was provided by his PhD advisors
+`Jan-Michael Frahm <http://frahm.web.unc.edu/>`_ and
+`Marc Pollefeys <https://www.inf.ethz.ch/personal/marc.pollefeys/>`_.
