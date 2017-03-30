@@ -42,6 +42,8 @@ class MultiViewStereoWidget : public QWidget {
   void Show(Reconstruction* reconstruction);
 
  private:
+  void showEvent(QShowEvent* event);
+
   void Undistort();
   void Stereo();
   void Fusion();

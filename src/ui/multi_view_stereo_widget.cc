@@ -259,6 +259,8 @@ MultiViewStereoWidget::MultiViewStereoWidget(MainWindow* main_window,
   RefreshWorkspace();
 }
 
+void MultiViewStereoWidget::showEvent(QShowEvent* event) { RefreshWorkspace(); }
+
 void MultiViewStereoWidget::Show(Reconstruction* reconstruction) {
   reconstruction_ = reconstruction;
   show();
