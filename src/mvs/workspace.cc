@@ -33,7 +33,7 @@ Workspace::Workspace(const size_t cache_size, const std::string& workspace_path,
       new LRUCache<int, Bitmap>(cache_size, [&](const int image_id) {
         Bitmap bitmap;
         bitmap.Read(model_.images.at(image_id).GetPath(), true);
-        return std::move(bitmap);
+        return bitmap;
       }));
 
   depth_maps_.reset(

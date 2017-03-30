@@ -24,6 +24,8 @@
 namespace colmap {
 namespace mvs {
 
+const int ConsistencyGraph::kNoConsistentImageIds = -1;
+
 ConsistencyGraph::ConsistencyGraph() {}
 
 ConsistencyGraph::ConsistencyGraph(const size_t width, const size_t height,

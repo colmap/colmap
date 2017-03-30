@@ -47,7 +47,7 @@ class ConsistencyGraph {
   void Write(const std::string& path) const;
 
  private:
-  const static int kNoConsistentImageIds = -1;
+  const static int kNoConsistentImageIds;
   std::vector<int> data_;
   Eigen::MatrixXi map_;
 };
