@@ -298,6 +298,8 @@ void PatchMatch::Check() const {
     CHECK_GT(image.GetBitmap().Width(), 0) << image_id;
     CHECK_GT(image.GetBitmap().Height(), 0) << image_id;
     CHECK(image.GetBitmap().IsGrey()) << image_id;
+    CHECK_EQ(image.GetWidth(), image.GetBitmap().Width()) << image_id;
+    CHECK_EQ(image.GetHeight(), image.GetBitmap().Height()) << image_id;
 
     // Make sure, the calibration matrix only contains fx, fy, cx, cy.
     CHECK_LT(std::abs(image.GetK()[1] - 0.0f), 1e-6f) << image_id;

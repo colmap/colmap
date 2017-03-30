@@ -40,6 +40,8 @@ Image::Image(const std::string& path, const size_t width, const size_t height,
 
 void Image::Read(const bool as_rgb) {
   CHECK(bitmap_.Read(path_, as_rgb)) << path_;
+  CHECK_EQ(width_, bitmap_.Width());
+  CHECK_EQ(height_, bitmap_.Height());
 }
 
 void Image::Rescale(const float factor) { Rescale(factor, factor); }
@@ -49,11 +51,11 @@ void Image::Rescale(const float factor_x, const float factor_y) {
     return;
   }
 
-  const size_t new_width = std::round(bitmap_.Width() * factor_x);
-  const size_t new_height = std::round(bitmap_.Height() * factor_y);
-  const float scale_x = new_width / static_cast<float>(bitmap_.Width());
-  const float scale_y = new_height / static_cast<float>(bitmap_.Height());
-  bitmap_.Rescale(new_width, new_height);
+  width_ = std::round(bitmap_.Width() * factor_x);
+  height_ = std::round(bitmap_.Height() * factor_y);
+  const float scale_x = width_ / static_cast<float>(bitmap_.Width());
+  const float scale_y = height_ / static_cast<float>(bitmap_.Height());
+  bitmap_.Rescale(width_, height_);
   K_[0] *= scale_x;
   K_[2] *= scale_x;
   K_[4] *= scale_y;
