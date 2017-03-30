@@ -5,14 +5,14 @@ COLMAP
     :alt: Sparse reconstruction of central Rome.
     :figclass: align-center
 
-    Reconstruction of central Rome using 21K photos produced by COLMAP's SfM
+    Sparse model of central Rome using 21K photos produced by COLMAP's SfM
     pipeline.
 
 .. figure:: images/dense.png
     :alt: Dense reconstruction of landmarks.
     :figclass: align-center
 
-    Dense reconstruction of several landmarks produced by COLMAP's MVS pipeline.
+    Dense models of several landmarks produced by COLMAP's MVS pipeline.
 
 
 About

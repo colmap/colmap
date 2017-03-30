@@ -47,8 +47,6 @@ struct FusedPoint {
   uint8_t b = 0;
 };
 
-class StereoFusionCache;
-
 class StereoFusion : public Thread {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
