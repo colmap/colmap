@@ -1,5 +1,5 @@
 // COLMAP - Structure-from-Motion and Multi-View Stereo.
-// Copyright (C) 2016  Johannes L. Schoenberger <jsch at inf.ethz.ch>
+// Copyright (C) 2017  Johannes L. Schoenberger <jsch at inf.ethz.ch>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -47,7 +47,7 @@ LicenseWidget::LicenseWidget(QWidget* parent) : QTextEdit(parent) {
 
 QString LicenseWidget::GetCOLMAPLicense() const {
   const QString license =
-      "Copyright (C) 2016  Johannes L. Schoenberger <jsch at inf.ethz.ch><br>"
+      "Copyright (C) 2017  Johannes L. Schoenberger <jsch at inf.ethz.ch><br>"
       "This program is free software: you can redistribute it and/or modify<br>"
       "it under the terms of the GNU General Public License as published by<br>"
       "the Free Software Foundation, either version 3 of the License, or<br>"
