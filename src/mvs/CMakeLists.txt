@@ -11,6 +11,7 @@ COLMAP_ADD_LIBRARY(mvs
     workspace.h workspace.cc
 )
 
+COLMAP_ADD_TEST(consistency_graph_test consistency_graph_test.cc)
 COLMAP_ADD_TEST(depth_map_test depth_map_test.cc)
 COLMAP_ADD_TEST(mat_test mat_test.cc)
 COLMAP_ADD_TEST(normal_map_test normal_map_test.cc)

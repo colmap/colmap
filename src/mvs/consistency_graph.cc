@@ -30,21 +30,13 @@ ConsistencyGraph::ConsistencyGraph() {}
 
 ConsistencyGraph::ConsistencyGraph(const size_t width, const size_t height,
                                    const std::vector<int>& data)
-    : data_(data), map_(height, width) {
-  map_.setConstant(kNoConsistentImageIds);
-  for (size_t i = 0; i < data_.size();) {
-    const int col = data_[i++];
-    const int row = data_[i++];
-    map_(row, col) = i;
-    const int num_images = data_[i++];
-    i += num_images;
-  }
+    : data_(data) {
+  InitializeMap(width, height);
 }
 
 void ConsistencyGraph::GetImageIds(const int row, const int col,
                                    int* num_images,
                                    const int** image_ids) const {
-  const int kNoConsistentImageIds = -1;
   const int index = map_(row, col);
   if (index == kNoConsistentImageIds) {
     *num_images = 0;
@@ -59,14 +51,14 @@ void ConsistencyGraph::Read(const std::string& path) {
   std::fstream text_file(path, std::ios_base::in | std::ios_base::binary);
   CHECK(text_file.is_open()) << path;
 
-  size_t width;
-  size_t height;
-  size_t depth;
+  size_t width = 0;
+  size_t height = 0;
+  size_t depth = 0;
   char unused_char;
 
   text_file >> width >> unused_char >> height >> unused_char >> depth >>
       unused_char;
-  std::streampos pos = text_file.tellg();
+  const std::streampos pos = text_file.tellg();
   text_file.close();
 
   CHECK_GT(width, 0);
@@ -79,13 +71,13 @@ void ConsistencyGraph::Read(const std::string& path) {
   binary_file.seekg(0, std::ios::end);
   const size_t num_bytes = binary_file.tellg() - pos;
 
-  std::vector<int> data(num_bytes / sizeof(int));
+  data_.resize(num_bytes / sizeof(int));
 
   binary_file.seekg(pos);
-  binary_file.read(reinterpret_cast<char*>(data.data()), num_bytes);
+  binary_file.read(reinterpret_cast<char*>(data_.data()), num_bytes);
   binary_file.close();
 
-  *this = ConsistencyGraph(width, height, data);
+  InitializeMap(width, height);
 }
 
 void ConsistencyGraph::Write(const std::string& path) const {
@@ -100,6 +92,20 @@ void ConsistencyGraph::Write(const std::string& path) const {
   binary_file.write(reinterpret_cast<const char*>(data_.data()),
                     sizeof(int) * data_.size());
   binary_file.close();
+}
+
+void ConsistencyGraph::InitializeMap(const size_t width, const size_t height) {
+  map_.resize(height, width);
+  map_.setConstant(kNoConsistentImageIds);
+  for (size_t i = 0; i < data_.size();) {
+    const int num_images = data_.at(i + 2);
+    if (num_images > 0) {
+      const int col = data_.at(i);
+      const int row = data_.at(i + 1);
+      map_(row, col) = i + 2;
+    }
+    i += 3 + num_images;
+  }
 }
 
 }  // namespace mvs

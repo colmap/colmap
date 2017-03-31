@@ -22,6 +22,8 @@
 
 #include <Eigen/Core>
 
+#include "util/types.h"
+
 namespace colmap {
 namespace mvs {
 
@@ -47,6 +49,8 @@ class ConsistencyGraph {
   void Write(const std::string& path) const;
 
  private:
+  void InitializeMap(const size_t width, const size_t height);
+
   const static int kNoConsistentImageIds;
   std::vector<int> data_;
   Eigen::MatrixXi map_;
