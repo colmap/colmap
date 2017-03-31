@@ -5,8 +5,10 @@ Output Format
 Sparse Reconstruction
 ---------------------
 
-COLMAP exports three text files for every reconstructed model: `cameras.txt`,
-`images.txt`, and `points3D.txt`. Comments start with a leading "#" character.
+COLMAP exports the following three text files for every reconstructed model:
+`cameras.txt`, `images.txt`, and `points3D.txt`. Comments start with a leading
+"#" character and are ignored. The first comment lines briefly describe the
+format of the text files, as described in more detailed on this page.
 
 To export the currently selected model in the GUI, choose ``File > Export
 model``. To export all reconstructed models in the current dataset, choose
@@ -37,8 +39,8 @@ dataset using one line per camera, e.g.::
     2 PINHOLE 3072 2304 2560.56 2560.56 1536 1152
     3 SIMPLE_RADIAL 3072 2304 2559.69 1536 1152 -0.0218531
 
-Here, the dataset contains 3 cameras based using different distortion models and
-they have the same sensor dimensions (width: 3072, height: 2304). The length of
+Here, the dataset contains 3 cameras based using different distortion models
+with the same sensor dimensions (width: 3072, height: 2304). The length of
 parameters is variable and depends on the camera model. For the first camera,
 there are 3 parameters with a single focal length of 2559.81 pixels and a
 principal point at pixel location `(1536, 1152)`. The intrinsic parameters of a
@@ -61,16 +63,17 @@ dataset using two lines per image, e.g.::
     2 0.851773 0.0165051 0.503764 -0.142941 -0.737434 1.02973 3.74354 1 P1180142.JPG
     1190.83 663.957 23056 1258.77 640.354 59070
 
-Here, there first two lines define the information of the first image, and so
-on. The reconstructed pose of an image is specified as the projection from world
-to image coordinate system using a quaternion (QW, QX, QY, QZ) and a translation
-vector (TX, TY, TZ). Both images use the same camera model and share intrinsics
-(`CAMERA_ID = 1`). The image name is relative to the selected base image folder
-of the project. The first image has 3 keypoints and the second image has 2
-keypoints, while the location of the keypoints is specified in pixel
-coordinates. Both images observe 2 3D points and note that the last keypoint of
-the first image does not observe a 3D point in the reconstruction as the 3D
-point identifier is -1.
+Here, the first two lines define the information of the first image, and so on.
+The reconstructed pose of an image is specified as the projection from world to
+image coordinate system using a quaternion (QW, QX, QY, QZ) and a translation
+vector (TX, TY, TZ). The quaternion is defined using the Hamilton convention,
+which is, for example, also used by the Eigen library. Both images use the same
+camera model and share intrinsics (`CAMERA_ID = 1`). The image name is relative
+to the selected base image folder of the project. The first image has 3
+keypoints and the second image has 2 keypoints, while the location of the
+keypoints is specified in pixel coordinates. Both images observe 2 3D points and
+note that the last keypoint of the first image does not observe a 3D point in
+the reconstruction as the 3D point identifier is -1.
 
 
 points3D.txt
@@ -146,8 +149,9 @@ Consistency Graphs
 ------------------
 
 The consistency graph defines, for all pixels in an image, the source images a
-pixel is consistent with. the graph is stored as a continuous list of `int32`
-values in the format ``<row><col><N><image_idx1>...<image_idxN>``, where ``(row,
-col)``  defines the location of the pixel in the image followed by a list of
-``N`` image indices. The indices are specified w.r.t. the ordering in the
-``images.txt`` file.
+pixel is consistent with. The graph is stored as a mixed text and binary file,
+while the text part is equivalent to the depth and normal maps and the binary
+part is a continuous list of `int32` values in the format
+``<row><col><N><image_idx1>...<image_idxN>``. Here, ``(row, col)``  defines the
+location of the pixel in the image followed by a list of ``N`` image indices.
+The indices are specified w.r.t. the ordering in the ``images.txt`` file.

@@ -66,7 +66,7 @@ Matches
 -------
 
 Feature matching stores its output in the `matches` table and geometric
-verification in the `inlier_matches` table. COLMAP uses only the data in
+verification in the `inlier_matches` table. COLMAP only uses the data in
 `inlier_matches` for reconstruction. Every entry in the two tables stores the
 feature matches between two unique images, where the `pair_id` is the row-major,
 linear index in the upper-triangular match matrix, generated as follows::
