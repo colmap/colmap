@@ -145,8 +145,9 @@ Multi-GPU support in feature matching
 -------------------------------------
 
 You can run feature matching on multiple GPUs by specifying multiple indices for
-CUDA-enabled GPUs, e.g., ``--MatchOptions.gpu_index=0,1,2,3`` runs the dense
-reconstruction on 4 GPUs in parallel.
+CUDA-enabled GPUs, e.g., ``--MatchOptions.gpu_index=0,1,2,3`` runs the feature
+matching on 4 GPUs in parallel. By default, COLMAP runs feature matching on all
+CUDA-enabled GPUs.
 
 
 Trading off completeness and accuracy in dense reconstruction
@@ -208,7 +209,8 @@ Multi-GPU support in dense reconstruction
 You can run dense reconstruction on multiple GPUs by specifying multiple indices
 for CUDA-enabled GPUs, e.g.,
 ``--DenseMapperOptions.patch_match_gpu_index=0,1,2,3`` runs the dense
-reconstruction on 4 GPUs in parallel.
+reconstruction on 4 GPUs in parallel. By default, COLMAP runs dense
+reconstruction on all CUDA-enabled GPUs.
 
 
 .. _faq-dense-timeout:
