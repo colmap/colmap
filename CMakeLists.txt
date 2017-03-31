@@ -106,6 +106,10 @@ if(IS_GNU)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-maybe-uninitialized")
 endif()
 
+if(IS_DEBUG)
+    add_definitions("-DEIGEN_INITIALIZE_MATRICES_BY_NAN")
+endif()
+
 if(OPENMP_ENABLED AND OPENMP_FOUND)
     message(STATUS "Enabling OpenMP support")
     add_definitions("-DOPENMP_ENABLED")
