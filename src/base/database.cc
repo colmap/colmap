@@ -465,9 +465,8 @@ void Database::ReadInlierMatchesGraph(
   image_pairs->reserve(num_inlier_matches);
   num_inliers->reserve(num_inlier_matches);
 
-  int rc;
-  while ((rc = SQLITE3_CALL(sqlite3_step(
-              sql_stmt_read_inlier_matches_graph_))) == SQLITE_ROW) {
+  while (SQLITE3_CALL(sqlite3_step(sql_stmt_read_inlier_matches_graph_)) ==
+         SQLITE_ROW) {
     image_t image_id1;
     image_t image_id2;
     const image_pair_t pair_id = static_cast<image_pair_t>(

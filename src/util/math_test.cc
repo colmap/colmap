@@ -134,9 +134,11 @@ BOOST_AUTO_TEST_CASE(TestVariance) {
 
 BOOST_AUTO_TEST_CASE(TestStdDev) {
   BOOST_CHECK_LE(std::abs(std::sqrt(Variance<int>({1, 2, 3, 4})) -
-                          StdDev<int>({1, 2, 3, 4})), 1e-6);
+                          StdDev<int>({1, 2, 3, 4})),
+                 1e-6);
   BOOST_CHECK_LE(std::abs(std::sqrt(Variance<int>({1, 2, 3, 100})) -
-                          StdDev<int>({1, 2, 3, 100})), 1e-6);
+                          StdDev<int>({1, 2, 3, 100})),
+                 1e-6);
 }
 
 BOOST_AUTO_TEST_CASE(TestAnyLessThan) {

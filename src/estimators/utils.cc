@@ -109,8 +109,9 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
     const double x2tEx1 = x2_0 * Ex1_0 + x2_1 * Ex1_1 + Ex1_2;
 
     // Sampson distance
-    (*residuals)[i] = x2tEx1 * x2tEx1 / (Ex1_0 * Ex1_0 + Ex1_1 * Ex1_1 +
-                                         Etx2_0 * Etx2_0 + Etx2_1 * Etx2_1);
+    (*residuals)[i] =
+        x2tEx1 * x2tEx1 /
+        (Ex1_0 * Ex1_0 + Ex1_1 * Ex1_1 + Etx2_0 * Etx2_0 + Etx2_1 * Etx2_1);
   }
 }
 

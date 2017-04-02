@@ -62,8 +62,7 @@ void SetBestCudaDevice(const int gpu_index) {
   }
 
   CHECK_GE(selected_gpu_index, 0);
-  CHECK_LT(selected_gpu_index, num_cuda_devices)
-      << "Invalid CUDA GPU selected";
+  CHECK_LT(selected_gpu_index, num_cuda_devices) << "Invalid CUDA GPU selected";
 
   cudaDeviceProp device;
   cudaGetDeviceProperties(&device, selected_gpu_index);

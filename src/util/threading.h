@@ -172,7 +172,7 @@ class ThreadPool {
  public:
   static const int kMaxNumThreads = -1;
 
-  ThreadPool(const int num_threads = kMaxNumThreads);
+  explicit ThreadPool(const int num_threads = kMaxNumThreads);
   ~ThreadPool();
 
   inline size_t NumThreads() const;
@@ -239,7 +239,7 @@ class JobQueue {
   class Job {
    public:
     Job() : valid_(false) {}
-    Job(const T& data) : data_(data), valid_(true) {}
+    explicit Job(const T& data) : data_(data), valid_(true) {}
 
     // Check whether the data is valid.
     bool IsValid() const { return valid_; }
@@ -254,7 +254,7 @@ class JobQueue {
   };
 
   JobQueue();
-  JobQueue(const size_t max_num_jobs);
+  explicit JobQueue(const size_t max_num_jobs);
   ~JobQueue();
 
   // The number of pushed and not popped jobs in the queue.

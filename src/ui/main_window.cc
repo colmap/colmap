@@ -280,9 +280,10 @@ void MainWindow::CreateActions() {
   connect(action_render_options_, &QAction::triggered, this,
           &MainWindow::RenderOptions);
 
-  connect(reconstruction_manager_widget_, static_cast<void (QComboBox::*)(int)>(
-                                              &QComboBox::currentIndexChanged),
-          this, &MainWindow::SelectReconstructionIdx);
+  connect(
+      reconstruction_manager_widget_,
+      static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
+      this, &MainWindow::SelectReconstructionIdx);
 
   //////////////////////////////////////////////////////////////////////////////
   // Extras actions
@@ -628,10 +629,11 @@ void MainWindow::Import() {
     options_.ReRead(project_path);
   } else {
     QMessageBox::StandardButton reply = QMessageBox::question(
-        this, "", tr("Directory does not contain a `project.ini`. In order to "
-                     "resume the reconstruction you need to specify a valid "
-                     "database and image path. Do you want to select the paths "
-                     "now (or press 'No' to only visualize the model)?"),
+        this, "",
+        tr("Directory does not contain a `project.ini`. In order to "
+           "resume the reconstruction you need to specify a valid "
+           "database and image path. Do you want to select the paths "
+           "now (or press 'No' to only visualize the model)?"),
         QMessageBox::Yes | QMessageBox::No);
     if (reply == QMessageBox::Yes) {
       ProjectOpen();

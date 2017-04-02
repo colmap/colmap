@@ -37,7 +37,6 @@ GPSTransform::GPSTransform(const int ellipsoid) {
       b_ = std::numeric_limits<double>::quiet_NaN();
       f_ = std::numeric_limits<double>::quiet_NaN();
       throw std::invalid_argument("Ellipsoid not defined");
-      break;
   }
 
   e2_ = (a_ * a_ - b_ * b_) / (a_ * a_);
@@ -83,23 +82,22 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
     const double kEps = 1e-12;
 
     // Latitude
-    double lat0 = atan2(z, sqrt(xx + yy));
-    double lat = 100;
+    double lat = atan2(z, sqrt(xx + yy));
     double alt;
 
     for (size_t j = 0; j < 100; ++j) {
-      const double sin_lat0 = sin(lat0);
+      const double sin_lat0 = sin(lat);
       const double N = a_ / sqrt(1 - e2_ * sin_lat0 * sin_lat0);
-      alt = sqrt(xx + yy) / cos(lat0) - N;
-      lat = lat0;
-      lat0 = atan((z / sqrt(xx + yy)) * 1 / (1 - e2_ * N / (N + alt)));
+      alt = sqrt(xx + yy) / cos(lat) - N;
+      const double prev_lat = lat;
+      lat = atan((z / sqrt(xx + yy)) * 1 / (1 - e2_ * N / (N + alt)));
 
-      if (std::abs(lat - lat0) < kEps) {
+      if (std::abs(prev_lat - lat) < kEps) {
         break;
       }
     }
 
-    ell[i](0) = RadToDeg(lat0);
+    ell[i](0) = RadToDeg(lat);
 
     // Longitude
     ell[i](1) = RadToDeg(atan2(y, x));

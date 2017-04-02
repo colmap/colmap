@@ -66,10 +66,10 @@ BOOST_AUTO_TEST_CASE(Estimate) {
       for (size_t i = 0; i < kNumTforms; ++i) {
         Eigen::Vector4d rel_qvec;
         Eigen::Vector3d rel_tvec;
-        ComputeRelativePose(
-            orig_tforms[kRefTform].Rotation(),
-            orig_tforms[kRefTform].Translation(), orig_tforms[i].Rotation(),
-            orig_tforms[i].Translation(), &rel_qvec, &rel_tvec);
+        ComputeRelativePose(orig_tforms[kRefTform].Rotation(),
+                            orig_tforms[kRefTform].Translation(),
+                            orig_tforms[i].Rotation(),
+                            orig_tforms[i].Translation(), &rel_qvec, &rel_tvec);
         rel_tforms[i] = ComposeProjectionMatrix(rel_qvec, rel_tvec);
       }
 

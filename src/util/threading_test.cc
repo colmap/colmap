@@ -282,9 +282,7 @@ BOOST_AUTO_TEST_CASE(TestCallback) {
 BOOST_AUTO_TEST_CASE(TestDefaultCallback) {
   class TestThread : public Thread {
    private:
-    void Run() {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+    void Run() { std::this_thread::sleep_for(std::chrono::milliseconds(100)); }
   };
 
   bool called_back1 = false;
@@ -490,7 +488,6 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolGetThreadIndex) {
   std::function<void(int)> Func = [&](const int num) {
     results[num] = pool.GetThreadIndex();
   };
-
 
   for (size_t i = 0; i < results.size(); ++i) {
     pool.AddTask(Func, i);

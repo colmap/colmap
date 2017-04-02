@@ -54,10 +54,10 @@ void MatchMatrixWidget::Show() {
 
   // Fill the match matrix.
   if (!num_inliers.empty()) {
-    const double max_value = std::log(
-        1.0 + *std::max_element(num_inliers.begin(), num_inliers.end()));
+    const double max_value =
+        std::log1p(*std::max_element(num_inliers.begin(), num_inliers.end()));
     for (size_t i = 0; i < image_pairs.size(); ++i) {
-      const double value = std::log(1.0 + num_inliers[i]) / max_value;
+      const double value = std::log1p(num_inliers[i]) / max_value;
       const size_t idx1 = image_id_to_idx.at(image_pairs[i].first);
       const size_t idx2 = image_id_to_idx.at(image_pairs[i].second);
       const BitmapColor<float> color(255 * JetColormap::Red(value),

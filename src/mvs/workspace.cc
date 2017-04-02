@@ -29,12 +29,11 @@ Workspace::Workspace(const size_t cache_size, const std::string& workspace_path,
       input_type_(input_type) {
   model_.Read(workspace_path_, workspace_format_);
 
-  bitmaps_.reset(
-      new LRUCache<int, Bitmap>(cache_size, [&](const int image_id) {
-        Bitmap bitmap;
-        bitmap.Read(model_.images.at(image_id).GetPath(), true);
-        return bitmap;
-      }));
+  bitmaps_.reset(new LRUCache<int, Bitmap>(cache_size, [&](const int image_id) {
+    Bitmap bitmap;
+    bitmap.Read(model_.images.at(image_id).GetPath(), true);
+    return bitmap;
+  }));
 
   depth_maps_.reset(
       new LRUCache<int, DepthMap>(cache_size, [&](const int image_id) {

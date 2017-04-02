@@ -16,8 +16,8 @@
 
 #include "mvs/consistency_graph.h"
 
-#include <numeric>
 #include <fstream>
+#include <numeric>
 
 #include "util/logging.h"
 

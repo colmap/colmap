@@ -225,9 +225,9 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUvsGPU) {
       BOOST_CHECK(CreateSiftGPUMatcher(SiftMatchOptions(), &sift_match_gpu));
 
       auto TestCPUvsGPU = [&sift_match_gpu](
-          const SiftMatchOptions& options,
-          const FeatureDescriptors& descriptors1,
-          const FeatureDescriptors& descriptors2) {
+                              const SiftMatchOptions& options,
+                              const FeatureDescriptors& descriptors1,
+                              const FeatureDescriptors& descriptors2) {
         FeatureMatches matches_cpu;
         FeatureMatches matches_gpu;
 

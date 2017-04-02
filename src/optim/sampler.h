@@ -28,7 +28,7 @@ namespace colmap {
 class Sampler {
  public:
   Sampler(){};
-  Sampler(const size_t num_samples);
+  explicit Sampler(const size_t num_samples);
 
   // Initialize the sampler, before calling the `Sample` method.
   virtual void Initialize(const size_t total_num_samples) = 0;

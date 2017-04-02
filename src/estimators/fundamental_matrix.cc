@@ -92,7 +92,6 @@ FundamentalMatrixSevenPointEstimator::Estimate(
               f1(8) * (f2(0) * f2(4) - f2(1) * f2(3));
   coeffs(3) = f2(0) * t3 - f2(1) * t4 + f2(2) * t5;
 
-
   Eigen::VectorXd roots_real;
   Eigen::VectorXd roots_imag;
   if (!FindPolynomialRootsCompanionMatrix(coeffs, &roots_real, &roots_imag)) {

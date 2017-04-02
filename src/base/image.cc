@@ -26,6 +26,8 @@ static const double kNaN = std::numeric_limits<double>::quiet_NaN();
 
 }  // namespace
 
+const int Image::kNumPoint3DVisibilityPyramidLevels = 6;
+
 Image::Image()
     : image_id_(kInvalidImageId),
       name_(""),

@@ -66,4 +66,4 @@ bool MEstimatorSupportMeasurer::Compare(const Support& support1,
                                         const Support& support2) {
   return support1.score < support2.score;
 }
-}
+}  // namespace colmap

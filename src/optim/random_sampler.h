@@ -26,7 +26,7 @@ namespace colmap {
 // Note that a separate sampler should be instantiated per thread.
 class RandomSampler : public Sampler {
  public:
-  RandomSampler(const size_t num_samples);
+  explicit RandomSampler(const size_t num_samples);
 
   void Initialize(const size_t total_num_samples) override;
 

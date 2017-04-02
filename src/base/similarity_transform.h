@@ -34,9 +34,9 @@ class SimilarityTransform3 {
 
   SimilarityTransform3();
 
-  SimilarityTransform3(const Eigen::Matrix3x4d& matrix);
+  explicit SimilarityTransform3(const Eigen::Matrix3x4d& matrix);
 
-  SimilarityTransform3(
+  explicit SimilarityTransform3(
       const Eigen::Transform<double, 3, Eigen::Affine>& transform);
 
   SimilarityTransform3(const double scale, const Eigen::Vector4d& qvec,

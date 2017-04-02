@@ -306,8 +306,8 @@ void EPnPEstimator::FindBetasApprox3(const Eigen::Matrix<double, 6, 10>& L6x10,
 }
 
 void EPnPEstimator::RunGaussNewton(const Eigen::Matrix<double, 6, 10>& L6x10,
-                                const Eigen::Matrix<double, 6, 1>& rho,
-                                Eigen::Vector4d* betas) {
+                                   const Eigen::Matrix<double, 6, 1>& rho,
+                                   Eigen::Vector4d* betas) {
   Eigen::Matrix<double, 6, 4> A;
   Eigen::Matrix<double, 6, 1> b;
 

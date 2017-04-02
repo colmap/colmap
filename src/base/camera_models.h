@@ -1136,14 +1136,14 @@ void FOVCameraModel::ImageToWorld(const T* params, const T x, const T y, T* u,
 }
 
 template <typename T>
-void FOVCameraModel::Distortion(const T* extra_params, const T uu, const T vv,
-                                T* u, T* v) {
+void FOVCameraModel::Distortion(const T* extra_params, const T u, const T v,
+                                T* du, T* dv) {
   const T omega = extra_params[0];
 
   // Chosen arbitrarily.
   const T kEpsilon = T(1e-4);
 
-  const T radius2 = uu * uu + vv * vv;
+  const T radius2 = u * u + v * v;
   const T omega2 = omega * omega;
 
   T factor;
@@ -1170,19 +1170,19 @@ void FOVCameraModel::Distortion(const T* extra_params, const T uu, const T vv,
     factor = numerator / (radius * omega);
   }
 
-  *u = uu * factor;
-  *v = vv * factor;
+  *du = u * factor;
+  *dv = v * factor;
 }
 
 template <typename T>
-void FOVCameraModel::Undistortion(const T* extra_params, const T uu, const T vv,
-                                  T* u, T* v) {
+void FOVCameraModel::Undistortion(const T* extra_params, const T u, const T v,
+                                  T* du, T* dv) {
   T omega = extra_params[0];
 
   // Chosen arbitrarily.
   const T kEpsilon = T(1e-4);
 
-  const T radius2 = uu * uu + vv * vv;
+  const T radius2 = u * u + v * v;
   const T omega2 = omega * omega;
 
   T factor;
@@ -1207,8 +1207,8 @@ void FOVCameraModel::Undistortion(const T* extra_params, const T uu, const T vv,
     factor = numerator / (radius * T(2) * ceres::tan(omega / T(2)));
   }
 
-  *u = uu * factor;
-  *v = vv * factor;
+  *du = u * factor;
+  *dv = v * factor;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

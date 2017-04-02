@@ -154,7 +154,7 @@ BOOST_AUTO_TEST_CASE(TestPoint3DVisibilityScore) {
   camera.SetHeight(4);
   image.SetUp(camera);
   Eigen::Matrix<size_t, Eigen::Dynamic, 1> scores(
-      static_cast<int>(image.kNumPoint3DVisibilityPyramidLevels), 1);
+      image.kNumPoint3DVisibilityPyramidLevels, 1);
   for (size_t i = 1; i <= image.kNumPoint3DVisibilityPyramidLevels; ++i) {
     scores(i - 1) = (1 << i) * (1 << i);
   }

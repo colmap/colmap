@@ -66,10 +66,10 @@ class Reconstruction {
       const image_t image_id1, const image_t image_id2) const;
 
   // Get reference to all objects.
-  inline const EIGEN_STL_UMAP(camera_t, class Camera)& Cameras() const;
-  inline const EIGEN_STL_UMAP(image_t, class Image)& Images() const;
+  inline const EIGEN_STL_UMAP(camera_t, class Camera) & Cameras() const;
+  inline const EIGEN_STL_UMAP(image_t, class Image) & Images() const;
   inline const std::vector<image_t>& RegImageIds() const;
-  inline const EIGEN_STL_UMAP(point3D_t, class Point3D)& Points3D() const;
+  inline const EIGEN_STL_UMAP(point3D_t, class Point3D) & Points3D() const;
   inline const std::unordered_map<image_pair_t, std::pair<size_t, size_t>>&
   ImagePairs() const;
 
@@ -351,11 +351,11 @@ std::pair<size_t, size_t>& Reconstruction::ImagePair(const image_t image_id1,
   return image_pairs_.at(pair_id);
 }
 
-const EIGEN_STL_UMAP(camera_t, Camera)& Reconstruction::Cameras() const {
+const EIGEN_STL_UMAP(camera_t, Camera) & Reconstruction::Cameras() const {
   return cameras_;
 }
 
-const EIGEN_STL_UMAP(image_t, class Image)& Reconstruction::Images() const {
+const EIGEN_STL_UMAP(image_t, class Image) & Reconstruction::Images() const {
   return images_;
 }
 
@@ -363,7 +363,7 @@ const std::vector<image_t>& Reconstruction::RegImageIds() const {
   return reg_image_ids_;
 }
 
-const EIGEN_STL_UMAP(point3D_t, Point3D)& Reconstruction::Points3D() const {
+const EIGEN_STL_UMAP(point3D_t, Point3D) & Reconstruction::Points3D() const {
   return points3D_;
 }
 

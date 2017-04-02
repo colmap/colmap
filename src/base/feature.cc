@@ -79,8 +79,9 @@ FeatureDescriptors ExtractTopScaleDescriptors(
     }
 
     std::partial_sort(scales.begin(), scales.begin() + num_features,
-                      scales.end(), [](const std::pair<size_t, float> scale1,
-                                       const std::pair<size_t, float> scale2) {
+                      scales.end(),
+                      [](const std::pair<size_t, float> scale1,
+                         const std::pair<size_t, float> scale2) {
                         return scale1.second > scale2.second;
                       });
 

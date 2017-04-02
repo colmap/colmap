@@ -26,7 +26,7 @@ namespace colmap {
 
 class ThreadControlWidget : public QWidget {
  public:
-  ThreadControlWidget(QWidget* parent);
+  explicit ThreadControlWidget(QWidget* parent);
 
   void StartThread(const QString& progress_text, const bool stoppable,
                    Thread* thread);

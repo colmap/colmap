@@ -26,7 +26,8 @@ namespace {
 // Callback functor called after each bundle adjustment iteration.
 class BundleAdjustmentIterationCallback : public ceres::IterationCallback {
  public:
-  BundleAdjustmentIterationCallback(Thread* thread) : thread_(thread) {}
+  explicit BundleAdjustmentIterationCallback(Thread* thread)
+      : thread_(thread) {}
 
   virtual ceres::CallbackReturnType operator()(
       const ceres::IterationSummary& summary) {

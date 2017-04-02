@@ -541,8 +541,9 @@ void CameraTab::Update() {
     table_widget_->setItem(
         i, 3, new QTableWidgetItem(QString::number(camera.Height())));
 
-    table_widget_->setItem(i, 4, new QTableWidgetItem(QString::fromStdString(
-                                     VectorToCSV(camera.Params()))));
+    table_widget_->setItem(i, 4,
+                           new QTableWidgetItem(QString::fromStdString(
+                               VectorToCSV(camera.Params()))));
     table_widget_->setItem(
         i, 5,
         new QTableWidgetItem(QString::number(camera.HasPriorFocalLength())));

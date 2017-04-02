@@ -23,7 +23,7 @@ namespace colmap {
 
 class LicenseWidget : public QTextEdit {
  public:
-  LicenseWidget(QWidget* parent);
+  explicit LicenseWidget(QWidget* parent);
 
  private:
   QString GetCOLMAPLicense() const;

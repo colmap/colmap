@@ -25,8 +25,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "mvs/image.h"
 #include "mvs/depth_map.h"
+#include "mvs/image.h"
 #include "mvs/normal_map.h"
 
 namespace colmap {

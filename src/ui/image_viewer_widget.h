@@ -32,7 +32,7 @@ class OpenGLWindow;
 
 class ImageViewerWidget : public QWidget {
  public:
-  ImageViewerWidget(QWidget* parent);
+  explicit ImageViewerWidget(QWidget* parent);
 
   void ShowBitmap(const Bitmap& bitmap, const bool rescale);
   void ShowPixmap(const QPixmap& pixmap, const bool rescale);

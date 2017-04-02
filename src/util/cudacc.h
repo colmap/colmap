@@ -39,7 +39,7 @@ class CudaTimer {
   float elapsed_time_;
 };
 
-void CudaSafeCall(const cudaError_t error, const std::string file,
+void CudaSafeCall(const cudaError_t error, const std::string& file,
                   const int line);
 
 void CudaCheckError(const char* file, const int line);

@@ -79,7 +79,7 @@ class RANSAC {
     typename Estimator::M_t model;
   };
 
-  RANSAC(const RANSACOptions& options);
+  explicit RANSAC(const RANSACOptions& options);
 
   // Determine the maximum number of trials required to sample at least one
   // outlier-free random set of samples with the specified confidence,

@@ -47,7 +47,7 @@ class SPRT {
     int num_models_per_sample = 1;
   };
 
-  SPRT(const Options& options);
+  explicit SPRT(const Options& options);
 
   void Update(const Options& options);
 

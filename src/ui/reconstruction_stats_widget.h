@@ -25,7 +25,7 @@ namespace colmap {
 
 class ReconstructionStatsWidget : public QWidget {
  public:
-  ReconstructionStatsWidget(QWidget* parent);
+  explicit ReconstructionStatsWidget(QWidget* parent);
 
   void Show(const Reconstruction& reconstruction);
 

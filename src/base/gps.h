@@ -32,7 +32,7 @@ class GPSTransform {
  public:
   enum ELLIPSOID { GRS80, WGS84 };
 
-  GPSTransform(const int ellipsoid = GRS80);
+  explicit GPSTransform(const int ellipsoid = GRS80);
 
   std::vector<Eigen::Vector3d> EllToXYZ(
       const std::vector<Eigen::Vector3d>& ell) const;

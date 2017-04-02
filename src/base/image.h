@@ -39,9 +39,6 @@ class Image {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  // The number of levels in the 3D point multi-resolution visibility pyramid.
-  static const int kNumPoint3DVisibilityPyramidLevels = 6;
-
   Image();
 
   // Setup / tear down the image and necessary internal data structures before
@@ -178,6 +175,9 @@ class Image {
 
   // Extract the viewing direction of the image.
   Eigen::Vector3d ViewingDirection() const;
+
+  // The number of levels in the 3D point multi-resolution visibility pyramid.
+  static const int kNumPoint3DVisibilityPyramidLevels;
 
  private:
   // Identifier of the image, if not specified `kInvalidImageId`.
@@ -335,9 +335,7 @@ class Point2D& Image::Point2D(const point2D_t point2D_idx) {
   return points2D_.at(point2D_idx);
 }
 
-const std::vector<class Point2D>& Image::Points2D() const {
-  return points2D_;
-}
+const std::vector<class Point2D>& Image::Points2D() const { return points2D_; }
 
 bool Image::IsPoint3DVisible(const point2D_t point2D_idx) const {
   return num_correspondences_have_point3D_.at(point2D_idx) > 0;

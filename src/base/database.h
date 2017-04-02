@@ -49,7 +49,7 @@ class Database {
   const static size_t kMaxNumImages;
 
   Database();
-  Database(const std::string& path);
+  explicit Database(const std::string& path);
   ~Database();
 
   // Open and close database. The same database should not be opened
@@ -276,7 +276,7 @@ class Database {
 // destruction, respectively.
 class DatabaseTransaction {
  public:
-  DatabaseTransaction(Database* database);
+  explicit DatabaseTransaction(Database* database);
   ~DatabaseTransaction();
 
  private:

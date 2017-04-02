@@ -24,7 +24,7 @@ namespace colmap {
 
 class OptionsWidget : public QWidget {
  public:
-  OptionsWidget(QWidget* parent);
+  explicit OptionsWidget(QWidget* parent);
 
  protected:
   void showEvent(QShowEvent* event);

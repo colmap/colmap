@@ -31,7 +31,7 @@ class BundleAdjustmentCostFunction {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  BundleAdjustmentCostFunction(const Eigen::Vector2d& point2D)
+  explicit BundleAdjustmentCostFunction(const Eigen::Vector2d& point2D)
       : point2D_(point2D) {}
 
   static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
@@ -138,7 +138,7 @@ class RigBundleAdjustmentCostFunction {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  RigBundleAdjustmentCostFunction(const Eigen::Vector2d& point2D)
+  explicit RigBundleAdjustmentCostFunction(const Eigen::Vector2d& point2D)
       : point2D_(point2D) {}
 
   static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
@@ -233,8 +233,9 @@ class RelativePoseCostFunction {
     const Eigen::Matrix<T, 3, 1> Ex1 = E * x1_h;
     const Eigen::Matrix<T, 3, 1> Etx2 = E.transpose() * x2_h;
     const T x2tEx1 = x2_h.transpose() * Ex1;
-    residuals[0] = x2tEx1 * x2tEx1 / (Ex1(0) * Ex1(0) + Ex1(1) * Ex1(1) +
-                                      Etx2(0) * Etx2(0) + Etx2(1) * Etx2(1));
+    residuals[0] = x2tEx1 * x2tEx1 /
+                   (Ex1(0) * Ex1(0) + Ex1(1) * Ex1(1) + Etx2(0) * Etx2(0) +
+                    Etx2(1) * Etx2(1));
 
     return true;
   }

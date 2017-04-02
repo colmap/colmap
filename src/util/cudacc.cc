@@ -38,7 +38,7 @@ void CudaTimer::Print(const std::string& message) {
   printf("%s: %.4fs\n", message.c_str(), elapsed_time_ / 1000.0f);
 }
 
-void CudaSafeCall(const cudaError_t error, const std::string file,
+void CudaSafeCall(const cudaError_t error, const std::string& file,
                   const int line) {
   if (error != cudaSuccess) {
     printf("%s in %s at line %i\n", cudaGetErrorString(error), file.c_str(),

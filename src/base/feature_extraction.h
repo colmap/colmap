@@ -102,7 +102,7 @@ class ImageReader {
     void Check() const;
   };
 
-  ImageReader(const Options& options);
+  explicit ImageReader(const Options& options);
 
   bool Next(Image* image, Bitmap* bitmap);
   size_t NextIndex() const;

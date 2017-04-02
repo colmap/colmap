@@ -111,8 +111,7 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
     const double error = CalculateReprojectionError(point2D.XY(), point3D.XYZ(),
                                                     proj_matrix, camera);
 
-    const std::string path =
-        JoinPaths(*options_->image_path, image.Name());
+    const std::string path = JoinPaths(*options_->image_path, image.Name());
 
     Bitmap bitmap;
     if (!bitmap.Read(path, true)) {

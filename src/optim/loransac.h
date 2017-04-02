@@ -40,7 +40,7 @@ class LORANSAC : public RANSAC<Estimator, SupportMeasurer, Sampler> {
  public:
   using typename RANSAC<Estimator, SupportMeasurer, Sampler>::Report;
 
-  LORANSAC(const RANSACOptions& options);
+  explicit LORANSAC(const RANSACOptions& options);
 
   // Robustly estimate model with RANSAC (RANdom SAmple Consensus).
   //

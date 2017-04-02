@@ -221,9 +221,8 @@ void InvertedFile<N>::ComputeIDFWeight(const int num_total_images) {
   std::unordered_set<int> image_ids;
   GetImageIds(&image_ids);
 
-  idf_weight_ = std::log(1.0 +
-                         static_cast<double>(num_total_images) /
-                             static_cast<double>(image_ids.size()));
+  idf_weight_ = std::log1p(static_cast<double>(num_total_images) /
+                           static_cast<double>(image_ids.size()));
 }
 
 template <int N>

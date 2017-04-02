@@ -83,7 +83,7 @@ void ThreadControlWidget::StartFunction(const QString& progress_text,
                                         const std::function<void()>& func) {
   class FunctionThread : public Thread {
    public:
-    FunctionThread(const std::function<void()>& func) : func_(func) {}
+    explicit FunctionThread(const std::function<void()>& f) : func_(f) {}
 
    private:
     void Run() { func_(); }

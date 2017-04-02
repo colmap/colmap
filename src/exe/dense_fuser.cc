@@ -26,7 +26,6 @@ int main(int argc, char* argv[]) {
   std::string input_type;
   std::string workspace_format;
   std::string output_path;
-  std::string config_path;
 
   OptionManager options;
   options.AddDenseMapperOptions();

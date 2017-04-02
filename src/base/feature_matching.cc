@@ -1599,8 +1599,9 @@ void MatchGuidedSiftFeaturesCPU(const SiftMatchOptions& match_options,
       const Eigen::Vector3f Fx1 = F * p1;
       const Eigen::Vector3f Ftx2 = F.transpose() * p2;
       const float x2tFx1 = p2.transpose() * Fx1;
-      return x2tFx1 * x2tFx1 / (Fx1(0) * Fx1(0) + Fx1(1) * Fx1(1) +
-                                Ftx2(0) * Ftx2(0) + Ftx2(1) * Ftx2(1)) >
+      return x2tFx1 * x2tFx1 /
+                 (Fx1(0) * Fx1(0) + Fx1(1) * Fx1(1) + Ftx2(0) * Ftx2(0) +
+                  Ftx2(1) * Ftx2(1)) >
              max_residual;
     };
   } else if (two_view_geometry->config == TwoViewGeometry::PLANAR ||

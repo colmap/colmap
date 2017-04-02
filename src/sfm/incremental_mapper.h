@@ -119,7 +119,7 @@ class IncrementalMapper {
 
   // Create incremental mapper. The database cache must live for the entire
   // life-time of the incremental mapper.
-  IncrementalMapper(const DatabaseCache* database_cache);
+  explicit IncrementalMapper(const DatabaseCache* database_cache);
 
   // Prepare the mapper for a new reconstruction, which might have existing
   // registered images (in which case `RegisterNextImage` must be called) or

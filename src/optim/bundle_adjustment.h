@@ -244,8 +244,7 @@ class RigBundleAdjuster : public BundleAdjuster {
     double max_reproj_error = 1000.0;
   };
 
-  RigBundleAdjuster(const Options& options,
-                    const RigOptions& rig_options,
+  RigBundleAdjuster(const Options& options, const RigOptions& rig_options,
                     const BundleAdjustmentConfig& config);
 
   bool Solve(Reconstruction* reconstruction,

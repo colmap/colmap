@@ -31,8 +31,8 @@
 #include "ui/log_widget.h"
 #include "ui/match_matrix_widget.h"
 #include "ui/multi_view_stereo_widget.h"
-#include "ui/project_widget.h"
 #include "ui/opengl_window.h"
+#include "ui/project_widget.h"
 #include "ui/reconstruction_manager_widget.h"
 #include "ui/reconstruction_options_widget.h"
 #include "ui/reconstruction_stats_widget.h"
@@ -44,7 +44,7 @@ namespace colmap {
 
 class MainWindow : public QMainWindow {
  public:
-  MainWindow(const OptionManager& options);
+  explicit MainWindow(const OptionManager& options);
 
   const ReconstructionManager& GetReconstructionManager() const;
 

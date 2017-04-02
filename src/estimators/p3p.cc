@@ -113,10 +113,11 @@ std::vector<P3PEstimator::M_t> P3PEstimator::Estimate(
     const double b0 =
         ((1 - a - b) * x2 + (a - 1) * q * x - a + b + 1) *
         (r3 * (a2 + b2 - 2 * a - 2 * b + (2 - r2) * a * b + 1) * x3 +
-         r2 * (p + p * a2 - 2 * r * q * a * b + 2 * r * q * b - 2 * r * q -
-               2 * p * a - 2 * p * b + p * r2 * b + 4 * r * q * a +
-               q * r3 * a * b - 2 * r * q * a2 + 2 * p * a * b + p * b2 -
-               r2 * p * b2) *
+         r2 *
+             (p + p * a2 - 2 * r * q * a * b + 2 * r * q * b - 2 * r * q -
+              2 * p * a - 2 * p * b + p * r2 * b + 4 * r * q * a +
+              q * r3 * a * b - 2 * r * q * a2 + 2 * p * a * b + p * b2 -
+              r2 * p * b2) *
              x2 +
          (r5 * (b2 - a * b) - r4 * p * q * b +
           r3 * (q2 - 4 * a - 2 * q2 * a + q2 * a2 + 2 * a2 - 2 * b2 + 2) +
