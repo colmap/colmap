@@ -18,11 +18,9 @@
 
 #include <array>
 
-#include <Eigen/Geometry>
-
 #include "base/polynomial.h"
-#include "base/pose.h"
 #include "base/projection.h"
+#include "estimators/gp3p_coeffs.h"
 #include "util/logging.h"
 
 namespace colmap {
@@ -144,8 +142,7 @@ void ComputeLambdaValues(const Eigen::Matrix<double, 3, 6>::ConstRowXpr& k,
 // degree polynomial for lambda_3 and back-substite in the original equations.
 std::vector<Eigen::Vector3d> ComputeDepthsSylvester(
     const Eigen::Matrix<double, 3, 6>& K) {
-  Eigen::Matrix<double, 9, 1> coeffs;
-#include "estimators/gp3p_coeffs.h"
+  const Eigen::Matrix<double, 9, 1> coeffs = ComputeDepthsSylvesterCoeffs(K);
 
   Eigen::VectorXd roots_real;
   Eigen::VectorXd roots_imag;

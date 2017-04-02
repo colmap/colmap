@@ -6,7 +6,7 @@ COLMAP_ADD_LIBRARY(estimators
     essential_matrix.h essential_matrix.cc
     euclidean_transform.h
     fundamental_matrix.h fundamental_matrix.cc
-    gp3p.h gp3p.cc
+    gp3p.h gp3p.cc gp3p_coeffs.h gp3p_coeffs.cc
     homography_matrix.h homography_matrix.cc
     p3p.h p3p.cc
     pose.h pose.cc
