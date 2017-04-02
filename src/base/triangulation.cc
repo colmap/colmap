@@ -16,11 +16,8 @@
 
 #include "base/triangulation.h"
 
-#include <Eigen/Geometry>
-
 #include "base/essential_matrix.h"
 #include "base/pose.h"
-#include "util/math.h"
 
 namespace colmap {
 

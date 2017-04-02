@@ -17,7 +17,6 @@
 #include <QtGui>
 
 #include "ui/main_window.h"
-#include "util/logging.h"
 
 using namespace colmap;
 

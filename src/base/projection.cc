@@ -16,10 +16,7 @@
 
 #include "base/projection.h"
 
-#include <Eigen/LU>
-
 #include "base/pose.h"
-#include "util/math.h"
 
 namespace colmap {
 

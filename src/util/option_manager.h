@@ -21,7 +21,6 @@
 #include <memory>
 #include <unordered_set>
 
-#include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 
 #include <ceres/ceres.h>

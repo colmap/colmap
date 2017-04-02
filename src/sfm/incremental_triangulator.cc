@@ -16,13 +16,8 @@
 
 #include "sfm/incremental_triangulator.h"
 
-#include "base/pose.h"
 #include "base/projection.h"
-#include "base/triangulation.h"
 #include "estimators/triangulation.h"
-#include "optim/combination_sampler.h"
-#include "util/bitmap.h"
-#include "util/logging.h"
 #include "util/misc.h"
 
 namespace colmap {

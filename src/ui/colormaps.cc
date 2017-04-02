@@ -16,10 +16,7 @@
 
 #include "ui/colormaps.h"
 
-#include "base/camera_models.h"
-#include "base/pose.h"
 #include "util/bitmap.h"
-#include "util/math.h"
 
 namespace colmap {
 

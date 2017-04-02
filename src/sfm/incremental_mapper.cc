@@ -17,16 +17,12 @@
 #include "sfm/incremental_mapper.h"
 
 #include <fstream>
-#include <numeric>
 
 #include "base/projection.h"
 #include "base/triangulation.h"
-#include "estimators/homography_matrix.h"
 #include "estimators/pose.h"
 #include "util/bitmap.h"
-#include "util/logging.h"
 #include "util/misc.h"
-#include "util/timer.h"
 
 namespace colmap {
 namespace {

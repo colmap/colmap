@@ -17,8 +17,6 @@
 #ifndef COLMAP_SRC_UI_PROJECT_WIDGET_H_
 #define COLMAP_SRC_UI_PROJECT_WIDGET_H_
 
-#include <boost/filesystem.hpp>
-
 #include <QtCore>
 #include <QtWidgets>
 

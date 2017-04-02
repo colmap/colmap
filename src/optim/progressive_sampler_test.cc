@@ -17,7 +17,6 @@
 #define TEST_NAME "optim/progressive_sampler"
 #include "util/testing.h"
 
-#include <iostream>
 #include <unordered_set>
 
 #include "optim/progressive_sampler.h"

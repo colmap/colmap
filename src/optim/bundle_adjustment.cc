@@ -17,18 +17,13 @@
 #include "optim/bundle_adjustment.h"
 
 #include <iomanip>
-#include <stdexcept>
 
 #ifdef OPENMP_ENABLED
 #include <omp.h>
 #endif
 
-#include "base/camera_models.h"
 #include "base/cost_functions.h"
-#include "base/pose.h"
 #include "base/projection.h"
-#include "ext/PBA/pba.h"
-#include "util/logging.h"
 #include "util/misc.h"
 #include "util/timer.h"
 

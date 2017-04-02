@@ -16,11 +16,7 @@
 
 #include "mvs/normal_map.h"
 
-#include <algorithm>
-#include <fstream>
-
 #include "base/warp.h"
-#include "util/logging.h"
 
 namespace colmap {
 namespace mvs {

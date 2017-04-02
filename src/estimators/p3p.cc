@@ -16,12 +16,9 @@
 
 #include "estimators/p3p.h"
 
-#include <Eigen/Geometry>
-
 #include "base/polynomial.h"
 #include "estimators/utils.h"
 #include "util/logging.h"
-#include "util/types.h"
 
 namespace colmap {
 namespace {

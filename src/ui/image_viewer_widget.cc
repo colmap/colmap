@@ -16,11 +16,7 @@
 
 #include "ui/image_viewer_widget.h"
 
-#include <iostream>
-
-#include "base/camera_models.h"
 #include "ui/opengl_window.h"
-#include "util/bitmap.h"
 #include "util/misc.h"
 
 namespace colmap {

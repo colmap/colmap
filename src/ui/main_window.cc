@@ -16,8 +16,6 @@
 
 #include "ui/main_window.h"
 
-#include <boost/filesystem.hpp>
-
 #include "util/version.h"
 
 namespace colmap {

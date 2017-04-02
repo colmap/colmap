@@ -19,8 +19,6 @@
 #include "base/pose.h"
 #include "base/projection.h"
 #include "ui/opengl_window.h"
-#include "ui/qt_utils.h"
-#include "util/math.h"
 
 namespace colmap {
 

@@ -16,8 +16,6 @@
 
 #include "ui/feature_extraction_widget.h"
 
-#include "base/camera_models.h"
-#include "base/feature_extraction.h"
 #include "ui/options_widget.h"
 #include "ui/qt_utils.h"
 #include "ui/thread_control_widget.h"

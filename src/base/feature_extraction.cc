@@ -20,12 +20,8 @@
 
 #include <boost/filesystem.hpp>
 
-#include "base/camera_models.h"
-#include "base/feature.h"
 #include "ext/VLFeat/sift.h"
-#include "util/math.h"
 #include "util/misc.h"
-#include "util/timer.h"
 
 namespace colmap {
 namespace {

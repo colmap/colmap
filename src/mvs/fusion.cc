@@ -16,9 +16,6 @@
 
 #include "mvs/fusion.h"
 
-#include <Eigen/Geometry>
-
-#include "util/logging.h"
 #include "util/misc.h"
 
 namespace colmap {

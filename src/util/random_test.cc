@@ -18,7 +18,6 @@
 #include "util/testing.h"
 
 #include <numeric>
-#include <vector>
 
 #include "util/math.h"
 #include "util/random.h"

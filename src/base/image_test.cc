@@ -18,7 +18,6 @@
 #include "util/testing.h"
 
 #include "base/image.h"
-#include "util/math.h"
 
 using namespace colmap;
 

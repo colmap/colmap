@@ -16,7 +16,6 @@
 
 #include "ui/feature_matching_widget.h"
 
-#include "base/feature_matching.h"
 #include "ui/options_widget.h"
 #include "ui/thread_control_widget.h"
 

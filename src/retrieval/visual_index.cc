@@ -16,9 +16,6 @@
 
 #include "retrieval/visual_index.h"
 
-#include "util/logging.h"
-#include "util/math.h"
-
 namespace colmap {
 namespace retrieval {
 

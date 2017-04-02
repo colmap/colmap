@@ -18,7 +18,6 @@
 
 #include "base/pose.h"
 #include "base/projection.h"
-#include "util/math.h"
 
 namespace colmap {
 namespace {

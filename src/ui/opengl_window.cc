@@ -16,15 +16,7 @@
 
 #include "ui/opengl_window.h"
 
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-
-#include "base/camera_models.h"
-#include "base/pose.h"
 #include "ui/main_window.h"
-#include "ui/qt_utils.h"
-#include "util/math.h"
-#include "util/types.h"
 
 #define POINT_SELECTED_R 0
 #define POINT_SELECTED_G 1

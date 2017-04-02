@@ -17,19 +17,9 @@
 #include "base/essential_matrix.h"
 
 #include <array>
-#include <complex>
-
-#include <Eigen/LU>
-#include <Eigen/SVD>
-
-#include <ceres/ceres.h>
-#include <ceres/rotation.h>
 
 #include "base/pose.h"
-#include "base/projection.h"
-#include "base/triangulation.h"
 #include "estimators/pose.h"
-#include "util/logging.h"
 
 namespace colmap {
 

@@ -16,6 +16,8 @@
 
 #include "base/camera_models.h"
 
+#include <boost/algorithm/string.hpp>
+
 namespace colmap {
 
 // Initialize params_info, focal_length_idxs, principal_point_idxs,

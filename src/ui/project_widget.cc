@@ -16,8 +16,6 @@
 
 #include "ui/project_widget.h"
 
-#include "sfm/controllers.h"
-
 namespace colmap {
 
 ProjectWidget::ProjectWidget(QWidget* parent, OptionManager* options)

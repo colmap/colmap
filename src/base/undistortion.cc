@@ -16,20 +16,13 @@
 
 #include "base/undistortion.h"
 
-#include <cmath>
 #include <fstream>
-#include <iostream>
 
 #include <boost/filesystem.hpp>
 
-#include "base/camera_models.h"
 #include "base/pose.h"
-#include "base/projection.h"
 #include "base/warp.h"
-#include "util/bitmap.h"
 #include "util/misc.h"
-#include "util/threading.h"
-#include "util/timer.h"
 
 namespace colmap {
 namespace {

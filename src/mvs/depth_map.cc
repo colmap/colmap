@@ -16,12 +16,7 @@
 
 #include "mvs/depth_map.h"
 
-#include <algorithm>
-#include <fstream>
-
 #include "base/warp.h"
-#include "util/alignment.h"
-#include "util/logging.h"
 #include "util/math.h"
 
 namespace colmap {

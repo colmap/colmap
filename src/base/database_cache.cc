@@ -16,7 +16,6 @@
 
 #include "base/database_cache.h"
 
-#include <iostream>
 #include <unordered_set>
 
 #include "util/string.h"

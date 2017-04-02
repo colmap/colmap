@@ -18,7 +18,6 @@
 
 #include "base/camera_models.h"
 #include "util/misc.h"
-#include "util/types.h"
 
 namespace colmap {
 

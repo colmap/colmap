@@ -16,8 +16,6 @@
 
 #include "ui/options_widget.h"
 
-#include <cmath>
-
 namespace colmap {
 
 OptionsWidget::OptionsWidget(QWidget* parent) : QWidget(parent) {

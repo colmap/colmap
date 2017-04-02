@@ -19,10 +19,7 @@
 #include <boost/filesystem.hpp>
 
 #include "base/undistortion.h"
-#include "mvs/meshing.h"
-#include "mvs/patch_match.h"
 #include "ui/main_window.h"
-#include "util/misc.h"
 
 namespace colmap {
 namespace {

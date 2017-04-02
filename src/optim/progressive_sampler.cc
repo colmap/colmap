@@ -16,7 +16,6 @@
 
 #include "optim/progressive_sampler.h"
 
-#include <algorithm>
 #include <numeric>
 
 #include "util/misc.h"

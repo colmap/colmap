@@ -17,12 +17,9 @@
 #include "base/pose.h"
 
 #include <Eigen/Eigenvalues>
-#include <Eigen/Geometry>
 
 #include "base/projection.h"
 #include "base/triangulation.h"
-#include "util/logging.h"
-#include "util/math.h"
 
 namespace colmap {
 

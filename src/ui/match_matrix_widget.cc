@@ -16,9 +16,6 @@
 
 #include "ui/match_matrix_widget.h"
 
-#include "base/database.h"
-#include "ui/colormaps.h"
-
 namespace colmap {
 
 MatchMatrixWidget::MatchMatrixWidget(QWidget* parent, OptionManager* options)

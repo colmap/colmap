@@ -17,9 +17,6 @@
 #define TEST_NAME "util/bitmap"
 #include "util/testing.h"
 
-#include <iostream>
-#include <vector>
-
 #include "util/bitmap.h"
 
 using namespace colmap;

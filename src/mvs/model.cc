@@ -18,10 +18,7 @@
 
 #include "base/pose.h"
 #include "base/reconstruction.h"
-#include "util/alignment.h"
-#include "util/logging.h"
 #include "util/misc.h"
-#include "util/string.h"
 
 namespace colmap {
 namespace mvs {

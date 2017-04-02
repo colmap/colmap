@@ -17,8 +17,6 @@
 #define TEST_NAME "optim/ransac"
 #include "util/testing.h"
 
-#include <vector>
-
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 

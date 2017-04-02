@@ -16,15 +16,9 @@
 
 #include "util/option_manager.h"
 
-#include <iostream>
-
-#include <glog/logging.h>
-
 #include <boost/filesystem/operations.hpp>
 #include <boost/property_tree/ini_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
 
-#include "base/camera_models.h"
 #include "util/misc.h"
 #include "util/version.h"
 

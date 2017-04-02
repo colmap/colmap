@@ -16,10 +16,7 @@
 
 #include "ui/point_viewer_widget.h"
 
-#include <iostream>
-
 #include "ui/opengl_window.h"
-#include "util/bitmap.h"
 #include "util/misc.h"
 
 namespace colmap {

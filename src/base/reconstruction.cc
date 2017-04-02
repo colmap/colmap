@@ -16,12 +16,8 @@
 
 #include "base/reconstruction.h"
 
-#include <cmath>
 #include <fstream>
-#include <set>
-#include <sstream>
 
-#include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include "base/pose.h"
@@ -30,12 +26,8 @@
 #include "base/triangulation.h"
 #include "estimators/similarity_transform.h"
 #include "optim/loransac.h"
-#include "reconstruction.h"
 #include "util/bitmap.h"
-#include "util/logging.h"
-#include "util/math.h"
 #include "util/misc.h"
-#include "util/types.h"
 
 namespace colmap {
 

@@ -16,10 +16,8 @@
 
 #include "base/scene_graph.h"
 
-#include <iostream>
 #include <unordered_set>
 
-#include "util/logging.h"
 #include "util/string.h"
 
 namespace colmap {

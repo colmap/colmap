@@ -18,7 +18,6 @@
 #include "util/testing.h"
 
 #include "base/feature.h"
-#include "util/alignment.h"
 
 using namespace colmap;
 

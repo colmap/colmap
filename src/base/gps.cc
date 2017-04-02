@@ -16,8 +16,6 @@
 
 #include "base/gps.h"
 
-#include <cmath>
-
 #include "util/math.h"
 
 namespace colmap {

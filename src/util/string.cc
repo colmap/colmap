@@ -19,8 +19,6 @@
 #include <cstdarg>
 #include <fstream>
 #include <sstream>
-#include <stdarg.h>
-#include <stdio.h>
 
 #include <boost/algorithm/string.hpp>
 

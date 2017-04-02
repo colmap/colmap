@@ -21,8 +21,6 @@
 #include <string>
 #include <vector>
 
-#include <boost/algorithm/string.hpp>
-
 #include <Eigen/Core>
 #include <Eigen/Dense>
 

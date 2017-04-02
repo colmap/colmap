@@ -17,8 +17,6 @@
 #define TEST_NAME "util/math"
 #include "util/testing.h"
 
-#include <vector>
-
 #include "util/math.h"
 
 using namespace colmap;

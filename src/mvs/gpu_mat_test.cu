@@ -19,7 +19,6 @@
 
 #include "mvs/gpu_mat.h"
 #include "mvs/gpu_mat_prng.h"
-#include "util/logging.h"
 #include "util/math.h"
 
 using namespace colmap;

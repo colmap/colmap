@@ -16,8 +16,6 @@
 
 #include "base/camera_rig.h"
 
-#include "base/pose.h"
-#include "util/logging.h"
 #include "util/misc.h"
 
 namespace colmap {

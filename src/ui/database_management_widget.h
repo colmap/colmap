@@ -19,8 +19,6 @@
 
 #include <unordered_map>
 
-#include <boost/filesystem.hpp>
-
 #include <QtCore>
 #include <QtWidgets>
 

@@ -17,8 +17,6 @@
 #define TEST_NAME "util/timer"
 #include "util/testing.h"
 
-#include <vector>
-
 #include "util/timer.h"
 
 using namespace colmap;

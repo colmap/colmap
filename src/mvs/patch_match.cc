@@ -16,7 +16,6 @@
 
 #include "mvs/patch_match.h"
 
-#include <cmath>
 #include <numeric>
 
 #include "mvs/consistency_graph.h"
