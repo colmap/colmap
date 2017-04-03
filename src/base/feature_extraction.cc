@@ -120,7 +120,9 @@ bool ImageReader::Next(Image* image, Bitmap* bitmap) {
 
   image->SetName(image_path);
   image->SetName(StringReplace(image->Name(), "\\", "/"));
-  image->SetName(StringReplace(image->Name(), options_.image_path, ""));
+  image->SetName(
+      image->Name().substr(options_.image_path.size(),
+                           image->Name().size() - options_.image_path.size()));
 
   std::cout << "  Name:           " << image->Name() << std::endl;
 
