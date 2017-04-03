@@ -143,7 +143,7 @@ else()
     message(STATUS "Disabling CUDA support")
 endif()
 
-if (CUDA_ENABLED)
+if(CUDA_ENABLED AND NOT IS_DEBUG)
     # Configure the NVCC flags:
     #   CUDA >= 5.0 <6.5:
     #     SASS:   sm_20, sm_30, sm_35
