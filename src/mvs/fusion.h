@@ -75,7 +75,7 @@ class StereoFusion : public Thread {
     // value here leads to less disk access and faster fusion, while a larger
     // value leads to reduced memory usage. Note that a single image can consume
     // a lot of memory, if the consistency graph is dense.
-    int cache_size = 500;
+    int cache_size = 250;
 
     // Check the options for validity.
     void Check() const;
@@ -92,9 +92,7 @@ class StereoFusion : public Thread {
 
  private:
   void Run();
-
-  void Fuse(const int image_id, const int row, const int col,
-            const size_t traversal_depth);
+  void Fuse();
 
   const Options options_;
   const std::string workspace_path_;
@@ -111,14 +109,24 @@ class StereoFusion : public Thread {
   std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> inv_P_;
   std::vector<Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> inv_R_;
 
+  struct FusionData {
+    int image_id = kInvalidImageId;
+    int row = 0;
+    int col = 0;
+    int traversal_depth = -1;
+  };
+
+  std::queue<FusionData> fusion_queue_;
   std::vector<FusedPoint> fused_points_;
-  Eigen::Vector4f fused_ref_point_;
-  Eigen::Vector3f fused_ref_normal_;
   std::vector<float> fused_points_x_;
   std::vector<float> fused_points_y_;
   std::vector<float> fused_points_z_;
-  Eigen::Vector3d fused_normal_sum_;
-  BitmapColor<uint32_t> fused_color_sum_;
+  std::vector<float> fused_points_nx_;
+  std::vector<float> fused_points_ny_;
+  std::vector<float> fused_points_nz_;
+  std::vector<uint8_t> fused_points_r_;
+  std::vector<uint8_t> fused_points_g_;
+  std::vector<uint8_t> fused_points_b_;
 };
 
 // Write the point cloud to PLY file.

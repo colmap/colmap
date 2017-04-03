@@ -22,17 +22,18 @@ namespace colmap {
 namespace mvs {
 namespace internal {
 
-float Median(std::vector<float>* elems) {
+template <typename T>
+float Median(std::vector<T>* elems) {
   CHECK(!elems->empty());
   const size_t mid_idx = elems->size() / 2;
   std::nth_element(elems->begin(), elems->begin() + mid_idx, elems->end());
   if (elems->size() % 2 == 0) {
-    const float mid_element1 = (*elems)[mid_idx];
-    const float mid_element2 =
-        *std::max_element(elems->begin(), elems->begin() + mid_idx);
+    const float mid_element1 = static_cast<float>((*elems)[mid_idx]);
+    const float mid_element2 = static_cast<float>(
+        *std::max_element(elems->begin(), elems->begin() + mid_idx));
     return (mid_element1 + mid_element2) / 2.0f;
   } else {
-    return (*elems)[mid_idx];
+    return static_cast<float>((*elems)[mid_idx]);
   }
 }
 
@@ -136,8 +137,6 @@ void StereoFusion::Run() {
             .transpose();
   }
 
-  const size_t min_num_pixels = static_cast<size_t>(options_.min_num_pixels);
-
   for (size_t image_id = 0; image_id < model.images.size(); ++image_id) {
     if (IsStopped()) {
       break;
@@ -154,46 +153,25 @@ void StereoFusion::Run() {
                               model.images.size())
               << std::flush;
 
-    const size_t width = workspace_->GetDepthMap(image_id).GetWidth();
-    const size_t height = workspace_->GetDepthMap(image_id).GetHeight();
+    const int width =
+        static_cast<int>(workspace_->GetDepthMap(image_id).GetWidth());
+    const int height =
+        static_cast<int>(workspace_->GetDepthMap(image_id).GetHeight());
     const auto& visited_mask = visited_masks_.at(image_id);
 
-    for (size_t row = 0; row < height; ++row) {
-      for (size_t col = 0; col < width; ++col) {
-        if (visited_mask.Get(row, col)) {
+    FusionData data;
+    data.image_id = image_id;
+    data.traversal_depth = 0;
+
+    for (data.row = 0; data.row < height; ++data.row) {
+      for (data.col = 0; data.col < width; ++data.col) {
+        if (visited_mask.Get(data.row, data.col)) {
           continue;
         }
 
-        fused_points_x_.clear();
-        fused_points_y_.clear();
-        fused_points_z_.clear();
-        fused_normal_sum_.setZero();
-        fused_color_sum_ = BitmapColor<uint32_t>(0, 0, 0);
+        fusion_queue_.push(data);
 
-        Fuse(image_id, row, col, 0);
-
-        const size_t num_pixels = fused_points_x_.size();
-        if (num_pixels >= min_num_pixels) {
-          FusedPoint fused_point;
-
-          fused_point.x = internal::Median(&fused_points_x_);
-          fused_point.y = internal::Median(&fused_points_y_);
-          fused_point.z = internal::Median(&fused_points_z_);
-
-          const Eigen::Vector3d mean_normal = fused_normal_sum_.normalized();
-          fused_point.nx = static_cast<float>(mean_normal(0));
-          fused_point.ny = static_cast<float>(mean_normal(1));
-          fused_point.nz = static_cast<float>(mean_normal(2));
-
-          fused_point.r = TruncateCast<double, uint8_t>(
-              std::round(static_cast<double>(fused_color_sum_.r) / num_pixels));
-          fused_point.g = TruncateCast<double, uint8_t>(
-              std::round(static_cast<double>(fused_color_sum_.g) / num_pixels));
-          fused_point.b = TruncateCast<double, uint8_t>(
-              std::round(static_cast<double>(fused_color_sum_.b) / num_pixels));
-
-          fused_points_.push_back(fused_point);
-        }
+        Fuse();
       }
     }
 
@@ -206,123 +184,186 @@ void StereoFusion::Run() {
   GetTimer().PrintMinutes();
 }
 
-void StereoFusion::Fuse(const int image_id, const int row, const int col,
-                        const size_t traversal_depth) {
-  if (!used_images_.at(image_id)) {
-    return;
+void StereoFusion::Fuse() {
+  CHECK_EQ(fusion_queue_.size(), 1);
+
+  Eigen::Vector4f fused_ref_point = Eigen::Vector4f::Zero();
+  Eigen::Vector3f fused_ref_normal = Eigen::Vector3f::Zero();
+
+  fused_points_x_.clear();
+  fused_points_y_.clear();
+  fused_points_z_.clear();
+  fused_points_nx_.clear();
+  fused_points_ny_.clear();
+  fused_points_nz_.clear();
+  fused_points_r_.clear();
+  fused_points_g_.clear();
+  fused_points_b_.clear();
+
+  const size_t max_num_pixels = static_cast<size_t>(options_.max_num_pixels);
+
+  while (!fusion_queue_.empty()) {
+    const auto data = fusion_queue_.front();
+    const int image_id = data.image_id;
+    const int row = data.row;
+    const int col = data.col;
+    const int traversal_depth = data.traversal_depth;
+
+    fusion_queue_.pop();
+
+    if (!used_images_.at(image_id)) {
+      continue;
+    }
+
+    const auto& depth_map = workspace_->GetDepthMap(image_id);
+    if (col < 0 || row < 0 || col >= static_cast<int>(depth_map.GetWidth()) ||
+        row >= static_cast<int>(depth_map.GetHeight())) {
+      continue;
+    }
+
+    const float depth = depth_map.Get(row, col);
+
+    // Pixels with negative depth are filtered.
+    if (depth <= 0.0f) {
+      continue;
+    }
+
+    // Check if pixel already fused.
+    auto& visited_mask = visited_masks_.at(image_id);
+    if (visited_mask.Get(row, col)) {
+      continue;
+    }
+
+    // If the traversal depth is greater than zero, the initial reference
+    // pixel has already been added and we need to check for consistency.
+    if (traversal_depth > 0) {
+      // Project reference point into current view.
+      const Eigen::Vector3f proj = P_.at(image_id) * fused_ref_point;
+
+      // Depth error of reference depth with current depth.
+      const float depth_error = std::abs((proj(2) - depth) / depth);
+      if (depth_error > options_.max_depth_error) {
+        continue;
+      }
+
+      // Reprojection error reference point in the current view.
+      const float col_diff = proj(0) / proj(2) - col;
+      const float row_diff = proj(1) / proj(2) - row;
+      const float squared_reproj_error =
+          col_diff * col_diff + row_diff * row_diff;
+      if (squared_reproj_error > max_squared_reproj_error_) {
+        continue;
+      }
+    }
+
+    // Determine normal direction in global reference frame.
+    const auto& normal_map = workspace_->GetNormalMap(image_id);
+    const Eigen::Vector3f normal =
+        inv_R_.at(image_id) * Eigen::Vector3f(normal_map.Get(row, col, 0),
+                                              normal_map.Get(row, col, 1),
+                                              normal_map.Get(row, col, 2));
+
+    // Check for consistent normal direction with reference normal.
+    if (traversal_depth > 0) {
+      const float cos_normal_error = fused_ref_normal.dot(normal);
+      if (cos_normal_error < min_cos_normal_error_) {
+        continue;
+      }
+    }
+
+    // Determine 3D location of current depth value.
+    const Eigen::Vector3f xyz =
+        inv_P_.at(image_id) *
+        Eigen::Vector4f(col * depth, row * depth, depth, 1.0f);
+
+    // Read the color of the pixel.
+    BitmapColor<uint8_t> color;
+    const auto& bitmap_scale = bitmap_scales_.at(image_id);
+    workspace_->GetBitmap(image_id).InterpolateNearestNeighbor(
+        col / bitmap_scale.first, row / bitmap_scale.second, &color);
+
+    // Set the current pixel as visited.
+    visited_mask.Set(row, col, true);
+
+    // Accumulate statistics for fused point.
+    fused_points_x_.push_back(xyz(0));
+    fused_points_y_.push_back(xyz(1));
+    fused_points_z_.push_back(xyz(2));
+    fused_points_nx_.push_back(normal(0));
+    fused_points_ny_.push_back(normal(1));
+    fused_points_nz_.push_back(normal(2));
+    fused_points_r_.push_back(color.r);
+    fused_points_g_.push_back(color.g);
+    fused_points_b_.push_back(color.b);
+
+    // Remember the first pixel as the reference.
+    if (traversal_depth == 0) {
+      fused_ref_point = Eigen::Vector4f(xyz(0), xyz(1), xyz(2), 1.0f);
+      fused_ref_normal = normal;
+    }
+
+    if (fused_points_x_.size() >= max_num_pixels) {
+      break;
+    }
+
+    const int next_traversal_depth = traversal_depth + 1;
+
+    // Do not traverse the graph infinitely in one branch and limit the
+    // maximum number of pixels fused in one point to avoid stack overflow.
+    if (next_traversal_depth >= options_.max_traversal_depth) {
+      continue;
+    }
+
+    // Traverse the consistency graph by projecting point into other views.
+    int next_num_images = 0;
+    const int* next_image_ids = nullptr;
+    workspace_->GetConsistencyGraph(image_id).GetImageIds(
+        row, col, &next_num_images, &next_image_ids);
+
+    FusionData next_data;
+    next_data.traversal_depth = next_traversal_depth;
+
+    for (int i = 0; i < next_num_images; ++i) {
+      next_data.image_id = next_image_ids[i];
+      const Eigen::Vector3f next_proj =
+          P_.at(next_data.image_id) * xyz.homogeneous();
+      next_data.col = static_cast<int>(std::round(next_proj(0) / next_proj(2)));
+      next_data.row = static_cast<int>(std::round(next_proj(1) / next_proj(2)));
+      fusion_queue_.push(next_data);
+    }
   }
 
-  const auto& depth_map = workspace_->GetDepthMap(image_id);
-  if (col < 0 || row < 0 || col >= static_cast<int>(depth_map.GetWidth()) ||
-      row >= static_cast<int>(depth_map.GetHeight())) {
-    return;
-  }
+  fusion_queue_ = std::queue<FusionData>();
 
-  const float depth = depth_map.Get(row, col);
+  const size_t num_pixels = fused_points_x_.size();
+  if (num_pixels >= static_cast<size_t>(options_.min_num_pixels)) {
+    FusedPoint fused_point;
 
-  // Pixels with negative depth are filtered.
-  if (depth <= 0.0f) {
-    return;
-  }
-
-  // Check if pixel already fused.
-  auto& visited_mask = visited_masks_.at(image_id);
-  if (visited_mask.Get(row, col)) {
-    return;
-  }
-
-  // If the traversal depth is greater than zero, the initial reference pixel
-  // has already been added and we need to check for consistency.
-  if (traversal_depth > 0) {
-    // Project reference point into current view.
-    const Eigen::Vector3f proj = P_.at(image_id) * fused_ref_point_;
-
-    // Depth error of reference depth with current depth.
-    const float depth_error = std::abs((proj(2) - depth) / depth);
-    if (depth_error > options_.max_depth_error) {
+    Eigen::Vector3f fused_normal;
+    fused_normal.x() = internal::Median(&fused_points_nx_);
+    fused_normal.y() = internal::Median(&fused_points_ny_);
+    fused_normal.z() = internal::Median(&fused_points_nz_);
+    const float fused_normal_norm = fused_normal.norm();
+    if (fused_normal_norm < std::numeric_limits<float>::epsilon()) {
       return;
     }
 
-    // Reprojection error reference point in the current view.
-    const float col_diff = proj(0) / proj(2) - col;
-    const float row_diff = proj(1) / proj(2) - row;
-    const float squared_reproj_error =
-        col_diff * col_diff + row_diff * row_diff;
-    if (squared_reproj_error > max_squared_reproj_error_) {
-      return;
-    }
-  }
+    fused_point.x = internal::Median(&fused_points_x_);
+    fused_point.y = internal::Median(&fused_points_y_);
+    fused_point.z = internal::Median(&fused_points_z_);
 
-  // Determine normal direction in global reference frame.
-  const auto& normal_map = workspace_->GetNormalMap(image_id);
-  const Eigen::Vector3f normal =
-      inv_R_.at(image_id) * Eigen::Vector3f(normal_map.Get(row, col, 0),
-                                            normal_map.Get(row, col, 1),
-                                            normal_map.Get(row, col, 2));
+    fused_point.nx = fused_normal.x() / fused_normal_norm;
+    fused_point.ny = fused_normal.y() / fused_normal_norm;
+    fused_point.nz = fused_normal.z() / fused_normal_norm;
 
-  // Check for consistent normal direction with reference normal.
-  if (traversal_depth > 0) {
-    const float cos_normal_error = fused_ref_normal_.dot(normal);
-    if (cos_normal_error < min_cos_normal_error_) {
-      return;
-    }
-  }
+    fused_point.r = TruncateCast<float, uint8_t>(
+        std::round(internal::Median(&fused_points_r_)));
+    fused_point.g = TruncateCast<float, uint8_t>(
+        std::round(internal::Median(&fused_points_g_)));
+    fused_point.b = TruncateCast<float, uint8_t>(
+        std::round(internal::Median(&fused_points_b_)));
 
-  // Determine 3D location of current depth value.
-  const Eigen::Vector3f xyz =
-      inv_P_.at(image_id) *
-      Eigen::Vector4f(col * depth, row * depth, depth, 1.0f);
-
-  // Read the color of the pixel.
-  BitmapColor<uint8_t> color;
-  const auto& bitmap_scale = bitmap_scales_.at(image_id);
-  workspace_->GetBitmap(image_id).InterpolateNearestNeighbor(
-      col / bitmap_scale.first, row / bitmap_scale.second, &color);
-
-  // Set the current pixel as visited.
-  visited_mask.Set(row, col, true);
-
-  // Accumulate statistics for fused point.
-  fused_points_x_.push_back(xyz(0));
-  fused_points_y_.push_back(xyz(1));
-  fused_points_z_.push_back(xyz(2));
-  fused_normal_sum_ += normal.cast<double>();
-  fused_color_sum_.r += color.r;
-  fused_color_sum_.g += color.g;
-  fused_color_sum_.b += color.b;
-
-  // Remember the first pixel as the reference.
-  if (traversal_depth == 0) {
-    fused_ref_point_ = Eigen::Vector4f(xyz(0), xyz(1), xyz(2), 1.0f);
-    fused_ref_normal_ = normal;
-  }
-
-  const int next_traversal_depth = traversal_depth + 1;
-
-  // Do not traverse the graph infinitely in one branch and limit the maximum
-  // number of pixels fused in one point to avoid stack overflow.
-  if (next_traversal_depth >= options_.max_traversal_depth ||
-      fused_points_x_.size() >= static_cast<size_t>(options_.max_num_pixels)) {
-    return;
-  }
-
-  // Traverse the consistency graph by projecting point into other views.
-  int num_images = 0;
-  const int* image_ids = nullptr;
-  workspace_->GetConsistencyGraph(image_id).GetImageIds(row, col, &num_images,
-                                                        &image_ids);
-
-  // Copy the data, since the pointer from the graph might be invalidated due to
-  // the recursive calls to Fuse and since the graph is cached.
-  const std::vector<int> next_image_ids(image_ids, image_ids + num_images);
-
-  for (const auto& next_image_id : next_image_ids) {
-    const Eigen::Vector3f next_proj = P_.at(next_image_id) * xyz.homogeneous();
-    const int next_col =
-        static_cast<int>(std::round(next_proj(0) / next_proj(2)));
-    const int next_row =
-        static_cast<int>(std::round(next_proj(1) / next_proj(2)));
-    Fuse(next_image_id, next_row, next_col, next_traversal_depth);
+    fused_points_.push_back(fused_point);
   }
 }
 
