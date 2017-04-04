@@ -92,8 +92,7 @@ int main(int argc, char** argv) {
   for (const image_t image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
 
-    PrintHeading1("Triangulating image #" + std::to_string(image_id) + " (" +
-                  std::to_string(reconstruction.NumRegImages() + 1) + ")");
+    PrintHeading1("Triangulating image #" + std::to_string(image_id));
 
     const size_t num_visible_points3D = image.NumVisiblePoints3D();
 
