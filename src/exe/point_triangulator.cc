@@ -107,6 +107,9 @@ int main(int argc, char** argv) {
               << " points" << std::endl;
   }
 
+  PrintHeading1("Extracting colors");
+  reconstruction.ExtractColorsForAllImages(*options.image_path);
+
   //////////////////////////////////////////////////////////////////////////////
   // Bundle adjustment
   //////////////////////////////////////////////////////////////////////////////
