@@ -83,12 +83,11 @@ size_t FilterImages(const MapperOptions& options, IncrementalMapper* mapper) {
 }
 
 void AdjustGlobalBundle(const MapperOptions& options,
-                        const Reconstruction& reconstruction,
                         IncrementalMapper* mapper) {
   BundleAdjuster::Options custom_options =
       options.GlobalBundleAdjustmentOptions();
 
-  const size_t num_reg_images = reconstruction.NumRegImages();
+  const size_t num_reg_images = mapper->GetReconstruction().NumRegImages();
 
   // Use stricter convergence criteria for first registered images.
   const size_t kMinNumRegImages = 10;
@@ -102,13 +101,42 @@ void AdjustGlobalBundle(const MapperOptions& options,
 
   PrintHeading1("Global bundle adjustment");
   if (options.ba_global_use_pba && num_reg_images >= kMinNumRegImages &&
-      ParallelBundleAdjuster::IsReconstructionSupported(reconstruction)) {
+      ParallelBundleAdjuster::IsReconstructionSupported(
+          mapper->GetReconstruction())) {
     mapper->AdjustParallelGlobalBundle(
         options.ParallelGlobalBundleAdjustmentOptions());
   } else {
     mapper->AdjustGlobalBundle(custom_options);
   }
 }
+
+void ExtractColors(const std::string& image_path, const image_t image_id,
+                   Reconstruction* reconstruction) {
+  if (!reconstruction->ExtractColorsForImage(image_id, image_path)) {
+    std::cout << StringPrintf("WARNING: Could not read image %s at path %s.",
+                              reconstruction->Image(image_id).Name().c_str(),
+                              image_path.c_str())
+              << std::endl;
+  }
+}
+
+void WriteSnapshot(const Reconstruction& reconstruction,
+                   const std::string& snapshot_path) {
+  PrintHeading1("Creating snapshot");
+  // Get the current timestamp in milliseconds.
+  const size_t timestamp =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::high_resolution_clock::now().time_since_epoch())
+          .count();
+  // Write reconstruction to unique path with current timestamp.
+  const std::string path =
+      JoinPaths(snapshot_path, StringPrintf("%010d", timestamp));
+  CreateDirIfNotExists(path);
+  std::cout << "  => Writing to " << path << std::endl;
+  reconstruction.Write(path);
+}
+
+}  // namespace
 
 void IterativeLocalRefinement(const MapperOptions& options,
                               const image_t image_id,
@@ -142,7 +170,6 @@ void IterativeLocalRefinement(const MapperOptions& options,
 }
 
 void IterativeGlobalRefinement(const MapperOptions& options,
-                               const Reconstruction& reconstruction,
                                IncrementalMapper* mapper) {
   PrintHeading1("Retriangulation");
   CompleteAndMergeTracks(options, mapper);
@@ -151,9 +178,10 @@ void IterativeGlobalRefinement(const MapperOptions& options,
             << std::endl;
 
   for (int i = 0; i < options.ba_global_max_refinements; ++i) {
-    const size_t num_observations = reconstruction.ComputeNumObservations();
+    const size_t num_observations =
+        mapper->GetReconstruction().ComputeNumObservations();
     size_t num_changed_observations = 0;
-    AdjustGlobalBundle(options, reconstruction, mapper);
+    AdjustGlobalBundle(options, mapper);
     num_changed_observations += CompleteAndMergeTracks(options, mapper);
     num_changed_observations += FilterPoints(options, mapper);
     const double changed =
@@ -167,34 +195,6 @@ void IterativeGlobalRefinement(const MapperOptions& options,
 
   FilterImages(options, mapper);
 }
-
-void ExtractColors(const std::string& image_path, const image_t image_id,
-                   Reconstruction* reconstruction) {
-  if (!reconstruction->ExtractColorsForImage(image_id, image_path)) {
-    std::cout << StringPrintf("WARNING: Could not read image %s at path %s.",
-                              reconstruction->Image(image_id).Name().c_str(),
-                              image_path.c_str())
-              << std::endl;
-  }
-}
-
-void WriteSnapshot(const Reconstruction& reconstruction,
-                   const std::string& snapshot_path) {
-  PrintHeading1("Creating snapshot");
-  // Get the current timestamp in milliseconds.
-  const size_t timestamp =
-      std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::high_resolution_clock::now().time_since_epoch())
-          .count();
-  // Write reconstruction to unique path with current timestamp.
-  const std::string path =
-      JoinPaths(snapshot_path, StringPrintf("%010d", timestamp));
-  CreateDirIfNotExists(path);
-  std::cout << "  => Writing to " << path << std::endl;
-  reconstruction.Write(path);
-}
-
-}  // namespace
 
 IncrementalMapperController::IncrementalMapperController(
     const OptionManager* options, ReconstructionManager* reconstruction_manager)
@@ -347,7 +347,7 @@ void IncrementalMapperController::Reconstruct(
         break;
       }
 
-      AdjustGlobalBundle(mapper_options, reconstruction, &mapper);
+      AdjustGlobalBundle(mapper_options, &mapper);
       FilterPoints(mapper_options, &mapper);
       FilterImages(mapper_options, &mapper);
 
@@ -427,7 +427,7 @@ void IncrementalMapperController::Reconstruct(
                   mapper_options.ba_global_points_ratio * ba_prev_num_points ||
               reconstruction.NumPoints3D() >=
                   mapper_options.ba_global_points_freq + ba_prev_num_points) {
-            IterativeGlobalRefinement(mapper_options, reconstruction, &mapper);
+            IterativeGlobalRefinement(mapper_options, &mapper);
             ba_prev_num_points = reconstruction.NumPoints3D();
             ba_prev_num_reg_images = reconstruction.NumRegImages();
           }
@@ -475,7 +475,7 @@ void IncrementalMapperController::Reconstruct(
       if (!reg_next_success && prev_reg_next_success) {
         reg_next_success = true;
         prev_reg_next_success = false;
-        IterativeGlobalRefinement(mapper_options, reconstruction, &mapper);
+        IterativeGlobalRefinement(mapper_options, &mapper);
       } else {
         prev_reg_next_success = reg_next_success;
       }
@@ -491,7 +491,7 @@ void IncrementalMapperController::Reconstruct(
     if (reconstruction.NumRegImages() >= 2 &&
         reconstruction.NumRegImages() != ba_prev_num_reg_images &&
         reconstruction.NumPoints3D() != ba_prev_num_points) {
-      IterativeGlobalRefinement(mapper_options, reconstruction, &mapper);
+      IterativeGlobalRefinement(mapper_options, &mapper);
     }
 
     // If the total number of images is small then do not enforce the minimum

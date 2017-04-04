@@ -63,6 +63,12 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
   for (const auto& image : database_cache.Images()) {
     if (ExistsImage(image.second.ImageId())) {
       class Image& existing_image = Image(image.second.ImageId());
+      CHECK_EQ(existing_image.Name(), image.second.Name());
+      if (existing_image.NumPoints2D() == 0) {
+        existing_image.SetPoints2D(image.second.Points2D());
+      } else {
+        CHECK_EQ(image.second.NumPoints2D(), existing_image.NumPoints2D());
+      }
       existing_image.SetNumObservations(image.second.NumObservations());
       existing_image.SetNumCorrespondences(image.second.NumCorrespondences());
     } else {

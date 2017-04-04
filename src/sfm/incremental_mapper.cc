@@ -708,6 +708,11 @@ size_t IncrementalMapper::FilterPoints(const Options& options) {
                                             options.filter_min_tri_angle);
 }
 
+const Reconstruction& IncrementalMapper::GetReconstruction() const {
+  CHECK_NOTNULL(reconstruction_);
+  return *reconstruction_;
+}
+
 size_t IncrementalMapper::NumTotalRegImages() const {
   return num_total_reg_images_;
 }

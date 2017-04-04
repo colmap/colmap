@@ -61,6 +61,12 @@ void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
   }
 }
 
+void Image::SetPoints2D(const std::vector<class Point2D>& points) {
+  CHECK(points2D_.empty());
+  points2D_ = points;
+  num_correspondences_have_point3D_.resize(points.size(), 0);
+}
+
 void Image::SetPoint3DForPoint2D(const point2D_t point2D_idx,
                                  const point3D_t point3D_id) {
   CHECK_NE(point3D_id, kInvalidPoint3DId);

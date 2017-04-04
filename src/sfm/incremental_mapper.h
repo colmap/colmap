@@ -191,6 +191,8 @@ class IncrementalMapper {
   size_t FilterImages(const Options& options);
   size_t FilterPoints(const Options& options);
 
+  const Reconstruction& GetReconstruction() const;
+
   // Number of images that are registered in at least on reconstruction.
   size_t NumTotalRegImages() const;
 
