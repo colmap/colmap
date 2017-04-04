@@ -17,6 +17,7 @@
 #include "base/reconstruction.h"
 #include "base/undistortion.h"
 #include "util/logging.h"
+#include "util/misc.h"
 #include "util/option_manager.h"
 
 using namespace colmap;
@@ -53,6 +54,8 @@ int main(int argc, char** argv) {
   if (options.ParseHelp(argc, argv)) {
     return EXIT_SUCCESS;
   }
+
+  CreateDirIfNotExists(output_path);
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
