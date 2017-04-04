@@ -152,6 +152,9 @@ Executables
   database after running ``mapper``. Note that no bundle adjustment or
   triangulation is performed.
 
+- ``point_triangulator``: Triangulate all observations of registered images in
+  an existing model using the feature matches in a database.
+
 - ``bundle_adjuster``: Run global bundle adjustment on a reconstructed scene,
   e.g., when a refinement of the intrinsics is needed or
   after running the ``image_registrator``.
