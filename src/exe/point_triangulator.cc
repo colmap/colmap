@@ -54,6 +54,8 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
+  const auto& mapper_options = *options.mapper_options;
+
   PrintHeading1("Loading database");
 
   DatabaseCache database_cache;
@@ -63,10 +65,10 @@ int main(int argc, char** argv) {
     Timer timer;
     timer.Start();
     const size_t min_num_matches =
-        static_cast<size_t>(options.mapper_options->min_num_matches);
+        static_cast<size_t>(mapper_options.min_num_matches);
     database_cache.Load(database, min_num_matches,
-                        options.mapper_options->ignore_watermarks,
-                        options.mapper_options->image_names);
+                        mapper_options.ignore_watermarks,
+                        mapper_options.image_names);
     std::cout << std::endl;
     timer.PrintMinutes();
   }
@@ -87,7 +89,7 @@ int main(int argc, char** argv) {
   //////////////////////////////////////////////////////////////////////////////
 
   const IncrementalTriangulator::Options inc_tri_options =
-      options.mapper_options->TriangulationOptions();
+      mapper_options.TriangulationOptions();
 
   for (const image_t image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
@@ -106,17 +108,13 @@ int main(int argc, char** argv) {
               << std::endl;
   }
 
-  PrintHeading1("Extracting colors");
-  reconstruction.ExtractColorsForAllImages(*options.image_path);
-
   //////////////////////////////////////////////////////////////////////////////
   // Bundle adjustment
   //////////////////////////////////////////////////////////////////////////////
 
-  PrintHeading1("Bundle adjustment");
+  CompleteAndMergeTracks(mapper_options, &mapper);
 
-  // Avoid degeneracies in bundle adjustment.
-  reconstruction.FilterObservationsWithNegativeDepth();
+  const auto ba_options = mapper_options.GlobalBundleAdjustmentOptions();
 
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
@@ -126,17 +124,30 @@ int main(int argc, char** argv) {
     ba_config.SetConstantCamera(reconstruction.Image(image_id).CameraId());
   }
 
-  // Run bundle adjustment.
-  const auto ba_options =
-      options.mapper_options->GlobalBundleAdjustmentOptions();
-  BundleAdjuster bundle_adjuster(ba_options, ba_config);
-  CHECK(bundle_adjuster.Solve(&reconstruction));
+  for (int i = 0; i < mapper_options.ba_global_max_refinements; ++i) {
+    // Avoid degeneracies in bundle adjustment.
+    reconstruction.FilterObservationsWithNegativeDepth();
 
-  // Filter outlier observations.
-  const size_t num_filtered_observations =
-      mapper.FilterPoints(options.mapper_options->IncrementalMapperOptions());
-  std::cout << "  => Filtered observations: " << num_filtered_observations
-            << std::endl;
+    const size_t num_observations = reconstruction.ComputeNumObservations();
+
+    PrintHeading1("Bundle adjustment");
+    BundleAdjuster bundle_adjuster(ba_options, ba_config);
+    CHECK(bundle_adjuster.Solve(&reconstruction));
+
+    size_t num_changed_observations = 0;
+    num_changed_observations += CompleteAndMergeTracks(mapper_options, &mapper);
+    num_changed_observations += FilterPoints(mapper_options, &mapper);
+    const double changed =
+        static_cast<double>(num_changed_observations) / num_observations;
+    std::cout << StringPrintf("  => Changed observations: %.6f", changed)
+              << std::endl;
+    if (changed < mapper_options.ba_global_max_refinement_change) {
+      break;
+    }
+  }
+
+  PrintHeading1("Extracting colors");
+  reconstruction.ExtractColorsForAllImages(*options.image_path);
 
   const bool kDiscardReconstruction = false;
   mapper.EndReconstruction(kDiscardReconstruction);

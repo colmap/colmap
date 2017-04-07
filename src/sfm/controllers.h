@@ -26,14 +26,13 @@
 
 namespace colmap {
 
-// Iteratively refine local reconstruction around given image.
-void IterativeLocalRefinement(const MapperOptions& options,
-                              const image_t image_id,
-                              IncrementalMapper* mapper);
+// Globally filter points and images in mapper.
+size_t FilterPoints(const MapperOptions& options, IncrementalMapper* mapper);
+size_t FilterImages(const MapperOptions& options, IncrementalMapper* mapper);
 
-// Iteratively refine global reconstruction.
-void IterativeGlobalRefinement(const MapperOptions& options,
-                               IncrementalMapper* mapper);
+// Globally complete and merge tracks in mapper.
+size_t CompleteAndMergeTracks(const MapperOptions& options,
+                              IncrementalMapper* mapper);
 
 // Class that controls the incremental mapping procedure by iteratively
 // initializing reconstructions from the same scene graph.

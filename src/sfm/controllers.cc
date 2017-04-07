@@ -54,34 +54,6 @@ size_t TriangulateImage(const MapperOptions& options, const Image& image,
   return num_tris;
 }
 
-size_t CompleteAndMergeTracks(const MapperOptions& options,
-                              IncrementalMapper* mapper) {
-  const size_t num_completed_observations =
-      mapper->CompleteTracks(options.TriangulationOptions());
-  std::cout << "  => Merged observations: " << num_completed_observations
-            << std::endl;
-  const size_t num_merged_observations =
-      mapper->MergeTracks(options.TriangulationOptions());
-  std::cout << "  => Completed observations: " << num_merged_observations
-            << std::endl;
-  return num_completed_observations + num_merged_observations;
-}
-
-size_t FilterPoints(const MapperOptions& options, IncrementalMapper* mapper) {
-  const size_t num_filtered_observations =
-      mapper->FilterPoints(options.IncrementalMapperOptions());
-  std::cout << "  => Filtered observations: " << num_filtered_observations
-            << std::endl;
-  return num_filtered_observations;
-}
-
-size_t FilterImages(const MapperOptions& options, IncrementalMapper* mapper) {
-  const size_t num_filtered_images =
-      mapper->FilterImages(options.IncrementalMapperOptions());
-  std::cout << "  => Filtered images: " << num_filtered_images << std::endl;
-  return num_filtered_images;
-}
-
 void AdjustGlobalBundle(const MapperOptions& options,
                         IncrementalMapper* mapper) {
   BundleAdjuster::Options custom_options =
@@ -109,34 +81,6 @@ void AdjustGlobalBundle(const MapperOptions& options,
     mapper->AdjustGlobalBundle(custom_options);
   }
 }
-
-void ExtractColors(const std::string& image_path, const image_t image_id,
-                   Reconstruction* reconstruction) {
-  if (!reconstruction->ExtractColorsForImage(image_id, image_path)) {
-    std::cout << StringPrintf("WARNING: Could not read image %s at path %s.",
-                              reconstruction->Image(image_id).Name().c_str(),
-                              image_path.c_str())
-              << std::endl;
-  }
-}
-
-void WriteSnapshot(const Reconstruction& reconstruction,
-                   const std::string& snapshot_path) {
-  PrintHeading1("Creating snapshot");
-  // Get the current timestamp in milliseconds.
-  const size_t timestamp =
-      std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::high_resolution_clock::now().time_since_epoch())
-          .count();
-  // Write reconstruction to unique path with current timestamp.
-  const std::string path =
-      JoinPaths(snapshot_path, StringPrintf("%010d", timestamp));
-  CreateDirIfNotExists(path);
-  std::cout << "  => Writing to " << path << std::endl;
-  reconstruction.Write(path);
-}
-
-}  // namespace
 
 void IterativeLocalRefinement(const MapperOptions& options,
                               const image_t image_id,
@@ -194,6 +138,62 @@ void IterativeGlobalRefinement(const MapperOptions& options,
   }
 
   FilterImages(options, mapper);
+}
+
+void ExtractColors(const std::string& image_path, const image_t image_id,
+                   Reconstruction* reconstruction) {
+  if (!reconstruction->ExtractColorsForImage(image_id, image_path)) {
+    std::cout << StringPrintf("WARNING: Could not read image %s at path %s.",
+                              reconstruction->Image(image_id).Name().c_str(),
+                              image_path.c_str())
+              << std::endl;
+  }
+}
+
+void WriteSnapshot(const Reconstruction& reconstruction,
+                   const std::string& snapshot_path) {
+  PrintHeading1("Creating snapshot");
+  // Get the current timestamp in milliseconds.
+  const size_t timestamp =
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::high_resolution_clock::now().time_since_epoch())
+          .count();
+  // Write reconstruction to unique path with current timestamp.
+  const std::string path =
+      JoinPaths(snapshot_path, StringPrintf("%010d", timestamp));
+  CreateDirIfNotExists(path);
+  std::cout << "  => Writing to " << path << std::endl;
+  reconstruction.Write(path);
+}
+
+}  // namespace
+
+size_t FilterPoints(const MapperOptions& options, IncrementalMapper* mapper) {
+  const size_t num_filtered_observations =
+      mapper->FilterPoints(options.IncrementalMapperOptions());
+  std::cout << "  => Filtered observations: " << num_filtered_observations
+            << std::endl;
+  return num_filtered_observations;
+}
+
+size_t FilterImages(const MapperOptions& options, IncrementalMapper* mapper) {
+  const size_t num_filtered_images =
+      mapper->FilterImages(options.IncrementalMapperOptions());
+  std::cout << "  => Filtered images: " << num_filtered_images << std::endl;
+  return num_filtered_images;
+}
+
+size_t CompleteAndMergeTracks(const MapperOptions& options,
+                              IncrementalMapper* mapper) {
+  const size_t num_completed_observations =
+      mapper->CompleteTracks(options.TriangulationOptions());
+  std::cout << "  => Merged observations: " << num_completed_observations
+            << std::endl;
+  const size_t num_merged_observations =
+      mapper->MergeTracks(options.TriangulationOptions());
+  std::cout << "  => Completed observations: " << num_merged_observations
+            << std::endl;
+  return num_completed_observations + num_merged_observations;
 }
 
 IncrementalMapperController::IncrementalMapperController(
