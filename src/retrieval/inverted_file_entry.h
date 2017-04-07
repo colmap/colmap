@@ -28,8 +28,8 @@ namespace retrieval {
 // This class is based on an original implementation by Torsten Sattler.
 template <int N>
 struct InvertedFileEntry {
-  void Read(std::ifstream* ifs);
-  void Write(std::ofstream* ofs) const;
+  void Read(std::istream* ifs);
+  void Write(std::ostream* ofs) const;
 
   // The identifier of the image this entry is associated with.
   int image_id = -1;
@@ -43,30 +43,31 @@ struct InvertedFileEntry {
 ////////////////////////////////////////////////////////////////////////////////
 
 template <int N>
-void InvertedFileEntry<N>::Read(std::ifstream* ifs) {
+void InvertedFileEntry<N>::Read(std::istream* ifs) {
   static_assert(N <= 64, "Dimensionality too large");
   static_assert(sizeof(unsigned long long) >= 8,
                 "Expected unsigned long to be at least 8 byte");
 
-  int32_t image_id = 0;
-  ifs->read(reinterpret_cast<char*>(&image_id), sizeof(int32_t));
-  image_id = static_cast<int>(image_id);
+  int32_t image_id_data = 0;
+  ifs->read(reinterpret_cast<char*>(&image_id_data), sizeof(int32_t));
+  image_id = static_cast<int>(image_id_data);
 
-  uint64_t bin_desc = 0;
-  ifs->read(reinterpret_cast<char*>(&bin_desc), sizeof(uint64_t));
-  descriptor = std::bitset<N>(bin_desc);
+  uint64_t descriptor_data = 0;
+  ifs->read(reinterpret_cast<char*>(&descriptor_data), sizeof(uint64_t));
+  descriptor = std::bitset<N>(descriptor_data);
 }
 
 template <int N>
-void InvertedFileEntry<N>::Write(std::ofstream* ofs) const {
+void InvertedFileEntry<N>::Write(std::ostream* ofs) const {
   static_assert(N <= 64, "Dimensionality too large");
   static_assert(sizeof(unsigned long long) >= 8,
                 "Expected unsigned long to be at least 8 byte");
 
   ofs->write(reinterpret_cast<const char*>(&image_id), sizeof(int32_t));
 
-  uint64_t bin_desc = static_cast<uint64_t>(descriptor.to_ullong());
-  ofs->write(reinterpret_cast<const char*>(&bin_desc), sizeof(uint64_t));
+  const uint64_t descriptor_data =
+      static_cast<uint64_t>(descriptor.to_ullong());
+  ofs->write(reinterpret_cast<const char*>(&descriptor_data), sizeof(uint64_t));
 }
 
 }  // namespace retrieval
