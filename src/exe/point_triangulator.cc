@@ -94,16 +94,16 @@ int main(int argc, char** argv) {
 
     PrintHeading1("Triangulating image #" + std::to_string(image_id));
 
-    const size_t num_visible_points3D = image.NumVisiblePoints3D();
+    const size_t num_existing_points3D = image.NumPoints3D();
 
-    std::cout << "  => Image sees " << num_visible_points3D << " / "
+    std::cout << "  => Image has " << num_existing_points3D << " / "
               << image.NumObservations() << " points" << std::endl;
 
     mapper.TriangulateImage(inc_tri_options, image_id);
 
     std::cout << "  => Triangulated "
-              << (image.NumVisiblePoints3D() - num_visible_points3D)
-              << " points" << std::endl;
+              << (image.NumPoints3D() - num_existing_points3D) << " points"
+              << std::endl;
   }
 
   PrintHeading1("Extracting colors");
