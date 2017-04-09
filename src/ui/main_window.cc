@@ -291,7 +291,7 @@ void MainWindow::CreateActions() {
 
   action_reconstruction_stats_ =
       new QAction(QIcon(":/media/reconstruction-stats.png"),
-                  tr("Show reconstruction statistics"), this);
+                  tr("Show model statistics"), this);
   connect(action_reconstruction_stats_, &QAction::triggered, this,
           &MainWindow::ReconstructionStats);
 
@@ -365,8 +365,10 @@ void MainWindow::CreateMenus() {
   file_menu->addAction(action_project_edit_);
   file_menu->addAction(action_project_save_);
   file_menu->addAction(action_project_save_as_);
+  file_menu->addSeparator();
   file_menu->addAction(action_import_);
   file_menu->addAction(action_import_from_);
+  file_menu->addSeparator();
   file_menu->addAction(action_export_);
   file_menu->addAction(action_export_all_);
   file_menu->addAction(action_export_as_);
@@ -384,9 +386,11 @@ void MainWindow::CreateMenus() {
   reconstruction_menu->addAction(action_reconstruction_start_);
   reconstruction_menu->addAction(action_reconstruction_pause_);
   reconstruction_menu->addAction(action_reconstruction_step_);
+  reconstruction_menu->addSeparator();
   reconstruction_menu->addAction(action_reconstruction_reset_);
   reconstruction_menu->addAction(action_reconstruction_normalize_);
   reconstruction_menu->addAction(action_reconstruction_options_);
+  reconstruction_menu->addSeparator();
   reconstruction_menu->addAction(action_bundle_adjustment_);
   reconstruction_menu->addAction(action_multi_view_stereo_);
   menuBar()->addAction(reconstruction_menu->menuAction());
@@ -398,13 +402,16 @@ void MainWindow::CreateMenus() {
   menuBar()->addAction(render_menu->menuAction());
 
   QMenu* extras_menu = new QMenu(tr("Extras"), this);
-  extras_menu->addAction(action_reconstruction_stats_);
-  extras_menu->addAction(action_match_matrix_);
   extras_menu->addAction(action_log_show_);
+  extras_menu->addAction(action_match_matrix_);
+  extras_menu->addAction(action_reconstruction_stats_);
+  extras_menu->addSeparator();
   extras_menu->addAction(action_grab_image_);
   extras_menu->addAction(action_grab_movie_);
+  extras_menu->addSeparator();
   extras_menu->addAction(action_undistort_);
   extras_menu->addAction(action_extract_colors_);
+  extras_menu->addSeparator();
   extras_menu->addAction(action_reset_options_);
   menuBar()->addAction(extras_menu->menuAction());
 
@@ -441,7 +448,6 @@ void MainWindow::CreateToolbar() {
   reconstruction_toolbar_->addAction(action_reconstruction_start_);
   reconstruction_toolbar_->addAction(action_reconstruction_step_);
   reconstruction_toolbar_->addAction(action_reconstruction_pause_);
-  reconstruction_toolbar_->addAction(action_reconstruction_normalize_);
   reconstruction_toolbar_->addAction(action_reconstruction_options_);
   reconstruction_toolbar_->addAction(action_bundle_adjustment_);
   reconstruction_toolbar_->addAction(action_multi_view_stereo_);
@@ -455,9 +461,9 @@ void MainWindow::CreateToolbar() {
   render_toolbar_->setIconSize(QSize(16, 16));
 
   extras_toolbar_ = addToolBar(tr("Extras"));
-  extras_toolbar_->addAction(action_reconstruction_stats_);
-  extras_toolbar_->addAction(action_match_matrix_);
   extras_toolbar_->addAction(action_log_show_);
+  extras_toolbar_->addAction(action_match_matrix_);
+  extras_toolbar_->addAction(action_reconstruction_stats_);
   extras_toolbar_->addAction(action_grab_image_);
   extras_toolbar_->addAction(action_grab_movie_);
   extras_toolbar_->setIconSize(QSize(16, 16));
@@ -1130,13 +1136,13 @@ void MainWindow::RenderToggle() {
     render_options_widget_->automatic_update = false;
     render_options_widget_->counter = 0;
     action_render_toggle_->setIcon(QIcon(":/media/render-disabled.png"));
-    action_render_toggle_->setText(tr("Enable continuous rendering"));
+    action_render_toggle_->setText(tr("Enable rendering"));
   } else {
     render_options_widget_->automatic_update = true;
     render_options_widget_->counter = 0;
     Render();
     action_render_toggle_->setIcon(QIcon(":/media/render-enabled.png"));
-    action_render_toggle_->setText(tr("Disable continuous rendering"));
+    action_render_toggle_->setText(tr("Disable rendering"));
   }
 }
 
