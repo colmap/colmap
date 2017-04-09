@@ -1109,9 +1109,10 @@ void MainWindow::ResetOptions() {
 void MainWindow::About() {
   QMessageBox::about(
       this, tr("About"),
-      QString().sprintf("%s<br />(%s)<br /><br />"
-                        "Author:<br />Johannes L. Schönberger<br /><br />"
-                        "Email:<br />jsch at inf.ethz.ch",
+      QString().sprintf("<span style='font-weight:normal'><b>%s</b><br />"
+                        "<small>(%s)</small><br /><br />"
+                        "<b>Author:</b> Johannes L. Schönberger<br /><br />"
+                        "<b>Email:</b> jsch at inf.ethz.ch</span>",
                         GetVersionInfo().c_str(), GetBuildInfo().c_str()));
 }
 
