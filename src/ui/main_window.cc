@@ -558,7 +558,7 @@ void MainWindow::ProjectEdit() {
 }
 
 void MainWindow::ProjectSave() {
-  if (!boost::filesystem::is_regular_file(*options_.project_path)) {
+  if (!ExistsFile(*options_.project_path)) {
     std::string project_path =
         QFileDialog::getSaveFileName(this, tr("Select project file"), "",
                                      tr("Project file (*.ini)"))
@@ -611,9 +611,8 @@ void MainWindow::Import() {
   const std::string images_path = JoinPaths(path, "images.txt");
   const std::string points3D_path = JoinPaths(path, "points3D.txt");
 
-  if (!boost::filesystem::is_regular_file(cameras_path) ||
-      !boost::filesystem::is_regular_file(images_path) ||
-      !boost::filesystem::is_regular_file(points3D_path)) {
+  if (!ExistsFile(cameras_path) || !ExistsFile(images_path) ||
+      !ExistsFile(points3D_path)) {
     QMessageBox::critical(this, "",
                           tr("`cameras.txt`, `images.txt` and "
                              "`points3D.txt` must exist in the chosen "
@@ -625,7 +624,7 @@ void MainWindow::Import() {
     return;
   }
 
-  if (boost::filesystem::is_regular_file(project_path)) {
+  if (ExistsFile(project_path)) {
     options_.ReRead(project_path);
   } else {
     QMessageBox::StandardButton reply = QMessageBox::question(
@@ -660,7 +659,7 @@ void MainWindow::ImportFrom() {
     return;
   }
 
-  if (!boost::filesystem::is_regular_file(path)) {
+  if (!ExistsFile(path)) {
     QMessageBox::critical(this, "", tr("Invalid file"));
     return;
   }
@@ -719,10 +718,8 @@ void MainWindow::Export() {
   const std::string images_path = JoinPaths(path, "images.txt");
   const std::string points3D_path = JoinPaths(path, "points3D.txt");
 
-  if (boost::filesystem::is_regular_file(project_path) ||
-      boost::filesystem::is_regular_file(cameras_path) ||
-      boost::filesystem::is_regular_file(images_path) ||
-      boost::filesystem::is_regular_file(points3D_path)) {
+  if (ExistsFile(project_path) || ExistsFile(cameras_path) ||
+      ExistsFile(images_path) || ExistsFile(points3D_path)) {
     QMessageBox::StandardButton reply = QMessageBox::question(
         this, "",
         tr("The files `cameras.txt`, `images.txt`, or `points3D.txt` already "
