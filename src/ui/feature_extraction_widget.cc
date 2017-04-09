@@ -175,34 +175,32 @@ QGroupBox* FeatureExtractionWidget::CreateCameraModelBox() {
 #undef CAMERA_MODEL_CASE
 
   camera_params_exif_rb_ =
-      new QRadioButton(tr("Camera parameters from EXIF"), this);
+      new QRadioButton(tr("Parameters from EXIF"), this);
   camera_params_exif_rb_->setChecked(true);
 
   camera_params_custom_rb_ =
-      new QRadioButton(tr("Custom camera parameters"), this);
+      new QRadioButton(tr("Custom parameters"), this);
 
   camera_params_info_ = new QLabel(tr(""), this);
   QPalette pal = QPalette(camera_params_info_->palette());
   pal.setColor(QPalette::WindowText, QColor(130, 130, 130));
   camera_params_info_->setPalette(pal);
-  camera_params_info_->setAlignment(Qt::AlignRight);
 
   camera_params_text_ = new QLineEdit(this);
   camera_params_text_->setEnabled(false);
-  camera_params_text_->setAlignment(Qt::AlignRight);
 
-  single_camera_cb_ = new QCheckBox("Single camera for all images", this);
+  single_camera_cb_ = new QCheckBox("Shared for all images", this);
   single_camera_cb_->setChecked(false);
 
   QGroupBox* box = new QGroupBox(tr("Camera model"), this);
 
   QVBoxLayout* vbox = new QVBoxLayout(box);
   vbox->addWidget(camera_model_cb_);
+  vbox->addWidget(camera_params_info_);
+  vbox->addWidget(single_camera_cb_);
   vbox->addWidget(camera_params_exif_rb_);
   vbox->addWidget(camera_params_custom_rb_);
-  vbox->addWidget(camera_params_info_);
   vbox->addWidget(camera_params_text_);
-  vbox->addWidget(single_camera_cb_);
   vbox->addStretch(1);
 
   box->setLayout(vbox);
@@ -257,8 +255,8 @@ void FeatureExtractionWidget::WriteOptions() {
 
 void FeatureExtractionWidget::SelectCameraModel(const int idx) {
   const int code = camera_model_ids_[idx];
-  camera_params_info_->setText(
-      QString::fromStdString(CameraModelParamsInfo(code)));
+  camera_params_info_->setText(QString::fromStdString(StringPrintf(
+      "<small>Parameters: %s</small>", CameraModelParamsInfo(code).c_str())));
 }
 
 void FeatureExtractionWidget::Extract() {
