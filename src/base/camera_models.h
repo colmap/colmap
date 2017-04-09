@@ -69,10 +69,10 @@ static const int kInvalidCameraModelId = -1;
 #define CAMERA_MODEL_DEFINITIONS(model_id_value, model_name_value,             \
                                  num_params_value)                             \
   static const int kModelId = model_id_value;                                  \
-  static const int kNumParams = num_params_value;                              \
+  static const size_t kNumParams = num_params_value;                           \
   static const int model_id;                                                   \
   static const std::string model_name;                                         \
-  static const int num_params;                                                 \
+  static const size_t num_params;                                              \
   static const std::string params_info;                                        \
   static const std::vector<size_t> focal_length_idxs;                          \
   static const std::vector<size_t> principal_point_idxs;                       \
@@ -82,7 +82,7 @@ static const int kInvalidCameraModelId = -1;
   static inline std::string InitializeModelName() {                            \
     return model_name_value;                                                   \
   };                                                                           \
-  static inline int InitializeNumParams() { return num_params_value; };        \
+  static inline size_t InitializeNumParams() { return num_params_value; };     \
   static inline std::string InitializeParamsInfo();                            \
   static inline std::vector<size_t> InitializeFocalLengthIdxs();               \
   static inline std::vector<size_t> InitializePrincipalPointIdxs();            \

@@ -28,7 +28,7 @@ namespace colmap {
   const int CameraModel::model_id = InitializeModelId();        \
   const std::string CameraModel::model_name =                   \
       CameraModel::InitializeModelName();                       \
-  const int CameraModel::num_params = InitializeNumParams();    \
+  const size_t CameraModel::num_params = InitializeNumParams(); \
   const std::string CameraModel::params_info =                  \
       CameraModel::InitializeParamsInfo();                      \
   const std::vector<size_t> CameraModel::focal_length_idxs =    \
