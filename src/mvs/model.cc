@@ -18,6 +18,7 @@
 
 #include "base/pose.h"
 #include "base/reconstruction.h"
+#include "base/triangulation.h"
 #include "util/misc.h"
 
 namespace colmap {
@@ -215,6 +216,47 @@ std::vector<std::map<int, int>> Model::ComputeSharedPoints() const {
     }
   }
   return shared_points;
+}
+
+std::vector<std::map<int, float>> Model::ComputeTriangulationAngles(
+    const float percentile) const {
+  std::vector<Eigen::Vector3d> proj_centers(images.size());
+  for (size_t image_id = 0; image_id < images.size(); ++image_id) {
+    const auto& image = images[image_id];
+    Eigen::Vector3f C;
+    ComputeProjectionCenter(image.GetR(), image.GetT(), C.data());
+    proj_centers[image_id] = C.cast<double>();
+  }
+
+  std::vector<std::map<int, std::vector<float>>> all_triangulation_angles(
+      images.size());
+  for (const auto& point : points) {
+    for (size_t i = 0; i < point.track.size(); ++i) {
+      const int image_id1 = point.track[i];
+      for (size_t j = 0; j < i; ++j) {
+        const int image_id2 = point.track[j];
+        if (image_id1 != image_id2) {
+          const float angle = CalculateTriangulationAngle(
+              proj_centers.at(image_id1), proj_centers.at(image_id2),
+              Eigen::Vector3d(point.x, point.y, point.z));
+          all_triangulation_angles.at(image_id1)[image_id2].push_back(angle);
+          all_triangulation_angles.at(image_id2)[image_id1].push_back(angle);
+        }
+      }
+    }
+  }
+
+  std::vector<std::map<int, float>> triangulation_angles(images.size());
+  for (size_t image_id = 0; image_id < all_triangulation_angles.size();
+       ++image_id) {
+    const auto& overlapping_images = all_triangulation_angles[image_id];
+    for (const auto& image : overlapping_images) {
+      triangulation_angles[image_id].emplace(
+          image.first, Percentile(image.second, percentile));
+    }
+  }
+
+  return triangulation_angles;
 }
 
 }  // namespace mvs

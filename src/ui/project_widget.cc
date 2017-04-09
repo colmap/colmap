@@ -61,9 +61,8 @@ ProjectWidget::ProjectWidget(QWidget* parent, OptionManager* options)
 }
 
 bool ProjectWidget::IsValid() const {
-  return boost::filesystem::is_directory(ImagePath()) &&
-         boost::filesystem::is_directory(
-             boost::filesystem::path(DatabasePath()).parent_path());
+  return ExistsDir(ImagePath()) && !ExistsDir(DatabasePath()) &&
+         ExistsDir(GetParentDir(DatabasePath()));
 }
 
 void ProjectWidget::Reset() {
@@ -127,10 +126,9 @@ void ProjectWidget::SelectImagePath() {
 QString ProjectWidget::DefaultDirectory() {
   std::string directory_path = "";
   if (!prev_selected_ && !options_->project_path->empty()) {
-    const boost::filesystem::path parent_path =
-        boost::filesystem::path(*options_->project_path).parent_path();
-    if (boost::filesystem::is_directory(parent_path)) {
-      directory_path = parent_path.string();
+    const auto parent_path = GetParentDir(*options_->project_path);
+    if (ExistsDir(parent_path)) {
+      directory_path = parent_path;
     }
   }
   prev_selected_ = true;

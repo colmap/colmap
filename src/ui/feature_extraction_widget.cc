@@ -124,7 +124,7 @@ ImportFeaturesWidget::ImportFeaturesWidget(QWidget* parent,
 void ImportFeaturesWidget::Run() {
   WriteOptions();
 
-  if (!boost::filesystem::is_directory(import_path_)) {
+  if (!ExistsDir(import_path_)) {
     QMessageBox::critical(this, "", tr("Path is not a directory"));
     return;
   }

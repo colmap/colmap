@@ -53,8 +53,12 @@ struct Model {
   // Compute the robust minimum and maximum depths from the sparse point cloud.
   std::vector<std::pair<float, float>> ComputeDepthRanges() const;
 
-  // Compute the number of shared points between all possible pairs of images.
+  // Compute the number of shared points between all overlapping images.
   std::vector<std::map<int, int>> ComputeSharedPoints() const;
+
+  // Compute the median triangulation angles between all overlapping images.
+  std::vector<std::map<int, float>> ComputeTriangulationAngles(
+      const float percentile = 50) const;
 
   std::vector<Image> images;
   std::vector<Point> points;

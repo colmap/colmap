@@ -333,7 +333,7 @@ void MultiViewStereoWidget::Meshing() {
     return;
   }
 
-  if (boost::filesystem::exists(JoinPaths(workspace_path, kFusedFileName))) {
+  if (ExistsFile(JoinPaths(workspace_path, kFusedFileName))) {
     thread_control_widget_->StartFunction("Meshing...", [this,
                                                          workspace_path]() {
       mvs::PoissonReconstruction(options_->dense_mapper_options->poisson,
@@ -346,8 +346,7 @@ void MultiViewStereoWidget::Meshing() {
 void MultiViewStereoWidget::SelectWorkspacePath() {
   std::string workspace_path;
   if (workspace_path_text_->text().isEmpty()) {
-    workspace_path =
-        boost::filesystem::path(*options_->project_path).parent_path().string();
+    workspace_path = GetParentDir(*options_->project_path);
   } else {
     workspace_path = workspace_path_text_->text().toUtf8().constData();
   }
@@ -362,7 +361,7 @@ void MultiViewStereoWidget::SelectWorkspacePath() {
 std::string MultiViewStereoWidget::GetWorkspacePath() {
   const std::string workspace_path =
       workspace_path_text_->text().toUtf8().constData();
-  if (boost::filesystem::is_directory(workspace_path)) {
+  if (ExistsDir(workspace_path)) {
     return workspace_path;
   } else {
     QMessageBox::critical(this, "", tr("Invalid workspace path"));
@@ -376,7 +375,7 @@ void MultiViewStereoWidget::RefreshWorkspace() {
 
   const std::string workspace_path =
       workspace_path_text_->text().toUtf8().constData();
-  if (boost::filesystem::is_directory(workspace_path)) {
+  if (ExistsDir(workspace_path)) {
     undistortion_button_->setEnabled(true);
   } else {
     undistortion_button_->setEnabled(false);
@@ -392,13 +391,13 @@ void MultiViewStereoWidget::RefreshWorkspace() {
   const std::string config_path =
       JoinPaths(workspace_path, "stereo/patch-match.cfg");
 
-  if (boost::filesystem::is_directory(images_path_) &&
-      boost::filesystem::is_directory(depth_maps_path_) &&
-      boost::filesystem::is_directory(normal_maps_path_) &&
-      boost::filesystem::is_directory(JoinPaths(workspace_path, "sparse")) &&
-      boost::filesystem::is_directory(
+  if (ExistsDir(images_path_) &&
+      ExistsDir(depth_maps_path_) &&
+      ExistsDir(normal_maps_path_) &&
+      ExistsDir(JoinPaths(workspace_path, "sparse")) &&
+      ExistsDir(
           JoinPaths(workspace_path, "stereo/consistency_graphs")) &&
-      boost::filesystem::exists(config_path)) {
+      ExistsFile(config_path)) {
     stereo_button_->setEnabled(true);
   } else {
     stereo_button_->setEnabled(false);
@@ -442,7 +441,7 @@ void MultiViewStereoWidget::RefreshWorkspace() {
 
   fusion_button_->setEnabled(photometric_done_ || geometric_done_);
   meshing_button_->setEnabled(
-      boost::filesystem::exists(JoinPaths(workspace_path, kFusedFileName)));
+      ExistsFile(JoinPaths(workspace_path, kFusedFileName)));
 }
 
 void MultiViewStereoWidget::WriteFusedPoints() {
@@ -492,7 +491,7 @@ QWidget* MultiViewStereoWidget::GenerateTableButtonWidget(
   button_layout->setContentsMargins(0, 0, 0, 0);
 
   QPushButton* depth_map_button = new QPushButton("Depth map", button_widget);
-  if (boost::filesystem::exists(depth_map_path)) {
+  if (ExistsFile(depth_map_path)) {
     connect(depth_map_button, &QPushButton::released,
             [this, image_name, depth_map_path]() {
               mvs::DepthMap depth_map;
@@ -512,7 +511,7 @@ QWidget* MultiViewStereoWidget::GenerateTableButtonWidget(
   button_layout->addWidget(depth_map_button, 0, 1, Qt::AlignLeft);
 
   QPushButton* normal_map_button = new QPushButton("Normal map", button_widget);
-  if (boost::filesystem::exists(normal_map_path)) {
+  if (ExistsFile(normal_map_path)) {
     connect(normal_map_button, &QPushButton::released,
             [this, image_name, normal_map_path]() {
               mvs::NormalMap normal_map;

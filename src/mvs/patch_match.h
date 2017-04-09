@@ -68,7 +68,7 @@ class PatchMatch {
     double ncc_sigma = 0.6f;
 
     // Minimum triangulation angle in degrees.
-    double min_triangulation_angle = 0.5f;
+    double min_triangulation_angle = 1.0f;
 
     // Spread of the incident angle likelihood function.
     double incident_angle_sigma = 0.9f;

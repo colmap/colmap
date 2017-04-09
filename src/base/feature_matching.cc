@@ -946,7 +946,7 @@ void SequentialFeatureMatcher::Options::Check() const {
   CHECK_GT(loop_detection_period, 0);
   CHECK_GT(loop_detection_num_images, 0);
   if (loop_detection) {
-    CHECK(boost::filesystem::exists(vocab_tree_path));
+    CHECK(ExistsFile(vocab_tree_path));
   }
 }
 
@@ -1055,7 +1055,7 @@ void SequentialFeatureMatcher::RunLoopDetection(
 
 void VocabTreeFeatureMatcher::Options::Check() const {
   CHECK_GT(num_images, 0);
-  CHECK(boost::filesystem::exists(vocab_tree_path));
+  CHECK(ExistsFile(vocab_tree_path));
 }
 
 VocabTreeFeatureMatcher::VocabTreeFeatureMatcher(
@@ -1309,7 +1309,7 @@ void SpatialFeatureMatcher::Run() {
 
 void ImagePairsFeatureMatcher::Options::Check() const {
   CHECK_GT(block_size, 0);
-  CHECK(boost::filesystem::exists(match_list_path));
+  CHECK(ExistsFile(match_list_path));
 }
 
 ImagePairsFeatureMatcher::ImagePairsFeatureMatcher(
@@ -1414,7 +1414,7 @@ void ImagePairsFeatureMatcher::Run() {
 }
 
 void FeaturePairsFeatureMatcher::Options::Check() const {
-  CHECK(boost::filesystem::exists(match_list_path));
+  CHECK(ExistsFile(match_list_path));
 }
 
 FeaturePairsFeatureMatcher::FeaturePairsFeatureMatcher(

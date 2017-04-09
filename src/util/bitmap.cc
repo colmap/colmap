@@ -375,7 +375,7 @@ bool Bitmap::ExifAltitude(double* altitude) {
 }
 
 bool Bitmap::Read(const std::string& path, const bool as_rgb) {
-  if (!boost::filesystem::exists(path)) {
+  if (!ExistsFile(path)) {
     return false;
   }
 

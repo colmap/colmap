@@ -449,8 +449,8 @@ FeatureImporter::FeatureImporter(const ImageReader::Options& reader_options,
 void FeatureImporter::Run() {
   PrintHeading1("Feature import");
 
-  if (!boost::filesystem::exists(import_path_)) {
-    std::cerr << "  ERROR: Path does not exist." << std::endl;
+  if (!ExistsDir(import_path_)) {
+    std::cerr << "  ERROR: Import directory does not exist." << std::endl;
     return;
   }
 
@@ -476,7 +476,7 @@ void FeatureImporter::Run() {
 
     const std::string path = JoinPaths(import_path_, image.Name() + ".txt");
 
-    if (boost::filesystem::exists(path)) {
+    if (ExistsFile(path)) {
       FeatureKeypoints keypoints;
       FeatureDescriptors descriptors;
       LoadSiftFeaturesFromTextFile(path, &keypoints, &descriptors);
@@ -496,8 +496,6 @@ void FeatureImporter::Run() {
       if (!database.ExistsDescriptors(image.ImageId())) {
         database.WriteDescriptors(image.ImageId(), descriptors);
       }
-
-      std::cout << "  SKIP: Image already processed." << std::endl;
     } else {
       std::cout << "  SKIP: No features found at " << path << std::endl;
     }

@@ -44,12 +44,12 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
-  if (!boost::filesystem::is_directory(import_path)) {
+  if (!ExistsDir(import_path)) {
     std::cerr << "ERROR: `import_path` is not a directory" << std::endl;
     return EXIT_FAILURE;
   }
 
-  if (!boost::filesystem::is_directory(export_path)) {
+  if (!ExistsDir(export_path)) {
     std::cerr << "ERROR: `export_path` is not a directory" << std::endl;
     return EXIT_FAILURE;
   }

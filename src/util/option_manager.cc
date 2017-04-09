@@ -1153,7 +1153,7 @@ bool OptionManager::ParseHelp(const int argc, char** argv) {
 bool OptionManager::Read(const std::string& path) {
   config::variables_map vmap;
 
-  if (!boost::filesystem::exists(path)) {
+  if (!ExistsFile(path)) {
     std::cout << "ERROR: Configuration file does not exist." << std::endl;
     return false;
   }
@@ -1207,10 +1207,9 @@ void OptionManager::Write(const std::string& path) const {
 bool OptionManager::Check() {
   bool verified = true;
 
-  verified =
-      verified && boost::filesystem::is_directory(
-                      boost::filesystem::path(*database_path).parent_path());
-  verified = verified && boost::filesystem::is_directory(*image_path);
+  verified = verified && !ExistsDir(*database_path) &&
+             ExistsDir(GetParentDir(*database_path));
+  verified = verified && ExistsDir(*image_path);
 
   verified = verified && extraction_options->Check();
   verified = verified && match_options->Check();

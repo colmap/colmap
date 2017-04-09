@@ -20,6 +20,7 @@
 
 #include "mvs/consistency_graph.h"
 #include "mvs/patch_match_cuda.h"
+#include "util/math.h"
 #include "util/misc.h"
 
 #define PrintOption(option) std::cout << #option ": " << option << std::endl
@@ -97,7 +98,11 @@ void ReadPatchMatchProblems(const PatchMatch::Options& options,
   CHECK(file.is_open());
 
   std::set<int> used_image_ids;
-  std::vector<std::map<int, int>> shared_points;
+  std::vector<std::map<int, int>> shared_num_points;
+  std::vector<std::map<int, float>> triangulation_angles;
+
+  const float min_triangulation_angle_rad =
+      DegToRad(options.min_triangulation_angle);
 
   std::string line;
   std::string ref_image_name;
@@ -120,7 +125,6 @@ void ReadPatchMatchProblems(const PatchMatch::Options& options,
     problem.normal_maps = normal_maps;
 
     problem.ref_image_id = model->GetImageId(ref_image_name);
-    used_image_ids.insert(problem.ref_image_id);
 
     const std::vector<std::string> src_image_names =
         CSVToVector<std::string>(line);
@@ -132,49 +136,64 @@ void ReadPatchMatchProblems(const PatchMatch::Options& options,
       for (size_t image_id = 0; image_id < model->images.size(); ++image_id) {
         if (static_cast<int>(image_id) != problem.ref_image_id) {
           problem.src_image_ids.push_back(image_id);
-          used_image_ids.insert(image_id);
         }
       }
     } else if (src_image_names.size() == 2 &&
                src_image_names[0] == "__auto__") {
       // Use maximum number of overlapping images as source images. Overlapping
       // will be sorted based on the number of shared points to the reference
-      // image and the top ranked images are selected.
+      // image and the top ranked images are selected. Note that images are only
+      // selected if some points have a sufficient triangulation angle.
 
-      if (shared_points.empty()) {
-        shared_points = model->ComputeSharedPoints();
+      if (shared_num_points.empty()) {
+        shared_num_points = model->ComputeSharedPoints();
+      }
+      if (triangulation_angles.empty()) {
+        const float kTriangulationAnglePercentile = 75;
+        triangulation_angles =
+            model->ComputeTriangulationAngles(kTriangulationAnglePercentile);
       }
 
       const size_t max_num_src_images =
           boost::lexical_cast<int>(src_image_names[1]);
 
-      const auto& overlapping_images = shared_points.at(problem.ref_image_id);
+      const auto& overlapping_images =
+          shared_num_points.at(problem.ref_image_id);
+      const auto& overlapping_triangulation_angles =
+          triangulation_angles.at(problem.ref_image_id);
 
       if (max_num_src_images >= overlapping_images.size()) {
         problem.src_image_ids.reserve(overlapping_images.size());
         for (const auto& image : overlapping_images) {
-          problem.src_image_ids.push_back(image.first);
-          used_image_ids.insert(image.first);
+          if (overlapping_triangulation_angles.at(image.first) >=
+              min_triangulation_angle_rad) {
+            problem.src_image_ids.push_back(image.first);
+          }
         }
       } else {
         std::vector<std::pair<int, int>> src_images;
         src_images.reserve(overlapping_images.size());
         for (const auto& image : overlapping_images) {
-          src_images.emplace_back(image.first, image.second);
+          if (overlapping_triangulation_angles.at(image.first) >=
+              min_triangulation_angle_rad) {
+            src_images.emplace_back(image.first, image.second);
+          }
         }
 
+        const size_t eff_max_num_src_images =
+            std::min(src_images.size(), max_num_src_images);
+
         std::partial_sort(src_images.begin(),
-                          src_images.begin() + max_num_src_images,
+                          src_images.begin() + eff_max_num_src_images,
                           src_images.end(),
                           [](const std::pair<int, int> image1,
                              const std::pair<int, int> image2) {
                             return image1.second > image2.second;
                           });
 
-        problem.src_image_ids.reserve(max_num_src_images);
-        for (size_t i = 0; i < max_num_src_images; ++i) {
+        problem.src_image_ids.reserve(eff_max_num_src_images);
+        for (size_t i = 0; i < eff_max_num_src_images; ++i) {
           problem.src_image_ids.push_back(src_images[i].first);
-          used_image_ids.insert(src_images[i].first);
         }
       }
     } else {
@@ -184,9 +203,20 @@ void ReadPatchMatchProblems(const PatchMatch::Options& options,
       }
     }
 
-    CHECK(!problem.src_image_ids.empty()) << "Need at least one source image";
-
-    problems->push_back(problem);
+    if (problem.src_image_ids.empty()) {
+      std::cout
+          << StringPrintf(
+                 "WARNING: Ignoring reference image %s, because it has no "
+                 "source images.",
+                 ref_image_name.c_str())
+          << std::endl;
+    } else {
+      used_image_ids.insert(problem.ref_image_id);
+      for (const auto image_id : problem.src_image_ids) {
+        used_image_ids.insert(image_id);
+      }
+      problems->push_back(problem);
+    }
 
     ref_image_name.clear();
   }
@@ -428,9 +458,8 @@ void PatchMatchController::Run() {
     const std::string consistency_graph_path =
         JoinPaths(workspace_path_, "stereo/consistency_graphs", file_name);
 
-    if (boost::filesystem::exists(depth_map_path) &&
-        boost::filesystem::exists(normal_map_path) &&
-        boost::filesystem::exists(consistency_graph_path)) {
+    if (ExistsFile(depth_map_path) && ExistsFile(normal_map_path) &&
+        ExistsFile(consistency_graph_path)) {
       return;
     }
 

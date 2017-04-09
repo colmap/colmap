@@ -59,7 +59,7 @@ void UndistortionWidget::Show(const Reconstruction& reconstruction) {
 }
 
 bool UndistortionWidget::IsValid() const {
-  return boost::filesystem::is_directory(output_path_);
+  return ExistsDir(output_path_);
 }
 
 void UndistortionWidget::Undistort() {

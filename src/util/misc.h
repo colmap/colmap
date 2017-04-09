@@ -46,11 +46,23 @@ bool HasFileExtension(const std::string& file_name, const std::string& ext);
 void SplitFileExtension(const std::string& path, std::string* root,
                         std::string* ext);
 
+// Check if the path points to an existing directory.
+bool ExistsFile(const std::string& path);
+
+// Check if the path points to an existing directory.
+bool ExistsDir(const std::string& path);
+
+// Check if the path points to an existing file or directory.
+bool ExistsPath(const std::string& path);
+
 // Create the directory if it does not exist.
 void CreateDirIfNotExists(const std::string& path);
 
 // Extract the base name of a path, e.g., "image.jpg" for "/dir/image.jpg".
 std::string GetPathBaseName(const std::string& path);
+
+// Get the path of the parent directory for the given path.
+std::string GetParentDir(const std::string& path);
 
 // Join multiple paths into one path.
 template <typename... T>

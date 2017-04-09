@@ -208,7 +208,7 @@ void COLMAPUndistorter::Undistort(const size_t reg_image_idx) const {
   const std::string output_image_path =
       JoinPaths(output_path_, "images", image.Name());
 
-  if (boost::filesystem::exists(output_image_path)) {
+  if (ExistsFile(output_image_path)) {
     return;
   }
 
@@ -333,8 +333,7 @@ void PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
   const std::string proj_matrix_path =
       JoinPaths(output_path_, StringPrintf("pmvs/txt/%08d.txt", reg_image_idx));
 
-  if (boost::filesystem::exists(output_image_path) &&
-      boost::filesystem::exists(proj_matrix_path)) {
+  if (ExistsFile(output_image_path) && ExistsFile(proj_matrix_path)) {
     return;
   }
 
@@ -537,8 +536,7 @@ void CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
   const std::string proj_matrix_path =
       JoinPaths(output_path_, StringPrintf("%05d_P.txt", reg_image_idx + 1));
 
-  if (boost::filesystem::exists(output_image_path) &&
-      boost::filesystem::exists(proj_matrix_path)) {
+  if (ExistsFile(output_image_path) && ExistsFile(proj_matrix_path)) {
     return;
   }
 
@@ -620,8 +618,7 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
   const std::string output_image2_path =
       JoinPaths(output_path_, stereo_pair_name, image_name2);
 
-  if (boost::filesystem::exists(output_image1_path) &&
-      boost::filesystem::exists(output_image2_path)) {
+  if (ExistsFile(output_image1_path) && ExistsFile(output_image2_path)) {
     return;
   }
 

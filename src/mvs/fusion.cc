@@ -106,6 +106,16 @@ void StereoFusion::Run() {
       ReadTextFileLines(JoinPaths(workspace_path_, "stereo/fusion.cfg"));
   for (const auto& image_name : image_names) {
     const int image_id = model.GetImageId(image_name);
+
+    if (!workspace_->HasImage(image_id)) {
+      std::cout
+          << StringPrintf(
+                 "WARNING: Ignoring image %s, because input does not exist.",
+                 image_name.c_str())
+          << std::endl;
+      continue;
+    }
+
     const auto& image = model.images.at(image_id);
     const auto& depth_map = workspace_->GetDepthMap(image_id);
 

@@ -91,6 +91,14 @@ BOOST_AUTO_TEST_CASE(TestGetPathBaseName) {
   BOOST_CHECK_EQUAL(GetPathBaseName("/test1/test2/test3.ext"), "test3.ext");
 }
 
+BOOST_AUTO_TEST_CASE(TestGetParentDir) {
+  BOOST_CHECK_EQUAL(GetParentDir(""), "");
+  BOOST_CHECK_EQUAL(GetParentDir("test"), "");
+  BOOST_CHECK_EQUAL(GetParentDir("/test"), "/");
+  BOOST_CHECK_EQUAL(GetParentDir("/"), "");
+  BOOST_CHECK_EQUAL(GetParentDir("test/test"), "test");
+}
+
 BOOST_AUTO_TEST_CASE(TestJoinPaths) {
   BOOST_CHECK_EQUAL(JoinPaths(""), "");
   BOOST_CHECK_EQUAL(JoinPaths("test"), "test");

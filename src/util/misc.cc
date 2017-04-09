@@ -67,8 +67,20 @@ void SplitFileExtension(const std::string& path, std::string* root,
   }
 }
 
+bool ExistsFile(const std::string& path) {
+  return boost::filesystem::is_regular_file(path);
+}
+
+bool ExistsDir(const std::string& path) {
+  return boost::filesystem::is_directory(path);
+}
+
+bool ExistsPath(const std::string& path) {
+  return boost::filesystem::exists(path);
+}
+
 void CreateDirIfNotExists(const std::string& path) {
-  if (!boost::filesystem::is_directory(path)) {
+  if (!ExistsDir(path)) {
     CHECK(boost::filesystem::create_directory(path));
   }
 }
@@ -81,6 +93,10 @@ std::string GetPathBaseName(const std::string& path) {
   } else {
     return names.back();
   }
+}
+
+std::string GetParentDir(const std::string& path) {
+  return boost::filesystem::path(path).parent_path().string();
 }
 
 std::vector<std::string> GetRecursiveFileList(const std::string& path) {

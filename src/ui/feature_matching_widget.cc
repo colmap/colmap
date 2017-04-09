@@ -219,7 +219,7 @@ CustomMatchingTab::CustomMatchingTab(QWidget* parent, OptionManager* options)
 void CustomMatchingTab::Run() {
   WriteOptions();
 
-  if (!boost::filesystem::exists(match_list_path_)) {
+  if (!ExistsFile(match_list_path_)) {
     QMessageBox::critical(this, "", tr("Path does not exist!"));
     return;
   }
