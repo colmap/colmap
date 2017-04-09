@@ -16,6 +16,8 @@
 
 #include "base/camera_models.h"
 
+#include <unordered_map>
+
 #include <boost/algorithm/string.hpp>
 
 namespace colmap {
@@ -23,6 +25,10 @@ namespace colmap {
 // Initialize params_info, focal_length_idxs, principal_point_idxs,
 // extra_params_idxs
 #define CAMERA_MODEL_CASE(CameraModel)                          \
+  const int CameraModel::model_id;                              \
+  const std::string CameraModel::model_name =                   \
+      CameraModel::InitializeModelName();                       \
+  const int CameraModel::num_params;                            \
   const std::string CameraModel::params_info =                  \
       CameraModel::InitializeParamsInfo();                      \
   const std::vector<size_t> CameraModel::focal_length_idxs =    \
@@ -36,60 +42,54 @@ CAMERA_MODEL_CASES
 
 #undef CAMERA_MODEL_CASE
 
-int CameraModelNameToId(const std::string& name) {
-  std::string uppercast_name = name;
-  boost::to_upper(uppercast_name);
-  if (uppercast_name == "SIMPLE_PINHOLE") {
-    return SimplePinholeCameraModel::model_id;
-  } else if (uppercast_name == "PINHOLE") {
-    return PinholeCameraModel::model_id;
-  } else if (uppercast_name == "SIMPLE_RADIAL") {
-    return SimpleRadialCameraModel::model_id;
-  } else if (uppercast_name == "SIMPLE_RADIAL_FISHEYE") {
-    return SimpleRadialFisheyeCameraModel::model_id;
-  } else if (uppercast_name == "RADIAL") {
-    return RadialCameraModel::model_id;
-  } else if (uppercast_name == "RADIAL_FISHEYE") {
-    return RadialFisheyeCameraModel::model_id;
-  } else if (uppercast_name == "OPENCV") {
-    return OpenCVCameraModel::model_id;
-  } else if (uppercast_name == "OPENCV_FISHEYE") {
-    return OpenCVFisheyeCameraModel::model_id;
-  } else if (uppercast_name == "FULL_OPENCV") {
-    return FullOpenCVCameraModel::model_id;
-  } else if (uppercast_name == "FOV") {
-    return FOVCameraModel::model_id;
-  } else if (uppercast_name == "THIN_PRISM_FISHEYE") {
-    return ThinPrismFisheyeCameraModel::model_id;
-  }
-  return kInvalidCameraModelId;
+std::unordered_map<std::string, int> InitialzeCameraModelNameToId() {
+  std::unordered_map<std::string, int> camera_model_name_to_id;
+
+#define CAMERA_MODEL_CASE(CameraModel)                     \
+  camera_model_name_to_id.emplace(CameraModel::model_name, \
+                                  CameraModel::model_id);
+
+  CAMERA_MODEL_CASES
+
+#undef CAMERA_MODEL_CASE
+
+  return camera_model_name_to_id;
 }
 
-std::string CameraModelIdToName(const int model_id) {
-  if (model_id == SimplePinholeCameraModel::model_id) {
-    return "SIMPLE_PINHOLE";
-  } else if (model_id == PinholeCameraModel::model_id) {
-    return "PINHOLE";
-  } else if (model_id == SimpleRadialCameraModel::model_id) {
-    return "SIMPLE_RADIAL";
-  } else if (model_id == SimpleRadialFisheyeCameraModel::model_id) {
-    return "SIMPLE_RADIAL_FISHEYE";
-  } else if (model_id == RadialCameraModel::model_id) {
-    return "RADIAL";
-  } else if (model_id == RadialFisheyeCameraModel::model_id) {
-    return "RADIAL_FISHEYE";
-  } else if (model_id == OpenCVCameraModel::model_id) {
-    return "OPENCV";
-  } else if (model_id == OpenCVFisheyeCameraModel::model_id) {
-    return "OPENCV_FISHEYE";
-  } else if (model_id == FullOpenCVCameraModel::model_id) {
-    return "FULL_OPENCV";
-  } else if (model_id == FOVCameraModel::model_id) {
-    return "FOV";
-  } else if (model_id == ThinPrismFisheyeCameraModel::model_id) {
-    return "THIN_PRISM_FISHEYE";
+static const std::unordered_map<std::string, int> CAMERA_MODEL_NAME_TO_ID =
+    InitialzeCameraModelNameToId();
+
+int CameraModelNameToId(const std::string& model_name) {
+  if (CAMERA_MODEL_NAME_TO_ID.count(model_name)) {
+    return CAMERA_MODEL_NAME_TO_ID.at(model_name);
+  } else {
+    return kInvalidCameraModelId;
   }
-  return "INVALID_CAMERA_MODEL";
+}
+
+std::unordered_map<int, std::string> InitialzeCameraModelIdToName() {
+  std::unordered_map<int, std::string> camera_model_id_to_name;
+
+#define CAMERA_MODEL_CASE(CameraModel)                   \
+  camera_model_id_to_name.emplace(CameraModel::model_id, \
+                                  CameraModel::model_name);
+
+  CAMERA_MODEL_CASES
+
+#undef CAMERA_MODEL_CASE
+
+  return camera_model_id_to_name;
+}
+
+static const std::unordered_map<int, std::string> CAMERA_MODEL_ID_TO_NAME =
+    InitialzeCameraModelIdToName();
+
+std::string CameraModelIdToName(const int model_id) {
+  if (CAMERA_MODEL_ID_TO_NAME.count(model_id)) {
+    return CAMERA_MODEL_ID_TO_NAME.at(model_id);
+  } else {
+    return "INVALID_CAMERA_MODEL";
+  }
 }
 
 void CameraModelInitializeParams(const int model_id, const double focal_length,

@@ -59,6 +59,13 @@ void TestModel(const std::vector<double>& camera_params) {
   TestImageToWorldToImage<CameraModel>(camera_params,
                                        camera_params[pp_idxs.at(0)],
                                        camera_params[pp_idxs.at(1)]);
+
+  BOOST_CHECK_EQUAL(
+      CameraModelNameToId(CameraModelIdToName(CameraModel::model_id)),
+      CameraModel::model_id);
+  BOOST_CHECK_EQUAL(
+      CameraModelIdToName(CameraModelNameToId(CameraModel::model_name)),
+      CameraModel::model_name);
 }
 
 BOOST_AUTO_TEST_CASE(TestSimplePinhole) {

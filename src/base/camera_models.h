@@ -32,14 +32,13 @@ namespace colmap {
 // models can be added by the following steps:
 //
 //  1. Add a new struct in this file which implements all the necessary methods.
-//  2. Define an unique name and model_id for the camera model and add it to
-//     the struct and update `CameraModelIdToName` and `CameraModelNameToId`.
+//  2. Define an unique model_name and model_id for the camera model.
 //  3. Add camera model to `CAMERA_MODEL_CASES` macro in this file.
 //  4. Add new template specialization of test case for camera model to
 //     `camera_models_test.cc`.
 //
 // A camera model can have three different types of camera parameters: focal
-// length, principal point, extra parameters (abberation parameters). The
+// length, principal point, extra parameters (distortion parameters). The
 // parameter array is split into different groups, so that we can enable or
 // disable the refinement of the individual groups during bundle adjustment. It
 // is up to the camera model to access the parameters correctly (it is free to
@@ -67,14 +66,19 @@ namespace colmap {
 static const int kInvalidCameraModelId = -1;
 
 #ifndef CAMERA_MODEL_DEFINITIONS
-#define CAMERA_MODEL_DEFINITIONS(model_id_value, num_params_value)             \
+#define CAMERA_MODEL_DEFINITIONS(model_id_value, model_name_value,             \
+                                 num_params_value)                             \
   static const int model_id = model_id_value;                                  \
+  static const std::string model_name;                                         \
   static const int num_params = num_params_value;                              \
   static const std::string params_info;                                        \
   static const std::vector<size_t> focal_length_idxs;                          \
   static const std::vector<size_t> principal_point_idxs;                       \
   static const std::vector<size_t> extra_params_idxs;                          \
                                                                                \
+  static inline std::string InitializeModelName() {                            \
+    return model_name_value;                                                   \
+  };                                                                           \
   static inline std::string InitializeParamsInfo();                            \
   static inline std::vector<size_t> InitializeFocalLengthIdxs();               \
   static inline std::vector<size_t> InitializePrincipalPointIdxs();            \
@@ -161,7 +165,7 @@ struct BaseCameraModel {
 // See https://en.wikipedia.org/wiki/Pinhole_camera_model
 struct SimplePinholeCameraModel
     : public BaseCameraModel<SimplePinholeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(0, 3)
+  CAMERA_MODEL_DEFINITIONS(0, "SIMPLE_PINHOLE", 3)
 };
 
 // Pinhole camera model.
@@ -174,7 +178,7 @@ struct SimplePinholeCameraModel
 //
 // See https://en.wikipedia.org/wiki/Pinhole_camera_model
 struct PinholeCameraModel : public BaseCameraModel<PinholeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(1, 4)
+  CAMERA_MODEL_DEFINITIONS(1, "PINHOLE", 4)
 };
 
 // Simple camera model with one focal length and one radial distortion
@@ -190,7 +194,7 @@ struct PinholeCameraModel : public BaseCameraModel<PinholeCameraModel> {
 //
 struct SimpleRadialCameraModel
     : public BaseCameraModel<SimpleRadialCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(2, 4)
+  CAMERA_MODEL_DEFINITIONS(2, "SIMPLE_RADIAL", 4)
 };
 
 // Simple camera model with one focal length and two radial distortion
@@ -204,7 +208,7 @@ struct SimpleRadialCameraModel
 //    f, cx, cy, k1, k2
 //
 struct RadialCameraModel : public BaseCameraModel<RadialCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(3, 5)
+  CAMERA_MODEL_DEFINITIONS(3, "RADIAL", 5)
 };
 
 // OpenCV camera model.
@@ -220,7 +224,7 @@ struct RadialCameraModel : public BaseCameraModel<RadialCameraModel> {
 // See
 // http://docs.opencv.org/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 struct OpenCVCameraModel : public BaseCameraModel<OpenCVCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(4, 8)
+  CAMERA_MODEL_DEFINITIONS(4, "OPENCV", 8)
 };
 
 // OpenCV fish-eye camera model.
@@ -237,7 +241,7 @@ struct OpenCVCameraModel : public BaseCameraModel<OpenCVCameraModel> {
 // http://docs.opencv.org/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 struct OpenCVFisheyeCameraModel
     : public BaseCameraModel<OpenCVFisheyeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(5, 8)
+  CAMERA_MODEL_DEFINITIONS(5, "OPENCV_FISHEYE", 8)
 };
 
 // Full OpenCV camera model.
@@ -252,7 +256,7 @@ struct OpenCVFisheyeCameraModel
 // See
 // http://docs.opencv.org/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
 struct FullOpenCVCameraModel : public BaseCameraModel<FullOpenCVCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(6, 12)
+  CAMERA_MODEL_DEFINITIONS(6, "FULL_OPENCV", 12)
 };
 
 // FOV camera model.
@@ -270,7 +274,7 @@ struct FullOpenCVCameraModel : public BaseCameraModel<FullOpenCVCameraModel> {
 // Automatic calibration and removal of distortion from scenes of structured
 // environments. Machine vision and applications, 2001.
 struct FOVCameraModel : public BaseCameraModel<FOVCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(7, 5)
+  CAMERA_MODEL_DEFINITIONS(7, "FOV", 5)
 
   template <typename T>
   static void Undistortion(const T* extra_params, const T u, const T v, T* du,
@@ -289,7 +293,7 @@ struct FOVCameraModel : public BaseCameraModel<FOVCameraModel> {
 //
 struct SimpleRadialFisheyeCameraModel
     : public BaseCameraModel<SimpleRadialFisheyeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(8, 4)
+  CAMERA_MODEL_DEFINITIONS(8, "SIMPLE_RADIAL_FISHEYE", 4)
 };
 
 // Simple camera model with one focal length and two radial distortion
@@ -304,7 +308,7 @@ struct SimpleRadialFisheyeCameraModel
 //
 struct RadialFisheyeCameraModel
     : public BaseCameraModel<RadialFisheyeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(9, 5)
+  CAMERA_MODEL_DEFINITIONS(9, "RADIAL_FISHEYE", 5)
 };
 
 // Camera model with radial and tangential distortion coefficients and
@@ -321,7 +325,7 @@ struct RadialFisheyeCameraModel
 //
 struct ThinPrismFisheyeCameraModel
     : public BaseCameraModel<ThinPrismFisheyeCameraModel> {
-  CAMERA_MODEL_DEFINITIONS(10, 12)
+  CAMERA_MODEL_DEFINITIONS(10, "THIN_PRISM_FISHEYE", 12)
 };
 
 // Convert camera name to unique camera model identifier.
