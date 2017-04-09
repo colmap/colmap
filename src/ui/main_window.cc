@@ -624,28 +624,33 @@ void MainWindow::Import() {
     return;
   }
 
+  bool edit_project = false;
   if (ExistsFile(project_path)) {
     options_.ReRead(project_path);
   } else {
     QMessageBox::StandardButton reply = QMessageBox::question(
         this, "",
-        tr("Directory does not contain a `project.ini`. In order to "
-           "resume the reconstruction you need to specify a valid "
+        tr("Directory does not contain a `project.ini`. To "
+           "resume the reconstruction, you need to specify a valid "
            "database and image path. Do you want to select the paths "
-           "now (or press 'No' to only visualize the model)?"),
+           "now (or press 'No' to only visualize the reconstruction)?"),
         QMessageBox::Yes | QMessageBox::No);
     if (reply == QMessageBox::Yes) {
-      ProjectOpen();
+      edit_project = true;
     }
   }
 
-  thread_control_widget_->StartFunction("Importing...", [this, path]() {
-    const size_t idx = reconstruction_manager_.Read(path);
-    reconstruction_manager_widget_->Update();
-    reconstruction_manager_widget_->SelectReconstruction(idx);
-    action_bundle_adjustment_->setEnabled(true);
-    action_render_now_->trigger();
-  });
+  thread_control_widget_->StartFunction(
+      "Importing...", [this, path, edit_project]() {
+        const size_t idx = reconstruction_manager_.Read(path);
+        reconstruction_manager_widget_->Update();
+        reconstruction_manager_widget_->SelectReconstruction(idx);
+        action_bundle_adjustment_->setEnabled(true);
+        action_render_now_->trigger();
+        if (edit_project) {
+          action_project_edit_->trigger();
+        }
+      });
 }
 
 void MainWindow::ImportFrom() {
