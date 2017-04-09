@@ -36,6 +36,8 @@ COLMAP_ADD_EXECUTABLE(model_merger model_merger.cc)
 
 COLMAP_ADD_EXECUTABLE(model_orientation_aligner model_orientation_aligner.cc)
 
+COLMAP_ADD_EXECUTABLE(model_statistics model_statistics.cc)
+
 COLMAP_ADD_EXECUTABLE(point_triangulator point_triangulator.cc)
 
 COLMAP_ADD_EXECUTABLE(rig_bundle_adjuster rig_bundle_adjuster.cc)

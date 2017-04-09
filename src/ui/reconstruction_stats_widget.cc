@@ -52,7 +52,7 @@ void ReconstructionStatsWidget::Show(const Reconstruction& reconstruction) {
   AddStatistic(
       "Mean observations per image",
       QString::number(reconstruction.ComputeMeanObservationsPerRegImage()));
-  AddStatistic("Mean point error",
+  AddStatistic("Mean reprojection error",
                QString::number(reconstruction.ComputeMeanReprojectionError()));
 }
 

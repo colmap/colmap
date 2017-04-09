@@ -174,6 +174,8 @@ Executables
 - ``model_merger``: Attempt to merge two disconnected reconstructions,
   if they have common registered images.
 
+- ``model_statistics``: Print statistics about reconstructions.
+
 - ``color_extractor``: Extract mean colors for all 3D points of a model.
 
 - ``vocab_tree_builder``: Create a vocabulary tree from a database with
