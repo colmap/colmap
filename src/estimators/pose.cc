@@ -208,12 +208,13 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     ceres::CostFunction* cost_function = nullptr;
 
     switch (camera->ModelId()) {
-#define CAMERA_MODEL_CASE(model)                                              \
-  case model::model_id:                                                       \
-    cost_function = BundleAdjustmentCostFunction<model>::Create(points2D[i]); \
-    problem.AddResidualBlock(cost_function, loss_function, qvec_data,         \
-                             tvec_data, points3D_copy[i].data(),              \
-                             camera_params_data);                             \
+#define CAMERA_MODEL_CASE(CameraModel)                                  \
+  case CameraModel::kModelId:                                           \
+    cost_function =                                                     \
+        BundleAdjustmentCostFunction<CameraModel>::Create(points2D[i]); \
+    problem.AddResidualBlock(cost_function, loss_function, qvec_data,   \
+                             tvec_data, points3D_copy[i].data(),        \
+                             camera_params_data);                       \
     break;
 
       CAMERA_MODEL_SWITCH_CASES

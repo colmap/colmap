@@ -68,17 +68,21 @@ static const int kInvalidCameraModelId = -1;
 #ifndef CAMERA_MODEL_DEFINITIONS
 #define CAMERA_MODEL_DEFINITIONS(model_id_value, model_name_value,             \
                                  num_params_value)                             \
-  static const int model_id = model_id_value;                                  \
+  static const int kModelId = model_id_value;                                  \
+  static const int kNumParams = num_params_value;                              \
+  static const int model_id;                                                   \
   static const std::string model_name;                                         \
-  static const int num_params = num_params_value;                              \
+  static const int num_params;                                                 \
   static const std::string params_info;                                        \
   static const std::vector<size_t> focal_length_idxs;                          \
   static const std::vector<size_t> principal_point_idxs;                       \
   static const std::vector<size_t> extra_params_idxs;                          \
                                                                                \
+  static inline int InitializeModelId() { return model_id_value; };            \
   static inline std::string InitializeModelName() {                            \
     return model_name_value;                                                   \
   };                                                                           \
+  static inline int InitializeNumParams() { return num_params_value; };        \
   static inline std::string InitializeParamsInfo();                            \
   static inline std::vector<size_t> InitializeFocalLengthIdxs();               \
   static inline std::vector<size_t> InitializePrincipalPointIdxs();            \
@@ -364,9 +368,9 @@ std::string CameraModelParamsInfo(const int model_id);
 // Get the indices of the parameter groups in the parameter vector.
 //
 // @param model_id     Unique identifier of camera model.
-std::vector<size_t> CameraModelFocalLengthIdxs(const int model_id);
-std::vector<size_t> CameraModelPrincipalPointIdxs(const int model_id);
-std::vector<size_t> CameraModelExtraParamsIdxs(const int model_id);
+const std::vector<size_t>& CameraModelFocalLengthIdxs(const int model_id);
+const std::vector<size_t>& CameraModelPrincipalPointIdxs(const int model_id);
+const std::vector<size_t>& CameraModelExtraParamsIdxs(const int model_id);
 
 // Check whether parameters are valid, i.e. the parameter vector has
 // the correct dimensions that match the specified camera model.
@@ -1523,7 +1527,7 @@ void CameraModelWorldToImage(const int model_id,
                              const double v, double* x, double* y) {
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                    \
-  case CameraModel::model_id:                             \
+  case CameraModel::kModelId:                             \
     CameraModel::WorldToImage(params.data(), u, v, x, y); \
     break;
 
@@ -1538,7 +1542,7 @@ void CameraModelImageToWorld(const int model_id,
                              const double y, double* u, double* v) {
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                    \
-  case CameraModel::model_id:                             \
+  case CameraModel::kModelId:                             \
     CameraModel::ImageToWorld(params.data(), x, y, u, v); \
     break;
 
@@ -1553,7 +1557,7 @@ double CameraModelImageToWorldThreshold(const int model_id,
                                         const double threshold) {
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                                   \
-  case CameraModel::model_id:                                            \
+  case CameraModel::kModelId:                                            \
     return CameraModel::ImageToWorldThreshold(params.data(), threshold); \
     break;
 

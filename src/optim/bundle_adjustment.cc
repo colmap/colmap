@@ -348,7 +348,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
     if (constant_pose) {
       switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                    \
-  case CameraModel::model_id:                                             \
+  case CameraModel::kModelId:                                             \
     cost_function =                                                       \
         BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create(    \
             image.Qvec(), image.Tvec(), point2D.XY());                    \
@@ -363,7 +363,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
     } else {
       switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                   \
-  case CameraModel::model_id:                                            \
+  case CameraModel::kModelId:                                            \
     cost_function =                                                      \
         BundleAdjustmentCostFunction<CameraModel>::Create(point2D.XY()); \
     problem_->AddResidualBlock(cost_function, loss_function, qvec_data,  \
@@ -433,7 +433,7 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
 
     switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                     \
-  case CameraModel::model_id:                                              \
+  case CameraModel::kModelId:                                              \
     cost_function =                                                        \
         BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create(     \
             image.Qvec(), image.Tvec(), point2D.XY());                     \
@@ -934,7 +934,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
       if (constant_pose) {
         switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                    \
-  case CameraModel::model_id:                                             \
+  case CameraModel::kModelId:                                             \
     cost_function =                                                       \
         BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create(    \
             image.Qvec(), image.Tvec(), point2D.XY());                    \
@@ -949,7 +949,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
       } else {
         switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                   \
-  case CameraModel::model_id:                                            \
+  case CameraModel::kModelId:                                            \
     cost_function =                                                      \
         BundleAdjustmentCostFunction<CameraModel>::Create(point2D.XY()); \
     problem_->AddResidualBlock(cost_function, loss_function, qvec_data,  \
@@ -965,7 +965,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
     } else {
       switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                      \
-  case CameraModel::model_id:                                               \
+  case CameraModel::kModelId:                                               \
     cost_function =                                                         \
         RigBundleAdjustmentCostFunction<CameraModel>::Create(point2D.XY()); \
     problem_->AddResidualBlock(cost_function, loss_function, rig_qvec_data, \
@@ -1043,7 +1043,7 @@ void RigBundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
 
     switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                     \
-  case CameraModel::model_id:                                              \
+  case CameraModel::kModelId:                                              \
     cost_function =                                                        \
         BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create(     \
             image.Qvec(), image.Tvec(), point2D.XY());                     \

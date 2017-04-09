@@ -69,9 +69,9 @@ class Camera {
   void SetPrincipalPointY(const double ppy);
 
   // Get the indices of the parameter groups in the parameter vector.
-  std::vector<size_t> FocalLengthIdxs() const;
-  std::vector<size_t> PrincipalPointIdxs() const;
-  std::vector<size_t> ExtraParamsIdxs() const;
+  const std::vector<size_t>& FocalLengthIdxs() const;
+  const std::vector<size_t>& PrincipalPointIdxs() const;
+  const std::vector<size_t>& ExtraParamsIdxs() const;
 
   // Get intrinsic calibration matrix composed from focal length and principal
   // point parameters, excluding distortion parameters.

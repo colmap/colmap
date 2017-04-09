@@ -37,7 +37,7 @@ class BundleAdjustmentCostFunction {
   static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
     return (new ceres::AutoDiffCostFunction<
             BundleAdjustmentCostFunction<CameraModel>, 2, 4, 3, 3,
-            CameraModel::num_params>(
+            CameraModel::kNumParams>(
         new BundleAdjustmentCostFunction(point2D)));
   }
 
@@ -89,7 +89,7 @@ class BundleAdjustmentConstantPoseCostFunction {
                                      const Eigen::Vector2d& point2D) {
     return (new ceres::AutoDiffCostFunction<
             BundleAdjustmentConstantPoseCostFunction<CameraModel>, 2, 3,
-            CameraModel::num_params>(
+            CameraModel::kNumParams>(
         new BundleAdjustmentConstantPoseCostFunction(qvec, tvec, point2D)));
   }
 
@@ -144,7 +144,7 @@ class RigBundleAdjustmentCostFunction {
   static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
     return (new ceres::AutoDiffCostFunction<
             RigBundleAdjustmentCostFunction<CameraModel>, 2, 4, 3, 4, 3, 3,
-            CameraModel::num_params>(
+            CameraModel::kNumParams>(
         new RigBundleAdjustmentCostFunction(point2D)));
   }
 
