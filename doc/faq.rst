@@ -150,6 +150,21 @@ matching on 4 GPUs in parallel. By default, COLMAP runs feature matching on all
 CUDA-enabled GPUs.
 
 
+Feature matching fails due to illegal memory access
+---------------------------------------------------
+
+If you encounter the following error message::
+
+    MultiplyDescriptor: an illegal memory access was encountered
+
+during feature matching, your GPU runs out of memory. Try decreasing the option
+``--MatchOptions.max_num_matches`` until the error disappears. Note that this
+might lead to inferior feature matching results, since the lower-scale input
+features will be clamped in order to fit them into GPU memory. Alternatively,
+you could change to CPU-based feature matching, but this can become very slow,
+or you use a GPU with more memory.
+
+
 Trading off completeness and accuracy in dense reconstruction
 -------------------------------------------------------------
 
