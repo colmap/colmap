@@ -183,20 +183,26 @@ completeness in the fusion stage, as described above.
 Reduce memory usage during dense reconstruction
 -----------------------------------------------
 
-You can either reduce the maximum image resolution by setting the option
-``max_image_size`` or reduce the number of source images in the ``stereo/patch-
-match.cfg`` file from e.g. ``__auto__, 30`` to ``__auto__, 10``. Note that
-enabling the ``geom_consistency`` option increases the required GPU memory.
+If you run out of GPU memory during patch match stereo, you can either reduce
+the maximum image resolution by setting the option ``max_image_size`` or reduce
+the number of source images in the ``stereo/patch- match.cfg`` file from e.g.
+``__auto__, 30`` to ``__auto__, 10``. Note that enabling the
+``geom_consistency`` option increases the required GPU memory.
 
-For large-scale reconstructions of several thousands of images, you should split
-your sparse reconstruction into more manageable clusters of images using e.g.
-CMVS [furukawa10]_. Otherwise, the fusion procedure might run out of memory, as
-the implementation requires all depth and normal maps to be loaded at the same
-time. Note that, for this use case, COLMAP's dense reconstruction pipeline also
-supports the PMVS/CMVS folder structure when executed from the command-line.
-Please, refer to the workspace folder for example shell scripts. To reduce the
-number of images using CMVS, you must modify the shell scripts accordingly. For
-example, ``cmvs pmvs/ 30`` to limit each cluster to 30 images.
+If you run out of CPU memory during stereo fusion, you can reduce the
+``--DenseMapperOptions.fusion_cache_size``. Note that a too low value might lead
+to very slow fusion and heavy load on the hard disk.
+
+For large-scale reconstructions of several thousands of images, you should
+consider splitting your sparse reconstruction into more manageable clusters of
+images using e.g. CMVS [furukawa10]_. Note that, for this use case, COLMAP's
+dense reconstruction pipeline also supports the PMVS/CMVS folder structure when
+executed from the command-line. Please, refer to the workspace folder for
+example shell scripts. To change the number of images using CMVS, you must
+modify the shell scripts accordingly. For example, ``cmvs pmvs/ 500`` to limit
+each cluster to 500 images. Since CMVS produces highly overlapping clusters, it
+is recommended to increase the default value of 100 images to as high as
+possible according to your available system resources.
 
 
 Manual specification of source images during dense reconstruction
