@@ -18,7 +18,7 @@ Linux
 
 *Recommended dependencies:* CUDA.
 
-Dependencies from default Ubuntu 14.04 repositories::
+Dependencies from default Ubuntu 14.04/16.04 repositories::
 
     sudo apt-get install \
         cmake \
