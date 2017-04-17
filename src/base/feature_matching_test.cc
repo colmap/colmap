@@ -20,15 +20,20 @@
 #include <QApplication>
 
 #include "base/feature_matching.h"
+#include "util/random.h"
 
 using namespace colmap;
 
 FeatureDescriptors CreateRandomFeatureDescriptors(const size_t num_features) {
-  std::srand(0);
-  const auto descriptors_float =
-      L2NormalizeFeatureDescriptors(Eigen::MatrixXf::Random(num_features, 128) +
-                                    Eigen::MatrixXf::Ones(num_features, 128));
-  return FeatureDescriptorsToUnsignedByte(descriptors_float);
+  SetPRNGSeed(0);
+  Eigen::MatrixXf descriptors(num_features, 128);
+  for (size_t i = 0; i < num_features; ++i) {
+    for (size_t j = 0; j < 128; ++j) {
+      descriptors(i, j) = std::pow(RandomReal(0.0f, 1.0f), 2);
+    }
+  }
+  return FeatureDescriptorsToUnsignedByte(
+      L2NormalizeFeatureDescriptors(descriptors));
 }
 
 void CheckEqualMatches(const FeatureMatches& matches1,
@@ -225,9 +230,9 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUvsGPU) {
       BOOST_CHECK(CreateSiftGPUMatcher(SiftMatchOptions(), &sift_match_gpu));
 
       auto TestCPUvsGPU = [&sift_match_gpu](
-                              const SiftMatchOptions& options,
-                              const FeatureDescriptors& descriptors1,
-                              const FeatureDescriptors& descriptors2) {
+          const SiftMatchOptions& options,
+          const FeatureDescriptors& descriptors1,
+          const FeatureDescriptors& descriptors2) {
         FeatureMatches matches_cpu;
         FeatureMatches matches_gpu;
 
@@ -315,19 +320,19 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUvsGPU) {
       {
         FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(100);
         FeatureDescriptors descriptors2 = descriptors1;
-        descriptors2.array() -= 1.0f;
+        descriptors1.row(0) = descriptors1.row(1);
 
         SiftMatchOptions match_options;
 
         match_options.cross_check = false;
         const size_t num_matches1 =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
-        BOOST_CHECK_EQUAL(num_matches1, 87);
+        BOOST_CHECK_EQUAL(num_matches1, 100);
 
         match_options.cross_check = true;
         const size_t num_matches2 =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
-        BOOST_CHECK_EQUAL(num_matches2, 67);
+        BOOST_CHECK_EQUAL(num_matches2, 98);
       }
     }
     OpenGLContextManager opengl_context_;
