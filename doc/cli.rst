@@ -162,6 +162,8 @@ Executables
 - ``database_creator``: Create an empty COLMAP SQLite database with the
   necessary database schema information.
 
+- ``model_analyzer``: Print statistics about reconstructions.
+
 - ``model_aligner``: Align/geo-register model to coordinate system of given
   camera centers.
 
@@ -173,8 +175,6 @@ Executables
 
 - ``model_merger``: Attempt to merge two disconnected reconstructions,
   if they have common registered images.
-
-- ``model_statistics``: Print statistics about reconstructions.
 
 - ``color_extractor``: Extract mean colors for all 3D points of a model.
 

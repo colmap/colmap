@@ -30,13 +30,13 @@ COLMAP_ADD_EXECUTABLE(matches_importer matches_importer.cc)
 
 COLMAP_ADD_EXECUTABLE(model_aligner model_aligner.cc)
 
+COLMAP_ADD_EXECUTABLE(model_analyzer model_analyzer.cc)
+
 COLMAP_ADD_EXECUTABLE(model_converter model_converter.cc)
 
 COLMAP_ADD_EXECUTABLE(model_merger model_merger.cc)
 
 COLMAP_ADD_EXECUTABLE(model_orientation_aligner model_orientation_aligner.cc)
-
-COLMAP_ADD_EXECUTABLE(model_statistics model_statistics.cc)
 
 COLMAP_ADD_EXECUTABLE(point_triangulator point_triangulator.cc)
 
