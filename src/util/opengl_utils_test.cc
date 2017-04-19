@@ -55,5 +55,5 @@ BOOST_AUTO_TEST_CASE(TestRunThreadWithOpenGLContext) {
   };
 
   TestThread thread;
-  RunThreadWithOpenGLContext(&app, &thread);
+  RunThreadWithOpenGLContext(&thread);
 }

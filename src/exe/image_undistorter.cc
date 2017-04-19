@@ -46,14 +46,7 @@ int main(int argc, char** argv) {
   options.AddDefaultOption("max_image_size",
                            undistort_camera_options.max_image_size,
                            &undistort_camera_options.max_image_size);
-
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (options.ParseHelp(argc, argv)) {
-    return EXIT_SUCCESS;
-  }
+  options.Parse(argc, argv);
 
   CreateDirIfNotExists(output_path);
 

@@ -50,14 +50,16 @@ void OpenGLContextManager::MakeCurrent() {
   CHECK(context_.isValid()) << "Could not create valid OpenGL context";
 }
 
-void RunThreadWithOpenGLContext(QApplication* app, Thread* thread) {
-  std::thread wrapper_thread([&app, &thread]() {
+void RunThreadWithOpenGLContext(Thread* thread) {
+  QCoreApplication* application = QApplication::instance();
+  CHECK_NOTNULL(application);
+  std::thread wrapper_thread([&application, &thread]() {
     thread->Start();
     thread->Wait();
-    app->exit();
+    application->exit();
   });
 
-  app->exec();
+  application->exec();
   wrapper_thread.join();
 }
 

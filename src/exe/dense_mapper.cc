@@ -32,14 +32,7 @@ int main(int argc, char* argv[]) {
   options.AddRequiredOption("workspace_format", &workspace_format);
   options.AddDefaultOption("pmvs_option_name", pmvs_option_name,
                            &pmvs_option_name);
-
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (options.ParseHelp(argc, argv)) {
-    return EXIT_SUCCESS;
-  }
+  options.Parse(argc, argv);
 
   if (workspace_format != "COLMAP" && workspace_format != "PMVS") {
     std::cout << "ERROR: Invalid `workspace_format` - supported values are "

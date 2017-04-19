@@ -26,28 +26,21 @@ int main(int argc, char** argv) {
   InitializeGlog(argv);
 
 #ifdef CUDA_ENABLED
-  bool no_opengl = true;
+  bool use_opengl = false;
 #else
-  bool no_opengl = false;
+  bool use_opengl = true;
 #endif
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddMatchOptions();
   options.AddSpatialMatchOptions();
-  options.AddDefaultOption("no_opengl", no_opengl, &no_opengl);
-
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (options.ParseHelp(argc, argv)) {
-    return EXIT_SUCCESS;
-  }
+  options.AddDefaultOption("use_opengl", use_opengl, &use_opengl);
+  options.Parse(argc, argv);
 
   std::unique_ptr<QApplication> app;
   SiftMatchOptions match_options = options.match_options->Options();
-  if (match_options.use_gpu && !no_opengl) {
+  if (match_options.use_gpu && use_opengl) {
     app.reset(new QApplication(argc, argv));
   }
 
@@ -55,11 +48,11 @@ int main(int argc, char** argv) {
       options.spatial_match_options->Options(), match_options,
       *options.database_path);
 
-  if (!match_options.use_gpu || no_opengl) {
+  if (match_options.use_gpu && use_opengl) {
+    RunThreadWithOpenGLContext(&feature_matcher);
+  } else {
     feature_matcher.Start();
     feature_matcher.Wait();
-  } else {
-    RunThreadWithOpenGLContext(app.get(), &feature_matcher);
   }
 
   return EXIT_SUCCESS;

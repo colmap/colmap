@@ -102,5 +102,5 @@ BOOST_AUTO_TEST_CASE(TestExtractSiftFeaturesGPU) {
   };
 
   TestThread thread;
-  RunThreadWithOpenGLContext(&app, &thread);
+  RunThreadWithOpenGLContext(&thread);
 }

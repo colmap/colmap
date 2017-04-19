@@ -35,14 +35,7 @@ int main(int argc, char** argv) {
   options.AddRequiredOption("import_path", &import_path);
   options.AddDefaultOption("image_list_path", image_list_path,
                            &image_list_path);
-
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (options.ParseHelp(argc, argv)) {
-    return EXIT_SUCCESS;
-  }
+  options.Parse(argc, argv);
 
   ImageReader::Options reader_options = options.extraction_options->reader;
   reader_options.database_path = *options.database_path;

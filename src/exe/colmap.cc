@@ -27,15 +27,7 @@ int main(int argc, char** argv) {
 
   if (argc > 1) {
     options.AddAllOptions();
-    if (!options.Parse(argc, argv)) {
-      QMessageBox::critical(0, "Configuration error",
-                            "There is an error in your configuration.");
-      return EXIT_FAILURE;
-    }
-
-    if (options.ParseHelp(argc, argv)) {
-      return EXIT_SUCCESS;
-    }
+    options.Parse(argc, argv);
   }
 
   Q_INIT_RESOURCE(resources);

@@ -35,14 +35,7 @@ int main(int argc, char** argv) {
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("min_common_images", min_common_images,
                            &min_common_images);
-
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (options.ParseHelp(argc, argv)) {
-    return EXIT_SUCCESS;
-  }
+  options.Parse(argc, argv);
 
   Reconstruction reconstruction1;
   reconstruction1.Read(input_path1);

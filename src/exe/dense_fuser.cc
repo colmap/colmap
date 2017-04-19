@@ -33,14 +33,7 @@ int main(int argc, char* argv[]) {
   options.AddRequiredOption("workspace_format", &workspace_format);
   options.AddRequiredOption("input_type", &input_type);
   options.AddRequiredOption("output_path", &output_path);
-
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (options.ParseHelp(argc, argv)) {
-    return EXIT_SUCCESS;
-  }
+  options.Parse(argc, argv);
 
   if (input_type != "photometric" && input_type != "geometric") {
     std::cout << "ERROR: Invalid input type - supported values are "

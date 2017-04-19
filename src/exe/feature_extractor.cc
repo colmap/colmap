@@ -37,14 +37,7 @@ int main(int argc, char** argv) {
   options.AddDefaultOption("use_gpu", use_gpu, &use_gpu);
   options.AddDefaultOption("image_list_path", image_list_path,
                            &image_list_path);
-
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (options.ParseHelp(argc, argv)) {
-    return EXIT_SUCCESS;
-  }
+  options.Parse(argc, argv);
 
   ImageReader::Options reader_options = options.extraction_options->reader;
   reader_options.database_path = *options.database_path;
@@ -82,7 +75,7 @@ int main(int argc, char** argv) {
   }
 
   if (use_gpu && options.extraction_options->gpu.index < 0) {
-    RunThreadWithOpenGLContext(app.get(), feature_extractor.get());
+    RunThreadWithOpenGLContext(feature_extractor.get());
   } else {
     feature_extractor->Start();
     feature_extractor->Wait();

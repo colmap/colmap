@@ -36,14 +36,7 @@ int main(int argc, char** argv) {
   options.AddRequiredOption("export_path", &export_path);
   options.AddDefaultOption("image_list_path", image_list_path,
                            &image_list_path);
-
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (options.ParseHelp(argc, argv)) {
-    return EXIT_SUCCESS;
-  }
+  options.Parse(argc, argv);
 
   if (!ExistsDir(export_path)) {
     std::cerr << "ERROR: `export_path` is not a directory." << std::endl;

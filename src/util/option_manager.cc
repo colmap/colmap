@@ -1120,7 +1120,7 @@ void OptionManager::Reset() {
   added_render_options_ = false;
 }
 
-bool OptionManager::Parse(const int argc, char** argv) {
+void OptionManager::Parse(const int argc, char** argv) {
   config::variables_map vmap;
 
   try {
@@ -1138,31 +1138,26 @@ bool OptionManager::Parse(const int argc, char** argv) {
           << std::endl
           << std::endl;
       std::cout << *desc_ << std::endl;
-      return true;
+      exit(EXIT_SUCCESS);
     }
 
     if (vmap.count("project_path")) {
       *project_path = vmap["project_path"].as<std::string>();
-      return Read(*project_path);
+      if (!Read(*project_path)) {
+        exit(EXIT_FAILURE);
+      }
     } else {
       vmap.notify();
     }
   } catch (std::exception& e) {
     std::cout << "ERROR: Failed to parse options: " << e.what() << "."
               << std::endl;
-    return false;
+    exit(EXIT_FAILURE);
   } catch (...) {
     std::cout << "ERROR: Failed to parse options for unknown reason."
               << std::endl;
-    return false;
+    exit(EXIT_FAILURE);
   }
-
-  return true;
-}
-
-bool OptionManager::ParseHelp(const int argc, char** argv) {
-  return argc == 2 &&
-         (std::string(argv[1]) == "--help" || std::string(argv[1]) == "-h");
 }
 
 bool OptionManager::Read(const std::string& path) {

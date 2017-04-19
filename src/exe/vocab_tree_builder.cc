@@ -87,14 +87,7 @@ int main(int argc, char** argv) {
   options.AddDefaultOption("num_iterations", build_options.num_iterations,
                            &build_options.num_iterations);
   options.AddDefaultOption("max_num_images", max_num_images, &max_num_images);
-
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (options.ParseHelp(argc, argv)) {
-    return EXIT_SUCCESS;
-  }
+  options.Parse(argc, argv);
 
   retrieval::VisualIndex visual_index;
 

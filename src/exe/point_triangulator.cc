@@ -33,14 +33,7 @@ int main(int argc, char** argv) {
   options.AddMapperOptions();
   options.AddRequiredOption("import_path", &import_path);
   options.AddRequiredOption("export_path", &export_path);
-
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (options.ParseHelp(argc, argv)) {
-    return EXIT_SUCCESS;
-  }
+  options.Parse(argc, argv);
 
   if (!ExistsDir(import_path)) {
     std::cerr << "ERROR: `import_path` is not a directory" << std::endl;

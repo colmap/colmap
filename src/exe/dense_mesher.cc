@@ -29,14 +29,7 @@ int main(int argc, char* argv[]) {
   options.AddDenseMapperOptions();
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
-
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (options.ParseHelp(argc, argv)) {
-    return EXIT_SUCCESS;
-  }
+  options.Parse(argc, argv);
 
   CHECK(mvs::PoissonReconstruction(options.dense_mapper_options->poisson,
                                    input_path, output_path));

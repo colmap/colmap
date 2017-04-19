@@ -55,14 +55,7 @@ int main(int argc, char** argv) {
                            &robust_alignment);
   options.AddDefaultOption("robust_alignment_max_error",
                            ransac_options.max_error, &ransac_options.max_error);
-
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (options.ParseHelp(argc, argv)) {
-    return EXIT_SUCCESS;
-  }
+  options.Parse(argc, argv);
 
   if (robust_alignment && ransac_options.max_error <= 0) {
     std::cout << "ERROR: You must provide a maximum alignment error > 0"

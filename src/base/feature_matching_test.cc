@@ -62,7 +62,7 @@ BOOST_AUTO_TEST_CASE(TestCreateSiftGPUMatcherOpenGL) {
   };
 
   TestThread thread;
-  RunThreadWithOpenGLContext(&app, &thread);
+  RunThreadWithOpenGLContext(&thread);
 }
 
 BOOST_AUTO_TEST_CASE(TestCreateSiftGPUMatcherCUDA) {
@@ -213,7 +213,7 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesGPU) {
   };
 
   TestThread thread;
-  RunThreadWithOpenGLContext(&app, &thread);
+  RunThreadWithOpenGLContext(&thread);
 }
 
 BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUvsGPU) {
@@ -230,9 +230,9 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUvsGPU) {
       BOOST_CHECK(CreateSiftGPUMatcher(SiftMatchOptions(), &sift_match_gpu));
 
       auto TestCPUvsGPU = [&sift_match_gpu](
-          const SiftMatchOptions& options,
-          const FeatureDescriptors& descriptors1,
-          const FeatureDescriptors& descriptors2) {
+                              const SiftMatchOptions& options,
+                              const FeatureDescriptors& descriptors1,
+                              const FeatureDescriptors& descriptors2) {
         FeatureMatches matches_cpu;
         FeatureMatches matches_gpu;
 
@@ -339,7 +339,7 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUvsGPU) {
   };
 
   TestThread thread;
-  RunThreadWithOpenGLContext(&app, &thread);
+  RunThreadWithOpenGLContext(&thread);
 }
 
 BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesGPU) {
@@ -432,5 +432,5 @@ BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesGPU) {
   };
 
   TestThread thread;
-  RunThreadWithOpenGLContext(&app, &thread);
+  RunThreadWithOpenGLContext(&thread);
 }

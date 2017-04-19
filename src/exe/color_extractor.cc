@@ -30,14 +30,7 @@ int main(int argc, char** argv) {
   options.AddImageOptions();
   options.AddDefaultOption("import_path", import_path, &import_path);
   options.AddRequiredOption("export_path", &export_path);
-
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (options.ParseHelp(argc, argv)) {
-    return EXIT_SUCCESS;
-  }
+  options.Parse(argc, argv);
 
   Reconstruction reconstruction;
   reconstruction.Read(import_path);

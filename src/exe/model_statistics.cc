@@ -26,14 +26,7 @@ int main(int argc, char** argv) {
 
   OptionManager options;
   options.AddRequiredOption("path", &path);
-
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (options.ParseHelp(argc, argv)) {
-    return EXIT_SUCCESS;
-  }
+  options.Parse(argc, argv);
 
   Reconstruction reconstruction;
   reconstruction.Read(path);

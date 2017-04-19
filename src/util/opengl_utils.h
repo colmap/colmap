@@ -59,9 +59,9 @@ class OpenGLContextManager : public QObject {
 //    };
 //    QApplication app(argc, argv);
 //    TestThread thread;
-//    RunThreadWithOpenGLContext(&app, &thread);
+//    RunThreadWithOpenGLContext(&thread);
 //
-void RunThreadWithOpenGLContext(QApplication* app, Thread* thread);
+void RunThreadWithOpenGLContext(Thread* thread);
 
 // Get the OpenGL errors and print them to stderr.
 void GLError(const char* file, const int line);

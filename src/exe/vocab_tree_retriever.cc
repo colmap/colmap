@@ -139,14 +139,7 @@ int main(int argc, char** argv) {
   options.AddDefaultOption("num_images", num_images, &num_images);
   options.AddDefaultOption("max_num_features", max_num_features,
                            &max_num_features);
-
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (options.ParseHelp(argc, argv)) {
-    return EXIT_SUCCESS;
-  }
+  options.Parse(argc, argv);
 
   retrieval::VisualIndex visual_index;
   visual_index.Read(vocab_tree_path);

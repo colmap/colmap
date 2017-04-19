@@ -322,8 +322,7 @@ class OptionManager {
 
   void Reset();
 
-  bool Parse(const int argc, char** argv);
-  bool ParseHelp(const int argc, char** argv);
+  void Parse(const int argc, char** argv);
   bool Read(const std::string& path);
   bool ReRead(const std::string& path);
   void Write(const std::string& path) const;
