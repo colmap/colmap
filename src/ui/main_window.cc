@@ -324,9 +324,24 @@ void MainWindow::CreateActions() {
   connect(action_extract_colors_, &QAction::triggered, this,
           &MainWindow::ExtractColors);
 
-  action_reset_options_ = new QAction(tr("Restore default options"), this);
+  action_reset_options_ = new QAction(tr("Set default options"), this);
   connect(action_reset_options_, &QAction::triggered, this,
           &MainWindow::ResetOptions);
+
+  action_set_options_for_video_ =
+      new QAction(tr("Set options for video data"), this);
+  connect(action_set_options_for_video_, &QAction::triggered, this,
+          &MainWindow::SetOptionsForVideo);
+
+  action_set_options_for_dslr_ =
+      new QAction(tr("Set options for DSLR data"), this);
+  connect(action_set_options_for_dslr_, &QAction::triggered, this,
+          &MainWindow::SetOptionsForDSLR);
+
+  action_set_options_for_internet_ =
+      new QAction(tr("Set options for Internet data"), this);
+  connect(action_set_options_for_internet_, &QAction::triggered, this,
+          &MainWindow::SetOptionsForInternet);
 
   //////////////////////////////////////////////////////////////////////////////
   // Misc actions
@@ -413,6 +428,9 @@ void MainWindow::CreateMenus() {
   extras_menu->addAction(action_extract_colors_);
   extras_menu->addSeparator();
   extras_menu->addAction(action_reset_options_);
+  extras_menu->addAction(action_set_options_for_video_);
+  extras_menu->addAction(action_set_options_for_dslr_);
+  extras_menu->addAction(action_set_options_for_internet_);
   menuBar()->addAction(extras_menu->menuAction());
 
   QMenu* help_menu = new QMenu(tr("Help"), this);
@@ -1105,6 +1123,54 @@ void MainWindow::ResetOptions() {
 
   options_.Reset();
   options_.AddAllOptions();
+
+  *options_.project_path = project_path;
+  *options_.log_path = log_path;
+  *options_.image_path = image_path;
+  *options_.database_path = database_path;
+}
+
+void MainWindow::SetOptionsForVideo() {
+  const std::string project_path = *options_.project_path;
+  const std::string log_path = *options_.log_path;
+  const std::string image_path = *options_.image_path;
+  const std::string database_path = *options_.database_path;
+
+  options_.Reset();
+  options_.AddAllOptions();
+  options_.InitForVideoData();
+
+  *options_.project_path = project_path;
+  *options_.log_path = log_path;
+  *options_.image_path = image_path;
+  *options_.database_path = database_path;
+}
+
+void MainWindow::SetOptionsForDSLR() {
+  const std::string project_path = *options_.project_path;
+  const std::string log_path = *options_.log_path;
+  const std::string image_path = *options_.image_path;
+  const std::string database_path = *options_.database_path;
+
+  options_.Reset();
+  options_.AddAllOptions();
+  options_.InitForDSLRData();
+
+  *options_.project_path = project_path;
+  *options_.log_path = log_path;
+  *options_.image_path = image_path;
+  *options_.database_path = database_path;
+}
+
+void MainWindow::SetOptionsForInternet() {
+  const std::string project_path = *options_.project_path;
+  const std::string log_path = *options_.log_path;
+  const std::string image_path = *options_.image_path;
+  const std::string database_path = *options_.database_path;
+
+  options_.Reset();
+  options_.AddAllOptions();
+  options_.InitForInternetData();
 
   *options_.project_path = project_path;
   *options_.log_path = log_path;

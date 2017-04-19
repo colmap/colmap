@@ -70,11 +70,12 @@ Preface
 
 COLMAP requires only few steps to do a standard reconstruction for a general
 user. For more experienced users, the program exposes many different parameters,
-only some of which are intuitive to a beginner. The program should work without
-the need to modify any parameters. The defaults are chosen as a trade-off
-between reconstruction robustness/quality and speed. If in doubt what setting to
-choose, stick to the defaults. The source code contains more documentation about
-all parameters.
+only some of which are intuitive to a beginner. The program should usually work
+without the need to modify any parameters. The defaults are chosen as a trade-
+off between reconstruction robustness/quality and speed. You can set "optimal"
+options for different reconstruction scenarios by choosing ``Extras > Set
+options for ... data``. If in doubt what settings to choose, stick to the
+defaults. The source code contains more documentation about all parameters.
 
 COLMAP is research software and in rare cases it may exit ungracefully if some
 constraints are not fulfilled. In this case, the program prints a traceback to

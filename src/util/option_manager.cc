@@ -698,6 +698,21 @@ OptionManager::OptionManager() {
   AddDebugOptions();
 }
 
+void OptionManager::InitForVideoData() {
+  extraction_options->reader.single_camera = true;
+  extraction_options->reader.camera_model = "RADIAL_FISHEYE";
+  mapper_options->incremental_mapper.init_min_tri_angle /= 2;
+  mapper_options->ba_global_images_ratio = 1.4;
+  mapper_options->ba_global_points_ratio = 1.4;
+  dense_mapper_options->fusion.min_num_pixels = 15;
+}
+
+void OptionManager::InitForDSLRData() {}
+
+void OptionManager::InitForInternetData() {
+  dense_mapper_options->fusion.min_num_pixels = 10;
+}
+
 void OptionManager::AddAllOptions() {
   AddDebugOptions();
   AddDatabaseOptions();

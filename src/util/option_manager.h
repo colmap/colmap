@@ -292,6 +292,11 @@ class OptionManager {
  public:
   OptionManager();
 
+  // Create "optimal" set of options for different reconstruction scenarios.
+  void InitForVideoData();
+  void InitForDSLRData();
+  void InitForInternetData();
+
   void AddDebugOptions();
   void AddAllOptions();
   void AddDatabaseOptions();

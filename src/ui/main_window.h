@@ -112,7 +112,11 @@ class MainWindow : public QMainWindow {
   void MatchMatrix();
   void ShowLog();
   void ExtractColors();
+
   void ResetOptions();
+  void SetOptionsForVideo();
+  void SetOptionsForDSLR();
+  void SetOptionsForInternet();
 
   void About();
   void Documentation();
@@ -205,6 +209,9 @@ class MainWindow : public QMainWindow {
   QAction* action_undistort_;
   QAction* action_extract_colors_;
   QAction* action_reset_options_;
+  QAction* action_set_options_for_video_;
+  QAction* action_set_options_for_dslr_;
+  QAction* action_set_options_for_internet_;
 
   QAction* action_about_;
   QAction* action_documentation_;
