@@ -17,13 +17,9 @@
 #ifndef COLMAP_SRC_UTIL_OPTION_MANAGER_H_
 #define COLMAP_SRC_UTIL_OPTION_MANAGER_H_
 
-#include <fstream>
 #include <memory>
-#include <unordered_set>
 
 #include <boost/program_options.hpp>
-
-#include <ceres/ceres.h>
 
 #include "base/feature_extraction.h"
 #include "base/feature_matching.h"
