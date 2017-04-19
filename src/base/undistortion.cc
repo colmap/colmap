@@ -18,8 +18,6 @@
 
 #include <fstream>
 
-#include <boost/filesystem.hpp>
-
 #include "base/pose.h"
 #include "base/warp.h"
 #include "util/misc.h"

@@ -19,10 +19,6 @@
 #include <fstream>
 #include <numeric>
 
-#include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/lexical_cast.hpp>
-
 #include "base/camera_models.h"
 #include "base/database.h"
 #include "base/gps.h"

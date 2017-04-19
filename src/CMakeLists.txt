@@ -15,6 +15,7 @@ link_directories(
 )
 
 set(COLMAP_LIBRARIES
+    controllers
     mvs
     sfm
     base
@@ -53,6 +54,7 @@ set(COLMAP_UI_LIBRARIES ui)
 set(COLMAP_QT_MODULES Core Widgets OpenGL)
 
 add_subdirectory(base)
+add_subdirectory(controllers)
 add_subdirectory(estimators)
 add_subdirectory(exe)
 add_subdirectory(ext)
@@ -90,6 +92,7 @@ macro(ADD_SOURCE_DIR SRC_DIR SRC_VAR)
 endmacro(ADD_SOURCE_DIR)
 
 ADD_SOURCE_DIR(base BASE_SRC *.h *.cc)
+ADD_SOURCE_DIR(controllers CONTROLLERS_SRC *.h *.cc)
 ADD_SOURCE_DIR(estimators ESTIMATORS_SRC *.h *.cc)
 ADD_SOURCE_DIR(exe EXE_SRC *.h *.cc)
 ADD_SOURCE_DIR(ext/FLANN EXT_FLANN_SRC *.h *.cpp *.hpp *.cu)
@@ -112,6 +115,7 @@ ADD_SOURCE_DIR(util UTIL_SRC *.h *.cc)
 add_library(
     ${COLMAP_SRC_ROOT_FOLDER}
     ${BASE_SRC}
+    ${CONTROLLERS_SRC}
     ${ESTIMATORS_SRC}
     ${EXE_SRC}
     ${EXT_FLANN_SRC}

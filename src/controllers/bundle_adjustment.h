@@ -14,42 +14,28 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#ifndef COLMAP_SRC_CONTROLLERS_BUNDLE_ADJUSTMENT_H_
+#define COLMAP_SRC_CONTROLLERS_BUNDLE_ADJUSTMENT_H_
+
 #include "base/reconstruction.h"
-#include "controllers/bundle_adjustment.h"
-#include "util/logging.h"
 #include "util/option_manager.h"
+#include "util/threading.h"
 
-using namespace colmap;
+namespace colmap {
 
-namespace config = boost::program_options;
+// Class that controls the global bundle adjustment procedure.
+class BundleAdjustmentController : public Thread {
+ public:
+  BundleAdjustmentController(const OptionManager& options,
+                             Reconstruction* reconstruction);
 
-int main(int argc, char** argv) {
-  InitializeGlog(argv);
+ private:
+  void Run();
 
-  std::string input_path;
-  std::string output_path;
+  const OptionManager options_;
+  Reconstruction* reconstruction_;
+};
 
-  OptionManager options;
-  options.AddBundleAdjustmentOptions();
-  options.AddRequiredOption("input_path", &input_path);
-  options.AddRequiredOption("output_path", &output_path);
+}  // namespace colmap
 
-  if (!options.Parse(argc, argv)) {
-    return EXIT_FAILURE;
-  }
-
-  if (options.ParseHelp(argc, argv)) {
-    return EXIT_SUCCESS;
-  }
-
-  Reconstruction reconstruction;
-  reconstruction.Read(input_path);
-
-  BundleAdjustmentController ba_controller(options, &reconstruction);
-  ba_controller.Start();
-  ba_controller.Wait();
-
-  reconstruction.Write(output_path);
-
-  return EXIT_SUCCESS;
-}
+#endif  // COLMAP_SRC_CONTROLLERS_BUNDLE_ADJUSTMENT_H_

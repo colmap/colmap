@@ -14,15 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef COLMAP_SRC_SFM_CONTROLLERS_H_
-#define COLMAP_SRC_SFM_CONTROLLERS_H_
+#ifndef COLMAP_SRC_CONTROLLERS_INCREMENTAL_MAPPER_H_
+#define COLMAP_SRC_CONTROLLERS_INCREMENTAL_MAPPER_H_
 
 #include "base/reconstruction_manager.h"
 #include "sfm/incremental_mapper.h"
-#include "util/alignment.h"
 #include "util/option_manager.h"
 #include "util/threading.h"
-#include "util/timer.h"
 
 namespace colmap {
 
@@ -57,19 +55,6 @@ class IncrementalMapperController : public Thread {
   DatabaseCache database_cache_;
 };
 
-// Class that controls the global bundle adjustment procedure.
-class BundleAdjustmentController : public Thread {
- public:
-  BundleAdjustmentController(const OptionManager& options,
-                             Reconstruction* reconstruction);
-
- private:
-  void Run();
-
-  const OptionManager options_;
-  Reconstruction* reconstruction_;
-};
-
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_SFM_CONTROLLERS_H_
+#endif  // COLMAP_SRC_CONTROLLERS_INCREMENTAL_MAPPER_H_

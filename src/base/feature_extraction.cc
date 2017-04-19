@@ -18,7 +18,7 @@
 
 #include <fstream>
 
-#include <boost/filesystem.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include "ext/VLFeat/sift.h"
 #include "util/misc.h"

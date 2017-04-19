@@ -16,8 +16,6 @@
 
 #include "ui/multi_view_stereo_widget.h"
 
-#include <boost/filesystem.hpp>
-
 #include "base/undistortion.h"
 #include "ui/main_window.h"
 

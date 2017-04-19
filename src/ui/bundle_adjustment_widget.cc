@@ -16,7 +16,7 @@
 
 #include "ui/bundle_adjustment_widget.h"
 
-#include "sfm/controllers.h"
+#include "controllers/bundle_adjustment.h"
 
 namespace colmap {
 

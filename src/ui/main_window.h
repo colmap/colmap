@@ -22,7 +22,7 @@
 #include <QtWidgets>
 
 #include "base/reconstruction.h"
-#include "sfm/controllers.h"
+#include "controllers/incremental_mapper.h"
 #include "ui/bundle_adjustment_widget.h"
 #include "ui/database_management_widget.h"
 #include "ui/feature_extraction_widget.h"
