@@ -330,8 +330,8 @@ class ExhaustiveFeatureMatcher : public Thread {
 //                      |          |           |
 //                      +----------+-----------+
 //                                 |
-//                            Match against
-//                    images[i-overlap, i+overlap],
+//                        Match image_i against
+//                    image_[i - 2^o, i + 2^o] with o = 1 .. overlap
 //
 // Sequential order is determined based on the image names in ascending order.
 //

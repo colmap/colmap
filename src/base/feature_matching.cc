@@ -1002,22 +1002,29 @@ std::vector<image_t> SequentialFeatureMatcher::GetOrderedImageIds() const {
 
 void SequentialFeatureMatcher::RunSequentialMatching(
     const std::vector<image_t>& image_ids) {
-  for (size_t i = 0; i < image_ids.size(); ++i) {
+  std::vector<std::pair<image_t, image_t>> image_pairs;
+  for (size_t image_idx1 = 0; image_idx1 < image_ids.size(); ++image_idx1) {
     if (IsStopped()) {
       return;
     }
 
+    const auto image_id1 = image_ids.at(image_idx1);
+
     Timer timer;
     timer.Start();
 
-    std::cout << StringPrintf("Matching image [%d/%d]", i + 1, image_ids.size())
+    std::cout << StringPrintf("Matching image [%d/%d]", image_idx1 + 1,
+                              image_ids.size())
               << std::flush;
 
-    const size_t max_image_idx =
-        std::min(i + options_.overlap, image_ids.size());
-    std::vector<std::pair<image_t, image_t>> image_pairs;
-    for (size_t j = i; j < max_image_idx; ++j) {
-      image_pairs.emplace_back(image_ids[i], image_ids[j]);
+    image_pairs.clear();
+    for (int i = 0; i < options_.overlap; ++i) {
+      const size_t image_idx2 = image_idx1 + (1 << i);
+      if (image_idx2 < image_ids.size()) {
+        image_pairs.emplace_back(image_id1, image_ids.at(image_idx2));
+      } else {
+        break;
+      }
     }
 
     matcher_.Match(image_pairs);
