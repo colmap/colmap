@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#include <QApplication>
+
 #include "controllers/automatic_reconstruction.h"
 #include "util/logging.h"
 #include "util/misc.h"
@@ -25,15 +27,15 @@ int main(int argc, char** argv) {
   InitializeGlog(argv);
 
   AutomaticReconstructionController::Options reconstruction_options;
-  std::string data_type;
+  std::string data_type = "DSLR";
 
   OptionManager options;
   options.AddRequiredOption("workspace_path",
                             &reconstruction_options.workspace_path);
   options.AddRequiredOption("image_path", &reconstruction_options.image_path);
-  options.AddRequiredOption("vocab_tree_path",
-                            &reconstruction_options.vocab_tree_path);
-  options.AddRequiredOption("data_type", &data_type, "{VIDEO, DSLR, INTERNET}");
+  options.AddDefaultOption("vocab_tree_path",
+                           &reconstruction_options.vocab_tree_path);
+  options.AddDefaultOption("data_type", &data_type, "{VIDEO, DSLR, INTERNET}");
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
   options.AddDefaultOption("use_gpu", &reconstruction_options.use_gpu);
@@ -53,9 +55,15 @@ int main(int argc, char** argv) {
     LOG(FATAL) << "Invalid data type";
   }
 
-  AutomaticReconstructionController controller(reconstruction_options);
-  controller.Start();
-  controller.Wait();
+  if (reconstruction_options.use_gpu && reconstruction_options.use_opengl) {
+    QApplication app(argc, argv);
+    AutomaticReconstructionController controller(reconstruction_options);
+    RunThreadWithOpenGLContext(&controller);
+  } else {
+    AutomaticReconstructionController controller(reconstruction_options);
+    controller.Start();
+    controller.Wait();
+  }
 
   return EXIT_SUCCESS;
 }

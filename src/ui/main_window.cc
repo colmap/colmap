@@ -1218,8 +1218,7 @@ void MainWindow::UpdateTimer() {
 }
 
 void MainWindow::ShowInvalidProjectError() {
-  QMessageBox::critical(this, "",
-                        tr("You must create or open a valid project."));
+  QMessageBox::critical(this, "", tr("Invalid project options"));
 }
 
 void MainWindow::EnableBlockingActions() {

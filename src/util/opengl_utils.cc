@@ -51,8 +51,9 @@ void OpenGLContextManager::MakeCurrent() {
 }
 
 void RunThreadWithOpenGLContext(Thread* thread) {
-  QCoreApplication* application = QApplication::instance();
+  QCoreApplication* application = QCoreApplication::instance();
   CHECK_NOTNULL(application);
+
   std::thread wrapper_thread([&application, &thread]() {
     thread->Start();
     thread->Wait();

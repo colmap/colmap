@@ -105,6 +105,8 @@ class FeatureMatcherCache {
  public:
   FeatureMatcherCache(const size_t cache_size, const Database* database);
 
+  void Setup();
+
   const Camera& GetCamera(const camera_t camera_id) const;
   const Image& GetImage(const image_t image_id) const;
   const FeatureKeypoints& GetKeypoints(const image_t image_id);
@@ -121,6 +123,7 @@ class FeatureMatcherCache {
                           const TwoViewGeometry& two_view_geometry);
 
  private:
+  const size_t cache_size_;
   const Database* database_;
   std::mutex database_mutex_;
   EIGEN_STL_UMAP(camera_t, Camera) cameras_cache_;

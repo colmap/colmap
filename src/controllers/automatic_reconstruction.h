@@ -45,14 +45,22 @@ class AutomaticReconstructionController : public Thread {
     // Whether to perform sparse mapping.
     bool sparse = true;
 
-    // Whether to perform dense mapping.
+// Whether to perform dense mapping.
+#ifdef CUDA_ENABLED
     bool dense = true;
+#else
+    bool dense = false;
+#endif
 
     // Whether to use the GPU in feature extraction and matching.
     bool use_gpu = true;
 
-    // Whether to use OpenGL in GPU-based feature extraction and matching.
+// Whether to use OpenGL in GPU-based feature extraction and matching.
+#ifdef CUDA_ENABLED
+    bool use_opengl = false;
+#else
     bool use_opengl = true;
+#endif
   };
 
   AutomaticReconstructionController(const Options& options);
@@ -67,6 +75,10 @@ class AutomaticReconstructionController : public Thread {
   const Options options_;
   OptionManager option_manager_;
   ReconstructionManager reconstruction_manager_;
+  std::unique_ptr<Thread> feature_extractor_;
+  std::unique_ptr<Thread> exhaustive_matcher_;
+  std::unique_ptr<Thread> sequential_matcher_;
+  std::unique_ptr<Thread> vocab_tree_matcher_;
 };
 
 }  // namespace colmap

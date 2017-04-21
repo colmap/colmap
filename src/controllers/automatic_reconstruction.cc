@@ -34,11 +34,10 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     : options_(options) {
   CHECK(ExistsDir(options_.workspace_path));
   CHECK(ExistsDir(options_.image_path));
-  CHECK(ExistsFile(options_.vocab_tree_path));
 
   option_manager_.AddAllOptions();
 
-  *option_manager_.image_path = JoinPaths(options_.image_path);
+  *option_manager_.image_path = options_.image_path;
   *option_manager_.database_path =
       JoinPaths(options_.workspace_path, "database.db");
 
@@ -50,6 +49,42 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.InitForInternetData();
   } else {
     LOG(FATAL) << "Data type not supported";
+  }
+
+  ImageReader::Options reader_options = *option_manager_.image_reader;
+  reader_options.database_path = *option_manager_.database_path;
+  reader_options.image_path = *option_manager_.image_path;
+
+  if (options_.use_gpu) {
+    feature_extractor_.reset(new SiftGPUFeatureExtractor(
+        reader_options, *option_manager_.sift_extraction,
+        *option_manager_.sift_gpu_extraction));
+  } else {
+    feature_extractor_.reset(new SiftCPUFeatureExtractor(
+        reader_options, *option_manager_.sift_extraction,
+        *option_manager_.sift_cpu_extraction));
+  }
+
+  exhaustive_matcher_.reset(new ExhaustiveFeatureMatcher(
+      *option_manager_.exhaustive_matching, *option_manager_.sift_matching,
+      *option_manager_.database_path));
+
+  if (!options_.vocab_tree_path.empty()) {
+    option_manager_.sequential_matching->loop_detection = true;
+    option_manager_.sequential_matching->vocab_tree_path =
+        options_.vocab_tree_path;
+  }
+
+  sequential_matcher_.reset(new SequentialFeatureMatcher(
+      *option_manager_.sequential_matching, *option_manager_.sift_matching,
+      *option_manager_.database_path));
+
+  if (!options_.vocab_tree_path.empty()) {
+    option_manager_.vocab_tree_matching->vocab_tree_path =
+        options_.vocab_tree_path;
+    vocab_tree_matcher_.reset(new VocabTreeFeatureMatcher(
+        *option_manager_.vocab_tree_matching, *option_manager_.sift_matching,
+        *option_manager_.database_path));
   }
 }
 
@@ -65,65 +100,29 @@ void AutomaticReconstructionController::Run() {
 }
 
 void AutomaticReconstructionController::RunFeatureExtraction() {
-  ImageReader::Options reader_options = *option_manager_.image_reader;
-  reader_options.database_path = *option_manager_.database_path;
-  reader_options.image_path = *option_manager_.image_path;
-
-  std::unique_ptr<Thread> feature_extractor;
-  if (options_.use_gpu) {
-    feature_extractor.reset(new SiftGPUFeatureExtractor(
-        reader_options, *option_manager_.sift_extraction,
-        *option_manager_.sift_gpu_extraction));
-  } else {
-    feature_extractor.reset(new SiftCPUFeatureExtractor(
-        reader_options, *option_manager_.sift_extraction,
-        *option_manager_.sift_cpu_extraction));
-  }
-
-  CHECK(feature_extractor);
-
-  if (options_.use_gpu) {
-    RunThreadWithOpenGLContext(feature_extractor.get());
-  } else {
-    feature_extractor->Start();
-    feature_extractor->Wait();
-  }
+  CHECK(feature_extractor_);
+  feature_extractor_->Start();
+  feature_extractor_->Wait();
 }
 
 void AutomaticReconstructionController::RunFeatureMatching() {
-  std::unique_ptr<Thread> feature_matcher;
+  Thread* matcher = nullptr;
   if (options_.data_type == DataType::VIDEO) {
-    option_manager_.sequential_matching->loop_detection = true;
-    option_manager_.sequential_matching->vocab_tree_path =
-        options_.vocab_tree_path;
-    feature_matcher.reset(new SequentialFeatureMatcher(
-        *option_manager_.sequential_matching, *option_manager_.sift_matching,
-        *option_manager_.database_path));
+    matcher = sequential_matcher_.get();
   } else if (options_.data_type == DataType::DSLR ||
              options_.data_type == DataType::INTERNET) {
     Database database(*option_manager_.database_path);
     const size_t num_images = database.NumImages();
-    if (num_images < 200) {
-      feature_matcher.reset(new ExhaustiveFeatureMatcher(
-          *option_manager_.exhaustive_matching, *option_manager_.sift_matching,
-          *option_manager_.database_path));
+    if (options_.vocab_tree_path.empty() || num_images < 200) {
+      matcher = exhaustive_matcher_.get();
     } else {
-      option_manager_.vocab_tree_matching->vocab_tree_path =
-          options_.vocab_tree_path;
-      feature_matcher.reset(new VocabTreeFeatureMatcher(
-          *option_manager_.vocab_tree_matching, *option_manager_.sift_matching,
-          *option_manager_.database_path));
+      matcher = vocab_tree_matcher_.get();
     }
   }
 
-  CHECK(feature_matcher);
-
-  if (options_.use_gpu && options_.use_opengl) {
-    RunThreadWithOpenGLContext(feature_matcher.get());
-  } else {
-    feature_matcher->Start();
-    feature_matcher->Wait();
-  }
+  CHECK(matcher);
+  matcher->Start();
+  matcher->Wait();
 }
 
 void AutomaticReconstructionController::RunSparseMapper() {
@@ -135,12 +134,8 @@ void AutomaticReconstructionController::RunSparseMapper() {
   mapper.Start();
   mapper.Wait();
 
-  for (size_t i = 0; i < reconstruction_manager_.Size(); ++i) {
-    const std::string sparse_path =
-        JoinPaths(options_.workspace_path, "sparse", std::to_string(i));
-    CreateDirIfNotExists(sparse_path);
-    reconstruction_manager_.Get(i).Write(sparse_path);
-  }
+  reconstruction_manager_.Write(JoinPaths(options_.workspace_path, "sparse"),
+                                &option_manager_);
 }
 
 void AutomaticReconstructionController::RunDenseMapper() {

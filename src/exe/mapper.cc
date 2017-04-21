@@ -77,6 +77,7 @@ int main(int argc, char** argv) {
                 reconstruction_manager.Get(prev_num_reconstructions);
             CreateDirIfNotExists(reconstruction_path);
             reconstruction.Write(reconstruction_path);
+            options.Write(JoinPaths(reconstruction_path, "project.ini"));
             prev_num_reconstructions = reconstruction_manager.Size();
           }
         });

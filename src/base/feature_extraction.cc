@@ -381,7 +381,6 @@ SiftGPUFeatureExtractor::SiftGPUFeatureExtractor(
   CHECK(sift_options_.Check());
   CHECK(gpu_options_.Check());
 
-  // Create an OpenGL context.
   if (gpu_options_.index < 0) {
     opengl_context_.reset(new OpenGLContextManager());
   }

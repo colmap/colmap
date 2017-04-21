@@ -295,29 +295,31 @@ bool SiftMatchingOptions::Check() const {
 
 FeatureMatcherCache::FeatureMatcherCache(const size_t cache_size,
                                          const Database* database)
-    : database_(database) {
-  CHECK_NOTNULL(database);
+    : cache_size_(cache_size), database_(database) {
+  CHECK_NOTNULL(database_);
+}
 
-  const std::vector<Camera> cameras = database->ReadAllCameras();
+void FeatureMatcherCache::Setup() {
+  const std::vector<Camera> cameras = database_->ReadAllCameras();
   cameras_cache_.reserve(cameras.size());
   for (const auto& camera : cameras) {
     cameras_cache_.emplace(camera.CameraId(), camera);
   }
 
-  const std::vector<Image> images = database->ReadAllImages();
+  const std::vector<Image> images = database_->ReadAllImages();
   images_cache_.reserve(images.size());
   for (const auto& image : images) {
     images_cache_.emplace(image.ImageId(), image);
   }
 
   keypoints_cache_.reset(new LRUCache<image_t, FeatureKeypoints>(
-      cache_size, [database](const image_t image_id) {
-        return database->ReadKeypoints(image_id);
+      cache_size_, [this](const image_t image_id) {
+        return database_->ReadKeypoints(image_id);
       }));
 
   descriptors_cache_.reset(new LRUCache<image_t, FeatureDescriptors>(
-      cache_size, [database](const image_t image_id) {
-        return database->ReadDescriptors(image_id);
+      cache_size_, [this](const image_t image_id) {
+        return database_->ReadDescriptors(image_id);
       }));
 }
 
@@ -887,6 +889,8 @@ ExhaustiveFeatureMatcher::ExhaustiveFeatureMatcher(
 void ExhaustiveFeatureMatcher::Run() {
   PrintHeading1("Exhaustive feature matching");
 
+  cache_.Setup();
+
   const std::vector<image_t> image_ids = cache_.GetImageIds();
 
   const size_t block_size = static_cast<size_t>(options_.block_size);
@@ -962,6 +966,8 @@ SequentialFeatureMatcher::SequentialFeatureMatcher(
 
 void SequentialFeatureMatcher::Run() {
   PrintHeading1("Sequential feature matching");
+
+  cache_.Setup();
 
   const std::vector<image_t> ordered_image_ids = GetOrderedImageIds();
 
@@ -1076,6 +1082,8 @@ VocabTreeFeatureMatcher::VocabTreeFeatureMatcher(
 void VocabTreeFeatureMatcher::Run() {
   PrintHeading1("Vocabulary tree feature matching");
 
+  cache_.Setup();
+
   // Read the pre-trained vocabulary tree from disk.
   retrieval::VisualIndex visual_index;
   visual_index.Read(options_.vocab_tree_path);
@@ -1151,6 +1159,8 @@ SpatialFeatureMatcher::SpatialFeatureMatcher(
 
 void SpatialFeatureMatcher::Run() {
   PrintHeading1("Spatial feature matching");
+
+  cache_.Setup();
 
   const std::vector<image_t> image_ids = cache_.GetImageIds();
 
@@ -1331,6 +1341,8 @@ ImagePairsFeatureMatcher::ImagePairsFeatureMatcher(
 void ImagePairsFeatureMatcher::Run() {
   PrintHeading1("Custom feature matching");
 
+  cache_.Setup();
+
   //////////////////////////////////////////////////////////////////////////////
   // Reading image pairs list
   //////////////////////////////////////////////////////////////////////////////
@@ -1432,6 +1444,8 @@ FeaturePairsFeatureMatcher::FeaturePairsFeatureMatcher(
 
 void FeaturePairsFeatureMatcher::Run() {
   PrintHeading1("Importing matches");
+
+  cache_.Setup();
 
   std::unordered_map<std::string, const Image*> image_name_to_image;
   image_name_to_image.reserve(cache_.GetImageIds().size());
