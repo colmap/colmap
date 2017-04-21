@@ -37,10 +37,17 @@ void OptionManager::InitForVideoData() {
   mapper->mapper.init_min_tri_angle /= 2;
   mapper->ba_global_images_ratio = 1.4;
   mapper->ba_global_points_ratio = 1.4;
+  mapper->min_focal_length_ratio = std::numeric_limits<double>::min();
+  mapper->max_focal_length_ratio = std::numeric_limits<double>::max();
+  mapper->max_extra_param = std::numeric_limits<double>::max();
   dense_fusion->min_num_pixels = 15;
 }
 
-void OptionManager::InitForDSLRData() {}
+void OptionManager::InitForDSLRData() {
+  mapper->min_focal_length_ratio = std::numeric_limits<double>::min();
+  mapper->max_focal_length_ratio = std::numeric_limits<double>::max();
+  mapper->max_extra_param = std::numeric_limits<double>::max();
+}
 
 void OptionManager::InitForInternetData() { dense_fusion->min_num_pixels = 10; }
 

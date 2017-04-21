@@ -42,6 +42,9 @@ class AutomaticReconstructionController : public Thread {
     // The type of input data used to choose optimal mapper settings.
     DataType data_type;
 
+    // Whether to perform low- or high-quality reconstruction.
+    bool high_quality = true;
+
     // Whether to perform sparse mapping.
     bool sparse = true;
 

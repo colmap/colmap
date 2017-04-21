@@ -36,6 +36,8 @@ int main(int argc, char** argv) {
   options.AddDefaultOption("vocab_tree_path",
                            &reconstruction_options.vocab_tree_path);
   options.AddDefaultOption("data_type", &data_type, "{VIDEO, DSLR, INTERNET}");
+  options.AddDefaultOption("high_quality",
+                           &reconstruction_options.high_quality);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
   options.AddDefaultOption("use_gpu", &reconstruction_options.use_gpu);

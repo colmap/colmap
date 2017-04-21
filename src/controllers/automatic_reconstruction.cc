@@ -16,8 +16,6 @@
 
 #include "controllers/automatic_reconstruction.h"
 
-#include <QApplication>
-
 #include "base/feature_extraction.h"
 #include "base/feature_matching.h"
 #include "base/undistortion.h"
@@ -51,11 +49,30 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     LOG(FATAL) << "Data type not supported";
   }
 
+  if (!options_.high_quality) {
+    option_manager_.sift_extraction->max_image_size = 1000;
+    option_manager_.sequential_matching->loop_detection_num_images /= 2;
+    option_manager_.vocab_tree_matching->num_images /= 2;
+    option_manager_.mapper->ba_local_max_num_iterations /= 2;
+    option_manager_.mapper->ba_global_max_num_iterations /= 2;
+    option_manager_.mapper->ba_global_images_ratio *= 1.2;
+    option_manager_.mapper->ba_global_points_ratio *= 1.2;
+    option_manager_.mapper->ba_global_max_refinements = 2;
+    option_manager_.dense_stereo->max_image_size = 1000;
+    option_manager_.dense_stereo->window_radius = 4;
+    option_manager_.dense_stereo->num_samples /= 2;
+    option_manager_.dense_stereo->num_iterations = 3;
+  }
+
   ImageReader::Options reader_options = *option_manager_.image_reader;
   reader_options.database_path = *option_manager_.database_path;
   reader_options.image_path = *option_manager_.image_path;
 
   if (options_.use_gpu) {
+    if (!options_.use_opengl) {
+      option_manager_.sift_gpu_extraction->index = 0;
+    }
+
     feature_extractor_.reset(new SiftGPUFeatureExtractor(
         reader_options, *option_manager_.sift_extraction,
         *option_manager_.sift_gpu_extraction));
@@ -151,21 +168,63 @@ void AutomaticReconstructionController::RunDenseMapper() {
   for (size_t i = 0; i < reconstruction_manager_.Size(); ++i) {
     const std::string dense_path =
         JoinPaths(options_.workspace_path, "dense", std::to_string(i));
-    COLMAPUndistorter undistorter(UndistortCameraOptions(),
+    CreateDirIfNotExists(dense_path);
+
+    // Image undistortion.
+
+    UndistortCameraOptions undistortion_options;
+    undistortion_options.max_image_size =
+        option_manager_.dense_stereo->max_image_size;
+    COLMAPUndistorter undistorter(undistortion_options,
                                   reconstruction_manager_.Get(i),
                                   *option_manager_.image_path, dense_path);
-    mvs::PatchMatchController patch_match_controller(
-        *option_manager_.dense_stereo, dense_path, "COLMAP", "");
-    patch_match_controller.Start();
-    patch_match_controller.Wait();
+    undistorter.Start();
+    undistorter.Wait();
+
+    // Dense stereo
+
+    if (options_.high_quality) {
+      // Photometric stereo.
+      option_manager_.dense_stereo->filter = false;
+      option_manager_.dense_stereo->geom_consistency = false;
+      mvs::PatchMatchController photometric_patch_match_controller(
+          *option_manager_.dense_stereo, dense_path, "COLMAP", "");
+      photometric_patch_match_controller.Start();
+      photometric_patch_match_controller.Wait();
+      // Geometric stereo.
+      option_manager_.dense_stereo->filter = true;
+      option_manager_.dense_stereo->geom_consistency = true;
+      mvs::PatchMatchController geometric_patch_match_controller(
+          *option_manager_.dense_stereo, dense_path, "COLMAP", "");
+      geometric_patch_match_controller.Start();
+      geometric_patch_match_controller.Wait();
+    } else {
+      option_manager_.dense_stereo->filter = true;
+      option_manager_.dense_stereo->geom_consistency = false;
+      mvs::PatchMatchController patch_match_controller(
+          *option_manager_.dense_stereo, dense_path, "COLMAP", "");
+      patch_match_controller.Start();
+      patch_match_controller.Wait();
+    }
+
+    // Dense fusion.
+
+    std::string fusion_input_type;
+    if (options_.high_quality) {
+      fusion_input_type = "geometric";
+    } else {
+      fusion_input_type = "photometric";
+    }
 
     mvs::StereoFusion fuser(*option_manager_.dense_fusion, dense_path, "COLMAP",
-                            "photometric");
+                            fusion_input_type);
     fuser.Start();
     fuser.Wait();
     std::cout << "Writing output: " << JoinPaths(dense_path, "fused.ply")
               << std::endl;
     WritePlyBinary(JoinPaths(dense_path, "fused.ply"), fuser.GetFusedPoints());
+
+    // Dense meshing.
 
     CHECK(mvs::PoissonReconstruction(*option_manager_.dense_meshing,
                                      JoinPaths(dense_path, "fused.ply"),
