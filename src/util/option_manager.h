@@ -123,7 +123,6 @@ class OptionManager {
   bool added_dense_fusion_options_;
   bool added_dense_meshing_options_;
   bool added_render_options_;
-  bool added_debug_options_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

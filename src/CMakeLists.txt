@@ -50,7 +50,14 @@ set(COLMAP_LIBRARIES
     ${OPENGL_LIBRARIES})
 
 if(CUDA_ENABLED)
-    set(COLMAP_LIBRARIES mvs mvs_cuda util_cuda ${COLMAP_LIBRARIES} util_cuda)
+    set(COLMAP_LIBRARIES
+        mvs
+        mvs_cuda
+        util_cuda
+        ${COLMAP_LIBRARIES}
+        mvs
+        mvs_cuda
+        util_cuda)
 endif()
 
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")

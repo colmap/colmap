@@ -472,7 +472,6 @@ void OptionManager::Reset() {
   added_dense_fusion_options_ = false;
   added_dense_meshing_options_ = false;
   added_render_options_ = false;
-  added_debug_options_ = false;
 }
 
 bool OptionManager::Check() {

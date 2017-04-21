@@ -42,17 +42,17 @@ class AutomaticReconstructionController : public Thread {
     // The type of input data used to choose optimal mapper settings.
     DataType data_type;
 
-    // Whether to use the GPU in feature extraction and matching.
-    bool use_gpu = true;
-
-    // Whether to use OpenGL in GPU-based feature extraction and matching.
-    bool use_opengl = true;
-
     // Whether to perform sparse mapping.
     bool sparse = true;
 
     // Whether to perform dense mapping.
     bool dense = true;
+
+    // Whether to use the GPU in feature extraction and matching.
+    bool use_gpu = true;
+
+    // Whether to use OpenGL in GPU-based feature extraction and matching.
+    bool use_opengl = true;
   };
 
   AutomaticReconstructionController(const Options& options);
