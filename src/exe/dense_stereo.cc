@@ -29,8 +29,7 @@ int main(int argc, char* argv[]) {
   OptionManager options;
   options.AddRequiredOption("workspace_path", &workspace_path);
   options.AddRequiredOption("workspace_format", &workspace_format);
-  options.AddDefaultOption("pmvs_option_name", pmvs_option_name,
-                           &pmvs_option_name);
+  options.AddDefaultOption("pmvs_option_name", &pmvs_option_name);
   options.AddDenseStereoOptions();
   options.Parse(argc, argv);
 

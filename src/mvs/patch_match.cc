@@ -77,8 +77,7 @@ void ImportPMVSOption(const Model& model, const std::string& path,
 void ReadPatchMatchProblems(const PatchMatch::Options& options,
                             const std::string& workspace_path,
                             const std::string& workspace_format,
-                            const std::string& pmvs_option_name,
-                            const int max_image_size, Model* model,
+                            const std::string& pmvs_option_name, Model* model,
                             std::vector<PatchMatch::Problem>* problems,
                             std::vector<DepthMap>* depth_maps,
                             std::vector<NormalMap>* normal_maps) {
@@ -237,14 +236,17 @@ void ReadPatchMatchProblems(const PatchMatch::Options& options,
     }
   }
 
-  if (max_image_size > 0) {
+  if (options.max_image_size > 0) {
     std::cout << "Resampling model..." << std::endl;
     ThreadPool resample_thread_pool;
     for (size_t image_id = 0; image_id < model->images.size(); ++image_id) {
       resample_thread_pool.AddTask([&, image_id]() {
-        model->images.at(image_id).Downsize(max_image_size, max_image_size);
-        depth_maps->at(image_id).Downsize(max_image_size, max_image_size);
-        normal_maps->at(image_id).Downsize(max_image_size, max_image_size);
+        model->images.at(image_id).Downsize(options.max_image_size,
+                                            options.max_image_size);
+        depth_maps->at(image_id).Downsize(options.max_image_size,
+                                          options.max_image_size);
+        normal_maps->at(image_id).Downsize(options.max_image_size,
+                                           options.max_image_size);
       });
     }
     resample_thread_pool.Wait();
@@ -388,13 +390,11 @@ ConsistencyGraph PatchMatch::GetConsistencyGraph() const {
 PatchMatchController::PatchMatchController(const PatchMatch::Options& options,
                                            const std::string& workspace_path,
                                            const std::string& workspace_format,
-                                           const std::string& pmvs_option_name,
-                                           const int max_image_size)
+                                           const std::string& pmvs_option_name)
     : options_(options),
       workspace_path_(workspace_path),
       workspace_format_(workspace_format),
-      pmvs_option_name_(pmvs_option_name),
-      max_image_size_(max_image_size) {}
+      pmvs_option_name_(pmvs_option_name) {}
 
 void PatchMatchController::Run() {
   Model model;
@@ -402,8 +402,8 @@ void PatchMatchController::Run() {
   std::vector<DepthMap> depth_maps;
   std::vector<NormalMap> normal_maps;
   ReadPatchMatchProblems(options_, workspace_path_, workspace_format_,
-                         pmvs_option_name_, max_image_size_, &model, &problems,
-                         &depth_maps, &normal_maps);
+                         pmvs_option_name_, &model, &problems, &depth_maps,
+                         &normal_maps);
 
   const auto depth_ranges = model.ComputeDepthRanges();
 

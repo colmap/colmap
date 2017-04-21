@@ -15,14 +15,18 @@ link_directories(
 )
 
 set(COLMAP_LIBRARIES
-    controllers
     mvs
     sfm
+    controllers
     base
     ui
     util
+    controllers
+    mvs
+    sfm
     estimators
     base
+    ui
     util
     estimators
     optim
