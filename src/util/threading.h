@@ -97,11 +97,11 @@ class Thread {
   virtual ~Thread() = default;
 
   // Control the state of the thread.
-  void Start();
-  void Stop();
-  void Pause();
-  void Resume();
-  void Wait();
+  virtual void Start();
+  virtual void Stop();
+  virtual void Pause();
+  virtual void Resume();
+  virtual void Wait();
 
   // Check the state of the thread.
   bool IsStarted();

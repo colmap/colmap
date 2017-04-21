@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "ui/multi_view_stereo_widget.h"
+#include "ui/dense_reconstruction_widget.h"
 
 #include "base/undistortion.h"
 #include "ui/main_window.h"
@@ -25,9 +25,9 @@ namespace {
 const static std::string kFusedFileName = "fused.ply";
 const static std::string kMeshedFileName = "meshed.ply";
 
-class PatchMatchingOptionsTab : public OptionsWidget {
+class StereoOptionsTab : public OptionsWidget {
  public:
-  PatchMatchingOptionsTab(QWidget* parent, OptionManager* options)
+  StereoOptionsTab(QWidget* parent, OptionManager* options)
       : OptionsWidget(parent) {
     // Set a relatively small default image size to avoid too long computation.
     if (options->dense_stereo->max_image_size == 0) {
@@ -62,9 +62,9 @@ class PatchMatchingOptionsTab : public OptionsWidget {
   }
 };
 
-class StereoFusionOptionsTab : public OptionsWidget {
+class FusionOptionsTab : public OptionsWidget {
  public:
-  StereoFusionOptionsTab(QWidget* parent, OptionManager* options)
+  FusionOptionsTab(QWidget* parent, OptionManager* options)
       : OptionsWidget(parent) {
     AddOptionInt(&options->dense_fusion->min_num_pixels, "min_num_pixels", 0);
     AddOptionInt(&options->dense_fusion->max_num_pixels, "max_num_pixels", 0);
@@ -80,9 +80,9 @@ class StereoFusionOptionsTab : public OptionsWidget {
   }
 };
 
-class PoissonReconstructionOptionsTab : public OptionsWidget {
+class MeshingOptionsTab : public OptionsWidget {
  public:
-  PoissonReconstructionOptionsTab(QWidget* parent, OptionManager* options)
+  MeshingOptionsTab(QWidget* parent, OptionManager* options)
       : OptionsWidget(parent) {
     AddOptionDouble(&options->dense_meshing->point_weight, "point_weight", 0);
     AddOptionInt(&options->dense_meshing->depth, "depth", 1);
@@ -121,38 +121,37 @@ std::vector<std::pair<std::string, std::string>> ReadPatchMatchConfig(
 
 }  // namespace
 
-MultiViewStereoOptionsWidget::MultiViewStereoOptionsWidget(
+DenseReconstructionOptionsWidget::DenseReconstructionOptionsWidget(
     QWidget* parent, OptionManager* options)
     : QWidget(parent) {
   setWindowFlags(Qt::Dialog);
   setWindowModality(Qt::ApplicationModal);
-  setWindowTitle("Multi-view stereo options");
+  setWindowTitle("Dense reconstruction options");
 
   QGridLayout* grid = new QGridLayout(this);
 
   QTabWidget* tab_widget = new QTabWidget(this);
   tab_widget->setElideMode(Qt::TextElideMode::ElideRight);
-  tab_widget->addTab(new PatchMatchingOptionsTab(this, options), "Stereo");
-  tab_widget->addTab(new StereoFusionOptionsTab(this, options), "Fusion");
-  tab_widget->addTab(new PoissonReconstructionOptionsTab(this, options),
-                     "Meshing");
+  tab_widget->addTab(new StereoOptionsTab(this, options), "Stereo");
+  tab_widget->addTab(new FusionOptionsTab(this, options), "Fusion");
+  tab_widget->addTab(new MeshingOptionsTab(this, options), "Meshing");
 
   grid->addWidget(tab_widget, 0, 0);
 }
 
-MultiViewStereoWidget::MultiViewStereoWidget(MainWindow* main_window,
-                                             OptionManager* options)
+DenseReconstructionWidget::DenseReconstructionWidget(MainWindow* main_window,
+                                                     OptionManager* options)
     : QWidget(main_window),
       main_window_(main_window),
       options_(options),
       reconstruction_(nullptr),
       thread_control_widget_(new ThreadControlWidget(this)),
-      options_widget_(new MultiViewStereoOptionsWidget(this, options)),
+      options_widget_(new DenseReconstructionOptionsWidget(this, options)),
       photometric_done_(false),
       geometric_done_(false) {
   setWindowFlags(Qt::Dialog);
   setWindowModality(Qt::ApplicationModal);
-  setWindowTitle("Multi-view stereo");
+  setWindowTitle("Dense reconstruction");
   resize(main_window_->size().width() - 200,
          main_window_->size().height() - 20);
 
@@ -160,22 +159,22 @@ MultiViewStereoWidget::MultiViewStereoWidget(MainWindow* main_window,
 
   undistortion_button_ = new QPushButton(tr("Undistortion"), this);
   connect(undistortion_button_, &QPushButton::released, this,
-          &MultiViewStereoWidget::Undistort);
+          &DenseReconstructionWidget::Undistort);
   grid->addWidget(undistortion_button_, 0, 0, Qt::AlignLeft);
 
   stereo_button_ = new QPushButton(tr("Stereo"), this);
   connect(stereo_button_, &QPushButton::released, this,
-          &MultiViewStereoWidget::Stereo);
+          &DenseReconstructionWidget::Stereo);
   grid->addWidget(stereo_button_, 0, 1, Qt::AlignLeft);
 
   fusion_button_ = new QPushButton(tr("Fusion"), this);
   connect(fusion_button_, &QPushButton::released, this,
-          &MultiViewStereoWidget::Fusion);
+          &DenseReconstructionWidget::Fusion);
   grid->addWidget(fusion_button_, 0, 2, Qt::AlignLeft);
 
   meshing_button_ = new QPushButton(tr("Meshing"), this);
   connect(meshing_button_, &QPushButton::released, this,
-          &MultiViewStereoWidget::Meshing);
+          &DenseReconstructionWidget::Meshing);
   grid->addWidget(meshing_button_, 0, 3, Qt::AlignLeft);
 
   QPushButton* options_button = new QPushButton(tr("Options"), this);
@@ -189,11 +188,11 @@ MultiViewStereoWidget::MultiViewStereoWidget(MainWindow* main_window,
   workspace_path_text_ = new QLineEdit(this);
   grid->addWidget(workspace_path_text_, 0, 6, Qt::AlignRight);
   connect(workspace_path_text_, &QLineEdit::textChanged, this,
-          &MultiViewStereoWidget::RefreshWorkspace);
+          &DenseReconstructionWidget::RefreshWorkspace);
 
   QPushButton* workspace_path_button = new QPushButton(tr("Select"), this);
   connect(workspace_path_button, &QPushButton::released, this,
-          &MultiViewStereoWidget::SelectWorkspacePath);
+          &DenseReconstructionWidget::SelectWorkspacePath);
   grid->addWidget(workspace_path_button, 0, 7, Qt::AlignRight);
 
   QStringList table_header;
@@ -223,24 +222,26 @@ MultiViewStereoWidget::MultiViewStereoWidget(MainWindow* main_window,
 
   refresh_workspace_action_ = new QAction(this);
   connect(refresh_workspace_action_, &QAction::triggered, this,
-          &MultiViewStereoWidget::RefreshWorkspace);
+          &DenseReconstructionWidget::RefreshWorkspace);
 
   write_fused_points_action_ = new QAction(this);
   connect(write_fused_points_action_, &QAction::triggered, this,
-          &MultiViewStereoWidget::WriteFusedPoints);
+          &DenseReconstructionWidget::WriteFusedPoints);
 
   RefreshWorkspace();
 }
 
-void MultiViewStereoWidget::showEvent(QShowEvent* event) { RefreshWorkspace(); }
+void DenseReconstructionWidget::showEvent(QShowEvent* event) {
+  RefreshWorkspace();
+}
 
-void MultiViewStereoWidget::Show(Reconstruction* reconstruction) {
+void DenseReconstructionWidget::Show(Reconstruction* reconstruction) {
   reconstruction_ = reconstruction;
   show();
   raise();
 }
 
-void MultiViewStereoWidget::Undistort() {
+void DenseReconstructionWidget::Undistort() {
   const std::string workspace_path = GetWorkspacePath();
   if (workspace_path.empty()) {
     return;
@@ -259,7 +260,7 @@ void MultiViewStereoWidget::Undistort() {
   thread_control_widget_->StartThread("Undistorting...", true, undistorter);
 }
 
-void MultiViewStereoWidget::Stereo() {
+void DenseReconstructionWidget::Stereo() {
   const std::string workspace_path = GetWorkspacePath();
   if (workspace_path.empty()) {
     return;
@@ -276,7 +277,7 @@ void MultiViewStereoWidget::Stereo() {
 #endif
 }
 
-void MultiViewStereoWidget::Fusion() {
+void DenseReconstructionWidget::Fusion() {
   const std::string workspace_path = GetWorkspacePath();
   if (workspace_path.empty()) {
     return;
@@ -301,7 +302,7 @@ void MultiViewStereoWidget::Fusion() {
   thread_control_widget_->StartThread("Fusing...", true, fuser);
 }
 
-void MultiViewStereoWidget::Meshing() {
+void DenseReconstructionWidget::Meshing() {
   const std::string workspace_path = GetWorkspacePath();
   if (workspace_path.empty()) {
     return;
@@ -317,7 +318,7 @@ void MultiViewStereoWidget::Meshing() {
   }
 }
 
-void MultiViewStereoWidget::SelectWorkspacePath() {
+void DenseReconstructionWidget::SelectWorkspacePath() {
   std::string workspace_path;
   if (workspace_path_text_->text().isEmpty()) {
     workspace_path = GetParentDir(*options_->project_path);
@@ -332,7 +333,7 @@ void MultiViewStereoWidget::SelectWorkspacePath() {
   RefreshWorkspace();
 }
 
-std::string MultiViewStereoWidget::GetWorkspacePath() {
+std::string DenseReconstructionWidget::GetWorkspacePath() {
   const std::string workspace_path =
       workspace_path_text_->text().toUtf8().constData();
   if (ExistsDir(workspace_path)) {
@@ -343,7 +344,7 @@ std::string MultiViewStereoWidget::GetWorkspacePath() {
   }
 }
 
-void MultiViewStereoWidget::RefreshWorkspace() {
+void DenseReconstructionWidget::RefreshWorkspace() {
   table_widget_->clearContents();
   table_widget_->setRowCount(0);
 
@@ -416,7 +417,7 @@ void MultiViewStereoWidget::RefreshWorkspace() {
       ExistsFile(JoinPaths(workspace_path, kFusedFileName)));
 }
 
-void MultiViewStereoWidget::WriteFusedPoints() {
+void DenseReconstructionWidget::WriteFusedPoints() {
   const int reply = QMessageBox::question(
       this, "", tr("Do you want to visualize the point cloud?"),
       QMessageBox::Yes | QMessageBox::No);
@@ -440,7 +441,7 @@ void MultiViewStereoWidget::WriteFusedPoints() {
       });
 }
 
-QWidget* MultiViewStereoWidget::GenerateTableButtonWidget(
+QWidget* DenseReconstructionWidget::GenerateTableButtonWidget(
     const std::string& image_name, const std::string& type) {
   CHECK(type == "photometric" || type == "geometric");
   const bool photometric = type == "photometric";

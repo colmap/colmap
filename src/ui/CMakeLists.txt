@@ -5,9 +5,11 @@ set(COLMAP_QT_MODULES Core OpenGL)
 qt5_add_resources(QT_RESOURCES resources.qrc)
 
 COLMAP_ADD_LIBRARY(ui
+    automatic_reconstruction_widget.h automatic_reconstruction_widget.cc
     bundle_adjustment_widget.h bundle_adjustment_widget.cc
     colormaps.h colormaps.cc
     database_management_widget.h database_management_widget.cc
+    dense_reconstruction_widget.h dense_reconstruction_widget.cc
     feature_extraction_widget.h feature_extraction_widget.cc
     feature_matching_widget.h feature_matching_widget.cc
     image_viewer_widget.h image_viewer_widget.cc
@@ -17,7 +19,6 @@ COLMAP_ADD_LIBRARY(ui
     main_window.h main_window.cc
     match_matrix_widget.h match_matrix_widget.cc
     movie_grabber_widget.h movie_grabber_widget.cc
-    multi_view_stereo_widget.h multi_view_stereo_widget.cc
     opengl_window.h opengl_window.cc
     options_widget.h options_widget.cc
     point_painter.h point_painter.cc

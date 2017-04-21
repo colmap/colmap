@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
   options.AddRequiredOption("image_path", &reconstruction_options.image_path);
   options.AddDefaultOption("vocab_tree_path",
                            &reconstruction_options.vocab_tree_path);
-  options.AddDefaultOption("data_type", &data_type, "{VIDEO, DSLR, INTERNET}");
+  options.AddDefaultOption("data_type", &data_type, "{DSLR, VIDEO, INTERNET}");
   options.AddDefaultOption("high_quality",
                            &reconstruction_options.high_quality);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
@@ -57,12 +57,16 @@ int main(int argc, char** argv) {
     LOG(FATAL) << "Invalid data type";
   }
 
+  ReconstructionManager reconstruction_manager;
+
   if (reconstruction_options.use_gpu && reconstruction_options.use_opengl) {
     QApplication app(argc, argv);
-    AutomaticReconstructionController controller(reconstruction_options);
+    AutomaticReconstructionController controller(reconstruction_options,
+                                                 &reconstruction_manager);
     RunThreadWithOpenGLContext(&controller);
   } else {
-    AutomaticReconstructionController controller(reconstruction_options);
+    AutomaticReconstructionController controller(reconstruction_options,
+                                                 &reconstruction_manager);
     controller.Start();
     controller.Wait();
   }

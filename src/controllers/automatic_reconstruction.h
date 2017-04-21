@@ -27,7 +27,7 @@ namespace colmap {
 
 class AutomaticReconstructionController : public Thread {
  public:
-  enum class DataType { VIDEO, DSLR, INTERNET };
+  enum class DataType { DSLR, VIDEO, INTERNET };
 
   struct Options {
     // The path to the workspace folder in which all results are stored.
@@ -66,10 +66,13 @@ class AutomaticReconstructionController : public Thread {
 #endif
   };
 
-  AutomaticReconstructionController(const Options& options);
+  AutomaticReconstructionController(
+      const Options& options, ReconstructionManager* reconstruction_manager);
+
+  void Stop() override;
 
  private:
-  void Run();
+  void Run() override;
   void RunFeatureExtraction();
   void RunFeatureMatching();
   void RunSparseMapper();
@@ -77,7 +80,8 @@ class AutomaticReconstructionController : public Thread {
 
   const Options options_;
   OptionManager option_manager_;
-  ReconstructionManager reconstruction_manager_;
+  ReconstructionManager* reconstruction_manager_;
+  Thread* active_thread_;
   std::unique_ptr<Thread> feature_extractor_;
   std::unique_ptr<Thread> exhaustive_matcher_;
   std::unique_ptr<Thread> sequential_matcher_;

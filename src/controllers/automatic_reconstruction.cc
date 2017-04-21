@@ -28,10 +28,13 @@
 namespace colmap {
 
 AutomaticReconstructionController::AutomaticReconstructionController(
-    const Options& options)
-    : options_(options) {
+    const Options& options, ReconstructionManager* reconstruction_manager)
+    : options_(options),
+      reconstruction_manager_(reconstruction_manager),
+      active_thread_(nullptr) {
   CHECK(ExistsDir(options_.workspace_path));
   CHECK(ExistsDir(options_.image_path));
+  CHECK_NOTNULL(reconstruction_manager_);
 
   option_manager_.AddAllOptions();
 
@@ -105,12 +108,38 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   }
 }
 
+void AutomaticReconstructionController::Stop() {
+  if (active_thread_ != nullptr) {
+    active_thread_->Stop();
+  }
+  Thread::Stop();
+}
+
 void AutomaticReconstructionController::Run() {
+  if (IsStopped()) {
+    return;
+  }
+
   RunFeatureExtraction();
+
+  if (IsStopped()) {
+    return;
+  }
+
   RunFeatureMatching();
+
+  if (IsStopped()) {
+    return;
+  }
+
   if (options_.sparse) {
     RunSparseMapper();
   }
+
+  if (IsStopped()) {
+    return;
+  }
+
   if (options_.dense) {
     RunDenseMapper();
   }
@@ -118,8 +147,10 @@ void AutomaticReconstructionController::Run() {
 
 void AutomaticReconstructionController::RunFeatureExtraction() {
   CHECK(feature_extractor_);
+  active_thread_ = feature_extractor_.get();
   feature_extractor_->Start();
   feature_extractor_->Wait();
+  active_thread_ = nullptr;
 }
 
 void AutomaticReconstructionController::RunFeatureMatching() {
@@ -138,8 +169,10 @@ void AutomaticReconstructionController::RunFeatureMatching() {
   }
 
   CHECK(matcher);
+  active_thread_ = matcher;
   matcher->Start();
   matcher->Wait();
+  active_thread_ = nullptr;
 }
 
 void AutomaticReconstructionController::RunSparseMapper() {
@@ -147,12 +180,14 @@ void AutomaticReconstructionController::RunSparseMapper() {
 
   IncrementalMapperController mapper(
       option_manager_.mapper.get(), *option_manager_.image_path,
-      *option_manager_.database_path, &reconstruction_manager_);
+      *option_manager_.database_path, reconstruction_manager_);
+  active_thread_ = &mapper;
   mapper.Start();
   mapper.Wait();
+  active_thread_ = nullptr;
 
-  reconstruction_manager_.Write(JoinPaths(options_.workspace_path, "sparse"),
-                                &option_manager_);
+  reconstruction_manager_->Write(JoinPaths(options_.workspace_path, "sparse"),
+                                 &option_manager_);
 }
 
 void AutomaticReconstructionController::RunDenseMapper() {
@@ -165,7 +200,11 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
   CreateDirIfNotExists(JoinPaths(options_.workspace_path, "dense"));
 
-  for (size_t i = 0; i < reconstruction_manager_.Size(); ++i) {
+  for (size_t i = 0; i < reconstruction_manager_->Size(); ++i) {
+    if (IsStopped()) {
+      return;
+    }
+
     const std::string dense_path =
         JoinPaths(options_.workspace_path, "dense", std::to_string(i));
     CreateDirIfNotExists(dense_path);
@@ -176,10 +215,16 @@ void AutomaticReconstructionController::RunDenseMapper() {
     undistortion_options.max_image_size =
         option_manager_.dense_stereo->max_image_size;
     COLMAPUndistorter undistorter(undistortion_options,
-                                  reconstruction_manager_.Get(i),
+                                  reconstruction_manager_->Get(i),
                                   *option_manager_.image_path, dense_path);
+    active_thread_ = &undistorter;
     undistorter.Start();
     undistorter.Wait();
+    active_thread_ = nullptr;
+
+    if (IsStopped()) {
+      return;
+    }
 
     // Dense stereo
 
@@ -189,22 +234,37 @@ void AutomaticReconstructionController::RunDenseMapper() {
       option_manager_.dense_stereo->geom_consistency = false;
       mvs::PatchMatchController photometric_patch_match_controller(
           *option_manager_.dense_stereo, dense_path, "COLMAP", "");
+      active_thread_ = &photometric_patch_match_controller;
       photometric_patch_match_controller.Start();
       photometric_patch_match_controller.Wait();
+      active_thread_ = nullptr;
+
+      if (IsStopped()) {
+        return;
+      }
+
       // Geometric stereo.
       option_manager_.dense_stereo->filter = true;
       option_manager_.dense_stereo->geom_consistency = true;
       mvs::PatchMatchController geometric_patch_match_controller(
           *option_manager_.dense_stereo, dense_path, "COLMAP", "");
+      active_thread_ = &geometric_patch_match_controller;
       geometric_patch_match_controller.Start();
       geometric_patch_match_controller.Wait();
+      active_thread_ = nullptr;
     } else {
       option_manager_.dense_stereo->filter = true;
       option_manager_.dense_stereo->geom_consistency = false;
       mvs::PatchMatchController patch_match_controller(
           *option_manager_.dense_stereo, dense_path, "COLMAP", "");
+      active_thread_ = &patch_match_controller;
       patch_match_controller.Start();
       patch_match_controller.Wait();
+      active_thread_ = nullptr;
+    }
+
+    if (IsStopped()) {
+      return;
     }
 
     // Dense fusion.
@@ -218,8 +278,15 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     mvs::StereoFusion fuser(*option_manager_.dense_fusion, dense_path, "COLMAP",
                             fusion_input_type);
+    active_thread_ = &fuser;
     fuser.Start();
     fuser.Wait();
+    active_thread_ = nullptr;
+
+    if (IsStopped()) {
+      return;
+    }
+
     std::cout << "Writing output: " << JoinPaths(dense_path, "fused.ply")
               << std::endl;
     WritePlyBinary(JoinPaths(dense_path, "fused.ply"), fuser.GetFusedPoints());

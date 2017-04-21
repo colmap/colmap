@@ -123,10 +123,10 @@ QLineEdit* OptionsWidget::AddOptionFilePath(std::string* option,
   AddOptionRow(label_text, line_edit);
 
   auto SelectPathFunc = [this, line_edit]() {
-    line_edit->setText(QFileDialog::getOpenFileName(this, tr("Select path")));
+    line_edit->setText(QFileDialog::getOpenFileName(this, tr("Select file")));
   };
 
-  QPushButton* select_button = new QPushButton(tr("Select path"), this);
+  QPushButton* select_button = new QPushButton(tr("Select file"), this);
   select_button->setFont(font());
   connect(select_button, &QPushButton::released, this, SelectPathFunc);
   grid_layout_->addWidget(select_button, grid_layout_->rowCount(), 1);
@@ -144,10 +144,10 @@ QLineEdit* OptionsWidget::AddOptionDirPath(std::string* option,
 
   auto SelectPathFunc = [this, line_edit]() {
     line_edit->setText(
-        QFileDialog::getExistingDirectory(this, tr("Select path")));
+        QFileDialog::getExistingDirectory(this, tr("Select folder")));
   };
 
-  QPushButton* select_button = new QPushButton(tr("Select path"), this);
+  QPushButton* select_button = new QPushButton(tr("Select folder"), this);
   select_button->setFont(font());
   connect(select_button, &QPushButton::released, this, SelectPathFunc);
   grid_layout_->addWidget(select_button, grid_layout_->rowCount(), 1);

@@ -97,10 +97,11 @@ void MainWindow::CreateWidgets() {
   feature_extraction_widget_ = new FeatureExtractionWidget(this, &options_);
   feature_matching_widget_ = new FeatureMatchingWidget(this, &options_);
   database_management_widget_ = new DatabaseManagementWidget(this, &options_);
+  automatic_reconstruction_widget_ = new AutomaticReconstructionWidget(this);
   reconstruction_options_widget_ =
       new ReconstructionOptionsWidget(this, &options_);
   bundle_adjustment_widget_ = new BundleAdjustmentWidget(this, &options_);
-  multi_view_stereo_widget_ = new MultiViewStereoWidget(this, &options_);
+  dense_reconstruction_widget_ = new DenseReconstructionWidget(this, &options_);
   render_options_widget_ =
       new RenderOptionsWidget(this, &options_, opengl_window_);
   log_widget_ = new LogWidget(this);
@@ -207,6 +208,12 @@ void MainWindow::CreateActions() {
   // Reconstruction actions
   //////////////////////////////////////////////////////////////////////////////
 
+  action_automatic_reconstruction_ =
+      new QAction(QIcon(":/media/automatic-reconstruction.png"),
+                  tr("Automatic reconstruction"), this);
+  connect(action_automatic_reconstruction_, &QAction::triggered, this,
+          &MainWindow::AutomaticReconstruction);
+
   action_reconstruction_start_ =
       new QAction(QIcon(":/media/reconstruction-start.png"),
                   tr("Start reconstruction"), this);
@@ -256,10 +263,11 @@ void MainWindow::CreateActions() {
   action_bundle_adjustment_->setEnabled(false);
   blocking_actions_.push_back(action_bundle_adjustment_);
 
-  action_multi_view_stereo_ = new QAction(
-      QIcon(":/media/multi-view-stereo.png"), tr("Multi-view stereo"), this);
-  connect(action_multi_view_stereo_, &QAction::triggered, this,
-          &MainWindow::MultiViewStereo);
+  action_dense_reconstruction_ =
+      new QAction(QIcon(":/media/dense-reconstruction.png"),
+                  tr("Dense reconstruction"), this);
+  connect(action_dense_reconstruction_, &QAction::triggered, this,
+          &MainWindow::DenseReconstruction);
 
   //////////////////////////////////////////////////////////////////////////////
   // Render actions
@@ -398,6 +406,8 @@ void MainWindow::CreateMenus() {
   menuBar()->addAction(preprocessing_menu->menuAction());
 
   QMenu* reconstruction_menu = new QMenu(tr("Reconstruction"), this);
+  reconstruction_menu->addAction(action_automatic_reconstruction_);
+  reconstruction_menu->addSeparator();
   reconstruction_menu->addAction(action_reconstruction_start_);
   reconstruction_menu->addAction(action_reconstruction_pause_);
   reconstruction_menu->addAction(action_reconstruction_step_);
@@ -407,7 +417,7 @@ void MainWindow::CreateMenus() {
   reconstruction_menu->addAction(action_reconstruction_options_);
   reconstruction_menu->addSeparator();
   reconstruction_menu->addAction(action_bundle_adjustment_);
-  reconstruction_menu->addAction(action_multi_view_stereo_);
+  reconstruction_menu->addAction(action_dense_reconstruction_);
   menuBar()->addAction(reconstruction_menu->menuAction());
 
   QMenu* render_menu = new QMenu(tr("Render"), this);
@@ -463,12 +473,13 @@ void MainWindow::CreateToolbar() {
   preprocessing_toolbar_->setIconSize(QSize(16, 16));
 
   reconstruction_toolbar_ = addToolBar(tr("Reconstruction"));
+  reconstruction_toolbar_->addAction(action_automatic_reconstruction_);
   reconstruction_toolbar_->addAction(action_reconstruction_start_);
   reconstruction_toolbar_->addAction(action_reconstruction_step_);
   reconstruction_toolbar_->addAction(action_reconstruction_pause_);
   reconstruction_toolbar_->addAction(action_reconstruction_options_);
   reconstruction_toolbar_->addAction(action_bundle_adjustment_);
-  reconstruction_toolbar_->addAction(action_multi_view_stereo_);
+  reconstruction_toolbar_->addAction(action_dense_reconstruction_);
   reconstruction_toolbar_->setIconSize(QSize(16, 16));
 
   render_toolbar_ = addToolBar(tr("Render"));
@@ -853,6 +864,11 @@ void MainWindow::DatabaseManagement() {
   }
 }
 
+void MainWindow::AutomaticReconstruction() {
+  automatic_reconstruction_widget_->show();
+  automatic_reconstruction_widget_->raise();
+}
+
 void MainWindow::ReconstructionStart() {
   if (!mapper_controller_->IsStarted() && !options_.Check()) {
     ShowInvalidProjectError();
@@ -967,12 +983,12 @@ void MainWindow::BundleAdjustment() {
       action_render_now_);
 }
 
-void MainWindow::MultiViewStereo() {
+void MainWindow::DenseReconstruction() {
   if (HasSelectedReconstruction()) {
-    multi_view_stereo_widget_->Show(
+    dense_reconstruction_widget_->Show(
         &reconstruction_manager_.Get(SelectedReconstructionIdx()));
   } else {
-    multi_view_stereo_widget_->Show(nullptr);
+    dense_reconstruction_widget_->Show(nullptr);
   }
 }
 

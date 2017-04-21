@@ -21,6 +21,7 @@
     <file>media/feature-extraction.png</file>
     <file>media/feature-matching.png</file>
     <file>media/database-management.png</file>
+    <file>media/automatic-reconstruction.png</file>
     <file>media/reconstruction-start.png</file>
     <file>media/reconstruction-pause.png</file>
     <file>media/reconstruction-step.png</file>
@@ -29,7 +30,7 @@
     <file>media/reconstruction-options.png</file>
     <file>media/reconstruction-stats.png</file>
     <file>media/bundle-adjustment.png</file>
-    <file>media/multi-view-stereo.png</file>
+    <file>media/dense-reconstruction.png</file>
     <file>media/render-enabled.png</file>
     <file>media/render-disabled.png</file>
     <file>media/render-reset-view.png</file>

@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef COLMAP_SRC_UI_MULTI_VIEW_STEREO_WIDGET_H_
-#define COLMAP_SRC_UI_MULTI_VIEW_STEREO_WIDGET_H_
+#ifndef COLMAP_SRC_UI_DENSE_RECONSTRUCTION_WIDGET_H_
+#define COLMAP_SRC_UI_DENSE_RECONSTRUCTION_WIDGET_H_
 
 #include <QtCore>
 #include <QtWidgets>
@@ -30,14 +30,14 @@ namespace colmap {
 
 class MainWindow;
 
-class MultiViewStereoOptionsWidget : public QWidget {
+class DenseReconstructionOptionsWidget : public QWidget {
  public:
-  MultiViewStereoOptionsWidget(QWidget* parent, OptionManager* options);
+  DenseReconstructionOptionsWidget(QWidget* parent, OptionManager* options);
 };
 
-class MultiViewStereoWidget : public QWidget {
+class DenseReconstructionWidget : public QWidget {
  public:
-  MultiViewStereoWidget(MainWindow* main_window, OptionManager* options);
+  DenseReconstructionWidget(MainWindow* main_window, OptionManager* options);
 
   void Show(Reconstruction* reconstruction);
 
@@ -62,7 +62,7 @@ class MultiViewStereoWidget : public QWidget {
   OptionManager* options_;
   Reconstruction* reconstruction_;
   ThreadControlWidget* thread_control_widget_;
-  MultiViewStereoOptionsWidget* options_widget_;
+  DenseReconstructionOptionsWidget* options_widget_;
   ImageViewerWidget* image_viewer_widget_;
   QLineEdit* workspace_path_text_;
   QTableWidget* table_widget_;
@@ -85,4 +85,4 @@ class MultiViewStereoWidget : public QWidget {
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_UI_MULTI_VIEW_STEREO_WIDGET_H_
+#endif  // COLMAP_SRC_UI_DENSE_RECONSTRUCTION_WIDGET_H_
