@@ -1417,9 +1417,7 @@ void ImagePairsFeatureMatcher::Run() {
   GetTimer().PrintMinutes();
 }
 
-bool FeaturePairsFeatureMatcher::Options::Check() const {
-  return true;
-}
+bool FeaturePairsFeatureMatcher::Options::Check() const { return true; }
 
 FeaturePairsFeatureMatcher::FeaturePairsFeatureMatcher(
     const Options& options, const SiftMatchingOptions& match_options,

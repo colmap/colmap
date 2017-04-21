@@ -27,8 +27,8 @@
 #include "mvs/fusion.h"
 #include "mvs/meshing.h"
 #include "mvs/patch_match.h"
-#include "ui/render_options.h"
 #include "optim/bundle_adjustment.h"
+#include "ui/render_options.h"
 
 namespace colmap {
 

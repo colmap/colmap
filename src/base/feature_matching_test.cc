@@ -96,8 +96,8 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPU) {
   MatchSiftFeaturesCPU(SiftMatchingOptions(), descriptors1, empty_descriptors,
                        &matches);
   BOOST_CHECK_EQUAL(matches.size(), 0);
-  MatchSiftFeaturesCPU(SiftMatchingOptions(), empty_descriptors, empty_descriptors,
-                       &matches);
+  MatchSiftFeaturesCPU(SiftMatchingOptions(), empty_descriptors,
+                       empty_descriptors, &matches);
   BOOST_CHECK_EQUAL(matches.size(), 0);
 }
 
@@ -371,17 +371,18 @@ BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesGPU) {
       two_view_geometry.config = TwoViewGeometry::PLANAR_OR_PANORAMIC;
       two_view_geometry.H = Eigen::Matrix3d::Identity();
 
-      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(), &keypoints1, &keypoints2,
-                                 &descriptors1, &descriptors2, &sift_match_gpu,
-                                 &two_view_geometry);
+      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(), &keypoints1,
+                                 &keypoints2, &descriptors1, &descriptors2,
+                                 &sift_match_gpu, &two_view_geometry);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(), 2);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
 
-      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(), nullptr, nullptr, nullptr,
-                                 nullptr, &sift_match_gpu, &two_view_geometry);
+      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(), nullptr, nullptr,
+                                 nullptr, nullptr, &sift_match_gpu,
+                                 &two_view_geometry);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(), 2);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
@@ -407,9 +408,9 @@ BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesGPU) {
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
 
       keypoints1[0].x = 100;
-      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(), &keypoints1, &keypoints2,
-                                 &descriptors1, &descriptors2, &sift_match_gpu,
-                                 &two_view_geometry);
+      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(), &keypoints1,
+                                 &keypoints2, &descriptors1, &descriptors2,
+                                 &sift_match_gpu, &two_view_geometry);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(), 1);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[0].point2D_idx1, 1);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[0].point2D_idx2, 0);

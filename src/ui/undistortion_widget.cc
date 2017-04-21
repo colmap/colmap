@@ -58,9 +58,7 @@ void UndistortionWidget::Show(const Reconstruction& reconstruction) {
   raise();
 }
 
-bool UndistortionWidget::IsValid() const {
-  return ExistsDir(output_path_);
-}
+bool UndistortionWidget::IsValid() const { return ExistsDir(output_path_); }
 
 void UndistortionWidget::Undistort() {
   CHECK_NOTNULL(reconstruction_);
