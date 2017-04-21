@@ -24,6 +24,7 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
     : OptionsWidget(parent),
       counter(0),
       automatic_update(true),
+      options_(options),
       opengl_window_(opengl_window),
       point3D_colormap_scale_(1),
       point3D_colormap_min_q_(0.02),
@@ -36,14 +37,14 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
   setWindowModality(Qt::NonModal);
   setWindowTitle("Render options");
 
-  AddOptionDouble(&options->render_options->max_error, "Max. error [px]");
-  AddOptionInt(&options->render_options->min_track_len, "Min. track length", 0);
+  AddOptionDouble(&options->render->max_error, "Max. error [px]");
+  AddOptionInt(&options->render->min_track_len, "Min. track length", 0);
 
   AddSpacer();
 
   projection_cb_ = new QComboBox(this);
-  projection_cb_->addItem("Orthographic");
   projection_cb_->addItem("Perspective");
+  projection_cb_->addItem("Orthographic");
 
   QLabel* projection_label = new QLabel(tr("Projection"), this);
   projection_label->setFont(font());
@@ -86,15 +87,12 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
 
   AddSpacer();
 
-  AddOptionBool(&options->render_options->adapt_refresh_rate,
-                "Adaptive refresh rate");
-  AddOptionInt(&options->render_options->refresh_rate, "Refresh rate [frames]",
-               1);
+  AddOptionBool(&options->render->adapt_refresh_rate, "Adaptive refresh rate");
+  AddOptionInt(&options->render->refresh_rate, "Refresh rate [frames]", 1);
 
   AddSpacer();
 
-  AddOptionBool(&options->render_options->image_connections,
-                "Image connections");
+  AddOptionBool(&options->render->image_connections, "Image connections");
 
   AddSpacer();
 
@@ -120,21 +118,20 @@ void RenderOptionsWidget::Apply() {
 }
 
 void RenderOptionsWidget::ApplyProjection() {
-  OpenGLWindow::ProjectionType projection_type;
-
   switch (projection_cb_->currentIndex()) {
     case 0:
-      projection_type = OpenGLWindow::ProjectionType::ORTHOGRAPHIC;
+      options_->render->projection_type =
+          RenderOptions::ProjectionType::PERSPECTIVE;
       break;
     case 1:
-      projection_type = OpenGLWindow::ProjectionType::PERSPECTIVE;
+      options_->render->projection_type =
+          RenderOptions::ProjectionType::ORTHOGRAPHIC;
       break;
     default:
-      projection_type = OpenGLWindow::ProjectionType::ORTHOGRAPHIC;
+      options_->render->projection_type =
+          RenderOptions::ProjectionType::PERSPECTIVE;
       break;
   }
-
-  opengl_window_->SetProjectionType(projection_type);
 }
 
 void RenderOptionsWidget::ApplyColormap() {

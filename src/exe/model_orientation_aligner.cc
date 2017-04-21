@@ -33,7 +33,6 @@ int main(int argc, char* argv[]) {
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("max_image_size",
-                           frame_estimation_options.max_image_size,
                            &frame_estimation_options.max_image_size);
   options.Parse(argc, argv);
 

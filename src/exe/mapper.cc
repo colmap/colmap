@@ -31,11 +31,10 @@ int main(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
-  options.AddMapperOptions();
-  options.AddDefaultOption("import_path", import_path, &import_path);
+  options.AddDefaultOption("import_path", &import_path);
   options.AddRequiredOption("export_path", &export_path);
-  options.AddDefaultOption("image_list_path", image_list_path,
-                           &image_list_path);
+  options.AddDefaultOption("image_list_path", &image_list_path);
+  options.AddMapperOptions();
   options.Parse(argc, argv);
 
   if (!ExistsDir(export_path)) {
@@ -45,7 +44,7 @@ int main(int argc, char** argv) {
 
   if (!image_list_path.empty()) {
     const auto image_names = ReadTextFileLines(image_list_path);
-    options.mapper_options->image_names =
+    options.mapper->image_names =
         std::set<std::string>(image_names.begin(), image_names.end());
   }
 
@@ -58,7 +57,9 @@ int main(int argc, char** argv) {
     reconstruction_manager.Read(import_path);
   }
 
-  IncrementalMapperController mapper(&options, &reconstruction_manager);
+  IncrementalMapperController mapper(options.mapper.get(), *options.image_path,
+                                     *options.database_path,
+                                     &reconstruction_manager);
 
   // In case a new reconstruction is started, write results of individual sub-
   // models to as their reconstruction finishes instead of writing all results

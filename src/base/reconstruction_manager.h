@@ -18,9 +18,10 @@
 #define COLMAP_SRC_BASE_RECONSTRUCTION_MANAGER_H_
 
 #include "base/reconstruction.h"
-#include "util/option_manager.h"
 
 namespace colmap {
+
+class OptionManager;
 
 class ReconstructionManager {
  public:

@@ -25,56 +25,39 @@ namespace {
 const static std::string kFusedFileName = "fused.ply";
 const static std::string kMeshedFileName = "meshed.ply";
 
-class PatchMatchOptionsTab : public OptionsWidget {
+class PatchMatchingOptionsTab : public OptionsWidget {
  public:
-  PatchMatchOptionsTab(QWidget* parent, OptionManager* options)
+  PatchMatchingOptionsTab(QWidget* parent, OptionManager* options)
       : OptionsWidget(parent) {
     // Set a relatively small default image size to avoid too long computation.
-    if (options->dense_mapper_options->max_image_size == 0) {
-      options->dense_mapper_options->max_image_size = 2000;
+    if (options->dense_stereo->max_image_size == 0) {
+      options->dense_stereo->max_image_size = 2000;
     }
 
-    AddOptionInt(&options->dense_mapper_options->max_image_size,
-                 "max_image_size", 0);
-    AddOptionText(&options->dense_mapper_options->patch_match.gpu_index,
-                  "gpu_index");
-    AddOptionInt(&options->dense_mapper_options->patch_match.window_radius,
-                 "window_radius");
-    AddOptionDouble(&options->dense_mapper_options->patch_match.sigma_spatial,
-                    "sigma_spatial");
-    AddOptionDouble(&options->dense_mapper_options->patch_match.sigma_color,
-                    "sigma_color");
-    AddOptionInt(&options->dense_mapper_options->patch_match.num_samples,
-                 "num_samples");
-    AddOptionDouble(&options->dense_mapper_options->patch_match.ncc_sigma,
-                    "ncc_sigma");
-    AddOptionDouble(
-        &options->dense_mapper_options->patch_match.min_triangulation_angle,
-        "min_triangulation_angle");
-    AddOptionDouble(
-        &options->dense_mapper_options->patch_match.incident_angle_sigma,
-        "incident_angle_sigma");
-    AddOptionInt(&options->dense_mapper_options->patch_match.num_iterations,
-                 "num_iterations");
-    AddOptionBool(&options->dense_mapper_options->patch_match.geom_consistency,
-                  "geom_consistency");
-    AddOptionDouble(&options->dense_mapper_options->patch_match
-                         .geom_consistency_regularizer,
+    AddOptionInt(&options->dense_stereo->max_image_size, "max_image_size", 0);
+    AddOptionText(&options->dense_stereo->gpu_index, "gpu_index");
+    AddOptionInt(&options->dense_stereo->window_radius, "window_radius");
+    AddOptionDouble(&options->dense_stereo->sigma_spatial, "sigma_spatial");
+    AddOptionDouble(&options->dense_stereo->sigma_color, "sigma_color");
+    AddOptionInt(&options->dense_stereo->num_samples, "num_samples");
+    AddOptionDouble(&options->dense_stereo->ncc_sigma, "ncc_sigma");
+    AddOptionDouble(&options->dense_stereo->min_triangulation_angle,
+                    "min_triangulation_angle");
+    AddOptionDouble(&options->dense_stereo->incident_angle_sigma,
+                    "incident_angle_sigma");
+    AddOptionInt(&options->dense_stereo->num_iterations, "num_iterations");
+    AddOptionBool(&options->dense_stereo->geom_consistency, "geom_consistency");
+    AddOptionDouble(&options->dense_stereo->geom_consistency_regularizer,
                     "geom_consistency_regularizer");
-    AddOptionDouble(
-        &options->dense_mapper_options->patch_match.geom_consistency_max_cost,
-        "geom_consistency_max_cost");
-    AddOptionBool(&options->dense_mapper_options->patch_match.filter, "filter");
-    AddOptionDouble(&options->dense_mapper_options->patch_match.filter_min_ncc,
-                    "filter_min_ncc");
-    AddOptionDouble(&options->dense_mapper_options->patch_match
-                         .filter_min_triangulation_angle,
+    AddOptionDouble(&options->dense_stereo->geom_consistency_max_cost,
+                    "geom_consistency_max_cost");
+    AddOptionBool(&options->dense_stereo->filter, "filter");
+    AddOptionDouble(&options->dense_stereo->filter_min_ncc, "filter_min_ncc");
+    AddOptionDouble(&options->dense_stereo->filter_min_triangulation_angle,
                     "filter_min_triangulation_angle");
-    AddOptionInt(
-        &options->dense_mapper_options->patch_match.filter_min_num_consistent,
-        "filter_min_num_consistent");
-    AddOptionDouble(&options->dense_mapper_options->patch_match
-                         .filter_geom_consistency_max_cost,
+    AddOptionInt(&options->dense_stereo->filter_min_num_consistent,
+                 "filter_min_num_consistent");
+    AddOptionDouble(&options->dense_stereo->filter_geom_consistency_max_cost,
                     "filter_geom_consistency_max_cost");
   }
 };
@@ -83,20 +66,17 @@ class StereoFusionOptionsTab : public OptionsWidget {
  public:
   StereoFusionOptionsTab(QWidget* parent, OptionManager* options)
       : OptionsWidget(parent) {
-    AddOptionInt(&options->dense_mapper_options->fusion.min_num_pixels,
-                 "min_num_pixels", 0);
-    AddOptionInt(&options->dense_mapper_options->fusion.max_num_pixels,
-                 "max_num_pixels", 0);
-    AddOptionInt(&options->dense_mapper_options->fusion.max_traversal_depth,
+    AddOptionInt(&options->dense_fusion->min_num_pixels, "min_num_pixels", 0);
+    AddOptionInt(&options->dense_fusion->max_num_pixels, "max_num_pixels", 0);
+    AddOptionInt(&options->dense_fusion->max_traversal_depth,
                  "max_traversal_depth", 1);
-    AddOptionDouble(&options->dense_mapper_options->fusion.max_reproj_error,
+    AddOptionDouble(&options->dense_fusion->max_reproj_error,
                     "max_reproj_error", 0);
-    AddOptionDouble(&options->dense_mapper_options->fusion.max_depth_error,
-                    "max_depth_error", 0, 1, 0.0001, 4);
-    AddOptionDouble(&options->dense_mapper_options->fusion.max_normal_error,
+    AddOptionDouble(&options->dense_fusion->max_depth_error, "max_depth_error",
+                    0, 1, 0.0001, 4);
+    AddOptionDouble(&options->dense_fusion->max_normal_error,
                     "max_normal_error", 0, 180);
-    AddOptionInt(&options->dense_mapper_options->fusion.cache_size,
-                 "cache_size", 2);
+    AddOptionInt(&options->dense_fusion->cache_size, "cache_size", 2);
   }
 };
 
@@ -104,13 +84,11 @@ class PoissonReconstructionOptionsTab : public OptionsWidget {
  public:
   PoissonReconstructionOptionsTab(QWidget* parent, OptionManager* options)
       : OptionsWidget(parent) {
-    AddOptionDouble(&options->dense_mapper_options->poisson.point_weight,
-                    "point_weight", 0);
-    AddOptionInt(&options->dense_mapper_options->poisson.depth, "depth", 1);
-    AddOptionDouble(&options->dense_mapper_options->poisson.color, "color", 0);
-    AddOptionDouble(&options->dense_mapper_options->poisson.trim, "trim", 0);
-    AddOptionInt(&options->dense_mapper_options->poisson.num_threads,
-                 "num_threads", -1);
+    AddOptionDouble(&options->dense_meshing->point_weight, "point_weight", 0);
+    AddOptionInt(&options->dense_meshing->depth, "depth", 1);
+    AddOptionDouble(&options->dense_meshing->color, "color", 0);
+    AddOptionDouble(&options->dense_meshing->trim, "trim", 0);
+    AddOptionInt(&options->dense_meshing->num_threads, "num_threads", -1);
   }
 };
 
@@ -154,7 +132,7 @@ MultiViewStereoOptionsWidget::MultiViewStereoOptionsWidget(
 
   QTabWidget* tab_widget = new QTabWidget(this);
   tab_widget->setElideMode(Qt::TextElideMode::ElideRight);
-  tab_widget->addTab(new PatchMatchOptionsTab(this, options), "Stereo");
+  tab_widget->addTab(new PatchMatchingOptionsTab(this, options), "Stereo");
   tab_widget->addTab(new StereoFusionOptionsTab(this, options), "Fusion");
   tab_widget->addTab(new PoissonReconstructionOptionsTab(this, options),
                      "Meshing");
@@ -289,8 +267,7 @@ void MultiViewStereoWidget::Stereo() {
 
 #ifdef CUDA_ENABLED
   mvs::PatchMatchController* processor = new mvs::PatchMatchController(
-      options_->dense_mapper_options->patch_match, workspace_path, "COLMAP", "",
-      options_->dense_mapper_options->max_image_size);
+      *options_->dense_stereo, workspace_path, "COLMAP", "");
   processor->AddCallback(Thread::FINISHED_CALLBACK,
                          [this]() { refresh_workspace_action_->trigger(); });
   thread_control_widget_->StartThread("Stereo processing...", true, processor);
@@ -315,9 +292,8 @@ void MultiViewStereoWidget::Fusion() {
                           tr("All images must be processed prior to fusion"));
   }
 
-  mvs::StereoFusion* fuser =
-      new mvs::StereoFusion(options_->dense_mapper_options->fusion,
-                            workspace_path, "COLMAP", input_type);
+  mvs::StereoFusion* fuser = new mvs::StereoFusion(
+      *options_->dense_fusion, workspace_path, "COLMAP", input_type);
   fuser->AddCallback(Thread::FINISHED_CALLBACK, [this, fuser]() {
     fused_points_ = fuser->GetFusedPoints();
     write_fused_points_action_->trigger();
@@ -334,7 +310,7 @@ void MultiViewStereoWidget::Meshing() {
   if (ExistsFile(JoinPaths(workspace_path, kFusedFileName))) {
     thread_control_widget_->StartFunction("Meshing...", [this,
                                                          workspace_path]() {
-      mvs::PoissonReconstruction(options_->dense_mapper_options->poisson,
+      mvs::PoissonReconstruction(*options_->dense_meshing,
                                  JoinPaths(workspace_path, kFusedFileName),
                                  JoinPaths(workspace_path, kMeshedFileName));
     });
@@ -389,12 +365,10 @@ void MultiViewStereoWidget::RefreshWorkspace() {
   const std::string config_path =
       JoinPaths(workspace_path, "stereo/patch-match.cfg");
 
-  if (ExistsDir(images_path_) &&
-      ExistsDir(depth_maps_path_) &&
+  if (ExistsDir(images_path_) && ExistsDir(depth_maps_path_) &&
       ExistsDir(normal_maps_path_) &&
       ExistsDir(JoinPaths(workspace_path, "sparse")) &&
-      ExistsDir(
-          JoinPaths(workspace_path, "stereo/consistency_graphs")) &&
+      ExistsDir(JoinPaths(workspace_path, "stereo/consistency_graphs")) &&
       ExistsFile(config_path)) {
     stereo_button_->setEnabled(true);
   } else {

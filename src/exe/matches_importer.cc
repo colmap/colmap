@@ -36,16 +36,15 @@ int main(int argc, char** argv) {
 
   OptionManager options;
   options.AddDatabaseOptions();
-  options.AddMatchOptions();
   options.AddRequiredOption("match_list_path", &match_list_path);
-  options.AddDefaultOption("match_type", match_type, &match_type,
+  options.AddDefaultOption("match_type", &match_type,
                            "{'pairs', 'raw', 'inliers'}");
-  options.AddDefaultOption("use_opengl", use_opengl, &use_opengl);
+  options.AddDefaultOption("use_opengl", &use_opengl);
+  options.AddMatchingOptions();
   options.Parse(argc, argv);
 
   std::unique_ptr<QApplication> app;
-  SiftMatchOptions match_options = options.match_options->Options();
-  if (match_options.use_gpu && use_opengl) {
+  if (options.sift_matching->use_gpu && use_opengl) {
     app.reset(new QApplication(argc, argv));
   }
 
@@ -54,19 +53,19 @@ int main(int argc, char** argv) {
     ImagePairsFeatureMatcher::Options matcher_options;
     matcher_options.match_list_path = match_list_path;
     feature_matcher.reset(new ImagePairsFeatureMatcher(
-        matcher_options, match_options, *options.database_path));
+        matcher_options, *options.sift_matching, *options.database_path));
   } else if (match_type == "raw" || match_type == "inliers") {
     FeaturePairsFeatureMatcher::Options matcher_options;
     matcher_options.match_list_path = match_list_path;
     matcher_options.verify_matches = match_type == "raw";
     feature_matcher.reset(new FeaturePairsFeatureMatcher(
-        matcher_options, match_options, *options.database_path));
+        matcher_options, *options.sift_matching, *options.database_path));
   } else {
     std::cerr << "ERROR: Invalid `match_type`";
     return EXIT_FAILURE;
   }
 
-  if (match_options.use_gpu && use_opengl) {
+  if (options.sift_matching->use_gpu && use_opengl) {
     RunThreadWithOpenGLContext(feature_matcher.get());
   } else {
     feature_matcher->Start();

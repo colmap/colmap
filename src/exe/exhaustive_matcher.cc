@@ -32,23 +32,21 @@ int main(int argc, char** argv) {
 #endif
 
   OptionManager options;
+  options.AddDefaultOption("use_opengl", &use_opengl);
   options.AddDatabaseOptions();
-  options.AddMatchOptions();
-  options.AddExhaustiveMatchOptions();
-  options.AddDefaultOption("use_opengl", use_opengl, &use_opengl);
+  options.AddExhaustiveMatchingOptions();
   options.Parse(argc, argv);
 
   std::unique_ptr<QApplication> app;
-  SiftMatchOptions match_options = options.match_options->Options();
-  if (match_options.use_gpu && use_opengl) {
+  if (options.sift_matching->use_gpu && use_opengl) {
     app.reset(new QApplication(argc, argv));
   }
 
-  ExhaustiveFeatureMatcher feature_matcher(
-      options.exhaustive_match_options->Options(), match_options,
-      *options.database_path);
+  ExhaustiveFeatureMatcher feature_matcher(*options.exhaustive_matching,
+                                           *options.sift_matching,
+                                           *options.database_path);
 
-  if (match_options.use_gpu && use_opengl) {
+  if (options.sift_matching->use_gpu && use_opengl) {
     RunThreadWithOpenGLContext(&feature_matcher);
   } else {
     feature_matcher.Start();

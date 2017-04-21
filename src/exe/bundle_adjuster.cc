@@ -30,9 +30,9 @@ int main(int argc, char** argv) {
   std::string output_path;
 
   OptionManager options;
-  options.AddBundleAdjustmentOptions();
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
+  options.AddBundleAdjustmentOptions();
   options.Parse(argc, argv);
 
   Reconstruction reconstruction;

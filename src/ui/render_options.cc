@@ -14,35 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#include "ui/render_options.h"
+
 #include "util/logging.h"
 
 namespace colmap {
 
-void InitializeGlog(char** argv) {
-#ifndef _MSC_VER  // Broken in MSVC
-  google::InstallFailureSignalHandler();
-#endif
-  google::InitGoogleLogging(argv[0]);
-}
-
-const char* __GetConstFileBaseName(const char* file) {
-  const char* base = strrchr(file, '/');
-  if (!base) {
-    base = strrchr(file, '\\');
-  }
-  return base ? (base + 1) : file;
-}
-
-bool __CheckOptionImpl(const char* file, const int line, const bool result,
-                       const char* expr_str) {
-  if (result) {
-    return true;
-  } else {
-    std::cerr << StringPrintf("[%s:%d] Check failed: %s",
-                              __GetConstFileBaseName(file), line, expr_str)
-              << std::endl;
-    return false;
-  }
+bool RenderOptions::Check() const {
+  CHECK_OPTION_GE(min_track_len, 2);
+  CHECK_OPTION_GE(max_error, 0);
+  CHECK_OPTION_GT(refresh_rate, 0);
+  CHECK_OPTION(projection_type == ProjectionType::PERSPECTIVE ||
+               projection_type == ProjectionType::ORTHOGRAPHIC);
+  return true;
 }
 
 }  // namespace colmap

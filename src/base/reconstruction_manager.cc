@@ -17,6 +17,7 @@
 #include "base/reconstruction_manager.h"
 
 #include "util/misc.h"
+#include "util/option_manager.h"
 
 namespace colmap {
 

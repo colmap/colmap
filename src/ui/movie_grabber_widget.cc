@@ -143,7 +143,7 @@ void MovieGrabberWidget::Assemble() {
   }
 
   if (opengl_window_->GetProjectionType() !=
-      OpenGLWindow::ProjectionType::PERSPECTIVE) {
+      RenderOptions::ProjectionType::PERSPECTIVE) {
     QMessageBox::critical(this, tr("Error"),
                           tr("You must use perspective projection."));
     return;

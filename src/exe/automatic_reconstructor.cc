@@ -14,10 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include <QApplication>
-
-#include "base/feature_matching.h"
+#include "controllers/automatic_reconstruction.h"
 #include "util/logging.h"
+#include "util/misc.h"
 #include "util/option_manager.h"
 
 using namespace colmap;
@@ -25,33 +24,15 @@ using namespace colmap;
 int main(int argc, char** argv) {
   InitializeGlog(argv);
 
-#ifdef CUDA_ENABLED
-  bool use_opengl = false;
-#else
-  bool use_opengl = true;
-#endif
+  std::string workspace_path;
+  std::string image_path;
+  std::string vocab_tree_path;
 
   OptionManager options;
-  options.AddDatabaseOptions();
-  options.AddDefaultOption("use_opengl", &use_opengl);
-  options.AddSequentialMatchingOptions();
+  options.AddRequiredOption("workspace_path", &workspace_path);
+  options.AddRequiredOption("image_path", &image_path);
+  options.AddDefaultOption("vocab_tree_path", &vocab_tree_path);
   options.Parse(argc, argv);
-
-  std::unique_ptr<QApplication> app;
-  if (options.sift_matching->use_gpu && use_opengl) {
-    app.reset(new QApplication(argc, argv));
-  }
-
-  SequentialFeatureMatcher feature_matcher(*options.sequential_matching,
-                                           *options.sift_matching,
-                                           *options.database_path);
-
-  if (options.sift_matching->use_gpu && use_opengl) {
-    RunThreadWithOpenGLContext(&feature_matcher);
-  } else {
-    feature_matcher.Start();
-    feature_matcher.Wait();
-  }
 
   return EXIT_SUCCESS;
 }

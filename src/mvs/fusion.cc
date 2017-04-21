@@ -48,17 +48,19 @@ void StereoFusion::Options::Print() const {
   PrintOption(max_reproj_error);
   PrintOption(max_depth_error);
   PrintOption(max_normal_error);
+  PrintOption(cache_size);
 #undef PrintOption
 }
 
-void StereoFusion::Options::Check() const {
-  CHECK_GE(min_num_pixels, 0);
-  CHECK_LE(min_num_pixels, max_num_pixels);
-  CHECK_GT(max_traversal_depth, 0);
-  CHECK_GE(max_reproj_error, 0);
-  CHECK_GE(max_depth_error, 0);
-  CHECK_GE(max_normal_error, 0);
-  CHECK_GT(cache_size, 0);
+bool StereoFusion::Options::Check() const {
+  CHECK_OPTION_GE(min_num_pixels, 0);
+  CHECK_OPTION_LE(min_num_pixels, max_num_pixels);
+  CHECK_OPTION_GT(max_traversal_depth, 0);
+  CHECK_OPTION_GE(max_reproj_error, 0);
+  CHECK_OPTION_GE(max_depth_error, 0);
+  CHECK_OPTION_GE(max_normal_error, 0);
+  CHECK_OPTION_GT(cache_size, 0);
+  return true;
 }
 
 StereoFusion::StereoFusion(const Options& options,
@@ -71,7 +73,9 @@ StereoFusion::StereoFusion(const Options& options,
       input_type_(input_type),
       max_squared_reproj_error_(options_.max_reproj_error *
                                 options_.max_reproj_error),
-      min_cos_normal_error_(std::cos(DegToRad(options_.max_normal_error))) {}
+      min_cos_normal_error_(std::cos(DegToRad(options_.max_normal_error))) {
+  CHECK(options_.Check());
+}
 
 const std::vector<FusedPoint>& StereoFusion::GetFusedPoints() const {
   return fused_points_;

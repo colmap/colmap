@@ -31,13 +31,12 @@ int main(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
-  options.AddExtractionOptions();
   options.AddRequiredOption("import_path", &import_path);
-  options.AddDefaultOption("image_list_path", image_list_path,
-                           &image_list_path);
+  options.AddDefaultOption("image_list_path", &image_list_path);
+  options.AddExtractionOptions();
   options.Parse(argc, argv);
 
-  ImageReader::Options reader_options = options.extraction_options->reader;
+  ImageReader::Options reader_options = *options.image_reader;
   reader_options.database_path = *options.database_path;
   reader_options.image_path = *options.image_path;
 
@@ -46,9 +45,9 @@ int main(int argc, char** argv) {
   }
 
   const std::vector<double> camera_params =
-      CSVToVector<double>(options.extraction_options->reader.camera_params);
+      CSVToVector<double>(options.image_reader->camera_params);
   const int camera_model_id =
-      CameraModelNameToId(options.extraction_options->reader.camera_model);
+      CameraModelNameToId(options.image_reader->camera_model);
 
   if (camera_params.size() > 0 &&
       !CameraModelVerifyParams(camera_model_id, camera_params)) {

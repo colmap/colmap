@@ -122,18 +122,18 @@ If you have an existing reconstruction of images and want to register/localize
 new images within this reconstruction, you can follow these steps::
 
     ./src/exe/feature_extractor \
-        --General.database_path $PROJECT_PATH/database.db \
-        --General.image_path $PROJECT_PATH/images \
+        --database_path $PROJECT_PATH/database.db \
+        --image_path $PROJECT_PATH/images \
         --image_list_path /path/to/image-list.txt
 
     ./src/exe/vocab_tree_matcher \
-        --General.database_path $PROJECT_PATH/database.db \
-        --VocabTreeMatchOptions.vocab_tree_path /path/to/vocab-tree.bin \
-        --VocabTreeMatchOptions.match_list_path /path/to/image-list.txt
+        --database_path $PROJECT_PATH/database.db \
+        --VocabTreeMatching.vocab_tree_path /path/to/vocab-tree.bin \
+        --VocabTreeMatching.match_list_path /path/to/image-list.txt
 
     ./src/exe/image_registrator \
-        --General.database_path $PROJECT_PATH/database.db \
-        --General.image_path $PROJECT_PATH/images \
+        --database_path $PROJECT_PATH/database.db \
+        --image_path $PROJECT_PATH/images \
         --import_path /path/to/existing-model \
         --export_path /path/to/model-with-new-images
 
@@ -145,7 +145,7 @@ Multi-GPU support in feature matching
 -------------------------------------
 
 You can run feature matching on multiple GPUs by specifying multiple indices for
-CUDA-enabled GPUs, e.g., ``--MatchOptions.gpu_index=0,1,2,3`` runs the feature
+CUDA-enabled GPUs, e.g., ``--SiftMatching.gpu_index=0,1,2,3`` runs the feature
 matching on 4 GPUs in parallel. By default, COLMAP runs feature matching on all
 CUDA-enabled GPUs.
 
@@ -158,7 +158,7 @@ If you encounter the following error message::
     MultiplyDescriptor: an illegal memory access was encountered
 
 during feature matching, your GPU runs out of memory. Try decreasing the option
-``--MatchOptions.max_num_matches`` until the error disappears. Note that this
+``--SiftMatching.max_num_matches`` until the error disappears. Note that this
 might lead to inferior feature matching results, since the lower-scale input
 features will be clamped in order to fit them into GPU memory. Alternatively,
 you could change to CPU-based feature matching, but this can become very slow,
@@ -169,13 +169,13 @@ Trading off completeness and accuracy in dense reconstruction
 -------------------------------------------------------------
 
 If the dense point cloud contains too many outliers and too much noise, try to
-increase the value of option ``--DenseMapperOptions.fusion_min_num_pixels``.
+increase the value of option ``--DenseFusion.min_num_pixels``.
 
 If the reconstructed dense surface mesh model contains no surface or there are
 too many outlier surfaces, you should reduce the value of option
-``--DenseMapperOptions.poisson_trim`` to decrease the surface are and vice versa
-to increase it. Also consider to try the reduce the outliers or increase the
-completeness in the fusion stage, as described above.
+``--DenseMeshing.trim`` to decrease the surface are and vice versa to increase
+it. Also consider to try the reduce the outliers or increase the completeness in
+the fusion stage, as described above.
 
 
 .. _faq-dense-memory:
@@ -190,8 +190,8 @@ the number of source images in the ``stereo/patch- match.cfg`` file from e.g.
 ``geom_consistency`` option increases the required GPU memory.
 
 If you run out of CPU memory during stereo fusion, you can reduce the
-``--DenseMapperOptions.fusion_cache_size``. Note that a too low value might lead
-to very slow fusion and heavy load on the hard disk.
+``--DenseFusion.cache_size``. Note that a too low value might lead to very slow
+fusion and heavy load on the hard disk.
 
 For large-scale reconstructions of several thousands of images, you should
 consider splitting your sparse reconstruction into more manageable clusters of
@@ -228,8 +228,7 @@ Multi-GPU support in dense reconstruction
 -----------------------------------------
 
 You can run dense reconstruction on multiple GPUs by specifying multiple indices
-for CUDA-enabled GPUs, e.g.,
-``--DenseMapperOptions.patch_match_gpu_index=0,1,2,3`` runs the dense
+for CUDA-enabled GPUs, e.g., ``--DenseStereo.gpu_index=0,1,2,3`` runs the dense
 reconstruction on 4 GPUs in parallel. By default, COLMAP runs dense
 reconstruction on all CUDA-enabled GPUs.
 
@@ -263,7 +262,7 @@ command-line. Under Ubuntu, you could first stop X using::
 
 And then run the dense reconstruction code from the command-line::
 
-    ./src/exe/dense_mapper ...
+    ./src/exe/dense_stereo ...
 
 Finally, you can restart your desktop environment with the following command::
 

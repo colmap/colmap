@@ -298,6 +298,8 @@ void PatchMatch::Problem::Print() const {
 }
 
 void PatchMatch::Check() const {
+  CHECK(options_.Check());
+
   CHECK(!options_.gpu_index.empty());
   const std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
   CHECK_EQ(gpu_indices.size(), 1);
@@ -354,27 +356,6 @@ void PatchMatch::Check() const {
     CHECK_EQ(ref_image.GetWidth(), ref_normal_map.GetWidth());
     CHECK_EQ(ref_image.GetHeight(), ref_normal_map.GetHeight());
   }
-
-  CHECK_LT(options_.depth_min, options_.depth_max);
-  CHECK_GT(options_.depth_min, 0.0f);
-  CHECK_LE(options_.window_radius, kMaxWindowRadius);
-  CHECK_GT(options_.sigma_spatial, 0.0f);
-  CHECK_GT(options_.sigma_color, 0.0f);
-  CHECK_GT(options_.window_radius, 0);
-  CHECK_GT(options_.num_samples, 0);
-  CHECK_GT(options_.ncc_sigma, 0.0f);
-  CHECK_GE(options_.min_triangulation_angle, 0.0f);
-  CHECK_LT(options_.min_triangulation_angle, 180.0f);
-  CHECK_GT(options_.incident_angle_sigma, 0.0f);
-  CHECK_GT(options_.num_iterations, 0);
-  CHECK_GE(options_.geom_consistency_regularizer, 0.0f);
-  CHECK_GE(options_.geom_consistency_max_cost, 0.0f);
-  CHECK_GE(options_.filter_min_ncc, -1.0f);
-  CHECK_LE(options_.filter_min_ncc, 1.0f);
-  CHECK_GE(options_.filter_min_triangulation_angle, 0.0f);
-  CHECK_LE(options_.filter_min_triangulation_angle, 180.0f);
-  CHECK_GE(options_.filter_min_num_consistent, 0);
-  CHECK_GE(options_.filter_geom_consistency_max_cost, 0.0f);
 }
 
 void PatchMatch::Run() {

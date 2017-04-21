@@ -80,13 +80,10 @@ int main(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddRequiredOption("vocab_tree_path", &vocab_tree_path);
-  options.AddDefaultOption("num_visual_words", build_options.num_visual_words,
-                           &build_options.num_visual_words);
-  options.AddDefaultOption("branching", build_options.branching,
-                           &build_options.branching);
-  options.AddDefaultOption("num_iterations", build_options.num_iterations,
-                           &build_options.num_iterations);
-  options.AddDefaultOption("max_num_images", max_num_images, &max_num_images);
+  options.AddDefaultOption("num_visual_words", &build_options.num_visual_words);
+  options.AddDefaultOption("branching", &build_options.branching);
+  options.AddDefaultOption("num_iterations", &build_options.num_iterations);
+  options.AddDefaultOption("max_num_images", &max_num_images);
   options.Parse(argc, argv);
 
   retrieval::VisualIndex visual_index;

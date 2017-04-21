@@ -33,22 +33,20 @@ int main(int argc, char** argv) {
 
   OptionManager options;
   options.AddDatabaseOptions();
-  options.AddMatchOptions();
-  options.AddVocabTreeMatchOptions();
-  options.AddDefaultOption("use_opengl", use_opengl, &use_opengl);
+  options.AddDefaultOption("use_opengl", &use_opengl);
+  options.AddVocabTreeMatchingOptions();
   options.Parse(argc, argv);
 
   std::unique_ptr<QApplication> app;
-  SiftMatchOptions match_options = options.match_options->Options();
-  if (match_options.use_gpu && use_opengl) {
+  if (options.sift_matching->use_gpu && use_opengl) {
     app.reset(new QApplication(argc, argv));
   }
 
-  VocabTreeFeatureMatcher feature_matcher(
-      options.vocab_tree_match_options->Options(), match_options,
-      *options.database_path);
+  VocabTreeFeatureMatcher feature_matcher(*options.vocab_tree_matching,
+                                          *options.sift_matching,
+                                          *options.database_path);
 
-  if (match_options.use_gpu && use_opengl) {
+  if (options.sift_matching->use_gpu && use_opengl) {
     RunThreadWithOpenGLContext(&feature_matcher);
   } else {
     feature_matcher.Start();

@@ -18,9 +18,7 @@
 
 namespace colmap {
 
-LogWidget::LogWidget(QWidget* parent, OptionManager* options,
-                     const int max_num_blocks)
-    : options_(options) {
+LogWidget::LogWidget(QWidget* parent, const int max_num_blocks) {
   setWindowFlags(Qt::Window);
   setWindowTitle("Log");
   resize(320, parent->height());
@@ -57,11 +55,6 @@ LogWidget::LogWidget(QWidget* parent, OptionManager* options,
   grid->addLayout(left_button_layout, 0, 0, Qt::AlignLeft);
 
   QHBoxLayout* right_button_layout = new QHBoxLayout();
-
-  QPushButton* set_log_path_button = new QPushButton(tr("Redirect"), this);
-  connect(set_log_path_button, &QPushButton::released, this,
-          &LogWidget::SetLogPath);
-  right_button_layout->addWidget(set_log_path_button);
 
   grid->addLayout(right_button_layout, 0, 1, Qt::AlignRight);
 
@@ -140,23 +133,6 @@ void LogWidget::SaveLog() {
   std::ofstream file(log_path.c_str(), std::ios::app);
   CHECK(file.is_open());
   file << text_box_->toPlainText().toUtf8().constData();
-}
-
-void LogWidget::SetLogPath() {
-  const std::string log_path =
-      QFileDialog::getSaveFileName(this, tr("Select path to log file"), "",
-                                   tr("Log (*.log)"))
-          .toUtf8()
-          .constData();
-
-  *options_->log_path = log_path;
-
-  if (log_path == "") {
-    log_file_.close();
-  } else {
-    log_file_.open(options_->log_path->c_str(), std::ios::app);
-    CHECK(log_file_.is_open());
-  }
 }
 
 }  // namespace colmap

@@ -219,12 +219,15 @@ ceres::LossFunction* BundleAdjuster::Options::CreateLossFunction() const {
   return loss_function;
 }
 
-void BundleAdjuster::Options::Check() const {}
+bool BundleAdjuster::Options::Check() const {
+  CHECK_OPTION_GE(loss_function_scale, 0);
+  return true;
+}
 
 BundleAdjuster::BundleAdjuster(const Options& options,
                                const BundleAdjustmentConfig& config)
     : options_(options), config_(config) {
-  options_.Check();
+  CHECK(options_.Check());
 }
 
 bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
@@ -509,14 +512,15 @@ void BundleAdjuster::ParameterizePoints(Reconstruction* reconstruction) {
 // ParallelBundleAdjuster
 ////////////////////////////////////////////////////////////////////////////////
 
-void ParallelBundleAdjuster::Options::Check() const {
-  CHECK_GE(max_num_iterations, 0);
+bool ParallelBundleAdjuster::Options::Check() const {
+  CHECK_OPTION_GE(max_num_iterations, 0);
+  return true;
 }
 
 ParallelBundleAdjuster::ParallelBundleAdjuster(
     const Options& options, const BundleAdjustmentConfig& config)
     : options_(options), config_(config), num_measurements_(0) {
-  options_.Check();
+  CHECK(options_.Check());
   CHECK(config_.NumConstantTvecs() == 0)
       << "PBA does not allow to set individual translational elements constant";
   CHECK(config_.NumVariablePoints() == 0 && config_.NumConstantPoints() == 0)

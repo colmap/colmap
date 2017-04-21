@@ -22,18 +22,19 @@
 
 namespace colmap {
 
-void IncrementalTriangulator::Options::Check() const {
-  CHECK_GE(max_transitivity, 0);
-  CHECK_GT(create_max_angle_error, 0);
-  CHECK_GT(continue_max_angle_error, 0);
-  CHECK_GT(merge_max_reproj_error, 0);
-  CHECK_GT(complete_max_reproj_error, 0);
-  CHECK_GE(complete_max_transitivity, 0);
-  CHECK_GT(re_max_angle_error, 0);
-  CHECK_GE(re_min_ratio, 0);
-  CHECK_LE(re_min_ratio, 1);
-  CHECK_GE(re_max_trials, 0);
-  CHECK_GT(min_angle, 0);
+bool IncrementalTriangulator::Options::Check() const {
+  CHECK_OPTION_GE(max_transitivity, 0);
+  CHECK_OPTION_GT(create_max_angle_error, 0);
+  CHECK_OPTION_GT(continue_max_angle_error, 0);
+  CHECK_OPTION_GT(merge_max_reproj_error, 0);
+  CHECK_OPTION_GT(complete_max_reproj_error, 0);
+  CHECK_OPTION_GE(complete_max_transitivity, 0);
+  CHECK_OPTION_GT(re_max_angle_error, 0);
+  CHECK_OPTION_GE(re_min_ratio, 0);
+  CHECK_OPTION_LE(re_min_ratio, 1);
+  CHECK_OPTION_GE(re_max_trials, 0);
+  CHECK_OPTION_GT(min_angle, 0);
+  return true;
 }
 
 IncrementalTriangulator::IncrementalTriangulator(const SceneGraph* scene_graph,
@@ -42,7 +43,7 @@ IncrementalTriangulator::IncrementalTriangulator(const SceneGraph* scene_graph,
 
 size_t IncrementalTriangulator::TriangulateImage(const Options& options,
                                                  const image_t image_id) {
-  options.Check();
+  CHECK(options.Check());
 
   size_t num_tris = 0;
 
@@ -101,7 +102,7 @@ size_t IncrementalTriangulator::TriangulateImage(const Options& options,
 
 size_t IncrementalTriangulator::CompleteImage(const Options& options,
                                               const image_t image_id) {
-  options.Check();
+  CHECK(options.Check());
 
   size_t num_tris = 0;
 
@@ -214,7 +215,7 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
 
 size_t IncrementalTriangulator::CompleteTracks(
     const Options& options, const std::unordered_set<point3D_t>& point3D_ids) {
-  options.Check();
+  CHECK(options.Check());
 
   size_t num_completed = 0;
 
@@ -228,7 +229,7 @@ size_t IncrementalTriangulator::CompleteTracks(
 }
 
 size_t IncrementalTriangulator::CompleteAllTracks(const Options& options) {
-  options.Check();
+  CHECK(options.Check());
 
   size_t num_completed = 0;
 
@@ -243,7 +244,7 @@ size_t IncrementalTriangulator::CompleteAllTracks(const Options& options) {
 
 size_t IncrementalTriangulator::MergeTracks(
     const Options& options, const std::unordered_set<point3D_t>& point3D_ids) {
-  options.Check();
+  CHECK(options.Check());
 
   size_t num_merged = 0;
 
@@ -257,7 +258,7 @@ size_t IncrementalTriangulator::MergeTracks(
 }
 
 size_t IncrementalTriangulator::MergeAllTracks(const Options& options) {
-  options.Check();
+  CHECK(options.Check());
 
   size_t num_merged = 0;
 
@@ -271,7 +272,7 @@ size_t IncrementalTriangulator::MergeAllTracks(const Options& options) {
 }
 
 size_t IncrementalTriangulator::Retriangulate(const Options& options) {
-  options.Check();
+  CHECK(options.Check());
 
   size_t num_tris = 0;
 

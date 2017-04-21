@@ -14,23 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef COLMAP_SRC_CONTROLLERS_FULL_MAPPER_H_
-#define COLMAP_SRC_CONTROLLERS_FULL_MAPPER_H_
+#ifndef COLMAP_SRC_CONTROLLERS_AUTOMATIC_RECONSTRUCTION_H_
+#define COLMAP_SRC_CONTROLLERS_AUTOMATIC_RECONSTRUCTION_H_
 
 #include <string>
 
 #include "base/reconstruction_manager.h"
+#include "util/option_manager.h"
 #include "util/threading.h"
 
 namespace colmap {
 
-class FullMapperController : public Thread {
+class AutomaticReconstructionController : public Thread {
  public:
-  enum class DataType {
-    VIDEO,
-    DSLR,
-    INTERNET
-  };
+  enum class DataType { VIDEO, DSLR, INTERNET };
 
   struct Options {
     // The path to the workspace folder in which all results are stored.
@@ -58,7 +55,7 @@ class FullMapperController : public Thread {
     bool dense = true;
   };
 
-  FullMapperController(const Options& options);
+  AutomaticReconstructionController(const Options& options);
 
  private:
   void Run();
@@ -74,4 +71,4 @@ class FullMapperController : public Thread {
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_CONTROLLERS_FULL_MAPPER_H_
+#endif  // COLMAP_SRC_CONTROLLERS_AUTOMATIC_RECONSTRUCTION_H_

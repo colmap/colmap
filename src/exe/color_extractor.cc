@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
 
   OptionManager options;
   options.AddImageOptions();
-  options.AddDefaultOption("import_path", import_path, &import_path);
+  options.AddDefaultOption("import_path", &import_path);
   options.AddRequiredOption("export_path", &export_path);
   options.Parse(argc, argv);
 

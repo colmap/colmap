@@ -103,7 +103,7 @@ void MainWindow::CreateWidgets() {
   multi_view_stereo_widget_ = new MultiViewStereoWidget(this, &options_);
   render_options_widget_ =
       new RenderOptionsWidget(this, &options_, opengl_window_);
-  log_widget_ = new LogWidget(this, &options_);
+  log_widget_ = new LogWidget(this);
   undistortion_widget_ = new UndistortionWidget(this, &options_);
   reconstruction_manager_widget_ =
       new ReconstructionManagerWidget(this, &reconstruction_manager_);
@@ -512,8 +512,9 @@ void MainWindow::CreateControllers() {
     mapper_controller_->Wait();
   }
 
-  mapper_controller_.reset(
-      new IncrementalMapperController(&options_, &reconstruction_manager_));
+  mapper_controller_.reset(new IncrementalMapperController(
+      options_.mapper.get(), *options_.image_path, *options_.database_path,
+      &reconstruction_manager_));
   mapper_controller_->AddCallback(
       IncrementalMapperController::INITIAL_IMAGE_PAIR_REG_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {
@@ -570,6 +571,8 @@ bool MainWindow::ProjectOpen() {
       project_widget_->SetImagePath(*options_.image_path);
       UpdateWindowTitle();
       return true;
+    } else {
+      ShowInvalidProjectError();
     }
   }
 
@@ -702,7 +705,7 @@ void MainWindow::ImportFrom() {
   thread_control_widget_->StartFunction("Importing...", [this, path]() {
     const size_t reconstruction_idx = reconstruction_manager_.Add();
     reconstruction_manager_.Get(reconstruction_idx).ImportPLY(path);
-    options_.render_options->min_track_len = 0;
+    options_.render->min_track_len = 0;
     reconstruction_manager_widget_->Update();
     reconstruction_manager_widget_->SelectReconstruction(reconstruction_idx);
     action_render_now_->trigger();
@@ -720,7 +723,7 @@ void MainWindow::ImportFusedPoints(const std::vector<mvs::FusedPoint>& points) {
     reconstruction.Point3D(point3D_id).SetColor(rgb);
   }
 
-  options_.render_options->min_track_len = 0;
+  options_.render->min_track_len = 0;
   reconstruction_manager_widget_->Update();
   reconstruction_manager_widget_->SelectReconstruction(reconstruction_idx);
   RenderNow();
@@ -982,10 +985,10 @@ void MainWindow::Render() {
       reconstruction_manager_.Get(SelectedReconstructionIdx());
 
   int refresh_rate;
-  if (options_.render_options->adapt_refresh_rate) {
+  if (options_.render->adapt_refresh_rate) {
     refresh_rate = static_cast<int>(reconstruction.NumRegImages() / 50 + 1);
   } else {
-    refresh_rate = options_.render_options->refresh_rate;
+    refresh_rate = options_.render->refresh_rate;
   }
 
   if (!render_options_widget_->automatic_update ||
@@ -1117,7 +1120,6 @@ void MainWindow::ExtractColors() {
 
 void MainWindow::ResetOptions() {
   const std::string project_path = *options_.project_path;
-  const std::string log_path = *options_.log_path;
   const std::string image_path = *options_.image_path;
   const std::string database_path = *options_.database_path;
 
@@ -1125,14 +1127,12 @@ void MainWindow::ResetOptions() {
   options_.AddAllOptions();
 
   *options_.project_path = project_path;
-  *options_.log_path = log_path;
   *options_.image_path = image_path;
   *options_.database_path = database_path;
 }
 
 void MainWindow::SetOptionsForVideo() {
   const std::string project_path = *options_.project_path;
-  const std::string log_path = *options_.log_path;
   const std::string image_path = *options_.image_path;
   const std::string database_path = *options_.database_path;
 
@@ -1141,14 +1141,12 @@ void MainWindow::SetOptionsForVideo() {
   options_.InitForVideoData();
 
   *options_.project_path = project_path;
-  *options_.log_path = log_path;
   *options_.image_path = image_path;
   *options_.database_path = database_path;
 }
 
 void MainWindow::SetOptionsForDSLR() {
   const std::string project_path = *options_.project_path;
-  const std::string log_path = *options_.log_path;
   const std::string image_path = *options_.image_path;
   const std::string database_path = *options_.database_path;
 
@@ -1157,14 +1155,12 @@ void MainWindow::SetOptionsForDSLR() {
   options_.InitForDSLRData();
 
   *options_.project_path = project_path;
-  *options_.log_path = log_path;
   *options_.image_path = image_path;
   *options_.database_path = database_path;
 }
 
 void MainWindow::SetOptionsForInternet() {
   const std::string project_path = *options_.project_path;
-  const std::string log_path = *options_.log_path;
   const std::string image_path = *options_.image_path;
   const std::string database_path = *options_.database_path;
 
@@ -1173,7 +1169,6 @@ void MainWindow::SetOptionsForInternet() {
   options_.InitForInternetData();
 
   *options_.project_path = project_path;
-  *options_.log_path = log_path;
   *options_.image_path = image_path;
   *options_.database_path = database_path;
 }

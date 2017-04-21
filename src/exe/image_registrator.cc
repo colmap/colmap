@@ -30,9 +30,9 @@ int main(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
-  options.AddMapperOptions();
   options.AddRequiredOption("import_path", &import_path);
   options.AddRequiredOption("export_path", &export_path);
+  options.AddMapperOptions();
   options.Parse(argc, argv);
 
   if (!ExistsDir(import_path)) {
@@ -54,10 +54,10 @@ int main(int argc, char** argv) {
     Timer timer;
     timer.Start();
     const size_t min_num_matches =
-        static_cast<size_t>(options.mapper_options->min_num_matches);
+        static_cast<size_t>(options.mapper->min_num_matches);
     database_cache.Load(database, min_num_matches,
-                        options.mapper_options->ignore_watermarks,
-                        options.mapper_options->image_names);
+                        options.mapper->ignore_watermarks,
+                        options.mapper->image_names);
     std::cout << std::endl;
     timer.PrintMinutes();
   }
@@ -70,8 +70,7 @@ int main(int argc, char** argv) {
   IncrementalMapper mapper(&database_cache);
   mapper.BeginReconstruction(&reconstruction);
 
-  const IncrementalMapper::Options inc_mapper_options =
-      options.mapper_options->IncrementalMapperOptions();
+  const auto mapper_options = options.mapper->Mapper();
 
   for (const auto& image : reconstruction.Images()) {
     if (image.second.IsRegistered()) {
@@ -85,7 +84,7 @@ int main(int argc, char** argv) {
               << " / " << image.second.NumObservations() << " points"
               << std::endl;
 
-    mapper.RegisterNextImage(inc_mapper_options, image.first);
+    mapper.RegisterNextImage(mapper_options, image.first);
   }
 
   const bool kDiscardReconstruction = false;

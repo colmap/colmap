@@ -59,8 +59,7 @@ class StandardOutputRedirector : public std::basic_streambuf<Elem, Tr> {
 
 class LogWidget : public QWidget {
  public:
-  LogWidget(QWidget* parent, OptionManager* options,
-            const int max_num_blocks = 100000);
+  LogWidget(QWidget* parent, const int max_num_blocks = 100000);
   ~LogWidget();
 
   void Append(const std::string& text);
@@ -72,9 +71,6 @@ class LogWidget : public QWidget {
                      void* text_box_ptr);
 
   void SaveLog();
-  void SetLogPath();
-
-  OptionManager* options_;
 
   QMutex mutex_;
   std::string text_queue_;

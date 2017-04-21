@@ -49,12 +49,10 @@ int main(int argc, char** argv) {
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("ref_images_path", &ref_images_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("min_common_images", min_common_images,
-                           &min_common_images);
-  options.AddDefaultOption("robust_alignment", robust_alignment,
-                           &robust_alignment);
+  options.AddDefaultOption("min_common_images", &min_common_images);
+  options.AddDefaultOption("robust_alignment", &robust_alignment);
   options.AddDefaultOption("robust_alignment_max_error",
-                           ransac_options.max_error, &ransac_options.max_error);
+                           &ransac_options.max_error);
   options.Parse(argc, argv);
 
   if (robust_alignment && ransac_options.max_error <= 0) {

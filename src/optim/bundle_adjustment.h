@@ -130,7 +130,10 @@ class BundleAdjuster {
       solver_options.gradient_tolerance = 0.0;
       solver_options.parameter_tolerance = 0.0;
       solver_options.minimizer_progress_to_stdout = false;
-      solver_options.max_num_iterations = 50;
+      solver_options.max_num_iterations = 100;
+      solver_options.max_linear_solver_iterations = 200;
+      solver_options.max_num_consecutive_invalid_steps = 10;
+      solver_options.max_consecutive_nonmonotonic_steps = 10;
       solver_options.num_threads = -1;
       solver_options.num_linear_solver_threads = -1;
     }
@@ -139,7 +142,7 @@ class BundleAdjuster {
     // takes ownership of the loss function.
     ceres::LossFunction* CreateLossFunction() const;
 
-    void Check() const;
+    bool Check() const;
   };
 
   BundleAdjuster(const Options& options, const BundleAdjustmentConfig& config);
@@ -191,7 +194,7 @@ class ParallelBundleAdjuster {
     // Number of threads for CPU based bundle adjustment.
     int num_threads = -1;
 
-    void Check() const;
+    bool Check() const;
   };
 
   ParallelBundleAdjuster(const Options& options,

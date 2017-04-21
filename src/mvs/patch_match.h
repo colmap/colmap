@@ -46,6 +46,9 @@ class PatchMatch {
   const static size_t kMaxWindowRadius = 32;
 
   struct Options {
+    // Maximum image size in either dimension.
+    int max_image_size = -1;
+
     // Index of the GPU used for patch match. For multi-GPU usage,
     // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
     std::string gpu_index = "-1";
@@ -106,8 +109,30 @@ class PatchMatch {
     // to be geometrically consistent.
     double filter_geom_consistency_max_cost = 1.0f;
 
-    // Print the options to stdout.
     void Print() const;
+    bool Check() const {
+      CHECK_OPTION_LT(depth_min, depth_max);
+      CHECK_OPTION_GE(depth_min, 0.0f);
+      CHECK_OPTION_LE(window_radius, static_cast<int>(kMaxWindowRadius));
+      CHECK_OPTION_GT(sigma_spatial, 0.0f);
+      CHECK_OPTION_GT(sigma_color, 0.0f);
+      CHECK_OPTION_GT(window_radius, 0);
+      CHECK_OPTION_GT(num_samples, 0);
+      CHECK_OPTION_GT(ncc_sigma, 0.0f);
+      CHECK_OPTION_GE(min_triangulation_angle, 0.0f);
+      CHECK_OPTION_LT(min_triangulation_angle, 180.0f);
+      CHECK_OPTION_GT(incident_angle_sigma, 0.0f);
+      CHECK_OPTION_GT(num_iterations, 0);
+      CHECK_OPTION_GE(geom_consistency_regularizer, 0.0f);
+      CHECK_OPTION_GE(geom_consistency_max_cost, 0.0f);
+      CHECK_OPTION_GE(filter_min_ncc, -1.0f);
+      CHECK_OPTION_LE(filter_min_ncc, 1.0f);
+      CHECK_OPTION_GE(filter_min_triangulation_angle, 0.0f);
+      CHECK_OPTION_LE(filter_min_triangulation_angle, 180.0f);
+      CHECK_OPTION_GE(filter_min_num_consistent, 0);
+      CHECK_OPTION_GE(filter_geom_consistency_max_cost, 0.0f);
+      return true;
+    }
   };
 
   struct Problem {
@@ -187,8 +212,7 @@ class PatchMatchController : public Thread {
   PatchMatchController(const PatchMatch::Options& options,
                        const std::string& workspace_path,
                        const std::string& workspace_format,
-                       const std::string& pmvs_option_name,
-                       const int max_image_size);
+                       const std::string& pmvs_option_name);
 
  private:
   void Run();
@@ -197,7 +221,6 @@ class PatchMatchController : public Thread {
   const std::string workspace_path_;
   const std::string workspace_format_;
   const std::string pmvs_option_name_;
-  const int max_image_size_;
 };
 
 #endif

@@ -63,7 +63,7 @@ void BundleAdjustmentController::Run() {
   // Avoid degeneracies in bundle adjustment.
   reconstruction_->FilterObservationsWithNegativeDepth();
 
-  BundleAdjuster::Options ba_options = options_.ba_options->Options();
+  BundleAdjuster::Options ba_options = *options_.bundle_adjustment;
   ba_options.solver_options.minimizer_progress_to_stdout = true;
 
   BundleAdjustmentIterationCallback iteration_callback(this);

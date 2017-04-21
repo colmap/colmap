@@ -132,13 +132,11 @@ int main(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddRequiredOption("vocab_tree_path", &vocab_tree_path);
-  options.AddDefaultOption("database_image_list_path", database_image_list_path,
+  options.AddDefaultOption("database_image_list_path",
                            &database_image_list_path);
-  options.AddDefaultOption("query_image_list_path", query_image_list_path,
-                           &query_image_list_path);
-  options.AddDefaultOption("num_images", num_images, &num_images);
-  options.AddDefaultOption("max_num_features", max_num_features,
-                           &max_num_features);
+  options.AddDefaultOption("query_image_list_path", &query_image_list_path);
+  options.AddDefaultOption("num_images", &num_images);
+  options.AddDefaultOption("max_num_features", &max_num_features);
   options.Parse(argc, argv);
 
   retrieval::VisualIndex visual_index;

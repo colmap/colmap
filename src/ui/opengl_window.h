@@ -28,6 +28,7 @@
 #include "ui/movie_grabber_widget.h"
 #include "ui/point_painter.h"
 #include "ui/point_viewer_widget.h"
+#include "ui/render_options.h"
 #include "ui/triangle_painter.h"
 #include "util/option_manager.h"
 
@@ -35,11 +36,6 @@ namespace colmap {
 
 class OpenGLWindow : public QWindow {
  public:
-  enum class ProjectionType {
-    PERSPECTIVE,
-    ORTHOGRAPHIC,
-  };
-
   const float kInitNearPlane = 1.0f;
   const float kMinNearPlane = 1e-3f;
   const float kMaxNearPlane = 1e5f;
@@ -66,8 +62,7 @@ class OpenGLWindow : public QWindow {
   void Upload();
   void Clear();
 
-  ProjectionType GetProjectionType() const;
-  void SetProjectionType(const ProjectionType type);
+  int GetProjectionType() const;
 
   void SetPointColormap(PointColormapBase* colormap);
 
@@ -172,8 +167,6 @@ class OpenGLWindow : public QWindow {
   PointViewerWidget* point_viewer_widget_;
   DatabaseImageViewerWidget* image_viewer_widget_;
   MovieGrabberWidget* movie_grabber_widget_;
-
-  ProjectionType projection_type_;
 
   std::unique_ptr<PointColormapBase> point_colormap_;
 

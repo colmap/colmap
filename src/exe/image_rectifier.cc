@@ -68,14 +68,10 @@ int main(int argc, char** argv) {
   options.AddRequiredOption("output_path", &output_path);
   options.AddRequiredOption("stereo_pairs_list", &stereo_pairs_list);
   options.AddDefaultOption("blank_pixels",
-                           undistort_camera_options.blank_pixels,
                            &undistort_camera_options.blank_pixels);
-  options.AddDefaultOption("min_scale", undistort_camera_options.min_scale,
-                           &undistort_camera_options.min_scale);
-  options.AddDefaultOption("max_scale", undistort_camera_options.max_scale,
-                           &undistort_camera_options.max_scale);
+  options.AddDefaultOption("min_scale", &undistort_camera_options.min_scale);
+  options.AddDefaultOption("max_scale", &undistort_camera_options.max_scale);
   options.AddDefaultOption("max_image_size",
-                           undistort_camera_options.max_image_size,
                            &undistort_camera_options.max_image_size);
   options.Parse(argc, argv);
 

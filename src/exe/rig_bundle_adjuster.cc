@@ -153,10 +153,10 @@ int main(int argc, char** argv) {
   std::string rig_config_path;
 
   OptionManager options;
-  options.AddBundleAdjustmentOptions();
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddRequiredOption("rig_config_path", &rig_config_path);
+  options.AddBundleAdjustmentOptions();
   options.Parse(argc, argv);
 
   Reconstruction reconstruction;
@@ -183,7 +183,7 @@ int main(int argc, char** argv) {
 
   PrintHeading1("Rig bundle adjustment");
 
-  RigBundleAdjuster::Options ba_options = options.ba_options->Options();
+  RigBundleAdjuster::Options ba_options = *options.bundle_adjustment;
   ba_options.solver_options.minimizer_progress_to_stdout = true;
   RigBundleAdjuster::RigOptions rig_ba_options;
   RigBundleAdjuster bundle_adjuster(ba_options, rig_ba_options, config);

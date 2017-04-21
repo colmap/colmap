@@ -1,5 +1,7 @@
 set(FOLDER_NAME "exe")
 
+COLMAP_ADD_EXECUTABLE(automatic_reconstructor automatic_reconstructor.cc)
+
 COLMAP_ADD_EXECUTABLE(bundle_adjuster bundle_adjuster.cc)
 
 COLMAP_ADD_UI_EXECUTABLE(colmap colmap.cc)
@@ -53,6 +55,6 @@ COLMAP_ADD_EXECUTABLE(vocab_tree_matcher vocab_tree_matcher.cc)
 COLMAP_ADD_EXECUTABLE(vocab_tree_retriever vocab_tree_retriever.cc)
 
 if(CUDA_ENABLED)
-    COLMAP_ADD_EXECUTABLE(dense_mapper dense_mapper.cc)
-    target_include_directories(dense_mapper PUBLIC ${CUDA_INCLUDE_DIRS})
+    COLMAP_ADD_EXECUTABLE(dense_stereo dense_stereo.cc)
+    target_include_directories(dense_stereo PUBLIC ${CUDA_INCLUDE_DIRS})
 endif()

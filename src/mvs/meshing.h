@@ -49,7 +49,7 @@ struct PoissonReconstructionOptions {
   // The number of threads used for the Poisson reconstruction.
   int num_threads = -1;
 
-  void Check() const;
+  bool Check() const;
 };
 
 // Perform Poisson surface reconstruction and return true if successful.

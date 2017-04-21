@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "controllers/full_mapper.h"
+#include "controllers/automatic_reconstruction.h"
 
 #include <QApplication>
 
@@ -29,7 +29,8 @@
 
 namespace colmap {
 
-FullMapperController::FullMapperController(const Options& options)
+AutomaticReconstructionController::AutomaticReconstructionController(
+    const Options& options)
     : options_(options) {
   CHECK(ExistsDir(options_.workspace_path));
   CHECK(ExistsDir(options_.image_path));
@@ -52,7 +53,7 @@ FullMapperController::FullMapperController(const Options& options)
   }
 }
 
-void FullMapperController::Run() {
+void AutomaticReconstructionController::Run() {
   RunFeatureExtraction();
   RunFeatureMatching();
   if (options_.sparse) {
@@ -63,21 +64,20 @@ void FullMapperController::Run() {
   }
 }
 
-void FullMapperController::RunFeatureExtraction() {
-  ImageReader::Options reader_options =
-      option_manager_.extraction_options->reader;
+void AutomaticReconstructionController::RunFeatureExtraction() {
+  ImageReader::Options reader_options = *option_manager_.image_reader;
   reader_options.database_path = *option_manager_.database_path;
   reader_options.image_path = *option_manager_.image_path;
 
   std::unique_ptr<Thread> feature_extractor;
   if (options_.use_gpu) {
     feature_extractor.reset(new SiftGPUFeatureExtractor(
-        reader_options, option_manager_.extraction_options->sift,
-        option_manager_.extraction_options->gpu));
+        reader_options, *option_manager_.sift_extraction,
+        *option_manager_.sift_gpu_extraction));
   } else {
     feature_extractor.reset(new SiftCPUFeatureExtractor(
-        reader_options, option_manager_.extraction_options->sift,
-        option_manager_.extraction_options->cpu));
+        reader_options, *option_manager_.sift_extraction,
+        *option_manager_.sift_cpu_extraction));
   }
 
   CHECK(feature_extractor);
@@ -90,15 +90,14 @@ void FullMapperController::RunFeatureExtraction() {
   }
 }
 
-void FullMapperController::RunFeatureMatching() {
+void AutomaticReconstructionController::RunFeatureMatching() {
   std::unique_ptr<Thread> feature_matcher;
   if (options_.data_type == DataType::VIDEO) {
-    option_manager_.sequential_match_options->loop_detection = true;
-    option_manager_.sequential_match_options->vocab_tree_path =
+    option_manager_.sequential_matching->loop_detection = true;
+    option_manager_.sequential_matching->vocab_tree_path =
         options_.vocab_tree_path;
     feature_matcher.reset(new SequentialFeatureMatcher(
-        option_manager_.sequential_match_options->Options(),
-        option_manager_.match_options->Options(),
+        *option_manager_.sequential_matching, *option_manager_.sift_matching,
         *option_manager_.database_path));
   } else if (options_.data_type == DataType::DSLR ||
              options_.data_type == DataType::INTERNET) {
@@ -106,15 +105,13 @@ void FullMapperController::RunFeatureMatching() {
     const size_t num_images = database.NumImages();
     if (num_images < 200) {
       feature_matcher.reset(new ExhaustiveFeatureMatcher(
-          option_manager_.exhaustive_match_options->Options(),
-          option_manager_.match_options->Options(),
+          *option_manager_.exhaustive_matching, *option_manager_.sift_matching,
           *option_manager_.database_path));
     } else {
-      option_manager_.vocab_tree_match_options->vocab_tree_path =
+      option_manager_.vocab_tree_matching->vocab_tree_path =
           options_.vocab_tree_path;
       feature_matcher.reset(new VocabTreeFeatureMatcher(
-          option_manager_.vocab_tree_match_options->Options(),
-          option_manager_.match_options->Options(),
+          *option_manager_.vocab_tree_matching, *option_manager_.sift_matching,
           *option_manager_.database_path));
     }
   }
@@ -129,11 +126,12 @@ void FullMapperController::RunFeatureMatching() {
   }
 }
 
-void FullMapperController::RunSparseMapper() {
+void AutomaticReconstructionController::RunSparseMapper() {
   CreateDirIfNotExists(JoinPaths(options_.workspace_path, "sparse"));
 
-  IncrementalMapperController mapper(&option_manager_,
-                                     &reconstruction_manager_);
+  IncrementalMapperController mapper(
+      option_manager_.mapper.get(), *option_manager_.image_path,
+      *option_manager_.database_path, &reconstruction_manager_);
   mapper.Start();
   mapper.Wait();
 
@@ -145,7 +143,7 @@ void FullMapperController::RunSparseMapper() {
   }
 }
 
-void FullMapperController::RunDenseMapper() {
+void AutomaticReconstructionController::RunDenseMapper() {
 #ifndef CUDA_ENABLED
   std::cout
       << "WARNING: Skipping dense reconstruction because CUDA is not available"
@@ -162,18 +160,21 @@ void FullMapperController::RunDenseMapper() {
                                   reconstruction_manager_.Get(i),
                                   *option_manager_.image_path, dense_path);
     mvs::PatchMatchController patch_match_controller(
-        option_manager_.dense_mapper_options->patch_match, dense_path, "COLMAP",
-        "", option_manager_.dense_mapper_options->max_image_size);
+        *option_manager_.dense_stereo, dense_path, "COLMAP", "");
     patch_match_controller.Start();
     patch_match_controller.Wait();
 
-    mvs::StereoFusion fuser(option_manager_.dense_mapper_options->fusion,
-                            dense_path, "COLMAP", "photometric");
+    mvs::StereoFusion fuser(*option_manager_.dense_fusion, dense_path, "COLMAP",
+                            "photometric");
     fuser.Start();
     fuser.Wait();
     std::cout << "Writing output: " << JoinPaths(dense_path, "fused.ply")
               << std::endl;
     WritePlyBinary(JoinPaths(dense_path, "fused.ply"), fuser.GetFusedPoints());
+
+    CHECK(mvs::PoissonReconstruction(*option_manager_.dense_meshing,
+                                     JoinPaths(dense_path, "fused.ply"),
+                                     JoinPaths(dense_path, "meshed.ply")));
   }
 }
 

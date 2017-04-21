@@ -78,7 +78,7 @@ class StereoFusion : public Thread {
     int cache_size = 250;
 
     // Check the options for validity.
-    void Check() const;
+    bool Check() const;
 
     // Print the options to stdout.
     void Print() const;

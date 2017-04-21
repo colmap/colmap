@@ -56,7 +56,7 @@ BOOST_AUTO_TEST_CASE(TestCreateSiftGPUMatcherOpenGL) {
     void Run() {
       opengl_context_.MakeCurrent();
       SiftMatchGPU sift_match_gpu;
-      BOOST_CHECK(CreateSiftGPUMatcher(SiftMatchOptions(), &sift_match_gpu));
+      BOOST_CHECK(CreateSiftGPUMatcher(SiftMatchingOptions(), &sift_match_gpu));
     }
     OpenGLContextManager opengl_context_;
   };
@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE(TestCreateSiftGPUMatcherOpenGL) {
 BOOST_AUTO_TEST_CASE(TestCreateSiftGPUMatcherCUDA) {
 #ifdef CUDA_ENABLED
   SiftMatchGPU sift_match_gpu;
-  SiftMatchOptions match_options;
+  SiftMatchingOptions match_options;
   match_options.gpu_index = "0";
   BOOST_CHECK(CreateSiftGPUMatcher(match_options, &sift_match_gpu));
 #endif
@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPU) {
 
   FeatureMatches matches;
 
-  MatchSiftFeaturesCPU(SiftMatchOptions(), descriptors1, descriptors2,
+  MatchSiftFeaturesCPU(SiftMatchingOptions(), descriptors1, descriptors2,
                        &matches);
   BOOST_CHECK_EQUAL(matches.size(), 2);
   BOOST_CHECK_EQUAL(matches[0].point2D_idx1, 0);
@@ -90,13 +90,13 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPU) {
   BOOST_CHECK_EQUAL(matches[1].point2D_idx1, 1);
   BOOST_CHECK_EQUAL(matches[1].point2D_idx2, 0);
 
-  MatchSiftFeaturesCPU(SiftMatchOptions(), empty_descriptors, descriptors2,
+  MatchSiftFeaturesCPU(SiftMatchingOptions(), empty_descriptors, descriptors2,
                        &matches);
   BOOST_CHECK_EQUAL(matches.size(), 0);
-  MatchSiftFeaturesCPU(SiftMatchOptions(), descriptors1, empty_descriptors,
+  MatchSiftFeaturesCPU(SiftMatchingOptions(), descriptors1, empty_descriptors,
                        &matches);
   BOOST_CHECK_EQUAL(matches.size(), 0);
-  MatchSiftFeaturesCPU(SiftMatchOptions(), empty_descriptors, empty_descriptors,
+  MatchSiftFeaturesCPU(SiftMatchingOptions(), empty_descriptors, empty_descriptors,
                        &matches);
   BOOST_CHECK_EQUAL(matches.size(), 0);
 }
@@ -118,7 +118,7 @@ BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesCPU) {
   two_view_geometry.config = TwoViewGeometry::PLANAR_OR_PANORAMIC;
   two_view_geometry.H = Eigen::Matrix3d::Identity();
 
-  MatchGuidedSiftFeaturesCPU(SiftMatchOptions(), keypoints1, keypoints2,
+  MatchGuidedSiftFeaturesCPU(SiftMatchingOptions(), keypoints1, keypoints2,
                              descriptors1, descriptors2, &two_view_geometry);
   BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(), 2);
   BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
@@ -127,21 +127,21 @@ BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesCPU) {
   BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
 
   keypoints1[0].x = 100;
-  MatchGuidedSiftFeaturesCPU(SiftMatchOptions(), keypoints1, keypoints2,
+  MatchGuidedSiftFeaturesCPU(SiftMatchingOptions(), keypoints1, keypoints2,
                              descriptors1, descriptors2, &two_view_geometry);
   BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(), 1);
   BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[0].point2D_idx1, 1);
   BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[0].point2D_idx2, 0);
 
-  MatchGuidedSiftFeaturesCPU(SiftMatchOptions(), empty_keypoints, keypoints2,
+  MatchGuidedSiftFeaturesCPU(SiftMatchingOptions(), empty_keypoints, keypoints2,
                              empty_descriptors, descriptors2,
                              &two_view_geometry);
   BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(), 0);
-  MatchGuidedSiftFeaturesCPU(SiftMatchOptions(), keypoints1, empty_keypoints,
+  MatchGuidedSiftFeaturesCPU(SiftMatchingOptions(), keypoints1, empty_keypoints,
                              descriptors1, empty_descriptors,
                              &two_view_geometry);
   BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(), 0);
-  MatchGuidedSiftFeaturesCPU(SiftMatchOptions(), empty_keypoints,
+  MatchGuidedSiftFeaturesCPU(SiftMatchingOptions(), empty_keypoints,
                              empty_keypoints, empty_descriptors,
                              empty_descriptors, &two_view_geometry);
   BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(), 0);
@@ -158,7 +158,7 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesGPU) {
     void Run() {
       opengl_context_.MakeCurrent();
       SiftMatchGPU sift_match_gpu;
-      BOOST_CHECK(CreateSiftGPUMatcher(SiftMatchOptions(), &sift_match_gpu));
+      BOOST_CHECK(CreateSiftGPUMatcher(SiftMatchingOptions(), &sift_match_gpu));
 
       const FeatureDescriptors empty_descriptors =
           CreateRandomFeatureDescriptors(0);
@@ -167,7 +167,7 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesGPU) {
 
       FeatureMatches matches;
 
-      MatchSiftFeaturesGPU(SiftMatchOptions(), &descriptors1, &descriptors2,
+      MatchSiftFeaturesGPU(SiftMatchingOptions(), &descriptors1, &descriptors2,
                            &sift_match_gpu, &matches);
       BOOST_CHECK_EQUAL(matches.size(), 2);
       BOOST_CHECK_EQUAL(matches[0].point2D_idx1, 0);
@@ -175,7 +175,7 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesGPU) {
       BOOST_CHECK_EQUAL(matches[1].point2D_idx1, 1);
       BOOST_CHECK_EQUAL(matches[1].point2D_idx2, 0);
 
-      MatchSiftFeaturesGPU(SiftMatchOptions(), nullptr, nullptr,
+      MatchSiftFeaturesGPU(SiftMatchingOptions(), nullptr, nullptr,
                            &sift_match_gpu, &matches);
       BOOST_CHECK_EQUAL(matches.size(), 2);
       BOOST_CHECK_EQUAL(matches[0].point2D_idx1, 0);
@@ -183,7 +183,7 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesGPU) {
       BOOST_CHECK_EQUAL(matches[1].point2D_idx1, 1);
       BOOST_CHECK_EQUAL(matches[1].point2D_idx2, 0);
 
-      MatchSiftFeaturesGPU(SiftMatchOptions(), &descriptors1, nullptr,
+      MatchSiftFeaturesGPU(SiftMatchingOptions(), &descriptors1, nullptr,
                            &sift_match_gpu, &matches);
       BOOST_CHECK_EQUAL(matches.size(), 2);
       BOOST_CHECK_EQUAL(matches[0].point2D_idx1, 0);
@@ -191,7 +191,7 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesGPU) {
       BOOST_CHECK_EQUAL(matches[1].point2D_idx1, 1);
       BOOST_CHECK_EQUAL(matches[1].point2D_idx2, 0);
 
-      MatchSiftFeaturesGPU(SiftMatchOptions(), nullptr, &descriptors2,
+      MatchSiftFeaturesGPU(SiftMatchingOptions(), nullptr, &descriptors2,
                            &sift_match_gpu, &matches);
       BOOST_CHECK_EQUAL(matches.size(), 2);
       BOOST_CHECK_EQUAL(matches[0].point2D_idx1, 0);
@@ -199,13 +199,13 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesGPU) {
       BOOST_CHECK_EQUAL(matches[1].point2D_idx1, 1);
       BOOST_CHECK_EQUAL(matches[1].point2D_idx2, 0);
 
-      MatchSiftFeaturesGPU(SiftMatchOptions(), &empty_descriptors,
+      MatchSiftFeaturesGPU(SiftMatchingOptions(), &empty_descriptors,
                            &descriptors2, &sift_match_gpu, &matches);
       BOOST_CHECK_EQUAL(matches.size(), 0);
-      MatchSiftFeaturesGPU(SiftMatchOptions(), &descriptors1,
+      MatchSiftFeaturesGPU(SiftMatchingOptions(), &descriptors1,
                            &empty_descriptors, &sift_match_gpu, &matches);
       BOOST_CHECK_EQUAL(matches.size(), 0);
-      MatchSiftFeaturesGPU(SiftMatchOptions(), &empty_descriptors,
+      MatchSiftFeaturesGPU(SiftMatchingOptions(), &empty_descriptors,
                            &empty_descriptors, &sift_match_gpu, &matches);
       BOOST_CHECK_EQUAL(matches.size(), 0);
     }
@@ -227,10 +227,10 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUvsGPU) {
     void Run() {
       opengl_context_.MakeCurrent();
       SiftMatchGPU sift_match_gpu;
-      BOOST_CHECK(CreateSiftGPUMatcher(SiftMatchOptions(), &sift_match_gpu));
+      BOOST_CHECK(CreateSiftGPUMatcher(SiftMatchingOptions(), &sift_match_gpu));
 
       auto TestCPUvsGPU = [&sift_match_gpu](
-                              const SiftMatchOptions& options,
+                              const SiftMatchingOptions& options,
                               const FeatureDescriptors& descriptors1,
                               const FeatureDescriptors& descriptors2) {
         FeatureMatches matches_cpu;
@@ -272,7 +272,7 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUvsGPU) {
             CreateRandomFeatureDescriptors(100);
         const FeatureDescriptors descriptors2 =
             CreateRandomFeatureDescriptors(100);
-        SiftMatchOptions match_options;
+        SiftMatchingOptions match_options;
         TestCPUvsGPU(match_options, descriptors1, descriptors2);
       }
 
@@ -281,7 +281,7 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUvsGPU) {
             CreateRandomFeatureDescriptors(100);
         const FeatureDescriptors descriptors2 =
             descriptors1.colwise().reverse();
-        SiftMatchOptions match_options;
+        SiftMatchingOptions match_options;
         const size_t num_matches =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
         BOOST_CHECK_EQUAL(num_matches, 100);
@@ -292,7 +292,7 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUvsGPU) {
         FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(100);
         FeatureDescriptors descriptors2 = descriptors1;
 
-        SiftMatchOptions match_options;
+        SiftMatchingOptions match_options;
         const size_t num_matches1 =
             TestCPUvsGPU(match_options, descriptors1, descriptors2);
         BOOST_CHECK_EQUAL(num_matches1, 100);
@@ -322,7 +322,7 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUvsGPU) {
         FeatureDescriptors descriptors2 = descriptors1;
         descriptors1.row(0) = descriptors1.row(1);
 
-        SiftMatchOptions match_options;
+        SiftMatchingOptions match_options;
 
         match_options.cross_check = false;
         const size_t num_matches1 =
@@ -353,7 +353,7 @@ BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesGPU) {
     void Run() {
       opengl_context_.MakeCurrent();
       SiftMatchGPU sift_match_gpu;
-      BOOST_CHECK(CreateSiftGPUMatcher(SiftMatchOptions(), &sift_match_gpu));
+      BOOST_CHECK(CreateSiftGPUMatcher(SiftMatchingOptions(), &sift_match_gpu));
 
       FeatureKeypoints empty_keypoints(0);
       FeatureKeypoints keypoints1(2);
@@ -371,7 +371,7 @@ BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesGPU) {
       two_view_geometry.config = TwoViewGeometry::PLANAR_OR_PANORAMIC;
       two_view_geometry.H = Eigen::Matrix3d::Identity();
 
-      MatchGuidedSiftFeaturesGPU(SiftMatchOptions(), &keypoints1, &keypoints2,
+      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(), &keypoints1, &keypoints2,
                                  &descriptors1, &descriptors2, &sift_match_gpu,
                                  &two_view_geometry);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(), 2);
@@ -380,7 +380,7 @@ BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesGPU) {
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
 
-      MatchGuidedSiftFeaturesGPU(SiftMatchOptions(), nullptr, nullptr, nullptr,
+      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(), nullptr, nullptr, nullptr,
                                  nullptr, &sift_match_gpu, &two_view_geometry);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(), 2);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
@@ -388,7 +388,7 @@ BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesGPU) {
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
 
-      MatchGuidedSiftFeaturesGPU(SiftMatchOptions(), &keypoints1, nullptr,
+      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(), &keypoints1, nullptr,
                                  &descriptors1, nullptr, &sift_match_gpu,
                                  &two_view_geometry);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(), 2);
@@ -397,7 +397,7 @@ BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesGPU) {
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
 
-      MatchGuidedSiftFeaturesGPU(SiftMatchOptions(), nullptr, &keypoints2,
+      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(), nullptr, &keypoints2,
                                  nullptr, &descriptors2, &sift_match_gpu,
                                  &two_view_geometry);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(), 2);
@@ -407,22 +407,22 @@ BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesGPU) {
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
 
       keypoints1[0].x = 100;
-      MatchGuidedSiftFeaturesGPU(SiftMatchOptions(), &keypoints1, &keypoints2,
+      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(), &keypoints1, &keypoints2,
                                  &descriptors1, &descriptors2, &sift_match_gpu,
                                  &two_view_geometry);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(), 1);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[0].point2D_idx1, 1);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[0].point2D_idx2, 0);
 
-      MatchGuidedSiftFeaturesGPU(SiftMatchOptions(), &empty_keypoints,
+      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(), &empty_keypoints,
                                  &keypoints2, &empty_descriptors, &descriptors2,
                                  &sift_match_gpu, &two_view_geometry);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(), 0);
       MatchGuidedSiftFeaturesGPU(
-          SiftMatchOptions(), &keypoints1, &empty_keypoints, &descriptors1,
+          SiftMatchingOptions(), &keypoints1, &empty_keypoints, &descriptors1,
           &empty_descriptors, &sift_match_gpu, &two_view_geometry);
       BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(), 0);
-      MatchGuidedSiftFeaturesGPU(SiftMatchOptions(), &empty_keypoints,
+      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(), &empty_keypoints,
                                  &empty_keypoints, &empty_descriptors,
                                  &empty_descriptors, &sift_match_gpu,
                                  &two_view_geometry);

@@ -35,16 +35,12 @@ int main(int argc, char** argv) {
   options.AddImageOptions();
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("output_type", output_type, &output_type);
+  options.AddDefaultOption("output_type", &output_type);
   options.AddDefaultOption("blank_pixels",
-                           undistort_camera_options.blank_pixels,
                            &undistort_camera_options.blank_pixels);
-  options.AddDefaultOption("min_scale", undistort_camera_options.min_scale,
-                           &undistort_camera_options.min_scale);
-  options.AddDefaultOption("max_scale", undistort_camera_options.max_scale,
-                           &undistort_camera_options.max_scale);
+  options.AddDefaultOption("min_scale", &undistort_camera_options.min_scale);
+  options.AddDefaultOption("max_scale", &undistort_camera_options.max_scale);
   options.AddDefaultOption("max_image_size",
-                           undistort_camera_options.max_image_size,
                            &undistort_camera_options.max_image_size);
   options.Parse(argc, argv);
 

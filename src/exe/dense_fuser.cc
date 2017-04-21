@@ -28,11 +28,11 @@ int main(int argc, char* argv[]) {
   std::string output_path;
 
   OptionManager options;
-  options.AddDenseMapperOptions();
   options.AddRequiredOption("workspace_path", &workspace_path);
   options.AddRequiredOption("workspace_format", &workspace_format);
   options.AddRequiredOption("input_type", &input_type);
   options.AddRequiredOption("output_path", &output_path);
+  options.AddDenseFusionOptions();
   options.Parse(argc, argv);
 
   if (input_type != "photometric" && input_type != "geometric") {
@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
     return EXIT_FAILURE;
   }
 
-  mvs::StereoFusion fuser(options.dense_mapper_options->fusion, workspace_path,
+  mvs::StereoFusion fuser(*options.dense_fusion, workspace_path,
                           workspace_format, input_type);
 
   fuser.Start();

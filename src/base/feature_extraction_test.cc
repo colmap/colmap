@@ -39,8 +39,8 @@ BOOST_AUTO_TEST_CASE(TestExtractSiftFeaturesCPU) {
 
   FeatureKeypoints keypoints;
   FeatureDescriptors descriptors;
-  BOOST_CHECK(
-      ExtractSiftFeaturesCPU(SiftOptions(), bitmap, &keypoints, &descriptors));
+  BOOST_CHECK(ExtractSiftFeaturesCPU(SiftExtractionOptions(), bitmap,
+                                     &keypoints, &descriptors));
 
   BOOST_CHECK_EQUAL(keypoints.size(), 22);
   for (size_t i = 0; i < keypoints.size(); ++i) {
@@ -74,12 +74,13 @@ BOOST_AUTO_TEST_CASE(TestExtractSiftFeaturesGPU) {
       CreateImageWithSquare(256, &bitmap);
 
       SiftGPU sift_gpu;
-      BOOST_CHECK(CreateSiftGPUExtractor(SiftOptions(), -1, &sift_gpu));
+      BOOST_CHECK(
+          CreateSiftGPUExtractor(SiftExtractionOptions(), -1, &sift_gpu));
 
       FeatureKeypoints keypoints;
       FeatureDescriptors descriptors;
-      BOOST_CHECK(ExtractSiftFeaturesGPU(SiftOptions(), bitmap, &sift_gpu,
-                                         &keypoints, &descriptors));
+      BOOST_CHECK(ExtractSiftFeaturesGPU(SiftExtractionOptions(), bitmap,
+                                         &sift_gpu, &keypoints, &descriptors));
 
       BOOST_CHECK_EQUAL(keypoints.size(), 24);
       for (size_t i = 0; i < keypoints.size(); ++i) {

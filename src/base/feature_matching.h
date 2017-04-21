@@ -32,7 +32,7 @@
 
 namespace colmap {
 
-struct SiftMatchOptions {
+struct SiftMatchingOptions {
   // Number of threads for feature matching and geometric verification.
   int num_threads = ThreadPool::kMaxNumThreads;
 
@@ -80,7 +80,7 @@ struct SiftMatchOptions {
   // Whether to perform guided matching, if geometric verification succeeds.
   bool guided_matching = false;
 
-  void Check() const;
+  bool Check() const;
 };
 
 namespace internal {
@@ -134,7 +134,7 @@ class SiftCPUFeatureMatcher : public Thread {
   typedef internal::ImagePairData Input;
   typedef internal::MatchData Output;
 
-  SiftCPUFeatureMatcher(const SiftMatchOptions& options,
+  SiftCPUFeatureMatcher(const SiftMatchingOptions& options,
                         FeatureMatcherCache* cache,
                         JobQueue<Input>* input_queue,
                         JobQueue<Output>* output_queue);
@@ -142,7 +142,7 @@ class SiftCPUFeatureMatcher : public Thread {
  protected:
   void Run() override;
 
-  const SiftMatchOptions options_;
+  const SiftMatchingOptions options_;
   FeatureMatcherCache* cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
@@ -153,7 +153,7 @@ class SiftGPUFeatureMatcher : public Thread {
   typedef internal::ImagePairData Input;
   typedef internal::MatchData Output;
 
-  SiftGPUFeatureMatcher(const SiftMatchOptions& options,
+  SiftGPUFeatureMatcher(const SiftMatchingOptions& options,
                         FeatureMatcherCache* cache,
                         JobQueue<Input>* input_queue,
                         JobQueue<Output>* output_queue);
@@ -164,7 +164,7 @@ class SiftGPUFeatureMatcher : public Thread {
   void GetDescriptorData(const int index, const image_t image_id,
                          const FeatureDescriptors** descriptors_ptr);
 
-  const SiftMatchOptions options_;
+  const SiftMatchingOptions options_;
   FeatureMatcherCache* cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
@@ -181,7 +181,7 @@ class GuidedSiftCPUFeatureMatcher : public Thread {
   typedef internal::InlierMatchData Input;
   typedef internal::InlierMatchData Output;
 
-  GuidedSiftCPUFeatureMatcher(const SiftMatchOptions& options,
+  GuidedSiftCPUFeatureMatcher(const SiftMatchingOptions& options,
                               FeatureMatcherCache* cache,
                               JobQueue<Input>* input_queue,
                               JobQueue<Output>* output_queue);
@@ -189,7 +189,7 @@ class GuidedSiftCPUFeatureMatcher : public Thread {
  private:
   void Run() override;
 
-  const SiftMatchOptions options_;
+  const SiftMatchingOptions options_;
   FeatureMatcherCache* cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
@@ -200,7 +200,7 @@ class GuidedSiftGPUFeatureMatcher : public Thread {
   typedef internal::InlierMatchData Input;
   typedef internal::InlierMatchData Output;
 
-  GuidedSiftGPUFeatureMatcher(const SiftMatchOptions& options,
+  GuidedSiftGPUFeatureMatcher(const SiftMatchingOptions& options,
                               FeatureMatcherCache* cache,
                               JobQueue<Input>* input_queue,
                               JobQueue<Output>* output_queue);
@@ -212,7 +212,7 @@ class GuidedSiftGPUFeatureMatcher : public Thread {
                       const FeatureKeypoints** keypoints_ptr,
                       const FeatureDescriptors** descriptors_ptr);
 
-  const SiftMatchOptions options_;
+  const SiftMatchingOptions options_;
   FeatureMatcherCache* cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
@@ -230,7 +230,7 @@ class TwoViewGeometryVerifier : public Thread {
   typedef internal::MatchData Input;
   typedef internal::InlierMatchData Output;
 
-  TwoViewGeometryVerifier(const SiftMatchOptions& options,
+  TwoViewGeometryVerifier(const SiftMatchingOptions& options,
                           FeatureMatcherCache* cache,
                           JobQueue<Input>* input_queue,
                           JobQueue<Output>* output_queue);
@@ -238,7 +238,7 @@ class TwoViewGeometryVerifier : public Thread {
  protected:
   void Run() override;
 
-  const SiftMatchOptions options_;
+  const SiftMatchingOptions options_;
   TwoViewGeometry::Options two_view_geometry_options_;
   FeatureMatcherCache* cache_;
   JobQueue<Input>* input_queue_;
@@ -252,7 +252,7 @@ class TwoViewGeometryVerifier : public Thread {
 // database should be in an active transaction while calling `Match`.
 class SiftFeatureMatcher {
  public:
-  SiftFeatureMatcher(const SiftMatchOptions& options, Database* database,
+  SiftFeatureMatcher(const SiftMatchingOptions& options, Database* database,
                      FeatureMatcherCache* cache);
 
   ~SiftFeatureMatcher();
@@ -261,7 +261,7 @@ class SiftFeatureMatcher {
   void Match(const std::vector<std::pair<image_t, image_t>>& image_pairs);
 
  private:
-  const SiftMatchOptions options_;
+  const SiftMatchingOptions options_;
   Database* database_;
   FeatureMatcherCache* cache_;
 
@@ -305,18 +305,18 @@ class ExhaustiveFeatureMatcher : public Thread {
     // Block size, i.e. number of images to simultaneously load into memory.
     int block_size = 50;
 
-    void Check() const;
+    bool Check() const;
   };
 
   ExhaustiveFeatureMatcher(const Options& options,
-                           const SiftMatchOptions& match_options,
+                           const SiftMatchingOptions& match_options,
                            const std::string& database_path);
 
  private:
   void Run() override;
 
   const Options options_;
-  const SiftMatchOptions match_options_;
+  const SiftMatchingOptions match_options_;
   Database database_;
   FeatureMatcherCache cache_;
   SiftFeatureMatcher matcher_;
@@ -361,11 +361,11 @@ class SequentialFeatureMatcher : public Thread {
     // Path to the vocabulary tree.
     std::string vocab_tree_path = "";
 
-    void Check() const;
+    bool Check() const;
   };
 
   SequentialFeatureMatcher(const Options& options,
-                           const SiftMatchOptions& match_options,
+                           const SiftMatchingOptions& match_options,
                            const std::string& database_path);
 
  private:
@@ -376,7 +376,7 @@ class SequentialFeatureMatcher : public Thread {
   void RunLoopDetection(const std::vector<image_t>& image_ids);
 
   const Options options_;
-  const SiftMatchOptions match_options_;
+  const SiftMatchingOptions match_options_;
   Database database_;
   FeatureMatcherCache cache_;
   SiftFeatureMatcher matcher_;
@@ -399,18 +399,18 @@ class VocabTreeFeatureMatcher : public Thread {
     // Optional path to file with specific image names to match.
     std::string match_list_path = "";
 
-    void Check() const;
+    bool Check() const;
   };
 
   VocabTreeFeatureMatcher(const Options& options,
-                          const SiftMatchOptions& match_options,
+                          const SiftMatchingOptions& match_options,
                           const std::string& database_path);
 
  private:
   void Run() override;
 
   const Options options_;
-  const SiftMatchOptions match_options_;
+  const SiftMatchingOptions match_options_;
   Database database_;
   FeatureMatcherCache cache_;
   SiftFeatureMatcher matcher_;
@@ -435,18 +435,18 @@ class SpatialFeatureMatcher : public Thread {
     // coordinates the unit is Euclidean distance in meters.
     double max_distance = 100;
 
-    void Check() const;
+    bool Check() const;
   };
 
   SpatialFeatureMatcher(const Options& options,
-                        const SiftMatchOptions& match_options,
+                        const SiftMatchingOptions& match_options,
                         const std::string& database_path);
 
  private:
   void Run() override;
 
   const Options options_;
-  const SiftMatchOptions match_options_;
+  const SiftMatchingOptions match_options_;
   Database database_;
   FeatureMatcherCache cache_;
   SiftFeatureMatcher matcher_;
@@ -470,18 +470,18 @@ class ImagePairsFeatureMatcher : public Thread {
     // Path to the file with the matches.
     std::string match_list_path = "";
 
-    void Check() const;
+    bool Check() const;
   };
 
   ImagePairsFeatureMatcher(const Options& options,
-                           const SiftMatchOptions& match_options,
+                           const SiftMatchingOptions& match_options,
                            const std::string& database_path);
 
  private:
   void Run() override;
 
   const Options options_;
-  const SiftMatchOptions match_options_;
+  const SiftMatchingOptions match_options_;
   Database database_;
   FeatureMatcherCache cache_;
   SiftFeatureMatcher matcher_;
@@ -511,11 +511,11 @@ class FeaturePairsFeatureMatcher : public Thread {
     // Path to the file with the matches.
     std::string match_list_path = "";
 
-    void Check() const;
+    bool Check() const;
   };
 
   FeaturePairsFeatureMatcher(const Options& options,
-                             const SiftMatchOptions& match_options,
+                             const SiftMatchingOptions& match_options,
                              const std::string& database_path);
 
  private:
@@ -524,17 +524,17 @@ class FeaturePairsFeatureMatcher : public Thread {
   void Run() override;
 
   const Options options_;
-  const SiftMatchOptions match_options_;
+  const SiftMatchingOptions match_options_;
   Database database_;
   FeatureMatcherCache cache_;
 };
 
 // Match the given SIFT features on the CPU.
-void MatchSiftFeaturesCPU(const SiftMatchOptions& match_options,
+void MatchSiftFeaturesCPU(const SiftMatchingOptions& match_options,
                           const FeatureDescriptors& descriptors1,
                           const FeatureDescriptors& descriptors2,
                           FeatureMatches* matches);
-void MatchGuidedSiftFeaturesCPU(const SiftMatchOptions& match_options,
+void MatchGuidedSiftFeaturesCPU(const SiftMatchingOptions& match_options,
                                 const FeatureKeypoints& keypoints1,
                                 const FeatureKeypoints& keypoints2,
                                 const FeatureDescriptors& descriptors1,
@@ -545,18 +545,18 @@ void MatchGuidedSiftFeaturesCPU(const SiftMatchOptions& match_options,
 // gpu_index is -1, the OpenGLContextManager must be created in the main thread
 // of the Qt application before calling this function. The same SiftMatchGPU
 // instance can be used to match features between multiple image pairs.
-bool CreateSiftGPUMatcher(const SiftMatchOptions& match_options,
+bool CreateSiftGPUMatcher(const SiftMatchingOptions& match_options,
                           SiftMatchGPU* sift_match_gpu);
 
 // Match the given SIFT features on the GPU. If either of the descriptors is
 // NULL, the keypoints/descriptors will not be uploaded and the previously
 // uploaded descriptors will be reused for the matching.
-void MatchSiftFeaturesGPU(const SiftMatchOptions& match_options,
+void MatchSiftFeaturesGPU(const SiftMatchingOptions& match_options,
                           const FeatureDescriptors* descriptors1,
                           const FeatureDescriptors* descriptors2,
                           SiftMatchGPU* sift_match_gpu,
                           FeatureMatches* matches);
-void MatchGuidedSiftFeaturesGPU(const SiftMatchOptions& match_options,
+void MatchGuidedSiftFeaturesGPU(const SiftMatchingOptions& match_options,
                                 const FeatureKeypoints* keypoints1,
                                 const FeatureKeypoints* keypoints2,
                                 const FeatureDescriptors* descriptors1,

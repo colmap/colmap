@@ -26,13 +26,13 @@ int main(int argc, char* argv[]) {
   std::string output_path;
 
   OptionManager options;
-  options.AddDenseMapperOptions();
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
+  options.AddDenseMeshingOptions();
   options.Parse(argc, argv);
 
-  CHECK(mvs::PoissonReconstruction(options.dense_mapper_options->poisson,
-                                   input_path, output_path));
+  CHECK(mvs::PoissonReconstruction(*options.dense_meshing, input_path,
+                                   output_path));
 
   return EXIT_SUCCESS;
 }

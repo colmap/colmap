@@ -281,15 +281,16 @@ void WarnIfMaxNumMatchesReachedGPU(const SiftMatchGPU& sift_match_gpu,
 
 }  // namespace
 
-void SiftMatchOptions::Check() const {
-  CHECK_GT(CSVToVector<int>(gpu_index).size(), 0);
-  CHECK_GT(max_ratio, 0.0);
-  CHECK_GT(max_distance, 0.0);
-  CHECK_GT(max_error, 0.0);
-  CHECK_GT(max_num_trials, 0);
-  CHECK_GE(min_inlier_ratio, 0);
-  CHECK_LE(min_inlier_ratio, 1);
-  CHECK_GE(min_num_inliers, 0);
+bool SiftMatchingOptions::Check() const {
+  CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
+  CHECK_OPTION_GT(max_ratio, 0.0);
+  CHECK_OPTION_GT(max_distance, 0.0);
+  CHECK_OPTION_GT(max_error, 0.0);
+  CHECK_OPTION_GT(max_num_trials, 0);
+  CHECK_OPTION_GE(min_inlier_ratio, 0);
+  CHECK_OPTION_LE(min_inlier_ratio, 1);
+  CHECK_OPTION_GE(min_num_inliers, 0);
+  return true;
 }
 
 FeatureMatcherCache::FeatureMatcherCache(const size_t cache_size,
@@ -379,7 +380,7 @@ void FeatureMatcherCache::WriteInlierMatches(
   database_->WriteInlierMatches(image_id1, image_id2, two_view_geometry);
 }
 
-SiftCPUFeatureMatcher::SiftCPUFeatureMatcher(const SiftMatchOptions& options,
+SiftCPUFeatureMatcher::SiftCPUFeatureMatcher(const SiftMatchingOptions& options,
                                              FeatureMatcherCache* cache,
                                              JobQueue<Input>* input_queue,
                                              JobQueue<Output>* output_queue)
@@ -387,7 +388,7 @@ SiftCPUFeatureMatcher::SiftCPUFeatureMatcher(const SiftMatchOptions& options,
       cache_(cache),
       input_queue_(input_queue),
       output_queue_(output_queue) {
-  options_.Check();
+  CHECK(options_.Check());
 }
 
 void SiftCPUFeatureMatcher::Run() {
@@ -416,7 +417,7 @@ void SiftCPUFeatureMatcher::Run() {
   }
 }
 
-SiftGPUFeatureMatcher::SiftGPUFeatureMatcher(const SiftMatchOptions& options,
+SiftGPUFeatureMatcher::SiftGPUFeatureMatcher(const SiftMatchingOptions& options,
                                              FeatureMatcherCache* cache,
                                              JobQueue<Input>* input_queue,
                                              JobQueue<Output>* output_queue)
@@ -424,7 +425,7 @@ SiftGPUFeatureMatcher::SiftGPUFeatureMatcher(const SiftMatchOptions& options,
       cache_(cache),
       input_queue_(input_queue),
       output_queue_(output_queue) {
-  options_.Check();
+  CHECK(options_.Check());
 
   prev_uploaded_image_ids_[0] = kInvalidImageId;
   prev_uploaded_image_ids_[1] = kInvalidImageId;
@@ -484,13 +485,13 @@ void SiftGPUFeatureMatcher::GetDescriptorData(
 }
 
 GuidedSiftCPUFeatureMatcher::GuidedSiftCPUFeatureMatcher(
-    const SiftMatchOptions& options, FeatureMatcherCache* cache,
+    const SiftMatchingOptions& options, FeatureMatcherCache* cache,
     JobQueue<Input>* input_queue, JobQueue<Output>* output_queue)
     : options_(options),
       cache_(cache),
       input_queue_(input_queue),
       output_queue_(output_queue) {
-  options_.Check();
+  CHECK(options_.Check());
 }
 
 void GuidedSiftCPUFeatureMatcher::Run() {
@@ -530,13 +531,13 @@ void GuidedSiftCPUFeatureMatcher::Run() {
 }
 
 GuidedSiftGPUFeatureMatcher::GuidedSiftGPUFeatureMatcher(
-    const SiftMatchOptions& options, FeatureMatcherCache* cache,
+    const SiftMatchingOptions& options, FeatureMatcherCache* cache,
     JobQueue<Input>* input_queue, JobQueue<Output>* output_queue)
     : options_(options),
       cache_(cache),
       input_queue_(input_queue),
       output_queue_(output_queue) {
-  options_.Check();
+  CHECK(options_.Check());
 
   prev_uploaded_image_ids_[0] = kInvalidImageId;
   prev_uploaded_image_ids_[1] = kInvalidImageId;
@@ -612,13 +613,13 @@ void GuidedSiftGPUFeatureMatcher::GetFeatureData(
 }
 
 TwoViewGeometryVerifier::TwoViewGeometryVerifier(
-    const SiftMatchOptions& options, FeatureMatcherCache* cache,
+    const SiftMatchingOptions& options, FeatureMatcherCache* cache,
     JobQueue<Input>* input_queue, JobQueue<Output>* output_queue)
     : options_(options),
       cache_(cache),
       input_queue_(input_queue),
       output_queue_(output_queue) {
-  options_.Check();
+  CHECK(options_.Check());
 
   two_view_geometry_options_.min_num_inliers =
       static_cast<size_t>(options_.min_num_inliers);
@@ -675,11 +676,11 @@ void TwoViewGeometryVerifier::Run() {
   }
 }
 
-SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchOptions& options,
+SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchingOptions& options,
                                        Database* database,
                                        FeatureMatcherCache* cache)
     : options_(options), database_(database), cache_(cache) {
-  options_.Check();
+  CHECK(options_.Check());
 
   const int num_threads = GetEffectiveNumThreads(options_.num_threads);
   CHECK_GT(num_threads, 0);
@@ -866,20 +867,21 @@ void SiftFeatureMatcher::Match(
   CHECK_EQ(output_queue_.Size(), 0);
 }
 
-void ExhaustiveFeatureMatcher::Options::Check() const {
-  CHECK_GT(block_size, 1);
+bool ExhaustiveFeatureMatcher::Options::Check() const {
+  CHECK_OPTION_GT(block_size, 1);
+  return true;
 }
 
 ExhaustiveFeatureMatcher::ExhaustiveFeatureMatcher(
-    const Options& options, const SiftMatchOptions& match_options,
+    const Options& options, const SiftMatchingOptions& match_options,
     const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),
       cache_(5 * options_.block_size, &database_),
       matcher_(match_options, &database_, &cache_) {
-  options_.Check();
-  match_options_.Check();
+  CHECK(options_.Check());
+  CHECK(match_options_.Check());
 }
 
 void ExhaustiveFeatureMatcher::Run() {
@@ -937,17 +939,15 @@ void ExhaustiveFeatureMatcher::Run() {
   GetTimer().PrintMinutes();
 }
 
-void SequentialFeatureMatcher::Options::Check() const {
-  CHECK_GT(overlap, 0);
-  CHECK_GT(loop_detection_period, 0);
-  CHECK_GT(loop_detection_num_images, 0);
-  if (loop_detection) {
-    CHECK(ExistsFile(vocab_tree_path));
-  }
+bool SequentialFeatureMatcher::Options::Check() const {
+  CHECK_OPTION_GT(overlap, 0);
+  CHECK_OPTION_GT(loop_detection_period, 0);
+  CHECK_OPTION_GT(loop_detection_num_images, 0);
+  return true;
 }
 
 SequentialFeatureMatcher::SequentialFeatureMatcher(
-    const Options& options, const SiftMatchOptions& match_options,
+    const Options& options, const SiftMatchingOptions& match_options,
     const std::string& database_path)
     : options_(options),
       match_options_(match_options),
@@ -956,8 +956,8 @@ SequentialFeatureMatcher::SequentialFeatureMatcher(
                       5 * options_.overlap),
              &database_),
       matcher_(match_options, &database_, &cache_) {
-  options_.Check();
-  match_options_.Check();
+  CHECK(options_.Check());
+  CHECK(match_options_.Check());
 }
 
 void SequentialFeatureMatcher::Run() {
@@ -1056,21 +1056,21 @@ void SequentialFeatureMatcher::RunLoopDetection(
       &visual_index, &matcher_);
 }
 
-void VocabTreeFeatureMatcher::Options::Check() const {
-  CHECK_GT(num_images, 0);
-  CHECK(ExistsFile(vocab_tree_path));
+bool VocabTreeFeatureMatcher::Options::Check() const {
+  CHECK_OPTION_GT(num_images, 0);
+  return true;
 }
 
 VocabTreeFeatureMatcher::VocabTreeFeatureMatcher(
-    const Options& options, const SiftMatchOptions& match_options,
+    const Options& options, const SiftMatchingOptions& match_options,
     const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),
       cache_(5 * options_.num_images, &database_),
       matcher_(match_options, &database_, &cache_) {
-  options_.Check();
-  match_options_.Check();
+  CHECK(options_.Check());
+  CHECK(match_options_.Check());
 }
 
 void VocabTreeFeatureMatcher::Run() {
@@ -1131,21 +1131,22 @@ void VocabTreeFeatureMatcher::Run() {
   GetTimer().PrintMinutes();
 }
 
-void SpatialFeatureMatcher::Options::Check() const {
-  CHECK_GT(max_num_neighbors, 0);
-  CHECK_GT(max_distance, 0.0);
+bool SpatialFeatureMatcher::Options::Check() const {
+  CHECK_OPTION_GT(max_num_neighbors, 0);
+  CHECK_OPTION_GT(max_distance, 0.0);
+  return true;
 }
 
 SpatialFeatureMatcher::SpatialFeatureMatcher(
-    const Options& options, const SiftMatchOptions& match_options,
+    const Options& options, const SiftMatchingOptions& match_options,
     const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),
       cache_(5 * options_.max_num_neighbors, &database_),
       matcher_(match_options, &database_, &cache_) {
-  options_.Check();
-  match_options_.Check();
+  CHECK(options_.Check());
+  CHECK(match_options_.Check());
 }
 
 void SpatialFeatureMatcher::Run() {
@@ -1310,21 +1311,21 @@ void SpatialFeatureMatcher::Run() {
   GetTimer().PrintMinutes();
 }
 
-void ImagePairsFeatureMatcher::Options::Check() const {
-  CHECK_GT(block_size, 0);
-  CHECK(ExistsFile(match_list_path));
+bool ImagePairsFeatureMatcher::Options::Check() const {
+  CHECK_OPTION_GT(block_size, 0);
+  return true;
 }
 
 ImagePairsFeatureMatcher::ImagePairsFeatureMatcher(
-    const Options& options, const SiftMatchOptions& match_options,
+    const Options& options, const SiftMatchingOptions& match_options,
     const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),
       cache_(options.block_size, &database_),
       matcher_(match_options, &database_, &cache_) {
-  options_.Check();
-  match_options_.Check();
+  CHECK(options_.Check());
+  CHECK(match_options_.Check());
 }
 
 void ImagePairsFeatureMatcher::Run() {
@@ -1416,19 +1417,19 @@ void ImagePairsFeatureMatcher::Run() {
   GetTimer().PrintMinutes();
 }
 
-void FeaturePairsFeatureMatcher::Options::Check() const {
-  CHECK(ExistsFile(match_list_path));
+bool FeaturePairsFeatureMatcher::Options::Check() const {
+  return true;
 }
 
 FeaturePairsFeatureMatcher::FeaturePairsFeatureMatcher(
-    const Options& options, const SiftMatchOptions& match_options,
+    const Options& options, const SiftMatchingOptions& match_options,
     const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),
       cache_(kCacheSize, &database_) {
-  options_.Check();
-  match_options_.Check();
+  CHECK(options_.Check());
+  CHECK(match_options_.Check());
 }
 
 void FeaturePairsFeatureMatcher::Run() {
@@ -1566,11 +1567,11 @@ void FeaturePairsFeatureMatcher::Run() {
   GetTimer().PrintMinutes();
 }
 
-void MatchSiftFeaturesCPU(const SiftMatchOptions& match_options,
+void MatchSiftFeaturesCPU(const SiftMatchingOptions& match_options,
                           const FeatureDescriptors& descriptors1,
                           const FeatureDescriptors& descriptors2,
                           FeatureMatches* matches) {
-  match_options.Check();
+  CHECK(match_options.Check());
   CHECK_NOTNULL(matches);
 
   const Eigen::MatrixXi dists = ComputeSiftDistanceMatrix(
@@ -1580,13 +1581,13 @@ void MatchSiftFeaturesCPU(const SiftMatchOptions& match_options,
                   match_options.cross_check, matches);
 }
 
-void MatchGuidedSiftFeaturesCPU(const SiftMatchOptions& match_options,
+void MatchGuidedSiftFeaturesCPU(const SiftMatchingOptions& match_options,
                                 const FeatureKeypoints& keypoints1,
                                 const FeatureKeypoints& keypoints2,
                                 const FeatureDescriptors& descriptors1,
                                 const FeatureDescriptors& descriptors2,
                                 TwoViewGeometry* two_view_geometry) {
-  match_options.Check();
+  CHECK(match_options.Check());
   CHECK_NOTNULL(two_view_geometry);
 
   const float max_residual = match_options.max_error * match_options.max_error;
@@ -1632,9 +1633,9 @@ void MatchGuidedSiftFeaturesCPU(const SiftMatchOptions& match_options,
                   &two_view_geometry->inlier_matches);
 }
 
-bool CreateSiftGPUMatcher(const SiftMatchOptions& match_options,
+bool CreateSiftGPUMatcher(const SiftMatchingOptions& match_options,
                           SiftMatchGPU* sift_match_gpu) {
-  match_options.Check();
+  CHECK(match_options.Check());
   CHECK_NOTNULL(sift_match_gpu);
 
   // SiftGPU uses many global static state variables and the initialization must
@@ -1669,12 +1670,12 @@ bool CreateSiftGPUMatcher(const SiftMatchOptions& match_options,
   return true;
 }
 
-void MatchSiftFeaturesGPU(const SiftMatchOptions& match_options,
+void MatchSiftFeaturesGPU(const SiftMatchingOptions& match_options,
                           const FeatureDescriptors* descriptors1,
                           const FeatureDescriptors* descriptors2,
                           SiftMatchGPU* sift_match_gpu,
                           FeatureMatches* matches) {
-  match_options.Check();
+  CHECK(match_options.Check());
   CHECK_NOTNULL(sift_match_gpu);
   CHECK_NOTNULL(matches);
 
@@ -1704,7 +1705,7 @@ void MatchSiftFeaturesGPU(const SiftMatchOptions& match_options,
   matches->resize(num_matches);
 }
 
-void MatchGuidedSiftFeaturesGPU(const SiftMatchOptions& match_options,
+void MatchGuidedSiftFeaturesGPU(const SiftMatchingOptions& match_options,
                                 const FeatureKeypoints* keypoints1,
                                 const FeatureKeypoints* keypoints2,
                                 const FeatureDescriptors* descriptors1,
@@ -1714,7 +1715,7 @@ void MatchGuidedSiftFeaturesGPU(const SiftMatchOptions& match_options,
   static_assert(sizeof(FeatureKeypoint) == 4 * sizeof(float),
                 "Invalid feature keypoint data format");
 
-  match_options.Check();
+  CHECK(match_options.Check());
   CHECK_NOTNULL(sift_match_gpu);
   CHECK_NOTNULL(two_view_geometry);
 

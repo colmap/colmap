@@ -19,6 +19,7 @@ set(COLMAP_LIBRARIES
     mvs
     sfm
     base
+    ui
     util
     estimators
     base

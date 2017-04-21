@@ -25,42 +25,42 @@ Then, an exemplary sequence of commands to reconstruct the scene would be::
     PROJECT_PATH=/path/to/project
 
     $ ./src/exe/feature_extractor \
-       --General.database_path $PROJECT_PATH/database.db \
-       --General.image_path $PROJECT_PATH/images
+       --database_path $PROJECT_PATH/database.db \
+       --image_path $PROJECT_PATH/images
 
     $ ./src/exe/exhaustive_matcher \
-       --General.database_path $PROJECT_PATH/database.db
+       --database_path $PROJECT_PATH/database.db
 
     $ mkdir $PROJECT_PATH/sparse
 
     $ ./src/exe/mapper \
-        --General.database_path $PROJECT_PATH/database.db \
-        --General.image_path $PROJECT_PATH/images \
+        --database_path $PROJECT_PATH/database.db \
+        --image_path $PROJECT_PATH/images \
         --export_path $PROJECT_PATH/sparse
 
     $ mkdir $PROJECT_PATH/dense
 
     $ ./src/exe/image_undistorter \
-        --General.image_path $PROJECT_PATH/images \
+        --image_path $PROJECT_PATH/images \
         --input_path $PROJECT_PATH/sparse/0 \
         --output_path $PROJECT_PATH/dense \
         --output_type COLMAP \
         --max_image_size 2000
 
-    $ ./src/exe/dense_mapper \
+    $ ./src/exe/dense_stereo \
         --workspace_path $PROJECT_PATH/dense \
         --workspace_format COLMAP \
-        --DenseMapperOptions.max_image_size 0 \
-        --DenseMapperOptions.patch_match_filter false \
-        --DenseMapperOptions.patch_match_geom_consistency false \
-        --DenseMapperOptions.patch_match_num_iterations 4
+        --DenseStereo.max_image_size 0 \
+        --DenseStereo.filter false \
+        --DenseStereo.geom_consistency false \
+        --DenseStereo.num_iterations 4
 
-    $ ./exe/dense_mapper \
+    $ ./exe/dense_stereo \
         --workspace_path $PROJECT_PATH/dense \
         --workspace_format COLMAP \
-        --DenseMapperOptions.max_image_size 0 \
-        --DenseMapperOptions.patch_match_filter true \
-        --DenseMapperOptions.patch_match_geom_consistency true
+        --DenseStereo.max_image_size 0 \
+        --DenseStereo.filter true \
+        --DenseStereo.geom_consistency true
 
     $ ./exe/dense_fuser \
         --workspace_path $PROJECT_PATH/dense \
@@ -74,9 +74,9 @@ Then, an exemplary sequence of commands to reconstruct the scene would be::
 
 If you want to run COLMAP on a computer (e.g., cluster or cloud service) without
 an attached display, you should run the ``feature_extractor`` and set the
-``--ExtractionOptions.gpu_index 0`` explicitly if a CUDA device is available or
-with the option ``--use_gpu false``. Then, you should run the ``*_matcher`` with
-``--gpu_index 0`` if a CUDA device is available or with ``--use_gpu false`` for
+``--SiftGPUExtraction.index 0`` explicitly if a CUDA device is available or with
+the option ``--use_gpu false``. Then, you should run the ``*_matcher`` with
+``--use_gpu true`` if a CUDA device is available or with ``--use_gpu false`` for
 CPU-based feature matching.
 
 Help
@@ -87,30 +87,32 @@ the available options, e.g.::
 
     $ ./src/exe/feature_extractor -h
 
-      -h [ --help ]                     Configuration can either be specified
-                                        via command_line or by defining the
-                                        parameters in a .ini project_file (see
-                                        `--project_path`).
-      --project_path arg
-      --General.debug_log_to_stderr arg (=0)
-      --General.debug_log_level arg (=2)
-      --General.database_path arg
-      --General.image_path arg
-      --ExtractionOptions.camera_model arg (=SIMPLE_RADIAL)
-      --ExtractionOptions.single_camera arg (=0)
-      --ExtractionOptions.camera_params arg
-      --ExtractionOptions.default_focal_length_factor arg (=1.2)
-      --ExtractionOptions.sift_options_max_image_size arg (=3200)
-      --ExtractionOptions.sift_options_max_num_features arg (=8192)
-      --ExtractionOptions.sift_options_first_octave arg (=-1)
-      --ExtractionOptions.sift_options_octave_resolution arg (=3)
-      --ExtractionOptions.sift_options_peak_threshold arg (=0.0066666666666666671)
-      --ExtractionOptions.sift_options_edge_threshold arg (=10)
-      --ExtractionOptions.sift_options_max_num_orientations arg (=2)
-      --ExtractionOptions.sift_options_upright arg (=0)
-      --ExtractionOptions.cpu_options_batch_size_factor arg (=3)
-      --ExtractionOptions.cpu_options_num_threads arg (=-1)
-      --use_gpu arg (=1)
+        Options can either be specified via command-line or by defining
+        them in a .ini project file passed to `--project_path`.
+
+          -h [ --help ]
+          --project_path arg
+          --log_to_stderr arg (=0)
+          --log_level arg (=2)
+          --database_path arg
+          --image_path arg
+          --use_gpu arg (=1)
+          --image_list_path arg
+          --ImageReader.camera_model arg (=SIMPLE_RADIAL)
+          --ImageReader.single_camera arg (=0)
+          --ImageReader.camera_params arg
+          --ImageReader.default_focal_length_factor arg (=1.2)
+          --SiftExtraction.max_image_size arg (=3200)
+          --SiftExtraction.max_num_features arg (=8192)
+          --SiftExtraction.first_octave arg (=-1)
+          --SiftExtraction.octave_resolution arg (=3)
+          --SiftExtraction.peak_threshold arg (=0.0066666666666666671)
+          --SiftExtraction.edge_threshold arg (=10)
+          --SiftExtraction.max_num_orientations arg (=2)
+          --SiftExtraction.upright arg (=0)
+          --SiftCPUExtraction.batch_size_factor arg (=3)
+          --SiftCPUExtraction.num_threads arg (=-1)
+          --SiftGPUExtraction.index arg (=-1)
 
 
 The available options can either be provided directly from the command-line or
@@ -139,7 +141,7 @@ Executables
 - ``image_rectifier``: Stereo rectify cameras and undistort images for stereo
   disparity estimation.
 
-- ``dense_mapper``: Dense 3D reconstruction / mapping using MVS after running
+- ``dense_stereo``: Dense 3D reconstruction / mapping using MVS after running
   the ``image_undistorter`` to initialize the workspace.
 
 - ``dense_fuser``: Fusion of MVS depth and normal maps to a colored point cloud.

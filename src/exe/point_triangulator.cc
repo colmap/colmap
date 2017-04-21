@@ -30,9 +30,9 @@ int main(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
-  options.AddMapperOptions();
   options.AddRequiredOption("import_path", &import_path);
   options.AddRequiredOption("export_path", &export_path);
+  options.AddMapperOptions();
   options.Parse(argc, argv);
 
   if (!ExistsDir(import_path)) {
@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  const auto& mapper_options = *options.mapper_options;
+  const auto& mapper_options = *options.mapper;
 
   PrintHeading1("Loading database");
 
@@ -79,8 +79,7 @@ int main(int argc, char** argv) {
   // Triangulation
   //////////////////////////////////////////////////////////////////////////////
 
-  const IncrementalTriangulator::Options inc_tri_options =
-      mapper_options.TriangulationOptions();
+  const auto tri_options = mapper_options.Triangulation();
 
   for (const image_t image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
@@ -92,7 +91,7 @@ int main(int argc, char** argv) {
     std::cout << "  => Image has " << num_existing_points3D << " / "
               << image.NumObservations() << " points" << std::endl;
 
-    mapper.TriangulateImage(inc_tri_options, image_id);
+    mapper.TriangulateImage(tri_options, image_id);
 
     std::cout << "  => Triangulated "
               << (image.NumPoints3D() - num_existing_points3D) << " points"
@@ -105,7 +104,7 @@ int main(int argc, char** argv) {
 
   CompleteAndMergeTracks(mapper_options, &mapper);
 
-  const auto ba_options = mapper_options.GlobalBundleAdjustmentOptions();
+  const auto ba_options = mapper_options.GlobalBundleAdjustment();
 
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;

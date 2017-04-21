@@ -27,11 +27,11 @@ int main(int argc, char* argv[]) {
   std::string pmvs_option_name = "option-all";
 
   OptionManager options;
-  options.AddDenseMapperOptions();
   options.AddRequiredOption("workspace_path", &workspace_path);
   options.AddRequiredOption("workspace_format", &workspace_format);
   options.AddDefaultOption("pmvs_option_name", pmvs_option_name,
                            &pmvs_option_name);
+  options.AddDenseStereoOptions();
   options.Parse(argc, argv);
 
   if (workspace_format != "COLMAP" && workspace_format != "PMVS") {
@@ -41,10 +41,8 @@ int main(int argc, char* argv[]) {
     return EXIT_FAILURE;
   }
 
-  mvs::PatchMatchController controller(
-      options.dense_mapper_options->patch_match, workspace_path,
-      workspace_format, pmvs_option_name,
-      options.dense_mapper_options->max_image_size);
+  mvs::PatchMatchController controller(*options.dense_stereo, workspace_path,
+                                       workspace_format, pmvs_option_name);
 
   controller.Start();
   controller.Wait();

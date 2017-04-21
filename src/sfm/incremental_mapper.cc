@@ -58,23 +58,24 @@ float RankNextImageMinUncertainty(const Image& image) {
 
 }  // namespace
 
-void IncrementalMapper::Options::Check() const {
-  CHECK_GT(init_min_num_inliers, 0);
-  CHECK_GT(init_max_error, 0.0);
-  CHECK_GE(init_max_forward_motion, 0.0);
-  CHECK_LE(init_max_forward_motion, 1.0);
-  CHECK_GE(init_min_tri_angle, 0.0);
-  CHECK_GT(abs_pose_max_error, 0.0);
-  CHECK_GT(abs_pose_min_num_inliers, 0);
-  CHECK_GE(abs_pose_min_inlier_ratio, 0.0);
-  CHECK_LE(abs_pose_min_inlier_ratio, 1.0);
-  CHECK_GE(local_ba_num_images, 2);
-  CHECK_GE(min_focal_length_ratio, 0.0);
-  CHECK_GE(max_focal_length_ratio, min_focal_length_ratio);
-  CHECK_GE(max_extra_param, 0.0);
-  CHECK_GE(filter_max_reproj_error, 0.0);
-  CHECK_GE(filter_min_tri_angle, 0.0);
-  CHECK_GE(max_reg_trials, 1);
+bool IncrementalMapper::Options::Check() const {
+  CHECK_OPTION_GT(init_min_num_inliers, 0);
+  CHECK_OPTION_GT(init_max_error, 0.0);
+  CHECK_OPTION_GE(init_max_forward_motion, 0.0);
+  CHECK_OPTION_LE(init_max_forward_motion, 1.0);
+  CHECK_OPTION_GE(init_min_tri_angle, 0.0);
+  CHECK_OPTION_GT(abs_pose_max_error, 0.0);
+  CHECK_OPTION_GT(abs_pose_min_num_inliers, 0);
+  CHECK_OPTION_GE(abs_pose_min_inlier_ratio, 0.0);
+  CHECK_OPTION_LE(abs_pose_min_inlier_ratio, 1.0);
+  CHECK_OPTION_GE(local_ba_num_images, 2);
+  CHECK_OPTION_GE(min_focal_length_ratio, 0.0);
+  CHECK_OPTION_GE(max_focal_length_ratio, min_focal_length_ratio);
+  CHECK_OPTION_GE(max_extra_param, 0.0);
+  CHECK_OPTION_GE(filter_max_reproj_error, 0.0);
+  CHECK_OPTION_GE(filter_min_tri_angle, 0.0);
+  CHECK_OPTION_GE(max_reg_trials, 1);
+  return true;
 }
 
 IncrementalMapper::IncrementalMapper(const DatabaseCache* database_cache)
@@ -123,7 +124,7 @@ void IncrementalMapper::EndReconstruction(const bool discard) {
 bool IncrementalMapper::FindInitialImagePair(const Options& options,
                                              image_t* image_id1,
                                              image_t* image_id2) {
-  options.Check();
+  CHECK(options.Check());
 
   std::vector<image_t> image_ids1;
   if (*image_id1 != kInvalidImageId && *image_id2 == kInvalidImageId) {
@@ -177,7 +178,8 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
 }
 
 std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options) {
-  options.Check();
+  CHECK_NOTNULL(reconstruction_);
+  CHECK(options.Check());
 
   std::function<float(const Image&)> rank_image_func;
   switch (options.image_selection_method) {
@@ -237,7 +239,7 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
   CHECK_NOTNULL(reconstruction_);
   CHECK_EQ(reconstruction_->NumRegImages(), 0);
 
-  options.Check();
+  CHECK(options.Check());
 
   num_reg_trials_[image_id1] += 1;
   num_reg_trials_[image_id2] += 1;
@@ -320,7 +322,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   CHECK_NOTNULL(reconstruction_);
   CHECK_GE(reconstruction_->NumRegImages(), 2);
 
-  options.Check();
+  CHECK(options.Check());
 
   Image& image = reconstruction_->Image(image_id);
   Camera& camera = reconstruction_->Camera(image.CameraId());
@@ -536,7 +538,7 @@ IncrementalMapper::AdjustLocalBundle(
     const IncrementalTriangulator::Options& tri_options, const image_t image_id,
     const std::unordered_set<point3D_t>& point3D_ids) {
   CHECK_NOTNULL(reconstruction_);
-  options.Check();
+  CHECK(options.Check());
 
   LocalBundleAdjustmentReport report;
 
@@ -679,7 +681,7 @@ bool IncrementalMapper::AdjustParallelGlobalBundle(
 
 size_t IncrementalMapper::FilterImages(const Options& options) {
   CHECK_NOTNULL(reconstruction_);
-  options.Check();
+  CHECK(options.Check());
 
   // Do not filter images in the early stage of the reconstruction, since the
   // calibration is often still refining a lot. Hence, the camera parameters
@@ -703,7 +705,7 @@ size_t IncrementalMapper::FilterImages(const Options& options) {
 
 size_t IncrementalMapper::FilterPoints(const Options& options) {
   CHECK_NOTNULL(reconstruction_);
-  options.Check();
+  CHECK(options.Check());
   return reconstruction_->FilterAllPoints3D(options.filter_max_reproj_error,
                                             options.filter_min_tri_angle);
 }
@@ -861,7 +863,7 @@ std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
 
 std::vector<image_t> IncrementalMapper::FindLocalBundle(
     const Options& options, const image_t image_id) const {
-  options.Check();
+  CHECK(options.Check());
 
   const Image& image = reconstruction_->Image(image_id);
   CHECK(image.IsRegistered());

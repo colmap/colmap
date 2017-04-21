@@ -33,8 +33,7 @@ int main(int argc, char** argv) {
   options.AddRequiredOption("input_path1", &input_path1);
   options.AddRequiredOption("input_path2", &input_path2);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("min_common_images", min_common_images,
-                           &min_common_images);
+  options.AddDefaultOption("min_common_images", &min_common_images);
   options.Parse(argc, argv);
 
   Reconstruction reconstruction1;

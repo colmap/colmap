@@ -56,28 +56,30 @@ void ScaleBitmap(const int max_image_size, double* scale_x, double* scale_y,
 
 }  // namespace
 
-void SiftOptions::Check() const {
-  CHECK_GT(max_image_size, 0);
-  CHECK_GT(max_num_features, 0);
-  CHECK_GT(octave_resolution, 0);
-  CHECK_GT(peak_threshold, 0.0);
-  CHECK_GT(edge_threshold, 0.0);
-  CHECK_GT(max_num_orientations, 0);
+bool SiftExtractionOptions::Check() const {
+  CHECK_OPTION_GT(max_image_size, 0);
+  CHECK_OPTION_GT(max_num_features, 0);
+  CHECK_OPTION_GT(octave_resolution, 0);
+  CHECK_OPTION_GT(peak_threshold, 0.0);
+  CHECK_OPTION_GT(edge_threshold, 0.0);
+  CHECK_OPTION_GT(max_num_orientations, 0);
+  return true;
 }
 
-void ImageReader::Options::Check() const {
-  CHECK_GT(default_focal_length_factor, 0.0);
+bool ImageReader::Options::Check() const {
+  CHECK_OPTION_GT(default_focal_length_factor, 0.0);
   const int model_id = CameraModelNameToId(camera_model);
-  CHECK_NE(model_id, -1);
+  CHECK_OPTION_NE(model_id, -1);
   if (!camera_params.empty()) {
-    CHECK(
+    CHECK_OPTION(
         CameraModelVerifyParams(model_id, CSVToVector<double>(camera_params)));
   }
+  return true;
 }
 
 ImageReader::ImageReader(const Options& options)
     : options_(options), image_index_(0) {
-  options_.Check();
+  CHECK(options_.Check());
 
   // Ensure trailing slash, so that we can build the correct image name.
   options_.image_path =
@@ -262,17 +264,18 @@ size_t ImageReader::NextIndex() const { return image_index_; }
 size_t ImageReader::NumImages() const { return options_.image_list.size(); }
 
 SiftCPUFeatureExtractor::SiftCPUFeatureExtractor(
-    const ImageReader::Options& reader_options, const SiftOptions& sift_options,
-    const Options& cpu_options)
+    const ImageReader::Options& reader_options,
+    const SiftExtractionOptions& sift_options, const Options& cpu_options)
     : reader_options_(reader_options),
       sift_options_(sift_options),
       cpu_options_(cpu_options) {
-  sift_options_.Check();
-  cpu_options_.Check();
+  CHECK(sift_options_.Check());
+  CHECK(cpu_options_.Check());
 }
 
-void SiftCPUFeatureExtractor::Options::Check() const {
-  CHECK_GT(batch_size_factor, 0);
+bool SiftCPUFeatureExtractor::Options::Check() const {
+  CHECK_OPTION_GT(batch_size_factor, 0);
+  return true;
 }
 
 void SiftCPUFeatureExtractor::Run() {
@@ -364,16 +367,19 @@ void SiftCPUFeatureExtractor::Run() {
   GetTimer().PrintMinutes();
 }
 
-void SiftGPUFeatureExtractor::Options::Check() const { CHECK_GE(index, -1); }
+bool SiftGPUFeatureExtractor::Options::Check() const {
+  CHECK_OPTION_GE(index, -1);
+  return true;
+}
 
 SiftGPUFeatureExtractor::SiftGPUFeatureExtractor(
-    const ImageReader::Options& reader_options, const SiftOptions& sift_options,
-    const Options& gpu_options)
+    const ImageReader::Options& reader_options,
+    const SiftExtractionOptions& sift_options, const Options& gpu_options)
     : reader_options_(reader_options),
       sift_options_(sift_options),
       gpu_options_(gpu_options) {
-  sift_options_.Check();
-  gpu_options_.Check();
+  CHECK(sift_options_.Check());
+  CHECK(gpu_options_.Check());
 
   // Create an OpenGL context.
   if (gpu_options_.index < 0) {
@@ -504,10 +510,10 @@ void FeatureImporter::Run() {
   GetTimer().PrintMinutes();
 }
 
-bool ExtractSiftFeaturesCPU(const SiftOptions& options, const Bitmap& bitmap,
-                            FeatureKeypoints* keypoints,
+bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
+                            const Bitmap& bitmap, FeatureKeypoints* keypoints,
                             FeatureDescriptors* descriptors) {
-  options.Check();
+  CHECK(options.Check());
   CHECK(bitmap.IsGrey());
   CHECK_NOTNULL(keypoints);
   CHECK_NOTNULL(descriptors);
@@ -626,10 +632,10 @@ bool ExtractSiftFeaturesCPU(const SiftOptions& options, const Bitmap& bitmap,
         Eigen::MatrixXf desc(1, 128);
         vl_sift_calc_keypoint_descriptor(sift.get(), desc.data(),
                                          &vl_keypoints[i], angles[o]);
-        if (options.normalization == SiftOptions::Normalization::L2) {
+        if (options.normalization == SiftExtractionOptions::Normalization::L2) {
           desc = L2NormalizeFeatureDescriptors(desc);
         } else if (options.normalization ==
-                   SiftOptions::Normalization::L1_ROOT) {
+                   SiftExtractionOptions::Normalization::L1_ROOT) {
           desc = L1RootNormalizeFeatureDescriptors(desc);
         }
         level_descriptors.back().row(level_idx) =
@@ -672,9 +678,9 @@ bool ExtractSiftFeaturesCPU(const SiftOptions& options, const Bitmap& bitmap,
   return true;
 }
 
-bool CreateSiftGPUExtractor(const SiftOptions& options, const int gpu_index,
-                            SiftGPU* sift_gpu) {
-  options.Check();
+bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
+                            const int gpu_index, SiftGPU* sift_gpu) {
+  CHECK(options.Check());
   CHECK_GE(gpu_index, -1);
   CHECK_NOTNULL(sift_gpu);
 
@@ -749,10 +755,11 @@ bool CreateSiftGPUExtractor(const SiftOptions& options, const int gpu_index,
   return sift_gpu->VerifyContextGL() == SiftGPU::SIFTGPU_FULL_SUPPORTED;
 }
 
-bool ExtractSiftFeaturesGPU(const SiftOptions& options, const Bitmap& bitmap,
-                            SiftGPU* sift_gpu, FeatureKeypoints* keypoints,
+bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
+                            const Bitmap& bitmap, SiftGPU* sift_gpu,
+                            FeatureKeypoints* keypoints,
                             FeatureDescriptors* descriptors) {
-  options.Check();
+  CHECK(options.Check());
   CHECK(bitmap.IsGrey());
   CHECK_NOTNULL(keypoints);
   CHECK_NOTNULL(descriptors);
@@ -813,9 +820,10 @@ bool ExtractSiftFeaturesGPU(const SiftOptions& options, const Bitmap& bitmap,
   }
 
   // Save and normalize the descriptors.
-  if (options.normalization == SiftOptions::Normalization::L2) {
+  if (options.normalization == SiftExtractionOptions::Normalization::L2) {
     descriptors_float = L2NormalizeFeatureDescriptors(descriptors_float);
-  } else if (options.normalization == SiftOptions::Normalization::L1_ROOT) {
+  } else if (options.normalization ==
+             SiftExtractionOptions::Normalization::L1_ROOT) {
     descriptors_float = L1RootNormalizeFeatureDescriptors(descriptors_float);
   }
   *descriptors = FeatureDescriptorsToUnsignedByte(descriptors_float);

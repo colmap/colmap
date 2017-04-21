@@ -160,7 +160,6 @@ OpenGLWindow::OpenGLWindow(QWidget* parent, OptionManager* options,
       image_viewer_widget_(
           new DatabaseImageViewerWidget(parent, this, options)),
       movie_grabber_widget_(new MovieGrabberWidget(parent, this)),
-      projection_type_(ProjectionType::ORTHOGRAPHIC),
       mouse_is_pressed_(false),
       focus_distance_(kInitFocusDistance),
       selected_image_id_(kInvalidImageId),
@@ -202,6 +201,8 @@ void OpenGLWindow::Update() {
 void OpenGLWindow::Upload() {
   point_colormap_->Prepare(cameras, images, points3D, reg_image_ids);
 
+  ComposeProjectionMatrix();
+
   UploadPointData();
   UploadImageData();
   UploadMovieGrabberData();
@@ -220,14 +221,8 @@ void OpenGLWindow::Clear() {
   Upload();
 }
 
-OpenGLWindow::ProjectionType OpenGLWindow::GetProjectionType() const {
-  return projection_type_;
-}
-
-void OpenGLWindow::SetProjectionType(const ProjectionType type) {
-  projection_type_ = type;
-  ComposeProjectionMatrix();
-  PaintGL();
+int OpenGLWindow::GetProjectionType() const {
+  return options_->render->projection_type;
 }
 
 void OpenGLWindow::SetPointColormap(PointColormapBase* colormap) {
@@ -336,9 +331,11 @@ void OpenGLWindow::TranslateView(const float x, const float y,
 
   Eigen::Vector3f tvec(x - prev_x, prev_y - y, 0.0f);
 
-  if (projection_type_ == ProjectionType::PERSPECTIVE) {
+  if (options_->render->projection_type ==
+      RenderOptions::ProjectionType::PERSPECTIVE) {
     tvec *= ZoomScale();
-  } else if (projection_type_ == ProjectionType::ORTHOGRAPHIC) {
+  } else if (options_->render->projection_type ==
+             RenderOptions::ProjectionType::ORTHOGRAPHIC) {
     tvec *= 2.0f * OrthographicWindowExtent() / height();
   }
 
@@ -713,12 +710,12 @@ void OpenGLWindow::UploadPointData(const bool selection_mode) {
   data.reserve(points3D.size());
 
   const size_t min_track_len =
-      static_cast<size_t>(options_->render_options->min_track_len);
+      static_cast<size_t>(options_->render->min_track_len);
 
   if (selected_image_id_ == kInvalidImageId &&
       images.count(selected_image_id_) == 0) {
     for (const auto& point3D : points3D) {
-      if (point3D.second.Error() <= options_->render_options->max_error &&
+      if (point3D.second.Error() <= options_->render->max_error &&
           point3D.second.Track().Length() >= min_track_len) {
         PointPainter::Data painter_point;
         painter_point.x = static_cast<float>(point3D.second.XYZ(0));
@@ -747,7 +744,7 @@ void OpenGLWindow::UploadPointData(const bool selection_mode) {
   } else {  // Image selected
     const auto& selected_image = images[selected_image_id_];
     for (const auto& point3D : points3D) {
-      if (point3D.second.Error() <= options_->render_options->max_error &&
+      if (point3D.second.Error() <= options_->render->max_error &&
           point3D.second.Track().Length() >= min_track_len) {
         PointPainter::Data painter_point;
         painter_point.x = static_cast<float>(point3D.second.XYZ(0));
@@ -879,7 +876,7 @@ void OpenGLWindow::UploadImageConnectionData() {
   if (selected_image_id_ != kInvalidImageId) {
     // Show connections to selected images
     image_ids.push_back(selected_image_id_);
-  } else if (options_->render_options->image_connections) {
+  } else if (options_->render->image_connections) {
     // Show all connections
     image_ids = reg_image_ids;
   } else {  // Disabled, so upload empty data
@@ -1004,10 +1001,12 @@ void OpenGLWindow::UploadMovieGrabberData() {
 
 void OpenGLWindow::ComposeProjectionMatrix() {
   projection_matrix_.setToIdentity();
-  if (projection_type_ == ProjectionType::PERSPECTIVE) {
+  if (options_->render->projection_type ==
+      RenderOptions::ProjectionType::PERSPECTIVE) {
     projection_matrix_.perspective(kFieldOfView, AspectRatio(), near_plane_,
                                    kFarPlane);
-  } else if (projection_type_ == ProjectionType::ORTHOGRAPHIC) {
+  } else if (options_->render->projection_type ==
+             RenderOptions::ProjectionType::ORTHOGRAPHIC) {
     const float extent = OrthographicWindowExtent();
     projection_matrix_.ortho(-AspectRatio() * extent, AspectRatio() * extent,
                              -extent, extent, near_plane_, kFarPlane);

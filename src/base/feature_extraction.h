@@ -25,7 +25,7 @@
 
 namespace colmap {
 
-struct SiftOptions {
+struct SiftExtractionOptions {
   // Maximum image size, otherwise image will be down-scaled.
   int max_image_size = 3200;
 
@@ -68,7 +68,7 @@ struct SiftOptions {
   };
   Normalization normalization = Normalization::L1_ROOT;
 
-  void Check() const;
+  bool Check() const;
 };
 
 class ImageReader {
@@ -99,7 +99,7 @@ class ImageReader {
     // value `default_focal_length_factor * max(width, height)`.
     double default_focal_length_factor = 1.2;
 
-    void Check() const;
+    bool Check() const;
   };
 
   explicit ImageReader(const Options& options);
@@ -128,18 +128,18 @@ class SiftCPUFeatureExtractor : public Thread {
     // Number of threads for parallel feature extraction.
     int num_threads = -1;
 
-    void Check() const;
+    bool Check() const;
   };
 
   SiftCPUFeatureExtractor(const ImageReader::Options& reader_options,
-                          const SiftOptions& sift_options,
+                          const SiftExtractionOptions& sift_options,
                           const Options& cpu_options);
 
  private:
   void Run();
 
   const ImageReader::Options reader_options_;
-  const SiftOptions sift_options_;
+  const SiftExtractionOptions sift_options_;
   const Options cpu_options_;
 };
 
@@ -151,18 +151,18 @@ class SiftGPUFeatureExtractor : public Thread {
     // If the GPU index is not -1, the CUDA version of SiftGPU is used.
     int index = -1;
 
-    void Check() const;
+    bool Check() const;
   };
 
   SiftGPUFeatureExtractor(const ImageReader::Options& reader_options,
-                          const SiftOptions& sift_options,
+                          const SiftExtractionOptions& sift_options,
                           const Options& gpu_options);
 
  private:
   void Run();
 
   const ImageReader::Options reader_options_;
-  const SiftOptions sift_options_;
+  const SiftExtractionOptions sift_options_;
   const Options gpu_options_;
   std::unique_ptr<OpenGLContextManager> opengl_context_;
 };
@@ -182,7 +182,7 @@ class FeatureImporter : public Thread {
 };
 
 // Extract SIFT features for the given image on the CPU.
-bool ExtractSiftFeaturesCPU(const SiftOptions& sift_options,
+bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& sift_options,
                             const Bitmap& bitmap, FeatureKeypoints* keypoints,
                             FeatureDescriptors* descriptors);
 
@@ -191,12 +191,12 @@ bool ExtractSiftFeaturesCPU(const SiftOptions& sift_options,
 // current in the thread of the caller. If the gpu_index is not -1, the CUDA
 // version of SiftGPU is used, which produces slightly different results
 // than the OpenGL implementation.
-bool CreateSiftGPUExtractor(const SiftOptions& sift_options,
+bool CreateSiftGPUExtractor(const SiftExtractionOptions& sift_options,
                             const int gpu_index, SiftGPU* sift_gpu);
 
 // Extract SIFT features for the given image on the GPU.
 // SiftGPU must already be initialized using `CreateSiftGPU`.
-bool ExtractSiftFeaturesGPU(const SiftOptions& sift_options,
+bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& sift_options,
                             const Bitmap& bitmap, SiftGPU* sift_gpu,
                             FeatureKeypoints* keypoints,
                             FeatureDescriptors* descriptors);

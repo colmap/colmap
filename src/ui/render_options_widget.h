@@ -46,6 +46,7 @@ class RenderOptionsWidget : public OptionsWidget {
 
   void SelectBackgroundColor();
 
+  OptionManager* options_;
   OpenGLWindow* opengl_window_;
 
   QComboBox* projection_cb_;

@@ -72,44 +72,43 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
 
   AddSpacer();
 
-  SiftOptions& sift_options = options->extraction_options->sift;
-  AddOptionInt(&sift_options.max_image_size, "max_image_size");
-  AddOptionInt(&sift_options.max_num_features, "max_num_features");
-  AddOptionInt(&sift_options.first_octave, "first_octave", -5);
-  AddOptionInt(&sift_options.num_octaves, "num_octaves");
-  AddOptionInt(&sift_options.octave_resolution, "octave_resolution");
-  AddOptionDouble(&sift_options.peak_threshold, "peak_threshold", 0.0, 1e7,
-                  0.0001, 4);
-  AddOptionDouble(&sift_options.edge_threshold, "edge_threshold");
-  AddOptionInt(&sift_options.max_num_orientations, "max_num_orientations");
-  AddOptionBool(&sift_options.upright, "upright");
+  AddOptionInt(&options->sift_extraction->max_image_size, "max_image_size");
+  AddOptionInt(&options->sift_extraction->max_num_features, "max_num_features");
+  AddOptionInt(&options->sift_extraction->first_octave, "first_octave", -5);
+  AddOptionInt(&options->sift_extraction->num_octaves, "num_octaves");
+  AddOptionInt(&options->sift_extraction->octave_resolution,
+               "octave_resolution");
+  AddOptionDouble(&options->sift_extraction->peak_threshold, "peak_threshold",
+                  0.0, 1e7, 0.0001, 4);
+  AddOptionDouble(&options->sift_extraction->edge_threshold, "edge_threshold");
+  AddOptionInt(&options->sift_extraction->max_num_orientations,
+               "max_num_orientations");
+  AddOptionBool(&options->sift_extraction->upright, "upright");
 
-  SiftGPUFeatureExtractor::Options& gpu_options =
-      options->extraction_options->gpu;
-  AddOptionInt(&gpu_options.index, "gpu_index", -1);
+  AddOptionInt(&options->sift_gpu_extraction->index, "gpu_index", -1);
 
-  SiftCPUFeatureExtractor::Options& cpu_options =
-      options->extraction_options->cpu;
-  AddOptionInt(&cpu_options.num_threads, "cpu_num_threads", -1);
-  AddOptionInt(&cpu_options.batch_size_factor, "cpu_batch_size_factor");
+  AddOptionInt(&options->sift_cpu_extraction->num_threads, "cpu_num_threads",
+               -1);
+  AddOptionInt(&options->sift_cpu_extraction->batch_size_factor,
+               "cpu_batch_size_factor");
 }
 
 void SIFTExtractionWidget::Run() {
   WriteOptions();
 
-  ImageReader::Options reader_options = options_->extraction_options->reader;
+  ImageReader::Options reader_options = *options_->image_reader;
   reader_options.database_path = *options_->database_path;
   reader_options.image_path = *options_->image_path;
 
   Thread* extractor = nullptr;
   if (sift_gpu_->isChecked()) {
-    extractor = new SiftGPUFeatureExtractor(reader_options,
-                                            options_->extraction_options->sift,
-                                            options_->extraction_options->gpu);
+    extractor =
+        new SiftGPUFeatureExtractor(reader_options, *options_->sift_extraction,
+                                    *options_->sift_gpu_extraction);
   } else {
-    extractor = new SiftCPUFeatureExtractor(reader_options,
-                                            options_->extraction_options->sift,
-                                            options_->extraction_options->cpu);
+    extractor =
+        new SiftCPUFeatureExtractor(reader_options, *options_->sift_extraction,
+                                    *options_->sift_cpu_extraction);
   }
 
   thread_control_widget_->StartThread("Extracting...", true, extractor);
@@ -129,7 +128,7 @@ void ImportFeaturesWidget::Run() {
     return;
   }
 
-  ImageReader::Options reader_options = options_->extraction_options->reader;
+  ImageReader::Options reader_options = *options_->image_reader;
   reader_options.database_path = *options_->database_path;
   reader_options.image_path = *options_->image_path;
 
@@ -174,12 +173,10 @@ QGroupBox* FeatureExtractionWidget::CreateCameraModelBox() {
 
 #undef CAMERA_MODEL_CASE
 
-  camera_params_exif_rb_ =
-      new QRadioButton(tr("Parameters from EXIF"), this);
+  camera_params_exif_rb_ = new QRadioButton(tr("Parameters from EXIF"), this);
   camera_params_exif_rb_->setChecked(true);
 
-  camera_params_custom_rb_ =
-      new QRadioButton(tr("Custom parameters"), this);
+  camera_params_custom_rb_ = new QRadioButton(tr("Custom parameters"), this);
 
   camera_params_info_ = new QLabel(tr(""), this);
   QPalette pal = QPalette(camera_params_info_->palette());
@@ -230,7 +227,7 @@ void FeatureExtractionWidget::hideEvent(QHideEvent* event) {
 
 void FeatureExtractionWidget::ReadOptions() {
   const auto camera_code =
-      CameraModelNameToId(options_->extraction_options->reader.camera_model);
+      CameraModelNameToId(options_->image_reader->camera_model);
   for (size_t i = 0; i < camera_model_ids_.size(); ++i) {
     if (camera_model_ids_[i] == camera_code) {
       SelectCameraModel(i);
@@ -238,18 +235,16 @@ void FeatureExtractionWidget::ReadOptions() {
       break;
     }
   }
-  single_camera_cb_->setChecked(
-      options_->extraction_options->reader.single_camera);
-  camera_params_text_->setText(QString::fromStdString(
-      options_->extraction_options->reader.camera_params));
+  single_camera_cb_->setChecked(options_->image_reader->single_camera);
+  camera_params_text_->setText(
+      QString::fromStdString(options_->image_reader->camera_params));
 }
 
 void FeatureExtractionWidget::WriteOptions() {
-  options_->extraction_options->reader.camera_model =
+  options_->image_reader->camera_model =
       CameraModelIdToName(camera_model_ids_[camera_model_cb_->currentIndex()]);
-  options_->extraction_options->reader.single_camera =
-      single_camera_cb_->isChecked();
-  options_->extraction_options->reader.camera_params =
+  options_->image_reader->single_camera = single_camera_cb_->isChecked();
+  options_->image_reader->camera_params =
       camera_params_text_->text().toUtf8().constData();
 }
 
@@ -270,9 +265,9 @@ void FeatureExtractionWidget::Extract() {
   WriteOptions();
 
   const std::vector<double> camera_params =
-      CSVToVector<double>(options_->extraction_options->reader.camera_params);
+      CSVToVector<double>(options_->image_reader->camera_params);
   const auto camera_code =
-      CameraModelNameToId(options_->extraction_options->reader.camera_model);
+      CameraModelNameToId(options_->image_reader->camera_model);
 
   if (camera_params_custom_rb_->isChecked() &&
       !CameraModelVerifyParams(camera_code, camera_params)) {

@@ -107,7 +107,7 @@ class IncrementalMapper {
     ImageSelectionMethod image_selection_method =
         ImageSelectionMethod::MIN_UNCERTAINTY;
 
-    void Check() const;
+    bool Check() const;
   };
 
   struct LocalBundleAdjustmentReport {

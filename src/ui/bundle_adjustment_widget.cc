@@ -29,22 +29,27 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(QWidget* parent,
       thread_control_widget_(new ThreadControlWidget(this)) {
   setWindowTitle("Bundle adjustment");
 
-  AddOptionInt(&options->ba_options->max_num_iterations, "max_num_iterations");
-  AddOptionInt(&options->ba_options->max_linear_solver_iterations,
-               "max_linear_solver_iterations");
+  AddOptionInt(&options->bundle_adjustment->solver_options.max_num_iterations,
+               "max_num_iterations");
+  AddOptionInt(
+      &options->bundle_adjustment->solver_options.max_linear_solver_iterations,
+      "max_linear_solver_iterations");
 
-  AddOptionDoubleLog(&options->ba_options->function_tolerance,
-                     "function_tolerance [10eX]", -1000, 1000);
-  AddOptionDoubleLog(&options->ba_options->gradient_tolerance,
-                     "gradient_tolerance [10eX]", -1000, 1000);
-  AddOptionDoubleLog(&options->ba_options->parameter_tolerance,
-                     "parameter_tolerance [10eX]", -1000, 1000);
+  AddOptionDoubleLog(
+      &options->bundle_adjustment->solver_options.function_tolerance,
+      "function_tolerance [10eX]", -1000, 1000);
+  AddOptionDoubleLog(
+      &options->bundle_adjustment->solver_options.gradient_tolerance,
+      "gradient_tolerance [10eX]", -1000, 1000);
+  AddOptionDoubleLog(
+      &options->bundle_adjustment->solver_options.parameter_tolerance,
+      "parameter_tolerance [10eX]", -1000, 1000);
 
-  AddOptionBool(&options->ba_options->refine_focal_length,
+  AddOptionBool(&options->bundle_adjustment->refine_focal_length,
                 "refine_focal_length");
-  AddOptionBool(&options->ba_options->refine_principal_point,
+  AddOptionBool(&options->bundle_adjustment->refine_principal_point,
                 "refine_principal_point");
-  AddOptionBool(&options->ba_options->refine_extra_params,
+  AddOptionBool(&options->bundle_adjustment->refine_extra_params,
                 "refine_extra_params");
 
   QPushButton* run_button = new QPushButton(tr("Run"), this);
