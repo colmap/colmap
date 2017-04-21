@@ -44,7 +44,9 @@ Getting Started
    described in the documentation.
 2. Download one of the provided datasets at
    http://people.inf.ethz.ch/jschoenb/colmap/datasets/ or use your own images.
-3. Watch the short introductory video at
+3. Use the **automatic reconstruction** to easily build models
+   with a single click or command.
+4. Watch the short introductory video at
    https://www.youtube.com/watch?v=P-EC0DzeVEU or read the tutorial
    in the documentation at https://colmap.github.io/ for more details.
 

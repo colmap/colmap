@@ -19,10 +19,22 @@ Assume you stored the images of your project in the following folder structure::
     │   +── ...
     │   +── imageN.jpg
 
-Then, an exemplary sequence of commands to reconstruct the scene would be::
+The command for the automatic reconstruction tools would be::
 
     # The project folder must contain a folder "images" with all the images.
-    PROJECT_PATH=/path/to/project
+    $ PROJECT_PATH=/path/to/project
+
+    $ ./src/exe/automatic_reconstructor \
+        --workspace_path $PROJECT_PATH \
+        --image_path $PROJECT_PATH/images
+
+Note that any executable lists all available options using the command-line
+argument ``--help``. As an alternative to the automatic reconstruction tool in
+case you need more control over the parameters of the individual reconstruction
+steps, an exemplary sequence of commands to reconstruct the scene would be::
+
+    # The project folder must contain a folder "images" with all the images.
+    $ PROJECT_PATH=/path/to/project
 
     $ ./src/exe/feature_extractor \
        --database_path $PROJECT_PATH/database.db \
@@ -124,6 +136,9 @@ Executables
 
 - ``colmap``: The graphical user interface, see
   :ref:`Graphical User Interface <gui>` for more information.
+
+- ``automatic_reconstruction``: Automatically reconstruct sparse and dense model
+  for a set of input images.
 
 - ``feature_extractor``, ``feature_importer``: Perform feature extraction or
   import features for a set of images.

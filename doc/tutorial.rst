@@ -8,6 +8,20 @@ representation of the scene and the camera poses of the input images using
 Structure-from-Motion. This output then serves as the input to Multi-View Stereo
 to recover a dense representation of the scene.
 
+
+Quickstart
+----------
+
+COLMAP provides an automatic reconstruction tool that simply takes a folder of
+input images and produces a sparse and dense reconstruction in a workspace
+folder. Click ``Reconstruction > Automatic Reconstruction`` in the GUI and
+specify the relevant options. The output will be written to the workspace.
+
+The following sections describe this process in more detail and gives
+recommendations, if you need more control over the reconstruction
+process/parameters or if you are interested the underlying technology.
+
+
 Structure-from-Motion
 ---------------------
 
