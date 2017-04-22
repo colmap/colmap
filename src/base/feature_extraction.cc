@@ -54,6 +54,26 @@ void ScaleBitmap(const int max_image_size, double* scale_x, double* scale_y,
   }
 }
 
+// VLFeat uses a different convention to store its descriptors. This transforms
+// the VLFeat format into the original SIFT format that is also used by SiftGPU.
+FeatureDescriptors TransformVLFeatToUBCFeatureDescriptors(
+    const FeatureDescriptors& vlfeat_descriptors) {
+  FeatureDescriptors ubc_descriptors(vlfeat_descriptors.rows(),
+                                     vlfeat_descriptors.cols());
+  const std::array<int, 8> q{{0, 7, 6, 5, 4, 3, 2, 1}};
+  for (size_t n = 0; n < vlfeat_descriptors.rows(); ++n) {
+    for (size_t i = 0; i < 4; ++i) {
+      for (size_t j = 0; j < 4; ++j) {
+        for (size_t k = 0; k < 8; ++k) {
+          ubc_descriptors(n, 8 * (j + 4 * i) + q[k]) =
+              vlfeat_descriptors(n, 8 * (j + 4 * i) + k);
+        }
+      }
+    }
+  }
+  return ubc_descriptors;
+}
+
 }  // namespace
 
 bool SiftExtractionOptions::Check() const {
@@ -673,6 +693,8 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
       k += 1;
     }
   }
+
+  *descriptors = TransformVLFeatToUBCFeatureDescriptors(*descriptors);
 
   return true;
 }
