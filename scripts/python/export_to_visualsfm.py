@@ -71,8 +71,6 @@ def main():
             shutil.copyfile(os.path.join(args.image_path, image_name),
                             os.path.join(args.output_path, image_name))
 
-    descriptor_str = 127 * "0 " + "0\n"
-
     for image_id, (image_idx, image_name) in images.iteritems():
         print "Exporting key file for", image_name
         base_name, ext = os.path.splitext(image_name)

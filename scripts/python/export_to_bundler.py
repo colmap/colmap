@@ -72,8 +72,6 @@ def main():
                 shutil.copyfile(os.path.join(args.image_path, image_name),
                                 os.path.join(args.output_path, image_name))
 
-    descriptor_str = 6 * (20 * " 0" + "\n") + 8 * " 0" + "\n"
-
     for image_id, (image_idx, image_name) in images.iteritems():
         print "Exporting key file for", image_name
         base_name, ext = os.path.splitext(image_name)
@@ -96,7 +94,10 @@ def main():
             for r in range(keypoints.shape[0]):
                 fid.write("%f %f %f %f\n" % (keypoints[r, 1], keypoints[r, 0],
                                              keypoints[r, 2], keypoints[r, 3]))
-                fid.write(descriptor_str)
+                for i in range(0, 128, 20):
+                    desc_block = descriptors[r, i:i+20]
+                    fid.write(" ".join(map(str, desc_block.ravel().tolist())))
+                    fid.write("\n")
 
         with open(key_file_name, "rb") as fid_in:
             with gzip.open(key_file_name + ".gz", "wb") as fid_out:
