@@ -143,6 +143,7 @@ else()
     message(STATUS "Disabling CUDA support")
 endif()
 
+list(APPEND CUDA_NVCC_FLAGS "-Wno-deprecated-gpu-targets")
 if(CUDA_ENABLED AND NOT IS_DEBUG)
     # Configure the NVCC flags:
     #   CUDA >= 5.0 <6.5:
@@ -157,8 +158,6 @@ if(CUDA_ENABLED AND NOT IS_DEBUG)
     #   CUDA >= 8.0
     #     SASS:   sm_20, sm_30, sm_35, sm_37, sm_50, sm_52, sm_60, sm_61
     #     PTX:    compute_60, compute_61
-
-    list(APPEND CUDA_NVCC_FLAGS "-Wno-deprecated-gpu-targets")
 
     # Add flags to generate SASS code.
 
