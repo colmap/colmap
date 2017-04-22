@@ -276,26 +276,29 @@ void AutomaticReconstructionController::RunDenseMapper() {
       fusion_input_type = "photometric";
     }
 
-    mvs::StereoFusion fuser(*option_manager_.dense_fusion, dense_path, "COLMAP",
-                            fusion_input_type);
-    active_thread_ = &fuser;
-    fuser.Start();
-    fuser.Wait();
-    active_thread_ = nullptr;
+    {
+      mvs::StereoFusion fuser(*option_manager_.dense_fusion, dense_path,
+                              "COLMAP", fusion_input_type);
+      active_thread_ = &fuser;
+      fuser.Start();
+      fuser.Wait();
+      active_thread_ = nullptr;
+
+      std::cout << "Writing output: " << JoinPaths(dense_path, "fused.ply")
+                << std::endl;
+      WritePlyBinary(JoinPaths(dense_path, "fused.ply"),
+                     fuser.GetFusedPoints());
+    }
 
     if (IsStopped()) {
       return;
     }
 
-    std::cout << "Writing output: " << JoinPaths(dense_path, "fused.ply")
-              << std::endl;
-    WritePlyBinary(JoinPaths(dense_path, "fused.ply"), fuser.GetFusedPoints());
-
     // Dense meshing.
 
-    CHECK(mvs::PoissonReconstruction(*option_manager_.dense_meshing,
-                                     JoinPaths(dense_path, "fused.ply"),
-                                     JoinPaths(dense_path, "meshed.ply")));
+    mvs::PoissonReconstruction(*option_manager_.dense_meshing,
+                               JoinPaths(dense_path, "fused.ply"),
+                               JoinPaths(dense_path, "meshed.ply"));
   }
 }
 
