@@ -246,13 +246,13 @@ matching modes, that are intended for different input scenarios:
   `image0002.jpg`, etc.). You can verify the correct order in the database
   management tool (see :ref:`Database Format <database-format>`). Note that
   loop detection requires a pre-trained vocabulary tree, that can be downloaded
-  from http://people.inf.ethz.ch/jschoenb/colmap/.
+  from https://demuc.de/colmap/.
 
 - **Vocabulary Tree Matching**: In this matching mode, every image is matched
   against its visual nearest neighbors using a vocabulary tree. This is the
   recommended matching mode for large image collections (several thousands).
   This requires a pre-trained vocabulary tree, that can be downloaded from
-  http://people.inf.ethz.ch/jschoenb/colmap/.
+  https://demuc.de/colmap/.
 
 - **Spatial Matching**: This matching mode matches every image against its
   spatial nearest neighbors. Spatial locations can be manually set in the

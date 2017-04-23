@@ -47,16 +47,14 @@ authors, as specified in the source code.
 Download
 --------
 
-Executables and other resources can be downloaded from
-http://people.inf.ethz.ch/jschoenb/colmap/.
+Executables and other resources can be downloaded from https://demuc.de/colmap/.
 
 
 Getting Started
 ---------------
 
-1. Download the `pre-built binaries
-   <http://people.inf.ethz.ch/jschoenb/colmap/>`_ or build the library manually
-   (see :ref:`Installation <installation>`).
+1. Download the `pre-built binaries <https://demuc.de/colmap/>`_ or build the
+   library manually (see :ref:`Installation <installation>`).
 2. Download one of the provided datasets (see :ref:`Datasets <datasets>`)
    or use your own images.
 3. Use the **automatic reconstruction** to easily build models
@@ -98,7 +96,7 @@ Contents
 Acknowledgments
 ---------------
 
-The library was written by `Johannes L. Schönberger
-<http://people.inf.ethz.ch/jschoenb/>`_. Funding was provided by his PhD advisors
-`Jan-Michael Frahm <http://frahm.web.unc.edu/>`_ and
-`Marc Pollefeys <https://www.inf.ethz.ch/personal/marc.pollefeys/>`_.
+The library was written by `Johannes L. Schönberger <https://demuc.de/>`_.
+Funding was provided by his PhD advisors `Jan-Michael Frahm
+<http://frahm.web.unc.edu/>`_ and `Marc Pollefeys
+<https://www.inf.ethz.ch/personal/marc.pollefeys/>`_.

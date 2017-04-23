@@ -4,9 +4,9 @@ Installation
 ============
 
 You can either download one of the pre-built binaries from
-http://people.inf.ethz.ch/jschoenb/colmap/ or build the source code manually. It
-builds on all major platforms (Linux, Mac, Windows) with minimal effort. First,
-checkout the latest source code::
+https://demuc.de/colmap/ or build the source code manually. It builds on all
+major platforms (Linux, Mac, Windows) with minimal effort. First, checkout the
+latest source code::
 
     git clone https://github.com/colmap/colmap
 

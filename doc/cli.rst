@@ -199,7 +199,6 @@ Executables
   extracted images. This is an offline procedure and can be run once, while the
   same vocabulary tree can be reused for other datasets. Note that, as a rule of
   thumb, you should use at least 10-100 times more features than visual words.
-  Pre-trained trees can be downloaded from
-  http://people.inf.ethz.ch/jschoenb/colmap/.
+  Pre-trained trees can be downloaded from https://demuc.de/colmap/.
   This is useful if you want to build a custom tree with a different trade-off
   in terms of precision/recall vs. speed.

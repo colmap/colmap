@@ -4,7 +4,7 @@ Datasets
 ========
 
 A number of different datasets are available for download at:
-http://people.inf.ethz.ch/jschoenb/colmap/datasets/
+https://demuc.de/colmap/datasets/
 
 - **Gerrard Hall**: 100 high-resolution images of the "Gerrard" hall at UNC
   Chapel Hill, which is the building right next to the "South" building.
