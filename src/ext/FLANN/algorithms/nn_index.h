@@ -327,7 +327,7 @@ public:
 #pragma omp parallel num_threads(params.cores)
     		{
     			KNNResultSet2<DistanceType> resultSet(knn);
-#pragma omp for schedule(static) reduction(+:count)
+#pragma omp for schedule(dynamic) reduction(+:count)
     			for (int i = 0; i < (int)queries.rows; i++) {
     				resultSet.clear();
     				findNeighbors(resultSet, queries[i], params);
@@ -342,7 +342,7 @@ public:
 #pragma omp parallel num_threads(params.cores)
     		{
     			KNNSimpleResultSet<DistanceType> resultSet(knn);
-#pragma omp for schedule(static) reduction(+:count)
+#pragma omp for schedule(dynamic) reduction(+:count)
     			for (int i = 0; i < (int)queries.rows; i++) {
     				resultSet.clear();
     				findNeighbors(resultSet, queries[i], params);
@@ -415,7 +415,7 @@ public:
 #pragma omp parallel num_threads(params.cores)
 			{
 				KNNResultSet2<DistanceType> resultSet(knn);
-#pragma omp for schedule(static) reduction(+:count)
+#pragma omp for schedule(dynamic) reduction(+:count)
 				for (int i = 0; i < (int)queries.rows; i++) {
 					resultSet.clear();
 					findNeighbors(resultSet, queries[i], params);
@@ -434,7 +434,7 @@ public:
 #pragma omp parallel num_threads(params.cores)
 			{
 				KNNSimpleResultSet<DistanceType> resultSet(knn);
-#pragma omp for schedule(static) reduction(+:count)
+#pragma omp for schedule(dynamic) reduction(+:count)
 				for (int i = 0; i < (int)queries.rows; i++) {
 					resultSet.clear();
 					findNeighbors(resultSet, queries[i], params);
@@ -505,7 +505,7 @@ public:
 #pragma omp parallel num_threads(params.cores)
     		{
     			CountRadiusResultSet<DistanceType> resultSet(radius);
-#pragma omp for schedule(static) reduction(+:count)
+#pragma omp for schedule(dynamic) reduction(+:count)
     			for (int i = 0; i < (int)queries.rows; i++) {
     				resultSet.clear();
     				findNeighbors(resultSet, queries[i], params);
@@ -520,7 +520,7 @@ public:
 #pragma omp parallel num_threads(params.cores)
     			{
     				RadiusResultSet<DistanceType> resultSet(radius);
-#pragma omp for schedule(static) reduction(+:count)
+#pragma omp for schedule(dynamic) reduction(+:count)
     				for (int i = 0; i < (int)queries.rows; i++) {
     					resultSet.clear();
     					findNeighbors(resultSet, queries[i], params);
@@ -541,7 +541,7 @@ public:
 #pragma omp parallel num_threads(params.cores)
     			{
     				KNNRadiusResultSet<DistanceType> resultSet(radius, max_neighbors);
-#pragma omp for schedule(static) reduction(+:count)
+#pragma omp for schedule(dynamic) reduction(+:count)
     				for (int i = 0; i < (int)queries.rows; i++) {
     					resultSet.clear();
     					findNeighbors(resultSet, queries[i], params);
@@ -611,7 +611,7 @@ public:
 #pragma omp parallel num_threads(params.cores)
     		{
     			CountRadiusResultSet<DistanceType> resultSet(radius);
-#pragma omp for schedule(static) reduction(+:count)
+#pragma omp for schedule(dynamic) reduction(+:count)
     			for (int i = 0; i < (int)queries.rows; i++) {
     				resultSet.clear();
     				findNeighbors(resultSet, queries[i], params);
@@ -628,7 +628,7 @@ public:
 #pragma omp parallel num_threads(params.cores)
     			{
     				RadiusResultSet<DistanceType> resultSet(radius);
-#pragma omp for schedule(static) reduction(+:count)
+#pragma omp for schedule(dynamic) reduction(+:count)
     				for (int i = 0; i < (int)queries.rows; i++) {
     					resultSet.clear();
     					findNeighbors(resultSet, queries[i], params);
@@ -648,7 +648,7 @@ public:
 #pragma omp parallel num_threads(params.cores)
     			{
     				KNNRadiusResultSet<DistanceType> resultSet(radius, params.max_neighbors);
-#pragma omp for schedule(static) reduction(+:count)
+#pragma omp for schedule(dynamic) reduction(+:count)
     				for (int i = 0; i < (int)queries.rows; i++) {
     					resultSet.clear();
     					findNeighbors(resultSet, queries[i], params);
