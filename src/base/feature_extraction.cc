@@ -61,10 +61,10 @@ FeatureDescriptors TransformVLFeatToUBCFeatureDescriptors(
   FeatureDescriptors ubc_descriptors(vlfeat_descriptors.rows(),
                                      vlfeat_descriptors.cols());
   const std::array<int, 8> q{{0, 7, 6, 5, 4, 3, 2, 1}};
-  for (size_t n = 0; n < vlfeat_descriptors.rows(); ++n) {
-    for (size_t i = 0; i < 4; ++i) {
-      for (size_t j = 0; j < 4; ++j) {
-        for (size_t k = 0; k < 8; ++k) {
+  for (FeatureDescriptors::Index n = 0; n < vlfeat_descriptors.rows(); ++n) {
+    for (int i = 0; i < 4; ++i) {
+      for (int j = 0; j < 4; ++j) {
+        for (int k = 0; k < 8; ++k) {
           ubc_descriptors(n, 8 * (j + 4 * i) + q[k]) =
               vlfeat_descriptors(n, 8 * (j + 4 * i) + k);
         }
