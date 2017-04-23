@@ -30,38 +30,12 @@ cat <<EOM >"$BIN_PATH/COLMAP.app/Contents/Info.plist"
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>English</string>
-    <key>CFBundleExecutable</key>
-    <string>COLMAP</string>
-    <key>CFBundleGetInfoString</key>
-    <string></string>
-    <key>CFBundleIconFile</key>
-    <string></string>
-    <key>CFBundleIdentifier</key>
-    <string></string>
-    <key>CFBundleInfoDictionaryVersion</key>
-    <string>6.0</string>
-    <key>CFBundleLongVersionString</key>
-    <string></string>
-    <key>CFBundleName</key>
-    <string></string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string></string>
-    <key>CFBundleSignature</key>
-    <string>????</string>
-    <key>CFBundleVersion</key>
-    <string></string>
-    <key>CSResourcesFileMapped</key>
-    <true/>
-    <key>LSRequiresCarbon</key>
-    <true/>
-    <key>NSHumanReadableCopyright</key>
-    <string></string>
-    <key>NSPrincipalClass</key>
-    <string>NSApplication</string>
+    <key>CFBundleExecutable</key>
+    <string>COLMAP</string>
+    <key>CFBundleIdentifier</key>
+    <string>COLMAP</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSAppSleepDisabled</key>
@@ -69,6 +43,9 @@ cat <<EOM >"$BIN_PATH/COLMAP.app/Contents/Info.plist"
 </dict>
 </plist>
 EOM
+
+install_name_tool -change @rpath/libtbb.dylib /usr/local/lib/libtbb.dylib $BIN_PATH/COLMAP.app/Contents/MacOS/COLMAP
+install_name_tool -change @rpath/libtbbmalloc.dylib /usr/local/lib/libtbbmalloc.dylib $BIN_PATH/COLMAP.app/Contents/MacOS/COLMAP
 
 echo "Linking dynamic libraries"
 /usr/local/opt/qt5/bin/macdeployqt "$BIN_PATH/COLMAP.app"
