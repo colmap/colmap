@@ -762,23 +762,33 @@ SiftFeatureMatcher::~SiftFeatureMatcher() {
   verifier_queue_.Wait();
   guided_matcher_queue_.Wait();
   output_queue_.Wait();
+
+  for (auto& matcher : matchers_) {
+    matcher->Stop();
+  }
+
+  for (auto& verifier : verifiers_) {
+    verifier->Stop();
+  }
+
+  for (auto& guided_matcher : guided_matchers_) {
+    guided_matcher->Stop();
+  }
+
   matcher_queue_.Stop();
   verifier_queue_.Stop();
   guided_matcher_queue_.Stop();
   output_queue_.Stop();
 
   for (auto& matcher : matchers_) {
-    matcher->Stop();
     matcher->Wait();
   }
 
   for (auto& verifier : verifiers_) {
-    verifier->Stop();
     verifier->Wait();
   }
 
   for (auto& guided_matcher : guided_matchers_) {
-    guided_matcher->Stop();
     guided_matcher->Wait();
   }
 }
