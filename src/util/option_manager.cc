@@ -237,6 +237,8 @@ void OptionManager::AddTransitiveMatchingOptions() {
 
   AddMatchingOptions();
 
+  AddDefaultOption("TransitiveMatching.batch_size",
+                   &transitive_matching->batch_size);
   AddDefaultOption("TransitiveMatching.num_iterations",
                    &transitive_matching->num_iterations);
 }

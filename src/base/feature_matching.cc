@@ -1341,6 +1341,7 @@ void SpatialFeatureMatcher::Run() {
 }
 
 bool TransitiveFeatureMatcher::Options::Check() const {
+  CHECK_OPTION_GT(batch_size, 0);
   CHECK_OPTION_GT(num_iterations, 0);
   return true;
 }
@@ -1351,7 +1352,7 @@ TransitiveFeatureMatcher::TransitiveFeatureMatcher(
     : options_(options),
       match_options_(match_options),
       database_(database_path),
-      cache_(500, &database_),
+      cache_(options_.batch_size, &database_),
       matcher_(match_options, &database_, &cache_) {
   CHECK(options_.Check());
   CHECK(match_options_.Check());
@@ -1368,12 +1369,17 @@ void TransitiveFeatureMatcher::Run() {
   std::unordered_set<image_pair_t> image_pair_ids;
 
   for (int iteration = 0; iteration < options_.num_iterations; ++iteration) {
+    if (IsStopped()) {
+      GetTimer().PrintMinutes();
+      return;
+    }
+
     Timer timer;
     timer.Start();
 
-    std::cout << StringPrintf("Matching iteration [%d/%d]", iteration + 1,
+    std::cout << StringPrintf("Iteration [%d/%d]", iteration + 1,
                               options_.num_iterations)
-              << std::flush;
+              << std::endl;
 
     std::vector<std::pair<image_t, image_t>> existing_image_pairs;
     std::vector<int> existing_num_inliers;
@@ -1388,6 +1394,7 @@ void TransitiveFeatureMatcher::Run() {
       adjacency[image_pair.second].push_back(image_pair.first);
     }
 
+    size_t num_blocks = 0;
     image_pairs.clear();
     image_pair_ids.clear();
     for (const auto& image : adjacency) {
@@ -1400,14 +1407,25 @@ void TransitiveFeatureMatcher::Run() {
             if (image_pair_ids.count(image_pair_id) == 0) {
               image_pairs.emplace_back(image_id1, image_id3);
               image_pair_ids.insert(image_pair_id);
+              if (image_pairs.size() == options_.batch_size) {
+                num_blocks += 1;
+                std::cout << StringPrintf("  Batch %d", num_blocks)
+                          << std::flush;
+                matcher_.Match(image_pairs);
+                image_pairs.clear();
+                PrintElapsedTime(timer);
+                timer.Restart();
+              }
             }
           }
         }
       }
     }
 
+    num_blocks += 1;
+    std::cout << StringPrintf("  Batch %d", num_blocks)
+              << std::flush;
     matcher_.Match(image_pairs);
-
     PrintElapsedTime(timer);
   }
 

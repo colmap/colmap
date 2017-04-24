@@ -208,6 +208,7 @@ void SpatialMatchingTab::Run() {
 TransitiveMatchingTab::TransitiveMatchingTab(QWidget* parent,
                                              OptionManager* options)
     : FeatureMatchingTab(parent, options) {
+  AddOptionInt(&options->transitive_matching->batch_size, "batch_size");
   AddOptionInt(&options->transitive_matching->num_iterations, "num_iterations");
 
   CreateGeneralOptions();

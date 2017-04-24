@@ -462,8 +462,11 @@ class SpatialFeatureMatcher : public Thread {
 class TransitiveFeatureMatcher : public Thread {
  public:
   struct Options {
+    // The maximum number of image pairs to process in one batch.
+    int batch_size = 1000;
+
     // The number of transitive closure iterations.
-    int num_iterations = 2;
+    int num_iterations = 3;
 
     bool Check() const;
   };
