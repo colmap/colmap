@@ -74,8 +74,10 @@ void MainWindow::closeEvent(QCloseEvent* event) {
   if (reply == QMessageBox::No) {
     event->ignore();
   } else {
-    mapper_controller_->Stop();
-    mapper_controller_->Wait();
+    if (mapper_controller_) {
+      mapper_controller_->Stop();
+      mapper_controller_->Wait();
+    }
 
     log_widget_->close();
     event->accept();
@@ -887,6 +889,7 @@ void MainWindow::ReconstructionStart() {
     mapper_controller_->Resume();
   } else {
     // Start new reconstruction.
+    CreateControllers();
     timer_.Restart();
     mapper_controller_->Start();
     action_reconstruction_start_->setText(tr("Resume reconstruction"));
