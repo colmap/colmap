@@ -51,6 +51,7 @@ class OptionManager {
   void AddSequentialMatchingOptions();
   void AddVocabTreeMatchingOptions();
   void AddSpatialMatchingOptions();
+  void AddTransitiveMatchingOptions();
   void AddBundleAdjustmentOptions();
   void AddMapperOptions();
   void AddDenseStereoOptions();
@@ -87,6 +88,7 @@ class OptionManager {
   std::shared_ptr<SequentialFeatureMatcher::Options> sequential_matching;
   std::shared_ptr<VocabTreeFeatureMatcher::Options> vocab_tree_matching;
   std::shared_ptr<SpatialFeatureMatcher::Options> spatial_matching;
+  std::shared_ptr<TransitiveFeatureMatcher::Options> transitive_matching;
 
   std::shared_ptr<BundleAdjuster::Options> bundle_adjustment;
   std::shared_ptr<IncrementalMapperController::Options> mapper;
@@ -117,6 +119,7 @@ class OptionManager {
   bool added_sequential_match_options_;
   bool added_vocab_tree_match_options_;
   bool added_spatial_match_options_;
+  bool added_transitive_match_options_;
   bool added_ba_options_;
   bool added_mapper_options_;
   bool added_dense_stereo_options_;

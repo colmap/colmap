@@ -144,8 +144,8 @@ Executables
   import features for a set of images.
 
 - ``exhaustive_matcher``, ``vocab_tree_matcher``, ``sequential_matcher``,
-  ``spatial_matcher``, ``matches_importer``: Perform feature matching after
-  performing feature extraction.
+  ``spatial_matcher``, ``transitive_matcher``, ``matches_importer``:
+  Perform feature matching after performing feature extraction.
 
 - ``mapper``: Sparse 3D reconstruction / mapping of the dataset using SfM after
   performing feature extraction and matching.

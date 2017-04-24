@@ -61,6 +61,7 @@ void OptionManager::AddAllOptions() {
   AddSequentialMatchingOptions();
   AddVocabTreeMatchingOptions();
   AddSpatialMatchingOptions();
+  AddTransitiveMatchingOptions();
   AddBundleAdjustmentOptions();
   AddMapperOptions();
   AddDenseStereoOptions();
@@ -226,6 +227,18 @@ void OptionManager::AddSpatialMatchingOptions() {
                    &spatial_matching->max_num_neighbors);
   AddDefaultOption("SpatialMatching.max_distance",
                    &spatial_matching->max_distance);
+}
+
+void OptionManager::AddTransitiveMatchingOptions() {
+  if (added_transitive_match_options_) {
+    return;
+  }
+  added_transitive_match_options_ = true;
+
+  AddMatchingOptions();
+
+  AddDefaultOption("TransitiveMatching.num_iterations",
+                   &transitive_matching->num_iterations);
 }
 
 void OptionManager::AddBundleAdjustmentOptions() {
@@ -450,6 +463,7 @@ void OptionManager::Reset() {
   sequential_matching.reset(new SequentialFeatureMatcher::Options());
   vocab_tree_matching.reset(new VocabTreeFeatureMatcher::Options());
   spatial_matching.reset(new SpatialFeatureMatcher::Options());
+  transitive_matching.reset(new TransitiveFeatureMatcher::Options());
   bundle_adjustment.reset(new BundleAdjuster::Options());
   mapper.reset(new IncrementalMapperController::Options());
   dense_stereo.reset(new mvs::PatchMatch::Options());
@@ -473,6 +487,7 @@ void OptionManager::Reset() {
   added_sequential_match_options_ = false;
   added_vocab_tree_match_options_ = false;
   added_spatial_match_options_ = false;
+  added_transitive_match_options_ = false;
   added_ba_options_ = false;
   added_mapper_options_ = false;
   added_dense_stereo_options_ = false;

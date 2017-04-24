@@ -455,6 +455,33 @@ class SpatialFeatureMatcher : public Thread {
   SiftFeatureMatcher matcher_;
 };
 
+// Match transitive image pairs in a database with existing feature matches.
+// This matcher transitively closes loops. For example, if image pairs A-B and
+// B-C match but A-C has not been matched, then this matcher attempts to match
+// A-C. This procedure is performed for multiple iterations.
+class TransitiveFeatureMatcher : public Thread {
+ public:
+  struct Options {
+    // The number of transitive closure iterations.
+    int num_iterations = 2;
+
+    bool Check() const;
+  };
+
+  TransitiveFeatureMatcher(const Options& options,
+                           const SiftMatchingOptions& match_options,
+                           const std::string& database_path);
+
+ private:
+  void Run() override;
+
+  const Options options_;
+  const SiftMatchingOptions match_options_;
+  Database database_;
+  FeatureMatcherCache cache_;
+  SiftFeatureMatcher matcher_;
+};
+
 // Match images manually specified in a list of image pairs.
 //
 // Read matches file with the following format:

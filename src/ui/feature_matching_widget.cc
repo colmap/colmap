@@ -58,6 +58,12 @@ class SpatialMatchingTab : public FeatureMatchingTab {
   void Run() override;
 };
 
+class TransitiveMatchingTab : public FeatureMatchingTab {
+ public:
+  TransitiveMatchingTab(QWidget* parent, OptionManager* options);
+  void Run() override;
+};
+
 class CustomMatchingTab : public FeatureMatchingTab {
  public:
   CustomMatchingTab(QWidget* parent, OptionManager* options);
@@ -199,6 +205,23 @@ void SpatialMatchingTab::Run() {
   thread_control_widget_->StartThread("Matching...", true, matcher);
 }
 
+TransitiveMatchingTab::TransitiveMatchingTab(QWidget* parent,
+                                             OptionManager* options)
+    : FeatureMatchingTab(parent, options) {
+  AddOptionInt(&options->transitive_matching->num_iterations, "num_iterations");
+
+  CreateGeneralOptions();
+}
+
+void TransitiveMatchingTab::Run() {
+  WriteOptions();
+
+  Thread* matcher = new TransitiveFeatureMatcher(*options_->transitive_matching,
+                                                 *options_->sift_matching,
+                                                 *options_->database_path);
+  thread_control_widget_->StartThread("Matching...", true, matcher);
+}
+
 CustomMatchingTab::CustomMatchingTab(QWidget* parent, OptionManager* options)
     : FeatureMatchingTab(parent, options) {
   match_type_cb_ = new QComboBox(this);
@@ -259,6 +282,8 @@ FeatureMatchingWidget::FeatureMatchingWidget(QWidget* parent,
                       tr("Sequential"));
   tab_widget_->addTab(new VocabTreeMatchingTab(this, options), tr("VocabTree"));
   tab_widget_->addTab(new SpatialMatchingTab(this, options), tr("Spatial"));
+  tab_widget_->addTab(new TransitiveMatchingTab(this, options),
+                      tr("Transitive"));
   tab_widget_->addTab(new CustomMatchingTab(this, options), tr("Custom"));
 
   grid->addWidget(tab_widget_, 0, 0);

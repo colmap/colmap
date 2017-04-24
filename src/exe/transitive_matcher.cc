@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddDefaultOption("use_opengl", &use_opengl);
-  options.AddExhaustiveMatchingOptions();
+  options.AddTransitiveMatchingOptions();
   options.Parse(argc, argv);
 
   std::unique_ptr<QApplication> app;
@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
     app.reset(new QApplication(argc, argv));
   }
 
-  ExhaustiveFeatureMatcher feature_matcher(*options.exhaustive_matching,
+  TransitiveFeatureMatcher feature_matcher(*options.transitive_matching,
                                            *options.sift_matching,
                                            *options.database_path);
 

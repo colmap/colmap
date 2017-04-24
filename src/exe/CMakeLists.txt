@@ -48,6 +48,8 @@ COLMAP_ADD_EXECUTABLE(sequential_matcher sequential_matcher)
 
 COLMAP_ADD_EXECUTABLE(spatial_matcher spatial_matcher.cc)
 
+COLMAP_ADD_EXECUTABLE(transitive_matcher transitive_matcher.cc)
+
 COLMAP_ADD_EXECUTABLE(vocab_tree_builder vocab_tree_builder.cc)
 
 COLMAP_ADD_EXECUTABLE(vocab_tree_matcher vocab_tree_matcher.cc)
