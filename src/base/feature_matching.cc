@@ -1394,7 +1394,9 @@ void TransitiveFeatureMatcher::Run() {
       adjacency[image_pair.second].push_back(image_pair.first);
     }
 
-    size_t num_blocks = 0;
+    const size_t batch_size = static_cast<size_t>(options_.batch_size);
+
+    size_t num_batches = 0;
     image_pairs.clear();
     image_pair_ids.clear();
     for (const auto& image : adjacency) {
@@ -1407,9 +1409,9 @@ void TransitiveFeatureMatcher::Run() {
             if (image_pair_ids.count(image_pair_id) == 0) {
               image_pairs.emplace_back(image_id1, image_id3);
               image_pair_ids.insert(image_pair_id);
-              if (image_pairs.size() == options_.batch_size) {
-                num_blocks += 1;
-                std::cout << StringPrintf("  Batch %d", num_blocks)
+              if (image_pairs.size() >= batch_size) {
+                num_batches += 1;
+                std::cout << StringPrintf("  Batch %d", num_batches)
                           << std::flush;
                 matcher_.Match(image_pairs);
                 image_pairs.clear();
@@ -1422,9 +1424,8 @@ void TransitiveFeatureMatcher::Run() {
       }
     }
 
-    num_blocks += 1;
-    std::cout << StringPrintf("  Batch %d", num_blocks)
-              << std::flush;
+    num_batches += 1;
+    std::cout << StringPrintf("  Batch %d", num_batches) << std::flush;
     matcher_.Match(image_pairs);
     PrintElapsedTime(timer);
   }
