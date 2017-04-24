@@ -1417,6 +1417,11 @@ void TransitiveFeatureMatcher::Run() {
                 image_pairs.clear();
                 PrintElapsedTime(timer);
                 timer.Restart();
+
+                if (IsStopped()) {
+                  GetTimer().PrintMinutes();
+                  return;
+                }
               }
             }
           }
