@@ -135,6 +135,10 @@ void CuTexImage::InitTexture(int width, int height, int nchannel)
 	//allocate the array data
 	cudaMalloc(&_cuData, _numBytes = size);
 
+  if (_cuData == NULL) {
+    _numBytes = 0;
+  }
+
 #ifdef _DEBUG
 	ProgramCU::CheckErrorCUDA("CuTexImage::InitTexture");
 #endif
@@ -178,6 +182,11 @@ void CuTexImage::InitTexture2D()
 		desc.z = _numChannel >=3 ? sizeof(float) * 8 : 0;
 		desc.w = _numChannel >=4 ? sizeof(float) * 8 : 0;
 		cudaMallocArray(&_cuData2D, &desc, _texWidth, _texHeight);
+
+    if (_cuData2D == NULL) {
+      _numBytes = 0;
+    }
+
 		ProgramCU::CheckErrorCUDA("cudaMallocArray");
 	}
 #endif

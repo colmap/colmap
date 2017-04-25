@@ -76,19 +76,33 @@ void MatchNearestNeighborsInVisualIndex(
     const std::vector<image_t>& image_ids, Thread* thread,
     FeatureMatcherCache* cache, retrieval::VisualIndex* visual_index,
     SiftFeatureMatcher* matcher) {
-  // Start a thread pool to retrieve the nearest neighbors.
+  struct Retrieval {
+    image_t image_id = kInvalidImageId;
+    std::vector<retrieval::ImageScore> image_scores;
+  };
+
+  // Create a thread pool to retrieve the nearest neighbors.
   ThreadPool retrieval_thread_pool(num_threads);
-  JobQueue<std::vector<retrieval::ImageScore>> retrieval_queue(num_threads);
+  JobQueue<Retrieval> retrieval_queue(num_threads);
 
   // The retrieval thread kernel function. Note that the descriptors should be
   // extracted outside of this function sequentially to avoid any concurrent
   // access to the database causing race conditions.
   retrieval::VisualIndex::QueryOptions query_options;
   query_options.max_num_images = num_images;
-  auto QueryFunc = [&](retrieval::VisualIndex::Desc descriptors) {
-    std::vector<retrieval::ImageScore> image_scores;
-    visual_index->Query(query_options, descriptors, &image_scores);
-    retrieval_queue.Push(image_scores);
+  auto QueryFunc = [&](const image_t image_id) {
+    retrieval::VisualIndex::Desc descriptors = cache->GetDescriptors(image_id);
+    if (max_num_features > 0 && descriptors.rows() > max_num_features) {
+      const auto keypoints = cache->GetKeypoints(image_id);
+      descriptors =
+          ExtractTopScaleDescriptors(keypoints, descriptors, max_num_features);
+    }
+
+    Retrieval retrieval;
+    retrieval.image_id = image_id;
+    visual_index->Query(query_options, descriptors, &retrieval.image_scores);
+
+    CHECK(retrieval_queue.Push(retrieval));
   };
 
   // Initially, make all retrieval threads busy and continue with the matching.
@@ -96,10 +110,10 @@ void MatchNearestNeighborsInVisualIndex(
   const size_t init_num_tasks =
       std::min(image_ids.size(), 2 * retrieval_thread_pool.NumThreads());
   for (; image_idx < init_num_tasks; ++image_idx) {
-    const retrieval::VisualIndex::Desc& descriptors =
-        cache->GetDescriptors(image_ids[image_idx]);
-    retrieval_thread_pool.AddTask(QueryFunc, descriptors);
+    retrieval_thread_pool.AddTask(QueryFunc, image_ids[image_idx]);
   }
+
+  std::vector<std::pair<image_t, image_t>> image_pairs;
 
   // Pop the finished retrieval results and enqueue them for feature matching.
   for (size_t i = 0; i < image_ids.size(); ++i) {
@@ -116,26 +130,22 @@ void MatchNearestNeighborsInVisualIndex(
 
     // Push the next image to the retrieval queue.
     if (image_idx < image_ids.size()) {
-      retrieval::VisualIndex::Desc descriptors =
-          cache->GetDescriptors(image_ids[image_idx]);
-      if (max_num_features > 0 && descriptors.rows() > max_num_features) {
-        const auto keypoints = cache->GetKeypoints(image_ids[image_idx]);
-        descriptors = ExtractTopScaleDescriptors(keypoints, descriptors,
-                                                 max_num_features);
-      }
-      retrieval_thread_pool.AddTask(QueryFunc, descriptors);
+      retrieval_thread_pool.AddTask(QueryFunc, image_ids[image_idx]);
       image_idx += 1;
     }
 
     // Pop the next results from the retrieval queue.
-    const auto image_scores = retrieval_queue.Pop();
-    CHECK(image_scores.IsValid());
+    const auto retrieval = retrieval_queue.Pop();
+    CHECK(retrieval.IsValid());
+
+    const auto& image_id = retrieval.Data().image_id;
+    const auto& image_scores = retrieval.Data().image_scores;
 
     // Compose the image pairs from the scores.
-    std::vector<std::pair<image_t, image_t>> image_pairs;
-    image_pairs.reserve(image_scores.Data().size());
-    for (const auto image_score : image_scores.Data()) {
-      image_pairs.emplace_back(image_ids[i], image_score.image_id);
+    image_pairs.clear();
+    image_pairs.reserve(image_scores.size());
+    for (const auto image_score : image_scores) {
+      image_pairs.emplace_back(image_id, image_score.image_id);
     }
 
     matcher->Match(image_pairs);
@@ -514,7 +524,7 @@ void GuidedSiftCPUFeatureMatcher::Run() {
 
       if (output.two_view_geometry.inlier_matches.size() <
           static_cast<size_t>(options_.min_num_inliers)) {
-        output_queue_->Push(output);
+        CHECK(output_queue_->Push(output));
         continue;
       }
 
@@ -576,7 +586,7 @@ void GuidedSiftGPUFeatureMatcher::Run() {
 
       if (output.two_view_geometry.inlier_matches.size() <
           static_cast<size_t>(options_.min_num_inliers)) {
-        output_queue_->Push(output);
+        CHECK(output_queue_->Push(output));
         continue;
       }
 
@@ -650,7 +660,7 @@ void TwoViewGeometryVerifier::Run() {
 
       if (output.matches.size() <
           static_cast<size_t>(options_.min_num_inliers)) {
-        output_queue_->Push(output);
+        CHECK(output_queue_->Push(output));
         continue;
       }
 
@@ -673,7 +683,7 @@ void TwoViewGeometryVerifier::Run() {
                                           two_view_geometry_options_);
       }
 
-      output_queue_->Push(output);
+      CHECK(output_queue_->Push(output));
     }
   }
 }
@@ -844,12 +854,12 @@ void SiftFeatureMatcher::Match(
       match_data.image_id2 = image_pair.second;
       match_data.matches =
           cache_->GetMatches(image_pair.first, image_pair.second);
-      verifier_queue_.Push(match_data);
+      CHECK(verifier_queue_.Push(match_data));
     } else {
       internal::ImagePairData image_pair_data;
       image_pair_data.image_id1 = image_pair.first;
       image_pair_data.image_id2 = image_pair.second;
-      matcher_queue_.Push(image_pair_data);
+      CHECK(matcher_queue_.Push(image_pair_data));
     }
   }
 
