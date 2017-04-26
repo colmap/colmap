@@ -112,7 +112,7 @@ void FeatureMatchingTab::CreateGeneralOptions() {
 ExhaustiveMatchingTab::ExhaustiveMatchingTab(QWidget* parent,
                                              OptionManager* options)
     : FeatureMatchingTab(parent, options) {
-  AddOptionInt(&options_->exhaustive_matching->block_size, "block_size");
+  AddOptionInt(&options_->exhaustive_matching->block_size, "block_size", 2);
 
   CreateGeneralOptions();
 }
