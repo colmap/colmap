@@ -505,6 +505,12 @@ int SiftMatchGL::GetBestMatch(int max_match, uint32_t match_buffer[][2], float d
 			nmatch++;
 		}
 	}
+
+  const GLenum error_code(glGetError());
+  if (error_code != GL_NO_ERROR) {
+    return -1;
+  }
+
 	return nmatch;
 }
 

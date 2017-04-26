@@ -1840,8 +1840,15 @@ void MatchSiftFeaturesGPU(const SiftMatchingOptions& match_options,
       static_cast<float>(match_options.max_distance),
       static_cast<float>(match_options.max_ratio), match_options.cross_check);
 
-  CHECK_LE(num_matches, matches->size());
-  matches->resize(num_matches);
+  if (num_matches < 0) {
+    std::cerr << "ERROR: Running out of GPU memory. You must reduce the "
+                 "maximum number of matches."
+              << std::endl;
+    matches->clear();
+  } else {
+    CHECK_LE(num_matches, matches->size());
+    matches->resize(num_matches);
+  }
 }
 
 void MatchGuidedSiftFeaturesGPU(const SiftMatchingOptions& match_options,
@@ -1915,8 +1922,15 @@ void MatchGuidedSiftFeaturesGPU(const SiftMatchingOptions& match_options,
       static_cast<float>(match_options.max_error * match_options.max_error),
       match_options.cross_check);
 
-  CHECK_LE(num_matches, two_view_geometry->inlier_matches.size());
-  two_view_geometry->inlier_matches.resize(num_matches);
+  if (num_matches < 0) {
+    std::cerr << "ERROR: Running out of GPU memory. You must reduce the "
+                 "maximum number of matches."
+              << std::endl;
+    two_view_geometry->inlier_matches.clear();
+  } else {
+    CHECK_LE(num_matches, two_view_geometry->inlier_matches.size());
+    two_view_geometry->inlier_matches.resize(num_matches);
+  }
 }
 
 }  // namespace colmap

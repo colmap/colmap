@@ -169,6 +169,12 @@ int SiftMatchCU::GetBestMatch(int max_match, uint32_t match_buffer[][2], float d
 			nmatch++;
 		}
 	}
+
+  cudaError_t error = cudaGetLastError();
+  if (error) {
+    return -1;
+  }
+
 	return nmatch;
 }
 

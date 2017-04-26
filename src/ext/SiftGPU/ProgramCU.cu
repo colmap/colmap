@@ -1503,7 +1503,6 @@ void ProgramCU::MultiplyDescriptor(CuTexImage* des1, CuTexImage* des2, CuTexImag
 
 	MultiplyDescriptor_Kernel<<<grid, block>>>((int*)texDot->_cuData, num1, num2,
 												(texCRT? (int3*)texCRT->_cuData : NULL));
-	ProgramCU::CheckErrorCUDA("MultiplyDescriptor");
 }
 
 texture<float, 1, cudaReadModeElementType> texLoc1;

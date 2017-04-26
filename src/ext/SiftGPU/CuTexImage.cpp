@@ -136,6 +136,7 @@ void CuTexImage::InitTexture(int width, int height, int nchannel)
 	const cudaError_t status = cudaMalloc(&_cuData, _numBytes = size);
 
   if (status != cudaSuccess) {
+    _cuData = NULL;
     _numBytes = 0;
   }
 
@@ -182,6 +183,7 @@ void CuTexImage::InitTexture2D()
 		const cudaError_t status = cudaMallocArray(&_cuData2D, &desc, _texWidth, _texHeight);
 
     if (status != cudaSuccess) {
+      _cuData = NULL;
       _numBytes = 0;
     }
 
