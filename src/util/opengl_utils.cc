@@ -21,31 +21,6 @@
 #include "util/logging.h"
 
 namespace colmap {
-namespace {
-
-class OpenGLThread : public QObject {
- public:
-  OpenGLThread(Thread* thread) : thread_(thread) {
-    QAction* run_thread_action = new QAction(this);
-    connect(run_thread_action, &QAction::triggered, this,
-            [this]() { Run(); }, Qt::QueuedConnection);
-    run_thread_action->trigger();
-  }
-
-  void Run() {
-    thread_->Start();
-    thread_->Wait();
-
-    QCoreApplication* application = QCoreApplication::instance();
-    CHECK_NOTNULL(application);
-    application->exit();
-  }
-
- private:
-  Thread* thread_;
-};
-
-}  // namespace
 
 OpenGLContextManager::OpenGLContextManager()
     : parent_thread_(QThread::currentThread()),
@@ -76,10 +51,16 @@ void OpenGLContextManager::MakeCurrent() {
 }
 
 void RunThreadWithOpenGLContext(Thread* thread) {
-  OpenGLThread opengl_thread(thread);
-  QCoreApplication* application = QCoreApplication::instance();
-  CHECK_NOTNULL(application);
-  application->exec();
+  std::thread opengl_thread([thread]() {
+    thread->Start();
+    thread->Wait();
+    CHECK_NOTNULL(QCoreApplication::instance())->exit();
+  });
+  CHECK_NOTNULL(QCoreApplication::instance())->exec();
+  opengl_thread.join();
+  // Make sure that all triggered OpenGLContextManager events are processed in
+  // case the application exits before the contexts were made current.
+  QCoreApplication::processEvents();
 }
 
 void GLError(const char* file, const int line) {
