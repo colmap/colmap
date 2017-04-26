@@ -133,15 +133,13 @@ void CuTexImage::InitTexture(int width, int height, int nchannel)
 	if(_cuData) cudaFree(_cuData);
 
 	//allocate the array data
-	cudaMalloc(&_cuData, _numBytes = size);
+	const cudaError_t status = cudaMalloc(&_cuData, _numBytes = size);
 
-  if (_cuData == NULL) {
+  if (status != cudaSuccess) {
     _numBytes = 0;
   }
 
-#ifdef _DEBUG
 	ProgramCU::CheckErrorCUDA("CuTexImage::InitTexture");
-#endif
 }
 
 void CuTexImage::CopyFromHost(const void * buf)
@@ -181,13 +179,13 @@ void CuTexImage::InitTexture2D()
 		desc.y = _numChannel >=2 ? sizeof(float) * 8 : 0;
 		desc.z = _numChannel >=3 ? sizeof(float) * 8 : 0;
 		desc.w = _numChannel >=4 ? sizeof(float) * 8 : 0;
-		cudaMallocArray(&_cuData2D, &desc, _texWidth, _texHeight);
+		const cudaError_t status = cudaMallocArray(&_cuData2D, &desc, _texWidth, _texHeight);
 
-    if (_cuData2D == NULL) {
+    if (status != cudaSuccess) {
       _numBytes = 0;
     }
 
-		ProgramCU::CheckErrorCUDA("cudaMallocArray");
+		ProgramCU::CheckErrorCUDA("CuTexImage::InitTexture2D");
 	}
 #endif
 }
