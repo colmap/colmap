@@ -27,6 +27,27 @@ namespace config = boost::program_options;
 namespace colmap {
 
 OptionManager::OptionManager() {
+  project_path.reset(new std::string());
+  database_path.reset(new std::string());
+  image_path.reset(new std::string());
+
+  image_reader.reset(new ImageReader::Options());
+  sift_extraction.reset(new SiftExtractionOptions());
+  sift_cpu_extraction.reset(new SiftCPUFeatureExtractor::Options());
+  sift_gpu_extraction.reset(new SiftGPUFeatureExtractor::Options());
+  sift_matching.reset(new SiftMatchingOptions());
+  exhaustive_matching.reset(new ExhaustiveFeatureMatcher::Options());
+  sequential_matching.reset(new SequentialFeatureMatcher::Options());
+  vocab_tree_matching.reset(new VocabTreeFeatureMatcher::Options());
+  spatial_matching.reset(new SpatialFeatureMatcher::Options());
+  transitive_matching.reset(new TransitiveFeatureMatcher::Options());
+  bundle_adjustment.reset(new BundleAdjuster::Options());
+  mapper.reset(new IncrementalMapperController::Options());
+  dense_stereo.reset(new mvs::PatchMatch::Options());
+  dense_fusion.reset(new mvs::StereoFusion::Options());
+  dense_meshing.reset(new mvs::PoissonReconstructionOptions());
+  render.reset(new RenderOptions());
+
   Reset();
 
   desc_->add_options()("help,h", "");
@@ -452,26 +473,26 @@ void OptionManager::Reset() {
   FLAGS_logtostderr = false;
   FLAGS_v = 2;
 
-  project_path.reset(new std::string());
-  database_path.reset(new std::string());
-  image_path.reset(new std::string());
+  *project_path = "";
+  *database_path = "";
+  *image_path = "";
 
-  image_reader.reset(new ImageReader::Options());
-  sift_extraction.reset(new SiftExtractionOptions());
-  sift_cpu_extraction.reset(new SiftCPUFeatureExtractor::Options());
-  sift_gpu_extraction.reset(new SiftGPUFeatureExtractor::Options());
-  sift_matching.reset(new SiftMatchingOptions());
-  exhaustive_matching.reset(new ExhaustiveFeatureMatcher::Options());
-  sequential_matching.reset(new SequentialFeatureMatcher::Options());
-  vocab_tree_matching.reset(new VocabTreeFeatureMatcher::Options());
-  spatial_matching.reset(new SpatialFeatureMatcher::Options());
-  transitive_matching.reset(new TransitiveFeatureMatcher::Options());
-  bundle_adjustment.reset(new BundleAdjuster::Options());
-  mapper.reset(new IncrementalMapperController::Options());
-  dense_stereo.reset(new mvs::PatchMatch::Options());
-  dense_fusion.reset(new mvs::StereoFusion::Options());
-  dense_meshing.reset(new mvs::PoissonReconstructionOptions());
-  render.reset(new RenderOptions());
+  *image_reader = ImageReader::Options();
+  *sift_extraction = SiftExtractionOptions();
+  *sift_cpu_extraction = SiftCPUFeatureExtractor::Options();
+  *sift_gpu_extraction = SiftGPUFeatureExtractor::Options();
+  *sift_matching = SiftMatchingOptions();
+  *exhaustive_matching = ExhaustiveFeatureMatcher::Options();
+  *sequential_matching = SequentialFeatureMatcher::Options();
+  *vocab_tree_matching = VocabTreeFeatureMatcher::Options();
+  *spatial_matching = SpatialFeatureMatcher::Options();
+  *transitive_matching = TransitiveFeatureMatcher::Options();
+  *bundle_adjustment = BundleAdjuster::Options();
+  *mapper = IncrementalMapperController::Options();
+  *dense_stereo = mvs::PatchMatch::Options();
+  *dense_fusion = mvs::StereoFusion::Options();
+  *dense_meshing = mvs::PoissonReconstructionOptions();
+  *render = RenderOptions();
 
   desc_.reset(new boost::program_options::options_description());
 

@@ -112,7 +112,7 @@ void FeatureMatchingTab::CreateGeneralOptions() {
 ExhaustiveMatchingTab::ExhaustiveMatchingTab(QWidget* parent,
                                              OptionManager* options)
     : FeatureMatchingTab(parent, options) {
-  AddOptionInt(&options->exhaustive_matching->block_size, "block_size");
+  AddOptionInt(&options_->exhaustive_matching->block_size, "block_size");
 
   CreateGeneralOptions();
 }
@@ -129,16 +129,16 @@ void ExhaustiveMatchingTab::Run() {
 SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
                                              OptionManager* options)
     : FeatureMatchingTab(parent, options) {
-  AddOptionInt(&options->sequential_matching->overlap, "overlap");
-  AddOptionBool(&options->sequential_matching->loop_detection,
+  AddOptionInt(&options_->sequential_matching->overlap, "overlap");
+  AddOptionBool(&options_->sequential_matching->loop_detection,
                 "loop_detection");
-  AddOptionInt(&options->sequential_matching->loop_detection_period,
+  AddOptionInt(&options_->sequential_matching->loop_detection_period,
                "loop_detection_period");
-  AddOptionInt(&options->sequential_matching->loop_detection_num_images,
+  AddOptionInt(&options_->sequential_matching->loop_detection_num_images,
                "loop_detection_num_images");
-  AddOptionInt(&options->sequential_matching->loop_detection_max_num_features,
+  AddOptionInt(&options_->sequential_matching->loop_detection_max_num_features,
                "loop_detection_max_num_features", -1);
-  AddOptionFilePath(&options->sequential_matching->vocab_tree_path,
+  AddOptionFilePath(&options_->sequential_matching->vocab_tree_path,
                     "vocab_tree_path");
 
   CreateGeneralOptions();
@@ -162,10 +162,10 @@ void SequentialMatchingTab::Run() {
 VocabTreeMatchingTab::VocabTreeMatchingTab(QWidget* parent,
                                            OptionManager* options)
     : FeatureMatchingTab(parent, options) {
-  AddOptionInt(&options->vocab_tree_matching->num_images, "num_images");
-  AddOptionInt(&options->vocab_tree_matching->max_num_features,
+  AddOptionInt(&options_->vocab_tree_matching->num_images, "num_images");
+  AddOptionInt(&options_->vocab_tree_matching->max_num_features,
                "max_num_features", -1);
-  AddOptionFilePath(&options->vocab_tree_matching->vocab_tree_path,
+  AddOptionFilePath(&options_->vocab_tree_matching->vocab_tree_path,
                     "vocab_tree_path");
 
   CreateGeneralOptions();
@@ -187,11 +187,11 @@ void VocabTreeMatchingTab::Run() {
 
 SpatialMatchingTab::SpatialMatchingTab(QWidget* parent, OptionManager* options)
     : FeatureMatchingTab(parent, options) {
-  AddOptionBool(&options->spatial_matching->is_gps, "is_gps");
-  AddOptionBool(&options->spatial_matching->ignore_z, "ignore_z");
-  AddOptionInt(&options->spatial_matching->max_num_neighbors,
+  AddOptionBool(&options_->spatial_matching->is_gps, "is_gps");
+  AddOptionBool(&options_->spatial_matching->ignore_z, "ignore_z");
+  AddOptionInt(&options_->spatial_matching->max_num_neighbors,
                "max_num_neighbors");
-  AddOptionDouble(&options->spatial_matching->max_distance, "max_distance");
+  AddOptionDouble(&options_->spatial_matching->max_distance, "max_distance");
 
   CreateGeneralOptions();
 }
