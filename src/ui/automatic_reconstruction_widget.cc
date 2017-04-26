@@ -96,7 +96,9 @@ void AutomaticReconstructionWidget::Run() {
   }
 
   main_window_->reconstruction_manager_.Clear();
-  RenderResult();
+  main_window_->reconstruction_manager_widget_->Update();
+  main_window_->RenderClear();
+  main_window_->RenderNow();
 
   AutomaticReconstructionController* controller =
       new AutomaticReconstructionController(
@@ -113,6 +115,22 @@ void AutomaticReconstructionWidget::RenderResult() {
     main_window_->reconstruction_manager_widget_->Update();
     main_window_->RenderClear();
     main_window_->RenderNow();
+  }
+
+  if (options_.sparse) {
+    QMessageBox::information(
+        this, "",
+        tr("Imported the reconstructed sparse models for visualization. The "
+           "models were also exported to the <i>sparse</i> sub-folder in the "
+           "workspace."));
+  }
+
+  if (options_.dense) {
+    QMessageBox::information(
+        this, "",
+        tr("To visualize the reconstructed dense models, navigate to the "
+           "<i>dense</i> sub-folder in your workspace with <i>File > Import "
+           "model from...</i>"));
   }
 }
 
