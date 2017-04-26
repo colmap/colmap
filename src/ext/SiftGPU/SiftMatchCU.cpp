@@ -30,6 +30,7 @@
 #include <math.h>
 using namespace std;
 
+#include <cuda_runtime.h>
 
 #include "GlobalUtil.h"
 #include "CuTexImage.h"
