@@ -261,6 +261,10 @@ BOOST_AUTO_TEST_CASE(TestMatches) {
   BOOST_CHECK_EQUAL(database.ReadAllMatches()[0].first,
                     Database::ImagePairToPairId(image_id1, image_id2));
   BOOST_CHECK_EQUAL(database.NumMatches(), 1000);
+  database.DeleteMatches(image_id1, image_id2);
+  BOOST_CHECK_EQUAL(database.NumMatches(), 0);
+  database.WriteMatches(image_id1, image_id2, matches);
+  BOOST_CHECK_EQUAL(database.NumMatches(), 1000);
   database.ClearMatches();
   BOOST_CHECK_EQUAL(database.NumMatches(), 0);
 }
@@ -297,6 +301,10 @@ BOOST_AUTO_TEST_CASE(TestInlierMatches) {
   BOOST_CHECK_EQUAL(image_pairs[0].first, image_id1);
   BOOST_CHECK_EQUAL(image_pairs[0].second, image_id2);
   BOOST_CHECK_EQUAL(num_inliers[0], two_view_geometry.inlier_matches.size());
+  BOOST_CHECK_EQUAL(database.NumInlierMatches(), 1000);
+  database.DeleteInlierMatches(image_id1, image_id2);
+  BOOST_CHECK_EQUAL(database.NumInlierMatches(), 0);
+  database.WriteInlierMatches(image_id1, image_id2, two_view_geometry);
   BOOST_CHECK_EQUAL(database.NumInlierMatches(), 1000);
   database.ClearInlierMatches();
   BOOST_CHECK_EQUAL(database.NumInlierMatches(), 0);

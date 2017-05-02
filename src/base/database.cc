@@ -649,6 +649,23 @@ void Database::UpdateImage(const Image& image) {
   SQLITE3_CALL(sqlite3_reset(sql_stmt_update_image_));
 }
 
+void Database::DeleteMatches(const image_t image_id1, const image_t image_id2) {
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_delete_matches_, 1,
+                                  static_cast<sqlite3_int64>(pair_id)));
+  SQLITE3_CALL(sqlite3_step(sql_stmt_delete_matches_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_delete_matches_));
+}
+
+void Database::DeleteInlierMatches(const image_t image_id1,
+                                   const image_t image_id2) {
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_delete_inlier_matches_, 1,
+                                  static_cast<sqlite3_int64>(pair_id)));
+  SQLITE3_CALL(sqlite3_step(sql_stmt_delete_inlier_matches_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_delete_inlier_matches_));
+}
+
 void Database::ClearMatches() const {
   SQLITE3_CALL(sqlite3_step(sql_stmt_clear_matches_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_matches_));
@@ -849,6 +866,19 @@ void Database::PrepareSQLStatements() {
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
                                   &sql_stmt_write_inlier_matches_, 0));
   sql_stmts_.push_back(sql_stmt_write_inlier_matches_);
+
+  //////////////////////////////////////////////////////////////////////////////
+  // delete_*
+  //////////////////////////////////////////////////////////////////////////////
+  sql = "DELETE FROM matches WHERE pair_id = ?;";
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
+                                  &sql_stmt_delete_matches_, 0));
+  sql_stmts_.push_back(sql_stmt_delete_matches_);
+
+  sql = "DELETE FROM inlier_matches WHERE pair_id = ?;";
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
+                                  &sql_stmt_delete_inlier_matches_, 0));
+  sql_stmts_.push_back(sql_stmt_delete_inlier_matches_);
 
   //////////////////////////////////////////////////////////////////////////////
   // clear_*
