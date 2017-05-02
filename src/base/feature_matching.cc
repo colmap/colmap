@@ -1753,10 +1753,12 @@ void MatchGuidedSiftFeaturesCPU(const SiftMatchingOptions& match_options,
 
   const float max_residual = match_options.max_error * match_options.max_error;
 
+  const Eigen::Matrix3f F = two_view_geometry->F.cast<float>();
+  const Eigen::Matrix3f H = two_view_geometry->H.cast<float>();
+
   std::function<bool(float, float, float, float)> guided_filter;
   if (two_view_geometry->config == TwoViewGeometry::CALIBRATED ||
       two_view_geometry->config == TwoViewGeometry::UNCALIBRATED) {
-    const Eigen::Matrix3f F = two_view_geometry->F.cast<float>();
     guided_filter = [&](const float x1, const float y1, const float x2,
                         const float y2) {
       const Eigen::Vector3f p1(x1, y1, 1.0f);
@@ -1773,7 +1775,6 @@ void MatchGuidedSiftFeaturesCPU(const SiftMatchingOptions& match_options,
              two_view_geometry->config == TwoViewGeometry::PANORAMIC ||
              two_view_geometry->config ==
                  TwoViewGeometry::PLANAR_OR_PANORAMIC) {
-    const Eigen::Matrix3f H = two_view_geometry->H.cast<float>();
     guided_filter = [&](const float x1, const float y1, const float x2,
                         const float y2) {
       const Eigen::Vector3f p1(x1, y1, 1.0f);
