@@ -600,7 +600,7 @@ void Database::WriteInlierMatches(
   SQLITE3_CALL(sqlite3_reset(sql_stmt_write_inlier_matches_));
 }
 
-void Database::UpdateCamera(const Camera& camera) {
+void Database::UpdateCamera(const Camera& camera) const {
   SQLITE3_CALL(
       sqlite3_bind_int64(sql_stmt_update_camera_, 1, camera.ModelId()));
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_camera_, 2,
@@ -623,7 +623,7 @@ void Database::UpdateCamera(const Camera& camera) {
   SQLITE3_CALL(sqlite3_reset(sql_stmt_update_camera_));
 }
 
-void Database::UpdateImage(const Image& image) {
+void Database::UpdateImage(const Image& image) const {
   SQLITE3_CALL(
       sqlite3_bind_text(sql_stmt_update_image_, 1, image.Name().c_str(),
                         static_cast<int>(image.Name().size()), SQLITE_STATIC));
@@ -649,7 +649,8 @@ void Database::UpdateImage(const Image& image) {
   SQLITE3_CALL(sqlite3_reset(sql_stmt_update_image_));
 }
 
-void Database::DeleteMatches(const image_t image_id1, const image_t image_id2) {
+void Database::DeleteMatches(const image_t image_id1,
+                             const image_t image_id2) const {
   const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_delete_matches_, 1,
                                   static_cast<sqlite3_int64>(pair_id)));
@@ -658,7 +659,7 @@ void Database::DeleteMatches(const image_t image_id1, const image_t image_id2) {
 }
 
 void Database::DeleteInlierMatches(const image_t image_id1,
-                                   const image_t image_id2) {
+                                   const image_t image_id2) const {
   const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_delete_inlier_matches_, 1,
                                   static_cast<sqlite3_int64>(pair_id)));

@@ -392,6 +392,18 @@ void FeatureMatcherCache::WriteInlierMatches(
   database_->WriteInlierMatches(image_id1, image_id2, two_view_geometry);
 }
 
+void FeatureMatcherCache::DeleteMatches(const image_t image_id1,
+                                        const image_t image_id2) {
+  std::unique_lock<std::mutex> lock(database_mutex_);
+  database_->DeleteMatches(image_id1, image_id2);
+}
+
+void FeatureMatcherCache::DeleteInlierMatches(const image_t image_id1,
+                                              const image_t image_id2) {
+  std::unique_lock<std::mutex> lock(database_mutex_);
+  database_->DeleteInlierMatches(image_id1, image_id2);
+}
+
 SiftCPUFeatureMatcher::SiftCPUFeatureMatcher(const SiftMatchingOptions& options,
                                              FeatureMatcherCache* cache,
                                              JobQueue<Input>* input_queue,
@@ -848,12 +860,22 @@ void SiftFeatureMatcher::Match(
 
     num_outputs += 1;
 
+    // If only one of the matches or inlier matches exist, we recompute them
+    // from scratch and delete the existing results. This must be done before
+    // pushing the jobs to the queue, otherwise database constraints might fail
+    // when writing an existing result into the database.
+
+    if (exists_inlier_matches) {
+      cache_->DeleteInlierMatches(image_pair.first, image_pair.second);
+    }
+
     if (exists_matches) {
       internal::MatchData match_data;
       match_data.image_id1 = image_pair.first;
       match_data.image_id2 = image_pair.second;
       match_data.matches =
           cache_->GetMatches(image_pair.first, image_pair.second);
+      cache_->DeleteMatches(image_pair.first, image_pair.second);
       CHECK(verifier_queue_.Push(match_data));
     } else {
       internal::ImagePairData image_pair_data;

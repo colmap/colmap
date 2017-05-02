@@ -53,7 +53,7 @@ struct SiftMatchingOptions {
   bool cross_check = true;
 
   // Maximum number of matches.
-  int max_num_matches = 16384;
+  int max_num_matches = 20000;
 
   // Maximum epipolar error in pixels for geometric verification.
   double max_error = 4.0;
@@ -121,6 +121,9 @@ class FeatureMatcherCache {
                     const FeatureMatches& matches);
   void WriteInlierMatches(const image_t image_id1, const image_t image_id2,
                           const TwoViewGeometry& two_view_geometry);
+
+  void DeleteMatches(const image_t image_id1, const image_t image_id2);
+  void DeleteInlierMatches(const image_t image_id1, const image_t image_id2);
 
  private:
   const size_t cache_size_;

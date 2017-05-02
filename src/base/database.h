@@ -168,17 +168,18 @@ class Database {
 
   // Update an existing camera in the database. The user is responsible for
   // making sure that the entry already exists.
-  void UpdateCamera(const Camera& camera);
+  void UpdateCamera(const Camera& camera) const;
 
   // Update an existing image in the database. The user is responsible for
   // making sure that the entry already exists.
-  void UpdateImage(const Image& image);
+  void UpdateImage(const Image& image) const;
 
   // Delete matches of an image pair.
-  void DeleteMatches(const image_t image_id1, const image_t image_id2);
+  void DeleteMatches(const image_t image_id1, const image_t image_id2) const;
 
   // Delete inlier matches of an image pair.
-  void DeleteInlierMatches(const image_t image_id1, const image_t image_id2);
+  void DeleteInlierMatches(const image_t image_id1,
+                           const image_t image_id2) const;
 
   // Clear the entire matches table.
   void ClearMatches() const;
