@@ -256,7 +256,7 @@ DatabaseImageViewerWidget::DatabaseImageViewerWidget(
   table_widget_->setItem(row, 1, qvec_item_);
   row += 1;
 
-  table_widget_->setItem(row, 0, new QTableWidgetItem("tx, ty, ty"));
+  table_widget_->setItem(row, 0, new QTableWidgetItem("tx, ty, tz"));
   tvec_item_ = new QTableWidgetItem();
   table_widget_->setItem(row, 1, tvec_item_);
   row += 1;
