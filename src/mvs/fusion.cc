@@ -189,6 +189,8 @@ void StereoFusion::Run() {
       }
     }
 
+    used_images_.at(image_id) = false;
+
     std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
   }
 
