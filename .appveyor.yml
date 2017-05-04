@@ -1,0 +1,25 @@
+os: Visual Studio 2015
+
+platform:
+  - x64
+
+configuration:
+  - Release
+
+matrix:
+  fast_finish: true
+
+build_script:
+#  - dir "C:/Libraries/boost_1_63_0/lib64-msvc-14.0"
+  - CD
+  - cd ..
+  - CD
+  - cd yas/tests/base
+  - CD
+  - echo %configuration%
+  - mkdir build
+  - cd build
+  - cmake --version
+  - cmake .. -DCMAKE_BUILD_TYPE=Release
+  - cmake --build . --config %configuration%
+  - Release\yas-base-test.exe binary
