@@ -576,7 +576,7 @@ bool ParallelBundleAdjuster::Solve(Reconstruction* reconstruction) {
   summary_.num_effective_parameters_reduced =
       static_cast<int>(8 * config_.NumImages() -
                        2 * config_.NumConstantCameras() + 3 * points3D_.size());
-  summary_.num_successful_steps = pba_config->GetIterationsLM();
+  summary_.num_successful_steps = pba_config->GetIterationsLM() + 1;
   summary_.termination_type = ceres::TerminationType::USER_SUCCESS;
   summary_.initial_cost =
       pba_config->GetInitialMSE() * summary_.num_residuals_reduced / 4;
