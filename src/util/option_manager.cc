@@ -63,8 +63,6 @@ void OptionManager::InitForVideoData() {
 }
 
 void OptionManager::InitForDSLRData() {
-  mapper->min_focal_length_ratio = std::numeric_limits<double>::min();
-  mapper->max_focal_length_ratio = std::numeric_limits<double>::max();
   mapper->max_extra_param = std::numeric_limits<double>::max();
 }
 
