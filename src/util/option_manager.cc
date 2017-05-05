@@ -58,8 +58,6 @@ void OptionManager::InitForVideoData() {
   mapper->mapper.init_min_tri_angle /= 2;
   mapper->ba_global_images_ratio = 1.4;
   mapper->ba_global_points_ratio = 1.4;
-  mapper->min_focal_length_ratio = std::numeric_limits<double>::min();
-  mapper->max_focal_length_ratio = std::numeric_limits<double>::max();
   mapper->max_extra_param = std::numeric_limits<double>::max();
   dense_fusion->min_num_pixels = 15;
 }
@@ -523,9 +521,11 @@ void OptionManager::Reset() {
 bool OptionManager::Check() {
   bool success = true;
 
-  success = success && !ExistsDir(*database_path) &&
-            ExistsDir(GetParentDir(*database_path));
-  success = success && ExistsDir(*image_path);
+  if (added_database_options_)
+    success = success && !ExistsDir(*database_path) &&
+              ExistsDir(GetParentDir(*database_path));
+
+  if (added_image_options_) success = success && ExistsDir(*image_path);
 
   if (image_reader) success = success && image_reader->Check();
   if (sift_extraction) success = success && sift_extraction->Check();
@@ -580,16 +580,17 @@ void OptionManager::Parse(const int argc, char** argv) {
       vmap.notify();
     }
   } catch (std::exception& e) {
-    std::cout << "ERROR: Failed to parse options: " << e.what() << "."
+    std::cerr << "ERROR: Failed to parse options: " << e.what() << "."
               << std::endl;
     exit(EXIT_FAILURE);
   } catch (...) {
-    std::cout << "ERROR: Failed to parse options for unknown reason."
+    std::cerr << "ERROR: Failed to parse options for unknown reason."
               << std::endl;
     exit(EXIT_FAILURE);
   }
 
   if (!Check()) {
+    std::cerr << "ERROR: Invalid options provided." << std::endl;
     exit(EXIT_FAILURE);
   }
 }
