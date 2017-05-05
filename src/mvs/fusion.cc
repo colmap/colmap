@@ -101,6 +101,7 @@ void StereoFusion::Run() {
   const auto& model = workspace_->GetModel();
   used_images_.resize(model.images.size());
   visited_masks_.resize(model.images.size());
+  depth_map_sizes_.resize(model.images.size());
   bitmap_scales_.resize(model.images.size());
   P_.resize(model.images.size());
   inv_P_.resize(model.images.size());
@@ -128,6 +129,9 @@ void StereoFusion::Run() {
     visited_masks_.at(image_id) =
         Mat<bool>(depth_map.GetWidth(), depth_map.GetHeight(), 1);
     visited_masks_.at(image_id).Fill(false);
+
+    depth_map_sizes_.at(image_id) =
+        std::make_pair(depth_map.GetWidth(), depth_map.GetHeight());
 
     bitmap_scales_.at(image_id) = std::make_pair(
         static_cast<float>(depth_map.GetWidth()) / image.GetWidth(),
@@ -231,22 +235,23 @@ void StereoFusion::Fuse() {
       continue;
     }
 
-    const auto& depth_map = workspace_->GetDepthMap(image_id);
-    if (col < 0 || row < 0 || col >= static_cast<int>(depth_map.GetWidth()) ||
-        row >= static_cast<int>(depth_map.GetHeight())) {
-      continue;
-    }
-
-    const float depth = depth_map.Get(row, col);
-
-    // Pixels with negative depth are filtered.
-    if (depth <= 0.0f) {
+    const auto& depth_map_size = depth_map_sizes_.at(image_id);
+    if (col < 0 || row < 0 || col >= depth_map_size.first ||
+        row >= depth_map_size.second) {
       continue;
     }
 
     // Check if pixel already fused.
     auto& visited_mask = visited_masks_.at(image_id);
     if (visited_mask.Get(row, col)) {
+      continue;
+    }
+
+    const auto& depth_map = workspace_->GetDepthMap(image_id);
+    const float depth = depth_map.Get(row, col);
+
+    // Pixels with negative depth are filtered.
+    if (depth <= 0.0f) {
       continue;
     }
 
