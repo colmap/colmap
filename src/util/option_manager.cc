@@ -137,8 +137,7 @@ void OptionManager::AddExtractionOptions() {
                    &sift_extraction->max_num_features);
   AddDefaultOption("SiftExtraction.first_octave",
                    &sift_extraction->first_octave);
-  AddDefaultOption("SiftExtraction.num_octaves",
-                   &sift_extraction->num_octaves);
+  AddDefaultOption("SiftExtraction.num_octaves", &sift_extraction->num_octaves);
   AddDefaultOption("SiftExtraction.octave_resolution",
                    &sift_extraction->octave_resolution);
   AddDefaultOption("SiftExtraction.peak_threshold",
@@ -523,6 +522,10 @@ void OptionManager::Reset() {
 
 bool OptionManager::Check() {
   bool success = true;
+
+  success = success && !ExistsDir(*database_path) &&
+            ExistsDir(GetParentDir(*database_path));
+  success = success && ExistsDir(*image_path);
 
   if (image_reader) success = success && image_reader->Check();
   if (sift_extraction) success = success && sift_extraction->Check();
