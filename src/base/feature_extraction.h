@@ -18,6 +18,7 @@
 #define COLMAP_SRC_BASE_FEATURE_EXTRACTION_H_
 
 #include "base/database.h"
+#include "base/image_reader.h"
 #include "ext/SiftGPU/SiftGPU.h"
 #include "util/bitmap.h"
 #include "util/opengl_utils.h"
@@ -69,52 +70,6 @@ struct SiftExtractionOptions {
   Normalization normalization = Normalization::L1_ROOT;
 
   bool Check() const;
-};
-
-class ImageReader {
- public:
-  struct Options {
-    // Path to database in which to store the extracted data.
-    std::string database_path = "";
-
-    // Root path to folder which contains the image.
-    std::string image_path = "";
-
-    // Optional list of images to read. The list must contain the relative path
-    // of the images with respect to the image_path.
-    std::vector<std::string> image_list;
-
-    // Name of the camera model.
-    std::string camera_model = "SIMPLE_RADIAL";
-
-    // Whether to use the same camera for all images.
-    bool single_camera = false;
-
-    // Specification of manual camera parameters. If empty, camera parameters
-    // will be extracted from EXIF, i.e. principal point and focal length.
-    std::string camera_params = "";
-
-    // If camera parameters are not specified manually and the image does not
-    // have focal length EXIF information, the focal length is set to the
-    // value `default_focal_length_factor * max(width, height)`.
-    double default_focal_length_factor = 1.2;
-
-    bool Check() const;
-  };
-
-  explicit ImageReader(const Options& options);
-
-  bool Next(Image* image, Bitmap* bitmap);
-  size_t NextIndex() const;
-  size_t NumImages() const;
-
- private:
-  // Image reader options.
-  Options options_;
-  // Index of previously processed image.
-  size_t image_index_;
-  // Previously processed camera.
-  Camera prev_camera_;
 };
 
 // Extract DoG SIFT features using the CPU.

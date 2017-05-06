@@ -14,6 +14,7 @@ COLMAP_ADD_LIBRARY(base
     gps.h gps.cc
     homography_matrix.h homography_matrix.cc
     image.h image.cc
+    image_reader.h image_reader.cc
     line.h line.cc
     point2d.h point2d.cc
     point3d.h point3d.cc
