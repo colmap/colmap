@@ -526,7 +526,7 @@ vl_homogeneouskernelmap_get_window_type (VlHomogeneousKernelMap const * self)
 #ifdef VL_HOMKERMAP_INSTANTIATING
 /* ---------------------------------------------------------------- */
 
-#include "float.th"
+#include "float.h"
 
 void
 VL_XCAT(vl_homogeneouskernelmap_evaluate_,SFX)

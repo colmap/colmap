@@ -37,7 +37,7 @@ the terms of the BSD license (see the COPYING file).
 #ifndef VL_DISABLE_SSE2
 
 #include "generic.h"
-#include "float.th"
+#include "float.h"
 
 VL_EXPORT T
 VL_XCAT(_vl_dot_sse2_, SFX)
