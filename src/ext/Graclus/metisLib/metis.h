@@ -18,7 +18,6 @@
 #else
 #include <malloc.h>
 #endif
-#include <strings.h>
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
@@ -33,9 +32,3 @@
 #include "struct.h"
 #include "macros.h"
 #include "proto.h"
-
-#if defined(_WIN32) && !defined(__CYGWIN__)
-#define random	rand
-#define drand48() ((double)rand()/RAND_MAX)
-#define srand48(n) srand((n));
-#endif
