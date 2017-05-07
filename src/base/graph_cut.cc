@@ -16,6 +16,8 @@
 
 #include "base/graph_cut.h"
 
+#include <unordered_map>
+
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/one_bit_color_map.hpp>
@@ -25,7 +27,7 @@
 
 extern "C" {
 #include "ext/Graclus/metisLib/metis.h"
-};
+}
 
 #include "util/logging.h"
 

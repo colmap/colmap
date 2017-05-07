@@ -488,8 +488,6 @@ float sdot(int n, float *, float *);
 void saxpy(int, float, float *, int, float *, int);
 void RandomPermute(int, idxtype *, int);
 void RandomInit(int n, int k, idxtype *label);
-double drand48();
-void srand48(long);
 int ispow2(int);
 void InitRandom(int);
 int log2_metis(int);
