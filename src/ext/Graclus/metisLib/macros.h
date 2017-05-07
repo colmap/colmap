@@ -16,13 +16,8 @@
 /*************************************************************************
 * The following macro returns a random number in the specified range
 **************************************************************************/
-#ifdef __VC__
 #define RandomInRange(u) ((rand()>>3)%(u))
 #define RandomInRangeFast(u) ((rand()>>3)%(u))
-#else
-#define RandomInRange(u) ((int)(drand48()*((double)(u))))
-#define RandomInRangeFast(u) ((rand()>>3)%(u))
-#endif
 
 
 
@@ -34,14 +29,14 @@
 #define XOR(a, b) ((a) < 0 ? -((-(a))^(b)) : ((a)^(b)))
 
 #define SWAP(a, b, tmp)  \
-                 do {(tmp) = (a); (a) = (b); (b) = (tmp);} while(0) 
+                 do {(tmp) = (a); (a) = (b); (b) = (tmp);} while(0)
 
 #define INC_DEC(a, b, val) \
                  do {(a) += (val); (b) -= (val);} while(0)
 
 
 #define scopy(n, a, b) (float *)memcpy((void *)(b), (void *)(a), sizeof(float)*(n))
-#define idxcopy(n, a, b) (idxtype *)memcpy((void *)(b), (void *)(a), sizeof(idxtype)*(n)) 
+#define idxcopy(n, a, b) (idxtype *)memcpy((void *)(b), (void *)(a), sizeof(idxtype)*(n))
 
 #define HASHFCT(key, size) ((key)%(size))
 
@@ -81,7 +76,7 @@
     }
 #else
 #   define MALLOC_CHECK(ptr) ;
-#endif 
+#endif
 
 
 
@@ -93,7 +88,7 @@
      for (i=1; i<n; i++) a[i] += a[i-1]; \
      for (i=n; i>0; i--) a[i] = a[i-1]; \
      a[0] = 0; \
-   } while(0) 
+   } while(0)
 
 
 /*************************************************************************
@@ -104,7 +99,7 @@
      ASSERT(bndptr[vtx] == -1); \
      bndind[nbnd] = vtx; \
      bndptr[vtx] = nbnd++;\
-   } while(0) 
+   } while(0)
 
 #define BNDDelete(nbnd, bndind, bndptr, vtx) \
    do { \
@@ -112,7 +107,7 @@
      bndind[bndptr[vtx]] = bndind[--nbnd]; \
      bndptr[bndind[nbnd]] = bndptr[vtx]; \
      bndptr[vtx] = -1; \
-   } while(0) 
+   } while(0)
 
 
 
@@ -128,7 +123,7 @@
     }
 #else
 #   define ASSERT(expr) ;
-#endif 
+#endif
 
 #ifdef DEBUG
 #   define ASSERTP(expr, msg)                                          \
@@ -140,4 +135,4 @@
     }
 #else
 #   define ASSERTP(expr, msg) ;
-#endif 
+#endif

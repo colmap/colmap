@@ -585,7 +585,7 @@ void RandomPermute(int n, idxtype *p, int flag)
 
   for(i = 1; i < n; i++)
   {
-    j = random() % (i+1);
+    j = rand() % (i+1);
     tmp = p[i];
     p[i] = p[j];
     p[j] = tmp;
@@ -650,15 +650,9 @@ int ispow2(int a)
 void InitRandom(int seed)
 {
   if (seed == -1) {
-#ifndef __VC__
-    srand48(7654321L);
-#endif
     srand(4321);
   }
   else {
-#ifndef __VC__
-    srand48(seed);
-#endif
     srand(seed);
   }
 }
