@@ -12,6 +12,7 @@ COLMAP_ADD_LIBRARY(base
     feature_extraction.h feature_extraction.cc
     feature_matching.h feature_matching.cc
     gps.h gps.cc
+    graph_cut.h graph_cut.cc
     homography_matrix.h homography_matrix.cc
     image.h image.cc
     image_reader.h image_reader.cc
@@ -43,6 +44,8 @@ COLMAP_ADD_TEST(essential_matrix_utils_test essential_matrix_test.cc)
 COLMAP_ADD_TEST(feature_test feature_test.cc)
 COLMAP_ADD_TEST(feature_extraction_test feature_extraction_test.cc)
 COLMAP_ADD_TEST(feature_matching_test feature_matching_test.cc)
+COLMAP_ADD_TEST(gps_test gps_test.cc)
+COLMAP_ADD_TEST(graph_cut_test graph_cut_test.cc)
 COLMAP_ADD_TEST(homography_matrix_utils_test homography_matrix_test.cc)
 COLMAP_ADD_TEST(image_test image_test.cc)
 COLMAP_ADD_TEST(line_test line_test.cc)
