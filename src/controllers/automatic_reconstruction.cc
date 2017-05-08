@@ -44,8 +44,8 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   if (options_.data_type == DataType::VIDEO) {
     option_manager_.InitForVideoData();
-  } else if (options_.data_type == DataType::DSLR) {
-    option_manager_.InitForDSLRData();
+  } else if (options_.data_type == DataType::INDIVIDUAL) {
+    option_manager_.InitForIndividualData();
   } else if (options_.data_type == DataType::INTERNET) {
     option_manager_.InitForInternetData();
   } else {
@@ -70,6 +70,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   ImageReader::Options reader_options = *option_manager_.image_reader;
   reader_options.database_path = *option_manager_.database_path;
   reader_options.image_path = *option_manager_.image_path;
+  reader_options.single_camera = options_.single_camera;
 
   if (options_.use_gpu) {
     if (!options_.use_opengl) {
@@ -157,7 +158,7 @@ void AutomaticReconstructionController::RunFeatureMatching() {
   Thread* matcher = nullptr;
   if (options_.data_type == DataType::VIDEO) {
     matcher = sequential_matcher_.get();
-  } else if (options_.data_type == DataType::DSLR ||
+  } else if (options_.data_type == DataType::INDIVIDUAL ||
              options_.data_type == DataType::INTERNET) {
     Database database(*option_manager_.database_path);
     const size_t num_images = database.NumImages();

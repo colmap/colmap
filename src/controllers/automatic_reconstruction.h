@@ -27,7 +27,7 @@ namespace colmap {
 
 class AutomaticReconstructionController : public Thread {
  public:
-  enum class DataType { DSLR, VIDEO, INTERNET };
+  enum class DataType { INDIVIDUAL, VIDEO, INTERNET };
 
   struct Options {
     // The path to the workspace folder in which all results are stored.
@@ -44,6 +44,9 @@ class AutomaticReconstructionController : public Thread {
 
     // Whether to perform low- or high-quality reconstruction.
     bool high_quality = true;
+
+    // Whether to use shared intrinsics or not.
+    bool single_camera = false;
 
     // Whether to perform sparse mapping.
     bool sparse = true;

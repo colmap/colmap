@@ -27,7 +27,7 @@ int main(int argc, char** argv) {
   InitializeGlog(argv);
 
   AutomaticReconstructionController::Options reconstruction_options;
-  std::string data_type = "DSLR";
+  std::string data_type = "INDIVIDUAL";
 
   OptionManager options;
   options.AddRequiredOption("workspace_path",
@@ -35,21 +35,24 @@ int main(int argc, char** argv) {
   options.AddRequiredOption("image_path", &reconstruction_options.image_path);
   options.AddDefaultOption("vocab_tree_path",
                            &reconstruction_options.vocab_tree_path);
-  options.AddDefaultOption("data_type", &data_type, "{DSLR, VIDEO, INTERNET}");
+  options.AddDefaultOption("data_type", &data_type,
+                           "{INDIVIDUAL, VIDEO, INTERNET}");
   options.AddDefaultOption("high_quality",
                            &reconstruction_options.high_quality);
+  options.AddDefaultOption("single_camera",
+                           &reconstruction_options.single_camera);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
   options.AddDefaultOption("use_gpu", &reconstruction_options.use_gpu);
   options.AddDefaultOption("use_opengl", &reconstruction_options.use_opengl);
   options.Parse(argc, argv);
 
-  if (data_type == "VIDEO") {
+  if (data_type == "INDIVIDUAL") {
+    reconstruction_options.data_type =
+        AutomaticReconstructionController::DataType::INDIVIDUAL;
+  } else if (data_type == "VIDEO") {
     reconstruction_options.data_type =
         AutomaticReconstructionController::DataType::VIDEO;
-  } else if (data_type == "DSLR") {
-    reconstruction_options.data_type =
-        AutomaticReconstructionController::DataType::DSLR;
   } else if (data_type == "INTERNET") {
     reconstruction_options.data_type =
         AutomaticReconstructionController::DataType::INTERNET;

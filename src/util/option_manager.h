@@ -37,8 +37,8 @@ class OptionManager {
   OptionManager();
 
   // Create "optimal" set of options for different reconstruction scenarios.
+  void InitForIndividualData();
   void InitForVideoData();
-  void InitForDSLRData();
   void InitForInternetData();
 
   void AddAllOptions();
