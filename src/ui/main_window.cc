@@ -359,17 +359,17 @@ void MainWindow::CreateActions() {
 
   action_render_ = new QAction(tr("Render"), this);
   connect(action_render_, &QAction::triggered, this, &MainWindow::Render,
-          Qt::BlockingQueuedConnection);
+          Qt::QueuedConnection);
 
   action_render_now_ = new QAction(tr("Render now"), this);
   render_options_widget_->action_render_now = action_render_now_;
   connect(action_render_now_, &QAction::triggered, this, &MainWindow::RenderNow,
-          Qt::BlockingQueuedConnection);
+          Qt::QueuedConnection);
 
   action_reconstruction_finish_ =
       new QAction(tr("Finish reconstruction"), this);
   connect(action_reconstruction_finish_, &QAction::triggered, this,
-          &MainWindow::ReconstructionFinish, Qt::BlockingQueuedConnection);
+          &MainWindow::ReconstructionFinish, Qt::QueuedConnection);
 
   action_about_ = new QAction(tr("About"), this);
   connect(action_about_, &QAction::triggered, this, &MainWindow::About);
