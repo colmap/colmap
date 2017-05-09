@@ -155,6 +155,7 @@ void StereoFusion::Run() {
             .transpose();
   }
 
+  size_t prev_num_fused_points = 0;
   for (size_t image_id = 0; image_id < model.images.size(); ++image_id) {
     if (IsStopped()) {
       break;
@@ -195,10 +196,22 @@ void StereoFusion::Run() {
 
     used_images_.at(image_id) = false;
 
-    std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
+    const size_t num_fused_points =
+        fused_points_.size() - prev_num_fused_points;
+    prev_num_fused_points = fused_points_.size();
+    std::cout << StringPrintf(" %d points in %.3fs", num_fused_points,
+                              timer.ElapsedSeconds())
+              << std::endl;
   }
 
   fused_points_.shrink_to_fit();
+
+  if (fused_points_.empty()) {
+    std::cout << "WARNING: Could not fuse any points. This is likely caused by "
+                 "incorrect settings - filtering must be enabled for the last "
+                 "call to patch match stereo."
+              << std::endl;
+  }
 
   std::cout << "Number of fused points: " << fused_points_.size() << std::endl;
   GetTimer().PrintMinutes();
