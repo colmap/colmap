@@ -62,6 +62,9 @@ class IncrementalMapper {
     // Minimum triangulation angle for initial image pair.
     double init_min_tri_angle = 16.0;
 
+    // Maximum number of trials to use an image for initialization.
+    int init_max_reg_trials = 2;
+
     // Maximum reprojection error in absolute pose estimation.
     double abs_pose_max_error = 12.0;
 
@@ -210,7 +213,7 @@ class IncrementalMapper {
   // Find seed images for incremental reconstruction. Suitable seed images have
   // a large number of correspondences and have camera calibration priors. The
   // returned list is ordered such that most suitable images are in the front.
-  std::vector<image_t> FindFirstInitialImage() const;
+  std::vector<image_t> FindFirstInitialImage(const Options& options) const;
 
   // For a given first seed image, find other images that are connected to the
   // first image. Suitable second images have a large number of correspondences
@@ -255,9 +258,10 @@ class IncrementalMapper {
   image_pair_t prev_init_image_pair_id_;
   TwoViewGeometry prev_init_two_view_geometry_;
 
-  // Image pairs that have been used for initialization. Each image pair is
-  // only tried once for initialization.
-  std::unordered_set<image_pair_t> tried_init_image_pairs_;
+  // Images and image pairs that have been used for initialization. Each image
+  // and image pair is only tried once for initialization.
+  std::unordered_map<image_t, size_t> init_num_reg_trials_;
+  std::unordered_set<image_pair_t> init_image_pairs_;
 
   // Cameras whose parameters have been refined in pose refinement. Used
   // to avoid duplicate refinement of camera parameters or degradation of

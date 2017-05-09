@@ -350,6 +350,8 @@ void OptionManager::AddMapperOptions() {
                    &mapper->mapper.init_max_forward_motion);
   AddDefaultOption("Mapper.init_min_tri_angle",
                    &mapper->mapper.init_min_tri_angle);
+  AddDefaultOption("Mapper.init_max_reg_trials",
+                   &mapper->mapper.init_max_reg_trials);
   AddDefaultOption("Mapper.abs_pose_max_error",
                    &mapper->mapper.abs_pose_max_error);
   AddDefaultOption("Mapper.abs_pose_min_num_inliers",

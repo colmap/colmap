@@ -64,6 +64,7 @@ bool IncrementalMapper::Options::Check() const {
   CHECK_OPTION_GE(init_max_forward_motion, 0.0);
   CHECK_OPTION_LE(init_max_forward_motion, 1.0);
   CHECK_OPTION_GE(init_min_tri_angle, 0.0);
+  CHECK_OPTION_GE(init_max_reg_trials, 1);
   CHECK_OPTION_GT(abs_pose_max_error, 0.0);
   CHECK_OPTION_GT(abs_pose_min_num_inliers, 0);
   CHECK_OPTION_GE(abs_pose_min_inlier_ratio, 0.0);
@@ -141,7 +142,7 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
     image_ids1.push_back(*image_id2);
   } else {
     // No initial seed image provided.
-    image_ids1 = FindFirstInitialImage();
+    image_ids1 = FindFirstInitialImage(options);
   }
 
   // Try to find good initial pair.
@@ -158,11 +159,11 @@ bool IncrementalMapper::FindInitialImagePair(const Options& options,
           Database::ImagePairToPairId(*image_id1, *image_id2);
 
       // Try every pair only once.
-      if (tried_init_image_pairs_.count(pair_id) > 0) {
+      if (init_image_pairs_.count(pair_id) > 0) {
         continue;
       }
 
-      tried_init_image_pairs_.insert(pair_id);
+      init_image_pairs_.insert(pair_id);
 
       if (EstimateInitialTwoViewGeometry(options, *image_id1, *image_id2)) {
         return true;
@@ -241,12 +242,14 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
 
   CHECK(options.Check());
 
+  init_num_reg_trials_[image_id1] += 1;
+  init_num_reg_trials_[image_id2] += 1;
   num_reg_trials_[image_id1] += 1;
   num_reg_trials_[image_id2] += 1;
 
   const image_pair_t pair_id =
       Database::ImagePairToPairId(image_id1, image_id2);
-  tried_init_image_pairs_.insert(pair_id);
+  init_image_pairs_.insert(pair_id);
 
   Image& image1 = reconstruction_->Image(image_id1);
   const Camera& camera1 = reconstruction_->Camera(image1.CameraId());
@@ -730,7 +733,8 @@ void IncrementalMapper::ClearModifiedPoints3D() {
   triangulator_->ClearModifiedPoints3D();
 }
 
-std::vector<image_t> IncrementalMapper::FindFirstInitialImage() const {
+std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
+    const Options& options) const {
   // Struct to hold meta-data for ranking images.
   struct ImageInfo {
     image_t image_id;
@@ -745,6 +749,12 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage() const {
   for (const auto& image : reconstruction_->Images()) {
     // Only images with correspondences can be registered.
     if (image.second.NumCorrespondences() == 0) {
+      continue;
+    }
+
+    // Only use images for initialization a maximum number of times.
+    if (init_num_reg_trials_.count(image.first) &&
+        init_num_reg_trials_.at(image.first) >= options.init_max_reg_trials) {
       continue;
     }
 
