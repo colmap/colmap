@@ -26,7 +26,9 @@ namespace colmap {
 
 bool SceneClustering::Options::Check() const {
   CHECK_OPTION_GT(branching, 0);
-  CHECK_OPTION_GE(num_overlapping_images, 0);
+  CHECK_OPTION_GE(image_overlap, 0);
+  CHECK_OPTION_LE(image_overlap, 1);
+  CHECK_OPTION_GE(min_image_overlap, 0);
   CHECK_OPTION_GT(leaf_max_num_images, 0);
   return true;
 }
@@ -63,6 +65,8 @@ void SceneClustering::Partition(
 void SceneClustering::PartitionCluster(
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& weights, Cluster* cluster) {
+  CHECK_EQ(edges.size(), weights.size());
+
   if (edges.size() == 0 ||
       cluster->image_ids.size() <= options_.leaf_max_num_images) {
     return;
@@ -81,6 +85,7 @@ void SceneClustering::PartitionCluster(
   std::vector<std::vector<int>> child_weights(options_.branching);
   std::vector<std::vector<std::pair<int, int>>> overlapping_edges(
       options_.branching);
+  std::vector<std::vector<int>> overlapping_weights(options_.branching);
   for (size_t i = 0; i < edges.size(); ++i) {
     const int label1 = labels.at(edges[i].first);
     const int label2 = labels.at(edges[i].second);
@@ -90,17 +95,20 @@ void SceneClustering::PartitionCluster(
     } else {
       overlapping_edges.at(label1).push_back(edges[i]);
       overlapping_edges.at(label2).push_back(edges[i]);
+      overlapping_weights.at(label1).push_back(weights[i]);
+      overlapping_weights.at(label2).push_back(weights[i]);
     }
   }
 
-  for (size_t i = 0; i < options_.branching; ++i) {
-    PartitionCluster(child_edges[i], child_weights[i],
-                     &cluster->child_clusters[i]);
-  }
-
-  if (options_.num_overlapping_images > 0) {
-    for (size_t i = 0; i < options_.branching; ++i) {
+  const size_t num_overlapping_images = std::max(
+      static_cast<size_t>(options_.min_image_overlap),
+      static_cast<size_t>(options_.image_overlap * cluster->image_ids.size()));
+  if (num_overlapping_images > 0) {
+    for (int i = 0; i < options_.branching; ++i) {
+      // Make sure selection of adding overlapping images is random.
       Shuffle(overlapping_edges[i].size(), &overlapping_edges[i]);
+
+      // Select overlapping edges at random and add image to cluster.
       std::set<int> overlapping_image_ids;
       for (const auto& edge : overlapping_edges[i]) {
         if (labels.at(edge.first) == i) {
@@ -108,14 +116,35 @@ void SceneClustering::PartitionCluster(
         } else {
           overlapping_image_ids.insert(edge.first);
         }
-        if (overlapping_image_ids.size() >= options_.num_overlapping_images) {
+        if (overlapping_image_ids.size() >= num_overlapping_images) {
           break;
         }
       }
+
+      // Append the overlapping images to the cluster.
       cluster->child_clusters[i].image_ids.insert(
           cluster->child_clusters[i].image_ids.end(),
           overlapping_image_ids.begin(), overlapping_image_ids.end());
+
+      // Append all edges connected to the overlapping images to the cluster.
+      for (size_t j = 0; j < overlapping_edges[i].size(); ++j) {
+        const auto& edge = overlapping_edges[i][j];
+        if (overlapping_image_ids.count(edge.first) > 0 ||
+            overlapping_image_ids.count(edge.second) > 0) {
+          child_edges[i].push_back(edge);
+          child_weights[i].push_back(overlapping_weights[i][j]);
+        }
+      }
     }
+  }
+
+  for (size_t i = 0; i < options_.branching; ++i) {
+    if (cluster->image_ids.size() >
+        cluster->child_clusters[i].image_ids.size()) {
+      PartitionCluster(child_edges[i], child_weights[i],
+                       &cluster->child_clusters[i]);
+    }  // Else, the clustering does not converge and the overlap constraint
+       // cannot be satisfied, so do not further cluster the child.
   }
 }
 

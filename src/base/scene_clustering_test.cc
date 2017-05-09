@@ -28,7 +28,7 @@ BOOST_AUTO_TEST_CASE(TestEmpty) {
   const std::vector<std::pair<image_pair_t, int>> image_pairs;
   SceneClustering::Options options;
   options.branching = 2;
-  options.num_overlapping_images = 0;
+  options.min_image_overlap = 0;
   options.leaf_max_num_images = 2;
   SceneClustering scene_clustering(options);
   BOOST_CHECK(scene_clustering.GetRootCluster() == nullptr);
@@ -45,7 +45,7 @@ BOOST_AUTO_TEST_CASE(TestOneLevel) {
       {Database::ImagePairToPairId(0, 1), 10}};
   SceneClustering::Options options;
   options.branching = 2;
-  options.num_overlapping_images = 0;
+  options.min_image_overlap = 0;
   options.leaf_max_num_images = 2;
   SceneClustering scene_clustering(options);
   BOOST_CHECK(scene_clustering.GetRootCluster() == nullptr);
@@ -66,7 +66,7 @@ BOOST_AUTO_TEST_CASE(TestTwoLevels) {
       {Database::ImagePairToPairId(0, 1), 10}};
   SceneClustering::Options options;
   options.branching = 2;
-  options.num_overlapping_images = 0;
+  options.min_image_overlap = 0;
   options.leaf_max_num_images = 1;
   SceneClustering scene_clustering(options);
   BOOST_CHECK(scene_clustering.GetRootCluster() == nullptr);
@@ -88,7 +88,7 @@ BOOST_AUTO_TEST_CASE(TestThreeLevels) {
       {Database::ImagePairToPairId(0, 2), 10}};
   SceneClustering::Options options;
   options.branching = 2;
-  options.num_overlapping_images = 0;
+  options.min_image_overlap = 0;
   options.leaf_max_num_images = 1;
   SceneClustering scene_clustering(options);
   BOOST_CHECK(scene_clustering.GetRootCluster() == nullptr);
@@ -110,7 +110,7 @@ BOOST_AUTO_TEST_CASE(TestThreeLevelsMultipleImages) {
       {Database::ImagePairToPairId(0, 2), 10}};
   SceneClustering::Options options;
   options.branching = 2;
-  options.num_overlapping_images = 0;
+  options.min_image_overlap = 0;
   options.leaf_max_num_images = 2;
   SceneClustering scene_clustering(options);
   BOOST_CHECK(scene_clustering.GetRootCluster() == nullptr);
@@ -138,8 +138,8 @@ BOOST_AUTO_TEST_CASE(TestOneOverlap) {
       {Database::ImagePairToPairId(2, 3), 10}};
   SceneClustering::Options options;
   options.branching = 2;
-  options.num_overlapping_images = 1;
-  options.leaf_max_num_images = 2;
+  options.min_image_overlap = 1;
+  options.leaf_max_num_images = 3;
   SceneClustering scene_clustering(options);
   BOOST_CHECK(scene_clustering.GetRootCluster() == nullptr);
   scene_clustering.Partition(image_pairs);
@@ -170,7 +170,7 @@ BOOST_AUTO_TEST_CASE(TestTwoOverlap) {
       {Database::ImagePairToPairId(2, 3), 10}};
   SceneClustering::Options options;
   options.branching = 2;
-  options.num_overlapping_images = 2;
+  options.min_image_overlap = 2;
   options.leaf_max_num_images = 2;
   SceneClustering scene_clustering(options);
   BOOST_CHECK(scene_clustering.GetRootCluster() == nullptr);

@@ -33,8 +33,9 @@ class SceneClustering {
     // The branching factor of the hierarchical clustering.
     int branching = 2;
 
-    // The number of overlapping images between child clusters.
-    int num_overlapping_images = 50;
+    // The number / ratio of overlapping images between child clusters.
+    double image_overlap = 0.1;
+    int min_image_overlap = 50;
 
     // The maximum number of images in a leaf node cluster, otherwise the
     // cluster is further partitioned using the given branching factor. Note
