@@ -521,9 +521,11 @@ void OptionManager::Reset() {
 bool OptionManager::Check() {
   bool success = true;
 
-  if (added_database_options_)
+  if (added_database_options_) {
+    const auto database_parent_path = GetParentDir(*database_path);
     success = success && !ExistsDir(*database_path) &&
-              ExistsDir(GetParentDir(*database_path));
+              (database_parent_path == "" || ExistsDir(database_parent_path));
+  }
 
   if (added_image_options_) success = success && ExistsDir(*image_path);
 
