@@ -33,7 +33,9 @@ Bitmap::Bitmap()
     : data_(nullptr, &FreeImage_Unload), width_(0), height_(0), channels_(0) {}
 
 Bitmap::Bitmap(const Bitmap& other) : Bitmap() {
-  SetPtr(FreeImage_Clone(data_.get()));
+  if (other.data_) {
+    SetPtr(FreeImage_Clone(other.data_.get()));
+  }
 }
 
 Bitmap::Bitmap(Bitmap&& other) : Bitmap() {
@@ -46,7 +48,9 @@ Bitmap::Bitmap(Bitmap&& other) : Bitmap() {
 Bitmap::Bitmap(FIBITMAP* data) : Bitmap() { SetPtr(data); }
 
 Bitmap& Bitmap::operator=(const Bitmap& other) {
-  SetPtr(FreeImage_Clone(other.data_.get()));
+  if (other.data_) {
+    SetPtr(FreeImage_Clone(other.data_.get()));
+  }
   return *this;
 }
 

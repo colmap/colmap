@@ -406,7 +406,7 @@ void PatchMatchController::Run() {
     PrintHeading1(StringPrintf("Processing view %d / %d", problem_idx + 1,
                                problems.size()));
 
-    std::vector<Image> images(model.images.size());
+    std::vector<Image> images = model.images;
     std::vector<DepthMap> depth_maps;
     std::vector<NormalMap> normal_maps;
     if (options_.geom_consistency) {
@@ -423,9 +423,9 @@ void PatchMatchController::Run() {
                                            problem.src_image_ids.end());
     used_image_ids.insert(problem.ref_image_id);
 
-    std::cout << "Reading inputs..." << std::endl;
     {
       std::unique_lock<std::mutex> lock(workspace_mutex);
+      std::cout << "Reading inputs..." << std::endl;
       for (const auto image_id : used_image_ids) {
         images.at(image_id).SetBitmap(workspace.GetBitmap(image_id));
         if (options_.geom_consistency) {
