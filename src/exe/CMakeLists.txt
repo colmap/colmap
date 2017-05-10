@@ -20,8 +20,6 @@ COLMAP_ADD_EXECUTABLE(feature_extractor feature_extractor.cc)
 
 COLMAP_ADD_EXECUTABLE(feature_importer feature_importer.cc)
 
-COLMAP_ADD_EXECUTABLE(hierarchical_mapper hierarchical_mapper.cc)
-
 COLMAP_ADD_EXECUTABLE(image_rectifier image_rectifier.cc)
 
 COLMAP_ADD_EXECUTABLE(image_registrator image_registrator.cc)
