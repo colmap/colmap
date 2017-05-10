@@ -103,7 +103,8 @@ class StereoFusion : public Thread {
 
   std::unique_ptr<Workspace> workspace_;
   std::vector<char> used_images_;
-  std::vector<Mat<bool>> visited_masks_;
+  std::vector<char> fused_images_;
+  std::vector<Mat<bool>> fused_pixel_masks_;
   std::vector<std::pair<int, int>> depth_map_sizes_;
   std::vector<std::pair<float, float>> bitmap_scales_;
   std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> P_;

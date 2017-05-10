@@ -37,6 +37,39 @@ float Median(std::vector<T>* elems) {
   }
 }
 
+// Use the sparse model to find most connected image that has not yet been
+// fused. This is used as a heuristic to ensure that the workspace cache reuses
+// already cached images as efficient as possible.
+int FindNextImage(const std::vector<std::map<int, int>>& shared_points,
+                  const std::vector<char>& fused_images,
+                  const int prev_image_id) {
+  // Sort the overlapping images in descending order based on the shared points.
+  std::vector<std::pair<int, int>> overlapping_images(
+      shared_points.at(prev_image_id).begin(),
+      shared_points.at(prev_image_id).end());
+  std::sort(
+      overlapping_images.begin(), overlapping_images.end(),
+      [](const std::pair<int, int>& image1, const std::pair<int, int>& image2) {
+        return image1.second > image2.second;
+      });
+
+  for (const auto& image : overlapping_images) {
+    if (!fused_images.at(image.first)) {
+      return image.first;
+    }
+  }
+
+  // If none of the overlapping images are not yet fused, simply return the
+  // first image that has not yet been fused.
+  for (size_t i = 0; i < fused_images.size(); ++i) {
+    if (!fused_images[i]) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
 }  // namespace internal
 
 void StereoFusion::Options::Print() const {
@@ -99,8 +132,11 @@ void StereoFusion::Run() {
   std::cout << "Reading configuration..." << std::endl;
 
   const auto& model = workspace_->GetModel();
-  used_images_.resize(model.images.size());
-  visited_masks_.resize(model.images.size());
+  const auto shared_points = model.ComputeSharedPoints();
+
+  used_images_.resize(model.images.size(), false);
+  fused_images_.resize(model.images.size(), false);
+  fused_pixel_masks_.resize(model.images.size());
   depth_map_sizes_.resize(model.images.size());
   bitmap_scales_.resize(model.images.size());
   P_.resize(model.images.size());
@@ -126,9 +162,9 @@ void StereoFusion::Run() {
 
     used_images_.at(image_id) = true;
 
-    visited_masks_.at(image_id) =
+    fused_pixel_masks_.at(image_id) =
         Mat<bool>(depth_map.GetWidth(), depth_map.GetHeight(), 1);
-    visited_masks_.at(image_id).Fill(false);
+    fused_pixel_masks_.at(image_id).Fill(false);
 
     depth_map_sizes_.at(image_id) =
         std::make_pair(depth_map.GetWidth(), depth_map.GetHeight());
@@ -155,28 +191,28 @@ void StereoFusion::Run() {
             .transpose();
   }
 
-  size_t prev_num_fused_points = 0;
-  for (size_t image_id = 0; image_id < model.images.size(); ++image_id) {
+  size_t num_fused_images = 0;
+  for (int image_id = 0; image_id >= 0;
+       image_id =
+           internal::FindNextImage(shared_points, fused_images_, image_id)) {
     if (IsStopped()) {
       break;
     }
 
-    if (!used_images_.at(image_id)) {
+    if (!used_images_.at(image_id) || fused_images_.at(image_id)) {
       continue;
     }
 
     Timer timer;
     timer.Start();
 
-    std::cout << StringPrintf("Fusing image [%d/%d]", image_id + 1,
+    std::cout << StringPrintf("Fusing image [%d/%d]", num_fused_images + 1,
                               model.images.size())
               << std::flush;
 
-    const int width =
-        static_cast<int>(workspace_->GetDepthMap(image_id).GetWidth());
-    const int height =
-        static_cast<int>(workspace_->GetDepthMap(image_id).GetHeight());
-    const auto& visited_mask = visited_masks_.at(image_id);
+    const int width = depth_map_sizes_.at(image_id).first;
+    const int height = depth_map_sizes_.at(image_id).second;
+    const auto& fused_pixel_mask = fused_pixel_masks_.at(image_id);
 
     FusionData data;
     data.image_id = image_id;
@@ -184,7 +220,7 @@ void StereoFusion::Run() {
 
     for (data.row = 0; data.row < height; ++data.row) {
       for (data.col = 0; data.col < width; ++data.col) {
-        if (visited_mask.Get(data.row, data.col)) {
+        if (fused_pixel_mask.Get(data.row, data.col)) {
           continue;
         }
 
@@ -194,13 +230,11 @@ void StereoFusion::Run() {
       }
     }
 
-    used_images_.at(image_id) = false;
+    num_fused_images += 1;
+    fused_images_.at(image_id) = true;
 
-    const size_t num_fused_points =
-        fused_points_.size() - prev_num_fused_points;
-    prev_num_fused_points = fused_points_.size();
-    std::cout << StringPrintf(" %d points in %.3fs", num_fused_points,
-                              timer.ElapsedSeconds())
+    std::cout << StringPrintf(" in %.3fs (%d points)", timer.ElapsedSeconds(),
+                              fused_points_.size())
               << std::endl;
   }
 
@@ -244,7 +278,7 @@ void StereoFusion::Fuse() {
 
     fusion_queue_.pop();
 
-    if (!used_images_.at(image_id)) {
+    if (!used_images_.at(image_id) || fused_images_.at(image_id)) {
       continue;
     }
 
@@ -255,8 +289,8 @@ void StereoFusion::Fuse() {
     }
 
     // Check if pixel already fused.
-    auto& visited_mask = visited_masks_.at(image_id);
-    if (visited_mask.Get(row, col)) {
+    auto& fused_pixel_mask = fused_pixel_masks_.at(image_id);
+    if (fused_pixel_mask.Get(row, col)) {
       continue;
     }
 
@@ -317,7 +351,7 @@ void StereoFusion::Fuse() {
         col / bitmap_scale.first, row / bitmap_scale.second, &color);
 
     // Set the current pixel as visited.
-    visited_mask.Set(row, col, true);
+    fused_pixel_mask.Set(row, col, true);
 
     // Accumulate statistics for fused point.
     fused_points_x_.push_back(xyz(0));
