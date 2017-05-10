@@ -203,7 +203,6 @@ void Database::Open(const std::string& path) {
   SQLITE3_EXEC(database_, "PRAGMA foreign_keys=ON", nullptr);
 
   CreateTables();
-  UpdateSchema();
 
   PrepareSQLStatements();
 }
@@ -989,31 +988,6 @@ void Database::CreateInlierMatchesTable() const {
       "    config   INTEGER               NOT NULL);";
 
   SQLITE3_EXEC(database_, sql.c_str(), nullptr);
-}
-
-void Database::UpdateSchema() const {
-  // Query user_version
-  const std::string query_user_version_sql = "PRAGMA user_version;";
-  sqlite3_stmt* query_user_version_sql_stmt;
-  SQLITE3_CALL(sqlite3_prepare_v2(database_, query_user_version_sql.c_str(), -1,
-                                  &query_user_version_sql_stmt, 0));
-
-  // Update schema, if user_version < kSchemaVersion
-  if (SQLITE3_CALL(sqlite3_step(query_user_version_sql_stmt)) == SQLITE_ROW) {
-    const int user_version = sqlite3_column_int(query_user_version_sql_stmt, 0);
-    // user_version == 0: initial value from SQLite, nothing to do, since all
-    // tables were created in `Database::CreateTables`
-    if (user_version > 0) {
-      // if (user_version < 2) {}
-    }
-  }
-
-  SQLITE3_CALL(sqlite3_finalize(query_user_version_sql_stmt));
-
-  // Update user_version
-  const std::string update_user_version_sql =
-      "PRAGMA user_version = " + std::to_string(kSchemaVersion) + ";";
-  SQLITE3_EXEC(database_, update_user_version_sql.c_str(), nullptr);
 }
 
 bool Database::ExistsRowId(sqlite3_stmt* sql_stmt,

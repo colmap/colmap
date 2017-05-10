@@ -212,9 +212,6 @@ class Database {
   void CreateMatchesTable() const;
   void CreateInlierMatchesTable() const;
 
-  // Keep track of database schema version.
-  void UpdateSchema() const;
-
   bool ExistsRowId(sqlite3_stmt* sql_stmt, const sqlite3_int64 row_id) const;
   bool ExistsRowString(sqlite3_stmt* sql_stmt,
                        const std::string& row_entry) const;
