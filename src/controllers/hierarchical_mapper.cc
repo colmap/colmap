@@ -63,13 +63,12 @@ void MergeClusters(
   }
 
   // Insert a new reconstruction manager for merged cluster.
-  ReconstructionManager reconstruction_manager;
+  auto& reconstruction_manager = (*reconstruction_managers)[&cluster];
   for (const auto& reconstruction : reconstructions) {
     reconstruction_manager.Add();
     reconstruction_manager.Get(reconstruction_manager.Size() - 1) =
         *reconstruction;
   }
-  reconstruction_managers->emplace(&cluster, std::move(reconstruction_manager));
 
   // Delete all merged child cluster reconstruction managers.
   for (const auto& child_cluster : cluster.child_clusters) {
@@ -160,11 +159,11 @@ void HierarchicalMapperController::Run() {
       std::max(1, num_eff_threads / num_eff_workers);
 
   // Function to reconstruct one cluster using incremental mapping.
-  auto ReconstructCluster = [&, this](const SceneClustering::Cluster& cluster) {
-    ReconstructionManager reconstruction_manager;
-
+  auto ReconstructCluster = [&, this](
+                                const SceneClustering::Cluster& cluster,
+                                ReconstructionManager* reconstruction_manager) {
     if (cluster.image_ids.empty()) {
-      return reconstruction_manager;
+      return;
     }
 
     IncrementalMapperController::Options custom_options = mapper_options_;
@@ -178,11 +177,9 @@ void HierarchicalMapperController::Run() {
 
     IncrementalMapperController mapper(&custom_options, options_.image_path,
                                        options_.database_path,
-                                       &reconstruction_manager);
+                                       reconstruction_manager);
     mapper.Start();
     mapper.Wait();
-
-    return reconstruction_manager;
   };
 
   ThreadPool thread_pool(num_eff_workers);
@@ -195,19 +192,15 @@ void HierarchicalMapperController::Run() {
             });
 
   // Start the reconstruction workers.
-  std::vector<std::future<ReconstructionManager>> futures;
-  futures.reserve(leaf_clusters.size());
-  for (const auto& cluster : leaf_clusters) {
-    futures.push_back(thread_pool.AddTask(ReconstructCluster, *cluster));
-  }
 
-  // Collect the reconstruction results.
   std::unordered_map<const SceneClustering::Cluster*, ReconstructionManager>
       reconstruction_managers;
   reconstruction_managers.reserve(leaf_clusters.size());
-  for (size_t i = 0; i < leaf_clusters.size(); ++i) {
-    reconstruction_managers.emplace(leaf_clusters[i], futures[i].get());
+  for (const auto& cluster : leaf_clusters) {
+    thread_pool.AddTask(ReconstructCluster, *cluster,
+                        &reconstruction_managers[cluster]);
   }
+  thread_pool.Wait();
 
   //////////////////////////////////////////////////////////////////////////////
   // Merge clusters
