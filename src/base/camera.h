@@ -23,6 +23,7 @@
 #include "util/types.h"
 
 namespace colmap {
+class Serializator;
 
 // Camera class that holds the intrinsic parameters. Cameras may be shared
 // between multiple images, e.g., if the same "physical" camera took multiple
@@ -127,6 +128,7 @@ class Camera {
   void Rescale(const double scale);
 
  private:
+  friend class Serializator;
   // The unique identifier of the camera. If the identifier is not specified
   // it is set to `kInvalidCameraId`.
   camera_t camera_id_;

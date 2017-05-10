@@ -31,6 +31,7 @@
 #include "util/types.h"
 
 namespace colmap {
+class Serializer;
 
 // Class that holds information about an image. An image is the product of one
 // camera shot at a certain location (parameterized as the pose). An image may
@@ -181,6 +182,8 @@ class Image {
   static const int kNumPoint3DVisibilityPyramidLevels;
 
  private:
+  friend class Serializator;
+
   // Identifier of the image, if not specified `kInvalidImageId`.
   image_t image_id_;
 

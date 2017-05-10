@@ -24,6 +24,7 @@
 #include "util/types.h"
 
 namespace colmap {
+class Serializator;
 
 // Scene graph represents the graph of image to image and feature to feature
 // correspondences of a dataset. It should be accessed from the DatabaseCache.
@@ -114,6 +115,8 @@ class SceneGraph {
                             const point2D_t point2D_idx) const;
 
  private:
+  friend class Serializator;
+
   struct Image {
     // Number of 2D points with at least one correspondence to another image.
     point2D_t num_observations = 0;

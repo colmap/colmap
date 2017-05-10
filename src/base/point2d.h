@@ -24,6 +24,8 @@
 
 namespace colmap {
 
+class Serializator;
+
 // 2D point class corresponds to a feature in an image. It may or may not have a
 // corresponding 3D point if it is part of a triangulated track.
 class Point2D {
@@ -46,6 +48,8 @@ class Point2D {
   inline void SetPoint3DId(const point3D_t point3D_id);
 
  private:
+  friend class Serializator;
+
   // The image coordinates in pixels, starting at upper left corner with 0.
   Eigen::Vector2d xy_;
 

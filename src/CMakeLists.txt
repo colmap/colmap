@@ -34,6 +34,7 @@ set(COLMAP_LIBRARIES
     base
     util
     flann
+    yas
     lsd
     pba
     poisson_recon
