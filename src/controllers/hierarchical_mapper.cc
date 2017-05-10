@@ -128,16 +128,18 @@ void HierarchicalMapperController::Run() {
     scene_clustering.Partition(image_pairs, num_inliers);
   }
 
-  const auto leaf_clusters = scene_clustering.GetLeafClusters();
+  auto leaf_clusters = scene_clustering.GetLeafClusters();
 
-  std::cout << StringPrintf("Partitioned scene into %d clusters",
-                            leaf_clusters.size())
-            << std::endl;
+  size_t total_num_images = 0;
   for (size_t i = 0; i < leaf_clusters.size(); ++i) {
+    total_num_images += leaf_clusters[i]->image_ids.size();
     std::cout << StringPrintf("  Cluster %d with %d images", i + 1,
                               leaf_clusters[i]->image_ids.size())
               << std::endl;
   }
+
+  std::cout << StringPrintf("Clusters have %d images", total_num_images)
+            << std::endl;
 
   //////////////////////////////////////////////////////////////////////////////
   // Reconstruct clusters
@@ -185,6 +187,13 @@ void HierarchicalMapperController::Run() {
 
   ThreadPool thread_pool(num_eff_workers);
 
+  // Start reconstructing the bigger clusters first for resource usage.
+  std::sort(leaf_clusters.begin(), leaf_clusters.end(),
+            [](const SceneClustering::Cluster* cluster1,
+               const SceneClustering::Cluster* cluster2) {
+              return cluster1->image_ids.size() > cluster2->image_ids.size();
+            });
+
   // Start the reconstruction workers.
   std::vector<std::future<ReconstructionManager>> futures;
   futures.reserve(leaf_clusters.size());
@@ -206,8 +215,7 @@ void HierarchicalMapperController::Run() {
 
   PrintHeading1("Merging clusters");
 
-      MergeClusters(*scene_clustering.GetRootCluster(),
-                    &reconstruction_managers);
+  MergeClusters(*scene_clustering.GetRootCluster(), &reconstruction_managers);
 
   CHECK_EQ(reconstruction_managers.size(), 1);
   *reconstruction_manager_ = std::move(reconstruction_managers.begin()->second);
