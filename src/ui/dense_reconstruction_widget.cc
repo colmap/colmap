@@ -59,6 +59,7 @@ class StereoOptionsTab : public OptionsWidget {
                  "filter_min_num_consistent");
     AddOptionDouble(&options->dense_stereo->filter_geom_consistency_max_cost,
                     "filter_geom_consistency_max_cost");
+    AddOptionInt(&options->dense_stereo->cache_size, "cache_size", 2);
   }
 };
 

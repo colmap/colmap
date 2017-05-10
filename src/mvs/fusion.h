@@ -72,9 +72,9 @@ class StereoFusion : public Thread {
 
     // Cache size for fusion. The fusion keeps the bitmaps, depth maps, normal
     // maps, and consistency graphs of this number of images in memory. A higher
-    // value here leads to less disk access and faster fusion, while a larger
-    // value leads to reduced memory usage. Note that a single image can consume
-    // a lot of memory, if the consistency graph is dense.
+    // value leads to less disk access and faster fusion, while a lower value
+    // leads to reduced memory usage. Note that a single image can consume a lot
+    // of memory, if the consistency graph is dense.
     int cache_size = 250;
 
     // Check the options for validity.

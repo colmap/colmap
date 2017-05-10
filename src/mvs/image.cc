@@ -36,8 +36,8 @@ Image::Image(const std::string& path, const size_t width, const size_t height,
   ComposeInverseProjectionMatrix(K_, R_, T_, inv_P_);
 }
 
-void Image::Read(const bool as_rgb) {
-  CHECK(bitmap_.Read(path_, as_rgb)) << path_;
+void Image::SetBitmap(const Bitmap& bitmap) {
+  bitmap_ = bitmap;
   CHECK_EQ(width_, bitmap_.Width());
   CHECK_EQ(height_, bitmap_.Height());
 }

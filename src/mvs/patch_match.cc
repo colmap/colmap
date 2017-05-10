@@ -17,9 +17,11 @@
 #include "mvs/patch_match.h"
 
 #include <numeric>
+#include <unordered_set>
 
 #include "mvs/consistency_graph.h"
 #include "mvs/patch_match_cuda.h"
+#include "mvs/workspace.h"
 #include "util/math.h"
 #include "util/misc.h"
 
@@ -77,18 +79,12 @@ void ImportPMVSOption(const Model& model, const std::string& path,
 void ReadPatchMatchProblems(const PatchMatch::Options& options,
                             const std::string& workspace_path,
                             const std::string& workspace_format,
-                            const std::string& pmvs_option_name, Model* model,
-                            std::vector<PatchMatch::Problem>* problems,
-                            std::vector<DepthMap>* depth_maps,
-                            std::vector<NormalMap>* normal_maps) {
-  std::cout << "Reading model..." << std::endl;
-  model->Read(workspace_path, workspace_format);
-  depth_maps->resize(model->images.size());
-  normal_maps->resize(model->images.size());
-
+                            const std::string& pmvs_option_name,
+                            const Model& model,
+                            std::vector<PatchMatch::Problem>* problems) {
   if (workspace_format == "PMVS") {
     std::cout << "Importing PMVS options..." << std::endl;
-    ImportPMVSOption(*model, workspace_path, pmvs_option_name);
+    ImportPMVSOption(model, workspace_path, pmvs_option_name);
   }
 
   std::cout << "Reading configuration..." << std::endl;
@@ -96,7 +92,6 @@ void ReadPatchMatchProblems(const PatchMatch::Options& options,
   std::ifstream file(JoinPaths(workspace_path, "stereo/patch-match.cfg"));
   CHECK(file.is_open());
 
-  std::set<int> used_image_ids;
   std::vector<std::map<int, int>> shared_num_points;
   std::vector<std::map<int, float>> triangulation_angles;
 
@@ -119,11 +114,7 @@ void ReadPatchMatchProblems(const PatchMatch::Options& options,
 
     PatchMatch::Problem problem;
 
-    problem.images = &model->images;
-    problem.depth_maps = depth_maps;
-    problem.normal_maps = normal_maps;
-
-    problem.ref_image_id = model->GetImageId(ref_image_name);
+    problem.ref_image_id = model.GetImageId(ref_image_name);
 
     const std::vector<std::string> src_image_names =
         CSVToVector<std::string>(line);
@@ -131,8 +122,8 @@ void ReadPatchMatchProblems(const PatchMatch::Options& options,
     if (src_image_names.size() == 1 && src_image_names[0] == "__all__") {
       // Use all images as source images.
       problem.src_image_ids.clear();
-      problem.src_image_ids.reserve(model->images.size() - 1);
-      for (size_t image_id = 0; image_id < model->images.size(); ++image_id) {
+      problem.src_image_ids.reserve(model.images.size() - 1);
+      for (size_t image_id = 0; image_id < model.images.size(); ++image_id) {
         if (static_cast<int>(image_id) != problem.ref_image_id) {
           problem.src_image_ids.push_back(image_id);
         }
@@ -145,12 +136,12 @@ void ReadPatchMatchProblems(const PatchMatch::Options& options,
       // selected if some points have a sufficient triangulation angle.
 
       if (shared_num_points.empty()) {
-        shared_num_points = model->ComputeSharedPoints();
+        shared_num_points = model.ComputeSharedPoints();
       }
       if (triangulation_angles.empty()) {
         const float kTriangulationAnglePercentile = 75;
         triangulation_angles =
-            model->ComputeTriangulationAngles(kTriangulationAnglePercentile);
+            model.ComputeTriangulationAngles(kTriangulationAnglePercentile);
       }
 
       const size_t max_num_src_images =
@@ -198,7 +189,7 @@ void ReadPatchMatchProblems(const PatchMatch::Options& options,
     } else {
       problem.src_image_ids.reserve(src_image_names.size());
       for (const auto& src_image_name : src_image_names) {
-        problem.src_image_ids.push_back(model->GetImageId(src_image_name));
+        problem.src_image_ids.push_back(model.GetImageId(src_image_name));
       }
     }
 
@@ -210,46 +201,10 @@ void ReadPatchMatchProblems(const PatchMatch::Options& options,
                  ref_image_name.c_str())
           << std::endl;
     } else {
-      used_image_ids.insert(problem.ref_image_id);
-      for (const auto image_id : problem.src_image_ids) {
-        used_image_ids.insert(image_id);
-      }
       problems->push_back(problem);
     }
 
     ref_image_name.clear();
-  }
-
-  std::cout << "Reading inputs..." << std::endl;
-  for (const auto image_id : used_image_ids) {
-    auto& image = model->images.at(image_id);
-    const bool kReadImageAsRGB = false;
-    image.Read(kReadImageAsRGB);
-    if (options.geom_consistency) {
-      const std::string file_name =
-          model->GetImageName(image_id) + ".photometric.bin";
-      auto& depth_map = depth_maps->at(image_id);
-      depth_map.Read(JoinPaths(workspace_path, "stereo/depth_maps", file_name));
-      auto& normal_map = normal_maps->at(image_id);
-      normal_map.Read(
-          JoinPaths(workspace_path, "stereo/normal_maps", file_name));
-    }
-  }
-
-  if (options.max_image_size > 0) {
-    std::cout << "Resampling model..." << std::endl;
-    ThreadPool resample_thread_pool;
-    for (size_t image_id = 0; image_id < model->images.size(); ++image_id) {
-      resample_thread_pool.AddTask([&, image_id]() {
-        model->images.at(image_id).Downsize(options.max_image_size,
-                                            options.max_image_size);
-        depth_maps->at(image_id).Downsize(options.max_image_size,
-                                          options.max_image_size);
-        normal_maps->at(image_id).Downsize(options.max_image_size,
-                                           options.max_image_size);
-      });
-    }
-    resample_thread_pool.Wait();
   }
 }
 
@@ -397,13 +352,15 @@ PatchMatchController::PatchMatchController(const PatchMatch::Options& options,
       pmvs_option_name_(pmvs_option_name) {}
 
 void PatchMatchController::Run() {
-  Model model;
+  std::cout << "Reading workspace..." << std::endl;
+  Workspace workspace(options_.cache_size, workspace_path_, workspace_format_,
+                      options_.geom_consistency ? "photometric" : "");
+
+  const auto& model = workspace.GetModel();
+
   std::vector<PatchMatch::Problem> problems;
-  std::vector<DepthMap> depth_maps;
-  std::vector<NormalMap> normal_maps;
   ReadPatchMatchProblems(options_, workspace_path_, workspace_format_,
-                         pmvs_option_name_, &model, &problems, &depth_maps,
-                         &normal_maps);
+                         pmvs_option_name_, model, &problems);
 
   const auto depth_ranges = model.ComputeDepthRanges();
 
@@ -420,12 +377,14 @@ void PatchMatchController::Run() {
 
   ThreadPool thread_pool(gpu_indices.size());
 
+  std::mutex workspace_mutex;
+
   auto ProcessProblem = [&](const size_t problem_idx) {
     if (IsStopped()) {
       return;
     }
 
-    const auto& problem = problems[problem_idx];
+    auto& problem = problems[problem_idx];
     const int gpu_index = gpu_indices.at(thread_pool.GetThreadIndex());
     CHECK_GE(gpu_index, -1);
 
@@ -446,6 +405,62 @@ void PatchMatchController::Run() {
 
     PrintHeading1(StringPrintf("Processing view %d / %d", problem_idx + 1,
                                problems.size()));
+
+    std::vector<Image> images(model.images.size());
+    std::vector<DepthMap> depth_maps;
+    std::vector<NormalMap> normal_maps;
+    if (options_.geom_consistency) {
+      depth_maps.resize(model.images.size());
+      normal_maps.resize(model.images.size());
+    }
+
+    problem.images = &images;
+    problem.depth_maps = &depth_maps;
+    problem.normal_maps = &normal_maps;
+
+    // Collect all used images in current problem.
+    std::unordered_set<int> used_image_ids(problem.src_image_ids.begin(),
+                                           problem.src_image_ids.end());
+    used_image_ids.insert(problem.ref_image_id);
+
+    std::cout << "Reading inputs..." << std::endl;
+    {
+      std::unique_lock<std::mutex> lock(workspace_mutex);
+      for (const auto image_id : used_image_ids) {
+        images.at(image_id).SetBitmap(workspace.GetBitmap(image_id));
+        if (options_.geom_consistency) {
+          depth_maps.at(image_id) = workspace.GetDepthMap(image_id);
+          normal_maps.at(image_id) = workspace.GetNormalMap(image_id);
+        }
+      }
+    }
+
+    // Convert all images to grey-scale bitmaps.
+    for (const auto image_id : used_image_ids) {
+      const auto& bitmap = images.at(image_id).GetBitmap();
+      if (!bitmap.IsGrey()) {
+        images.at(image_id).SetBitmap(bitmap.CloneAsGrey());
+      }
+    }
+
+    if (options_.max_image_size > 0) {
+      std::cout << "Resampling inputs..." << std::endl;
+      ThreadPool resample_thread_pool(std::min(
+          GetEffectiveNumThreads(-1), static_cast<int>(used_image_ids.size())));
+      for (const auto image_id : used_image_ids) {
+        resample_thread_pool.AddTask([&, image_id]() {
+          images.at(image_id).Downsize(options_.max_image_size,
+                                       options_.max_image_size);
+          if (options_.geom_consistency) {
+            depth_maps.at(image_id).Downsize(options_.max_image_size,
+                                             options_.max_image_size);
+            normal_maps.at(image_id).Downsize(options_.max_image_size,
+                                              options_.max_image_size);
+          }
+        });
+      }
+      resample_thread_pool.Wait();
+    }
 
     problem.Print();
 
