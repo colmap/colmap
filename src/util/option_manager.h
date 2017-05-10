@@ -101,6 +101,13 @@ class OptionManager {
 
  private:
   template <typename T>
+  void AddAndRegisterRequiredOption(const std::string& name, T* option,
+                                    const std::string& help_text = "");
+  template <typename T>
+  void AddAndRegisterDefaultOption(const std::string& name, T* option,
+                                   const std::string& help_text = "");
+
+  template <typename T>
   void RegisterOption(const std::string& name, const T* option);
 
   std::shared_ptr<boost::program_options::options_description> desc_;
@@ -138,12 +145,31 @@ void OptionManager::AddRequiredOption(const std::string& name, T* option,
   desc_->add_options()(name.c_str(),
                        boost::program_options::value<T>(option)->required(),
                        help_text.c_str());
-  RegisterOption(name, option);
 }
 
 template <typename T>
 void OptionManager::AddDefaultOption(const std::string& name, T* option,
                                      const std::string& help_text) {
+  desc_->add_options()(
+      name.c_str(),
+      boost::program_options::value<T>(option)->default_value(*option),
+      help_text.c_str());
+}
+
+template <typename T>
+void OptionManager::AddAndRegisterRequiredOption(const std::string& name,
+                                                 T* option,
+                                                 const std::string& help_text) {
+  desc_->add_options()(name.c_str(),
+                       boost::program_options::value<T>(option)->required(),
+                       help_text.c_str());
+  RegisterOption(name, option);
+}
+
+template <typename T>
+void OptionManager::AddAndRegisterDefaultOption(const std::string& name,
+                                                T* option,
+                                                const std::string& help_text) {
   desc_->add_options()(
       name.c_str(),
       boost::program_options::value<T>(option)->default_value(*option),
