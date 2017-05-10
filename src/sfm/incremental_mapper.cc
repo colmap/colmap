@@ -742,6 +742,9 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
     image_t num_correspondences;
   };
 
+  const size_t init_max_reg_trials =
+      static_cast<size_t>(options.init_max_reg_trials);
+
   // Collect information of all not yet registered images with
   // correspondences.
   std::vector<ImageInfo> image_infos;
@@ -754,7 +757,7 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
 
     // Only use images for initialization a maximum number of times.
     if (init_num_reg_trials_.count(image.first) &&
-        init_num_reg_trials_.at(image.first) >= options.init_max_reg_trials) {
+        init_num_reg_trials_.at(image.first) >= init_max_reg_trials) {
       continue;
     }
 

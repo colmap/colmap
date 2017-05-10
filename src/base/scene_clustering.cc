@@ -62,7 +62,8 @@ void SceneClustering::PartitionCluster(
 
   // If the cluster is small enough, we return from the recursive clustering.
   if (edges.size() == 0 ||
-      cluster->image_ids.size() <= options_.leaf_max_num_images) {
+      cluster->image_ids.size() <=
+          static_cast<size_t>(options_.leaf_max_num_images)) {
     return;
   }
 
@@ -97,7 +98,7 @@ void SceneClustering::PartitionCluster(
   }
 
   // Recursively partition all the child clusters.
-  for (size_t i = 0; i < options_.branching; ++i) {
+  for (int i = 0; i < options_.branching; ++i) {
     PartitionCluster(child_edges[i], child_weights[i],
                      &cluster->child_clusters[i]);
   }
@@ -120,7 +121,8 @@ void SceneClustering::PartitionCluster(
         } else {
           overlapping_image_ids.insert(edge.first.first);
         }
-        if (overlapping_image_ids.size() >= options_.image_overlap) {
+        if (overlapping_image_ids.size() >=
+            static_cast<size_t>(options_.image_overlap)) {
           break;
         }
       }
