@@ -17,6 +17,7 @@
 #ifndef COLMAP_SRC_BASE_GRAPH_CUT_H_
 #define COLMAP_SRC_BASE_GRAPH_CUT_H_
 
+#include <unordered_map>
 #include <vector>
 
 namespace colmap {
@@ -28,7 +29,7 @@ void ComputeMinGraphCut(const std::vector<std::pair<int, int>>& edges,
 
 // Compute the normalized min-cut of an undirected graph using Graclus.
 // Partitions the graph into clusters and returns the cluster labels per vertex.
-std::vector<int> ComputeNormalizedMinGraphCut(
+std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& weights, const int num_parts);
 

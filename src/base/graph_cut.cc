@@ -41,27 +41,22 @@ class GraclusGraph {
                const std::vector<int>& weights) {
     CHECK_EQ(edges.size(), weights.size());
 
-    int max_vertex_index = 0;
     std::unordered_map<int, std::vector<std::pair<int, int>>> adjacency_list;
     for (size_t i = 0; i < edges.size(); ++i) {
       const auto& edge = edges[i];
       const auto weight = weights[i];
-      CHECK_GE(edge.first, 0);
-      CHECK_GE(edge.second, 0);
-      max_vertex_index = std::max(max_vertex_index, edge.first);
-      max_vertex_index = std::max(max_vertex_index, edge.second);
-      adjacency_list[edge.first].emplace_back(edge.second, weight);
-      adjacency_list[edge.second].emplace_back(edge.first, weight);
+      const int vertex_idx1 = GetVertexIdx(edge.first);
+      const int vertex_idx2 = GetVertexIdx(edge.second);
+      adjacency_list[vertex_idx1].emplace_back(vertex_idx2, weight);
+      adjacency_list[vertex_idx2].emplace_back(vertex_idx1, weight);
     }
 
-    const int num_vertices = max_vertex_index + 1;
-
-    xadj_.reserve(num_vertices + 1);
+    xadj_.reserve(vertex_id_to_idx_.size() + 1);
     adjncy_.reserve(2 * edges.size());
     adjwgt_.reserve(2 * edges.size());
 
     idxtype edge_idx = 0;
-    for (int i = 0; i < num_vertices; ++i) {
+    for (size_t i = 0; i < vertex_id_to_idx_.size(); ++i) {
       xadj_.push_back(edge_idx);
 
       if (adjacency_list.count(i) == 0) {
@@ -78,13 +73,13 @@ class GraclusGraph {
     xadj_.push_back(edge_idx);
 
     CHECK_EQ(edge_idx, 2 * edges.size());
-    CHECK_EQ(xadj_.size(), num_vertices + 1);
+    CHECK_EQ(xadj_.size(), vertex_id_to_idx_.size() + 1);
     CHECK_EQ(adjncy_.size(), 2 * edges.size());
     CHECK_EQ(adjwgt_.size(), 2 * edges.size());
 
     data.gdata = data.rdata = nullptr;
 
-    data.nvtxs = num_vertices;
+    data.nvtxs = vertex_id_to_idx_.size();
     data.nedges = 2 * edges.size();
     data.mincut = data.minvol = -1;
 
@@ -114,9 +109,26 @@ class GraclusGraph {
     data.coarser = data.finer = nullptr;
   }
 
+  int GetVertexIdx(const int id) {
+    if (vertex_id_to_idx_.count(id)) {
+      return vertex_id_to_idx_.at(id);
+    } else {
+      const int idx = vertex_id_to_idx_.size();
+      vertex_id_to_idx_.emplace(id, idx);
+      vertex_idx_to_id_.emplace(idx, id);
+      return idx;
+    }
+  }
+
+  int GetVertexId(const int idx) {
+    return vertex_idx_to_id_.at(idx);
+  }
+
   GraphType data;
 
  private:
+  std::unordered_map<int, int> vertex_id_to_idx_;
+  std::unordered_map<int, int> vertex_idx_to_id_;
   std::vector<idxtype> xadj_;
   std::vector<idxtype> adjncy_;
   std::vector<idxtype> adjwgt_;
@@ -159,7 +171,7 @@ void ComputeMinGraphCut(const std::vector<std::pair<int, int>>& edges,
   }
 }
 
-std::vector<int> ComputeNormalizedMinGraphCut(
+std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& weights, const int num_parts) {
   GraclusGraph graph(edges, weights);
@@ -187,7 +199,12 @@ std::vector<int> ComputeNormalizedMinGraphCut(
 
   ComputeNCut(&graph.data, &cut_labels[0], num_parts);
 
-  return cut_labels;
+  std::unordered_map<int, int> labels;
+  for (size_t idx = 0; idx < cut_labels.size(); ++idx) {
+    labels.emplace(graph.GetVertexId(idx), cut_labels[idx]);
+  }
+
+  return labels;
 }
 
 }  // namespace colmap

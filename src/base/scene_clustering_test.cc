@@ -25,14 +25,15 @@ using namespace colmap;
 
 BOOST_AUTO_TEST_CASE(TestEmpty) {
   SetPRNGSeed(0);
-  const std::vector<std::pair<image_pair_t, int>> image_pairs;
+  const std::vector<std::pair<image_t, image_t>> image_pairs;
+  const std::vector<int> num_inliers;
   SceneClustering::Options options;
   options.branching = 2;
-  options.min_image_overlap = 0;
+  options.image_overlap = 0;
   options.leaf_max_num_images = 2;
   SceneClustering scene_clustering(options);
   BOOST_CHECK(scene_clustering.GetRootCluster() == nullptr);
-  scene_clustering.Partition(image_pairs);
+  scene_clustering.Partition(image_pairs, num_inliers);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids.size(), 0);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->child_clusters.size(),
                     0);
@@ -41,15 +42,15 @@ BOOST_AUTO_TEST_CASE(TestEmpty) {
 
 BOOST_AUTO_TEST_CASE(TestOneLevel) {
   SetPRNGSeed(0);
-  const std::vector<std::pair<image_pair_t, int>> image_pairs = {
-      {Database::ImagePairToPairId(0, 1), 10}};
+  const std::vector<std::pair<image_t, image_t>> image_pairs = {{0, 1}};
+  const std::vector<int> num_inliers = {10};
   SceneClustering::Options options;
   options.branching = 2;
-  options.min_image_overlap = 0;
+  options.image_overlap = 0;
   options.leaf_max_num_images = 2;
   SceneClustering scene_clustering(options);
   BOOST_CHECK(scene_clustering.GetRootCluster() == nullptr);
-  scene_clustering.Partition(image_pairs);
+  scene_clustering.Partition(image_pairs, num_inliers);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids.size(), 2);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids[0], 0);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids[1], 1);
@@ -62,15 +63,15 @@ BOOST_AUTO_TEST_CASE(TestOneLevel) {
 
 BOOST_AUTO_TEST_CASE(TestTwoLevels) {
   SetPRNGSeed(0);
-  const std::vector<std::pair<image_pair_t, int>> image_pairs = {
-      {Database::ImagePairToPairId(0, 1), 10}};
+  const std::vector<std::pair<image_t, image_t>> image_pairs = {{0, 1}};
+  const std::vector<int> num_inliers = {10};
   SceneClustering::Options options;
   options.branching = 2;
-  options.min_image_overlap = 0;
+  options.image_overlap = 0;
   options.leaf_max_num_images = 1;
   SceneClustering scene_clustering(options);
   BOOST_CHECK(scene_clustering.GetRootCluster() == nullptr);
-  scene_clustering.Partition(image_pairs);
+  scene_clustering.Partition(image_pairs, num_inliers);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids.size(), 2);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids[0], 0);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids[1], 1);
@@ -83,16 +84,15 @@ BOOST_AUTO_TEST_CASE(TestTwoLevels) {
 
 BOOST_AUTO_TEST_CASE(TestThreeLevels) {
   SetPRNGSeed(0);
-  const std::vector<std::pair<image_pair_t, int>> image_pairs = {
-      {Database::ImagePairToPairId(0, 1), 10},
-      {Database::ImagePairToPairId(0, 2), 10}};
+  const std::vector<std::pair<image_t, image_t>> image_pairs = {{0, 1}, {0, 2}};
+  const std::vector<int> num_inliers = {10, 10};
   SceneClustering::Options options;
   options.branching = 2;
-  options.min_image_overlap = 0;
+  options.image_overlap = 0;
   options.leaf_max_num_images = 1;
   SceneClustering scene_clustering(options);
   BOOST_CHECK(scene_clustering.GetRootCluster() == nullptr);
-  scene_clustering.Partition(image_pairs);
+  scene_clustering.Partition(image_pairs, num_inliers);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids.size(), 3);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids[0], 0);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids[1], 1);
@@ -105,16 +105,15 @@ BOOST_AUTO_TEST_CASE(TestThreeLevels) {
 
 BOOST_AUTO_TEST_CASE(TestThreeLevelsMultipleImages) {
   SetPRNGSeed(0);
-  const std::vector<std::pair<image_pair_t, int>> image_pairs = {
-      {Database::ImagePairToPairId(0, 1), 10},
-      {Database::ImagePairToPairId(0, 2), 10}};
+  const std::vector<std::pair<image_t, image_t>> image_pairs = {{0, 1}, {0, 2}};
+  const std::vector<int> num_inliers = {10, 10};
   SceneClustering::Options options;
   options.branching = 2;
-  options.min_image_overlap = 0;
+  options.image_overlap = 0;
   options.leaf_max_num_images = 2;
   SceneClustering scene_clustering(options);
   BOOST_CHECK(scene_clustering.GetRootCluster() == nullptr);
-  scene_clustering.Partition(image_pairs);
+  scene_clustering.Partition(image_pairs, num_inliers);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids.size(), 3);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids[0], 0);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids[1], 1);
@@ -129,20 +128,16 @@ BOOST_AUTO_TEST_CASE(TestThreeLevelsMultipleImages) {
 
 BOOST_AUTO_TEST_CASE(TestOneOverlap) {
   SetPRNGSeed(0);
-  const std::vector<std::pair<image_pair_t, int>> image_pairs = {
-      {Database::ImagePairToPairId(0, 1), 10},
-      {Database::ImagePairToPairId(0, 2), 10},
-      {Database::ImagePairToPairId(1, 2), 10},
-      {Database::ImagePairToPairId(0, 3), 10},
-      {Database::ImagePairToPairId(1, 3), 10},
-      {Database::ImagePairToPairId(2, 3), 10}};
+  const std::vector<std::pair<image_t, image_t>> image_pairs = {
+      {0, 1}, {0, 2}, {1, 2}, {0, 3}, {1, 3}, {2, 3}};
+  const std::vector<int> num_inliers = {10, 10, 10, 10, 10, 10};
   SceneClustering::Options options;
   options.branching = 2;
-  options.min_image_overlap = 1;
+  options.image_overlap = 1;
   options.leaf_max_num_images = 3;
   SceneClustering scene_clustering(options);
   BOOST_CHECK(scene_clustering.GetRootCluster() == nullptr);
-  scene_clustering.Partition(image_pairs);
+  scene_clustering.Partition(image_pairs, num_inliers);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids.size(), 4);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids[0], 0);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids[1], 1);
@@ -156,25 +151,21 @@ BOOST_AUTO_TEST_CASE(TestOneOverlap) {
   BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters()[1]->image_ids.size(), 3);
   BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters()[1]->image_ids[0], 2);
   BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters()[1]->image_ids[1], 3);
-  BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters()[1]->image_ids[2], 1);
+  BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters()[1]->image_ids[2], 0);
 }
 
 BOOST_AUTO_TEST_CASE(TestTwoOverlap) {
   SetPRNGSeed(0);
-  const std::vector<std::pair<image_pair_t, int>> image_pairs = {
-      {Database::ImagePairToPairId(0, 1), 10},
-      {Database::ImagePairToPairId(0, 2), 10},
-      {Database::ImagePairToPairId(1, 2), 10},
-      {Database::ImagePairToPairId(0, 3), 10},
-      {Database::ImagePairToPairId(1, 3), 10},
-      {Database::ImagePairToPairId(2, 3), 10}};
+  const std::vector<std::pair<image_t, image_t>> image_pairs = {
+      {0, 1}, {0, 2}, {1, 2}, {0, 3}, {1, 3}, {2, 3}};
+  const std::vector<int> num_inliers = {10, 10, 10, 10, 10, 10};
   SceneClustering::Options options;
   options.branching = 2;
-  options.min_image_overlap = 2;
+  options.image_overlap = 2;
   options.leaf_max_num_images = 2;
   SceneClustering scene_clustering(options);
   BOOST_CHECK(scene_clustering.GetRootCluster() == nullptr);
-  scene_clustering.Partition(image_pairs);
+  scene_clustering.Partition(image_pairs, num_inliers);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids.size(), 4);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids[0], 0);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids[1], 1);

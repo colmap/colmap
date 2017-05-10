@@ -33,9 +33,8 @@ class SceneClustering {
     // The branching factor of the hierarchical clustering.
     int branching = 2;
 
-    // The number / ratio of overlapping images between child clusters.
-    double image_overlap = 0.1;
-    int min_image_overlap = 50;
+    // The number of overlapping images between child clusters.
+    int image_overlap = 50;
 
     // The maximum number of images in a leaf node cluster, otherwise the
     // cluster is further partitioned using the given branching factor. Note
@@ -47,13 +46,14 @@ class SceneClustering {
   };
 
   struct Cluster {
-    std::vector<int> image_ids;
+    std::vector<image_t> image_ids;
     std::vector<Cluster> child_clusters;
   };
 
   SceneClustering(const Options& options);
 
-  void Partition(const std::vector<std::pair<image_pair_t, int>>& image_pairs);
+  void Partition(const std::vector<std::pair<image_t, image_t>>& image_pairs,
+                 const std::vector<int>& num_inliers);
 
   const Cluster* GetRootCluster() const;
   std::vector<const Cluster*> GetLeafClusters() const;
