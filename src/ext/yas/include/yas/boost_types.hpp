@@ -39,21 +39,28 @@
 #if defined(YAS_SERIALIZE_BOOST_TYPES)
 
 #include <yas/types/boost/boost_array_serializers.hpp>
-#include <yas/types/boost/boost_chrono_serializers.hpp>
 #include <yas/types/boost/boost_optional_serializers.hpp>
 #include <yas/types/boost/boost_tuple_serializers.hpp>
 #include <yas/types/boost/boost_unordered_set_serializers.hpp>
 #include <yas/types/boost/boost_unordered_map_serializers.hpp>
 #include <yas/types/boost/boost_unordered_multimap_serializers.hpp>
 #include <yas/types/boost/boost_unordered_multiset_serializers.hpp>
+
+#if defined(YAS_SERIALIZE_BOOST_FUSION_TYPES)
 #include <yas/types/boost/boost_fusion_pair_serializers.hpp>
 #include <yas/types/boost/boost_fusion_vector_serializers.hpp>
 #include <yas/types/boost/boost_fusion_list_serializers.hpp>
 #include <yas/types/boost/boost_fusion_map_serializers.hpp>
 #include <yas/types/boost/boost_fusion_set_serializers.hpp>
 #include <yas/types/boost/boost_fusion_tuple_serializers.hpp>
-#include <yas/types/boost/boost_container_string_serializers.hpp>
+#endif // defined(YAS_SERIALIZE_BOOST_FUSION_TYPES)
+
+#if defined(BOOST_VERSION_COMPATIBLE)
+#include <yas/types/boost/boost_chrono_serializers.hpp>
 #include <yas/types/boost/boost_container_wstring_serializers.hpp>
+#endif // defined(BOOST_VERSION_COMPATIBLE)
+
+#include <yas/types/boost/boost_container_string_serializers.hpp>
 #include <yas/types/boost/boost_container_vector_serializers.hpp>
 #include <yas/types/boost/boost_container_static_vector_serializers.hpp>
 #include <yas/types/boost/boost_container_stable_vector_serializers.hpp>

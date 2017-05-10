@@ -76,7 +76,7 @@ bool chrono_test(std::ostream &log, const char* archive_type) {
 			return false;
 		}
 	}
-#if defined(YAS_SERIALIZE_BOOST_TYPES)
+#if defined(YAS_SERIALIZE_BOOST_CHRONO)
 	{
 		boost::chrono::duration<int, boost::ratio<1>> w0{32}, r0;
 		boost::chrono::duration<double, boost::ratio<1>> w1{23}, r1;

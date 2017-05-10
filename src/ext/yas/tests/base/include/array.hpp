@@ -74,7 +74,7 @@ bool array_test(std::ostream &log, const char* archive_type) {
 		return false;
 	}
 
-#if defined(YAS_SERIALIZE_BOOST_TYPES)
+#if defined(YAS_SERIALIZE_BOOST_ARRAY)
 	boost::array<int, 10> arr5 = {
 		{0,1,2,3,4,5,6,7,8,9}
 	}, arr6;
