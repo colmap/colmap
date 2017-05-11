@@ -52,6 +52,39 @@ BOOST_AUTO_TEST_CASE(TestGet) {
   BOOST_CHECK(cache.Exists(6));
 }
 
+BOOST_AUTO_TEST_CASE(TestGetMutable) {
+  LRUCache<int, int> cache(5, [](const int key) { return key; });
+  BOOST_CHECK_EQUAL(cache.NumElems(), 0);
+  for (int i = 0; i < 5; ++i) {
+    BOOST_CHECK_EQUAL(cache.GetMutable(i), i);
+    BOOST_CHECK_EQUAL(cache.NumElems(), i + 1);
+    BOOST_CHECK(cache.Exists(i));
+  }
+
+  BOOST_CHECK_EQUAL(cache.GetMutable(5), 5);
+  BOOST_CHECK_EQUAL(cache.NumElems(), 5);
+  BOOST_CHECK(!cache.Exists(0));
+  BOOST_CHECK(cache.Exists(5));
+
+  BOOST_CHECK_EQUAL(cache.GetMutable(5), 5);
+  BOOST_CHECK_EQUAL(cache.NumElems(), 5);
+  BOOST_CHECK(!cache.Exists(0));
+  BOOST_CHECK(cache.Exists(5));
+
+  BOOST_CHECK_EQUAL(cache.GetMutable(6), 6);
+  BOOST_CHECK_EQUAL(cache.NumElems(), 5);
+  BOOST_CHECK(!cache.Exists(0));
+  BOOST_CHECK(!cache.Exists(1));
+  BOOST_CHECK(cache.Exists(6));
+
+  cache.GetMutable(6) = 66;
+  BOOST_CHECK_EQUAL(cache.GetMutable(6), 66);
+  BOOST_CHECK_EQUAL(cache.NumElems(), 5);
+  BOOST_CHECK(!cache.Exists(0));
+  BOOST_CHECK(!cache.Exists(1));
+  BOOST_CHECK(cache.Exists(6));
+}
+
 BOOST_AUTO_TEST_CASE(TestSet) {
   LRUCache<int, int> cache(5, [](const int key) { return -1; });
   BOOST_CHECK_EQUAL(cache.NumElems(), 0);

@@ -39,6 +39,7 @@ class LRUCache {
 
   // Get the value of an element either from the cache or compute the new value.
   const value_t& Get(const key_t& key);
+  value_t& GetMutable(const key_t& key);
 
   // Manually set the value of an element. Note that the ownership of the value
   // is moved to the cache, which invalidates the object on the caller side.
@@ -85,6 +86,11 @@ bool LRUCache<key_t, value_t>::Exists(const key_t& key) const {
 
 template <typename key_t, typename value_t>
 const value_t& LRUCache<key_t, value_t>::Get(const key_t& key) {
+  return GetMutable(key);
+}
+
+template <typename key_t, typename value_t>
+value_t& LRUCache<key_t, value_t>::GetMutable(const key_t& key) {
   const auto it = elems_map_.find(key);
   if (it == elems_map_.end()) {
     Set(key, std::move(getter_func_(key)));
