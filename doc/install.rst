@@ -25,6 +25,7 @@ Dependencies from default Ubuntu 14.04/16.04 repositories::
         build-essential \
         libboost-all-dev \
         libeigen3-dev \
+        libsuitesparse-dev \
         libfreeimage-dev \
         libgoogle-glog-dev \
         libgflags-dev \
