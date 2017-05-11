@@ -67,7 +67,7 @@ SiftMatchGL::~SiftMatchGL()
 bool SiftMatchGL::Allocate(int max_sift, int mbm) {
   SetMaxSift(max_sift);
   InitSiftMatch();
-  return true;
+  return glGetError() == GL_NO_ERROR;
 }
 
 void SiftMatchGL::SetMaxSift(int max_sift)
