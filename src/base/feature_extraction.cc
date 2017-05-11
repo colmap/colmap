@@ -21,6 +21,7 @@
 
 #include <boost/lexical_cast.hpp>
 
+#include "ext/SiftGPU/SiftGPU.h"
 #include "ext/VLFeat/sift.h"
 #include "util/misc.h"
 

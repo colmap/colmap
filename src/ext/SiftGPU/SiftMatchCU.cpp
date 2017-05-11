@@ -48,7 +48,7 @@ SiftMatchCU::SiftMatchCU(int max_sift) : SiftMatchGPU() {
   _num_sift[0] = _num_sift[1] = 0;
   _id_sift[0] = _id_sift[1] = 0;
   _have_loc[0] = _have_loc[1] = 0;
-  _max_sift = max_sift <= 0 ? 4096 : ((max_sift + 31) / 32 * 32);
+  __max_sift = max_sift <= 0 ? 4096 : ((max_sift + 31) / 32 * 32);
   _initialized = 0;
 }
 
@@ -56,36 +56,34 @@ bool SiftMatchCU::Allocate(int max_sift, int mbm) {
   SetMaxSift(max_sift);
 
   for (int index = 0; index < 2; ++index) {
-    if (!_texDes[index].InitTexture(8 * _max_sift, 1, 4) ||
-        !_texLoc[index].InitTexture(_max_sift, 1, 2)) {
+    if (!_texDes[index].InitTexture(8 * __max_sift, 1, 4) ||
+        !_texLoc[index].InitTexture(__max_sift, 1, 2)) {
       return false;
     }
   }
 
-  if (!_texDot.InitTexture(_max_sift, _max_sift) ||
-      !_texMatch[0].InitTexture(_max_sift, 1)) {
+  if (!_texDot.InitTexture(__max_sift, __max_sift) ||
+      !_texMatch[0].InitTexture(__max_sift, 1)) {
     return false;
   }
 
   if (mbm) {
-    const int cols = (_max_sift + MULT_BLOCK_DIMY - 1) / MULT_BLOCK_DIMY;
-    if (!_texCRT.InitTexture(_max_sift, cols, 32) ||
-        !_texMatch[1].InitTexture(_max_sift, 1)) {
+    const int cols = (__max_sift + MULT_BLOCK_DIMY - 1) / MULT_BLOCK_DIMY;
+    if (!_texCRT.InitTexture(__max_sift, cols, 32) ||
+        !_texMatch[1].InitTexture(__max_sift, 1)) {
       return false;
     }
   }
 
-  _num_sift[0] = _max_sift;
-  _num_sift[1] = _max_sift;
+  _num_sift[0] = __max_sift;
+  _num_sift[1] = __max_sift;
 
   return true;
 }
 
 void SiftMatchCU::SetMaxSift(int max_sift) {
   max_sift = ((max_sift + 31) / 32) * 32;
-  // if (max_sift > GlobalUtil::_texMaxDimGL) max_sift =
-  // GlobalUtil::_texMaxDimGL;
-  _max_sift = max_sift;
+  __max_sift = max_sift;
 }
 
 int SiftMatchCU::CheckCudaDevice(int device) {
@@ -107,7 +105,7 @@ void SiftMatchCU::SetDescriptors(int index, int num,
   // the same feature is already set
   if (id != -1 && id == _id_sift[index]) return;
   _id_sift[index] = id;
-  if (num > _max_sift) num = _max_sift;
+  if (num > __max_sift) num = __max_sift;
   _num_sift[index] = num;
   _texDes[index].InitTexture(8 * num, 1, 4);
   _texDes[index].CopyFromHost((void*)descriptors);
@@ -118,7 +116,7 @@ void SiftMatchCU::SetDescriptors(int index, int num, const float* descriptors,
   if (_initialized == 0) return;
   if (index > 1) index = 1;
   if (index < 0) index = 0;
-  if (num > _max_sift) num = _max_sift;
+  if (num > __max_sift) num = __max_sift;
 
   sift_buffer.resize(num * 128 / 4);
   unsigned char* pub = (unsigned char*)&sift_buffer[0];

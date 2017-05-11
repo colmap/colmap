@@ -19,10 +19,11 @@
 
 #include "base/database.h"
 #include "base/image_reader.h"
-#include "ext/SiftGPU/SiftGPU.h"
 #include "util/bitmap.h"
 #include "util/opengl_utils.h"
 #include "util/threading.h"
+
+class SiftGPU;
 
 namespace colmap {
 

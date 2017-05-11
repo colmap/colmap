@@ -20,6 +20,7 @@
 #include <QApplication>
 
 #include "base/feature_matching.h"
+#include "ext/SiftGPU/SiftGPU.h"
 #include "util/random.h"
 
 using namespace colmap;

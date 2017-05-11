@@ -38,7 +38,6 @@ private:
 
 	//programs
 	//
-	int _max_sift;
 	int _num_sift[2];
 	int _id_sift[2];
 	int _have_loc[2];
@@ -53,7 +52,7 @@ public:
 	virtual ~SiftMatchCU(){};
 	void InitSiftMatch();
   bool Allocate(int max_sift, int mbm) override;
-	void SetMaxSift(int max_sift);
+	void SetMaxSift(int max_sift) override;
 	void SetDescriptors(int index, int num, const unsigned char * descriptor, int id = -1);
 	void SetDescriptors(int index, int num, const float * descriptor, int id = -1);
 	void SetFeautreLocation(int index, const float* locatoins, int gap);

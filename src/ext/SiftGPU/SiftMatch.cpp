@@ -48,7 +48,7 @@ SiftMatchGL::SiftMatchGL(int max_sift, int use_glsl): SiftMatchGPU()
 	_num_sift[0] = _num_sift[1] = 0;
 	_id_sift[0] = _id_sift[1] = 0;
 	_have_loc[0] = _have_loc[1] = 0;
-	_max_sift = max_sift <=0 ? 4096 : ((max_sift + 31)/ 32 * 32) ;
+	__max_sift = max_sift <=0 ? 4096 : ((max_sift + 31)/ 32 * 32) ;
 	_pixel_per_sift = 32; //must be 32
 	_sift_num_stripe = 1;
 	_sift_per_stripe = 1;
@@ -66,7 +66,6 @@ SiftMatchGL::~SiftMatchGL()
 
 bool SiftMatchGL::Allocate(int max_sift, int mbm) {
   SetMaxSift(max_sift);
-  InitSiftMatch();
   return glGetError() == GL_NO_ERROR;
 }
 
@@ -75,35 +74,34 @@ void SiftMatchGL::SetMaxSift(int max_sift)
 
 	max_sift = ((max_sift + 31)/32)*32;
 	if(max_sift > GlobalUtil::_texMaxDimGL) max_sift = GlobalUtil::_texMaxDimGL;
-	if(max_sift > _max_sift)
+	if(max_sift > __max_sift)
 	{
-		_max_sift = max_sift;
+		__max_sift = max_sift;
 		AllocateSiftMatch();
 		_have_loc[0] = _have_loc[1] = 0;
 		_id_sift[0] = _id_sift[1] = -1;
 		_num_sift[0] = _num_sift[1] = 1;
 	}else
 	{
-		_max_sift = max_sift;
+		__max_sift = max_sift;
 	}
-
 }
 
 void SiftMatchGL::AllocateSiftMatch()
 {
 	//parameters, number of sift is limited by the texture size
-	if(_max_sift > GlobalUtil::_texMaxDimGL) _max_sift = GlobalUtil::_texMaxDimGL;
+	if(__max_sift > GlobalUtil::_texMaxDimGL) __max_sift = GlobalUtil::_texMaxDimGL;
 	///
-	int h = _max_sift / _sift_per_row;
+	int h = __max_sift / _sift_per_row;
 	int n = (GlobalUtil::_texMaxDimGL + h - 1) / GlobalUtil::_texMaxDimGL;
 	if ( n > 1) {_sift_num_stripe *= n; _sift_per_row *= n; }
 
 	//initialize
 
-	_texDes[0].InitTexture(_sift_per_row * _pixel_per_sift, _max_sift / _sift_per_row, 0,GL_RGBA8);
-	_texDes[1].InitTexture(_sift_per_row * _pixel_per_sift, _max_sift / _sift_per_row, 0, GL_RGBA8);
-	_texLoc[0].InitTexture(_sift_per_row , _max_sift / _sift_per_row, 0);
-	_texLoc[1].InitTexture(_sift_per_row , _max_sift / _sift_per_row, 0);
+	_texDes[0].InitTexture(_sift_per_row * _pixel_per_sift, __max_sift / _sift_per_row, 0,GL_RGBA8);
+	_texDes[1].InitTexture(_sift_per_row * _pixel_per_sift, __max_sift / _sift_per_row, 0, GL_RGBA8);
+	_texLoc[0].InitTexture(_sift_per_row , __max_sift / _sift_per_row, 0);
+	_texLoc[1].InitTexture(_sift_per_row , __max_sift / _sift_per_row, 0);
 
 	if(GlobalUtil::_SupportNVFloat || GlobalUtil::_SupportTextureRG)
 	{
@@ -112,14 +110,14 @@ void SiftMatchGL::AllocateSiftMatch()
 #define GL_R32F 0x822E
 #endif
 		GLuint format = GlobalUtil::_SupportNVFloat ? GL_FLOAT_R_NV : GL_R32F;
-		_texDot.InitTexture(_max_sift, _max_sift, 0, format);
-		_texMatch[0].InitTexture(16, _max_sift / 16, 0, format);
-		_texMatch[1].InitTexture(16, _max_sift / 16, 0, format);
+		_texDot.InitTexture(__max_sift, __max_sift, 0, format);
+		_texMatch[0].InitTexture(16, __max_sift / 16, 0, format);
+		_texMatch[1].InitTexture(16, __max_sift / 16, 0, format);
 	}else
 	{
-		_texDot.InitTexture(_max_sift, _max_sift, 0);
-		_texMatch[0].InitTexture(16, _max_sift / 16, 0);
-		_texMatch[1].InitTexture(16, _max_sift / 16, 0);
+		_texDot.InitTexture(__max_sift, __max_sift, 0);
+		_texMatch[0].InitTexture(16, __max_sift / 16, 0);
+		_texMatch[1].InitTexture(16, __max_sift / 16, 0);
 	}
 
 }
@@ -145,7 +143,7 @@ void SiftMatchGL::SetDescriptors(int index, int num, const unsigned char* descri
 	if(id !=-1 && id == _id_sift[index]) return ;
 	_id_sift[index] = id;
 
-	if(num > _max_sift) num = _max_sift;
+	if(num > __max_sift) num = __max_sift;
 
 	sift_buffer.resize(num * 128 /4);
 	memcpy(&sift_buffer[0], descriptors, 128 * num);
@@ -221,7 +219,7 @@ void SiftMatchGL::SetDescriptors(int index, int num, const float* descriptors, i
 	if(id !=-1 && id == _id_sift[index]) return ;
 	_id_sift[index] = id;
 
-	if(num > _max_sift) num = _max_sift;
+	if(num > __max_sift) num = __max_sift;
 
 	sift_buffer.resize(num * 128 /4);
 	unsigned char * pub = (unsigned char*) &sift_buffer[0];
@@ -647,14 +645,23 @@ void SiftMatchGPU::SetDeviceParam(int argc, char**argv)
 }
 
 bool SiftMatchGPU::Allocate(int max_sift, int mbm) {
-  if(__matcher) return __matcher->Allocate(max_sift, mbm);
+  if(__matcher) {
+    const bool success = __matcher->Allocate(max_sift, mbm);
+    __max_sift = __matcher->__max_sift;
+    return success;
+  }
+
   return false;
 }
 
 void SiftMatchGPU::SetMaxSift(int max_sift)
 {
-	if(__matcher)	__matcher->SetMaxSift(max(128, max_sift));
-	else __max_sift = max(128, max_sift);
+	if(__matcher)	{
+    __matcher->SetMaxSift(max(128, max_sift));
+    __max_sift = __matcher->__max_sift;
+  } else {
+    __max_sift = max(128, max_sift);
+  }
 }
 
 SiftMatchGPU::~SiftMatchGPU()

@@ -280,11 +280,11 @@ public:
 		SIFTMATCH_CUDA_DEVICE0 = 3 //to use device i, use SIFTMATCH_CUDA_DEVICE0 + i
 	};
 private:
-	int				__max_sift;
 	int				__language;
 	SiftMatchGPU *	__matcher;
 	virtual void   InitSiftMatch(){}
 protected:
+  int       __max_sift;
 	//move the two functions here for derived class
 	SIFTGPU_EXPORT virtual int  _CreateContextGL();
 	SIFTGPU_EXPORT virtual int  _VerifyContextGL();

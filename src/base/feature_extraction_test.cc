@@ -20,6 +20,7 @@
 #include <QApplication>
 
 #include "base/feature_extraction.h"
+#include "ext/SiftGPU/SiftGPU.h"
 
 using namespace colmap;
 

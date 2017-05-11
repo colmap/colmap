@@ -24,6 +24,7 @@
 #include "base/gps.h"
 #include "estimators/essential_matrix.h"
 #include "estimators/two_view_geometry.h"
+#include "ext/SiftGPU/SiftGPU.h"
 #include "optim/ransac.h"
 #include "retrieval/visual_index.h"
 #include "util/cuda.h"
@@ -1905,7 +1906,7 @@ bool CreateSiftGPUMatcher(const SiftMatchingOptions& match_options,
   } else {
     sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_CUDA);
   }
-#else  // CUDA_ENABLED
+#else   // CUDA_ENABLED
   sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_GLSL);
 #endif  // CUDA_ENABLED
 
@@ -1922,6 +1923,17 @@ bool CreateSiftGPUMatcher(const SiftMatchingOptions& match_options,
               << std::endl;
     return false;
   }
+
+#ifndef CUDA_ENABLED
+  if (sift_match_gpu->GetMaxSift() < match_options.max_num_matches) {
+    std::cout << StringPrintf(
+                     "WARNING: OpenGL version of SiftGPU only supports a "
+                     "maximum of %d matches - consider changing to CUDA-based "
+                     "feature matching to avoid this limitation.",
+                     sift_match_gpu->GetMaxSift())
+              << std::endl;
+  }
+#endif  // CUDA_ENABLED
 
   return true;
 }
