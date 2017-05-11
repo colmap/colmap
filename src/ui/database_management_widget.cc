@@ -87,7 +87,7 @@ void MatchesTab::ShowMatches() {
 }
 
 void MatchesTab::FillTable() {
-  // Sort the matched pairs according to number of matches in descending order
+  // Sort the matched pairs according to number of matches in descending order.
   sorted_matches_idxs_.resize(matches_.size());
   std::iota(sorted_matches_idxs_.begin(), sorted_matches_idxs_.end(), 0);
 
@@ -174,7 +174,7 @@ void InlierMatchesTab::Reload(const std::vector<Image>& images,
   matches_.clear();
   configs_.clear();
 
-  // Find all matched images
+  // Find all matched images.
 
   for (const auto& image : images) {
     if (image.ImageId() == image_id) {
@@ -200,7 +200,7 @@ MatchesWidget::MatchesWidget(QWidget* parent, OptionManager* options,
                              Database* database)
     : parent_(parent), options_(options) {
   // Do not change flag, to make sure feature database is not accessed from
-  // multiple threads
+  // multiple threads.
   setWindowFlags(Qt::Window);
   resize(parent->size().width() - 20, parent->size().height() - 20);
 
@@ -236,239 +236,6 @@ void MatchesWidget::closeEvent(QCloseEvent* event) {
   raw_matches_tab_->Clear();
   inlier_matches_tab_->Clear();
   parent_->setEnabled(true);
-}
-
-ImageTab::ImageTab(QWidget* parent, OptionManager* options, Database* database)
-    : QWidget(parent), options_(options), database_(database) {
-  QGridLayout* grid = new QGridLayout(this);
-
-  info_label_ = new QLabel(this);
-  grid->addWidget(info_label_, 0, 0);
-
-  QPushButton* set_camera_button = new QPushButton(tr("Set camera"), this);
-  connect(set_camera_button, &QPushButton::released, this,
-          &ImageTab::SetCamera);
-  grid->addWidget(set_camera_button, 0, 1, Qt::AlignRight);
-
-  QPushButton* show_image_button = new QPushButton(tr("Show image"), this);
-  connect(show_image_button, &QPushButton::released, this,
-          &ImageTab::ShowImage);
-  grid->addWidget(show_image_button, 0, 2, Qt::AlignRight);
-
-  QPushButton* show_matches_button = new QPushButton(tr("Show matches"), this);
-  connect(show_matches_button, &QPushButton::released, this,
-          &ImageTab::ShowMatches);
-  grid->addWidget(show_matches_button, 0, 3, Qt::AlignRight);
-
-  table_widget_ = new QTableWidget(this);
-  table_widget_->setColumnCount(10);
-
-  QStringList table_header;
-  table_header << "image_id"
-               << "name"
-               << "camera_id"
-               << "qw"
-               << "qx"
-               << "qy"
-               << "qz"
-               << "tx"
-               << "ty"
-               << "tz";
-  table_widget_->setHorizontalHeaderLabels(table_header);
-
-  table_widget_->setShowGrid(true);
-  table_widget_->setSelectionBehavior(QAbstractItemView::SelectRows);
-  table_widget_->horizontalHeader()->setStretchLastSection(true);
-  table_widget_->verticalHeader()->setVisible(false);
-  table_widget_->verticalHeader()->setDefaultSectionSize(20);
-
-  connect(table_widget_, &QTableWidget::itemChanged, this,
-          &ImageTab::itemChanged);
-
-  grid->addWidget(table_widget_, 1, 0, 1, 4);
-
-  grid->setColumnStretch(0, 2);
-
-  image_viewer_widget_ = new FeatureImageViewerWidget(parent, "keypoints");
-  matches_widget_ = new MatchesWidget(parent, options, database_);
-}
-
-void ImageTab::Reload() {
-  QString info;
-  info += QString("Images: ") + QString::number(database_->NumImages());
-  info += QString("\n");
-  info += QString("Features: ") + QString::number(database_->NumKeypoints());
-  info_label_->setText(info);
-
-  images_ = database_->ReadAllImages();
-
-  // Make sure, itemChanged is not invoked, while setting up the table
-  table_widget_->blockSignals(true);
-
-  table_widget_->clearContents();
-  table_widget_->setRowCount(images_.size());
-
-  for (size_t i = 0; i < images_.size(); ++i) {
-    const auto& image = images_[i];
-    QTableWidgetItem* id_item =
-        new QTableWidgetItem(QString::number(image.ImageId()));
-    id_item->setFlags(Qt::ItemIsSelectable);
-    table_widget_->setItem(i, 0, id_item);
-    table_widget_->setItem(
-        i, 1, new QTableWidgetItem(QString::fromStdString(image.Name())));
-    table_widget_->setItem(
-        i, 2, new QTableWidgetItem(QString::number(image.CameraId())));
-    table_widget_->setItem(
-        i, 3, new QTableWidgetItem(QString::number(image.QvecPrior(0))));
-    table_widget_->setItem(
-        i, 4, new QTableWidgetItem(QString::number(image.QvecPrior(1))));
-    table_widget_->setItem(
-        i, 5, new QTableWidgetItem(QString::number(image.QvecPrior(2))));
-    table_widget_->setItem(
-        i, 6, new QTableWidgetItem(QString::number(image.QvecPrior(3))));
-    table_widget_->setItem(
-        i, 7, new QTableWidgetItem(QString::number(image.TvecPrior(0))));
-    table_widget_->setItem(
-        i, 8, new QTableWidgetItem(QString::number(image.TvecPrior(1))));
-    table_widget_->setItem(
-        i, 9, new QTableWidgetItem(QString::number(image.TvecPrior(2))));
-  }
-  table_widget_->resizeColumnsToContents();
-
-  table_widget_->blockSignals(false);
-}
-
-void ImageTab::Save() {
-  DatabaseTransaction database_transaction(database_);
-  for (const auto& image : images_) {
-    database_->UpdateImage(image);
-  }
-}
-
-void ImageTab::Clear() {
-  images_.clear();
-  table_widget_->clearContents();
-}
-
-void ImageTab::itemChanged(QTableWidgetItem* item) {
-  camera_t camera_id = kInvalidCameraId;
-
-  switch (item->column()) {
-    // case 0: never change the image ID
-    case 1:
-      images_[item->row()].SetName(item->text().toUtf8().constData());
-      break;
-    case 2:
-      camera_id = static_cast<camera_t>(item->data(Qt::DisplayRole).toInt());
-      if (!database_->ExistsCamera(camera_id)) {
-        QMessageBox::critical(this, "", tr("camera_id does not exist."));
-        table_widget_->blockSignals(true);
-        item->setText(QString::number(images_[item->row()].CameraId()));
-        table_widget_->blockSignals(false);
-      } else {
-        images_[item->row()].SetCameraId(camera_id);
-      }
-      break;
-    case 3:
-      images_[item->row()].QvecPrior(0) = item->data(Qt::DisplayRole).toReal();
-      break;
-    case 4:
-      images_[item->row()].QvecPrior(1) = item->data(Qt::DisplayRole).toReal();
-      break;
-    case 5:
-      images_[item->row()].QvecPrior(2) = item->data(Qt::DisplayRole).toReal();
-      break;
-    case 6:
-      images_[item->row()].QvecPrior(3) = item->data(Qt::DisplayRole).toReal();
-      break;
-    case 7:
-      images_[item->row()].TvecPrior(0) = item->data(Qt::DisplayRole).toReal();
-      break;
-    case 8:
-      images_[item->row()].TvecPrior(1) = item->data(Qt::DisplayRole).toReal();
-      break;
-    case 9:
-      images_[item->row()].TvecPrior(2) = item->data(Qt::DisplayRole).toReal();
-      break;
-    default:
-      break;
-  }
-}
-
-void ImageTab::ShowImage() {
-  QItemSelectionModel* select = table_widget_->selectionModel();
-
-  if (!select->hasSelection()) {
-    QMessageBox::critical(this, "", tr("No image selected."));
-    return;
-  }
-
-  if (select->selectedRows().size() > 1) {
-    QMessageBox::critical(this, "", tr("Only one image may be selected."));
-    return;
-  }
-
-  const auto& image = images_[select->selectedRows().begin()->row()];
-
-  const auto keypoints = database_->ReadKeypoints(image.ImageId());
-  const std::vector<char> tri_mask(keypoints.size(), false);
-
-  image_viewer_widget_->ReadAndShowWithKeypoints(
-      JoinPaths(*options_->image_path, image.Name()), keypoints, tri_mask);
-  image_viewer_widget_->setWindowTitle(
-      QString::fromStdString("Image " + std::to_string(image.ImageId())));
-}
-
-void ImageTab::ShowMatches() {
-  QItemSelectionModel* select = table_widget_->selectionModel();
-
-  if (!select->hasSelection()) {
-    QMessageBox::critical(this, "", tr("No image selected."));
-    return;
-  }
-
-  if (select->selectedRows().size() > 1) {
-    QMessageBox::critical(this, "", tr("Only one image may be selected."));
-    return;
-  }
-
-  const auto& image = images_[select->selectedRows().begin()->row()];
-
-  matches_widget_->ShowMatches(images_, image.ImageId());
-  matches_widget_->show();
-  matches_widget_->raise();
-}
-
-void ImageTab::SetCamera() {
-  QItemSelectionModel* select = table_widget_->selectionModel();
-
-  if (!select->hasSelection()) {
-    QMessageBox::critical(this, "", tr("No image selected."));
-    return;
-  }
-
-  bool ok;
-  const camera_t camera_id = static_cast<camera_t>(
-      QInputDialog::getInt(this, "", tr("camera_id"), 0, 0, INT_MAX, 1, &ok));
-  if (!ok) {
-    return;
-  }
-
-  if (!database_->ExistsCamera(camera_id)) {
-    QMessageBox::critical(this, "", tr("camera_id does not exist."));
-    return;
-  }
-
-  // Make sure, itemChanged is not invoked, while updating up the table
-  table_widget_->blockSignals(true);
-
-  for (QModelIndex& index : select->selectedRows()) {
-    table_widget_->setItem(index.row(), 2,
-                           new QTableWidgetItem(QString::number(camera_id)));
-    images_[index.row()].SetCameraId(camera_id);
-  }
-
-  table_widget_->blockSignals(false);
 }
 
 CameraTab::CameraTab(QWidget* parent, Database* database)
@@ -559,13 +326,6 @@ void CameraTab::Reload() {
   table_widget_->blockSignals(false);
 }
 
-void CameraTab::Save() {
-  DatabaseTransaction database_transaction(database_);
-  for (const Camera& camera : cameras_) {
-    database_->UpdateCamera(camera);
-  }
-}
-
 void CameraTab::Clear() {
   cameras_.clear();
   table_widget_->clearContents();
@@ -600,6 +360,8 @@ void CameraTab::itemChanged(QTableWidgetItem* item) {
     default:
       break;
   }
+
+  database_->UpdateCamera(camera);
 }
 
 void CameraTab::Add() {
@@ -670,6 +432,285 @@ void CameraTab::SetModel() {
   Reload();
 }
 
+ImageTab::ImageTab(QWidget* parent, CameraTab* camera_tab,
+                   OptionManager* options, Database* database)
+    : QWidget(parent),
+      camera_tab_(camera_tab),
+      options_(options),
+      database_(database) {
+  QGridLayout* grid = new QGridLayout(this);
+
+  info_label_ = new QLabel(this);
+  grid->addWidget(info_label_, 0, 0);
+
+  QPushButton* set_camera_button = new QPushButton(tr("Set camera"), this);
+  connect(set_camera_button, &QPushButton::released, this,
+          &ImageTab::SetCamera);
+  grid->addWidget(set_camera_button, 0, 1, Qt::AlignRight);
+
+  QPushButton* split_camera_button = new QPushButton(tr("Split camera"), this);
+  connect(split_camera_button, &QPushButton::released, this,
+          &ImageTab::SplitCamera);
+  grid->addWidget(split_camera_button, 0, 2, Qt::AlignRight);
+
+  QPushButton* show_image_button = new QPushButton(tr("Show image"), this);
+  connect(show_image_button, &QPushButton::released, this,
+          &ImageTab::ShowImage);
+  grid->addWidget(show_image_button, 0, 3, Qt::AlignRight);
+
+  QPushButton* show_matches_button = new QPushButton(tr("Show matches"), this);
+  connect(show_matches_button, &QPushButton::released, this,
+          &ImageTab::ShowMatches);
+  grid->addWidget(show_matches_button, 0, 4, Qt::AlignRight);
+
+  table_widget_ = new QTableWidget(this);
+  table_widget_->setColumnCount(10);
+
+  QStringList table_header;
+  table_header << "image_id"
+               << "name"
+               << "camera_id"
+               << "qw"
+               << "qx"
+               << "qy"
+               << "qz"
+               << "tx"
+               << "ty"
+               << "tz";
+  table_widget_->setHorizontalHeaderLabels(table_header);
+
+  table_widget_->setShowGrid(true);
+  table_widget_->setSelectionBehavior(QAbstractItemView::SelectRows);
+  table_widget_->horizontalHeader()->setStretchLastSection(true);
+  table_widget_->verticalHeader()->setVisible(false);
+  table_widget_->verticalHeader()->setDefaultSectionSize(20);
+
+  connect(table_widget_, &QTableWidget::itemChanged, this,
+          &ImageTab::itemChanged);
+
+  grid->addWidget(table_widget_, 1, 0, 1, 5);
+
+  grid->setColumnStretch(0, 3);
+
+  image_viewer_widget_ = new FeatureImageViewerWidget(parent, "keypoints");
+  matches_widget_ = new MatchesWidget(parent, options, database_);
+}
+
+void ImageTab::Reload() {
+  QString info;
+  info += QString("Images: ") + QString::number(database_->NumImages());
+  info += QString("\n");
+  info += QString("Features: ") + QString::number(database_->NumKeypoints());
+  info_label_->setText(info);
+
+  images_ = database_->ReadAllImages();
+
+  // Make sure, itemChanged is not invoked, while setting up the table
+  table_widget_->blockSignals(true);
+
+  table_widget_->clearContents();
+  table_widget_->setRowCount(images_.size());
+
+  for (size_t i = 0; i < images_.size(); ++i) {
+    const auto& image = images_[i];
+    QTableWidgetItem* id_item =
+        new QTableWidgetItem(QString::number(image.ImageId()));
+    id_item->setFlags(Qt::ItemIsSelectable);
+    table_widget_->setItem(i, 0, id_item);
+    table_widget_->setItem(
+        i, 1, new QTableWidgetItem(QString::fromStdString(image.Name())));
+    table_widget_->setItem(
+        i, 2, new QTableWidgetItem(QString::number(image.CameraId())));
+    table_widget_->setItem(
+        i, 3, new QTableWidgetItem(QString::number(image.QvecPrior(0))));
+    table_widget_->setItem(
+        i, 4, new QTableWidgetItem(QString::number(image.QvecPrior(1))));
+    table_widget_->setItem(
+        i, 5, new QTableWidgetItem(QString::number(image.QvecPrior(2))));
+    table_widget_->setItem(
+        i, 6, new QTableWidgetItem(QString::number(image.QvecPrior(3))));
+    table_widget_->setItem(
+        i, 7, new QTableWidgetItem(QString::number(image.TvecPrior(0))));
+    table_widget_->setItem(
+        i, 8, new QTableWidgetItem(QString::number(image.TvecPrior(1))));
+    table_widget_->setItem(
+        i, 9, new QTableWidgetItem(QString::number(image.TvecPrior(2))));
+  }
+  table_widget_->resizeColumnsToContents();
+
+  table_widget_->blockSignals(false);
+}
+
+void ImageTab::Clear() {
+  images_.clear();
+  table_widget_->clearContents();
+}
+
+void ImageTab::itemChanged(QTableWidgetItem* item) {
+  Image& image = images_.at(item->row());
+  camera_t camera_id = kInvalidCameraId;
+
+  switch (item->column()) {
+    // case 0: never change the image ID
+    case 1:
+      image.SetName(item->text().toUtf8().constData());
+      break;
+    case 2:
+      camera_id = static_cast<camera_t>(item->data(Qt::DisplayRole).toInt());
+      if (!database_->ExistsCamera(camera_id)) {
+        QMessageBox::critical(this, "", tr("camera_id does not exist."));
+        table_widget_->blockSignals(true);
+        item->setText(QString::number(image.CameraId()));
+        table_widget_->blockSignals(false);
+      } else {
+        image.SetCameraId(camera_id);
+      }
+      break;
+    case 3:
+      image.QvecPrior(0) = item->data(Qt::DisplayRole).toReal();
+      break;
+    case 4:
+      image.QvecPrior(1) = item->data(Qt::DisplayRole).toReal();
+      break;
+    case 5:
+      image.QvecPrior(2) = item->data(Qt::DisplayRole).toReal();
+      break;
+    case 6:
+      image.QvecPrior(3) = item->data(Qt::DisplayRole).toReal();
+      break;
+    case 7:
+      image.TvecPrior(0) = item->data(Qt::DisplayRole).toReal();
+      break;
+    case 8:
+      image.TvecPrior(1) = item->data(Qt::DisplayRole).toReal();
+      break;
+    case 9:
+      image.TvecPrior(2) = item->data(Qt::DisplayRole).toReal();
+      break;
+    default:
+      break;
+  }
+
+  database_->UpdateImage(image);
+}
+
+void ImageTab::ShowImage() {
+  QItemSelectionModel* select = table_widget_->selectionModel();
+
+  if (!select->hasSelection()) {
+    QMessageBox::critical(this, "", tr("No image selected."));
+    return;
+  }
+
+  if (select->selectedRows().size() > 1) {
+    QMessageBox::critical(this, "", tr("Only one image may be selected."));
+    return;
+  }
+
+  const auto& image = images_[select->selectedRows().begin()->row()];
+
+  const auto keypoints = database_->ReadKeypoints(image.ImageId());
+  const std::vector<char> tri_mask(keypoints.size(), false);
+
+  image_viewer_widget_->ReadAndShowWithKeypoints(
+      JoinPaths(*options_->image_path, image.Name()), keypoints, tri_mask);
+  image_viewer_widget_->setWindowTitle(
+      QString::fromStdString("Image " + std::to_string(image.ImageId())));
+}
+
+void ImageTab::ShowMatches() {
+  QItemSelectionModel* select = table_widget_->selectionModel();
+
+  if (!select->hasSelection()) {
+    QMessageBox::critical(this, "", tr("No image selected."));
+    return;
+  }
+
+  if (select->selectedRows().size() > 1) {
+    QMessageBox::critical(this, "", tr("Only one image may be selected."));
+    return;
+  }
+
+  const auto& image = images_[select->selectedRows().begin()->row()];
+
+  matches_widget_->ShowMatches(images_, image.ImageId());
+  matches_widget_->show();
+  matches_widget_->raise();
+}
+
+void ImageTab::SetCamera() {
+  QItemSelectionModel* select = table_widget_->selectionModel();
+
+  if (!select->hasSelection()) {
+    QMessageBox::critical(this, "", tr("No image selected."));
+    return;
+  }
+
+  bool ok;
+  const camera_t camera_id = static_cast<camera_t>(
+      QInputDialog::getInt(this, "", tr("camera_id"), 0, 0, INT_MAX, 1, &ok));
+  if (!ok) {
+    return;
+  }
+
+  if (!database_->ExistsCamera(camera_id)) {
+    QMessageBox::critical(this, "", tr("camera_id does not exist."));
+    return;
+  }
+
+  // Make sure, itemChanged is not invoked, while updating up the table
+  table_widget_->blockSignals(true);
+
+  for (QModelIndex& index : select->selectedRows()) {
+    table_widget_->setItem(index.row(), 2,
+                           new QTableWidgetItem(QString::number(camera_id)));
+    images_[index.row()].SetCameraId(camera_id);
+  }
+
+  table_widget_->blockSignals(false);
+}
+
+void ImageTab::SplitCamera() {
+  QItemSelectionModel* select = table_widget_->selectionModel();
+
+  if (!select->hasSelection()) {
+    QMessageBox::critical(this, "", tr("No image selected."));
+    return;
+  }
+
+  bool ok;
+  const camera_t camera_id = static_cast<camera_t>(
+      QInputDialog::getInt(this, "", tr("camera_id"), 0, 0, INT_MAX, 1, &ok));
+  if (!ok) {
+    return;
+  }
+
+  if (!database_->ExistsCamera(camera_id)) {
+    QMessageBox::critical(this, "", tr("camera_id does not exist."));
+    return;
+  }
+
+  const auto camera = database_->ReadCamera(camera_id);
+
+  // Make sure, itemChanged is not invoked, while updating up the table
+  table_widget_->blockSignals(true);
+
+  for (QModelIndex& index : select->selectedRows()) {
+    auto& image = images_[index.row()];
+    if (image.CameraId() != camera_id) {
+      image.SetCameraId(database_->WriteCamera(camera));
+      database_->UpdateImage(image);
+    }
+    table_widget_->setItem(
+        index.row(), 2,
+        new QTableWidgetItem(QString::number(image.CameraId())));
+  }
+
+  table_widget_->blockSignals(false);
+
+  camera_tab_->Reload();
+}
+
 DatabaseManagementWidget::DatabaseManagementWidget(QWidget* parent,
                                                    OptionManager* options)
     : parent_(parent), options_(options) {
@@ -681,10 +722,10 @@ DatabaseManagementWidget::DatabaseManagementWidget(QWidget* parent,
 
   tab_widget_ = new QTabWidget(this);
 
-  image_tab_ = new ImageTab(this, options_, &database_);
-  tab_widget_->addTab(image_tab_, tr("Images"));
-
   camera_tab_ = new CameraTab(this, &database_);
+  image_tab_ = new ImageTab(this, camera_tab_, options_, &database_);
+
+  tab_widget_->addTab(image_tab_, tr("Images"));
   tab_widget_->addTab(camera_tab_, tr("Cameras"));
 
   grid->addWidget(tab_widget_, 0, 0, 1, 4);
@@ -700,16 +741,6 @@ DatabaseManagementWidget::DatabaseManagementWidget(QWidget* parent,
   connect(clear_inlier_matcjes_button, &QPushButton::released, this,
           &DatabaseManagementWidget::ClearInlierMatches);
   grid->addWidget(clear_inlier_matcjes_button, 1, 1, Qt::AlignLeft);
-
-  QPushButton* save_button = new QPushButton(tr("Save"), this);
-  connect(save_button, &QPushButton::released, this,
-          &DatabaseManagementWidget::Save);
-  grid->addWidget(save_button, 1, 2, Qt::AlignRight);
-
-  QPushButton* cancel_button = new QPushButton(tr("Cancel"), this);
-  connect(cancel_button, &QPushButton::released, this,
-          &DatabaseManagementWidget::close);
-  grid->addWidget(cancel_button, 1, 3, Qt::AlignRight);
 
   grid->setColumnStretch(1, 1);
 }
@@ -730,13 +761,6 @@ void DatabaseManagementWidget::hideEvent(QHideEvent* event) {
   camera_tab_->Clear();
 
   database_.Close();
-}
-
-void DatabaseManagementWidget::Save() {
-  image_tab_->Save();
-  camera_tab_->Save();
-
-  QMessageBox::information(this, "", tr("Saved changes"));
 }
 
 void DatabaseManagementWidget::ClearMatches() {
