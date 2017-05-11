@@ -52,6 +52,7 @@ public:
 	SiftMatchCU(int max_sift);
 	virtual ~SiftMatchCU(){};
 	void InitSiftMatch();
+  bool Allocate(int max_sift, int mbm) override;
 	void SetMaxSift(int max_sift);
 	void SetDescriptors(int index, int num, const unsigned char * descriptor, int id = -1);
 	void SetDescriptors(int index, int num, const float * descriptor, int id = -1);

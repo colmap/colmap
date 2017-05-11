@@ -17,6 +17,7 @@
 #include "base/feature_extraction.h"
 
 #include <fstream>
+#include <memory>
 
 #include <boost/lexical_cast.hpp>
 
@@ -507,6 +508,11 @@ bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
   CHECK(options.Check());
   CHECK_GE(gpu_index, -1);
   CHECK_NOTNULL(sift_gpu);
+
+  // SiftGPU uses many global static state variables and the initialization must
+  // be thread-safe in order to work correctly. This is enforced here.
+  static std::mutex mutex;
+  std::unique_lock<std::mutex> lock(mutex);
 
   std::vector<std::string> sift_gpu_args;
 

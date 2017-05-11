@@ -78,6 +78,7 @@ public:
 	SiftMatchGL(int max_sift, int use_glsl);
 	virtual ~SiftMatchGL();
 public:
+  bool Allocate(int max_sift, int mbm) override;
 	void InitSiftMatch();
 	void SetMaxSift(int max_sift);
 	void SetDescriptors(int index, int num, const unsigned char * descriptor, int id = -1);

@@ -305,6 +305,9 @@ public:
 	//This function doesn't change the language.
 	SIFTGPU_EXPORT virtual void SetDeviceParam(int argc, char**argv);
 
+  // Allocate all matrices the matrices and return true if successful.
+  virtual bool Allocate(int max_sift, int mbm);
+
 	//change the maximum of features to match whenever you want
   SIFTGPU_EXPORT virtual void SetMaxSift(int max_sift);
   SIFTGPU_EXPORT virtual int GetMaxSift() const { return __max_sift; };

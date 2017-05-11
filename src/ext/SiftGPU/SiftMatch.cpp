@@ -64,6 +64,12 @@ SiftMatchGL::~SiftMatchGL()
 	if(s_row_max) delete s_row_max;
 }
 
+bool SiftMatchGL::Allocate(int max_sift, int mbm) {
+  SetMaxSift(max_sift);
+  InitSiftMatch();
+  return true;
+}
+
 void SiftMatchGL::SetMaxSift(int max_sift)
 {
 
@@ -638,6 +644,11 @@ void SiftMatchGPU::SetDeviceParam(int argc, char**argv)
 {
     if(__matcher) return;
     GlobalUtil::SetDeviceParam(argc, argv);
+}
+
+bool SiftMatchGPU::Allocate(int max_sift, int mbm) {
+  if(__matcher) return __matcher->Allocate(max_sift, mbm);
+  return false;
 }
 
 void SiftMatchGPU::SetMaxSift(int max_sift)

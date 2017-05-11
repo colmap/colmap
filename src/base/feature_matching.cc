@@ -404,6 +404,29 @@ void FeatureMatcherCache::DeleteInlierMatches(const image_t image_id1,
   database_->DeleteInlierMatches(image_id1, image_id2);
 }
 
+FeatureMatcherThread::FeatureMatcherThread() : is_valid_(false) {}
+
+bool FeatureMatcherThread::IsValid() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  if (is_valid_) {
+    return true;
+  }
+  is_setup_.wait(lock);
+  return is_valid_;
+}
+
+void FeatureMatcherThread::SetValid() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  is_valid_ = true;
+  is_setup_.notify_all();
+}
+
+void FeatureMatcherThread::SetInvalid() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  is_valid_ = false;
+  is_setup_.notify_all();
+}
+
 SiftCPUFeatureMatcher::SiftCPUFeatureMatcher(const SiftMatchingOptions& options,
                                              FeatureMatcherCache* cache,
                                              JobQueue<Input>* input_queue,
@@ -416,6 +439,8 @@ SiftCPUFeatureMatcher::SiftCPUFeatureMatcher(const SiftMatchingOptions& options,
 }
 
 void SiftCPUFeatureMatcher::Run() {
+  SetValid();
+
   while (true) {
     if (IsStopped()) {
       break;
@@ -466,8 +491,13 @@ void SiftGPUFeatureMatcher::Run() {
 #endif
 
   SiftMatchGPU sift_match_gpu;
-  CHECK(CreateSiftGPUMatcher(options_, &sift_match_gpu))
-      << "ERROR: SiftGPU not fully supported";
+  if (!CreateSiftGPUMatcher(options_, &sift_match_gpu)) {
+    std::cout << "ERROR: SiftGPU not fully supported" << std::endl;
+    SetInvalid();
+    return;
+  }
+
+  SetValid();
 
   while (true) {
     if (IsStopped()) {
@@ -519,6 +549,8 @@ GuidedSiftCPUFeatureMatcher::GuidedSiftCPUFeatureMatcher(
 }
 
 void GuidedSiftCPUFeatureMatcher::Run() {
+  SetValid();
+
   while (true) {
     if (IsStopped()) {
       break;
@@ -578,8 +610,13 @@ void GuidedSiftGPUFeatureMatcher::Run() {
 #endif
 
   SiftMatchGPU sift_match_gpu;
-  CHECK(CreateSiftGPUMatcher(options_, &sift_match_gpu))
-      << "ERROR: SiftGPU not fully supported";
+  if (!CreateSiftGPUMatcher(options_, &sift_match_gpu)) {
+    std::cout << "ERROR: SiftGPU not fully supported" << std::endl;
+    SetInvalid();
+    return;
+  }
+
+  SetValid();
 
   while (true) {
     if (IsStopped()) {
@@ -703,7 +740,7 @@ void TwoViewGeometryVerifier::Run() {
 SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchingOptions& options,
                                        Database* database,
                                        FeatureMatcherCache* cache)
-    : options_(options), database_(database), cache_(cache) {
+    : options_(options), database_(database), cache_(cache), is_setup_(false) {
   CHECK(options_.Check());
 
   const int num_threads = GetEffectiveNumThreads(options_.num_threads);
@@ -765,18 +802,6 @@ SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchingOptions& options,
           options, cache, &verifier_queue_, &output_queue_));
     }
   }
-
-  for (auto& matcher : matchers_) {
-    matcher->Start();
-  }
-
-  for (auto& verifier : verifiers_) {
-    verifier->Start();
-  }
-
-  for (auto& guided_matcher : guided_matchers_) {
-    guided_matcher->Start();
-  }
 }
 
 SiftFeatureMatcher::~SiftFeatureMatcher() {
@@ -815,10 +840,41 @@ SiftFeatureMatcher::~SiftFeatureMatcher() {
   }
 }
 
+bool SiftFeatureMatcher::Setup() {
+  for (auto& matcher : matchers_) {
+    matcher->Start();
+  }
+
+  for (auto& verifier : verifiers_) {
+    verifier->Start();
+  }
+
+  for (auto& guided_matcher : guided_matchers_) {
+    guided_matcher->Start();
+  }
+
+  for (auto& matcher : matchers_) {
+    if (!matcher->IsValid()) {
+      return false;
+    }
+  }
+
+  for (auto& guided_matcher : guided_matchers_) {
+    if (!guided_matcher->IsValid()) {
+      return false;
+    }
+  }
+
+  is_setup_ = true;
+
+  return true;
+}
+
 void SiftFeatureMatcher::Match(
     const std::vector<std::pair<image_t, image_t>>& image_pairs) {
   CHECK_NOTNULL(database_);
   CHECK_NOTNULL(cache_);
+  CHECK(is_setup_);
 
   if (image_pairs.empty()) {
     return;
@@ -931,6 +987,10 @@ ExhaustiveFeatureMatcher::ExhaustiveFeatureMatcher(
 void ExhaustiveFeatureMatcher::Run() {
   PrintHeading1("Exhaustive feature matching");
 
+  if (!matcher_.Setup()) {
+    return;
+  }
+
   cache_.Setup();
 
   const std::vector<image_t> image_ids = cache_.GetImageIds();
@@ -1010,6 +1070,10 @@ SequentialFeatureMatcher::SequentialFeatureMatcher(
 
 void SequentialFeatureMatcher::Run() {
   PrintHeading1("Sequential feature matching");
+
+  if (!matcher_.Setup()) {
+    return;
+  }
 
   cache_.Setup();
 
@@ -1129,6 +1193,10 @@ VocabTreeFeatureMatcher::VocabTreeFeatureMatcher(
 void VocabTreeFeatureMatcher::Run() {
   PrintHeading1("Vocabulary tree feature matching");
 
+  if (!matcher_.Setup()) {
+    return;
+  }
+
   cache_.Setup();
 
   // Read the pre-trained vocabulary tree from disk.
@@ -1206,6 +1274,10 @@ SpatialFeatureMatcher::SpatialFeatureMatcher(
 
 void SpatialFeatureMatcher::Run() {
   PrintHeading1("Spatial feature matching");
+
+  if (!matcher_.Setup()) {
+    return;
+  }
 
   cache_.Setup();
 
@@ -1393,6 +1465,10 @@ TransitiveFeatureMatcher::TransitiveFeatureMatcher(
 void TransitiveFeatureMatcher::Run() {
   PrintHeading1("Transitive feature matching");
 
+  if (!matcher_.Setup()) {
+    return;
+  }
+
   cache_.Setup();
 
   const std::vector<image_t> image_ids = cache_.GetImageIds();
@@ -1489,6 +1565,10 @@ ImagePairsFeatureMatcher::ImagePairsFeatureMatcher(
 
 void ImagePairsFeatureMatcher::Run() {
   PrintHeading1("Custom feature matching");
+
+  if (!matcher_.Setup()) {
+    return;
+  }
 
   cache_.Setup();
 
@@ -1829,6 +1909,16 @@ bool CreateSiftGPUMatcher(const SiftMatchingOptions& match_options,
     return false;
   }
 
+  if (!sift_match_gpu->Allocate(match_options.max_num_matches,
+                                match_options.cross_check)) {
+    std::cout << StringPrintf(
+                     "ERROR: Not enough GPU memory to match %d features. "
+                     "Reduce the maximum number of matches.",
+                     match_options.max_num_matches)
+              << std::endl;
+    return false;
+  }
+
   return true;
 }
 
@@ -1864,8 +1954,9 @@ void MatchSiftFeaturesGPU(const SiftMatchingOptions& match_options,
       static_cast<float>(match_options.max_ratio), match_options.cross_check);
 
   if (num_matches < 0) {
-    std::cerr << "ERROR: Running out of GPU memory. You must reduce the "
-                 "maximum number of matches."
+    std::cerr << "ERROR: Feature matching failed. This probably caused by "
+                 "insufficient GPU memory. Consider reducing the maximum "
+                 "number of features."
               << std::endl;
     matches->clear();
   } else {
@@ -1946,8 +2037,9 @@ void MatchGuidedSiftFeaturesGPU(const SiftMatchingOptions& match_options,
       match_options.cross_check);
 
   if (num_matches < 0) {
-    std::cerr << "ERROR: Running out of GPU memory. You must reduce the "
-                 "maximum number of matches."
+    std::cerr << "ERROR: Feature matching failed. This probably caused by "
+                 "insufficient GPU memory. Consider reducing the maximum "
+                 "number of features."
               << std::endl;
     two_view_geometry->inlier_matches.clear();
   } else {

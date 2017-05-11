@@ -135,7 +135,23 @@ class FeatureMatcherCache {
   std::unique_ptr<LRUCache<image_t, FeatureDescriptors>> descriptors_cache_;
 };
 
-class SiftCPUFeatureMatcher : public Thread {
+class FeatureMatcherThread : public Thread {
+ public:
+  FeatureMatcherThread();
+
+  virtual bool IsValid();
+
+ protected:
+  virtual void SetValid();
+  virtual void SetInvalid();
+
+ private:
+  std::mutex mutex_;
+  std::condition_variable is_setup_;
+  std::atomic<bool> is_valid_;
+};
+
+class SiftCPUFeatureMatcher : public FeatureMatcherThread {
  public:
   typedef internal::ImagePairData Input;
   typedef internal::MatchData Output;
@@ -154,7 +170,7 @@ class SiftCPUFeatureMatcher : public Thread {
   JobQueue<Output>* output_queue_;
 };
 
-class SiftGPUFeatureMatcher : public Thread {
+class SiftGPUFeatureMatcher : public FeatureMatcherThread {
  public:
   typedef internal::ImagePairData Input;
   typedef internal::MatchData Output;
@@ -182,7 +198,7 @@ class SiftGPUFeatureMatcher : public Thread {
   std::array<FeatureDescriptors, 2> prev_uploaded_descriptors_;
 };
 
-class GuidedSiftCPUFeatureMatcher : public Thread {
+class GuidedSiftCPUFeatureMatcher : public FeatureMatcherThread {
  public:
   typedef internal::InlierMatchData Input;
   typedef internal::InlierMatchData Output;
@@ -201,7 +217,7 @@ class GuidedSiftCPUFeatureMatcher : public Thread {
   JobQueue<Output>* output_queue_;
 };
 
-class GuidedSiftGPUFeatureMatcher : public Thread {
+class GuidedSiftGPUFeatureMatcher : public FeatureMatcherThread {
  public:
   typedef internal::InlierMatchData Input;
   typedef internal::InlierMatchData Output;
@@ -263,6 +279,9 @@ class SiftFeatureMatcher {
 
   ~SiftFeatureMatcher();
 
+  // Setup the matchers and return if successful.
+  bool Setup();
+
   // Match one batch of multiple image pairs.
   void Match(const std::vector<std::pair<image_t, image_t>>& image_pairs);
 
@@ -271,9 +290,11 @@ class SiftFeatureMatcher {
   Database* database_;
   FeatureMatcherCache* cache_;
 
-  std::vector<std::unique_ptr<Thread>> matchers_;
+  bool is_setup_;
+
+  std::vector<std::unique_ptr<FeatureMatcherThread>> matchers_;
+  std::vector<std::unique_ptr<FeatureMatcherThread>> guided_matchers_;
   std::vector<std::unique_ptr<Thread>> verifiers_;
-  std::vector<std::unique_ptr<Thread>> guided_matchers_;
   std::unique_ptr<ThreadPool> thread_pool_;
 
   JobQueue<internal::ImagePairData> matcher_queue_;

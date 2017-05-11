@@ -1709,7 +1709,7 @@ void __global__  RowMatch_Kernel(int*d_dot, int* d_result, int num2, float distm
 	{
 		if(threadIdx.x + i < num2)
 		{
-			int v = d_dot[base_address + threadIdx.x + i]; // tex1Dfetch(texDOT, base_address + threadIdx.x + i);
+			int v = d_dot[base_address + threadIdx.x + i];  // tex1Dfetch(texDOT, base_address + threadIdx.x + i);
 			bool test = v > t_dotmax;
 			t_dotnxt = test? t_dotmax : max(t_dotnxt, v);
 			t_dotidx = test? (threadIdx.x + i) : t_dotidx;
