@@ -62,14 +62,14 @@ class RawMatchesTab : public MatchesTab {
  public:
   RawMatchesTab(QWidget* parent, OptionManager* options, Database* database);
 
-  void Update(const std::vector<Image>& images, const image_t image_id);
+  void Reload(const std::vector<Image>& images, const image_t image_id);
 };
 
 class InlierMatchesTab : public MatchesTab {
  public:
   InlierMatchesTab(QWidget* parent, OptionManager* options, Database* database);
 
-  void Update(const std::vector<Image>& images, const image_t image_id);
+  void Reload(const std::vector<Image>& images, const image_t image_id);
 };
 
 class MatchesWidget : public QWidget {
@@ -98,7 +98,7 @@ class ImageTab : public QWidget {
  public:
   ImageTab(QWidget* parent, OptionManager* options, Database* database);
 
-  void Update();
+  void Reload();
   void Save();
   void Clear();
 
@@ -126,13 +126,14 @@ class CameraTab : public QWidget {
  public:
   CameraTab(QWidget* parent, Database* database);
 
-  void Update();
+  void Reload();
   void Save();
   void Clear();
 
  private:
   void itemChanged(QTableWidgetItem* item);
   void Add();
+  void SetModel();
 
   Database* database_;
 

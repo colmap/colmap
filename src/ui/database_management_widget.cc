@@ -135,7 +135,7 @@ RawMatchesTab::RawMatchesTab(QWidget* parent, OptionManager* options,
   InitializeTable(table_header);
 }
 
-void RawMatchesTab::Update(const std::vector<Image>& images,
+void RawMatchesTab::Reload(const std::vector<Image>& images,
                            const image_t image_id) {
   matches_.clear();
 
@@ -169,7 +169,7 @@ InlierMatchesTab::InlierMatchesTab(QWidget* parent, OptionManager* options,
   InitializeTable(table_header);
 }
 
-void InlierMatchesTab::Update(const std::vector<Image>& images,
+void InlierMatchesTab::Reload(const std::vector<Image>& images,
                               const image_t image_id) {
   matches_.clear();
   configs_.clear();
@@ -228,8 +228,8 @@ void MatchesWidget::ShowMatches(const std::vector<Image>& images,
   setWindowTitle(
       QString::fromStdString("Matches for image " + std::to_string(image_id)));
 
-  raw_matches_tab_->Update(images, image_id);
-  inlier_matches_tab_->Update(images, image_id);
+  raw_matches_tab_->Reload(images, image_id);
+  inlier_matches_tab_->Reload(images, image_id);
 }
 
 void MatchesWidget::closeEvent(QCloseEvent* event) {
@@ -293,7 +293,7 @@ ImageTab::ImageTab(QWidget* parent, OptionManager* options, Database* database)
   matches_widget_ = new MatchesWidget(parent, options, database_);
 }
 
-void ImageTab::Update() {
+void ImageTab::Reload() {
   QString info;
   info += QString("Images: ") + QString::number(database_->NumImages());
   info += QString("\n");
@@ -482,6 +482,10 @@ CameraTab::CameraTab(QWidget* parent, Database* database)
   connect(add_camera_button, &QPushButton::released, this, &CameraTab::Add);
   grid->addWidget(add_camera_button, 0, 1, Qt::AlignRight);
 
+  QPushButton* set_model_button = new QPushButton(tr("Set model"), this);
+  connect(set_model_button, &QPushButton::released, this, &CameraTab::SetModel);
+  grid->addWidget(set_model_button, 0, 2, Qt::AlignRight);
+
   table_widget_ = new QTableWidget(this);
   table_widget_->setColumnCount(6);
 
@@ -503,10 +507,12 @@ CameraTab::CameraTab(QWidget* parent, Database* database)
   connect(table_widget_, &QTableWidget::itemChanged, this,
           &CameraTab::itemChanged);
 
-  grid->addWidget(table_widget_, 1, 0, 1, 2);
+  grid->addWidget(table_widget_, 1, 0, 1, 3);
+
+  grid->setColumnStretch(0, 1);
 }
 
-void CameraTab::Update() {
+void CameraTab::Reload() {
   QString info;
   info += QString("Cameras: ") + QString::number(database_->NumCameras());
   info_label_->setText(info);
@@ -620,10 +626,48 @@ void CameraTab::Add() {
   database_->WriteCamera(camera);
 
   // Reload all cameras
-  Update();
+  Reload();
 
   // Highlight new camera
   table_widget_->selectRow(cameras_.size() - 1);
+}
+
+void CameraTab::SetModel() {
+  QItemSelectionModel* select = table_widget_->selectionModel();
+
+  if (!select->hasSelection()) {
+    QMessageBox::critical(this, "", tr("No camera selected."));
+    return;
+  }
+
+  QStringList camera_models;
+#define CAMERA_MODEL_CASE(CameraModel) \
+  << QString::fromStdString(CameraModelIdToName(CameraModel::model_id))
+  camera_models CAMERA_MODEL_CASES;
+#undef CAMERA_MODEL_CASE
+
+  bool ok;
+  const QString camera_model = QInputDialog::getItem(
+      this, "", tr("Model:"), camera_models, 0, false, &ok);
+  if (!ok) {
+    return;
+  }
+
+  // Make sure, itemChanged is not invoked, while updating up the table
+  table_widget_->blockSignals(true);
+
+  for (QModelIndex& index : select->selectedRows()) {
+    std::cout << index.row() << std::endl;
+    auto& camera = cameras_.at(index.row());
+    camera.InitializeWithName(camera_model.toUtf8().constData(),
+                              camera.MeanFocalLength(), camera.Width(),
+                              camera.Height());
+    database_->UpdateCamera(camera);
+  }
+
+  table_widget_->blockSignals(false);
+
+  Reload();
 }
 
 DatabaseManagementWidget::DatabaseManagementWidget(QWidget* parent,
@@ -675,8 +719,8 @@ void DatabaseManagementWidget::showEvent(QShowEvent* event) {
 
   database_.Open(*options_->database_path);
 
-  image_tab_->Update();
-  camera_tab_->Update();
+  image_tab_->Reload();
+  camera_tab_->Reload();
 }
 
 void DatabaseManagementWidget::hideEvent(QHideEvent* event) {
