@@ -98,6 +98,9 @@ class Bitmap {
   inline bool IsRGB() const;
   inline bool IsGrey() const;
 
+  // Number of bytes required to store image.
+  size_t NumBytes() const;
+
   // Copy raw image data to array.
   std::vector<uint8_t> ConvertToRawBits() const;
   std::vector<uint8_t> ConvertToRowMajorArray() const;

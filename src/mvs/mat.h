@@ -36,6 +36,8 @@ class Mat {
   size_t GetHeight() const;
   size_t GetDepth() const;
 
+  size_t GetNumBytes() const;
+
   T Get(const size_t row, const size_t col, const size_t slice = 0) const;
   void GetSlice(const size_t row, const size_t col, T* values) const;
   T* GetPtr();
@@ -85,6 +87,11 @@ size_t Mat<T>::GetHeight() const {
 template <typename T>
 size_t Mat<T>::GetDepth() const {
   return depth_;
+}
+
+template <typename T>
+size_t Mat<T>::GetNumBytes() const {
+  return data_.size() * sizeof(T);
 }
 
 template <typename T>

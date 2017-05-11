@@ -81,11 +81,19 @@ bool Bitmap::Allocate(const int width, const int height, const bool as_rgb) {
   return data != nullptr;
 }
 
+size_t Bitmap::NumBytes() const {
+  if (data_) {
+    return ScanWidth() * height_;
+  } else {
+    return 0;
+  }
+}
+
 std::vector<uint8_t> Bitmap::ConvertToRawBits() const {
   const unsigned int scan_width = ScanWidth();
   const unsigned int bpp = BitsPerPixel();
   const bool kTopDown = true;
-  std::vector<uint8_t> raw_bits(bpp * scan_width * height_, 0);
+  std::vector<uint8_t> raw_bits(scan_width * height_, 0);
   FreeImage_ConvertToRawBits(raw_bits.data(), data_.get(), scan_width, bpp,
                              FI_RGBA_RED_MASK, FI_RGBA_GREEN_MASK,
                              FI_RGBA_BLUE_MASK, kTopDown);

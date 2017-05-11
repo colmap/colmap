@@ -42,6 +42,8 @@ class ConsistencyGraph {
   ConsistencyGraph(const size_t width, const size_t height,
                    const std::vector<int>& data);
 
+  size_t GetNumBytes() const;
+
   void GetImageIds(const int row, const int col, int* num_images,
                    const int** image_ids) const;
 
