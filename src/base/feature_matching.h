@@ -53,7 +53,7 @@ struct SiftMatchingOptions {
   bool cross_check = true;
 
   // Maximum number of matches.
-  int max_num_matches = 20000;
+  int max_num_matches = 32768;
 
   // Maximum epipolar error in pixels for geometric verification.
   double max_error = 4.0;
@@ -286,7 +286,7 @@ class SiftFeatureMatcher {
   void Match(const std::vector<std::pair<image_t, image_t>>& image_pairs);
 
  private:
-  const SiftMatchingOptions options_;
+  SiftMatchingOptions options_;
   Database* database_;
   FeatureMatcherCache* cache_;
 

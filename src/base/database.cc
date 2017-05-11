@@ -253,12 +253,20 @@ size_t Database::NumImages() const { return CountRows("images"); }
 
 size_t Database::NumKeypoints() const { return SumColumn("rows", "keypoints"); }
 
+size_t Database::MaxNumKeypoints() const {
+  return MaxColumn("rows", "keypoints");
+}
+
 size_t Database::NumKeypointsForImage(const image_t image_id) const {
   return CountRowsForEntry(sql_stmt_num_keypoints_, image_id);
 }
 
 size_t Database::NumDescriptors() const {
   return SumColumn("rows", "descriptors");
+}
+
+size_t Database::MaxNumDescriptors() const {
+  return MaxColumn("rows", "descriptors");
 }
 
 size_t Database::NumDescriptorsForImage(const image_t image_id) const {
@@ -1067,6 +1075,24 @@ size_t Database::SumColumn(const std::string& column,
   SQLITE3_CALL(sqlite3_finalize(sql_stmt));
 
   return sum;
+}
+
+size_t Database::MaxColumn(const std::string& column,
+                           const std::string& table) const {
+  const std::string sql = "SELECT MAX(" + column + ") FROM " + table + ";";
+  sqlite3_stmt* sql_stmt;
+
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt, 0));
+
+  size_t max = 0;
+  const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt));
+  if (rc == SQLITE_ROW) {
+    max = static_cast<size_t>(sqlite3_column_int64(sql_stmt, 0));
+  }
+
+  SQLITE3_CALL(sqlite3_finalize(sql_stmt));
+
+  return max;
 }
 
 DatabaseTransaction::DatabaseTransaction(Database* database)

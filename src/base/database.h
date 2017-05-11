@@ -77,12 +77,18 @@ class Database {
   // Sum of `rows` column in `keypoints` table, i.e. number of total keypoints.
   size_t NumKeypoints() const;
 
+  // The number of keypoints for the image with most features.
+  size_t MaxNumKeypoints() const;
+
   // Number of descriptors for specific image.
   size_t NumKeypointsForImage(const image_t image_id) const;
 
   // Sum of `rows` column in `descriptors` table,
   // i.e. number of total descriptors.
   size_t NumDescriptors() const;
+
+  // The number of descriptors for the image with most features.
+  size_t MaxNumDescriptors() const;
 
   // Number of descriptors for specific image.
   size_t NumDescriptorsForImage(const image_t image_id) const;
@@ -220,6 +226,7 @@ class Database {
   size_t CountRowsForEntry(sqlite3_stmt* sql_stmt,
                            const sqlite3_int64 row_id) const;
   size_t SumColumn(const std::string& column, const std::string& table) const;
+  size_t MaxColumn(const std::string& column, const std::string& table) const;
 
   sqlite3* database_ = nullptr;
 

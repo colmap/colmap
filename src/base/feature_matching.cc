@@ -743,6 +743,10 @@ SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchingOptions& options,
     : options_(options), database_(database), cache_(cache), is_setup_(false) {
   CHECK(options_.Check());
 
+  const int max_num_features = database->MaxNumDescriptors();
+  options_.max_num_matches =
+      std::min(options_.max_num_matches, max_num_features);
+
   const int num_threads = GetEffectiveNumThreads(options_.num_threads);
   CHECK_GT(num_threads, 0);
 
@@ -759,7 +763,7 @@ SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchingOptions& options,
 #endif
 
   if (options_.use_gpu) {
-    auto gpu_options = options;
+    auto gpu_options = options_;
     matchers_.reserve(gpu_indices.size());
     for (const auto& gpu_index : gpu_indices) {
       gpu_options.gpu_index = std::to_string(gpu_index);
@@ -770,7 +774,7 @@ SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchingOptions& options,
     matchers_.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
       matchers_.emplace_back(new SiftCPUFeatureMatcher(
-          options, cache, &matcher_queue_, &verifier_queue_));
+          options_, cache, &matcher_queue_, &verifier_queue_));
     }
   }
 
@@ -778,11 +782,11 @@ SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchingOptions& options,
   if (options_.guided_matching) {
     for (int i = 0; i < num_threads; ++i) {
       verifiers_.emplace_back(new TwoViewGeometryVerifier(
-          options, cache, &verifier_queue_, &guided_matcher_queue_));
+          options_, cache, &verifier_queue_, &guided_matcher_queue_));
     }
 
     if (options_.use_gpu) {
-      auto gpu_options = options;
+      auto gpu_options = options_;
       guided_matchers_.reserve(gpu_indices.size());
       for (const auto& gpu_index : gpu_indices) {
         gpu_options.gpu_index = std::to_string(gpu_index);
@@ -793,13 +797,13 @@ SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchingOptions& options,
       guided_matchers_.reserve(num_threads);
       for (int i = 0; i < num_threads; ++i) {
         guided_matchers_.emplace_back(new GuidedSiftCPUFeatureMatcher(
-            options, cache, &guided_matcher_queue_, &output_queue_));
+            options_, cache, &guided_matcher_queue_, &output_queue_));
       }
     }
   } else {
     for (int i = 0; i < num_threads; ++i) {
       verifiers_.emplace_back(new TwoViewGeometryVerifier(
-          options, cache, &verifier_queue_, &output_queue_));
+          options_, cache, &verifier_queue_, &output_queue_));
     }
   }
 }
