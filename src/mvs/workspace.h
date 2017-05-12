@@ -66,13 +66,20 @@ class Workspace {
 
   const Options options_;
 
-  struct CachedImage {
-    size_t NumBytes() const { return num_bytes; };
+  class CachedImage {
+   public:
+    CachedImage();
+    CachedImage(CachedImage&& other);
+    CachedImage& operator=(CachedImage&& other);
+    size_t NumBytes() const;
     size_t num_bytes = 0;
     std::unique_ptr<Bitmap> bitmap;
     std::unique_ptr<DepthMap> depth_map;
     std::unique_ptr<NormalMap> normal_map;
     std::unique_ptr<ConsistencyGraph> consistency_graph;
+
+   private:
+    NON_COPYABLE(CachedImage)
   };
 
   Model model_;

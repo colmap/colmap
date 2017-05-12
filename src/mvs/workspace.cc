@@ -21,6 +21,21 @@
 namespace colmap {
 namespace mvs {
 
+Workspace::CachedImage::CachedImage() {}
+
+Workspace::CachedImage::CachedImage(CachedImage&& other) {
+  bitmap = std::move(other.bitmap);
+}
+
+Workspace::CachedImage& Workspace::CachedImage::operator=(CachedImage&& other) {
+  if (this != &other) {
+    bitmap = std::move(other.bitmap);
+  }
+  return *this;
+}
+
+size_t Workspace::CachedImage::NumBytes() const { return num_bytes; }
+
 Workspace::Workspace(const Options& options)
     : options_(options),
       cache_(1024 * 1024 * 1024 * options_.cache_size, [&](const int image_id) {
