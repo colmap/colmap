@@ -21,7 +21,7 @@
 namespace colmap {
 
 bool RenderOptions::Check() const {
-  CHECK_OPTION_GE(min_track_len, 2);
+  CHECK_OPTION_GE(min_track_len, 0);
   CHECK_OPTION_GE(max_error, 0);
   CHECK_OPTION_GT(refresh_rate, 0);
   CHECK_OPTION(projection_type == ProjectionType::PERSPECTIVE ||
