@@ -121,8 +121,12 @@ void StereoFusion::Run() {
   std::cout << std::endl;
 
   std::cout << "Reading workspace..." << std::endl;
-  workspace_.reset(new Workspace(options_.cache_size, workspace_path_,
-                                 workspace_format_, input_type_));
+  Workspace::Options workspace_options;
+  workspace_options.cache_size = options_.cache_size;
+  workspace_options.workspace_path = workspace_path_;
+  workspace_options.workspace_format = workspace_format_;
+  workspace_options.input_type = input_type_;
+  workspace_.reset(new Workspace(workspace_options));
 
   if (IsStopped()) {
     GetTimer().PrintMinutes();
@@ -270,7 +274,7 @@ void StereoFusion::Fuse() {
   const size_t max_num_pixels = static_cast<size_t>(options_.max_num_pixels);
 
   while (!fusion_queue_.empty()) {
-    const auto data = fusion_queue_.front();
+    const auto data = fusion_queue_.top();
     const int image_id = data.image_id;
     const int row = data.row;
     const int col = data.col;
@@ -401,7 +405,7 @@ void StereoFusion::Fuse() {
     }
   }
 
-  fusion_queue_ = std::queue<FusionData>();
+  fusion_queue_ = fusion_queue_t();
 
   const size_t num_pixels = fused_points_x_.size();
   if (num_pixels >= static_cast<size_t>(options_.min_num_pixels)) {

@@ -109,12 +109,12 @@ class PatchMatch {
     // to be geometrically consistent.
     double filter_geom_consistency_max_cost = 1.0f;
 
-    // Cache size for patch match, which keeps the bitmaps, depth maps, and
-    // normal maps of this number of images in memory. A higher value leads to
-    // less disk access and faster computation, while a lower value leads to
-    // reduced memory usage. Note that a single image can consume a lot of
-    // memory, if the consistency graph is dense.
-    int cache_size = 250;
+    // Cache size in gigabytes for patch match, which keeps the bitmaps, depth
+    // maps, and normal maps of this number of images in memory. A higher value
+    // leads to less disk access and faster computation, while a lower value
+    // leads to reduced memory usage. Note that a single image can consume a lot
+    // of memory, if the consistency graph is dense.
+    double cache_size = 32.0;
 
     void Print() const;
     bool Check() const {
@@ -138,7 +138,7 @@ class PatchMatch {
       CHECK_OPTION_LE(filter_min_triangulation_angle, 180.0f);
       CHECK_OPTION_GE(filter_min_num_consistent, 0);
       CHECK_OPTION_GE(filter_geom_consistency_max_cost, 0.0f);
-      CHECK_OPTION_GT(cache_size, 1);
+      CHECK_OPTION_GT(cache_size, 0);
       return true;
     }
   };

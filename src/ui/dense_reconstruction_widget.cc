@@ -59,7 +59,9 @@ class StereoOptionsTab : public OptionsWidget {
                  "filter_min_num_consistent");
     AddOptionDouble(&options->dense_stereo->filter_geom_consistency_max_cost,
                     "filter_geom_consistency_max_cost");
-    AddOptionInt(&options->dense_stereo->cache_size, "cache_size", 2);
+    AddOptionDouble(&options->dense_stereo->cache_size,
+                    "cache_size [gigabytes]", 0,
+                    std::numeric_limits<double>::max(), 0.1, 1);
   }
 };
 
@@ -77,7 +79,9 @@ class FusionOptionsTab : public OptionsWidget {
                     0, 1, 0.0001, 4);
     AddOptionDouble(&options->dense_fusion->max_normal_error,
                     "max_normal_error", 0, 180);
-    AddOptionInt(&options->dense_fusion->cache_size, "cache_size", 2);
+    AddOptionDouble(&options->dense_fusion->cache_size,
+                    "cache_size [gigabytes]", 0,
+                    std::numeric_limits<double>::max(), 0.1, 1);
   }
 };
 

@@ -21,58 +21,56 @@
 namespace colmap {
 namespace mvs {
 
-Workspace::Workspace(const size_t cache_size, const std::string& workspace_path,
-                     const std::string& workspace_format,
-                     const std::string& input_type)
-    : workspace_path_(workspace_path),
-      workspace_format_(workspace_format),
-      input_type_(input_type) {
-  model_.Read(workspace_path_, workspace_format_);
-
-  bitmaps_.reset(new LRUCache<int, Bitmap>(cache_size, [&](const int image_id) {
-    Bitmap bitmap;
-    bitmap.Read(GetBitmapPath(image_id), true);
-    return bitmap;
-  }));
-
-  depth_maps_.reset(
-      new LRUCache<int, DepthMap>(cache_size, [&](const int image_id) {
-        DepthMap depth_map;
-        depth_map.Read(GetDepthMapPath(image_id));
-        return depth_map;
-      }));
-
-  normal_maps_.reset(
-      new LRUCache<int, NormalMap>(cache_size, [&](const int image_id) {
-        NormalMap normal_map;
-        normal_map.Read(GetNormalMapPath(image_id));
-        return normal_map;
-      }));
-
-  consistency_graphs_.reset(
-      new LRUCache<int, ConsistencyGraph>(cache_size, [&](const int image_id) {
-        ConsistencyGraph consistency_graph;
-        consistency_graph.Read(GetConsistencyGraphPath(image_id));
-        return consistency_graph;
-      }));
+Workspace::Workspace(const Options& options)
+    : options_(options),
+      cache_(1024 * 1024 * 1024 * options_.cache_size, [&](const int image_id) {
+        CachedImage cached_image;
+        cached_image.num_bytes = GetNumBytes(image_id);
+        return cached_image;
+      }) {
+  model_.Read(options_.workspace_path, options_.workspace_format);
 }
 
 const Model& Workspace::GetModel() const { return model_; }
 
 const Bitmap& Workspace::GetBitmap(const int image_id) {
-  return bitmaps_->Get(image_id);
+  CHECK(options_.cache_bitmap);
+  auto& cached_image = cache_.GetMutable(image_id);
+  if (!cached_image.bitmap) {
+    cached_image.bitmap.reset(new Bitmap());
+    cached_image.bitmap->Read(GetBitmapPath(image_id), true);
+  }
+  return *cached_image.bitmap;
 }
 
 const DepthMap& Workspace::GetDepthMap(const int image_id) {
-  return depth_maps_->Get(image_id);
+  CHECK(options_.cache_depth_map);
+  auto& cached_image = cache_.GetMutable(image_id);
+  if (!cached_image.depth_map) {
+    cached_image.depth_map.reset(new DepthMap());
+    cached_image.depth_map->Read(GetDepthMapPath(image_id));
+  }
+  return *cached_image.depth_map;
 }
 
 const NormalMap& Workspace::GetNormalMap(const int image_id) {
-  return normal_maps_->Get(image_id);
+  CHECK(options_.cache_normal_map);
+  auto& cached_image = cache_.GetMutable(image_id);
+  if (!cached_image.normal_map) {
+    cached_image.normal_map.reset(new NormalMap());
+    cached_image.normal_map->Read(GetNormalMapPath(image_id));
+  }
+  return *cached_image.normal_map;
 }
 
 const ConsistencyGraph& Workspace::GetConsistencyGraph(const int image_id) {
-  return consistency_graphs_->Get(image_id);
+  CHECK(options_.cache_consistency_graph);
+  auto& cached_image = cache_.GetMutable(image_id);
+  if (!cached_image.consistency_graph) {
+    cached_image.consistency_graph.reset(new ConsistencyGraph());
+    cached_image.consistency_graph->Read(GetConsistencyGraphPath(image_id));
+  }
+  return *cached_image.consistency_graph;
 }
 
 bool Workspace::HasImage(const int image_id) const {
@@ -82,9 +80,33 @@ bool Workspace::HasImage(const int image_id) const {
          ExistsFile(GetConsistencyGraphPath(image_id));
 }
 
+size_t Workspace::GetNumBytes(const int image_id) {
+  const auto it = num_bytes_.find(image_id);
+  if (it == num_bytes_.end()) {
+    size_t num_bytes = 0;
+    if (options_.cache_bitmap) {
+      num_bytes += GetFileSize(GetBitmapPath(image_id));
+    }
+    if (options_.cache_depth_map) {
+      num_bytes += GetFileSize(GetDepthMapPath(image_id));
+    }
+    if (options_.cache_normal_map) {
+      num_bytes += GetFileSize(GetNormalMapPath(image_id));
+    }
+    if (options_.cache_consistency_graph) {
+      num_bytes += GetFileSize(GetConsistencyGraphPath(image_id));
+    }
+    num_bytes_.emplace(image_id, num_bytes);
+    return num_bytes;
+  } else {
+    return it->second;
+  }
+}
+
 std::string Workspace::GetFileName(const int image_id) const {
   const auto& image_name = model_.GetImageName(image_id);
-  return StringPrintf("%s.%s.bin", image_name.c_str(), input_type_.c_str());
+  return StringPrintf("%s.%s.bin", image_name.c_str(),
+                      options_.input_type.c_str());
 }
 
 std::string Workspace::GetBitmapPath(const int image_id) const {
@@ -92,16 +114,17 @@ std::string Workspace::GetBitmapPath(const int image_id) const {
 }
 
 std::string Workspace::GetDepthMapPath(const int image_id) const {
-  return JoinPaths(workspace_path_, "stereo/depth_maps", GetFileName(image_id));
+  return JoinPaths(options_.workspace_path, "stereo/depth_maps",
+                   GetFileName(image_id));
 }
 
 std::string Workspace::GetNormalMapPath(const int image_id) const {
-  return JoinPaths(workspace_path_, "stereo/normal_maps",
+  return JoinPaths(options_.workspace_path, "stereo/normal_maps",
                    GetFileName(image_id));
 }
 
 std::string Workspace::GetConsistencyGraphPath(const int image_id) const {
-  return JoinPaths(workspace_path_, "stereo/consistency_graphs",
+  return JoinPaths(options_.workspace_path, "stereo/consistency_graphs",
                    GetFileName(image_id));
 }
 

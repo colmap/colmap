@@ -111,6 +111,12 @@ std::vector<std::string> GetRecursiveFileList(const std::string& path) {
   return file_list;
 }
 
+size_t GetFileSize(const std::string& path) {
+  std::ifstream file(path, std::ifstream::ate | std::ifstream::binary);
+  CHECK(file.is_open());
+  return file.tellg();
+}
+
 void PrintHeading1(const std::string& heading) {
   std::cout << std::endl << std::string(78, '=') << std::endl;
   std::cout << heading << std::endl;

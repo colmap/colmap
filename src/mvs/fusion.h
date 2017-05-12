@@ -70,12 +70,12 @@ class StereoFusion : public Thread {
     // Maximum difference between normals of pixels to be fused.
     double max_normal_error = 10.0f;
 
-    // Cache size for fusion. The fusion keeps the bitmaps, depth maps, normal
-    // maps, and consistency graphs of this number of images in memory. A higher
-    // value leads to less disk access and faster fusion, while a lower value
-    // leads to reduced memory usage. Note that a single image can consume a lot
-    // of memory, if the consistency graph is dense.
-    int cache_size = 250;
+    // Cache size in gigabytes for fusion. The fusion keeps the bitmaps, depth
+    // maps, normal maps, and consistency graphs of this number of images in
+    // memory. A higher value leads to less disk access and faster fusion, while
+    // a lower value leads to reduced memory usage. Note that a single image can
+    // consume a lot of memory, if the consistency graph is dense.
+    double cache_size = 32.0;
 
     // Check the options for validity.
     bool Check() const;
@@ -116,9 +116,15 @@ class StereoFusion : public Thread {
     int row = 0;
     int col = 0;
     int traversal_depth = -1;
+    bool operator()(const FusionData& data1, const FusionData& data2) {
+      return data1.image_id > data2.image_id;
+    }
   };
 
-  std::queue<FusionData> fusion_queue_;
+  typedef std::priority_queue<FusionData, std::vector<FusionData>, FusionData>
+      fusion_queue_t;
+
+  fusion_queue_t fusion_queue_;
   std::vector<FusedPoint> fused_points_;
   std::vector<float> fused_points_x_;
   std::vector<float> fused_points_y_;

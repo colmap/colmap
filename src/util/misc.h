@@ -71,6 +71,9 @@ std::string JoinPaths(T const&... paths);
 // Return list of files, recursively in all sub-directories.
 std::vector<std::string> GetRecursiveFileList(const std::string& path);
 
+// Get the size in bytes of a file.
+size_t GetFileSize(const std::string& path);
+
 // Print first-order heading with over- and underscores to `std::cout`.
 void PrintHeading1(const std::string& heading);
 

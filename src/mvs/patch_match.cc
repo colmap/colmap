@@ -353,8 +353,15 @@ PatchMatchController::PatchMatchController(const PatchMatch::Options& options,
 
 void PatchMatchController::Run() {
   std::cout << "Reading workspace..." << std::endl;
-  Workspace workspace(options_.cache_size, workspace_path_, workspace_format_,
-                      options_.geom_consistency ? "photometric" : "");
+  Workspace::Options workspace_options;
+  workspace_options.cache_size = options_.cache_size;
+  workspace_options.workspace_path = workspace_path_;
+  workspace_options.workspace_format = workspace_format_;
+  workspace_options.input_type = options_.geom_consistency ? "photometric" : "";
+  workspace_options.cache_depth_map = options_.geom_consistency;
+  workspace_options.cache_normal_map = options_.geom_consistency;
+  workspace_options.cache_consistency_graph = options_.geom_consistency;
+  Workspace workspace(workspace_options);
 
   const auto& model = workspace.GetModel();
 
