@@ -130,9 +130,10 @@ void AutomaticReconstructionWidget::RenderResult() {
   if (options_.dense) {
     QMessageBox::information(
         this, "",
-        tr("To visualize the reconstructed dense models, navigate to the "
+        tr("To visualize the reconstructed dense point cloud, navigate to the "
            "<i>dense</i> sub-folder in your workspace with <i>File > Import "
-           "model from...</i>"));
+           "model from...</i>. To visualize the meshed model, you must use an "
+           "external viewer such as Meshlab."));
   }
 }
 

@@ -233,6 +233,10 @@ DenseReconstructionWidget::DenseReconstructionWidget(MainWindow* main_window,
   connect(write_fused_points_action_, &QAction::triggered, this,
           &DenseReconstructionWidget::WriteFusedPoints);
 
+  show_meshing_info_action_ = new QAction(this);
+  connect(show_meshing_info_action_, &QAction::triggered, this,
+          &DenseReconstructionWidget::ShowMeshingInfo);
+
   RefreshWorkspace();
 }
 
@@ -276,7 +280,7 @@ void DenseReconstructionWidget::Stereo() {
       *options_->dense_stereo, workspace_path, "COLMAP", "");
   processor->AddCallback(Thread::FINISHED_CALLBACK,
                          [this]() { refresh_workspace_action_->trigger(); });
-  thread_control_widget_->StartThread("Stereo processing...", true, processor);
+  thread_control_widget_->StartThread("Stereo...", true, processor);
 #else
   QMessageBox::critical(this, "", tr("CUDA not supported"));
 #endif
@@ -304,7 +308,7 @@ void DenseReconstructionWidget::Fusion() {
     fused_points_ = fuser->GetFusedPoints();
     write_fused_points_action_->trigger();
   });
-  thread_control_widget_->StartThread("Fusing...", true, fuser);
+  thread_control_widget_->StartThread("Fusion...", true, fuser);
 }
 
 void DenseReconstructionWidget::Meshing() {
@@ -319,6 +323,7 @@ void DenseReconstructionWidget::Meshing() {
       mvs::PoissonReconstruction(*options_->dense_meshing,
                                  JoinPaths(workspace_path, kFusedFileName),
                                  JoinPaths(workspace_path, kMeshedFileName));
+      show_meshing_info_action_->trigger();
     });
   }
 }
@@ -424,7 +429,11 @@ void DenseReconstructionWidget::RefreshWorkspace() {
 
 void DenseReconstructionWidget::WriteFusedPoints() {
   const int reply = QMessageBox::question(
-      this, "", tr("Do you want to visualize the point cloud?"),
+      this, "",
+      tr("Do you want to visualize the point cloud? Otherwise, to visualize "
+         "the reconstructed dense point cloud later, navigate to the "
+         "<i>dense</i> sub-folder in your workspace with <i>File > Import "
+         "model from...</i>."),
       QMessageBox::Yes | QMessageBox::No);
   if (reply == QMessageBox::Yes) {
     main_window_->ImportFusedPoints(fused_points_);
@@ -444,6 +453,13 @@ void DenseReconstructionWidget::WriteFusedPoints() {
         fused_points_ = {};
         meshing_button_->setEnabled(true);
       });
+}
+
+void DenseReconstructionWidget::ShowMeshingInfo() {
+  QMessageBox::information(
+      this, "",
+      tr("To visualize the meshed model, you must use an external viewer such "
+         "as Meshlab. The model is located in the workspace folder."));
 }
 
 QWidget* DenseReconstructionWidget::GenerateTableButtonWidget(
