@@ -360,7 +360,7 @@ void PatchMatchController::Run() {
   workspace_options.input_type = options_.geom_consistency ? "photometric" : "";
   workspace_options.cache_depth_map = options_.geom_consistency;
   workspace_options.cache_normal_map = options_.geom_consistency;
-  workspace_options.cache_consistency_graph = options_.geom_consistency;
+  workspace_options.cache_consistency_graph = false;
   Workspace workspace(workspace_options);
 
   const auto& model = workspace.GetModel();
