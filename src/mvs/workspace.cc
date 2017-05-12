@@ -24,12 +24,20 @@ namespace mvs {
 Workspace::CachedImage::CachedImage() {}
 
 Workspace::CachedImage::CachedImage(CachedImage&& other) {
+  num_bytes = other.num_bytes;
   bitmap = std::move(other.bitmap);
+  depth_map = std::move(other.depth_map);
+  normal_map = std::move(other.normal_map);
+  consistency_graph = std::move(other.consistency_graph);
 }
 
 Workspace::CachedImage& Workspace::CachedImage::operator=(CachedImage&& other) {
   if (this != &other) {
+    num_bytes = other.num_bytes;
     bitmap = std::move(other.bitmap);
+    depth_map = std::move(other.depth_map);
+    normal_map = std::move(other.normal_map);
+    consistency_graph = std::move(other.consistency_graph);
   }
   return *this;
 }
