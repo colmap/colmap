@@ -767,9 +767,9 @@ void Reconstruction::WriteCameras(const std::string& path) const {
   std::ofstream file(path.c_str(), std::ios::trunc);
   CHECK(file.is_open());
 
-  file << "# Camera list with one line of data per camera:" << std::endl;
-  file << "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]" << std::endl;
-  file << "# Number of cameras: " << cameras_.size() << std::endl;
+  file << "# Camera list with one line of data per camera:\n";
+  file << "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]\n";
+  file << "# Number of cameras: " << cameras_.size() << '\n';
 
   for (const auto& camera : cameras_) {
     std::ostringstream line;
@@ -786,8 +786,9 @@ void Reconstruction::WriteCameras(const std::string& path) const {
     std::string line_string = line.str();
     line_string = line_string.substr(0, line_string.size() - 1);
 
-    file << line_string << std::endl;
+    file << line_string << '\n';
   }
+  file << std::flush;
 }
 
 void Reconstruction::WriteImages(const std::string& path) const {
@@ -795,13 +796,11 @@ void Reconstruction::WriteImages(const std::string& path) const {
   CHECK(file.is_open());
 
   file << "# Image list with two lines of data per image:" << std::endl;
-  file << "#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, "
-          "NAME"
-       << std::endl;
-  file << "#   POINTS2D[] as (X, Y, POINT3D_ID)" << std::endl;
+  file << "#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, NAME\n";
+  file << "#   POINTS2D[] as (X, Y, POINT3D_ID)\n";
   file << "# Number of images: " << reg_image_ids_.size()
        << ", mean observations per image: "
-       << ComputeMeanObservationsPerRegImage() << std::endl;
+       << ComputeMeanObservationsPerRegImage() << '\n';
 
   for (const auto& image : images_) {
     if (!image.second.IsRegistered()) {
@@ -830,7 +829,7 @@ void Reconstruction::WriteImages(const std::string& path) const {
 
     line << image.second.Name();
 
-    file << line.str() << std::endl;
+    file << line.str() << '\n';
 
     line.str("");
     line.clear();
@@ -846,20 +845,20 @@ void Reconstruction::WriteImages(const std::string& path) const {
     }
     line_string = line.str();
     line_string = line_string.substr(0, line_string.size() - 1);
-    file << line_string << std::endl;
+    file << line_string << '\n';
   }
+  file << std::flush;
 }
 
 void Reconstruction::WritePoints3D(const std::string& path) const {
   std::ofstream file(path.c_str(), std::ios::trunc);
   CHECK(file.is_open());
 
-  file << "# 3D point list with one line of data per point:" << std::endl;
+  file << "# 3D point list with one line of data per point:\n";
   file << "#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, "
-          "TRACK[] as (IMAGE_ID, POINT2D_IDX)"
-       << std::endl;
+          "TRACK[] as (IMAGE_ID, POINT2D_IDX)\n";
   file << "# Number of points: " << points3D_.size()
-       << ", mean track length: " << ComputeMeanTrackLength() << std::endl;
+       << ", mean track length: " << ComputeMeanTrackLength() << '\n';
 
   for (const auto& point3D : points3D_) {
     file << point3D.first << " ";
@@ -881,8 +880,9 @@ void Reconstruction::WritePoints3D(const std::string& path) const {
     std::string line_string = line.str();
     line_string = line_string.substr(0, line_string.size() - 1);
 
-    file << line_string << std::endl;
+    file << line_string << '\n';
   }
+  file << std::flush;
 }
 
 void Reconstruction::ImportPLY(const std::string& path) {
