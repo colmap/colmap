@@ -253,7 +253,7 @@ By default, the Windows operating system detects response problems from the GPU,
 and recovers to a functional desktop by resetting the card and aborting the
 stereo reconstruction process. The solution is to increase the so-called
 "Timeout Detection & Recovery" (TDR) delay to a larger value. Please, refer to
-the `NVIDIA Nsight documentation <https://goo.gl/d17IhT>`_ or to the `Microsoft
+the `NVIDIA Nsight documentation <https://goo.gl/UWKVs6>`_ or to the `Microsoft
 documentation <http://www.microsoft.com/whdc/device/display/wddm_timeout.mspx>`_
 on how to increase the delay time under Windows.
 
