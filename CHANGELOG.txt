@@ -1,3 +1,27 @@
+COLMAP 3.0 (5/22/2017)
+----------------------
+- Add automatic end-to-end reconstruction tool that automatically performs
+  sparse and dense reconstruction on a given set of images
+- Add multi-GPU dense stereo if multiple CUDA devices are available
+- Add multi-GPU feature matching if multiple CUDA devices are available
+- Add Manhattan-world / gravity alignment using line detection
+- Add CUDA-based feature extraction useful for usage on clusters
+- Add CPU-based feature matching for machines without GPU
+- Add new THIN_PRISM_FISHEYE camera model with tangential/radial correction
+- Add binary to triangulate existing/empty sparse reconstruction
+- Add binary to print summary statistics about sparse reconstruction
+- Add transitive feature matching to transitively complete match graph
+- Improved scalability of dense reconstruction by using caching
+- More stable GPU-based feature matching with informative warnings
+- Faster vocabulary tree matching using dynamic scheduling in FLANN
+- Faster spatial feature matching using linear index instead of kd-tree
+- More stable camera undistortion using numerical Newton iteration
+- Improved option parsing with some backwards incompatible option renaming
+- Faster compile times by optimizing includes and CUDA flags
+- More stable view selection for small baseline scenario in dense reconstruction
+- Many more bug fixes and improvements
+
+
 COLMAP 2.1 (12/7/2016)
 ----------------------
 - Support to only index and match specific images in vocabulary tree matching

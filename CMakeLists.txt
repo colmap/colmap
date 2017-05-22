@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 
 project(COLMAP)
 
-set(COLMAP_VERSION "2.1")
+set(COLMAP_VERSION "3.0")
 
 
 ################################################################################
