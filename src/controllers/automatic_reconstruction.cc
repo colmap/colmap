@@ -72,6 +72,8 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   reader_options.image_path = *option_manager_.image_path;
   reader_options.single_camera = options_.single_camera;
 
+  option_manager_.sift_matching->use_gpu = options_.use_gpu;
+
   if (options_.use_gpu) {
     if (!options_.use_opengl) {
       option_manager_.sift_gpu_extraction->index = 0;
