@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Colmap
+Comment=Structure-From-Motion and Multi-View Stereo
+Exec=colmap
+Terminal=false
+Categories=Graphics;

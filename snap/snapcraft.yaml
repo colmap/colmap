@@ -1,0 +1,201 @@
+name: colmap
+version: '3.0'
+summary: COLMAP - Structure-from-Motion and Multi-View Stereo (colmap.github.io)
+description: |
+  COLMAP is a general-purpose Structure-from-Motion (SfM) and
+  Multi-View Stereo (MVS) pipeline with a graphical and command-line
+  interface. It offers a wide range of features for reconstruction of
+  ordered and unordered image collections.
+grade: devel
+confinement: devmode
+
+#grade: stable
+#confinement: strict
+
+#icon: project/src/images/icon.png
+
+apps:
+  colmap:
+    command: desktop-launch colmap
+    plugs: [home, x11, mir, opengl, unity7]
+    desktop: snap/setup/gui/colmap.desktop
+  bundle-adjuster:
+    command: bundle_adjuster
+    plugs: [home]
+  database-creator:
+    command: database_creator
+    plugs: [home]
+  exhaustive-matcher:
+    command: exhaustive_matcher
+    plugs: [home]
+  image-rectifier:
+    command: image_rectifier
+    plugs: [home]
+  mapper:
+    command: mapper
+    plugs: [home]
+  model-converter:
+    command: model_converter
+    plugs: [home]
+  sequential-matcher:
+    command: sequential_matcher
+    plugs: [home]
+  vocab-tree-matcher:
+    command: vocab_tree_matcher
+    plugs: [home]
+  dense-fuser:
+    command: dense_fuser
+    plugs: [home]
+  feature-extractor:
+    command: feature_extractor
+    plugs: [home]
+  image-registrator:
+    command: image_registrator
+    plugs: [home]
+  matches-importer:
+    command: matches_importer
+    plugs: [home]
+  model-merger:
+    command: model_merger
+    plugs: [home]
+  spatial-matcher:
+    command: spatial_matcher
+    plugs: [home]
+  vocab-tree-retriever:
+    command: vocab_tree_retriever
+    plugs: [home]
+  color-extractor:
+    command: color_extractor
+    plugs: [home]
+  dense-mesher:
+    command: dense_mesher
+    plugs: [home]
+  feature-importer:
+    command: feature_importer
+    plugs: [home]
+  image-undistorter:
+    command: image_undistorter
+    plugs: [home]
+  model-aligner:
+    command: model_aligner
+    plugs: [home]
+  rig-bundle-adjuster:
+    command: rig_bundle_adjuster
+    plugs: [home]
+  vocab-tree-builder:
+    command: vocab_tree_builder
+    plugs: [home]
+
+parts:
+  eigen:
+    source: http://bitbucket.org/eigen/eigen/get/3.2.10.tar.bz2
+    build-packages:
+      - build-essential
+    plugin: cmake
+    prime: [ -* ]
+
+  ceres-solver:
+    after: [eigen]
+    source: https://ceres-solver.googlesource.com/ceres-solver
+    source-tag: '1.12.0'
+    source-type: git
+    build-packages:
+      - libatlas-base-dev
+      - libsuitesparse-dev
+      - libgoogle-glog-dev
+      - libgflags-dev
+    plugin: cmake
+    build: |
+      mkdir build
+      cd build
+      cmake -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=$SNAPCRAFT_PART_INSTALL \
+        -DEIGEN_INCLUDE_DIR=$SNAPCRAFT_STAGE/include/eigen3 \
+        ..
+      export NPROCS=$(grep -c ^processor /proc/cpuinfo)
+      make -j${NPROCS}
+    install: |
+      cd build
+      make install
+    prime:
+      - lib/libceres*
+
+  colmap:
+    after: [ceres-solver, desktop-qt5]
+    source: https://github.com/colmap/colmap.git
+    source-tag: '3.0'
+    build-packages:
+      - libboost-all-dev
+      - libfreeimage-dev
+      - libglew-dev
+      - freeglut3-dev
+      - qt5-default
+      - libxmu-dev
+      - libxi-dev
+      - libqt5opengl5-dev
+      #- nvidia-cuda-dev       # for CUDA support
+      #- nvidia-cuda-toolkit
+    plugin: cmake
+    build: |
+      mkdir build
+      cd build
+      cmake -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=$SNAPCRAFT_PART_INSTALL \
+        -DCeres_DIR==$SNAPCRAFT_STAGE/lib/cmake/Ceres/ \
+        ..
+      export NPROCS=$(grep -c ^processor /proc/cpuinfo)
+      make -j${NPROCS}
+    install: |
+      cd build
+      make install
+    prime:
+      - bin/*
+      - usr/*
+
+  #gflags:
+    #source: https://github.com/gflags/gflags
+    #source-tag: 'v2.2.0'
+    #source-type: git
+    #plugin: cmake
+    #build: |
+      #mkdir build
+      #cd build
+      #cmake -DCMAKE_INSTALL_PREFIX=$SNAPCRAFT_PART_INSTALL ..
+      #export NPROCS=$(grep -c ^processor /proc/cpuinfo)
+      #make -j${NPROCS}
+    #install: |
+      #cd build
+      #make install
+
+  #glog:
+    #after: [gflags]
+    #source: https://github.com/google/glog.git
+    #source-tag: 'v0.3.5'
+    #source-type: git
+    #plugin: cmake
+    #build: |
+      #mkdir build
+      #cd build
+      #cmake -DCMAKE_INSTALL_PREFIX=$SNAPCRAFT_PART_INSTALL \
+            #-Dgflags_DIR=$SNAPCRAFT_STAGE/stage/lib/cmake/gflags \
+            #..
+      #export NPROCS=$(grep -c ^processor /proc/cpuinfo)
+      #make -j${NPROCS}
+    #install: |
+      #cd build
+      #make install
+
+  #suitesparse:
+    #source: http://faculty.cse.tamu.edu/davis/SuiteSparse/SuiteSparse-4.5.5.tar.gz
+    #build-packages:
+      #- libmetis-dev
+      #- libopenblas-dev
+    #plugin: make
+    #install: |
+      #make install INSTALL=$SNAPCRAFT_PART_INSTALL
+      #for l in $SNAPCRAFT_PART_INSTALL/lib/*
+      #do
+          #chrpath -d "$l"
+      #done
+    #prime:
+      #- lib/*
