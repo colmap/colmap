@@ -57,7 +57,9 @@ BOOST_AUTO_TEST_CASE(TestCreateSiftGPUMatcherOpenGL) {
     void Run() {
       opengl_context_.MakeCurrent();
       SiftMatchGPU sift_match_gpu;
-      BOOST_CHECK(CreateSiftGPUMatcher(SiftMatchingOptions(), &sift_match_gpu));
+      SiftMatchingOptions match_options;
+      match_options.max_num_matches = 1000;
+      BOOST_CHECK(CreateSiftGPUMatcher(match_options, &sift_match_gpu));
     }
     OpenGLContextManager opengl_context_;
   };
@@ -71,6 +73,7 @@ BOOST_AUTO_TEST_CASE(TestCreateSiftGPUMatcherCUDA) {
   SiftMatchGPU sift_match_gpu;
   SiftMatchingOptions match_options;
   match_options.gpu_index = "0";
+  match_options.max_num_matches = 1000;
   BOOST_CHECK(CreateSiftGPUMatcher(match_options, &sift_match_gpu));
 #endif
 }
@@ -159,7 +162,9 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesGPU) {
     void Run() {
       opengl_context_.MakeCurrent();
       SiftMatchGPU sift_match_gpu;
-      BOOST_CHECK(CreateSiftGPUMatcher(SiftMatchingOptions(), &sift_match_gpu));
+      SiftMatchingOptions match_options;
+      match_options.max_num_matches = 1000;
+      BOOST_CHECK(CreateSiftGPUMatcher(match_options, &sift_match_gpu));
 
       const FeatureDescriptors empty_descriptors =
           CreateRandomFeatureDescriptors(0);
@@ -228,7 +233,9 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUvsGPU) {
     void Run() {
       opengl_context_.MakeCurrent();
       SiftMatchGPU sift_match_gpu;
-      BOOST_CHECK(CreateSiftGPUMatcher(SiftMatchingOptions(), &sift_match_gpu));
+      SiftMatchingOptions match_options;
+      match_options.max_num_matches = 1000;
+      BOOST_CHECK(CreateSiftGPUMatcher(match_options, &sift_match_gpu));
 
       auto TestCPUvsGPU = [&sift_match_gpu](
                               const SiftMatchingOptions& options,
@@ -354,7 +361,9 @@ BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesGPU) {
     void Run() {
       opengl_context_.MakeCurrent();
       SiftMatchGPU sift_match_gpu;
-      BOOST_CHECK(CreateSiftGPUMatcher(SiftMatchingOptions(), &sift_match_gpu));
+      SiftMatchingOptions match_options;
+      match_options.max_num_matches = 1000;
+      BOOST_CHECK(CreateSiftGPUMatcher(match_options, &sift_match_gpu));
 
       FeatureKeypoints empty_keypoints(0);
       FeatureKeypoints keypoints1(2);
