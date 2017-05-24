@@ -72,7 +72,7 @@ find_package(Ceres REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
 find_package(Glew REQUIRED)
-find_package(Git REQUIRED)
+find_package(Git)
 
 if(CUDA_ENABLED)
     find_package(CUDA QUIET)
