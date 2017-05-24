@@ -41,6 +41,7 @@ set(COLMAP_LIBRARIES
     sqlite3
     sift_gpu
     vlfeat
+    ${CMAKE_DL_LIBS}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_REGEX_LIBRARY}
@@ -61,8 +62,8 @@ if(CUDA_ENABLED)
         util_cuda)
 endif()
 
-if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-    set(COLMAP_LIBRARIES ${COLMAP_LIBRARIES} pthread dl)
+if(UNIX)
+    set(COLMAP_LIBRARIES ${COLMAP_LIBRARIES} pthread)
 endif()
 
 set(COLMAP_UI_LIBRARIES ui)
