@@ -186,11 +186,18 @@ void AutomaticReconstructionController::RunFeatureMatching() {
 void AutomaticReconstructionController::RunSparseMapper() {
   const auto sparse_path = JoinPaths(options_.workspace_path, "sparse");
   if (ExistsDir(sparse_path)) {
-    std::cout << std::endl
-              << "WARNING: Skipping sparse reconstruction because it is "
-                 "already computed"
-              << std::endl;
-    return;
+    const auto dir_list = GetDirList(sparse_path);
+    std::sort(dir_list.begin(), dir_list.end());
+    if (dir_list.size() > 0) {
+      std::cout << std::endl
+                << "WARNING: Skipping sparse reconstruction because it is "
+                   "already computed"
+                << std::endl;
+      for (const auto& dir : dir_list) {
+        reconstruction_manager_->Read(dir);
+      }
+      return;
+    }
   }
 
   IncrementalMapperController mapper(
@@ -202,8 +209,7 @@ void AutomaticReconstructionController::RunSparseMapper() {
   active_thread_ = nullptr;
 
   CreateDirIfNotExists(sparse_path);
-  reconstruction_manager_->Write(JoinPaths(options_.workspace_path, "sparse"),
-                                 &option_manager_);
+  reconstruction_manager_->Write(sparse_path, &option_manager_);
 }
 
 void AutomaticReconstructionController::RunDenseMapper() {
