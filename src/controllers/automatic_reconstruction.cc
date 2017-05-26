@@ -65,6 +65,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.dense_stereo->window_radius = 4;
     option_manager_.dense_stereo->num_samples /= 2;
     option_manager_.dense_stereo->num_iterations = 3;
+    option_manager_.dense_stereo->geom_consistency = false;
   }
 
   ImageReader::Options reader_options = *option_manager_.image_reader;
@@ -231,40 +232,12 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     // Dense stereo
 
-    if (options_.high_quality) {
-      // Photometric stereo.
-      option_manager_.dense_stereo->filter = false;
-      option_manager_.dense_stereo->geom_consistency = false;
-      mvs::PatchMatchController photometric_patch_match_controller(
-          *option_manager_.dense_stereo, dense_path, "COLMAP", "");
-      active_thread_ = &photometric_patch_match_controller;
-      photometric_patch_match_controller.Start();
-      photometric_patch_match_controller.Wait();
-      active_thread_ = nullptr;
-
-      if (IsStopped()) {
-        return;
-      }
-
-      // Geometric stereo.
-      option_manager_.dense_stereo->filter = true;
-      option_manager_.dense_stereo->geom_consistency = true;
-      mvs::PatchMatchController geometric_patch_match_controller(
-          *option_manager_.dense_stereo, dense_path, "COLMAP", "");
-      active_thread_ = &geometric_patch_match_controller;
-      geometric_patch_match_controller.Start();
-      geometric_patch_match_controller.Wait();
-      active_thread_ = nullptr;
-    } else {
-      option_manager_.dense_stereo->filter = true;
-      option_manager_.dense_stereo->geom_consistency = false;
-      mvs::PatchMatchController patch_match_controller(
-          *option_manager_.dense_stereo, dense_path, "COLMAP", "");
-      active_thread_ = &patch_match_controller;
-      patch_match_controller.Start();
-      patch_match_controller.Wait();
-      active_thread_ = nullptr;
-    }
+    mvs::PatchMatchController patch_match_controller(
+        *option_manager_.dense_stereo, dense_path, "COLMAP", "");
+    active_thread_ = &patch_match_controller;
+    patch_match_controller.Start();
+    patch_match_controller.Wait();
+    active_thread_ = nullptr;
 
     if (IsStopped()) {
       return;

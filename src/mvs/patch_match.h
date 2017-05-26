@@ -34,6 +34,7 @@ namespace mvs {
 
 class ConsistencyGraph;
 class PatchMatchCuda;
+class Workspace;
 
 // This is a wrapper class around the actual PatchMatchCuda implementation. This
 // class is necessary to hide Cuda code from any boost or Eigen code, since
@@ -82,7 +83,7 @@ class PatchMatch {
 
     // Whether to add a regularized geometric consistency term to the cost
     // function. If true, the `depth_maps` and `normal_maps` must not be null.
-    bool geom_consistency = false;
+    bool geom_consistency = true;
 
     // The relative weight of the geometric consistency term w.r.t. to
     // the photo-consistency term.
@@ -227,11 +228,23 @@ class PatchMatchController : public Thread {
 
  private:
   void Run();
+  void ReadWorkspace();
+  void ReadProblems();
+  void ReadGpuIndices();
+  void ProcessProblem(const PatchMatch::Options& options,
+                      const size_t problem_idx);
 
   const PatchMatch::Options options_;
   const std::string workspace_path_;
   const std::string workspace_format_;
   const std::string pmvs_option_name_;
+
+  std::unique_ptr<ThreadPool> thread_pool_;
+  std::mutex workspace_mutex_;
+  std::unique_ptr<Workspace> workspace_;
+  std::vector<PatchMatch::Problem> problems_;
+  std::vector<int> gpu_indices_;
+  std::vector<std::pair<float, float>> depth_ranges_;
 };
 
 #endif

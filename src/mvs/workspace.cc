@@ -96,13 +96,39 @@ const ConsistencyGraph& Workspace::GetConsistencyGraph(const int image_id) {
   return *cached_image.consistency_graph;
 }
 
-bool Workspace::HasImage(const int image_id) const {
-  return (!options_.cache_bitmap || ExistsFile(GetBitmapPath(image_id))) &&
-         (!options_.cache_depth_map || ExistsFile(GetDepthMapPath(image_id))) &&
-         (!options_.cache_normal_map ||
-          ExistsFile(GetNormalMapPath(image_id))) &&
-         (!options_.cache_consistency_graph ||
-          ExistsFile(GetConsistencyGraphPath(image_id)));
+std::string Workspace::GetBitmapPath(const int image_id) const {
+  return model_.images.at(image_id).GetPath();
+}
+
+std::string Workspace::GetDepthMapPath(const int image_id) const {
+  return JoinPaths(options_.workspace_path, "stereo/depth_maps",
+                   GetFileName(image_id));
+}
+
+std::string Workspace::GetNormalMapPath(const int image_id) const {
+  return JoinPaths(options_.workspace_path, "stereo/normal_maps",
+                   GetFileName(image_id));
+}
+
+std::string Workspace::GetConsistencyGraphPath(const int image_id) const {
+  return JoinPaths(options_.workspace_path, "stereo/consistency_graphs",
+                   GetFileName(image_id));
+}
+
+bool Workspace::HasBitmap(const int image_id) const {
+  return ExistsFile(GetBitmapPath(image_id));
+}
+
+bool Workspace::HasDepthMap(const int image_id) const {
+  return ExistsFile(GetDepthMapPath(image_id));
+}
+
+bool Workspace::HasNormalMap(const int image_id) const {
+  return ExistsFile(GetNormalMapPath(image_id));
+}
+
+bool Workspace::HasConsistencyGraph(const int image_id) const {
+  return ExistsFile(GetConsistencyGraphPath(image_id));
 }
 
 size_t Workspace::GetNumBytes(const int image_id) {
@@ -132,25 +158,6 @@ std::string Workspace::GetFileName(const int image_id) const {
   const auto& image_name = model_.GetImageName(image_id);
   return StringPrintf("%s.%s.bin", image_name.c_str(),
                       options_.input_type.c_str());
-}
-
-std::string Workspace::GetBitmapPath(const int image_id) const {
-  return model_.images.at(image_id).GetPath();
-}
-
-std::string Workspace::GetDepthMapPath(const int image_id) const {
-  return JoinPaths(options_.workspace_path, "stereo/depth_maps",
-                   GetFileName(image_id));
-}
-
-std::string Workspace::GetNormalMapPath(const int image_id) const {
-  return JoinPaths(options_.workspace_path, "stereo/normal_maps",
-                   GetFileName(image_id));
-}
-
-std::string Workspace::GetConsistencyGraphPath(const int image_id) const {
-  return JoinPaths(options_.workspace_path, "stereo/consistency_graphs",
-                   GetFileName(image_id));
 }
 
 }  // namespace mvs

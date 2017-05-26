@@ -53,16 +53,21 @@ class Workspace {
   const NormalMap& GetNormalMap(const int image_id);
   const ConsistencyGraph& GetConsistencyGraph(const int image_id);
 
-  // Return whether bitmap, depth map, normal map, and consistency graph exist.
-  bool HasImage(const int image_id) const;
-
- private:
-  size_t GetNumBytes(const int image_id);
-  std::string GetFileName(const int image_id) const;
+  // Get paths to bitmap, depth map, normal map and consistency graph.
   std::string GetBitmapPath(const int image_id) const;
   std::string GetDepthMapPath(const int image_id) const;
   std::string GetNormalMapPath(const int image_id) const;
   std::string GetConsistencyGraphPath(const int image_id) const;
+
+  // Return whether bitmap, depth map, normal map, and consistency graph exist.
+  bool HasBitmap(const int image_id) const;
+  bool HasDepthMap(const int image_id) const;
+  bool HasNormalMap(const int image_id) const;
+  bool HasConsistencyGraph(const int image_id) const;
+
+ private:
+  size_t GetNumBytes(const int image_id);
+  std::string GetFileName(const int image_id) const;
 
   const Options options_;
 

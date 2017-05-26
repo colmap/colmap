@@ -150,7 +150,9 @@ void StereoFusion::Run() {
   for (const auto& image_name : image_names) {
     const int image_id = model.GetImageId(image_name);
 
-    if (!workspace_->HasImage(image_id)) {
+    if (!workspace_->HasBitmap(image_id) ||
+        !workspace_->HasDepthMap(image_id) ||
+        !workspace_->HasNormalMap(image_id)) {
       std::cout
           << StringPrintf(
                  "WARNING: Ignoring image %s, because input does not exist.",

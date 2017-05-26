@@ -230,10 +230,7 @@ matching modes, that are intended for different input scenarios:
   relatively low (up to several hundreds), this matching mode should be fast
   enough and leads to the best reconstruction results. Here, every image is
   matched against every other image, while the block size determines how many
-  images are loaded from disk into memory at the same time. The preemptive
-  option filters image pairs that are not likely to match [wu13]_.
-  Typically though, vocabulary tree matching yields much better results than
-  preemptive matching [schoenberger15]_.
+  images are loaded from disk into memory at the same time.
 
 - **Sequential Matching**: This mode is useful if the images are acquired in
   sequential order, e.g., by a video camera. In this case, consecutive frames
@@ -394,14 +391,6 @@ information on how to avoid these problems. Note that the reconstructed normals
 of the point cloud cannot be directly visualized in COLMAP, but e.g. in Meshlab
 by enabling ``Render > Show Normal/Curvature``. Similarly, the reconstructed
 dense surface mesh model must be visualized with external software.
-
-By default, COLMAP only computes photometrically consistent depth and normal
-maps as a trade-off between reconstruction quality and speed. For highest
-reconstruction quality, you can compute both photometrically and geometrically
-consistent depth and normal maps: first, perform stereo processing and
-disable the ``filter`` option. After processing all images (before fusion and
-meshing), you must re-run stereo processing and enable both the ``filter`` and
-``geom_consistency`` options. Finally, perform the fusion and meshing steps.
 
 Note that COLMAP requires a CUDA-enabled GPU, so in addition to the internal
 dense reconstruction functionality, COLMAP exports to several other dense
