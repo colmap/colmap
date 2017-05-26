@@ -184,7 +184,14 @@ void AutomaticReconstructionController::RunFeatureMatching() {
 }
 
 void AutomaticReconstructionController::RunSparseMapper() {
-  CreateDirIfNotExists(JoinPaths(options_.workspace_path, "sparse"));
+  const auto sparse_path = JoinPaths(options_.workspace_path, "sparse");
+  if (ExistsDir(sparse_path)) {
+    std::cout << std::endl
+              << "WARNING: Skipping sparse reconstruction because it is "
+                 "already computed"
+              << std::endl;
+    return;
+  }
 
   IncrementalMapperController mapper(
       option_manager_.mapper.get(), *option_manager_.image_path,
@@ -194,6 +201,7 @@ void AutomaticReconstructionController::RunSparseMapper() {
   mapper.Wait();
   active_thread_ = nullptr;
 
+  CreateDirIfNotExists(sparse_path);
   reconstruction_manager_->Write(JoinPaths(options_.workspace_path, "sparse"),
                                  &option_manager_);
 }
@@ -201,6 +209,7 @@ void AutomaticReconstructionController::RunSparseMapper() {
 void AutomaticReconstructionController::RunDenseMapper() {
 #ifndef CUDA_ENABLED
   std::cout
+      << std::endl
       << "WARNING: Skipping dense reconstruction because CUDA is not available"
       << std::endl;
   return;
