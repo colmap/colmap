@@ -51,6 +51,9 @@ class LRUCache {
   // Pop least recently used element from cache.
   virtual void Pop();
 
+  // Clear all elements from cache.
+  virtual void Clear();
+
  protected:
   typedef typename std::pair<key_t, value_t> key_value_pair_t;
   typedef typename std::list<key_value_pair_t>::iterator list_iterator_t;
@@ -84,6 +87,8 @@ class MemoryConstrainedLRUCache : public LRUCache<key_t, value_t> {
 
   void Set(const key_t& key, value_t&& value) override;
   void Pop() override;
+
+  void Clear() override;
 
  private:
   using typename LRUCache<key_t, value_t>::key_value_pair_t;
@@ -167,6 +172,12 @@ void LRUCache<key_t, value_t>::Pop() {
 }
 
 template <typename key_t, typename value_t>
+void LRUCache<key_t, value_t>::Clear() {
+  elems_list_.clear();
+  elems_map_.clear();
+}
+
+template <typename key_t, typename value_t>
 MemoryConstrainedLRUCache<key_t, value_t>::MemoryConstrainedLRUCache(
     const size_t max_num_bytes,
     const std::function<value_t(const key_t&)>& getter_func)
@@ -213,6 +224,12 @@ void MemoryConstrainedLRUCache<key_t, value_t>::Pop() {
     elems_map_.erase(last->first);
     elems_list_.pop_back();
   }
+}
+
+template <typename key_t, typename value_t>
+void MemoryConstrainedLRUCache<key_t, value_t>::Clear() {
+  LRUCache<key_t, value_t>::Clear();
+  num_bytes_ = 0;
 }
 
 }  // namespace colmap
