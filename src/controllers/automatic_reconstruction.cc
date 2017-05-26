@@ -154,6 +154,7 @@ void AutomaticReconstructionController::RunFeatureExtraction() {
   active_thread_ = feature_extractor_.get();
   feature_extractor_->Start();
   feature_extractor_->Wait();
+  feature_extractor_.reset();
   active_thread_ = nullptr;
 }
 
@@ -176,6 +177,9 @@ void AutomaticReconstructionController::RunFeatureMatching() {
   active_thread_ = matcher;
   matcher->Start();
   matcher->Wait();
+  exhaustive_matcher_.reset();
+  sequential_matcher_.reset();
+  vocab_tree_matcher_.reset();
   active_thread_ = nullptr;
 }
 
@@ -245,16 +249,10 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     // Dense fusion.
 
-    std::string fusion_input_type;
-    if (options_.high_quality) {
-      fusion_input_type = "geometric";
-    } else {
-      fusion_input_type = "photometric";
-    }
-
     {
-      mvs::StereoFusion fuser(*option_manager_.dense_fusion, dense_path,
-                              "COLMAP", fusion_input_type);
+      mvs::StereoFusion fuser(
+          *option_manager_.dense_fusion, dense_path, "COLMAP",
+          options_.high_quality ? "geometric" : "photometric");
       active_thread_ = &fuser;
       fuser.Start();
       fuser.Wait();

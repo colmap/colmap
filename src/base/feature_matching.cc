@@ -405,7 +405,13 @@ void FeatureMatcherCache::DeleteInlierMatches(const image_t image_id1,
   database_->DeleteInlierMatches(image_id1, image_id2);
 }
 
-FeatureMatcherThread::FeatureMatcherThread() : is_valid_(false) {}
+FeatureMatcherThread::FeatureMatcherThread(const SiftMatchingOptions& options,
+                                           FeatureMatcherCache* cache)
+    : options_(options), cache_(cache), is_valid_(false) {}
+
+void FeatureMatcherThread::SetMaxNumMatches(const int max_num_matches) {
+  options_.max_num_matches = max_num_matches;
+}
 
 bool FeatureMatcherThread::IsValid() {
   std::unique_lock<std::mutex> lock(mutex_);
@@ -432,8 +438,7 @@ SiftCPUFeatureMatcher::SiftCPUFeatureMatcher(const SiftMatchingOptions& options,
                                              FeatureMatcherCache* cache,
                                              JobQueue<Input>* input_queue,
                                              JobQueue<Output>* output_queue)
-    : options_(options),
-      cache_(cache),
+    : FeatureMatcherThread(options, cache),
       input_queue_(input_queue),
       output_queue_(output_queue) {
   CHECK(options_.Check());
@@ -471,8 +476,7 @@ SiftGPUFeatureMatcher::SiftGPUFeatureMatcher(const SiftMatchingOptions& options,
                                              FeatureMatcherCache* cache,
                                              JobQueue<Input>* input_queue,
                                              JobQueue<Output>* output_queue)
-    : options_(options),
-      cache_(cache),
+    : FeatureMatcherThread(options, cache),
       input_queue_(input_queue),
       output_queue_(output_queue) {
   CHECK(options_.Check());
@@ -542,8 +546,7 @@ void SiftGPUFeatureMatcher::GetDescriptorData(
 GuidedSiftCPUFeatureMatcher::GuidedSiftCPUFeatureMatcher(
     const SiftMatchingOptions& options, FeatureMatcherCache* cache,
     JobQueue<Input>* input_queue, JobQueue<Output>* output_queue)
-    : options_(options),
-      cache_(cache),
+    : FeatureMatcherThread(options, cache),
       input_queue_(input_queue),
       output_queue_(output_queue) {
   CHECK(options_.Check());
@@ -590,8 +593,7 @@ void GuidedSiftCPUFeatureMatcher::Run() {
 GuidedSiftGPUFeatureMatcher::GuidedSiftGPUFeatureMatcher(
     const SiftMatchingOptions& options, FeatureMatcherCache* cache,
     JobQueue<Input>* input_queue, JobQueue<Output>* output_queue)
-    : options_(options),
-      cache_(cache),
+    : FeatureMatcherThread(options, cache),
       input_queue_(input_queue),
       output_queue_(output_queue) {
   CHECK(options_.Check());
@@ -744,10 +746,6 @@ SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchingOptions& options,
     : options_(options), database_(database), cache_(cache), is_setup_(false) {
   CHECK(options_.Check());
 
-  const int max_num_features = database->MaxNumDescriptors();
-  options_.max_num_matches =
-      std::min(options_.max_num_matches, max_num_features);
-
   const int num_threads = GetEffectiveNumThreads(options_.num_threads);
   CHECK_GT(num_threads, 0);
 
@@ -846,7 +844,12 @@ SiftFeatureMatcher::~SiftFeatureMatcher() {
 }
 
 bool SiftFeatureMatcher::Setup() {
+  const int max_num_features = CHECK_NOTNULL(database_)->MaxNumDescriptors();
+  options_.max_num_matches =
+      std::min(options_.max_num_matches, max_num_features);
+
   for (auto& matcher : matchers_) {
+    matcher->SetMaxNumMatches(options_.max_num_matches);
     matcher->Start();
   }
 
@@ -855,6 +858,7 @@ bool SiftFeatureMatcher::Setup() {
   }
 
   for (auto& guided_matcher : guided_matchers_) {
+    guided_matcher->SetMaxNumMatches(options_.max_num_matches);
     guided_matcher->Start();
   }
 
@@ -1906,7 +1910,7 @@ bool CreateSiftGPUMatcher(const SiftMatchingOptions& match_options,
   } else {
     sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_CUDA);
   }
-#else   // CUDA_ENABLED
+#else  // CUDA_ENABLED
   sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_GLSL);
 #endif  // CUDA_ENABLED
 

@@ -138,13 +138,19 @@ class FeatureMatcherCache {
 
 class FeatureMatcherThread : public Thread {
  public:
-  FeatureMatcherThread();
+  FeatureMatcherThread(const SiftMatchingOptions& options,
+                       FeatureMatcherCache* cache);
+
+  void SetMaxNumMatches(const int max_num_matches);
 
   virtual bool IsValid();
 
  protected:
   virtual void SetValid();
   virtual void SetInvalid();
+
+  SiftMatchingOptions options_;
+  FeatureMatcherCache* cache_;
 
  private:
   std::mutex mutex_;
@@ -165,8 +171,6 @@ class SiftCPUFeatureMatcher : public FeatureMatcherThread {
  protected:
   void Run() override;
 
-  const SiftMatchingOptions options_;
-  FeatureMatcherCache* cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
 };
@@ -187,8 +191,6 @@ class SiftGPUFeatureMatcher : public FeatureMatcherThread {
   void GetDescriptorData(const int index, const image_t image_id,
                          const FeatureDescriptors** descriptors_ptr);
 
-  const SiftMatchingOptions options_;
-  FeatureMatcherCache* cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
 
@@ -212,8 +214,6 @@ class GuidedSiftCPUFeatureMatcher : public FeatureMatcherThread {
  private:
   void Run() override;
 
-  const SiftMatchingOptions options_;
-  FeatureMatcherCache* cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
 };
@@ -235,8 +235,6 @@ class GuidedSiftGPUFeatureMatcher : public FeatureMatcherThread {
                       const FeatureKeypoints** keypoints_ptr,
                       const FeatureDescriptors** descriptors_ptr);
 
-  const SiftMatchingOptions options_;
-  FeatureMatcherCache* cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
 
