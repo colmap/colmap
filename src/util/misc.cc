@@ -113,8 +113,11 @@ std::vector<std::string> GetRecursiveFileList(const std::string& path) {
 
 size_t GetFileSize(const std::string& path) {
   std::ifstream file(path, std::ifstream::ate | std::ifstream::binary);
-  CHECK(file.is_open());
-  return file.tellg();
+  if (file.is_open()) {
+    return file.tellg();
+  } else {
+    return 0;
+  }
 }
 
 void PrintHeading1(const std::string& heading) {

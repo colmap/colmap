@@ -465,11 +465,10 @@ void PatchMatchController::ProcessProblem(const PatchMatch::Options& options,
 
     std::cout << "Reading inputs..." << std::endl;
     for (const auto image_id : used_image_ids) {
-      images.at(image_id).SetBitmap(workspace_->GetBitmap(image_id));
-
-      // Convert to gray-scale image.
-      const auto bitmap = images.at(image_id).GetBitmap();
-      if (!bitmap.IsGrey()) {
+      const auto bitmap = workspace_->GetBitmap(image_id);
+      if (bitmap.IsGrey()) {
+        images.at(image_id).SetBitmap(bitmap);
+      } else {
         images.at(image_id).SetBitmap(bitmap.CloneAsGrey());
       }
 
