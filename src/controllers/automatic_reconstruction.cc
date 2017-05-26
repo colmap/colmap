@@ -186,7 +186,7 @@ void AutomaticReconstructionController::RunFeatureMatching() {
 void AutomaticReconstructionController::RunSparseMapper() {
   const auto sparse_path = JoinPaths(options_.workspace_path, "sparse");
   if (ExistsDir(sparse_path)) {
-    const auto dir_list = GetDirList(sparse_path);
+    auto dir_list = GetDirList(sparse_path);
     std::sort(dir_list.begin(), dir_list.end());
     if (dir_list.size() > 0) {
       std::cout << std::endl
@@ -230,9 +230,16 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     const std::string dense_path =
         JoinPaths(options_.workspace_path, "dense", std::to_string(i));
+    const std::string fused_path = JoinPaths(dense_path, "fused.ply");
+    const std::string meshed_path = JoinPaths(dense_path, "meshed.ply");
+
+    if (ExistsFile(fused_path) && ExistsFile(meshed_path)) {
+      continue;
+    }
+
     CreateDirIfNotExists(dense_path);
 
-    // Image undistortion.
+    // Image undistortion
 
     UndistortCameraOptions undistortion_options;
     undistortion_options.max_image_size =
@@ -262,9 +269,9 @@ void AutomaticReconstructionController::RunDenseMapper() {
       return;
     }
 
-    // Dense fusion.
+    // Dense fusion
 
-    {
+    if (!ExistsFile(fused_path)) {
       mvs::StereoFusion fuser(
           *option_manager_.dense_fusion, dense_path, "COLMAP",
           options_.high_quality ? "geometric" : "photometric");
@@ -273,21 +280,20 @@ void AutomaticReconstructionController::RunDenseMapper() {
       fuser.Wait();
       active_thread_ = nullptr;
 
-      std::cout << "Writing output: " << JoinPaths(dense_path, "fused.ply")
-                << std::endl;
-      WritePlyBinary(JoinPaths(dense_path, "fused.ply"),
-                     fuser.GetFusedPoints());
+      std::cout << "Writing output: " << fused_path << std::endl;
+      WritePlyBinary(fused_path, fuser.GetFusedPoints());
     }
 
     if (IsStopped()) {
       return;
     }
 
-    // Dense meshing.
+    // Dense meshing
 
-    mvs::PoissonReconstruction(*option_manager_.dense_meshing,
-                               JoinPaths(dense_path, "fused.ply"),
-                               JoinPaths(dense_path, "meshed.ply"));
+    if (!ExistsFile(meshed_path)) {
+      mvs::PoissonReconstruction(*option_manager_.dense_meshing, fused_path,
+                                 meshed_path);
+    }
   }
 }
 
