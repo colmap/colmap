@@ -62,6 +62,8 @@ class StereoOptionsTab : public OptionsWidget {
     AddOptionDouble(&options->dense_stereo->cache_size,
                     "cache_size [gigabytes]", 0,
                     std::numeric_limits<double>::max(), 0.1, 1);
+    AddOptionBool(&options->dense_stereo->write_consistency_graph,
+                  "write_consistency_graph");
   }
 };
 
@@ -79,6 +81,8 @@ class FusionOptionsTab : public OptionsWidget {
                     0, 1, 0.0001, 4);
     AddOptionDouble(&options->dense_fusion->max_normal_error,
                     "max_normal_error", 0, 180);
+    AddOptionInt(&options->dense_fusion->check_num_images, "check_num_images",
+                 1);
     AddOptionDouble(&options->dense_fusion->cache_size,
                     "cache_size [gigabytes]", 0,
                     std::numeric_limits<double>::max(), 0.1, 1);

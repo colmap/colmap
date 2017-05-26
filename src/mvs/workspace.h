@@ -34,10 +34,10 @@ class Workspace {
     double cache_size = 32.0;
 
     // Which data to store in the cache.
-    bool cache_bitmap = true;
-    bool cache_depth_map = true;
-    bool cache_normal_map = true;
-    bool cache_consistency_graph = true;
+    bool cache_bitmap = false;
+    bool cache_depth_map = false;
+    bool cache_normal_map = false;
+    bool cache_consistency_graph = false;
 
     // Location and type of workspace.
     std::string workspace_path;

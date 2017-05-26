@@ -463,6 +463,8 @@ void OptionManager::AddDenseStereoOptions() {
                               &dense_stereo->filter_geom_consistency_max_cost);
   AddAndRegisterDefaultOption("DenseStereo.cache_size",
                               &dense_stereo->cache_size);
+  AddAndRegisterDefaultOption("DenseStereo.write_consistency_graph",
+                              &dense_stereo->write_consistency_graph);
 }
 
 void OptionManager::AddDenseFusionOptions() {
@@ -483,6 +485,8 @@ void OptionManager::AddDenseFusionOptions() {
                               &dense_fusion->max_depth_error);
   AddAndRegisterDefaultOption("DenseFusion.max_normal_error",
                               &dense_fusion->max_normal_error);
+  AddAndRegisterDefaultOption("DenseFusion.check_num_images",
+                              &dense_fusion->check_num_images);
   AddAndRegisterDefaultOption("DenseFusion.cache_size",
                               &dense_fusion->cache_size);
 }

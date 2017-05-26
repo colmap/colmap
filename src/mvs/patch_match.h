@@ -116,6 +116,9 @@ class PatchMatch {
     // of memory, if the consistency graph is dense.
     double cache_size = 32.0;
 
+    // Whether to write the consistency graph.
+    bool write_consistency_graph = false;
+
     void Print() const;
     bool Check() const {
       CHECK_OPTION_LT(depth_min, depth_max);

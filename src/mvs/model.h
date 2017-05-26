@@ -50,6 +50,12 @@ struct Model {
   int GetImageId(const std::string& name) const;
   std::string GetImageName(const int image_id) const;
 
+  // For each image, determine the maximally overlapping images, sorted based on
+  // the number of shared points subject to a minimum robust average
+  // triangulation angle of the points.
+  std::vector<std::vector<int>> GetMaxOverlappingImages(
+      const size_t num_images, const double min_triangulation_angle) const;
+
   // Compute the robust minimum and maximum depths from the sparse point cloud.
   std::vector<std::pair<float, float>> ComputeDepthRanges() const;
 

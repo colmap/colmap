@@ -40,22 +40,12 @@ float Median(std::vector<T>* elems) {
 // Use the sparse model to find most connected image that has not yet been
 // fused. This is used as a heuristic to ensure that the workspace cache reuses
 // already cached images as efficient as possible.
-int FindNextImage(const std::vector<std::map<int, int>>& shared_points,
+int FindNextImage(const std::vector<std::vector<int>>& overlapping_images,
                   const std::vector<char>& fused_images,
                   const int prev_image_id) {
-  // Sort the overlapping images in descending order based on the shared points.
-  std::vector<std::pair<int, int>> overlapping_images(
-      shared_points.at(prev_image_id).begin(),
-      shared_points.at(prev_image_id).end());
-  std::sort(
-      overlapping_images.begin(), overlapping_images.end(),
-      [](const std::pair<int, int>& image1, const std::pair<int, int>& image2) {
-        return image1.second > image2.second;
-      });
-
-  for (const auto& image : overlapping_images) {
-    if (!fused_images.at(image.first)) {
-      return image.first;
+  for (const auto image_id : overlapping_images.at(prev_image_id)) {
+    if (!fused_images.at(image_id)) {
+      return image_id;
     }
   }
 
@@ -92,6 +82,7 @@ bool StereoFusion::Options::Check() const {
   CHECK_OPTION_GE(max_reproj_error, 0);
   CHECK_OPTION_GE(max_depth_error, 0);
   CHECK_OPTION_GE(max_normal_error, 0);
+  CHECK_OPTION_GT(check_num_images, 0);
   CHECK_OPTION_GT(cache_size, 0);
   return true;
 }
@@ -126,6 +117,10 @@ void StereoFusion::Run() {
   workspace_options.workspace_path = workspace_path_;
   workspace_options.workspace_format = workspace_format_;
   workspace_options.input_type = input_type_;
+  workspace_options.cache_bitmap = true;
+  workspace_options.cache_depth_map = true;
+  workspace_options.cache_normal_map = true;
+  workspace_options.cache_consistency_graph = false;
   workspace_.reset(new Workspace(workspace_options));
 
   if (IsStopped()) {
@@ -136,7 +131,10 @@ void StereoFusion::Run() {
   std::cout << "Reading configuration..." << std::endl;
 
   const auto& model = workspace_->GetModel();
-  const auto shared_points = model.ComputeSharedPoints();
+
+  const double kMinTriangulationAngle = 0;
+  overlapping_images_ = model.GetMaxOverlappingImages(options_.check_num_images,
+                                                      kMinTriangulationAngle);
 
   used_images_.resize(model.images.size(), false);
   fused_images_.resize(model.images.size(), false);
@@ -197,8 +195,8 @@ void StereoFusion::Run() {
 
   size_t num_fused_images = 0;
   for (int image_id = 0; image_id >= 0;
-       image_id =
-           internal::FindNextImage(shared_points, fused_images_, image_id)) {
+       image_id = internal::FindNextImage(overlapping_images_, fused_images_,
+                                          image_id)) {
     if (IsStopped()) {
       break;
     }
@@ -386,19 +384,13 @@ void StereoFusion::Fuse() {
       continue;
     }
 
-    // Traverse the consistency graph by projecting point into other views.
-    int next_num_images = 0;
-    const int* next_image_ids = nullptr;
-    workspace_->GetConsistencyGraph(image_id).GetImageIds(
-        row, col, &next_num_images, &next_image_ids);
-
     FusionData next_data;
     next_data.traversal_depth = next_traversal_depth;
 
-    for (int i = 0; i < next_num_images; ++i) {
-      next_data.image_id = next_image_ids[i];
+    for (const auto next_image_id : overlapping_images_.at(image_id)) {
+      next_data.image_id = next_image_id;
       const Eigen::Vector3f next_proj =
-          P_.at(next_data.image_id) * xyz.homogeneous();
+          P_.at(next_image_id) * xyz.homogeneous();
       next_data.col = static_cast<int>(std::round(next_proj(0) / next_proj(2)));
       next_data.row = static_cast<int>(std::round(next_proj(1) / next_proj(2)));
       fusion_queue_.push(next_data);

@@ -358,6 +358,7 @@ void PatchMatchController::Run() {
   workspace_options.workspace_path = workspace_path_;
   workspace_options.workspace_format = workspace_format_;
   workspace_options.input_type = options_.geom_consistency ? "photometric" : "";
+  workspace_options.cache_bitmap = true;
   workspace_options.cache_depth_map = options_.geom_consistency;
   workspace_options.cache_normal_map = options_.geom_consistency;
   workspace_options.cache_consistency_graph = false;
@@ -406,7 +407,8 @@ void PatchMatchController::Run() {
         JoinPaths(workspace_path_, "stereo/consistency_graphs", file_name);
 
     if (ExistsFile(depth_map_path) && ExistsFile(normal_map_path) &&
-        ExistsFile(consistency_graph_path)) {
+        (!options_.write_consistency_graph ||
+         ExistsFile(consistency_graph_path))) {
       return;
     }
 
@@ -485,7 +487,9 @@ void PatchMatchController::Run() {
 
     patch_match.GetDepthMap().Write(depth_map_path);
     patch_match.GetNormalMap().Write(normal_map_path);
-    patch_match.GetConsistencyGraph().Write(consistency_graph_path);
+    if (options_.write_consistency_graph) {
+      patch_match.GetConsistencyGraph().Write(consistency_graph_path);
+    }
   };
 
   for (size_t problem_idx = 0; problem_idx < problems.size(); ++problem_idx) {

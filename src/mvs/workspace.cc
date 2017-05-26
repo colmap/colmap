@@ -97,10 +97,12 @@ const ConsistencyGraph& Workspace::GetConsistencyGraph(const int image_id) {
 }
 
 bool Workspace::HasImage(const int image_id) const {
-  return ExistsFile(GetBitmapPath(image_id)) &&
-         ExistsFile(GetDepthMapPath(image_id)) &&
-         ExistsFile(GetNormalMapPath(image_id)) &&
-         ExistsFile(GetConsistencyGraphPath(image_id));
+  return (!options_.cache_bitmap || ExistsFile(GetBitmapPath(image_id))) &&
+         (!options_.cache_depth_map || ExistsFile(GetDepthMapPath(image_id))) &&
+         (!options_.cache_normal_map ||
+          ExistsFile(GetNormalMapPath(image_id))) &&
+         (!options_.cache_consistency_graph ||
+          ExistsFile(GetConsistencyGraphPath(image_id)));
 }
 
 size_t Workspace::GetNumBytes(const int image_id) {

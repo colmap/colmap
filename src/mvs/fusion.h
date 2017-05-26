@@ -67,8 +67,11 @@ class StereoFusion : public Thread {
     // Maximum relative difference between measured and projected depth.
     double max_depth_error = 0.01f;
 
-    // Maximum difference between normals of pixels to be fused.
+    // Maximum angular difference in degrees of normals of pixels to be fused.
     double max_normal_error = 10.0f;
+
+    // Number of overlapping images to transitively check for fusing points.
+    int check_num_images = 50;
 
     // Cache size in gigabytes for fusion. The fusion keeps the bitmaps, depth
     // maps, normal maps, and consistency graphs of this number of images in
@@ -104,6 +107,7 @@ class StereoFusion : public Thread {
   std::unique_ptr<Workspace> workspace_;
   std::vector<char> used_images_;
   std::vector<char> fused_images_;
+  std::vector<std::vector<int>> overlapping_images_;
   std::vector<Mat<bool>> fused_pixel_masks_;
   std::vector<std::pair<int, int>> depth_map_sizes_;
   std::vector<std::pair<float, float>> bitmap_scales_;
