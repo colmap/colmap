@@ -233,11 +233,18 @@ void PatchMatchController::Run() {
     auto photometric_options = options_;
     photometric_options.geom_consistency = false;
     photometric_options.filter = false;
+
+    // Only cache the bitmap for photometric stereo.
+    workspace_->ResetCache(true, false, false, false);
+
     for (size_t problem_idx = 0; problem_idx < problems_.size();
          ++problem_idx) {
       thread_pool_->AddTask(&PatchMatchController::ProcessProblem, this,
                             photometric_options, problem_idx);
     }
+
+    // Cache the bitmap, depth map, normal map for geometric stereo.
+    workspace_->ResetCache(true, true, true, false);
   }
 
   for (size_t problem_idx = 0; problem_idx < problems_.size(); ++problem_idx) {

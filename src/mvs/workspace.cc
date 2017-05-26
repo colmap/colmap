@@ -54,6 +54,17 @@ Workspace::Workspace(const Options& options)
   model_.Read(options_.workspace_path, options_.workspace_format);
 }
 
+void Workspace::ResetCache(bool cache_bitmap,
+                           bool cache_depth_map,
+                           bool cache_normal_map,
+                           bool cache_consistency_graph) {
+  options_.cache_bitmap = cache_bitmap;
+  options_.cache_depth_map = cache_depth_map;
+  options_.cache_normal_map = cache_normal_map;
+  options_.cache_consistency_graph = cache_consistency_graph;
+  cache_.Clear();
+}
+
 const Model& Workspace::GetModel() const { return model_; }
 
 const Bitmap& Workspace::GetBitmap(const int image_id) {

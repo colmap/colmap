@@ -47,6 +47,10 @@ class Workspace {
 
   Workspace(const Options& options);
 
+  void ResetCache(bool cache_bitmap = false, bool cache_depth_map = false,
+                  bool cache_normal_map = false,
+                  bool cache_consistency_graph = false);
+
   const Model& GetModel() const;
   const Bitmap& GetBitmap(const int image_id);
   const DepthMap& GetDepthMap(const int image_id);
@@ -69,8 +73,6 @@ class Workspace {
   size_t GetNumBytes(const int image_id);
   std::string GetFileName(const int image_id) const;
 
-  const Options options_;
-
   class CachedImage {
    public:
     CachedImage();
@@ -87,6 +89,7 @@ class Workspace {
     NON_COPYABLE(CachedImage)
   };
 
+  Options options_;
   Model model_;
   MemoryConstrainedLRUCache<int, CachedImage> cache_;
   std::unordered_map<int, size_t> num_bytes_;
