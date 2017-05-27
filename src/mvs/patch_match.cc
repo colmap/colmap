@@ -243,6 +243,8 @@ void PatchMatchController::Run() {
                             photometric_options, problem_idx);
     }
 
+    thread_pool_->Wait();
+
     // Cache the bitmap, depth map, normal map for geometric stereo.
     workspace_->ResetCache(true, true, true, false);
   }
@@ -253,8 +255,6 @@ void PatchMatchController::Run() {
   }
 
   thread_pool_->Wait();
-  thread_pool_.reset();
-  workspace_.reset();
 
   GetTimer().PrintMinutes();
 }
@@ -523,7 +523,7 @@ void PatchMatchController::ProcessProblem(const PatchMatch::Options& options,
 
   patch_match.GetDepthMap().Write(depth_map_path);
   patch_match.GetNormalMap().Write(normal_map_path);
-  if (options_.write_consistency_graph) {
+  if (options.write_consistency_graph) {
     patch_match.GetConsistencyGraph().Write(consistency_graph_path);
   }
 }
