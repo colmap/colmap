@@ -63,6 +63,7 @@ void Workspace::ResetCache(bool cache_bitmap,
   options_.cache_normal_map = cache_normal_map;
   options_.cache_consistency_graph = cache_consistency_graph;
   cache_.Clear();
+  num_bytes_.clear();
 }
 
 const Model& Workspace::GetModel() const { return model_; }
