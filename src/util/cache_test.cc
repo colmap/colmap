@@ -153,11 +153,9 @@ BOOST_AUTO_TEST_CASE(TestLRUCacheClear) {
 }
 
 struct SizedElem {
-  SizedElem(const size_t num_bytes) : num_bytes_(num_bytes) {}
-  size_t NumBytes() const { return num_bytes_; }
-
- private:
-  size_t num_bytes_;
+  SizedElem(const size_t num_bytes_) : num_bytes(num_bytes_) {}
+  size_t NumBytes() const { return num_bytes; }
+  size_t num_bytes;
 };
 
 BOOST_AUTO_TEST_CASE(TestMemoryConstrainedLRUCacheEmpty) {
@@ -224,4 +222,32 @@ BOOST_AUTO_TEST_CASE(TestMemoryConstrainedLRUCacheClear) {
   BOOST_CHECK_EQUAL(cache.NumBytes(), 1);
   BOOST_CHECK_EQUAL(cache.NumElems(), 1);
   BOOST_CHECK(cache.Exists(1));
+}
+
+BOOST_AUTO_TEST_CASE(TestMemoryConstrainedLRUCacheUpdateNumBytes) {
+  MemoryConstrainedLRUCache<int, SizedElem> cache(
+      50, [](const int key) { return SizedElem(key); });
+  BOOST_CHECK_EQUAL(cache.NumElems(), 0);
+  for (int i = 0; i < 5; ++i) {
+    BOOST_CHECK_EQUAL(cache.Get(i).NumBytes(), i);
+    BOOST_CHECK_EQUAL(cache.NumElems(), i + 1);
+    BOOST_CHECK(cache.Exists(i));
+  }
+
+  BOOST_CHECK_EQUAL(cache.NumBytes(), 10);
+
+  cache.GetMutable(4).num_bytes = 3;
+  BOOST_CHECK_EQUAL(cache.NumBytes(), 10);
+  cache.UpdateNumBytes(4);
+  BOOST_CHECK_EQUAL(cache.NumBytes(), 9);
+
+  cache.GetMutable(2).num_bytes = 3;
+  BOOST_CHECK_EQUAL(cache.NumBytes(), 9);
+  cache.UpdateNumBytes(2);
+  BOOST_CHECK_EQUAL(cache.NumBytes(), 10);
+
+  cache.GetMutable(0).num_bytes = 40;
+  BOOST_CHECK_EQUAL(cache.NumBytes(), 10);
+  cache.UpdateNumBytes(0);
+  BOOST_CHECK_EQUAL(cache.NumBytes(), 50);
 }

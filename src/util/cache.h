@@ -84,10 +84,10 @@ class MemoryConstrainedLRUCache : public LRUCache<key_t, value_t> {
 
   size_t NumBytes() const;
   size_t MaxNumBytes() const;
+  void UpdateNumBytes(const key_t& key);
 
   void Set(const key_t& key, value_t&& value) override;
   void Pop() override;
-
   void Clear() override;
 
  private:
@@ -100,6 +100,7 @@ class MemoryConstrainedLRUCache : public LRUCache<key_t, value_t> {
 
   const size_t max_num_bytes_;
   size_t num_bytes_;
+  std::unordered_map<key_t, size_t> elems_num_bytes_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -208,7 +209,9 @@ void MemoryConstrainedLRUCache<key_t, value_t>::Set(const key_t& key,
   }
   elems_map_[key] = elems_list_.begin();
 
-  num_bytes_ += value.NumBytes();
+  const size_t num_bytes = value.NumBytes();
+  num_bytes_ += num_bytes;
+  elems_num_bytes_.emplace(key, num_bytes);
 
   while (num_bytes_ > max_num_bytes_ && elems_map_.size() > 1) {
     Pop();
@@ -220,9 +223,25 @@ void MemoryConstrainedLRUCache<key_t, value_t>::Pop() {
   if (!elems_list_.empty()) {
     auto last = elems_list_.end();
     --last;
-    num_bytes_ -= last->second.NumBytes();
+    num_bytes_ -= elems_num_bytes_.at(last->first);
+    CHECK_GE(num_bytes_, 0);
+    elems_num_bytes_.erase(last->first);
     elems_map_.erase(last->first);
     elems_list_.pop_back();
+  }
+}
+
+template <typename key_t, typename value_t>
+void MemoryConstrainedLRUCache<key_t, value_t>::UpdateNumBytes(
+    const key_t& key) {
+  auto& num_bytes = elems_num_bytes_.at(key);
+  num_bytes_ -= num_bytes;
+  CHECK_GE(num_bytes_, 0);
+  num_bytes = LRUCache<key_t, value_t>::Get(key).NumBytes();
+  num_bytes_ += num_bytes;
+
+  while (num_bytes_ > max_num_bytes_ && elems_map_.size() > 1) {
+    Pop();
   }
 }
 
