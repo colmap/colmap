@@ -141,7 +141,7 @@ parts:
       cd build
       cmake -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=$SNAPCRAFT_PART_INSTALL \
-        -DCeres_DIR==$SNAPCRAFT_STAGE/lib/cmake/Ceres/ \
+        -DCeres_DIR=$SNAPCRAFT_STAGE/lib/cmake/Ceres/ \
         ..
       export NPROCS=$(grep -c ^processor /proc/cpuinfo)
       make -j${NPROCS}
