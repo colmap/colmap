@@ -6,11 +6,12 @@ description: |
   Multi-View Stereo (MVS) pipeline with a graphical and command-line
   interface. It offers a wide range of features for reconstruction of
   ordered and unordered image collections.
-grade: devel
-confinement: devmode
 
-#grade: stable
-#confinement: strict
+#grade: devel
+#confinement: devmode
+
+grade: stable
+confinement: strict
 
 #icon: project/src/images/icon.png
 
