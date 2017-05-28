@@ -117,10 +117,6 @@ void StereoFusion::Run() {
   workspace_options.workspace_path = workspace_path_;
   workspace_options.workspace_format = workspace_format_;
   workspace_options.input_type = input_type_;
-  workspace_options.cache_bitmap = true;
-  workspace_options.cache_depth_map = true;
-  workspace_options.cache_normal_map = true;
-  workspace_options.cache_consistency_graph = false;
   workspace_.reset(new Workspace(workspace_options));
 
   if (IsStopped()) {

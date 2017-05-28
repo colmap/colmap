@@ -46,64 +46,57 @@ size_t Workspace::CachedImage::NumBytes() const { return num_bytes; }
 
 Workspace::Workspace(const Options& options)
     : options_(options),
-      cache_(1024 * 1024 * 1024 * options_.cache_size, [&](const int image_id) {
-        CachedImage cached_image;
-        cached_image.num_bytes = GetNumBytes(image_id);
-        return cached_image;
-      }) {
+      cache_(1024 * 1024 * 1024 * options_.cache_size,
+             [](const int image_id) { return CachedImage(); }) {
   model_.Read(options_.workspace_path, options_.workspace_format);
 }
 
-void Workspace::ResetCache(const bool cache_bitmap,
-                           const bool cache_depth_map,
-                           const bool cache_normal_map,
-                           const bool cache_consistency_graph) {
-  options_.cache_bitmap = cache_bitmap;
-  options_.cache_depth_map = cache_depth_map;
-  options_.cache_normal_map = cache_normal_map;
-  options_.cache_consistency_graph = cache_consistency_graph;
+void Workspace::ClearCache() {
   cache_.Clear();
-  num_bytes_.clear();
 }
 
 const Model& Workspace::GetModel() const { return model_; }
 
 const Bitmap& Workspace::GetBitmap(const int image_id) {
-  CHECK(options_.cache_bitmap);
   auto& cached_image = cache_.GetMutable(image_id);
   if (!cached_image.bitmap) {
     cached_image.bitmap.reset(new Bitmap());
     cached_image.bitmap->Read(GetBitmapPath(image_id), true);
+    cached_image.num_bytes += cached_image.bitmap->NumBytes();
+    cache_.UpdateNumBytes(image_id);
   }
   return *cached_image.bitmap;
 }
 
 const DepthMap& Workspace::GetDepthMap(const int image_id) {
-  CHECK(options_.cache_depth_map);
   auto& cached_image = cache_.GetMutable(image_id);
   if (!cached_image.depth_map) {
     cached_image.depth_map.reset(new DepthMap());
     cached_image.depth_map->Read(GetDepthMapPath(image_id));
+    cached_image.num_bytes += cached_image.depth_map->GetNumBytes();
+    cache_.UpdateNumBytes(image_id);
   }
   return *cached_image.depth_map;
 }
 
 const NormalMap& Workspace::GetNormalMap(const int image_id) {
-  CHECK(options_.cache_normal_map);
   auto& cached_image = cache_.GetMutable(image_id);
   if (!cached_image.normal_map) {
     cached_image.normal_map.reset(new NormalMap());
     cached_image.normal_map->Read(GetNormalMapPath(image_id));
+    cached_image.num_bytes += cached_image.normal_map->GetNumBytes();
+    cache_.UpdateNumBytes(image_id);
   }
   return *cached_image.normal_map;
 }
 
 const ConsistencyGraph& Workspace::GetConsistencyGraph(const int image_id) {
-  CHECK(options_.cache_consistency_graph);
   auto& cached_image = cache_.GetMutable(image_id);
   if (!cached_image.consistency_graph) {
     cached_image.consistency_graph.reset(new ConsistencyGraph());
     cached_image.consistency_graph->Read(GetConsistencyGraphPath(image_id));
+    cached_image.num_bytes += cached_image.consistency_graph->GetNumBytes();
+    cache_.UpdateNumBytes(image_id);
   }
   return *cached_image.consistency_graph;
 }
@@ -141,29 +134,6 @@ bool Workspace::HasNormalMap(const int image_id) const {
 
 bool Workspace::HasConsistencyGraph(const int image_id) const {
   return ExistsFile(GetConsistencyGraphPath(image_id));
-}
-
-size_t Workspace::GetNumBytes(const int image_id) {
-  const auto it = num_bytes_.find(image_id);
-  if (it == num_bytes_.end()) {
-    size_t num_bytes = 0;
-    if (options_.cache_bitmap) {
-      num_bytes += GetFileSize(GetBitmapPath(image_id));
-    }
-    if (options_.cache_depth_map) {
-      num_bytes += GetFileSize(GetDepthMapPath(image_id));
-    }
-    if (options_.cache_normal_map) {
-      num_bytes += GetFileSize(GetNormalMapPath(image_id));
-    }
-    if (options_.cache_consistency_graph) {
-      num_bytes += GetFileSize(GetConsistencyGraphPath(image_id));
-    }
-    num_bytes_.emplace(image_id, num_bytes);
-    return num_bytes;
-  } else {
-    return it->second;
-  }
 }
 
 std::string Workspace::GetFileName(const int image_id) const {

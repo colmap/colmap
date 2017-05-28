@@ -33,12 +33,6 @@ class Workspace {
     // The maximum cache size in gigabytes.
     double cache_size = 32.0;
 
-    // Which data to store in the cache.
-    bool cache_bitmap = false;
-    bool cache_depth_map = false;
-    bool cache_normal_map = false;
-    bool cache_consistency_graph = false;
-
     // Location and type of workspace.
     std::string workspace_path;
     std::string workspace_format;
@@ -47,10 +41,7 @@ class Workspace {
 
   Workspace(const Options& options);
 
-  void ResetCache(const bool cache_bitmap = false,
-                  const bool cache_depth_map = false,
-                  const bool cache_normal_map = false,
-                  const bool cache_consistency_graph = false);
+  void ClearCache();
 
   const Model& GetModel() const;
   const Bitmap& GetBitmap(const int image_id);
@@ -71,7 +62,6 @@ class Workspace {
   bool HasConsistencyGraph(const int image_id) const;
 
  private:
-  size_t GetNumBytes(const int image_id);
   std::string GetFileName(const int image_id) const;
 
   class CachedImage {
@@ -93,7 +83,6 @@ class Workspace {
   Options options_;
   Model model_;
   MemoryConstrainedLRUCache<int, CachedImage> cache_;
-  std::unordered_map<int, size_t> num_bytes_;
 };
 
 }  // namespace mvs

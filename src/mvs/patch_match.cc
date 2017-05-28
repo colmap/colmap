@@ -234,9 +234,6 @@ void PatchMatchController::Run() {
     photometric_options.geom_consistency = false;
     photometric_options.filter = false;
 
-    // Only cache the bitmap for photometric stereo.
-    workspace_->ResetCache(true, false, false, false);
-
     for (size_t problem_idx = 0; problem_idx < problems_.size();
          ++problem_idx) {
       thread_pool_->AddTask(&PatchMatchController::ProcessProblem, this,
@@ -244,9 +241,6 @@ void PatchMatchController::Run() {
     }
 
     thread_pool_->Wait();
-
-    // Cache the bitmap, depth map, normal map for geometric stereo.
-    workspace_->ResetCache(true, true, true, false);
   }
 
   for (size_t problem_idx = 0; problem_idx < problems_.size(); ++problem_idx) {
@@ -266,10 +260,6 @@ void PatchMatchController::ReadWorkspace() {
   workspace_options.workspace_path = workspace_path_;
   workspace_options.workspace_format = workspace_format_;
   workspace_options.input_type = options_.geom_consistency ? "photometric" : "";
-  workspace_options.cache_bitmap = true;
-  workspace_options.cache_depth_map = options_.geom_consistency;
-  workspace_options.cache_normal_map = options_.geom_consistency;
-  workspace_options.cache_consistency_graph = false;
   workspace_.reset(new Workspace(workspace_options));
   depth_ranges_ = workspace_->GetModel().ComputeDepthRanges();
 }
