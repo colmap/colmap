@@ -23,14 +23,14 @@ int main(int argc, char* argv[]) {
   InitializeGlog(argv);
 
   std::string workspace_path;
-  std::string input_type;
-  std::string workspace_format;
+  std::string input_type = "geometric";
+  std::string workspace_format = "COLMAP";
   std::string output_path;
 
   OptionManager options;
   options.AddRequiredOption("workspace_path", &workspace_path);
-  options.AddRequiredOption("workspace_format", &workspace_format);
-  options.AddRequiredOption("input_type", &input_type);
+  options.AddDefaultOption("workspace_format", &workspace_format);
+  options.AddDefaultOption("input_type", &input_type);
   options.AddRequiredOption("output_path", &output_path);
   options.AddDenseFusionOptions();
   options.Parse(argc, argv);
