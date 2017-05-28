@@ -398,6 +398,10 @@ bool Bitmap::Read(const std::string& path, const bool as_rgb) {
   }
 
   FIBITMAP* fi_bitmap = FreeImage_Load(format, path.c_str());
+  if (fi_bitmap == nullptr) {
+    return false;
+  }
+
   data_ = FIBitmapPtr(fi_bitmap, &FreeImage_Unload);
 
   if (!IsPtrRGB(data_.get()) && as_rgb) {
