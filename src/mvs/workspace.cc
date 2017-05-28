@@ -54,10 +54,10 @@ Workspace::Workspace(const Options& options)
   model_.Read(options_.workspace_path, options_.workspace_format);
 }
 
-void Workspace::ResetCache(bool cache_bitmap,
-                           bool cache_depth_map,
-                           bool cache_normal_map,
-                           bool cache_consistency_graph) {
+void Workspace::ResetCache(const bool cache_bitmap,
+                           const bool cache_depth_map,
+                           const bool cache_normal_map,
+                           const bool cache_consistency_graph) {
   options_.cache_bitmap = cache_bitmap;
   options_.cache_depth_map = cache_depth_map;
   options_.cache_normal_map = cache_normal_map;

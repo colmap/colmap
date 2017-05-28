@@ -47,9 +47,10 @@ class Workspace {
 
   Workspace(const Options& options);
 
-  void ResetCache(bool cache_bitmap = false, bool cache_depth_map = false,
-                  bool cache_normal_map = false,
-                  bool cache_consistency_graph = false);
+  void ResetCache(const bool cache_bitmap = false,
+                  const bool cache_depth_map = false,
+                  const bool cache_normal_map = false,
+                  const bool cache_consistency_graph = false);
 
   const Model& GetModel() const;
   const Bitmap& GetBitmap(const int image_id);
