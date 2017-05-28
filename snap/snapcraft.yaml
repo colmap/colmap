@@ -18,7 +18,7 @@ apps:
   colmap:
     command: desktop-launch colmap
     plugs: [home, x11, mir, opengl, unity7]
-    desktop: snap/setup/gui/colmap.desktop
+    desktop: snap/gui/colmap.desktop
   bundle-adjuster:
     command: bundle_adjuster
     plugs: [home]
