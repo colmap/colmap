@@ -249,6 +249,7 @@ template <typename key_t, typename value_t>
 void MemoryConstrainedLRUCache<key_t, value_t>::Clear() {
   LRUCache<key_t, value_t>::Clear();
   num_bytes_ = 0;
+  elems_num_bytes_.clear();
 }
 
 }  // namespace colmap

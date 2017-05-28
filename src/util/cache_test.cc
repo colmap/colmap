@@ -250,4 +250,9 @@ BOOST_AUTO_TEST_CASE(TestMemoryConstrainedLRUCacheUpdateNumBytes) {
   BOOST_CHECK_EQUAL(cache.NumBytes(), 10);
   cache.UpdateNumBytes(0);
   BOOST_CHECK_EQUAL(cache.NumBytes(), 50);
+
+  cache.Clear();
+  BOOST_CHECK_EQUAL(cache.NumBytes(), 0);
+  BOOST_CHECK_EQUAL(cache.Get(2).NumBytes(), 2);
+  BOOST_CHECK_EQUAL(cache.NumBytes(), 2);
 }
