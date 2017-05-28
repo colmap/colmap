@@ -110,6 +110,8 @@ parts:
       cd build
       cmake -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=$SNAPCRAFT_PART_INSTALL \
+        -DBUILD_TESTING=OFF \
+        -DBUILD_EXAMPLES=OFF \
         -DEIGEN_INCLUDE_DIR=$SNAPCRAFT_STAGE/include/eigen3 \
         ..
       export NPROCS=$(grep -c ^processor /proc/cpuinfo)
