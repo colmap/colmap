@@ -53,6 +53,8 @@ void DepthMap::Rescale(const float factor) {
   data_ = new_data;
   width_ = new_width;
   height_ = new_height;
+
+  data_.shrink_to_fit();
 }
 
 void DepthMap::Downsize(const size_t max_width, const size_t max_height) {

@@ -53,6 +53,8 @@ void NormalMap::Rescale(const float factor) {
   width_ = new_width;
   height_ = new_height;
 
+  data_.shrink_to_fit();
+
   // Re-normalize the normal vectors.
   for (size_t r = 0; r < height_; ++r) {
     for (size_t c = 0; c < width_; ++c) {

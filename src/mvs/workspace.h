@@ -36,6 +36,9 @@ class Workspace {
     // Maximum image size in either dimension.
     int max_image_size = -1;
 
+    // Whether to read image as RGB or gray scale.
+    bool image_as_rgb = true;
+
     // Location and type of workspace.
     std::string workspace_path;
     std::string workspace_format;

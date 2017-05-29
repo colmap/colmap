@@ -259,6 +259,7 @@ void PatchMatchController::ReadWorkspace() {
   std::cout << "Reading workspace..." << std::endl;
   Workspace::Options workspace_options;
   workspace_options.max_image_size = options_.max_image_size;
+  workspace_options.image_as_rgb = false;
   workspace_options.cache_size = options_.cache_size;
   workspace_options.workspace_path = workspace_path_;
   workspace_options.workspace_format = workspace_format_;
@@ -465,13 +466,7 @@ void PatchMatchController::ProcessProblem(const PatchMatch::Options& options,
 
     std::cout << "Reading inputs..." << std::endl;
     for (const auto image_id : used_image_ids) {
-      const auto bitmap = workspace_->GetBitmap(image_id);
-      if (bitmap.IsGrey()) {
-        images.at(image_id).SetBitmap(bitmap);
-      } else {
-        images.at(image_id).SetBitmap(bitmap.CloneAsGrey());
-      }
-
+      images.at(image_id).SetBitmap(workspace_->GetBitmap(image_id));
       if (options.geom_consistency) {
         depth_maps.at(image_id) = workspace_->GetDepthMap(image_id);
         normal_maps.at(image_id) = workspace_->GetNormalMap(image_id);

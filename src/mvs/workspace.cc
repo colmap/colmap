@@ -62,7 +62,7 @@ const Bitmap& Workspace::GetBitmap(const int image_id) {
   auto& cached_image = cache_.GetMutable(image_id);
   if (!cached_image.bitmap) {
     cached_image.bitmap.reset(new Bitmap());
-    cached_image.bitmap->Read(GetBitmapPath(image_id), true);
+    cached_image.bitmap->Read(GetBitmapPath(image_id), options_.image_as_rgb);
     if (options_.max_image_size > 0) {
       cached_image.bitmap->Rescale(model_.images.at(image_id).GetWidth(),
                                    model_.images.at(image_id).GetHeight());
@@ -81,7 +81,6 @@ const DepthMap& Workspace::GetDepthMap(const int image_id) {
     if (options_.max_image_size > 0) {
       cached_image.depth_map->Downsize(model_.images.at(image_id).GetWidth(),
                                        model_.images.at(image_id).GetHeight());
-
     }
     cached_image.num_bytes += cached_image.depth_map->GetNumBytes();
     cache_.UpdateNumBytes(image_id);
