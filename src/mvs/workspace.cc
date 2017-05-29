@@ -28,7 +28,6 @@ Workspace::CachedImage::CachedImage(CachedImage&& other) {
   bitmap = std::move(other.bitmap);
   depth_map = std::move(other.depth_map);
   normal_map = std::move(other.normal_map);
-  consistency_graph = std::move(other.consistency_graph);
 }
 
 Workspace::CachedImage& Workspace::CachedImage::operator=(CachedImage&& other) {
@@ -37,7 +36,6 @@ Workspace::CachedImage& Workspace::CachedImage::operator=(CachedImage&& other) {
     bitmap = std::move(other.bitmap);
     depth_map = std::move(other.depth_map);
     normal_map = std::move(other.normal_map);
-    consistency_graph = std::move(other.consistency_graph);
   }
   return *this;
 }
@@ -49,11 +47,14 @@ Workspace::Workspace(const Options& options)
       cache_(1024 * 1024 * 1024 * options_.cache_size,
              [](const int image_id) { return CachedImage(); }) {
   model_.Read(options_.workspace_path, options_.workspace_format);
+  if (options_.max_image_size > 0) {
+    for (auto& image : model_.images) {
+      image.Downsize(options_.max_image_size, options_.max_image_size);
+    }
+  }
 }
 
-void Workspace::ClearCache() {
-  cache_.Clear();
-}
+void Workspace::ClearCache() { cache_.Clear(); }
 
 const Model& Workspace::GetModel() const { return model_; }
 
@@ -62,6 +63,10 @@ const Bitmap& Workspace::GetBitmap(const int image_id) {
   if (!cached_image.bitmap) {
     cached_image.bitmap.reset(new Bitmap());
     cached_image.bitmap->Read(GetBitmapPath(image_id), true);
+    if (options_.max_image_size > 0) {
+      cached_image.bitmap->Rescale(model_.images.at(image_id).GetWidth(),
+                                   model_.images.at(image_id).GetHeight());
+    }
     cached_image.num_bytes += cached_image.bitmap->NumBytes();
     cache_.UpdateNumBytes(image_id);
   }
@@ -73,6 +78,11 @@ const DepthMap& Workspace::GetDepthMap(const int image_id) {
   if (!cached_image.depth_map) {
     cached_image.depth_map.reset(new DepthMap());
     cached_image.depth_map->Read(GetDepthMapPath(image_id));
+    if (options_.max_image_size > 0) {
+      cached_image.depth_map->Downsize(model_.images.at(image_id).GetWidth(),
+                                       model_.images.at(image_id).GetHeight());
+
+    }
     cached_image.num_bytes += cached_image.depth_map->GetNumBytes();
     cache_.UpdateNumBytes(image_id);
   }
@@ -84,21 +94,14 @@ const NormalMap& Workspace::GetNormalMap(const int image_id) {
   if (!cached_image.normal_map) {
     cached_image.normal_map.reset(new NormalMap());
     cached_image.normal_map->Read(GetNormalMapPath(image_id));
+    if (options_.max_image_size > 0) {
+      cached_image.normal_map->Downsize(model_.images.at(image_id).GetWidth(),
+                                        model_.images.at(image_id).GetHeight());
+    }
     cached_image.num_bytes += cached_image.normal_map->GetNumBytes();
     cache_.UpdateNumBytes(image_id);
   }
   return *cached_image.normal_map;
-}
-
-const ConsistencyGraph& Workspace::GetConsistencyGraph(const int image_id) {
-  auto& cached_image = cache_.GetMutable(image_id);
-  if (!cached_image.consistency_graph) {
-    cached_image.consistency_graph.reset(new ConsistencyGraph());
-    cached_image.consistency_graph->Read(GetConsistencyGraphPath(image_id));
-    cached_image.num_bytes += cached_image.consistency_graph->GetNumBytes();
-    cache_.UpdateNumBytes(image_id);
-  }
-  return *cached_image.consistency_graph;
 }
 
 std::string Workspace::GetBitmapPath(const int image_id) const {
@@ -115,11 +118,6 @@ std::string Workspace::GetNormalMapPath(const int image_id) const {
                    GetFileName(image_id));
 }
 
-std::string Workspace::GetConsistencyGraphPath(const int image_id) const {
-  return JoinPaths(options_.workspace_path, "stereo/consistency_graphs",
-                   GetFileName(image_id));
-}
-
 bool Workspace::HasBitmap(const int image_id) const {
   return ExistsFile(GetBitmapPath(image_id));
 }
@@ -130,10 +128,6 @@ bool Workspace::HasDepthMap(const int image_id) const {
 
 bool Workspace::HasNormalMap(const int image_id) const {
   return ExistsFile(GetNormalMapPath(image_id));
-}
-
-bool Workspace::HasConsistencyGraph(const int image_id) const {
-  return ExistsFile(GetConsistencyGraphPath(image_id));
 }
 
 std::string Workspace::GetFileName(const int image_id) const {

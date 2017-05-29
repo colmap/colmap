@@ -473,6 +473,8 @@ void OptionManager::AddDenseFusionOptions() {
   }
   added_dense_fusion_options_ = true;
 
+  AddAndRegisterDefaultOption("DenseFusion.max_image_size",
+                              &dense_fusion->max_image_size);
   AddAndRegisterDefaultOption("DenseFusion.min_num_pixels",
                               &dense_fusion->min_num_pixels);
   AddAndRegisterDefaultOption("DenseFusion.max_num_pixels",

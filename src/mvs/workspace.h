@@ -17,12 +17,12 @@
 #ifndef COLMAP_SRC_MVS_WORKSPACE_H_
 #define COLMAP_SRC_MVS_WORKSPACE_H_
 
-#include "mvs/consistency_graph.h"
 #include "mvs/depth_map.h"
 #include "mvs/model.h"
 #include "mvs/normal_map.h"
 #include "util/bitmap.h"
 #include "util/cache.h"
+#include "util/types.h"
 
 namespace colmap {
 namespace mvs {
@@ -32,6 +32,9 @@ class Workspace {
   struct Options {
     // The maximum cache size in gigabytes.
     double cache_size = 32.0;
+
+    // Maximum image size in either dimension.
+    int max_image_size = -1;
 
     // Location and type of workspace.
     std::string workspace_path;
@@ -47,19 +50,16 @@ class Workspace {
   const Bitmap& GetBitmap(const int image_id);
   const DepthMap& GetDepthMap(const int image_id);
   const NormalMap& GetNormalMap(const int image_id);
-  const ConsistencyGraph& GetConsistencyGraph(const int image_id);
 
   // Get paths to bitmap, depth map, normal map and consistency graph.
   std::string GetBitmapPath(const int image_id) const;
   std::string GetDepthMapPath(const int image_id) const;
   std::string GetNormalMapPath(const int image_id) const;
-  std::string GetConsistencyGraphPath(const int image_id) const;
 
   // Return whether bitmap, depth map, normal map, and consistency graph exist.
   bool HasBitmap(const int image_id) const;
   bool HasDepthMap(const int image_id) const;
   bool HasNormalMap(const int image_id) const;
-  bool HasConsistencyGraph(const int image_id) const;
 
  private:
   std::string GetFileName(const int image_id) const;
@@ -74,7 +74,6 @@ class Workspace {
     std::unique_ptr<Bitmap> bitmap;
     std::unique_ptr<DepthMap> depth_map;
     std::unique_ptr<NormalMap> normal_map;
-    std::unique_ptr<ConsistencyGraph> consistency_graph;
 
    private:
     NON_COPYABLE(CachedImage)

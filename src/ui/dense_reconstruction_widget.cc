@@ -30,11 +30,11 @@ class StereoOptionsTab : public OptionsWidget {
   StereoOptionsTab(QWidget* parent, OptionManager* options)
       : OptionsWidget(parent) {
     // Set a relatively small default image size to avoid too long computation.
-    if (options->dense_stereo->max_image_size == 0) {
+    if (options->dense_stereo->max_image_size == -1) {
       options->dense_stereo->max_image_size = 2000;
     }
 
-    AddOptionInt(&options->dense_stereo->max_image_size, "max_image_size", 0);
+    AddOptionInt(&options->dense_stereo->max_image_size, "max_image_size", -1);
     AddOptionText(&options->dense_stereo->gpu_index, "gpu_index");
     AddOptionInt(&options->dense_stereo->window_radius, "window_radius");
     AddOptionDouble(&options->dense_stereo->sigma_spatial, "sigma_spatial");
@@ -71,6 +71,7 @@ class FusionOptionsTab : public OptionsWidget {
  public:
   FusionOptionsTab(QWidget* parent, OptionManager* options)
       : OptionsWidget(parent) {
+    AddOptionInt(&options->dense_fusion->max_image_size, "max_image_size", -1);
     AddOptionInt(&options->dense_fusion->min_num_pixels, "min_num_pixels", 0);
     AddOptionInt(&options->dense_fusion->max_num_pixels, "max_num_pixels", 0);
     AddOptionInt(&options->dense_fusion->max_traversal_depth,

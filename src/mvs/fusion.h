@@ -52,6 +52,9 @@ class StereoFusion : public Thread {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   struct Options {
+    // Maximum image size in either dimension.
+    int max_image_size = -1;
+
     // Minimum number of fused pixels to produce a point.
     int min_num_pixels = 5;
 

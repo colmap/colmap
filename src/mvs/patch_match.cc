@@ -256,6 +256,7 @@ void PatchMatchController::Run() {
 void PatchMatchController::ReadWorkspace() {
   std::cout << "Reading workspace..." << std::endl;
   Workspace::Options workspace_options;
+  workspace_options.max_image_size = options_.max_image_size;
   workspace_options.cache_size = options_.cache_size;
   workspace_options.workspace_path = workspace_path_;
   workspace_options.workspace_format = workspace_format_;
@@ -473,25 +474,6 @@ void PatchMatchController::ProcessProblem(const PatchMatch::Options& options,
         depth_maps.at(image_id) = workspace_->GetDepthMap(image_id);
         normal_maps.at(image_id) = workspace_->GetNormalMap(image_id);
       }
-    }
-
-    if (options.max_image_size > 0) {
-      std::cout << "Resampling inputs..." << std::endl;
-      ThreadPool resample_thread_pool(std::min(
-          GetEffectiveNumThreads(-1), static_cast<int>(used_image_ids.size())));
-      for (const auto image_id : used_image_ids) {
-        resample_thread_pool.AddTask([&, image_id]() {
-          images.at(image_id).Downsize(options.max_image_size,
-                                       options.max_image_size);
-          if (options.geom_consistency) {
-            depth_maps.at(image_id).Downsize(options.max_image_size,
-                                             options.max_image_size);
-            normal_maps.at(image_id).Downsize(options.max_image_size,
-                                              options.max_image_size);
-          }
-        });
-      }
-      resample_thread_pool.Wait();
     }
   }
 
