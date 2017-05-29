@@ -186,14 +186,16 @@ Reduce memory usage during dense reconstruction
 -----------------------------------------------
 
 If you run out of GPU memory during patch match stereo, you can either reduce
-the maximum image resolution by setting the option ``max_image_size`` or reduce
-the number of source images in the ``stereo/patch-match.cfg`` file from e.g.
-``__auto__, 30`` to ``__auto__, 10``. Note that enabling the
+the maximum image size by setting the option ``--DenseStereo.max_image_size`` or
+reduce the number of source images in the ``stereo/patch-match.cfg`` file from
+e.g. ``__auto__, 30`` to ``__auto__, 10``. Note that enabling the
 ``geom_consistency`` option increases the required GPU memory.
 
 If you run out of CPU memory during stereo or fusion, you can reduce the
-``--DenseStereo.cache_size`` or ``--DenseFusion.cache_size``. Note that a too
-low value might lead to very slow processing and heavy load on the hard disk.
+``--DenseStereo.cache_size`` or ``--DenseFusion.cache_size`` specified in
+gigabytes or you can reduce ``--DenseStereo.max_image_size`` or
+``--DenseFusion.max_image_size``. Note that a too low value might lead to very
+slow processing and heavy load on the hard disk.
 
 For large-scale reconstructions of several thousands of images, you should
 consider splitting your sparse reconstruction into more manageable clusters of
