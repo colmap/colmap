@@ -84,6 +84,7 @@ PatchMatch::~PatchMatch() {}
 
 void PatchMatch::Options::Print() const {
   PrintHeading2("PatchMatch::Options");
+  PrintOption(max_image_size);
   PrintOption(gpu_index);
   PrintOption(depth_min);
   PrintOption(depth_max);
@@ -103,6 +104,7 @@ void PatchMatch::Options::Print() const {
   PrintOption(filter_min_triangulation_angle);
   PrintOption(filter_min_num_consistent);
   PrintOption(filter_geom_consistency_max_cost);
+  PrintOption(write_consistency_graph);
 }
 
 void PatchMatch::Problem::Print() const {

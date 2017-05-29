@@ -65,12 +65,14 @@ int FindNextImage(const std::vector<std::vector<int>>& overlapping_images,
 void StereoFusion::Options::Print() const {
 #define PrintOption(option) std::cout << #option ": " << option << std::endl
   PrintHeading2("StereoFusion::Options");
+  PrintOption(max_image_size);
   PrintOption(min_num_pixels);
   PrintOption(max_num_pixels);
   PrintOption(max_traversal_depth);
   PrintOption(max_reproj_error);
   PrintOption(max_depth_error);
   PrintOption(max_normal_error);
+  PrintOption(check_num_images);
   PrintOption(cache_size);
 #undef PrintOption
 }

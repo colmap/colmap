@@ -66,6 +66,8 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.dense_stereo->num_samples /= 2;
     option_manager_.dense_stereo->num_iterations = 3;
     option_manager_.dense_stereo->geom_consistency = false;
+    option_manager_.dense_fusion->check_num_images /= 2;
+    option_manager_.dense_fusion->max_image_size = 1000;
   }
 
   ImageReader::Options reader_options = *option_manager_.image_reader;

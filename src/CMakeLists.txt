@@ -59,6 +59,7 @@ if(CUDA_ENABLED)
         ${COLMAP_LIBRARIES}
         mvs
         mvs_cuda
+        mvs
         util_cuda)
 endif()
 
