@@ -28,6 +28,7 @@ int main(int argc, char** argv) {
 
   AutomaticReconstructionController::Options reconstruction_options;
   std::string data_type = "INDIVIDUAL";
+  std::string quality = "HIGH";
 
   OptionManager options;
   options.AddRequiredOption("workspace_path",
@@ -37,8 +38,7 @@ int main(int argc, char** argv) {
                            &reconstruction_options.vocab_tree_path);
   options.AddDefaultOption("data_type", &data_type,
                            "{INDIVIDUAL, VIDEO, INTERNET}");
-  options.AddDefaultOption("high_quality",
-                           &reconstruction_options.high_quality);
+  options.AddDefaultOption("quality", &quality, "{LOW, MEDIUM, HIGH}");
   options.AddDefaultOption("single_camera",
                            &reconstruction_options.single_camera);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
@@ -56,6 +56,19 @@ int main(int argc, char** argv) {
   } else if (data_type == "INTERNET") {
     reconstruction_options.data_type =
         AutomaticReconstructionController::DataType::INTERNET;
+  } else {
+    LOG(FATAL) << "Invalid data type";
+  }
+
+  if (quality == "LOW") {
+    reconstruction_options.quality =
+        AutomaticReconstructionController::Quality::LOW;
+  } else if (quality == "MEDIUM") {
+    reconstruction_options.quality =
+        AutomaticReconstructionController::Quality::MEDIUM;
+  } else if (quality == "HIGH") {
+    reconstruction_options.quality =
+        AutomaticReconstructionController::Quality::HIGH;
   } else {
     LOG(FATAL) << "Invalid data type";
   }

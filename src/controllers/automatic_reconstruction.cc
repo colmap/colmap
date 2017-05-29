@@ -52,7 +52,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     LOG(FATAL) << "Data type not supported";
   }
 
-  if (!options_.high_quality) {
+  if (options_.quality == Quality::LOW) {
     option_manager_.sift_extraction->max_image_size = 1000;
     option_manager_.sequential_matching->loop_detection_num_images /= 2;
     option_manager_.vocab_tree_matching->num_images /= 2;
@@ -68,7 +68,23 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.dense_stereo->geom_consistency = false;
     option_manager_.dense_fusion->check_num_images /= 2;
     option_manager_.dense_fusion->max_image_size = 1000;
-  }
+  } else if (options_.quality == Quality::MEDIUM) {
+    option_manager_.sift_extraction->max_image_size = 1600;
+    option_manager_.sequential_matching->loop_detection_num_images /= 1.5;
+    option_manager_.vocab_tree_matching->num_images /= 1.5;
+    option_manager_.mapper->ba_local_max_num_iterations /= 1.5;
+    option_manager_.mapper->ba_global_max_num_iterations /= 1.5;
+    option_manager_.mapper->ba_global_images_ratio *= 1.1;
+    option_manager_.mapper->ba_global_points_ratio *= 1.1;
+    option_manager_.mapper->ba_global_max_refinements = 2;
+    option_manager_.dense_stereo->max_image_size = 1600;
+    option_manager_.dense_stereo->window_radius = 5;
+    option_manager_.dense_stereo->num_samples /= 1.5;
+    option_manager_.dense_stereo->num_iterations = 5;
+    option_manager_.dense_stereo->geom_consistency = false;
+    option_manager_.dense_fusion->check_num_images /= 1.5;
+    option_manager_.dense_fusion->max_image_size = 1600;
+  }  // else: high quality is the default.
 
   ImageReader::Options reader_options = *option_manager_.image_reader;
   reader_options.database_path = *option_manager_.database_path;
@@ -278,7 +294,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
     if (!ExistsFile(fused_path)) {
       mvs::StereoFusion fuser(
           *option_manager_.dense_fusion, dense_path, "COLMAP",
-          options_.high_quality ? "geometric" : "photometric");
+          options_.quality == Quality::HIGH ? "geometric" : "photometric");
       active_thread_ = &fuser;
       fuser.Start();
       fuser.Wait();

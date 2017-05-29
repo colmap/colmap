@@ -46,9 +46,20 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
   data_type_cb_->addItem("Internet images");
   grid_layout_->addWidget(data_type_cb_, grid_layout_->rowCount() - 1, 1);
 
+  QLabel* quality_label = new QLabel(tr("Quality"), this);
+  quality_label->setFont(font());
+  quality_label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+  grid_layout_->addWidget(quality_label, grid_layout_->rowCount(), 0);
+
+  quality_cb_ = new QComboBox(this);
+  quality_cb_->addItem("Low");
+  quality_cb_->addItem("Medium");
+  quality_cb_->addItem("High");
+  quality_cb_->setCurrentIndex(2);
+  grid_layout_->addWidget(quality_cb_, grid_layout_->rowCount() - 1, 1);
+
   AddSpacer();
 
-  AddOptionBool(&options_.high_quality, "High quality");
   AddOptionBool(&options_.single_camera, "Shared intrinsics");
   AddOptionBool(&options_.sparse, "Sparse model");
   AddOptionBool(&options_.dense, "Dense model");
@@ -94,6 +105,24 @@ void AutomaticReconstructionWidget::Run() {
     default:
       options_.data_type =
           AutomaticReconstructionController::DataType::INDIVIDUAL;
+      break;
+  }
+
+  switch (quality_cb_->currentIndex()) {
+    case 0:
+      options_.quality =
+          AutomaticReconstructionController::Quality::LOW;
+      break;
+    case 1:
+      options_.quality = AutomaticReconstructionController::Quality::MEDIUM;
+      break;
+    case 2:
+      options_.quality =
+          AutomaticReconstructionController::Quality::HIGH;
+      break;
+    default:
+      options_.quality =
+          AutomaticReconstructionController::Quality::HIGH;
       break;
   }
 

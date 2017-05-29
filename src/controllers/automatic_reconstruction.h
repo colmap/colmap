@@ -28,6 +28,7 @@ namespace colmap {
 class AutomaticReconstructionController : public Thread {
  public:
   enum class DataType { INDIVIDUAL, VIDEO, INTERNET };
+  enum class Quality { LOW, MEDIUM, HIGH };
 
   struct Options {
     // The path to the workspace folder in which all results are stored.
@@ -40,10 +41,10 @@ class AutomaticReconstructionController : public Thread {
     std::string vocab_tree_path;
 
     // The type of input data used to choose optimal mapper settings.
-    DataType data_type;
+    DataType data_type = DataType::INDIVIDUAL;
 
     // Whether to perform low- or high-quality reconstruction.
-    bool high_quality = true;
+    Quality quality = Quality::HIGH;
 
     // Whether to use shared intrinsics or not.
     bool single_camera = false;
