@@ -535,7 +535,7 @@ bool ParallelBundleAdjuster::Solve(Reconstruction* reconstruction) {
   SetUp(reconstruction);
 
   pba::ParallelBA::DeviceT device;
-  const size_t kMaxNumResidualsFloat = 10 * 1000 * 1000;
+  const size_t kMaxNumResidualsFloat = 100 * 1000;
   if (config_.NumResiduals(*reconstruction) > kMaxNumResidualsFloat) {
     // The threshold for using double precision is empirically chosen and
     // ensures that the system can be reliable solved.
