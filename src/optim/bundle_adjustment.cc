@@ -99,7 +99,7 @@ void BundleAdjustmentConfig::AddImage(const image_t image_id) {
 }
 
 bool BundleAdjustmentConfig::HasImage(const image_t image_id) const {
-  return image_ids_.count(image_id) > 0;
+  return image_ids_.find(image_id) != image_ids_.end();
 }
 
 void BundleAdjustmentConfig::RemoveImage(const image_t image_id) {
@@ -115,7 +115,7 @@ void BundleAdjustmentConfig::SetVariableCamera(const camera_t camera_id) {
 }
 
 bool BundleAdjustmentConfig::IsConstantCamera(const camera_t camera_id) const {
-  return constant_camera_ids_.count(camera_id) > 0;
+  return constant_camera_ids_.find(camera_id) != constant_camera_ids_.end();
 }
 
 void BundleAdjustmentConfig::SetConstantPose(const image_t image_id) {
@@ -129,7 +129,7 @@ void BundleAdjustmentConfig::SetVariablePose(const image_t image_id) {
 }
 
 bool BundleAdjustmentConfig::HasConstantPose(const image_t image_id) const {
-  return constant_poses_.count(image_id) > 0;
+  return constant_poses_.find(image_id) != constant_poses_.end();
 }
 
 void BundleAdjustmentConfig::SetConstantTvec(const image_t image_id,
@@ -148,7 +148,7 @@ void BundleAdjustmentConfig::RemoveConstantTvec(const image_t image_id) {
 }
 
 bool BundleAdjustmentConfig::HasConstantTvec(const image_t image_id) const {
-  return constant_tvecs_.count(image_id) > 0;
+  return constant_tvecs_.find(image_id) != constant_tvecs_.end();
 }
 
 const std::unordered_set<image_t>& BundleAdjustmentConfig::Images() const {
@@ -186,12 +186,12 @@ bool BundleAdjustmentConfig::HasPoint(const point3D_t point3D_id) const {
 
 bool BundleAdjustmentConfig::HasVariablePoint(
     const point3D_t point3D_id) const {
-  return variable_point3D_ids_.count(point3D_id) > 0;
+  return variable_point3D_ids_.find(point3D_id) != variable_point3D_ids_.end();
 }
 
 bool BundleAdjustmentConfig::HasConstantPoint(
     const point3D_t point3D_id) const {
-  return constant_point3D_ids_.count(point3D_id) > 0;
+  return constant_point3D_ids_.find(point3D_id) != constant_point3D_ids_.end();
 }
 
 void BundleAdjustmentConfig::RemoveVariablePoint(const point3D_t point3D_id) {

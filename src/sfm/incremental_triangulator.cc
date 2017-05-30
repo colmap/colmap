@@ -741,14 +741,15 @@ size_t IncrementalTriangulator::Complete(const Options& options,
 
 bool IncrementalTriangulator::HasCameraBogusParams(const Options& options,
                                                    const Camera& camera) {
-  if (camera_has_bogus_params_.count(camera.CameraId()) == 0) {
+  const auto it = camera_has_bogus_params_.find(camera.CameraId());
+  if (it == camera_has_bogus_params_.end()) {
     const bool has_bogus_params = camera.HasBogusParams(
         options.min_focal_length_ratio, options.max_focal_length_ratio,
         options.max_extra_param);
     camera_has_bogus_params_.emplace(camera.CameraId(), has_bogus_params);
     return has_bogus_params;
   } else {
-    return camera_has_bogus_params_.at(camera.CameraId());
+    return it->second;
   }
 }
 

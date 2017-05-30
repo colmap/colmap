@@ -164,8 +164,9 @@ SceneGraph::FindTransitiveCorrespondences(const image_t image_id,
 
       for (const Correspondence corr : ref_corrs) {
         // Check if correspondence already collected, otherwise collect.
-        if (image_corrs[corr.image_id].count(corr.point2D_idx) == 0) {
-          image_corrs[corr.image_id].insert(corr.point2D_idx);
+        auto& corr_image_corrs = image_corrs[corr.image_id];
+        if (corr_image_corrs.count(corr.point2D_idx) == 0) {
+          corr_image_corrs.insert(corr.point2D_idx);
           found_corrs.emplace_back(corr.image_id, corr.point2D_idx);
         }
       }

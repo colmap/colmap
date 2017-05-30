@@ -373,19 +373,19 @@ Reconstruction::ImagePairs() const {
 }
 
 bool Reconstruction::ExistsCamera(const camera_t camera_id) const {
-  return cameras_.count(camera_id) > 0;
+  return cameras_.find(camera_id) != cameras_.end();
 }
 
 bool Reconstruction::ExistsImage(const image_t image_id) const {
-  return images_.count(image_id) > 0;
+  return images_.find(image_id) != images_.end();
 }
 
 bool Reconstruction::ExistsPoint3D(const point3D_t point3D_id) const {
-  return points3D_.count(point3D_id) > 0;
+  return points3D_.find(point3D_id) != points3D_.end();
 }
 
 bool Reconstruction::ExistsImagePair(const image_pair_t pair_id) const {
-  return image_pairs_.count(pair_id) > 0;
+  return image_pairs_.find(pair_id) != image_pairs_.end();
 }
 
 bool Reconstruction::IsImageRegistered(const image_t image_id) const {

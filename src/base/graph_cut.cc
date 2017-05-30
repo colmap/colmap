@@ -110,13 +110,14 @@ class GraclusGraph {
   }
 
   int GetVertexIdx(const int id) {
-    if (vertex_id_to_idx_.count(id)) {
-      return vertex_id_to_idx_.at(id);
-    } else {
+    const auto it = vertex_id_to_idx_.find(id);
+    if (it == vertex_id_to_idx_.end()) {
       const int idx = vertex_id_to_idx_.size();
       vertex_id_to_idx_.emplace(id, idx);
       vertex_idx_to_id_.emplace(idx, id);
       return idx;
+    } else {
+      return it->second;
     }
   }
 

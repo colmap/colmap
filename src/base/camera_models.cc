@@ -60,10 +60,11 @@ static const std::unordered_map<std::string, int> CAMERA_MODEL_NAME_TO_ID =
     InitialzeCameraModelNameToId();
 
 int CameraModelNameToId(const std::string& model_name) {
-  if (CAMERA_MODEL_NAME_TO_ID.count(model_name)) {
-    return CAMERA_MODEL_NAME_TO_ID.at(model_name);
-  } else {
+  const auto it = CAMERA_MODEL_NAME_TO_ID.find(model_name);
+  if (it == CAMERA_MODEL_NAME_TO_ID.end()) {
     return kInvalidCameraModelId;
+  } else {
+    return it->second;
   }
 }
 
@@ -85,10 +86,11 @@ static const std::unordered_map<int, std::string> CAMERA_MODEL_ID_TO_NAME =
     InitialzeCameraModelIdToName();
 
 std::string CameraModelIdToName(const int model_id) {
-  if (CAMERA_MODEL_ID_TO_NAME.count(model_id)) {
-    return CAMERA_MODEL_ID_TO_NAME.at(model_id);
-  } else {
+  const auto it = CAMERA_MODEL_ID_TO_NAME.find(model_id);
+  if (it == CAMERA_MODEL_ID_TO_NAME.end()) {
     return "INVALID_CAMERA_MODEL";
+  } else {
+    return it->second;
   }
 }
 
