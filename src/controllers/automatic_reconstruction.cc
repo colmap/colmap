@@ -278,12 +278,14 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     // Dense stereo
 
-    mvs::PatchMatchController patch_match_controller(
-        *option_manager_.dense_stereo, dense_path, "COLMAP", "");
-    active_thread_ = &patch_match_controller;
-    patch_match_controller.Start();
-    patch_match_controller.Wait();
-    active_thread_ = nullptr;
+    {
+      mvs::PatchMatchController patch_match_controller(
+          *option_manager_.dense_stereo, dense_path, "COLMAP", "");
+      active_thread_ = &patch_match_controller;
+      patch_match_controller.Start();
+      patch_match_controller.Wait();
+      active_thread_ = nullptr;
+    }
 
     if (IsStopped()) {
       return;
