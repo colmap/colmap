@@ -669,7 +669,7 @@ void LoadSiftFeaturesFromTextFile(const std::string& path,
   CHECK_NOTNULL(descriptors);
 
   std::ifstream file(path.c_str());
-  CHECK(file.is_open());
+  CHECK(file.is_open()) << path;
 
   std::string line;
   std::string item;

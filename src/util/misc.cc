@@ -149,7 +149,7 @@ std::vector<std::string> GetRecursiveDirList(const std::string& path) {
 
 size_t GetFileSize(const std::string& path) {
   std::ifstream file(path, std::ifstream::ate | std::ifstream::binary);
-  CHECK(file.is_open());
+  CHECK(file.is_open()) << path;
   return file.tellg();
 }
 
@@ -173,8 +173,8 @@ bool IsBigEndian() {
 }
 
 std::vector<std::string> ReadTextFileLines(const std::string& path) {
-  std::ifstream file(path.c_str());
-  CHECK(file.is_open());
+  std::ifstream file(path);
+  CHECK(file.is_open()) << path;
 
   std::string line;
   std::vector<std::string> lines;

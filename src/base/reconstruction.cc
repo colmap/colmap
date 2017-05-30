@@ -764,8 +764,8 @@ void Reconstruction::Write(const std::string& cameras_path,
 }
 
 void Reconstruction::WriteCameras(const std::string& path) const {
-  std::ofstream file(path.c_str(), std::ios::trunc);
-  CHECK(file.is_open());
+  std::ofstream file(path, std::ios::trunc);
+  CHECK(file.is_open()) << path;
 
   file << "# Camera list with one line of data per camera:" << std::endl;
   file << "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]" << std::endl;
@@ -791,8 +791,8 @@ void Reconstruction::WriteCameras(const std::string& path) const {
 }
 
 void Reconstruction::WriteImages(const std::string& path) const {
-  std::ofstream file(path.c_str(), std::ios::trunc);
-  CHECK(file.is_open());
+  std::ofstream file(path, std::ios::trunc);
+  CHECK(file.is_open()) << path;
 
   file << "# Image list with two lines of data per image:" << std::endl;
   file << "#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, "
@@ -851,8 +851,8 @@ void Reconstruction::WriteImages(const std::string& path) const {
 }
 
 void Reconstruction::WritePoints3D(const std::string& path) const {
-  std::ofstream file(path.c_str(), std::ios::trunc);
-  CHECK(file.is_open());
+  std::ofstream file(path, std::ios::trunc);
+  CHECK(file.is_open()) << path;
 
   file << "# 3D point list with one line of data per point:" << std::endl;
   file << "#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, "
@@ -888,8 +888,8 @@ void Reconstruction::WritePoints3D(const std::string& path) const {
 void Reconstruction::ImportPLY(const std::string& path) {
   points3D_.clear();
 
-  std::ifstream file(path.c_str(), std::ios_base::binary);
-  CHECK(file.is_open());
+  std::ifstream file(path, std::ios_base::binary);
+  CHECK(file.is_open()) << path;
 
   std::string line;
 
@@ -1040,8 +1040,8 @@ void Reconstruction::ImportPLY(const std::string& path) {
 }
 
 bool Reconstruction::ExportNVM(const std::string& path) const {
-  std::ofstream file(path.c_str(), std::ios::trunc);
-  CHECK(file.is_open());
+  std::ofstream file(path, std::ios::trunc);
+  CHECK(file.is_open()) << path;
 
   file << "NVM_V3" << std::endl << std::endl;
 
@@ -1121,11 +1121,11 @@ bool Reconstruction::ExportNVM(const std::string& path) const {
 
 bool Reconstruction::ExportBundler(const std::string& path,
                                    const std::string& list_path) const {
-  std::ofstream file(path.c_str(), std::ios::trunc);
-  CHECK(file.is_open());
+  std::ofstream file(path, std::ios::trunc);
+  CHECK(file.is_open()) << path;
 
-  std::ofstream list_file(list_path.c_str(), std::ios::trunc);
-  CHECK(list_file.is_open());
+  std::ofstream list_file(list_path, std::ios::trunc);
+  CHECK(list_file.is_open()) << list_path;
 
   file << "# Bundle file v0.3" << std::endl;
 
@@ -1219,8 +1219,8 @@ bool Reconstruction::ExportBundler(const std::string& path,
 }
 
 void Reconstruction::ExportPLY(const std::string& path) const {
-  std::ofstream file(path.c_str(), std::ios::trunc);
-  CHECK(file.is_open());
+  std::ofstream file(path, std::ios::trunc);
+  CHECK(file.is_open()) << path;
 
   file << "ply" << std::endl;
   file << "format ascii 1.0" << std::endl;
@@ -1249,8 +1249,8 @@ void Reconstruction::ExportVRML(const std::string& images_path,
                                 const std::string& points3D_path,
                                 const double image_scale,
                                 const Eigen::Vector3d& image_rgb) const {
-  std::ofstream images_file(images_path.c_str(), std::ios::trunc);
-  CHECK(images_file.is_open());
+  std::ofstream images_file(images_path, std::ios::trunc);
+  CHECK(images_file.is_open()) << images_path;
 
   const double six = image_scale * 0.15;
   const double siy = image_scale * 0.1;
@@ -1332,8 +1332,8 @@ void Reconstruction::ExportVRML(const std::string& images_path,
 
   // Write 3D points
 
-  std::ofstream points3D_file(points3D_path.c_str(), std::ios::trunc);
-  CHECK(points3D_file.is_open());
+  std::ofstream points3D_file(points3D_path, std::ios::trunc);
+  CHECK(points3D_file.is_open()) << points3D_path;
 
   points3D_file << "#VRML V2.0 utf8\n";
   points3D_file << "Background { skyColor [1.0 1.0 1.0] } \n";
@@ -1587,8 +1587,8 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
 void Reconstruction::ReadCameras(const std::string& path) {
   cameras_.clear();
 
-  std::ifstream file(path.c_str());
-  CHECK(file.is_open());
+  std::ifstream file(path);
+  CHECK(file.is_open()) << path;
 
   std::string line;
   std::string item;
@@ -1643,8 +1643,8 @@ void Reconstruction::ReadCameras(const std::string& path) {
 void Reconstruction::ReadImages(const std::string& path) {
   images_.clear();
 
-  std::ifstream file(path.c_str());
-  CHECK(file.is_open());
+  std::ifstream file(path);
+  CHECK(file.is_open()) << path;
 
   std::string line;
   std::string item;
@@ -1750,8 +1750,8 @@ void Reconstruction::ReadImages(const std::string& path) {
 void Reconstruction::ReadPoints3D(const std::string& path) {
   points3D_.clear();
 
-  std::ifstream file(path.c_str());
-  CHECK(file.is_open());
+  std::ifstream file(path);
+  CHECK(file.is_open()) << path;
 
   std::string line;
   std::string item;

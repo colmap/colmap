@@ -52,12 +52,12 @@ void ImportPMVSOption(const Model& model, const std::string& path,
         image_names.push_back(image_name);
       }
 
-      std::ofstream patch_match_file(JoinPaths(path, "stereo/patch-match.cfg"),
-                                     std::ios::trunc);
-      std::ofstream fusion_file(JoinPaths(path, "stereo/fusion.cfg"),
-                                std::ios::trunc);
-      CHECK(patch_match_file.is_open());
-      CHECK(fusion_file.is_open());
+      const auto patch_match_path = JoinPaths(path, "stereo/patch-match.cfg");
+      const auto fusion_path = JoinPaths(path, "stereo/fusion.cfg");
+      std::ofstream patch_match_file(patch_match_path, std::ios::trunc);
+      std::ofstream fusion_file(fusion_path, std::ios::trunc);
+      CHECK(patch_match_file.is_open()) << patch_match_path;
+      CHECK(fusion_file.is_open()) << fusion_path;
       for (const auto ref_image_name : image_names) {
         patch_match_file << ref_image_name << std::endl;
         fusion_file << ref_image_name << std::endl;
@@ -280,8 +280,9 @@ void PatchMatchController::ReadProblems() {
 
   std::cout << "Reading configuration..." << std::endl;
 
-  std::ifstream file(JoinPaths(workspace_path_, "stereo/patch-match.cfg"));
-  CHECK(file.is_open());
+  const auto config_path = JoinPaths(workspace_path_, "stereo/patch-match.cfg");
+  std::ifstream file(config_path);
+  CHECK(file.is_open()) << config_path;
 
   std::vector<std::map<int, int>> shared_num_points;
   std::vector<std::map<int, float>> triangulation_angles;

@@ -1227,7 +1227,7 @@ void VocabTreeFeatureMatcher::Run() {
 
     // Read the match list path.
     std::ifstream file(options_.match_list_path);
-    CHECK(file.is_open());
+    CHECK(file.is_open()) << options_.match_list_path;
     std::string line;
     while (std::getline(file, line)) {
       StringTrim(&line);
@@ -1593,7 +1593,7 @@ void ImagePairsFeatureMatcher::Run() {
   }
 
   std::ifstream file(options_.match_list_path);
-  CHECK(file.is_open());
+  CHECK(file.is_open()) << options_.match_list_path;
 
   std::string line;
   std::vector<std::pair<image_t, image_t>> image_pairs;
@@ -1693,7 +1693,7 @@ void FeaturePairsFeatureMatcher::Run() {
   }
 
   std::ifstream file(options_.match_list_path);
-  CHECK(file.is_open());
+  CHECK(file.is_open()) << options_.match_list_path;
 
   std::string line;
   while (std::getline(file, line)) {
