@@ -888,7 +888,7 @@ void Reconstruction::WritePoints3D(const std::string& path) const {
 void Reconstruction::ImportPLY(const std::string& path) {
   points3D_.clear();
 
-  std::ifstream file(path.c_str());
+  std::ifstream file(path.c_str(), std::ios_base::binary);
   CHECK(file.is_open());
 
   std::string line;
