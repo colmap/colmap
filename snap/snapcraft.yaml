@@ -20,79 +20,127 @@ apps:
     command: desktop-launch colmap
     plugs: [home, x11, mir, opengl, unity7]
     # desktop: snap/gui/colmap.desktop
+
   bundle-adjuster:
     command: bundle_adjuster
     plugs: [home]
-  database-creator:
-    command: database_creator
-    plugs: [home]
-  exhaustive-matcher:
-    command: exhaustive_matcher
-    plugs: [home]
-  image-rectifier:
-    command: image_rectifier
-    plugs: [home]
-  mapper:
-    command: mapper
-    plugs: [home]
-  model-converter:
-    command: model_converter
-    plugs: [home]
-  sequential-matcher:
-    command: sequential_matcher
-    plugs: [home]
-  vocab-tree-matcher:
-    command: vocab_tree_matcher
-    plugs: [home]
-  dense-fuser:
-    command: dense_fuser
-    plugs: [home]
-  feature-extractor:
-    command: feature_extractor
-    plugs: [home]
-  image-registrator:
-    command: image_registrator
-    plugs: [home]
-  matches-importer:
-    command: matches_importer
-    plugs: [home]
-  model-merger:
-    command: model_merger
-    plugs: [home]
-  spatial-matcher:
-    command: spatial_matcher
-    plugs: [home]
-  vocab-tree-retriever:
-    command: vocab_tree_retriever
-    plugs: [home]
+
   color-extractor:
     command: color_extractor
     plugs: [home]
+
+  database-creator:
+    command: database_creator
+    plugs: [home]
+
+  dense-fuser:
+    command: dense_fuser
+    plugs: [home]
+
   dense-mesher:
     command: dense_mesher
     plugs: [home]
+
+  exhaustive-matcher:
+    command: exhaustive_matcher
+    plugs: [home]
+
+  feature-extractor:
+    command: feature_extractor
+    plugs: [home]
+
   feature-importer:
     command: feature_importer
     plugs: [home]
+
+  image-rectifier:
+    command: image_rectifier
+    plugs: [home]
+
+  image-registrator:
+    command: image_registrator
+    plugs: [home]
+
   image-undistorter:
     command: image_undistorter
     plugs: [home]
+
+  mapper:
+    command: mapper
+    plugs: [home]
+
+  matches-importer:
+    command: matches_importer
+    plugs: [home]
+
   model-aligner:
     command: model_aligner
     plugs: [home]
+
+  model-analyzer:
+    command: model_analyzer
+    plugs: [home]
+
+  model-converter:
+    command: model_converter
+    plugs: [home]
+
+  model-merger:
+    command: model_merger
+    plugs: [home]
+
+  model-orientation-aligner:
+    command: model_orientation_aligner
+    plugs: [home]
+
+  point-triangulator:
+    command: point_triangulator
+    plugs: [home]
+
   rig-bundle-adjuster:
     command: rig_bundle_adjuster
     plugs: [home]
+
+  sequential-matcher:
+    command: sequential_matcher
+    plugs: [home]
+
+  spatial-matcher:
+    command: spatial_matcher
+    plugs: [home]
+
+  transitive-matcher:
+    command: transitive_matcher
+    plugs: [home]
+
   vocab-tree-builder:
     command: vocab_tree_builder
     plugs: [home]
 
+  vocab-tree-matcher:
+    command: vocab_tree_matcher
+    plugs: [home]
+
+  vocab-tree-retriever:
+    command: vocab_tree_retriever
+    plugs: [home]
+
+
 parts:
   eigen:
-    source: http://bitbucket.org/eigen/eigen/get/3.2.10.tar.bz2
+    source: http://bitbucket.org/eigen/eigen/get/3.3.3.tar.bz2
     build-packages:
       - build-essential
     plugin: cmake
+    build: |
+      mkdir build
+      cd build
+      cmake -DCMAKE_INSTALL_PREFIX=$SNAPCRAFT_PART_INSTALL ..
+      export NPROCS=$(grep -c ^processor /proc/cpuinfo)
+      make -j${NPROCS}
+    install: |
+      cd build
+      make install
     prime: [ -* ]
 
   ceres-solver:
@@ -145,6 +193,7 @@ parts:
       cmake -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=$SNAPCRAFT_PART_INSTALL \
         -DCeres_DIR=$SNAPCRAFT_STAGE/lib/cmake/Ceres/ \
+        -DTESTS_ENABLED=OFF \
         ..
       export NPROCS=$(grep -c ^processor /proc/cpuinfo)
       make -j${NPROCS}
