@@ -57,7 +57,7 @@ struct SiftExtractionOptions {
 
   // Whether to adapt the feature detection depending on the image darkness.
   // Note that this feature is only available in the OpenGL SiftGPU version.
-  bool darkness_adaptivity = true;
+  bool darkness_adaptivity = false;
 
   enum class Normalization {
     // L1-normalizes each descriptor followed by element-wise square rooting.
