@@ -359,17 +359,17 @@ void MainWindow::CreateActions() {
 
   action_render_ = new QAction(tr("Render"), this);
   connect(action_render_, &QAction::triggered, this, &MainWindow::Render,
-          Qt::QueuedConnection);
+          Qt::BlockingQueuedConnection);
 
   action_render_now_ = new QAction(tr("Render now"), this);
   render_options_widget_->action_render_now = action_render_now_;
   connect(action_render_now_, &QAction::triggered, this, &MainWindow::RenderNow,
-          Qt::QueuedConnection);
+          Qt::BlockingQueuedConnection);
 
   action_reconstruction_finish_ =
       new QAction(tr("Finish reconstruction"), this);
   connect(action_reconstruction_finish_, &QAction::triggered, this,
-          &MainWindow::ReconstructionFinish, Qt::QueuedConnection);
+          &MainWindow::ReconstructionFinish, Qt::BlockingQueuedConnection);
 
   action_about_ = new QAction(tr("About"), this);
   connect(action_about_, &QAction::triggered, this, &MainWindow::About);
@@ -723,23 +723,6 @@ void MainWindow::ImportFrom() {
     reconstruction_manager_widget_->SelectReconstruction(reconstruction_idx);
     action_render_now_->trigger();
   });
-}
-
-void MainWindow::ImportFusedPoints(const std::vector<mvs::FusedPoint>& points) {
-  const size_t reconstruction_idx = reconstruction_manager_.Add();
-  auto& reconstruction = reconstruction_manager_.Get(reconstruction_idx);
-
-  for (const auto& point : points) {
-    const Eigen::Vector3d xyz(point.x, point.y, point.z);
-    const point3D_t point3D_id = reconstruction.AddPoint3D(xyz, Track());
-    const Eigen::Vector3ub rgb(point.r, point.g, point.b);
-    reconstruction.Point3D(point3D_id).SetColor(rgb);
-  }
-
-  options_.render->min_track_len = 0;
-  reconstruction_manager_widget_->Update();
-  reconstruction_manager_widget_->SelectReconstruction(reconstruction_idx);
-  RenderNow();
 }
 
 void MainWindow::Export() {

@@ -198,11 +198,12 @@ DenseReconstructionWidget::DenseReconstructionWidget(MainWindow* main_window,
   workspace_path_text_ = new QLineEdit(this);
   grid->addWidget(workspace_path_text_, 0, 6, Qt::AlignRight);
   connect(workspace_path_text_, &QLineEdit::textChanged, this,
-          &DenseReconstructionWidget::RefreshWorkspace);
+          &DenseReconstructionWidget::RefreshWorkspace, Qt::QueuedConnection);
 
   QPushButton* workspace_path_button = new QPushButton(tr("Select"), this);
   connect(workspace_path_button, &QPushButton::released, this,
-          &DenseReconstructionWidget::SelectWorkspacePath);
+          &DenseReconstructionWidget::SelectWorkspacePath,
+          Qt::QueuedConnection);
   grid->addWidget(workspace_path_button, 0, 7, Qt::AlignRight);
 
   QStringList table_header;
@@ -441,7 +442,23 @@ void DenseReconstructionWidget::WriteFusedPoints() {
          "model from...</i>."),
       QMessageBox::Yes | QMessageBox::No);
   if (reply == QMessageBox::Yes) {
-    main_window_->ImportFusedPoints(fused_points_);
+    const size_t reconstruction_idx =
+        main_window_->reconstruction_manager_.Add();
+    auto& reconstruction =
+        main_window_->reconstruction_manager_.Get(reconstruction_idx);
+
+    for (const auto& point : fused_points_) {
+      const Eigen::Vector3d xyz(point.x, point.y, point.z);
+      const point3D_t point3D_id = reconstruction.AddPoint3D(xyz, Track());
+      const Eigen::Vector3ub rgb(point.r, point.g, point.b);
+      reconstruction.Point3D(point3D_id).SetColor(rgb);
+    }
+
+    options_->render->min_track_len = 0;
+    main_window_->reconstruction_manager_widget_->Update();
+    main_window_->reconstruction_manager_widget_->SelectReconstruction(
+        reconstruction_idx);
+    main_window_->RenderNow();
   }
 
   const std::string workspace_path =

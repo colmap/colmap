@@ -74,7 +74,6 @@ class MainWindow : public QMainWindow {
   void ProjectSaveAs();
   void Import();
   void ImportFrom();
-  void ImportFusedPoints(const std::vector<mvs::FusedPoint>& points);
   void Export();
   void ExportAll();
   void ExportAs();

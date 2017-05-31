@@ -74,7 +74,7 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
 
   render_result_ = new QAction(this);
   connect(render_result_, &QAction::triggered, this,
-          &AutomaticReconstructionWidget::RenderResult);
+          &AutomaticReconstructionWidget::RenderResult, Qt::QueuedConnection);
 }
 
 void AutomaticReconstructionWidget::Run() {
@@ -110,19 +110,16 @@ void AutomaticReconstructionWidget::Run() {
 
   switch (quality_cb_->currentIndex()) {
     case 0:
-      options_.quality =
-          AutomaticReconstructionController::Quality::LOW;
+      options_.quality = AutomaticReconstructionController::Quality::LOW;
       break;
     case 1:
       options_.quality = AutomaticReconstructionController::Quality::MEDIUM;
       break;
     case 2:
-      options_.quality =
-          AutomaticReconstructionController::Quality::HIGH;
+      options_.quality = AutomaticReconstructionController::Quality::HIGH;
       break;
     default:
-      options_.quality =
-          AutomaticReconstructionController::Quality::HIGH;
+      options_.quality = AutomaticReconstructionController::Quality::HIGH;
       break;
   }
 
