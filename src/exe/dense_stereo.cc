@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
   options.AddDenseStereoOptions();
   options.Parse(argc, argv);
 
-  StringToLower(&workspace_format)
+  StringToLower(&workspace_format);
   if (workspace_format != "colmap" && workspace_format != "pmvs") {
     std::cout << "ERROR: Invalid `workspace_format` - supported values are "
                  "'COLMAP' or 'PMVS'."
