@@ -16,8 +16,6 @@
 
 #include "base/camera_database.h"
 
-#include <boost/algorithm/string.hpp>
-
 #include "util/string.h"
 
 namespace colmap {
@@ -32,12 +30,12 @@ bool CameraDatabase::QuerySensorWidth(const std::string& make,
   // Clean the strings from all separators.
   std::string cleaned_make = make;
   std::string cleaned_model = model;
-  boost::erase_all(cleaned_make, " ");
-  boost::erase_all(cleaned_model, " ");
-  boost::erase_all(cleaned_make, "-");
-  boost::erase_all(cleaned_model, "-");
-  boost::to_lower(cleaned_make);
-  boost::to_lower(cleaned_model);
+  StringReplace(cleaned_make, " ", "");
+  StringReplace(cleaned_model, " ", "");
+  StringReplace(cleaned_make, "-", "");
+  StringReplace(cleaned_model, "-", "");
+  StringToLower(&cleaned_make);
+  StringToLower(&cleaned_model);
 
   // Make sure that make name is not duplicated.
   cleaned_model = StringReplace(cleaned_model, cleaned_make, "");

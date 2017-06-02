@@ -27,8 +27,8 @@ int main(int argc, char** argv) {
   InitializeGlog(argv);
 
   AutomaticReconstructionController::Options reconstruction_options;
-  std::string data_type = "INDIVIDUAL";
-  std::string quality = "HIGH";
+  std::string data_type = "individual";
+  std::string quality = "high";
 
   OptionManager options;
   options.AddRequiredOption("workspace_path",
@@ -37,8 +37,8 @@ int main(int argc, char** argv) {
   options.AddDefaultOption("vocab_tree_path",
                            &reconstruction_options.vocab_tree_path);
   options.AddDefaultOption("data_type", &data_type,
-                           "{INDIVIDUAL, VIDEO, INTERNET}");
-  options.AddDefaultOption("quality", &quality, "{LOW, MEDIUM, HIGH}");
+                           "{individual, video, internet}");
+  options.AddDefaultOption("quality", &quality, "{low, medium, high}");
   options.AddDefaultOption("single_camera",
                            &reconstruction_options.single_camera);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
@@ -47,26 +47,28 @@ int main(int argc, char** argv) {
   options.AddDefaultOption("use_opengl", &reconstruction_options.use_opengl);
   options.Parse(argc, argv);
 
-  if (data_type == "INDIVIDUAL") {
+  StringToLower(&data_type);
+  if (data_type == "individual") {
     reconstruction_options.data_type =
         AutomaticReconstructionController::DataType::INDIVIDUAL;
-  } else if (data_type == "VIDEO") {
+  } else if (data_type == "video") {
     reconstruction_options.data_type =
         AutomaticReconstructionController::DataType::VIDEO;
-  } else if (data_type == "INTERNET") {
+  } else if (data_type == "internet") {
     reconstruction_options.data_type =
         AutomaticReconstructionController::DataType::INTERNET;
   } else {
     LOG(FATAL) << "Invalid data type";
   }
 
-  if (quality == "LOW") {
+  StringToLower(&quality);
+  if (quality == "low") {
     reconstruction_options.quality =
         AutomaticReconstructionController::Quality::LOW;
-  } else if (quality == "MEDIUM") {
+  } else if (quality == "medium") {
     reconstruction_options.quality =
         AutomaticReconstructionController::Quality::MEDIUM;
-  } else if (quality == "HIGH") {
+  } else if (quality == "high") {
     reconstruction_options.quality =
         AutomaticReconstructionController::Quality::HIGH;
   } else {

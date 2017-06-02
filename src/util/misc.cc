@@ -37,7 +37,7 @@ bool HasFileExtension(const std::string& file_name, const std::string& ext) {
   CHECK(!ext.empty());
   CHECK_EQ(ext.at(0), '.');
   std::string ext_lower = ext;
-  boost::to_lower(ext_lower);
+  StringToLower(&ext_lower);
   if (file_name.size() >= ext_lower.size() &&
       file_name.substr(file_name.size() - ext_lower.size(), ext_lower.size()) ==
           ext_lower) {

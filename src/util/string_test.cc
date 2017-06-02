@@ -21,6 +21,13 @@
 
 using namespace colmap;
 
+#define TEST_STRING_INPLACE(Func, str, ref_str) \
+  {                                             \
+    std::string str_inplace = str;              \
+    Func(&str_inplace);                         \
+    BOOST_CHECK_EQUAL(str_inplace, ref_str);    \
+  }
+
 BOOST_AUTO_TEST_CASE(TestStringPrintf) {
   BOOST_CHECK_EQUAL(StringPrintf("%s", "test"), "test");
   BOOST_CHECK_EQUAL(StringPrintf("%d", 1), "1");
@@ -100,52 +107,83 @@ BOOST_AUTO_TEST_CASE(TestStringStartsWith) {
   BOOST_CHECK(StringStartsWith("aaaaaaaaa", "aa"));
 }
 
-#define TEST_STRING_TRIM(Func, str, ref_str_trimmed) \
-  {                                                  \
-    std::string str_trimmed = str;                   \
-    Func(&str_trimmed);                              \
-    BOOST_CHECK_EQUAL(str_trimmed, ref_str_trimmed); \
-  }
-
 BOOST_AUTO_TEST_CASE(TestStringStrim) {
-  TEST_STRING_TRIM(StringTrim, "", "");
-  TEST_STRING_TRIM(StringTrim, " ", "");
-  TEST_STRING_TRIM(StringTrim, "a", "a");
-  TEST_STRING_TRIM(StringTrim, " a", "a");
-  TEST_STRING_TRIM(StringTrim, "a ", "a");
-  TEST_STRING_TRIM(StringTrim, " a ", "a");
-  TEST_STRING_TRIM(StringTrim, "  a  ", "a");
-  TEST_STRING_TRIM(StringTrim, "aa  ", "aa");
-  TEST_STRING_TRIM(StringTrim, "a  a  ", "a  a");
-  TEST_STRING_TRIM(StringTrim, "a  a  a ", "a  a  a");
-  TEST_STRING_TRIM(StringTrim, "\n\r\t", "");
+  TEST_STRING_INPLACE(StringTrim, "", "");
+  TEST_STRING_INPLACE(StringTrim, " ", "");
+  TEST_STRING_INPLACE(StringTrim, "a", "a");
+  TEST_STRING_INPLACE(StringTrim, " a", "a");
+  TEST_STRING_INPLACE(StringTrim, "a ", "a");
+  TEST_STRING_INPLACE(StringTrim, " a ", "a");
+  TEST_STRING_INPLACE(StringTrim, "  a  ", "a");
+  TEST_STRING_INPLACE(StringTrim, "aa  ", "aa");
+  TEST_STRING_INPLACE(StringTrim, "a  a  ", "a  a");
+  TEST_STRING_INPLACE(StringTrim, "a  a  a ", "a  a  a");
+  TEST_STRING_INPLACE(StringTrim, "\n\r\t", "");
 }
 
 BOOST_AUTO_TEST_CASE(TestStringLeftString) {
-  TEST_STRING_TRIM(StringLeftTrim, "", "");
-  TEST_STRING_TRIM(StringLeftTrim, " ", "");
-  TEST_STRING_TRIM(StringLeftTrim, "a", "a");
-  TEST_STRING_TRIM(StringLeftTrim, " a", "a");
-  TEST_STRING_TRIM(StringLeftTrim, "a ", "a ");
-  TEST_STRING_TRIM(StringLeftTrim, " a ", "a ");
-  TEST_STRING_TRIM(StringLeftTrim, "  a  ", "a  ");
-  TEST_STRING_TRIM(StringLeftTrim, "aa  ", "aa  ");
-  TEST_STRING_TRIM(StringLeftTrim, "a  a  ", "a  a  ");
-  TEST_STRING_TRIM(StringLeftTrim, "  a  a", "a  a");
-  TEST_STRING_TRIM(StringLeftTrim, "a  a  a ", "a  a  a ");
-  TEST_STRING_TRIM(StringTrim, "\n\r\ta", "a");
+  TEST_STRING_INPLACE(StringLeftTrim, "", "");
+  TEST_STRING_INPLACE(StringLeftTrim, " ", "");
+  TEST_STRING_INPLACE(StringLeftTrim, "a", "a");
+  TEST_STRING_INPLACE(StringLeftTrim, " a", "a");
+  TEST_STRING_INPLACE(StringLeftTrim, "a ", "a ");
+  TEST_STRING_INPLACE(StringLeftTrim, " a ", "a ");
+  TEST_STRING_INPLACE(StringLeftTrim, "  a  ", "a  ");
+  TEST_STRING_INPLACE(StringLeftTrim, "aa  ", "aa  ");
+  TEST_STRING_INPLACE(StringLeftTrim, "a  a  ", "a  a  ");
+  TEST_STRING_INPLACE(StringLeftTrim, "  a  a", "a  a");
+  TEST_STRING_INPLACE(StringLeftTrim, "a  a  a ", "a  a  a ");
+  TEST_STRING_INPLACE(StringTrim, "\n\r\ta", "a");
 }
 
 BOOST_AUTO_TEST_CASE(TestStringStrimRight) {
-  TEST_STRING_TRIM(StringRightTrim, "", "");
-  TEST_STRING_TRIM(StringRightTrim, " ", "");
-  TEST_STRING_TRIM(StringRightTrim, "a", "a");
-  TEST_STRING_TRIM(StringRightTrim, " a", " a");
-  TEST_STRING_TRIM(StringRightTrim, "a ", "a");
-  TEST_STRING_TRIM(StringRightTrim, " a ", " a");
-  TEST_STRING_TRIM(StringRightTrim, "  a  ", "  a");
-  TEST_STRING_TRIM(StringRightTrim, "aa  ", "aa");
-  TEST_STRING_TRIM(StringRightTrim, "a  a  ", "a  a");
-  TEST_STRING_TRIM(StringRightTrim, "a  a  a ", "a  a  a");
-  TEST_STRING_TRIM(StringTrim, "a\n\r\t", "a");
+  TEST_STRING_INPLACE(StringRightTrim, "", "");
+  TEST_STRING_INPLACE(StringRightTrim, " ", "");
+  TEST_STRING_INPLACE(StringRightTrim, "a", "a");
+  TEST_STRING_INPLACE(StringRightTrim, " a", " a");
+  TEST_STRING_INPLACE(StringRightTrim, "a ", "a");
+  TEST_STRING_INPLACE(StringRightTrim, " a ", " a");
+  TEST_STRING_INPLACE(StringRightTrim, "  a  ", "  a");
+  TEST_STRING_INPLACE(StringRightTrim, "aa  ", "aa");
+  TEST_STRING_INPLACE(StringRightTrim, "a  a  ", "a  a");
+  TEST_STRING_INPLACE(StringRightTrim, "a  a  a ", "a  a  a");
+  TEST_STRING_INPLACE(StringTrim, "a\n\r\t", "a");
+}
+
+BOOST_AUTO_TEST_CASE(TestStringToLower) {
+  TEST_STRING_INPLACE(StringToLower, "", "");
+  TEST_STRING_INPLACE(StringToLower, " ", " ");
+  TEST_STRING_INPLACE(StringToLower, "a", "a");
+  TEST_STRING_INPLACE(StringToLower, " a", " a");
+  TEST_STRING_INPLACE(StringToLower, "a ", "a ");
+  TEST_STRING_INPLACE(StringToLower, " a ", " a ");
+  TEST_STRING_INPLACE(StringToLower, "aa  ", "aa  ");
+  TEST_STRING_INPLACE(StringToLower, "A", "a");
+  TEST_STRING_INPLACE(StringToLower, " A", " a");
+  TEST_STRING_INPLACE(StringToLower, "A ", "a ");
+  TEST_STRING_INPLACE(StringToLower, " A ", " a ");
+  TEST_STRING_INPLACE(StringToLower, "AA  ", "aa  ");
+  TEST_STRING_INPLACE(StringToLower, "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+                      "abcdefghijklmnopqrstuvwxyz");
+  TEST_STRING_INPLACE(StringToLower, "0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+                      "0123456789 abcdefghijklmnopqrstuvwxyz");
+}
+
+BOOST_AUTO_TEST_CASE(TestStringToUpper) {
+  TEST_STRING_INPLACE(StringToUpper, "", "");
+  TEST_STRING_INPLACE(StringToUpper, " ", " ");
+  TEST_STRING_INPLACE(StringToUpper, "A", "A");
+  TEST_STRING_INPLACE(StringToUpper, " A", " A");
+  TEST_STRING_INPLACE(StringToUpper, "A ", "A ");
+  TEST_STRING_INPLACE(StringToUpper, " A ", " A ");
+  TEST_STRING_INPLACE(StringToUpper, "AA  ", "AA  ");
+  TEST_STRING_INPLACE(StringToUpper, "a", "A");
+  TEST_STRING_INPLACE(StringToUpper, " a", " A");
+  TEST_STRING_INPLACE(StringToUpper, "a ", "A ");
+  TEST_STRING_INPLACE(StringToUpper, " a ", " A ");
+  TEST_STRING_INPLACE(StringToUpper, "aa  ", "AA  ");
+  TEST_STRING_INPLACE(StringToUpper, "abcdefghijklmnopqrstuvwxyz",
+                      "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+  TEST_STRING_INPLACE(StringToUpper, "0123456789 abcdefghijklmnopqrstuvwxyz",
+                      "0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ");
 }

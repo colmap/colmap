@@ -16,6 +16,7 @@
 
 #include "util/string.h"
 
+#include <algorithm>
 #include <cstdarg>
 #include <fstream>
 #include <sstream>
@@ -130,6 +131,14 @@ void StringRightTrim(std::string* str) {
 void StringTrim(std::string* str) {
   StringLeftTrim(str);
   StringRightTrim(str);
+}
+
+void StringToLower(std::string* str) {
+  std::transform(str->begin(), str->end(), str->begin(), ::tolower);
+}
+
+void StringToUpper(std::string* str) {
+  std::transform(str->begin(), str->end(), str->begin(), ::toupper);
 }
 
 }  // namespace colmap

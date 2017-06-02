@@ -28,12 +28,14 @@ int main(int argc, char* argv[]) {
 
   OptionManager options;
   options.AddRequiredOption("workspace_path", &workspace_path);
-  options.AddDefaultOption("workspace_format", &workspace_format);
+  options.AddDefaultOption("workspace_format", &workspace_format,
+                           "{COLMAP, PMVS}");
   options.AddDefaultOption("pmvs_option_name", &pmvs_option_name);
   options.AddDenseStereoOptions();
   options.Parse(argc, argv);
 
-  if (workspace_format != "COLMAP" && workspace_format != "PMVS") {
+  StringToLower(&workspace_format)
+  if (workspace_format != "colmap" && workspace_format != "pmvs") {
     std::cout << "ERROR: Invalid `workspace_format` - supported values are "
                  "'COLMAP' or 'PMVS'."
               << std::endl;

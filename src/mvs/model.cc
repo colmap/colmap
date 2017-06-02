@@ -25,9 +25,11 @@ namespace colmap {
 namespace mvs {
 
 void Model::Read(const std::string& path, const std::string& format) {
-  if (format == "COLMAP") {
+  auto format_lower_case = format;
+  StringToLower(&format_lower_case);
+  if (format_lower_case == "colmap") {
     ReadFromCOLMAP(path);
-  } else if (format == "PMVS") {
+  } else if (format_lower_case == "pmvs") {
     ReadFromPMVS(path);
   } else {
     LOG(FATAL) << "Invalid input format";
