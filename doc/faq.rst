@@ -139,6 +139,8 @@ new images within this reconstruction, you can follow these steps::
 
 Note that this first extracts features for the new images, then matches them to
 the existing images in the database, and finally registers them into the model.
+The image list text file contains a list of images to extract and match,
+specified as one image file name per line.
 
 
 Multi-GPU support in feature matching
