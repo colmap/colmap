@@ -245,11 +245,11 @@ matching modes, that are intended for different input scenarios:
   loop detection requires a pre-trained vocabulary tree, that can be downloaded
   from https://demuc.de/colmap/.
 
-- **Vocabulary Tree Matching**: In this matching mode, every image is matched
-  against its visual nearest neighbors using a vocabulary tree. This is the
-  recommended matching mode for large image collections (several thousands).
-  This requires a pre-trained vocabulary tree, that can be downloaded from
-  https://demuc.de/colmap/.
+- **Vocabulary Tree Matching**: In this matching mode [schoenberger16vote]_,
+  every image is matched against its visual nearest neighbors using a vocabulary
+  tree. This is the recommended matching mode for large image collections
+  (several thousands). This requires a pre-trained vocabulary tree, that can be
+  downloaded from https://demuc.de/colmap/.
 
 - **Spatial Matching**: This matching mode matches every image against its
   spatial nearest neighbors. Spatial locations can be manually set in the
@@ -332,9 +332,9 @@ from the drop-down menu in the toolbar. If the different models have common
 registered images, you can use the ``model_converter`` executable to merge them
 into a single reconstruction (see :ref:`FAQ <faq-merge-models>` for details). If
 all your images use the `SIMPLE_RADIAL` camera model (default) without shared
-intrinsics, you can use PBA [wu11]_ for fast bundle adjustment, which can be
-activated in the reconstruction options under the bundle adjustment section
-(`use_pba=true`).
+intrinsics, you can use PBA [wu11]_ instead of Ceres Solver [ceres]_ for fast
+bundle adjustment, which can be activated in the reconstruction options under
+the bundle adjustment section (`use_pba=true`).
 
 Ideally, the reconstruction works fine and all images are registered. If this is
 not the case, it is recommended to:
@@ -467,6 +467,6 @@ available controls.
 
 .. rubric:: Footnotes
 
-.. [#f1] VisualSfM's projection model applies the distortion to the measurements
-    and COLMAP to the projection, hence the exported NVM file is not fully
-    compatible with VisualSfM.
+.. [#f1] VisualSfM's [wu13]_ projection model applies the distortion to the
+    measurements and COLMAP to the projection, hence the exported NVM file is
+    not fully compatible with VisualSfM.
