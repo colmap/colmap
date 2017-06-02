@@ -59,7 +59,7 @@ class StereoFusion : public Thread {
     int min_num_pixels = 5;
 
     // Maximum number of pixels to fuse into a single point.
-    int max_num_pixels = 1000;
+    int max_num_pixels = 10000;
 
     // Maximum depth in consistency graph traversal.
     int max_traversal_depth = 100;
@@ -128,10 +128,7 @@ class StereoFusion : public Thread {
     }
   };
 
-  typedef std::priority_queue<FusionData, std::vector<FusionData>, FusionData>
-      fusion_queue_t;
-
-  fusion_queue_t fusion_queue_;
+  std::vector<FusionData> fusion_queue_;
   std::vector<FusedPoint> fused_points_;
   std::vector<float> fused_points_x_;
   std::vector<float> fused_points_y_;

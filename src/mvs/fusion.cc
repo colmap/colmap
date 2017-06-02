@@ -228,7 +228,7 @@ void StereoFusion::Run() {
           continue;
         }
 
-        fusion_queue_.push(data);
+        fusion_queue_.push_back(data);
 
         Fuse();
       }
@@ -271,26 +271,14 @@ void StereoFusion::Fuse() {
   fused_points_g_.clear();
   fused_points_b_.clear();
 
-  const size_t max_num_pixels = static_cast<size_t>(options_.max_num_pixels);
-
   while (!fusion_queue_.empty()) {
-    const auto data = fusion_queue_.top();
+    const auto data = fusion_queue_.back();
     const int image_id = data.image_id;
     const int row = data.row;
     const int col = data.col;
     const int traversal_depth = data.traversal_depth;
 
-    fusion_queue_.pop();
-
-    if (!used_images_.at(image_id) || fused_images_.at(image_id)) {
-      continue;
-    }
-
-    const auto& depth_map_size = depth_map_sizes_.at(image_id);
-    if (col < 0 || row < 0 || col >= depth_map_size.first ||
-        row >= depth_map_size.second) {
-      continue;
-    }
+    fusion_queue_.pop_back();
 
     // Check if pixel already fused.
     auto& fused_pixel_mask = fused_pixel_masks_.at(image_id);
@@ -374,32 +362,42 @@ void StereoFusion::Fuse() {
       fused_ref_normal = normal;
     }
 
-    if (fused_points_x_.size() >= max_num_pixels) {
+    if (fused_points_x_.size() >=
+        static_cast<size_t>(options_.max_num_pixels)) {
       break;
     }
 
-    const int next_traversal_depth = traversal_depth + 1;
+    FusionData next_data;
+    next_data.traversal_depth = traversal_depth + 1;
 
-    // Do not traverse the graph infinitely in one branch and limit the
-    // maximum number of pixels fused in one point to avoid stack overflow.
-    if (next_traversal_depth >= options_.max_traversal_depth) {
+    if (next_data.traversal_depth >= options_.max_traversal_depth) {
       continue;
     }
 
-    FusionData next_data;
-    next_data.traversal_depth = next_traversal_depth;
-
     for (const auto next_image_id : overlapping_images_.at(image_id)) {
+      if (!used_images_.at(next_image_id) || fused_images_.at(next_image_id)) {
+        continue;
+      }
+
       next_data.image_id = next_image_id;
+
       const Eigen::Vector3f next_proj =
           P_.at(next_image_id) * xyz.homogeneous();
       next_data.col = static_cast<int>(std::round(next_proj(0) / next_proj(2)));
       next_data.row = static_cast<int>(std::round(next_proj(1) / next_proj(2)));
-      fusion_queue_.push(next_data);
+
+      const auto& depth_map_size = depth_map_sizes_.at(next_image_id);
+      if (next_data.col < 0 || next_data.row < 0 ||
+          next_data.col >= depth_map_size.first ||
+          next_data.row >= depth_map_size.second) {
+        continue;
+      }
+
+      fusion_queue_.push_back(next_data);
     }
   }
 
-  fusion_queue_ = fusion_queue_t();
+  fusion_queue_.clear();
 
   const size_t num_pixels = fused_points_x_.size();
   if (num_pixels >= static_cast<size_t>(options_.min_num_pixels)) {
