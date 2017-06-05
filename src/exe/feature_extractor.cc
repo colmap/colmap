@@ -58,26 +58,34 @@ int main(int argc, char** argv) {
   }
 
   std::unique_ptr<QApplication> app;
-  if (use_gpu && options.sift_gpu_extraction->index < 0) {
+  
+  const std::vector<int> gpu_indices =
+      CSVToVector<int>(options.sift_gpu_extraction->index);
+  if (use_gpu && gpu_indices.size() == 1 && gpu_indices[0] < 0) {
     app.reset(new QApplication(argc, argv));
   }
 
-  std::unique_ptr<Thread> feature_extractor;
+  std::vector<std::unique_ptr<Thread>> feature_extractors;
   if (use_gpu) {
-    feature_extractor.reset(
-        new SiftGPUFeatureExtractor(reader_options, *options.sift_extraction,
+    feature_extractors.reserve(gpu_indices.size());
+    for (const auto& gpu_index : gpu_indices) {
+      feature_extractors.emplace_back(
+          new SiftGPUFeatureExtractor(reader_options, *options.sift_extraction,
                                     *options.sift_gpu_extraction));
+    }
   } else {
-    feature_extractor.reset(
+    feature_extractors.emplace_back(
         new SiftCPUFeatureExtractor(reader_options, *options.sift_extraction,
                                     *options.sift_cpu_extraction));
   }
 
-  if (use_gpu && options.sift_gpu_extraction->index < 0) {
-    RunThreadWithOpenGLContext(feature_extractor.get());
-  } else {
-    feature_extractor->Start();
-    feature_extractor->Wait();
+  for (int i = 0; i < gpu_indices.size(); i++) {
+    if (use_gpu && gpu_indices[i] < 0) {
+      RunThreadWithOpenGLContext(feature_extractors[i].get());
+    } else {
+      feature_extractors[i]->Start();
+      feature_extractors[i]->Wait();
+    }
   }
 
   return EXIT_SUCCESS;

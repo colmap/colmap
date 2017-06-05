@@ -95,7 +95,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   if (options_.use_gpu) {
     if (!options_.use_opengl) {
-      option_manager_.sift_gpu_extraction->index = 0;
+      option_manager_.sift_gpu_extraction->index = "0";
     }
 
     feature_extractor_.reset(new SiftGPUFeatureExtractor(

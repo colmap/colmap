@@ -76,7 +76,7 @@ BOOST_AUTO_TEST_CASE(TestExtractSiftFeaturesGPU) {
 
       SiftGPU sift_gpu;
       BOOST_CHECK(
-          CreateSiftGPUExtractor(SiftExtractionOptions(), -1, &sift_gpu));
+          CreateSiftGPUExtractor(SiftExtractionOptions(), "-1", &sift_gpu));
 
       FeatureKeypoints keypoints;
       FeatureDescriptors descriptors;

@@ -105,7 +105,7 @@ class SiftGPUFeatureExtractor : public Thread {
   struct Options {
     // Index of the GPU used for feature extraction.
     // If the GPU index is not -1, the CUDA version of SiftGPU is used.
-    int index = -1;
+    std::string index = "-1";
 
     bool Check() const;
   };
@@ -121,6 +121,7 @@ class SiftGPUFeatureExtractor : public Thread {
   const SiftExtractionOptions sift_options_;
   const Options gpu_options_;
   std::unique_ptr<OpenGLContextManager> opengl_context_;
+  static std::mutex lock;
 };
 
 // Import features from text files. Each image must have a corresponding text
@@ -148,7 +149,7 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& sift_options,
 // version of SiftGPU is used, which produces slightly different results
 // than the OpenGL implementation.
 bool CreateSiftGPUExtractor(const SiftExtractionOptions& sift_options,
-                            const int gpu_index, SiftGPU* sift_gpu);
+                            const std::string gpu_index, SiftGPU* sift_gpu);
 
 // Extract SIFT features for the given image on the GPU.
 // SiftGPU must already be initialized using `CreateSiftGPU`.

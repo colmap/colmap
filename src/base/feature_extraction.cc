@@ -103,6 +103,8 @@ bool SiftCPUFeatureExtractor::Options::Check() const {
   return true;
 }
 
+std::mutex SiftGPUFeatureExtractor::lock;
+  
 void SiftCPUFeatureExtractor::Run() {
   PrintHeading1("Feature extraction (CPU)");
 
@@ -193,7 +195,7 @@ void SiftCPUFeatureExtractor::Run() {
 }
 
 bool SiftGPUFeatureExtractor::Options::Check() const {
-  CHECK_OPTION_GE(index, -1);
+  CHECK_OPTION_GT(CSVToVector<int>(index).size(), 0);
   return true;
 }
 
@@ -205,16 +207,22 @@ SiftGPUFeatureExtractor::SiftGPUFeatureExtractor(
       gpu_options_(gpu_options) {
   CHECK(sift_options_.Check());
   CHECK(gpu_options_.Check());
-
-  if (gpu_options_.index < 0) {
+        
+  const std::vector<int> gpu_indices =
+        CSVToVector<int>(gpu_options.index);
+        
+  if (gpu_indices.size() == 1 && gpu_indices[0] < 0) {
     opengl_context_.reset(new OpenGLContextManager());
   }
 }
 
 void SiftGPUFeatureExtractor::Run() {
   PrintHeading1("Feature extraction (GPU)");
-
-  if (gpu_options_.index < 0) {
+  
+  const std::vector<int> gpu_indices =
+      CSVToVector<int>(gpu_options_.index);
+  
+  if (gpu_indices.size() == 1 && gpu_indices[0] < 0) {
     CHECK(opengl_context_);
     opengl_context_->MakeCurrent();
   }
@@ -228,8 +236,9 @@ void SiftGPUFeatureExtractor::Run() {
   ImageReader image_reader(reader_options_);
   Database database(reader_options_.database_path);
 
-  while (image_reader.NextIndex() < image_reader.NumImages()) {
-    if (IsStopped()) {
+  while (!IsStopped()) {
+    lock.lock();
+    if (image_reader.NextIndex() >= image_reader.NumImages()) {
       break;
     }
 
@@ -243,6 +252,8 @@ void SiftGPUFeatureExtractor::Run() {
     if (!image_reader.Next(&image, &bitmap)) {
       continue;
     }
+    
+    lock.unlock();
 
     FeatureKeypoints keypoints;
     FeatureDescriptors descriptors;
@@ -505,9 +516,13 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
 }
 
 bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
-                            const int gpu_index, SiftGPU* sift_gpu) {
+                            const std::string gpu_index, SiftGPU* sift_gpu) {
   CHECK(options.Check());
-  CHECK_GE(gpu_index, -1);
+  
+  const std::vector<int> gpu_indices =
+      CSVToVector<int>(gpu_index);
+  CHECK_EQ(gpu_indices.size(), 1) << "SiftGPU can only run on one GPU";
+  CHECK_GE(gpu_indices[0], -1);
   CHECK_NOTNULL(sift_gpu);
 
   // SiftGPU uses many global static state variables and the initialization must
@@ -519,15 +534,15 @@ bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
 
   sift_gpu_args.push_back("./binary");
 
-  if (gpu_index >= 0) {
+  if (gpu_indices[0] >= 0) {
     sift_gpu_args.push_back("-cuda");
-    sift_gpu_args.push_back(std::to_string(gpu_index));
+    sift_gpu_args.push_back(std::to_string(gpu_indices[0]));
   }
 
   // Darkness adaptivity (hidden feature). Significantly improves
   // distribution of features. Only available in GLSL version.
   if (options.darkness_adaptivity) {
-    if (gpu_index >= 0) {
+    if (gpu_indices[0] >= 0) {
       std::cout << "WARNING: Darkness adaptivity only available for GLSL "
                    "but CUDA version selected."
                 << std::endl;
