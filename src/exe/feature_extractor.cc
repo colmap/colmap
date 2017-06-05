@@ -67,11 +67,12 @@ int main(int argc, char** argv) {
 
   std::vector<std::unique_ptr<Thread>> feature_extractors;
   if (use_gpu) {
+    auto gpu_options = options.sift_gpu_extraction;
     feature_extractors.reserve(gpu_indices.size());
     for (const auto& gpu_index : gpu_indices) {
+      gpu_options->index = std::to_string(gpu_index);
       feature_extractors.emplace_back(
-          new SiftGPUFeatureExtractor(reader_options, *options.sift_extraction,
-                                    *options.sift_gpu_extraction));
+          new SiftGPUFeatureExtractor(reader_options, *options.sift_extraction, *gpu_options));
     }
   } else {
     feature_extractors.emplace_back(
