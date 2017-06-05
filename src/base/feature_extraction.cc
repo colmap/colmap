@@ -263,6 +263,7 @@ void SiftGPUFeatureExtractor::Run() {
       continue;
     }
 
+    lock.lock();
     DatabaseTransaction database_transaction(&database);
 
     if (image.ImageId() == kInvalidImageId) {
@@ -278,6 +279,7 @@ void SiftGPUFeatureExtractor::Run() {
     }
 
     std::cout << "  Features:       " << keypoints.size() << std::endl;
+    lock.unlock();
   }
 
   GetTimer().PrintMinutes();
