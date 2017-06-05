@@ -75,7 +75,8 @@ Dependencies from `Homebrew <http://brew.sh/>`_::
         qt5 \
         glew
 
-Create `LocalConfig.cmake` in COLMAP base directory with::
+Create the file ``LocalConfig.cmake`` in the COLMAP base directory and then
+insert the following lines into it::
 
     set(Qt5_CMAKE_DIR "/usr/local/opt/qt5/lib/cmake")
     set(Qt5Core_DIR ${Qt5_CMAKE_DIR}/Qt5Core)
