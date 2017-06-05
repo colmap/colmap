@@ -85,9 +85,13 @@ int main(int argc, char** argv) {
       RunThreadWithOpenGLContext(feature_extractors[i].get());
     } else {
       feature_extractors[i]->Start();
-      feature_extractors[i]->Wait();
     }
   }
 
+  for (int i = 0; i < gpu_indices.size(); i++) {
+    if (!(use_gpu && gpu_indices[i] < 0)) {
+      feature_extractors[i]->Wait();
+    }
+  }
   return EXIT_SUCCESS;
 }
