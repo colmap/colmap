@@ -25,9 +25,11 @@ namespace colmap {
 namespace mvs {
 
 void Model::Read(const std::string& path, const std::string& format) {
-  if (format == "COLMAP") {
+  auto format_lower_case = format;
+  StringToLower(&format_lower_case);
+  if (format_lower_case == "colmap") {
     ReadFromCOLMAP(path);
-  } else if (format == "PMVS") {
+  } else if (format_lower_case == "pmvs") {
     ReadFromPMVS(path);
   } else {
     LOG(FATAL) << "Invalid input format";
@@ -157,6 +159,58 @@ std::string Model::GetImageName(const int image_id) const {
   CHECK_GE(image_id, 0);
   CHECK_LT(image_id, image_names_.size());
   return image_names_.at(image_id);
+}
+
+std::vector<std::vector<int>> Model::GetMaxOverlappingImages(
+    const size_t num_images, const double min_triangulation_angle) const {
+  const float min_triangulation_angle_rad = DegToRad(min_triangulation_angle);
+
+  const auto shared_num_points = ComputeSharedPoints();
+
+  const float kTriangulationAnglePercentile = 75;
+  const auto triangulation_angles =
+      ComputeTriangulationAngles(kTriangulationAnglePercentile);
+
+  std::vector<std::vector<int>> overlapping_images(images.size());
+
+  for (size_t image_id = 0; image_id < images.size(); ++image_id) {
+    const auto& shared_images = shared_num_points.at(image_id);
+    const auto& overlapping_triangulation_angles =
+        triangulation_angles.at(image_id);
+
+    std::vector<std::pair<int, int>> ordered_images;
+    ordered_images.reserve(shared_images.size());
+    for (const auto& image : shared_images) {
+      if (overlapping_triangulation_angles.at(image.first) >=
+          min_triangulation_angle_rad) {
+        ordered_images.emplace_back(image.first, image.second);
+      }
+    }
+
+    const size_t eff_num_images = std::min(ordered_images.size(), num_images);
+    if (eff_num_images < shared_images.size()) {
+      std::partial_sort(ordered_images.begin(),
+                        ordered_images.begin() + eff_num_images,
+                        ordered_images.end(),
+                        [](const std::pair<int, int> image1,
+                           const std::pair<int, int> image2) {
+                          return image1.second > image2.second;
+                        });
+    } else {
+      std::sort(ordered_images.begin(), ordered_images.end(),
+                [](const std::pair<int, int> image1,
+                   const std::pair<int, int> image2) {
+                  return image1.second > image2.second;
+                });
+    }
+
+    overlapping_images[image_id].reserve(eff_num_images);
+    for (size_t i = 0; i < eff_num_images; ++i) {
+      overlapping_images[image_id].push_back(ordered_images[i].first);
+    }
+  }
+
+  return overlapping_images;
 }
 
 std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {

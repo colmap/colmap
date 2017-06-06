@@ -34,6 +34,10 @@ ConsistencyGraph::ConsistencyGraph(const size_t width, const size_t height,
   InitializeMap(width, height);
 }
 
+size_t ConsistencyGraph::GetNumBytes() const {
+  return (data_.size() + map_.size()) * sizeof(int);
+}
+
 void ConsistencyGraph::GetImageIds(const int row, const int col,
                                    int* num_images,
                                    const int** image_ids) const {

@@ -203,7 +203,6 @@ void Database::Open(const std::string& path) {
   SQLITE3_EXEC(database_, "PRAGMA foreign_keys=ON", nullptr);
 
   CreateTables();
-  UpdateSchema();
 
   PrepareSQLStatements();
 }
@@ -254,12 +253,20 @@ size_t Database::NumImages() const { return CountRows("images"); }
 
 size_t Database::NumKeypoints() const { return SumColumn("rows", "keypoints"); }
 
+size_t Database::MaxNumKeypoints() const {
+  return MaxColumn("rows", "keypoints");
+}
+
 size_t Database::NumKeypointsForImage(const image_t image_id) const {
   return CountRowsForEntry(sql_stmt_num_keypoints_, image_id);
 }
 
 size_t Database::NumDescriptors() const {
   return SumColumn("rows", "descriptors");
+}
+
+size_t Database::MaxNumDescriptors() const {
+  return MaxColumn("rows", "descriptors");
 }
 
 size_t Database::NumDescriptorsForImage(const image_t image_id) const {
@@ -600,7 +607,7 @@ void Database::WriteInlierMatches(
   SQLITE3_CALL(sqlite3_reset(sql_stmt_write_inlier_matches_));
 }
 
-void Database::UpdateCamera(const Camera& camera) {
+void Database::UpdateCamera(const Camera& camera) const {
   SQLITE3_CALL(
       sqlite3_bind_int64(sql_stmt_update_camera_, 1, camera.ModelId()));
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_camera_, 2,
@@ -623,7 +630,7 @@ void Database::UpdateCamera(const Camera& camera) {
   SQLITE3_CALL(sqlite3_reset(sql_stmt_update_camera_));
 }
 
-void Database::UpdateImage(const Image& image) {
+void Database::UpdateImage(const Image& image) const {
   SQLITE3_CALL(
       sqlite3_bind_text(sql_stmt_update_image_, 1, image.Name().c_str(),
                         static_cast<int>(image.Name().size()), SQLITE_STATIC));
@@ -647,6 +654,24 @@ void Database::UpdateImage(const Image& image) {
 
   SQLITE3_CALL(sqlite3_step(sql_stmt_update_image_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_update_image_));
+}
+
+void Database::DeleteMatches(const image_t image_id1,
+                             const image_t image_id2) const {
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_delete_matches_, 1,
+                                  static_cast<sqlite3_int64>(pair_id)));
+  SQLITE3_CALL(sqlite3_step(sql_stmt_delete_matches_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_delete_matches_));
+}
+
+void Database::DeleteInlierMatches(const image_t image_id1,
+                                   const image_t image_id2) const {
+  const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_delete_inlier_matches_, 1,
+                                  static_cast<sqlite3_int64>(pair_id)));
+  SQLITE3_CALL(sqlite3_step(sql_stmt_delete_inlier_matches_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_delete_inlier_matches_));
 }
 
 void Database::ClearMatches() const {
@@ -851,6 +876,19 @@ void Database::PrepareSQLStatements() {
   sql_stmts_.push_back(sql_stmt_write_inlier_matches_);
 
   //////////////////////////////////////////////////////////////////////////////
+  // delete_*
+  //////////////////////////////////////////////////////////////////////////////
+  sql = "DELETE FROM matches WHERE pair_id = ?;";
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
+                                  &sql_stmt_delete_matches_, 0));
+  sql_stmts_.push_back(sql_stmt_delete_matches_);
+
+  sql = "DELETE FROM inlier_matches WHERE pair_id = ?;";
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
+                                  &sql_stmt_delete_inlier_matches_, 0));
+  sql_stmts_.push_back(sql_stmt_delete_inlier_matches_);
+
+  //////////////////////////////////////////////////////////////////////////////
   // clear_*
   //////////////////////////////////////////////////////////////////////////////
   sql = "DELETE FROM matches;";
@@ -960,31 +998,6 @@ void Database::CreateInlierMatchesTable() const {
   SQLITE3_EXEC(database_, sql.c_str(), nullptr);
 }
 
-void Database::UpdateSchema() const {
-  // Query user_version
-  const std::string query_user_version_sql = "PRAGMA user_version;";
-  sqlite3_stmt* query_user_version_sql_stmt;
-  SQLITE3_CALL(sqlite3_prepare_v2(database_, query_user_version_sql.c_str(), -1,
-                                  &query_user_version_sql_stmt, 0));
-
-  // Update schema, if user_version < kSchemaVersion
-  if (SQLITE3_CALL(sqlite3_step(query_user_version_sql_stmt)) == SQLITE_ROW) {
-    const int user_version = sqlite3_column_int(query_user_version_sql_stmt, 0);
-    // user_version == 0: initial value from SQLite, nothing to do, since all
-    // tables were created in `Database::CreateTables`
-    if (user_version > 0) {
-      // if (user_version < 2) {}
-    }
-  }
-
-  SQLITE3_CALL(sqlite3_finalize(query_user_version_sql_stmt));
-
-  // Update user_version
-  const std::string update_user_version_sql =
-      "PRAGMA user_version = " + std::to_string(kSchemaVersion) + ";";
-  SQLITE3_EXEC(database_, update_user_version_sql.c_str(), nullptr);
-}
-
 bool Database::ExistsRowId(sqlite3_stmt* sql_stmt,
                            const sqlite3_int64 row_id) const {
   SQLITE3_CALL(
@@ -1062,6 +1075,24 @@ size_t Database::SumColumn(const std::string& column,
   SQLITE3_CALL(sqlite3_finalize(sql_stmt));
 
   return sum;
+}
+
+size_t Database::MaxColumn(const std::string& column,
+                           const std::string& table) const {
+  const std::string sql = "SELECT MAX(" + column + ") FROM " + table + ";";
+  sqlite3_stmt* sql_stmt;
+
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt, 0));
+
+  size_t max = 0;
+  const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt));
+  if (rc == SQLITE_ROW) {
+    max = static_cast<size_t>(sqlite3_column_int64(sql_stmt, 0));
+  }
+
+  SQLITE3_CALL(sqlite3_finalize(sql_stmt));
+
+  return max;
 }
 
 DatabaseTransaction::DatabaseTransaction(Database* database)

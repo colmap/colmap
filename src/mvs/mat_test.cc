@@ -26,6 +26,7 @@ BOOST_AUTO_TEST_CASE(TestEmpty) {
   BOOST_CHECK_EQUAL(mat.GetWidth(), 0);
   BOOST_CHECK_EQUAL(mat.GetHeight(), 0);
   BOOST_CHECK_EQUAL(mat.GetDepth(), 0);
+  BOOST_CHECK_EQUAL(mat.GetNumBytes(), 0);
 }
 
 BOOST_AUTO_TEST_CASE(TestNonEmpty) {
@@ -33,10 +34,14 @@ BOOST_AUTO_TEST_CASE(TestNonEmpty) {
   BOOST_CHECK_EQUAL(mat.GetWidth(), 1);
   BOOST_CHECK_EQUAL(mat.GetHeight(), 2);
   BOOST_CHECK_EQUAL(mat.GetDepth(), 3);
+  BOOST_CHECK_EQUAL(mat.GetNumBytes(), 24);
 }
 
 BOOST_AUTO_TEST_CASE(TestGetSet) {
   Mat<int> mat(1, 2, 3);
+
+  BOOST_CHECK_EQUAL(mat.GetNumBytes(), 24);
+
   mat.Set(0, 0, 0, 1);
   mat.Set(0, 0, 1, 2);
   mat.Set(0, 0, 2, 3);
@@ -64,6 +69,9 @@ BOOST_AUTO_TEST_CASE(TestGetSet) {
 
 BOOST_AUTO_TEST_CASE(TestFill) {
   Mat<int> mat(1, 2, 3);
+
+  BOOST_CHECK_EQUAL(mat.GetNumBytes(), 24);
+
   mat.Fill(10);
   mat.Set(0, 0, 0, 10);
   mat.Set(0, 0, 1, 10);

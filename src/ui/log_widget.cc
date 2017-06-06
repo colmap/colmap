@@ -130,8 +130,8 @@ void LogWidget::SaveLog() {
     return;
   }
 
-  std::ofstream file(log_path.c_str(), std::ios::app);
-  CHECK(file.is_open());
+  std::ofstream file(log_path, std::ios::app);
+  CHECK(file.is_open()) << log_path;
   file << text_box_->toPlainText().toUtf8().constData();
 }
 

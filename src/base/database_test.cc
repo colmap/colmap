@@ -61,7 +61,9 @@ BOOST_AUTO_TEST_CASE(TestEmpty) {
   BOOST_CHECK_EQUAL(database.NumCameras(), 0);
   BOOST_CHECK_EQUAL(database.NumImages(), 0);
   BOOST_CHECK_EQUAL(database.NumKeypoints(), 0);
+  BOOST_CHECK_EQUAL(database.MaxNumKeypoints(), 0);
   BOOST_CHECK_EQUAL(database.NumDescriptors(), 0);
+  BOOST_CHECK_EQUAL(database.MaxNumDescriptors(), 0);
   BOOST_CHECK_EQUAL(database.NumMatches(), 0);
   BOOST_CHECK_EQUAL(database.NumMatchedImagePairs(), 0);
   BOOST_CHECK_EQUAL(database.NumVerifiedImagePairs(), 0);
@@ -216,7 +218,15 @@ BOOST_AUTO_TEST_CASE(TestKeypoints) {
     BOOST_CHECK_EQUAL(keypoints[i].orientation, keypoints_read[i].orientation);
   }
   BOOST_CHECK_EQUAL(database.NumKeypoints(), 10);
+  BOOST_CHECK_EQUAL(database.MaxNumKeypoints(), 10);
   BOOST_CHECK_EQUAL(database.NumKeypointsForImage(image.ImageId()), 10);
+  const FeatureKeypoints keypoints2 = FeatureKeypoints(20);
+  image.SetName("test2");
+  image.SetImageId(database.WriteImage(image));
+  database.WriteKeypoints(image.ImageId(), keypoints2);
+  BOOST_CHECK_EQUAL(database.NumKeypoints(), 30);
+  BOOST_CHECK_EQUAL(database.MaxNumKeypoints(), 20);
+  BOOST_CHECK_EQUAL(database.NumKeypointsForImage(image.ImageId()), 20);
 }
 
 BOOST_AUTO_TEST_CASE(TestDescriptors) {
@@ -241,7 +251,15 @@ BOOST_AUTO_TEST_CASE(TestDescriptors) {
     }
   }
   BOOST_CHECK_EQUAL(database.NumDescriptors(), 10);
+  BOOST_CHECK_EQUAL(database.MaxNumDescriptors(), 10);
   BOOST_CHECK_EQUAL(database.NumDescriptorsForImage(image.ImageId()), 10);
+  const FeatureDescriptors descriptors2 = FeatureDescriptors(20, 128);
+  image.SetName("test2");
+  image.SetImageId(database.WriteImage(image));
+  database.WriteDescriptors(image.ImageId(), descriptors2);
+  BOOST_CHECK_EQUAL(database.NumDescriptors(), 30);
+  BOOST_CHECK_EQUAL(database.MaxNumDescriptors(), 20);
+  BOOST_CHECK_EQUAL(database.NumDescriptorsForImage(image.ImageId()), 20);
 }
 
 BOOST_AUTO_TEST_CASE(TestMatches) {
@@ -260,6 +278,10 @@ BOOST_AUTO_TEST_CASE(TestMatches) {
   BOOST_CHECK_EQUAL(database.ReadAllMatches().size(), 1);
   BOOST_CHECK_EQUAL(database.ReadAllMatches()[0].first,
                     Database::ImagePairToPairId(image_id1, image_id2));
+  BOOST_CHECK_EQUAL(database.NumMatches(), 1000);
+  database.DeleteMatches(image_id1, image_id2);
+  BOOST_CHECK_EQUAL(database.NumMatches(), 0);
+  database.WriteMatches(image_id1, image_id2, matches);
   BOOST_CHECK_EQUAL(database.NumMatches(), 1000);
   database.ClearMatches();
   BOOST_CHECK_EQUAL(database.NumMatches(), 0);
@@ -297,6 +319,10 @@ BOOST_AUTO_TEST_CASE(TestInlierMatches) {
   BOOST_CHECK_EQUAL(image_pairs[0].first, image_id1);
   BOOST_CHECK_EQUAL(image_pairs[0].second, image_id2);
   BOOST_CHECK_EQUAL(num_inliers[0], two_view_geometry.inlier_matches.size());
+  BOOST_CHECK_EQUAL(database.NumInlierMatches(), 1000);
+  database.DeleteInlierMatches(image_id1, image_id2);
+  BOOST_CHECK_EQUAL(database.NumInlierMatches(), 0);
+  database.WriteInlierMatches(image_id1, image_id2, two_view_geometry);
   BOOST_CHECK_EQUAL(database.NumInlierMatches(), 1000);
   database.ClearInlierMatches();
   BOOST_CHECK_EQUAL(database.NumInlierMatches(), 0);

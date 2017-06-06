@@ -12,8 +12,10 @@ COLMAP_ADD_LIBRARY(base
     feature_extraction.h feature_extraction.cc
     feature_matching.h feature_matching.cc
     gps.h gps.cc
+    graph_cut.h graph_cut.cc
     homography_matrix.h homography_matrix.cc
     image.h image.cc
+    image_reader.h image_reader.cc
     line.h line.cc
     point2d.h point2d.cc
     point3d.h point3d.cc
@@ -22,6 +24,7 @@ COLMAP_ADD_LIBRARY(base
     projection.h projection.cc
     reconstruction.h reconstruction.cc
     reconstruction_manager.h reconstruction_manager.cc
+    scene_clustering.h scene_clustering.cc
     scene_graph.h scene_graph.cc
     similarity_transform.h similarity_transform.cc
     track.h track.cc
@@ -42,6 +45,8 @@ COLMAP_ADD_TEST(essential_matrix_utils_test essential_matrix_test.cc)
 COLMAP_ADD_TEST(feature_test feature_test.cc)
 COLMAP_ADD_TEST(feature_extraction_test feature_extraction_test.cc)
 COLMAP_ADD_TEST(feature_matching_test feature_matching_test.cc)
+COLMAP_ADD_TEST(gps_test gps_test.cc)
+COLMAP_ADD_TEST(graph_cut_test graph_cut_test.cc)
 COLMAP_ADD_TEST(homography_matrix_utils_test homography_matrix_test.cc)
 COLMAP_ADD_TEST(image_test image_test.cc)
 COLMAP_ADD_TEST(line_test line_test.cc)
@@ -52,6 +57,7 @@ COLMAP_ADD_TEST(pose_test pose_test.cc)
 COLMAP_ADD_TEST(projection_test projection_test.cc)
 COLMAP_ADD_TEST(reconstruction_test reconstruction_test.cc)
 COLMAP_ADD_TEST(reconstruction_manager_test reconstruction_manager_test.cc)
+COLMAP_ADD_TEST(scene_clustering_test scene_clustering_test.cc)
 COLMAP_ADD_TEST(scene_graph_test scene_graph_test.cc)
 COLMAP_ADD_TEST(similarity_transform_test similarity_transform_test.cc)
 COLMAP_ADD_TEST(track_test track_test.cc)

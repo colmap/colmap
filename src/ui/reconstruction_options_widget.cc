@@ -68,7 +68,7 @@ MapperRegistrationOptionsWidget::MapperRegistrationOptionsWidget(
                "abs_pose_min_num_inliers");
   AddOptionDouble(&options->mapper->mapper.abs_pose_min_inlier_ratio,
                   "abs_pose_min_inlier_ratio");
-  AddOptionInt(&options->mapper->mapper.max_reg_trials, "max_reg_trials");
+  AddOptionInt(&options->mapper->mapper.max_reg_trials, "max_reg_trials", 1);
 }
 
 MapperInitializationOptionsWidget::MapperInitializationOptionsWidget(
@@ -84,6 +84,8 @@ MapperInitializationOptionsWidget::MapperInitializationOptionsWidget(
                   "init_max_forward_motion");
   AddOptionDouble(&options->mapper->mapper.init_min_tri_angle,
                   "init_min_tri_angle [deg]");
+  AddOptionInt(&options->mapper->mapper.init_max_reg_trials,
+                  "init_max_reg_trials", 1);
 }
 
 MapperBundleAdjustmentOptionsWidget::MapperBundleAdjustmentOptionsWidget(

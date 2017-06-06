@@ -68,8 +68,20 @@ std::string GetParentDir(const std::string& path);
 template <typename... T>
 std::string JoinPaths(T const&... paths);
 
+// Return list of files in directory.
+std::vector<std::string> GetFileList(const std::string& path);
+
 // Return list of files, recursively in all sub-directories.
 std::vector<std::string> GetRecursiveFileList(const std::string& path);
+
+// Return list of directories, recursively in all sub-directories.
+std::vector<std::string> GetDirList(const std::string& path);
+
+// Return list of directories, recursively in all sub-directories.
+std::vector<std::string> GetRecursiveDirList(const std::string& path);
+
+// Get the size in bytes of a file.
+size_t GetFileSize(const std::string& path);
 
 // Print first-order heading with over- and underscores to `std::cout`.
 void PrintHeading1(const std::string& heading);

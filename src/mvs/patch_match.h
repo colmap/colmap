@@ -34,6 +34,7 @@ namespace mvs {
 
 class ConsistencyGraph;
 class PatchMatchCuda;
+class Workspace;
 
 // This is a wrapper class around the actual PatchMatchCuda implementation. This
 // class is necessary to hide Cuda code from any boost or Eigen code, since
@@ -82,7 +83,7 @@ class PatchMatch {
 
     // Whether to add a regularized geometric consistency term to the cost
     // function. If true, the `depth_maps` and `normal_maps` must not be null.
-    bool geom_consistency = false;
+    bool geom_consistency = true;
 
     // The relative weight of the geometric consistency term w.r.t. to
     // the photo-consistency term.
@@ -109,6 +110,16 @@ class PatchMatch {
     // to be geometrically consistent.
     double filter_geom_consistency_max_cost = 1.0f;
 
+    // Cache size in gigabytes for patch match, which keeps the bitmaps, depth
+    // maps, and normal maps of this number of images in memory. A higher value
+    // leads to less disk access and faster computation, while a lower value
+    // leads to reduced memory usage. Note that a single image can consume a lot
+    // of memory, if the consistency graph is dense.
+    double cache_size = 32.0;
+
+    // Whether to write the consistency graph.
+    bool write_consistency_graph = false;
+
     void Print() const;
     bool Check() const {
       CHECK_OPTION_LT(depth_min, depth_max);
@@ -131,6 +142,7 @@ class PatchMatch {
       CHECK_OPTION_LE(filter_min_triangulation_angle, 180.0f);
       CHECK_OPTION_GE(filter_min_num_consistent, 0);
       CHECK_OPTION_GE(filter_geom_consistency_max_cost, 0.0f);
+      CHECK_OPTION_GT(cache_size, 0);
       return true;
     }
   };
@@ -216,11 +228,23 @@ class PatchMatchController : public Thread {
 
  private:
   void Run();
+  void ReadWorkspace();
+  void ReadProblems();
+  void ReadGpuIndices();
+  void ProcessProblem(const PatchMatch::Options& options,
+                      const size_t problem_idx);
 
   const PatchMatch::Options options_;
   const std::string workspace_path_;
   const std::string workspace_format_;
   const std::string pmvs_option_name_;
+
+  std::unique_ptr<ThreadPool> thread_pool_;
+  std::mutex workspace_mutex_;
+  std::unique_ptr<Workspace> workspace_;
+  std::vector<PatchMatch::Problem> problems_;
+  std::vector<int> gpu_indices_;
+  std::vector<std::pair<float, float>> depth_ranges_;
 };
 
 #endif

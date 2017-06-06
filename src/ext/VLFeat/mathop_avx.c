@@ -38,7 +38,7 @@ the terms of the BSD license (see the COPYING file).
 #include <immintrin.h>
 #include "generic.h"
 #include "mathop.h"
-#include "float.th"
+#include "float.h"
 
 VL_INLINE T
 VL_XCAT(_vl_vhsum_avx_, SFX)(VTYPEavx x)

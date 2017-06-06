@@ -59,19 +59,10 @@ steps, an exemplary sequence of commands to reconstruct the scene would be::
         --output_type COLMAP \
         --max_image_size 2000
 
-    $ ./src/exe/dense_stereo \
-        --workspace_path $PROJECT_PATH/dense \
-        --workspace_format COLMAP \
-        --DenseStereo.max_image_size 0 \
-        --DenseStereo.filter false \
-        --DenseStereo.geom_consistency false \
-        --DenseStereo.num_iterations 4
-
     $ ./exe/dense_stereo \
         --workspace_path $PROJECT_PATH/dense \
         --workspace_format COLMAP \
         --DenseStereo.max_image_size 0 \
-        --DenseStereo.filter true \
         --DenseStereo.geom_consistency true
 
     $ ./exe/dense_fuser \

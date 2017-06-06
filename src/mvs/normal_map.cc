@@ -43,21 +43,26 @@ void NormalMap::Rescale(const float factor) {
 
   // Resample the normal map.
   for (size_t d = 0; d < 3; ++d) {
-    const int offset = d * width_ * height_;
+    const size_t offset = d * width_ * height_;
+    const size_t new_offset = d * new_width * new_height;
     DownsampleImage(data_.data() + offset, height_, width_, new_height,
-                    new_width, new_data.data());
-    std::copy(new_data.begin(), new_data.end(), data_.begin() + offset);
+                    new_width, new_data.data() + new_offset);
   }
 
   data_ = new_data;
   width_ = new_width;
   height_ = new_height;
 
+  data_.shrink_to_fit();
+
   // Re-normalize the normal vectors.
   for (size_t r = 0; r < height_; ++r) {
     for (size_t c = 0; c < width_; ++c) {
       Eigen::Vector3f normal(Get(r, c, 0), Get(r, c, 1), Get(r, c, 2));
-      normal /= normal.norm();
+      const float squared_norm = normal.squaredNorm();
+      if (squared_norm > 0) {
+        normal /= std::sqrt(squared_norm);
+      }
       Set(r, c, 0, normal(0));
       Set(r, c, 1, normal(1));
       Set(r, c, 2, normal(2));
@@ -71,8 +76,7 @@ void NormalMap::Downsize(const size_t max_width, const size_t max_height) {
   }
   const float factor_x = static_cast<float>(max_width) / width_;
   const float factor_y = static_cast<float>(max_height) / height_;
-  const float factor = std::min(factor_x, factor_y);
-  Rescale(factor);
+  Rescale(std::min(factor_x, factor_y));
 }
 
 Bitmap NormalMap::ToBitmap() const {

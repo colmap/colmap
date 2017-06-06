@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 
 project(COLMAP)
 
-set(COLMAP_VERSION "2.1")
+set(COLMAP_VERSION "3.0")
 
 
 ################################################################################
@@ -72,7 +72,7 @@ find_package(Ceres REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
 find_package(Glew REQUIRED)
-find_package(Git REQUIRED)
+find_package(Git)
 
 if(CUDA_ENABLED)
     find_package(CUDA QUIET)

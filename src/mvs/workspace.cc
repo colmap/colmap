@@ -21,70 +21,87 @@
 namespace colmap {
 namespace mvs {
 
-Workspace::Workspace(const size_t cache_size, const std::string& workspace_path,
-                     const std::string& workspace_format,
-                     const std::string& input_type)
-    : workspace_path_(workspace_path),
-      workspace_format_(workspace_format),
-      input_type_(input_type) {
-  model_.Read(workspace_path_, workspace_format_);
+Workspace::CachedImage::CachedImage() {}
 
-  bitmaps_.reset(new LRUCache<int, Bitmap>(cache_size, [&](const int image_id) {
-    Bitmap bitmap;
-    bitmap.Read(GetBitmapPath(image_id), true);
-    return bitmap;
-  }));
-
-  depth_maps_.reset(
-      new LRUCache<int, DepthMap>(cache_size, [&](const int image_id) {
-        DepthMap depth_map;
-        depth_map.Read(GetDepthMapPath(image_id));
-        return depth_map;
-      }));
-
-  normal_maps_.reset(
-      new LRUCache<int, NormalMap>(cache_size, [&](const int image_id) {
-        NormalMap normal_map;
-        normal_map.Read(GetNormalMapPath(image_id));
-        return normal_map;
-      }));
-
-  consistency_graphs_.reset(
-      new LRUCache<int, ConsistencyGraph>(cache_size, [&](const int image_id) {
-        ConsistencyGraph consistency_graph;
-        consistency_graph.Read(GetConsistencyGraphPath(image_id));
-        return consistency_graph;
-      }));
+Workspace::CachedImage::CachedImage(CachedImage&& other) {
+  num_bytes = other.num_bytes;
+  bitmap = std::move(other.bitmap);
+  depth_map = std::move(other.depth_map);
+  normal_map = std::move(other.normal_map);
 }
+
+Workspace::CachedImage& Workspace::CachedImage::operator=(CachedImage&& other) {
+  if (this != &other) {
+    num_bytes = other.num_bytes;
+    bitmap = std::move(other.bitmap);
+    depth_map = std::move(other.depth_map);
+    normal_map = std::move(other.normal_map);
+  }
+  return *this;
+}
+
+size_t Workspace::CachedImage::NumBytes() const { return num_bytes; }
+
+Workspace::Workspace(const Options& options)
+    : options_(options),
+      cache_(1024 * 1024 * 1024 * options_.cache_size,
+             [](const int image_id) { return CachedImage(); }) {
+  StringToLower(&options_.input_type);
+  model_.Read(options_.workspace_path, options_.workspace_format);
+  if (options_.max_image_size > 0) {
+    for (auto& image : model_.images) {
+      image.Downsize(options_.max_image_size, options_.max_image_size);
+    }
+  }
+}
+
+void Workspace::ClearCache() { cache_.Clear(); }
 
 const Model& Workspace::GetModel() const { return model_; }
 
 const Bitmap& Workspace::GetBitmap(const int image_id) {
-  return bitmaps_->Get(image_id);
+  auto& cached_image = cache_.GetMutable(image_id);
+  if (!cached_image.bitmap) {
+    cached_image.bitmap.reset(new Bitmap());
+    cached_image.bitmap->Read(GetBitmapPath(image_id), options_.image_as_rgb);
+    if (options_.max_image_size > 0) {
+      cached_image.bitmap->Rescale(model_.images.at(image_id).GetWidth(),
+                                   model_.images.at(image_id).GetHeight());
+    }
+    cached_image.num_bytes += cached_image.bitmap->NumBytes();
+    cache_.UpdateNumBytes(image_id);
+  }
+  return *cached_image.bitmap;
 }
 
 const DepthMap& Workspace::GetDepthMap(const int image_id) {
-  return depth_maps_->Get(image_id);
+  auto& cached_image = cache_.GetMutable(image_id);
+  if (!cached_image.depth_map) {
+    cached_image.depth_map.reset(new DepthMap());
+    cached_image.depth_map->Read(GetDepthMapPath(image_id));
+    if (options_.max_image_size > 0) {
+      cached_image.depth_map->Downsize(model_.images.at(image_id).GetWidth(),
+                                       model_.images.at(image_id).GetHeight());
+    }
+    cached_image.num_bytes += cached_image.depth_map->GetNumBytes();
+    cache_.UpdateNumBytes(image_id);
+  }
+  return *cached_image.depth_map;
 }
 
 const NormalMap& Workspace::GetNormalMap(const int image_id) {
-  return normal_maps_->Get(image_id);
-}
-
-const ConsistencyGraph& Workspace::GetConsistencyGraph(const int image_id) {
-  return consistency_graphs_->Get(image_id);
-}
-
-bool Workspace::HasImage(const int image_id) const {
-  return ExistsFile(GetBitmapPath(image_id)) &&
-         ExistsFile(GetDepthMapPath(image_id)) &&
-         ExistsFile(GetNormalMapPath(image_id)) &&
-         ExistsFile(GetConsistencyGraphPath(image_id));
-}
-
-std::string Workspace::GetFileName(const int image_id) const {
-  const auto& image_name = model_.GetImageName(image_id);
-  return StringPrintf("%s.%s.bin", image_name.c_str(), input_type_.c_str());
+  auto& cached_image = cache_.GetMutable(image_id);
+  if (!cached_image.normal_map) {
+    cached_image.normal_map.reset(new NormalMap());
+    cached_image.normal_map->Read(GetNormalMapPath(image_id));
+    if (options_.max_image_size > 0) {
+      cached_image.normal_map->Downsize(model_.images.at(image_id).GetWidth(),
+                                        model_.images.at(image_id).GetHeight());
+    }
+    cached_image.num_bytes += cached_image.normal_map->GetNumBytes();
+    cache_.UpdateNumBytes(image_id);
+  }
+  return *cached_image.normal_map;
 }
 
 std::string Workspace::GetBitmapPath(const int image_id) const {
@@ -92,17 +109,31 @@ std::string Workspace::GetBitmapPath(const int image_id) const {
 }
 
 std::string Workspace::GetDepthMapPath(const int image_id) const {
-  return JoinPaths(workspace_path_, "stereo/depth_maps", GetFileName(image_id));
+  return JoinPaths(options_.workspace_path, "stereo/depth_maps",
+                   GetFileName(image_id));
 }
 
 std::string Workspace::GetNormalMapPath(const int image_id) const {
-  return JoinPaths(workspace_path_, "stereo/normal_maps",
+  return JoinPaths(options_.workspace_path, "stereo/normal_maps",
                    GetFileName(image_id));
 }
 
-std::string Workspace::GetConsistencyGraphPath(const int image_id) const {
-  return JoinPaths(workspace_path_, "stereo/consistency_graphs",
-                   GetFileName(image_id));
+bool Workspace::HasBitmap(const int image_id) const {
+  return ExistsFile(GetBitmapPath(image_id));
+}
+
+bool Workspace::HasDepthMap(const int image_id) const {
+  return ExistsFile(GetDepthMapPath(image_id));
+}
+
+bool Workspace::HasNormalMap(const int image_id) const {
+  return ExistsFile(GetNormalMapPath(image_id));
+}
+
+std::string Workspace::GetFileName(const int image_id) const {
+  const auto& image_name = model_.GetImageName(image_id);
+  return StringPrintf("%s.%s.bin", image_name.c_str(),
+                      options_.input_type.c_str());
 }
 
 }  // namespace mvs

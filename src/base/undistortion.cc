@@ -43,7 +43,7 @@ void WriteProjectionMatrix(const std::string& path, const Camera& camera,
   CHECK_EQ(camera.ModelId(), PinholeCameraModel::model_id);
 
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open());
+  CHECK(file.is_open()) << path;
 
   Eigen::Matrix3d calib_matrix = Eigen::Matrix3d::Identity();
   calib_matrix(0, 0) = camera.FocalLengthX();
@@ -77,20 +77,6 @@ void WriteCOLMAPCommands(const bool geometric,
             << std::endl;
     }
     *file << indent << "  --DenseStereo.max_image_size 2000 \\" << std::endl;
-    *file << indent << "  --DenseStereo.filter false \\" << std::endl;
-    *file << indent << "  --DenseStereo.geom_consistency false" << std::endl;
-
-    *file << indent << "$COLMAP_EXE_PATH/dense_stereo \\" << std::endl;
-    *file << indent << "  --workspace_path " << workspace_path << " \\"
-          << std::endl;
-    *file << indent << "  --workspace_format " << workspace_format << " \\"
-          << std::endl;
-    if (workspace_format == "PMVS") {
-      *file << indent << "  --pmvs_option_name " << pmvs_option_name << " \\"
-            << std::endl;
-    }
-    *file << indent << "  --DenseStereo.max_image_size 2000 \\" << std::endl;
-    *file << indent << "  --DenseStereo.filter true \\" << std::endl;
     *file << indent << "  --DenseStereo.geom_consistency true" << std::endl;
   } else {
     *file << indent << "$COLMAP_EXE_PATH/dense_stereo \\" << std::endl;
@@ -102,7 +88,8 @@ void WriteCOLMAPCommands(const bool geometric,
       *file << indent << "  --pmvs_option_name " << pmvs_option_name << " \\"
             << std::endl;
     }
-    *file << indent << "  --DenseStereo.max_image_size 2000" << std::endl;
+    *file << indent << "  --DenseStereo.max_image_size 2000 \\" << std::endl;
+    *file << indent << "  --DenseStereo.geom_consistency false" << std::endl;
   }
 
   *file << indent << "$COLMAP_EXE_PATH/dense_fuser \\" << std::endl;
@@ -218,9 +205,9 @@ void COLMAPUndistorter::Undistort(const size_t reg_image_idx) const {
 }
 
 void COLMAPUndistorter::WritePatchMatchConfig() const {
-  std::ofstream file(JoinPaths(output_path_, "stereo/patch-match.cfg"),
-                     std::ios::trunc);
-  CHECK(file.is_open());
+  const auto path = JoinPaths(output_path_, "stereo/patch-match.cfg");
+  std::ofstream file(path, std::ios::trunc);
+  CHECK(file.is_open()) << path;
   for (const auto image_id : reconstruction_.RegImageIds()) {
     const auto& image = reconstruction_.Image(image_id);
     file << image.Name() << std::endl;
@@ -229,9 +216,9 @@ void COLMAPUndistorter::WritePatchMatchConfig() const {
 }
 
 void COLMAPUndistorter::WriteFusionConfig() const {
-  std::ofstream file(JoinPaths(output_path_, "stereo/fusion.cfg"),
-                     std::ios::trunc);
-  CHECK(file.is_open());
+  const auto path = JoinPaths(output_path_, "stereo/fusion.cfg");
+  std::ofstream file(path, std::ios::trunc);
+  CHECK(file.is_open()) << path;
   for (const auto image_id : reconstruction_.RegImageIds()) {
     const auto& image = reconstruction_.Image(image_id);
     file << image.Name() << std::endl;
@@ -243,7 +230,7 @@ void COLMAPUndistorter::WriteScript(const bool geometric) const {
       JoinPaths(output_path_, geometric ? "run-colmap-geometric.sh"
                                         : "run-colmap-photometric.sh");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open());
+  CHECK(file.is_open()) << path;
 
   file << "# You must set $COLMAP_EXE_PATH to " << std::endl
        << "# the directory containing the COLMAP executables." << std::endl;
@@ -349,8 +336,9 @@ void PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
 }
 
 void PMVSUndistorter::WriteVisibilityData() const {
-  std::ofstream file(JoinPaths(output_path_, "pmvs/vis.dat"), std::ios::trunc);
-  CHECK(file.is_open());
+  const auto path = JoinPaths(output_path_, "pmvs/vis.dat");
+  std::ofstream file(path, std::ios::trunc);
+  CHECK(file.is_open()) << path;
 
   file << "VISDATA" << std::endl;
   file << reconstruction_.NumRegImages() << std::endl;
@@ -387,8 +375,9 @@ void PMVSUndistorter::WriteVisibilityData() const {
 }
 
 void PMVSUndistorter::WritePMVSScript() const {
-  std::ofstream file(JoinPaths(output_path_, "run-pmvs.sh"), std::ios::trunc);
-  CHECK(file.is_open());
+  const auto path = JoinPaths(output_path_, "run-pmvs.sh");
+  std::ofstream file(path, std::ios::trunc);
+  CHECK(file.is_open()) << path;
 
   file << "# You must set $PMVS_EXE_PATH to " << std::endl
        << "# the directory containing the CMVS-PMVS executables." << std::endl;
@@ -396,9 +385,9 @@ void PMVSUndistorter::WritePMVSScript() const {
 }
 
 void PMVSUndistorter::WriteCMVSPMVSScript() const {
-  std::ofstream file(JoinPaths(output_path_, "run-cmvs-pmvs.sh"),
-                     std::ios::trunc);
-  CHECK(file.is_open());
+  const auto path = JoinPaths(output_path_, "run-cmvs-pmvs.sh");
+  std::ofstream file(path, std::ios::trunc);
+  CHECK(file.is_open()) << path;
 
   file << "# You must set $PMVS_EXE_PATH to " << std::endl
        << "# the directory containing the CMVS-PMVS executables." << std::endl;
@@ -420,7 +409,7 @@ void PMVSUndistorter::WriteCOLMAPScript(const bool geometric) const {
       JoinPaths(output_path_, geometric ? "run-colmap-geometric.sh"
                                         : "run-colmap-photometric.sh");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open());
+  CHECK(file.is_open()) << path;
 
   file << "# You must set $COLMAP_EXE_PATH to " << std::endl
        << "# the directory containing the COLMAP executables." << std::endl;
@@ -433,7 +422,7 @@ void PMVSUndistorter::WriteCMVSCOLMAPScript(const bool geometric) const {
       JoinPaths(output_path_, geometric ? "run-cmvs-colmap-geometric.sh"
                                         : "run-cmvs-colmap-photometric.sh");
   std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open());
+  CHECK(file.is_open()) << path;
 
   file << "# You must set $PMVS_EXE_PATH to " << std::endl
        << "# the directory containing the CMVS-PMVS executables" << std::endl;
@@ -456,9 +445,9 @@ void PMVSUndistorter::WriteCMVSCOLMAPScript(const bool geometric) const {
 }
 
 void PMVSUndistorter::WriteOptionFile() const {
-  std::ofstream file(JoinPaths(output_path_, "pmvs/option-all"),
-                     std::ios::trunc);
-  CHECK(file.is_open());
+  const auto path = JoinPaths(output_path_, "pmvs/option-all");
+  std::ofstream file(path, std::ios::trunc);
+  CHECK(file.is_open()) << path;
 
   file << "# Generated by COLMAP - all images, no clustering." << std::endl;
 
@@ -644,9 +633,9 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
   undistorted_bitmap1.Write(output_image1_path);
   undistorted_bitmap2.Write(output_image2_path);
 
-  std::ofstream Q_file(JoinPaths(output_path_, stereo_pair_name, "Q.txt"),
-                       std::ios::trunc);
-  CHECK(Q_file.is_open());
+  const auto Q_path = JoinPaths(output_path_, stereo_pair_name, "Q.txt");
+  std::ofstream Q_file(Q_path, std::ios::trunc);
+  CHECK(Q_file.is_open()) << Q_path;
   WriteMatrix(Q, &Q_file);
 }
 

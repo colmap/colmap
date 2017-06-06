@@ -77,12 +77,18 @@ class Database {
   // Sum of `rows` column in `keypoints` table, i.e. number of total keypoints.
   size_t NumKeypoints() const;
 
+  // The number of keypoints for the image with most features.
+  size_t MaxNumKeypoints() const;
+
   // Number of descriptors for specific image.
   size_t NumKeypointsForImage(const image_t image_id) const;
 
   // Sum of `rows` column in `descriptors` table,
   // i.e. number of total descriptors.
   size_t NumDescriptors() const;
+
+  // The number of descriptors for the image with most features.
+  size_t MaxNumDescriptors() const;
 
   // Number of descriptors for specific image.
   size_t NumDescriptorsForImage(const image_t image_id) const;
@@ -168,11 +174,18 @@ class Database {
 
   // Update an existing camera in the database. The user is responsible for
   // making sure that the entry already exists.
-  void UpdateCamera(const Camera& camera);
+  void UpdateCamera(const Camera& camera) const;
 
   // Update an existing image in the database. The user is responsible for
   // making sure that the entry already exists.
-  void UpdateImage(const Image& image);
+  void UpdateImage(const Image& image) const;
+
+  // Delete matches of an image pair.
+  void DeleteMatches(const image_t image_id1, const image_t image_id2) const;
+
+  // Delete inlier matches of an image pair.
+  void DeleteInlierMatches(const image_t image_id1,
+                           const image_t image_id2) const;
 
   // Clear the entire matches table.
   void ClearMatches() const;
@@ -205,9 +218,6 @@ class Database {
   void CreateMatchesTable() const;
   void CreateInlierMatchesTable() const;
 
-  // Keep track of database schema version.
-  void UpdateSchema() const;
-
   bool ExistsRowId(sqlite3_stmt* sql_stmt, const sqlite3_int64 row_id) const;
   bool ExistsRowString(sqlite3_stmt* sql_stmt,
                        const std::string& row_entry) const;
@@ -216,8 +226,9 @@ class Database {
   size_t CountRowsForEntry(sqlite3_stmt* sql_stmt,
                            const sqlite3_int64 row_id) const;
   size_t SumColumn(const std::string& column, const std::string& table) const;
+  size_t MaxColumn(const std::string& column, const std::string& table) const;
 
-  sqlite3* database_;
+  sqlite3* database_ = nullptr;
 
   // Used to ensure that only one transaction is active at the same time.
   std::mutex transaction_mutex_;
@@ -226,49 +237,53 @@ class Database {
   std::vector<sqlite3_stmt*> sql_stmts_;
 
   // num_*
-  sqlite3_stmt* sql_stmt_num_keypoints_;
-  sqlite3_stmt* sql_stmt_num_descriptors_;
+  sqlite3_stmt* sql_stmt_num_keypoints_ = nullptr;
+  sqlite3_stmt* sql_stmt_num_descriptors_ = nullptr;
 
   // exists_*
-  sqlite3_stmt* sql_stmt_exists_camera_;
-  sqlite3_stmt* sql_stmt_exists_image_id_;
-  sqlite3_stmt* sql_stmt_exists_image_name_;
-  sqlite3_stmt* sql_stmt_exists_keypoints_;
-  sqlite3_stmt* sql_stmt_exists_descriptors_;
-  sqlite3_stmt* sql_stmt_exists_matches_;
-  sqlite3_stmt* sql_stmt_exists_inlier_matches_;
+  sqlite3_stmt* sql_stmt_exists_camera_ = nullptr;
+  sqlite3_stmt* sql_stmt_exists_image_id_ = nullptr;
+  sqlite3_stmt* sql_stmt_exists_image_name_ = nullptr;
+  sqlite3_stmt* sql_stmt_exists_keypoints_ = nullptr;
+  sqlite3_stmt* sql_stmt_exists_descriptors_ = nullptr;
+  sqlite3_stmt* sql_stmt_exists_matches_ = nullptr;
+  sqlite3_stmt* sql_stmt_exists_inlier_matches_ = nullptr;
 
   // add_*
-  sqlite3_stmt* sql_stmt_add_camera_;
-  sqlite3_stmt* sql_stmt_add_image_;
+  sqlite3_stmt* sql_stmt_add_camera_ = nullptr;
+  sqlite3_stmt* sql_stmt_add_image_ = nullptr;
 
   // update_*
-  sqlite3_stmt* sql_stmt_update_camera_;
-  sqlite3_stmt* sql_stmt_update_image_;
+  sqlite3_stmt* sql_stmt_update_camera_ = nullptr;
+  sqlite3_stmt* sql_stmt_update_image_ = nullptr;
 
   // read_*
-  sqlite3_stmt* sql_stmt_read_camera_;
-  sqlite3_stmt* sql_stmt_read_cameras_;
-  sqlite3_stmt* sql_stmt_read_image_id_;
-  sqlite3_stmt* sql_stmt_read_image_name_;
-  sqlite3_stmt* sql_stmt_read_images_;
-  sqlite3_stmt* sql_stmt_read_keypoints_;
-  sqlite3_stmt* sql_stmt_read_descriptors_;
-  sqlite3_stmt* sql_stmt_read_matches_;
-  sqlite3_stmt* sql_stmt_read_matches_all_;
-  sqlite3_stmt* sql_stmt_read_inlier_matches_;
-  sqlite3_stmt* sql_stmt_read_inlier_matches_all_;
-  sqlite3_stmt* sql_stmt_read_inlier_matches_graph_;
+  sqlite3_stmt* sql_stmt_read_camera_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_cameras_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_image_id_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_image_name_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_images_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_keypoints_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_descriptors_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_matches_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_matches_all_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_inlier_matches_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_inlier_matches_all_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_inlier_matches_graph_ = nullptr;
 
   // write_*
-  sqlite3_stmt* sql_stmt_write_keypoints_;
-  sqlite3_stmt* sql_stmt_write_descriptors_;
-  sqlite3_stmt* sql_stmt_write_matches_;
-  sqlite3_stmt* sql_stmt_write_inlier_matches_;
+  sqlite3_stmt* sql_stmt_write_keypoints_ = nullptr;
+  sqlite3_stmt* sql_stmt_write_descriptors_ = nullptr;
+  sqlite3_stmt* sql_stmt_write_matches_ = nullptr;
+  sqlite3_stmt* sql_stmt_write_inlier_matches_ = nullptr;
+
+  // delete_*
+  sqlite3_stmt* sql_stmt_delete_matches_ = nullptr;
+  sqlite3_stmt* sql_stmt_delete_inlier_matches_ = nullptr;
 
   // clear_*
-  sqlite3_stmt* sql_stmt_clear_matches_;
-  sqlite3_stmt* sql_stmt_clear_inlier_matches_;
+  sqlite3_stmt* sql_stmt_clear_matches_ = nullptr;
+  sqlite3_stmt* sql_stmt_clear_inlier_matches_ = nullptr;
 };
 
 // This class automatically manages the scope of a database transaction by

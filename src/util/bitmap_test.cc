@@ -74,6 +74,15 @@ BOOST_AUTO_TEST_CASE(TestBitsPerPixel) {
   BOOST_CHECK_EQUAL(bitmap.BitsPerPixel(), 8);
 }
 
+BOOST_AUTO_TEST_CASE(TestNumBytes) {
+  Bitmap bitmap;
+  BOOST_CHECK_EQUAL(bitmap.NumBytes(), 0);
+  bitmap.Allocate(100, 100, true);
+  BOOST_CHECK_EQUAL(bitmap.NumBytes(), 3 * 100 * 100);
+  bitmap.Allocate(100, 100, false);
+  BOOST_CHECK_EQUAL(bitmap.NumBytes(), 100 * 100);
+}
+
 BOOST_AUTO_TEST_CASE(TestConvertToRowMajorArrayRGB) {
   Bitmap bitmap;
   bitmap.Allocate(2, 2, true);

@@ -54,6 +54,7 @@ class DenseReconstructionWidget : public QWidget {
   void RefreshWorkspace();
 
   void WriteFusedPoints();
+  void ShowMeshingInfo();
 
   QWidget* GenerateTableButtonWidget(const std::string& image_name,
                                      const std::string& type);
@@ -72,6 +73,7 @@ class DenseReconstructionWidget : public QWidget {
   QPushButton* meshing_button_;
   QAction* refresh_workspace_action_;
   QAction* write_fused_points_action_;
+  QAction* show_meshing_info_action_;
 
   bool photometric_done_;
   bool geometric_done_;

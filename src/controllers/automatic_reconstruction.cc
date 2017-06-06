@@ -44,15 +44,15 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   if (options_.data_type == DataType::VIDEO) {
     option_manager_.InitForVideoData();
-  } else if (options_.data_type == DataType::DSLR) {
-    option_manager_.InitForDSLRData();
+  } else if (options_.data_type == DataType::INDIVIDUAL) {
+    option_manager_.InitForIndividualData();
   } else if (options_.data_type == DataType::INTERNET) {
     option_manager_.InitForInternetData();
   } else {
     LOG(FATAL) << "Data type not supported";
   }
 
-  if (!options_.high_quality) {
+  if (options_.quality == Quality::LOW) {
     option_manager_.sift_extraction->max_image_size = 1000;
     option_manager_.sequential_matching->loop_detection_num_images /= 2;
     option_manager_.vocab_tree_matching->num_images /= 2;
@@ -65,11 +65,33 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.dense_stereo->window_radius = 4;
     option_manager_.dense_stereo->num_samples /= 2;
     option_manager_.dense_stereo->num_iterations = 3;
-  }
+    option_manager_.dense_stereo->geom_consistency = false;
+    option_manager_.dense_fusion->check_num_images /= 2;
+    option_manager_.dense_fusion->max_image_size = 1000;
+  } else if (options_.quality == Quality::MEDIUM) {
+    option_manager_.sift_extraction->max_image_size = 1600;
+    option_manager_.sequential_matching->loop_detection_num_images /= 1.5;
+    option_manager_.vocab_tree_matching->num_images /= 1.5;
+    option_manager_.mapper->ba_local_max_num_iterations /= 1.5;
+    option_manager_.mapper->ba_global_max_num_iterations /= 1.5;
+    option_manager_.mapper->ba_global_images_ratio *= 1.1;
+    option_manager_.mapper->ba_global_points_ratio *= 1.1;
+    option_manager_.mapper->ba_global_max_refinements = 2;
+    option_manager_.dense_stereo->max_image_size = 1600;
+    option_manager_.dense_stereo->window_radius = 5;
+    option_manager_.dense_stereo->num_samples /= 1.5;
+    option_manager_.dense_stereo->num_iterations = 5;
+    option_manager_.dense_stereo->geom_consistency = false;
+    option_manager_.dense_fusion->check_num_images /= 1.5;
+    option_manager_.dense_fusion->max_image_size = 1600;
+  }  // else: high quality is the default.
 
   ImageReader::Options reader_options = *option_manager_.image_reader;
   reader_options.database_path = *option_manager_.database_path;
   reader_options.image_path = *option_manager_.image_path;
+  reader_options.single_camera = options_.single_camera;
+
+  option_manager_.sift_matching->use_gpu = options_.use_gpu;
 
   if (options_.use_gpu) {
     if (!options_.use_opengl) {
@@ -150,6 +172,7 @@ void AutomaticReconstructionController::RunFeatureExtraction() {
   active_thread_ = feature_extractor_.get();
   feature_extractor_->Start();
   feature_extractor_->Wait();
+  feature_extractor_.reset();
   active_thread_ = nullptr;
 }
 
@@ -157,7 +180,7 @@ void AutomaticReconstructionController::RunFeatureMatching() {
   Thread* matcher = nullptr;
   if (options_.data_type == DataType::VIDEO) {
     matcher = sequential_matcher_.get();
-  } else if (options_.data_type == DataType::DSLR ||
+  } else if (options_.data_type == DataType::INDIVIDUAL ||
              options_.data_type == DataType::INTERNET) {
     Database database(*option_manager_.database_path);
     const size_t num_images = database.NumImages();
@@ -172,11 +195,28 @@ void AutomaticReconstructionController::RunFeatureMatching() {
   active_thread_ = matcher;
   matcher->Start();
   matcher->Wait();
+  exhaustive_matcher_.reset();
+  sequential_matcher_.reset();
+  vocab_tree_matcher_.reset();
   active_thread_ = nullptr;
 }
 
 void AutomaticReconstructionController::RunSparseMapper() {
-  CreateDirIfNotExists(JoinPaths(options_.workspace_path, "sparse"));
+  const auto sparse_path = JoinPaths(options_.workspace_path, "sparse");
+  if (ExistsDir(sparse_path)) {
+    auto dir_list = GetDirList(sparse_path);
+    std::sort(dir_list.begin(), dir_list.end());
+    if (dir_list.size() > 0) {
+      std::cout << std::endl
+                << "WARNING: Skipping sparse reconstruction because it is "
+                   "already computed"
+                << std::endl;
+      for (const auto& dir : dir_list) {
+        reconstruction_manager_->Read(dir);
+      }
+      return;
+    }
+  }
 
   IncrementalMapperController mapper(
       option_manager_.mapper.get(), *option_manager_.image_path,
@@ -186,13 +226,14 @@ void AutomaticReconstructionController::RunSparseMapper() {
   mapper.Wait();
   active_thread_ = nullptr;
 
-  reconstruction_manager_->Write(JoinPaths(options_.workspace_path, "sparse"),
-                                 &option_manager_);
+  CreateDirIfNotExists(sparse_path);
+  reconstruction_manager_->Write(sparse_path, &option_manager_);
 }
 
 void AutomaticReconstructionController::RunDenseMapper() {
 #ifndef CUDA_ENABLED
   std::cout
+      << std::endl
       << "WARNING: Skipping dense reconstruction because CUDA is not available"
       << std::endl;
   return;
@@ -207,20 +248,29 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     const std::string dense_path =
         JoinPaths(options_.workspace_path, "dense", std::to_string(i));
-    CreateDirIfNotExists(dense_path);
+    const std::string fused_path = JoinPaths(dense_path, "fused.ply");
+    const std::string meshed_path = JoinPaths(dense_path, "meshed.ply");
 
-    // Image undistortion.
+    if (ExistsFile(fused_path) && ExistsFile(meshed_path)) {
+      continue;
+    }
 
-    UndistortCameraOptions undistortion_options;
-    undistortion_options.max_image_size =
-        option_manager_.dense_stereo->max_image_size;
-    COLMAPUndistorter undistorter(undistortion_options,
-                                  reconstruction_manager_->Get(i),
-                                  *option_manager_.image_path, dense_path);
-    active_thread_ = &undistorter;
-    undistorter.Start();
-    undistorter.Wait();
-    active_thread_ = nullptr;
+    // Image undistortion
+
+    if (!ExistsDir(dense_path)) {
+      CreateDirIfNotExists(dense_path);
+
+      UndistortCameraOptions undistortion_options;
+      undistortion_options.max_image_size =
+          option_manager_.dense_stereo->max_image_size;
+      COLMAPUndistorter undistorter(undistortion_options,
+                                    reconstruction_manager_->Get(i),
+                                    *option_manager_.image_path, dense_path);
+      active_thread_ = &undistorter;
+      undistorter.Start();
+      undistorter.Wait();
+      active_thread_ = nullptr;
+    }
 
     if (IsStopped()) {
       return;
@@ -228,33 +278,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     // Dense stereo
 
-    if (options_.high_quality) {
-      // Photometric stereo.
-      option_manager_.dense_stereo->filter = false;
-      option_manager_.dense_stereo->geom_consistency = false;
-      mvs::PatchMatchController photometric_patch_match_controller(
-          *option_manager_.dense_stereo, dense_path, "COLMAP", "");
-      active_thread_ = &photometric_patch_match_controller;
-      photometric_patch_match_controller.Start();
-      photometric_patch_match_controller.Wait();
-      active_thread_ = nullptr;
-
-      if (IsStopped()) {
-        return;
-      }
-
-      // Geometric stereo.
-      option_manager_.dense_stereo->filter = true;
-      option_manager_.dense_stereo->geom_consistency = true;
-      mvs::PatchMatchController geometric_patch_match_controller(
-          *option_manager_.dense_stereo, dense_path, "COLMAP", "");
-      active_thread_ = &geometric_patch_match_controller;
-      geometric_patch_match_controller.Start();
-      geometric_patch_match_controller.Wait();
-      active_thread_ = nullptr;
-    } else {
-      option_manager_.dense_stereo->filter = true;
-      option_manager_.dense_stereo->geom_consistency = false;
+    {
       mvs::PatchMatchController patch_match_controller(
           *option_manager_.dense_stereo, dense_path, "COLMAP", "");
       active_thread_ = &patch_match_controller;
@@ -267,38 +291,31 @@ void AutomaticReconstructionController::RunDenseMapper() {
       return;
     }
 
-    // Dense fusion.
+    // Dense fusion
 
-    std::string fusion_input_type;
-    if (options_.high_quality) {
-      fusion_input_type = "geometric";
-    } else {
-      fusion_input_type = "photometric";
-    }
-
-    {
-      mvs::StereoFusion fuser(*option_manager_.dense_fusion, dense_path,
-                              "COLMAP", fusion_input_type);
+    if (!ExistsFile(fused_path)) {
+      mvs::StereoFusion fuser(
+          *option_manager_.dense_fusion, dense_path, "COLMAP",
+          options_.quality == Quality::HIGH ? "geometric" : "photometric");
       active_thread_ = &fuser;
       fuser.Start();
       fuser.Wait();
       active_thread_ = nullptr;
 
-      std::cout << "Writing output: " << JoinPaths(dense_path, "fused.ply")
-                << std::endl;
-      WritePlyBinary(JoinPaths(dense_path, "fused.ply"),
-                     fuser.GetFusedPoints());
+      std::cout << "Writing output: " << fused_path << std::endl;
+      WritePlyBinary(fused_path, fuser.GetFusedPoints());
     }
 
     if (IsStopped()) {
       return;
     }
 
-    // Dense meshing.
+    // Dense meshing
 
-    mvs::PoissonReconstruction(*option_manager_.dense_meshing,
-                               JoinPaths(dense_path, "fused.ply"),
-                               JoinPaths(dense_path, "meshed.ply"));
+    if (!ExistsFile(meshed_path)) {
+      mvs::PoissonReconstruction(*option_manager_.dense_meshing, fused_path,
+                                 meshed_path);
+    }
   }
 }
 

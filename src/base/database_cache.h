@@ -116,11 +116,11 @@ const EIGEN_STL_UMAP(image_t, class Image) & DatabaseCache::Images() const {
 }
 
 bool DatabaseCache::ExistsCamera(const camera_t camera_id) const {
-  return cameras_.count(camera_id) > 0;
+  return cameras_.find(camera_id) != cameras_.end();
 }
 
 bool DatabaseCache::ExistsImage(const image_t image_id) const {
-  return images_.count(image_id) > 0;
+  return images_.find(image_id) != images_.end();
 }
 
 inline const class SceneGraph& DatabaseCache::SceneGraph() const {

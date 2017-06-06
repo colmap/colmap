@@ -338,18 +338,18 @@ void MainWindow::CreateActions() {
   connect(action_reset_options_, &QAction::triggered, this,
           &MainWindow::ResetOptions);
 
+  action_set_options_for_individual_ =
+      new QAction(tr("Set options for individual images"), this);
+  connect(action_set_options_for_individual_, &QAction::triggered, this,
+          &MainWindow::SetOptionsForIndividual);
+
   action_set_options_for_video_ =
-      new QAction(tr("Set options for video data"), this);
+      new QAction(tr("Set options for video frames"), this);
   connect(action_set_options_for_video_, &QAction::triggered, this,
           &MainWindow::SetOptionsForVideo);
 
-  action_set_options_for_dslr_ =
-      new QAction(tr("Set options for DSLR data"), this);
-  connect(action_set_options_for_dslr_, &QAction::triggered, this,
-          &MainWindow::SetOptionsForDSLR);
-
   action_set_options_for_internet_ =
-      new QAction(tr("Set options for Internet data"), this);
+      new QAction(tr("Set options for Internet images"), this);
   connect(action_set_options_for_internet_, &QAction::triggered, this,
           &MainWindow::SetOptionsForInternet);
 
@@ -440,8 +440,8 @@ void MainWindow::CreateMenus() {
   extras_menu->addAction(action_extract_colors_);
   extras_menu->addSeparator();
   extras_menu->addAction(action_reset_options_);
+  extras_menu->addAction(action_set_options_for_individual_);
   extras_menu->addAction(action_set_options_for_video_);
-  extras_menu->addAction(action_set_options_for_dslr_);
   extras_menu->addAction(action_set_options_for_internet_);
   menuBar()->addAction(extras_menu->menuAction());
 
@@ -723,23 +723,6 @@ void MainWindow::ImportFrom() {
     reconstruction_manager_widget_->SelectReconstruction(reconstruction_idx);
     action_render_now_->trigger();
   });
-}
-
-void MainWindow::ImportFusedPoints(const std::vector<mvs::FusedPoint>& points) {
-  const size_t reconstruction_idx = reconstruction_manager_.Add();
-  auto& reconstruction = reconstruction_manager_.Get(reconstruction_idx);
-
-  for (const auto& point : points) {
-    const Eigen::Vector3d xyz(point.x, point.y, point.z);
-    const point3D_t point3D_id = reconstruction.AddPoint3D(xyz, Track());
-    const Eigen::Vector3ub rgb(point.r, point.g, point.b);
-    reconstruction.Point3D(point3D_id).SetColor(rgb);
-  }
-
-  options_.render->min_track_len = 0;
-  reconstruction_manager_widget_->Update();
-  reconstruction_manager_widget_->SelectReconstruction(reconstruction_idx);
-  RenderNow();
 }
 
 void MainWindow::Export() {
@@ -1150,6 +1133,20 @@ void MainWindow::ResetOptions() {
   *options_.database_path = database_path;
 }
 
+void MainWindow::SetOptionsForIndividual() {
+  const std::string project_path = *options_.project_path;
+  const std::string image_path = *options_.image_path;
+  const std::string database_path = *options_.database_path;
+
+  options_.Reset();
+  options_.AddAllOptions();
+  options_.InitForIndividualData();
+
+  *options_.project_path = project_path;
+  *options_.image_path = image_path;
+  *options_.database_path = database_path;
+}
+
 void MainWindow::SetOptionsForVideo() {
   const std::string project_path = *options_.project_path;
   const std::string image_path = *options_.image_path;
@@ -1158,20 +1155,6 @@ void MainWindow::SetOptionsForVideo() {
   options_.Reset();
   options_.AddAllOptions();
   options_.InitForVideoData();
-
-  *options_.project_path = project_path;
-  *options_.image_path = image_path;
-  *options_.database_path = database_path;
-}
-
-void MainWindow::SetOptionsForDSLR() {
-  const std::string project_path = *options_.project_path;
-  const std::string image_path = *options_.image_path;
-  const std::string database_path = *options_.database_path;
-
-  options_.Reset();
-  options_.AddAllOptions();
-  options_.InitForDSLRData();
 
   *options_.project_path = project_path;
   *options_.image_path = image_path;

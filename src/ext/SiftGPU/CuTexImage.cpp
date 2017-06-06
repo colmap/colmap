@@ -119,16 +119,25 @@ void CuTexImage::SetImageSize(int width, int height)
 	_imgHeight = height;
 }
 
-void CuTexImage::InitTexture(int width, int height, int nchannel)
+bool CuTexImage::InitTexture(int width, int height, int nchannel)
 {
-	int size;
 	_imgWidth = width;
 	_imgHeight = height;
 	_numChannel = min(max(nchannel, 1), 4);
 
-	size = width * height * _numChannel * sizeof(float);
+	const size_t size = width * height * _numChannel * sizeof(float);
 
-	if(size <= _numBytes) return;
+  if (size < 0) {
+    return false;
+  }
+
+  // SiftGPU uses int for all indexes and
+  // this ensures that all elements can be accessed.
+  if (size >= INT_MAX * sizeof(float)) {
+    return false;
+  }
+
+	if(size <= _numBytes) return true;
 
 	if(_cuData) cudaFree(_cuData);
 
@@ -138,9 +147,10 @@ void CuTexImage::InitTexture(int width, int height, int nchannel)
   if (status != cudaSuccess) {
     _cuData = NULL;
     _numBytes = 0;
+    return false;
   }
 
-	ProgramCU::CheckErrorCUDA("CuTexImage::InitTexture");
+  return true;
 }
 
 void CuTexImage::CopyFromHost(const void * buf)

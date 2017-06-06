@@ -91,7 +91,7 @@ class IncrementalMapperController : public Thread {
     double ba_global_images_ratio = 1.1;
     double ba_global_points_ratio = 1.1;
     int ba_global_images_freq = 500;
-    int ba_global_points_freq = 50000;
+    int ba_global_points_freq = 250000;
 
     // The maximum number of global bundle adjustment iterations.
     int ba_global_max_num_iterations = 50;

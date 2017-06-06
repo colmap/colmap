@@ -11,10 +11,10 @@
 //	documentation for educational, research and non-profit purposes, without
 //	fee, and without a written agreement is hereby granted, provided that the
 //	above copyright notice and the following paragraph appear in all copies.
-//	
+//
 //	The University of North Carolina at Chapel Hill make no representations
 //	about the suitability of this software for any purpose. It is provided
-//	'as is' without express or implied warranty. 
+//	'as is' without express or implied warranty.
 //
 //	Please send BUG REPORTS to ccwu@cs.unc.edu
 //
@@ -33,12 +33,12 @@ struct textureReference;
 #define SIFTGPU_ENABLE_LINEAR_TEX2D
 
 class CuTexImage
-{	
+{
 protected:
 	void*		_cuData;
 	cudaArray*	_cuData2D;
 	int			_numChannel;
-	int			_numBytes;
+	size_t			_numBytes;
 	int			_imgWidth;
 	int			_imgHeight;
 	int			_texWidth;
@@ -46,7 +46,7 @@ protected:
 	GLuint		_fromPBO;
 public:
 	virtual void SetImageSize(int width, int height);
-	virtual void InitTexture(int width, int height, int nchannel = 1);
+	virtual bool InitTexture(int width, int height, int nchannel = 1);
 	void InitTexture2D();
 	inline void BindTexture(textureReference& texRef);
 	inline void BindTexture2D(textureReference& texRef);
@@ -71,6 +71,6 @@ public:
 
 //////////////////////////////////////////////////
 //transfer OpenGL Texture to PBO, then to CUDA vector
-//#endif 
+//#endif
 #endif // !defined(CU_TEX_IMAGE_H)
 

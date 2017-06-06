@@ -74,7 +74,6 @@ class MainWindow : public QMainWindow {
   void ProjectSaveAs();
   void Import();
   void ImportFrom();
-  void ImportFusedPoints(const std::vector<mvs::FusedPoint>& points);
   void Export();
   void ExportAll();
   void ExportAs();
@@ -118,8 +117,8 @@ class MainWindow : public QMainWindow {
   void ExtractColors();
 
   void ResetOptions();
+  void SetOptionsForIndividual();
   void SetOptionsForVideo();
-  void SetOptionsForDSLR();
   void SetOptionsForInternet();
 
   void About();
@@ -216,8 +215,8 @@ class MainWindow : public QMainWindow {
   QAction* action_undistort_;
   QAction* action_extract_colors_;
   QAction* action_reset_options_;
+  QAction* action_set_options_for_individual_;
   QAction* action_set_options_for_video_;
-  QAction* action_set_options_for_dslr_;
   QAction* action_set_options_for_internet_;
 
   QAction* action_about_;

@@ -38,6 +38,7 @@ class AutomaticReconstructionWidget : public OptionsWidget {
   AutomaticReconstructionController::Options options_;
   ThreadControlWidget* thread_control_widget_;
   QComboBox* data_type_cb_;
+  QComboBox* quality_cb_;
   QAction* render_result_;
 };
 

@@ -139,6 +139,8 @@ new images within this reconstruction, you can follow these steps::
 
 Note that this first extracts features for the new images, then matches them to
 the existing images in the database, and finally registers them into the model.
+The image list text file contains a list of images to extract and match,
+specified as one image file name per line.
 
 
 Multi-GPU support in feature matching
@@ -146,8 +148,10 @@ Multi-GPU support in feature matching
 
 You can run feature matching on multiple GPUs by specifying multiple indices for
 CUDA-enabled GPUs, e.g., ``--SiftMatching.gpu_index=0,1,2,3`` runs the feature
-matching on 4 GPUs in parallel. By default, COLMAP runs feature matching on all
-CUDA-enabled GPUs.
+matching on 4 GPUs in parallel. You can also run multiple feature matching
+threads on the same GPU by specifying the same GPU index twice, e.g.,
+``--SiftMatching.gpu_index=0,0,1,1,2,3``. By default, COLMAP runs one feature
+matching thread per CUDA-enabled GPU.
 
 
 Feature matching fails due to illegal memory access
@@ -184,14 +188,16 @@ Reduce memory usage during dense reconstruction
 -----------------------------------------------
 
 If you run out of GPU memory during patch match stereo, you can either reduce
-the maximum image resolution by setting the option ``max_image_size`` or reduce
-the number of source images in the ``stereo/patch- match.cfg`` file from e.g.
-``__auto__, 30`` to ``__auto__, 10``. Note that enabling the
+the maximum image size by setting the option ``--DenseStereo.max_image_size`` or
+reduce the number of source images in the ``stereo/patch-match.cfg`` file from
+e.g. ``__auto__, 30`` to ``__auto__, 10``. Note that enabling the
 ``geom_consistency`` option increases the required GPU memory.
 
-If you run out of CPU memory during stereo fusion, you can reduce the
-``--DenseFusion.cache_size``. Note that a too low value might lead to very slow
-fusion and heavy load on the hard disk.
+If you run out of CPU memory during stereo or fusion, you can reduce the
+``--DenseStereo.cache_size`` or ``--DenseFusion.cache_size`` specified in
+gigabytes or you can reduce ``--DenseStereo.max_image_size`` or
+``--DenseFusion.max_image_size``. Note that a too low value might lead to very
+slow processing and heavy load on the hard disk.
 
 For large-scale reconstructions of several thousands of images, you should
 consider splitting your sparse reconstruction into more manageable clusters of
@@ -229,8 +235,10 @@ Multi-GPU support in dense reconstruction
 
 You can run dense reconstruction on multiple GPUs by specifying multiple indices
 for CUDA-enabled GPUs, e.g., ``--DenseStereo.gpu_index=0,1,2,3`` runs the dense
-reconstruction on 4 GPUs in parallel. By default, COLMAP runs dense
-reconstruction on all CUDA-enabled GPUs.
+reconstruction on 4 GPUs in parallel. You can also run multiple dense
+reconstruction threads on the same GPU by specifying the same GPU index twice,
+e.g., ``--SiftMatching.gpu_index=0,0,1,1,2,3``. By default, COLMAP runs one
+dense reconstruction thread per CUDA-enabled GPU.
 
 
 .. _faq-dense-timeout:
@@ -249,7 +257,7 @@ By default, the Windows operating system detects response problems from the GPU,
 and recovers to a functional desktop by resetting the card and aborting the
 stereo reconstruction process. The solution is to increase the so-called
 "Timeout Detection & Recovery" (TDR) delay to a larger value. Please, refer to
-the `NVIDIA Nsight documentation <https://goo.gl/d17IhT>`_ or to the `Microsoft
+the `NVIDIA Nsight documentation <https://goo.gl/UWKVs6>`_ or to the `Microsoft
 documentation <http://www.microsoft.com/whdc/device/display/wddm_timeout.mspx>`_
 on how to increase the delay time under Windows.
 

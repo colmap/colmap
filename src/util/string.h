@@ -43,6 +43,10 @@ void StringTrim(std::string* str);
 void StringLeftTrim(std::string* str);
 void StringRightTrim(std::string* str);
 
+// Convert string to lower/upper case.
+void StringToLower(std::string* str);
+void StringToUpper(std::string* str);
+
 }  // namespace colmap
 
 #endif  // COLMAP_SRC_UTIL_STRING_H_

@@ -230,10 +230,7 @@ matching modes, that are intended for different input scenarios:
   relatively low (up to several hundreds), this matching mode should be fast
   enough and leads to the best reconstruction results. Here, every image is
   matched against every other image, while the block size determines how many
-  images are loaded from disk into memory at the same time. The preemptive
-  option filters image pairs that are not likely to match [wu13]_.
-  Typically though, vocabulary tree matching yields much better results than
-  preemptive matching [schoenberger15]_.
+  images are loaded from disk into memory at the same time.
 
 - **Sequential Matching**: This mode is useful if the images are acquired in
   sequential order, e.g., by a video camera. In this case, consecutive frames
@@ -248,11 +245,11 @@ matching modes, that are intended for different input scenarios:
   loop detection requires a pre-trained vocabulary tree, that can be downloaded
   from https://demuc.de/colmap/.
 
-- **Vocabulary Tree Matching**: In this matching mode, every image is matched
-  against its visual nearest neighbors using a vocabulary tree. This is the
-  recommended matching mode for large image collections (several thousands).
-  This requires a pre-trained vocabulary tree, that can be downloaded from
-  https://demuc.de/colmap/.
+- **Vocabulary Tree Matching**: In this matching mode [schoenberger16vote]_,
+  every image is matched against its visual nearest neighbors using a vocabulary
+  tree. This is the recommended matching mode for large image collections
+  (several thousands). This requires a pre-trained vocabulary tree, that can be
+  downloaded from https://demuc.de/colmap/.
 
 - **Spatial Matching**: This matching mode matches every image against its
   spatial nearest neighbors. Spatial locations can be manually set in the
@@ -335,9 +332,9 @@ from the drop-down menu in the toolbar. If the different models have common
 registered images, you can use the ``model_converter`` executable to merge them
 into a single reconstruction (see :ref:`FAQ <faq-merge-models>` for details). If
 all your images use the `SIMPLE_RADIAL` camera model (default) without shared
-intrinsics, you can use PBA [wu11]_ for fast bundle adjustment, which can be
-activated in the reconstruction options under the bundle adjustment section
-(`use_pba=true`).
+intrinsics, you can use PBA [wu11]_ instead of Ceres Solver [ceres]_ for fast
+bundle adjustment, which can be activated in the reconstruction options under
+the bundle adjustment section (`use_pba=true`).
 
 Ideally, the reconstruction works fine and all images are registered. If this is
 not the case, it is recommended to:
@@ -394,14 +391,6 @@ information on how to avoid these problems. Note that the reconstructed normals
 of the point cloud cannot be directly visualized in COLMAP, but e.g. in Meshlab
 by enabling ``Render > Show Normal/Curvature``. Similarly, the reconstructed
 dense surface mesh model must be visualized with external software.
-
-By default, COLMAP only computes photometrically consistent depth and normal
-maps as a trade-off between reconstruction quality and speed. For highest
-reconstruction quality, you can compute both photometrically and geometrically
-consistent depth and normal maps: first, perform stereo processing and
-disable the ``filter`` option. After processing all images (before fusion and
-meshing), you must re-run stereo processing and enable both the ``filter`` and
-``geom_consistency`` options. Finally, perform the fusion and meshing steps.
 
 Note that COLMAP requires a CUDA-enabled GPU, so in addition to the internal
 dense reconstruction functionality, COLMAP exports to several other dense
@@ -478,6 +467,6 @@ available controls.
 
 .. rubric:: Footnotes
 
-.. [#f1] VisualSfM's projection model applies the distortion to the measurements
-    and COLMAP to the projection, hence the exported NVM file is not fully
-    compatible with VisualSfM.
+.. [#f1] VisualSfM's [wu13]_ projection model applies the distortion to the
+    measurements and COLMAP to the projection, hence the exported NVM file is
+    not fully compatible with VisualSfM.

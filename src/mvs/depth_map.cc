@@ -49,9 +49,12 @@ void DepthMap::Rescale(const float factor) {
   std::vector<float> new_data(new_width * new_height);
   DownsampleImage(data_.data(), height_, width_, new_height, new_width,
                   new_data.data());
+
   data_ = new_data;
   width_ = new_width;
   height_ = new_height;
+
+  data_.shrink_to_fit();
 }
 
 void DepthMap::Downsize(const size_t max_width, const size_t max_height) {
@@ -60,8 +63,7 @@ void DepthMap::Downsize(const size_t max_width, const size_t max_height) {
   }
   const float factor_x = static_cast<float>(max_width) / width_;
   const float factor_y = static_cast<float>(max_height) / height_;
-  const float factor = std::min(factor_x, factor_y);
-  Rescale(factor);
+  Rescale(std::min(factor_x, factor_y));
 }
 
 Bitmap DepthMap::ToBitmap(const float min_percentile,

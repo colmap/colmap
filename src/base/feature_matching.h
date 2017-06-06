@@ -23,12 +23,13 @@
 #include <vector>
 
 #include "base/database.h"
-#include "ext/SiftGPU/SiftGPU.h"
 #include "util/alignment.h"
 #include "util/cache.h"
 #include "util/opengl_utils.h"
 #include "util/threading.h"
 #include "util/timer.h"
+
+class SiftMatchGPU;
 
 namespace colmap {
 
@@ -53,7 +54,7 @@ struct SiftMatchingOptions {
   bool cross_check = true;
 
   // Maximum number of matches.
-  int max_num_matches = 16384;
+  int max_num_matches = 32768;
 
   // Maximum epipolar error in pixels for geometric verification.
   double max_error = 4.0;
@@ -122,6 +123,9 @@ class FeatureMatcherCache {
   void WriteInlierMatches(const image_t image_id1, const image_t image_id2,
                           const TwoViewGeometry& two_view_geometry);
 
+  void DeleteMatches(const image_t image_id1, const image_t image_id2);
+  void DeleteInlierMatches(const image_t image_id1, const image_t image_id2);
+
  private:
   const size_t cache_size_;
   const Database* database_;
@@ -132,7 +136,29 @@ class FeatureMatcherCache {
   std::unique_ptr<LRUCache<image_t, FeatureDescriptors>> descriptors_cache_;
 };
 
-class SiftCPUFeatureMatcher : public Thread {
+class FeatureMatcherThread : public Thread {
+ public:
+  FeatureMatcherThread(const SiftMatchingOptions& options,
+                       FeatureMatcherCache* cache);
+
+  void SetMaxNumMatches(const int max_num_matches);
+
+  virtual bool IsValid();
+
+ protected:
+  virtual void SetValid();
+  virtual void SetInvalid();
+
+  SiftMatchingOptions options_;
+  FeatureMatcherCache* cache_;
+
+ private:
+  std::mutex mutex_;
+  std::condition_variable is_setup_;
+  std::atomic<bool> is_valid_;
+};
+
+class SiftCPUFeatureMatcher : public FeatureMatcherThread {
  public:
   typedef internal::ImagePairData Input;
   typedef internal::MatchData Output;
@@ -145,13 +171,11 @@ class SiftCPUFeatureMatcher : public Thread {
  protected:
   void Run() override;
 
-  const SiftMatchingOptions options_;
-  FeatureMatcherCache* cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
 };
 
-class SiftGPUFeatureMatcher : public Thread {
+class SiftGPUFeatureMatcher : public FeatureMatcherThread {
  public:
   typedef internal::ImagePairData Input;
   typedef internal::MatchData Output;
@@ -167,8 +191,6 @@ class SiftGPUFeatureMatcher : public Thread {
   void GetDescriptorData(const int index, const image_t image_id,
                          const FeatureDescriptors** descriptors_ptr);
 
-  const SiftMatchingOptions options_;
-  FeatureMatcherCache* cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
 
@@ -179,7 +201,7 @@ class SiftGPUFeatureMatcher : public Thread {
   std::array<FeatureDescriptors, 2> prev_uploaded_descriptors_;
 };
 
-class GuidedSiftCPUFeatureMatcher : public Thread {
+class GuidedSiftCPUFeatureMatcher : public FeatureMatcherThread {
  public:
   typedef internal::InlierMatchData Input;
   typedef internal::InlierMatchData Output;
@@ -192,13 +214,11 @@ class GuidedSiftCPUFeatureMatcher : public Thread {
  private:
   void Run() override;
 
-  const SiftMatchingOptions options_;
-  FeatureMatcherCache* cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
 };
 
-class GuidedSiftGPUFeatureMatcher : public Thread {
+class GuidedSiftGPUFeatureMatcher : public FeatureMatcherThread {
  public:
   typedef internal::InlierMatchData Input;
   typedef internal::InlierMatchData Output;
@@ -215,8 +235,6 @@ class GuidedSiftGPUFeatureMatcher : public Thread {
                       const FeatureKeypoints** keypoints_ptr,
                       const FeatureDescriptors** descriptors_ptr);
 
-  const SiftMatchingOptions options_;
-  FeatureMatcherCache* cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
 
@@ -260,17 +278,22 @@ class SiftFeatureMatcher {
 
   ~SiftFeatureMatcher();
 
+  // Setup the matchers and return if successful.
+  bool Setup();
+
   // Match one batch of multiple image pairs.
   void Match(const std::vector<std::pair<image_t, image_t>>& image_pairs);
 
  private:
-  const SiftMatchingOptions options_;
+  SiftMatchingOptions options_;
   Database* database_;
   FeatureMatcherCache* cache_;
 
-  std::vector<std::unique_ptr<Thread>> matchers_;
+  bool is_setup_;
+
+  std::vector<std::unique_ptr<FeatureMatcherThread>> matchers_;
+  std::vector<std::unique_ptr<FeatureMatcherThread>> guided_matchers_;
   std::vector<std::unique_ptr<Thread>> verifiers_;
-  std::vector<std::unique_ptr<Thread>> guided_matchers_;
   std::unique_ptr<ThreadPool> thread_pool_;
 
   JobQueue<internal::ImagePairData> matcher_queue_;

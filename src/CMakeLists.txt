@@ -35,12 +35,14 @@ set(COLMAP_LIBRARIES
     util
     flann
     yas
+    graclus
     lsd
     pba
     poisson_recon
     sqlite3
     sift_gpu
     vlfeat
+    ${CMAKE_DL_LIBS}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_REGEX_LIBRARY}
@@ -58,11 +60,12 @@ if(CUDA_ENABLED)
         ${COLMAP_LIBRARIES}
         mvs
         mvs_cuda
+        mvs
         util_cuda)
 endif()
 
-if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-    set(COLMAP_LIBRARIES ${COLMAP_LIBRARIES} pthread dl)
+if(UNIX)
+    set(COLMAP_LIBRARIES ${COLMAP_LIBRARIES} pthread)
 endif()
 
 set(COLMAP_UI_LIBRARIES ui)
@@ -112,6 +115,7 @@ ADD_SOURCE_DIR(controllers CONTROLLERS_SRC *.h *.cc)
 ADD_SOURCE_DIR(estimators ESTIMATORS_SRC *.h *.cc)
 ADD_SOURCE_DIR(exe EXE_SRC *.h *.cc)
 ADD_SOURCE_DIR(ext/FLANN EXT_FLANN_SRC *.h *.cpp *.hpp *.cu)
+ADD_SOURCE_DIR(ext/Graclus EXT_GRACLUS_SRC *.h *.c)
 ADD_SOURCE_DIR(ext/LSD EXT_LSD_SRC *.h *.c)
 ADD_SOURCE_DIR(ext/PBA EXT_PBA_SRC *.h *.cpp *.cu)
 ADD_SOURCE_DIR(ext/SiftGPU EXT_SIFTGPU_SRC *.h *.cpp *.cu)
@@ -135,6 +139,7 @@ add_library(
     ${ESTIMATORS_SRC}
     ${EXE_SRC}
     ${EXT_FLANN_SRC}
+    ${EXT_GRACLUS_SRC}
     ${EXT_LSD_SRC}
     ${EXT_PBA_SRC}
     ${EXT_SIFTGPU_SRC}

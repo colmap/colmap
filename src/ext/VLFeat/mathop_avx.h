@@ -36,7 +36,7 @@ the terms of the BSD license (see the COPYING file).
 
 #ifndef VL_DISABLE_AVX
 #include "generic.h"
-#include "float.th"
+#include "float.h"
 
 VL_EXPORT T
 VL_XCAT(_vl_distance_mahalanobis_sq_avx_, SFX)

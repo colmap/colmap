@@ -34,6 +34,7 @@ BOOST_AUTO_TEST_CASE(TestEmpty) {
       BOOST_CHECK(image_ids == nullptr);
     }
   }
+  BOOST_CHECK_EQUAL(consistency_graph.GetNumBytes(), 16);
 }
 
 BOOST_AUTO_TEST_CASE(TestPartial) {
@@ -49,6 +50,7 @@ BOOST_AUTO_TEST_CASE(TestPartial) {
   consistency_graph.GetImageIds(0, 1, &num_images, &image_ids);
   BOOST_CHECK_EQUAL(num_images, 0);
   BOOST_CHECK(image_ids == nullptr);
+  BOOST_CHECK_EQUAL(consistency_graph.GetNumBytes(), 32);
 }
 
 BOOST_AUTO_TEST_CASE(TestZero) {
@@ -62,6 +64,7 @@ BOOST_AUTO_TEST_CASE(TestZero) {
   consistency_graph.GetImageIds(0, 1, &num_images, &image_ids);
   BOOST_CHECK_EQUAL(num_images, 0);
   BOOST_CHECK(image_ids == nullptr);
+  BOOST_CHECK_EQUAL(consistency_graph.GetNumBytes(), 20);
 }
 
 BOOST_AUTO_TEST_CASE(TestFull) {
@@ -77,4 +80,5 @@ BOOST_AUTO_TEST_CASE(TestFull) {
   consistency_graph.GetImageIds(0, 1, &num_images, &image_ids);
   BOOST_CHECK_EQUAL(num_images, 1);
   BOOST_CHECK_EQUAL(image_ids[0], 100);
+  BOOST_CHECK_EQUAL(consistency_graph.GetNumBytes(), 48);
 }

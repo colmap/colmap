@@ -277,10 +277,9 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   solver_options.max_num_iterations = options.max_num_iterations;
   solver_options.linear_solver_type = ceres::DENSE_QR;
 
-#ifdef OPENMP_ENABLED
-  solver_options.num_threads = omp_get_max_threads();
-  solver_options.num_linear_solver_threads = omp_get_max_threads();
-#endif
+  // The overhead of creating threads is too large.
+  solver_options.num_threads = 1;
+  solver_options.num_linear_solver_threads = 1;
 
   ceres::Solver::Summary summary;
   ceres::Solve(solver_options, &problem, &summary);

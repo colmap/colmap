@@ -30,11 +30,11 @@ class StereoOptionsTab : public OptionsWidget {
   StereoOptionsTab(QWidget* parent, OptionManager* options)
       : OptionsWidget(parent) {
     // Set a relatively small default image size to avoid too long computation.
-    if (options->dense_stereo->max_image_size == 0) {
+    if (options->dense_stereo->max_image_size == -1) {
       options->dense_stereo->max_image_size = 2000;
     }
 
-    AddOptionInt(&options->dense_stereo->max_image_size, "max_image_size", 0);
+    AddOptionInt(&options->dense_stereo->max_image_size, "max_image_size", -1);
     AddOptionText(&options->dense_stereo->gpu_index, "gpu_index");
     AddOptionInt(&options->dense_stereo->window_radius, "window_radius");
     AddOptionDouble(&options->dense_stereo->sigma_spatial, "sigma_spatial");
@@ -59,6 +59,11 @@ class StereoOptionsTab : public OptionsWidget {
                  "filter_min_num_consistent");
     AddOptionDouble(&options->dense_stereo->filter_geom_consistency_max_cost,
                     "filter_geom_consistency_max_cost");
+    AddOptionDouble(&options->dense_stereo->cache_size,
+                    "cache_size [gigabytes]", 0,
+                    std::numeric_limits<double>::max(), 0.1, 1);
+    AddOptionBool(&options->dense_stereo->write_consistency_graph,
+                  "write_consistency_graph");
   }
 };
 
@@ -66,6 +71,7 @@ class FusionOptionsTab : public OptionsWidget {
  public:
   FusionOptionsTab(QWidget* parent, OptionManager* options)
       : OptionsWidget(parent) {
+    AddOptionInt(&options->dense_fusion->max_image_size, "max_image_size", -1);
     AddOptionInt(&options->dense_fusion->min_num_pixels, "min_num_pixels", 0);
     AddOptionInt(&options->dense_fusion->max_num_pixels, "max_num_pixels", 0);
     AddOptionInt(&options->dense_fusion->max_traversal_depth,
@@ -76,7 +82,11 @@ class FusionOptionsTab : public OptionsWidget {
                     0, 1, 0.0001, 4);
     AddOptionDouble(&options->dense_fusion->max_normal_error,
                     "max_normal_error", 0, 180);
-    AddOptionInt(&options->dense_fusion->cache_size, "cache_size", 2);
+    AddOptionInt(&options->dense_fusion->check_num_images, "check_num_images",
+                 1);
+    AddOptionDouble(&options->dense_fusion->cache_size,
+                    "cache_size [gigabytes]", 0,
+                    std::numeric_limits<double>::max(), 0.1, 1);
   }
 };
 
@@ -96,7 +106,7 @@ class MeshingOptionsTab : public OptionsWidget {
 std::vector<std::pair<std::string, std::string>> ReadPatchMatchConfig(
     const std::string& config_path) {
   std::ifstream file(config_path);
-  CHECK(file.is_open());
+  CHECK(file.is_open()) << config_path;
 
   std::string line;
   std::string ref_image_name;
@@ -188,11 +198,12 @@ DenseReconstructionWidget::DenseReconstructionWidget(MainWindow* main_window,
   workspace_path_text_ = new QLineEdit(this);
   grid->addWidget(workspace_path_text_, 0, 6, Qt::AlignRight);
   connect(workspace_path_text_, &QLineEdit::textChanged, this,
-          &DenseReconstructionWidget::RefreshWorkspace);
+          &DenseReconstructionWidget::RefreshWorkspace, Qt::QueuedConnection);
 
   QPushButton* workspace_path_button = new QPushButton(tr("Select"), this);
   connect(workspace_path_button, &QPushButton::released, this,
-          &DenseReconstructionWidget::SelectWorkspacePath);
+          &DenseReconstructionWidget::SelectWorkspacePath,
+          Qt::QueuedConnection);
   grid->addWidget(workspace_path_button, 0, 7, Qt::AlignRight);
 
   QStringList table_header;
@@ -227,6 +238,10 @@ DenseReconstructionWidget::DenseReconstructionWidget(MainWindow* main_window,
   write_fused_points_action_ = new QAction(this);
   connect(write_fused_points_action_, &QAction::triggered, this,
           &DenseReconstructionWidget::WriteFusedPoints);
+
+  show_meshing_info_action_ = new QAction(this);
+  connect(show_meshing_info_action_, &QAction::triggered, this,
+          &DenseReconstructionWidget::ShowMeshingInfo);
 
   RefreshWorkspace();
 }
@@ -271,7 +286,7 @@ void DenseReconstructionWidget::Stereo() {
       *options_->dense_stereo, workspace_path, "COLMAP", "");
   processor->AddCallback(Thread::FINISHED_CALLBACK,
                          [this]() { refresh_workspace_action_->trigger(); });
-  thread_control_widget_->StartThread("Stereo processing...", true, processor);
+  thread_control_widget_->StartThread("Stereo...", true, processor);
 #else
   QMessageBox::critical(this, "", tr("CUDA not supported"));
 #endif
@@ -299,7 +314,7 @@ void DenseReconstructionWidget::Fusion() {
     fused_points_ = fuser->GetFusedPoints();
     write_fused_points_action_->trigger();
   });
-  thread_control_widget_->StartThread("Fusing...", true, fuser);
+  thread_control_widget_->StartThread("Fusion...", true, fuser);
 }
 
 void DenseReconstructionWidget::Meshing() {
@@ -314,6 +329,7 @@ void DenseReconstructionWidget::Meshing() {
       mvs::PoissonReconstruction(*options_->dense_meshing,
                                  JoinPaths(workspace_path, kFusedFileName),
                                  JoinPaths(workspace_path, kMeshedFileName));
+      show_meshing_info_action_->trigger();
     });
   }
 }
@@ -419,10 +435,30 @@ void DenseReconstructionWidget::RefreshWorkspace() {
 
 void DenseReconstructionWidget::WriteFusedPoints() {
   const int reply = QMessageBox::question(
-      this, "", tr("Do you want to visualize the point cloud?"),
+      this, "",
+      tr("Do you want to visualize the point cloud? Otherwise, to visualize "
+         "the reconstructed dense point cloud later, navigate to the "
+         "<i>dense</i> sub-folder in your workspace with <i>File > Import "
+         "model from...</i>."),
       QMessageBox::Yes | QMessageBox::No);
   if (reply == QMessageBox::Yes) {
-    main_window_->ImportFusedPoints(fused_points_);
+    const size_t reconstruction_idx =
+        main_window_->reconstruction_manager_.Add();
+    auto& reconstruction =
+        main_window_->reconstruction_manager_.Get(reconstruction_idx);
+
+    for (const auto& point : fused_points_) {
+      const Eigen::Vector3d xyz(point.x, point.y, point.z);
+      const point3D_t point3D_id = reconstruction.AddPoint3D(xyz, Track());
+      const Eigen::Vector3ub rgb(point.r, point.g, point.b);
+      reconstruction.Point3D(point3D_id).SetColor(rgb);
+    }
+
+    options_->render->min_track_len = 0;
+    main_window_->reconstruction_manager_widget_->Update();
+    main_window_->reconstruction_manager_widget_->SelectReconstruction(
+        reconstruction_idx);
+    main_window_->RenderNow();
   }
 
   const std::string workspace_path =
@@ -439,6 +475,13 @@ void DenseReconstructionWidget::WriteFusedPoints() {
         fused_points_ = {};
         meshing_button_->setEnabled(true);
       });
+}
+
+void DenseReconstructionWidget::ShowMeshingInfo() {
+  QMessageBox::information(
+      this, "",
+      tr("To visualize the meshed model, you must use an external viewer such "
+         "as Meshlab. The model is located in the workspace folder."));
 }
 
 QWidget* DenseReconstructionWidget::GenerateTableButtonWidget(

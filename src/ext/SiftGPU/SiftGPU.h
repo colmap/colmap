@@ -280,11 +280,11 @@ public:
 		SIFTMATCH_CUDA_DEVICE0 = 3 //to use device i, use SIFTMATCH_CUDA_DEVICE0 + i
 	};
 private:
-	int				__max_sift;
 	int				__language;
 	SiftMatchGPU *	__matcher;
 	virtual void   InitSiftMatch(){}
 protected:
+  int       __max_sift;
 	//move the two functions here for derived class
 	SIFTGPU_EXPORT virtual int  _CreateContextGL();
 	SIFTGPU_EXPORT virtual int  _VerifyContextGL();
@@ -304,6 +304,9 @@ public:
 	//This is only used when you call CreateContextGL..
 	//This function doesn't change the language.
 	SIFTGPU_EXPORT virtual void SetDeviceParam(int argc, char**argv);
+
+  // Allocate all matrices the matrices and return true if successful.
+  virtual bool Allocate(int max_sift, int mbm);
 
 	//change the maximum of features to match whenever you want
   SIFTGPU_EXPORT virtual void SetMaxSift(int max_sift);

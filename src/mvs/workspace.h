@@ -29,34 +29,62 @@ namespace mvs {
 
 class Workspace {
  public:
-  Workspace(const size_t cache_size, const std::string& workspace_path,
-            const std::string& workspace_format, const std::string& input_type);
+  struct Options {
+    // The maximum cache size in gigabytes.
+    double cache_size = 32.0;
+
+    // Maximum image size in either dimension.
+    int max_image_size = -1;
+
+    // Whether to read image as RGB or gray scale.
+    bool image_as_rgb = true;
+
+    // Location and type of workspace.
+    std::string workspace_path;
+    std::string workspace_format;
+    std::string input_type;
+  };
+
+  Workspace(const Options& options);
+
+  void ClearCache();
 
   const Model& GetModel() const;
   const Bitmap& GetBitmap(const int image_id);
   const DepthMap& GetDepthMap(const int image_id);
   const NormalMap& GetNormalMap(const int image_id);
-  const ConsistencyGraph& GetConsistencyGraph(const int image_id);
 
-  // Return whether bitmap, depth map, normal map, and consistency graph exist.
-  bool HasImage(const int image_id) const;
-
- private:
-  std::string GetFileName(const int image_id) const;
+  // Get paths to bitmap, depth map, normal map and consistency graph.
   std::string GetBitmapPath(const int image_id) const;
   std::string GetDepthMapPath(const int image_id) const;
   std::string GetNormalMapPath(const int image_id) const;
-  std::string GetConsistencyGraphPath(const int image_id) const;
 
-  const std::string workspace_path_;
-  const std::string workspace_format_;
-  const std::string input_type_;
+  // Return whether bitmap, depth map, normal map, and consistency graph exist.
+  bool HasBitmap(const int image_id) const;
+  bool HasDepthMap(const int image_id) const;
+  bool HasNormalMap(const int image_id) const;
 
+ private:
+  std::string GetFileName(const int image_id) const;
+
+  class CachedImage {
+   public:
+    CachedImage();
+    CachedImage(CachedImage&& other);
+    CachedImage& operator=(CachedImage&& other);
+    size_t NumBytes() const;
+    size_t num_bytes = 0;
+    std::unique_ptr<Bitmap> bitmap;
+    std::unique_ptr<DepthMap> depth_map;
+    std::unique_ptr<NormalMap> normal_map;
+
+   private:
+    NON_COPYABLE(CachedImage)
+  };
+
+  Options options_;
   Model model_;
-  std::unique_ptr<LRUCache<int, Bitmap>> bitmaps_;
-  std::unique_ptr<LRUCache<int, DepthMap>> depth_maps_;
-  std::unique_ptr<LRUCache<int, NormalMap>> normal_maps_;
-  std::unique_ptr<LRUCache<int, ConsistencyGraph>> consistency_graphs_;
+  MemoryConstrainedLRUCache<int, CachedImage> cache_;
 };
 
 }  // namespace mvs

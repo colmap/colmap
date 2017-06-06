@@ -102,8 +102,9 @@ double Camera::FocalLengthY() const {
 
 void Camera::SetFocalLength(const double focal_length) {
   const std::vector<size_t>& idxs = FocalLengthIdxs();
-  CHECK_EQ(idxs.size(), 1);
-  params_[idxs[0]] = focal_length;
+  for (const auto idx : idxs) {
+    params_[idx] = focal_length;
+  }
 }
 
 void Camera::SetFocalLengthX(const double focal_length_x) {

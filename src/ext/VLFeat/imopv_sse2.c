@@ -36,7 +36,7 @@ the terms of the BSD license (see the COPYING file).
 /* VL_IMOPV_SSE2_INSTANTIATING */
 #else
 
-#include "float.th"
+#include "float.h"
 
 /* ---------------------------------------------------------------- */
 void

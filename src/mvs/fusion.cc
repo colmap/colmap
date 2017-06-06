@@ -37,17 +37,42 @@ float Median(std::vector<T>* elems) {
   }
 }
 
+// Use the sparse model to find most connected image that has not yet been
+// fused. This is used as a heuristic to ensure that the workspace cache reuses
+// already cached images as efficient as possible.
+int FindNextImage(const std::vector<std::vector<int>>& overlapping_images,
+                  const std::vector<char>& fused_images,
+                  const int prev_image_id) {
+  for (const auto image_id : overlapping_images.at(prev_image_id)) {
+    if (!fused_images.at(image_id)) {
+      return image_id;
+    }
+  }
+
+  // If none of the overlapping images are not yet fused, simply return the
+  // first image that has not yet been fused.
+  for (size_t i = 0; i < fused_images.size(); ++i) {
+    if (!fused_images[i]) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
 }  // namespace internal
 
 void StereoFusion::Options::Print() const {
 #define PrintOption(option) std::cout << #option ": " << option << std::endl
   PrintHeading2("StereoFusion::Options");
+  PrintOption(max_image_size);
   PrintOption(min_num_pixels);
   PrintOption(max_num_pixels);
   PrintOption(max_traversal_depth);
   PrintOption(max_reproj_error);
   PrintOption(max_depth_error);
   PrintOption(max_normal_error);
+  PrintOption(check_num_images);
   PrintOption(cache_size);
 #undef PrintOption
 }
@@ -59,6 +84,7 @@ bool StereoFusion::Options::Check() const {
   CHECK_OPTION_GE(max_reproj_error, 0);
   CHECK_OPTION_GE(max_depth_error, 0);
   CHECK_OPTION_GE(max_normal_error, 0);
+  CHECK_OPTION_GT(check_num_images, 0);
   CHECK_OPTION_GT(cache_size, 0);
   return true;
 }
@@ -88,8 +114,14 @@ void StereoFusion::Run() {
   std::cout << std::endl;
 
   std::cout << "Reading workspace..." << std::endl;
-  workspace_.reset(new Workspace(options_.cache_size, workspace_path_,
-                                 workspace_format_, input_type_));
+  Workspace::Options workspace_options;
+  workspace_options.max_image_size = options_.max_image_size;
+  workspace_options.image_as_rgb = true;
+  workspace_options.cache_size = options_.cache_size;
+  workspace_options.workspace_path = workspace_path_;
+  workspace_options.workspace_format = workspace_format_;
+  workspace_options.input_type = input_type_;
+  workspace_.reset(new Workspace(workspace_options));
 
   if (IsStopped()) {
     GetTimer().PrintMinutes();
@@ -99,8 +131,15 @@ void StereoFusion::Run() {
   std::cout << "Reading configuration..." << std::endl;
 
   const auto& model = workspace_->GetModel();
-  used_images_.resize(model.images.size());
-  visited_masks_.resize(model.images.size());
+
+  const double kMinTriangulationAngle = 0;
+  overlapping_images_ = model.GetMaxOverlappingImages(options_.check_num_images,
+                                                      kMinTriangulationAngle);
+
+  used_images_.resize(model.images.size(), false);
+  fused_images_.resize(model.images.size(), false);
+  fused_pixel_masks_.resize(model.images.size());
+  depth_map_sizes_.resize(model.images.size());
   bitmap_scales_.resize(model.images.size());
   P_.resize(model.images.size());
   inv_P_.resize(model.images.size());
@@ -111,7 +150,9 @@ void StereoFusion::Run() {
   for (const auto& image_name : image_names) {
     const int image_id = model.GetImageId(image_name);
 
-    if (!workspace_->HasImage(image_id)) {
+    if (!workspace_->HasBitmap(image_id) ||
+        !workspace_->HasDepthMap(image_id) ||
+        !workspace_->HasNormalMap(image_id)) {
       std::cout
           << StringPrintf(
                  "WARNING: Ignoring image %s, because input does not exist.",
@@ -125,9 +166,12 @@ void StereoFusion::Run() {
 
     used_images_.at(image_id) = true;
 
-    visited_masks_.at(image_id) =
+    fused_pixel_masks_.at(image_id) =
         Mat<bool>(depth_map.GetWidth(), depth_map.GetHeight(), 1);
-    visited_masks_.at(image_id).Fill(false);
+    fused_pixel_masks_.at(image_id).Fill(false);
+
+    depth_map_sizes_.at(image_id) =
+        std::make_pair(depth_map.GetWidth(), depth_map.GetHeight());
 
     bitmap_scales_.at(image_id) = std::make_pair(
         static_cast<float>(depth_map.GetWidth()) / image.GetWidth(),
@@ -151,27 +195,28 @@ void StereoFusion::Run() {
             .transpose();
   }
 
-  for (size_t image_id = 0; image_id < model.images.size(); ++image_id) {
+  size_t num_fused_images = 0;
+  for (int image_id = 0; image_id >= 0;
+       image_id = internal::FindNextImage(overlapping_images_, fused_images_,
+                                          image_id)) {
     if (IsStopped()) {
       break;
     }
 
-    if (!used_images_.at(image_id)) {
+    if (!used_images_.at(image_id) || fused_images_.at(image_id)) {
       continue;
     }
 
     Timer timer;
     timer.Start();
 
-    std::cout << StringPrintf("Fusing image [%d/%d]", image_id + 1,
+    std::cout << StringPrintf("Fusing image [%d/%d]", num_fused_images + 1,
                               model.images.size())
               << std::flush;
 
-    const int width =
-        static_cast<int>(workspace_->GetDepthMap(image_id).GetWidth());
-    const int height =
-        static_cast<int>(workspace_->GetDepthMap(image_id).GetHeight());
-    const auto& visited_mask = visited_masks_.at(image_id);
+    const int width = depth_map_sizes_.at(image_id).first;
+    const int height = depth_map_sizes_.at(image_id).second;
+    const auto& fused_pixel_mask = fused_pixel_masks_.at(image_id);
 
     FusionData data;
     data.image_id = image_id;
@@ -179,20 +224,32 @@ void StereoFusion::Run() {
 
     for (data.row = 0; data.row < height; ++data.row) {
       for (data.col = 0; data.col < width; ++data.col) {
-        if (visited_mask.Get(data.row, data.col)) {
+        if (fused_pixel_mask.Get(data.row, data.col)) {
           continue;
         }
 
-        fusion_queue_.push(data);
+        fusion_queue_.push_back(data);
 
         Fuse();
       }
     }
 
-    std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
+    num_fused_images += 1;
+    fused_images_.at(image_id) = true;
+
+    std::cout << StringPrintf(" in %.3fs (%d points)", timer.ElapsedSeconds(),
+                              fused_points_.size())
+              << std::endl;
   }
 
   fused_points_.shrink_to_fit();
+
+  if (fused_points_.empty()) {
+    std::cout << "WARNING: Could not fuse any points. This is likely caused by "
+                 "incorrect settings - filtering must be enabled for the last "
+                 "call to patch match stereo."
+              << std::endl;
+  }
 
   std::cout << "Number of fused points: " << fused_points_.size() << std::endl;
   GetTimer().PrintMinutes();
@@ -214,37 +271,26 @@ void StereoFusion::Fuse() {
   fused_points_g_.clear();
   fused_points_b_.clear();
 
-  const size_t max_num_pixels = static_cast<size_t>(options_.max_num_pixels);
-
   while (!fusion_queue_.empty()) {
-    const auto data = fusion_queue_.front();
+    const auto data = fusion_queue_.back();
     const int image_id = data.image_id;
     const int row = data.row;
     const int col = data.col;
     const int traversal_depth = data.traversal_depth;
 
-    fusion_queue_.pop();
+    fusion_queue_.pop_back();
 
-    if (!used_images_.at(image_id)) {
+    // Check if pixel already fused.
+    auto& fused_pixel_mask = fused_pixel_masks_.at(image_id);
+    if (fused_pixel_mask.Get(row, col)) {
       continue;
     }
 
     const auto& depth_map = workspace_->GetDepthMap(image_id);
-    if (col < 0 || row < 0 || col >= static_cast<int>(depth_map.GetWidth()) ||
-        row >= static_cast<int>(depth_map.GetHeight())) {
-      continue;
-    }
-
     const float depth = depth_map.Get(row, col);
 
     // Pixels with negative depth are filtered.
     if (depth <= 0.0f) {
-      continue;
-    }
-
-    // Check if pixel already fused.
-    auto& visited_mask = visited_masks_.at(image_id);
-    if (visited_mask.Get(row, col)) {
       continue;
     }
 
@@ -297,7 +343,7 @@ void StereoFusion::Fuse() {
         col / bitmap_scale.first, row / bitmap_scale.second, &color);
 
     // Set the current pixel as visited.
-    visited_mask.Set(row, col, true);
+    fused_pixel_mask.Set(row, col, true);
 
     // Accumulate statistics for fused point.
     fused_points_x_.push_back(xyz(0));
@@ -316,38 +362,42 @@ void StereoFusion::Fuse() {
       fused_ref_normal = normal;
     }
 
-    if (fused_points_x_.size() >= max_num_pixels) {
+    if (fused_points_x_.size() >=
+        static_cast<size_t>(options_.max_num_pixels)) {
       break;
     }
 
-    const int next_traversal_depth = traversal_depth + 1;
+    FusionData next_data;
+    next_data.traversal_depth = traversal_depth + 1;
 
-    // Do not traverse the graph infinitely in one branch and limit the
-    // maximum number of pixels fused in one point to avoid stack overflow.
-    if (next_traversal_depth >= options_.max_traversal_depth) {
+    if (next_data.traversal_depth >= options_.max_traversal_depth) {
       continue;
     }
 
-    // Traverse the consistency graph by projecting point into other views.
-    int next_num_images = 0;
-    const int* next_image_ids = nullptr;
-    workspace_->GetConsistencyGraph(image_id).GetImageIds(
-        row, col, &next_num_images, &next_image_ids);
+    for (const auto next_image_id : overlapping_images_.at(image_id)) {
+      if (!used_images_.at(next_image_id) || fused_images_.at(next_image_id)) {
+        continue;
+      }
 
-    FusionData next_data;
-    next_data.traversal_depth = next_traversal_depth;
+      next_data.image_id = next_image_id;
 
-    for (int i = 0; i < next_num_images; ++i) {
-      next_data.image_id = next_image_ids[i];
       const Eigen::Vector3f next_proj =
-          P_.at(next_data.image_id) * xyz.homogeneous();
+          P_.at(next_image_id) * xyz.homogeneous();
       next_data.col = static_cast<int>(std::round(next_proj(0) / next_proj(2)));
       next_data.row = static_cast<int>(std::round(next_proj(1) / next_proj(2)));
-      fusion_queue_.push(next_data);
+
+      const auto& depth_map_size = depth_map_sizes_.at(next_image_id);
+      if (next_data.col < 0 || next_data.row < 0 ||
+          next_data.col >= depth_map_size.first ||
+          next_data.row >= depth_map_size.second) {
+        continue;
+      }
+
+      fusion_queue_.push_back(next_data);
     }
   }
 
-  fusion_queue_ = std::queue<FusionData>();
+  fusion_queue_.clear();
 
   const size_t num_pixels = fused_points_x_.size();
   if (num_pixels >= static_cast<size_t>(options_.min_num_pixels)) {

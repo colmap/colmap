@@ -143,7 +143,7 @@ class SceneGraph {
 size_t SceneGraph::NumImages() const { return images_.size(); }
 
 bool SceneGraph::ExistsImage(const image_t image_id) const {
-  return images_.count(image_id) > 0;
+  return images_.find(image_id) != images_.end();
 }
 
 point2D_t SceneGraph::NumObservationsForImage(const image_t image_id) const {
@@ -158,10 +158,11 @@ point2D_t SceneGraph::NumCorrespondencesBetweenImages(
     const image_t image_id1, const image_t image_id2) const {
   const image_pair_t pair_id =
       Database::ImagePairToPairId(image_id1, image_id2);
-  if (image_pairs_.count(pair_id) == 0) {
+  const auto it = image_pairs_.find(pair_id);
+  if (it == image_pairs_.end()) {
     return 0;
   } else {
-    return static_cast<point2D_t>(image_pairs_.at(pair_id));
+    return static_cast<point2D_t>(it->second);
   }
 }
 

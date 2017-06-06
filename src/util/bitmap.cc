@@ -33,7 +33,9 @@ Bitmap::Bitmap()
     : data_(nullptr, &FreeImage_Unload), width_(0), height_(0), channels_(0) {}
 
 Bitmap::Bitmap(const Bitmap& other) : Bitmap() {
-  SetPtr(FreeImage_Clone(data_.get()));
+  if (other.data_) {
+    SetPtr(FreeImage_Clone(other.data_.get()));
+  }
 }
 
 Bitmap::Bitmap(Bitmap&& other) : Bitmap() {
@@ -46,7 +48,9 @@ Bitmap::Bitmap(Bitmap&& other) : Bitmap() {
 Bitmap::Bitmap(FIBITMAP* data) : Bitmap() { SetPtr(data); }
 
 Bitmap& Bitmap::operator=(const Bitmap& other) {
-  SetPtr(FreeImage_Clone(other.data_.get()));
+  if (other.data_) {
+    SetPtr(FreeImage_Clone(other.data_.get()));
+  }
   return *this;
 }
 
@@ -77,11 +81,19 @@ bool Bitmap::Allocate(const int width, const int height, const bool as_rgb) {
   return data != nullptr;
 }
 
+size_t Bitmap::NumBytes() const {
+  if (data_) {
+    return ScanWidth() * height_;
+  } else {
+    return 0;
+  }
+}
+
 std::vector<uint8_t> Bitmap::ConvertToRawBits() const {
   const unsigned int scan_width = ScanWidth();
   const unsigned int bpp = BitsPerPixel();
   const bool kTopDown = true;
-  std::vector<uint8_t> raw_bits(bpp * scan_width * height_, 0);
+  std::vector<uint8_t> raw_bits(scan_width * height_, 0);
   FreeImage_ConvertToRawBits(raw_bits.data(), data_.get(), scan_width, bpp,
                              FI_RGBA_RED_MASK, FI_RGBA_GREEN_MASK,
                              FI_RGBA_BLUE_MASK, kTopDown);
@@ -386,6 +398,10 @@ bool Bitmap::Read(const std::string& path, const bool as_rgb) {
   }
 
   FIBITMAP* fi_bitmap = FreeImage_Load(format, path.c_str());
+  if (fi_bitmap == nullptr) {
+    return false;
+  }
+
   data_ = FIBitmapPtr(fi_bitmap, &FreeImage_Unload);
 
   if (!IsPtrRGB(data_.get()) && as_rgb) {

@@ -25,6 +25,12 @@ class OptionManager;
 
 class ReconstructionManager {
  public:
+  ReconstructionManager();
+
+  // Move constructor and assignment.
+  ReconstructionManager(ReconstructionManager&& other);
+  ReconstructionManager& operator=(ReconstructionManager&& other);
+
   // The number of reconstructions managed.
   size_t Size() const;
 
@@ -50,6 +56,8 @@ class ReconstructionManager {
   void Write(const std::string& path, const OptionManager* options) const;
 
  private:
+  NON_COPYABLE(ReconstructionManager)
+
   std::vector<std::unique_ptr<Reconstruction>> reconstructions_;
 };
 

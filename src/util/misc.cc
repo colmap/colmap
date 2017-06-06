@@ -37,7 +37,7 @@ bool HasFileExtension(const std::string& file_name, const std::string& ext) {
   CHECK(!ext.empty());
   CHECK_EQ(ext.at(0), '.');
   std::string ext_lower = ext;
-  boost::to_lower(ext_lower);
+  StringToLower(&ext_lower);
   if (file_name.size() >= ext_lower.size() &&
       file_name.substr(file_name.size() - ext_lower.size(), ext_lower.size()) ==
           ext_lower) {
@@ -99,6 +99,18 @@ std::string GetParentDir(const std::string& path) {
   return boost::filesystem::path(path).parent_path().string();
 }
 
+std::vector<std::string> GetFileList(const std::string& path) {
+  std::vector<std::string> file_list;
+  for (auto it = boost::filesystem::directory_iterator(path);
+       it != boost::filesystem::directory_iterator(); ++it) {
+    if (boost::filesystem::is_regular_file(*it)) {
+      const boost::filesystem::path file_path = *it;
+      file_list.push_back(file_path.string());
+    }
+  }
+  return file_list;
+}
+
 std::vector<std::string> GetRecursiveFileList(const std::string& path) {
   std::vector<std::string> file_list;
   for (auto it = boost::filesystem::recursive_directory_iterator(path);
@@ -109,6 +121,36 @@ std::vector<std::string> GetRecursiveFileList(const std::string& path) {
     }
   }
   return file_list;
+}
+
+std::vector<std::string> GetDirList(const std::string& path) {
+  std::vector<std::string> dir_list;
+  for (auto it = boost::filesystem::directory_iterator(path);
+       it != boost::filesystem::directory_iterator(); ++it) {
+    if (boost::filesystem::is_directory(*it)) {
+      const boost::filesystem::path dir_path = *it;
+      dir_list.push_back(dir_path.string());
+    }
+  }
+  return dir_list;
+}
+
+std::vector<std::string> GetRecursiveDirList(const std::string& path) {
+  std::vector<std::string> dir_list;
+  for (auto it = boost::filesystem::recursive_directory_iterator(path);
+       it != boost::filesystem::recursive_directory_iterator(); ++it) {
+    if (boost::filesystem::is_directory(*it)) {
+      const boost::filesystem::path dir_path = *it;
+      dir_list.push_back(dir_path.string());
+    }
+  }
+  return dir_list;
+}
+
+size_t GetFileSize(const std::string& path) {
+  std::ifstream file(path, std::ifstream::ate | std::ifstream::binary);
+  CHECK(file.is_open()) << path;
+  return file.tellg();
 }
 
 void PrintHeading1(const std::string& heading) {
@@ -131,8 +173,8 @@ bool IsBigEndian() {
 }
 
 std::vector<std::string> ReadTextFileLines(const std::string& path) {
-  std::ifstream file(path.c_str());
-  CHECK(file.is_open());
+  std::ifstream file(path);
+  CHECK(file.is_open()) << path;
 
   std::string line;
   std::vector<std::string> lines;

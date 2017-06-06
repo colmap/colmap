@@ -52,11 +52,14 @@ class StereoFusion : public Thread {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   struct Options {
+    // Maximum image size in either dimension.
+    int max_image_size = -1;
+
     // Minimum number of fused pixels to produce a point.
     int min_num_pixels = 5;
 
     // Maximum number of pixels to fuse into a single point.
-    int max_num_pixels = 1000;
+    int max_num_pixels = 10000;
 
     // Maximum depth in consistency graph traversal.
     int max_traversal_depth = 100;
@@ -67,15 +70,18 @@ class StereoFusion : public Thread {
     // Maximum relative difference between measured and projected depth.
     double max_depth_error = 0.01f;
 
-    // Maximum difference between normals of pixels to be fused.
+    // Maximum angular difference in degrees of normals of pixels to be fused.
     double max_normal_error = 10.0f;
 
-    // Cache size for fusion. The fusion keeps the bitmaps, depth maps, normal
-    // maps, and consistency graphs of this number of images in memory. A higher
-    // value here leads to less disk access and faster fusion, while a larger
-    // value leads to reduced memory usage. Note that a single image can consume
-    // a lot of memory, if the consistency graph is dense.
-    int cache_size = 250;
+    // Number of overlapping images to transitively check for fusing points.
+    int check_num_images = 50;
+
+    // Cache size in gigabytes for fusion. The fusion keeps the bitmaps, depth
+    // maps, normal maps, and consistency graphs of this number of images in
+    // memory. A higher value leads to less disk access and faster fusion, while
+    // a lower value leads to reduced memory usage. Note that a single image can
+    // consume a lot of memory, if the consistency graph is dense.
+    double cache_size = 32.0;
 
     // Check the options for validity.
     bool Check() const;
@@ -103,7 +109,10 @@ class StereoFusion : public Thread {
 
   std::unique_ptr<Workspace> workspace_;
   std::vector<char> used_images_;
-  std::vector<Mat<bool>> visited_masks_;
+  std::vector<char> fused_images_;
+  std::vector<std::vector<int>> overlapping_images_;
+  std::vector<Mat<bool>> fused_pixel_masks_;
+  std::vector<std::pair<int, int>> depth_map_sizes_;
   std::vector<std::pair<float, float>> bitmap_scales_;
   std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> P_;
   std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> inv_P_;
@@ -114,9 +123,12 @@ class StereoFusion : public Thread {
     int row = 0;
     int col = 0;
     int traversal_depth = -1;
+    bool operator()(const FusionData& data1, const FusionData& data2) {
+      return data1.image_id > data2.image_id;
+    }
   };
 
-  std::queue<FusionData> fusion_queue_;
+  std::vector<FusionData> fusion_queue_;
   std::vector<FusedPoint> fused_points_;
   std::vector<float> fused_points_x_;
   std::vector<float> fused_points_y_;

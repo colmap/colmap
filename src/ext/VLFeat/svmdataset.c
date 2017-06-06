@@ -324,7 +324,7 @@ vl_svmdataset_get_inner_product_function (VlSvmDataset const *self)
 #ifdef VL_SVMDATASET_INSTANTIATING
 /* ---------------------------------------------------------------- */
 
-#include "float.th"
+#include "float.h"
 
 double
 VL_XCAT(_vl_svmdataset_inner_product_,SFX) (VlSvmDataset const *self,

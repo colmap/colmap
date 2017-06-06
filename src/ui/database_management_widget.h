@@ -62,14 +62,14 @@ class RawMatchesTab : public MatchesTab {
  public:
   RawMatchesTab(QWidget* parent, OptionManager* options, Database* database);
 
-  void Update(const std::vector<Image>& images, const image_t image_id);
+  void Reload(const std::vector<Image>& images, const image_t image_id);
 };
 
 class InlierMatchesTab : public MatchesTab {
  public:
   InlierMatchesTab(QWidget* parent, OptionManager* options, Database* database);
 
-  void Update(const std::vector<Image>& images, const image_t image_id);
+  void Reload(const std::vector<Image>& images, const image_t image_id);
 };
 
 class MatchesWidget : public QWidget {
@@ -94,12 +94,32 @@ class MatchesWidget : public QWidget {
 // Images, Cameras
 ////////////////////////////////////////////////////////////////////////////////
 
+class CameraTab : public QWidget {
+ public:
+  CameraTab(QWidget* parent, Database* database);
+
+  void Reload();
+  void Clear();
+
+ private:
+  void itemChanged(QTableWidgetItem* item);
+  void Add();
+  void SetModel();
+
+  Database* database_;
+
+  std::vector<Camera> cameras_;
+
+  QTableWidget* table_widget_;
+  QLabel* info_label_;
+};
+
 class ImageTab : public QWidget {
  public:
-  ImageTab(QWidget* parent, OptionManager* options, Database* database);
+  ImageTab(QWidget* parent, CameraTab* camera_tab, OptionManager* options,
+           Database* database);
 
-  void Update();
-  void Save();
+  void Reload();
   void Clear();
 
  private:
@@ -108,6 +128,9 @@ class ImageTab : public QWidget {
   void ShowImage();
   void ShowMatches();
   void SetCamera();
+  void SplitCamera();
+
+  CameraTab* camera_tab_;
 
   OptionManager* options_;
   Database* database_;
@@ -122,26 +145,6 @@ class ImageTab : public QWidget {
   FeatureImageViewerWidget* image_viewer_widget_;
 };
 
-class CameraTab : public QWidget {
- public:
-  CameraTab(QWidget* parent, Database* database);
-
-  void Update();
-  void Save();
-  void Clear();
-
- private:
-  void itemChanged(QTableWidgetItem* item);
-  void Add();
-
-  Database* database_;
-
-  std::vector<Camera> cameras_;
-
-  QTableWidget* table_widget_;
-  QLabel* info_label_;
-};
-
 class DatabaseManagementWidget : public QWidget {
  public:
   DatabaseManagementWidget(QWidget* parent, OptionManager* options);
@@ -150,7 +153,6 @@ class DatabaseManagementWidget : public QWidget {
   void showEvent(QShowEvent* event);
   void hideEvent(QHideEvent* event);
 
-  void Save();
   void ClearMatches();
   void ClearInlierMatches();
 

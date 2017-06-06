@@ -61,10 +61,12 @@ bool PoissonReconstruction(const PoissonReconstructionOptions& options,
     args.push_back(std::to_string(options.color));
   }
 
+#ifdef OPENMP_ENABLED
   if (options.num_threads > 0) {
-    args.push_back("--num_threads");
+    args.push_back("--threads");
     args.push_back(std::to_string(options.num_threads));
   }
+#endif  // OPENMP_ENABLED
 
   if (options.trim > 0) {
     args.push_back("--density");

@@ -3379,7 +3379,7 @@ void SparseBundleCPU<Float>::NormalizeDataD() {
     }
     if (__num_point_behind > 0)
       std::cout << "WARNING: " << __num_point_behind
-                << " points are behind camras.\n";
+                << " points are behind cameras.\n";
     if (__num_camera_modified > 0)
       std::cout << "WARNING: " << __num_camera_modified
                 << " camera moved to avoid degeneracy.\n";

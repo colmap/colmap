@@ -35,11 +35,10 @@ class Image {
   Image(const std::string& path, const size_t width, const size_t height,
         const float* K, const float* R, const float* T);
 
-  void Read(const bool as_rgb);
-
   inline size_t GetWidth() const;
   inline size_t GetHeight() const;
 
+  void SetBitmap(const Bitmap& bitmap);
   inline const Bitmap& GetBitmap() const;
 
   inline const std::string& GetPath() const;

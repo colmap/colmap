@@ -279,7 +279,7 @@ optimal because $2^k > r$. This yields the algorithm:
 
 /* ---------------------------------------------------------------- */
 #ifdef VL_MATHOP_INSTANTIATING
-#include "float.th"
+#include "float.h"
 
 #undef COMPARISONFUNCTION_TYPE
 #undef COMPARISONFUNCTION3_TYPE

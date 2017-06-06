@@ -59,7 +59,7 @@ the terms of the BSD license (see the COPYING file).
 
 #if defined(VL_IMOPV_INSTANTIATING) || defined(__DOXYGEN__)
 
-#include "float.th"
+#include "float.h"
 
 /* ---------------------------------------------------------------- */
 /*                                                Image Convolution */

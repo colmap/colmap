@@ -21,7 +21,7 @@ set(VLFEAT_SOURCE_FILES
     dsift.h
     fisher.c
     fisher.h
-    float.th
+    float.h
     generic.c
     generic.h
     getopt_long.c

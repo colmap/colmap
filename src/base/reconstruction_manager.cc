@@ -21,6 +21,21 @@
 
 namespace colmap {
 
+ReconstructionManager::ReconstructionManager() {}
+
+ReconstructionManager::ReconstructionManager(ReconstructionManager&& other)
+    : ReconstructionManager() {
+  reconstructions_ = std::move(other.reconstructions_);
+}
+
+ReconstructionManager& ReconstructionManager::operator=(
+    ReconstructionManager&& other) {
+  if (this != &other) {
+    reconstructions_ = std::move(other.reconstructions_);
+  }
+  return *this;
+}
+
 size_t ReconstructionManager::Size() const { return reconstructions_.size(); }
 
 const Reconstruction& ReconstructionManager::Get(const size_t idx) const {
