@@ -31,7 +31,7 @@
 #include "util/types.h"
 
 namespace colmap {
-class Serializer;
+class Serializator;
 
 // Class that holds information about an image. An image is the product of one
 // camera shot at a certain location (parameterized as the pose). An image may
