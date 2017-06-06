@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 2.8.11)
 
 project(COLMAP)
 
@@ -74,8 +74,9 @@ find_package(GLUT REQUIRED)
 find_package(Glew REQUIRED)
 find_package(Git)
 
+set(CUDA_MIN_VERSION "7.0")
 if(CUDA_ENABLED)
-    find_package(CUDA QUIET)
+    find_package(CUDA ${CUDA_MIN_VERSION} QUIET)
 endif()
 
 find_package(Qt5 REQUIRED)
@@ -141,6 +142,10 @@ if(CUDA_FOUND)
 else()
     set(CUDA_ENABLED FALSE)
     message(STATUS "Disabling CUDA support")
+    if(CUDA_VERSION_STRING)
+      message(STATUS "CUDA version found (${CUDA_VERSION_STRING}) is not supported, "
+                      "version at least ${CUDA_MIN_VERSION} required.")
+    endif()
 endif()
 
 list(APPEND CUDA_NVCC_FLAGS "-Wno-deprecated-gpu-targets")
