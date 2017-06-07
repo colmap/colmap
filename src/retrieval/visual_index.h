@@ -29,7 +29,10 @@ namespace colmap {
 namespace retrieval {
 
 // Visual index for image retrieval using a vocabulary tree with Hamming
-// embedding, based on the paper:
+// embedding, based on the papers:
+//
+//    Schönberger, Price, Sattler, Pollefeys, Frahm. "A Vote-and-Verify Strategy
+//    for Fast Spatial Verification in Image Retrieval". ACCV 2016.
 //
 //    Arandjelovic, Zisserman: Scalable descriptor
 //    distinctiveness for location recognition. ACCV 2014.
@@ -38,7 +41,8 @@ class VisualIndex {
   const static int kProjDescDim = 64;
   static const int kMaxNumThreads = -1;
   typedef InvertedIndex<kProjDescDim> InvertedIndexType;
-  typedef InvertedIndexType::Desc Desc;
+  typedef FeatureKeypoints GeomType;
+  typedef InvertedIndexType::Desc DescType;
 
   struct IndexOptions {
     // The number of nearest neighbor visual words that each feature descriptor
@@ -55,6 +59,9 @@ class VisualIndex {
   struct QueryOptions {
     // The maximum number of most similar images to retrieve.
     int max_num_images = -1;
+
+    // The number of images to be spatially verified and reranked.
+    int max_num_verifications = -1;
 
     // The number of nearest neighbor visual words that each feature descriptor
     // is assigned to.
@@ -95,18 +102,24 @@ class VisualIndex {
 
   // Add image to the visual index.
   void Add(const IndexOptions& options, const int image_id,
-           const Desc& descriptors);
+           const GeomType& geometries, const DescType& descriptors);
 
   // Query for most similar images in the visual index.
-  void Query(const QueryOptions& options, const Desc& descriptors,
+  void Query(const QueryOptions& options, const DescType& descriptors,
              std::vector<ImageScore>* image_scores) const;
+
+  // Query for most similar images in the visual index.
+  void QueryWithVerification(const QueryOptions& options,
+                             const GeomType& geometries,
+                             const DescType& descriptors,
+                             std::vector<ImageScore>* image_scores) const;
 
   // Prepare the index after adding images and before querying.
   void Prepare();
 
   // Build a visual index from a set of training descriptors by quantizing the
   // descriptor space into visual words and compute their Hamming embedding.
-  void Build(const BuildOptions& options, const Desc& descriptors);
+  void Build(const BuildOptions& options, const DescType& descriptors);
 
   // Read and write the visual index. This can be done for an index with and
   // without indexed images.
@@ -115,11 +128,18 @@ class VisualIndex {
 
  private:
   // Quantize the descriptor space into visual words.
-  void Quantize(const BuildOptions& options, const Desc& descriptors);
+  void Quantize(const BuildOptions& options, const DescType& descriptors);
+
+  // Query for nearest neighbor images and return nearest neighbor visual word
+  // identifiers for each descriptor.
+  void QueryAndFindWordIds(const QueryOptions& options,
+                           const DescType& descriptors,
+                           std::vector<ImageScore>* image_scores,
+                           Eigen::MatrixXi* word_ids) const;
 
   // Find the nearest neighbor visual words for the given descriptors.
-  Eigen::MatrixXi FindWordIds(const Desc& descriptors, const int num_neighbors,
-                              const int num_checks,
+  Eigen::MatrixXi FindWordIds(const DescType& descriptors,
+                              const int num_neighbors, const int num_checks,
                               const int num_threads) const;
 
   // The search structure on the quantized descriptor space.

@@ -72,9 +72,9 @@ FeatureDescriptors FeatureDescriptorsToUnsignedByte(
     const Eigen::MatrixXf& descriptors);
 
 // Extract the descriptors corresponding to the largest-scale features.
-FeatureDescriptors ExtractTopScaleDescriptors(
-    const FeatureKeypoints& keypoints, const FeatureDescriptors& descriptors,
-    const size_t num_features);
+void ExtractTopScaleFeatures(FeatureKeypoints* keypoints,
+                             FeatureDescriptors* descriptors,
+                             const size_t num_features);
 
 }  // namespace colmap
 

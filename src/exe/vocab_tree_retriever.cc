@@ -55,16 +55,14 @@ void IndexImagesInVisualIndex(const int max_num_features,
     std::cout << StringPrintf("Indexing image [%d/%d]", i + 1, images.size())
               << std::flush;
 
-    retrieval::VisualIndex::Desc descriptors =
-        database->ReadDescriptors(images[i].ImageId());
+    auto keypoints = database->ReadKeypoints(images[i].ImageId());
+    auto descriptors = database->ReadDescriptors(images[i].ImageId());
     if (max_num_features > 0 && descriptors.rows() > max_num_features) {
-      const auto keypoints = database->ReadKeypoints(images[i].ImageId());
-      descriptors =
-          ExtractTopScaleDescriptors(keypoints, descriptors, max_num_features);
+      ExtractTopScaleFeatures(&keypoints, &descriptors, max_num_features);
     }
 
     visual_index->Add(retrieval::VisualIndex::IndexOptions(),
-                      images[i].ImageId(), descriptors);
+                      images[i].ImageId(), keypoints, descriptors);
 
     std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
   }
@@ -76,12 +74,14 @@ void IndexImagesInVisualIndex(const int max_num_features,
 void QueryImagesInVisualIndex(const int max_num_features,
                               const std::vector<Image>& database_images,
                               const std::vector<Image>& query_images,
-                              const int num_images, Database* database,
+                              const int num_images, const int num_verifications,
+                              Database* database,
                               retrieval::VisualIndex* visual_index) {
   DatabaseTransaction database_transaction(database);
 
   retrieval::VisualIndex::QueryOptions query_options;
   query_options.max_num_images = num_images;
+  query_options.max_num_verifications = num_verifications;
 
   std::unordered_map<image_t, const Image*> image_id_to_image;
   image_id_to_image.reserve(database_images.size());
@@ -98,16 +98,15 @@ void QueryImagesInVisualIndex(const int max_num_features,
                               query_images.size())
               << std::flush;
 
-    retrieval::VisualIndex::Desc descriptors =
-        database->ReadDescriptors(query_images[i].ImageId());
+    auto keypoints = database->ReadKeypoints(query_images[i].ImageId());
+    auto descriptors = database->ReadDescriptors(query_images[i].ImageId());
     if (max_num_features > 0 && descriptors.rows() > max_num_features) {
-      const auto keypoints = database->ReadKeypoints(query_images[i].ImageId());
-      descriptors =
-          ExtractTopScaleDescriptors(keypoints, descriptors, max_num_features);
+      ExtractTopScaleFeatures(&keypoints, &descriptors, max_num_features);
     }
 
     std::vector<retrieval::ImageScore> image_scores;
-    visual_index->Query(query_options, descriptors, &image_scores);
+    visual_index->QueryWithVerification(query_options, keypoints, descriptors,
+                                        &image_scores);
 
     std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
     for (const auto& image_score : image_scores) {
@@ -126,7 +125,8 @@ int main(int argc, char** argv) {
   std::string vocab_tree_path;
   std::string database_image_list_path;
   std::string query_image_list_path;
-  int num_images = std::numeric_limits<int>::max();
+  int num_images = -1;
+  int num_verifications = 0;
   int max_num_features = -1;
 
   OptionManager options;
@@ -136,6 +136,7 @@ int main(int argc, char** argv) {
                            &database_image_list_path);
   options.AddDefaultOption("query_image_list_path", &query_image_list_path);
   options.AddDefaultOption("num_images", &num_images);
+  options.AddDefaultOption("num_verifications", &num_verifications);
   options.AddDefaultOption("max_num_features", &max_num_features);
   options.Parse(argc, argv);
 
@@ -151,7 +152,8 @@ int main(int argc, char** argv) {
   IndexImagesInVisualIndex(max_num_features, database_images, &database,
                            &visual_index);
   QueryImagesInVisualIndex(max_num_features, database_images, query_images,
-                           num_images, &database, &visual_index);
+                           num_images, num_verifications, &database,
+                           &visual_index);
 
   return EXIT_SUCCESS;
 }

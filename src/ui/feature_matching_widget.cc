@@ -136,6 +136,8 @@ SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
                "loop_detection_period");
   AddOptionInt(&options_->sequential_matching->loop_detection_num_images,
                "loop_detection_num_images");
+  AddOptionInt(&options_->sequential_matching->loop_detection_num_verifications,
+               "loop_detection_num_verifications");
   AddOptionInt(&options_->sequential_matching->loop_detection_max_num_features,
                "loop_detection_max_num_features", -1);
   AddOptionFilePath(&options_->sequential_matching->vocab_tree_path,
@@ -163,6 +165,8 @@ VocabTreeMatchingTab::VocabTreeMatchingTab(QWidget* parent,
                                            OptionManager* options)
     : FeatureMatchingTab(parent, options) {
   AddOptionInt(&options_->vocab_tree_matching->num_images, "num_images");
+  AddOptionInt(&options_->vocab_tree_matching->num_verifications,
+               "num_verifications");
   AddOptionInt(&options_->vocab_tree_matching->max_num_features,
                "max_num_features", -1);
   AddOptionFilePath(&options_->vocab_tree_matching->vocab_tree_path,

@@ -380,6 +380,9 @@ class SequentialFeatureMatcher : public Thread {
     // be significantly bigger than the sequential matching overlap.
     int loop_detection_num_images = 30;
 
+    // Number of images to spatially verify for re-ranking.
+    int loop_detection_num_verifications = 0;
+
     // The maximum number of features to use for indexing an image. If an
     // image has more features, only the largest-scale features will be indexed.
     int loop_detection_max_num_features = -1;
@@ -414,6 +417,9 @@ class VocabTreeFeatureMatcher : public Thread {
   struct Options {
     // Number of images to retrieve for each query image.
     int num_images = 100;
+
+    // Number of images to spatially verify for re-ranking.
+    int num_verifications = 0;
 
     // The maximum number of features to use for indexing an image. If an
     // image has more features, only the largest-scale features will be indexed.

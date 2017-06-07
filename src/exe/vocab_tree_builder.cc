@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
   retrieval::VisualIndex visual_index;
 
   std::cout << "Loading descriptors..." << std::endl;
-  retrieval::VisualIndex::Desc descriptors =
+  const auto descriptors =
       LoadDescriptors(*options.database_path, max_num_images);
   std::cout << "  => Loaded a total of " << descriptors.rows() << " descriptors"
             << std::endl;

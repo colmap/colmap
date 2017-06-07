@@ -43,6 +43,7 @@ class InvertedIndex {
  public:
   const static int kInvalidWordId;
   typedef Eigen::Matrix<uint8_t, Eigen::Dynamic, 128, Eigen::RowMajor> Desc;
+  typedef typename InvertedFile<N>::Geometry Geometry;
   typedef Eigen::Matrix<float, N, 128> ProjMatrix;
   typedef Eigen::Matrix<float, N, 1> ProjDesc;
 
@@ -68,7 +69,8 @@ class InvertedIndex {
 
   // Add single entry to the index.
   void AddEntry(const int image_id, const int word_id,
-                const Eigen::Matrix<uint8_t, 128, 1>& descriptor);
+                const Eigen::Matrix<uint8_t, 128, 1>& descriptor,
+                const Geometry& geometry);
 
   // Clear all index entries.
   void ClearEntries();
@@ -76,6 +78,9 @@ class InvertedIndex {
   // Query the inverted file and return a list of sorted images.
   void Query(const Desc& descriptors, const Eigen::MatrixXi& word_ids,
              std::vector<ImageScore>* image_scores) const;
+
+  void FindMatches(const int word_id, const std::unordered_set<int>& image_ids,
+                   std::vector<std::pair<int, Geometry>>* matches) const;
 
   // Compute the self-similarity for the image.
   float ComputeSelfSimilarity(const Eigen::MatrixXi& word_ids) const;
@@ -185,9 +190,10 @@ void InvertedIndex<N>::ComputeHammingEmbedding(
 template <int N>
 void InvertedIndex<N>::AddEntry(
     const int image_id, const int word_id,
-    const Eigen::Matrix<uint8_t, 128, 1>& descriptor) {
+    const Eigen::Matrix<uint8_t, 128, 1>& descriptor,
+    const Geometry& geometry) {
   const ProjDesc proj_desc = proj_matrix_ * descriptor.cast<float>();
-  inverted_files_.at(word_id).AddEntry(image_id, proj_desc);
+  inverted_files_.at(word_id).AddEntry(image_id, proj_desc, geometry);
 }
 
 template <int N>
@@ -244,6 +250,19 @@ void InvertedIndex<N>::Query(const Desc& descriptors,
   for (ImageScore& score : *image_scores) {
     score.score *=
         normalization_weight * normalization_constants_.at(score.image_id);
+  }
+}
+
+template <int N>
+void InvertedIndex<N>::FindMatches(
+    const int word_id, const std::unordered_set<int>& image_ids,
+    std::vector<std::pair<int, Geometry>>* matches) const {
+  matches->clear();
+  const auto& entries = inverted_files_.at(word_id).GetEntries();
+  for (const auto& entry : entries) {
+    if (image_ids.count(entry.image_id)) {
+      matches->emplace_back(entry.image_id, entry.geometry);
+    }
   }
 }
 

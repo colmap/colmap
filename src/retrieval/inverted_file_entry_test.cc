@@ -24,12 +24,21 @@ using namespace colmap::retrieval;
 BOOST_AUTO_TEST_CASE(TestEmpty) {
   InvertedFileEntry<10> entry;
   BOOST_CHECK_EQUAL(entry.image_id, -1);
+  BOOST_CHECK_EQUAL(entry.geometry.x, 0);
+  BOOST_CHECK_EQUAL(entry.geometry.y, 0);
+  BOOST_CHECK_EQUAL(entry.geometry.scale, 0);
+  BOOST_CHECK_EQUAL(entry.geometry.orientation, 0);
+  BOOST_CHECK_EQUAL(entry.descriptor.size(), 10);
   BOOST_CHECK_EQUAL(entry.descriptor.size(), 10);
 }
 
 BOOST_AUTO_TEST_CASE(TestReadWrite) {
   InvertedFileEntry<10> entry;
   entry.image_id = 99;
+  entry.geometry.x = 0.123;
+  entry.geometry.x = 0.456;
+  entry.geometry.scale = 0.789;
+  entry.geometry.orientation = -0.1;
   for (size_t i = 0; i < entry.descriptor.size(); ++i) {
     entry.descriptor[i] = (i % 2) == 0;
   }
@@ -39,6 +48,11 @@ BOOST_AUTO_TEST_CASE(TestReadWrite) {
   InvertedFileEntry<10> read_entry;
   read_entry.Read(&file);
   BOOST_CHECK_EQUAL(entry.image_id, read_entry.image_id);
+  BOOST_CHECK_EQUAL(entry.geometry.x, read_entry.geometry.x);
+  BOOST_CHECK_EQUAL(entry.geometry.y, read_entry.geometry.y);
+  BOOST_CHECK_EQUAL(entry.geometry.scale, read_entry.geometry.scale);
+  BOOST_CHECK_EQUAL(entry.geometry.orientation,
+                    read_entry.geometry.orientation);
   for (size_t i = 0; i < entry.descriptor.size(); ++i) {
     BOOST_CHECK_EQUAL(entry.descriptor[i], read_entry.descriptor[i]);
   }

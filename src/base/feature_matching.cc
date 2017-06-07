@@ -55,15 +55,13 @@ void IndexImagesInVisualIndex(const int num_threads, const int max_num_features,
     std::cout << StringPrintf("Indexing image [%d/%d]", i + 1, image_ids.size())
               << std::flush;
 
-    retrieval::VisualIndex::Desc descriptors =
-        cache->GetDescriptors(image_ids[i]);
+    auto keypoints = cache->GetKeypoints(image_ids[i]);
+    auto descriptors = cache->GetDescriptors(image_ids[i]);
     if (max_num_features > 0 && descriptors.rows() > max_num_features) {
-      const auto keypoints = cache->GetKeypoints(image_ids[i]);
-      descriptors =
-          ExtractTopScaleDescriptors(keypoints, descriptors, max_num_features);
+      ExtractTopScaleFeatures(&keypoints, &descriptors, max_num_features);
     }
 
-    visual_index->Add(index_options, image_ids[i], descriptors);
+    visual_index->Add(index_options, image_ids[i], keypoints, descriptors);
 
     PrintElapsedTime(timer);
   }
@@ -73,10 +71,10 @@ void IndexImagesInVisualIndex(const int num_threads, const int max_num_features,
 }
 
 void MatchNearestNeighborsInVisualIndex(
-    const int num_threads, const int num_images, const int max_num_features,
-    const std::vector<image_t>& image_ids, Thread* thread,
-    FeatureMatcherCache* cache, retrieval::VisualIndex* visual_index,
-    SiftFeatureMatcher* matcher) {
+    const int num_threads, const int num_images, const int num_verifications,
+    const int max_num_features, const std::vector<image_t>& image_ids,
+    Thread* thread, FeatureMatcherCache* cache,
+    retrieval::VisualIndex* visual_index, SiftFeatureMatcher* matcher) {
   struct Retrieval {
     image_t image_id = kInvalidImageId;
     std::vector<retrieval::ImageScore> image_scores;
@@ -91,17 +89,18 @@ void MatchNearestNeighborsInVisualIndex(
   // access to the database causing race conditions.
   retrieval::VisualIndex::QueryOptions query_options;
   query_options.max_num_images = num_images;
+  query_options.max_num_verifications = num_verifications;
   auto QueryFunc = [&](const image_t image_id) {
-    retrieval::VisualIndex::Desc descriptors = cache->GetDescriptors(image_id);
+    auto keypoints = cache->GetKeypoints(image_id);
+    auto descriptors = cache->GetDescriptors(image_id);
     if (max_num_features > 0 && descriptors.rows() > max_num_features) {
-      const auto keypoints = cache->GetKeypoints(image_id);
-      descriptors =
-          ExtractTopScaleDescriptors(keypoints, descriptors, max_num_features);
+      ExtractTopScaleFeatures(&keypoints, &descriptors, max_num_features);
     }
 
     Retrieval retrieval;
     retrieval.image_id = image_id;
-    visual_index->Query(query_options, descriptors, &retrieval.image_scores);
+    visual_index->QueryWithVerification(query_options, keypoints, descriptors,
+                                        &retrieval.image_scores);
 
     CHECK(retrieval_queue.Push(retrieval));
   };
@@ -1060,6 +1059,7 @@ bool SequentialFeatureMatcher::Options::Check() const {
   CHECK_OPTION_GT(overlap, 0);
   CHECK_OPTION_GT(loop_detection_period, 0);
   CHECK_OPTION_GT(loop_detection_num_images, 0);
+  CHECK_OPTION_GE(loop_detection_num_verifications, 0);
   return true;
 }
 
@@ -1178,12 +1178,14 @@ void SequentialFeatureMatcher::RunLoopDetection(
 
   MatchNearestNeighborsInVisualIndex(
       match_options_.num_threads, options_.loop_detection_num_images,
+      options_.loop_detection_num_verifications,
       options_.loop_detection_max_num_features, match_image_ids, this, &cache_,
       &visual_index, &matcher_);
 }
 
 bool VocabTreeFeatureMatcher::Options::Check() const {
   CHECK_OPTION_GT(num_images, 0);
+  CHECK_OPTION_GE(num_verifications, 0);
   return true;
 }
 
@@ -1255,10 +1257,10 @@ void VocabTreeFeatureMatcher::Run() {
   }
 
   // Match all images in the visual index.
-  MatchNearestNeighborsInVisualIndex(match_options_.num_threads,
-                                     options_.num_images,
-                                     options_.max_num_features, image_ids, this,
-                                     &cache_, &visual_index, &matcher_);
+  MatchNearestNeighborsInVisualIndex(
+      match_options_.num_threads, options_.num_images,
+      options_.num_verifications, options_.max_num_features, image_ids, this,
+      &cache_, &visual_index, &matcher_);
 
   GetTimer().PrintMinutes();
 }

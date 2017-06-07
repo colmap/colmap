@@ -103,7 +103,7 @@ BOOST_AUTO_TEST_CASE(TestFeatureDescriptorsToUnsignedByte) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestExtractTopScaleDescriptors) {
+BOOST_AUTO_TEST_CASE(TestExtractTopScaleFeatures) {
   FeatureKeypoints keypoints(5);
   keypoints[0].scale = 3;
   keypoints[1].scale = 4;
@@ -111,19 +111,28 @@ BOOST_AUTO_TEST_CASE(TestExtractTopScaleDescriptors) {
   keypoints[3].scale = 5;
   keypoints[4].scale = 2;
   const FeatureDescriptors descriptors = FeatureDescriptors::Random(5, 128);
-  const auto top_descriptors2 =
-      ExtractTopScaleDescriptors(keypoints, descriptors, 2);
+
+  auto top_keypoints2 = keypoints;
+  auto top_descriptors2 = descriptors;
+  ExtractTopScaleFeatures(&top_keypoints2, &top_descriptors2, 2);
+  BOOST_CHECK_EQUAL(top_keypoints2.size(), 2);
+  BOOST_CHECK_EQUAL(top_keypoints2[0].scale, keypoints[3].scale);
+  BOOST_CHECK_EQUAL(top_keypoints2[1].scale, keypoints[1].scale);
   BOOST_CHECK_EQUAL(top_descriptors2.rows(), 2);
   BOOST_CHECK_EQUAL(top_descriptors2.row(0), descriptors.row(3));
   BOOST_CHECK_EQUAL(top_descriptors2.row(1), descriptors.row(1));
 
-  const auto top_descriptors5 =
-      ExtractTopScaleDescriptors(keypoints, descriptors, 5);
+  auto top_keypoints5 = keypoints;
+  auto top_descriptors5 = descriptors;
+  ExtractTopScaleFeatures(&top_keypoints5, &top_descriptors5, 5);
+  BOOST_CHECK_EQUAL(top_keypoints5.size(), 5);
   BOOST_CHECK_EQUAL(top_descriptors5.rows(), 5);
   BOOST_CHECK_EQUAL(top_descriptors5, descriptors);
 
-  const auto top_descriptors6 =
-      ExtractTopScaleDescriptors(keypoints, descriptors, 6);
+  auto top_keypoints6 = keypoints;
+  auto top_descriptors6 = descriptors;
+      ExtractTopScaleFeatures(&top_keypoints6, &top_descriptors6, 6);
+  BOOST_CHECK_EQUAL(top_keypoints5.size(), 5);
   BOOST_CHECK_EQUAL(top_descriptors6.rows(), 5);
   BOOST_CHECK_EQUAL(top_descriptors6, descriptors);
 }

@@ -26,6 +26,7 @@
 
 #include <Eigen/Core>
 
+#include "retrieval/geometry.h"
 #include "retrieval/inverted_file_entry.h"
 #include "retrieval/utils.h"
 #include "util/alignment.h"
@@ -43,6 +44,8 @@ template <int N>
 class InvertedFile {
  public:
   typedef Eigen::Matrix<float, N, 1> Desc;
+  typedef FeatureGeometry Geometry;
+  typedef InvertedFileEntry<N> Entry;
 
   enum Status {
     UNUSABLE = 0x00,
@@ -55,6 +58,9 @@ class InvertedFile {
 
   // The number of added entries.
   size_t NumEntries() const;
+
+  // Return all entries in the file.
+  const std::vector<Entry>& GetEntries() const;
 
   // Whether the Hamming embedding was computed for this file.
   bool HasHammingEmbedding() const;
@@ -70,7 +76,8 @@ class InvertedFile {
   // information stored in an inverted file entry. In particular, this function
   // generates the binary descriptor for the inverted file entry and then stores
   // the entry in the inverted file.
-  void AddEntry(const int image_id, const Desc& descriptor);
+  void AddEntry(const int image_id, const Desc& descriptor,
+                const Geometry& geometry);
 
   // Sorts the inverted file entries in ascending order of image ids. This is
   // required for efficient scoring and must be called before ScoreFeature.
@@ -84,7 +91,7 @@ class InvertedFile {
 
   // Given a projected descriptor, returns the corresponding binary string.
   void ConvertToBinaryDescriptor(const Desc& descriptor,
-                                 std::bitset<N>* bin_desc) const;
+                                 std::bitset<N>* binary_descriptor) const;
 
   // Compute the idf-weight for this inverted file.
   void ComputeIDFWeight(const int num_total_images);
@@ -124,7 +131,7 @@ class InvertedFile {
   float idf_weight_;
 
   // The entries of the inverted file system.
-  std::vector<InvertedFileEntry<N>> entries_;
+  std::vector<Entry> entries_;
 
   // The thresholds used for Hamming embedding.
   Desc thresholds_;
@@ -156,6 +163,12 @@ size_t InvertedFile<N>::NumEntries() const {
 }
 
 template <int N>
+const std::vector<typename InvertedFile<N>::Entry>&
+InvertedFile<N>::GetEntries() const {
+  return entries_;
+}
+
+template <int N>
 bool InvertedFile<N>::HasHammingEmbedding() const {
   return status_ & HAS_HAMMING_EMBEDDING;
 }
@@ -171,10 +184,12 @@ bool InvertedFile<N>::IsUsable() const {
 }
 
 template <int N>
-void InvertedFile<N>::AddEntry(const int image_id, const Desc& descriptor) {
+void InvertedFile<N>::AddEntry(const int image_id, const Desc& descriptor,
+                               const Geometry& geometry) {
   CHECK_GE(image_id, 0);
-  InvertedFileEntry<N> entry;
+  Entry entry;
   entry.image_id = image_id;
+  entry.geometry = geometry;
   ConvertToBinaryDescriptor(descriptor, &entry.descriptor);
   entries_.push_back(entry);
   status_ &= ~ENTRIES_SORTED;
@@ -183,8 +198,7 @@ void InvertedFile<N>::AddEntry(const int image_id, const Desc& descriptor) {
 template <int N>
 void InvertedFile<N>::SortEntries() {
   std::sort(entries_.begin(), entries_.end(),
-            [](const InvertedFileEntry<N>& entry1,
-               const InvertedFileEntry<N>& entry2) {
+            [](const Entry& entry1, const Entry& entry2) {
               return entry1.image_id < entry2.image_id;
             });
   status_ |= ENTRIES_SORTED;
@@ -206,9 +220,9 @@ void InvertedFile<N>::Reset() {
 
 template <int N>
 void InvertedFile<N>::ConvertToBinaryDescriptor(
-    const Desc& descriptor, std::bitset<N>* bin_desc) const {
+    const Desc& descriptor, std::bitset<N>* binary_descriptor) const {
   for (int i = 0; i < N; ++i) {
-    (*bin_desc)[i] = descriptor[i] > thresholds_[i];
+    (*binary_descriptor)[i] = descriptor[i] > thresholds_[i];
   }
 }
 
@@ -311,7 +325,7 @@ void InvertedFile<N>::ScoreFeature(
 
 template <int N>
 void InvertedFile<N>::GetImageIds(std::unordered_set<int>* ids) const {
-  for (const InvertedFileEntry<N>& entry : entries_) {
+  for (const Entry& entry : entries_) {
     ids->insert(entry.image_id);
   }
 }

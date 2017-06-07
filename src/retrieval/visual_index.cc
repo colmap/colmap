@@ -16,6 +16,10 @@
 
 #include "retrieval/visual_index.h"
 
+#include "retrieval/vote_and_verify.h"
+#include "util/logging.h"
+#include "util/math.h"
+
 namespace colmap {
 namespace retrieval {
 
@@ -30,7 +34,7 @@ VisualIndex::~VisualIndex() {
 size_t VisualIndex::NumVisualWords() const { return visual_words_.rows; }
 
 void VisualIndex::Add(const IndexOptions& options, const int image_id,
-                      const Desc& descriptors) {
+                      const GeomType& geometries, const DescType& descriptors) {
   CHECK(image_ids_.count(image_id) == 0);
   image_ids_.insert(image_id);
 
@@ -44,38 +48,113 @@ void VisualIndex::Add(const IndexOptions& options, const int image_id,
       FindWordIds(descriptors, options.num_neighbors, options.num_checks,
                   options.num_threads);
 
-  for (Desc::Index i = 0; i < descriptors.rows(); ++i) {
+  for (DescType::Index i = 0; i < descriptors.rows(); ++i) {
+    const auto& descriptor = descriptors.row(i);
+
+    InvertedIndexType::Geometry geometry;
+    geometry.x = geometries[i].x;
+    geometry.y = geometries[i].y;
+    geometry.scale = geometries[i].scale;
+    geometry.orientation = geometries[i].orientation;
+
     for (int n = 0; n < options.num_neighbors; ++n) {
       const int word_id = word_ids(i, n);
       if (word_id != InvertedIndexType::kInvalidWordId) {
-        inverted_index_.AddEntry(image_id, word_id, descriptors.row(i));
+        inverted_index_.AddEntry(image_id, word_id, descriptor, geometry);
       }
     }
   }
 }
 
-void VisualIndex::Query(const QueryOptions& options, const Desc& descriptors,
+void VisualIndex::Query(const QueryOptions& options,
+                        const DescType& descriptors,
                         std::vector<ImageScore>* image_scores) const {
-  CHECK(prepared_);
+  Eigen::MatrixXi word_ids;
+  QueryAndFindWordIds(options, descriptors, image_scores, &word_ids);
+}
 
-  if (descriptors.rows() == 0) {
-    image_scores->clear();
+void VisualIndex::QueryWithVerification(
+    const QueryOptions& options, const GeomType& geometries,
+    const DescType& descriptors, std::vector<ImageScore>* image_scores) const {
+  CHECK_EQ(descriptors.rows(), geometries.size());
+
+  size_t num_verifications = image_scores->size();
+  if (options.max_num_verifications >= 0) {
+    num_verifications =
+        std::min<size_t>(image_scores->size(), options.max_num_verifications);
+  }
+
+  if (num_verifications == 0) {
+    Query(options, descriptors, image_scores);
     return;
   }
 
-  const Eigen::MatrixXi word_ids =
-      FindWordIds(descriptors, options.num_neighbors, options.num_checks,
-                  options.num_threads);
-  inverted_index_.Query(descriptors, word_ids, image_scores);
+  auto verification_options = options;
+  verification_options.max_num_images = options.max_num_verifications;
 
-  auto SortFunc = [](const ImageScore& score1, const ImageScore& score2) {
-    return score1.score > score2.score;
-  };
+  Eigen::MatrixXi word_ids;
+  QueryAndFindWordIds(verification_options, descriptors, image_scores,
+                      &word_ids);
+
+  // Extract top-ranked images to verify.
+  std::unordered_set<int> image_ids;
+  for (size_t i = 0; i < num_verifications; ++i) {
+    image_ids.insert((*image_scores)[i].image_id);
+  }
+
+  // Find matches for top-ranked images, only use single nearest neighbor word.
+  std::vector<std::pair<int, InvertedIndexType::Geometry>> word_matches;
+  std::unordered_map<int, std::unordered_map<int, std::vector<FeatureGeometry>>>
+      image_matches;
+  for (DescType::Index i = 0; i < descriptors.rows(); ++i) {
+    const int word_id = word_ids(i, 0);
+    if (word_id != InvertedIndexType::kInvalidWordId) {
+      inverted_index_.FindMatches(word_id, image_ids, &word_matches);
+      for (const auto& match : word_matches) {
+        image_matches[match.first][i].push_back(match.second);
+      }
+    }
+  }
+
+  // Verify top-ranked images using the found matches.
+  for (size_t i = 0; i < num_verifications; ++i) {
+    auto& image_score = (*image_scores)[i];
+    const auto& geometry_matches = image_matches[image_score.image_id];
+
+    // No matches found,
+    if (geometry_matches.empty()) {
+      continue;
+    }
+
+    // Collect matches for all features of current image.
+    std::vector<FeatureGeometryMatch> matches;
+    matches.reserve(geometry_matches.size());
+    for (const auto& geometries2 : geometry_matches) {
+      FeatureGeometryMatch match;
+      match.geometry1.x = geometries[geometries2.first].x;
+      match.geometry1.y = geometries[geometries2.first].y;
+      match.geometry1.scale = geometries[geometries2.first].scale;
+      match.geometry1.orientation = geometries[geometries2.first].orientation;
+      match.geometries2 = geometries2.second;
+      matches.push_back(match);
+    }
+
+    VoteAndVerifyOptions vote_and_verify_options;
+    image_score.score = std::max(
+        image_score.score,
+        static_cast<float>(VoteAndVerify(vote_and_verify_options, matches)));
+  }
+
+  // Re-rank the images using the spatial verification scores.
 
   size_t num_images = image_scores->size();
   if (options.max_num_images >= 0) {
     num_images = std::min<size_t>(image_scores->size(), options.max_num_images);
   }
+
+  auto SortFunc = [](const ImageScore& score1, const ImageScore& score2) {
+    return score1.score > score2.score;
+  };
 
   if (num_images == image_scores->size()) {
     std::sort(image_scores->begin(), image_scores->end(), SortFunc);
@@ -91,7 +170,8 @@ void VisualIndex::Prepare() {
   prepared_ = true;
 }
 
-void VisualIndex::Build(const BuildOptions& options, const Desc& descriptors) {
+void VisualIndex::Build(const BuildOptions& options,
+                        const DescType& descriptors) {
   // Quantize the descriptor space into visual words.
   Quantize(options, descriptors);
 
@@ -195,8 +275,8 @@ void VisualIndex::Write(const std::string& path) {
 }
 
 void VisualIndex::Quantize(const BuildOptions& options,
-                           const Desc& descriptors) {
-  static_assert(Desc::IsRowMajor, "Descriptors must be row-major.");
+                           const DescType& descriptors) {
+  static_assert(DescType::IsRowMajor, "Descriptors must be row-major.");
 
   CHECK_GE(options.num_visual_words, options.branching);
   CHECK_GE(descriptors.rows(), options.num_visual_words);
@@ -233,11 +313,44 @@ void VisualIndex::Quantize(const BuildOptions& options,
                                          descriptors.cols());
 }
 
-Eigen::MatrixXi VisualIndex::FindWordIds(const Desc& descriptors,
+void VisualIndex::QueryAndFindWordIds(const QueryOptions& options,
+                                      const DescType& descriptors,
+                                      std::vector<ImageScore>* image_scores,
+                                      Eigen::MatrixXi* word_ids) const {
+  CHECK(prepared_);
+
+  if (descriptors.rows() == 0) {
+    image_scores->clear();
+    return;
+  }
+
+  *word_ids = FindWordIds(descriptors, options.num_neighbors,
+                          options.num_checks, options.num_threads);
+  inverted_index_.Query(descriptors, *word_ids, image_scores);
+
+  auto SortFunc = [](const ImageScore& score1, const ImageScore& score2) {
+    return score1.score > score2.score;
+  };
+
+  size_t num_images = image_scores->size();
+  if (options.max_num_images >= 0) {
+    num_images = std::min<size_t>(image_scores->size(), options.max_num_images);
+  }
+
+  if (num_images == image_scores->size()) {
+    std::sort(image_scores->begin(), image_scores->end(), SortFunc);
+  } else {
+    std::partial_sort(image_scores->begin(), image_scores->begin() + num_images,
+                      image_scores->end(), SortFunc);
+    image_scores->resize(num_images);
+  }
+}
+
+Eigen::MatrixXi VisualIndex::FindWordIds(const DescType& descriptors,
                                          const int num_neighbors,
                                          const int num_checks,
                                          const int num_threads) const {
-  static_assert(Desc::IsRowMajor, "Descriptors must be row-major.");
+  static_assert(DescType::IsRowMajor, "Descriptors must be row-major");
 
   CHECK_GT(descriptors.rows(), 0);
   CHECK_GT(num_neighbors, 0);

@@ -27,7 +27,7 @@ BOOST_AUTO_TEST_CASE(TestEmpty) {
 }
 
 BOOST_AUTO_TEST_CASE(TestBuild) {
-  VisualIndex::Desc descriptors = VisualIndex::Desc::Random(1000, 128);
+  VisualIndex::DescType descriptors = VisualIndex::DescType::Random(1000, 128);
   VisualIndex visual_index;
   BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 0);
   VisualIndex::BuildOptions build_options;
@@ -38,7 +38,7 @@ BOOST_AUTO_TEST_CASE(TestBuild) {
 }
 
 BOOST_AUTO_TEST_CASE(TestQuery) {
-  VisualIndex::Desc descriptors = VisualIndex::Desc::Random(1000, 128);
+  VisualIndex::DescType descriptors = VisualIndex::DescType::Random(1000, 128);
   VisualIndex visual_index;
   BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 0);
   VisualIndex::BuildOptions build_options;
@@ -48,10 +48,12 @@ BOOST_AUTO_TEST_CASE(TestQuery) {
   BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 10);
 
   VisualIndex::IndexOptions index_options;
-  VisualIndex::Desc descriptors1 = VisualIndex::Desc::Random(100, 128);
-  visual_index.Add(index_options, 1, descriptors1);
-  VisualIndex::Desc descriptors2 = VisualIndex::Desc::Random(100, 128);
-  visual_index.Add(index_options, 2, descriptors2);
+  VisualIndex::GeomType keypoints1(100);
+  VisualIndex::DescType descriptors1 = VisualIndex::DescType::Random(100, 128);
+  visual_index.Add(index_options, 1, keypoints1, descriptors1);
+  VisualIndex::GeomType keypoints2(100);
+  VisualIndex::DescType descriptors2 = VisualIndex::DescType::Random(100, 128);
+  visual_index.Add(index_options, 2, keypoints2, descriptors2);
   visual_index.Prepare();
 
   VisualIndex::QueryOptions query_options;

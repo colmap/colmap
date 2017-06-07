@@ -222,6 +222,9 @@ void OptionManager::AddSequentialMatchingOptions() {
   AddAndRegisterDefaultOption("SequentialMatching.loop_detection_num_images",
                               &sequential_matching->loop_detection_num_images);
   AddAndRegisterDefaultOption(
+      "SequentialMatching.loop_detection_num_verifications",
+      &sequential_matching->loop_detection_num_verifications);
+  AddAndRegisterDefaultOption(
       "SequentialMatching.loop_detection_max_num_features",
       &sequential_matching->loop_detection_max_num_features);
   AddAndRegisterDefaultOption("SequentialMatching.vocab_tree_path",
@@ -238,6 +241,8 @@ void OptionManager::AddVocabTreeMatchingOptions() {
 
   AddAndRegisterDefaultOption("VocabTreeMatching.num_images",
                               &vocab_tree_matching->num_images);
+  AddAndRegisterDefaultOption("VocabTreeMatching.num_verifications",
+                              &vocab_tree_matching->num_verifications);
   AddAndRegisterDefaultOption("VocabTreeMatching.max_num_features",
                               &vocab_tree_matching->max_num_features);
   AddAndRegisterDefaultOption("VocabTreeMatching.vocab_tree_path",
