@@ -274,7 +274,8 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
 
   std::vector<std::pair<int, float>> bin_scores;
   for (const auto& bin : bins[0]) {
-    if (bin.second.GetNumVotes() >= options.min_num_votes) {
+    if (bin.second.GetNumVotes() >=
+        static_cast<size_t>(options.min_num_votes)) {
       const auto coord = coords.at(bin.first);
       int n_a = coord(0);
       int n_s = coord(1);
