@@ -247,9 +247,9 @@ matching modes, that are intended for different input scenarios:
 
 - **Vocabulary Tree Matching**: In this matching mode [schoenberger16vote]_,
   every image is matched against its visual nearest neighbors using a vocabulary
-  tree. This is the recommended matching mode for large image collections
-  (several thousands). This requires a pre-trained vocabulary tree, that can be
-  downloaded from https://demuc.de/colmap/.
+  tree with spatial re-ranking. This is the recommended matching mode for large
+  image collections (several thousands). This requires a pre-trained vocabulary
+  tree, that can be downloaded from https://demuc.de/colmap/.
 
 - **Spatial Matching**: This matching mode matches every image against its
   spatial nearest neighbors. Spatial locations can be manually set in the
