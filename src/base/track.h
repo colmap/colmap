@@ -34,6 +34,8 @@ struct TrackElement {
   point2D_t point2D_idx;
 };
 
+class Serializator;
+
 class Track {
  public:
   Track();
@@ -67,6 +69,8 @@ class Track {
   inline void Compress();
 
  private:
+  friend class Serializator;
+
   std::vector<TrackElement> elements_;
 };
 

@@ -27,6 +27,8 @@
 
 namespace colmap {
 
+class Serializator;
+
 // 3D point class that holds information about triangulated 2D points.
 class Point3D {
  public:
@@ -61,6 +63,8 @@ class Point3D {
   inline void SetTrack(const class Track& track);
 
  private:
+  friend class Serializator;
+
   // The 3D position of the point.
   Eigen::Vector3d xyz_;
 
