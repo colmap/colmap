@@ -207,10 +207,10 @@ SiftGPUFeatureExtractor::SiftGPUFeatureExtractor(
       gpu_options_(gpu_options) {
   CHECK(sift_options_.Check());
   CHECK(gpu_options_.Check());
-        
+
   const std::vector<int> gpu_indices =
         CSVToVector<int>(gpu_options.index);
-        
+
   if (gpu_indices.size() == 1 && gpu_indices[0] < 0) {
     opengl_context_.reset(new OpenGLContextManager());
   }
@@ -218,10 +218,10 @@ SiftGPUFeatureExtractor::SiftGPUFeatureExtractor(
 
 void SiftGPUFeatureExtractor::Run() {
   PrintHeading1("Feature extraction (GPU)");
-  
+
   const std::vector<int> gpu_indices =
       CSVToVector<int>(gpu_options_.index);
-  
+
   if (gpu_indices.size() == 1 && gpu_indices[0] < 0) {
     CHECK(opengl_context_);
     opengl_context_->MakeCurrent();
@@ -254,7 +254,7 @@ void SiftGPUFeatureExtractor::Run() {
       lock.unlock();
       continue;
     }
-    
+
     lock.unlock();
 
     FeatureKeypoints keypoints;
@@ -279,7 +279,7 @@ void SiftGPUFeatureExtractor::Run() {
     if (!database.ExistsDescriptors(image.ImageId())) {
       database.WriteDescriptors(image.ImageId(), descriptors);
     }
-    
+
     lock.unlock();
     std::cout << "  Features:       " << keypoints.size() << std::endl;
   }
