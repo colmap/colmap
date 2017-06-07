@@ -233,16 +233,17 @@ void SiftGPUFeatureExtractor::Run() {
     return;
   }
 
-  ImageReader image_reader(reader_options_);
-  Database database(reader_options_.database_path);
+  static ImageReader image_reader(reader_options_);
+  static Database database(reader_options_.database_path);
 
   while (!IsStopped()) {
     lock.lock();
     if (image_reader.NextIndex() >= image_reader.NumImages()) {
+      lock.unlock();
       break;
     }
 
-    std::cout << StringPrintf("Processing file [%d/%d]",
+    std::cout << StringPrintf("%d Processing file [%d/%d]", gpu_indices[0],
                               image_reader.NextIndex() + 1,
                               image_reader.NumImages())
               << std::endl;
@@ -250,6 +251,7 @@ void SiftGPUFeatureExtractor::Run() {
     Image image;
     Bitmap bitmap;
     if (!image_reader.Next(&image, &bitmap)) {
+      lock.unlock();
       continue;
     }
     
@@ -277,9 +279,9 @@ void SiftGPUFeatureExtractor::Run() {
     if (!database.ExistsDescriptors(image.ImageId())) {
       database.WriteDescriptors(image.ImageId(), descriptors);
     }
-
-    std::cout << "  Features:       " << keypoints.size() << std::endl;
+    
     lock.unlock();
+    std::cout << "  Features:       " << keypoints.size() << std::endl;
   }
 
   GetTimer().PrintMinutes();
