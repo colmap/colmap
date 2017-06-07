@@ -25,6 +25,8 @@
 
 namespace colmap {
 
+class Serializator;
+
 // A class that captures the distribution of points in a 2D grid.
 // For example, to capture the distribution of visible 3D points in an image.
 //
@@ -53,6 +55,8 @@ class VisibilityPyramid {
   inline size_t MaxScore() const;
 
  private:
+  friend class Serializator;
+
   void CellForPoint(const double x, const double y, size_t* cx,
                     size_t* cy) const;
 

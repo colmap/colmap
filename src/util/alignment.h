@@ -30,7 +30,7 @@
 #endif
 
 // Equivalent to EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION but with support for
-// initializer lists, which is a C++11 feature and not supported by the Eigen.
+// initializer lists, which is a C++11 feature and not supported by Eigen.
 // The initializer list extension is inspired by Theia and StackOverflow code.
 #define EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(...)                 \
   namespace std {                                                          \

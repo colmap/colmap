@@ -34,6 +34,7 @@ set(COLMAP_LIBRARIES
     base
     util
     flann
+    yas
     graclus
     lsd
     pba

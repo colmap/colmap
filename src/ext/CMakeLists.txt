@@ -14,5 +14,6 @@ add_subdirectory(PoissonRecon)
 add_subdirectory(SiftGPU)
 add_subdirectory(SQLite)
 add_subdirectory(VLFeat)
+add_subdirectory(yas)
 
 COLMAP_UNSET_THIRD_PARTY_FOLDER()

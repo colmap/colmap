@@ -34,6 +34,8 @@
 
 namespace colmap {
 
+class Serializator;
+
 // Reconstruction class holds all information about a single reconstructed
 // model. It is used by the mapping and bundle adjustment classes and can be
 // written to and read from disk.
@@ -259,7 +261,9 @@ class Reconstruction {
   // Create all image sub-directories in the given path.
   void CreateImageDirs(const std::string& path) const;
 
- private:
+//  private:
+  friend class Serializator;
+
   size_t FilterPoints3DWithSmallTriangulationAngle(
       const double min_tri_angle,
       const std::unordered_set<point3D_t>& point3D_ids);
