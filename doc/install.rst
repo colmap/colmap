@@ -86,6 +86,7 @@ Configure and compile COLMAP::
 
     cd path/to/colmap
     mkdir build
+    cd build
     cmake ..
     make -j
 
