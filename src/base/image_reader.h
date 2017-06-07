@@ -59,8 +59,8 @@ class ImageReader {
 
   explicit ImageReader(const Options& options);
 
-  size_t NextIndex() const;
   bool Next(Image* image, Bitmap* bitmap);
+  size_t NextIndex() const;
   size_t NumImages() const;
 
  private:
