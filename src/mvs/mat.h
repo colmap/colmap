@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "util/endian.h"
 #include "util/logging.h"
 
 namespace colmap {
@@ -156,8 +157,7 @@ void Mat<T>::Read(const std::string& path) {
   std::fstream binary_file(path, std::ios_base::in | std::ios_base::binary);
   CHECK(binary_file.is_open()) << path;
   binary_file.seekg(pos);
-  binary_file.read(reinterpret_cast<char*>(data_.data()),
-                   data_.size() * sizeof(T));
+  ReadBinaryLittleEndian<T>(&binary_file, &data_);
   binary_file.close();
 }
 
@@ -171,8 +171,7 @@ void Mat<T>::Write(const std::string& path) const {
   std::fstream binary_file(
       path, std::ios_base::out | std::ios_base::binary | std::ios_base::app);
   CHECK(binary_file.is_open()) << path;
-  binary_file.write(reinterpret_cast<const char*>(data_.data()),
-                    sizeof(T) * width_ * height_ * depth_);
+  WriteBinaryLittleEndian<T>(&binary_file, data_);
   binary_file.close();
 }
 

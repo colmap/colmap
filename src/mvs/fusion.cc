@@ -466,11 +466,7 @@ void WritePlyBinary(const std::string& path,
   CHECK(text_file.is_open()) << path;
 
   text_file << "ply" << std::endl;
-  if (IsBigEndian()) {
-    text_file << "format binary_big_endian 1.0" << std::endl;
-  } else {
-    text_file << "format binary_little_endian 1.0" << std::endl;
-  }
+  text_file << "format binary_little_endian 1.0" << std::endl;
   text_file << "element vertex " << points.size() << std::endl;
   text_file << "property float x" << std::endl;
   text_file << "property float y" << std::endl;
@@ -488,22 +484,16 @@ void WritePlyBinary(const std::string& path,
       path, std::ios_base::out | std::ios_base::binary | std::ios_base::app);
   CHECK(binary_file.is_open()) << path;
 
-  float xyz_normal_buffer[6];
-  uint8_t rgb_buffer[3];
   for (const auto& point : points) {
-    xyz_normal_buffer[0] = point.x;
-    xyz_normal_buffer[1] = point.y;
-    xyz_normal_buffer[2] = point.z;
-    xyz_normal_buffer[3] = point.nx;
-    xyz_normal_buffer[4] = point.ny;
-    xyz_normal_buffer[5] = point.nz;
-    binary_file.write(reinterpret_cast<const char*>(xyz_normal_buffer),
-                      6 * sizeof(float));
-    rgb_buffer[0] = point.r;
-    rgb_buffer[1] = point.g;
-    rgb_buffer[2] = point.b;
-    binary_file.write(reinterpret_cast<const char*>(rgb_buffer),
-                      3 * sizeof(uint8_t));
+    WriteBinaryLittleEndian<float>(&binary_file, point.x);
+    WriteBinaryLittleEndian<float>(&binary_file, point.y);
+    WriteBinaryLittleEndian<float>(&binary_file, point.z);
+    WriteBinaryLittleEndian<float>(&binary_file, point.nx);
+    WriteBinaryLittleEndian<float>(&binary_file, point.ny);
+    WriteBinaryLittleEndian<float>(&binary_file, point.nz);
+    WriteBinaryLittleEndian<uint8_t>(&binary_file, point.r);
+    WriteBinaryLittleEndian<uint8_t>(&binary_file, point.g);
+    WriteBinaryLittleEndian<uint8_t>(&binary_file, point.b);
   }
   binary_file.close();
 }

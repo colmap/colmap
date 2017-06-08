@@ -908,6 +908,7 @@ void Reconstruction::ImportPLY(const std::string& path) {
 
   bool in_vertex_section = false;
   bool is_binary = false;
+  bool is_little_endian = false;
   size_t num_bytes_per_line = 0;
   size_t num_vertices = 0;
 
@@ -926,9 +927,12 @@ void Reconstruction::ImportPLY(const std::string& path) {
     if (line.size() >= 6 && line.substr(0, 6) == "format") {
       if (line == "format ascii 1.0") {
         is_binary = false;
-      } else if (line == "format binary_little_endian 1.0" ||
-                 line == "format binary_big_endian 1.0") {
+      } else if (line == "format binary_little_endian 1.0") {
         is_binary = true;
+        is_little_endian = true;
+      } else if (line == "format binary_big_endian 1.0") {
+        is_binary = true;
+        is_little_endian = false;
       }
     }
 
@@ -995,17 +999,36 @@ void Reconstruction::ImportPLY(const std::string& path) {
       file.read(buffer.data(), num_bytes_per_line);
 
       Eigen::Vector3d xyz;
-      xyz(0) =
-          static_cast<double>(*reinterpret_cast<float*>(&buffer[X_byte_pos]));
-      xyz(1) =
-          static_cast<double>(*reinterpret_cast<float*>(&buffer[Y_byte_pos]));
-      xyz(2) =
-          static_cast<double>(*reinterpret_cast<float*>(&buffer[Z_byte_pos]));
-
       Eigen::Vector3i rgb;
-      rgb(0) = *reinterpret_cast<uint8_t*>(&buffer[R_byte_pos]);
-      rgb(1) = *reinterpret_cast<uint8_t*>(&buffer[G_byte_pos]);
-      rgb(2) = *reinterpret_cast<uint8_t*>(&buffer[B_byte_pos]);
+      if (is_little_endian) {
+        xyz(0) = LittleEndianToNative(
+            *reinterpret_cast<float*>(&buffer[X_byte_pos]));
+        xyz(1) = LittleEndianToNative(
+            *reinterpret_cast<float*>(&buffer[Y_byte_pos]));
+        xyz(2) = LittleEndianToNative(
+            *reinterpret_cast<float*>(&buffer[Z_byte_pos]));
+
+        rgb(0) = LittleEndianToNative(
+            *reinterpret_cast<uint8_t*>(&buffer[R_byte_pos]));
+        rgb(1) = LittleEndianToNative(
+            *reinterpret_cast<uint8_t*>(&buffer[G_byte_pos]));
+        rgb(2) = LittleEndianToNative(
+            *reinterpret_cast<uint8_t*>(&buffer[B_byte_pos]));
+      } else {
+        xyz(0) =
+            BigEndianToNative(*reinterpret_cast<float*>(&buffer[X_byte_pos]));
+        xyz(1) =
+            BigEndianToNative(*reinterpret_cast<float*>(&buffer[Y_byte_pos]));
+        xyz(2) =
+            BigEndianToNative(*reinterpret_cast<float*>(&buffer[Z_byte_pos]));
+
+        rgb(0) =
+            BigEndianToNative(*reinterpret_cast<uint8_t*>(&buffer[R_byte_pos]));
+        rgb(1) =
+            BigEndianToNative(*reinterpret_cast<uint8_t*>(&buffer[G_byte_pos]));
+        rgb(2) =
+            BigEndianToNative(*reinterpret_cast<uint8_t*>(&buffer[B_byte_pos]));
+      }
 
       const point3D_t point3D_id = AddPoint3D(xyz, Track());
       Point3D(point3D_id).SetColor(rgb.cast<uint8_t>());

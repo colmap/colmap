@@ -1,6 +1,11 @@
 Output Format
 =============
 
+Note that all binary data is stored using little endian byte ordering. All x86
+processors are little endian and thus no special care has to be taken when
+reading COLMAP binary data on most platforms.
+
+
 ---------------------
 Sparse Reconstruction
 ---------------------

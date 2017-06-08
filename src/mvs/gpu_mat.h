@@ -31,6 +31,7 @@
 #include "mvs/mat.h"
 #include "util/cuda.h"
 #include "util/cudacc.h"
+#include "util/endian.h"
 
 namespace colmap {
 namespace mvs {
@@ -341,8 +342,7 @@ void GpuMat<T>::Read(const std::string& path) {
   binary_file.seekg(pos);
 
   std::vector<T> source(width_ * height_ * depth_);
-  binary_file.read(reinterpret_cast<char*>(source.data()),
-                   width * height * depth * sizeof(T));
+  ReadBinaryLittleEndian<T>(&binary_file, &source);
   binary_file.close();
 
   CopyToDevice(source.data(), width_ * sizeof(T));
@@ -359,7 +359,7 @@ void GpuMat<T>::Write(const std::string& path) {
 
   std::fstream binary_file(
       path, std::ios_base::out | std::ios_base::binary | std::ios_base::app);
-  binary_file.write((char*)dest.data(), sizeof(T) * width_ * height_ * depth_);
+  WriteBinaryLittleEndian<T>(&binary_file, dest);
   binary_file.close();
 }
 
@@ -377,8 +377,7 @@ void GpuMat<T>::Write(const std::string& path, const size_t slice) {
 
   std::fstream binary_file(
       path, std::ios_base::out | std::ios_base::binary | std::ios_base::app);
-
-  binary_file.write((char*)dest.data(), sizeof(T) * width_ * height_);
+  WriteBinaryLittleEndian<T>(&binary_file, dest);
   binary_file.close();
 }
 

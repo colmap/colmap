@@ -17,6 +17,7 @@
 #include "retrieval/visual_index.h"
 
 #include "retrieval/vote_and_verify.h"
+#include "util/endian.h"
 #include "util/logging.h"
 #include "util/math.h"
 
@@ -208,12 +209,12 @@ void VisualIndex::Read(const std::string& path) {
 
     std::ifstream file(path, std::ios::binary);
     CHECK(file.is_open()) << path;
-    uint64_t rows;
-    file.read(reinterpret_cast<char*>(&rows), sizeof(uint64_t));
-    uint64_t cols;
-    file.read(reinterpret_cast<char*>(&cols), sizeof(uint64_t));
+    const uint64_t rows = ReadBinaryLittleEndian<uint64_t>(&file);
+    const uint64_t cols = ReadBinaryLittleEndian<uint64_t>(&file);
     uint8_t* visual_words_data = new uint8_t[rows * cols];
-    file.read(reinterpret_cast<char*>(visual_words_data), rows * cols);
+    for (size_t i = 0; i < rows * cols; ++i) {
+      visual_words_data[i] = ReadBinaryLittleEndian<uint8_t>(&file);
+    }
     visual_words_ = flann::Matrix<uint8_t>(visual_words_data, rows, cols);
     file_offset = file.tellg();
   }
@@ -248,12 +249,11 @@ void VisualIndex::Write(const std::string& path) {
     CHECK_NOTNULL(visual_words_.ptr());
     std::ofstream file(path, std::ios::binary);
     CHECK(file.is_open()) << path;
-    const uint64_t rows = static_cast<uint64_t>(visual_words_.rows);
-    file.write(reinterpret_cast<const char*>(&rows), sizeof(uint64_t));
-    const uint64_t cols = static_cast<uint64_t>(visual_words_.cols);
-    file.write(reinterpret_cast<const char*>(&cols), sizeof(uint64_t));
-    file.write(reinterpret_cast<const char*>(visual_words_.ptr()),
-               visual_words_.rows * visual_words_.cols);
+    WriteBinaryLittleEndian<uint64_t>(&file, visual_words_.rows);
+    WriteBinaryLittleEndian<uint64_t>(&file, visual_words_.cols);
+    for (size_t i = 0; i < visual_words_.rows * visual_words_.cols; ++i) {
+      WriteBinaryLittleEndian<uint8_t>(&file, visual_words_.ptr()[i]);
+    }
   }
 
   // Write the visual words search index.

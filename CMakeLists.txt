@@ -142,10 +142,10 @@ if(CUDA_FOUND)
 else()
     set(CUDA_ENABLED FALSE)
     if(CUDA_VERSION_STRING)
-        message(STATUS "Disabling CUDA support")
-    else()
         message(STATUS "Disabling CUDA support (found version "
                 "${CUDA_VERSION_STRING} but >= ${CUDA_MIN_VERSION} required)")
+    else()
+        message(STATUS "Disabling CUDA support")
     endif()
 endif()
 

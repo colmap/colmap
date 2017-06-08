@@ -25,6 +25,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
 
+#include "util/endian.h"
 #include "util/logging.h"
 #include "util/string.h"
 
@@ -182,15 +183,14 @@ void ReadBinaryBlob(const std::string& path, std::vector<T>* data) {
   CHECK_EQ(num_bytes % sizeof(T), 0);
   data->resize(num_bytes / sizeof(T));
   file.seekg(0, std::ios::beg);
-  file.read(reinterpret_cast<char*>(data->data()), num_bytes);
+  ReadBinaryLittleEndian<T>(&file, data);
 }
 
 template <typename T>
 void WriteBinaryBlob(const std::string& path, const std::vector<T>& data) {
   std::ofstream file(path, std::ios_base::binary);
   CHECK(file.is_open()) << path;
-  file.write(reinterpret_cast<const char*>(data.data()),
-             data.size() * sizeof(T));
+  WriteBinaryLittleEndian<T>(&file, data);
 }
 
 }  // namespace colmap

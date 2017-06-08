@@ -164,14 +164,6 @@ void PrintHeading2(const std::string& heading) {
   std::cout << std::string(std::min<int>(heading.size(), 78), '-') << std::endl;
 }
 
-bool IsBigEndian() {
-  union {
-    uint32_t i;
-    char c[4];
-  } bin = {0x01020304};
-  return bin.c[0] == 1;
-}
-
 std::vector<std::string> ReadTextFileLines(const std::string& path) {
   std::ifstream file(path);
   CHECK(file.is_open()) << path;

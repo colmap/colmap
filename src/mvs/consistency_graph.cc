@@ -20,6 +20,7 @@
 #include <numeric>
 
 #include "util/logging.h"
+#include "util/misc.h"
 
 namespace colmap {
 namespace mvs {
@@ -78,7 +79,7 @@ void ConsistencyGraph::Read(const std::string& path) {
   data_.resize(num_bytes / sizeof(int));
 
   binary_file.seekg(pos);
-  binary_file.read(reinterpret_cast<char*>(data_.data()), num_bytes);
+  ReadBinaryLittleEndian<int>(&binary_file, &data_);
   binary_file.close();
 
   InitializeMap(width, height);
@@ -93,8 +94,7 @@ void ConsistencyGraph::Write(const std::string& path) const {
   std::fstream binary_file(
       path, std::ios_base::out | std::ios_base::binary | std::ios_base::app);
   CHECK(binary_file.is_open()) << path;
-  binary_file.write(reinterpret_cast<const char*>(data_.data()),
-                    sizeof(int) * data_.size());
+  WriteBinaryLittleEndian<int>(&binary_file, data_);
   binary_file.close();
 }
 
