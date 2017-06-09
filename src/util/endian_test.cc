@@ -92,7 +92,7 @@ void TestIntNativeToLitteBigEndian() {
 template <typename T>
 void TestRealNativeToLitteBigEndian() {
   const T x = RandomReal<T>(std::numeric_limits<T>::lowest(),
-                               std::numeric_limits<T>::max());
+                            std::numeric_limits<T>::max());
   BOOST_CHECK_EQUAL(LittleEndianToNative<T>(NativeToLittleEndian<T>(x)), x);
   BOOST_CHECK_EQUAL(BigEndianToNative<T>(NativeToBigEndian<T>(x)), x);
   BOOST_CHECK_EQUAL(NativeToLittleEndian<T>(LittleEndianToNative<T>(x)), x);
@@ -100,11 +100,15 @@ void TestRealNativeToLitteBigEndian() {
 }
 
 BOOST_AUTO_TEST_CASE(TestNativeToLitteBigEndian) {
+#ifndef _MSC_VER  // There is no random number generator in MSVC for char's.
   TestIntNativeToLitteBigEndian<int8_t>();
+#endif
   TestIntNativeToLitteBigEndian<int16_t>();
   TestIntNativeToLitteBigEndian<int32_t>();
   TestIntNativeToLitteBigEndian<int64_t>();
+#ifndef _MSC_VER  // There is no random number generator in MSVC for char's.
   TestIntNativeToLitteBigEndian<uint8_t>();
+#endif
   TestIntNativeToLitteBigEndian<uint16_t>();
   TestIntNativeToLitteBigEndian<uint32_t>();
   TestIntNativeToLitteBigEndian<uint64_t>();
@@ -159,11 +163,15 @@ void TestFloatReadWriteBinaryLittleEndian() {
 }
 
 BOOST_AUTO_TEST_CASE(TestReadWriteBinaryLittleEndian) {
+#ifndef _MSC_VER  // There is no random number generator in MSVC for char's.
   TestIntReadWriteBinaryLittleEndian<int8_t>();
+#endif
   TestIntReadWriteBinaryLittleEndian<int16_t>();
   TestIntReadWriteBinaryLittleEndian<int32_t>();
   TestIntReadWriteBinaryLittleEndian<int64_t>();
+#ifndef _MSC_VER  // There is no random number generator in MSVC for char's.
   TestIntReadWriteBinaryLittleEndian<uint8_t>();
+#endif
   TestIntReadWriteBinaryLittleEndian<uint16_t>();
   TestIntReadWriteBinaryLittleEndian<uint32_t>();
   TestIntReadWriteBinaryLittleEndian<uint64_t>();
