@@ -462,7 +462,7 @@ void WritePlyText(const std::string& path,
 
 void WritePlyBinary(const std::string& path,
                     const std::vector<FusedPoint>& points) {
-  std::fstream text_file(path, std::ios_base::out);
+  std::fstream text_file(path, std::ios::out);
   CHECK(text_file.is_open()) << path;
 
   text_file << "ply" << std::endl;
@@ -480,8 +480,8 @@ void WritePlyBinary(const std::string& path,
   text_file << "end_header" << std::endl;
   text_file.close();
 
-  std::fstream binary_file(
-      path, std::ios_base::out | std::ios_base::binary | std::ios_base::app);
+  std::fstream binary_file(path,
+                           std::ios::out | std::ios::binary | std::ios::app);
   CHECK(binary_file.is_open()) << path;
 
   for (const auto& point : points) {

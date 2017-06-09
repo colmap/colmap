@@ -64,6 +64,8 @@ void TestModel(const std::vector<double>& params) {
                     &CameraModel::principal_point_idxs);
   BOOST_CHECK_EQUAL(&CameraModelExtraParamsIdxs(CameraModel::model_id),
                     &CameraModel::extra_params_idxs);
+  BOOST_CHECK_EQUAL(CameraModelNumParams(CameraModel::model_id),
+                    CameraModel::num_params);
 
   BOOST_CHECK(!CameraModelHasBogusParams(CameraModel::model_id, default_params,
                                          100, 100, 0.1, 2.0, 1.0));

@@ -649,7 +649,6 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
 
   Camera undistorted_camera;
   undistorted_camera.SetModelId(PinholeCameraModel::model_id);
-  undistorted_camera.Params().resize(PinholeCameraModel::num_params);
   undistorted_camera.SetWidth(camera.Width());
   undistorted_camera.SetHeight(camera.Height());
 

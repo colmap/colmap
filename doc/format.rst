@@ -1,30 +1,67 @@
 Output Format
 =============
 
+==================
+Binary File Format
+==================
+
 Note that all binary data is stored using little endian byte ordering. All x86
 processors are little endian and thus no special care has to be taken when
 reading COLMAP binary data on most platforms.
 
 
----------------------
+=======================
+Indices and Identifiers
+=======================
+
+Any variable name ending with ``*_idx`` should be considered as an ordered,
+contiguous zero-based index. In general, any variable name ending with ``*_id``
+should be considered as an unordered, non-contiguous identifier.
+
+For example, the unique identifiers of cameras (`CAMERA_ID`), images
+(`IMAGE_ID`), and 3D points (`POINT3D_ID`) are unordered and are most likely not
+contiguous. This also means that the maximum `POINT3D_ID` does not necessarily
+correspond to the number 3D points, since some `POINT3D_ID`'s are missing due to
+filtering during the reconstruction, etc.
+
+
+=====================
 Sparse Reconstruction
----------------------
+=====================
+
+By default, COLMAP uses a binary file format (machine-readable, fast) for
+storing sparse models. In addition, COLMAP provides the option to store the
+sparse models as text files (human-readable, slow). In both cases, the
+information is split into three files for the information about `cameras`,
+`images`, and `points`. Any directory containing those three files constitutes a
+sparse model. The binary files have the file extension `.bin` and the text files
+the file extension `.txt`. Note that when loading a model from a directory which
+contains both binary and text files, COLMAP prefers the binary format.
+
+To export the currently selected model in the GUI, choose ``File > Export``. To
+export all reconstructed models in the current dataset, choose ``File > Export
+all``. The selected folder then contains the three files, and for convenience,
+the current project configuration for importing the model to COLMAP. To import
+the exported models, e.g., for visualization or to resume the reconstruction,
+choose ``File > Import`` and select the folder containing the `cameras`,
+`images`, and `points3D` files.
+
+To convert between the binary and text format in the GUI, you can load the model
+using ``File > Import`` and then export the model in the desired output format
+using ``File > Export``. In addition, you can export sparse models to other
+formats, such as VisualSfM's NVM, Bundler files, PLY, VRML, etc., using ``File >
+Export As ...``. To convert between various formats from the CLI, use the
+``model_converter`` executable.
+
+
+-----------
+Text Format
+-----------
 
 COLMAP exports the following three text files for every reconstructed model:
 `cameras.txt`, `images.txt`, and `points3D.txt`. Comments start with a leading
 "#" character and are ignored. The first comment lines briefly describe the
 format of the text files, as described in more detailed on this page.
-
-To export the currently selected model in the GUI, choose ``File > Export
-model``. To export all reconstructed models in the current dataset, choose
-``File > Export all models``. The selected folder then contains the three files,
-and for convenience, the current project configuration for importing the model
-to COLMAP. To import the exported models, e.g. for visualization or to resume
-the reconstruction, choose ``File > Import model`` and select the folder
-containing the `cameras.txt`, `images.txt`, and `points3D.txt` files.
-
-Note that the unique identifiers of cameras (`CAMERA_ID`), images (`IMAGE_ID`),
-and 3D points (`POINT3D_ID`) are unordered and are most likely not contiguous.
 
 There are two source files to conveniently read the sparse reconstructions using
 Python (``scripts/python/read_model.py``) and Matlab
@@ -102,9 +139,9 @@ zero-based index of the keypoint in the `images.txt` file. The error is given in
 pixels of reprojection error and is only updated after global bundle adjustment.
 
 
---------------------
+====================
 Dense Reconstruction
---------------------
+====================
 
 COLMAP uses the following workspace folder structure::
 
@@ -142,6 +179,7 @@ results of the fusion and meshing procedure, and `dense-reconstruction.sh`
 contains example command-line usage to perform the dense reconstruction.
 
 
+---------------------
 Depth and Normal Maps
 ---------------------
 
@@ -153,6 +191,7 @@ read with Matlab using the functions in ``scripts/matlab/read_depth_map.m`` and
 ``scripts/matlab/read_normal_map.m``.
 
 
+------------------
 Consistency Graphs
 ------------------
 

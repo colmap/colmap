@@ -32,8 +32,14 @@ Camera::Camera()
 
 std::string Camera::ModelName() const { return CameraModelIdToName(model_id_); }
 
+void Camera::SetModelId(const int model_id) {
+  model_id_ = model_id;
+  params_.resize(CameraModelNumParams(model_id_), 0);
+}
+
 void Camera::SetModelIdFromName(const std::string& name) {
   model_id_ = CameraModelNameToId(name);
+  params_.resize(CameraModelNumParams(model_id_), 0);
 }
 
 const std::vector<size_t>& Camera::FocalLengthIdxs() const {

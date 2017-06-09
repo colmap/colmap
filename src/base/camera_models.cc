@@ -182,6 +182,20 @@ const std::vector<size_t>& CameraModelExtraParamsIdxs(const int model_id) {
   return EMPTY_IDXS;
 }
 
+size_t CameraModelNumParams(const int model_id) {
+  switch (model_id) {
+#define CAMERA_MODEL_CASE(CameraModel) \
+  case CameraModel::kModelId:          \
+    return CameraModel::num_params;
+
+    CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+  }
+
+  return 0;
+}
+
 bool CameraModelVerifyParams(const int model_id,
                              const std::vector<double>& params) {
   switch (model_id) {

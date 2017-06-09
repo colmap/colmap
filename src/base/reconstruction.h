@@ -212,18 +212,17 @@ class Reconstruction {
   double ComputeMeanObservationsPerRegImage() const;
   double ComputeMeanReprojectionError() const;
 
-  // Read data from text file.
+  // Read data from text or binary file. Prefer binary data if it exists.
   void Read(const std::string& path);
-  void Read(const std::string& cameras_path, const std::string& images_path,
-            const std::string& points3D_path);
-
-  // Write data to text file.
   void Write(const std::string& path) const;
-  void Write(const std::string& cameras_path, const std::string& images_path,
-             const std::string& points3D_path) const;
-  void WriteCameras(const std::string& path) const;
-  void WriteImages(const std::string& path) const;
-  void WritePoints3D(const std::string& path) const;
+
+  // Read data from binary/text file.
+  void ReadText(const std::string& path);
+  void ReadBinary(const std::string& path);
+
+  // Write data from binary/text file.
+  void WriteText(const std::string& path) const;
+  void WriteBinary(const std::string& path) const;
 
   // Import from other data formats. Note that these import functions are
   // only intended for visualization of data and usable for reconstruction.
@@ -267,9 +266,19 @@ class Reconstruction {
       const double max_reproj_error,
       const std::unordered_set<point3D_t>& point3D_ids);
 
-  void ReadCameras(const std::string& path);
-  void ReadImages(const std::string& path);
-  void ReadPoints3D(const std::string& path);
+  void ReadCamerasText(const std::string& path);
+  void ReadImagesText(const std::string& path);
+  void ReadPoints3DText(const std::string& path);
+  void ReadCamerasBinary(const std::string& path);
+  void ReadImagesBinary(const std::string& path);
+  void ReadPoints3DBinary(const std::string& path);
+
+  void WriteCamerasText(const std::string& path) const;
+  void WriteImagesText(const std::string& path) const;
+  void WritePoints3DText(const std::string& path) const;
+  void WriteCamerasBinary(const std::string& path) const;
+  void WriteImagesBinary(const std::string& path) const;
+  void WritePoints3DBinary(const std::string& path) const;
 
   void SetObservationAsTriangulated(const image_t image_id,
                                     const point2D_t point2D_idx,

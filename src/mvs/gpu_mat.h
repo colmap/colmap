@@ -326,7 +326,7 @@ void GpuMat<T>::Rotate(GpuMat<T>* output) {
 
 template <typename T>
 void GpuMat<T>::Read(const std::string& path) {
-  std::fstream text_file(path, std::ios_base::in | std::ios_base::binary);
+  std::fstream text_file(path, std::ios::in | std::ios::binary);
   CHECK(text_file.is_open()) << path;
 
   size_t width;
@@ -338,7 +338,7 @@ void GpuMat<T>::Read(const std::string& path) {
   std::streampos pos = text_file.tellg();
   text_file.close();
 
-  std::fstream binary_file(path, std::ios_base::in | std::ios_base::binary);
+  std::fstream binary_file(path, std::ios::in | std::ios::binary);
   binary_file.seekg(pos);
 
   std::vector<T> source(width_ * height_ * depth_);
@@ -353,12 +353,12 @@ void GpuMat<T>::Write(const std::string& path) {
   std::vector<T> dest(width_ * height_ * depth_);
   CopyToHost(dest.data(), width_ * sizeof(T));
 
-  std::fstream text_file(path, std::ios_base::out);
+  std::fstream text_file(path, std::ios::out);
   text_file << width_ << "&" << height_ << "&" << depth_ << "&";
   text_file.close();
 
-  std::fstream binary_file(
-      path, std::ios_base::out | std::ios_base::binary | std::ios_base::app);
+  std::fstream binary_file(path,
+                           std::ios::out | std::ios::binary | std::ios::app);
   WriteBinaryLittleEndian<T>(&binary_file, dest);
   binary_file.close();
 }
@@ -371,12 +371,12 @@ void GpuMat<T>::Write(const std::string& path, const size_t slice) {
       (void*)(array_ptr_ + slice * height_ * pitch_ / sizeof(T)), pitch_,
       width_ * sizeof(T), height_, cudaMemcpyDeviceToHost));
 
-  std::fstream text_file(path, std::ios_base::out);
+  std::fstream text_file(path, std::ios::out);
   text_file << width_ << "&" << height_ << "&" << 1 << "&";
   text_file.close();
 
-  std::fstream binary_file(
-      path, std::ios_base::out | std::ios_base::binary | std::ios_base::app);
+  std::fstream binary_file(path,
+                           std::ios::out | std::ios::binary | std::ios::app);
   WriteBinaryLittleEndian<T>(&binary_file, dest);
   binary_file.close();
 }

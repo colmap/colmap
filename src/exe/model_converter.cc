@@ -31,20 +31,25 @@ int main(int argc, char** argv) {
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddRequiredOption("output_type", &output_type,
-                            "{'NVM', 'Bundler', 'VRML', 'PLY'}");
+                            "{'BIN', 'TXT', 'NVM', 'Bundler', 'VRML', 'PLY'}");
   options.Parse(argc, argv);
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
-  if (output_type == "NVM") {
+  StringToLower(&output_type);
+  if (output_type == "bin") {
+    reconstruction.WriteBinary(output_path);
+  } else if (output_type == "txt") {
+    reconstruction.WriteText(output_path);
+  } else if (output_type == "nvm") {
     reconstruction.ExportNVM(output_path);
-  } else if (output_type == "Bundler") {
+  } else if (output_type == "bundler") {
     reconstruction.ExportBundler(output_path + ".bundle.out",
                                  output_path + ".list.txt");
-  } else if (output_type == "PLY") {
+  } else if (output_type == "ply") {
     reconstruction.ExportPLY(output_path);
-  } else if (output_type == "VRML") {
+  } else if (output_type == "vrml") {
     const auto base_path = output_path.substr(0, output_path.find_last_of("."));
     reconstruction.ExportVRML(base_path + ".images.wrl",
                               base_path + ".points3D.wrl", 1,

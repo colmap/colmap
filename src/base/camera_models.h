@@ -372,6 +372,9 @@ const std::vector<size_t>& CameraModelFocalLengthIdxs(const int model_id);
 const std::vector<size_t>& CameraModelPrincipalPointIdxs(const int model_id);
 const std::vector<size_t>& CameraModelExtraParamsIdxs(const int model_id);
 
+// Get the total number of parameters of a camera model.
+size_t CameraModelNumParams(const int model_id);
+
 // Check whether parameters are valid, i.e. the parameter vector has
 // the correct dimensions that match the specified camera model.
 //

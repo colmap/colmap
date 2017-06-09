@@ -52,10 +52,12 @@ BOOST_AUTO_TEST_CASE(TestModelId) {
   BOOST_CHECK_EQUAL(camera.ModelId(),
                     static_cast<int>(SimplePinholeCameraModel::model_id));
   BOOST_CHECK_EQUAL(camera.ModelName(), "SIMPLE_PINHOLE");
+  BOOST_CHECK_EQUAL(camera.NumParams(), SimplePinholeCameraModel::num_params);
   camera.SetModelIdFromName("SIMPLE_RADIAL");
   BOOST_CHECK_EQUAL(camera.ModelId(),
                     static_cast<int>(SimpleRadialCameraModel::model_id));
   BOOST_CHECK_EQUAL(camera.ModelName(), "SIMPLE_RADIAL");
+  BOOST_CHECK_EQUAL(camera.NumParams(), SimpleRadialCameraModel::num_params);
 }
 
 BOOST_AUTO_TEST_CASE(TestWidthHeight) {

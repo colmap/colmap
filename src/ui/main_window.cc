@@ -635,28 +635,32 @@ void MainWindow::ProjectSaveAs() {
 }
 
 void MainWindow::Import() {
-  const std::string path =
+  const std::string import_path =
       QFileDialog::getExistingDirectory(this, tr("Select source..."), "",
                                         QFileDialog::ShowDirsOnly)
           .toUtf8()
           .constData();
 
   // Selection canceled?
-  if (path == "") {
+  if (import_path == "") {
     return;
   }
 
-  const std::string project_path = JoinPaths(path, "project.ini");
-  const std::string cameras_path = JoinPaths(path, "cameras.txt");
-  const std::string images_path = JoinPaths(path, "images.txt");
-  const std::string points3D_path = JoinPaths(path, "points3D.txt");
+  const std::string project_path = JoinPaths(import_path, "project.ini");
+  const std::string cameras_bin_path = JoinPaths(import_path, "cameras.bin");
+  const std::string images_bin_path = JoinPaths(import_path, "images.bin");
+  const std::string points3D_bin_path = JoinPaths(import_path, "points3D.bin");
+  const std::string cameras_txt_path = JoinPaths(import_path, "cameras.txt");
+  const std::string images_txt_path = JoinPaths(import_path, "images.txt");
+  const std::string points3D_txt_path = JoinPaths(import_path, "points3D.txt");
 
-  if (!ExistsFile(cameras_path) || !ExistsFile(images_path) ||
-      !ExistsFile(points3D_path)) {
+  if ((!ExistsFile(cameras_bin_path) || !ExistsFile(images_bin_path) ||
+       !ExistsFile(points3D_bin_path)) &&
+      (!ExistsFile(cameras_txt_path) || !ExistsFile(images_txt_path) ||
+       !ExistsFile(points3D_txt_path))) {
     QMessageBox::critical(this, "",
-                          tr("`cameras.txt`, `images.txt` and "
-                             "`points3D.txt` must exist in the chosen "
-                             "directory."));
+                          tr("cameras, images, and points3D files do not exist "
+                             "in chosen directory."));
     return;
   }
 
@@ -681,8 +685,8 @@ void MainWindow::Import() {
   }
 
   thread_control_widget_->StartFunction(
-      "Importing...", [this, path, edit_project]() {
-        const size_t idx = reconstruction_manager_.Read(path);
+      "Importing...", [this, import_path, edit_project]() {
+        const size_t idx = reconstruction_manager_.Read(import_path);
         reconstruction_manager_widget_->Update();
         reconstruction_manager_widget_->SelectReconstruction(idx);
         action_bundle_adjustment_->setEnabled(true);
@@ -694,30 +698,30 @@ void MainWindow::Import() {
 }
 
 void MainWindow::ImportFrom() {
-  const std::string path =
+  const std::string import_path =
       QFileDialog::getOpenFileName(this, tr("Select source..."), "")
           .toUtf8()
           .constData();
 
   // Selection canceled?
-  if (path == "") {
+  if (import_path == "") {
     return;
   }
 
-  if (!ExistsFile(path)) {
+  if (!ExistsFile(import_path)) {
     QMessageBox::critical(this, "", tr("Invalid file"));
     return;
   }
 
-  if (!HasFileExtension(path, ".ply")) {
+  if (!HasFileExtension(import_path, ".ply")) {
     QMessageBox::critical(this, "",
                           tr("Invalid file format (supported formats: PLY)"));
     return;
   }
 
-  thread_control_widget_->StartFunction("Importing...", [this, path]() {
+  thread_control_widget_->StartFunction("Importing...", [this, import_path]() {
     const size_t reconstruction_idx = reconstruction_manager_.Add();
-    reconstruction_manager_.Get(reconstruction_idx).ImportPLY(path);
+    reconstruction_manager_.Get(reconstruction_idx).ImportPLY(import_path);
     options_.render->min_track_len = 0;
     reconstruction_manager_widget_->Update();
     reconstruction_manager_widget_->SelectReconstruction(reconstruction_idx);
@@ -730,28 +734,62 @@ void MainWindow::Export() {
     return;
   }
 
-  const std::string path =
+  const std::string export_path =
       QFileDialog::getExistingDirectory(this, tr("Select destination..."), "",
                                         QFileDialog::ShowDirsOnly)
           .toUtf8()
           .constData();
 
   // Selection canceled?
-  if (path == "") {
+  if (export_path == "") {
     return;
   }
 
-  const std::string project_path = JoinPaths(path, "project.ini");
-  const std::string cameras_path = JoinPaths(path, "cameras.txt");
-  const std::string images_path = JoinPaths(path, "images.txt");
-  const std::string points3D_path = JoinPaths(path, "points3D.txt");
+  QMessageBox output_type_box;
+  output_type_box.setText(tr("Export type"));
+  output_type_box.setInformativeText(
+      "Should the data be exported as text (human-readable/slow) or binary "
+      "(machine-readable/fast)?");
+  auto output_type_text =
+      output_type_box.addButton(tr("Text"), QMessageBox::YesRole);
+  output_type_box.addButton(tr("Binary"), QMessageBox::NoRole);
+  output_type_box.setIcon(QMessageBox::Question);
+  output_type_box.exec();
 
-  if (ExistsFile(project_path) || ExistsFile(cameras_path) ||
-      ExistsFile(images_path) || ExistsFile(points3D_path)) {
+  enum class ExportType { BINARY, TEXT };
+  const auto export_type = output_type_box.clickedButton() == output_type_text
+                               ? ExportType::TEXT
+                               : ExportType::BINARY;
+
+  std::string cameras_name;
+  std::string images_name;
+  std::string points3D_name;
+  if (export_type == ExportType::TEXT) {
+    cameras_name = "cameras.txt";
+    images_name = "images.txt";
+    points3D_name = "points3D.txt";
+  } else if (export_type == ExportType::BINARY) {
+    cameras_name = "cameras.bin";
+    images_name = "images.bin";
+    points3D_name = "points3D.bin";
+  } else {
+    LOG(FATAL) << "Invalid output type";
+  }
+
+  const std::string project_path = JoinPaths(export_path, "project.ini");
+  const std::string cameras_path = JoinPaths(export_path, cameras_name);
+  const std::string images_path = JoinPaths(export_path, images_name);
+  const std::string points3D_path = JoinPaths(export_path, points3D_name);
+
+  if (ExistsFile(cameras_path) || ExistsFile(images_path) ||
+      ExistsFile(points3D_path)) {
     QMessageBox::StandardButton reply = QMessageBox::question(
         this, "",
-        tr("The files `cameras.txt`, `images.txt`, or `points3D.txt` already "
-           "exist in the selected destination. Do you want to overwrite them?"),
+        StringPrintf(
+            "The files `%s`, `%s`, or `%s` already "
+            "exist in the selected destination. Do you want to overwrite them?",
+            cameras_name.c_str(), images_name.c_str(), points3D_name.c_str())
+            .c_str(),
         QMessageBox::Yes | QMessageBox::No);
     if (reply == QMessageBox::No) {
       return;
@@ -759,8 +797,16 @@ void MainWindow::Export() {
   }
 
   thread_control_widget_->StartFunction(
-      "Exporting...", [this, path, project_path]() {
-        reconstruction_manager_.Get(SelectedReconstructionIdx()).Write(path);
+      "Exporting...", [this, export_path, export_type, project_path]() {
+        const auto& reconstruction =
+            reconstruction_manager_.Get(SelectedReconstructionIdx());
+        if (export_type == ExportType::TEXT) {
+          reconstruction.WriteText(export_path);
+        } else if (export_type == ExportType::BINARY) {
+          reconstruction.WriteBinary(export_path);
+        } else {
+          LOG(FATAL) << "Invalid output type";
+        }
         options_.Write(project_path);
       });
 }
@@ -770,19 +816,19 @@ void MainWindow::ExportAll() {
     return;
   }
 
-  const std::string path =
+  const std::string export_path =
       QFileDialog::getExistingDirectory(this, tr("Select destination..."), "",
                                         QFileDialog::ShowDirsOnly)
           .toUtf8()
           .constData();
 
   // Selection canceled?
-  if (path == "") {
+  if (export_path == "") {
     return;
   }
 
-  thread_control_widget_->StartFunction("Exporting...", [this, path]() {
-    reconstruction_manager_.Write(path, &options_);
+  thread_control_widget_->StartFunction("Exporting...", [this, export_path]() {
+    reconstruction_manager_.Write(export_path, &options_);
   });
 }
 
@@ -792,7 +838,7 @@ void MainWindow::ExportAs() {
   }
 
   QString filter("NVM (*.nvm)");
-  const std::string path =
+  const std::string export_path =
       QFileDialog::getSaveFileName(
           this, tr("Select destination..."), "",
           "NVM (*.nvm);;Bundler (*.out);;PLY (*.ply);;VRML (*.wrl)", &filter)
@@ -800,26 +846,28 @@ void MainWindow::ExportAs() {
           .constData();
 
   // Selection canceled?
-  if (path == "") {
+  if (export_path == "") {
     return;
   }
 
-  thread_control_widget_->StartFunction("Exporting...", [this, path, filter]() {
-    const Reconstruction& reconstruction =
-        reconstruction_manager_.Get(SelectedReconstructionIdx());
-    if (filter == "NVM (*.nvm)") {
-      reconstruction.ExportNVM(path);
-    } else if (filter == "Bundler (*.out)") {
-      reconstruction.ExportBundler(path, path + ".list.txt");
-    } else if (filter == "PLY (*.ply)") {
-      reconstruction.ExportPLY(path);
-    } else if (filter == "VRML (*.wrl)") {
-      const auto base_path = path.substr(0, path.find_last_of("."));
-      reconstruction.ExportVRML(base_path + ".images.wrl",
-                                base_path + ".points3D.wrl", 1,
-                                Eigen::Vector3d(1, 0, 0));
-    }
-  });
+  thread_control_widget_->StartFunction(
+      "Exporting...", [this, export_path, filter]() {
+        const Reconstruction& reconstruction =
+            reconstruction_manager_.Get(SelectedReconstructionIdx());
+        if (filter == "NVM (*.nvm)") {
+          reconstruction.ExportNVM(export_path);
+        } else if (filter == "Bundler (*.out)") {
+          reconstruction.ExportBundler(export_path, export_path + ".list.txt");
+        } else if (filter == "PLY (*.ply)") {
+          reconstruction.ExportPLY(export_path);
+        } else if (filter == "VRML (*.wrl)") {
+          const auto base_path =
+              export_path.substr(0, export_path.find_last_of("."));
+          reconstruction.ExportVRML(base_path + ".images.wrl",
+                                    base_path + ".points3D.wrl", 1,
+                                    Eigen::Vector3d(1, 0, 0));
+        }
+      });
 }
 
 void MainWindow::FeatureExtraction() {

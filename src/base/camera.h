@@ -39,7 +39,7 @@ class Camera {
   // Access the camera model.
   inline int ModelId() const;
   std::string ModelName() const;
-  inline void SetModelId(const int model_id);
+  void SetModelId(const int model_id);
   void SetModelIdFromName(const std::string& name);
 
   // Access dimensions of the camera sensor.
@@ -157,8 +157,6 @@ camera_t Camera::CameraId() const { return camera_id_; }
 void Camera::SetCameraId(const camera_t camera_id) { camera_id_ = camera_id; }
 
 int Camera::ModelId() const { return model_id_; }
-
-void Camera::SetModelId(const int model_id) { model_id_ = model_id; }
 
 size_t Camera::Width() const { return width_; }
 
