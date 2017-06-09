@@ -1,3 +1,5 @@
+.. _output-format:
+
 Output Format
 =============
 
@@ -50,7 +52,7 @@ To convert between the binary and text format in the GUI, you can load the model
 using ``File > Import`` and then export the model in the desired output format
 using ``File > Export``. In addition, you can export sparse models to other
 formats, such as VisualSfM's NVM, Bundler files, PLY, VRML, etc., using ``File >
-Export As ...``. To convert between various formats from the CLI, use the
+Export As...``. To convert between various formats from the CLI, use the
 ``model_converter`` executable.
 
 

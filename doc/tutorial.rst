@@ -354,16 +354,17 @@ Importing and Exporting
 COLMAP provides several export options for further processing. For full
 flexibility, it is recommended to export the reconstruction in COLMAP's data
 format by choosing ``File > Export`` to export the currently viewed model or
-``File > Export all models`` to export all reconstructed models. The model is
-exported in the selected folder using separate text files for the reconstructed
-cameras, images, and points. When exporting in COLMAP's data format, you can re-
-import the reconstruction for later visualization, image undistortion, or to
-continue an existing reconstruction from where it left off (e.g., after
-importing and matching new images). To import a model, choose ``File > Import``
-and select the export folder path. Alternatively, you can also export the model
-in various other formats, such as Bundler, VisualSfM [#f1]_, PLY, or VRML by
-choosing ``File > Export as...``. COLMAP can visualize plain PLY point cloud
-files with RGB information by choosing ``File > Import From...``.
+``File > Export all`` to export all reconstructed models. The model is exported
+in the selected folder using separate text files for the reconstructed cameras,
+images, and points. When exporting in COLMAP's data format, you can re- import
+the reconstruction for later visualization, image undistortion, or to continue
+an existing reconstruction from where it left off (e.g., after importing and
+matching new images). To import a model, choose ``File > Import`` and select the
+export folder path. Alternatively, you can also export the model in various
+other formats, such as Bundler, VisualSfM [#f1]_, PLY, or VRML by choosing
+``File > Export as...``. COLMAP can visualize plain PLY point cloud files with
+RGB information by choosing ``File > Import From...``. Further information about
+the format of the exported models can be found :ref:`here <output-format>`.
 
 
 Dense Reconstruction
