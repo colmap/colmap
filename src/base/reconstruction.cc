@@ -1787,8 +1787,9 @@ void Reconstruction::ReadImagesBinary(const std::string& path) {
     std::vector<point3D_t> point3D_ids;
     point3D_ids.reserve(num_points2D);
     for (size_t j = 0; j < num_points2D; ++j) {
-      points2D.emplace_back(ReadBinaryLittleEndian<double>(&file),
-                            ReadBinaryLittleEndian<double>(&file));
+      const double x = ReadBinaryLittleEndian<double>(&file);
+      const double y = ReadBinaryLittleEndian<double>(&file);
+      points2D.emplace_back(x, y);
       point3D_ids.push_back(ReadBinaryLittleEndian<point3D_t>(&file));
     }
 
@@ -1830,8 +1831,9 @@ void Reconstruction::ReadPoints3DBinary(const std::string& path) {
 
     const size_t track_length = ReadBinaryLittleEndian<uint64_t>(&file);
     for (size_t j = 0; j < track_length; ++j) {
-      point3D.Track().AddElement(ReadBinaryLittleEndian<image_t>(&file),
-                                 ReadBinaryLittleEndian<point2D_t>(&file));
+      const image_t image_id = ReadBinaryLittleEndian<image_t>(&file);
+      const point2D_t point2D_idx = ReadBinaryLittleEndian<point2D_t>(&file);
+      point3D.Track().AddElement(image_id, point2D_idx);
     }
     point3D.Track().Compress();
 
