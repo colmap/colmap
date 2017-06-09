@@ -31,6 +31,7 @@ set(COLMAP_LIBRARIES
     estimators
     optim
     retrieval
+    estimators
     base
     util
     flann
