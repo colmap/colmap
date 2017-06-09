@@ -38,6 +38,15 @@ project for your research, please cite::
         year={2016},
     }
 
+If you use the image retrieval / vocabulary tree engine, please also cite::
+
+    @inproceedings{schoenberger2016vote,
+        author = {Sch\"{o}nberger, Johannes Lutz and Price, True and Sattler, Torsten and Frahm, Jan-Michael and Pollefeys, Marc},
+        title = {A Vote-and-Verify Strategy for Fast Spatial Verification in Image Retrieval},
+        booktitle={Asian Conference on Computer Vision (ACCV)},
+        year={2016},
+    }
+
 The latest source code is available at `GitHub
 <https://github.com/colmap/colmap>`_. COLMAP builds on top of existing works and
 when using specific algorithms within COLMAP, please also cite the original
