@@ -34,6 +34,7 @@ option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
 option(TESTS_ENABLED "Whether to build test binaries" ON)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(BOOST_STATIC "Whether to enable static boost library linker flags" ON)
+option(CUDA_MULTI_ARCH "Whether to generate CUDA code for multiple architectures" OFF)
 
 if(TESTS_ENABLED)
     enable_testing()
@@ -134,7 +135,19 @@ endif()
 if(CUDA_FOUND)
     if(CUDA_ENABLED)
         add_definitions("-DCUDA_ENABLED")
-        message(STATUS "Enabling CUDA support (version ${CUDA_VERSION_STRING})")
+
+        include(${CMAKE_SOURCE_DIR}/cmake/SelectCudaComputeArch.cmake)
+
+        if(CUDA_MULTI_ARCH)
+            CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS All)
+        else()
+            CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS Auto)
+        endif()
+
+        list(APPEND CUDA_NVCC_FLAGS "-Wno-deprecated-gpu-targets")
+        list(APPEND CUDA_NVCC_FLAGS ${CUDA_ARCH_FLAGS})
+
+        message(STATUS "Enabling CUDA support (version: ${CUDA_VERSION_STRING}, flags: ${CUDA_ARCH_FLAGS}")
     else()
         set(CUDA_FOUND FALSE)
         message(STATUS "Disabling CUDA support")
@@ -146,56 +159,6 @@ else()
                 "${CUDA_VERSION_STRING} but >= ${CUDA_MIN_VERSION} required)")
     else()
         message(STATUS "Disabling CUDA support")
-    endif()
-endif()
-
-list(APPEND CUDA_NVCC_FLAGS "-Wno-deprecated-gpu-targets")
-if(CUDA_ENABLED AND NOT IS_DEBUG)
-    # Configure the NVCC flags:
-    #   CUDA >= 5.0 <6.5:
-    #     SASS:   sm_20, sm_30, sm_35
-    #     PTX:    compute_35
-    #   CUDA == 6.5:
-    #     SASS:   sm_20, sm_30, sm_35, sm_37 sm_50
-    #     PTX:    compute_50
-    #   CUDA >= 7.0
-    #     SASS:   sm_20, sm_30, sm_35, sm_37, sm_50, sm_52
-    #     PTX:    compute_52
-    #   CUDA >= 8.0
-    #     SASS:   sm_20, sm_30, sm_35, sm_37, sm_50, sm_52, sm_60, sm_61
-    #     PTX:    compute_60, compute_61
-
-    # Add flags to generate SASS code.
-
-    list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_20,code=sm_20")
-    list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_30,code=sm_30")
-    list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_35,code=sm_35")
-
-    if(NOT CUDA_VERSION VERSION_LESS "6.5") # >= 6.5
-        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_37,code=sm_37")
-        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_50,code=sm_50")
-    endif()
-
-    if(NOT CUDA_VERSION VERSION_LESS "7.0") # >= 7.0
-        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_52,code=sm_52")
-    endif()
-
-    if(NOT CUDA_VERSION VERSION_LESS "8.0") # >= 8.0
-        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_60,code=sm_60")
-        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_61,code=sm_61")
-    endif()
-
-    # Add flags to generate PTX code.
-
-    if(CUDA_VERSION VERSION_LESS "6.5")
-        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_35,code=compute_35")
-    elseif(CUDA_VERSION VERSION_LESS "7.0")
-        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_50,code=compute_50")
-    elseif(CUDA_VERSION VERSION_LESS "8.0")
-        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_52,code=compute_52")
-    else() # >= 8.0
-        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_60,code=compute_60")
-        list(APPEND CUDA_NVCC_FLAGS "-gencode;arch=compute_61,code=compute_61")
     endif()
 endif()
 
