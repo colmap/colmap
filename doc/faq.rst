@@ -137,10 +137,36 @@ new images within this reconstruction, you can follow these steps::
         --import_path /path/to/existing-model \
         --export_path /path/to/model-with-new-images
 
+    ./src/exe/bundle_adjuster \
+        --input_path /path/to/model-with-new-images \
+        --output_path /path/to/model-with-new-images
+
 Note that this first extracts features for the new images, then matches them to
 the existing images in the database, and finally registers them into the model.
 The image list text file contains a list of images to extract and match,
-specified as one image file name per line.
+specified as one image file name per line. The bundle adjustment is optional.
+
+If you need a more accurate image registration with triangulation, then you
+should restart or continue the reconstruction process rather than just
+registering the images to the model. Instead of running the
+``image_registrator``, you should run the ``mapper`` to continue the
+reconstruction process from the existing model::
+
+    ./src/exe/mapper \
+        --database_path $PROJECT_PATH/database.db \
+        --image_path $PROJECT_PATH/images \
+        --import_path /path/to/existing-model \
+        --export_path /path/to/model-with-new-images
+
+Or, alternatively, you can start the reconstruction from scratch::
+
+    ./src/exe/mapper \
+        --database_path $PROJECT_PATH/database.db \
+        --image_path $PROJECT_PATH/images \
+        --export_path /path/to/model-with-new-images
+
+Note that dense reconstruction must be re-run from scratch after adding new
+images, as the coordinate frame of the model is changed.
 
 
 Multi-GPU support in feature matching
