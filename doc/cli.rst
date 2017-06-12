@@ -62,18 +62,17 @@ steps, an exemplary sequence of commands to reconstruct the scene would be::
     $ ./exe/dense_stereo \
         --workspace_path $PROJECT_PATH/dense \
         --workspace_format COLMAP \
-        --DenseStereo.max_image_size 0 \
         --DenseStereo.geom_consistency true
 
     $ ./exe/dense_fuser \
         --workspace_path $PROJECT_PATH/dense \
         --workspace_format COLMAP \
         --input_type geometric \
-        --output_path $PROJECT_PATH/dense/point-cloud.ply
+        --output_path $PROJECT_PATH/dense/fused.ply
 
     $ ./src/exe/dense_mesher \
-        --input_path $PROJECT_PATH/dense/point-cloud.ply \
-        --output_path $PROJECT_PATH/dense/mesh.ply
+        --input_path $PROJECT_PATH/dense/fused.ply \
+        --output_path $PROJECT_PATH/dense/meshed.ply
 
 If you want to run COLMAP on a computer (e.g., cluster or cloud service) without
 an attached display, you should run the ``feature_extractor`` and set the
