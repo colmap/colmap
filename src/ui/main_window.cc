@@ -674,7 +674,7 @@ void MainWindow::Import() {
   } else {
     QMessageBox::StandardButton reply = QMessageBox::question(
         this, "",
-        tr("Directory does not contain a `project.ini`. To "
+        tr("Directory does not contain a <i>project.ini</i>. To "
            "resume the reconstruction, you need to specify a valid "
            "database and image path. Do you want to select the paths "
            "now (or press 'No' to only visualize the reconstruction)?"),
@@ -786,7 +786,7 @@ void MainWindow::Export() {
     QMessageBox::StandardButton reply = QMessageBox::question(
         this, "",
         StringPrintf(
-            "The files `%s`, `%s`, or `%s` already "
+            "The files <i>%s</i>, <i>%s</i>, or <i>%s</i> already "
             "exist in the selected destination. Do you want to overwrite them?",
             cameras_name.c_str(), images_name.c_str(), points3D_name.c_str())
             .c_str(),
@@ -1268,7 +1268,9 @@ void MainWindow::UpdateTimer() {
 }
 
 void MainWindow::ShowInvalidProjectError() {
-  QMessageBox::critical(this, "", tr("Invalid project options"));
+  QMessageBox::critical(this, "",
+                        tr("You must create a valid project using: <i>File > "
+                           "New project</i> or <i>File > Edit project</i>"));
 }
 
 void MainWindow::EnableBlockingActions() {
