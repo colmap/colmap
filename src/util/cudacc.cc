@@ -61,6 +61,10 @@ void CudaCheckError(const char* file, const int line) {
   if (cudaSuccess != error) {
     fprintf(stderr, "cudaCheckError() with sync failed at %s:%i : %s\n", file,
             line, cudaGetErrorString(error));
+    fprintf(stderr,
+            "This error is likely caused by the graphics card timeout "
+            "detection mechanism of your operating system. Please refer to "
+            "the FAQ in the documentation on how to solve this problem.\n");
     exit(EXIT_FAILURE);
   }
 }
