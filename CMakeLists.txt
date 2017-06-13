@@ -147,7 +147,7 @@ if(CUDA_FOUND)
         list(APPEND CUDA_NVCC_FLAGS "-Wno-deprecated-gpu-targets")
         list(APPEND CUDA_NVCC_FLAGS ${CUDA_ARCH_FLAGS})
 
-        message(STATUS "Enabling CUDA support (version: ${CUDA_VERSION_STRING}, flags: ${CUDA_ARCH_FLAGS}")
+        message(STATUS "Enabling CUDA support (version: ${CUDA_VERSION_STRING}, archs: ${CUDA_ARCH_FLAGS_readable})")
     else()
         set(CUDA_FOUND FALSE)
         message(STATUS "Disabling CUDA support")
