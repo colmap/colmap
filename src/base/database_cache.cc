@@ -51,7 +51,7 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
   {
     const std::vector<class Camera> cameras = database.ReadAllCameras();
     cameras_.reserve(cameras.size());
-    for (const class Camera& camera : cameras) {
+    for (const auto& camera : cameras) {
       cameras_.emplace(camera.CameraId(), camera);
     }
   }
@@ -126,7 +126,7 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
     // Load images with correspondences and discard images without
     // correspondences, as those images are useless for SfM.
     images_.reserve(connected_image_ids.size());
-    for (const class Image& image : images) {
+    for (const auto& image : images) {
       if (image_ids.count(image.ImageId()) > 0 &&
           connected_image_ids.count(image.ImageId()) > 0) {
         images_.emplace(image.ImageId(), image);
