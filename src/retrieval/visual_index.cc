@@ -79,10 +79,10 @@ void VisualIndex::QueryWithVerification(
     const DescType& descriptors, std::vector<ImageScore>* image_scores) const {
   CHECK_EQ(descriptors.rows(), geometries.size());
 
-  size_t num_verifications = image_scores->size();
+  size_t num_verifications = image_ids_.size();
   if (options.max_num_verifications >= 0) {
     num_verifications =
-        std::min<size_t>(image_scores->size(), options.max_num_verifications);
+        std::min<size_t>(image_ids_.size(), options.max_num_verifications);
   }
 
   if (num_verifications == 0) {
