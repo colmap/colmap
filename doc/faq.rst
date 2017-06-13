@@ -275,9 +275,10 @@ Fix GPU freezes and timeouts during dense reconstruction
 The stereo reconstruction pipeline runs on the GPU using CUDA and puts the GPU
 under heavy load. You might experience a display freeze or even a program crash
 during the reconstruction. As a solution to this problem, you could use a
-secondary GPU in your system, that is not connected to your display.
-Alternatively, you can increase the GPU timeouts of your system, as detailed in
-the following.
+secondary GPU in your system, that is not connected to your display by setting
+the GPU indices explicitly (usually index 0 corresponds to the card that the
+display is attached to). Alternatively, you can increase the GPU timeouts of
+your system, as detailed in the following.
 
 By default, the Windows operating system detects response problems from the GPU,
 and recovers to a functional desktop by resetting the card and aborting the
