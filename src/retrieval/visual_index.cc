@@ -141,9 +141,7 @@ void VisualIndex::QueryWithVerification(
     }
 
     VoteAndVerifyOptions vote_and_verify_options;
-    image_score.score = std::max(
-        image_score.score,
-        static_cast<float>(VoteAndVerify(vote_and_verify_options, matches)));
+    image_score.score += VoteAndVerify(vote_and_verify_options, matches);
   }
 
   // Re-rank the images using the spatial verification scores.
