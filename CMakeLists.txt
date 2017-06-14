@@ -87,6 +87,18 @@ find_package(Qt5 REQUIRED)
 # Compiler specific configuration
 ################################################################################
 
+if(${EIGEN3_VERSION} STREQUAL "3.2.92" AND CMAKE_UNAME)
+    exec_program(uname ARGS -a OUTPUT_VARIABLE CMAKE_SYSTEM_UNAME)
+    if(CMAKE_SYSTEM_UNAME MATCHES "16.04" AND CMAKE_SYSTEM_UNAME MATCHES "Ubuntu")
+        message(FATAL_ERROR "You are using the beta version of Eigen 3.3 "
+                "shipped with Ubuntu 16.04 as libeigen3-dev. This version is "
+                "known to cause issues with vector intrinsics. You can switch "
+                "to any other Eigen 3 version to solve this issue by "
+                "installing it manually. Note that Ceres-Solver must be "
+                "compiled with the same Eigen version as COLMAP.")
+    endif()
+endif()
+
 if(CMAKE_BUILD_TYPE)
     message(STATUS "Build type specified as ${CMAKE_BUILD_TYPE}")
 else()
