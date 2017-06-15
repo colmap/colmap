@@ -1,3 +1,18 @@
+COLMAP 3.1 (6/15/2017)
+----------------------
+- Add fast spatial verification to image retrieval module
+- Add binary file format for sparse models by default. Old text format still
+  fully compatible and possible conversion in GUI and CLI
+- Add cross-platform little endian binary file reading and writing
+- Faster and less memory hungry stereo fusion by computing consistency on demand
+  and possible limitation of image size in fusion
+- Simpler geometric stereo processing interface.
+  Now geometric stereo output can be computed using a single pass
+- Faster and multi-architecture CUDA compilation
+- Add medium quality option in automatic reconstructor
+- Many more bug fixes and improvements
+
+
 COLMAP 3.0 (5/22/2017)
 ----------------------
 - Add automatic end-to-end reconstruction tool that automatically performs
