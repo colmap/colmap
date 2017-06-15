@@ -179,7 +179,8 @@ Here, the `images` folder contains the undistorted images, the `sparse` folder
 contains the sparse reconstruction with undistorted cameras, the `stereo` folder
 contains the stereo reconstruction results, `point-cloud.ply` and `mesh.ply` are the
 results of the fusion and meshing procedure, and `run-colmap-geometric.sh` and 
-`run-colmap-photometric.sh` contain example command-line usage to perform the dense reconstruction.
+`run-colmap-photometric.sh` contain example command-line usage to perform the
+dense reconstruction.
 
 
 ---------------------
