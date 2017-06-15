@@ -192,3 +192,13 @@ Executables
   Pre-trained trees can be downloaded from https://demuc.de/colmap/.
   This is useful if you want to build a custom tree with a different trade-off
   in terms of precision/recall vs. speed.
+
+
+Visualization
+-----------
+If you want to quickly visualize the outputs of the sparse or dense reconstruction pipelines, COLMAP offers you the following possibilites:
+
+- The sparse point cloud obtained with the ``mapper`` can be visualized via the COLMAP GUI by importing the following files: choose ``File > Import Model`` and select the folder where the three files, ``cameras.txt``,``images.txt`` and ``points3d.txt``, are located in.
+
+- The dense point cloud obtained with the ``dense_fuser`` can be visualized via the COLMAP GUI by importing ``point-cloud.ply``: choose ``File > Import Model from...`` and then select the file ``point-cloud.ply``.
+- ``mesh.ply``, the mesh obtained with the ``dense_mesher`` can currently not be visualized with COLMAP, instead you can use e.g. Meshlab.
