@@ -195,10 +195,19 @@ Executables
 
 
 Visualization
------------
-If you want to quickly visualize the outputs of the sparse or dense reconstruction pipelines, COLMAP offers you the following possibilites:
+-------------
 
-- The sparse point cloud obtained with the ``mapper`` can be visualized via the COLMAP GUI by importing the following files: choose ``File > Import Model`` and select the folder where the three files, ``cameras.txt``,``images.txt`` and ``points3d.txt``, are located in.
+If you want to quickly visualize the outputs of the sparse or dense
+reconstruction pipelines, COLMAP offers you the following possibilities:
 
-- The dense point cloud obtained with the ``dense_fuser`` can be visualized via the COLMAP GUI by importing ``point-cloud.ply``: choose ``File > Import Model from...`` and then select the file ``point-cloud.ply``.
-- ``mesh.ply``, the mesh obtained with the ``dense_mesher`` can currently not be visualized with COLMAP, instead you can use e.g. Meshlab.
+- The sparse point cloud obtained with the ``mapper`` can be visualized via the
+  COLMAP GUI by importing the following files: choose ``File > Import Model``
+  and select the folder where the three files, ``cameras.txt``,``images.txt``,
+  and ``points3d.txt`` are located.
+
+- The dense point cloud obtained with the ``dense_fuser`` can be visualized via
+  the COLMAP GUI by importing ``fused.ply``: choose
+  ``File > Import Model from...`` and then select the file ``fused.ply``.
+
+- The dense mesh model ``meshed.ply`` obtained with the ``dense_mesher`` can
+  currently not be visualized with COLMAP, instead you can, e.g., use Meshlab.
