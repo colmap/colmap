@@ -170,17 +170,17 @@ COLMAP uses the following workspace folder structure::
     │   │   +── ...
     │   +── patch-match.cfg
     │   +── fusion.cfg
-    +── point-cloud.ply
-    +── mesh.ply
+    +── fused.ply
+    +── meshed.ply
     +── run-colmap-geometric.sh
     +── run-colmap-photometric.sh
 
 Here, the `images` folder contains the undistorted images, the `sparse` folder
 contains the sparse reconstruction with undistorted cameras, the `stereo` folder
-contains the stereo reconstruction results, `point-cloud.ply` and `mesh.ply` are the
-results of the fusion and meshing procedure, and `run-colmap-geometric.sh` and 
-`run-colmap-photometric.sh` contain example command-line usage to perform the
-dense reconstruction.
+contains the stereo reconstruction results, `point-cloud.ply` and `mesh.ply` are
+the results of the fusion and meshing procedure, and `run-colmap-geometric.sh`
+and `run-colmap-photometric.sh` contain example command-line usage to perform
+the dense reconstruction.
 
 
 ---------------------
