@@ -5,7 +5,6 @@ include_directories(
     ${GLOG_INCLUDE_DIRS}
     ${FREEIMAGE_INCLUDE_DIRS}
     ${CERES_INCLUDE_DIRS}
-    ${GLUT_INCLUDE_DIR}
     ${GLEW_INCLUDE_DIRS}
     ${Qt5_INCLUDE_DIRS}
 )

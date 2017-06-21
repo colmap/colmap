@@ -71,7 +71,6 @@ find_package(Glog REQUIRED)
 find_package(Ceres REQUIRED)
 
 find_package(OpenGL REQUIRED)
-find_package(GLUT REQUIRED)
 find_package(Glew REQUIRED)
 find_package(Git)
 

@@ -18,9 +18,6 @@ set(BOOST_LIBRARYDIR "<boost-lib-dir>" CACHE PATH "" FORCE)
 set(OPENGL_gl_LIBRARY "opengl32" CACHE STRING "" FORCE)
 set(OPENGL_glu_LIBRARY "glu32" CACHE STRING "" FORCE)
 
-set(GLUT_INCLUDE_DIR "<freeglut-dir>/include" CACHE PATH "" FORCE)
-set(GLUT_glut_LIBRARY "<freeglut-dir>/lib/freeglut.lib" CACHE FILEPATH "" FORCE)
-
 set(GLEW_INCLUDE_DIR_HINTS "<glew-dir>/include" CACHE PATH "" FORCE)
 set(GLEW_LIBRARY_DIR_HINTS "<glew-dir>/lib/Release/x64" CACHE FILEPATH "" FORCE)
 

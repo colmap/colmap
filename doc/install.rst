@@ -30,7 +30,6 @@ Dependencies from default Ubuntu 14.04/16.04 repositories::
         libgoogle-glog-dev \
         libgflags-dev \
         libglew-dev \
-        freeglut3-dev \
         qt5-default \
         libxmu-dev \
         libxi-dev
