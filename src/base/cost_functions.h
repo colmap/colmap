@@ -29,10 +29,8 @@ namespace colmap {
 template <typename CameraModel>
 class BundleAdjustmentCostFunction {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
   explicit BundleAdjustmentCostFunction(const Eigen::Vector2d& point2D)
-      : point2D_(point2D) {}
+      : x_(point2D(0)), y_(point2D(1)) {}
 
   static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
     return (new ceres::AutoDiffCostFunction<
@@ -62,14 +60,15 @@ class BundleAdjustmentCostFunction {
                               &x, &y);
 
     // Re-projection error.
-    residuals[0] = x - T(point2D_(0));
-    residuals[1] = y - T(point2D_(1));
+    residuals[0] = x - x_;
+    residuals[1] = y - y_;
 
     return true;
   }
 
  private:
-  const Eigen::Vector2d point2D_;
+  const double x_;
+  const double y_;
 };
 
 // Bundle adjustment cost function for variable
@@ -77,12 +76,18 @@ class BundleAdjustmentCostFunction {
 template <typename CameraModel>
 class BundleAdjustmentConstantPoseCostFunction {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
   BundleAdjustmentConstantPoseCostFunction(const Eigen::Vector4d& qvec,
                                            const Eigen::Vector3d& tvec,
                                            const Eigen::Vector2d& point2D)
-      : qvec_(qvec), tvec_(tvec), point2D_(point2D) {}
+      : qx_(qvec(0)),
+        qy_(qvec(1)),
+        qz_(qvec(2)),
+        qw_(qvec(3)),
+        tx_(tvec(0)),
+        ty_(tvec(1)),
+        tz_(tvec(2)),
+        x_(point2D(0)),
+        y_(point2D(1)) {}
 
   static ceres::CostFunction* Create(const Eigen::Vector4d& qvec,
                                      const Eigen::Vector3d& tvec,
@@ -96,14 +101,14 @@ class BundleAdjustmentConstantPoseCostFunction {
   template <typename T>
   bool operator()(const T* const point3D, const T* const camera_params,
                   T* residuals) const {
-    T qvec[4] = {T(qvec_(0)), T(qvec_(1)), T(qvec_(2)), T(qvec_(3))};
+    const T qvec[4] = {T(qx_), T(qy_), T(qz_), T(qw_)};
 
     // Rotate and translate.
     T point3D_local[3];
     ceres::UnitQuaternionRotatePoint(qvec, point3D, point3D_local);
-    point3D_local[0] += T(tvec_(0));
-    point3D_local[1] += T(tvec_(1));
-    point3D_local[2] += T(tvec_(2));
+    point3D_local[0] += T(tx_);
+    point3D_local[1] += T(ty_);
+    point3D_local[2] += T(tz_);
 
     // Normalize to image plane.
     point3D_local[0] /= point3D_local[2];
@@ -115,16 +120,22 @@ class BundleAdjustmentConstantPoseCostFunction {
                               &x, &y);
 
     // Re-projection error.
-    residuals[0] = x - T(point2D_(0));
-    residuals[1] = y - T(point2D_(1));
+    residuals[0] = x - T(x_);
+    residuals[1] = y - T(y_);
 
     return true;
   }
 
  private:
-  const Eigen::Vector4d qvec_;
-  const Eigen::Vector3d tvec_;
-  const Eigen::Vector2d point2D_;
+  double qx_;
+  double qy_;
+  double qz_;
+  double qw_;
+  double tx_;
+  double ty_;
+  double tz_;
+  double x_;
+  double y_;
 };
 
 // Rig bundle adjustment cost function for variable camera pose and calibration
@@ -136,10 +147,8 @@ class BundleAdjustmentConstantPoseCostFunction {
 template <typename CameraModel>
 class RigBundleAdjustmentCostFunction {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
   explicit RigBundleAdjustmentCostFunction(const Eigen::Vector2d& point2D)
-      : point2D_(point2D) {}
+      : x_(point2D(0)), y_(point2D(1)) {}
 
   static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
     return (new ceres::AutoDiffCostFunction<
@@ -181,14 +190,15 @@ class RigBundleAdjustmentCostFunction {
                               &x, &y);
 
     // Re-projection error.
-    residuals[0] = x - T(point2D_(0));
-    residuals[1] = y - T(point2D_(1));
+    residuals[0] = x - T(x_);
+    residuals[1] = y - T(y_);
 
     return true;
   }
 
  private:
-  const Eigen::Vector2d point2D_;
+  const double x_;
+  const double y_;
 };
 
 // Cost function for refining two-view geometry based on the Sampson-Error.
@@ -200,10 +210,8 @@ class RigBundleAdjustmentCostFunction {
 // and should be down-projected using `HomogeneousVectorParameterization`.
 class RelativePoseCostFunction {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
   RelativePoseCostFunction(const Eigen::Vector2d& x1, const Eigen::Vector2d& x2)
-      : x1_(x1), x2_(x2) {}
+      : x1_(x1(0)), y1_(x1(1)), x2_(x2(0)), y2_(x2(1)) {}
 
   static ceres::CostFunction* Create(const Eigen::Vector2d& x1,
                                      const Eigen::Vector2d& x2) {
@@ -226,8 +234,8 @@ class RelativePoseCostFunction {
     const Eigen::Matrix<T, 3, 3> E = t_x * R;
 
     // Homogeneous image coordinates.
-    const Eigen::Matrix<T, 3, 1> x1_h(T(x1_(0)), T(x1_(1)), T(1));
-    const Eigen::Matrix<T, 3, 1> x2_h(T(x2_(0)), T(x2_(1)), T(1));
+    const Eigen::Matrix<T, 3, 1> x1_h(T(x1_), T(y1_), T(1));
+    const Eigen::Matrix<T, 3, 1> x2_h(T(x2_), T(y2_), T(1));
 
     // Squared sampson error.
     const Eigen::Matrix<T, 3, 1> Ex1 = E * x1_h;
@@ -241,8 +249,10 @@ class RelativePoseCostFunction {
   }
 
  private:
-  const Eigen::Vector2d x1_;
-  const Eigen::Vector2d x2_;
+  const double x1_;
+  const double y1_;
+  const double x2_;
+  const double y2_;
 };
 
 }  // namespace colmap
