@@ -30,9 +30,7 @@ Dependencies from default Ubuntu 14.04/16.04 repositories::
         libgoogle-glog-dev \
         libgflags-dev \
         libglew-dev \
-        qt5-default \
-        libxmu-dev \
-        libxi-dev
+        qt5-default
 
 Install `Ceres Solver <http://ceres-solver.org/>`_::
 
