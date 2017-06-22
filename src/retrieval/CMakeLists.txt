@@ -6,7 +6,7 @@ COLMAP_ADD_LIBRARY(retrieval
     inverted_file_entry.h
     inverted_index.h
     utils.h
-    visual_index.h visual_index.cc
+    visual_index.h
     vote_and_verify.h vote_and_verify.cc
 )
 

@@ -74,7 +74,7 @@ int main(int argc, char** argv) {
   InitializeGlog(argv);
 
   std::string vocab_tree_path;
-  retrieval::VisualIndex::BuildOptions build_options;
+  retrieval::VisualIndex<>::BuildOptions build_options;
   int max_num_images = -1;
 
   OptionManager options;
@@ -86,7 +86,7 @@ int main(int argc, char** argv) {
   options.AddDefaultOption("max_num_images", &max_num_images);
   options.Parse(argc, argv);
 
-  retrieval::VisualIndex visual_index;
+  retrieval::VisualIndex<> visual_index;
 
   std::cout << "Loading descriptors..." << std::endl;
   const auto descriptors =

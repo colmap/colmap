@@ -45,7 +45,7 @@ std::vector<Image> ReadImageList(const std::string& path, Database* database) {
 void IndexImagesInVisualIndex(const int max_num_features,
                               const std::vector<Image>& images,
                               Database* database,
-                              retrieval::VisualIndex* visual_index) {
+                              retrieval::VisualIndex<>* visual_index) {
   DatabaseTransaction database_transaction(database);
 
   for (size_t i = 0; i < images.size(); ++i) {
@@ -61,7 +61,7 @@ void IndexImagesInVisualIndex(const int max_num_features,
       ExtractTopScaleFeatures(&keypoints, &descriptors, max_num_features);
     }
 
-    visual_index->Add(retrieval::VisualIndex::IndexOptions(),
+    visual_index->Add(retrieval::VisualIndex<>::IndexOptions(),
                       images[i].ImageId(), keypoints, descriptors);
 
     std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
@@ -76,10 +76,10 @@ void QueryImagesInVisualIndex(const int max_num_features,
                               const std::vector<Image>& query_images,
                               const int num_images, const int num_verifications,
                               Database* database,
-                              retrieval::VisualIndex* visual_index) {
+                              retrieval::VisualIndex<>* visual_index) {
   DatabaseTransaction database_transaction(database);
 
-  retrieval::VisualIndex::QueryOptions query_options;
+  retrieval::VisualIndex<>::QueryOptions query_options;
   query_options.max_num_images = num_images;
   query_options.max_num_verifications = num_verifications;
 
@@ -140,7 +140,7 @@ int main(int argc, char** argv) {
   options.AddDefaultOption("max_num_features", &max_num_features);
   options.Parse(argc, argv);
 
-  retrieval::VisualIndex visual_index;
+  retrieval::VisualIndex<> visual_index;
   visual_index.Read(vocab_tree_path);
 
   Database database(*options.database_path);

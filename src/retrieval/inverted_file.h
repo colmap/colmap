@@ -40,16 +40,16 @@ namespace retrieval {
 // and matches. The template parameter is the length of the binary vectors
 // in the Hamming Embedding.
 // This class is based on an original implementation by Torsten Sattler.
-template <int N>
+template <int kEmbeddingDim>
 class InvertedFile {
  public:
-  typedef Eigen::Matrix<float, N, 1> Desc;
-  typedef FeatureGeometry Geometry;
-  typedef InvertedFileEntry<N> Entry;
+  typedef Eigen::VectorXf DescType;
+  typedef FeatureGeometry GeomType;
+  typedef InvertedFileEntry<kEmbeddingDim> EntryType;
 
   enum Status {
     UNUSABLE = 0x00,
-    HAS_HAMMING_EMBEDDING = 0x01,
+    HAS_EMBEDDING = 0x01,
     ENTRIES_SORTED = 0x02,
     USABLE = 0x03,
   };
@@ -60,7 +60,7 @@ class InvertedFile {
   size_t NumEntries() const;
 
   // Return all entries in the file.
-  const std::vector<Entry>& GetEntries() const;
+  const std::vector<EntryType>& GetEntries() const;
 
   // Whether the Hamming embedding was computed for this file.
   bool HasHammingEmbedding() const;
@@ -76,8 +76,8 @@ class InvertedFile {
   // information stored in an inverted file entry. In particular, this function
   // generates the binary descriptor for the inverted file entry and then stores
   // the entry in the inverted file.
-  void AddEntry(const int image_id, const Desc& descriptor,
-                const Geometry& geometry);
+  void AddEntry(const int image_id, const DescType& descriptor,
+                const GeomType& geometry);
 
   // Sorts the inverted file entries in ascending order of image ids. This is
   // required for efficient scoring and must be called before ScoreFeature.
@@ -90,8 +90,9 @@ class InvertedFile {
   void Reset();
 
   // Given a projected descriptor, returns the corresponding binary string.
-  void ConvertToBinaryDescriptor(const Desc& descriptor,
-                                 std::bitset<N>* binary_descriptor) const;
+  void ConvertToBinaryDescriptor(
+      const DescType& descriptor,
+      std::bitset<kEmbeddingDim>* binary_descriptor) const;
 
   // Compute the idf-weight for this inverted file.
   void ComputeIDFWeight(const int num_total_images);
@@ -101,12 +102,12 @@ class InvertedFile {
 
   // Given a set of descriptors, learns the thresholds required for the Hamming
   // embedding. Each row in descriptors represents a single descriptor projected
-  // into the N dimensional space used for Hamming embedding.
+  // into the kEmbeddingDim dimensional space used for Hamming embedding.
   void ComputeHammingEmbedding(
-      const Eigen::Matrix<float, Eigen::Dynamic, N>& descriptors);
+      const Eigen::Matrix<float, Eigen::Dynamic, kEmbeddingDim>& descriptors);
 
   // Given a query feature, performs inverted file scoring.
-  void ScoreFeature(const Desc& descriptor,
+  void ScoreFeature(const DescType& descriptor,
                     std::vector<ImageScore>* image_scores) const;
 
   // Get the identifiers of all indexed images in this file.
@@ -131,63 +132,70 @@ class InvertedFile {
   float idf_weight_;
 
   // The entries of the inverted file system.
-  std::vector<Entry> entries_;
+  std::vector<EntryType> entries_;
 
   // The thresholds used for Hamming embedding.
-  Desc thresholds_;
+  DescType thresholds_;
 
   // The functor to derive a voting weight from a Hamming distance.
-  static const HammingDistWeightFunctor<N> hamming_dist_weight_functor_;
+  static const HammingDistWeightFunctor<kEmbeddingDim>
+      hamming_dist_weight_functor_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-template <int N>
-const HammingDistWeightFunctor<N> InvertedFile<N>::hamming_dist_weight_functor_;
+template <int kEmbeddingDim>
+const HammingDistWeightFunctor<kEmbeddingDim>
+    InvertedFile<kEmbeddingDim>::hamming_dist_weight_functor_;
 
-template <int N>
-InvertedFile<N>::InvertedFile() : status_(UNUSABLE), idf_weight_(0.0f) {
-  static_assert(N % 8 == 0,
+template <int kEmbeddingDim>
+InvertedFile<kEmbeddingDim>::InvertedFile()
+    : status_(UNUSABLE), idf_weight_(0.0f) {
+  static_assert(kEmbeddingDim % 8 == 0,
                 "Dimensionality of projected space needs to"
                 " be a multiple of 8.");
-  static_assert(N > 0, "Dimensionality of projected space needs to be > 0.");
+  static_assert(kEmbeddingDim > 0,
+                "Dimensionality of projected space needs to be > 0.");
 
+  thresholds_.resize(kEmbeddingDim);
   thresholds_.setZero();
 }
 
-template <int N>
-size_t InvertedFile<N>::NumEntries() const {
+template <int kEmbeddingDim>
+size_t InvertedFile<kEmbeddingDim>::NumEntries() const {
   return entries_.size();
 }
 
-template <int N>
-const std::vector<typename InvertedFile<N>::Entry>&
-InvertedFile<N>::GetEntries() const {
+template <int kEmbeddingDim>
+const std::vector<typename InvertedFile<kEmbeddingDim>::EntryType>&
+InvertedFile<kEmbeddingDim>::GetEntries() const {
   return entries_;
 }
 
-template <int N>
-bool InvertedFile<N>::HasHammingEmbedding() const {
-  return status_ & HAS_HAMMING_EMBEDDING;
+template <int kEmbeddingDim>
+bool InvertedFile<kEmbeddingDim>::HasHammingEmbedding() const {
+  return status_ & HAS_EMBEDDING;
 }
 
-template <int N>
-bool InvertedFile<N>::EntriesSorted() const {
+template <int kEmbeddingDim>
+bool InvertedFile<kEmbeddingDim>::EntriesSorted() const {
   return status_ & ENTRIES_SORTED;
 }
 
-template <int N>
-bool InvertedFile<N>::IsUsable() const {
+template <int kEmbeddingDim>
+bool InvertedFile<kEmbeddingDim>::IsUsable() const {
   return status_ & USABLE;
 }
 
-template <int N>
-void InvertedFile<N>::AddEntry(const int image_id, const Desc& descriptor,
-                               const Geometry& geometry) {
+template <int kEmbeddingDim>
+void InvertedFile<kEmbeddingDim>::AddEntry(const int image_id,
+                                           const DescType& descriptor,
+                                           const GeomType& geometry) {
   CHECK_GE(image_id, 0);
-  Entry entry;
+  CHECK_EQ(descriptor.size(), kEmbeddingDim);
+  EntryType entry;
   entry.image_id = image_id;
   entry.geometry = geometry;
   ConvertToBinaryDescriptor(descriptor, &entry.descriptor);
@@ -195,39 +203,41 @@ void InvertedFile<N>::AddEntry(const int image_id, const Desc& descriptor,
   status_ &= ~ENTRIES_SORTED;
 }
 
-template <int N>
-void InvertedFile<N>::SortEntries() {
+template <int kEmbeddingDim>
+void InvertedFile<kEmbeddingDim>::SortEntries() {
   std::sort(entries_.begin(), entries_.end(),
-            [](const Entry& entry1, const Entry& entry2) {
+            [](const EntryType& entry1, const EntryType& entry2) {
               return entry1.image_id < entry2.image_id;
             });
   status_ |= ENTRIES_SORTED;
 }
 
-template <int N>
-void InvertedFile<N>::ClearEntries() {
+template <int kEmbeddingDim>
+void InvertedFile<kEmbeddingDim>::ClearEntries() {
   entries_.clear();
   status_ &= ~ENTRIES_SORTED;
 }
 
-template <int N>
-void InvertedFile<N>::Reset() {
+template <int kEmbeddingDim>
+void InvertedFile<kEmbeddingDim>::Reset() {
   status_ = UNUSABLE;
   idf_weight_ = 0.0f;
   entries_.clear();
   thresholds_.setZero();
 }
 
-template <int N>
-void InvertedFile<N>::ConvertToBinaryDescriptor(
-    const Desc& descriptor, std::bitset<N>* binary_descriptor) const {
-  for (int i = 0; i < N; ++i) {
+template <int kEmbeddingDim>
+void InvertedFile<kEmbeddingDim>::ConvertToBinaryDescriptor(
+    const DescType& descriptor,
+    std::bitset<kEmbeddingDim>* binary_descriptor) const {
+  CHECK_EQ(descriptor.size(), kEmbeddingDim);
+  for (int i = 0; i < kEmbeddingDim; ++i) {
     (*binary_descriptor)[i] = descriptor[i] > thresholds_[i];
   }
 }
 
-template <int N>
-void InvertedFile<N>::ComputeIDFWeight(const int num_total_images) {
+template <int kEmbeddingDim>
+void InvertedFile<kEmbeddingDim>::ComputeIDFWeight(const int num_total_images) {
   if (entries_.empty()) {
     return;
   }
@@ -239,33 +249,35 @@ void InvertedFile<N>::ComputeIDFWeight(const int num_total_images) {
                            static_cast<double>(image_ids.size()));
 }
 
-template <int N>
-float InvertedFile<N>::IDFWeight() const {
+template <int kEmbeddingDim>
+float InvertedFile<kEmbeddingDim>::IDFWeight() const {
   return idf_weight_;
 }
 
-template <int N>
-void InvertedFile<N>::ComputeHammingEmbedding(
-    const Eigen::Matrix<float, Eigen::Dynamic, N>& descriptors) {
+template <int kEmbeddingDim>
+void InvertedFile<kEmbeddingDim>::ComputeHammingEmbedding(
+    const Eigen::Matrix<float, Eigen::Dynamic, kEmbeddingDim>& descriptors) {
   const int num_descriptors = static_cast<int>(descriptors.rows());
   if (num_descriptors < 2) {
     return;
   }
 
   std::vector<float> elements(num_descriptors);
-  for (int n = 0; n < N; ++n) {
+  for (int n = 0; n < kEmbeddingDim; ++n) {
     for (int i = 0; i < num_descriptors; ++i) {
       elements[i] = descriptors(i, n);
     }
     thresholds_[n] = Median(elements);
   }
 
-  status_ |= HAS_HAMMING_EMBEDDING;
+  status_ |= HAS_EMBEDDING;
 }
 
-template <int N>
-void InvertedFile<N>::ScoreFeature(
-    const Desc& descriptor, std::vector<ImageScore>* image_scores) const {
+template <int kEmbeddingDim>
+void InvertedFile<kEmbeddingDim>::ScoreFeature(
+    const DescType& descriptor, std::vector<ImageScore>* image_scores) const {
+  CHECK_EQ(descriptor.size(), kEmbeddingDim);
+
   image_scores->clear();
 
   if (!IsUsable()) {
@@ -278,7 +290,7 @@ void InvertedFile<N>::ScoreFeature(
 
   const float squared_idf_weight = idf_weight_ * idf_weight_;
 
-  std::bitset<N> bin_descriptor;
+  std::bitset<kEmbeddingDim> bin_descriptor;
   ConvertToBinaryDescriptor(descriptor, &bin_descriptor);
 
   ImageScore image_score;
@@ -323,15 +335,16 @@ void InvertedFile<N>::ScoreFeature(
   }
 }
 
-template <int N>
-void InvertedFile<N>::GetImageIds(std::unordered_set<int>* ids) const {
-  for (const Entry& entry : entries_) {
+template <int kEmbeddingDim>
+void InvertedFile<kEmbeddingDim>::GetImageIds(
+    std::unordered_set<int>* ids) const {
+  for (const EntryType& entry : entries_) {
     ids->insert(entry.image_id);
   }
 }
 
-template <int N>
-void InvertedFile<N>::ComputeImageSelfSimilarities(
+template <int kEmbeddingDim>
+void InvertedFile<kEmbeddingDim>::ComputeImageSelfSimilarities(
     std::vector<double>* self_similarities) const {
   const double squared_idf_weight = idf_weight_ * idf_weight_;
   for (const auto& entry : entries_) {
@@ -339,14 +352,14 @@ void InvertedFile<N>::ComputeImageSelfSimilarities(
   }
 }
 
-template <int N>
-void InvertedFile<N>::Read(std::ifstream* ifs) {
+template <int kEmbeddingDim>
+void InvertedFile<kEmbeddingDim>::Read(std::ifstream* ifs) {
   CHECK(ifs->is_open());
 
   ifs->read(reinterpret_cast<char*>(&status_), sizeof(uint8_t));
   ifs->read(reinterpret_cast<char*>(&idf_weight_), sizeof(float));
 
-  for (int i = 0; i < N; ++i) {
+  for (int i = 0; i < kEmbeddingDim; ++i) {
     ifs->read(reinterpret_cast<char*>(&thresholds_[i]), sizeof(float));
   }
 
@@ -359,14 +372,14 @@ void InvertedFile<N>::Read(std::ifstream* ifs) {
   }
 }
 
-template <int N>
-void InvertedFile<N>::Write(std::ofstream* ofs) const {
+template <int kEmbeddingDim>
+void InvertedFile<kEmbeddingDim>::Write(std::ofstream* ofs) const {
   CHECK(ofs->is_open());
 
   ofs->write(reinterpret_cast<const char*>(&status_), sizeof(uint8_t));
   ofs->write(reinterpret_cast<const char*>(&idf_weight_), sizeof(float));
 
-  for (int i = 0; i < N; ++i) {
+  for (int i = 0; i < kEmbeddingDim; ++i) {
     ofs->write(reinterpret_cast<const char*>(&thresholds_[i]), sizeof(float));
   }
 

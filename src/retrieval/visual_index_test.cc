@@ -21,58 +21,82 @@
 
 using namespace colmap::retrieval;
 
-BOOST_AUTO_TEST_CASE(TestEmpty) {
-  VisualIndex visual_index;
-  BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 0);
+template <typename kDescType, int kDescDim, int kEmbeddingDim>
+void TestVocabTreeType() {
+  typedef VisualIndex<kDescType, kDescDim, kEmbeddingDim> VisualIndexType;
+
+  {
+    VisualIndexType visual_index;
+    BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 0);
+  }
+
+  {
+    typename VisualIndexType::DescType descriptors =
+        VisualIndexType::DescType::Random(1000, kDescDim);
+    VisualIndexType visual_index;
+    BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 0);
+    typename VisualIndexType::BuildOptions build_options;
+    build_options.num_visual_words = 10;
+    build_options.branching = 10;
+    visual_index.Build(build_options, descriptors);
+    BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 10);
+  }
+
+  {
+    typename VisualIndexType::DescType descriptors =
+        VisualIndexType::DescType::Random(1000, kDescDim);
+    VisualIndexType visual_index;
+    BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 0);
+    typename VisualIndexType::BuildOptions build_options;
+    build_options.num_visual_words = 10;
+    build_options.branching = 10;
+    visual_index.Build(build_options, descriptors);
+    BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 10);
+
+    typename VisualIndexType::IndexOptions index_options;
+    typename VisualIndexType::GeomType keypoints1(100);
+    typename VisualIndexType::DescType descriptors1 =
+        VisualIndexType::DescType::Random(100, kDescDim);
+    visual_index.Add(index_options, 1, keypoints1, descriptors1);
+    typename VisualIndexType::GeomType keypoints2(100);
+    typename VisualIndexType::DescType descriptors2 =
+        VisualIndexType::DescType::Random(100, kDescDim);
+    visual_index.Add(index_options, 2, keypoints2, descriptors2);
+    visual_index.Prepare();
+
+    typename VisualIndexType::QueryOptions query_options;
+    std::vector<ImageScore> image_scores;
+    visual_index.Query(query_options, descriptors1, &image_scores);
+    BOOST_CHECK_EQUAL(image_scores.size(), 2);
+    BOOST_CHECK_EQUAL(image_scores[0].image_id, 1);
+    BOOST_CHECK_EQUAL(image_scores[1].image_id, 2);
+    BOOST_CHECK_GT(image_scores[0].score, image_scores[1].score);
+
+    query_options.max_num_images = 1;
+    visual_index.Query(query_options, descriptors1, &image_scores);
+    BOOST_CHECK_EQUAL(image_scores.size(), 1);
+    BOOST_CHECK_EQUAL(image_scores[0].image_id, 1);
+
+    query_options.max_num_images = 3;
+    visual_index.Query(query_options, descriptors1, &image_scores);
+    BOOST_CHECK_EQUAL(image_scores.size(), 2);
+    BOOST_CHECK_EQUAL(image_scores[0].image_id, 1);
+    BOOST_CHECK_EQUAL(image_scores[1].image_id, 2);
+    BOOST_CHECK_GT(image_scores[0].score, image_scores[1].score);
+  }
 }
 
-BOOST_AUTO_TEST_CASE(TestBuild) {
-  VisualIndex::DescType descriptors = VisualIndex::DescType::Random(1000, 128);
-  VisualIndex visual_index;
-  BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 0);
-  VisualIndex::BuildOptions build_options;
-  build_options.num_visual_words = 10;
-  build_options.branching = 10;
-  visual_index.Build(build_options, descriptors);
-  BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 10);
-}
-
-BOOST_AUTO_TEST_CASE(TestQuery) {
-  VisualIndex::DescType descriptors = VisualIndex::DescType::Random(1000, 128);
-  VisualIndex visual_index;
-  BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 0);
-  VisualIndex::BuildOptions build_options;
-  build_options.num_visual_words = 10;
-  build_options.branching = 10;
-  visual_index.Build(build_options, descriptors);
-  BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 10);
-
-  VisualIndex::IndexOptions index_options;
-  VisualIndex::GeomType keypoints1(100);
-  VisualIndex::DescType descriptors1 = VisualIndex::DescType::Random(100, 128);
-  visual_index.Add(index_options, 1, keypoints1, descriptors1);
-  VisualIndex::GeomType keypoints2(100);
-  VisualIndex::DescType descriptors2 = VisualIndex::DescType::Random(100, 128);
-  visual_index.Add(index_options, 2, keypoints2, descriptors2);
-  visual_index.Prepare();
-
-  VisualIndex::QueryOptions query_options;
-  std::vector<ImageScore> image_scores;
-  visual_index.Query(query_options, descriptors1, &image_scores);
-  BOOST_CHECK_EQUAL(image_scores.size(), 2);
-  BOOST_CHECK_EQUAL(image_scores[0].image_id, 1);
-  BOOST_CHECK_EQUAL(image_scores[1].image_id, 2);
-  BOOST_CHECK_GT(image_scores[0].score, image_scores[1].score);
-
-  query_options.max_num_images = 1;
-  visual_index.Query(query_options, descriptors1, &image_scores);
-  BOOST_CHECK_EQUAL(image_scores.size(), 1);
-  BOOST_CHECK_EQUAL(image_scores[0].image_id, 1);
-
-  query_options.max_num_images = 3;
-  visual_index.Query(query_options, descriptors1, &image_scores);
-  BOOST_CHECK_EQUAL(image_scores.size(), 2);
-  BOOST_CHECK_EQUAL(image_scores[0].image_id, 1);
-  BOOST_CHECK_EQUAL(image_scores[1].image_id, 2);
-  BOOST_CHECK_GT(image_scores[0].score, image_scores[1].score);
+BOOST_AUTO_TEST_CASE(TestVocabTree) {
+  TestVocabTreeType<uint8_t, 128, 64>();
+  TestVocabTreeType<uint8_t, 64, 64>();
+  TestVocabTreeType<uint8_t, 64, 32>();
+  TestVocabTreeType<int, 128, 64>();
+  TestVocabTreeType<int, 64, 64>();
+  TestVocabTreeType<int, 64, 32>();
+  TestVocabTreeType<float, 128, 64>();
+  TestVocabTreeType<float, 64, 64>();
+  TestVocabTreeType<float, 64, 32>();
+  TestVocabTreeType<double, 128, 64>();
+  TestVocabTreeType<double, 64, 64>();
+  TestVocabTreeType<double, 64, 32>();
 }

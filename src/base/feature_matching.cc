@@ -40,8 +40,8 @@ void PrintElapsedTime(const Timer& timer) {
 void IndexImagesInVisualIndex(const int num_threads, const int max_num_features,
                               const std::vector<image_t>& image_ids,
                               Thread* thread, FeatureMatcherCache* cache,
-                              retrieval::VisualIndex* visual_index) {
-  retrieval::VisualIndex::IndexOptions index_options;
+                              retrieval::VisualIndex<>* visual_index) {
+  retrieval::VisualIndex<>::IndexOptions index_options;
   index_options.num_threads = num_threads;
 
   for (size_t i = 0; i < image_ids.size(); ++i) {
@@ -74,7 +74,7 @@ void MatchNearestNeighborsInVisualIndex(
     const int num_threads, const int num_images, const int num_verifications,
     const int max_num_features, const std::vector<image_t>& image_ids,
     Thread* thread, FeatureMatcherCache* cache,
-    retrieval::VisualIndex* visual_index, SiftFeatureMatcher* matcher) {
+    retrieval::VisualIndex<>* visual_index, SiftFeatureMatcher* matcher) {
   struct Retrieval {
     image_t image_id = kInvalidImageId;
     std::vector<retrieval::ImageScore> image_scores;
@@ -87,7 +87,7 @@ void MatchNearestNeighborsInVisualIndex(
   // The retrieval thread kernel function. Note that the descriptors should be
   // extracted outside of this function sequentially to avoid any concurrent
   // access to the database causing race conditions.
-  retrieval::VisualIndex::QueryOptions query_options;
+  retrieval::VisualIndex<>::QueryOptions query_options;
   query_options.max_num_images = num_images;
   query_options.max_num_verifications = num_verifications;
   auto QueryFunc = [&](const image_t image_id) {
@@ -1157,7 +1157,7 @@ void SequentialFeatureMatcher::RunSequentialMatching(
 void SequentialFeatureMatcher::RunLoopDetection(
     const std::vector<image_t>& image_ids) {
   // Read the pre-trained vocabulary tree from disk.
-  retrieval::VisualIndex visual_index;
+  retrieval::VisualIndex<> visual_index;
   visual_index.Read(options_.vocab_tree_path);
 
   // Index all images in the visual index.
@@ -1211,7 +1211,7 @@ void VocabTreeFeatureMatcher::Run() {
   cache_.Setup();
 
   // Read the pre-trained vocabulary tree from disk.
-  retrieval::VisualIndex visual_index;
+  retrieval::VisualIndex<> visual_index;
   visual_index.Read(options_.vocab_tree_path);
 
   const std::vector<image_t> all_image_ids = cache_.GetImageIds();
