@@ -186,6 +186,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                         const std::vector<Eigen::Vector3d>& points3D,
                         Eigen::Vector4d* qvec, Eigen::Vector3d* tvec,
                         Camera* camera) {
+  CHECK_EQ(inlier_mask.size(), points2D.size());
+  CHECK_EQ(points2D.size(), points3D.size());
   options.Check();
 
   ceres::LossFunction* loss_function =
