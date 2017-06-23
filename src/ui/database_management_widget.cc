@@ -664,7 +664,9 @@ void ImageTab::SetCamera() {
   for (QModelIndex& index : select->selectedRows()) {
     table_widget_->setItem(index.row(), 2,
                            new QTableWidgetItem(QString::number(camera_id)));
-    images_[index.row()].SetCameraId(camera_id);
+    auto& image = images_[index.row()];
+    image.SetCameraId(camera_id);
+    database_->UpdateImage(image);
   }
 
   table_widget_->blockSignals(false);
