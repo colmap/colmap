@@ -27,21 +27,11 @@ using std::cout;
 #include "GL/glew.h"
 #include "GlobalUtil.h"
 
-//for windows, the default timing uses timeGetTime, you can define TIMING_BY_CLOCK to use clock()
-//for other os, the timing uses gettimeofday
-
-
 #if defined(_WIN32)
-	#if defined(TIMING_BY_CLOCK)
-		#include <time.h>
-	#else
-	    #define WIN32_LEAN_AND_MEAN
-	    #include <windows.h>
-		#include <mmsystem.h>
-	#endif
+  #define WIN32_LEAN_AND_MEAN
+  #include <windows.h>
 #else
-	#include <sys/time.h>
-	#include <stdio.h>
+  #include <stdio.h>
 #endif
 
 #include "LiteWindow.h"
@@ -291,73 +281,31 @@ bool GlobalUtil::CheckFramebufferStatus() {
 
 int ClockTimer::ClockMS()
 {
-#if defined(_WIN32)
-	#if defined(TIMING_BY_CLOCK)
-		return clock() * 1000 / CLOCKS_PER_SEC;
-	#else
-		static int    started = 0;
-		static int	tstart;
-		if(started == 0)
-		{
-			tstart = timeGetTime();
-			started = 1;
-			return 0;
-		}else
-		{
-			return timeGetTime() - tstart;
-		}
-	#endif
-#else
-	static int    started = 0;
-	static struct timeval tstart;
-	if(started == 0)
-	{
-		gettimeofday(&tstart, NULL);
-		started = 1;
-		return 0;
-	}else
-	{
-		struct timeval now;
-		gettimeofday(&now, NULL) ;
-		return (now.tv_usec - tstart.tv_usec + (now.tv_sec - tstart.tv_sec) * 1000000)/1000;
-	}
-#endif
+	return 0;
 }
 
 double ClockTimer::CLOCK()
 {
-	return ClockMS() * 0.001;
+	return 0;
 }
 
 void ClockTimer::InitHighResolution()
 {
-#if defined(_WIN32)
-	timeBeginPeriod(1);
-#endif
 }
 
 void ClockTimer::StartTimer(const char* event, int verb)
 {
-	strcpy(_current_event, event);
-	_time_start = ClockMS();
-	if(verb && GlobalUtil::_verbose)
-	{
-		std::cout<<"\n["<<_current_event<<"]:\tbegin ...\n";
-	}
+
 }
 
 void ClockTimer::StopTimer(int verb)
 {
-	_time_stop = ClockMS();
-	if(verb && GlobalUtil::_verbose)
-	{
-		std::cout<<"["<<_current_event<<"]:\t"<<GetElapsedTime()<<"\n";
-	}
+
 }
 
 float ClockTimer::GetElapsedTime()
 {
-	return (_time_stop - _time_start)  * 0.001f;
+	return 0;
 }
 
 void GlobalUtil::SetGLParam()
