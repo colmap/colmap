@@ -26,19 +26,23 @@
 
 namespace colmap {
 
+class MainWindow;
+
 class BundleAdjustmentWidget : public OptionsWidget {
  public:
-  BundleAdjustmentWidget(QWidget* parent, OptionManager* options);
+  BundleAdjustmentWidget(MainWindow* main_window, OptionManager* options);
 
-  void Show(Reconstruction* reconstruction, QAction* action_render_now);
+  void Show(Reconstruction* reconstruction);
 
  private:
   void Run();
+  void Render();
 
+  MainWindow* main_window_;
   OptionManager* options_;
   Reconstruction* reconstruction_;
-  QAction* action_render_now_;
   ThreadControlWidget* thread_control_widget_;
+  QAction* render_action_;
 };
 
 }  // namespace colmap

@@ -58,6 +58,7 @@ class MainWindow : public QMainWindow {
 
  private:
   friend class AutomaticReconstructionWidget;
+  friend class BundleAdjustmentWidget;
   friend class DenseReconstructionWidget;
 
   void CreateWidgets();

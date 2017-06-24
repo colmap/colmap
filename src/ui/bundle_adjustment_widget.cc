@@ -17,15 +17,16 @@
 #include "ui/bundle_adjustment_widget.h"
 
 #include "controllers/bundle_adjustment.h"
+#include "ui/main_window.h"
 
 namespace colmap {
 
-BundleAdjustmentWidget::BundleAdjustmentWidget(QWidget* parent,
+BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
                                                OptionManager* options)
-    : OptionsWidget(parent),
+    : OptionsWidget(main_window),
+      main_window_(main_window),
       options_(options),
       reconstruction_(nullptr),
-      action_render_now_(nullptr),
       thread_control_widget_(new ThreadControlWidget(this)) {
   setWindowTitle("Bundle adjustment");
 
@@ -56,12 +57,14 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(QWidget* parent,
   grid_layout_->addWidget(run_button, grid_layout_->rowCount(), 1);
   connect(run_button, &QPushButton::released, this,
           &BundleAdjustmentWidget::Run);
+
+  render_action_ = new QAction(this);
+  connect(render_action_, &QAction::triggered, this,
+          &BundleAdjustmentWidget::Render, Qt::QueuedConnection);
 }
 
-void BundleAdjustmentWidget::Show(Reconstruction* reconstruction,
-                                  QAction* action_render_now) {
+void BundleAdjustmentWidget::Show(Reconstruction* reconstruction) {
   reconstruction_ = reconstruction;
-  action_render_now_ = action_render_now;
   show();
   raise();
 }
@@ -73,9 +76,13 @@ void BundleAdjustmentWidget::Run() {
 
   Thread* thread = new BundleAdjustmentController(*options_, reconstruction_);
   thread->AddCallback(Thread::FINISHED_CALLBACK,
-                      [this]() { action_render_now_->trigger(); });
+                      [this]() { render_action_->trigger(); });
 
   thread_control_widget_->StartThread("Bundle adjusting...", true, thread);
+}
+
+void BundleAdjustmentWidget::Render() {
+  main_window_->RenderNow();
 }
 
 }  // namespace colmap
