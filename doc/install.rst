@@ -4,13 +4,44 @@ Installation
 ============
 
 You can either download one of the pre-built binaries from
-https://demuc.de/colmap/ or build the source code manually. It builds on all
-major platforms (Linux, Mac, Windows) with minimal effort. First, checkout the
-latest source code::
+https://demuc.de/colmap/ or build the source code manually.
+
+
+------------------
+Pre-built Binaries
+------------------
+
+Windows
+-------
+
+For convenience, the pre-built binaries for Windows contain both the graphical
+and command-line interface executables. To start the COLMAP GUI, you can simply
+run the ``COLMAP.bat`` batch script. The command-line executables are located in
+the ``bin`` folder and can be run from the Windows command shell ``cmd.exe``.
+
+
+Mac
+---
+
+The pre-built binaries for Mac only contains the GUI version of COLMAP, since it
+is very easy to compile COLMAP yourself. COLMAP is shipped as an unsigned
+application, i.e., you have to right-click the application and select *Open*
+and then accept to trust the application. In the future, you can then simply
+double-click the application to open COLMAP.
+
+
+-----------------
+Build from Source
+-----------------
+
+COLMAP builds on all major platforms (Linux, Mac, Windows) with little effort.
+First, checkout the latest source code::
 
     git clone https://github.com/colmap/colmap
 
-Then follow the build instructions for your platform as detailed below.
+The latest stable version lives in the ``master`` branch and the latest
+development version lives in the ``dev`` branch. , follow the build
+instructions for your platform as detailed below.
 
 
 Linux
@@ -39,7 +70,7 @@ Install `Ceres Solver <http://ceres-solver.org/>`_::
     cd ceres-solver
     mkdir build
     cd build
-    cmake ..
+    cmake .. -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF
     make -j
     sudo make install
 
@@ -93,12 +124,13 @@ Windows
 
 On Windows you have to install the above dependencies manually. To make the
 process of configuring CMake less painful, please have a look at
-`LocalConfigExample.config`. MSVC12 (Microsoft Visual Studio 2013) and newer are
-confirmed to compile COLMAP without any issues.
+``LocalConfigExample.config``. MSVC12 (Microsoft Visual Studio 2013) and newer
+are confirmed to compile COLMAP without any issues.
 
 *Recommended dependencies:* CUDA.
 
 
+-------------
 Documentation
 -------------
 
