@@ -63,11 +63,12 @@ Getting Started
 ---------------
 
 1. Download the `pre-built binaries <https://demuc.de/colmap/>`_ or build the
-   library manually (see :ref:`Installation <installation>`).
+   library manually from `source <https://github.com/colmap/colmap>`_
+   (see :ref:`Installation <installation>`).
 2. Download one of the provided datasets (see :ref:`Datasets <datasets>`)
    or use your own images.
 3. Use the **automatic reconstruction** to easily build models
-   with a single click or command.
+   with a single click (see :ref:`Quickstart <quick-start>`).
 4. Watch the short introductory video at
    `YouTube <https://www.youtube.com/watch?v=P-EC0DzeVEU>`_ or read the
    :ref:`Tutorial <tutorial>` for more details.
@@ -82,10 +83,17 @@ Please, use the `Google Group <https://groups.google.com/forum/#!forum/colmap>`_
 requests/additions, etc.
 
 
-Contents
---------
+Acknowledgments
+---------------
+
+The library was written by `Johannes L. Schönberger <https://demuc.de/>`_.
+Funding was provided by his PhD advisors `Jan-Michael Frahm
+<http://frahm.web.unc.edu/>`_ and `Marc Pollefeys
+<https://www.inf.ethz.ch/personal/marc.pollefeys/>`_.
+
 
 .. toctree::
+   :hidden:
    :maxdepth: 2
 
    install
@@ -100,12 +108,3 @@ Contents
    contribution
    license
    bibliography
-
-
-Acknowledgments
----------------
-
-The library was written by `Johannes L. Schönberger <https://demuc.de/>`_.
-Funding was provided by his PhD advisors `Jan-Michael Frahm
-<http://frahm.web.unc.edu/>`_ and `Marc Pollefeys
-<https://www.inf.ethz.ch/personal/marc.pollefeys/>`_.

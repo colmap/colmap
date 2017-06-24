@@ -9,17 +9,49 @@ Structure-from-Motion. This output then serves as the input to Multi-View Stereo
 to recover a dense representation of the scene.
 
 
+.. _quick-start:
+
 Quickstart
 ----------
 
 COLMAP provides an automatic reconstruction tool that simply takes a folder of
 input images and produces a sparse and dense reconstruction in a workspace
 folder. Click ``Reconstruction > Automatic Reconstruction`` in the GUI and
-specify the relevant options. The output will be written to the workspace.
+specify the relevant options. The output is written to the workspace folder. For
+example, if your images are located in ``path/to/project/images``, you could
+select ``path/to/project`` as a workspace folder and after running the automatic
+reconstruction tool, the folder would look similar to this::
 
-The following sections describe this process in more detail and gives
-recommendations, if you need more control over the reconstruction
-process/parameters or if you are interested the underlying technology.
+    +── images
+    │   +── image1.jpg
+    │   +── image2.jpg
+    │   +── ...
+    +── sparse
+    │   +── 0
+    │   │   +── cameras.bin
+    │   │   +── images.bin
+    │   │   +── points3D.bin
+    │   +── ...
+    +── dense
+    │   +── 0
+    │   │   +── images
+    │   │   +── sparse
+    │   │   +── stereo
+    │   │   +── fused.ply
+    │   │   +── meshed.ply
+    │   +── ...
+    +── database.db
+
+Here, the ``path/to/project/sparse`` contains the sparse models for all
+reconstructed components, while ``path/to/project/dense`` contains their
+corresponding dense models. The dense point cloud ``fused.ply`` can be imported
+in COLMAP using ``File > Import model from ...``, while the dense mesh must be
+visualized with an external viewer such as Meshlab.
+
+The following sections give general recommendations and describe the
+reconstruction process in more detail, if you need more control over the
+reconstruction process/parameters or if you are interested in the underlying
+technology in COLMAP.
 
 
 Structure-from-Motion
@@ -44,7 +76,8 @@ this process into three stages:
 
 COLMAP reflects these stages in different modules, that can be combined
 depending on the application. More information on Structure-from-Motion in
-general and the algorithms in COLMAP can be found in [schoenberger16sfm]_.
+general and the algorithms in COLMAP can be found in [schoenberger16sfm]_ and
+[schoenberger16mvs]_.
 
 If you have control over the picture capture process, please follow these
 guidelines for optimal reconstruction results:
@@ -64,7 +97,9 @@ guidelines for optimal reconstruction results:
 - Capture images from **different viewpoints**. Do not take images from the
   same location by only rotating the camera, e.g., make a few steps after each
   shot. At the same time, try to have enough images from a relatively similar
-  viewpoint.
+  viewpoint. Note that more images is not necessarily better and might lead to a
+  slow reconstruction process. If you use a video as input, consider
+  down-sampling the frame rate.
 
 
 Multi-View Stereo
