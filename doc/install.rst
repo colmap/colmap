@@ -40,7 +40,7 @@ First, checkout the latest source code::
     git clone https://github.com/colmap/colmap
 
 The latest stable version lives in the ``master`` branch and the latest
-development version lives in the ``dev`` branch. , follow the build
+development version lives in the ``dev`` branch. Next, follow the build
 instructions for your platform as detailed below.
 
 
