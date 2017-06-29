@@ -40,20 +40,21 @@ sparse model. The binary files have the file extension `.bin` and the text files
 the file extension `.txt`. Note that when loading a model from a directory which
 contains both binary and text files, COLMAP prefers the binary format.
 
-To export the currently selected model in the GUI, choose ``File > Export``. To
-export all reconstructed models in the current dataset, choose ``File > Export
-all``. The selected folder then contains the three files, and for convenience,
-the current project configuration for importing the model to COLMAP. To import
-the exported models, e.g., for visualization or to resume the reconstruction,
-choose ``File > Import`` and select the folder containing the `cameras`,
-`images`, and `points3D` files.
+To export the currently selected model in the GUI, choose ``File > Export
+model``. To export all reconstructed models in the current dataset, choose
+``File > Export all``. The selected folder then contains the three files, and
+for convenience, the current project configuration for importing the model to
+COLMAP. To import the exported models, e.g., for visualization or to resume the
+reconstruction, choose ``File > Import model`` and select the folder containing
+the `cameras`, `images`, and `points3D` files.
 
 To convert between the binary and text format in the GUI, you can load the model
-using ``File > Import`` and then export the model in the desired output format
-using ``File > Export``. In addition, you can export sparse models to other
-formats, such as VisualSfM's NVM, Bundler files, PLY, VRML, etc., using ``File >
-Export As...``. To convert between various formats from the CLI, use the
-``model_converter`` executable.
+using ``File > Import model`` and then export the model in the desired output
+format using ``File > Export model`` (binary) or ``File > Export model as text``
+(text). In addition, you can export sparse models to other formats, such as
+VisualSfM's NVM, Bundler files, PLY, VRML, etc., using ``File > Export as...``.
+To convert between various formats from the CLI, use the ``model_converter``
+executable.
 
 
 -----------

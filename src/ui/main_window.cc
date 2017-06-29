@@ -180,6 +180,12 @@ void MainWindow::CreateActions() {
   connect(action_export_as_, &QAction::triggered, this, &MainWindow::ExportAs);
   blocking_actions_.push_back(action_export_as_);
 
+  action_export_as_text_ = new QAction(QIcon(":/media/export-as-text.png"),
+                                       tr("Export model as text"), this);
+  connect(action_export_as_text_, &QAction::triggered, this,
+          &MainWindow::ExportAsText);
+  blocking_actions_.push_back(action_export_as_text_);
+
   action_quit_ = new QAction(tr("Quit"), this);
   connect(action_quit_, &QAction::triggered, this, &MainWindow::close);
 
@@ -397,6 +403,7 @@ void MainWindow::CreateMenus() {
   file_menu->addAction(action_export_);
   file_menu->addAction(action_export_all_);
   file_menu->addAction(action_export_as_);
+  file_menu->addAction(action_export_as_text_);
   file_menu->addSeparator();
   file_menu->addAction(action_quit_);
   menuBar()->addAction(file_menu->menuAction());
@@ -745,36 +752,9 @@ void MainWindow::Export() {
     return;
   }
 
-  QMessageBox output_type_box;
-  output_type_box.setText(tr("Export type"));
-  output_type_box.setInformativeText(
-      "Should the data be exported as text (human-readable/slow) or binary "
-      "(machine-readable/fast)?");
-  auto output_type_text =
-      output_type_box.addButton(tr("Text"), QMessageBox::YesRole);
-  output_type_box.addButton(tr("Binary"), QMessageBox::NoRole);
-  output_type_box.setIcon(QMessageBox::Question);
-  output_type_box.exec();
-
-  enum class ExportType { BINARY, TEXT };
-  const auto export_type = output_type_box.clickedButton() == output_type_text
-                               ? ExportType::TEXT
-                               : ExportType::BINARY;
-
-  std::string cameras_name;
-  std::string images_name;
-  std::string points3D_name;
-  if (export_type == ExportType::TEXT) {
-    cameras_name = "cameras.txt";
-    images_name = "images.txt";
-    points3D_name = "points3D.txt";
-  } else if (export_type == ExportType::BINARY) {
-    cameras_name = "cameras.bin";
-    images_name = "images.bin";
-    points3D_name = "points3D.bin";
-  } else {
-    LOG(FATAL) << "Invalid output type";
-  }
+  const std::string cameras_name = "cameras.bin";
+  const std::string images_name = "images.bin";
+  const std::string points3D_name = "points3D.bin";
 
   const std::string project_path = JoinPaths(export_path, "project.ini");
   const std::string cameras_path = JoinPaths(export_path, cameras_name);
@@ -797,16 +777,10 @@ void MainWindow::Export() {
   }
 
   thread_control_widget_->StartFunction(
-      "Exporting...", [this, export_path, export_type, project_path]() {
+      "Exporting...", [this, export_path, project_path]() {
         const auto& reconstruction =
             reconstruction_manager_.Get(SelectedReconstructionIdx());
-        if (export_type == ExportType::TEXT) {
-          reconstruction.WriteText(export_path);
-        } else if (export_type == ExportType::BINARY) {
-          reconstruction.WriteBinary(export_path);
-        } else {
-          LOG(FATAL) << "Invalid output type";
-        }
+        reconstruction.WriteBinary(export_path);
         options_.Write(project_path);
       });
 }
@@ -867,6 +841,55 @@ void MainWindow::ExportAs() {
                                     base_path + ".points3D.wrl", 1,
                                     Eigen::Vector3d(1, 0, 0));
         }
+      });
+}
+
+void MainWindow::ExportAsText() {
+  if (!IsSelectedReconstructionValid()) {
+    return;
+  }
+
+  const std::string export_path =
+      QFileDialog::getExistingDirectory(this, tr("Select destination..."), "",
+                                        QFileDialog::ShowDirsOnly)
+          .toUtf8()
+          .constData();
+
+  // Selection canceled?
+  if (export_path == "") {
+    return;
+  }
+
+  const std::string cameras_name = "cameras.txt";
+  const std::string images_name = "images.txt";
+  const std::string points3D_name = "points3D.txt";
+
+  const std::string project_path = JoinPaths(export_path, "project.ini");
+  const std::string cameras_path = JoinPaths(export_path, cameras_name);
+  const std::string images_path = JoinPaths(export_path, images_name);
+  const std::string points3D_path = JoinPaths(export_path, points3D_name);
+
+  if (ExistsFile(cameras_path) || ExistsFile(images_path) ||
+      ExistsFile(points3D_path)) {
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this, "",
+        StringPrintf(
+            "The files <i>%s</i>, <i>%s</i>, or <i>%s</i> already "
+            "exist in the selected destination. Do you want to overwrite them?",
+            cameras_name.c_str(), images_name.c_str(), points3D_name.c_str())
+            .c_str(),
+        QMessageBox::Yes | QMessageBox::No);
+    if (reply == QMessageBox::No) {
+      return;
+    }
+  }
+
+  thread_control_widget_->StartFunction(
+      "Exporting...", [this, export_path, project_path]() {
+        const auto& reconstruction =
+            reconstruction_manager_.Get(SelectedReconstructionIdx());
+        reconstruction.WriteText(export_path);
+        options_.Write(project_path);
       });
 }
 
