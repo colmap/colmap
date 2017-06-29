@@ -4,7 +4,7 @@ COLMAP_ADD_EXECUTABLE(automatic_reconstructor automatic_reconstructor.cc)
 
 COLMAP_ADD_EXECUTABLE(bundle_adjuster bundle_adjuster.cc)
 
-COLMAP_ADD_UI_EXECUTABLE(colmap colmap.cc)
+COLMAP_ADD_EXECUTABLE(colmap colmap.cc)
 
 COLMAP_ADD_EXECUTABLE(color_extractor color_extractor.cc)
 

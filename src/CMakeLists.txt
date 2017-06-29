@@ -68,8 +68,6 @@ if(UNIX)
     set(COLMAP_LIBRARIES ${COLMAP_LIBRARIES} pthread)
 endif()
 
-set(COLMAP_UI_LIBRARIES ui)
-
 set(COLMAP_QT_MODULES Core Widgets OpenGL)
 
 add_subdirectory(base)
