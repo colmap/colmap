@@ -49,7 +49,7 @@ void CudaSafeCall(const cudaError_t error, const std::string& file,
 
 void CudaCheckError(const char* file, const int line) {
   cudaError error = cudaGetLastError();
-  if (cudaSuccess != error) {
+  if (error != cudaSuccess) {
     fprintf(stderr, "cudaCheckError() failed at %s:%i : %s\n", file, line,
             cudaGetErrorString(error));
     exit(EXIT_FAILURE);
