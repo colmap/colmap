@@ -184,10 +184,6 @@ void COLMAPUndistorter::Undistort(const size_t reg_image_idx) const {
   const std::string output_image_path =
       JoinPaths(output_path_, "images", image.Name());
 
-  if (ExistsFile(output_image_path)) {
-    return;
-  }
-
   Bitmap distorted_bitmap;
   const std::string input_image_path = JoinPaths(image_path_, image.Name());
   if (!distorted_bitmap.Read(input_image_path)) {
@@ -308,10 +304,6 @@ void PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
       output_path_, StringPrintf("pmvs/visualize/%08d.jpg", reg_image_idx));
   const std::string proj_matrix_path =
       JoinPaths(output_path_, StringPrintf("pmvs/txt/%08d.txt", reg_image_idx));
-
-  if (ExistsFile(output_image_path) && ExistsFile(proj_matrix_path)) {
-    return;
-  }
 
   const image_t image_id = reconstruction_.RegImageIds().at(reg_image_idx);
   const Image& image = reconstruction_.Image(image_id);
@@ -514,10 +506,6 @@ void CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
   const std::string proj_matrix_path =
       JoinPaths(output_path_, StringPrintf("%05d_P.txt", reg_image_idx + 1));
 
-  if (ExistsFile(output_image_path) && ExistsFile(proj_matrix_path)) {
-    return;
-  }
-
   const image_t image_id = reconstruction_.RegImageIds().at(reg_image_idx);
   const Image& image = reconstruction_.Image(image_id);
   const Camera& camera = reconstruction_.Camera(image.CameraId());
@@ -595,10 +583,6 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
       JoinPaths(output_path_, stereo_pair_name, image_name1);
   const std::string output_image2_path =
       JoinPaths(output_path_, stereo_pair_name, image_name2);
-
-  if (ExistsFile(output_image1_path) && ExistsFile(output_image2_path)) {
-    return;
-  }
 
   Bitmap distorted_bitmap1;
   const std::string input_image1_path = JoinPaths(image_path_, image1.Name());
