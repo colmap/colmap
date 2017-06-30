@@ -1,9 +1,14 @@
-if(IS_MSVC OR NOT HAS_AVX_EXTENSION)
-    add_definitions(-DVL_DISABLE_AVX)
-endif()
+if(IS_GNU OR IS_CLANG)
+    if(NOT HAS_AVX_EXTENSION)
+        add_definitions(-DVL_DISABLE_AVX)
+    endif()
 
-if(IS_MSVC OR NOT HAS_SSE2_EXTENSION)
-    add_definitions(-DVL_DISABLE_SSE2)
+    if(NOT HAS_SSE2_EXTENSION)
+        add_definitions(-DVL_DISABLE_SSE2)
+    endif()
+
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SSE_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SSE_FLAGS}")
 endif()
 
 if(NOT OPENMP_ENABLED OR NOT OPENMP_FOUND)
