@@ -85,7 +85,7 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
                "max_num_orientations");
   AddOptionBool(&options->sift_extraction->upright, "upright");
 
-  AddOptionInt(&options->sift_gpu_extraction->index, "gpu_index", -1);
+  AddOptionText(&options->sift_gpu_extraction->index, "gpu_index");
 
   AddOptionInt(&options->sift_cpu_extraction->num_threads, "cpu_num_threads",
                -1);
