@@ -9,6 +9,9 @@ if(IS_GNU OR IS_CLANG)
 
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SSE_FLAGS}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SSE_FLAGS}")
+else()
+    add_definitions(-DVL_DISABLE_AVX)
+    add_definitions(-DVL_DISABLE_SSE2)
 endif()
 
 if(NOT OPENMP_ENABLED OR NOT OPENMP_FOUND)
