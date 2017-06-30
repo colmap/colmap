@@ -98,13 +98,6 @@ if(${EIGEN3_VERSION} STREQUAL "3.2.92" AND CMAKE_UNAME)
     endif()
 endif()
 
-if(IS_GNU AND (${EIGEN3_VERSION} VERSION_EQUAL 3.3
-               OR ${EIGEN3_VERSION} VERSION_GREATER 3.3))
-    # Eigen 3.3 introduces support for AVX which requires 32-byte alignment
-    # with which GCC apparently has problems when objects are on the stack.
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mstackrealign")
-endif()
-
 if(CMAKE_BUILD_TYPE)
     message(STATUS "Build type specified as ${CMAKE_BUILD_TYPE}")
 else()
