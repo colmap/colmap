@@ -31,7 +31,12 @@ BOOST_AUTO_TEST_CASE(TestOpenGLContextManager) {
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
+  if (!OpenGLContextManager::HasMachineDisplay()) {
+    return;
+  }
+
   OpenGLContextManager manager;
+
   std::thread thread([&manager]() {
     manager.MakeCurrent();
     manager.MakeCurrent();
@@ -47,6 +52,10 @@ BOOST_AUTO_TEST_CASE(TestRunThreadWithOpenGLContext) {
   int argc = 1;
   char* argv[] = {app_name};
   QApplication app(argc, argv);
+
+  if (!OpenGLContextManager::HasMachineDisplay()) {
+    return;
+  }
 
   class TestThread : public Thread {
    private:

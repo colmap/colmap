@@ -1,4 +1,4 @@
 set(FOLDER_NAME "tools")
 
-# Example usage:
-# COLMAP_ADD_EXECUTABLE(executable executable.cc)
+COLMAP_ADD_EXECUTABLE(vocab_tree_builder_float vocab_tree_builder_float.cc)
+COLMAP_ADD_EXECUTABLE(vocab_tree_retriever_float vocab_tree_retriever_float.cc)

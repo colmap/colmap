@@ -47,7 +47,14 @@ void OpenGLContextManager::MakeCurrent() {
   current_thread_ = QThread::currentThread();
   make_current_action_->trigger();
   context_.makeCurrent(&surface_);
-  CHECK(context_.isValid()) << "Could not create valid OpenGL context";
+  CHECK(context_.isValid()) << "Could not make current valid OpenGL context";
+}
+
+bool OpenGLContextManager::HasMachineDisplay() {
+  QOffscreenSurface surface;
+  QOpenGLContext context;
+  surface.create();
+  return context.create();
 }
 
 void RunThreadWithOpenGLContext(Thread* thread) {

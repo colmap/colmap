@@ -40,7 +40,12 @@ class OpenGLContextManager : public QObject {
  public:
   OpenGLContextManager();
 
+  // Make the OpenGL context available by moving it from the thread where it was
+  // created to the current thread and making it current.
   void MakeCurrent();
+
+  // Check whether the machine has a display and we can create the context.
+  static bool HasMachineDisplay();
 
  private:
   QOffscreenSurface surface_;

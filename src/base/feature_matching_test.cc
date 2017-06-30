@@ -52,6 +52,10 @@ BOOST_AUTO_TEST_CASE(TestCreateSiftGPUMatcherOpenGL) {
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
+  if (!OpenGLContextManager::HasMachineDisplay()) {
+    return;
+  }
+
   class TestThread : public Thread {
    private:
     void Run() {
@@ -157,6 +161,10 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesGPU) {
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
+  if (!OpenGLContextManager::HasMachineDisplay()) {
+    return;
+  }
+
   class TestThread : public Thread {
    private:
     void Run() {
@@ -227,6 +235,10 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUvsGPU) {
   int argc = 1;
   char* argv[] = {app_name};
   QApplication app(argc, argv);
+
+  if (!OpenGLContextManager::HasMachineDisplay()) {
+    return;
+  }
 
   class TestThread : public Thread {
    private:
@@ -355,6 +367,10 @@ BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesGPU) {
   int argc = 1;
   char* argv[] = {app_name};
   QApplication app(argc, argv);
+
+  if (!OpenGLContextManager::HasMachineDisplay()) {
+    return;
+  }
 
   class TestThread : public Thread {
    private:
