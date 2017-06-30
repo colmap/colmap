@@ -21,6 +21,7 @@
 
 #include "base/pose.h"
 #include "base/projection.h"
+#include "util/math.h"
 
 using namespace colmap;
 

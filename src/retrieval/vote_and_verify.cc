@@ -22,6 +22,7 @@
 #include "estimators/affine_transform.h"
 #include "optim/ransac.h"
 #include "util/logging.h"
+#include "util/math.h"
 
 namespace colmap {
 namespace retrieval {
