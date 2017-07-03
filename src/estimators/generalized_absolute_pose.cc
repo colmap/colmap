@@ -14,13 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "estimators/gp3p.h"
+#include "estimators/generalized_absolute_pose.h"
 
 #include <array>
 
 #include "base/polynomial.h"
 #include "base/projection.h"
-#include "estimators/gp3p_coeffs.h"
+#include "estimators/generalized_absolute_pose_coeffs.h"
 #include "util/logging.h"
 
 namespace colmap {

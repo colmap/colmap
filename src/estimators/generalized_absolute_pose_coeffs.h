@@ -14,8 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef COLMAP_SRC_ESTIMATORS_GP3P_COEFFS_H_
-#define COLMAP_SRC_ESTIMATORS_GP3P_COEFFS_H_
+#ifndef COLMAP_SRC_ESTIMATORS_GENERALIZED_ABSOLUTE_POSE_COEFFS_H_
+#define COLMAP_SRC_ESTIMATORS_GENERALIZED_ABSOLUTE_POSE_COEFFS_H_
 
 #include <Eigen/Core>
 
@@ -26,4 +26,4 @@ Eigen::Matrix<double, 9, 1> ComputeDepthsSylvesterCoeffs(
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_ESTIMATORS_GP3P_COEFFS_H_
+#endif  // COLMAP_SRC_ESTIMATORS_GENERALIZED_ABSOLUTE_POSE_COEFFS_H_

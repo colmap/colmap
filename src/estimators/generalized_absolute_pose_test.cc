@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#define TEST_NAME "base/gp3p"
+#define TEST_NAME "base/generalized_absolute_pose"
 #include "util/testing.h"
 
 #include <array>
@@ -24,7 +24,7 @@
 #include "base/pose.h"
 #include "base/projection.h"
 #include "base/similarity_transform.h"
-#include "estimators/gp3p.h"
+#include "estimators/generalized_absolute_pose.h"
 #include "optim/ransac.h"
 #include "util/random.h"
 

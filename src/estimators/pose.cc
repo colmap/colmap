@@ -20,9 +20,8 @@
 #include "base/cost_functions.h"
 #include "base/essential_matrix.h"
 #include "base/pose.h"
-#include "estimators/epnp.h"
+#include "estimators/absolute_pose.h"
 #include "estimators/essential_matrix.h"
-#include "estimators/p3p.h"
 #include "optim/bundle_adjustment.h"
 #include "util/misc.h"
 #include "util/threading.h"
@@ -30,14 +29,14 @@
 namespace colmap {
 namespace {
 
-typedef LORANSAC<P3PEstimator, EPnPEstimator> AbsolutePoseRANSAC_t;
+typedef LORANSAC<P3PEstimator, EPNPEstimator> AbsolutePoseRANSAC;
 
 void EstimateAbsolutePoseKernel(const Camera& camera,
                                 const double focal_length_factor,
                                 const std::vector<Eigen::Vector2d>& points2D,
                                 const std::vector<Eigen::Vector3d>& points3D,
                                 const RANSACOptions& options,
-                                AbsolutePoseRANSAC_t::Report* report) {
+                                AbsolutePoseRANSAC::Report* report) {
   // Scale the focal length by the given factor.
   Camera scaled_camera = camera;
   const std::vector<size_t>& focal_length_idxs = camera.FocalLengthIdxs();
@@ -55,7 +54,7 @@ void EstimateAbsolutePoseKernel(const Camera& camera,
   auto custom_options = options;
   custom_options.max_error =
       scaled_camera.ImageToWorldThreshold(options.max_error);
-  AbsolutePoseRANSAC_t ransac(custom_options);
+  AbsolutePoseRANSAC ransac(custom_options);
   *report = ransac.Estimate(points2D_N, points3D);
 }
 
@@ -88,8 +87,8 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
 
   std::vector<std::future<void>> futures;
   futures.resize(focal_length_factors.size());
-  std::vector<typename AbsolutePoseRANSAC_t::Report,
-              Eigen::aligned_allocator<typename AbsolutePoseRANSAC_t::Report>>
+  std::vector<typename AbsolutePoseRANSAC::Report,
+              Eigen::aligned_allocator<typename AbsolutePoseRANSAC::Report>>
       reports;
   reports.resize(focal_length_factors.size());
 

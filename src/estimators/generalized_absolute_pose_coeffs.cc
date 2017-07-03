@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "estimators/gp3p_coeffs.h"
+#include "estimators/generalized_absolute_pose_coeffs.h"
 
 namespace colmap {
 
