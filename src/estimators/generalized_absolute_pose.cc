@@ -50,8 +50,8 @@ Eigen::Vector6d ComposePlueckerLine(const Eigen::Matrix3x4d& rel_tform,
   const Eigen::Vector3d bearing =
       inv_proj_matrix.leftCols<3>() * point2D.homogeneous();
   const Eigen::Vector3d proj_center = inv_proj_matrix.rightCols<1>();
+  const Eigen::Vector3d bearing_normalized = bearing.normalized();
   Eigen::Vector6d pluecker;
-  Eigen::Vector3d bearing_normalized = bearing.normalized();
   pluecker << bearing_normalized, proj_center.cross(bearing_normalized);
   return pluecker;
 }

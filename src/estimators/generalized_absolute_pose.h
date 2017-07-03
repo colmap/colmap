@@ -38,11 +38,12 @@ class GP3PEstimator {
   // The generalized image observations, which is composed of the relative pose
   // of the specific camera in the generalized camera and its image observation.
   struct X_t {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     // The relative transformation from the generalized camera to the camera
     // frame of the observation.
-    Eigen::Matrix<double, 3, 4, Eigen::DontAlign> rel_tform;
+    Eigen::Matrix3x4d rel_tform;
     // The 2D image feature observation.
-    Eigen::Matrix<double, 2, 1, Eigen::DontAlign> xy;
+    Eigen::Vector2d xy;
   };
 
   // The observed 3D feature points in the world frame.
@@ -66,5 +67,7 @@ class GP3PEstimator {
 };
 
 }  // namespace colmap
+
+EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(colmap::GP3PEstimator::X_t)
 
 #endif  // COLMAP_SRC_ESTIMATORS_GENERALIZED_ABSOLUTE_POSE_H_
