@@ -165,8 +165,11 @@ void FeatureImageViewerWidget::ReadAndShowWithKeypoints(
   DrawKeypoints(&image2_, keypoints_tri, Qt::magenta);
   DrawKeypoints(&image2_, keypoints_not_tri, Qt::red);
 
-  switch_state_ = true;
-  ShowPixmap(image2_, true);
+  if (switch_state_) {
+    ShowPixmap(image2_, true);
+  } else {
+    ShowPixmap(image1_, true);
+  }
 }
 
 void FeatureImageViewerWidget::ReadAndShowWithMatches(
@@ -187,8 +190,11 @@ void FeatureImageViewerWidget::ReadAndShowWithMatches(
   image1_ = ShowImagesSideBySide(image1, image2);
   image2_ = DrawMatches(image1, image2, keypoints1, keypoints2, matches);
 
-  switch_state_ = true;
-  ShowPixmap(image2_, true);
+  if (switch_state_) {
+    ShowPixmap(image2_, true);
+  } else {
+    ShowPixmap(image1_, true);
+  }
 }
 
 void FeatureImageViewerWidget::ShowOrHide() {
