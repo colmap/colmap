@@ -23,8 +23,8 @@ the ``bin`` folder and can be run from the Windows command shell ``cmd.exe``.
 Mac
 ---
 
-The pre-built binaries for Mac only contains the GUI version of COLMAP, since it
-is very easy to compile COLMAP yourself. COLMAP is shipped as an unsigned
+The pre-built binaries for Mac only contain the GUI version of COLMAP, since it
+is very easy to compile COLMAP on Mac. COLMAP is shipped as an unsigned
 application, i.e., you have to right-click the application and select *Open*
 and then accept to trust the application. In the future, you can then simply
 double-click the application to open COLMAP.
