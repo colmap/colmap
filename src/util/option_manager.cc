@@ -215,6 +215,8 @@ void OptionManager::AddSequentialMatchingOptions() {
 
   AddAndRegisterDefaultOption("SequentialMatching.overlap",
                               &sequential_matching->overlap);
+  AddAndRegisterDefaultOption("SequentialMatching.quadratic_overlap",
+                              &sequential_matching->quadratic_overlap);
   AddAndRegisterDefaultOption("SequentialMatching.loop_detection",
                               &sequential_matching->loop_detection);
   AddAndRegisterDefaultOption("SequentialMatching.loop_detection_period",

@@ -130,6 +130,8 @@ SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
                                              OptionManager* options)
     : FeatureMatchingTab(parent, options) {
   AddOptionInt(&options_->sequential_matching->overlap, "overlap");
+  AddOptionBool(&options_->sequential_matching->quadratic_overlap,
+                "quadratic_overlap");
   AddOptionBool(&options_->sequential_matching->loop_detection,
                 "loop_detection");
   AddOptionInt(&options_->sequential_matching->loop_detection_period,

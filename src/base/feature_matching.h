@@ -357,7 +357,9 @@ class ExhaustiveFeatureMatcher : public Thread {
 //                      +----------+-----------+
 //                                 |
 //                        Match image_i against
-//                    image_[i - 2^o, i + 2^o] with o = 1 .. overlap
+//
+//                    image_[i - o, i + o]        with o = [1 .. overlap]
+//                    image_[i - 2^o, i + 2^o]    (for quadratic overlap)
 //
 // Sequential order is determined based on the image names in ascending order.
 //
@@ -369,6 +371,9 @@ class SequentialFeatureMatcher : public Thread {
   struct Options {
     // Number of overlapping image pairs.
     int overlap = 5;
+
+    // Whether to match images against their quadratic neighbors.
+    bool quadratic_overlap = true;
 
     // Whether to enable vocabulary tree based loop detection.
     bool loop_detection = false;
