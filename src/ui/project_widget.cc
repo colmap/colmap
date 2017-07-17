@@ -61,8 +61,8 @@ ProjectWidget::ProjectWidget(QWidget* parent, OptionManager* options)
 }
 
 bool ProjectWidget::IsValid() const {
-  return ExistsDir(ImagePath()) && !ExistsDir(DatabasePath()) &&
-         ExistsDir(GetParentDir(DatabasePath()));
+  return ExistsDir(GetImagePath()) && !ExistsDir(GetDatabasePath()) &&
+         ExistsDir(GetParentDir(GetDatabasePath()));
 }
 
 void ProjectWidget::Reset() {
@@ -70,11 +70,11 @@ void ProjectWidget::Reset() {
   image_path_text_->clear();
 }
 
-std::string ProjectWidget::DatabasePath() const {
+std::string ProjectWidget::GetDatabasePath() const {
   return database_path_text_->text().toUtf8().constData();
 }
 
-std::string ProjectWidget::ImagePath() const {
+std::string ProjectWidget::GetImagePath() const {
   return image_path_text_->text().toUtf8().constData();
 }
 
@@ -88,8 +88,8 @@ void ProjectWidget::SetImagePath(const std::string& path) {
 
 void ProjectWidget::Save() {
   if (IsValid()) {
-    *options_->database_path = DatabasePath();
-    *options_->image_path = ImagePath();
+    *options_->database_path = GetDatabasePath();
+    *options_->image_path = GetImagePath();
 
     // Save empty database file.
     Database database(*options_->database_path);
@@ -104,35 +104,59 @@ void ProjectWidget::SelectNewDatabasePath() {
   QString database_path = QFileDialog::getSaveFileName(
       this, tr("Select database file"), DefaultDirectory(),
       tr("SQLite3 database (*.db)"));
-  if (database_path != "" &&
-      !HasFileExtension(database_path.toUtf8().constData(), ".db")) {
-    database_path += ".db";
+  if (database_path != "") {
+    if (!HasFileExtension(database_path.toUtf8().constData(), ".db")) {
+      database_path += ".db";
+    }
+    database_path_text_->setText(database_path);
   }
-  database_path_text_->setText(database_path);
 }
 
 void ProjectWidget::SelectExistingDatabasePath() {
-  database_path_text_->setText(QFileDialog::getOpenFileName(
+  const auto database_path = QFileDialog::getOpenFileName(
       this, tr("Select database file"), DefaultDirectory(),
-      tr("SQLite3 database (*.db)")));
+      tr("SQLite3 database (*.db)"));
+  if (database_path != "") {
+    database_path_text_->setText(database_path);
+  }
 }
 
 void ProjectWidget::SelectImagePath() {
-  image_path_text_->setText(QFileDialog::getExistingDirectory(
+  const auto image_path = QFileDialog::getExistingDirectory(
       this, tr("Select image path..."), DefaultDirectory(),
-      QFileDialog::ShowDirsOnly));
+      QFileDialog::ShowDirsOnly);
+  if (image_path != "") {
+    image_path_text_->setText(image_path);
+  }
 }
 
 QString ProjectWidget::DefaultDirectory() {
-  std::string directory_path = "";
-  if (!prev_selected_ && !options_->project_path->empty()) {
+  if (prev_selected_) {
+    return "";
+  }
+
+  prev_selected_ = true;
+
+  if (!options_->project_path->empty()) {
     const auto parent_path = GetParentDir(*options_->project_path);
     if (ExistsDir(parent_path)) {
-      directory_path = parent_path;
+      return QString::fromStdString(parent_path);
     }
   }
-  prev_selected_ = true;
-  return QString::fromStdString(directory_path);
+
+  if (!database_path_text_->text().isEmpty()) {
+    const auto parent_path =
+        GetParentDir(database_path_text_->text().toUtf8().constData());
+    if (ExistsDir(parent_path)) {
+      return QString::fromStdString(parent_path);
+    }
+  }
+
+  if (!image_path_text_->text().isEmpty()) {
+    return image_path_text_->text();
+  }
+
+  return "";
 }
 
 }  // namespace colmap

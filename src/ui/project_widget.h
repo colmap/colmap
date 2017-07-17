@@ -32,8 +32,8 @@ class ProjectWidget : public QWidget {
   bool IsValid() const;
   void Reset();
 
-  std::string DatabasePath() const;
-  std::string ImagePath() const;
+  std::string GetDatabasePath() const;
+  std::string GetImagePath() const;
   void SetDatabasePath(const std::string& path);
   void SetImagePath(const std::string& path);
 
