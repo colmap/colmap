@@ -86,16 +86,10 @@ struct SiftMatchingOptions {
 
 namespace internal {
 
-struct ImagePairData {
+struct FeatureMatcherData {
   image_t image_id1 = kInvalidImageId;
   image_t image_id2 = kInvalidImageId;
-};
-
-struct MatchData : public ImagePairData {
   FeatureMatches matches;
-};
-
-struct InlierMatchData : public MatchData {
   TwoViewGeometry two_view_geometry;
 };
 
@@ -160,8 +154,8 @@ class FeatureMatcherThread : public Thread {
 
 class SiftCPUFeatureMatcher : public FeatureMatcherThread {
  public:
-  typedef internal::ImagePairData Input;
-  typedef internal::MatchData Output;
+  typedef internal::FeatureMatcherData Input;
+  typedef internal::FeatureMatcherData Output;
 
   SiftCPUFeatureMatcher(const SiftMatchingOptions& options,
                         FeatureMatcherCache* cache,
@@ -177,8 +171,8 @@ class SiftCPUFeatureMatcher : public FeatureMatcherThread {
 
 class SiftGPUFeatureMatcher : public FeatureMatcherThread {
  public:
-  typedef internal::ImagePairData Input;
-  typedef internal::MatchData Output;
+  typedef internal::FeatureMatcherData Input;
+  typedef internal::FeatureMatcherData Output;
 
   SiftGPUFeatureMatcher(const SiftMatchingOptions& options,
                         FeatureMatcherCache* cache,
@@ -203,8 +197,8 @@ class SiftGPUFeatureMatcher : public FeatureMatcherThread {
 
 class GuidedSiftCPUFeatureMatcher : public FeatureMatcherThread {
  public:
-  typedef internal::InlierMatchData Input;
-  typedef internal::InlierMatchData Output;
+  typedef internal::FeatureMatcherData Input;
+  typedef internal::FeatureMatcherData Output;
 
   GuidedSiftCPUFeatureMatcher(const SiftMatchingOptions& options,
                               FeatureMatcherCache* cache,
@@ -220,8 +214,8 @@ class GuidedSiftCPUFeatureMatcher : public FeatureMatcherThread {
 
 class GuidedSiftGPUFeatureMatcher : public FeatureMatcherThread {
  public:
-  typedef internal::InlierMatchData Input;
-  typedef internal::InlierMatchData Output;
+  typedef internal::FeatureMatcherData Input;
+  typedef internal::FeatureMatcherData Output;
 
   GuidedSiftGPUFeatureMatcher(const SiftMatchingOptions& options,
                               FeatureMatcherCache* cache,
@@ -248,8 +242,8 @@ class GuidedSiftGPUFeatureMatcher : public FeatureMatcherThread {
 
 class TwoViewGeometryVerifier : public Thread {
  public:
-  typedef internal::MatchData Input;
-  typedef internal::InlierMatchData Output;
+  typedef internal::FeatureMatcherData Input;
+  typedef internal::FeatureMatcherData Output;
 
   TwoViewGeometryVerifier(const SiftMatchingOptions& options,
                           FeatureMatcherCache* cache,
@@ -296,10 +290,10 @@ class SiftFeatureMatcher {
   std::vector<std::unique_ptr<Thread>> verifiers_;
   std::unique_ptr<ThreadPool> thread_pool_;
 
-  JobQueue<internal::ImagePairData> matcher_queue_;
-  JobQueue<internal::MatchData> verifier_queue_;
-  JobQueue<internal::InlierMatchData> guided_matcher_queue_;
-  JobQueue<internal::InlierMatchData> output_queue_;
+  JobQueue<internal::FeatureMatcherData> matcher_queue_;
+  JobQueue<internal::FeatureMatcherData> verifier_queue_;
+  JobQueue<internal::FeatureMatcherData> guided_matcher_queue_;
+  JobQueue<internal::FeatureMatcherData> output_queue_;
 };
 
 // Exhaustively match images by processing each block in the exhaustive match

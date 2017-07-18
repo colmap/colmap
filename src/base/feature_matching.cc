@@ -453,20 +453,15 @@ void SiftCPUFeatureMatcher::Run() {
 
     const auto input_job = input_queue_->Pop();
     if (input_job.IsValid()) {
-      const auto& input = input_job.Data();
-
-      Output output;
-      output.image_id1 = input.image_id1;
-      output.image_id2 = input.image_id2;
+      auto data = input_job.Data();
 
       const FeatureDescriptors descriptors1 =
-          cache_->GetDescriptors(input.image_id1);
+          cache_->GetDescriptors(data.image_id1);
       const FeatureDescriptors descriptors2 =
-          cache_->GetDescriptors(input.image_id2);
-      MatchSiftFeaturesCPU(options_, descriptors1, descriptors2,
-                           &output.matches);
+          cache_->GetDescriptors(data.image_id2);
+      MatchSiftFeaturesCPU(options_, descriptors1, descriptors2, &data.matches);
 
-      CHECK(output_queue_->Push(output));
+      CHECK(output_queue_->Push(data));
     }
   }
 }
@@ -510,20 +505,16 @@ void SiftGPUFeatureMatcher::Run() {
 
     const auto input_job = input_queue_->Pop();
     if (input_job.IsValid()) {
-      const auto& input = input_job.Data();
-
-      Output output;
-      output.image_id1 = input.image_id1;
-      output.image_id2 = input.image_id2;
+      auto data = input_job.Data();
 
       const FeatureDescriptors* descriptors1_ptr;
-      GetDescriptorData(0, input.image_id1, &descriptors1_ptr);
+      GetDescriptorData(0, data.image_id1, &descriptors1_ptr);
       const FeatureDescriptors* descriptors2_ptr;
-      GetDescriptorData(1, input.image_id2, &descriptors2_ptr);
+      GetDescriptorData(1, data.image_id2, &descriptors2_ptr);
       MatchSiftFeaturesGPU(options_, descriptors1_ptr, descriptors2_ptr,
-                           &sift_match_gpu, &output.matches);
+                           &sift_match_gpu, &data.matches);
 
-      CHECK(output_queue_->Push(output));
+      CHECK(output_queue_->Push(data));
     }
   }
 }
@@ -561,30 +552,24 @@ void GuidedSiftCPUFeatureMatcher::Run() {
 
     const auto input_job = input_queue_->Pop();
     if (input_job.IsValid()) {
-      const auto& input = input_job.Data();
+      auto data = input_job.Data();
 
-      Output output;
-      output.image_id1 = input.image_id1;
-      output.image_id2 = input.image_id2;
-      output.matches = input.matches;
-      output.two_view_geometry = input.two_view_geometry;
-
-      if (output.two_view_geometry.inlier_matches.size() <
+      if (data.two_view_geometry.inlier_matches.size() <
           static_cast<size_t>(options_.min_num_inliers)) {
-        CHECK(output_queue_->Push(output));
+        CHECK(output_queue_->Push(data));
         continue;
       }
 
-      const FeatureKeypoints keypoints1 = cache_->GetKeypoints(input.image_id1);
-      const FeatureKeypoints keypoints2 = cache_->GetKeypoints(input.image_id2);
+      const FeatureKeypoints keypoints1 = cache_->GetKeypoints(data.image_id1);
+      const FeatureKeypoints keypoints2 = cache_->GetKeypoints(data.image_id2);
       const FeatureDescriptors descriptors1 =
-          cache_->GetDescriptors(input.image_id1);
+          cache_->GetDescriptors(data.image_id1);
       const FeatureDescriptors descriptors2 =
-          cache_->GetDescriptors(input.image_id2);
+          cache_->GetDescriptors(data.image_id2);
       MatchGuidedSiftFeaturesCPU(options_, keypoints1, keypoints2, descriptors1,
-                                 descriptors2, &output.two_view_geometry);
+                                 descriptors2, &data.two_view_geometry);
 
-      CHECK(output_queue_->Push(output));
+      CHECK(output_queue_->Push(data));
     }
   }
 }
@@ -627,32 +612,26 @@ void GuidedSiftGPUFeatureMatcher::Run() {
 
     const auto input_job = input_queue_->Pop();
     if (input_job.IsValid()) {
-      const auto& input = input_job.Data();
+      auto data = input_job.Data();
 
-      Output output;
-      output.image_id1 = input.image_id1;
-      output.image_id2 = input.image_id2;
-      output.matches = input.matches;
-      output.two_view_geometry = input.two_view_geometry;
-
-      if (output.two_view_geometry.inlier_matches.size() <
+      if (data.two_view_geometry.inlier_matches.size() <
           static_cast<size_t>(options_.min_num_inliers)) {
-        CHECK(output_queue_->Push(output));
+        CHECK(output_queue_->Push(data));
         continue;
       }
 
       const FeatureDescriptors* descriptors1_ptr;
       const FeatureKeypoints* keypoints1_ptr;
-      GetFeatureData(0, input.image_id1, &keypoints1_ptr, &descriptors1_ptr);
+      GetFeatureData(0, data.image_id1, &keypoints1_ptr, &descriptors1_ptr);
       const FeatureDescriptors* descriptors2_ptr;
       const FeatureKeypoints* keypoints2_ptr;
-      GetFeatureData(1, input.image_id2, &keypoints2_ptr, &descriptors2_ptr);
+      GetFeatureData(1, data.image_id2, &keypoints2_ptr, &descriptors2_ptr);
 
       MatchGuidedSiftFeaturesGPU(options_, keypoints1_ptr, keypoints2_ptr,
                                  descriptors1_ptr, descriptors2_ptr,
-                                 &sift_match_gpu, &output.two_view_geometry);
+                                 &sift_match_gpu, &data.two_view_geometry);
 
-      CHECK(output_queue_->Push(output));
+      CHECK(output_queue_->Push(data));
     }
   }
 }
@@ -702,39 +681,33 @@ void TwoViewGeometryVerifier::Run() {
 
     const auto input_job = input_queue_->Pop();
     if (input_job.IsValid()) {
-      const auto& input = input_job.Data();
+      auto data = input_job.Data();
 
-      Output output;
-      output.image_id1 = input.image_id1;
-      output.image_id2 = input.image_id2;
-      output.matches = input.matches;
-
-      if (output.matches.size() <
-          static_cast<size_t>(options_.min_num_inliers)) {
-        CHECK(output_queue_->Push(output));
+      if (data.matches.size() < static_cast<size_t>(options_.min_num_inliers)) {
+        CHECK(output_queue_->Push(data));
         continue;
       }
 
       const auto& camera1 =
-          cache_->GetCamera(cache_->GetImage(input.image_id1).CameraId());
+          cache_->GetCamera(cache_->GetImage(data.image_id1).CameraId());
       const auto& camera2 =
-          cache_->GetCamera(cache_->GetImage(input.image_id2).CameraId());
-      const auto keypoints1 = cache_->GetKeypoints(input.image_id1);
-      const auto keypoints2 = cache_->GetKeypoints(input.image_id2);
+          cache_->GetCamera(cache_->GetImage(data.image_id2).CameraId());
+      const auto keypoints1 = cache_->GetKeypoints(data.image_id1);
+      const auto keypoints2 = cache_->GetKeypoints(data.image_id2);
       const auto points1 = FeatureKeypointsToPointsVector(keypoints1);
       const auto points2 = FeatureKeypointsToPointsVector(keypoints2);
 
       if (options_.multiple_models) {
-        output.two_view_geometry.EstimateMultiple(camera1, points1, camera2,
-                                                  points2, input.matches,
-                                                  two_view_geometry_options_);
+        data.two_view_geometry.EstimateMultiple(camera1, points1, camera2,
+                                                points2, data.matches,
+                                                two_view_geometry_options_);
       } else {
-        output.two_view_geometry.Estimate(camera1, points1, camera2, points2,
-                                          input.matches,
-                                          two_view_geometry_options_);
+        data.two_view_geometry.Estimate(camera1, points1, camera2, points2,
+                                        data.matches,
+                                        two_view_geometry_options_);
       }
 
-      CHECK(output_queue_->Push(output));
+      CHECK(output_queue_->Push(data));
     }
   }
 }
@@ -933,19 +906,16 @@ void SiftFeatureMatcher::Match(
       cache_->DeleteInlierMatches(image_pair.first, image_pair.second);
     }
 
+    internal::FeatureMatcherData data;
+    data.image_id1 = image_pair.first;
+    data.image_id2 = image_pair.second;
+
     if (exists_matches) {
-      internal::MatchData match_data;
-      match_data.image_id1 = image_pair.first;
-      match_data.image_id2 = image_pair.second;
-      match_data.matches =
-          cache_->GetMatches(image_pair.first, image_pair.second);
+      data.matches = cache_->GetMatches(image_pair.first, image_pair.second);
       cache_->DeleteMatches(image_pair.first, image_pair.second);
-      CHECK(verifier_queue_.Push(match_data));
+      CHECK(verifier_queue_.Push(data));
     } else {
-      internal::ImagePairData image_pair_data;
-      image_pair_data.image_id1 = image_pair.first;
-      image_pair_data.image_id2 = image_pair.second;
-      CHECK(matcher_queue_.Push(image_pair_data));
+      CHECK(matcher_queue_.Push(data));
     }
   }
 
