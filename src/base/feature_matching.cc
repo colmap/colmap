@@ -406,31 +406,10 @@ void FeatureMatcherCache::DeleteInlierMatches(const image_t image_id1,
 
 FeatureMatcherThread::FeatureMatcherThread(const SiftMatchingOptions& options,
                                            FeatureMatcherCache* cache)
-    : options_(options), cache_(cache), is_valid_(false) {}
+    : options_(options), cache_(cache) {}
 
 void FeatureMatcherThread::SetMaxNumMatches(const int max_num_matches) {
   options_.max_num_matches = max_num_matches;
-}
-
-bool FeatureMatcherThread::IsValid() {
-  std::unique_lock<std::mutex> lock(mutex_);
-  if (is_valid_) {
-    return true;
-  }
-  is_setup_.wait(lock);
-  return is_valid_;
-}
-
-void FeatureMatcherThread::SetValid() {
-  std::unique_lock<std::mutex> lock(mutex_);
-  is_valid_ = true;
-  is_setup_.notify_all();
-}
-
-void FeatureMatcherThread::SetInvalid() {
-  std::unique_lock<std::mutex> lock(mutex_);
-  is_valid_ = false;
-  is_setup_.notify_all();
 }
 
 SiftCPUFeatureMatcher::SiftCPUFeatureMatcher(const SiftMatchingOptions& options,
@@ -444,7 +423,7 @@ SiftCPUFeatureMatcher::SiftCPUFeatureMatcher(const SiftMatchingOptions& options,
 }
 
 void SiftCPUFeatureMatcher::Run() {
-  SetValid();
+  SignalValidSetup();
 
   while (true) {
     if (IsStopped()) {
@@ -492,11 +471,11 @@ void SiftGPUFeatureMatcher::Run() {
   SiftMatchGPU sift_match_gpu;
   if (!CreateSiftGPUMatcher(options_, &sift_match_gpu)) {
     std::cout << "ERROR: SiftGPU not fully supported" << std::endl;
-    SetInvalid();
+    SignalInvalidSetup();
     return;
   }
 
-  SetValid();
+  SignalValidSetup();
 
   while (true) {
     if (IsStopped()) {
@@ -543,7 +522,7 @@ GuidedSiftCPUFeatureMatcher::GuidedSiftCPUFeatureMatcher(
 }
 
 void GuidedSiftCPUFeatureMatcher::Run() {
-  SetValid();
+  SignalValidSetup();
 
   while (true) {
     if (IsStopped()) {
@@ -599,11 +578,11 @@ void GuidedSiftGPUFeatureMatcher::Run() {
   SiftMatchGPU sift_match_gpu;
   if (!CreateSiftGPUMatcher(options_, &sift_match_gpu)) {
     std::cout << "ERROR: SiftGPU not fully supported" << std::endl;
-    SetInvalid();
+    SignalInvalidSetup();
     return;
   }
 
-  SetValid();
+  SignalValidSetup();
 
   while (true) {
     if (IsStopped()) {
@@ -835,13 +814,15 @@ bool SiftFeatureMatcher::Setup() {
   }
 
   for (auto& matcher : matchers_) {
-    if (!matcher->IsValid()) {
+    matcher->BlockUntilSetup();
+    if (!matcher->IsSetupValid()) {
       return false;
     }
   }
 
   for (auto& guided_matcher : guided_matchers_) {
-    if (!guided_matcher->IsValid()) {
+    guided_matcher->BlockUntilSetup();
+    if (!guided_matcher->IsSetupValid()) {
       return false;
     }
   }

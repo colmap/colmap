@@ -137,19 +137,9 @@ class FeatureMatcherThread : public Thread {
 
   void SetMaxNumMatches(const int max_num_matches);
 
-  virtual bool IsValid();
-
  protected:
-  virtual void SetValid();
-  virtual void SetInvalid();
-
   SiftMatchingOptions options_;
   FeatureMatcherCache* cache_;
-
- private:
-  std::mutex mutex_;
-  std::condition_variable is_setup_;
-  std::atomic<bool> is_valid_;
 };
 
 class SiftCPUFeatureMatcher : public FeatureMatcherThread {
