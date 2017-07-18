@@ -61,6 +61,13 @@ namespace colmap {
 //
 //        MyThread() { RegisterCallback(PROCESSED_CALLBACK); }
 //        void Run() {
+//          // Some setup routine... note that this optional.
+//          if (setup_valid) {
+//            SignalValidSetup();
+//          } else {
+//            SignalInvalidSetup();
+//          }
+//
 //          // Some pre-processing...
 //          for (const auto& item : items) {
 //            BlockIfPaused();
@@ -82,6 +89,7 @@ namespace colmap {
 //      thread.AddCallback(MyThread::FINISHED_CALLBACK, []() {
 //        std::cout << "Finished"; })
 //      thread.Start();
+//      // thread.BlockUntilSetup();
 //      // Pause, resume, stop, ...
 //      thread.Wait();
 //      thread.Timer().PrintElapsedSeconds();
@@ -110,9 +118,19 @@ class Thread {
   bool IsRunning();
   bool IsFinished();
 
+  // Check whether setup is valid. Note that the result is only meaningful if
+  // the thread gives a setup signal. Thus, a call to this function should be
+  // preceded by a `BlockUntilSetup` call. Otherwise, it fails ungracefully.
+  bool IsSetupValid();
+
   // To be called from inside the main run function. This blocks the main
   // caller, if the thread is paused, until the thread is resumed.
   void BlockIfPaused();
+
+  // To be called from outside. This blocks the caller until the thread is
+  // setup, i.e. it signaled that its setup was valid or not. If it nevers gives
+  // this signal, this call will block the caller infinitely.
+  void BlockUntilSetup();
 
   // Set callbacks that can be triggered within the main run function.
   void AddCallback(const int id, const std::function<void()>& func);
@@ -138,6 +156,10 @@ class Thread {
   // Get the unique identifier of the current thread.
   std::thread::id GetThreadId() const;
 
+  // Signal that the thread is setup. Only call this function once.
+  void SignalValidSetup();
+  void SignalInvalidSetup();
+
  private:
   // Wrapper around the main run function to set the finished flag.
   void RunFunc();
@@ -145,14 +167,17 @@ class Thread {
   std::thread thread_;
   std::mutex mutex_;
   std::condition_variable pause_condition_;
+  std::condition_variable setup_condition_;
 
   Timer timer_;
 
-  std::atomic<bool> started_;
-  std::atomic<bool> stopped_;
-  std::atomic<bool> paused_;
-  std::atomic<bool> pausing_;
-  std::atomic<bool> finished_;
+  bool started_;
+  bool stopped_;
+  bool paused_;
+  bool pausing_;
+  bool finished_;
+  bool setup_;
+  bool setup_valid_;
 
   std::unordered_map<int, std::list<std::function<void()>>> callbacks_;
 };

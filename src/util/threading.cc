@@ -25,7 +25,9 @@ Thread::Thread()
       stopped_(false),
       paused_(false),
       pausing_(false),
-      finished_(false) {
+      finished_(false),
+      setup_(false),
+      setup_valid_(false) {
   RegisterCallback(STARTED_CALLBACK);
   RegisterCallback(FINISHED_CALLBACK);
 }
@@ -41,6 +43,8 @@ void Thread::Start() {
   paused_ = false;
   pausing_ = false;
   finished_ = false;
+  setup_ = false;
+  setup_valid_ = false;
 }
 
 void Thread::Stop() {
@@ -95,6 +99,12 @@ bool Thread::IsFinished() {
   return finished_;
 }
 
+bool Thread::IsSetupValid() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  CHECK(setup_);
+  return setup_valid_;
+}
+
 void Thread::AddCallback(const int id, const std::function<void()>& func) {
   CHECK(func);
   CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
@@ -116,6 +126,22 @@ std::thread::id Thread::GetThreadId() const {
   return std::this_thread::get_id();
 }
 
+void Thread::SignalValidSetup() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  CHECK(!setup_);
+  setup_ = true;
+  setup_valid_ = true;
+  setup_condition_.notify_all();
+}
+
+void Thread::SignalInvalidSetup() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  CHECK(!setup_);
+  setup_ = true;
+  setup_valid_ = false;
+  setup_condition_.notify_all();
+}
+
 const class Timer& Thread::GetTimer() const { return timer_; }
 
 void Thread::BlockIfPaused() {
@@ -126,6 +152,13 @@ void Thread::BlockIfPaused() {
     pause_condition_.wait(lock);
     pausing_ = false;
     timer_.Resume();
+  }
+}
+
+void Thread::BlockUntilSetup() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  if (!setup_) {
+    setup_condition_.wait(lock);
   }
 }
 

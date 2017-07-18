@@ -216,6 +216,70 @@ BOOST_AUTO_TEST_CASE(TestThreadRestart) {
   }
 }
 
+BOOST_AUTO_TEST_CASE(TestThreadValidSetup) {
+  class TestThread : public Thread {
+    void Run() {
+      std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      SignalValidSetup();
+    }
+  };
+
+  TestThread thread;
+  BOOST_CHECK(!thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(!thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  thread.Start();
+
+  thread.BlockUntilSetup();
+  BOOST_CHECK(thread.IsSetupValid());
+
+  thread.BlockUntilSetup();
+  BOOST_CHECK(thread.IsSetupValid());
+
+  thread.Wait();
+  BOOST_CHECK(thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(!thread.IsRunning());
+  BOOST_CHECK(thread.IsFinished());
+  BOOST_CHECK(thread.IsSetupValid());
+}
+
+BOOST_AUTO_TEST_CASE(TestThreadInvalidSetup) {
+  class TestThread : public Thread {
+    void Run() {
+      std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      SignalInvalidSetup();
+    }
+  };
+
+  TestThread thread;
+  BOOST_CHECK(!thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(!thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  thread.Start();
+
+  thread.BlockUntilSetup();
+  BOOST_CHECK(!thread.IsSetupValid());
+
+  thread.BlockUntilSetup();
+  BOOST_CHECK(!thread.IsSetupValid());
+
+  thread.Wait();
+  BOOST_CHECK(thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(!thread.IsRunning());
+  BOOST_CHECK(thread.IsFinished());
+  BOOST_CHECK(!thread.IsSetupValid());
+}
+
 BOOST_AUTO_TEST_CASE(TestCallback) {
   class TestThread : public Thread {
    public:
