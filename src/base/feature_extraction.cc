@@ -140,6 +140,12 @@ void SiftFeatureExtractor::Run() {
 
   while (image_reader_.NextIndex() < image_reader_.NumImages()) {
     if (IsStopped()) {
+      resizer_queue_->Stop();
+      extractor_queue_->Stop();
+      writer_queue_->Stop();
+      resizer_queue_->Clear();
+      extractor_queue_->Clear();
+      writer_queue_->Clear();
       break;
     }
 
@@ -631,7 +637,7 @@ void ImageResizerThread::Run() {
         image_data.bitmap.Rescale(new_width, new_height);
       }
 
-      CHECK(output_queue_->Push(image_data));
+      output_queue_->Push(image_data);
     } else {
       break;
     }
@@ -667,7 +673,7 @@ void SiftCPUFeatureExtractorThread::Run() {
         image_data.extraction_success = true;
       }
 
-      CHECK(output_queue_->Push(image_data));
+      output_queue_->Push(image_data);
     } else {
       break;
     }
@@ -719,7 +725,7 @@ void SiftGPUFeatureExtractorThread::Run() {
         image_data.extraction_success = true;
       }
 
-      CHECK(output_queue_->Push(image_data));
+      output_queue_->Push(image_data);
     } else {
       break;
     }
