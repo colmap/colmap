@@ -26,6 +26,12 @@ using namespace colmap;
 int main(int argc, char** argv) {
   InitializeGlog(argv);
 
+#ifdef CUDA_ENABLED
+  const bool kUseOpenGL = false;
+#else
+  const bool kUseOpenGL = true;
+#endif
+
   AutomaticReconstructionController::Options reconstruction_options;
   std::string data_type = "individual";
   std::string quality = "high";
@@ -44,7 +50,6 @@ int main(int argc, char** argv) {
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
   options.AddDefaultOption("use_gpu", &reconstruction_options.use_gpu);
-  options.AddDefaultOption("use_opengl", &reconstruction_options.use_opengl);
   options.Parse(argc, argv);
 
   StringToLower(&data_type);
@@ -77,7 +82,7 @@ int main(int argc, char** argv) {
 
   ReconstructionManager reconstruction_manager;
 
-  if (reconstruction_options.use_gpu && reconstruction_options.use_opengl) {
+  if (reconstruction_options.use_gpu && kUseOpenGL) {
     QApplication app(argc, argv);
     AutomaticReconstructionController controller(reconstruction_options,
                                                  &reconstruction_manager);

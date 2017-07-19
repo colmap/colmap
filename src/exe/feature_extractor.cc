@@ -27,13 +27,17 @@ using namespace colmap;
 int main(int argc, char** argv) {
   InitializeGlog(argv);
 
-  bool use_gpu = true;
+#ifdef CUDA_ENABLED
+  const bool kUseOpenGL = false;
+#else
+  const bool kUseOpenGL = true;
+#endif
+
   std::string image_list_path;
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
-  options.AddDefaultOption("use_gpu", &use_gpu);
   options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddExtractionOptions();
   options.Parse(argc, argv);
@@ -58,26 +62,18 @@ int main(int argc, char** argv) {
   }
 
   std::unique_ptr<QApplication> app;
-  if (use_gpu && options.sift_gpu_extraction->index < 0) {
+  if (options.sift_extraction->use_gpu && kUseOpenGL) {
     app.reset(new QApplication(argc, argv));
   }
 
-  std::unique_ptr<Thread> feature_extractor;
-  if (use_gpu) {
-    feature_extractor.reset(
-        new SiftGPUFeatureExtractor(reader_options, *options.sift_extraction,
-                                    *options.sift_gpu_extraction));
-  } else {
-    feature_extractor.reset(
-        new SiftCPUFeatureExtractor(reader_options, *options.sift_extraction,
-                                    *options.sift_cpu_extraction));
-  }
+  SiftFeatureExtractor feature_extractor(reader_options,
+                                         *options.sift_extraction);
 
-  if (use_gpu && options.sift_gpu_extraction->index < 0) {
-    RunThreadWithOpenGLContext(feature_extractor.get());
+  if (options.sift_extraction->use_gpu && kUseOpenGL) {
+    RunThreadWithOpenGLContext(&feature_extractor);
   } else {
-    feature_extractor->Start();
-    feature_extractor->Wait();
+    feature_extractor.Start();
+    feature_extractor.Wait();
   }
 
   return EXIT_SUCCESS;

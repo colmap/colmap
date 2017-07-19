@@ -57,15 +57,16 @@ class ImageReader {
     bool Check() const;
   };
 
-  explicit ImageReader(const Options& options);
+  explicit ImageReader(const Options& options, Database* database);
 
-  bool Next(Image* image, Bitmap* bitmap);
+  bool Next(Camera* camera, Image* image, Bitmap* bitmap);
   size_t NextIndex() const;
   size_t NumImages() const;
 
  private:
   // Image reader options.
   Options options_;
+  Database* database_;
   // Index of previously processed image.
   size_t image_index_;
   // Previously processed camera.

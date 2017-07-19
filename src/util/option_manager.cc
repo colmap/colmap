@@ -33,8 +33,6 @@ OptionManager::OptionManager() {
 
   image_reader.reset(new ImageReader::Options());
   sift_extraction.reset(new SiftExtractionOptions());
-  sift_cpu_extraction.reset(new SiftCPUFeatureExtractor::Options());
-  sift_gpu_extraction.reset(new SiftGPUFeatureExtractor::Options());
   sift_matching.reset(new SiftMatchingOptions());
   exhaustive_matching.reset(new ExhaustiveFeatureMatcher::Options());
   sequential_matching.reset(new SequentialFeatureMatcher::Options());
@@ -130,6 +128,12 @@ void OptionManager::AddExtractionOptions() {
   AddAndRegisterDefaultOption("ImageReader.default_focal_length_factor",
                               &image_reader->default_focal_length_factor);
 
+  AddAndRegisterDefaultOption("SiftExtraction.num_threads",
+                              &sift_extraction->num_threads);
+  AddAndRegisterDefaultOption("SiftExtraction.use_gpu",
+                              &sift_extraction->use_gpu);
+  AddAndRegisterDefaultOption("SiftExtraction.gpu_index",
+                              &sift_extraction->gpu_index);
   AddAndRegisterDefaultOption("SiftExtraction.max_image_size",
                               &sift_extraction->max_image_size);
   AddAndRegisterDefaultOption("SiftExtraction.max_num_features",
@@ -148,14 +152,6 @@ void OptionManager::AddExtractionOptions() {
                               &sift_extraction->max_num_orientations);
   AddAndRegisterDefaultOption("SiftExtraction.upright",
                               &sift_extraction->upright);
-
-  AddAndRegisterDefaultOption("SiftCPUExtraction.batch_size_factor",
-                              &sift_cpu_extraction->batch_size_factor);
-  AddAndRegisterDefaultOption("SiftCPUExtraction.num_threads",
-                              &sift_cpu_extraction->num_threads);
-
-  AddAndRegisterDefaultOption("SiftGPUExtraction.index",
-                              &sift_gpu_extraction->index);
 }
 
 void OptionManager::AddMatchingOptions() {
@@ -542,8 +538,6 @@ void OptionManager::Reset() {
 
   *image_reader = ImageReader::Options();
   *sift_extraction = SiftExtractionOptions();
-  *sift_cpu_extraction = SiftCPUFeatureExtractor::Options();
-  *sift_gpu_extraction = SiftGPUFeatureExtractor::Options();
   *sift_matching = SiftMatchingOptions();
   *exhaustive_matching = ExhaustiveFeatureMatcher::Options();
   *sequential_matching = SequentialFeatureMatcher::Options();
@@ -595,8 +589,6 @@ bool OptionManager::Check() {
 
   if (image_reader) success = success && image_reader->Check();
   if (sift_extraction) success = success && sift_extraction->Check();
-  if (sift_cpu_extraction) success = success && sift_cpu_extraction->Check();
-  if (sift_gpu_extraction) success = success && sift_gpu_extraction->Check();
 
   if (sift_matching) success = success && sift_matching->Check();
   if (exhaustive_matching) success = success && exhaustive_matching->Check();

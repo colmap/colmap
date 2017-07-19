@@ -61,13 +61,6 @@ class AutomaticReconstructionController : public Thread {
 
     // Whether to use the GPU in feature extraction and matching.
     bool use_gpu = true;
-
-// Whether to use OpenGL in GPU-based feature extraction and matching.
-#ifdef CUDA_ENABLED
-    bool use_opengl = false;
-#else
-    bool use_opengl = true;
-#endif
   };
 
   AutomaticReconstructionController(

@@ -26,19 +26,18 @@ int main(int argc, char** argv) {
   InitializeGlog(argv);
 
 #ifdef CUDA_ENABLED
-  bool use_opengl = false;
+  const bool kUseOpenGL = false;
 #else
-  bool use_opengl = true;
+  const bool kUseOpenGL = true;
 #endif
 
   OptionManager options;
   options.AddDatabaseOptions();
-  options.AddDefaultOption("use_opengl", &use_opengl);
   options.AddSpatialMatchingOptions();
   options.Parse(argc, argv);
 
   std::unique_ptr<QApplication> app;
-  if (options.sift_matching->use_gpu && use_opengl) {
+  if (options.sift_matching->use_gpu && kUseOpenGL) {
     app.reset(new QApplication(argc, argv));
   }
 
@@ -46,7 +45,7 @@ int main(int argc, char** argv) {
                                         *options.sift_matching,
                                         *options.database_path);
 
-  if (options.sift_matching->use_gpu && use_opengl) {
+  if (options.sift_matching->use_gpu && kUseOpenGL) {
     RunThreadWithOpenGLContext(&feature_matcher);
   } else {
     feature_matcher.Start();

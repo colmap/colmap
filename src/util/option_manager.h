@@ -80,8 +80,6 @@ class OptionManager {
 
   std::shared_ptr<ImageReader::Options> image_reader;
   std::shared_ptr<SiftExtractionOptions> sift_extraction;
-  std::shared_ptr<SiftCPUFeatureExtractor::Options> sift_cpu_extraction;
-  std::shared_ptr<SiftGPUFeatureExtractor::Options> sift_gpu_extraction;
 
   std::shared_ptr<SiftMatchingOptions> sift_matching;
   std::shared_ptr<ExhaustiveFeatureMatcher::Options> exhaustive_matching;

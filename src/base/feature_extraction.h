@@ -28,6 +28,16 @@ class SiftGPU;
 namespace colmap {
 
 struct SiftExtractionOptions {
+  // Number of threads for feature extraction.
+  int num_threads = ThreadPool::kMaxNumThreads;
+
+  // Whether to use the GPU for feature extraction.
+  bool use_gpu = true;
+
+  // Index of the GPU used for feature extraction. For multi-GPU extraction,
+  // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
+  std::string gpu_index = "-1";
+
   // Maximum image size, otherwise image will be down-scaled.
   int max_image_size = 3200;
 
@@ -73,54 +83,34 @@ struct SiftExtractionOptions {
   bool Check() const;
 };
 
-// Extract DoG SIFT features using the CPU.
-class SiftCPUFeatureExtractor : public Thread {
+namespace internal {
+
+struct ImageData;
+
+}  // namespace internal
+
+// Feature extraction class to extract features for all images in a directory.
+class SiftFeatureExtractor : public Thread {
  public:
-  struct Options {
-    // Number of images to process in one batch,
-    // defined as a factor of the number of threads.
-    int batch_size_factor = 3;
-
-    // Number of threads for parallel feature extraction.
-    int num_threads = -1;
-
-    bool Check() const;
-  };
-
-  SiftCPUFeatureExtractor(const ImageReader::Options& reader_options,
-                          const SiftExtractionOptions& sift_options,
-                          const Options& cpu_options);
+  SiftFeatureExtractor(const ImageReader::Options& reader_options,
+                       const SiftExtractionOptions& sift_options);
 
  private:
   void Run();
 
   const ImageReader::Options reader_options_;
   const SiftExtractionOptions sift_options_;
-  const Options cpu_options_;
-};
 
-// Extract DoG SIFT features using the GPU.
-class SiftGPUFeatureExtractor : public Thread {
- public:
-  struct Options {
-    // Index of the GPU used for feature extraction.
-    // If the GPU index is not -1, the CUDA version of SiftGPU is used.
-    int index = -1;
+  Database database_;
+  ImageReader image_reader_;
 
-    bool Check() const;
-  };
+  std::vector<std::unique_ptr<Thread>> resizers_;
+  std::vector<std::unique_ptr<Thread>> extractors_;
+  std::unique_ptr<Thread> writer_;
 
-  SiftGPUFeatureExtractor(const ImageReader::Options& reader_options,
-                          const SiftExtractionOptions& sift_options,
-                          const Options& gpu_options);
-
- private:
-  void Run();
-
-  const ImageReader::Options reader_options_;
-  const SiftExtractionOptions sift_options_;
-  const Options gpu_options_;
-  std::unique_ptr<OpenGLContextManager> opengl_context_;
+  std::unique_ptr<JobQueue<internal::ImageData>> resizer_queue_;
+  std::unique_ptr<JobQueue<internal::ImageData>> extractor_queue_;
+  std::unique_ptr<JobQueue<internal::ImageData>> writer_queue_;
 };
 
 // Import features from text files. Each image must have a corresponding text
@@ -148,7 +138,7 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& sift_options,
 // version of SiftGPU is used, which produces slightly different results
 // than the OpenGL implementation.
 bool CreateSiftGPUExtractor(const SiftExtractionOptions& sift_options,
-                            const int gpu_index, SiftGPU* sift_gpu);
+                            SiftGPU* sift_gpu);
 
 // Extract SIFT features for the given image on the GPU.
 // SiftGPU must already be initialized using `CreateSiftGPU`.
@@ -177,6 +167,87 @@ bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& sift_options,
 void LoadSiftFeaturesFromTextFile(const std::string& path,
                                   FeatureKeypoints* keypoints,
                                   FeatureDescriptors* descriptors);
+
+////////////////////////////////////////////////////////////////////////////////
+// Implementation
+////////////////////////////////////////////////////////////////////////////////
+
+namespace internal {
+
+struct ImageData {
+  size_t image_index = 0;
+
+  Camera camera;
+  Image image;
+  Bitmap bitmap;
+
+  bool extraction_success = false;
+  FeatureKeypoints keypoints;
+  FeatureDescriptors descriptors;
+};
+
+class ImageResizerThread : public Thread {
+ public:
+  ImageResizerThread(const int max_image_size, JobQueue<ImageData>* input_queue,
+                     JobQueue<ImageData>* output_queue);
+
+ private:
+  void Run();
+
+  const int max_image_size_;
+
+  JobQueue<ImageData>* input_queue_;
+  JobQueue<ImageData>* output_queue_;
+};
+
+// Extract DoG SIFT features using the CPU.
+class SiftCPUFeatureExtractorThread : public Thread {
+ public:
+  SiftCPUFeatureExtractorThread(const SiftExtractionOptions& sift_options,
+                                JobQueue<ImageData>* input_queue,
+                                JobQueue<ImageData>* output_queue);
+
+ private:
+  void Run();
+
+  const SiftExtractionOptions sift_options_;
+
+  JobQueue<ImageData>* input_queue_;
+  JobQueue<ImageData>* output_queue_;
+};
+
+// Extract DoG SIFT features using the GPU.
+class SiftGPUFeatureExtractorThread : public Thread {
+ public:
+  SiftGPUFeatureExtractorThread(const SiftExtractionOptions& sift_options,
+                                JobQueue<ImageData>* input_queue,
+                                JobQueue<ImageData>* output_queue);
+
+ private:
+  void Run();
+
+  const SiftExtractionOptions sift_options_;
+
+  std::unique_ptr<OpenGLContextManager> opengl_context_;
+
+  JobQueue<ImageData>* input_queue_;
+  JobQueue<ImageData>* output_queue_;
+};
+
+class FeatureWriterThread : public Thread {
+ public:
+  FeatureWriterThread(const size_t num_images, Database* database,
+                      JobQueue<ImageData>* input_queue);
+
+ private:
+  void Run();
+
+  const size_t num_images_;
+  Database* database_;
+  JobQueue<ImageData>* input_queue_;
+};
+
+}  // namespace internal
 
 }  // namespace colmap
 

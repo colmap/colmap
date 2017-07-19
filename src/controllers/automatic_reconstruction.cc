@@ -91,21 +91,11 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   reader_options.image_path = *option_manager_.image_path;
   reader_options.single_camera = options_.single_camera;
 
+  option_manager_.sift_extraction->use_gpu = options_.use_gpu;
   option_manager_.sift_matching->use_gpu = options_.use_gpu;
 
-  if (options_.use_gpu) {
-    if (!options_.use_opengl) {
-      option_manager_.sift_gpu_extraction->index = 0;
-    }
-
-    feature_extractor_.reset(new SiftGPUFeatureExtractor(
-        reader_options, *option_manager_.sift_extraction,
-        *option_manager_.sift_gpu_extraction));
-  } else {
-    feature_extractor_.reset(new SiftCPUFeatureExtractor(
-        reader_options, *option_manager_.sift_extraction,
-        *option_manager_.sift_cpu_extraction));
-  }
+  feature_extractor_.reset(new SiftFeatureExtractor(
+        reader_options, *option_manager_.sift_extraction));
 
   exhaustive_matcher_.reset(new ExhaustiveFeatureMatcher(
       *option_manager_.exhaustive_matching, *option_manager_.sift_matching,

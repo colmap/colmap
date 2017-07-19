@@ -26,9 +26,9 @@ int main(int argc, char** argv) {
   InitializeGlog(argv);
 
 #ifdef CUDA_ENABLED
-  bool use_opengl = false;
+  const bool kUseOpenGL = false;
 #else
-  bool use_opengl = true;
+  const bool kUseOpenGL = true;
 #endif
 
   std::string match_list_path;
@@ -39,12 +39,11 @@ int main(int argc, char** argv) {
   options.AddRequiredOption("match_list_path", &match_list_path);
   options.AddDefaultOption("match_type", &match_type,
                            "{'pairs', 'raw', 'inliers'}");
-  options.AddDefaultOption("use_opengl", &use_opengl);
   options.AddMatchingOptions();
   options.Parse(argc, argv);
 
   std::unique_ptr<QApplication> app;
-  if (options.sift_matching->use_gpu && use_opengl) {
+  if (options.sift_matching->use_gpu && kUseOpenGL) {
     app.reset(new QApplication(argc, argv));
   }
 
@@ -65,7 +64,7 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  if (options.sift_matching->use_gpu && use_opengl) {
+  if (options.sift_matching->use_gpu && kUseOpenGL) {
     RunThreadWithOpenGLContext(feature_matcher.get());
   } else {
     feature_matcher->Start();

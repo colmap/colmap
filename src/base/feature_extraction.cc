@@ -16,10 +16,9 @@
 
 #include "base/feature_extraction.h"
 
+#include <array>
 #include <fstream>
 #include <memory>
-
-#include <boost/lexical_cast.hpp>
 
 #include "ext/SiftGPU/SiftGPU.h"
 #include "ext/VLFeat/sift.h"
@@ -27,34 +26,6 @@
 
 namespace colmap {
 namespace {
-
-void ScaleBitmap(const int max_image_size, double* scale_x, double* scale_y,
-                 Bitmap* bitmap) {
-  if (static_cast<int>(bitmap->Width()) > max_image_size ||
-      static_cast<int>(bitmap->Height()) > max_image_size) {
-    // Fit the down-sampled version exactly into the max dimensions
-    const double scale = static_cast<double>(max_image_size) /
-                         std::max(bitmap->Width(), bitmap->Height());
-    const int new_width = static_cast<int>(bitmap->Width() * scale);
-    const int new_height = static_cast<int>(bitmap->Height() * scale);
-
-    std::cout << StringPrintf(
-                     "  WARNING: Image exceeds maximum dimensions "
-                     "- resizing to %dx%d.",
-                     new_width, new_height)
-              << std::endl;
-
-    // These scales differ from `scale`, if we round one of the dimensions.
-    // But we want to exactly scale the keypoint locations below.
-    *scale_x = static_cast<double>(new_width) / bitmap->Width();
-    *scale_y = static_cast<double>(new_height) / bitmap->Height();
-
-    bitmap->Rescale(new_width, new_height);
-  } else {
-    *scale_x = 1.0;
-    *scale_y = 1.0;
-  }
-}
 
 // VLFeat uses a different convention to store its descriptors. This transforms
 // the VLFeat format into the original SIFT format that is also used by SiftGPU.
@@ -79,6 +50,9 @@ FeatureDescriptors TransformVLFeatToUBCFeatureDescriptors(
 }  // namespace
 
 bool SiftExtractionOptions::Check() const {
+  if (use_gpu) {
+    CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
+  }
   CHECK_OPTION_GT(max_image_size, 0);
   CHECK_OPTION_GT(max_num_features, 0);
   CHECK_OPTION_GT(octave_resolution, 0);
@@ -88,186 +62,116 @@ bool SiftExtractionOptions::Check() const {
   return true;
 }
 
-SiftCPUFeatureExtractor::SiftCPUFeatureExtractor(
+SiftFeatureExtractor::SiftFeatureExtractor(
     const ImageReader::Options& reader_options,
-    const SiftExtractionOptions& sift_options, const Options& cpu_options)
+    const SiftExtractionOptions& sift_options)
     : reader_options_(reader_options),
       sift_options_(sift_options),
-      cpu_options_(cpu_options) {
+      database_(reader_options_.database_path),
+      image_reader_(reader_options_, &database_) {
+  CHECK(reader_options_.Check());
   CHECK(sift_options_.Check());
-  CHECK(cpu_options_.Check());
+
+  const int num_threads = GetEffectiveNumThreads(sift_options_.num_threads);
+  CHECK_GT(num_threads, 0);
+
+  // Make sure that we only have limited number of objects in the queue.
+  resizer_queue_.reset(new JobQueue<internal::ImageData>(num_threads));
+  extractor_queue_.reset(new JobQueue<internal::ImageData>(num_threads));
+  writer_queue_.reset(new JobQueue<internal::ImageData>(num_threads));
+
+  if (sift_options_.max_image_size > 0) {
+    for (int i = 0; i < num_threads; ++i) {
+      resizers_.emplace_back(new internal::ImageResizerThread(
+          sift_options_.max_image_size, resizer_queue_.get(),
+          extractor_queue_.get()));
+    }
+  }
+
+  if (sift_options_.use_gpu) {
+    std::vector<int> gpu_indices = CSVToVector<int>(sift_options_.gpu_index);
+    CHECK_GT(gpu_indices.size(), 0);
+
+#ifdef CUDA_ENABLED
+    if (gpu_indices.size() == 1 && gpu_indices[0] == -1) {
+      const int num_cuda_devices = GetNumCudaDevices();
+      CHECK_GT(num_cuda_devices, 0);
+      gpu_indices.resize(num_cuda_devices);
+      std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
+    }
+#endif  // CUDA_ENABLED
+
+    auto sift_gpu_options = sift_options_;
+    for (const auto& gpu_index : gpu_indices) {
+      sift_gpu_options.gpu_index = std::to_string(gpu_index);
+      extractors_.emplace_back(new internal::SiftGPUFeatureExtractorThread(
+          sift_gpu_options, extractor_queue_.get(), writer_queue_.get()));
+    }
+  } else {
+    for (int i = 0; i < num_threads; ++i) {
+      extractors_.emplace_back(new internal::SiftCPUFeatureExtractorThread(
+          sift_options_, extractor_queue_.get(), writer_queue_.get()));
+    }
+  }
+
+  writer_.reset(new internal::FeatureWriterThread(
+      image_reader_.NumImages(), &database_, writer_queue_.get()));
 }
 
-bool SiftCPUFeatureExtractor::Options::Check() const {
-  CHECK_OPTION_GT(batch_size_factor, 0);
-  return true;
-}
+void SiftFeatureExtractor::Run() {
+  PrintHeading1("Feature extraction");
 
-void SiftCPUFeatureExtractor::Run() {
-  PrintHeading1("Feature extraction (CPU)");
+  for (auto& resizer : resizers_) {
+    resizer->Start();
+  }
 
-  ImageReader image_reader(reader_options_);
-  Database database(reader_options_.database_path);
+  for (auto& extractor : extractors_) {
+    extractor->Start();
+  }
 
-  ThreadPool thread_pool(cpu_options_.num_threads);
+  writer_->Start();
 
-  const size_t batch_size = static_cast<size_t>(cpu_options_.batch_size_factor *
-                                                thread_pool.NumThreads());
+  for (auto& extractor : extractors_) {
+    extractor->BlockUntilSetup();
+    if (!extractor->IsSetupValid()) {
+      return;
+    }
+  }
 
-  struct ExtractionResult {
-    FeatureKeypoints keypoints;
-    FeatureDescriptors descriptors;
-  };
-
-  while (image_reader.NextIndex() < image_reader.NumImages()) {
+  while (image_reader_.NextIndex() < image_reader_.NumImages()) {
     if (IsStopped()) {
       break;
     }
 
-    PrintHeading2("Preparing batch");
-
-    std::vector<size_t> image_idxs;
-    std::vector<Image> images;
-    std::vector<std::future<ExtractionResult>> futures;
-    while (futures.size() < batch_size &&
-           image_reader.NextIndex() < image_reader.NumImages()) {
-      if (IsStopped()) {
-        break;
-      }
-
-      std::cout << StringPrintf("Preparing file [%d/%d]",
-                                image_reader.NextIndex() + 1,
-                                image_reader.NumImages())
-                << std::endl;
-
-      Image image;
-      std::shared_ptr<Bitmap> bitmap = std::make_shared<Bitmap>();
-      if (!image_reader.Next(&image, bitmap.get())) {
-        continue;
-      }
-
-      image_idxs.push_back(image_reader.NextIndex());
-      images.push_back(image);
-      futures.push_back(thread_pool.AddTask([this, bitmap]() {
-        ExtractionResult result;
-        if (!ExtractSiftFeaturesCPU(sift_options_, *bitmap, &result.keypoints,
-                                    &result.descriptors)) {
-          std::cerr << "  ERROR: Could not extract features." << std::endl;
-        }
-        return result;
-      }));
-    }
-
-    if (futures.empty()) {
-      break;
-    }
-
-    PrintHeading2("Processing batch");
-
-    DatabaseTransaction database_transaction(&database);
-
-    for (size_t i = 0; i < futures.size(); ++i) {
-      Image& image = images[i];
-      const ExtractionResult result = futures[i].get();
-
-      if (image.ImageId() == kInvalidImageId) {
-        image.SetImageId(database.WriteImage(image));
-      }
-
-      if (!database.ExistsKeypoints(image.ImageId())) {
-        database.WriteKeypoints(image.ImageId(), result.keypoints);
-      }
-
-      if (!database.ExistsDescriptors(image.ImageId())) {
-        database.WriteDescriptors(image.ImageId(), result.descriptors);
-      }
-
-      std::cout << StringPrintf("  Features:       %d [%d/%d]",
-                                result.keypoints.size(), image_idxs[i],
-                                image_reader.NumImages())
-                << std::endl;
-    }
-  }
-
-  GetTimer().PrintMinutes();
-}
-
-bool SiftGPUFeatureExtractor::Options::Check() const {
-  CHECK_OPTION_GE(index, -1);
-  return true;
-}
-
-SiftGPUFeatureExtractor::SiftGPUFeatureExtractor(
-    const ImageReader::Options& reader_options,
-    const SiftExtractionOptions& sift_options, const Options& gpu_options)
-    : reader_options_(reader_options),
-      sift_options_(sift_options),
-      gpu_options_(gpu_options) {
-  CHECK(sift_options_.Check());
-  CHECK(gpu_options_.Check());
-
-  if (gpu_options_.index < 0) {
-    opengl_context_.reset(new OpenGLContextManager());
-  }
-}
-
-void SiftGPUFeatureExtractor::Run() {
-  PrintHeading1("Feature extraction (GPU)");
-
-  if (gpu_options_.index < 0) {
-    CHECK(opengl_context_);
-    opengl_context_->MakeCurrent();
-  }
-
-  SiftGPU sift_gpu;
-  if (!CreateSiftGPUExtractor(sift_options_, gpu_options_.index, &sift_gpu)) {
-    std::cerr << "ERROR: SiftGPU not fully supported." << std::endl;
-    return;
-  }
-
-  ImageReader image_reader(reader_options_);
-  Database database(reader_options_.database_path);
-
-  while (image_reader.NextIndex() < image_reader.NumImages()) {
-    if (IsStopped()) {
-      break;
-    }
-
-    std::cout << StringPrintf("Processing file [%d/%d]",
-                              image_reader.NextIndex() + 1,
-                              image_reader.NumImages())
-              << std::endl;
-
-    Image image;
-    Bitmap bitmap;
-    if (!image_reader.Next(&image, &bitmap)) {
+    internal::ImageData image_data;
+    image_data.image_index = image_reader_.NextIndex();
+    if (!image_reader_.Next(&image_data.camera, &image_data.image,
+                            &image_data.bitmap)) {
       continue;
     }
 
-    FeatureKeypoints keypoints;
-    FeatureDescriptors descriptors;
-    if (!ExtractSiftFeaturesGPU(sift_options_, bitmap, &sift_gpu, &keypoints,
-                                &descriptors)) {
-      std::cerr << "  ERROR: Could not extract features." << std::endl;
-      continue;
+    if (sift_options_.max_image_size > 0) {
+      CHECK(resizer_queue_->Push(image_data));
+    } else {
+      CHECK(extractor_queue_->Push(image_data));
     }
-
-    DatabaseTransaction database_transaction(&database);
-
-    if (image.ImageId() == kInvalidImageId) {
-      image.SetImageId(database.WriteImage(image));
-    }
-
-    if (!database.ExistsKeypoints(image.ImageId())) {
-      database.WriteKeypoints(image.ImageId(), keypoints);
-    }
-
-    if (!database.ExistsDescriptors(image.ImageId())) {
-      database.WriteDescriptors(image.ImageId(), descriptors);
-    }
-
-    std::cout << "  Features:       " << keypoints.size() << std::endl;
   }
+
+  resizer_queue_->Wait();
+  resizer_queue_->Stop();
+  for (auto& resizer : resizers_) {
+    resizer->Wait();
+  }
+
+  extractor_queue_->Wait();
+  extractor_queue_->Stop();
+  for (auto& extractor : extractors_) {
+    extractor->Wait();
+  }
+
+  writer_queue_->Wait();
+  writer_queue_->Stop();
+  writer_->Wait();
 
   GetTimer().PrintMinutes();
 }
@@ -284,8 +188,8 @@ void FeatureImporter::Run() {
     return;
   }
 
-  ImageReader image_reader(reader_options_);
   Database database(reader_options_.database_path);
+  ImageReader image_reader(reader_options_, &database);
 
   while (image_reader.NextIndex() < image_reader.NumImages()) {
     if (IsStopped()) {
@@ -298,9 +202,10 @@ void FeatureImporter::Run() {
               << std::endl;
 
     // Load image data and possibly save camera to database.
-    Bitmap bitmap;
+    Camera camera;
     Image image;
-    if (!image_reader.Next(&image, &bitmap)) {
+    Bitmap bitmap;
+    if (!image_reader.Next(&camera, &image, &bitmap)) {
       continue;
     }
 
@@ -342,24 +247,14 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
   CHECK_NOTNULL(keypoints);
   CHECK_NOTNULL(descriptors);
 
-  Bitmap scaled_bitmap = bitmap.Clone();
-  double scale_x;
-  double scale_y;
-  ScaleBitmap(options.max_image_size, &scale_x, &scale_y, &scaled_bitmap);
-
   //////////////////////////////////////////////////////////////////////////////
   // Extract features
   //////////////////////////////////////////////////////////////////////////////
 
-  const float inv_scale_x = static_cast<float>(1.0 / scale_x);
-  const float inv_scale_y = static_cast<float>(1.0 / scale_y);
-  const float inv_scale_xy = (inv_scale_x + inv_scale_y) / 2.0f;
-
   // Setup SIFT extractor.
   std::unique_ptr<VlSiftFilt, void (*)(VlSiftFilt*)> sift(
-      vl_sift_new(scaled_bitmap.Width(), scaled_bitmap.Height(),
-                  options.num_octaves, options.octave_resolution,
-                  options.first_octave),
+      vl_sift_new(bitmap.Width(), bitmap.Height(), options.num_octaves,
+                  options.octave_resolution, options.first_octave),
       &vl_sift_delete);
   if (!sift) {
     return false;
@@ -375,8 +270,7 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
   bool first_octave = true;
   while (true) {
     if (first_octave) {
-      const std::vector<uint8_t> data_uint8 =
-          scaled_bitmap.ConvertToRowMajorArray();
+      const std::vector<uint8_t> data_uint8 = bitmap.ConvertToRowMajorArray();
       std::vector<float> data_float(data_uint8.size());
       for (size_t i = 0; i < data_uint8.size(); ++i) {
         data_float[i] = static_cast<float>(data_uint8[i]) / 255.0f;
@@ -447,12 +341,6 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
         level_keypoints.back()[level_idx].scale = vl_keypoints[i].sigma;
         level_keypoints.back()[level_idx].orientation = angles[o];
 
-        if (scale_x != 1.0 || scale_y != 1.0) {
-          level_keypoints.back()[level_idx].x *= inv_scale_x;
-          level_keypoints.back()[level_idx].y *= inv_scale_y;
-          level_keypoints.back()[level_idx].scale *= inv_scale_xy;
-        }
-
         Eigen::MatrixXf desc(1, 128);
         vl_sift_calc_keypoint_descriptor(sift.get(), desc.data(),
                                          &vl_keypoints[i], angles[o]);
@@ -505,9 +393,8 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
 }
 
 bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
-                            const int gpu_index, SiftGPU* sift_gpu) {
+                            SiftGPU* sift_gpu) {
   CHECK(options.Check());
-  CHECK_GE(gpu_index, -1);
   CHECK_NOTNULL(sift_gpu);
 
   // SiftGPU uses many global static state variables and the initialization must
@@ -515,19 +402,29 @@ bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
   static std::mutex mutex;
   std::unique_lock<std::mutex> lock(mutex);
 
+  const std::vector<int> gpu_indices = CSVToVector<int>(options.gpu_index);
+  CHECK_EQ(gpu_indices.size(), 1) << "SiftGPU can only run on one GPU";
+
   std::vector<std::string> sift_gpu_args;
 
-  sift_gpu_args.push_back("./binary");
+  sift_gpu_args.push_back("./sift_gpu");
 
-  if (gpu_index >= 0) {
-    sift_gpu_args.push_back("-cuda");
-    sift_gpu_args.push_back(std::to_string(gpu_index));
+#ifdef CUDA_ENABLED
+  // Use CUDA version by default if darkness adaptivity is disabled.
+  if (!options.darkness_adaptivity && gpu_indices[0] < 0) {
+    gpu_indices[0] = 0;
   }
+
+  if (gpu_indices[0] >= 0) {
+    sift_gpu_args.push_back("-cuda");
+    sift_gpu_args.push_back(gpu_indices[0]);
+  }
+#endif  // CUDA_ENABLED
 
   // Darkness adaptivity (hidden feature). Significantly improves
   // distribution of features. Only available in GLSL version.
   if (options.darkness_adaptivity) {
-    if (gpu_index >= 0) {
+    if (gpu_indices[0] >= 0) {
       std::cout << "WARNING: Darkness adaptivity only available for GLSL "
                    "but CUDA version selected."
                 << std::endl;
@@ -596,21 +493,15 @@ bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
   CHECK_NOTNULL(descriptors);
   CHECK_EQ(options.max_image_size, sift_gpu->GetMaxDimension());
 
-  Bitmap scaled_bitmap = bitmap.Clone();
-
-  double scale_x;
-  double scale_y;
-  ScaleBitmap(sift_gpu->GetMaxDimension(), &scale_x, &scale_y, &scaled_bitmap);
-
   ////////////////////////////////////////////////////////////////////////////
   // Extract features
   ////////////////////////////////////////////////////////////////////////////
 
   // Note, that this produces slightly different results than using SiftGPU
   // directly for RGB->GRAY conversion, since it uses different weights.
-  const std::vector<uint8_t> bitmap_raw_bits = scaled_bitmap.ConvertToRawBits();
+  const std::vector<uint8_t> bitmap_raw_bits = bitmap.ConvertToRawBits();
   const int code =
-      sift_gpu->RunSIFT(scaled_bitmap.ScanWidth(), scaled_bitmap.Height(),
+      sift_gpu->RunSIFT(bitmap.ScanWidth(), bitmap.Height(),
                         bitmap_raw_bits.data(), GL_LUMINANCE, GL_UNSIGNED_BYTE);
 
   const int kSuccessCode = 1;
@@ -631,23 +522,11 @@ bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
 
   // Save keypoints and scale locations if original bitmap was down-sampled.
   keypoints->resize(num_features);
-  if (scale_x != 1.0 || scale_y != 1.0) {
-    const float inv_scale_x = static_cast<float>(1.0f / scale_x);
-    const float inv_scale_y = static_cast<float>(1.0f / scale_y);
-    const float inv_scale_xy = (inv_scale_x + inv_scale_y) / 2.0f;
-    for (size_t i = 0; i < sift_gpu_keypoints.size(); ++i) {
-      (*keypoints)[i].x = inv_scale_x * sift_gpu_keypoints[i].x;
-      (*keypoints)[i].y = inv_scale_y * sift_gpu_keypoints[i].y;
-      (*keypoints)[i].scale = inv_scale_xy * sift_gpu_keypoints[i].s;
-      (*keypoints)[i].orientation = sift_gpu_keypoints[i].o;
-    }
-  } else {
-    for (size_t i = 0; i < sift_gpu_keypoints.size(); ++i) {
-      (*keypoints)[i].x = sift_gpu_keypoints[i].x;
-      (*keypoints)[i].y = sift_gpu_keypoints[i].y;
-      (*keypoints)[i].scale = sift_gpu_keypoints[i].s;
-      (*keypoints)[i].orientation = sift_gpu_keypoints[i].o;
-    }
+  for (size_t i = 0; i < sift_gpu_keypoints.size(); ++i) {
+    (*keypoints)[i].x = sift_gpu_keypoints[i].x;
+    (*keypoints)[i].y = sift_gpu_keypoints[i].y;
+    (*keypoints)[i].scale = sift_gpu_keypoints[i].s;
+    (*keypoints)[i].orientation = sift_gpu_keypoints[i].o;
   }
 
   // Save and normalize the descriptors.
@@ -678,10 +557,10 @@ void LoadSiftFeaturesFromTextFile(const std::string& path,
   std::stringstream header_line_stream(line);
 
   std::getline(header_line_stream >> std::ws, item, ' ');
-  const point2D_t num_features = boost::lexical_cast<point2D_t>(item);
+  const point2D_t num_features = std::stoi(item);
 
   std::getline(header_line_stream >> std::ws, item, ' ');
-  const size_t dim = boost::lexical_cast<size_t>(item);
+  const size_t dim = std::stoi(item);
 
   CHECK_EQ(dim, 128) << "SIFT features must have 128 dimensions";
 
@@ -694,29 +573,247 @@ void LoadSiftFeaturesFromTextFile(const std::string& path,
 
     // X
     std::getline(feature_line_stream >> std::ws, item, ' ');
-    (*keypoints)[i].x = boost::lexical_cast<float>(item);
+    (*keypoints)[i].x = std::stof(item);
 
     // Y
     std::getline(feature_line_stream >> std::ws, item, ' ');
-    (*keypoints)[i].y = boost::lexical_cast<float>(item);
+    (*keypoints)[i].y = std::stof(item);
 
     // Scale
     std::getline(feature_line_stream >> std::ws, item, ' ');
-    (*keypoints)[i].scale = boost::lexical_cast<float>(item);
+    (*keypoints)[i].scale = std::stof(item);
 
     // Orientation
     std::getline(feature_line_stream >> std::ws, item, ' ');
-    (*keypoints)[i].orientation = boost::lexical_cast<float>(item);
+    (*keypoints)[i].orientation = std::stof(item);
 
     // Descriptor
     for (size_t j = 0; j < dim; ++j) {
       std::getline(feature_line_stream >> std::ws, item, ' ');
-      const double value = boost::lexical_cast<double>(item);
+      const float value = std::stof(item);
       CHECK_GE(value, 0);
       CHECK_LE(value, 255);
-      (*descriptors)(i, j) = TruncateCast<double, uint8_t>(value);
+      (*descriptors)(i, j) = TruncateCast<float, uint8_t>(value);
     }
   }
 }
 
+namespace internal {
+
+ImageResizerThread::ImageResizerThread(const int max_image_size,
+                                       JobQueue<ImageData>* input_queue,
+                                       JobQueue<ImageData>* output_queue)
+    : max_image_size_(max_image_size),
+      input_queue_(input_queue),
+      output_queue_(output_queue) {}
+
+void ImageResizerThread::Run() {
+  while (true) {
+    if (IsStopped()) {
+      break;
+    }
+
+    const auto input_job = input_queue_->Pop();
+    if (input_job.IsValid()) {
+      auto image_data = input_job.Data();
+
+      if (static_cast<int>(image_data.bitmap.Width()) > max_image_size_ ||
+          static_cast<int>(image_data.bitmap.Height()) > max_image_size_) {
+        // Fit the down-sampled version exactly into the max dimensions.
+        const double scale =
+            static_cast<double>(max_image_size_) /
+            std::max(image_data.bitmap.Width(), image_data.bitmap.Height());
+        const int new_width =
+            static_cast<int>(image_data.bitmap.Width() * scale);
+        const int new_height =
+            static_cast<int>(image_data.bitmap.Height() * scale);
+
+        image_data.bitmap.Rescale(new_width, new_height);
+      }
+
+      CHECK(output_queue_->Push(image_data));
+    } else {
+      break;
+    }
+  }
+}
+
+SiftCPUFeatureExtractorThread::SiftCPUFeatureExtractorThread(
+    const SiftExtractionOptions& sift_options, JobQueue<ImageData>* input_queue,
+    JobQueue<ImageData>* output_queue)
+    : sift_options_(sift_options),
+      input_queue_(input_queue),
+      output_queue_(output_queue) {
+  CHECK(sift_options_.Check());
+}
+
+void SiftCPUFeatureExtractorThread::Run() {
+  SignalValidSetup();
+
+  while (true) {
+    if (IsStopped()) {
+      break;
+    }
+
+    const auto input_job = input_queue_->Pop();
+    if (input_job.IsValid()) {
+      auto image_data = input_job.Data();
+
+      if (!ExtractSiftFeaturesCPU(sift_options_, image_data.bitmap,
+                                  &image_data.keypoints,
+                                  &image_data.descriptors)) {
+        image_data.extraction_success = false;
+      } else {
+        image_data.extraction_success = true;
+      }
+
+      CHECK(output_queue_->Push(image_data));
+    } else {
+      break;
+    }
+  }
+}
+
+SiftGPUFeatureExtractorThread::SiftGPUFeatureExtractorThread(
+    const SiftExtractionOptions& sift_options, JobQueue<ImageData>* input_queue,
+    JobQueue<ImageData>* output_queue)
+    : sift_options_(sift_options),
+      input_queue_(input_queue),
+      output_queue_(output_queue) {
+  CHECK(sift_options_.Check());
+
+#ifndef CUDA_ENABLED
+  opengl_context_.reset(new OpenGLContextManager());
+#endif
+}
+
+void SiftGPUFeatureExtractorThread::Run() {
+#ifndef CUDA_ENABLED
+  CHECK(opengl_context_);
+  opengl_context_->MakeCurrent();
+#endif
+
+  SiftGPU sift_gpu;
+  if (!CreateSiftGPUExtractor(sift_options_, &sift_gpu)) {
+    std::cerr << "ERROR: SiftGPU not fully supported." << std::endl;
+    SignalInvalidSetup();
+    return;
+  }
+
+  SignalValidSetup();
+
+  while (true) {
+    if (IsStopped()) {
+      break;
+    }
+
+    const auto input_job = input_queue_->Pop();
+    if (input_job.IsValid()) {
+      auto image_data = input_job.Data();
+
+      if (!ExtractSiftFeaturesGPU(sift_options_, image_data.bitmap, &sift_gpu,
+                                  &image_data.keypoints,
+                                  &image_data.descriptors)) {
+        image_data.extraction_success = false;
+      } else {
+        image_data.extraction_success = true;
+      }
+
+      CHECK(output_queue_->Push(image_data));
+    } else {
+      break;
+    }
+  }
+}
+
+FeatureWriterThread::FeatureWriterThread(const size_t num_images,
+                                         Database* database,
+                                         JobQueue<ImageData>* input_queue)
+    : num_images_(num_images), database_(database), input_queue_(input_queue) {}
+
+void FeatureWriterThread::Run() {
+  while (true) {
+    if (IsStopped()) {
+      break;
+    }
+
+    auto input_job = input_queue_->Pop();
+    if (input_job.IsValid()) {
+      auto& image_data = input_job.Data();
+
+      std::cout << StringPrintf("Processed file [%d/%d]",
+                                image_data.image_index + 1, num_images_)
+                << std::endl;
+
+      std::cout << StringPrintf("  Name:            %s",
+                                image_data.image.Name().c_str())
+                << std::endl;
+
+      if (!image_data.extraction_success) {
+        std::cout << "  ERROR: Failed to extract features." << std::endl;
+        continue;
+      }
+
+      std::cout << StringPrintf("  Dimensions:      %d x %d",
+                                image_data.camera.Width(),
+                                image_data.camera.Height())
+                << std::endl;
+      std::cout << StringPrintf("  Camera:          %d (%s)",
+                                image_data.camera.CameraId(),
+                                image_data.camera.ModelName().c_str())
+                << std::endl;
+      std::cout << StringPrintf("  Focal Length:    %.2fpx (%s)",
+                                image_data.camera.FocalLength(),
+                                image_data.camera.HasPriorFocalLength()
+                                    ? "EXIF"
+                                    : "Default")
+                << std::endl;
+      if (image_data.image.HasTvecPrior()) {
+        std::cout << StringPrintf(
+                         "  GPS:           LAT=%.3f, LON=%.3f, ALT=%.3f (EXIF)",
+                         image_data.image.TvecPrior(0),
+                         image_data.image.TvecPrior(1),
+                         image_data.image.TvecPrior(2))
+                  << std::endl;
+      }
+      std::cout << StringPrintf("  Features:        %d",
+                                image_data.keypoints.size())
+                << std::endl;
+
+      DatabaseTransaction database_transaction(database_);
+
+      if (image_data.image.ImageId() == kInvalidImageId) {
+        image_data.image.SetImageId(database_->WriteImage(image_data.image));
+      }
+
+      if (!database_->ExistsKeypoints(image_data.image.ImageId())) {
+        if (image_data.bitmap.Width() != image_data.camera.Width() ||
+            image_data.bitmap.Height() != image_data.camera.Height()) {
+          const float scale_x = static_cast<float>(image_data.camera.Width()) /
+                                image_data.bitmap.Width();
+          const float scale_y = static_cast<float>(image_data.camera.Height()) /
+                                image_data.bitmap.Height();
+          const float scale_xy = 0.5f * (scale_x + scale_y);
+          for (auto& keypoint : image_data.keypoints) {
+            keypoint.x *= scale_x;
+            keypoint.y *= scale_x;
+            keypoint.scale *= scale_xy;
+          }
+        }
+
+        database_->WriteKeypoints(image_data.image.ImageId(),
+                                  image_data.keypoints);
+      }
+
+      if (!database_->ExistsDescriptors(image_data.image.ImageId())) {
+        database_->WriteDescriptors(image_data.image.ImageId(),
+                                    image_data.descriptors);
+      }
+    } else {
+      break;
+    }
+  }
+}
+
+}  // namespace internal
 }  // namespace colmap
