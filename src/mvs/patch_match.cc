@@ -336,8 +336,7 @@ void PatchMatchController::ReadProblems() {
             model.ComputeTriangulationAngles(kTriangulationAnglePercentile);
       }
 
-      const size_t max_num_src_images =
-          boost::lexical_cast<int>(src_image_names[1]);
+      const size_t max_num_src_images = std::stoll(src_image_names[1]);
 
       const auto& overlapping_images =
           shared_num_points.at(problem.ref_image_id);

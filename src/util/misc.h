@@ -23,7 +23,6 @@
 #include <vector>
 
 #include <boost/filesystem.hpp>
-#include <boost/lexical_cast.hpp>
 
 #include "util/endian.h"
 #include "util/logging.h"
@@ -157,7 +156,15 @@ std::vector<T> CSVToVector(const std::string& csv) {
       continue;
     }
     try {
-      values.push_back(boost::lexical_cast<T>(elem));
+      if (std::is_same<T, int>::value) {
+        values.push_back(std::stoi(elem));
+      } else if (std::is_same<T, float>::value) {
+        values.push_back(std::stof(elem));
+      } else if (std::is_same<T, double>::value) {
+        values.push_back(std::stod(elem));
+      } else {
+        return std::vector<T>(0);
+      }
     } catch (std::exception) {
       return std::vector<T>(0);
     }

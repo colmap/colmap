@@ -18,8 +18,6 @@
 
 #include <fstream>
 
-#include <boost/lexical_cast.hpp>
-
 #include "util/string.h"
 
 namespace colmap {

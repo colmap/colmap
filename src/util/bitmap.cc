@@ -272,7 +272,7 @@ bool Bitmap::ExifFocalLength(double* focal_length) {
     const boost::regex regex(".*?([0-9.]+).*?mm.*?");
     boost::cmatch result;
     if (boost::regex_search(focal_length_35mm_str.c_str(), result, regex)) {
-      const double focal_length_35 = boost::lexical_cast<double>(result[1]);
+      const double focal_length_35 = std::stod(result[1]);
       if (focal_length_35 > 0) {
         *focal_length = focal_length_35 / 35.0 * max_size;
         return true;
@@ -289,7 +289,7 @@ bool Bitmap::ExifFocalLength(double* focal_length) {
     boost::regex regex(".*?([0-9.]+).*?mm");
     boost::cmatch result;
     if (boost::regex_search(focal_length_str.c_str(), result, regex)) {
-      const double focal_length_mm = boost::lexical_cast<double>(result[1]);
+      const double focal_length_mm = std::stod(result[1]);
 
       // Lookup sensor width in database.
       std::string make_str;
@@ -314,11 +314,10 @@ bool Bitmap::ExifFocalLength(double* focal_length) {
                       &res_unit_str)) {
         regex = boost::regex(".*?([0-9.]+).*?");
         if (boost::regex_search(pixel_x_dim_str.c_str(), result, regex)) {
-          const double pixel_x_dim = boost::lexical_cast<double>(result[1]);
+          const double pixel_x_dim = std::stod(result[1]);
           regex = boost::regex(".*?([0-9.]+).*?/.*?([0-9.]+).*?");
           if (boost::regex_search(x_res_str.c_str(), result, regex)) {
-            const double x_res = boost::lexical_cast<double>(result[2]) /
-                                 boost::lexical_cast<double>(result[1]);
+            const double x_res = std::stod(result[2]) / std::stod(result[1]);
             // Use PixelXDimension instead of actual width of image, since
             // the image might have been resized, but the EXIF data preserved.
             const double ccd_width = x_res * pixel_x_dim;
@@ -346,9 +345,9 @@ bool Bitmap::ExifLatitude(double* latitude) {
     const boost::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
     boost::cmatch result;
     if (boost::regex_search(str.c_str(), result, regex)) {
-      const double hours = boost::lexical_cast<double>(result[1]);
-      const double minutes = boost::lexical_cast<double>(result[2]);
-      const double seconds = boost::lexical_cast<double>(result[3]);
+      const double hours = std::stod(result[1]);
+      const double minutes = std::stod(result[2]);
+      const double seconds = std::stod(result[3]);
       *latitude = hours + minutes / 60.0 + seconds / 3600.0;
       return true;
     }
@@ -362,9 +361,9 @@ bool Bitmap::ExifLongitude(double* longitude) {
     const boost::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
     boost::cmatch result;
     if (boost::regex_search(str.c_str(), result, regex)) {
-      const double hours = boost::lexical_cast<double>(result[1]);
-      const double minutes = boost::lexical_cast<double>(result[2]);
-      const double seconds = boost::lexical_cast<double>(result[3]);
+      const double hours = std::stod(result[1]);
+      const double minutes = std::stod(result[2]);
+      const double seconds = std::stod(result[3]);
       *longitude = hours + minutes / 60.0 + seconds / 3600.0;
       return true;
     }
@@ -378,8 +377,7 @@ bool Bitmap::ExifAltitude(double* altitude) {
     const boost::regex regex(".*?([0-9.]+).*?/.*?([0-9.]+).*?");
     boost::cmatch result;
     if (boost::regex_search(str.c_str(), result, regex)) {
-      *altitude = boost::lexical_cast<double>(result[1]) /
-                  boost::lexical_cast<double>(result[2]);
+      *altitude = std::stod(result[1]) / std::stod(result[2]);
       return true;
     }
   }
