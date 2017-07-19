@@ -292,7 +292,9 @@ void WarnIfMaxNumMatchesReachedGPU(const SiftMatchGPU& sift_match_gpu,
 }  // namespace
 
 bool SiftMatchingOptions::Check() const {
-  CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
+  if (use_gpu) {
+    CHECK_OPTION_GT(CSVToVector<int>(gpu_index).size(), 0);
+  }
   CHECK_OPTION_GT(max_ratio, 0.0);
   CHECK_OPTION_GT(max_distance, 0.0);
   CHECK_OPTION_GT(max_error, 0.0);
@@ -710,7 +712,7 @@ SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchingOptions& options,
     gpu_indices.resize(num_cuda_devices);
     std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
   }
-#endif
+#endif  // CUDA_ENABLED
 
   if (options_.use_gpu) {
     auto gpu_options = options_;
