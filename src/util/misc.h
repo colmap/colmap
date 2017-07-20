@@ -104,9 +104,6 @@ std::vector<T> CSVToVector(const std::string& csv);
 template <typename T>
 std::string VectorToCSV(const std::vector<T>& values);
 
-// Check the order in which bytes are stored in computer memory.
-bool IsBigEndian();
-
 // Read contiguous binary blob from file.
 template <typename T>
 void ReadBinaryBlob(const std::string& path, std::vector<T>* data);
@@ -143,35 +140,6 @@ bool VectorContainsDuplicateValues(const std::vector<T>& vector) {
   std::vector<T> unique_vector = vector;
   return std::unique(unique_vector.begin(), unique_vector.end()) !=
          unique_vector.end();
-}
-
-template <typename T>
-std::vector<T> CSVToVector(const std::string& csv) {
-  auto elems = StringSplit(csv, ",;");
-  std::vector<T> values;
-  values.reserve(elems.size());
-  for (auto& elem : elems) {
-    StringTrim(&elem);
-    if (elem.empty()) {
-      continue;
-    }
-    try {
-      if (std::is_same<T, std::string>::value) {
-        values.push_back(elem);
-      } else if (std::is_same<T, int>::value) {
-        values.push_back(std::stoi(elem));
-      } else if (std::is_same<T, float>::value) {
-        values.push_back(std::stof(elem));
-      } else if (std::is_same<T, double>::value) {
-        values.push_back(std::stod(elem));
-      } else {
-        return std::vector<T>(0);
-      }
-    } catch (std::exception) {
-      return std::vector<T>(0);
-    }
-  }
-  return values;
 }
 
 template <typename T>
