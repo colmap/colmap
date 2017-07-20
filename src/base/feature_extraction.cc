@@ -794,8 +794,10 @@ void FeatureWriterThread::Run() {
       }
 
       if (!database_->ExistsKeypoints(image_data.image.ImageId())) {
-        if (image_data.bitmap.Width() != image_data.camera.Width() ||
-            image_data.bitmap.Height() != image_data.camera.Height()) {
+        if (static_cast<size_t>(image_data.bitmap.Width()) !=
+                image_data.camera.Width() ||
+            static_cast<size_t>(image_data.bitmap.Height()) !=
+                image_data.camera.Height()) {
           const float scale_x = static_cast<float>(image_data.camera.Width()) /
                                 image_data.bitmap.Width();
           const float scale_y = static_cast<float>(image_data.camera.Height()) /
