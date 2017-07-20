@@ -409,7 +409,7 @@ bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
   static std::mutex mutex;
   std::unique_lock<std::mutex> lock(mutex);
 
-  const std::vector<int> gpu_indices = CSVToVector<int>(options.gpu_index);
+  std::vector<int> gpu_indices = CSVToVector<int>(options.gpu_index);
   CHECK_EQ(gpu_indices.size(), 1) << "SiftGPU can only run on one GPU";
 
   std::vector<std::string> sift_gpu_args;
@@ -424,7 +424,7 @@ bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
 
   if (gpu_indices[0] >= 0) {
     sift_gpu_args.push_back("-cuda");
-    sift_gpu_args.push_back(gpu_indices[0]);
+    sift_gpu_args.push_back(std::to_string(gpu_indices[0]));
   }
 #endif  // CUDA_ENABLED
 
