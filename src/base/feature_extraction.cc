@@ -22,6 +22,7 @@
 
 #include "ext/SiftGPU/SiftGPU.h"
 #include "ext/VLFeat/sift.h"
+#include "util/cuda.h"
 #include "util/misc.h"
 
 namespace colmap {
