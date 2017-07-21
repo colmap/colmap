@@ -29,7 +29,6 @@ int main(int argc, char** argv) {
 
   OptionManager options;
   options.AddDatabaseOptions();
-  options.AddImageOptions();
   options.AddRequiredOption("import_path", &import_path);
   options.AddRequiredOption("export_path", &export_path);
   options.AddMapperOptions();
