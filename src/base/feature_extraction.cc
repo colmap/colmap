@@ -500,9 +500,19 @@ bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
   CHECK_NOTNULL(descriptors);
   CHECK_EQ(options.max_image_size, sift_gpu->GetMaxDimension());
 
-  ////////////////////////////////////////////////////////////////////////////
-  // Extract features
-  ////////////////////////////////////////////////////////////////////////////
+  // Make sure the SiftGPU keypoint is equivalent to ours.
+  static_assert(
+      offsetof(SiftGPU::SiftKeypoint, x) == offsetof(FeatureKeypoint, x),
+      "Invalid keypoint format");
+  static_assert(
+      offsetof(SiftGPU::SiftKeypoint, y) == offsetof(FeatureKeypoint, y),
+      "Invalid keypoint format");
+  static_assert(
+      offsetof(SiftGPU::SiftKeypoint, s) == offsetof(FeatureKeypoint, scale),
+      "Invalid keypoint format");
+  static_assert(offsetof(SiftGPU::SiftKeypoint, o) ==
+                    offsetof(FeatureKeypoint, orientation),
+                "Invalid keypoint format");
 
   // Note, that this produces slightly different results than using SiftGPU
   // directly for RGB->GRAY conversion, since it uses different weights.
@@ -517,24 +527,16 @@ bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
   }
 
   const size_t num_features = static_cast<size_t>(sift_gpu->GetFeatureNum());
-  std::vector<SiftGPU::SiftKeypoint> sift_gpu_keypoints(num_features);
+  keypoints->resize(num_features);
 
   // Eigen's default is ColMajor, but SiftGPU stores result as RowMajor.
   Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
       descriptors_float(num_features, 128);
 
   // Download the extracted keypoints and descriptors.
-  sift_gpu->GetFeatureVector(sift_gpu_keypoints.data(),
-                             descriptors_float.data());
-
-  // Save keypoints and scale locations if original bitmap was down-sampled.
-  keypoints->resize(num_features);
-  for (size_t i = 0; i < sift_gpu_keypoints.size(); ++i) {
-    (*keypoints)[i].x = sift_gpu_keypoints[i].x;
-    (*keypoints)[i].y = sift_gpu_keypoints[i].y;
-    (*keypoints)[i].scale = sift_gpu_keypoints[i].s;
-    (*keypoints)[i].orientation = sift_gpu_keypoints[i].o;
-  }
+  sift_gpu->GetFeatureVector(
+      reinterpret_cast<SiftGPU::SiftKeypoint*>(keypoints->data()),
+      descriptors_float.data());
 
   // Save and normalize the descriptors.
   if (options.normalization == SiftExtractionOptions::Normalization::L2) {
