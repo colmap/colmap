@@ -99,12 +99,6 @@ bool Thread::IsFinished() {
   return finished_;
 }
 
-bool Thread::IsSetupValid() {
-  std::unique_lock<std::mutex> lock(mutex_);
-  CHECK(setup_);
-  return setup_valid_;
-}
-
 void Thread::AddCallback(const int id, const std::function<void()>& func) {
   CHECK(func);
   CHECK_GT(callbacks_.count(id), 0) << "Callback not registered";
@@ -155,11 +149,12 @@ void Thread::BlockIfPaused() {
   }
 }
 
-void Thread::BlockUntilSetup() {
+bool Thread::CheckValidSetup() {
   std::unique_lock<std::mutex> lock(mutex_);
   if (!setup_) {
     setup_condition_.wait(lock);
   }
+  return setup_valid_;
 }
 
 void Thread::RunFunc() {

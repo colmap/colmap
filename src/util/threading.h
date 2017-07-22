@@ -89,7 +89,7 @@ namespace colmap {
 //      thread.AddCallback(MyThread::FINISHED_CALLBACK, []() {
 //        std::cout << "Finished"; })
 //      thread.Start();
-//      // thread.BlockUntilSetup();
+//      // thread.CheckValidSetup();
 //      // Pause, resume, stop, ...
 //      thread.Wait();
 //      thread.Timer().PrintElapsedSeconds();
@@ -118,19 +118,16 @@ class Thread {
   bool IsRunning();
   bool IsFinished();
 
-  // Check whether setup is valid. Note that the result is only meaningful if
-  // the thread gives a setup signal. Thus, a call to this function should be
-  // preceded by a `BlockUntilSetup` call. Otherwise, it fails ungracefully.
-  bool IsSetupValid();
-
   // To be called from inside the main run function. This blocks the main
   // caller, if the thread is paused, until the thread is resumed.
   void BlockIfPaused();
 
   // To be called from outside. This blocks the caller until the thread is
-  // setup, i.e. it signaled that its setup was valid or not. If it nevers gives
-  // this signal, this call will block the caller infinitely.
-  void BlockUntilSetup();
+  // setup, i.e. it signaled that its setup was valid or not. If it never gives
+  // this signal, this call will block the caller infinitely. Check whether
+  // setup is valid. Note that the result is only meaningful if the thread gives
+  // a setup signal.
+  bool CheckValidSetup();
 
   // Set callbacks that can be triggered within the main run function.
   void AddCallback(const int id, const std::function<void()>& func);

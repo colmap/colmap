@@ -133,8 +133,7 @@ void SiftFeatureExtractor::Run() {
   writer_->Start();
 
   for (auto& extractor : extractors_) {
-    extractor->BlockUntilSetup();
-    if (!extractor->IsSetupValid()) {
+    if (!extractor->CheckValidSetup()) {
       return;
     }
   }

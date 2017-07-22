@@ -816,15 +816,13 @@ bool SiftFeatureMatcher::Setup() {
   }
 
   for (auto& matcher : matchers_) {
-    matcher->BlockUntilSetup();
-    if (!matcher->IsSetupValid()) {
+    if (!matcher->CheckValidSetup()) {
       return false;
     }
   }
 
   for (auto& guided_matcher : guided_matchers_) {
-    guided_matcher->BlockUntilSetup();
-    if (!guided_matcher->IsSetupValid()) {
+    if (!guided_matcher->CheckValidSetup()) {
       return false;
     }
   }

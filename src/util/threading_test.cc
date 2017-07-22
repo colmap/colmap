@@ -233,11 +233,8 @@ BOOST_AUTO_TEST_CASE(TestThreadValidSetup) {
 
   thread.Start();
 
-  thread.BlockUntilSetup();
-  BOOST_CHECK(thread.IsSetupValid());
-
-  thread.BlockUntilSetup();
-  BOOST_CHECK(thread.IsSetupValid());
+  BOOST_CHECK(thread.CheckValidSetup());
+  BOOST_CHECK(thread.CheckValidSetup());
 
   thread.Wait();
   BOOST_CHECK(thread.IsStarted());
@@ -245,7 +242,7 @@ BOOST_AUTO_TEST_CASE(TestThreadValidSetup) {
   BOOST_CHECK(!thread.IsPaused());
   BOOST_CHECK(!thread.IsRunning());
   BOOST_CHECK(thread.IsFinished());
-  BOOST_CHECK(thread.IsSetupValid());
+  BOOST_CHECK(thread.CheckValidSetup());
 }
 
 BOOST_AUTO_TEST_CASE(TestThreadInvalidSetup) {
@@ -265,11 +262,8 @@ BOOST_AUTO_TEST_CASE(TestThreadInvalidSetup) {
 
   thread.Start();
 
-  thread.BlockUntilSetup();
-  BOOST_CHECK(!thread.IsSetupValid());
-
-  thread.BlockUntilSetup();
-  BOOST_CHECK(!thread.IsSetupValid());
+  BOOST_CHECK(!thread.CheckValidSetup());
+  BOOST_CHECK(!thread.CheckValidSetup());
 
   thread.Wait();
   BOOST_CHECK(thread.IsStarted());
@@ -277,7 +271,7 @@ BOOST_AUTO_TEST_CASE(TestThreadInvalidSetup) {
   BOOST_CHECK(!thread.IsPaused());
   BOOST_CHECK(!thread.IsRunning());
   BOOST_CHECK(thread.IsFinished());
-  BOOST_CHECK(!thread.IsSetupValid());
+  BOOST_CHECK(!thread.CheckValidSetup());
 }
 
 BOOST_AUTO_TEST_CASE(TestCallback) {
