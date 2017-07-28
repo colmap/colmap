@@ -386,7 +386,7 @@ std::vector<GR6PEstimator::M_t> GR6PEstimator::Estimate(
   std::vector<Eigen::Vector3d> proj_centers2(points1.size());
   std::vector<Eigen::Vector6d> plueckers1(points1.size());
   std::vector<Eigen::Vector6d> plueckers2(points1.size());
-  for (int i = 0; i < points1.size(); ++i) {
+  for (size_t i = 0; i < points1.size(); ++i) {
     ComposePlueckerData(points1[i].rel_tform, points1[i].xy, &proj_centers1[i],
                         &plueckers1[i]);
     ComposePlueckerData(points2[i].rel_tform, points2[i].xy, &proj_centers2[i],
