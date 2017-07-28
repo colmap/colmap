@@ -150,11 +150,8 @@ void SiftFeatureExtractor::Run() {
     }
 
     internal::ImageData image_data;
-    image_data.image_index = image_reader_.NextIndex();
-    if (!image_reader_.Next(&image_data.camera, &image_data.image,
-                            &image_data.bitmap)) {
-      continue;
-    }
+    image_data.status = image_reader_.Next(
+        &image_data.camera, &image_data.image, &image_data.bitmap);
 
     if (sift_options_.max_image_size > 0) {
       CHECK(resizer_queue_->Push(image_data));
@@ -211,7 +208,8 @@ void FeatureImporter::Run() {
     Camera camera;
     Image image;
     Bitmap bitmap;
-    if (!image_reader.Next(&camera, &image, &bitmap)) {
+    if (image_reader.Next(&camera, &image, &bitmap) !=
+        ImageReader::Status::SUCCESS) {
       continue;
     }
 
@@ -625,18 +623,20 @@ void ImageResizerThread::Run() {
     if (input_job.IsValid()) {
       auto image_data = input_job.Data();
 
-      if (static_cast<int>(image_data.bitmap.Width()) > max_image_size_ ||
-          static_cast<int>(image_data.bitmap.Height()) > max_image_size_) {
-        // Fit the down-sampled version exactly into the max dimensions.
-        const double scale =
-            static_cast<double>(max_image_size_) /
-            std::max(image_data.bitmap.Width(), image_data.bitmap.Height());
-        const int new_width =
-            static_cast<int>(image_data.bitmap.Width() * scale);
-        const int new_height =
-            static_cast<int>(image_data.bitmap.Height() * scale);
+      if (image_data.status == ImageReader::Status::SUCCESS) {
+        if (static_cast<int>(image_data.bitmap.Width()) > max_image_size_ ||
+            static_cast<int>(image_data.bitmap.Height()) > max_image_size_) {
+          // Fit the down-sampled version exactly into the max dimensions.
+          const double scale =
+              static_cast<double>(max_image_size_) /
+              std::max(image_data.bitmap.Width(), image_data.bitmap.Height());
+          const int new_width =
+              static_cast<int>(image_data.bitmap.Width() * scale);
+          const int new_height =
+              static_cast<int>(image_data.bitmap.Height() * scale);
 
-        image_data.bitmap.Rescale(new_width, new_height);
+          image_data.bitmap.Rescale(new_width, new_height);
+        }
       }
 
       output_queue_->Push(image_data);
@@ -667,12 +667,12 @@ void SiftCPUFeatureExtractorThread::Run() {
     if (input_job.IsValid()) {
       auto image_data = input_job.Data();
 
-      if (!ExtractSiftFeaturesCPU(sift_options_, image_data.bitmap,
-                                  &image_data.keypoints,
-                                  &image_data.descriptors)) {
-        image_data.extraction_success = false;
-      } else {
-        image_data.extraction_success = true;
+      if (image_data.status == ImageReader::Status::SUCCESS) {
+        if (!ExtractSiftFeaturesCPU(sift_options_, image_data.bitmap,
+                                    &image_data.keypoints,
+                                    &image_data.descriptors)) {
+          image_data.status = ImageReader::Status::FAILURE;
+        }
       }
 
       output_queue_->Push(image_data);
@@ -719,12 +719,12 @@ void SiftGPUFeatureExtractorThread::Run() {
     if (input_job.IsValid()) {
       auto image_data = input_job.Data();
 
-      if (!ExtractSiftFeaturesGPU(sift_options_, image_data.bitmap, &sift_gpu,
-                                  &image_data.keypoints,
-                                  &image_data.descriptors)) {
-        image_data.extraction_success = false;
-      } else {
-        image_data.extraction_success = true;
+      if (image_data.status == ImageReader::Status::SUCCESS) {
+        if (!ExtractSiftFeaturesGPU(sift_options_, image_data.bitmap, &sift_gpu,
+                                    &image_data.keypoints,
+                                    &image_data.descriptors)) {
+          image_data.status = ImageReader::Status::FAILURE;
+        }
       }
 
       output_queue_->Push(image_data);
@@ -740,6 +740,7 @@ FeatureWriterThread::FeatureWriterThread(const size_t num_images,
     : num_images_(num_images), database_(database), input_queue_(input_queue) {}
 
 void FeatureWriterThread::Run() {
+  size_t image_index = 0;
   while (true) {
     if (IsStopped()) {
       break;
@@ -749,16 +750,37 @@ void FeatureWriterThread::Run() {
     if (input_job.IsValid()) {
       auto& image_data = input_job.Data();
 
-      std::cout << StringPrintf("Processed file [%d/%d]",
-                                image_data.image_index + 1, num_images_)
+      image_index += 1;
+
+      std::cout << StringPrintf("Processed file [%d/%d]", image_index,
+                                num_images_)
                 << std::endl;
 
       std::cout << StringPrintf("  Name:            %s",
                                 image_data.image.Name().c_str())
                 << std::endl;
 
-      if (!image_data.extraction_success) {
+      if (image_data.status == ImageReader::Status::IMAGE_EXISTS) {
+        std::cout << "  SKIP: Features for image already extracted."
+                  << std::endl;
+      } else if (image_data.status == ImageReader::Status::BITMAP_ERROR) {
+        std::cout << "  ERROR: Failed to read image file format." << std::endl;
+      } else if (image_data.status ==
+                 ImageReader::Status::CAMERA_SINGLE_ERROR) {
+        std::cout << "  ERROR: Single camera specified, "
+                     "but images have different dimensions."
+                  << std::endl;
+      } else if (image_data.status == ImageReader::Status::CAMERA_DIM_ERROR) {
+        std::cout << "  ERROR: Image previously processed, but current file "
+                     "has different image dimensions."
+                  << std::endl;
+      } else if (image_data.status == ImageReader::Status::CAMERA_PARAM_ERROR) {
+        std::cout << "  ERROR: Camera has invalid parameters." << std::endl;
+      } else if (image_data.status == ImageReader::Status::FAILURE) {
         std::cout << "  ERROR: Failed to extract features." << std::endl;
+      }
+
+      if (image_data.status != ImageReader::Status::SUCCESS) {
         continue;
       }
 
@@ -777,12 +799,12 @@ void FeatureWriterThread::Run() {
                                     : "Default")
                 << std::endl;
       if (image_data.image.HasTvecPrior()) {
-        std::cout << StringPrintf(
-                         "  GPS:           LAT=%.3f, LON=%.3f, ALT=%.3f (EXIF)",
-                         image_data.image.TvecPrior(0),
-                         image_data.image.TvecPrior(1),
-                         image_data.image.TvecPrior(2))
-                  << std::endl;
+        std::cout
+            << StringPrintf(
+                   "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f (EXIF)",
+                   image_data.image.TvecPrior(0), image_data.image.TvecPrior(1),
+                   image_data.image.TvecPrior(2))
+            << std::endl;
       }
       std::cout << StringPrintf("  Features:        %d",
                                 image_data.keypoints.size())

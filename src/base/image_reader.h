@@ -57,9 +57,19 @@ class ImageReader {
     bool Check() const;
   };
 
+  enum class Status {
+    FAILURE,
+    SUCCESS,
+    IMAGE_EXISTS,
+    BITMAP_ERROR,
+    CAMERA_SINGLE_ERROR,
+    CAMERA_DIM_ERROR,
+    CAMERA_PARAM_ERROR
+  };
+
   explicit ImageReader(const Options& options, Database* database);
 
-  bool Next(Camera* camera, Image* image, Bitmap* bitmap);
+  Status Next(Camera* camera, Image* image, Bitmap* bitmap);
   size_t NextIndex() const;
   size_t NumImages() const;
 

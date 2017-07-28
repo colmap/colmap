@@ -175,13 +175,12 @@ void LoadSiftFeaturesFromTextFile(const std::string& path,
 namespace internal {
 
 struct ImageData {
-  size_t image_index = 0;
+  ImageReader::Status status = ImageReader::Status::FAILURE;
 
   Camera camera;
   Image image;
   Bitmap bitmap;
 
-  bool extraction_success = false;
   FeatureKeypoints keypoints;
   FeatureDescriptors descriptors;
 };

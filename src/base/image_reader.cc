@@ -57,15 +57,14 @@ ImageReader::ImageReader(const Options& options, Database* database)
   }
 }
 
-bool ImageReader::Next(Camera* camera, Image* image, Bitmap* bitmap) {
+ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
+                                      Bitmap* bitmap) {
   CHECK_NOTNULL(camera);
   CHECK_NOTNULL(image);
   CHECK_NOTNULL(bitmap);
 
   image_index_ += 1;
-  if (image_index_ > options_.image_list.size()) {
-    return false;
-  }
+  CHECK_LE(image_index_, options_.image_list.size());
 
   const std::string image_path = options_.image_list.at(image_index_ - 1);
 
@@ -94,7 +93,7 @@ bool ImageReader::Next(Camera* camera, Image* image, Bitmap* bitmap) {
         database_->ExistsDescriptors(image->ImageId());
 
     if (exists_keypoints && exists_descriptors) {
-      return false;
+      return Status::IMAGE_EXISTS;
     }
   }
 
@@ -103,7 +102,7 @@ bool ImageReader::Next(Camera* camera, Image* image, Bitmap* bitmap) {
   //////////////////////////////////////////////////////////////////////////////
 
   if (!bitmap->Read(image_path, false)) {
-    return false;
+    return Status::BITMAP_ERROR;
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -116,17 +115,12 @@ bool ImageReader::Next(Camera* camera, Image* image, Bitmap* bitmap) {
     if (options_.single_camera && prev_camera_.CameraId() != kInvalidCameraId &&
         (camera.Width() != prev_camera_.Width() ||
          camera.Height() != prev_camera_.Height())) {
-      std::cerr << "ERROR: Single camera specified, but images have "
-                   "different dimensions."
-                << std::endl;
-      return false;
+      return Status::CAMERA_SINGLE_ERROR;
     }
 
     if (static_cast<size_t>(bitmap->Width()) != camera.Width() ||
         static_cast<size_t>(bitmap->Height()) != camera.Height()) {
-      std::cerr << "ERROR: Image previously processed, but current version "
-                   "has different dimensions."
-                << std::endl;
+      return Status::CAMERA_DIM_ERROR;
     }
   }
 
@@ -137,10 +131,7 @@ bool ImageReader::Next(Camera* camera, Image* image, Bitmap* bitmap) {
   if (options_.single_camera && prev_camera_.CameraId() != kInvalidCameraId &&
       (prev_camera_.Width() != static_cast<size_t>(bitmap->Width()) ||
        prev_camera_.Height() != static_cast<size_t>(bitmap->Height()))) {
-    std::cerr << "ERROR: Single camera specified, but images have "
-                 "different dimensions."
-              << std::endl;
-    return false;
+    return Status::CAMERA_SINGLE_ERROR;
   }
 
   prev_camera_.SetWidth(static_cast<size_t>(bitmap->Width()));
@@ -168,8 +159,7 @@ bool ImageReader::Next(Camera* camera, Image* image, Bitmap* bitmap) {
     }
 
     if (!prev_camera_.VerifyParams()) {
-      std::cerr << "ERROR: Invalid camera parameters." << std::endl;
-      return false;
+      return Status::CAMERA_PARAM_ERROR;
     }
 
     prev_camera_.SetCameraId(database_->WriteCamera(prev_camera_));
@@ -191,7 +181,7 @@ bool ImageReader::Next(Camera* camera, Image* image, Bitmap* bitmap) {
 
   *camera = prev_camera_;
 
-  return true;
+  return Status::SUCCESS;
 }
 
 size_t ImageReader::NextIndex() const { return image_index_; }
