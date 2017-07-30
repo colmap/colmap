@@ -415,7 +415,7 @@ void PatchMatchController::ProcessProblem(const PatchMatch::Options& options,
     return;
   }
 
-  const auto model = workspace_->GetModel();
+  const auto& model = workspace_->GetModel();
 
   auto& problem = problems_.at(problem_idx);
   const int gpu_index = gpu_indices_.at(thread_pool_->GetThreadIndex());
