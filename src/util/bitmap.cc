@@ -525,19 +525,15 @@ bool Bitmap::ReadExifTag(const FREE_IMAGE_MDMODEL model,
 }
 
 void Bitmap::SetPtr(FIBITMAP* data) {
-  CHECK(IsPtrSupported(data));
+  if (!IsPtrSupported(data)) {
+    FreeImage_Unload(data);
+    data = FreeImage_ConvertTo24Bits(data);
+  }
 
   data_ = FIBitmapPtr(data, &FreeImage_Unload);
   width_ = FreeImage_GetWidth(data);
   height_ = FreeImage_GetHeight(data);
-
-  if (!IsPtrGrey(data) && !IsPtrRGB(data)) {
-    FIBITMAP* data_converted = FreeImage_ConvertTo24Bits(data);
-    data_ = FIBitmapPtr(data_converted, &FreeImage_Unload);
-    channels_ = 3;
-  } else {
-    channels_ = IsPtrRGB(data) ? 3 : 1;
-  }
+  channels_ = IsPtrRGB(data) ? 3 : 1;
 }
 
 bool Bitmap::IsPtrGrey(FIBITMAP* data) {
