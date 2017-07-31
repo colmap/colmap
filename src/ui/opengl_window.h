@@ -74,7 +74,7 @@ class OpenGLWindow : public QWindow {
   void ChangeFocusDistance(const float delta);
   void ChangeNearPlane(const float delta);
   void ChangePointSize(const float delta);
-  void ChangeImageSize(const float delta);
+  void ChangeCameraSize(const float delta);
 
   void RotateView(const float x, const float y, const float prev_x,
                   const float prev_y);

@@ -37,8 +37,35 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
   setWindowModality(Qt::NonModal);
   setWindowTitle("Render options");
 
-  AddOptionDouble(&options->render->max_error, "Max. error [px]");
-  AddOptionInt(&options->render->min_track_len, "Min. track length", 0);
+  QLabel* point_size_label = new QLabel(tr("Point size"), this);
+  point_size_label->setFont(font());
+  point_size_label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+  QHBoxLayout* point_size_layout = new QHBoxLayout();
+  QPushButton* decrease_point_size = new QPushButton("-", this);
+  connect(decrease_point_size, &QPushButton::released, this,
+          &RenderOptionsWidget::DecreasePointSize);
+  QPushButton* increase_point_size = new QPushButton("+", this);
+  connect(increase_point_size, &QPushButton::released, this,
+          &RenderOptionsWidget::IncreasePointSize);
+  point_size_layout->addWidget(decrease_point_size);
+  point_size_layout->addWidget(increase_point_size);
+  grid_layout_->addWidget(point_size_label, grid_layout_->rowCount(), 0);
+  grid_layout_->addLayout(point_size_layout, grid_layout_->rowCount() - 1, 1);
+
+  QLabel* camera_size_label = new QLabel(tr("Camera size"), this);
+  camera_size_label->setFont(font());
+  camera_size_label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+  QHBoxLayout* camera_size_layout = new QHBoxLayout();
+  QPushButton* decrease_camera_size = new QPushButton("-", this);
+  connect(decrease_camera_size, &QPushButton::released, this,
+          &RenderOptionsWidget::DecreaseCameraSize);
+  QPushButton* increase_camera_size = new QPushButton("+", this);
+  connect(increase_camera_size, &QPushButton::released, this,
+          &RenderOptionsWidget::IncreaseCameraSize);
+  camera_size_layout->addWidget(decrease_camera_size);
+  camera_size_layout->addWidget(increase_camera_size);
+  grid_layout_->addWidget(camera_size_label, grid_layout_->rowCount(), 0);
+  grid_layout_->addLayout(camera_size_layout, grid_layout_->rowCount() - 1, 1);
 
   AddSpacer();
 
@@ -51,6 +78,13 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
   projection_label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
   grid_layout_->addWidget(projection_label, grid_layout_->rowCount(), 0);
   grid_layout_->addWidget(projection_cb_, grid_layout_->rowCount() - 1, 1);
+
+  AddSpacer();
+
+  AddOptionDouble(&options->render->max_error, "Max. error [px]");
+  AddOptionInt(&options->render->min_track_len, "Min. track length", 0);
+
+  AddSpacer();
 
   point3D_colormap_cb_ = new QComboBox(this);
   point3D_colormap_cb_->addItem("Photometric");
@@ -173,6 +207,26 @@ void RenderOptionsWidget::SelectBackgroundColor() {
   bg_red_spinbox_->setValue(selected_color.red() / 255.0);
   bg_green_spinbox_->setValue(selected_color.green() / 255.0);
   bg_blue_spinbox_->setValue(selected_color.blue() / 255.0);
+}
+
+void RenderOptionsWidget::IncreasePointSize() {
+  const float kDelta = 100;
+  opengl_window_->ChangePointSize(kDelta);
+}
+
+void RenderOptionsWidget::DecreasePointSize() {
+  const float kDelta = -100;
+  opengl_window_->ChangePointSize(kDelta);
+}
+
+void RenderOptionsWidget::IncreaseCameraSize() {
+  const float kDelta = 100;
+  opengl_window_->ChangeCameraSize(kDelta);
+}
+
+void RenderOptionsWidget::DecreaseCameraSize() {
+  const float kDelta = -100;
+  opengl_window_->ChangeCameraSize(kDelta);
 }
 
 }  // namespace colmap

@@ -46,6 +46,11 @@ class RenderOptionsWidget : public OptionsWidget {
 
   void SelectBackgroundColor();
 
+  void IncreasePointSize();
+  void DecreasePointSize();
+  void IncreaseCameraSize();
+  void DecreaseCameraSize();
+
   OptionManager* options_;
   OpenGLWindow* opengl_window_;
 

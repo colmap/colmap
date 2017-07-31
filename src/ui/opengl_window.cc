@@ -347,7 +347,7 @@ void OpenGLWindow::TranslateView(const float x, const float y,
   PaintGL();
 }
 
-void OpenGLWindow::ChangeImageSize(const float delta) {
+void OpenGLWindow::ChangeCameraSize(const float delta) {
   if (delta == 0.0f) {
     return;
   }
@@ -523,7 +523,7 @@ void OpenGLWindow::wheelEvent(QWheelEvent* event) {
   if (event->modifiers() & Qt::ControlModifier) {
     ChangePointSize(event->delta());
   } else if (event->modifiers() & Qt::AltModifier) {
-    ChangeImageSize(event->delta());
+    ChangeCameraSize(event->delta());
   } else if (event->modifiers() & Qt::ShiftModifier) {
     ChangeNearPlane(event->delta());
   } else {
