@@ -273,7 +273,9 @@ void PatchMatchController::ReadProblems() {
 
   const auto model = workspace_->GetModel();
 
-  if (workspace_format_ == "PMVS") {
+  auto workspace_format_lower_case = workspace_format_;
+  StringToLower(&workspace_format_lower_case);
+  if (workspace_format_lower_case == "pmvs") {
     std::cout << "Importing PMVS options..." << std::endl;
     ImportPMVSOption(model, workspace_path_, pmvs_option_name_);
   }
