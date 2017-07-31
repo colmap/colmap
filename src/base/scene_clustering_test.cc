@@ -95,9 +95,14 @@ BOOST_AUTO_TEST_CASE(TestThreeLevels) {
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids[1], 1);
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids[2], 2);
   BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters().size(), 3);
-  BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters()[0]->image_ids[0], 1);
-  BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters()[1]->image_ids[0], 2);
-  BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters()[2]->image_ids[0], 0);
+  std::set<int> image_ids;
+  image_ids.insert(scene_clustering.GetLeafClusters()[0]->image_ids[0]);
+  image_ids.insert(scene_clustering.GetLeafClusters()[1]->image_ids[0]);
+  image_ids.insert(scene_clustering.GetLeafClusters()[2]->image_ids[0]);
+  BOOST_CHECK_EQUAL(image_ids.size(), 3);
+  BOOST_CHECK(image_ids.count(0));
+  BOOST_CHECK(image_ids.count(1));
+  BOOST_CHECK(image_ids.count(2));
 }
 
 BOOST_AUTO_TEST_CASE(TestThreeLevelsMultipleImages) {
@@ -116,10 +121,15 @@ BOOST_AUTO_TEST_CASE(TestThreeLevelsMultipleImages) {
   BOOST_CHECK_EQUAL(scene_clustering.GetRootCluster()->image_ids[2], 2);
   BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters().size(), 2);
   BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters()[0]->image_ids.size(), 1);
-  BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters()[0]->image_ids[0], 1);
   BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters()[1]->image_ids.size(), 2);
-  BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters()[1]->image_ids[0], 0);
-  BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters()[1]->image_ids[1], 2);
+  std::set<int> image_ids;
+  image_ids.insert(scene_clustering.GetLeafClusters()[0]->image_ids[0]);
+  image_ids.insert(scene_clustering.GetLeafClusters()[1]->image_ids[0]);
+  image_ids.insert(scene_clustering.GetLeafClusters()[1]->image_ids[1]);
+  BOOST_CHECK_EQUAL(image_ids.size(), 3);
+  BOOST_CHECK(image_ids.count(0));
+  BOOST_CHECK(image_ids.count(1));
+  BOOST_CHECK(image_ids.count(2));
 }
 
 BOOST_AUTO_TEST_CASE(TestOneOverlap) {
