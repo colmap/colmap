@@ -111,8 +111,13 @@ BOOST_AUTO_TEST_CASE(TestJoinPaths) {
   BOOST_CHECK_EQUAL(JoinPaths("/test1/test2/"), "/test1/test2/");
   BOOST_CHECK_EQUAL(JoinPaths("\\test1/test2/"), "\\test1/test2/");
   BOOST_CHECK_EQUAL(JoinPaths("\\test1\\test2\\"), "\\test1\\test2\\");
+#ifdef _MSC_VER
+  BOOST_CHECK_EQUAL(JoinPaths("test1", "test2"), "test1\\test2");
+  BOOST_CHECK_EQUAL(JoinPaths("/test1", "test2"), "/test1\\test2");
+#else
   BOOST_CHECK_EQUAL(JoinPaths("test1", "test2"), "test1/test2");
   BOOST_CHECK_EQUAL(JoinPaths("/test1", "test2"), "/test1/test2");
+#endif
   BOOST_CHECK_EQUAL(JoinPaths("/test1", "/test2"), "/test1/test2");
   BOOST_CHECK_EQUAL(JoinPaths("/test1", "/test2/"), "/test1/test2/");
   BOOST_CHECK_EQUAL(JoinPaths("/test1", "/test2/", "test3.ext"),
