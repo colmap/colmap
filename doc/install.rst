@@ -18,6 +18,8 @@ For convenience, the pre-built binaries for Windows contain both the graphical
 and command-line interface executables. To start the COLMAP GUI, you can simply
 run the ``COLMAP.bat`` batch script. The command-line executables are located in
 the ``bin`` folder and can be run from the Windows command shell ``cmd.exe``.
+Note that you must set the relative path to the pre-built libraries in the
+``lib`` directory accordingly using the command ``set PATH=%CD%\lib;%PATH%``.
 
 
 Mac
