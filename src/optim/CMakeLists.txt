@@ -3,6 +3,7 @@ set(FOLDER_NAME "optim")
 COLMAP_ADD_LIBRARY(optim
     bundle_adjustment.h bundle_adjustment.cc
     combination_sampler.h combination_sampler.cc
+    least_absolute_deviations.h least_absolute_deviations.cc
     progressive_sampler.h progressive_sampler.cc
     random_sampler.h random_sampler.cc
     sprt.h sprt.cc
@@ -11,6 +12,8 @@ COLMAP_ADD_LIBRARY(optim
 
 COLMAP_ADD_TEST(bundle_adjustment_test bundle_adjustment_test.cc)
 COLMAP_ADD_TEST(combination_sampler_test combination_sampler_test.cc)
+COLMAP_ADD_TEST(least_absolute_deviations_test
+                least_absolute_deviations_test.cc)
 COLMAP_ADD_TEST(loransac_test loransac_test.cc)
 COLMAP_ADD_TEST(progressive_sampler_test progressive_sampler_test.cc)
 COLMAP_ADD_TEST(random_sampler_test random_sampler_test.cc)
