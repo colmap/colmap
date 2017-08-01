@@ -76,10 +76,12 @@ SiftFeatureExtractor::SiftFeatureExtractor(
   const int num_threads = GetEffectiveNumThreads(sift_options_.num_threads);
   CHECK_GT(num_threads, 0);
 
-  // Make sure that we only have limited number of objects in the queue.
-  resizer_queue_.reset(new JobQueue<internal::ImageData>(num_threads));
-  extractor_queue_.reset(new JobQueue<internal::ImageData>(num_threads));
-  writer_queue_.reset(new JobQueue<internal::ImageData>(num_threads));
+  // Make sure that we only have limited number of objects in the queue to avoid
+  // excess in memory usage since images and features take lots of memory.
+  const int kQueueSize = 1;
+  resizer_queue_.reset(new JobQueue<internal::ImageData>(kQueueSize));
+  extractor_queue_.reset(new JobQueue<internal::ImageData>(kQueueSize));
+  writer_queue_.reset(new JobQueue<internal::ImageData>(kQueueSize));
 
   if (sift_options_.max_image_size > 0) {
     for (int i = 0; i < num_threads; ++i) {
@@ -152,6 +154,10 @@ void SiftFeatureExtractor::Run() {
     internal::ImageData image_data;
     image_data.status = image_reader_.Next(
         &image_data.camera, &image_data.image, &image_data.bitmap);
+
+    if (image_data.status != ImageReader::Status::SUCCESS) {
+      image_data.bitmap.Deallocate();
+    }
 
     if (sift_options_.max_image_size > 0) {
       CHECK(resizer_queue_->Push(image_data));
@@ -675,6 +681,8 @@ void SiftCPUFeatureExtractorThread::Run() {
         }
       }
 
+      image_data.bitmap.Deallocate();
+
       output_queue_->Push(image_data);
     } else {
       break;
@@ -726,6 +734,8 @@ void SiftGPUFeatureExtractorThread::Run() {
           image_data.status = ImageReader::Status::FAILURE;
         }
       }
+
+      image_data.bitmap.Deallocate();
 
       output_queue_->Push(image_data);
     } else {
