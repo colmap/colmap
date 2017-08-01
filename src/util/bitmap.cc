@@ -81,6 +81,13 @@ bool Bitmap::Allocate(const int width, const int height, const bool as_rgb) {
   return data != nullptr;
 }
 
+void Bitmap::Deallocate() {
+  data_.reset();
+  width_ = 0;
+  height_ = 0;
+  channels_ = 0;
+}
+
 size_t Bitmap::NumBytes() const {
   if (data_) {
     return ScanWidth() * height_;

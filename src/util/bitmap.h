@@ -78,6 +78,9 @@ class Bitmap {
   // Allocate bitmap by overwriting the existing data.
   bool Allocate(const int width, const int height, const bool as_rgb);
 
+  // Deallocate the bitmap by releasing the existing data.
+  void Deallocate();
+
   // Get pointer to underlying FreeImage object.
   inline const FIBITMAP* Data() const;
   inline FIBITMAP* Data();

@@ -66,6 +66,18 @@ BOOST_AUTO_TEST_CASE(TestAllocateGrey) {
   BOOST_CHECK_EQUAL(bitmap.IsGrey(), true);
 }
 
+BOOST_AUTO_TEST_CASE(TestDeallocate) {
+  Bitmap bitmap;
+  bitmap.Allocate(100, 100, false);
+  bitmap.Deallocate();
+  BOOST_CHECK_EQUAL(bitmap.Width(), 0);
+  BOOST_CHECK_EQUAL(bitmap.Height(), 0);
+  BOOST_CHECK_EQUAL(bitmap.Channels(), 0);
+  BOOST_CHECK_EQUAL(bitmap.NumBytes(), 0);
+  BOOST_CHECK_EQUAL(bitmap.IsRGB(), false);
+  BOOST_CHECK_EQUAL(bitmap.IsGrey(), false);
+}
+
 BOOST_AUTO_TEST_CASE(TestBitsPerPixel) {
   Bitmap bitmap;
   bitmap.Allocate(100, 100, true);
