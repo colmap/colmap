@@ -169,15 +169,17 @@ Note that dense reconstruction must be re-run from scratch after adding new
 images, as the coordinate frame of the model is changed.
 
 
-Multi-GPU support in feature matching
--------------------------------------
+Multi-GPU support in feature extraction/matching
+------------------------------------------------
 
-You can run feature matching on multiple GPUs by specifying multiple indices for
-CUDA-enabled GPUs, e.g., ``--SiftMatching.gpu_index=0,1,2,3`` runs the feature
-matching on 4 GPUs in parallel. You can also run multiple feature matching
-threads on the same GPU by specifying the same GPU index twice, e.g.,
+You can run feature extraction/matching on multiple GPUs by specifying multiple
+indices for CUDA-enabled GPUs, e.g., ``--SiftExtraction.gpu_index=0,1,2,3`` and
+``--SiftMatching.gpu_index=0,1,2,3`` runs the feature extraction/matching on 4
+GPUs in parallel. You can also run multiple feature extraction/matching threads
+on the same GPU by specifying the same GPU index twice, e.g.,
 ``--SiftMatching.gpu_index=0,0,1,1,2,3``. By default, COLMAP runs one feature
-matching thread per CUDA-enabled GPU.
+extraction/matching thread per CUDA-enabled GPU and this usually gives the best
+performance as compared to running multiple threads on the same GPU.
 
 
 Feature matching fails due to illegal memory access
