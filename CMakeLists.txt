@@ -173,6 +173,9 @@ endif()
 # Qt5 was built with -reduce-relocations.
 if(Qt5_POSITION_INDEPENDENT_CODE)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+    if(CUDA_ENABLED)
+        list(APPEND CUDA_NVCC_FLAGS "--compiler-options -fPIC")
+    endif()
 endif()
 
 
