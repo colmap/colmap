@@ -50,6 +50,10 @@ void MainWindow::showEvent(QShowEvent* event) {
   event->accept();
 }
 
+void MainWindow::afterShowEvent() {
+  opengl_window_->PaintGL();
+}
+
 void MainWindow::closeEvent(QCloseEvent* event) {
   if (window_closed_) {
     event->accept();
@@ -84,10 +88,6 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 
     window_closed_ = true;
   }
-}
-
-void MainWindow::afterShowEvent() {
-  opengl_window_->PaintGL();
 }
 
 void MainWindow::CreateWidgets() {

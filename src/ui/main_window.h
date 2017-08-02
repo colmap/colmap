@@ -50,12 +50,9 @@ class MainWindow : public QMainWindow {
   const ReconstructionManager& GetReconstructionManager() const;
 
  protected:
-  void exposeEvent(QExposeEvent* event);
   void showEvent(QShowEvent* event);
-  void closeEvent(QCloseEvent* event);
-
-  // Custom event that is called after `showEvent` by a timer.
   void afterShowEvent();
+  void closeEvent(QCloseEvent* event);
 
  private:
   friend class AutomaticReconstructionWidget;

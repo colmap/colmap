@@ -240,6 +240,10 @@ void OpenGLWindow::InitializeGL() {
 }
 
 void OpenGLWindow::PaintGL() {
+  if (!isExposed()) {
+    return;
+  }
+
   context_->makeCurrent(this);
 
   glClearColor(bg_color_[0], bg_color_[1], bg_color_[2], 1.0f);
