@@ -24,6 +24,8 @@ MainWindow::MainWindow(const OptionManager& options)
     : options_(options),
       thread_control_widget_(new ThreadControlWidget(this)),
       window_closed_(false) {
+  QCoreApplication::setAttribute(Qt::AA_NativeWindows);
+
   resize(1024, 600);
   UpdateWindowTitle();
 
@@ -44,10 +46,8 @@ const ReconstructionManager& MainWindow::GetReconstructionManager() const {
 }
 
 void MainWindow::showEvent(QShowEvent* event) {
-  after_show_event_timer_ = new QTimer(this);
-  connect(after_show_event_timer_, &QTimer::timeout, this,
-          &MainWindow::afterShowEvent);
-  after_show_event_timer_->start(100);
+  after_show_event_->trigger();
+  event->accept();
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
@@ -86,7 +86,9 @@ void MainWindow::closeEvent(QCloseEvent* event) {
   }
 }
 
-void MainWindow::afterShowEvent() { after_show_event_timer_->stop(); }
+void MainWindow::afterShowEvent() {
+  opengl_window_->PaintGL();
+}
 
 void MainWindow::CreateWidgets() {
   opengl_window_ = new OpenGLWindow(this, &options_);
@@ -120,6 +122,10 @@ void MainWindow::CreateWidgets() {
 }
 
 void MainWindow::CreateActions() {
+  after_show_event_ = new QAction(tr("After show event"), this);
+  connect(after_show_event_, &QAction::triggered, this,
+          &MainWindow::afterShowEvent, Qt::QueuedConnection);
+
   //////////////////////////////////////////////////////////////////////////////
   // File actions
   //////////////////////////////////////////////////////////////////////////////

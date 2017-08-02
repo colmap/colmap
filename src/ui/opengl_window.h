@@ -58,6 +58,11 @@ class OpenGLWindow : public QWindow {
 
   OpenGLWindow(QWidget* parent, OptionManager* options, QScreen* screen = 0);
 
+  void SetupGL();
+  void InitializeGL();
+  void ResizeGL();
+  void PaintGL();
+
   void Update();
   void Upload();
   void Clear();
@@ -118,13 +123,7 @@ class OpenGLWindow : public QWindow {
   void mouseMoveEvent(QMouseEvent* event);
   void wheelEvent(QWheelEvent* event);
 
-  void SetupGL();
-  void InitializeGL();
-  void ResizeGL();
-  void PaintGL();
-
-  void SetupPainters();
-
+  void InitializePainters();
   void InitializeSettings();
   void InitializeView();
 
