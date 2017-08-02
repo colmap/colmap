@@ -166,6 +166,8 @@ OpenGLWindow::OpenGLWindow(QWidget* parent, OptionManager* options,
       selected_point3D_id_(kInvalidPoint3DId),
       coordinate_grid_enabled_(true),
       near_plane_(kInitNearPlane) {
+  setFlags(Qt::Widget);
+
   bg_color_[0] = 1.0f;
   bg_color_[1] = 1.0f;
   bg_color_[2] = 1.0f;
