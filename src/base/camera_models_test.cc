@@ -30,8 +30,8 @@ void TestWorldToImageToWorld(const std::vector<double> params, const double u0,
   BOOST_CHECK_EQUAL(x, xx);
   BOOST_CHECK_EQUAL(y, yy);
   CameraModel::ImageToWorld(params.data(), x, y, &u, &v);
-  BOOST_CHECK(std::abs(u - u0) < 1e-6);
-  BOOST_CHECK(std::abs(v - v0) < 1e-6);
+  BOOST_CHECK_LT(std::abs(u - u0), 1e-6);
+  BOOST_CHECK_LT(std::abs(v - v0), 1e-6);
 }
 
 template <typename CameraModel>
@@ -43,17 +43,16 @@ void TestImageToWorldToImage(const std::vector<double> params, const double x0,
   BOOST_CHECK_EQUAL(u, uu);
   BOOST_CHECK_EQUAL(v, vv);
   CameraModel::WorldToImage(params.data(), u, v, &x, &y);
-  BOOST_CHECK(std::abs(x - x0) < 1e-6);
-  BOOST_CHECK(std::abs(y - y0) < 1e-6);
+  BOOST_CHECK_LT(std::abs(x - x0), 1e-6);
+  BOOST_CHECK_LT(std::abs(y - y0), 1e-6);
 }
 
 template <typename CameraModel>
 void TestModel(const std::vector<double>& params) {
   BOOST_CHECK(CameraModelVerifyParams(CameraModel::model_id, params));
 
-  std::vector<double> default_params;
-  CameraModelInitializeParams(CameraModel::model_id, 100, 100, 100,
-                              &default_params);
+  const std::vector<double> default_params =
+      CameraModelInitializeParams(CameraModel::model_id, 100, 100, 100);
   BOOST_CHECK(CameraModelVerifyParams(CameraModel::model_id, default_params));
 
   BOOST_CHECK_EQUAL(CameraModelParamsInfo(CameraModel::model_id),
@@ -162,8 +161,14 @@ BOOST_AUTO_TEST_CASE(TestFOV) {
   TestModel<FOVCameraModel>(params);
   params[4] = 0;
   TestModel<FOVCameraModel>(params);
-  params[4] = 1e-8;
+  params[4] = 1e-6;
   TestModel<FOVCameraModel>(params);
+  params[4] = 1e-2;
+  TestModel<FOVCameraModel>(params);
+  BOOST_CHECK_EQUAL(
+      CameraModelInitializeParams(FOVCameraModel::model_id, 100, 100, 100)
+          .back(),
+      1e-2);
 }
 
 BOOST_AUTO_TEST_CASE(TestSimpleRadialFisheye) {

@@ -173,7 +173,7 @@ void Camera::InitializeWithId(const int model_id, const double focal_length,
   model_id_ = model_id;
   width_ = width;
   height_ = height;
-  CameraModelInitializeParams(model_id, focal_length, width, height, &params_);
+  params_ = CameraModelInitializeParams(model_id, focal_length, width, height);
 }
 
 void Camera::InitializeWithName(const std::string& model_name,

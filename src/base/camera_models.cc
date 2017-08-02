@@ -94,24 +94,17 @@ std::string CameraModelIdToName(const int model_id) {
   }
 }
 
-void CameraModelInitializeParams(const int model_id, const double focal_length,
-                                 const size_t width, const size_t height,
-                                 std::vector<double>* params) {
+std::vector<double> CameraModelInitializeParams(const int model_id,
+                                                const double focal_length,
+                                                const size_t width,
+                                                const size_t height) {
   // Assuming that image measurements are within [0, dim], i.e. that the
   // upper left corner is the (0, 0) coordinate (rather than the center of
   // the upper left pixel). This complies with the default SiftGPU convention.
   switch (model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                              \
-  case CameraModel::kModelId:                                       \
-    params->resize(CameraModel::num_params);                        \
-    for (const int idx : CameraModel::focal_length_idxs) {          \
-      (*params)[idx] = focal_length;                                \
-    }                                                               \
-    (*params)[CameraModel::principal_point_idxs[0]] = width / 2.0;  \
-    (*params)[CameraModel::principal_point_idxs[1]] = height / 2.0; \
-    for (const int idx : CameraModel::extra_params_idxs) {          \
-      (*params)[idx] = 0;                                           \
-    }                                                               \
+#define CAMERA_MODEL_CASE(CameraModel)                                 \
+  case CameraModel::kModelId:                                          \
+    return CameraModel::InitializeParams(focal_length, width, height); \
     break;
 
     CAMERA_MODEL_SWITCH_CASES
