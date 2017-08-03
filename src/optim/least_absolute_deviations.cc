@@ -22,7 +22,9 @@ namespace colmap {
 namespace {
 
 Eigen::VectorXd Shrinkage(const Eigen::VectorXd& a, const double kappa) {
-  return (a.array() - kappa).cwiseMax(0) + (a.array() + kappa).cwiseMin(0);
+  const Eigen::VectorXd a_plus_kappa = a.array() + kappa;
+  const Eigen::VectorXd a_minus_kappa = a.array() - kappa;
+  return a_plus_kappa.cwiseMin(0) + a_minus_kappa.cwiseMax(0);
 }
 
 }  // namespace
