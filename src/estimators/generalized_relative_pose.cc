@@ -43,6 +43,7 @@
 
 #include "estimators/generalized_relative_pose.h"
 
+#include "base/essential_matrix.h"
 #include "base/pose.h"
 #include "base/projection.h"
 #include "base/triangulation.h"
@@ -577,30 +578,25 @@ void GR6PEstimator::Residuals(const std::vector<X_t>& points1,
 
   residuals->resize(points1.size(), 0);
 
-  const double kMinDepth = std::numeric_limits<double>::epsilon();
+  Eigen::Matrix4d proj_matrix_homogeneous;
+  proj_matrix_homogeneous.topRows<3>() = proj_matrix;
+  proj_matrix_homogeneous.bottomRows<1>() = Eigen::Vector4d(0, 0, 0, 1);
 
   for (size_t i = 0; i < points1.size(); ++i) {
     const Eigen::Matrix3x4d& proj_matrix1 = points1[i].rel_tform;
-    Eigen::Matrix4d proj_matrix_homogeneous;
-    proj_matrix_homogeneous.topRows<3>() = proj_matrix;
-    proj_matrix_homogeneous.bottomRows<1>() = Eigen::Vector4d(0, 0, 0, 1);
     const Eigen::Matrix3x4d& proj_matrix2 =
         points2[i].rel_tform * proj_matrix_homogeneous;
-    const Eigen::Vector3d point = TriangulatePoint(
-        proj_matrix1, proj_matrix2, points1[i].xy, points2[i].xy);
-    const Eigen::Vector3d proj_point1_homogeneous =
-        proj_matrix1 * point.homogeneous();
-    const Eigen::Vector3d proj_point2_homogeneous =
-        proj_matrix2 * point.homogeneous();
-    if (proj_point1_homogeneous.z() < kMinDepth ||
-        proj_point2_homogeneous.z() < kMinDepth) {
-      (*residuals)[i] = std::numeric_limits<double>::max();
-    } else {
-      const Eigen::Vector2d proj_point1 = proj_point1_homogeneous.hnormalized();
-      const Eigen::Vector2d proj_point2 = proj_point2_homogeneous.hnormalized();
-      (*residuals)[i] = 0.5 * ((points1[i].xy - proj_point1).squaredNorm() +
-                               (points2[i].xy - proj_point2).squaredNorm());
-    }
+    const Eigen::Matrix3d R12 =
+        proj_matrix2.leftCols<3>() * proj_matrix1.leftCols<3>().transpose();
+    const Eigen::Vector3d t12 =
+        proj_matrix2.rightCols<1>() - R12 * proj_matrix1.rightCols<1>();
+    const Eigen::Matrix3d E = EssentialMatrixFromPose(R12, t12);
+    const Eigen::Vector3d Ex1 = E * points1[i].xy.homogeneous();
+    const Eigen::Vector3d Etx2 = E.transpose() * points2[i].xy.homogeneous();
+    const double x2tEx1 = points2[i].xy.homogeneous().transpose() * Ex1;
+    (*residuals)[i] = x2tEx1 * x2tEx1 /
+                      (Ex1(0) * Ex1(0) + Ex1(1) * Ex1(1) + Etx2(0) * Etx2(0) +
+                       Etx2(1) * Etx2(1));
   }
 }
 

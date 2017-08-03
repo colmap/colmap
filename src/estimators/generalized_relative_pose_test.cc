@@ -88,7 +88,7 @@ BOOST_AUTO_TEST_CASE(Estimate) {
       }
 
       RANSACOptions options;
-      options.max_error = 1e-2;
+      options.max_error = 1e-3;
       LORANSAC<GR6PEstimator, GR6PEstimator> ransac(options);
       const auto report = ransac.Estimate(points1, points2);
 

@@ -66,8 +66,7 @@ class GR6PEstimator {
   static std::vector<M_t> Estimate(const std::vector<X_t>& points1,
                                    const std::vector<Y_t>& points2);
 
-  // Calculate the average squared reprojection error when triangulating and
-  // reprojecting the correspondences between the two cameras.
+  // Calculate the squared Sampson error between corresponding points.
   static void Residuals(const std::vector<X_t>& points1,
                         const std::vector<Y_t>& points2,
                         const M_t& proj_matrix, std::vector<double>* residuals);
