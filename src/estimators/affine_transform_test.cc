@@ -21,10 +21,10 @@
 
 using namespace colmap;
 
-BOOST_AUTO_TEST_CASE(TestEmpty) {
-  for (double x = 0; x < 10; ++x) {
-    Eigen::Matrix<double, 2, 3> A0;
-    A0 << x, 0.2, 0.3, 30, 0.2, 0.1;
+BOOST_AUTO_TEST_CASE(TestAffineTransform) {
+  for (double x = 0; x < 1; x += 0.1) {
+    Eigen::Matrix<double, 2, 3> A;
+    A << x, 0.2, 0.3, 30, 0.2, 0.1;
 
     std::vector<Eigen::Vector2d> src;
     src.emplace_back(x, 0);
@@ -33,17 +33,21 @@ BOOST_AUTO_TEST_CASE(TestEmpty) {
 
     std::vector<Eigen::Vector2d> dst;
     for (size_t i = 0; i < 3; ++i) {
-      dst.push_back(A0 * src[i].homogeneous());
+      dst.push_back(A * src[i].homogeneous());
     }
 
-    AffineTransformEstimator est_tform;
-    const auto models = est_tform.Estimate(src, dst);
+    AffineTransformEstimator estimator;
+    const auto models = estimator.Estimate(src, dst);
+
+    BOOST_CHECK_EQUAL(models.size(), 1);
 
     std::vector<double> residuals;
-    est_tform.Residuals(src, dst, models[0], &residuals);
+    estimator.Residuals(src, dst, models[0], &residuals);
+
+    BOOST_CHECK_EQUAL(residuals.size(), 3);
 
     for (size_t i = 0; i < 3; ++i) {
-      BOOST_CHECK(residuals[i] < 1e-6);
+      BOOST_CHECK_LT(residuals[i], 1e-6);
     }
   }
 }
