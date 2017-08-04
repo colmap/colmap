@@ -24,8 +24,6 @@ MainWindow::MainWindow(const OptionManager& options)
     : options_(options),
       thread_control_widget_(new ThreadControlWidget(this)),
       window_closed_(false) {
-  QCoreApplication::setAttribute(Qt::AA_NativeWindows);
-
   resize(1024, 600);
   UpdateWindowTitle();
 
@@ -50,9 +48,7 @@ void MainWindow::showEvent(QShowEvent* event) {
   event->accept();
 }
 
-void MainWindow::afterShowEvent() {
-  opengl_window_->PaintGL();
-}
+void MainWindow::afterShowEvent() { opengl_window_->PaintGL(); }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
   if (window_closed_) {
@@ -92,7 +88,13 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 
 void MainWindow::CreateWidgets() {
   opengl_window_ = new OpenGLWindow(this, &options_);
-  setCentralWidget(QWidget::createWindowContainer(opengl_window_));
+
+#ifdef _MSC_VER
+  setCentralWidget(QWidget::createWindowContainer(opengl_window_, this,
+                                                  Qt::MSWindowsOwnDC));
+#else
+  setCentralWidget(QWidget::createWindowContainer(opengl_window_, this));
+#endif
 
   project_widget_ = new ProjectWidget(this, &options_);
   project_widget_->SetDatabasePath(*options_.database_path);
