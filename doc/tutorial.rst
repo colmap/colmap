@@ -233,11 +233,20 @@ import existing features, every image must have a text file next to it (e.g.,
 
 where `X, Y, SCALE, ORIENTATION` are floating point numbers and `D_1...D_128`
 values in the range `0...255`. The file should have `NUM_FEATURES` lines with
-one line per feature. Note that by convention the upper left corner of an image
-has coordinate `(0, 0)` and the center of the upper left most pixel has
-coordinate `(0.5, 0.5)`. If you must  import features for large image
-collections, it is much more efficient to directly access the database with your
-favorite scripting language (see :ref:`Database Format <database-format>`).
+one line per feature. For example, if an image has 4 features, then the text
+file should look something like this::
+
+    4 128
+    1.2 2.3 0.1 0.3 1 2 3 4 ... 21
+    2.2 3.3 1.1 0.3 3 2 3 2 ... 32
+    0.2 1.3 1.1 0.3 3 2 3 2 ... 2
+    1.2 2.3 1.1 0.3 3 2 3 2 ... 3
+
+Note that by convention the upper left corner of an image has coordinate `(0,
+0)` and the center of the upper left most pixel has coordinate `(0.5, 0.5)`. If
+you must  import features for large image collections, it is much more efficient
+to directly access the database with your favorite scripting language (see
+:ref:`Database Format <database-format>`).
 
 If you are done setting all options, choose ``Extract`` and wait for the
 extraction to finish or cancel. If you cancel during the extraction process, the
