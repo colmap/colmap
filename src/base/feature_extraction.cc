@@ -803,7 +803,7 @@ void FeatureWriterThread::Run() {
                                 image_data.camera.ModelName().c_str())
                 << std::endl;
       std::cout << StringPrintf("  Focal Length:    %.2fpx (%s)",
-                                image_data.camera.FocalLength(),
+                                image_data.camera.MeanFocalLength(),
                                 image_data.camera.HasPriorFocalLength()
                                     ? "EXIF"
                                     : "Default")
