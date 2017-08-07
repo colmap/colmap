@@ -17,14 +17,47 @@
 import os
 import sys
 import collections
-
 import numpy as np
+import struct
+
+Camera = collections.namedtuple(
+    "Camera", ["id", "model", "width", "height", "params"])
+Image = collections.namedtuple(
+    "Image", ["id", "qvec", "tvec", "camera_id", "name", "xys", "point3D_ids"])
+Point3D = collections.namedtuple(
+    "Point3D", ["id", "xyz", "rgb", "error", "image_ids", "point2D_idxs"])
+CameraModel = collections.namedtuple(
+    "CameraModel", ["model_id", "model_name", "num_params"])
+camera_models = {
+    CameraModel(model_id=0, model_name="SIMPLE_PINHOLE", num_params=3),
+    CameraModel(model_id=1, model_name="PINHOLE", num_params=4),
+    CameraModel(model_id=2, model_name="SIMPLE_RADIAL", num_params=4),
+    CameraModel(model_id=3, model_name="SIMPLE_RADIAL_FISHEYE", num_params=4),
+    CameraModel(model_id=4, model_name="RADIAL", num_params=5),
+    CameraModel(model_id=5, model_name="RADIAL_FISHEYE", num_params=5),
+    CameraModel(model_id=6, model_name="OPENCV", num_params=8),
+    CameraModel(model_id=7, model_name="OPENCV_FISHEYE", num_params=8),
+    CameraModel(model_id=8, model_name="FULL_OPENCV", num_params=12),
+    CameraModel(model_id=9, model_name="FOV", num_params=5),
+    CameraModel(model_id=10, model_name="THIN_PRISM_FISHEYE", num_params=12)
+}
+cam_model_id_to_model = dict([(cam_model.model_id, cam_model) for cam_model in camera_models])
 
 
-def read_cameras(path):
+def read_next_bytes(binary_file, num_bytes, format_char_sequence, endian_character='<'):
+    """
+    :param binary_file:
+    :param num_bytes: combination of {2,4,8}
+    :param format_char_sequence: sequence of {c,e,f,d,h,H,i,I,l,L,q,Q}
+    :param endian_character: {@, =, <, >, !}
+    :return: tuple of corresponding values
+    """
+    binary_data = binary_file.read(num_bytes)
+    return struct.unpack(endian_character + format_char_sequence, binary_data)
+
+
+def read_cameras_text(path):
     cameras = {}
-    Camera = collections.namedtuple(
-        "Camera", ["id", "model", "width", "height", "params"])
     with open(path, "r") as fid:
         while True:
             line = fid.readline()
@@ -44,11 +77,36 @@ def read_cameras(path):
     return cameras
 
 
-def read_images(path):
+def read_cameras_binary(path_to_model_file):
+    """
+    see: src/base/reconstruction.cc
+        void Reconstruction::WriteCamerasBinary(const std::string& path)
+        void Reconstruction::ReadCamerasBinary(const std::string& path)
+    """
+    with open(path_to_model_file, "rb") as binary_file:
+        num_cameras = read_next_bytes(binary_file, 8, 'Q')[0]
+        cameras = {}
+        for camera_line_index in range(num_cameras):
+            camera_properties = read_next_bytes(
+                binary_file, num_bytes=24, format_char_sequence='iiQQ')
+            camera_id = camera_properties[0]
+            camera_model_id = camera_properties[1]
+            width = camera_properties[2]
+            height = camera_properties[3]
+            num_params = cam_model_id_to_model[camera_model_id].num_params
+            params = read_next_bytes(
+                binary_file, num_bytes=8*num_params, format_char_sequence='d'*num_params)
+            cameras[camera_id] = Camera(id=camera_id,
+                                        model=cam_model_id_to_model[camera_model_id].model_name,
+                                        width=width,
+                                        height=height,
+                                        params=np.array(params))
+        assert len(cameras) == num_cameras
+    return cameras
+
+
+def read_images_text(path):
     images = {}
-    Image = collections.namedtuple(
-        "Image", ["id", "qvec", "tvec", "camera_id", "name", "xys",
-                  "point3D_ids"])
     with open(path, "r") as fid:
         while True:
             line = fid.readline()
@@ -66,16 +124,56 @@ def read_images(path):
                 xys = np.column_stack([tuple(map(float, elems[0::3])),
                                        tuple(map(float, elems[1::3]))])
                 point3D_ids = np.array(tuple(map(int, elems[2::3])))
-                images[image_id] = Image(id=image_id, qvec=qvec, tvec=tvec,
-                                         camera_id=camera_id, name=image_name,
-                                         xys=xys, point3D_ids=point3D_ids)
+                images[image_id] = Image(
+                    id=image_id, qvec=qvec, tvec=tvec,
+                    camera_id=camera_id, name=image_name,
+                    xys=xys, point3D_ids=point3D_ids)
     return images
 
 
-def read_points3D(path):
+def read_images_binary(path_to_model_file):
+    """
+    see: src/base/reconstruction.cc
+        void Reconstruction::ReadImagesBinary(const std::string& path)
+        void Reconstruction::WriteImagesBinary(const std::string& path)
+    """
+    with open(path_to_model_file, "rb") as binary_file:
+        num_reg_images = read_next_bytes(binary_file, 8, 'Q')[0]
+        images = {}
+        for image_index in range(num_reg_images):
+            binary_image_properties = read_next_bytes(
+                binary_file,
+                num_bytes=64,   # 7*8+2*4
+                format_char_sequence='idddddddi')
+
+            image_id = binary_image_properties[0]
+            qvec = np.array(binary_image_properties[1:5])
+            tvec = np.array(binary_image_properties[5:8])
+            camera_id = np.array(binary_image_properties[8])
+
+            # Read the image name
+            current_char = read_next_bytes(binary_file, 1, 'c')[0]
+            image_name = ''
+            while current_char != b'\x00':   # look for the ASCII 0 entry
+                image_name += current_char.decode("utf-8")
+                current_char = read_next_bytes(binary_file, 1, 'c')[0]
+
+            num_points2D = read_next_bytes(
+                binary_file, num_bytes=8, format_char_sequence='Q')[0]
+            x_y_id_s = read_next_bytes(
+                binary_file, num_bytes=24*num_points2D, format_char_sequence='ddq'*num_points2D)
+            xys = np.column_stack([tuple(map(float, x_y_id_s[0::3])),
+                       tuple(map(float, x_y_id_s[1::3]))])
+            point3D_ids = np.array(tuple(map(int, x_y_id_s[2::3])))
+            images[image_id] = Image(
+                id=image_id, qvec=qvec, tvec=tvec,
+                camera_id=camera_id, name=image_name,
+                xys=xys, point3D_ids=point3D_ids)
+    return images
+
+
+def read_points3D_text(path):
     points3D = {}
-    Point3D = collections.namedtuple(
-        "Point3D", ["id", "xyz", "rgb", "error", "image_ids", "point2D_idxs"])
     with open(path, "r") as fid:
         while True:
             line = fid.readline()
@@ -96,19 +194,57 @@ def read_points3D(path):
     return points3D
 
 
-def read_model(path):
-    cameras = read_cameras(os.path.join(path, "cameras.txt"))
-    images = read_images(os.path.join(path, "images.txt"))
-    points3D = read_points3D(os.path.join(path, "points3D.txt"))
+def read_points3d_binary(path_to_model_file):
+    """
+    see: src/base/reconstruction.cc
+        void Reconstruction::ReadPoints3DBinary(const std::string& path)
+        void Reconstruction::WritePoints3DBinary(const std::string& path)
+    """
+    with open(path_to_model_file, "rb") as binary_file:
+        num_points = read_next_bytes(binary_file, 8, 'Q')[0]
+        binary_point_lines = {}
+        for point_line_index in range(num_points):
+            binary_point_line_properties = read_next_bytes(
+                binary_file, num_bytes=43, format_char_sequence='QdddBBBd')
+
+            point3D_id = binary_point_line_properties[0]
+            xyz = np.array(binary_point_line_properties[1:4])
+            rgb = np.array(binary_point_line_properties[4:7])
+            error = np.array(binary_point_line_properties[7])
+
+            track_length = read_next_bytes(
+                binary_file, num_bytes=8, format_char_sequence='Q')[0]
+            binary_point_track_pairs = read_next_bytes(
+                binary_file, num_bytes=8*track_length, format_char_sequence='ii'*track_length)
+
+            image_ids = np.array(tuple(map(int, binary_point_track_pairs[0::2])))
+            point2D_idxs = np.array(tuple(map(int, binary_point_track_pairs[1::2])))
+
+            binary_point_lines[point3D_id] = Point3D(
+                id=point3D_id, xyz=xyz, rgb=rgb,
+                error=error, image_ids=image_ids,
+                point2D_idxs=point2D_idxs)
+    return binary_point_lines
+
+
+def read_model(path, ext):
+    if ext == '.txt':
+        cameras = read_cameras_text(os.path.join(path, "cameras" + ext))
+        images = read_images_text(os.path.join(path, "images" + ext))
+        points3D = read_points3D_text(os.path.join(path, "points3D") + ext)
+    else:
+        cameras = read_cameras_binary(os.path.join(path, "cameras" + ext))
+        images = read_images_binary(os.path.join(path, "images" + ext))
+        points3D = read_points3d_binary(os.path.join(path, "points3D") + ext)
     return cameras, images, points3D
 
 
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: python read_model.py path/to/model/folder/")
+    if len(sys.argv) != 3:
+        print("Usage: python read_model.py path/to/model/folder/ ext")
         return
 
-    cameras, images, points3D = read_model(sys.argv[1])
+    cameras, images, points3D = read_model(path=sys.argv[1], ext=sys.argv[2])
 
     print("num_cameras:", len(cameras))
     print("num_images:", len(images))
