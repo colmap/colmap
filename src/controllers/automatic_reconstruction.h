@@ -61,6 +61,9 @@ class AutomaticReconstructionController : public Thread {
 
     // Whether to use the GPU in feature extraction and matching.
     bool use_gpu = true;
+
+    // The number of threads to use in all stages.
+    int num_threads = -1;
   };
 
   AutomaticReconstructionController(

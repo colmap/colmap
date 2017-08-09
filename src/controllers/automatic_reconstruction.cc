@@ -86,6 +86,11 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.dense_fusion->max_image_size = 1600;
   }  // else: high quality is the default.
 
+  option_manager_.sift_extraction->num_threads = options_.num_threads;
+  option_manager_.sift_matching->num_threads = options_.num_threads;
+  option_manager_.mapper->num_threads = options_.num_threads;
+  option_manager_.dense_meshing->num_threads = options_.num_threads;
+
   ImageReader::Options reader_options = *option_manager_.image_reader;
   reader_options.database_path = *option_manager_.database_path;
   reader_options.image_path = *option_manager_.image_path;

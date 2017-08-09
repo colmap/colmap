@@ -50,6 +50,7 @@ int main(int argc, char** argv) {
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
   options.AddDefaultOption("use_gpu", &reconstruction_options.use_gpu);
+  options.AddDefaultOption("num_threads", &reconstruction_options.num_threads);
   options.Parse(argc, argv);
 
   StringToLower(&data_type);
