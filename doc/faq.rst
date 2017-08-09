@@ -169,6 +169,20 @@ Note that dense reconstruction must be re-run from scratch after adding new
 images, as the coordinate frame of the model is changed.
 
 
+Available functionality without GPU/CUDA
+----------------------------------------
+
+If you do not have a CUDA-enabled GPU but some other GPU, you can use all COLMAP
+functionality except the dense reconstruction part. However, you can use
+external dense reconstruction software as an alternative, as described in the
+:ref:`Tutorial <dense-reconstruction>`. If you have a GPU with low compute power
+or you want to execute COLMAP on a machine without an attached display and
+without CUDA support, you can run all steps on the CPU by specifying the
+appropriate options (e.g., ``--SiftExtraction.use_gpu=false`` for the feature
+extraction step). But not that this might result in a significant slow-down of
+the reconstruction pipeline.
+
+
 Multi-GPU support in feature extraction/matching
 ------------------------------------------------
 

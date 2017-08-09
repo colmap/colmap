@@ -411,6 +411,8 @@ RGB information by choosing ``File > Import From...``. Further information about
 the format of the exported models can be found :ref:`here <output-format>`.
 
 
+.. _dense-reconstruction:
+
 Dense Reconstruction
 --------------------
 
