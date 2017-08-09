@@ -63,7 +63,12 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
   AddOptionBool(&options_.single_camera, "Shared intrinsics");
   AddOptionBool(&options_.sparse, "Sparse model");
   AddOptionBool(&options_.dense, "Dense model");
+
+  AddSpacer();
+
+  AddOptionInt(&options_.num_threads, "num_threads", -1);
   AddOptionBool(&options_.use_gpu, "GPU");
+  AddOptionText(&options_.gpu_index, "gpu_index");
 
   AddSpacer();
 
