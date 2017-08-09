@@ -56,6 +56,10 @@ VisualSfM's NVM, Bundler files, PLY, VRML, etc., using ``File > Export as...``.
 To convert between various formats from the CLI, use the ``model_converter``
 executable.
 
+There are two source files to conveniently read the sparse reconstructions using
+Python (``scripts/python/read_model.py`` supporting binary and text) and Matlab
+(``scripts/matlab/read_model.m`` supporting text).
+
 
 -----------
 Text Format
@@ -65,10 +69,6 @@ COLMAP exports the following three text files for every reconstructed model:
 `cameras.txt`, `images.txt`, and `points3D.txt`. Comments start with a leading
 "#" character and are ignored. The first comment lines briefly describe the
 format of the text files, as described in more detailed on this page.
-
-There are two source files to conveniently read the sparse reconstructions using
-Python (``scripts/python/read_model.py``) and Matlab
-(``scripts/matlab/read_model.m``).
 
 
 cameras.txt
