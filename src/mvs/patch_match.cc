@@ -391,6 +391,10 @@ void PatchMatchController::ReadProblems() {
 
     ref_image_name.clear();
   }
+
+  std::cout << StringPrintf("Configuration has %d problems...",
+                            problems_.size())
+            << std::endl;
 }
 
 void PatchMatchController::ReadGpuIndices() {
