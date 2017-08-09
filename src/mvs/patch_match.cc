@@ -60,16 +60,8 @@ void ImportPMVSOption(const Model& model, const std::string& path,
       CHECK(fusion_file.is_open()) << fusion_path;
       for (const auto ref_image_name : image_names) {
         patch_match_file << ref_image_name << std::endl;
+        patch_match_file << "__auto__, 20" << std::endl;
         fusion_file << ref_image_name << std::endl;
-        std::ostringstream line;
-        for (const auto& image_name : image_names) {
-          if (ref_image_name != image_name) {
-            line << image_name << ",";
-          }
-        }
-        const auto line_string = line.str();
-        patch_match_file << line_string.substr(0, line_string.size() - 1)
-                         << std::endl;
       }
     }
   }
