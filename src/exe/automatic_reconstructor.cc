@@ -49,8 +49,9 @@ int main(int argc, char** argv) {
                            &reconstruction_options.single_camera);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
-  options.AddDefaultOption("use_gpu", &reconstruction_options.use_gpu);
   options.AddDefaultOption("num_threads", &reconstruction_options.num_threads);
+  options.AddDefaultOption("use_gpu", &reconstruction_options.use_gpu);
+  options.AddDefaultOption("gpu_index", &reconstruction_options.gpu_index);
   options.Parse(argc, argv);
 
   StringToLower(&data_type);
