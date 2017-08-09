@@ -195,17 +195,18 @@ void ThreadPool::Stop() {
   }
 
   task_condition_.notify_all();
+
   for (auto& worker : workers_) {
     worker.join();
   }
+
+  finished_condition_.notify_all();
 }
 
 void ThreadPool::Wait() {
   std::unique_lock<std::mutex> lock(mutex_);
-  if (num_active_workers_ > 0) {
-    finished_condition_.wait(
-        lock, [this]() { return tasks_.empty() && num_active_workers_ == 0; });
-  }
+  finished_condition_.wait(
+      lock, [this]() { return tasks_.empty() && num_active_workers_ == 0; });
 }
 
 void ThreadPool::WorkerFunc(const int index) {
@@ -230,12 +231,9 @@ void ThreadPool::WorkerFunc(const int index) {
 
     task();
 
-    {
-      std::unique_lock<std::mutex> lock(mutex_);
-      num_active_workers_ -= 1;
-    }
+    num_active_workers_ -= 1;
 
-    finished_condition_.notify_one();
+    finished_condition_.notify_all();
   }
 }
 

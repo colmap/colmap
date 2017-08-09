@@ -358,13 +358,12 @@ void PatchMatchController::ReadProblems() {
         const size_t eff_max_num_src_images =
             std::min(src_images.size(), max_num_src_images);
 
-        std::partial_sort(src_images.begin(),
-                          src_images.begin() + eff_max_num_src_images,
-                          src_images.end(),
-                          [](const std::pair<int, int> image1,
-                             const std::pair<int, int> image2) {
-                            return image1.second > image2.second;
-                          });
+        std::partial_sort(
+            src_images.begin(), src_images.begin() + eff_max_num_src_images,
+            src_images.end(), [](const std::pair<int, int> image1,
+                                 const std::pair<int, int> image2) {
+              return image1.second > image2.second;
+            });
 
         problem.src_image_ids.reserve(eff_max_num_src_images);
         for (size_t i = 0; i < eff_max_num_src_images; ++i) {
