@@ -48,6 +48,21 @@ FeatureDescriptors TransformVLFeatToUBCFeatureDescriptors(
   return ubc_descriptors;
 }
 
+void ScaleKeypoints(const Bitmap& bitmap, const Camera& camera,
+                    FeatureKeypoints* keypoints) {
+  if (static_cast<size_t>(bitmap.Width()) != camera.Width() ||
+      static_cast<size_t>(bitmap.Height()) != camera.Height()) {
+    const float scale_x = static_cast<float>(camera.Width()) / bitmap.Width();
+    const float scale_y = static_cast<float>(camera.Height()) / bitmap.Height();
+    const float scale_xy = 0.5f * (scale_x + scale_y);
+    for (auto& keypoint : *keypoints) {
+      keypoint.x *= scale_x;
+      keypoint.y *= scale_x;
+      keypoint.scale *= scale_xy;
+    }
+  }
+}
+
 }  // namespace
 
 bool SiftExtractionOptions::Check() const {
@@ -674,9 +689,12 @@ void SiftCPUFeatureExtractorThread::Run() {
       auto image_data = input_job.Data();
 
       if (image_data.status == ImageReader::Status::SUCCESS) {
-        if (!ExtractSiftFeaturesCPU(sift_options_, image_data.bitmap,
-                                    &image_data.keypoints,
-                                    &image_data.descriptors)) {
+        if (ExtractSiftFeaturesCPU(sift_options_, image_data.bitmap,
+                                   &image_data.keypoints,
+                                   &image_data.descriptors)) {
+          ScaleKeypoints(image_data.bitmap, image_data.camera,
+                         &image_data.keypoints);
+        } else {
           image_data.status = ImageReader::Status::FAILURE;
         }
       }
@@ -728,9 +746,12 @@ void SiftGPUFeatureExtractorThread::Run() {
       auto image_data = input_job.Data();
 
       if (image_data.status == ImageReader::Status::SUCCESS) {
-        if (!ExtractSiftFeaturesGPU(sift_options_, image_data.bitmap, &sift_gpu,
-                                    &image_data.keypoints,
-                                    &image_data.descriptors)) {
+        if (ExtractSiftFeaturesGPU(sift_options_, image_data.bitmap, &sift_gpu,
+                                   &image_data.keypoints,
+                                   &image_data.descriptors)) {
+          ScaleKeypoints(image_data.bitmap, image_data.camera,
+                         &image_data.keypoints);
+        } else {
           image_data.status = ImageReader::Status::FAILURE;
         }
       }
@@ -827,22 +848,6 @@ void FeatureWriterThread::Run() {
       }
 
       if (!database_->ExistsKeypoints(image_data.image.ImageId())) {
-        if (static_cast<size_t>(image_data.bitmap.Width()) !=
-                image_data.camera.Width() ||
-            static_cast<size_t>(image_data.bitmap.Height()) !=
-                image_data.camera.Height()) {
-          const float scale_x = static_cast<float>(image_data.camera.Width()) /
-                                image_data.bitmap.Width();
-          const float scale_y = static_cast<float>(image_data.camera.Height()) /
-                                image_data.bitmap.Height();
-          const float scale_xy = 0.5f * (scale_x + scale_y);
-          for (auto& keypoint : image_data.keypoints) {
-            keypoint.x *= scale_x;
-            keypoint.y *= scale_x;
-            keypoint.scale *= scale_xy;
-          }
-        }
-
         database_->WriteKeypoints(image_data.image.ImageId(),
                                   image_data.keypoints);
       }
