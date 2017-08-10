@@ -229,7 +229,7 @@ class ThreadPool {
   std::condition_variable finished_condition_;
 
   bool stopped_;
-  std::atomic<int> num_active_workers_;
+  int num_active_workers_;
 
   std::unordered_map<std::thread::id, int> thread_id_to_index_;
 };

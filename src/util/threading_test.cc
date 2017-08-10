@@ -539,6 +539,71 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolWait) {
   }
 }
 
+BOOST_AUTO_TEST_CASE(TestThreadPoolWaitWithPause) {
+  std::vector<uint8_t> results(4, 0);
+  std::function<void(int)> Func = [&results](const int num) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    results[num] = 1;
+  };
+
+  ThreadPool pool(4);
+
+  for (size_t i = 0; i < results.size(); ++i) {
+    pool.AddTask(Func, i);
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  pool.Wait();
+
+  for (const auto result : results) {
+    BOOST_CHECK_EQUAL(result, 1);
+  }
+}
+
+BOOST_AUTO_TEST_CASE(TestThreadPoolWaitWithoutPause) {
+  std::vector<uint8_t> results(4, 0);
+  std::function<void(int)> Func = [&results](const int num) {
+    results[num] = 1;
+  };
+
+  ThreadPool pool(4);
+
+  for (size_t i = 0; i < results.size(); ++i) {
+    pool.AddTask(Func, i);
+  }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  pool.Wait();
+
+  for (const auto result : results) {
+    BOOST_CHECK_EQUAL(result, 1);
+  }
+}
+
+BOOST_AUTO_TEST_CASE(TestThreadPoolWaitEverytime) {
+  std::vector<uint8_t> results(4, 0);
+  std::function<void(int)> Func = [&results](const int num) {
+    results[num] = 1;
+  };
+
+  ThreadPool pool(4);
+
+  for (size_t i = 0; i < results.size(); ++i) {
+    pool.AddTask(Func, i);
+    pool.Wait();
+
+    for (size_t j = 0; j < results.size(); ++j) {
+      if (j <= i) {
+        BOOST_CHECK_EQUAL(results[j], 1);
+      } else {
+        BOOST_CHECK_EQUAL(results[j], 0);
+      }
+    }
+  }
+
+  pool.Wait();
+}
+
 BOOST_AUTO_TEST_CASE(TestThreadPoolGetThreadIndex) {
   ThreadPool pool(4);
 
