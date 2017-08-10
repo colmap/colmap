@@ -284,7 +284,7 @@ You can run dense reconstruction on multiple GPUs by specifying multiple indices
 for CUDA-enabled GPUs, e.g., ``--DenseStereo.gpu_index=0,1,2,3`` runs the dense
 reconstruction on 4 GPUs in parallel. You can also run multiple dense
 reconstruction threads on the same GPU by specifying the same GPU index twice,
-e.g., ``--SiftMatching.gpu_index=0,0,1,1,2,3``. By default, COLMAP runs one
+e.g., ``--DenseStereo.gpu_index=0,0,1,1,2,3``. By default, COLMAP runs one
 dense reconstruction thread per CUDA-enabled GPU.
 
 
