@@ -203,6 +203,11 @@ If you encounter the following error message::
 
     MultiplyDescriptor: an illegal memory access was encountered
 
+or the following:
+
+    ERROR: Feature matching failed. This probably caused by insufficient GPU
+           memory. Consider reducing the maximum number of features.
+
 during feature matching, your GPU runs out of memory. Try decreasing the option
 ``--SiftMatching.max_num_matches`` until the error disappears. Note that this
 might lead to inferior feature matching results, since the lower-scale input
