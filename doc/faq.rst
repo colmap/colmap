@@ -229,6 +229,51 @@ it. Also consider to try the reduce the outliers or increase the completeness in
 the fusion stage, as described above.
 
 
+Improving dense reconstruction results for weakly textured surfaces
+-------------------------------------------------------------------
+
+For scenes with weakly textured surfaces it can help to have a high resolution
+of the input images (``--DenseStereo.max_image_size``) and a large patch window
+radius (``--DenseStereo.window_radius``). You may also want to reduce the
+filtering threshold for the photometric consistency cost
+(``--DenseStereo.filter_min_ncc``).
+
+
+Speedup dense reconstruction
+----------------------------
+
+The dense reconstruction can be speeded up in multiple ways:
+
+- Put more GPUs in your system as the dense reconstruction can make use of
+  multiple GPUs during the stereo reconstruction step. Put more RAM into your
+  system and increase the ``--DenseStereo.cache_size``,
+  ``--DenseFusion.cache_size`` to the largest possible value in order to
+  speed up the dense fusion step.
+
+- Do not perform geometric dense stereo reconstruction
+  ``--DenseStereo.geom_consistency false``. Make sure to also enable
+  ``--DenseStereo.filter true`` in this case.
+
+- Reduce the ``--DenseStereo.max_image_size``, ``--DenseFusion.max_image_size``
+  values to perform dense reconstruction on a maximum image resolution.
+
+- Reduce the number of source images per reference image to be considered, as
+  described :ref:`here <faq-dense-memory>`.
+
+- Reduce the patch window radius ``--DenseStereo.window_radius``.
+
+- Reduce the number of patch match iterations ``--DenseStereo.num_iterations``.
+
+- Reduce the number of sampled views ``--DenseStereo.num_samples``.
+
+- To speedup the dense fusion step for very large reconstructions, you can
+  use CMVS to partition your scene into multiple clusters,
+  as described :ref:`here <faq-dense-memory>`.
+
+Note that apart from upgrading your hardware, the proposed changes might degrade
+the quality of the dense reconstruction results.
+
+
 .. _faq-dense-memory:
 
 Reduce memory usage during dense reconstruction
@@ -307,7 +352,12 @@ stereo reconstruction process. The solution is to increase the so-called
 "Timeout Detection & Recovery" (TDR) delay to a larger value. Please, refer to
 the `NVIDIA Nsight documentation <https://goo.gl/UWKVs6>`_ or to the `Microsoft
 documentation <http://www.microsoft.com/whdc/device/display/wddm_timeout.mspx>`_
-on how to increase the delay time under Windows.
+on how to increase the delay time under Windows. You can increase the delay
+using the following Windows Registry entries::
+
+    [HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\GraphicsDrivers]
+    "TdrLevel"=dword:00000001
+    "TdrDelay"=dword:00000120
 
 The X window system under Linux/Unix has a similar feature and detects response
 problems of the GPU. The easiest solution to avoid timeout problems under the X
