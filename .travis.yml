@@ -1,0 +1,92 @@
+language: cpp
+sudo: false
+dist: trusty
+
+matrix:
+  include:
+    - os: linux
+      env: CMAKE_OPTIONS="-DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - cmake
+            - build-essential
+            - libboost-program-options-dev
+            - libboost-filesystem-dev
+            - libboost-regex-dev
+            - libboost-system-dev
+            - libboost-test-dev
+            - libeigen3-dev
+            - libatlas-base-dev
+            - libsuitesparse-dev
+            - libfreeimage-dev
+            - libgoogle-glog-dev
+            - libgflags-dev
+            - libglew-dev
+            - qtbase5-dev
+            - libqt5opengl5-dev
+    - os: osx
+      env: CMAKE_OPTIONS="-DQt5Core_DIR=/usr/local/opt/qt5/lib/cmake/Qt5Core -DQt5OpenGL_DIR=/usr/local/opt/qt5/lib/cmake/Qt5OpenGL"
+
+cache:
+  directories:
+    - ${TRAVIS_BUILD_DIR}/deps
+    - ${TRAVIS_BUILD_DIR}/build
+
+before_script:
+  - |
+    if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      brew tap homebrew/science
+      brew install \
+        cmake \
+        boost \
+        eigen \
+        freeimage \
+        glog \
+        gflags \
+        suite-sparse \
+        ceres-solver \
+        qt5 \
+        glew || true
+    fi
+  - |
+    if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+      export DISPLAY=:99.0
+      sh -e /etc/init.d/xvfb start
+      sleep 3
+
+      cd ${TRAVIS_BUILD_DIR}/deps
+      if [[ -z "$(ls -A ceres-solver)" ]]; then
+        git clone https://ceres-solver.googlesource.com/ceres-solver
+      fi
+      cd ceres-solver
+      git pull
+      mkdir -p build install
+      cd build
+      cmake .. \
+        -DBUILD_TESTING=OFF \
+        -DBUILD_EXAMPLES=OFF \
+        -DCMAKE_INSTALL_PREFIX=../install
+      make -j2
+      make install
+      cd ${TRAVIS_BUILD_DIR}
+    fi
+
+script:
+  - cmake --version
+  - cd build
+  - |
+    if [[ -z "$(ls -A colmap)" ]]; then
+      git clone https://github.com/colmap/colmap.git
+    fi
+  - cd colmap
+  - git checkout ${TRAVIS_BRANCH}
+  - git pull
+  - mkdir -p build
+  - cd build
+  - cmake .. ${CMAKE_OPTIONS}
+  - make -j2
+  - ./src/util/opengl_utils_test
+  - make test
