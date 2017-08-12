@@ -86,7 +86,7 @@ script:
   - git pull
   - mkdir -p build
   - cd build
-  - cmake .. ${CMAKE_OPTIONS}
+  - cmake .. -DCMAKE_BUILD_TYPE=Release ${CMAKE_OPTIONS}
   - make -j2
   - ./src/util/opengl_utils_test
   - make test
