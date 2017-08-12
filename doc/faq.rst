@@ -271,7 +271,9 @@ The dense reconstruction can be speeded up in multiple ways:
   as described :ref:`here <faq-dense-memory>`.
 
 Note that apart from upgrading your hardware, the proposed changes might degrade
-the quality of the dense reconstruction results.
+the quality of the dense reconstruction results. When cancelling the stereo
+reconstruction process and restarting it later, the previous progress is not
+lost and any already processed views will be skipped.
 
 
 .. _faq-dense-memory:
