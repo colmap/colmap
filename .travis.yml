@@ -5,7 +5,7 @@ dist: trusty
 matrix:
   include:
     - os: linux
-      env: CMAKE_OPTIONS="-DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+      env: CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
       addons:
         apt:
           sources:
@@ -28,7 +28,7 @@ matrix:
             - qtbase5-dev
             - libqt5opengl5-dev
     - os: osx
-      env: CMAKE_OPTIONS="-DQt5Core_DIR=/usr/local/opt/qt5/lib/cmake/Qt5Core -DQt5OpenGL_DIR=/usr/local/opt/qt5/lib/cmake/Qt5OpenGL"
+      env: CMAKE_OPTIONS="-DLTO_ENABLED=OFF -DQt5Core_DIR=/usr/local/opt/qt5/lib/cmake/Qt5Core -DQt5OpenGL_DIR=/usr/local/opt/qt5/lib/cmake/Qt5OpenGL"
 
 cache:
   directories:
@@ -53,10 +53,6 @@ before_script:
     fi
   - |
     if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-      export DISPLAY=:99.0
-      sh -e /etc/init.d/xvfb start
-      sleep 3
-
       cd ${TRAVIS_BUILD_DIR}/deps
       if [[ -z "$(ls -A ceres-solver)" ]]; then
         git clone https://ceres-solver.googlesource.com/ceres-solver

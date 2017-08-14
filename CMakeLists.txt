@@ -165,6 +165,9 @@ endif()
 
 if(OPENGL_ENABLED)
     add_definitions("-DOPENGL_ENABLED")
+    message(STATUS "Enabling OpenGL support")
+else()
+    message(STATUS "Disabling OpenGL support")
 endif()
 
 if(PROFILING_ENABLED)
