@@ -52,7 +52,7 @@ BOOST_AUTO_TEST_CASE(TestCreateSiftGPUMatcherOpenGL) {
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
-  if (!OpenGLContextManager::HasMachineDisplay()) {
+  if (!OpenGLContextManager::HasOpenGL()) {
     return;
   }
 
@@ -161,7 +161,7 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesGPU) {
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
-  if (!OpenGLContextManager::HasMachineDisplay()) {
+  if (!OpenGLContextManager::HasOpenGL()) {
     return;
   }
 
@@ -236,7 +236,7 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUvsGPU) {
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
-  if (!OpenGLContextManager::HasMachineDisplay()) {
+  if (!OpenGLContextManager::HasOpenGL()) {
     return;
   }
 
@@ -368,7 +368,7 @@ BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesGPU) {
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
-  if (!OpenGLContextManager::HasMachineDisplay()) {
+  if (!OpenGLContextManager::HasOpenGL()) {
     return;
   }
 

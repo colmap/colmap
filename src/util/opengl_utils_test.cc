@@ -31,7 +31,7 @@ BOOST_AUTO_TEST_CASE(TestOpenGLContextManager) {
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
-  if (!OpenGLContextManager::HasMachineDisplay()) {
+  if (!OpenGLContextManager::HasOpenGL()) {
     return;
   }
 
@@ -53,7 +53,7 @@ BOOST_AUTO_TEST_CASE(TestRunThreadWithOpenGLContext) {
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
-  if (!OpenGLContextManager::HasMachineDisplay()) {
+  if (!OpenGLContextManager::HasOpenGL()) {
     return;
   }
 

@@ -66,7 +66,7 @@ BOOST_AUTO_TEST_CASE(TestExtractSiftFeaturesGPU) {
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
-  if (!OpenGLContextManager::HasMachineDisplay()) {
+  if (!OpenGLContextManager::HasOpenGL()) {
     return;
   }
 
