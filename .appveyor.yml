@@ -1,0 +1,59 @@
+image: Visual Studio 2015
+
+environment:
+  CMAKE_GENERATOR: "Visual Studio 14 2015 Win64"
+
+cache:
+  - build
+  - deps
+
+configuration:
+  - Release
+
+before_build:
+  - if not exist deps mkdir deps
+  # Install Eigen 3.3
+  - cd %APPVEYOR_BUILD_FOLDER%/deps
+  - if not exist eigen hg clone https://bitbucket.org/eigen/eigen
+  - cd eigen
+  - hg pull
+  - hg update 3.3
+  # Install FreeImage
+  - cd %APPVEYOR_BUILD_FOLDER%/deps
+  - del FreeImage3170Win32Win64.zip
+  - ps: curl -o FreeImage3170Win32Win64.zip https://kent.dl.sourceforge.net/project/freeimage/Binary%20Distribution/3.17.0/FreeImage3170Win32Win64.zip
+  - 7z x FreeImage3170Win32Win64.zip
+  - del FreeImage3170Win32Win64.zip
+  # Install Gflags
+  - cd %APPVEYOR_BUILD_FOLDER%/deps
+  - if not exist gflags git clone https://github.com/gflags/gflags.git
+  - cd gflags
+  - git pull
+  - git checkout v2.2.1
+  - if not exist build mkdir build
+  - cd build
+  - cmake -G %CMAKE_GENERATOR% ..
+  - cmake --build .
+  # Install Glog
+  - cd %APPVEYOR_BUILD_FOLDER%/deps
+  - if not exist glog git clone https://github.com/google/glog.git
+  - cd glog
+  - git pull
+  - git checkout v0.3.5
+  - if not exist build mkdir build
+  - cd build
+  - cmake -G %CMAKE_GENERATOR% ..
+  - cmake --build .
+
+  - if not exist build mkdir build
+  - cd build
+  - if not exist colmap git clone https://github.com/colmap/colmap.git
+  - cd colmap
+  - git checkout %APPVEYOR_REPO_BRANCH%
+  - git pull
+  - if not exist build mkdir build
+  - cd build
+  - cmake -G %CMAKE_GENERATOR% -DBOOST_ROOT="C:/Libraries/boost_1_63_0" -DBOOST_LIBRARYDIR="C:/Libraries/boost_1_63_0/lib64-msvc-14.0" -DEIGEN3_INCLUDE_DIRS="%APPVEYOR_BUILD_FOLDER%/deps/eigen" -DFREEIMAGE_INCLUDE_DIR_HINTS="%APPVEYOR_BUILD_FOLDER%/deps/FreeImage/Dist/x64" -DFREEIMAGE_LIBRARY_DIR_HINTS="%APPVEYOR_BUILD_FOLDER%/deps/FreeImage/Dist/x64" ..
+
+build:
+  project: build/colmap/build/ALL_BUILD.sln
