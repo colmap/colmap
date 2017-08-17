@@ -58,7 +58,7 @@ class CameraRig {
   // Add a new camera to the rig. The relative pose may contain dummy values and
   // can then be computed automatically from a given reconstruction using the
   // method `ComputeRelativePoses`.
-  void AddCamera(const camera_t camera_id, const Eigen::Vector4d rel_qvec,
+  void AddCamera(const camera_t camera_id, const Eigen::Vector4d& rel_qvec,
                  const Eigen::Vector3d& rel_tvec);
 
   // Add the images of a single snapshot to rig. A snapshot consists of the

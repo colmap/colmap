@@ -43,7 +43,7 @@ struct FeatureGeometry {
 
   // Get the approximate area occupied by the feature after applying an affine
   // transformation to the feature geometry.
-  float GetAreaUnderTransform(const Eigen::Matrix2f A) const;
+  float GetAreaUnderTransform(const Eigen::Matrix2f& A) const;
 
   float x = 0.0f;
   float y = 0.0f;

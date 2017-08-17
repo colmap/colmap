@@ -51,7 +51,7 @@ const std::vector<std::vector<image_t>>& CameraRig::Snapshots() const {
 }
 
 void CameraRig::AddCamera(const camera_t camera_id,
-                          const Eigen::Vector4d rel_qvec,
+                          const Eigen::Vector4d& rel_qvec,
                           const Eigen::Vector3d& rel_tvec) {
   CHECK(!HasCamera(camera_id));
   CHECK_EQ(NumSnapshots(), 0);
