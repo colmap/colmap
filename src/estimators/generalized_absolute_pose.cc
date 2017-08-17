@@ -176,7 +176,7 @@ std::vector<Eigen::Vector3d> ComputeDepthsSylvester(
         for (const double lambda_1_2 : lambdas_1_2) {
           const double kMaxLambdaDiff = 1e-3;
           if (std::abs(lambda_1_1 - lambda_1_2) < kMaxLambdaDiff) {
-            const double lambda_1 = (lambda_1_1 + lambda_1_1) / 2;
+            const double lambda_1 = (lambda_1_1 + lambda_1_2) / 2;
             depths.emplace_back(lambda_1, lambda_2, lambda_3);
           }
         }
