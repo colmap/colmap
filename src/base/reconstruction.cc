@@ -840,6 +840,8 @@ void Reconstruction::ImportPLY(const std::string& path) {
       continue;
     }
 
+    // Just render diffuse, ambient, specular colors as normal colors.
+
     if (line_elems.size() >= 3 && line_elems[0] == "property") {
       CHECK(line_elems[1] == "float" || line_elems[1] == "uchar")
           << "PLY import only supports the float and uchar data types";
@@ -853,15 +855,21 @@ void Reconstruction::ImportPLY(const std::string& path) {
         Z_index = index;
         Z_byte_pos = num_bytes_per_line;
       } else if (line == "property uchar r" || line == "property uchar red" ||
-                 line == "property uchar diffuse_red") {
+                 line == "property uchar diffuse_red" ||
+                 line == "property uchar ambient_red" ||
+                 line == "property uchar specular_red") {
         R_index = index;
         R_byte_pos = num_bytes_per_line;
       } else if (line == "property uchar g" || line == "property uchar green" ||
-                 line == "property uchar diffuse_green") {
+                 line == "property uchar diffuse_green" ||
+                 line == "property uchar ambient_green" ||
+                 line == "property uchar specular_green") {
         G_index = index;
         G_byte_pos = num_bytes_per_line;
       } else if (line == "property uchar b" || line == "property uchar blue" ||
-                 line == "property uchar diffuse_blue") {
+                 line == "property uchar diffuse_blue" ||
+                 line == "property uchar ambient_blue" ||
+                 line == "property uchar specular_blue") {
         B_index = index;
         B_byte_pos = num_bytes_per_line;
       }
@@ -877,9 +885,10 @@ void Reconstruction::ImportPLY(const std::string& path) {
     }
   }
 
-  CHECK(X_index != -1 && Y_index != -1 && Z_index != -1 && R_index != -1 &&
-        G_index != -1 && B_index != -1)
-      << "Invalid PLY file format: Must specify x, y, z, and color";
+  const bool is_rgb_missing = R_index == -1 || G_index == -1 || B_index == -1;
+
+  CHECK(X_index != -1 && Y_index != -1 && Z_index)
+      << "Invalid PLY file format: x, y, z properties missing";
 
   if (is_binary) {
     std::vector<char> buffer(num_bytes_per_line);
@@ -896,12 +905,16 @@ void Reconstruction::ImportPLY(const std::string& path) {
         xyz(2) = LittleEndianToNative(
             *reinterpret_cast<float*>(&buffer[Z_byte_pos]));
 
-        rgb(0) = LittleEndianToNative(
-            *reinterpret_cast<uint8_t*>(&buffer[R_byte_pos]));
-        rgb(1) = LittleEndianToNative(
-            *reinterpret_cast<uint8_t*>(&buffer[G_byte_pos]));
-        rgb(2) = LittleEndianToNative(
-            *reinterpret_cast<uint8_t*>(&buffer[B_byte_pos]));
+        if (is_rgb_missing) {
+          rgb.setZero();
+        } else {
+          rgb(0) = LittleEndianToNative(
+              *reinterpret_cast<uint8_t*>(&buffer[R_byte_pos]));
+          rgb(1) = LittleEndianToNative(
+              *reinterpret_cast<uint8_t*>(&buffer[G_byte_pos]));
+          rgb(2) = LittleEndianToNative(
+              *reinterpret_cast<uint8_t*>(&buffer[B_byte_pos]));
+        }
       } else {
         xyz(0) =
             BigEndianToNative(*reinterpret_cast<float*>(&buffer[X_byte_pos]));
@@ -910,12 +923,16 @@ void Reconstruction::ImportPLY(const std::string& path) {
         xyz(2) =
             BigEndianToNative(*reinterpret_cast<float*>(&buffer[Z_byte_pos]));
 
-        rgb(0) =
-            BigEndianToNative(*reinterpret_cast<uint8_t*>(&buffer[R_byte_pos]));
-        rgb(1) =
-            BigEndianToNative(*reinterpret_cast<uint8_t*>(&buffer[G_byte_pos]));
-        rgb(2) =
-            BigEndianToNative(*reinterpret_cast<uint8_t*>(&buffer[B_byte_pos]));
+        if (is_rgb_missing) {
+          rgb.setZero();
+        } else {
+          rgb(0) = BigEndianToNative(
+              *reinterpret_cast<uint8_t*>(&buffer[R_byte_pos]));
+          rgb(1) = BigEndianToNative(
+              *reinterpret_cast<uint8_t*>(&buffer[G_byte_pos]));
+          rgb(2) = BigEndianToNative(
+              *reinterpret_cast<uint8_t*>(&buffer[B_byte_pos]));
+        }
       }
 
       const point3D_t point3D_id = AddPoint3D(xyz, Track());
@@ -940,9 +957,13 @@ void Reconstruction::ImportPLY(const std::string& path) {
       xyz(2) = std::stod(items.at(Z_index));
 
       Eigen::Vector3i rgb;
-      rgb(0) = std::stoi(items.at(R_index));
-      rgb(1) = std::stoi(items.at(G_index));
-      rgb(2) = std::stoi(items.at(B_index));
+      if (is_rgb_missing) {
+        rgb.setZero();
+      } else {
+        rgb(0) = std::stoi(items.at(R_index));
+        rgb(1) = std::stoi(items.at(G_index));
+        rgb(2) = std::stoi(items.at(B_index));
+      }
 
       const point3D_t point3D_id = AddPoint3D(xyz, Track());
       Point3D(point3D_id).SetColor(rgb.cast<uint8_t>());
