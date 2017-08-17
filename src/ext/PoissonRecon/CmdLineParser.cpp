@@ -34,7 +34,7 @@ DAMAGE.
 #include "CmdLineParser.h"
 
 
-#ifdef WIN32
+#ifdef _WIN32
 int strcasecmp(char* c1,char* c2){return _stricmp(c1,c2);}
 #endif
 
