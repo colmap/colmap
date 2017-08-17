@@ -116,7 +116,8 @@ ADD_SOURCE_DIR(ext/FLANN EXT_FLANN_SRC *.h *.cpp *.hpp *.cu)
 ADD_SOURCE_DIR(ext/Graclus EXT_GRACLUS_SRC *.h *.c)
 ADD_SOURCE_DIR(ext/LSD EXT_LSD_SRC *.h *.c)
 ADD_SOURCE_DIR(ext/PBA EXT_PBA_SRC *.h *.cpp *.cu)
-ADD_SOURCE_DIR(ext/SiftGPU EXT_SIFTGPU_SRC *.h *.cpp *.cu)
+ADD_SOURCE_DIR(ext/PoissonRecon EXT_POISSON_RECON_SRC *.h *.cpp *.inl)
+ADD_SOURCE_DIR(ext/SiftGPU EXT_SIFT_GPU_SRC *.h *.cpp *.cu)
 ADD_SOURCE_DIR(ext/SQLite EXT_SQLITE_SRC *.h *.c)
 ADD_SOURCE_DIR(ext/VLFeat EXT_VLFEAT_SRC *.h *.c *.tc)
 ADD_SOURCE_DIR(mvs MVS_SRC *.h *.cc *.cu)
@@ -140,7 +141,8 @@ add_library(
     ${EXT_GRACLUS_SRC}
     ${EXT_LSD_SRC}
     ${EXT_PBA_SRC}
-    ${EXT_SIFTGPU_SRC}
+    ${EXT_POISSON_RECON_SRC}
+    ${EXT_SIFT_GPU_SRC}
     ${EXT_SQLITE_SRC}
     ${EXT_VLFEAT_SRC}
     ${MVS_SRC}
