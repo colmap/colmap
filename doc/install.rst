@@ -68,7 +68,8 @@ Dependencies from default Ubuntu 14.04/16.04 repositories::
         libgoogle-glog-dev \
         libgflags-dev \
         libglew-dev \
-        qt5-default
+        qtbase5-dev \
+        libqt5opengl5-dev
 
 Install `Ceres Solver <http://ceres-solver.org/>`_::
 
