@@ -4,4 +4,4 @@ cache:
   - build
 
 install:
-  - cmd: C:\Python36-x64\python.exe scripts\python\build.py --path build --boost_path C:\Libraries\boost_1_63_0\lib64-msvc-14.0 --qt_path C:\Qt\5.9.1\msvc2015_64
+  - cmd: C:\Python36-x64\python.exe scripts\python\build.py --path build --boost_path C:\Libraries\boost_1_63_0\lib64-msvc-14.0 --qt_path C:\Qt\5.9.1\msvc2015_64 --colmap_update --colmap_branch %APPVEYOR_REPO_BRANCH%
