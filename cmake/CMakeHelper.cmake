@@ -1,14 +1,3 @@
-# Hide Qt warnings
-if(POLICY CMP0020)
-    cmake_policy(SET CMP0020 OLD)
-endif()
-if(POLICY CMP0043)
-    cmake_policy(SET CMP0043 OLD)
-endif()
-if(POLICY CMP0054)
-    cmake_policy(SET CMP0054 OLD)
-endif()
-
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     set(IS_MSVC TRUE)
 endif()
