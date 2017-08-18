@@ -158,7 +158,7 @@ follows::
         --path path/to/colmap/install \
         --boost_path C:\local\boost_1_64_0\lib64-msvc-14.0 \
         --qt_path C:\Qt\5.9.1\msvc2015_64 \
-        --cuda_path "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v8.0"
+        --cuda_path "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA/v8.0"
 
 If you use Homebrew under Mac, you can use the following command::
 

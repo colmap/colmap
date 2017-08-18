@@ -348,6 +348,8 @@ def build_colmap(args):
 
     if args.boost_path != "":
         extra_config_args.append(
+            "-DBOOST_ROOT={}".format(args.boost_path))
+        extra_config_args.append(
             "-DBOOST_LIBRARYDIR={}".format(args.boost_path))
 
     if args.cuda_path != "":
