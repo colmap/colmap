@@ -53,9 +53,18 @@ Workspace::Workspace(const Options& options)
       image.Downsize(options_.max_image_size, options_.max_image_size);
     }
   }
+
+  depth_map_path_ = EnsureTrailingSlash(JoinPaths(
+      options_.workspace_path, options_.stereo_folder, "depth_maps"));
+  normal_map_path_ = EnsureTrailingSlash(JoinPaths(
+      options_.workspace_path, options_.stereo_folder, "normal_maps"));
 }
 
 void Workspace::ClearCache() { cache_.Clear(); }
+
+const Workspace::Options& Workspace::GetOptions() const {
+  return options_;
+}
 
 const Model& Workspace::GetModel() const { return model_; }
 
@@ -109,13 +118,11 @@ std::string Workspace::GetBitmapPath(const int image_id) const {
 }
 
 std::string Workspace::GetDepthMapPath(const int image_id) const {
-  return JoinPaths(options_.workspace_path, "stereo/depth_maps",
-                   GetFileName(image_id));
+  return depth_map_path_ + GetFileName(image_id);
 }
 
 std::string Workspace::GetNormalMapPath(const int image_id) const {
-  return JoinPaths(options_.workspace_path, "stereo/normal_maps",
-                   GetFileName(image_id));
+  return normal_map_path_ + GetFileName(image_id);
 }
 
 bool Workspace::HasBitmap(const int image_id) const {

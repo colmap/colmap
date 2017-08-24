@@ -31,14 +31,19 @@ namespace colmap {
 namespace mvs {
 namespace {
 
-void ImportPMVSOption(const Model& model, const std::string& path,
-                      const std::string& option_name) {
-  CreateDirIfNotExists(JoinPaths(path, "stereo"));
-  CreateDirIfNotExists(JoinPaths(path, "stereo/depth_maps"));
-  CreateDirIfNotExists(JoinPaths(path, "stereo/normal_maps"));
-  CreateDirIfNotExists(JoinPaths(path, "stereo/consistency_graphs"));
+void ImportPMVSWorkspace(const Workspace& workspace,
+                         const std::string& option_name) {
+  const std::string& workspace_path = workspace.GetOptions().workspace_path;
+  const std::string& stereo_folder = workspace.GetOptions().stereo_folder;
 
-  const auto option_lines = ReadTextFileLines(JoinPaths(path, option_name));
+  CreateDirIfNotExists(JoinPaths(workspace_path, stereo_folder));
+  CreateDirIfNotExists(JoinPaths(workspace_path, stereo_folder, "depth_maps"));
+  CreateDirIfNotExists(JoinPaths(workspace_path, stereo_folder, "normal_maps"));
+  CreateDirIfNotExists(
+      JoinPaths(workspace_path, stereo_folder, "consistency_graphs"));
+
+  const auto option_lines =
+      ReadTextFileLines(JoinPaths(workspace_path, option_name));
   for (const auto& line : option_lines) {
     if (StringStartsWith(line, "timages")) {
       const auto elems = StringSplit(line, " ");
@@ -48,12 +53,15 @@ void ImportPMVSOption(const Model& model, const std::string& path,
       image_names.reserve(num_images);
       for (size_t i = 2; i < elems.size(); ++i) {
         const int image_id = std::stoi(elems[i]);
-        const std::string image_name = model.GetImageName(image_id);
+        const std::string image_name =
+            workspace.GetModel().GetImageName(image_id);
         image_names.push_back(image_name);
       }
 
-      const auto patch_match_path = JoinPaths(path, "stereo/patch-match.cfg");
-      const auto fusion_path = JoinPaths(path, "stereo/fusion.cfg");
+      const auto patch_match_path =
+          JoinPaths(workspace_path, stereo_folder, "patch-match.cfg");
+      const auto fusion_path =
+          JoinPaths(workspace_path, stereo_folder, "fusion.cfg");
       std::ofstream patch_match_file(patch_match_path, std::ios::trunc);
       std::ofstream fusion_file(fusion_path, std::ios::trunc);
       CHECK(patch_match_file.is_open()) << patch_match_path;
@@ -249,7 +257,16 @@ void PatchMatchController::Run() {
 
 void PatchMatchController::ReadWorkspace() {
   std::cout << "Reading workspace..." << std::endl;
+
   Workspace::Options workspace_options;
+
+  auto workspace_format_lower_case = workspace_format_;
+  StringToLower(&workspace_format_lower_case);
+  if (workspace_format_lower_case == "pmvs") {
+    workspace_options.stereo_folder =
+        StringPrintf("stereo-%s", pmvs_option_name_.c_str());
+  }
+
   workspace_options.max_image_size = options_.max_image_size;
   workspace_options.image_as_rgb = false;
   workspace_options.cache_size = options_.cache_size;
@@ -257,24 +274,28 @@ void PatchMatchController::ReadWorkspace() {
   workspace_options.workspace_format = workspace_format_;
   workspace_options.input_type = options_.geom_consistency ? "photometric" : "";
   workspace_.reset(new Workspace(workspace_options));
+
+  if (workspace_format_lower_case == "pmvs") {
+    std::cout << StringPrintf("Importing PMVS workspace (option %s)...",
+                              pmvs_option_name_.c_str())
+              << std::endl;
+    ImportPMVSWorkspace(*workspace_, pmvs_option_name_);
+  }
+
   depth_ranges_ = workspace_->GetModel().ComputeDepthRanges();
 }
 
 void PatchMatchController::ReadProblems() {
-  problems_.clear();
-
-  const auto model = workspace_->GetModel();
-
-  auto workspace_format_lower_case = workspace_format_;
-  StringToLower(&workspace_format_lower_case);
-  if (workspace_format_lower_case == "pmvs") {
-    std::cout << "Importing PMVS options..." << std::endl;
-    ImportPMVSOption(model, workspace_path_, pmvs_option_name_);
-  }
-
   std::cout << "Reading configuration..." << std::endl;
 
-  const auto config_path = JoinPaths(workspace_path_, "stereo/patch-match.cfg");
+  problems_.clear();
+
+  const auto& model = workspace_->GetModel();
+
+  const auto config_path =
+      JoinPaths(workspace_path_, workspace_->GetOptions().stereo_folder,
+                "patch-match.cfg");
+
   std::ifstream file(config_path);
   CHECK(file.is_open()) << config_path;
 
@@ -358,12 +379,13 @@ void PatchMatchController::ReadProblems() {
         const size_t eff_max_num_src_images =
             std::min(src_images.size(), max_num_src_images);
 
-        std::partial_sort(
-            src_images.begin(), src_images.begin() + eff_max_num_src_images,
-            src_images.end(), [](const std::pair<int, int> image1,
-                                 const std::pair<int, int> image2) {
-              return image1.second > image2.second;
-            });
+        std::partial_sort(src_images.begin(),
+                          src_images.begin() + eff_max_num_src_images,
+                          src_images.end(),
+                          [](const std::pair<int, int>& image1,
+                             const std::pair<int, int>& image2) {
+                            return image1.second > image2.second;
+                          });
 
         problem.src_image_ids.reserve(eff_max_num_src_images);
         for (size_t i = 0; i < eff_max_num_src_images; ++i) {
@@ -418,17 +440,18 @@ void PatchMatchController::ProcessProblem(const PatchMatch::Options& options,
   const int gpu_index = gpu_indices_.at(thread_pool_->GetThreadIndex());
   CHECK_GE(gpu_index, -1);
 
+  const std::string& stereo_folder = workspace_->GetOptions().stereo_folder;
   const std::string output_type =
       options.geom_consistency ? "geometric" : "photometric";
   const std::string image_name = model.GetImageName(problem.ref_image_id);
   const std::string file_name =
       StringPrintf("%s.%s.bin", image_name.c_str(), output_type.c_str());
   const std::string depth_map_path =
-      JoinPaths(workspace_path_, "stereo/depth_maps", file_name);
+      JoinPaths(workspace_path_, stereo_folder, "depth_maps", file_name);
   const std::string normal_map_path =
-      JoinPaths(workspace_path_, "stereo/normal_maps", file_name);
-  const std::string consistency_graph_path =
-      JoinPaths(workspace_path_, "stereo/consistency_graphs", file_name);
+      JoinPaths(workspace_path_, stereo_folder, "normal_maps", file_name);
+  const std::string consistency_graph_path = JoinPaths(
+      workspace_path_, stereo_folder, "consistency_graphs", file_name);
 
   if (ExistsFile(depth_map_path) && ExistsFile(normal_map_path) &&
       (!options.write_consistency_graph ||
