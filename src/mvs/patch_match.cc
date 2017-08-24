@@ -292,12 +292,9 @@ void PatchMatchController::ReadProblems() {
 
   const auto& model = workspace_->GetModel();
 
-  const auto config_path =
+  std::vector<std::string> config = ReadTextFileLines(
       JoinPaths(workspace_path_, workspace_->GetOptions().stereo_folder,
-                "patch-match.cfg");
-
-  std::ifstream file(config_path);
-  CHECK(file.is_open()) << config_path;
+                "patch-match.cfg"));
 
   std::vector<std::map<int, int>> shared_num_points;
   std::vector<std::map<int, float>> triangulation_angles;
@@ -305,38 +302,55 @@ void PatchMatchController::ReadProblems() {
   const float min_triangulation_angle_rad =
       DegToRad(options_.min_triangulation_angle);
 
-  std::string line;
   std::string ref_image_name;
-  while (std::getline(file, line)) {
-    StringTrim(&line);
+  std::unordered_set<int> ref_image_ids;
 
-    if (line.empty() || line[0] == '#') {
+  struct ProblemConfig {
+    std::string ref_image_name;
+    std::vector<std::string> src_image_names;
+  };
+  std::vector<ProblemConfig> problem_configs;
+
+  for (size_t i = 0; i < config.size(); ++i) {
+    std::string& config_line = config[i];
+    StringTrim(&config_line);
+
+    if (config_line.empty() || config_line[0] == '#') {
       continue;
     }
 
     if (ref_image_name.empty()) {
-      ref_image_name = line;
+      ref_image_name = config_line;
       continue;
     }
 
+    ref_image_ids.insert(model.GetImageId(ref_image_name));
+
+    ProblemConfig problem_config;
+    problem_config.ref_image_name = ref_image_name;
+    problem_config.src_image_names = CSVToVector<std::string>(config_line);
+    problem_configs.push_back(problem_config);
+
+    ref_image_name.clear();
+  }
+
+  for (const auto& problem_config : problem_configs) {
     PatchMatch::Problem problem;
 
-    problem.ref_image_id = model.GetImageId(ref_image_name);
+    problem.ref_image_id = model.GetImageId(problem_config.ref_image_name);
 
-    const std::vector<std::string> src_image_names =
-        CSVToVector<std::string>(line);
-
-    if (src_image_names.size() == 1 && src_image_names[0] == "__all__") {
+    if (problem_config.src_image_names.size() == 1 &&
+        problem_config.src_image_names[0] == "__all__") {
       // Use all images as source images.
       problem.src_image_ids.clear();
       problem.src_image_ids.reserve(model.images.size() - 1);
-      for (size_t image_id = 0; image_id < model.images.size(); ++image_id) {
-        if (static_cast<int>(image_id) != problem.ref_image_id) {
+      for (const int image_id : ref_image_ids) {
+        if (image_id != problem.ref_image_id) {
           problem.src_image_ids.push_back(image_id);
         }
       }
-    } else if (src_image_names.size() == 2 &&
-               src_image_names[0] == "__auto__") {
+    } else if (problem_config.src_image_names.size() == 2 &&
+               problem_config.src_image_names[0] == "__auto__") {
       // Use maximum number of overlapping images as source images. Overlapping
       // will be sorted based on the number of shared points to the reference
       // image and the top ranked images are selected. Note that images are only
@@ -351,50 +365,42 @@ void PatchMatchController::ReadProblems() {
             model.ComputeTriangulationAngles(kTriangulationAnglePercentile);
       }
 
-      const size_t max_num_src_images = std::stoll(src_image_names[1]);
+      const size_t max_num_src_images =
+          std::stoll(problem_config.src_image_names[1]);
 
       const auto& overlapping_images =
           shared_num_points.at(problem.ref_image_id);
       const auto& overlapping_triangulation_angles =
           triangulation_angles.at(problem.ref_image_id);
 
-      if (max_num_src_images >= overlapping_images.size()) {
-        problem.src_image_ids.reserve(overlapping_images.size());
-        for (const auto& image : overlapping_images) {
-          if (overlapping_triangulation_angles.at(image.first) >=
-              min_triangulation_angle_rad) {
-            problem.src_image_ids.push_back(image.first);
-          }
-        }
-      } else {
-        std::vector<std::pair<int, int>> src_images;
-        src_images.reserve(overlapping_images.size());
-        for (const auto& image : overlapping_images) {
-          if (overlapping_triangulation_angles.at(image.first) >=
-              min_triangulation_angle_rad) {
-            src_images.emplace_back(image.first, image.second);
-          }
-        }
-
-        const size_t eff_max_num_src_images =
-            std::min(src_images.size(), max_num_src_images);
-
-        std::partial_sort(src_images.begin(),
-                          src_images.begin() + eff_max_num_src_images,
-                          src_images.end(),
-                          [](const std::pair<int, int>& image1,
-                             const std::pair<int, int>& image2) {
-                            return image1.second > image2.second;
-                          });
-
-        problem.src_image_ids.reserve(eff_max_num_src_images);
-        for (size_t i = 0; i < eff_max_num_src_images; ++i) {
-          problem.src_image_ids.push_back(src_images[i].first);
+      std::vector<std::pair<int, int>> src_images;
+      src_images.reserve(overlapping_images.size());
+      for (const auto& image : overlapping_images) {
+        if (ref_image_ids.count(image.first) &&
+            overlapping_triangulation_angles.at(image.first) >=
+                min_triangulation_angle_rad) {
+          src_images.emplace_back(image.first, image.second);
         }
       }
+
+      const size_t eff_max_num_src_images =
+          std::min(src_images.size(), max_num_src_images);
+
+      std::partial_sort(src_images.begin(),
+                        src_images.begin() + eff_max_num_src_images,
+                        src_images.end(),
+                        [](const std::pair<int, int>& image1,
+                           const std::pair<int, int>& image2) {
+                          return image1.second > image2.second;
+                        });
+
+      problem.src_image_ids.reserve(eff_max_num_src_images);
+      for (size_t i = 0; i < eff_max_num_src_images; ++i) {
+        problem.src_image_ids.push_back(src_images[i].first);
+      }
     } else {
-      problem.src_image_ids.reserve(src_image_names.size());
-      for (const auto& src_image_name : src_image_names) {
+      problem.src_image_ids.reserve(problem_config.src_image_names.size());
+      for (const auto& src_image_name : problem_config.src_image_names) {
         problem.src_image_ids.push_back(model.GetImageId(src_image_name));
       }
     }
@@ -404,13 +410,11 @@ void PatchMatchController::ReadProblems() {
           << StringPrintf(
                  "WARNING: Ignoring reference image %s, because it has no "
                  "source images.",
-                 ref_image_name.c_str())
+                 problem_config.ref_image_name.c_str())
           << std::endl;
     } else {
       problems_.push_back(problem);
     }
-
-    ref_image_name.clear();
   }
 
   std::cout << StringPrintf("Configuration has %d problems...",
