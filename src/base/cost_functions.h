@@ -79,10 +79,10 @@ class BundleAdjustmentConstantPoseCostFunction {
   BundleAdjustmentConstantPoseCostFunction(const Eigen::Vector4d& qvec,
                                            const Eigen::Vector3d& tvec,
                                            const Eigen::Vector2d& point2D)
-      : qx_(qvec(0)),
-        qy_(qvec(1)),
-        qz_(qvec(2)),
-        qw_(qvec(3)),
+      : qw_(qvec(0)),
+        qx_(qvec(1)),
+        qy_(qvec(2)),
+        qz_(qvec(3)),
         tx_(tvec(0)),
         ty_(tvec(1)),
         tz_(tvec(2)),
@@ -101,7 +101,7 @@ class BundleAdjustmentConstantPoseCostFunction {
   template <typename T>
   bool operator()(const T* const point3D, const T* const camera_params,
                   T* residuals) const {
-    const T qvec[4] = {T(qx_), T(qy_), T(qz_), T(qw_)};
+    const T qvec[4] = {T(qw_), T(qx_), T(qy_), T(qz_)};
 
     // Rotate and translate.
     T point3D_local[3];
@@ -127,10 +127,10 @@ class BundleAdjustmentConstantPoseCostFunction {
   }
 
  private:
+  double qw_;
   double qx_;
   double qy_;
   double qz_;
-  double qw_;
   double tx_;
   double ty_;
   double tz_;
