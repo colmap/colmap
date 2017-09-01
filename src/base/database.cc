@@ -152,17 +152,26 @@ Camera ReadCameraRow(sqlite3_stmt* sql_stmt) {
 
 Image ReadImageRow(sqlite3_stmt* sql_stmt) {
   Image image;
+
   image.SetImageId(static_cast<image_t>(sqlite3_column_int64(sql_stmt, 0)));
   image.SetName(std::string(
       reinterpret_cast<const char*>(sqlite3_column_text(sql_stmt, 1))));
   image.SetCameraId(static_cast<camera_t>(sqlite3_column_int64(sql_stmt, 2)));
-  image.QvecPrior(0) = sqlite3_column_double(sql_stmt, 3);
-  image.QvecPrior(1) = sqlite3_column_double(sql_stmt, 4);
-  image.QvecPrior(2) = sqlite3_column_double(sql_stmt, 5);
-  image.QvecPrior(3) = sqlite3_column_double(sql_stmt, 6);
-  image.TvecPrior(0) = sqlite3_column_double(sql_stmt, 7);
-  image.TvecPrior(1) = sqlite3_column_double(sql_stmt, 8);
-  image.TvecPrior(2) = sqlite3_column_double(sql_stmt, 9);
+
+  // NaNs are automatically converted to NULLs in SQLite.
+  for (size_t i = 0; i < 4; ++i) {
+    if (sqlite3_column_type(sql_stmt, i + 3) != SQLITE_NULL) {
+      image.QvecPrior(i) = sqlite3_column_double(sql_stmt, i + 3);
+    }
+  }
+
+  // NaNs are automatically converted to NULLs in SQLite.
+  for (size_t i = 0; i < 3; ++i) {
+    if (sqlite3_column_type(sql_stmt, i + 7) != SQLITE_NULL) {
+      image.TvecPrior(i) = sqlite3_column_double(sql_stmt, i + 7);
+    }
+  }
+
   return image;
 }
 
@@ -531,10 +540,14 @@ image_t Database::WriteImage(const Image& image,
                                  static_cast<int>(image.Name().size()),
                                  SQLITE_STATIC));
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_add_image_, 3, image.CameraId()));
+
+  // NaNs are automatically converted to NULLs in SQLite.
   SQLITE3_CALL(sqlite3_bind_double(sql_stmt_add_image_, 4, image.QvecPrior(0)));
   SQLITE3_CALL(sqlite3_bind_double(sql_stmt_add_image_, 5, image.QvecPrior(1)));
   SQLITE3_CALL(sqlite3_bind_double(sql_stmt_add_image_, 6, image.QvecPrior(2)));
   SQLITE3_CALL(sqlite3_bind_double(sql_stmt_add_image_, 7, image.QvecPrior(3)));
+
+  // NaNs are automatically converted to NULLs in SQLite.
   SQLITE3_CALL(sqlite3_bind_double(sql_stmt_add_image_, 8, image.TvecPrior(0)));
   SQLITE3_CALL(sqlite3_bind_double(sql_stmt_add_image_, 9, image.TvecPrior(1)));
   SQLITE3_CALL(
