@@ -189,9 +189,8 @@ Multi-GPU support in feature extraction/matching
 You can run feature extraction/matching on multiple GPUs by specifying multiple
 indices for CUDA-enabled GPUs, e.g., ``--SiftExtraction.gpu_index=0,1,2,3`` and
 ``--SiftMatching.gpu_index=0,1,2,3`` runs the feature extraction/matching on 4
-GPUs in parallel. You can also run multiple feature extraction/matching threads
-on the same GPU by specifying the same GPU index twice, e.g.,
-``--SiftMatching.gpu_index=0,0,1,1,2,3``. By default, COLMAP runs one feature
+GPUs in parallel. Note that you can only run one thread per GPU and this
+typically also gives the best performance. By default, COLMAP runs one feature
 extraction/matching thread per CUDA-enabled GPU and this usually gives the best
 performance as compared to running multiple threads on the same GPU.
 
