@@ -309,7 +309,7 @@ void DenseReconstructionWidget::Fusion() {
   }
 
   mvs::StereoFusion* fuser = new mvs::StereoFusion(
-      *options_->dense_fusion, workspace_path, "COLMAP", input_type);
+      *options_->dense_fusion, workspace_path, "COLMAP", "", input_type);
   fuser->AddCallback(Thread::FINISHED_CALLBACK, [this, fuser]() {
     fused_points_ = fuser->GetFusedPoints();
     write_fused_points_action_->trigger();

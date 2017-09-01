@@ -143,5 +143,49 @@ std::string Workspace::GetFileName(const int image_id) const {
                       options_.input_type.c_str());
 }
 
+void ImportPMVSWorkspace(const Workspace& workspace,
+                         const std::string& option_name) {
+  const std::string& workspace_path = workspace.GetOptions().workspace_path;
+  const std::string& stereo_folder = workspace.GetOptions().stereo_folder;
+
+  CreateDirIfNotExists(JoinPaths(workspace_path, stereo_folder));
+  CreateDirIfNotExists(JoinPaths(workspace_path, stereo_folder, "depth_maps"));
+  CreateDirIfNotExists(JoinPaths(workspace_path, stereo_folder, "normal_maps"));
+  CreateDirIfNotExists(
+      JoinPaths(workspace_path, stereo_folder, "consistency_graphs"));
+
+  const auto option_lines =
+      ReadTextFileLines(JoinPaths(workspace_path, option_name));
+  for (const auto& line : option_lines) {
+    if (StringStartsWith(line, "timages")) {
+      const auto elems = StringSplit(line, " ");
+      const int num_images = std::stoi(elems[1]);
+      CHECK_EQ(num_images + 2, elems.size());
+      std::vector<std::string> image_names;
+      image_names.reserve(num_images);
+      for (size_t i = 2; i < elems.size(); ++i) {
+        const int image_id = std::stoi(elems[i]);
+        const std::string image_name =
+            workspace.GetModel().GetImageName(image_id);
+        image_names.push_back(image_name);
+      }
+
+      const auto patch_match_path =
+          JoinPaths(workspace_path, stereo_folder, "patch-match.cfg");
+      const auto fusion_path =
+          JoinPaths(workspace_path, stereo_folder, "fusion.cfg");
+      std::ofstream patch_match_file(patch_match_path, std::ios::trunc);
+      std::ofstream fusion_file(fusion_path, std::ios::trunc);
+      CHECK(patch_match_file.is_open()) << patch_match_path;
+      CHECK(fusion_file.is_open()) << fusion_path;
+      for (const auto ref_image_name : image_names) {
+        patch_match_file << ref_image_name << std::endl;
+        patch_match_file << "__auto__, 20" << std::endl;
+        fusion_file << ref_image_name << std::endl;
+      }
+    }
+  }
+}
+
 }  // namespace mvs
 }  // namespace colmap

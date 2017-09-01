@@ -25,12 +25,14 @@ int main(int argc, char* argv[]) {
   std::string workspace_path;
   std::string input_type = "geometric";
   std::string workspace_format = "COLMAP";
+  std::string pmvs_option_name = "option-all";
   std::string output_path;
 
   OptionManager options;
   options.AddRequiredOption("workspace_path", &workspace_path);
   options.AddDefaultOption("workspace_format", &workspace_format,
                            "{COLMAP, PMVS}");
+  options.AddDefaultOption("pmvs_option_name", &pmvs_option_name);
   options.AddDefaultOption("input_type", &input_type,
                            "{photometric, geometric}");
   options.AddRequiredOption("output_path", &output_path);
@@ -54,7 +56,7 @@ int main(int argc, char* argv[]) {
   }
 
   mvs::StereoFusion fuser(*options.dense_fusion, workspace_path,
-                          workspace_format, input_type);
+                          workspace_format, pmvs_option_name, input_type);
 
   fuser.Start();
   fuser.Wait();

@@ -92,6 +92,7 @@ class StereoFusion : public Thread {
 
   StereoFusion(const Options& options, const std::string& workspace_path,
                const std::string& workspace_format,
+               const std::string& pmvs_option_name,
                const std::string& input_type);
 
   const std::vector<FusedPoint>& GetFusedPoints() const;
@@ -103,6 +104,7 @@ class StereoFusion : public Thread {
   const Options options_;
   const std::string workspace_path_;
   const std::string workspace_format_;
+  const std::string pmvs_option_name_;
   const std::string input_type_;
   const float max_squared_reproj_error_;
   const float min_cos_normal_error_;

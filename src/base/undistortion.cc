@@ -97,6 +97,10 @@ void WriteCOLMAPCommands(const bool geometric,
         << std::endl;
   *file << indent << "  --workspace_format " << workspace_format << " \\"
         << std::endl;
+  if (workspace_format == "PMVS") {
+    *file << indent << "  --pmvs_option_name " << pmvs_option_name << " \\"
+          << std::endl;
+  }
   if (geometric) {
     *file << indent << "  --input_type geometric \\" << std::endl;
   } else {

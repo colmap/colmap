@@ -294,7 +294,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     if (!ExistsFile(fused_path)) {
       mvs::StereoFusion fuser(
-          *option_manager_.dense_fusion, dense_path, "COLMAP",
+          *option_manager_.dense_fusion, dense_path, "COLMAP", "",
           options_.quality == Quality::HIGH ? "geometric" : "photometric");
       active_thread_ = &fuser;
       fuser.Start();

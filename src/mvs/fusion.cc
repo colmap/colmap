@@ -92,10 +92,12 @@ bool StereoFusion::Options::Check() const {
 StereoFusion::StereoFusion(const Options& options,
                            const std::string& workspace_path,
                            const std::string& workspace_format,
+                           const std::string& pmvs_option_name,
                            const std::string& input_type)
     : options_(options),
       workspace_path_(workspace_path),
       workspace_format_(workspace_format),
+      pmvs_option_name_(pmvs_option_name),
       input_type_(input_type),
       max_squared_reproj_error_(options_.max_reproj_error *
                                 options_.max_reproj_error),
@@ -114,13 +116,24 @@ void StereoFusion::Run() {
   std::cout << std::endl;
 
   std::cout << "Reading workspace..." << std::endl;
+
   Workspace::Options workspace_options;
+
+  auto workspace_format_lower_case = workspace_format_;
+  StringToLower(&workspace_format_lower_case);
+  if (workspace_format_lower_case == "pmvs") {
+    workspace_options.stereo_folder =
+        StringPrintf("stereo-%s", pmvs_option_name_.c_str());
+  }
+
   workspace_options.max_image_size = options_.max_image_size;
   workspace_options.image_as_rgb = true;
   workspace_options.cache_size = options_.cache_size;
   workspace_options.workspace_path = workspace_path_;
   workspace_options.workspace_format = workspace_format_;
+  workspace_options.workspace_format = workspace_format_;
   workspace_options.input_type = input_type_;
+
   workspace_.reset(new Workspace(workspace_options));
 
   if (IsStopped()) {
@@ -145,8 +158,8 @@ void StereoFusion::Run() {
   inv_P_.resize(model.images.size());
   inv_R_.resize(model.images.size());
 
-  const auto image_names =
-      ReadTextFileLines(JoinPaths(workspace_path_, "stereo/fusion.cfg"));
+  const auto image_names = ReadTextFileLines(JoinPaths(
+      workspace_path_, workspace_options.stereo_folder, "fusion.cfg"));
   for (const auto& image_name : image_names) {
     const int image_id = model.GetImageId(image_name);
 
