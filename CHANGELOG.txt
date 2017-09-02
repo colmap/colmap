@@ -1,3 +1,16 @@
+COLMAP 3.2 (9/2/2017)
+----------------------
+- Fully automatic cross-platform build script (Windows, Mac, Linux)
+- Add multi-GPU feature extraction if multiple CUDA devices are available
+- Configurable dimension and data type for vocabulary tree implementation
+- Add new sequential matching mode for image sequences with high frame-rate
+- Add generalized relative pose solver for multi-camera systems
+- Add sparse least absolute deviation solver
+- Add CPU/GPU options to automatic reconstruction tool
+- Add continuous integration system under Windows, Mac, Linux through Github
+- Many more bug fixes and improvements
+
+
 COLMAP 3.1 (6/15/2017)
 ----------------------
 - Add fast spatial verification to image retrieval module
