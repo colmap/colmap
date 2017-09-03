@@ -692,7 +692,7 @@ void MainWindow::Import() {
         tr("Directory does not contain a <i>project.ini</i>. To "
            "resume the reconstruction, you need to specify a valid "
            "database and image path. Do you want to select the paths "
-           "now (or press 'No' to only visualize the reconstruction)?"),
+           "now (or press <i>No</i> to only visualize the reconstruction)?"),
         QMessageBox::Yes | QMessageBox::No);
     if (reply == QMessageBox::Yes) {
       edit_project = true;
