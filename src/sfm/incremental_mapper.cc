@@ -729,6 +729,7 @@ size_t IncrementalMapper::NumSharedRegImages() const {
 const std::unordered_set<point3D_t>& IncrementalMapper::GetModifiedPoints3D() {
   return triangulator_->GetModifiedPoints3D();
 }
+
 void IncrementalMapper::ClearModifiedPoints3D() {
   triangulator_->ClearModifiedPoints3D();
 }

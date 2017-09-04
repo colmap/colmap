@@ -375,6 +375,7 @@ bool FeatureMatcherCache::ExistsMatches(const image_t image_id1,
   std::unique_lock<std::mutex> lock(database_mutex_);
   return database_->ExistsMatches(image_id1, image_id2);
 }
+
 bool FeatureMatcherCache::ExistsInlierMatches(const image_t image_id1,
                                               const image_t image_id2) {
   std::unique_lock<std::mutex> lock(database_mutex_);
@@ -387,6 +388,7 @@ void FeatureMatcherCache::WriteMatches(const image_t image_id1,
   std::unique_lock<std::mutex> lock(database_mutex_);
   database_->WriteMatches(image_id1, image_id2, matches);
 }
+
 void FeatureMatcherCache::WriteInlierMatches(
     const image_t image_id1, const image_t image_id2,
     const TwoViewGeometry& two_view_geometry) {
