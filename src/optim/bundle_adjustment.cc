@@ -350,34 +350,36 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 
     if (constant_pose) {
       switch (camera.ModelId()) {
-#define CAMERA_MODEL_CASE(CameraModel)                                    \
-  case CameraModel::kModelId:                                             \
-    cost_function =                                                       \
-        BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create(    \
-            image.Qvec(), image.Tvec(), point2D.XY());                    \
-    problem_->AddResidualBlock(cost_function, loss_function,              \
-                               point3D.XYZ().data(), camera_params_data); \
+#define CAMERA_MODEL_CASE(CameraModel)                                 \
+  case CameraModel::kModelId:                                          \
+    cost_function =                                                    \
+        BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create( \
+            image.Qvec(), image.Tvec(), point2D.XY());                 \
     break;
 
         CAMERA_MODEL_SWITCH_CASES
 
 #undef CAMERA_MODEL_CASE
       }
+
+      problem_->AddResidualBlock(cost_function, loss_function,
+                                 point3D.XYZ().data(), camera_params_data);
     } else {
       switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                   \
   case CameraModel::kModelId:                                            \
     cost_function =                                                      \
         BundleAdjustmentCostFunction<CameraModel>::Create(point2D.XY()); \
-    problem_->AddResidualBlock(cost_function, loss_function, qvec_data,  \
-                               tvec_data, point3D.XYZ().data(),          \
-                               camera_params_data);                      \
     break;
 
         CAMERA_MODEL_SWITCH_CASES
 
 #undef CAMERA_MODEL_CASE
       }
+
+      problem_->AddResidualBlock(cost_function, loss_function, qvec_data,
+                                 tvec_data, point3D.XYZ().data(),
+                                 camera_params_data);
     }
   }
 
