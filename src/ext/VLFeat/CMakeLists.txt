@@ -1,23 +1,3 @@
-if(IS_GNU OR IS_CLANG)
-    if(NOT HAS_AVX_EXTENSION)
-        add_definitions(-DVL_DISABLE_AVX)
-    endif()
-
-    if(NOT HAS_SSE2_EXTENSION)
-        add_definitions(-DVL_DISABLE_SSE2)
-    endif()
-
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SSE_FLAGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SSE_FLAGS}")
-else()
-    add_definitions(-DVL_DISABLE_AVX)
-    add_definitions(-DVL_DISABLE_SSE2)
-endif()
-
-if(NOT OPENMP_ENABLED OR NOT OPENMP_FOUND)
-    add_definitions(-DVL_DISABLE_OPENMP)
-endif()
-
 set(VLFEAT_SOURCE_FILES
     aib.c
     aib.h
@@ -52,8 +32,6 @@ set(VLFEAT_SOURCE_FILES
     ikmeans_lloyd.tc
     imopv.c
     imopv.h
-    imopv_sse2.c
-    imopv_sse2.h
     kdtree.c
     kdtree.h
     kmeans.c
@@ -64,10 +42,6 @@ set(VLFEAT_SOURCE_FILES
     liop.h
     mathop.c
     mathop.h
-    mathop_avx.c
-    mathop_avx.h
-    mathop_sse2.c
-    mathop_sse2.h
     mser.c
     mser.h
     pgm.c
@@ -94,5 +68,35 @@ set(VLFEAT_SOURCE_FILES
     svmdataset.h
     vlad.c
     vlad.h)
+
+if(IS_GNU OR IS_CLANG)
+    if(HAS_AVX_EXTENSION)
+        list(APPEND VLFEAT_SOURCE_FILES
+             mathop_avx.c
+             mathop_avx.h)
+    else()
+        add_definitions(-DVL_DISABLE_AVX)
+    endif()
+
+    if(HAS_SSE2_EXTENSION)
+        list(APPEND VLFEAT_SOURCE_FILES
+             mathop_sse2.c
+             mathop_sse2.h
+             imopv_sse2.c
+             imopv_sse2.h)
+    else()
+        add_definitions(-DVL_DISABLE_SSE2)
+    endif()
+
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SSE_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SSE_FLAGS}")
+else()
+    add_definitions(-DVL_DISABLE_AVX)
+    add_definitions(-DVL_DISABLE_SSE2)
+endif()
+
+if(NOT OPENMP_ENABLED OR NOT OPENMP_FOUND)
+    add_definitions(-DVL_DISABLE_OPENMP)
+endif()
 
 COLMAP_ADD_LIBRARY(vlfeat ${VLFEAT_SOURCE_FILES})
