@@ -209,7 +209,7 @@ std::vector<float> CSVToVector(const std::string& csv) {
       continue;
     }
     try {
-      values.push_back(std::stof(elem));
+      values.push_back(std::stod(elem));
     } catch (std::exception) {
       return std::vector<float>(0);
     }
@@ -228,7 +228,7 @@ std::vector<double> CSVToVector(const std::string& csv) {
       continue;
     }
     try {
-      values.push_back(std::stod(elem));
+      values.push_back(std::stold(elem));
     } catch (std::exception) {
       return std::vector<double>(0);
     }

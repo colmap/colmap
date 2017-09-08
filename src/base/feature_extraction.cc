@@ -584,10 +584,10 @@ void LoadSiftFeaturesFromTextFile(const std::string& path,
   std::stringstream header_line_stream(line);
 
   std::getline(header_line_stream >> std::ws, item, ' ');
-  const point2D_t num_features = std::stoi(item);
+  const point2D_t num_features = std::stoul(item);
 
   std::getline(header_line_stream >> std::ws, item, ' ');
-  const size_t dim = std::stoi(item);
+  const size_t dim = std::stoul(item);
 
   CHECK_EQ(dim, 128) << "SIFT features must have 128 dimensions";
 
@@ -600,24 +600,24 @@ void LoadSiftFeaturesFromTextFile(const std::string& path,
 
     // X
     std::getline(feature_line_stream >> std::ws, item, ' ');
-    (*keypoints)[i].x = std::stof(item);
+    (*keypoints)[i].x = std::stod(item);
 
     // Y
     std::getline(feature_line_stream >> std::ws, item, ' ');
-    (*keypoints)[i].y = std::stof(item);
+    (*keypoints)[i].y = std::stod(item);
 
     // Scale
     std::getline(feature_line_stream >> std::ws, item, ' ');
-    (*keypoints)[i].scale = std::stof(item);
+    (*keypoints)[i].scale = std::stod(item);
 
     // Orientation
     std::getline(feature_line_stream >> std::ws, item, ' ');
-    (*keypoints)[i].orientation = std::stof(item);
+    (*keypoints)[i].orientation = std::stod(item);
 
     // Descriptor
     for (size_t j = 0; j < dim; ++j) {
       std::getline(feature_line_stream >> std::ws, item, ' ');
-      const float value = std::stof(item);
+      const float value = std::stod(item);
       CHECK_GE(value, 0);
       CHECK_LE(value, 255);
       (*descriptors)(i, j) = TruncateCast<float, uint8_t>(value);

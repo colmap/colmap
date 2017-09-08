@@ -952,9 +952,9 @@ void Reconstruction::ImportPLY(const std::string& path) {
       }
 
       Eigen::Vector3d xyz;
-      xyz(0) = std::stod(items.at(X_index));
-      xyz(1) = std::stod(items.at(Y_index));
-      xyz(2) = std::stod(items.at(Z_index));
+      xyz(0) = std::stold(items.at(X_index));
+      xyz(1) = std::stold(items.at(Y_index));
+      xyz(2) = std::stold(items.at(Z_index));
 
       Eigen::Vector3i rgb;
       if (is_rgb_missing) {
@@ -1538,7 +1538,7 @@ void Reconstruction::ReadCamerasText(const std::string& path) {
 
     // ID
     std::getline(line_stream, item, ' ');
-    camera.SetCameraId(std::stoi(item));
+    camera.SetCameraId(std::stoul(item));
 
     // MODEL
     std::getline(line_stream, item, ' ');
@@ -1556,7 +1556,7 @@ void Reconstruction::ReadCamerasText(const std::string& path) {
     camera.Params().clear();
     while (!line_stream.eof()) {
       std::getline(line_stream, item, ' ');
-      camera.Params().push_back(std::stod(item));
+      camera.Params().push_back(std::stold(item));
     }
 
     CHECK(camera.VerifyParams());
@@ -1585,7 +1585,7 @@ void Reconstruction::ReadImagesText(const std::string& path) {
 
     // ID
     std::getline(line_stream1, item, ' ');
-    const image_t image_id = std::stoi(item);
+    const image_t image_id = std::stoul(item);
 
     class Image image;
     image.SetImageId(image_id);
@@ -1595,32 +1595,32 @@ void Reconstruction::ReadImagesText(const std::string& path) {
 
     // QVEC (qw, qx, qy, qz)
     std::getline(line_stream1, item, ' ');
-    image.Qvec(0) = std::stod(item);
+    image.Qvec(0) = std::stold(item);
 
     std::getline(line_stream1, item, ' ');
-    image.Qvec(1) = std::stod(item);
+    image.Qvec(1) = std::stold(item);
 
     std::getline(line_stream1, item, ' ');
-    image.Qvec(2) = std::stod(item);
+    image.Qvec(2) = std::stold(item);
 
     std::getline(line_stream1, item, ' ');
-    image.Qvec(3) = std::stod(item);
+    image.Qvec(3) = std::stold(item);
 
     image.NormalizeQvec();
 
     // TVEC
     std::getline(line_stream1, item, ' ');
-    image.Tvec(0) = std::stod(item);
+    image.Tvec(0) = std::stold(item);
 
     std::getline(line_stream1, item, ' ');
-    image.Tvec(1) = std::stod(item);
+    image.Tvec(1) = std::stold(item);
 
     std::getline(line_stream1, item, ' ');
-    image.Tvec(2) = std::stod(item);
+    image.Tvec(2) = std::stold(item);
 
     // CAMERA_ID
     std::getline(line_stream1, item, ' ');
-    image.SetCameraId(std::stoi(item));
+    image.SetCameraId(std::stoul(item));
 
     // NAME
     std::getline(line_stream1, item, ' ');
@@ -1642,10 +1642,10 @@ void Reconstruction::ReadImagesText(const std::string& path) {
         Eigen::Vector2d point;
 
         std::getline(line_stream2, item, ' ');
-        point.x() = std::stod(item);
+        point.x() = std::stold(item);
 
         std::getline(line_stream2, item, ' ');
-        point.y() = std::stod(item);
+        point.y() = std::stold(item);
 
         points2D.push_back(point);
 
@@ -1702,13 +1702,13 @@ void Reconstruction::ReadPoints3DText(const std::string& path) {
 
     // XYZ
     std::getline(line_stream, item, ' ');
-    point3D.XYZ(0) = std::stod(item);
+    point3D.XYZ(0) = std::stold(item);
 
     std::getline(line_stream, item, ' ');
-    point3D.XYZ(1) = std::stod(item);
+    point3D.XYZ(1) = std::stold(item);
 
     std::getline(line_stream, item, ' ');
-    point3D.XYZ(2) = std::stod(item);
+    point3D.XYZ(2) = std::stold(item);
 
     // Color
     std::getline(line_stream, item, ' ');
@@ -1722,7 +1722,7 @@ void Reconstruction::ReadPoints3DText(const std::string& path) {
 
     // ERROR
     std::getline(line_stream, item, ' ');
-    point3D.SetError(std::stod(item));
+    point3D.SetError(std::stold(item));
 
     // TRACK
     while (!line_stream.eof()) {
@@ -1733,10 +1733,10 @@ void Reconstruction::ReadPoints3DText(const std::string& path) {
       if (item.empty()) {
         break;
       }
-      track_el.image_id = std::stoi(item);
+      track_el.image_id = std::stoul(item);
 
       std::getline(line_stream, item, ' ');
-      track_el.point2D_idx = std::stoi(item);
+      track_el.point2D_idx = std::stoul(item);
 
       point3D.Track().AddElement(track_el);
     }

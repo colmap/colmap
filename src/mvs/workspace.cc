@@ -159,12 +159,12 @@ void ImportPMVSWorkspace(const Workspace& workspace,
   for (const auto& line : option_lines) {
     if (StringStartsWith(line, "timages")) {
       const auto elems = StringSplit(line, " ");
-      const int num_images = std::stoi(elems[1]);
+      const int num_images = std::stoull(elems[1]);
       CHECK_EQ(num_images + 2, elems.size());
       std::vector<std::string> image_names;
       image_names.reserve(num_images);
       for (size_t i = 2; i < elems.size(); ++i) {
-        const int image_id = std::stoi(elems[i]);
+        const int image_id = std::stoull(elems[i]);
         const std::string image_name =
             workspace.GetModel().GetImageName(image_id);
         image_names.push_back(image_name);
