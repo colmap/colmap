@@ -10,6 +10,9 @@
 # FREEIMAGE_LIBRARY_DIR_HINTS: List of additional directories in which to
 #                              search for FreeImage libraries.
 
+set(FREEIMAGE_INCLUDE_DIR_HINTS "" CACHE PATH "FreeImage include directory")
+set(FREEIMAGE_LIBRARY_DIR_HINTS "" CACHE PATH "FreeImage library directory")
+
 list(APPEND FREEIMAGE_CHECK_INCLUDE_DIRS
     ${FREEIMAGE_INCLUDE_DIR_HINTS}
     /usr/include

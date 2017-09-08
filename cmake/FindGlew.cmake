@@ -10,6 +10,9 @@
 # GLEW_LIBRARY_DIR_HINTS: List of additional directories in which to
 #                         search for Glew libraries.
 
+set(GLEW_INCLUDE_DIR_HINTS "" CACHE PATH "Glew include directory")
+set(GLEW_LIBRARY_DIR_HINTS "" CACHE PATH "Glew library directory")
+
 find_path(GLEW_INCLUDE_DIRS
     NAMES
     GL/glew.h

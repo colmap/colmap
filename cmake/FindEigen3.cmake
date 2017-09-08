@@ -2,6 +2,13 @@
 #   EIGEN3_FOUND - TRUE if System has Eigen library with correct version.
 #   EIGEN3_INCLUDE_DIRS - The Eigen include directory.
 #   EIGEN3_VERSION - Eigen version.
+#
+# The following variables control the behavior of this module:
+#
+# EIGEN3_INCLUDE_DIR_HINTS: List of additional directories in which to
+#                           search for Eigen includes.
+
+set(EIGEN3_INCLUDE_DIR_HINTS "" CACHE PATH "Eigen include directory")
 
 if(NOT Eigen3_FIND_VERSION)
     if(NOT Eigen3_FIND_VERSION_MAJOR)
@@ -50,6 +57,7 @@ else()
         NAMES
         signature_of_eigen3_matrix_library
         PATHS
+        ${EIGEN3_INCLUDE_DIR_HINTS}
         /usr/include
         /usr/local/include
         /opt/include

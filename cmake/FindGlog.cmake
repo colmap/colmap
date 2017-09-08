@@ -10,6 +10,9 @@
 # GLOG_LIBRARY_DIR_HINTS: List of additional directories in which to
 #                         search for Glog libraries.
 
+set(GLOG_INCLUDE_DIR_HINTS "" CACHE PATH "Glog include directory")
+set(GLOG_LIBRARY_DIR_HINTS "" CACHE PATH "Glog library directory")
+
 include(FindPackageHandleStandardArgs)
 
 list(APPEND GLOG_CHECK_INCLUDE_DIRS
