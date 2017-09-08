@@ -41,19 +41,22 @@ float Median(std::vector<T>* elems) {
 // fused. This is used as a heuristic to ensure that the workspace cache reuses
 // already cached images as efficient as possible.
 int FindNextImage(const std::vector<std::vector<int>>& overlapping_images,
+                  const std::vector<char>& used_images,
                   const std::vector<char>& fused_images,
                   const int prev_image_id) {
+  CHECK_EQ(used_images.size(), fused_images.size());
+
   for (const auto image_id : overlapping_images.at(prev_image_id)) {
-    if (!fused_images.at(image_id)) {
+    if (used_images.at(image_id) && !fused_images.at(image_id)) {
       return image_id;
     }
   }
 
   // If none of the overlapping images are not yet fused, simply return the
   // first image that has not yet been fused.
-  for (size_t i = 0; i < fused_images.size(); ++i) {
-    if (!fused_images[i]) {
-      return i;
+  for (size_t image_id = 0; image_id < fused_images.size(); ++image_id) {
+    if (used_images[image_id] && !fused_images[image_id]) {
+      return image_id;
     }
   }
 
@@ -210,14 +213,10 @@ void StereoFusion::Run() {
 
   size_t num_fused_images = 0;
   for (int image_id = 0; image_id >= 0;
-       image_id = internal::FindNextImage(overlapping_images_, fused_images_,
-                                          image_id)) {
+       image_id = internal::FindNextImage(overlapping_images_, used_images_,
+                                          fused_images_, image_id)) {
     if (IsStopped()) {
       break;
-    }
-
-    if (!used_images_.at(image_id) || fused_images_.at(image_id)) {
-      continue;
     }
 
     Timer timer;
