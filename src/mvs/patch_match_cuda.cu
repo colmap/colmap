@@ -1234,7 +1234,7 @@ void PatchMatchCuda::RunWithWindowSize() {
       *cost_map_, *depth_map_, *normal_map_, *ref_image_->sum_image,
       *ref_image_->squared_sum_image, options_.sigma_spatial,
       options_.sigma_color);
-  CUDA_CHECK_ERROR();
+  CUDA_SYNC_AND_CHECK();
 
   init_timer.Print("Initialization");
 
@@ -1324,7 +1324,7 @@ void PatchMatchCuda::RunWithWindowSize() {
 
 #undef CALL_SWEEP_FUNC
 
-      CUDA_CHECK_ERROR();
+      CUDA_SYNC_AND_CHECK();
 
       Rotate();
 

@@ -243,19 +243,20 @@ __device__ void GpuMat<T>::SetSlice(const size_t row, const size_t col,
 
 template <typename T>
 void GpuMat<T>::FillWithScalar(const T value) {
-  cudaMemset(array_ptr_, value, width_ * height_ * depth_ * sizeof(T));
-  CUDA_CHECK_ERROR();
+  CUDA_SAFE_CALL(
+      cudaMemset(array_ptr_, value, width_ * height_ * depth_ * sizeof(T)));
 }
 
 template <typename T>
 void GpuMat<T>::FillWithVector(const T* values) {
   T* values_device;
-  cudaMalloc((void**)&values_device, depth_ * sizeof(T));
-  cudaMemcpy(values_device, values, depth_ * sizeof(T), cudaMemcpyHostToDevice);
+  CUDA_SAFE_CALL(cudaMalloc((void**)&values_device, depth_ * sizeof(T)));
+  CUDA_SAFE_CALL(cudaMemcpy(values_device, values, depth_ * sizeof(T),
+                            cudaMemcpyHostToDevice));
   internal::FillWithVectorKernel<T>
       <<<gridSize_, blockSize_>>>(values_device, *this);
-  cudaFree(values_device);
-  CUDA_CHECK_ERROR();
+  CUDA_SYNC_AND_CHECK();
+  CUDA_SAFE_CALL(cudaFree(values_device));
 }
 
 template <typename T>
@@ -263,7 +264,7 @@ void GpuMat<T>::FillWithRandomNumbers(const T min_value, const T max_value,
                                       const GpuMat<curandState> random_state) {
   internal::FillWithRandomNumbersKernel<T>
       <<<gridSize_, blockSize_>>>(*this, random_state, min_value, max_value);
-  CUDA_CHECK_ERROR();
+  CUDA_SYNC_AND_CHECK();
 }
 
 template <typename T>
@@ -294,8 +295,8 @@ void GpuMat<T>::Transpose(GpuMat<T>* output) {
                   output->GetPtr() +
                       slice * output->pitch_ / sizeof(T) * output->GetHeight(),
                   width_, height_, pitch_, output->pitch_);
-    CUDA_CHECK_ERROR();
   }
+  CUDA_SYNC_AND_CHECK();
 }
 
 template <typename T>
@@ -305,8 +306,8 @@ void GpuMat<T>::FlipHorizontal(GpuMat<T>* output) {
                        output->GetPtr() + slice * output->pitch_ / sizeof(T) *
                                               output->GetHeight(),
                        width_, height_, pitch_, output->pitch_);
-    CUDA_CHECK_ERROR();
   }
+  CUDA_SYNC_AND_CHECK();
 }
 
 template <typename T>
@@ -316,8 +317,8 @@ void GpuMat<T>::Rotate(GpuMat<T>* output) {
                output->GetPtr() +
                    slice * output->pitch_ / sizeof(T) * output->GetHeight(),
                width_, height_, pitch_, output->pitch_);
-    CUDA_CHECK_ERROR();
   }
+  CUDA_SYNC_AND_CHECK();
   // This is equivalent to the following code:
   //   GpuMat<T> flipped_array(width_, height_, GetDepth());
   //   FlipHorizontal(&flipped_array);

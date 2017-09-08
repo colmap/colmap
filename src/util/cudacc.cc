@@ -43,28 +43,29 @@ void CudaTimer::Print(const std::string& message) {
 void CudaSafeCall(const cudaError_t error, const std::string& file,
                   const int line) {
   if (error != cudaSuccess) {
-    std::cerr << StringPrintf("%s in %s at line %i", cudaGetErrorString(error),
-                              file.c_str(), line)
+    std::cerr << StringPrintf("CUDA error at %s:%i - %s", file.c_str(), line,
+                              cudaGetErrorString(error))
               << std::endl;
     exit(EXIT_FAILURE);
   }
 }
 
-void CudaCheckError(const char* file, const int line) {
-  cudaError error = cudaGetLastError();
-  if (error != cudaSuccess) {
-    std::cerr << StringPrintf("cudaCheckError() failed at %s:%i : %s", file,
-                              line, cudaGetErrorString(error))
+void CudaCheck(const char* file, const int line) {
+  const cudaError error = cudaGetLastError();
+  while (error != cudaSuccess) {
+    std::cerr << StringPrintf("CUDA error at %s:%i - %s", file, line,
+                              cudaGetErrorString(error))
               << std::endl;
     exit(EXIT_FAILURE);
   }
+}
 
-  // More careful checking. However, this will affect performance.
-  // Comment away if needed.
-  error = cudaDeviceSynchronize();
+void CudaSyncAndCheck(const char* file, const int line) {
+  // Synchronizes the default stream which is a nullptr.
+  const cudaError error = cudaStreamSynchronize(nullptr);
   if (cudaSuccess != error) {
-    std::cerr << StringPrintf("cudaCheckError() with sync failed at %s:%i : %s",
-                              file, line, cudaGetErrorString(error))
+    std::cerr << StringPrintf("CUDA error at %s:%i - %s", file, line,
+                              cudaGetErrorString(error))
               << std::endl;
     std::cerr
         << "This error is likely caused by the graphics card timeout "

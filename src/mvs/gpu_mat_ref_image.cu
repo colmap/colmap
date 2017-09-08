@@ -145,7 +145,7 @@ void GpuMatRefImage::Filter(const uint8_t* image_data,
   CUDA_SAFE_CALL(cudaBindTextureToArray(image_texture, image_array.GetPtr()));
   FilterKernel<kWindowRadius><<<grid_size, block_size>>>(
       *image, *sum_image, *squared_sum_image, sigma_spatial, sigma_color);
-  CUDA_CHECK_ERROR();
+  CUDA_SYNC_AND_CHECK();
   CUDA_SAFE_CALL(cudaUnbindTexture(image_texture));
 }
 

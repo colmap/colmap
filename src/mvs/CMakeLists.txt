@@ -19,6 +19,10 @@ COLMAP_ADD_TEST(normal_map_test normal_map_test.cc)
 if(CUDA_ENABLED)
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --use_fast_math")
 
+    # Use a separate stream per thread to allow for concurrent kernel execution
+    # between multiple threads on the same device.
+    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --default-stream per-thread")
+
     if(MSVC)
         # Workaround for Visual Studio compiler error,
         # due problems with compiling too complex code.

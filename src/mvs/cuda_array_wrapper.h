@@ -145,7 +145,7 @@ void CudaArrayWrapper<T>::Allocate() {
 template <typename T>
 void CudaArrayWrapper<T>::Deallocate() {
   if (array_ != nullptr) {
-    cudaFreeArray(array_);
+    CUDA_SAFE_CALL(cudaFreeArray(array_));
     array_ = nullptr;
   }
 }

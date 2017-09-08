@@ -22,7 +22,8 @@
 #include <cuda_runtime.h>
 
 #define CUDA_SAFE_CALL(error) CudaSafeCall(error, __FILE__, __LINE__)
-#define CUDA_CHECK_ERROR() CudaCheckError(__FILE__, __LINE__)
+#define CUDA_CHECK() CudaCheck(__FILE__, __LINE__)
+#define CUDA_SYNC_AND_CHECK() CudaSyncAndCheck(__FILE__, __LINE__)
 
 namespace colmap {
 
@@ -42,7 +43,8 @@ class CudaTimer {
 void CudaSafeCall(const cudaError_t error, const std::string& file,
                   const int line);
 
-void CudaCheckError(const char* file, const int line);
+void CudaCheck(const char* file, const int line);
+void CudaSyncAndCheck(const char* file, const int line);
 
 }  // namespace colmap
 
