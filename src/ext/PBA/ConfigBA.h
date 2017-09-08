@@ -21,7 +21,6 @@
 #ifndef CONFIG_BA_H
 #define CONFIG_BA_H
 #include <vector>
-using std::vector;
 
 namespace pba {
 
@@ -181,7 +180,7 @@ class ConfigBA {
   bool __matlab_format_stat;
   char* __stat_filename;
   const char* __driver_output;
-  vector<float> __bundle_records;
+  std::vector<float> __bundle_records;
   double __timer_record[NUM_TIMER];
   int __num_cpu_thread_all;
   int __num_cpu_thread[NUM_FUNC];

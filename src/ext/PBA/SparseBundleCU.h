@@ -2,7 +2,7 @@
 //  File:       SparseBundleCU.h
 //  Author:       Changchang Wu (ccwu@cs.washington.edu)
 //  Description :   interface of the CUDA-version of multicore bundle
-//adjustment
+// adjustment
 //
 //  Copyright (c) 2011  Changchang Wu (ccwu@cs.washington.edu)
 //    and the University of Washington at Seattle
@@ -22,8 +22,8 @@
 #if !defined(SPARSE_BUNDLE_CU_H)
 #define SPARSE_BUNDLE_CU_H
 
-#include "CuTexImage.h"
 #include "ConfigBA.h"
+#include "CuTexImage.h"
 #include "DataInterface.h"
 
 namespace pba {
@@ -40,10 +40,10 @@ class SparseBundleCU : public ParallelBA, public ConfigBA {
   const int* _camera_idx;
   const int* _point_idx;
   const int* _focal_mask;
-  vector<float> _imgpt_datax;
+  std::vector<float> _imgpt_datax;
   ////////////////////////
   float _projection_sse;  // sumed square error
- protected:  // cuda data
+ protected:               // cuda data
   CuTexImage _cuCameraData;
   CuTexImage _cuCameraDataEX;
   CuTexImage _cuPointData;
@@ -84,9 +84,10 @@ class SparseBundleCU : public ParallelBA, public ConfigBA {
   CuTexImage _cuCameraQListW;
 
  protected:
-  bool ProcessIndexCameraQ(vector<int>& qmap, vector<int>& qlist);
-  void ProcessWeightCameraQ(vector<int>& cpnum, vector<int>& qmap,
-                            vector<float>& qmapw, vector<float>& qlistw);
+  bool ProcessIndexCameraQ(std::vector<int>& qmap, std::vector<int>& qlist);
+  void ProcessWeightCameraQ(std::vector<int>& cpnum, std::vector<int>& qmap,
+                            std::vector<float>& qmapw,
+                            std::vector<float>& qlistw);
 
  protected:  // internal functions
   int GetParameterLength();
