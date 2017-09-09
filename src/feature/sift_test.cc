@@ -22,6 +22,7 @@
 #include "feature/sift.h"
 #include "feature/utils.h"
 #include "ext/SiftGPU/SiftGPU.h"
+#include "util/math.h"
 #include "util/opengl_utils.h"
 #include "util/random.h"
 
