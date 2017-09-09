@@ -14,22 +14,21 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef COLMAP_SRC_BASE_FEATURE_EXTRACTION_H_
-#define COLMAP_SRC_BASE_FEATURE_EXTRACTION_H_
+#ifndef COLMAP_SRC_FEATURE_SIFT_H_
+#define COLMAP_SRC_FEATURE_SIFT_H_
 
-#include "base/database.h"
-#include "base/image_reader.h"
+#include "estimators/two_view_geometry.h"
+#include "feature/types.h"
 #include "util/bitmap.h"
-#include "util/opengl_utils.h"
-#include "util/threading.h"
 
 class SiftGPU;
+class SiftMatchGPU;
 
 namespace colmap {
 
 struct SiftExtractionOptions {
   // Number of threads for feature extraction.
-  int num_threads = ThreadPool::kMaxNumThreads;
+  int num_threads = -1;
 
   // Whether to use the GPU for feature extraction.
   bool use_gpu = true;
@@ -83,48 +82,55 @@ struct SiftExtractionOptions {
   bool Check() const;
 };
 
-namespace internal {
+struct SiftMatchingOptions {
+  // Number of threads for feature matching and geometric verification.
+  int num_threads = -1;
 
-struct ImageData;
+  // Whether to use the GPU for feature matching.
+  bool use_gpu = true;
 
-}  // namespace internal
+  // Index of the GPU used for feature matching. For multi-GPU matching,
+  // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
+  std::string gpu_index = "-1";
 
-// Feature extraction class to extract features for all images in a directory.
-class SiftFeatureExtractor : public Thread {
- public:
-  SiftFeatureExtractor(const ImageReader::Options& reader_options,
-                       const SiftExtractionOptions& sift_options);
+  // Maximum distance ratio between first and second best match.
+  double max_ratio = 0.8;
 
- private:
-  void Run();
+  // Maximum distance to best match.
+  double max_distance = 0.7;
 
-  const ImageReader::Options reader_options_;
-  const SiftExtractionOptions sift_options_;
+  // Whether to enable cross checking in matching.
+  bool cross_check = true;
 
-  Database database_;
-  ImageReader image_reader_;
+  // Maximum number of matches.
+  int max_num_matches = 32768;
 
-  std::vector<std::unique_ptr<Thread>> resizers_;
-  std::vector<std::unique_ptr<Thread>> extractors_;
-  std::unique_ptr<Thread> writer_;
+  // Maximum epipolar error in pixels for geometric verification.
+  double max_error = 4.0;
 
-  std::unique_ptr<JobQueue<internal::ImageData>> resizer_queue_;
-  std::unique_ptr<JobQueue<internal::ImageData>> extractor_queue_;
-  std::unique_ptr<JobQueue<internal::ImageData>> writer_queue_;
-};
+  // Confidence threshold for geometric verification.
+  double confidence = 0.999;
 
-// Import features from text files. Each image must have a corresponding text
-// file with the same name and an additional ".txt" suffix.
-class FeatureImporter : public Thread {
- public:
-  FeatureImporter(const ImageReader::Options& reader_options,
-                  const std::string& import_path);
+  // Minimum/maximum number of RANSAC iterations. Note that this option
+  // overrules the min_inlier_ratio option.
+  int min_num_trials = 30;
+  int max_num_trials = 10000;
 
- private:
-  void Run();
+  // A priori assumed minimum inlier ratio, which determines the maximum
+  // number of iterations.
+  double min_inlier_ratio = 0.25;
 
-  const ImageReader::Options reader_options_;
-  const std::string import_path_;
+  // Minimum number of inliers for an image pair to be considered as
+  // geometrically verified.
+  int min_num_inliers = 15;
+
+  // Whether to attempt to estimate multiple geometric models per image pair.
+  bool multiple_models = false;
+
+  // Whether to perform guided matching, if geometric verification succeeds.
+  bool guided_matching = false;
+
+  bool Check() const;
 };
 
 // Extract SIFT features for the given image on the CPU.
@@ -168,86 +174,41 @@ void LoadSiftFeaturesFromTextFile(const std::string& path,
                                   FeatureKeypoints* keypoints,
                                   FeatureDescriptors* descriptors);
 
-////////////////////////////////////////////////////////////////////////////////
-// Implementation
-////////////////////////////////////////////////////////////////////////////////
+// Match the given SIFT features on the CPU.
+void MatchSiftFeaturesCPU(const SiftMatchingOptions& match_options,
+                          const FeatureDescriptors& descriptors1,
+                          const FeatureDescriptors& descriptors2,
+                          FeatureMatches* matches);
+void MatchGuidedSiftFeaturesCPU(const SiftMatchingOptions& match_options,
+                                const FeatureKeypoints& keypoints1,
+                                const FeatureKeypoints& keypoints2,
+                                const FeatureDescriptors& descriptors1,
+                                const FeatureDescriptors& descriptors2,
+                                TwoViewGeometry* two_view_geometry);
 
-namespace internal {
+// Create a SiftGPU feature matcher. Note that if CUDA is not available or the
+// gpu_index is -1, the OpenGLContextManager must be created in the main thread
+// of the Qt application before calling this function. The same SiftMatchGPU
+// instance can be used to match features between multiple image pairs.
+bool CreateSiftGPUMatcher(const SiftMatchingOptions& match_options,
+                          SiftMatchGPU* sift_match_gpu);
 
-struct ImageData {
-  ImageReader::Status status = ImageReader::Status::FAILURE;
-
-  Camera camera;
-  Image image;
-  Bitmap bitmap;
-
-  FeatureKeypoints keypoints;
-  FeatureDescriptors descriptors;
-};
-
-class ImageResizerThread : public Thread {
- public:
-  ImageResizerThread(const int max_image_size, JobQueue<ImageData>* input_queue,
-                     JobQueue<ImageData>* output_queue);
-
- private:
-  void Run();
-
-  const int max_image_size_;
-
-  JobQueue<ImageData>* input_queue_;
-  JobQueue<ImageData>* output_queue_;
-};
-
-// Extract DoG SIFT features using the CPU.
-class SiftCPUFeatureExtractorThread : public Thread {
- public:
-  SiftCPUFeatureExtractorThread(const SiftExtractionOptions& sift_options,
-                                JobQueue<ImageData>* input_queue,
-                                JobQueue<ImageData>* output_queue);
-
- private:
-  void Run();
-
-  const SiftExtractionOptions sift_options_;
-
-  JobQueue<ImageData>* input_queue_;
-  JobQueue<ImageData>* output_queue_;
-};
-
-// Extract DoG SIFT features using the GPU.
-class SiftGPUFeatureExtractorThread : public Thread {
- public:
-  SiftGPUFeatureExtractorThread(const SiftExtractionOptions& sift_options,
-                                JobQueue<ImageData>* input_queue,
-                                JobQueue<ImageData>* output_queue);
-
- private:
-  void Run();
-
-  const SiftExtractionOptions sift_options_;
-
-  std::unique_ptr<OpenGLContextManager> opengl_context_;
-
-  JobQueue<ImageData>* input_queue_;
-  JobQueue<ImageData>* output_queue_;
-};
-
-class FeatureWriterThread : public Thread {
- public:
-  FeatureWriterThread(const size_t num_images, Database* database,
-                      JobQueue<ImageData>* input_queue);
-
- private:
-  void Run();
-
-  const size_t num_images_;
-  Database* database_;
-  JobQueue<ImageData>* input_queue_;
-};
-
-}  // namespace internal
+// Match the given SIFT features on the GPU. If either of the descriptors is
+// NULL, the keypoints/descriptors will not be uploaded and the previously
+// uploaded descriptors will be reused for the matching.
+void MatchSiftFeaturesGPU(const SiftMatchingOptions& match_options,
+                          const FeatureDescriptors* descriptors1,
+                          const FeatureDescriptors* descriptors2,
+                          SiftMatchGPU* sift_match_gpu,
+                          FeatureMatches* matches);
+void MatchGuidedSiftFeaturesGPU(const SiftMatchingOptions& match_options,
+                                const FeatureKeypoints* keypoints1,
+                                const FeatureKeypoints* keypoints2,
+                                const FeatureDescriptors* descriptors1,
+                                const FeatureDescriptors* descriptors2,
+                                SiftMatchGPU* sift_match_gpu,
+                                TwoViewGeometry* two_view_geometry);
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_BASE_FEATURE_EXTRACTION_H_
+#endif  // COLMAP_SRC_FEATURE_SIFT_H_

@@ -15,7 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "base/camera_models.h"
-#include "base/feature_extraction.h"
+#include "feature/extraction.h"
 #include "util/logging.h"
 #include "util/misc.h"
 #include "util/option_manager.h"

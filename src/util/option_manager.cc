@@ -19,6 +19,7 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 
+#include "feature/sift.h"
 #include "util/misc.h"
 #include "util/version.h"
 

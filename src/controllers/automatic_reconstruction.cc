@@ -16,8 +16,8 @@
 
 #include "controllers/automatic_reconstruction.h"
 
-#include "base/feature_extraction.h"
-#include "base/feature_matching.h"
+#include "feature/extraction.h"
+#include "feature/matching.h"
 #include "base/undistortion.h"
 #include "controllers/incremental_mapper.h"
 #include "mvs/fusion.h"

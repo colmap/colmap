@@ -14,75 +14,22 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef COLMAP_SRC_BASE_FEATURE_MATCHING_H_
-#define COLMAP_SRC_BASE_FEATURE_MATCHING_H_
+#ifndef COLMAP_SRC_FEATURE_MATCHING_H_
+#define COLMAP_SRC_FEATURE_MATCHING_H_
 
 #include <array>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 #include "base/database.h"
+#include "feature/sift.h"
 #include "util/alignment.h"
 #include "util/cache.h"
 #include "util/opengl_utils.h"
 #include "util/threading.h"
 #include "util/timer.h"
 
-class SiftMatchGPU;
-
 namespace colmap {
-
-struct SiftMatchingOptions {
-  // Number of threads for feature matching and geometric verification.
-  int num_threads = ThreadPool::kMaxNumThreads;
-
-  // Whether to use the GPU for feature matching.
-  bool use_gpu = true;
-
-  // Index of the GPU used for feature matching. For multi-GPU matching,
-  // you should separate multiple GPU indices by comma, e.g., "0,1,2,3".
-  std::string gpu_index = "-1";
-
-  // Maximum distance ratio between first and second best match.
-  double max_ratio = 0.8;
-
-  // Maximum distance to best match.
-  double max_distance = 0.7;
-
-  // Whether to enable cross checking in matching.
-  bool cross_check = true;
-
-  // Maximum number of matches.
-  int max_num_matches = 32768;
-
-  // Maximum epipolar error in pixels for geometric verification.
-  double max_error = 4.0;
-
-  // Confidence threshold for geometric verification.
-  double confidence = 0.999;
-
-  // Minimum/maximum number of RANSAC iterations. Note that this option
-  // overrules the min_inlier_ratio option.
-  int min_num_trials = 30;
-  int max_num_trials = 10000;
-
-  // A priori assumed minimum inlier ratio, which determines the maximum
-  // number of iterations.
-  double min_inlier_ratio = 0.25;
-
-  // Minimum number of inliers for an image pair to be considered as
-  // geometrically verified.
-  int min_num_inliers = 15;
-
-  // Whether to attempt to estimate multiple geometric models per image pair.
-  bool multiple_models = false;
-
-  // Whether to perform guided matching, if geometric verification succeeds.
-  bool guided_matching = false;
-
-  bool Check() const;
-};
 
 namespace internal {
 
@@ -580,41 +527,6 @@ class FeaturePairsFeatureMatcher : public Thread {
   FeatureMatcherCache cache_;
 };
 
-// Match the given SIFT features on the CPU.
-void MatchSiftFeaturesCPU(const SiftMatchingOptions& match_options,
-                          const FeatureDescriptors& descriptors1,
-                          const FeatureDescriptors& descriptors2,
-                          FeatureMatches* matches);
-void MatchGuidedSiftFeaturesCPU(const SiftMatchingOptions& match_options,
-                                const FeatureKeypoints& keypoints1,
-                                const FeatureKeypoints& keypoints2,
-                                const FeatureDescriptors& descriptors1,
-                                const FeatureDescriptors& descriptors2,
-                                TwoViewGeometry* two_view_geometry);
-
-// Create a SiftGPU feature matcher. Note that if CUDA is not available or the
-// gpu_index is -1, the OpenGLContextManager must be created in the main thread
-// of the Qt application before calling this function. The same SiftMatchGPU
-// instance can be used to match features between multiple image pairs.
-bool CreateSiftGPUMatcher(const SiftMatchingOptions& match_options,
-                          SiftMatchGPU* sift_match_gpu);
-
-// Match the given SIFT features on the GPU. If either of the descriptors is
-// NULL, the keypoints/descriptors will not be uploaded and the previously
-// uploaded descriptors will be reused for the matching.
-void MatchSiftFeaturesGPU(const SiftMatchingOptions& match_options,
-                          const FeatureDescriptors* descriptors1,
-                          const FeatureDescriptors* descriptors2,
-                          SiftMatchGPU* sift_match_gpu,
-                          FeatureMatches* matches);
-void MatchGuidedSiftFeaturesGPU(const SiftMatchingOptions& match_options,
-                                const FeatureKeypoints* keypoints1,
-                                const FeatureKeypoints* keypoints2,
-                                const FeatureDescriptors* descriptors1,
-                                const FeatureDescriptors* descriptors2,
-                                SiftMatchGPU* sift_match_gpu,
-                                TwoViewGeometry* two_view_geometry);
-
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_BASE_FEATURE_MATCHING_H_
+#endif  // COLMAP_SRC_FEATURE_MATCHING_H_

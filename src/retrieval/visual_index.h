@@ -19,7 +19,7 @@
 
 #include <Eigen/Core>
 
-#include "base/feature.h"
+#include "feature/types.h"
 #include "ext/FLANN/flann.hpp"
 #include "retrieval/inverted_file.h"
 #include "retrieval/inverted_index.h"

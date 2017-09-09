@@ -18,6 +18,7 @@ set(COLMAP_LIBRARIES
     sfm
     controllers
     base
+    feature
     ui
     util
     controllers
@@ -25,6 +26,7 @@ set(COLMAP_LIBRARIES
     sfm
     estimators
     base
+    feature
     ui
     util
     estimators
@@ -75,6 +77,7 @@ add_subdirectory(controllers)
 add_subdirectory(estimators)
 add_subdirectory(exe)
 add_subdirectory(ext)
+add_subdirectory(feature)
 add_subdirectory(mvs)
 add_subdirectory(optim)
 add_subdirectory(retrieval)
@@ -120,6 +123,7 @@ ADD_SOURCE_DIR(ext/PoissonRecon EXT_POISSON_RECON_SRC *.h *.cpp *.inl)
 ADD_SOURCE_DIR(ext/SiftGPU EXT_SIFT_GPU_SRC *.h *.cpp *.cu)
 ADD_SOURCE_DIR(ext/SQLite EXT_SQLITE_SRC *.h *.c)
 ADD_SOURCE_DIR(ext/VLFeat EXT_VLFEAT_SRC *.h *.c *.tc)
+ADD_SOURCE_DIR(feature FEATURE_SRC *.h *.cc)
 ADD_SOURCE_DIR(mvs MVS_SRC *.h *.cc *.cu)
 ADD_SOURCE_DIR(optim OPTIM_SRC *.h *.cc)
 ADD_SOURCE_DIR(retrieval RETRIEVAL_SRC *.h *.cc)
@@ -145,6 +149,7 @@ add_library(
     ${EXT_SIFT_GPU_SRC}
     ${EXT_SQLITE_SRC}
     ${EXT_VLFEAT_SRC}
+    ${FEATURE_SRC}
     ${MVS_SRC}
     ${OPTIM_SRC}
     ${RETRIEVAL_SRC}

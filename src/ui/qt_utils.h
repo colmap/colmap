@@ -22,7 +22,7 @@
 #include <QtCore>
 #include <QtOpenGL>
 
-#include "base/feature.h"
+#include "feature/types.h"
 #include "util/bitmap.h"
 #include "util/types.h"
 

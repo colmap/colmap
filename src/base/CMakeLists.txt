@@ -8,9 +8,6 @@ COLMAP_ADD_LIBRARY(base
     database.h database.cc
     database_cache.h database_cache.cc
     essential_matrix.h essential_matrix.cc
-    feature.h feature.cc
-    feature_extraction.h feature_extraction.cc
-    feature_matching.h feature_matching.cc
     gps.h gps.cc
     graph_cut.h graph_cut.cc
     homography_matrix.h homography_matrix.cc
@@ -42,9 +39,6 @@ COLMAP_ADD_TEST(cost_functions_test cost_functions_test.cc)
 COLMAP_ADD_TEST(database_cache_test database_cache_test.cc)
 COLMAP_ADD_TEST(database_test database_test.cc)
 COLMAP_ADD_TEST(essential_matrix_utils_test essential_matrix_test.cc)
-COLMAP_ADD_TEST(feature_test feature_test.cc)
-COLMAP_ADD_TEST(feature_extraction_test feature_extraction_test.cc)
-COLMAP_ADD_TEST(feature_matching_test feature_matching_test.cc)
 COLMAP_ADD_TEST(gps_test gps_test.cc)
 COLMAP_ADD_TEST(graph_cut_test graph_cut_test.cc)
 COLMAP_ADD_TEST(homography_matrix_utils_test homography_matrix_test.cc)

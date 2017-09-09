@@ -14,10 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#define TEST_NAME "base/feature"
+#define TEST_NAME "feature/utils"
 #include "util/testing.h"
 
-#include "base/feature.h"
+#include "feature/utils.h"
 
 using namespace colmap;
 
@@ -31,42 +31,6 @@ BOOST_AUTO_TEST_CASE(TestFeatureKeypointsToPointsVector) {
       FeatureKeypointsToPointsVector(keypoints);
   BOOST_CHECK_EQUAL(points[0], Eigen::Vector2d(0, 0));
   BOOST_CHECK_EQUAL(points[1].cast<float>(), Eigen::Vector2f(0.1, 0.2));
-}
-
-BOOST_AUTO_TEST_CASE(TestFeatureKeypoints) {
-  FeatureKeypoint keypoint;
-  BOOST_CHECK_EQUAL(keypoint.x, 0.0f);
-  BOOST_CHECK_EQUAL(keypoint.y, 0.0f);
-  BOOST_CHECK_EQUAL(keypoint.scale, 0.0f);
-  BOOST_CHECK_EQUAL(keypoint.orientation, 0.0f);
-  FeatureKeypoints keypoints(1);
-  BOOST_CHECK_EQUAL(keypoints.size(), 1);
-  BOOST_CHECK_EQUAL(keypoints[0].x, 0.0f);
-  BOOST_CHECK_EQUAL(keypoints[0].y, 0.0f);
-  BOOST_CHECK_EQUAL(keypoints[0].scale, 0.0f);
-  BOOST_CHECK_EQUAL(keypoints[0].orientation, 0.0f);
-}
-
-BOOST_AUTO_TEST_CASE(TestFeatureDescriptors) {
-  FeatureDescriptors descriptors = FeatureDescriptors::Random(2, 3);
-  BOOST_CHECK_EQUAL(descriptors.rows(), 2);
-  BOOST_CHECK_EQUAL(descriptors.cols(), 3);
-  BOOST_CHECK_EQUAL(descriptors(0, 0), descriptors.data()[0]);
-  BOOST_CHECK_EQUAL(descriptors(0, 1), descriptors.data()[1]);
-  BOOST_CHECK_EQUAL(descriptors(0, 2), descriptors.data()[2]);
-  BOOST_CHECK_EQUAL(descriptors(1, 0), descriptors.data()[3]);
-  BOOST_CHECK_EQUAL(descriptors(1, 1), descriptors.data()[4]);
-  BOOST_CHECK_EQUAL(descriptors(1, 2), descriptors.data()[5]);
-}
-
-BOOST_AUTO_TEST_CASE(TestFeatureMatches) {
-  FeatureMatch match;
-  BOOST_CHECK_EQUAL(match.point2D_idx1, kInvalidPoint2DIdx);
-  BOOST_CHECK_EQUAL(match.point2D_idx2, kInvalidPoint2DIdx);
-  FeatureMatches matches(1);
-  BOOST_CHECK_EQUAL(matches.size(), 1);
-  BOOST_CHECK_EQUAL(matches[0].point2D_idx1, kInvalidPoint2DIdx);
-  BOOST_CHECK_EQUAL(matches[0].point2D_idx2, kInvalidPoint2DIdx);
 }
 
 BOOST_AUTO_TEST_CASE(TestL2NormalizeFeatureDescriptors) {

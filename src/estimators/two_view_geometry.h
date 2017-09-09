@@ -18,7 +18,7 @@
 #define COLMAP_SRC_ESTIMATORS_TWO_VIEW_GEOMETRY_H_
 
 #include "base/camera.h"
-#include "base/feature.h"
+#include "feature/types.h"
 #include "optim/ransac.h"
 #include "util/alignment.h"
 #include "util/logging.h"

@@ -16,7 +16,7 @@
 
 #include <QApplication>
 
-#include "base/feature_matching.h"
+#include "feature/matching.h"
 #include "util/logging.h"
 #include "util/option_manager.h"
 

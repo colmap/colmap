@@ -21,8 +21,8 @@
 
 #include <boost/program_options.hpp>
 
-#include "base/feature_extraction.h"
-#include "base/feature_matching.h"
+#include "feature/matching.h"
+#include "base/image_reader.h"
 #include "controllers/incremental_mapper.h"
 #include "mvs/fusion.h"
 #include "mvs/meshing.h"
@@ -31,6 +31,9 @@
 #include "ui/render_options.h"
 
 namespace colmap {
+
+struct SiftExtractionOptions;
+struct SiftMatchingOptions;
 
 class OptionManager {
  public:
