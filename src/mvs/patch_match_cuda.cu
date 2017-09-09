@@ -1119,7 +1119,7 @@ __global__ void SweepFromTopToBottom(
   }
 }
 
-PatchMatchCuda::PatchMatchCuda(const PatchMatch::Options& options,
+PatchMatchCuda::PatchMatchCuda(const PatchMatchOptions& options,
                                const PatchMatch::Problem& problem)
     : options_(options),
       problem_(problem),

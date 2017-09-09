@@ -20,6 +20,7 @@
 #include "util/logging.h"
 #include "util/misc.h"
 #include "util/option_manager.h"
+#include "util/opengl_utils.h"
 
 using namespace colmap;
 

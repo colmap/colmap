@@ -47,11 +47,7 @@ struct FusedPoint {
   uint8_t b = 0;
 };
 
-class StereoFusion : public Thread {
- public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
-  struct Options {
+struct StereoFusionOptions {
     // Maximum image size in either dimension.
     int max_image_size = -1;
 
@@ -90,7 +86,11 @@ class StereoFusion : public Thread {
     void Print() const;
   };
 
-  StereoFusion(const Options& options, const std::string& workspace_path,
+class StereoFusion : public Thread {
+ public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+  StereoFusion(const StereoFusionOptions& options, const std::string& workspace_path,
                const std::string& workspace_format,
                const std::string& pmvs_option_name,
                const std::string& input_type);
@@ -101,7 +101,7 @@ class StereoFusion : public Thread {
   void Run();
   void Fuse();
 
-  const Options options_;
+  const StereoFusionOptions options_;
   const std::string workspace_path_;
   const std::string workspace_format_;
   const std::string pmvs_option_name_;

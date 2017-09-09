@@ -16,6 +16,8 @@
 
 #include "ui/project_widget.h"
 
+#include "base/database.h"
+
 namespace colmap {
 
 ProjectWidget::ProjectWidget(QWidget* parent, OptionManager* options)

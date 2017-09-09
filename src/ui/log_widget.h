@@ -17,6 +17,7 @@
 #ifndef COLMAP_SRC_UI_LOG_WIDGET_H_
 #define COLMAP_SRC_UI_LOG_WIDGET_H_
 
+#include <fstream>
 #include <iostream>
 
 #include <QtGui>

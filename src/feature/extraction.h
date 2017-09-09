@@ -34,13 +34,13 @@ struct ImageData;
 // Feature extraction class to extract features for all images in a directory.
 class SiftFeatureExtractor : public Thread {
  public:
-  SiftFeatureExtractor(const ImageReader::Options& reader_options,
+  SiftFeatureExtractor(const ImageReaderOptions& reader_options,
                        const SiftExtractionOptions& sift_options);
 
  private:
   void Run();
 
-  const ImageReader::Options reader_options_;
+  const ImageReaderOptions reader_options_;
   const SiftExtractionOptions sift_options_;
 
   Database database_;
@@ -59,13 +59,13 @@ class SiftFeatureExtractor : public Thread {
 // file with the same name and an additional ".txt" suffix.
 class FeatureImporter : public Thread {
  public:
-  FeatureImporter(const ImageReader::Options& reader_options,
+  FeatureImporter(const ImageReaderOptions& reader_options,
                   const std::string& import_path);
 
  private:
   void Run();
 
-  const ImageReader::Options reader_options_;
+  const ImageReaderOptions reader_options_;
   const std::string import_path_;
 };
 

@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#include "base/database.h"
+#include "base/image.h"
 #include "feature/types.h"
 #include "feature/utils.h"
 #include "retrieval/visual_index.h"

@@ -21,7 +21,7 @@
 namespace colmap {
 namespace {
 
-size_t TriangulateImage(const IncrementalMapperController::Options& options,
+size_t TriangulateImage(const IncrementalMapperOptions& options,
                         const Image& image, IncrementalMapper* mapper) {
   std::cout << "  => Continued observations: " << image.NumPoints3D()
             << std::endl;
@@ -31,9 +31,9 @@ size_t TriangulateImage(const IncrementalMapperController::Options& options,
   return num_tris;
 }
 
-void AdjustGlobalBundle(const IncrementalMapperController::Options& options,
+void AdjustGlobalBundle(const IncrementalMapperOptions& options,
                         IncrementalMapper* mapper) {
-  BundleAdjuster::Options custom_options = options.GlobalBundleAdjustment();
+  BundleAdjustmentOptions custom_options = options.GlobalBundleAdjustment();
 
   const size_t num_reg_images = mapper->GetReconstruction().NumRegImages();
 
@@ -59,7 +59,7 @@ void AdjustGlobalBundle(const IncrementalMapperController::Options& options,
 }
 
 void IterativeLocalRefinement(
-    const IncrementalMapperController::Options& options, const image_t image_id,
+    const IncrementalMapperOptions& options, const image_t image_id,
     IncrementalMapper* mapper) {
   auto ba_options = options.LocalBundleAdjustment();
   for (int i = 0; i < options.ba_local_max_refinements; ++i) {
@@ -83,13 +83,13 @@ void IterativeLocalRefinement(
     }
     // Only use robust cost function for first iteration.
     ba_options.loss_function_type =
-        BundleAdjuster::Options::LossFunctionType::TRIVIAL;
+        BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
   }
   mapper->ClearModifiedPoints3D();
 }
 
 void IterativeGlobalRefinement(
-    const IncrementalMapperController::Options& options,
+    const IncrementalMapperOptions& options,
     IncrementalMapper* mapper) {
   PrintHeading1("Retriangulation");
   CompleteAndMergeTracks(options, mapper);
@@ -143,7 +143,7 @@ void WriteSnapshot(const Reconstruction& reconstruction,
 
 }  // namespace
 
-size_t FilterPoints(const IncrementalMapperController::Options& options,
+size_t FilterPoints(const IncrementalMapperOptions& options,
                     IncrementalMapper* mapper) {
   const size_t num_filtered_observations =
       mapper->FilterPoints(options.Mapper());
@@ -152,7 +152,7 @@ size_t FilterPoints(const IncrementalMapperController::Options& options,
   return num_filtered_observations;
 }
 
-size_t FilterImages(const IncrementalMapperController::Options& options,
+size_t FilterImages(const IncrementalMapperOptions& options,
                     IncrementalMapper* mapper) {
   const size_t num_filtered_images = mapper->FilterImages(options.Mapper());
   std::cout << "  => Filtered images: " << num_filtered_images << std::endl;
@@ -160,7 +160,7 @@ size_t FilterImages(const IncrementalMapperController::Options& options,
 }
 
 size_t CompleteAndMergeTracks(
-    const IncrementalMapperController::Options& options,
+    const IncrementalMapperOptions& options,
     IncrementalMapper* mapper) {
   const size_t num_completed_observations =
       mapper->CompleteTracks(options.Triangulation());
@@ -173,7 +173,7 @@ size_t CompleteAndMergeTracks(
   return num_completed_observations + num_merged_observations;
 }
 
-IncrementalMapper::Options IncrementalMapperController::Options::Mapper()
+IncrementalMapper::Options IncrementalMapperOptions::Mapper()
     const {
   IncrementalMapper::Options options = mapper;
   options.abs_pose_refine_focal_length = ba_refine_focal_length;
@@ -186,7 +186,7 @@ IncrementalMapper::Options IncrementalMapperController::Options::Mapper()
 }
 
 IncrementalTriangulator::Options
-IncrementalMapperController::Options::Triangulation() const {
+IncrementalMapperOptions::Triangulation() const {
   IncrementalTriangulator::Options options = triangulation;
   options.min_focal_length_ratio = min_focal_length_ratio;
   options.max_focal_length_ratio = max_focal_length_ratio;
@@ -194,9 +194,9 @@ IncrementalMapperController::Options::Triangulation() const {
   return options;
 }
 
-BundleAdjuster::Options
-IncrementalMapperController::Options::LocalBundleAdjustment() const {
-  BundleAdjuster::Options options;
+BundleAdjustmentOptions
+IncrementalMapperOptions::LocalBundleAdjustment() const {
+  BundleAdjustmentOptions options;
   options.solver_options.function_tolerance = 0.0;
   options.solver_options.gradient_tolerance = 10.0;
   options.solver_options.parameter_tolerance = 0.0;
@@ -211,13 +211,13 @@ IncrementalMapperController::Options::LocalBundleAdjustment() const {
   options.refine_extra_params = ba_refine_extra_params;
   options.loss_function_scale = 1.0;
   options.loss_function_type =
-      BundleAdjuster::Options::LossFunctionType::CAUCHY;
+      BundleAdjustmentOptions::LossFunctionType::CAUCHY;
   return options;
 }
 
-BundleAdjuster::Options
-IncrementalMapperController::Options::GlobalBundleAdjustment() const {
-  BundleAdjuster::Options options;
+BundleAdjustmentOptions
+IncrementalMapperOptions::GlobalBundleAdjustment() const {
+  BundleAdjustmentOptions options;
   options.solver_options.function_tolerance = 0.0;
   options.solver_options.gradient_tolerance = 1.0;
   options.solver_options.parameter_tolerance = 0.0;
@@ -231,12 +231,12 @@ IncrementalMapperController::Options::GlobalBundleAdjustment() const {
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
   options.loss_function_type =
-      BundleAdjuster::Options::LossFunctionType::TRIVIAL;
+      BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
   return options;
 }
 
 ParallelBundleAdjuster::Options
-IncrementalMapperController::Options::ParallelGlobalBundleAdjustment() const {
+IncrementalMapperOptions::ParallelGlobalBundleAdjustment() const {
   ParallelBundleAdjuster::Options options;
   options.max_num_iterations = ba_global_max_num_iterations;
   options.print_summary = true;
@@ -245,7 +245,7 @@ IncrementalMapperController::Options::ParallelGlobalBundleAdjustment() const {
   return options;
 }
 
-bool IncrementalMapperController::Options::Check() const {
+bool IncrementalMapperOptions::Check() const {
   CHECK_OPTION_GT(min_num_matches, 0);
   CHECK_OPTION_GT(max_num_models, 0);
   CHECK_OPTION_GT(max_model_overlap, 0);
@@ -272,7 +272,7 @@ bool IncrementalMapperController::Options::Check() const {
 }
 
 IncrementalMapperController::IncrementalMapperController(
-    const IncrementalMapperController::Options* options,
+    const IncrementalMapperOptions* options,
     const std::string& image_path, const std::string& database_path,
     ReconstructionManager* reconstruction_manager)
     : options_(options),

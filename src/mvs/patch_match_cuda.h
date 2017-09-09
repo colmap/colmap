@@ -37,7 +37,7 @@ namespace mvs {
 
 class PatchMatchCuda {
  public:
-  PatchMatchCuda(const PatchMatch::Options& options,
+  PatchMatchCuda(const PatchMatchOptions& options,
                  const PatchMatch::Problem& problem);
   ~PatchMatchCuda();
 
@@ -62,7 +62,7 @@ class PatchMatchCuda {
   // Rotate reference image by 90 degrees in counter-clockwise direction.
   void Rotate();
 
-  const PatchMatch::Options options_;
+  const PatchMatchOptions options_;
   const PatchMatch::Problem problem_;
 
   // Dimensions for sweeping from top to bottom, i.e. one thread per column.

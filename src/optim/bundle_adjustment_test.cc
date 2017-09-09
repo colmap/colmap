@@ -202,7 +202,7 @@ BOOST_AUTO_TEST_CASE(TestTwoView) {
   config.SetConstantPose(0);
   config.SetConstantTvec(1, {0});
 
-  BundleAdjuster::Options options;
+  BundleAdjustmentOptions options;
   BundleAdjuster bundle_adjuster(options, config);
   BOOST_CHECK(bundle_adjuster.Solve(&reconstruction));
 
@@ -240,7 +240,7 @@ BOOST_AUTO_TEST_CASE(TestTwoViewConstantCamera) {
   config.SetConstantPose(1);
   config.SetConstantCamera(0);
 
-  BundleAdjuster::Options options;
+  BundleAdjustmentOptions options;
   BundleAdjuster bundle_adjuster(options, config);
   BOOST_CHECK(bundle_adjuster.Solve(&reconstruction));
 
@@ -280,7 +280,7 @@ BOOST_AUTO_TEST_CASE(TestPartiallyContainedTracks) {
   config.SetConstantPose(0);
   config.SetConstantPose(1);
 
-  BundleAdjuster::Options options;
+  BundleAdjustmentOptions options;
   BundleAdjuster bundle_adjuster(options, config);
   BOOST_CHECK(bundle_adjuster.Solve(&reconstruction));
 
@@ -334,7 +334,7 @@ BOOST_AUTO_TEST_CASE(TestPartiallyContainedTracksForceToOptimizePoint) {
   config.AddVariablePoint(add_variable_point3D_id);
   config.AddConstantPoint(add_constant_point3D_id);
 
-  BundleAdjuster::Options options;
+  BundleAdjustmentOptions options;
   BundleAdjuster bundle_adjuster(options, config);
   BOOST_CHECK(bundle_adjuster.Solve(&reconstruction));
 
@@ -387,7 +387,7 @@ BOOST_AUTO_TEST_CASE(TestConstantPoints) {
   config.AddConstantPoint(constant_point3D_id1);
   config.AddConstantPoint(constant_point3D_id2);
 
-  BundleAdjuster::Options options;
+  BundleAdjustmentOptions options;
   BundleAdjuster bundle_adjuster(options, config);
   BOOST_CHECK(bundle_adjuster.Solve(&reconstruction));
 
@@ -430,7 +430,7 @@ BOOST_AUTO_TEST_CASE(TestVariableImage) {
   config.SetConstantPose(0);
   config.SetConstantTvec(1, {0});
 
-  BundleAdjuster::Options options;
+  BundleAdjustmentOptions options;
   BundleAdjuster bundle_adjuster(options, config);
   BOOST_CHECK(bundle_adjuster.Solve(&reconstruction));
 
@@ -471,7 +471,7 @@ BOOST_AUTO_TEST_CASE(TestConstantFocalLength) {
   config.SetConstantPose(0);
   config.SetConstantTvec(1, {0});
 
-  BundleAdjuster::Options options;
+  BundleAdjustmentOptions options;
   options.refine_focal_length = false;
   BundleAdjuster bundle_adjuster(options, config);
   BOOST_CHECK(bundle_adjuster.Solve(&reconstruction));
@@ -523,7 +523,7 @@ BOOST_AUTO_TEST_CASE(TestVariablePrincipalPoint) {
   config.SetConstantPose(0);
   config.SetConstantTvec(1, {0});
 
-  BundleAdjuster::Options options;
+  BundleAdjustmentOptions options;
   options.refine_principal_point = true;
   BundleAdjuster bundle_adjuster(options, config);
   BOOST_CHECK(bundle_adjuster.Solve(&reconstruction));
@@ -587,7 +587,7 @@ BOOST_AUTO_TEST_CASE(TestConstantExtraParam) {
   config.SetConstantPose(0);
   config.SetConstantTvec(1, {0});
 
-  BundleAdjuster::Options options;
+  BundleAdjustmentOptions options;
   options.refine_extra_params = false;
   BundleAdjuster bundle_adjuster(options, config);
   BOOST_CHECK(bundle_adjuster.Solve(&reconstruction));
@@ -694,8 +694,8 @@ BOOST_AUTO_TEST_CASE(TestRigTwoView) {
   camera_rigs[0].SetRefCameraId(0);
   const auto orig_camera_rigs = camera_rigs;
 
-  RigBundleAdjuster::Options options;
-  RigBundleAdjuster::RigOptions rig_options;
+  BundleAdjustmentOptions options;
+  RigBundleAdjuster::Options rig_options;
   RigBundleAdjuster bundle_adjuster(options, rig_options, config);
   BOOST_CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
 
@@ -749,8 +749,8 @@ BOOST_AUTO_TEST_CASE(TestRigFourView) {
   camera_rigs[0].SetRefCameraId(0);
   const auto orig_camera_rigs = camera_rigs;
 
-  RigBundleAdjuster::Options options;
-  RigBundleAdjuster::RigOptions rig_options;
+  BundleAdjustmentOptions options;
+  RigBundleAdjuster::Options rig_options;
   RigBundleAdjuster bundle_adjuster(options, rig_options, config);
   BOOST_CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
 
@@ -804,8 +804,8 @@ BOOST_AUTO_TEST_CASE(TestConstantRigFourView) {
   camera_rigs[0].SetRefCameraId(0);
   const auto orig_camera_rigs = camera_rigs;
 
-  RigBundleAdjuster::Options options;
-  RigBundleAdjuster::RigOptions rig_options;
+  BundleAdjustmentOptions options;
+  RigBundleAdjuster::Options rig_options;
   rig_options.refine_relative_poses = false;
   RigBundleAdjuster bundle_adjuster(options, rig_options, config);
   BOOST_CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
@@ -859,8 +859,8 @@ BOOST_AUTO_TEST_CASE(TestRigFourViewPartial) {
   camera_rigs[0].SetRefCameraId(0);
   const auto orig_camera_rigs = camera_rigs;
 
-  RigBundleAdjuster::Options options;
-  RigBundleAdjuster::RigOptions rig_options;
+  BundleAdjustmentOptions options;
+  RigBundleAdjuster::Options rig_options;
   RigBundleAdjuster bundle_adjuster(options, rig_options, config);
   BOOST_CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
 

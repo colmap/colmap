@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#include "base/pose.h"
 #include "estimators/coordinate_frame.h"
 #include "util/misc.h"
 #include "util/option_manager.h"

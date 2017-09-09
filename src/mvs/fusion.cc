@@ -65,7 +65,7 @@ int FindNextImage(const std::vector<std::vector<int>>& overlapping_images,
 
 }  // namespace internal
 
-void StereoFusion::Options::Print() const {
+void StereoFusionOptions::Print() const {
 #define PrintOption(option) std::cout << #option ": " << option << std::endl
   PrintHeading2("StereoFusion::Options");
   PrintOption(max_image_size);
@@ -80,7 +80,7 @@ void StereoFusion::Options::Print() const {
 #undef PrintOption
 }
 
-bool StereoFusion::Options::Check() const {
+bool StereoFusionOptions::Check() const {
   CHECK_OPTION_GE(min_num_pixels, 0);
   CHECK_OPTION_LE(min_num_pixels, max_num_pixels);
   CHECK_OPTION_GT(max_traversal_depth, 0);
@@ -92,7 +92,7 @@ bool StereoFusion::Options::Check() const {
   return true;
 }
 
-StereoFusion::StereoFusion(const Options& options,
+StereoFusion::StereoFusion(const StereoFusionOptions& options,
                            const std::string& workspace_path,
                            const std::string& workspace_format,
                            const std::string& pmvs_option_name,

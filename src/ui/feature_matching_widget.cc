@@ -16,6 +16,7 @@
 
 #include "ui/feature_matching_widget.h"
 
+#include "feature/matching.h"
 #include "ui/options_widget.h"
 #include "ui/thread_control_widget.h"
 
@@ -252,12 +253,12 @@ void CustomMatchingTab::Run() {
 
   Thread* matcher = nullptr;
   if (match_type_cb_->currentIndex() == 0) {
-    ImagePairsFeatureMatcher::Options matcher_options;
+    ImagePairsMatchingOptions matcher_options;
     matcher_options.match_list_path = match_list_path_;
     matcher = new ImagePairsFeatureMatcher(
         matcher_options, *options_->sift_matching, *options_->database_path);
   } else {
-    FeaturePairsFeatureMatcher::Options matcher_options;
+    FeaturePairsMatchingOptions matcher_options;
     matcher_options.match_list_path = match_list_path_;
     if (match_type_cb_->currentIndex() == 1) {
       matcher_options.verify_matches = true;

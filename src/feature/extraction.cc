@@ -42,7 +42,7 @@ void ScaleKeypoints(const Bitmap& bitmap, const Camera& camera,
 }  // namespace
 
 SiftFeatureExtractor::SiftFeatureExtractor(
-    const ImageReader::Options& reader_options,
+    const ImageReaderOptions& reader_options,
     const SiftExtractionOptions& sift_options)
     : reader_options_(reader_options),
       sift_options_(sift_options),
@@ -163,7 +163,7 @@ void SiftFeatureExtractor::Run() {
   GetTimer().PrintMinutes();
 }
 
-FeatureImporter::FeatureImporter(const ImageReader::Options& reader_options,
+FeatureImporter::FeatureImporter(const ImageReaderOptions& reader_options,
                                  const std::string& import_path)
     : reader_options_(reader_options), import_path_(import_path) {}
 

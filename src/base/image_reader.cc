@@ -20,7 +20,7 @@
 
 namespace colmap {
 
-bool ImageReader::Options::Check() const {
+bool ImageReaderOptions::Check() const {
   CHECK_OPTION_GT(default_focal_length_factor, 0.0);
   const int model_id = CameraModelNameToId(camera_model);
   CHECK_OPTION_NE(model_id, -1);
@@ -31,7 +31,7 @@ bool ImageReader::Options::Check() const {
   return true;
 }
 
-ImageReader::ImageReader(const Options& options, Database* database)
+ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
     : options_(options), database_(database), image_index_(0) {
   CHECK(options_.Check());
 

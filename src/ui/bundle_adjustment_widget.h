@@ -20,6 +20,7 @@
 #include <QtCore>
 #include <QtWidgets>
 
+#include "base/reconstruction.h"
 #include "ui/options_widget.h"
 #include "ui/thread_control_widget.h"
 #include "util/option_manager.h"

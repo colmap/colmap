@@ -16,6 +16,9 @@
 
 #include "controllers/bundle_adjustment.h"
 
+#include <ceres/ceres.h>
+
+#include "optim/bundle_adjustment.h"
 #include "util/misc.h"
 
 namespace colmap {
@@ -63,7 +66,7 @@ void BundleAdjustmentController::Run() {
   // Avoid degeneracies in bundle adjustment.
   reconstruction_->FilterObservationsWithNegativeDepth();
 
-  BundleAdjuster::Options ba_options = *options_.bundle_adjustment;
+  BundleAdjustmentOptions ba_options = *options_.bundle_adjustment;
   ba_options.solver_options.minimizer_progress_to_stdout = true;
 
   BundleAdjustmentIterationCallback iteration_callback(this);

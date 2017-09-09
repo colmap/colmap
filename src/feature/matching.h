@@ -31,6 +31,111 @@
 
 namespace colmap {
 
+struct ExhaustiveMatchingOptions {
+  // Block size, i.e. number of images to simultaneously load into memory.
+  int block_size = 50;
+
+  bool Check() const;
+};
+
+struct SequentialMatchingOptions {
+  // Number of overlapping image pairs.
+  int overlap = 5;
+
+  // Whether to match images against their quadratic neighbors.
+  bool quadratic_overlap = true;
+
+  // Whether to enable vocabulary tree based loop detection.
+  bool loop_detection = false;
+
+  // Loop detection is invoked every `loop_detection_period` images.
+  int loop_detection_period = 10;
+
+  // The number of images to retrieve in loop detection. This number should
+  // be significantly bigger than the sequential matching overlap.
+  int loop_detection_num_images = 30;
+
+  // Number of images to spatially verify for re-ranking.
+  int loop_detection_num_verifications = 0;
+
+  // The maximum number of features to use for indexing an image. If an
+  // image has more features, only the largest-scale features will be indexed.
+  int loop_detection_max_num_features = -1;
+
+  // Path to the vocabulary tree.
+  std::string vocab_tree_path = "";
+
+  bool Check() const;
+};
+
+struct VocabTreeMatchingOptions {
+  // Number of images to retrieve for each query image.
+  int num_images = 100;
+
+  // Number of images to spatially verify for re-ranking.
+  int num_verifications = 0;
+
+  // The maximum number of features to use for indexing an image. If an
+  // image has more features, only the largest-scale features will be indexed.
+  int max_num_features = -1;
+
+  // Path to the vocabulary tree.
+  std::string vocab_tree_path = "";
+
+  // Optional path to file with specific image names to match.
+  std::string match_list_path = "";
+
+  bool Check() const;
+};
+
+struct SpatialMatchingOptions {
+  // Whether the location priors in the database are GPS coordinates in
+  // the form of longitude and latitude coordinates in degrees.
+  bool is_gps = true;
+
+  // Whether to ignore the Z-component of the location prior.
+  bool ignore_z = true;
+
+  // The maximum number of nearest neighbors to match.
+  int max_num_neighbors = 50;
+
+  // The maximum distance between the query and nearest neighbor. For GPS
+  // coordinates the unit is Euclidean distance in meters.
+  double max_distance = 100;
+
+  bool Check() const;
+};
+
+struct TransitiveMatchingOptions {
+  // The maximum number of image pairs to process in one batch.
+  int batch_size = 1000;
+
+  // The number of transitive closure iterations.
+  int num_iterations = 3;
+
+  bool Check() const;
+};
+
+struct ImagePairsMatchingOptions {
+  // Number of image pairs to match in one batch.
+  int block_size = 100;
+
+  // Path to the file with the matches.
+  std::string match_list_path = "";
+
+  bool Check() const;
+};
+
+struct FeaturePairsMatchingOptions {
+  // Whether to geometrically verify the given matches.
+  bool verify_matches = true;
+
+  // Path to the file with the matches.
+  std::string match_list_path = "";
+
+  bool Check() const;
+};
+
 namespace internal {
 
 struct FeatureMatcherData {
@@ -258,21 +363,14 @@ class SiftFeatureMatcher {
 // are on the main diagonal and denote pairs of the same image.
 class ExhaustiveFeatureMatcher : public Thread {
  public:
-  struct Options {
-    // Block size, i.e. number of images to simultaneously load into memory.
-    int block_size = 50;
-
-    bool Check() const;
-  };
-
-  ExhaustiveFeatureMatcher(const Options& options,
+  ExhaustiveFeatureMatcher(const ExhaustiveMatchingOptions& options,
                            const SiftMatchingOptions& match_options,
                            const std::string& database_path);
 
  private:
   void Run() override;
 
-  const Options options_;
+  const ExhaustiveMatchingOptions options_;
   const SiftMatchingOptions match_options_;
   Database database_;
   FeatureMatcherCache cache_;
@@ -299,37 +397,7 @@ class ExhaustiveFeatureMatcher : public Thread {
 // and perform matching and verification.
 class SequentialFeatureMatcher : public Thread {
  public:
-  struct Options {
-    // Number of overlapping image pairs.
-    int overlap = 5;
-
-    // Whether to match images against their quadratic neighbors.
-    bool quadratic_overlap = true;
-
-    // Whether to enable vocabulary tree based loop detection.
-    bool loop_detection = false;
-
-    // Loop detection is invoked every `loop_detection_period` images.
-    int loop_detection_period = 10;
-
-    // The number of images to retrieve in loop detection. This number should
-    // be significantly bigger than the sequential matching overlap.
-    int loop_detection_num_images = 30;
-
-    // Number of images to spatially verify for re-ranking.
-    int loop_detection_num_verifications = 0;
-
-    // The maximum number of features to use for indexing an image. If an
-    // image has more features, only the largest-scale features will be indexed.
-    int loop_detection_max_num_features = -1;
-
-    // Path to the vocabulary tree.
-    std::string vocab_tree_path = "";
-
-    bool Check() const;
-  };
-
-  SequentialFeatureMatcher(const Options& options,
+  SequentialFeatureMatcher(const SequentialMatchingOptions& options,
                            const SiftMatchingOptions& match_options,
                            const std::string& database_path);
 
@@ -340,7 +408,7 @@ class SequentialFeatureMatcher : public Thread {
   void RunSequentialMatching(const std::vector<image_t>& image_ids);
   void RunLoopDetection(const std::vector<image_t>& image_ids);
 
-  const Options options_;
+  const SequentialMatchingOptions options_;
   const SiftMatchingOptions match_options_;
   Database database_;
   FeatureMatcherCache cache_;
@@ -350,34 +418,14 @@ class SequentialFeatureMatcher : public Thread {
 // Match each image against its nearest neighbors using a vocabulary tree.
 class VocabTreeFeatureMatcher : public Thread {
  public:
-  struct Options {
-    // Number of images to retrieve for each query image.
-    int num_images = 100;
-
-    // Number of images to spatially verify for re-ranking.
-    int num_verifications = 0;
-
-    // The maximum number of features to use for indexing an image. If an
-    // image has more features, only the largest-scale features will be indexed.
-    int max_num_features = -1;
-
-    // Path to the vocabulary tree.
-    std::string vocab_tree_path = "";
-
-    // Optional path to file with specific image names to match.
-    std::string match_list_path = "";
-
-    bool Check() const;
-  };
-
-  VocabTreeFeatureMatcher(const Options& options,
+  VocabTreeFeatureMatcher(const VocabTreeMatchingOptions& options,
                           const SiftMatchingOptions& match_options,
                           const std::string& database_path);
 
  private:
   void Run() override;
 
-  const Options options_;
+  const VocabTreeMatchingOptions options_;
   const SiftMatchingOptions match_options_;
   Database database_;
   FeatureMatcherCache cache_;
@@ -388,32 +436,14 @@ class VocabTreeFeatureMatcher : public Thread {
 // information, e.g. provided manually or extracted from EXIF.
 class SpatialFeatureMatcher : public Thread {
  public:
-  struct Options {
-    // Whether the location priors in the database are GPS coordinates in
-    // the form of longitude and latitude coordinates in degrees.
-    bool is_gps = true;
-
-    // Whether to ignore the Z-component of the location prior.
-    bool ignore_z = true;
-
-    // The maximum number of nearest neighbors to match.
-    int max_num_neighbors = 50;
-
-    // The maximum distance between the query and nearest neighbor. For GPS
-    // coordinates the unit is Euclidean distance in meters.
-    double max_distance = 100;
-
-    bool Check() const;
-  };
-
-  SpatialFeatureMatcher(const Options& options,
+  SpatialFeatureMatcher(const SpatialMatchingOptions& options,
                         const SiftMatchingOptions& match_options,
                         const std::string& database_path);
 
  private:
   void Run() override;
 
-  const Options options_;
+  const SpatialMatchingOptions options_;
   const SiftMatchingOptions match_options_;
   Database database_;
   FeatureMatcherCache cache_;
@@ -426,24 +456,14 @@ class SpatialFeatureMatcher : public Thread {
 // A-C. This procedure is performed for multiple iterations.
 class TransitiveFeatureMatcher : public Thread {
  public:
-  struct Options {
-    // The maximum number of image pairs to process in one batch.
-    int batch_size = 1000;
-
-    // The number of transitive closure iterations.
-    int num_iterations = 3;
-
-    bool Check() const;
-  };
-
-  TransitiveFeatureMatcher(const Options& options,
+  TransitiveFeatureMatcher(const TransitiveMatchingOptions& options,
                            const SiftMatchingOptions& match_options,
                            const std::string& database_path);
 
  private:
   void Run() override;
 
-  const Options options_;
+  const TransitiveMatchingOptions options_;
   const SiftMatchingOptions match_options_;
   Database database_;
   FeatureMatcherCache cache_;
@@ -461,24 +481,14 @@ class TransitiveFeatureMatcher : public Thread {
 //
 class ImagePairsFeatureMatcher : public Thread {
  public:
-  struct Options {
-    // Number of image pairs to match in one batch.
-    int block_size = 100;
-
-    // Path to the file with the matches.
-    std::string match_list_path = "";
-
-    bool Check() const;
-  };
-
-  ImagePairsFeatureMatcher(const Options& options,
+  ImagePairsFeatureMatcher(const ImagePairsMatchingOptions& options,
                            const SiftMatchingOptions& match_options,
                            const std::string& database_path);
 
  private:
   void Run() override;
 
-  const Options options_;
+  const ImagePairsMatchingOptions options_;
   const SiftMatchingOptions match_options_;
   Database database_;
   FeatureMatcherCache cache_;
@@ -502,17 +512,7 @@ class ImagePairsFeatureMatcher : public Thread {
 //
 class FeaturePairsFeatureMatcher : public Thread {
  public:
-  struct Options {
-    // Whether to geometrically verify the given matches.
-    bool verify_matches = true;
-
-    // Path to the file with the matches.
-    std::string match_list_path = "";
-
-    bool Check() const;
-  };
-
-  FeaturePairsFeatureMatcher(const Options& options,
+  FeaturePairsFeatureMatcher(const FeaturePairsMatchingOptions& options,
                              const SiftMatchingOptions& match_options,
                              const std::string& database_path);
 
@@ -521,7 +521,7 @@ class FeaturePairsFeatureMatcher : public Thread {
 
   void Run() override;
 
-  const Options options_;
+  const FeaturePairsMatchingOptions options_;
   const SiftMatchingOptions match_options_;
   Database database_;
   FeatureMatcherCache cache_;

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "mvs/patch_match.h"
+#include "mvs/workspace.h"
 #include "util/option_manager.h"
 
 using namespace colmap;

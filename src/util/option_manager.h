@@ -21,19 +21,27 @@
 
 #include <boost/program_options.hpp>
 
-#include "feature/matching.h"
-#include "base/image_reader.h"
-#include "controllers/incremental_mapper.h"
-#include "mvs/fusion.h"
-#include "mvs/meshing.h"
-#include "mvs/patch_match.h"
-#include "optim/bundle_adjustment.h"
-#include "ui/render_options.h"
+#include "util/logging.h"
 
 namespace colmap {
 
+struct ImageReaderOptions;
 struct SiftExtractionOptions;
 struct SiftMatchingOptions;
+struct ExhaustiveMatchingOptions;
+struct SequentialMatchingOptions;
+struct VocabTreeMatchingOptions;
+struct SpatialMatchingOptions;
+struct TransitiveMatchingOptions;
+struct BundleAdjustmentOptions;
+struct IncrementalMapperOptions;
+struct RenderOptions;
+
+namespace mvs {
+struct PatchMatchOptions;
+struct StereoFusionOptions;
+struct PoissonReconstructionOptions;
+}  // namespace mvs
 
 class OptionManager {
  public:
@@ -81,21 +89,21 @@ class OptionManager {
   std::shared_ptr<std::string> database_path;
   std::shared_ptr<std::string> image_path;
 
-  std::shared_ptr<ImageReader::Options> image_reader;
+  std::shared_ptr<ImageReaderOptions> image_reader;
   std::shared_ptr<SiftExtractionOptions> sift_extraction;
 
   std::shared_ptr<SiftMatchingOptions> sift_matching;
-  std::shared_ptr<ExhaustiveFeatureMatcher::Options> exhaustive_matching;
-  std::shared_ptr<SequentialFeatureMatcher::Options> sequential_matching;
-  std::shared_ptr<VocabTreeFeatureMatcher::Options> vocab_tree_matching;
-  std::shared_ptr<SpatialFeatureMatcher::Options> spatial_matching;
-  std::shared_ptr<TransitiveFeatureMatcher::Options> transitive_matching;
+  std::shared_ptr<ExhaustiveMatchingOptions> exhaustive_matching;
+  std::shared_ptr<SequentialMatchingOptions> sequential_matching;
+  std::shared_ptr<VocabTreeMatchingOptions> vocab_tree_matching;
+  std::shared_ptr<SpatialMatchingOptions> spatial_matching;
+  std::shared_ptr<TransitiveMatchingOptions> transitive_matching;
 
-  std::shared_ptr<BundleAdjuster::Options> bundle_adjustment;
-  std::shared_ptr<IncrementalMapperController::Options> mapper;
+  std::shared_ptr<BundleAdjustmentOptions> bundle_adjustment;
+  std::shared_ptr<IncrementalMapperOptions> mapper;
 
-  std::shared_ptr<mvs::PatchMatch::Options> dense_stereo;
-  std::shared_ptr<mvs::StereoFusion::Options> dense_fusion;
+  std::shared_ptr<mvs::PatchMatchOptions> dense_stereo;
+  std::shared_ptr<mvs::StereoFusionOptions> dense_fusion;
   std::shared_ptr<mvs::PoissonReconstructionOptions> dense_meshing;
 
   std::shared_ptr<RenderOptions> render;

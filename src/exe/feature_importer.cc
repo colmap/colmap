@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
   options.AddExtractionOptions();
   options.Parse(argc, argv);
 
-  ImageReader::Options reader_options = *options.image_reader;
+  ImageReaderOptions reader_options = *options.image_reader;
   reader_options.database_path = *options.database_path;
   reader_options.image_path = *options.image_path;
 

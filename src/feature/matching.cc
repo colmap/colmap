@@ -152,6 +152,44 @@ void MatchNearestNeighborsInVisualIndex(
 
 }  // namespace
 
+bool ExhaustiveMatchingOptions::Check() const {
+  CHECK_OPTION_GT(block_size, 1);
+  return true;
+}
+
+bool SequentialMatchingOptions::Check() const {
+  CHECK_OPTION_GT(overlap, 0);
+  CHECK_OPTION_GT(loop_detection_period, 0);
+  CHECK_OPTION_GT(loop_detection_num_images, 0);
+  CHECK_OPTION_GE(loop_detection_num_verifications, 0);
+  return true;
+}
+
+bool VocabTreeMatchingOptions::Check() const {
+  CHECK_OPTION_GT(num_images, 0);
+  CHECK_OPTION_GE(num_verifications, 0);
+  return true;
+}
+
+bool SpatialMatchingOptions::Check() const {
+  CHECK_OPTION_GT(max_num_neighbors, 0);
+  CHECK_OPTION_GT(max_distance, 0.0);
+  return true;
+}
+
+bool TransitiveMatchingOptions::Check() const {
+  CHECK_OPTION_GT(batch_size, 0);
+  CHECK_OPTION_GT(num_iterations, 0);
+  return true;
+}
+
+bool ImagePairsMatchingOptions::Check() const {
+  CHECK_OPTION_GT(block_size, 0);
+  return true;
+}
+
+bool FeaturePairsMatchingOptions::Check() const { return true; }
+
 FeatureMatcherCache::FeatureMatcherCache(const size_t cache_size,
                                          const Database* database)
     : cache_size_(cache_size), database_(database) {
@@ -775,14 +813,9 @@ void SiftFeatureMatcher::Match(
   CHECK_EQ(output_queue_.Size(), 0);
 }
 
-bool ExhaustiveFeatureMatcher::Options::Check() const {
-  CHECK_OPTION_GT(block_size, 1);
-  return true;
-}
-
 ExhaustiveFeatureMatcher::ExhaustiveFeatureMatcher(
-    const Options& options, const SiftMatchingOptions& match_options,
-    const std::string& database_path)
+    const ExhaustiveMatchingOptions& options,
+    const SiftMatchingOptions& match_options, const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),
@@ -855,17 +888,9 @@ void ExhaustiveFeatureMatcher::Run() {
   GetTimer().PrintMinutes();
 }
 
-bool SequentialFeatureMatcher::Options::Check() const {
-  CHECK_OPTION_GT(overlap, 0);
-  CHECK_OPTION_GT(loop_detection_period, 0);
-  CHECK_OPTION_GT(loop_detection_num_images, 0);
-  CHECK_OPTION_GE(loop_detection_num_verifications, 0);
-  return true;
-}
-
 SequentialFeatureMatcher::SequentialFeatureMatcher(
-    const Options& options, const SiftMatchingOptions& match_options,
-    const std::string& database_path)
+    const SequentialMatchingOptions& options,
+    const SiftMatchingOptions& match_options, const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),
@@ -990,15 +1015,9 @@ void SequentialFeatureMatcher::RunLoopDetection(
       &visual_index, &matcher_);
 }
 
-bool VocabTreeFeatureMatcher::Options::Check() const {
-  CHECK_OPTION_GT(num_images, 0);
-  CHECK_OPTION_GE(num_verifications, 0);
-  return true;
-}
-
 VocabTreeFeatureMatcher::VocabTreeFeatureMatcher(
-    const Options& options, const SiftMatchingOptions& match_options,
-    const std::string& database_path)
+    const VocabTreeMatchingOptions& options,
+    const SiftMatchingOptions& match_options, const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),
@@ -1072,15 +1091,9 @@ void VocabTreeFeatureMatcher::Run() {
   GetTimer().PrintMinutes();
 }
 
-bool SpatialFeatureMatcher::Options::Check() const {
-  CHECK_OPTION_GT(max_num_neighbors, 0);
-  CHECK_OPTION_GT(max_distance, 0.0);
-  return true;
-}
-
 SpatialFeatureMatcher::SpatialFeatureMatcher(
-    const Options& options, const SiftMatchingOptions& match_options,
-    const std::string& database_path)
+    const SpatialMatchingOptions& options,
+    const SiftMatchingOptions& match_options, const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),
@@ -1262,15 +1275,9 @@ void SpatialFeatureMatcher::Run() {
   GetTimer().PrintMinutes();
 }
 
-bool TransitiveFeatureMatcher::Options::Check() const {
-  CHECK_OPTION_GT(batch_size, 0);
-  CHECK_OPTION_GT(num_iterations, 0);
-  return true;
-}
-
 TransitiveFeatureMatcher::TransitiveFeatureMatcher(
-    const Options& options, const SiftMatchingOptions& match_options,
-    const std::string& database_path)
+    const TransitiveMatchingOptions& options,
+    const SiftMatchingOptions& match_options, const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),
@@ -1364,14 +1371,9 @@ void TransitiveFeatureMatcher::Run() {
   GetTimer().PrintMinutes();
 }
 
-bool ImagePairsFeatureMatcher::Options::Check() const {
-  CHECK_OPTION_GT(block_size, 0);
-  return true;
-}
-
 ImagePairsFeatureMatcher::ImagePairsFeatureMatcher(
-    const Options& options, const SiftMatchingOptions& match_options,
-    const std::string& database_path)
+    const ImagePairsMatchingOptions& options,
+    const SiftMatchingOptions& match_options, const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),
@@ -1476,11 +1478,9 @@ void ImagePairsFeatureMatcher::Run() {
   GetTimer().PrintMinutes();
 }
 
-bool FeaturePairsFeatureMatcher::Options::Check() const { return true; }
-
 FeaturePairsFeatureMatcher::FeaturePairsFeatureMatcher(
-    const Options& options, const SiftMatchingOptions& match_options,
-    const std::string& database_path)
+    const FeaturePairsMatchingOptions& options,
+    const SiftMatchingOptions& match_options, const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),

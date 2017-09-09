@@ -94,7 +94,7 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
 void SIFTExtractionWidget::Run() {
   WriteOptions();
 
-  ImageReader::Options reader_options = *options_->image_reader;
+  ImageReaderOptions reader_options = *options_->image_reader;
   reader_options.database_path = *options_->database_path;
   reader_options.image_path = *options_->image_path;
 
@@ -117,7 +117,7 @@ void ImportFeaturesWidget::Run() {
     return;
   }
 
-  ImageReader::Options reader_options = *options_->image_reader;
+  ImageReaderOptions reader_options = *options_->image_reader;
   reader_options.database_path = *options_->database_path;
   reader_options.image_path = *options_->image_path;
 

@@ -30,6 +30,28 @@
 namespace colmap {
 
 ////////////////////////////////////////////////////////////////////////////////
+// BundleAdjustmentOptions
+////////////////////////////////////////////////////////////////////////////////
+
+ceres::LossFunction* BundleAdjustmentOptions::CreateLossFunction() const {
+  ceres::LossFunction* loss_function = nullptr;
+  switch (loss_function_type) {
+    case LossFunctionType::TRIVIAL:
+      loss_function = new ceres::TrivialLoss();
+      break;
+    case LossFunctionType::CAUCHY:
+      loss_function = new ceres::CauchyLoss(loss_function_scale);
+      break;
+  }
+  return loss_function;
+}
+
+bool BundleAdjustmentOptions::Check() const {
+  CHECK_OPTION_GE(loss_function_scale, 0);
+  return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // BundleAdjustmentConfig
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -206,25 +228,7 @@ void BundleAdjustmentConfig::RemoveConstantPoint(const point3D_t point3D_id) {
 // BundleAdjuster
 ////////////////////////////////////////////////////////////////////////////////
 
-ceres::LossFunction* BundleAdjuster::Options::CreateLossFunction() const {
-  ceres::LossFunction* loss_function = nullptr;
-  switch (loss_function_type) {
-    case LossFunctionType::TRIVIAL:
-      loss_function = new ceres::TrivialLoss();
-      break;
-    case LossFunctionType::CAUCHY:
-      loss_function = new ceres::CauchyLoss(loss_function_scale);
-      break;
-  }
-  return loss_function;
-}
-
-bool BundleAdjuster::Options::Check() const {
-  CHECK_OPTION_GE(loss_function_scale, 0);
-  return true;
-}
-
-BundleAdjuster::BundleAdjuster(const Options& options,
+BundleAdjuster::BundleAdjuster(const BundleAdjustmentOptions& options,
                                const BundleAdjustmentConfig& config)
     : options_(options), config_(config) {
   CHECK(options_.Check());
@@ -740,8 +744,8 @@ void ParallelBundleAdjuster::AddPointsToProblem(
 // RigBundleAdjuster
 ////////////////////////////////////////////////////////////////////////////////
 
-RigBundleAdjuster::RigBundleAdjuster(const Options& options,
-                                     const RigOptions& rig_options,
+RigBundleAdjuster::RigBundleAdjuster(const BundleAdjustmentOptions& options,
+                                     const Options& rig_options,
                                      const BundleAdjustmentConfig& config)
     : BundleAdjuster(options, config), rig_options_(rig_options) {}
 

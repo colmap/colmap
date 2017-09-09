@@ -30,13 +30,13 @@
 namespace colmap {
 namespace mvs {
 
-PatchMatch::PatchMatch(const Options& options, const Problem& problem)
+PatchMatch::PatchMatch(const PatchMatchOptions& options, const Problem& problem)
     : options_(options), problem_(problem) {}
 
 PatchMatch::~PatchMatch() {}
 
-void PatchMatch::Options::Print() const {
-  PrintHeading2("PatchMatch::Options");
+void PatchMatchOptions::Print() const {
+  PrintHeading2("PatchMatchOptions");
   PrintOption(max_image_size);
   PrintOption(gpu_index);
   PrintOption(depth_min);
@@ -164,7 +164,7 @@ ConsistencyGraph PatchMatch::GetConsistencyGraph() const {
                           patch_match_cuda_->GetConsistentImageIds());
 }
 
-PatchMatchController::PatchMatchController(const PatchMatch::Options& options,
+PatchMatchController::PatchMatchController(const PatchMatchOptions& options,
                                            const std::string& workspace_path,
                                            const std::string& workspace_format,
                                            const std::string& pmvs_option_name)
@@ -386,7 +386,7 @@ void PatchMatchController::ReadGpuIndices() {
   }
 }
 
-void PatchMatchController::ProcessProblem(const PatchMatch::Options& options,
+void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
                                           const size_t problem_idx) {
   if (IsStopped()) {
     return;

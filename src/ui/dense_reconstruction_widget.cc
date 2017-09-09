@@ -17,6 +17,9 @@
 #include "ui/dense_reconstruction_widget.h"
 
 #include "base/undistortion.h"
+#include "mvs/fusion.h"
+#include "mvs/meshing.h"
+#include "mvs/patch_match.h"
 #include "ui/main_window.h"
 
 namespace colmap {

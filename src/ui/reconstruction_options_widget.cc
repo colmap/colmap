@@ -16,6 +16,8 @@
 
 #include "ui/reconstruction_options_widget.h"
 
+#include "controllers/incremental_mapper.h"
+
 namespace colmap {
 
 MapperGeneralOptionsWidget::MapperGeneralOptionsWidget(QWidget* parent,

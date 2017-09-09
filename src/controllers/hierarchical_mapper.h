@@ -50,7 +50,7 @@ class HierarchicalMapperController : public Thread {
   HierarchicalMapperController(
       const Options& options,
       const SceneClustering::Options& clustering_options,
-      const IncrementalMapperController::Options& mapper_options,
+      const IncrementalMapperOptions& mapper_options,
       ReconstructionManager* reconstruction_manager);
 
  private:
@@ -58,7 +58,7 @@ class HierarchicalMapperController : public Thread {
 
   const Options options_;
   const SceneClustering::Options clustering_options_;
-  const IncrementalMapperController::Options mapper_options_;
+  const IncrementalMapperOptions mapper_options_;
   ReconstructionManager* reconstruction_manager_;
 };
 

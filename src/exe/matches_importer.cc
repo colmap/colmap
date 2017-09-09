@@ -49,12 +49,12 @@ int main(int argc, char** argv) {
 
   std::unique_ptr<Thread> feature_matcher;
   if (match_type == "pairs") {
-    ImagePairsFeatureMatcher::Options matcher_options;
+    ImagePairsMatchingOptions matcher_options;
     matcher_options.match_list_path = match_list_path;
     feature_matcher.reset(new ImagePairsFeatureMatcher(
         matcher_options, *options.sift_matching, *options.database_path));
   } else if (match_type == "raw" || match_type == "inliers") {
-    FeaturePairsFeatureMatcher::Options matcher_options;
+    FeaturePairsMatchingOptions matcher_options;
     matcher_options.match_list_path = match_list_path;
     matcher_options.verify_matches = match_type == "raw";
     feature_matcher.reset(new FeaturePairsFeatureMatcher(
