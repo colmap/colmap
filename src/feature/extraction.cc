@@ -119,10 +119,8 @@ void SiftFeatureExtractor::Run() {
     if (IsStopped()) {
       resizer_queue_->Stop();
       extractor_queue_->Stop();
-      writer_queue_->Stop();
       resizer_queue_->Clear();
       extractor_queue_->Clear();
-      writer_queue_->Clear();
       break;
     }
 
