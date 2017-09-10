@@ -154,7 +154,7 @@ struct SiftMatchingOptions {
 bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
                             const Bitmap& bitmap, FeatureKeypoints* keypoints,
                             FeatureDescriptors* descriptors);
-bool ExtractAffineDSPSiftFeaturesCPU(const SiftExtractionOptions& options,
+bool ExtractCovariantSiftFeaturesCPU(const SiftExtractionOptions& options,
                                      const Bitmap& bitmap,
                                      FeatureKeypoints* keypoints,
                                      FeatureDescriptors* descriptors);

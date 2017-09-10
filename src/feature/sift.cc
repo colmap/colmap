@@ -394,7 +394,7 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
   return true;
 }
 
-bool ExtractAffineDSPSiftFeaturesCPU(const SiftExtractionOptions& options,
+bool ExtractCovariantSiftFeaturesCPU(const SiftExtractionOptions& options,
                                      const Bitmap& bitmap,
                                      FeatureKeypoints* keypoints,
                                      FeatureDescriptors* descriptors) {
@@ -428,7 +428,12 @@ bool ExtractAffineDSPSiftFeaturesCPU(const SiftExtractionOptions& options,
   }
 
   vl_covdet_detect(covdet.get());
-  vl_covdet_extract_affine_shape(covdet.get());
+
+  if (options.estimate_affine_shape) {
+    vl_covdet_extract_affine_shape(covdet.get());
+  } else {
+    vl_covdet_extract_orientations(covdet.get());
+  }
 
   const int num_features = vl_covdet_get_num_features(covdet.get());
   VlCovDetFeature* features = vl_covdet_get_features(covdet.get());
@@ -437,13 +442,17 @@ bool ExtractAffineDSPSiftFeaturesCPU(const SiftExtractionOptions& options,
   std::sort(
       features, features + num_features,
       [](const VlCovDetFeature& feature1, const VlCovDetFeature& feature2) {
-        return feature1.o < feature2.o || feature1.s < feature2.s;
+        if (feature1.o == feature2.o) {
+          return feature1.s > feature2.s;
+        } else {
+          return feature1.o > feature2.o;
+        }
       });
 
   const size_t max_num_features = static_cast<size_t>(options.max_num_features);
 
   // Copy detected keypoints and clamp when maximum number of features reached.
-  int prev_octave_scale_idx = std::numeric_limits<int>::min();
+  int prev_octave_scale_idx = std::numeric_limits<int>::max();
   for (int i = 0; i < num_features; ++i) {
     FeatureKeypoint keypoint;
     keypoint.x = features[i].frame.x + 0.5;
@@ -453,13 +462,16 @@ bool ExtractAffineDSPSiftFeaturesCPU(const SiftExtractionOptions& options,
     keypoint.a21 = features[i].frame.a21;
     keypoint.a22 = features[i].frame.a22;
     keypoints->push_back(keypoint);
+
     const int octave_scale_idx =
         features[i].o * kMaxOctaveResolution + features[i].s;
-    CHECK_GE(octave_scale_idx, prev_octave_scale_idx);
+    CHECK_LE(octave_scale_idx, prev_octave_scale_idx);
+
     if (octave_scale_idx != prev_octave_scale_idx &&
         keypoints->size() >= max_num_features) {
       break;
     }
+
     prev_octave_scale_idx = octave_scale_idx;
   }
 

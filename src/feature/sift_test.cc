@@ -64,14 +64,42 @@ BOOST_AUTO_TEST_CASE(TestExtractSiftFeaturesCPU) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestExtractAffineSiftFeaturesCPU) {
+BOOST_AUTO_TEST_CASE(TestExtractCovariantSiftFeaturesCPU) {
   Bitmap bitmap;
   CreateImageWithSquare(256, &bitmap);
 
   FeatureKeypoints keypoints;
   FeatureDescriptors descriptors;
-  BOOST_CHECK(ExtractAffineSiftFeaturesCPU(SiftExtractionOptions(), bitmap,
-                                           &keypoints, &descriptors));
+  BOOST_CHECK(ExtractCovariantSiftFeaturesCPU(SiftExtractionOptions(), bitmap,
+                                              &keypoints, &descriptors));
+
+  BOOST_CHECK_EQUAL(keypoints.size(), 22);
+  for (size_t i = 0; i < keypoints.size(); ++i) {
+    BOOST_CHECK_GE(keypoints[i].x, 0);
+    BOOST_CHECK_GE(keypoints[i].y, 0);
+    BOOST_CHECK_LE(keypoints[i].x, bitmap.Width());
+    BOOST_CHECK_LE(keypoints[i].y, bitmap.Height());
+    BOOST_CHECK_GT(keypoints[i].ComputeScale(), 0);
+    BOOST_CHECK_GT(keypoints[i].ComputeOrientation(), -M_PI);
+    BOOST_CHECK_LT(keypoints[i].ComputeOrientation(), M_PI);
+  }
+
+  BOOST_CHECK_EQUAL(descriptors.rows(), 22);
+  for (FeatureDescriptors::Index i = 0; i < descriptors.rows(); ++i) {
+    BOOST_CHECK_LT(std::abs(descriptors.row(i).cast<float>().norm() - 512), 1);
+  }
+}
+
+BOOST_AUTO_TEST_CASE(TestExtractCovariantAffineSiftFeaturesCPU) {
+  Bitmap bitmap;
+  CreateImageWithSquare(256, &bitmap);
+
+  FeatureKeypoints keypoints;
+  FeatureDescriptors descriptors;
+  SiftExtractionOptions options;
+  options.estimate_affine_shape = true;
+  BOOST_CHECK(ExtractCovariantSiftFeaturesCPU(options, bitmap, &keypoints,
+                                              &descriptors));
 
   BOOST_CHECK_EQUAL(keypoints.size(), 10);
   for (size_t i = 0; i < keypoints.size(); ++i) {
@@ -90,14 +118,45 @@ BOOST_AUTO_TEST_CASE(TestExtractAffineSiftFeaturesCPU) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestExtractDSPSiftFeaturesCPU) {
+BOOST_AUTO_TEST_CASE(TestExtractCovariantDSPSiftFeaturesCPU) {
   Bitmap bitmap;
   CreateImageWithSquare(256, &bitmap);
 
   FeatureKeypoints keypoints;
   FeatureDescriptors descriptors;
-  BOOST_CHECK(ExtractDSPSiftFeaturesCPU(SiftExtractionOptions(), bitmap,
-                                        &keypoints, &descriptors));
+  SiftExtractionOptions options;
+  options.domain_size_pooling = true;
+  BOOST_CHECK(ExtractCovariantSiftFeaturesCPU(options, bitmap, &keypoints,
+                                              &descriptors));
+
+  BOOST_CHECK_EQUAL(keypoints.size(), 22);
+  for (size_t i = 0; i < keypoints.size(); ++i) {
+    BOOST_CHECK_GE(keypoints[i].x, 0);
+    BOOST_CHECK_GE(keypoints[i].y, 0);
+    BOOST_CHECK_LE(keypoints[i].x, bitmap.Width());
+    BOOST_CHECK_LE(keypoints[i].y, bitmap.Height());
+    BOOST_CHECK_GT(keypoints[i].ComputeScale(), 0);
+    BOOST_CHECK_GT(keypoints[i].ComputeOrientation(), -M_PI);
+    BOOST_CHECK_LT(keypoints[i].ComputeOrientation(), M_PI);
+  }
+
+  BOOST_CHECK_EQUAL(descriptors.rows(), 22);
+  for (FeatureDescriptors::Index i = 0; i < descriptors.rows(); ++i) {
+    BOOST_CHECK_LT(std::abs(descriptors.row(i).cast<float>().norm() - 512), 1);
+  }
+}
+
+BOOST_AUTO_TEST_CASE(TestExtractCovariantAffineDSPSiftFeaturesCPU) {
+  Bitmap bitmap;
+  CreateImageWithSquare(256, &bitmap);
+
+  FeatureKeypoints keypoints;
+  FeatureDescriptors descriptors;
+  SiftExtractionOptions options;
+  options.estimate_affine_shape = true;
+  options.domain_size_pooling = true;
+  BOOST_CHECK(ExtractCovariantSiftFeaturesCPU(options, bitmap, &keypoints,
+                                              &descriptors));
 
   BOOST_CHECK_EQUAL(keypoints.size(), 10);
   for (size_t i = 0; i < keypoints.size(); ++i) {

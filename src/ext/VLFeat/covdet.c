@@ -2033,8 +2033,8 @@ vl_covdet_detect (VlCovDet * self)
               feature.frame.a12 = 0.0 ;
               feature.frame.a21 = 0.0 ;
               feature.frame.a22 = sigma ;
-              feature.o = o;
-              feature.s = 0;
+              feature.o = o ;
+              feature.s = round(refined.z) ;
               feature.peakScore = refined.peakScore ;
               feature.edgeScore = refined.edgeScore ;
               vl_covdet_append_feature(self, &feature) ;

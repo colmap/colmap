@@ -311,7 +311,7 @@ void SiftFeatureExtractorThread::Run() {
         bool success = false;
         if (sift_options_.estimate_affine_shape ||
             sift_options_.domain_size_pooling) {
-          success = ExtractAffineDSPSiftFeaturesCPU(
+          success = ExtractCovariantSiftFeaturesCPU(
               sift_options_, image_data.bitmap, &image_data.keypoints,
               &image_data.descriptors);
         } else if (sift_options_.use_gpu) {
