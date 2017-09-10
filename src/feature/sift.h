@@ -72,6 +72,18 @@ struct SiftExtractionOptions {
   // Note that this feature is only available in the OpenGL SiftGPU version.
   bool darkness_adaptivity = false;
 
+  // Domain-size pooling parameters. Domain-size pooling computes an average
+  // SIFT descriptor across multiple scales around the detected scale. This was
+  // proposed in "Domain-Size Pooling in Local Descriptors and Network
+  // Architectures", J. Dong and S. Soatto, CVPR 2015. This has been shown to
+  // outperform other SIFT variants and learned descriptors in "Comparative
+  // Evaluation of Hand-Crafted and Learned Local Features", Schönberger,
+  // Hardmeier, Sattler, Pollefeys, CVPR 2016.
+  bool domain_size_pooling = false;
+  double dsp_min_scale = 1.0 / 6.0;
+  double dsp_max_scale = 3.0;
+  int dsp_num_scales = 10;
+
   enum class Normalization {
     // L1-normalizes each descriptor followed by element-wise square rooting.
     // This normalization is usually better than standard L2-normalization.
@@ -139,29 +151,25 @@ struct SiftMatchingOptions {
 
 // Extract SIFT features for the given image on the CPU. Only extract
 // descriptors if the given input is not NULL.
-bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& sift_options,
+bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
                             const Bitmap& bitmap, FeatureKeypoints* keypoints,
                             FeatureDescriptors* descriptors);
-bool ExtractAffineSiftFeaturesCPU(const SiftExtractionOptions& sift_options,
-                                  const Bitmap& bitmap,
-                                  FeatureKeypoints* keypoints,
-                                  FeatureDescriptors* descriptors);
-bool ExtractASVSiftFeaturesCPU(const SiftExtractionOptions& sift_options,
-                               const Bitmap& bitmap,
-                               FeatureKeypoints* keypoints,
-                               FeatureDescriptors* descriptors);
+bool ExtractAffineDSPSiftFeaturesCPU(const SiftExtractionOptions& options,
+                                     const Bitmap& bitmap,
+                                     FeatureKeypoints* keypoints,
+                                     FeatureDescriptors* descriptors);
 
 // Create a SiftGPU feature extractor. The same SiftGPU instance can be used to
 // extract features for multiple images. Note a OpenGL context must be made
 // current in the thread of the caller. If the gpu_index is not -1, the CUDA
 // version of SiftGPU is used, which produces slightly different results
 // than the OpenGL implementation.
-bool CreateSiftGPUExtractor(const SiftExtractionOptions& sift_options,
+bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
                             SiftGPU* sift_gpu);
 
 // Extract SIFT features for the given image on the GPU.
 // SiftGPU must already be initialized using `CreateSiftGPU`.
-bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& sift_options,
+bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
                             const Bitmap& bitmap, SiftGPU* sift_gpu,
                             FeatureKeypoints* keypoints,
                             FeatureDescriptors* descriptors);

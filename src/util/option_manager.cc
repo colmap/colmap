@@ -19,8 +19,8 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 
-#include "controllers/incremental_mapper.h"
 #include "base/image_reader.h"
+#include "controllers/incremental_mapper.h"
 #include "feature/extraction.h"
 #include "feature/matching.h"
 #include "feature/sift.h"
@@ -164,6 +164,14 @@ void OptionManager::AddExtractionOptions() {
                               &sift_extraction->max_num_orientations);
   AddAndRegisterDefaultOption("SiftExtraction.upright",
                               &sift_extraction->upright);
+  AddAndRegisterDefaultOption("SiftExtraction.domain_size_pooling",
+                              &sift_extraction->domain_size_pooling);
+  AddAndRegisterDefaultOption("SiftExtraction.dsp_min_scale",
+                              &sift_extraction->dsp_min_scale);
+  AddAndRegisterDefaultOption("SiftExtraction.dsp_max_scale",
+                              &sift_extraction->dsp_max_scale);
+  AddAndRegisterDefaultOption("SiftExtraction.dsp_num_scales",
+                              &sift_extraction->dsp_num_scales);
 }
 
 void OptionManager::AddMatchingOptions() {

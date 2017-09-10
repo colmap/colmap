@@ -66,13 +66,20 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
   AddOptionInt(&options->sift_extraction->octave_resolution,
                "octave_resolution");
   AddOptionDouble(&options->sift_extraction->peak_threshold, "peak_threshold",
-                  0.0, 1e7, 0.0001, 4);
+                  0.0, 1e7, 0.00001, 5);
   AddOptionDouble(&options->sift_extraction->edge_threshold, "edge_threshold");
   AddOptionBool(&options->sift_extraction->estimate_affine_shape,
-               "estimate_affine_shape");
+                "estimate_affine_shape");
   AddOptionInt(&options->sift_extraction->max_num_orientations,
                "max_num_orientations");
   AddOptionBool(&options->sift_extraction->upright, "upright");
+  AddOptionBool(&options->sift_extraction->domain_size_pooling,
+                "domain_size_pooling");
+  AddOptionDouble(&options->sift_extraction->dsp_min_scale, "dsp_min_scale",
+                  0.0, 1e7, 0.00001, 5);
+  AddOptionDouble(&options->sift_extraction->dsp_max_scale, "dsp_max_scale",
+                  0.0, 1e7, 0.00001, 5);
+  AddOptionInt(&options->sift_extraction->dsp_num_scales, "dsp_num_scales", 1);
 
   AddOptionInt(&options->sift_extraction->num_threads, "num_threads", -1);
   AddOptionBool(&options->sift_extraction->use_gpu, "use_gpu");

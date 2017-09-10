@@ -200,6 +200,11 @@ bool SiftExtractionOptions::Check() const {
   CHECK_OPTION_GT(peak_threshold, 0.0);
   CHECK_OPTION_GT(edge_threshold, 0.0);
   CHECK_OPTION_GT(max_num_orientations, 0);
+  if (domain_size_pooling) {
+    CHECK_OPTION_GT(dsp_min_scale, 0);
+    CHECK_OPTION_GE(dsp_max_scale, dsp_min_scale);
+    CHECK_OPTION_GT(dsp_num_scales, 0);
+  }
   return true;
 }
 
@@ -224,9 +229,8 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
   CHECK(bitmap.IsGrey());
   CHECK_NOTNULL(keypoints);
 
-  //////////////////////////////////////////////////////////////////////////////
-  // Extract features
-  //////////////////////////////////////////////////////////////////////////////
+  CHECK(!options.estimate_affine_shape);
+  CHECK(!options.domain_size_pooling);
 
   // Setup SIFT extractor.
   std::unique_ptr<VlSiftFilt, void (*)(VlSiftFilt*)> sift(
@@ -330,7 +334,10 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
           } else if (options.normalization ==
                      SiftExtractionOptions::Normalization::L1_ROOT) {
             desc = L1RootNormalizeFeatureDescriptors(desc);
+          } else {
+            LOG(FATAL) << "Normalization type not supported";
           }
+
           level_descriptors.back().row(level_idx) =
               FeatureDescriptorsToUnsignedByte(desc);
         }
@@ -371,6 +378,7 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
     }
   }
 
+  // Compute the descriptors for the detected keypoints.
   if (descriptors != nullptr) {
     size_t k = 0;
     descriptors->resize(num_features_with_orientations, 128);
@@ -386,19 +394,15 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
   return true;
 }
 
-bool ExtractAffineSiftFeaturesCPU(const SiftExtractionOptions& options,
-                                  const Bitmap& bitmap,
-                                  FeatureKeypoints* keypoints,
-                                  FeatureDescriptors* descriptors) {
+bool ExtractAffineDSPSiftFeaturesCPU(const SiftExtractionOptions& options,
+                                     const Bitmap& bitmap,
+                                     FeatureKeypoints* keypoints,
+                                     FeatureDescriptors* descriptors) {
   CHECK(options.Check());
   CHECK(bitmap.IsGrey());
   CHECK_NOTNULL(keypoints);
 
-  //////////////////////////////////////////////////////////////////////////////
-  // Extract features
-  //////////////////////////////////////////////////////////////////////////////
-
-  // Setup SIFT extractor.
+  // Setup covariant SIFT detector.
   std::unique_ptr<VlCovDet, void (*)(VlCovDet*)> covdet(
       vl_covdet_new(VL_COVDET_METHOD_DOG), &vl_covdet_delete);
   if (!covdet) {
@@ -424,18 +428,21 @@ bool ExtractAffineSiftFeaturesCPU(const SiftExtractionOptions& options,
   }
 
   vl_covdet_detect(covdet.get());
-  // vl_covdet_extract_orientations(covdet.get());
   vl_covdet_extract_affine_shape(covdet.get());
 
   const int num_features = vl_covdet_get_num_features(covdet.get());
   VlCovDetFeature* features = vl_covdet_get_features(covdet.get());
 
+  // Sort features according to detected octave and scale.
   std::sort(
       features, features + num_features,
       [](const VlCovDetFeature& feature1, const VlCovDetFeature& feature2) {
         return feature1.o < feature2.o || feature1.s < feature2.s;
       });
 
+  const size_t max_num_features = static_cast<size_t>(options.max_num_features);
+
+  // Copy detected keypoints and clamp when maximum number of features reached.
   int prev_octave_scale_idx = std::numeric_limits<int>::min();
   for (int i = 0; i < num_features; ++i) {
     FeatureKeypoint keypoint;
@@ -450,12 +457,13 @@ bool ExtractAffineSiftFeaturesCPU(const SiftExtractionOptions& options,
         features[i].o * kMaxOctaveResolution + features[i].s;
     CHECK_GE(octave_scale_idx, prev_octave_scale_idx);
     if (octave_scale_idx != prev_octave_scale_idx &&
-        keypoints->size() >= options.max_num_features) {
+        keypoints->size() >= max_num_features) {
       break;
     }
     prev_octave_scale_idx = octave_scale_idx;
   }
 
+  // Compute the descriptors for the detected keypoints.
   if (descriptors != nullptr) {
     descriptors->resize(keypoints->size(), 128);
 
@@ -470,7 +478,18 @@ bool ExtractAffineSiftFeaturesCPU(const SiftExtractionOptions& options,
     std::vector<float> patch(kPatchSide * kPatchSide);
     std::vector<float> patchXY(2 * kPatchSide * kPatchSide);
 
-    Eigen::MatrixXf descriptor(1, 128);
+    float dsp_min_scale = 1;
+    float dsp_scale_step = 0;
+    int dsp_num_scales = 1;
+    if (options.domain_size_pooling) {
+      dsp_min_scale = options.dsp_min_scale;
+      dsp_scale_step = (options.dsp_max_scale - options.dsp_min_scale) /
+                       options.dsp_num_scales;
+      dsp_num_scales = options.dsp_num_scales;
+    }
+
+    Eigen::Matrix<float, Eigen::Dynamic, 128, Eigen::RowMajor>
+        scaled_descriptors(dsp_num_scales, 128);
 
     std::unique_ptr<VlSiftFilt, void (*)(VlSiftFilt*)> sift(
         vl_sift_new(16, 16, 1, 3, 0), &vl_sift_delete);
@@ -481,23 +500,43 @@ bool ExtractAffineSiftFeaturesCPU(const SiftExtractionOptions& options,
     vl_sift_set_magnif(sift.get(), 3.0);
 
     for (size_t i = 0; i < keypoints->size(); ++i) {
-      vl_covdet_extract_patch_for_frame(
-          covdet.get(), patch.data(), kPatchResolution, kPatchRelativeExtent,
-          kPatchRelativeSmoothing, features[i].frame);
+      for (size_t s = 0; s < dsp_num_scales; ++s) {
+        const double dsp_scale = dsp_min_scale + s * dsp_scale_step;
 
-      vl_imgradient_polar_f(patchXY.data(), patchXY.data() + 1, 2,
-                            2 * kPatchSide, patch.data(), kPatchSide,
-                            kPatchSide, kPatchSide);
+        VlFrameOrientedEllipse scaled_frame = features[i].frame;
+        scaled_frame.a11 *= dsp_scale;
+        scaled_frame.a12 *= dsp_scale;
+        scaled_frame.a21 *= dsp_scale;
+        scaled_frame.a22 *= dsp_scale;
 
-      vl_sift_calc_raw_descriptor(sift.get(), patchXY.data(), descriptor.data(),
-                                  kPatchSide, kPatchSide, kPatchResolution,
-                                  kPatchResolution, kSigma, 0);
+        vl_covdet_extract_patch_for_frame(
+            covdet.get(), patch.data(), kPatchResolution, kPatchRelativeExtent,
+            kPatchRelativeSmoothing, scaled_frame);
+
+        vl_imgradient_polar_f(patchXY.data(), patchXY.data() + 1, 2,
+                              2 * kPatchSide, patch.data(), kPatchSide,
+                              kPatchSide, kPatchSide);
+
+        vl_sift_calc_raw_descriptor(sift.get(), patchXY.data(),
+                                    scaled_descriptors.row(s).data(),
+                                    kPatchSide, kPatchSide, kPatchResolution,
+                                    kPatchResolution, kSigma, 0);
+      }
+
+      Eigen::Matrix<float, 1, 128> descriptor;
+      if (options.domain_size_pooling) {
+        descriptor = scaled_descriptors.colwise().mean();
+      } else {
+        descriptor = scaled_descriptors;
+      }
 
       if (options.normalization == SiftExtractionOptions::Normalization::L2) {
         descriptor = L2NormalizeFeatureDescriptors(descriptor);
       } else if (options.normalization ==
                  SiftExtractionOptions::Normalization::L1_ROOT) {
         descriptor = L1RootNormalizeFeatureDescriptors(descriptor);
+      } else {
+        LOG(FATAL) << "Normalization type not supported";
       }
 
       descriptors->row(i) = FeatureDescriptorsToUnsignedByte(descriptor);
@@ -506,13 +545,6 @@ bool ExtractAffineSiftFeaturesCPU(const SiftExtractionOptions& options,
     *descriptors = TransformVLFeatToUBCFeatureDescriptors(*descriptors);
   }
 
-  return true;
-}
-
-bool ExtractASVSiftFeaturesCPU(const SiftExtractionOptions& sift_options,
-                               const Bitmap& bitmap,
-                               FeatureKeypoints* keypoints,
-                               FeatureDescriptors* descriptors) {
   return true;
 }
 
@@ -617,6 +649,9 @@ bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
   CHECK_NOTNULL(descriptors);
   CHECK_EQ(options.max_image_size, sift_gpu->GetMaxDimension());
 
+  CHECK(!options.estimate_affine_shape);
+  CHECK(!options.domain_size_pooling);
+
   // Note, that this produces slightly different results than using SiftGPU
   // directly for RGB->GRAY conversion, since it uses different weights.
   const std::vector<uint8_t> bitmap_raw_bits = bitmap.ConvertToRawBits();
@@ -652,7 +687,10 @@ bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
   } else if (options.normalization ==
              SiftExtractionOptions::Normalization::L1_ROOT) {
     descriptors_float = L1RootNormalizeFeatureDescriptors(descriptors_float);
+  } else {
+    LOG(FATAL) << "Normalization type not supported";
   }
+
   *descriptors = FeatureDescriptorsToUnsignedByte(descriptors_float);
 
   return true;
