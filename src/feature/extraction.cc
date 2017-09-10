@@ -30,11 +30,8 @@ void ScaleKeypoints(const Bitmap& bitmap, const Camera& camera,
       static_cast<size_t>(bitmap.Height()) != camera.Height()) {
     const float scale_x = static_cast<float>(camera.Width()) / bitmap.Width();
     const float scale_y = static_cast<float>(camera.Height()) / bitmap.Height();
-    const float scale_xy = 0.5f * (scale_x + scale_y);
     for (auto& keypoint : *keypoints) {
-      keypoint.x *= scale_x;
-      keypoint.y *= scale_x;
-      keypoint.scale *= scale_xy;
+      keypoint.Rescale(scale_x, scale_y);
     }
   }
 }

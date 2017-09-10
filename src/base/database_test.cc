@@ -214,8 +214,10 @@ BOOST_AUTO_TEST_CASE(TestKeypoints) {
   for (size_t i = 0; i < keypoints.size(); ++i) {
     BOOST_CHECK_EQUAL(keypoints[i].x, keypoints_read[i].x);
     BOOST_CHECK_EQUAL(keypoints[i].y, keypoints_read[i].y);
-    BOOST_CHECK_EQUAL(keypoints[i].scale, keypoints_read[i].scale);
-    BOOST_CHECK_EQUAL(keypoints[i].orientation, keypoints_read[i].orientation);
+    BOOST_CHECK_EQUAL(keypoints[i].a11, keypoints_read[i].a11);
+    BOOST_CHECK_EQUAL(keypoints[i].a12, keypoints_read[i].a12);
+    BOOST_CHECK_EQUAL(keypoints[i].a21, keypoints_read[i].a21);
+    BOOST_CHECK_EQUAL(keypoints[i].a22, keypoints_read[i].a22);
   }
   BOOST_CHECK_EQUAL(database.NumKeypoints(), 10);
   BOOST_CHECK_EQUAL(database.MaxNumKeypoints(), 10);

@@ -77,7 +77,7 @@ void ExtractTopScaleFeatures(FeatureKeypoints* keypoints,
   std::vector<std::pair<size_t, float>> scales;
   scales.reserve(static_cast<size_t>(keypoints->size()));
   for (size_t i = 0; i < keypoints->size(); ++i) {
-    scales.emplace_back(i, (*keypoints)[i].scale);
+    scales.emplace_back(i, (*keypoints)[i].ComputeScale());
   }
 
   std::partial_sort(scales.begin(), scales.begin() + num_features,

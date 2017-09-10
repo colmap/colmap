@@ -4,7 +4,7 @@ COLMAP_ADD_LIBRARY(feature
     extraction.h extraction.cc
     matching.h matching.cc
     sift.h sift.cc
-    types.h
+    types.h types.cc
     utils.h utils.cc
 )
 

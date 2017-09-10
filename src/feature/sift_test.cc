@@ -53,9 +53,9 @@ BOOST_AUTO_TEST_CASE(TestExtractSiftFeaturesCPU) {
     BOOST_CHECK_GE(keypoints[i].y, 0);
     BOOST_CHECK_LE(keypoints[i].x, bitmap.Width());
     BOOST_CHECK_LE(keypoints[i].y, bitmap.Height());
-    BOOST_CHECK_GT(keypoints[i].scale, 0);
-    BOOST_CHECK_GT(keypoints[i].orientation, 0);
-    BOOST_CHECK_LT(keypoints[i].orientation, 2 * M_PI);
+    BOOST_CHECK_GT(keypoints[i].ComputeScale(), 0);
+    BOOST_CHECK_GT(keypoints[i].ComputeOrientation(), -M_PI);
+    BOOST_CHECK_LT(keypoints[i].ComputeOrientation(), M_PI);
   }
 
   BOOST_CHECK_EQUAL(descriptors.rows(), 22);
@@ -97,9 +97,9 @@ BOOST_AUTO_TEST_CASE(TestExtractSiftFeaturesGPU) {
         BOOST_CHECK_GE(keypoints[i].y, 0);
         BOOST_CHECK_LE(keypoints[i].x, bitmap.Width());
         BOOST_CHECK_LE(keypoints[i].y, bitmap.Height());
-        BOOST_CHECK_GT(keypoints[i].scale, 0);
-        BOOST_CHECK_GT(keypoints[i].orientation, 0);
-        BOOST_CHECK_LT(keypoints[i].orientation, 2 * M_PI);
+        BOOST_CHECK_GT(keypoints[i].ComputeScale(), 0);
+        BOOST_CHECK_GT(keypoints[i].ComputeOrientation(), -M_PI);
+        BOOST_CHECK_LT(keypoints[i].ComputeOrientation(), M_PI);
       }
 
       BOOST_CHECK_EQUAL(descriptors.rows(), 24);

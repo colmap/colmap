@@ -19,8 +19,8 @@
 
 #include <Eigen/Core>
 
-#include "feature/types.h"
 #include "ext/FLANN/flann.hpp"
+#include "feature/types.h"
 #include "retrieval/inverted_file.h"
 #include "retrieval/inverted_index.h"
 #include "retrieval/vote_and_verify.h"
@@ -206,8 +206,8 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Add(
     typename InvertedIndexType::GeomType geometry;
     geometry.x = geometries[i].x;
     geometry.y = geometries[i].y;
-    geometry.scale = geometries[i].scale;
-    geometry.orientation = geometries[i].orientation;
+    geometry.scale = geometries[i].ComputeScale();
+    geometry.orientation = geometries[i].ComputeOrientation();
 
     for (int n = 0; n < options.num_neighbors; ++n) {
       const int word_id = word_ids(i, n);
@@ -288,8 +288,9 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::QueryWithVerification(
       FeatureGeometryMatch match;
       match.geometry1.x = geometries[geometries2.first].x;
       match.geometry1.y = geometries[geometries2.first].y;
-      match.geometry1.scale = geometries[geometries2.first].scale;
-      match.geometry1.orientation = geometries[geometries2.first].orientation;
+      match.geometry1.scale = geometries[geometries2.first].ComputeScale();
+      match.geometry1.orientation =
+          geometries[geometries2.first].ComputeOrientation();
       match.geometries2 = geometries2.second;
       matches.push_back(match);
     }

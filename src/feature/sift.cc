@@ -313,10 +313,9 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
           std::min(num_orientations, options.max_num_orientations);
 
       for (int o = 0; o < num_used_orientations; ++o) {
-        level_keypoints.back()[level_idx].x = vl_keypoints[i].x + 0.5f;
-        level_keypoints.back()[level_idx].y = vl_keypoints[i].y + 0.5f;
-        level_keypoints.back()[level_idx].scale = vl_keypoints[i].sigma;
-        level_keypoints.back()[level_idx].orientation = angles[o];
+        level_keypoints.back()[level_idx] =
+            FeatureKeypoint(vl_keypoints[i].x + 0.5f, vl_keypoints[i].y + 0.5f,
+                            vl_keypoints[i].sigma, angles[o]);
 
         Eigen::MatrixXf desc(1, 128);
         vl_sift_calc_keypoint_descriptor(sift.get(), desc.data(),
@@ -470,20 +469,6 @@ bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
   CHECK_NOTNULL(descriptors);
   CHECK_EQ(options.max_image_size, sift_gpu->GetMaxDimension());
 
-  // Make sure the SiftGPU keypoint is equivalent to ours.
-  static_assert(
-      offsetof(SiftGPU::SiftKeypoint, x) == offsetof(FeatureKeypoint, x),
-      "Invalid keypoint format");
-  static_assert(
-      offsetof(SiftGPU::SiftKeypoint, y) == offsetof(FeatureKeypoint, y),
-      "Invalid keypoint format");
-  static_assert(
-      offsetof(SiftGPU::SiftKeypoint, s) == offsetof(FeatureKeypoint, scale),
-      "Invalid keypoint format");
-  static_assert(offsetof(SiftGPU::SiftKeypoint, o) ==
-                    offsetof(FeatureKeypoint, orientation),
-                "Invalid keypoint format");
-
   // Note, that this produces slightly different results than using SiftGPU
   // directly for RGB->GRAY conversion, since it uses different weights.
   const std::vector<uint8_t> bitmap_raw_bits = bitmap.ConvertToRawBits();
@@ -497,16 +482,21 @@ bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
   }
 
   const size_t num_features = static_cast<size_t>(sift_gpu->GetFeatureNum());
-  keypoints->resize(num_features);
+
+  std::vector<SiftKeypoint> keypoints_data(num_features);
 
   // Eigen's default is ColMajor, but SiftGPU stores result as RowMajor.
   Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
       descriptors_float(num_features, 128);
 
   // Download the extracted keypoints and descriptors.
-  sift_gpu->GetFeatureVector(
-      reinterpret_cast<SiftGPU::SiftKeypoint*>(keypoints->data()),
-      descriptors_float.data());
+  sift_gpu->GetFeatureVector(keypoints_data.data(), descriptors_float.data());
+
+  keypoints->resize(num_features);
+  for (size_t i = 0; i < num_features; ++i) {
+    (*keypoints)[i] = FeatureKeypoint(keypoints_data[i].x, keypoints_data[i].y,
+                                      keypoints_data[i].s, keypoints_data[i].o);
+  }
 
   // Save and normalize the descriptors.
   if (options.normalization == SiftExtractionOptions::Normalization::L2) {
@@ -550,21 +540,19 @@ void LoadSiftFeaturesFromTextFile(const std::string& path,
     std::getline(file, line);
     std::stringstream feature_line_stream(line);
 
-    // X
     std::getline(feature_line_stream >> std::ws, item, ' ');
-    (*keypoints)[i].x = std::stod(item);
+    const float x = std::stold(item);
 
-    // Y
     std::getline(feature_line_stream >> std::ws, item, ' ');
-    (*keypoints)[i].y = std::stod(item);
+    const float y = std::stold(item);
 
-    // Scale
     std::getline(feature_line_stream >> std::ws, item, ' ');
-    (*keypoints)[i].scale = std::stod(item);
+    const float scale = std::stold(item);
 
-    // Orientation
     std::getline(feature_line_stream >> std::ws, item, ' ');
-    (*keypoints)[i].orientation = std::stod(item);
+    const float orientation = std::stold(item);
+
+    (*keypoints)[i] = FeatureKeypoint(x, y, scale, orientation);
 
     // Descriptor
     for (size_t j = 0; j < dim; ++j) {
@@ -752,12 +740,18 @@ void MatchGuidedSiftFeaturesGPU(const SiftMatchingOptions& match_options,
                                 const FeatureDescriptors* descriptors2,
                                 SiftMatchGPU* sift_match_gpu,
                                 TwoViewGeometry* two_view_geometry) {
-  static_assert(sizeof(FeatureKeypoint) == 4 * sizeof(float),
-                "Invalid feature keypoint data format");
+  static_assert(offsetof(FeatureKeypoint, x) == 0 * sizeof(float),
+                "Invalid keypoint format");
+  static_assert(offsetof(FeatureKeypoint, y) == 1 * sizeof(float),
+                "Invalid keypoint format");
+  static_assert(sizeof(FeatureKeypoint) == 6 * sizeof(float),
+                "Invalid keypoint format");
 
   CHECK(match_options.Check());
   CHECK_NOTNULL(sift_match_gpu);
   CHECK_NOTNULL(two_view_geometry);
+
+  const size_t kFeatureShapeNumElems = 4;
 
   if (descriptors1 != nullptr) {
     CHECK_NOTNULL(keypoints1);
@@ -768,7 +762,8 @@ void MatchGuidedSiftFeaturesGPU(const SiftMatchingOptions& match_options,
     sift_match_gpu->SetDescriptors(kIndex, descriptors1->rows(),
                                    descriptors1->data());
     sift_match_gpu->SetFeautreLocation(
-        kIndex, reinterpret_cast<const float*>(keypoints1->data()), 2);
+        kIndex, reinterpret_cast<const float*>(keypoints1->data()),
+        kFeatureShapeNumElems);
   }
 
   if (descriptors2 != nullptr) {
@@ -780,7 +775,8 @@ void MatchGuidedSiftFeaturesGPU(const SiftMatchingOptions& match_options,
     sift_match_gpu->SetDescriptors(kIndex, descriptors2->rows(),
                                    descriptors2->data());
     sift_match_gpu->SetFeautreLocation(
-        kIndex, reinterpret_cast<const float*>(keypoints2->data()), 2);
+        kIndex, reinterpret_cast<const float*>(keypoints2->data()),
+        kFeatureShapeNumElems);
   }
 
   Eigen::Matrix<float, 3, 3, Eigen::RowMajor> F;

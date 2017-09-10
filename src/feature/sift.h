@@ -137,6 +137,10 @@ struct SiftMatchingOptions {
 bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& sift_options,
                             const Bitmap& bitmap, FeatureKeypoints* keypoints,
                             FeatureDescriptors* descriptors);
+bool ExtractASVSiftFeaturesCPU(const SiftExtractionOptions& sift_options,
+                               const Bitmap& bitmap,
+                               FeatureKeypoints* keypoints,
+                               FeatureDescriptors* descriptors);
 
 // Create a SiftGPU feature extractor. The same SiftGPU instance can be used to
 // extract features for multiple images. Note a OpenGL context must be made
