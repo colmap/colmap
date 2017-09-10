@@ -512,7 +512,7 @@ bool ExtractCovariantSiftFeaturesCPU(const SiftExtractionOptions& options,
     vl_sift_set_magnif(sift.get(), 3.0);
 
     for (size_t i = 0; i < keypoints->size(); ++i) {
-      for (size_t s = 0; s < dsp_num_scales; ++s) {
+      for (int s = 0; s < dsp_num_scales; ++s) {
         const double dsp_scale = dsp_min_scale + s * dsp_scale_step;
 
         VlFrameOrientedEllipse scaled_frame = features[i].frame;
