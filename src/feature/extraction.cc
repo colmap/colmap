@@ -66,7 +66,7 @@ SiftFeatureExtractor::SiftFeatureExtractor(
     }
   }
 
-  if (sift_options_.use_gpu) {
+  if (!sift_options_.estimate_affine_shape && sift_options_.use_gpu) {
     std::vector<int> gpu_indices = CSVToVector<int>(sift_options_.gpu_index);
     CHECK_GT(gpu_indices.size(), 0);
 
@@ -308,7 +308,11 @@ void SiftFeatureExtractorThread::Run() {
 
       if (image_data.status == ImageReader::Status::SUCCESS) {
         bool success = false;
-        if (sift_options_.use_gpu) {
+        if (sift_options_.estimate_affine_shape) {
+          success = ExtractAffineSiftFeaturesCPU(
+              sift_options_, image_data.bitmap, &image_data.keypoints,
+              &image_data.descriptors);
+        } else if (sift_options_.use_gpu) {
           success = ExtractSiftFeaturesGPU(
               sift_options_, image_data.bitmap, sift_gpu.get(),
               &image_data.keypoints, &image_data.descriptors);

@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "ext/SiftGPU/SiftGPU.h"
+#include "ext/VLFeat/covdet.h"
 #include "ext/VLFeat/sift.h"
 #include "feature/utils.h"
 #include "util/cuda.h"
@@ -222,7 +223,6 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
   CHECK(options.Check());
   CHECK(bitmap.IsGrey());
   CHECK_NOTNULL(keypoints);
-  CHECK_NOTNULL(descriptors);
 
   //////////////////////////////////////////////////////////////////////////////
   // Extract features
@@ -280,7 +280,9 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
         if (i > 0) {
           // Resize containers of previous DOG level.
           level_keypoints.back().resize(level_idx);
-          level_descriptors.back().conservativeResize(level_idx, 128);
+          if (descriptors != nullptr) {
+            level_descriptors.back().conservativeResize(level_idx, 128);
+          }
         }
 
         // Add containers for new DOG level.
@@ -288,8 +290,10 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
         level_num_features.push_back(0);
         level_keypoints.emplace_back(options.max_num_orientations *
                                      num_keypoints);
-        level_descriptors.emplace_back(
-            options.max_num_orientations * num_keypoints, 128);
+        if (descriptors != nullptr) {
+          level_descriptors.emplace_back(
+              options.max_num_orientations * num_keypoints, 128);
+        }
       }
 
       level_num_features.back() += 1;
@@ -316,18 +320,20 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
         level_keypoints.back()[level_idx] =
             FeatureKeypoint(vl_keypoints[i].x + 0.5f, vl_keypoints[i].y + 0.5f,
                             vl_keypoints[i].sigma, angles[o]);
-
-        Eigen::MatrixXf desc(1, 128);
-        vl_sift_calc_keypoint_descriptor(sift.get(), desc.data(),
-                                         &vl_keypoints[i], angles[o]);
-        if (options.normalization == SiftExtractionOptions::Normalization::L2) {
-          desc = L2NormalizeFeatureDescriptors(desc);
-        } else if (options.normalization ==
-                   SiftExtractionOptions::Normalization::L1_ROOT) {
-          desc = L1RootNormalizeFeatureDescriptors(desc);
+        if (descriptors != nullptr) {
+          Eigen::MatrixXf desc(1, 128);
+          vl_sift_calc_keypoint_descriptor(sift.get(), desc.data(),
+                                           &vl_keypoints[i], angles[o]);
+          if (options.normalization ==
+              SiftExtractionOptions::Normalization::L2) {
+            desc = L2NormalizeFeatureDescriptors(desc);
+          } else if (options.normalization ==
+                     SiftExtractionOptions::Normalization::L1_ROOT) {
+            desc = L1RootNormalizeFeatureDescriptors(desc);
+          }
+          level_descriptors.back().row(level_idx) =
+              FeatureDescriptorsToUnsignedByte(desc);
         }
-        level_descriptors.back().row(level_idx) =
-            FeatureDescriptorsToUnsignedByte(desc);
 
         level_idx += 1;
       }
@@ -335,7 +341,9 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
 
     // Resize containers for last DOG level in octave.
     level_keypoints.back().resize(level_idx);
-    level_descriptors.back().conservativeResize(level_idx, 128);
+    if (descriptors != nullptr) {
+      level_descriptors.back().conservativeResize(level_idx, 128);
+    }
   }
 
   // Determine how many DOG levels to keep to satisfy max_num_features option.
@@ -352,19 +360,159 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
   }
 
   // Extract the features to be kept.
-  size_t k = 0;
-  keypoints->resize(num_features_with_orientations);
-  descriptors->resize(num_features_with_orientations, 128);
-  for (size_t i = first_level_to_keep; i < level_keypoints.size(); ++i) {
-    for (size_t j = 0; j < level_keypoints[i].size(); ++j) {
-      (*keypoints)[k] = level_keypoints[i][j];
-      descriptors->row(k) = level_descriptors[i].row(j);
-      k += 1;
+  {
+    size_t k = 0;
+    keypoints->resize(num_features_with_orientations);
+    for (size_t i = first_level_to_keep; i < level_keypoints.size(); ++i) {
+      for (size_t j = 0; j < level_keypoints[i].size(); ++j) {
+        (*keypoints)[k] = level_keypoints[i][j];
+        k += 1;
+      }
     }
   }
 
-  *descriptors = TransformVLFeatToUBCFeatureDescriptors(*descriptors);
+  if (descriptors != nullptr) {
+    size_t k = 0;
+    descriptors->resize(num_features_with_orientations, 128);
+    for (size_t i = first_level_to_keep; i < level_keypoints.size(); ++i) {
+      for (size_t j = 0; j < level_keypoints[i].size(); ++j) {
+        descriptors->row(k) = level_descriptors[i].row(j);
+        k += 1;
+      }
+    }
+    *descriptors = TransformVLFeatToUBCFeatureDescriptors(*descriptors);
+  }
 
+  return true;
+}
+
+bool ExtractAffineSiftFeaturesCPU(const SiftExtractionOptions& options,
+                                  const Bitmap& bitmap,
+                                  FeatureKeypoints* keypoints,
+                                  FeatureDescriptors* descriptors) {
+  CHECK(options.Check());
+  CHECK(bitmap.IsGrey());
+  CHECK_NOTNULL(keypoints);
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Extract features
+  //////////////////////////////////////////////////////////////////////////////
+
+  // Setup SIFT extractor.
+  std::unique_ptr<VlCovDet, void (*)(VlCovDet*)> covdet(
+      vl_covdet_new(VL_COVDET_METHOD_DOG), &vl_covdet_delete);
+  if (!covdet) {
+    return false;
+  }
+
+  const int kMaxOctaveResolution = 1000;
+  CHECK_LE(options.octave_resolution, kMaxOctaveResolution);
+
+  vl_covdet_set_first_octave(covdet.get(), options.first_octave);
+  vl_covdet_set_octave_resolution(covdet.get(), options.octave_resolution);
+  vl_covdet_set_peak_threshold(covdet.get(), options.peak_threshold);
+  vl_covdet_set_edge_threshold(covdet.get(), options.edge_threshold);
+
+  {
+    const std::vector<uint8_t> data_uint8 = bitmap.ConvertToRowMajorArray();
+    std::vector<float> data_float(data_uint8.size());
+    for (size_t i = 0; i < data_uint8.size(); ++i) {
+      data_float[i] = static_cast<float>(data_uint8[i]) / 255.0f;
+    }
+    vl_covdet_put_image(covdet.get(), data_float.data(), bitmap.Width(),
+                        bitmap.Height());
+  }
+
+  vl_covdet_detect(covdet.get());
+  // vl_covdet_extract_orientations(covdet.get());
+  vl_covdet_extract_affine_shape(covdet.get());
+
+  const int num_features = vl_covdet_get_num_features(covdet.get());
+  VlCovDetFeature* features = vl_covdet_get_features(covdet.get());
+
+  std::sort(
+      features, features + num_features,
+      [](const VlCovDetFeature& feature1, const VlCovDetFeature& feature2) {
+        return feature1.o < feature2.o || feature1.s < feature2.s;
+      });
+
+  int prev_octave_scale_idx = std::numeric_limits<int>::min();
+  for (int i = 0; i < num_features; ++i) {
+    FeatureKeypoint keypoint;
+    keypoint.x = features[i].frame.x + 0.5;
+    keypoint.y = features[i].frame.y + 0.5;
+    keypoint.a11 = features[i].frame.a11;
+    keypoint.a12 = features[i].frame.a12;
+    keypoint.a21 = features[i].frame.a21;
+    keypoint.a22 = features[i].frame.a22;
+    keypoints->push_back(keypoint);
+    const int octave_scale_idx =
+        features[i].o * kMaxOctaveResolution + features[i].s;
+    CHECK_GE(octave_scale_idx, prev_octave_scale_idx);
+    if (octave_scale_idx != prev_octave_scale_idx &&
+        keypoints->size() >= options.max_num_features) {
+      break;
+    }
+    prev_octave_scale_idx = octave_scale_idx;
+  }
+
+  if (descriptors != nullptr) {
+    descriptors->resize(keypoints->size(), 128);
+
+    const size_t kPatchResolution = 15;
+    const size_t kPatchSide = 2 * kPatchResolution + 1;
+    const double kPatchRelativeExtent = 7.5;
+    const double kPatchRelativeSmoothing = 1;
+    const double kPatchStep = kPatchRelativeExtent / kPatchResolution;
+    const double kSigma =
+        kPatchRelativeExtent / (3.0 * (4 + 1) / 2) / kPatchStep;
+
+    std::vector<float> patch(kPatchSide * kPatchSide);
+    std::vector<float> patchXY(2 * kPatchSide * kPatchSide);
+
+    Eigen::MatrixXf descriptor(1, 128);
+
+    std::unique_ptr<VlSiftFilt, void (*)(VlSiftFilt*)> sift(
+        vl_sift_new(16, 16, 1, 3, 0), &vl_sift_delete);
+    if (!sift) {
+      return false;
+    }
+
+    vl_sift_set_magnif(sift.get(), 3.0);
+
+    for (size_t i = 0; i < keypoints->size(); ++i) {
+      vl_covdet_extract_patch_for_frame(
+          covdet.get(), patch.data(), kPatchResolution, kPatchRelativeExtent,
+          kPatchRelativeSmoothing, features[i].frame);
+
+      vl_imgradient_polar_f(patchXY.data(), patchXY.data() + 1, 2,
+                            2 * kPatchSide, patch.data(), kPatchSide,
+                            kPatchSide, kPatchSide);
+
+      vl_sift_calc_raw_descriptor(sift.get(), patchXY.data(), descriptor.data(),
+                                  kPatchSide, kPatchSide, kPatchResolution,
+                                  kPatchResolution, kSigma, 0);
+
+      if (options.normalization == SiftExtractionOptions::Normalization::L2) {
+        descriptor = L2NormalizeFeatureDescriptors(descriptor);
+      } else if (options.normalization ==
+                 SiftExtractionOptions::Normalization::L1_ROOT) {
+        descriptor = L1RootNormalizeFeatureDescriptors(descriptor);
+      }
+
+      descriptors->row(i) = FeatureDescriptorsToUnsignedByte(descriptor);
+    }
+
+    *descriptors = TransformVLFeatToUBCFeatureDescriptors(*descriptors);
+  }
+
+  return true;
+}
+
+bool ExtractASVSiftFeaturesCPU(const SiftExtractionOptions& sift_options,
+                               const Bitmap& bitmap,
+                               FeatureKeypoints* keypoints,
+                               FeatureDescriptors* descriptors) {
   return true;
 }
 

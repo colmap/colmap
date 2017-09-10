@@ -39,10 +39,6 @@ class SIFTExtractionWidget : public ExtractionWidget {
   SIFTExtractionWidget(QWidget* parent, OptionManager* options);
 
   void Run() override;
-
- private:
-  QRadioButton* sift_gpu_;
-  QRadioButton* sift_cpu_;
 };
 
 class ImportFeaturesWidget : public ExtractionWidget {
@@ -63,16 +59,6 @@ ExtractionWidget::ExtractionWidget(QWidget* parent, OptionManager* options)
 SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
                                            OptionManager* options)
     : ExtractionWidget(parent, options) {
-  sift_gpu_ = new QRadioButton(tr("GPU"), this);
-  sift_gpu_->setChecked(true);
-  grid_layout_->addWidget(sift_gpu_);
-  grid_layout_->addWidget(sift_gpu_, grid_layout_->rowCount(), 1);
-
-  sift_cpu_ = new QRadioButton(tr("CPU"), this);
-  grid_layout_->addWidget(sift_cpu_, grid_layout_->rowCount(), 1);
-
-  AddSpacer();
-
   AddOptionInt(&options->sift_extraction->max_image_size, "max_image_size");
   AddOptionInt(&options->sift_extraction->max_num_features, "max_num_features");
   AddOptionInt(&options->sift_extraction->first_octave, "first_octave", -5);
@@ -82,6 +68,8 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
   AddOptionDouble(&options->sift_extraction->peak_threshold, "peak_threshold",
                   0.0, 1e7, 0.0001, 4);
   AddOptionDouble(&options->sift_extraction->edge_threshold, "edge_threshold");
+  AddOptionBool(&options->sift_extraction->estimate_affine_shape,
+               "estimate_affine_shape");
   AddOptionInt(&options->sift_extraction->max_num_orientations,
                "max_num_orientations");
   AddOptionBool(&options->sift_extraction->upright, "upright");

@@ -58,7 +58,11 @@ struct SiftExtractionOptions {
   // Edge threshold for detection.
   double edge_threshold = 10.0;
 
-  // Maximum number of orientations per keypoint.
+  // Estimate affine shape of SIFT features in the form of oriented ellipses as
+  // opposed to original SIFT which estimates oriented disks.
+  bool estimate_affine_shape = false;
+
+  // Maximum number of orientations per keypoint if not estimate_affine_shape.
   int max_num_orientations = 2;
 
   // Fix the orientation to 0 for upright features.
@@ -133,10 +137,15 @@ struct SiftMatchingOptions {
   bool Check() const;
 };
 
-// Extract SIFT features for the given image on the CPU.
+// Extract SIFT features for the given image on the CPU. Only extract
+// descriptors if the given input is not NULL.
 bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& sift_options,
                             const Bitmap& bitmap, FeatureKeypoints* keypoints,
                             FeatureDescriptors* descriptors);
+bool ExtractAffineSiftFeaturesCPU(const SiftExtractionOptions& sift_options,
+                                  const Bitmap& bitmap,
+                                  FeatureKeypoints* keypoints,
+                                  FeatureDescriptors* descriptors);
 bool ExtractASVSiftFeaturesCPU(const SiftExtractionOptions& sift_options,
                                const Bitmap& bitmap,
                                FeatureKeypoints* keypoints,

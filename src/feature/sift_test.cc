@@ -19,9 +19,9 @@
 
 #include <QApplication>
 
+#include "ext/SiftGPU/SiftGPU.h"
 #include "feature/sift.h"
 #include "feature/utils.h"
-#include "ext/SiftGPU/SiftGPU.h"
 #include "util/math.h"
 #include "util/opengl_utils.h"
 #include "util/random.h"
@@ -64,6 +64,32 @@ BOOST_AUTO_TEST_CASE(TestExtractSiftFeaturesCPU) {
   }
 }
 
+BOOST_AUTO_TEST_CASE(TestExtractAffineSiftFeaturesCPU) {
+  Bitmap bitmap;
+  CreateImageWithSquare(256, &bitmap);
+
+  FeatureKeypoints keypoints;
+  FeatureDescriptors descriptors;
+  BOOST_CHECK(ExtractAffineSiftFeaturesCPU(SiftExtractionOptions(), bitmap,
+                                           &keypoints, &descriptors));
+
+  BOOST_CHECK_EQUAL(keypoints.size(), 10);
+  for (size_t i = 0; i < keypoints.size(); ++i) {
+    BOOST_CHECK_GE(keypoints[i].x, 0);
+    BOOST_CHECK_GE(keypoints[i].y, 0);
+    BOOST_CHECK_LE(keypoints[i].x, bitmap.Width());
+    BOOST_CHECK_LE(keypoints[i].y, bitmap.Height());
+    BOOST_CHECK_GT(keypoints[i].ComputeScale(), 0);
+    BOOST_CHECK_GT(keypoints[i].ComputeOrientation(), -M_PI);
+    BOOST_CHECK_LT(keypoints[i].ComputeOrientation(), M_PI);
+  }
+
+  BOOST_CHECK_EQUAL(descriptors.rows(), 10);
+  for (FeatureDescriptors::Index i = 0; i < descriptors.rows(); ++i) {
+    BOOST_CHECK_LT(std::abs(descriptors.row(i).cast<float>().norm() - 512), 1);
+  }
+}
+
 BOOST_AUTO_TEST_CASE(TestExtractSiftFeaturesGPU) {
   char app_name[] = "Test";
   int argc = 1;
@@ -83,8 +109,7 @@ BOOST_AUTO_TEST_CASE(TestExtractSiftFeaturesGPU) {
       CreateImageWithSquare(256, &bitmap);
 
       SiftGPU sift_gpu;
-      BOOST_CHECK(
-          CreateSiftGPUExtractor(SiftExtractionOptions(), &sift_gpu));
+      BOOST_CHECK(CreateSiftGPUExtractor(SiftExtractionOptions(), &sift_gpu));
 
       FeatureKeypoints keypoints;
       FeatureDescriptors descriptors;

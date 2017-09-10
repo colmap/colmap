@@ -2033,6 +2033,8 @@ vl_covdet_detect (VlCovDet * self)
               feature.frame.a12 = 0.0 ;
               feature.frame.a21 = 0.0 ;
               feature.frame.a22 = sigma ;
+              feature.o = o;
+              feature.s = 0;
               feature.peakScore = refined.peakScore ;
               feature.edgeScore = refined.edgeScore ;
               vl_covdet_append_feature(self, &feature) ;
@@ -2070,6 +2072,8 @@ vl_covdet_detect (VlCovDet * self)
                 feature.frame.a12 = 0.0 ;
                 feature.frame.a21 = 0.0 ;
                 feature.frame.a22 = sigma ;
+                feature.o = o ;
+                feature.s = s ;
                 feature.peakScore = refined.peakScore ;
                 feature.edgeScore = refined.edgeScore ;
                 vl_covdet_append_feature(self, &feature) ;
@@ -3341,7 +3345,7 @@ vl_covdet_get_num_features (VlCovDet const * self)
 /** @brief Get the stored frames
  ** @return frames stored in the detector.
  **/
-void *
+VlCovDetFeature *
 vl_covdet_get_features (VlCovDet * self)
 {
   return self->features ;

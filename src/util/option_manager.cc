@@ -158,6 +158,8 @@ void OptionManager::AddExtractionOptions() {
                               &sift_extraction->peak_threshold);
   AddAndRegisterDefaultOption("SiftExtraction.edge_threshold",
                               &sift_extraction->edge_threshold);
+  AddAndRegisterDefaultOption("SiftExtraction.estimate_affine_shape",
+                              &sift_extraction->estimate_affine_shape);
   AddAndRegisterDefaultOption("SiftExtraction.max_num_orientations",
                               &sift_extraction->max_num_orientations);
   AddAndRegisterDefaultOption("SiftExtraction.upright",
