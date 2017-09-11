@@ -18,6 +18,7 @@
 #include "util/testing.h"
 
 #include "feature/types.h"
+#include "util/math.h"
 
 using namespace colmap;
 
