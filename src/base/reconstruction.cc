@@ -293,7 +293,8 @@ void Reconstruction::Normalize(const double extent, const double p0,
   CHECK_LE(p1, 1);
   CHECK_LE(p0, p1);
 
-  if (use_images && reg_image_ids_.size() < 2) {
+  if ((use_images && reg_image_ids_.size() < 2) ||
+      (!use_images && points3D_.size() < 2)) {
     return;
   }
 
