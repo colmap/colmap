@@ -59,8 +59,8 @@ class GP3PEstimator {
   static std::vector<M_t> Estimate(const std::vector<X_t>& points2D,
                                    const std::vector<Y_t>& points3D);
 
-  // Calculate the squared reprojection error given a set of 2D-3D point
-  // correspondences and a projection matrix of the generalized camera.
+  // Calculate the cosine distance error between the rays given a set of 2D-3D
+  // point correspondences and a projection matrix of the generalized camera.
   static void Residuals(const std::vector<X_t>& points2D,
                         const std::vector<Y_t>& points3D,
                         const M_t& proj_matrix, std::vector<double>* residuals);

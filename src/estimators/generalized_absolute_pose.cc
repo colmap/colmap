@@ -290,14 +290,15 @@ void GP3PEstimator::Residuals(const std::vector<X_t>& points2D,
                            rel_tform(0, 2) * pgx_2 + rel_tform(0, 3);
       const double pcx_1 = rel_tform(1, 0) * pgx_0 + rel_tform(1, 1) * pgx_1 +
                            rel_tform(1, 2) * pgx_2 + rel_tform(1, 3);
+      const double inv_pcx_norm =
+          1 / std::sqrt(pcx_0 * pcx_0 + pcx_1 * pcx_1 + pcx_2 * pcx_2);
+
       const double x_0 = points2D[i].xy(0);
       const double x_1 = points2D[i].xy(1);
+      const double inv_x_norm = 1 / std::sqrt(x_0 * x_0 + x_1 * x_1 + 1);
 
-      const double inv_pcx_2 = 1.0 / pcx_2;
-      const double dx_0 = x_0 - pcx_0 * inv_pcx_2;
-      const double dx_1 = x_1 - pcx_1 * inv_pcx_2;
-
-      (*residuals)[i] = dx_0 * dx_0 + dx_1 * dx_1;
+      (*residuals)[i] =
+          1 - inv_pcx_norm * inv_x_norm * (pcx_0 * x_0 + pcx_1 * x_1 + pcx_2);
     } else {
       (*residuals)[i] = std::numeric_limits<double>::max();
     }
