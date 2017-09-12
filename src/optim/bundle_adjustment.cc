@@ -238,7 +238,7 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   CHECK_NOTNULL(reconstruction);
   CHECK(!problem_) << "Cannot use the same BundleAdjuster multiple times";
 
-  point3D_num_images_.clear();
+  point3D_num_observations_.clear();
 
   problem_.reset(new ceres::Problem());
 
@@ -347,7 +347,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
     }
 
     num_observations += 1;
-    point3D_num_images_[point2D.Point3DId()] += 1;
+    point3D_num_observations_[point2D.Point3DId()] += 1;
 
     Point3D& point3D = reconstruction->Point3D(point2D.Point3DId());
     assert(point3D.Track().Length() > 1);
@@ -416,7 +416,7 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
   // Is 3D point already fully contained in the problem? I.e. its entire track
   // is contained in `variable_image_ids`, `constant_image_ids`,
   // `constant_x_image_ids`.
-  if (point3D_num_images_[point3D_id] == point3D.Track().Length()) {
+  if (point3D_num_observations_[point3D_id] == point3D.Track().Length()) {
     return;
   }
 
@@ -426,7 +426,7 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
       continue;
     }
 
-    point3D_num_images_[point3D_id] += 1;
+    point3D_num_observations_[point3D_id] += 1;
 
     Image& image = reconstruction->Image(track_el.image_id);
     Camera& camera = reconstruction->Camera(image.CameraId());
@@ -500,11 +500,11 @@ void BundleAdjuster::ParameterizeCameras(Reconstruction* reconstruction) {
 }
 
 void BundleAdjuster::ParameterizePoints(Reconstruction* reconstruction) {
-  for (const auto num_images : point3D_num_images_) {
+  for (const auto num_images : point3D_num_observations_) {
     if (!config_.HasVariablePoint(num_images.first) &&
         !config_.HasConstantPoint(num_images.first)) {
       Point3D& point3D = reconstruction->Point3D(num_images.first);
-      if (point3D.Track().Length() > point3D_num_images_[num_images.first]) {
+      if (point3D.Track().Length() > point3D_num_observations_[num_images.first]) {
         problem_->SetParameterBlockConstant(point3D.XYZ().data());
       }
     }
@@ -776,7 +776,7 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
     }
   }
 
-  point3D_num_images_.clear();
+  point3D_num_observations_.clear();
 
   problem_.reset(new ceres::Problem());
 
@@ -938,7 +938,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
     }
 
     num_observations += 1;
-    point3D_num_images_[point2D.Point3DId()] += 1;
+    point3D_num_observations_[point2D.Point3DId()] += 1;
 
     ceres::CostFunction* cost_function = nullptr;
 
@@ -1027,7 +1027,7 @@ void RigBundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
   // Is 3D point already fully contained in the problem? I.e. its entire track
   // is contained in `variable_image_ids`, `constant_image_ids`,
   // `constant_x_image_ids`.
-  if (point3D_num_images_[point3D_id] == point3D.Track().Length()) {
+  if (point3D_num_observations_[point3D_id] == point3D.Track().Length()) {
     return;
   }
 
@@ -1037,7 +1037,7 @@ void RigBundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
       continue;
     }
 
-    point3D_num_images_[point3D_id] += 1;
+    point3D_num_observations_[point3D_id] += 1;
 
     Image& image = reconstruction->Image(track_el.image_id);
     Camera& camera = reconstruction->Camera(image.CameraId());

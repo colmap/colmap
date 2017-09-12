@@ -44,24 +44,23 @@ class BundleAdjustmentCostFunction {
                   const T* const point3D, const T* const camera_params,
                   T* residuals) const {
     // Rotate and translate.
-    T point3D_local[3];
-    ceres::UnitQuaternionRotatePoint(qvec, point3D, point3D_local);
-    point3D_local[0] += tvec[0];
-    point3D_local[1] += tvec[1];
-    point3D_local[2] += tvec[2];
+    T projection[3];
+    ceres::UnitQuaternionRotatePoint(qvec, point3D, projection);
+    projection[0] += tvec[0];
+    projection[1] += tvec[1];
+    projection[2] += tvec[2];
 
-    // Normalize to image plane.
-    point3D_local[0] /= point3D_local[2];
-    point3D_local[1] /= point3D_local[2];
+    // Project to image plane.
+    projection[0] /= projection[2];
+    projection[1] /= projection[2];
 
     // Distort and transform to pixel space.
-    T x, y;
-    CameraModel::WorldToImage(camera_params, point3D_local[0], point3D_local[1],
-                              &x, &y);
+    CameraModel::WorldToImage(camera_params, projection[0], projection[1],
+                              &residuals[0], &residuals[1]);
 
     // Re-projection error.
-    residuals[0] = x - x_;
-    residuals[1] = y - y_;
+    residuals[0] -= T(x_);
+    residuals[1] -= T(y_);
 
     return true;
   }
@@ -104,24 +103,23 @@ class BundleAdjustmentConstantPoseCostFunction {
     const T qvec[4] = {T(qw_), T(qx_), T(qy_), T(qz_)};
 
     // Rotate and translate.
-    T point3D_local[3];
-    ceres::UnitQuaternionRotatePoint(qvec, point3D, point3D_local);
-    point3D_local[0] += T(tx_);
-    point3D_local[1] += T(ty_);
-    point3D_local[2] += T(tz_);
+    T projection[3];
+    ceres::UnitQuaternionRotatePoint(qvec, point3D, projection);
+    projection[0] += T(tx_);
+    projection[1] += T(ty_);
+    projection[2] += T(tz_);
 
-    // Normalize to image plane.
-    point3D_local[0] /= point3D_local[2];
-    point3D_local[1] /= point3D_local[2];
+    // Project to image plane.
+    projection[0] /= projection[2];
+    projection[1] /= projection[2];
 
     // Distort and transform to pixel space.
-    T x, y;
-    CameraModel::WorldToImage(camera_params, point3D_local[0], point3D_local[1],
-                              &x, &y);
+    CameraModel::WorldToImage(camera_params, projection[0], projection[1],
+                              &residuals[0], &residuals[1]);
 
     // Re-projection error.
-    residuals[0] = x - T(x_);
-    residuals[1] = y - T(y_);
+    residuals[0] -= T(x_);
+    residuals[1] -= T(y_);
 
     return true;
   }
@@ -174,24 +172,23 @@ class RigBundleAdjustmentCostFunction {
     tvec[2] += rel_tvec[2];
 
     // Rotate and translate.
-    T point3D_local[3];
-    ceres::UnitQuaternionRotatePoint(qvec, point3D, point3D_local);
-    point3D_local[0] += tvec[0];
-    point3D_local[1] += tvec[1];
-    point3D_local[2] += tvec[2];
+    T projection[3];
+    ceres::UnitQuaternionRotatePoint(qvec, point3D, projection);
+    projection[0] += tvec[0];
+    projection[1] += tvec[1];
+    projection[2] += tvec[2];
 
-    // Normalize to image plane.
-    point3D_local[0] /= point3D_local[2];
-    point3D_local[1] /= point3D_local[2];
+    // Project to image plane.
+    projection[0] /= projection[2];
+    projection[1] /= projection[2];
 
     // Distort and transform to pixel space.
-    T x, y;
-    CameraModel::WorldToImage(camera_params, point3D_local[0], point3D_local[1],
-                              &x, &y);
+    CameraModel::WorldToImage(camera_params, projection[0], projection[1],
+                              &residuals[0], &residuals[1]);
 
     // Re-projection error.
-    residuals[0] = x - T(x_);
-    residuals[1] = y - T(y_);
+    residuals[0] -= T(x_);
+    residuals[1] -= T(y_);
 
     return true;
   }

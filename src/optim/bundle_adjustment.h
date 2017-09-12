@@ -174,7 +174,7 @@ class BundleAdjuster {
   std::unique_ptr<ceres::Problem> problem_;
   ceres::Solver::Summary summary_;
   std::unordered_set<camera_t> camera_ids_;
-  std::unordered_map<point3D_t, size_t> point3D_num_images_;
+  std::unordered_map<point3D_t, size_t> point3D_num_observations_;
 };
 
 // Bundle adjustment using PBA (GPU or CPU). Less flexible and accurate than
