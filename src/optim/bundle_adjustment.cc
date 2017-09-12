@@ -238,8 +238,6 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   CHECK_NOTNULL(reconstruction);
   CHECK(!problem_) << "Cannot use the same BundleAdjuster multiple times";
 
-  point3D_num_observations_.clear();
-
   problem_.reset(new ceres::Problem());
 
   ceres::LossFunction* loss_function = options_.CreateLossFunction();
@@ -276,8 +274,8 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   solver_options.num_linear_solver_threads = 1;
 #endif
 
-  std::string error;
-  CHECK(solver_options.IsValid(&error)) << error;
+  std::string solver_error;
+  CHECK(solver_options.IsValid(&solver_error)) << solver_error;
 
   ceres::Solve(solver_options, problem_.get(), &summary_);
 
@@ -333,9 +331,6 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
   double* qvec_data = image.Qvec().data();
   double* tvec_data = image.Tvec().data();
   double* camera_params_data = camera.ParamsData();
-
-  // Collect cameras for final parameterization.
-  CHECK(image.HasCamera());
 
   const bool constant_pose = config_.HasConstantPose(image_id);
 
@@ -443,19 +438,19 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
     ceres::CostFunction* cost_function = nullptr;
 
     switch (camera.ModelId()) {
-#define CAMERA_MODEL_CASE(CameraModel)                                     \
-  case CameraModel::kModelId:                                              \
-    cost_function =                                                        \
-        BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create(     \
-            image.Qvec(), image.Tvec(), point2D.XY());                     \
-    problem_->AddResidualBlock(cost_function, loss_function,               \
-                               point3D.XYZ().data(), camera.ParamsData()); \
+#define CAMERA_MODEL_CASE(CameraModel)                                 \
+  case CameraModel::kModelId:                                          \
+    cost_function =                                                    \
+        BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create( \
+            image.Qvec(), image.Tvec(), point2D.XY());                 \
     break;
 
       CAMERA_MODEL_SWITCH_CASES
 
 #undef CAMERA_MODEL_CASE
     }
+    problem_->AddResidualBlock(cost_function, loss_function,
+                               point3D.XYZ().data(), camera.ParamsData());
   }
 }
 
@@ -500,13 +495,10 @@ void BundleAdjuster::ParameterizeCameras(Reconstruction* reconstruction) {
 }
 
 void BundleAdjuster::ParameterizePoints(Reconstruction* reconstruction) {
-  for (const auto num_images : point3D_num_observations_) {
-    if (!config_.HasVariablePoint(num_images.first) &&
-        !config_.HasConstantPoint(num_images.first)) {
-      Point3D& point3D = reconstruction->Point3D(num_images.first);
-      if (point3D.Track().Length() > point3D_num_observations_[num_images.first]) {
-        problem_->SetParameterBlockConstant(point3D.XYZ().data());
-      }
+  for (const auto elem : point3D_num_observations_) {
+    Point3D& point3D = reconstruction->Point3D(elem.first);
+    if (point3D.Track().Length() > elem.second) {
+      problem_->SetParameterBlockConstant(point3D.XYZ().data());
     }
   }
 
@@ -776,8 +768,6 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
     }
   }
 
-  point3D_num_observations_.clear();
-
   problem_.reset(new ceres::Problem());
 
   ceres::LossFunction* loss_function = options_.CreateLossFunction();
@@ -814,8 +804,8 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
   solver_options.num_linear_solver_threads = 1;
 #endif
 
-  std::string error;
-  CHECK(solver_options.IsValid(&error)) << error;
+  std::string solver_error;
+  CHECK(solver_options.IsValid(&solver_error)) << solver_error;
 
   ceres::Solve(solver_options, problem_.get(), &summary_);
 
@@ -945,34 +935,36 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
     if (camera_rig == nullptr) {
       if (constant_pose) {
         switch (camera.ModelId()) {
-#define CAMERA_MODEL_CASE(CameraModel)                                    \
-  case CameraModel::kModelId:                                             \
-    cost_function =                                                       \
-        BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create(    \
-            image.Qvec(), image.Tvec(), point2D.XY());                    \
-    problem_->AddResidualBlock(cost_function, loss_function,              \
-                               point3D.XYZ().data(), camera_params_data); \
+#define CAMERA_MODEL_CASE(CameraModel)                                 \
+  case CameraModel::kModelId:                                          \
+    cost_function =                                                    \
+        BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create( \
+            image.Qvec(), image.Tvec(), point2D.XY());                 \
     break;
 
           CAMERA_MODEL_SWITCH_CASES
 
 #undef CAMERA_MODEL_CASE
         }
+
+        problem_->AddResidualBlock(cost_function, loss_function,
+                                   point3D.XYZ().data(), camera_params_data);
       } else {
         switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                   \
   case CameraModel::kModelId:                                            \
     cost_function =                                                      \
         BundleAdjustmentCostFunction<CameraModel>::Create(point2D.XY()); \
-    problem_->AddResidualBlock(cost_function, loss_function, qvec_data,  \
-                               tvec_data, point3D.XYZ().data(),          \
-                               camera_params_data);                      \
     break;
 
           CAMERA_MODEL_SWITCH_CASES
 
 #undef CAMERA_MODEL_CASE
         }
+
+        problem_->AddResidualBlock(cost_function, loss_function, qvec_data,
+                                   tvec_data, point3D.XYZ().data(),
+                                   camera_params_data);
       }
     } else {
       switch (camera.ModelId()) {
@@ -980,15 +972,16 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
   case CameraModel::kModelId:                                               \
     cost_function =                                                         \
         RigBundleAdjustmentCostFunction<CameraModel>::Create(point2D.XY()); \
-    problem_->AddResidualBlock(cost_function, loss_function, rig_qvec_data, \
-                               rig_tvec_data, qvec_data, tvec_data,         \
-                               point3D.XYZ().data(), camera_params_data);   \
+                                                                            \
     break;
 
         CAMERA_MODEL_SWITCH_CASES
 
 #undef CAMERA_MODEL_CASE
       }
+      problem_->AddResidualBlock(cost_function, loss_function, rig_qvec_data,
+                                 rig_tvec_data, qvec_data, tvec_data,
+                                 point3D.XYZ().data(), camera_params_data);
     }
   }
 
