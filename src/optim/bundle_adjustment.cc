@@ -295,7 +295,9 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   return true;
 }
 
-ceres::Solver::Summary BundleAdjuster::Summary() const { return summary_; }
+const ceres::Solver::Summary& BundleAdjuster::Summary() const {
+  return summary_;
+}
 
 void BundleAdjuster::SetUp(Reconstruction* reconstruction,
                            ceres::LossFunction* loss_function) {
@@ -600,7 +602,7 @@ bool ParallelBundleAdjuster::Solve(Reconstruction* reconstruction) {
   return true;
 }
 
-ceres::Solver::Summary ParallelBundleAdjuster::Summary() const {
+const ceres::Solver::Summary& ParallelBundleAdjuster::Summary() const {
   return summary_;
 }
 

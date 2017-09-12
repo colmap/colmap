@@ -151,7 +151,7 @@ class BundleAdjuster {
   bool Solve(Reconstruction* reconstruction);
 
   // Get the Ceres solver summary for the last call to `Solve`.
-  ceres::Solver::Summary Summary() const;
+  const ceres::Solver::Summary& Summary() const;
 
  private:
   void SetUp(Reconstruction* reconstruction,
@@ -204,7 +204,7 @@ class ParallelBundleAdjuster {
   bool Solve(Reconstruction* reconstruction);
 
   // Get the Ceres solver summary for the last call to `Solve`.
-  ceres::Solver::Summary Summary() const;
+  const ceres::Solver::Summary& Summary() const;
 
   // Check whether PBA is supported for the given reconstruction. If the
   // reconstruction is not supported, the PBA solver will exit ungracefully.
