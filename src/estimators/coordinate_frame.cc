@@ -118,8 +118,20 @@ Eigen::Vector3d FindBestConsensusAxis(const std::vector<Eigen::Vector3d>& axes,
 
 }  // namespace
 
-Eigen::Matrix3d EstimateCoordinateFrame(
-    const CoordinateFrameEstimationOptions& options,
+Eigen::Vector3d EstimateGravityVectorFromImageOrientation(
+    const Reconstruction& reconstruction,
+    const double max_axis_distance) {
+  std::vector<Eigen::Vector3d> downward_axes;
+  downward_axes.reserve(reconstruction.NumRegImages());
+  for (const auto image_id : reconstruction.RegImageIds()) {
+    const auto& image = reconstruction.Image(image_id);
+    downward_axes.push_back(image.RotationMatrix().row(1));
+  }
+  return FindBestConsensusAxis(downward_axes, max_axis_distance);
+}
+
+Eigen::Matrix3d EstimateManhattanWorldFrame(
+    const ManhattanWorldFrameEstimationOptions& options,
     const Reconstruction& reconstruction, const std::string& image_path) {
   std::vector<Eigen::Vector3d> rightward_axes;
   std::vector<Eigen::Vector3d> downward_axes;

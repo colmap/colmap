@@ -21,10 +21,17 @@
 
 using namespace colmap;
 
-BOOST_AUTO_TEST_CASE(TestEmpty) {
+BOOST_AUTO_TEST_CASE(TestEstimateGravityVectorFromImageOrientation) {
+  Reconstruction reconstruction;
+  BOOST_CHECK_EQUAL(EstimateGravityVectorFromImageOrientation(reconstruction),
+                    Eigen::Vector3d::Zero());
+}
+
+BOOST_AUTO_TEST_CASE(TestEstimateManhattanWorldFrame) {
   Reconstruction reconstruction;
   std::string image_path;
-  BOOST_CHECK_EQUAL(EstimateCoordinateFrame(CoordinateFrameEstimationOptions(),
-                                            reconstruction, image_path),
-                    Eigen::Matrix3d::Zero());
+  BOOST_CHECK_EQUAL(
+      EstimateManhattanWorldFrame(ManhattanWorldFrameEstimationOptions(),
+                                  reconstruction, image_path),
+      Eigen::Matrix3d::Zero());
 }

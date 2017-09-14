@@ -23,7 +23,7 @@
 
 namespace colmap {
 
-struct CoordinateFrameEstimationOptions {
+struct ManhattanWorldFrameEstimationOptions {
   // The maximum image size for line detection.
   int max_image_size = 1024;
   // The minimum length of line segments in pixels.
@@ -36,6 +36,13 @@ struct CoordinateFrameEstimationOptions {
   double max_axis_distance = 0.05;
 };
 
+// Estimate gravity vector by assuming gravity-aligned image orientation, i.e.
+// the majority of images is assumed to have the gravity vector aligned with an
+// upright image plane.
+Eigen::Vector3d EstimateGravityVectorFromImageOrientation(
+    const Reconstruction& reconstruction,
+    const double max_axis_distance = 0.05);
+
 // Estimate the coordinate frame of the reconstruction assuming a Manhattan
 // world by finding the major vanishing points in each image. This function
 // assumes that the majority of images is taken in upright direction, i.e.
@@ -44,8 +51,8 @@ struct CoordinateFrameEstimationOptions {
 // matrix. If one axis could not be determined, the respective column will be
 // zero. The axes are specified in the world coordinate system in the order
 // rightward, downward, forward.
-Eigen::Matrix3d EstimateCoordinateFrame(
-    const CoordinateFrameEstimationOptions& options,
+Eigen::Matrix3d EstimateManhattanWorldFrame(
+    const ManhattanWorldFrameEstimationOptions& options,
     const Reconstruction& reconstruction, const std::string& image_path);
 
 }  // namespace colmap
