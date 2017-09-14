@@ -235,64 +235,65 @@ DatabaseImageViewerWidget::DatabaseImageViewerWidget(
   table_widget_->verticalHeader()->setVisible(false);
   table_widget_->verticalHeader()->setDefaultSectionSize(18);
 
-  int row = 0;
+  int table_row = 0;
 
-  table_widget_->setItem(row, 0, new QTableWidgetItem("image_id"));
+  table_widget_->setItem(table_row, 0, new QTableWidgetItem("image_id"));
   image_id_item_ = new QTableWidgetItem();
-  table_widget_->setItem(row, 1, image_id_item_);
-  row += 1;
+  table_widget_->setItem(table_row, 1, image_id_item_);
+  table_row += 1;
 
-  table_widget_->setItem(row, 0, new QTableWidgetItem("camera_id"));
+  table_widget_->setItem(table_row, 0, new QTableWidgetItem("camera_id"));
   camera_id_item_ = new QTableWidgetItem();
-  table_widget_->setItem(row, 1, camera_id_item_);
-  row += 1;
+  table_widget_->setItem(table_row, 1, camera_id_item_);
+  table_row += 1;
 
-  table_widget_->setItem(row, 0, new QTableWidgetItem("camera_model"));
+  table_widget_->setItem(table_row, 0, new QTableWidgetItem("camera_model"));
   camera_model_item_ = new QTableWidgetItem();
-  table_widget_->setItem(row, 1, camera_model_item_);
-  row += 1;
+  table_widget_->setItem(table_row, 1, camera_model_item_);
+  table_row += 1;
 
-  table_widget_->setItem(row, 0, new QTableWidgetItem("camera_params"));
+  table_widget_->setItem(table_row, 0, new QTableWidgetItem("camera_params"));
   camera_params_item_ = new QTableWidgetItem();
-  table_widget_->setItem(row, 1, camera_params_item_);
-  row += 1;
+  table_widget_->setItem(table_row, 1, camera_params_item_);
+  table_row += 1;
 
-  table_widget_->setItem(row, 0, new QTableWidgetItem("qw, qx, qy, qz"));
+  table_widget_->setItem(table_row, 0, new QTableWidgetItem("qw, qx, qy, qz"));
   qvec_item_ = new QTableWidgetItem();
-  table_widget_->setItem(row, 1, qvec_item_);
-  row += 1;
+  table_widget_->setItem(table_row, 1, qvec_item_);
+  table_row += 1;
 
-  table_widget_->setItem(row, 0, new QTableWidgetItem("tx, ty, tz"));
+  table_widget_->setItem(table_row, 0, new QTableWidgetItem("tx, ty, tz"));
   tvec_item_ = new QTableWidgetItem();
-  table_widget_->setItem(row, 1, tvec_item_);
-  row += 1;
+  table_widget_->setItem(table_row, 1, tvec_item_);
+  table_row += 1;
 
-  table_widget_->setItem(row, 0, new QTableWidgetItem("dims"));
+  table_widget_->setItem(table_row, 0, new QTableWidgetItem("dims"));
   dimensions_item_ = new QTableWidgetItem();
-  table_widget_->setItem(row, 1, dimensions_item_);
-  row += 1;
+  table_widget_->setItem(table_row, 1, dimensions_item_);
+  table_row += 1;
 
-  table_widget_->setItem(row, 0, new QTableWidgetItem("num_points2D"));
+  table_widget_->setItem(table_row, 0, new QTableWidgetItem("num_points2D"));
   num_points2D_item_ = new QTableWidgetItem();
   num_points2D_item_->setForeground(Qt::red);
-  table_widget_->setItem(row, 1, num_points2D_item_);
-  row += 1;
+  table_widget_->setItem(table_row, 1, num_points2D_item_);
+  table_row += 1;
 
-  table_widget_->setItem(row, 0, new QTableWidgetItem("num_points3D"));
+  table_widget_->setItem(table_row, 0, new QTableWidgetItem("num_points3D"));
   num_points3D_item_ = new QTableWidgetItem();
   num_points3D_item_->setForeground(Qt::magenta);
-  table_widget_->setItem(row, 1, num_points3D_item_);
-  row += 1;
+  table_widget_->setItem(table_row, 1, num_points3D_item_);
+  table_row += 1;
 
-  table_widget_->setItem(row, 0, new QTableWidgetItem("num_observations"));
+  table_widget_->setItem(table_row, 0,
+                         new QTableWidgetItem("num_observations"));
   num_obs_item_ = new QTableWidgetItem();
-  table_widget_->setItem(row, 1, num_obs_item_);
-  row += 1;
+  table_widget_->setItem(table_row, 1, num_obs_item_);
+  table_row += 1;
 
-  table_widget_->setItem(row, 0, new QTableWidgetItem("name"));
+  table_widget_->setItem(table_row, 0, new QTableWidgetItem("name"));
   name_item_ = new QTableWidgetItem();
-  table_widget_->setItem(row, 1, name_item_);
-  row += 1;
+  table_widget_->setItem(table_row, 1, name_item_);
+  table_row += 1;
 
   grid_layout_->addWidget(table_widget_, 0, 0);
 

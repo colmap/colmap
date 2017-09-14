@@ -39,6 +39,33 @@ PointViewerWidget::PointViewerWidget(QWidget* parent,
   QGridLayout* grid = new QGridLayout(this);
   grid->setContentsMargins(5, 5, 5, 5);
 
+  info_table_ = new QTableWidget(this);
+  info_table_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+  info_table_->setEditTriggers(QAbstractItemView::NoEditTriggers);
+  info_table_->setSelectionMode(QAbstractItemView::SingleSelection);
+  info_table_->setShowGrid(true);
+  info_table_->horizontalHeader()->setStretchLastSection(true);
+  info_table_->horizontalHeader()->setVisible(false);
+  info_table_->verticalHeader()->setVisible(false);
+  info_table_->verticalHeader()->setDefaultSectionSize(18);
+
+  info_table_->setColumnCount(2);
+  info_table_->setRowCount(3);
+
+  info_table_->setItem(0, 0, new QTableWidgetItem("position"));
+  xyz_item_ = new QTableWidgetItem();
+  info_table_->setItem(0, 1, xyz_item_);
+
+  info_table_->setItem(1, 0, new QTableWidgetItem("color"));
+  rgb_item_ = new QTableWidgetItem();
+  info_table_->setItem(1, 1, rgb_item_);
+
+  info_table_->setItem(2, 0, new QTableWidgetItem("error"));
+  error_item_ = new QTableWidgetItem();
+  info_table_->setItem(2, 1, error_item_);
+
+  grid->addWidget(info_table_, 0, 0);
+
   location_table_ = new QTableWidget(this);
   location_table_->setColumnCount(3);
   QStringList table_header;
@@ -55,7 +82,7 @@ PointViewerWidget::PointViewerWidget(QWidget* parent,
   location_table_->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
   location_table_->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
 
-  grid->addWidget(location_table_, 0, 0);
+  grid->addWidget(location_table_, 1, 0);
 
   QHBoxLayout* button_layout = new QHBoxLayout();
 
@@ -78,7 +105,7 @@ PointViewerWidget::PointViewerWidget(QWidget* parent,
   connect(delete_button_, &QPushButton::released, this,
           &PointViewerWidget::Delete);
 
-  grid->addLayout(button_layout, 1, 0, Qt::AlignRight);
+  grid->addLayout(button_layout, 2, 0, Qt::AlignRight);
 }
 
 void PointViewerWidget::Show(const point3D_t point3D_id) {
@@ -100,6 +127,16 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
   setWindowTitle(QString::fromStdString("Point " + std::to_string(point3D_id)));
 
   const auto& point3D = opengl_window_->points3D[point3D_id];
+
+  xyz_item_->setText(QString::number(point3D.X()) + ", " +
+                     QString::number(point3D.Y()) + ", " +
+                     QString::number(point3D.Z()));
+  rgb_item_->setText(QString::number(point3D.Color(0)) + ", " +
+                     QString::number(point3D.Color(1)) + ", " +
+                     QString::number(point3D.Color(2)));
+  error_item_->setText(QString::number(point3D.Error()));
+
+  ResizeInfoTable();
 
   // Paint features for each track element.
   for (const auto& track_el : point3D.Track().Elements()) {
@@ -149,6 +186,17 @@ void PointViewerWidget::closeEvent(QCloseEvent* event) {
   image_ids_.clear();
   reproj_errors_.clear();
   ClearLocations();
+}
+
+void PointViewerWidget::ResizeInfoTable() {
+  // Set fixed table dimensions.
+  info_table_->resizeColumnsToContents();
+  int height =
+      info_table_->horizontalHeader()->height() + 2 * info_table_->frameWidth();
+  for (int i = 0; i < info_table_->rowCount(); i++) {
+    height += info_table_->rowHeight(i);
+  }
+  info_table_->setFixedHeight(height);
 }
 
 void PointViewerWidget::ClearLocations() {

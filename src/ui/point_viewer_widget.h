@@ -37,6 +37,7 @@ class PointViewerWidget : public QWidget {
  private:
   void closeEvent(QCloseEvent* event);
 
+  void ResizeInfoTable();
   void ClearLocations();
   void UpdateImages();
   void ZoomIn();
@@ -50,6 +51,11 @@ class PointViewerWidget : public QWidget {
   QPushButton* delete_button_;
 
   point3D_t point3D_id_;
+
+  QTableWidget* info_table_;
+  QTableWidgetItem* xyz_item_;
+  QTableWidgetItem* rgb_item_;
+  QTableWidgetItem* error_item_;
 
   QTableWidget* location_table_;
   std::vector<QPixmap> location_pixmaps_;
