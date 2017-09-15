@@ -75,6 +75,10 @@ struct VanishingPointEstimator {
 
 Eigen::Vector3d FindBestConsensusAxis(const std::vector<Eigen::Vector3d>& axes,
                                       const double max_distance) {
+  if (axes.empty()) {
+    return Eigen::Vector3d::Zero();
+  }
+
   std::vector<int> inlier_idxs;
   inlier_idxs.reserve(axes.size());
 
@@ -105,6 +109,10 @@ Eigen::Vector3d FindBestConsensusAxis(const std::vector<Eigen::Vector3d>& axes,
       best_inlier_distance_sum = inlier_distance_sum;
       best_inlier_idxs = inlier_idxs;
     }
+  }
+
+  if (best_inlier_idxs.empty()) {
+    return Eigen::Vector3d::Zero();
   }
 
   Eigen::Vector3d best_axis(0, 0, 0);
