@@ -429,10 +429,12 @@ bool ExtractCovariantSiftFeaturesCPU(const SiftExtractionOptions& options,
 
   vl_covdet_detect(covdet.get());
 
-  if (options.estimate_affine_shape) {
-    vl_covdet_extract_affine_shape(covdet.get());
-  } else {
-    vl_covdet_extract_orientations(covdet.get());
+  if (!options.upright) {
+    if (options.estimate_affine_shape) {
+      vl_covdet_extract_affine_shape(covdet.get());
+    } else {
+      vl_covdet_extract_orientations(covdet.get());
+    }
   }
 
   const int num_features = vl_covdet_get_num_features(covdet.get());
