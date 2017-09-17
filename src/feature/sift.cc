@@ -188,6 +188,11 @@ void WarnIfMaxNumMatchesReachedGPU(const SiftMatchGPU& sift_match_gpu,
   }
 }
 
+void WarnDarknessAdaptivityNotAvailable() {
+  std::cout << "WARNING: Darkness adaptivity only available for GLSL SiftGPU."
+            << std::endl;
+}
+
 }  // namespace
 
 bool SiftExtractionOptions::Check() const {
@@ -231,6 +236,10 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
 
   CHECK(!options.estimate_affine_shape);
   CHECK(!options.domain_size_pooling);
+
+  if (options.darkness_adaptivity) {
+    WarnDarknessAdaptivityNotAvailable();
+  }
 
   // Setup SIFT extractor.
   std::unique_ptr<VlSiftFilt, void (*)(VlSiftFilt*)> sift(
@@ -401,6 +410,10 @@ bool ExtractCovariantSiftFeaturesCPU(const SiftExtractionOptions& options,
   CHECK(options.Check());
   CHECK(bitmap.IsGrey());
   CHECK_NOTNULL(keypoints);
+
+  if (options.darkness_adaptivity) {
+    WarnDarknessAdaptivityNotAvailable();
+  }
 
   // Setup covariant SIFT detector.
   std::unique_ptr<VlCovDet, void (*)(VlCovDet*)> covdet(
@@ -595,9 +608,7 @@ bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
   // distribution of features. Only available in GLSL version.
   if (options.darkness_adaptivity) {
     if (gpu_indices[0] >= 0) {
-      std::cout << "WARNING: Darkness adaptivity only available for GLSL "
-                   "but CUDA version selected."
-                << std::endl;
+      WarnDarknessAdaptivityNotAvailable();
     }
     sift_gpu_args.push_back("-da");
   }
