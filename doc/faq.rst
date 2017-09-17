@@ -265,12 +265,12 @@ The dense reconstruction can be speeded up in multiple ways:
 
 - Reduce the number of sampled views ``--DenseStereo.num_samples``.
 
-- To speedup the dense fusion step for very large reconstructions, you can
-  use CMVS to partition your scene into multiple clusters,
-  as described :ref:`here <faq-dense-memory>`.
+- To speedup the dense stereo and fusion step for very large reconstructions,
+  you can use CMVS to partition your scene into multiple clusters and to prune
+  redundant images, as described :ref:`here <faq-dense-memory>`.
 
 Note that apart from upgrading your hardware, the proposed changes might degrade
-the quality of the dense reconstruction results. When cancelling the stereo
+the quality of the dense reconstruction results. When canceling the stereo
 reconstruction process and restarting it later, the previous progress is not
 lost and any already processed views will be skipped.
 
@@ -294,14 +294,17 @@ slow processing and heavy load on the hard disk.
 
 For large-scale reconstructions of several thousands of images, you should
 consider splitting your sparse reconstruction into more manageable clusters of
-images using e.g. CMVS [furukawa10]_. Note that, for this use case, COLMAP's
-dense reconstruction pipeline also supports the PMVS/CMVS folder structure when
-executed from the command-line. Please, refer to the workspace folder for
-example shell scripts. To change the number of images using CMVS, you must
-modify the shell scripts accordingly. For example, ``cmvs pmvs/ 500`` to limit
-each cluster to 500 images. Since CMVS produces highly overlapping clusters, it
-is recommended to increase the default value of 100 images to as high as
-possible according to your available system resources.
+images using e.g. CMVS [furukawa10]_. In addition, CMVS allows to prune
+redundant images observing the same scene elements. Note that, for this use
+case, COLMAP's dense reconstruction pipeline also supports the PMVS/CMVS folder
+structure when executed from the command-line. Please, refer to the workspace
+folder for example shell scripts. Since CMVS produces highly overlapping
+clusters, it is recommended to increase the default value of 100 images per
+cluster to as high as possible according to your available system resources and
+speed requirements. To change the number of images using CMVS, you must modify
+the shell scripts accordingly. For example, ``cmvs pmvs/ 500`` to limit each
+cluster to 500 images. If you want to use CMVS to prune redundant images but not
+to cluster the scene, you can simply set this number to a very large value.
 
 
 Manual specification of source images during dense reconstruction
