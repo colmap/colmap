@@ -1152,30 +1152,34 @@ bool Reconstruction::ExportBundler(const std::string& path,
 }
 
 void Reconstruction::ExportPLY(const std::string& path) const {
-  std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
+  std::fstream text_file(path, std::ios::out);
+  CHECK(text_file.is_open()) << path;
 
-  file << "ply" << std::endl;
-  file << "format ascii 1.0" << std::endl;
-  file << "element vertex " << points3D_.size() << std::endl;
-  file << "property float x" << std::endl;
-  file << "property float y" << std::endl;
-  file << "property float z" << std::endl;
-  file << "property uchar red" << std::endl;
-  file << "property uchar green" << std::endl;
-  file << "property uchar blue" << std::endl;
-  file << "end_header" << std::endl;
+  text_file << "ply" << std::endl;
+  text_file << "format binary_little_endian 1.0" << std::endl;
+  text_file << "element vertex " << points3D_.size() << std::endl;
+  text_file << "property float x" << std::endl;
+  text_file << "property float y" << std::endl;
+  text_file << "property float z" << std::endl;
+  text_file << "property uchar red" << std::endl;
+  text_file << "property uchar green" << std::endl;
+  text_file << "property uchar blue" << std::endl;
+  text_file << "end_header" << std::endl;
+  text_file.close();
+
+  std::fstream binary_file(path,
+                           std::ios::out | std::ios::binary | std::ios::app);
+  CHECK(binary_file.is_open()) << path;
 
   for (const auto& point3D : points3D_) {
-    file << point3D.second.X() << " ";
-    file << point3D.second.Y() << " ";
-    file << point3D.second.Z() << " ";
-    file << static_cast<int>(point3D.second.Color(0)) << " ";
-    file << static_cast<int>(point3D.second.Color(1)) << " ";
-    file << static_cast<int>(point3D.second.Color(2)) << std::endl;
+    WriteBinaryLittleEndian<float>(&binary_file, point3D.second.X());
+    WriteBinaryLittleEndian<float>(&binary_file, point3D.second.Y());
+    WriteBinaryLittleEndian<float>(&binary_file, point3D.second.Z());
+    WriteBinaryLittleEndian<uint8_t>(&binary_file, point3D.second.Color(0));
+    WriteBinaryLittleEndian<uint8_t>(&binary_file, point3D.second.Color(1));
+    WriteBinaryLittleEndian<uint8_t>(&binary_file, point3D.second.Color(2));
   }
-
-  file << std::endl;
+  binary_file.close();
 }
 
 void Reconstruction::ExportVRML(const std::string& images_path,
