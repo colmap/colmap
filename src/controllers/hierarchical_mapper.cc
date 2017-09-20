@@ -182,8 +182,6 @@ void HierarchicalMapperController::Run() {
     mapper.Wait();
   };
 
-  ThreadPool thread_pool(num_eff_workers);
-
   // Start reconstructing the bigger clusters first for resource usage.
   std::sort(leaf_clusters.begin(), leaf_clusters.end(),
             [](const SceneClustering::Cluster* cluster1,
@@ -196,6 +194,8 @@ void HierarchicalMapperController::Run() {
   std::unordered_map<const SceneClustering::Cluster*, ReconstructionManager>
       reconstruction_managers;
   reconstruction_managers.reserve(leaf_clusters.size());
+
+  ThreadPool thread_pool(num_eff_workers);
   for (const auto& cluster : leaf_clusters) {
     thread_pool.AddTask(ReconstructCluster, *cluster,
                         &reconstruction_managers[cluster]);
