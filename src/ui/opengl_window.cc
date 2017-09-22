@@ -258,10 +258,11 @@ void OpenGLWindow::PaintGL() {
       Eigen::Vector4f(0, 0, -focus_distance_, 1);
   model_view_center_matrix.translate(rot_center(0), rot_center(1),
                                      rot_center(2));
-  const QMatrix4x4 pmvc_matrix = projection_matrix_ * model_view_center_matrix;
 
   // Coordinate system
   if (coordinate_grid_enabled_) {
+    const QMatrix4x4 pmvc_matrix =
+        projection_matrix_ * model_view_center_matrix;
     coordinate_axes_painter_.Render(pmv_matrix, width(), height(), 2);
     coordinate_grid_painter_.Render(pmvc_matrix, width(), height(), 1);
   }
@@ -348,10 +349,12 @@ void OpenGLWindow::UpdateMovieGrabber() {
 void OpenGLWindow::EnableCoordinateGrid() {
   coordinate_grid_enabled_ = true;
   PaintGL();
+  PaintGL();
 }
 
 void OpenGLWindow::DisableCoordinateGrid() {
   coordinate_grid_enabled_ = false;
+  PaintGL();
   PaintGL();
 }
 
