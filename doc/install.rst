@@ -79,7 +79,7 @@ Install `Ceres Solver <http://ceres-solver.org/>`_::
     mkdir build
     cd build
     cmake .. -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF
-    make -j
+    make
     sudo make install
 
 Configure and compile COLMAP::
@@ -88,7 +88,7 @@ Configure and compile COLMAP::
     mkdir build
     cd build
     cmake ..
-    make -j
+    make
 
 
 Mac
@@ -124,7 +124,7 @@ Configure and compile COLMAP::
     mkdir build
     cd build
     cmake ..
-    make -j
+    make
 
 
 Windows
