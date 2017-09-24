@@ -196,9 +196,11 @@ void DownsampleImage(const float* data, const int rows, const int cols,
   const float scale_c = static_cast<float>(cols) / static_cast<float>(new_cols);
   const float scale_r = static_cast<float>(rows) / static_cast<float>(new_rows);
 
-  const float kSigmaScale = 0.25f;
-  const float sigma_c = kSigmaScale * scale_c;
-  const float sigma_r = kSigmaScale * scale_r;
+  const float kSigmaScale = 0.5f;
+  const float sigma_c = std::max(std::numeric_limits<float>::epsilon(),
+                                 kSigmaScale * (scale_c - 1));
+  const float sigma_r = std::max(std::numeric_limits<float>::epsilon(),
+                                 kSigmaScale * (scale_r - 1));
 
   std::vector<float> smoothed(rows * cols);
   SmoothImage(data, rows, cols, sigma_r, sigma_c, smoothed.data());
