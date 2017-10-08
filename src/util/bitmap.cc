@@ -434,6 +434,10 @@ bool Bitmap::Write(const std::string& path, const FREE_IMAGE_FORMAT format,
   FREE_IMAGE_FORMAT save_format;
   if (format == FIF_UNKNOWN) {
     save_format = FreeImage_GetFIFFromFilename(path.c_str());
+    if (save_format == FIF_UNKNOWN) {
+      // If format could not be deduced, save as PNG by default.
+      save_format = FIF_PNG;
+    }
   } else {
     save_format = format;
   }
