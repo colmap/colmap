@@ -656,94 +656,101 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   undistorted_camera.SetPrincipalPointX(camera.PrincipalPointX());
   undistorted_camera.SetPrincipalPointY(camera.PrincipalPointY());
 
-  // Determine min, max coordinates along top / bottom image border.
+  // Scale the image such the the boundary of the undistorted image.
+  if (camera.ModelId() != SimplePinholeCameraModel::model_id &&
+      camera.ModelId() != PinholeCameraModel::model_id) {
 
-  double left_min_x = std::numeric_limits<double>::max();
-  double left_max_x = std::numeric_limits<double>::lowest();
-  double right_min_x = std::numeric_limits<double>::max();
-  double right_max_x = std::numeric_limits<double>::lowest();
+    // Determine min, max coordinates along top / bottom image border.
 
-  for (size_t y = 0; y < camera.Height(); ++y) {
-    // Left border.
-    const Eigen::Vector2d world_point1 =
-        camera.ImageToWorld(Eigen::Vector2d(0.5, y + 0.5));
-    const Eigen::Vector2d undistorted_point1 =
-        undistorted_camera.WorldToImage(world_point1);
-    left_min_x = std::min(left_min_x, undistorted_point1(0));
-    left_max_x = std::max(left_max_x, undistorted_point1(0));
-    // Right border.
-    const Eigen::Vector2d world_point2 =
-        camera.ImageToWorld(Eigen::Vector2d(camera.Width() - 0.5, y + 0.5));
-    const Eigen::Vector2d undistorted_point2 =
-        undistorted_camera.WorldToImage(world_point2);
-    right_min_x = std::min(right_min_x, undistorted_point2(0));
-    right_max_x = std::max(right_max_x, undistorted_point2(0));
+    double left_min_x = std::numeric_limits<double>::max();
+    double left_max_x = std::numeric_limits<double>::lowest();
+    double right_min_x = std::numeric_limits<double>::max();
+    double right_max_x = std::numeric_limits<double>::lowest();
+
+    for (size_t y = 0; y < camera.Height(); ++y) {
+      // Left border.
+      const Eigen::Vector2d world_point1 =
+          camera.ImageToWorld(Eigen::Vector2d(0.5, y + 0.5));
+      const Eigen::Vector2d undistorted_point1 =
+          undistorted_camera.WorldToImage(world_point1);
+      left_min_x = std::min(left_min_x, undistorted_point1(0));
+      left_max_x = std::max(left_max_x, undistorted_point1(0));
+      // Right border.
+      const Eigen::Vector2d world_point2 =
+          camera.ImageToWorld(Eigen::Vector2d(camera.Width() - 0.5, y + 0.5));
+      const Eigen::Vector2d undistorted_point2 =
+          undistorted_camera.WorldToImage(world_point2);
+      right_min_x = std::min(right_min_x, undistorted_point2(0));
+      right_max_x = std::max(right_max_x, undistorted_point2(0));
+    }
+
+    // Determine min, max coordinates along left / right image border.
+
+    double top_min_y = std::numeric_limits<double>::max();
+    double top_max_y = std::numeric_limits<double>::lowest();
+    double bottom_min_y = std::numeric_limits<double>::max();
+    double bottom_max_y = std::numeric_limits<double>::lowest();
+
+    for (size_t x = 0; x < camera.Width(); ++x) {
+      // Top border.
+      const Eigen::Vector2d world_point1 =
+          camera.ImageToWorld(Eigen::Vector2d(x + 0.5, 0.5));
+      const Eigen::Vector2d undistorted_point1 =
+          undistorted_camera.WorldToImage(world_point1);
+      top_min_y = std::min(top_min_y, undistorted_point1(1));
+      top_max_y = std::max(top_max_y, undistorted_point1(1));
+      // Bottom border.
+      const Eigen::Vector2d world_point2 =
+          camera.ImageToWorld(Eigen::Vector2d(x + 0.5, camera.Height() - 0.5));
+      const Eigen::Vector2d undistorted_point2 =
+          undistorted_camera.WorldToImage(world_point2);
+      bottom_min_y = std::min(bottom_min_y, undistorted_point2(1));
+      bottom_max_y = std::max(bottom_max_y, undistorted_point2(1));
+    }
+
+    const double cx = undistorted_camera.PrincipalPointX();
+    const double cy = undistorted_camera.PrincipalPointY();
+
+    // Scale such that undistorted image contains all pixels of distorted image
+    const double min_scale_x =
+        std::min(cx / (cx - left_min_x),
+                 (camera.Width() - 0.5 - cx) / (right_max_x - cx));
+    const double min_scale_y =
+        std::min(cy / (cy - top_min_y),
+                 (camera.Height() - 0.5 - cy) / (bottom_max_y - cy));
+
+    // Scale such that there are no blank pixels in undistorted image
+    const double max_scale_x =
+        std::max(cx / (cx - left_max_x),
+                 (camera.Width() - 0.5 - cx) / (right_min_x - cx));
+    const double max_scale_y =
+        std::max(cy / (cy - top_max_y),
+                 (camera.Height() - 0.5 - cy) / (bottom_min_y - cy));
+
+    // Interpolate scale according to blank_pixels.
+    double scale_x = 1.0 / (min_scale_x * options.blank_pixels +
+                            max_scale_x * (1.0 - options.blank_pixels));
+    double scale_y = 1.0 / (min_scale_y * options.blank_pixels +
+                            max_scale_y * (1.0 - options.blank_pixels));
+
+    // Clip the scaling factors.
+    scale_x = Clip(scale_x, options.min_scale, options.max_scale);
+    scale_y = Clip(scale_y, options.min_scale, options.max_scale);
+
+    // Scale undistorted camera dimensions.
+    undistorted_camera.SetWidth(static_cast<size_t>(
+        std::max(1.0, scale_x * undistorted_camera.Width())));
+    undistorted_camera.SetHeight(static_cast<size_t>(
+        std::max(1.0, scale_y * undistorted_camera.Height())));
+
+    // Scale the principal point according to the new dimensions of the image.
+    undistorted_camera.SetPrincipalPointX(
+        undistorted_camera.PrincipalPointX() *
+        static_cast<double>(undistorted_camera.Width()) / camera.Width());
+    undistorted_camera.SetPrincipalPointY(
+        undistorted_camera.PrincipalPointY() *
+        static_cast<double>(undistorted_camera.Height()) / camera.Height());
   }
-
-  // Determine min, max coordinates along left / right image border.
-
-  double top_min_y = std::numeric_limits<double>::max();
-  double top_max_y = std::numeric_limits<double>::lowest();
-  double bottom_min_y = std::numeric_limits<double>::max();
-  double bottom_max_y = std::numeric_limits<double>::lowest();
-
-  for (size_t x = 0; x < camera.Width(); ++x) {
-    // Top border.
-    const Eigen::Vector2d world_point1 =
-        camera.ImageToWorld(Eigen::Vector2d(x + 0.5, 0.5));
-    const Eigen::Vector2d undistorted_point1 =
-        undistorted_camera.WorldToImage(world_point1);
-    top_min_y = std::min(top_min_y, undistorted_point1(1));
-    top_max_y = std::max(top_max_y, undistorted_point1(1));
-    // Bottom border.
-    const Eigen::Vector2d world_point2 =
-        camera.ImageToWorld(Eigen::Vector2d(x + 0.5, camera.Height() - 0.5));
-    const Eigen::Vector2d undistorted_point2 =
-        undistorted_camera.WorldToImage(world_point2);
-    bottom_min_y = std::min(bottom_min_y, undistorted_point2(1));
-    bottom_max_y = std::max(bottom_max_y, undistorted_point2(1));
-  }
-
-  const double cx = undistorted_camera.PrincipalPointX();
-  const double cy = undistorted_camera.PrincipalPointY();
-
-  // Scale such that undistorted image contains all pixels of distorted image
-  const double min_scale_x = std::min(
-      cx / (cx - left_min_x), (camera.Width() - 0.5 - cx) / (right_max_x - cx));
-  const double min_scale_y =
-      std::min(cy / (cy - top_min_y),
-               (camera.Height() - 0.5 - cy) / (bottom_max_y - cy));
-
-  // Scale such that there are no blank pixels in undistorted image
-  const double max_scale_x = std::max(
-      cx / (cx - left_max_x), (camera.Width() - 0.5 - cx) / (right_min_x - cx));
-  const double max_scale_y =
-      std::max(cy / (cy - top_max_y),
-               (camera.Height() - 0.5 - cy) / (bottom_min_y - cy));
-
-  // Interpolate scale according to blank_pixels.
-  double scale_x = 1.0 / (min_scale_x * options.blank_pixels +
-                          max_scale_x * (1.0 - options.blank_pixels));
-  double scale_y = 1.0 / (min_scale_y * options.blank_pixels +
-                          max_scale_y * (1.0 - options.blank_pixels));
-
-  // Clip the scaling factors.
-  scale_x = Clip(scale_x, options.min_scale, options.max_scale);
-  scale_y = Clip(scale_y, options.min_scale, options.max_scale);
-
-  // Scale undistorted camera dimensions.
-  undistorted_camera.SetWidth(
-      static_cast<size_t>(std::max(1.0, scale_x * undistorted_camera.Width())));
-  undistorted_camera.SetHeight(static_cast<size_t>(
-      std::max(1.0, scale_y * undistorted_camera.Height())));
-
-  // Scale the principal point according to the new dimensions of the image.
-  undistorted_camera.SetPrincipalPointX(
-      undistorted_camera.PrincipalPointX() *
-      static_cast<double>(undistorted_camera.Width()) / camera.Width());
-  undistorted_camera.SetPrincipalPointY(
-      undistorted_camera.PrincipalPointY() *
-      static_cast<double>(undistorted_camera.Height()) / camera.Height());
 
   if (options.max_image_size > 0) {
     const double max_image_scale_x =
