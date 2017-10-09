@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE(TestZero) {
 
 BOOST_AUTO_TEST_CASE(TestFull) {
   const std::vector<int> data = {0, 0, 3, 5, 7, 33, 0, 1, 1, 100};
-  ConsistencyGraph consistency_graph(2, 1, data);
+  ConsistencyGraph consistency_graph(1, 2, data);
   int num_images;
   const int* image_ids;
   consistency_graph.GetImageIds(0, 0, &num_images, &image_ids);
@@ -77,7 +77,7 @@ BOOST_AUTO_TEST_CASE(TestFull) {
   BOOST_CHECK_EQUAL(image_ids[0], 5);
   BOOST_CHECK_EQUAL(image_ids[1], 7);
   BOOST_CHECK_EQUAL(image_ids[2], 33);
-  consistency_graph.GetImageIds(0, 1, &num_images, &image_ids);
+  consistency_graph.GetImageIds(1, 0, &num_images, &image_ids);
   BOOST_CHECK_EQUAL(num_images, 1);
   BOOST_CHECK_EQUAL(image_ids[0], 100);
   BOOST_CHECK_EQUAL(consistency_graph.GetNumBytes(), 48);
