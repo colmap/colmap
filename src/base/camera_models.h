@@ -334,12 +334,16 @@ struct ThinPrismFisheyeCameraModel
   CAMERA_MODEL_DEFINITIONS(10, "THIN_PRISM_FISHEYE", 12)
 };
 
+// Check whether camera model with given name or identifier exists.
+bool ExistsCameraModelWithName(const std::string& model_name);
+bool ExistsCameraModelWithId(const int model_id);
+
 // Convert camera name to unique camera model identifier.
 //
 // @param name         Unique name of camera model.
 //
 // @return             Unique identifier of camera model.
-int CameraModelNameToId(const std::string& name);
+int CameraModelNameToId(const std::string& model_name);
 
 // Convert camera model identifier to unique camera model name.
 //

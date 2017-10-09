@@ -25,7 +25,7 @@ BOOST_AUTO_TEST_CASE(TestEmpty) {
   Camera camera;
   BOOST_CHECK_EQUAL(camera.CameraId(), kInvalidCameraId);
   BOOST_CHECK_EQUAL(camera.ModelId(), kInvalidCameraModelId);
-  BOOST_CHECK_EQUAL(camera.ModelName(), "INVALID_CAMERA_MODEL");
+  BOOST_CHECK_EQUAL(camera.ModelName(), "");
   BOOST_CHECK_EQUAL(camera.Width(), 0);
   BOOST_CHECK_EQUAL(camera.Height(), 0);
   BOOST_CHECK_EQUAL(camera.HasPriorFocalLength(), false);
@@ -47,7 +47,7 @@ BOOST_AUTO_TEST_CASE(TestCameraId) {
 BOOST_AUTO_TEST_CASE(TestModelId) {
   Camera camera;
   BOOST_CHECK_EQUAL(camera.ModelId(), kInvalidCameraModelId);
-  BOOST_CHECK_EQUAL(camera.ModelName(), "INVALID_CAMERA_MODEL");
+  BOOST_CHECK_EQUAL(camera.ModelName(), "");
   camera.SetModelId(SimplePinholeCameraModel::model_id);
   BOOST_CHECK_EQUAL(camera.ModelId(),
                     static_cast<int>(SimplePinholeCameraModel::model_id));

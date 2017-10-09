@@ -248,6 +248,11 @@ void FeatureExtractionWidget::Extract() {
 
   WriteOptions();
 
+  if (!ExistsCameraModelWithName(options_->image_reader->camera_model)) {
+    QMessageBox::critical(this, "", tr("Camera model does not exist"));
+    return;
+  }
+
   const std::vector<double> camera_params =
       CSVToVector<double>(options_->image_reader->camera_params);
   const auto camera_code =

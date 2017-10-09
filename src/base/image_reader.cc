@@ -22,8 +22,8 @@ namespace colmap {
 
 bool ImageReaderOptions::Check() const {
   CHECK_OPTION_GT(default_focal_length_factor, 0.0);
+  CHECK_OPTION(ExistsCameraModelWithName(camera_model));
   const int model_id = CameraModelNameToId(camera_model);
-  CHECK_OPTION_NE(model_id, -1);
   if (!camera_params.empty()) {
     CHECK_OPTION(
         CameraModelVerifyParams(model_id, CSVToVector<double>(camera_params)));

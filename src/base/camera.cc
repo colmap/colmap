@@ -33,12 +33,14 @@ Camera::Camera()
 std::string Camera::ModelName() const { return CameraModelIdToName(model_id_); }
 
 void Camera::SetModelId(const int model_id) {
+  CHECK(ExistsCameraModelWithId(model_id));
   model_id_ = model_id;
   params_.resize(CameraModelNumParams(model_id_), 0);
 }
 
-void Camera::SetModelIdFromName(const std::string& name) {
-  model_id_ = CameraModelNameToId(name);
+void Camera::SetModelIdFromName(const std::string& model_name) {
+  CHECK(ExistsCameraModelWithName(model_name));
+  model_id_ = CameraModelNameToId(model_name);
   params_.resize(CameraModelNumParams(model_id_), 0);
 }
 
@@ -170,6 +172,7 @@ bool Camera::HasBogusParams(const double min_focal_length_ratio,
 
 void Camera::InitializeWithId(const int model_id, const double focal_length,
                               const size_t width, const size_t height) {
+  CHECK(ExistsCameraModelWithId(model_id));
   model_id_ = model_id;
   width_ = width;
   height_ = height;

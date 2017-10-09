@@ -50,6 +50,10 @@ int main(int argc, char** argv) {
     reader_options.image_list = ReadTextFileLines(image_list_path);
   }
 
+  if (!ExistsCameraModelWithName(options.image_reader->camera_model)) {
+    std::cerr << "ERROR: Camera model does not exist" << std::endl;
+  }
+
   const std::vector<double> camera_params =
       CSVToVector<double>(options.image_reader->camera_params);
   const int camera_model_id =

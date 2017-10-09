@@ -85,6 +85,12 @@ void TestModel(const std::vector<double>& params) {
                                                      default_params, 1),
                     1.0 / 100.0);
 
+  BOOST_CHECK(ExistsCameraModelWithName(CameraModel::model_name));
+  BOOST_CHECK(!ExistsCameraModelWithName(CameraModel::model_name + "FOO"));
+
+  BOOST_CHECK(ExistsCameraModelWithId(CameraModel::model_id));
+  BOOST_CHECK(!ExistsCameraModelWithId(CameraModel::model_id + 123456789));
+
   BOOST_CHECK_EQUAL(
       CameraModelNameToId(CameraModelIdToName(CameraModel::model_id)),
       CameraModel::model_id);

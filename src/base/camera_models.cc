@@ -56,18 +56,6 @@ std::unordered_map<std::string, int> InitialzeCameraModelNameToId() {
   return camera_model_name_to_id;
 }
 
-static const std::unordered_map<std::string, int> CAMERA_MODEL_NAME_TO_ID =
-    InitialzeCameraModelNameToId();
-
-int CameraModelNameToId(const std::string& model_name) {
-  const auto it = CAMERA_MODEL_NAME_TO_ID.find(model_name);
-  if (it == CAMERA_MODEL_NAME_TO_ID.end()) {
-    return kInvalidCameraModelId;
-  } else {
-    return it->second;
-  }
-}
-
 std::unordered_map<int, std::string> InitialzeCameraModelIdToName() {
   std::unordered_map<int, std::string> camera_model_id_to_name;
 
@@ -82,13 +70,33 @@ std::unordered_map<int, std::string> InitialzeCameraModelIdToName() {
   return camera_model_id_to_name;
 }
 
+static const std::unordered_map<std::string, int> CAMERA_MODEL_NAME_TO_ID =
+    InitialzeCameraModelNameToId();
+
 static const std::unordered_map<int, std::string> CAMERA_MODEL_ID_TO_NAME =
     InitialzeCameraModelIdToName();
+
+bool ExistsCameraModelWithName(const std::string& model_name) {
+  return CAMERA_MODEL_NAME_TO_ID.count(model_name) > 0;
+}
+
+bool ExistsCameraModelWithId(const int model_id) {
+  return CAMERA_MODEL_ID_TO_NAME.count(model_id) > 0;
+}
+
+int CameraModelNameToId(const std::string& model_name) {
+  const auto it = CAMERA_MODEL_NAME_TO_ID.find(model_name);
+  if (it == CAMERA_MODEL_NAME_TO_ID.end()) {
+    return kInvalidCameraModelId;
+  } else {
+    return it->second;
+  }
+}
 
 std::string CameraModelIdToName(const int model_id) {
   const auto it = CAMERA_MODEL_ID_TO_NAME.find(model_id);
   if (it == CAMERA_MODEL_ID_TO_NAME.end()) {
-    return "INVALID_CAMERA_MODEL";
+    return "";
   } else {
     return it->second;
   }
