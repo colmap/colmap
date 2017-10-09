@@ -49,6 +49,9 @@ class AutomaticReconstructionController : public Thread {
     // Whether to use shared intrinsics or not.
     bool single_camera = false;
 
+    // Which camera model to use for images.
+    std::string camera_model = "SIMPLE_RADIAL";
+
     // Whether to perform sparse mapping.
     bool sparse = true;
 

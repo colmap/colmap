@@ -53,6 +53,8 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     LOG(FATAL) << "Data type not supported";
   }
 
+  CHECK(ExistsCameraModelWithName(options_.camera_model));
+
   if (options_.quality == Quality::LOW) {
     option_manager_.sift_extraction->max_image_size = 1000;
     option_manager_.sequential_matching->loop_detection_num_images /= 2;
@@ -96,6 +98,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   reader_options.database_path = *option_manager_.database_path;
   reader_options.image_path = *option_manager_.image_path;
   reader_options.single_camera = options_.single_camera;
+  reader_options.camera_model = options_.camera_model;
 
   option_manager_.sift_extraction->use_gpu = options_.use_gpu;
   option_manager_.sift_matching->use_gpu = options_.use_gpu;
