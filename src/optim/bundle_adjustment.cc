@@ -528,8 +528,6 @@ ParallelBundleAdjuster::ParallelBundleAdjuster(
   CHECK(ba_options_.Check());
   CHECK_EQ(config_.NumConstantCameras(), 0)
       << "PBA does not allow to set individual cameras constant";
-  CHECK_EQ(config_.NumConstantCameras(), 0)
-      << "PBA does not allow to set individual cameras constant";
   CHECK_EQ(config_.NumConstantPoses(), 0)
       << "PBA does not allow to set individual translational elements constant";
   CHECK_EQ(config_.NumConstantTvecs(), 0)
