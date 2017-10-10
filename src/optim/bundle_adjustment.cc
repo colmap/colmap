@@ -518,10 +518,21 @@ bool ParallelBundleAdjuster::Options::Check() const {
 }
 
 ParallelBundleAdjuster::ParallelBundleAdjuster(
-    const Options& options, const BundleAdjustmentConfig& config)
-    : options_(options), config_(config), num_measurements_(0) {
+    const Options& options, const BundleAdjustmentOptions& ba_options,
+    const BundleAdjustmentConfig& config)
+    : options_(options),
+      ba_options_(ba_options),
+      config_(config),
+      num_measurements_(0) {
   CHECK(options_.Check());
-  CHECK(config_.NumConstantTvecs() == 0)
+  CHECK(ba_options_.Check());
+  CHECK_EQ(config_.NumConstantCameras(), 0)
+      << "PBA does not allow to set individual cameras constant";
+  CHECK_EQ(config_.NumConstantCameras(), 0)
+      << "PBA does not allow to set individual cameras constant";
+  CHECK_EQ(config_.NumConstantPoses(), 0)
+      << "PBA does not allow to set individual translational elements constant";
+  CHECK_EQ(config_.NumConstantTvecs(), 0)
       << "PBA does not allow to set individual translational elements constant";
   CHECK(config_.NumVariablePoints() == 0 && config_.NumConstantPoints() == 0)
       << "PBA does not allow to parameterize individual 3D points";
@@ -531,6 +542,8 @@ bool ParallelBundleAdjuster::Solve(Reconstruction* reconstruction) {
   CHECK_NOTNULL(reconstruction);
   CHECK_EQ(num_measurements_, 0)
       << "Cannot use the same ParallelBundleAdjuster multiple times";
+  CHECK(!ba_options_.refine_principal_point);
+  CHECK_EQ(ba_options_.refine_focal_length, ba_options_.refine_extra_params);
 
   SetUp(reconstruction);
 
@@ -550,8 +563,11 @@ bool ParallelBundleAdjuster::Solve(Reconstruction* reconstruction) {
   }
 
   pba::ParallelBA pba(device, options_.num_threads);
+
   pba.SetNextBundleMode(pba::ParallelBA::BUNDLE_FULL);
   pba.EnableRadialDistortion(pba::ParallelBA::PBA_PROJECTION_DISTORTION);
+  pba.SetFixedIntrinsics(!ba_options_.refine_focal_length &&
+                         !ba_options_.refine_extra_params);
 
   pba::ConfigBA* pba_config = pba.GetInternalConfig();
   pba_config->__lm_delta_threshold /= 100.0f;
@@ -598,8 +614,14 @@ const ceres::Solver::Summary& ParallelBundleAdjuster::Summary() const {
   return summary_;
 }
 
-bool ParallelBundleAdjuster::IsReconstructionSupported(
-    const Reconstruction& reconstruction) {
+bool ParallelBundleAdjuster::IsSupported(const BundleAdjustmentOptions& options,
+                                         const Reconstruction& reconstruction) {
+  if (options.refine_principal_point ||
+      options.refine_focal_length != options.refine_extra_params) {
+    return false;
+  }
+
+  // Check that all cameras are SIMPLE_RADIAL and that no intrinsics are shared.
   std::set<camera_t> camera_ids;
   for (const auto& image : reconstruction.Images()) {
     if (image.second.IsRegistered()) {

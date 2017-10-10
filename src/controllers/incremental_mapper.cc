@@ -49,18 +49,18 @@ void AdjustGlobalBundle(const IncrementalMapperOptions& options,
 
   PrintHeading1("Global bundle adjustment");
   if (options.ba_global_use_pba && num_reg_images >= kMinNumRegImages &&
-      ParallelBundleAdjuster::IsReconstructionSupported(
-          mapper->GetReconstruction())) {
+      ParallelBundleAdjuster::IsSupported(custom_options,
+                                          mapper->GetReconstruction())) {
     mapper->AdjustParallelGlobalBundle(
-        options.ParallelGlobalBundleAdjustment());
+        custom_options, options.ParallelGlobalBundleAdjustment());
   } else {
     mapper->AdjustGlobalBundle(custom_options);
   }
 }
 
-void IterativeLocalRefinement(
-    const IncrementalMapperOptions& options, const image_t image_id,
-    IncrementalMapper* mapper) {
+void IterativeLocalRefinement(const IncrementalMapperOptions& options,
+                              const image_t image_id,
+                              IncrementalMapper* mapper) {
   auto ba_options = options.LocalBundleAdjustment();
   for (int i = 0; i < options.ba_local_max_refinements; ++i) {
     const auto report = mapper->AdjustLocalBundle(
@@ -88,9 +88,8 @@ void IterativeLocalRefinement(
   mapper->ClearModifiedPoints3D();
 }
 
-void IterativeGlobalRefinement(
-    const IncrementalMapperOptions& options,
-    IncrementalMapper* mapper) {
+void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
+                               IncrementalMapper* mapper) {
   PrintHeading1("Retriangulation");
   CompleteAndMergeTracks(options, mapper);
   std::cout << "  => Retriangulated observations: "
@@ -159,9 +158,8 @@ size_t FilterImages(const IncrementalMapperOptions& options,
   return num_filtered_images;
 }
 
-size_t CompleteAndMergeTracks(
-    const IncrementalMapperOptions& options,
-    IncrementalMapper* mapper) {
+size_t CompleteAndMergeTracks(const IncrementalMapperOptions& options,
+                              IncrementalMapper* mapper) {
   const size_t num_completed_observations =
       mapper->CompleteTracks(options.Triangulation());
   std::cout << "  => Merged observations: " << num_completed_observations
@@ -173,8 +171,7 @@ size_t CompleteAndMergeTracks(
   return num_completed_observations + num_merged_observations;
 }
 
-IncrementalMapper::Options IncrementalMapperOptions::Mapper()
-    const {
+IncrementalMapper::Options IncrementalMapperOptions::Mapper() const {
   IncrementalMapper::Options options = mapper;
   options.abs_pose_refine_focal_length = ba_refine_focal_length;
   options.abs_pose_refine_extra_params = ba_refine_extra_params;
@@ -185,8 +182,8 @@ IncrementalMapper::Options IncrementalMapperOptions::Mapper()
   return options;
 }
 
-IncrementalTriangulator::Options
-IncrementalMapperOptions::Triangulation() const {
+IncrementalTriangulator::Options IncrementalMapperOptions::Triangulation()
+    const {
   IncrementalTriangulator::Options options = triangulation;
   options.min_focal_length_ratio = min_focal_length_ratio;
   options.max_focal_length_ratio = max_focal_length_ratio;
@@ -194,8 +191,8 @@ IncrementalMapperOptions::Triangulation() const {
   return options;
 }
 
-BundleAdjustmentOptions
-IncrementalMapperOptions::LocalBundleAdjustment() const {
+BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
+    const {
   BundleAdjustmentOptions options;
   options.solver_options.function_tolerance = 0.0;
   options.solver_options.gradient_tolerance = 10.0;
@@ -215,8 +212,8 @@ IncrementalMapperOptions::LocalBundleAdjustment() const {
   return options;
 }
 
-BundleAdjustmentOptions
-IncrementalMapperOptions::GlobalBundleAdjustment() const {
+BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
+    const {
   BundleAdjustmentOptions options;
   options.solver_options.function_tolerance = 0.0;
   options.solver_options.gradient_tolerance = 1.0;
@@ -272,8 +269,8 @@ bool IncrementalMapperOptions::Check() const {
 }
 
 IncrementalMapperController::IncrementalMapperController(
-    const IncrementalMapperOptions* options,
-    const std::string& image_path, const std::string& database_path,
+    const IncrementalMapperOptions* options, const std::string& image_path,
+    const std::string& database_path,
     ReconstructionManager* reconstruction_manager)
     : options_(options),
       image_path_(image_path),

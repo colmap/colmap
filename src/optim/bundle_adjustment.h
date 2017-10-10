@@ -199,6 +199,7 @@ class ParallelBundleAdjuster {
   };
 
   ParallelBundleAdjuster(const Options& options,
+                         const BundleAdjustmentOptions& ba_options,
                          const BundleAdjustmentConfig& config);
 
   bool Solve(Reconstruction* reconstruction);
@@ -208,7 +209,8 @@ class ParallelBundleAdjuster {
 
   // Check whether PBA is supported for the given reconstruction. If the
   // reconstruction is not supported, the PBA solver will exit ungracefully.
-  static bool IsReconstructionSupported(const Reconstruction& reconstruction);
+  static bool IsSupported(const BundleAdjustmentOptions& options,
+                          const Reconstruction& reconstruction);
 
  private:
   void SetUp(Reconstruction* reconstruction);
@@ -218,6 +220,7 @@ class ParallelBundleAdjuster {
   void AddPointsToProblem(Reconstruction* reconstruction);
 
   const Options options_;
+  const BundleAdjustmentOptions ba_options_;
   BundleAdjustmentConfig config_;
   ceres::Solver::Summary summary_;
 

@@ -652,7 +652,8 @@ bool IncrementalMapper::AdjustGlobalBundle(
 }
 
 bool IncrementalMapper::AdjustParallelGlobalBundle(
-    const ParallelBundleAdjuster::Options& ba_options) {
+    const BundleAdjustmentOptions& ba_options,
+    const ParallelBundleAdjuster::Options& parallel_ba_options) {
   CHECK_NOTNULL(reconstruction_);
 
   const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
@@ -670,7 +671,8 @@ bool IncrementalMapper::AdjustParallelGlobalBundle(
   }
 
   // Run bundle adjustment.
-  ParallelBundleAdjuster bundle_adjuster(ba_options, ba_config);
+  ParallelBundleAdjuster bundle_adjuster(parallel_ba_options, ba_options,
+                                         ba_config);
   if (!bundle_adjuster.Solve(reconstruction_)) {
     return false;
   }
