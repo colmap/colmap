@@ -192,7 +192,8 @@ The depth maps are stored as mixed text and binary files. The text header
 defines the dimensions of the image in the format ``with&height&channels&``
 followed by row-major `float32` binary data. For depth maps ``channels=1`` and
 for normal maps ``channels=3``. The depth and normal maps can be conveniently
-read with Matlab using the functions in ``scripts/matlab/read_depth_map.m`` and
+read with Python using the functions in ``scripts/python/read_dense.py`` and
+with Matlab using the functions in ``scripts/matlab/read_depth_map.m`` and
 ``scripts/matlab/read_normal_map.m``.
 
 
