@@ -42,6 +42,9 @@ int main(int argc, char** argv) {
 
   if (!image_list_path.empty()) {
     reader_options.image_list = ReadTextFileLines(image_list_path);
+    if (reader_options.image_list.empty()) {
+      return EXIT_SUCCESS;
+    }
   }
 
   const std::vector<double> camera_params =
