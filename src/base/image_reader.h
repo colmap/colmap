@@ -54,6 +54,9 @@ class ImageReader {
     // value `default_focal_length_factor * max(width, height)`.
     double default_focal_length_factor = 1.2;
 
+    // If the image has an alpha channel it can be used to filter keypoints
+    bool use_alpha = true;
+
     bool Check() const;
   };
 

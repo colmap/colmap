@@ -101,7 +101,7 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
   // Read image.
   //////////////////////////////////////////////////////////////////////////////
 
-  if (!bitmap->Read(image_path, false)) {
+  if (!bitmap->Read(image_path, false, options_.use_alpha)) {
     return Status::BITMAP_ERROR;
   }
 

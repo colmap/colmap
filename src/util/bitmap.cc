@@ -30,22 +30,28 @@
 namespace colmap {
 
 Bitmap::Bitmap()
-    : data_(nullptr, &FreeImage_Unload), width_(0), height_(0), channels_(0) {}
+    : data_(nullptr, &FreeImage_Unload), alpha_(nullptr, &FreeImage_Unload), width_(0), height_(0), channels_(0) {}
 
 Bitmap::Bitmap(const Bitmap& other) : Bitmap() {
   if (other.data_) {
     SetPtr(FreeImage_Clone(other.data_.get()));
   }
+  if (other.alpha_) {
+    SetAlphaPtr(FreeImage_Clone(other.alpha_.get()));
+  }
 }
 
 Bitmap::Bitmap(Bitmap&& other) : Bitmap() {
   data_ = std::move(other.data_);
+  if (other.alpha_) alpha_ = std::move(other.alpha_);
   width_ = other.width_;
   height_ = other.height_;
   channels_ = other.channels_;
 }
 
-Bitmap::Bitmap(FIBITMAP* data) : Bitmap() { SetPtr(data); }
+Bitmap::Bitmap(FIBITMAP* data) : Bitmap() {
+  SetPtr(data);
+}
 
 Bitmap& Bitmap::operator=(const Bitmap& other) {
   if (other.data_) {
@@ -83,6 +89,7 @@ bool Bitmap::Allocate(const int width, const int height, const bool as_rgb) {
 
 void Bitmap::Deallocate() {
   data_.reset();
+  alpha_.reset();
   width_ = 0;
   height_ = 0;
   channels_ = 0;
@@ -110,10 +117,10 @@ std::vector<uint8_t> Bitmap::ConvertToRawBits() const {
 std::vector<uint8_t> Bitmap::ConvertToRowMajorArray() const {
   std::vector<uint8_t> array(width_ * height_ * channels_);
   size_t i = 0;
-  for (int y = 0; y < height_; ++y) {
+  for (unsigned int y = 0; y < height_; ++y) {
     const uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
-    for (int x = 0; x < width_; ++x) {
-      for (int d = 0; d < channels_; ++d) {
+    for (unsigned int x = 0; x < width_; ++x) {
+      for (unsigned int d = 0; d < channels_; ++d) {
         array[i] = line[x * channels_ + d];
         i += 1;
       }
@@ -125,9 +132,9 @@ std::vector<uint8_t> Bitmap::ConvertToRowMajorArray() const {
 std::vector<uint8_t> Bitmap::ConvertToColMajorArray() const {
   std::vector<uint8_t> array(width_ * height_ * channels_);
   size_t i = 0;
-  for (int d = 0; d < channels_; ++d) {
-    for (int x = 0; x < width_; ++x) {
-      for (int y = 0; y < height_; ++y) {
+  for (unsigned int d = 0; d < channels_; ++d) {
+    for (unsigned int x = 0; x < width_; ++x) {
+      for (unsigned int y = 0; y < height_; ++y) {
         const uint8_t* line =
             FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
         array[i] = line[x * channels_ + d];
@@ -138,7 +145,7 @@ std::vector<uint8_t> Bitmap::ConvertToColMajorArray() const {
   return array;
 }
 
-bool Bitmap::GetPixel(const int x, const int y,
+bool Bitmap::GetPixel(const unsigned int x, const unsigned int y,
                       BitmapColor<uint8_t>* color) const {
   if (x < 0 || x >= width_ || y < 0 || y >= height_) {
     return false;
@@ -159,7 +166,21 @@ bool Bitmap::GetPixel(const int x, const int y,
   return false;
 }
 
-bool Bitmap::SetPixel(const int x, const int y,
+bool Bitmap::GetAlphaPixel(const unsigned int x, const unsigned int y,
+                      BitmapColor<uint8_t>* color) const {
+  if (x < 0 || x >= width_ || y < 0 || y >= height_) {
+    return false;
+  }
+
+  if (HasAlpha()) {
+    const uint8_t* line = FreeImage_GetScanLine(alpha_.get(), height_ - 1 - y);
+    color->r = line[x];
+    return true;
+  }
+  else return false;
+}
+
+bool Bitmap::SetPixel(const unsigned  int x, const unsigned int y,
                       const BitmapColor<uint8_t>& color) {
   if (x < 0 || x >= width_ || y < 0 || y >= height_) {
     return false;
@@ -180,16 +201,16 @@ bool Bitmap::SetPixel(const int x, const int y,
   return false;
 }
 
-const uint8_t* Bitmap::GetScanline(const int y) const {
+const uint8_t* Bitmap::GetScanline(const unsigned  int y) const {
   CHECK_GE(y, 0);
   CHECK_LT(y, height_);
   return FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
 }
 
 void Bitmap::Fill(const BitmapColor<uint8_t>& color) {
-  for (int y = 0; y < height_; ++y) {
+  for (unsigned int y = 0; y < height_; ++y) {
     uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
-    for (int x = 0; x < width_; ++x) {
+    for (unsigned int x = 0; x < width_; ++x) {
       if (IsGrey()) {
         line[x] = color.r;
       } else if (IsRGB()) {
@@ -208,15 +229,23 @@ bool Bitmap::InterpolateNearestNeighbor(const double x, const double y,
   return GetPixel(xx, yy, color);
 }
 
+bool Bitmap::InterpolateAlphaNearestNeighbor(const double x, const double y,
+                                        BitmapColor<uint8_t>* color) const {
+
+  const int xx = static_cast<int>(std::round(x));
+  const int yy = static_cast<int>(std::round(y));
+  return GetAlphaPixel(xx, yy, color);
+}
+
 bool Bitmap::InterpolateBilinear(const double x, const double y,
                                  BitmapColor<float>* color) const {
   // FreeImage's coordinate system origin is in the lower left of the image.
   const double inv_y = height_ - 1 - y;
 
-  const int x0 = static_cast<int>(std::floor(x));
-  const int x1 = x0 + 1;
-  const int y0 = static_cast<int>(std::floor(inv_y));
-  const int y1 = y0 + 1;
+  const unsigned int x0 = static_cast<unsigned int>(std::floor(x));
+  const unsigned int x1 = x0 + 1;
+  const unsigned int y0 = static_cast<unsigned int>(std::floor(inv_y));
+  const unsigned int y1 = y0 + 1;
 
   if (x0 < 0 || x1 >= width_ || y0 < 0 || y1 >= height_) {
     return false;
@@ -391,7 +420,7 @@ bool Bitmap::ExifAltitude(double* altitude) {
   return false;
 }
 
-bool Bitmap::Read(const std::string& path, const bool as_rgb) {
+bool Bitmap::Read(const std::string& path, const bool as_rgb, const bool use_alpha) {
   if (!ExistsFile(path)) {
     return false;
   }
@@ -409,6 +438,11 @@ bool Bitmap::Read(const std::string& path, const bool as_rgb) {
 
   data_ = FIBitmapPtr(fi_bitmap, &FreeImage_Unload);
 
+  if(IsPtrRGBA(data_.get()) && use_alpha) {
+    FIBITMAP* fi_alpha = FreeImage_GetChannel(data_.get(), FICC_ALPHA );
+    alpha_ = FIBitmapPtr(fi_alpha, &FreeImage_Unload);
+  }
+
   if (!IsPtrRGB(data_.get()) && as_rgb) {
     FIBITMAP* converted_bitmap = FreeImage_ConvertTo24Bits(fi_bitmap);
     data_ = FIBitmapPtr(converted_bitmap, &FreeImage_Unload);
@@ -419,6 +453,9 @@ bool Bitmap::Read(const std::string& path, const bool as_rgb) {
 
   if (!IsPtrSupported(data_.get())) {
     data_.reset();
+    if ( alpha_ != nullptr ) {
+      alpha_.reset();
+    }
     return false;
   }
 
@@ -458,11 +495,11 @@ bool Bitmap::Write(const std::string& path, const FREE_IMAGE_FORMAT format,
 void Bitmap::Smooth(const float sigma_x, const float sigma_y) {
   std::vector<float> array(width_ * height_);
   std::vector<float> array_smoothed(width_ * height_);
-  for (int d = 0; d < channels_; ++d) {
+  for (unsigned int d = 0; d < channels_; ++d) {
     size_t i = 0;
-    for (int y = 0; y < height_; ++y) {
+    for (unsigned int y = 0; y < height_; ++y) {
       const uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
-      for (int x = 0; x < width_; ++x) {
+      for (unsigned int x = 0; x < width_; ++x) {
         array[i] = line[x * channels_ + d];
         i += 1;
       }
@@ -472,9 +509,9 @@ void Bitmap::Smooth(const float sigma_x, const float sigma_y) {
                   width_, sigma_x, sigma_y);
 
     i = 0;
-    for (int y = 0; y < height_; ++y) {
+    for (unsigned int y = 0; y < height_; ++y) {
       uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
-      for (int x = 0; x < width_; ++x) {
+      for (unsigned int x = 0; x < width_; ++x) {
         line[x * channels_ + d] =
             TruncateCast<float, uint8_t>(array_smoothed[i]);
         i += 1;
@@ -486,8 +523,12 @@ void Bitmap::Smooth(const float sigma_x, const float sigma_y) {
 void Bitmap::Rescale(const int new_width, const int new_height,
                      const FREE_IMAGE_FILTER filter) {
   SetPtr(FreeImage_Rescale(data_.get(), new_width, new_height, filter));
+  if ( alpha_ ) {
+    SetAlphaPtr( FreeImage_Rescale(alpha_.get(), new_width, new_height, filter));
+  }
 }
 
+//TODO: Handle a second case for cloning alpha_
 Bitmap Bitmap::Clone() const { return Bitmap(FreeImage_Clone(data_.get())); }
 
 Bitmap Bitmap::CloneAsGrey() const {
@@ -543,6 +584,19 @@ void Bitmap::SetPtr(FIBITMAP* data) {
   channels_ = IsPtrRGB(data) ? 3 : 1;
 }
 
+bool Bitmap::SetAlphaPtr(FIBITMAP* data) {
+  if (FreeImage_GetWidth(data) == width_ &&
+      FreeImage_GetHeight(data) == height_ &&
+      channels_ != 0) {
+    if (!IsPtrGrey(data)) {
+      FreeImage_Unload(data);
+      data = FreeImage_ConvertToGreyscale(data);
+    }
+    alpha_ = FIBitmapPtr(data, &FreeImage_Unload);
+    return 1;
+  } else return 0;
+}
+
 bool Bitmap::IsPtrGrey(FIBITMAP* data) {
   return FreeImage_GetColorType(data) == FIC_MINISBLACK &&
          FreeImage_GetBPP(data) == 8;
@@ -553,8 +607,13 @@ bool Bitmap::IsPtrRGB(FIBITMAP* data) {
          FreeImage_GetBPP(data) == 24;
 }
 
+bool Bitmap::IsPtrRGBA(FIBITMAP* data) {
+  return FreeImage_GetColorType(data) == FIC_RGBALPHA &&
+         FreeImage_GetBPP(data) == 32;
+}
+
 bool Bitmap::IsPtrSupported(FIBITMAP* data) {
-  return IsPtrGrey(data) || IsPtrRGB(data);
+  return IsPtrGrey(data) || IsPtrRGB(data) || IsPtrRGBA(data);
 }
 
 float JetColormap::Red(const float gray) { return Base(gray - 0.25f); }

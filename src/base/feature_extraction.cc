@@ -63,6 +63,36 @@ void ScaleKeypoints(const Bitmap& bitmap, const Camera& camera,
   }
 }
 
+int RemoveKeypointsByAlpha(const Bitmap& bitmap,
+                            FeatureKeypoints* keypoints,
+                            FeatureDescriptors* descriptors) {
+  size_t new_descriptor = 0;
+  size_t d = 0;
+  auto new_keypoint = keypoints->begin();
+  for ( auto i = keypoints->begin(); i < keypoints->end(); ) {
+    const double x = static_cast<double>( i->x );
+    const double y = static_cast<double>( i->y );
+    BitmapColor<uint8_t> color;
+    bitmap.InterpolateAlphaNearestNeighbor(x, y, &color);
+    // TODO: use the case where the keypoint is masked: color.r < 255
+    //       more efficient?
+    if (color.r == 255) {
+      *new_keypoint = std::move(*i);
+      // TODO: is row().swap() better?
+      descriptors->row(new_descriptor) = descriptors->row(d);
+      ++new_keypoint;
+      ++new_descriptor;
+    }
+    ++i; ++d;
+  }
+  if (new_descriptor < keypoints->size() ) {
+    keypoints->resize(new_descriptor);
+    descriptors->conservativeResize(new_descriptor, descriptors->cols());
+  }
+  return static_cast<int>( new_descriptor );
+}
+
+
 }  // namespace
 
 bool SiftExtractionOptions::Check() const {
@@ -79,12 +109,14 @@ bool SiftExtractionOptions::Check() const {
 }
 
 SiftFeatureExtractor::SiftFeatureExtractor(
-    const ImageReader::Options& reader_options,
-    const SiftExtractionOptions& sift_options)
+   const ImageReader::Options& reader_options,
+   const SiftExtractionOptions& sift_options)
     : reader_options_(reader_options),
       sift_options_(sift_options),
       database_(reader_options_.database_path),
-      image_reader_(reader_options_, &database_) {
+      image_reader_(reader_options_, &database_)
+{
+
   CHECK(reader_options_.Check());
   CHECK(sift_options_.Check());
 
@@ -250,6 +282,7 @@ void FeatureImporter::Run() {
       }
 
       if (!database.ExistsKeypoints(image.ImageId())) {
+        // possible place to filter keypoints
         database.WriteKeypoints(image.ImageId(), keypoints);
       }
 
@@ -698,9 +731,26 @@ void SiftCPUFeatureExtractorThread::Run() {
           image_data.status = ImageReader::Status::FAILURE;
         }
       }
+      std::cout << StringPrintf("  Image size:      %d",
+                                image_data.image.Points2D().size())
+                    << std::endl;
+      int n_keypoints = RemoveKeypointsByAlpha(image_data.bitmap,
+                             &image_data.keypoints,
+                             &image_data.descriptors);
+      std::cout << StringPrintf("  Keypoints after Alpha Filtering:      %d",
+                                n_keypoints)
+                    << std::endl;
+      if (image_data.bitmap.HasAlpha() && sift_options_.use_alpha ) {
+        int n_keypoints = RemoveKeypointsByAlpha(image_data.bitmap,
+                               &image_data.keypoints,
+                               &image_data.descriptors);
+        std::cout << StringPrintf("  Keypoints after Alpha Filtering:      %d",
+                                  n_keypoints)
+                      << std::endl;
+        std::cout << "Has Alpha" << std::endl;
+      }
 
       image_data.bitmap.Deallocate();
-
       output_queue_->Push(image_data);
     } else {
       break;
@@ -755,7 +805,15 @@ void SiftGPUFeatureExtractorThread::Run() {
           image_data.status = ImageReader::Status::FAILURE;
         }
       }
-
+      if (image_data.bitmap.HasAlpha() && sift_options_.use_alpha) {
+        int n_keypoints = RemoveKeypointsByAlpha(image_data.bitmap,
+                               &image_data.keypoints,
+                               &image_data.descriptors);
+        std::cout << StringPrintf("  Keypoints after Alpha Filtering:      %d",
+                                  n_keypoints)
+                      << std::endl;
+        std::cout << "Has alpha" << std::endl;
+      }
       image_data.bitmap.Deallocate();
 
       output_queue_->Push(image_data);
@@ -841,12 +899,17 @@ void FeatureWriterThread::Run() {
                                 image_data.keypoints.size())
                 << std::endl;
 
+      image_data.PrintKeypoints();
+
       DatabaseTransaction database_transaction(database_);
 
       if (image_data.image.ImageId() == kInvalidImageId) {
         image_data.image.SetImageId(database_->WriteImage(image_data.image));
       }
 
+// keypoints should be filtered by alpha at this point
+// keypoints and descriptors are defined in feature.h
+// descriptors is a keypoints.size() x 128 matrix of uint8_t
       if (!database_->ExistsKeypoints(image_data.image.ImageId())) {
         database_->WriteKeypoints(image_data.image.ImageId(),
                                   image_data.keypoints);

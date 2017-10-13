@@ -42,6 +42,8 @@ class SIFTExtractionWidget : public ExtractionWidget {
  private:
   QRadioButton* sift_gpu_;
   QRadioButton* sift_cpu_;
+  QCheckBox* use_alpha_;
+
 };
 
 class ImportFeaturesWidget : public ExtractionWidget {
@@ -70,6 +72,8 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
   sift_cpu_ = new QRadioButton(tr("CPU"), this);
   grid_layout_->addWidget(sift_cpu_, grid_layout_->rowCount(), 1);
 
+  // use_alpha_ = new QCheckBox(tr("Use Alpha"), this);
+  // grid_layout_->addWidget(use_alpha_, grid_layout_->rowCount(), 1);
   AddSpacer();
 
   AddOptionInt(&options->sift_extraction->max_image_size, "max_image_size");
@@ -88,6 +92,7 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
   AddOptionInt(&options->sift_extraction->num_threads, "num_threads", -1);
   AddOptionBool(&options->sift_extraction->use_gpu, "use_gpu");
   AddOptionText(&options->sift_extraction->gpu_index, "gpu_index");
+  AddOptionBool(&options->sift_extraction->use_alpha, "use_alpha");
 }
 
 void SIFTExtractionWidget::Run() {
@@ -96,6 +101,7 @@ void SIFTExtractionWidget::Run() {
   ImageReader::Options reader_options = *options_->image_reader;
   reader_options.database_path = *options_->database_path;
   reader_options.image_path = *options_->image_path;
+  reader_options.use_alpha = options_->sift_extraction->use_alpha;
 
   Thread* extractor =
       new SiftFeatureExtractor(reader_options, *options_->sift_extraction);

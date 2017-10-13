@@ -127,11 +127,16 @@ void OptionManager::AddExtractionOptions() {
                               &image_reader->camera_params);
   AddAndRegisterDefaultOption("ImageReader.default_focal_length_factor",
                               &image_reader->default_focal_length_factor);
+  AddAndRegisterDefaultOption("ImageReader.use_alpha",
+                              &image_reader->use_alpha);
 
   AddAndRegisterDefaultOption("SiftExtraction.num_threads",
                               &sift_extraction->num_threads);
   AddAndRegisterDefaultOption("SiftExtraction.use_gpu",
                               &sift_extraction->use_gpu);
+  AddAndRegisterDefaultOption("SiftExtraction.use_alpha",
+                              &sift_extraction->use_alpha);
+
   AddAndRegisterDefaultOption("SiftExtraction.gpu_index",
                               &sift_extraction->gpu_index);
   AddAndRegisterDefaultOption("SiftExtraction.max_image_size",

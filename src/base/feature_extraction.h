@@ -69,6 +69,9 @@ struct SiftExtractionOptions {
   // Note that this feature is only available in the OpenGL SiftGPU version.
   bool darkness_adaptivity = false;
 
+  // Whether to use the alpha channel to eliminate some keypoints
+  bool use_alpha = false;
+
   enum class Normalization {
     // L1-normalizes each descriptor followed by element-wise square rooting.
     // This normalization is usually better than standard L2-normalization.
@@ -183,6 +186,15 @@ struct ImageData {
 
   FeatureKeypoints keypoints;
   FeatureDescriptors descriptors;
+
+  // add a function to remove keypoints when they fall within bitmap.alpha_
+
+  void PrintKeypoints() {
+    for (auto kp : keypoints ) {
+      std::cout << "(" << kp.x << "," << kp.y << ") ";
+    }
+    std::cout << std::endl;
+  }
 };
 
 class ImageResizerThread : public Thread {

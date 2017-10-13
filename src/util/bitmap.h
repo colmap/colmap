@@ -85,6 +85,10 @@ class Bitmap {
   inline const FIBITMAP* Data() const;
   inline FIBITMAP* Data();
 
+  // Get pointer to alpha channel
+  inline const FIBITMAP* Alpha() const;
+  inline FIBITMAP* Alpha();
+
   // Dimensions of bitmap.
   inline int Width() const;
   inline int Height() const;
@@ -100,6 +104,7 @@ class Bitmap {
   // Check whether image is grey- or colorscale.
   inline bool IsRGB() const;
   inline bool IsGrey() const;
+  inline bool HasAlpha() const;
 
   // Number of bytes required to store image.
   size_t NumBytes() const;
@@ -111,11 +116,13 @@ class Bitmap {
 
   // Manipulate individual pixels. For grayscale images, only the red element
   // of the RGB color is used.
-  bool GetPixel(const int x, const int y, BitmapColor<uint8_t>* color) const;
-  bool SetPixel(const int x, const int y, const BitmapColor<uint8_t>& color);
+  bool GetPixel(const unsigned  int x, const unsigned int y, BitmapColor<uint8_t>* color) const;
+  bool SetPixel(const unsigned int x, const unsigned int y, const BitmapColor<uint8_t>& color);
+
+  bool GetAlphaPixel(const unsigned int x, const unsigned int y, BitmapColor<uint8_t>* color) const;
 
   // Get pointer to y-th scanline, where the 0-th scanline is at the top.
-  const uint8_t* GetScanline(const int y) const;
+  const uint8_t* GetScanline(const unsigned int y) const;
 
   // Fill entire bitmap with uniform color. For grayscale images, the first
   // element of the vector is used.
@@ -124,6 +131,9 @@ class Bitmap {
   // Interpolate color at given floating point position.
   bool InterpolateNearestNeighbor(const double x, const double y,
                                   BitmapColor<uint8_t>* color) const;
+  bool InterpolateAlphaNearestNeighbor(const double x, const double y,
+                                  BitmapColor<uint8_t>* color) const;
+
   bool InterpolateBilinear(const double x, const double y,
                            BitmapColor<float>* color) const;
 
@@ -135,7 +145,7 @@ class Bitmap {
   bool ExifAltitude(double* altitude);
 
   // Read bitmap at given path and convert to grey- or colorscale.
-  bool Read(const std::string& path, const bool as_rgb = true);
+  bool Read(const std::string& path, const bool as_rgb = true, const bool use_alpha = false);
 
   // Write image to file. Flags can be used to set e.g. the JPEG quality.
   // Consult the FreeImage documentation for all available flags.
@@ -166,15 +176,18 @@ class Bitmap {
   typedef std::unique_ptr<FIBITMAP, decltype(&FreeImage_Unload)> FIBitmapPtr;
 
   void SetPtr(FIBITMAP* data);
+  bool SetAlphaPtr(FIBITMAP* data);
 
   static bool IsPtrGrey(FIBITMAP* data);
   static bool IsPtrRGB(FIBITMAP* data);
+  static bool IsPtrRGBA(FIBITMAP* data);
   static bool IsPtrSupported(FIBITMAP* data);
 
   FIBitmapPtr data_;
-  int width_;
-  int height_;
-  int channels_;
+  FIBitmapPtr alpha_;
+  unsigned int width_;
+  unsigned int height_;
+  unsigned int channels_;
 };
 
 // Jet colormap inspired by Matlab. Grayvalues are expected in the range [0, 1]
@@ -260,6 +273,7 @@ bool Bitmap::IsRGB() const { return channels_ == 3; }
 
 bool Bitmap::IsGrey() const { return channels_ == 1; }
 
+bool Bitmap::HasAlpha() const { return alpha_.get() != nullptr ; }
 }  // namespace colmap
 
 #endif  // COLMAP_SRC_UTIL_BITMAP_H_
