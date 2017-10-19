@@ -699,10 +699,8 @@ void ImageTab::SplitCamera() {
 
   for (QModelIndex& index : select->selectedRows()) {
     auto& image = images_[index.row()];
-    if (image.CameraId() != camera_id) {
-      image.SetCameraId(database_->WriteCamera(camera));
-      database_->UpdateImage(image);
-    }
+    image.SetCameraId(database_->WriteCamera(camera));
+    database_->UpdateImage(image);
     table_widget_->setItem(
         index.row(), 2,
         new QTableWidgetItem(QString::number(image.CameraId())));
