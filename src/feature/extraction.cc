@@ -87,9 +87,11 @@ SiftFeatureExtractor::SiftFeatureExtractor(
           sift_gpu_options, extractor_queue_.get(), writer_queue_.get()));
     }
   } else {
+    auto custom_sift_options = sift_options_;
+    custom_sift_options.use_gpu = false;
     for (int i = 0; i < num_threads; ++i) {
       extractors_.emplace_back(new internal::SiftFeatureExtractorThread(
-          sift_options_, extractor_queue_.get(), writer_queue_.get()));
+          custom_sift_options, extractor_queue_.get(), writer_queue_.get()));
     }
   }
 
