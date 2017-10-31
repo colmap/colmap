@@ -131,15 +131,14 @@ def download_zipfile(url, archive_path, unzip_path):
 def build_cmake_project(args, path, extra_config_args=[],
                         extra_build_args=[]):
     mkdir_if_not_exists(path)
-    subprocess.call(["cmake",
-                     *args.cmake_config_args,
-                     *extra_config_args, ".."], cwd=path)
+    subprocess.call(["cmake"] + args.cmake_config_args
+                     + extra_config_args + [".."], cwd=path)
     subprocess.call(["cmake",
                      "--build", ".",
                      "--target", "install",
-                     "--config", args.build_type,
-                     *args.cmake_build_args,
-                     *extra_build_args], cwd=path)
+                     "--config", args.build_type]
+                     + args.cmake_build_args
+                     + extra_build_args, cwd=path)
 
 
 def build_eigen(args):
