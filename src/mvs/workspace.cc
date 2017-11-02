@@ -159,12 +159,31 @@ void ImportPMVSWorkspace(const Workspace& workspace,
   for (const auto& line : option_lines) {
     if (StringStartsWith(line, "timages")) {
       const auto elems = StringSplit(line, " ");
-      const int num_images = std::stoull(elems[1]);
-      CHECK_EQ(num_images + 2, elems.size());
+      int num_images = std::stoull(elems[1]);
+      std::vector<int> image_ids;
+      if (num_images == -1) {
+        CHECK_EQ(elems.size(), 4);
+        const int interval_lower_bound = std::stoull(elems[2]);
+        const int interval_upper_bound = std::stoull(elems[3]);
+        CHECK_GT(interval_upper_bound, interval_lower_bound);
+        num_images = interval_upper_bound - interval_lower_bound;
+        image_ids.reserve(num_images);
+        for (size_t i = 0; i < (size_t) num_images; ++i) {
+          const int image_id = interval_lower_bound + i;
+          image_ids.push_back(image_id);
+        } 
+      } else {
+        CHECK_EQ(num_images + 2, elems.size());
+        image_ids.reserve(num_images);
+        for (size_t i = 2; i < elems.size(); ++i) {
+          const int image_id = std::stoull(elems[i]);
+          image_ids.push_back(image_id);
+        }
+      }
       std::vector<std::string> image_names;
       image_names.reserve(num_images);
-      for (size_t i = 2; i < elems.size(); ++i) {
-        const int image_id = std::stoull(elems[i]);
+      for (size_t i = 0; i < image_ids.size(); ++i) {
+        const int image_id = image_ids[i];
         const std::string image_name =
             workspace.GetModel().GetImageName(image_id);
         image_names.push_back(image_name);
