@@ -154,8 +154,8 @@ std::vector<Eigen::Vector3d> ComputeDepthsSylvester(
   std::vector<Eigen::Vector3d> depths;
   depths.reserve(roots_real.size());
   for (Eigen::VectorXd::Index i = 0; i < roots_real.size(); ++i) {
-    const double kMaxRootImag = 1e-3;
-    if (std::abs(roots_imag(i)) > kMaxRootImag) {
+    const double kMaxRootImagRatio = 1e-3;
+    if (std::abs(roots_imag(i)) > kMaxRootImagRatio * std::abs(roots_real(i))) {
       continue;
     }
 
@@ -177,11 +177,12 @@ std::vector<Eigen::Vector3d> ComputeDepthsSylvester(
       ComputeLambdaValues(K.row(1), lambda_3, &lambdas_1_2);
       for (const double lambda_1_1 : lambdas_1_1) {
         for (const double lambda_1_2 : lambdas_1_2) {
-          const double kMaxLambdaDiff = 1e-3;
-          if (std::abs(lambda_1_1 - lambda_1_2) < kMaxLambdaDiff) {
-            const double lambda_1 = (lambda_1_1 + lambda_1_2) / 2;
-            depths.emplace_back(lambda_1, lambda_2, lambda_3);
-          }
+          const double kMaxLambdaRatio = 1e-2;
+          if (std::abs(lambda_1_1 - lambda_1_2) <
+              kMaxLambdaRatio * std::max(lambda_1_1, lambda_1_2)) {
+              const double lambda_1 = (lambda_1_1 + lambda_1_2) / 2;
+              depths.emplace_back(lambda_1, lambda_2, lambda_3);
+            }
         }
       }
     }
