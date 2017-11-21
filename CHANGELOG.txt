@@ -1,3 +1,18 @@
+COLMAP 3.3 (11/21/2017)
+-----------------------
+- Use DSP (Domain Size Pooling) SIFT by default. DSP-SIFT outperforms standard
+  SIFT in most cases, as shown in "Comparative Evaluation of Hand-Crafted and
+  Learned Local Features", Schoenberger et al., CVPR 2017
+- Improved parameters dense reconstruction of smaller models
+- Improved compile times due to various code optimizations
+- Add option to specify camera model in automatic reconstruction
+- Add new model orientation alignment based on upright image assumption
+- Improved numerical stability for generalized absolute pose solver
+- Support for image range specification in PMVS dense reconstruction format
+- Support for older Python versions in automatic build script
+- Fix OpenCV Fisheye camera model to exactly match OpenCV specifications
+
+
 COLMAP 3.2 (9/2/2017)
 ----------------------
 - Fully automatic cross-platform build script (Windows, Mac, Linux)

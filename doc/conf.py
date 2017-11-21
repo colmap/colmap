@@ -53,7 +53,7 @@ copyright = u'2017, Johannes L. Schoenberger'
 # built documents.
 #
 # The short X.Y version.
-version = '3.2'
+version = '3.3'
 # The full version, including alpha/beta/rc tags.
 release = version
 
