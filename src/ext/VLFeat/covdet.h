@@ -197,7 +197,7 @@ VL_EXPORT int vl_covdet_put_image (VlCovDet * self,
                                     float const * image,
                                     vl_size width, vl_size height) ;
 
-VL_EXPORT void vl_covdet_detect (VlCovDet * self) ;
+VL_EXPORT void vl_covdet_detect (VlCovDet * self, vl_size max_num_features) ;
 VL_EXPORT int vl_covdet_append_feature (VlCovDet * self, VlCovDetFeature const * feature) ;
 VL_EXPORT void vl_covdet_extract_orientations (VlCovDet * self) ;
 VL_EXPORT void vl_covdet_extract_laplacian_scales (VlCovDet * self) ;

@@ -1918,7 +1918,7 @@ _vl_dog_response (float * dog,
  **/
 
 void
-vl_covdet_detect (VlCovDet * self)
+vl_covdet_detect (VlCovDet * self, vl_size max_num_features)
 {
   VlScaleSpaceGeometry geom = vl_scalespace_get_geometry(self->gss) ;
   VlScaleSpaceGeometry cgeom ;
@@ -1994,7 +1994,7 @@ vl_covdet_detect (VlCovDet * self)
     vl_size extremaBufferSize = 0 ;
     vl_size numExtrema ;
     vl_size index ;
-    for (o = cgeom.firstOctave ; o <= cgeom.lastOctave ; ++o) {
+    for (o = cgeom.lastOctave; o >= cgeom.firstOctave; --o) {
       VlScaleSpaceOctaveGeometry octgeom = vl_scalespace_get_octave_geometry(self->css, o) ;
       double step = octgeom.step ;
       vl_size width = octgeom.width ;
@@ -2083,6 +2083,9 @@ vl_covdet_detect (VlCovDet * self)
           break ;
         }
       }
+      if (self->numFeatures >= max_num_features) {
+        break;
+      }
     } /* next octave */
 
     if (extrema) { vl_free(extrema) ; extrema = 0 ; }
@@ -2107,6 +2110,7 @@ vl_covdet_detect (VlCovDet * self)
       double y = self->features[i].frame.y ;
       double sigma = self->features[i].frame.a11 ;
       double score = self->features[i].peakScore ;
+      if (score == 0) continue ;
 
       for (j = 0 ; j < (signed)self->numFeatures ; ++j) {
         double dx_ = self->features[j].frame.x - x ;

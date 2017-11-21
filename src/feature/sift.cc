@@ -440,7 +440,7 @@ bool ExtractCovariantSiftFeaturesCPU(const SiftExtractionOptions& options,
                         bitmap.Height());
   }
 
-  vl_covdet_detect(covdet.get());
+  vl_covdet_detect(covdet.get(), options.max_num_features);
 
   if (!options.upright) {
     if (options.estimate_affine_shape) {
