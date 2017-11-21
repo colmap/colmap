@@ -47,7 +47,7 @@ size_t Workspace::CachedImage::NumBytes() const { return num_bytes; }
 Workspace::Workspace(const Options& options)
     : options_(options),
       cache_(1024 * 1024 * 1024 * options_.cache_size,
-             [](const int image_id) { return CachedImage(); }) {
+             [](const int) { return CachedImage(); }) {
   StringToLower(&options_.input_type);
   model_.Read(options_.workspace_path, options_.workspace_format);
   if (options_.max_image_size > 0) {
