@@ -8,5 +8,5 @@ cache:
 
 build_script:
   - cmd: set PATH=%APPVEYOR_BUILD_FOLDER%\build\__install__\bin\;%PATH%
-  - cmd: C:\Python36-x64\python.exe scripts\python\build.py --path %APPVEYOR_BUILD_FOLDER%\build --boost_path C:\Libraries\boost_1_63_0 --qt_path C:\Qt\5.9.1\msvc2015_64 --colmap_update --colmap_branch %APPVEYOR_REPO_BRANCH% --build_type %CONFIGURATION%
+  - cmd: C:\Python36-x64\python.exe scripts\python\build.py --path %APPVEYOR_BUILD_FOLDER%\build --boost_path C:\Libraries\boost_1_63_0 --qt_path C:\Qt\5.9\msvc2015_64 --colmap_update --colmap_branch %APPVEYOR_REPO_BRANCH% --build_type %CONFIGURATION%
   - cmd: cmake --build build\colmap-%APPVEYOR_REPO_BRANCH%\build --config %CONFIGURATION% --target RUN_TESTS
