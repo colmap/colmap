@@ -52,6 +52,7 @@ dpkg-source -x colmap*.dsc
 cd colmap*/
 debuild
 ```
+
 to build your own binaries.
 
 
