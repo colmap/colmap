@@ -79,7 +79,7 @@ struct SiftExtractionOptions {
   // outperform other SIFT variants and learned descriptors in "Comparative
   // Evaluation of Hand-Crafted and Learned Local Features", Schönberger,
   // Hardmeier, Sattler, Pollefeys, CVPR 2016.
-  bool domain_size_pooling = true;
+  bool domain_size_pooling = false;
   double dsp_min_scale = 1.0 / 6.0;
   double dsp_max_scale = 3.0;
   int dsp_num_scales = 10;
