@@ -16,6 +16,8 @@
 
 #include "mvs/workspace.h"
 
+#include <numeric>
+
 #include "util/misc.h"
 
 namespace colmap {
@@ -54,17 +56,15 @@ Workspace::Workspace(const Options& options)
     }
   }
 
-  depth_map_path_ = EnsureTrailingSlash(JoinPaths(
-      options_.workspace_path, options_.stereo_folder, "depth_maps"));
+  depth_map_path_ = EnsureTrailingSlash(
+      JoinPaths(options_.workspace_path, options_.stereo_folder, "depth_maps"));
   normal_map_path_ = EnsureTrailingSlash(JoinPaths(
       options_.workspace_path, options_.stereo_folder, "normal_maps"));
 }
 
 void Workspace::ClearCache() { cache_.Clear(); }
 
-const Workspace::Options& Workspace::GetOptions() const {
-  return options_;
-}
+const Workspace::Options& Workspace::GetOptions() const { return options_; }
 
 const Model& Workspace::GetModel() const { return model_; }
 
@@ -157,32 +157,51 @@ void ImportPMVSWorkspace(const Workspace& workspace,
   const auto option_lines =
       ReadTextFileLines(JoinPaths(workspace_path, option_name));
   for (const auto& line : option_lines) {
-    if (StringStartsWith(line, "timages")) {
-      const auto elems = StringSplit(line, " ");
-      const int num_images = std::stoull(elems[1]);
+    if (!StringStartsWith(line, "timages")) {
+      continue;
+    }
+
+    const auto elems = StringSplit(line, " ");
+    int num_images = std::stoull(elems[1]);
+
+    std::vector<int> image_ids;
+    if (num_images == -1) {
+      CHECK_EQ(elems.size(), 4);
+      const int range_lower = std::stoull(elems[2]);
+      const int range_upper = std::stoull(elems[3]);
+      CHECK_LT(range_lower, range_upper);
+      num_images = range_upper - range_lower;
+      image_ids.resize(num_images);
+      std::iota(image_ids.begin(), image_ids.end(), range_lower);
+    } else {
       CHECK_EQ(num_images + 2, elems.size());
-      std::vector<std::string> image_names;
-      image_names.reserve(num_images);
+      image_ids.reserve(num_images);
       for (size_t i = 2; i < elems.size(); ++i) {
         const int image_id = std::stoull(elems[i]);
-        const std::string image_name =
-            workspace.GetModel().GetImageName(image_id);
-        image_names.push_back(image_name);
+        image_ids.push_back(image_id);
       }
+    }
 
-      const auto patch_match_path =
-          JoinPaths(workspace_path, stereo_folder, "patch-match.cfg");
-      const auto fusion_path =
-          JoinPaths(workspace_path, stereo_folder, "fusion.cfg");
-      std::ofstream patch_match_file(patch_match_path, std::ios::trunc);
-      std::ofstream fusion_file(fusion_path, std::ios::trunc);
-      CHECK(patch_match_file.is_open()) << patch_match_path;
-      CHECK(fusion_file.is_open()) << fusion_path;
-      for (const auto ref_image_name : image_names) {
-        patch_match_file << ref_image_name << std::endl;
-        patch_match_file << "__auto__, 20" << std::endl;
-        fusion_file << ref_image_name << std::endl;
-      }
+    std::vector<std::string> image_names;
+    image_names.reserve(num_images);
+    for (const auto image_id : image_ids) {
+      const std::string image_name =
+          workspace.GetModel().GetImageName(image_id);
+      image_names.push_back(image_name);
+    }
+
+    const auto patch_match_path =
+        JoinPaths(workspace_path, stereo_folder, "patch-match.cfg");
+    const auto fusion_path =
+        JoinPaths(workspace_path, stereo_folder, "fusion.cfg");
+    std::ofstream patch_match_file(patch_match_path, std::ios::trunc);
+    std::ofstream fusion_file(fusion_path, std::ios::trunc);
+    CHECK(patch_match_file.is_open()) << patch_match_path;
+    CHECK(fusion_file.is_open()) << fusion_path;
+    for (const auto ref_image_name : image_names) {
+      patch_match_file << ref_image_name << std::endl;
+      patch_match_file << "__auto__, 20" << std::endl;
+      fusion_file << ref_image_name << std::endl;
     }
   }
 }
