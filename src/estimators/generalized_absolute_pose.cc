@@ -160,6 +160,9 @@ std::vector<Eigen::Vector3d> ComputeDepthsSylvester(
     }
 
     const double lambda_3 = roots_real(i);
+    if (lambda_3 <= 0) {
+      continue;
+    }
 
     std::vector<double> lambdas_2;
     ComputeLambdaValues(K.row(2), lambda_3, &lambdas_2);
