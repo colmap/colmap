@@ -154,7 +154,7 @@ std::vector<Eigen::Vector3d> ComputeDepthsSylvester(
   std::vector<Eigen::Vector3d> depths;
   depths.reserve(roots_real.size());
   for (Eigen::VectorXd::Index i = 0; i < roots_real.size(); ++i) {
-    const double kMaxRootImag = 1e-10;
+    const double kMaxRootImag = 1e-3;
     if (std::abs(roots_imag(i)) > kMaxRootImag) {
       continue;
     }
