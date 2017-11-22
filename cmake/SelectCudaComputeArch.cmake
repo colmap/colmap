@@ -1,34 +1,3 @@
-# CMake - Cross Platform Makefile Generator
-# Copyright 2000-2017 Kitware, Inc. and Contributors
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# * Redistributions of source code must retain the above copyright
-#   notice, this list of conditions and the following disclaimer.
-#
-# * Redistributions in binary form must reproduce the above copyright
-#   notice, this list of conditions and the following disclaimer in the
-#   documentation and/or other materials provided with the distribution.
-#
-# * Neither the name of Kitware, Inc. nor the names of Contributors
-#   may be used to endorse or promote products derived from this
-#   software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-# HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 # Synopsis:
 #   CUDA_SELECT_NVCC_ARCH_FLAGS(out_variable [target_CUDA_architectures])
 #   -- Selects GPU arch flags for nvcc based on target_CUDA_architectures
@@ -61,12 +30,17 @@ endif ()
 
 if (CUDA_VERSION VERSION_GREATER "7.5")
   list(APPEND CUDA_KNOWN_GPU_ARCHITECTURES "Pascal")
-  list(APPEND CUDA_COMMON_GPU_ARCHITECTURES "6.0" "6.1" "6.1+PTX")
+  list(APPEND CUDA_COMMON_GPU_ARCHITECTURES "6.0" "6.1")
 else()
   list(APPEND CUDA_COMMON_GPU_ARCHITECTURES "5.2+PTX")
 endif ()
 
-
+if (CUDA_VERSION VERSION_GREATER "8.5")
+  list(APPEND CUDA_KNOWN_GPU_ARCHITECTURES "Volta")
+  list(APPEND CUDA_COMMON_GPU_ARCHITECTURES "7.0" "7.0+PTX")
+else()
+  list(APPEND CUDA_COMMON_GPU_ARCHITECTURES "6.1+PTX")
+endif()
 
 ################################################################################################
 # A function for automatic detection of GPUs installed  (if autodetection is enabled)
@@ -75,9 +49,10 @@ endif ()
 #
 function(CUDA_DETECT_INSTALLED_GPUS OUT_VARIABLE)
   if(NOT CUDA_GPU_DETECT_OUTPUT)
-    set(cufile ${PROJECT_BINARY_DIR}/detect_cuda_archs.cu)
+    set(file ${PROJECT_BINARY_DIR}/detect_cuda_compute_capabilities.cpp)
 
-    file(WRITE ${cufile} ""
+    file(WRITE ${file} ""
+      "#include <cuda_runtime.h>\n"
       "#include <cstdio>\n"
       "int main()\n"
       "{\n"
@@ -93,14 +68,15 @@ function(CUDA_DETECT_INSTALLED_GPUS OUT_VARIABLE)
       "  return 0;\n"
       "}\n")
 
-    execute_process(COMMAND "${CUDA_NVCC_EXECUTABLE}" "--run" "${cufile}"
-                    WORKING_DIRECTORY "${PROJECT_BINARY_DIR}/CMakeFiles/"
-                    RESULT_VARIABLE nvcc_res OUTPUT_VARIABLE nvcc_out
-                    ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
+    try_run(run_result compile_result ${PROJECT_BINARY_DIR} ${file}
+            CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CUDA_INCLUDE_DIRS}"
+            LINK_LIBRARIES ${CUDA_LIBRARIES}
+            RUN_OUTPUT_VARIABLE compute_capabilities)
 
-    if(nvcc_res EQUAL 0)
-      string(REPLACE "2.1" "2.1(2.0)" nvcc_out "${nvcc_out}")
-      set(CUDA_GPU_DETECT_OUTPUT ${nvcc_out} CACHE INTERNAL "Returned GPU architetures from detect_gpus tool" FORCE)
+    if(run_result EQUAL 0)
+      string(REPLACE "2.1" "2.1(2.0)" compute_capabilities "${compute_capabilities}")
+      set(CUDA_GPU_DETECT_OUTPUT ${compute_capabilities}
+        CACHE INTERNAL "Returned GPU architectures from detect_gpus tool" FORCE)
     endif()
   endif()
 
@@ -133,6 +109,7 @@ function(CUDA_SELECT_NVCC_ARCH_FLAGS out_variable)
     set(CUDA_ARCH_LIST ${CUDA_COMMON_GPU_ARCHITECTURES})
   elseif("${CUDA_ARCH_LIST}" STREQUAL "Auto")
     CUDA_DETECT_INSTALLED_GPUS(CUDA_ARCH_LIST)
+    message(STATUS "Autodetected CUDA architecture(s): ${CUDA_ARCH_LIST}")
   endif()
 
   # Now process the list and look for names
@@ -140,6 +117,7 @@ function(CUDA_SELECT_NVCC_ARCH_FLAGS out_variable)
   list(REMOVE_DUPLICATES CUDA_ARCH_LIST)
   foreach(arch_name ${CUDA_ARCH_LIST})
     set(arch_bin)
+    set(arch_ptx)
     set(add_ptx FALSE)
     # Check to see if we are compiling PTX
     if(arch_name MATCHES "(.*)\\+PTX$")
@@ -168,6 +146,9 @@ function(CUDA_SELECT_NVCC_ARCH_FLAGS out_variable)
       elseif(${arch_name} STREQUAL "Pascal")
         set(arch_bin 6.0 6.1)
         set(arch_ptx 6.1)
+      elseif(${arch_name} STREQUAL "Volta")
+        set(arch_bin 7.0 7.0)
+        set(arch_ptx 7.0)
       else()
         message(SEND_ERROR "Unknown CUDA Architecture Name ${arch_name} in CUDA_SELECT_NVCC_ARCH_FLAGS")
       endif()
