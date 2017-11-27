@@ -19,6 +19,7 @@
 #include <fstream>
 
 #include "util/string.h"
+#include "util/version.h"
 
 namespace colmap {
 namespace {
@@ -223,7 +224,7 @@ void Database::Open(const std::string& path) {
   SQLITE3_EXEC(database_, "PRAGMA foreign_keys=ON", nullptr);
 
   CreateTables();
-
+  UpdateUserVersion();
   PrepareSQLStatements();
 }
 
@@ -1020,6 +1021,13 @@ void Database::CreateInlierMatchesTable() const {
       "    config   INTEGER               NOT NULL);";
 
   SQLITE3_EXEC(database_, sql.c_str(), nullptr);
+}
+
+void Database::UpdateUserVersion() const {
+  const std::string update_user_version_sql =
+      "PRAGMA user_version = " + std::to_string(COLMAP_VERSION_NUMBER) + ";";
+  std::cout << update_user_version_sql << std::endl;
+  SQLITE3_EXEC(database_, update_user_version_sql.c_str(), nullptr);
 }
 
 bool Database::ExistsRowId(sqlite3_stmt* sql_stmt,
