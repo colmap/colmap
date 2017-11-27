@@ -25,6 +25,8 @@
 
 // Option checker macros. In contrast to glog, this function does not abort the
 // program, but simply returns false on failure.
+#define CHECK_OPTION_IMPL(expr) \
+  __CheckOptionImpl(__FILE__, __LINE__, (expr), #expr)
 #define CHECK_OPTION(expr)                                     \
   if (!__CheckOptionImpl(__FILE__, __LINE__, (expr), #expr)) { \
     return false;                                              \
