@@ -601,11 +601,13 @@ bool OptionManager::Check() {
 
   if (added_database_options_) {
     const auto database_parent_path = GetParentDir(*database_path);
-    success = success && !ExistsDir(*database_path) &&
-              (database_parent_path == "" || ExistsDir(database_parent_path));
+    success = success && CHECK_OPTION_IMPL(!ExistsDir(*database_path)) &&
+              CHECK_OPTION_IMPL(database_parent_path == "" ||
+                                ExistsDir(database_parent_path));
   }
 
-  if (added_image_options_) success = success && ExistsDir(*image_path);
+  if (added_image_options_)
+    success = success && CHECK_OPTION_IMPL(ExistsDir(*image_path));
 
   if (image_reader) success = success && image_reader->Check();
   if (sift_extraction) success = success && sift_extraction->Check();
