@@ -151,15 +151,15 @@ package managers for the dependencies (see above). However, if you are on a
 (cluster) system without root access, this script might be useful. This script
 downloads the necessary dependencies automatically from the Internet. It assumes
 that CMake, Boost, Qt5, and CUDA (optional) are already installed on the system.
-E.g., under Windows you must specify the location of these libraries as
-follows::
+E.g., under Windows you must specify the location of these libraries as::
 
     python scripts/python/build.py \
         --path path/to/colmap/install \
-        --boost_path C:\local\boost_1_64_0\lib64-msvc-14.0 \
-        --qt_path C:\Qt\5.9.1\msvc2015_64 \
-        --cuda_path "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA/v8.0"
+        --boost_path "C:/local/boost_1_64_0/lib64-msvc-14.0" \
+        --qt_path "C:/Qt/5.9.3/msvc2015_64" \
+        --cuda_path "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v8.0"
 
+Note that you must use forward slashes for specifying the paths here.
 If you use Homebrew under Mac, you can use the following command::
 
     python scripts/python/build.py \
