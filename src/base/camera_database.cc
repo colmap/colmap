@@ -44,11 +44,11 @@ bool CameraDatabase::QuerySensorWidth(const std::string& make,
   // substring of database entry and vice versa.
   size_t spec_matches = 0;
   for (const auto& make_elem : specs_) {
-    if (cleaned_make.find(make_elem.first) != std::string::npos ||
-        make_elem.first.find(cleaned_make) != std::string::npos) {
+    if (StringContains(cleaned_make, make_elem.first) ||
+        StringContains(make_elem.first, cleaned_make)) {
       for (const auto& model_elem : make_elem.second) {
-        if (cleaned_model.find(model_elem.first) != std::string::npos ||
-            model_elem.first.find(cleaned_model) != std::string::npos) {
+        if (StringContains(cleaned_model, model_elem.first) ||
+            StringContains(model_elem.first, cleaned_model)) {
           *sensor_width = model_elem.second;
           if (cleaned_model == model_elem.first) {
             // Model exactly matches, return immediately.

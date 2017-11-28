@@ -171,4 +171,8 @@ void StringToUpper(std::string* str) {
   std::transform(str->begin(), str->end(), str->begin(), ::toupper);
 }
 
+bool StringContains(const std::string& str, const std::string& sub_str) {
+  return str.find(sub_str) != std::string::npos;
+}
+
 }  // namespace colmap
