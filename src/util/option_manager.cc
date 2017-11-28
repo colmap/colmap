@@ -710,20 +710,57 @@ bool OptionManager::ReRead(const std::string& path) {
 void OptionManager::Write(const std::string& path) const {
   boost::property_tree::ptree pt;
 
+  // First, put all options without a section and then those with a section.
+  // This is necessary as otherwise older Boost versions will write the
+  // options without a section in between other sections and therefore
+  // the errors will be assigned to the wrong section if read later.
+
   for (const auto& option : options_bool_) {
-    pt.put(option.first, *option.second);
+    if (!StringContains(option.first, ".")) {
+      pt.put(option.first, *option.second);
+    }
   }
 
   for (const auto& option : options_int_) {
-    pt.put(option.first, *option.second);
+    if (!StringContains(option.first, ".")) {
+      pt.put(option.first, *option.second);
+    }
   }
 
   for (const auto& option : options_double_) {
-    pt.put(option.first, *option.second);
+    if (!StringContains(option.first, ".")) {
+      pt.put(option.first, *option.second);
+    }
   }
 
   for (const auto& option : options_string_) {
-    pt.put(option.first, *option.second);
+    if (!StringContains(option.first, ".")) {
+      pt.put(option.first, *option.second);
+    }
+  }
+
+  for (const auto& option : options_bool_) {
+    if (StringContains(option.first, ".")) {
+      pt.put(option.first, *option.second);
+    }
+  }
+
+  for (const auto& option : options_int_) {
+    if (StringContains(option.first, ".")) {
+      pt.put(option.first, *option.second);
+    }
+  }
+
+  for (const auto& option : options_double_) {
+    if (StringContains(option.first, ".")) {
+      pt.put(option.first, *option.second);
+    }
+  }
+
+  for (const auto& option : options_string_) {
+    if (StringContains(option.first, ".")) {
+      pt.put(option.first, *option.second);
+    }
   }
 
   boost::property_tree::write_ini(path, pt);
