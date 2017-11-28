@@ -187,3 +187,13 @@ BOOST_AUTO_TEST_CASE(TestStringToUpper) {
   TEST_STRING_INPLACE(StringToUpper, "0123456789 abcdefghijklmnopqrstuvwxyz",
                       "0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ");
 }
+
+BOOST_AUTO_TEST_CASE(TestStringContains) {
+  BOOST_CHECK(StringContains("", ""));
+  BOOST_CHECK(StringContains("a", ""));
+  BOOST_CHECK(StringContains("a", "a"));
+  BOOST_CHECK(StringContains("ab", "a"));
+  BOOST_CHECK(StringContains("ab", "ab"));
+  BOOST_CHECK(!StringContains("", "a"));
+  BOOST_CHECK(!StringContains("ab", "c"));
+}
