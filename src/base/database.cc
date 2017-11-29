@@ -92,7 +92,32 @@ FeatureMatches FeatureMatchesFromBlob(const FeatureMatchesBlob& blob) {
 }
 
 template <typename MatrixType>
-MatrixType ReadMatrixBlob(sqlite3_stmt* sql_stmt, const int rc, const int col) {
+MatrixType ReadStaticMatrixBlob(sqlite3_stmt* sql_stmt, const int rc,
+                                const int col) {
+  CHECK_GE(col, 0);
+
+  MatrixType matrix;
+
+  if (rc == SQLITE_ROW) {
+    const size_t num_bytes =
+        static_cast<size_t>(sqlite3_column_bytes(sql_stmt, col));
+    if (num_bytes > 0) {
+      CHECK_EQ(num_bytes, matrix.size() * sizeof(double));
+      memcpy(reinterpret_cast<char*>(matrix.data()),
+             sqlite3_column_blob(sql_stmt, col), num_bytes);
+    } else {
+      matrix = MatrixType::Zero();
+    }
+  } else {
+    matrix = MatrixType::Zero();
+  }
+
+  return matrix;
+}
+
+template <typename MatrixType>
+MatrixType ReadDynamicMatrixBlob(sqlite3_stmt* sql_stmt, const int rc,
+                                 const int col) {
   CHECK_GE(col, 0);
 
   MatrixType matrix;
@@ -129,8 +154,17 @@ MatrixType ReadMatrixBlob(sqlite3_stmt* sql_stmt, const int rc, const int col) {
 }
 
 template <typename MatrixType>
-void WriteMatrixBlob(sqlite3_stmt* sql_stmt, const MatrixType& matrix,
-                     const int col) {
+void WriteStaticMatrixBlob(sqlite3_stmt* sql_stmt, const MatrixType& matrix,
+                           const int col) {
+  SQLITE3_CALL(sqlite3_bind_blob(
+      sql_stmt, col, reinterpret_cast<const char*>(matrix.data()),
+      static_cast<int>(matrix.size() * sizeof(typename MatrixType::Scalar)),
+      SQLITE_STATIC));
+}
+
+template <typename MatrixType>
+void WriteDynamicMatrixBlob(sqlite3_stmt* sql_stmt, const MatrixType& matrix,
+                            const int col) {
   CHECK_GE(matrix.rows(), 0);
   CHECK_GE(matrix.cols(), 0);
   CHECK_GE(col, 0);
@@ -224,7 +258,7 @@ void Database::Open(const std::string& path) {
   SQLITE3_EXEC(database_, "PRAGMA foreign_keys=ON", nullptr);
 
   CreateTables();
-  UpdateUserVersion();
+  UpdateSchema();
   PrepareSQLStatements();
 }
 
@@ -381,8 +415,8 @@ FeatureKeypoints Database::ReadKeypoints(const image_t image_id) const {
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_read_keypoints_, 1, image_id));
 
   const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_keypoints_));
-  const FeatureKeypointsBlob blob =
-      ReadMatrixBlob<FeatureKeypointsBlob>(sql_stmt_read_keypoints_, rc, 0);
+  const FeatureKeypointsBlob blob = ReadDynamicMatrixBlob<FeatureKeypointsBlob>(
+      sql_stmt_read_keypoints_, rc, 0);
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_keypoints_));
 
@@ -394,7 +428,8 @@ FeatureDescriptors Database::ReadDescriptors(const image_t image_id) const {
 
   const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_descriptors_));
   const FeatureDescriptors descriptors =
-      ReadMatrixBlob<FeatureDescriptors>(sql_stmt_read_descriptors_, rc, 0);
+      ReadDynamicMatrixBlob<FeatureDescriptors>(sql_stmt_read_descriptors_, rc,
+                                                0);
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_descriptors_));
 
@@ -408,7 +443,7 @@ FeatureMatches Database::ReadMatches(image_t image_id1,
 
   const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_matches_));
   FeatureMatchesBlob blob =
-      ReadMatrixBlob<FeatureMatchesBlob>(sql_stmt_read_matches_, rc, 0);
+      ReadDynamicMatrixBlob<FeatureMatchesBlob>(sql_stmt_read_matches_, rc, 0);
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_matches_));
 
@@ -428,8 +463,8 @@ std::vector<std::pair<image_pair_t, FeatureMatches>> Database::ReadAllMatches()
          SQLITE_ROW) {
     const image_pair_t pair_id = static_cast<image_pair_t>(
         sqlite3_column_int64(sql_stmt_read_matches_all_, 0));
-    const FeatureMatchesBlob blob =
-        ReadMatrixBlob<FeatureMatchesBlob>(sql_stmt_read_matches_all_, rc, 1);
+    const FeatureMatchesBlob blob = ReadDynamicMatrixBlob<FeatureMatchesBlob>(
+        sql_stmt_read_matches_all_, rc, 1);
     all_matches.emplace_back(pair_id, FeatureMatchesFromBlob(blob));
   }
 
@@ -447,11 +482,23 @@ TwoViewGeometry Database::ReadInlierMatches(const image_t image_id1,
 
   TwoViewGeometry two_view_geometry;
 
-  FeatureMatchesBlob blob =
-      ReadMatrixBlob<FeatureMatchesBlob>(sql_stmt_read_inlier_matches_, rc, 0);
+  FeatureMatchesBlob blob = ReadDynamicMatrixBlob<FeatureMatchesBlob>(
+      sql_stmt_read_inlier_matches_, rc, 0);
 
   two_view_geometry.config =
       static_cast<int>(sqlite3_column_int64(sql_stmt_read_inlier_matches_, 3));
+
+  two_view_geometry.F = ReadStaticMatrixBlob<Eigen::Matrix3d>(
+      sql_stmt_read_inlier_matches_, rc, 4);
+  two_view_geometry.F.transposeInPlace();
+
+  two_view_geometry.E = ReadStaticMatrixBlob<Eigen::Matrix3d>(
+      sql_stmt_read_inlier_matches_, rc, 5);
+  two_view_geometry.E.transposeInPlace();
+
+  two_view_geometry.H = ReadStaticMatrixBlob<Eigen::Matrix3d>(
+      sql_stmt_read_inlier_matches_, rc, 6);
+  two_view_geometry.H.transposeInPlace();
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_inlier_matches_));
 
@@ -475,7 +522,7 @@ void Database::ReadAllInlierMatches(
     image_pair_ids->push_back(pair_id);
 
     TwoViewGeometry two_view_geometry;
-    const FeatureMatchesBlob blob = ReadMatrixBlob<FeatureMatchesBlob>(
+    const FeatureMatchesBlob blob = ReadDynamicMatrixBlob<FeatureMatchesBlob>(
         sql_stmt_read_inlier_matches_all_, rc, 1);
     two_view_geometry.config = static_cast<int>(
         sqlite3_column_int64(sql_stmt_read_inlier_matches_all_, 4));
@@ -577,7 +624,7 @@ void Database::WriteKeypoints(const image_t image_id,
   const FeatureKeypointsBlob blob = FeatureKeypointsToBlob(keypoints);
 
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_keypoints_, 1, image_id));
-  WriteMatrixBlob(sql_stmt_write_keypoints_, blob, 2);
+  WriteDynamicMatrixBlob(sql_stmt_write_keypoints_, blob, 2);
 
   SQLITE3_CALL(sqlite3_step(sql_stmt_write_keypoints_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_write_keypoints_));
@@ -586,7 +633,7 @@ void Database::WriteKeypoints(const image_t image_id,
 void Database::WriteDescriptors(const image_t image_id,
                                 const FeatureDescriptors& descriptors) const {
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_descriptors_, 1, image_id));
-  WriteMatrixBlob(sql_stmt_write_descriptors_, descriptors, 2);
+  WriteDynamicMatrixBlob(sql_stmt_write_descriptors_, descriptors, 2);
 
   SQLITE3_CALL(sqlite3_step(sql_stmt_write_descriptors_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_write_descriptors_));
@@ -601,9 +648,9 @@ void Database::WriteMatches(const image_t image_id1, const image_t image_id2,
   FeatureMatchesBlob blob = FeatureMatchesToBlob(matches);
   if (SwapImagePair(image_id1, image_id2)) {
     SwapFeatureMatchesBlob(&blob);
-    WriteMatrixBlob(sql_stmt_write_matches_, blob, 2);
+    WriteDynamicMatrixBlob(sql_stmt_write_matches_, blob, 2);
   } else {
-    WriteMatrixBlob(sql_stmt_write_matches_, blob, 2);
+    WriteDynamicMatrixBlob(sql_stmt_write_matches_, blob, 2);
   }
 
   SQLITE3_CALL(sqlite3_step(sql_stmt_write_matches_));
@@ -617,16 +664,37 @@ void Database::WriteInlierMatches(
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_inlier_matches_, 1, pair_id));
 
   // Important: the swapped data must live until the query is executed.
-  FeatureMatchesBlob blob =
+  FeatureMatchesBlob inlier_matches =
       FeatureMatchesToBlob(two_view_geometry.inlier_matches);
   if (SwapImagePair(image_id1, image_id2)) {
-    SwapFeatureMatchesBlob(&blob);
+    SwapFeatureMatchesBlob(&inlier_matches);
   }
 
-  WriteMatrixBlob(sql_stmt_write_inlier_matches_, blob, 2);
+  WriteDynamicMatrixBlob(sql_stmt_write_inlier_matches_, inlier_matches, 2);
 
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_inlier_matches_, 5,
                                   two_view_geometry.config));
+
+  if (two_view_geometry.inlier_matches.size() > 0) {
+    const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> F_row_major =
+        two_view_geometry.F;
+    WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, F_row_major, 6);
+
+    const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> E_row_major =
+        two_view_geometry.E;
+    WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, E_row_major, 7);
+
+    const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> H_row_major =
+        two_view_geometry.H;
+    WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, H_row_major, 8);
+  } else {
+    WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, Eigen::MatrixXd(0, 0),
+                          6);
+    WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, Eigen::MatrixXd(0, 0),
+                          7);
+    WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, Eigen::MatrixXd(0, 0),
+                          8);
+  }
 
   SQLITE3_CALL(sqlite3_step(sql_stmt_write_inlier_matches_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_write_inlier_matches_));
@@ -858,7 +926,7 @@ void Database::PrepareSQLStatements() {
   sql_stmts_.push_back(sql_stmt_read_matches_all_);
 
   sql =
-      "SELECT rows, cols, data, config FROM inlier_matches "
+      "SELECT rows, cols, data, config, F, E, H FROM inlier_matches "
       "WHERE pair_id = ?;";
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
                                   &sql_stmt_read_inlier_matches_, 0));
@@ -894,8 +962,8 @@ void Database::PrepareSQLStatements() {
   sql_stmts_.push_back(sql_stmt_write_matches_);
 
   sql =
-      "INSERT INTO inlier_matches(pair_id, rows, cols, data, config) "
-      "VALUES(?, ?, ?, ?, ?);";
+      "INSERT INTO inlier_matches(pair_id, rows, cols, data, config, F, E, H) "
+      "VALUES(?, ?, ?, ?, ?, ?, ?, ?);";
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
                                   &sql_stmt_write_inlier_matches_, 0));
   sql_stmts_.push_back(sql_stmt_write_inlier_matches_);
@@ -1018,15 +1086,41 @@ void Database::CreateInlierMatchesTable() const {
       "    rows     INTEGER               NOT NULL,"
       "    cols     INTEGER               NOT NULL,"
       "    data     BLOB,"
-      "    config   INTEGER               NOT NULL);";
+      "    config   INTEGER               NOT NULL,"
+      "    F        BLOB,"
+      "    E        BLOB,"
+      "    H        BLOB);";
 
   SQLITE3_EXEC(database_, sql.c_str(), nullptr);
 }
 
-void Database::UpdateUserVersion() const {
+void Database::UpdateSchema() const {
+  // Query user version number.
+  const std::string query_user_version_sql = "PRAGMA user_version;";
+  sqlite3_stmt* query_user_version_sql_stmt;
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, query_user_version_sql.c_str(), -1,
+                                  &query_user_version_sql_stmt, 0));
+
+  // Update database schema.
+  if (SQLITE3_CALL(sqlite3_step(query_user_version_sql_stmt)) == SQLITE_ROW) {
+    const int user_version = sqlite3_column_int(query_user_version_sql_stmt, 0);
+    // user_version == 0: initial value from SQLite, nothing to do, since all
+    // tables were created in `Database::CreateTables`.
+    if (user_version > 0) {
+      if (user_version < 3300) {
+        SQLITE3_EXEC(database_, "ALTER TABLE inlier_matches ADD COLUMN F BLOB;",
+                     nullptr);
+        SQLITE3_EXEC(database_, "ALTER TABLE inlier_matches ADD COLUMN E BLOB;",
+                     nullptr);
+        SQLITE3_EXEC(database_, "ALTER TABLE inlier_matches ADD COLUMN H BLOB;",
+                     nullptr);
+      }
+    }
+  }
+
+  // Update user version number.
   const std::string update_user_version_sql =
       "PRAGMA user_version = " + std::to_string(COLMAP_VERSION_NUMBER) + ";";
-  std::cout << update_user_version_sql << std::endl;
   SQLITE3_EXEC(database_, update_user_version_sql.c_str(), nullptr);
 }
 
