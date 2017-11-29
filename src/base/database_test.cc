@@ -295,6 +295,11 @@ BOOST_AUTO_TEST_CASE(TestInlierMatches) {
   const image_t image_id2 = 2;
   TwoViewGeometry two_view_geometry;
   two_view_geometry.inlier_matches = FeatureMatches(1000);
+  two_view_geometry.config =
+      TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
+  two_view_geometry.F = Eigen::Matrix3d::Random();
+  two_view_geometry.E = Eigen::Matrix3d::Random();
+  two_view_geometry.H = Eigen::Matrix3d::Random();
   database.WriteInlierMatches(image_id1, image_id2, two_view_geometry);
   const TwoViewGeometry two_view_geometry_read =
       database.ReadInlierMatches(image_id1, image_id2);
@@ -306,6 +311,10 @@ BOOST_AUTO_TEST_CASE(TestInlierMatches) {
     BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[i].point2D_idx2,
                       two_view_geometry_read.inlier_matches[i].point2D_idx2);
   }
+  BOOST_CHECK_EQUAL(two_view_geometry.config, two_view_geometry_read.config);
+  BOOST_CHECK_EQUAL(two_view_geometry.F, two_view_geometry_read.F);
+  BOOST_CHECK_EQUAL(two_view_geometry.E, two_view_geometry_read.E);
+  BOOST_CHECK_EQUAL(two_view_geometry.H, two_view_geometry_read.H);
   std::vector<image_pair_t> image_pair_ids;
   std::vector<TwoViewGeometry> two_view_geometries;
   database.ReadAllInlierMatches(&image_pair_ids, &two_view_geometries);
