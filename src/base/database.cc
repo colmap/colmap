@@ -102,7 +102,7 @@ MatrixType ReadStaticMatrixBlob(sqlite3_stmt* sql_stmt, const int rc,
     const size_t num_bytes =
         static_cast<size_t>(sqlite3_column_bytes(sql_stmt, col));
     if (num_bytes > 0) {
-      CHECK_EQ(num_bytes, matrix.size() * sizeof(double));
+      CHECK_EQ(num_bytes, matrix.size() * sizeof(typename MatrixType::Scalar));
       memcpy(reinterpret_cast<char*>(matrix.data()),
              sqlite3_column_blob(sql_stmt, col), num_bytes);
     } else {
@@ -490,15 +490,10 @@ TwoViewGeometry Database::ReadInlierMatches(const image_t image_id1,
 
   two_view_geometry.F = ReadStaticMatrixBlob<Eigen::Matrix3d>(
       sql_stmt_read_inlier_matches_, rc, 4);
-  two_view_geometry.F.transposeInPlace();
-
   two_view_geometry.E = ReadStaticMatrixBlob<Eigen::Matrix3d>(
       sql_stmt_read_inlier_matches_, rc, 5);
-  two_view_geometry.E.transposeInPlace();
-
   two_view_geometry.H = ReadStaticMatrixBlob<Eigen::Matrix3d>(
       sql_stmt_read_inlier_matches_, rc, 6);
-  two_view_geometry.H.transposeInPlace();
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_inlier_matches_));
 
@@ -507,6 +502,9 @@ TwoViewGeometry Database::ReadInlierMatches(const image_t image_id1,
   }
 
   two_view_geometry.inlier_matches = FeatureMatchesFromBlob(blob);
+  two_view_geometry.F.transposeInPlace();
+  two_view_geometry.E.transposeInPlace();
+  two_view_geometry.H.transposeInPlace();
 
   return two_view_geometry;
 }
@@ -675,18 +673,14 @@ void Database::WriteInlierMatches(
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_inlier_matches_, 5,
                                   two_view_geometry.config));
 
+  const Eigen::Matrix3d Ft = two_view_geometry.F.transpose();
+  const Eigen::Matrix3d Et = two_view_geometry.E.transpose();
+  const Eigen::Matrix3d Ht = two_view_geometry.H.transpose();
+
   if (two_view_geometry.inlier_matches.size() > 0) {
-    const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> F_row_major =
-        two_view_geometry.F;
-    WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, F_row_major, 6);
-
-    const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> E_row_major =
-        two_view_geometry.E;
-    WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, E_row_major, 7);
-
-    const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> H_row_major =
-        two_view_geometry.H;
-    WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, H_row_major, 8);
+    WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, Ft, 6);
+    WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, Et, 7);
+    WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, Ht, 8);
   } else {
     WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, Eigen::MatrixXd(0, 0),
                           6);
