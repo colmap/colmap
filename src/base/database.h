@@ -220,6 +220,9 @@ class Database {
 
   void UpdateSchema() const;
 
+  bool ExistsColumn(const std::string& table_name,
+                    const std::string& column_name) const;
+
   bool ExistsRowId(sqlite3_stmt* sql_stmt, const sqlite3_int64 row_id) const;
   bool ExistsRowString(sqlite3_stmt* sql_stmt,
                        const std::string& row_entry) const;

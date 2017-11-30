@@ -1089,33 +1089,43 @@ void Database::CreateInlierMatchesTable() const {
 }
 
 void Database::UpdateSchema() const {
-  // Query user version number.
-  const std::string query_user_version_sql = "PRAGMA user_version;";
-  sqlite3_stmt* query_user_version_sql_stmt;
-  SQLITE3_CALL(sqlite3_prepare_v2(database_, query_user_version_sql.c_str(), -1,
-                                  &query_user_version_sql_stmt, 0));
+  if (!ExistsColumn("inlier_matches", "F")) {
+    SQLITE3_EXEC(database_, "ALTER TABLE inlier_matches ADD COLUMN F BLOB;",
+                 nullptr);
+  }
 
-  // Update database schema.
-  if (SQLITE3_CALL(sqlite3_step(query_user_version_sql_stmt)) == SQLITE_ROW) {
-    const int user_version = sqlite3_column_int(query_user_version_sql_stmt, 0);
-    // user_version == 0: initial value from SQLite, nothing to do, since all
-    // tables were created in `Database::CreateTables`.
-    if (user_version > 0) {
-      if (user_version < 3300) {
-        SQLITE3_EXEC(database_, "ALTER TABLE inlier_matches ADD COLUMN F BLOB;",
-                     nullptr);
-        SQLITE3_EXEC(database_, "ALTER TABLE inlier_matches ADD COLUMN E BLOB;",
-                     nullptr);
-        SQLITE3_EXEC(database_, "ALTER TABLE inlier_matches ADD COLUMN H BLOB;",
-                     nullptr);
-      }
-    }
+  if (!ExistsColumn("inlier_matches", "E")) {
+    SQLITE3_EXEC(database_, "ALTER TABLE inlier_matches ADD COLUMN E BLOB;",
+                 nullptr);
+  }
+
+  if (!ExistsColumn("inlier_matches", "H")) {
+    SQLITE3_EXEC(database_, "ALTER TABLE inlier_matches ADD COLUMN H BLOB;",
+                 nullptr);
   }
 
   // Update user version number.
   const std::string update_user_version_sql =
       "PRAGMA user_version = " + std::to_string(COLMAP_VERSION_NUMBER) + ";";
   SQLITE3_EXEC(database_, update_user_version_sql.c_str(), nullptr);
+}
+
+bool Database::ExistsColumn(const std::string& table_name,
+                            const std::string& column_name) const {
+  const std::string sql =
+      StringPrintf("PRAGMA table_info(%s);", table_name.c_str());
+  sqlite3_stmt* sql_stmt;
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt, 0));
+
+  while (SQLITE3_CALL(sqlite3_step(sql_stmt)) == SQLITE_ROW) {
+    const std::string result =
+        reinterpret_cast<const char*>(sqlite3_column_text(sql_stmt, 1));
+    if (column_name == result) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 bool Database::ExistsRowId(sqlite3_stmt* sql_stmt,
