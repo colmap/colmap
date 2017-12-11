@@ -241,7 +241,7 @@ struct OpenCVCameraModel : public BaseCameraModel<OpenCVCameraModel> {
 //
 // Parameter list is expected in the following order:
 //
-//    fx, fy, cx, cy, k1, k2, p1, p2
+//    fx, fy, cx, cy, k1, k2, k3, k4
 //
 // See
 // http://docs.opencv.org/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
