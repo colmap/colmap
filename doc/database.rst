@@ -47,9 +47,12 @@ Keypoints and Descriptors
 The detected keypoints are stored as row-major `float32` binary blobs, where the
 first two columns are the X and Y locations in the image, respectively. COLMAP
 uses the convention that the upper left image corner has coordinate `(0, 0)` and
-the center of the upper left most pixel has coordinate `(0.5, 0.5)`. The third
-column is the scale and the fourth column the orientation of the feature. COLMAP
-uses the scale to order features in preemptive matching.
+the center of the upper left most pixel has coordinate `(0.5, 0.5)`. If the
+keypoints have 4 columns, then the feature geometry is a similarity and the
+third column is the scale and the fourth column the orientation of the feature
+(according to SIFT conventions). If the keypoints have 6 columns, then the
+feature geometry is an affinity and the last 4 columns encode its affine shape
+(see ``src/feature/types.h`` for details).
 
 The extracted descriptors are stored as row-major `uint8` binary blobs, where
 each row describes the feature appearance of the corresponding entry in the
@@ -59,7 +62,10 @@ the `cols` column must be 128.
 In both tables, the `rows` table specifies the number of detected features per
 image, while `rows=0` means that an image has no features. For feature matching
 and geometric verification, every image must have a corresponding keypoints and
-descriptors entry.
+descriptors entry. Note that only vocabulary tree matching with fast spatial
+verification requires meaningful values for the local feature geometry, i.e.,
+only X and Y must be provided and the other keypoint columns can be set to zero.
+The rest of the reconstruction pipeline only uses the keypoint locations.
 
 
 Matches
