@@ -969,7 +969,7 @@ __global__ void SweepFromTopToBottom(
                   &rand_state, perturbed_normal);
 
     const int kNumCosts = 7;
-    float costs[kNumCosts] = {0.0f};
+    float costs[kNumCosts];
     const float depths[kNumCosts] = {
         curr_param_state.depth, prev_param_state.depth, rand_param_state.depth,
         curr_param_state.depth, rand_param_state.depth, curr_param_state.depth,
@@ -979,6 +979,10 @@ __global__ void SweepFromTopToBottom(
         rand_param_state.normal, rand_param_state.normal,
         curr_param_state.normal, perturbed_normal,
         curr_param_state.normal};
+
+    for (int i = 0; i < kNumCosts; ++i) {
+      costs[i] = 0.0f;
+    }
 
     for (int sample = 0; sample < options.num_samples; ++sample) {
       const float rand_prob = curand_uniform(&rand_state) - FLT_EPSILON;
