@@ -330,8 +330,8 @@ struct PhotoConsistencyCostComputer {
     const int row_end = row + kWindowRadius;
     const int col_end = col + kWindowRadius;
 
-    if (row_start < 0 || col_start < 0 || row_end >= ref_image_height ||
-        col_end >= ref_image_width) {
+    if (row_end < 0 || col_end < 0 || row_start >= ref_image_height ||
+        col_start >= ref_image_width) {
       return kMaxCost;
     }
 
@@ -615,9 +615,8 @@ class LikelihoodComputer {
       const float cos_triangulation_angle) const {
     const float abs_cos_triangulation_angle = abs(cos_triangulation_angle);
     if (abs_cos_triangulation_angle > cos_min_triangulation_angle_) {
-      const float scaled = 1.0f -
-                           (1.0f - abs_cos_triangulation_angle) /
-                               (1.0f - cos_min_triangulation_angle_);
+      const float scaled = 1.0f - (1.0f - abs_cos_triangulation_angle) /
+                                      (1.0f - cos_min_triangulation_angle_);
       const float likelihood = 1.0f - scaled * scaled;
       return min(1.0f, max(0.0f, likelihood));
     } else {
