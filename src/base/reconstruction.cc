@@ -1313,7 +1313,9 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
       class Point3D& point3D = Point3D(point2D.Point3DId());
       if (point3D.Color() == kBlackColor) {
         BitmapColor<float> color;
-        if (bitmap.InterpolateBilinear(point2D.X(), point2D.Y(), &color)) {
+        // COLMAP assumes that the upper left pixel center is (0.5, 0.5).
+        if (bitmap.InterpolateBilinear(point2D.X() - 0.5, point2D.Y() - 0.5,
+                                       &color)) {
           const BitmapColor<uint8_t> color_ub = color.Cast<uint8_t>();
           point3D.SetColor(
               Eigen::Vector3ub(color_ub.r, color_ub.g, color_ub.b));
@@ -1344,7 +1346,9 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
     for (const Point2D point2D : image.Points2D()) {
       if (point2D.HasPoint3D()) {
         BitmapColor<float> color;
-        if (bitmap.InterpolateBilinear(point2D.X(), point2D.Y(), &color)) {
+        // COLMAP assumes that the upper left pixel center is (0.5, 0.5).
+        if (bitmap.InterpolateBilinear(point2D.X() - 0.5, point2D.Y() - 0.5,
+                                       &color)) {
           if (color_sums.count(point2D.Point3DId())) {
             Eigen::Vector3d& color_sum = color_sums[point2D.Point3DId()];
             color_sum(0) += color.r;
