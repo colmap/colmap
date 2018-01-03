@@ -75,7 +75,9 @@ def parse_args():
     parser.add_argument("--colmap_update",
                         dest="colmap_update", action="store_true",
                         help="Whether to update the COLMAP code (default no)")
-    parser.add_argument("--build_type", default="Release")
+    parser.add_argument("--build_type", default="Release",
+                        help="Build type, e.g. Debug, Release, RelWithDebInfo")
+    parser.add_argument("--generator", default="")
     parser.set_defaults(cuda_multi_arch=False)
     parser.set_defaults(with_suite_sparse=True)
     parser.set_defaults(colmap_update=False)
@@ -92,6 +94,8 @@ def parse_args():
         "-DCMAKE_PREFIX_PATH={}".format(args.install_path))
     args.cmake_config_args.append(
         "-DCMAKE_INSTALL_PREFIX={}".format(args.install_path))
+    if args.generator:
+        args.cmake_config_args.extend(["-G", args.generator])
     if PLATFORM_IS_WINDOWS:
         args.cmake_config_args.append(
             "-DCMAKE_GENERATOR_PLATFORM=x64")

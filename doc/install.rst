@@ -159,7 +159,9 @@ E.g., under Windows you must specify the location of these libraries as::
         --qt_path "C:/Qt/5.9.3/msvc2015_64" \
         --cuda_path "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v8.0"
 
-Note that you must use forward slashes for specifying the paths here.
+Note that under Windows you must use forward slashes for specifying the paths
+here. If you want to compile COLMAP using a specific Visual Studio version, you
+can for example specify ``--generator "Visual Studio 14" for Visual Studio 2015.
 If you use Homebrew under Mac, you can use the following command::
 
     python scripts/python/build.py \
