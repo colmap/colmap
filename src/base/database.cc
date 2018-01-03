@@ -1117,15 +1117,19 @@ bool Database::ExistsColumn(const std::string& table_name,
   sqlite3_stmt* sql_stmt;
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt, 0));
 
+  bool exists_column = false;
   while (SQLITE3_CALL(sqlite3_step(sql_stmt)) == SQLITE_ROW) {
     const std::string result =
         reinterpret_cast<const char*>(sqlite3_column_text(sql_stmt, 1));
     if (column_name == result) {
-      return true;
+      exists_column = true;
+      break;
     }
   }
 
-  return false;
+  SQLITE3_CALL(sqlite3_finalize(sql_stmt));
+
+  return exists_column;
 }
 
 bool Database::ExistsRowId(sqlite3_stmt* sql_stmt,
