@@ -76,8 +76,9 @@ def parse_args():
                         dest="colmap_update", action="store_true",
                         help="Whether to update the COLMAP code (default no)")
     parser.add_argument("--build_type", default="Release",
-                        help="Build type, e.g. Debug, Release, RelWithDebInfo")
-    parser.add_argument("--generator", default="")
+                        help="Build type, e.g., Debug, Release, RelWithDebInfo")
+    parser.add_argument("--generator", default="",
+                        help="CMake generator, e.g., Visual Studio 14")
     parser.set_defaults(cuda_multi_arch=False)
     parser.set_defaults(with_suite_sparse=True)
     parser.set_defaults(colmap_update=False)
