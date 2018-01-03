@@ -15,12 +15,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+import sys
 import glob
 import shutil
 import fileinput
 import platform
 import argparse
 import zipfile
+import hashlib
 import urllib.request
 import subprocess
 import multiprocessing
@@ -43,7 +45,10 @@ def parse_args():
                     "the Internet. It assumes that CMake, Boost, Qt5, and CUDA "
                     "(optional) are already installed on the system. Under "
                     "Windows you must specify the location of these libraries.")
-    parser.add_argument("--path", required=True)
+    parser.add_argument("--build_path", required=True)
+    parser.add_argument("--colmap_path", required=True,
+                        help="The path to the top COLMAP source folder, which "
+                             "contains src/, scripts/, CMakeLists.txt, etc." )
     parser.add_argument("--qt_path", default="",
                         required=PLATFORM_IS_WINDOWS or PLATFORM_IS_MAC,
                         help="The path to the folder containing Qt, "
@@ -70,23 +75,18 @@ def parse_args():
                         dest="with_suite_sparse", action="store_false",
                         help="Whether to use SuiteSparse as a sparse solver "
                              "(default with SuiteSparse)")
-    parser.add_argument("--colmap_branch", default="dev",
-                        help="Which COLMAP branch to build")
-    parser.add_argument("--colmap_update",
-                        dest="colmap_update", action="store_true",
-                        help="Whether to update the COLMAP code (default no)")
     parser.add_argument("--build_type", default="Release",
                         help="Build type, e.g., Debug, Release, RelWithDebInfo")
-    parser.add_argument("--generator", default="",
+    parser.add_argument("--cmake_generator", default="",
                         help="CMake generator, e.g., Visual Studio 14")
     parser.set_defaults(cuda_multi_arch=False)
     parser.set_defaults(with_suite_sparse=True)
     parser.set_defaults(colmap_update=False)
     args = parser.parse_args()
 
-    args.path = os.path.abspath(args.path)
-    args.download_path = os.path.join(args.path, "__download__")
-    args.install_path = os.path.join(args.path, "__install__")
+    args.build_path = os.path.abspath(args.build_path)
+    args.download_path = os.path.join(args.build_path, "__download__")
+    args.install_path = os.path.join(args.build_path, "__install__")
 
     args.cmake_config_args = []
     args.cmake_config_args.append(
@@ -95,8 +95,8 @@ def parse_args():
         "-DCMAKE_PREFIX_PATH={}".format(args.install_path))
     args.cmake_config_args.append(
         "-DCMAKE_INSTALL_PREFIX={}".format(args.install_path))
-    if args.generator:
-        args.cmake_config_args.extend(["-G", args.generator])
+    if args.cmake_generator:
+        args.cmake_config_args.extend(["-G", args.cmake_generator])
     if PLATFORM_IS_WINDOWS:
         args.cmake_config_args.append(
             "-DCMAKE_GENERATOR_PLATFORM=x64")
@@ -126,41 +126,67 @@ def copy_file_if_not_exists(source, destination):
     shutil.copyfile(source, destination)
 
 
-def download_zipfile(url, archive_path, unzip_path):
+def check_md5_hash(path, md5_hash):
+    computed_md5_hash = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            computed_md5_hash.update(chunk)
+    computed_md5_hash = computed_md5_hash.hexdigest()
+    if md5_hash != computed_md5_hash:
+        print("MD5 mismatch for {}: {} == {}".format(
+              path, md5_hash, computed_md5_hash))
+        sys.exit(1)
+
+
+def download_zipfile(url, archive_path, unzip_path, md5_hash):
     if not os.path.exists(archive_path):
         urllib.request.urlretrieve(url, archive_path)
+    check_md5_hash(archive_path, md5_hash)
     with zipfile.ZipFile(archive_path, "r") as fid:
         fid.extractall(unzip_path)
 
 
 def build_cmake_project(args, path, extra_config_args=[],
-                        extra_build_args=[]):
+                        extra_build_args=[], cmakelists_path=".."):
     mkdir_if_not_exists(path)
-    subprocess.call(["cmake"] + args.cmake_config_args
-                     + extra_config_args + [".."], cwd=path)
-    subprocess.call(["cmake",
+
+    cmake_command = ["cmake"] \
+                    + args.cmake_config_args \
+                    + extra_config_args \
+                    + [cmakelists_path]
+    return_code = subprocess.call(cmake_command, cwd=path)
+    if return_code != 0:
+        print("Command failed:", " ".join(cmake_command))
+        sys.exit(1)
+
+    cmake_command = ["cmake",
                      "--build", ".",
                      "--target", "install",
-                     "--config", args.build_type]
-                     + args.cmake_build_args
-                     + extra_build_args, cwd=path)
+                     "--config", args.build_type] \
+                    + args.cmake_build_args \
+                    + extra_build_args
+    return_code = subprocess.call(cmake_command, cwd=path)
+    if return_code != 0:
+        print("Command failed:", " ".join(cmake_command))
+        sys.exit(1)
 
 
 def build_eigen(args):
-    path = os.path.join(args.path, "eigen")
+    path = os.path.join(args.build_path, "eigen")
     if os.path.exists(path):
         return
 
     url = "https://github.com/RLovelett/eigen/archive/3.3.4.zip"
     archive_path = os.path.join(args.download_path, "eigen.zip")
-    download_zipfile(url, archive_path, args.path)
-    shutil.move(os.path.join(args.path, "eigen-3.3.4"), path)
+    download_zipfile(url, archive_path, args.build_path,
+                     "5e6c210a4cd6821f6147c96fd3aab8a7")
+    shutil.move(os.path.join(args.build_path, "eigen-3.3.4"), path)
 
     build_cmake_project(args, os.path.join(path, "build"))
 
 
 def build_freeimage(args):
-    path = os.path.join(args.path, "freeimage")
+    path = os.path.join(args.build_path, "freeimage")
     if os.path.exists(path):
         return
 
@@ -168,8 +194,9 @@ def build_freeimage(args):
         url = "https://kent.dl.sourceforge.net/project/freeimage/" \
               "Binary%20Distribution/3.17.0/FreeImage3170Win32Win64.zip"
         archive_path = os.path.join(args.download_path, "freeimage.zip")
-        download_zipfile(url, archive_path, args.path)
-        shutil.move(os.path.join(args.path, "FreeImage"), path)
+        download_zipfile(url, archive_path, args.build_path,
+                         "a7e6f2f261e72260ec5b91c2a0f4bde3")
+        shutil.move(os.path.join(args.build_path, "FreeImage"), path)
         copy_file_if_not_exists(
             os.path.join(path, "Dist/x64/FreeImage.h"),
             os.path.join(args.install_path, "include/FreeImage.h"))
@@ -183,8 +210,8 @@ def build_freeimage(args):
         url = "https://kent.dl.sourceforge.net/project/freeimage/" \
               "Source%20Distribution/3.17.0/FreeImage3170.zip"
         archive_path = os.path.join(args.download_path, "freeimage.zip")
-        download_zipfile(url, archive_path, args.path)
-        shutil.move(os.path.join(args.path, "FreeImage"), path)
+        download_zipfile(url, archive_path, args.build_path)
+        shutil.move(os.path.join(args.build_path, "FreeImage"), path)
 
         if PLATFORM_IS_MAC:
             with fileinput.FileInput(os.path.join(path, "Makefile.gnu"),
@@ -227,42 +254,45 @@ def build_freeimage(args):
 
 
 def build_glew(args):
-    path = os.path.join(args.path, "glew")
+    path = os.path.join(args.build_path, "glew")
     if os.path.exists(path):
         return
 
     url = "https://kent.dl.sourceforge.net/project/glew/" \
           "glew/2.1.0/glew-2.1.0.zip"
     archive_path = os.path.join(args.download_path, "glew.zip")
-    download_zipfile(url, archive_path, args.path)
-    shutil.move(os.path.join(args.path, "glew-2.1.0"), path)
+    download_zipfile(url, archive_path, args.build_path,
+                     "dff2939fd404d054c1036cc0409d19f1")
+    shutil.move(os.path.join(args.build_path, "glew-2.1.0"), path)
 
     build_cmake_project(args, os.path.join(path, "build/cmake/build"))
 
 
 def build_gflags(args):
-    path = os.path.join(args.path, "gflags")
+    path = os.path.join(args.build_path, "gflags")
     if os.path.exists(path):
         return
 
     url = "https://github.com/gflags/gflags/archive/v2.2.1.zip"
     archive_path = os.path.join(args.download_path, "gflags.zip")
-    download_zipfile(url, archive_path, args.path)
-    shutil.move(os.path.join(args.path, "gflags-2.2.1"), path)
+    download_zipfile(url, archive_path, args.build_path,
+                     "2d988ef0b50939fb50ada965dafce96b")
+    shutil.move(os.path.join(args.build_path, "gflags-2.2.1"), path)
     os.remove(os.path.join(path, "BUILD"))
 
     build_cmake_project(args, os.path.join(path, "build"))
 
 
 def build_glog(args):
-    path = os.path.join(args.path, "glog")
+    path = os.path.join(args.build_path, "glog")
     if os.path.exists(path):
         return
 
     url = "https://github.com/google/glog/archive/v0.3.5.zip"
     archive_path = os.path.join(args.download_path, "glog.zip")
-    download_zipfile(url, archive_path, args.path)
-    shutil.move(os.path.join(args.path, "glog-0.3.5"), path)
+    download_zipfile(url, archive_path, args.build_path,
+                     "454766d0124951091c95bad33dafeacd")
+    shutil.move(os.path.join(args.build_path, "glog-0.3.5"), path)
 
     build_cmake_project(args, os.path.join(path, "build"))
 
@@ -271,15 +301,16 @@ def build_suite_sparse(args):
     if not args.with_suite_sparse:
         return
 
-    path = os.path.join(args.path, "suite-sparse")
+    path = os.path.join(args.build_path, "suite-sparse")
     if os.path.exists(path):
         return
 
     url = "https://codeload.github.com/jlblancoc/" \
           "suitesparse-metis-for-windows/zip/master"
     archive_path = os.path.join(args.download_path, "suite-sparse.zip")
-    download_zipfile(url, archive_path, args.path)
-    shutil.move(os.path.join(args.path,
+    download_zipfile(url, archive_path, args.build_path,
+                     "2cb76bf7a5d566d69e156fbf5eef03d8")
+    shutil.move(os.path.join(args.build_path,
                              "suitesparse-metis-for-windows-master"), path)
 
     build_cmake_project(args, os.path.join(path, "build"))
@@ -294,14 +325,15 @@ def build_suite_sparse(args):
 
 
 def build_ceres_solver(args):
-    path = os.path.join(args.path, "ceres-solver")
+    path = os.path.join(args.build_path, "ceres-solver")
     if os.path.exists(path):
         return
 
     url = "https://github.com/ceres-solver/ceres-solver/archive/1.13.0.zip"
     archive_path = os.path.join(args.download_path, "ceres-solver.zip")
-    download_zipfile(url, archive_path, args.path)
-    shutil.move(os.path.join(args.path, "ceres-solver-1.13.0"), path)
+    download_zipfile(url, archive_path, args.build_path,
+                     "f32e5b222205ad0f5cf34624f4ea59df")
+    shutil.move(os.path.join(args.build_path, "ceres-solver-1.13.0"), path)
 
     extra_config_args = [
         "-DBUILD_TESTING=OFF",
@@ -331,18 +363,6 @@ def build_ceres_solver(args):
 
 
 def build_colmap(args):
-    path = os.path.join(args.path, "colmap-{}".format(args.colmap_branch))
-    url = "https://codeload.github.com/" \
-          "colmap/colmap/zip/{}".format(args.colmap_branch)
-    archive_path = os.path.join(args.download_path,
-                                "colmap-{}.zip".format(args.colmap_branch))
-    if args.colmap_update:
-        if os.path.exists(archive_path):
-            os.remove(archive_path)
-        download_zipfile(url, archive_path, args.path)
-    elif not os.path.exists(path):
-        download_zipfile(url, archive_path, args.path)
-
     extra_config_args = []
     if args.qt_path != "":
         extra_config_args.append("-DQt5Core_DIR={}".format(
@@ -368,8 +388,11 @@ def build_colmap(args):
     if PLATFORM_IS_WINDOWS:
         extra_config_args.append("-DCMAKE_CXX_FLAGS=/DGOOGLE_GLOG_DLL_DECL=")
 
-    build_cmake_project(args, os.path.join(path, "build"),
-                        extra_config_args=extra_config_args)
+    mkdir_if_not_exists(os.path.join(args.build_path, "colmap"))
+    
+    build_cmake_project(args, os.path.join(args.build_path, "colmap/build"),
+                        extra_config_args=extra_config_args,
+                        cmakelists_path=os.path.abspath(args.colmap_path))
 
 
 def build_post_process(args):
@@ -389,7 +412,7 @@ def build_post_process(args):
 def main():
     args = parse_args()
 
-    mkdir_if_not_exists(args.path)
+    mkdir_if_not_exists(args.build_path)
     mkdir_if_not_exists(args.download_path)
     mkdir_if_not_exists(args.install_path)
     mkdir_if_not_exists(os.path.join(args.install_path, "include"))
