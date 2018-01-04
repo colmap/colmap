@@ -639,16 +639,16 @@ class LikelihoodComputer {
 
     // Warp corners of patch in reference image to source image.
     float src1[2];
-    const float ref1[2] = {row - kWindowRadius, col - kWindowRadius};
+    const float ref1[2] = {col - kWindowRadius, row - kWindowRadius};
     Mat33DotVec3Homogeneous(H, ref1, src1);
     float src2[2];
-    const float ref2[2] = {row - kWindowRadius, col + kWindowRadius};
+    const float ref2[2] = {col - kWindowRadius, row + kWindowRadius};
     Mat33DotVec3Homogeneous(H, ref2, src2);
     float src3[2];
-    const float ref3[2] = {row + kWindowRadius, col + kWindowRadius};
+    const float ref3[2] = {col + kWindowRadius, row + kWindowRadius};
     Mat33DotVec3Homogeneous(H, ref3, src3);
     float src4[2];
-    const float ref4[2] = {row + kWindowRadius, col - kWindowRadius};
+    const float ref4[2] = {col + kWindowRadius, row - kWindowRadius};
     Mat33DotVec3Homogeneous(H, ref4, src4);
 
     // Compute area of patches in reference and source image.
