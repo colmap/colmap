@@ -100,8 +100,10 @@ if(IS_MSVC)
     add_definitions("-DGLOG_NO_ABBREVIATED_SEVERITIES")
     add_definitions("-DGL_GLEXT_PROTOTYPES")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
+    set(COLMAP_LIB_PATH "bin")
 else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    set(COLMAP_LIB_PATH "lib/colmap")
 endif()
 
 if(IS_GNU)
@@ -198,11 +200,18 @@ add_subdirectory(src)
 # Install/uninstall script
 ################################################################################
 
-install(CODE "FILE(MAKE_DIRECTORY \${CMAKE_INSTALL_PREFIX}/lib/colmap)")
-install(FILES "scripts/shell/colmap.sh"
-        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
-                    GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-        DESTINATION "bin" RENAME "colmap")
+if(IS_MSVC)
+    install(FILES "scripts/shell/colmap.bat" "scripts/shell/run_tests.bat"
+            PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                        GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+            DESTINATION "/")
+else()
+    install(CODE "FILE(MAKE_DIRECTORY \${CMAKE_INSTALL_PREFIX}/lib/colmap)")
+    install(FILES "scripts/shell/colmap.sh"
+            PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                        GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+            DESTINATION "bin" RENAME "colmap")
+endif()
 
 configure_file("${CMAKE_SOURCE_DIR}/cmake/CMakeUninstall.cmake"
                "${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake"

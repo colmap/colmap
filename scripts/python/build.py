@@ -210,7 +210,7 @@ def build_freeimage(args):
             os.path.join(args.install_path, "lib/FreeImage.lib"))
         copy_file_if_not_exists(
             os.path.join(path, "Dist/x64/FreeImage.dll"),
-            os.path.join(args.install_path, "bin/FreeImage.dll"))
+            os.path.join(args.install_path, "lib/FreeImage.dll"))
     else:
         url = "https://kent.dl.sourceforge.net/project/freeimage/" \
               "Source%20Distribution/3.17.0/FreeImage3170.zip"
@@ -272,6 +272,12 @@ def build_glew(args):
 
     build_cmake_project(args, os.path.join(path, "build/cmake/build"))
 
+    if PLATFORM_IS_WINDOWS:
+        shutil.move(os.path.join(args.install_path, "bin/glew32.dll"),
+                    os.path.join(args.install_path, "lib/glew32.dll"))
+        os.remove(os.path.join(args.install_path, "bin/glewinfo.exe"))
+        os.remove(os.path.join(args.install_path, "bin/visualinfo.exe"))
+
 
 def build_gflags(args):
     path = os.path.join(args.build_path, "gflags")
@@ -325,7 +331,7 @@ def build_suite_sparse(args):
                                         "lib64/lapack_blas_windows/*.dll")
         for library_path in glob.glob(lapack_blas_path):
             copy_file_if_not_exists(
-                library_path, os.path.join(args.install_path, "bin",
+                library_path, os.path.join(args.install_path, "lib",
                                            os.path.basename(library_path)))
 
 
@@ -410,13 +416,18 @@ def build_post_process(args):
         if args.qt_path:
             copy_file_if_not_exists(
                 os.path.join(args.qt_path, "bin/Qt5Core.dll"),
-                os.path.join(args.install_path, "bin/Qt5Core.dll"))
+                os.path.join(args.install_path, "lib/Qt5Core.dll"))
             copy_file_if_not_exists(
                 os.path.join(args.qt_path, "bin/Qt5Gui.dll"),
-                os.path.join(args.install_path, "bin/Qt5Gui.dll"))
+                os.path.join(args.install_path, "lib/Qt5Gui.dll"))
             copy_file_if_not_exists(
                 os.path.join(args.qt_path, "bin/Qt5Widgets.dll"),
-                os.path.join(args.install_path, "bin/Qt5Widgets.dll"))
+                os.path.join(args.install_path, "lib/Qt5Widgets.dll"))
+            mkdir_if_not_exists(
+                os.path.join(args.install_path, "bin/platforms"))
+            copy_file_if_not_exists(
+                os.path.join(args.qt_path, "plugins/platforms/qwindows.dll"),
+                os.path.join(args.install_path, "bin/platforms/qwindows.dll"))
 
 
 def main():
@@ -444,12 +455,12 @@ def main():
     print()
     print("Successfully installed COLMAP in: {}".format(args.install_path))
     if PLATFORM_IS_WINDOWS:
-        print("  To run COLMAP, navigate to {} and run colmap.exe".format(
-                    os.path.join(args.install_path, "bin")))
+        print("  To run COLMAP, navigate to {} and run colmap.bat".format(
+                    args.install_path))
     else:
         print("  To run COLMAP, execute LD_LIBRARY_PATH={} {}".format(
                     os.path.join(args.install_path, "lib"),
-                    os.path.join(args.install_path, "bin/colmap")))
+                    os.path.join(args.install_path, "colmap")))
 
 
 if __name__ == "__main__":

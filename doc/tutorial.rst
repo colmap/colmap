@@ -163,7 +163,7 @@ not modify the input images or directory and all extracted data is stored in a
 single, self-contained SQLite database file (see :doc:`database`).
 
 The first step is to start the graphical user interface of COLMAP by running the
-pre-built binaries (Windows: `COLMAP.bat`, Mac: `COLMAP.app`) or by executing
+pre-built binaries (Windows: `colmap.bat`, Mac: `colmap.app`) or by executing
 ``./src/exe/colmap``. Next, create a new project by choosing ``File > New
 project``. In this dialog, you must select where to store the database and the
 folder that contains the input images. For convenience, you can save the entire
