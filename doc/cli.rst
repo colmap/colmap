@@ -4,9 +4,10 @@ Command-line Interface
 ======================
 
 The command-line interface provides access to most of COLMAP's functionality for
-automated scripting. Each core functionality uses a different executable that
-is accessible through ``colmap COMMAND`` if you installed COLMAP or inside
-the ``src/exe/*`` folder if you run COLMAP from the build folder.
+automated scripting. Each core functionality uses a different executable that is
+accessible through ``colmap [command]`` if you installed COLMAP (execute
+``colmap -h`` to list the available commands) or inside the ``src/exe/*`` folder
+if you run COLMAP from the CMake build folder.
 
 Example
 -------
