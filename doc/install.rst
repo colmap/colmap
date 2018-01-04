@@ -89,6 +89,12 @@ Configure and compile COLMAP::
     cd build
     cmake ..
     make
+    sudo make install
+
+Run COLMAP::
+
+    colmap -h
+    colmap gui
 
 
 Mac
@@ -126,6 +132,11 @@ Configure and compile COLMAP::
     cmake ..
     make
 
+Run COLMAP::
+
+    colmap -h
+    colmap gui
+
 
 Windows
 -------
@@ -162,8 +173,8 @@ E.g., under Windows you must specify the location of these libraries as::
 
 Note that under Windows you must use forward slashes for specifying the paths
 here. If you want to compile COLMAP using a specific Visual Studio version, you
-can for example specify ``--cmake_generator "Visual Studio 14" for Visual Studio
-2015. If you use Homebrew under Mac, you can use the following command::
+can for example specify ``--cmake_generator "Visual Studio 14"`` for Visual
+Studio 2015. If you use Homebrew under Mac, you can use the following command::
 
     python scripts/python/build.py \
         --build_path path/to/colmap/build \
