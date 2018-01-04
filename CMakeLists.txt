@@ -198,7 +198,7 @@ add_subdirectory(src)
 # Install/uninstall script
 ################################################################################
 
-install(CODE "FILE(MAKE_DIRECTORY \${CMAKE_INSTALL_PREFIX}/bin/colmap-internal)")
+install(CODE "FILE(MAKE_DIRECTORY \${CMAKE_INSTALL_PREFIX}/lib/colmap)")
 install(FILES "scripts/shell/colmap.sh"
         PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
                     GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
