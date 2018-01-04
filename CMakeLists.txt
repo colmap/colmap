@@ -195,8 +195,14 @@ add_subdirectory(src)
 
 
 ################################################################################
-# Uninstall script
+# Install/uninstall script
 ################################################################################
+
+install(CODE "FILE(MAKE_DIRECTORY \${CMAKE_INSTALL_PREFIX}/bin/colmap-internal)")
+install(FILES "scripts/shell/colmap.sh"
+        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                    GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+        DESTINATION "bin" RENAME "colmap")
 
 configure_file("${CMAKE_SOURCE_DIR}/cmake/CMakeUninstall.cmake"
                "${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake"
