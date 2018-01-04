@@ -15,7 +15,7 @@ Quickstart
 ----------
 
 First, start the graphical user interface of COLMAP, as described :ref:`here
-<interface>`. COLMAP provides an automatic reconstruction tool that simply takes
+<gui>`. COLMAP provides an automatic reconstruction tool that simply takes
 a folder of input images and produces a sparse and dense reconstruction in a
 workspace folder. Click ``Reconstruction > Automatic Reconstruction`` in the GUI
 and specify the relevant options. The output is written to the workspace folder.
