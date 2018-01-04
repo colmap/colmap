@@ -86,6 +86,6 @@ script:
   - git pull
   - mkdir -p build
   - cd build
-  - cmake .. -DCMAKE_BUILD_TYPE=Release ${CMAKE_OPTIONS}
+  - cmake .. -DCMAKE_BUILD_TYPE=Release -DTESTS_ENABLED=ON ${CMAKE_OPTIONS}
   - make -j2
   - CTEST_OUTPUT_ON_FAILURE=1 make test
