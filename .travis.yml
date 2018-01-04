@@ -88,4 +88,4 @@ script:
   - cd build
   - cmake .. -DCMAKE_BUILD_TYPE=Release ${CMAKE_OPTIONS}
   - make -j2
-  - make test
+  - CTEST_OUTPUT_ON_FAILURE=1 make test
