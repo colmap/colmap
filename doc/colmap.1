@@ -1,25 +1,39 @@
-.TH colmap 1 "June 23 2017"
+.TH colmap 1 "January 4 2018"
 .SH NAME
 colmap \- Structure-from-Motion and Multi-View Stereo
 .SH SYNOPSIS
 .B colmap
-.RI [ options ] " files" ...
+.RI "[command] [options]"
 .SH DESCRIPTION
 This manual page documents briefly the
 .B colmap
 command.
 .PP
-\fBcolmap\fP is a general-purpose Structure-from-Motion (SfM) and Multi-View
+COLMAP is a general-purpose Structure-from-Motion (SfM) and Multi-View
 Stereo (MVS) pipeline with a graphical and command-line interface. It offers
 a wide range of features for reconstruction of ordered and unordered image
 collections.
 .SH OPTIONS
-These programs follow the usual GNU command line syntax, with long options
-starting with two dashes (`-'). A summary of options is included below.
-For a complete description, see the Info files.
+This program offers a graphical and command-line interface. Each command
+offers summary of all available options.
 .TP
-.B \-h, \-\-help
-Show summary of options.
+.B help [ \-h, \-\-help ]
+Show summary of all options.
+.TP
+.B gui
+Start graphical interface.
+.TP
+.B gui \-h [ \-\-help ]
+Show summary of graphical interface options.
+.TP
+.B feature_extractor \-h [ \-\-help ]
+Show summary of feature extractor options.
+.TP
+.B feature_extractor \-\-image_path IMAGES \-\-database_path DATABASE
+Extract features for images in the given folder and store them in the database.
+.br
+.TP
+.B ...
 .br
 .SH ONLINE DOCUMENTATION
 The program is documented at https://colmap.github.io/
