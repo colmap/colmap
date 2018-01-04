@@ -4,8 +4,9 @@ Command-line Interface
 ======================
 
 The command-line interface provides access to most of COLMAP's functionality for
-automated scripting. Each core functionality uses a different executable inside
-the ``./src/exe/*`` folder.
+automated scripting. Each core functionality uses a different executable that
+is accessible through ``colmap COMMAND`` if you installed COLMAP or inside
+the ``src/exe/*`` folder if you run COLMAP from the build folder.
 
 Example
 -------
@@ -24,7 +25,7 @@ The command for the automatic reconstruction tools would be::
     # The project folder must contain a folder "images" with all the images.
     $ PROJECT_PATH=/path/to/project
 
-    $ ./src/exe/automatic_reconstructor \
+    $ colmap automatic_reconstructor \
         --workspace_path $PROJECT_PATH \
         --image_path $PROJECT_PATH/images
 
@@ -36,41 +37,41 @@ steps, an exemplary sequence of commands to reconstruct the scene would be::
     # The project folder must contain a folder "images" with all the images.
     $ PROJECT_PATH=/path/to/project
 
-    $ ./src/exe/feature_extractor \
+    $ colmap feature_extractor \
        --database_path $PROJECT_PATH/database.db \
        --image_path $PROJECT_PATH/images
 
-    $ ./src/exe/exhaustive_matcher \
+    $ colmap exhaustive_matcher \
        --database_path $PROJECT_PATH/database.db
 
     $ mkdir $PROJECT_PATH/sparse
 
-    $ ./src/exe/mapper \
+    $ colmap mapper \
         --database_path $PROJECT_PATH/database.db \
         --image_path $PROJECT_PATH/images \
         --export_path $PROJECT_PATH/sparse
 
     $ mkdir $PROJECT_PATH/dense
 
-    $ ./src/exe/image_undistorter \
+    $ colmap image_undistorter \
         --image_path $PROJECT_PATH/images \
         --input_path $PROJECT_PATH/sparse/0 \
         --output_path $PROJECT_PATH/dense \
         --output_type COLMAP \
         --max_image_size 2000
 
-    $ ./exe/dense_stereo \
+    $ colmap dense_stereo \
         --workspace_path $PROJECT_PATH/dense \
         --workspace_format COLMAP \
         --DenseStereo.geom_consistency true
 
-    $ ./exe/dense_fuser \
+    $ colmap dense_fuser \
         --workspace_path $PROJECT_PATH/dense \
         --workspace_format COLMAP \
         --input_type geometric \
         --output_path $PROJECT_PATH/dense/fused.ply
 
-    $ ./src/exe/dense_mesher \
+    $ colmap dense_mesher \
         --input_path $PROJECT_PATH/dense/fused.ply \
         --output_path $PROJECT_PATH/dense/meshed.ply
 
@@ -87,7 +88,7 @@ Help
 All executables have a "-h,--help" command-line argument to show the usage and
 the available options, e.g.::
 
-    $ ./src/exe/feature_extractor -h
+    $ colmap feature_extractor -h
 
         Options can either be specified via command-line or by defining
         them in a .ini project file passed to `--project_path`.

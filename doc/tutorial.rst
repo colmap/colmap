@@ -14,11 +14,12 @@ to recover a dense representation of the scene.
 Quickstart
 ----------
 
-COLMAP provides an automatic reconstruction tool that simply takes a folder of
-input images and produces a sparse and dense reconstruction in a workspace
-folder. Click ``Reconstruction > Automatic Reconstruction`` in the GUI and
-specify the relevant options. The output is written to the workspace folder. For
-example, if your images are located in ``path/to/project/images``, you could
+First, start the graphical user interface of COLMAP, as described :ref:`here
+<interface>`. COLMAP provides an automatic reconstruction tool that simply takes
+a folder of input images and produces a sparse and dense reconstruction in a
+workspace folder. Click ``Reconstruction > Automatic Reconstruction`` in the GUI
+and specify the relevant options. The output is written to the workspace folder.
+For example, if your images are located in ``path/to/project/images``, you could
 select ``path/to/project`` as a workspace folder and after running the automatic
 reconstruction tool, the folder would look similar to this::
 
