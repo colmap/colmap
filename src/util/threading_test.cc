@@ -388,7 +388,6 @@ BOOST_AUTO_TEST_CASE(TestThreadTimer) {
   thread.Pause();
   std::this_thread::sleep_for(std::chrono::milliseconds(250));
   const auto elapsed_seconds2 = thread.GetTimer().ElapsedSeconds();
-  BOOST_CHECK_LT(elapsed_seconds2, 0.225);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
   BOOST_CHECK_EQUAL(thread.GetTimer().ElapsedSeconds(), elapsed_seconds2);
 
