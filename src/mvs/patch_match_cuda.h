@@ -49,8 +49,8 @@ class PatchMatchCuda {
   std::vector<int> GetConsistentImageIds() const;
 
  private:
-  template <int kWindowSize>
-  void RunWithWindowSize();
+  template <int kWindowSize, int kWindowStep>
+  void RunWithWindowSizeAndStep();
 
   void ComputeCudaConfig();
 
