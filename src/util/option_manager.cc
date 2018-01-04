@@ -455,6 +455,8 @@ void OptionManager::AddDenseStereoOptions() {
                               &dense_stereo->gpu_index);
   AddAndRegisterDefaultOption("DenseStereo.window_radius",
                               &dense_stereo->window_radius);
+  AddAndRegisterDefaultOption("DenseStereo.window_step",
+                              &dense_stereo->window_step);
   AddAndRegisterDefaultOption("DenseStereo.sigma_spatial",
                               &dense_stereo->sigma_spatial);
   AddAndRegisterDefaultOption("DenseStereo.sigma_color",

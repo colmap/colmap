@@ -33,7 +33,8 @@ class GpuMatRefImage {
   // intensities. The filtered images can then be used for repeated, efficient
   // NCC computation.
   void Filter(const uint8_t* image_data, const size_t window_radius,
-              const float sigma_spatial, const float sigma_color);
+              const size_t window_step, const float sigma_spatial,
+              const float sigma_color);
 
   // Image intensities.
   std::unique_ptr<GpuMat<uint8_t>> image;
@@ -45,7 +46,7 @@ class GpuMatRefImage {
   std::unique_ptr<GpuMat<float>> squared_sum_image;
 
  private:
-  template <int kWindowRadius>
+  template <int kWindowRadius, int kWindowStep>
   void Filter(const uint8_t* image_data, const float sigma_spatial,
               const float sigma_color);
 

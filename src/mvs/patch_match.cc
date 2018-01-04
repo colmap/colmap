@@ -42,6 +42,7 @@ void PatchMatchOptions::Print() const {
   PrintOption(depth_min);
   PrintOption(depth_max);
   PrintOption(window_radius);
+  PrintOption(window_step);
   PrintOption(sigma_spatial);
   PrintOption(sigma_color);
   PrintOption(num_samples);

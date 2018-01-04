@@ -26,7 +26,7 @@ namespace {
 
 texture<uint8_t, cudaTextureType2D, cudaReadModeNormalizedFloat> image_texture;
 
-template <int kWindowRadius>
+template <int kWindowRadius, int kWindowStep>
 __global__ void FilterKernel(GpuMat<uint8_t> image, GpuMat<float> sum_image,
                              GpuMat<float> squared_sum_image,
                              const float sigma_spatial,
@@ -42,22 +42,24 @@ __global__ void FilterKernel(GpuMat<uint8_t> image, GpuMat<float> sum_image,
   float sum = 0.0f;
   float squared_sum = 0.0f;
   float bilateral_weight_sum = 0.0f;
-  for (int win_col = -kWindowRadius; win_col <= kWindowRadius; win_col++) {
-    float sum_row = 0.0f;
-    float squared_sum_row = 0.0f;
-    float bilateral_weight_sum_row = 0.0f;
-    for (int win_row = -kWindowRadius; win_row <= kWindowRadius; win_row++) {
+  for (int win_col = -kWindowRadius; win_col <= kWindowRadius;
+       win_col += kWindowStep) {
+    float sum_col = 0.0f;
+    float squared_sum_col = 0.0f;
+    float bilateral_weight_sum_col = 0.0f;
+    for (int win_row = -kWindowRadius; win_row <= kWindowRadius;
+         win_row += kWindowStep) {
       const float color = tex2D(image_texture, col + win_col, row + win_row);
       const float bilateral_weight =
           ComputeBilateralWeight(0.0f, 0.0f, win_col, win_row, center_color,
                                  color, sigma_spatial, sigma_color);
-      sum_row += bilateral_weight * color;
-      squared_sum_row += bilateral_weight * color * color;
-      bilateral_weight_sum_row += bilateral_weight;
+      sum_col += bilateral_weight * color;
+      squared_sum_col += bilateral_weight * color * color;
+      bilateral_weight_sum_col += bilateral_weight;
     }
-    sum += sum_row;
-    squared_sum += squared_sum_row;
-    bilateral_weight_sum += bilateral_weight_sum_row;
+    sum += sum_col;
+    squared_sum += squared_sum_col;
+    bilateral_weight_sum += bilateral_weight_sum_col;
   }
 
   sum /= bilateral_weight_sum;
@@ -79,54 +81,58 @@ GpuMatRefImage::GpuMatRefImage(const size_t width, const size_t height)
 
 void GpuMatRefImage::Filter(const uint8_t* image_data,
                             const size_t window_radius,
-                            const float sigma_spatial,
+                            const size_t window_step, const float sigma_spatial,
                             const float sigma_color) {
-#define CALL_FILTER_FUNC(window_radius)                            \
-  case window_radius:                                              \
-    Filter<window_radius>(image_data, sigma_spatial, sigma_color); \
+#define CALL_RUN_FUNC(window_radius, window_step)                 \
+  case window_radius:                                             \
+    Filter<window_radius, window_step>(image_data, sigma_spatial, \
+                                       sigma_color);              \
     break;
 
-  switch (window_radius) {
-    CALL_FILTER_FUNC(1)
-    CALL_FILTER_FUNC(2)
-    CALL_FILTER_FUNC(3)
-    CALL_FILTER_FUNC(4)
-    CALL_FILTER_FUNC(5)
-    CALL_FILTER_FUNC(6)
-    CALL_FILTER_FUNC(7)
-    CALL_FILTER_FUNC(8)
-    CALL_FILTER_FUNC(9)
-    CALL_FILTER_FUNC(10)
-    CALL_FILTER_FUNC(11)
-    CALL_FILTER_FUNC(12)
-    CALL_FILTER_FUNC(13)
-    CALL_FILTER_FUNC(14)
-    CALL_FILTER_FUNC(15)
-    CALL_FILTER_FUNC(16)
-    CALL_FILTER_FUNC(17)
-    CALL_FILTER_FUNC(18)
-    CALL_FILTER_FUNC(19)
-    CALL_FILTER_FUNC(20)
-    CALL_FILTER_FUNC(21)
-    CALL_FILTER_FUNC(22)
-    CALL_FILTER_FUNC(23)
-    CALL_FILTER_FUNC(24)
-    CALL_FILTER_FUNC(25)
-    CALL_FILTER_FUNC(26)
-    CALL_FILTER_FUNC(27)
-    CALL_FILTER_FUNC(28)
-    CALL_FILTER_FUNC(29)
-    CALL_FILTER_FUNC(30)
-    default:
-      std::cerr << "Error: Window size not supported" << std::endl;
-      exit(EXIT_FAILURE);
+#define SWITCH_WINDOW_RADIUS(window_step)                             \
+  case window_step:                                                   \
+    switch (window_radius) {                                          \
+      CALL_RUN_FUNC(1, window_step)                                   \
+      CALL_RUN_FUNC(2, window_step)                                   \
+      CALL_RUN_FUNC(3, window_step)                                   \
+      CALL_RUN_FUNC(4, window_step)                                   \
+      CALL_RUN_FUNC(5, window_step)                                   \
+      CALL_RUN_FUNC(6, window_step)                                   \
+      CALL_RUN_FUNC(7, window_step)                                   \
+      CALL_RUN_FUNC(8, window_step)                                   \
+      CALL_RUN_FUNC(9, window_step)                                   \
+      CALL_RUN_FUNC(10, window_step)                                  \
+      CALL_RUN_FUNC(11, window_step)                                  \
+      CALL_RUN_FUNC(12, window_step)                                  \
+      CALL_RUN_FUNC(13, window_step)                                  \
+      CALL_RUN_FUNC(14, window_step)                                  \
+      CALL_RUN_FUNC(15, window_step)                                  \
+      CALL_RUN_FUNC(16, window_step)                                  \
+      CALL_RUN_FUNC(17, window_step)                                  \
+      CALL_RUN_FUNC(18, window_step)                                  \
+      CALL_RUN_FUNC(19, window_step)                                  \
+      CALL_RUN_FUNC(20, window_step)                                  \
+      default: {                                                      \
+        std::cerr << "Error: Window size not supported" << std::endl; \
+        break;                                                        \
+      }                                                               \
+    }                                                                 \
+    break;
+
+  switch (window_step) {
+    SWITCH_WINDOW_RADIUS(1)
+    SWITCH_WINDOW_RADIUS(2)
+    default: {
+      std::cerr << "Error: Window step not supported" << std::endl;
       break;
+    }
   }
 
-#undef CALL_FILTER_FUNC
+#undef SWITCH_WINDOW_RADIUS
+#undef CALL_RUN_FUNC
 }
 
-template <int kWindowRadius>
+template <int kWindowRadius, int kWindowStep>
 void GpuMatRefImage::Filter(const uint8_t* image_data,
                             const float sigma_spatial,
                             const float sigma_color) {
@@ -143,7 +149,7 @@ void GpuMatRefImage::Filter(const uint8_t* image_data,
                        (height_ - 1) / block_size.y + 1);
 
   CUDA_SAFE_CALL(cudaBindTextureToArray(image_texture, image_array.GetPtr()));
-  FilterKernel<kWindowRadius><<<grid_size, block_size>>>(
+  FilterKernel<kWindowRadius, kWindowStep><<<grid_size, block_size>>>(
       *image, *sum_image, *squared_sum_image, sigma_spatial, sigma_color);
   CUDA_SYNC_AND_CHECK();
   CUDA_SAFE_CALL(cudaUnbindTexture(image_texture));

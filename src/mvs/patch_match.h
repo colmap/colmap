@@ -56,6 +56,13 @@ struct PatchMatchOptions {
   // Half window size to compute NCC photo-consistency cost.
   int window_radius = 5;
 
+  // Number of pixels to skip when computing NCC. For a value of 1, every
+  // pixel is used to compute the NCC. For larger values, only every n-th row
+  // and column is used and the computation speed thereby increases roughly by
+  // a factor of window_step^2. Note that not all combinations of window sizes
+  // and steps produce nice results, especially if the step is greather than 2.
+  int window_step = 1;
+
   // Parameters for bilaterally weighted NCC.
   double sigma_spatial = window_radius;
   double sigma_color = 0.2f;
@@ -124,6 +131,8 @@ struct PatchMatchOptions {
     CHECK_OPTION_GT(sigma_spatial, 0.0f);
     CHECK_OPTION_GT(sigma_color, 0.0f);
     CHECK_OPTION_GT(window_radius, 0);
+    CHECK_OPTION_GT(window_step, 0);
+    CHECK_OPTION_LE(window_step, 2);
     CHECK_OPTION_GT(num_samples, 0);
     CHECK_OPTION_GT(ncc_sigma, 0.0f);
     CHECK_OPTION_GE(min_triangulation_angle, 0.0f);

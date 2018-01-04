@@ -292,7 +292,7 @@ __device__ inline void ComposeHomography(const int image_id, const int row,
 
 // The return values is 1 - NCC, so the range is [0, 2], the smaller the
 // value, the better the color consistency.
-template <int kWindowSize>
+template <int kWindowSize, int kWindowStep>
 struct PhotoConsistencyCostComputer {
   // Image data in local window around patch.
   const float* local_ref_image = nullptr;
@@ -358,14 +358,14 @@ struct PhotoConsistencyCostComputer {
     float sum_ref_src = 0.0f;
     float bilateral_weight_sum = 0.0f;
 
-    for (int row = 0; row < kWindowSize; ++row) {
+    for (int row = 0; row < kWindowSize; row += kWindowStep) {
       // Accumulate values per row to reduce numerical errors.
       float sum_src_row = 0.0f;
       float sum_src_src_row = 0.0f;
       float sum_ref_src_row = 0.0f;
       float bilateral_weight_sum_row = 0.0f;
 
-      for (int col = 0; col < kWindowSize; ++col) {
+      for (int col = 0; col < kWindowSize; col += kWindowStep) {
         const float inv_z = 1.0f / z;
         const float norm_col_src = inv_z * col_src + 0.5f;
         const float norm_row_src = inv_z * row_src + 0.5f;
@@ -382,10 +382,10 @@ struct PhotoConsistencyCostComputer {
         sum_ref_src_row += bilateral_weight * ref * src;
         bilateral_weight_sum_row += bilateral_weight;
 
-        ref_image_idx += 1;
-        col_src += tform[0];
-        row_src += tform[3];
-        z += tform[6];
+        ref_image_idx += kWindowStep;
+        col_src += kWindowStep * tform[0];
+        row_src += kWindowStep * tform[3];
+        z += kWindowStep * tform[6];
       }
 
       sum_src += sum_src_row;
@@ -393,12 +393,12 @@ struct PhotoConsistencyCostComputer {
       sum_ref_src += sum_ref_src_row;
       bilateral_weight_sum += bilateral_weight_sum_row;
 
-      ref_image_base_idx += 3 * THREADS_PER_BLOCK;
+      ref_image_base_idx += kWindowStep * 3 * THREADS_PER_BLOCK;
       ref_image_idx = ref_image_base_idx;
 
-      base_col_src += tform[1];
-      base_row_src += tform[4];
-      base_z += tform[7];
+      base_col_src += kWindowStep * tform[1];
+      base_row_src += kWindowStep * tform[4];
+      base_z += kWindowStep * tform[7];
 
       col_src = base_col_src;
       row_src = base_row_src;
@@ -735,7 +735,7 @@ __global__ void RotateNormalMap(GpuMat<float> normal_map) {
   }
 }
 
-template <int kWindowSize>
+template <int kWindowSize, int kWindowStep>
 __global__ void ComputeInitialCost(GpuMat<float> cost_map,
                                    const GpuMat<float> depth_map,
                                    const GpuMat<float> normal_map,
@@ -748,7 +748,7 @@ __global__ void ComputeInitialCost(GpuMat<float> cost_map,
 
   __shared__ float local_ref_image[THREADS_PER_BLOCK * 3 * kWindowSize];
 
-  PhotoConsistencyCostComputer<kWindowSize> pcc_computer;
+  PhotoConsistencyCostComputer<kWindowSize, kWindowStep> pcc_computer;
   pcc_computer.local_ref_image = local_ref_image;
   pcc_computer.ref_image_width = cost_map.GetWidth();
   pcc_computer.ref_image_height = cost_map.GetHeight();
@@ -801,7 +801,7 @@ struct SweepOptions {
   float filter_geom_consistency_max_cost = 1.0f;
 };
 
-template <int kWindowSize, bool kGeomConsistencyTerm = false,
+template <int kWindowSize, int kWindowStep, bool kGeomConsistencyTerm = false,
           bool kFilterPhotoConsistency = false,
           bool kFilterGeomConsistency = false>
 __global__ void SweepFromTopToBottom(
@@ -858,7 +858,7 @@ __global__ void SweepFromTopToBottom(
   // size to 2 * THREADS_PER_BLOCK + 1.
   __shared__ float local_ref_image[THREADS_PER_BLOCK * 3 * kWindowSize];
 
-  PhotoConsistencyCostComputer<kWindowSize> pcc_computer;
+  PhotoConsistencyCostComputer<kWindowSize, kWindowStep> pcc_computer;
   pcc_computer.local_ref_image = local_ref_image;
   pcc_computer.ref_image_width = cost_map.GetWidth();
   pcc_computer.ref_image_height = cost_map.GetHeight();
@@ -1143,48 +1143,51 @@ PatchMatchCuda::~PatchMatchCuda() {
 }
 
 void PatchMatchCuda::Run() {
-#define CALL_RUN_FUNC(window_radius)            \
-  case window_radius:                           \
-    RunWithWindowSize<2 * window_radius + 1>(); \
+#define CALL_RUN_FUNC(window_radius, window_step)                   \
+  case window_radius:                                               \
+    RunWithWindowSizeAndStep<2 * window_radius + 1, window_step>(); \
     break;
 
-  switch (options_.window_radius) {
-    CALL_RUN_FUNC(1)
-    CALL_RUN_FUNC(2)
-    CALL_RUN_FUNC(3)
-    CALL_RUN_FUNC(4)
-    CALL_RUN_FUNC(5)
-    CALL_RUN_FUNC(6)
-    CALL_RUN_FUNC(7)
-    CALL_RUN_FUNC(8)
-    CALL_RUN_FUNC(9)
-    CALL_RUN_FUNC(10)
-    CALL_RUN_FUNC(11)
-    CALL_RUN_FUNC(12)
-    CALL_RUN_FUNC(13)
-    CALL_RUN_FUNC(14)
-    CALL_RUN_FUNC(15)
-    CALL_RUN_FUNC(16)
-    CALL_RUN_FUNC(17)
-    CALL_RUN_FUNC(18)
-    CALL_RUN_FUNC(19)
-    CALL_RUN_FUNC(20)
-    CALL_RUN_FUNC(21)
-    CALL_RUN_FUNC(22)
-    CALL_RUN_FUNC(23)
-    CALL_RUN_FUNC(24)
-    CALL_RUN_FUNC(25)
-    CALL_RUN_FUNC(26)
-    CALL_RUN_FUNC(27)
-    CALL_RUN_FUNC(28)
-    CALL_RUN_FUNC(29)
-    CALL_RUN_FUNC(30)
+#define SWITCH_WINDOW_RADIUS(window_step)                             \
+  case window_step:                                                   \
+    switch (options_.window_radius) {                                 \
+      CALL_RUN_FUNC(1, window_step)                                   \
+      CALL_RUN_FUNC(2, window_step)                                   \
+      CALL_RUN_FUNC(3, window_step)                                   \
+      CALL_RUN_FUNC(4, window_step)                                   \
+      CALL_RUN_FUNC(5, window_step)                                   \
+      CALL_RUN_FUNC(6, window_step)                                   \
+      CALL_RUN_FUNC(7, window_step)                                   \
+      CALL_RUN_FUNC(8, window_step)                                   \
+      CALL_RUN_FUNC(9, window_step)                                   \
+      CALL_RUN_FUNC(10, window_step)                                  \
+      CALL_RUN_FUNC(11, window_step)                                  \
+      CALL_RUN_FUNC(12, window_step)                                  \
+      CALL_RUN_FUNC(13, window_step)                                  \
+      CALL_RUN_FUNC(14, window_step)                                  \
+      CALL_RUN_FUNC(15, window_step)                                  \
+      CALL_RUN_FUNC(16, window_step)                                  \
+      CALL_RUN_FUNC(17, window_step)                                  \
+      CALL_RUN_FUNC(18, window_step)                                  \
+      CALL_RUN_FUNC(19, window_step)                                  \
+      CALL_RUN_FUNC(20, window_step)                                  \
+      default: {                                                      \
+        std::cerr << "Error: Window size not supported" << std::endl; \
+        break;                                                        \
+      }                                                               \
+    }                                                                 \
+    break;
+
+  switch (options_.window_step) {
+    SWITCH_WINDOW_RADIUS(1)
+    SWITCH_WINDOW_RADIUS(2)
     default: {
-      std::cerr << "Error: Window size not supported" << std::endl;
+      std::cerr << "Error: Window step not supported" << std::endl;
       break;
     }
   }
 
+#undef SWITCH_WINDOW_RADIUS
 #undef CALL_RUN_FUNC
 }
 
@@ -1227,16 +1230,17 @@ std::vector<int> PatchMatchCuda::GetConsistentImageIds() const {
   return consistent_image_ids;
 }
 
-template <int kWindowSize>
-void PatchMatchCuda::RunWithWindowSize() {
+template <int kWindowSize, int kWindowStep>
+void PatchMatchCuda::RunWithWindowSizeAndStep() {
   CudaTimer total_timer;
   CudaTimer init_timer;
 
   ComputeCudaConfig();
-  ComputeInitialCost<kWindowSize><<<sweep_grid_size_, sweep_block_size_>>>(
-      *cost_map_, *depth_map_, *normal_map_, *ref_image_->sum_image,
-      *ref_image_->squared_sum_image, options_.sigma_spatial,
-      options_.sigma_color);
+  ComputeInitialCost<kWindowSize, kWindowStep>
+      <<<sweep_grid_size_, sweep_block_size_>>>(
+          *cost_map_, *depth_map_, *normal_map_, *ref_image_->sum_image,
+          *ref_image_->squared_sum_image, options_.sigma_spatial,
+          options_.sigma_color);
   CUDA_SYNC_AND_CHECK();
 
   init_timer.Print("Initialization");
@@ -1275,7 +1279,7 @@ void PatchMatchCuda::RunWithWindowSize() {
       const bool last_sweep = iter == options_.num_iterations - 1 && sweep == 3;
 
 #define CALL_SWEEP_FUNC                                                  \
-  SweepFromTopToBottom<kWindowSize, kGeomConsistencyTerm,                \
+  SweepFromTopToBottom<kWindowSize, kWindowStep, kGeomConsistencyTerm,   \
                        kFilterPhotoConsistency, kFilterGeomConsistency>  \
       <<<sweep_grid_size_, sweep_block_size_>>>(                         \
           *global_workspace_, *rand_state_map_, *cost_map_, *depth_map_, \
@@ -1377,7 +1381,8 @@ void PatchMatchCuda::InitRefImage() {
   const std::vector<uint8_t> ref_image_array =
       ref_image.GetBitmap().ConvertToRowMajorArray();
   ref_image_->Filter(ref_image_array.data(), options_.window_radius,
-                     options_.sigma_spatial, options_.sigma_color);
+                     options_.window_step, options_.sigma_spatial,
+                     options_.sigma_color);
 
   ref_image_device_.reset(
       new CudaArrayWrapper<uint8_t>(ref_width_, ref_height_, 1));

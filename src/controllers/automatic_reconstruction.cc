@@ -66,6 +66,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.mapper->ba_global_max_refinements = 2;
     option_manager_.dense_stereo->max_image_size = 1000;
     option_manager_.dense_stereo->window_radius = 4;
+    option_manager_.dense_stereo->window_step = 2;
     option_manager_.dense_stereo->num_samples /= 2;
     option_manager_.dense_stereo->num_iterations = 3;
     option_manager_.dense_stereo->geom_consistency = false;
@@ -81,7 +82,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.mapper->ba_global_points_ratio *= 1.1;
     option_manager_.mapper->ba_global_max_refinements = 2;
     option_manager_.dense_stereo->max_image_size = 1600;
-    option_manager_.dense_stereo->window_radius = 5;
+    option_manager_.dense_stereo->window_step = 2;
     option_manager_.dense_stereo->num_samples /= 1.5;
     option_manager_.dense_stereo->num_iterations = 5;
     option_manager_.dense_stereo->geom_consistency = false;
