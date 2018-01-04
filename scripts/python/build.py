@@ -75,13 +75,18 @@ def parse_args():
                         dest="with_suite_sparse", action="store_false",
                         help="Whether to use SuiteSparse as a sparse solver "
                              "(default with SuiteSparse)")
+    parser.add_argument("--with_tests",
+                        dest="with_tests", action="store_true")
+    parser.add_argument("--without_tests",
+                        dest="with_tests", action="store_false",
+                        help="Whether to build unit tests")
     parser.add_argument("--build_type", default="Release",
                         help="Build type, e.g., Debug, Release, RelWithDebInfo")
     parser.add_argument("--cmake_generator", default="",
                         help="CMake generator, e.g., Visual Studio 14")
     parser.set_defaults(cuda_multi_arch=False)
     parser.set_defaults(with_suite_sparse=True)
-    parser.set_defaults(colmap_update=False)
+    parser.set_defaults(with_tests=True)
     args = parser.parse_args()
 
     args.build_path = os.path.abspath(args.build_path)
@@ -385,11 +390,16 @@ def build_colmap(args):
     else:
         extra_config_args.append("-DCUDA_MULTI_ARCH=OFF")
 
+    if args.with_tests:
+        extra_config_args.append("-DTESTS_ENABLED=ON")
+    else:
+        extra_config_args.append("-DTESTS_ENABLED=OFF")
+
     if PLATFORM_IS_WINDOWS:
         extra_config_args.append("-DCMAKE_CXX_FLAGS=/DGOOGLE_GLOG_DLL_DECL=")
 
     mkdir_if_not_exists(os.path.join(args.build_path, "colmap"))
-    
+
     build_cmake_project(args, os.path.join(args.build_path, "colmap/build"),
                         extra_config_args=extra_config_args,
                         cmakelists_path=os.path.abspath(args.colmap_path))
