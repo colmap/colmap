@@ -363,6 +363,16 @@ using the following Windows Registry entries::
     "TdrLevel"=dword:00000001
     "TdrDelay"=dword:00000120
 
+To set the registry entries, execute the following commands using administrator
+privileges (e.g., in ``cmd.exe`` or ``powershell.exe``)::
+
+    reg add HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\GraphicsDrivers /v TdrLevel /t REG_D
+WORD /d 00000001
+    reg add HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\GraphicsDrivers /v TdrDelay /t REG_D
+WORD /d 00000120
+
+and restart your machine afterwards to make the changes effective.
+
 The X window system under Linux/Unix has a similar feature and detects response
 problems of the GPU. The easiest solution to avoid timeout problems under the X
 window system is to shut it down and run the stereo reconstruction from the
