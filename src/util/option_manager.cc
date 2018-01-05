@@ -62,11 +62,13 @@ OptionManager::OptionManager() {
   desc_->add_options()("project_path", config::value<std::string>());
 }
 
-void OptionManager::InitForIndividualData() {
+void OptionManager::ModifyForIndividualData() {
   mapper->max_extra_param = std::numeric_limits<double>::max();
 }
 
-void OptionManager::InitForVideoData() {
+void OptionManager::ModifyForVideoData() {
+  const bool kResetPaths = false;
+  ResetOptions(kResetPaths);
   mapper->mapper.init_min_tri_angle /= 2;
   mapper->ba_global_images_ratio = 1.4;
   mapper->ba_global_points_ratio = 1.4;
@@ -74,7 +76,55 @@ void OptionManager::InitForVideoData() {
   dense_fusion->min_num_pixels = 15;
 }
 
-void OptionManager::InitForInternetData() { dense_fusion->min_num_pixels = 10; }
+void OptionManager::ModifyForInternetData() {
+  dense_fusion->min_num_pixels = 10;
+}
+
+void OptionManager::ModifyForLowQuality() {
+  sift_extraction->max_image_size = 1000;
+  sequential_matching->loop_detection_num_images /= 2;
+  vocab_tree_matching->num_images /= 2;
+  mapper->ba_local_max_num_iterations /= 2;
+  mapper->ba_global_max_num_iterations /= 2;
+  mapper->ba_global_images_ratio *= 1.2;
+  mapper->ba_global_points_ratio *= 1.2;
+  mapper->ba_global_max_refinements = 2;
+  dense_stereo->max_image_size = 1000;
+  dense_stereo->window_radius = 4;
+  dense_stereo->window_step = 2;
+  dense_stereo->num_samples /= 2;
+  dense_stereo->num_iterations = 3;
+  dense_stereo->geom_consistency = false;
+  dense_fusion->check_num_images /= 2;
+  dense_fusion->max_image_size = 1000;
+}
+
+void OptionManager::ModifyForMediumQuality() {
+  sift_extraction->max_image_size = 1600;
+  sequential_matching->loop_detection_num_images /= 1.5;
+  vocab_tree_matching->num_images /= 1.5;
+  mapper->ba_local_max_num_iterations /= 1.5;
+  mapper->ba_global_max_num_iterations /= 1.5;
+  mapper->ba_global_images_ratio *= 1.1;
+  mapper->ba_global_points_ratio *= 1.1;
+  mapper->ba_global_max_refinements = 2;
+  dense_stereo->max_image_size = 1600;
+  dense_stereo->window_radius = 4;
+  dense_stereo->window_step = 2;
+  dense_stereo->num_samples /= 1.5;
+  dense_stereo->num_iterations = 5;
+  dense_stereo->geom_consistency = false;
+  dense_fusion->check_num_images /= 1.5;
+  dense_fusion->max_image_size = 1600;
+}
+
+void OptionManager::ModifyForHighQuality() {
+  dense_stereo->window_step = 2;
+}
+
+void OptionManager::ModifyForExtremeQuality() {
+  // Extreme quality is the default.
+}
 
 void OptionManager::AddAllOptions() {
   AddLogOptions();
@@ -554,24 +604,8 @@ void OptionManager::Reset() {
   FLAGS_logtostderr = false;
   FLAGS_v = 2;
 
-  *project_path = "";
-  *database_path = "";
-  *image_path = "";
-
-  *image_reader = ImageReaderOptions();
-  *sift_extraction = SiftExtractionOptions();
-  *sift_matching = SiftMatchingOptions();
-  *exhaustive_matching = ExhaustiveMatchingOptions();
-  *sequential_matching = SequentialMatchingOptions();
-  *vocab_tree_matching = VocabTreeMatchingOptions();
-  *spatial_matching = SpatialMatchingOptions();
-  *transitive_matching = TransitiveMatchingOptions();
-  *bundle_adjustment = BundleAdjustmentOptions();
-  *mapper = IncrementalMapperOptions();
-  *dense_stereo = mvs::PatchMatchOptions();
-  *dense_fusion = mvs::StereoFusionOptions();
-  *dense_meshing = mvs::PoissonReconstructionOptions();
-  *render = RenderOptions();
+  const bool kResetPaths = true;
+  ResetOptions(kResetPaths);
 
   desc_.reset(new boost::program_options::options_description());
 
@@ -596,6 +630,28 @@ void OptionManager::Reset() {
   added_dense_fusion_options_ = false;
   added_dense_meshing_options_ = false;
   added_render_options_ = false;
+}
+
+void OptionManager::ResetOptions(const bool reset_paths) {
+  if (reset_paths) {
+    *project_path = "";
+    *database_path = "";
+    *image_path = "";
+  }
+  *image_reader = ImageReaderOptions();
+  *sift_extraction = SiftExtractionOptions();
+  *sift_matching = SiftMatchingOptions();
+  *exhaustive_matching = ExhaustiveMatchingOptions();
+  *sequential_matching = SequentialMatchingOptions();
+  *vocab_tree_matching = VocabTreeMatchingOptions();
+  *spatial_matching = SpatialMatchingOptions();
+  *transitive_matching = TransitiveMatchingOptions();
+  *bundle_adjustment = BundleAdjustmentOptions();
+  *mapper = IncrementalMapperOptions();
+  *dense_stereo = mvs::PatchMatchOptions();
+  *dense_fusion = mvs::StereoFusionOptions();
+  *dense_meshing = mvs::PoissonReconstructionOptions();
+  *render = RenderOptions();
 }
 
 bool OptionManager::Check() {

@@ -44,11 +44,11 @@ AutomaticReconstructionController::AutomaticReconstructionController(
       JoinPaths(options_.workspace_path, "database.db");
 
   if (options_.data_type == DataType::VIDEO) {
-    option_manager_.InitForVideoData();
+    option_manager_.ModifyForVideoData();
   } else if (options_.data_type == DataType::INDIVIDUAL) {
-    option_manager_.InitForIndividualData();
+    option_manager_.ModifyForIndividualData();
   } else if (options_.data_type == DataType::INTERNET) {
-    option_manager_.InitForInternetData();
+    option_manager_.ModifyForInternetData();
   } else {
     LOG(FATAL) << "Data type not supported";
   }
@@ -56,39 +56,14 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   CHECK(ExistsCameraModelWithName(options_.camera_model));
 
   if (options_.quality == Quality::LOW) {
-    option_manager_.sift_extraction->max_image_size = 1000;
-    option_manager_.sequential_matching->loop_detection_num_images /= 2;
-    option_manager_.vocab_tree_matching->num_images /= 2;
-    option_manager_.mapper->ba_local_max_num_iterations /= 2;
-    option_manager_.mapper->ba_global_max_num_iterations /= 2;
-    option_manager_.mapper->ba_global_images_ratio *= 1.2;
-    option_manager_.mapper->ba_global_points_ratio *= 1.2;
-    option_manager_.mapper->ba_global_max_refinements = 2;
-    option_manager_.dense_stereo->max_image_size = 1000;
-    option_manager_.dense_stereo->window_radius = 4;
-    option_manager_.dense_stereo->window_step = 2;
-    option_manager_.dense_stereo->num_samples /= 2;
-    option_manager_.dense_stereo->num_iterations = 3;
-    option_manager_.dense_stereo->geom_consistency = false;
-    option_manager_.dense_fusion->check_num_images /= 2;
-    option_manager_.dense_fusion->max_image_size = 1000;
+    option_manager_.ModifyForLowQuality();
   } else if (options_.quality == Quality::MEDIUM) {
-    option_manager_.sift_extraction->max_image_size = 1600;
-    option_manager_.sequential_matching->loop_detection_num_images /= 1.5;
-    option_manager_.vocab_tree_matching->num_images /= 1.5;
-    option_manager_.mapper->ba_local_max_num_iterations /= 1.5;
-    option_manager_.mapper->ba_global_max_num_iterations /= 1.5;
-    option_manager_.mapper->ba_global_images_ratio *= 1.1;
-    option_manager_.mapper->ba_global_points_ratio *= 1.1;
-    option_manager_.mapper->ba_global_max_refinements = 2;
-    option_manager_.dense_stereo->max_image_size = 1600;
-    option_manager_.dense_stereo->window_step = 2;
-    option_manager_.dense_stereo->num_samples /= 1.5;
-    option_manager_.dense_stereo->num_iterations = 5;
-    option_manager_.dense_stereo->geom_consistency = false;
-    option_manager_.dense_fusion->check_num_images /= 1.5;
-    option_manager_.dense_fusion->max_image_size = 1600;
-  }  // else: high quality is the default.
+    option_manager_.ModifyForMediumQuality();
+  } else if (options_.quality == Quality::HIGH) {
+    option_manager_.ModifyForHighQuality();
+  } else if (options_.quality == Quality::EXTREME) {
+    option_manager_.ModifyForExtremeQuality();
+  }
 
   option_manager_.sift_extraction->num_threads = options_.num_threads;
   option_manager_.sift_matching->num_threads = options_.num_threads;

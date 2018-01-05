@@ -48,9 +48,17 @@ class OptionManager {
   OptionManager();
 
   // Create "optimal" set of options for different reconstruction scenarios.
-  void InitForIndividualData();
-  void InitForVideoData();
-  void InitForInternetData();
+  void ModifyForIndividualData();
+  void ModifyForVideoData();
+  void ModifyForInternetData();
+
+  // Create "optimal" set of options for different quality settings.
+  // Note that the existing options are modified, so if your parameters are
+  // already low qualit, they will be further degraded.
+  void ModifyForLowQuality();
+  void ModifyForMediumQuality();
+  void ModifyForHighQuality();
+  void ModifyForExtremeQuality();
 
   void AddAllOptions();
   void AddLogOptions();
@@ -78,6 +86,8 @@ class OptionManager {
                         const std::string& help_text = "");
 
   void Reset();
+  void ResetOptions(const bool reset_paths);
+
   bool Check();
 
   void Parse(const int argc, char** argv);
