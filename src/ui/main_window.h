@@ -116,10 +116,8 @@ class MainWindow : public QMainWindow {
   void ShowLog();
   void ExtractColors();
 
+  void SetOptions();
   void ResetOptions();
-  void SetOptionsForIndividual();
-  void SetOptionsForVideo();
-  void SetOptionsForInternet();
 
   void About();
   void Documentation();
@@ -214,10 +212,8 @@ class MainWindow : public QMainWindow {
   QAction* action_grab_movie_;
   QAction* action_undistort_;
   QAction* action_extract_colors_;
+  QAction* action_set_options_;
   QAction* action_reset_options_;
-  QAction* action_set_options_for_individual_;
-  QAction* action_set_options_for_video_;
-  QAction* action_set_options_for_internet_;
 
   QAction* action_about_;
   QAction* action_documentation_;

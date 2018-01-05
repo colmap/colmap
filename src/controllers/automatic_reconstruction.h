@@ -28,7 +28,7 @@ namespace colmap {
 class AutomaticReconstructionController : public Thread {
  public:
   enum class DataType { INDIVIDUAL, VIDEO, INTERNET };
-  enum class Quality { LOW, MEDIUM, HIGH };
+  enum class Quality { LOW, MEDIUM, HIGH, EXTREME };
 
   struct Options {
     // The path to the workspace folder in which all results are stored.

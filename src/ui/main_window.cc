@@ -90,8 +90,8 @@ void MainWindow::CreateWidgets() {
   opengl_window_ = new OpenGLWindow(this, &options_);
 
 #ifdef _MSC_VER
-  setCentralWidget(QWidget::createWindowContainer(opengl_window_, this,
-                                                  Qt::MSWindowsOwnDC));
+  setCentralWidget(
+      QWidget::createWindowContainer(opengl_window_, this, Qt::MSWindowsOwnDC));
 #else
   setCentralWidget(QWidget::createWindowContainer(opengl_window_, this));
 #endif
@@ -348,24 +348,13 @@ void MainWindow::CreateActions() {
   connect(action_extract_colors_, &QAction::triggered, this,
           &MainWindow::ExtractColors);
 
+  action_set_options_ = new QAction(tr("Set options for ..."), this);
+  connect(action_set_options_, &QAction::triggered, this,
+          &MainWindow::SetOptions);
+
   action_reset_options_ = new QAction(tr("Set default options"), this);
   connect(action_reset_options_, &QAction::triggered, this,
           &MainWindow::ResetOptions);
-
-  action_set_options_for_individual_ =
-      new QAction(tr("Set options for individual images"), this);
-  connect(action_set_options_for_individual_, &QAction::triggered, this,
-          &MainWindow::SetOptionsForIndividual);
-
-  action_set_options_for_video_ =
-      new QAction(tr("Set options for video frames"), this);
-  connect(action_set_options_for_video_, &QAction::triggered, this,
-          &MainWindow::SetOptionsForVideo);
-
-  action_set_options_for_internet_ =
-      new QAction(tr("Set options for Internet images"), this);
-  connect(action_set_options_for_internet_, &QAction::triggered, this,
-          &MainWindow::SetOptionsForInternet);
 
   //////////////////////////////////////////////////////////////////////////////
   // Misc actions
@@ -454,10 +443,8 @@ void MainWindow::CreateMenus() {
   extras_menu->addAction(action_undistort_);
   extras_menu->addAction(action_extract_colors_);
   extras_menu->addSeparator();
+  extras_menu->addAction(action_set_options_);
   extras_menu->addAction(action_reset_options_);
-  extras_menu->addAction(action_set_options_for_individual_);
-  extras_menu->addAction(action_set_options_for_video_);
-  extras_menu->addAction(action_set_options_for_internet_);
   menuBar()->addAction(extras_menu->menuAction());
 
   QMenu* help_menu = new QMenu(tr("Help"), this);
@@ -1198,59 +1185,59 @@ void MainWindow::ExtractColors() {
   });
 }
 
+void MainWindow::SetOptions() {
+  QStringList data_items;
+  data_items << "Individual images"
+             << "Video frames"
+             << "Internet images";
+  bool data_ok;
+  const QString data_item =
+      QInputDialog::getItem(this, "", "Data:", data_items, 0, false, &data_ok);
+  if (!data_ok) {
+    return;
+  }
+
+  QStringList quality_items;
+  quality_items << "Low"
+                << "Medium"
+                << "High"
+                << "Extreme";
+  bool quality_ok;
+  const QString quality_item = QInputDialog::getItem(
+      this, "", "Quality:", quality_items, 2, false, &quality_ok);
+  if (!quality_ok) {
+    return;
+  }
+
+  const bool kResetPaths = false;
+  options_.ResetOptions(kResetPaths);
+
+  if (data_item == "Individual images") {
+    options_.ModifyForIndividualData();
+  } else if (data_item == "Video frames") {
+    options_.ModifyForVideoData();
+  } else if (data_item == "Internet images") {
+    options_.ModifyForInternetData();
+  } else {
+    LOG(FATAL) << "Data type does not exist";
+  }
+
+  if (quality_item == "Low") {
+    options_.ModifyForLowQuality();
+  } else if (quality_item == "Medium") {
+    options_.ModifyForMediumQuality();
+  } else if (quality_item == "High") {
+    options_.ModifyForHighQuality();
+  } else if (quality_item == "Extreme") {
+    options_.ModifyForExtremeQuality();
+  } else {
+    LOG(FATAL) << "Quality level does not exist";
+  }
+}
+
 void MainWindow::ResetOptions() {
-  const std::string project_path = *options_.project_path;
-  const std::string image_path = *options_.image_path;
-  const std::string database_path = *options_.database_path;
-
-  options_.Reset();
-  options_.AddAllOptions();
-
-  *options_.project_path = project_path;
-  *options_.image_path = image_path;
-  *options_.database_path = database_path;
-}
-
-void MainWindow::SetOptionsForIndividual() {
-  const std::string project_path = *options_.project_path;
-  const std::string image_path = *options_.image_path;
-  const std::string database_path = *options_.database_path;
-
-  options_.Reset();
-  options_.AddAllOptions();
-  options_.InitForIndividualData();
-
-  *options_.project_path = project_path;
-  *options_.image_path = image_path;
-  *options_.database_path = database_path;
-}
-
-void MainWindow::SetOptionsForVideo() {
-  const std::string project_path = *options_.project_path;
-  const std::string image_path = *options_.image_path;
-  const std::string database_path = *options_.database_path;
-
-  options_.Reset();
-  options_.AddAllOptions();
-  options_.InitForVideoData();
-
-  *options_.project_path = project_path;
-  *options_.image_path = image_path;
-  *options_.database_path = database_path;
-}
-
-void MainWindow::SetOptionsForInternet() {
-  const std::string project_path = *options_.project_path;
-  const std::string image_path = *options_.image_path;
-  const std::string database_path = *options_.database_path;
-
-  options_.Reset();
-  options_.AddAllOptions();
-  options_.InitForInternetData();
-
-  *options_.project_path = project_path;
-  *options_.image_path = image_path;
-  *options_.database_path = database_path;
+  const bool kResetPaths = false;
+  options_.ResetOptions(kResetPaths);
 }
 
 void MainWindow::About() {
