@@ -45,6 +45,7 @@ class ImageViewerWidget : public QWidget {
   void Rescale(const double scale);
   void ZoomIn();
   void ZoomOut();
+  void Save();
 
   QPixmap pixmap_;
   QGridLayout* grid_layout_;

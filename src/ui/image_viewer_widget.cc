@@ -59,6 +59,12 @@ ImageViewerWidget::ImageViewerWidget(QWidget* parent)
   connect(zoom_out_button, &QPushButton::released, this,
           &ImageViewerWidget::ZoomOut);
 
+  QPushButton* save_button = new QPushButton("Save image", this);
+  save_button->setFont(font);
+  save_button->setFixedWidth(50);
+  button_layout_->addWidget(save_button);
+  connect(save_button, &QPushButton::released, this, &ImageViewerWidget::Save);
+
   grid_layout_->addLayout(button_layout_, 2, 0, Qt::AlignRight);
 }
 
@@ -121,6 +127,23 @@ void ImageViewerWidget::Rescale(const double scale) {
 void ImageViewerWidget::ZoomIn() { Rescale(kZoomFactor); }
 
 void ImageViewerWidget::ZoomOut() { Rescale(1.0 / kZoomFactor); }
+
+void ImageViewerWidget::Save() {
+  QString filter("PNG (*.png)");
+  const QString save_path =
+      QFileDialog::getSaveFileName(this, tr("Select destination..."), "",
+                                   "PNG (*.png);;JPEG (*.jpg);;BMP (*.bmp)",
+                                   &filter)
+          .toUtf8()
+          .constData();
+
+  // Selection canceled?
+  if (save_path == "") {
+    return;
+  }
+
+  pixmap_.save(save_path);
+}
 
 FeatureImageViewerWidget::FeatureImageViewerWidget(
     QWidget* parent, const std::string& switch_text)
