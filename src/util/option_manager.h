@@ -48,13 +48,15 @@ class OptionManager {
   OptionManager();
 
   // Create "optimal" set of options for different reconstruction scenarios.
+  // Note that the existing options are modified, so if your parameters are
+  // already low quality, they will be further modified.
   void ModifyForIndividualData();
   void ModifyForVideoData();
   void ModifyForInternetData();
 
   // Create "optimal" set of options for different quality settings.
   // Note that the existing options are modified, so if your parameters are
-  // already low qualit, they will be further degraded.
+  // already low quality, they will be further degraded.
   void ModifyForLowQuality();
   void ModifyForMediumQuality();
   void ModifyForHighQuality();
