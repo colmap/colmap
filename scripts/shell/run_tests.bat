@@ -1,4 +1,5 @@
-set PATH=lib;%PATH%
-set QT_PLUGIN_PATH=lib;%QT_PLUGIN_PATH%
-for %%i in (bin/*_test.exe) do bin\%%i
+set SCRIPT_PATH=%~dp0
+set PATH=%SCRIPT_PATH%\lib;%PATH%
+set QT_PLUGIN_PATH=%SCRIPT_PATH%\lib;%QT_PLUGIN_PATH%
+for %%i in (%SCRIPT_PATH%\*_test.exe) do bin\%%i
 pause

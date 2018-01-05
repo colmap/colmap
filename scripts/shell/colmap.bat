@@ -1,9 +1,9 @@
 @echo off
 
-set PATH=lib;%PATH%
-set QT_PLUGIN_PATH=lib;%QT_PLUGIN_PATH%
-
 set SCRIPT_PATH=%~dp0
+
+set PATH=%SCRIPT_PATH%\lib;%PATH%
+set QT_PLUGIN_PATH=%SCRIPT_PATH%\lib;%QT_PLUGIN_PATH%
 
 set COMMAND=%1
 set ARGUMENTS=
@@ -50,7 +50,7 @@ goto :eof
     echo[
     echo Available commands:
     setlocal enabledelayedexpansion
-    for /r %%i in (bin/*.exe) do (
+    for /r %%i in (%SCRIPT_PATH%\bin\*.exe) do (
         set filename=%%i
         set filename_without_exe=!filename:.exe=!
         set filename_without_test=!filename:_test=!
