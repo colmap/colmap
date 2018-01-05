@@ -389,7 +389,7 @@ void SiftGPU::SetVerbose(int verbose)
 			GlobalUtil::_verbose  = GlobalUtil::_timingS;
 			GlobalUtil::_timingS = 0;
 			if(GlobalUtil::_verbose ==0 && GlobalUtil::_UseSiftGPUEX)
-				std::cout << "Console ouput disabled, press Q/V to enable\n\n";
+				std::cout << "Console output disabled, press Q/V to enable\n\n";
 		}else
 		{
 			GlobalUtil::_verbose = 1;
