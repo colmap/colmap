@@ -204,11 +204,16 @@ DenseReconstructionWidget::DenseReconstructionWidget(MainWindow* main_window,
   connect(workspace_path_text_, &QLineEdit::textChanged, this,
           &DenseReconstructionWidget::RefreshWorkspace, Qt::QueuedConnection);
 
+  QPushButton* refresh_path_button = new QPushButton(tr("Refresh"), this);
+  connect(refresh_path_button, &QPushButton::released, this,
+          &DenseReconstructionWidget::RefreshWorkspace, Qt::QueuedConnection);
+  grid->addWidget(refresh_path_button, 0, 7, Qt::AlignRight);
+
   QPushButton* workspace_path_button = new QPushButton(tr("Select"), this);
   connect(workspace_path_button, &QPushButton::released, this,
           &DenseReconstructionWidget::SelectWorkspacePath,
           Qt::QueuedConnection);
-  grid->addWidget(workspace_path_button, 0, 7, Qt::AlignRight);
+  grid->addWidget(workspace_path_button, 0, 8, Qt::AlignRight);
 
   QStringList table_header;
   table_header << "image_name"
@@ -227,7 +232,7 @@ DenseReconstructionWidget::DenseReconstructionWidget(MainWindow* main_window,
   table_widget_->setEditTriggers(QAbstractItemView::NoEditTriggers);
   table_widget_->verticalHeader()->setDefaultSectionSize(25);
 
-  grid->addWidget(table_widget_, 1, 0, 1, 8);
+  grid->addWidget(table_widget_, 1, 0, 1, 9);
 
   grid->setColumnStretch(4, 1);
 
