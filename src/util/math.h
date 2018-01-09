@@ -25,8 +25,6 @@
 #include <stdexcept>
 #include <vector>
 
-#include <Eigen/Core>
-
 #include "util/logging.h"
 
 #ifndef M_PI
@@ -43,17 +41,9 @@ int SignOfNumber(const T val);
 inline bool IsNaN(const float x);
 inline bool IsNaN(const double x);
 
-// Check if the given floating point array contains a NaN value.
-template <typename Derived>
-inline bool IsNaN(const Eigen::MatrixBase<Derived>& x);
-
 // Check if the given floating point number is a infinity.
 inline bool IsInf(const float x);
 inline bool IsInf(const double x);
-
-// Check if the given floating point array contains infinity.
-template <typename Derived>
-inline bool IsInf(const Eigen::MatrixBase<Derived>& x);
 
 // Clip the given value to a low and maximum value.
 template <typename T>
@@ -178,18 +168,8 @@ int SignOfNumber(const T val) {
 bool IsNaN(const float x) { return x != x; }
 bool IsNaN(const double x) { return x != x; }
 
-template <typename Derived>
-bool IsNaN(const Eigen::MatrixBase<Derived>& x) {
-  return !(x.array() == x.array()).all();
-}
-
 bool IsInf(const float x) { return !IsNaN(x) && IsNaN(x - x); }
 bool IsInf(const double x) { return !IsNaN(x) && IsNaN(x - x); }
-
-template <typename Derived>
-bool IsInf(const Eigen::MatrixBase<Derived>& x) {
-  return !((x - x).array() == (x - x).array()).all();
-}
 
 template <typename T>
 T Clip(const T& value, const T& low, const T& high) {

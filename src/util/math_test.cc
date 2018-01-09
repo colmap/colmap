@@ -37,15 +37,6 @@ BOOST_AUTO_TEST_CASE(TestIsNaN) {
   BOOST_CHECK(IsNaN(std::numeric_limits<double>::quiet_NaN()));
 }
 
-BOOST_AUTO_TEST_CASE(TestIsNaNArray) {
-  BOOST_CHECK(!IsNaN(Eigen::Vector3f::Zero()));
-  BOOST_CHECK(!IsNaN(Eigen::Vector3d::Zero()));
-  BOOST_CHECK(IsNaN(
-      Eigen::Vector3f(std::numeric_limits<float>::quiet_NaN(), 0.0f, 0.0f)));
-  BOOST_CHECK(IsNaN(
-      Eigen::Vector3d(std::numeric_limits<double>::quiet_NaN(), 0.0f, 0.0f)));
-}
-
 BOOST_AUTO_TEST_CASE(TestIsInf) {
   BOOST_CHECK(!IsInf(0.0f));
   BOOST_CHECK(!IsInf(0.0));
@@ -53,15 +44,6 @@ BOOST_AUTO_TEST_CASE(TestIsInf) {
   BOOST_CHECK(IsInf(std::numeric_limits<double>::infinity()));
   BOOST_CHECK(IsInf(-std::numeric_limits<float>::infinity()));
   BOOST_CHECK(IsInf(-std::numeric_limits<double>::infinity()));
-}
-
-BOOST_AUTO_TEST_CASE(TestIsInfArray) {
-  BOOST_CHECK(!IsInf(Eigen::Vector3f::Zero()));
-  BOOST_CHECK(!IsInf(Eigen::Vector3d::Zero()));
-  BOOST_CHECK(IsInf(
-      Eigen::Vector3f(std::numeric_limits<float>::infinity(), 0.0f, 0.0f)));
-  BOOST_CHECK(IsInf(
-      Eigen::Vector3d(std::numeric_limits<double>::infinity(), 0.0f, 0.0f)));
 }
 
 BOOST_AUTO_TEST_CASE(TestClip) {
