@@ -47,7 +47,7 @@ Eigen::Matrix3x4d ComposeProjectionMatrix(const Eigen::Vector4d& qvec,
 //
 // @return               3x4 projection matrix.
 Eigen::Matrix3x4d ComposeProjectionMatrix(const Eigen::Matrix3d& R,
-                                          const Eigen::Vector3d& t);
+                                          const Eigen::Vector3d& T);
 
 // Invert projection matrix, defined as:
 //
@@ -61,6 +61,17 @@ Eigen::Matrix3x4d ComposeProjectionMatrix(const Eigen::Matrix3d& R,
 //
 // @return               3x4 inverse projection matrix.
 Eigen::Matrix3x4d InvertProjectionMatrix(const Eigen::Matrix3x4d& proj_matrix);
+
+// Compute the closes rotation matrix with the closest Frobenius norm by setting
+// the singular values of the given matrix to 1.
+Eigen::Matrix3d ComputeClosestRotationMatrix(const Eigen::Matrix3d& matrix);
+
+// Decompose projection matrix into intrinsic camera matrix, rotation matrix and
+// translation vector. Returns false if decomposition fails. This implementation
+// is inspired by the OpenCV implementation with some additional checks.
+bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& proj_matrix,
+                               Eigen::Matrix3d* K, Eigen::Matrix3d* R,
+                               Eigen::Vector3d* T);
 
 // Project 3D point to image.
 //

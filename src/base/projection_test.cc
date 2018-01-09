@@ -52,6 +52,31 @@ BOOST_AUTO_TEST_CASE(TestInvertProjectionMatrix) {
   BOOST_CHECK((proj_matrix - inv_inv_proj_matrix).norm() < 1e-6);
 }
 
+BOOST_AUTO_TEST_CASE(TestComputeClosestRotationMatrix) {
+  const Eigen::Matrix3d A = Eigen::Matrix3d::Identity();
+  BOOST_CHECK_LT((ComputeClosestRotationMatrix(A) - A).norm(), 1e-6);
+  BOOST_CHECK_LT((ComputeClosestRotationMatrix(2 * A) - A).norm(), 1e-6);
+}
+
+BOOST_AUTO_TEST_CASE(TestDecomposeProjectionMatrix) {
+  for (int i = 1; i < 100; ++i) {
+    Eigen::Matrix3d ref_K = i * Eigen::Matrix3d::Identity();
+    ref_K(0, 2) = i;
+    ref_K(1, 2) = 2 * i;
+    const Eigen::Matrix3d ref_R = EulerAnglesToRotationMatrix(i, 2 * i, 3 * i);
+    const Eigen::Vector3d ref_T = Eigen::Vector3d::Random();
+    const Eigen::Matrix3x4d ref_P =
+        ref_K * ComposeProjectionMatrix(ref_R, ref_T);
+    Eigen::Matrix3d K;
+    Eigen::Matrix3d R;
+    Eigen::Vector3d T;
+    DecomposeProjectionMatrix(ref_P, &K, &R, &T);
+    BOOST_CHECK(ref_K.isApprox(K, 1e-6));
+    BOOST_CHECK(ref_R.isApprox(R, 1e-6));
+    BOOST_CHECK(ref_T.isApprox(T, 1e-6));
+  }
+}
+
 BOOST_AUTO_TEST_CASE(TestCalculateReprojectionError) {
   const Eigen::Vector4d qvec = Eigen::Vector4d::Random().normalized();
   const Eigen::Vector3d tvec = Eigen::Vector3d::Random();

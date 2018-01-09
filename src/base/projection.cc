@@ -17,6 +17,7 @@
 #include "base/projection.h"
 
 #include "base/pose.h"
+#include "util/matrix.h"
 
 namespace colmap {
 
@@ -29,10 +30,10 @@ Eigen::Matrix3x4d ComposeProjectionMatrix(const Eigen::Vector4d& qvec,
 }
 
 Eigen::Matrix3x4d ComposeProjectionMatrix(const Eigen::Matrix3d& R,
-                                          const Eigen::Vector3d& t) {
+                                          const Eigen::Vector3d& T) {
   Eigen::Matrix3x4d proj_matrix;
   proj_matrix.leftCols<3>() = R;
-  proj_matrix.rightCols<1>() = t;
+  proj_matrix.rightCols<1>() = T;
   return proj_matrix;
 }
 
@@ -41,6 +42,48 @@ Eigen::Matrix3x4d InvertProjectionMatrix(const Eigen::Matrix3x4d& proj_matrix) {
   inv_proj_matrix.leftCols<3>() = proj_matrix.leftCols<3>().transpose();
   inv_proj_matrix.rightCols<1>() = ProjectionCenterFromMatrix(proj_matrix);
   return inv_proj_matrix;
+}
+
+Eigen::Matrix3d ComputeClosestRotationMatrix(const Eigen::Matrix3d& matrix) {
+  const Eigen::JacobiSVD<Eigen::Matrix3d> svd(
+      matrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  Eigen::Matrix3d R = svd.matrixU() * (svd.matrixV().transpose());
+  if (R.determinant() < 0.0) {
+    R *= -1.0;
+  }
+  return R;
+}
+
+bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& P, Eigen::Matrix3d* K,
+                               Eigen::Matrix3d* R, Eigen::Vector3d* T) {
+  Eigen::Matrix3d RR;
+  Eigen::Matrix3d QQ;
+  DecomposeMatrixRQ(P.leftCols<3>().eval(), &RR, &QQ);
+
+  *R = ComputeClosestRotationMatrix(QQ);
+
+  const double det_K = RR.determinant();
+  if (det_K == 0) {
+    return false;
+  } else if (det_K > 0) {
+    *K = RR;
+  } else {
+    *K = -RR;
+  }
+
+  for (int i = 0; i < 3; ++i) {
+    if ((*K)(i, i) < 0.0) {
+      K->col(i) = -K->col(i);
+      R->row(i) = -R->row(i);
+    }
+  }
+
+  *T = K->triangularView<Eigen::Upper>().solve(P.col(3));
+  if (det_K < 0) {
+    *T = -(*T);
+  }
+
+  return true;
 }
 
 Eigen::Vector2d ProjectPointToImage(const Eigen::Vector3d& point3D,
