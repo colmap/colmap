@@ -63,10 +63,11 @@ __device__ inline float ComputeBilateralWeight(
     const float sigma_color) {
   const float row_diff = row1 - row2;
   const float col_diff = col1 - col2;
-  const float spatial_dist = sqrt(row_diff * row_diff + col_diff * col_diff);
-  const float color_dist = abs(color1 - color2);
-  return exp(-spatial_dist / (2.0f * sigma_spatial * sigma_spatial) -
-             color_dist / (2.0f * sigma_color * sigma_color));
+  const float spatial_dist_squared = row_diff * row_diff + col_diff * col_diff;
+  const float color_diff = color1 - color2;
+  return exp(-spatial_dist_squared * spatial_dist_squared /
+                 (2.0f * sigma_spatial * sigma_spatial) -
+             color_diff * color_diff / (2.0f * sigma_color * sigma_color));
 }
 
 }  // namespace mvs

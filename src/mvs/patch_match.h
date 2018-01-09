@@ -64,7 +64,7 @@ struct PatchMatchOptions {
   int window_step = 1;
 
   // Parameters for bilaterally weighted NCC.
-  double sigma_spatial = window_radius;
+  double sigma_spatial = -1;
   double sigma_color = 0.2f;
 
   // Number of random samples to draw in Monte Carlo sampling.
@@ -128,7 +128,6 @@ struct PatchMatchOptions {
     CHECK_OPTION_GE(depth_min, 0.0f);
     CHECK_OPTION_LE(window_radius,
                     static_cast<int>(kMaxPatchMatchWindowRadius));
-    CHECK_OPTION_GT(sigma_spatial, 0.0f);
     CHECK_OPTION_GT(sigma_color, 0.0f);
     CHECK_OPTION_GT(window_radius, 0);
     CHECK_OPTION_GT(window_step, 0);

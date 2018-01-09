@@ -141,9 +141,14 @@ void PatchMatch::Check() const {
 void PatchMatch::Run() {
   PrintHeading2("PatchMatch::Run");
 
+  custom_options = options_;
+  if (custom_options.sigma_spatial < 0.0f) {
+    custom_options.sigma_spatial = custom_options.window_radius;
+  }
+
   Check();
 
-  patch_match_cuda_.reset(new PatchMatchCuda(options_, problem_));
+  patch_match_cuda_.reset(new PatchMatchCuda(custom_options, problem_));
   patch_match_cuda_->Run();
 }
 
