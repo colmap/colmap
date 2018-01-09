@@ -141,14 +141,9 @@ void PatchMatch::Check() const {
 void PatchMatch::Run() {
   PrintHeading2("PatchMatch::Run");
 
-  custom_options = options_;
-  if (custom_options.sigma_spatial < 0.0f) {
-    custom_options.sigma_spatial = custom_options.window_radius;
-  }
-
   Check();
 
-  patch_match_cuda_.reset(new PatchMatchCuda(custom_options, problem_));
+  patch_match_cuda_.reset(new PatchMatchCuda(options_, problem_));
   patch_match_cuda_->Run();
 }
 
@@ -430,6 +425,9 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
   patch_match_options.depth_min = depth_ranges_.at(problem.ref_image_id).first;
   patch_match_options.depth_max = depth_ranges_.at(problem.ref_image_id).second;
   patch_match_options.gpu_index = std::to_string(gpu_index);
+  if (patch_match_options.sigma_spatial < 0.0f) {
+    patch_match_options.sigma_spatial = patch_match_options.window_radius;
+  }
 
   std::vector<Image> images = model.images;
   std::vector<DepthMap> depth_maps;

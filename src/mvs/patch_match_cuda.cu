@@ -338,6 +338,11 @@ struct PhotoConsistencyCostComputer {
     float tform[9];
     ComposeHomography(src_image_id, row, col, depth, normal, tform);
 
+    float tform_step[9];
+    for (int i = 0; i < 9; ++i) {
+      tform_step[i] = kWindowStep * tform[i];
+    }
+
     float col_src = tform[0] * col_start + tform[1] * row_start + tform[2];
     float row_src = tform[3] * col_start + tform[4] * row_start + tform[5];
     float z = tform[6] * col_start + tform[7] * row_start + tform[8];
@@ -359,12 +364,6 @@ struct PhotoConsistencyCostComputer {
     float bilateral_weight_sum = 0.0f;
 
     for (int row = 0; row < kWindowSize; row += kWindowStep) {
-      // Accumulate values per row to reduce numerical errors.
-      float sum_src_row = 0.0f;
-      float sum_src_src_row = 0.0f;
-      float sum_ref_src_row = 0.0f;
-      float bilateral_weight_sum_row = 0.0f;
-
       for (int col = 0; col < kWindowSize; col += kWindowStep) {
         const float inv_z = 1.0f / z;
         const float norm_col_src = inv_z * col_src + 0.5f;
@@ -377,28 +376,30 @@ struct PhotoConsistencyCostComputer {
             ComputeBilateralWeight(kWindowRadius, kWindowRadius, row, col,
                                    center_ref, ref, sigma_spatial, sigma_color);
 
-        sum_src_row += bilateral_weight * src;
-        sum_src_src_row += bilateral_weight * src * src;
-        sum_ref_src_row += bilateral_weight * ref * src;
-        bilateral_weight_sum_row += bilateral_weight;
+        const float bilateral_weight_src = bilateral_weight * src;
+
+        sum_src += bilateral_weight_src;
+        sum_src_src += bilateral_weight_src * src;
+        sum_ref_src += bilateral_weight_src * ref;
+        bilateral_weight_sum += bilateral_weight;
 
         ref_image_idx += kWindowStep;
-        col_src += kWindowStep * tform[0];
-        row_src += kWindowStep * tform[3];
-        z += kWindowStep * tform[6];
-      }
 
-      sum_src += sum_src_row;
-      sum_src_src += sum_src_src_row;
-      sum_ref_src += sum_ref_src_row;
-      bilateral_weight_sum += bilateral_weight_sum_row;
+        // Accumulate warped source coordinates per row to reduce numerical
+        // errors. Note that this is necessary since coordinates usually are in
+        // the order of 1000s as opposed to the color values which are
+        // normalized to the range [0, 1].
+        col_src += tform_step[0];
+        row_src += tform_step[3];
+        z += tform_step[6];
+      }
 
       ref_image_base_idx += kWindowStep * 3 * THREADS_PER_BLOCK;
       ref_image_idx = ref_image_base_idx;
 
-      base_col_src += kWindowStep * tform[1];
-      base_row_src += kWindowStep * tform[4];
-      base_z += kWindowStep * tform[7];
+      base_col_src += tform_step[1];
+      base_row_src += tform_step[4];
+      base_z += tform_step[7];
 
       col_src = base_col_src;
       row_src = base_row_src;
@@ -1143,34 +1144,34 @@ PatchMatchCuda::~PatchMatchCuda() {
 }
 
 void PatchMatchCuda::Run() {
-#define CALL_RUN_FUNC(window_radius, window_step)                   \
+#define CASE_WINDOW_RADIUS(window_radius, window_step)              \
   case window_radius:                                               \
     RunWithWindowSizeAndStep<2 * window_radius + 1, window_step>(); \
     break;
 
-#define SWITCH_WINDOW_RADIUS(window_step)                             \
+#define CASE_WINDOW_STEP(window_step)                                 \
   case window_step:                                                   \
     switch (options_.window_radius) {                                 \
-      CALL_RUN_FUNC(1, window_step)                                   \
-      CALL_RUN_FUNC(2, window_step)                                   \
-      CALL_RUN_FUNC(3, window_step)                                   \
-      CALL_RUN_FUNC(4, window_step)                                   \
-      CALL_RUN_FUNC(5, window_step)                                   \
-      CALL_RUN_FUNC(6, window_step)                                   \
-      CALL_RUN_FUNC(7, window_step)                                   \
-      CALL_RUN_FUNC(8, window_step)                                   \
-      CALL_RUN_FUNC(9, window_step)                                   \
-      CALL_RUN_FUNC(10, window_step)                                  \
-      CALL_RUN_FUNC(11, window_step)                                  \
-      CALL_RUN_FUNC(12, window_step)                                  \
-      CALL_RUN_FUNC(13, window_step)                                  \
-      CALL_RUN_FUNC(14, window_step)                                  \
-      CALL_RUN_FUNC(15, window_step)                                  \
-      CALL_RUN_FUNC(16, window_step)                                  \
-      CALL_RUN_FUNC(17, window_step)                                  \
-      CALL_RUN_FUNC(18, window_step)                                  \
-      CALL_RUN_FUNC(19, window_step)                                  \
-      CALL_RUN_FUNC(20, window_step)                                  \
+      CASE_WINDOW_RADIUS(1, window_step)                              \
+      CASE_WINDOW_RADIUS(2, window_step)                              \
+      CASE_WINDOW_RADIUS(3, window_step)                              \
+      CASE_WINDOW_RADIUS(4, window_step)                              \
+      CASE_WINDOW_RADIUS(5, window_step)                              \
+      CASE_WINDOW_RADIUS(6, window_step)                              \
+      CASE_WINDOW_RADIUS(7, window_step)                              \
+      CASE_WINDOW_RADIUS(8, window_step)                              \
+      CASE_WINDOW_RADIUS(9, window_step)                              \
+      CASE_WINDOW_RADIUS(10, window_step)                             \
+      CASE_WINDOW_RADIUS(11, window_step)                             \
+      CASE_WINDOW_RADIUS(12, window_step)                             \
+      CASE_WINDOW_RADIUS(13, window_step)                             \
+      CASE_WINDOW_RADIUS(14, window_step)                             \
+      CASE_WINDOW_RADIUS(15, window_step)                             \
+      CASE_WINDOW_RADIUS(16, window_step)                             \
+      CASE_WINDOW_RADIUS(17, window_step)                             \
+      CASE_WINDOW_RADIUS(18, window_step)                             \
+      CASE_WINDOW_RADIUS(19, window_step)                             \
+      CASE_WINDOW_RADIUS(20, window_step)                             \
       default: {                                                      \
         std::cerr << "Error: Window size not supported" << std::endl; \
         break;                                                        \
@@ -1179,8 +1180,8 @@ void PatchMatchCuda::Run() {
     break;
 
   switch (options_.window_step) {
-    SWITCH_WINDOW_RADIUS(1)
-    SWITCH_WINDOW_RADIUS(2)
+    CASE_WINDOW_STEP(1)
+    CASE_WINDOW_STEP(2)
     default: {
       std::cerr << "Error: Window step not supported" << std::endl;
       break;

@@ -83,35 +83,35 @@ void GpuMatRefImage::Filter(const uint8_t* image_data,
                             const size_t window_radius,
                             const size_t window_step, const float sigma_spatial,
                             const float sigma_color) {
-#define CALL_RUN_FUNC(window_radius, window_step)                 \
+#define SWITCH_WINDOW_RADIUS(window_radius, window_step)          \
   case window_radius:                                             \
     Filter<window_radius, window_step>(image_data, sigma_spatial, \
                                        sigma_color);              \
     break;
 
-#define SWITCH_WINDOW_RADIUS(window_step)                             \
+#define CASE_WINDOW_STEP(window_step)                                 \
   case window_step:                                                   \
     switch (window_radius) {                                          \
-      CALL_RUN_FUNC(1, window_step)                                   \
-      CALL_RUN_FUNC(2, window_step)                                   \
-      CALL_RUN_FUNC(3, window_step)                                   \
-      CALL_RUN_FUNC(4, window_step)                                   \
-      CALL_RUN_FUNC(5, window_step)                                   \
-      CALL_RUN_FUNC(6, window_step)                                   \
-      CALL_RUN_FUNC(7, window_step)                                   \
-      CALL_RUN_FUNC(8, window_step)                                   \
-      CALL_RUN_FUNC(9, window_step)                                   \
-      CALL_RUN_FUNC(10, window_step)                                  \
-      CALL_RUN_FUNC(11, window_step)                                  \
-      CALL_RUN_FUNC(12, window_step)                                  \
-      CALL_RUN_FUNC(13, window_step)                                  \
-      CALL_RUN_FUNC(14, window_step)                                  \
-      CALL_RUN_FUNC(15, window_step)                                  \
-      CALL_RUN_FUNC(16, window_step)                                  \
-      CALL_RUN_FUNC(17, window_step)                                  \
-      CALL_RUN_FUNC(18, window_step)                                  \
-      CALL_RUN_FUNC(19, window_step)                                  \
-      CALL_RUN_FUNC(20, window_step)                                  \
+      SWITCH_WINDOW_RADIUS(1, window_step)                            \
+      SWITCH_WINDOW_RADIUS(2, window_step)                            \
+      SWITCH_WINDOW_RADIUS(3, window_step)                            \
+      SWITCH_WINDOW_RADIUS(4, window_step)                            \
+      SWITCH_WINDOW_RADIUS(5, window_step)                            \
+      SWITCH_WINDOW_RADIUS(6, window_step)                            \
+      SWITCH_WINDOW_RADIUS(7, window_step)                            \
+      SWITCH_WINDOW_RADIUS(8, window_step)                            \
+      SWITCH_WINDOW_RADIUS(9, window_step)                            \
+      SWITCH_WINDOW_RADIUS(10, window_step)                           \
+      SWITCH_WINDOW_RADIUS(11, window_step)                           \
+      SWITCH_WINDOW_RADIUS(12, window_step)                           \
+      SWITCH_WINDOW_RADIUS(13, window_step)                           \
+      SWITCH_WINDOW_RADIUS(14, window_step)                           \
+      SWITCH_WINDOW_RADIUS(15, window_step)                           \
+      SWITCH_WINDOW_RADIUS(16, window_step)                           \
+      SWITCH_WINDOW_RADIUS(17, window_step)                           \
+      SWITCH_WINDOW_RADIUS(18, window_step)                           \
+      SWITCH_WINDOW_RADIUS(19, window_step)                           \
+      SWITCH_WINDOW_RADIUS(20, window_step)                           \
       default: {                                                      \
         std::cerr << "Error: Window size not supported" << std::endl; \
         break;                                                        \
@@ -120,8 +120,8 @@ void GpuMatRefImage::Filter(const uint8_t* image_data,
     break;
 
   switch (window_step) {
-    SWITCH_WINDOW_RADIUS(1)
-    SWITCH_WINDOW_RADIUS(2)
+    CASE_WINDOW_STEP(1)
+    CASE_WINDOW_STEP(2)
     default: {
       std::cerr << "Error: Window step not supported" << std::endl;
       break;
@@ -129,7 +129,7 @@ void GpuMatRefImage::Filter(const uint8_t* image_data,
   }
 
 #undef SWITCH_WINDOW_RADIUS
-#undef CALL_RUN_FUNC
+#undef SWITCH_WINDOW_RADIUS
 }
 
 template <int kWindowRadius, int kWindowStep>

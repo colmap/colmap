@@ -65,8 +65,7 @@ __device__ inline float ComputeBilateralWeight(
   const float col_diff = col1 - col2;
   const float spatial_dist_squared = row_diff * row_diff + col_diff * col_diff;
   const float color_diff = color1 - color2;
-  return exp(-spatial_dist_squared * spatial_dist_squared /
-                 (2.0f * sigma_spatial * sigma_spatial) -
+  return exp(-spatial_dist_squared / (2.0f * sigma_spatial * sigma_spatial) -
              color_diff * color_diff / (2.0f * sigma_color * sigma_color));
 }
 
