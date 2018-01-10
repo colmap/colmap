@@ -56,6 +56,9 @@ struct Model {
   std::vector<std::vector<int>> GetMaxOverlappingImages(
       const size_t num_images, const double min_triangulation_angle) const;
 
+  // Get the overlapping images defined in the vis.dat file.
+  const std::vector<std::vector<int>>& GetMaxOverlappingImagesFromPMVS() const;
+
   // Compute the robust minimum and maximum depths from the sparse point cloud.
   std::vector<std::pair<float, float>> ComputeDepthRanges() const;
 
@@ -70,8 +73,13 @@ struct Model {
   std::vector<Point> points;
 
  private:
+  bool ReadFromBundlerPMVS(const std::string& path);
+  bool ReadFromRawPMVS(const std::string& path);
+
   std::vector<std::string> image_names_;
   std::unordered_map<std::string, int> image_name_to_id_;
+
+  std::vector<std::vector<int>> pmvs_vis_dat_;
 };
 
 }  // namespace mvs

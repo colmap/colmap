@@ -50,8 +50,8 @@ struct PatchMatchOptions {
   std::string gpu_index = "-1";
 
   // Depth range in which to randomly sample depth hypotheses.
-  double depth_min = 0.0f;
-  double depth_max = 1.0f;
+  double depth_min = -1.0f;
+  double depth_max = -1.0f;
 
   // Half window size to compute NCC photo-consistency cost.
   int window_radius = 5;
@@ -124,8 +124,10 @@ struct PatchMatchOptions {
 
   void Print() const;
   bool Check() const {
-    CHECK_OPTION_LT(depth_min, depth_max);
-    CHECK_OPTION_GE(depth_min, 0.0f);
+    if (depth_min != -1.0f || depth_max != -1.0f) {
+      CHECK_OPTION_LE(depth_min, depth_max);
+      CHECK_OPTION_GE(depth_min, 0.0f);
+    }
     CHECK_OPTION_LE(window_radius,
                     static_cast<int>(kMaxPatchMatchWindowRadius));
     CHECK_OPTION_GT(sigma_color, 0.0f);

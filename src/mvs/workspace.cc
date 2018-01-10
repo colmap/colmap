@@ -190,6 +190,9 @@ void ImportPMVSWorkspace(const Workspace& workspace,
       image_names.push_back(image_name);
     }
 
+    const auto& overlapping_images =
+        workspace.GetModel().GetMaxOverlappingImagesFromPMVS();
+
     const auto patch_match_path =
         JoinPaths(workspace_path, stereo_folder, "patch-match.cfg");
     const auto fusion_path =
@@ -198,9 +201,17 @@ void ImportPMVSWorkspace(const Workspace& workspace,
     std::ofstream fusion_file(fusion_path, std::ios::trunc);
     CHECK(patch_match_file.is_open()) << patch_match_path;
     CHECK(fusion_file.is_open()) << fusion_path;
-    for (const auto ref_image_name : image_names) {
+    for (size_t i = 0; i < image_names.size(); ++i) {
+      const auto& ref_image_name = image_names[i];
       patch_match_file << ref_image_name << std::endl;
-      patch_match_file << "__auto__, 20" << std::endl;
+      if (overlapping_images.empty()) {
+        patch_match_file << "__auto__, 20" << std::endl;
+      } else {
+        for (const int image_id : overlapping_images[i]) {
+          patch_match_file << image_names[image_id] << ", ";
+        }
+        patch_match_file << std::endl;
+      }
       fusion_file << ref_image_name << std::endl;
     }
   }

@@ -149,8 +149,12 @@ void StereoFusion::Run() {
   const auto& model = workspace_->GetModel();
 
   const double kMinTriangulationAngle = 0;
-  overlapping_images_ = model.GetMaxOverlappingImages(options_.check_num_images,
-                                                      kMinTriangulationAngle);
+  if (model.GetMaxOverlappingImagesFromPMVS().empty()) {
+    overlapping_images_ = model.GetMaxOverlappingImages(
+        options_.check_num_images, kMinTriangulationAngle);
+  } else {
+    overlapping_images_ = model.GetMaxOverlappingImagesFromPMVS();
+  }
 
   used_images_.resize(model.images.size(), false);
   fused_images_.resize(model.images.size(), false);

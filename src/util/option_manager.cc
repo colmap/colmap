@@ -118,9 +118,7 @@ void OptionManager::ModifyForMediumQuality() {
   dense_fusion->max_image_size = 1600;
 }
 
-void OptionManager::ModifyForHighQuality() {
-  dense_stereo->window_step = 2;
-}
+void OptionManager::ModifyForHighQuality() { dense_stereo->window_step = 2; }
 
 void OptionManager::ModifyForExtremeQuality() {
   // Extreme quality is the default.
@@ -503,6 +501,10 @@ void OptionManager::AddDenseStereoOptions() {
                               &dense_stereo->max_image_size);
   AddAndRegisterDefaultOption("DenseStereo.gpu_index",
                               &dense_stereo->gpu_index);
+  AddAndRegisterDefaultOption("DenseStereo.depth_min",
+                              &dense_stereo->depth_min);
+  AddAndRegisterDefaultOption("DenseStereo.depth_max",
+                              &dense_stereo->depth_max);
   AddAndRegisterDefaultOption("DenseStereo.window_radius",
                               &dense_stereo->window_radius);
   AddAndRegisterDefaultOption("DenseStereo.window_step",

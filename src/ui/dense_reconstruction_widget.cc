@@ -39,6 +39,8 @@ class StereoOptionsTab : public OptionsWidget {
 
     AddOptionInt(&options->dense_stereo->max_image_size, "max_image_size", -1);
     AddOptionText(&options->dense_stereo->gpu_index, "gpu_index");
+    AddOptionDouble(&options->dense_stereo->depth_min, "depth_min", -1);
+    AddOptionDouble(&options->dense_stereo->depth_max, "depth_max", -1);
     AddOptionInt(&options->dense_stereo->window_radius, "window_radius");
     AddOptionInt(&options->dense_stereo->window_step, "window_step");
     AddOptionDouble(&options->dense_stereo->sigma_spatial, "sigma_spatial");
