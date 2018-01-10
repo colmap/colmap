@@ -23,6 +23,7 @@
 #include "estimators/absolute_pose.h"
 #include "estimators/essential_matrix.h"
 #include "optim/bundle_adjustment.h"
+#include "util/matrix.h"
 #include "util/misc.h"
 #include "util/threading.h"
 
