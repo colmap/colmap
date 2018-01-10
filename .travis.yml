@@ -1,11 +1,11 @@
 language: cpp
-sudo: false
+sudo: true
 dist: trusty
 
 matrix:
   include:
     - os: linux
-      env: CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres" QT_QPA_PLATFORM=offscreen
+      env: CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres -DQt5Core_DIR=/opt/qt54/lib/cmake/Qt5Core -DQt5OpenGL_DIR=/opt/qt54/lib/cmake/Qt5OpenGL" QT_QPA_PLATFORM=offscreen
       addons:
         apt:
           sources:
@@ -25,7 +25,6 @@ matrix:
             - libgoogle-glog-dev
             - libgflags-dev
             - libglew-dev
-            - qtbase5-dev
             - libqt5opengl5-dev
     - os: osx
       env: CMAKE_OPTIONS="-DLTO_ENABLED=OFF -DQt5Core_DIR=/usr/local/opt/qt5/lib/cmake/Qt5Core -DQt5OpenGL_DIR=/usr/local/opt/qt5/lib/cmake/Qt5OpenGL"
@@ -34,6 +33,13 @@ cache:
   directories:
     - ${TRAVIS_BUILD_DIR}/deps
     - ${TRAVIS_BUILD_DIR}/build
+
+before_install:
+  - sudo add-apt-repository --yes ppa:beineri/opt-qt542-trusty
+  - sudo apt-get update -qq
+
+install:
+  - sudo apt-get -y install qt54base
 
 before_script:
   - |
