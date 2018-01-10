@@ -16,7 +16,7 @@
 
 #include "ui/image_viewer_widget.h"
 
-#include "ui/opengl_window.h"
+#include "ui/model_viewer_widget.h"
 #include "util/misc.h"
 
 namespace colmap {
@@ -233,9 +233,10 @@ void FeatureImageViewerWidget::ShowOrHide() {
 }
 
 DatabaseImageViewerWidget::DatabaseImageViewerWidget(
-    QWidget* parent, OpenGLWindow* opengl_window, OptionManager* options)
+    QWidget* parent, ModelViewerWidget* model_viewer_widget,
+    OptionManager* options)
     : FeatureImageViewerWidget(parent, "keypoints"),
-      opengl_window_(opengl_window),
+      model_viewer_widget_(model_viewer_widget),
       options_(options) {
   setWindowTitle("Image information");
 
@@ -328,14 +329,14 @@ DatabaseImageViewerWidget::DatabaseImageViewerWidget(
 }
 
 void DatabaseImageViewerWidget::ShowImageWithId(const image_t image_id) {
-  if (opengl_window_->images.count(image_id) == 0) {
+  if (model_viewer_widget_->images.count(image_id) == 0) {
     return;
   }
 
   image_id_ = image_id;
 
-  const Image& image = opengl_window_->images.at(image_id);
-  const Camera& camera = opengl_window_->cameras.at(image.CameraId());
+  const Image& image = model_viewer_widget_->images.at(image_id);
+  const Camera& camera = model_viewer_widget_->cameras.at(image.CameraId());
 
   image_id_item_->setText(QString::number(image_id));
   camera_id_item_->setText(QString::number(image.CameraId()));
@@ -389,10 +390,10 @@ void DatabaseImageViewerWidget::DeleteImage() {
       this, "", tr("Do you really want to delete this image?"),
       QMessageBox::Yes | QMessageBox::No);
   if (reply == QMessageBox::Yes) {
-    if (opengl_window_->reconstruction->ExistsImage(image_id_)) {
-      opengl_window_->reconstruction->DeRegisterImage(image_id_);
+    if (model_viewer_widget_->reconstruction->ExistsImage(image_id_)) {
+      model_viewer_widget_->reconstruction->DeRegisterImage(image_id_);
     }
-    opengl_window_->Update();
+    model_viewer_widget_->ReloadReconstruction();
   }
   hide();
 }

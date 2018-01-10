@@ -43,13 +43,6 @@ const ReconstructionManager& MainWindow::GetReconstructionManager() const {
   return reconstruction_manager_;
 }
 
-void MainWindow::showEvent(QShowEvent* event) {
-  after_show_event_->trigger();
-  event->accept();
-}
-
-void MainWindow::afterShowEvent() { opengl_window_->PaintGL(); }
-
 void MainWindow::closeEvent(QCloseEvent* event) {
   if (window_closed_) {
     event->accept();
@@ -87,14 +80,8 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 }
 
 void MainWindow::CreateWidgets() {
-  opengl_window_ = new OpenGLWindow(this, &options_);
-
-#ifdef _MSC_VER
-  setCentralWidget(
-      QWidget::createWindowContainer(opengl_window_, this, Qt::MSWindowsOwnDC));
-#else
-  setCentralWidget(QWidget::createWindowContainer(opengl_window_, this));
-#endif
+  model_viewer_widget_ = new ModelViewerWidget(this, &options_);
+  setCentralWidget(model_viewer_widget_);
 
   project_widget_ = new ProjectWidget(this, &options_);
   project_widget_->SetDatabasePath(*options_.database_path);
@@ -109,7 +96,7 @@ void MainWindow::CreateWidgets() {
   bundle_adjustment_widget_ = new BundleAdjustmentWidget(this, &options_);
   dense_reconstruction_widget_ = new DenseReconstructionWidget(this, &options_);
   render_options_widget_ =
-      new RenderOptionsWidget(this, &options_, opengl_window_);
+      new RenderOptionsWidget(this, &options_, model_viewer_widget_);
   log_widget_ = new LogWidget(this);
   undistortion_widget_ = new UndistortionWidget(this, &options_);
   reconstruction_manager_widget_ =
@@ -124,10 +111,6 @@ void MainWindow::CreateWidgets() {
 }
 
 void MainWindow::CreateActions() {
-  after_show_event_ = new QAction(tr("After show event"), this);
-  connect(after_show_event_, &QAction::triggered, this,
-          &MainWindow::afterShowEvent, Qt::QueuedConnection);
-
   //////////////////////////////////////////////////////////////////////////////
   // File actions
   //////////////////////////////////////////////////////////////////////////////
@@ -296,8 +279,8 @@ void MainWindow::CreateActions() {
 
   action_render_reset_view_ = new QAction(
       QIcon(":/media/render-reset-view.png"), tr("Reset view"), this);
-  connect(action_render_reset_view_, &QAction::triggered, opengl_window_,
-          &OpenGLWindow::ResetView);
+  connect(action_render_reset_view_, &QAction::triggered, model_viewer_widget_,
+          &ModelViewerWidget::ResetView);
 
   action_render_options_ = new QAction(QIcon(":/media/render-options.png"),
                                        tr("Render options"), this);
@@ -335,8 +318,8 @@ void MainWindow::CreateActions() {
 
   action_grab_movie_ =
       new QAction(QIcon(":/media/grab-movie.png"), tr("Grab movie"), this);
-  connect(action_grab_movie_, &QAction::triggered, opengl_window_,
-          &OpenGLWindow::GrabMovie);
+  connect(action_grab_movie_, &QAction::triggered, model_viewer_widget_,
+          &ModelViewerWidget::GrabMovie);
 
   action_undistort_ =
       new QAction(QIcon(":/media/undistort.png"), tr("Undistortion"), this);
@@ -514,11 +497,11 @@ void MainWindow::CreateStatusbar() {
   connect(statusbar_timer_, &QTimer::timeout, this, &MainWindow::UpdateTimer);
   statusbar_timer_->start(1000);
 
-  opengl_window_->statusbar_status_label =
+  model_viewer_widget_->statusbar_status_label =
       new QLabel("0 Images - 0 Points", this);
-  opengl_window_->statusbar_status_label->setFont(font);
-  opengl_window_->statusbar_status_label->setAlignment(Qt::AlignCenter);
-  statusBar()->addWidget(opengl_window_->statusbar_status_label, 1);
+  model_viewer_widget_->statusbar_status_label->setFont(font);
+  model_viewer_widget_->statusbar_status_label->setAlignment(Qt::AlignCenter);
+  statusBar()->addWidget(model_viewer_widget_->statusbar_status_label, 1);
 }
 
 void MainWindow::CreateControllers() {
@@ -1081,15 +1064,15 @@ void MainWindow::RenderSelectedReconstruction() {
   }
 
   const size_t reconstruction_idx = SelectedReconstructionIdx();
-  opengl_window_->reconstruction =
+  model_viewer_widget_->reconstruction =
       &reconstruction_manager_.Get(reconstruction_idx);
-  opengl_window_->Update();
+  model_viewer_widget_->ReloadReconstruction();
 }
 
 void MainWindow::RenderClear() {
   reconstruction_manager_widget_->SelectReconstruction(
       ReconstructionManagerWidget::kNewestReconstructionIdx);
-  opengl_window_->Clear();
+  model_viewer_widget_->ClearReconstruction();
 }
 
 void MainWindow::RenderOptions() {
@@ -1141,7 +1124,7 @@ void MainWindow::GrabImage() {
         !HasFileExtension(file_name.toUtf8().constData(), ".jpg")) {
       file_name += ".png";
     }
-    QImage image = opengl_window_->GrabImage();
+    QImage image = model_viewer_widget_->GrabImage();
     image.save(file_name);
   }
 }

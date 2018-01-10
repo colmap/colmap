@@ -20,12 +20,12 @@ namespace colmap {
 
 RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
                                          OptionManager* options,
-                                         OpenGLWindow* opengl_window)
+                                         ModelViewerWidget* model_viewer_widget)
     : OptionsWidget(parent),
       counter(0),
       automatic_update(true),
       options_(options),
-      opengl_window_(opengl_window),
+      model_viewer_widget_(model_viewer_widget),
       point3D_colormap_scale_(1),
       point3D_colormap_min_q_(0.02),
       point3D_colormap_max_q_(0.98) {
@@ -148,7 +148,7 @@ void RenderOptionsWidget::Apply() {
   ApplyColormap();
   ApplyBackgroundColor();
 
-  opengl_window_->Upload();
+  model_viewer_widget_->ReloadReconstruction();
 }
 
 void RenderOptionsWidget::ApplyProjection() {
@@ -193,11 +193,12 @@ void RenderOptionsWidget::ApplyColormap() {
   point3D_color_map->min_q = static_cast<float>(point3D_colormap_min_q_);
   point3D_color_map->max_q = static_cast<float>(point3D_colormap_max_q_);
 
-  opengl_window_->SetPointColormap(point3D_color_map);
+  model_viewer_widget_->SetPointColormap(point3D_color_map);
 }
 
 void RenderOptionsWidget::ApplyBackgroundColor() {
-  opengl_window_->SetBackgroundColor(bg_color_[0], bg_color_[1], bg_color_[2]);
+  model_viewer_widget_->SetBackgroundColor(bg_color_[0], bg_color_[1],
+                                           bg_color_[2]);
 }
 
 void RenderOptionsWidget::SelectBackgroundColor() {
@@ -211,22 +212,22 @@ void RenderOptionsWidget::SelectBackgroundColor() {
 
 void RenderOptionsWidget::IncreasePointSize() {
   const float kDelta = 100;
-  opengl_window_->ChangePointSize(kDelta);
+  model_viewer_widget_->ChangePointSize(kDelta);
 }
 
 void RenderOptionsWidget::DecreasePointSize() {
   const float kDelta = -100;
-  opengl_window_->ChangePointSize(kDelta);
+  model_viewer_widget_->ChangePointSize(kDelta);
 }
 
 void RenderOptionsWidget::IncreaseCameraSize() {
   const float kDelta = 100;
-  opengl_window_->ChangeCameraSize(kDelta);
+  model_viewer_widget_->ChangeCameraSize(kDelta);
 }
 
 void RenderOptionsWidget::DecreaseCameraSize() {
   const float kDelta = -100;
-  opengl_window_->ChangeCameraSize(kDelta);
+  model_viewer_widget_->ChangeCameraSize(kDelta);
 }
 
 }  // namespace colmap

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "ui/opengl_window.h"
+#include "ui/model_viewer_widget.h"
 
 #include "ui/main_window.h"
 
@@ -152,9 +152,8 @@ void BuildImageModel(const Image& image, const Camera& camera,
 
 }  // namespace
 
-OpenGLWindow::OpenGLWindow(QWidget* parent, OptionManager* options,
-                           QScreen* screen)
-    : QWindow(screen),
+ModelViewerWidget::ModelViewerWidget(QWidget* parent, OptionManager* options)
+    : QOpenGLWidget(parent),
       options_(options),
       point_viewer_widget_(new PointViewerWidget(parent, this, options)),
       image_viewer_widget_(
@@ -166,23 +165,9 @@ OpenGLWindow::OpenGLWindow(QWidget* parent, OptionManager* options,
       selected_point3D_id_(kInvalidPoint3DId),
       coordinate_grid_enabled_(true),
       near_plane_(kInitNearPlane) {
-  setFlags(Qt::Widget);
-
   bg_color_[0] = 1.0f;
   bg_color_[1] = 1.0f;
   bg_color_[2] = 1.0f;
-
-  SetupGL();
-  ResizeGL();
-
-  SetPointColormap(new PointColormapPhotometric());
-
-  image_size_ = static_cast<float>(devicePixelRatio() * image_size_);
-  point_size_ = static_cast<float>(devicePixelRatio() * point_size_);
-}
-
-void OpenGLWindow::SetupGL() {
-  setSurfaceType(OpenGLSurface);
 
   QSurfaceFormat format;
   format.setDepthBufferSize(24);
@@ -193,59 +178,25 @@ void OpenGLWindow::SetupGL() {
 #ifdef DEBUG
   format.setOption(QSurfaceFormat::DebugContext);
 #endif
-
   setFormat(format);
-  create();
 
-  // Create an OpenGL context
-  context_ = new QOpenGLContext(this);
-  context_->setFormat(format);
-  CHECK(context_->create());
+  SetPointColormap(new PointColormapPhotometric());
 
-  InitializeGL();
-  InitializePainters();
-
-  connect(this, &QWindow::widthChanged, this, &OpenGLWindow::ResizeGL);
-  connect(this, &QWindow::heightChanged, this, &OpenGLWindow::ResizeGL);
-
-#ifdef DEBUG
-  std::cout << "Selected OpenGL version: " << format.majorVersion() << "."
-            << format.minorVersion() << std::endl;
-  std::cout << "Context validity: " << context_->isValid() << std::endl;
-  std::cout << "Used OpenGL version: " << context_->format().majorVersion()
-            << "." << context_->format().minorVersion() << std::endl;
-  std::cout << "OpenGL information: VENDOR:       "
-            << (const char*)glGetString(GL_VENDOR) << std::endl;
-  std::cout << "                    RENDERDER:    "
-            << (const char*)glGetString(GL_RENDERER) << std::endl;
-  std::cout << "                    VERSION:      "
-            << (const char*)glGetString(GL_VERSION) << std::endl;
-  std::cout << "                    GLSL VERSION: "
-            << (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
-  std::cout << std::endl;
-
-  auto extensions = context_->extensions().toList();
-  qSort(extensions);
-  std::cout << "Supported extensions (" << extensions.count()
-            << "):" << std::endl;
-  foreach (const QByteArray& extension, extensions)
-    std::cout << "    " << extension.data() << std::endl;
-#endif
+  image_size_ = static_cast<float>(devicePixelRatio() * image_size_);
+  point_size_ = static_cast<float>(devicePixelRatio() * point_size_);
 }
 
-void OpenGLWindow::InitializeGL() {
-  context_->makeCurrent(this);
-  InitializeSettings();
-  InitializeView();
+void ModelViewerWidget::initializeGL() {
+  initializeOpenGLFunctions();
+  glEnable(GL_DEPTH_TEST);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
+  SetupPainters();
+  SetupView();
 }
 
-void OpenGLWindow::PaintGL() {
-  if (!isExposed()) {
-    return;
-  }
-
-  context_->makeCurrent(this);
-
+void ModelViewerWidget::paintGL() {
   glClearColor(bg_color_[0], bg_color_[1], bg_color_[2], 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -267,7 +218,7 @@ void OpenGLWindow::PaintGL() {
     coordinate_grid_painter_.Render(pmvc_matrix, width(), height(), 1);
   }
 
-  // Point cloud
+  // Points
   point_painter_.Render(pmv_matrix, point_size_);
   point_connection_painter_.Render(pmv_matrix, width(), height(), 1);
 
@@ -280,18 +231,15 @@ void OpenGLWindow::PaintGL() {
   movie_grabber_path_painter_.Render(pmv_matrix, width(), height(), 1.5);
   movie_grabber_line_painter_.Render(pmv_matrix, width(), height(), 1);
   movie_grabber_triangle_painter_.Render(pmv_matrix);
-
-  context_->swapBuffers(this);
 }
 
-void OpenGLWindow::ResizeGL() {
-  context_->makeCurrent(this);
-  glViewport(0, 0, width(), height());
+void ModelViewerWidget::resizeGL(int width, int height) {
+  glViewport(0, 0, width, height);
   ComposeProjectionMatrix();
   UploadCoordinateGridData();
 }
 
-void OpenGLWindow::Update() {
+void ModelViewerWidget::ReloadReconstruction() {
   CHECK_NOTNULL(reconstruction);
 
   cameras = reconstruction->Cameras();
@@ -310,21 +258,7 @@ void OpenGLWindow::Update() {
   Upload();
 }
 
-void OpenGLWindow::Upload() {
-  point_colormap_->Prepare(cameras, images, points3D, reg_image_ids);
-
-  ComposeProjectionMatrix();
-
-  UploadPointData();
-  UploadImageData();
-  UploadMovieGrabberData();
-  UploadPointConnectionData();
-  UploadImageConnectionData();
-
-  PaintGL();
-}
-
-void OpenGLWindow::Clear() {
+void ModelViewerWidget::ClearReconstruction() {
   cameras.clear();
   images.clear();
   points3D.clear();
@@ -333,32 +267,30 @@ void OpenGLWindow::Clear() {
   Upload();
 }
 
-int OpenGLWindow::GetProjectionType() const {
+int ModelViewerWidget::GetProjectionType() const {
   return options_->render->projection_type;
 }
 
-void OpenGLWindow::SetPointColormap(PointColormapBase* colormap) {
+void ModelViewerWidget::SetPointColormap(PointColormapBase* colormap) {
   point_colormap_.reset(colormap);
 }
 
-void OpenGLWindow::UpdateMovieGrabber() {
+void ModelViewerWidget::UpdateMovieGrabber() {
   UploadMovieGrabberData();
-  PaintGL();
+  update();
 }
 
-void OpenGLWindow::EnableCoordinateGrid() {
+void ModelViewerWidget::EnableCoordinateGrid() {
   coordinate_grid_enabled_ = true;
-  PaintGL();
-  PaintGL();
+  update();
 }
 
-void OpenGLWindow::DisableCoordinateGrid() {
+void ModelViewerWidget::DisableCoordinateGrid() {
   coordinate_grid_enabled_ = false;
-  PaintGL();
-  PaintGL();
+  update();
 }
 
-void OpenGLWindow::ChangeFocusDistance(const float delta) {
+void ModelViewerWidget::ChangeFocusDistance(const float delta) {
   if (delta == 0.0f) {
     return;
   }
@@ -378,10 +310,10 @@ void OpenGLWindow::ChangeFocusDistance(const float delta) {
   model_view_matrix_.translate(tvec_rot(0), tvec_rot(1), tvec_rot(2));
   ComposeProjectionMatrix();
   UploadCoordinateGridData();
-  PaintGL();
+  update();
 }
 
-void OpenGLWindow::ChangeNearPlane(const float delta) {
+void ModelViewerWidget::ChangeNearPlane(const float delta) {
   if (delta == 0.0f) {
     return;
   }
@@ -389,20 +321,20 @@ void OpenGLWindow::ChangeNearPlane(const float delta) {
   near_plane_ = std::max(kMinNearPlane, std::min(kMaxNearPlane, near_plane_));
   ComposeProjectionMatrix();
   UploadCoordinateGridData();
-  PaintGL();
+  update();
 }
 
-void OpenGLWindow::ChangePointSize(const float delta) {
+void ModelViewerWidget::ChangePointSize(const float delta) {
   if (delta == 0.0f) {
     return;
   }
   point_size_ *= (1.0f + delta / 100.0f * kPointScaleSpeed);
   point_size_ = std::max(kMinPointSize, std::min(kMaxPointSize, point_size_));
-  PaintGL();
+  update();
 }
 
-void OpenGLWindow::RotateView(const float x, const float y, const float prev_x,
-                              const float prev_y) {
+void ModelViewerWidget::RotateView(const float x, const float y,
+                                   const float prev_x, const float prev_y) {
   if (x - prev_x == 0 && y - prev_y == 0) {
     return;
   }
@@ -433,12 +365,12 @@ void OpenGLWindow::RotateView(const float x, const float y, const float prev_x,
     model_view_matrix_.rotate(RadToDeg(angle), axis(0), axis(1), axis(2));
     model_view_matrix_.translate(-rot_center(0), -rot_center(1),
                                  -rot_center(2));
-    PaintGL();
+    update();
   }
 }
 
-void OpenGLWindow::TranslateView(const float x, const float y,
-                                 const float prev_x, const float prev_y) {
+void ModelViewerWidget::TranslateView(const float x, const float y,
+                                      const float prev_x, const float prev_y) {
   if (x - prev_x == 0 && y - prev_y == 0) {
     return;
   }
@@ -458,10 +390,10 @@ void OpenGLWindow::TranslateView(const float x, const float y,
   const Eigen::Vector3f tvec_rot = vm_mat.block<3, 3>(0, 0) * tvec;
   model_view_matrix_.translate(tvec_rot(0), tvec_rot(1), tvec_rot(2));
 
-  PaintGL();
+  update();
 }
 
-void OpenGLWindow::ChangeCameraSize(const float delta) {
+void ModelViewerWidget::ChangeCameraSize(const float delta) {
   if (delta == 0.0f) {
     return;
   }
@@ -469,31 +401,35 @@ void OpenGLWindow::ChangeCameraSize(const float delta) {
   image_size_ = std::max(kMinImageSize, std::min(kMaxImageSize, image_size_));
   UploadImageData();
   UploadMovieGrabberData();
-  PaintGL();
+  update();
 }
 
-void OpenGLWindow::ResetView() {
-  InitializeView();
+void ModelViewerWidget::ResetView() {
+  SetupView();
   Upload();
 }
 
-QMatrix4x4 OpenGLWindow::ModelViewMatrix() const { return model_view_matrix_; }
-
-void OpenGLWindow::SetModelViewMatrix(const QMatrix4x4& matrix) {
-  model_view_matrix_ = matrix;
-  PaintGL();
+QMatrix4x4 ModelViewerWidget::ModelViewMatrix() const {
+  return model_view_matrix_;
 }
 
-void OpenGLWindow::SelectObject(const int x, const int y) {
-  // Draw all images with unique color
+void ModelViewerWidget::SetModelViewMatrix(const QMatrix4x4& matrix) {
+  model_view_matrix_ = matrix;
+  update();
+}
 
-  glClearColor(bg_color_[0], bg_color_[1], bg_color_[2], 1.0f);
+void ModelViewerWidget::SelectObject(const int x, const int y) {
+  makeCurrent();
+
+  // Draw all images with unique color.
+
+  glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  // Make sure we do not render colors other than the unique colors per object
+  // Make sure we do not render colors other than the unique colors per object.
   glDisable(GL_MULTISAMPLE);
 
-  // Upload data in selection mode (one color per object)
+  // Upload data in selection mode (one color per object).
   UploadImageData(true);
   UploadPointData(true);
 
@@ -502,9 +438,10 @@ void OpenGLWindow::SelectObject(const int x, const int y) {
   image_triangle_painter_.Render(pmv_matrix);
   point_painter_.Render(pmv_matrix, 2 * point_size_);
 
-  // Read color and determine object by unique color
-  const Eigen::Vector4ub rgba = ReadPixelColor(x, y);
-  const size_t index = RGBToIndex(rgba[0], rgba[1], rgba[2]);
+  // Read color and determine object by unique color.
+  const QImage image = grabFramebuffer();
+  const QColor rgb = QColor(image.pixel(x, y));
+  const size_t index = RGBToIndex(rgb.red(), rgb.green(), rgb.blue());
 
   if (index < selection_buffer_.size()) {
     const char buffer_type = selection_buffer_[index].second;
@@ -527,7 +464,7 @@ void OpenGLWindow::SelectObject(const int x, const int y) {
     image_viewer_widget_->hide();
   }
 
-  // Re-enable, since temporarily disabled above
+  // Re-enable, since temporarily disabled above.
   glEnable(GL_MULTISAMPLE);
 
   selection_buffer_.clear();
@@ -537,70 +474,59 @@ void OpenGLWindow::SelectObject(const int x, const int y) {
   UploadPointConnectionData();
   UploadImageConnectionData();
 
-  PaintGL();
+  update();
 }
 
-void OpenGLWindow::SelectMoviewGrabberView(const size_t view_idx) {
+void ModelViewerWidget::SelectMoviewGrabberView(const size_t view_idx) {
   selected_movie_grabber_view_ = view_idx;
   UploadMovieGrabberData();
-  PaintGL();
+  update();
 }
 
-QImage OpenGLWindow::GrabImage() {
+QImage ModelViewerWidget::GrabImage() {
+  makeCurrent();
+
   DisableCoordinateGrid();
 
-  const int scaled_width = static_cast<int>(devicePixelRatio() * width());
-  const int scaled_height = static_cast<int>(devicePixelRatio() * height());
-
-  QImage image(scaled_width, scaled_height, QImage::Format_ARGB32);
-  glReadPixels(0, 0, scaled_width, scaled_height, GL_RGBA, GL_UNSIGNED_BYTE,
-               image.bits());
-
-  FrameBufferToQImage(image);
+  const QImage image = grabFramebuffer();
 
   EnableCoordinateGrid();
 
   return image;
 }
 
-void OpenGLWindow::GrabMovie() { movie_grabber_widget_->show(); }
+void ModelViewerWidget::GrabMovie() { movie_grabber_widget_->show(); }
 
-void OpenGLWindow::ShowPointInfo(const point3D_t point3D_id) {
+void ModelViewerWidget::ShowPointInfo(const point3D_t point3D_id) {
   point_viewer_widget_->Show(point3D_id);
 }
 
-void OpenGLWindow::ShowImageInfo(const image_t image_id) {
+void ModelViewerWidget::ShowImageInfo(const image_t image_id) {
   image_viewer_widget_->ShowImageWithId(image_id);
 }
 
-float OpenGLWindow::PointSize() const { return point_size_; }
+float ModelViewerWidget::PointSize() const { return point_size_; }
 
-float OpenGLWindow::ImageSize() const { return image_size_; }
+float ModelViewerWidget::ImageSize() const { return image_size_; }
 
-void OpenGLWindow::SetPointSize(const float point_size) {
+void ModelViewerWidget::SetPointSize(const float point_size) {
   point_size_ = point_size;
 }
 
-void OpenGLWindow::SetImageSize(const float image_size) {
+void ModelViewerWidget::SetImageSize(const float image_size) {
   image_size_ = image_size;
   UploadImageData();
 }
 
-void OpenGLWindow::SetBackgroundColor(const float r, const float g,
-                                      const float b) {
+void ModelViewerWidget::SetBackgroundColor(const float r, const float g,
+                                           const float b) {
   bg_color_[0] = r;
   bg_color_[1] = g;
   bg_color_[2] = b;
-  glClearColor(bg_color_[0], bg_color_[1], bg_color_[2], 1.0f);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  update();
 }
 
-void OpenGLWindow::exposeEvent(QExposeEvent* event) {
-  PaintGL();
-  event->accept();
-}
-
-void OpenGLWindow::mousePressEvent(QMouseEvent* event) {
+void ModelViewerWidget::mousePressEvent(QMouseEvent* event) {
   if (mouse_press_timer_.isActive()) {  // Select objects (2. click)
     mouse_is_pressed_ = false;
     mouse_press_timer_.stop();
@@ -615,12 +541,12 @@ void OpenGLWindow::mousePressEvent(QMouseEvent* event) {
   event->accept();
 }
 
-void OpenGLWindow::mouseReleaseEvent(QMouseEvent* event) {
+void ModelViewerWidget::mouseReleaseEvent(QMouseEvent* event) {
   mouse_is_pressed_ = false;
   event->accept();
 }
 
-void OpenGLWindow::mouseMoveEvent(QMouseEvent* event) {
+void ModelViewerWidget::mouseMoveEvent(QMouseEvent* event) {
   if (mouse_is_pressed_) {
     if (event->buttons() & Qt::RightButton ||
         (event->buttons() & Qt::LeftButton &&
@@ -636,7 +562,7 @@ void OpenGLWindow::mouseMoveEvent(QMouseEvent* event) {
   event->accept();
 }
 
-void OpenGLWindow::wheelEvent(QWheelEvent* event) {
+void ModelViewerWidget::wheelEvent(QWheelEvent* event) {
   if (event->modifiers() & Qt::ControlModifier) {
     ChangePointSize(event->delta());
   } else if (event->modifiers() & Qt::AltModifier) {
@@ -649,7 +575,9 @@ void OpenGLWindow::wheelEvent(QWheelEvent* event) {
   event->accept();
 }
 
-void OpenGLWindow::InitializePainters() {
+void ModelViewerWidget::SetupPainters() {
+  makeCurrent();
+
   coordinate_axes_painter_.Setup();
   coordinate_grid_painter_.Setup();
 
@@ -665,14 +593,7 @@ void OpenGLWindow::InitializePainters() {
   movie_grabber_triangle_painter_.Setup();
 }
 
-void OpenGLWindow::InitializeSettings() {
-  glEnable(GL_DEPTH_TEST);
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
-}
-
-void OpenGLWindow::InitializeView() {
+void ModelViewerWidget::SetupView() {
   point_size_ = kInitPointSize;
   image_size_ = kInitImageSize;
   focus_distance_ = kInitFocusDistance;
@@ -682,7 +603,23 @@ void OpenGLWindow::InitializeView() {
   model_view_matrix_.rotate(-45, 0, 1, 0);
 }
 
-void OpenGLWindow::UploadCoordinateGridData() {
+void ModelViewerWidget::Upload() {
+  point_colormap_->Prepare(cameras, images, points3D, reg_image_ids);
+
+  ComposeProjectionMatrix();
+
+  UploadPointData();
+  UploadImageData();
+  UploadMovieGrabberData();
+  UploadPointConnectionData();
+  UploadImageConnectionData();
+
+  update();
+}
+
+void ModelViewerWidget::UploadCoordinateGridData() {
+  makeCurrent();
+
   const float scale = ZoomScale();
 
   // View center grid
@@ -714,7 +651,9 @@ void OpenGLWindow::UploadCoordinateGridData() {
   coordinate_axes_painter_.Upload(axes_data);
 }
 
-void OpenGLWindow::UploadPointData(const bool selection_mode) {
+void ModelViewerWidget::UploadPointData(const bool selection_mode) {
+  makeCurrent();
+
   std::vector<PointPainter::Data> data;
 
   // Assume we want to display the majority of points
@@ -790,7 +729,9 @@ void OpenGLWindow::UploadPointData(const bool selection_mode) {
   point_painter_.Upload(data);
 }
 
-void OpenGLWindow::UploadPointConnectionData() {
+void ModelViewerWidget::UploadPointConnectionData() {
+  makeCurrent();
+
   std::vector<LinePainter::Data> line_data;
 
   if (selected_point3D_id_ == kInvalidPoint3DId) {
@@ -822,7 +763,9 @@ void OpenGLWindow::UploadPointConnectionData() {
   point_connection_painter_.Upload(line_data);
 }
 
-void OpenGLWindow::UploadImageData(const bool selection_mode) {
+void ModelViewerWidget::UploadImageData(const bool selection_mode) {
+  makeCurrent();
+
   std::vector<LinePainter::Data> line_data;
   line_data.reserve(8 * reg_image_ids.size());
 
@@ -880,7 +823,9 @@ void OpenGLWindow::UploadImageData(const bool selection_mode) {
   image_triangle_painter_.Upload(triangle_data);
 }
 
-void OpenGLWindow::UploadImageConnectionData() {
+void ModelViewerWidget::UploadImageConnectionData() {
+  makeCurrent();
+
   std::vector<LinePainter::Data> line_data;
   std::vector<image_t> image_ids;
 
@@ -933,7 +878,9 @@ void OpenGLWindow::UploadImageConnectionData() {
   image_connection_painter_.Upload(line_data);
 }
 
-void OpenGLWindow::UploadMovieGrabberData() {
+void ModelViewerWidget::UploadMovieGrabberData() {
+  makeCurrent();
+
   std::vector<LinePainter::Data> path_data;
   path_data.reserve(movie_grabber_widget_->views.size());
 
@@ -1010,7 +957,7 @@ void OpenGLWindow::UploadMovieGrabberData() {
   movie_grabber_triangle_painter_.Upload(triangle_data);
 }
 
-void OpenGLWindow::ComposeProjectionMatrix() {
+void ModelViewerWidget::ComposeProjectionMatrix() {
   projection_matrix_.setToIdentity();
   if (options_->render->projection_type ==
       RenderOptions::ProjectionType::PERSPECTIVE) {
@@ -1024,30 +971,22 @@ void OpenGLWindow::ComposeProjectionMatrix() {
   }
 }
 
-float OpenGLWindow::ZoomScale() const {
+float ModelViewerWidget::ZoomScale() const {
   // "Constant" scale factor w.r.t. zoom-level.
   return 2.0f * std::tan(static_cast<float>(DegToRad(kFieldOfView)) / 2.0f) *
          std::abs(focus_distance_) / height();
 }
 
-float OpenGLWindow::AspectRatio() const {
+float ModelViewerWidget::AspectRatio() const {
   return static_cast<float>(width()) / static_cast<float>(height());
 }
 
-float OpenGLWindow::OrthographicWindowExtent() const {
+float ModelViewerWidget::OrthographicWindowExtent() const {
   return std::tan(DegToRad(kFieldOfView) / 2.0f) * focus_distance_;
 }
 
-Eigen::Vector4ub OpenGLWindow::ReadPixelColor(int x, int y) const {
-  x = static_cast<int>(devicePixelRatio() * x);
-  y = static_cast<int>(devicePixelRatio() * (height() - y - 1));
-  Eigen::Vector4ub rgba;
-  glReadPixels(x, y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
-  return rgba;
-}
-
-Eigen::Vector3f OpenGLWindow::PositionToArcballVector(const float x,
-                                                      const float y) const {
+Eigen::Vector3f ModelViewerWidget::PositionToArcballVector(
+    const float x, const float y) const {
   Eigen::Vector3f vec(2.0f * x / width() - 1, 1 - 2.0f * y / height(), 0.0f);
   const float norm2 = vec.squaredNorm();
   if (norm2 <= 1.0f) {

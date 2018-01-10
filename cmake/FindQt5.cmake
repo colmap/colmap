@@ -13,7 +13,12 @@ if(Qt5Core_FOUND AND Qt5OpenGL_FOUND)
 endif()
 
 if(Qt5_FOUND)
-    message(STATUS "Found Qt ${Qt5Core_VERSION_STRING}")
+    if(Qt5Core_VERSION VERSION_LESS Qt5_FIND_VERSION)
+        message(FATAL_ERROR "Qt5 version ${Qt5_FIND_VERSION} or newer needed, "
+                            "but only found ${Qt5Core_VERSION}")
+    else()
+        message(STATUS "Found Qt ${Qt5Core_VERSION_STRING}")
+    endif()
 else()
     if(Qt5_FIND_REQUIRED)
         set(Qt5_ERROR_MESSAGE "Could not find Qt5:")

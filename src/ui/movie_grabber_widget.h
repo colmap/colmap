@@ -27,11 +27,11 @@
 
 namespace colmap {
 
-class OpenGLWindow;
+class ModelViewerWidget;
 
 class MovieGrabberWidget : public QWidget {
  public:
-  MovieGrabberWidget(QWidget* parent, OpenGLWindow* opengl_window);
+  MovieGrabberWidget(QWidget* parent, ModelViewerWidget* model_viewer_widget);
 
   // List of views, used to visualize the movie grabber camera path.
   std::vector<Image> views;
@@ -62,7 +62,7 @@ class MovieGrabberWidget : public QWidget {
   // Update state when viewpoints reordered.
   void UpdateViews();
 
-  OpenGLWindow* opengl_window_;
+  ModelViewerWidget* model_viewer_widget_;
 
   QPushButton* assemble_button_;
   QPushButton* add_button_;

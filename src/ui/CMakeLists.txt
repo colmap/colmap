@@ -18,8 +18,8 @@ COLMAP_ADD_LIBRARY(ui
     log_widget.h log_widget.cc
     main_window.h main_window.cc
     match_matrix_widget.h match_matrix_widget.cc
+    model_viewer_widget.h model_viewer_widget.cc
     movie_grabber_widget.h movie_grabber_widget.cc
-    opengl_window.h opengl_window.cc
     options_widget.h options_widget.cc
     point_painter.h point_painter.cc
     point_viewer_widget.h point_viewer_widget.cc

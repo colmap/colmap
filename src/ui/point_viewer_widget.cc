@@ -16,16 +16,16 @@
 
 #include "ui/point_viewer_widget.h"
 
-#include "ui/opengl_window.h"
+#include "ui/model_viewer_widget.h"
 #include "util/misc.h"
 
 namespace colmap {
 
 PointViewerWidget::PointViewerWidget(QWidget* parent,
-                                     OpenGLWindow* opengl_window,
+                                     ModelViewerWidget* model_viewer_widget,
                                      OptionManager* options)
     : QWidget(parent),
-      opengl_window_(opengl_window),
+      model_viewer_widget_(model_viewer_widget),
       options_(options),
       point3D_id_(kInvalidPoint3DId),
       zoom_(250.0 / 1024.0) {
@@ -113,7 +113,7 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
   image_ids_.clear();
   reproj_errors_.clear();
 
-  if (opengl_window_->points3D.count(point3D_id) == 0) {
+  if (model_viewer_widget_->points3D.count(point3D_id) == 0) {
     point3D_id_ = kInvalidPoint3DId;
     ClearLocations();
     return;
@@ -126,7 +126,7 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
 
   setWindowTitle(QString::fromStdString("Point " + std::to_string(point3D_id)));
 
-  const auto& point3D = opengl_window_->points3D[point3D_id];
+  const auto& point3D = model_viewer_widget_->points3D[point3D_id];
 
   xyz_item_->setText(QString::number(point3D.X()) + ", " +
                      QString::number(point3D.Y()) + ", " +
@@ -140,8 +140,8 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
 
   // Paint features for each track element.
   for (const auto& track_el : point3D.Track().Elements()) {
-    const Image& image = opengl_window_->images[track_el.image_id];
-    const Camera& camera = opengl_window_->cameras[image.CameraId()];
+    const Image& image = model_viewer_widget_->images[track_el.image_id];
+    const Camera& camera = model_viewer_widget_->cameras[image.CameraId()];
     const Point2D& point2D = image.Point2D(track_el.point2D_idx);
 
     const Eigen::Matrix3x4d proj_matrix = image.ProjectionMatrix();
@@ -249,10 +249,10 @@ void PointViewerWidget::Delete() {
       this, "", tr("Do you really want to delete this point?"),
       QMessageBox::Yes | QMessageBox::No);
   if (reply == QMessageBox::Yes) {
-    if (opengl_window_->reconstruction->ExistsPoint3D(point3D_id_)) {
-      opengl_window_->reconstruction->DeletePoint3D(point3D_id_);
+    if (model_viewer_widget_->reconstruction->ExistsPoint3D(point3D_id_)) {
+      model_viewer_widget_->reconstruction->DeletePoint3D(point3D_id_);
     }
-    opengl_window_->Update();
+    model_viewer_widget_->ReloadReconstruction();
   }
 }
 

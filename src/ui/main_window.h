@@ -32,7 +32,7 @@
 #include "ui/license_widget.h"
 #include "ui/log_widget.h"
 #include "ui/match_matrix_widget.h"
-#include "ui/opengl_window.h"
+#include "ui/model_viewer_widget.h"
 #include "ui/project_widget.h"
 #include "ui/reconstruction_manager_widget.h"
 #include "ui/reconstruction_options_widget.h"
@@ -50,8 +50,6 @@ class MainWindow : public QMainWindow {
   const ReconstructionManager& GetReconstructionManager() const;
 
  protected:
-  void showEvent(QShowEvent* event);
-  void afterShowEvent();
   void closeEvent(QCloseEvent* event);
 
  private:
@@ -138,7 +136,7 @@ class MainWindow : public QMainWindow {
 
   Timer timer_;
 
-  OpenGLWindow* opengl_window_;
+  ModelViewerWidget* model_viewer_widget_;
   ProjectWidget* project_widget_;
   FeatureExtractionWidget* feature_extraction_widget_;
   FeatureMatchingWidget* feature_matching_widget_;
@@ -166,8 +164,6 @@ class MainWindow : public QMainWindow {
 
   QTimer* statusbar_timer_;
   QLabel* statusbar_timer_label_;
-
-  QAction* after_show_event_;
 
   QAction* action_project_new_;
   QAction* action_project_open_;

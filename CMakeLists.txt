@@ -81,7 +81,7 @@ if(CUDA_ENABLED)
     find_package(CUDA ${CUDA_MIN_VERSION} QUIET)
 endif()
 
-find_package(Qt5 REQUIRED)
+find_package(Qt5 5.4 REQUIRED)
 
 
 ################################################################################

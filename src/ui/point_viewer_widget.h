@@ -25,11 +25,11 @@
 
 namespace colmap {
 
-class OpenGLWindow;
+class ModelViewerWidget;
 
 class PointViewerWidget : public QWidget {
  public:
-  PointViewerWidget(QWidget* parent, OpenGLWindow* opengl_window,
+  PointViewerWidget(QWidget* parent, ModelViewerWidget* model_viewer_widget,
                     OptionManager* option);
 
   void Show(const point3D_t point3D_id);
@@ -44,7 +44,7 @@ class PointViewerWidget : public QWidget {
   void ZoomOut();
   void Delete();
 
-  OpenGLWindow* opengl_window_;
+  ModelViewerWidget* model_viewer_widget_;
 
   OptionManager* options_;
 

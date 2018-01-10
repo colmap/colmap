@@ -21,7 +21,7 @@
 #include <QtWidgets>
 
 #include "sfm/incremental_mapper.h"
-#include "ui/opengl_window.h"
+#include "ui/model_viewer_widget.h"
 #include "ui/options_widget.h"
 
 namespace colmap {
@@ -29,7 +29,7 @@ namespace colmap {
 class RenderOptionsWidget : public OptionsWidget {
  public:
   RenderOptionsWidget(QWidget* parent, OptionManager* options,
-                      OpenGLWindow* opengl_window);
+                      ModelViewerWidget* model_viewer_widget);
 
   size_t counter;
   bool automatic_update;
@@ -52,7 +52,7 @@ class RenderOptionsWidget : public OptionsWidget {
   void DecreaseCameraSize();
 
   OptionManager* options_;
-  OpenGLWindow* opengl_window_;
+  ModelViewerWidget* model_viewer_widget_;
 
   QComboBox* projection_cb_;
   QComboBox* point3D_colormap_cb_;

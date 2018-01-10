@@ -23,11 +23,8 @@ if "%COMMAND%"=="-h" goto show_help
 if "%COMMAND%"=="--help" goto show_help
 if not exist "%SCRIPT_PATH%\bin\%COMMAND%" goto show_help 
 
-@echo on
-
 "%SCRIPT_PATH%\bin\%COMMAND%" %ARGUMENTS%
 
-@echo off
 goto :eof
 
 :show_help

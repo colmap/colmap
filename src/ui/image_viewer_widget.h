@@ -28,7 +28,7 @@
 
 namespace colmap {
 
-class OpenGLWindow;
+class ModelViewerWidget;
 
 class ImageViewerWidget : public QWidget {
  public:
@@ -81,7 +81,8 @@ class FeatureImageViewerWidget : public ImageViewerWidget {
 
 class DatabaseImageViewerWidget : public FeatureImageViewerWidget {
  public:
-  DatabaseImageViewerWidget(QWidget* parent, OpenGLWindow* opengl_window,
+  DatabaseImageViewerWidget(QWidget* parent,
+                            ModelViewerWidget* model_viewer_widget,
                             OptionManager* options);
 
   void ShowImageWithId(const image_t image_id);
@@ -90,7 +91,7 @@ class DatabaseImageViewerWidget : public FeatureImageViewerWidget {
   void ResizeTable();
   void DeleteImage();
 
-  OpenGLWindow* opengl_window_;
+  ModelViewerWidget* model_viewer_widget_;
 
   OptionManager* options_;
 
