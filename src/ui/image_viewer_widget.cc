@@ -61,7 +61,6 @@ ImageViewerWidget::ImageViewerWidget(QWidget* parent)
 
   QPushButton* save_button = new QPushButton("Save image", this);
   save_button->setFont(font);
-  save_button->setFixedWidth(50);
   button_layout_->addWidget(save_button);
   connect(save_button, &QPushButton::released, this, &ImageViewerWidget::Save);
 

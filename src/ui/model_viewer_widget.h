@@ -116,10 +116,10 @@ class ModelViewerWidget : public QOpenGLWidget, protected QOpenGLFunctions {
   void paintGL() override;
 
  private:
-  void mousePressEvent(QMouseEvent* event);
-  void mouseReleaseEvent(QMouseEvent* event);
-  void mouseMoveEvent(QMouseEvent* event);
-  void wheelEvent(QWheelEvent* event);
+  void mousePressEvent(QMouseEvent* event) override;
+  void mouseReleaseEvent(QMouseEvent* event) override;
+  void mouseMoveEvent(QMouseEvent* event) override;
+  void wheelEvent(QWheelEvent* event) override;
 
   void SetupPainters();
   void SetupView();

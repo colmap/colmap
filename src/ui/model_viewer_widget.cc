@@ -53,29 +53,6 @@ inline void IndexToRGB(const size_t index, float& r, float& g, float& b) {
   b = ((index & 0x00FF0000) >> 16) / 255.0f;
 }
 
-void FrameBufferToQImage(QImage& image) {
-  if (QSysInfo::ByteOrder == QSysInfo::BigEndian) {
-    uint* p = (uint*)image.bits();
-    uint* end = p + image.width() * image.height();
-    while (p < end) {
-      uint a = *p << 24;
-      *p = (*p >> 8) | a;
-      p++;
-    }
-  } else {
-    for (int y = 0; y < image.height(); y++) {
-      uint* q = (uint*)image.scanLine(y);
-      for (int x = 0; x < image.width(); ++x) {
-        const uint pixel = *q;
-        *q = ((pixel << 16) & 0xff0000) | ((pixel >> 16) & 0xff) |
-             (pixel & 0xff00ff00);
-        q++;
-      }
-    }
-  }
-  image = image.mirrored();
-}
-
 void BuildImageModel(const Image& image, const Camera& camera,
                      const float image_size, const float r, const float g,
                      const float b, const float a, LinePainter::Data& line1,
@@ -179,6 +156,7 @@ ModelViewerWidget::ModelViewerWidget(QWidget* parent, OptionManager* options)
   format.setOption(QSurfaceFormat::DebugContext);
 #endif
   setFormat(format);
+  QSurfaceFormat::setDefaultFormat(format);
 
   SetPointColormap(new PointColormapPhotometric());
 
@@ -440,7 +418,8 @@ void ModelViewerWidget::SelectObject(const int x, const int y) {
 
   // Read color and determine object by unique color.
   const QImage image = grabFramebuffer();
-  const QColor rgb = QColor(image.pixel(x, y));
+  const QColor rgb =
+      QColor(image.pixel(devicePixelRatio() * x, devicePixelRatio() * y));
   const size_t index = RGBToIndex(rgb.red(), rgb.green(), rgb.blue());
 
   if (index < selection_buffer_.size()) {
