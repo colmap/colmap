@@ -16,7 +16,7 @@
 
 # This script creates a deployable package of COLMAP for Mac OS X.
 
-BIN_PATH="../../install-release/bin"
+BIN_PATH="."
 
 echo "Creating bundle directory"
 mkdir -p "$BIN_PATH/colmap.app/Contents/MacOS"
