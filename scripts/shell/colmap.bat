@@ -21,7 +21,7 @@ if exist "%SCRIPT_PATH%\bin\%COMMAND%.exe" set COMMAND=%COMMAND%.exe
 if "%COMMAND%"=="help" goto show_help
 if "%COMMAND%"=="-h" goto show_help
 if "%COMMAND%"=="--help" goto show_help
-if not exist "%SCRIPT_PATH%\bin\%COMMAND%" goto show_help 
+if not exist "%SCRIPT_PATH%\bin\%COMMAND%" goto show_help
 
 "%SCRIPT_PATH%\bin\%COMMAND%" %ARGUMENTS%
 
@@ -47,7 +47,7 @@ goto :eof
     echo[
     echo Available commands:
     setlocal enabledelayedexpansion
-    for /r %%i in (%SCRIPT_PATH%\bin\*.exe) do (
+    for /f "tokens=*" %%i in ('dir /b %SCRIPT_PATH%\bin\*.exe') do (
         set filename=%%i
         set filename_without_exe=!filename:.exe=!
         set filename_without_test=!filename:_test=!
