@@ -25,7 +25,6 @@ matrix:
             - libgoogle-glog-dev
             - libgflags-dev
             - libglew-dev
-            - libqt5opengl5-dev
     - os: osx
       env: CMAKE_OPTIONS="-DLTO_ENABLED=OFF -DQt5Core_DIR=/usr/local/opt/qt5/lib/cmake/Qt5Core -DQt5OpenGL_DIR=/usr/local/opt/qt5/lib/cmake/Qt5OpenGL"
 
