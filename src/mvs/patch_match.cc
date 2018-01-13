@@ -436,7 +436,7 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
 
   patch_match_options.gpu_index = std::to_string(gpu_index);
 
-  if (patch_match_options.sigma_spatial < 0.0f) {
+  if (patch_match_options.sigma_spatial <= 0.0f) {
     patch_match_options.sigma_spatial = patch_match_options.window_radius;
   }
 

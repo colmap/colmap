@@ -43,7 +43,7 @@ class StereoOptionsTab : public OptionsWidget {
     AddOptionDouble(&options->dense_stereo->depth_max, "depth_max", -1);
     AddOptionInt(&options->dense_stereo->window_radius, "window_radius");
     AddOptionInt(&options->dense_stereo->window_step, "window_step");
-    AddOptionDouble(&options->dense_stereo->sigma_spatial, "sigma_spatial");
+    AddOptionDouble(&options->dense_stereo->sigma_spatial, "sigma_spatial", -1);
     AddOptionDouble(&options->dense_stereo->sigma_color, "sigma_color");
     AddOptionInt(&options->dense_stereo->num_samples, "num_samples");
     AddOptionDouble(&options->dense_stereo->ncc_sigma, "ncc_sigma");
