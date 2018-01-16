@@ -78,11 +78,10 @@ steps, an exemplary sequence of commands to reconstruct the scene would be::
         --output_path $DATASET_PATH/dense/meshed.ply
 
 If you want to run COLMAP on a computer (e.g., cluster or cloud service) without
-an attached display, you should run the ``feature_extractor`` and set the
-``--SiftGPUExtraction.index 0`` explicitly if a CUDA device is available or with
-the option ``--use_gpu false``. Then, you should run the ``*_matcher`` with
-``--SiftMatching.use_gpu true`` if a CUDA device is available or with
-``--SiftMatching.use_gpu false`` for CPU-based feature matching.
+an attached display, COLMAP automatically switches to use CUDA if supported. If
+no CUDA enabled device is available, you can manually select to use CPU-based
+feature extraction and matching by setting the respective
+``--SiftExtraction.use_gpu 0`` and ``--SiftMatching.use_gpu 0`` options.
 
 Help
 ----
