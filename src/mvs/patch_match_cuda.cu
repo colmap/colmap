@@ -1233,6 +1233,9 @@ std::vector<int> PatchMatchCuda::GetConsistentImageIds() const {
 
 template <int kWindowSize, int kWindowStep>
 void PatchMatchCuda::RunWithWindowSizeAndStep() {
+  // Wait for all initializations to finish.
+  CUDA_SYNC_AND_CHECK();
+
   CudaTimer total_timer;
   CudaTimer init_timer;
 
