@@ -42,15 +42,16 @@ __global__ void FilterKernel(GpuMat<uint8_t> image, GpuMat<float> sum_image,
   float color_sum = 0.0f;
   float color_squared_sum = 0.0f;
   float bilateral_weight_sum = 0.0f;
-  for (int window_col = -window_radius; window_col <= window_radius;
-       window_col += window_step) {
-    for (int window_row = -window_radius; window_row <= window_radius;
-         window_row += window_step) {
+
+  for (int window_row = -window_radius; window_row <= window_radius;
+       window_row += window_step) {
+    for (int window_col = -window_radius; window_col <= window_radius;
+         window_col += window_step) {
       const float color =
           tex2D(image_texture, col + window_col, row + window_row);
-      const float bilateral_weight = ComputeBilateralWeight(
-          0.0f, 0.0f, window_col, window_row, center_color, color,
-          sigma_spatial, sigma_color);
+      const float bilateral_weight =
+          ComputeBilateralWeight(window_row, window_col, center_color, color,
+                                 sigma_spatial, sigma_color);
       color_sum += bilateral_weight * color;
       color_squared_sum += bilateral_weight * color * color;
       bilateral_weight_sum += bilateral_weight;

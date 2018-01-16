@@ -294,6 +294,11 @@ __device__ inline void ComposeHomography(const int image_id, const int row,
 // value, the better the color consistency.
 template <int kWindowSize, int kWindowStep>
 struct PhotoConsistencyCostComputer {
+  const int kWindowRadius = kWindowSize / 2;
+
+  // Maximum photo consistency cost as 1 - min(NCC).
+  const float kMaxCost = 2.0f;
+
   // Image data in local window around patch.
   const float* local_ref_image = nullptr;
 
@@ -316,25 +321,7 @@ struct PhotoConsistencyCostComputer {
   float depth = 0.0f;
   const float* normal = nullptr;
 
-  // Dimensions of reference image.
-  int ref_image_width = 0;
-  int ref_image_height = 0;
-
   __device__ inline float Compute() const {
-    const float kMaxCost = 2.0f;
-    const int kWindowRadius = kWindowSize / 2;
-
-    const int thread_id = threadIdx.x;
-    const int row_start = row - kWindowRadius;
-    const int col_start = col - kWindowRadius;
-    const int row_end = row + kWindowRadius;
-    const int col_end = col + kWindowRadius;
-
-    if (row_end < 0 || col_end < 0 || row_start >= ref_image_height ||
-        col_start >= ref_image_width) {
-      return kMaxCost;
-    }
-
     float tform[9];
     ComposeHomography(src_image_id, row, col, depth, normal, tform);
 
@@ -342,6 +329,10 @@ struct PhotoConsistencyCostComputer {
     for (int i = 0; i < 9; ++i) {
       tform_step[i] = kWindowStep * tform[i];
     }
+
+    const int thread_id = threadIdx.x;
+    const int row_start = row - kWindowRadius;
+    const int col_start = col - kWindowRadius;
 
     float col_src = tform[0] * col_start + tform[1] * row_start + tform[2];
     float row_src = tform[3] * col_start + tform[4] * row_start + tform[5];
@@ -353,34 +344,33 @@ struct PhotoConsistencyCostComputer {
     int ref_image_idx = THREADS_PER_BLOCK - kWindowRadius + thread_id;
     int ref_image_base_idx = ref_image_idx;
 
-    const float center_ref =
+    const float ref_center_color =
         local_ref_image[ref_image_idx + kWindowRadius * 3 * THREADS_PER_BLOCK +
                         kWindowRadius];
-    const float sum_ref = local_ref_sum;
-    const float sum_ref_ref = local_ref_squared_sum;
-    float sum_src = 0.0f;
-    float sum_src_src = 0.0f;
-    float sum_ref_src = 0.0f;
+    const float ref_color_sum = local_ref_sum;
+    const float ref_color_squared_sum = local_ref_squared_sum;
+    float src_color_sum = 0.0f;
+    float src_color_squared_sum = 0.0f;
+    float src_ref_color_sum = 0.0f;
     float bilateral_weight_sum = 0.0f;
 
-    for (int row = 0; row < kWindowSize; row += kWindowStep) {
-      for (int col = 0; col < kWindowSize; col += kWindowStep) {
+    for (int row = -kWindowRadius; row <= kWindowRadius; row += kWindowStep) {
+      for (int col = -kWindowRadius; col <= kWindowRadius; col += kWindowStep) {
         const float inv_z = 1.0f / z;
         const float norm_col_src = inv_z * col_src + 0.5f;
         const float norm_row_src = inv_z * row_src + 0.5f;
-        const float ref = local_ref_image[ref_image_idx];
-        const float src = tex2DLayered(src_images_texture, norm_col_src,
-                                       norm_row_src, src_image_id);
+        const float ref_color = local_ref_image[ref_image_idx];
+        const float src_color = tex2DLayered(src_images_texture, norm_col_src,
+                                             norm_row_src, src_image_id);
 
-        const float bilateral_weight =
-            ComputeBilateralWeight(kWindowRadius, kWindowRadius, row, col,
-                                   center_ref, ref, sigma_spatial, sigma_color);
+        const float bilateral_weight = ComputeBilateralWeight(
+            row, col, ref_center_color, ref_color, sigma_spatial, sigma_color);
 
-        const float bilateral_weight_src = bilateral_weight * src;
+        const float bilateral_weight_src = bilateral_weight * src_color;
 
-        sum_src += bilateral_weight_src;
-        sum_src_src += bilateral_weight_src * src;
-        sum_ref_src += bilateral_weight_src * ref;
+        src_color_sum += bilateral_weight_src;
+        src_color_squared_sum += bilateral_weight_src * src_color;
+        src_ref_color_sum += bilateral_weight_src * ref_color;
         bilateral_weight_sum += bilateral_weight;
 
         ref_image_idx += kWindowStep;
@@ -407,22 +397,26 @@ struct PhotoConsistencyCostComputer {
     }
 
     const float inv_bilateral_weight_sum = 1.0f / bilateral_weight_sum;
-    sum_src *= inv_bilateral_weight_sum;
-    sum_src_src *= inv_bilateral_weight_sum;
-    sum_ref_src *= inv_bilateral_weight_sum;
+    src_color_sum *= inv_bilateral_weight_sum;
+    src_color_squared_sum *= inv_bilateral_weight_sum;
+    src_ref_color_sum *= inv_bilateral_weight_sum;
 
-    const float var_ref = sum_ref_ref - sum_ref * sum_ref;
-    const float var_src = sum_src_src - sum_src * sum_src;
+    const float ref_color_var =
+        ref_color_squared_sum - ref_color_sum * ref_color_sum;
+    const float src_color_var =
+        src_color_squared_sum - src_color_sum * src_color_sum;
 
     // Based on Jensen's Inequality for convex functions, the variance
     // should always be larger than 0. Do not make this threshold smaller.
     const float kMinVar = 1e-5f;
-    if (var_ref < kMinVar || var_src < kMinVar) {
+    if (ref_color_var < kMinVar || src_color_var < kMinVar) {
       return kMaxCost;
     } else {
-      const float covar_src_ref = sum_ref_src - sum_ref * sum_src;
-      const float var_ref_src = sqrt(var_ref * var_src);
-      return max(0.0f, min(kMaxCost, 1.0f - covar_src_ref / var_ref_src));
+      const float src_ref_color_covar =
+          src_ref_color_sum - ref_color_sum * src_color_sum;
+      const float src_ref_color_var = sqrt(ref_color_var * src_color_var);
+      return max(0.0f,
+                 min(kMaxCost, 1.0f - src_ref_color_covar / src_ref_color_var));
     }
   }
 };
@@ -751,8 +745,6 @@ __global__ void ComputeInitialCost(GpuMat<float> cost_map,
 
   PhotoConsistencyCostComputer<kWindowSize, kWindowStep> pcc_computer;
   pcc_computer.local_ref_image = local_ref_image;
-  pcc_computer.ref_image_width = cost_map.GetWidth();
-  pcc_computer.ref_image_height = cost_map.GetHeight();
   pcc_computer.row = 0;
   pcc_computer.col = col;
   pcc_computer.sigma_spatial = sigma_spatial;
@@ -861,8 +853,6 @@ __global__ void SweepFromTopToBottom(
 
   PhotoConsistencyCostComputer<kWindowSize, kWindowStep> pcc_computer;
   pcc_computer.local_ref_image = local_ref_image;
-  pcc_computer.ref_image_width = cost_map.GetWidth();
-  pcc_computer.ref_image_height = cost_map.GetHeight();
   pcc_computer.col = col;
   pcc_computer.sigma_spatial = options.sigma_spatial;
   pcc_computer.sigma_color = options.sigma_color;
