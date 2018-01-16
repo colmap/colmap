@@ -120,7 +120,8 @@ __device__ inline void PerturbNormal(const int row, const int col,
                                      const float perturbation,
                                      const float normal[3],
                                      curandState* rand_state,
-                                     float perturbed_normal[3]) {
+                                     float perturbed_normal[3],
+                                     const int num_trials = 0) {
   // Perturbation rotation angles.
   const float a1 = (curand_uniform(rand_state) - 0.5f) * perturbation;
   const float a2 = (curand_uniform(rand_state) - 0.5f) * perturbation;
@@ -149,13 +150,21 @@ __device__ inline void PerturbNormal(const int row, const int col,
   Mat33DotVec3(R, normal, perturbed_normal);
 
   // Make sure the perturbed normal is still looking in the same direction as
-  // the viewing direction.
+  // the viewing direction, otherwise try again but with smaller perturbation.
   const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
                              ref_inv_K[2] * row + ref_inv_K[3], 1.0f};
   if (DotProduct3(perturbed_normal, view_ray) >= 0.0f) {
-    perturbed_normal[0] = normal[0];
-    perturbed_normal[1] = normal[1];
-    perturbed_normal[2] = normal[2];
+    const int kMaxNumTrials = 3;
+    if (num_trials < kMaxNumTrials) {
+      PerturbNormal(row, col, 0.5f * perturbation, normal, rand_state,
+                    perturbed_normal, num_trials + 1);
+      return;
+    } else {
+      perturbed_normal[0] = normal[0];
+      perturbed_normal[1] = normal[1];
+      perturbed_normal[2] = normal[2];
+      return;
+    }
   }
 
   // Make sure normal has unit norm.
@@ -779,6 +788,7 @@ __global__ void ComputeInitialCost(GpuMat<float> cost_map,
 }
 
 struct SweepOptions {
+  float perturbation = 1.0f;
   float depth_min = 0.0f;
   float depth_max = 1.0f;
   int num_samples = 15;
@@ -907,8 +917,10 @@ __global__ void SweepFromTopToBottom(
 
     // Generate random parameters.
     rand_param_state.depth =
-        GenerateRandomDepth(options.depth_min, options.depth_max, &rand_state);
-    GenerateRandomNormal(row, col, &rand_state, rand_param_state.normal);
+        PerturbDepth(options.perturbation, curr_param_state.depth, &rand_state);
+    PerturbNormal(row, col, options.perturbation * M_PI,
+                  curr_param_state.normal, &rand_state,
+                  rand_param_state.normal);
 
     // Read in the backward message, compute selection probabilities and
     // modulate selection probabilities with priors.
@@ -952,23 +964,14 @@ __global__ void SweepFromTopToBottom(
     // the best K probabilities, this sampling scheme has the advantage of
     // being adaptive to any distribution of selection probabilities.
 
-    const float kPerturbation = 0.02f;
-    const float perturbed_depth =
-        PerturbDepth(kPerturbation, curr_param_state.depth, &rand_state);
-    float perturbed_normal[3];
-    PerturbNormal(row, col, kPerturbation * M_PI, curr_param_state.normal,
-                  &rand_state, perturbed_normal);
-
-    const int kNumCosts = 7;
+    const int kNumCosts = 5;
     float costs[kNumCosts];
     const float depths[kNumCosts] = {
         curr_param_state.depth, prev_param_state.depth, rand_param_state.depth,
-        curr_param_state.depth, rand_param_state.depth, curr_param_state.depth,
-        perturbed_depth};
+        curr_param_state.depth, rand_param_state.depth};
     const float* normals[kNumCosts] = {
         curr_param_state.normal, prev_param_state.normal,
         rand_param_state.normal, rand_param_state.normal,
-        curr_param_state.normal, perturbed_normal,
         curr_param_state.normal};
 
     for (int i = 0; i < kNumCosts; ++i) {
@@ -1268,6 +1271,10 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
     for (int sweep = 0; sweep < 4; ++sweep) {
       CudaTimer sweep_timer;
 
+      // Expenentially reduce amount of perturbation during the optimization.
+      sweep_options.perturbation = 1.0f / std::pow(2.0f, iter + sweep / 4.0f);
+
+      // Linearly increase the influence of previous selection probabilities.
       sweep_options.prev_sel_prob_weight =
           static_cast<float>(iter * 4 + sweep) / total_num_steps;
 
