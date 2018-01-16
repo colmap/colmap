@@ -53,15 +53,26 @@ class GpuMatRefImage {
   size_t height_;
 };
 
-__device__ inline float ComputeBilateralWeight(
-    const float row_diff, const float col_diff,
-    const float color1, const float color2, const float sigma_spatial,
-    const float sigma_color) {
-  const float spatial_dist_squared = row_diff * row_diff + col_diff * col_diff;
-  const float color_diff = color1 - color2;
-  return exp(-spatial_dist_squared / (2.0f * sigma_spatial * sigma_spatial) -
-             color_diff * color_diff / (2.0f * sigma_color * sigma_color));
-}
+struct BilateralWeightComputer {
+  __device__ BilateralWeightComputer(const float sigma_spatial,
+                                     const float sigma_color)
+      : spatial_normalization_(1.0f / (2.0f * sigma_spatial * sigma_spatial)),
+        color_normalization_(1.0f / (2.0f * sigma_color * sigma_color)) {}
+
+  __device__ inline float Compute(const float row_diff, const float col_diff,
+                                  const float color1,
+                                  const float color2) const {
+    const float spatial_dist_squared =
+        row_diff * row_diff + col_diff * col_diff;
+    const float color_dist = color1 - color2;
+    return exp(-spatial_dist_squared * spatial_normalization_ -
+               color_dist * color_dist * color_normalization_);
+  }
+
+ private:
+  const float spatial_normalization_;
+  const float color_normalization_;
+};
 
 }  // namespace mvs
 }  // namespace colmap

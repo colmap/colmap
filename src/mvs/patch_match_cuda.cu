@@ -296,6 +296,10 @@ template <int kWindowSize, int kWindowStep>
 struct PhotoConsistencyCostComputer {
   const int kWindowRadius = kWindowSize / 2;
 
+  __device__ PhotoConsistencyCostComputer(const float sigma_spatial,
+                                          const float sigma_color)
+      : bilateral_weight_computer_(sigma_spatial, sigma_color) {}
+
   // Maximum photo consistency cost as 1 - min(NCC).
   const float kMaxCost = 2.0f;
 
@@ -312,10 +316,6 @@ struct PhotoConsistencyCostComputer {
   // Center position of patch in reference image.
   int row = -1;
   int col = -1;
-
-  // Parameters for bilateral weighting.
-  float sigma_spatial = 3.0f;
-  float sigma_color = 0.3f;
 
   // Depth and normal for which to warp patch.
   float depth = 0.0f;
@@ -363,8 +363,8 @@ struct PhotoConsistencyCostComputer {
         const float src_color = tex2DLayered(src_images_texture, norm_col_src,
                                              norm_row_src, src_image_id);
 
-        const float bilateral_weight = ComputeBilateralWeight(
-            row, col, ref_center_color, ref_color, sigma_spatial, sigma_color);
+        const float bilateral_weight = bilateral_weight_computer_.Compute(
+            row, col, ref_center_color, ref_color);
 
         const float bilateral_weight_src = bilateral_weight * src_color;
 
@@ -419,6 +419,9 @@ struct PhotoConsistencyCostComputer {
                  min(kMaxCost, 1.0f - src_ref_color_covar / src_ref_color_var));
     }
   }
+
+ private:
+  const BilateralWeightComputer bilateral_weight_computer_;
 };
 
 __device__ inline float ComputeGeomConsistencyCost(const float row,
@@ -743,12 +746,11 @@ __global__ void ComputeInitialCost(GpuMat<float> cost_map,
 
   __shared__ float local_ref_image[THREADS_PER_BLOCK * 3 * kWindowSize];
 
-  PhotoConsistencyCostComputer<kWindowSize, kWindowStep> pcc_computer;
+  PhotoConsistencyCostComputer<kWindowSize, kWindowStep> pcc_computer(
+      sigma_spatial, sigma_color);
   pcc_computer.local_ref_image = local_ref_image;
   pcc_computer.row = 0;
   pcc_computer.col = col;
-  pcc_computer.sigma_spatial = sigma_spatial;
-  pcc_computer.sigma_color = sigma_color;
 
   float normal[3];
   pcc_computer.normal = normal;
@@ -851,11 +853,10 @@ __global__ void SweepFromTopToBottom(
   // size to 2 * THREADS_PER_BLOCK + 1.
   __shared__ float local_ref_image[THREADS_PER_BLOCK * 3 * kWindowSize];
 
-  PhotoConsistencyCostComputer<kWindowSize, kWindowStep> pcc_computer;
+  PhotoConsistencyCostComputer<kWindowSize, kWindowStep> pcc_computer(
+      options.sigma_spatial, options.sigma_color);
   pcc_computer.local_ref_image = local_ref_image;
   pcc_computer.col = col;
-  pcc_computer.sigma_spatial = options.sigma_spatial;
-  pcc_computer.sigma_color = options.sigma_color;
 
   struct ParamState {
     float depth = 0.0f;

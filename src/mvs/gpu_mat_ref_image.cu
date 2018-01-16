@@ -37,6 +37,8 @@ __global__ void FilterKernel(GpuMat<uint8_t> image, GpuMat<float> sum_image,
     return;
   }
 
+  BilateralWeightComputer bilateral_weight_computer(sigma_spatial, sigma_color);
+
   const float center_color = tex2D(image_texture, col, row);
 
   float color_sum = 0.0f;
@@ -49,9 +51,8 @@ __global__ void FilterKernel(GpuMat<uint8_t> image, GpuMat<float> sum_image,
          window_col += window_step) {
       const float color =
           tex2D(image_texture, col + window_col, row + window_row);
-      const float bilateral_weight =
-          ComputeBilateralWeight(window_row, window_col, center_color, color,
-                                 sigma_spatial, sigma_color);
+      const float bilateral_weight = bilateral_weight_computer.Compute(
+          window_row, window_col, center_color, color);
       color_sum += bilateral_weight * color;
       color_squared_sum += bilateral_weight * color * color;
       bilateral_weight_sum += bilateral_weight;
