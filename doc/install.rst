@@ -16,20 +16,23 @@ Windows
 
 For convenience, the pre-built binaries for Windows contain both the graphical
 and command-line interface executables. To start the COLMAP GUI, you can simply
-run the ``COLMAP.bat`` batch script. The command-line executables are located in
-the ``bin`` folder and can be run from the Windows command shell ``cmd.exe``.
-Note that you must set the relative path to the pre-built libraries in the
-``lib`` directory accordingly using the command ``set PATH=%CD%\lib;%PATH%``.
-
+double-click  the ``COLMAP.bat`` batch script or alternatively run it from the
+Windows command shell or Powershell. The command-line interface is also
+accessible through this batch script, which automatically sets the necessary
+library paths. To list the available COLMAP commands, run ``COLMAP.bat -h`` in
+the command shell ``cmd.exe`` or in Powershell.
 
 Mac
 ---
 
-The pre-built binaries for Mac only contain the GUI version of COLMAP, since it
-is very easy to compile COLMAP on Mac. COLMAP is shipped as an unsigned
-application, i.e., you have to right-click the application and select *Open*
-and then accept to trust the application. In the future, you can then simply
-double-click the application to open COLMAP.
+The pre-built application package for Mac contains both the GUI and command-line
+version of COLMAP. To open the GUI, simply open the application and note that
+COLMAP is shipped as an unsigned application, i.e., when your first open the
+application, you have to right-click the application and select *Open* and then
+accept to trust the application. In the future, you can then simply double-click
+the application to open COLMAP. The command-line interface is accessible by
+running the packaged binary ``COLMAP.app/Contents/MacOS/colmap``. To list the
+available COLMAP commands, run ``COLMAP.app/Contents/MacOS/colmap -h``.
 
 
 -----------------
@@ -56,7 +59,7 @@ Linux
 
 *Recommended dependencies:* CUDA.
 
-Dependencies from default Ubuntu 14.04/16.04 repositories::
+Dependencies from default Ubuntu repositories::
 
     sudo apt-get install \
         cmake \
@@ -174,7 +177,9 @@ E.g., under Windows you must specify the location of these libraries as::
 Note that under Windows you must use forward slashes for specifying the paths
 here. If you want to compile COLMAP using a specific Visual Studio version, you
 can for example specify ``--cmake_generator "Visual Studio 14"`` for Visual
-Studio 2015. If you use Homebrew under Mac, you can use the following command::
+Studio 2015. If you want to open the COLMAP source code in Visual Studio, you
+can open the solution file in ``path/to/colmap/build/colmap/build``.
+If you use Homebrew under Mac, you can use the following command::
 
     python scripts/python/build.py \
         --build_path path/to/colmap/build \
