@@ -14,20 +14,27 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "base/database.h"
+#include "base/reconstruction.h"
 #include "util/logging.h"
 #include "util/option_manager.h"
 
 using namespace colmap;
 
+// Simple example that reads and writes a reconstruction.
 int main(int argc, char** argv) {
   InitializeGlog(argv);
 
+  std::string input_path;
+  std::string output_path;
+
   OptionManager options;
-  options.AddDatabaseOptions();
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
   options.Parse(argc, argv);
 
-  Database database(*options.database_path);
+  Reconstruction reconstruction;
+  reconstruction.Read(input_path);
+  reconstruction.Write(output_path);
 
   return EXIT_SUCCESS;
 }

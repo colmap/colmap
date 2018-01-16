@@ -300,7 +300,9 @@ void DenseReconstructionWidget::Stereo() {
                          [this]() { refresh_workspace_action_->trigger(); });
   thread_control_widget_->StartThread("Stereo...", true, processor);
 #else
-  QMessageBox::critical(this, "", tr("CUDA not supported"));
+  QMessageBox::critical(this, "",
+                        tr("Dense stereo reconstruction requires CUDA, which "
+                           "is not available on your system."));
 #endif
 }
 

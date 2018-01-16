@@ -455,7 +455,7 @@ def main():
     print()
     print("Successfully installed COLMAP in: {}".format(args.install_path))
     if PLATFORM_IS_WINDOWS:
-        print("  To run COLMAP, navigate to {} and run colmap.bat".format(
+        print("  To run COLMAP, navigate to {} and run COLMAP.bat".format(
                     args.install_path))
     else:
         print("  To run COLMAP, execute LD_LIBRARY_PATH={} {}".format(

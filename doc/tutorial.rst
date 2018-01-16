@@ -163,21 +163,21 @@ not modify the input images or directory and all extracted data is stored in a
 single, self-contained SQLite database file (see :doc:`database`).
 
 The first step is to start the graphical user interface of COLMAP by running the
-pre-built binaries (Windows: `colmap.bat`, Mac: `colmap.app`) or by executing
-``./src/exe/colmap``. Next, create a new project by choosing ``File > New
-project``. In this dialog, you must select where to store the database and the
-folder that contains the input images. For convenience, you can save the entire
-project settings to a configuration file by choosing ``File > Save project``.
-The project configuration stores the absolute path information of the database
-and image folder in addition to any other parameter settings. If you decide to
-move the database or image folder, you must change the paths accordingly by
-creating a new project. Alternatively, the resulting `.ini` configuration file
-can be directly modified in a text editor of your choice. To reopen an existing
-project, you can simply open the configuration file by choosing ``File > Open
-project`` and all parameter settings should be recovered. Note that all COLMAP
-executables can be started from the command-line by either specifying individual
-settings as command-line arguments or by providing the path to the project
-configuration file (see :ref:`Interface <interface>`).
+pre-built binaries (Windows: `COLMAP.bat`, Mac: `COLMAP.app`) or by executing
+``./src/exe/colmap`` from the CMake build folder. Next, create a new project by
+choosing ``File > New project``. In this dialog, you must select where to store
+the database and the folder that contains the input images. For convenience, you
+can save the entire project settings to a configuration file by choosing ``File
+> Save project``. The project configuration stores the absolute path information
+of the database and image folder in addition to any other parameter settings. If
+you decide to move the database or image folder, you must change the paths
+accordingly by creating a new project. Alternatively, the resulting `.ini`
+configuration file can be directly modified in a text editor of your choice. To
+reopen an existing project, you can simply open the configuration file by
+choosing ``File > Open project`` and all parameter settings should be recovered.
+Note that all COLMAP executables can be started from the command-line by either
+specifying individual settings as command-line arguments or by providing the
+path to the project configuration file (see :ref:`Interface <interface>`).
 
 An example folder structure could look like this::
 

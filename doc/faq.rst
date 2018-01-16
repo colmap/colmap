@@ -1,6 +1,18 @@
 Frequently Asked Questions
 ==========================
 
+Extending COLMAP
+----------------
+
+If you need to simply analyze the produced sparse or dense reconstructions from
+COLMAP, you can load the sparse models in Python and Matlab using the provided
+scripts in ``scripts/python`` and ``scripts/matlab``.
+
+If you want to write a C/C++ executable that builds on top of COLMAP, the
+easiest approach is to start from the ``src/tools/example.cc`` code template and
+implement the desired functionality in a new binary.
+
+
 .. _faq-share-intrinsics:
 
 Share intrinsics

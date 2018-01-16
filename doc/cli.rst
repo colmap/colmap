@@ -3,11 +3,12 @@
 Command-line Interface
 ======================
 
-The command-line interface provides access to most of COLMAP's functionality for
-automated scripting. Each core functionality uses a different executable that is
-accessible through ``colmap [command]`` if you installed COLMAP (execute
-``colmap -h`` to list the available commands) or inside the ``src/exe/*`` folder
-if you run COLMAP from the CMake build folder.
+The command-line interface provides access to all of COLMAP's functionality for
+automated scripting. Each core functionality is implemented as a command to the
+``colmap`` executable. Run ``colmap -h`` to list the available commands (or
+``COLMAP.bat -h`` under Windows). Note that if you run COLMAP from the CMake
+build folder, the executable is located at ``./src/exe/colmap``. To start the
+graphical user interface, run ``colmap gui``.
 
 Example
 -------
@@ -24,11 +25,11 @@ Assume you stored the images of your project in the following folder structure::
 The command for the automatic reconstruction tools would be::
 
     # The project folder must contain a folder "images" with all the images.
-    $ PROJECT_PATH=/path/to/project
+    $ DATASET_PATH=/path/to/project
 
     $ colmap automatic_reconstructor \
-        --workspace_path $PROJECT_PATH \
-        --image_path $PROJECT_PATH/images
+        --workspace_path $DATASET_PATH \
+        --image_path $DATASET_PATH/images
 
 Note that any executable lists all available options using the command-line
 argument ``--help``. As an alternative to the automatic reconstruction tool in
@@ -36,52 +37,52 @@ case you need more control over the parameters of the individual reconstruction
 steps, an exemplary sequence of commands to reconstruct the scene would be::
 
     # The project folder must contain a folder "images" with all the images.
-    $ PROJECT_PATH=/path/to/project
+    $ DATASET_PATH=/path/to/dataset
 
     $ colmap feature_extractor \
-       --database_path $PROJECT_PATH/database.db \
-       --image_path $PROJECT_PATH/images
+       --database_path $DATASET_PATH/database.db \
+       --image_path $DATASET_PATH/images
 
     $ colmap exhaustive_matcher \
-       --database_path $PROJECT_PATH/database.db
+       --database_path $DATASET_PATH/database.db
 
-    $ mkdir $PROJECT_PATH/sparse
+    $ mkdir $DATASET_PATH/sparse
 
     $ colmap mapper \
-        --database_path $PROJECT_PATH/database.db \
-        --image_path $PROJECT_PATH/images \
-        --export_path $PROJECT_PATH/sparse
+        --database_path $DATASET_PATH/database.db \
+        --image_path $DATASET_PATH/images \
+        --export_path $DATASET_PATH/sparse
 
-    $ mkdir $PROJECT_PATH/dense
+    $ mkdir $DATASET_PATH/dense
 
     $ colmap image_undistorter \
-        --image_path $PROJECT_PATH/images \
-        --input_path $PROJECT_PATH/sparse/0 \
-        --output_path $PROJECT_PATH/dense \
+        --image_path $DATASET_PATH/images \
+        --input_path $DATASET_PATH/sparse/0 \
+        --output_path $DATASET_PATH/dense \
         --output_type COLMAP \
         --max_image_size 2000
 
     $ colmap dense_stereo \
-        --workspace_path $PROJECT_PATH/dense \
+        --workspace_path $DATASET_PATH/dense \
         --workspace_format COLMAP \
         --DenseStereo.geom_consistency true
 
     $ colmap dense_fuser \
-        --workspace_path $PROJECT_PATH/dense \
+        --workspace_path $DATASET_PATH/dense \
         --workspace_format COLMAP \
         --input_type geometric \
-        --output_path $PROJECT_PATH/dense/fused.ply
+        --output_path $DATASET_PATH/dense/fused.ply
 
     $ colmap dense_mesher \
-        --input_path $PROJECT_PATH/dense/fused.ply \
-        --output_path $PROJECT_PATH/dense/meshed.ply
+        --input_path $DATASET_PATH/dense/fused.ply \
+        --output_path $DATASET_PATH/dense/meshed.ply
 
 If you want to run COLMAP on a computer (e.g., cluster or cloud service) without
 an attached display, you should run the ``feature_extractor`` and set the
 ``--SiftGPUExtraction.index 0`` explicitly if a CUDA device is available or with
 the option ``--use_gpu false``. Then, you should run the ``*_matcher`` with
-``--SiftMatching.use_gpu true`` if a CUDA device is available or with ``--SiftMatching.use_gpu false`` for
-CPU-based feature matching.
+``--SiftMatching.use_gpu true`` if a CUDA device is available or with
+``--SiftMatching.use_gpu false`` for CPU-based feature matching.
 
 Help
 ----
@@ -123,10 +124,13 @@ The available options can either be provided directly from the command-line or
 through a `.ini` file provided to ``--project_path``.
 
 
-Executables
------------
+Commands
+--------
 
-- ``colmap``: The graphical user interface, see
+The following list briefly documents the functionality of each command, that is
+available as ``colmap [command]``:
+
+- ``gui``: The graphical user interface, see
   :ref:`Graphical User Interface <gui>` for more information.
 
 - ``automatic_reconstruction``: Automatically reconstruct sparse and dense model
@@ -194,6 +198,8 @@ Executables
   Pre-trained trees can be downloaded from https://demuc.de/colmap/.
   This is useful if you want to build a custom tree with a different trade-off
   in terms of precision/recall vs. speed.
+
+- ``vocab_tree_retriever``: Perform vocabulary tree based image retrieval.
 
 
 Visualization

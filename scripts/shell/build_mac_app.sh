@@ -19,13 +19,13 @@
 BIN_PATH="."
 
 echo "Creating bundle directory"
-mkdir -p "$BIN_PATH/colmap.app/Contents/MacOS"
+mkdir -p "$BIN_PATH/COLMAP.app/Contents/MacOS"
 
 echo "Copying binary"
-cp "$BIN_PATH/colmap" "$BIN_PATH/colmap.app/Contents/MacOS/COLMAP"
+cp "$BIN_PATH/colmap" "$BIN_PATH/COLMAP.app/Contents/MacOS/colmap"
 
 echo "Writing Info.plist"
-cat <<EOM >"$BIN_PATH/colmap.app/Contents/Info.plist"
+cat <<EOM >"$BIN_PATH/COLMAP.app/Contents/Info.plist"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -33,8 +33,12 @@ cat <<EOM >"$BIN_PATH/colmap.app/Contents/Info.plist"
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>
-    <string>COLMAP</string>
+    <string>colmap</string>
     <key>CFBundleIdentifier</key>
+    <string>COLMAP</string>
+    <key>CFBundleName</key>
+    <string>COLMAP</string>
+    <key>CFBundleDisplayName</key>
     <string>COLMAP</string>
     <key>NSHighResolutionCapable</key>
     <true/>
@@ -44,8 +48,18 @@ cat <<EOM >"$BIN_PATH/colmap.app/Contents/Info.plist"
 </plist>
 EOM
 
-install_name_tool -change @rpath/libtbb.dylib /usr/local/lib/libtbb.dylib $BIN_PATH/colmap.app/Contents/MacOS/COLMAP
-install_name_tool -change @rpath/libtbbmalloc.dylib /usr/local/lib/libtbbmalloc.dylib $BIN_PATH/colmap.app/Contents/MacOS/COLMAP
+install_name_tool -change @rpath/libtbb.dylib /usr/local/lib/libtbb.dylib $BIN_PATH/COLMAP.app/Contents/MacOS/COLMAP
+install_name_tool -change @rpath/libtbbmalloc.dylib /usr/local/lib/libtbbmalloc.dylib $BIN_PATH/COLMAP.app/Contents/MacOS/COLMAP
 
 echo "Linking dynamic libraries"
-/usr/local/opt/qt5/bin/macdeployqt "$BIN_PATH/colmap.app"
+/usr/local/opt/qt5/bin/macdeployqt "$BIN_PATH/COLMAP.app"
+
+echo "Wrapping binary"
+cat <<EOM >"$BIN_PATH/COLMAP.app/Contents/MacOS/colmap_gui.sh"
+#!/bin/bash
+script_path="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+\$script_path/colmap gui
+EOM
+chmod +x $BIN_PATH/COLMAP.app/Contents/MacOS/colmap_gui.sh
+sed -i '' 's#<string>colmap</string>#<string>colmap_gui.sh</string>#g' $BIN_PATH/COLMAP.app/Contents/Info.plist
+
