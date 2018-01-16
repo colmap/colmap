@@ -46,10 +46,6 @@ class GpuMatRefImage {
   std::unique_ptr<GpuMat<float>> squared_sum_image;
 
  private:
-  template <int kWindowRadius, int kWindowStep>
-  void Filter(const uint8_t* image_data, const float sigma_spatial,
-              const float sigma_color);
-
   const static size_t kBlockDimX = 16;
   const static size_t kBlockDimY = 12;
 
