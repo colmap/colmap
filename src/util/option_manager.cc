@@ -118,7 +118,11 @@ void OptionManager::ModifyForMediumQuality() {
   dense_fusion->max_image_size = 1600;
 }
 
-void OptionManager::ModifyForHighQuality() { dense_stereo->window_step = 2; }
+void OptionManager::ModifyForHighQuality() {
+  sift_extraction->max_image_size = 2400;
+  dense_stereo->max_image_size = 2400;
+  dense_fusion->max_image_size = 2400;
+}
 
 void OptionManager::ModifyForExtremeQuality() {
   // Extreme quality is the default.

@@ -39,6 +39,7 @@ namespace colmap {
 template <typename T>
 struct BitmapColor {
   BitmapColor();
+  BitmapColor(const T gray);
   BitmapColor(const T r, const T g, const T b);
 
   template <typename D>
@@ -208,6 +209,9 @@ T2 BitmapColorCast(const T1 value) {
 
 template <typename T>
 BitmapColor<T>::BitmapColor() : r(0), g(0), b(0) {}
+
+template <typename T>
+BitmapColor<T>::BitmapColor(const T gray) : r(gray), g(gray), b(gray) {}
 
 template <typename T>
 BitmapColor<T>::BitmapColor(const T r, const T g, const T b)

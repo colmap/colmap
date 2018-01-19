@@ -82,6 +82,11 @@ Bitmap DepthMap::ToBitmap(const float min_percentile,
     }
   }
 
+  if (valid_depths.empty()) {
+    bitmap.Fill(BitmapColor<uint8_t>(0));
+    return bitmap;
+  }
+
   const float robust_depth_min = Percentile(valid_depths, min_percentile);
   const float robust_depth_max = Percentile(valid_depths, max_percentile);
 
@@ -99,7 +104,7 @@ Bitmap DepthMap::ToBitmap(const float min_percentile,
                                        255 * JetColormap::Blue(gray));
         bitmap.SetPixel(x, y, color.Cast<uint8_t>());
       } else {
-        bitmap.SetPixel(x, y, BitmapColor<uint8_t>(0, 0, 0));
+        bitmap.SetPixel(x, y, BitmapColor<uint8_t>(0));
       }
     }
   }

@@ -120,7 +120,8 @@ __device__ inline void PerturbNormal(const int row, const int col,
                                      const float perturbation,
                                      const float normal[3],
                                      curandState* rand_state,
-                                     float perturbed_normal[3]) {
+                                     float perturbed_normal[3],
+                                     const int num_trials = 0) {
   // Perturbation rotation angles.
   const float a1 = (curand_uniform(rand_state) - 0.5f) * perturbation;
   const float a2 = (curand_uniform(rand_state) - 0.5f) * perturbation;
@@ -149,13 +150,21 @@ __device__ inline void PerturbNormal(const int row, const int col,
   Mat33DotVec3(R, normal, perturbed_normal);
 
   // Make sure the perturbed normal is still looking in the same direction as
-  // the viewing direction.
+  // the viewing direction, otherwise try again but with smaller perturbation.
   const float view_ray[3] = {ref_inv_K[0] * col + ref_inv_K[1],
                              ref_inv_K[2] * row + ref_inv_K[3], 1.0f};
   if (DotProduct3(perturbed_normal, view_ray) >= 0.0f) {
-    perturbed_normal[0] = normal[0];
-    perturbed_normal[1] = normal[1];
-    perturbed_normal[2] = normal[2];
+    const int kMaxNumTrials = 3;
+    if (num_trials < kMaxNumTrials) {
+      PerturbNormal(row, col, 0.5f * perturbation, normal, rand_state,
+                    perturbed_normal, num_trials + 1);
+      return;
+    } else {
+      perturbed_normal[0] = normal[0];
+      perturbed_normal[1] = normal[1];
+      perturbed_normal[2] = normal[2];
+      return;
+    }
   }
 
   // Make sure normal has unit norm.
@@ -294,6 +303,15 @@ __device__ inline void ComposeHomography(const int image_id, const int row,
 // value, the better the color consistency.
 template <int kWindowSize, int kWindowStep>
 struct PhotoConsistencyCostComputer {
+  const int kWindowRadius = kWindowSize / 2;
+
+  __device__ PhotoConsistencyCostComputer(const float sigma_spatial,
+                                          const float sigma_color)
+      : bilateral_weight_computer_(sigma_spatial, sigma_color) {}
+
+  // Maximum photo consistency cost as 1 - min(NCC).
+  const float kMaxCost = 2.0f;
+
   // Image data in local window around patch.
   const float* local_ref_image = nullptr;
 
@@ -308,33 +326,11 @@ struct PhotoConsistencyCostComputer {
   int row = -1;
   int col = -1;
 
-  // Parameters for bilateral weighting.
-  float sigma_spatial = 3.0f;
-  float sigma_color = 0.3f;
-
   // Depth and normal for which to warp patch.
   float depth = 0.0f;
   const float* normal = nullptr;
 
-  // Dimensions of reference image.
-  int ref_image_width = 0;
-  int ref_image_height = 0;
-
   __device__ inline float Compute() const {
-    const float kMaxCost = 2.0f;
-    const int kWindowRadius = kWindowSize / 2;
-
-    const int thread_id = threadIdx.x;
-    const int row_start = row - kWindowRadius;
-    const int col_start = col - kWindowRadius;
-    const int row_end = row + kWindowRadius;
-    const int col_end = col + kWindowRadius;
-
-    if (row_end < 0 || col_end < 0 || row_start >= ref_image_height ||
-        col_start >= ref_image_width) {
-      return kMaxCost;
-    }
-
     float tform[9];
     ComposeHomography(src_image_id, row, col, depth, normal, tform);
 
@@ -342,6 +338,10 @@ struct PhotoConsistencyCostComputer {
     for (int i = 0; i < 9; ++i) {
       tform_step[i] = kWindowStep * tform[i];
     }
+
+    const int thread_id = threadIdx.x;
+    const int row_start = row - kWindowRadius;
+    const int col_start = col - kWindowRadius;
 
     float col_src = tform[0] * col_start + tform[1] * row_start + tform[2];
     float row_src = tform[3] * col_start + tform[4] * row_start + tform[5];
@@ -353,34 +353,33 @@ struct PhotoConsistencyCostComputer {
     int ref_image_idx = THREADS_PER_BLOCK - kWindowRadius + thread_id;
     int ref_image_base_idx = ref_image_idx;
 
-    const float center_ref =
+    const float ref_center_color =
         local_ref_image[ref_image_idx + kWindowRadius * 3 * THREADS_PER_BLOCK +
                         kWindowRadius];
-    const float sum_ref = local_ref_sum;
-    const float sum_ref_ref = local_ref_squared_sum;
-    float sum_src = 0.0f;
-    float sum_src_src = 0.0f;
-    float sum_ref_src = 0.0f;
+    const float ref_color_sum = local_ref_sum;
+    const float ref_color_squared_sum = local_ref_squared_sum;
+    float src_color_sum = 0.0f;
+    float src_color_squared_sum = 0.0f;
+    float src_ref_color_sum = 0.0f;
     float bilateral_weight_sum = 0.0f;
 
-    for (int row = 0; row < kWindowSize; row += kWindowStep) {
-      for (int col = 0; col < kWindowSize; col += kWindowStep) {
+    for (int row = -kWindowRadius; row <= kWindowRadius; row += kWindowStep) {
+      for (int col = -kWindowRadius; col <= kWindowRadius; col += kWindowStep) {
         const float inv_z = 1.0f / z;
         const float norm_col_src = inv_z * col_src + 0.5f;
         const float norm_row_src = inv_z * row_src + 0.5f;
-        const float ref = local_ref_image[ref_image_idx];
-        const float src = tex2DLayered(src_images_texture, norm_col_src,
-                                       norm_row_src, src_image_id);
+        const float ref_color = local_ref_image[ref_image_idx];
+        const float src_color = tex2DLayered(src_images_texture, norm_col_src,
+                                             norm_row_src, src_image_id);
 
-        const float bilateral_weight =
-            ComputeBilateralWeight(kWindowRadius, kWindowRadius, row, col,
-                                   center_ref, ref, sigma_spatial, sigma_color);
+        const float bilateral_weight = bilateral_weight_computer_.Compute(
+            row, col, ref_center_color, ref_color);
 
-        const float bilateral_weight_src = bilateral_weight * src;
+        const float bilateral_weight_src = bilateral_weight * src_color;
 
-        sum_src += bilateral_weight_src;
-        sum_src_src += bilateral_weight_src * src;
-        sum_ref_src += bilateral_weight_src * ref;
+        src_color_sum += bilateral_weight_src;
+        src_color_squared_sum += bilateral_weight_src * src_color;
+        src_ref_color_sum += bilateral_weight_src * ref_color;
         bilateral_weight_sum += bilateral_weight;
 
         ref_image_idx += kWindowStep;
@@ -407,24 +406,31 @@ struct PhotoConsistencyCostComputer {
     }
 
     const float inv_bilateral_weight_sum = 1.0f / bilateral_weight_sum;
-    sum_src *= inv_bilateral_weight_sum;
-    sum_src_src *= inv_bilateral_weight_sum;
-    sum_ref_src *= inv_bilateral_weight_sum;
+    src_color_sum *= inv_bilateral_weight_sum;
+    src_color_squared_sum *= inv_bilateral_weight_sum;
+    src_ref_color_sum *= inv_bilateral_weight_sum;
 
-    const float var_ref = sum_ref_ref - sum_ref * sum_ref;
-    const float var_src = sum_src_src - sum_src * sum_src;
+    const float ref_color_var =
+        ref_color_squared_sum - ref_color_sum * ref_color_sum;
+    const float src_color_var =
+        src_color_squared_sum - src_color_sum * src_color_sum;
 
     // Based on Jensen's Inequality for convex functions, the variance
     // should always be larger than 0. Do not make this threshold smaller.
     const float kMinVar = 1e-5f;
-    if (var_ref < kMinVar || var_src < kMinVar) {
+    if (ref_color_var < kMinVar || src_color_var < kMinVar) {
       return kMaxCost;
     } else {
-      const float covar_src_ref = sum_ref_src - sum_ref * sum_src;
-      const float var_ref_src = sqrt(var_ref * var_src);
-      return max(0.0f, min(kMaxCost, 1.0f - covar_src_ref / var_ref_src));
+      const float src_ref_color_covar =
+          src_ref_color_sum - ref_color_sum * src_color_sum;
+      const float src_ref_color_var = sqrt(ref_color_var * src_color_var);
+      return max(0.0f,
+                 min(kMaxCost, 1.0f - src_ref_color_covar / src_ref_color_var));
     }
   }
+
+ private:
+  const BilateralWeightComputer bilateral_weight_computer_;
 };
 
 __device__ inline float ComputeGeomConsistencyCost(const float row,
@@ -749,14 +755,11 @@ __global__ void ComputeInitialCost(GpuMat<float> cost_map,
 
   __shared__ float local_ref_image[THREADS_PER_BLOCK * 3 * kWindowSize];
 
-  PhotoConsistencyCostComputer<kWindowSize, kWindowStep> pcc_computer;
+  PhotoConsistencyCostComputer<kWindowSize, kWindowStep> pcc_computer(
+      sigma_spatial, sigma_color);
   pcc_computer.local_ref_image = local_ref_image;
-  pcc_computer.ref_image_width = cost_map.GetWidth();
-  pcc_computer.ref_image_height = cost_map.GetHeight();
   pcc_computer.row = 0;
   pcc_computer.col = col;
-  pcc_computer.sigma_spatial = sigma_spatial;
-  pcc_computer.sigma_color = sigma_color;
 
   float normal[3];
   pcc_computer.normal = normal;
@@ -785,6 +788,7 @@ __global__ void ComputeInitialCost(GpuMat<float> cost_map,
 }
 
 struct SweepOptions {
+  float perturbation = 1.0f;
   float depth_min = 0.0f;
   float depth_max = 1.0f;
   int num_samples = 15;
@@ -859,13 +863,10 @@ __global__ void SweepFromTopToBottom(
   // size to 2 * THREADS_PER_BLOCK + 1.
   __shared__ float local_ref_image[THREADS_PER_BLOCK * 3 * kWindowSize];
 
-  PhotoConsistencyCostComputer<kWindowSize, kWindowStep> pcc_computer;
+  PhotoConsistencyCostComputer<kWindowSize, kWindowStep> pcc_computer(
+      options.sigma_spatial, options.sigma_color);
   pcc_computer.local_ref_image = local_ref_image;
-  pcc_computer.ref_image_width = cost_map.GetWidth();
-  pcc_computer.ref_image_height = cost_map.GetHeight();
   pcc_computer.col = col;
-  pcc_computer.sigma_spatial = options.sigma_spatial;
-  pcc_computer.sigma_color = options.sigma_color;
 
   struct ParamState {
     float depth = 0.0f;
@@ -916,8 +917,10 @@ __global__ void SweepFromTopToBottom(
 
     // Generate random parameters.
     rand_param_state.depth =
-        GenerateRandomDepth(options.depth_min, options.depth_max, &rand_state);
-    GenerateRandomNormal(row, col, &rand_state, rand_param_state.normal);
+        PerturbDepth(options.perturbation, curr_param_state.depth, &rand_state);
+    PerturbNormal(row, col, options.perturbation * M_PI,
+                  curr_param_state.normal, &rand_state,
+                  rand_param_state.normal);
 
     // Read in the backward message, compute selection probabilities and
     // modulate selection probabilities with priors.
@@ -961,23 +964,14 @@ __global__ void SweepFromTopToBottom(
     // the best K probabilities, this sampling scheme has the advantage of
     // being adaptive to any distribution of selection probabilities.
 
-    const float kPerturbation = 0.02f;
-    const float perturbed_depth =
-        PerturbDepth(kPerturbation, curr_param_state.depth, &rand_state);
-    float perturbed_normal[3];
-    PerturbNormal(row, col, kPerturbation * M_PI, curr_param_state.normal,
-                  &rand_state, perturbed_normal);
-
-    const int kNumCosts = 7;
+    const int kNumCosts = 5;
     float costs[kNumCosts];
     const float depths[kNumCosts] = {
         curr_param_state.depth, prev_param_state.depth, rand_param_state.depth,
-        curr_param_state.depth, rand_param_state.depth, curr_param_state.depth,
-        perturbed_depth};
+        curr_param_state.depth, rand_param_state.depth};
     const float* normals[kNumCosts] = {
         curr_param_state.normal, prev_param_state.normal,
         rand_param_state.normal, rand_param_state.normal,
-        curr_param_state.normal, perturbed_normal,
         curr_param_state.normal};
 
     for (int i = 0; i < kNumCosts; ++i) {
@@ -1233,6 +1227,9 @@ std::vector<int> PatchMatchCuda::GetConsistentImageIds() const {
 
 template <int kWindowSize, int kWindowStep>
 void PatchMatchCuda::RunWithWindowSizeAndStep() {
+  // Wait for all initializations to finish.
+  CUDA_SYNC_AND_CHECK();
+
   CudaTimer total_timer;
   CudaTimer init_timer;
 
@@ -1274,6 +1271,10 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
     for (int sweep = 0; sweep < 4; ++sweep) {
       CudaTimer sweep_timer;
 
+      // Expenentially reduce amount of perturbation during the optimization.
+      sweep_options.perturbation = 1.0f / std::pow(2.0f, iter + sweep / 4.0f);
+
+      // Linearly increase the influence of previous selection probabilities.
       sweep_options.prev_sel_prob_weight =
           static_cast<float>(iter * 4 + sweep) / total_num_steps;
 

@@ -97,7 +97,7 @@ Bitmap NormalMap::ToBitmap() const {
                                        -255.0f * normal[2]);
         bitmap.SetPixel(x, y, color.Cast<uint8_t>());
       } else {
-        bitmap.SetPixel(x, y, BitmapColor<uint8_t>(0, 0, 0));
+        bitmap.SetPixel(x, y, BitmapColor<uint8_t>(0));
       }
     }
   }

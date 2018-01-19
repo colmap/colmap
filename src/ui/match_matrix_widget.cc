@@ -40,7 +40,7 @@ void MatchMatrixWidget::Show() {
   // Allocate the match matrix image.
   Bitmap match_matrix;
   match_matrix.Allocate(images.size(), images.size(), true);
-  match_matrix.Fill(BitmapColor<uint8_t>(255, 255, 255));
+  match_matrix.Fill(BitmapColor<uint8_t>(255));
 
   // Map image identifiers to match matrix locations.
   std::unordered_map<image_t, size_t> image_id_to_idx;

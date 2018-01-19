@@ -81,7 +81,7 @@ BOOST_AUTO_TEST_CASE(TestUndistortCameraBlankPixels) {
 
   Bitmap distorted_image;
   distorted_image.Allocate(100, 100, false);
-  distorted_image.Fill(BitmapColor<uint8_t>(255, 255, 255));
+  distorted_image.Fill(BitmapColor<uint8_t>(255));
 
   Bitmap undistorted_image;
   Camera undistorted_camera;
@@ -102,7 +102,7 @@ BOOST_AUTO_TEST_CASE(TestUndistortCameraBlankPixels) {
     for (int x = 0; x < undistorted_image.Width(); ++x) {
       BitmapColor<uint8_t> color;
       BOOST_CHECK(undistorted_image.GetPixel(x, y, &color));
-      if (color == BitmapColor<uint8_t>(0, 0, 0)) {
+      if (color == BitmapColor<uint8_t>(0)) {
         num_blank_pixels += 1;
       }
     }
@@ -121,7 +121,7 @@ BOOST_AUTO_TEST_CASE(TestUndistortCameraNoBlankPixels) {
 
   Bitmap distorted_image;
   distorted_image.Allocate(100, 100, false);
-  distorted_image.Fill(BitmapColor<uint8_t>(255, 255, 255));
+  distorted_image.Fill(BitmapColor<uint8_t>(255));
 
   Bitmap undistorted_image;
   Camera undistorted_camera;

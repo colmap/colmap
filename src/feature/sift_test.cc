@@ -33,7 +33,7 @@ void CreateImageWithSquare(const int size, Bitmap* bitmap) {
   bitmap->Fill(BitmapColor<uint8_t>(0, 0, 0));
   for (int r = size / 2 - size / 8; r < size / 2 + size / 8; ++r) {
     for (int c = size / 2 - size / 8; c < size / 2 + size / 8; ++c) {
-      bitmap->SetPixel(r, c, BitmapColor<uint8_t>(255, 255, 255));
+      bitmap->SetPixel(r, c, BitmapColor<uint8_t>(255));
     }
   }
 }

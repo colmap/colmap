@@ -25,7 +25,10 @@ const double ImageViewerWidget::kZoomFactor = 1.25;
 
 ImageViewerWidget::ImageViewerWidget(QWidget* parent)
     : QWidget(parent), zoom_scale_(1.0) {
-  setWindowFlags(Qt::Window);
+  setWindowFlags(Qt::Window | Qt::WindowTitleHint |
+                 Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint |
+                 Qt::WindowCloseButtonHint);
+
   resize(parent->width() - 20, parent->height() - 20);
 
   QFont font;

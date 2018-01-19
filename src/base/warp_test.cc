@@ -106,11 +106,11 @@ BOOST_AUTO_TEST_CASE(TestShiftedCameras) {
       BitmapColor<uint8_t> color;
       BOOST_CHECK(target_image_gray.GetPixel(x, y, &color));
       if (x >= 50) {
-        BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(0, 0, 0));
+        BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(0));
       } else {
         BitmapColor<uint8_t> source_color;
         if (source_image_gray.GetPixel(x + 50, y, &source_color) &&
-            color != BitmapColor<uint8_t>(0, 0, 0)) {
+            color != BitmapColor<uint8_t>(0)) {
           BOOST_CHECK_EQUAL(color, source_color);
         }
       }

@@ -61,7 +61,7 @@ void WarpImageBetweenCameras(const Camera& source_camera,
                                            source_point.y() - 0.5, &color)) {
         target_image->SetPixel(x, y, color.Cast<uint8_t>());
       } else {
-        target_image->SetPixel(x, y, BitmapColor<uint8_t>(0, 0, 0));
+        target_image->SetPixel(x, y, BitmapColor<uint8_t>(0));
       }
     }
   }
@@ -87,7 +87,7 @@ void WarpImageWithHomography(const Eigen::Matrix3d& H,
                                            source_pixel.y() - 0.5, &color)) {
         target_image->SetPixel(x, y, color.Cast<uint8_t>());
       } else {
-        target_image->SetPixel(x, y, BitmapColor<uint8_t>(0, 0, 0));
+        target_image->SetPixel(x, y, BitmapColor<uint8_t>(0));
       }
     }
   }
@@ -124,7 +124,7 @@ void WarpImageWithHomographyBetweenCameras(const Eigen::Matrix3d& H,
                                            source_point.y() - 0.5, &color)) {
         target_image->SetPixel(x, y, color.Cast<uint8_t>());
       } else {
-        target_image->SetPixel(x, y, BitmapColor<uint8_t>(0, 0, 0));
+        target_image->SetPixel(x, y, BitmapColor<uint8_t>(0));
       }
     }
   }

@@ -26,7 +26,15 @@ BOOST_AUTO_TEST_CASE(TestBitmapColorEmpty) {
   BOOST_CHECK_EQUAL(color.r, 0);
   BOOST_CHECK_EQUAL(color.g, 0);
   BOOST_CHECK_EQUAL(color.b, 0);
+  BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(0));
   BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(0, 0, 0));
+}
+
+BOOST_AUTO_TEST_CASE(TestBitmapGrayColor) {
+  BitmapColor<uint8_t> color(5);
+  BOOST_CHECK_EQUAL(color.r, 5);
+  BOOST_CHECK_EQUAL(color.g, 5);
+  BOOST_CHECK_EQUAL(color.b, 5);
 }
 
 BOOST_AUTO_TEST_CASE(TestBitmapColorCast) {
