@@ -29,6 +29,14 @@ OpenGLContextManager::OpenGLContextManager()
   CHECK_NOTNULL(QCoreApplication::instance());
   CHECK_EQ(QCoreApplication::instance()->thread(), QThread::currentThread());
 
+  QSurfaceFormat format;
+  format.setDepthBufferSize(24);
+  format.setMajorVersion(3);
+  format.setMinorVersion(2);
+  format.setSamples(4);
+  format.setProfile(QSurfaceFormat::CompatibilityProfile);
+  context_.setFormat(format);
+
   surface_.create();
   CHECK(context_.create());
   context_.makeCurrent(&surface_);
