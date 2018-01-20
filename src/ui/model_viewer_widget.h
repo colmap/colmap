@@ -20,6 +20,8 @@
 #include <QtCore>
 #include <QtOpenGL>
 
+#include <QOpenGLFunctions_3_2_Core>
+
 #include "base/database.h"
 #include "base/reconstruction.h"
 #include "ui/colormaps.h"
@@ -34,7 +36,8 @@
 
 namespace colmap {
 
-class ModelViewerWidget : public QOpenGLWidget, protected QOpenGLFunctions {
+class ModelViewerWidget : public QOpenGLWidget,
+                          protected QOpenGLFunctions_3_2_Core {
  public:
   const float kInitNearPlane = 1.0f;
   const float kMinNearPlane = 1e-3f;

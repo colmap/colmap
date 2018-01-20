@@ -399,28 +399,39 @@ void ModelViewerWidget::SetModelViewMatrix(const QMatrix4x4& matrix) {
 void ModelViewerWidget::SelectObject(const int x, const int y) {
   makeCurrent();
 
-  // Draw all images with unique color.
+  // Ensure that anti-aliasing does not change the colors of objects.
+  glDisable(GL_MULTISAMPLE);
 
   glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-  // Make sure we do not render colors other than the unique colors per object.
-  glDisable(GL_MULTISAMPLE);
 
   // Upload data in selection mode (one color per object).
   UploadImageData(true);
   UploadPointData(true);
 
-  // Render in selection mode
+  // Render in selection mode, with larger points to improve selection accuracy.
   const QMatrix4x4 pmv_matrix = projection_matrix_ * model_view_matrix_;
   image_triangle_painter_.Render(pmv_matrix);
   point_painter_.Render(pmv_matrix, 2 * point_size_);
 
-  // Read color and determine object by unique color.
-  const QImage image = grabFramebuffer();
-  const QColor rgb =
-      QColor(image.pixel(devicePixelRatio() * x, devicePixelRatio() * y));
-  const size_t index = RGBToIndex(rgb.red(), rgb.green(), rgb.blue());
+  const int scaled_x = devicePixelRatio() * x;
+  const int scaled_y = devicePixelRatio() * (height() - y - 1);
+
+  QOpenGLFramebufferObjectFormat fbo_format;
+  fbo_format.setSamples(0);
+  QOpenGLFramebufferObject fbo(1, 1, fbo_format);
+
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, defaultFramebufferObject());
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo.handle());
+  glBlitFramebuffer(scaled_x, scaled_y, scaled_x + 1, scaled_y + 1, 0, 0, 1, 1,
+                    GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+  fbo.bind();
+  std::array<uint8_t, 3> color;
+  glReadPixels(0, 0, 1, 1, GL_RGB, GL_UNSIGNED_BYTE, color.data());
+  fbo.release();
+
+  const size_t index = RGBToIndex(color[0], color[1], color[2]);
 
   if (index < selection_buffer_.size()) {
     const char buffer_type = selection_buffer_[index].second;
@@ -467,11 +478,30 @@ QImage ModelViewerWidget::GrabImage() {
 
   DisableCoordinateGrid();
 
-  const QImage image = grabFramebuffer();
+  paintGL();
+
+  const int scaled_width = static_cast<int>(devicePixelRatio() * width());
+  const int scaled_height = static_cast<int>(devicePixelRatio() * height());
+
+  QOpenGLFramebufferObjectFormat fbo_format;
+  fbo_format.setSamples(0);
+  QOpenGLFramebufferObject fbo(scaled_width, scaled_height, fbo_format);
+
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, defaultFramebufferObject());
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo.handle());
+  glBlitFramebuffer(0, 0, scaled_width, scaled_height, 0, 0, scaled_width,
+                    scaled_height, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
+                    GL_NEAREST);
+
+  fbo.bind();
+  QImage image(scaled_width, scaled_height, QImage::Format_RGB888);
+  glReadPixels(0, 0, scaled_width, scaled_height, GL_RGB, GL_UNSIGNED_BYTE,
+               image.bits());
+  fbo.release();
 
   EnableCoordinateGrid();
 
-  return image;
+  return image.mirrored();
 }
 
 void ModelViewerWidget::GrabMovie() { movie_grabber_widget_->show(); }
