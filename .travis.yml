@@ -33,13 +33,6 @@ cache:
     - ${TRAVIS_BUILD_DIR}/deps
     - ${TRAVIS_BUILD_DIR}/build
 
-before_install:
-  - sudo add-apt-repository --yes ppa:beineri/opt-qt542-trusty
-  - sudo apt-get update -qq
-
-install:
-  - sudo apt-get -y install qt54base
-
 before_script:
   - |
     if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
@@ -61,6 +54,10 @@ before_script:
       export DISPLAY=:99.0
       sh -e /etc/init.d/xvfb start
       sleep 3
+
+      sudo add-apt-repository --yes ppa:beineri/opt-qt542-trusty
+      sudo apt-get update -qq
+      sudo apt-get -y install qt54base
 
       cd ${TRAVIS_BUILD_DIR}/deps
       if [[ -z "$(ls -A ceres-solver)" ]]; then
