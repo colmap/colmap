@@ -234,6 +234,13 @@ class Database {
 
   sqlite3* database_ = nullptr;
 
+  // Ensure that only one database object at a time updates the schema of a
+  // database. Since the schema is updated every time a database is opened, this
+  // is to ensure that there are no race conditions ("database locked" error
+  // messages) when the user actually only intends to read from the database,
+  // which requires to open it.
+  static std::mutex update_schema_mutex_;
+
   // Used to ensure that only one transaction is active at the same time.
   std::mutex transaction_mutex_;
 

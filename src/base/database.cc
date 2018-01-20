@@ -228,6 +228,8 @@ Image ReadImageRow(sqlite3_stmt* sql_stmt) {
 const size_t Database::kMaxNumImages =
     static_cast<size_t>(std::numeric_limits<int32_t>::max());
 
+std::mutex Database::update_schema_mutex_;
+
 Database::Database() : database_(nullptr) {}
 
 Database::Database(const std::string& path) : Database() { Open(path); }
@@ -1106,6 +1108,7 @@ void Database::UpdateSchema() const {
   }
 
   // Update user version number.
+  std::unique_lock<std::mutex> lock(update_schema_mutex_);
   const std::string update_user_version_sql =
       "PRAGMA user_version = " + std::to_string(COLMAP_VERSION_NUMBER) + ";";
   SQLITE3_EXEC(database_, update_user_version_sql.c_str(), nullptr);
