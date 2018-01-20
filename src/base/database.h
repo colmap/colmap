@@ -28,7 +28,6 @@
 #include "estimators/two_view_geometry.h"
 #include "ext/SQLite/sqlite3.h"
 #include "feature/types.h"
-#include "util/sqlite3_utils.h"
 #include "util/types.h"
 
 namespace colmap {

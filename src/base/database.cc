@@ -18,6 +18,7 @@
 
 #include <fstream>
 
+#include "util/sqlite3_utils.h"
 #include "util/string.h"
 #include "util/version.h"
 
