@@ -46,6 +46,10 @@ int RunGraphicalUserInterface(int argc, char** argv) {
     options.Parse(argc, argv);
   }
 
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 6, 0))
+  QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+#endif
+
   Q_INIT_RESOURCE(resources);
 
   QApplication app(argc, argv);
@@ -1606,11 +1610,6 @@ int ShowHelp(
 }
 
 int main(int argc, char** argv) {
-
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 6, 0))
-  QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-#endif
-  
   InitializeGlog(argv);
 
   std::vector<std::pair<std::string, command_func_t>> commands;
