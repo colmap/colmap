@@ -425,7 +425,7 @@ void DenseReconstructionWidget::RefreshWorkspace() {
             [this, image_name, image_path]() {
               image_viewer_widget_->setWindowTitle(
                   QString("Image for %1").arg(image_name.c_str()));
-              image_viewer_widget_->ReadAndShow(image_path, true);
+              image_viewer_widget_->ReadAndShow(image_path);
             });
     table_widget_->setCellWidget(i, 1, image_button);
 
@@ -527,7 +527,7 @@ QWidget* DenseReconstructionWidget::GenerateTableButtonWidget(
               depth_map.Read(depth_map_path);
               image_viewer_widget_->setWindowTitle(
                   QString("Depth map for %1").arg(image_name.c_str()));
-              image_viewer_widget_->ShowBitmap(depth_map.ToBitmap(2, 98), true);
+              image_viewer_widget_->ShowBitmap(depth_map.ToBitmap(2, 98));
             });
   } else {
     depth_map_button->setEnabled(false);
@@ -547,7 +547,7 @@ QWidget* DenseReconstructionWidget::GenerateTableButtonWidget(
               normal_map.Read(normal_map_path);
               image_viewer_widget_->setWindowTitle(
                   QString("Normal map for %1").arg(image_name.c_str()));
-              image_viewer_widget_->ShowBitmap(normal_map.ToBitmap(), true);
+              image_viewer_widget_->ShowBitmap(normal_map.ToBitmap());
             });
   } else {
     normal_map_button->setEnabled(false);
