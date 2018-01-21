@@ -317,10 +317,11 @@ def build_suite_sparse(args):
         return
 
     url = "https://codeload.github.com/jlblancoc/" \
-          "suitesparse-metis-for-windows/zip/master"
+          "suitesparse-metis-for-windows/zip/" \
+          "7bc503bfa2c4f1be9176147d36daf9e18340780a"
     archive_path = os.path.join(args.download_path, "suite-sparse.zip")
     download_zipfile(url, archive_path, args.build_path,
-                     "2cb76bf7a5d566d69e156fbf5eef03d8")
+                     "e7c27075e8e0afc9d2cf188630090946")
     shutil.move(os.path.join(args.build_path,
                              "suitesparse-metis-for-windows-master"), path)
 
