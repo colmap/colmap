@@ -13,7 +13,7 @@ graphical user interface, run ``colmap gui``.
 Example
 -------
 
-Assume you stored the images of your project in the following folder structure::
+Assuming you stored the images of your project in the following structure::
 
     /path/to/project/...
     +── images
@@ -22,7 +22,7 @@ Assume you stored the images of your project in the following folder structure::
     │   +── ...
     │   +── imageN.jpg
 
-The command for the automatic reconstruction tools would be::
+The command for the automatic reconstruction tool would be::
 
     # The project folder must contain a folder "images" with all the images.
     $ DATASET_PATH=/path/to/project
@@ -31,10 +31,10 @@ The command for the automatic reconstruction tools would be::
         --workspace_path $DATASET_PATH \
         --image_path $DATASET_PATH/images
 
-Note that any executable lists all available options using the command-line
-argument ``--help``. As an alternative to the automatic reconstruction tool in
-case you need more control over the parameters of the individual reconstruction
-steps, an exemplary sequence of commands to reconstruct the scene would be::
+Note that any command lists all available options using the ``-h,--help``
+command-line argument. In case you need more control over the individual
+parameters of the reconstruction process, you can execute the following sequence
+of commands as an alternative to the automatic reconstruction command::
 
     # The project folder must contain a folder "images" with all the images.
     $ DATASET_PATH=/path/to/dataset
@@ -77,16 +77,69 @@ steps, an exemplary sequence of commands to reconstruct the scene would be::
         --input_path $DATASET_PATH/dense/fused.ply \
         --output_path $DATASET_PATH/dense/meshed.ply
 
-If you want to run COLMAP on a computer (e.g., cluster or cloud service) without
-an attached display, COLMAP automatically switches to use CUDA if supported. If
-no CUDA enabled device is available, you can manually select to use CPU-based
-feature extraction and matching by setting the respective
+If you want to run COLMAP on a computer without an attached display (e.g.,
+cluster or cloud service), COLMAP automatically switches to use CUDA if
+supported by your system. If no CUDA enabled device is available, you can
+manually select to use CPU-based feature extraction and matching by setting the
 ``--SiftExtraction.use_gpu 0`` and ``--SiftMatching.use_gpu 0`` options.
 
 Help
 ----
 
-All executables have a "-h,--help" command-line argument to show the usage and
+The available commands can be listed using the command::
+
+    $ colmap help
+
+        Usage:
+          colmap [command] [options]
+
+        Documentation:
+          https://colmap.github.io/
+
+        Example usage:
+          colmap help [ -h, --help ]
+          colmap gui
+          colmap gui -h [ --help ]
+          colmap automatic_reconstructor -h [ --help ]
+          colmap automatic_reconstructor --image_path IMAGES --workspace_path WORKSPACE
+          colmap feature_extractor --image_path IMAGES --database_path DATABASE
+          colmap exhaustive_matcher --database_path DATABASE
+          colmap mapper --image_path IMAGES --database_path DATABASE --export_path EXPORT
+          ...
+
+        Available commands:
+          help
+          gui
+          automatic_reconstructor
+          bundle_adjuster
+          color_extractor
+          database_creator
+          dense_fuser
+          dense_mesher
+          dense_stereo
+          exhaustive_matcher
+          feature_extractor
+          feature_importer
+          image_rectifier
+          image_registrator
+          image_undistorter
+          mapper
+          matches_importer
+          model_aligner
+          model_analyzer
+          model_converter
+          model_merger
+          model_orientation_aligner
+          point_triangulator
+          rig_bundle_adjuster
+          sequential_matcher
+          spatial_matcher
+          transitive_matcher
+          vocab_tree_builder
+          vocab_tree_matcher
+          vocab_tree_retriever
+
+And each command has a ``-h,--help`` command-line argument to show the usage and
 the available options, e.g.::
 
     $ colmap feature_extractor -h
@@ -96,27 +149,30 @@ the available options, e.g.::
 
           -h [ --help ]
           --project_path arg
-          --log_to_stderr arg (=0)
-          --log_level arg (=2)
           --database_path arg
           --image_path arg
-          --use_gpu arg (=1)
           --image_list_path arg
           --ImageReader.camera_model arg (=SIMPLE_RADIAL)
           --ImageReader.single_camera arg (=0)
           --ImageReader.camera_params arg
           --ImageReader.default_focal_length_factor arg (=1.2)
+          --SiftExtraction.num_threads arg (=-1)
+          --SiftExtraction.use_gpu arg (=1)
+          --SiftExtraction.gpu_index arg (=-1)
           --SiftExtraction.max_image_size arg (=3200)
           --SiftExtraction.max_num_features arg (=8192)
           --SiftExtraction.first_octave arg (=-1)
+          --SiftExtraction.num_octaves arg (=4)
           --SiftExtraction.octave_resolution arg (=3)
           --SiftExtraction.peak_threshold arg (=0.0066666666666666671)
           --SiftExtraction.edge_threshold arg (=10)
+          --SiftExtraction.estimate_affine_shape arg (=0)
           --SiftExtraction.max_num_orientations arg (=2)
           --SiftExtraction.upright arg (=0)
-          --SiftCPUExtraction.batch_size_factor arg (=3)
-          --SiftCPUExtraction.num_threads arg (=-1)
-          --SiftGPUExtraction.index arg (=-1)
+          --SiftExtraction.domain_size_pooling arg (=0)
+          --SiftExtraction.dsp_min_scale arg (=0.16666666666666666)
+          --SiftExtraction.dsp_max_scale arg (=3)
+          --SiftExtraction.dsp_num_scales arg (=10)
 
 
 The available options can either be provided directly from the command-line or

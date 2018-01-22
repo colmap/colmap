@@ -164,20 +164,21 @@ single, self-contained SQLite database file (see :doc:`database`).
 
 The first step is to start the graphical user interface of COLMAP by running the
 pre-built binaries (Windows: `COLMAP.bat`, Mac: `COLMAP.app`) or by executing
-``./src/exe/colmap`` from the CMake build folder. Next, create a new project by
-choosing ``File > New project``. In this dialog, you must select where to store
-the database and the folder that contains the input images. For convenience, you
-can save the entire project settings to a configuration file by choosing ``File
-> Save project``. The project configuration stores the absolute path information
-of the database and image folder in addition to any other parameter settings. If
-you decide to move the database or image folder, you must change the paths
-accordingly by creating a new project. Alternatively, the resulting `.ini`
-configuration file can be directly modified in a text editor of your choice. To
-reopen an existing project, you can simply open the configuration file by
-choosing ``File > Open project`` and all parameter settings should be recovered.
-Note that all COLMAP executables can be started from the command-line by either
-specifying individual settings as command-line arguments or by providing the
-path to the project configuration file (see :ref:`Interface <interface>`).
+``./src/exe/colmap gui`` from the CMake build folder. Next, create a new project
+by choosing ``File > New project``. In this dialog, you must select where to
+store the database and the folder that contains the input images. For
+convenience, you can save the entire project settings to a configuration file by
+choosing ``File > Save project``. The project configuration stores the absolute
+path information of the database and image folder in addition to any other
+parameter settings. If you decide to move the database or image folder, you must
+change the paths accordingly by creating a new project. Alternatively, the
+resulting `.ini` configuration file can be directly modified in a text editor of
+your choice. To reopen an existing project, you can simply open the
+configuration file by choosing ``File > Open project`` and all parameter
+settings should be recovered. Note that all COLMAP executables can be started
+from the command-line by either specifying individual settings as command-line
+arguments or by providing the path to the project configuration file (see
+:ref:`Interface <interface>`).
 
 An example folder structure could look like this::
 
@@ -502,15 +503,17 @@ Graphical and Command-line Interface
 ------------------------------------
 
 Most of COLMAP's features are accessible from both the graphical and the
-command-line interface. All binaries accept a ``./bin -h`` (help) argument to
-list the available options. You can provide the options directly as command-line
-arguments or you can provide a `.ini` project configuration file containing the
-options as the ``./bin --project_path path/to/project.ini`` argument. To start
-the GUI application, please execute ``./src/exe/colmap`` or directly specify a
-project configuration as ``./src/exe/colmap --project_path path/to/project.ini``
-to avoid tedious selection in the GUI. The :ref:`Graphical User Interface <gui>`
-and :ref:`Command-line Interface <cli>` sections provide more details about the
-available controls.
+command-line interface, which are both embedded in the same executable. You can
+provide the options directly as command-line arguments or you can provide a
+`.ini` project configuration file containing the options using the
+``--project_path path/to/project.ini`` argument. To start the GUI application,
+please execute ``colmap gui`` or directly specify a project configuration as
+``colmap gui --project_path path/to/project.ini`` to avoid tedious selection in
+the GUI. To list the different commands available from the command-line, execute
+``colmap help``. For example, to run feature extraction from the command-line,
+you must execute ``colmap feature_extractor``. The :ref:`Graphical User
+Interface <gui>` and :ref:`Command- line Interface <cli>` sections provide more
+details about the available commands.
 
 
 .. rubric:: Footnotes
