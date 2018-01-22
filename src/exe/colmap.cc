@@ -574,9 +574,13 @@ int RunImageUndistorter(int argc, char** argv) {
     undistorter.reset(new CMPMVSUndistorter(undistort_camera_options,
                                             reconstruction, *options.image_path,
                                             output_path));
+  } else if (output_type == "MVE") {
+    undistorter.reset(new MVEUndistorter(undistort_camera_options,
+                                         reconstruction, *options.image_path,
+                                         output_path));
   } else {
     std::cerr << "ERROR: Invalid `output_type` - supported values are "
-                 "{'COLMAP', 'PMVS', 'CMP-MVS'}."
+                 "{'COLMAP', 'PMVS', 'CMP-MVS', 'MVE'}."
               << std::endl;
     return EXIT_FAILURE;
   }

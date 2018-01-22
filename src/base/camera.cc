@@ -96,6 +96,10 @@ double Camera::FocalLength() const {
   return params_[idxs[0]];
 }
 
+double Camera::NormalizedFocalLength() const {
+  return FocalLength() / std::max(Width(), Height());
+}
+
 double Camera::FocalLengthX() const {
   const std::vector<size_t>& idxs = FocalLengthIdxs();
   CHECK_EQ(idxs.size(), 2);
@@ -137,6 +141,14 @@ double Camera::PrincipalPointY() const {
   const std::vector<size_t>& idxs = PrincipalPointIdxs();
   CHECK_EQ(idxs.size(), 2);
   return params_[idxs[1]];
+}
+
+double Camera::NormalizedPrincipalPointX() const {
+  return PrincipalPointX()/ Width();
+}
+
+double Camera::NormalizedPrincipalPointY() const {
+  return PrincipalPointY()/ Height();
 }
 
 void Camera::SetPrincipalPointX(const double ppx) {

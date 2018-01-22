@@ -19,6 +19,7 @@
 #include <fstream>
 
 #include "base/pose.h"
+#include "base/projection.h"
 #include "base/warp.h"
 #include "util/misc.h"
 
@@ -529,6 +530,183 @@ void CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
 
   undistorted_bitmap.Write(output_image_path);
   WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image, "CONTOUR");
+}
+
+MVEUndistorter::MVEUndistorter(const UndistortCameraOptions& options,
+                               const Reconstruction& reconstruction,
+                               const std::string& image_path,
+                               const std::string& output_path)
+    : options_(options),
+      image_path_(image_path),
+      output_path_(output_path),
+      reconstruction_(reconstruction) {}
+
+void MVEUndistorter::Run() {
+  PrintHeading1("Image undistortion (MVE)");
+
+  CreateDirIfNotExists(JoinPaths(output_path_, "views"));
+
+  ThreadPool thread_pool;
+  std::vector<std::future<void>> futures;
+  futures.reserve(reconstruction_.NumRegImages());
+  for (size_t i = 0; i < reconstruction_.NumRegImages(); ++i) {
+    futures.push_back(
+        thread_pool.AddTask(&MVEUndistorter::Undistort, this, i));
+  }
+
+  WriteBundle();
+
+  for (size_t i = 0; i < futures.size(); ++i) {
+    if (IsStopped()) {
+      thread_pool.Stop();
+      std::cout << "WARNING: Stopped the undistortion process. Image point "
+                   "locations and camera parameters for not yet processed "
+                   "images in the Bundler output file is probably wrong."
+                << std::endl;
+      break;
+    }
+
+    std::cout << StringPrintf("Undistorting image [%d/%d]", i + 1,
+                              futures.size())
+              << std::endl;
+
+    futures[i].get();
+  }
+
+  GetTimer().PrintMinutes();
+}
+
+// For format details see:
+// https://github.com/simonfuhrmann/mve/blob/master/libs/mve/bundle_io.cc
+void MVEUndistorter::WriteBundle() const {
+  const std::string bundle_path = JoinPaths(output_path_, "synth_0.out");
+  std::ofstream file(bundle_path, std::ios::trunc);
+  CHECK(file.is_open()) << bundle_path;
+  file << "drews 1.0" << std::endl;
+  const auto num_images = reconstruction_.Images().size();
+  file << num_images << " "
+       << reconstruction_.NumPoints3D() << std::endl;
+  Eigen::IOFormat rFmt(Eigen::StreamPrecision, Eigen::DontAlignCols, " ",
+                       "\n", "", "", "", "");
+  Eigen::IOFormat tFmt(Eigen::StreamPrecision, Eigen::DontAlignCols, " ",
+                       " ", "", "", "", "");
+  int count = 0;
+  std::unordered_map<image_t, int> dense_image_ids;
+  for (const auto& image_id: reconstruction_.RegImageIds()) {
+    const auto& image = reconstruction_.Image(image_id);
+    const auto& camera = reconstruction_.Camera(image.CameraId());
+    // Write out 0 radial distortion as we expect MVE to use undistorted images
+    file << camera.NormalizedFocalLength() << " 0 0" << std::endl;
+    file << Eigen::Quaterniond(image.Qvec())
+                .normalized()
+                .toRotationMatrix()
+                .format(rFmt) << std::endl;
+    file << image.Tvec().format(tFmt) << std::endl;
+    dense_image_ids[image_id] = count++;
+  }
+
+  for (const auto& point3d_id: reconstruction_.Point3DIds()) {
+    const auto& point3d = reconstruction_.Point3D(point3d_id);
+    file << point3d.X() << " " << point3d.Y() << " " << point3d.Z()
+         << std::endl;
+    file << (int)point3d.Color(0) << " " << (int)point3d.Color(1)
+         << " " << (int)point3d.Color(2) << std::endl;
+    const auto& track = point3d.Track();
+    file << track.Length() << " ";
+    std::unordered_map<image_t, std::vector<point2D_t>> image_points;
+    for (const auto& element: track.Elements()) {
+      image_points[element.image_id].push_back(element.point2D_idx);
+    }
+    for (const auto& item : image_points) {
+      const image_t image_id = item.first;
+      // const auto& image = reconstruction_.Image(image_id);
+      CHECK_GT(item.second.size(), 0);
+      point2D_t point2d_idx = item.second[0];
+      if (item.second.size() > 0) {
+        point2d_idx = ChooseLowestReprojectionErrorPoint(image_id, point3d_id,
+                                                         item.second);
+      }
+      CHECK(dense_image_ids.find(image_id) != dense_image_ids.end());
+      // const auto& point2d = image.Point2D(point2d_idx);
+      file << dense_image_ids[image_id] << " " << point2d_idx << " 0 ";
+      // Photosynth format does not need the image feature coordinates?
+      // << point2d.X() << " " << point2d.Y();
+    }
+    file << std::endl;
+  }
+}
+
+point2D_t MVEUndistorter::ChooseLowestReprojectionErrorPoint(
+    image_t image_id, point3D_t point3d_id,
+    const std::vector<point2D_t>& point2d_idx_vec) const {
+  const auto& image = reconstruction_.Image(image_id);
+  const auto& camera = reconstruction_.Camera(image.CameraId());
+  const auto& point3d = reconstruction_.Point3D(point3d_id);
+  const auto& min_element = std::min_element(
+      point2d_idx_vec.begin(), point2d_idx_vec.end(),
+      [&point3d, &image, &camera](const point2D_t& left,
+                                  const point2D_t& right) {
+        return CalculateReprojectionError(image.Point2D(left).XY(),
+                                          point3d.XYZ(),
+                                          image.ProjectionMatrix(), camera) <
+               CalculateReprojectionError(image.Point2D(right).XY(),
+                                          point3d.XYZ(),
+                                          image.ProjectionMatrix(), camera);
+      });
+  return *min_element;
+}
+
+void MVEUndistorter::Undistort(const size_t reg_image_idx) const {
+  const std::string view_path = JoinPaths(
+      output_path_, StringPrintf("views/view_%04d.mve", reg_image_idx));
+  CreateDirIfNotExists(view_path);
+  const std::string undistorted_image_path =
+      JoinPaths(view_path, "undistorted.png");
+  const std::string meta_ini_path = JoinPaths(view_path, "meta.ini");
+
+  const image_t image_id = reconstruction_.RegImageIds().at(reg_image_idx);
+  const Image& image = reconstruction_.Image(image_id);
+  const Camera& camera = reconstruction_.Camera(image.CameraId());
+
+  Bitmap distorted_bitmap;
+  const std::string input_image_path = JoinPaths(image_path_, image.Name());
+  if (!distorted_bitmap.Read(input_image_path)) {
+    std::cerr << StringPrintf("ERROR: Cannot read image at path %s",
+                              input_image_path.c_str())
+              << std::endl;
+    return;
+  }
+
+  Bitmap undistorted_bitmap;
+  Camera undistorted_camera;
+  UndistortImage(options_, distorted_bitmap, camera, &undistorted_bitmap,
+                 &undistorted_camera);
+  undistorted_bitmap.Write(undistorted_image_path);
+
+  std::ofstream file(meta_ini_path, std::ios::trunc);
+  CHECK(file.is_open()) << meta_ini_path;
+
+  file << "# This file is autogenerated by colmap" << std::endl;
+  file << std::endl << "[view]" << std::endl;
+  file << "id = " << image.ImageId() << std::endl;
+  file << "name = " << image.Name();
+
+  file << std::endl << "[camera]" << std::endl;
+  file << "focal_length = " << camera.NormalizedFocalLength() << std::endl;
+  file << "pixel_aspect = 1" << std::endl;
+  file << "principal_point = " << camera.NormalizedPrincipalPointX() << " "
+       << camera.NormalizedPrincipalPointY() << std::endl;
+
+  Eigen::IOFormat spaceFmt(Eigen::StreamPrecision, Eigen::DontAlignCols, " ",
+                           " ", "", "", " ", "");
+  file << "rotation  = "
+       << Eigen::Quaterniond(image.Qvec())
+              .normalized()
+              .toRotationMatrix()
+              .format(spaceFmt) << std::endl;
+  file << "translation = " << image.Tvec().x() << " " << image.Tvec().y() << " "
+       << image.Tvec().z()
+       << std::endl;
 }
 
 StereoImageRectifier::StereoImageRectifier(

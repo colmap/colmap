@@ -104,6 +104,32 @@ class CMPMVSUndistorter : public Thread {
   const Reconstruction& reconstruction_;
 };
 
+// Undistort images and prepare data for MVE.
+class MVEUndistorter : public Thread {
+ public:
+  MVEUndistorter(const UndistortCameraOptions& options,
+                 const Reconstruction& reconstruction,
+                 const std::string& image_path,
+                 const std::string& output_path);
+
+ private:
+  void Run();
+
+  void Undistort(const size_t reg_image_idx) const;
+
+  void WriteBundle() const;
+
+  point2D_t ChooseLowestReprojectionErrorPoint(
+      image_t image_id,
+      point3D_t point3d_id,
+      const std::vector<point2D_t>& point2d_idx_vec) const;
+
+  UndistortCameraOptions options_;
+  std::string image_path_;
+  std::string output_path_;
+  const Reconstruction& reconstruction_;
+};
+
 // Rectify stereo image pairs.
 class StereoImageRectifier : public Thread {
  public:
