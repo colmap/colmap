@@ -21,7 +21,7 @@
 
 namespace colmap {
 
-const double ImageViewerWidget::kZoomFactor = 1.25;
+const double ImageViewerWidget::kZoomFactor = 1.20;
 
 ImageViewerGraphicsScene::ImageViewerGraphicsScene() {
   setSceneRect(0, 0, 0, 0);
@@ -112,10 +112,12 @@ void ImageViewerWidget::ReadAndShow(const std::string& path) {
   ShowBitmap(bitmap);
 }
 
-void ImageViewerWidget::ZoomIn() { graphics_view_->scale(1.2f, 1.2f); }
+void ImageViewerWidget::ZoomIn() {
+  graphics_view_->scale(kZoomFactor, kZoomFactor);
+}
 
 void ImageViewerWidget::ZoomOut() {
-  graphics_view_->scale(1.0f / 1.2f, 1.0f / 1.2f);
+  graphics_view_->scale(1.0 / kZoomFactor, 1.0 / kZoomFactor);
 }
 
 void ImageViewerWidget::Save() {
