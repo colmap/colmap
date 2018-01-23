@@ -23,8 +23,17 @@ namespace colmap {
 
 const double ImageViewerWidget::kZoomFactor = 1.25;
 
-ImageViewerWidget::ImageViewerWidget(QWidget* parent)
-    : QWidget(parent), zoom_scale_(1.0) {
+ImageViewerGraphicsScene::ImageViewerGraphicsScene() {
+  setSceneRect(0, 0, 0, 0);
+  image_pixmap_item_ = addPixmap(QPixmap::fromImage(QImage()));
+  image_pixmap_item_->setZValue(-1);
+}
+
+QGraphicsPixmapItem* ImageViewerGraphicsScene::ImagePixmapItem() const {
+  return image_pixmap_item_;
+}
+
+ImageViewerWidget::ImageViewerWidget(QWidget* parent) : QWidget(parent) {
   setWindowFlags(Qt::Window | Qt::WindowTitleHint |
                  Qt::WindowMinimizeButtonHint | Qt::WindowMaximizeButtonHint |
                  Qt::WindowCloseButtonHint);
@@ -38,13 +47,13 @@ ImageViewerWidget::ImageViewerWidget(QWidget* parent)
   grid_layout_ = new QGridLayout(this);
   grid_layout_->setContentsMargins(5, 5, 5, 5);
 
-  image_label_ = new QLabel(this);
-  image_scroll_area_ = new QScrollArea(this);
-  image_scroll_area_->setWidget(image_label_);
-  image_scroll_area_->setSizePolicy(QSizePolicy::Expanding,
-                                    QSizePolicy::Expanding);
+  graphics_view_ = new QGraphicsView();
+  graphics_view_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
-  grid_layout_->addWidget(image_scroll_area_, 1, 0);
+  graphics_view_->setScene(&graphics_scene_);
+  graphics_view_->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+
+  grid_layout_->addWidget(graphics_view_, 1, 0);
 
   button_layout_ = new QHBoxLayout();
 
@@ -70,65 +79,44 @@ ImageViewerWidget::ImageViewerWidget(QWidget* parent)
   grid_layout_->addLayout(button_layout_, 2, 0, Qt::AlignRight);
 }
 
+void ImageViewerWidget::resizeEvent(QResizeEvent* event) {
+  QWidget::resizeEvent(event);
+
+  graphics_view_->fitInView(graphics_scene_.sceneRect(), Qt::KeepAspectRatio);
+}
+
 void ImageViewerWidget::closeEvent(QCloseEvent* event) {
-  pixmap_ = QPixmap();
-  image_label_->clear();
+  graphics_scene_.ImagePixmapItem()->setPixmap(QPixmap());
 }
 
-void ImageViewerWidget::ShowBitmap(const Bitmap& bitmap, const bool rescale) {
-  ShowPixmap(QPixmap::fromImage(BitmapToQImageRGB(bitmap)), rescale);
+void ImageViewerWidget::ShowBitmap(const Bitmap& bitmap) {
+  ShowPixmap(QPixmap::fromImage(BitmapToQImageRGB(bitmap)));
 }
 
-void ImageViewerWidget::ShowPixmap(const QPixmap& pixmap, const bool rescale) {
-  pixmap_ = pixmap;
+void ImageViewerWidget::ShowPixmap(const QPixmap& pixmap) {
+  graphics_scene_.ImagePixmapItem()->setPixmap(pixmap);
+  graphics_scene_.setSceneRect(pixmap.rect());
 
   show();
+  graphics_view_->fitInView(graphics_scene_.sceneRect(), Qt::KeepAspectRatio);
+
   raise();
-
-  if (rescale) {
-    zoom_scale_ = 1.0;
-
-    const double kScrollbarMargin = 5;
-    const double scale_x = (image_scroll_area_->width() - kScrollbarMargin) /
-                           static_cast<double>(pixmap_.width());
-    const double scale_y = (image_scroll_area_->height() - kScrollbarMargin) /
-                           static_cast<double>(pixmap_.height());
-    const double scale = std::min(scale_x, scale_y);
-
-    Rescale(scale);
-  } else {
-    Rescale(1.0);
-  }
 }
 
-void ImageViewerWidget::ReadAndShow(const std::string& path,
-                                    const bool rescale) {
+void ImageViewerWidget::ReadAndShow(const std::string& path) {
   Bitmap bitmap;
   if (!bitmap.Read(path, true)) {
     std::cerr << "ERROR: Cannot read image at path " << path << std::endl;
   }
 
-  ShowBitmap(bitmap, rescale);
+  ShowBitmap(bitmap);
 }
 
-void ImageViewerWidget::Rescale(const double scale) {
-  if (pixmap_.isNull()) {
-    return;
-  }
+void ImageViewerWidget::ZoomIn() { graphics_view_->scale(1.2f, 1.2f); }
 
-  zoom_scale_ *= scale;
-
-  const Qt::TransformationMode transform_mode =
-      zoom_scale_ > 1.0 ? Qt::FastTransformation : Qt::SmoothTransformation;
-  const int scaled_width =
-      static_cast<int>(std::round(zoom_scale_ * pixmap_.width()));
-  image_label_->setPixmap(pixmap_.scaledToWidth(scaled_width, transform_mode));
-  image_label_->adjustSize();
+void ImageViewerWidget::ZoomOut() {
+  graphics_view_->scale(1.0f / 1.2f, 1.0f / 1.2f);
 }
-
-void ImageViewerWidget::ZoomIn() { Rescale(kZoomFactor); }
-
-void ImageViewerWidget::ZoomOut() { Rescale(1.0 / kZoomFactor); }
 
 void ImageViewerWidget::Save() {
   QString filter("PNG (*.png)");
@@ -144,7 +132,7 @@ void ImageViewerWidget::Save() {
     return;
   }
 
-  pixmap_.save(save_path);
+  graphics_scene_.ImagePixmapItem()->pixmap().save(save_path);
 }
 
 FeatureImageViewerWidget::FeatureImageViewerWidget(
@@ -191,9 +179,9 @@ void FeatureImageViewerWidget::ReadAndShowWithKeypoints(
   DrawKeypoints(&image2_, keypoints_not_tri, Qt::red);
 
   if (switch_state_) {
-    ShowPixmap(image2_, true);
+    ShowPixmap(image2_);
   } else {
-    ShowPixmap(image1_, true);
+    ShowPixmap(image1_);
   }
 }
 
@@ -216,20 +204,20 @@ void FeatureImageViewerWidget::ReadAndShowWithMatches(
   image2_ = DrawMatches(image1, image2, keypoints1, keypoints2, matches);
 
   if (switch_state_) {
-    ShowPixmap(image2_, true);
+    ShowPixmap(image2_);
   } else {
-    ShowPixmap(image1_, true);
+    ShowPixmap(image1_);
   }
 }
 
 void FeatureImageViewerWidget::ShowOrHide() {
   if (switch_state_) {
     switch_button_->setText(std::string("Show " + switch_text_).c_str());
-    ShowPixmap(image1_, false);
+    ShowPixmap(image1_);
     switch_state_ = false;
   } else {
     switch_button_->setText(std::string("Hide " + switch_text_).c_str());
-    ShowPixmap(image2_, false);
+    ShowPixmap(image2_);
     switch_state_ = true;
   }
 }

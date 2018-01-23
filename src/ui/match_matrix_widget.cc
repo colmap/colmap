@@ -68,7 +68,7 @@ void MatchMatrixWidget::Show() {
     }
   }
 
-  ShowBitmap(match_matrix, true);
+  ShowBitmap(match_matrix);
 }
 
 }  // namespace colmap
