@@ -32,6 +32,7 @@ UndistortionWidget::UndistortionWidget(QWidget* parent,
   output_format_->addItem("COLMAP");
   output_format_->addItem("PMVS");
   output_format_->addItem("CMP-MVS");
+  output_format_->addItem("MVE");
   output_format_->setFont(font());
 
   AddOptionRow("format", output_format_);

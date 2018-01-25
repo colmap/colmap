@@ -254,6 +254,16 @@ BOOST_AUTO_TEST_CASE(TestInitializeWithName) {
                     static_cast<int>(SimplePinholeCameraModel::num_params));
 }
 
+BOOST_AUTO_TEST_CASE(TestNormalizedParams) {
+  Camera camera;
+  camera.InitializeWithName("SIMPLE_PINHOLE", 6000, 3000, 4000);
+  BOOST_CHECK_EQUAL(camera.NormalizedFocalLength(), 1.5);
+  BOOST_CHECK_EQUAL(camera.PrincipalPointX(), 1500);
+  BOOST_CHECK_EQUAL(camera.NormalizedPrincipalPointX(), 0.5);
+  BOOST_CHECK_EQUAL(camera.PrincipalPointY(), 2000);
+  BOOST_CHECK_EQUAL(camera.NormalizedPrincipalPointY(), 0.5);
+}
+
 BOOST_AUTO_TEST_CASE(TestImageToWorld) {
   Camera camera;
   BOOST_CHECK_THROW(camera.ImageToWorld(Eigen::Vector2d::Zero()),
