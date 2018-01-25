@@ -637,7 +637,7 @@ void MVEUndistorter::WriteBundle() const {
 }
 
 point2D_t MVEUndistorter::ChooseLowestReprojectionErrorPoint(
-    image_t image_id, point3D_t point3d_id,
+    const image_t image_id, const point3D_t point3d_id,
     const std::vector<point2D_t>& point2d_idx_vec) const {
   const auto& image = reconstruction_.Image(image_id);
   const auto& camera = reconstruction_.Camera(image.CameraId());

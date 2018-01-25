@@ -120,8 +120,8 @@ class MVEUndistorter : public Thread {
   void WriteBundle() const;
 
   point2D_t ChooseLowestReprojectionErrorPoint(
-      image_t image_id,
-      point3D_t point3d_id,
+      const image_t image_id,
+      const point3D_t point3d_id,
       const std::vector<point2D_t>& point2d_idx_vec) const;
 
   UndistortCameraOptions options_;
