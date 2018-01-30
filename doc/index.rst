@@ -105,6 +105,7 @@ Funding was provided by his PhD advisors `Jan-Michael Frahm
    gui
    cli
    faq
+   changelog
    contribution
    license
    bibliography
