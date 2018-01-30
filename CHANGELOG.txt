@@ -1,3 +1,26 @@
+COLMAP 3.4 (01/29/2018)
+-----------------------
+- Unified command-line interface: The functionality of previous executables have
+  been merged into the ``src/exe/colmap.cc`` executable. The GUI can now be
+  started using the command ``colmap gui`` and other commands are available
+  as ``colmap [command]``. For example, the feature extractor is now available
+  as ``colmap feature_extractor [args]`` while all command-line arguments stay
+  the same as before. This should result in much faster project compile times
+  and smaller disk space usage of the program. More details about the new
+  interface are documented at https://colmap.github.io/cli.html
+- More complete depth and normal maps with larger patch sizes
+- Faster dense stereo computation by skipping rows/columns in patch match,
+  improved random sampling in patch match, and faster bilateral NCC
+- Better high DPI screen support for the graphical user interface
+- Improved model viewer under Windows, which now requires Qt 5.4
+- Save computed two-view geometries in database
+- Images (keypoint/matches visualization, depth and normal maps) can now be
+  saved from the graphical user interface
+- Support for PMVS format without sparse bundler file
+- Faster covariant feature detection
+- Many more bug fixes and improvements
+
+
 COLMAP 3.3 (11/21/2017)
 -----------------------
 - Add DSP (Domain Size Pooling) SIFT implementation. DSP-SIFT outperforms
