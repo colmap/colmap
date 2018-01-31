@@ -71,6 +71,21 @@ Dependencies from default Ubuntu 14.04/16.04 repositories::
         qtbase5-dev \
         libqt5opengl5-dev
 
+Dependencies from default CentOS 7 repositories::
+
+    sudo yum install \
+        gflags-devel \
+        glog-devel \
+        glew-devel \
+        atlas \
+        atlas-devel \
+        lapack-devel \
+        blas-devel \
+        qt5-qtbase-devel
+
+    The freeimage provided by yum is old-version. You have to manually build freeimage with version >= v3.11.
+    Download link:http://freeimage.sourceforge.net/download.html
+
 Install `Ceres Solver <http://ceres-solver.org/>`_::
 
     sudo apt-get install libatlas-base-dev libsuitesparse-dev
@@ -88,6 +103,9 @@ Configure and compile COLMAP::
     mkdir build
     cd build
     cmake ..
+    # For CentOS users, use following command.
+    # CentOS ships BOOST lib only with shared lib.
+    # cmake .. -DBOOST_STATIC=OFF
     make
 
 
