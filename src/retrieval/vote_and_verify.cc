@@ -161,7 +161,7 @@ size_t ComputeEffectiveInlierCount(
         min_x = std::min(min_x, match.geometry1.x);
         min_y = std::min(min_y, match.geometry1.y);
         max_x = std::max(max_x, match.geometry1.x);
-        max_y = std::max(min_y, match.geometry1.y);
+        max_y = std::max(max_y, match.geometry1.y);
         break;
       }
     }
@@ -180,7 +180,7 @@ size_t ComputeEffectiveInlierCount(
 
   for (const auto& coord : inlier_coords) {
     const int c_x = (coord.first - min_x) * scale_x;
-    const int c_y = (coord.first - min_y) * scale_y;
+    const int c_y = (coord.second - min_y) * scale_y;
     counter(std::max(0, std::min(num_bins - 1, c_x)),
             std::max(0, std::min(num_bins - 1, c_y))) = 1;
   }
