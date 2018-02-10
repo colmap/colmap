@@ -118,6 +118,9 @@ public:
 		SIFTGPU_PARTIAL_SUPPORTED = 1, // detction works, but not orientation/descriptor
 		SIFTGPU_FULL_SUPPORTED = 2
 	};
+
+  int gpu_index = 0;
+
 	typedef struct SiftKeypoint
 	{
 		float x, y, s, o; //x, y, scale, orientation.
@@ -279,6 +282,9 @@ public:
 		SIFTMATCH_CUDA = 3,
 		SIFTMATCH_CUDA_DEVICE0 = 3 //to use device i, use SIFTMATCH_CUDA_DEVICE0 + i
 	};
+
+  int gpu_index = 0;
+
 private:
 	int				__language;
 	SiftMatchGPU *	__matcher;

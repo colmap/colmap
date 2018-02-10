@@ -33,6 +33,11 @@
 namespace colmap {
 namespace {
 
+// Mutexes that ensure that only one thread extracts/matches on the same GPU
+// at the same time, since SiftGPU internally uses static variables.
+static std::map<int, std::unique_ptr<std::mutex>> sift_extraction_mutexes;
+static std::map<int, std::unique_ptr<std::mutex>> sift_matching_mutexes;
+
 // VLFeat uses a different convention to store its descriptors. This transforms
 // the VLFeat format into the original SIFT format that is also used by SiftGPU.
 FeatureDescriptors TransformVLFeatToUBCFeatureDescriptors(
@@ -661,6 +666,11 @@ bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
 
   sift_gpu->ParseParam(sift_gpu_args_cstr.size(), sift_gpu_args_cstr.data());
 
+  sift_gpu->gpu_index = gpu_indices[0];
+  if (sift_extraction_mutexes.count(gpu_indices[0]) == 0) {
+    sift_extraction_mutexes.emplace(gpu_indices[0], new std::mutex());
+  }
+
   return sift_gpu->VerifyContextGL() == SiftGPU::SIFTGPU_FULL_SUPPORTED;
 }
 
@@ -676,6 +686,9 @@ bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
 
   CHECK(!options.estimate_affine_shape);
   CHECK(!options.domain_size_pooling);
+
+  std::unique_lock<std::mutex> lock(
+      *sift_extraction_mutexes[sift_gpu->gpu_index]);
 
   // Note, that this produces slightly different results than using SiftGPU
   // directly for RGB->GRAY conversion, since it uses different weights.
@@ -898,6 +911,11 @@ bool CreateSiftGPUMatcher(const SiftMatchingOptions& match_options,
   }
 #endif  // CUDA_ENABLED
 
+  sift_match_gpu->gpu_index = gpu_indices[0];
+  if (sift_matching_mutexes.count(gpu_indices[0]) == 0) {
+    sift_matching_mutexes.emplace(gpu_indices[0], new std::mutex());
+  }
+
   return true;
 }
 
@@ -909,6 +927,9 @@ void MatchSiftFeaturesGPU(const SiftMatchingOptions& match_options,
   CHECK(match_options.Check());
   CHECK_NOTNULL(sift_match_gpu);
   CHECK_NOTNULL(matches);
+
+  std::unique_lock<std::mutex> lock(
+      *sift_matching_mutexes[sift_match_gpu->gpu_index]);
 
   if (descriptors1 != nullptr) {
     CHECK_EQ(descriptors1->cols(), 128);
@@ -961,6 +982,9 @@ void MatchGuidedSiftFeaturesGPU(const SiftMatchingOptions& match_options,
   CHECK(match_options.Check());
   CHECK_NOTNULL(sift_match_gpu);
   CHECK_NOTNULL(two_view_geometry);
+
+  std::unique_lock<std::mutex> lock(
+      *sift_matching_mutexes[sift_match_gpu->gpu_index]);
 
   const size_t kFeatureShapeNumElems = 4;
 
