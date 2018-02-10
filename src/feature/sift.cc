@@ -668,7 +668,8 @@ bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
 
   sift_gpu->gpu_index = gpu_indices[0];
   if (sift_extraction_mutexes.count(gpu_indices[0]) == 0) {
-    sift_extraction_mutexes.emplace(gpu_indices[0], new std::mutex());
+    sift_extraction_mutexes.emplace(
+        gpu_indices[0], std::unique_ptr<std::mutex>(new std::mutex()));
   }
 
   return sift_gpu->VerifyContextGL() == SiftGPU::SIFTGPU_FULL_SUPPORTED;
@@ -913,7 +914,8 @@ bool CreateSiftGPUMatcher(const SiftMatchingOptions& match_options,
 
   sift_match_gpu->gpu_index = gpu_indices[0];
   if (sift_matching_mutexes.count(gpu_indices[0]) == 0) {
-    sift_matching_mutexes.emplace(gpu_indices[0], new std::mutex());
+    sift_matching_mutexes.emplace(
+        gpu_indices[0], std::unique_ptr<std::mutex>(new std::mutex()));
   }
 
   return true;
