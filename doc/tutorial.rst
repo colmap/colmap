@@ -3,7 +3,13 @@
 Tutorial
 ========
 
-3D reconstruction from images traditionally first recovers a sparse
+This tutorial covers the topic of image-based 3D reconstruction by demonstrating
+the individual processing steps in COLMAP. If you are interested in a more
+general and mathematical introduction to the topic of image-based 3D
+reconstruction, please also refer to the `CVPR 2017 Tutorial on Large-scale 3D
+Modeling from Crowdsourced Data <https://demuc.de/tutorials/cvpr2017/>`_.
+
+Image-based 3D reconstruction from images traditionally first recovers a sparse
 representation of the scene and the camera poses of the input images using
 Structure-from-Motion. This output then serves as the input to Multi-View Stereo
 to recover a dense representation of the scene.
