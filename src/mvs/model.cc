@@ -311,6 +311,27 @@ bool Model::ReadFromBundlerPMVS(const std::string& path) {
     image_name_to_id_.emplace(image_name, image_id);
   }
 
+  points.resize(num_points);
+  for (int point_id = 0; point_id < num_points; ++point_id) {
+    auto& point = points[point_id];
+
+    file >> point.x >> point.y >> point.z;
+
+    int color[3];
+    file >> color[0] >> color[1] >> color[2];
+
+    int track_len;
+    file >> track_len;
+    point.track.resize(track_len);
+
+    for (int i = 0; i < track_len; ++i) {
+      int feature_idx;
+      float imx, imy;
+      file >> point.track[i] >> feature_idx >> imx >> imy;
+      CHECK_LT(point.track[i], images.size());
+    }
+  }
+
   return true;
 }
 
