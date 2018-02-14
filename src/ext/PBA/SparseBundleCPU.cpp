@@ -45,7 +45,7 @@ using std::max;
 #endif
 
 //#define POINT_DATA_ALIGN4
-#if defined(__arm__) || defined(_M_ARM)
+#if defined(__arm__) || defined(_M_ARM) || defined(__aarch64__)
 #undef CPUPBA_USE_SSE
 #undef CPUPBA_USE_AVX
 #undef POINT_DATA_ALIGN4
