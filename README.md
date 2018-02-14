@@ -45,19 +45,6 @@ Executables and other resources can be downloaded from https://demuc.de/colmap/.
 
 Executables for non macOS and Windows are available at https://repology.org/metapackage/colmap/versions
 
-Additionally Debian packages are prepared (see https://bugs.debian.org/882326) at http://sid.ethz.ch/debian/colmap/
-You can easily
-
-```
-dget http://sid.ethz.ch/debian/colmap/colmap_3.2-1.dsc
-dpkg-source -x colmap*.dsc
-cd colmap*/
-debuild
-```
-
-to build your own binaries.
-
-
 Getting Started
 ---------------
 
