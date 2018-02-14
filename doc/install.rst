@@ -3,9 +3,12 @@
 Installation
 ============
 
-You can either download one of the pre-built binaries from
-https://demuc.de/colmap/ or build the source code manually.
-
+You can either download one of the pre-built binaries or build the source code
+manually. Executables for Windows and Mac and other resources can be downloaded
+from https://demuc.de/colmap/. Executables for Linux/Unix/BSD are available at
+https://repology.org/metapackage/colmap/versions. Note that the COLMAP packages
+in the default repositories for Linux/Unix/BSD do not come with CUDA support,
+which requires manual compilation, which is relatively easy on these platforms.
 
 ------------------
 Pre-built Binaries

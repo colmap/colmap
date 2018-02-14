@@ -41,9 +41,10 @@ COLMAP, please also cite the original authors, as specified in the source code.
 Download
 --------
 
-Executables and other resources can be downloaded from https://demuc.de/colmap/.
-
-Executables for non macOS and Windows are available at https://repology.org/metapackage/colmap/versions
+Executables for Windows and Mac and other resources can be downloaded from
+https://demuc.de/colmap/. Executables for Linux/Unix/BSD are available at
+https://repology.org/metapackage/colmap/versions. To build COLMAP from source,
+please see https://colmap.github.io/install.html.
 
 Getting Started
 ---------------
