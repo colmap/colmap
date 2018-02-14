@@ -43,6 +43,7 @@ Download
 
 Executables and other resources can be downloaded from https://demuc.de/colmap/.
 
+Executables for non macOS and Windows are available at https://repology.org/metapackage/colmap/versions
 
 Getting Started
 ---------------
