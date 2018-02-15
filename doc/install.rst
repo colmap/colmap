@@ -187,7 +187,7 @@ If you use Homebrew under Mac, you can use the following command::
     python scripts/python/build.py \
         --build_path path/to/colmap/build \
         --colmap_path path/to/colmap \
-        --qt5_path /usr/local/opt/qt/
+        --qt_path /usr/local/opt/qt/
 
 To see the full list of command-line options, pass the ``--help`` argument.
 
