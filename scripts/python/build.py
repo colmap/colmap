@@ -323,7 +323,8 @@ def build_suite_sparse(args):
     download_zipfile(url, archive_path, args.build_path,
                      "e7c27075e8e0afc9d2cf188630090946")
     shutil.move(os.path.join(args.build_path,
-                             "suitesparse-metis-for-windows-master"), path)
+                             "suitesparse-metis-for-windows-"
+                             "7bc503bfa2c4f1be9176147d36daf9e18340780a"), path)
 
     build_cmake_project(args, os.path.join(path, "build"))
 
