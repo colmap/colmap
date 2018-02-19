@@ -205,6 +205,10 @@ if(IS_MSVC)
             DESTINATION "/")
 endif()
 
+if(IS_LINUX OR IS_BSD OR IS_SOLARIS)
+    install(FILES "doc/COLMAP.desktop" DESTINATION "share/applications")
+endif()
+
 configure_file("${CMAKE_SOURCE_DIR}/cmake/CMakeUninstall.cmake"
                "${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake"
                IMMEDIATE @ONLY)
