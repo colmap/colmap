@@ -26,7 +26,7 @@ matrix:
             - libgflags-dev
             - libglew-dev
     - os: osx
-      env: CMAKE_OPTIONS="-DLTO_ENABLED=OFF -DQt5Core_DIR=/usr/local/opt/qt5/lib/cmake/Qt5Core -DQt5OpenGL_DIR=/usr/local/opt/qt5/lib/cmake/Qt5OpenGL"
+      env: CMAKE_OPTIONS="-DIPO_ENABLED=OFF -DQt5Core_DIR=/usr/local/opt/qt5/lib/cmake/Qt5Core -DQt5OpenGL_DIR=/usr/local/opt/qt5/lib/cmake/Qt5OpenGL"
 
 cache:
   directories:
