@@ -111,10 +111,10 @@ float ComputeTransferError(const FeatureGeometry& feature1,
 }
 
 // Compute inlier matches that satisfy the transfer, scale thresholds.
-void ComputeInlier(const TwoWayTransform& tform,
-                   const std::vector<FeatureGeometryMatch>& matches,
-                   const float max_transfer_error, const float max_scale_error,
-                   std::vector<std::pair<int, int>>* inlier_idxs) {
+void ComputeInliers(const TwoWayTransform& tform,
+                    const std::vector<FeatureGeometryMatch>& matches,
+                    const float max_transfer_error, const float max_scale_error,
+                    std::vector<std::pair<int, int>>* inlier_idxs) {
   CHECK_GT(max_transfer_error, 0);
   CHECK_GT(max_scale_error, 0);
 
@@ -212,6 +212,10 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
   const float kMaxScale = 10.0f;
   const float max_log_scale = std::log2(kMaxScale);
 
+  const float trans_norm = 1.0f / (2.0f * max_trans);
+  const float scale_norm = 1.0f / (2.0f * max_log_scale);
+  const float angle_norm = 1.0f / (2.0f * M_PI);
+
   //////////////////////////////////////////////////////////////////////////////
   // Fill the multi-resolution voting histogram.
   //////////////////////////////////////////////////////////////////////////////
@@ -234,10 +238,10 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
         continue;
       }
 
-      const float x = (T.tx + max_trans) / (2.0f * max_trans);
-      const float y = (T.ty + max_trans) / (2.0f * max_trans);
-      const float s = (log_scale + max_log_scale) / (2.0f * max_log_scale);
-      const float o = (T.angle + M_PI) / (2.0f * M_PI);
+      const float x = (T.tx + max_trans) * trans_norm;
+      const float y = (T.ty + max_trans) * trans_norm;
+      const float s = (log_scale + max_log_scale) * scale_norm;
+      const float a = (T.angle + M_PI) * angle_norm;
 
       int n_x = std::min(static_cast<int>(x * options.num_trans_bins),
                          static_cast<int>(options.num_trans_bins - 1));
@@ -245,15 +249,14 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
                          static_cast<int>(options.num_trans_bins - 1));
       int n_s = std::min(static_cast<int>(s * options.num_scale_bins),
                          static_cast<int>(options.num_scale_bins - 1));
-      int n_a = std::min(static_cast<int>(o * options.num_angle_bins),
+      int n_a = std::min(static_cast<int>(a * options.num_angle_bins),
                          static_cast<int>(options.num_angle_bins - 1));
 
       for (int level = 0; level < kNumLevels; ++level) {
         const uint64_t index =
-            n_a + options.num_angle_bins * n_s +
-            options.num_scale_bins * options.num_angle_bins * n_x +
-            options.num_scale_bins * options.num_angle_bins *
-                options.num_trans_bins * n_y;
+            n_a + options.num_angle_bins *
+                      (n_s + options.num_scale_bins *
+                                 (n_x + options.num_trans_bins * n_y));
 
         if (level == 0) {
           coords[index] = Eigen::Vector4i(n_a, n_s, n_x, n_y);
@@ -283,18 +286,18 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
       int n_x = coord(2);
       int n_y = coord(3);
       float score = bin.second.GetNumVotes();
+      float level_weight = 0.5f;
       for (int level = 1; level < kNumLevels; ++level) {
         n_x >>= 1;
         n_y >>= 1;
         n_s >>= 1;
         n_a >>= 1;
         const uint64_t index =
-            n_a + options.num_angle_bins * n_s +
-            options.num_scale_bins * options.num_angle_bins * n_x +
-            options.num_scale_bins * options.num_angle_bins *
-                options.num_trans_bins * n_y;
-        score +=
-            bins[level][index].GetNumVotes() / static_cast<float>(1 << level);
+            n_a + options.num_angle_bins *
+                      (n_s + options.num_scale_bins *
+                                 (n_x + options.num_trans_bins * n_y));
+        score += bins[level][index].GetNumVotes() * level_weight;
+        level_weight *= 0.5f;
       }
       bin_scores.emplace_back(bin.first, score);
     }
@@ -329,8 +332,8 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
   for (size_t i = 0; i < num_transformations && i < max_num_trials; ++i) {
     const auto& bin = bins[0].at(bin_scores.at(i).first);
     const auto tform = TwoWayTransform(bin.GetTransformation());
-    ComputeInlier(tform, matches, options.max_transfer_error,
-                  options.max_scale_error, &inlier_idxs);
+    ComputeInliers(tform, matches, options.max_transfer_error,
+                   options.max_scale_error, &inlier_idxs);
 
     if (inlier_idxs.size() < best_num_inliers ||
         inlier_idxs.size() < AffineTransformEstimator::kMinNumSamples) {
@@ -366,8 +369,8 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     local_tform.A21 = inv_A.leftCols<2>().cast<float>();
     local_tform.t21 = inv_A.rightCols<1>().cast<float>();
 
-    ComputeInlier(tform, matches, options.max_transfer_error,
-                  options.max_scale_error, &inlier_idxs);
+    ComputeInliers(tform, matches, options.max_transfer_error,
+                   options.max_scale_error, &inlier_idxs);
 
     if (inlier_idxs.size() > best_num_inliers) {
       best_num_inliers = inlier_idxs.size();

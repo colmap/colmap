@@ -276,7 +276,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::QueryWithVerification(
     auto& image_score = (*image_scores)[i];
     const auto& geometry_matches = image_matches[image_score.image_id];
 
-    // No matches found,
+    // No matches found.
     if (geometry_matches.empty()) {
       continue;
     }
