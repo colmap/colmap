@@ -5,6 +5,7 @@ if(POLICY CMP0054)
     cmake_policy(SET CMP0054 OLD)
 endif()
 
+# Determine project compiler.
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     set(IS_MSVC TRUE)
 endif()
@@ -13,6 +14,17 @@ if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 endif()
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     set(IS_CLANG TRUE)
+endif()
+
+# Determine project operating system.
+string(REGEX MATCH "Linux" IS_LINUX ${CMAKE_SYSTEM_NAME})
+string(REGEX MATCH "BSD" IS_BSD ${CMAKE_SYSTEM_NAME})
+string(REGEX MATCH "SunOS" IS_SOLARIS ${CMAKE_SYSTEM_NAME})
+if(WIN32)
+    SET(IS_WINDOWS TRUE BOOL INTERNAL)
+endif()
+if(APPLE)
+    SET(IS_MACOS TRUE BOOL INTERNAL)
 endif()
 
 string(TOLOWER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_LOWER)
