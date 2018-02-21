@@ -174,8 +174,8 @@ size_t ComputeEffectiveInlierCount(
   const float scale_x = num_bins / (max_x - min_x);
   const float scale_y = num_bins / (max_y - min_y);
 
-  Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic> counter(num_bins,
-                                                                 num_bins);
+  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic> counter(num_bins,
+                                                             num_bins);
   counter.setZero();
 
   for (const auto& coord : inlier_coords) {
