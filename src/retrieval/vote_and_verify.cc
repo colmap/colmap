@@ -174,8 +174,8 @@ size_t ComputeEffectiveInlierCount(
   const float scale_x = num_bins / (max_x - min_x);
   const float scale_y = num_bins / (max_y - min_y);
 
-  Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic> counter(num_bins,
-                                                                 num_bins);
+  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic> counter(num_bins,
+                                                             num_bins);
   counter.setZero();
 
   for (const auto& coord : inlier_coords) {
@@ -378,8 +378,7 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     }
 
     max_num_trials = RANSAC<AffineTransformEstimator>::ComputeNumTrials(
-        best_num_inliers, AffineTransformEstimator::kMinNumSamples,
-        options.confidence);
+        best_num_inliers, matches.size(), options.confidence);
   }
 
   if (best_num_inliers == 0) {
