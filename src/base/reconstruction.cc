@@ -976,9 +976,9 @@ bool Reconstruction::ExportNVM(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc);
   CHECK(file.is_open()) << path;
 
-  file << "NVM_V3" << std::endl << std::endl;
-
-  file << reg_image_ids_.size() << std::endl;
+  // White space added for compatibility with Meshlab.
+  file << "NVM_V3 " << std::endl << " " << std::endl;
+  file << reg_image_ids_.size() << "  " << std::endl;
 
   std::unordered_map<image_t, size_t> image_id_to_idx_;
   size_t image_idx = 0;
