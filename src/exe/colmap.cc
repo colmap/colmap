@@ -1469,7 +1469,6 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   std::string query_image_list_path;
   std::string output_index_path;
   retrieval::VisualIndex<>::QueryOptions query_options;
-  bool spatial_verification = false;
   int max_num_features = -1;
 
   OptionManager options;
@@ -1480,8 +1479,10 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   options.AddDefaultOption("query_image_list_path", &query_image_list_path);
   options.AddDefaultOption("output_index_path", &output_index_path);
   options.AddDefaultOption("num_images", &query_options.max_num_images);
+  options.AddDefaultOption("num_neighbors", &query_options.num_neighbors);
   options.AddDefaultOption("num_checks", &query_options.num_checks);
-  options.AddDefaultOption("spatial_verification", &spatial_verification);
+  options.AddDefaultOption("spatial_verification",
+                           &query_options.spatial_verification);
   options.AddDefaultOption("max_num_features", &max_num_features);
   options.Parse(argc, argv);
 
@@ -1508,6 +1509,11 @@ int RunVocabTreeRetriever(int argc, char** argv) {
     std::cout << StringPrintf("Indexing image [%d/%d]", i + 1,
                               database_images.size())
               << std::flush;
+
+    if (visual_index.ImageIndexed(database_images[i].ImageId())) {
+      std::cout << std::endl;
+      continue;
+    }
 
     auto keypoints = database.ReadKeypoints(database_images[i].ImageId());
     auto descriptors = database.ReadDescriptors(database_images[i].ImageId());
@@ -1560,12 +1566,7 @@ int RunVocabTreeRetriever(int argc, char** argv) {
     }
 
     std::vector<retrieval::ImageScore> image_scores;
-    if (spatial_verification) {
-      visual_index.QueryWithVerification(query_options, keypoints, descriptors,
-                                         &image_scores);
-    } else {
-      visual_index.Query(query_options, descriptors, &image_scores);
-    }
+    visual_index.Query(query_options, keypoints, descriptors, &image_scores);
 
     std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
     for (const auto& image_score : image_scores) {

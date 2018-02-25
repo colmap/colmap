@@ -74,6 +74,9 @@ class VisualIndex {
     // The number of checks in the nearest neighbor search.
     int num_checks = 256;
 
+    // Whether to perform spatial verification after image retrieval.
+    bool spatial_verification = false;
+
     // The number of threads used in the index.
     int num_threads = kMaxNumThreads;
   };
@@ -108,15 +111,17 @@ class VisualIndex {
   void Add(const IndexOptions& options, const int image_id,
            const GeomType& geometries, const DescType& descriptors);
 
+  // Check if an image has been indexed.
+  bool ImageIndexed(const int image_id) const;
+
   // Query for most similar images in the visual index.
   void Query(const QueryOptions& options, const DescType& descriptors,
              std::vector<ImageScore>* image_scores) const;
 
   // Query for most similar images in the visual index.
-  void QueryWithVerification(const QueryOptions& options,
-                             const GeomType& geometries,
-                             const DescType& descriptors,
-                             std::vector<ImageScore>* image_scores) const;
+  void Query(const QueryOptions& options, const GeomType& geometries,
+             const DescType& descriptors,
+             std::vector<ImageScore>* image_scores) const;
 
   // Prepare the index after adding images and before querying.
   void Prepare();
@@ -186,8 +191,8 @@ template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Add(
     const IndexOptions& options, const int image_id, const GeomType& geometries,
     const DescType& descriptors) {
-  //CHECK(image_ids_.count(image_id) == 0);
-  if (image_ids_.count(image_id) != 0) {
+  // If the image is already indexed, do nothing.
+  if (ImageIndexed(image_id)) {
     return;
   }
 
@@ -222,24 +227,34 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Add(
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
-    const QueryOptions& options, const DescType& descriptors,
-    std::vector<ImageScore>* image_scores) const {
-  Eigen::MatrixXi word_ids;
-  QueryAndFindWordIds(options, descriptors, image_scores, &word_ids);
+bool VisualIndex<kDescType, kDescDim, kEmbeddingDim>::ImageIndexed(
+    const int image_id) const {
+  return image_ids_.count(image_id) != 0;
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::QueryWithVerification(
+void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
+    const QueryOptions& options,
+    const DescType& descriptors, std::vector<ImageScore>* image_scores) const {
+  CHECK(!options.spatial_verification);
+  const GeomType geometries;
+  Query(options, geometries, descriptors, image_scores);
+}
+
+template <typename kDescType, int kDescDim, int kEmbeddingDim>
+void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
     const QueryOptions& options, const GeomType& geometries,
     const DescType& descriptors, std::vector<ImageScore>* image_scores) const {
-  CHECK_EQ(descriptors.rows(), geometries.size());
-
   Eigen::MatrixXi word_ids;
   QueryAndFindWordIds(options, descriptors, image_scores, &word_ids);
 
+  if (!options.spatial_verification) {
+    return;
+  }
+
+  CHECK_EQ(descriptors.rows(), geometries.size());
+
   // Extract top-ranked images to verify.
-  
   std::unordered_set<int> image_ids;
   for (const auto& image_score : *image_scores) {
     image_ids.insert(image_score.image_id);

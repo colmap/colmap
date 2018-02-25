@@ -17,7 +17,6 @@
 #include "retrieval/vote_and_verify.h"
 
 #include <array>
-#include <forward_list>
 #include <unordered_map>
 
 #include "estimators/affine_transform.h"

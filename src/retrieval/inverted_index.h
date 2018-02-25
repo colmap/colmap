@@ -407,12 +407,13 @@ void InvertedIndex<kDescType, kDescDim,
     inverted_file.ComputeIDFWeight(image_ids.size());
   }
 
-  std::unordered_map<int, double> self_similarities;
+  std::unordered_map<int, double> self_similarities(image_ids.size());
   for (const auto& inverted_file : inverted_files_) {
     inverted_file.ComputeImageSelfSimilarities(&self_similarities);
   }
 
   normalization_constants_.clear();
+  normalization_constants_.reserve(image_ids.size());
   for (const auto& self_similarity : self_similarities) {
     if (self_similarity.second > 0.0) {
       normalization_constants_[self_similarity.first] =
