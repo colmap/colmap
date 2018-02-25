@@ -356,6 +356,7 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
   CHECK_GE(num_images, 0);
 
   normalization_constants_.clear();
+  normalization_constants_.reserve(num_images);
   for (int32_t i = 0; i < num_images; ++i) {
     int image_id;
     float value;
