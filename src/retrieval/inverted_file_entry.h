@@ -36,6 +36,9 @@ struct InvertedFileEntry {
   // The identifier of the image this entry is associated with.
   int image_id = -1;
 
+  // The index of the feature within the image's keypoints list.
+  int feature_idx = -1;
+
   // The geometry of the feature, used for spatial verification.
   FeatureGeometry geometry;
 
@@ -58,6 +61,10 @@ void InvertedFileEntry<N>::Read(std::istream* ifs) {
   ifs->read(reinterpret_cast<char*>(&image_id_data), sizeof(int32_t));
   image_id = static_cast<int>(image_id_data);
 
+  int32_t feature_idx_data = 0;
+  ifs->read(reinterpret_cast<char*>(&feature_idx_data), sizeof(int32_t));
+  feature_idx = static_cast<int>(feature_idx_data);
+
   ifs->read(reinterpret_cast<char*>(&geometry), sizeof(FeatureGeometry));
 
   uint64_t descriptor_data = 0;
@@ -74,6 +81,9 @@ void InvertedFileEntry<N>::Write(std::ostream* ofs) const {
 
   const int32_t image_id_data = image_id;
   ofs->write(reinterpret_cast<const char*>(&image_id_data), sizeof(int32_t));
+
+  const int32_t feature_idx_data = feature_idx;
+  ofs->write(reinterpret_cast<const char*>(&feature_idx_data), sizeof(int32_t));
 
   ofs->write(reinterpret_cast<const char*>(&geometry), sizeof(FeatureGeometry));
 

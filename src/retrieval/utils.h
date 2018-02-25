@@ -37,13 +37,14 @@ struct ImageScore {
 template <int N, int kSigma = 16>
 class HammingDistWeightFunctor {
  public:
+  static const size_t kMaxHammingDistance = static_cast<size_t>(1.5f * kSigma);
+
   HammingDistWeightFunctor() {
     // Fills the look-up table.
     const float sigma_squared = kSigma * kSigma;
-    const float max_hamming_dist = 1.5f * kSigma;
     for (int n = 0; n <= N; ++n) {
       const float hamming_dist = static_cast<float>(n);
-      if (hamming_dist <= max_hamming_dist) {
+      if (hamming_dist <= kMaxHammingDistance) {
         look_up_table_.at(n) =
             std::exp(-hamming_dist * hamming_dist / sigma_squared);
       } else {

@@ -1392,6 +1392,7 @@ int RunVocabTreeBuilder(int argc, char** argv) {
   options.AddDatabaseOptions();
   options.AddRequiredOption("vocab_tree_path", &vocab_tree_path);
   options.AddDefaultOption("num_visual_words", &build_options.num_visual_words);
+  options.AddDefaultOption("num_checks", &build_options.num_checks);
   options.AddDefaultOption("branching", &build_options.branching);
   options.AddDefaultOption("num_iterations", &build_options.num_iterations);
   options.AddDefaultOption("max_num_images", &max_num_images);
@@ -1466,8 +1467,9 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   std::string vocab_tree_path;
   std::string database_image_list_path;
   std::string query_image_list_path;
-  int num_images = -1;
-  int num_verifications = 0;
+  std::string output_index_path;
+  retrieval::VisualIndex<>::QueryOptions query_options;
+  bool spatial_verification = false;
   int max_num_features = -1;
 
   OptionManager options;
@@ -1476,8 +1478,10 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   options.AddDefaultOption("database_image_list_path",
                            &database_image_list_path);
   options.AddDefaultOption("query_image_list_path", &query_image_list_path);
-  options.AddDefaultOption("num_images", &num_images);
-  options.AddDefaultOption("num_verifications", &num_verifications);
+  options.AddDefaultOption("output_index_path", &output_index_path);
+  options.AddDefaultOption("num_images", &query_options.max_num_images);
+  options.AddDefaultOption("num_checks", &query_options.num_checks);
+  options.AddDefaultOption("spatial_verification", &spatial_verification);
   options.AddDefaultOption("max_num_features", &max_num_features);
   options.Parse(argc, argv);
 
@@ -1489,7 +1493,9 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   const auto database_images =
       ReadVocabTreeRetrievalImageList(database_image_list_path, &database);
   const auto query_images =
-      ReadVocabTreeRetrievalImageList(query_image_list_path, &database);
+      (!query_image_list_path.empty() || output_index_path.empty())
+          ? ReadVocabTreeRetrievalImageList(query_image_list_path, &database)
+          : std::vector<Image>();
 
   //////////////////////////////////////////////////////////////////////////////
   // Perform image indexing
@@ -1518,13 +1524,19 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   // Compute the TF-IDF weights, etc.
   visual_index.Prepare();
 
+  // Optionally save the indexing data for the database images (as well as the
+  // original vocabulary tree data) to speed up future indexing.
+  if (!output_index_path.empty()) {
+    visual_index.Write(output_index_path);
+  }
+
+  if (query_images.empty()) {
+    return EXIT_SUCCESS;
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   // Perform image queries
   //////////////////////////////////////////////////////////////////////////////
-
-  retrieval::VisualIndex<>::QueryOptions query_options;
-  query_options.max_num_images = num_images;
-  query_options.max_num_verifications = num_verifications;
 
   std::unordered_map<image_t, const Image*> image_id_to_image;
   image_id_to_image.reserve(database_images.size());
@@ -1548,8 +1560,12 @@ int RunVocabTreeRetriever(int argc, char** argv) {
     }
 
     std::vector<retrieval::ImageScore> image_scores;
-    visual_index.QueryWithVerification(query_options, keypoints, descriptors,
-                                       &image_scores);
+    if (spatial_verification) {
+      visual_index.QueryWithVerification(query_options, keypoints, descriptors,
+                                         &image_scores);
+    } else {
+      visual_index.Query(query_options, descriptors, &image_scores);
+    }
 
     std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
     for (const auto& image_score : image_scores) {

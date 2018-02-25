@@ -44,6 +44,7 @@ class InvertedIndex {
   const static int kInvalidWordId;
   typedef Eigen::Matrix<kDescType, Eigen::Dynamic, kDescDim, Eigen::RowMajor>
       DescType;
+  typedef typename InvertedFile<kEmbeddingDim>::EntryType EntryType;
   typedef typename InvertedFile<kEmbeddingDim>::GeomType GeomType;
   typedef Eigen::Matrix<float, Eigen::Dynamic, kDescDim> ProjMatrixType;
   typedef Eigen::VectorXf ProjDescType;
@@ -70,6 +71,7 @@ class InvertedIndex {
 
   // Add single entry to the index.
   void AddEntry(const int image_id, const int word_id,
+                typename DescType::Index feature_idx,
                 const DescType& descriptor, const GeomType& geometry);
 
   // Clear all index entries.
@@ -79,8 +81,14 @@ class InvertedIndex {
   void Query(const DescType& descriptors, const Eigen::MatrixXi& word_ids,
              std::vector<ImageScore>* image_scores) const;
 
+  void ConvertToBinaryDescriptor(
+      const int word_id, const DescType& descriptor,
+      std::bitset<kEmbeddingDim>* binary_descriptor) const;
+
+  float GetIDFWeight(const int word_id) const;
+
   void FindMatches(const int word_id, const std::unordered_set<int>& image_ids,
-                   std::vector<std::pair<int, GeomType>>* matches) const;
+                   std::vector<const EntryType*>* matches) const;
 
   // Compute the self-similarity for the image.
   float ComputeSelfSimilarity(const Eigen::MatrixXi& word_ids) const;
@@ -102,7 +110,7 @@ class InvertedIndex {
 
   // For each image in the database, a normalization factor to be used to
   // normalize the votes.
-  std::vector<float> normalization_constants_;
+  std::unordered_map<int, float> normalization_constants_;
 
   // The projection matrix used to project SIFT descriptors.
   ProjMatrixType proj_matrix_;
@@ -196,12 +204,13 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::ComputeHammingEmbedding(
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::AddEntry(
-    const int image_id, const int word_id, const DescType& descriptor,
-    const GeomType& geometry) {
+    const int image_id, const int word_id, typename DescType::Index feature_idx,
+    const DescType& descriptor, const GeomType& geometry) {
   CHECK_EQ(descriptor.size(), kDescDim);
   const ProjDescType proj_desc =
       proj_matrix_ * descriptor.transpose().template cast<float>();
-  inverted_files_.at(word_id).AddEntry(image_id, proj_desc, geometry);
+  inverted_files_.at(word_id)
+      .AddEntry(image_id, feature_idx, proj_desc, geometry);
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
@@ -264,14 +273,31 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
+void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::ConvertToBinaryDescriptor(
+    const int word_id, 
+    const DescType& descriptor,
+    std::bitset<kEmbeddingDim>* binary_descriptor) const {
+  const ProjDescType proj_desc =
+      proj_matrix_ * descriptor.transpose().template cast<float>();
+  inverted_files_.at(word_id)
+      .ConvertToBinaryDescriptor(proj_desc, binary_descriptor);
+}
+
+template <typename kDescType, int kDescDim, int kEmbeddingDim>
+float InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::GetIDFWeight(
+    const int word_id) const {
+  return inverted_files_.at(word_id).IDFWeight();
+}
+
+template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::FindMatches(
     const int word_id, const std::unordered_set<int>& image_ids,
-    std::vector<std::pair<int, GeomType>>* matches) const {
+    std::vector<const EntryType*>* matches) const {
   matches->clear();
   const auto& entries = inverted_files_.at(word_id).GetEntries();
   for (const auto& entry : entries) {
     if (image_ids.count(entry.image_id)) {
-      matches->emplace_back(entry.image_id, entry.geometry);
+      matches->emplace_back(&entry);
     }
   }
 }
@@ -329,10 +355,13 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
   ifs->read(reinterpret_cast<char*>(&num_images), sizeof(int32_t));
   CHECK_GE(num_images, 0);
 
-  normalization_constants_.resize(num_images);
-  for (int32_t image_id = 0; image_id < num_images; ++image_id) {
-    ifs->read(reinterpret_cast<char*>(&normalization_constants_[image_id]),
-              sizeof(float));
+  normalization_constants_.clear();
+  for (int32_t i = 0; i < num_images; ++i) {
+    int image_id;
+    float value;
+    ifs->read(reinterpret_cast<char*>(&image_id), sizeof(int));
+    ifs->read(reinterpret_cast<char*>(&value), sizeof(float));
+    normalization_constants_[image_id] = value;
   }
 }
 
@@ -362,10 +391,9 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Write(
   const int32_t num_images = normalization_constants_.size();
   ofs->write(reinterpret_cast<const char*>(&num_images), sizeof(int32_t));
 
-  for (int32_t image_id = 0; image_id < num_images; ++image_id) {
-    ofs->write(
-        reinterpret_cast<const char*>(&normalization_constants_[image_id]),
-        sizeof(float));
+  for (const auto& constant : normalization_constants_) {
+    ofs->write(reinterpret_cast<const char*>(&constant.first), sizeof(int));
+    ofs->write(reinterpret_cast<const char*>(&constant.second), sizeof(float));
   }
 }
 
@@ -379,22 +407,18 @@ void InvertedIndex<kDescType, kDescDim,
     inverted_file.ComputeIDFWeight(image_ids.size());
   }
 
-  const int max_image_id =
-      *std::max_element(image_ids.begin(), image_ids.end());
-
-  std::vector<double> self_similarities(max_image_id + 1, 0.0);
+  std::unordered_map<int, double> self_similarities;
   for (const auto& inverted_file : inverted_files_) {
     inverted_file.ComputeImageSelfSimilarities(&self_similarities);
   }
 
-  normalization_constants_.resize(max_image_id + 1);
-  for (int image_id = 0; image_id <= max_image_id; ++image_id) {
-    const double self_similarity = self_similarities.at(image_id);
-    if (self_similarity > 0.0) {
-      normalization_constants_.at(image_id) =
-          static_cast<float>(1.0 / std::sqrt(self_similarity));
+  normalization_constants_.clear();
+  for (const auto& self_similarity : self_similarities) {
+    if (self_similarity.second > 0.0) {
+      normalization_constants_[self_similarity.first] =
+          static_cast<float>(1.0 / std::sqrt(self_similarity.second));
     } else {
-      normalization_constants_.at(image_id) = 0.0f;
+      normalization_constants_[self_similarity.first] = 0.0f;
     }
   }
 }
