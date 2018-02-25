@@ -27,7 +27,7 @@ project for your research, please cite::
     @inproceedings{schoenberger2016sfm,
         author={Sch\"{o}nberger, Johannes Lutz and Frahm, Jan-Michael},
         title={Structure-from-Motion Revisited},
-        booktitle={IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+        booktitle={Conference on Computer Vision and Pattern Recognition (CVPR)},
         year={2016},
     }
 
