@@ -337,14 +337,14 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::QueryWithVerification(
     auto& query_matches = query_to_db_matches[image_score.image_id];
     auto& db_matches = db_to_query_matches[image_score.image_id];
 
-    // No matches found,
+    // No matches found.
     if (query_matches.empty()) {
       continue;
     }
 
     // Enforce 1-to-1 matching: Build Fibonacci heaps for the query and database
     // features, ordered by the minimum number of matches per feature. We'll
-    // select these matches one at a time. For convenience, e'll also pre-sort
+    // select these matches one at a time. For convenience, we'll also pre-sort
     // the matched feature lists by matching score.
 
     typedef boost::heap::fibonacci_heap<std::pair<int, int>> FibonacciHeapType;
