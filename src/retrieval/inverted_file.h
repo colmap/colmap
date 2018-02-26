@@ -21,6 +21,7 @@
 #include <bitset>
 #include <cstdint>
 #include <fstream>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -76,8 +77,8 @@ class InvertedFile {
   // information stored in an inverted file entry. In particular, this function
   // generates the binary descriptor for the inverted file entry and then stores
   // the entry in the inverted file.
-  void AddEntry(const int image_id, const DescType& descriptor,
-                const GeomType& geometry);
+  void AddEntry(const int image_id, typename DescType::Index feature_idx,
+                const DescType& descriptor, const GeomType& geometry);
 
   // Sorts the inverted file entries in ascending order of image ids. This is
   // required for efficient scoring and must be called before ScoreFeature.
@@ -118,7 +119,7 @@ class InvertedFile {
   // entry corresponding to that image. This function is useful to determine the
   // normalization factor for each image that is used during retrieval.
   void ComputeImageSelfSimilarities(
-      std::vector<double>* self_similarities) const;
+      std::unordered_map<int, double>* self_similarities) const;
 
   // Read/write the inverted file from/to a binary file.
   void Read(std::ifstream* ifs);
@@ -191,12 +192,14 @@ bool InvertedFile<kEmbeddingDim>::IsUsable() const {
 
 template <int kEmbeddingDim>
 void InvertedFile<kEmbeddingDim>::AddEntry(const int image_id,
+                                           typename DescType::Index feature_idx,
                                            const DescType& descriptor,
                                            const GeomType& geometry) {
   CHECK_GE(image_id, 0);
   CHECK_EQ(descriptor.size(), kEmbeddingDim);
   EntryType entry;
   entry.image_id = image_id;
+  entry.feature_idx = feature_idx;
   entry.geometry = geometry;
   ConvertToBinaryDescriptor(descriptor, &entry.descriptor);
   entries_.push_back(entry);
@@ -245,8 +248,8 @@ void InvertedFile<kEmbeddingDim>::ComputeIDFWeight(const int num_total_images) {
   std::unordered_set<int> image_ids;
   GetImageIds(&image_ids);
 
-  idf_weight_ = std::log1p(static_cast<double>(num_total_images) /
-                           static_cast<double>(image_ids.size()));
+  idf_weight_ = std::log(static_cast<double>(num_total_images) /
+                         static_cast<double>(image_ids.size()));
 }
 
 template <int kEmbeddingDim>
@@ -307,7 +310,7 @@ void InvertedFile<kEmbeddingDim>::ScoreFeature(
         // the database image match the current image feature. This is
         // required to perform burstiness normalization (cf. Eqn. 2 in
         // Arandjelovic, Zisserman: Scalable descriptor
-        // distinctiveness for location recognition. ACCV 2014.
+        // distinctiveness for location recognition. ACCV 2014).
         // Notice that the weight from the descriptor matching is already
         // accumulated in image_score.score, i.e., we only need
         // to apply the burstiness weighting.
@@ -323,8 +326,10 @@ void InvertedFile<kEmbeddingDim>::ScoreFeature(
 
     const size_t hamming_dist = (bin_descriptor ^ entry.descriptor).count();
 
-    image_score.score += hamming_dist_weight_functor_(hamming_dist);
-    num_image_votes += 1;
+    if (hamming_dist <= hamming_dist_weight_functor_.kMaxHammingDistance) {
+      image_score.score += hamming_dist_weight_functor_(hamming_dist);
+      num_image_votes += 1;
+    }
   }
 
   // Add the voting for the largest image_id in the entries.
@@ -345,10 +350,10 @@ void InvertedFile<kEmbeddingDim>::GetImageIds(
 
 template <int kEmbeddingDim>
 void InvertedFile<kEmbeddingDim>::ComputeImageSelfSimilarities(
-    std::vector<double>* self_similarities) const {
+    std::unordered_map<int, double>* self_similarities) const {
   const double squared_idf_weight = idf_weight_ * idf_weight_;
   for (const auto& entry : entries_) {
-    self_similarities->at(entry.image_id) += squared_idf_weight;
+    (*self_similarities)[entry.image_id] += squared_idf_weight;
   }
 }
 

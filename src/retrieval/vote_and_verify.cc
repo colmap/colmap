@@ -343,6 +343,10 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     best_num_inliers = inlier_idxs.size();
     best_tform = tform;
 
+    if (best_num_inliers == matches.size()) {
+      break;
+    }
+
     // Collect matching inlier points.
     inlier_points1.resize(inlier_idxs.size());
     inlier_points2.resize(inlier_idxs.size());
@@ -375,6 +379,10 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     if (inlier_idxs.size() > best_num_inliers) {
       best_num_inliers = inlier_idxs.size();
       best_tform = local_tform;
+
+      if (best_num_inliers == matches.size()) {
+        break;
+      }
     }
 
     max_num_trials = RANSAC<AffineTransformEstimator>::ComputeNumTrials(
@@ -385,7 +393,7 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     return 0;
   }
 
-  const int kNumBins = 64;
+  const size_t kNumBins = 64;
   return ComputeEffectiveInlierCount(best_tform, matches,
                                      options.max_transfer_error,
                                      options.max_scale_error, kNumBins);

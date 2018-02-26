@@ -24,10 +24,10 @@ namespace retrieval {
 
 struct VoteAndVerifyOptions {
   // Number of top transformations to generate.
-  int num_transformations = 10;
+  int num_transformations = 30;
 
   // Number of voting bins in the translation dimension.
-  int num_trans_bins = 32;
+  int num_trans_bins = 64;
 
   // Number of voting bins in the scale dimension.
   int num_scale_bins = 32;

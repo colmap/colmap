@@ -17,6 +17,7 @@
 #ifndef COLMAP_SRC_RETRIEVAL_VISUAL_INDEX_H_
 #define COLMAP_SRC_RETRIEVAL_VISUAL_INDEX_H_
 
+#include <boost/heap/fibonacci_heap.hpp>
 #include <Eigen/Core>
 
 #include "ext/FLANN/flann.hpp"
@@ -48,6 +49,7 @@ class VisualIndex {
   typedef InvertedIndex<kDescType, kDescDim, kEmbeddingDim> InvertedIndexType;
   typedef FeatureKeypoints GeomType;
   typedef typename InvertedIndexType::DescType DescType;
+  typedef typename InvertedIndexType::EntryType EntryType;
 
   struct IndexOptions {
     // The number of nearest neighbor visual words that each feature descriptor
@@ -65,15 +67,15 @@ class VisualIndex {
     // The maximum number of most similar images to retrieve.
     int max_num_images = -1;
 
-    // The number of images to be spatially verified and reranked.
-    int max_num_verifications = -1;
-
     // The number of nearest neighbor visual words that each feature descriptor
     // is assigned to.
     int num_neighbors = 5;
 
     // The number of checks in the nearest neighbor search.
     int num_checks = 256;
+
+    // Whether to perform spatial verification after image retrieval.
+    bool spatial_verification = false;
 
     // The number of threads used in the index.
     int num_threads = kMaxNumThreads;
@@ -109,15 +111,17 @@ class VisualIndex {
   void Add(const IndexOptions& options, const int image_id,
            const GeomType& geometries, const DescType& descriptors);
 
+  // Check if an image has been indexed.
+  bool ImageIndexed(const int image_id) const;
+
   // Query for most similar images in the visual index.
   void Query(const QueryOptions& options, const DescType& descriptors,
              std::vector<ImageScore>* image_scores) const;
 
   // Query for most similar images in the visual index.
-  void QueryWithVerification(const QueryOptions& options,
-                             const GeomType& geometries,
-                             const DescType& descriptors,
-                             std::vector<ImageScore>* image_scores) const;
+  void Query(const QueryOptions& options, const GeomType& geometries,
+             const DescType& descriptors,
+             std::vector<ImageScore>* image_scores) const;
 
   // Prepare the index after adding images and before querying.
   void Prepare();
@@ -187,7 +191,11 @@ template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Add(
     const IndexOptions& options, const int image_id, const GeomType& geometries,
     const DescType& descriptors) {
-  CHECK(image_ids_.count(image_id) == 0);
+  // If the image is already indexed, do nothing.
+  if (ImageIndexed(image_id)) {
+    return;
+  }
+
   image_ids_.insert(image_id);
 
   prepared_ = false;
@@ -212,89 +220,249 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Add(
     for (int n = 0; n < options.num_neighbors; ++n) {
       const int word_id = word_ids(i, n);
       if (word_id != InvertedIndexType::kInvalidWordId) {
-        inverted_index_.AddEntry(image_id, word_id, descriptor, geometry);
+        inverted_index_.AddEntry(image_id, word_id, i, descriptor, geometry);
       }
     }
   }
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
-    const QueryOptions& options, const DescType& descriptors,
-    std::vector<ImageScore>* image_scores) const {
-  Eigen::MatrixXi word_ids;
-  QueryAndFindWordIds(options, descriptors, image_scores, &word_ids);
+bool VisualIndex<kDescType, kDescDim, kEmbeddingDim>::ImageIndexed(
+    const int image_id) const {
+  return image_ids_.count(image_id) != 0;
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::QueryWithVerification(
+void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
+    const QueryOptions& options,
+    const DescType& descriptors, std::vector<ImageScore>* image_scores) const {
+  CHECK(!options.spatial_verification);
+  const GeomType geometries;
+  Query(options, geometries, descriptors, image_scores);
+}
+
+template <typename kDescType, int kDescDim, int kEmbeddingDim>
+void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
     const QueryOptions& options, const GeomType& geometries,
     const DescType& descriptors, std::vector<ImageScore>* image_scores) const {
-  CHECK_EQ(descriptors.rows(), geometries.size());
+  Eigen::MatrixXi word_ids;
+  QueryAndFindWordIds(options, descriptors, image_scores, &word_ids);
 
-  size_t num_verifications = image_ids_.size();
-  if (options.max_num_verifications >= 0) {
-    num_verifications =
-        std::min<size_t>(image_ids_.size(), options.max_num_verifications);
-  }
-
-  if (num_verifications == 0) {
-    Query(options, descriptors, image_scores);
+  if (!options.spatial_verification) {
     return;
   }
 
-  auto verification_options = options;
-  verification_options.max_num_images = options.max_num_verifications;
-
-  Eigen::MatrixXi word_ids;
-  QueryAndFindWordIds(verification_options, descriptors, image_scores,
-                      &word_ids);
+  CHECK_EQ(descriptors.rows(), geometries.size());
 
   // Extract top-ranked images to verify.
   std::unordered_set<int> image_ids;
-  for (size_t i = 0; i < num_verifications; ++i) {
-    image_ids.insert((*image_scores)[i].image_id);
+  for (const auto& image_score : *image_scores) {
+    image_ids.insert(image_score.image_id);
   }
 
-  // Find matches for top-ranked images, only use single nearest neighbor word.
-  std::vector<std::pair<int, typename InvertedIndexType::GeomType>>
-      word_matches;
-  std::unordered_map<int, std::unordered_map<int, std::vector<FeatureGeometry>>>
-      image_matches;
+  // Find matches for top-ranked images
+  typedef std::vector<
+      std::pair<float, std::pair<const EntryType*, const EntryType*>>>
+      OrderedMatchListType;
+
+  // Reference our matches (with their lowest distance) for both
+  // {query feature => db feature} and vice versa.
+  std::unordered_map<int, std::unordered_map<int, OrderedMatchListType>>
+      query_to_db_matches;
+  std::unordered_map<int, std::unordered_map<int, OrderedMatchListType>>
+      db_to_query_matches;
+
+  std::vector<const EntryType*> word_matches;
+
+  std::vector<EntryType> query_entries;  // Convert query features, too.
+  query_entries.reserve(descriptors.rows());
+
+  // NOTE: Currently, we are redundantly computing the feature weighting.
+  const HammingDistWeightFunctor<kEmbeddingDim> hamming_dist_weight_functor;
+
   for (typename DescType::Index i = 0; i < descriptors.rows(); ++i) {
-    const int word_id = word_ids(i, 0);
-    if (word_id != InvertedIndexType::kInvalidWordId) {
-      inverted_index_.FindMatches(word_id, image_ids, &word_matches);
-      for (const auto& match : word_matches) {
-        image_matches[match.first][i].push_back(match.second);
+    const auto& descriptor = descriptors.row(i);
+
+    EntryType query_entry;
+    query_entry.feature_idx = i;
+    query_entry.geometry.x = geometries[i].x;
+    query_entry.geometry.y = geometries[i].y;
+    query_entry.geometry.scale = geometries[i].ComputeScale();
+    query_entry.geometry.orientation = geometries[i].ComputeOrientation();
+    query_entries.push_back(query_entry);
+
+    // For each db feature, keep track of the lowest distance (if db features
+    // are mapped to more than one visual word).
+    std::unordered_map<
+        int, std::unordered_map<int, std::pair<float, const EntryType*>>>
+        image_matches;
+
+    for (int j = 0; j < word_ids.cols(); ++j) {
+      const int word_id = word_ids(i, j);
+
+      if (word_id != InvertedIndexType::kInvalidWordId) {
+        inverted_index_.ConvertToBinaryDescriptor(word_id, descriptor,
+                                                  &query_entries[i].descriptor);
+
+        const auto idf_weight = inverted_index_.GetIDFWeight(word_id);
+        const auto squared_idf_weight = idf_weight * idf_weight;
+
+        inverted_index_.FindMatches(word_id, image_ids, &word_matches);
+
+        for (const auto& match : word_matches) {
+          const size_t hamming_dist =
+              (query_entries[i].descriptor ^ match->descriptor).count();
+
+          if (hamming_dist <= hamming_dist_weight_functor.kMaxHammingDistance) {
+            const float dist =
+                hamming_dist_weight_functor(hamming_dist) * squared_idf_weight;
+
+            auto& feature_matches = image_matches[match->image_id];
+            const auto feature_match = feature_matches.find(match->feature_idx);
+
+            if (feature_match == feature_matches.end() ||
+                feature_match->first < dist) {
+              feature_matches[match->feature_idx] = std::make_pair(dist, match);
+            }
+          }
+        }
+      }
+    }
+
+    // Finally, cross-reference the query and db feature matches.
+    for (const auto& feature_matches : image_matches) {
+      const auto image_id = feature_matches.first;
+
+      for (const auto& feature_match : feature_matches.second) {
+        const auto feature_idx = feature_match.first;
+        const auto dist = feature_match.second.first;
+        const auto db_match = feature_match.second.second;
+
+        const auto entry_pair = std::make_pair(&query_entries[i], db_match);
+
+        query_to_db_matches[image_id][i].emplace_back(dist, entry_pair);
+        db_to_query_matches[image_id][feature_idx].emplace_back(dist,
+                                                                entry_pair);
       }
     }
   }
 
   // Verify top-ranked images using the found matches.
-  for (size_t i = 0; i < num_verifications; ++i) {
-    auto& image_score = (*image_scores)[i];
-    const auto& geometry_matches = image_matches[image_score.image_id];
+  for (auto& image_score : *image_scores) {
+    auto& query_matches = query_to_db_matches[image_score.image_id];
+    auto& db_matches = db_to_query_matches[image_score.image_id];
 
     // No matches found.
-    if (geometry_matches.empty()) {
+    if (query_matches.empty()) {
       continue;
     }
 
-    // Collect matches for all features of current image.
-    std::vector<FeatureGeometryMatch> matches;
-    matches.reserve(geometry_matches.size());
-    for (const auto& geometries2 : geometry_matches) {
-      FeatureGeometryMatch match;
-      match.geometry1.x = geometries[geometries2.first].x;
-      match.geometry1.y = geometries[geometries2.first].y;
-      match.geometry1.scale = geometries[geometries2.first].ComputeScale();
-      match.geometry1.orientation =
-          geometries[geometries2.first].ComputeOrientation();
-      match.geometries2 = geometries2.second;
-      matches.push_back(match);
+    // Enforce 1-to-1 matching: Build Fibonacci heaps for the query and database
+    // features, ordered by the minimum number of matches per feature. We'll
+    // select these matches one at a time. For convenience, we'll also pre-sort
+    // the matched feature lists by matching score.
+
+    typedef boost::heap::fibonacci_heap<std::pair<int, int>> FibonacciHeapType;
+    FibonacciHeapType query_heap;
+    FibonacciHeapType db_heap;
+    std::unordered_map<int, typename FibonacciHeapType::handle_type>
+        query_heap_handles;
+    std::unordered_map<int, typename FibonacciHeapType::handle_type>
+        db_heap_handles;
+
+    for (auto& match_data : query_matches) {
+      std::sort(match_data.second.begin(), match_data.second.end(),
+                std::greater<std::pair<
+                    float, std::pair<const EntryType*, const EntryType*>>>());
+
+      query_heap_handles[match_data.first] = query_heap.push(std::make_pair(
+          -static_cast<int>(match_data.second.size()), match_data.first));
     }
 
+    for (auto& match_data : db_matches) {
+      std::sort(match_data.second.begin(), match_data.second.end(),
+                std::greater<std::pair<
+                    float, std::pair<const EntryType*, const EntryType*>>>());
+
+      db_heap_handles[match_data.first] = db_heap.push(std::make_pair(
+          -static_cast<int>(match_data.second.size()), match_data.first));
+    }
+
+    // Keep tabs on what features have been already matched.
+    std::vector<FeatureGeometryMatch> matches;
+
+    auto db_top = db_heap.top();  // (-num_available_matches, feature_idx)
+    auto query_top = query_heap.top();
+
+    while (!db_heap.empty() && !query_heap.empty()) {
+      // Take the query or database feature with the smallest number of
+      // available matches.
+      const bool use_query =
+          (query_top.first >= db_top.first) && !query_heap.empty();
+
+      // Find the best matching feature that hasn't already been matched.
+      auto& heap1 = (use_query) ? query_heap : db_heap;
+      auto& heap2 = (use_query) ? db_heap : query_heap;
+      auto& handles1 = (use_query) ? query_heap_handles : db_heap_handles;
+      auto& handles2 = (use_query) ? db_heap_handles : query_heap_handles;
+      auto& matches1 = (use_query) ? query_matches : db_matches;
+      auto& matches2 = (use_query) ? db_matches : query_matches;
+
+      const auto idx1 = heap1.top().second;
+      heap1.pop();
+
+      // Entries that have been matched (or processed and subsequently ignored)
+      // get their handles removed.
+      if (handles1.count(idx1) > 0) {
+        handles1.erase(idx1);
+
+        bool match_found = false;
+
+        // The matches have been ordered by Hamming distance, already --
+        // select the lowest available match.
+        for (auto& entry2 : matches1[idx1]) {
+          const auto idx2 = (use_query) ? entry2.second.second->feature_idx
+                                        : entry2.second.first->feature_idx;
+
+          if (handles2.count(idx2) > 0) {
+            if (!match_found) {
+              match_found = true;
+              FeatureGeometryMatch match;
+              match.geometry1 = entry2.second.first->geometry;
+              match.geometries2.push_back(entry2.second.second->geometry);
+              matches.push_back(match);
+
+              handles2.erase(idx2);
+
+              // Remove this feature from consideration for all other features
+              // that matched to it.
+              for (auto& entry1 : matches2[idx2]) {
+                const auto other_idx1 = (use_query)
+                                            ? entry1.second.first->feature_idx
+                                            : entry1.second.second->feature_idx;
+                if (handles1.count(other_idx1) > 0) {
+                  (*handles1[other_idx1]).first += 1;
+                  heap1.increase(handles1[other_idx1]);
+                }
+              }
+            } else {
+              (*handles2[idx2]).first += 1;
+              heap2.increase(handles2[idx2]);
+            }
+          }
+        }
+      }
+
+      if (!query_heap.empty()) {
+        query_top = query_heap.top();
+      }
+
+      if (!db_heap.empty()) {
+        db_top = db_heap.top();
+      }
+    }
+
+    // Finally, run verification for the current image.
     VoteAndVerifyOptions vote_and_verify_options;
     image_score.score += VoteAndVerify(vote_and_verify_options, matches);
   }
@@ -399,6 +567,9 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Read(
     file.seekg(file_offset, std::ios::beg);
     inverted_index_.Read(&file);
   }
+
+  image_ids_.clear();
+  inverted_index_.GetImageIds(&image_ids_);
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
