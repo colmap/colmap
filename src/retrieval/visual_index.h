@@ -75,7 +75,7 @@ class VisualIndex {
     int num_checks = 256;
 
     // Whether to perform spatial verification after image retrieval.
-    bool spatial_verification = false;
+    int num_images_after_verification = 0;
 
     // The number of threads used in the index.
     int num_threads = kMaxNumThreads;
@@ -236,7 +236,6 @@ template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
     const QueryOptions& options,
     const DescType& descriptors, std::vector<ImageScore>* image_scores) const {
-  CHECK(!options.spatial_verification);
   const GeomType geometries;
   Query(options, geometries, descriptors, image_scores);
 }
@@ -248,7 +247,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
   Eigen::MatrixXi word_ids;
   QueryAndFindWordIds(options, descriptors, image_scores, &word_ids);
 
-  if (!options.spatial_verification) {
+  if (options.num_images_after_verification <= 0) {
     return;
   }
 
@@ -469,10 +468,8 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
 
   // Re-rank the images using the spatial verification scores.
 
-  size_t num_images = image_scores->size();
-  if (options.max_num_images >= 0) {
-    num_images = std::min<size_t>(image_scores->size(), options.max_num_images);
-  }
+  const size_t num_images = std::min<size_t>(
+      image_scores->size(), options.num_images_after_verification);
 
   auto SortFunc = [](const ImageScore& score1, const ImageScore& score2) {
     return score1.score > score2.score;

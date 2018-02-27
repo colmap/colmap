@@ -61,8 +61,9 @@ struct SequentialMatchingOptions {
   // Number of nearest-neighbor checks to use in retrieval.
   int loop_detection_num_checks = 256;
 
-  // Whether to run spatial verification after matched image retrieval.
-  bool loop_detection_spatial_verification = false;
+  // How many images to return after spatial verification. Set to 0 to turn off
+  // spatial verification.
+  int loop_detection_num_images_after_verification = 0;
 
   // The maximum number of features to use for indexing an image. If an
   // image has more features, only the largest-scale features will be indexed.
@@ -84,8 +85,9 @@ struct VocabTreeMatchingOptions {
   // Number of nearest-neighbor checks to use in retrieval.
   int num_checks = 256;
 
-  // Whether to run spatial verification after matched image retrieval.
-  bool spatial_verification = false;
+  // How many images to return after spatial verification. Set to 0 to turn off
+  // spatial verification.
+  int num_images_after_verification = 0;
 
   // The maximum number of features to use for indexing an image. If an
   // image has more features, only the largest-scale features will be indexed.
