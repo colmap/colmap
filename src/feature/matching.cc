@@ -33,8 +33,8 @@ void PrintElapsedTime(const Timer& timer) {
   std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
 }
 
-void IndexImagesInVisualIndex(const int num_threads, const int max_num_features,
-                              const int num_checks,
+void IndexImagesInVisualIndex(const int num_threads, const int num_checks,
+                              const int max_num_features,
                               const std::vector<image_t>& image_ids,
                               Thread* thread, FeatureMatcherCache* cache,
                               retrieval::VisualIndex<>* visual_index) {
@@ -70,7 +70,7 @@ void IndexImagesInVisualIndex(const int num_threads, const int max_num_features,
 
 void MatchNearestNeighborsInVisualIndex(
     const int num_threads, const int num_images, const int num_neighbors,
-    const int num_checks, const bool spatial_verification,
+    const int num_checks, const int num_images_after_verification,
     const int max_num_features, const std::vector<image_t>& image_ids,
     Thread* thread, FeatureMatcherCache* cache,
     retrieval::VisualIndex<>* visual_index, SiftFeatureMatcher* matcher) {
@@ -90,7 +90,7 @@ void MatchNearestNeighborsInVisualIndex(
   query_options.max_num_images = num_images;
   query_options.num_neighbors = num_neighbors;
   query_options.num_checks = num_checks;
-  query_options.spatial_verification = spatial_verification;
+  query_options.num_images_after_verification = num_images_after_verification;
   auto QueryFunc = [&](const image_t image_id) {
     auto keypoints = cache->GetKeypoints(image_id);
     auto descriptors = cache->GetDescriptors(image_id);
@@ -1020,7 +1020,7 @@ void SequentialFeatureMatcher::RunLoopDetection(
       match_options_.num_threads, options_.loop_detection_num_images,
       options_.loop_detection_num_nearest_neighbors,
       options_.loop_detection_num_checks,
-      options_.loop_detection_spatial_verification,
+      options_.loop_detection_num_images_after_verification,
       options_.loop_detection_max_num_features, match_image_ids, this, &cache_,
       &visual_index, &matcher_);
 }
@@ -1096,8 +1096,8 @@ void VocabTreeFeatureMatcher::Run() {
   MatchNearestNeighborsInVisualIndex(
       match_options_.num_threads, options_.num_images,
       options_.num_nearest_neighbors, options_.num_checks,
-      options_.spatial_verification, options_.max_num_features, image_ids, this,
-      &cache_, &visual_index, &matcher_);
+      options_.num_images_after_verification, options_.max_num_features,
+      image_ids, this, &cache_, &visual_index, &matcher_);
 
   GetTimer().PrintMinutes();
 }
