@@ -35,6 +35,19 @@ struct UndistortCameraOptions {
 
   // Maximum image size in terms of width or height of the undistorted camera.
   int max_image_size = -1;
+
+  // Maximum FOV of rectified camera
+  double max_fov = 179.9;
+  double max_vertical_fov = 180.0;
+  double max_horizontal_fov = 180.0;
+  // Estimate focal length preserving FOV, instead of copying it
+  bool estimate_focal_length_from_fov = false;
+
+  // Overrides undistorted camera model. If empty, regular undistortion with
+  // undistorted model estimation takes place; otherwise, user-specified model
+  // is used as undistorted camera
+  std::string camera_model_override = "";
+  std::string camera_model_override_params = "";
 };
 
 // Undistort images and export undistorted cameras, as required by the

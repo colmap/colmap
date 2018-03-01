@@ -19,6 +19,7 @@
 
 #include "base/pose.h"
 #include "base/undistortion.h"
+#include "util/misc.h"
 
 using namespace colmap;
 
@@ -146,6 +147,73 @@ BOOST_AUTO_TEST_CASE(TestUndistortCameraNoBlankPixels) {
       BOOST_CHECK_EQUAL(color.b, 0);
     }
   }
+}
+
+BOOST_AUTO_TEST_CASE(TestUndistortFOVEstimation) {
+  // Due to generic nature of FOV estimation estimates will be slightly smaller,
+  // than calculated values; using 2% tolerance
+  const auto tolerance = boost::test_tools::tolerance(2.0);
+  const double f = 100.0, w = 100.0, h = 200.0;
+  const double w2 = w / 2.0, h2 = h / 2.0;
+  const double diag2 = sqrt(w2 * w2 + h2 * h2);
+
+  UndistortCameraOptions options;
+  options.estimate_focal_length_from_fov = true;
+  options.max_fov = 180.0 - 1e-5;
+
+  Camera distorted_camera;
+  distorted_camera.InitializeWithName("OPENCV_FISHEYE", f, w, h);
+
+  Camera undistorted_camera_default =
+      UndistortCamera(options, distorted_camera);
+  const double expected_default = diag2 / tan(diag2 / f);
+  BOOST_CHECK_EQUAL(undistorted_camera_default.ModelName(), "PINHOLE");
+  BOOST_CHECK_EQUAL(undistorted_camera_default.FocalLengthX(),
+                    undistorted_camera_default.FocalLengthY());
+  BOOST_TEST(expected_default == undistorted_camera_default.FocalLengthX(),
+             tolerance);
+
+  options.max_horizontal_fov = 2.0 * RadToDeg(atan(h2 / f));
+  Camera undistorted_camera_hfov = UndistortCamera(options, distorted_camera);
+  const double expected_hfov = h2 / tan(h2 / f);
+  BOOST_TEST(expected_hfov == undistorted_camera_hfov.FocalLengthX(),
+             tolerance);
+
+  options.max_horizontal_fov = 180.0;
+  options.max_vertical_fov = 2.0 * RadToDeg(atan(w2 / f));
+  Camera undistorted_camera_vfov = UndistortCamera(options, distorted_camera);
+  const double expected_vfov = w2 / tan(w2 / f);
+  BOOST_TEST(expected_vfov == undistorted_camera_vfov.FocalLengthX(),
+             tolerance);
+
+  options.max_fov = 90.0;
+  options.max_vertical_fov = 180.0;
+  Camera undistorted_camera_90fov = UndistortCamera(options, distorted_camera);
+  const double expected_90fov = diag2 / tan(DegToRad(options.max_fov) / 2.0);
+  BOOST_TEST(expected_90fov == undistorted_camera_90fov.FocalLengthX(),
+             tolerance);
+}
+
+BOOST_AUTO_TEST_CASE(TestUndistortionForced) {
+  UndistortCameraOptions options;
+  options.camera_model_override = "RADIAL";
+  options.camera_model_override_params = "1.0,2.0,3.0,4.0,5.0";
+
+  Camera distorted_camera;
+  distorted_camera.InitializeWithName("FOV", 1, 10, 20);
+
+  Camera undistorted_camera = UndistortCamera(options, distorted_camera);
+
+  BOOST_CHECK_EQUAL(undistorted_camera.ModelName(),
+                    options.camera_model_override);
+  BOOST_CHECK_EQUAL(undistorted_camera.Height(), distorted_camera.Height());
+  BOOST_CHECK_EQUAL(undistorted_camera.Width(), distorted_camera.Width());
+
+  const std::vector<double> params_expected =
+      CSVToVector<double>(options.camera_model_override_params);
+  const std::vector<double> params = undistorted_camera.Params();
+
+  BOOST_TEST(params == params_expected);
 }
 
 BOOST_AUTO_TEST_CASE(TestUndistortReconstruction) {

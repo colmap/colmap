@@ -117,6 +117,35 @@ void WriteCOLMAPCommands(const bool geometric,
         << JoinPaths(workspace_path, output_prefix + "meshed.ply") << std::endl;
 }
 
+Eigen::Vector2d SelectPointOnRay(const Camera& camera,
+                                 const Eigen::Vector2d& origin,
+                                 const Eigen::Vector2d& target,
+                                 double max_length, double max_angle,
+                                 double max_horizontal_angle,
+                                 double max_vertical_angle) {
+  const Eigen::Vector2d diff = target - origin;
+  const Eigen::Vector2d dir = diff.normalized();
+
+  double l = 0.0, r = std::min(max_length, diff.norm());
+  for (int i = 0; i < 32; ++i) {
+    double m = (r + l) / 2.0;
+    const Eigen::Vector2d world_point = camera.ImageToWorld(origin + dir * m);
+    const double vertical_angle = std::atan(world_point[1]),
+                 horizontal_angle = std::atan(world_point[0]),
+                 full_angle = std::atan(world_point.norm());
+    const bool m_valid = vertical_angle < max_vertical_angle &&
+                         horizontal_angle < max_horizontal_angle &&
+                         full_angle < max_angle;
+
+    if (m_valid) {
+      l = m;
+    } else {
+      r = m;
+    }
+  }
+  return origin + dir * l;
+}
+
 }  // namespace
 
 COLMAPUndistorter::COLMAPUndistorter(const UndistortCameraOptions& options,
@@ -634,22 +663,125 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   CHECK_GT(options.min_scale, 0.0);
   CHECK_LE(options.min_scale, options.max_scale);
   CHECK_NE(options.max_image_size, 0);
+  CHECK_LT(options.max_fov, 180.0);
+  CHECK_GT(options.max_fov, 0.0);
+  CHECK_LE(options.max_vertical_fov, 180.0);
+  CHECK_GT(options.max_vertical_fov, 0.0);
+  CHECK_LE(options.max_horizontal_fov, 180.0);
+  CHECK_GT(options.max_horizontal_fov, 0.0);
 
   Camera undistorted_camera;
   undistorted_camera.SetModelId(PinholeCameraModel::model_id);
   undistorted_camera.SetWidth(camera.Width());
   undistorted_camera.SetHeight(camera.Height());
 
-  // Copy focal length parameters.
-  const std::vector<size_t>& focal_length_idxs = camera.FocalLengthIdxs();
-  CHECK_LE(focal_length_idxs.size(), 2)
-      << "Not more than two focal length parameters supported.";
-  if (focal_length_idxs.size() == 1) {
-    undistorted_camera.SetFocalLengthX(camera.FocalLength());
-    undistorted_camera.SetFocalLengthY(camera.FocalLength());
-  } else if (focal_length_idxs.size() == 2) {
-    undistorted_camera.SetFocalLengthX(camera.FocalLengthX());
-    undistorted_camera.SetFocalLengthY(camera.FocalLengthY());
+  if (options.camera_model_override.size()) {
+    const int camera_model_id =
+        CameraModelNameToId(options.camera_model_override);
+    undistorted_camera.SetModelId(camera_model_id);
+    undistorted_camera.SetParamsFromString(
+        options.camera_model_override_params);
+    CHECK(undistorted_camera.VerifyParams());
+    return undistorted_camera;
+  }
+
+  // Estimate maximal valid radius for radial distortion based on monothonicity
+  const double max_fov = DegToRad(options.max_fov);
+  const double max_horizontal_fov = DegToRad(options.max_horizontal_fov);
+  const double max_vertical_fov = DegToRad(options.max_vertical_fov);
+
+  double max_valid_fov_half = max_fov / 2.0;
+  Eigen::Vector2d principal_point = Eigen::Vector2d::Zero();
+  const Eigen::Vector2d image_size(camera.Width(), camera.Height());
+  double max_valid_radius = image_size.norm();
+  const Eigen::Vector2d corners[] = {
+      Eigen::Vector2d(0, 0), Eigen::Vector2d(camera.Width(), 0),
+      Eigen::Vector2d(camera.Height(), camera.Width()),
+      Eigen::Vector2d(0, camera.Height())};
+  if (camera.PrincipalPointIdxs().size() == 2) {
+    principal_point =
+        Eigen::Vector2d(camera.PrincipalPointX(), camera.PrincipalPointY());
+
+    double max_radius = 0.0;
+    Eigen::Vector2d corner_dir;
+    for (int i = 0; i < 4; ++i) {
+      const Eigen::Vector2d diff = corners[i] - principal_point;
+      const double norm = diff.norm();
+      if (norm > max_radius) {
+        max_radius = norm;
+        corner_dir = diff.normalized();
+      }
+    }
+
+    double max_valid_fov_half = 0.0;
+    for (int i = 1; i < max_radius; ++i) {
+      const Eigen::Vector2d world_point =
+          camera.ImageToWorld(i * corner_dir + principal_point);
+      const double phi = std::atan(world_point.norm());
+      if (phi <= max_valid_fov_half || 2.0 * phi > max_fov) break;
+      max_valid_fov_half = phi;
+      max_valid_radius = i;
+    }
+  }
+
+  // Copy focal length parameters, or estimate them
+  if (options.estimate_focal_length_from_fov) {
+    // Estimate focal length preserving diagonal, horizontal and vertical
+    // field-of-view
+    double focal_diagonal_fov =
+        image_size.norm() / 2.0 / std::tan(max_valid_fov_half);
+    for (int i = 0; i < 2; ++i) {
+      const Eigen::Vector2d cornerA = SelectPointOnRay(
+          camera, principal_point, corners[i], max_valid_radius, max_valid_fov_half,
+          max_horizontal_fov / 2.0, max_vertical_fov / 2.0);
+      const Eigen::Vector2d cornerB = SelectPointOnRay(
+          camera, principal_point, corners[i + 2], max_valid_radius,
+          max_valid_fov_half, max_horizontal_fov / 2.0, max_vertical_fov / 2.0);
+      const double fov = std::atan(camera.ImageToWorld(cornerA).norm()) +
+                         std::atan(camera.ImageToWorld(cornerB).norm());
+      focal_diagonal_fov = std::max(
+          focal_diagonal_fov, image_size.norm() / 2.0 / std::tan(fov / 2.0));
+    }
+
+    const Eigen::Vector2d left(
+        std::max(0.0, principal_point[0] - max_valid_radius),
+        principal_point[1]),
+        right(std::min(image_size[0], principal_point[0] + max_valid_radius),
+              principal_point[1]);
+    const double horizontal_fov =
+        std::atan(std::abs(camera.ImageToWorld(left)[0])) +
+        std::atan(std::abs(camera.ImageToWorld(right)[0]));
+    const double focal_horizontal_fov =
+        image_size[0] / 2.0 /
+        std::tan(std::min(max_horizontal_fov, horizontal_fov) / 2.0);
+
+    const Eigen::Vector2d top(
+        principal_point[0],
+        std::max(0.0, principal_point[1] - max_valid_radius)),
+        bottom(principal_point[0],
+               std::min(image_size[1], principal_point[1] + max_valid_radius));
+    const double vertical_fov =
+        std::atan(std::abs(camera.ImageToWorld(top)[1])) +
+        std::atan(std::abs(camera.ImageToWorld(bottom)[1]));
+    const double focal_vertical_fov =
+        image_size[1] / 2.0 /
+        std::tan(std::min(max_vertical_fov, vertical_fov) / 2.0);
+
+    const double focal = std::max(
+        focal_diagonal_fov, std::max(focal_horizontal_fov, focal_vertical_fov));
+    undistorted_camera.SetFocalLengthX(focal);
+    undistorted_camera.SetFocalLengthY(focal);
+  } else {
+    const std::vector<size_t>& focal_length_idxs = camera.FocalLengthIdxs();
+    CHECK_LE(focal_length_idxs.size(), 2)
+        << "Not more than two focal length parameters supported.";
+    if (focal_length_idxs.size() == 1) {
+      undistorted_camera.SetFocalLengthX(camera.FocalLength());
+      undistorted_camera.SetFocalLengthY(camera.FocalLength());
+    } else if (focal_length_idxs.size() == 2) {
+      undistorted_camera.SetFocalLengthX(camera.FocalLengthX());
+      undistorted_camera.SetFocalLengthY(camera.FocalLengthY());
+    }
   }
 
   // Copy principal point parameters.
@@ -669,15 +801,21 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
 
     for (size_t y = 0; y < camera.Height(); ++y) {
       // Left border.
-      const Eigen::Vector2d world_point1 =
-          camera.ImageToWorld(Eigen::Vector2d(0.5, y + 0.5));
+      const Eigen::Vector2d border_point1 = SelectPointOnRay(
+          camera, principal_point, Eigen::Vector2d(0.5, y + 0.5),
+          max_valid_radius, max_valid_fov_half, max_horizontal_fov / 2.0,
+          max_vertical_fov / 2.0);
+      const Eigen::Vector2d world_point1 = camera.ImageToWorld(border_point1);
       const Eigen::Vector2d undistorted_point1 =
           undistorted_camera.WorldToImage(world_point1);
       left_min_x = std::min(left_min_x, undistorted_point1(0));
       left_max_x = std::max(left_max_x, undistorted_point1(0));
       // Right border.
-      const Eigen::Vector2d world_point2 =
-          camera.ImageToWorld(Eigen::Vector2d(camera.Width() - 0.5, y + 0.5));
+      const Eigen::Vector2d border_point2 = SelectPointOnRay(
+          camera, principal_point,
+          Eigen::Vector2d(camera.Width() - 0.5, y + 0.5), max_valid_radius,
+          max_valid_fov_half, max_horizontal_fov / 2.0, max_vertical_fov / 2.0);
+      const Eigen::Vector2d world_point2 = camera.ImageToWorld(border_point2);
       const Eigen::Vector2d undistorted_point2 =
           undistorted_camera.WorldToImage(world_point2);
       right_min_x = std::min(right_min_x, undistorted_point2(0));
@@ -693,15 +831,21 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
 
     for (size_t x = 0; x < camera.Width(); ++x) {
       // Top border.
-      const Eigen::Vector2d world_point1 =
-          camera.ImageToWorld(Eigen::Vector2d(x + 0.5, 0.5));
+      const Eigen::Vector2d border_point1 = SelectPointOnRay(
+          camera, principal_point, Eigen::Vector2d(x + 0.5, 0.5),
+          max_valid_radius, max_valid_fov_half, max_horizontal_fov / 2.0,
+          max_vertical_fov / 2.0);
+      const Eigen::Vector2d world_point1 = camera.ImageToWorld(border_point1);
       const Eigen::Vector2d undistorted_point1 =
           undistorted_camera.WorldToImage(world_point1);
       top_min_y = std::min(top_min_y, undistorted_point1(1));
       top_max_y = std::max(top_max_y, undistorted_point1(1));
       // Bottom border.
-      const Eigen::Vector2d world_point2 =
-          camera.ImageToWorld(Eigen::Vector2d(x + 0.5, camera.Height() - 0.5));
+      const Eigen::Vector2d border_point2 = SelectPointOnRay(
+          camera, principal_point,
+          Eigen::Vector2d(x + 0.5, camera.Height() - 0.5), max_valid_radius,
+          max_valid_fov_half, max_horizontal_fov / 2.0, max_vertical_fov / 2.0);
+      const Eigen::Vector2d world_point2 = camera.ImageToWorld(border_point2);
       const Eigen::Vector2d undistorted_point2 =
           undistorted_camera.WorldToImage(world_point2);
       bottom_min_y = std::min(bottom_min_y, undistorted_point2(1));
