@@ -205,7 +205,7 @@ if(IS_MSVC)
             DESTINATION "/")
 endif()
 
-if(IS_LINUX OR IS_BSD OR IS_SOLARIS)
+if(UNIX AND NOT APPLE)
     install(FILES "doc/COLMAP.desktop" DESTINATION "share/applications")
 endif()
 
