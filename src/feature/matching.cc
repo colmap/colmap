@@ -600,7 +600,7 @@ SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchingOptions& options,
   CHECK_GT(gpu_indices.size(), 0);
 
 #ifdef CUDA_ENABLED
-  if (gpu_indices.size() == 1 && gpu_indices[0] == -1) {
+  if (options_.use_gpu && gpu_indices.size() == 1 && gpu_indices[0] == -1) {
     const int num_cuda_devices = GetNumCudaDevices();
     CHECK_GT(num_cuda_devices, 0);
     gpu_indices.resize(num_cuda_devices);
