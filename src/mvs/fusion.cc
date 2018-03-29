@@ -108,7 +108,7 @@ StereoFusion::StereoFusion(const StereoFusionOptions& options,
   CHECK(options_.Check());
 }
 
-const std::vector<FusedPoint>& StereoFusion::GetFusedPoints() const {
+const std::vector<PlyPoint>& StereoFusion::GetFusedPoints() const {
   return fused_points_;
 }
 
@@ -417,7 +417,7 @@ void StereoFusion::Fuse() {
 
   const size_t num_pixels = fused_points_x_.size();
   if (num_pixels >= static_cast<size_t>(options_.min_num_pixels)) {
-    FusedPoint fused_point;
+    PlyPoint fused_point;
 
     Eigen::Vector3f fused_normal;
     fused_normal.x() = internal::Median(&fused_points_nx_);
@@ -445,73 +445,6 @@ void StereoFusion::Fuse() {
 
     fused_points_.push_back(fused_point);
   }
-}
-
-void WritePlyText(const std::string& path,
-                  const std::vector<FusedPoint>& points) {
-  std::ofstream file(path);
-  CHECK(file.is_open()) << path;
-
-  file << "ply" << std::endl;
-  file << "format ascii 1.0" << std::endl;
-  file << "element vertex " << points.size() << std::endl;
-  file << "property float x" << std::endl;
-  file << "property float y" << std::endl;
-  file << "property float z" << std::endl;
-  file << "property float nx" << std::endl;
-  file << "property float ny" << std::endl;
-  file << "property float nz" << std::endl;
-  file << "property uchar red" << std::endl;
-  file << "property uchar green" << std::endl;
-  file << "property uchar blue" << std::endl;
-  file << "end_header" << std::endl;
-
-  for (const auto& point : points) {
-    file << point.x << " " << point.y << " " << point.z << " " << point.nx
-         << " " << point.ny << " " << point.nz << " "
-         << static_cast<int>(point.r) << " " << static_cast<int>(point.g) << " "
-         << static_cast<int>(point.b) << std::endl;
-  }
-
-  file.close();
-}
-
-void WritePlyBinary(const std::string& path,
-                    const std::vector<FusedPoint>& points) {
-  std::fstream text_file(path, std::ios::out);
-  CHECK(text_file.is_open()) << path;
-
-  text_file << "ply" << std::endl;
-  text_file << "format binary_little_endian 1.0" << std::endl;
-  text_file << "element vertex " << points.size() << std::endl;
-  text_file << "property float x" << std::endl;
-  text_file << "property float y" << std::endl;
-  text_file << "property float z" << std::endl;
-  text_file << "property float nx" << std::endl;
-  text_file << "property float ny" << std::endl;
-  text_file << "property float nz" << std::endl;
-  text_file << "property uchar red" << std::endl;
-  text_file << "property uchar green" << std::endl;
-  text_file << "property uchar blue" << std::endl;
-  text_file << "end_header" << std::endl;
-  text_file.close();
-
-  std::fstream binary_file(path,
-                           std::ios::out | std::ios::binary | std::ios::app);
-  CHECK(binary_file.is_open()) << path;
-
-  for (const auto& point : points) {
-    WriteBinaryLittleEndian<float>(&binary_file, point.x);
-    WriteBinaryLittleEndian<float>(&binary_file, point.y);
-    WriteBinaryLittleEndian<float>(&binary_file, point.z);
-    WriteBinaryLittleEndian<float>(&binary_file, point.nx);
-    WriteBinaryLittleEndian<float>(&binary_file, point.ny);
-    WriteBinaryLittleEndian<float>(&binary_file, point.nz);
-    WriteBinaryLittleEndian<uint8_t>(&binary_file, point.r);
-    WriteBinaryLittleEndian<uint8_t>(&binary_file, point.g);
-    WriteBinaryLittleEndian<uint8_t>(&binary_file, point.b);
-  }
-  binary_file.close();
 }
 
 }  // namespace mvs

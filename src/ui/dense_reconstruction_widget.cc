@@ -481,13 +481,12 @@ void DenseReconstructionWidget::WriteFusedPoints() {
     return;
   }
 
-  thread_control_widget_->StartFunction(
-      "Exporting...", [this, workspace_path]() {
-        mvs::WritePlyBinary(JoinPaths(workspace_path, kFusedFileName),
-                            fused_points_);
-        fused_points_ = {};
-        meshing_button_->setEnabled(true);
-      });
+  thread_control_widget_->StartFunction("Exporting...", [this,
+                                                         workspace_path]() {
+    WriteBinaryPly(JoinPaths(workspace_path, kFusedFileName), fused_points_);
+    fused_points_ = {};
+    meshing_button_->setEnabled(true);
+  });
 }
 
 void DenseReconstructionWidget::ShowMeshingInfo() {

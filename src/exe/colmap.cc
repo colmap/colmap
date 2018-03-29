@@ -221,7 +221,7 @@ int RunDenseFuser(int argc, char** argv) {
   fuser.Wait();
 
   std::cout << "Writing output: " << output_path << std::endl;
-  WritePlyBinary(output_path, fuser.GetFusedPoints());
+  WriteBinaryPly(output_path, fuser.GetFusedPoints());
 
   return EXIT_SUCCESS;
 }
