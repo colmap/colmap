@@ -104,24 +104,26 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
     // Show diffuse, ambient, specular colors as regular colors.
 
     if (line_elems.size() >= 3 && line_elems[0] == "property") {
-      CHECK(line_elems[1] == "float" || line_elems[1] == "uchar")
+      CHECK(line_elems[1] == "float" || line_elems[1] == "float32" ||
+            line_elems[1] == "uchar")
           << "PLY import only supports the float and uchar data types";
-      if (line == "property float x") {
+
+      if (line == "property float x" || line == "property float32 x") {
         X_index = index;
         X_byte_pos = num_bytes_per_line;
-      } else if (line == "property float y") {
+      } else if (line == "property float y" || line == "property float32 y") {
         Y_index = index;
         Y_byte_pos = num_bytes_per_line;
-      } else if (line == "property float z") {
+      } else if (line == "property float z" || line == "property float32 z") {
         Z_index = index;
         Z_byte_pos = num_bytes_per_line;
-      } else if (line == "property float nx") {
+      } else if (line == "property float nx" || line == "property float32 nx") {
         NX_index = index;
         NX_byte_pos = num_bytes_per_line;
-      } else if (line == "property float ny") {
+      } else if (line == "property float ny" || line == "property float32 ny") {
         NY_index = index;
         NY_byte_pos = num_bytes_per_line;
-      } else if (line == "property float nz") {
+      } else if (line == "property float nz" || line == "property float32 nz") {
         NZ_index = index;
         NZ_byte_pos = num_bytes_per_line;
       } else if (line == "property uchar r" || line == "property uchar red" ||
@@ -145,7 +147,7 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
       }
 
       index += 1;
-      if (line_elems[1] == "float") {
+      if (line_elems[1] == "float" || line_elems[1] == "float32") {
         num_bytes_per_line += 4;
       } else if (line_elems[1] == "uchar") {
         num_bytes_per_line += 1;
