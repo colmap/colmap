@@ -30,6 +30,7 @@
 #include "base/point3d.h"
 #include "base/track.h"
 #include "util/alignment.h"
+#include "util/ply.h"
 #include "util/types.h"
 
 namespace colmap {
@@ -223,6 +224,9 @@ class Reconstruction {
   // Write data from binary/text file.
   void WriteText(const std::string& path) const;
   void WriteBinary(const std::string& path) const;
+
+  // Convert 3D points in reconstruction to PLY point cloud.
+  std::vector<PlyPoint> ConvertToPLY() const;
 
   // Import from other data formats. Note that these import functions are
   // only intended for visualization of data and usable for reconstruction.

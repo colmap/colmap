@@ -26,7 +26,6 @@
 #include "optim/loransac.h"
 #include "util/bitmap.h"
 #include "util/misc.h"
-#include "util/ply.h"
 
 namespace colmap {
 
@@ -775,6 +774,24 @@ void Reconstruction::WriteBinary(const std::string& path) const {
   WritePoints3DBinary(JoinPaths(path, "points3D.bin"));
 }
 
+std::vector<PlyPoint> Reconstruction::ConvertToPLY() const {
+  std::vector<PlyPoint> ply_points;
+  ply_points.reserve(points3D_.size());
+
+  for (const auto& point3D : points3D_) {
+    PlyPoint ply_point;
+    ply_point.x = point3D.second.X();
+    ply_point.y = point3D.second.Y();
+    ply_point.z = point3D.second.Z();
+    ply_point.r = point3D.second.Color(0);
+    ply_point.g = point3D.second.Color(1);
+    ply_point.b = point3D.second.Color(2);
+    ply_points.push_back(ply_point);
+  }
+
+  return ply_points;
+}
+
 void Reconstruction::ImportPLY(const std::string& path) {
   points3D_.clear();
 
@@ -970,19 +987,7 @@ bool Reconstruction::ExportBundler(const std::string& path,
 }
 
 void Reconstruction::ExportPLY(const std::string& path) const {
-  std::vector<PlyPoint> ply_points;
-  ply_points.reserve(points3D_.size());
-
-  for (const auto& point3D : points3D_) {
-    PlyPoint ply_point;
-    ply_point.x = point3D.second.X();
-    ply_point.y = point3D.second.Y();
-    ply_point.z = point3D.second.Z();
-    ply_point.r = point3D.second.Color(0);
-    ply_point.g = point3D.second.Color(1);
-    ply_point.b = point3D.second.Color(2);
-    ply_points.push_back(ply_point);
-  }
+  const auto ply_points  = ConvertToPLY();
 
   const bool kWriteNormal = false;
   const bool kWriteRGB = true;
