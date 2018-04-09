@@ -18,7 +18,7 @@ endif()
 
 # Determine project operating system.
 string(REGEX MATCH "Linux" IS_LINUX ${CMAKE_SYSTEM_NAME})
-string(REGEX MATCH "BSD" IS_BSD ${CMAKE_SYSTEM_NAME})
+string(REGEX MATCH "DragonFly|BSD" IS_BSD ${CMAKE_SYSTEM_NAME})
 string(REGEX MATCH "SunOS" IS_SOLARIS ${CMAKE_SYSTEM_NAME})
 if(WIN32)
     SET(IS_WINDOWS TRUE BOOL INTERNAL)
