@@ -52,7 +52,7 @@ using std::max;
 #if defined(_M_ARM) && _M_ARM >= 7 && !defined(DISABLE_CPU_NEON)
 #include <arm_neon.h>
 #define CPUPBA_USE_NEON
-#elif defined(__ARM_NEON__) && !defined(DISABLE_CPU_NEON)
+#elif defined(__ARM_NEON) && !defined(DISABLE_CPU_NEON)
 #include <arm_neon.h>
 #define CPUPBA_USE_NEON
 #endif
