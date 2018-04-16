@@ -69,10 +69,15 @@ set(VLFEAT_SOURCE_FILES
     vlad.c
     vlad.h)
 
-if(SIMD_ENABLED AND IS_X86 AND NOT MSVC)
-    set(AVX_SOURCES
-        mathop_avx.c
-        mathop_avx.h)
+if(SIMD_ENABLED AND IS_X86)
+    if (MSVC)
+        # https://github.com/vlfeat/vlfeat/commit/4f0098fd47e9
+        add_definitions(-DVL_DISABLE_AVX)
+    else()
+        set(AVX_SOURCES
+            mathop_avx.c
+            mathop_avx.h)
+    endif()
 
     set(SSE2_SOURCES
         imopv_sse2.c
@@ -82,10 +87,17 @@ if(SIMD_ENABLED AND IS_X86 AND NOT MSVC)
 
     list(APPEND VLFEAT_SOURCE_FILES ${AVX_SOURCES} ${SSE2_SOURCES})
 
-    set_source_files_properties(${AVX_SOURCES}
-        PROPERTIES COMPILE_FLAGS "-mavx")
-    set_source_files_properties(${SSE2_SOURCES}
-        PROPERTIES COMPILE_FLAGS "-msse2")
+    if (MSVC)
+        set_source_files_properties(${AVX_SOURCES}
+            PROPERTIES COMPILE_FLAGS "/arch:AVX")
+        set_source_files_properties(${SSE2_SOURCES}
+            PROPERTIES COMPILE_FLAGS "/arch:SSE2 /D__SSE2__")
+    else()
+        set_source_files_properties(${AVX_SOURCES}
+            PROPERTIES COMPILE_FLAGS "-mavx")
+        set_source_files_properties(${SSE2_SOURCES}
+            PROPERTIES COMPILE_FLAGS "-msse2")
+    endif()
 else()
     add_definitions(-DVL_DISABLE_AVX)
     add_definitions(-DVL_DISABLE_SSE2)
