@@ -199,7 +199,7 @@ the terms of the BSD license (see the COPYING file).
 
 /** @name Identifying the host threading library
  ** @{ */
-#if defined(VL_OS_MACOSX) || defined(VL_OS_LINUX) || \
+#if !defined(VL_OS_WIN) && !defined(VL_OS_WIN64) || \
 defined(__DOXYGEN__)
 #define VL_THREADS_POSIX 1
 #endif
