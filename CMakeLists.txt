@@ -113,7 +113,7 @@ if(IS_DEBUG)
     add_definitions("-DEIGEN_INITIALIZE_MATRICES_BY_NAN")
 endif()
 
-if(OPENMP_ENABLED)
+if(SIMD_ENABLED)
     message(STATUS "Enabling SIMD support")
 else()
     message(STATUS "Disabling SIMD support")
