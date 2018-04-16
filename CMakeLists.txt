@@ -28,7 +28,7 @@ endif()
 ################################################################################
 
 option(SIMD_ENABLED "Whether to enable SIMD optimizations" ON)
-option(OPENMP_ENABLED "Whether to enable OpenMP" ON)
+option(OPENMP_ENABLED "Whether to enable OpenMP parallelization" ON)
 option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
 option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
 option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
@@ -111,6 +111,12 @@ endif()
 
 if(IS_DEBUG)
     add_definitions("-DEIGEN_INITIALIZE_MATRICES_BY_NAN")
+endif()
+
+if(OPENMP_ENABLED)
+    message(STATUS "Enabling SIMD support")
+else()
+    message(STATUS "Disabling SIMD support")
 endif()
 
 if(OPENMP_ENABLED AND OPENMP_FOUND)
