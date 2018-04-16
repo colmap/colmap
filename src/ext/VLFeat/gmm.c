@@ -1102,13 +1102,13 @@ VL_XCAT(_vl_gmm_maximization_, SFX)
 
         #ifndef VL_DISABLE_AVX
         if (vl_get_simd_enabled() && vl_cpu_has_avx()) {
-          VL_XCAT(_vl_weighted_mean_sse2_, SFX)
+          VL_XCAT(_vl_weighted_mean_avx_, SFX)
           (self->dimension,
            means_+ i_cl * self->dimension,
            data + i_d * self->dimension,
            p) ;
 
-          VL_XCAT(_vl_weighted_sigma_sse2_, SFX)
+          VL_XCAT(_vl_weighted_sigma_avx_, SFX)
           (self->dimension,
            covariances_ + i_cl * self->dimension,
            data + i_d * self->dimension,

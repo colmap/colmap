@@ -777,14 +777,12 @@ calling @c omp_set_num_threads() in the application. Note that:
 
 #if defined(VL_OS_WIN)
 #include <Windows.h>
+#else
+#include <unistd.h>
 #endif
 
 #if ! defined(VL_DISABLE_THREADS) && defined(VL_THREADS_POSIX)
 #include <pthread.h>
-#endif
-
-#if defined(VL_OS_MACOSX) || defined(VL_OS_LINUX)
-#include <unistd.h>
 #endif
 
 #if defined(_OPENMP)
@@ -1564,7 +1562,7 @@ vl_constructor (void)
     GetSystemInfo (&info) ;
     state->numCPUs = info.dwNumberOfProcessors ;
   }
-#elif defined(VL_OS_MACOSX) || defined(VL_OS_LINUX)
+#elif defined(_SC_NPROCESSORS_ONLN)
   state->numCPUs = sysconf(_SC_NPROCESSORS_ONLN) ;
 #else
   state->numCPUs = 1 ;
