@@ -517,8 +517,8 @@ please execute ``colmap gui`` or directly specify a project configuration as
 ``colmap gui --project_path path/to/project.ini`` to avoid tedious selection in
 the GUI. To list the different commands available from the command-line, execute
 ``colmap help``. For example, to run feature extraction from the command-line,
-you must execute ``colmap feature_extractor``. The :ref:`Graphical User
-Interface <gui>` and :ref:`Command- line Interface <cli>` sections provide more
+you must execute ``colmap feature_extractor``. The :ref:`graphical user
+interface <gui>` and :ref:`command-line Interface <cli>` sections provide more
 details about the available commands.
 
 
