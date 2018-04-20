@@ -334,6 +334,8 @@ The dense reconstruction can be speeded up in multiple ways:
 - Reduce the number of source images per reference image to be considered, as
   described :ref:`here <faq-dense-memory>`.
 
+- Increase the patch windows step ``--DenseStereo.window_step`` to 2.
+
 - Reduce the patch window radius ``--DenseStereo.window_radius``.
 
 - Reduce the number of patch match iterations ``--DenseStereo.num_iterations``.
