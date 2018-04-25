@@ -225,4 +225,24 @@ void Camera::Rescale(const double scale) {
   }
 }
 
+void Camera::Rescale(const size_t width, const size_t height) {
+  const double scale_x =
+      static_cast<double>(width) / static_cast<double>(width_);
+  const double scale_y =
+      static_cast<double>(height) / static_cast<double>(height_);
+  width_ = width;
+  height_ = height;
+  SetPrincipalPointX(scale_x * PrincipalPointX());
+  SetPrincipalPointY(scale_y * PrincipalPointY());
+  if (FocalLengthIdxs().size() == 1) {
+    SetFocalLength((scale_x + scale_y) / 2.0 * FocalLength());
+  } else if (FocalLengthIdxs().size() == 2) {
+    SetFocalLengthX(scale_x * FocalLengthX());
+    SetFocalLengthY(scale_y * FocalLengthY());
+  } else {
+    LOG(FATAL)
+        << "Camera model must either have 1 or 2 focal length parameters.";
+  }
+}
+
 }  // namespace colmap
