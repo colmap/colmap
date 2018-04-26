@@ -240,8 +240,9 @@ Or, alternatively, you can start the reconstruction from scratch::
         --image_path $PROJECT_PATH/images \
         --export_path /path/to/model-with-new-images
 
-Note that dense reconstruction must be re-run from scratch after adding new
-images, as the coordinate frame of the model is changed.
+Note that dense reconstruction must be re-run from scratch after running the
+``mapper`` or the ``bundle_adjuster``, as the coordinate frame of the model can
+change during these steps.
 
 
 Available functionality without GPU/CUDA
