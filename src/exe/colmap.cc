@@ -1347,21 +1347,21 @@ FeatureDescriptors LoadRandomDatabaseDescriptors(
 
   FeatureDescriptors descriptors;
 
-  std::vector<size_t> image_ids;
+  std::vector<size_t> image_idxs;
   size_t num_descriptors = 0;
   if (max_num_images < 0) {
     // All images in the database.
-    image_ids.resize(images.size());
-    std::iota(image_ids.begin(), image_ids.end(), 0);
+    image_idxs.resize(images.size());
+    std::iota(image_idxs.begin(), image_idxs.end(), 0);
     num_descriptors = database.NumDescriptors();
   } else {
     // Random subset of images in the database.
     CHECK_LE(max_num_images, images.size());
     RandomSampler random_sampler(max_num_images);
     random_sampler.Initialize(images.size());
-    image_ids = random_sampler.Sample();
-    for (const auto image_id : image_ids) {
-      const auto& image = images.at(image_id);
+    image_idxs = random_sampler.Sample();
+    for (const auto image_idx : image_idxs) {
+      const auto& image = images.at(image_idx);
       num_descriptors += database.NumDescriptorsForImage(image.ImageId());
     }
   }
@@ -1369,8 +1369,8 @@ FeatureDescriptors LoadRandomDatabaseDescriptors(
   descriptors.resize(num_descriptors, 128);
 
   size_t descriptor_row = 0;
-  for (const auto image_id : image_ids) {
-    const auto& image = images.at(image_id);
+  for (const auto image_idx : image_idxs) {
+    const auto& image = images.at(image_idx);
     const FeatureDescriptors image_descriptors =
         database.ReadDescriptors(image.ImageId());
     descriptors.block(descriptor_row, 0, image_descriptors.rows(), 128) =

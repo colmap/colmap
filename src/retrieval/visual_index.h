@@ -93,7 +93,7 @@ class VisualIndex {
     int num_iterations = 11;
 
     // The target precision of the visual word search index.
-    double target_precision = 0.9;
+    double target_precision = 0.95;
 
     // The number of checks in the nearest neighbor search.
     int num_checks = 256;
