@@ -6,7 +6,7 @@ Database Format
 COLMAP stores all extracted information in a single SQLite database file. The
 database can be accessed with the database management toolkit in the COLMAP GUI,
 the provided C++ database API (see ``src/base/database.h``), or with a scripting
-language of your choice (see ``scripts/python/*`` for examples).
+language of your choice (see ``scripts/python/database.py``).
 
 The database contains the following tables:
 
