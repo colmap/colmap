@@ -40,7 +40,11 @@ struct ImageReaderOptions {
   // Whether to use the same camera for all images.
   bool single_camera = false;
 
-  // Specification of manual camera parameters. If empty, camera parameters
+  // Whether to explicitly use an existing camera for all images. Note that in
+  // this case the specified camera model and parameters are ignored.
+  int existing_camera_id = kInvalidCameraId;
+
+  // Manual specification of camera parameters. If empty, camera parameters
   // will be extracted from EXIF, i.e. principal point and focal length.
   std::string camera_params = "";
 

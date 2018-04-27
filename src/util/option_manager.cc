@@ -185,6 +185,8 @@ void OptionManager::AddExtractionOptions() {
                               &image_reader->camera_model);
   AddAndRegisterDefaultOption("ImageReader.single_camera",
                               &image_reader->single_camera);
+  AddAndRegisterDefaultOption("ImageReader.existing_camera_id",
+                              &image_reader->existing_camera_id);
   AddAndRegisterDefaultOption("ImageReader.camera_params",
                               &image_reader->camera_params);
   AddAndRegisterDefaultOption("ImageReader.default_focal_length_factor",
