@@ -185,6 +185,8 @@ void OptionManager::AddExtractionOptions() {
                               &image_reader->camera_model);
   AddAndRegisterDefaultOption("ImageReader.single_camera",
                               &image_reader->single_camera);
+  AddAndRegisterDefaultOption("ImageReader.existing_camera_id",
+                              &image_reader->existing_camera_id);
   AddAndRegisterDefaultOption("ImageReader.camera_params",
                               &image_reader->camera_params);
   AddAndRegisterDefaultOption("ImageReader.default_focal_length_factor",
@@ -292,8 +294,13 @@ void OptionManager::AddSequentialMatchingOptions() {
   AddAndRegisterDefaultOption("SequentialMatching.loop_detection_num_images",
                               &sequential_matching->loop_detection_num_images);
   AddAndRegisterDefaultOption(
-      "SequentialMatching.loop_detection_num_verifications",
-      &sequential_matching->loop_detection_num_verifications);
+      "SequentialMatching.loop_detection_num_nearest_neighbors",
+      &sequential_matching->loop_detection_num_nearest_neighbors);
+  AddAndRegisterDefaultOption("SequentialMatching.loop_detection_num_checks",
+                              &sequential_matching->loop_detection_num_checks);
+  AddAndRegisterDefaultOption(
+      "SequentialMatching.loop_detection_num_images_after_verification",
+      &sequential_matching->loop_detection_num_images_after_verification);
   AddAndRegisterDefaultOption(
       "SequentialMatching.loop_detection_max_num_features",
       &sequential_matching->loop_detection_max_num_features);
@@ -311,8 +318,13 @@ void OptionManager::AddVocabTreeMatchingOptions() {
 
   AddAndRegisterDefaultOption("VocabTreeMatching.num_images",
                               &vocab_tree_matching->num_images);
-  AddAndRegisterDefaultOption("VocabTreeMatching.num_verifications",
-                              &vocab_tree_matching->num_verifications);
+  AddAndRegisterDefaultOption("VocabTreeMatching.num_nearest_neighbors",
+                              &vocab_tree_matching->num_nearest_neighbors);
+  AddAndRegisterDefaultOption("VocabTreeMatching.num_checks",
+                              &vocab_tree_matching->num_checks);
+  AddAndRegisterDefaultOption(
+      "VocabTreeMatching.num_images_after_verification",
+      &vocab_tree_matching->num_images_after_verification);
   AddAndRegisterDefaultOption("VocabTreeMatching.max_num_features",
                               &vocab_tree_matching->max_num_features);
   AddAndRegisterDefaultOption("VocabTreeMatching.vocab_tree_path",

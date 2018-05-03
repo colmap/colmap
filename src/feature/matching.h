@@ -55,8 +55,15 @@ struct SequentialMatchingOptions {
   // be significantly bigger than the sequential matching overlap.
   int loop_detection_num_images = 30;
 
-  // Number of images to spatially verify for re-ranking.
-  int loop_detection_num_verifications = 0;
+  // Number of nearest neighbors to retrieve per query feature.
+  int loop_detection_num_nearest_neighbors = 1;
+
+  // Number of nearest-neighbor checks to use in retrieval.
+  int loop_detection_num_checks = 256;
+
+  // How many images to return after spatial verification. Set to 0 to turn off
+  // spatial verification.
+  int loop_detection_num_images_after_verification = 0;
 
   // The maximum number of features to use for indexing an image. If an
   // image has more features, only the largest-scale features will be indexed.
@@ -72,8 +79,15 @@ struct VocabTreeMatchingOptions {
   // Number of images to retrieve for each query image.
   int num_images = 100;
 
-  // Number of images to spatially verify for re-ranking.
-  int num_verifications = 0;
+  // Number of nearest neighbors to retrieve per query feature.
+  int num_nearest_neighbors = 5;
+
+  // Number of nearest-neighbor checks to use in retrieval.
+  int num_checks = 256;
+
+  // How many images to return after spatial verification. Set to 0 to turn off
+  // spatial verification.
+  int num_images_after_verification = 0;
 
   // The maximum number of features to use for indexing an image. If an
   // image has more features, only the largest-scale features will be indexed.

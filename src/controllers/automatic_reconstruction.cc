@@ -286,7 +286,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
       active_thread_ = nullptr;
 
       std::cout << "Writing output: " << fused_path << std::endl;
-      WritePlyBinary(fused_path, fuser.GetFusedPoints());
+      WriteBinaryPly(fused_path, fuser.GetFusedPoints());
     }
 
     if (IsStopped()) {

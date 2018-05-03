@@ -528,7 +528,7 @@ private:
         Logger::info("KD-TREE, Step 1: Exploring parameter space\n");
 
         // explore kd-tree parameters space using the parameters below
-        int testTrees[] = { 1, 4, 8, 16, 32 };
+        int testTrees[] = { 1, 4, 8, 16, 32, 64, 128};
 
         // evaluate kdtree for all parameter combinations
         for (size_t i = 0; i < FLANN_ARRAY_LEN(testTrees); ++i) {

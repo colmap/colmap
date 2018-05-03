@@ -243,8 +243,8 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
   ('index', 'COLMAP', u'COLMAP Documentation',
-   u'Johannes L. Schoenberger', 'COLMAP', 'Structure-from-Motion.',
-   'Miscellaneous'),
+   u'Johannes L. Schoenberger', 'COLMAP',
+   'Structure-from-Motion and Multi-View Stereo.', 'Miscellaneous'),
 ]
 
 # Documents to append as an appendix to all manuals.

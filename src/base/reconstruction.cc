@@ -774,201 +774,36 @@ void Reconstruction::WriteBinary(const std::string& path) const {
   WritePoints3DBinary(JoinPaths(path, "points3D.bin"));
 }
 
+std::vector<PlyPoint> Reconstruction::ConvertToPLY() const {
+  std::vector<PlyPoint> ply_points;
+  ply_points.reserve(points3D_.size());
+
+  for (const auto& point3D : points3D_) {
+    PlyPoint ply_point;
+    ply_point.x = point3D.second.X();
+    ply_point.y = point3D.second.Y();
+    ply_point.z = point3D.second.Z();
+    ply_point.r = point3D.second.Color(0);
+    ply_point.g = point3D.second.Color(1);
+    ply_point.b = point3D.second.Color(2);
+    ply_points.push_back(ply_point);
+  }
+
+  return ply_points;
+}
+
 void Reconstruction::ImportPLY(const std::string& path) {
   points3D_.clear();
 
-  std::ifstream file(path, std::ios::binary);
-  CHECK(file.is_open()) << path;
+  const auto ply_points = ReadPly(path);
 
-  std::string line;
+  points3D_.reserve(ply_points.size());
 
-  int X_index = -1;
-  int Y_index = -1;
-  int Z_index = -1;
-  int R_index = -1;
-  int G_index = -1;
-  int B_index = -1;
-  int X_byte_pos = -1;
-  int Y_byte_pos = -1;
-  int Z_byte_pos = -1;
-  int R_byte_pos = -1;
-  int G_byte_pos = -1;
-  int B_byte_pos = -1;
-
-  bool in_vertex_section = false;
-  bool is_binary = false;
-  bool is_little_endian = false;
-  size_t num_bytes_per_line = 0;
-  size_t num_vertices = 0;
-
-  int index = 0;
-  while (std::getline(file, line)) {
-    StringTrim(&line);
-
-    if (line.empty()) {
-      continue;
-    }
-
-    if (line == "end_header") {
-      break;
-    }
-
-    if (line.size() >= 6 && line.substr(0, 6) == "format") {
-      if (line == "format ascii 1.0") {
-        is_binary = false;
-      } else if (line == "format binary_little_endian 1.0") {
-        is_binary = true;
-        is_little_endian = true;
-      } else if (line == "format binary_big_endian 1.0") {
-        is_binary = true;
-        is_little_endian = false;
-      }
-    }
-
-    const std::vector<std::string> line_elems = StringSplit(line, " ");
-
-    if (line_elems.size() >= 3 && line_elems[0] == "element") {
-      in_vertex_section = false;
-      if (line_elems[1] == "vertex") {
-        num_vertices = std::stoll(line_elems[2]);
-        in_vertex_section = true;
-      } else if (std::stoll(line_elems[2]) > 0) {
-        LOG(FATAL) << "Only vertex elements supported";
-      }
-    }
-
-    if (!in_vertex_section) {
-      continue;
-    }
-
-    // Just render diffuse, ambient, specular colors as normal colors.
-
-    if (line_elems.size() >= 3 && line_elems[0] == "property") {
-      CHECK(line_elems[1] == "float" || line_elems[1] == "uchar")
-          << "PLY import only supports the float and uchar data types";
-      if (line == "property float x") {
-        X_index = index;
-        X_byte_pos = num_bytes_per_line;
-      } else if (line == "property float y") {
-        Y_index = index;
-        Y_byte_pos = num_bytes_per_line;
-      } else if (line == "property float z") {
-        Z_index = index;
-        Z_byte_pos = num_bytes_per_line;
-      } else if (line == "property uchar r" || line == "property uchar red" ||
-                 line == "property uchar diffuse_red" ||
-                 line == "property uchar ambient_red" ||
-                 line == "property uchar specular_red") {
-        R_index = index;
-        R_byte_pos = num_bytes_per_line;
-      } else if (line == "property uchar g" || line == "property uchar green" ||
-                 line == "property uchar diffuse_green" ||
-                 line == "property uchar ambient_green" ||
-                 line == "property uchar specular_green") {
-        G_index = index;
-        G_byte_pos = num_bytes_per_line;
-      } else if (line == "property uchar b" || line == "property uchar blue" ||
-                 line == "property uchar diffuse_blue" ||
-                 line == "property uchar ambient_blue" ||
-                 line == "property uchar specular_blue") {
-        B_index = index;
-        B_byte_pos = num_bytes_per_line;
-      }
-
-      index += 1;
-      if (line_elems[1] == "float") {
-        num_bytes_per_line += 4;
-      } else if (line_elems[1] == "uchar") {
-        num_bytes_per_line += 1;
-      } else {
-        LOG(FATAL) << "Invalid data type: " << line_elems[1];
-      }
-    }
-  }
-
-  const bool is_rgb_missing = R_index == -1 || G_index == -1 || B_index == -1;
-
-  CHECK(X_index != -1 && Y_index != -1 && Z_index)
-      << "Invalid PLY file format: x, y, z properties missing";
-
-  if (is_binary) {
-    std::vector<char> buffer(num_bytes_per_line);
-    for (size_t i = 0; i < num_vertices; ++i) {
-      file.read(buffer.data(), num_bytes_per_line);
-
-      Eigen::Vector3d xyz;
-      Eigen::Vector3i rgb;
-      if (is_little_endian) {
-        xyz(0) = LittleEndianToNative(
-            *reinterpret_cast<float*>(&buffer[X_byte_pos]));
-        xyz(1) = LittleEndianToNative(
-            *reinterpret_cast<float*>(&buffer[Y_byte_pos]));
-        xyz(2) = LittleEndianToNative(
-            *reinterpret_cast<float*>(&buffer[Z_byte_pos]));
-
-        if (is_rgb_missing) {
-          rgb.setZero();
-        } else {
-          rgb(0) = LittleEndianToNative(
-              *reinterpret_cast<uint8_t*>(&buffer[R_byte_pos]));
-          rgb(1) = LittleEndianToNative(
-              *reinterpret_cast<uint8_t*>(&buffer[G_byte_pos]));
-          rgb(2) = LittleEndianToNative(
-              *reinterpret_cast<uint8_t*>(&buffer[B_byte_pos]));
-        }
-      } else {
-        xyz(0) =
-            BigEndianToNative(*reinterpret_cast<float*>(&buffer[X_byte_pos]));
-        xyz(1) =
-            BigEndianToNative(*reinterpret_cast<float*>(&buffer[Y_byte_pos]));
-        xyz(2) =
-            BigEndianToNative(*reinterpret_cast<float*>(&buffer[Z_byte_pos]));
-
-        if (is_rgb_missing) {
-          rgb.setZero();
-        } else {
-          rgb(0) = BigEndianToNative(
-              *reinterpret_cast<uint8_t*>(&buffer[R_byte_pos]));
-          rgb(1) = BigEndianToNative(
-              *reinterpret_cast<uint8_t*>(&buffer[G_byte_pos]));
-          rgb(2) = BigEndianToNative(
-              *reinterpret_cast<uint8_t*>(&buffer[B_byte_pos]));
-        }
-      }
-
-      const point3D_t point3D_id = AddPoint3D(xyz, Track());
-      Point3D(point3D_id).SetColor(rgb.cast<uint8_t>());
-    }
-  } else {
-    while (std::getline(file, line)) {
-      StringTrim(&line);
-      std::stringstream line_stream(line);
-
-      std::string item;
-      std::vector<std::string> items;
-      while (!line_stream.eof()) {
-        std::getline(line_stream, item, ' ');
-        StringTrim(&item);
-        items.push_back(item);
-      }
-
-      Eigen::Vector3d xyz;
-      xyz(0) = std::stold(items.at(X_index));
-      xyz(1) = std::stold(items.at(Y_index));
-      xyz(2) = std::stold(items.at(Z_index));
-
-      Eigen::Vector3i rgb;
-      if (is_rgb_missing) {
-        rgb.setZero();
-      } else {
-        rgb(0) = std::stoi(items.at(R_index));
-        rgb(1) = std::stoi(items.at(G_index));
-        rgb(2) = std::stoi(items.at(B_index));
-      }
-
-      const point3D_t point3D_id = AddPoint3D(xyz, Track());
-      Point3D(point3D_id).SetColor(rgb.cast<uint8_t>());
-    }
+  for (const auto& ply_point : ply_points) {
+    const point3D_t point3D_id = AddPoint3D(
+        Eigen::Vector3d(ply_point.x, ply_point.y, ply_point.z), Track());
+    Point3D(point3D_id)
+        .SetColor(Eigen::Vector3ub(ply_point.r, ply_point.g, ply_point.b));
   }
 }
 
@@ -976,9 +811,9 @@ bool Reconstruction::ExportNVM(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc);
   CHECK(file.is_open()) << path;
 
-  file << "NVM_V3" << std::endl << std::endl;
-
-  file << reg_image_ids_.size() << std::endl;
+  // White space added for compatibility with Meshlab.
+  file << "NVM_V3 " << std::endl << " " << std::endl;
+  file << reg_image_ids_.size() << "  " << std::endl;
 
   std::unordered_map<image_t, size_t> image_id_to_idx_;
   size_t image_idx = 0;
@@ -1152,34 +987,11 @@ bool Reconstruction::ExportBundler(const std::string& path,
 }
 
 void Reconstruction::ExportPLY(const std::string& path) const {
-  std::fstream text_file(path, std::ios::out);
-  CHECK(text_file.is_open()) << path;
+  const auto ply_points  = ConvertToPLY();
 
-  text_file << "ply" << std::endl;
-  text_file << "format binary_little_endian 1.0" << std::endl;
-  text_file << "element vertex " << points3D_.size() << std::endl;
-  text_file << "property float x" << std::endl;
-  text_file << "property float y" << std::endl;
-  text_file << "property float z" << std::endl;
-  text_file << "property uchar red" << std::endl;
-  text_file << "property uchar green" << std::endl;
-  text_file << "property uchar blue" << std::endl;
-  text_file << "end_header" << std::endl;
-  text_file.close();
-
-  std::fstream binary_file(path,
-                           std::ios::out | std::ios::binary | std::ios::app);
-  CHECK(binary_file.is_open()) << path;
-
-  for (const auto& point3D : points3D_) {
-    WriteBinaryLittleEndian<float>(&binary_file, point3D.second.X());
-    WriteBinaryLittleEndian<float>(&binary_file, point3D.second.Y());
-    WriteBinaryLittleEndian<float>(&binary_file, point3D.second.Z());
-    WriteBinaryLittleEndian<uint8_t>(&binary_file, point3D.second.Color(0));
-    WriteBinaryLittleEndian<uint8_t>(&binary_file, point3D.second.Color(1));
-    WriteBinaryLittleEndian<uint8_t>(&binary_file, point3D.second.Color(2));
-  }
-  binary_file.close();
+  const bool kWriteNormal = false;
+  const bool kWriteRGB = true;
+  WriteBinaryPly(path, ply_points, kWriteNormal, kWriteRGB);
 }
 
 void Reconstruction::ExportVRML(const std::string& images_path,

@@ -18,8 +18,6 @@ include(CheckCXXCompilerFlag)
 # the CMake policies in this file
 include(${CMAKE_SOURCE_DIR}/cmake/CMakeHelper.cmake NO_POLICY_SCOPE)
 
-include(${CMAKE_SOURCE_DIR}/cmake/CheckSSEExtensions.cmake)
-
 if(EXISTS ${CMAKE_SOURCE_DIR}/LocalConfig.cmake)
     include(${CMAKE_SOURCE_DIR}/LocalConfig.cmake)
 endif()
@@ -29,7 +27,8 @@ endif()
 # Options
 ################################################################################
 
-option(OPENMP_ENABLED "Whether to enable OpenMP" ON)
+option(SIMD_ENABLED "Whether to enable SIMD optimizations" ON)
+option(OPENMP_ENABLED "Whether to enable OpenMP parallelization" ON)
 option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
 option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
 option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
@@ -112,6 +111,12 @@ endif()
 
 if(IS_DEBUG)
     add_definitions("-DEIGEN_INITIALIZE_MATRICES_BY_NAN")
+endif()
+
+if(SIMD_ENABLED)
+    message(STATUS "Enabling SIMD support")
+else()
+    message(STATUS "Disabling SIMD support")
 endif()
 
 if(OPENMP_ENABLED AND OPENMP_FOUND)
@@ -203,6 +208,10 @@ if(IS_MSVC)
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
                         GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
             DESTINATION "/")
+endif()
+
+if(UNIX AND NOT APPLE)
+    install(FILES "doc/COLMAP.desktop" DESTINATION "share/applications")
 endif()
 
 configure_file("${CMAKE_SOURCE_DIR}/cmake/CMakeUninstall.cmake"

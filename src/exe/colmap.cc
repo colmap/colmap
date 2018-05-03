@@ -221,7 +221,7 @@ int RunDenseFuser(int argc, char** argv) {
   fuser.Wait();
 
   std::cout << "Writing output: " << output_path << std::endl;
-  WritePlyBinary(output_path, fuser.GetFusedPoints());
+  WriteBinaryPly(output_path, fuser.GetFusedPoints());
 
   return EXIT_SUCCESS;
 }
@@ -1347,21 +1347,21 @@ FeatureDescriptors LoadRandomDatabaseDescriptors(
 
   FeatureDescriptors descriptors;
 
-  std::vector<size_t> image_ids;
+  std::vector<size_t> image_idxs;
   size_t num_descriptors = 0;
   if (max_num_images < 0) {
     // All images in the database.
-    image_ids.resize(images.size());
-    std::iota(image_ids.begin(), image_ids.end(), 0);
+    image_idxs.resize(images.size());
+    std::iota(image_idxs.begin(), image_idxs.end(), 0);
     num_descriptors = database.NumDescriptors();
   } else {
     // Random subset of images in the database.
     CHECK_LE(max_num_images, images.size());
     RandomSampler random_sampler(max_num_images);
     random_sampler.Initialize(images.size());
-    image_ids = random_sampler.Sample();
-    for (const auto image_id : image_ids) {
-      const auto& image = images.at(image_id);
+    image_idxs = random_sampler.Sample();
+    for (const auto image_idx : image_idxs) {
+      const auto& image = images.at(image_idx);
       num_descriptors += database.NumDescriptorsForImage(image.ImageId());
     }
   }
@@ -1369,8 +1369,8 @@ FeatureDescriptors LoadRandomDatabaseDescriptors(
   descriptors.resize(num_descriptors, 128);
 
   size_t descriptor_row = 0;
-  for (const auto image_id : image_ids) {
-    const auto& image = images.at(image_id);
+  for (const auto image_idx : image_idxs) {
+    const auto& image = images.at(image_idx);
     const FeatureDescriptors image_descriptors =
         database.ReadDescriptors(image.ImageId());
     descriptors.block(descriptor_row, 0, image_descriptors.rows(), 128) =
@@ -1392,6 +1392,7 @@ int RunVocabTreeBuilder(int argc, char** argv) {
   options.AddDatabaseOptions();
   options.AddRequiredOption("vocab_tree_path", &vocab_tree_path);
   options.AddDefaultOption("num_visual_words", &build_options.num_visual_words);
+  options.AddDefaultOption("num_checks", &build_options.num_checks);
   options.AddDefaultOption("branching", &build_options.branching);
   options.AddDefaultOption("num_iterations", &build_options.num_iterations);
   options.AddDefaultOption("max_num_images", &max_num_images);
@@ -1466,8 +1467,8 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   std::string vocab_tree_path;
   std::string database_image_list_path;
   std::string query_image_list_path;
-  int num_images = -1;
-  int num_verifications = 0;
+  std::string output_index_path;
+  retrieval::VisualIndex<>::QueryOptions query_options;
   int max_num_features = -1;
 
   OptionManager options;
@@ -1476,8 +1477,12 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   options.AddDefaultOption("database_image_list_path",
                            &database_image_list_path);
   options.AddDefaultOption("query_image_list_path", &query_image_list_path);
-  options.AddDefaultOption("num_images", &num_images);
-  options.AddDefaultOption("num_verifications", &num_verifications);
+  options.AddDefaultOption("output_index_path", &output_index_path);
+  options.AddDefaultOption("num_images", &query_options.max_num_images);
+  options.AddDefaultOption("num_neighbors", &query_options.num_neighbors);
+  options.AddDefaultOption("num_checks", &query_options.num_checks);
+  options.AddDefaultOption("num_images_after_verification",
+                           &query_options.num_images_after_verification);
   options.AddDefaultOption("max_num_features", &max_num_features);
   options.Parse(argc, argv);
 
@@ -1489,7 +1494,9 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   const auto database_images =
       ReadVocabTreeRetrievalImageList(database_image_list_path, &database);
   const auto query_images =
-      ReadVocabTreeRetrievalImageList(query_image_list_path, &database);
+      (!query_image_list_path.empty() || output_index_path.empty())
+          ? ReadVocabTreeRetrievalImageList(query_image_list_path, &database)
+          : std::vector<Image>();
 
   //////////////////////////////////////////////////////////////////////////////
   // Perform image indexing
@@ -1502,6 +1509,11 @@ int RunVocabTreeRetriever(int argc, char** argv) {
     std::cout << StringPrintf("Indexing image [%d/%d]", i + 1,
                               database_images.size())
               << std::flush;
+
+    if (visual_index.ImageIndexed(database_images[i].ImageId())) {
+      std::cout << std::endl;
+      continue;
+    }
 
     auto keypoints = database.ReadKeypoints(database_images[i].ImageId());
     auto descriptors = database.ReadDescriptors(database_images[i].ImageId());
@@ -1518,13 +1530,19 @@ int RunVocabTreeRetriever(int argc, char** argv) {
   // Compute the TF-IDF weights, etc.
   visual_index.Prepare();
 
+  // Optionally save the indexing data for the database images (as well as the
+  // original vocabulary tree data) to speed up future indexing.
+  if (!output_index_path.empty()) {
+    visual_index.Write(output_index_path);
+  }
+
+  if (query_images.empty()) {
+    return EXIT_SUCCESS;
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   // Perform image queries
   //////////////////////////////////////////////////////////////////////////////
-
-  retrieval::VisualIndex<>::QueryOptions query_options;
-  query_options.max_num_images = num_images;
-  query_options.max_num_verifications = num_verifications;
 
   std::unordered_map<image_t, const Image*> image_id_to_image;
   image_id_to_image.reserve(database_images.size());
@@ -1548,8 +1566,7 @@ int RunVocabTreeRetriever(int argc, char** argv) {
     }
 
     std::vector<retrieval::ImageScore> image_scores;
-    visual_index.QueryWithVerification(query_options, keypoints, descriptors,
-                                       &image_scores);
+    visual_index.Query(query_options, keypoints, descriptors, &image_scores);
 
     std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
     for (const auto& image_score : image_scores) {

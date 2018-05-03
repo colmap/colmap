@@ -70,6 +70,69 @@ ignore_two_view_tracks``. If your images are taken from far distance with
 respect to the scene, you can try to reduce the minimum triangulation angle.
 
 
+Reconstruct sparse/dense model from known camera poses
+------------------------------------------------------
+
+If the camera poses are known and you want to reconstruct a sparse or dense
+model of the scene, you must first manually construct a sparse model by
+creating a ``cameras.txt`` and ``images.txt`` file. The ``points3D.txt`` file
+can be empty and you can refer to :ref:`this article <output-format>` for more
+information about the structure of a sparse model.
+
+To reconstruct a sparse model, you would have to recompute features from the
+images of the known camera poses as follows::
+
+    colmap feature_extractor \
+        --database_path $PROJECT_PATH/database.db \
+        --image_path $PROJECT_PATH/images
+
+    colmap exhaustive_matcher \ # or alternatively any other matcher
+        --database_path $PROJECT_PATH/database.db
+
+    colmap point_triangulator \
+        --database_path $PROJECT_PATH/database.db \
+        --image_path $PROJECT_PATH/images
+        --import_path path/to/manually/created/sparse/model \
+        --export_path path/to/triangulated/sparse/model
+
+Note that the sparse reconstruction step is not necessary in order to compute
+a dense model from known camera poses. Assuming you computed a sparse model
+from the known camera poses, you can compute a dense model as follows::
+
+    colmap image_undistorter \
+        --image_path $PROJECT_PATH/images \
+        --input_path path/to/triangulated/sparse/model \
+        --output_path path/to/dense/workspace
+
+    colmap dense_stereo \
+        --workspace_path path/to/dense/workspace
+
+    colmap dense_fuser \
+        --workspace_path path/to/dense/workspace \
+        --output_path path/to/dense/workspace/fused.ply
+
+Alternatively, you can also produce a dense model without a sparse model as::
+
+    colmap image_undistorter \
+        --image_path $PROJECT_PATH/images \
+        --input_path path/to/manually/created/sparse/model \
+        --output_path path/to/dense/workspace
+
+Since the sparse point cloud is used to automatically select neighboring images
+during the dense stereo stage, you have to manually specify the source images,
+as described :ref:`here <faq-dense-manual-source>`. The dense stereo stage
+now also requires a manual specification of the depth range::
+
+    colmap dense_stereo \
+        --workspace_path path/to/dense/workspace \
+        --DenseStereo.depth_min $MIN_DEPTH \
+        --DenseStereo.depth_max $MAX_DEPTH
+
+    colmap dense_fuser \
+        --workspace_path path/to/dense/workspace \
+        --output_path path/to/dense/workspace/fused.ply
+
+
 .. _faq-merge-models:
 
 Merge disconnected models
@@ -177,8 +240,9 @@ Or, alternatively, you can start the reconstruction from scratch::
         --image_path $PROJECT_PATH/images \
         --export_path /path/to/model-with-new-images
 
-Note that dense reconstruction must be re-run from scratch after adding new
-images, as the coordinate frame of the model is changed.
+Note that dense reconstruction must be re-run from scratch after running the
+``mapper`` or the ``bundle_adjuster``, as the coordinate frame of the model can
+change during these steps.
 
 
 Available functionality without GPU/CUDA
@@ -271,6 +335,8 @@ The dense reconstruction can be speeded up in multiple ways:
 - Reduce the number of source images per reference image to be considered, as
   described :ref:`here <faq-dense-memory>`.
 
+- Increase the patch windows step ``--DenseStereo.window_step`` to 2.
+
 - Reduce the patch window radius ``--DenseStereo.window_radius``.
 
 - Reduce the number of patch match iterations ``--DenseStereo.num_iterations``.
@@ -319,12 +385,15 @@ cluster to 500 images. If you want to use CMVS to prune redundant images but not
 to cluster the scene, you can simply set this number to a very large value.
 
 
+.. _faq-dense-manual-source:
+
 Manual specification of source images during dense reconstruction
 -----------------------------------------------------------------
 
 You can change the number of source images in the ``stereo/patch-match.cfg``
 file from e.g. ``__auto__, 30`` to ``__auto__, 10``. This selects the images
-with the most visual overlap automatically as source images. Alternatively, you
+with the most visual overlap automatically as source images. You can also use
+all other images as source images, by specifying ``__all__``. Alternatively, you
 can manually specify images with their name, for example::
 
     image1.jpg

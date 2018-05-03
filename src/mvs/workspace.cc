@@ -208,7 +208,8 @@ void ImportPMVSWorkspace(const Workspace& workspace,
         patch_match_file << "__auto__, 20" << std::endl;
       } else {
         for (const int image_id : overlapping_images[i]) {
-          patch_match_file << image_names[image_id] << ", ";
+          patch_match_file << workspace.GetModel().GetImageName(image_id)
+                           << ", ";
         }
         patch_match_file << std::endl;
       }

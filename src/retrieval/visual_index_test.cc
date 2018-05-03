@@ -48,10 +48,10 @@ void TestVocabTreeType() {
     VisualIndexType visual_index;
     BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 0);
     typename VisualIndexType::BuildOptions build_options;
-    build_options.num_visual_words = 10;
+    build_options.num_visual_words = 100;
     build_options.branching = 10;
     visual_index.Build(build_options, descriptors);
-    BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 10);
+    BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 100);
 
     typename VisualIndexType::IndexOptions index_options;
     typename VisualIndexType::GeomType keypoints1(100);

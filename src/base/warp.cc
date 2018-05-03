@@ -40,9 +40,17 @@ void WarpImageBetweenCameras(const Camera& source_camera,
   CHECK_EQ(source_camera.Height(), source_image.Height());
   CHECK_NOTNULL(target_image);
 
-  target_image->Allocate(static_cast<int>(target_camera.Width()),
-                         static_cast<int>(target_camera.Height()),
+  target_image->Allocate(static_cast<int>(source_camera.Width()),
+                         static_cast<int>(source_camera.Height()),
                          source_image.IsRGB());
+
+  // To avoid aliasing, perform the warping in the source resolution and
+  // then rescale the image at the end.
+  Camera scaled_target_camera = target_camera;
+  if (target_camera.Width() != source_camera.Width() ||
+      target_camera.Height() != source_camera.Height()) {
+    scaled_target_camera.Rescale(source_camera.Width(), source_camera.Height());
+  }
 
   Eigen::Vector2d image_point;
   for (int y = 0; y < target_image->Height(); ++y) {
@@ -52,7 +60,7 @@ void WarpImageBetweenCameras(const Camera& source_camera,
 
       // Camera models assume that the upper left pixel center is (0.5, 0.5).
       const Eigen::Vector2d world_point =
-          target_camera.ImageToWorld(image_point);
+          scaled_target_camera.ImageToWorld(image_point);
       const Eigen::Vector2d source_point =
           source_camera.WorldToImage(world_point);
 
@@ -64,6 +72,11 @@ void WarpImageBetweenCameras(const Camera& source_camera,
         target_image->SetPixel(x, y, BitmapColor<uint8_t>(0));
       }
     }
+  }
+
+  if (target_camera.Width() != source_camera.Width() ||
+      target_camera.Height() != source_camera.Height()) {
+    target_image->Rescale(target_camera.Width(), target_camera.Height());
   }
 }
 
@@ -102,9 +115,17 @@ void WarpImageWithHomographyBetweenCameras(const Eigen::Matrix3d& H,
   CHECK_EQ(source_camera.Height(), source_image.Height());
   CHECK_NOTNULL(target_image);
 
-  target_image->Allocate(static_cast<int>(target_camera.Width()),
-                         static_cast<int>(target_camera.Height()),
+  target_image->Allocate(static_cast<int>(source_camera.Width()),
+                         static_cast<int>(source_camera.Height()),
                          source_image.IsRGB());
+
+  // To avoid aliasing, perform the warping in the source resolution and
+  // then rescale the image at the end.
+  Camera scaled_target_camera = target_camera;
+  if (target_camera.Width() != source_camera.Width() ||
+      target_camera.Height() != source_camera.Height()) {
+    scaled_target_camera.Rescale(source_camera.Width(), source_camera.Height());
+  }
 
   Eigen::Vector3d image_point(0, 0, 1);
   for (int y = 0; y < target_image->Height(); ++y) {
@@ -127,6 +148,11 @@ void WarpImageWithHomographyBetweenCameras(const Eigen::Matrix3d& H,
         target_image->SetPixel(x, y, BitmapColor<uint8_t>(0));
       }
     }
+  }
+
+  if (target_camera.Width() != source_camera.Width() ||
+      target_camera.Height() != source_camera.Height()) {
+    target_image->Rescale(target_camera.Width(), target_camera.Height());
   }
 }
 

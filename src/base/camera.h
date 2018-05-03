@@ -125,6 +125,7 @@ class Camera {
   // Rescale camera dimensions and accordingly the focal length and
   // and the principal point.
   void Rescale(const double scale);
+  void Rescale(const size_t width, const size_t height);
 
  private:
   // The unique identifier of the camera. If the identifier is not specified

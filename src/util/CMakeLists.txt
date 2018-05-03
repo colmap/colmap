@@ -11,6 +11,7 @@ COLMAP_ADD_LIBRARY(util
     misc.h misc.cc
     opengl_utils.h opengl_utils.cc
     option_manager.h option_manager.cc
+    ply.h ply.cc
     random.h random.cc
     sqlite3_utils.h
     string.h string.cc

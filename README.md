@@ -11,15 +11,15 @@ The software is licensed under the GNU General Public License. If you use this
 project for your research, please cite:
 
     @inproceedings{schoenberger2016sfm,
-        author = {Sch\"{o}nberger, Johannes Lutz and Frahm, Jan-Michael},
-        title = {Structure-from-Motion Revisited},
-        booktitle={IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+        author={Sch\"{o}nberger, Johannes Lutz and Frahm, Jan-Michael},
+        title={Structure-from-Motion Revisited},
+        booktitle={Conference on Computer Vision and Pattern Recognition (CVPR)},
         year={2016},
     }
 
     @inproceedings{schoenberger2016mvs,
-        author = {Sch\"{o}nberger, Johannes Lutz and Zheng, Enliang and Pollefeys, Marc and Frahm, Jan-Michael},
-        title = {Pixelwise View Selection for Unstructured Multi-View Stereo},
+        author={Sch\"{o}nberger, Johannes Lutz and Zheng, Enliang and Pollefeys, Marc and Frahm, Jan-Michael},
+        title={Pixelwise View Selection for Unstructured Multi-View Stereo},
         booktitle={European Conference on Computer Vision (ECCV)},
         year={2016},
     }
@@ -27,8 +27,8 @@ project for your research, please cite:
 If you use the image retrieval / vocabulary tree engine, please also cite:
 
     @inproceedings{schoenberger2016vote,
-        author = {Sch\"{o}nberger, Johannes Lutz and Price, True and Sattler, Torsten and Frahm, Jan-Michael and Pollefeys, Marc},
-        title = {A Vote-and-Verify Strategy for Fast Spatial Verification in Image Retrieval},
+        author={Sch\"{o}nberger, Johannes Lutz and Price, True and Sattler, Torsten and Frahm, Jan-Michael and Pollefeys, Marc},
+        title={A Vote-and-Verify Strategy for Fast Spatial Verification in Image Retrieval},
         booktitle={Asian Conference on Computer Vision (ACCV)},
         year={2016},
     }
@@ -41,9 +41,10 @@ COLMAP, please also cite the original authors, as specified in the source code.
 Download
 --------
 
-Executables and other resources can be downloaded from https://demuc.de/colmap/.
-
-Executables for non macOS and Windows are available at https://repology.org/metapackage/colmap/versions
+Executables for Windows and Mac and other resources can be downloaded from
+https://demuc.de/colmap/. Executables for Linux/Unix/BSD are available at
+https://repology.org/metapackage/colmap/versions. To build COLMAP from source,
+please see https://colmap.github.io/install.html.
 
 Getting Started
 ---------------

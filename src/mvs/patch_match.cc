@@ -430,7 +430,7 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
         depth_ranges_.at(problem.ref_image_id).second;
     CHECK(patch_match_options.depth_min > 0 &&
           patch_match_options.depth_max > 0)
-        << "You must manually set the minimum and maximum depth, since no "
+        << " - You must manually set the minimum and maximum depth, since no "
            "sparse model is provided in the workspace.";
   }
 

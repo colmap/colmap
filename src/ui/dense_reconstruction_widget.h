@@ -82,7 +82,7 @@ class DenseReconstructionWidget : public QWidget {
   std::string depth_maps_path_;
   std::string normal_maps_path_;
 
-  std::vector<mvs::FusedPoint> fused_points_;
+  std::vector<PlyPoint> fused_points_;
 };
 
 }  // namespace colmap

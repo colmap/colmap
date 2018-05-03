@@ -3,7 +3,13 @@
 Tutorial
 ========
 
-3D reconstruction from images traditionally first recovers a sparse
+This tutorial covers the topic of image-based 3D reconstruction by demonstrating
+the individual processing steps in COLMAP. If you are interested in a more
+general and mathematical introduction to the topic of image-based 3D
+reconstruction, please also refer to the `CVPR 2017 Tutorial on Large-scale 3D
+Modeling from Crowdsourced Data <https://demuc.de/tutorials/cvpr2017/>`_.
+
+Image-based 3D reconstruction from images traditionally first recovers a sparse
 representation of the scene and the camera poses of the input images using
 Structure-from-Motion. This output then serves as the input to Multi-View Stereo
 to recover a dense representation of the scene.
@@ -511,8 +517,8 @@ please execute ``colmap gui`` or directly specify a project configuration as
 ``colmap gui --project_path path/to/project.ini`` to avoid tedious selection in
 the GUI. To list the different commands available from the command-line, execute
 ``colmap help``. For example, to run feature extraction from the command-line,
-you must execute ``colmap feature_extractor``. The :ref:`Graphical User
-Interface <gui>` and :ref:`Command- line Interface <cli>` sections provide more
+you must execute ``colmap feature_extractor``. The :ref:`graphical user
+interface <gui>` and :ref:`command-line Interface <cli>` sections provide more
 details about the available commands.
 
 

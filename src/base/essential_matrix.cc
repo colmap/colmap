@@ -86,8 +86,8 @@ Eigen::Matrix3d EssentialMatrixFromAbsolutePoses(
   const Eigen::Vector3d t2 = proj_matrix2.rightCols<1>();
 
   // Relative transformation between to cameras.
-  const Eigen::Matrix3d R = R1.transpose() * R2;
-  const Eigen::Vector3d t = (R1.transpose() * (t2 - t1)).normalized();
+  const Eigen::Matrix3d R = R2 * R1.transpose();
+  const Eigen::Vector3d t = t2 - R * t1;
 
   return EssentialMatrixFromPose(R, t);
 }

@@ -30,72 +30,62 @@
 #include "util/alignment.h"
 #include "util/cache.h"
 #include "util/math.h"
+#include "util/ply.h"
 #include "util/threading.h"
 
 namespace colmap {
 namespace mvs {
 
-struct FusedPoint {
-  float x = 0.0f;
-  float y = 0.0f;
-  float z = 0.0f;
-  float nx = 0.0f;
-  float ny = 0.0f;
-  float nz = 0.0f;
-  uint8_t r = 0;
-  uint8_t g = 0;
-  uint8_t b = 0;
-};
-
 struct StereoFusionOptions {
-    // Maximum image size in either dimension.
-    int max_image_size = -1;
+  // Maximum image size in either dimension.
+  int max_image_size = -1;
 
-    // Minimum number of fused pixels to produce a point.
-    int min_num_pixels = 5;
+  // Minimum number of fused pixels to produce a point.
+  int min_num_pixels = 5;
 
-    // Maximum number of pixels to fuse into a single point.
-    int max_num_pixels = 10000;
+  // Maximum number of pixels to fuse into a single point.
+  int max_num_pixels = 10000;
 
-    // Maximum depth in consistency graph traversal.
-    int max_traversal_depth = 100;
+  // Maximum depth in consistency graph traversal.
+  int max_traversal_depth = 100;
 
-    // Maximum relative difference between measured and projected pixel.
-    double max_reproj_error = 2.0f;
+  // Maximum relative difference between measured and projected pixel.
+  double max_reproj_error = 2.0f;
 
-    // Maximum relative difference between measured and projected depth.
-    double max_depth_error = 0.01f;
+  // Maximum relative difference between measured and projected depth.
+  double max_depth_error = 0.01f;
 
-    // Maximum angular difference in degrees of normals of pixels to be fused.
-    double max_normal_error = 10.0f;
+  // Maximum angular difference in degrees of normals of pixels to be fused.
+  double max_normal_error = 10.0f;
 
-    // Number of overlapping images to transitively check for fusing points.
-    int check_num_images = 50;
+  // Number of overlapping images to transitively check for fusing points.
+  int check_num_images = 50;
 
-    // Cache size in gigabytes for fusion. The fusion keeps the bitmaps, depth
-    // maps, normal maps, and consistency graphs of this number of images in
-    // memory. A higher value leads to less disk access and faster fusion, while
-    // a lower value leads to reduced memory usage. Note that a single image can
-    // consume a lot of memory, if the consistency graph is dense.
-    double cache_size = 32.0;
+  // Cache size in gigabytes for fusion. The fusion keeps the bitmaps, depth
+  // maps, normal maps, and consistency graphs of this number of images in
+  // memory. A higher value leads to less disk access and faster fusion, while
+  // a lower value leads to reduced memory usage. Note that a single image can
+  // consume a lot of memory, if the consistency graph is dense.
+  double cache_size = 32.0;
 
-    // Check the options for validity.
-    bool Check() const;
+  // Check the options for validity.
+  bool Check() const;
 
-    // Print the options to stdout.
-    void Print() const;
-  };
+  // Print the options to stdout.
+  void Print() const;
+};
 
 class StereoFusion : public Thread {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-  StereoFusion(const StereoFusionOptions& options, const std::string& workspace_path,
+  StereoFusion(const StereoFusionOptions& options,
+               const std::string& workspace_path,
                const std::string& workspace_format,
                const std::string& pmvs_option_name,
                const std::string& input_type);
 
-  const std::vector<FusedPoint>& GetFusedPoints() const;
+  const std::vector<PlyPoint>& GetFusedPoints() const;
 
  private:
   void Run();
@@ -131,7 +121,7 @@ class StereoFusion : public Thread {
   };
 
   std::vector<FusionData> fusion_queue_;
-  std::vector<FusedPoint> fused_points_;
+  std::vector<PlyPoint> fused_points_;
   std::vector<float> fused_points_x_;
   std::vector<float> fused_points_y_;
   std::vector<float> fused_points_z_;
@@ -142,12 +132,6 @@ class StereoFusion : public Thread {
   std::vector<uint8_t> fused_points_g_;
   std::vector<uint8_t> fused_points_b_;
 };
-
-// Write the point cloud to PLY file.
-void WritePlyText(const std::string& path,
-                  const std::vector<FusedPoint>& points);
-void WritePlyBinary(const std::string& path,
-                    const std::vector<FusedPoint>& points);
 
 }  // namespace mvs
 }  // namespace colmap

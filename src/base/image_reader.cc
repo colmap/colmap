@@ -49,11 +49,16 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
     }
   }
 
-  // Set the manually specified camera parameters.
-  prev_camera_.SetCameraId(kInvalidCameraId);
-  prev_camera_.SetModelIdFromName(options_.camera_model);
-  if (!options_.camera_params.empty()) {
-    prev_camera_.SetParamsFromString(options_.camera_params);
+  if (options_.existing_camera_id != kInvalidCameraId) {
+    CHECK(database->ExistsCamera(options_.existing_camera_id));
+    prev_camera_ = database->ReadCamera(options_.existing_camera_id);
+  } else {
+    // Set the manually specified camera parameters.
+    prev_camera_.SetCameraId(kInvalidCameraId);
+    prev_camera_.SetModelIdFromName(options_.camera_model);
+    if (!options_.camera_params.empty()) {
+      prev_camera_.SetParamsFromString(options_.camera_params);
+    }
   }
 }
 
@@ -134,14 +139,13 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
     return Status::CAMERA_SINGLE_ERROR;
   }
 
-  prev_camera_.SetWidth(static_cast<size_t>(bitmap->Width()));
-  prev_camera_.SetHeight(static_cast<size_t>(bitmap->Height()));
-
   //////////////////////////////////////////////////////////////////////////////
   // Extract camera model and focal length
   //////////////////////////////////////////////////////////////////////////////
 
-  if (!options_.single_camera || prev_camera_.CameraId() == kInvalidCameraId) {
+  if ((!options_.single_camera &&
+       options_.existing_camera_id == kInvalidCameraId) ||
+      prev_camera_.CameraId() == kInvalidCameraId) {
     if (options_.camera_params.empty()) {
       // Extract focal length.
       double focal_length = 0.0;
@@ -157,6 +161,9 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
                                     prev_camera_.Width(),
                                     prev_camera_.Height());
     }
+
+    prev_camera_.SetWidth(static_cast<size_t>(bitmap->Width()));
+    prev_camera_.SetHeight(static_cast<size_t>(bitmap->Height()));
 
     if (!prev_camera_.VerifyParams()) {
       return Status::CAMERA_PARAM_ERROR;

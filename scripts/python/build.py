@@ -215,7 +215,8 @@ def build_freeimage(args):
         url = "https://kent.dl.sourceforge.net/project/freeimage/" \
               "Source%20Distribution/3.17.0/FreeImage3170.zip"
         archive_path = os.path.join(args.download_path, "freeimage.zip")
-        download_zipfile(url, archive_path, args.build_path)
+        download_zipfile(url, archive_path, args.build_path,
+                         "459e15f0ec75d6efa3c7bd63277ead86")
         shutil.move(os.path.join(args.build_path, "FreeImage"), path)
 
         if PLATFORM_IS_MAC:
@@ -323,7 +324,8 @@ def build_suite_sparse(args):
     download_zipfile(url, archive_path, args.build_path,
                      "e7c27075e8e0afc9d2cf188630090946")
     shutil.move(os.path.join(args.build_path,
-                             "suitesparse-metis-for-windows-master"), path)
+                             "suitesparse-metis-for-windows-"
+                             "7bc503bfa2c4f1be9176147d36daf9e18340780a"), path)
 
     build_cmake_project(args, os.path.join(path, "build"))
 

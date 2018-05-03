@@ -316,4 +316,22 @@ BOOST_AUTO_TEST_CASE(TestRescale) {
   BOOST_CHECK_EQUAL(camera.FocalLengthY(), 0.5);
   BOOST_CHECK_EQUAL(camera.PrincipalPointX(), 0.5);
   BOOST_CHECK_EQUAL(camera.PrincipalPointY(), 0.5);
+
+  camera.InitializeWithName("PINHOLE", 1.0, 2, 2);
+  camera.Rescale(1, 1);
+  BOOST_CHECK_EQUAL(camera.Width(), 1);
+  BOOST_CHECK_EQUAL(camera.Height(), 1);
+  BOOST_CHECK_EQUAL(camera.FocalLengthX(), 0.5);
+  BOOST_CHECK_EQUAL(camera.FocalLengthY(), 0.5);
+  BOOST_CHECK_EQUAL(camera.PrincipalPointX(), 0.5);
+  BOOST_CHECK_EQUAL(camera.PrincipalPointY(), 0.5);
+
+  camera.InitializeWithName("PINHOLE", 1.0, 2, 2);
+  camera.Rescale(4, 4);
+  BOOST_CHECK_EQUAL(camera.Width(), 4);
+  BOOST_CHECK_EQUAL(camera.Height(), 4);
+  BOOST_CHECK_EQUAL(camera.FocalLengthX(), 2);
+  BOOST_CHECK_EQUAL(camera.FocalLengthY(), 2);
+  BOOST_CHECK_EQUAL(camera.PrincipalPointX(), 2);
+  BOOST_CHECK_EQUAL(camera.PrincipalPointY(), 2);
 }

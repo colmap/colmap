@@ -33,12 +33,14 @@ void PrintElapsedTime(const Timer& timer) {
   std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
 }
 
-void IndexImagesInVisualIndex(const int num_threads, const int max_num_features,
+void IndexImagesInVisualIndex(const int num_threads, const int num_checks,
+                              const int max_num_features,
                               const std::vector<image_t>& image_ids,
                               Thread* thread, FeatureMatcherCache* cache,
                               retrieval::VisualIndex<>* visual_index) {
   retrieval::VisualIndex<>::IndexOptions index_options;
   index_options.num_threads = num_threads;
+  index_options.num_checks = num_checks;
 
   for (size_t i = 0; i < image_ids.size(); ++i) {
     if (thread->IsStopped()) {
@@ -67,7 +69,8 @@ void IndexImagesInVisualIndex(const int num_threads, const int max_num_features,
 }
 
 void MatchNearestNeighborsInVisualIndex(
-    const int num_threads, const int num_images, const int num_verifications,
+    const int num_threads, const int num_images, const int num_neighbors,
+    const int num_checks, const int num_images_after_verification,
     const int max_num_features, const std::vector<image_t>& image_ids,
     Thread* thread, FeatureMatcherCache* cache,
     retrieval::VisualIndex<>* visual_index, SiftFeatureMatcher* matcher) {
@@ -85,7 +88,9 @@ void MatchNearestNeighborsInVisualIndex(
   // access to the database causing race conditions.
   retrieval::VisualIndex<>::QueryOptions query_options;
   query_options.max_num_images = num_images;
-  query_options.max_num_verifications = num_verifications;
+  query_options.num_neighbors = num_neighbors;
+  query_options.num_checks = num_checks;
+  query_options.num_images_after_verification = num_images_after_verification;
   auto QueryFunc = [&](const image_t image_id) {
     auto keypoints = cache->GetKeypoints(image_id);
     auto descriptors = cache->GetDescriptors(image_id);
@@ -95,8 +100,8 @@ void MatchNearestNeighborsInVisualIndex(
 
     Retrieval retrieval;
     retrieval.image_id = image_id;
-    visual_index->QueryWithVerification(query_options, keypoints, descriptors,
-                                        &retrieval.image_scores);
+    visual_index->Query(query_options, keypoints, descriptors,
+                        &retrieval.image_scores);
 
     CHECK(retrieval_queue.Push(retrieval));
   };
@@ -161,13 +166,15 @@ bool SequentialMatchingOptions::Check() const {
   CHECK_OPTION_GT(overlap, 0);
   CHECK_OPTION_GT(loop_detection_period, 0);
   CHECK_OPTION_GT(loop_detection_num_images, 0);
-  CHECK_OPTION_GE(loop_detection_num_verifications, 0);
+  CHECK_OPTION_GT(loop_detection_num_nearest_neighbors, 0);
+  CHECK_OPTION_GT(loop_detection_num_checks, 0);
   return true;
 }
 
 bool VocabTreeMatchingOptions::Check() const {
   CHECK_OPTION_GT(num_images, 0);
-  CHECK_OPTION_GE(num_verifications, 0);
+  CHECK_OPTION_GT(num_nearest_neighbors, 0);
+  CHECK_OPTION_GT(num_checks, 0);
   return true;
 }
 
@@ -593,7 +600,7 @@ SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchingOptions& options,
   CHECK_GT(gpu_indices.size(), 0);
 
 #ifdef CUDA_ENABLED
-  if (gpu_indices.size() == 1 && gpu_indices[0] == -1) {
+  if (options_.use_gpu && gpu_indices.size() == 1 && gpu_indices[0] == -1) {
     const int num_cuda_devices = GetNumCudaDevices();
     CHECK_GT(num_cuda_devices, 0);
     gpu_indices.resize(num_cuda_devices);
@@ -994,6 +1001,7 @@ void SequentialFeatureMatcher::RunLoopDetection(
 
   // Index all images in the visual index.
   IndexImagesInVisualIndex(match_options_.num_threads,
+                           options_.loop_detection_num_checks,
                            options_.loop_detection_max_num_features, image_ids,
                            this, &cache_, &visual_index);
 
@@ -1010,7 +1018,9 @@ void SequentialFeatureMatcher::RunLoopDetection(
 
   MatchNearestNeighborsInVisualIndex(
       match_options_.num_threads, options_.loop_detection_num_images,
-      options_.loop_detection_num_verifications,
+      options_.loop_detection_num_nearest_neighbors,
+      options_.loop_detection_num_checks,
+      options_.loop_detection_num_images_after_verification,
       options_.loop_detection_max_num_features, match_image_ids, this, &cache_,
       &visual_index, &matcher_);
 }
@@ -1073,7 +1083,7 @@ void VocabTreeFeatureMatcher::Run() {
   }
 
   // Index all images in the visual index.
-  IndexImagesInVisualIndex(match_options_.num_threads,
+  IndexImagesInVisualIndex(match_options_.num_threads, options_.num_checks,
                            options_.max_num_features, all_image_ids, this,
                            &cache_, &visual_index);
 
@@ -1085,8 +1095,9 @@ void VocabTreeFeatureMatcher::Run() {
   // Match all images in the visual index.
   MatchNearestNeighborsInVisualIndex(
       match_options_.num_threads, options_.num_images,
-      options_.num_verifications, options_.max_num_features, image_ids, this,
-      &cache_, &visual_index, &matcher_);
+      options_.num_nearest_neighbors, options_.num_checks,
+      options_.num_images_after_verification, options_.max_num_features,
+      image_ids, this, &cache_, &visual_index, &matcher_);
 
   GetTimer().PrintMinutes();
 }
