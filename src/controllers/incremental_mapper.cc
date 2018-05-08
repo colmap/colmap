@@ -201,7 +201,9 @@ BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
   options.solver_options.max_linear_solver_iterations = 100;
   options.solver_options.minimizer_progress_to_stdout = false;
   options.solver_options.num_threads = num_threads;
+#if CERES_VERSION_MAJOR < 2
   options.solver_options.num_linear_solver_threads = num_threads;
+#endif  // CERES_VERSION_MAJOR
   options.print_summary = true;
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
@@ -222,7 +224,9 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
   options.solver_options.max_linear_solver_iterations = 100;
   options.solver_options.minimizer_progress_to_stdout = true;
   options.solver_options.num_threads = num_threads;
+#if CERES_VERSION_MAJOR < 2
   options.solver_options.num_linear_solver_threads = num_threads;
+#endif  // CERES_VERSION_MAJOR
   options.print_summary = true;
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;

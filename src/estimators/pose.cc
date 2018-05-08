@@ -280,7 +280,9 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 
   // The overhead of creating threads is too large.
   solver_options.num_threads = 1;
+#if CERES_VERSION_MAJOR < 2
   solver_options.num_linear_solver_threads = 1;
+#endif  // CERES_VERSION_MAJOR
 
   ceres::Solver::Summary summary;
   ceres::Solve(solver_options, &problem, &summary);
