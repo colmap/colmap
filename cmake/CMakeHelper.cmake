@@ -1,18 +1,18 @@
 if(POLICY CMP0043)
-    cmake_policy(SET CMP0043 OLD)
+    cmake_policy(SET CMP0043 NEW)
 endif()
 if(POLICY CMP0054)
-    cmake_policy(SET CMP0054 OLD)
+    cmake_policy(SET CMP0054 NEW)
 endif()
 
 # Determine project compiler.
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     set(IS_MSVC TRUE)
 endif()
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(IS_GNU TRUE)
 endif()
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     set(IS_CLANG TRUE)
 endif()
 
@@ -161,7 +161,7 @@ macro(COLMAP_ADD_TARGET_HELPER TARGET_NAME)
 
     # Only update the target's compile options if a valid warning level has
     # been selected.
-    if(NOT ${CURRENT_WARNING_LEVEL} STREQUAL ${COMPILER_DEFAULT_WARNING_LEVEL})
+    if(NOT CURRENT_WARNING_LEVEL STREQUAL COMPILER_DEFAULT_WARNING_LEVEL)
         # Get the current compile options.
         get_target_property(CURRENT_COMPILE_OPTIONS ${TARGET_NAME} COMPILE_OPTIONS)
 
