@@ -23,6 +23,7 @@ import platform
 import argparse
 import zipfile
 import hashlib
+import ssl
 import urllib.request
 import subprocess
 import multiprocessing
@@ -64,7 +65,7 @@ def parse_args():
                              "e.g., under Windows: C:/Program Files/NVIDIA GPU "
                              "Computing Toolkit/CUDA/v8.0")
     parser.add_argument("--cuda_multi_arch",
-                        dest="cuda_multi_arch", action="store_true",)
+                        dest="cuda_multi_arch", action="store_true")
     parser.add_argument("--no_cuda_multi_arch",
                         dest="cuda_multi_arch", action="store_false",
                         help="Whether to compile CUDA code for "
@@ -84,9 +85,14 @@ def parse_args():
                         help="Build type, e.g., Debug, Release, RelWithDebInfo")
     parser.add_argument("--cmake_generator", default="",
                         help="CMake generator, e.g., Visual Studio 14")
+    parser.add_argument("--no_ssl_verification",
+                        dest="ssl_verification", action="store_false",
+                        help="Whether to disable SSL certificate verification "
+                             "while downloading the source code")
     parser.set_defaults(cuda_multi_arch=False)
     parser.set_defaults(with_suite_sparse=True)
     parser.set_defaults(with_tests=True)
+    parser.set_defaults(ssl_verification=True)
     args = parser.parse_args()
 
     args.build_path = os.path.abspath(args.build_path)
@@ -115,6 +121,9 @@ def parse_args():
         # Assuming that the build system is Make.
         args.cmake_build_args.append(
             "-j{}".format(multiprocessing.cpu_count()))
+
+    if not args.ssl_verification:
+        ssl._create_default_https_context = ssl._create_unverified_context
 
     return args
 
@@ -187,7 +196,7 @@ def build_eigen(args):
                      "5e6c210a4cd6821f6147c96fd3aab8a7")
     shutil.move(os.path.join(args.build_path, "eigen-3.3.4"), path)
 
-    build_cmake_project(args, os.path.join(path, "build"))
+    build_cmake_project(args, os.path.join(path, "__build__"))
 
 
 def build_freeimage(args):
@@ -271,7 +280,7 @@ def build_glew(args):
                      "dff2939fd404d054c1036cc0409d19f1")
     shutil.move(os.path.join(args.build_path, "glew-2.1.0"), path)
 
-    build_cmake_project(args, os.path.join(path, "build/cmake/build"))
+    build_cmake_project(args, os.path.join(path, "build/cmake/__build__"))
 
     if PLATFORM_IS_WINDOWS:
         shutil.move(os.path.join(args.install_path, "bin/glew32.dll"),
@@ -292,7 +301,7 @@ def build_gflags(args):
     shutil.move(os.path.join(args.build_path, "gflags-2.2.1"), path)
     os.remove(os.path.join(path, "BUILD"))
 
-    build_cmake_project(args, os.path.join(path, "build"))
+    build_cmake_project(args, os.path.join(path, "__build__"))
 
 
 def build_glog(args):
@@ -306,7 +315,7 @@ def build_glog(args):
                      "454766d0124951091c95bad33dafeacd")
     shutil.move(os.path.join(args.build_path, "glog-0.3.5"), path)
 
-    build_cmake_project(args, os.path.join(path, "build"))
+    build_cmake_project(args, os.path.join(path, "__build__"))
 
 
 def build_suite_sparse(args):
@@ -327,7 +336,7 @@ def build_suite_sparse(args):
                              "suitesparse-metis-for-windows-"
                              "7bc503bfa2c4f1be9176147d36daf9e18340780a"), path)
 
-    build_cmake_project(args, os.path.join(path, "build"))
+    build_cmake_project(args, os.path.join(path, "__build__"))
 
     if PLATFORM_IS_WINDOWS:
         lapack_blas_path = os.path.join(args.install_path,
@@ -343,11 +352,11 @@ def build_ceres_solver(args):
     if os.path.exists(path):
         return
 
-    url = "https://github.com/ceres-solver/ceres-solver/archive/1.13.0.zip"
+    url = "https://github.com/ceres-solver/ceres-solver/archive/1.14.0.zip"
     archive_path = os.path.join(args.download_path, "ceres-solver.zip")
     download_zipfile(url, archive_path, args.build_path,
-                     "f32e5b222205ad0f5cf34624f4ea59df")
-    shutil.move(os.path.join(args.build_path, "ceres-solver-1.13.0"), path)
+                     "26b255b7a9f330bbc1def3b839724a2a")
+    shutil.move(os.path.join(args.build_path, "ceres-solver-1.14.0"), path)
 
     extra_config_args = [
         "-DBUILD_TESTING=OFF",
@@ -372,7 +381,7 @@ def build_ceres_solver(args):
     if PLATFORM_IS_WINDOWS:
         extra_config_args.append("-DCMAKE_CXX_FLAGS=/DGOOGLE_GLOG_DLL_DECL=")
 
-    build_cmake_project(args, os.path.join(path, "build"),
+    build_cmake_project(args, os.path.join(path, "__build__"),
                         extra_config_args=extra_config_args)
 
 
@@ -409,7 +418,7 @@ def build_colmap(args):
 
     mkdir_if_not_exists(os.path.join(args.build_path, "colmap"))
 
-    build_cmake_project(args, os.path.join(args.build_path, "colmap/build"),
+    build_cmake_project(args, os.path.join(args.build_path, "colmap/__build__"),
                         extra_config_args=extra_config_args,
                         cmakelists_path=os.path.abspath(args.colmap_path))
 
