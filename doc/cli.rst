@@ -201,6 +201,14 @@ available as ``colmap [command]``:
 - ``mapper``: Sparse 3D reconstruction / mapping of the dataset using SfM after
   performing feature extraction and matching.
 
+- ``hierarchical_mapper``: Sparse 3D reconstruction / mapping of the dataset
+  using hierarchical SfM after performing feature extraction and matching.
+  This parallelizes the reconstruction process by partitioning the scene into
+  overlapping submodels and then reconstructing each submodel independently.
+  Finally, the overlapping submodels are merged into a single reconstruction.
+  It is recommended to run a few rounds of point triangulation and bundle
+  adjustment after this step.
+
 - ``image_undistorter``: Undistort images and/or export them for MVS or to
   external dense reconstruction software, such as CMVS/PMVS.
 
