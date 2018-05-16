@@ -16,6 +16,8 @@
 
 #include "ui/database_management_widget.h"
 
+#include "base/camera_models.h"
+
 namespace colmap {
 
 MatchesTab::MatchesTab(QWidget* parent, OptionManager* options,

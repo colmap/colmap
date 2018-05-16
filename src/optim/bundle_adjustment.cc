@@ -22,6 +22,7 @@
 #include <omp.h>
 #endif
 
+#include "base/camera_models.h"
 #include "base/cost_functions.h"
 #include "base/projection.h"
 #include "util/misc.h"

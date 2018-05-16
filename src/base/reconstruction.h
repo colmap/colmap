@@ -24,16 +24,21 @@
 #include <Eigen/Core>
 
 #include "base/camera.h"
-#include "base/database_cache.h"
+#include "base/database.h"
 #include "base/image.h"
 #include "base/point2d.h"
 #include "base/point3d.h"
 #include "base/track.h"
 #include "util/alignment.h"
-#include "util/ply.h"
 #include "util/types.h"
 
 namespace colmap {
+
+struct PlyPoint;
+struct RANSACOptions;
+class DatabaseCache;
+class SceneGraph;
+class SimilarityTransform3;
 
 // Reconstruction class holds all information about a single reconstructed
 // model. It is used by the mapping and bundle adjustment classes and can be
@@ -106,7 +111,9 @@ class Reconstruction {
   void AddImage(const class Image& image);
 
   // Add new 3D object, and return its unique ID.
-  point3D_t AddPoint3D(const Eigen::Vector3d& xyz, const Track& track);
+  point3D_t AddPoint3D(
+      const Eigen::Vector3d& xyz, const Track& track,
+      const Eigen::Vector3ub& color = Eigen::Vector3ub::Zero());
 
   // Add observation to existing 3D point.
   void AddObservation(const point3D_t point3D_id, const TrackElement& track_el);
@@ -148,15 +155,15 @@ class Reconstruction {
                  const double p1 = 0.9, const bool use_images = true);
 
   // Apply the 3D similarity transformation to all images and points.
-  void Transform(const double scale, const Eigen::Vector4d& qvec,
-                 const Eigen::Vector3d& tvec);
+  void Transform(const SimilarityTransform3& tform);
 
   // Merge the given reconstruction into this reconstruction by registering the
   // images registered in the given but not in this reconstruction and by
   // merging the two clouds and their tracks. The coordinate frames of the two
   // reconstructions are aligned using the projection centers of common
   // registered images. Return true if the two reconstructions could be merged.
-  bool Merge(const Reconstruction& reconstruction, const int min_common_images);
+  bool Merge(const Reconstruction& reconstruction,
+             const double max_reproj_error);
 
   // Align the given reconstruction with a set of pre-defined camera positions.
   // Assuming that locations[i] gives the 3D coordinates of the center
@@ -177,6 +184,10 @@ class Reconstruction {
   //
   // @return            Nullptr if image was not found.
   const class Image* FindImageWithName(const std::string& name) const;
+
+  // Find images that are both present in this and the given reconstruction.
+  std::vector<image_t> FindCommonRegImageIds(
+      const Reconstruction& reconstruction) const;
 
   // Filter 3D points with large reprojection error, negative depth, or
   // insufficient triangulation angle.

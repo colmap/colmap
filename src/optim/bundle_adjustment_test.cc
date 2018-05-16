@@ -17,7 +17,9 @@
 #define TEST_NAME "optim/bundle_adjustment"
 #include "util/testing.h"
 
+#include "base/camera_models.h"
 #include "base/projection.h"
+#include "base/scene_graph.h"
 #include "optim/bundle_adjustment.h"
 #include "util/random.h"
 
@@ -635,33 +637,26 @@ BOOST_AUTO_TEST_CASE(TestParallelReconstructionSupported) {
   Reconstruction reconstruction;
   SceneGraph scene_graph;
   GenerateReconstruction(2, 100, &reconstruction, &scene_graph);
-  BOOST_CHECK(
-      ParallelBundleAdjuster::IsSupported(options, reconstruction));
+  BOOST_CHECK(ParallelBundleAdjuster::IsSupported(options, reconstruction));
 
   reconstruction.Camera(0).SetModelIdFromName("SIMPLE_PINHOLE");
-  BOOST_CHECK(
-      !ParallelBundleAdjuster::IsSupported(options, reconstruction));
+  BOOST_CHECK(!ParallelBundleAdjuster::IsSupported(options, reconstruction));
 
   reconstruction.Camera(0).SetModelIdFromName("SIMPLE_RADIAL");
-  BOOST_CHECK(
-      ParallelBundleAdjuster::IsSupported(options, reconstruction));
+  BOOST_CHECK(ParallelBundleAdjuster::IsSupported(options, reconstruction));
 
   options.refine_principal_point = true;
-  BOOST_CHECK(
-      !ParallelBundleAdjuster::IsSupported(options, reconstruction));
+  BOOST_CHECK(!ParallelBundleAdjuster::IsSupported(options, reconstruction));
   options.refine_principal_point = false;
 
   options.refine_focal_length = false;
-  BOOST_CHECK(
-      !ParallelBundleAdjuster::IsSupported(options, reconstruction));
+  BOOST_CHECK(!ParallelBundleAdjuster::IsSupported(options, reconstruction));
 
   options.refine_extra_params = false;
-  BOOST_CHECK(
-      ParallelBundleAdjuster::IsSupported(options, reconstruction));
+  BOOST_CHECK(ParallelBundleAdjuster::IsSupported(options, reconstruction));
 
   options.refine_focal_length = true;
-  BOOST_CHECK(
-      !ParallelBundleAdjuster::IsSupported(options, reconstruction));
+  BOOST_CHECK(!ParallelBundleAdjuster::IsSupported(options, reconstruction));
 }
 
 BOOST_AUTO_TEST_CASE(TestParallelTwoViewVariableIntrinsics) {

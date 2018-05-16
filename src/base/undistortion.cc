@@ -18,6 +18,7 @@
 
 #include <fstream>
 
+#include "base/camera_models.h"
 #include "base/pose.h"
 #include "base/warp.h"
 #include "util/misc.h"

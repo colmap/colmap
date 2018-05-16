@@ -462,9 +462,8 @@ void DenseReconstructionWidget::WriteFusedPoints() {
 
     for (const auto& point : fused_points_) {
       const Eigen::Vector3d xyz(point.x, point.y, point.z);
-      const point3D_t point3D_id = reconstruction.AddPoint3D(xyz, Track());
-      const Eigen::Vector3ub rgb(point.r, point.g, point.b);
-      reconstruction.Point3D(point3D_id).SetColor(rgb);
+      reconstruction.AddPoint3D(xyz, Track(),
+                                Eigen::Vector3ub(point.r, point.g, point.b));
     }
 
     options_->render->min_track_len = 0;

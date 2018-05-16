@@ -44,8 +44,8 @@ void MergeClusters(
     bool merge_success = false;
     for (size_t i = 0; i < reconstructions.size(); ++i) {
       for (size_t j = 0; j < i; ++j) {
-        const int kMinCommonImages = 3;
-        if (reconstructions[i]->Merge(*reconstructions[j], kMinCommonImages)) {
+        const double kMaxReprojError = 8.0;
+        if (reconstructions[i]->Merge(*reconstructions[j], kMaxReprojError)) {
           reconstructions.erase(reconstructions.begin() + j);
           merge_success = true;
           break;

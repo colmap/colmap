@@ -17,8 +17,10 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
+#include "base/similarity_transform.h"
 #include "controllers/automatic_reconstruction.h"
 #include "controllers/bundle_adjustment.h"
+#include "controllers/hierarchical_mapper.h"
 #include "estimators/coordinate_frame.h"
 #include "feature/extraction.h"
 #include "feature/matching.h"
@@ -659,6 +661,41 @@ int RunMapper(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+int RunHierarchicalMapper(int argc, char** argv) {
+  HierarchicalMapperController::Options hierarchical_options;
+  SceneClustering::Options clustering_options;
+  std::string export_path;
+
+  OptionManager options;
+  options.AddRequiredOption("database_path",
+                            &hierarchical_options.database_path);
+  options.AddRequiredOption("image_path", &hierarchical_options.image_path);
+  options.AddRequiredOption("export_path", &export_path);
+  options.AddDefaultOption("num_workers", &hierarchical_options.num_workers);
+  options.AddDefaultOption("image_overlap", &clustering_options.image_overlap);
+  options.AddDefaultOption("leaf_max_num_images",
+                           &clustering_options.leaf_max_num_images);
+  options.AddMapperOptions();
+  options.Parse(argc, argv);
+
+  if (!ExistsDir(export_path)) {
+    std::cerr << "ERROR: `export_path` is not a directory." << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  ReconstructionManager reconstruction_manager;
+
+  HierarchicalMapperController hierarchical_mapper(
+      hierarchical_options, clustering_options, *options.mapper,
+      &reconstruction_manager);
+  hierarchical_mapper.Start();
+  hierarchical_mapper.Wait();
+
+  reconstruction_manager.Write(export_path, &options);
+
+  return EXIT_SUCCESS;
+}
+
 int RunMatchesImporter(int argc, char** argv) {
   std::string match_list_path;
   std::string match_type = "pairs";
@@ -861,13 +898,13 @@ int RunModelMerger(int argc, char** argv) {
   std::string input_path1;
   std::string input_path2;
   std::string output_path;
-  int min_common_images = 3;
+  double max_reproj_error = 8.0;
 
   OptionManager options;
   options.AddRequiredOption("input_path1", &input_path1);
   options.AddRequiredOption("input_path2", &input_path2);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("min_common_images", &min_common_images);
+  options.AddDefaultOption("max_reproj_error", &max_reproj_error);
   options.Parse(argc, argv);
 
   Reconstruction reconstruction1;
@@ -887,7 +924,7 @@ int RunModelMerger(int argc, char** argv) {
             << std::endl;
 
   PrintHeading2("Merging reconstructions");
-  if (reconstruction1.Merge(reconstruction2, min_common_images)) {
+  if (reconstruction1.Merge(reconstruction2, max_reproj_error)) {
     std::cout << "=> Merge succeeded" << std::endl;
     PrintHeading2("Merged reconstruction");
     std::cout << StringPrintf("Images: %d", reconstruction1.NumRegImages())
@@ -960,8 +997,8 @@ int RunModelOrientationAligner(int argc, char** argv) {
   std::cout << "Using the rotation matrix:" << std::endl;
   std::cout << tform << std::endl;
 
-  reconstruction.Transform(1, RotationMatrixToQuaternion(tform),
-                           Eigen::Vector3d(0, 0, 0));
+  reconstruction.Transform(SimilarityTransform3(
+      1, RotationMatrixToQuaternion(tform), Eigen::Vector3d(0, 0, 0)));
 
   std::cout << "Writing aligned reconstruction..." << std::endl;
   reconstruction.Write(output_path);
@@ -1641,6 +1678,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("exhaustive_matcher", &RunExhaustiveMatcher);
   commands.emplace_back("feature_extractor", &RunFeatureExtractor);
   commands.emplace_back("feature_importer", &RunFeatureImporter);
+  commands.emplace_back("hierarchical_mapper", &RunHierarchicalMapper);
   commands.emplace_back("image_rectifier", &RunImageRectifier);
   commands.emplace_back("image_registrator", &RunImageRegistrator);
   commands.emplace_back("image_undistorter", &RunImageUndistorter);

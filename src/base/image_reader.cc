@@ -16,6 +16,7 @@
 
 #include "base/image_reader.h"
 
+#include "base/camera_models.h"
 #include "util/misc.h"
 
 namespace colmap {

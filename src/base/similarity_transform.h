@@ -27,6 +27,9 @@
 
 namespace colmap {
 
+struct RANSACOptions;
+class Reconstruction;
+
 // 3D similarity transformation with 7 degrees of freedom.
 class SimilarityTransform3 {
  public:
@@ -58,6 +61,18 @@ class SimilarityTransform3 {
  private:
   Eigen::Transform<double, 3, Eigen::Affine> transform_;
 };
+
+// Robustly compute alignment between reconstructions by finding images that
+// are registered in both reconstructions. The alignment is then estimated
+// robustly inside RANSAC from corresponding projection centers. An alignment
+// is verified by reprojecting common 3D point observations.
+// The min_inlier_observations threshold determines how many observations
+// in a common image must reproject within the given threshold.
+bool ComputeAlignmentBetweenReconstructions(
+    const Reconstruction& src_reconstruction,
+    const Reconstruction& ref_reconstruction,
+    const double min_inlier_observations, const double max_reproj_error,
+    Eigen::Matrix3x4d* alignment);
 
 }  // namespace colmap
 

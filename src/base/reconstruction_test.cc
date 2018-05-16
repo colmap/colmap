@@ -17,8 +17,11 @@
 #define TEST_NAME "base/reconstruction"
 #include "util/testing.h"
 
+#include "base/camera_models.h"
 #include "base/pose.h"
 #include "base/reconstruction.h"
+#include "base/scene_graph.h"
+#include "base/similarity_transform.h"
 
 using namespace colmap;
 
@@ -275,8 +278,8 @@ BOOST_AUTO_TEST_CASE(TestTransform) {
       reconstruction.AddPoint3D(Eigen::Vector3d(1, 1, 1), Track());
   reconstruction.AddObservation(point3D_id, TrackElement(1, 1));
   reconstruction.AddObservation(point3D_id, TrackElement(2, 1));
-  reconstruction.Transform(2, ComposeIdentityQuaternion(),
-                           Eigen::Vector3d(0, 1, 2));
+  reconstruction.Transform(SimilarityTransform3(2, ComposeIdentityQuaternion(),
+                                                Eigen::Vector3d(0, 1, 2)));
   BOOST_CHECK_EQUAL(reconstruction.Image(1).ProjectionCenter(),
                     Eigen::Vector3d(0, 1, 2));
   BOOST_CHECK_EQUAL(reconstruction.Point3D(point3D_id).XYZ(),

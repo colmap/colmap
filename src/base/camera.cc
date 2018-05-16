@@ -18,6 +18,7 @@
 
 #include <iomanip>
 
+#include "base/camera_models.h"
 #include "util/logging.h"
 #include "util/misc.h"
 

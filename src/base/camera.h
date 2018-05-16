@@ -19,7 +19,6 @@
 
 #include <vector>
 
-#include "base/camera_models.h"
 #include "util/types.h"
 
 namespace colmap {

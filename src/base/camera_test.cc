@@ -18,6 +18,7 @@
 #include "util/testing.h"
 
 #include "base/camera.h"
+#include "base/camera_models.h"
 
 using namespace colmap;
 

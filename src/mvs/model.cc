@@ -16,6 +16,7 @@
 
 #include "mvs/model.h"
 
+#include "base/camera_models.h"
 #include "base/pose.h"
 #include "base/projection.h"
 #include "base/reconstruction.h"
