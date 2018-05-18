@@ -159,8 +159,7 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
       }
 
       prev_camera_.InitializeWithId(prev_camera_.ModelId(), focal_length,
-                                    bitmap->Width(),
-                                    bitmap->Height());
+                                    bitmap->Width(), bitmap->Height());
     }
 
     prev_camera_.SetWidth(static_cast<size_t>(bitmap->Width()));
