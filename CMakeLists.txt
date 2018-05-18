@@ -189,6 +189,9 @@ if(Qt5_POSITION_INDEPENDENT_CODE)
     endif()
 endif()
 
+# Set the Qt modules for COLMAP.
+set(COLMAP_QT_MODULES Core Widgets OpenGL)
+
 
 ################################################################################
 # Add sources
@@ -196,7 +199,103 @@ endif()
 
 include(GenerateVersionDefinitions)
 
+include_directories(
+    lib
+    src
+    ${Boost_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIRS}
+    ${GLOG_INCLUDE_DIRS}
+    ${FREEIMAGE_INCLUDE_DIRS}
+    ${CERES_INCLUDE_DIRS}
+    ${GLEW_INCLUDE_DIRS}
+    ${Qt5_INCLUDE_DIRS}
+)
+
+link_directories(
+    ${Boost_LIBRARY_DIRS}
+)
+
+add_subdirectory(lib)
 add_subdirectory(src)
+
+
+# This macro will search for source files in a given directory, will add them
+# to a source group (folder within a project), and will then return paths to
+# each of the found files. The usage of the macro is as follows:
+# ADD_SOURCE_DIR(
+#     <source directory to search>
+#     <output variable with found source files>
+#     <search expressions such as *.h *.cc>)
+macro(ADD_SOURCE_DIR SRC_DIR SRC_VAR)
+    # Create the list of expressions to be used in the search.
+    set(GLOB_EXPRESSIONS "")
+    foreach(ARG ${ARGN})
+        list(APPEND GLOB_EXPRESSIONS ${SRC_DIR}/${ARG})
+    endforeach()
+    # Perform the search for the source files.
+    file(GLOB ${SRC_VAR} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+        ${GLOB_EXPRESSIONS})
+    # Create the source group.
+    string(REPLACE "/" "\\" GROUP_NAME ${SRC_DIR})
+    source_group(${GROUP_NAME} FILES ${${SRC_VAR}})
+    # Clean-up.
+    unset(GLOB_EXPRESSIONS)
+    unset(ARG)
+    unset(GROUP_NAME)
+endmacro(ADD_SOURCE_DIR)
+
+ADD_SOURCE_DIR(src/base BASE_SRC *.h *.cc)
+ADD_SOURCE_DIR(src/controllers CONTROLLERS_SRC *.h *.cc)
+ADD_SOURCE_DIR(src/estimators ESTIMATORS_SRC *.h *.cc)
+ADD_SOURCE_DIR(src/exe EXE_SRC *.h *.cc)
+ADD_SOURCE_DIR(lib/FLANN EXT_FLANN_SRC *.h *.cpp *.hpp *.cu)
+ADD_SOURCE_DIR(lib/Graclus EXT_GRACLUS_SRC *.h *.c)
+ADD_SOURCE_DIR(lib/LSD EXT_LSD_SRC *.h *.c)
+ADD_SOURCE_DIR(lib/PBA EXT_PBA_SRC *.h *.cpp *.cu)
+ADD_SOURCE_DIR(lib/PoissonRecon EXT_POISSON_RECON_SRC *.h *.cpp *.inl)
+ADD_SOURCE_DIR(lib/SiftGPU EXT_SIFT_GPU_SRC *.h *.cpp *.cu)
+ADD_SOURCE_DIR(lib/SQLite EXT_SQLITE_SRC *.h *.c)
+ADD_SOURCE_DIR(lib/VLFeat EXT_VLFEAT_SRC *.h *.c *.tc)
+ADD_SOURCE_DIR(src/feature FEATURE_SRC *.h *.cc)
+ADD_SOURCE_DIR(src/mvs MVS_SRC *.h *.cc *.cu)
+ADD_SOURCE_DIR(src/optim OPTIM_SRC *.h *.cc)
+ADD_SOURCE_DIR(src/retrieval RETRIEVAL_SRC *.h *.cc)
+ADD_SOURCE_DIR(src/sfm SFM_SRC *.h *.cc)
+ADD_SOURCE_DIR(src/tools TOOLS_SRC *.h *.cc)
+ADD_SOURCE_DIR(src/ui UI_SRC *.h *.cc)
+ADD_SOURCE_DIR(src/util UTIL_SRC *.h *.cc)
+
+# Add all of the source files to a regular library target, as using a custom
+# target does not allow us to set its C++ include directories (and thus
+# intellisense can't find any of the included files).
+add_library(
+    ${COLMAP_SRC_ROOT_FOLDER}
+    ${BASE_SRC}
+    ${CONTROLLERS_SRC}
+    ${ESTIMATORS_SRC}
+    ${EXE_SRC}
+    ${EXT_FLANN_SRC}
+    ${EXT_GRACLUS_SRC}
+    ${EXT_LSD_SRC}
+    ${EXT_PBA_SRC}
+    ${EXT_POISSON_RECON_SRC}
+    ${EXT_SIFT_GPU_SRC}
+    ${EXT_SQLITE_SRC}
+    ${EXT_VLFEAT_SRC}
+    ${FEATURE_SRC}
+    ${MVS_SRC}
+    ${OPTIM_SRC}
+    ${RETRIEVAL_SRC}
+    ${SFM_SRC}
+    ${TOOLS_SRC}
+    ${UI_SRC}
+    ${UTIL_SRC})
+
+# Prevent the library from being compiled automatically.
+set_target_properties(
+    ${COLMAP_SRC_ROOT_FOLDER} PROPERTIES
+    EXCLUDE_FROM_ALL 1
+    EXCLUDE_FROM_DEFAULT_BUILD 1)
 
 
 ################################################################################

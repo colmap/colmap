@@ -44,7 +44,7 @@ set(CMAKE_TARGETS_ROOT_FOLDER "cmake")
 set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER
     ${CMAKE_TARGETS_ROOT_FOLDER})
 set(COLMAP_TARGETS_ROOT_FOLDER "colmap_targets")
-set(COLMAP_SRC_ROOT_FOLDER "colmap_src")
+set(COLMAP_SRC_ROOT_FOLDER "colmap_srcs")
 
 # Remove the default warning level set by CMake so that later code can allow
 # the user to specify a custom warning level.
