@@ -1,7 +1,41 @@
-# Sets:
-#   EIGEN3_FOUND - TRUE if System has Eigen library with correct version.
-#   EIGEN3_INCLUDE_DIRS - The Eigen include directory.
-#   EIGEN3_VERSION - Eigen version.
+# Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
+#
+#     * Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#
+#     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
+#       its contributors may be used to endorse or promote products derived
+#       from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+#
+# Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+
+# Find package module for Eigen 3 library.
+#
+# The following variables are set by this module:
+#
+#   EIGEN3_FOUND: TRUE if Eigen is found.
+#   EIGEN3_VERSION: Eigen library version.
+#   EIGEN3_INCLUDE_DIRS: Include directories for Eigen.
 #
 # The following variables control the behavior of this module:
 #
@@ -9,6 +43,10 @@
 #                           search for Eigen includes.
 
 set(EIGEN3_INCLUDE_DIR_HINTS "" CACHE PATH "Eigen include directory")
+
+unset(EIGEN3_FOUND)
+unset(EIGEN3_VERSION)
+unset(EIGEN3_INCLUDE_DIRS)
 
 if(NOT Eigen3_FIND_VERSION)
     if(NOT Eigen3_FIND_VERSION_MAJOR)
@@ -26,17 +64,18 @@ if(NOT Eigen3_FIND_VERSION)
     set(Eigen3_FIND_VERSION "${Eigen3_FIND_VERSION_MAJOR}.${Eigen3_FIND_VERSION_MINOR}.${Eigen3_FIND_VERSION_PATCH}")
 endif()
 
-macro(_eigen3_check_version)
-    file(READ "${EIGEN3_INCLUDE_DIRS}/Eigen/src/Core/util/Macros.h" _eigen3_version_header)
+macro(_EIGEN3_CHECK_VERSION)
+    file(READ "${EIGEN3_INCLUDE_DIRS}/Eigen/src/Core/util/Macros.h" _EIGEN3_VERSION_HEADER)
 
-    string(REGEX MATCH "define[ \t]+EIGEN_WORLD_VERSION[ \t]+([0-9]+)" _eigen3_world_version_match "${_eigen3_version_header}")
+    string(REGEX MATCH "define[ \t]+EIGEN_WORLD_VERSION[ \t]+([0-9]+)" _EIGEN3_WORLD_VERSION_MATCH "${_EIGEN3_VERSION_HEADER}")
     set(EIGEN3_WORLD_VERSION "${CMAKE_MATCH_1}")
-    string(REGEX MATCH "define[ \t]+EIGEN_MAJOR_VERSION[ \t]+([0-9]+)" _eigen3_major_version_match "${_eigen3_version_header}")
+    string(REGEX MATCH "define[ \t]+EIGEN_MAJOR_VERSION[ \t]+([0-9]+)" _EIGEN3_MAJOR_VERSION_MATCH "${_EIGEN3_VERSION_HEADER}")
     set(EIGEN3_MAJOR_VERSION "${CMAKE_MATCH_1}")
-    string(REGEX MATCH "define[ \t]+EIGEN_MINOR_VERSION[ \t]+([0-9]+)" _eigen3_minor_version_match "${_eigen3_version_header}")
+    string(REGEX MATCH "define[ \t]+EIGEN_MINOR_VERSION[ \t]+([0-9]+)" _EIGEN3_MINOR_VERSION_MATCH "${_EIGEN3_VERSION_HEADER}")
     set(EIGEN3_MINOR_VERSION "${CMAKE_MATCH_1}")
 
     set(EIGEN3_VERSION ${EIGEN3_WORLD_VERSION}.${EIGEN3_MAJOR_VERSION}.${EIGEN3_MINOR_VERSION})
+
     if(${EIGEN3_VERSION} VERSION_LESS ${Eigen3_FIND_VERSION})
         set(EIGEN3_VERSION_OK FALSE)
     else()
@@ -44,13 +83,13 @@ macro(_eigen3_check_version)
     endif()
 
     if(NOT EIGEN3_VERSION_OK)
-        message(STATUS "Eigen3 version ${EIGEN3_VERSION} found in ${EIGEN3_INCLUDE_DIRS}, "
+        message(STATUS "Eigen version ${EIGEN3_VERSION} found in ${EIGEN3_INCLUDE_DIRS}, "
                        "but at least version ${Eigen3_FIND_VERSION} is required.")
     endif()
 endmacro()
 
 if(EIGEN3_INCLUDE_DIRS)
-    _eigen3_check_version()
+    _EIGEN3_CHECK_VERSION()
     set(EIGEN3_FOUND ${EIGEN3_VERSION_OK})
 else()
     find_path(EIGEN3_INCLUDE_DIRS
@@ -68,7 +107,7 @@ else()
     )
 
     if(EIGEN3_INCLUDE_DIRS)
-        _eigen3_check_version()
+        _EIGEN3_CHECK_VERSION()
     endif()
 
     include(FindPackageHandleStandardArgs)
@@ -78,10 +117,10 @@ else()
 endif()
 
 if(EIGEN3_FOUND)
-    message(STATUS "Found Eigen3")
+    message(STATUS "Found Eigen")
     message(STATUS "  Includes : ${EIGEN3_INCLUDE_DIRS}")
 else()
     if(Eigen3_FIND_REQUIRED)
-        message(FATAL_ERROR "Could not find Eigen3")
+        message(FATAL_ERROR "Could not find Eigen")
     endif()
 endif()

@@ -1,3 +1,34 @@
+# Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
+#
+#     * Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#
+#     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
+#       its contributors may be used to endorse or promote products derived
+#       from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+#
+# Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+
 cmake_minimum_required(VERSION 2.8.11)
 
 project(COLMAP)
@@ -17,10 +48,6 @@ include(CheckCXXCompilerFlag)
 # Include helper macros and commands, and allow the included file to override
 # the CMake policies in this file
 include(${CMAKE_SOURCE_DIR}/cmake/CMakeHelper.cmake NO_POLICY_SCOPE)
-
-if(EXISTS ${CMAKE_SOURCE_DIR}/LocalConfig.cmake)
-    include(${CMAKE_SOURCE_DIR}/LocalConfig.cmake)
-endif()
 
 
 ################################################################################
@@ -55,6 +82,8 @@ if(OPENMP_ENABLED)
     find_package(OpenMP QUIET)
 endif()
 
+find_package(Ceres REQUIRED)
+
 find_package(Boost COMPONENTS
              program_options
              filesystem
@@ -68,8 +97,6 @@ find_package(Eigen3 REQUIRED)
 find_package(FreeImage REQUIRED)
 
 find_package(Glog REQUIRED)
-
-find_package(Ceres REQUIRED)
 
 find_package(OpenGL REQUIRED)
 find_package(Glew REQUIRED)
@@ -197,11 +224,10 @@ set(COLMAP_QT_MODULES Core Widgets OpenGL)
 # Add sources
 ################################################################################
 
+# Generate source file with version definitions.
 include(GenerateVersionDefinitions)
 
-include_directories(
-    lib
-    src
+set(COLMAP_INCLUDE_DIRS
     ${Boost_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
     ${GLOG_INCLUDE_DIRS}
@@ -211,85 +237,111 @@ include_directories(
     ${Qt5_INCLUDE_DIRS}
 )
 
-link_directories(
+set(COLMAP_LINK_DIRS
     ${Boost_LIBRARY_DIRS}
 )
+
+set(COLMAP_EXTERNAL_LIBRARIES
+    ${CMAKE_DL_LIBS}
+    ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_REGEX_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${GLOG_LIBRARIES}
+    ${FREEIMAGE_LIBRARIES}
+    ${CERES_LIBRARIES}
+    ${OPENGL_gl_LIBRARY}
+    ${OPENGL_glu_LIBRARY}
+)
+
+if(UNIX)
+    list(APPEND COLMAP_EXTERNAL_LIBRARIES pthread)
+endif()
+
+set(COLMAP_INTERNAL_LIBRARIES
+    colmap
+    flann
+    graclus
+    lsd
+    pba
+    poisson_recon
+    sqlite3
+    sift_gpu
+    vlfeat
+)
+
+if(CUDA_ENABLED)
+    list(APPEND COLMAP_INTERNAL_LIBRARIES colmap_cuda)
+endif()
+
+set(COLMAP_LIBRARIES
+    ${COLMAP_INTERNAL_LIBRARIES}
+    ${COLMAP_EXTERNAL_LIBRARIES}
+)
+
+include_directories(
+    lib
+    src
+    ${COLMAP_INCLUDE_DIRS}
+)
+
+link_directories(${COLMAP_LINK_DIRS})
 
 add_subdirectory(lib)
 add_subdirectory(src)
 
+################################################################################
+# Generate source groups for Visual Studio, XCode, etc.
+################################################################################
 
-# This macro will search for source files in a given directory, will add them
-# to a source group (folder within a project), and will then return paths to
-# each of the found files. The usage of the macro is as follows:
-# ADD_SOURCE_DIR(
-#     <source directory to search>
-#     <output variable with found source files>
-#     <search expressions such as *.h *.cc>)
-macro(ADD_SOURCE_DIR SRC_DIR SRC_VAR)
-    # Create the list of expressions to be used in the search.
-    set(GLOB_EXPRESSIONS "")
-    foreach(ARG ${ARGN})
-        list(APPEND GLOB_EXPRESSIONS ${SRC_DIR}/${ARG})
-    endforeach()
-    # Perform the search for the source files.
-    file(GLOB ${SRC_VAR} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-        ${GLOB_EXPRESSIONS})
-    # Create the source group.
-    string(REPLACE "/" "\\" GROUP_NAME ${SRC_DIR})
-    source_group(${GROUP_NAME} FILES ${${SRC_VAR}})
-    # Clean-up.
-    unset(GLOB_EXPRESSIONS)
-    unset(ARG)
-    unset(GROUP_NAME)
-endmacro(ADD_SOURCE_DIR)
+COLMAP_ADD_SOURCE_DIR(lib/FLANN LIB_FLANN_SRCS *.h *.cpp *.hpp *.cu)
+COLMAP_ADD_SOURCE_DIR(lib/Graclus LIB_GRACLUS_SRCS *.h *.c)
+COLMAP_ADD_SOURCE_DIR(lib/LSD LIB_LSD_SRCS *.h *.c)
+COLMAP_ADD_SOURCE_DIR(lib/PBA LIB_PBA_SRCS *.h *.cpp *.cu)
+COLMAP_ADD_SOURCE_DIR(lib/PoissonRecon LIB_POISSON_RECON_SRCS *.h *.cpp *.inl)
+COLMAP_ADD_SOURCE_DIR(lib/SiftGPU LIB_SIFT_GPU_SRCS *.h *.cpp *.cu)
+COLMAP_ADD_SOURCE_DIR(lib/SQLite LIB_SQLITE_SRCS *.h *.c)
+COLMAP_ADD_SOURCE_DIR(lib/VLFeat LIB_VLFEAT_SRCS *.h *.c *.tc)
 
-ADD_SOURCE_DIR(src/base BASE_SRC *.h *.cc)
-ADD_SOURCE_DIR(src/controllers CONTROLLERS_SRC *.h *.cc)
-ADD_SOURCE_DIR(src/estimators ESTIMATORS_SRC *.h *.cc)
-ADD_SOURCE_DIR(src/exe EXE_SRC *.h *.cc)
-ADD_SOURCE_DIR(lib/FLANN EXT_FLANN_SRC *.h *.cpp *.hpp *.cu)
-ADD_SOURCE_DIR(lib/Graclus EXT_GRACLUS_SRC *.h *.c)
-ADD_SOURCE_DIR(lib/LSD EXT_LSD_SRC *.h *.c)
-ADD_SOURCE_DIR(lib/PBA EXT_PBA_SRC *.h *.cpp *.cu)
-ADD_SOURCE_DIR(lib/PoissonRecon EXT_POISSON_RECON_SRC *.h *.cpp *.inl)
-ADD_SOURCE_DIR(lib/SiftGPU EXT_SIFT_GPU_SRC *.h *.cpp *.cu)
-ADD_SOURCE_DIR(lib/SQLite EXT_SQLITE_SRC *.h *.c)
-ADD_SOURCE_DIR(lib/VLFeat EXT_VLFEAT_SRC *.h *.c *.tc)
-ADD_SOURCE_DIR(src/feature FEATURE_SRC *.h *.cc)
-ADD_SOURCE_DIR(src/mvs MVS_SRC *.h *.cc *.cu)
-ADD_SOURCE_DIR(src/optim OPTIM_SRC *.h *.cc)
-ADD_SOURCE_DIR(src/retrieval RETRIEVAL_SRC *.h *.cc)
-ADD_SOURCE_DIR(src/sfm SFM_SRC *.h *.cc)
-ADD_SOURCE_DIR(src/tools TOOLS_SRC *.h *.cc)
-ADD_SOURCE_DIR(src/ui UI_SRC *.h *.cc)
-ADD_SOURCE_DIR(src/util UTIL_SRC *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/base BASE_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/controllers CONTROLLERS_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/estimators ESTIMATORS_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/exe EXE_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/feature FEATURE_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/mvs MVS_SRCS *.h *.cc *.cu)
+COLMAP_ADD_SOURCE_DIR(src/optim OPTIM_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/retrieval RETRIEVAL_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/sfm SFM_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/tools TOOLS_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/ui UI_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/util UTIL_SRCS *.h *.cc)
 
 # Add all of the source files to a regular library target, as using a custom
 # target does not allow us to set its C++ include directories (and thus
 # intellisense can't find any of the included files).
 add_library(
     ${COLMAP_SRC_ROOT_FOLDER}
-    ${BASE_SRC}
-    ${CONTROLLERS_SRC}
-    ${ESTIMATORS_SRC}
-    ${EXE_SRC}
-    ${EXT_FLANN_SRC}
-    ${EXT_GRACLUS_SRC}
-    ${EXT_LSD_SRC}
-    ${EXT_PBA_SRC}
-    ${EXT_POISSON_RECON_SRC}
-    ${EXT_SIFT_GPU_SRC}
-    ${EXT_SQLITE_SRC}
-    ${EXT_VLFEAT_SRC}
-    ${FEATURE_SRC}
-    ${MVS_SRC}
-    ${OPTIM_SRC}
-    ${RETRIEVAL_SRC}
-    ${SFM_SRC}
-    ${TOOLS_SRC}
-    ${UI_SRC}
-    ${UTIL_SRC})
+    ${LIB_FLANN_SRCS}
+    ${LIB_GRACLUS_SRCS}
+    ${LIB_LSD_SRCS}
+    ${LIB_PBA_SRCS}
+    ${LIB_POISSON_RECON_SRCS}
+    ${LIB_SIFT_GPU_SRCS}
+    ${LIB_SQLITE_SRCS}
+    ${LIB_VLFEAT_SRCS}
+    ${BASE_SRCS}
+    ${CONTROLLERS_SRCS}
+    ${ESTIMATORS_SRCS}
+    ${EXE_SRCS}
+    ${FEATURE_SRCS}
+    ${MVS_SRCS}
+    ${OPTIM_SRCS}
+    ${RETRIEVAL_SRCS}
+    ${SFM_SRCS}
+    ${TOOLS_SRCS}
+    ${UI_SRCS}
+    ${UTIL_SRCS}
+)
 
 # Prevent the library from being compiled automatically.
 set_target_properties(
@@ -299,9 +351,33 @@ set_target_properties(
 
 
 ################################################################################
-# Install/uninstall script
+# Install and uninstall scripts
 ################################################################################
 
+# Install header files.
+install(DIRECTORY src/
+        DESTINATION include/colmap
+        FILES_MATCHING PATTERN "*.h")
+install(DIRECTORY lib/
+        DESTINATION include/colmap/lib
+        FILES_MATCHING PATTERN "*.h")
+
+# Generate and install CMake configuration.
+configure_file("${CMAKE_SOURCE_DIR}/cmake/CMakeConfig.cmake.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/COLMAPConfig.cmake" @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/COLMAPConfig.cmake"
+        DESTINATION "share/colmap")
+configure_file("${CMAKE_SOURCE_DIR}/cmake/CMakeConfigVersion.cmake.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/COLMAPConfigVersion.cmake" @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/COLMAPConfigVersion.cmake"
+        DESTINATION "share/colmap")
+
+# Install find_package scripts for dependencies.
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/cmake
+        DESTINATION share/colmap
+        FILES_MATCHING PATTERN "Find*.cmake")
+
+# Install batch scripts under Windows.
 if(IS_MSVC)
     install(FILES "scripts/shell/COLMAP.bat" "scripts/shell/RUN_TESTS.bat"
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
@@ -309,11 +385,13 @@ if(IS_MSVC)
             DESTINATION "/")
 endif()
 
+# Install application meny entry under Linux/Unix.
 if(UNIX AND NOT APPLE)
     install(FILES "doc/COLMAP.desktop" DESTINATION "share/applications")
 endif()
 
-configure_file("${CMAKE_SOURCE_DIR}/cmake/CMakeUninstall.cmake"
+# Configure the uninstallation script.
+configure_file("${CMAKE_SOURCE_DIR}/cmake/CMakeUninstall.cmake.in"
                "${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake"
                IMMEDIATE @ONLY)
 add_custom_target(uninstall COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake)

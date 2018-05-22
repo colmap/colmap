@@ -29,7 +29,10 @@
 #
 # Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
 
-set(FOLDER_NAME "exe")
+set(PACKAGE_VERSION "@COLMAP_VERSION@")
 
-COLMAP_ADD_EXECUTABLE(colmap_exe colmap.cc)
-set_target_properties(colmap_exe PROPERTIES OUTPUT_NAME colmap)
+if("${PACKAGE_VERSION}" VERSION_EQUAL "${PACKAGE_FIND_VERSION}")
+    set(PACKAGE_VERSION_COMPATIBLE TRUE)
+else()
+    set(PACKAGE_VERSION_COMPATIBLE FALSE)
+endif()

@@ -8,7 +8,12 @@ manually. Executables for Windows and Mac and other resources can be downloaded
 from https://demuc.de/colmap/. Executables for Linux/Unix/BSD are available at
 https://repology.org/metapackage/colmap/versions. Note that the COLMAP packages
 in the default repositories for Linux/Unix/BSD do not come with CUDA support,
-which requires manual compilation, which is relatively easy on these platforms.
+which requires manual compilation but is relatively easy on these platforms.
+
+COLMAP can be used as an independent application through the command-line or
+graphical user interface. Alternatively, COLMAP is also built as a reusable
+library, i.e., you can include and link COLMAP against your own source code,
+as described further below.
 
 ------------------
 Pre-built Binaries
@@ -123,19 +128,12 @@ Dependencies from `Homebrew <http://brew.sh/>`_::
         qt5 \
         glew
 
-Create the file ``LocalConfig.cmake`` in the COLMAP base directory and then
-insert the following lines into it::
-
-    set(Qt5_CMAKE_DIR "/usr/local/opt/qt5/lib/cmake")
-    set(Qt5Core_DIR ${Qt5_CMAKE_DIR}/Qt5Core)
-    set(Qt5OpenGL_DIR ${Qt5_CMAKE_DIR}/Qt5OpenGL)
-
 Configure and compile COLMAP::
 
     cd path/to/colmap
     mkdir build
     cd build
-    cmake ..
+    cmake .. -DQT5_CMAKE_CONFIG_DIR_HINTS=/usr/local/opt/qt/lib/cmake
     make
 
 Run COLMAP::
@@ -152,10 +150,8 @@ Windows
 On Windows it is recommended to use the Python build script. Please follow the
 instructions in the next section.
 
-Alternatively, you can install the dependencies manually. To make the process of
-configuring CMake less painful, please have a look at
-``LocalConfigExample.config``. MSVC12 (Microsoft Visual Studio 2013) and newer
-are confirmed to compile COLMAP without any issues.
+Alternatively, you can install the dependencies manually. Microsoft Visual
+Studio 2013 and newer are confirmed to compile COLMAP without any issues.
 
 
 Build Script
@@ -190,6 +186,58 @@ If you use Homebrew under Mac, you can use the following command::
         --qt_path /usr/local/opt/qt/
 
 To see the full list of command-line options, pass the ``--help`` argument.
+
+
+-------
+Library
+-------
+
+If you want to include and link COLMAP against your own library, the easiest
+way is to use CMake as a build configuration tool. COLMAP automatically installs
+all headers to ``${CMAKE_INSTALL_PREFIX}/include/colmap``, all libraries to
+``${CMAKE_INSTALL_PREFIX}/lib/colmap``, and the CMake configuration to
+``${CMAKE_INSTALL_PREFIX}/share/colmap``.
+
+For example, compiling your own source code against COLMAP is as simple as
+using the following ``CMakeLists.txt``::
+
+    cmake_minimum_required(VERSION 2.8.11)
+
+    project(TestProject)
+
+    find_package(COLMAP REQUIRED)
+    # or: find_package(COLMAP 3.4 REQUIRED)
+
+    include_directories(${COLMAP_INCLUDE_DIRS})
+    link_directories(${COLMAP_LINK_DIRS})
+
+    add_executable(test test.cc)
+    target_link_libraries(test ${COLMAP_LIBRARIES})
+    qt5_use_modules(test ${COLMAP_QT_MODULES})
+
+with the source code ``test.cc``::
+
+    #include <cstdlib>
+    #include <iostream>
+
+    #include <colmap/util/option_manager.h>
+    #include <colmap/util/string.h>
+
+    int main(int argc, char** argv) {
+        colmap::InitializeGlog(argv);
+
+        std::string input_path;
+        std::string output_path;
+
+        colmap::OptionManager options;
+        options.AddRequiredOption("input_path", &input_path);
+        options.AddRequiredOption("output_path", &output_path);
+        options.Parse(argc, argv);
+
+        std::cout << colmap::StringPrintf("Hello %s!", "COLMAP") << std::endl;
+
+        return EXIT_SUCCESS;
+    }
 
 
 -------------

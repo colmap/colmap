@@ -43,7 +43,7 @@ if(CUDA_ENABLED)
         SiftMatchCU.h
     )
 
-    COLMAP_CUDA_ADD_LIBRARY(sift_gpu ${SIFT_GPU_SOURCE_FILES})
+    COLMAP_ADD_CUDA_LIBRARY(sift_gpu ${SIFT_GPU_SOURCE_FILES})
 else()
     COLMAP_ADD_LIBRARY(sift_gpu ${SIFT_GPU_SOURCE_FILES})
 endif()

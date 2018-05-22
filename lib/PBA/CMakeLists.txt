@@ -27,7 +27,7 @@ if(CUDA_ENABLED)
         SparseBundleCU.cpp
         SparseBundleCU.h
         util.h)
-    COLMAP_CUDA_ADD_LIBRARY(pba ${PBA_GPU_SOURCE_FILES})
+    COLMAP_ADD_CUDA_LIBRARY(pba ${PBA_GPU_SOURCE_FILES})
 else()
     set(PBA_CPU_SOURCE_FILES
         ConfigBA.cpp
