@@ -190,11 +190,11 @@ def build_eigen(args):
     if os.path.exists(path):
         return
 
-    url = "https://github.com/RLovelett/eigen/archive/3.3.4.zip"
+    url = "https://bitbucket.org/eigen/eigen/get/3.3.4.zip"
     archive_path = os.path.join(args.download_path, "eigen.zip")
     download_zipfile(url, archive_path, args.build_path,
-                     "5e6c210a4cd6821f6147c96fd3aab8a7")
-    shutil.move(os.path.join(args.build_path, "eigen-3.3.4"), path)
+                     "e337acc279874bc6a56da4d973a723fb")
+    shutil.move(glob.glob(os.path.join(args.build_path, "eigen-*"))[0], path)
 
     build_cmake_project(args, os.path.join(path, "__build__"))
 
