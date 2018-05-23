@@ -48,27 +48,6 @@ COLMAP_ADD_TEST(mat_test mat_test.cc)
 COLMAP_ADD_TEST(normal_map_test normal_map_test.cc)
 
 if(CUDA_ENABLED)
-    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --use_fast_math")
-
-    # Use a separate stream per thread to allow for concurrent kernel execution
-    # between multiple threads on the same device.
-    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --default-stream per-thread")
-
-    if(MSVC)
-        # Workaround for Visual Studio compiler error,
-        # due problems with compiling too complex code.
-        string(REPLACE "/Zo" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-
-        # Avoid pulling in too many header files through <windows.h>
-        add_definitions(-DWIN32_LEAN_AND_MEAN)
-    else()
-        set(CUDA_PROPAGATE_HOST_FLAGS OFF)
-        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++11")
-
-        # Fix for Ubuntu 16.04.
-        add_definitions("-D_MWAITXINTRIN_H_INCLUDED")
-    endif()
-
     COLMAP_ADD_CUDA_SOURCES(
         gpu_mat_prng.h gpu_mat_prng.cu
         gpu_mat_ref_image.h gpu_mat_ref_image.cu

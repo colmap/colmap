@@ -45,5 +45,24 @@ add_subdirectory(util)
 COLMAP_ADD_LIBRARY(colmap ${COLMAP_SOURCES})
 
 if(CUDA_ENABLED)
+    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --use_fast_math")
+
+    # Use a separate stream per thread to allow for concurrent kernel execution
+    # between multiple threads on the same device.
+    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --default-stream per-thread")
+    set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --ptxas-options=--suppress-stack-size-warning")
+
+    if(MSVC)
+        # Workaround for Visual Studio compiler error,
+        # due problems with compiling too complex code.
+        string(REPLACE "/Zo" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+
+        # Avoid pulling in too many header files through <windows.h>
+        add_definitions(-DWIN32_LEAN_AND_MEAN)
+    else()
+        set(CUDA_PROPAGATE_HOST_FLAGS OFF)
+        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++11")
+    endif()
+
     COLMAP_ADD_CUDA_LIBRARY(colmap_cuda ${COLMAP_CUDA_SOURCES})
 endif()
