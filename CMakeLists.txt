@@ -29,13 +29,12 @@
 #
 # Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
 
-cmake_minimum_required(VERSION 2.8.11)
+cmake_minimum_required(VERSION 3.0)
 
 project(COLMAP)
 
 set(COLMAP_VERSION "3.4")
 set(COLMAP_VERSION_NUMBER "3400")
-
 
 ################################################################################
 # Include CMake dependencies
@@ -84,13 +83,12 @@ endif()
 
 find_package(Ceres REQUIRED)
 
-find_package(Boost COMPONENTS
+find_package(Boost REQUIRED COMPONENTS
              program_options
              filesystem
              regex
              system
-             unit_test_framework
-             REQUIRED)
+             unit_test_framework)
 
 find_package(Eigen3 REQUIRED)
 
@@ -107,7 +105,7 @@ if(CUDA_ENABLED)
     find_package(CUDA ${CUDA_MIN_VERSION} QUIET)
 endif()
 
-find_package(Qt5 5.4 REQUIRED)
+find_package(Qt5 5.4 REQUIRED COMPONENTS Core OpenGL Widgets)
 
 
 ################################################################################
@@ -216,9 +214,7 @@ if(Qt5_POSITION_INDEPENDENT_CODE)
     endif()
 endif()
 
-# Set the Qt modules for COLMAP.
-set(COLMAP_QT_MODULES Core Widgets OpenGL)
-
+set(CMAKE_AUTORCC ON)
 
 ################################################################################
 # Add sources
@@ -234,7 +230,9 @@ set(COLMAP_INCLUDE_DIRS
     ${FREEIMAGE_INCLUDE_DIRS}
     ${CERES_INCLUDE_DIRS}
     ${GLEW_INCLUDE_DIRS}
-    ${Qt5_INCLUDE_DIRS}
+    ${Qt5Core_INCLUDE_DIRS}
+    ${Qt5OpenGL_INCLUDE_DIRS}
+    ${Qt5Widgets_INCLUDE_DIRS}
 )
 
 set(COLMAP_LINK_DIRS
@@ -252,6 +250,9 @@ set(COLMAP_EXTERNAL_LIBRARIES
     ${CERES_LIBRARIES}
     ${OPENGL_gl_LIBRARY}
     ${OPENGL_glu_LIBRARY}
+    ${Qt5Core_LIBRARIES}
+    ${Qt5OpenGL_LIBRARIES}
+    ${Qt5Widgets_LIBRARIES}
 )
 
 if(UNIX)

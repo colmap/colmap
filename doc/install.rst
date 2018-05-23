@@ -125,7 +125,7 @@ Dependencies from `Homebrew <http://brew.sh/>`_::
         gflags \
         suite-sparse \
         ceres-solver \
-        qt5 \
+        qt \
         glew
 
 Configure and compile COLMAP::
@@ -133,7 +133,7 @@ Configure and compile COLMAP::
     cd path/to/colmap
     mkdir build
     cd build
-    cmake .. -DQT5_CMAKE_CONFIG_DIR_HINTS=/usr/local/opt/qt/lib/cmake
+    PATH="/usr/local/opt/qt/bin:$PATH" cmake ..
     make
 
 Run COLMAP::
@@ -213,7 +213,6 @@ using the following ``CMakeLists.txt``::
 
     add_executable(test test.cc)
     target_link_libraries(test ${COLMAP_LIBRARIES})
-    qt5_use_modules(test ${COLMAP_QT_MODULES})
 
 with the source code ``test.cc``::
 

@@ -5,7 +5,10 @@ dist: trusty
 matrix:
   include:
     - os: linux
-      env: CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres -DQt5Core_DIR=/opt/qt54/lib/cmake/Qt5Core -DQt5OpenGL_DIR=/opt/qt54/lib/cmake/Qt5OpenGL" QT_QPA_PLATFORM=offscreen
+      env:
+        - PATH="/opt/qt54/bin:$PATH"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - QT_QPA_PLATFORM="offscreen"
       addons:
         apt:
           sources:
@@ -26,7 +29,9 @@ matrix:
             - libgflags-dev
             - libglew-dev
     - os: osx
-      env: CMAKE_OPTIONS="-DIPO_ENABLED=OFF -DQt5Core_DIR=/usr/local/opt/qt5/lib/cmake/Qt5Core -DQt5OpenGL_DIR=/usr/local/opt/qt5/lib/cmake/Qt5OpenGL"
+      env:
+        - PATH="/usr/local/opt/qt/bin:$PATH"
+        - CMAKE_OPTIONS="-DIPO_ENABLED=OFF"
 
 cache:
   directories:

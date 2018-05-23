@@ -31,8 +31,6 @@
 
 set(FOLDER_NAME "ui")
 
-qt5_add_resources(QT_RESOURCES resources.qrc)
-
 COLMAP_ADD_SOURCES(
     automatic_reconstruction_widget.h automatic_reconstruction_widget.cc
     bundle_adjustment_widget.h bundle_adjustment_widget.cc
@@ -62,5 +60,5 @@ COLMAP_ADD_SOURCES(
     thread_control_widget.h thread_control_widget.cc
     triangle_painter.h triangle_painter.cc
     undistortion_widget.h undistortion_widget.cc
-    ${QT_RESOURCES}
+    resources.qrc
 )

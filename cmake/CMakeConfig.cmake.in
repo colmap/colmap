@@ -38,7 +38,6 @@
 #   COLMAP_INCLUDE_DIRS: Include directories for COLMAP.
 #   COLMAP_LINK_DIRS: Link directories for COLMAP.
 #   COLMAP_LIBRARIES: Libraries required to link COLMAP.
-#   COLMAP_QT_MODULES: Qt5 modules required by COLMAP.
 #   COLMAP_CUDA_ENABLED: Whether COLMAP was compiled with CUDA support.
 
 get_filename_component(COLMAP_INSTALL_PREFIX ${CMAKE_CURRENT_LIST_FILE} PATH)
@@ -58,8 +57,6 @@ set(GLEW_LIBRARY_DIR_HINTS @GLEW_LIBRARY_DIR_HINTS@)
 
 set(GLOG_INCLUDE_DIR_HINTS @GLOG_INCLUDE_DIR_HINTS@)
 set(GLOG_LIBRARY_DIR_HINTS @GLOG_LIBRARY_DIR_HINTS@)
-
-set(QT5_CMAKE_CONFIG_DIR_HINTS @QT5_CMAKE_CONFIG_DIR_HINTS@)
 
 # Find dependency packages.
 
@@ -86,7 +83,7 @@ if(COLMAP_FIND_QUIETLY)
     find_package(OpenGL QUIET)
     find_package(Glew QUIET)
 
-    find_package(Qt5 5.4 QUIET)
+    find_package(Qt5 5.4 QUIET COMPONENTS Core OpenGL Widgets)
 else()
     find_package(Ceres REQUIRED)
 
@@ -107,7 +104,7 @@ else()
     find_package(OpenGL REQUIRED)
     find_package(Glew REQUIRED)
 
-    find_package(Qt5 5.4 REQUIRED)
+    find_package(Qt5 5.4 REQUIRED COMPONENTS Core OpenGL Widgets)
 endif()
 
 # Set the exported variables.
@@ -116,7 +113,6 @@ set(COLMAP_FOUND TRUE)
 
 set(COLMAP_VERSION @COLMAP_VERSION@)
 set(COLMAP_CUDA_ENABLED @CUDA_ENABLED@)
-set(COLMAP_QT_MODULES @COLMAP_QT_MODULES@)
 
 set(COLMAP_INCLUDE_DIRS
     ${COLMAP_INSTALL_PREFIX}/include/
@@ -128,7 +124,9 @@ set(COLMAP_INCLUDE_DIRS
     ${FREEIMAGE_INCLUDE_DIRS}
     ${CERES_INCLUDE_DIRS}
     ${GLEW_INCLUDE_DIRS}
-    ${Qt5_INCLUDE_DIRS}
+    ${Qt5Core_INCLUDE_DIRS}
+    ${Qt5OpenGL_INCLUDE_DIRS}
+    ${Qt5Widgets_INCLUDE_DIRS}
 )
 
 set(COLMAP_LINK_DIRS
@@ -148,6 +146,9 @@ set(COLMAP_EXTERNAL_LIBRARIES
     ${OPENGL_gl_LIBRARY}
     ${OPENGL_glu_LIBRARY}
     ${GLEW_LIBRARIES}
+    ${Qt5Core_LIBRARIES}
+    ${Qt5OpenGL_LIBRARIES}
+    ${Qt5Widgets_LIBRARIES}
 )
 
 if(UNIX)
