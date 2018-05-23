@@ -65,7 +65,7 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
     }
   }
 
-  if (options_.existing_camera_id != kInvalidCameraId) {
+  if (static_cast<camera_t>(options_.existing_camera_id) != kInvalidCameraId) {
     CHECK(database->ExistsCamera(options_.existing_camera_id));
     prev_camera_ = database->ReadCamera(options_.existing_camera_id);
   } else {
@@ -160,7 +160,8 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
   //////////////////////////////////////////////////////////////////////////////
 
   if ((!options_.single_camera &&
-       options_.existing_camera_id == kInvalidCameraId) ||
+       static_cast<camera_t>(options_.existing_camera_id) ==
+           kInvalidCameraId) ||
       prev_camera_.CameraId() == kInvalidCameraId) {
     if (options_.camera_params.empty()) {
       // Extract focal length.
