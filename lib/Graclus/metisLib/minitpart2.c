@@ -37,7 +37,7 @@ void MocInit2WayPartition2(CtrlType *ctrl, GraphType *graph, float *tpwgts, floa
       MocGrowBisectionNew2(ctrl, graph, tpwgts, ubvec);
       break;
     default:
-      errexit("Unknown initial partition type: %d\n", ctrl->IType);
+      graclus_errexit("Unknown initial partition type: %d\n", ctrl->IType);
   }
 
   IFSET(ctrl->dbglvl, DBG_IPART, printf("Initial Cut: %d\n", graph->mincut));

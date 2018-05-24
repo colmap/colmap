@@ -452,7 +452,7 @@ void print_help(char *program_name);
 void clusterSize(GraphType * graph, int *clustersize);
 void sparse2dense(GraphType * graph, double * dense, float *);
 void extractfilename(char *path, char *name);
-void errexit(char *,...);
+void graclus_errexit(char *,...);
 #ifndef DMALLOC
 Chains *chainmalloc(int n, char *msg);
 float **f2malloc(int n, int m, char *msg);

@@ -36,7 +36,7 @@ void MocRefine2Way2(CtrlType *ctrl, GraphType *orggraph, GraphType *graph, float
         MocFM_2WayEdgeRefine2(ctrl, graph, tpwgts, ubvec, 8);
         break;
       default:
-        errexit("Unknown refinement type: %d\n", ctrl->RType);
+        graclus_errexit("Unknown refinement type: %d\n", ctrl->RType);
     }
     IFSET(ctrl->dbglvl, DBG_TIME, stoptimer(ctrl->RefTmr));
 

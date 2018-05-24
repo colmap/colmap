@@ -95,7 +95,7 @@ void extractfilename(char *path, char *name)
 /*************************************************************************
 * This function prints an error message and exits
 **************************************************************************/
-void errexit(char *f_str,...)
+void graclus_errexit(char *f_str,...)
 {
   va_list argp;
   char out1[256], out2[256];
@@ -231,7 +231,7 @@ void *GKmalloc(int nbytes, char *msg)
 
   ptr = (void *)malloc(nbytes);
   if (ptr == NULL)
-    errexit("***Memory allocation failed for %s. Requested size: %d bytes", msg, nbytes);
+    graclus_errexit("***Memory allocation failed for %s. Requested size: %d bytes", msg, nbytes);
 
   return ptr;
 }

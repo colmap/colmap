@@ -67,7 +67,7 @@ GraphType *MCCoarsen2Way(CtrlType *ctrl, GraphType *graph)
         MCMatch_SBHEM(ctrl, cgraph, -1);
         break;
       default:
-        errexit("Unknown CType: %d\n", ctrl->CType);
+        graclus_errexit("Unknown CType: %d\n", ctrl->CType);
     }
 
     cgraph = cgraph->coarser;

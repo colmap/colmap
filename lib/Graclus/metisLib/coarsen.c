@@ -72,7 +72,7 @@ GraphType *Coarsen2Way(CtrlType *ctrl, GraphType *graph)
           Match_SHEM(ctrl, cgraph);
           break;
         default:
-          errexit("Unknown CType: %d\n", ctrl->CType);
+          graclus_errexit("Unknown CType: %d\n", ctrl->CType);
       }
     }
     else {

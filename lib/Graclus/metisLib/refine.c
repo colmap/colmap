@@ -35,7 +35,7 @@ void Refine2Way(CtrlType *ctrl, GraphType *orggraph, GraphType *graph, int *tpwg
         FM_2WayEdgeRefine(ctrl, graph, tpwgts, 8);
         break;
       default:
-        errexit("Unknown refinement type: %d\n", ctrl->RType);
+        graclus_errexit("Unknown refinement type: %d\n", ctrl->RType);
     }
     IFSET(ctrl->dbglvl, DBG_TIME, stoptimer(ctrl->RefTmr));
 

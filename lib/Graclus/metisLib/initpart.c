@@ -36,7 +36,7 @@ void Init2WayPartition(CtrlType *ctrl, GraphType *graph, int *tpwgts, float ubfa
       RandomBisection(ctrl, graph, tpwgts, ubfactor);
       break;
     default:
-      errexit("Unknown initial partition type: %d\n", ctrl->IType);
+      graclus_errexit("Unknown initial partition type: %d\n", ctrl->IType);
   }
 
   IFSET(ctrl->dbglvl, DBG_IPART, printf("Initial Cut: %d\n", graph->mincut));

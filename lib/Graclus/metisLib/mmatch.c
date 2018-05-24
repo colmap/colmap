@@ -483,7 +483,7 @@ float BetterVBalance(int ncon, int norm, float *vwgt, float *u1wgt, float *u2wgt
     return diff1 - diff2;
   }
   else {
-    errexit("Unknown norm: %d\n", norm);
+    graclus_errexit("Unknown norm: %d\n", norm);
   }
   return 0.0;
 }
