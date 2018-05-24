@@ -36,6 +36,7 @@ project(COLMAP)
 set(COLMAP_VERSION "3.4")
 set(COLMAP_VERSION_NUMBER "3400")
 
+
 ################################################################################
 # Include CMake dependencies
 ################################################################################
@@ -221,6 +222,10 @@ if(Qt5_POSITION_INDEPENDENT_CODE)
     endif()
 endif()
 
+# Enable automatic compilation of Qt resource files.
+set(CMAKE_AUTORCC ON)
+
+
 ################################################################################
 # Add sources
 ################################################################################
@@ -295,6 +300,7 @@ link_directories(${COLMAP_LINK_DIRS})
 
 add_subdirectory(lib)
 add_subdirectory(src)
+
 
 ################################################################################
 # Generate source groups for Visual Studio, XCode, etc.
