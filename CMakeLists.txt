@@ -107,6 +107,13 @@ endif()
 
 find_package(Qt5 5.4 REQUIRED COMPONENTS Core OpenGL Widgets)
 
+if(Qt5_FOUND)
+    message(STATUS "Found Qt")
+    message(STATUS "  Module : ${Qt5Core_DIR}")
+    message(STATUS "  Module : ${Qt5OpenGL_DIR}")
+    message(STATUS "  Module : ${Qt5Widgets_DIR}")
+endif()
+
 
 ################################################################################
 # Compiler specific configuration
@@ -210,11 +217,9 @@ endif()
 if(Qt5_POSITION_INDEPENDENT_CODE)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
     if(CUDA_ENABLED AND NOT IS_MSVC)
-        list(APPEND CUDA_NVCC_FLAGS "--compiler-options -fPIC")
+        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --compiler-options -fPIC")
     endif()
 endif()
-
-set(CMAKE_AUTORCC ON)
 
 ################################################################################
 # Add sources

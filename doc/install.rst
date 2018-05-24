@@ -133,7 +133,7 @@ Configure and compile COLMAP::
     cd path/to/colmap
     mkdir build
     cd build
-    PATH="/usr/local/opt/qt/bin:$PATH" cmake ..
+    cmake ..  -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
     make
 
 Run COLMAP::

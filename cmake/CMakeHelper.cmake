@@ -82,7 +82,7 @@ else()
     message(WARNING "Unsupported compiler. Please update CMakeLists.txt")
 endif()
 if(REMOVED_WARNING_LEVEL)
-    message("Removed warning level from default CMAKE_CXX_FLAGS.")
+    message(STATUS "Removed warning level from default CMAKE_CXX_FLAGS.")
     set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} CACHE STRING
         "Flags used by the compiler during all build types." FORCE)
     set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} CACHE STRING

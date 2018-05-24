@@ -409,10 +409,8 @@ def build_ceres_solver(args):
 def build_colmap(args):
     extra_config_args = []
     if args.qt_path != "":
-        extra_config_args.append("-DQt5Core_DIR={}".format(
-            os.path.join(args.qt_path, "lib/cmake/Qt5Core")))
-        extra_config_args.append("-DQt5OpenGL_DIR={}".format(
-            os.path.join(args.qt_path, "lib/cmake/Qt5OpenGL")))
+        extra_config_args.append("-DQt5_DIR={}".format(
+            os.path.join(args.qt_path, "lib/cmake/Qt5")))
 
     if args.boost_path != "":
         extra_config_args.append(
