@@ -1,3 +1,5 @@
+@echo off
+
 rem Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
 rem All rights reserved.
 rem
@@ -28,8 +30,6 @@ rem ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 rem POSSIBILITY OF SUCH DAMAGE.
 rem
 rem Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
-
-@echo off
 
 set SCRIPT_PATH=%~dp0
 

@@ -1,3 +1,5 @@
+@echo off
+
 rem Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
 rem All rights reserved.
 rem
@@ -32,6 +34,8 @@ rem Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
 set SCRIPT_PATH=%~dp0
 set PATH=%SCRIPT_PATH%\lib;%PATH%
 set QT_PLUGIN_PATH=%SCRIPT_PATH%\lib;%QT_PLUGIN_PATH%
+
+@echo on
 
 for %%i in (%SCRIPT_PATH%\bin\*_test.exe) do (
     %%i
