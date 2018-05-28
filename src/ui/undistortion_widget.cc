@@ -57,7 +57,6 @@ UndistortionWidget::UndistortionWidget(QWidget* parent,
   AddOptionDouble(&undistortion_options_.max_scale, "max_scale", 0);
   AddOptionInt(&undistortion_options_.max_image_size, "max_image_size", -1);
   AddOptionDouble(&undistortion_options_.blank_pixels, "blank_pixels", 0);
-  AddOptionBool(&undistortion_options_.roi, "roi");
   AddOptionDouble(&undistortion_options_.roi_min_x, "roi_min_x", 0.0, 1.0);
   AddOptionDouble(&undistortion_options_.roi_min_y, "roi_min_y", 0.0, 1.0);
   AddOptionDouble(&undistortion_options_.roi_max_x, "roi_max_x", 0.0, 1.0);

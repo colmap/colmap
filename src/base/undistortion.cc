@@ -683,7 +683,13 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   size_t roi_min_r = 0;
   size_t roi_max_c = camera.Width();
   size_t roi_max_r = camera.Height();
-  if (options.roi) {
+  
+  bool roi_enabled = false;
+  if (options.roi_min_x > 0 || options.roi_min_y > 0 ||
+      options.roi_max_x < 1 || options.roi_max_y < 1) {
+    roi_enabled = true;
+  }
+  if (roi_enabled) {
     roi_min_c = static_cast<size_t>(options.roi_min_x *
                                     static_cast<double>(camera.Width()));
     roi_min_r = static_cast<size_t>(options.roi_min_y *
@@ -705,7 +711,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   // Scale the image such the the boundary of the undistorted image.
   if ((camera.ModelId() != SimplePinholeCameraModel::model_id &&
        camera.ModelId() != PinholeCameraModel::model_id) ||
-      options.roi) {
+      roi_enabled) {
     // Determine min, max coordinates along top / bottom image border.
 
     double left_min_x = std::numeric_limits<double>::max();
