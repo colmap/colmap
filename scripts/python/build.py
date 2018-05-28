@@ -1,18 +1,33 @@
-# COLMAP - Structure-from-Motion and Multi-View Stereo.
-# Copyright (C) 2017  Johannes L. Schoenberger <jsch at inf.ethz.ch>
+# Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+# All rights reserved.
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#     * Redistributions in binary form must reproduce the above copyright
+#       notice, this list of conditions and the following disclaimer in the
+#       documentation and/or other materials provided with the distribution.
+#
+#     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
+#       its contributors may be used to endorse or promote products derived
+#       from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+#
+# Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
 
 import os
 import sys
@@ -76,6 +91,11 @@ def parse_args():
                         dest="with_suite_sparse", action="store_false",
                         help="Whether to use SuiteSparse as a sparse solver "
                              "(default with SuiteSparse)")
+    parser.add_argument("--with_opengl",
+                        dest="with_opengl", action="store_true")
+    parser.add_argument("--without_opengl",
+                        dest="with_opengl", action="store_false",
+                        help="Whether to enable OpenGL functionality")
     parser.add_argument("--with_tests",
                         dest="with_tests", action="store_true")
     parser.add_argument("--without_tests",
@@ -91,6 +111,7 @@ def parse_args():
                              "while downloading the source code")
     parser.set_defaults(cuda_multi_arch=False)
     parser.set_defaults(with_suite_sparse=True)
+    parser.set_defaults(with_opengl=True)
     parser.set_defaults(with_tests=True)
     parser.set_defaults(ssl_verification=True)
     args = parser.parse_args()
@@ -190,11 +211,11 @@ def build_eigen(args):
     if os.path.exists(path):
         return
 
-    url = "https://github.com/RLovelett/eigen/archive/3.3.4.zip"
+    url = "https://bitbucket.org/eigen/eigen/get/3.3.4.zip"
     archive_path = os.path.join(args.download_path, "eigen.zip")
     download_zipfile(url, archive_path, args.build_path,
-                     "5e6c210a4cd6821f6147c96fd3aab8a7")
-    shutil.move(os.path.join(args.build_path, "eigen-3.3.4"), path)
+                     "e337acc279874bc6a56da4d973a723fb")
+    shutil.move(glob.glob(os.path.join(args.build_path, "eigen-*"))[0], path)
 
     build_cmake_project(args, os.path.join(path, "__build__"))
 
@@ -388,10 +409,8 @@ def build_ceres_solver(args):
 def build_colmap(args):
     extra_config_args = []
     if args.qt_path != "":
-        extra_config_args.append("-DQt5Core_DIR={}".format(
-            os.path.join(args.qt_path, "lib/cmake/Qt5Core")))
-        extra_config_args.append("-DQt5OpenGL_DIR={}".format(
-            os.path.join(args.qt_path, "lib/cmake/Qt5OpenGL")))
+        extra_config_args.append("-DQt5_DIR={}".format(
+            os.path.join(args.qt_path, "lib/cmake/Qt5")))
 
     if args.boost_path != "":
         extra_config_args.append(
@@ -407,6 +426,11 @@ def build_colmap(args):
         extra_config_args.append("-DCUDA_MULTI_ARCH=ON")
     else:
         extra_config_args.append("-DCUDA_MULTI_ARCH=OFF")
+
+    if args.with_opengl:
+        extra_config_args.append("-DOPENGL_ENABLED=ON")
+    else:
+        extra_config_args.append("-DOPENGL_ENABLED=OFF")
 
     if args.with_tests:
         extra_config_args.append("-DTESTS_ENABLED=ON")

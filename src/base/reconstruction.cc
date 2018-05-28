@@ -1,23 +1,39 @@
-// COLMAP - Structure-from-Motion and Multi-View Stereo.
-// Copyright (C) 2017  Johannes L. Schoenberger <jsch at inf.ethz.ch>
+// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// All rights reserved.
 //
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are met:
 //
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
+//     * Redistributions of source code must retain the above copyright
+//       notice, this list of conditions and the following disclaimer.
 //
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//     * Redistributions in binary form must reproduce the above copyright
+//       notice, this list of conditions and the following disclaimer in the
+//       documentation and/or other materials provided with the distribution.
+//
+//     * Neither the name of ETH Zurich and UNC Chapel Hill nor the names of
+//       its contributors may be used to endorse or promote products derived
+//       from this software without specific prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE
+// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+// POSSIBILITY OF SUCH DAMAGE.
+//
+// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
 
 #include "base/reconstruction.h"
 
 #include <fstream>
 
+#include "base/database_cache.h"
 #include "base/pose.h"
 #include "base/projection.h"
 #include "base/similarity_transform.h"
@@ -26,6 +42,7 @@
 #include "optim/loransac.h"
 #include "util/bitmap.h"
 #include "util/misc.h"
+#include "util/ply.h"
 
 namespace colmap {
 
@@ -145,7 +162,8 @@ void Reconstruction::AddImage(const class Image& image) {
 }
 
 point3D_t Reconstruction::AddPoint3D(const Eigen::Vector3d& xyz,
-                                     const Track& track) {
+                                     const Track& track,
+                                     const Eigen::Vector3ub& color) {
   const point3D_t point3D_id = ++num_added_points3D_;
   CHECK(!ExistsPoint3D(point3D_id));
 
@@ -153,6 +171,7 @@ point3D_t Reconstruction::AddPoint3D(const Eigen::Vector3d& xyz,
 
   point3D.SetXYZ(xyz);
   point3D.SetTrack(track);
+  point3D.SetColor(color);
 
   for (const auto& track_el : track.Elements()) {
     class Image& image = Image(track_el.image_id);
@@ -209,9 +228,8 @@ point3D_t Reconstruction::MergePoints3D(const point3D_t point3D_id1,
   DeletePoint3D(point3D_id1);
   DeletePoint3D(point3D_id2);
 
-  const point3D_t merged_point3D_id = AddPoint3D(merged_xyz, merged_track);
-  class Point3D& merged_point3D = Point3D(merged_point3D_id);
-  merged_point3D.SetColor(merged_rgb.cast<uint8_t>());
+  const point3D_t merged_point3D_id =
+      AddPoint3D(merged_xyz, merged_track, merged_rgb.cast<uint8_t>());
 
   return merged_point3D_id;
 }
@@ -380,10 +398,7 @@ void Reconstruction::Normalize(const double extent, const double p0,
   }
 }
 
-void Reconstruction::Transform(const double scale, const Eigen::Vector4d& qvec,
-                               const Eigen::Vector3d& tvec) {
-  CHECK_GT(scale, 0);
-  const SimilarityTransform3 tform(scale, qvec, tvec);
+void Reconstruction::Transform(const SimilarityTransform3& tform) {
   for (auto& image : images_) {
     tform.TransformPose(&image.second.Qvec(), &image.second.Tvec());
   }
@@ -393,40 +408,32 @@ void Reconstruction::Transform(const double scale, const Eigen::Vector4d& qvec,
 }
 
 bool Reconstruction::Merge(const Reconstruction& reconstruction,
-                           const int min_common_images) {
-  CHECK_GE(min_common_images, 3);
+                           const double max_reproj_error) {
+  const double kMinInlierObservations = 0.3;
+
+  Eigen::Matrix3x4d alignment;
+  if (!ComputeAlignmentBetweenReconstructions(reconstruction, *this,
+                                              kMinInlierObservations,
+                                              max_reproj_error, &alignment)) {
+    return false;
+  }
+
+  const SimilarityTransform3 tform(alignment);
 
   // Find common and missing images in the two reconstructions.
 
-  std::set<image_t> common_image_ids;
-  std::set<image_t> missing_image_ids;
+  std::unordered_set<image_t> common_image_ids;
+  common_image_ids.reserve(reconstruction.NumRegImages());
+  std::unordered_set<image_t> missing_image_ids;
+  missing_image_ids.reserve(reconstruction.NumRegImages());
+
   for (const auto& image_id : reconstruction.RegImageIds()) {
     if (ExistsImage(image_id)) {
-      CHECK(IsImageRegistered(image_id))
-          << "Make sure to tear down the reconstructions before merging";
       common_image_ids.insert(image_id);
     } else {
       missing_image_ids.insert(image_id);
     }
   }
-
-  if (common_image_ids.size() < static_cast<size_t>(min_common_images)) {
-    return false;
-  }
-
-  // Estimate the similarity transformation between the two reconstructions.
-
-  std::vector<Eigen::Vector3d> src;
-  src.reserve(common_image_ids.size());
-  std::vector<Eigen::Vector3d> dst;
-  dst.reserve(common_image_ids.size());
-  for (const auto image_id : common_image_ids) {
-    src.push_back(reconstruction.Image(image_id).ProjectionCenter());
-    dst.push_back(Image(image_id).ProjectionCenter());
-  }
-
-  SimilarityTransform3 tform;
-  tform.Estimate(src, dst);
 
   // Register the missing images in this reconstruction.
 
@@ -477,8 +484,8 @@ bool Reconstruction::Merge(const Reconstruction& reconstruction,
     if (create_new_point || merge_new_and_old_point) {
       Eigen::Vector3d xyz = point3D.second.XYZ();
       tform.TransformPoint(&xyz);
-      const auto point3D_id = AddPoint3D(xyz, new_track);
-      Point3D(point3D_id).SetColor(point3D.second.Color());
+      const auto point3D_id =
+          AddPoint3D(xyz, new_track, point3D.second.Color());
       if (old_point3D_ids.size() == 1) {
         MergePoints3D(point3D_id, *old_point3D_ids.begin());
       }
@@ -524,17 +531,9 @@ bool Reconstruction::Align(const std::vector<std::string>& image_names,
     return false;
   }
 
-  // Estimate the similarity transformation between the two reconstructions.
   SimilarityTransform3 tform;
   tform.Estimate(src, dst);
-
-  // Update the cameras and points using the estimated transform.
-  for (auto& image : images_) {
-    tform.TransformPose(&image.second.Qvec(), &image.second.Tvec());
-  }
-  for (auto& point3D : points3D_) {
-    tform.TransformPoint(&point3D.second.XYZ());
-  }
+  Transform(tform);
 
   return true;
 }
@@ -585,15 +584,7 @@ bool Reconstruction::AlignRobust(const std::vector<std::string>& image_names,
     return false;
   }
 
-  SimilarityTransform3 tform(report.model);
-
-  // Update the cameras and points using the estimated transform.
-  for (auto& image : images_) {
-    tform.TransformPose(&image.second.Qvec(), &image.second.Tvec());
-  }
-  for (auto& point3D : points3D_) {
-    tform.TransformPoint(&point3D.second.XYZ());
-  }
+  Transform(SimilarityTransform3(report.model));
 
   return true;
 }
@@ -606,6 +597,19 @@ const class Image* Reconstruction::FindImageWithName(
     }
   }
   return nullptr;
+}
+
+std::vector<image_t> Reconstruction::FindCommonRegImageIds(
+    const Reconstruction& reconstruction) const {
+  std::vector<image_t> common_reg_image_ids;
+  for (const auto image_id : reg_image_ids_) {
+    if (reconstruction.ExistsImage(image_id) &&
+        reconstruction.IsImageRegistered(image_id)) {
+      CHECK_EQ(Image(image_id).Name(), reconstruction.Image(image_id).Name());
+      common_reg_image_ids.push_back(image_id);
+    }
+  }
+  return common_reg_image_ids;
 }
 
 size_t Reconstruction::FilterPoints3D(
@@ -800,10 +804,8 @@ void Reconstruction::ImportPLY(const std::string& path) {
   points3D_.reserve(ply_points.size());
 
   for (const auto& ply_point : ply_points) {
-    const point3D_t point3D_id = AddPoint3D(
-        Eigen::Vector3d(ply_point.x, ply_point.y, ply_point.z), Track());
-    Point3D(point3D_id)
-        .SetColor(Eigen::Vector3ub(ply_point.r, ply_point.g, ply_point.b));
+    AddPoint3D(Eigen::Vector3d(ply_point.x, ply_point.y, ply_point.z), Track(),
+               Eigen::Vector3ub(ply_point.r, ply_point.g, ply_point.b));
   }
 }
 
@@ -987,7 +989,7 @@ bool Reconstruction::ExportBundler(const std::string& path,
 }
 
 void Reconstruction::ExportPLY(const std::string& path) const {
-  const auto ply_points  = ConvertToPLY();
+  const auto ply_points = ConvertToPLY();
 
   const bool kWriteNormal = false;
   const bool kWriteRGB = true;
@@ -1177,7 +1179,7 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
     }
   }
 
-  const Eigen::Vector3ub kBlackColor(0, 0, 0);
+  const Eigen::Vector3ub kBlackColor = Eigen::Vector3ub::Zero();
   for (auto& point3D : points3D_) {
     if (color_sums.count(point3D.first)) {
       Eigen::Vector3d color =

@@ -1,6 +1,7 @@
 if(POLICY CMP0043)
     cmake_policy(SET CMP0043 NEW)
 endif()
+
 if(POLICY CMP0054)
     cmake_policy(SET CMP0054 NEW)
 endif()
@@ -12,7 +13,7 @@ endif()
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(IS_GNU TRUE)
 endif()
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if(CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")
     set(IS_CLANG TRUE)
 endif()
 
@@ -38,13 +39,13 @@ if(CMAKE_BUILD_TYPE_LOWER STREQUAL "debug"
     set(IS_DEBUG TRUE)
 endif()
 
-# Enable solution folders
+# Enable solution folders.
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set(CMAKE_TARGETS_ROOT_FOLDER "cmake")
 set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER
-    ${CMAKE_TARGETS_ROOT_FOLDER})
+             ${CMAKE_TARGETS_ROOT_FOLDER})
 set(COLMAP_TARGETS_ROOT_FOLDER "colmap_targets")
-set(COLMAP_SRC_ROOT_FOLDER "colmap_src")
+set(COLMAP_SRC_ROOT_FOLDER "colmap_sources")
 
 # Remove the default warning level set by CMake so that later code can allow
 # the user to specify a custom warning level.
@@ -81,7 +82,7 @@ else()
     message(WARNING "Unsupported compiler. Please update CMakeLists.txt")
 endif()
 if(REMOVED_WARNING_LEVEL)
-    message("Removed warning level from default CMAKE_CXX_FLAGS.")
+    message(STATUS "Removed warning level from default CMAKE_CXX_FLAGS.")
     set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} CACHE STRING
         "Flags used by the compiler during all build types." FORCE)
     set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} CACHE STRING
@@ -115,7 +116,7 @@ endif()
 # Allow the user to change the default warning level using a drop-down list in
 # the CMake GUI.
 set_property(CACHE COLMAP_WARNING_LEVEL PROPERTY STRINGS
-    ${WARNING_LEVEL_OPTIONS})
+             ${WARNING_LEVEL_OPTIONS})
 
 # Set the default warning level for 3rd-party targets.
 if(IS_MSVC)
@@ -144,6 +145,65 @@ macro(COLMAP_UNSET_THIRD_PARTY_FOLDER)
     set(COLMAP_THIRD_PARTY_FOLDER FALSE)
 endmacro(COLMAP_UNSET_THIRD_PARTY_FOLDER)
 
+# This macro will search for source files in a given directory, will add them
+# to a source group (folder within a project), and will then return paths to
+# each of the found files. The usage of the macro is as follows:
+# COLMAP_ADD_SOURCE_DIR(
+#     <source directory to search>
+#     <output variable with found source files>
+#     <search expressions such as *.h *.cc>)
+macro(COLMAP_ADD_SOURCE_DIR SRC_DIR SRC_VAR)
+    # Create the list of expressions to be used in the search.
+    set(GLOB_EXPRESSIONS "")
+    foreach(ARG ${ARGN})
+        list(APPEND GLOB_EXPRESSIONS ${SRC_DIR}/${ARG})
+    endforeach()
+    # Perform the search for the source files.
+    file(GLOB ${SRC_VAR} RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+         ${GLOB_EXPRESSIONS})
+    # Create the source group.
+    string(REPLACE "/" "\\" GROUP_NAME ${SRC_DIR})
+    source_group(${GROUP_NAME} FILES ${${SRC_VAR}})
+    # Clean-up.
+    unset(GLOB_EXPRESSIONS)
+    unset(ARG)
+    unset(GROUP_NAME)
+endmacro(COLMAP_ADD_SOURCE_DIR)
+
+# Macro to add source files to library.
+macro(COLMAP_ADD_SOURCES)
+    set(SOURCE_FILES "")
+    foreach(SOURCE_FILE ${ARGN})
+        if(SOURCE_FILE MATCHES "^/.*")
+            list(APPEND SOURCE_FILES ${SOURCE_FILE})
+        else()
+            list(APPEND SOURCE_FILES
+                 "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE_FILE}")
+        endif()
+    endforeach()
+    set(COLMAP_SOURCES ${COLMAP_SOURCES} ${SOURCE_FILES} PARENT_SCOPE)
+endmacro(COLMAP_ADD_SOURCES)
+
+# Macro to add CUDA source files to library.
+macro(COLMAP_ADD_CUDA_SOURCES)
+    set(SOURCE_FILES "")
+    foreach(SOURCE_FILE ${ARGN})
+        if(SOURCE_FILE MATCHES "^/.*")
+            # Absolute path.
+            list(APPEND SOURCE_FILES ${SOURCE_FILE})
+        else()
+            # Relative path.
+            list(APPEND SOURCE_FILES
+                 "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE_FILE}")
+        endif()
+    endforeach()
+
+    set(COLMAP_CUDA_SOURCES
+        ${COLMAP_CUDA_SOURCES}
+        ${SOURCE_FILES}
+        PARENT_SCOPE)
+endmacro(COLMAP_ADD_CUDA_SOURCES)
+
 # Macro to help provide replacements to the normal add_library(),
 # add_executable(), etc. commands.
 macro(COLMAP_ADD_TARGET_HELPER TARGET_NAME)
@@ -165,16 +225,16 @@ macro(COLMAP_ADD_TARGET_HELPER TARGET_NAME)
         # Get the current compile options.
         get_target_property(CURRENT_COMPILE_OPTIONS ${TARGET_NAME} COMPILE_OPTIONS)
 
-        # If compile options have not already been set for this target, set them to
-        # a default value.
+        # If compile options have not already been set for this target, set them
+        # to a default value.
         if(NOT CURRENT_COMPILE_OPTIONS)
             set(CURRENT_COMPILE_OPTIONS "")
         endif()
 
         separate_arguments(CURRENT_WARNING_LEVEL)
 
-        # If the warning level consists of multiple tokens, add each token to the
-        # current list of compile options.
+        # If the warning level consists of multiple tokens, add each token to
+        # the current list of compile options.
         foreach(WARNING_LEVEL ${CURRENT_WARNING_LEVEL})
             list(APPEND CURRENT_COMPILE_OPTIONS ${WARNING_LEVEL})
         endforeach()
@@ -194,18 +254,19 @@ endmacro(COLMAP_ADD_TARGET_HELPER)
 macro(COLMAP_ADD_LIBRARY TARGET_NAME)
     # ${ARGN} will store the list of source files passed to this function.
     add_library(${TARGET_NAME} ${ARGN})
-    qt5_use_modules(${TARGET_NAME} ${COLMAP_QT_MODULES})
     COLMAP_ADD_TARGET_HELPER(${TARGET_NAME})
+    install(TARGETS ${TARGET_NAME} DESTINATION lib/colmap/)
 endmacro(COLMAP_ADD_LIBRARY)
 
 # Replacement for the normal cuda_add_library() command. The syntax remains the
 # same in that the first argument is the target name, and the following
 # arguments are the source files to use when building the target.
-macro(COLMAP_CUDA_ADD_LIBRARY TARGET_NAME)
+macro(COLMAP_ADD_CUDA_LIBRARY TARGET_NAME)
     # ${ARGN} will store the list of source files passed to this function.
     cuda_add_library(${TARGET_NAME} ${ARGN})
     COLMAP_ADD_TARGET_HELPER(${TARGET_NAME})
-endmacro(COLMAP_CUDA_ADD_LIBRARY)
+    install(TARGETS ${TARGET_NAME} DESTINATION lib/colmap/)
+endmacro(COLMAP_ADD_CUDA_LIBRARY)
 
 # Replacement for the normal add_executable() command. The syntax remains the
 # same in that the first argument is the target name, and the following
@@ -214,12 +275,11 @@ macro(COLMAP_ADD_EXECUTABLE TARGET_NAME)
     # ${ARGN} will store the list of source files passed to this function.
     add_executable(${TARGET_NAME} ${ARGN})
     target_link_libraries(${TARGET_NAME} ${COLMAP_LIBRARIES})
-    qt5_use_modules(${TARGET_NAME} ${COLMAP_QT_MODULES})
     COLMAP_ADD_TARGET_HELPER(${TARGET_NAME})
     install(TARGETS ${TARGET_NAME} DESTINATION bin/)
 endmacro(COLMAP_ADD_EXECUTABLE)
 
-# Wrapper for test executables
+# Wrapper for test executables.
 macro(COLMAP_ADD_TEST TARGET_NAME)
     if(TESTS_ENABLED)
         # ${ARGN} will store the list of source files passed to this function.
@@ -235,8 +295,8 @@ macro(COLMAP_ADD_TEST TARGET_NAME)
     endif()
 endmacro(COLMAP_ADD_TEST)
 
-# Wrapper for CUDA test executables
-macro(COLMAP_CUDA_ADD_TEST TARGET_NAME)
+# Wrapper for CUDA test executables.
+macro(COLMAP_ADD_CUDA_TEST TARGET_NAME)
     if(TESTS_ENABLED)
         # ${ARGN} will store the list of source files passed to this function.
         cuda_add_executable(${TARGET_NAME} ${ARGN})
@@ -249,4 +309,4 @@ macro(COLMAP_CUDA_ADD_TEST TARGET_NAME)
             install(TARGETS ${TARGET_NAME} DESTINATION bin/)
         endif()
     endif()
-endmacro(COLMAP_CUDA_ADD_TEST)
+endmacro(COLMAP_ADD_CUDA_TEST)
