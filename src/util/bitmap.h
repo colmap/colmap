@@ -145,10 +145,10 @@ class Bitmap {
 
   // Extract EXIF information from bitmap. Returns false if no EXIF information
   // is embedded in the bitmap.
-  bool ExifFocalLength(double* focal_length);
-  bool ExifLatitude(double* latitude);
-  bool ExifLongitude(double* longitude);
-  bool ExifAltitude(double* altitude);
+  bool ExifFocalLength(double* focal_length) const;
+  bool ExifLatitude(double* latitude) const;
+  bool ExifLongitude(double* longitude) const;
+  bool ExifAltitude(double* altitude) const;
 
   // Read bitmap at given path and convert to grey- or colorscale.
   bool Read(const std::string& path, const bool as_rgb = true);
