@@ -466,3 +466,6 @@ And then run the dense reconstruction code from the command-line::
 Finally, you can restart your desktop environment with the following command::
 
     sudo service lightdm start
+
+If the dense reconstruction still crashes after these changes, the reason is
+probably insufficient GPU memory, as discussed in a separate item in this list.
