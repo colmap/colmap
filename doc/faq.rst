@@ -58,8 +58,14 @@ when sharing intrinsic parameters between multiple images. Please, refer to
 :ref:`Fix intrinsics <faq-fix-intrinsics>` for more information.
 
 
-Increase number of sparse 3D points
------------------------------------
+Increase number of matches / sparse 3D points
+---------------------------------------------
+
+To increase the number of matches, you should use the more discriminative
+DSP-SIFT features instead of plain SIFT and also estimate the affine feature
+shape using the options: ``--SiftExtraction.estimate_affine_shape=true`` and
+``--SiftExtraction.domain_size_pooling=true``. In addition, you should enable
+guided feature matching using: ``--SiftMatching.guided_matching=true``.
 
 By default, COLMAP ignores two-view feature tracks in triangulation, resulting
 in fewer 3D points than possible. Triangulation of two-view tracks can in rare
