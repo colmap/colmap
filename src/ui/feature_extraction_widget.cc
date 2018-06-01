@@ -189,12 +189,16 @@ QGroupBox* FeatureExtractionWidget::CreateCameraModelBox() {
   single_camera_cb_ = new QCheckBox("Shared for all images", this);
   single_camera_cb_->setChecked(false);
 
+  single_camera_per_folder_cb_ = new QCheckBox("Shared per sub-folder", this);
+  single_camera_per_folder_cb_->setChecked(false);
+
   QGroupBox* box = new QGroupBox(tr("Camera model"), this);
 
   QVBoxLayout* vbox = new QVBoxLayout(box);
   vbox->addWidget(camera_model_cb_);
   vbox->addWidget(camera_params_info_);
   vbox->addWidget(single_camera_cb_);
+  vbox->addWidget(single_camera_per_folder_cb_);
   vbox->addWidget(camera_params_exif_rb_);
   vbox->addWidget(camera_params_custom_rb_);
   vbox->addWidget(camera_params_text_);
@@ -236,6 +240,8 @@ void FeatureExtractionWidget::ReadOptions() {
     }
   }
   single_camera_cb_->setChecked(options_->image_reader->single_camera);
+  single_camera_per_folder_cb_->setChecked(
+      options_->image_reader->single_camera_per_folder);
   camera_params_text_->setText(
       QString::fromStdString(options_->image_reader->camera_params));
 }
@@ -244,6 +250,8 @@ void FeatureExtractionWidget::WriteOptions() {
   options_->image_reader->camera_model =
       CameraModelIdToName(camera_model_ids_[camera_model_cb_->currentIndex()]);
   options_->image_reader->single_camera = single_camera_cb_->isChecked();
+  options_->image_reader->single_camera_per_folder =
+      single_camera_per_folder_cb_->isChecked();
   options_->image_reader->camera_params =
       camera_params_text_->text().toUtf8().constData();
 }

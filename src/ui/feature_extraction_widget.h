@@ -62,6 +62,7 @@ class FeatureExtractionWidget : public QWidget {
 
   QComboBox* camera_model_cb_;
   QCheckBox* single_camera_cb_;
+  QCheckBox* single_camera_per_folder_cb_;
   QRadioButton* camera_params_exif_rb_;
   QRadioButton* camera_params_custom_rb_;
   QLabel* camera_params_info_;
