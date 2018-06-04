@@ -67,12 +67,16 @@ Linux
 
 *Recommended dependencies:* CUDA.
 
-Dependencies from default Ubuntu repositories::
+Dependencies from the default Ubuntu repositories::
 
     sudo apt-get install \
         cmake \
         build-essential \
-        libboost-all-dev \
+        libboost-program-options-dev \
+        libboost-filesystem-dev \
+        libboost-regex-dev \
+        libboost-system-dev \
+        libboost-test-dev \
         libeigen3-dev \
         libsuitesparse-dev \
         libfreeimage-dev \
