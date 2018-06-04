@@ -91,6 +91,11 @@ def parse_args():
                         dest="with_suite_sparse", action="store_false",
                         help="Whether to use SuiteSparse as a sparse solver "
                              "(default with SuiteSparse)")
+    parser.add_argument("--with_cuda",
+                        dest="with_cuda", action="store_true")
+    parser.add_argument("--without_cuda",
+                        dest="with_cuda", action="store_false",
+                        help="Whether to enable CUDA functionality")
     parser.add_argument("--with_opengl",
                         dest="with_opengl", action="store_true")
     parser.add_argument("--without_opengl",
@@ -111,6 +116,7 @@ def parse_args():
                              "while downloading the source code")
     parser.set_defaults(cuda_multi_arch=False)
     parser.set_defaults(with_suite_sparse=True)
+    parser.set_defaults(with_cuda=True)
     parser.set_defaults(with_opengl=True)
     parser.set_defaults(with_tests=True)
     parser.set_defaults(ssl_verification=True)
@@ -426,6 +432,11 @@ def build_colmap(args):
         extra_config_args.append("-DCUDA_MULTI_ARCH=ON")
     else:
         extra_config_args.append("-DCUDA_MULTI_ARCH=OFF")
+
+    if args.with_cuda:
+        extra_config_args.append("-DCUDA_ENABLED=ON")
+    else:
+        extra_config_args.append("-DCUDA_ENABLED=OFF")
 
     if args.with_opengl:
         extra_config_args.append("-DOPENGL_ENABLED=ON")
