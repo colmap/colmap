@@ -471,10 +471,10 @@ def build_post_process(args):
                 os.path.join(args.qt_path, "bin/Qt5Widgets.dll"),
                 os.path.join(args.install_path, "lib/Qt5Widgets.dll"))
             mkdir_if_not_exists(
-                os.path.join(args.install_path, "bin/platforms"))
+                os.path.join(args.install_path, "lib/platforms"))
             copy_file_if_not_exists(
                 os.path.join(args.qt_path, "plugins/platforms/qwindows.dll"),
-                os.path.join(args.install_path, "bin/platforms/qwindows.dll"))
+                os.path.join(args.install_path, "lib/platforms/qwindows.dll"))
 
 
 def main():
