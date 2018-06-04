@@ -8,9 +8,12 @@ If you need to simply analyze the produced sparse or dense reconstructions from
 COLMAP, you can load the sparse models in Python and Matlab using the provided
 scripts in ``scripts/python`` and ``scripts/matlab``.
 
-If you want to write a C/C++ executable that builds on top of COLMAP, the
-easiest approach is to start from the ``src/tools/example.cc`` code template and
-implement the desired functionality in a new binary.
+If you want to write a C/C++ executable that builds on top of COLMAP, there are
+two possible approaches. First, the COLMAP headers and library are installed
+to the ``CMAKE_INSTALL_PREFIX`` by default. Compiling against COLMAP as a
+library is described :ref:`here <installation-library>`. Alternatively, you can
+start from the ``src/tools/example.cc`` code template and implement the desired
+functionality directly as a new binary within COLMAP.
 
 
 .. _faq-share-intrinsics:

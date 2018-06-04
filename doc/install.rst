@@ -192,6 +192,8 @@ If you use Homebrew under Mac, you can use the following command::
 To see the full list of command-line options, pass the ``--help`` argument.
 
 
+.. _installation-library:
+
 -------
 Library
 -------
