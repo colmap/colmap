@@ -679,51 +679,50 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   undistorted_camera.SetPrincipalPointY(camera.PrincipalPointY());
 
   // Modify undistorted camera parameters based on ROI if enabled
-  size_t roi_min_c = 0;
-  size_t roi_min_r = 0;
-  size_t roi_max_c = camera.Width();
-  size_t roi_max_r = camera.Height();
-  
-  const bool roi_enabled =
-      (options.roi_min_x > 0 || options.roi_min_y > 0 ||
-       options.roi_max_x < 1 || options.roi_max_y < 1);
+  size_t roi_min_x = 0;
+  size_t roi_min_y = 0;
+  size_t roi_max_x = camera.Width() - 1;
+  size_t roi_max_y = camera.Height() - 1;
+
+  const bool roi_enabled = options.roi_min_x > 0.0 || options.roi_min_y > 0.0 ||
+                           options.roi_max_x < 1.0 || options.roi_max_y < 1.0;
+
   if (roi_enabled) {
-    roi_min_c = static_cast<size_t>(options.roi_min_x *
+    roi_min_x = static_cast<size_t>(options.roi_min_x *
                                     static_cast<double>(camera.Width()));
-    roi_min_r = static_cast<size_t>(options.roi_min_y *
+    roi_min_y = static_cast<size_t>(options.roi_min_y *
                                     static_cast<double>(camera.Height()));
-    roi_max_c = static_cast<size_t>(options.roi_max_x *
+    roi_max_x = static_cast<size_t>(options.roi_max_x *
                                     static_cast<double>(camera.Width()));
-    roi_max_r = static_cast<size_t>(options.roi_max_y *
+    roi_max_y = static_cast<size_t>(options.roi_max_y *
                                     static_cast<double>(camera.Height()));
 
-    // Make sure that the roi is valid
-    roi_min_c = std::min(roi_min_c, camera.Width() - 1);
-    roi_min_r = std::min(roi_min_r, camera.Height() - 1);
-    roi_max_c = std::max(roi_max_c, roi_min_c + 1);
-    roi_max_r = std::max(roi_max_r, roi_min_r + 1);
+    // Make sure that the roi is valid.
+    roi_min_x = std::min(roi_min_x, camera.Width() - 1);
+    roi_min_y = std::min(roi_min_y, camera.Height() - 1);
+    roi_max_x = std::max(roi_max_x, roi_min_x + 1);
+    roi_max_y = std::max(roi_max_y, roi_min_y + 1);
 
-    undistorted_camera.SetWidth(roi_max_c - roi_min_c);
-    undistorted_camera.SetHeight(roi_max_r - roi_min_r);
+    undistorted_camera.SetWidth(roi_max_x - roi_min_x + 1);
+    undistorted_camera.SetHeight(roi_max_y - roi_min_y + 1);
 
     undistorted_camera.SetPrincipalPointX(camera.PrincipalPointX() -
-                                          static_cast<double>(roi_min_c));
+                                          static_cast<double>(roi_min_x));
     undistorted_camera.SetPrincipalPointY(camera.PrincipalPointY() -
-                                          static_cast<double>(roi_min_r));
+                                          static_cast<double>(roi_min_y));
   }
 
   // Scale the image such the the boundary of the undistorted image.
-  if ((camera.ModelId() != SimplePinholeCameraModel::model_id &&
-       camera.ModelId() != PinholeCameraModel::model_id) ||
-      roi_enabled) {
-    // Determine min, max coordinates along top / bottom image border.
+  if (roi_enabled || (camera.ModelId() != SimplePinholeCameraModel::model_id &&
+                      camera.ModelId() != PinholeCameraModel::model_id)) {
+    // Determine min/max coordinates along top / bottom image border.
 
     double left_min_x = std::numeric_limits<double>::max();
     double left_max_x = std::numeric_limits<double>::lowest();
     double right_min_x = std::numeric_limits<double>::max();
     double right_max_x = std::numeric_limits<double>::lowest();
 
-    for (size_t y = roi_min_r; y < roi_max_r; ++y) {
+    for (size_t y = roi_min_y; y <= roi_max_y; ++y) {
       // Left border.
       const Eigen::Vector2d world_point1 =
           camera.ImageToWorld(Eigen::Vector2d(0.5, y + 0.5));
@@ -747,7 +746,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
     double bottom_min_y = std::numeric_limits<double>::max();
     double bottom_max_y = std::numeric_limits<double>::lowest();
 
-    for (size_t x = roi_min_c; x < roi_max_c; ++x) {
+    for (size_t x = roi_min_x; x <= roi_max_x; ++x) {
       // Top border.
       const Eigen::Vector2d world_point1 =
           camera.ImageToWorld(Eigen::Vector2d(x + 0.5, 0.5));
@@ -767,7 +766,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
     const double cx = undistorted_camera.PrincipalPointX();
     const double cy = undistorted_camera.PrincipalPointY();
 
-    // Scale such that undistorted image contains all pixels of distorted image
+    // Scale such that undistorted image contains all pixels of distorted image.
     const double min_scale_x =
         std::min(cx / (cx - left_min_x),
                  (undistorted_camera.Width() - 0.5 - cx) / (right_max_x - cx));
@@ -775,7 +774,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
         cy / (cy - top_min_y),
         (undistorted_camera.Height() - 0.5 - cy) / (bottom_max_y - cy));
 
-    // Scale such that there are no blank pixels in undistorted image
+    // Scale such that there are no blank pixels in undistorted image.
     const double max_scale_x =
         std::max(cx / (cx - left_max_x),
                  (undistorted_camera.Width() - 0.5 - cx) / (right_min_x - cx));
@@ -800,10 +799,12 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
         std::max(1.0, scale_y * undistorted_camera.Height())));
 
     // Scale the principal point according to the new dimensions of the image.
-    undistorted_camera.SetPrincipalPointX(undistorted_camera.PrincipalPointX() *
-                                          scale_x);
-    undistorted_camera.SetPrincipalPointY(undistorted_camera.PrincipalPointY() *
-                                          scale_y);
+    undistorted_camera.SetPrincipalPointX(
+        undistorted_camera.PrincipalPointX() *
+        static_cast<double>(undistorted_camera.Width()) / camera.Width());
+    undistorted_camera.SetPrincipalPointY(
+        undistorted_camera.PrincipalPointY() *
+        static_cast<double>(undistorted_camera.Height()) / camera.Height());
   }
 
   if (options.max_image_size > 0) {
