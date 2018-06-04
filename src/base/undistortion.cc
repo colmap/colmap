@@ -681,21 +681,21 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   // Modify undistorted camera parameters based on ROI if enabled
   size_t roi_min_x = 0;
   size_t roi_min_y = 0;
-  size_t roi_max_x = camera.Width() - 1;
-  size_t roi_max_y = camera.Height() - 1;
+  size_t roi_max_x = camera.Width();
+  size_t roi_max_y = camera.Height();
 
   const bool roi_enabled = options.roi_min_x > 0.0 || options.roi_min_y > 0.0 ||
                            options.roi_max_x < 1.0 || options.roi_max_y < 1.0;
 
   if (roi_enabled) {
-    roi_min_x = static_cast<size_t>(options.roi_min_x *
-                                    static_cast<double>(camera.Width()));
-    roi_min_y = static_cast<size_t>(options.roi_min_y *
-                                    static_cast<double>(camera.Height()));
-    roi_max_x = static_cast<size_t>(options.roi_max_x *
-                                    static_cast<double>(camera.Width()));
-    roi_max_y = static_cast<size_t>(options.roi_max_y *
-                                    static_cast<double>(camera.Height()));
+    roi_min_x = static_cast<size_t>(
+        std::round(options.roi_min_x * static_cast<double>(camera.Width())));
+    roi_min_y = static_cast<size_t>(
+        std::round(options.roi_min_y * static_cast<double>(camera.Height())));
+    roi_max_x = static_cast<size_t>(
+        std::round(options.roi_max_x * static_cast<double>(camera.Width())));
+    roi_max_y = static_cast<size_t>(
+        std::round(options.roi_max_y * static_cast<double>(camera.Height())));
 
     // Make sure that the roi is valid.
     roi_min_x = std::min(roi_min_x, camera.Width() - 1);
@@ -703,8 +703,8 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
     roi_max_x = std::max(roi_max_x, roi_min_x + 1);
     roi_max_y = std::max(roi_max_y, roi_min_y + 1);
 
-    undistorted_camera.SetWidth(roi_max_x - roi_min_x + 1);
-    undistorted_camera.SetHeight(roi_max_y - roi_min_y + 1);
+    undistorted_camera.SetWidth(roi_max_x - roi_min_x);
+    undistorted_camera.SetHeight(roi_max_y - roi_min_y);
 
     undistorted_camera.SetPrincipalPointX(camera.PrincipalPointX() -
                                           static_cast<double>(roi_min_x));
@@ -722,7 +722,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
     double right_min_x = std::numeric_limits<double>::max();
     double right_max_x = std::numeric_limits<double>::lowest();
 
-    for (size_t y = roi_min_y; y <= roi_max_y; ++y) {
+    for (size_t y = roi_min_y; y < roi_max_y; ++y) {
       // Left border.
       const Eigen::Vector2d world_point1 =
           camera.ImageToWorld(Eigen::Vector2d(0.5, y + 0.5));
@@ -746,7 +746,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
     double bottom_min_y = std::numeric_limits<double>::max();
     double bottom_max_y = std::numeric_limits<double>::lowest();
 
-    for (size_t x = roi_min_x; x <= roi_max_x; ++x) {
+    for (size_t x = roi_min_x; x < roi_max_x; ++x) {
       // Top border.
       const Eigen::Vector2d world_point1 =
           camera.ImageToWorld(Eigen::Vector2d(x + 0.5, 0.5));
@@ -793,18 +793,22 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
     scale_y = Clip(scale_y, options.min_scale, options.max_scale);
 
     // Scale undistorted camera dimensions.
+    const size_t orig_undistorted_camera_width = undistorted_camera.Width();
+    const size_t orig_undistorted_camera_height = undistorted_camera.Height();
     undistorted_camera.SetWidth(static_cast<size_t>(
         std::max(1.0, scale_x * undistorted_camera.Width())));
     undistorted_camera.SetHeight(static_cast<size_t>(
         std::max(1.0, scale_y * undistorted_camera.Height())));
 
-    // Scale the principal point according to the new dimensions of the image.
+    // Scale the principal point according to the new dimensions of the camera.
     undistorted_camera.SetPrincipalPointX(
         undistorted_camera.PrincipalPointX() *
-        static_cast<double>(undistorted_camera.Width()) / camera.Width());
+        static_cast<double>(undistorted_camera.Width()) /
+        static_cast<double>(orig_undistorted_camera_width));
     undistorted_camera.SetPrincipalPointY(
         undistorted_camera.PrincipalPointY() *
-        static_cast<double>(undistorted_camera.Height()) / camera.Height());
+        static_cast<double>(undistorted_camera.Height()) /
+        static_cast<double>(orig_undistorted_camera_height));
   }
 
   if (options.max_image_size > 0) {
