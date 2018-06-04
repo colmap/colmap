@@ -684,11 +684,9 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   size_t roi_max_c = camera.Width();
   size_t roi_max_r = camera.Height();
   
-  bool roi_enabled = false;
-  if (options.roi_min_x > 0 || options.roi_min_y > 0 ||
-      options.roi_max_x < 1 || options.roi_max_y < 1) {
-    roi_enabled = true;
-  }
+  const bool roi_enabled =
+      (options.roi_min_x > 0 || options.roi_min_y > 0 ||
+       options.roi_max_x < 1 || options.roi_max_y < 1);
   if (roi_enabled) {
     roi_min_c = static_cast<size_t>(options.roi_min_x *
                                     static_cast<double>(camera.Width()));
@@ -698,6 +696,12 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
                                     static_cast<double>(camera.Width()));
     roi_max_r = static_cast<size_t>(options.roi_max_y *
                                     static_cast<double>(camera.Height()));
+
+    // Make sure that the roi is valid
+    roi_min_c = std::min(roi_min_c, camera.Width() - 1);
+    roi_min_r = std::min(roi_min_r, camera.Height() - 1);
+    roi_max_c = std::max(roi_max_c, roi_min_c + 1);
+    roi_max_r = std::max(roi_max_r, roi_min_r + 1);
 
     undistorted_camera.SetWidth(roi_max_c - roi_min_c);
     undistorted_camera.SetHeight(roi_max_r - roi_min_r);
