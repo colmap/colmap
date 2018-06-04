@@ -30,8 +30,7 @@ matrix:
             - libglew-dev
     - os: osx
       env:
-        - PATH="/usr/local/opt/qt/bin:$PATH"
-        - CMAKE_OPTIONS="-DIPO_ENABLED=OFF"
+        - CMAKE_OPTIONS="-DIPO_ENABLED=OFF -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5"
 
 cache:
   directories:
