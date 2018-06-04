@@ -50,6 +50,15 @@ struct UndistortCameraOptions {
 
   // Maximum image size in terms of width or height of the undistorted camera.
   int max_image_size = -1;
+
+  // The 4 factors in the range [0, 1] that define the ROI(region of interest)
+  // in original image. The bounding box pixel coordinates are calculated as
+  // (roi_min_x * Width, roi_min_y * Height) and
+  // (roi_max_x * Width, roi_max_y * Height).
+  double roi_min_x = 0.0;
+  double roi_min_y = 0.0;
+  double roi_max_x = 1.0;
+  double roi_max_y = 1.0;
 };
 
 // Undistort images and export undistorted cameras, as required by the

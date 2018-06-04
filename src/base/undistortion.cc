@@ -650,6 +650,12 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   CHECK_GT(options.min_scale, 0.0);
   CHECK_LE(options.min_scale, options.max_scale);
   CHECK_NE(options.max_image_size, 0);
+  CHECK_GE(options.roi_min_x, 0.0);
+  CHECK_GE(options.roi_min_y, 0.0);
+  CHECK_LE(options.roi_max_x, 1.0);
+  CHECK_LE(options.roi_max_y, 1.0);
+  CHECK_LT(options.roi_min_x, options.roi_max_x);
+  CHECK_LT(options.roi_min_y, options.roi_max_y);
 
   Camera undistorted_camera;
   undistorted_camera.SetModelId(PinholeCameraModel::model_id);
@@ -672,10 +678,44 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   undistorted_camera.SetPrincipalPointX(camera.PrincipalPointX());
   undistorted_camera.SetPrincipalPointY(camera.PrincipalPointY());
 
-  // Scale the image such the the boundary of the undistorted image.
-  if (camera.ModelId() != SimplePinholeCameraModel::model_id &&
-      camera.ModelId() != PinholeCameraModel::model_id) {
+  // Modify undistorted camera parameters based on ROI if enabled
+  size_t roi_min_c = 0;
+  size_t roi_min_r = 0;
+  size_t roi_max_c = camera.Width();
+  size_t roi_max_r = camera.Height();
+  
+  const bool roi_enabled =
+      (options.roi_min_x > 0 || options.roi_min_y > 0 ||
+       options.roi_max_x < 1 || options.roi_max_y < 1);
+  if (roi_enabled) {
+    roi_min_c = static_cast<size_t>(options.roi_min_x *
+                                    static_cast<double>(camera.Width()));
+    roi_min_r = static_cast<size_t>(options.roi_min_y *
+                                    static_cast<double>(camera.Height()));
+    roi_max_c = static_cast<size_t>(options.roi_max_x *
+                                    static_cast<double>(camera.Width()));
+    roi_max_r = static_cast<size_t>(options.roi_max_y *
+                                    static_cast<double>(camera.Height()));
 
+    // Make sure that the roi is valid
+    roi_min_c = std::min(roi_min_c, camera.Width() - 1);
+    roi_min_r = std::min(roi_min_r, camera.Height() - 1);
+    roi_max_c = std::max(roi_max_c, roi_min_c + 1);
+    roi_max_r = std::max(roi_max_r, roi_min_r + 1);
+
+    undistorted_camera.SetWidth(roi_max_c - roi_min_c);
+    undistorted_camera.SetHeight(roi_max_r - roi_min_r);
+
+    undistorted_camera.SetPrincipalPointX(camera.PrincipalPointX() -
+                                          static_cast<double>(roi_min_c));
+    undistorted_camera.SetPrincipalPointY(camera.PrincipalPointY() -
+                                          static_cast<double>(roi_min_r));
+  }
+
+  // Scale the image such the the boundary of the undistorted image.
+  if ((camera.ModelId() != SimplePinholeCameraModel::model_id &&
+       camera.ModelId() != PinholeCameraModel::model_id) ||
+      roi_enabled) {
     // Determine min, max coordinates along top / bottom image border.
 
     double left_min_x = std::numeric_limits<double>::max();
@@ -683,7 +723,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
     double right_min_x = std::numeric_limits<double>::max();
     double right_max_x = std::numeric_limits<double>::lowest();
 
-    for (size_t y = 0; y < camera.Height(); ++y) {
+    for (size_t y = roi_min_r; y < roi_max_r; ++y) {
       // Left border.
       const Eigen::Vector2d world_point1 =
           camera.ImageToWorld(Eigen::Vector2d(0.5, y + 0.5));
@@ -707,7 +747,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
     double bottom_min_y = std::numeric_limits<double>::max();
     double bottom_max_y = std::numeric_limits<double>::lowest();
 
-    for (size_t x = 0; x < camera.Width(); ++x) {
+    for (size_t x = roi_min_c; x < roi_max_c; ++x) {
       // Top border.
       const Eigen::Vector2d world_point1 =
           camera.ImageToWorld(Eigen::Vector2d(x + 0.5, 0.5));
@@ -730,18 +770,18 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
     // Scale such that undistorted image contains all pixels of distorted image
     const double min_scale_x =
         std::min(cx / (cx - left_min_x),
-                 (camera.Width() - 0.5 - cx) / (right_max_x - cx));
-    const double min_scale_y =
-        std::min(cy / (cy - top_min_y),
-                 (camera.Height() - 0.5 - cy) / (bottom_max_y - cy));
+                 (undistorted_camera.Width() - 0.5 - cx) / (right_max_x - cx));
+    const double min_scale_y = std::min(
+        cy / (cy - top_min_y),
+        (undistorted_camera.Height() - 0.5 - cy) / (bottom_max_y - cy));
 
     // Scale such that there are no blank pixels in undistorted image
     const double max_scale_x =
         std::max(cx / (cx - left_max_x),
-                 (camera.Width() - 0.5 - cx) / (right_min_x - cx));
-    const double max_scale_y =
-        std::max(cy / (cy - top_max_y),
-                 (camera.Height() - 0.5 - cy) / (bottom_min_y - cy));
+                 (undistorted_camera.Width() - 0.5 - cx) / (right_min_x - cx));
+    const double max_scale_y = std::max(
+        cy / (cy - top_max_y),
+        (undistorted_camera.Height() - 0.5 - cy) / (bottom_min_y - cy));
 
     // Interpolate scale according to blank_pixels.
     double scale_x = 1.0 / (min_scale_x * options.blank_pixels +
@@ -760,12 +800,10 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
         std::max(1.0, scale_y * undistorted_camera.Height())));
 
     // Scale the principal point according to the new dimensions of the image.
-    undistorted_camera.SetPrincipalPointX(
-        undistorted_camera.PrincipalPointX() *
-        static_cast<double>(undistorted_camera.Width()) / camera.Width());
-    undistorted_camera.SetPrincipalPointY(
-        undistorted_camera.PrincipalPointY() *
-        static_cast<double>(undistorted_camera.Height()) / camera.Height());
+    undistorted_camera.SetPrincipalPointX(undistorted_camera.PrincipalPointX() *
+                                          scale_x);
+    undistorted_camera.SetPrincipalPointY(undistorted_camera.PrincipalPointY() *
+                                          scale_y);
   }
 
   if (options.max_image_size > 0) {

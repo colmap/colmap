@@ -571,6 +571,10 @@ int RunImageUndistorter(int argc, char** argv) {
   options.AddDefaultOption("max_scale", &undistort_camera_options.max_scale);
   options.AddDefaultOption("max_image_size",
                            &undistort_camera_options.max_image_size);
+  options.AddDefaultOption("roi_min_x", &undistort_camera_options.roi_min_x);
+  options.AddDefaultOption("roi_min_y", &undistort_camera_options.roi_min_y);
+  options.AddDefaultOption("roi_max_x", &undistort_camera_options.roi_max_x);
+  options.AddDefaultOption("roi_max_y", &undistort_camera_options.roi_max_y);
   options.Parse(argc, argv);
 
   CreateDirIfNotExists(output_path);
