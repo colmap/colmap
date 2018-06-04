@@ -88,8 +88,8 @@ script:
       git clone https://github.com/colmap/colmap.git
     fi
   - cd colmap
-  - git checkout ${TRAVIS_BRANCH}
   - git pull
+  - git checkout ${TRAVIS_BRANCH}
   - mkdir -p build
   - cd build
   - cmake .. -DCMAKE_BUILD_TYPE=Release -DTESTS_ENABLED=ON ${CMAKE_OPTIONS}
