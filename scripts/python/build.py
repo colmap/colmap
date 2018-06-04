@@ -114,12 +114,14 @@ def parse_args():
                         dest="ssl_verification", action="store_false",
                         help="Whether to disable SSL certificate verification "
                              "while downloading the source code")
+
     parser.set_defaults(cuda_multi_arch=False)
     parser.set_defaults(with_suite_sparse=True)
     parser.set_defaults(with_cuda=True)
     parser.set_defaults(with_opengl=True)
     parser.set_defaults(with_tests=True)
     parser.set_defaults(ssl_verification=True)
+
     args = parser.parse_args()
 
     args.build_path = os.path.abspath(args.build_path)
@@ -475,6 +477,13 @@ def build_post_process(args):
             copy_file_if_not_exists(
                 os.path.join(args.qt_path, "plugins/platforms/qwindows.dll"),
                 os.path.join(args.install_path, "lib/platforms/qwindows.dll"))
+        if args.with_cuda and args.cuda_path:
+            cudart_lib_path = glob.glob(os.path.join(args.cuda_path,
+                                                     "bin/cudart64_*.dll"))[0]
+            copy_file_if_not_exists(
+                cudart_lib_path,
+                os.path.join(args.install_path, "lib",
+                             os.path.basename(cudart_lib_path)))
 
 
 def main():
