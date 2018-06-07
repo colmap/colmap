@@ -6,10 +6,7 @@ src/util/version.h
 .idea/
 .vscode
 .DS_Store
-build/
-build-debug/
-build-release/
-build-relwithdeb/
+build*/
 install-debug/
 install-release/
 data/

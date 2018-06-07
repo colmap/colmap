@@ -101,6 +101,8 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
       image->Name().substr(options_.image_path.size(),
                            image->Name().size() - options_.image_path.size()));
 
+  const std::string image_folder = GetParentDir(image->Name());
+
   //////////////////////////////////////////////////////////////////////////////
   // Check if image already read.
   //////////////////////////////////////////////////////////////////////////////
@@ -136,33 +138,38 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
     if (options_.single_camera && prev_camera_.CameraId() != kInvalidCameraId &&
         (camera.Width() != prev_camera_.Width() ||
          camera.Height() != prev_camera_.Height())) {
-      return Status::CAMERA_SINGLE_ERROR;
+      return Status::CAMERA_SINGLE_DIM_ERROR;
     }
 
     if (static_cast<size_t>(bitmap->Width()) != camera.Width() ||
         static_cast<size_t>(bitmap->Height()) != camera.Height()) {
-      return Status::CAMERA_DIM_ERROR;
+      return Status::CAMERA_EXIST_DIM_ERROR;
     }
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  // Extract image dimensions.
+  // Check image dimensions.
   //////////////////////////////////////////////////////////////////////////////
 
-  if (options_.single_camera && prev_camera_.CameraId() != kInvalidCameraId &&
+  if (prev_camera_.CameraId() != kInvalidCameraId &&
+      ((options_.single_camera && !options_.single_camera_per_folder) ||
+       (options_.single_camera_per_folder &&
+        image_folder == prev_image_folder_)) &&
       (prev_camera_.Width() != static_cast<size_t>(bitmap->Width()) ||
        prev_camera_.Height() != static_cast<size_t>(bitmap->Height()))) {
-    return Status::CAMERA_SINGLE_ERROR;
+    return Status::CAMERA_SINGLE_DIM_ERROR;
   }
 
   //////////////////////////////////////////////////////////////////////////////
   // Extract camera model and focal length
   //////////////////////////////////////////////////////////////////////////////
 
-  if ((!options_.single_camera &&
+  if (prev_camera_.CameraId() == kInvalidCameraId ||
+      (!options_.single_camera && !options_.single_camera_per_folder &&
        static_cast<camera_t>(options_.existing_camera_id) ==
            kInvalidCameraId) ||
-      prev_camera_.CameraId() == kInvalidCameraId) {
+      (options_.single_camera_per_folder &&
+       image_folders_.count(image_folder) == 0)) {
     if (options_.camera_params.empty()) {
       // Extract focal length.
       double focal_length = 0.0;
@@ -197,12 +204,13 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
   if (!bitmap->ExifLatitude(&image->TvecPrior(0)) ||
       !bitmap->ExifLongitude(&image->TvecPrior(1)) ||
       !bitmap->ExifAltitude(&image->TvecPrior(2))) {
-    image->TvecPrior(0) = std::numeric_limits<double>::quiet_NaN();
-    image->TvecPrior(1) = std::numeric_limits<double>::quiet_NaN();
-    image->TvecPrior(2) = std::numeric_limits<double>::quiet_NaN();
+    image->TvecPrior().setConstant(std::numeric_limits<double>::quiet_NaN());
   }
 
   *camera = prev_camera_;
+
+  image_folders_.insert(image_folder);
+  prev_image_folder_ = image_folder;
 
   return Status::SUCCESS;
 }

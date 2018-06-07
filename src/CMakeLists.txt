@@ -51,6 +51,9 @@ if(CUDA_ENABLED)
     # between multiple threads on the same device.
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --default-stream per-thread")
 
+    # Fix for Ubuntu 16.04.
+    add_definitions("-D_MWAITXINTRIN_H_INCLUDED")
+
     if(MSVC)
         # Workaround for Visual Studio compiler error,
         # due problems with compiling too complex code.

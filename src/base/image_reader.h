@@ -32,6 +32,8 @@
 #ifndef COLMAP_SRC_BASE_IMAGE_READER_H_
 #define COLMAP_SRC_BASE_IMAGE_READER_H_
 
+#include <unordered_set>
+
 #include "base/database.h"
 #include "util/bitmap.h"
 #include "util/threading.h"
@@ -54,6 +56,9 @@ struct ImageReaderOptions {
 
   // Whether to use the same camera for all images.
   bool single_camera = false;
+
+  // Whether to use the same camera for all images in the same sub-folder.
+  bool single_camera_per_folder = false;
 
   // Whether to explicitly use an existing camera for all images. Note that in
   // this case the specified camera model and parameters are ignored.
@@ -81,12 +86,12 @@ class ImageReader {
     SUCCESS,
     IMAGE_EXISTS,
     BITMAP_ERROR,
-    CAMERA_SINGLE_ERROR,
-    CAMERA_DIM_ERROR,
+    CAMERA_SINGLE_DIM_ERROR,
+    CAMERA_EXIST_DIM_ERROR,
     CAMERA_PARAM_ERROR
   };
 
-  explicit ImageReader(const ImageReaderOptions& options, Database* database);
+  ImageReader(const ImageReaderOptions& options, Database* database);
 
   Status Next(Camera* camera, Image* image, Bitmap* bitmap);
   size_t NextIndex() const;
@@ -100,6 +105,9 @@ class ImageReader {
   size_t image_index_;
   // Previously processed camera.
   Camera prev_camera_;
+  // Names of image sub-folders.
+  std::string prev_image_folder_;
+  std::unordered_set<std::string> image_folders_;
 };
 
 }  // namespace colmap

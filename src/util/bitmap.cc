@@ -281,7 +281,7 @@ bool Bitmap::InterpolateBilinear(const double x, const double y,
   return false;
 }
 
-bool Bitmap::ExifFocalLength(double* focal_length) {
+bool Bitmap::ExifFocalLength(double* focal_length) const {
   const double max_size = std::max(width_, height_);
 
   //////////////////////////////////////////////////////////////////////////////
@@ -361,7 +361,7 @@ bool Bitmap::ExifFocalLength(double* focal_length) {
   return false;
 }
 
-bool Bitmap::ExifLatitude(double* latitude) {
+bool Bitmap::ExifLatitude(double* latitude) const {
   std::string str;
   if (ReadExifTag(FIMD_EXIF_GPS, "GPSLatitude", &str)) {
     const boost::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
@@ -377,7 +377,7 @@ bool Bitmap::ExifLatitude(double* latitude) {
   return false;
 }
 
-bool Bitmap::ExifLongitude(double* longitude) {
+bool Bitmap::ExifLongitude(double* longitude) const {
   std::string str;
   if (ReadExifTag(FIMD_EXIF_GPS, "GPSLongitude", &str)) {
     const boost::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
@@ -393,7 +393,7 @@ bool Bitmap::ExifLongitude(double* longitude) {
   return false;
 }
 
-bool Bitmap::ExifAltitude(double* altitude) {
+bool Bitmap::ExifAltitude(double* altitude) const {
   std::string str;
   if (ReadExifTag(FIMD_EXIF_GPS, "GPSAltitude", &str)) {
     const boost::regex regex(".*?([0-9.]+).*?/.*?([0-9.]+).*?");

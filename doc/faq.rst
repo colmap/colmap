@@ -8,9 +8,12 @@ If you need to simply analyze the produced sparse or dense reconstructions from
 COLMAP, you can load the sparse models in Python and Matlab using the provided
 scripts in ``scripts/python`` and ``scripts/matlab``.
 
-If you want to write a C/C++ executable that builds on top of COLMAP, the
-easiest approach is to start from the ``src/tools/example.cc`` code template and
-implement the desired functionality in a new binary.
+If you want to write a C/C++ executable that builds on top of COLMAP, there are
+two possible approaches. First, the COLMAP headers and library are installed
+to the ``CMAKE_INSTALL_PREFIX`` by default. Compiling against COLMAP as a
+library is described :ref:`here <installation-library>`. Alternatively, you can
+start from the ``src/tools/example.cc`` code template and implement the desired
+functionality directly as a new binary within COLMAP.
 
 
 .. _faq-share-intrinsics:
@@ -58,8 +61,14 @@ when sharing intrinsic parameters between multiple images. Please, refer to
 :ref:`Fix intrinsics <faq-fix-intrinsics>` for more information.
 
 
-Increase number of sparse 3D points
------------------------------------
+Increase number of matches / sparse 3D points
+---------------------------------------------
+
+To increase the number of matches, you should use the more discriminative
+DSP-SIFT features instead of plain SIFT and also estimate the affine feature
+shape using the options: ``--SiftExtraction.estimate_affine_shape=true`` and
+``--SiftExtraction.domain_size_pooling=true``. In addition, you should enable
+guided feature matching using: ``--SiftMatching.guided_matching=true``.
 
 By default, COLMAP ignores two-view feature tracks in triangulation, resulting
 in fewer 3D points than possible. Triangulation of two-view tracks can in rare
@@ -466,3 +475,6 @@ And then run the dense reconstruction code from the command-line::
 Finally, you can restart your desktop environment with the following command::
 
     sudo service lightdm start
+
+If the dense reconstruction still crashes after these changes, the reason is
+probably insufficient GPU memory, as discussed in a separate item in this list.

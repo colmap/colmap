@@ -84,6 +84,20 @@ BOOST_AUTO_TEST_CASE(TestUndistortCamera) {
   BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthY(), 100);
   BOOST_CHECK_EQUAL(undistorted_camera.Width(), 75);
   BOOST_CHECK_EQUAL(undistorted_camera.Height(), 75);
+
+  options.max_scale = 1.0;
+  options.roi_min_x = 0.1;
+  options.roi_min_y = 0.2;
+  options.roi_max_x = 0.9;
+  options.roi_max_y = 0.8;
+  undistorted_camera = UndistortCamera(options, distorted_camera);
+  BOOST_CHECK_EQUAL(undistorted_camera.ModelName(), "PINHOLE");
+  BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthX(), 100);
+  BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthY(), 100);
+  BOOST_CHECK_EQUAL(undistorted_camera.Width(), 80);
+  BOOST_CHECK_EQUAL(undistorted_camera.Height(), 60);
+  BOOST_CHECK_EQUAL(undistorted_camera.PrincipalPointX(), 40);
+  BOOST_CHECK_EQUAL(undistorted_camera.PrincipalPointY(), 30);
 }
 
 BOOST_AUTO_TEST_CASE(TestUndistortCameraBlankPixels) {

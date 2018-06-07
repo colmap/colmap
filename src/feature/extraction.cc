@@ -389,13 +389,14 @@ void FeatureWriterThread::Run() {
       } else if (image_data.status == ImageReader::Status::BITMAP_ERROR) {
         std::cout << "  ERROR: Failed to read image file format." << std::endl;
       } else if (image_data.status ==
-                 ImageReader::Status::CAMERA_SINGLE_ERROR) {
+                 ImageReader::Status::CAMERA_SINGLE_DIM_ERROR) {
         std::cout << "  ERROR: Single camera specified, "
                      "but images have different dimensions."
                   << std::endl;
-      } else if (image_data.status == ImageReader::Status::CAMERA_DIM_ERROR) {
-        std::cout << "  ERROR: Image previously processed, but current file "
-                     "has different image dimensions."
+      } else if (image_data.status ==
+                 ImageReader::Status::CAMERA_EXIST_DIM_ERROR) {
+        std::cout << "  ERROR: Image previously processed, but current image "
+                     "has different dimensions."
                   << std::endl;
       } else if (image_data.status == ImageReader::Status::CAMERA_PARAM_ERROR) {
         std::cout << "  ERROR: Camera has invalid parameters." << std::endl;

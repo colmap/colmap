@@ -198,13 +198,13 @@ ThreadPool::~ThreadPool() { Stop(); }
 void ThreadPool::Stop() {
   {
     std::unique_lock<std::mutex> lock(mutex_);
+
     if (stopped_) {
       return;
     }
-    stopped_ = true;
-  }
 
-  {
+    stopped_ = true;
+
     std::queue<std::function<void()>> empty_tasks;
     std::swap(tasks_, empty_tasks);
   }
