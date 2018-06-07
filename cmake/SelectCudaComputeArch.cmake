@@ -48,29 +48,55 @@
 #      More info on CUDA architectures: https://en.wikipedia.org/wiki/CUDA
 #
 
+if(CMAKE_CUDA_COMPILER_LOADED) # CUDA as a language
+  if(CMAKE_CUDA_COMPILER_ID STREQUAL "NVIDIA")
+    set(CUDA_VERSION "${CMAKE_CUDA_COMPILER_VERSION}")
+  endif()
+endif()
+
+# See: https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#gpu-feature-list
+
 # This list will be used for CUDA_ARCH_NAME = All option
 set(CUDA_KNOWN_GPU_ARCHITECTURES  "Fermi" "Kepler" "Maxwell")
 
 # This list will be used for CUDA_ARCH_NAME = Common option (enabled by default)
 set(CUDA_COMMON_GPU_ARCHITECTURES "3.0" "3.5" "5.0")
 
-if (CUDA_VERSION VERSION_GREATER "6.5")
+if(CUDA_VERSION VERSION_LESS "7.0")
+  set(CUDA_LIMIT_GPU_ARCHITECTURE "5.2")
+endif()
+
+# This list is used to filter CUDA archs when autodetecting
+set(CUDA_ALL_GPU_ARCHITECTURES "3.0" "3.2" "3.5" "5.0")
+
+if(CUDA_VERSION VERSION_GREATER "7.0" OR CUDA_VERSION VERSION_EQUAL "7.0")
   list(APPEND CUDA_KNOWN_GPU_ARCHITECTURES "Kepler+Tegra" "Kepler+Tesla" "Maxwell+Tegra")
   list(APPEND CUDA_COMMON_GPU_ARCHITECTURES "5.2")
-endif ()
 
-if (CUDA_VERSION VERSION_GREATER "7.5")
+  if(CUDA_VERSION VERSION_LESS "8.0")
+    list(APPEND CUDA_COMMON_GPU_ARCHITECTURES "5.2+PTX")
+    set(CUDA_LIMIT_GPU_ARCHITECTURE "6.0")
+  endif()
+endif()
+
+if(CUDA_VERSION VERSION_GREATER "8.0" OR CUDA_VERSION VERSION_EQUAL "8.0")
   list(APPEND CUDA_KNOWN_GPU_ARCHITECTURES "Pascal")
   list(APPEND CUDA_COMMON_GPU_ARCHITECTURES "6.0" "6.1")
-else()
-  list(APPEND CUDA_COMMON_GPU_ARCHITECTURES "5.2+PTX")
+  list(APPEND CUDA_ALL_GPU_ARCHITECTURES "6.0" "6.1" "6.2")
+
+  if(CUDA_VERSION VERSION_LESS "9.0")
+    list(APPEND CUDA_COMMON_GPU_ARCHITECTURES "6.1+PTX")
+    set(CUDA_LIMIT_GPU_ARCHITECTURE "7.0")
+  endif()
 endif ()
 
-if (CUDA_VERSION VERSION_GREATER "8.5")
+if(CUDA_VERSION VERSION_GREATER "9.0" OR CUDA_VERSION VERSION_EQUAL "9.0")
   list(APPEND CUDA_KNOWN_GPU_ARCHITECTURES "Volta")
   list(APPEND CUDA_COMMON_GPU_ARCHITECTURES "7.0" "7.0+PTX")
-else()
-  list(APPEND CUDA_COMMON_GPU_ARCHITECTURES "6.1+PTX")
+
+  if(CUDA_VERSION VERSION_LESS "10.0")
+    set(CUDA_LIMIT_GPU_ARCHITECTURE "8.0")
+  endif()
 endif()
 
 ################################################################################################
@@ -80,7 +106,11 @@ endif()
 #
 function(CUDA_DETECT_INSTALLED_GPUS OUT_VARIABLE)
   if(NOT CUDA_GPU_DETECT_OUTPUT)
-    set(file ${PROJECT_BINARY_DIR}/detect_cuda_compute_capabilities.cpp)
+    if(CMAKE_CUDA_COMPILER_LOADED) # CUDA as a language
+      set(file "${PROJECT_BINARY_DIR}/detect_cuda_compute_capabilities.cu")
+    else()
+      set(file "${PROJECT_BINARY_DIR}/detect_cuda_compute_capabilities.cpp")
+    endif()
 
     file(WRITE ${file} ""
       "#include <cuda_runtime.h>\n"
@@ -99,10 +129,15 @@ function(CUDA_DETECT_INSTALLED_GPUS OUT_VARIABLE)
       "  return 0;\n"
       "}\n")
 
-    try_run(run_result compile_result ${PROJECT_BINARY_DIR} ${file}
-            CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CUDA_INCLUDE_DIRS}"
-            LINK_LIBRARIES ${CUDA_LIBRARIES}
-            RUN_OUTPUT_VARIABLE compute_capabilities)
+    if(CMAKE_CUDA_COMPILER_LOADED) # CUDA as a language
+      try_run(run_result compile_result ${PROJECT_BINARY_DIR} ${file}
+              RUN_OUTPUT_VARIABLE compute_capabilities)
+    else()
+      try_run(run_result compile_result ${PROJECT_BINARY_DIR} ${file}
+              CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CUDA_INCLUDE_DIRS}"
+              LINK_LIBRARIES ${CUDA_LIBRARIES}
+              RUN_OUTPUT_VARIABLE compute_capabilities)
+    endif()
 
     if(run_result EQUAL 0)
       string(REPLACE "2.1" "2.1(2.0)" compute_capabilities "${compute_capabilities}")
@@ -115,7 +150,21 @@ function(CUDA_DETECT_INSTALLED_GPUS OUT_VARIABLE)
     message(STATUS "Automatic GPU detection failed. Building for common architectures.")
     set(${OUT_VARIABLE} ${CUDA_COMMON_GPU_ARCHITECTURES} PARENT_SCOPE)
   else()
-    set(${OUT_VARIABLE} ${CUDA_GPU_DETECT_OUTPUT} PARENT_SCOPE)
+    # Filter based on CUDA version supported archs
+    set(CUDA_GPU_DETECT_OUTPUT_FILTERED "")
+    separate_arguments(CUDA_GPU_DETECT_OUTPUT)
+    foreach(ITEM IN ITEMS ${CUDA_GPU_DETECT_OUTPUT})
+      if(CUDA_LIMIT_GPU_ARCHITECTURE)
+        if(ITEM VERSION_GREATER CUDA_LIMIT_GPU_ARCHITECTURE OR ITEM VERSION_EQUAL CUDA_LIMIT_GPU_ARCHITECTURE)
+          list(GET CUDA_COMMON_GPU_ARCHITECTURES -1 NEWITEM)
+          string(APPEND CUDA_GPU_DETECT_OUTPUT_FILTERED " ${NEWITEM}")
+        endif()
+      else()
+        string(APPEND CUDA_GPU_DETECT_OUTPUT_FILTERED " ${ITEM}")
+      endif()
+    endforeach()
+
+    set(${OUT_VARIABLE} ${CUDA_GPU_DETECT_OUTPUT_FILTERED} PARENT_SCOPE)
   endif()
 endfunction()
 
