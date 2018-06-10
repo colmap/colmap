@@ -139,6 +139,7 @@ Configure and compile COLMAP::
     cd build
     cmake .. -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
     make
+    sudo make install
 
 Run COLMAP::
 
