@@ -98,6 +98,7 @@ class DenseReconstructionWidget : public QWidget {
   std::string normal_maps_path_;
 
   std::vector<PlyPoint> fused_points_;
+  std::vector<std::vector<int>> fused_points_visibility_;
 };
 
 }  // namespace colmap

@@ -302,6 +302,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
       std::cout << "Writing output: " << fused_path << std::endl;
       WriteBinaryPly(fused_path, fuser.GetFusedPoints());
+      mvs::WritePointsVisibility(fused_path + ".vis",
+                                 fuser.GetFusedPointsVisibility());
     }
 
     if (IsStopped()) {
