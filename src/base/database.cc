@@ -693,12 +693,14 @@ void Database::WriteTwoViewGeometry(
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_two_view_geometry_, 5,
                                   two_view_geometry.config));
 
-  if (two_view_geometry.inlier_matches.size() > 0) {
-    // Transpose the matrices to obtain row-major data layout.
-    const Eigen::Matrix3d Ft = two_view_geometry.F.transpose();
-    const Eigen::Matrix3d Et = two_view_geometry.E.transpose();
-    const Eigen::Matrix3d Ht = two_view_geometry.H.transpose();
+  // Transpose the matrices to obtain row-major data layout.
+  // Important: Do not move these objects inside the if-statement, because
+  // the objects must live until `sqlite3_step` is called on the statement.
+  const Eigen::Matrix3d Ft = two_view_geometry.F.transpose();
+  const Eigen::Matrix3d Et = two_view_geometry.E.transpose();
+  const Eigen::Matrix3d Ht = two_view_geometry.H.transpose();
 
+  if (two_view_geometry.inlier_matches.size() > 0) {
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ft, 6);
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Et, 7);
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ht, 8);
