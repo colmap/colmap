@@ -140,24 +140,25 @@ void TwoViewGeometry::EstimateMultiple(
   }
 }
 
-void TwoViewGeometry::EstimateWithRelativePose(
+bool TwoViewGeometry::EstimateRelativePose(
     const Camera& camera1, const std::vector<Eigen::Vector2d>& points1,
-    const Camera& camera2, const std::vector<Eigen::Vector2d>& points2,
-    const FeatureMatches& matches, const Options& options) {
-  // Warning: Do not change this call to another `Estimate*` method, since E is
-  // need further down in this method.
-  EstimateCalibrated(camera1, points1, camera2, points2, matches, options);
+    const Camera& camera2, const std::vector<Eigen::Vector2d>& points2) {
+  // We need a valid epopolar geometry to estimate the relative pose.
+  if (config != CALIBRATED && config != UNCALIBRATED && config != PLANAR &&
+      config != PANORAMIC && config != PLANAR_OR_PANORAMIC) {
+    return false;
+  }
 
   // Extract normalized inlier points.
-  std::vector<Eigen::Vector2d> inlier_points1_N;
-  inlier_points1_N.reserve(inlier_matches.size());
-  std::vector<Eigen::Vector2d> inlier_points2_N;
-  inlier_points2_N.reserve(inlier_matches.size());
+  std::vector<Eigen::Vector2d> inlier_points1_normalized;
+  inlier_points1_normalized.reserve(inlier_matches.size());
+  std::vector<Eigen::Vector2d> inlier_points2_normalized;
+  inlier_points2_normalized.reserve(inlier_matches.size());
   for (const auto& match : inlier_matches) {
     const point2D_t idx1 = match.point2D_idx1;
     const point2D_t idx2 = match.point2D_idx2;
-    inlier_points1_N.push_back(camera1.ImageToWorld(points1[idx1]));
-    inlier_points2_N.push_back(camera2.ImageToWorld(points2[idx2]));
+    inlier_points1_normalized.push_back(camera1.ImageToWorld(points1[idx1]));
+    inlier_points2_normalized.push_back(camera2.ImageToWorld(points2[idx2]));
   }
 
   Eigen::Matrix3d R;
@@ -168,13 +169,17 @@ void TwoViewGeometry::EstimateWithRelativePose(
     // configurations. In the uncalibrated case, this most likely leads to a
     // ill-defined reconstruction, but sometimes it succeeds anyways after e.g.
     // subsequent bundle-adjustment etc.
-    PoseFromEssentialMatrix(E, inlier_points1_N, inlier_points2_N, &R, &tvec,
-                            &points3D);
-  } else {
+    PoseFromEssentialMatrix(E, inlier_points1_normalized,
+                            inlier_points2_normalized, &R, &tvec, &points3D);
+  } else if (config == PLANAR || config == PANORAMIC ||
+             config == PLANAR_OR_PANORAMIC) {
     Eigen::Vector3d n;
-    PoseFromHomographyMatrix(H, camera1.CalibrationMatrix(),
-                             camera2.CalibrationMatrix(), inlier_points1_N,
-                             inlier_points2_N, &R, &tvec, &n, &points3D);
+    PoseFromHomographyMatrix(
+        H, camera1.CalibrationMatrix(), camera2.CalibrationMatrix(),
+        inlier_points1_normalized, inlier_points2_normalized, &R, &tvec, &n,
+        &points3D);
+  } else {
+    return false;
   }
 
   qvec = RotationMatrixToQuaternion(R);
@@ -198,6 +203,8 @@ void TwoViewGeometry::EstimateWithRelativePose(
       config = PLANAR;
     }
   }
+
+  return true;
 }
 
 void TwoViewGeometry::EstimateCalibrated(
@@ -214,15 +221,15 @@ void TwoViewGeometry::EstimateCalibrated(
   // Extract corresponding points.
   std::vector<Eigen::Vector2d> matched_points1(matches.size());
   std::vector<Eigen::Vector2d> matched_points2(matches.size());
-  std::vector<Eigen::Vector2d> matched_points1_N(matches.size());
-  std::vector<Eigen::Vector2d> matched_points2_N(matches.size());
+  std::vector<Eigen::Vector2d> matched_points1_normalized(matches.size());
+  std::vector<Eigen::Vector2d> matched_points2_normalized(matches.size());
   for (size_t i = 0; i < matches.size(); ++i) {
     const point2D_t idx1 = matches[i].point2D_idx1;
     const point2D_t idx2 = matches[i].point2D_idx2;
     matched_points1[i] = points1[idx1];
     matched_points2[i] = points2[idx2];
-    matched_points1_N[i] = camera1.ImageToWorld(points1[idx1]);
-    matched_points2_N[i] = camera2.ImageToWorld(points2[idx2]);
+    matched_points1_normalized[i] = camera1.ImageToWorld(points1[idx1]);
+    matched_points2_normalized[i] = camera2.ImageToWorld(points2[idx2]);
   }
 
   // Estimate epipolar models.
@@ -235,7 +242,8 @@ void TwoViewGeometry::EstimateCalibrated(
 
   LORANSAC<EssentialMatrixFivePointEstimator, EssentialMatrixFivePointEstimator>
       E_ransac(E_ransac_options);
-  const auto E_report = E_ransac.Estimate(matched_points1_N, matched_points2_N);
+  const auto E_report =
+      E_ransac.Estimate(matched_points1_normalized, matched_points2_normalized);
   E = E_report.model;
   E_num_inliers = E_report.support.num_inliers;
 

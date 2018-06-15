@@ -52,11 +52,11 @@ double ComputeOppositeOfMinor(const Eigen::Matrix3d& matrix, const size_t row,
           matrix(row1, col1) * matrix(row2, col2));
 }
 
-Eigen::Matrix3d ComputeHomographyRotation(const Eigen::Matrix3d& hmatrix_norm,
+Eigen::Matrix3d ComputeHomographyRotation(const Eigen::Matrix3d& H_normalized,
                                           const Eigen::Vector3d& tstar,
                                           const Eigen::Vector3d& n,
                                           const double v) {
-  return hmatrix_norm *
+  return H_normalized *
          (Eigen::Matrix3d::Identity() - (2.0 / v) * tstar * n.transpose());
 }
 
@@ -69,19 +69,19 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
                                std::vector<Eigen::Vector3d>* t,
                                std::vector<Eigen::Vector3d>* n) {
   // Remove calibration from homography.
-  Eigen::Matrix3d hmatrix_norm = K2.inverse() * H * K1;
+  Eigen::Matrix3d H_normalized = K2.inverse() * H * K1;
 
   // Remove scale from normalized homography.
-  Eigen::JacobiSVD<Eigen::Matrix3d> hmatrix_norm_svd(hmatrix_norm);
-  hmatrix_norm.array() /= hmatrix_norm_svd.singularValues()[1];
+  Eigen::JacobiSVD<Eigen::Matrix3d> hmatrix_norm_svd(H_normalized);
+  H_normalized.array() /= hmatrix_norm_svd.singularValues()[1];
 
   const Eigen::Matrix3d S =
-      hmatrix_norm.transpose() * hmatrix_norm - Eigen::Matrix3d::Identity();
+      H_normalized.transpose() * H_normalized - Eigen::Matrix3d::Identity();
 
   // Check if H is rotation matrix.
   const double kMinInfinityNorm = 1e-3;
   if (S.lpNorm<Eigen::Infinity>() < kMinInfinityNorm) {
-    *R = {hmatrix_norm};
+    *R = {H_normalized};
     *t = {Eigen::Vector3d::Zero()};
     *n = {Eigen::Vector3d::Zero()};
     return;
@@ -156,11 +156,11 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
   const Eigen::Vector3d t2_star = half_nt * (esii_t_r * n1 - n_t * n2);
 
   const Eigen::Matrix3d R1 =
-      ComputeHomographyRotation(hmatrix_norm, t1_star, n1, v);
+      ComputeHomographyRotation(H_normalized, t1_star, n1, v);
   const Eigen::Vector3d t1 = R1 * t1_star;
 
   const Eigen::Matrix3d R2 =
-      ComputeHomographyRotation(hmatrix_norm, t2_star, n2, v);
+      ComputeHomographyRotation(H_normalized, t2_star, n2, v);
   const Eigen::Vector3d t2 = R2 * t2_star;
 
   *R = {R1, R1, R2, R2};

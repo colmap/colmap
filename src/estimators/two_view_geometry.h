@@ -179,12 +179,10 @@ struct TwoViewGeometry {
   // @param points2         Feature points in second image.
   // @param matches         Feature matches between first and second image.
   // @param options         Two-view geometry estimation options.
-  void EstimateWithRelativePose(const Camera& camera1,
-                                const std::vector<Eigen::Vector2d>& points1,
-                                const Camera& camera2,
-                                const std::vector<Eigen::Vector2d>& points2,
-                                const FeatureMatches& matches,
-                                const Options& options);
+  bool EstimateRelativePose(const Camera& camera1,
+                            const std::vector<Eigen::Vector2d>& points1,
+                            const Camera& camera2,
+                            const std::vector<Eigen::Vector2d>& points2);
 
   // Estimate two-view geometry from calibrated image pair.
   //

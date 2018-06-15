@@ -992,7 +992,8 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
     points2.push_back(point.XY());
   }
 
-  FeatureMatches matches(corrs.size());
+  FeatureMatches matches;
+  matches.resize(corrs.size());
   for (size_t i = 0; i < corrs.size(); ++i) {
     matches[i].point2D_idx1 = corrs[i].first;
     matches[i].point2D_idx2 = corrs[i].second;
@@ -1001,8 +1002,13 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
   TwoViewGeometry two_view_geometry;
   TwoViewGeometry::Options two_view_geometry_options;
   two_view_geometry_options.ransac_options.max_error = options.init_max_error;
-  two_view_geometry.EstimateWithRelativePose(
-      camera1, points1, camera2, points2, matches, two_view_geometry_options);
+  two_view_geometry.EstimateCalibrated(camera1, points1, camera2, points2,
+                                       matches, two_view_geometry_options);
+
+  if (!two_view_geometry.EstimateRelativePose(camera1, points1, camera2,
+                                              points2)) {
+    return false;
+  }
 
   if (static_cast<int>(two_view_geometry.inlier_matches.size()) >=
           options.init_min_num_inliers &&

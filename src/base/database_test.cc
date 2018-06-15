@@ -350,6 +350,6 @@ BOOST_AUTO_TEST_CASE(TestInlierMatches) {
   BOOST_CHECK_EQUAL(database.NumInlierMatches(), 0);
   database.WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
   BOOST_CHECK_EQUAL(database.NumInlierMatches(), 1000);
-  database.ClearInlierMatches();
+  database.ClearTwoViewGeometries();
   BOOST_CHECK_EQUAL(database.NumInlierMatches(), 0);
 }
