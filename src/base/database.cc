@@ -1134,23 +1134,22 @@ void Database::UpdateSchema() const {
   // Update user version number.
   std::unique_lock<std::mutex> lock(update_schema_mutex_);
   const std::string update_user_version_sql =
-      "PRAGMA user_version = " + std::to_string(COLMAP_VERSION_NUMBER) + ";";
+      StringPrintf("PRAGMA user_version = %d;", COLMAP_VERSION_NUMBER);
   SQLITE3_EXEC(database_, update_user_version_sql.c_str(), nullptr);
 }
 
 bool Database::ExistsTable(const std::string& table_name) const {
-  const std::string sql = StringPrintf(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name = ?;",
-      table_name.c_str());
+  const std::string sql =
+      "SELECT name FROM sqlite_master WHERE type='table' AND name = ?;";
+
   sqlite3_stmt* sql_stmt;
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt, 0));
+
   SQLITE3_CALL(sqlite3_bind_text(sql_stmt, 1, table_name.c_str(),
                                  static_cast<int>(table_name.size()),
                                  SQLITE_STATIC));
 
-  const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt));
-
-  const bool exists = rc == SQLITE_ROW;
+  const bool exists = SQLITE3_CALL(sqlite3_step(sql_stmt)) == SQLITE_ROW;
 
   SQLITE3_CALL(sqlite3_finalize(sql_stmt));
 
@@ -1161,6 +1160,7 @@ bool Database::ExistsColumn(const std::string& table_name,
                             const std::string& column_name) const {
   const std::string sql =
       StringPrintf("PRAGMA table_info(%s);", table_name.c_str());
+
   sqlite3_stmt* sql_stmt;
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt, 0));
 
@@ -1184,9 +1184,7 @@ bool Database::ExistsRowId(sqlite3_stmt* sql_stmt,
   SQLITE3_CALL(
       sqlite3_bind_int64(sql_stmt, 1, static_cast<sqlite3_int64>(row_id)));
 
-  const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt));
-
-  const bool exists = rc == SQLITE_ROW;
+  const bool exists = SQLITE3_CALL(sqlite3_step(sql_stmt)) == SQLITE_ROW;
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt));
 
@@ -1199,9 +1197,7 @@ bool Database::ExistsRowString(sqlite3_stmt* sql_stmt,
                                  static_cast<int>(row_entry.size()),
                                  SQLITE_STATIC));
 
-  const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt));
-
-  const bool exists = rc == SQLITE_ROW;
+  const bool exists = SQLITE3_CALL(sqlite3_step(sql_stmt)) == SQLITE_ROW;
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt));
 
@@ -1209,9 +1205,10 @@ bool Database::ExistsRowString(sqlite3_stmt* sql_stmt,
 }
 
 size_t Database::CountRows(const std::string& table) const {
-  const std::string sql = "SELECT COUNT(*) FROM " + table + ";";
-  sqlite3_stmt* sql_stmt;
+  const std::string sql =
+      StringPrintf("SELECT COUNT(*) FROM %s;", table.c_str());
 
+  sqlite3_stmt* sql_stmt;
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt, 0));
 
   size_t count = 0;
@@ -1242,9 +1239,10 @@ size_t Database::CountRowsForEntry(sqlite3_stmt* sql_stmt,
 
 size_t Database::SumColumn(const std::string& column,
                            const std::string& table) const {
-  const std::string sql = "SELECT SUM(" + column + ") FROM " + table + ";";
-  sqlite3_stmt* sql_stmt;
+  const std::string sql =
+      StringPrintf("SELECT SUM(%s) FROM %s;", column.c_str(), table.c_str());
 
+  sqlite3_stmt* sql_stmt;
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt, 0));
 
   size_t sum = 0;
@@ -1260,9 +1258,10 @@ size_t Database::SumColumn(const std::string& column,
 
 size_t Database::MaxColumn(const std::string& column,
                            const std::string& table) const {
-  const std::string sql = "SELECT MAX(" + column + ") FROM " + table + ";";
-  sqlite3_stmt* sql_stmt;
+  const std::string sql =
+      StringPrintf("SELECT MAX(%s) FROM %s;", column.c_str(), table.c_str());
 
+  sqlite3_stmt* sql_stmt;
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt, 0));
 
   size_t max = 0;
