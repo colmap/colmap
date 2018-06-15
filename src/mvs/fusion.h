@@ -32,6 +32,7 @@
 #ifndef COLMAP_SRC_MVS_FUSION_H_
 #define COLMAP_SRC_MVS_FUSION_H_
 
+#include <unordered_set>
 #include <vector>
 
 #include <Eigen/Core>
@@ -101,6 +102,7 @@ class StereoFusion : public Thread {
                const std::string& input_type);
 
   const std::vector<PlyPoint>& GetFusedPoints() const;
+  const std::vector<std::vector<int>>& GetFusedPointsVisibility() const;
 
  private:
   void Run();
@@ -135,18 +137,41 @@ class StereoFusion : public Thread {
     }
   };
 
+  // Next points to fuse.
   std::vector<FusionData> fusion_queue_;
+
+  // Already fused points.
   std::vector<PlyPoint> fused_points_;
-  std::vector<float> fused_points_x_;
-  std::vector<float> fused_points_y_;
-  std::vector<float> fused_points_z_;
-  std::vector<float> fused_points_nx_;
-  std::vector<float> fused_points_ny_;
-  std::vector<float> fused_points_nz_;
-  std::vector<uint8_t> fused_points_r_;
-  std::vector<uint8_t> fused_points_g_;
-  std::vector<uint8_t> fused_points_b_;
+  std::vector<std::vector<int>> fused_points_visibility_;
+
+  // Points of different pixels of the currently point to be fused.
+  std::vector<float> fused_point_x_;
+  std::vector<float> fused_point_y_;
+  std::vector<float> fused_point_z_;
+  std::vector<float> fused_point_nx_;
+  std::vector<float> fused_point_ny_;
+  std::vector<float> fused_point_nz_;
+  std::vector<uint8_t> fused_point_r_;
+  std::vector<uint8_t> fused_point_g_;
+  std::vector<uint8_t> fused_point_b_;
+  std::unordered_set<int> fused_point_visibility_;
 };
+
+// Write the visiblity information into a binary file of the following format:
+//
+//    <num_points : uint64_t>
+//    <num_visible_images_for_point1 : uint32_t>
+//    <point1_image_idx1 : uint32_t><point1_image_idx2 : uint32_t> ...
+//    <num_visible_images_for_point2 : uint32_t>
+//    <point2_image_idx2 : uint32_t><point2_image_idx2 : uint32_t> ...
+//    ...
+//
+// Note that an image_idx in the case of the mvs::StereoFuser does not
+// correspond to the image_id of a Reconstruction, but the index of the image in
+// the mvs::Model, which is the location of the image in the images.bin/.txt.
+void WritePointsVisibility(
+    const std::string& path,
+    const std::vector<std::vector<int>>& points_visibility);
 
 }  // namespace mvs
 }  // namespace colmap

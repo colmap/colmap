@@ -91,6 +91,7 @@ Install `Ceres Solver <http://ceres-solver.org/>`_::
     sudo apt-get install libatlas-base-dev libsuitesparse-dev
     git clone https://ceres-solver.googlesource.com/ceres-solver
     cd ceres-solver
+    git checkout $(git describe --tags) # Checkout the latest release
     mkdir build
     cd build
     cmake .. -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF
@@ -139,6 +140,7 @@ Configure and compile COLMAP::
     cd build
     cmake .. -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
     make
+    sudo make install
 
 Run COLMAP::
 

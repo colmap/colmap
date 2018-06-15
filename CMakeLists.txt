@@ -71,7 +71,7 @@ endif()
 if(BOOST_STATIC)
     set(Boost_USE_STATIC_LIBS ON)
 else()
-    add_definitions(-DBOOST_TEST_DYN_LINK)
+    add_definitions("-DBOOST_TEST_DYN_LINK")
 endif()
 
 ################################################################################
@@ -132,8 +132,6 @@ if(IS_MSVC)
     add_definitions("-DGLOG_NO_ABBREVIATED_SEVERITIES")
     add_definitions("-DGL_GLEXT_PROTOTYPES")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
-else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 endif()
 
 if(IS_GNU)
@@ -180,8 +178,8 @@ if(CUDA_FOUND)
             CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS Auto)
         endif()
 
-        list(APPEND CUDA_NVCC_FLAGS "-Wno-deprecated-gpu-targets")
-        list(APPEND CUDA_NVCC_FLAGS ${CUDA_ARCH_FLAGS})
+        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Wno-deprecated-gpu-targets")
+        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${CUDA_ARCH_FLAGS}")
 
         message(STATUS "Enabling CUDA support (version: ${CUDA_VERSION_STRING},"
                        " archs: ${CUDA_ARCH_FLAGS_readable})")

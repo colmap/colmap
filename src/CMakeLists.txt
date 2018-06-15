@@ -29,6 +29,14 @@
 #
 # Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
 
+if(IS_MSVC)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W3")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W3")
+elseif(IS_GNU OR IS_CLANG)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall")
+endif()
+
 add_subdirectory(base)
 add_subdirectory(controllers)
 add_subdirectory(estimators)
@@ -55,15 +63,8 @@ if(CUDA_ENABLED)
     add_definitions("-D_MWAITXINTRIN_H_INCLUDED")
 
     if(MSVC)
-        # Workaround for Visual Studio compiler error,
-        # due problems with compiling too complex code.
-        string(REPLACE "/Zo" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-
         # Avoid pulling in too many header files through <windows.h>
-        add_definitions(-DWIN32_LEAN_AND_MEAN)
-    else()
-        set(CUDA_PROPAGATE_HOST_FLAGS OFF)
-        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++11")
+        add_definitions("-DWIN32_LEAN_AND_MEAN")
     endif()
 
     COLMAP_ADD_CUDA_LIBRARY(colmap_cuda ${COLMAP_CUDA_SOURCES})

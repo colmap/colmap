@@ -84,6 +84,11 @@ struct Model {
   std::vector<std::map<int, float>> ComputeTriangulationAngles(
       const float percentile = 50) const;
 
+  // Note that in case the data is read from a COLMAP reconstruction, the index
+  // of an image or point does not correspond to its original identifier in the
+  // reconstruction, but it corresponds to the position in the
+  // images.bin/points3D.bin files. This is mainly done for more efficient
+  // access to the data, which is required during the stereo fusion stage.
   std::vector<Image> images;
   std::vector<Point> points;
 

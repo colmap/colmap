@@ -1,8 +1,8 @@
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRELEASE")
-
 if(NOT IS_MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -funroll-loops -ffast-math -std=c++11")
 endif()
+
+add_definitions("-DRELEASE")
 
 COLMAP_ADD_LIBRARY(poisson_recon
     Allocator.h

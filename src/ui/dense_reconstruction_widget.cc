@@ -340,6 +340,7 @@ void DenseReconstructionWidget::Fusion() {
       *options_->dense_fusion, workspace_path, "COLMAP", "", input_type);
   fuser->AddCallback(Thread::FINISHED_CALLBACK, [this, fuser]() {
     fused_points_ = fuser->GetFusedPoints();
+    fused_points_visibility_ = fuser->GetFusedPointsVisibility();
     write_fused_points_action_->trigger();
   });
   thread_control_widget_->StartThread("Fusion...", true, fuser);
@@ -492,13 +493,17 @@ void DenseReconstructionWidget::WriteFusedPoints() {
       workspace_path_text_->text().toUtf8().constData();
   if (workspace_path.empty()) {
     fused_points_ = {};
+    fused_points_visibility_ = {};
     return;
   }
 
   thread_control_widget_->StartFunction("Exporting...", [this,
                                                          workspace_path]() {
-    WriteBinaryPly(JoinPaths(workspace_path, kFusedFileName), fused_points_);
+    const std::string output_path = JoinPaths(workspace_path, kFusedFileName);
+    WriteBinaryPly(output_path, fused_points_);
+    mvs::WritePointsVisibility(output_path + ".vis", fused_points_visibility_);
     fused_points_ = {};
+    fused_points_visibility_ = {};
     meshing_button_->setEnabled(true);
   });
 }
