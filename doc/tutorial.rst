@@ -481,9 +481,9 @@ You can review and manage the imported cameras, images, and feature matches in
 the database management tool. Choose ``Processing > Manage database``. In the
 opening dialog, you can see the list of imported images and cameras. You can
 view the features and matches for each image by clicking ``Show image`` and
-``Show matches``. Individual entries in the database tables can be modified by
-double clicking specific cells. Note that any changes to the database are only
-effective after clicking ``Save``.
+``Overlapping images``. Individual entries in the database tables can be
+modified by double clicking specific cells. Note that any changes to the
+database are only effective after clicking ``Save``.
 
 To share intrinsic camera parameters between arbitrary groups of images, select
 a single or multiple images, choose ``Set camera`` and set the `camera_id`,

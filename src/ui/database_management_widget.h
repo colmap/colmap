@@ -48,10 +48,10 @@ namespace colmap {
 // Matches
 ////////////////////////////////////////////////////////////////////////////////
 
-class MatchesTab : public QWidget {
+class TwoViewInfoTab : public QWidget {
  public:
-  MatchesTab() {}
-  MatchesTab(QWidget* parent, OptionManager* options, Database* database);
+  TwoViewInfoTab() {}
+  TwoViewInfoTab(QWidget* parent, OptionManager* options, Database* database);
 
   void Clear();
 
@@ -73,23 +73,25 @@ class MatchesTab : public QWidget {
   FeatureImageViewerWidget* matches_viewer_widget_;
 };
 
-class RawMatchesTab : public MatchesTab {
+class MatchesTab : public TwoViewInfoTab {
  public:
-  RawMatchesTab(QWidget* parent, OptionManager* options, Database* database);
+  MatchesTab(QWidget* parent, OptionManager* options, Database* database);
 
   void Reload(const std::vector<Image>& images, const image_t image_id);
 };
 
-class InlierMatchesTab : public MatchesTab {
+class TwoViewGeometriesTab : public TwoViewInfoTab {
  public:
-  InlierMatchesTab(QWidget* parent, OptionManager* options, Database* database);
+  TwoViewGeometriesTab(QWidget* parent, OptionManager* options,
+                       Database* database);
 
   void Reload(const std::vector<Image>& images, const image_t image_id);
 };
 
-class MatchesWidget : public QWidget {
+class OverlappingImagesWidget : public QWidget {
  public:
-  MatchesWidget(QWidget* parent, OptionManager* options, Database* database);
+  OverlappingImagesWidget(QWidget* parent, OptionManager* options,
+                          Database* database);
 
   void ShowMatches(const std::vector<Image>& images, const image_t image_id);
 
@@ -101,8 +103,8 @@ class MatchesWidget : public QWidget {
   OptionManager* options_;
 
   QTabWidget* tab_widget_;
-  RawMatchesTab* raw_matches_tab_;
-  InlierMatchesTab* inlier_matches_tab_;
+  MatchesTab* matches_tab_;
+  TwoViewGeometriesTab* two_view_geometries_tab_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -155,7 +157,7 @@ class ImageTab : public QWidget {
   QTableWidget* table_widget_;
   QLabel* info_label_;
 
-  MatchesWidget* matches_widget_;
+  OverlappingImagesWidget* overlapping_images_widget_;
 
   FeatureImageViewerWidget* image_viewer_widget_;
 };
@@ -169,7 +171,7 @@ class DatabaseManagementWidget : public QWidget {
   void hideEvent(QHideEvent* event);
 
   void ClearMatches();
-  void ClearInlierMatches();
+  void ClearTwoViewGeometries();
 
   QWidget* parent_;
 

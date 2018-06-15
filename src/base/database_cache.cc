@@ -85,7 +85,7 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
 
   std::vector<image_pair_t> image_pair_ids;
   std::vector<TwoViewGeometry> two_view_geometries;
-  database.ReadAllInlierMatches(&image_pair_ids, &two_view_geometries);
+  database.ReadTwoViewGeometries(&image_pair_ids, &two_view_geometries);
 
   std::cout << StringPrintf(" %d in %.3fs", image_pair_ids.size(),
                             timer.ElapsedSeconds())

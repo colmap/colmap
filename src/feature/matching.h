@@ -195,8 +195,8 @@ class FeatureMatcherCache {
 
   void WriteMatches(const image_t image_id1, const image_t image_id2,
                     const FeatureMatches& matches);
-  void WriteInlierMatches(const image_t image_id1, const image_t image_id2,
-                          const TwoViewGeometry& two_view_geometry);
+  void WriteTwoViewGeometry(const image_t image_id1, const image_t image_id2,
+                            const TwoViewGeometry& two_view_geometry);
 
   void DeleteMatches(const image_t image_id1, const image_t image_id2);
   void DeleteInlierMatches(const image_t image_id1, const image_t image_id2);
