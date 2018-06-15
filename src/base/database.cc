@@ -1152,7 +1152,7 @@ bool Database::ExistsTable(const std::string& table_name) const {
 
   const bool exists = rc == SQLITE_ROW;
 
-  SQLITE3_CALL(sqlite3_reset(sql_stmt));
+  SQLITE3_CALL(sqlite3_finalize(sql_stmt));
 
   return exists;
 }
