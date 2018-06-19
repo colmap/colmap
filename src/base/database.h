@@ -38,10 +38,10 @@
 
 #include <Eigen/Core>
 
+#include "SQLite/sqlite3.h"
 #include "base/camera.h"
 #include "base/image.h"
 #include "estimators/two_view_geometry.h"
-#include "SQLite/sqlite3.h"
 #include "feature/types.h"
 #include "util/types.h"
 
@@ -110,18 +110,18 @@ class Database {
   // Sum of `rows` column in `matches` table, i.e. number of total matches.
   size_t NumMatches() const;
 
-  // Sum of `rows` column in `inlier_matches` table,
+  // Sum of `rows` column in `two_view_geometries` table,
   // i.e. number of total inlier matches.
   size_t NumInlierMatches() const;
 
   // Number of rows in `matches` table.
   size_t NumMatchedImagePairs() const;
 
-  // Number of rows in `inlier_matches` table.
+  // Number of rows in `two_view_geometries` table.
   size_t NumVerifiedImagePairs() const;
 
   // Each image pair is assigned an unique ID in the `matches` and
-  // `inlier_matches` table. We intentionally avoid to store the pairs in a
+  // `two_view_geometries` table. We intentionally avoid to store the pairs in a
   // separate table by using e.g. AUTOINCREMENT, since the overhead of querying
   // the unique pair ID is significant.
   inline static image_pair_t ImagePairToPairId(const image_t image_id1,
@@ -153,15 +153,15 @@ class Database {
                              const image_t image_id2) const;
   std::vector<std::pair<image_pair_t, FeatureMatches>> ReadAllMatches() const;
 
-  TwoViewGeometry ReadInlierMatches(const image_t image_id1,
-                                    const image_t image_id2) const;
-  void ReadAllInlierMatches(
+  TwoViewGeometry ReadTwoViewGeometry(const image_t image_id1,
+                                      const image_t image_id2) const;
+  void ReadTwoViewGeometries(
       std::vector<image_pair_t>* image_pair_ids,
       std::vector<TwoViewGeometry>* two_view_geometries) const;
 
-  // Read all image pairs that have an entry in the `inlier_matches` table with
-  // at least one inlier match and their corresponding number of inlier matches.
-  void ReadInlierMatchesGraph(
+  // Read all image pairs that have an entry in the `NumVerifiedImagePairs`
+  // table with at least one inlier match and their number of inlier matches.
+  void ReadTwoViewGeometryNumInliers(
       std::vector<std::pair<image_t, image_t>>* image_pairs,
       std::vector<int>* num_inliers) const;
 
@@ -183,8 +183,8 @@ class Database {
                         const FeatureDescriptors& descriptors) const;
   void WriteMatches(const image_t image_id1, const image_t image_id2,
                     const FeatureMatches& matches) const;
-  void WriteInlierMatches(const image_t image_id1, const image_t image_id2,
-                          const TwoViewGeometry& two_view_geometry) const;
+  void WriteTwoViewGeometry(const image_t image_id1, const image_t image_id2,
+                            const TwoViewGeometry& two_view_geometry) const;
 
   // Update an existing camera in the database. The user is responsible for
   // making sure that the entry already exists.
@@ -205,7 +205,7 @@ class Database {
   void ClearMatches() const;
 
   // Clear the entire inlier matches table.
-  void ClearInlierMatches() const;
+  void ClearTwoViewGeometries() const;
 
  private:
   friend class DatabaseTransaction;
@@ -230,10 +230,11 @@ class Database {
   void CreateKeypointsTable() const;
   void CreateDescriptorsTable() const;
   void CreateMatchesTable() const;
-  void CreateInlierMatchesTable() const;
+  void CreateTwoViewGeometriesTable() const;
 
   void UpdateSchema() const;
 
+  bool ExistsTable(const std::string& table_name) const;
   bool ExistsColumn(const std::string& table_name,
                     const std::string& column_name) const;
 
@@ -273,7 +274,7 @@ class Database {
   sqlite3_stmt* sql_stmt_exists_keypoints_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_descriptors_ = nullptr;
   sqlite3_stmt* sql_stmt_exists_matches_ = nullptr;
-  sqlite3_stmt* sql_stmt_exists_inlier_matches_ = nullptr;
+  sqlite3_stmt* sql_stmt_exists_two_view_geometry_ = nullptr;
 
   // add_*
   sqlite3_stmt* sql_stmt_add_camera_ = nullptr;
@@ -293,23 +294,23 @@ class Database {
   sqlite3_stmt* sql_stmt_read_descriptors_ = nullptr;
   sqlite3_stmt* sql_stmt_read_matches_ = nullptr;
   sqlite3_stmt* sql_stmt_read_matches_all_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_inlier_matches_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_inlier_matches_all_ = nullptr;
-  sqlite3_stmt* sql_stmt_read_inlier_matches_graph_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_two_view_geometry_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_two_view_geometries_ = nullptr;
+  sqlite3_stmt* sql_stmt_read_two_view_geometry_num_inliers_ = nullptr;
 
   // write_*
   sqlite3_stmt* sql_stmt_write_keypoints_ = nullptr;
   sqlite3_stmt* sql_stmt_write_descriptors_ = nullptr;
   sqlite3_stmt* sql_stmt_write_matches_ = nullptr;
-  sqlite3_stmt* sql_stmt_write_inlier_matches_ = nullptr;
+  sqlite3_stmt* sql_stmt_write_two_view_geometry_ = nullptr;
 
   // delete_*
   sqlite3_stmt* sql_stmt_delete_matches_ = nullptr;
-  sqlite3_stmt* sql_stmt_delete_inlier_matches_ = nullptr;
+  sqlite3_stmt* sql_stmt_delete_two_view_geometry_ = nullptr;
 
   // clear_*
   sqlite3_stmt* sql_stmt_clear_matches_ = nullptr;
-  sqlite3_stmt* sql_stmt_clear_inlier_matches_ = nullptr;
+  sqlite3_stmt* sql_stmt_clear_two_view_geometries_ = nullptr;
 };
 
 // This class automatically manages the scope of a database transaction by

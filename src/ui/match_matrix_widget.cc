@@ -65,7 +65,7 @@ void MatchMatrixWidget::Show() {
 
   std::vector<std::pair<image_t, image_t>> image_pairs;
   std::vector<int> num_inliers;
-  database.ReadInlierMatchesGraph(&image_pairs, &num_inliers);
+  database.ReadTwoViewGeometryNumInliers(&image_pairs, &num_inliers);
 
   // Fill the match matrix.
   if (!num_inliers.empty()) {

@@ -70,12 +70,16 @@ CREATE_IMAGES_TABLE = """CREATE TABLE IF NOT EXISTS images (
     FOREIGN KEY(camera_id) REFERENCES cameras(camera_id))
 """.format(MAX_IMAGE_ID)
 
-CREATE_INLIER_MATCHES_TABLE = """CREATE TABLE IF NOT EXISTS inlier_matches (
+CREATE_TWO_VIEW_GEOMETRIES_TABLE = """
+CREATE TABLE IF NOT EXISTS two_view_geometries (
     pair_id INTEGER PRIMARY KEY NOT NULL,
     rows INTEGER NOT NULL,
     cols INTEGER NOT NULL,
     data BLOB,
-    config INTEGER NOT NULL)
+    config INTEGER NOT NULL,
+    F BLOB,
+    E BLOB,
+    H BLOB)
 """
 
 CREATE_KEYPOINTS_TABLE = """CREATE TABLE IF NOT EXISTS keypoints (
@@ -101,7 +105,7 @@ CREATE_ALL = "; ".join([
     CREATE_KEYPOINTS_TABLE,
     CREATE_DESCRIPTORS_TABLE,
     CREATE_MATCHES_TABLE,
-    CREATE_INLIER_MATCHES_TABLE,
+    CREATE_TWO_VIEW_GEOMETRIES_TABLE,
     CREATE_NAME_INDEX
 ])
 
@@ -149,8 +153,8 @@ class COLMAPDatabase(sqlite3.Connection):
             lambda: self.executescript(CREATE_DESCRIPTORS_TABLE)
         self.create_images_table = \
             lambda: self.executescript(CREATE_IMAGES_TABLE)
-        self.create_inlier_matches_table = \
-            lambda: self.executescript(CREATE_INLIER_MATCHES_TABLE)
+        self.create_two_view_geometries_table = \
+            lambda: self.executescript(CREATE_TWO_VIEW_GEOMETRIES_TABLE)
         self.create_keypoints_table = \
             lambda: self.executescript(CREATE_KEYPOINTS_TABLE)
         self.create_matches_table = \
@@ -189,19 +193,6 @@ class COLMAPDatabase(sqlite3.Connection):
             "INSERT INTO descriptors VALUES (?, ?, ?, ?)",
             (image_id,) + descriptors.shape + (array_to_blob(descriptors),))
 
-    def add_inlier_matches(self, image_id1, image_id2, matches, config=2):
-        assert(len(matches.shape) == 2)
-        assert(matches.shape[1] == 2)
-
-        if image_id1 > image_id2:
-            matches = matches[:,::-1]
-
-        pair_id = image_ids_to_pair_id(image_id1, image_id2)
-        matches = np.asarray(matches, np.uint32)
-        self.execute(
-            "INSERT INTO inlier_matches VALUES (?, ?, ?, ?, ?)",
-            (pair_id,) + matches.shape + (array_to_blob(matches), config))
-
     def add_matches(self, image_id1, image_id2, matches):
         assert(len(matches.shape) == 2)
         assert(matches.shape[1] == 2)
@@ -214,6 +205,24 @@ class COLMAPDatabase(sqlite3.Connection):
         self.execute(
             "INSERT INTO matches VALUES (?, ?, ?, ?)",
             (pair_id,) + matches.shape + (array_to_blob(matches),))
+
+    def add_two_view_geometry(self, image_id1, image_id2, matches,
+                              F=np.eye(3), E=np.eye(3), H=np.eye(3), config=2):
+        assert(len(matches.shape) == 2)
+        assert(matches.shape[1] == 2)
+
+        if image_id1 > image_id2:
+            matches = matches[:,::-1]
+
+        pair_id = image_ids_to_pair_id(image_id1, image_id2)
+        matches = np.asarray(matches, np.uint32)
+        F = np.asarray(F, dtype=np.float64)
+        E = np.asarray(E, dtype=np.float64)
+        H = np.asarray(H, dtype=np.float64)
+        self.execute(
+            "INSERT INTO two_view_geometries VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (pair_id,) + matches.shape + (array_to_blob(matches), config,
+             array_to_blob(F), array_to_blob(E), array_to_blob(H)))
 
 
 def example_usage():

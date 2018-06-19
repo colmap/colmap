@@ -15,7 +15,7 @@ The database contains the following tables:
 - keypoints
 - descriptors
 - matches
-- inlier_matches
+- two_view_geometries
 
 To initialize an empty SQLite database file with the required schema, you can
 either create a new project in the GUI or execute `src/exe/database_create.cc`.
@@ -72,10 +72,11 @@ Matches
 -------
 
 Feature matching stores its output in the `matches` table and geometric
-verification in the `inlier_matches` table. COLMAP only uses the data in
-`inlier_matches` for reconstruction. Every entry in the two tables stores the
-feature matches between two unique images, where the `pair_id` is the row-major,
-linear index in the upper-triangular match matrix, generated as follows::
+verification in the `two_view_geometries` table. COLMAP only uses the data in
+`two_view_geometries` for reconstruction. Every entry in the two tables stores
+the feature matches between two unique images, where the `pair_id` is the
+row-major, linear index in the upper-triangular match matrix, generated as
+follows::
 
     def image_ids_to_pair_id(image_id1, image_id2):
         if image_id1 > image_id2:
@@ -99,3 +100,7 @@ The binary blobs in the matches tables are row-major `uint32` matrices, where
 the left column are zero-based indices into the features of `image_id1` and the
 second column into the features of `image_id2`. The column `cols` must be 2 and
 the `rows` column specifies the number of feature matches.
+
+The F, E, H blobs in the `two_view_geometries` table are stored as 3x3 matrices
+in row-major `float64` format. The meaning of the `config` values are documented
+in the `src/estimators/two_view_geometry.h` source file.

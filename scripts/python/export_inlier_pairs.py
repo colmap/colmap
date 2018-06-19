@@ -64,9 +64,9 @@ def main():
         name = row[1]
         image_id_to_name[image_id] = name
 
-    # Iterate over entries in the inlier_matches table
+    # Iterate over entries in the two_view_geometries table
     output = open(args.match_list_path, 'w')
-    cursor.execute('SELECT pair_id, rows FROM inlier_matches;')
+    cursor.execute('SELECT pair_id, rows FROM two_view_geometries;')
     for row in cursor:
         pair_id = row[0]
         rows = row[1]

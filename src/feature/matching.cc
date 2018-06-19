@@ -34,8 +34,8 @@
 #include <fstream>
 #include <numeric>
 
-#include "base/gps.h"
 #include "SiftGPU/SiftGPU.h"
+#include "base/gps.h"
 #include "feature/utils.h"
 #include "retrieval/visual_index.h"
 #include "util/cuda.h"
@@ -296,11 +296,11 @@ void FeatureMatcherCache::WriteMatches(const image_t image_id1,
   database_->WriteMatches(image_id1, image_id2, matches);
 }
 
-void FeatureMatcherCache::WriteInlierMatches(
+void FeatureMatcherCache::WriteTwoViewGeometry(
     const image_t image_id1, const image_t image_id2,
     const TwoViewGeometry& two_view_geometry) {
   std::unique_lock<std::mutex> lock(database_mutex_);
-  database_->WriteInlierMatches(image_id1, image_id2, two_view_geometry);
+  database_->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
 }
 
 void FeatureMatcherCache::DeleteMatches(const image_t image_id1,
@@ -828,8 +828,8 @@ void SiftFeatureMatcher::Match(
     }
 
     cache_->WriteMatches(output.image_id1, output.image_id2, output.matches);
-    cache_->WriteInlierMatches(output.image_id1, output.image_id2,
-                               output.two_view_geometry);
+    cache_->WriteTwoViewGeometry(output.image_id1, output.image_id2,
+                                 output.two_view_geometry);
   }
 
   CHECK_EQ(output_queue_.Size(), 0);
@@ -1342,8 +1342,8 @@ void TransitiveFeatureMatcher::Run() {
 
     std::vector<std::pair<image_t, image_t>> existing_image_pairs;
     std::vector<int> existing_num_inliers;
-    database_.ReadInlierMatchesGraph(&existing_image_pairs,
-                                     &existing_num_inliers);
+    database_.ReadTwoViewGeometryNumInliers(&existing_image_pairs,
+                                       &existing_num_inliers);
 
     CHECK_EQ(existing_image_pairs.size(), existing_num_inliers.size());
 
@@ -1631,8 +1631,8 @@ void FeaturePairsFeatureMatcher::Run() {
           FeatureKeypointsToPointsVector(keypoints2), matches,
           two_view_geometry_options);
 
-      database_.WriteInlierMatches(image1.ImageId(), image2.ImageId(),
-                                   two_view_geometry);
+      database_.WriteTwoViewGeometry(image1.ImageId(), image2.ImageId(),
+                                     two_view_geometry);
     } else {
       TwoViewGeometry two_view_geometry;
 
@@ -1644,8 +1644,8 @@ void FeaturePairsFeatureMatcher::Run() {
 
       two_view_geometry.inlier_matches = matches;
 
-      database_.WriteInlierMatches(image1.ImageId(), image2.ImageId(),
-                                   two_view_geometry);
+      database_.WriteTwoViewGeometry(image1.ImageId(), image2.ImageId(),
+                                     two_view_geometry);
     }
   }
 

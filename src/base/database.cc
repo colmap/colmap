@@ -316,7 +316,7 @@ bool Database::ExistsMatches(const image_t image_id1,
 
 bool Database::ExistsInlierMatches(const image_t image_id1,
                                    const image_t image_id2) const {
-  return ExistsRowId(sql_stmt_exists_inlier_matches_,
+  return ExistsRowId(sql_stmt_exists_two_view_geometry_,
                      ImagePairToPairId(image_id1, image_id2));
 }
 
@@ -349,13 +349,13 @@ size_t Database::NumDescriptorsForImage(const image_t image_id) const {
 size_t Database::NumMatches() const { return SumColumn("rows", "matches"); }
 
 size_t Database::NumInlierMatches() const {
-  return SumColumn("rows", "inlier_matches");
+  return SumColumn("rows", "two_view_geometries");
 }
 
 size_t Database::NumMatchedImagePairs() const { return CountRows("matches"); }
 
 size_t Database::NumVerifiedImagePairs() const {
-  return CountRows("inlier_matches");
+  return CountRows("two_view_geometries");
 }
 
 Camera Database::ReadCamera(const camera_t camera_id) const {
@@ -491,29 +491,30 @@ std::vector<std::pair<image_pair_t, FeatureMatches>> Database::ReadAllMatches()
   return all_matches;
 }
 
-TwoViewGeometry Database::ReadInlierMatches(const image_t image_id1,
-                                            const image_t image_id2) const {
+TwoViewGeometry Database::ReadTwoViewGeometry(const image_t image_id1,
+                                              const image_t image_id2) const {
   const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
-  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_read_inlier_matches_, 1, pair_id));
+  SQLITE3_CALL(
+      sqlite3_bind_int64(sql_stmt_read_two_view_geometry_, 1, pair_id));
 
-  const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_inlier_matches_));
+  const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_two_view_geometry_));
 
   TwoViewGeometry two_view_geometry;
 
   FeatureMatchesBlob blob = ReadDynamicMatrixBlob<FeatureMatchesBlob>(
-      sql_stmt_read_inlier_matches_, rc, 0);
+      sql_stmt_read_two_view_geometry_, rc, 0);
 
-  two_view_geometry.config =
-      static_cast<int>(sqlite3_column_int64(sql_stmt_read_inlier_matches_, 3));
+  two_view_geometry.config = static_cast<int>(
+      sqlite3_column_int64(sql_stmt_read_two_view_geometry_, 3));
 
   two_view_geometry.F = ReadStaticMatrixBlob<Eigen::Matrix3d>(
-      sql_stmt_read_inlier_matches_, rc, 4);
+      sql_stmt_read_two_view_geometry_, rc, 4);
   two_view_geometry.E = ReadStaticMatrixBlob<Eigen::Matrix3d>(
-      sql_stmt_read_inlier_matches_, rc, 5);
+      sql_stmt_read_two_view_geometry_, rc, 5);
   two_view_geometry.H = ReadStaticMatrixBlob<Eigen::Matrix3d>(
-      sql_stmt_read_inlier_matches_, rc, 6);
+      sql_stmt_read_two_view_geometry_, rc, 6);
 
-  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_inlier_matches_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_two_view_geometry_));
 
   if (SwapImagePair(image_id1, image_id2)) {
     SwapFeatureMatchesBlob(&blob);
@@ -527,50 +528,50 @@ TwoViewGeometry Database::ReadInlierMatches(const image_t image_id1,
   return two_view_geometry;
 }
 
-void Database::ReadAllInlierMatches(
+void Database::ReadTwoViewGeometries(
     std::vector<image_pair_t>* image_pair_ids,
     std::vector<TwoViewGeometry>* two_view_geometries) const {
   int rc;
-  while ((rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_inlier_matches_all_))) ==
-         SQLITE_ROW) {
+  while ((rc = SQLITE3_CALL(sqlite3_step(
+              sql_stmt_read_two_view_geometries_))) == SQLITE_ROW) {
     const image_pair_t pair_id = static_cast<image_pair_t>(
-        sqlite3_column_int64(sql_stmt_read_inlier_matches_all_, 0));
+        sqlite3_column_int64(sql_stmt_read_two_view_geometries_, 0));
     image_pair_ids->push_back(pair_id);
 
     TwoViewGeometry two_view_geometry;
     const FeatureMatchesBlob blob = ReadDynamicMatrixBlob<FeatureMatchesBlob>(
-        sql_stmt_read_inlier_matches_all_, rc, 1);
+        sql_stmt_read_two_view_geometries_, rc, 1);
     two_view_geometry.config = static_cast<int>(
-        sqlite3_column_int64(sql_stmt_read_inlier_matches_all_, 4));
+        sqlite3_column_int64(sql_stmt_read_two_view_geometries_, 4));
     two_view_geometry.inlier_matches = FeatureMatchesFromBlob(blob);
     two_view_geometries->push_back(two_view_geometry);
   }
 
-  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_inlier_matches_all_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_two_view_geometries_));
 }
 
-void Database::ReadInlierMatchesGraph(
+void Database::ReadTwoViewGeometryNumInliers(
     std::vector<std::pair<image_t, image_t>>* image_pairs,
     std::vector<int>* num_inliers) const {
   const auto num_inlier_matches = NumInlierMatches();
   image_pairs->reserve(num_inlier_matches);
   num_inliers->reserve(num_inlier_matches);
 
-  while (SQLITE3_CALL(sqlite3_step(sql_stmt_read_inlier_matches_graph_)) ==
-         SQLITE_ROW) {
+  while (SQLITE3_CALL(sqlite3_step(
+             sql_stmt_read_two_view_geometry_num_inliers_)) == SQLITE_ROW) {
     image_t image_id1;
     image_t image_id2;
     const image_pair_t pair_id = static_cast<image_pair_t>(
-        sqlite3_column_int64(sql_stmt_read_inlier_matches_graph_, 0));
+        sqlite3_column_int64(sql_stmt_read_two_view_geometry_num_inliers_, 0));
     PairIdToImagePair(pair_id, &image_id1, &image_id2);
     image_pairs->emplace_back(image_id1, image_id2);
 
     const int rows = static_cast<int>(
-        sqlite3_column_int64(sql_stmt_read_inlier_matches_graph_, 1));
+        sqlite3_column_int64(sql_stmt_read_two_view_geometry_num_inliers_, 1));
     num_inliers->push_back(rows);
   }
 
-  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_inlier_matches_graph_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_read_two_view_geometry_num_inliers_));
 }
 
 camera_t Database::WriteCamera(const Camera& camera,
@@ -673,11 +674,12 @@ void Database::WriteMatches(const image_t image_id1, const image_t image_id2,
   SQLITE3_CALL(sqlite3_reset(sql_stmt_write_matches_));
 }
 
-void Database::WriteInlierMatches(
+void Database::WriteTwoViewGeometry(
     const image_t image_id1, const image_t image_id2,
     const TwoViewGeometry& two_view_geometry) const {
   const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
-  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_inlier_matches_, 1, pair_id));
+  SQLITE3_CALL(
+      sqlite3_bind_int64(sql_stmt_write_two_view_geometry_, 1, pair_id));
 
   // Important: the swapped data must live until the query is executed.
   FeatureMatchesBlob inlier_matches =
@@ -686,30 +688,33 @@ void Database::WriteInlierMatches(
     SwapFeatureMatchesBlob(&inlier_matches);
   }
 
-  WriteDynamicMatrixBlob(sql_stmt_write_inlier_matches_, inlier_matches, 2);
+  WriteDynamicMatrixBlob(sql_stmt_write_two_view_geometry_, inlier_matches, 2);
 
-  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_inlier_matches_, 5,
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_two_view_geometry_, 5,
                                   two_view_geometry.config));
 
+  // Transpose the matrices to obtain row-major data layout.
+  // Important: Do not move these objects inside the if-statement, because
+  // the objects must live until `sqlite3_step` is called on the statement.
   const Eigen::Matrix3d Ft = two_view_geometry.F.transpose();
   const Eigen::Matrix3d Et = two_view_geometry.E.transpose();
   const Eigen::Matrix3d Ht = two_view_geometry.H.transpose();
 
   if (two_view_geometry.inlier_matches.size() > 0) {
-    WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, Ft, 6);
-    WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, Et, 7);
-    WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, Ht, 8);
+    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ft, 6);
+    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Et, 7);
+    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ht, 8);
   } else {
-    WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, Eigen::MatrixXd(0, 0),
-                          6);
-    WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, Eigen::MatrixXd(0, 0),
-                          7);
-    WriteStaticMatrixBlob(sql_stmt_write_inlier_matches_, Eigen::MatrixXd(0, 0),
-                          8);
+    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_,
+                          Eigen::MatrixXd(0, 0), 6);
+    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_,
+                          Eigen::MatrixXd(0, 0), 7);
+    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_,
+                          Eigen::MatrixXd(0, 0), 8);
   }
 
-  SQLITE3_CALL(sqlite3_step(sql_stmt_write_inlier_matches_));
-  SQLITE3_CALL(sqlite3_reset(sql_stmt_write_inlier_matches_));
+  SQLITE3_CALL(sqlite3_step(sql_stmt_write_two_view_geometry_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_write_two_view_geometry_));
 }
 
 void Database::UpdateCamera(const Camera& camera) const {
@@ -773,10 +778,10 @@ void Database::DeleteMatches(const image_t image_id1,
 void Database::DeleteInlierMatches(const image_t image_id1,
                                    const image_t image_id2) const {
   const image_pair_t pair_id = ImagePairToPairId(image_id1, image_id2);
-  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_delete_inlier_matches_, 1,
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_delete_two_view_geometry_, 1,
                                   static_cast<sqlite3_int64>(pair_id)));
-  SQLITE3_CALL(sqlite3_step(sql_stmt_delete_inlier_matches_));
-  SQLITE3_CALL(sqlite3_reset(sql_stmt_delete_inlier_matches_));
+  SQLITE3_CALL(sqlite3_step(sql_stmt_delete_two_view_geometry_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_delete_two_view_geometry_));
 }
 
 void Database::ClearMatches() const {
@@ -784,9 +789,9 @@ void Database::ClearMatches() const {
   SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_matches_));
 }
 
-void Database::ClearInlierMatches() const {
-  SQLITE3_CALL(sqlite3_step(sql_stmt_clear_inlier_matches_));
-  SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_inlier_matches_));
+void Database::ClearTwoViewGeometries() const {
+  SQLITE3_CALL(sqlite3_step(sql_stmt_clear_two_view_geometries_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_two_view_geometries_));
 }
 
 void Database::BeginTransaction() const {
@@ -848,10 +853,10 @@ void Database::PrepareSQLStatements() {
                                   &sql_stmt_exists_matches_, 0));
   sql_stmts_.push_back(sql_stmt_exists_matches_);
 
-  sql = "SELECT 1 FROM inlier_matches WHERE pair_id = ?;";
+  sql = "SELECT 1 FROM two_view_geometries WHERE pair_id = ?;";
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
-                                  &sql_stmt_exists_inlier_matches_, 0));
-  sql_stmts_.push_back(sql_stmt_exists_inlier_matches_);
+                                  &sql_stmt_exists_two_view_geometry_, 0));
+  sql_stmts_.push_back(sql_stmt_exists_two_view_geometry_);
 
   //////////////////////////////////////////////////////////////////////////////
   // add_*
@@ -938,21 +943,22 @@ void Database::PrepareSQLStatements() {
   sql_stmts_.push_back(sql_stmt_read_matches_all_);
 
   sql =
-      "SELECT rows, cols, data, config, F, E, H FROM inlier_matches "
-      "WHERE pair_id = ?;";
+      "SELECT rows, cols, data, config, F, E, H FROM two_view_geometries WHERE "
+      "pair_id = ?;";
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
-                                  &sql_stmt_read_inlier_matches_, 0));
-  sql_stmts_.push_back(sql_stmt_read_inlier_matches_);
+                                  &sql_stmt_read_two_view_geometry_, 0));
+  sql_stmts_.push_back(sql_stmt_read_two_view_geometry_);
 
-  sql = "SELECT * FROM inlier_matches WHERE rows > 0;";
+  sql = "SELECT * FROM two_view_geometries WHERE rows > 0;";
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
-                                  &sql_stmt_read_inlier_matches_all_, 0));
-  sql_stmts_.push_back(sql_stmt_read_inlier_matches_all_);
+                                  &sql_stmt_read_two_view_geometries_, 0));
+  sql_stmts_.push_back(sql_stmt_read_two_view_geometries_);
 
-  sql = "SELECT pair_id, rows FROM inlier_matches WHERE rows > 0;";
+  sql = "SELECT pair_id, rows FROM two_view_geometries WHERE rows > 0;";
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
-                                  &sql_stmt_read_inlier_matches_graph_, 0));
-  sql_stmts_.push_back(sql_stmt_read_inlier_matches_graph_);
+                                  &sql_stmt_read_two_view_geometry_num_inliers_,
+                                  0));
+  sql_stmts_.push_back(sql_stmt_read_two_view_geometry_num_inliers_);
 
   //////////////////////////////////////////////////////////////////////////////
   // write_*
@@ -974,11 +980,11 @@ void Database::PrepareSQLStatements() {
   sql_stmts_.push_back(sql_stmt_write_matches_);
 
   sql =
-      "INSERT INTO inlier_matches(pair_id, rows, cols, data, config, F, E, H) "
-      "VALUES(?, ?, ?, ?, ?, ?, ?, ?);";
+      "INSERT INTO two_view_geometries(pair_id, rows, cols, data, config, F, "
+      "E, H) VALUES(?, ?, ?, ?, ?, ?, ?, ?);";
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
-                                  &sql_stmt_write_inlier_matches_, 0));
-  sql_stmts_.push_back(sql_stmt_write_inlier_matches_);
+                                  &sql_stmt_write_two_view_geometry_, 0));
+  sql_stmts_.push_back(sql_stmt_write_two_view_geometry_);
 
   //////////////////////////////////////////////////////////////////////////////
   // delete_*
@@ -988,10 +994,10 @@ void Database::PrepareSQLStatements() {
                                   &sql_stmt_delete_matches_, 0));
   sql_stmts_.push_back(sql_stmt_delete_matches_);
 
-  sql = "DELETE FROM inlier_matches WHERE pair_id = ?;";
+  sql = "DELETE FROM two_view_geometries WHERE pair_id = ?;";
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
-                                  &sql_stmt_delete_inlier_matches_, 0));
-  sql_stmts_.push_back(sql_stmt_delete_inlier_matches_);
+                                  &sql_stmt_delete_two_view_geometry_, 0));
+  sql_stmts_.push_back(sql_stmt_delete_two_view_geometry_);
 
   //////////////////////////////////////////////////////////////////////////////
   // clear_*
@@ -1001,10 +1007,10 @@ void Database::PrepareSQLStatements() {
                                   &sql_stmt_clear_matches_, 0));
   sql_stmts_.push_back(sql_stmt_clear_matches_);
 
-  sql = "DELETE FROM inlier_matches;";
+  sql = "DELETE FROM two_view_geometries;";
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
-                                  &sql_stmt_clear_inlier_matches_, 0));
-  sql_stmts_.push_back(sql_stmt_clear_inlier_matches_);
+                                  &sql_stmt_clear_two_view_geometries_, 0));
+  sql_stmts_.push_back(sql_stmt_clear_two_view_geometries_);
 }
 
 void Database::FinalizeSQLStatements() {
@@ -1019,7 +1025,7 @@ void Database::CreateTables() const {
   CreateKeypointsTable();
   CreateDescriptorsTable();
   CreateMatchesTable();
-  CreateInlierMatchesTable();
+  CreateTwoViewGeometriesTable();
 }
 
 void Database::CreateCameraTable() const {
@@ -1091,48 +1097,72 @@ void Database::CreateMatchesTable() const {
   SQLITE3_EXEC(database_, sql.c_str(), nullptr);
 }
 
-void Database::CreateInlierMatchesTable() const {
-  const std::string sql =
-      "CREATE TABLE IF NOT EXISTS inlier_matches"
-      "   (pair_id  INTEGER  PRIMARY KEY  NOT NULL,"
-      "    rows     INTEGER               NOT NULL,"
-      "    cols     INTEGER               NOT NULL,"
-      "    data     BLOB,"
-      "    config   INTEGER               NOT NULL,"
-      "    F        BLOB,"
-      "    E        BLOB,"
-      "    H        BLOB);";
-
-  SQLITE3_EXEC(database_, sql.c_str(), nullptr);
+void Database::CreateTwoViewGeometriesTable() const {
+  if (ExistsTable("inlier_matches")) {
+    SQLITE3_EXEC(database_,
+                 "ALTER TABLE inlier_matches RENAME TO two_view_geometries;",
+                 nullptr);
+  } else {
+    const std::string sql =
+        "CREATE TABLE IF NOT EXISTS two_view_geometries"
+        "   (pair_id  INTEGER  PRIMARY KEY  NOT NULL,"
+        "    rows     INTEGER               NOT NULL,"
+        "    cols     INTEGER               NOT NULL,"
+        "    data     BLOB,"
+        "    config   INTEGER               NOT NULL,"
+        "    F        BLOB,"
+        "    E        BLOB,"
+        "    H        BLOB);";
+    SQLITE3_EXEC(database_, sql.c_str(), nullptr);
+  }
 }
 
 void Database::UpdateSchema() const {
-  if (!ExistsColumn("inlier_matches", "F")) {
-    SQLITE3_EXEC(database_, "ALTER TABLE inlier_matches ADD COLUMN F BLOB;",
-                 nullptr);
+  if (!ExistsColumn("two_view_geometries", "F")) {
+    SQLITE3_EXEC(database_,
+                 "ALTER TABLE two_view_geometries ADD COLUMN F BLOB;", nullptr);
   }
 
-  if (!ExistsColumn("inlier_matches", "E")) {
-    SQLITE3_EXEC(database_, "ALTER TABLE inlier_matches ADD COLUMN E BLOB;",
-                 nullptr);
+  if (!ExistsColumn("two_view_geometries", "E")) {
+    SQLITE3_EXEC(database_,
+                 "ALTER TABLE two_view_geometries ADD COLUMN E BLOB;", nullptr);
   }
 
-  if (!ExistsColumn("inlier_matches", "H")) {
-    SQLITE3_EXEC(database_, "ALTER TABLE inlier_matches ADD COLUMN H BLOB;",
-                 nullptr);
+  if (!ExistsColumn("two_view_geometries", "H")) {
+    SQLITE3_EXEC(database_,
+                 "ALTER TABLE two_view_geometries ADD COLUMN H BLOB;", nullptr);
   }
 
   // Update user version number.
   std::unique_lock<std::mutex> lock(update_schema_mutex_);
   const std::string update_user_version_sql =
-      "PRAGMA user_version = " + std::to_string(COLMAP_VERSION_NUMBER) + ";";
+      StringPrintf("PRAGMA user_version = %d;", COLMAP_VERSION_NUMBER);
   SQLITE3_EXEC(database_, update_user_version_sql.c_str(), nullptr);
+}
+
+bool Database::ExistsTable(const std::string& table_name) const {
+  const std::string sql =
+      "SELECT name FROM sqlite_master WHERE type='table' AND name = ?;";
+
+  sqlite3_stmt* sql_stmt;
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt, 0));
+
+  SQLITE3_CALL(sqlite3_bind_text(sql_stmt, 1, table_name.c_str(),
+                                 static_cast<int>(table_name.size()),
+                                 SQLITE_STATIC));
+
+  const bool exists = SQLITE3_CALL(sqlite3_step(sql_stmt)) == SQLITE_ROW;
+
+  SQLITE3_CALL(sqlite3_finalize(sql_stmt));
+
+  return exists;
 }
 
 bool Database::ExistsColumn(const std::string& table_name,
                             const std::string& column_name) const {
   const std::string sql =
       StringPrintf("PRAGMA table_info(%s);", table_name.c_str());
+
   sqlite3_stmt* sql_stmt;
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt, 0));
 
@@ -1156,9 +1186,7 @@ bool Database::ExistsRowId(sqlite3_stmt* sql_stmt,
   SQLITE3_CALL(
       sqlite3_bind_int64(sql_stmt, 1, static_cast<sqlite3_int64>(row_id)));
 
-  const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt));
-
-  const bool exists = rc == SQLITE_ROW;
+  const bool exists = SQLITE3_CALL(sqlite3_step(sql_stmt)) == SQLITE_ROW;
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt));
 
@@ -1171,9 +1199,7 @@ bool Database::ExistsRowString(sqlite3_stmt* sql_stmt,
                                  static_cast<int>(row_entry.size()),
                                  SQLITE_STATIC));
 
-  const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt));
-
-  const bool exists = rc == SQLITE_ROW;
+  const bool exists = SQLITE3_CALL(sqlite3_step(sql_stmt)) == SQLITE_ROW;
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt));
 
@@ -1181,9 +1207,10 @@ bool Database::ExistsRowString(sqlite3_stmt* sql_stmt,
 }
 
 size_t Database::CountRows(const std::string& table) const {
-  const std::string sql = "SELECT COUNT(*) FROM " + table + ";";
-  sqlite3_stmt* sql_stmt;
+  const std::string sql =
+      StringPrintf("SELECT COUNT(*) FROM %s;", table.c_str());
 
+  sqlite3_stmt* sql_stmt;
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt, 0));
 
   size_t count = 0;
@@ -1214,9 +1241,10 @@ size_t Database::CountRowsForEntry(sqlite3_stmt* sql_stmt,
 
 size_t Database::SumColumn(const std::string& column,
                            const std::string& table) const {
-  const std::string sql = "SELECT SUM(" + column + ") FROM " + table + ";";
-  sqlite3_stmt* sql_stmt;
+  const std::string sql =
+      StringPrintf("SELECT SUM(%s) FROM %s;", column.c_str(), table.c_str());
 
+  sqlite3_stmt* sql_stmt;
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt, 0));
 
   size_t sum = 0;
@@ -1232,9 +1260,10 @@ size_t Database::SumColumn(const std::string& column,
 
 size_t Database::MaxColumn(const std::string& column,
                            const std::string& table) const {
-  const std::string sql = "SELECT MAX(" + column + ") FROM " + table + ";";
-  sqlite3_stmt* sql_stmt;
+  const std::string sql =
+      StringPrintf("SELECT MAX(%s) FROM %s;", column.c_str(), table.c_str());
 
+  sqlite3_stmt* sql_stmt;
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt, 0));
 
   size_t max = 0;

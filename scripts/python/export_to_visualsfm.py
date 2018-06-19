@@ -115,7 +115,7 @@ def main():
                 fid.write("\n")
 
     with open(os.path.join(args.output_path, "matches.txt"), "w") as fid:
-        cursor.execute("SELECT pair_id, data FROM inlier_matches "
+        cursor.execute("SELECT pair_id, data FROM two_view_geometries "
                        "WHERE rows>=?;", (args.min_num_matches,))
         for row in cursor:
             pair_id = row[0]

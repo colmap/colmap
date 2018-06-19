@@ -315,9 +315,9 @@ BOOST_AUTO_TEST_CASE(TestInlierMatches) {
   two_view_geometry.F = Eigen::Matrix3d::Random();
   two_view_geometry.E = Eigen::Matrix3d::Random();
   two_view_geometry.H = Eigen::Matrix3d::Random();
-  database.WriteInlierMatches(image_id1, image_id2, two_view_geometry);
+  database.WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
   const TwoViewGeometry two_view_geometry_read =
-      database.ReadInlierMatches(image_id1, image_id2);
+      database.ReadTwoViewGeometry(image_id1, image_id2);
   BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(),
                     two_view_geometry_read.inlier_matches.size());
   for (size_t i = 0; i < two_view_geometry_read.inlier_matches.size(); ++i) {
@@ -332,14 +332,14 @@ BOOST_AUTO_TEST_CASE(TestInlierMatches) {
   BOOST_CHECK_EQUAL(two_view_geometry.H, two_view_geometry_read.H);
   std::vector<image_pair_t> image_pair_ids;
   std::vector<TwoViewGeometry> two_view_geometries;
-  database.ReadAllInlierMatches(&image_pair_ids, &two_view_geometries);
+  database.ReadTwoViewGeometries(&image_pair_ids, &two_view_geometries);
   BOOST_CHECK_EQUAL(image_pair_ids.size(), 1);
   BOOST_CHECK_EQUAL(two_view_geometries.size(), 1);
   BOOST_CHECK_EQUAL(image_pair_ids[0],
                     Database::ImagePairToPairId(image_id1, image_id2));
   std::vector<std::pair<image_t, image_t>> image_pairs;
   std::vector<int> num_inliers;
-  database.ReadInlierMatchesGraph(&image_pairs, &num_inliers);
+  database.ReadTwoViewGeometryNumInliers(&image_pairs, &num_inliers);
   BOOST_CHECK_EQUAL(image_pairs.size(), 1);
   BOOST_CHECK_EQUAL(num_inliers.size(), 1);
   BOOST_CHECK_EQUAL(image_pairs[0].first, image_id1);
@@ -348,8 +348,8 @@ BOOST_AUTO_TEST_CASE(TestInlierMatches) {
   BOOST_CHECK_EQUAL(database.NumInlierMatches(), 1000);
   database.DeleteInlierMatches(image_id1, image_id2);
   BOOST_CHECK_EQUAL(database.NumInlierMatches(), 0);
-  database.WriteInlierMatches(image_id1, image_id2, two_view_geometry);
+  database.WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
   BOOST_CHECK_EQUAL(database.NumInlierMatches(), 1000);
-  database.ClearInlierMatches();
+  database.ClearTwoViewGeometries();
   BOOST_CHECK_EQUAL(database.NumInlierMatches(), 0);
 }

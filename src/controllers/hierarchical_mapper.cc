@@ -136,7 +136,7 @@ void HierarchicalMapperController::Run() {
     std::cout << "Reading scene graph..." << std::endl;
     std::vector<std::pair<image_t, image_t>> image_pairs;
     std::vector<int> num_inliers;
-    database.ReadInlierMatchesGraph(&image_pairs, &num_inliers);
+    database.ReadTwoViewGeometryNumInliers(&image_pairs, &num_inliers);
 
     std::cout << "Partitioning scene graph..." << std::endl;
     scene_clustering.Partition(image_pairs, num_inliers);
