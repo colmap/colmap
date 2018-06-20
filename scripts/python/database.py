@@ -163,7 +163,7 @@ class COLMAPDatabase(sqlite3.Connection):
 
     def add_camera(self, model, width, height, params,
                    prior_focal_length=False, camera_id=None):
-        params = np.asarray(params, np.float32)
+        params = np.asarray(params, np.float64)
         cursor = self.execute(
             "INSERT INTO cameras VALUES (?, ?, ?, ?, ?, ?)",
             (camera_id, model, width, height, array_to_blob(params),
@@ -300,13 +300,13 @@ def example_usage():
     rows = db.execute("SELECT * FROM cameras")
 
     camera_id, model, width, height, params, prior = next(rows)
-    params = blob_to_array(params, np.float32)
+    params = blob_to_array(params, np.float64)
     assert camera_id == camera_id1
     assert model == model1 and width == width1 and height == height1
     assert np.allclose(params, params1)
 
     camera_id, model, width, height, params, prior = next(rows)
-    params = blob_to_array(params, np.float32)
+    params = blob_to_array(params, np.float64)
     assert camera_id == camera_id2
     assert model == model2 and width == width2 and height == height2
     assert np.allclose(params, params2)
