@@ -61,7 +61,7 @@ class PatchMatchCuda {
   DepthMap GetDepthMap() const;
   NormalMap GetNormalMap() const;
   Mat<float> GetSelProbMap() const;
-  std::vector<int> GetConsistentImageIds() const;
+  std::vector<int> GetConsistentImageIndices() const;
 
  private:
   template <int kWindowSize, int kWindowStep>

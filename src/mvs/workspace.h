@@ -68,22 +68,22 @@ class Workspace {
   const Options& GetOptions() const;
 
   const Model& GetModel() const;
-  const Bitmap& GetBitmap(const int image_id);
-  const DepthMap& GetDepthMap(const int image_id);
-  const NormalMap& GetNormalMap(const int image_id);
+  const Bitmap& GetBitmap(const int image_idx);
+  const DepthMap& GetDepthMap(const int image_idx);
+  const NormalMap& GetNormalMap(const int image_idx);
 
   // Get paths to bitmap, depth map, normal map and consistency graph.
-  std::string GetBitmapPath(const int image_id) const;
-  std::string GetDepthMapPath(const int image_id) const;
-  std::string GetNormalMapPath(const int image_id) const;
+  std::string GetBitmapPath(const int image_idx) const;
+  std::string GetDepthMapPath(const int image_idx) const;
+  std::string GetNormalMapPath(const int image_idx) const;
 
   // Return whether bitmap, depth map, normal map, and consistency graph exist.
-  bool HasBitmap(const int image_id) const;
-  bool HasDepthMap(const int image_id) const;
-  bool HasNormalMap(const int image_id) const;
+  bool HasBitmap(const int image_idx) const;
+  bool HasDepthMap(const int image_idx) const;
+  bool HasNormalMap(const int image_idx) const;
 
  private:
-  std::string GetFileName(const int image_id) const;
+  std::string GetFileName(const int image_idx) const;
 
   class CachedImage {
    public:

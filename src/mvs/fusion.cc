@@ -188,11 +188,11 @@ void StereoFusion::Run() {
   const auto image_names = ReadTextFileLines(JoinPaths(
       workspace_path_, workspace_options.stereo_folder, "fusion.cfg"));
   for (const auto& image_name : image_names) {
-    const int image_id = model.GetImageId(image_name);
+    const int image_idx = model.GetImageIdx(image_name);
 
-    if (!workspace_->HasBitmap(image_id) ||
-        !workspace_->HasDepthMap(image_id) ||
-        !workspace_->HasNormalMap(image_id)) {
+    if (!workspace_->HasBitmap(image_idx) ||
+        !workspace_->HasDepthMap(image_idx) ||
+        !workspace_->HasNormalMap(image_idx)) {
       std::cout
           << StringPrintf(
                  "WARNING: Ignoring image %s, because input does not exist.",
@@ -201,44 +201,44 @@ void StereoFusion::Run() {
       continue;
     }
 
-    const auto& image = model.images.at(image_id);
-    const auto& depth_map = workspace_->GetDepthMap(image_id);
+    const auto& image = model.images.at(image_idx);
+    const auto& depth_map = workspace_->GetDepthMap(image_idx);
 
-    used_images_.at(image_id) = true;
+    used_images_.at(image_idx) = true;
 
-    fused_pixel_masks_.at(image_id) =
+    fused_pixel_masks_.at(image_idx) =
         Mat<bool>(depth_map.GetWidth(), depth_map.GetHeight(), 1);
-    fused_pixel_masks_.at(image_id).Fill(false);
+    fused_pixel_masks_.at(image_idx).Fill(false);
 
-    depth_map_sizes_.at(image_id) =
+    depth_map_sizes_.at(image_idx) =
         std::make_pair(depth_map.GetWidth(), depth_map.GetHeight());
 
-    bitmap_scales_.at(image_id) = std::make_pair(
+    bitmap_scales_.at(image_idx) = std::make_pair(
         static_cast<float>(depth_map.GetWidth()) / image.GetWidth(),
         static_cast<float>(depth_map.GetHeight()) / image.GetHeight());
 
     Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K =
         Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(
             image.GetK());
-    K(0, 0) *= bitmap_scales_.at(image_id).first;
-    K(0, 2) *= bitmap_scales_.at(image_id).first;
-    K(1, 1) *= bitmap_scales_.at(image_id).second;
-    K(1, 2) *= bitmap_scales_.at(image_id).second;
+    K(0, 0) *= bitmap_scales_.at(image_idx).first;
+    K(0, 2) *= bitmap_scales_.at(image_idx).first;
+    K(1, 1) *= bitmap_scales_.at(image_idx).second;
+    K(1, 2) *= bitmap_scales_.at(image_idx).second;
 
     ComposeProjectionMatrix(K.data(), image.GetR(), image.GetT(),
-                            P_.at(image_id).data());
+                            P_.at(image_idx).data());
     ComposeInverseProjectionMatrix(K.data(), image.GetR(), image.GetT(),
-                                   inv_P_.at(image_id).data());
-    inv_R_.at(image_id) =
+                                   inv_P_.at(image_idx).data());
+    inv_R_.at(image_idx) =
         Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(
             image.GetR())
             .transpose();
   }
 
   size_t num_fused_images = 0;
-  for (int image_id = 0; image_id >= 0;
-       image_id = internal::FindNextImage(overlapping_images_, used_images_,
-                                          fused_images_, image_id)) {
+  for (int image_idx = 0; image_idx >= 0;
+       image_idx = internal::FindNextImage(overlapping_images_, used_images_,
+                                           fused_images_, image_idx)) {
     if (IsStopped()) {
       break;
     }
@@ -250,12 +250,12 @@ void StereoFusion::Run() {
                               model.images.size())
               << std::flush;
 
-    const int width = depth_map_sizes_.at(image_id).first;
-    const int height = depth_map_sizes_.at(image_id).second;
-    const auto& fused_pixel_mask = fused_pixel_masks_.at(image_id);
+    const int width = depth_map_sizes_.at(image_idx).first;
+    const int height = depth_map_sizes_.at(image_idx).second;
+    const auto& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
 
     FusionData data;
-    data.image_id = image_id;
+    data.image_idx = image_idx;
     data.traversal_depth = 0;
 
     for (data.row = 0; data.row < height; ++data.row) {
@@ -271,7 +271,7 @@ void StereoFusion::Run() {
     }
 
     num_fused_images += 1;
-    fused_images_.at(image_id) = true;
+    fused_images_.at(image_idx) = true;
 
     std::cout << StringPrintf(" in %.3fs (%d points)", timer.ElapsedSeconds(),
                               fused_points_.size())
@@ -310,7 +310,7 @@ void StereoFusion::Fuse() {
 
   while (!fusion_queue_.empty()) {
     const auto data = fusion_queue_.back();
-    const int image_id = data.image_id;
+    const int image_idx = data.image_idx;
     const int row = data.row;
     const int col = data.col;
     const int traversal_depth = data.traversal_depth;
@@ -318,12 +318,12 @@ void StereoFusion::Fuse() {
     fusion_queue_.pop_back();
 
     // Check if pixel already fused.
-    auto& fused_pixel_mask = fused_pixel_masks_.at(image_id);
+    auto& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
     if (fused_pixel_mask.Get(row, col)) {
       continue;
     }
 
-    const auto& depth_map = workspace_->GetDepthMap(image_id);
+    const auto& depth_map = workspace_->GetDepthMap(image_idx);
     const float depth = depth_map.Get(row, col);
 
     // Pixels with negative depth are filtered.
@@ -335,7 +335,7 @@ void StereoFusion::Fuse() {
     // pixel has already been added and we need to check for consistency.
     if (traversal_depth > 0) {
       // Project reference point into current view.
-      const Eigen::Vector3f proj = P_.at(image_id) * fused_ref_point;
+      const Eigen::Vector3f proj = P_.at(image_idx) * fused_ref_point;
 
       // Depth error of reference depth with current depth.
       const float depth_error = std::abs((proj(2) - depth) / depth);
@@ -354,11 +354,11 @@ void StereoFusion::Fuse() {
     }
 
     // Determine normal direction in global reference frame.
-    const auto& normal_map = workspace_->GetNormalMap(image_id);
+    const auto& normal_map = workspace_->GetNormalMap(image_idx);
     const Eigen::Vector3f normal =
-        inv_R_.at(image_id) * Eigen::Vector3f(normal_map.Get(row, col, 0),
-                                              normal_map.Get(row, col, 1),
-                                              normal_map.Get(row, col, 2));
+        inv_R_.at(image_idx) * Eigen::Vector3f(normal_map.Get(row, col, 0),
+                                               normal_map.Get(row, col, 1),
+                                               normal_map.Get(row, col, 2));
 
     // Check for consistent normal direction with reference normal.
     if (traversal_depth > 0) {
@@ -370,13 +370,13 @@ void StereoFusion::Fuse() {
 
     // Determine 3D location of current depth value.
     const Eigen::Vector3f xyz =
-        inv_P_.at(image_id) *
+        inv_P_.at(image_idx) *
         Eigen::Vector4f(col * depth, row * depth, depth, 1.0f);
 
     // Read the color of the pixel.
     BitmapColor<uint8_t> color;
-    const auto& bitmap_scale = bitmap_scales_.at(image_id);
-    workspace_->GetBitmap(image_id).InterpolateNearestNeighbor(
+    const auto& bitmap_scale = bitmap_scales_.at(image_idx);
+    workspace_->GetBitmap(image_idx).InterpolateNearestNeighbor(
         col / bitmap_scale.first, row / bitmap_scale.second, &color);
 
     // Set the current pixel as visited.
@@ -392,7 +392,7 @@ void StereoFusion::Fuse() {
     fused_point_r_.push_back(color.r);
     fused_point_g_.push_back(color.g);
     fused_point_b_.push_back(color.b);
-    fused_point_visibility_.insert(image_id);
+    fused_point_visibility_.insert(image_idx);
 
     // Remember the first pixel as the reference.
     if (traversal_depth == 0) {
@@ -411,19 +411,20 @@ void StereoFusion::Fuse() {
       continue;
     }
 
-    for (const auto next_image_id : overlapping_images_.at(image_id)) {
-      if (!used_images_.at(next_image_id) || fused_images_.at(next_image_id)) {
+    for (const auto next_image_idx : overlapping_images_.at(image_idx)) {
+      if (!used_images_.at(next_image_idx) ||
+          fused_images_.at(next_image_idx)) {
         continue;
       }
 
-      next_data.image_id = next_image_id;
+      next_data.image_idx = next_image_idx;
 
       const Eigen::Vector3f next_proj =
-          P_.at(next_image_id) * xyz.homogeneous();
+          P_.at(next_image_idx) * xyz.homogeneous();
       next_data.col = static_cast<int>(std::round(next_proj(0) / next_proj(2)));
       next_data.row = static_cast<int>(std::round(next_proj(1) / next_proj(2)));
 
-      const auto& depth_map_size = depth_map_sizes_.at(next_image_id);
+      const auto& depth_map_size = depth_map_sizes_.at(next_image_idx);
       if (next_data.col < 0 || next_data.row < 0 ||
           next_data.col >= depth_map_size.first ||
           next_data.row >= depth_map_size.second) {
@@ -480,8 +481,8 @@ void WritePointsVisibility(
 
   for (const auto& visibility : points_visibility) {
     WriteBinaryLittleEndian<uint32_t>(&file, visibility.size());
-    for (const auto& image_id : visibility) {
-      WriteBinaryLittleEndian<uint32_t>(&file, image_id);
+    for (const auto& image_idx : visibility) {
+      WriteBinaryLittleEndian<uint32_t>(&file, image_idx);
     }
   }
 }

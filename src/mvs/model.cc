@@ -58,7 +58,7 @@ void Model::ReadFromCOLMAP(const std::string& path) {
   reconstruction.Read(JoinPaths(path, "sparse"));
 
   images.reserve(reconstruction.NumRegImages());
-  std::unordered_map<image_t, size_t> image_id_map;
+  std::unordered_map<image_t, size_t> image_id_to_idx;
   for (size_t i = 0; i < reconstruction.NumRegImages(); ++i) {
     const auto image_id = reconstruction.RegImageIds()[i];
     const auto& image = reconstruction.Image(image_id);
@@ -75,9 +75,9 @@ void Model::ReadFromCOLMAP(const std::string& path) {
 
     images.emplace_back(image_path, camera.Width(), camera.Height(), K.data(),
                         R.data(), T.data());
-    image_id_map.emplace(image_id, i);
+    image_id_to_idx.emplace(image_id, i);
     image_names_.push_back(image.Name());
-    image_name_to_id_.emplace(image.Name(), i);
+    image_name_to_idx_.emplace(image.Name(), i);
   }
 
   points.reserve(reconstruction.NumPoints3D());
@@ -88,7 +88,7 @@ void Model::ReadFromCOLMAP(const std::string& path) {
     point.z = point3D.second.Z();
     point.track.reserve(point3D.second.Track().Length());
     for (const auto& track_el : point3D.second.Track().Elements()) {
-      point.track.push_back(image_id_map.at(track_el.image_id));
+      point.track.push_back(image_id_to_idx.at(track_el.image_id));
     }
     points.push_back(point);
   }
@@ -104,16 +104,16 @@ void Model::ReadFromPMVS(const std::string& path) {
   }
 }
 
-int Model::GetImageId(const std::string& name) const {
-  CHECK_GT(image_name_to_id_.count(name), 0)
+int Model::GetImageIdx(const std::string& name) const {
+  CHECK_GT(image_name_to_idx_.count(name), 0)
       << "Image with name `" << name << "` does not exist";
-  return image_name_to_id_.at(name);
+  return image_name_to_idx_.at(name);
 }
 
-std::string Model::GetImageName(const int image_id) const {
-  CHECK_GE(image_id, 0);
-  CHECK_LT(image_id, image_names_.size());
-  return image_names_.at(image_id);
+std::string Model::GetImageName(const int image_idx) const {
+  CHECK_GE(image_idx, 0);
+  CHECK_LT(image_idx, image_names_.size());
+  return image_names_.at(image_idx);
 }
 
 std::vector<std::vector<int>> Model::GetMaxOverlappingImages(
@@ -291,8 +291,8 @@ bool Model::ReadFromBundlerPMVS(const std::string& path) {
   file >> num_images >> num_points;
 
   images.reserve(num_images);
-  for (int image_id = 0; image_id < num_images; ++image_id) {
-    const std::string image_name = StringPrintf("%08d.jpg", image_id);
+  for (int image_idx = 0; image_idx < num_images; ++image_idx) {
+    const std::string image_name = StringPrintf("%08d.jpg", image_idx);
     const std::string image_path = JoinPaths(path, "visualize", image_name);
 
     float K[9] = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
@@ -324,7 +324,7 @@ bool Model::ReadFromBundlerPMVS(const std::string& path) {
 
     images.emplace_back(image_path, bitmap.Width(), bitmap.Height(), K, R, T);
     image_names_.push_back(image_name);
-    image_name_to_id_.emplace(image_name, image_id);
+    image_name_to_idx_.emplace(image_name, image_idx);
   }
 
   points.resize(num_points);
@@ -357,8 +357,8 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
     return false;
   }
 
-  for (int image_id = 0;; ++image_id) {
-    const std::string image_name = StringPrintf("%08d.jpg", image_id);
+  for (int image_idx = 0;; ++image_idx) {
+    const std::string image_name = StringPrintf("%08d.jpg", image_idx);
     const std::string image_path = JoinPaths(path, "visualize", image_name);
 
     if (!ExistsFile(image_path)) {
@@ -369,7 +369,7 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
     CHECK(bitmap.Read(image_path));
 
     const std::string proj_matrix_path =
-        JoinPaths(path, "txt", StringPrintf("%08d.txt", image_id));
+        JoinPaths(path, "txt", StringPrintf("%08d.txt", image_idx));
 
     std::ifstream proj_matrix_file(proj_matrix_path);
     CHECK(proj_matrix_file.is_open()) << proj_matrix_path;
@@ -402,7 +402,7 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
     images.emplace_back(image_path, bitmap.Width(), bitmap.Height(),
                         K_float.data(), R_float.data(), T_float.data());
     image_names_.push_back(image_name);
-    image_name_to_id_.emplace(image_name, image_id);
+    image_name_to_idx_.emplace(image_name, image_idx);
   }
 
   std::ifstream vis_dat_file(vis_dat_path);
@@ -419,24 +419,24 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
 
   pmvs_vis_dat_.resize(num_images);
   for (int i = 0; i < num_images; ++i) {
-    int image_id;
-    vis_dat_file >> image_id;
-    CHECK_GE(image_id, 0);
-    CHECK_LT(image_id, num_images);
+    int image_idx;
+    vis_dat_file >> image_idx;
+    CHECK_GE(image_idx, 0);
+    CHECK_LT(image_idx, num_images);
 
     int num_visible_images;
     vis_dat_file >> num_visible_images;
 
-    auto& visible_image_ids = pmvs_vis_dat_[image_id];
-    visible_image_ids.reserve(num_visible_images);
+    auto& visible_image_indices = pmvs_vis_dat_[image_idx];
+    visible_image_indices.reserve(num_visible_images);
 
     for (int j = 0; j < num_visible_images; ++j) {
-      int visible_image_id;
-      vis_dat_file >> visible_image_id;
-      CHECK_GE(visible_image_id, 0);
-      CHECK_LT(visible_image_id, num_images);
-      if (visible_image_id != image_id) {
-        visible_image_ids.push_back(visible_image_id);
+      int visible_image_idx;
+      vis_dat_file >> visible_image_idx;
+      CHECK_GE(visible_image_idx, 0);
+      CHECK_LT(visible_image_idx, num_images);
+      if (visible_image_idx != image_idx) {
+        visible_image_indices.push_back(visible_image_idx);
       }
     }
   }
