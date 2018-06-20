@@ -134,6 +134,7 @@ const std::vector<std::vector<int>>& StereoFusion::GetFusedPointsVisibility()
 
 void StereoFusion::Run() {
   fused_points_.clear();
+  fused_points_visibility_.clear();
 
   options_.Print();
   std::cout << std::endl;
@@ -279,6 +280,7 @@ void StereoFusion::Run() {
   }
 
   fused_points_.shrink_to_fit();
+  fused_points_visibility_.shrink_to_fit();
 
   if (fused_points_.empty()) {
     std::cout << "WARNING: Could not fuse any points. This is likely caused by "
