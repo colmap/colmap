@@ -818,7 +818,14 @@ void PyramidCU::GenerateFeatureList()
 		//for(int j = 0; j < param._dog_level_num; j++, idx++)
         FOR_EACH_LEVEL(j, reverse)
 		{
-            if(GlobalUtil::_TruncateMethod && GlobalUtil::_FeatureCountThreshold > 0 && _featureNum > GlobalUtil::_FeatureCountThreshold) continue;
+            // (mgprt 20/06/2018) _levelFeatureNum can still contain old
+            // values for these levels, so if we do not reset them the sum
+            // of level features will not match the absolte number of features.
+            if (GlobalUtil::_TruncateMethod && GlobalUtil::_FeatureCountThreshold > 0 && _featureNum > GlobalUtil::_FeatureCountThreshold) {
+                int idx = i * param._dog_level_num + j;
+                _levelFeatureNum[idx] = 0;
+                continue;
+            }
 
 	        GenerateFeatureList(i, j, reduction_count, hbuffer);
 
