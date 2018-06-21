@@ -48,7 +48,7 @@ namespace mvs {
 //    r_2, c_2, N_2, i_21, i_22, ..., i_2N_2, ...
 //
 // where r, c are the row and column image coordinates of the pixel,
-// N is the number of consistent images, followed by the N image identifiers.
+// N is the number of consistent images, followed by the N image indices.
 // Note that only pixels are listed which are not filtered and that the
 // consistency graph is only filled if filtering is enabled.
 class ConsistencyGraph {
@@ -59,8 +59,8 @@ class ConsistencyGraph {
 
   size_t GetNumBytes() const;
 
-  void GetImageIds(const int row, const int col, int* num_images,
-                   const int** image_ids) const;
+  void GetImageIndices(const int row, const int col, int* num_images,
+                       const int** image_indices) const;
 
   void Read(const std::string& path);
   void Write(const std::string& path) const;

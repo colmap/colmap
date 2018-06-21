@@ -43,10 +43,10 @@ BOOST_AUTO_TEST_CASE(TestEmpty) {
   for (size_t i = 0; i < 2; ++i) {
     for (size_t j = 0; j < 2; ++j) {
       int num_images;
-      const int* image_ids;
-      consistency_graph.GetImageIds(0, 0, &num_images, &image_ids);
+      const int* image_indices;
+      consistency_graph.GetImageIndices(0, 0, &num_images, &image_indices);
       BOOST_CHECK_EQUAL(num_images, 0);
-      BOOST_CHECK(image_ids == nullptr);
+      BOOST_CHECK(image_indices == nullptr);
     }
   }
   BOOST_CHECK_EQUAL(consistency_graph.GetNumBytes(), 16);
@@ -56,15 +56,15 @@ BOOST_AUTO_TEST_CASE(TestPartial) {
   const std::vector<int> data = {0, 0, 3, 5, 7, 33};
   ConsistencyGraph consistency_graph(2, 1, data);
   int num_images;
-  const int* image_ids;
-  consistency_graph.GetImageIds(0, 0, &num_images, &image_ids);
+  const int* image_indices;
+  consistency_graph.GetImageIndices(0, 0, &num_images, &image_indices);
   BOOST_CHECK_EQUAL(num_images, 3);
-  BOOST_CHECK_EQUAL(image_ids[0], 5);
-  BOOST_CHECK_EQUAL(image_ids[1], 7);
-  BOOST_CHECK_EQUAL(image_ids[2], 33);
-  consistency_graph.GetImageIds(0, 1, &num_images, &image_ids);
+  BOOST_CHECK_EQUAL(image_indices[0], 5);
+  BOOST_CHECK_EQUAL(image_indices[1], 7);
+  BOOST_CHECK_EQUAL(image_indices[2], 33);
+  consistency_graph.GetImageIndices(0, 1, &num_images, &image_indices);
   BOOST_CHECK_EQUAL(num_images, 0);
-  BOOST_CHECK(image_ids == nullptr);
+  BOOST_CHECK(image_indices == nullptr);
   BOOST_CHECK_EQUAL(consistency_graph.GetNumBytes(), 32);
 }
 
@@ -72,13 +72,13 @@ BOOST_AUTO_TEST_CASE(TestZero) {
   const std::vector<int> data = {0, 0, 0};
   ConsistencyGraph consistency_graph(2, 1, data);
   int num_images;
-  const int* image_ids;
-  consistency_graph.GetImageIds(0, 0, &num_images, &image_ids);
+  const int* image_indices;
+  consistency_graph.GetImageIndices(0, 0, &num_images, &image_indices);
   BOOST_CHECK_EQUAL(num_images, 0);
-  BOOST_CHECK(image_ids == nullptr);
-  consistency_graph.GetImageIds(0, 1, &num_images, &image_ids);
+  BOOST_CHECK(image_indices == nullptr);
+  consistency_graph.GetImageIndices(0, 1, &num_images, &image_indices);
   BOOST_CHECK_EQUAL(num_images, 0);
-  BOOST_CHECK(image_ids == nullptr);
+  BOOST_CHECK(image_indices == nullptr);
   BOOST_CHECK_EQUAL(consistency_graph.GetNumBytes(), 20);
 }
 
@@ -86,14 +86,14 @@ BOOST_AUTO_TEST_CASE(TestFull) {
   const std::vector<int> data = {0, 0, 3, 5, 7, 33, 0, 1, 1, 100};
   ConsistencyGraph consistency_graph(1, 2, data);
   int num_images;
-  const int* image_ids;
-  consistency_graph.GetImageIds(0, 0, &num_images, &image_ids);
+  const int* image_indices;
+  consistency_graph.GetImageIndices(0, 0, &num_images, &image_indices);
   BOOST_CHECK_EQUAL(num_images, 3);
-  BOOST_CHECK_EQUAL(image_ids[0], 5);
-  BOOST_CHECK_EQUAL(image_ids[1], 7);
-  BOOST_CHECK_EQUAL(image_ids[2], 33);
-  consistency_graph.GetImageIds(1, 0, &num_images, &image_ids);
+  BOOST_CHECK_EQUAL(image_indices[0], 5);
+  BOOST_CHECK_EQUAL(image_indices[1], 7);
+  BOOST_CHECK_EQUAL(image_indices[2], 33);
+  consistency_graph.GetImageIndices(1, 0, &num_images, &image_indices);
   BOOST_CHECK_EQUAL(num_images, 1);
-  BOOST_CHECK_EQUAL(image_ids[0], 100);
+  BOOST_CHECK_EQUAL(image_indices[0], 100);
   BOOST_CHECK_EQUAL(consistency_graph.GetNumBytes(), 48);
 }

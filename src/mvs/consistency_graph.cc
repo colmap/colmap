@@ -54,16 +54,16 @@ size_t ConsistencyGraph::GetNumBytes() const {
   return (data_.size() + map_.size()) * sizeof(int);
 }
 
-void ConsistencyGraph::GetImageIds(const int row, const int col,
-                                   int* num_images,
-                                   const int** image_ids) const {
+void ConsistencyGraph::GetImageIndices(const int row, const int col,
+                                       int* num_images,
+                                       const int** image_indices) const {
   const int index = map_(row, col);
   if (index == kNoConsistentImageIds) {
     *num_images = 0;
-    *image_ids = nullptr;
+    *image_indices = nullptr;
   } else {
     *num_images = data_.at(index);
-    *image_ids = &data_.at(index + 1);
+    *image_indices = &data_.at(index + 1);
   }
 }
 

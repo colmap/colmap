@@ -58,20 +58,20 @@ float Median(std::vector<T>* elems) {
 int FindNextImage(const std::vector<std::vector<int>>& overlapping_images,
                   const std::vector<char>& used_images,
                   const std::vector<char>& fused_images,
-                  const int prev_image_id) {
+                  const int prev_image_idx) {
   CHECK_EQ(used_images.size(), fused_images.size());
 
-  for (const auto image_id : overlapping_images.at(prev_image_id)) {
-    if (used_images.at(image_id) && !fused_images.at(image_id)) {
-      return image_id;
+  for (const auto image_idx : overlapping_images.at(prev_image_idx)) {
+    if (used_images.at(image_idx) && !fused_images.at(image_idx)) {
+      return image_idx;
     }
   }
 
   // If none of the overlapping images are not yet fused, simply return the
   // first image that has not yet been fused.
-  for (size_t image_id = 0; image_id < fused_images.size(); ++image_id) {
-    if (used_images[image_id] && !fused_images[image_id]) {
-      return image_id;
+  for (size_t image_idx = 0; image_idx < fused_images.size(); ++image_idx) {
+    if (used_images[image_idx] && !fused_images[image_idx]) {
+      return image_idx;
     }
   }
 
