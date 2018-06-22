@@ -128,12 +128,12 @@ class StereoFusion : public Thread {
   std::vector<Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> inv_R_;
 
   struct FusionData {
-    int image_id = kInvalidImageId;
+    int image_idx = kInvalidImageId;
     int row = 0;
     int col = 0;
     int traversal_depth = -1;
     bool operator()(const FusionData& data1, const FusionData& data2) {
-      return data1.image_id > data2.image_id;
+      return data1.image_idx > data2.image_idx;
     }
   };
 

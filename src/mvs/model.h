@@ -61,9 +61,9 @@ struct Model {
   void ReadFromCOLMAP(const std::string& path);
   void ReadFromPMVS(const std::string& path);
 
-  // Get the image identifier for the given image name.
-  int GetImageId(const std::string& name) const;
-  std::string GetImageName(const int image_id) const;
+  // Get the image index for the given image name.
+  int GetImageIdx(const std::string& name) const;
+  std::string GetImageName(const int image_idx) const;
 
   // For each image, determine the maximally overlapping images, sorted based on
   // the number of shared points subject to a minimum robust average
@@ -97,7 +97,7 @@ struct Model {
   bool ReadFromRawPMVS(const std::string& path);
 
   std::vector<std::string> image_names_;
-  std::unordered_map<std::string, int> image_name_to_id_;
+  std::unordered_map<std::string, int> image_name_to_idx_;
 
   std::vector<std::vector<int>> pmvs_vis_dat_;
 };

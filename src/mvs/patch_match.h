@@ -175,10 +175,10 @@ class PatchMatch {
  public:
   struct Problem {
     // Index of the reference image.
-    int ref_image_id = -1;
+    int ref_image_idx = -1;
 
     // Indices of the source images.
-    std::vector<int> src_image_ids;
+    std::vector<int> src_image_idxs;
 
     // Input images for the photometric consistency term.
     std::vector<Image>* images = nullptr;

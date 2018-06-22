@@ -58,7 +58,7 @@ void Model::ReadFromCOLMAP(const std::string& path) {
   reconstruction.Read(JoinPaths(path, "sparse"));
 
   images.reserve(reconstruction.NumRegImages());
-  std::unordered_map<image_t, size_t> image_id_map;
+  std::unordered_map<image_t, size_t> image_id_to_idx;
   for (size_t i = 0; i < reconstruction.NumRegImages(); ++i) {
     const auto image_id = reconstruction.RegImageIds()[i];
     const auto& image = reconstruction.Image(image_id);
@@ -75,9 +75,9 @@ void Model::ReadFromCOLMAP(const std::string& path) {
 
     images.emplace_back(image_path, camera.Width(), camera.Height(), K.data(),
                         R.data(), T.data());
-    image_id_map.emplace(image_id, i);
+    image_id_to_idx.emplace(image_id, i);
     image_names_.push_back(image.Name());
-    image_name_to_id_.emplace(image.Name(), i);
+    image_name_to_idx_.emplace(image.Name(), i);
   }
 
   points.reserve(reconstruction.NumPoints3D());
@@ -88,7 +88,7 @@ void Model::ReadFromCOLMAP(const std::string& path) {
     point.z = point3D.second.Z();
     point.track.reserve(point3D.second.Track().Length());
     for (const auto& track_el : point3D.second.Track().Elements()) {
-      point.track.push_back(image_id_map.at(track_el.image_id));
+      point.track.push_back(image_id_to_idx.at(track_el.image_id));
     }
     points.push_back(point);
   }
@@ -104,16 +104,16 @@ void Model::ReadFromPMVS(const std::string& path) {
   }
 }
 
-int Model::GetImageId(const std::string& name) const {
-  CHECK_GT(image_name_to_id_.count(name), 0)
+int Model::GetImageIdx(const std::string& name) const {
+  CHECK_GT(image_name_to_idx_.count(name), 0)
       << "Image with name `" << name << "` does not exist";
-  return image_name_to_id_.at(name);
+  return image_name_to_idx_.at(name);
 }
 
-std::string Model::GetImageName(const int image_id) const {
-  CHECK_GE(image_id, 0);
-  CHECK_LT(image_id, image_names_.size());
-  return image_names_.at(image_id);
+std::string Model::GetImageName(const int image_idx) const {
+  CHECK_GE(image_idx, 0);
+  CHECK_LT(image_idx, image_names_.size());
+  return image_names_.at(image_idx);
 }
 
 std::vector<std::vector<int>> Model::GetMaxOverlappingImages(
@@ -128,10 +128,10 @@ std::vector<std::vector<int>> Model::GetMaxOverlappingImages(
   const auto triangulation_angles =
       ComputeTriangulationAngles(kTriangulationAnglePercentile);
 
-  for (size_t image_id = 0; image_id < images.size(); ++image_id) {
-    const auto& shared_images = shared_num_points.at(image_id);
+  for (size_t image_idx = 0; image_idx < images.size(); ++image_idx) {
+    const auto& shared_images = shared_num_points.at(image_idx);
     const auto& overlapping_triangulation_angles =
-        triangulation_angles.at(image_id);
+        triangulation_angles.at(image_idx);
 
     std::vector<std::pair<int, int>> ordered_images;
     ordered_images.reserve(shared_images.size());
@@ -159,9 +159,9 @@ std::vector<std::vector<int>> Model::GetMaxOverlappingImages(
                 });
     }
 
-    overlapping_images[image_id].reserve(eff_num_images);
+    overlapping_images[image_idx].reserve(eff_num_images);
     for (size_t i = 0; i < eff_num_images; ++i) {
-      overlapping_images[image_id].push_back(ordered_images[i].first);
+      overlapping_images[image_idx].push_back(ordered_images[i].first);
     }
   }
 
@@ -177,22 +177,22 @@ std::vector<std::pair<float, float>> Model::ComputeDepthRanges() const {
   std::vector<std::vector<float>> depths(images.size());
   for (const auto& point : points) {
     const Eigen::Vector3f X(point.x, point.y, point.z);
-    for (const auto& image_id : point.track) {
-      const auto& image = images.at(image_id);
+    for (const auto& image_idx : point.track) {
+      const auto& image = images.at(image_idx);
       const float depth =
           Eigen::Map<const Eigen::Vector3f>(&image.GetR()[6]).dot(X) +
           image.GetT()[2];
       if (depth > 0) {
-        depths[image_id].push_back(depth);
+        depths[image_idx].push_back(depth);
       }
     }
   }
 
   std::vector<std::pair<float, float>> depth_ranges(depths.size());
-  for (size_t image_id = 0; image_id < depth_ranges.size(); ++image_id) {
-    auto& depth_range = depth_ranges[image_id];
+  for (size_t image_idx = 0; image_idx < depth_ranges.size(); ++image_idx) {
+    auto& depth_range = depth_ranges[image_idx];
 
-    auto& image_depths = depths[image_id];
+    auto& image_depths = depths[image_idx];
 
     if (image_depths.empty()) {
       depth_range.first = -1.0f;
@@ -219,12 +219,12 @@ std::vector<std::map<int, int>> Model::ComputeSharedPoints() const {
   std::vector<std::map<int, int>> shared_points(images.size());
   for (const auto& point : points) {
     for (size_t i = 0; i < point.track.size(); ++i) {
-      const int image_id1 = point.track[i];
+      const int image_idx1 = point.track[i];
       for (size_t j = 0; j < i; ++j) {
-        const int image_id2 = point.track[j];
-        if (image_id1 != image_id2) {
-          shared_points.at(image_id1)[image_id2] += 1;
-          shared_points.at(image_id2)[image_id1] += 1;
+        const int image_idx2 = point.track[j];
+        if (image_idx1 != image_idx2) {
+          shared_points.at(image_idx1)[image_idx2] += 1;
+          shared_points.at(image_idx2)[image_idx1] += 1;
         }
       }
     }
@@ -235,37 +235,37 @@ std::vector<std::map<int, int>> Model::ComputeSharedPoints() const {
 std::vector<std::map<int, float>> Model::ComputeTriangulationAngles(
     const float percentile) const {
   std::vector<Eigen::Vector3d> proj_centers(images.size());
-  for (size_t image_id = 0; image_id < images.size(); ++image_id) {
-    const auto& image = images[image_id];
+  for (size_t image_idx = 0; image_idx < images.size(); ++image_idx) {
+    const auto& image = images[image_idx];
     Eigen::Vector3f C;
     ComputeProjectionCenter(image.GetR(), image.GetT(), C.data());
-    proj_centers[image_id] = C.cast<double>();
+    proj_centers[image_idx] = C.cast<double>();
   }
 
   std::vector<std::map<int, std::vector<float>>> all_triangulation_angles(
       images.size());
   for (const auto& point : points) {
     for (size_t i = 0; i < point.track.size(); ++i) {
-      const int image_id1 = point.track[i];
+      const int image_idx1 = point.track[i];
       for (size_t j = 0; j < i; ++j) {
-        const int image_id2 = point.track[j];
-        if (image_id1 != image_id2) {
+        const int image_idx2 = point.track[j];
+        if (image_idx1 != image_idx2) {
           const float angle = CalculateTriangulationAngle(
-              proj_centers.at(image_id1), proj_centers.at(image_id2),
+              proj_centers.at(image_idx1), proj_centers.at(image_idx2),
               Eigen::Vector3d(point.x, point.y, point.z));
-          all_triangulation_angles.at(image_id1)[image_id2].push_back(angle);
-          all_triangulation_angles.at(image_id2)[image_id1].push_back(angle);
+          all_triangulation_angles.at(image_idx1)[image_idx2].push_back(angle);
+          all_triangulation_angles.at(image_idx2)[image_idx1].push_back(angle);
         }
       }
     }
   }
 
   std::vector<std::map<int, float>> triangulation_angles(images.size());
-  for (size_t image_id = 0; image_id < all_triangulation_angles.size();
-       ++image_id) {
-    const auto& overlapping_images = all_triangulation_angles[image_id];
+  for (size_t image_idx = 0; image_idx < all_triangulation_angles.size();
+       ++image_idx) {
+    const auto& overlapping_images = all_triangulation_angles[image_idx];
     for (const auto& image : overlapping_images) {
-      triangulation_angles[image_id].emplace(
+      triangulation_angles[image_idx].emplace(
           image.first, Percentile(image.second, percentile));
     }
   }
@@ -291,8 +291,8 @@ bool Model::ReadFromBundlerPMVS(const std::string& path) {
   file >> num_images >> num_points;
 
   images.reserve(num_images);
-  for (int image_id = 0; image_id < num_images; ++image_id) {
-    const std::string image_name = StringPrintf("%08d.jpg", image_id);
+  for (int image_idx = 0; image_idx < num_images; ++image_idx) {
+    const std::string image_name = StringPrintf("%08d.jpg", image_idx);
     const std::string image_path = JoinPaths(path, "visualize", image_name);
 
     float K[9] = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
@@ -324,7 +324,7 @@ bool Model::ReadFromBundlerPMVS(const std::string& path) {
 
     images.emplace_back(image_path, bitmap.Width(), bitmap.Height(), K, R, T);
     image_names_.push_back(image_name);
-    image_name_to_id_.emplace(image_name, image_id);
+    image_name_to_idx_.emplace(image_name, image_idx);
   }
 
   points.resize(num_points);
@@ -357,8 +357,8 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
     return false;
   }
 
-  for (int image_id = 0;; ++image_id) {
-    const std::string image_name = StringPrintf("%08d.jpg", image_id);
+  for (int image_idx = 0;; ++image_idx) {
+    const std::string image_name = StringPrintf("%08d.jpg", image_idx);
     const std::string image_path = JoinPaths(path, "visualize", image_name);
 
     if (!ExistsFile(image_path)) {
@@ -369,7 +369,7 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
     CHECK(bitmap.Read(image_path));
 
     const std::string proj_matrix_path =
-        JoinPaths(path, "txt", StringPrintf("%08d.txt", image_id));
+        JoinPaths(path, "txt", StringPrintf("%08d.txt", image_idx));
 
     std::ifstream proj_matrix_file(proj_matrix_path);
     CHECK(proj_matrix_file.is_open()) << proj_matrix_path;
@@ -402,7 +402,7 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
     images.emplace_back(image_path, bitmap.Width(), bitmap.Height(),
                         K_float.data(), R_float.data(), T_float.data());
     image_names_.push_back(image_name);
-    image_name_to_id_.emplace(image_name, image_id);
+    image_name_to_idx_.emplace(image_name, image_idx);
   }
 
   std::ifstream vis_dat_file(vis_dat_path);
@@ -419,24 +419,24 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
 
   pmvs_vis_dat_.resize(num_images);
   for (int i = 0; i < num_images; ++i) {
-    int image_id;
-    vis_dat_file >> image_id;
-    CHECK_GE(image_id, 0);
-    CHECK_LT(image_id, num_images);
+    int image_idx;
+    vis_dat_file >> image_idx;
+    CHECK_GE(image_idx, 0);
+    CHECK_LT(image_idx, num_images);
 
     int num_visible_images;
     vis_dat_file >> num_visible_images;
 
-    auto& visible_image_ids = pmvs_vis_dat_[image_id];
-    visible_image_ids.reserve(num_visible_images);
+    auto& visible_image_idxs = pmvs_vis_dat_[image_idx];
+    visible_image_idxs.reserve(num_visible_images);
 
     for (int j = 0; j < num_visible_images; ++j) {
-      int visible_image_id;
-      vis_dat_file >> visible_image_id;
-      CHECK_GE(visible_image_id, 0);
-      CHECK_LT(visible_image_id, num_images);
-      if (visible_image_id != image_id) {
-        visible_image_ids.push_back(visible_image_id);
+      int visible_image_idx;
+      vis_dat_file >> visible_image_idx;
+      CHECK_GE(visible_image_idx, 0);
+      CHECK_LT(visible_image_idx, num_images);
+      if (visible_image_idx != image_idx) {
+        visible_image_idxs.push_back(visible_image_idx);
       }
     }
   }

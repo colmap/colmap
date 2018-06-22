@@ -79,14 +79,14 @@ void PatchMatchOptions::Print() const {
 void PatchMatch::Problem::Print() const {
   PrintHeading2("PatchMatch::Problem");
 
-  PrintOption(ref_image_id);
+  PrintOption(ref_image_idx);
 
-  std::cout << "src_image_ids: ";
-  if (!src_image_ids.empty()) {
-    for (size_t i = 0; i < src_image_ids.size() - 1; ++i) {
-      std::cout << src_image_ids[i] << " ";
+  std::cout << "src_image_idxs: ";
+  if (!src_image_idxs.empty()) {
+    for (size_t i = 0; i < src_image_idxs.size() - 1; ++i) {
+      std::cout << src_image_idxs[i] << " ";
     }
-    std::cout << src_image_ids.back() << std::endl;
+    std::cout << src_image_idxs.back() << std::endl;
   } else {
     std::cout << std::endl;
   }
@@ -108,46 +108,46 @@ void PatchMatch::Check() const {
     CHECK_EQ(problem_.normal_maps->size(), problem_.images->size());
   }
 
-  CHECK_GT(problem_.src_image_ids.size(), 0);
+  CHECK_GT(problem_.src_image_idxs.size(), 0);
 
   // Check that there are no duplicate images and that the reference image
   // is not defined as a source image.
-  std::set<int> unique_image_ids(problem_.src_image_ids.begin(),
-                                 problem_.src_image_ids.end());
-  unique_image_ids.insert(problem_.ref_image_id);
-  CHECK_EQ(problem_.src_image_ids.size() + 1, unique_image_ids.size());
+  std::set<int> unique_image_idxs(problem_.src_image_idxs.begin(),
+                                  problem_.src_image_idxs.end());
+  unique_image_idxs.insert(problem_.ref_image_idx);
+  CHECK_EQ(problem_.src_image_idxs.size() + 1, unique_image_idxs.size());
 
   // Check that input data is well-formed.
-  for (const int image_id : unique_image_ids) {
-    CHECK_GE(image_id, 0) << image_id;
-    CHECK_LT(image_id, problem_.images->size()) << image_id;
+  for (const int image_idx : unique_image_idxs) {
+    CHECK_GE(image_idx, 0) << image_idx;
+    CHECK_LT(image_idx, problem_.images->size()) << image_idx;
 
-    const Image& image = problem_.images->at(image_id);
-    CHECK_GT(image.GetBitmap().Width(), 0) << image_id;
-    CHECK_GT(image.GetBitmap().Height(), 0) << image_id;
-    CHECK(image.GetBitmap().IsGrey()) << image_id;
-    CHECK_EQ(image.GetWidth(), image.GetBitmap().Width()) << image_id;
-    CHECK_EQ(image.GetHeight(), image.GetBitmap().Height()) << image_id;
+    const Image& image = problem_.images->at(image_idx);
+    CHECK_GT(image.GetBitmap().Width(), 0) << image_idx;
+    CHECK_GT(image.GetBitmap().Height(), 0) << image_idx;
+    CHECK(image.GetBitmap().IsGrey()) << image_idx;
+    CHECK_EQ(image.GetWidth(), image.GetBitmap().Width()) << image_idx;
+    CHECK_EQ(image.GetHeight(), image.GetBitmap().Height()) << image_idx;
 
     // Make sure, the calibration matrix only contains fx, fy, cx, cy.
-    CHECK_LT(std::abs(image.GetK()[1] - 0.0f), 1e-6f) << image_id;
-    CHECK_LT(std::abs(image.GetK()[3] - 0.0f), 1e-6f) << image_id;
-    CHECK_LT(std::abs(image.GetK()[6] - 0.0f), 1e-6f) << image_id;
-    CHECK_LT(std::abs(image.GetK()[7] - 0.0f), 1e-6f) << image_id;
-    CHECK_LT(std::abs(image.GetK()[8] - 1.0f), 1e-6f) << image_id;
+    CHECK_LT(std::abs(image.GetK()[1] - 0.0f), 1e-6f) << image_idx;
+    CHECK_LT(std::abs(image.GetK()[3] - 0.0f), 1e-6f) << image_idx;
+    CHECK_LT(std::abs(image.GetK()[6] - 0.0f), 1e-6f) << image_idx;
+    CHECK_LT(std::abs(image.GetK()[7] - 0.0f), 1e-6f) << image_idx;
+    CHECK_LT(std::abs(image.GetK()[8] - 1.0f), 1e-6f) << image_idx;
 
     if (options_.geom_consistency) {
-      CHECK_LT(image_id, problem_.depth_maps->size()) << image_id;
-      const DepthMap& depth_map = problem_.depth_maps->at(image_id);
-      CHECK_EQ(image.GetWidth(), depth_map.GetWidth()) << image_id;
-      CHECK_EQ(image.GetHeight(), depth_map.GetHeight()) << image_id;
+      CHECK_LT(image_idx, problem_.depth_maps->size()) << image_idx;
+      const DepthMap& depth_map = problem_.depth_maps->at(image_idx);
+      CHECK_EQ(image.GetWidth(), depth_map.GetWidth()) << image_idx;
+      CHECK_EQ(image.GetHeight(), depth_map.GetHeight()) << image_idx;
     }
   }
 
   if (options_.geom_consistency) {
-    const Image& ref_image = problem_.images->at(problem_.ref_image_id);
+    const Image& ref_image = problem_.images->at(problem_.ref_image_idx);
     const NormalMap& ref_normal_map =
-        problem_.normal_maps->at(problem_.ref_image_id);
+        problem_.normal_maps->at(problem_.ref_image_idx);
     CHECK_EQ(ref_image.GetWidth(), ref_normal_map.GetWidth());
     CHECK_EQ(ref_image.GetHeight(), ref_normal_map.GetHeight());
   }
@@ -175,9 +175,9 @@ Mat<float> PatchMatch::GetSelProbMap() const {
 }
 
 ConsistencyGraph PatchMatch::GetConsistencyGraph() const {
-  const auto& ref_image = problem_.images->at(problem_.ref_image_id);
+  const auto& ref_image = problem_.images->at(problem_.ref_image_idx);
   return ConsistencyGraph(ref_image.GetWidth(), ref_image.GetHeight(),
-                          patch_match_cuda_->GetConsistentImageIds());
+                          patch_match_cuda_->GetConsistentImageIdxs());
 }
 
 PatchMatchController::PatchMatchController(const PatchMatchOptions& options,
@@ -273,7 +273,7 @@ void PatchMatchController::ReadProblems() {
       DegToRad(options_.min_triangulation_angle);
 
   std::string ref_image_name;
-  std::unordered_set<int> ref_image_ids;
+  std::unordered_set<int> ref_image_idxs;
 
   struct ProblemConfig {
     std::string ref_image_name;
@@ -294,7 +294,7 @@ void PatchMatchController::ReadProblems() {
       continue;
     }
 
-    ref_image_ids.insert(model.GetImageId(ref_image_name));
+    ref_image_idxs.insert(model.GetImageIdx(ref_image_name));
 
     ProblemConfig problem_config;
     problem_config.ref_image_name = ref_image_name;
@@ -307,16 +307,16 @@ void PatchMatchController::ReadProblems() {
   for (const auto& problem_config : problem_configs) {
     PatchMatch::Problem problem;
 
-    problem.ref_image_id = model.GetImageId(problem_config.ref_image_name);
+    problem.ref_image_idx = model.GetImageIdx(problem_config.ref_image_name);
 
     if (problem_config.src_image_names.size() == 1 &&
         problem_config.src_image_names[0] == "__all__") {
       // Use all images as source images.
-      problem.src_image_ids.clear();
-      problem.src_image_ids.reserve(model.images.size() - 1);
-      for (const int image_id : ref_image_ids) {
-        if (image_id != problem.ref_image_id) {
-          problem.src_image_ids.push_back(image_id);
+      problem.src_image_idxs.clear();
+      problem.src_image_idxs.reserve(model.images.size() - 1);
+      for (const int image_idx : ref_image_idxs) {
+        if (image_idx != problem.ref_image_idx) {
+          problem.src_image_idxs.push_back(image_idx);
         }
       }
     } else if (problem_config.src_image_names.size() == 2 &&
@@ -339,14 +339,14 @@ void PatchMatchController::ReadProblems() {
           std::stoll(problem_config.src_image_names[1]);
 
       const auto& overlapping_images =
-          shared_num_points.at(problem.ref_image_id);
+          shared_num_points.at(problem.ref_image_idx);
       const auto& overlapping_triangulation_angles =
-          triangulation_angles.at(problem.ref_image_id);
+          triangulation_angles.at(problem.ref_image_idx);
 
       std::vector<std::pair<int, int>> src_images;
       src_images.reserve(overlapping_images.size());
       for (const auto& image : overlapping_images) {
-        if (ref_image_ids.count(image.first) &&
+        if (ref_image_idxs.count(image.first) &&
             overlapping_triangulation_angles.at(image.first) >=
                 min_triangulation_angle_rad) {
           src_images.emplace_back(image.first, image.second);
@@ -364,18 +364,18 @@ void PatchMatchController::ReadProblems() {
                           return image1.second > image2.second;
                         });
 
-      problem.src_image_ids.reserve(eff_max_num_src_images);
+      problem.src_image_idxs.reserve(eff_max_num_src_images);
       for (size_t i = 0; i < eff_max_num_src_images; ++i) {
-        problem.src_image_ids.push_back(src_images[i].first);
+        problem.src_image_idxs.push_back(src_images[i].first);
       }
     } else {
-      problem.src_image_ids.reserve(problem_config.src_image_names.size());
+      problem.src_image_idxs.reserve(problem_config.src_image_names.size());
       for (const auto& src_image_name : problem_config.src_image_names) {
-        problem.src_image_ids.push_back(model.GetImageId(src_image_name));
+        problem.src_image_idxs.push_back(model.GetImageIdx(src_image_name));
       }
     }
 
-    if (problem.src_image_ids.empty()) {
+    if (problem.src_image_idxs.empty()) {
       std::cout
           << StringPrintf(
                  "WARNING: Ignoring reference image %s, because it has no "
@@ -417,7 +417,7 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
   const std::string& stereo_folder = workspace_->GetOptions().stereo_folder;
   const std::string output_type =
       options.geom_consistency ? "geometric" : "photometric";
-  const std::string image_name = model.GetImageName(problem.ref_image_id);
+  const std::string image_name = model.GetImageName(problem.ref_image_idx);
   const std::string file_name =
       StringPrintf("%s.%s.bin", image_name.c_str(), output_type.c_str());
   const std::string depth_map_path =
@@ -440,9 +440,9 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
 
   if (patch_match_options.depth_min < 0 || patch_match_options.depth_max < 0) {
     patch_match_options.depth_min =
-        depth_ranges_.at(problem.ref_image_id).first;
+        depth_ranges_.at(problem.ref_image_idx).first;
     patch_match_options.depth_max =
-        depth_ranges_.at(problem.ref_image_id).second;
+        depth_ranges_.at(problem.ref_image_idx).second;
     CHECK(patch_match_options.depth_min > 0 &&
           patch_match_options.depth_max > 0)
         << " - You must manually set the minimum and maximum depth, since no "
@@ -469,12 +469,12 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
 
   {
     // Collect all used images in current problem.
-    std::unordered_set<int> used_image_ids(problem.src_image_ids.begin(),
-                                           problem.src_image_ids.end());
-    used_image_ids.insert(problem.ref_image_id);
+    std::unordered_set<int> used_image_idxs(problem.src_image_idxs.begin(),
+                                            problem.src_image_idxs.end());
+    used_image_idxs.insert(problem.ref_image_idx);
 
     patch_match_options.filter_min_num_consistent =
-        std::min(static_cast<int>(used_image_ids.size()) - 1,
+        std::min(static_cast<int>(used_image_idxs.size()) - 1,
                  patch_match_options.filter_min_num_consistent);
 
     // Only access workspace from one thread at a time and only spawn resample
@@ -482,11 +482,11 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     std::unique_lock<std::mutex> lock(workspace_mutex_);
 
     std::cout << "Reading inputs..." << std::endl;
-    for (const auto image_id : used_image_ids) {
-      images.at(image_id).SetBitmap(workspace_->GetBitmap(image_id));
+    for (const auto image_idx : used_image_idxs) {
+      images.at(image_idx).SetBitmap(workspace_->GetBitmap(image_idx));
       if (options.geom_consistency) {
-        depth_maps.at(image_id) = workspace_->GetDepthMap(image_id);
-        normal_maps.at(image_id) = workspace_->GetNormalMap(image_id);
+        depth_maps.at(image_idx) = workspace_->GetDepthMap(image_idx);
+        normal_maps.at(image_idx) = workspace_->GetNormalMap(image_idx);
       }
     }
   }

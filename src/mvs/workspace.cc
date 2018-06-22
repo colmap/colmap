@@ -83,77 +83,78 @@ const Workspace::Options& Workspace::GetOptions() const { return options_; }
 
 const Model& Workspace::GetModel() const { return model_; }
 
-const Bitmap& Workspace::GetBitmap(const int image_id) {
-  auto& cached_image = cache_.GetMutable(image_id);
+const Bitmap& Workspace::GetBitmap(const int image_idx) {
+  auto& cached_image = cache_.GetMutable(image_idx);
   if (!cached_image.bitmap) {
     cached_image.bitmap.reset(new Bitmap());
-    cached_image.bitmap->Read(GetBitmapPath(image_id), options_.image_as_rgb);
+    cached_image.bitmap->Read(GetBitmapPath(image_idx), options_.image_as_rgb);
     if (options_.max_image_size > 0) {
-      cached_image.bitmap->Rescale(model_.images.at(image_id).GetWidth(),
-                                   model_.images.at(image_id).GetHeight());
+      cached_image.bitmap->Rescale(model_.images.at(image_idx).GetWidth(),
+                                   model_.images.at(image_idx).GetHeight());
     }
     cached_image.num_bytes += cached_image.bitmap->NumBytes();
-    cache_.UpdateNumBytes(image_id);
+    cache_.UpdateNumBytes(image_idx);
   }
   return *cached_image.bitmap;
 }
 
-const DepthMap& Workspace::GetDepthMap(const int image_id) {
-  auto& cached_image = cache_.GetMutable(image_id);
+const DepthMap& Workspace::GetDepthMap(const int image_idx) {
+  auto& cached_image = cache_.GetMutable(image_idx);
   if (!cached_image.depth_map) {
     cached_image.depth_map.reset(new DepthMap());
-    cached_image.depth_map->Read(GetDepthMapPath(image_id));
+    cached_image.depth_map->Read(GetDepthMapPath(image_idx));
     if (options_.max_image_size > 0) {
-      cached_image.depth_map->Downsize(model_.images.at(image_id).GetWidth(),
-                                       model_.images.at(image_id).GetHeight());
+      cached_image.depth_map->Downsize(model_.images.at(image_idx).GetWidth(),
+                                       model_.images.at(image_idx).GetHeight());
     }
     cached_image.num_bytes += cached_image.depth_map->GetNumBytes();
-    cache_.UpdateNumBytes(image_id);
+    cache_.UpdateNumBytes(image_idx);
   }
   return *cached_image.depth_map;
 }
 
-const NormalMap& Workspace::GetNormalMap(const int image_id) {
-  auto& cached_image = cache_.GetMutable(image_id);
+const NormalMap& Workspace::GetNormalMap(const int image_idx) {
+  auto& cached_image = cache_.GetMutable(image_idx);
   if (!cached_image.normal_map) {
     cached_image.normal_map.reset(new NormalMap());
-    cached_image.normal_map->Read(GetNormalMapPath(image_id));
+    cached_image.normal_map->Read(GetNormalMapPath(image_idx));
     if (options_.max_image_size > 0) {
-      cached_image.normal_map->Downsize(model_.images.at(image_id).GetWidth(),
-                                        model_.images.at(image_id).GetHeight());
+      cached_image.normal_map->Downsize(
+          model_.images.at(image_idx).GetWidth(),
+          model_.images.at(image_idx).GetHeight());
     }
     cached_image.num_bytes += cached_image.normal_map->GetNumBytes();
-    cache_.UpdateNumBytes(image_id);
+    cache_.UpdateNumBytes(image_idx);
   }
   return *cached_image.normal_map;
 }
 
-std::string Workspace::GetBitmapPath(const int image_id) const {
-  return model_.images.at(image_id).GetPath();
+std::string Workspace::GetBitmapPath(const int image_idx) const {
+  return model_.images.at(image_idx).GetPath();
 }
 
-std::string Workspace::GetDepthMapPath(const int image_id) const {
-  return depth_map_path_ + GetFileName(image_id);
+std::string Workspace::GetDepthMapPath(const int image_idx) const {
+  return depth_map_path_ + GetFileName(image_idx);
 }
 
-std::string Workspace::GetNormalMapPath(const int image_id) const {
-  return normal_map_path_ + GetFileName(image_id);
+std::string Workspace::GetNormalMapPath(const int image_idx) const {
+  return normal_map_path_ + GetFileName(image_idx);
 }
 
-bool Workspace::HasBitmap(const int image_id) const {
-  return ExistsFile(GetBitmapPath(image_id));
+bool Workspace::HasBitmap(const int image_idx) const {
+  return ExistsFile(GetBitmapPath(image_idx));
 }
 
-bool Workspace::HasDepthMap(const int image_id) const {
-  return ExistsFile(GetDepthMapPath(image_id));
+bool Workspace::HasDepthMap(const int image_idx) const {
+  return ExistsFile(GetDepthMapPath(image_idx));
 }
 
-bool Workspace::HasNormalMap(const int image_id) const {
-  return ExistsFile(GetNormalMapPath(image_id));
+bool Workspace::HasNormalMap(const int image_idx) const {
+  return ExistsFile(GetNormalMapPath(image_idx));
 }
 
-std::string Workspace::GetFileName(const int image_id) const {
-  const auto& image_name = model_.GetImageName(image_id);
+std::string Workspace::GetFileName(const int image_idx) const {
+  const auto& image_name = model_.GetImageName(image_idx);
   return StringPrintf("%s.%s.bin", image_name.c_str(),
                       options_.input_type.c_str());
 }
@@ -179,29 +180,29 @@ void ImportPMVSWorkspace(const Workspace& workspace,
     const auto elems = StringSplit(line, " ");
     int num_images = std::stoull(elems[1]);
 
-    std::vector<int> image_ids;
+    std::vector<int> image_idxs;
     if (num_images == -1) {
       CHECK_EQ(elems.size(), 4);
       const int range_lower = std::stoull(elems[2]);
       const int range_upper = std::stoull(elems[3]);
       CHECK_LT(range_lower, range_upper);
       num_images = range_upper - range_lower;
-      image_ids.resize(num_images);
-      std::iota(image_ids.begin(), image_ids.end(), range_lower);
+      image_idxs.resize(num_images);
+      std::iota(image_idxs.begin(), image_idxs.end(), range_lower);
     } else {
       CHECK_EQ(num_images + 2, elems.size());
-      image_ids.reserve(num_images);
+      image_idxs.reserve(num_images);
       for (size_t i = 2; i < elems.size(); ++i) {
-        const int image_id = std::stoull(elems[i]);
-        image_ids.push_back(image_id);
+        const int image_idx = std::stoull(elems[i]);
+        image_idxs.push_back(image_idx);
       }
     }
 
     std::vector<std::string> image_names;
     image_names.reserve(num_images);
-    for (const auto image_id : image_ids) {
+    for (const auto image_idx : image_idxs) {
       const std::string image_name =
-          workspace.GetModel().GetImageName(image_id);
+          workspace.GetModel().GetImageName(image_idx);
       image_names.push_back(image_name);
     }
 
@@ -222,8 +223,8 @@ void ImportPMVSWorkspace(const Workspace& workspace,
       if (overlapping_images.empty()) {
         patch_match_file << "__auto__, 20" << std::endl;
       } else {
-        for (const int image_id : overlapping_images[i]) {
-          patch_match_file << workspace.GetModel().GetImageName(image_id)
+        for (const int image_idx : overlapping_images[i]) {
+          patch_match_file << workspace.GetModel().GetImageName(image_idx)
                            << ", ";
         }
         patch_match_file << std::endl;

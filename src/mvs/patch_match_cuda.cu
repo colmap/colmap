@@ -231,7 +231,7 @@ __device__ inline float PropagateDepth(const float depth1,
 // image and normal direction of 3D point. Both angles are cosine distances.
 __device__ inline void ComputeViewingAngles(const float point[3],
                                             const float normal[3],
-                                            const int image_id,
+                                            const int image_idx,
                                             float* cos_triangulation_angle,
                                             float* cos_incident_angle) {
   *cos_triangulation_angle = 0.0f;
@@ -240,7 +240,7 @@ __device__ inline void ComputeViewingAngles(const float point[3],
   // Projection center of source image.
   float C[3];
   for (int i = 0; i < 3; ++i) {
-    C[i] = tex2D(poses_texture, i + 16, image_id);
+    C[i] = tex2D(poses_texture, i + 16, image_idx);
   }
 
   // Ray from point to camera.
@@ -256,25 +256,25 @@ __device__ inline void ComputeViewingAngles(const float point[3],
   *cos_triangulation_angle = DotProduct3(SX, point) * RX_inv_norm * SX_inv_norm;
 }
 
-__device__ inline void ComposeHomography(const int image_id, const int row,
+__device__ inline void ComposeHomography(const int image_idx, const int row,
                                          const int col, const float depth,
                                          const float normal[3], float H[9]) {
   // Calibration of source image.
   float K[4];
   for (int i = 0; i < 4; ++i) {
-    K[i] = tex2D(poses_texture, i, image_id);
+    K[i] = tex2D(poses_texture, i, image_idx);
   }
 
   // Relative rotation between reference and source image.
   float R[9];
   for (int i = 0; i < 9; ++i) {
-    R[i] = tex2D(poses_texture, i + 4, image_id);
+    R[i] = tex2D(poses_texture, i + 4, image_idx);
   }
 
   // Relative translation between reference and source image.
   float T[3];
   for (int i = 0; i < 3; ++i) {
-    T[i] = tex2D(poses_texture, i + 13, image_id);
+    T[i] = tex2D(poses_texture, i + 13, image_idx);
   }
 
   // Distance to the plane.
@@ -334,8 +334,8 @@ struct PhotoConsistencyCostComputer {
   float local_ref_sum = 0.0f;
   float local_ref_squared_sum = 0.0f;
 
-  // Identifier of source image.
-  int src_image_id = -1;
+  // Index of source image.
+  int src_image_idx = -1;
 
   // Center position of patch in reference image.
   int row = -1;
@@ -347,7 +347,7 @@ struct PhotoConsistencyCostComputer {
 
   __device__ inline float Compute() const {
     float tform[9];
-    ComposeHomography(src_image_id, row, col, depth, normal, tform);
+    ComposeHomography(src_image_idx, row, col, depth, normal, tform);
 
     float tform_step[9];
     for (int i = 0; i < 9; ++i) {
@@ -385,7 +385,7 @@ struct PhotoConsistencyCostComputer {
         const float norm_row_src = inv_z * row_src + 0.5f;
         const float ref_color = local_ref_image[ref_image_idx];
         const float src_color = tex2DLayered(src_images_texture, norm_col_src,
-                                             norm_row_src, src_image_id);
+                                             norm_row_src, src_image_idx);
 
         const float bilateral_weight = bilateral_weight_computer_.Compute(
             row, col, ref_center_color, ref_color);
@@ -451,16 +451,16 @@ struct PhotoConsistencyCostComputer {
 __device__ inline float ComputeGeomConsistencyCost(const float row,
                                                    const float col,
                                                    const float depth,
-                                                   const int image_id,
+                                                   const int image_idx,
                                                    const float max_cost) {
   // Extract projection matrices for source image.
   float P[12];
   for (int i = 0; i < 12; ++i) {
-    P[i] = tex2D(poses_texture, i + 19, image_id);
+    P[i] = tex2D(poses_texture, i + 19, image_idx);
   }
   float inv_P[12];
   for (int i = 0; i < 12; ++i) {
-    inv_P[i] = tex2D(poses_texture, i + 31, image_id);
+    inv_P[i] = tex2D(poses_texture, i + 31, image_idx);
   }
 
   // Project point in reference image to world.
@@ -480,7 +480,7 @@ __device__ inline float ComputeGeomConsistencyCost(const float row,
 
   // Extract depth in source image.
   const float src_depth = tex2DLayered(src_depth_maps_texture, src_col + 0.5f,
-                                       src_row + 0.5f, image_id);
+                                       src_row + 0.5f, image_idx);
 
   // Projection outside of source image.
   if (src_depth == 0.0f) {
@@ -792,9 +792,9 @@ __global__ void ComputeInitialCost(GpuMat<float> cost_map,
       pcc_computer.local_ref_sum = ref_sum_image.Get(row, col);
       pcc_computer.local_ref_squared_sum = ref_squared_sum_image.Get(row, col);
 
-      for (int image_id = 0; image_id < cost_map.GetDepth(); ++image_id) {
-        pcc_computer.src_image_id = image_id;
-        cost_map.Set(row, col, image_id, pcc_computer.Compute());
+      for (int image_idx = 0; image_idx < cost_map.GetDepth(); ++image_idx) {
+        pcc_computer.src_image_idx = image_idx;
+        cost_map.Set(row, col, image_idx, pcc_computer.Compute());
       }
 
       pcc_computer.row += 1;
@@ -854,17 +854,17 @@ __global__ void SweepFromTopToBottom(
   //////////////////////////////////////////////////////////////////////////////
 
   if (col < cost_map.GetWidth()) {
-    for (int image_id = 0; image_id < cost_map.GetDepth(); ++image_id) {
+    for (int image_idx = 0; image_idx < cost_map.GetDepth(); ++image_idx) {
       // Compute backward message.
       float beta = kUniformProb;
       for (int row = cost_map.GetHeight() - 1; row >= 0; --row) {
-        const float cost = cost_map.Get(row, col, image_id);
+        const float cost = cost_map.Get(row, col, image_idx);
         beta = likelihood_computer.ComputeBackwardMessage(cost, beta);
-        sel_prob_map.Set(row, col, image_id, beta);
+        sel_prob_map.Set(row, col, image_idx, beta);
       }
 
       // Initialize forward message.
-      forward_message[image_id] = kUniformProb;
+      forward_message[image_idx] = kUniformProb;
     }
   }
 
@@ -943,18 +943,18 @@ __global__ void SweepFromTopToBottom(
     float point[3];
     ComputePointAtDepth(row, col, curr_param_state.depth, point);
 
-    for (int image_id = 0; image_id < cost_map.GetDepth(); ++image_id) {
-      const float cost = cost_map.Get(row, col, image_id);
+    for (int image_idx = 0; image_idx < cost_map.GetDepth(); ++image_idx) {
+      const float cost = cost_map.Get(row, col, image_idx);
       const float alpha = likelihood_computer.ComputeForwardMessage(
-          cost, forward_message[image_id]);
-      const float beta = sel_prob_map.Get(row, col, image_id);
-      const float prev_prob = prev_sel_prob_map.Get(row, col, image_id);
+          cost, forward_message[image_idx]);
+      const float beta = sel_prob_map.Get(row, col, image_idx);
+      const float prev_prob = prev_sel_prob_map.Get(row, col, image_idx);
       const float sel_prob = likelihood_computer.ComputeSelProb(
           alpha, beta, prev_prob, options.prev_sel_prob_weight);
 
       float cos_triangulation_angle;
       float cos_incident_angle;
-      ComputeViewingAngles(point, curr_param_state.normal, image_id,
+      ComputeViewingAngles(point, curr_param_state.normal, image_idx,
                            &cos_triangulation_angle, &cos_incident_angle);
       const float tri_prob =
           likelihood_computer.ComputeTriProb(cos_triangulation_angle);
@@ -962,12 +962,12 @@ __global__ void SweepFromTopToBottom(
           likelihood_computer.ComputeIncProb(cos_incident_angle);
 
       float H[9];
-      ComposeHomography(image_id, row, col, curr_param_state.depth,
+      ComposeHomography(image_idx, row, col, curr_param_state.depth,
                         curr_param_state.normal, H);
       const float res_prob =
           likelihood_computer.ComputeResolutionProb<kWindowSize>(H, row, col);
 
-      sampling_probs[image_id] = sel_prob * tri_prob * inc_prob * res_prob;
+      sampling_probs[image_idx] = sel_prob * tri_prob * inc_prob * res_prob;
     }
 
     TransformPDFToCDF(sampling_probs, cost_map.GetDepth());
@@ -996,24 +996,24 @@ __global__ void SweepFromTopToBottom(
     for (int sample = 0; sample < options.num_samples; ++sample) {
       const float rand_prob = curand_uniform(&rand_state) - FLT_EPSILON;
 
-      pcc_computer.src_image_id = -1;
-      for (int image_id = 0; image_id < cost_map.GetDepth(); ++image_id) {
-        const float prob = sampling_probs[image_id];
+      pcc_computer.src_image_idx = -1;
+      for (int image_idx = 0; image_idx < cost_map.GetDepth(); ++image_idx) {
+        const float prob = sampling_probs[image_idx];
         if (prob > rand_prob) {
-          pcc_computer.src_image_id = image_id;
+          pcc_computer.src_image_idx = image_idx;
           break;
         }
       }
 
-      if (pcc_computer.src_image_id == -1) {
+      if (pcc_computer.src_image_idx == -1) {
         continue;
       }
 
-      costs[0] += cost_map.Get(row, col, pcc_computer.src_image_id);
+      costs[0] += cost_map.Get(row, col, pcc_computer.src_image_idx);
       if (kGeomConsistencyTerm) {
         costs[0] += options.geom_consistency_regularizer *
                     ComputeGeomConsistencyCost(
-                        row, col, depths[0], pcc_computer.src_image_id,
+                        row, col, depths[0], pcc_computer.src_image_idx,
                         options.geom_consistency_max_cost);
       }
 
@@ -1024,7 +1024,7 @@ __global__ void SweepFromTopToBottom(
         if (kGeomConsistencyTerm) {
           costs[i] += options.geom_consistency_regularizer *
                       ComputeGeomConsistencyCost(
-                          row, col, depths[i], pcc_computer.src_image_id,
+                          row, col, depths[i], pcc_computer.src_image_idx,
                           options.geom_consistency_max_cost);
         }
       }
@@ -1043,25 +1043,25 @@ __global__ void SweepFromTopToBottom(
     // the selection probability.
     pcc_computer.depth = best_depth;
     pcc_computer.normal = best_normal;
-    for (int image_id = 0; image_id < cost_map.GetDepth(); ++image_id) {
+    for (int image_idx = 0; image_idx < cost_map.GetDepth(); ++image_idx) {
       // Determine the cost for best depth.
       float cost;
       if (min_cost_idx == 0) {
-        cost = cost_map.Get(row, col, image_id);
+        cost = cost_map.Get(row, col, image_idx);
       } else {
-        pcc_computer.src_image_id = image_id;
+        pcc_computer.src_image_idx = image_idx;
         cost = pcc_computer.Compute();
-        cost_map.Set(row, col, image_id, cost);
+        cost_map.Set(row, col, image_idx, cost);
       }
 
       const float alpha = likelihood_computer.ComputeForwardMessage(
-          cost, forward_message[image_id]);
-      const float beta = sel_prob_map.Get(row, col, image_id);
-      const float prev_prob = prev_sel_prob_map.Get(row, col, image_id);
+          cost, forward_message[image_idx]);
+      const float beta = sel_prob_map.Get(row, col, image_idx);
+      const float prev_prob = prev_sel_prob_map.Get(row, col, image_idx);
       const float prob = likelihood_computer.ComputeSelProb(
           alpha, beta, prev_prob, options.prev_sel_prob_weight);
-      forward_message[image_id] = alpha;
-      sel_prob_map.Set(row, col, image_id, prob);
+      forward_message[image_idx] = alpha;
+      sel_prob_map.Set(row, col, image_idx, prob);
     }
 
     if (kFilterPhotoConsistency || kFilterGeomConsistency) {
@@ -1075,10 +1075,10 @@ __global__ void SweepFromTopToBottom(
       const float cos_min_triangulation_angle =
           cos(options.filter_min_triangulation_angle);
 
-      for (int image_id = 0; image_id < cost_map.GetDepth(); ++image_id) {
+      for (int image_idx = 0; image_idx < cost_map.GetDepth(); ++image_idx) {
         float cos_triangulation_angle;
         float cos_incident_angle;
-        ComputeViewingAngles(best_point, best_normal, image_id,
+        ComputeViewingAngles(best_point, best_normal, image_idx,
                              &cos_triangulation_angle, &cos_incident_angle);
         if (cos_triangulation_angle > cos_min_triangulation_angle ||
             cos_incident_angle <= 0.0f) {
@@ -1086,23 +1086,23 @@ __global__ void SweepFromTopToBottom(
         }
 
         if (!kFilterGeomConsistency) {
-          if (sel_prob_map.Get(row, col, image_id) >= min_ncc_prob) {
-            consistency_mask.Set(row, col, image_id, 1);
+          if (sel_prob_map.Get(row, col, image_idx) >= min_ncc_prob) {
+            consistency_mask.Set(row, col, image_idx, 1);
             num_consistent += 1;
           }
         } else if (!kFilterPhotoConsistency) {
-          if (ComputeGeomConsistencyCost(row, col, best_depth, image_id,
+          if (ComputeGeomConsistencyCost(row, col, best_depth, image_idx,
                                          options.geom_consistency_max_cost) <=
               options.filter_geom_consistency_max_cost) {
-            consistency_mask.Set(row, col, image_id, 1);
+            consistency_mask.Set(row, col, image_idx, 1);
             num_consistent += 1;
           }
         } else {
-          if (sel_prob_map.Get(row, col, image_id) >= min_ncc_prob &&
-              ComputeGeomConsistencyCost(row, col, best_depth, image_id,
+          if (sel_prob_map.Get(row, col, image_idx) >= min_ncc_prob &&
+              ComputeGeomConsistencyCost(row, col, best_depth, image_idx,
                                          options.geom_consistency_max_cost) <=
                   options.filter_geom_consistency_max_cost) {
-            consistency_mask.Set(row, col, image_id, 1);
+            consistency_mask.Set(row, col, image_idx, 1);
             num_consistent += 1;
           }
         }
@@ -1114,8 +1114,8 @@ __global__ void SweepFromTopToBottom(
         normal_map.Set(row, col, 0, kFilterValue);
         normal_map.Set(row, col, 1, kFilterValue);
         normal_map.Set(row, col, 2, kFilterValue);
-        for (int image_id = 0; image_id < cost_map.GetDepth(); ++image_id) {
-          consistency_mask.Set(row, col, image_id, 0);
+        for (int image_idx = 0; image_idx < cost_map.GetDepth(); ++image_idx) {
+          consistency_mask.Set(row, col, image_idx, 0);
         }
       }
     }
@@ -1214,30 +1214,30 @@ Mat<float> PatchMatchCuda::GetSelProbMap() const {
   return prev_sel_prob_map_->CopyToMat();
 }
 
-std::vector<int> PatchMatchCuda::GetConsistentImageIds() const {
+std::vector<int> PatchMatchCuda::GetConsistentImageIdxs() const {
   const Mat<uint8_t> mask = consistency_mask_->CopyToMat();
-  std::vector<int> consistent_image_ids;
-  std::vector<int> pixel_consistent_image_ids;
-  pixel_consistent_image_ids.reserve(mask.GetDepth());
+  std::vector<int> consistent_image_idxs;
+  std::vector<int> pixel_consistent_image_idxs;
+  pixel_consistent_image_idxs.reserve(mask.GetDepth());
   for (size_t r = 0; r < mask.GetHeight(); ++r) {
     for (size_t c = 0; c < mask.GetWidth(); ++c) {
-      pixel_consistent_image_ids.clear();
+      pixel_consistent_image_idxs.clear();
       for (size_t d = 0; d < mask.GetDepth(); ++d) {
         if (mask.Get(r, c, d)) {
-          pixel_consistent_image_ids.push_back(problem_.src_image_ids[d]);
+          pixel_consistent_image_idxs.push_back(problem_.src_image_idxs[d]);
         }
       }
-      if (pixel_consistent_image_ids.size() > 0) {
-        consistent_image_ids.push_back(c);
-        consistent_image_ids.push_back(r);
-        consistent_image_ids.push_back(pixel_consistent_image_ids.size());
-        consistent_image_ids.insert(consistent_image_ids.end(),
-                                    pixel_consistent_image_ids.begin(),
-                                    pixel_consistent_image_ids.end());
+      if (pixel_consistent_image_idxs.size() > 0) {
+        consistent_image_idxs.push_back(c);
+        consistent_image_idxs.push_back(r);
+        consistent_image_idxs.push_back(pixel_consistent_image_idxs.size());
+        consistent_image_idxs.insert(consistent_image_idxs.end(),
+                                     pixel_consistent_image_idxs.begin(),
+                                     pixel_consistent_image_idxs.end());
       }
     }
   }
-  return consistent_image_ids;
+  return consistent_image_idxs;
 }
 
 template <int kWindowSize, int kWindowStep>
@@ -1388,7 +1388,7 @@ void PatchMatchCuda::ComputeCudaConfig() {
 }
 
 void PatchMatchCuda::InitRefImage() {
-  const Image& ref_image = problem_.images->at(problem_.ref_image_id);
+  const Image& ref_image = problem_.images->at(problem_.ref_image_idx);
 
   ref_width_ = ref_image.GetWidth();
   ref_height_ = ref_image.GetHeight();
@@ -1419,8 +1419,8 @@ void PatchMatchCuda::InitSourceImages() {
   // Determine maximum image size.
   size_t max_width = 0;
   size_t max_height = 0;
-  for (const auto image_id : problem_.src_image_ids) {
-    const Image& image = problem_.images->at(image_id);
+  for (const auto image_idx : problem_.src_image_idxs) {
+    const Image& image = problem_.images->at(image_idx);
     if (image.GetWidth() > max_width) {
       max_width = image.GetWidth();
     }
@@ -1435,10 +1435,10 @@ void PatchMatchCuda::InitSourceImages() {
     const uint8_t kDefaultValue = 0;
     std::vector<uint8_t> src_images_host_data(
         static_cast<size_t>(max_width * max_height *
-                            problem_.src_image_ids.size()),
+                            problem_.src_image_idxs.size()),
         kDefaultValue);
-    for (size_t i = 0; i < problem_.src_image_ids.size(); ++i) {
-      const Image& image = problem_.images->at(problem_.src_image_ids[i]);
+    for (size_t i = 0; i < problem_.src_image_idxs.size(); ++i) {
+      const Image& image = problem_.images->at(problem_.src_image_idxs[i]);
       const Bitmap& bitmap = image.GetBitmap();
       uint8_t* dest = src_images_host_data.data() + max_width * max_height * i;
       for (size_t r = 0; r < image.GetHeight(); ++r) {
@@ -1449,7 +1449,7 @@ void PatchMatchCuda::InitSourceImages() {
 
     // Upload to device.
     src_images_device_.reset(new CudaArrayWrapper<uint8_t>(
-        max_width, max_height, problem_.src_image_ids.size()));
+        max_width, max_height, problem_.src_image_idxs.size()));
     src_images_device_->CopyToDevice(src_images_host_data.data());
 
     // Create source images texture.
@@ -1467,11 +1467,11 @@ void PatchMatchCuda::InitSourceImages() {
     const float kDefaultValue = 0.0f;
     std::vector<float> src_depth_maps_host_data(
         static_cast<size_t>(max_width * max_height *
-                            problem_.src_image_ids.size()),
+                            problem_.src_image_idxs.size()),
         kDefaultValue);
-    for (size_t i = 0; i < problem_.src_image_ids.size(); ++i) {
+    for (size_t i = 0; i < problem_.src_image_idxs.size(); ++i) {
       const DepthMap& depth_map =
-          problem_.depth_maps->at(problem_.src_image_ids[i]);
+          problem_.depth_maps->at(problem_.src_image_idxs[i]);
       float* dest =
           src_depth_maps_host_data.data() + max_width * max_height * i;
       for (size_t r = 0; r < depth_map.GetHeight(); ++r) {
@@ -1482,7 +1482,7 @@ void PatchMatchCuda::InitSourceImages() {
     }
 
     src_depth_maps_device_.reset(new CudaArrayWrapper<float>(
-        max_width, max_height, problem_.src_image_ids.size()));
+        max_width, max_height, problem_.src_image_idxs.size()));
     src_depth_maps_device_->CopyToDevice(src_depth_maps_host_data.data());
 
     // Create source depth maps texture.
@@ -1498,7 +1498,7 @@ void PatchMatchCuda::InitSourceImages() {
 }
 
 void PatchMatchCuda::InitTransforms() {
-  const Image& ref_image = problem_.images->at(problem_.ref_image_id);
+  const Image& ref_image = problem_.images->at(problem_.ref_image_idx);
 
   //////////////////////////////////////////////////////////////////////////////
   // Generate rotated versions (counter-clockwise) of calibration matrix.
@@ -1556,10 +1556,10 @@ void PatchMatchCuda::InitTransforms() {
   for (size_t i = 0; i < 4; ++i) {
     const size_t kNumTformParams = 4 + 9 + 3 + 3 + 12 + 12;
     std::vector<float> poses_host_data(kNumTformParams *
-                                       problem_.src_image_ids.size());
+                                       problem_.src_image_idxs.size());
     int offset = 0;
-    for (const auto image_id : problem_.src_image_ids) {
-      const Image& image = problem_.images->at(image_id);
+    for (const auto image_idx : problem_.src_image_idxs) {
+      const Image& image = problem_.images->at(image_idx);
 
       const float K[4] = {image.GetK()[0], image.GetK()[2], image.GetK()[4],
                           image.GetK()[5]};
@@ -1592,7 +1592,7 @@ void PatchMatchCuda::InitTransforms() {
     }
 
     poses_device_[i].reset(new CudaArrayWrapper<float>(
-        kNumTformParams, problem_.src_image_ids.size(), 1));
+        kNumTformParams, problem_.src_image_idxs.size(), 1));
     poses_device_[i]->CopyToDevice(poses_host_data.data());
 
     RotatePose(R_z90, rotated_R, rotated_T);
@@ -1613,7 +1613,7 @@ void PatchMatchCuda::InitWorkspaceMemory() {
   depth_map_.reset(new GpuMat<float>(ref_width_, ref_height_));
   if (options_.geom_consistency) {
     const DepthMap& init_depth_map =
-        problem_.depth_maps->at(problem_.ref_image_id);
+        problem_.depth_maps->at(problem_.ref_image_idx);
     depth_map_->CopyToDevice(init_depth_map.GetPtr(),
                              init_depth_map.GetWidth() * sizeof(float));
   } else {
@@ -1629,17 +1629,17 @@ void PatchMatchCuda::InitWorkspaceMemory() {
   // However, it is useful to keep the probabilities for the entire image
   // in memory, so that it can be exported.
   sel_prob_map_.reset(new GpuMat<float>(ref_width_, ref_height_,
-                                        problem_.src_image_ids.size()));
+                                        problem_.src_image_idxs.size()));
   prev_sel_prob_map_.reset(new GpuMat<float>(ref_width_, ref_height_,
-                                             problem_.src_image_ids.size()));
+                                             problem_.src_image_idxs.size()));
   prev_sel_prob_map_->FillWithScalar(0.5f);
 
   cost_map_.reset(new GpuMat<float>(ref_width_, ref_height_,
-                                    problem_.src_image_ids.size()));
+                                    problem_.src_image_idxs.size()));
 
   const int ref_max_dim = std::max(ref_width_, ref_height_);
   global_workspace_.reset(
-      new GpuMat<float>(ref_max_dim, problem_.src_image_ids.size(), 2));
+      new GpuMat<float>(ref_max_dim, problem_.src_image_idxs.size(), 2));
 
   consistency_mask_.reset(new GpuMat<uint8_t>(0, 0, 0));
 
@@ -1647,7 +1647,7 @@ void PatchMatchCuda::InitWorkspaceMemory() {
 
   if (options_.geom_consistency) {
     const NormalMap& init_normal_map =
-        problem_.normal_maps->at(problem_.ref_image_id);
+        problem_.normal_maps->at(problem_.ref_image_idx);
     normal_map_->CopyToDevice(init_normal_map.GetPtr(),
                               init_normal_map.GetWidth() * sizeof(float));
   } else {
@@ -1715,15 +1715,15 @@ void PatchMatchCuda::Rotate() {
 
   // Rotate selection probability map.
   prev_sel_prob_map_.reset(
-      new GpuMat<float>(width, height, problem_.src_image_ids.size()));
+      new GpuMat<float>(width, height, problem_.src_image_idxs.size()));
   sel_prob_map_->Rotate(prev_sel_prob_map_.get());
   sel_prob_map_.reset(
-      new GpuMat<float>(width, height, problem_.src_image_ids.size()));
+      new GpuMat<float>(width, height, problem_.src_image_idxs.size()));
 
   // Rotate cost map.
   {
     std::unique_ptr<GpuMat<float>> rotated_cost_map(
-        new GpuMat<float>(width, height, problem_.src_image_ids.size()));
+        new GpuMat<float>(width, height, problem_.src_image_idxs.size()));
     cost_map_->Rotate(rotated_cost_map.get());
     cost_map_.swap(rotated_cost_map);
   }
