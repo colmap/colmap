@@ -81,12 +81,12 @@ void PatchMatch::Problem::Print() const {
 
   PrintOption(ref_image_idx);
 
-  std::cout << "src_image_indices: ";
-  if (!src_image_indices.empty()) {
-    for (size_t i = 0; i < src_image_indices.size() - 1; ++i) {
-      std::cout << src_image_indices[i] << " ";
+  std::cout << "src_image_idxs: ";
+  if (!src_image_idxs.empty()) {
+    for (size_t i = 0; i < src_image_idxs.size() - 1; ++i) {
+      std::cout << src_image_idxs[i] << " ";
     }
-    std::cout << src_image_indices.back() << std::endl;
+    std::cout << src_image_idxs.back() << std::endl;
   } else {
     std::cout << std::endl;
   }
@@ -108,17 +108,17 @@ void PatchMatch::Check() const {
     CHECK_EQ(problem_.normal_maps->size(), problem_.images->size());
   }
 
-  CHECK_GT(problem_.src_image_indices.size(), 0);
+  CHECK_GT(problem_.src_image_idxs.size(), 0);
 
   // Check that there are no duplicate images and that the reference image
   // is not defined as a source image.
-  std::set<int> unique_image_indices(problem_.src_image_indices.begin(),
-                                     problem_.src_image_indices.end());
-  unique_image_indices.insert(problem_.ref_image_idx);
-  CHECK_EQ(problem_.src_image_indices.size() + 1, unique_image_indices.size());
+  std::set<int> unique_image_idxs(problem_.src_image_idxs.begin(),
+                                  problem_.src_image_idxs.end());
+  unique_image_idxs.insert(problem_.ref_image_idx);
+  CHECK_EQ(problem_.src_image_idxs.size() + 1, unique_image_idxs.size());
 
   // Check that input data is well-formed.
-  for (const int image_idx : unique_image_indices) {
+  for (const int image_idx : unique_image_idxs) {
     CHECK_GE(image_idx, 0) << image_idx;
     CHECK_LT(image_idx, problem_.images->size()) << image_idx;
 
@@ -177,7 +177,7 @@ Mat<float> PatchMatch::GetSelProbMap() const {
 ConsistencyGraph PatchMatch::GetConsistencyGraph() const {
   const auto& ref_image = problem_.images->at(problem_.ref_image_idx);
   return ConsistencyGraph(ref_image.GetWidth(), ref_image.GetHeight(),
-                          patch_match_cuda_->GetConsistentImageIndices());
+                          patch_match_cuda_->GetConsistentImageIdxs());
 }
 
 PatchMatchController::PatchMatchController(const PatchMatchOptions& options,
@@ -273,7 +273,7 @@ void PatchMatchController::ReadProblems() {
       DegToRad(options_.min_triangulation_angle);
 
   std::string ref_image_name;
-  std::unordered_set<int> ref_image_indices;
+  std::unordered_set<int> ref_image_idxs;
 
   struct ProblemConfig {
     std::string ref_image_name;
@@ -294,7 +294,7 @@ void PatchMatchController::ReadProblems() {
       continue;
     }
 
-    ref_image_indices.insert(model.GetImageIdx(ref_image_name));
+    ref_image_idxs.insert(model.GetImageIdx(ref_image_name));
 
     ProblemConfig problem_config;
     problem_config.ref_image_name = ref_image_name;
@@ -312,11 +312,11 @@ void PatchMatchController::ReadProblems() {
     if (problem_config.src_image_names.size() == 1 &&
         problem_config.src_image_names[0] == "__all__") {
       // Use all images as source images.
-      problem.src_image_indices.clear();
-      problem.src_image_indices.reserve(model.images.size() - 1);
-      for (const int image_idx : ref_image_indices) {
+      problem.src_image_idxs.clear();
+      problem.src_image_idxs.reserve(model.images.size() - 1);
+      for (const int image_idx : ref_image_idxs) {
         if (image_idx != problem.ref_image_idx) {
-          problem.src_image_indices.push_back(image_idx);
+          problem.src_image_idxs.push_back(image_idx);
         }
       }
     } else if (problem_config.src_image_names.size() == 2 &&
@@ -346,7 +346,7 @@ void PatchMatchController::ReadProblems() {
       std::vector<std::pair<int, int>> src_images;
       src_images.reserve(overlapping_images.size());
       for (const auto& image : overlapping_images) {
-        if (ref_image_indices.count(image.first) &&
+        if (ref_image_idxs.count(image.first) &&
             overlapping_triangulation_angles.at(image.first) >=
                 min_triangulation_angle_rad) {
           src_images.emplace_back(image.first, image.second);
@@ -364,18 +364,18 @@ void PatchMatchController::ReadProblems() {
                           return image1.second > image2.second;
                         });
 
-      problem.src_image_indices.reserve(eff_max_num_src_images);
+      problem.src_image_idxs.reserve(eff_max_num_src_images);
       for (size_t i = 0; i < eff_max_num_src_images; ++i) {
-        problem.src_image_indices.push_back(src_images[i].first);
+        problem.src_image_idxs.push_back(src_images[i].first);
       }
     } else {
-      problem.src_image_indices.reserve(problem_config.src_image_names.size());
+      problem.src_image_idxs.reserve(problem_config.src_image_names.size());
       for (const auto& src_image_name : problem_config.src_image_names) {
-        problem.src_image_indices.push_back(model.GetImageIdx(src_image_name));
+        problem.src_image_idxs.push_back(model.GetImageIdx(src_image_name));
       }
     }
 
-    if (problem.src_image_indices.empty()) {
+    if (problem.src_image_idxs.empty()) {
       std::cout
           << StringPrintf(
                  "WARNING: Ignoring reference image %s, because it has no "
@@ -469,12 +469,12 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
 
   {
     // Collect all used images in current problem.
-    std::unordered_set<int> used_image_indices(
-        problem.src_image_indices.begin(), problem.src_image_indices.end());
-    used_image_indices.insert(problem.ref_image_idx);
+    std::unordered_set<int> used_image_idxs(problem.src_image_idxs.begin(),
+                                            problem.src_image_idxs.end());
+    used_image_idxs.insert(problem.ref_image_idx);
 
     patch_match_options.filter_min_num_consistent =
-        std::min(static_cast<int>(used_image_indices.size()) - 1,
+        std::min(static_cast<int>(used_image_idxs.size()) - 1,
                  patch_match_options.filter_min_num_consistent);
 
     // Only access workspace from one thread at a time and only spawn resample
@@ -482,7 +482,7 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     std::unique_lock<std::mutex> lock(workspace_mutex_);
 
     std::cout << "Reading inputs..." << std::endl;
-    for (const auto image_idx : used_image_indices) {
+    for (const auto image_idx : used_image_idxs) {
       images.at(image_idx).SetBitmap(workspace_->GetBitmap(image_idx));
       if (options.geom_consistency) {
         depth_maps.at(image_idx) = workspace_->GetDepthMap(image_idx);

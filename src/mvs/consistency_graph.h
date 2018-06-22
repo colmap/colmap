@@ -59,8 +59,8 @@ class ConsistencyGraph {
 
   size_t GetNumBytes() const;
 
-  void GetImageIndices(const int row, const int col, int* num_images,
-                       const int** image_indices) const;
+  void GetImageIdxs(const int row, const int col, int* num_images,
+                    const int** image_idxs) const;
 
   void Read(const std::string& path);
   void Write(const std::string& path) const;

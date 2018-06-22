@@ -178,7 +178,7 @@ class PatchMatch {
     int ref_image_idx = -1;
 
     // Indices of the source images.
-    std::vector<int> src_image_indices;
+    std::vector<int> src_image_idxs;
 
     // Input images for the photometric consistency term.
     std::vector<Image>* images = nullptr;

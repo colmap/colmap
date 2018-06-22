@@ -427,8 +427,8 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
     int num_visible_images;
     vis_dat_file >> num_visible_images;
 
-    auto& visible_image_indices = pmvs_vis_dat_[image_idx];
-    visible_image_indices.reserve(num_visible_images);
+    auto& visible_image_idxs = pmvs_vis_dat_[image_idx];
+    visible_image_idxs.reserve(num_visible_images);
 
     for (int j = 0; j < num_visible_images; ++j) {
       int visible_image_idx;
@@ -436,7 +436,7 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
       CHECK_GE(visible_image_idx, 0);
       CHECK_LT(visible_image_idx, num_images);
       if (visible_image_idx != image_idx) {
-        visible_image_indices.push_back(visible_image_idx);
+        visible_image_idxs.push_back(visible_image_idx);
       }
     }
   }

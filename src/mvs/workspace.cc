@@ -180,27 +180,27 @@ void ImportPMVSWorkspace(const Workspace& workspace,
     const auto elems = StringSplit(line, " ");
     int num_images = std::stoull(elems[1]);
 
-    std::vector<int> image_indices;
+    std::vector<int> image_idxs;
     if (num_images == -1) {
       CHECK_EQ(elems.size(), 4);
       const int range_lower = std::stoull(elems[2]);
       const int range_upper = std::stoull(elems[3]);
       CHECK_LT(range_lower, range_upper);
       num_images = range_upper - range_lower;
-      image_indices.resize(num_images);
-      std::iota(image_indices.begin(), image_indices.end(), range_lower);
+      image_idxs.resize(num_images);
+      std::iota(image_idxs.begin(), image_idxs.end(), range_lower);
     } else {
       CHECK_EQ(num_images + 2, elems.size());
-      image_indices.reserve(num_images);
+      image_idxs.reserve(num_images);
       for (size_t i = 2; i < elems.size(); ++i) {
         const int image_idx = std::stoull(elems[i]);
-        image_indices.push_back(image_idx);
+        image_idxs.push_back(image_idx);
       }
     }
 
     std::vector<std::string> image_names;
     image_names.reserve(num_images);
-    for (const auto image_idx : image_indices) {
+    for (const auto image_idx : image_idxs) {
       const std::string image_name =
           workspace.GetModel().GetImageName(image_idx);
       image_names.push_back(image_name);

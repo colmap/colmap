@@ -1214,32 +1214,30 @@ Mat<float> PatchMatchCuda::GetSelProbMap() const {
   return prev_sel_prob_map_->CopyToMat();
 }
 
-std::vector<int> PatchMatchCuda::GetConsistentImageIndices() const {
+std::vector<int> PatchMatchCuda::GetConsistentImageIdxs() const {
   const Mat<uint8_t> mask = consistency_mask_->CopyToMat();
-  std::vector<int> consistent_image_indices;
-  std::vector<int> pixel_consistent_image_indices;
-  pixel_consistent_image_indices.reserve(mask.GetDepth());
+  std::vector<int> consistent_image_idxs;
+  std::vector<int> pixel_consistent_image_idxs;
+  pixel_consistent_image_idxs.reserve(mask.GetDepth());
   for (size_t r = 0; r < mask.GetHeight(); ++r) {
     for (size_t c = 0; c < mask.GetWidth(); ++c) {
-      pixel_consistent_image_indices.clear();
+      pixel_consistent_image_idxs.clear();
       for (size_t d = 0; d < mask.GetDepth(); ++d) {
         if (mask.Get(r, c, d)) {
-          pixel_consistent_image_indices.push_back(
-              problem_.src_image_indices[d]);
+          pixel_consistent_image_idxs.push_back(problem_.src_image_idxs[d]);
         }
       }
-      if (pixel_consistent_image_indices.size() > 0) {
-        consistent_image_indices.push_back(c);
-        consistent_image_indices.push_back(r);
-        consistent_image_indices.push_back(
-            pixel_consistent_image_indices.size());
-        consistent_image_indices.insert(consistent_image_indices.end(),
-                                        pixel_consistent_image_indices.begin(),
-                                        pixel_consistent_image_indices.end());
+      if (pixel_consistent_image_idxs.size() > 0) {
+        consistent_image_idxs.push_back(c);
+        consistent_image_idxs.push_back(r);
+        consistent_image_idxs.push_back(pixel_consistent_image_idxs.size());
+        consistent_image_idxs.insert(consistent_image_idxs.end(),
+                                     pixel_consistent_image_idxs.begin(),
+                                     pixel_consistent_image_idxs.end());
       }
     }
   }
-  return consistent_image_indices;
+  return consistent_image_idxs;
 }
 
 template <int kWindowSize, int kWindowStep>
@@ -1421,7 +1419,7 @@ void PatchMatchCuda::InitSourceImages() {
   // Determine maximum image size.
   size_t max_width = 0;
   size_t max_height = 0;
-  for (const auto image_idx : problem_.src_image_indices) {
+  for (const auto image_idx : problem_.src_image_idxs) {
     const Image& image = problem_.images->at(image_idx);
     if (image.GetWidth() > max_width) {
       max_width = image.GetWidth();
@@ -1437,10 +1435,10 @@ void PatchMatchCuda::InitSourceImages() {
     const uint8_t kDefaultValue = 0;
     std::vector<uint8_t> src_images_host_data(
         static_cast<size_t>(max_width * max_height *
-                            problem_.src_image_indices.size()),
+                            problem_.src_image_idxs.size()),
         kDefaultValue);
-    for (size_t i = 0; i < problem_.src_image_indices.size(); ++i) {
-      const Image& image = problem_.images->at(problem_.src_image_indices[i]);
+    for (size_t i = 0; i < problem_.src_image_idxs.size(); ++i) {
+      const Image& image = problem_.images->at(problem_.src_image_idxs[i]);
       const Bitmap& bitmap = image.GetBitmap();
       uint8_t* dest = src_images_host_data.data() + max_width * max_height * i;
       for (size_t r = 0; r < image.GetHeight(); ++r) {
@@ -1451,7 +1449,7 @@ void PatchMatchCuda::InitSourceImages() {
 
     // Upload to device.
     src_images_device_.reset(new CudaArrayWrapper<uint8_t>(
-        max_width, max_height, problem_.src_image_indices.size()));
+        max_width, max_height, problem_.src_image_idxs.size()));
     src_images_device_->CopyToDevice(src_images_host_data.data());
 
     // Create source images texture.
@@ -1469,11 +1467,11 @@ void PatchMatchCuda::InitSourceImages() {
     const float kDefaultValue = 0.0f;
     std::vector<float> src_depth_maps_host_data(
         static_cast<size_t>(max_width * max_height *
-                            problem_.src_image_indices.size()),
+                            problem_.src_image_idxs.size()),
         kDefaultValue);
-    for (size_t i = 0; i < problem_.src_image_indices.size(); ++i) {
+    for (size_t i = 0; i < problem_.src_image_idxs.size(); ++i) {
       const DepthMap& depth_map =
-          problem_.depth_maps->at(problem_.src_image_indices[i]);
+          problem_.depth_maps->at(problem_.src_image_idxs[i]);
       float* dest =
           src_depth_maps_host_data.data() + max_width * max_height * i;
       for (size_t r = 0; r < depth_map.GetHeight(); ++r) {
@@ -1484,7 +1482,7 @@ void PatchMatchCuda::InitSourceImages() {
     }
 
     src_depth_maps_device_.reset(new CudaArrayWrapper<float>(
-        max_width, max_height, problem_.src_image_indices.size()));
+        max_width, max_height, problem_.src_image_idxs.size()));
     src_depth_maps_device_->CopyToDevice(src_depth_maps_host_data.data());
 
     // Create source depth maps texture.
@@ -1558,9 +1556,9 @@ void PatchMatchCuda::InitTransforms() {
   for (size_t i = 0; i < 4; ++i) {
     const size_t kNumTformParams = 4 + 9 + 3 + 3 + 12 + 12;
     std::vector<float> poses_host_data(kNumTformParams *
-                                       problem_.src_image_indices.size());
+                                       problem_.src_image_idxs.size());
     int offset = 0;
-    for (const auto image_idx : problem_.src_image_indices) {
+    for (const auto image_idx : problem_.src_image_idxs) {
       const Image& image = problem_.images->at(image_idx);
 
       const float K[4] = {image.GetK()[0], image.GetK()[2], image.GetK()[4],
@@ -1594,7 +1592,7 @@ void PatchMatchCuda::InitTransforms() {
     }
 
     poses_device_[i].reset(new CudaArrayWrapper<float>(
-        kNumTformParams, problem_.src_image_indices.size(), 1));
+        kNumTformParams, problem_.src_image_idxs.size(), 1));
     poses_device_[i]->CopyToDevice(poses_host_data.data());
 
     RotatePose(R_z90, rotated_R, rotated_T);
@@ -1631,17 +1629,17 @@ void PatchMatchCuda::InitWorkspaceMemory() {
   // However, it is useful to keep the probabilities for the entire image
   // in memory, so that it can be exported.
   sel_prob_map_.reset(new GpuMat<float>(ref_width_, ref_height_,
-                                        problem_.src_image_indices.size()));
-  prev_sel_prob_map_.reset(new GpuMat<float>(
-      ref_width_, ref_height_, problem_.src_image_indices.size()));
+                                        problem_.src_image_idxs.size()));
+  prev_sel_prob_map_.reset(new GpuMat<float>(ref_width_, ref_height_,
+                                             problem_.src_image_idxs.size()));
   prev_sel_prob_map_->FillWithScalar(0.5f);
 
   cost_map_.reset(new GpuMat<float>(ref_width_, ref_height_,
-                                    problem_.src_image_indices.size()));
+                                    problem_.src_image_idxs.size()));
 
   const int ref_max_dim = std::max(ref_width_, ref_height_);
   global_workspace_.reset(
-      new GpuMat<float>(ref_max_dim, problem_.src_image_indices.size(), 2));
+      new GpuMat<float>(ref_max_dim, problem_.src_image_idxs.size(), 2));
 
   consistency_mask_.reset(new GpuMat<uint8_t>(0, 0, 0));
 
@@ -1717,15 +1715,15 @@ void PatchMatchCuda::Rotate() {
 
   // Rotate selection probability map.
   prev_sel_prob_map_.reset(
-      new GpuMat<float>(width, height, problem_.src_image_indices.size()));
+      new GpuMat<float>(width, height, problem_.src_image_idxs.size()));
   sel_prob_map_->Rotate(prev_sel_prob_map_.get());
   sel_prob_map_.reset(
-      new GpuMat<float>(width, height, problem_.src_image_indices.size()));
+      new GpuMat<float>(width, height, problem_.src_image_idxs.size()));
 
   // Rotate cost map.
   {
     std::unique_ptr<GpuMat<float>> rotated_cost_map(
-        new GpuMat<float>(width, height, problem_.src_image_indices.size()));
+        new GpuMat<float>(width, height, problem_.src_image_idxs.size()));
     cost_map_->Rotate(rotated_cost_map.get());
     cost_map_.swap(rotated_cost_map);
   }
