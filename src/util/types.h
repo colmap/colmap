@@ -101,4 +101,20 @@ const point3D_t kInvalidPoint3DId = std::numeric_limits<point3D_t>::max();
 
 }  // namespace colmap
 
+// This file provides specializations of the templated hash function for
+// custom types. These are used for comparison in unordered sets/maps.
+namespace std {
+
+// Hash function specialization for uint32_t pairs, e.g., image_t or camera_t.
+template <>
+struct hash<std::pair<uint32_t, uint32_t>> {
+  std::size_t operator()(const std::pair<uint32_t, uint32_t>& p) const {
+    const uint64_t s = (static_cast<uint64_t>(p.first) << 32) +
+                       static_cast<uint64_t>(p.second);
+    return std::hash<uint64_t>()(s);
+  }
+};
+
+}  // namespace std
+
 #endif  // COLMAP_SRC_UTIL_TYPES_H_
