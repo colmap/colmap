@@ -169,8 +169,8 @@ class EPNPEstimator {
   double ComputeTotalReprojectionError(const Eigen::Matrix3d& R,
                                        const Eigen::Vector3d& t);
 
-  std::vector<Eigen::Vector2d> points2D_;
-  std::vector<Eigen::Vector3d> points3D_;
+  const std::vector<Eigen::Vector2d>* points2D_ = nullptr;
+  const std::vector<Eigen::Vector3d>* points3D_ = nullptr;
   std::vector<Eigen::Vector3d> pcs_;
   std::vector<Eigen::Vector4d> alphas_;
   std::array<Eigen::Vector3d, 4> cws_;
