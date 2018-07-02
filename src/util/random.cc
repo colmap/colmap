@@ -47,6 +47,7 @@ void SetPRNGSeed(unsigned seed) {
   }
 
   PRNG = new std::mt19937(seed);
+  srand(seed);
 }
 
 }  // namespace colmap
