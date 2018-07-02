@@ -29,8 +29,8 @@
 //
 // Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
 
-#ifndef COLMAP_SRC_BASE_SCENE_GRAPH_H_
-#define COLMAP_SRC_BASE_SCENE_GRAPH_H_
+#ifndef COLMAP_SRC_BASE_CORRESPONDENCE_GRAPH_H_
+#define COLMAP_SRC_BASE_CORRESPONDENCE_GRAPH_H_
 
 #include <unordered_map>
 #include <vector>
@@ -42,7 +42,7 @@ namespace colmap {
 
 // Scene graph represents the graph of image to image and feature to feature
 // correspondences of a dataset. It should be accessed from the DatabaseCache.
-class SceneGraph {
+class CorrespondenceGraph {
  public:
   struct Correspondence {
     Correspondence()
@@ -57,10 +57,13 @@ class SceneGraph {
     point2D_t point2D_idx;
   };
 
-  SceneGraph();
+  CorrespondenceGraph();
 
   // Number of added images.
   inline size_t NumImages() const;
+
+  // Number of added images.
+  inline size_t NumImagePairs() const;
 
   // Check whether image exists.
   inline bool ExistsImage(const image_t image_id) const;
@@ -77,8 +80,8 @@ class SceneGraph {
       const image_t image_id1, const image_t image_id2) const;
 
   // Get the number of correspondences between all images.
-  inline const std::unordered_map<image_pair_t, point2D_t>&
-  NumCorrespondencesBetweenImages() const;
+  std::unordered_map<image_pair_t, point2D_t> NumCorrespondencesBetweenImages()
+      const;
 
   // Finalize the database manager.
   //
@@ -88,17 +91,17 @@ class SceneGraph {
   // - Shrinks the correspondence vectors to their size to save memory.
   void Finalize();
 
-  // Add new image to the scene graph.
+  // Add new image to the correspondence graph.
   void AddImage(const image_t image_id, const size_t num_points2D);
 
-  // Add matches between images. This function ignores invalid correspondences
-  // where the point indices are out of bounds or duplicate correspondences
-  // between the same image points. Whenever either of the two cases occur
-  // this function prints a warning to the standard output.
+  // Add correspondences between images. This function ignores invalid
+  // correspondences where the point indices are out of bounds or duplicate
+  // correspondences between the same image points. Whenever either of the two
+  // cases occur this function prints a warning to the standard output.
   void AddCorrespondences(const image_t image_id1, const image_t image_id2,
                           const FeatureMatches& matches);
 
-  // Find the correspondence of an image point to any other image.
+  // Find the correspondence of an image observation to all other images.
   inline const std::vector<Correspondence>& FindCorrespondences(
       const image_t image_id, const point2D_t point2D_idx) const;
 
@@ -115,7 +118,7 @@ class SceneGraph {
       const size_t transitivity) const;
 
   // Find all correspondences between two images.
-  std::vector<std::pair<point2D_t, point2D_t>> FindCorrespondencesBetweenImages(
+  FeatureMatches FindCorrespondencesBetweenImages(
       const image_t image_id1, const image_t image_id2) const;
 
   // Check whether the image point has correspondences.
@@ -141,32 +144,40 @@ class SceneGraph {
     std::vector<std::vector<Correspondence>> corrs;
   };
 
-  // The nodes of the scene graph are images.
-  EIGEN_STL_UMAP(image_t, Image) images_;
+  struct ImagePair {
+    // The number of correspondences between pairs of images.
+    point2D_t num_correspondences = 0;
+  };
 
-  // The number of correspondences between pairs of images.
-  std::unordered_map<image_pair_t, point2D_t> image_pairs_;
+  EIGEN_STL_UMAP(image_t, Image) images_;
+  std::unordered_map<image_pair_t, ImagePair> image_pairs_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-size_t SceneGraph::NumImages() const { return images_.size(); }
+size_t CorrespondenceGraph::NumImages() const { return images_.size(); }
 
-bool SceneGraph::ExistsImage(const image_t image_id) const {
+size_t CorrespondenceGraph::NumImagePairs() const {
+  return image_pairs_.size();
+}
+
+bool CorrespondenceGraph::ExistsImage(const image_t image_id) const {
   return images_.find(image_id) != images_.end();
 }
 
-point2D_t SceneGraph::NumObservationsForImage(const image_t image_id) const {
+point2D_t CorrespondenceGraph::NumObservationsForImage(
+    const image_t image_id) const {
   return images_.at(image_id).num_observations;
 }
 
-point2D_t SceneGraph::NumCorrespondencesForImage(const image_t image_id) const {
+point2D_t CorrespondenceGraph::NumCorrespondencesForImage(
+    const image_t image_id) const {
   return images_.at(image_id).num_correspondences;
 }
 
-point2D_t SceneGraph::NumCorrespondencesBetweenImages(
+point2D_t CorrespondenceGraph::NumCorrespondencesBetweenImages(
     const image_t image_id1, const image_t image_id2) const {
   const image_pair_t pair_id =
       Database::ImagePairToPairId(image_id1, image_id2);
@@ -174,25 +185,21 @@ point2D_t SceneGraph::NumCorrespondencesBetweenImages(
   if (it == image_pairs_.end()) {
     return 0;
   } else {
-    return static_cast<point2D_t>(it->second);
+    return static_cast<point2D_t>(it->second.num_correspondences);
   }
 }
 
-inline const std::unordered_map<image_pair_t, point2D_t>&
-SceneGraph::NumCorrespondencesBetweenImages() const {
-  return image_pairs_;
-}
-
-const std::vector<SceneGraph::Correspondence>& SceneGraph::FindCorrespondences(
-    const image_t image_id, const point2D_t point2D_idx) const {
+const std::vector<CorrespondenceGraph::Correspondence>&
+CorrespondenceGraph::FindCorrespondences(const image_t image_id,
+                                         const point2D_t point2D_idx) const {
   return images_.at(image_id).corrs.at(point2D_idx);
 }
 
-bool SceneGraph::HasCorrespondences(const image_t image_id,
-                                    const point2D_t point2D_idx) const {
+bool CorrespondenceGraph::HasCorrespondences(
+    const image_t image_id, const point2D_t point2D_idx) const {
   return !images_.at(image_id).corrs.at(point2D_idx).empty();
 }
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_BASE_SCENE_GRAPH_H_
+#endif  // COLMAP_SRC_BASE_CORRESPONDENCE_GRAPH_H_

@@ -539,11 +539,25 @@ void Database::ReadTwoViewGeometries(
     image_pair_ids->push_back(pair_id);
 
     TwoViewGeometry two_view_geometry;
+
     const FeatureMatchesBlob blob = ReadDynamicMatrixBlob<FeatureMatchesBlob>(
         sql_stmt_read_two_view_geometries_, rc, 1);
+    two_view_geometry.inlier_matches = FeatureMatchesFromBlob(blob);
+
     two_view_geometry.config = static_cast<int>(
         sqlite3_column_int64(sql_stmt_read_two_view_geometries_, 4));
-    two_view_geometry.inlier_matches = FeatureMatchesFromBlob(blob);
+
+    two_view_geometry.F = ReadStaticMatrixBlob<Eigen::Matrix3d>(
+        sql_stmt_read_two_view_geometries_, rc, 5);
+    two_view_geometry.E = ReadStaticMatrixBlob<Eigen::Matrix3d>(
+        sql_stmt_read_two_view_geometries_, rc, 6);
+    two_view_geometry.H = ReadStaticMatrixBlob<Eigen::Matrix3d>(
+        sql_stmt_read_two_view_geometries_, rc, 7);
+
+    two_view_geometry.F.transposeInPlace();
+    two_view_geometry.E.transposeInPlace();
+    two_view_geometry.H.transposeInPlace();
+
     two_view_geometries->push_back(two_view_geometry);
   }
 

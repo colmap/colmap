@@ -52,9 +52,11 @@ bool IncrementalTriangulator::Options::Check() const {
   return true;
 }
 
-IncrementalTriangulator::IncrementalTriangulator(const SceneGraph* scene_graph,
-                                                 Reconstruction* reconstruction)
-    : scene_graph_(scene_graph), reconstruction_(reconstruction) {}
+IncrementalTriangulator::IncrementalTriangulator(
+    const CorrespondenceGraph* correspondence_graph,
+    Reconstruction* reconstruction)
+    : correspondence_graph_(correspondence_graph),
+      reconstruction_(reconstruction) {}
 
 size_t IncrementalTriangulator::TriangulateImage(const Options& options,
                                                  const image_t image_id) {
@@ -165,7 +167,7 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
     }
 
     if (options.ignore_two_view_tracks &&
-        scene_graph_->IsTwoViewObservation(image_id, point2D_idx)) {
+        correspondence_graph_->IsTwoViewObservation(image_id, point2D_idx)) {
       continue;
     }
 
@@ -341,12 +343,13 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
 
     // Find correspondences and perform retriangulation.
 
-    const std::vector<std::pair<point2D_t, point2D_t>> corrs =
-        scene_graph_->FindCorrespondencesBetweenImages(image_id1, image_id2);
+    const FeatureMatches& corrs =
+        correspondence_graph_->FindCorrespondencesBetweenImages(image_id1,
+                                                                image_id2);
 
     for (const auto& corr : corrs) {
-      const Point2D& point2D1 = image1.Point2D(corr.first);
-      const Point2D& point2D2 = image2.Point2D(corr.second);
+      const Point2D& point2D1 = image1.Point2D(corr.point2D_idx1);
+      const Point2D& point2D2 = image2.Point2D(corr.point2D_idx2);
 
       // Two cases are possible here: both points belong to the same 3D point
       // or to different 3D points. In the former case, there is nothing
@@ -359,7 +362,7 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
 
       CorrData corr_data1;
       corr_data1.image_id = image_id1;
-      corr_data1.point2D_idx = corr.first;
+      corr_data1.point2D_idx = corr.point2D_idx1;
       corr_data1.image = &image1;
       corr_data1.camera = &camera1;
       corr_data1.point2D = &point2D1;
@@ -367,7 +370,7 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
 
       CorrData corr_data2;
       corr_data2.image_id = image_id2;
-      corr_data2.point2D_idx = corr.second;
+      corr_data2.point2D_idx = corr.point2D_idx2;
       corr_data2.image = &image2;
       corr_data2.camera = &camera2;
       corr_data2.point2D = &point2D2;
@@ -421,16 +424,16 @@ size_t IncrementalTriangulator::Find(const Options& options,
                                      const point2D_t point2D_idx,
                                      const size_t transitivity,
                                      std::vector<CorrData>* corrs_data) {
-  const std::vector<SceneGraph::Correspondence>& corrs =
-      scene_graph_->FindTransitiveCorrespondences(image_id, point2D_idx,
-                                                  transitivity);
+  const std::vector<CorrespondenceGraph::Correspondence>& corrs =
+      correspondence_graph_->FindTransitiveCorrespondences(
+          image_id, point2D_idx, transitivity);
 
   corrs_data->clear();
   corrs_data->reserve(corrs.size());
 
   size_t num_triangulated = 0;
 
-  for (const SceneGraph::Correspondence corr : corrs) {
+  for (const CorrespondenceGraph::Correspondence corr : corrs) {
     const Image& corr_image = reconstruction_->Image(corr.image_id);
     if (!corr_image.IsRegistered()) {
       continue;
@@ -475,8 +478,8 @@ size_t IncrementalTriangulator::Create(
     return 0;
   } else if (options.ignore_two_view_tracks && create_corrs_data.size() == 2) {
     const CorrData& corr_data1 = create_corrs_data[0];
-    if (scene_graph_->IsTwoViewObservation(corr_data1.image_id,
-                                           corr_data1.point2D_idx)) {
+    if (correspondence_graph_->IsTwoViewObservation(corr_data1.image_id,
+                                                    corr_data1.point2D_idx)) {
       return 0;
     }
   }
@@ -599,9 +602,9 @@ size_t IncrementalTriangulator::Merge(const Options& options,
   const auto& point3D = reconstruction_->Point3D(point3D_id);
 
   for (const auto& track_el : point3D.Track().Elements()) {
-    const std::vector<SceneGraph::Correspondence>& corrs =
-        scene_graph_->FindCorrespondences(track_el.image_id,
-                                          track_el.point2D_idx);
+    const std::vector<CorrespondenceGraph::Correspondence>& corrs =
+        correspondence_graph_->FindCorrespondences(track_el.image_id,
+                                                   track_el.point2D_idx);
 
     for (const auto corr : corrs) {
       const auto& image = reconstruction_->Image(corr.image_id);
@@ -705,9 +708,9 @@ size_t IncrementalTriangulator::Complete(const Options& options,
     queue.clear();
 
     for (const TrackElement queue_elem : prev_queue) {
-      const std::vector<SceneGraph::Correspondence>& corrs =
-          scene_graph_->FindCorrespondences(queue_elem.image_id,
-                                            queue_elem.point2D_idx);
+      const std::vector<CorrespondenceGraph::Correspondence>& corrs =
+          correspondence_graph_->FindCorrespondences(queue_elem.image_id,
+                                                     queue_elem.point2D_idx);
 
       for (const auto corr : corrs) {
         const Image& image = reconstruction_->Image(corr.image_id);

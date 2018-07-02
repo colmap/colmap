@@ -47,7 +47,7 @@
 namespace colmap {
 
 Reconstruction::Reconstruction()
-    : scene_graph_(nullptr), num_added_points3D_(0) {}
+    : correspondence_graph_(nullptr), num_added_points3D_(0) {}
 
 std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
   std::unordered_set<point3D_t> point3D_ids;
@@ -61,7 +61,7 @@ std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
 }
 
 void Reconstruction::Load(const DatabaseCache& database_cache) {
-  scene_graph_ = nullptr;
+  correspondence_graph_ = nullptr;
 
   // Add cameras.
   cameras_.reserve(database_cache.NumCameras());
@@ -93,17 +93,17 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
 
   // Add image pairs.
   for (const auto& image_pair :
-       database_cache.SceneGraph().NumCorrespondencesBetweenImages()) {
+       database_cache.CorrespondenceGraph().NumCorrespondencesBetweenImages()) {
     image_pairs_[image_pair.first] = std::make_pair(0, image_pair.second);
   }
 }
 
-void Reconstruction::SetUp(const SceneGraph* scene_graph) {
-  CHECK_NOTNULL(scene_graph);
+void Reconstruction::SetUp(const CorrespondenceGraph* correspondence_graph) {
+  CHECK_NOTNULL(correspondence_graph);
   for (auto& image : images_) {
     image.second.SetUp(Camera(image.second.CameraId()));
   }
-  scene_graph_ = scene_graph;
+  correspondence_graph_ = correspondence_graph;
 
   // If an existing model was loaded from disk and there were already images
   // registered previously, we need to set observations as triangulated.
@@ -121,7 +121,7 @@ void Reconstruction::SetUp(const SceneGraph* scene_graph) {
 }
 
 void Reconstruction::TearDown() {
-  scene_graph_ = nullptr;
+  correspondence_graph_ = nullptr;
 
   // Remove all not yet registered images.
   std::unordered_set<camera_t> keep_camera_ids;
@@ -1882,14 +1882,14 @@ void Reconstruction::WritePoints3DBinary(const std::string& path) const {
 void Reconstruction::SetObservationAsTriangulated(
     const image_t image_id, const point2D_t point2D_idx,
     const bool is_continued_point3D) {
-  if (scene_graph_ == nullptr) {
+  if (correspondence_graph_ == nullptr) {
     return;
   }
 
   const class Image& image = Image(image_id);
   const Point2D& point2D = image.Point2D(point2D_idx);
-  const std::vector<SceneGraph::Correspondence>& corrs =
-      scene_graph_->FindCorrespondences(image_id, point2D_idx);
+  const std::vector<CorrespondenceGraph::Correspondence>& corrs =
+      correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
 
   CHECK(image.IsRegistered());
   CHECK(point2D.HasPoint3D());
@@ -1906,7 +1906,7 @@ void Reconstruction::SetObservationAsTriangulated(
           Database::ImagePairToPairId(image_id, corr.image_id);
       image_pairs_[pair_id].first += 1;
       CHECK_LE(image_pairs_[pair_id].first, image_pairs_[pair_id].second)
-          << "The scene graph graph must not contain duplicate matches";
+          << "The correspondence graph graph must not contain duplicate matches";
     }
   }
 }
@@ -1914,14 +1914,14 @@ void Reconstruction::SetObservationAsTriangulated(
 void Reconstruction::ResetTriObservations(const image_t image_id,
                                           const point2D_t point2D_idx,
                                           const bool is_deleted_point3D) {
-  if (scene_graph_ == nullptr) {
+  if (correspondence_graph_ == nullptr) {
     return;
   }
 
   const class Image& image = Image(image_id);
   const Point2D& point2D = image.Point2D(point2D_idx);
-  const std::vector<SceneGraph::Correspondence>& corrs =
-      scene_graph_->FindCorrespondences(image_id, point2D_idx);
+  const std::vector<CorrespondenceGraph::Correspondence>& corrs =
+      correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
 
   CHECK(image.IsRegistered());
   CHECK(point2D.HasPoint3D());

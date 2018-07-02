@@ -77,9 +77,10 @@ BOOST_AUTO_TEST_CASE(TestAddImage) {
   BOOST_CHECK(cache.ExistsImage(image.ImageId()));
   BOOST_CHECK_EQUAL(cache.Image(image.ImageId()).NumPoints2D(),
                     image.NumPoints2D());
-  BOOST_CHECK(cache.SceneGraph().ExistsImage(image.ImageId()));
+  BOOST_CHECK(cache.CorrespondenceGraph().ExistsImage(image.ImageId()));
   BOOST_CHECK_EQUAL(
-      cache.SceneGraph().NumCorrespondencesForImage(image.ImageId()), 0);
-  BOOST_CHECK_EQUAL(cache.SceneGraph().NumObservationsForImage(image.ImageId()),
-                    0);
+      cache.CorrespondenceGraph().NumCorrespondencesForImage(image.ImageId()),
+      0);
+  BOOST_CHECK_EQUAL(
+      cache.CorrespondenceGraph().NumObservationsForImage(image.ImageId()), 0);
 }

@@ -41,9 +41,9 @@
 
 #include "base/camera.h"
 #include "base/camera_models.h"
+#include "base/correspondence_graph.h"
 #include "base/database.h"
 #include "base/image.h"
-#include "base/scene_graph.h"
 #include "util/alignment.h"
 #include "util/types.h"
 
@@ -73,8 +73,8 @@ class DatabaseCache {
   inline bool ExistsCamera(const camera_t camera_id) const;
   inline bool ExistsImage(const image_t image_id) const;
 
-  // Get reference to scene graph.
-  inline const class SceneGraph& SceneGraph() const;
+  // Get reference to correspondence graph.
+  inline const class CorrespondenceGraph& CorrespondenceGraph() const;
 
   // Manually add data to cache.
   void AddCamera(const class Camera& camera);
@@ -93,7 +93,7 @@ class DatabaseCache {
             const std::set<std::string>& image_names);
 
  private:
-  class SceneGraph scene_graph_;
+  class CorrespondenceGraph correspondence_graph_;
 
   EIGEN_STL_UMAP(camera_t, class Camera) cameras_;
   EIGEN_STL_UMAP(image_t, class Image) images_;
@@ -138,8 +138,9 @@ bool DatabaseCache::ExistsImage(const image_t image_id) const {
   return images_.find(image_id) != images_.end();
 }
 
-inline const class SceneGraph& DatabaseCache::SceneGraph() const {
-  return scene_graph_;
+inline const class CorrespondenceGraph& DatabaseCache::CorrespondenceGraph()
+    const {
+  return correspondence_graph_;
 }
 
 }  // namespace colmap

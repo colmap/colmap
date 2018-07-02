@@ -32,6 +32,8 @@
 #define TEST_NAME "feature/types"
 #include "util/testing.h"
 
+#include <unordered_set>
+
 #include "feature/types.h"
 #include "util/math.h"
 
@@ -230,4 +232,20 @@ BOOST_AUTO_TEST_CASE(TestFeatureMatches) {
   BOOST_CHECK_EQUAL(matches.size(), 1);
   BOOST_CHECK_EQUAL(matches[0].point2D_idx1, kInvalidPoint2DIdx);
   BOOST_CHECK_EQUAL(matches[0].point2D_idx2, kInvalidPoint2DIdx);
+}
+
+BOOST_AUTO_TEST_CASE(TestFeatureMatchHashing) {
+  std::unordered_set<std::pair<point2D_t, point2D_t>> set;
+  set.emplace(1, 2);
+  BOOST_CHECK_EQUAL(set.size(), 1);
+  set.emplace(1, 2);
+  BOOST_CHECK_EQUAL(set.size(), 1);
+  BOOST_CHECK_EQUAL(set.count(std::make_pair(0, 0)), 0);
+  BOOST_CHECK_EQUAL(set.count(std::make_pair(1, 2)), 1);
+  BOOST_CHECK_EQUAL(set.count(std::make_pair(2, 1)), 0);
+  set.emplace(2, 1);
+  BOOST_CHECK_EQUAL(set.size(), 2);
+  BOOST_CHECK_EQUAL(set.count(std::make_pair(0, 0)), 0);
+  BOOST_CHECK_EQUAL(set.count(std::make_pair(1, 2)), 1);
+  BOOST_CHECK_EQUAL(set.count(std::make_pair(2, 1)), 1);
 }

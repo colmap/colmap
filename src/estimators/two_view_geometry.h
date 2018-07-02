@@ -128,10 +128,10 @@ struct TwoViewGeometry {
         H(Eigen::Matrix3d::Zero()),
         qvec(Eigen::Vector4d::Zero()),
         tvec(Eigen::Vector3d::Zero()),
-        tri_angle(0),
-        E_num_inliers(0),
-        F_num_inliers(0),
-        H_num_inliers(0) {}
+        tri_angle(0) {}
+
+  // Invert the two-view geometry in-place.
+  void Invert();
 
   // Estimate two-view geometry from calibrated or uncalibrated image pair,
   // depending on whether a prior focal length is given or not.
@@ -240,15 +240,9 @@ struct TwoViewGeometry {
 
   // Inlier matches of the configuration.
   FeatureMatches inlier_matches;
-  std::vector<char> inlier_mask;
 
   // Median triangulation angle.
   double tri_angle;
-
-  // Number of inliers.
-  size_t E_num_inliers;
-  size_t F_num_inliers;
-  size_t H_num_inliers;
 };
 
 }  // namespace colmap

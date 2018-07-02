@@ -106,9 +106,9 @@ void IncrementalMapper::BeginReconstruction(Reconstruction* reconstruction) {
   CHECK(reconstruction_ == nullptr);
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
-  reconstruction_->SetUp(&database_cache_->SceneGraph());
+  reconstruction_->SetUp(&database_cache_->CorrespondenceGraph());
   triangulator_.reset(new IncrementalTriangulator(
-      &database_cache_->SceneGraph(), reconstruction));
+      &database_cache_->CorrespondenceGraph(), reconstruction));
 
   num_shared_reg_images_ = 0;
   for (const image_t image_id : reconstruction_->RegImageIds()) {
@@ -299,9 +299,11 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
   RegisterImageEvent(image_id1);
   RegisterImageEvent(image_id2);
 
-  const SceneGraph& scene_graph = database_cache_->SceneGraph();
-  const std::vector<std::pair<point2D_t, point2D_t>>& corrs =
-      scene_graph.FindCorrespondencesBetweenImages(image_id1, image_id2);
+  const CorrespondenceGraph& correspondence_graph =
+      database_cache_->CorrespondenceGraph();
+  const FeatureMatches& corrs =
+      correspondence_graph.FindCorrespondencesBetweenImages(image_id1,
+                                                            image_id2);
 
   const double min_tri_angle_rad = DegToRad(options.init_min_tri_angle);
 
@@ -312,13 +314,11 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
   track.AddElement(TrackElement());
   track.Element(0).image_id = image_id1;
   track.Element(1).image_id = image_id2;
-  for (size_t i = 0; i < corrs.size(); ++i) {
-    const point2D_t point2D_idx1 = corrs[i].first;
-    const point2D_t point2D_idx2 = corrs[i].second;
+  for (const auto& corr : corrs) {
     const Eigen::Vector2d point1_N =
-        camera1.ImageToWorld(image1.Point2D(point2D_idx1).XY());
+        camera1.ImageToWorld(image1.Point2D(corr.point2D_idx1).XY());
     const Eigen::Vector2d point2_N =
-        camera2.ImageToWorld(image2.Point2D(point2D_idx2).XY());
+        camera2.ImageToWorld(image2.Point2D(corr.point2D_idx2).XY());
     const Eigen::Vector3d& xyz =
         TriangulatePoint(proj_matrix1, proj_matrix2, point1_N, point2_N);
     const double tri_angle =
@@ -326,8 +326,8 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
     if (tri_angle >= min_tri_angle_rad &&
         HasPointPositiveDepth(proj_matrix1, xyz) &&
         HasPointPositiveDepth(proj_matrix2, xyz)) {
-      track.Element(0).point2D_idx = point2D_idx1;
-      track.Element(1).point2D_idx = point2D_idx2;
+      track.Element(0).point2D_idx = corr.point2D_idx1;
+      track.Element(1).point2D_idx = corr.point2D_idx2;
       reconstruction_->AddPoint3D(xyz, track);
     }
   }
@@ -368,10 +368,11 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
        ++point2D_idx) {
     const Point2D& point2D = image.Point2D(point2D_idx);
-    const SceneGraph& scene_graph = database_cache_->SceneGraph();
-    const std::vector<SceneGraph::Correspondence> corrs =
-        scene_graph.FindTransitiveCorrespondences(image_id, point2D_idx,
-                                                  kCorrTransitivity);
+    const CorrespondenceGraph& correspondence_graph =
+        database_cache_->CorrespondenceGraph();
+    const std::vector<CorrespondenceGraph::Correspondence> corrs =
+        correspondence_graph.FindTransitiveCorrespondences(
+            image_id, point2D_idx, kCorrTransitivity);
 
     std::unordered_set<point3D_t> point3D_ids;
 
@@ -823,7 +824,8 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
 
 std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
     const Options& options, const image_t image_id1) const {
-  const SceneGraph& scene_graph = database_cache_->SceneGraph();
+  const CorrespondenceGraph& correspondence_graph =
+      database_cache_->CorrespondenceGraph();
 
   // Collect images that are connected to the first seed image and have
   // not been registered before in other reconstructions.
@@ -831,9 +833,8 @@ std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
   std::unordered_map<image_t, point2D_t> num_correspondences;
   for (point2D_t point2D_idx = 0; point2D_idx < image1.NumPoints2D();
        ++point2D_idx) {
-    const std::vector<SceneGraph::Correspondence>& corrs =
-        scene_graph.FindCorrespondences(image_id1, point2D_idx);
-    for (const SceneGraph::Correspondence& corr : corrs) {
+    for (const auto& corr :
+         correspondence_graph.FindCorrespondences(image_id1, point2D_idx)) {
       if (num_registrations_.count(corr.image_id) == 0 ||
           num_registrations_.at(corr.image_id) == 0) {
         num_correspondences[corr.image_id] += 1;
@@ -976,9 +977,11 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
   const Image& image2 = database_cache_->Image(image_id2);
   const Camera& camera2 = database_cache_->Camera(image2.CameraId());
 
-  const SceneGraph& scene_graph = database_cache_->SceneGraph();
-  const std::vector<std::pair<point2D_t, point2D_t>>& corrs =
-      scene_graph.FindCorrespondencesBetweenImages(image_id1, image_id2);
+  const CorrespondenceGraph& correspondence_graph =
+      database_cache_->CorrespondenceGraph();
+  const FeatureMatches matches =
+      correspondence_graph.FindCorrespondencesBetweenImages(image_id1,
+                                                            image_id2);
 
   std::vector<Eigen::Vector2d> points1;
   points1.reserve(image1.NumPoints2D());
@@ -990,13 +993,6 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
   points2.reserve(image2.NumPoints2D());
   for (const auto& point : image2.Points2D()) {
     points2.push_back(point.XY());
-  }
-
-  FeatureMatches matches;
-  matches.resize(corrs.size());
-  for (size_t i = 0; i < corrs.size(); ++i) {
-    matches[i].point2D_idx1 = corrs[i].first;
-    matches[i].point2D_idx2 = corrs[i].second;
   }
 
   TwoViewGeometry two_view_geometry;

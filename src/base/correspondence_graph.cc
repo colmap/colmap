@@ -29,17 +29,29 @@
 //
 // Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
 
-#include "base/scene_graph.h"
+#include "base/correspondence_graph.h"
 
 #include <unordered_set>
 
+#include "base/pose.h"
 #include "util/string.h"
 
 namespace colmap {
 
-SceneGraph::SceneGraph() {}
+CorrespondenceGraph::CorrespondenceGraph() {}
 
-void SceneGraph::Finalize() {
+std::unordered_map<image_pair_t, point2D_t>
+CorrespondenceGraph::NumCorrespondencesBetweenImages() const {
+  std::unordered_map<image_pair_t, point2D_t> num_corrs_between_images;
+  num_corrs_between_images.reserve(image_pairs_.size());
+  for (const auto& image_pair : image_pairs_) {
+    num_corrs_between_images.emplace(image_pair.first,
+                                     image_pair.second.num_correspondences);
+  }
+  return num_corrs_between_images;
+}
+
+void CorrespondenceGraph::Finalize() {
   for (auto it = images_.begin(); it != images_.end();) {
     it->second.num_observations = 0;
     for (auto& corr : it->second.corrs) {
@@ -56,14 +68,15 @@ void SceneGraph::Finalize() {
   }
 }
 
-void SceneGraph::AddImage(const image_t image_id, const size_t num_points) {
+void CorrespondenceGraph::AddImage(const image_t image_id,
+                                   const size_t num_points) {
   CHECK(!ExistsImage(image_id));
   images_[image_id].corrs.resize(num_points);
 }
 
-void SceneGraph::AddCorrespondences(const image_t image_id1,
-                                    const image_t image_id2,
-                                    const FeatureMatches& matches) {
+void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
+                                             const image_t image_id2,
+                                             const FeatureMatches& matches) {
   // Avoid self-matches - should only happen, if user provides custom matches.
   if (image_id1 == image_id2) {
     std::cout << "WARNING: Cannot use self-matches for image_id=" << image_id1
@@ -79,25 +92,25 @@ void SceneGraph::AddCorrespondences(const image_t image_id1,
   image1.num_correspondences += matches.size();
   image2.num_correspondences += matches.size();
 
+  // Set the number of all correspondences for this image pair. Further below,
+  // we will make sure that only unique correspondences are counted.
   const image_pair_t pair_id =
       Database::ImagePairToPairId(image_id1, image_id2);
-  point2D_t& num_correspondences = image_pairs_[pair_id];
-  num_correspondences += static_cast<point2D_t>(matches.size());
+  auto& image_pair = image_pairs_[pair_id];
+  image_pair.num_correspondences += static_cast<point2D_t>(matches.size());
 
   // Store all matches in correspondence graph data structure. This data-
   // structure uses more memory than storing the raw match matrices, but is
   // significantly more efficient when updating the correspondences in case an
   // observation is triangulated.
-  for (size_t i = 0; i < matches.size(); ++i) {
-    const point2D_t point2D_idx1 = matches[i].point2D_idx1;
-    const point2D_t point2D_idx2 = matches[i].point2D_idx2;
 
-    const bool valid_idx1 = point2D_idx1 < image1.corrs.size();
-    const bool valid_idx2 = point2D_idx2 < image2.corrs.size();
+  for (const auto& match : matches) {
+    const bool valid_idx1 = match.point2D_idx1 < image1.corrs.size();
+    const bool valid_idx2 = match.point2D_idx2 < image2.corrs.size();
 
     if (valid_idx1 && valid_idx2) {
-      auto& corrs1 = image1.corrs[point2D_idx1];
-      auto& corrs2 = image2.corrs[point2D_idx2];
+      auto& corrs1 = image1.corrs[match.point2D_idx1];
+      auto& corrs2 = image2.corrs[match.point2D_idx2];
 
       const bool duplicate1 =
           std::find_if(corrs1.begin(), corrs1.end(),
@@ -113,43 +126,44 @@ void SceneGraph::AddCorrespondences(const image_t image_id1,
       if (duplicate1 || duplicate2) {
         image1.num_correspondences -= 1;
         image2.num_correspondences -= 1;
-        num_correspondences -= 1;
+        image_pair.num_correspondences -= 1;
         std::cout << StringPrintf(
                          "WARNING: Duplicate correspondence between "
                          "point2D_idx=%d in image_id=%d and point2D_idx=%d in "
                          "image_id=%d",
-                         point2D_idx1, image_id1, point2D_idx2, image_id2)
+                         match.point2D_idx1, image_id1, match.point2D_idx2,
+                         image_id2)
                   << std::endl;
       } else {
-        corrs1.emplace_back(image_id2, point2D_idx2);
-        corrs2.emplace_back(image_id1, point2D_idx1);
+        corrs1.emplace_back(image_id2, match.point2D_idx2);
+        corrs2.emplace_back(image_id1, match.point2D_idx1);
       }
     } else {
       image1.num_correspondences -= 1;
       image2.num_correspondences -= 1;
-      num_correspondences -= 1;
+      image_pair.num_correspondences -= 1;
       if (!valid_idx1) {
         std::cout
             << StringPrintf(
                    "WARNING: point2D_idx=%d in image_id=%d does not exist",
-                   point2D_idx1, image_id1)
+                   match.point2D_idx1, image_id1)
             << std::endl;
       }
       if (!valid_idx2) {
         std::cout
             << StringPrintf(
                    "WARNING: point2D_idx=%d in image_id=%d does not exist",
-                   point2D_idx2, image_id2)
+                   match.point2D_idx2, image_id2)
             << std::endl;
       }
     }
   }
 }
 
-std::vector<SceneGraph::Correspondence>
-SceneGraph::FindTransitiveCorrespondences(const image_t image_id,
-                                          const point2D_t point2D_idx,
-                                          const size_t transitivity) const {
+std::vector<CorrespondenceGraph::Correspondence>
+CorrespondenceGraph::FindTransitiveCorrespondences(
+    const image_t image_id, const point2D_t point2D_idx,
+    const size_t transitivity) const {
   if (transitivity == 1) {
     return FindCorrespondences(image_id, point2D_idx);
   }
@@ -207,11 +221,20 @@ SceneGraph::FindTransitiveCorrespondences(const image_t image_id,
   return found_corrs;
 }
 
-std::vector<std::pair<point2D_t, point2D_t>>
-SceneGraph::FindCorrespondencesBetweenImages(const image_t image_id1,
-                                             const image_t image_id2) const {
-  std::vector<std::pair<point2D_t, point2D_t>> found_corrs;
+FeatureMatches CorrespondenceGraph::FindCorrespondencesBetweenImages(
+    const image_t image_id1, const image_t image_id2) const {
+  const auto num_correspondences =
+      NumCorrespondencesBetweenImages(image_id1, image_id2);
+
+  if (num_correspondences == 0) {
+    return {};
+  }
+
+  FeatureMatches found_corrs;
+  found_corrs.reserve(num_correspondences);
+
   const struct Image& image1 = images_.at(image_id1);
+
   for (point2D_t point2D_idx1 = 0; point2D_idx1 < image1.corrs.size();
        ++point2D_idx1) {
     for (const Correspondence& corr1 : image1.corrs[point2D_idx1]) {
@@ -220,11 +243,12 @@ SceneGraph::FindCorrespondencesBetweenImages(const image_t image_id1,
       }
     }
   }
+
   return found_corrs;
 }
 
-bool SceneGraph::IsTwoViewObservation(const image_t image_id,
-                                      const point2D_t point2D_idx) const {
+bool CorrespondenceGraph::IsTwoViewObservation(
+    const image_t image_id, const point2D_t point2D_idx) const {
   const struct Image& image = images_.at(image_id);
   const std::vector<Correspondence>& corrs = image.corrs.at(point2D_idx);
   if (corrs.size() != 1) {

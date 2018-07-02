@@ -31,6 +31,8 @@
 
 #include "estimators/two_view_geometry.h"
 
+#include <unordered_set>
+
 #include "base/camera.h"
 #include "base/essential_matrix.h"
 #include "base/homography_matrix.h"
@@ -63,27 +65,50 @@ FeatureMatches ExtractInlierMatches(const FeatureMatches& matches,
 }
 
 FeatureMatches ExtractOutlierMatches(const FeatureMatches& matches,
-                                     const size_t num_inliers,
-                                     const std::vector<char>& inlier_mask) {
-  FeatureMatches outlier_matches(matches.size() - num_inliers);
-  size_t j = 0;
-  for (size_t i = 0; i < matches.size(); ++i) {
-    if (!inlier_mask[i]) {
-      outlier_matches[j] = matches[i];
-      j += 1;
+                                     const FeatureMatches& inlier_matches) {
+  CHECK_GE(matches.size(), inlier_matches.size());
+
+  std::unordered_set<std::pair<point2D_t, point2D_t>> inlier_matches_set;
+  inlier_matches_set.reserve(inlier_matches.size());
+  for (const auto& match : inlier_matches) {
+    inlier_matches_set.emplace(match.point2D_idx1, match.point2D_idx2);
+  }
+
+  FeatureMatches outlier_matches;
+  outlier_matches.reserve(matches.size() - inlier_matches.size());
+
+  for (const auto& match : matches) {
+    if (inlier_matches_set.count(
+            std::make_pair(match.point2D_idx1, match.point2D_idx2)) == 0) {
+      outlier_matches.push_back(match);
     }
   }
+
   return outlier_matches;
 }
 
 inline bool IsImagePointInBoundingBox(const Eigen::Vector2d& point,
                                       const double minx, const double maxx,
                                       const double miny, const double maxy) {
-  return point(0) >= minx && point(0) <= maxx && point(1) >= miny &&
-         point(1) <= maxy;
+  return point.x() >= minx && point.x() <= maxx && point.y() >= miny &&
+         point.y() <= maxy;
 }
 
 }  // namespace
+
+void TwoViewGeometry::Invert() {
+  F.transposeInPlace();
+  E.transposeInPlace();
+  H = H.inverse().eval();
+
+  const Eigen::Vector4d orig_qvec = qvec;
+  const Eigen::Vector3d orig_tvec = tvec;
+  InvertPose(orig_qvec, orig_tvec, &qvec, &tvec);
+
+  for (auto& match : inlier_matches) {
+    std::swap(match.point2D_idx1, match.point2D_idx2);
+  }
+}
 
 void TwoViewGeometry::Estimate(const Camera& camera1,
                                const std::vector<Eigen::Vector2d>& points1,
@@ -120,9 +145,8 @@ void TwoViewGeometry::EstimateMultiple(
       two_view_geometries.push_back(two_view_geometry);
     }
 
-    remaining_matches = ExtractOutlierMatches(
-        remaining_matches, two_view_geometry.inlier_matches.size(),
-        two_view_geometry.inlier_mask);
+    remaining_matches = ExtractOutlierMatches(remaining_matches,
+                                              two_view_geometry.inlier_matches);
   }
 
   if (two_view_geometries.empty()) {
@@ -245,14 +269,12 @@ void TwoViewGeometry::EstimateCalibrated(
   const auto E_report =
       E_ransac.Estimate(matched_points1_normalized, matched_points2_normalized);
   E = E_report.model;
-  E_num_inliers = E_report.support.num_inliers;
 
   LORANSAC<FundamentalMatrixSevenPointEstimator,
            FundamentalMatrixEightPointEstimator>
       F_ransac(options.ransac_options);
   const auto F_report = F_ransac.Estimate(matched_points1, matched_points2);
   F = F_report.model;
-  F_num_inliers = F_report.support.num_inliers;
 
   // Estimate planar or panoramic model.
 
@@ -260,12 +282,11 @@ void TwoViewGeometry::EstimateCalibrated(
       options.ransac_options);
   const auto H_report = H_ransac.Estimate(matched_points1, matched_points2);
   H = H_report.model;
-  H_num_inliers = H_report.support.num_inliers;
 
   if ((!E_report.success && !F_report.success && !H_report.success) ||
-      (E_num_inliers < options.min_num_inliers &&
-       F_num_inliers < options.min_num_inliers &&
-       H_num_inliers < options.min_num_inliers)) {
+      (E_report.support.num_inliers < options.min_num_inliers &&
+       F_report.support.num_inliers < options.min_num_inliers &&
+       H_report.support.num_inliers < options.min_num_inliers)) {
     config = ConfigurationType::DEGENERATE;
     return;
   }
@@ -273,54 +294,59 @@ void TwoViewGeometry::EstimateCalibrated(
   // Determine inlier ratios of different models.
 
   const double E_F_inlier_ratio =
-      static_cast<double>(E_num_inliers) / F_num_inliers;
+      static_cast<double>(E_report.support.num_inliers) /
+      F_report.support.num_inliers;
   const double H_F_inlier_ratio =
-      static_cast<double>(H_num_inliers) / F_num_inliers;
+      static_cast<double>(H_report.support.num_inliers) /
+      F_report.support.num_inliers;
   const double H_E_inlier_ratio =
-      static_cast<double>(H_num_inliers) / E_num_inliers;
+      static_cast<double>(H_report.support.num_inliers) /
+      E_report.support.num_inliers;
 
   const std::vector<char>* best_inlier_mask = nullptr;
   size_t num_inliers = 0;
 
   if (E_report.success && E_F_inlier_ratio > options.min_E_F_inlier_ratio &&
-      E_num_inliers >= options.min_num_inliers) {
+      E_report.support.num_inliers >= options.min_num_inliers) {
     // Calibrated configuration.
 
     // Always use the model with maximum matches.
-    if (E_num_inliers >= F_num_inliers) {
-      num_inliers = E_num_inliers;
+    if (E_report.support.num_inliers >= F_report.support.num_inliers) {
+      num_inliers = E_report.support.num_inliers;
       best_inlier_mask = &E_report.inlier_mask;
     } else {
-      num_inliers = F_num_inliers;
+      num_inliers = F_report.support.num_inliers;
       best_inlier_mask = &F_report.inlier_mask;
     }
 
     if (H_E_inlier_ratio > options.max_H_inlier_ratio) {
       config = PLANAR_OR_PANORAMIC;
-      if (H_num_inliers > num_inliers) {
-        num_inliers = H_num_inliers;
+      if (H_report.support.num_inliers > num_inliers) {
+        num_inliers = H_report.support.num_inliers;
         best_inlier_mask = &H_report.inlier_mask;
       }
     } else {
       config = ConfigurationType::CALIBRATED;
     }
-  } else if (F_report.success && F_num_inliers >= options.min_num_inliers) {
+  } else if (F_report.success &&
+             F_report.support.num_inliers >= options.min_num_inliers) {
     // Uncalibrated configuration.
 
-    num_inliers = F_num_inliers;
+    num_inliers = F_report.support.num_inliers;
     best_inlier_mask = &F_report.inlier_mask;
 
     if (H_F_inlier_ratio > options.max_H_inlier_ratio) {
       config = ConfigurationType::PLANAR_OR_PANORAMIC;
-      if (H_num_inliers > num_inliers) {
-        num_inliers = H_num_inliers;
+      if (H_report.support.num_inliers > num_inliers) {
+        num_inliers = H_report.support.num_inliers;
         best_inlier_mask = &H_report.inlier_mask;
       }
     } else {
       config = ConfigurationType::UNCALIBRATED;
     }
-  } else if (H_report.success && H_num_inliers >= options.min_num_inliers) {
-    num_inliers = H_num_inliers;
+  } else if (H_report.success &&
+             H_report.support.num_inliers >= options.min_num_inliers) {
+    num_inliers = H_report.support.num_inliers;
     best_inlier_mask = &H_report.inlier_mask;
     config = ConfigurationType::PLANAR_OR_PANORAMIC;
   } else {
@@ -331,7 +357,6 @@ void TwoViewGeometry::EstimateCalibrated(
   if (best_inlier_mask != nullptr) {
     inlier_matches =
         ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
-    inlier_mask = *best_inlier_mask;
 
     if (options.detect_watermark &&
         DetectWatermark(camera1, matched_points1, camera2, matched_points2,
@@ -367,7 +392,6 @@ void TwoViewGeometry::EstimateUncalibrated(
       F_ransac(options.ransac_options);
   const auto F_report = F_ransac.Estimate(matched_points1, matched_points2);
   F = F_report.model;
-  F_num_inliers = F_report.support.num_inliers;
 
   // Estimate planar or panoramic model.
 
@@ -375,11 +399,10 @@ void TwoViewGeometry::EstimateUncalibrated(
       options.ransac_options);
   const auto H_report = H_ransac.Estimate(matched_points1, matched_points2);
   H = H_report.model;
-  H_num_inliers = H_report.support.num_inliers;
 
   if ((!F_report.success && !H_report.success) ||
-      (F_num_inliers < options.min_num_inliers &&
-       H_num_inliers < options.min_num_inliers)) {
+      (F_report.support.num_inliers < options.min_num_inliers &&
+       H_report.support.num_inliers < options.min_num_inliers)) {
     config = ConfigurationType::DEGENERATE;
     return;
   }
@@ -387,7 +410,8 @@ void TwoViewGeometry::EstimateUncalibrated(
   // Determine inlier ratios of different models.
 
   const double H_F_inlier_ratio =
-      static_cast<double>(H_num_inliers) / F_num_inliers;
+      static_cast<double>(H_report.support.num_inliers) /
+      F_report.support.num_inliers;
 
   if (H_F_inlier_ratio > options.max_H_inlier_ratio) {
     config = ConfigurationType::PLANAR_OR_PANORAMIC;
@@ -395,13 +419,13 @@ void TwoViewGeometry::EstimateUncalibrated(
     config = ConfigurationType::UNCALIBRATED;
   }
 
-  inlier_matches =
-      ExtractInlierMatches(matches, F_num_inliers, F_report.inlier_mask);
-  inlier_mask = F_report.inlier_mask;
+  inlier_matches = ExtractInlierMatches(matches, F_report.support.num_inliers,
+                                        F_report.inlier_mask);
 
   if (options.detect_watermark &&
       DetectWatermark(camera1, matched_points1, camera2, matched_points2,
-                      F_num_inliers, F_report.inlier_mask, options)) {
+                      F_report.support.num_inliers, F_report.inlier_mask,
+                      options)) {
     config = ConfigurationType::WATERMARK;
   }
 }

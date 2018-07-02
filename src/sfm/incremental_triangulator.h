@@ -87,9 +87,9 @@ class IncrementalTriangulator {
     bool Check() const;
   };
 
-  // Create new incremental triangulator. Note that both the scene graph and the
-  // reconstruction objects must live as long as the triangulator object.
-  IncrementalTriangulator(const SceneGraph* scene_graph,
+  // Create new incremental triangulator. Note that both the correspondence
+  // graph and the reconstruction objects must live as long as the triangulator.
+  IncrementalTriangulator(const CorrespondenceGraph* correspondence_graph,
                           Reconstruction* reconstruction);
 
   // Triangulate observations of image.
@@ -182,7 +182,7 @@ class IncrementalTriangulator {
 
   // Database cache for the reconstruction. Used to retrieve correspondence
   // information for triangulation.
-  const SceneGraph* scene_graph_;
+  const CorrespondenceGraph* correspondence_graph_;
 
   // Reconstruction of the model. Modified when triangulating new points.
   Reconstruction* reconstruction_;

@@ -60,3 +60,4 @@ COLMAP_ADD_TEST(generalized_absolute_pose_test generalized_absolute_pose_test.cc
 COLMAP_ADD_TEST(generalized_relative_pose_test generalized_relative_pose_test.cc)
 COLMAP_ADD_TEST(homography_matrix_test homography_matrix_test.cc)
 COLMAP_ADD_TEST(translation_transform_test translation_transform_test.cc)
+COLMAP_ADD_TEST(two_view_geometry_test two_view_geometry_test.cc)

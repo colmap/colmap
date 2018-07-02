@@ -36,6 +36,7 @@ COLMAP_ADD_SOURCES(
     camera_database.h camera_database.cc
     camera_models.h camera_models.cc
     camera_rig.h camera_rig.cc
+    correspondence_graph.h correspondence_graph.cc
     database.h database.cc
     database_cache.h database_cache.cc
     essential_matrix.h essential_matrix.cc
@@ -53,7 +54,6 @@ COLMAP_ADD_SOURCES(
     reconstruction.h reconstruction.cc
     reconstruction_manager.h reconstruction_manager.cc
     scene_clustering.h scene_clustering.cc
-    scene_graph.h scene_graph.cc
     similarity_transform.h similarity_transform.cc
     track.h track.cc
     triangulation.h triangulation.cc
@@ -66,6 +66,7 @@ COLMAP_ADD_TEST(camera_database_test camera_database_test.cc)
 COLMAP_ADD_TEST(camera_models_test camera_models_test.cc)
 COLMAP_ADD_TEST(camera_rig_test camera_rig_test.cc)
 COLMAP_ADD_TEST(camera_test camera_test.cc)
+COLMAP_ADD_TEST(correspondence_graph_test correspondence_graph_test.cc)
 COLMAP_ADD_TEST(cost_functions_test cost_functions_test.cc)
 COLMAP_ADD_TEST(database_cache_test database_cache_test.cc)
 COLMAP_ADD_TEST(database_test database_test.cc)
@@ -83,7 +84,6 @@ COLMAP_ADD_TEST(projection_test projection_test.cc)
 COLMAP_ADD_TEST(reconstruction_test reconstruction_test.cc)
 COLMAP_ADD_TEST(reconstruction_manager_test reconstruction_manager_test.cc)
 COLMAP_ADD_TEST(scene_clustering_test scene_clustering_test.cc)
-COLMAP_ADD_TEST(scene_graph_test scene_graph_test.cc)
 COLMAP_ADD_TEST(similarity_transform_test similarity_transform_test.cc)
 COLMAP_ADD_TEST(track_test track_test.cc)
 COLMAP_ADD_TEST(triangulation_test triangulation_test.cc)

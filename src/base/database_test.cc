@@ -337,6 +337,12 @@ BOOST_AUTO_TEST_CASE(TestInlierMatches) {
   BOOST_CHECK_EQUAL(two_view_geometries.size(), 1);
   BOOST_CHECK_EQUAL(image_pair_ids[0],
                     Database::ImagePairToPairId(image_id1, image_id2));
+  BOOST_CHECK_EQUAL(two_view_geometry.config, two_view_geometries[0].config);
+  BOOST_CHECK_EQUAL(two_view_geometry.F, two_view_geometries[0].F);
+  BOOST_CHECK_EQUAL(two_view_geometry.E, two_view_geometries[0].E);
+  BOOST_CHECK_EQUAL(two_view_geometry.H, two_view_geometries[0].H);
+  BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(),
+                    two_view_geometries[0].inlier_matches.size());
   std::vector<std::pair<image_t, image_t>> image_pairs;
   std::vector<int> num_inliers;
   database.ReadTwoViewGeometryNumInliers(&image_pairs, &num_inliers);

@@ -81,8 +81,14 @@ typedef Eigen::Matrix<uint8_t, 1, Eigen::Dynamic, Eigen::RowMajor>
     FeatureDescriptor;
 
 struct FeatureMatch {
+  FeatureMatch()
+      : point2D_idx1(kInvalidPoint2DIdx), point2D_idx2(kInvalidPoint2DIdx) {}
+  FeatureMatch(const point2D_t point2D_idx1, const point2D_t point2D_idx2)
+      : point2D_idx1(point2D_idx1), point2D_idx2(point2D_idx2) {}
+
   // Feature index in first image.
   point2D_t point2D_idx1 = kInvalidPoint2DIdx;
+
   // Feature index in second image.
   point2D_t point2D_idx2 = kInvalidPoint2DIdx;
 };

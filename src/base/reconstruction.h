@@ -52,7 +52,7 @@ namespace colmap {
 struct PlyPoint;
 struct RANSACOptions;
 class DatabaseCache;
-class SceneGraph;
+class CorrespondenceGraph;
 class SimilarityTransform3;
 
 // Reconstruction class holds all information about a single reconstructed
@@ -106,9 +106,9 @@ class Reconstruction {
   // Load data from given `DatabaseCache`.
   void Load(const DatabaseCache& database_cache);
 
-  // Setup all relevant data structures before reconstruction. Note that the
-  // scene graph object must live until the `TearDown` method is called.
-  void SetUp(const SceneGraph* scene_graph);
+  // Setup all relevant data structures before reconstruction. Note the
+  // correspondence graph object must live until `TearDown` is called.
+  void SetUp(const CorrespondenceGraph* correspondence_graph);
 
   // Finalize the Reconstruction after the reconstruction has finished.
   //
@@ -316,7 +316,7 @@ class Reconstruction {
   void ResetTriObservations(const image_t image_id, const point2D_t point2D_idx,
                             const bool is_deleted_point3D);
 
-  const SceneGraph* scene_graph_;
+  const CorrespondenceGraph* correspondence_graph_;
 
   EIGEN_STL_UMAP(camera_t, class Camera) cameras_;
   EIGEN_STL_UMAP(image_t, class Image) images_;
