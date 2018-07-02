@@ -798,7 +798,7 @@ void DatabaseManagementWidget::ClearMatches() {
 
 void DatabaseManagementWidget::ClearTwoViewGeometries() {
   QMessageBox::StandardButton reply = QMessageBox::question(
-      this, "", tr("Do you really want to clear all inlier matches?"),
+      this, "", tr("Do you really want to clear all two-view geometries?"),
       QMessageBox::Yes | QMessageBox::No);
   if (reply == QMessageBox::No) {
     return;
