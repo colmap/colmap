@@ -100,12 +100,19 @@ Install `Ceres Solver <http://ceres-solver.org/>`_::
 
 Configure and compile COLMAP::
 
-    cd path/to/colmap
+    git clone https://github.com/colmap/colmap.git
+    cd colmap
+    git checkout dev
     mkdir build
     cd build
     cmake ..
     make
     sudo make install
+
+Under newer Ubuntu versions it might be necessary to explicitly select the
+employed GCC version due to compatiblity issues with CUDA, which can be done as:
+
+    CC=/usr/bin/gcc-6 CXX=/usr/bin/g++-6 cmake ..
 
 Run COLMAP::
 
@@ -135,7 +142,9 @@ Dependencies from `Homebrew <http://brew.sh/>`_::
 
 Configure and compile COLMAP::
 
-    cd path/to/colmap
+    git clone https://github.com/colmap/colmap.git
+    cd colmap
+    git checkout dev
     mkdir build
     cd build
     cmake .. -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
