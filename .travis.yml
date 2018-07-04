@@ -69,14 +69,13 @@ before_script:
       fi
       cd ceres-solver
       git pull
-      mkdir -p build install
+      mkdir -p build
       cd build
       cmake .. \
         -DBUILD_TESTING=OFF \
-        -DBUILD_EXAMPLES=OFF \
-        -DCMAKE_INSTALL_PREFIX=../install
+        -DBUILD_EXAMPLES=OFF
       make -j2
-      make install
+      sudo make install
       cd ${TRAVIS_BUILD_DIR}
     fi
 
