@@ -344,8 +344,8 @@ void OptionManager::AddVocabTreeMatchingOptions() {
       &vocab_tree_matching->num_images_after_verification);
   AddAndRegisterDefaultOption("VocabTreeMatching.max_num_features",
                               &vocab_tree_matching->max_num_features);
-  AddAndRegisterDefaultOption("VocabTreeMatching.vocab_tree_path",
-                              &vocab_tree_matching->vocab_tree_path);
+  AddAndRegisterRequiredOption("VocabTreeMatching.vocab_tree_path",
+                               &vocab_tree_matching->vocab_tree_path);
   AddAndRegisterDefaultOption("VocabTreeMatching.match_list_path",
                               &vocab_tree_matching->match_list_path);
 }
