@@ -110,7 +110,6 @@ void Track::SetElement(const size_t idx, const TrackElement& element) {
   elements_.at(idx) = element;
 }
 
-// Append new element.
 void Track::AddElement(const TrackElement& element) {
   elements_.push_back(element);
 }
@@ -123,7 +122,6 @@ void Track::AddElements(const std::vector<TrackElement>& elements) {
   elements_.insert(elements_.end(), elements.begin(), elements.end());
 }
 
-// Delete existing element.
 void Track::DeleteElement(const size_t idx) {
   CHECK_LT(idx, elements_.size());
   elements_.erase(elements_.begin() + idx);
