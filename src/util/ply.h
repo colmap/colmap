@@ -49,16 +49,34 @@ struct PlyPoint {
   uint8_t b = 0;
 };
 
+struct PlyMeshVertex {
+  float x = 0.0f;
+  float y = 0.0f;
+  float z = 0.0f;
+};
+
+struct PlyMeshFace {
+  size_t vertex_idx1 = 0;
+  size_t vertex_idx2 = 0;
+  size_t vertex_idx3 = 0;
+};
+
 // Read PLY point cloud from text or binary file.
 std::vector<PlyPoint> ReadPly(const std::string& path);
 
 // Write PLY point cloud to text or binary file.
-void WriteTextPly(const std::string& path, const std::vector<PlyPoint>& points,
-                  const bool write_normal = true, const bool write_rgb = true);
-void WriteBinaryPly(const std::string& path,
-                    const std::vector<PlyPoint>& points,
-                    const bool write_normal = true,
-                    const bool write_rgb = true);
+void WriteTextPlyPoints(const std::string& path,
+                        const std::vector<PlyPoint>& points,
+                        const bool write_normal = true,
+                        const bool write_rgb = true);
+void WriteBinaryPlyPoints(const std::string& path,
+                          const std::vector<PlyPoint>& points,
+                          const bool write_normal = true,
+                          const bool write_rgb = true);
+
+void WriteBinaryPlyMesh(const std::string& path,
+                        const std::vector<PlyMeshVertex>& vertices,
+                        const std::vector<PlyMeshFace>& faces);
 
 }  // namespace colmap
 

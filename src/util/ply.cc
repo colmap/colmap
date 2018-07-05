@@ -281,8 +281,9 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
   return points;
 }
 
-void WriteTextPly(const std::string& path, const std::vector<PlyPoint>& points,
-                  const bool write_normal, const bool write_rgb) {
+void WriteTextPlyPoints(const std::string& path,
+                        const std::vector<PlyPoint>& points,
+                        const bool write_normal, const bool write_rgb) {
   std::ofstream file(path);
   CHECK(file.is_open()) << path;
 
@@ -326,9 +327,9 @@ void WriteTextPly(const std::string& path, const std::vector<PlyPoint>& points,
   file.close();
 }
 
-void WriteBinaryPly(const std::string& path,
-                    const std::vector<PlyPoint>& points,
-                    const bool write_normal, const bool write_rgb) {
+void WriteBinaryPlyPoints(const std::string& path,
+                          const std::vector<PlyPoint>& points,
+                          const bool write_normal, const bool write_rgb) {
   std::fstream text_file(path, std::ios::out);
   CHECK(text_file.is_open()) << path;
 
@@ -376,6 +377,47 @@ void WriteBinaryPly(const std::string& path,
       WriteBinaryLittleEndian<uint8_t>(&binary_file, point.b);
     }
   }
+
+  binary_file.close();
+}
+
+void WriteBinaryPlyMesh(const std::string& path,
+                        const std::vector<PlyMeshVertex>& vertices,
+                        const std::vector<PlyMeshFace>& faces) {
+  std::fstream text_file(path, std::ios::out);
+  CHECK(text_file.is_open());
+
+  text_file << "ply" << std::endl;
+  text_file << "format binary_little_endian 1.0" << std::endl;
+  text_file << "element vertex " << vertices.size() << std::endl;
+  text_file << "property float x" << std::endl;
+  text_file << "property float y" << std::endl;
+  text_file << "property float z" << std::endl;
+  text_file << "element face " << faces.size() << std::endl;
+  text_file << "property list uchar int vertex_index" << std::endl;
+  text_file << "end_header" << std::endl;
+  text_file.close();
+
+  std::fstream binary_file(path,
+                           std::ios::out | std::ios::binary | std::ios::app);
+  CHECK(binary_file.is_open()) << path;
+
+  for (const auto& vertex : vertices) {
+    WriteBinaryLittleEndian<float>(&binary_file, vertex.x);
+    WriteBinaryLittleEndian<float>(&binary_file, vertex.y);
+    WriteBinaryLittleEndian<float>(&binary_file, vertex.z);
+  }
+
+  for (const auto& face : faces) {
+    CHECK_LT(face.vertex_idx1, vertices.size());
+    CHECK_LT(face.vertex_idx2, vertices.size());
+    CHECK_LT(face.vertex_idx3, vertices.size());
+    WriteBinaryLittleEndian<int>(&binary_file, 3);
+    WriteBinaryLittleEndian<int>(&binary_file, face.vertex_idx1);
+    WriteBinaryLittleEndian<int>(&binary_file, face.vertex_idx2);
+    WriteBinaryLittleEndian<int>(&binary_file, face.vertex_idx3);
+  }
+
   binary_file.close();
 }
 

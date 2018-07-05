@@ -500,7 +500,7 @@ void DenseReconstructionWidget::WriteFusedPoints() {
   thread_control_widget_->StartFunction("Exporting...", [this,
                                                          workspace_path]() {
     const std::string output_path = JoinPaths(workspace_path, kFusedFileName);
-    WriteBinaryPly(output_path, fused_points_);
+    WriteBinaryPlyPoints(output_path, fused_points_);
     mvs::WritePointsVisibility(output_path + ".vis", fused_points_visibility_);
     fused_points_ = {};
     fused_points_visibility_ = {};

@@ -993,7 +993,7 @@ void Reconstruction::ExportPLY(const std::string& path) const {
 
   const bool kWriteNormal = false;
   const bool kWriteRGB = true;
-  WriteBinaryPly(path, ply_points, kWriteNormal, kWriteRGB);
+  WriteBinaryPlyPoints(path, ply_points, kWriteNormal, kWriteRGB);
 }
 
 void Reconstruction::ExportVRML(const std::string& images_path,

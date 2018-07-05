@@ -238,7 +238,7 @@ int RunDenseFuser(int argc, char** argv) {
   fuser.Wait();
 
   std::cout << "Writing output: " << output_path << std::endl;
-  WriteBinaryPly(output_path, fuser.GetFusedPoints());
+  WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
   mvs::WritePointsVisibility(output_path + ".vis",
                              fuser.GetFusedPointsVisibility());
 
