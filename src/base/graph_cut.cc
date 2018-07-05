@@ -33,9 +33,6 @@
 
 #include <unordered_map>
 
-#include <boost/graph/adjacency_list.hpp>
-#include <boost/graph/graph_traits.hpp>
-#include <boost/graph/one_bit_color_map.hpp>
 #include <boost/graph/stoer_wagner_min_cut.hpp>
 #include <boost/property_map/property_map.hpp>
 #include <boost/typeof/typeof.hpp>
@@ -136,9 +133,7 @@ class GraclusGraph {
     }
   }
 
-  int GetVertexId(const int idx) {
-    return vertex_idx_to_id_.at(idx);
-  }
+  int GetVertexId(const int idx) { return vertex_idx_to_id_.at(idx); }
 
   GraphType data;
 
@@ -152,9 +147,10 @@ class GraclusGraph {
 
 }  // namespace
 
-void ComputeMinGraphCut(const std::vector<std::pair<int, int>>& edges,
-                        const std::vector<int>& weights, int* cut_weight,
-                        std::vector<char>* cut_labels) {
+void ComputeMinGraphCutStoerWagner(
+    const std::vector<std::pair<int, int>>& edges,
+    const std::vector<int>& weights, int* cut_weight,
+    std::vector<char>* cut_labels) {
   CHECK_EQ(edges.size(), weights.size());
   CHECK_GE(edges.size(), 2);
 

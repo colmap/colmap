@@ -74,6 +74,7 @@ Dependencies from the default Ubuntu repositories::
         build-essential \
         libboost-program-options-dev \
         libboost-filesystem-dev \
+        libboost-graph-dev \
         libboost-regex-dev \
         libboost-system-dev \
         libboost-test-dev \

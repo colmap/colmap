@@ -35,18 +35,168 @@
 #include <unordered_map>
 #include <vector>
 
+#include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/boykov_kolmogorov_max_flow.hpp>
+#include <boost/graph/graph_traits.hpp>
+#include <boost/graph/one_bit_color_map.hpp>
+
+#include "util/logging.h"
+
 namespace colmap {
 
 // Compute the min-cut of a undirected graph using the Stoer Wagner algorithm.
-void ComputeMinGraphCut(const std::vector<std::pair<int, int>>& edges,
-                        const std::vector<int>& weights, int* cut_weight,
-                        std::vector<char>* cut_labels);
+void ComputeMinGraphCutStoerWagner(
+    const std::vector<std::pair<int, int>>& edges,
+    const std::vector<int>& weights, int* cut_weight,
+    std::vector<char>* cut_labels);
 
 // Compute the normalized min-cut of an undirected graph using Graclus.
 // Partitions the graph into clusters and returns the cluster labels per vertex.
 std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& weights, const int num_parts);
+
+// Compute the minimum graph cut of a directed S-T graph using the
+// Boykov-Kolmogorov max-flow min-cut algorithm, as descibed in:
+//   "An Experimental Comparison of Min-Cut/Max-Flow Algorithms for Energy
+//    Minimization in Vision". Yuri Boykov and Vladimir Kolmogorov. PAMI, 2004.
+template <typename node_t, typename value_t>
+class GraphMinCutMaxFlow {
+ public:
+  typedef boost::adjacency_list_traits<boost::vecS, boost::vecS,
+                                       boost::directedS>
+      graph_traits_t;
+  typedef graph_traits_t::edge_descriptor edge_descriptor_t;
+  typedef graph_traits_t::vertices_size_type vertices_size_t;
+
+  struct Edge {
+    value_t capacity;
+    value_t residual;
+    edge_descriptor_t reverse;
+  };
+
+  typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS,
+                                size_t, Edge>
+      graph_t;
+
+  GraphMinCutMaxFlow(const size_t num_nodes);
+
+  size_t NumNodes() const;
+  size_t NumEdges() const;
+
+  void AddNode(const node_t node_idx, const value_t source_capacity,
+               const value_t sink_capacity);
+
+  void AddEdge(const node_t node_idx1, const node_t node_idx2,
+               const value_t capacity, const value_t reverse_capacity);
+
+  value_t ComputeMaxFlow();
+
+  bool IsNodeOnSourceSide(const node_t node_idx) const;
+  bool IsNodeOnSinkSide(const node_t node_idx) const;
+
+ private:
+  const node_t S_node_;
+  const node_t T_node_;
+  graph_t graph_;
+  std::vector<boost::default_color_type> colors_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+// Implementation
+////////////////////////////////////////////////////////////////////////////////
+
+template <typename node_t, typename value_t>
+GraphMinCutMaxFlow<node_t, value_t>::GraphMinCutMaxFlow(const size_t num_nodes)
+    : S_node_(num_nodes), T_node_(num_nodes + 1), graph_(num_nodes + 2) {}
+
+template <typename node_t, typename value_t>
+size_t GraphMinCutMaxFlow<node_t, value_t>::NumNodes() const {
+ return boost::num_vertices(graph_) - 2;
+}
+
+template <typename node_t, typename value_t>
+size_t GraphMinCutMaxFlow<node_t, value_t>::NumEdges() const {
+ return boost::num_edges(graph_);
+}
+
+template <typename node_t, typename value_t>
+void GraphMinCutMaxFlow<node_t, value_t>::AddNode(const node_t node_idx,
+                                                  const value_t source_capacity,
+                                                  const value_t sink_capacity) {
+  CHECK_GE(node_idx, 0);
+  CHECK_LE(node_idx, boost::num_vertices(graph_));
+  CHECK_GE(source_capacity, 0);
+  CHECK_GE(sink_capacity, 0);
+
+  if (source_capacity > 0) {
+    const edge_descriptor_t edge =
+        boost::add_edge(S_node_, node_idx, graph_).first;
+    const edge_descriptor_t edge_reverse =
+        boost::add_edge(node_idx, S_node_, graph_).first;
+    graph_[edge].capacity = source_capacity;
+    graph_[edge].reverse = edge_reverse;
+    graph_[edge_reverse].reverse = edge;
+  }
+
+  if (sink_capacity > 0) {
+    const edge_descriptor_t edge =
+        boost::add_edge(node_idx, T_node_, graph_).first;
+    const edge_descriptor_t edge_reverse =
+        boost::add_edge(T_node_, node_idx, graph_).first;
+    graph_[edge].capacity = sink_capacity;
+    graph_[edge].reverse = edge_reverse;
+    graph_[edge_reverse].reverse = edge;
+  }
+}
+
+template <typename node_t, typename value_t>
+void GraphMinCutMaxFlow<node_t, value_t>::AddEdge(
+    const node_t node_idx1, const node_t node_idx2, const value_t capacity,
+    const value_t reverse_capacity) {
+  CHECK_GE(node_idx1, 0);
+  CHECK_LE(node_idx1, boost::num_vertices(graph_));
+  CHECK_GE(node_idx2, 0);
+  CHECK_LE(node_idx2, boost::num_vertices(graph_));
+  CHECK_GE(capacity, 0);
+  CHECK_GE(reverse_capacity, 0);
+
+  const edge_descriptor_t edge =
+      boost::add_edge(node_idx1, node_idx2, graph_).first;
+  const edge_descriptor_t edge_reverse =
+      boost::add_edge(node_idx2, node_idx1, graph_).first;
+  graph_[edge].capacity = capacity;
+  graph_[edge_reverse].capacity = reverse_capacity;
+  graph_[edge].reverse = edge_reverse;
+  graph_[edge_reverse].reverse = edge;
+}
+
+template <typename node_t, typename value_t>
+value_t GraphMinCutMaxFlow<node_t, value_t>::ComputeMaxFlow() {
+  const vertices_size_t num_vertices = boost::num_vertices(graph_);
+
+  colors_.resize(num_vertices);
+  std::vector<edge_descriptor_t> predecessors(num_vertices);
+  std::vector<vertices_size_t> distances(num_vertices);
+
+  return boost::boykov_kolmogorov_max_flow(
+      graph_, boost::get(&Edge::capacity, graph_),
+      boost::get(&Edge::residual, graph_), boost::get(&Edge::reverse, graph_),
+      predecessors.data(), colors_.data(), distances.data(),
+      boost::get(boost::vertex_index, graph_), S_node_, T_node_);
+}
+
+template <typename node_t, typename value_t>
+bool GraphMinCutMaxFlow<node_t, value_t>::IsNodeOnSourceSide(
+    const node_t node_idx) const {
+  return colors_.at(node_idx) != boost::white_color;
+}
+
+template <typename node_t, typename value_t>
+bool GraphMinCutMaxFlow<node_t, value_t>::IsNodeOnSinkSide(
+    const node_t node_idx) const {
+  return colors_.at(node_idx) == boost::white_color;
+}
 
 }  // namespace colmap
 
