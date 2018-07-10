@@ -54,6 +54,7 @@ class AutomaticReconstructionWidget : public OptionsWidget {
   ThreadControlWidget* thread_control_widget_;
   QComboBox* data_type_cb_;
   QComboBox* quality_cb_;
+  QComboBox* mesher_cb_;
   QAction* render_result_;
 };
 

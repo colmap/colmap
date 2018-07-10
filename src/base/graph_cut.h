@@ -61,7 +61,7 @@ std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
 //   "An Experimental Comparison of Min-Cut/Max-Flow Algorithms for Energy
 //    Minimization in Vision". Yuri Boykov and Vladimir Kolmogorov. PAMI, 2004.
 template <typename node_t, typename value_t>
-class GraphMinCutMaxFlow {
+class MinSTGraphCut {
  public:
   typedef boost::adjacency_list_traits<boost::vecS, boost::vecS,
                                        boost::directedS>
@@ -79,21 +79,26 @@ class GraphMinCutMaxFlow {
                                 size_t, Edge>
       graph_t;
 
-  GraphMinCutMaxFlow(const size_t num_nodes);
+  MinSTGraphCut(const size_t num_nodes);
 
+  // Count the number of nodes and edges in the graph.
   size_t NumNodes() const;
   size_t NumEdges() const;
 
+  // Add node to the graph.
   void AddNode(const node_t node_idx, const value_t source_capacity,
                const value_t sink_capacity);
 
+  // Add edge to the graph.
   void AddEdge(const node_t node_idx1, const node_t node_idx2,
                const value_t capacity, const value_t reverse_capacity);
 
-  value_t ComputeMaxFlow();
+  // Compute the min-cut using the max-flow algorithm. Returns the flow.
+  value_t Compute();
 
-  bool IsNodeOnSourceSide(const node_t node_idx) const;
-  bool IsNodeOnSinkSide(const node_t node_idx) const;
+  // Check whether node is connected to source or sink after computing the cut.
+  bool IsConnectedToSource(const node_t node_idx) const;
+  bool IsConnectedToSink(const node_t node_idx) const;
 
  private:
   const node_t S_node_;
@@ -107,23 +112,23 @@ class GraphMinCutMaxFlow {
 ////////////////////////////////////////////////////////////////////////////////
 
 template <typename node_t, typename value_t>
-GraphMinCutMaxFlow<node_t, value_t>::GraphMinCutMaxFlow(const size_t num_nodes)
+MinSTGraphCut<node_t, value_t>::MinSTGraphCut(const size_t num_nodes)
     : S_node_(num_nodes), T_node_(num_nodes + 1), graph_(num_nodes + 2) {}
 
 template <typename node_t, typename value_t>
-size_t GraphMinCutMaxFlow<node_t, value_t>::NumNodes() const {
- return boost::num_vertices(graph_) - 2;
+size_t MinSTGraphCut<node_t, value_t>::NumNodes() const {
+  return boost::num_vertices(graph_) - 2;
 }
 
 template <typename node_t, typename value_t>
-size_t GraphMinCutMaxFlow<node_t, value_t>::NumEdges() const {
- return boost::num_edges(graph_);
+size_t MinSTGraphCut<node_t, value_t>::NumEdges() const {
+  return boost::num_edges(graph_);
 }
 
 template <typename node_t, typename value_t>
-void GraphMinCutMaxFlow<node_t, value_t>::AddNode(const node_t node_idx,
-                                                  const value_t source_capacity,
-                                                  const value_t sink_capacity) {
+void MinSTGraphCut<node_t, value_t>::AddNode(const node_t node_idx,
+                                             const value_t source_capacity,
+                                             const value_t sink_capacity) {
   CHECK_GE(node_idx, 0);
   CHECK_LE(node_idx, boost::num_vertices(graph_));
   CHECK_GE(source_capacity, 0);
@@ -151,9 +156,10 @@ void GraphMinCutMaxFlow<node_t, value_t>::AddNode(const node_t node_idx,
 }
 
 template <typename node_t, typename value_t>
-void GraphMinCutMaxFlow<node_t, value_t>::AddEdge(
-    const node_t node_idx1, const node_t node_idx2, const value_t capacity,
-    const value_t reverse_capacity) {
+void MinSTGraphCut<node_t, value_t>::AddEdge(const node_t node_idx1,
+                                             const node_t node_idx2,
+                                             const value_t capacity,
+                                             const value_t reverse_capacity) {
   CHECK_GE(node_idx1, 0);
   CHECK_LE(node_idx1, boost::num_vertices(graph_));
   CHECK_GE(node_idx2, 0);
@@ -172,7 +178,7 @@ void GraphMinCutMaxFlow<node_t, value_t>::AddEdge(
 }
 
 template <typename node_t, typename value_t>
-value_t GraphMinCutMaxFlow<node_t, value_t>::ComputeMaxFlow() {
+value_t MinSTGraphCut<node_t, value_t>::Compute() {
   const vertices_size_t num_vertices = boost::num_vertices(graph_);
 
   colors_.resize(num_vertices);
@@ -187,13 +193,13 @@ value_t GraphMinCutMaxFlow<node_t, value_t>::ComputeMaxFlow() {
 }
 
 template <typename node_t, typename value_t>
-bool GraphMinCutMaxFlow<node_t, value_t>::IsNodeOnSourceSide(
+bool MinSTGraphCut<node_t, value_t>::IsConnectedToSource(
     const node_t node_idx) const {
   return colors_.at(node_idx) != boost::white_color;
 }
 
 template <typename node_t, typename value_t>
-bool GraphMinCutMaxFlow<node_t, value_t>::IsNodeOnSinkSide(
+bool MinSTGraphCut<node_t, value_t>::IsConnectedToSink(
     const node_t node_idx) const {
   return colors_.at(node_idx) == boost::white_color;
 }

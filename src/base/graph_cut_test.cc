@@ -55,10 +55,10 @@ BOOST_AUTO_TEST_CASE(TestComputeMinGraphCutStoerWagner) {
 
 BOOST_AUTO_TEST_CASE(TestComputeMinGraphCutStoerWagnerDuplicateEdge) {
   const std::vector<std::pair<int, int>> edges = {
-      {3, 4}, {3, 6}, {3, 5}, {0, 4}, {0, 1}, {0, 6}, {0, 7}, {0, 5},
-      {0, 2}, {4, 1}, {1, 6}, {1, 5}, {6, 7}, {7, 5}, {5, 2}, {3, 4}, {3, 4}};
-  const std::vector<int> weights = {0, 3, 1, 3,  1, 2, 6, 1,
-                                    8, 1, 1, 80, 2, 1, 1, 4, 4};
+      {3, 4}, {3, 6}, {3, 5}, {0, 4}, {0, 1}, {0, 6}, {0, 7}, {0, 5}, {0, 2},
+      {4, 1}, {1, 6}, {1, 5}, {6, 7}, {7, 5}, {5, 2}, {3, 4}, {3, 4}};
+  const std::vector<int> weights = {0, 3, 1,  3, 1, 2, 6, 1, 8,
+                                    1, 1, 80, 2, 1, 1, 4, 4};
   int cut_weight;
   std::vector<char> cut_labels;
   ComputeMinGraphCutStoerWagner(edges, weights, &cut_weight, &cut_labels);
@@ -106,8 +106,7 @@ BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCut) {
       {0, 2}, {4, 1}, {1, 6}, {1, 5}, {6, 7}, {7, 5}, {5, 2}, {3, 4}};
   const std::vector<int> weights = {0, 3, 1, 3,  1, 2, 6, 1,
                                     8, 1, 1, 80, 2, 1, 1, 4};
-  const auto cut_labels =
-      ComputeNormalizedMinGraphCut(edges, weights, 2);
+  const auto cut_labels = ComputeNormalizedMinGraphCut(edges, weights, 2);
   BOOST_CHECK_EQUAL(cut_labels.size(), 8);
   for (const auto& label : cut_labels) {
     BOOST_CHECK_GE(label.second, 0);
@@ -117,12 +116,11 @@ BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCut) {
 
 BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCutDuplicateEdge) {
   const std::vector<std::pair<int, int>> edges = {
-      {3, 4}, {3, 6}, {3, 5}, {0, 4}, {0, 1}, {0, 6}, {0, 7}, {0, 5},
-      {0, 2}, {4, 1}, {1, 6}, {1, 5}, {6, 7}, {7, 5}, {5, 2}, {3, 4}, {3, 4}};
-  const std::vector<int> weights = {0, 3, 1, 3,  1, 2, 6, 1,
-                                    8, 1, 1, 80, 2, 1, 1, 4, 4};
-  const auto cut_labels =
-      ComputeNormalizedMinGraphCut(edges, weights, 2);
+      {3, 4}, {3, 6}, {3, 5}, {0, 4}, {0, 1}, {0, 6}, {0, 7}, {0, 5}, {0, 2},
+      {4, 1}, {1, 6}, {1, 5}, {6, 7}, {7, 5}, {5, 2}, {3, 4}, {3, 4}};
+  const std::vector<int> weights = {0, 3, 1,  3, 1, 2, 6, 1, 8,
+                                    1, 1, 80, 2, 1, 1, 4, 4};
+  const auto cut_labels = ComputeNormalizedMinGraphCut(edges, weights, 2);
   BOOST_CHECK_EQUAL(cut_labels.size(), 8);
   for (const auto& label : cut_labels) {
     BOOST_CHECK_GE(label.second, 0);
@@ -135,8 +133,7 @@ BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCutMissingVertex) {
       {3, 4}, {3, 6}, {3, 5}, {0, 1}, {0, 6}, {0, 7}, {0, 5},
       {0, 2}, {4, 1}, {1, 6}, {1, 5}, {6, 7}, {7, 5}, {5, 2}};
   const std::vector<int> weights = {0, 3, 1, 3, 1, 2, 6, 1, 8, 1, 1, 80, 2, 1};
-  const auto cut_labels =
-      ComputeNormalizedMinGraphCut(edges, weights, 2);
+  const auto cut_labels = ComputeNormalizedMinGraphCut(edges, weights, 2);
   BOOST_CHECK_EQUAL(cut_labels.size(), 8);
   for (const auto& label : cut_labels) {
     BOOST_CHECK_GE(label.second, 0);
@@ -147,8 +144,7 @@ BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCutMissingVertex) {
 BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCutDisconnected) {
   const std::vector<std::pair<int, int>> edges = {{0, 1}, {1, 2}, {3, 4}};
   const std::vector<int> weights = {1, 3, 1};
-  const auto cut_labels =
-      ComputeNormalizedMinGraphCut(edges, weights, 2);
+  const auto cut_labels = ComputeNormalizedMinGraphCut(edges, weights, 2);
   BOOST_CHECK_EQUAL(cut_labels.size(), 5);
   for (const auto& label : cut_labels) {
     BOOST_CHECK_GE(label.second, 0);
@@ -156,39 +152,39 @@ BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCutDisconnected) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestGraphMinCutMaxFlow1) {
-  GraphMinCutMaxFlow<int, int> graph(2);
+BOOST_AUTO_TEST_CASE(TestMinSTGraphCut1) {
+  MinSTGraphCut<int, int> graph(2);
   BOOST_CHECK_EQUAL(graph.NumNodes(), 2);
   BOOST_CHECK_EQUAL(graph.NumEdges(), 0);
   graph.AddNode(0, 5, 1);
   graph.AddNode(1, 2, 6);
   graph.AddEdge(0, 1, 3, 4);
   BOOST_CHECK_EQUAL(graph.NumEdges(), 10);
-  BOOST_CHECK_EQUAL(graph.ComputeMaxFlow(), 6);
-  BOOST_CHECK(graph.IsNodeOnSourceSide(0));
-  BOOST_CHECK(graph.IsNodeOnSinkSide(1));
+  BOOST_CHECK_EQUAL(graph.Compute(), 6);
+  BOOST_CHECK(graph.IsConnectedToSource(0));
+  BOOST_CHECK(graph.IsConnectedToSink(1));
 }
 
-BOOST_AUTO_TEST_CASE(TestGraphMinCutMaxFlow2) {
-  GraphMinCutMaxFlow<int, int> graph(2);
+BOOST_AUTO_TEST_CASE(TestMinSTGraphCut2) {
+  MinSTGraphCut<int, int> graph(2);
   graph.AddNode(0, 1, 5);
   graph.AddNode(1, 2, 6);
   graph.AddEdge(0, 1, 3, 4);
   BOOST_CHECK_EQUAL(graph.NumEdges(), 10);
-  BOOST_CHECK_EQUAL(graph.ComputeMaxFlow(), 3);
-  BOOST_CHECK(graph.IsNodeOnSinkSide(0));
-  BOOST_CHECK(graph.IsNodeOnSinkSide(1));
+  BOOST_CHECK_EQUAL(graph.Compute(), 3);
+  BOOST_CHECK(graph.IsConnectedToSink(0));
+  BOOST_CHECK(graph.IsConnectedToSink(1));
 }
 
-BOOST_AUTO_TEST_CASE(TestGraphMinCutMaxFlow3) {
-  GraphMinCutMaxFlow<int, int> graph(3);
+BOOST_AUTO_TEST_CASE(TestMinSTGraphCut3) {
+  MinSTGraphCut<int, int> graph(3);
   graph.AddNode(0, 6, 4);
   graph.AddNode(2, 3, 6);
   graph.AddEdge(0, 1, 2, 4);
   graph.AddEdge(1, 2, 3, 5);
   BOOST_CHECK_EQUAL(graph.NumEdges(), 12);
-  BOOST_CHECK_EQUAL(graph.ComputeMaxFlow(), 9);
-  BOOST_CHECK(graph.IsNodeOnSourceSide(0));
-  BOOST_CHECK(graph.IsNodeOnSinkSide(1));
-  BOOST_CHECK(graph.IsNodeOnSinkSide(2));
+  BOOST_CHECK_EQUAL(graph.Compute(), 9);
+  BOOST_CHECK(graph.IsConnectedToSource(0));
+  BOOST_CHECK(graph.IsConnectedToSink(1));
+  BOOST_CHECK(graph.IsConnectedToSink(2));
 }

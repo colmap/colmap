@@ -62,20 +62,24 @@ of commands as an alternative to the automatic reconstruction command::
         --output_type COLMAP \
         --max_image_size 2000
 
-    $ colmap dense_stereo \
+    $ colmap patch_match_stereo \
         --workspace_path $DATASET_PATH/dense \
         --workspace_format COLMAP \
         --DenseStereo.geom_consistency true
 
-    $ colmap dense_fuser \
+    $ colmap stereo_fusion \
         --workspace_path $DATASET_PATH/dense \
         --workspace_format COLMAP \
         --input_type geometric \
         --output_path $DATASET_PATH/dense/fused.ply
 
-    $ colmap dense_mesher \
+    $ colmap poisson_mesher \
+        --input_path $DATASET_PATH/dense/ \
+        --output_path $DATASET_PATH/dense/meshed-poisson.ply
+
+    $ colmap delaunay_mesher \
         --input_path $DATASET_PATH/dense/fused.ply \
-        --output_path $DATASET_PATH/dense/meshed.ply
+        --output_path $DATASET_PATH/dense/meshed-delaunay.ply
 
 If you want to run COLMAP on a computer without an attached display (e.g.,
 cluster or cloud service), COLMAP automatically switches to use CUDA if
@@ -114,9 +118,7 @@ The available commands can be listed using the command::
           bundle_adjuster
           color_extractor
           database_creator
-          dense_fuser
-          dense_mesher
-          dense_stereo
+          delaunay_mesher
           exhaustive_matcher
           feature_extractor
           feature_importer
@@ -130,10 +132,13 @@ The available commands can be listed using the command::
           model_converter
           model_merger
           model_orientation_aligner
+          patch_match_stereo
           point_triangulator
+          poisson_mesher
           rig_bundle_adjuster
           sequential_matcher
           spatial_matcher
+          stereo_fusion
           transitive_matcher
           vocab_tree_builder
           vocab_tree_matcher
@@ -215,13 +220,16 @@ available as ``colmap [command]``:
 - ``image_rectifier``: Stereo rectify cameras and undistort images for stereo
   disparity estimation.
 
-- ``dense_stereo``: Dense 3D reconstruction / mapping using MVS after running
+- ``patch_match_stereo``: Dense 3D reconstruction / mapping using MVS after running
   the ``image_undistorter`` to initialize the workspace.
 
-- ``dense_fuser``: Fusion of MVS depth and normal maps to a colored point cloud.
+- ``stereo_fusion``: Fusion of MVS depth and normal maps to a colored point cloud.
 
-- ``dense_mesher``: Meshing of the fused point cloud using Poisson surface
-  reconstruction.
+- ``poisson_mesher``: Meshing of the fused point cloud using Poisson
+  surface reconstruction.
+
+- ``delaunay_mesher``: Meshing of the reconstructed sparse or dense point cloud
+  using a graph cut on the Delaunay triangulation and visibility voting.
 
 - ``image_registrator``: Register new images in the database against an existing
   model, e.g., when extracting features and matching newly added images in a
@@ -276,9 +284,10 @@ reconstruction pipelines, COLMAP offers you the following possibilities:
   and select the folder where the three files, ``cameras.txt``,``images.txt``,
   and ``points3d.txt`` are located.
 
-- The dense point cloud obtained with the ``dense_fuser`` can be visualized via
-  the COLMAP GUI by importing ``fused.ply``: choose
+- The dense point cloud obtained with the ``stereo_fusion`` can be visualized
+  via the COLMAP GUI by importing ``fused.ply``: choose
   ``File > Import Model from...`` and then select the file ``fused.ply``.
 
-- The dense mesh model ``meshed.ply`` obtained with the ``dense_mesher`` can
-  currently not be visualized with COLMAP, instead you can, e.g., use Meshlab.
+- The dense mesh model ``meshed-*.ply`` obtained with the ``poisson_mesher`` or
+  the ``delaunay_mesher`` can currently not be visualized with COLMAP, instead
+  you can use an external viewer, such as Meshlab.

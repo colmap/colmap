@@ -81,6 +81,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   AutomaticReconstructionController::Options reconstruction_options;
   std::string data_type = "individual";
   std::string quality = "high";
+  std::string mesher = "poisson";
 
   OptionManager options;
   options.AddRequiredOption("workspace_path",
@@ -97,6 +98,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
                            &reconstruction_options.single_camera);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
+  options.AddDefaultOption("mesher", &mesher, "{poisson, delaunay}");
   options.AddDefaultOption("num_threads", &reconstruction_options.num_threads);
   options.AddDefaultOption("use_gpu", &reconstruction_options.use_gpu);
   options.AddDefaultOption("gpu_index", &reconstruction_options.gpu_index);
@@ -113,7 +115,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
     reconstruction_options.data_type =
         AutomaticReconstructionController::DataType::INTERNET;
   } else {
-    LOG(FATAL) << "Invalid data type";
+    LOG(FATAL) << "Invalid data type provided";
   }
 
   StringToLower(&quality);
@@ -127,7 +129,18 @@ int RunAutomaticReconstructor(int argc, char** argv) {
     reconstruction_options.quality =
         AutomaticReconstructionController::Quality::HIGH;
   } else {
-    LOG(FATAL) << "Invalid data type";
+    LOG(FATAL) << "Invalid quality provided";
+  }
+
+  StringToLower(&mesher);
+  if (mesher == "poisson") {
+    reconstruction_options.mesher =
+        AutomaticReconstructionController::Mesher::POISSON;
+  } else if (mesher == "delaunay") {
+    reconstruction_options.mesher =
+        AutomaticReconstructionController::Mesher::DELAUNAY;
+  } else {
+    LOG(FATAL) << "Invalid mesher provided";
   }
 
   ReconstructionManager reconstruction_manager;
@@ -197,7 +210,7 @@ int RunDatabaseCreator(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-int RunDenseFuser(int argc, char** argv) {
+int RunStereoFuser(int argc, char** argv) {
   std::string workspace_path;
   std::string input_type = "geometric";
   std::string workspace_format = "COLMAP";
@@ -212,7 +225,7 @@ int RunDenseFuser(int argc, char** argv) {
   options.AddDefaultOption("input_type", &input_type,
                            "{photometric, geometric}");
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDenseFusionOptions();
+  options.AddStereoFusionOptions();
   options.Parse(argc, argv);
 
   StringToLower(&workspace_format);
@@ -231,7 +244,7 @@ int RunDenseFuser(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  mvs::StereoFusion fuser(*options.dense_fusion, workspace_path,
+  mvs::StereoFusion fuser(*options.stereo_fusion, workspace_path,
                           workspace_format, pmvs_option_name, input_type);
 
   fuser.Start();
@@ -245,23 +258,58 @@ int RunDenseFuser(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-int RunDenseMesher(int argc, char** argv) {
+int RunPoissonMesher(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDenseMeshingOptions();
+  options.AddPoissonMeshingOptions();
   options.Parse(argc, argv);
 
-  CHECK(mvs::PoissonReconstruction(*options.dense_meshing, input_path,
-                                   output_path));
+  CHECK(mvs::PoissonMeshing(*options.poisson_meshing, input_path, output_path));
 
   return EXIT_SUCCESS;
 }
 
-int RunDenseStereo(int argc, char** argv) {
+int RunDelaunayMesher(int argc, char** argv) {
+#ifndef CGAL_ENABLED
+  std::cerr << "ERROR: Delaunay meshing requires CGAL, which is not "
+               "available on your system."
+            << std::endl;
+  return EXIT_FAILURE;
+#else   // CGAL_ENABLED
+  std::string input_path;
+  std::string input_type = "dense";
+  std::string output_path;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddDefaultOption("input_type", &input_type);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddDelaunayMeshingOptions();
+  options.Parse(argc, argv);
+
+  StringToLower(&input_type);
+  if (input_type == "sparse") {
+    mvs::SparseDelaunayMeshing(*options.delaunay_meshing, input_path,
+                               output_path);
+  } else if (input_type == "dense") {
+    mvs::DenseDelaunayMeshing(*options.delaunay_meshing, input_path,
+                              output_path);
+  } else {
+    std::cout << "ERROR: Invalid input type - "
+                 "supported values are 'sparse' and 'dense'."
+              << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  return EXIT_SUCCESS;
+#endif  // CGAL_ENABLED
+}
+
+int RunPatchMatchStereo(int argc, char** argv) {
 #ifndef CUDA_ENABLED
   std::cerr << "ERROR: Dense stereo reconstruction requires CUDA, which is not "
                "available on your system."
@@ -277,7 +325,7 @@ int RunDenseStereo(int argc, char** argv) {
   options.AddDefaultOption("workspace_format", &workspace_format,
                            "{COLMAP, PMVS}");
   options.AddDefaultOption("pmvs_option_name", &pmvs_option_name);
-  options.AddDenseStereoOptions();
+  options.AddPatchMatchStereoOptions();
   options.Parse(argc, argv);
 
   StringToLower(&workspace_format);
@@ -288,8 +336,9 @@ int RunDenseStereo(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  mvs::PatchMatchController controller(*options.dense_stereo, workspace_path,
-                                       workspace_format, pmvs_option_name);
+  mvs::PatchMatchController controller(*options.patch_match_stereo,
+                                       workspace_path, workspace_format,
+                                       pmvs_option_name);
 
   controller.Start();
   controller.Wait();
@@ -1693,9 +1742,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("bundle_adjuster", &RunBundleAdjuster);
   commands.emplace_back("color_extractor", &RunColorExtractor);
   commands.emplace_back("database_creator", &RunDatabaseCreator);
-  commands.emplace_back("dense_fuser", &RunDenseFuser);
-  commands.emplace_back("dense_mesher", &RunDenseMesher);
-  commands.emplace_back("dense_stereo", &RunDenseStereo);
+  commands.emplace_back("delaunay_mesher", &RunDelaunayMesher);
   commands.emplace_back("exhaustive_matcher", &RunExhaustiveMatcher);
   commands.emplace_back("feature_extractor", &RunFeatureExtractor);
   commands.emplace_back("feature_importer", &RunFeatureImporter);
@@ -1711,10 +1758,13 @@ int main(int argc, char** argv) {
   commands.emplace_back("model_merger", &RunModelMerger);
   commands.emplace_back("model_orientation_aligner",
                         &RunModelOrientationAligner);
+  commands.emplace_back("patch_match_stereo", &RunPatchMatchStereo);
   commands.emplace_back("point_triangulator", &RunPointTriangulator);
+  commands.emplace_back("poisson_mesher", &RunPoissonMesher);
   commands.emplace_back("rig_bundle_adjuster", &RunRigBundleAdjuster);
   commands.emplace_back("sequential_matcher", &RunSequentialMatcher);
   commands.emplace_back("spatial_matcher", &RunSpatialMatcher);
+  commands.emplace_back("stereo_fusion", &RunStereoFuser);
   commands.emplace_back("transitive_matcher", &RunTransitiveMatcher);
   commands.emplace_back("vocab_tree_builder", &RunVocabTreeBuilder);
   commands.emplace_back("vocab_tree_matcher", &RunVocabTreeMatcher);

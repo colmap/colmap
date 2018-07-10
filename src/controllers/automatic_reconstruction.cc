@@ -83,7 +83,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.sift_extraction->num_threads = options_.num_threads;
   option_manager_.sift_matching->num_threads = options_.num_threads;
   option_manager_.mapper->num_threads = options_.num_threads;
-  option_manager_.dense_meshing->num_threads = options_.num_threads;
+  option_manager_.poisson_meshing->num_threads = options_.num_threads;
 
   ImageReaderOptions reader_options = *option_manager_.image_reader;
   reader_options.database_path = *option_manager_.database_path;
@@ -96,7 +96,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
 
   option_manager_.sift_extraction->gpu_index = options_.gpu_index;
   option_manager_.sift_matching->gpu_index = options_.gpu_index;
-  option_manager_.dense_stereo->gpu_index = options_.gpu_index;
+  option_manager_.patch_match_stereo->gpu_index = options_.gpu_index;
 
   feature_extractor_.reset(new SiftFeatureExtractor(
       reader_options, *option_manager_.sift_extraction));
@@ -243,20 +243,26 @@ void AutomaticReconstructionController::RunDenseMapper() {
     const std::string dense_path =
         JoinPaths(options_.workspace_path, "dense", std::to_string(i));
     const std::string fused_path = JoinPaths(dense_path, "fused.ply");
-    const std::string meshed_path = JoinPaths(dense_path, "meshed.ply");
 
-    if (ExistsFile(fused_path) && ExistsFile(meshed_path)) {
+    std::string meshing_path;
+    if (options_.mesher == Mesher::POISSON) {
+      meshing_path = JoinPaths(dense_path, "meshed-poisson.ply");
+    } else if (options_.mesher == Mesher::DELAUNAY) {
+      meshing_path = JoinPaths(dense_path, "meshed-delaunay.ply");
+    }
+
+    if (ExistsFile(fused_path) && ExistsFile(meshing_path)) {
       continue;
     }
 
-    // Image undistortion
+    // Image undistortion.
 
     if (!ExistsDir(dense_path)) {
       CreateDirIfNotExists(dense_path);
 
       UndistortCameraOptions undistortion_options;
       undistortion_options.max_image_size =
-          option_manager_.dense_stereo->max_image_size;
+          option_manager_.patch_match_stereo->max_image_size;
       COLMAPUndistorter undistorter(undistortion_options,
                                     reconstruction_manager_->Get(i),
                                     *option_manager_.image_path, dense_path);
@@ -270,11 +276,11 @@ void AutomaticReconstructionController::RunDenseMapper() {
       return;
     }
 
-    // Dense stereo
+    // Patch match stereo.
 
     {
       mvs::PatchMatchController patch_match_controller(
-          *option_manager_.dense_stereo, dense_path, "COLMAP", "");
+          *option_manager_.patch_match_stereo, dense_path, "COLMAP", "");
       active_thread_ = &patch_match_controller;
       patch_match_controller.Start();
       patch_match_controller.Wait();
@@ -285,10 +291,10 @@ void AutomaticReconstructionController::RunDenseMapper() {
       return;
     }
 
-    // Dense fusion
+    // Stereo fusion.
 
     if (!ExistsFile(fused_path)) {
-      auto fusion_options = *option_manager_.dense_fusion;
+      auto fusion_options = *option_manager_.stereo_fusion;
       const int num_reg_images = reconstruction_manager_->Get(i).NumRegImages();
       fusion_options.min_num_pixels =
           std::min(num_reg_images + 1, fusion_options.min_num_pixels);
@@ -310,11 +316,16 @@ void AutomaticReconstructionController::RunDenseMapper() {
       return;
     }
 
-    // Dense meshing
+    // Surface meshing.
 
-    if (!ExistsFile(meshed_path)) {
-      mvs::PoissonReconstruction(*option_manager_.dense_meshing, fused_path,
-                                 meshed_path);
+    if (!ExistsFile(meshing_path)) {
+      if (options_.mesher == Mesher::POISSON) {
+        mvs::PoissonMeshing(*option_manager_.poisson_meshing, fused_path,
+                            meshing_path);
+      } else if (options_.mesher == Mesher::POISSON) {
+        mvs::DenseDelaunayMeshing(*option_manager_.delaunay_meshing, dense_path,
+                                  meshing_path);
+      }
     }
   }
 }

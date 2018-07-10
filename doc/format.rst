@@ -172,7 +172,8 @@ COLMAP uses the following workspace folder structure::
     │   +── patch-match.cfg
     │   +── fusion.cfg
     +── fused.ply
-    +── meshed.ply
+    +── meshed-poisson.ply
+    +── meshed-delaunay.ply
     +── run-colmap-geometric.sh
     +── run-colmap-photometric.sh
 

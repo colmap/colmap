@@ -55,7 +55,8 @@ struct RenderOptions;
 namespace mvs {
 struct PatchMatchOptions;
 struct StereoFusionOptions;
-struct PoissonReconstructionOptions;
+struct PoissonMeshingOptions;
+struct DelaunayMeshingOptions;
 }  // namespace mvs
 
 class OptionManager {
@@ -90,9 +91,10 @@ class OptionManager {
   void AddTransitiveMatchingOptions();
   void AddBundleAdjustmentOptions();
   void AddMapperOptions();
-  void AddDenseStereoOptions();
-  void AddDenseFusionOptions();
-  void AddDenseMeshingOptions();
+  void AddPatchMatchStereoOptions();
+  void AddStereoFusionOptions();
+  void AddPoissonMeshingOptions();
+  void AddDelaunayMeshingOptions();
   void AddRenderOptions();
 
   template <typename T>
@@ -129,9 +131,10 @@ class OptionManager {
   std::shared_ptr<BundleAdjustmentOptions> bundle_adjustment;
   std::shared_ptr<IncrementalMapperOptions> mapper;
 
-  std::shared_ptr<mvs::PatchMatchOptions> dense_stereo;
-  std::shared_ptr<mvs::StereoFusionOptions> dense_fusion;
-  std::shared_ptr<mvs::PoissonReconstructionOptions> dense_meshing;
+  std::shared_ptr<mvs::PatchMatchOptions> patch_match_stereo;
+  std::shared_ptr<mvs::StereoFusionOptions> stereo_fusion;
+  std::shared_ptr<mvs::PoissonMeshingOptions> poisson_meshing;
+  std::shared_ptr<mvs::DelaunayMeshingOptions> delaunay_meshing;
 
   std::shared_ptr<RenderOptions> render;
 
@@ -165,9 +168,10 @@ class OptionManager {
   bool added_transitive_match_options_;
   bool added_ba_options_;
   bool added_mapper_options_;
-  bool added_dense_stereo_options_;
-  bool added_dense_fusion_options_;
-  bool added_dense_meshing_options_;
+  bool added_patch_match_stereo_options_;
+  bool added_stereo_fusion_options_;
+  bool added_poisson_meshing_options_;
+  bool added_delaunay_meshing_options_;
   bool added_render_options_;
 };
 

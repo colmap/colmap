@@ -61,6 +61,7 @@ option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
 option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
 option(TESTS_ENABLED "Whether to build test binaries" OFF)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
+option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(BOOST_STATIC "Whether to enable static boost library linker flags" ON)
 option(CUDA_MULTI_ARCH "Whether to generate CUDA code for multiple architectures" OFF)
 
@@ -87,6 +88,7 @@ find_package(Ceres REQUIRED)
 find_package(Boost REQUIRED COMPONENTS
              program_options
              filesystem
+             graph
              regex
              system
              unit_test_framework)
@@ -101,6 +103,9 @@ find_package(OpenGL REQUIRED)
 find_package(Glew REQUIRED)
 find_package(Git)
 
+find_package(CGAL QUIET)
+find_package(GMP QUIET)
+
 set(CUDA_MIN_VERSION "7.0")
 if(CUDA_ENABLED)
     find_package(CUDA ${CUDA_MIN_VERSION} QUIET)
@@ -113,6 +118,17 @@ if(Qt5_FOUND)
     message(STATUS "  Module : ${Qt5Core_DIR}")
     message(STATUS "  Module : ${Qt5OpenGL_DIR}")
     message(STATUS "  Module : ${Qt5Widgets_DIR}")
+endif()
+
+if(CGAL_ENABLED AND CGAL_FOUND AND GMP_FOUND)
+    message(STATUS "Found CGAL")
+    message(STATUS "  Includes : ${CGAL_INCLUDE_DIRS}")
+    message(STATUS "  Libraries : ${CGAL_LIBRARY}")
+    message(STATUS "Found GMP")
+    message(STATUS "  Includes : ${GMP_INCLUDE_DIRS}")
+    message(STATUS "  Libraries : ${GMP_LIBRARIES}")
+else()
+    set(CGAL_ENABLED OFF)
 endif()
 
 
@@ -212,6 +228,13 @@ else()
     message(STATUS "Disabling profiling support")
 endif()
 
+if(CGAL_ENABLED)
+    message(STATUS "Enabling CGAL support")
+    add_definitions("-DCGAL_ENABLED")
+else()
+message(STATUS "Disabling CGAL support")
+endif()
+
 # Qt5 was built with -reduce-relocations.
 if(Qt5_POSITION_INDEPENDENT_CODE)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -262,6 +285,11 @@ set(COLMAP_EXTERNAL_LIBRARIES
     ${Qt5OpenGL_LIBRARIES}
     ${Qt5Widgets_LIBRARIES}
 )
+
+if(CGAL_ENABLED)
+    list(APPEND COLMAP_INCLUDE_DIRS ${CGAL_INCLUDE_DIRS} ${GMP_INCLUDE_DIRS})
+    list(APPEND COLMAP_EXTERNAL_LIBRARIES ${CGAL_LIBRARY} ${GMP_LIBRARIES})
+endif()
 
 if(UNIX)
     list(APPEND COLMAP_EXTERNAL_LIBRARIES pthread)

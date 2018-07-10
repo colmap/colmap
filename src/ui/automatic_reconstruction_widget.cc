@@ -79,6 +79,17 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
   AddOptionBool(&options_.sparse, "Sparse model");
   AddOptionBool(&options_.dense, "Dense model");
 
+  QLabel* mesher_label = new QLabel(tr("Mesher"), this);
+  mesher_label->setFont(font());
+  mesher_label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+  grid_layout_->addWidget(mesher_label, grid_layout_->rowCount(), 0);
+
+  mesher_cb_ = new QComboBox(this);
+  mesher_cb_->addItem("Poisson");
+  mesher_cb_->addItem("Delaunay");
+  mesher_cb_->setCurrentIndex(0);
+  grid_layout_->addWidget(mesher_cb_, grid_layout_->rowCount() - 1, 1);
+
   AddSpacer();
 
   AddOptionInt(&options_.num_threads, "num_threads", -1);
@@ -140,6 +151,18 @@ void AutomaticReconstructionWidget::Run() {
       break;
     default:
       options_.quality = AutomaticReconstructionController::Quality::HIGH;
+      break;
+  }
+
+  switch (mesher_cb_->currentIndex()) {
+    case 0:
+      options_.mesher = AutomaticReconstructionController::Mesher::POISSON;
+      break;
+    case 1:
+      options_.mesher = AutomaticReconstructionController::Mesher::DELAUNAY;
+      break;
+    default:
+      options_.mesher = AutomaticReconstructionController::Mesher::DELAUNAY;
       break;
   }
 
