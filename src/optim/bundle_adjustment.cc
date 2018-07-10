@@ -41,6 +41,7 @@
 #include "base/cost_functions.h"
 #include "base/projection.h"
 #include "util/misc.h"
+#include "util/threading.h"
 #include "util/timer.h"
 
 namespace colmap {
@@ -278,21 +279,14 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
     solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
   }
 
-#ifdef OPENMP_ENABLED
-  if (solver_options.num_threads <= 0) {
-    solver_options.num_threads = omp_get_max_threads();
-  }
+#ifndef OPENMP_ENABLED
+  solver_options.num_threads =
+      GetEffectiveNumThreads(solver_options.num_threads);
 #if CERES_VERSION_MAJOR < 2
-  if (solver_options.num_linear_solver_threads <= 0) {
-    solver_options.num_linear_solver_threads = omp_get_max_threads();
-  }
+  solver_options.num_linear_solver_threads =
+      GetEffectiveNumThreads(solver_options.num_linear_solver_threads);
 #endif  // CERES_VERSION_MAJOR
-#else
-  solver_options.num_threads = 1;
-#if CERES_VERSION_MAJOR < 2
-  solver_options.num_linear_solver_threads = 1;
-#endif  // CERES_VERSION_MAJOR
-#endif
+#endif  // OPENMP_ENABLED
 
   std::string solver_error;
   CHECK(solver_options.IsValid(&solver_error)) << solver_error;
@@ -832,21 +826,14 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
     solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
   }
 
-#ifdef OPENMP_ENABLED
-  if (solver_options.num_threads <= 0) {
-    solver_options.num_threads = omp_get_max_threads();
-  }
+#ifndef OPENMP_ENABLED
+  solver_options.num_threads =
+      GetEffectiveNumThreads(solver_options.num_threads);
 #if CERES_VERSION_MAJOR < 2
-  if (solver_options.num_linear_solver_threads <= 0) {
-    solver_options.num_linear_solver_threads = omp_get_max_threads();
-  }
+  solver_options.num_linear_solver_threads =
+      GetEffectiveNumThreads(solver_options.num_linear_solver_threads);
 #endif  // CERES_VERSION_MAJOR
-#else
-  solver_options.num_threads = 1;
-#if CERES_VERSION_MAJOR < 2
-  solver_options.num_linear_solver_threads = 1;
-#endif  // CERES_VERSION_MAJOR
-#endif
+#endif  // OPENMP_ENABLED
 
   std::string solver_error;
   CHECK(solver_options.IsValid(&solver_error)) << solver_error;
