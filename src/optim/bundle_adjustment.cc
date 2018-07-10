@@ -279,14 +279,12 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
     solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
   }
 
-#ifndef OPENMP_ENABLED
   solver_options.num_threads =
       GetEffectiveNumThreads(solver_options.num_threads);
 #if CERES_VERSION_MAJOR < 2
   solver_options.num_linear_solver_threads =
       GetEffectiveNumThreads(solver_options.num_linear_solver_threads);
 #endif  // CERES_VERSION_MAJOR
-#endif  // OPENMP_ENABLED
 
   std::string solver_error;
   CHECK(solver_options.IsValid(&solver_error)) << solver_error;
@@ -826,14 +824,12 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
     solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
   }
 
-#ifndef OPENMP_ENABLED
   solver_options.num_threads =
       GetEffectiveNumThreads(solver_options.num_threads);
 #if CERES_VERSION_MAJOR < 2
   solver_options.num_linear_solver_threads =
       GetEffectiveNumThreads(solver_options.num_linear_solver_threads);
 #endif  // CERES_VERSION_MAJOR
-#endif  // OPENMP_ENABLED
 
   std::string solver_error;
   CHECK(solver_options.IsValid(&solver_error)) << solver_error;
