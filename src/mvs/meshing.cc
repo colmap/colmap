@@ -179,7 +179,7 @@ class DelaunayMeshingInput {
 
   struct Point {
     Eigen::Vector3f position = Eigen::Vector3f::Zero();
-    int num_visible_images = 0;
+    uint32_t num_visible_images = 0;
   };
 
   EIGEN_STL_UMAP(camera_t, Camera) cameras;
@@ -258,7 +258,7 @@ class DelaunayMeshingInput {
           Eigen::Vector3f(ply_point.x, ply_point.y, ply_point.z);
       input_point.num_visible_images =
           ReadBinaryLittleEndian<uint32_t>(&vis_file);
-      for (size_t i = 0; i < input_point.num_visible_images; ++i) {
+      for (uint32_t i = 0; i < input_point.num_visible_images; ++i) {
         const int image_idx = ReadBinaryLittleEndian<uint32_t>(&vis_file);
         images.at(image_idx).point_idxs.push_back(point_idx);
       }
