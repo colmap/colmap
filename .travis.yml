@@ -2,33 +2,56 @@ language: cpp
 sudo: true
 dist: trusty
 
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - cmake
+      - build-essential
+      - libboost-program-options-dev
+      - libboost-filesystem-dev
+      - libboost-graph-dev
+      - libboost-regex-dev
+      - libboost-system-dev
+      - libboost-test-dev
+      - libeigen3-dev
+      - libatlas-base-dev
+      - libsuitesparse-dev
+      - libfreeimage-dev
+      - libgoogle-glog-dev
+      - libgflags-dev
+      - libglew-dev
+      - libcgal-dev
+      - nvidia-cuda-toolkit
+
 matrix:
   include:
     - os: linux
       env:
         - PATH="/opt/qt54/bin:$PATH"
-        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCUDA_ENABLED=OFF -DCGAL_ENABLED=ON -DTESTS_ENABLED=ON -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
         - QT_QPA_PLATFORM="offscreen"
-      addons:
-        apt:
-          sources:
-            - ubuntu-toolchain-r-test
-          packages:
-            - cmake
-            - build-essential
-            - libboost-program-options-dev
-            - libboost-filesystem-dev
-            - libboost-graph-dev
-            - libboost-regex-dev
-            - libboost-system-dev
-            - libboost-test-dev
-            - libeigen3-dev
-            - libatlas-base-dev
-            - libsuitesparse-dev
-            - libfreeimage-dev
-            - libgoogle-glog-dev
-            - libgflags-dev
-            - libglew-dev
+    - os: linux
+      env:
+        - PATH="/opt/qt54/bin:$PATH"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCUDA_ENABLED=OFF -DCGAL_ENABLED=OFF -DTESTS_ENABLED=ON -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - QT_QPA_PLATFORM="offscreen"
+    - os: linux
+      env:
+        - PATH="/opt/qt54/bin:$PATH"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=ON -DCUDA_ENABLED=ON -DTESTS_ENABLED=OFF -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - QT_QPA_PLATFORM="offscreen"
+    - os: linux
+      env:
+        - PATH="/opt/qt54/bin:$PATH"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCUDA_ENABLED=ON -DTESTS_ENABLED=OFF -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - QT_QPA_PLATFORM="offscreen"
+    - os: linux
+      env:
+        - PATH="/opt/qt54/bin:$PATH"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=ON -DCUDA_ENABLED=OFF -DTESTS_ENABLED=OFF -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - QT_QPA_PLATFORM="offscreen"
     - os: osx
       env:
         - CMAKE_OPTIONS="-DIPO_ENABLED=OFF -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5"
@@ -92,6 +115,6 @@ script:
   - git checkout ${TRAVIS_BRANCH}
   - mkdir -p build
   - cd build
-  - cmake .. -DCMAKE_BUILD_TYPE=Release -DTESTS_ENABLED=ON ${CMAKE_OPTIONS}
+  - cmake .. -DCMAKE_BUILD_TYPE=Release ${CMAKE_OPTIONS}
   - make -j2
   - CTEST_OUTPUT_ON_FAILURE=1 make test
