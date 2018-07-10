@@ -23,6 +23,8 @@ addons:
       - libgflags-dev
       - libglew-dev
       - libcgal-dev
+      - nvidia-profiler
+      - nvidia-cuda-dev
       - nvidia-cuda-toolkit
 
 matrix:
