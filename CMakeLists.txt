@@ -104,7 +104,6 @@ find_package(Glew REQUIRED)
 find_package(Git)
 
 find_package(CGAL QUIET)
-find_package(GMP QUIET)
 
 set(CUDA_MIN_VERSION "7.0")
 if(CUDA_ENABLED)
@@ -120,15 +119,10 @@ if(Qt5_FOUND)
     message(STATUS "  Module : ${Qt5Widgets_DIR}")
 endif()
 
-if(CGAL_ENABLED AND CGAL_FOUND AND GMP_FOUND)
+if(CGAL_FOUND)
     message(STATUS "Found CGAL")
     message(STATUS "  Includes : ${CGAL_INCLUDE_DIRS}")
     message(STATUS "  Libraries : ${CGAL_LIBRARY}")
-    message(STATUS "Found GMP")
-    message(STATUS "  Includes : ${GMP_INCLUDE_DIRS}")
-    message(STATUS "  Libraries : ${GMP_LIBRARIES}")
-else()
-    set(CGAL_ENABLED OFF)
 endif()
 
 
@@ -228,11 +222,11 @@ else()
     message(STATUS "Disabling profiling support")
 endif()
 
-if(CGAL_ENABLED)
+if(CGAL_FOUND)
     message(STATUS "Enabling CGAL support")
     add_definitions("-DCGAL_ENABLED")
 else()
-message(STATUS "Disabling CGAL support")
+    message(STATUS "Disabling CGAL support")
 endif()
 
 # Qt5 was built with -reduce-relocations.
