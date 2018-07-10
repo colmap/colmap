@@ -228,10 +228,10 @@ void AutomaticReconstructionController::RunDenseMapper() {
 #ifndef CUDA_ENABLED
   std::cout
       << std::endl
-      << "WARNING: Skipping dense reconstruction because CUDA is not available"
+      << "WARNING: Skipping dense reconstruction because CUDA is not available."
       << std::endl;
   return;
-#endif
+#endif  // CUDA_ENABLED
 
   CreateDirIfNotExists(JoinPaths(options_.workspace_path, "dense"));
 
@@ -322,9 +322,17 @@ void AutomaticReconstructionController::RunDenseMapper() {
       if (options_.mesher == Mesher::POISSON) {
         mvs::PoissonMeshing(*option_manager_.poisson_meshing, fused_path,
                             meshing_path);
-      } else if (options_.mesher == Mesher::POISSON) {
+      } else if (options_.mesher == Mesher::DELAUNAY) {
+#ifdef CGAL_ENABLED
         mvs::DenseDelaunayMeshing(*option_manager_.delaunay_meshing, dense_path,
                                   meshing_path);
+#else   // CGAL_ENABLED
+        std::cout << std::endl
+                  << "WARNING: Skipping Delaunay meshing because CGAL is "
+                     "not available."
+                  << std::endl;
+        return;
+#endif  // CGAL_ENABLED
       }
     }
   }
