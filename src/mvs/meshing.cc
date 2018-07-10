@@ -52,6 +52,31 @@
 #include "util/random.h"
 #include "util/threading.h"
 
+#ifdef CGAL_ENABLED
+
+typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
+typedef CGAL::Delaunay_triangulation_3<K, CGAL::Fast_location> Delaunay;
+
+namespace std {
+
+template <>
+struct hash<const Delaunay::Vertex_handle> {
+  size_t operator()(const Delaunay::Vertex_handle& handle) const {
+    return reinterpret_cast<std::size_t>(&*handle);
+  }
+};
+
+template <>
+struct hash<const Delaunay::Cell_handle> {
+  size_t operator()(const Delaunay::Cell_handle& handle) const {
+    return reinterpret_cast<std::size_t>(&*handle);
+  }
+};
+
+}  // namespace std
+
+#endif  // CGAL_ENABLED
+
 namespace colmap {
 namespace mvs {
 
@@ -156,9 +181,6 @@ bool PoissonMeshing(const PoissonMeshingOptions& options,
 }
 
 #ifdef CGAL_ENABLED
-
-typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
-typedef CGAL::Delaunay_triangulation_3<K, CGAL::Fast_location> Delaunay;
 
 K::Point_3 EigenToCGAL(const Eigen::Vector3f& point) {
   return K::Point_3(point.x(), point.y(), point.z());
@@ -612,7 +634,7 @@ void WriteDelaunayTriangulationPly(const std::string& path,
   file << "property list uchar int vertex_index" << std::endl;
   file << "end_header" << std::endl;
 
-  std::unordered_map<Delaunay::Vertex_handle, size_t> vertex_indices;
+  std::unordered_map<const Delaunay::Vertex_handle, size_t> vertex_indices;
   vertex_indices.reserve(triangulation.number_of_vertices());
   for (auto it = triangulation.finite_vertices_begin();
        it != triangulation.finite_vertices_end(); ++it) {
@@ -676,7 +698,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
   std::cout << "Initializing graph optimization..." << std::endl;
 
-  typedef std::unordered_map<Delaunay::Cell_handle, DelaunayCellData>
+  typedef std::unordered_map<const Delaunay::Cell_handle, DelaunayCellData>
       CellGraphData;
 
   CellGraphData cell_graph_data;
@@ -929,7 +951,8 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
   PlyMesh mesh;
 
-  std::unordered_map<Delaunay::Vertex_handle, size_t> surface_vertex_indices;
+  std::unordered_map<const Delaunay::Vertex_handle, size_t>
+      surface_vertex_indices;
   surface_vertex_indices.reserve(surface_vertices.size());
   mesh.vertices.reserve(surface_vertices.size());
   for (const auto& vertex : surface_vertices) {
