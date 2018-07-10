@@ -32,39 +32,51 @@ matrix:
     - os: linux
       env:
         - PATH="/opt/qt54/bin:$PATH"
-        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCUDA_ENABLED=OFF -DCGAL_ENABLED=ON -DTESTS_ENABLED=ON -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCUDA_ENABLED=OFF -DCGAL_ENABLED=ON -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - RUN_TESTS=true
         - QT_QPA_PLATFORM="offscreen"
         - QT_VERSION=qt596
+        - QT_PACKAGE_NAME=qt59base
     - os: linux
       env:
         - PATH="/opt/qt54/bin:$PATH"
-        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCUDA_ENABLED=OFF -DCGAL_ENABLED=ON -DTESTS_ENABLED=OFF -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCUDA_ENABLED=OFF -DCGAL_ENABLED=ON -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - RUN_TESTS=false
         - QT_QPA_PLATFORM="offscreen"
         - QT_VERSION=542
+        - QT_PACKAGE_NAME=qt54base
     - os: linux
       env:
         - PATH="/opt/qt54/bin:$PATH"
-        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCUDA_ENABLED=OFF -DCGAL_ENABLED=OFF -DTESTS_ENABLED=ON -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCUDA_ENABLED=OFF -DCGAL_ENABLED=OFF -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - RUN_TESTS=true
         - QT_QPA_PLATFORM="offscreen"
         - QT_VERSION=qt596
+        - QT_PACKAGE_NAME=qt59base
     - os: linux
       env:
         - PATH="/opt/qt54/bin:$PATH"
-        - CMAKE_OPTIONS="-DOPENGL_ENABLED=ON -DCUDA_ENABLED=ON -DCGAL_ENABLED=ON -DTESTS_ENABLED=OFF -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=ON -DCUDA_ENABLED=ON -DCGAL_ENABLED=ON -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - RUN_TESTS=false
         - QT_QPA_PLATFORM="offscreen"
         - QT_VERSION=qt596
+        - QT_PACKAGE_NAME=qt59base
     - os: linux
       env:
         - PATH="/opt/qt54/bin:$PATH"
-        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCUDA_ENABLED=ON -DCGAL_ENABLED=ON -DTESTS_ENABLED=OFF -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCUDA_ENABLED=ON -DCGAL_ENABLED=ON -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - RUN_TESTS=false
         - QT_QPA_PLATFORM="offscreen"
         - QT_VERSION=qt596
+        - QT_PACKAGE_NAME=qt59base
     - os: linux
       env:
         - PATH="/opt/qt54/bin:$PATH"
-        - CMAKE_OPTIONS="-DOPENGL_ENABLED=ON -DCUDA_ENABLED=OFF -DCGAL_ENABLED=ON -DTESTS_ENABLED=OFF -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=ON -DCUDA_ENABLED=OFF -DCGAL_ENABLED=ON -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - RUN_TESTS=false
         - QT_QPA_PLATFORM="offscreen"
         - QT_VERSION=qt596
+        - QT_PACKAGE_NAME=qt59base
     - os: osx
       env:
         - CMAKE_OPTIONS="-DIPO_ENABLED=OFF -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5"
@@ -96,9 +108,9 @@ before_script:
       sh -e /etc/init.d/xvfb start
       sleep 3
 
-      sudo add-apt-repository --yes ppa:beineri/opt-qt542-trusty
+      sudo add-apt-repository --yes ppa:beineri/opt-${QT_VERSION}-trusty
       sudo apt-get update -qq
-      sudo apt-get -y install qt54base
+      sudo apt-get -y install ${QT_PACKAGE_NAME}
 
       cd ${TRAVIS_BUILD_DIR}/deps
       if [[ -z "$(ls -A ceres-solver)" ]]; then
@@ -130,4 +142,7 @@ script:
   - cd build
   - cmake .. -DCMAKE_BUILD_TYPE=Release ${CMAKE_OPTIONS}
   - make -j2
-  - CTEST_OUTPUT_ON_FAILURE=1 make test
+  - |
+    if [ "$RUN_TESTS" = true ]; then
+      TEST_OUTPUT_ON_FAILURE=1 make test
+    fi
