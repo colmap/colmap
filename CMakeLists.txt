@@ -63,8 +63,8 @@ option(TESTS_ENABLED "Whether to build test binaries" OFF)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(BOOST_STATIC "Whether to enable static boost library linker flags" ON)
-option(CUDA_ARCHS "List of CUDA architectures for which to generate code, \
-e.g., Auto, All, Maxwell, Pascal, ..." "Auto")
+set(CUDA_ARCHS "Auto" CACHE STRING "List of CUDA architectures for which to \
+generate code, e.g., Auto, All, Maxwell, Pascal, ..." FORCE)
 
 if(TESTS_ENABLED)
     enable_testing()
