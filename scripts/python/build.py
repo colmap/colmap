@@ -219,7 +219,7 @@ def build_eigen(args):
         return
 
     url = "https://bitbucket.org/eigen/eigen/get/3.3.4.zip"
-    archive_path = os.path.join(args.download_path, "eigen.zip")
+    archive_path = os.path.join(args.download_path, "eigen-3.3.4.zip")
     download_zipfile(url, archive_path, args.build_path,
                      "e337acc279874bc6a56da4d973a723fb")
     shutil.move(glob.glob(os.path.join(args.build_path, "eigen-*"))[0], path)
@@ -235,7 +235,7 @@ def build_freeimage(args):
     if PLATFORM_IS_WINDOWS:
         url = "https://kent.dl.sourceforge.net/project/freeimage/" \
               "Binary%20Distribution/3.17.0/FreeImage3170Win32Win64.zip"
-        archive_path = os.path.join(args.download_path, "freeimage.zip")
+        archive_path = os.path.join(args.download_path, "freeimage-3.17.0.zip")
         download_zipfile(url, archive_path, args.build_path,
                          "a7e6f2f261e72260ec5b91c2a0f4bde3")
         shutil.move(os.path.join(args.build_path, "FreeImage"), path)
@@ -251,7 +251,7 @@ def build_freeimage(args):
     else:
         url = "https://kent.dl.sourceforge.net/project/freeimage/" \
               "Source%20Distribution/3.17.0/FreeImage3170.zip"
-        archive_path = os.path.join(args.download_path, "freeimage.zip")
+        archive_path = os.path.join(args.download_path, "freeimage-3.17.0.zip")
         download_zipfile(url, archive_path, args.build_path,
                          "459e15f0ec75d6efa3c7bd63277ead86")
         shutil.move(os.path.join(args.build_path, "FreeImage"), path)
@@ -303,7 +303,7 @@ def build_glew(args):
 
     url = "https://kent.dl.sourceforge.net/project/glew/" \
           "glew/2.1.0/glew-2.1.0.zip"
-    archive_path = os.path.join(args.download_path, "glew.zip")
+    archive_path = os.path.join(args.download_path, "glew-2.1.0.zip")
     download_zipfile(url, archive_path, args.build_path,
                      "dff2939fd404d054c1036cc0409d19f1")
     shutil.move(os.path.join(args.build_path, "glew-2.1.0"), path)
@@ -323,7 +323,7 @@ def build_gflags(args):
         return
 
     url = "https://github.com/gflags/gflags/archive/v2.2.1.zip"
-    archive_path = os.path.join(args.download_path, "gflags.zip")
+    archive_path = os.path.join(args.download_path, "gflags-2.2.1.zip")
     download_zipfile(url, archive_path, args.build_path,
                      "2d988ef0b50939fb50ada965dafce96b")
     shutil.move(os.path.join(args.build_path, "gflags-2.2.1"), path)
@@ -338,7 +338,7 @@ def build_glog(args):
         return
 
     url = "https://github.com/google/glog/archive/v0.3.5.zip"
-    archive_path = os.path.join(args.download_path, "glog.zip")
+    archive_path = os.path.join(args.download_path, "glog-0.3.5.zip")
     download_zipfile(url, archive_path, args.build_path,
                      "454766d0124951091c95bad33dafeacd")
     shutil.move(os.path.join(args.build_path, "glog-0.3.5"), path)
@@ -381,7 +381,7 @@ def build_ceres_solver(args):
         return
 
     url = "https://github.com/ceres-solver/ceres-solver/archive/1.14.0.zip"
-    archive_path = os.path.join(args.download_path, "ceres-solver.zip")
+    archive_path = os.path.join(args.download_path, "ceres-solver-1.14.0.zip")
     download_zipfile(url, archive_path, args.build_path,
                      "26b255b7a9f330bbc1def3b839724a2a")
     shutil.move(os.path.join(args.build_path, "ceres-solver-1.14.0"), path)
@@ -488,9 +488,9 @@ def build_post_process(args):
             gmp_lib_path = os.path.join(
                 args.cgal_path, "../auxiliary/gmp/lib/libgmp-10.dll")
             if os.path.exists(gmp_lib_path):
-            copy_file_if_not_exists(
+                copy_file_if_not_exists(
                     gmp_lib_path,
-                os.path.join(args.install_path, "lib/libgmp-10.dll"))
+                    os.path.join(args.install_path, "lib/libgmp-10.dll"))
             copy_file_if_not_exists(
                 os.path.join(args.cgal_path,
                              "bin/Release/CGAL-vc140-mt-4.11.2.dll"),
