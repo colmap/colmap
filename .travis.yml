@@ -81,7 +81,8 @@ before_script:
         suite-sparse \
         ceres-solver \
         qt5 \
-        glew || true
+        glew \
+        cgal || true
     fi
   - |
     if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
