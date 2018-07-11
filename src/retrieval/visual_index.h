@@ -206,6 +206,8 @@ template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Add(
     const IndexOptions& options, const int image_id, const GeomType& geometries,
     const DescType& descriptors) {
+  CHECK_EQ(geometries.size(), descriptors.rows());
+
   // If the image is already indexed, do nothing.
   if (ImageIndexed(image_id)) {
     return;
