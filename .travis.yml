@@ -37,7 +37,7 @@ matrix:
     - os: linux
       env:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON"
-        - RUN_TESTS=false
+        - RUN_TESTS=true
         - QT_VERSION=542
     - os: linux
       env:
@@ -98,6 +98,7 @@ before_script:
         sudo apt-get update -qq
         CUDA_VERSION_APT=${CUDA_VERSION:0:3}
         sudo apt-get install -y cuda-drivers cuda-core-${CUDA_VERSION_APT} cuda-cudart-dev-${CUDA_VERSION_APT}
+        sudo ln -s /usr/local/cuda-${CUDA_VERSION:0:3}/ /usr/local/cuda
       fi
 
       cd ${TRAVIS_BUILD_DIR}/deps
