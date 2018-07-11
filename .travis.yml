@@ -54,6 +54,7 @@ matrix:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON"
         - RUN_TESTS=true
         - QT_VERSION=596
+        - CUDA_VERSION=7.5-18
     - os: osx
       env:
         - CMAKE_OPTIONS="-DIPO_ENABLED=OFF -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5"
@@ -91,6 +92,14 @@ before_script:
       sudo apt-get update -qq
       sudo apt-get -y install qt${QT_VERSION:0:2}base
 
+      if [ ! -z "$CUDA_VERSION" ]
+        wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1404/x86_64/cuda-repo-ubuntu1404_${CUDA_VERSION}_amd64.deb
+        sudo dpkg -i cuda-repo-ubuntu1404_${CUDA_VERSION}_amd64.deb
+        sudo apt-get update -qq
+        CUDA_VERSION_APT=${CUDA_VERSION:0:3}
+        sudo apt-get install -y cuda-drivers cuda-core-${CUDA_VERSION_APT} cuda-cudart-dev-${CUDA_VERSION_APT}
+      fi
+
       cd ${TRAVIS_BUILD_DIR}/deps
       if [[ -z "$(ls -A ceres-solver)" ]]; then
         git clone https://ceres-solver.googlesource.com/ceres-solver
@@ -121,9 +130,9 @@ script:
   - cd build
   - |
     if [ "$RUN_TESTS" = true ]; then
-      export CMAKE_OPTIONS="${CMAKE_OPTIONS} -DTEST_ENABLED=ON"
+      export CMAKE_OPTIONS="${CMAKE_OPTIONS} -DTESTS_ENABLED=ON"
     else
-      export CMAKE_OPTIONS="${CMAKE_OPTIONS} -DTEST_ENABLED=OFF"
+      export CMAKE_OPTIONS="${CMAKE_OPTIONS} -DTESTS_ENABLED=OFF"
     fi
   - cmake .. -DCMAKE_BUILD_TYPE=Release ${CMAKE_OPTIONS}
   - make -j2
