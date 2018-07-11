@@ -51,7 +51,13 @@ matrix:
         - QT_VERSION=596
     - os: linux
       env:
-        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON -DCUDA_ARCHS=Pascal"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON -DCUDA_ARCHS=Fermi"
+        - RUN_TESTS=true
+        - QT_VERSION=596
+        - CUDA_VERSION=7.5-18
+    - os: linux
+      env:
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON -DCUDA_ARCHS=Kepler"
         - RUN_TESTS=true
         - QT_VERSION=596
         - CUDA_VERSION=7.5-18
