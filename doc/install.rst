@@ -65,7 +65,7 @@ a (cluster) system if you do not have root access under Linux or Mac.
 Linux
 -----
 
-*Recommended dependencies:* CUDA.
+*Recommended dependencies:* CUDA (at least version 7.X)
 
 Dependencies from the default Ubuntu repositories::
 
@@ -85,7 +85,8 @@ Dependencies from the default Ubuntu repositories::
         libgflags-dev \
         libglew-dev \
         qtbase5-dev \
-        libqt5opengl5-dev
+        libqt5opengl5-dev \
+        libcgal-dev
 
 Install `Ceres Solver <http://ceres-solver.org/>`_::
 
@@ -124,7 +125,7 @@ Run COLMAP::
 Mac
 ---
 
-*Recommended dependencies:* CUDA.
+*Recommended dependencies:* CUDA (at least version 7.X)
 
 Dependencies from `Homebrew <http://brew.sh/>`_::
 
@@ -139,7 +140,8 @@ Dependencies from `Homebrew <http://brew.sh/>`_::
         suite-sparse \
         ceres-solver \
         qt \
-        glew
+        glew \
+        cgal
 
 Configure and compile COLMAP::
 
