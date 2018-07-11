@@ -34,11 +34,14 @@
 
 #include "retrieval/visual_index.h"
 
+using namespace colmap;
 using namespace colmap::retrieval;
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void TestVocabTreeType() {
   typedef VisualIndex<kDescType, kDescDim, kEmbeddingDim> VisualIndexType;
+
+  SetPRNGSeed(0);
 
   {
     VisualIndexType visual_index;
@@ -47,14 +50,14 @@ void TestVocabTreeType() {
 
   {
     typename VisualIndexType::DescType descriptors =
-        VisualIndexType::DescType::Random(1000, kDescDim);
+        VisualIndexType::DescType::Random(50, kDescDim);
     VisualIndexType visual_index;
     BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 0);
     typename VisualIndexType::BuildOptions build_options;
-    build_options.num_visual_words = 10;
-    build_options.branching = 10;
+    build_options.num_visual_words = 5;
+    build_options.branching = 5;
     visual_index.Build(build_options, descriptors);
-    BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 10);
+    BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 5);
   }
 
   {
@@ -69,13 +72,13 @@ void TestVocabTreeType() {
     BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 100);
 
     typename VisualIndexType::IndexOptions index_options;
-    typename VisualIndexType::GeomType keypoints1(100);
+    typename VisualIndexType::GeomType keypoints1(50);
     typename VisualIndexType::DescType descriptors1 =
-        VisualIndexType::DescType::Random(100, kDescDim);
+        VisualIndexType::DescType::Random(50, kDescDim);
     visual_index.Add(index_options, 1, keypoints1, descriptors1);
-    typename VisualIndexType::GeomType keypoints2(100);
+    typename VisualIndexType::GeomType keypoints2(50);
     typename VisualIndexType::DescType descriptors2 =
-        VisualIndexType::DescType::Random(100, kDescDim);
+        VisualIndexType::DescType::Random(50, kDescDim);
     visual_index.Add(index_options, 2, keypoints2, descriptors2);
     visual_index.Prepare();
 
@@ -104,14 +107,8 @@ void TestVocabTreeType() {
 BOOST_AUTO_TEST_CASE(TestVocabTree) {
   TestVocabTreeType<uint8_t, 128, 64>();
   TestVocabTreeType<uint8_t, 64, 64>();
-  TestVocabTreeType<uint8_t, 64, 32>();
-  TestVocabTreeType<int, 128, 64>();
-  TestVocabTreeType<int, 64, 64>();
-  TestVocabTreeType<int, 64, 32>();
-  TestVocabTreeType<float, 128, 64>();
-  TestVocabTreeType<float, 64, 64>();
-  TestVocabTreeType<float, 64, 32>();
-  TestVocabTreeType<double, 128, 64>();
-  TestVocabTreeType<double, 64, 64>();
-  TestVocabTreeType<double, 64, 32>();
+  TestVocabTreeType<uint8_t, 32, 16>();
+  TestVocabTreeType<int, 32, 16>();
+  TestVocabTreeType<float, 32, 16>();
+  TestVocabTreeType<double, 32, 16>();
 }
