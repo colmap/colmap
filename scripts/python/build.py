@@ -75,6 +75,9 @@ def parse_args():
                         help="The path to the folder containing Boost, "
                              "e.g., under Windows: "
                              "C:/local/boost_1_64_0/lib64-msvc-12.0")
+    parser.add_argument("--cgal_path", default="",
+                        help="The path to the folder containing CGAL, "
+                             "e.g., under Windows: C:/dev/CGAL-4.11.2/build")
     parser.add_argument("--cuda_path", default="",
                         help="The path to the folder containing CUDA, "
                              "e.g., under Windows: C:/Program Files/NVIDIA GPU "
@@ -444,6 +447,9 @@ def build_colmap(args):
     else:
         extra_config_args.append("-DTESTS_ENABLED=OFF")
 
+    if args.cgal_path:
+        extra_config_args.append("-DCGAL_DIR={}".format(args.cgal_path))
+
     if PLATFORM_IS_WINDOWS:
         extra_config_args.append("-DCMAKE_CXX_FLAGS=/DGOOGLE_GLOG_DLL_DECL=")
 
@@ -478,6 +484,17 @@ def build_post_process(args):
                 cudart_lib_path,
                 os.path.join(args.install_path, "lib",
                              os.path.basename(cudart_lib_path)))
+        if args.cgal_path:
+            gmp_lib_path = os.path.join(
+                args.cgal_path, "../auxiliary/gmp/lib/libgmp-10.dll")
+            if os.path.exists(gmp_lib_path):
+            copy_file_if_not_exists(
+                    gmp_lib_path,
+                os.path.join(args.install_path, "lib/libgmp-10.dll"))
+            copy_file_if_not_exists(
+                os.path.join(args.cgal_path,
+                             "bin/Release/CGAL-vc140-mt-4.11.2.dll"),
+                os.path.join(args.install_path, "lib/CGAL-vc140-mt-4.11.2.dll"))
 
 
 def main():
