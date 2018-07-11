@@ -28,36 +28,36 @@ matrix:
   include:
     - os: linux
       env:
-        - PATH="/opt/qt54/bin:$PATH"
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
         - RUN_TESTS=true
         - QT_QPA_PLATFORM="offscreen"
         - QT_VERSION=qt596
         - QT_PACKAGE_NAME=qt59base
+        - PATH="/opt/qt59/bin:$PATH"
     - os: linux
       env:
-        - PATH="/opt/qt54/bin:$PATH"
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
         - RUN_TESTS=false
         - QT_QPA_PLATFORM="offscreen"
         - QT_VERSION=542
         - QT_PACKAGE_NAME=qt54base
+        - PATH="/opt/qt54/bin:$PATH"
     - os: linux
       env:
-        - PATH="/opt/qt54/bin:$PATH"
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=OFF -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
         - RUN_TESTS=true
         - QT_QPA_PLATFORM="offscreen"
         - QT_VERSION=qt596
         - QT_PACKAGE_NAME=qt59base
+        - PATH="/opt/qt59/bin:$PATH"
     - os: linux
       env:
-        - PATH="/opt/qt54/bin:$PATH"
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=ON -DCGAL_ENABLED=ON -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
         - RUN_TESTS=false
         - QT_QPA_PLATFORM="offscreen"
         - QT_VERSION=qt596
         - QT_PACKAGE_NAME=qt59base
+        - PATH="/opt/qt59/bin:$PATH"
     - os: osx
       env:
         - CMAKE_OPTIONS="-DIPO_ENABLED=OFF -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5"
