@@ -92,7 +92,7 @@ before_script:
       sudo apt-get update -qq
       sudo apt-get -y install qt${QT_VERSION:0:2}base
 
-      if [ ! -z "$CUDA_VERSION" ]
+      if [[ ! -z "$CUDA_VERSION" ]]; then
         wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1404/x86_64/cuda-repo-ubuntu1404_${CUDA_VERSION}_amd64.deb
         sudo dpkg -i cuda-repo-ubuntu1404_${CUDA_VERSION}_amd64.deb
         sudo apt-get update -qq
