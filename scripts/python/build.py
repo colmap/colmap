@@ -79,12 +79,9 @@ def parse_args():
                         help="The path to the folder containing CUDA, "
                              "e.g., under Windows: C:/Program Files/NVIDIA GPU "
                              "Computing Toolkit/CUDA/v8.0")
-    parser.add_argument("--cuda_multi_arch",
-                        dest="cuda_multi_arch", action="store_true")
-    parser.add_argument("--no_cuda_multi_arch",
-                        dest="cuda_multi_arch", action="store_false",
-                        help="Whether to compile CUDA code for "
-                             "multiple GPU architectures (default no)")
+    parser.add_argument("--cuda_archs", default="Auto",
+                        help="List of CUDA architectures for which to generate "
+                             "code, e.g., Auto, All, Maxwell, Pascal, ...")
     parser.add_argument("--with_suite_sparse",
                         dest="with_suite_sparse", action="store_true")
     parser.add_argument("--without_suite_sparse",
@@ -115,7 +112,6 @@ def parse_args():
                         help="Whether to disable SSL certificate verification "
                              "while downloading the source code")
 
-    parser.set_defaults(cuda_multi_arch=False)
     parser.set_defaults(with_suite_sparse=True)
     parser.set_defaults(with_cuda=True)
     parser.set_defaults(with_opengl=True)
@@ -430,15 +426,13 @@ def build_colmap(args):
         extra_config_args.append(
             "-DCUDA_TOOLKIT_ROOT_DIR={}".format(args.cuda_path))
 
-    if args.cuda_multi_arch:
-        extra_config_args.append("-DCUDA_MULTI_ARCH=ON")
-    else:
-        extra_config_args.append("-DCUDA_MULTI_ARCH=OFF")
-
     if args.with_cuda:
         extra_config_args.append("-DCUDA_ENABLED=ON")
     else:
         extra_config_args.append("-DCUDA_ENABLED=OFF")
+
+    if args.cuda_archs:
+        extra_config_args.append("-DCUDA_ARCHS={}".format(args.cuda_archs))
 
     if args.with_opengl:
         extra_config_args.append("-DOPENGL_ENABLED=ON")

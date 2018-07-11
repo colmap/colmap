@@ -63,7 +63,8 @@ option(TESTS_ENABLED "Whether to build test binaries" OFF)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(BOOST_STATIC "Whether to enable static boost library linker flags" ON)
-option(CUDA_MULTI_ARCH "Whether to generate CUDA code for multiple architectures" OFF)
+option(CUDA_ARCHS "List of CUDA architectures for which to generate code, \
+e.g., Auto, All, Maxwell, Pascal, ..." "Auto")
 
 if(TESTS_ENABLED)
     enable_testing()
@@ -182,11 +183,7 @@ if(CUDA_FOUND)
 
         include(${CMAKE_SOURCE_DIR}/cmake/SelectCudaComputeArch.cmake)
 
-        if(CUDA_MULTI_ARCH)
-            CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS All)
-        else()
-            CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS Auto)
-        endif()
+        CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS ${CUDA_ARCHS})
 
         set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Wno-deprecated-gpu-targets")
         set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${CUDA_ARCH_FLAGS}")
