@@ -60,15 +60,29 @@ typedef CGAL::Delaunay_triangulation_3<K, CGAL::Fast_location> Delaunay;
 namespace std {
 
 template <>
+struct hash<Delaunay::Vertex_handle> {
+  std::size_t operator()(const Delaunay::Vertex_handle& handle) const {
+    return reinterpret_cast<std::size_t>(&*handle);
+  }
+};
+
+template <>
 struct hash<const Delaunay::Vertex_handle> {
-  size_t operator()(const Delaunay::Vertex_handle& handle) const {
+  std::size_t operator()(const Delaunay::Vertex_handle& handle) const {
+    return reinterpret_cast<std::size_t>(&*handle);
+  }
+};
+
+template <>
+struct hash<Delaunay::Cell_handle> {
+  std::size_t operator()(const Delaunay::Cell_handle& handle) const {
     return reinterpret_cast<std::size_t>(&*handle);
   }
 };
 
 template <>
 struct hash<const Delaunay::Cell_handle> {
-  size_t operator()(const Delaunay::Cell_handle& handle) const {
+  std::size_t operator()(const Delaunay::Cell_handle& handle) const {
     return reinterpret_cast<std::size_t>(&*handle);
   }
 };
