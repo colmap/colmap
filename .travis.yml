@@ -24,40 +24,36 @@ addons:
       - libglew-dev
       - libcgal-dev
 
+env:
+  - QT_QPA_PLATFORM="offscreen"
+
 matrix:
   include:
     - os: linux
       env:
-        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON"
         - RUN_TESTS=true
-        - QT_QPA_PLATFORM="offscreen"
-        - QT_VERSION=qt596
-        - QT_PACKAGE_NAME=qt59base
-        - PATH="/opt/qt59/bin:$PATH"
+        - QT_VERSION=596
     - os: linux
       env:
-        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON"
         - RUN_TESTS=false
-        - QT_QPA_PLATFORM="offscreen"
         - QT_VERSION=542
-        - QT_PACKAGE_NAME=qt54base
-        - PATH="/opt/qt54/bin:$PATH"
     - os: linux
       env:
-        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=OFF -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=OFF"
         - RUN_TESTS=true
-        - QT_QPA_PLATFORM="offscreen"
-        - QT_VERSION=qt596
-        - QT_PACKAGE_NAME=qt59base
-        - PATH="/opt/qt59/bin:$PATH"
+        - QT_VERSION=596
     - os: linux
       env:
-        - CMAKE_OPTIONS="-DOPENGL_ENABLED=ON -DCGAL_ENABLED=ON -DCeres_DIR=${TRAVIS_BUILD_DIR}/deps/ceres-solver/install/lib/cmake/Ceres"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=ON -DCGAL_ENABLED=ON"
         - RUN_TESTS=false
-        - QT_QPA_PLATFORM="offscreen"
-        - QT_VERSION=qt596
-        - QT_PACKAGE_NAME=qt59base
-        - PATH="/opt/qt59/bin:$PATH"
+        - QT_VERSION=596
+    - os: linux
+      env:
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON"
+        - RUN_TESTS=true
+        - QT_VERSION=596
     - os: osx
       env:
         - CMAKE_OPTIONS="-DIPO_ENABLED=OFF -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5"
@@ -90,9 +86,10 @@ before_script:
       sh -e /etc/init.d/xvfb start
       sleep 3
 
-      sudo add-apt-repository --yes ppa:beineri/opt-${QT_VERSION}-trusty
+      sudo add-apt-repository --yes ppa:beineri/opt-qt${QT_VERSION}-trusty
+      export PATH="/opt/qt${QT_VERSION:0:2}/bin:$PATH"
       sudo apt-get update -qq
-      sudo apt-get -y install ${QT_PACKAGE_NAME}
+      sudo apt-get -y install qt${QT_VERSION:0:2}base
 
       cd ${TRAVIS_BUILD_DIR}/deps
       if [[ -z "$(ls -A ceres-solver)" ]]; then
@@ -122,6 +119,12 @@ script:
   - git checkout ${TRAVIS_BRANCH}
   - mkdir -p build
   - cd build
+  - |
+    if [ "$RUN_TESTS" = true ]; then
+      export CMAKE_OPTIONS="${CMAKE_OPTIONS} -DTEST_ENABLED=ON"
+    else
+      export CMAKE_OPTIONS="${CMAKE_OPTIONS} -DTEST_ENABLED=OFF"
+    fi
   - cmake .. -DCMAKE_BUILD_TYPE=Release ${CMAKE_OPTIONS}
   - make -j2
   - |
