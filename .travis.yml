@@ -51,16 +51,16 @@ matrix:
         - QT_VERSION=596
     - os: linux
       env:
-        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON -DCUDA_ARCHS=Fermi"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON -DCUDA_ARCHS=Kepler"
         - RUN_TESTS=true
         - QT_VERSION=596
         - CUDA_VERSION=7.5-18
     - os: linux
       env:
-        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON -DCUDA_ARCHS=Kepler"
+        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON -DCUDA_ARCHS=Pascal"
         - RUN_TESTS=true
         - QT_VERSION=596
-        - CUDA_VERSION=7.5-18
+        - CUDA_VERSION=8.0.61-1
     - os: osx
       env:
         - CMAKE_OPTIONS="-DIPO_ENABLED=OFF -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5"
@@ -103,7 +103,7 @@ before_script:
         sudo dpkg -i cuda-repo-ubuntu1404_${CUDA_VERSION}_amd64.deb
         sudo apt-get update -qq
         CUDA_VERSION_APT=${CUDA_VERSION:0:3}
-        sudo apt-get install -y cuda-drivers cuda-core-${CUDA_VERSION_APT} cuda-cudart-dev-${CUDA_VERSION_APT}
+        sudo apt-get install -y cuda-drivers cuda-core-${CUDA_VERSION_APT} cuda-cudart-dev-${CUDA_VERSION_APT} cuda-curand-dev-${CUDA_VERSION_APT}
         sudo ln -s /usr/local/cuda-${CUDA_VERSION:0:3}/ /usr/local/cuda
       fi
 
