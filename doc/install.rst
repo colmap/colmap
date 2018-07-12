@@ -203,7 +203,7 @@ If you use Homebrew under Mac, you can use the following command::
     python scripts/python/build.py \
         --build_path path/to/colmap/build \
         --colmap_path path/to/colmap \
-        --qt_path /usr/local/opt/qt/
+        --qt_path /usr/local/opt/qt
 
 To see the full list of command-line options, pass the ``--help`` argument.
 
@@ -228,17 +228,17 @@ using the following ``CMakeLists.txt``::
     project(TestProject)
 
     find_package(COLMAP REQUIRED)
-    # or: find_package(COLMAP 3.4 REQUIRED)
+    # or to require a specific version: find_package(COLMAP 3.4 REQUIRED)
 
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
     include_directories(${COLMAP_INCLUDE_DIRS})
     link_directories(${COLMAP_LINK_DIRS})
 
-    add_executable(test test.cc)
-    target_link_libraries(test ${COLMAP_LIBRARIES})
+    add_executable(hello_world hello_world.cc)
+    target_link_libraries(hello_world ${COLMAP_LIBRARIES})
 
-with the source code ``test.cc``::
+with the source code ``hello_world.cc``::
 
     #include <cstdlib>
     #include <iostream>
