@@ -51,6 +51,7 @@
 #include "util/ply.h"
 #include "util/random.h"
 #include "util/threading.h"
+#include "util/timer.h"
 
 #ifdef CGAL_ENABLED
 
@@ -1005,25 +1006,35 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 void SparseDelaunayMeshing(const DelaunayMeshingOptions& options,
                            const std::string& input_path,
                            const std::string& output_path) {
+  Timer timer;
+  timer.Start();
+
   DelaunayMeshingInput input_data;
   input_data.ReadSparseReconstruction(input_path);
 
   const auto mesh = DelaunayMeshing(options, input_data);
 
   std::cout << "Writing surface mesh..." << std::endl;
-  WriteTextPlyMesh(output_path, mesh);
+  WriteBinaryPlyMesh(output_path, mesh);
+
+  timer.PrintSeconds();
 }
 
 void DenseDelaunayMeshing(const DelaunayMeshingOptions& options,
                           const std::string& input_path,
                           const std::string& output_path) {
+  Timer timer;
+  timer.Start();
+
   DelaunayMeshingInput input_data;
   input_data.ReadDenseReconstruction(input_path);
 
   const auto mesh = DelaunayMeshing(options, input_data);
 
   std::cout << "Writing surface mesh..." << std::endl;
-  WriteTextPlyMesh(output_path, mesh);
+  WriteBinaryPlyMesh(output_path, mesh);
+
+  timer.PrintSeconds();
 }
 
 #endif  // CGAL_ENABLED

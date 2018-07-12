@@ -435,8 +435,8 @@ void WriteBinaryPlyMesh(const std::string& path, const PlyMesh& mesh) {
     CHECK_LT(face.vertex_idx1, mesh.vertices.size());
     CHECK_LT(face.vertex_idx2, mesh.vertices.size());
     CHECK_LT(face.vertex_idx3, mesh.vertices.size());
-    const int kNumVertices = 3;
-    WriteBinaryLittleEndian<int>(&binary_file, kNumVertices);
+    const uint8_t kNumVertices = 3;
+    WriteBinaryLittleEndian<uint8_t>(&binary_file, kNumVertices);
     WriteBinaryLittleEndian<int>(&binary_file, face.vertex_idx1);
     WriteBinaryLittleEndian<int>(&binary_file, face.vertex_idx2);
     WriteBinaryLittleEndian<int>(&binary_file, face.vertex_idx3);
