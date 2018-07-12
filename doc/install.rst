@@ -163,7 +163,7 @@ Run COLMAP::
 Windows
 -------
 
-*Recommended dependencies:* CUDA.
+*Recommended dependencies:* CUDA (at least version 7.X), CGAL
 
 On Windows it is recommended to use the Python build script. Please follow the
 instructions in the next section.
@@ -181,15 +181,17 @@ under Mac and Linux, it is usually easier and faster to use the available
 package managers for the dependencies (see above). However, if you are on a
 (cluster) system without root access, this script might be useful. This script
 downloads the necessary dependencies automatically from the Internet. It assumes
-that CMake, Boost, Qt5, and CUDA (optional) are already installed on the system.
-E.g., under Windows you must specify the location of these libraries as::
+that CMake, Boost, Qt5, CUDA (optional), and CGAL (optional) are already
+installed on the system. E.g., under Windows you must specify the location of
+these libraries similar to this::
 
     python scripts/python/build.py \
         --build_path path/to/colmap/build \
         --colmap_path path/to/colmap \
         --boost_path "C:/local/boost_1_64_0/lib64-msvc-14.0" \
         --qt_path "C:/Qt/5.9.3/msvc2015_64" \
-        --cuda_path "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v8.0"
+        --cuda_path "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v8.0" \
+        --cgal_path "C:/dev/CGAL-4.11.2/build"
 
 Note that under Windows you must use forward slashes for specifying the paths
 here. If you want to compile COLMAP using a specific Visual Studio version, you
