@@ -997,6 +997,7 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
 
   TwoViewGeometry two_view_geometry;
   TwoViewGeometry::Options two_view_geometry_options;
+  two_view_geometry_options.ransac_options.min_num_trials = 25;
   two_view_geometry_options.ransac_options.max_error = options.init_max_error;
   two_view_geometry.EstimateCalibrated(camera1, points1, camera2, points2,
                                        matches, two_view_geometry_options);
