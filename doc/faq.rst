@@ -404,13 +404,15 @@ images using e.g. CMVS [furukawa10]_. In addition, CMVS allows to prune
 redundant images observing the same scene elements. Note that, for this use
 case, COLMAP's dense reconstruction pipeline also supports the PMVS/CMVS folder
 structure when executed from the command-line. Please, refer to the workspace
-folder for example shell scripts. Since CMVS produces highly overlapping
-clusters, it is recommended to increase the default value of 100 images per
-cluster to as high as possible according to your available system resources and
-speed requirements. To change the number of images using CMVS, you must modify
-the shell scripts accordingly. For example, ``cmvs pmvs/ 500`` to limit each
-cluster to 500 images. If you want to use CMVS to prune redundant images but not
-to cluster the scene, you can simply set this number to a very large value.
+folder for example shell scripts. Note that the example shell scripts for
+PMVS/CMVS are only generated, if the output type is set to PMVS. Since CMVS
+produces highly overlapping clusters, it is recommended to increase the default
+value of 100 images per cluster to as high as possible according to your
+available system resources and speed requirements. To change the number of
+images using CMVS, you must modify the shell scripts accordingly. For example,
+``cmvs pmvs/ 500`` to limit each cluster to 500 images. If you want to use CMVS
+to prune redundant images but not to cluster the scene, you can simply set this
+number to a very large value.
 
 
 .. _faq-dense-manual-source:
