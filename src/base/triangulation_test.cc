@@ -87,4 +87,7 @@ BOOST_AUTO_TEST_CASE(TestCalculateTriangulationAngle) {
   BOOST_CHECK_CLOSE(
       CalculateTriangulationAngle(tvec1, tvec2, Eigen::Vector3d(0, 0, 50)),
       0.019997333973, 1e-8);
+  BOOST_CHECK_CLOSE(CalculateTriangulationAngles(
+                        tvec1, tvec2, {Eigen::Vector3d(0, 0, 50)})[0],
+                    0.019997333973, 1e-8);
 }

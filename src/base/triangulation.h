@@ -105,27 +105,12 @@ std::vector<Eigen::Vector3d> TriangulateOptimalPoints(
     const std::vector<Eigen::Vector2d>& points1,
     const std::vector<Eigen::Vector2d>& points2);
 
-// Calculate angle between the two rays of a triangulated point.
-//
-// @param pose1          Projection center of first image.
-// @param pose2          Projection center of second image.
-// @param point3D        Triangulated 3D point.
-//
-// @return               Angle in radians.
+// Calculate angle in radians between the two rays of a triangulated point.
 double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,
                                    const Eigen::Vector3d& proj_center2,
                                    const Eigen::Vector3d& point3D);
-
-// Calculate angle between the two rays of a triangulated point.
-//
-// @param proj_matrix1   Projection matrix of the first image.
-// @param proj_matrix2   Projection matrix of the second image.
-// @param points3D       Triangulated 3D points.
-//
-// @return               Angle in radians.
 std::vector<double> CalculateTriangulationAngles(
-    const Eigen::Matrix3x4d& proj_matrix1,
-    const Eigen::Matrix3x4d& proj_matrix2,
+    const Eigen::Vector3d& proj_center1, const Eigen::Vector3d& proj_center2,
     const std::vector<Eigen::Vector3d>& points3D);
 
 }  // namespace colmap

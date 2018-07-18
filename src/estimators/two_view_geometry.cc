@@ -208,15 +208,11 @@ bool TwoViewGeometry::EstimateRelativePose(
 
   qvec = RotationMatrixToQuaternion(R);
 
-  // Determine triangulation angle.
-  const Eigen::Matrix3x4d proj_matrix1 = Eigen::Matrix3x4d::Identity();
-  const Eigen::Matrix3x4d proj_matrix2 = ComposeProjectionMatrix(R, tvec);
-
   if (points3D.empty()) {
     tri_angle = 0;
   } else {
-    tri_angle = Median(
-        CalculateTriangulationAngles(proj_matrix1, proj_matrix2, points3D));
+    tri_angle = Median(CalculateTriangulationAngles(
+        Eigen::Vector3d::Zero(), -R.transpose() * tvec, points3D));
   }
 
   if (config == PLANAR_OR_PANORAMIC) {

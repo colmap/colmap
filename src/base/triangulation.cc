@@ -122,15 +122,17 @@ std::vector<Eigen::Vector3d> TriangulateOptimalPoints(
 double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,
                                    const Eigen::Vector3d& proj_center2,
                                    const Eigen::Vector3d& point3D) {
-  const double baseline2 = (proj_center1 - proj_center2).squaredNorm();
+  const double baseline_length_squared =
+      (proj_center1 - proj_center2).squaredNorm();
 
-  const double ray1 = (point3D - proj_center1).norm();
-  const double ray2 = (point3D - proj_center2).norm();
+  const double ray_length_squared1 = (point3D - proj_center1).squaredNorm();
+  const double ray_length_squared2 = (point3D - proj_center2).squaredNorm();
 
   // Angle between rays at point within the enclosing triangle,
   // see "law of cosines".
-  const double angle = std::abs(
-      std::acos((ray1 * ray1 + ray2 * ray2 - baseline2) / (2 * ray1 * ray2)));
+  const double angle = std::abs(std::acos(
+      (ray_length_squared1 + ray_length_squared2 - baseline_length_squared) /
+      (2.0 * std::sqrt(ray_length_squared1) * std::sqrt(ray_length_squared2))));
 
   if (IsNaN(angle)) {
     return 0;
@@ -143,30 +145,27 @@ double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,
 }
 
 std::vector<double> CalculateTriangulationAngles(
-    const Eigen::Matrix3x4d& proj_matrix1,
-    const Eigen::Matrix3x4d& proj_matrix2,
+    const Eigen::Vector3d& proj_center1, const Eigen::Vector3d& proj_center2,
     const std::vector<Eigen::Vector3d>& points3D) {
-  const Eigen::Vector3d& proj_center1 =
-      ProjectionCenterFromMatrix(proj_matrix1);
-  const Eigen::Vector3d& proj_center2 =
-      ProjectionCenterFromMatrix(proj_matrix2);
-
-  // Baseline length between cameras.
-  const double baseline2 = (proj_center1 - proj_center2).squaredNorm();
+  // Baseline length between camera centers.
+  const double baseline_length_squared =
+      (proj_center1 - proj_center2).squaredNorm();
 
   std::vector<double> angles(points3D.size());
 
   for (size_t i = 0; i < points3D.size(); ++i) {
-    const Eigen::Vector3d& point3D = points3D[i];
-
     // Ray lengths from cameras to point.
-    const double ray1 = (point3D - proj_center1).norm();
-    const double ray2 = (point3D - proj_center2).norm();
+    const double ray_length_squared1 =
+        (points3D[i] - proj_center1).squaredNorm();
+    const double ray_length_squared2 =
+        (points3D[i] - proj_center2).squaredNorm();
 
     // Angle between rays at point within the enclosing triangle,
     // see "law of cosines".
-    const double angle = std::abs(
-        std::acos((ray1 * ray1 + ray2 * ray2 - baseline2) / (2 * ray1 * ray2)));
+    const double angle = std::abs(std::acos(
+        (ray_length_squared1 + ray_length_squared2 - baseline_length_squared) /
+        (2.0 * std::sqrt(ray_length_squared1) *
+         std::sqrt(ray_length_squared2))));
 
     if (IsNaN(angle)) {
       angles[i] = 0;
