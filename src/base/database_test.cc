@@ -304,7 +304,7 @@ BOOST_AUTO_TEST_CASE(TestMatches) {
   BOOST_CHECK_EQUAL(database.NumMatches(), 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestInlierMatches) {
+BOOST_AUTO_TEST_CASE(TestTwoViewGeometry) {
   Database database(kMemoryDatabasePath);
   const image_t image_id1 = 1;
   const image_t image_id2 = 2;
@@ -326,10 +326,32 @@ BOOST_AUTO_TEST_CASE(TestInlierMatches) {
     BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[i].point2D_idx2,
                       two_view_geometry_read.inlier_matches[i].point2D_idx2);
   }
+
   BOOST_CHECK_EQUAL(two_view_geometry.config, two_view_geometry_read.config);
   BOOST_CHECK_EQUAL(two_view_geometry.F, two_view_geometry_read.F);
   BOOST_CHECK_EQUAL(two_view_geometry.E, two_view_geometry_read.E);
   BOOST_CHECK_EQUAL(two_view_geometry.H, two_view_geometry_read.H);
+
+  const TwoViewGeometry two_view_geometry_read_inv =
+      database.ReadTwoViewGeometry(image_id2, image_id1);
+  BOOST_CHECK_EQUAL(two_view_geometry_read_inv.inlier_matches.size(),
+                    two_view_geometry_read.inlier_matches.size());
+  for (size_t i = 0; i < two_view_geometry_read.inlier_matches.size(); ++i) {
+    BOOST_CHECK_EQUAL(two_view_geometry_read_inv.inlier_matches[i].point2D_idx2,
+                      two_view_geometry_read.inlier_matches[i].point2D_idx1);
+    BOOST_CHECK_EQUAL(two_view_geometry_read_inv.inlier_matches[i].point2D_idx1,
+                      two_view_geometry_read.inlier_matches[i].point2D_idx2);
+  }
+
+  BOOST_CHECK_EQUAL(two_view_geometry_read_inv.config,
+                    two_view_geometry_read.config);
+  BOOST_CHECK_EQUAL(two_view_geometry_read_inv.F.transpose(),
+                    two_view_geometry_read.F);
+  BOOST_CHECK_EQUAL(two_view_geometry_read_inv.E.transpose(),
+                    two_view_geometry_read.E);
+  BOOST_CHECK(two_view_geometry_read_inv.H.inverse().eval().isApprox(
+      two_view_geometry_read.H));
+
   std::vector<image_pair_t> image_pair_ids;
   std::vector<TwoViewGeometry> two_view_geometries;
   database.ReadTwoViewGeometries(&image_pair_ids, &two_view_geometries);

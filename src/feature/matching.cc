@@ -1343,7 +1343,7 @@ void TransitiveFeatureMatcher::Run() {
     std::vector<std::pair<image_t, image_t>> existing_image_pairs;
     std::vector<int> existing_num_inliers;
     database_.ReadTwoViewGeometryNumInliers(&existing_image_pairs,
-                                       &existing_num_inliers);
+                                            &existing_num_inliers);
 
     CHECK_EQ(existing_image_pairs.size(), existing_num_inliers.size());
 

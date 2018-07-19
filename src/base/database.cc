@@ -516,14 +516,14 @@ TwoViewGeometry Database::ReadTwoViewGeometry(const image_t image_id1,
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_two_view_geometry_));
 
-  if (SwapImagePair(image_id1, image_id2)) {
-    SwapFeatureMatchesBlob(&blob);
-  }
-
   two_view_geometry.inlier_matches = FeatureMatchesFromBlob(blob);
   two_view_geometry.F.transposeInPlace();
   two_view_geometry.E.transposeInPlace();
   two_view_geometry.H.transposeInPlace();
+
+  if (SwapImagePair(image_id1, image_id2)) {
+    two_view_geometry.Invert();
+  }
 
   return two_view_geometry;
 }
@@ -695,26 +695,32 @@ void Database::WriteTwoViewGeometry(
   SQLITE3_CALL(
       sqlite3_bind_int64(sql_stmt_write_two_view_geometry_, 1, pair_id));
 
-  // Important: the swapped data must live until the query is executed.
-  FeatureMatchesBlob inlier_matches =
-      FeatureMatchesToBlob(two_view_geometry.inlier_matches);
+  const TwoViewGeometry* two_view_geometry_ptr = &two_view_geometry;
+
+  // Invert the two-view geometry if the image pair has to be swapped.
+  std::unique_ptr<TwoViewGeometry> swapped_two_view_geometry;
   if (SwapImagePair(image_id1, image_id2)) {
-    SwapFeatureMatchesBlob(&inlier_matches);
+    swapped_two_view_geometry.reset(new TwoViewGeometry());
+    *swapped_two_view_geometry = two_view_geometry;
+    swapped_two_view_geometry->Invert();
+    two_view_geometry_ptr = swapped_two_view_geometry.get();
   }
 
+  const FeatureMatchesBlob inlier_matches =
+      FeatureMatchesToBlob(two_view_geometry_ptr->inlier_matches);
   WriteDynamicMatrixBlob(sql_stmt_write_two_view_geometry_, inlier_matches, 2);
 
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_write_two_view_geometry_, 5,
-                                  two_view_geometry.config));
+                                  two_view_geometry_ptr->config));
 
   // Transpose the matrices to obtain row-major data layout.
   // Important: Do not move these objects inside the if-statement, because
   // the objects must live until `sqlite3_step` is called on the statement.
-  const Eigen::Matrix3d Ft = two_view_geometry.F.transpose();
-  const Eigen::Matrix3d Et = two_view_geometry.E.transpose();
-  const Eigen::Matrix3d Ht = two_view_geometry.H.transpose();
+  const Eigen::Matrix3d Ft = two_view_geometry_ptr->F.transpose();
+  const Eigen::Matrix3d Et = two_view_geometry_ptr->E.transpose();
+  const Eigen::Matrix3d Ht = two_view_geometry_ptr->H.transpose();
 
-  if (two_view_geometry.inlier_matches.size() > 0) {
+  if (two_view_geometry_ptr->inlier_matches.size() > 0) {
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ft, 6);
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Et, 7);
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ht, 8);
