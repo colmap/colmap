@@ -70,6 +70,7 @@ Linux
 Dependencies from the default Ubuntu repositories::
 
     sudo apt-get install \
+        git \
         cmake \
         build-essential \
         libboost-program-options-dev \
@@ -87,6 +88,11 @@ Dependencies from the default Ubuntu repositories::
         qtbase5-dev \
         libqt5opengl5-dev \
         libcgal-dev
+
+Under Ubuntu 16.04 the CMake configuration scripts of CGAL are broken and you
+must also install the CGAL Qt5 package::
+
+    sudo apt-get install libcgal-qt5-dev
 
 Install `Ceres Solver <http://ceres-solver.org/>`_::
 
@@ -111,8 +117,8 @@ Configure and compile COLMAP::
     make
     sudo make install
 
-Under newer Ubuntu versions it might be necessary to explicitly select the
-employed GCC version due to compatiblity issues with CUDA, which can be done as:
+Under newer Ubuntu versions it might be necessary to explicitly select the used
+GCC version due to compatiblity issues with CUDA, which can be done as::
 
     CC=/usr/bin/gcc-6 CXX=/usr/bin/g++-6 cmake ..
 
@@ -131,6 +137,7 @@ Dependencies from `Homebrew <http://brew.sh/>`_::
 
     brew tap homebrew/science
     brew install \
+        git \
         cmake \
         boost \
         eigen \
