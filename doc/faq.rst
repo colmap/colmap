@@ -83,17 +83,26 @@ Reconstruct sparse/dense model from known camera poses
 ------------------------------------------------------
 
 If the camera poses are known and you want to reconstruct a sparse or dense
-model of the scene, you must first manually construct a sparse model by
-creating a ``cameras.txt`` and ``images.txt`` file. The ``points3D.txt`` file
-can be empty and you can refer to :ref:`this article <output-format>` for more
-information about the structure of a sparse model.
+model of the scene, you must first manually construct a sparse model by creating
+a ``cameras.txt`` and ``images.txt`` file. The ``points3D.txt`` file should be
+empty while every other line in the ``images.txt`` should also be empty, since
+the sparse features are computed, as described below. You can refer to
+:ref:`this article <output-format>` for more information about the structure of
+a sparse model.
 
-To reconstruct a sparse model, you would have to recompute features from the
+To reconstruct a sparse model, you first have to recompute features from the
 images of the known camera poses as follows::
 
     colmap feature_extractor \
         --database_path $PROJECT_PATH/database.db \
         --image_path $PROJECT_PATH/images
+
+If your known camera intrinsics have large distortion coefficients, you should
+now manually copy the parameters from your ``cameras.txt`` to the database, such
+that the matcher can leverage the intrinsics. Modifying the database is possible
+in many ways, but an easy option is to use the provided
+``scripts/python/database.py`` script. Otherwise, you can skip this step and
+simply continue as follows::
 
     colmap exhaustive_matcher \ # or alternatively any other matcher
         --database_path $PROJECT_PATH/database.db
