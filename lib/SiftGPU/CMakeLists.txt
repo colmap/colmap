@@ -28,8 +28,6 @@ set(SIFT_GPU_SOURCE_FILES
 
 if(CUDA_ENABLED)
     add_definitions("-DCUDA_SIFTGPU_ENABLED")
-    # Fix for Ubuntu 16.04.
-    add_definitions("-D_FORCE_INLINES")
 
     set(SIFT_GPU_SOURCE_FILES
         ${SIFT_GPU_SOURCE_FILES}

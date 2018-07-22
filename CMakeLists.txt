@@ -185,8 +185,12 @@ if(CUDA_FOUND)
 
         CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS ${CUDA_ARCHS})
 
-        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Wno-deprecated-gpu-targets")
         set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${CUDA_ARCH_FLAGS}")
+
+        # Fix for some combinations of CUDA and GCC (e.g. under Ubuntu 16.04).
+        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -D_FORCE_INLINES")
+        # Do not show warnings if the architectures are deprecated.
+        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Wno-deprecated-gpu-targets")
 
         message(STATUS "Enabling CUDA support (version: ${CUDA_VERSION_STRING},"
                        " archs: ${CUDA_ARCH_FLAGS_readable})")

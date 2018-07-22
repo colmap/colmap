@@ -9,9 +9,6 @@ if(NOT SIMD_ENABLED)
 endif()
 
 if(CUDA_ENABLED)
-    # Fix for Ubuntu 16.04.
-    add_definitions("-D_FORCE_INLINES")
-
     COLMAP_ADD_CUDA_LIBRARY(pba
         ConfigBA.cpp
         ConfigBA.h
