@@ -313,13 +313,19 @@ Trading off completeness and accuracy in dense reconstruction
 -------------------------------------------------------------
 
 If the dense point cloud contains too many outliers and too much noise, try to
-increase the value of option ``--DenseFusion.min_num_pixels``.
+increase the value of option ``--StereoFusion.min_num_pixels``.
 
 If the reconstructed dense surface mesh model using Poisson reconstruction
 contains no surface or there are too many outlier surfaces, you should reduce
-the value of option ``--DenseMeshing.trim`` to decrease the surface are and vice
-versa to increase it. Also consider to try the reduce the outliers or increase
-the completeness in the fusion stage, as described above.
+the value of option ``--PoissonMeshing.trim`` to decrease the surface are and
+vice versa to increase it. Also consider to try the reduce the outliers or
+increase the completeness in the fusion stage, as described above.
+
+If the reconstructed dense surface mesh model using Delaunay reconstruction
+contains too noisy or incomplete surfaces, you should increase the
+``--DenaunayMeshing.quality_regularization`` parameter to obtain a smoother
+surface. If the resolution of the mesh is too coarse, you should reduce the
+``--DelaunayMeshing.max_proj_dist`` option to a lower value.
 
 
 Improving dense reconstruction results for weakly textured surfaces
@@ -359,14 +365,14 @@ The dense reconstruction can be speeded up in multiple ways:
 - Put more GPUs in your system as the dense reconstruction can make use of
   multiple GPUs during the stereo reconstruction step. Put more RAM into your
   system and increase the ``--DenseStereo.cache_size``,
-  ``--DenseFusion.cache_size`` to the largest possible value in order to
+  ``--StereoFusion.cache_size`` to the largest possible value in order to
   speed up the dense fusion step.
 
 - Do not perform geometric dense stereo reconstruction
   ``--DenseStereo.geom_consistency false``. Make sure to also enable
   ``--DenseStereo.filter true`` in this case.
 
-- Reduce the ``--DenseStereo.max_image_size``, ``--DenseFusion.max_image_size``
+- Reduce the ``--DenseStereo.max_image_size``, ``--StereoFusion.max_image_size``
   values to perform dense reconstruction on a maximum image resolution.
 
 - Reduce the number of source images per reference image to be considered, as
@@ -402,9 +408,9 @@ e.g. ``__auto__, 30`` to ``__auto__, 10``. Note that enabling the
 ``geom_consistency`` option increases the required GPU memory.
 
 If you run out of CPU memory during stereo or fusion, you can reduce the
-``--DenseStereo.cache_size`` or ``--DenseFusion.cache_size`` specified in
+``--DenseStereo.cache_size`` or ``--StereoFusion.cache_size`` specified in
 gigabytes or you can reduce ``--DenseStereo.max_image_size`` or
-``--DenseFusion.max_image_size``. Note that a too low value might lead to very
+``--StereoFusion.max_image_size``. Note that a too low value might lead to very
 slow processing and heavy load on the hard disk.
 
 For large-scale reconstructions of several thousands of images, you should

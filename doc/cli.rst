@@ -65,7 +65,7 @@ of commands as an alternative to the automatic reconstruction command::
     $ colmap patch_match_stereo \
         --workspace_path $DATASET_PATH/dense \
         --workspace_format COLMAP \
-        --DenseStereo.geom_consistency true
+        --PatchMatchStereo.geom_consistency true
 
     $ colmap stereo_fusion \
         --workspace_path $DATASET_PATH/dense \

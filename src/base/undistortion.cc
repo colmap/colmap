@@ -92,8 +92,10 @@ void WriteCOLMAPCommands(const bool geometric,
       *file << indent << "  --pmvs_option_name " << pmvs_option_name << " \\"
             << std::endl;
     }
-    *file << indent << "  --DenseStereo.max_image_size 2000 \\" << std::endl;
-    *file << indent << "  --DenseStereo.geom_consistency true" << std::endl;
+    *file << indent << "  --PatchMatchStereo.max_image_size 2000 \\"
+          << std::endl;
+    *file << indent << "  --PatchMatchStereo.geom_consistency true"
+          << std::endl;
   } else {
     *file << indent << "$COLMAP_EXE_PATH/patch_match_stereo \\" << std::endl;
     *file << indent << "  --workspace_path " << workspace_path << " \\"
@@ -104,8 +106,10 @@ void WriteCOLMAPCommands(const bool geometric,
       *file << indent << "  --pmvs_option_name " << pmvs_option_name << " \\"
             << std::endl;
     }
-    *file << indent << "  --DenseStereo.max_image_size 2000 \\" << std::endl;
-    *file << indent << "  --DenseStereo.geom_consistency false" << std::endl;
+    *file << indent << "  --PatchMatchStereo.max_image_size 2000 \\"
+          << std::endl;
+    *file << indent << "  --PatchMatchStereo.geom_consistency false"
+          << std::endl;
   }
 
   *file << indent << "$COLMAP_EXE_PATH/stereo_fusion \\" << std::endl;
