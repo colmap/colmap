@@ -141,7 +141,8 @@ void OptionManager::ModifyForHighQuality() {
 }
 
 void OptionManager::ModifyForExtremeQuality() {
-  // Extreme quality is the default.
+  sift_extraction->estimate_affine_shape = true;
+  sift_extraction->domain_size_pooling = true;
 }
 
 void OptionManager::AddAllOptions() {
