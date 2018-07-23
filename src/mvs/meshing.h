@@ -90,8 +90,9 @@ struct DelaunayMeshingOptions {
   double quality_regularization = 1.0;
 
   // Filtering thresholds for outlier surface mesh faces. If the longest side of
-  // a mesh face exceeds the longest side of the face at a certain percentile by
-  // the given factor, then it is considered an outlier and discarded.
+  // a mesh face (longest out of 3) exceeds the side lengths of all faces at a
+  // certain percentile by the given factor, then it is considered an outlier
+  // mesh face and discarded.
   double max_side_length_factor = 25.0;
   double max_side_length_percentile = 95.0;
 
