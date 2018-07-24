@@ -557,6 +557,8 @@ TwoViewGeometryVerifier::TwoViewGeometryVerifier(
       static_cast<size_t>(options_.min_num_inliers);
   two_view_geometry_options_.ransac_options.max_error = options_.max_error;
   two_view_geometry_options_.ransac_options.confidence = options_.confidence;
+  two_view_geometry_options_.ransac_options.min_num_trials =
+      static_cast<size_t>(options_.min_num_trials);
   two_view_geometry_options_.ransac_options.max_num_trials =
       static_cast<size_t>(options_.max_num_trials);
   two_view_geometry_options_.ransac_options.min_inlier_ratio =
@@ -1621,6 +1623,8 @@ void FeaturePairsFeatureMatcher::Run() {
           match_options_.max_error;
       two_view_geometry_options.ransac_options.confidence =
           match_options_.confidence;
+      two_view_geometry_options.ransac_options.min_num_trials =
+          static_cast<size_t>(match_options_.min_num_trials);
       two_view_geometry_options.ransac_options.max_num_trials =
           static_cast<size_t>(match_options_.max_num_trials);
       two_view_geometry_options.ransac_options.min_inlier_ratio =

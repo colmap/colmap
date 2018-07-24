@@ -240,7 +240,9 @@ bool SiftMatchingOptions::Check() const {
   CHECK_OPTION_GT(max_ratio, 0.0);
   CHECK_OPTION_GT(max_distance, 0.0);
   CHECK_OPTION_GT(max_error, 0.0);
+  CHECK_OPTION_GE(min_num_trials, 0);
   CHECK_OPTION_GT(max_num_trials, 0);
+  CHECK_OPTION_LE(min_num_trials, max_num_trials);
   CHECK_OPTION_GE(min_inlier_ratio, 0);
   CHECK_OPTION_LE(min_inlier_ratio, 1);
   CHECK_OPTION_GE(min_num_inliers, 0);
