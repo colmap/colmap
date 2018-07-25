@@ -39,6 +39,7 @@
 #   COLMAP_LINK_DIRS: Link directories for COLMAP.
 #   COLMAP_LIBRARIES: Libraries required to link COLMAP.
 #   COLMAP_CUDA_ENABLED: Whether COLMAP was compiled with CUDA support.
+#   COLMAP_CGAL_ENABLED: Whether COLMAP was compiled with CGAL dependencies.
 
 get_filename_component(COLMAP_INSTALL_PREFIX ${CMAKE_CURRENT_LIST_FILE} PATH)
 set(COLMAP_INSTALL_PREFIX "${COLMAP_INSTALL_PREFIX}/../..")
