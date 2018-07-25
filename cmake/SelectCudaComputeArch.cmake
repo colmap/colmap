@@ -57,7 +57,13 @@ endif()
 # See: https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#gpu-feature-list
 
 # This list will be used for CUDA_ARCH_NAME = All option
-set(CUDA_KNOWN_GPU_ARCHITECTURES  "Fermi" "Kepler" "Maxwell")
+set(CUDA_KNOWN_GPU_ARCHITECTURES "")
+
+# CUDA 9.X and later do not support the Fermi architecture anymore.
+if(CUDA_VERSION VERSION_LESS "9.0")
+  list(APPEND CUDA_KNOWN_GPU_ARCHITECTURES "Fermi")
+endif()
+list(APPEND CUDA_KNOWN_GPU_ARCHITECTURES "Kepler" "Maxwell")
 
 # This list will be used for CUDA_ARCH_NAME = Common option (enabled by default)
 set(CUDA_COMMON_GPU_ARCHITECTURES "3.0" "3.5" "5.0")
@@ -88,7 +94,7 @@ if(CUDA_VERSION VERSION_GREATER "8.0" OR CUDA_VERSION VERSION_EQUAL "8.0")
     list(APPEND CUDA_COMMON_GPU_ARCHITECTURES "6.1+PTX")
     set(CUDA_LIMIT_GPU_ARCHITECTURE "7.0")
   endif()
-endif ()
+endif()
 
 if(CUDA_VERSION VERSION_GREATER "9.0" OR CUDA_VERSION VERSION_EQUAL "9.0")
   list(APPEND CUDA_KNOWN_GPU_ARCHITECTURES "Volta")
