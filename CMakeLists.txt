@@ -228,6 +228,7 @@ if(CGAL_FOUND AND CGAL_ENABLED)
     add_definitions("-DCGAL_ENABLED")
 else()
     message(STATUS "Disabling CGAL support")
+    set(CGAL_ENABLED OFF)
 endif()
 
 # Qt5 was built with -reduce-relocations.
@@ -281,7 +282,7 @@ set(COLMAP_EXTERNAL_LIBRARIES
     ${Qt5Widgets_LIBRARIES}
 )
 
-if(CGAL_FOUND AND CGAL_ENABLED)
+if(CGAL_ENABLED)
     list(APPEND COLMAP_INCLUDE_DIRS ${CGAL_INCLUDE_DIRS} ${GMP_INCLUDE_DIR})
     list(APPEND COLMAP_EXTERNAL_LIBRARIES ${CGAL_LIBRARY} ${GMP_LIBRARIES})
     list(APPEND COLMAP_LINK_DIRS ${CGAL_LIBRARIES_DIR})
