@@ -51,7 +51,7 @@ of commands as an alternative to the automatic reconstruction command::
     $ colmap mapper \
         --database_path $DATASET_PATH/database.db \
         --image_path $DATASET_PATH/images \
-        --export_path $DATASET_PATH/sparse
+        --output_path $DATASET_PATH/sparse
 
     $ mkdir $DATASET_PATH/dense
 
@@ -108,7 +108,7 @@ The available commands can be listed using the command::
           colmap automatic_reconstructor --image_path IMAGES --workspace_path WORKSPACE
           colmap feature_extractor --image_path IMAGES --database_path DATABASE
           colmap exhaustive_matcher --database_path DATABASE
-          colmap mapper --image_path IMAGES --database_path DATABASE --export_path EXPORT
+          colmap mapper --image_path IMAGES --database_path DATABASE --output_path MODEL
           ...
 
         Available commands:

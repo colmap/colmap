@@ -110,8 +110,8 @@ simply continue as follows::
     colmap point_triangulator \
         --database_path $PROJECT_PATH/database.db \
         --image_path $PROJECT_PATH/images
-        --import_path path/to/manually/created/sparse/model \
-        --export_path path/to/triangulated/sparse/model
+        --input_path path/to/manually/created/sparse/model \
+        --output_path path/to/triangulated/sparse/model
 
 Note that the sparse reconstruction step is not necessary in order to compute
 a dense model from known camera poses. Assuming you computed a sparse model
@@ -227,8 +227,8 @@ new images within this reconstruction, you can follow these steps::
     colmap image_registrator \
         --database_path $PROJECT_PATH/database.db \
         --image_path $PROJECT_PATH/images \
-        --import_path /path/to/existing-model \
-        --export_path /path/to/model-with-new-images
+        --input_path /path/to/existing-model \
+        --output_path /path/to/model-with-new-images
 
     colmap bundle_adjuster \
         --input_path /path/to/model-with-new-images \
@@ -248,15 +248,15 @@ reconstruction process from the existing model::
     colmap mapper \
         --database_path $PROJECT_PATH/database.db \
         --image_path $PROJECT_PATH/images \
-        --import_path /path/to/existing-model \
-        --export_path /path/to/model-with-new-images
+        --input_path /path/to/existing-model \
+        --output_path /path/to/model-with-new-images
 
 Or, alternatively, you can start the reconstruction from scratch::
 
     colmap mapper \
         --database_path $PROJECT_PATH/database.db \
         --image_path $PROJECT_PATH/images \
-        --export_path /path/to/model-with-new-images
+        --output_path /path/to/model-with-new-images
 
 Note that dense reconstruction must be re-run from scratch after running the
 ``mapper`` or the ``bundle_adjuster``, as the coordinate frame of the model can
