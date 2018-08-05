@@ -41,13 +41,13 @@ set(COLMAP_VERSION_NUMBER "3400")
 # Include CMake dependencies
 ################################################################################
 
-set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 include(CheckCXXCompilerFlag)
 
 # Include helper macros and commands, and allow the included file to override
 # the CMake policies in this file
-include(${CMAKE_SOURCE_DIR}/cmake/CMakeHelper.cmake NO_POLICY_SCOPE)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeHelper.cmake NO_POLICY_SCOPE)
 
 
 ################################################################################
@@ -181,7 +181,7 @@ if(CUDA_FOUND)
     if(CUDA_ENABLED)
         add_definitions("-DCUDA_ENABLED")
 
-        include(${CMAKE_SOURCE_DIR}/cmake/SelectCudaComputeArch.cmake)
+        include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/SelectCudaComputeArch.cmake)
 
         CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS ${CUDA_ARCHS})
 
@@ -398,17 +398,17 @@ install(DIRECTORY lib/
         FILES_MATCHING PATTERN "*.h")
 
 # Generate and install CMake configuration.
-configure_file("${CMAKE_SOURCE_DIR}/cmake/CMakeConfig.cmake.in"
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeConfig.cmake.in"
                "${CMAKE_CURRENT_BINARY_DIR}/COLMAPConfig.cmake" @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/COLMAPConfig.cmake"
         DESTINATION "share/colmap")
-configure_file("${CMAKE_SOURCE_DIR}/cmake/CMakeConfigVersion.cmake.in"
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeConfigVersion.cmake.in"
                "${CMAKE_CURRENT_BINARY_DIR}/COLMAPConfigVersion.cmake" @ONLY)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/COLMAPConfigVersion.cmake"
         DESTINATION "share/colmap")
 
 # Install find_package scripts for dependencies.
-install(DIRECTORY ${CMAKE_SOURCE_DIR}/cmake
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/cmake
         DESTINATION share/colmap
         FILES_MATCHING PATTERN "Find*.cmake")
 
@@ -426,7 +426,7 @@ if(UNIX AND NOT APPLE)
 endif()
 
 # Configure the uninstallation script.
-configure_file("${CMAKE_SOURCE_DIR}/cmake/CMakeUninstall.cmake.in"
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeUninstall.cmake.in"
                "${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake"
                IMMEDIATE @ONLY)
 add_custom_target(uninstall COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake)
