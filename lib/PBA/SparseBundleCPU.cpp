@@ -354,11 +354,11 @@ inline double sse_sum(__m256d s) {
   return (s.m256d_f64[0] + s.m256d_f64[2]) + (s.m256d_f64[1] + s.m256d_f64[3]);
 }
 #else
-inline float sse_sum(__m128 s) {
+inline float sse_sum(__m256 s) {
   float* f = (float*)(&s);
   return ((f[0] + f[4]) + (f[2] + f[6])) + ((f[1] + f[5]) + (f[3] + f[7]));
 }
-inline double sse_sum(__m128d s) {
+inline double sse_sum(__m256d s) {
   double* d = (double*)(&s);
   return (d[0] + d[2]) + (d[1] + d[3]);
 }
