@@ -131,6 +131,9 @@ void WriteBinaryBlob(const std::string& path, const std::vector<T>& data);
 // ignored and leading/trailing whitespace is removed.
 std::vector<std::string> ReadTextFileLines(const std::string& path);
 
+// Remove an argument from the list of command-line arguments.
+void RemoveCommandLineArgument(const std::string& arg, int* argc, char** argv);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////

@@ -189,7 +189,7 @@ std::vector<std::string> CSVToVector(const std::string& csv) {
     if (elem.empty()) {
       continue;
     }
-      values.push_back(elem);
+    values.push_back(elem);
   }
   return values;
 }
@@ -268,6 +268,18 @@ std::vector<std::string> ReadTextFileLines(const std::string& path) {
   }
 
   return lines;
+}
+
+void RemoveCommandLineArgument(const std::string& arg, int* argc, char** argv) {
+  for (int i = 0; i < *argc; ++i) {
+    if (argv[i] == arg) {
+      for (int j = i + 1; j < *argc; ++j) {
+        argv[i] = argv[j];
+      }
+      *argc -= 1;
+      break;
+    }
+  }
 }
 
 }  // namespace colmap
