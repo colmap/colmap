@@ -74,6 +74,7 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
     prev_camera_.SetModelIdFromName(options_.camera_model);
     if (!options_.camera_params.empty()) {
       prev_camera_.SetParamsFromString(options_.camera_params);
+      prev_camera_.SetPriorFocalLength(true);
     }
   }
 }

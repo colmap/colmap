@@ -412,20 +412,21 @@ void FeatureWriterThread::Run() {
                                 image_data.camera.Width(),
                                 image_data.camera.Height())
                 << std::endl;
-      std::cout << StringPrintf("  Camera:          %d (%s)",
+      std::cout << StringPrintf("  Camera:          #%d - %s",
                                 image_data.camera.CameraId(),
                                 image_data.camera.ModelName().c_str())
                 << std::endl;
-      std::cout << StringPrintf("  Focal Length:    %.2fpx (%s)",
-                                image_data.camera.MeanFocalLength(),
-                                image_data.camera.HasPriorFocalLength()
-                                    ? "EXIF"
-                                    : "Default")
-                << std::endl;
+      std::cout << StringPrintf("  Focal Length:    %.2fpx",
+                                image_data.camera.MeanFocalLength());
+      if (image_data.camera.HasPriorFocalLength()) {
+        std::cout << " (Prior)" << std::endl;
+      } else {
+        std::cout << std::endl;
+      }
       if (image_data.image.HasTvecPrior()) {
         std::cout
             << StringPrintf(
-                   "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f (EXIF)",
+                   "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
                    image_data.image.TvecPrior(0), image_data.image.TvecPrior(1),
                    image_data.image.TvecPrior(2))
             << std::endl;
