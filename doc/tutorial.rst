@@ -293,9 +293,9 @@ matching modes, that are intended for different input scenarios:
   vocabulary tree, where every N-th image (`loop_detection_period`) is matched
   against its visually most similar images (`loop_detection_num_images`). Note
   that image file names must be ordered sequentially (e.g., `image0001.jpg`,
-  `image0002.jpg`, etc.). You can verify the correct order in the database
-  management tool (see :ref:`Database Format <database-format>`). Note that
-  loop detection requires a pre-trained vocabulary tree, that can be downloaded
+  `image0002.jpg`, etc.). The order in the database is not relevant, since the
+  images are explicitly ordered according to their file names. Note that loop
+  detection requires a pre-trained vocabulary tree, that can be downloaded
   from https://demuc.de/colmap/.
 
 - **Vocabulary Tree Matching**: In this matching mode [schoenberger16vote]_,
