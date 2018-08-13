@@ -139,6 +139,7 @@ void OptionManager::ModifyForMediumQuality() {
 }
 
 void OptionManager::ModifyForHighQuality() {
+  sift_extraction->estimate_affine_shape = true;
   sift_extraction->max_image_size = 2400;
   patch_match_stereo->max_image_size = 2400;
   stereo_fusion->max_image_size = 2400;
