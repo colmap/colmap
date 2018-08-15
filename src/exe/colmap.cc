@@ -1322,9 +1322,9 @@ std::vector<CameraRig> ReadCameraRigConfig(
     for (const auto image_id : reconstruction.RegImageIds()) {
       const auto& image = reconstruction.Image(image_id);
       for (const auto& image_prefix : image_prefixes) {
-        if (StringStartsWith(image.Name(), image_prefix)) {
+        if (StringContains(image.Name(), image_prefix)) {
           const std::string image_suffix =
-              StringReplace(image.Name(), image_prefix, "");
+              StringGetAfter(image.Name(), image_prefix);
           snapshots[image_suffix].push_back(image_id);
         }
       }

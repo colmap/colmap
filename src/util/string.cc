@@ -151,6 +151,17 @@ std::string StringReplace(const std::string& str, const std::string& old_str,
   return mod_str;
 }
 
+std::string StringGetAfter(const std::string& str, const std::string& key) {
+  if (key.empty()) {
+    return str;
+  }
+  std::size_t found = str.rfind(key);
+  if (found != std::string::npos) {
+    return str.substr(found + key.length(), str.length() - (found + key.length()));
+  }
+  return "";
+}
+
 std::vector<std::string> StringSplit(const std::string& str,
                                      const std::string& delim) {
   std::vector<std::string> elems;
