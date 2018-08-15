@@ -46,6 +46,9 @@ std::string StringPrintf(const char* format, ...);
 std::string StringReplace(const std::string& str, const std::string& old_str,
                           const std::string& new_str);
 
+// Get substring of string after search key
+std::string StringGetAfter(const std::string& str, const std::string& key);
+
 // Split string into list of words using the given delimiters.
 std::vector<std::string> StringSplit(const std::string& str,
                                      const std::string& delim);
