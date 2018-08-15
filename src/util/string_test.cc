@@ -64,6 +64,15 @@ BOOST_AUTO_TEST_CASE(TestStringReplace) {
   BOOST_CHECK_EQUAL(StringReplace("ttt", "ttt", "+++"), "+++");
 }
 
+BOOST_AUTO_TEST_CASE(TestStringGetAfter) {
+  BOOST_CHECK_EQUAL(StringGetAfter("test", ""), "test");
+  BOOST_CHECK_EQUAL(StringGetAfter("test", "notinit"), "");
+  BOOST_CHECK_EQUAL(StringGetAfter("test", "e"), "st");
+  BOOST_CHECK_EQUAL(StringGetAfter("test, multiple tests", "test"), "s");
+  BOOST_CHECK_EQUAL(StringGetAfter("", ""), "");
+  BOOST_CHECK_EQUAL(StringGetAfter("path/to/dataset/sub1/image.png", "sub1/"), "image.png");
+}
+
 BOOST_AUTO_TEST_CASE(TestStringSplit) {
   const std::vector<std::string> list1 = StringSplit("1,2,3,4,5 , 6", ",");
   BOOST_CHECK_EQUAL(list1.size(), 6);
