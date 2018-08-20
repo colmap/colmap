@@ -306,7 +306,13 @@ during feature matching, your GPU runs out of memory. Try decreasing the option
 might lead to inferior feature matching results, since the lower-scale input
 features will be clamped in order to fit them into GPU memory. Alternatively,
 you could change to CPU-based feature matching, but this can become very slow,
-or you use a GPU with more memory.
+or better you buy a GPU with more memory.
+
+The maximum required GPU memory can be approximately estimated using the
+following formula: ``4 * num_matches * num_matches + 4 * num_matches * 256``.
+For example, if you set ``--SiftMatching.max_num_matches 10000``, the maximum
+required GPU memory will be around 400MB, which are only allocated if one of
+your images actually has that many features.
 
 
 Trading off completeness and accuracy in dense reconstruction
