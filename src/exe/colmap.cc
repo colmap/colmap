@@ -1308,6 +1308,10 @@ std::vector<CameraRig> ReadCameraRigConfig(
   for (const auto& rig_config : pt) {
     CameraRig camera_rig;
 
+    const camera_t refCameraId = rig_config["ref_camera_id"];
+
+    size_t extrinsicsGiven = 0;
+
     std::vector<std::string> image_prefixes;
     for (const auto& camera : rig_config.second.get_child("cameras")) {
       const int camera_id = camera.second.get<int>("camera_id");
@@ -1330,16 +1334,29 @@ std::vector<CameraRig> ReadCameraRigConfig(
       }
     }
 
+    // cache false map for this reconstruction
+    std::map<camera_t, bool> notHasCamera, hasCamera;
+    for(const auto& it : reconstruction.Cameras()) {
+      notHasCamera[it.first] = false;
+    }
     for (const auto& snapshot : snapshots) {
-      bool has_ref_camera = false;
+      std::map<camera_t, bool> hasCamera(notHasCamera);
       for (const auto image_id : snapshot.second) {
         const auto& image = reconstruction.Image(image_id);
-        if (image.CameraId() == camera_rig.RefCameraId()) {
-          has_ref_camera = true;
+        hasCamera[image.CameraId()] = true;
+      }
+      // If all cameras are present (none are missing), add snapshot.
+      // This also ensures, implicitly, that the ref camera is present,
+      // as SetRefCameraId() is called beforehand, which internally checks
+      // for presence of the ref camera.
+      bool allPresent = true;
+      for(const auto& it : hasCamera) {
+        if (not it.second) {
+          allPresent = false;
+          break;
         }
       }
-
-      if (has_ref_camera) {
+      if (allPresent) {
         camera_rig.AddSnapshot(snapshot.second);
       }
     }
@@ -1367,6 +1384,14 @@ int RunRigBundleAdjuster(int argc, char** argv) {
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
+
+  // Rig BA only makes sense with two or more cameras!
+  if (reconstruction.NumCameras() < 2) {
+    std::cout << "ERROR: The given reconstruction has less than two cameras!\n"
+              << "\tRig bundle adjustment only makes sense for two or more "
+              << "cameras! Aborting...\n";
+    return EXIT_SUCCESS;
+  }
 
   PrintHeading1("Camera rig configuration");
 

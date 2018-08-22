@@ -29,6 +29,8 @@
 //
 // Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
 
+#include <map>
+
 #include "base/camera_rig.h"
 
 #include "util/misc.h"
@@ -77,8 +79,8 @@ void CameraRig::AddCamera(const camera_t camera_id,
 }
 
 void CameraRig::AddSnapshot(const std::vector<image_t>& image_ids) {
-  CHECK(!image_ids.empty());
-  CHECK_LE(image_ids.size(), NumCameras());
+  // heuristic check for presence of all cameras in this snapshot
+  CHECK_EQ(image_ids.size(), NumCameras());
   CHECK(!VectorContainsDuplicateValues(image_ids));
   snapshots_.push_back(image_ids);
 }
@@ -90,22 +92,34 @@ void CameraRig::Check(const Reconstruction& reconstruction) const {
     CHECK(reconstruction.ExistsCamera(rig_camera.first));
   }
 
+  // cache false map for this reconstruction
+  std::map<camera_t, bool> notHasCamera;
+  for(const auto& it : reconstruction.Cameras()) {
+    notHasCamera[it.first] = false;
+  }
   std::unordered_set<image_t> all_image_ids;
   for (const auto& snapshot : snapshots_) {
-    CHECK(!snapshot.empty());
-    CHECK_LE(snapshot.size(), NumCameras());
-    bool has_ref_camera = false;
+    CHECK_EQ(snapshot.size(), NumCameras());
+    std::map<camera_t, bool> hasCamera(notHasCamera);
     for (const auto image_id : snapshot) {
       CHECK(reconstruction.ExistsImage(image_id));
       CHECK_EQ(all_image_ids.count(image_id), 0);
       all_image_ids.insert(image_id);
       const auto& image = reconstruction.Image(image_id);
       CHECK(HasCamera(image.CameraId()));
-      if (image.CameraId() == ref_camera_id_) {
-        has_ref_camera = true;
+      hasCamera[image.CameraId()] = true;
+    }
+    // This also ensures, implicitly, that the ref camera is present,
+    // as ExistsCamera() is called beforehand for all cameras,
+    // including the ref camera.
+    bool allPresent = true;
+    for(const auto& it : hasCamera) {
+      if (not it.second) {
+        allPresent = false;
+        break;
       }
     }
-    CHECK(has_ref_camera);
+    CHECK(allPresent);
   }
 }
 
@@ -133,6 +147,11 @@ double CameraRig::ComputeScale(const Reconstruction& reconstruction) const {
   std::vector<Eigen::Vector3d> rel_proj_centers(NumCameras());
   std::vector<Eigen::Vector3d> abs_proj_centers(NumCameras());
   for (const auto& snapshot : snapshots_) {
+    if (snapshot.size() < NumCameras()) {
+      std::cout << "WARNING: Snapshot does not contain complete rig. "
+                << "Skipping snapshot!\n";
+      continue;
+    }
     // Compute the projection relative and absolute projection centers.
     for (size_t i = 0; i < NumCameras(); ++i) {
       const auto& image = reconstruction.Image(snapshot[i]);
@@ -181,6 +200,7 @@ void CameraRig::ComputeRelativePoses(const Reconstruction& reconstruction) {
       const auto& image = reconstruction.Image(image_id);
       if (image.CameraId() == ref_camera_id_) {
         ref_image = &image;
+        break;
       }
     }
 
