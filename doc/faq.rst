@@ -1,6 +1,19 @@
 Frequently Asked Questions
 ==========================
 
+Adjusting the options for different reconstruction scenarios and output quality
+-------------------------------------------------------------------------------
+
+COLMAP provides many options that can be tuned for different reconstruction
+scenarios and to trade off accuracy and completeness versus efficiency. The
+default options are set to for medium to high quality reconstruction of
+unstructured input data. There are several presets for different scenarios and
+quality levels, which can be set in the GUI as ``Extras > Set options for ...``.
+To use these presets from the command-line, you can save the current set of
+options as ``File > Save project`` after choosing the presets. The resulting
+project file can be opened with a text editor to view the different options.
+
+
 Extending COLMAP
 ----------------
 
