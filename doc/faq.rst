@@ -350,12 +350,14 @@ Surface mesh reconstruction
 COLMAP supports two types of surface reconstruction algorithms. Poisson surface
 reconstruction [kazhdan2013]_ and graph-cut based surface extraction from a
 Delaunay triangulation. Poisson surface reconstruction typically requires an
-outlier-free input point cloud and it often produces bad surfaces in the
+almost outlier-free input point cloud and it often produces bad surfaces in the
 presence of outliers or large holes in the input data. The Delaunay
-triangulation based meshing algorithm is robust to outliers and in general more
-scalable to large datasets than the Poisson algorithm, but it usually produces
-less smooth surfaces. Furthermore, the Delaunay based meshing can be applied to
-sparse and dense reconstruction results.
+triangulation based meshing algorithm is more robust to outliers and in general
+more scalable to large datasets than the Poisson algorithm, but it usually
+produces less smooth surfaces. Furthermore, the Delaunay based meshing can be
+applied to sparse and dense reconstruction results. To increase the smoothness
+of the surface as a post-processing step, you could use Laplacian smoothing, as
+e.g. implemented in Meshlab.
 
 Note that the two algorithms can also be combined by first running the Delaunay
 meshing to robustly filter outliers from the sparse or dense point cloud and
