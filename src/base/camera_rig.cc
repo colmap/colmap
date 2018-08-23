@@ -142,8 +142,9 @@ const Eigen::Vector3d& CameraRig::RelativeTvec(const camera_t camera_id) const {
 double CameraRig::ComputeScale(const Reconstruction& reconstruction) const {
   CHECK_GT(NumSnapshots(), 0);
   CHECK_GT(NumCameras(), 0);
-  double scaling_factor = 0;
-  size_t num_dists = 0;
+  // Calculate scaling factor as median of all available factors.
+  // This is more robust to outliers than simple averaging.
+  std::vector<double> scalingFactors;
   std::vector<Eigen::Vector3d> rel_proj_centers(NumCameras());
   std::vector<Eigen::Vector3d> abs_proj_centers(NumCameras());
   for (const auto& snapshot : snapshots_) {
@@ -160,7 +161,6 @@ double CameraRig::ComputeScale(const Reconstruction& reconstruction) const {
       abs_proj_centers[i] = image.ProjectionCenter();
     }
 
-    // Accumulate the scaling factor for all pairs of camera distances.
     for (size_t i = 0; i < NumCameras(); ++i) {
       for (size_t j = 0; j < i; ++j) {
         const double rel_dist =
@@ -169,18 +169,20 @@ double CameraRig::ComputeScale(const Reconstruction& reconstruction) const {
             (abs_proj_centers[i] - abs_proj_centers[j]).norm();
         const double kMinDist = 1e-6;
         if (rel_dist > kMinDist && abs_dist > kMinDist) {
-          scaling_factor += rel_dist / abs_dist;
-          num_dists += 1;
+          std::cout << "rel dist is " << rel_dist << std::endl;
+          std::cout << "abs dist is " << abs_dist << std::endl;
+          scalingFactors.push_back(rel_dist / abs_dist);
         }
       }
     }
   }
 
-  if (num_dists == 0) {
+  if (scalingFactors.size() == 0) {
     return std::numeric_limits<double>::quiet_NaN();
   }
 
-  return scaling_factor / num_dists;
+  std::sort(scalingFactors.begin(), scalingFactors.end());
+  return scalingFactors[scalingFactors.size()/2];
 }
 
 void CameraRig::ComputeRelativePoses(const Reconstruction& reconstruction) {
