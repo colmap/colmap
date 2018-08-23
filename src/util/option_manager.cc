@@ -141,6 +141,7 @@ void OptionManager::ModifyForMediumQuality() {
 void OptionManager::ModifyForHighQuality() {
   sift_extraction->estimate_affine_shape = true;
   sift_extraction->max_image_size = 2400;
+  sift_matching->guided_matching = true;
   patch_match_stereo->max_image_size = 2400;
   stereo_fusion->max_image_size = 2400;
 }
@@ -149,6 +150,7 @@ void OptionManager::ModifyForExtremeQuality() {
   // Most of the options are set to extreme quality by default.
   sift_extraction->estimate_affine_shape = true;
   sift_extraction->domain_size_pooling = true;
+  sift_matching->guided_matching = true;
 }
 
 void OptionManager::AddAllOptions() {
