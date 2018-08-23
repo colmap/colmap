@@ -29,8 +29,9 @@
 //
 // Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
 
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
+// #include <boost/property_tree/json_parser.hpp>
+// #include <boost/property_tree/ptree.hpp>
+#include "json/nlohmann/json.hpp"
 
 #include "base/similarity_transform.h"
 #include "controllers/automatic_reconstruction.h"
@@ -1236,6 +1237,13 @@ int RunPointTriangulator(int argc, char** argv) {
 // Read the configuration of the camera rigs from a JSON file. The input images
 // of a camera rig must be named consistently to assign them to the appropriate
 // camera rig and the respective snapshots.
+// 
+// You can specify "qvec" and "tvec" fields for relative poses
+// (extrinsics) of every camera. Can also use "rmat" instead of "qvec", which
+// means a rotation matrix instead of a quaternion.
+// If there is not a relative pose for every camera, extrinsics will be 
+// calculated from the given reconstruction instead.
+// Note that the pose of the reference camera must be identity.
 //
 // An example configuration of a single camera rig:
 // [
@@ -1245,11 +1253,17 @@ int RunPointTriangulator(int argc, char** argv) {
 //     [
 //       {
 //           "camera_id": 1,
-//           "image_prefix": "left1_image"
+//           "image_prefix": "left1_image",
+//            "qvec": [1, 0, 0, 0],
+//            "tvec": [0, 0, 0]
 //       },
 //       {
 //           "camera_id": 2,
-//           "image_prefix": "left2_image"
+//           "image_prefix": "left2_image",
+//           "rmat": [[1, 0, 0],
+//                   [0, 1, 0],
+//                    [0, 0, 1]],
+//           "tvec": [-0.25, 0, 0]
 //       },
 //       {
 //           "camera_id": 3,
@@ -1296,16 +1310,22 @@ int RunPointTriangulator(int argc, char** argv) {
 //            frame002.png
 //            ...
 //
-// TODO: Provide an option to manually / explicitly set the relative extrinsics
-// of the camera rig. At the moment, the relative extrinsics are automatically
-// inferred from the reconstruction.
 std::vector<CameraRig> ReadCameraRigConfig(
-    const std::string& rig_config_path, const Reconstruction& reconstruction) {
-  boost::property_tree::ptree pt;
-  boost::property_tree::read_json(rig_config_path.c_str(), pt);
+    const std::string& rig_config_path, const Reconstruction& reconstruction) {  
+  std::ifstream jsonFile(rig_config_path);
+  nlohmann::json json;
+  jsonFile >> json;
 
   std::vector<CameraRig> camera_rigs;
-  for (const auto& rig_config : pt) {
+  for (const auto& rig_config : json) {
+    // rig needs at least 2 cameras to make sense!
+    if (rig_config["cameras"].size() < 2) {
+      std::cout << "WARNING: The given rig config has less than two cameras!\n"
+                << "\tRig bundle adjustment only makes sense for two or more "
+                << "cameras! Skipping this config...\n";
+      continue;
+    }
+
     CameraRig camera_rig;
 
     const camera_t refCameraId = rig_config["ref_camera_id"];
@@ -1313,14 +1333,56 @@ std::vector<CameraRig> ReadCameraRigConfig(
     size_t extrinsicsGiven = 0;
 
     std::vector<std::string> image_prefixes;
-    for (const auto& camera : rig_config.second.get_child("cameras")) {
-      const int camera_id = camera.second.get<int>("camera_id");
-      image_prefixes.push_back(camera.second.get<std::string>("image_prefix"));
+    for (const auto& camera : rig_config["cameras"]) {
+      const camera_t camera_id = camera["camera_id"];
+      image_prefixes.push_back(camera["image_prefix"]);
+      
+      const auto& qvec = camera.find("qvec");
+      const auto& rmat = camera.find("rmat");
+      const auto& tvec = camera.find("tvec");
+      if (tvec != camera.end()) {
+        const auto& tvecDat = *tvec;
+        Eigen::Vector3d tvecEig(tvecDat[0], tvecDat[1], tvecDat[2]);
+        std::cout << "tvec: " << tvecEig << std::endl;
+        if (qvec != camera.end()) {
+          const auto& qvecDat = *qvec;
+          Eigen::Vector4d qvecEig(qvecDat[0], qvecDat[1], qvecDat[2], qvecDat[3]);
+          std::cout << "qvec: " << qvecEig << std::endl;
+          // if this is the reference camera, pose must be identity!
+          if (camera_id == refCameraId) {
+            CHECK_LT((Eigen::Vector3d(0, 0, 0) - tvecEig).norm(), 1.0e-10);
+            CHECK_LT((ComposeIdentityQuaternion() - qvecEig).norm(), 1.0e-10);
+          }
+          camera_rig.AddCamera(camera_id, qvecEig, tvecEig);
+          extrinsicsGiven++;
+          continue; // don't add another camera with identity pose below
+        }  else if (rmat != camera.end()) {
+          const auto& rmatDat = *rmat;
+          Eigen::Matrix3d rmatEig;
+          for (int y = 0; y < 3; y++) {
+              for (int x = 0; x < 3; x++) {
+                  rmatEig(y, x) = rmatDat[y][x];
+              }
+          }
+          std::cout << "rmat: " << rmatEig << std::endl;
+          std::cout << "rmat converted: " << RotationMatrixToQuaternion(rmatEig) << std::endl;
+          // if this is the reference camera, pose must be identity!
+          if (camera_id == refCameraId) {
+            CHECK_LT((Eigen::Vector3d(0, 0, 0) - tvecEig).norm(), 1.0e-10);
+            CHECK_LT((Eigen::Matrix3d::Identity()  - rmatEig).norm(), 1.0e-10);
+          }
+          camera_rig.AddCamera(camera_id,
+                               RotationMatrixToQuaternion(rmatEig), tvecEig);
+          extrinsicsGiven++;
+          continue; // don't add another camera with identity pose below
+        }
+      }
+
       camera_rig.AddCamera(camera_id, ComposeIdentityQuaternion(),
                            Eigen::Vector3d(0, 0, 0));
     }
 
-    camera_rig.SetRefCameraId(rig_config.second.get<int>("ref_camera_id"));
+    camera_rig.SetRefCameraId(refCameraId);
 
     std::unordered_map<std::string, std::vector<image_t>> snapshots;
     for (const auto image_id : reconstruction.RegImageIds()) {
@@ -1362,8 +1424,16 @@ std::vector<CameraRig> ReadCameraRigConfig(
     }
 
     camera_rig.Check(reconstruction);
-    camera_rig.ComputeRelativePoses(reconstruction);
-
+    
+    if (extrinsicsGiven < camera_rig.NumCameras()) {
+      std::cout << "WARNING: " << camera_rig.NumCameras()
+                << " cameras, but only " << extrinsicsGiven
+                << " extrinsics given.\n"
+                << "\t Any given extrinsics will be discarded, "
+                << "and instead will be calculated from the reconstruction!\n";
+      camera_rig.ComputeRelativePoses(reconstruction);
+    }
+    
     camera_rigs.push_back(camera_rig);
   }
 
@@ -1411,6 +1481,19 @@ int RunRigBundleAdjuster(int argc, char** argv) {
       config.AddImage(image_id);
     }
   }
+
+  PrintHeading1("Adjust reconstruction scale");
+  if (camera_rigs.size() > 1) {
+    std::cout << "WARNING: For multiple camera rigs, consistent scale is "
+              << "assumed. If scaling is not consistent across rigs and "
+              << "datasets, the result will likely be bad.\n";
+  }
+  double scaleCorrectionFactor = camera_rigs[0].ComputeScale(reconstruction);
+  std::cout << "Scaling the reconstruction by a factor of "
+            << scaleCorrectionFactor << std::endl;
+  SimilarityTransform3 tf(scaleCorrectionFactor, ComposeIdentityQuaternion(),
+                          Eigen::Vector3d(0, 0, 0));
+  reconstruction.Transform(tf);
 
   PrintHeading1("Rig bundle adjustment");
 
