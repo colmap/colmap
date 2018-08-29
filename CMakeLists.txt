@@ -196,6 +196,35 @@ if(CUDA_FOUND)
         # Do not show warnings if the architectures are deprecated.
         set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Wno-deprecated-gpu-targets")
 
+        # Automatically downgrade compiler, if required
+        if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU"
+            AND "${CUDA_HOST_COMPILER}" STREQUAL "${CMAKE_C_COMPILER}")
+            # CUDA 9.x requires gcc <= 6.x
+            # CUDA 8.x requires gcc <= 5.x
+            # CUDA 7.x requires gcc <= 4.8
+            message(STATUS "Checking CUDA compiler compatibility")
+            if (NOT (${CMAKE_C_COMPILER_VERSION} VERSION_LESS 7.0)
+                AND (${CUDA_VERSION_MAJOR} EQUAL 9))
+                set(CUDA_HOST_COMPILER /usr/bin/gcc-6)
+                message(STATUS " Found CUDA " ${CUDA_VERSION} ", but compiler is gcc-"
+                        ${CMAKE_C_COMPILER_VERSION} "; changed CUDA_HOST_COMPILER to "
+                        ${CUDA_HOST_COMPILER})
+            endif()
+            if (NOT (${CMAKE_C_COMPILER_VERSION} VERSION_LESS 6.0)
+                AND (${CUDA_VERSION_MAJOR} EQUAL 8))
+                set(CUDA_HOST_COMPILER /usr/bin/gcc-5)
+                message(STATUS " Found CUDA " ${CUDA_VERSION} ", but compiler is gcc-"
+                        ${CMAKE_C_COMPILER_VERSION} "; changed CUDA_HOST_COMPILER to "
+                        ${CUDA_HOST_COMPILER})
+            endif()
+            if (NOT (${CMAKE_C_COMPILER_VERSION} VERSION_LESS 5.0)
+                AND (${CUDA_VERSION_MAJOR} EQUAL 7))
+                set(CUDA_HOST_COMPILER /usr/bin/gcc-4.8)
+                message(STATUS " Found CUDA " ${CUDA_VERSION} ", but compiler is gcc-"
+                        ${CMAKE_C_COMPILER_VERSION} "; changed CUDA_HOST_COMPILER to "
+                        ${CUDA_HOST_COMPILER})
+            endif()
+        endif()
         message(STATUS "Enabling CUDA support (version: ${CUDA_VERSION_STRING},"
                        " archs: ${CUDA_ARCH_FLAGS_readable})")
     else()
