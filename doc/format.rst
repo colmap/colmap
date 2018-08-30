@@ -110,15 +110,19 @@ dataset using two lines per image, e.g.::
 
 Here, the first two lines define the information of the first image, and so on.
 The reconstructed pose of an image is specified as the projection from world to
-image coordinate system using a quaternion (QW, QX, QY, QZ) and a translation
-vector (TX, TY, TZ). The quaternion is defined using the Hamilton convention,
-which is, for example, also used by the Eigen library. The coordinates of the
-projection center are given by ``-R^t * T``, where ``R^t`` is the
-inverse/transpose of the 3x3 rotation matrix composed from the quaternion and
-``T`` is the translation vector. Both images use the same camera model and share
-intrinsics (`CAMERA_ID = 1`). The image name is relative to the selected base
-image folder of the project. The first image has 3 keypoints and the second
-image has 2 keypoints, while the location of the keypoints is specified in pixel
+the camera coordinate system of an image using a quaternion `(QW, QX, QY, QZ)`
+and a translation vector `(TX, TY, TZ)`. The quaternion is defined using the
+Hamilton convention, which is, for example, also used by the Eigen library. The
+coordinates of the projection/camera center are given by ``-R^t * T``, where
+``R^t`` is the inverse/transpose of the 3x3 rotation matrix composed from the
+quaternion and ``T`` is the translation vector. The local camera coordinate
+system of an image is defined in a way that the X axis points to the right, the
+Y axis to the bottom, and the Z axis to the front as seen from the image.
+
+Both images in the example above use the same camera model and share intrinsics
+(`CAMERA_ID = 1`). The image name is relative to the selected base image folder
+of the project. The first image has 3 keypoints and the second image has 2
+keypoints, while the location of the keypoints is specified in pixel
 coordinates. Both images observe 2 3D points and note that the last keypoint of
 the first image does not observe a 3D point in the reconstruction as the 3D
 point identifier is -1.

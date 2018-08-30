@@ -1,3 +1,23 @@
+COLMAP 3.5 (08/22/2018)
+-----------------------
+- COLMAP is now released under the BSD license instead of the GPL
+- COLMAP is now installed as a library, whose headers can be included and
+  libraries linked against from other C/C++ code
+- Add hierarchical mapper for parallelized reconstruction or large scenes
+- Add sparse and dense Delaunay meshing algorithms, which reconstruct a
+  watertight surface using a graph cut on the Delaunay triangulation of the
+  reconstructed sparse or dense point cloud
+- Improved robustness when merging different models
+- Improved pre-trained vocabulary trees available for download
+- Add COLMAP as a software entry under Linux desktop systems
+- Add support to compile COLMAP on ARM platforms
+- Add example Python script to read/write COLMAP database
+- Add region of interest (ROI) cropping in image undistortion
+- Several import bug fixes for spatial verification in image retrieval
+- Add more extensive continuous integration across more compilation scenarios
+- Many more bug fixes and improvements to code and documentation
+
+
 COLMAP 3.4 (01/29/2018)
 -----------------------
 - Unified command-line interface: The functionality of previous executables have

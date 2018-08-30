@@ -1,6 +1,19 @@
 Frequently Asked Questions
 ==========================
 
+Adjusting the options for different reconstruction scenarios and output quality
+-------------------------------------------------------------------------------
+
+COLMAP provides many options that can be tuned for different reconstruction
+scenarios and to trade off accuracy and completeness versus efficiency. The
+default options are set to for medium to high quality reconstruction of
+unstructured input data. There are several presets for different scenarios and
+quality levels, which can be set in the GUI as ``Extras > Set options for ...``.
+To use these presets from the command-line, you can save the current set of
+options as ``File > Save project`` after choosing the presets. The resulting
+project file can be opened with a text editor to view the different options.
+
+
 Extending COLMAP
 ----------------
 
@@ -350,12 +363,14 @@ Surface mesh reconstruction
 COLMAP supports two types of surface reconstruction algorithms. Poisson surface
 reconstruction [kazhdan2013]_ and graph-cut based surface extraction from a
 Delaunay triangulation. Poisson surface reconstruction typically requires an
-outlier-free input point cloud and it often produces bad surfaces in the
+almost outlier-free input point cloud and it often produces bad surfaces in the
 presence of outliers or large holes in the input data. The Delaunay
-triangulation based meshing algorithm is robust to outliers and in general more
-scalable to large datasets than the Poisson algorithm, but it usually produces
-less smooth surfaces. Furthermore, the Delaunay based meshing can be applied to
-sparse and dense reconstruction results.
+triangulation based meshing algorithm is more robust to outliers and in general
+more scalable to large datasets than the Poisson algorithm, but it usually
+produces less smooth surfaces. Furthermore, the Delaunay based meshing can be
+applied to sparse and dense reconstruction results. To increase the smoothness
+of the surface as a post-processing step, you could use Laplacian smoothing, as
+e.g. implemented in Meshlab.
 
 Note that the two algorithms can also be combined by first running the Delaunay
 meshing to robustly filter outliers from the sparse or dense point cloud and

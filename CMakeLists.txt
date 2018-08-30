@@ -33,8 +33,8 @@ cmake_minimum_required(VERSION 3.0)
 
 project(COLMAP)
 
-set(COLMAP_VERSION "3.4")
-set(COLMAP_VERSION_NUMBER "3400")
+set(COLMAP_VERSION "3.6")
+set(COLMAP_VERSION_NUMBER "3600")
 
 
 ################################################################################
@@ -140,9 +140,13 @@ else()
 endif()
 
 if(IS_MSVC)
+    # Some fixes for the Glog library.
     add_definitions("-DGLOG_NO_ABBREVIATED_SEVERITIES")
     add_definitions("-DGL_GLEXT_PROTOTYPES")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
+    # Enable object level parallel builds in Visual Studio.
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 endif()
 
 if(IS_GNU)
