@@ -29,8 +29,6 @@
 //
 // Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
 
-// #include <boost/property_tree/json_parser.hpp>
-// #include <boost/property_tree/ptree.hpp>
 #include "json/nlohmann/json.hpp"
 
 #include "base/similarity_transform.h"

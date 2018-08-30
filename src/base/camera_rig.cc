@@ -169,8 +169,6 @@ double CameraRig::ComputeScale(const Reconstruction& reconstruction) const {
             (abs_proj_centers[i] - abs_proj_centers[j]).norm();
         const double kMinDist = 1e-6;
         if (rel_dist > kMinDist && abs_dist > kMinDist) {
-          std::cout << "rel dist is " << rel_dist << std::endl;
-          std::cout << "abs dist is " << abs_dist << std::endl;
           scalingFactors.push_back(rel_dist / abs_dist);
         }
       }
