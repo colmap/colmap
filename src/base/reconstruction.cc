@@ -492,6 +492,10 @@ bool Reconstruction::Merge(const Reconstruction& reconstruction,
     }
   }
 
+	// filter after merge
+	int filtered = FilterPoints3DWithLargeReprojectionError(100.0, Point3DIds());
+	printf("%d points have been filtered after merging.\n", filtered);
+
   return true;
 }
 
