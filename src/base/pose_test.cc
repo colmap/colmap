@@ -125,10 +125,10 @@ BOOST_AUTO_TEST_CASE(TestInvertQuaternion) {
   BOOST_CHECK_EQUAL(InvertQuaternion(ComposeIdentityQuaternion()),
                     Eigen::Vector4d(1, -0, -0, -0));
   BOOST_CHECK_EQUAL(InvertQuaternion(Eigen::Vector4d(2, 0, 0, 0)),
-                    Eigen::Vector4d(1, -0, -0, -0));
-  BOOST_CHECK(
-      InvertQuaternion(InvertQuaternion(Eigen::Vector4d(0.1, 0.2, 0.3, 0.4)))
-          .isApprox(NormalizeQuaternion(Eigen::Vector4d(0.1, 0.2, 0.3, 0.4))));
+                    Eigen::Vector4d(2, -0, -0, -0));
+  BOOST_CHECK_EQUAL(
+      InvertQuaternion(InvertQuaternion(Eigen::Vector4d(0.1, 0.2, 0.3, 0.4))),
+      Eigen::Vector4d(0.1, 0.2, 0.3, 0.4));
 }
 
 BOOST_AUTO_TEST_CASE(TestConcatenateQuaternions) {
@@ -333,19 +333,16 @@ BOOST_AUTO_TEST_CASE(TestConcatenatePoses) {
 BOOST_AUTO_TEST_CASE(TestInvertPose) {
   Eigen::Vector4d inv_qvec;
   Eigen::Vector3d inv_tvec;
-
   InvertPose(ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0), &inv_qvec,
              &inv_tvec);
   BOOST_CHECK_EQUAL(inv_qvec, ComposeIdentityQuaternion());
   BOOST_CHECK_EQUAL(inv_tvec, Eigen::Vector3d(0, 0, 0));
-
   InvertPose(Eigen::Vector4d(0, 1, 2, 3), Eigen::Vector3d(0, 1, 2), &inv_qvec,
              &inv_tvec);
   Eigen::Vector4d inv_inv_qvec;
   Eigen::Vector3d inv_inv_tvec;
   InvertPose(inv_qvec, inv_tvec, &inv_inv_qvec, &inv_inv_tvec);
-  BOOST_CHECK(
-      inv_inv_qvec.isApprox(NormalizeQuaternion(Eigen::Vector4d(0, 1, 2, 3))));
+  BOOST_CHECK_EQUAL(inv_inv_qvec, Eigen::Vector4d(0, 1, 2, 3));
   BOOST_CHECK(inv_inv_tvec.isApprox(Eigen::Vector3d(0, 1, 2)));
 }
 
