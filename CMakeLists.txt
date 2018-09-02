@@ -399,7 +399,7 @@ install(DIRECTORY src/
         FILES_MATCHING PATTERN "*.h")
 install(DIRECTORY lib/
         DESTINATION include/colmap/lib
-        FILES_MATCHING PATTERN "*.h")
+        FILES_MATCHING REGEX ".*[.]h|.*[.]hpp|.*[.]inl")
 
 # Generate and install CMake configuration.
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeConfig.cmake.in"
