@@ -225,7 +225,7 @@ BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
   options.refine_extra_params = ba_refine_extra_params;
   options.loss_function_scale = 1.0;
   options.loss_function_type =
-      BundleAdjustmentOptions::LossFunctionType::CAUCHY;
+      BundleAdjustmentOptions::LossFunctionType::SOFT_L1;
   return options;
 }
 

@@ -56,10 +56,14 @@ ceres::LossFunction* BundleAdjustmentOptions::CreateLossFunction() const {
     case LossFunctionType::TRIVIAL:
       loss_function = new ceres::TrivialLoss();
       break;
+    case LossFunctionType::SOFT_L1:
+      loss_function = new ceres::SoftLOneLoss(loss_function_scale);
+      break;
     case LossFunctionType::CAUCHY:
       loss_function = new ceres::CauchyLoss(loss_function_scale);
       break;
   }
+  CHECK_NOTNULL(loss_function);
   return loss_function;
 }
 
