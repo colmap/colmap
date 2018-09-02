@@ -493,6 +493,8 @@ bool Reconstruction::Merge(const Reconstruction& reconstruction,
     }
   }
 
+  FilterPoints3DWithLargeReprojectionError(max_reproj_error, Point3DIds());
+
   return true;
 }
 
