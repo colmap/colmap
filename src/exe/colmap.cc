@@ -976,7 +976,7 @@ int RunModelMerger(int argc, char** argv) {
   std::string input_path1;
   std::string input_path2;
   std::string output_path;
-  double max_reproj_error = 8.0;
+  double max_reproj_error = 64.0;
 
   OptionManager options;
   options.AddRequiredOption("input_path1", &input_path1);
