@@ -104,15 +104,15 @@ Eigen::Vector2d ProjectPointToImage(const Eigen::Vector3d& point3D,
 // The reprojection error is the Euclidean distance between the observation
 // in the image and the projection of the 3D point into the image. If the
 // 3D point is behind the camera, then this function returns DBL_MAX.
-double CalculateReprojectionError(const Eigen::Vector2d& point2D,
-                                  const Eigen::Vector3d& point3D,
-                                  const Eigen::Vector4d& qvec,
-                                  const Eigen::Vector3d& tvec,
-                                  const Camera& camera);
-double CalculateReprojectionError(const Eigen::Vector2d& point2D,
-                                  const Eigen::Vector3d& point3D,
-                                  const Eigen::Matrix3x4d& proj_matrix,
-                                  const Camera& camera);
+double CalculateSquaredReprojectionError(const Eigen::Vector2d& point2D,
+                                         const Eigen::Vector3d& point3D,
+                                         const Eigen::Vector4d& qvec,
+                                         const Eigen::Vector3d& tvec,
+                                         const Camera& camera);
+double CalculateSquaredReprojectionError(const Eigen::Vector2d& point2D,
+                                         const Eigen::Vector3d& point3D,
+                                         const Eigen::Matrix3x4d& proj_matrix,
+                                         const Camera& camera);
 
 // Calculate the angular error.
 //

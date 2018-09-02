@@ -888,6 +888,9 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
                                           Reconstruction* reconstruction,
                                           std::vector<CameraRig>* camera_rigs,
                                           ceres::LossFunction* loss_function) {
+  const double max_squared_reproj_error =
+      rig_options_.max_reproj_error * rig_options_.max_reproj_error;
+
   Image& image = reconstruction->Image(image_id);
   Camera& camera = reconstruction->Camera(image.CameraId());
 
@@ -947,8 +950,9 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
     assert(point3D.Track().Length() > 1);
 
     if (camera_rig != nullptr &&
-        CalculateReprojectionError(point2D.XY(), point3D.XYZ(), rig_proj_matrix,
-                                   camera) > rig_options_.max_reproj_error) {
+        CalculateSquaredReprojectionError(point2D.XY(), point3D.XYZ(),
+                                          rig_proj_matrix,
+                                          camera) > max_squared_reproj_error) {
       continue;
     }
 

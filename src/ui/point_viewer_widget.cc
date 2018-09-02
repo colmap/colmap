@@ -159,8 +159,8 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
     const Camera& camera = model_viewer_widget_->cameras[image.CameraId()];
     const Point2D& point2D = image.Point2D(track_el.point2D_idx);
 
-    const double error = CalculateReprojectionError(
-        point2D.XY(), point3D.XYZ(), image.Qvec(), image.Tvec(), camera);
+    const double reproj_error = std::sqrt(CalculateSquaredReprojectionError(
+        point2D.XY(), point3D.XYZ(), image.Qvec(), image.Tvec(), camera));
 
     const std::string path = JoinPaths(*options_->image_path, image.Name());
 
@@ -188,7 +188,7 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
 
     location_pixmaps_.push_back(pixmap);
     image_ids_.push_back(track_el.image_id);
-    reproj_errors_.push_back(error);
+    reproj_errors_.push_back(reproj_error);
   }
 
   UpdateImages();

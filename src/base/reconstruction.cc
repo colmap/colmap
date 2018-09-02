@@ -1276,6 +1276,8 @@ size_t Reconstruction::FilterPoints3DWithSmallTriangulationAngle(
 size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
     const double max_reproj_error,
     const std::unordered_set<point3D_t>& point3D_ids) {
+  const double max_squared_reproj_error = max_reproj_error * max_reproj_error;
+
   // Number of filtered points.
   size_t num_filtered = 0;
 
@@ -1288,6 +1290,7 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
 
     if (point3D.Track().Length() < 2) {
       DeletePoint3D(point3D_id);
+      num_filtered += point3D.Track().Length();
       continue;
     }
 
@@ -1299,17 +1302,16 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
       const class Image& image = Image(track_el.image_id);
       const class Camera& camera = Camera(image.CameraId());
       const Point2D& point2D = image.Point2D(track_el.point2D_idx);
-      const double reproj_error = CalculateReprojectionError(
+      const double squared_reproj_error = CalculateSquaredReprojectionError(
           point2D.XY(), point3D.XYZ(), image.Qvec(), image.Tvec(), camera);
-      if (reproj_error > max_reproj_error) {
+      if (squared_reproj_error > max_squared_reproj_error) {
         track_els_to_delete.push_back(track_el);
       } else {
-        reproj_error_sum += reproj_error;
+        reproj_error_sum += std::sqrt(squared_reproj_error);
       }
     }
 
-    if (track_els_to_delete.size() == point3D.Track().Length() ||
-        track_els_to_delete.size() == point3D.Track().Length() - 1) {
+    if (track_els_to_delete.size() >= point3D.Track().Length() - 1) {
       num_filtered += point3D.Track().Length();
       DeletePoint3D(point3D_id);
     } else {

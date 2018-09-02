@@ -586,6 +586,9 @@ size_t IncrementalTriangulator::Merge(const Options& options,
     return 0;
   }
 
+  const double max_squared_reproj_error =
+      options.merge_max_reproj_error * options.merge_max_reproj_error;
+
   const auto& point3D = reconstruction_->Point3D(point3D_id);
 
   for (const auto& track_el : point3D.Track().Elements()) {
@@ -630,10 +633,9 @@ size_t IncrementalTriangulator::Merge(const Options& options,
               reconstruction_->Camera(test_image.CameraId());
           const Point2D& test_point2D =
               test_image.Point2D(test_track_el.point2D_idx);
-          if (CalculateReprojectionError(test_point2D.XY(), merged_xyz,
-                                         test_image.Qvec(), test_image.Tvec(),
-                                         test_camera) >
-              options.merge_max_reproj_error) {
+          if (CalculateSquaredReprojectionError(
+                  test_point2D.XY(), merged_xyz, test_image.Qvec(),
+                  test_image.Tvec(), test_camera) > max_squared_reproj_error) {
             merge_success = false;
             break;
           }
@@ -677,6 +679,9 @@ size_t IncrementalTriangulator::Complete(const Options& options,
     return num_completed;
   }
 
+  const double max_squared_reproj_error =
+      options.complete_max_reproj_error * options.complete_max_reproj_error;
+
   const Point3D& point3D = reconstruction_->Point3D(point3D_id);
 
   std::vector<TrackElement> queue = point3D.Track().Elements();
@@ -711,9 +716,9 @@ size_t IncrementalTriangulator::Complete(const Options& options,
           continue;
         }
 
-        const double reproj_error = CalculateReprojectionError(
-            point2D.XY(), point3D.XYZ(), image.Qvec(), image.Tvec(), camera);
-        if (reproj_error > options.complete_max_reproj_error) {
+        if (CalculateSquaredReprojectionError(
+                point2D.XY(), point3D.XYZ(), image.Qvec(), image.Tvec(),
+                camera) > max_squared_reproj_error) {
           continue;
         }
 

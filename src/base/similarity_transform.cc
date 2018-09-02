@@ -48,7 +48,7 @@ struct ReconstructionAlignmentEstimator {
   typedef Eigen::Matrix3x4d M_t;
 
   void SetMaxReprojError(const double max_reproj_error) {
-    max_reproj_error_ = max_reproj_error;
+    max_squared_reproj_error_ = max_reproj_error * max_reproj_error;
   }
 
   void SetReconstructions(const Reconstruction* reconstruction1,
@@ -134,8 +134,9 @@ struct ReconstructionAlignmentEstimator {
         const Eigen::Vector3d xyz12 =
             alignment12 *
             reconstruction1_->Point3D(point2D1.Point3DId()).XYZ().homogeneous();
-        if (CalculateReprojectionError(point2D2.XY(), xyz12, proj_matrix2,
-                                       camera2) > max_reproj_error_) {
+        if (CalculateSquaredReprojectionError(point2D2.XY(), xyz12,
+                                              proj_matrix2, camera2) >
+            max_squared_reproj_error_) {
           continue;
         }
 
@@ -143,8 +144,9 @@ struct ReconstructionAlignmentEstimator {
         const Eigen::Vector3d xyz21 =
             alignment21 *
             reconstruction2_->Point3D(point2D2.Point3DId()).XYZ().homogeneous();
-        if (CalculateReprojectionError(point2D1.XY(), xyz21, proj_matrix1,
-                                       camera1) > max_reproj_error_) {
+        if (CalculateSquaredReprojectionError(point2D1.XY(), xyz21,
+                                              proj_matrix1, camera1) >
+            max_squared_reproj_error_) {
           continue;
         }
 
@@ -163,7 +165,7 @@ struct ReconstructionAlignmentEstimator {
   }
 
  private:
-  double max_reproj_error_ = 0.0;
+  double max_squared_reproj_error_ = 0.0;
   const Reconstruction* reconstruction1_ = nullptr;
   const Reconstruction* reconstruction2_ = nullptr;
 };

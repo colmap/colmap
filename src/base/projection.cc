@@ -108,11 +108,11 @@ Eigen::Vector2d ProjectPointToImage(const Eigen::Vector3d& point3D,
   return camera.WorldToImage(world_point.hnormalized());
 }
 
-double CalculateReprojectionError(const Eigen::Vector2d& point2D,
-                                  const Eigen::Vector3d& point3D,
-                                  const Eigen::Vector4d& qvec,
-                                  const Eigen::Vector3d& tvec,
-                                  const Camera& camera) {
+double CalculateSquaredReprojectionError(const Eigen::Vector2d& point2D,
+                                         const Eigen::Vector3d& point3D,
+                                         const Eigen::Vector4d& qvec,
+                                         const Eigen::Vector3d& tvec,
+                                         const Camera& camera) {
   const Eigen::Vector3d proj_point3D =
       QuaternionRotatePoint(qvec, point3D) + tvec;
 
@@ -124,13 +124,13 @@ double CalculateReprojectionError(const Eigen::Vector2d& point2D,
   const Eigen::Vector2d proj_point2D =
       camera.WorldToImage(proj_point3D.hnormalized());
 
-  return (proj_point2D - point2D).norm();
+  return (proj_point2D - point2D).squaredNorm();
 }
 
-double CalculateReprojectionError(const Eigen::Vector2d& point2D,
-                                  const Eigen::Vector3d& point3D,
-                                  const Eigen::Matrix3x4d& proj_matrix,
-                                  const Camera& camera) {
+double CalculateSquaredReprojectionError(const Eigen::Vector2d& point2D,
+                                         const Eigen::Vector3d& point3D,
+                                         const Eigen::Matrix3x4d& proj_matrix,
+                                         const Camera& camera) {
   const double proj_z = proj_matrix.row(2).dot(point3D.homogeneous());
 
   // Check that point is infront of camera.
@@ -145,7 +145,7 @@ double CalculateReprojectionError(const Eigen::Vector2d& point2D,
   const Eigen::Vector2d proj_point2D = camera.WorldToImage(
       Eigen::Vector2d(inv_proj_z * proj_x, inv_proj_z * proj_y));
 
-  return (proj_point2D - point2D).norm();
+  return (proj_point2D - point2D).squaredNorm();
 }
 
 double CalculateAngularError(const Eigen::Vector2d& point2D,
