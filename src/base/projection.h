@@ -102,14 +102,13 @@ Eigen::Vector2d ProjectPointToImage(const Eigen::Vector3d& point3D,
 // Calculate the reprojection error.
 //
 // The reprojection error is the Euclidean distance between the observation
-// in the image and the projection of the 3D point into the image.
-//
-// @param points2D         2D image point as 2x1 vector.
-// @param points3D         3D world point as 3x1 vector.
-// @param proj_matrix      3x4 projection matrix.
-// @param camera           Camera used to project to image plane.
-//
-// @return                 Reprojection error.
+// in the image and the projection of the 3D point into the image. If the
+// 3D point is behind the camera, then this function returns DBL_MAX.
+double CalculateReprojectionError(const Eigen::Vector2d& point2D,
+                                  const Eigen::Vector3d& point3D,
+                                  const Eigen::Vector4d& qvec,
+                                  const Eigen::Vector3d& tvec,
+                                  const Camera& camera);
 double CalculateReprojectionError(const Eigen::Vector2d& point2D,
                                   const Eigen::Vector3d& point3D,
                                   const Eigen::Matrix3x4d& proj_matrix,
@@ -119,13 +118,10 @@ double CalculateReprojectionError(const Eigen::Vector2d& point2D,
 //
 // The angular error is the angle between the observed viewing ray and the
 // actual viewing ray from the camera center to the 3D point.
-//
-// @param points2D         2D image point as 2x1 vector.
-// @param points3D         3D world point as 3x1 vector.
-// @param proj_matrix      3x4 projection matrix.
-// @param camera           Camera used to project to image plane.
-//
-// @return                 Angular error.
+double CalculateAngularError(const Eigen::Vector2d& point2D,
+                             const Eigen::Vector3d& point3D,
+                             const Eigen::Vector4d& qvec,
+                             const Eigen::Vector3d& tvec, const Camera& camera);
 double CalculateAngularError(const Eigen::Vector2d& point2D,
                              const Eigen::Vector3d& point3D,
                              const Eigen::Matrix3x4d& proj_matrix,
@@ -135,15 +131,13 @@ double CalculateAngularError(const Eigen::Vector2d& point2D,
 //
 // The angular error is the angle between the observed viewing ray and the
 // actual viewing ray from the camera center to the 3D point.
-//
-// @param points2D         Normalized 2D image point as 2x1 vector.
-// @param points3D         3D world point as 3x1 vector.
-// @param proj_matrix      3x4 projection matrix.
-//
-// @return                 Angular error.
-double CalculateAngularError(const Eigen::Vector2d& point2D,
-                             const Eigen::Vector3d& point3D,
-                             const Eigen::Matrix3x4d& proj_matrix);
+double CalculateNormalizedAngularError(const Eigen::Vector2d& point2D,
+                                       const Eigen::Vector3d& point3D,
+                                       const Eigen::Vector4d& qvec,
+                                       const Eigen::Vector3d& tvec);
+double CalculateNormalizedAngularError(const Eigen::Vector2d& point2D,
+                                       const Eigen::Vector3d& point3D,
+                                       const Eigen::Matrix3x4d& proj_matrix);
 
 // Calculate depth of 3D point with respect to camera.
 //

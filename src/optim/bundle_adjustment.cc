@@ -947,10 +947,8 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
     assert(point3D.Track().Length() > 1);
 
     if (camera_rig != nullptr &&
-        (!HasPointPositiveDepth(rig_proj_matrix, point3D.XYZ()) ||
-         CalculateReprojectionError(point2D.XY(), point3D.XYZ(),
-                                    rig_proj_matrix,
-                                    camera) > rig_options_.max_reproj_error)) {
+        CalculateReprojectionError(point2D.XY(), point3D.XYZ(), rig_proj_matrix,
+                                   camera) > rig_options_.max_reproj_error) {
       continue;
     }
 

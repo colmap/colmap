@@ -93,12 +93,12 @@ BOOST_AUTO_TEST_CASE(TestDecomposeProjectionMatrix) {
 }
 
 BOOST_AUTO_TEST_CASE(TestCalculateReprojectionError) {
-  const Eigen::Vector4d qvec = Eigen::Vector4d::Random().normalized();
-  const Eigen::Vector3d tvec = Eigen::Vector3d::Random();
+  const Eigen::Vector4d qvec = ComposeIdentityQuaternion();
+  const Eigen::Vector3d tvec = Eigen::Vector3d::Zero();
 
   const auto proj_matrix = ComposeProjectionMatrix(qvec, tvec);
 
-  const Eigen::Vector3d point3D = Eigen::Vector3d::Random();
+  const Eigen::Vector3d point3D = Eigen::Vector3d::Random().cwiseAbs();
   const Eigen::Vector3d point2D_h = proj_matrix * point3D.homogeneous();
   const Eigen::Vector2d point2D = point2D_h.hnormalized();
 
@@ -106,12 +106,21 @@ BOOST_AUTO_TEST_CASE(TestCalculateReprojectionError) {
   camera.InitializeWithId(SimplePinholeCameraModel::model_id, 1, 0, 0);
 
   const double error1 =
-      CalculateReprojectionError(point2D, point3D, proj_matrix, camera);
-  BOOST_CHECK_CLOSE(error1, 0, 1e-6);
+      CalculateReprojectionError(point2D, point3D, qvec, tvec, camera);
+  BOOST_CHECK_EQUAL(error1, 0);
 
-  const double error2 = CalculateReprojectionError(point2D.array() + 1, point3D,
+  const double error2 =
+      CalculateReprojectionError(point2D, point3D, proj_matrix, camera);
+  BOOST_CHECK_GE(error2, 0);
+  BOOST_CHECK_LT(error2, 1e-6);
+
+  const double error3 = CalculateReprojectionError(point2D.array() + 1, point3D,
+                                                   qvec, tvec, camera);
+  BOOST_CHECK_CLOSE(error3, std::sqrt(2), 1e-6);
+
+  const double error4 = CalculateReprojectionError(point2D.array() + 1, point3D,
                                                    proj_matrix, camera);
-  BOOST_CHECK_CLOSE(error2, std::sqrt(2), 1e-6);
+  BOOST_CHECK_CLOSE(error4, std::sqrt(2), 1e-6);
 }
 
 BOOST_AUTO_TEST_CASE(TestCalculateAngularError) {

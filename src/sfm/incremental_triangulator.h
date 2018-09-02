@@ -151,7 +151,6 @@ class IncrementalTriangulator {
     const Image* image;
     const Camera* camera;
     const Point2D* point2D;
-    Eigen::Matrix3x4d proj_matrix;
   };
 
  private:

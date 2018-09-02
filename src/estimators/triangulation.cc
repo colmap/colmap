@@ -117,17 +117,13 @@ void TriangulationEstimator::Residuals(const std::vector<X_t>& point_data,
   residuals->resize(point_data.size());
 
   for (size_t i = 0; i < point_data.size(); ++i) {
-    if (HasPointPositiveDepth(pose_data[i].proj_matrix, xyz)) {
-      if (residual_type_ == ResidualType::REPROJECTION_ERROR) {
-        (*residuals)[i] = CalculateReprojectionError(point_data[i].point, xyz,
-                                                     pose_data[i].proj_matrix,
-                                                     *pose_data[i].camera);
-      } else if (residual_type_ == ResidualType::ANGULAR_ERROR) {
-        (*residuals)[i] = CalculateAngularError(point_data[i].point_normalized,
-                                                xyz, pose_data[i].proj_matrix);
-      }
-    } else {
-      (*residuals)[i] = std::numeric_limits<double>::max();
+    if (residual_type_ == ResidualType::REPROJECTION_ERROR) {
+      (*residuals)[i] = CalculateReprojectionError(point_data[i].point, xyz,
+                                                   pose_data[i].proj_matrix,
+                                                   *pose_data[i].camera);
+    } else if (residual_type_ == ResidualType::ANGULAR_ERROR) {
+      (*residuals)[i] = CalculateNormalizedAngularError(
+          point_data[i].point_normalized, xyz, pose_data[i].proj_matrix);
     }
   }
 }

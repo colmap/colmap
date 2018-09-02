@@ -156,7 +156,7 @@ Eigen::Matrix3d RotationFromUnitVectors(const Eigen::Vector3d& vector1,
   }
 }
 
-Eigen::Vector3d ProjectionCenterFromProjMatrix(
+Eigen::Vector3d ProjectionCenterFromMatrix(
     const Eigen::Matrix3x4d& proj_matrix) {
   return -proj_matrix.leftCols<3>().transpose() * proj_matrix.rightCols<1>();
 }

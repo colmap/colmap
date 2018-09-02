@@ -135,11 +135,7 @@ Eigen::Matrix3d RotationFromUnitVectors(const Eigen::Vector3d& vec1,
 
 // Extract camera projection center from projection matrix, i.e. the projection
 // center in world coordinates `-R^T t`.
-//
-// @param                3x4 projection matrix.
-//
-// @return               3x1 camera projection center.
-Eigen::Vector3d ProjectionCenterFromProjMatrix(
+Eigen::Vector3d ProjectionCenterFromMatrix(
     const Eigen::Matrix3x4d& proj_matrix);
 
 // Extract camera projection center from projection parameters.

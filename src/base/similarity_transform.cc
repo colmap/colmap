@@ -131,25 +131,19 @@ struct ReconstructionAlignmentEstimator {
         num_common_points += 1;
 
         // Reproject 3D point in image 1 to image 2.
-
         const Eigen::Vector3d xyz12 =
             alignment12 *
             reconstruction1_->Point3D(point2D1.Point3DId()).XYZ().homogeneous();
-
-        if (!HasPointPositiveDepth(proj_matrix2, xyz12) ||
-            CalculateReprojectionError(point2D2.XY(), xyz12, proj_matrix2,
+        if (CalculateReprojectionError(point2D2.XY(), xyz12, proj_matrix2,
                                        camera2) > max_reproj_error_) {
           continue;
         }
 
         // Reproject 3D point in image 2 to image 1.
-
         const Eigen::Vector3d xyz21 =
             alignment21 *
             reconstruction2_->Point3D(point2D2.Point3DId()).XYZ().homogeneous();
-
-        if (!HasPointPositiveDepth(proj_matrix1, xyz21) ||
-            CalculateReprojectionError(point2D1.XY(), xyz21, proj_matrix1,
+        if (CalculateReprojectionError(point2D1.XY(), xyz21, proj_matrix1,
                                        camera1) > max_reproj_error_) {
           continue;
         }

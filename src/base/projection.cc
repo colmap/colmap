@@ -55,7 +55,7 @@ Eigen::Matrix3x4d ComposeProjectionMatrix(const Eigen::Matrix3d& R,
 Eigen::Matrix3x4d InvertProjectionMatrix(const Eigen::Matrix3x4d& proj_matrix) {
   Eigen::Matrix3x4d inv_proj_matrix;
   inv_proj_matrix.leftCols<3>() = proj_matrix.leftCols<3>().transpose();
-  inv_proj_matrix.rightCols<1>() = ProjectionCenterFromProjMatrix(proj_matrix);
+  inv_proj_matrix.rightCols<1>() = ProjectionCenterFromMatrix(proj_matrix);
   return inv_proj_matrix;
 }
 
@@ -110,23 +110,73 @@ Eigen::Vector2d ProjectPointToImage(const Eigen::Vector3d& point3D,
 
 double CalculateReprojectionError(const Eigen::Vector2d& point2D,
                                   const Eigen::Vector3d& point3D,
+                                  const Eigen::Vector4d& qvec,
+                                  const Eigen::Vector3d& tvec,
+                                  const Camera& camera) {
+  const Eigen::Vector3d proj_point3D =
+      QuaternionRotatePoint(qvec, point3D) + tvec;
+
+  // Check that point is infront of camera.
+  if (proj_point3D.z() < std::numeric_limits<double>::epsilon()) {
+    return std::numeric_limits<double>::max();
+  }
+
+  const Eigen::Vector2d proj_point2D =
+      camera.WorldToImage(proj_point3D.hnormalized());
+
+  return (proj_point2D - point2D).norm();
+}
+
+double CalculateReprojectionError(const Eigen::Vector2d& point2D,
+                                  const Eigen::Vector3d& point3D,
                                   const Eigen::Matrix3x4d& proj_matrix,
                                   const Camera& camera) {
-  const auto image_point = ProjectPointToImage(point3D, proj_matrix, camera);
-  return (image_point - point2D).norm();
+  const double proj_z = proj_matrix.row(2).dot(point3D.homogeneous());
+
+  // Check that point is infront of camera.
+  if (proj_z < std::numeric_limits<double>::epsilon()) {
+    return std::numeric_limits<double>::max();
+  }
+
+  const double proj_x = proj_matrix.row(0).dot(point3D.homogeneous());
+  const double proj_y = proj_matrix.row(1).dot(point3D.homogeneous());
+  const double inv_proj_z = 1.0 / proj_z;
+
+  const Eigen::Vector2d proj_point2D = camera.WorldToImage(
+      Eigen::Vector2d(inv_proj_z * proj_x, inv_proj_z * proj_y));
+
+  return (proj_point2D - point2D).norm();
+}
+
+double CalculateAngularError(const Eigen::Vector2d& point2D,
+                             const Eigen::Vector3d& point3D,
+                             const Eigen::Vector4d& qvec,
+                             const Eigen::Vector3d& tvec,
+                             const Camera& camera) {
+  return CalculateNormalizedAngularError(camera.ImageToWorld(point2D), point3D,
+                                         qvec, tvec);
 }
 
 double CalculateAngularError(const Eigen::Vector2d& point2D,
                              const Eigen::Vector3d& point3D,
                              const Eigen::Matrix3x4d& proj_matrix,
                              const Camera& camera) {
-  return CalculateAngularError(camera.ImageToWorld(point2D), point3D,
-                               proj_matrix);
+  return CalculateNormalizedAngularError(camera.ImageToWorld(point2D), point3D,
+                                         proj_matrix);
 }
 
-double CalculateAngularError(const Eigen::Vector2d& point2D,
-                             const Eigen::Vector3d& point3D,
-                             const Eigen::Matrix3x4d& proj_matrix) {
+double CalculateNormalizedAngularError(const Eigen::Vector2d& point2D,
+                                       const Eigen::Vector3d& point3D,
+                                       const Eigen::Vector4d& qvec,
+                                       const Eigen::Vector3d& tvec) {
+  const Eigen::Vector3d ray1 = point2D.homogeneous();
+  const Eigen::Vector3d ray2 = QuaternionRotatePoint(qvec, point3D) + tvec;
+  return std::acos(ray1.normalized().transpose() * ray2.normalized());
+}
+
+double CalculateNormalizedAngularError(const Eigen::Vector2d& point2D,
+                                       const Eigen::Vector3d& point3D,
+                                       const Eigen::Matrix3x4d& proj_matrix) {
   const Eigen::Vector3d ray1 = point2D.homogeneous();
   const Eigen::Vector3d ray2 = proj_matrix * point3D.homogeneous();
   return std::acos(ray1.normalized().transpose() * ray2.normalized());
@@ -134,14 +184,13 @@ double CalculateAngularError(const Eigen::Vector2d& point2D,
 
 double CalculateDepth(const Eigen::Matrix3x4d& proj_matrix,
                       const Eigen::Vector3d& point3D) {
-  const double d = (proj_matrix.row(2) * point3D.homogeneous()).sum();
-  return d * proj_matrix.col(2).norm();
+  const double proj_z = proj_matrix.row(2).dot(point3D.homogeneous());
+  return proj_z * proj_matrix.col(2).norm();
 }
 
 bool HasPointPositiveDepth(const Eigen::Matrix3x4d& proj_matrix,
                            const Eigen::Vector3d& point3D) {
-  return (proj_matrix(2, 0) * point3D(0) + proj_matrix(2, 1) * point3D(1) +
-          proj_matrix(2, 2) * point3D(2) + proj_matrix(2, 3)) >
+  return proj_matrix.row(2).dot(point3D.homogeneous()) >=
          std::numeric_limits<double>::epsilon();
 }
 

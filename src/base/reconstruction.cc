@@ -1279,9 +1279,6 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
   // Number of filtered points.
   size_t num_filtered = 0;
 
-  // Cache for projection matrices.
-  EIGEN_STL_UMAP(image_t, Eigen::Matrix3x4d) proj_matrices;
-
   for (const auto point3D_id : point3D_ids) {
     if (!ExistsPoint3D(point3D_id)) {
       continue;
@@ -1300,27 +1297,14 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
 
     for (const auto& track_el : point3D.Track().Elements()) {
       const class Image& image = Image(track_el.image_id);
-
-      Eigen::Matrix3x4d proj_matrix;
-      if (proj_matrices.count(track_el.image_id) == 0) {
-        proj_matrix = image.ProjectionMatrix();
-        proj_matrices[track_el.image_id] = proj_matrix;
-      } else {
-        proj_matrix = proj_matrices[track_el.image_id];
-      }
-
-      if (HasPointPositiveDepth(proj_matrix, point3D.XYZ())) {
-        const class Camera& camera = Camera(image.CameraId());
-        const Point2D& point2D = image.Point2D(track_el.point2D_idx);
-        const double reproj_error = CalculateReprojectionError(
-            point2D.XY(), point3D.XYZ(), proj_matrix, camera);
-        if (reproj_error > max_reproj_error) {
-          track_els_to_delete.push_back(track_el);
-        } else {
-          reproj_error_sum += reproj_error;
-        }
-      } else {
+      const class Camera& camera = Camera(image.CameraId());
+      const Point2D& point2D = image.Point2D(track_el.point2D_idx);
+      const double reproj_error = CalculateReprojectionError(
+          point2D.XY(), point3D.XYZ(), image.Qvec(), image.Tvec(), camera);
+      if (reproj_error > max_reproj_error) {
         track_els_to_delete.push_back(track_el);
+      } else {
+        reproj_error_sum += reproj_error;
       }
     }
 
