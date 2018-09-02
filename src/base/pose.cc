@@ -86,15 +86,12 @@ Eigen::Vector4d NormalizeQuaternion(const Eigen::Vector4d& qvec) {
     // for automatic differentiation that would lead to a zero derivative.
     return Eigen::Vector4d(1.0, qvec(1), qvec(2), qvec(3));
   } else {
-    const double inv_norm = 1.0 / norm;
-    return inv_norm * qvec;
+    return qvec / norm;
   }
 }
 
 Eigen::Vector4d InvertQuaternion(const Eigen::Vector4d& qvec) {
-  const Eigen::Vector4d normalized_qvec = NormalizeQuaternion(qvec);
-  return Eigen::Vector4d(normalized_qvec(0), -normalized_qvec(1),
-                         -normalized_qvec(2), -normalized_qvec(3));
+  return Eigen::Vector4d(qvec(0), -qvec(1), -qvec(2), -qvec(3));
 }
 
 Eigen::Vector4d ConcatenateQuaternions(const Eigen::Vector4d& qvec1,
@@ -159,13 +156,13 @@ Eigen::Matrix3d RotationFromUnitVectors(const Eigen::Vector3d& vector1,
   }
 }
 
-Eigen::Vector3d ProjectionCenterFromMatrix(
+Eigen::Vector3d ProjectionCenterFromProjMatrix(
     const Eigen::Matrix3x4d& proj_matrix) {
   return -proj_matrix.leftCols<3>().transpose() * proj_matrix.rightCols<1>();
 }
 
-Eigen::Vector3d ProjectionCenterFromParameters(const Eigen::Vector4d& qvec,
-                                               const Eigen::Vector3d& tvec) {
+Eigen::Vector3d ProjectionCenterFromPose(const Eigen::Vector4d& qvec,
+                                         const Eigen::Vector3d& tvec) {
   // Inverse rotation as conjugate quaternion.
   const Eigen::Vector4d normalized_qvec = NormalizeQuaternion(qvec);
   const Eigen::Quaterniond quat(normalized_qvec(0), -normalized_qvec(1),
@@ -220,8 +217,8 @@ Eigen::Vector3d CalculateBaseline(const Eigen::Vector4d& qvec1,
                                   const Eigen::Vector3d& tvec1,
                                   const Eigen::Vector4d& qvec2,
                                   const Eigen::Vector3d& tvec2) {
-  const Eigen::Vector3d center1 = ProjectionCenterFromParameters(qvec1, tvec1);
-  const Eigen::Vector3d center2 = ProjectionCenterFromParameters(qvec2, tvec2);
+  const Eigen::Vector3d center1 = ProjectionCenterFromPose(qvec1, tvec1);
+  const Eigen::Vector3d center2 = ProjectionCenterFromPose(qvec2, tvec2);
   return center2 - center1;
 }
 

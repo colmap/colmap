@@ -383,12 +383,13 @@ void Reconstruction::Normalize(const double extent, const double p0,
   const Eigen::Vector3d translation = mean_coord;
 
   // Transform images.
-  for (auto& elem : proj_centers) {
-    elem.second -= translation;
-    elem.second *= scale;
-    const Eigen::Quaterniond quat(elem.first->Qvec(0), elem.first->Qvec(1),
-                                  elem.first->Qvec(2), elem.first->Qvec(3));
-    elem.first->SetTvec(quat * -elem.second);
+  for (auto& image_proj_center : proj_centers) {
+    image_proj_center.second -= translation;
+    image_proj_center.second *= scale;
+    const Eigen::Quaterniond quat(
+        image_proj_center.first->Qvec(0), image_proj_center.first->Qvec(1),
+        image_proj_center.first->Qvec(2), image_proj_center.first->Qvec(3));
+    image_proj_center.first->SetTvec(quat * -image_proj_center.second);
   }
 
   // Transform points.
@@ -1906,7 +1907,8 @@ void Reconstruction::SetObservationAsTriangulated(
           Database::ImagePairToPairId(image_id, corr.image_id);
       image_pairs_[pair_id].first += 1;
       CHECK_LE(image_pairs_[pair_id].first, image_pairs_[pair_id].second)
-          << "The correspondence graph graph must not contain duplicate matches";
+          << "The correspondence graph graph must not contain duplicate "
+             "matches";
     }
   }
 }

@@ -139,7 +139,7 @@ Eigen::Matrix3d RotationFromUnitVectors(const Eigen::Vector3d& vec1,
 // @param                3x4 projection matrix.
 //
 // @return               3x1 camera projection center.
-Eigen::Vector3d ProjectionCenterFromMatrix(
+Eigen::Vector3d ProjectionCenterFromProjMatrix(
     const Eigen::Matrix3x4d& proj_matrix);
 
 // Extract camera projection center from projection parameters.
@@ -148,8 +148,8 @@ Eigen::Vector3d ProjectionCenterFromMatrix(
 // @param tvec           3x1 translation vector.
 //
 // @return               3x1 camera projection center.
-Eigen::Vector3d ProjectionCenterFromParameters(const Eigen::Vector4d& qvec,
-                                               const Eigen::Vector3d& tvec);
+Eigen::Vector3d ProjectionCenterFromPose(const Eigen::Vector4d& qvec,
+                                         const Eigen::Vector3d& tvec);
 
 // Compute the relative transformation from pose 1 to 2.
 //

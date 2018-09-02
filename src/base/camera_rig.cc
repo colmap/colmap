@@ -136,7 +136,7 @@ double CameraRig::ComputeScale(const Reconstruction& reconstruction) const {
     // Compute the projection relative and absolute projection centers.
     for (size_t i = 0; i < NumCameras(); ++i) {
       const auto& image = reconstruction.Image(snapshot[i]);
-      rel_proj_centers[i] = ProjectionCenterFromParameters(
+      rel_proj_centers[i] = ProjectionCenterFromPose(
           RelativeQvec(image.CameraId()), RelativeTvec(image.CameraId()));
       abs_proj_centers[i] = image.ProjectionCenter();
     }

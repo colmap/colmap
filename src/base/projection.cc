@@ -55,7 +55,7 @@ Eigen::Matrix3x4d ComposeProjectionMatrix(const Eigen::Matrix3d& R,
 Eigen::Matrix3x4d InvertProjectionMatrix(const Eigen::Matrix3x4d& proj_matrix) {
   Eigen::Matrix3x4d inv_proj_matrix;
   inv_proj_matrix.leftCols<3>() = proj_matrix.leftCols<3>().transpose();
-  inv_proj_matrix.rightCols<1>() = ProjectionCenterFromMatrix(proj_matrix);
+  inv_proj_matrix.rightCols<1>() = ProjectionCenterFromProjMatrix(proj_matrix);
   return inv_proj_matrix;
 }
 

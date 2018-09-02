@@ -242,7 +242,7 @@ BOOST_AUTO_TEST_CASE(TestPoseFromProjectionMatrix) {
   const Eigen::Vector3d tvec(3, 4, 5);
   const Eigen::Matrix3x4d proj_matrix = ComposeProjectionMatrix(qvec, tvec);
   const Eigen::Matrix3x4d inv_proj_matrix = InvertProjectionMatrix(proj_matrix);
-  const Eigen::Vector3d pose = ProjectionCenterFromMatrix(proj_matrix);
+  const Eigen::Vector3d pose = ProjectionCenterFromProjMatrix(proj_matrix);
   BOOST_CHECK_CLOSE((inv_proj_matrix.rightCols<1>() - pose).norm(), 0, 1e-6);
 }
 
@@ -251,7 +251,7 @@ BOOST_AUTO_TEST_CASE(TestPoseFromProjectionParameters) {
   const Eigen::Vector3d tvec(3, 4, 5);
   const Eigen::Matrix3x4d proj_matrix = ComposeProjectionMatrix(qvec, tvec);
   const Eigen::Matrix3x4d inv_proj_matrix = InvertProjectionMatrix(proj_matrix);
-  const Eigen::Vector3d pose = ProjectionCenterFromParameters(qvec, tvec);
+  const Eigen::Vector3d pose = ProjectionCenterFromPose(qvec, tvec);
   BOOST_CHECK((inv_proj_matrix.rightCols<1>() - pose).norm() < 1e-6);
 }
 
