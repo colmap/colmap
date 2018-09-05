@@ -155,7 +155,6 @@ void StereoFusion::Run() {
   workspace_options.cache_size = options_.cache_size;
   workspace_options.workspace_path = workspace_path_;
   workspace_options.workspace_format = workspace_format_;
-  workspace_options.workspace_format = workspace_format_;
   workspace_options.input_type = input_type_;
 
   workspace_.reset(new Workspace(workspace_options));
