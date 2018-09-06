@@ -98,11 +98,15 @@ def main():
         cursor.execute("SELECT data FROM keypoints WHERE image_id=?;",
                        (image_id,))
         row = next(cursor)
-        keypoints = np.fromstring(row[0], dtype=np.float32).reshape(-1, 4)
-        cursor.execute("SELECT data FROM descriptors WHERE image_id=?;",
-                       (image_id,))
-        row = next(cursor)
-        descriptors = np.fromstring(row[0], dtype=np.uint8).reshape(-1, 128)
+        if row[0] is None:
+            keypoints = np.zeros((0, 6), dtype=np.float32)
+            descriptors = np.zeros((0, 128), dtype=np.float32)
+        else:
+            keypoints = np.fromstring(row[0], dtype=np.float32).reshape(-1, 6)
+            cursor.execute("SELECT data FROM descriptors WHERE image_id=?;",
+                        (image_id,))
+            row = next(cursor)
+            descriptors = np.fromstring(row[0], dtype=np.uint8).reshape(-1, 128)
 
         with open(key_file_name, "w") as fid:
             fid.write("%d %d\n" % (keypoints.shape[0], descriptors.shape[1]))
