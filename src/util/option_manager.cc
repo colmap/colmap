@@ -80,7 +80,7 @@ OptionManager::OptionManager() {
 
 void OptionManager::ModifyForIndividualData() {
   mapper->min_focal_length_ratio = 0.01;
-  mapper->max_focal_length_ratio = std::numeric_limits<double>::max();
+  mapper->max_focal_length_ratio = 10;
   mapper->max_extra_param = std::numeric_limits<double>::max();
 }
 
@@ -91,7 +91,7 @@ void OptionManager::ModifyForVideoData() {
   mapper->ba_global_images_ratio = 1.4;
   mapper->ba_global_points_ratio = 1.4;
   mapper->min_focal_length_ratio = 0.01;
-  mapper->max_focal_length_ratio = std::numeric_limits<double>::max();
+  mapper->max_focal_length_ratio = 10;
   mapper->max_extra_param = std::numeric_limits<double>::max();
   stereo_fusion->min_num_pixels = 15;
 }
