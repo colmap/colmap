@@ -10,18 +10,6 @@ Please, adhere to the Google coding style guide:
 
 by using the provided ".clang-format" file.
 
-Document functions, methods, classes, etc. with inline documentation strings
-describing the API, using the following format:
-
-    // Short description.
-    //
-    // Longer description with a few sentences and multiple lines.
-    //
-    // @param parameter1            Description for parameter 1.
-    // @param parameter2            Description for parameter 2.
-    //
-    // @return                      Description of optional return value.
-
-Add unit tests for all newly added code and make sure that algorithmic
-"improvements" generalize and actually improve the results of the pipeline on a
-variety of datasets.
+Document code, functions, methods, classes, etc. Make sure to add unit tests for
+all newly added code and make sure that algorithmic "improvements" generalize
+and actually improve the results of the pipeline on a variety of datasets.
