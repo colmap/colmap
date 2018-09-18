@@ -97,6 +97,42 @@ BOOST_AUTO_TEST_CASE(TestBundleAdjustmentConstantPoseCostFunction) {
   BOOST_CHECK_EQUAL(residuals[1], 2);
 }
 
+BOOST_AUTO_TEST_CASE(TestBundleAdjustmentConstantPoint3DCostFunction) {
+  ceres::CostFunction* cost_function1 =
+      BundleAdjustmentConstantPoint3DCostFunction<
+          SimplePinholeCameraModel>::Create(Eigen::Vector2d::Zero(),
+                                            Eigen::Vector3d(0, 0, 1));
+  double qvec[4] = {1, 0, 0, 0};
+  double tvec[3] = {0, 0, 0};
+  double camera_params[3] = {1, 0, 0};
+  double residuals[2];
+  const double* parameters[4] = {qvec, tvec, camera_params};
+  BOOST_CHECK(cost_function1->Evaluate(parameters, residuals, nullptr));
+  BOOST_CHECK_EQUAL(residuals[0], 0);
+  BOOST_CHECK_EQUAL(residuals[1], 0);
+
+  ceres::CostFunction* cost_function2 =
+      BundleAdjustmentConstantPoint3DCostFunction<
+          SimplePinholeCameraModel>::Create(Eigen::Vector2d::Zero(),
+                                            Eigen::Vector3d(0, 1, 1));
+  BOOST_CHECK(cost_function2->Evaluate(parameters, residuals, nullptr));
+  BOOST_CHECK_EQUAL(residuals[0], 0);
+  BOOST_CHECK_EQUAL(residuals[1], 1);
+
+  camera_params[0] = 2;
+  BOOST_CHECK(cost_function2->Evaluate(parameters, residuals, nullptr));
+  BOOST_CHECK_EQUAL(residuals[0], 0);
+  BOOST_CHECK_EQUAL(residuals[1], 2);
+
+  ceres::CostFunction* cost_function3 =
+      BundleAdjustmentConstantPoint3DCostFunction<
+          SimplePinholeCameraModel>::Create(Eigen::Vector2d::Zero(),
+                                            Eigen::Vector3d(-1, 1, 1));
+  BOOST_CHECK(cost_function3->Evaluate(parameters, residuals, nullptr));
+  BOOST_CHECK_EQUAL(residuals[0], -2);
+  BOOST_CHECK_EQUAL(residuals[1], 2);
+}
+
 BOOST_AUTO_TEST_CASE(TestRigBundleAdjustmentCostFunction) {
   ceres::CostFunction* cost_function =
       RigBundleAdjustmentCostFunction<SimplePinholeCameraModel>::Create(

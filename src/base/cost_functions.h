@@ -141,6 +141,62 @@ class BundleAdjustmentConstantPoseCostFunction {
   const double observed_y_;
 };
 
+// Standard bundle adjustment cost function for variable
+// camera pose and calibration and constant point parameters.
+template <typename CameraModel>
+class BundleAdjustmentConstantPoint3DCostFunction {
+ public:
+  explicit BundleAdjustmentConstantPoint3DCostFunction(
+      const Eigen::Vector2d& point2D, const Eigen::Vector3d& point3D)
+      : observed_x_(point2D(0)),
+        observed_y_(point2D(1)),
+        point3D_x_(point3D(0)),
+        point3D_y_(point3D(1)),
+        point3D_z_(point3D(2)) {}
+
+  static ceres::CostFunction* Create(const Eigen::Vector2d& point2D,
+                                     const Eigen::Vector3d& point3D) {
+    return (new ceres::AutoDiffCostFunction<
+            BundleAdjustmentConstantPoint3DCostFunction<CameraModel>, 2, 4, 3,
+            CameraModel::kNumParams>(
+        new BundleAdjustmentConstantPoint3DCostFunction(point2D, point3D)));
+  }
+
+  template <typename T>
+  bool operator()(const T* const qvec, const T* const tvec,
+                  const T* const camera_params, T* residuals) const {
+    const T point3D[3] = {T(point3D_x_), T(point3D_y_), T(point3D_z_)};
+
+    // Rotate and translate.
+    T projection[3];
+    ceres::UnitQuaternionRotatePoint(qvec, point3D, projection);
+    projection[0] += tvec[0];
+    projection[1] += tvec[1];
+    projection[2] += tvec[2];
+
+    // Project to image plane.
+    projection[0] /= projection[2];
+    projection[1] /= projection[2];
+
+    // Distort and transform to pixel space.
+    CameraModel::WorldToImage(camera_params, projection[0], projection[1],
+                              &residuals[0], &residuals[1]);
+
+    // Re-projection error.
+    residuals[0] -= T(observed_x_);
+    residuals[1] -= T(observed_y_);
+
+    return true;
+  }
+
+ private:
+  const double observed_x_;
+  const double observed_y_;
+  const double point3D_x_;
+  const double point3D_y_;
+  const double point3D_z_;
+};
+
 // Rig bundle adjustment cost function for variable camera pose and calibration
 // and point parameters. Different from the standard bundle adjustment function,
 // this cost function is suitable for camera rigs with consistent relative poses
