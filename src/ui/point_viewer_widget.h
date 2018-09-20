@@ -77,6 +77,7 @@ class PointViewerWidget : public QWidget {
   std::vector<QLabel*> location_labels_;
   std::vector<image_t> image_ids_;
   std::vector<double> reproj_errors_;
+  std::vector<std::string> image_names_;
 
   QPushButton* zoom_in_button_;
   QPushButton* zoom_out_button_;
