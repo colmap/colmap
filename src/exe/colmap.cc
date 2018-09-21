@@ -505,6 +505,84 @@ std::vector<std::pair<image_t, image_t>> ReadStereoImagePairs(
   return stereo_pairs;
 }
 
+int RunImageDeleter(int argc, char** argv) {
+  std::string input_path;
+  std::string output_path;
+  std::string image_ids_path;
+  std::string image_names_path;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption(
+      "image_ids_path", &image_ids_path,
+      "Path to text file containing one image_id to delete per line");
+  options.AddDefaultOption(
+      "image_names_path", &image_names_path,
+      "Path to text file containing one image name to delete per line");
+  options.Parse(argc, argv);
+
+  Reconstruction reconstruction;
+  reconstruction.Read(input_path);
+
+  if (!image_ids_path.empty()) {
+    const auto image_ids = ReadTextFileLines(image_ids_path);
+
+    for (const auto image_id_str : image_ids) {
+      if (image_id_str.empty()) {
+        continue;
+      }
+
+      const image_t image_id = std::stoi(image_id_str);
+      if (reconstruction.ExistsImage(image_id)) {
+        const auto& image = reconstruction.Image(image_id);
+        std::cout
+            << StringPrintf(
+                   "Deleting image_id=%d, image_name=%s from reconstruction",
+                   image.ImageId(), image.Name().c_str())
+            << std::endl;
+        reconstruction.DeRegisterImage(image_id);
+      } else {
+        std::cout << StringPrintf(
+                         "WARNING: Skipping image_id=%s, because it does not "
+                         "exist in the reconstruction",
+                         image_id_str.c_str())
+                  << std::endl;
+      }
+    }
+  }
+
+  if (!image_names_path.empty()) {
+    const auto image_names = ReadTextFileLines(image_names_path);
+
+    for (const auto image_name : image_names) {
+      if (image_name.empty()) {
+        continue;
+      }
+
+      const Image* image = reconstruction.FindImageWithName(image_name);
+      if (image != nullptr) {
+        std::cout
+            << StringPrintf(
+                   "Deleting image_id=%d, image_name=%s from reconstruction",
+                   image->ImageId(), image->Name().c_str())
+            << std::endl;
+        reconstruction.DeRegisterImage(image->ImageId());
+      } else {
+        std::cout << StringPrintf(
+                         "WARNING: Skipping image_name=%s, because it does not "
+                         "exist in the reconstruction",
+                         image_name.c_str())
+                  << std::endl;
+      }
+    }
+  }
+
+  reconstruction.Write(output_path);
+
+  return EXIT_SUCCESS;
+}
+
 int RunImageRectifier(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
@@ -1755,6 +1833,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("feature_extractor", &RunFeatureExtractor);
   commands.emplace_back("feature_importer", &RunFeatureImporter);
   commands.emplace_back("hierarchical_mapper", &RunHierarchicalMapper);
+  commands.emplace_back("image_deleter", &RunImageDeleter);
   commands.emplace_back("image_rectifier", &RunImageRectifier);
   commands.emplace_back("image_registrator", &RunImageRegistrator);
   commands.emplace_back("image_undistorter", &RunImageUndistorter);

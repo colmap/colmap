@@ -122,6 +122,7 @@ The available commands can be listed using the command::
           exhaustive_matcher
           feature_extractor
           feature_importer
+          image_deleter
           image_rectifier
           image_registrator
           image_undistorter
@@ -220,10 +221,13 @@ available as ``colmap [command]``:
 - ``image_rectifier``: Stereo rectify cameras and undistort images for stereo
   disparity estimation.
 
-- ``patch_match_stereo``: Dense 3D reconstruction / mapping using MVS after running
-  the ``image_undistorter`` to initialize the workspace.
+- ``image_deleter``: Delete individual images from a sparse reconstruction.
 
-- ``stereo_fusion``: Fusion of MVS depth and normal maps to a colored point cloud.
+- ``patch_match_stereo``: Dense 3D reconstruction / mapping using MVS after
+  running the ``image_undistorter`` to initialize the workspace.
+
+- ``stereo_fusion``: Fusion of ``patch_match_stereo`` results into to a colored
+  point cloud.
 
 - ``poisson_mesher``: Meshing of the fused point cloud using Poisson
   surface reconstruction.
