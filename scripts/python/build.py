@@ -367,11 +367,14 @@ def build_suite_sparse(args):
     build_cmake_project(args, os.path.join(path, "__build__"))
 
     if PLATFORM_IS_WINDOWS:
-        lapack_blas_path = os.path.join(args.install_path,
-                                        "lib64/lapack_blas_windows/*.dll")
+        lapack_blas_path = os.path.join(path, "lapack_windows/x64/*")
+        mkdir_if_not_exists(os.path.join(args.install_path, "lib64"))
+        mkdir_if_not_exists(os.path.join(args.install_path,
+                                         "lib64/lapack_blas_windows"))
         for library_path in glob.glob(lapack_blas_path):
             copy_file_if_not_exists(
-                library_path, os.path.join(args.install_path, "lib",
+                library_path, os.path.join(args.install_path,
+                                           "lib64/lapack_blas_windows",
                                            os.path.basename(library_path)))
 
 
@@ -492,9 +495,10 @@ def build_post_process(args):
                     gmp_lib_path,
                     os.path.join(args.install_path, "lib/libgmp-10.dll"))
             copy_file_if_not_exists(
-                os.path.join(args.cgal_path,
-                             "bin/Release/CGAL-vc140-mt-4.11.2.dll"),
-                os.path.join(args.install_path, "lib/CGAL-vc140-mt-4.11.2.dll"))
+                glob.glob(os.path.join(
+                    args.cgal_path,
+                    "build/bin/Release/CGAL-vc140-mt-*.dll"))[0],
+                os.path.join(args.install_path, "lib"))
 
 
 def main():
