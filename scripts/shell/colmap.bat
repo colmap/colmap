@@ -29,7 +29,7 @@ rem CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 rem ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 rem POSSIBILITY OF SUCH DAMAGE.
 rem
-rem Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+rem Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 set SCRIPT_PATH=%~dp0
 

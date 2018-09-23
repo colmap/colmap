@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 // Note that part of this code is licensed under the following conditions.
 //    Author:   Laurent Kneip

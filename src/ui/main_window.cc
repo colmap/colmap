@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "ui/main_window.h"
 
@@ -1244,7 +1244,7 @@ void MainWindow::About() {
       QString().sprintf("<span style='font-weight:normal'><b>%s</b><br />"
                         "<small>(%s)</small><br /><br />"
                         "<b>Author:</b> Johannes L. Schönberger<br /><br />"
-                        "<b>Email:</b> jsch at inf.ethz.ch</span>",
+                        "<b>Email:</b> jsch-at-demuc-dot-de</span>",
                         GetVersionInfo().c_str(), GetBuildInfo().c_str()));
 }
 
