@@ -62,7 +62,7 @@ class MainWindow : public QMainWindow {
  public:
   explicit MainWindow(const OptionManager& options);
 
-  const ReconstructionManager& GetReconstructionManager() const;
+  void ImportReconstruction(const std::string& path);
 
  protected:
   void closeEvent(QCloseEvent* event);

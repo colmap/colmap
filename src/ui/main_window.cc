@@ -54,8 +54,11 @@ MainWindow::MainWindow(const OptionManager& options)
   options_.AddAllOptions();
 }
 
-const ReconstructionManager& MainWindow::GetReconstructionManager() const {
-  return reconstruction_manager_;
+void MainWindow::ImportReconstruction(const std::string& path) {
+  const size_t idx = reconstruction_manager_.Read(path);
+  reconstruction_manager_widget_->Update();
+  reconstruction_manager_widget_->SelectReconstruction(idx);
+  RenderNow();
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {

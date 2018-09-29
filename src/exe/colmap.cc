@@ -58,7 +58,10 @@ const bool kUseOpenGL = true;
 int RunGraphicalUserInterface(int argc, char** argv) {
   OptionManager options;
 
+  std::string import_path;
+
   if (argc > 1) {
+    options.AddDefaultOption("import_path", &import_path);
     options.AddAllOptions();
     options.Parse(argc, argv);
   }
@@ -73,6 +76,10 @@ int RunGraphicalUserInterface(int argc, char** argv) {
 
   MainWindow main_window(options);
   main_window.show();
+
+  if (!import_path.empty()) {
+    main_window.ImportReconstruction(import_path);
+  }
 
   return app.exec();
 }
