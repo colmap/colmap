@@ -194,6 +194,7 @@ IncrementalMapper::Options IncrementalMapperOptions::Mapper() const {
   options.max_focal_length_ratio = max_focal_length_ratio;
   options.max_extra_param = max_extra_param;
   options.num_threads = num_threads;
+  options.local_ba_num_images = ba_local_num_images;
   return options;
 }
 
