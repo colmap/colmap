@@ -221,9 +221,9 @@ BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
   options.solver_options.num_linear_solver_threads = num_threads;
 #endif  // CERES_VERSION_MAJOR
   options.print_summary = true;
-  options.refine_focal_length = ba_refine_focal_length;
-  options.refine_principal_point = ba_refine_principal_point;
-  options.refine_extra_params = ba_refine_extra_params;
+  options.refine_focal_length = false;
+  options.refine_principal_point = false;
+  options.refine_extra_params = false;
   options.loss_function_scale = 1.0;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::SOFT_L1;
