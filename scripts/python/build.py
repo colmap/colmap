@@ -138,7 +138,10 @@ def parse_args():
         args.cmake_config_args.extend(["-G", args.cmake_generator])
     if PLATFORM_IS_WINDOWS:
         args.cmake_config_args.append(
-            "-DCMAKE_GENERATOR_PLATFORM=x64")
+            "-DCMAKE_GENERATOR_TOOLSET='host=x64'")
+        if "Win64" not in args.cmake_generator:
+            args.cmake_config_args.append(
+                "-DCMAKE_GENERATOR_PLATFORM=x64")
 
     args.cmake_build_args = ["--"]
     if PLATFORM_IS_WINDOWS:
