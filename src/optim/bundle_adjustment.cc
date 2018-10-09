@@ -348,7 +348,8 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
   double* tvec_data = image.Tvec().data();
   double* camera_params_data = camera.ParamsData();
 
-  const bool constant_pose = config_.HasConstantPose(image_id);
+  const bool constant_pose =
+      !options_.refine_extrinsics || config_.HasConstantPose(image_id);
 
   // Add residuals to bundle adjustment problem.
   size_t num_observations = 0;
@@ -709,7 +710,7 @@ void ParallelBundleAdjuster::AddImagesToProblem(
 
     CHECK(!config_.HasConstantTvec(image_id))
         << "PBA cannot fix partial extrinsics";
-    if (config_.HasConstantPose(image_id)) {
+    if (!ba_options_.refine_extrinsics || config_.HasConstantPose(image_id)) {
       CHECK(config_.IsConstantCamera(image.CameraId()))
           << "PBA cannot fix extrinsics only";
       pba_camera.SetConstantCamera();

@@ -426,6 +426,8 @@ void OptionManager::AddBundleAdjustmentOptions() {
                               &bundle_adjustment->refine_principal_point);
   AddAndRegisterDefaultOption("BundleAdjustment.refine_extra_params",
                               &bundle_adjustment->refine_extra_params);
+  AddAndRegisterDefaultOption("BundleAdjustment.refine_extrinsics",
+                              &bundle_adjustment->refine_extrinsics);
 }
 
 void OptionManager::AddMapperOptions() {
