@@ -460,6 +460,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
     } else {
       abs_pose_options.estimate_focal_length = false;
       abs_pose_refinement_options.refine_focal_length = false;
+      abs_pose_refinement_options.refine_extra_params = false;
     }
   } else {
     // Camera not refined before.
