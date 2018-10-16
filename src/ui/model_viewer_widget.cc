@@ -812,7 +812,7 @@ void ModelViewerWidget::UploadPointData(const bool selection_mode) {
               std::make_pair(point3D.first, SELECTION_BUFFER_POINT_IDX));
           color = IndexToRGB(index);
         } else if (selected_image.HasPoint3D(point3D.first)) {
-          color = kSelectedImageFrameColor;
+          color = kSelectedImagePlaneColor;
         } else if (point3D.first == selected_point3D_id_) {
           color = kSelectedPointColor;
         } else {
