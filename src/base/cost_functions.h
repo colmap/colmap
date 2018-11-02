@@ -85,6 +85,8 @@ class BundleAdjustmentCostFunction {
   const double observed_y_;
 };
 
+// Bundle adjustment cost function for variable
+// camera calibration and point parameters, and fixed camera pose.
 template <typename CameraModel>
 class BundleAdjustmentConstantPoseCostFunction {
 public:
