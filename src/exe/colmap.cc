@@ -29,6 +29,10 @@
 //
 // Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
 
+#ifndef NOMINMAX
+# define NOMINMAX
+#endif
+
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
@@ -1559,23 +1563,36 @@ int RunVocabTreeMatcher(int argc, char** argv) {
 
 std::vector<Image> ReadVocabTreeRetrievalImageList(const std::string& path,
                                                    Database* database) {
-  std::vector<Image> images;
-  if (path.empty()) {
-    images.reserve(database->NumImages());
-    for (const auto& image : database->ReadAllImages()) {
-      images.push_back(image);
-    }
-  } else {
-    DatabaseTransaction database_transaction(database);
-    const auto image_names = ReadTextFileLines(path);
-    images.reserve(image_names.size());
-    for (const auto& image_name : image_names) {
-      const auto image = database->ReadImageWithName(image_name);
-      CHECK_NE(image.ImageId(), kInvalidImageId);
-      images.push_back(image);
-    }
-  }
-  return images;
+	std::vector<Image> images;
+	if (path.empty()) {
+		images.reserve(database->NumImages());
+		for (const auto& image : database->ReadAllImages()) {
+			images.push_back(image);
+		}
+	}
+	else {
+		DatabaseTransaction database_transaction(database);
+		std::unordered_map<std::string, image_t> image_name_to_image_id;
+		image_name_to_image_id.reserve(database->NumImages());
+		for (const auto& image : database->ReadAllImages()) {
+			image_name_to_image_id.emplace(image.Name(), image.ImageId());
+		}
+
+		const auto image_names = ReadTextFileLines(path);
+		images.reserve(image_names.size());
+		for (const auto& image_name : image_names) {
+			if (image_name_to_image_id.count(image_name) == 0) {
+				std::cerr << "ERROR: Image " << image_name << " does not exist."
+					<< std::endl;
+				continue;
+			}
+			const auto image = database->ReadImage(image_name_to_image_id.at(image_name));
+			CHECK_NE(image.ImageId(), kInvalidImageId);
+			images.push_back(image);
+		}
+	}
+	return images;
+
 }
 
 int RunVocabTreeRetriever(int argc, char** argv) {

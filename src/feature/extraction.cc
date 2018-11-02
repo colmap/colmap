@@ -31,6 +31,8 @@
 
 #include "feature/extraction.h"
 
+#include <numeric>
+
 #include "SiftGPU/SiftGPU.h"
 #include "feature/sift.h"
 #include "util/cuda.h"
