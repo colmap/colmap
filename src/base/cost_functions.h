@@ -93,8 +93,13 @@ class BundleAdjustmentConstantPoseCostFunction {
   BundleAdjustmentConstantPoseCostFunction(const Eigen::Vector4d& qvec,
                                            const Eigen::Vector3d& tvec,
                                            const Eigen::Vector2d& point2D)
-      : qvec_{qvec[0], qvec[1], qvec[2], qvec[3]},
-        tvec_{tvec[0], tvec[1], tvec[2]},
+      : qx_(qvec(0)),
+        qy_(qvec(1)),
+        qz_(qvec(2)),
+        qw_(qvec(3)),
+        tx_(tvec(0)),
+        ty_(tvec(1)),
+        tz_(tvec(2)),
         observed_x_(point2D(0)),
         observed_y_(point2D(1)) {}
 
@@ -110,14 +115,14 @@ class BundleAdjustmentConstantPoseCostFunction {
   template <typename T>
   bool operator()(const T* const point3D, const T* const camera_params,
                   T* residuals) const {
-    const T qvec[4] = {T(qvec_[0]), T(qvec_[1]), T(qvec_[2]), T(qvec_[3])};
+    const T qvec[4] = {T(qx_), T(qy_), T(qz_), T(qw_)};
 
     // Rotate and translate.
     T projection[3];
     ceres::UnitQuaternionRotatePoint(qvec, point3D, projection);
-    projection[0] += T(tvec_[0]);
-    projection[1] += T(tvec_[1]);
-    projection[2] += T(tvec_[2]);
+    projection[0] += T(tx_);
+    projection[1] += T(ty_);
+    projection[2] += T(tz_);
 
     // Project to image plane.
     projection[0] /= projection[2];
@@ -135,10 +140,15 @@ class BundleAdjustmentConstantPoseCostFunction {
   }
 
  private:
-  const double qvec_[4];
-  const double tvec_[3];
-  const double observed_x_;
-  const double observed_y_;
+  double qx_;
+  double qy_;
+  double qz_;
+  double qw_;
+  double tx_;
+  double ty_;
+  double tz_;
+  double observed_x_;
+  double observed_y_;
 };
 
 // Rig bundle adjustment cost function for variable camera pose and calibration

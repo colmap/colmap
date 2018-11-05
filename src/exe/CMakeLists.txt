@@ -31,5 +31,7 @@
 
 set(FOLDER_NAME "exe")
 
+add_compile_options("/bigobj")
+
 COLMAP_ADD_EXECUTABLE(colmap_exe colmap.cc)
 set_target_properties(colmap_exe PROPERTIES OUTPUT_NAME colmap)

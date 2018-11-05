@@ -32,6 +32,8 @@
 #ifndef COLMAP_SRC_UTIL_PLY_H_
 #define COLMAP_SRC_UTIL_PLY_H_
 
+#include "types.h"
+
 #include <string>
 #include <vector>
 

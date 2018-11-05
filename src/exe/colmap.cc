@@ -29,6 +29,10 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
+#ifndef NOMINMAX
+# define NOMINMAX
+#endif
+
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
@@ -1653,10 +1657,22 @@ std::vector<Image> ReadVocabTreeRetrievalImageList(const std::string& path,
     }
   } else {
     DatabaseTransaction database_transaction(database);
+    std::unordered_map<std::string, image_t> image_name_to_image_id;
+    image_name_to_image_id.reserve(database->NumImages());
+    for (const auto& image : database->ReadAllImages()) {
+      image_name_to_image_id.emplace(image.Name(), image.ImageId());
+    }
+
     const auto image_names = ReadTextFileLines(path);
     images.reserve(image_names.size());
     for (const auto& image_name : image_names) {
-      const auto image = database->ReadImageWithName(image_name);
+      if (image_name_to_image_id.count(image_name) == 0) {
+        std::cerr << "ERROR: Image " << image_name << " does not exist."
+                  << std::endl;
+        continue;
+      }
+      const auto image =
+          database->ReadImage(image_name_to_image_id.at(image_name));
       CHECK_NE(image.ImageId(), kInvalidImageId);
       images.push_back(image);
     }
