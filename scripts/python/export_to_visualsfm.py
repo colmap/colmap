@@ -97,7 +97,7 @@ def main():
                        (image_id,))
         row = next(cursor)
         if row[0] is None:
-            keypoints = np.zeros((0, 4), dtype=np.float32)
+            keypoints = np.zeros((0, 6), dtype=np.float32)
             descriptors = np.zeros((0, 128), dtype=np.uint8)
         else:
             keypoints = np.fromstring(row[0], dtype=np.float32).reshape(-1, 6)
@@ -109,8 +109,7 @@ def main():
         with open(key_file_name, "w") as fid:
             fid.write("%d %d\n" % (keypoints.shape[0], descriptors.shape[1]))
             for r in range(keypoints.shape[0]):
-                fid.write("%f %f %f %f " % (keypoints[r, 0], keypoints[r, 1],
-                                            keypoints[r, 2], keypoints[r, 3]))
+                fid.write("%f %f 0 0 " % (keypoints[r, 0], keypoints[r, 1]))
                 fid.write(" ".join(map(str, descriptors[r].ravel().tolist())))
                 fid.write("\n")
 
