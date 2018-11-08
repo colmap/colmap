@@ -44,6 +44,7 @@ namespace colmap {
 class PointColormapBase {
  public:
   PointColormapBase();
+  virtual ~PointColormapBase() = default;
 
   virtual void Prepare(EIGEN_STL_UMAP(camera_t, Camera) & cameras,
                        EIGEN_STL_UMAP(image_t, Image) & images,
@@ -70,7 +71,7 @@ class PointColormapPhotometric : public PointColormapBase {
   void Prepare(EIGEN_STL_UMAP(camera_t, Camera) & cameras,
                EIGEN_STL_UMAP(image_t, Image) & images,
                EIGEN_STL_UMAP(point3D_t, Point3D) & points3D,
-               std::vector<image_t>& reg_image_ids);
+               std::vector<image_t>& reg_image_ids) override;
 
   Eigen::Vector4f ComputeColor(const point3D_t point3D_id,
                                const Point3D& point3D) override;
@@ -82,7 +83,7 @@ class PointColormapError : public PointColormapBase {
   void Prepare(EIGEN_STL_UMAP(camera_t, Camera) & cameras,
                EIGEN_STL_UMAP(image_t, Image) & images,
                EIGEN_STL_UMAP(point3D_t, Point3D) & points3D,
-               std::vector<image_t>& reg_image_ids);
+               std::vector<image_t>& reg_image_ids) override;
 
   Eigen::Vector4f ComputeColor(const point3D_t point3D_id,
                                const Point3D& point3D) override;
@@ -94,7 +95,7 @@ class PointColormapTrackLen : public PointColormapBase {
   void Prepare(EIGEN_STL_UMAP(camera_t, Camera) & cameras,
                EIGEN_STL_UMAP(image_t, Image) & images,
                EIGEN_STL_UMAP(point3D_t, Point3D) & points3D,
-               std::vector<image_t>& reg_image_ids);
+               std::vector<image_t>& reg_image_ids) override;
 
   Eigen::Vector4f ComputeColor(const point3D_t point3D_id,
                                const Point3D& point3D) override;
@@ -106,7 +107,7 @@ class PointColormapGroundResolution : public PointColormapBase {
   void Prepare(EIGEN_STL_UMAP(camera_t, Camera) & cameras,
                EIGEN_STL_UMAP(image_t, Image) & images,
                EIGEN_STL_UMAP(point3D_t, Point3D) & points3D,
-               std::vector<image_t>& reg_image_ids);
+               std::vector<image_t>& reg_image_ids) override;
 
   Eigen::Vector4f ComputeColor(const point3D_t point3D_id,
                                const Point3D& point3D) override;
@@ -119,6 +120,7 @@ class PointColormapGroundResolution : public PointColormapBase {
 class ImageColormapBase {
  public:
   ImageColormapBase();
+  virtual ~ImageColormapBase() = default;
 
   virtual void Prepare(EIGEN_STL_UMAP(camera_t, Camera) & cameras,
                        EIGEN_STL_UMAP(image_t, Image) & images,
