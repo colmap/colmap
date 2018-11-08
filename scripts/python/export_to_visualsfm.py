@@ -100,7 +100,7 @@ def main():
             keypoints = np.zeros((0, 4), dtype=np.float32)
             descriptors = np.zeros((0, 128), dtype=np.uint8)
         else:
-            keypoints = np.fromstring(row[0], dtype=np.float32).reshape(-1, 4)
+            keypoints = np.fromstring(row[0], dtype=np.float32).reshape(-1, 6)
             cursor.execute("SELECT data FROM descriptors WHERE image_id=?;",
                            (image_id,))
             row = next(cursor)
