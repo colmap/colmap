@@ -35,7 +35,7 @@ project(COLMAP)
 
 set(COLMAP_VERSION "3.6")
 set(COLMAP_VERSION_NUMBER "3600")
-
+set(CMAKE_CXX_STANDARD 11)
 
 ################################################################################
 # Include CMake dependencies
@@ -90,7 +90,6 @@ find_package(Boost REQUIRED COMPONENTS
              program_options
              filesystem
              graph
-             regex
              system
              unit_test_framework)
 
@@ -274,7 +273,6 @@ set(COLMAP_EXTERNAL_LIBRARIES
     ${CMAKE_DL_LIBS}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
-    ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${GLOG_LIBRARIES}
     ${FREEIMAGE_LIBRARIES}
