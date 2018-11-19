@@ -587,7 +587,7 @@ int SiftMatchGPU::_VerifyContextGL()
         && SiftMatchCU::CheckCudaDevice (GlobalUtil::_DeviceIndex))
     {
 		__language = SIFTMATCH_CUDA;
-		__matcher = new SiftMatchCU(__max_sift);
+		__matcher = ::new SiftMatchCU(__max_sift);
 	}else
 #else
     if((__language == SIFTMATCH_SAME_AS_SIFTGPU && GlobalUtil::_UseCUDA) || __language >= SIFTMATCH_CUDA)
@@ -600,7 +600,7 @@ int SiftMatchGPU::_VerifyContextGL()
 #endif
 	{
 		__language = SIFTMATCH_GLSL;
-		__matcher = new SiftMatchGL(__max_sift, 1);
+		__matcher = ::new SiftMatchGL(__max_sift, 1);
 	}
 
 	if(GlobalUtil::_verbose)
