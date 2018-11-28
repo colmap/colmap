@@ -47,12 +47,6 @@ OptionsWidget::OptionsWidget(QWidget* parent) : QWidget(parent) {
   setLayout(grid_layout_);
 }
 
-void OptionsWidget::showEvent(QShowEvent* event) { ReadOptions(); }
-
-void OptionsWidget::closeEvent(QCloseEvent* event) { WriteOptions(); }
-
-void OptionsWidget::hideEvent(QHideEvent* event) { WriteOptions(); }
-
 void OptionsWidget::AddOptionRow(const std::string& label_text, QWidget* widget,
                                  void* option) {
   QLabel* label = new QLabel(tr(label_text.c_str()), this);
@@ -211,48 +205,12 @@ void OptionsWidget::AddSpacer() {
   grid_layout_->addWidget(label, grid_layout_->rowCount(), 0, 2, 1);
 }
 
-void OptionsWidget::AddSection(const std::string& label_text) {
-  QLabel* label = new QLabel(tr(label_text.c_str()), this);
+void OptionsWidget::AddSection(const std::string& title) {
+  QLabel* label = new QLabel(tr(title.c_str()), this);
   label->setFont(font());
   label->setContentsMargins(0, 0, 0, 5);
   grid_layout_->addWidget(label, grid_layout_->rowCount(), 0, 1, 2,
                           Qt::AlignHCenter);
-}
-
-void OptionsWidget::ShowOption(void* option) {
-  auto& option_row = option_rows_.at(option);
-  option_row.first->show();
-  option_row.second->show();
-}
-
-void OptionsWidget::HideOption(void* option) {
-  auto& option_row = option_rows_.at(option);
-  option_row.first->hide();
-  option_row.second->hide();
-}
-
-void OptionsWidget::ShowWidget(QWidget* widget) {
-  auto& widget_row = widget_rows_.at(widget);
-  widget_row.first->show();
-  widget_row.second->show();
-}
-
-void OptionsWidget::HideWidget(QWidget* widget) {
-  auto& widget_row = widget_rows_.at(widget);
-  widget_row.first->hide();
-  widget_row.second->hide();
-}
-
-void OptionsWidget::ShowLayout(QLayout* layout) {
-  auto& layout_row = layout_rows_.at(layout);
-  layout_row.first->show();
-  layout_row.second->show();
-}
-
-void OptionsWidget::HideLayout(QLayout* layout) {
-  auto& layout_row = layout_rows_.at(layout);
-  layout_row.first->hide();
-  layout_row.second->hide();
 }
 
 void OptionsWidget::ReadOptions() {
@@ -305,6 +263,48 @@ void OptionsWidget::WriteOptions() {
   for (auto& option : options_path_) {
     *option.second = option.first->text().toUtf8().constData();
   }
+}
+
+void OptionsWidget::showEvent(QShowEvent* event) { ReadOptions(); }
+
+void OptionsWidget::closeEvent(QCloseEvent* event) { WriteOptions(); }
+
+void OptionsWidget::hideEvent(QHideEvent* event) { WriteOptions(); }
+
+void OptionsWidget::ShowOption(void* option) {
+  auto& option_row = option_rows_.at(option);
+  option_row.first->show();
+  option_row.second->show();
+}
+
+void OptionsWidget::HideOption(void* option) {
+  auto& option_row = option_rows_.at(option);
+  option_row.first->hide();
+  option_row.second->hide();
+}
+
+void OptionsWidget::ShowWidget(QWidget* widget) {
+  auto& widget_row = widget_rows_.at(widget);
+  widget_row.first->show();
+  widget_row.second->show();
+}
+
+void OptionsWidget::HideWidget(QWidget* widget) {
+  auto& widget_row = widget_rows_.at(widget);
+  widget_row.first->hide();
+  widget_row.second->hide();
+}
+
+void OptionsWidget::ShowLayout(QLayout* layout) {
+  auto& layout_row = layout_rows_.at(layout);
+  layout_row.first->show();
+  layout_row.second->show();
+}
+
+void OptionsWidget::HideLayout(QLayout* layout) {
+  auto& layout_row = layout_rows_.at(layout);
+  layout_row.first->hide();
+  layout_row.second->hide();
 }
 
 }  // namespace colmap

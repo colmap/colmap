@@ -43,11 +43,6 @@ class OptionsWidget : public QWidget {
  public:
   explicit OptionsWidget(QWidget* parent);
 
- protected:
-  void showEvent(QShowEvent* event);
-  void closeEvent(QCloseEvent* event);
-  void hideEvent(QHideEvent* event);
-
   void AddOptionRow(const std::string& label_text, QWidget* widget,
                     void* option);
   void AddWidgetRow(const std::string& label_text, QWidget* widget);
@@ -69,8 +64,17 @@ class OptionsWidget : public QWidget {
                                const std::string& label_text);
   QLineEdit* AddOptionDirPath(std::string* option,
                               const std::string& label_text);
+
   void AddSpacer();
-  void AddSection(const std::string& label_text);
+  void AddSection(const std::string& title);
+
+  void ReadOptions();
+  void WriteOptions();
+
+ protected:
+  void showEvent(QShowEvent* event);
+  void closeEvent(QCloseEvent* event);
+  void hideEvent(QHideEvent* event);
 
   void ShowOption(void* option);
   void HideOption(void* option);
@@ -80,9 +84,6 @@ class OptionsWidget : public QWidget {
 
   void ShowLayout(QLayout* option);
   void HideLayout(QLayout* option);
-
-  void ReadOptions();
-  void WriteOptions();
 
   QGridLayout* grid_layout_;
 
