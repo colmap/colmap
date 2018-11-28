@@ -80,7 +80,7 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
 }
 
 ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
-                                      Bitmap* bitmap) {
+                                      Bitmap* bitmap, Bitmap* mask) {
   CHECK_NOTNULL(camera);
   CHECK_NOTNULL(image);
   CHECK_NOTNULL(bitmap);
@@ -127,6 +127,20 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
 
   if (!bitmap->Read(image_path, false)) {
     return Status::BITMAP_ERROR;
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  // Read mask.
+  //////////////////////////////////////////////////////////////////////////////
+
+  if (mask && !options_.mask_path.empty()) {
+    const std::string mask_path =
+        JoinPaths(options_.mask_path,
+                  GetRelativePath(options_.image_path, image_path) + ".png");
+    if (ExistsFile(mask_path) && !mask->Read(mask_path, false)) {
+      // NOTE: Maybe introduce a separate error type MASK_ERROR?
+      return Status::BITMAP_ERROR;
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
