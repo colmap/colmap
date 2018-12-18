@@ -301,7 +301,9 @@ void FeatureExtractionWidget::Extract() {
     return;
   }
 
-  static_cast<ExtractionWidget*>(tab_widget_->currentWidget())->Run();
+  QWidget* widget =
+      static_cast<QScrollArea*>(tab_widget_->currentWidget())->widget();
+  static_cast<ExtractionWidget*>(widget)->Run();
 
   camera_params_text_->setText(old_camera_params_text);
 }
