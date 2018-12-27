@@ -71,7 +71,7 @@ Eigen::Matrix<float, 2, 3> FeatureGeometry::TransformMatrixFromMatch(
 
   T.rightCols<1>() =
       Eigen::Vector2f(feature2.x, feature2.y) -
-      scale * T.leftCols<2>() * Eigen::Vector2f(feature1.x, feature1.y);
+      T.leftCols<2>() * Eigen::Vector2f(feature1.x, feature1.y);
 
   return T;
 }

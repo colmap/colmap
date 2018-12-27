@@ -243,6 +243,9 @@ available as ``colmap [command]``:
 - ``point_triangulator``: Triangulate all observations of registered images in
   an existing model using the feature matches in a database.
 
+- ``point_filtering``: Filter sparse points in model by enforcing criteria,
+  such as minimum track length, maximum reprojection error, etc.
+
 - ``bundle_adjuster``: Run global bundle adjustment on a reconstructed scene,
   e.g., when a refinement of the intrinsics is needed or
   after running the ``image_registrator``.

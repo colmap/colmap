@@ -48,10 +48,7 @@ UndistortionWidget::UndistortionWidget(QWidget* parent,
   output_format_->addItem("PMVS");
   output_format_->addItem("CMP-MVS");
   output_format_->setFont(font());
-
-  AddOptionRow("format", output_format_);
-
-  UndistortCameraOptions default_options;
+  AddWidgetRow("format", output_format_);
 
   AddOptionDouble(&undistortion_options_.min_scale, "min_scale", 0);
   AddOptionDouble(&undistortion_options_.max_scale, "max_scale", 0);

@@ -388,7 +388,7 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     local_tform.A21 = inv_A.leftCols<2>().cast<float>();
     local_tform.t21 = inv_A.rightCols<1>().cast<float>();
 
-    ComputeInliers(tform, matches, options.max_transfer_error,
+    ComputeInliers(local_tform, matches, options.max_transfer_error,
                    options.max_scale_error, &inlier_idxs);
 
     if (inlier_idxs.size() > best_num_inliers) {
