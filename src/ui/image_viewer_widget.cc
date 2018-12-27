@@ -192,7 +192,7 @@ void FeatureImageViewerWidget::ReadAndShowWithKeypoints(
     }
   }
 
-  DrawKeypoints(&image2_, keypoints_tri, Qt::magenta);
+  DrawKeypoints(&image1_, keypoints_tri, Qt::magenta);
   DrawKeypoints(&image2_, keypoints_not_tri, Qt::red);
 
   if (switch_state_) {
