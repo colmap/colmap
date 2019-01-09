@@ -753,8 +753,6 @@ void SiftFeatureMatcher::Match(
     return;
   }
 
-  DatabaseTransaction database_transaction(database_);
-
   //////////////////////////////////////////////////////////////////////////////
   // Match the image pairs
   //////////////////////////////////////////////////////////////////////////////
@@ -903,6 +901,7 @@ void ExhaustiveFeatureMatcher::Run() {
         }
       }
 
+      DatabaseTransaction database_transaction(&database_);
       matcher_.Match(image_pairs);
 
       PrintElapsedTime(timer);
@@ -1004,6 +1003,7 @@ void SequentialFeatureMatcher::RunSequentialMatching(
       }
     }
 
+    DatabaseTransaction database_transaction(&database_);
     matcher_.Match(image_pairs);
 
     PrintElapsedTime(timer);
@@ -1295,6 +1295,7 @@ void SpatialFeatureMatcher::Run() {
       image_pairs.emplace_back(image_id, nn_image_id);
     }
 
+    DatabaseTransaction database_transaction(&database_);
     matcher_.Match(image_pairs);
 
     PrintElapsedTime(timer);
@@ -1374,6 +1375,7 @@ void TransitiveFeatureMatcher::Run() {
                 num_batches += 1;
                 std::cout << StringPrintf("  Batch %d", num_batches)
                           << std::flush;
+                DatabaseTransaction database_transaction(&database_);
                 matcher_.Match(image_pairs);
                 image_pairs.clear();
                 PrintElapsedTime(timer);
@@ -1392,6 +1394,7 @@ void TransitiveFeatureMatcher::Run() {
 
     num_batches += 1;
     std::cout << StringPrintf("  Batch %d", num_batches) << std::flush;
+    DatabaseTransaction database_transaction(&database_);
     matcher_.Match(image_pairs);
     PrintElapsedTime(timer);
   }
@@ -1498,6 +1501,7 @@ void ImagePairsFeatureMatcher::Run() {
       block_image_pairs.push_back(image_pairs[j]);
     }
 
+    DatabaseTransaction database_transaction(&database_);
     matcher_.Match(block_image_pairs);
 
     PrintElapsedTime(timer);
