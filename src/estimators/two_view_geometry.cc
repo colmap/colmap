@@ -411,13 +411,12 @@ void TwoViewGeometry::EstimateUncalibrated(
 
   if (H_F_inlier_ratio > options.max_H_inlier_ratio) {
     config = ConfigurationType::PLANAR_OR_PANORAMIC;
-    inlier_matches = ExtractInlierMatches(matches, H_report.support.num_inliers,
-                                          H_report.inlier_mask);
   } else {
     config = ConfigurationType::UNCALIBRATED;
-    inlier_matches = ExtractInlierMatches(matches, F_report.support.num_inliers,
-                                          F_report.inlier_mask);
   }
+
+  inlier_matches = ExtractInlierMatches(matches, F_report.support.num_inliers,
+                                        F_report.inlier_mask);
 
   if (options.detect_watermark &&
       DetectWatermark(camera1, matched_points1, camera2, matched_points2,
