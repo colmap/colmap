@@ -47,6 +47,7 @@ class LRUCache {
  public:
   LRUCache(const size_t max_num_elems,
            const std::function<value_t(const key_t&)>& getter_func);
+  virtual ~LRUCache() = default;
 
   // The number of elements in the cache.
   size_t NumElems() const;

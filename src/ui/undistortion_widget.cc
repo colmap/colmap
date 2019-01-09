@@ -50,8 +50,6 @@ UndistortionWidget::UndistortionWidget(QWidget* parent,
   output_format_->setFont(font());
   AddWidgetRow("format", output_format_);
 
-  UndistortCameraOptions default_options;
-
   AddOptionDouble(&undistortion_options_.min_scale, "min_scale", 0);
   AddOptionDouble(&undistortion_options_.max_scale, "max_scale", 0);
   AddOptionInt(&undistortion_options_.max_image_size, "max_image_size", -1);

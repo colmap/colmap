@@ -80,9 +80,6 @@ class RenderOptionsWidget : public OptionsWidget {
   QComboBox* projection_cb_;
 
   QComboBox* point3D_colormap_cb_;
-  QDoubleSpinBox* point3D_colormap_scale_sb_;
-  QDoubleSpinBox* point3D_colormap_min_q_sb_;
-  QDoubleSpinBox* point3D_colormap_max_q_sb_;
 
   double point3D_colormap_scale_;
   double point3D_colormap_min_q_;

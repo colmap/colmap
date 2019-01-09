@@ -29,6 +29,10 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
@@ -68,6 +72,7 @@ int RunGraphicalUserInterface(int argc, char** argv) {
 
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 6, 0))
   QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+  QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
 #endif
 
   Q_INIT_RESOURCE(resources);
@@ -1194,6 +1199,43 @@ int RunSequentialMatcher(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+int RunPointFiltering(int argc, char** argv) {
+  std::string input_path;
+  std::string output_path;
+
+  size_t min_track_len = 2;
+  double max_reproj_error = 4.0;
+  double min_tri_angle = 1.5;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption("min_track_len", &min_track_len);
+  options.AddDefaultOption("max_reproj_error", &max_reproj_error);
+  options.AddDefaultOption("min_tri_angle", &min_tri_angle);
+  options.Parse(argc, argv);
+
+  Reconstruction reconstruction;
+  reconstruction.Read(input_path);
+
+  size_t num_filtered =
+      reconstruction.FilterAllPoints3D(max_reproj_error, min_tri_angle);
+
+  for (const auto point3D_id : reconstruction.Point3DIds()) {
+    const auto& point3D = reconstruction.Point3D(point3D_id);
+    if (point3D.Track().Length() < min_track_len) {
+      num_filtered += point3D.Track().Length();
+      reconstruction.DeletePoint3D(point3D_id);
+    }
+  }
+
+  std::cout << "Filtered observations: " << num_filtered << std::endl;
+
+  reconstruction.Write(output_path);
+
+  return EXIT_SUCCESS;
+}
+
 int RunPointTriangulator(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
@@ -1652,6 +1694,7 @@ std::vector<Image> ReadVocabTreeRetrievalImageList(const std::string& path,
     }
   } else {
     DatabaseTransaction database_transaction(database);
+
     const auto image_names = ReadTextFileLines(path);
     images.reserve(image_names.size());
     for (const auto& image_name : image_names) {
@@ -1853,6 +1896,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("model_orientation_aligner",
                         &RunModelOrientationAligner);
   commands.emplace_back("patch_match_stereo", &RunPatchMatchStereo);
+  commands.emplace_back("point_filtering", &RunPointFiltering);
   commands.emplace_back("point_triangulator", &RunPointTriangulator);
   commands.emplace_back("poisson_mesher", &RunPoissonMesher);
   commands.emplace_back("rig_bundle_adjuster", &RunRigBundleAdjuster);
