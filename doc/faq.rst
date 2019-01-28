@@ -97,13 +97,28 @@ Reconstruct sparse/dense model from known camera poses
 
 If the camera poses are known and you want to reconstruct a sparse or dense
 model of the scene, you must first manually construct a sparse model by creating
-a ``cameras.txt`` and ``images.txt`` file. The ``points3D.txt`` file should be
-empty while every other line in the ``images.txt`` should also be empty, since
-the sparse features are computed, as described below. You can refer to
-:ref:`this article <output-format>` for more information about the structure of
+a ``cameras.txt``, ``points3D.txt``, and ``images.txt`` under a new folder.
+
+    +── path/to/manually/created/sparse/model
+    │   +── cameras.txt
+    │   +── images.txt
+    │   +── points3D.txt
+
+The ``points3D.txt`` file should be empty while every other line in the ``images.txt``
+should also be empty, since the sparse features are computed, as described below. You can
+refer to :ref:`this article <output-format>` for more information about the structure of
 a sparse model.
 
-To reconstruct a sparse model, you first have to recompute features from the
+    Example of images.txt :
+    1 0.695104 0.718385 -0.024566 0.012285 -0.046895 0.005253 -0.199664 1 image0001.png
+                                                                                        <- Make sure every other line is left empty
+    2 0.696445 0.717090 -0.023185 0.014441 -0.041213 0.001928 -0.134851 2 image0002.png
+
+    3 0.697457 0.715925 -0.025383 0.018967 -0.054056 0.008579 -0.378221 1 image0003.png
+
+    4 0.698777 0.714625 -0.023996 0.021129 -0.048184 0.004529 -0.313427 2 image0004.png
+
+To reconstruct a sparse map, you first have to recompute features from the
 images of the known camera poses as follows::
 
     colmap feature_extractor \
