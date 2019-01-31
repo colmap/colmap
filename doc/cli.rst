@@ -78,7 +78,7 @@ of commands as an alternative to the automatic reconstruction command::
         --output_path $DATASET_PATH/dense/meshed-poisson.ply
 
     $ colmap delaunay_mesher \
-        --input_path $DATASET_PATH/dense/fused.ply \
+        --input_path $DATASET_PATH/dense \
         --output_path $DATASET_PATH/dense/meshed-delaunay.ply
 
 If you want to run COLMAP on a computer without an attached display (e.g.,
