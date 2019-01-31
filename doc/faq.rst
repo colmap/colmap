@@ -109,9 +109,10 @@ should also be empty, since the sparse features are computed, as described below
 refer to :ref:`this article <output-format>` for more information about the structure of
 a sparse model.
 
-    Example of images.txt :
+Example of images.txt:
+
     1 0.695104 0.718385 -0.024566 0.012285 -0.046895 0.005253 -0.199664 1 image0001.png
-                                                                                        <- Make sure every other line is left empty
+    # Make sure every other line is left empty
     2 0.696445 0.717090 -0.023185 0.014441 -0.041213 0.001928 -0.134851 2 image0002.png
 
     3 0.697457 0.715925 -0.025383 0.018967 -0.054056 0.008579 -0.378221 1 image0003.png
