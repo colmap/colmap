@@ -97,7 +97,7 @@ Reconstruct sparse/dense model from known camera poses
 
 If the camera poses are known and you want to reconstruct a sparse or dense
 model of the scene, you must first manually construct a sparse model by creating
-a ``cameras.txt``, ``points3D.txt``, and ``images.txt`` under a new folder.
+a ``cameras.txt``, ``points3D.txt``, and ``images.txt`` under a new folder::
 
     +── path/to/manually/created/sparse/model
     │   +── cameras.txt
@@ -109,7 +109,7 @@ should also be empty, since the sparse features are computed, as described below
 refer to :ref:`this article <output-format>` for more information about the structure of
 a sparse model.
 
-Example of images.txt:
+Example of images.txt::
 
     1 0.695104 0.718385 -0.024566 0.012285 -0.046895 0.005253 -0.199664 1 image0001.png
     # Make sure every other line is left empty
