@@ -46,7 +46,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'COLMAP'
-copyright = u'2018, Johannes L. Schoenberger'
+copyright = u'2019, Johannes L. Schoenberger'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
