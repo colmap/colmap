@@ -391,6 +391,24 @@ int RunExhaustiveMatcher(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+bool VerifyCameraParams(const std::string& camera_model,
+                        const std::string& params) {
+  if (!ExistsCameraModelWithName(camera_model)) {
+    std::cerr << "ERROR: Camera model does not exist" << std::endl;
+    return false;
+  }
+
+  const std::vector<double> camera_params = CSVToVector<double>(params);
+  const int camera_model_id = CameraModelNameToId(camera_model);
+
+  if (camera_params.size() > 0 &&
+      !CameraModelVerifyParams(camera_model_id, camera_params)) {
+    std::cerr << "ERROR: Invalid camera parameters" << std::endl;
+    return false;
+  }
+  return true;
+}
+
 int RunFeatureExtractor(int argc, char** argv) {
   std::string image_list_path;
 
@@ -416,14 +434,8 @@ int RunFeatureExtractor(int argc, char** argv) {
     std::cerr << "ERROR: Camera model does not exist" << std::endl;
   }
 
-  const std::vector<double> camera_params =
-      CSVToVector<double>(options.image_reader->camera_params);
-  const int camera_model_id =
-      CameraModelNameToId(options.image_reader->camera_model);
-
-  if (camera_params.size() > 0 &&
-      !CameraModelVerifyParams(camera_model_id, camera_params)) {
-    std::cerr << "ERROR: Invalid camera parameters" << std::endl;
+  if (!VerifyCameraParams(options.image_reader->camera_model,
+                          options.image_reader->camera_params)) {
     return EXIT_FAILURE;
   }
 
@@ -468,14 +480,8 @@ int RunFeatureImporter(int argc, char** argv) {
     }
   }
 
-  const std::vector<double> camera_params =
-      CSVToVector<double>(options.image_reader->camera_params);
-  const int camera_model_id =
-      CameraModelNameToId(options.image_reader->camera_model);
-
-  if (camera_params.size() > 0 &&
-      !CameraModelVerifyParams(camera_model_id, camera_params)) {
-    std::cerr << "ERROR: Invalid camera parameters" << std::endl;
+  if (!VerifyCameraParams(options.image_reader->camera_model,
+                          options.image_reader->camera_params)) {
     return EXIT_FAILURE;
   }
 
@@ -613,7 +619,28 @@ int RunImageRectifier(int argc, char** argv) {
   options.AddDefaultOption("max_scale", &undistort_camera_options.max_scale);
   options.AddDefaultOption("max_image_size",
                            &undistort_camera_options.max_image_size);
+  options.AddDefaultOption("max_fov", &undistort_camera_options.max_fov);
+  options.AddDefaultOption(
+      "estimate_focal_length_from_fov",
+      &undistort_camera_options.estimate_focal_length_from_fov);
+  options.AddDefaultOption("max_vertical_fov",
+                           &undistort_camera_options.max_vertical_fov);
+  options.AddDefaultOption("max_horizontal_fov",
+                           &undistort_camera_options.max_horizontal_fov);
+  options.AddDefaultOption("camera_model_override",
+                           &undistort_camera_options.camera_model_override);
+  options.AddDefaultOption(
+      "camera_model_override_params",
+      &undistort_camera_options.camera_model_override_params);
+
   options.Parse(argc, argv);
+
+  if (undistort_camera_options.camera_model_override.size() &&
+      !VerifyCameraParams(
+          undistort_camera_options.camera_model_override,
+          undistort_camera_options.camera_model_override_params)) {
+    return EXIT_FAILURE;
+  }
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
@@ -724,7 +751,27 @@ int RunImageUndistorter(int argc, char** argv) {
   options.AddDefaultOption("roi_min_y", &undistort_camera_options.roi_min_y);
   options.AddDefaultOption("roi_max_x", &undistort_camera_options.roi_max_x);
   options.AddDefaultOption("roi_max_y", &undistort_camera_options.roi_max_y);
+  options.AddDefaultOption("max_fov", &undistort_camera_options.max_fov);
+  options.AddDefaultOption(
+      "estimate_focal_length_from_fov",
+      &undistort_camera_options.estimate_focal_length_from_fov);
+  options.AddDefaultOption("max_vertical_fov",
+                           &undistort_camera_options.max_vertical_fov);
+  options.AddDefaultOption("max_horizontal_fov",
+                           &undistort_camera_options.max_horizontal_fov);
+  options.AddDefaultOption("camera_model_override",
+                           &undistort_camera_options.camera_model_override);
+  options.AddDefaultOption(
+      "camera_model_override_params",
+      &undistort_camera_options.camera_model_override_params);
   options.Parse(argc, argv);
+
+  if (undistort_camera_options.camera_model_override.size() &&
+      !VerifyCameraParams(
+          undistort_camera_options.camera_model_override,
+          undistort_camera_options.camera_model_override_params)) {
+    return EXIT_FAILURE;
+  }
 
   CreateDirIfNotExists(output_path);
 

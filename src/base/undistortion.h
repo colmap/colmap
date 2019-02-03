@@ -59,6 +59,20 @@ struct UndistortCameraOptions {
   double roi_min_y = 0.0;
   double roi_max_x = 1.0;
   double roi_max_y = 1.0;
+
+  // Whether to estimate focal length from FOV instead of preserving it.
+  bool estimate_focal_length_from_fov = false;
+
+  // Maximum FOV of undistorted camera.
+  double max_fov = 179.0;
+  double max_vertical_fov = 180.0;
+  double max_horizontal_fov = 180.0;
+
+  // Overrides undistorted camera model. If empty, regular undistortion with
+  // undistorted model estimation takes place; otherwise, user-specified model
+  // is used as undistorted camera
+  std::string camera_model_override = "";
+  std::string camera_model_override_params = "";
 };
 
 // Undistort images and export undistorted cameras, as required by the
