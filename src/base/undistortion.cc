@@ -701,9 +701,9 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   CHECK_LT(options.roi_min_y, options.roi_max_y);
   CHECK_LT(options.max_fov, 180.0);
   CHECK_GT(options.max_fov, 0.0);
-  CHECK_LT(options.max_vertical_fov, 180.0);
+  CHECK_LE(options.max_vertical_fov, 180.0);
   CHECK_GT(options.max_vertical_fov, 0.0);
-  CHECK_LT(options.max_horizontal_fov, 180.0);
+  CHECK_LE(options.max_horizontal_fov, 180.0);
   CHECK_GT(options.max_horizontal_fov, 0.0);
 
   Camera undistorted_camera;
@@ -730,7 +730,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   Eigen::Vector2d principal_point = Eigen::Vector2d::Zero();
   const Eigen::Vector2d image_size(camera.Width(), camera.Height());
   double max_valid_radius = image_size.norm();
-  const std::array<Eigen::Vector2d, 4> corners = {
+  const Eigen::Vector2d corners[] = {
       Eigen::Vector2d(0, 0), Eigen::Vector2d(camera.Width(), 0),
       Eigen::Vector2d(camera.Height(), camera.Width()),
       Eigen::Vector2d(0, camera.Height())};
@@ -754,9 +754,7 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
       const Eigen::Vector2d world_point =
           camera.ImageToWorld(i * corner_dir + principal_point);
       const double phi = std::atan(world_point.norm());
-      if (phi <= max_valid_fov_half || 2.0 * phi > max_fov) {
-        break;
-      }
+      if (phi <= max_valid_fov_half || 2.0 * phi > max_fov) break;
       max_valid_fov_half = phi;
       max_valid_radius = i;
     }
@@ -831,9 +829,8 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
   size_t roi_max_x = camera.Width();
   size_t roi_max_y = camera.Height();
 
-  const bool roi_enabled =
-      (options.roi_min_x > 0.0) || (options.roi_min_y > 0.0) ||
-      (options.roi_max_x < 1.0) || (options.roi_max_y < 1.0);
+  const bool roi_enabled = options.roi_min_x > 0.0 || options.roi_min_y > 0.0 ||
+                           options.roi_max_x < 1.0 || options.roi_max_y < 1.0;
 
   if (roi_enabled) {
     roi_min_x = static_cast<size_t>(

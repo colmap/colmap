@@ -65,8 +65,8 @@ struct UndistortCameraOptions {
 
   // Maximum FOV of undistorted camera.
   double max_fov = 179.0;
-  double max_vertical_fov = 179.0;
-  double max_horizontal_fov = 179.0;
+  double max_vertical_fov = 180.0;
+  double max_horizontal_fov = 180.0;
 
   // Overrides undistorted camera model. If empty, regular undistortion with
   // undistorted model estimation takes place; otherwise, user-specified model

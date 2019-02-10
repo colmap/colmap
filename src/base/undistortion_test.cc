@@ -184,7 +184,7 @@ BOOST_AUTO_TEST_CASE(TestUndistortFOVEstimation) {
   const auto tolerance = boost::test_tools::tolerance(2.0);
   const double f = 100.0, w = 100.0, h = 200.0;
   const double w2 = w / 2.0, h2 = h / 2.0;
-  const double diag2 = std::sqrt(w2 * w2 + h2 * h2);
+  const double diag2 = sqrt(w2 * w2 + h2 * h2);
 
   UndistortCameraOptions options;
   options.estimate_focal_length_from_fov = true;
@@ -195,7 +195,7 @@ BOOST_AUTO_TEST_CASE(TestUndistortFOVEstimation) {
 
   Camera undistorted_camera_default =
       UndistortCamera(options, distorted_camera);
-  const double expected_default = diag2 / std::tan(diag2 / f);
+  const double expected_default = diag2 / tan(diag2 / f);
   BOOST_CHECK_EQUAL(undistorted_camera_default.ModelName(), "PINHOLE");
   BOOST_CHECK_EQUAL(undistorted_camera_default.FocalLengthX(),
                     undistorted_camera_default.FocalLengthY());
@@ -204,22 +204,21 @@ BOOST_AUTO_TEST_CASE(TestUndistortFOVEstimation) {
 
   options.max_horizontal_fov = 2.0 * RadToDeg(atan(h2 / f));
   Camera undistorted_camera_hfov = UndistortCamera(options, distorted_camera);
-  const double expected_hfov = h2 / std::tan(h2 / f);
+  const double expected_hfov = h2 / tan(h2 / f);
   BOOST_TEST(expected_hfov == undistorted_camera_hfov.FocalLengthX(),
              tolerance);
 
-  options.max_horizontal_fov = 180.0 - 1e-5;
+  options.max_horizontal_fov = 180.0;
   options.max_vertical_fov = 2.0 * RadToDeg(atan(w2 / f));
   Camera undistorted_camera_vfov = UndistortCamera(options, distorted_camera);
-  const double expected_vfov = w2 / std::tan(w2 / f);
+  const double expected_vfov = w2 / tan(w2 / f);
   BOOST_TEST(expected_vfov == undistorted_camera_vfov.FocalLengthX(),
              tolerance);
 
   options.max_fov = 90.0;
-  options.max_vertical_fov = 180.0 - 1e-5;
+  options.max_vertical_fov = 180.0;
   Camera undistorted_camera_90fov = UndistortCamera(options, distorted_camera);
-  const double expected_90fov =
-      diag2 / std::tan(DegToRad(options.max_fov) / 2.0);
+  const double expected_90fov = diag2 / tan(DegToRad(options.max_fov) / 2.0);
   BOOST_TEST(expected_90fov == undistorted_camera_90fov.FocalLengthX(),
              tolerance);
 }
