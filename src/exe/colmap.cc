@@ -619,28 +619,7 @@ int RunImageRectifier(int argc, char** argv) {
   options.AddDefaultOption("max_scale", &undistort_camera_options.max_scale);
   options.AddDefaultOption("max_image_size",
                            &undistort_camera_options.max_image_size);
-  options.AddDefaultOption("max_fov", &undistort_camera_options.max_fov);
-  options.AddDefaultOption(
-      "estimate_focal_length_from_fov",
-      &undistort_camera_options.estimate_focal_length_from_fov);
-  options.AddDefaultOption("max_vertical_fov",
-                           &undistort_camera_options.max_vertical_fov);
-  options.AddDefaultOption("max_horizontal_fov",
-                           &undistort_camera_options.max_horizontal_fov);
-  options.AddDefaultOption("camera_model_override",
-                           &undistort_camera_options.camera_model_override);
-  options.AddDefaultOption(
-      "camera_model_override_params",
-      &undistort_camera_options.camera_model_override_params);
-
   options.Parse(argc, argv);
-
-  if (undistort_camera_options.camera_model_override.size() &&
-      !VerifyCameraParams(
-          undistort_camera_options.camera_model_override,
-          undistort_camera_options.camera_model_override_params)) {
-    return EXIT_FAILURE;
-  }
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
@@ -751,27 +730,7 @@ int RunImageUndistorter(int argc, char** argv) {
   options.AddDefaultOption("roi_min_y", &undistort_camera_options.roi_min_y);
   options.AddDefaultOption("roi_max_x", &undistort_camera_options.roi_max_x);
   options.AddDefaultOption("roi_max_y", &undistort_camera_options.roi_max_y);
-  options.AddDefaultOption("max_fov", &undistort_camera_options.max_fov);
-  options.AddDefaultOption(
-      "estimate_focal_length_from_fov",
-      &undistort_camera_options.estimate_focal_length_from_fov);
-  options.AddDefaultOption("max_vertical_fov",
-                           &undistort_camera_options.max_vertical_fov);
-  options.AddDefaultOption("max_horizontal_fov",
-                           &undistort_camera_options.max_horizontal_fov);
-  options.AddDefaultOption("camera_model_override",
-                           &undistort_camera_options.camera_model_override);
-  options.AddDefaultOption(
-      "camera_model_override_params",
-      &undistort_camera_options.camera_model_override_params);
   options.Parse(argc, argv);
-
-  if (undistort_camera_options.camera_model_override.size() &&
-      !VerifyCameraParams(
-          undistort_camera_options.camera_model_override,
-          undistort_camera_options.camera_model_override_params)) {
-    return EXIT_FAILURE;
-  }
 
   CreateDirIfNotExists(output_path);
 
