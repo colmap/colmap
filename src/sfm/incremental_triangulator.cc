@@ -388,6 +388,10 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
   return num_tris;
 }
 
+void IncrementalTriangulator::AddModifiedPoint3D(const point3D_t point3D_id) {
+  modified_point3D_ids_.insert(point3D_id);
+}
+
 const std::unordered_set<point3D_t>&
 IncrementalTriangulator::GetModifiedPoints3D() {
   // First remove any missing 3D points from the set.

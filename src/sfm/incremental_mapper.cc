@@ -516,6 +516,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
         const point3D_t point3D_id = tri_corrs[i].second;
         const TrackElement track_el(image_id, point2D_idx);
         reconstruction_->AddObservation(point3D_id, track_el);
+        triangulator_->AddModifiedPoint3D(point3D_id);
       }
     }
   }

@@ -135,6 +135,9 @@ class IncrementalTriangulator {
   // inlier matches between the image pair.
   size_t Retriangulate(const Options& options);
 
+  // Indicate that a 3D point has been modified.
+  void AddModifiedPoint3D(const point3D_t point3D_id);
+
   // Get changed 3D points, since the last call to `ClearModifiedPoints3D`.
   const std::unordered_set<point3D_t>& GetModifiedPoints3D();
 
