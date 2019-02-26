@@ -288,6 +288,36 @@ int RunPoissonMesher(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+int RunProjectGenerator(int argc, char** argv) {
+  std::string output_path;
+  std::string quality = "high";
+
+  OptionManager options;
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption("quality", &quality, "{low, medium, high, extreme}");
+  options.Parse(argc, argv);
+
+  OptionManager output_options;
+  output_options.AddAllOptions();
+
+  StringToLower(&quality);
+  if (quality == "low") {
+    output_options.ModifyForLowQuality();
+  } else if (quality == "medium") {
+    output_options.ModifyForMediumQuality();
+  } else if (quality == "high") {
+    output_options.ModifyForHighQuality();
+  } else if (quality == "extreme") {
+    output_options.ModifyForExtremeQuality();
+  } else {
+    LOG(FATAL) << "Invalid quality provided";
+  }
+
+  output_options.Write(output_path);
+
+  return EXIT_SUCCESS;
+}
+
 int RunDelaunayMesher(int argc, char** argv) {
 #ifndef CGAL_ENABLED
   std::cerr << "ERROR: Delaunay meshing requires CGAL, which is not "
@@ -1905,6 +1935,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("point_filtering", &RunPointFiltering);
   commands.emplace_back("point_triangulator", &RunPointTriangulator);
   commands.emplace_back("poisson_mesher", &RunPoissonMesher);
+  commands.emplace_back("project_generator", &RunProjectGenerator);
   commands.emplace_back("rig_bundle_adjuster", &RunRigBundleAdjuster);
   commands.emplace_back("sequential_matcher", &RunSequentialMatcher);
   commands.emplace_back("spatial_matcher", &RunSpatialMatcher);

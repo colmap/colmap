@@ -51,7 +51,7 @@ namespace config = boost::program_options;
 
 namespace colmap {
 
-OptionManager::OptionManager() {
+OptionManager::OptionManager(bool add_project_options) {
   project_path.reset(new std::string());
   database_path.reset(new std::string());
   image_path.reset(new std::string());
@@ -75,7 +75,10 @@ OptionManager::OptionManager() {
   Reset();
 
   desc_->add_options()("help,h", "");
-  desc_->add_options()("project_path", config::value<std::string>());
+
+  if (add_project_options) {
+    desc_->add_options()("project_path", config::value<std::string>());
+  }
 }
 
 void OptionManager::ModifyForIndividualData() {
