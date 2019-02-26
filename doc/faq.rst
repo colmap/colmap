@@ -12,6 +12,8 @@ quality levels, which can be set in the GUI as ``Extras > Set options for ...``.
 To use these presets from the command-line, you can save the current set of
 options as ``File > Save project`` after choosing the presets. The resulting
 project file can be opened with a text editor to view the different options.
+Alternatively, you can generate the project file also from the command-line
+by running ``colmap project_generator``.
 
 
 Extending COLMAP
