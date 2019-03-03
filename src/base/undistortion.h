@@ -127,6 +127,27 @@ class CMPMVSUndistorter : public Thread {
   std::string output_path_;
   const Reconstruction& reconstruction_;
 };
+  
+// Undistort images and export undistorted cameras without the need for a
+// reconstruction. Instead, the image names and camera model information are
+// read from a text file.
+class PureImageUndistorter : public Thread {
+ public:
+  PureImageUndistorter(const UndistortCameraOptions& options,
+                       const std::string& image_path,
+                       const std::string& output_path,
+                       const std::vector<std::pair<std::string, Camera>>& image_names_and_cameras);
+  
+ private:
+  void Run();
+  
+  void Undistort(const size_t reg_image_idx) const;
+  
+  UndistortCameraOptions options_;
+  std::string image_path_;
+  std::string output_path_;
+  const std::vector<std::pair<std::string, Camera>>& image_names_and_cameras_;
+};
 
 // Rectify stereo image pairs.
 class StereoImageRectifier : public Thread {
