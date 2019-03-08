@@ -203,4 +203,14 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
             << std::endl;
 }
 
+const class Image* DatabaseCache::FindImageWithName(
+    const std::string& name) const {
+  for (const auto& image : images_) {
+    if (image.second.Name() == name) {
+      return &image.second;
+    }
+  }
+  return nullptr;
+}
+
 }  // namespace colmap

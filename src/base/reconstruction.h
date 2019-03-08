@@ -60,6 +60,13 @@ class SimilarityTransform3;
 // written to and read from disk.
 class Reconstruction {
  public:
+  struct ImagePairStat {
+    // The number of triangulated correspondences between two images.
+    size_t num_tri_corrs = 0;
+    // The number of total correspondences/matches between two images.
+    size_t num_total_corrs = 0;
+  };
+
   Reconstruction();
 
   // Get number of objects.
@@ -73,26 +80,25 @@ class Reconstruction {
   inline const class Camera& Camera(const camera_t camera_id) const;
   inline const class Image& Image(const image_t image_id) const;
   inline const class Point3D& Point3D(const point3D_t point3D_id) const;
-  inline const std::pair<size_t, size_t>& ImagePair(
-      const image_pair_t pair_id) const;
-  inline std::pair<size_t, size_t>& ImagePair(const image_t image_id1,
-                                              const image_t image_id2);
+  inline const ImagePairStat& ImagePair(const image_pair_t pair_id) const;
+  inline ImagePairStat& ImagePair(const image_t image_id1,
+                                  const image_t image_id2);
 
   // Get mutable objects.
   inline class Camera& Camera(const camera_t camera_id);
   inline class Image& Image(const image_t image_id);
   inline class Point3D& Point3D(const point3D_t point3D_id);
-  inline std::pair<size_t, size_t>& ImagePair(const image_pair_t pair_id);
-  inline const std::pair<size_t, size_t>& ImagePair(
-      const image_t image_id1, const image_t image_id2) const;
+  inline ImagePairStat& ImagePair(const image_pair_t pair_id);
+  inline const ImagePairStat& ImagePair(const image_t image_id1,
+                                        const image_t image_id2) const;
 
   // Get reference to all objects.
   inline const EIGEN_STL_UMAP(camera_t, class Camera) & Cameras() const;
   inline const EIGEN_STL_UMAP(image_t, class Image) & Images() const;
   inline const std::vector<image_t>& RegImageIds() const;
   inline const EIGEN_STL_UMAP(point3D_t, class Point3D) & Points3D() const;
-  inline const std::unordered_map<image_pair_t, std::pair<size_t, size_t>>&
-  ImagePairs() const;
+  inline const std::unordered_map<image_pair_t, ImagePairStat>& ImagePairs()
+      const;
 
   // Identifiers of all 3D points.
   std::unordered_set<point3D_t> Point3DIds() const;
@@ -147,6 +153,9 @@ class Reconstruction {
   // prior to calling this method.
   void DeleteObservation(const image_t image_id, const point2D_t point2D_idx);
 
+  // Delete all 2D points of all images and all 3D points.
+  void DeleteAllPoints2DAndPoints3D();
+
   // Register an existing image.
   void RegisterImage(const image_t image_id);
 
@@ -193,16 +202,16 @@ class Reconstruction {
                    const int min_common_images,
                    const RANSACOptions& ransac_options);
 
-  // Find image with name.
-  //
-  // @param name        Name of the image.
-  //
-  // @return            Nullptr if image was not found.
+  // Find specific image by name. Note that this uses linear search.
   const class Image* FindImageWithName(const std::string& name) const;
 
   // Find images that are both present in this and the given reconstruction.
   std::vector<image_t> FindCommonRegImageIds(
       const Reconstruction& reconstruction) const;
+
+  // Update the image identifiers to match the ones in the database by matching
+  // the names of the images.
+  void TranscribeImageIdsToDatabase(const Database& database);
 
   // Filter 3D points with large reprojection error, negative depth, or
   // insufficient triangulation angle.
@@ -321,7 +330,8 @@ class Reconstruction {
   EIGEN_STL_UMAP(camera_t, class Camera) cameras_;
   EIGEN_STL_UMAP(image_t, class Image) images_;
   EIGEN_STL_UMAP(point3D_t, class Point3D) points3D_;
-  std::unordered_map<image_pair_t, std::pair<size_t, size_t>> image_pairs_;
+
+  std::unordered_map<image_pair_t, ImagePairStat> image_pair_stats_;
 
   // { image_id, ... } where `images_.at(image_id).registered == true`.
   std::vector<image_t> reg_image_ids_;
@@ -342,7 +352,9 @@ size_t Reconstruction::NumRegImages() const { return reg_image_ids_.size(); }
 
 size_t Reconstruction::NumPoints3D() const { return points3D_.size(); }
 
-size_t Reconstruction::NumImagePairs() const { return image_pairs_.size(); }
+size_t Reconstruction::NumImagePairs() const {
+  return image_pair_stats_.size();
+}
 
 const class Camera& Reconstruction::Camera(const camera_t camera_id) const {
   return cameras_.at(camera_id);
@@ -356,15 +368,15 @@ const class Point3D& Reconstruction::Point3D(const point3D_t point3D_id) const {
   return points3D_.at(point3D_id);
 }
 
-const std::pair<size_t, size_t>& Reconstruction::ImagePair(
+const Reconstruction::ImagePairStat& Reconstruction::ImagePair(
     const image_pair_t pair_id) const {
-  return image_pairs_.at(pair_id);
+  return image_pair_stats_.at(pair_id);
 }
 
-const std::pair<size_t, size_t>& Reconstruction::ImagePair(
+const Reconstruction::ImagePairStat& Reconstruction::ImagePair(
     const image_t image_id1, const image_t image_id2) const {
   const auto pair_id = Database::ImagePairToPairId(image_id1, image_id2);
-  return image_pairs_.at(pair_id);
+  return image_pair_stats_.at(pair_id);
 }
 
 class Camera& Reconstruction::Camera(const camera_t camera_id) {
@@ -379,15 +391,15 @@ class Point3D& Reconstruction::Point3D(const point3D_t point3D_id) {
   return points3D_.at(point3D_id);
 }
 
-std::pair<size_t, size_t>& Reconstruction::ImagePair(
+Reconstruction::ImagePairStat& Reconstruction::ImagePair(
     const image_pair_t pair_id) {
-  return image_pairs_.at(pair_id);
+  return image_pair_stats_.at(pair_id);
 }
 
-std::pair<size_t, size_t>& Reconstruction::ImagePair(const image_t image_id1,
-                                                     const image_t image_id2) {
+Reconstruction::ImagePairStat& Reconstruction::ImagePair(
+    const image_t image_id1, const image_t image_id2) {
   const auto pair_id = Database::ImagePairToPairId(image_id1, image_id2);
-  return image_pairs_.at(pair_id);
+  return image_pair_stats_.at(pair_id);
 }
 
 const EIGEN_STL_UMAP(camera_t, Camera) & Reconstruction::Cameras() const {
@@ -406,9 +418,9 @@ const EIGEN_STL_UMAP(point3D_t, Point3D) & Reconstruction::Points3D() const {
   return points3D_;
 }
 
-const std::unordered_map<image_pair_t, std::pair<size_t, size_t>>&
+const std::unordered_map<image_pair_t, Reconstruction::ImagePairStat>&
 Reconstruction::ImagePairs() const {
-  return image_pairs_;
+  return image_pair_stats_;
 }
 
 bool Reconstruction::ExistsCamera(const camera_t camera_id) const {
@@ -424,7 +436,7 @@ bool Reconstruction::ExistsPoint3D(const point3D_t point3D_id) const {
 }
 
 bool Reconstruction::ExistsImagePair(const image_pair_t pair_id) const {
-  return image_pairs_.find(pair_id) != image_pairs_.end();
+  return image_pair_stats_.find(pair_id) != image_pair_stats_.end();
 }
 
 bool Reconstruction::IsImageRegistered(const image_t image_id) const {

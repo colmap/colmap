@@ -92,6 +92,9 @@ class DatabaseCache {
             const bool ignore_watermarks,
             const std::set<std::string>& image_names);
 
+  // Find specific image by name. Note that this uses linear search.
+  const class Image* FindImageWithName(const std::string& name) const;
+
  private:
   class CorrespondenceGraph correspondence_graph_;
 

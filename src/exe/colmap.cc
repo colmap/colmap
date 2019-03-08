@@ -1275,12 +1275,16 @@ int RunPointFiltering(int argc, char** argv) {
 int RunPointTriangulator(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
+  bool clear_points = false;
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption(
+      "clear_points", &clear_points,
+      "Whether to clear all existing points and observations");
   options.AddMapperOptions();
   options.Parse(argc, argv);
 
@@ -1296,27 +1300,37 @@ int RunPointTriangulator(int argc, char** argv) {
 
   const auto& mapper_options = *options.mapper;
 
+  PrintHeading1("Loading model");
+
+  Reconstruction reconstruction;
+  reconstruction.Read(input_path);
+
   PrintHeading1("Loading database");
 
   DatabaseCache database_cache;
 
   {
-    Database database(*options.database_path);
     Timer timer;
     timer.Start();
+
+    Database database(*options.database_path);
+
     const size_t min_num_matches =
         static_cast<size_t>(mapper_options.min_num_matches);
     database_cache.Load(database, min_num_matches,
                         mapper_options.ignore_watermarks,
                         mapper_options.image_names);
+
+    if (clear_points) {
+      reconstruction.DeleteAllPoints2DAndPoints3D();
+      reconstruction.TranscribeImageIdsToDatabase(database);
+    }
+
     std::cout << std::endl;
     timer.PrintMinutes();
   }
 
   std::cout << std::endl;
-
-  Reconstruction reconstruction;
-  reconstruction.Read(input_path);
 
   CHECK_GE(reconstruction.NumRegImages(), 2)
       << "Need at least two images for triangulation";
@@ -1330,14 +1344,18 @@ int RunPointTriangulator(int argc, char** argv) {
 
   const auto tri_options = mapper_options.Triangulation();
 
-  for (const image_t image_id : reconstruction.RegImageIds()) {
+  const auto& reg_image_ids = reconstruction.RegImageIds();
+
+  for (size_t i = 0; i < reg_image_ids.size(); ++i) {
+    const image_t image_id = reg_image_ids[i];
+
     const auto& image = reconstruction.Image(image_id);
 
-    PrintHeading1("Triangulating image #" + std::to_string(image_id));
+    PrintHeading1(StringPrintf("Triangulating image #%d (%d)", image_id, i));
 
     const size_t num_existing_points3D = image.NumPoints3D();
 
-    std::cout << "  => Image has " << num_existing_points3D << " / "
+    std::cout << "  => Image sees " << num_existing_points3D << " / "
               << image.NumObservations() << " points" << std::endl;
 
     mapper.TriangulateImage(tri_options, image_id);
@@ -1348,19 +1366,27 @@ int RunPointTriangulator(int argc, char** argv) {
   }
 
   //////////////////////////////////////////////////////////////////////////////
-  // Bundle adjustment
+  // Retriangulation
   //////////////////////////////////////////////////////////////////////////////
+
+  PrintHeading1("Retriangulation");
 
   CompleteAndMergeTracks(mapper_options, &mapper);
 
-  const auto ba_options = mapper_options.GlobalBundleAdjustment();
+  //////////////////////////////////////////////////////////////////////////////
+  // Bundle adjustment
+  //////////////////////////////////////////////////////////////////////////////
+
+  auto ba_options = mapper_options.GlobalBundleAdjustment();
+  ba_options.refine_focal_length = false;
+  ba_options.refine_principal_point = false;
+  ba_options.refine_extra_params = false;
+  ba_options.refine_extrinsics = false;
 
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
   for (const image_t image_id : reconstruction.RegImageIds()) {
     ba_config.AddImage(image_id);
-    ba_config.SetConstantPose(image_id);
-    ba_config.SetConstantCamera(reconstruction.Image(image_id).CameraId());
   }
 
   for (int i = 0; i < mapper_options.ba_global_max_refinements; ++i) {
