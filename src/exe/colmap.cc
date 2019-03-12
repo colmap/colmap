@@ -631,6 +631,55 @@ int RunImageDeleter(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+int RunImageFilterer(int argc, char** argv) {
+  std::string input_path;
+  std::string output_path;
+  double min_focal_length_ratio = 0.1;
+  double max_focal_length_ratio = 10.0;
+  double max_extra_param = 100.0;
+  size_t min_num_observations = 10;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption("min_focal_length_ratio", &min_focal_length_ratio);
+  options.AddDefaultOption("max_focal_length_ratio", &max_focal_length_ratio);
+  options.AddDefaultOption("max_extra_param", &max_extra_param);
+  options.AddDefaultOption("min_num_observations", &min_num_observations);
+  options.Parse(argc, argv);
+
+  Reconstruction reconstruction;
+  reconstruction.Read(input_path);
+
+  const size_t num_reg_images = reconstruction.NumRegImages();
+
+  reconstruction.FilterImages(min_focal_length_ratio, max_focal_length_ratio,
+                              max_extra_param);
+
+  std::vector<image_t> filtered_image_ids;
+  for (const auto& image : reconstruction.Images()) {
+    if (image.second.IsRegistered() &&
+        image.second.NumPoints3D() < min_num_observations) {
+      filtered_image_ids.push_back(image.first);
+    }
+  }
+
+  for (const auto image_id : filtered_image_ids) {
+    reconstruction.DeRegisterImage(image_id);
+  }
+
+  const size_t num_filtered_images =
+      num_reg_images - reconstruction.NumRegImages();
+
+  std::cout << StringPrintf("Filtered %d images from a total of %d images",
+                            num_filtered_images, num_reg_images)
+            << std::endl;
+
+  reconstruction.Write(output_path);
+
+  return EXIT_SUCCESS;
+}
+
 int RunImageRectifier(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
@@ -1946,6 +1995,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("feature_importer", &RunFeatureImporter);
   commands.emplace_back("hierarchical_mapper", &RunHierarchicalMapper);
   commands.emplace_back("image_deleter", &RunImageDeleter);
+  commands.emplace_back("image_filterer", &RunImageFilterer);
   commands.emplace_back("image_rectifier", &RunImageRectifier);
   commands.emplace_back("image_registrator", &RunImageRegistrator);
   commands.emplace_back("image_undistorter", &RunImageUndistorter);

@@ -223,7 +223,9 @@ available as ``colmap [command]``:
 - ``image_rectifier``: Stereo rectify cameras and undistort images for stereo
   disparity estimation.
 
-- ``image_deleter``: Delete individual images from a sparse reconstruction.
+- ``image_filterer``: Filter images from a sparse reconstruction.
+
+- ``image_deleter``: Delete specific images from a sparse reconstruction.
 
 - ``patch_match_stereo``: Dense 3D reconstruction / mapping using MVS after
   running the ``image_undistorter`` to initialize the workspace.
