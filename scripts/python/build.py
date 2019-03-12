@@ -221,10 +221,10 @@ def build_eigen(args):
     if os.path.exists(path):
         return
 
-    url = "https://bitbucket.org/eigen/eigen/get/3.3.5.zip"
-    archive_path = os.path.join(args.download_path, "eigen-3.3.5.zip")
+    url = "https://bitbucket.org/eigen/eigen/get/3.3.7.zip"
+    archive_path = os.path.join(args.download_path, "eigen-3.3.7.zip")
     download_zipfile(url, archive_path, args.build_path,
-                     "2a3e158738a4dc02f44c3fbb73d58ad7")
+                     "0d9c8496922d5c07609b9f3585f00e49")
     shutil.move(glob.glob(os.path.join(args.build_path, "eigen-*"))[0], path)
 
     build_cmake_project(args, os.path.join(path, "__build__"))
@@ -325,11 +325,11 @@ def build_gflags(args):
     if os.path.exists(path):
         return
 
-    url = "https://github.com/gflags/gflags/archive/v2.2.1.zip"
-    archive_path = os.path.join(args.download_path, "gflags-2.2.1.zip")
+    url = "https://github.com/gflags/gflags/archive/v2.2.2.zip"
+    archive_path = os.path.join(args.download_path, "gflags-2.2.2.zip")
     download_zipfile(url, archive_path, args.build_path,
-                     "2d988ef0b50939fb50ada965dafce96b")
-    shutil.move(os.path.join(args.build_path, "gflags-2.2.1"), path)
+                     "ff856ff64757f1381f7da260f79ba79b")
+    shutil.move(os.path.join(args.build_path, "gflags-2.2.2"), path)
     os.remove(os.path.join(path, "BUILD"))
 
     build_cmake_project(args, os.path.join(path, "__build__"))
