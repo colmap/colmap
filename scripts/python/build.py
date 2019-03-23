@@ -500,7 +500,7 @@ def build_post_process(args):
             copy_file_if_not_exists(
                 glob.glob(os.path.join(
                     args.cgal_path,
-                    "build/bin/Release/CGAL-vc140-mt-*.dll"))[0],
+                    "bin/Release/CGAL-vc140-mt-*.dll"))[0],
                 os.path.join(args.install_path, "lib"))
 
 
