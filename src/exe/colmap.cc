@@ -236,6 +236,11 @@ int RunDatabaseMerger(int argc, char** argv) {
   options.AddRequiredOption("merged_database_path", &merged_database_path);
   options.Parse(argc, argv);
 
+  if (ExistsFile(merged_database_path)) {
+    std::cout << "ERROR: Merged database file must not exist." << std::endl;
+    return EXIT_FAILURE;
+  }
+
   Database database1(database_path1);
   Database database2(database_path2);
   Database merged_database(merged_database_path);
