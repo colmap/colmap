@@ -257,6 +257,10 @@ available as ``colmap [command]``:
 - ``database_creator``: Create an empty COLMAP SQLite database with the
   necessary database schema information.
 
+- ``database_merger``: Merge two databases into a new database. Note that the
+  cameras will not be merged and that the unique camera and image identifiers
+  might change during the merging process.
+
 - ``model_analyzer``: Print statistics about reconstructions.
 
 - ``model_aligner``: Align/geo-register model to coordinate system of given

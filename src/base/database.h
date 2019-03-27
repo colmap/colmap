@@ -207,6 +207,10 @@ class Database {
   // Clear the entire inlier matches table.
   void ClearTwoViewGeometries() const;
 
+  // Merge two databases into a single, new database.
+  static void Merge(const Database& database1, const Database& database2,
+                    Database* merged_database);
+
  private:
   friend class DatabaseTransaction;
 

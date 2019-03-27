@@ -225,6 +225,25 @@ int RunDatabaseCreator(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+int RunDatabaseMerger(int argc, char** argv) {
+  std::string database_path1;
+  std::string database_path2;
+  std::string merged_database_path;
+
+  OptionManager options;
+  options.AddRequiredOption("database_path1", &database_path1);
+  options.AddRequiredOption("database_path2", &database_path2);
+  options.AddRequiredOption("merged_database_path", &merged_database_path);
+  options.Parse(argc, argv);
+
+  Database database1(database_path1);
+  Database database2(database_path2);
+  Database merged_database(merged_database_path);
+  Database::Merge(database1, database2, &merged_database);
+
+  return EXIT_SUCCESS;
+}
+
 int RunStereoFuser(int argc, char** argv) {
   std::string workspace_path;
   std::string input_type = "geometric";
@@ -1989,6 +2008,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("bundle_adjuster", &RunBundleAdjuster);
   commands.emplace_back("color_extractor", &RunColorExtractor);
   commands.emplace_back("database_creator", &RunDatabaseCreator);
+  commands.emplace_back("database_merger", &RunDatabaseMerger);
   commands.emplace_back("delaunay_mesher", &RunDelaunayMesher);
   commands.emplace_back("exhaustive_matcher", &RunExhaustiveMatcher);
   commands.emplace_back("feature_extractor", &RunFeatureExtractor);

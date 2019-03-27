@@ -381,3 +381,87 @@ BOOST_AUTO_TEST_CASE(TestTwoViewGeometry) {
   database.ClearTwoViewGeometries();
   BOOST_CHECK_EQUAL(database.NumInlierMatches(), 0);
 }
+
+BOOST_AUTO_TEST_CASE(TestMerge) {
+  Database database1(kMemoryDatabasePath);
+  Database database2(kMemoryDatabasePath);
+
+  Camera camera;
+  camera.InitializeWithName("SIMPLE_PINHOLE", 1.0, 1, 1);
+  camera.SetCameraId(database1.WriteCamera(camera));
+  camera.SetCameraId(database2.WriteCamera(camera));
+
+  Image image;
+  image.SetCameraId(camera.CameraId());
+  image.SetQvecPrior(Eigen::Vector4d(0.1, 0.2, 0.3, 0.4));
+  image.SetTvecPrior(Eigen::Vector3d(0.1, 0.2, 0.3));
+
+  image.SetName("test1");
+  const image_t image_id1 = database1.WriteImage(image);
+  image.SetName("test2");
+  const image_t image_id2 = database1.WriteImage(image);
+  image.SetName("test3");
+  const image_t image_id3 = database2.WriteImage(image);
+  image.SetName("test4");
+  const image_t image_id4 = database2.WriteImage(image);
+
+  auto keypoints1 = FeatureKeypoints(10);
+  keypoints1[0].x = 100;
+  auto keypoints2 = FeatureKeypoints(20);
+  keypoints2[0].x = 200;
+  auto keypoints3 = FeatureKeypoints(30);
+  keypoints3[0].x = 300;
+  auto keypoints4 = FeatureKeypoints(40);
+  keypoints4[0].x = 400;
+
+  const auto descriptors1 = FeatureDescriptors::Random(10, 128);
+  const auto descriptors2 = FeatureDescriptors::Random(20, 128);
+  const auto descriptors3 = FeatureDescriptors::Random(30, 128);
+  const auto descriptors4 = FeatureDescriptors::Random(40, 128);
+
+  database1.WriteKeypoints(image_id1, keypoints1);
+  database1.WriteKeypoints(image_id2, keypoints2);
+  database2.WriteKeypoints(image_id3, keypoints3);
+  database2.WriteKeypoints(image_id4, keypoints4);
+  database1.WriteDescriptors(image_id1, descriptors1);
+  database1.WriteDescriptors(image_id2, descriptors2);
+  database2.WriteDescriptors(image_id3, descriptors3);
+  database2.WriteDescriptors(image_id4, descriptors4);
+  database1.WriteMatches(image_id1, image_id2, FeatureMatches(10));
+  database2.WriteMatches(image_id3, image_id4, FeatureMatches(10));
+  database1.WriteTwoViewGeometry(image_id1, image_id2, TwoViewGeometry());
+  database2.WriteTwoViewGeometry(image_id3, image_id4, TwoViewGeometry());
+
+  Database merged_database(kMemoryDatabasePath);
+  Database::Merge(database1, database2, &merged_database);
+  BOOST_CHECK_EQUAL(merged_database.NumCameras(), 2);
+  BOOST_CHECK_EQUAL(merged_database.NumImages(), 4);
+  BOOST_CHECK_EQUAL(merged_database.NumKeypoints(), 100);
+  BOOST_CHECK_EQUAL(merged_database.NumDescriptors(), 100);
+  BOOST_CHECK_EQUAL(merged_database.NumMatches(), 20);
+  BOOST_CHECK_EQUAL(merged_database.NumInlierMatches(), 0);
+  BOOST_CHECK_EQUAL(merged_database.ReadAllImages()[0].CameraId(), 1);
+  BOOST_CHECK_EQUAL(merged_database.ReadAllImages()[1].CameraId(), 1);
+  BOOST_CHECK_EQUAL(merged_database.ReadAllImages()[2].CameraId(), 2);
+  BOOST_CHECK_EQUAL(merged_database.ReadAllImages()[3].CameraId(), 2);
+  BOOST_CHECK_EQUAL(merged_database.ReadKeypoints(1).size(), 10);
+  BOOST_CHECK_EQUAL(merged_database.ReadKeypoints(2).size(), 20);
+  BOOST_CHECK_EQUAL(merged_database.ReadKeypoints(3).size(), 30);
+  BOOST_CHECK_EQUAL(merged_database.ReadKeypoints(4).size(), 40);
+  BOOST_CHECK_EQUAL(merged_database.ReadKeypoints(1)[0].x, 100);
+  BOOST_CHECK_EQUAL(merged_database.ReadKeypoints(2)[0].x, 200);
+  BOOST_CHECK_EQUAL(merged_database.ReadKeypoints(3)[0].x, 300);
+  BOOST_CHECK_EQUAL(merged_database.ReadKeypoints(4)[0].x, 400);
+  BOOST_CHECK_EQUAL(merged_database.ReadDescriptors(1).size(),
+                    descriptors1.size());
+  BOOST_CHECK_EQUAL(merged_database.ReadDescriptors(2).size(),
+                    descriptors2.size());
+  BOOST_CHECK_EQUAL(merged_database.ReadDescriptors(3).size(),
+                    descriptors3.size());
+  BOOST_CHECK_EQUAL(merged_database.ReadDescriptors(4).size(),
+                    descriptors4.size());
+  BOOST_CHECK(merged_database.ExistsMatches(1, 2));
+  BOOST_CHECK(!merged_database.ExistsMatches(2, 3));
+  BOOST_CHECK(!merged_database.ExistsMatches(2, 4));
+  BOOST_CHECK(merged_database.ExistsMatches(3, 4));
+}
