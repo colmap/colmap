@@ -123,6 +123,9 @@ struct IncrementalMapperOptions {
   // be reconstructed by default.
   std::set<std::string> image_names;
 
+  // If reconstruction is provided as input, fix the existing image poses.
+  bool fix_existing_images = false;
+
   IncrementalMapper::Options Mapper() const;
   IncrementalTriangulator::Options Triangulation() const;
   BundleAdjustmentOptions LocalBundleAdjustment() const;
@@ -178,9 +181,8 @@ size_t FilterImages(const IncrementalMapperOptions& options,
                     IncrementalMapper* mapper);
 
 // Globally complete and merge tracks in mapper.
-size_t CompleteAndMergeTracks(
-    const IncrementalMapperOptions& options,
-    IncrementalMapper* mapper);
+size_t CompleteAndMergeTracks(const IncrementalMapperOptions& options,
+                              IncrementalMapper* mapper);
 
 }  // namespace colmap
 

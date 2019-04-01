@@ -117,6 +117,10 @@ void IncrementalMapper::BeginReconstruction(Reconstruction* reconstruction) {
     RegisterImageEvent(image_id);
   }
 
+  existing_image_ids_ =
+      std::unordered_set<image_t>(reconstruction->RegImageIds().begin(),
+                                  reconstruction->RegImageIds().end());
+
   prev_init_image_pair_id_ = kInvalidImagePairId;
   prev_init_two_view_geometry_ = TwoViewGeometry();
 
@@ -576,13 +580,27 @@ IncrementalMapper::AdjustLocalBundle(
       ba_config.AddImage(local_image_id);
     }
 
+    // Fix the existing images, if option specified.
+    if (options.fix_existing_images) {
+      for (const image_t local_image_id : local_bundle) {
+        if (existing_image_ids_.count(local_image_id)) {
+          ba_config.SetConstantPose(local_image_id);
+        }
+      }
+    }
+
     // Fix 7 DOF to avoid scale/rotation/translation drift in bundle adjustment.
     if (local_bundle.size() == 1) {
       ba_config.SetConstantPose(local_bundle[0]);
       ba_config.SetConstantTvec(image_id, {0});
     } else if (local_bundle.size() > 1) {
-      ba_config.SetConstantPose(local_bundle[local_bundle.size() - 1]);
-      ba_config.SetConstantTvec(local_bundle[local_bundle.size() - 2], {0});
+      const image_t image_id1 = local_bundle[local_bundle.size() - 1];
+      const image_t image_id2 = local_bundle[local_bundle.size() - 2];
+      ba_config.SetConstantPose(image_id1);
+      if (!options.fix_existing_images ||
+          !existing_image_ids_.count(image_id2)) {
+        ba_config.SetConstantTvec(image_id2, {0});
+      }
     }
 
     // Make sure, we refine all new and short-track 3D points, no matter if
@@ -638,7 +656,7 @@ IncrementalMapper::AdjustLocalBundle(
 }
 
 bool IncrementalMapper::AdjustGlobalBundle(
-    const BundleAdjustmentOptions& ba_options) {
+    const Options& options, const BundleAdjustmentOptions& ba_options) {
   CHECK_NOTNULL(reconstruction_);
 
   const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
@@ -655,8 +673,22 @@ bool IncrementalMapper::AdjustGlobalBundle(
   for (const image_t image_id : reg_image_ids) {
     ba_config.AddImage(image_id);
   }
+
+  // Fix the existing images, if option specified.
+  if (options.fix_existing_images) {
+    for (const image_t image_id : reg_image_ids) {
+      if (existing_image_ids_.count(image_id)) {
+        ba_config.SetConstantPose(image_id);
+      }
+    }
+  }
+
+  // Fix 7-DOFs of the bundle adjustment problem.
   ba_config.SetConstantPose(reg_image_ids[0]);
-  ba_config.SetConstantTvec(reg_image_ids[1], {0});
+  if (!options.fix_existing_images ||
+      !existing_image_ids_.count(reg_image_ids[1])) {
+    ba_config.SetConstantTvec(reg_image_ids[1], {0});
+  }
 
   // Run bundle adjustment.
   BundleAdjuster bundle_adjuster(ba_options, ba_config);

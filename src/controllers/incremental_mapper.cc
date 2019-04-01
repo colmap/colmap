@@ -48,28 +48,29 @@ size_t TriangulateImage(const IncrementalMapperOptions& options,
 
 void AdjustGlobalBundle(const IncrementalMapperOptions& options,
                         IncrementalMapper* mapper) {
-  BundleAdjustmentOptions custom_options = options.GlobalBundleAdjustment();
+  BundleAdjustmentOptions custom_ba_options = options.GlobalBundleAdjustment();
 
   const size_t num_reg_images = mapper->GetReconstruction().NumRegImages();
 
   // Use stricter convergence criteria for first registered images.
-  const size_t kMinNumRegImages = 10;
-  if (num_reg_images < kMinNumRegImages) {
-    custom_options.solver_options.function_tolerance /= 10;
-    custom_options.solver_options.gradient_tolerance /= 10;
-    custom_options.solver_options.parameter_tolerance /= 10;
-    custom_options.solver_options.max_num_iterations *= 2;
-    custom_options.solver_options.max_linear_solver_iterations = 200;
+  const size_t kMinNumRegImagesForFastBA = 10;
+  if (num_reg_images < kMinNumRegImagesForFastBA) {
+    custom_ba_options.solver_options.function_tolerance /= 10;
+    custom_ba_options.solver_options.gradient_tolerance /= 10;
+    custom_ba_options.solver_options.parameter_tolerance /= 10;
+    custom_ba_options.solver_options.max_num_iterations *= 2;
+    custom_ba_options.solver_options.max_linear_solver_iterations = 200;
   }
 
   PrintHeading1("Global bundle adjustment");
-  if (options.ba_global_use_pba && num_reg_images >= kMinNumRegImages &&
-      ParallelBundleAdjuster::IsSupported(custom_options,
+  if (options.ba_global_use_pba && !options.fix_existing_images &&
+      num_reg_images >= kMinNumRegImagesForFastBA &&
+      ParallelBundleAdjuster::IsSupported(custom_ba_options,
                                           mapper->GetReconstruction())) {
     mapper->AdjustParallelGlobalBundle(
-        custom_options, options.ParallelGlobalBundleAdjustment());
+        custom_ba_options, options.ParallelGlobalBundleAdjustment());
   } else {
-    mapper->AdjustGlobalBundle(custom_options);
+    mapper->AdjustGlobalBundle(options.Mapper(), custom_ba_options);
   }
 }
 
@@ -195,6 +196,7 @@ IncrementalMapper::Options IncrementalMapperOptions::Mapper() const {
   options.max_extra_param = max_extra_param;
   options.num_threads = num_threads;
   options.local_ba_num_images = ba_local_num_images;
+  options.fix_existing_images = fix_existing_images;
   return options;
 }
 
