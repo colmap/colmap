@@ -121,7 +121,7 @@ struct IncrementalMapperOptions {
 
   // Which images to reconstruct. If no images are specified, all images will
   // be reconstructed by default.
-  std::set<std::string> image_names;
+  std::unordered_set<std::string> image_names;
 
   // If reconstruction is provided as input, fix the existing image poses.
   bool fix_existing_images = false;

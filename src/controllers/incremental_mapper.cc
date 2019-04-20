@@ -338,12 +338,23 @@ void IncrementalMapperController::Run() {
 bool IncrementalMapperController::LoadDatabase() {
   PrintHeading1("Loading database");
 
+  // Make sure images of the given reconstruction are also included when
+  // manually specifying images for the reconstrunstruction procedure.
+  std::unordered_set<std::string> image_names = options_->image_names;
+  if (reconstruction_manager_->Size() == 1 && !options_->image_names.empty()) {
+    const Reconstruction& reconstruction = reconstruction_manager_->Get(0);
+    for (const image_t image_id : reconstruction.RegImageIds()) {
+      const auto& image = reconstruction.Image(image_id);
+      image_names.insert(image.Name());
+    }
+  }
+
   Database database(database_path_);
   Timer timer;
   timer.Start();
   const size_t min_num_matches = static_cast<size_t>(options_->min_num_matches);
   database_cache_.Load(database, min_num_matches, options_->ignore_watermarks,
-                       options_->image_names);
+                       image_names);
   std::cout << std::endl;
   timer.PrintMinutes();
 

@@ -54,7 +54,7 @@ void DatabaseCache::AddImage(const class Image& image) {
 
 void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
                          const bool ignore_watermarks,
-                         const std::set<std::string>& image_names) {
+                         const std::unordered_set<std::string>& image_names) {
   //////////////////////////////////////////////////////////////////////////////
   // Load cameras
   //////////////////////////////////////////////////////////////////////////////

@@ -888,7 +888,7 @@ int RunMapper(int argc, char** argv) {
   if (!image_list_path.empty()) {
     const auto image_names = ReadTextFileLines(image_list_path);
     options.mapper->image_names =
-        std::set<std::string>(image_names.begin(), image_names.end());
+        std::unordered_set<std::string>(image_names.begin(), image_names.end());
   }
 
   ReconstructionManager reconstruction_manager;
