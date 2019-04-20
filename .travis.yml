@@ -113,6 +113,7 @@ before_script:
       fi
       cd ceres-solver
       git pull
+      git checkout 1.14.0
       mkdir -p build
       cd build
       cmake .. \
