@@ -73,7 +73,7 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
     prev_camera_.SetCameraId(kInvalidCameraId);
     prev_camera_.SetModelIdFromName(options_.camera_model);
     if (!options_.camera_params.empty()) {
-      prev_camera_.SetParamsFromString(options_.camera_params);
+      CHECK(prev_camera_.SetParamsFromString(options_.camera_params));
       prev_camera_.SetPriorFocalLength(true);
     }
   }
@@ -128,7 +128,7 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
   if (!bitmap->Read(image_path, false)) {
     return Status::BITMAP_ERROR;
   }
-  
+
   //////////////////////////////////////////////////////////////////////////////
   // Read mask.
   //////////////////////////////////////////////////////////////////////////////

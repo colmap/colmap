@@ -183,8 +183,11 @@ BOOST_AUTO_TEST_CASE(TestParamsToString) {
 BOOST_AUTO_TEST_CASE(TestParamsFromString) {
   Camera camera;
   camera.SetModelId(SimplePinholeCameraModel::model_id);
-  camera.SetParamsFromString("1.000000, 0.500000, 0.500000");
+  BOOST_CHECK(camera.SetParamsFromString("1.000000, 0.500000, 0.500000"));
   const std::vector<double> params{1.0, 0.5, 0.5};
+  BOOST_CHECK_EQUAL_COLLECTIONS(camera.Params().begin(), camera.Params().end(),
+                                params.begin(), params.end());
+  BOOST_CHECK(!camera.SetParamsFromString("1.000000, 0.500000"));
   BOOST_CHECK_EQUAL_COLLECTIONS(camera.Params().begin(), camera.Params().end(),
                                 params.begin(), params.end());
 }
