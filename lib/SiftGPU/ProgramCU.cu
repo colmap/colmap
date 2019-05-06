@@ -735,7 +735,7 @@ void ProgramCU::ReduceHistogram(CuTexImage*hist1, CuTexImage* hist2)
 }
 
 
-void __global__ ListGen_Kernel(int4* d_list, int width)
+void __global__ ListGen_Kernel(int4* d_list, int list_len, int width)
 {
 	int idx1 = IMUL(blockIdx.x, blockDim.x) + threadIdx.x;
     int4 pos = tex1Dfetch(texDataList, idx1);
@@ -757,7 +757,9 @@ void __global__ ListGen_Kernel(int4* d_list, int width)
 		pos.x += 1;
 		pos.z -= temp.x;
 	}
-	d_list[idx1] = pos;
+  if (idx1 < list_len) {
+    d_list[idx1] = pos;
+  }
 }
 
 //input list (x, y) (x, y) ....
@@ -768,7 +770,8 @@ void ProgramCU::GenerateList(CuTexImage* list, CuTexImage* hist)
 	hist->BindTexture(texDataI4);
 	dim3  grid((len + LISTGEN_BLOCK_DIM -1) /LISTGEN_BLOCK_DIM);
 	dim3  block(LISTGEN_BLOCK_DIM);
-	ListGen_Kernel<<<grid, block>>>((int4*) list->_cuData, hist->GetImgWidth());
+	ListGen_Kernel<<<grid, block>>>((int4*) list->_cuData, len,
+                                  hist->GetImgWidth());
 }
 
 void __global__ ComputeOrientation_Kernel(float4* d_list,
