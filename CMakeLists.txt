@@ -104,7 +104,9 @@ find_package(OpenGL REQUIRED)
 find_package(Glew REQUIRED)
 find_package(Git)
 
-find_package(CGAL QUIET)
+if (CGAL_ENABLED)
+  find_package(CGAL QUIET)
+endif()
 
 set(CUDA_MIN_VERSION "7.0")
 if(CUDA_ENABLED)
