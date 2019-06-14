@@ -269,7 +269,6 @@ new images within this reconstruction, you can follow these steps::
 
     colmap image_registrator \
         --database_path $PROJECT_PATH/database.db \
-        --image_path $PROJECT_PATH/images \
         --input_path /path/to/existing-model \
         --output_path /path/to/model-with-new-images
 
