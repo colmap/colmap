@@ -67,6 +67,7 @@ class Camera {
   double FocalLength() const;
   double FocalLengthX() const;
   double FocalLengthY() const;
+  double NormalizedFocalLength() const;
   void SetFocalLength(const double focal_length);
   void SetFocalLengthX(const double focal_length_x);
   void SetFocalLengthY(const double focal_length_y);
@@ -79,6 +80,8 @@ class Camera {
   // principal point parameters.
   double PrincipalPointX() const;
   double PrincipalPointY() const;
+  double NormalizedPrincipalPointX() const;
+  double NormalizedPrincipalPointY() const;
   void SetPrincipalPointX(const double ppx);
   void SetPrincipalPointY(const double ppy);
 
