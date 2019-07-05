@@ -217,6 +217,11 @@ void COLMAPUndistorter::Undistort(const size_t reg_image_idx) const {
   const std::string output_image_path =
       JoinPaths(output_path_, "images", image.Name());
 
+  // Early out if output exists
+  if (ExistsFile(output_image_path)) {
+    return;
+  }
+
   Bitmap distorted_bitmap;
   const std::string input_image_path = JoinPaths(image_path_, image.Name());
   if (!distorted_bitmap.Read(input_image_path)) {
@@ -335,6 +340,12 @@ void PMVSUndistorter::Run() {
 void PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
   const std::string output_image_path = JoinPaths(
       output_path_, StringPrintf("pmvs/visualize/%08d.jpg", reg_image_idx));
+
+  // Early out if output exists
+  if (ExistsFile(output_image_path)) {
+    return;
+  }
+  
   const std::string proj_matrix_path =
       JoinPaths(output_path_, StringPrintf("pmvs/txt/%08d.txt", reg_image_idx));
 
@@ -536,6 +547,12 @@ void CMPMVSUndistorter::Run() {
 void CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
   const std::string output_image_path =
       JoinPaths(output_path_, StringPrintf("%05d.jpg", reg_image_idx + 1));
+  
+  // Early out if output exists
+  if (ExistsFile(output_image_path)) {
+    return;
+  }
+
   const std::string proj_matrix_path =
       JoinPaths(output_path_, StringPrintf("%05d_P.txt", reg_image_idx + 1));
 
