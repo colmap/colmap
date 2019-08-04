@@ -53,6 +53,9 @@ class AutomaticReconstructionController : public Thread {
     // The path to the image folder which are used as input.
     std::string image_path;
 
+    // The path to the mask folder which are used as input.
+    std::string mask_path;
+
     // The path to the vocabulary tree for feature matching.
     std::string vocab_tree_path;
 
