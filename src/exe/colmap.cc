@@ -99,6 +99,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddRequiredOption("workspace_path",
                             &reconstruction_options.workspace_path);
   options.AddRequiredOption("image_path", &reconstruction_options.image_path);
+  options.AddDefaultOption("mask_path",
+                           &reconstruction_options.mask_path);
   options.AddDefaultOption("vocab_tree_path",
                            &reconstruction_options.vocab_tree_path);
   options.AddDefaultOption("data_type", &data_type,
