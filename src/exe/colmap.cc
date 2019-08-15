@@ -868,6 +868,95 @@ int RunImageUndistorter(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+int RunImageUndistorterStandalone(int argc, char** argv) {
+  std::string input_file;
+  std::string output_path;
+  
+  UndistortCameraOptions undistort_camera_options;
+  
+  OptionManager options;
+  options.AddImageOptions();
+  options.AddRequiredOption("input_file", &input_file);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption("blank_pixels",
+                           &undistort_camera_options.blank_pixels);
+  options.AddDefaultOption("min_scale", &undistort_camera_options.min_scale);
+  options.AddDefaultOption("max_scale", &undistort_camera_options.max_scale);
+  options.AddDefaultOption("max_image_size",
+                           &undistort_camera_options.max_image_size);
+  options.AddDefaultOption("roi_min_x", &undistort_camera_options.roi_min_x);
+  options.AddDefaultOption("roi_min_y", &undistort_camera_options.roi_min_y);
+  options.AddDefaultOption("roi_max_x", &undistort_camera_options.roi_max_x);
+  options.AddDefaultOption("roi_max_y", &undistort_camera_options.roi_max_y);
+  options.Parse(argc, argv);
+  
+  CreateDirIfNotExists(output_path);
+  
+  // Loads a text file containing the image names and camera information.
+  // The format of the text file is
+  //   image_name CAMERA_MODEL camera_params
+  std::vector<std::pair<std::string, Camera>> image_names_and_cameras;
+  
+  {
+    std::ifstream file(input_file);
+    CHECK(file.is_open()) << input_file;
+    
+    std::string line;
+    std::vector<std::string> lines;
+    while (std::getline(file, line)) {
+      StringTrim(&line);
+      
+      if (line.empty()) {
+        continue;
+      }
+      
+      std::string item;
+      std::stringstream line_stream(line);
+      
+      // Loads the image name.
+      std::string image_name;
+      std::getline(line_stream, image_name, ' ');
+      
+      // Loads the camera and its parameters
+      class Camera camera;
+      
+      std::getline(line_stream, item, ' ');
+      if (!ExistsCameraModelWithName(item)) {
+        std::cerr << "ERROR: Camera model " << item
+                  << " does not exist" << std::endl;
+        return EXIT_FAILURE;
+      }
+      camera.SetModelIdFromName(item);
+      
+      std::getline(line_stream, item, ' ');
+      camera.SetWidth(std::stoll(item));
+      
+      std::getline(line_stream, item, ' ');
+      camera.SetHeight(std::stoll(item));
+      
+      camera.Params().clear();
+      while (!line_stream.eof()) {
+        std::getline(line_stream, item, ' ');
+        camera.Params().push_back(std::stold(item));
+      }
+      
+      CHECK(camera.VerifyParams());
+      
+      image_names_and_cameras.emplace_back(image_name, camera);
+    }
+  }
+
+  std::unique_ptr<Thread> undistorter;
+  undistorter.reset(new PureImageUndistorter(undistort_camera_options,
+                                             *options.image_path, output_path,
+                                             image_names_and_cameras));
+  
+  undistorter->Start();
+  undistorter->Wait();
+  
+  return EXIT_SUCCESS;
+}
+
 int RunMapper(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
@@ -2026,6 +2115,8 @@ int main(int argc, char** argv) {
   commands.emplace_back("image_rectifier", &RunImageRectifier);
   commands.emplace_back("image_registrator", &RunImageRegistrator);
   commands.emplace_back("image_undistorter", &RunImageUndistorter);
+  commands.emplace_back("image_undistorter_standalone",
+                        &RunImageUndistorterStandalone);
   commands.emplace_back("mapper", &RunMapper);
   commands.emplace_back("matches_importer", &RunMatchesImporter);
   commands.emplace_back("model_aligner", &RunModelAligner);
