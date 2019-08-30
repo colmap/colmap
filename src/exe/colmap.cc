@@ -187,6 +187,16 @@ int RunBundleAdjuster(int argc, char** argv) {
   options.AddBundleAdjustmentOptions();
   options.Parse(argc, argv);
 
+  if (!ExistsDir(input_path)) {
+    std::cerr << "ERROR: `input_path` is not a directory" << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(output_path)) {
+    std::cerr << "ERROR: `output_path` is not a directory" << std::endl;
+    return EXIT_FAILURE;
+  }
+
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
