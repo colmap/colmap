@@ -151,7 +151,7 @@ while ischar(tline)
     point = struct;
     point.point3D_id = int64(elems(1));
     point.xyz = elems(2:4);
-    point.rgb = int8(elems(5:7));
+    point.rgb = uint8(elems(5:7));
     point.error = elems(8);
     point.track = int64(elems(9:end));
     point.track = reshape(point.track, [2, numel(point.track) / 2])';
