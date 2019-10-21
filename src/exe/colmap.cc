@@ -99,8 +99,7 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddRequiredOption("workspace_path",
                             &reconstruction_options.workspace_path);
   options.AddRequiredOption("image_path", &reconstruction_options.image_path);
-  options.AddDefaultOption("mask_path",
-                           &reconstruction_options.mask_path);
+  options.AddDefaultOption("mask_path", &reconstruction_options.mask_path);
   options.AddDefaultOption("vocab_tree_path",
                            &reconstruction_options.vocab_tree_path);
   options.AddDefaultOption("data_type", &data_type,
@@ -881,9 +880,9 @@ int RunImageUndistorter(int argc, char** argv) {
 int RunImageUndistorterStandalone(int argc, char** argv) {
   std::string input_file;
   std::string output_path;
-  
+
   UndistortCameraOptions undistort_camera_options;
-  
+
   OptionManager options;
   options.AddImageOptions();
   options.AddRequiredOption("input_file", &input_file);
@@ -899,59 +898,59 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
   options.AddDefaultOption("roi_max_x", &undistort_camera_options.roi_max_x);
   options.AddDefaultOption("roi_max_y", &undistort_camera_options.roi_max_y);
   options.Parse(argc, argv);
-  
+
   CreateDirIfNotExists(output_path);
-  
+
   // Loads a text file containing the image names and camera information.
   // The format of the text file is
   //   image_name CAMERA_MODEL camera_params
   std::vector<std::pair<std::string, Camera>> image_names_and_cameras;
-  
+
   {
     std::ifstream file(input_file);
     CHECK(file.is_open()) << input_file;
-    
+
     std::string line;
     std::vector<std::string> lines;
     while (std::getline(file, line)) {
       StringTrim(&line);
-      
+
       if (line.empty()) {
         continue;
       }
-      
+
       std::string item;
       std::stringstream line_stream(line);
-      
+
       // Loads the image name.
       std::string image_name;
       std::getline(line_stream, image_name, ' ');
-      
+
       // Loads the camera and its parameters
       class Camera camera;
-      
+
       std::getline(line_stream, item, ' ');
       if (!ExistsCameraModelWithName(item)) {
-        std::cerr << "ERROR: Camera model " << item
-                  << " does not exist" << std::endl;
+        std::cerr << "ERROR: Camera model " << item << " does not exist"
+                  << std::endl;
         return EXIT_FAILURE;
       }
       camera.SetModelIdFromName(item);
-      
+
       std::getline(line_stream, item, ' ');
       camera.SetWidth(std::stoll(item));
-      
+
       std::getline(line_stream, item, ' ');
       camera.SetHeight(std::stoll(item));
-      
+
       camera.Params().clear();
       while (!line_stream.eof()) {
         std::getline(line_stream, item, ' ');
         camera.Params().push_back(std::stold(item));
       }
-      
+
       CHECK(camera.VerifyParams());
-      
+
       image_names_and_cameras.emplace_back(image_name, camera);
     }
   }
@@ -960,10 +959,10 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
   undistorter.reset(new PureImageUndistorter(undistort_camera_options,
                                              *options.image_path, output_path,
                                              image_names_and_cameras));
-  
+
   undistorter->Start();
   undistorter->Wait();
-  
+
   return EXIT_SUCCESS;
 }
 
@@ -1721,10 +1720,14 @@ int RunRigBundleAdjuster(int argc, char** argv) {
   std::string output_path;
   std::string rig_config_path;
 
+  RigBundleAdjuster::Options rig_ba_options;
+
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddRequiredOption("rig_config_path", &rig_config_path);
+  options.AddRequiredOption("RigBundleAdjustment.refine_relative_poses",
+                            &rig_ba_options.refine_relative_poses);
   options.AddBundleAdjustmentOptions();
   options.Parse(argc, argv);
 
@@ -1754,7 +1757,6 @@ int RunRigBundleAdjuster(int argc, char** argv) {
 
   BundleAdjustmentOptions ba_options = *options.bundle_adjustment;
   ba_options.solver_options.minimizer_progress_to_stdout = true;
-  RigBundleAdjuster::Options rig_ba_options;
   RigBundleAdjuster bundle_adjuster(ba_options, rig_ba_options, config);
   CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
 
