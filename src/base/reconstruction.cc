@@ -1723,6 +1723,9 @@ void Reconstruction::WriteCamerasText(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc);
   CHECK(file.is_open()) << path;
 
+  // Ensure that we don't loose any precision by storing in text.
+  file.precision(17);
+
   file << "# Camera list with one line of data per camera:" << std::endl;
   file << "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]" << std::endl;
   file << "# Number of cameras: " << cameras_.size() << std::endl;
@@ -1749,6 +1752,9 @@ void Reconstruction::WriteCamerasText(const std::string& path) const {
 void Reconstruction::WriteImagesText(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc);
   CHECK(file.is_open()) << path;
+
+  // Ensure that we don't loose any precision by storing in text.
+  file.precision(17);
 
   file << "# Image list with two lines of data per image:" << std::endl;
   file << "#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, "
@@ -1809,6 +1815,9 @@ void Reconstruction::WriteImagesText(const std::string& path) const {
 void Reconstruction::WritePoints3DText(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc);
   CHECK(file.is_open()) << path;
+
+  // Ensure that we don't loose any precision by storing in text.
+  file.precision(17);
 
   file << "# 3D point list with one line of data per point:" << std::endl;
   file << "#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, "
