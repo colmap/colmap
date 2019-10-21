@@ -468,6 +468,16 @@ def build_colmap(args):
 
 def build_post_process(args):
     if PLATFORM_IS_WINDOWS:
+        lapack_paths = glob.glob(
+            os.path.join(args.install_path, "lib64/lapack_blas_windows/*.dll"))
+        if lapack_paths:
+            for lapack_path in lapack_paths:
+                copy_file_if_not_exists(
+                    lapack_path,
+                    os.path.join(
+                        args.install_path, "lib",
+                        os.path.basename(lapack_path)))
+
         if args.qt_path:
             copy_file_if_not_exists(
                 os.path.join(args.qt_path, "bin/Qt5Core.dll"),
@@ -483,6 +493,7 @@ def build_post_process(args):
             copy_file_if_not_exists(
                 os.path.join(args.qt_path, "plugins/platforms/qwindows.dll"),
                 os.path.join(args.install_path, "lib/platforms/qwindows.dll"))
+
         if args.with_cuda and args.cuda_path:
             cudart_lib_path = glob.glob(os.path.join(args.cuda_path,
                                                      "bin/cudart64_*.dll"))[0]
@@ -490,18 +501,20 @@ def build_post_process(args):
                 cudart_lib_path,
                 os.path.join(args.install_path, "lib",
                              os.path.basename(cudart_lib_path)))
+
         if args.cgal_path:
             gmp_lib_path = os.path.join(
-                args.cgal_path, "../auxiliary/gmp/lib/libgmp-10.dll")
+                args.cgal_path, "auxiliary/gmp/lib/libgmp-10.dll")
             if os.path.exists(gmp_lib_path):
                 copy_file_if_not_exists(
                     gmp_lib_path,
                     os.path.join(args.install_path, "lib/libgmp-10.dll"))
+            cgal_lib_path = glob.glob(os.path.join(
+                args.cgal_path, "bin/CGAL-vc*-mt-*.dll"))
             copy_file_if_not_exists(
-                glob.glob(os.path.join(
-                    args.cgal_path,
-                    "bin/Release/CGAL-vc140-mt-*.dll"))[0],
-                os.path.join(args.install_path, "lib"))
+                cgal_lib_path[0],
+                os.path.join(args.install_path, "lib",
+                    os.path.basename(cgal_lib_path[0])))
 
 
 def main():
