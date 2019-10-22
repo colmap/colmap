@@ -1726,8 +1726,8 @@ int RunRigBundleAdjuster(int argc, char** argv) {
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddRequiredOption("rig_config_path", &rig_config_path);
-  options.AddRequiredOption("RigBundleAdjustment.refine_relative_poses",
-                            &rig_ba_options.refine_relative_poses);
+  options.AddDefaultOption("RigBundleAdjustment.refine_relative_poses",
+                           &rig_ba_options.refine_relative_poses);
   options.AddBundleAdjustmentOptions();
   options.Parse(argc, argv);
 
