@@ -283,12 +283,20 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
     solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
   }
 
-  solver_options.num_threads =
-      GetEffectiveNumThreads(solver_options.num_threads);
+  if (problem_->NumResiduals() <
+      options_.min_num_residuals_for_multi_threading) {
+    solver_options.num_threads = 1;
 #if CERES_VERSION_MAJOR < 2
-  solver_options.num_linear_solver_threads =
-      GetEffectiveNumThreads(solver_options.num_linear_solver_threads);
+    solver_options.num_linear_solver_threads = 1;
 #endif  // CERES_VERSION_MAJOR
+  } else {
+    solver_options.num_threads =
+        GetEffectiveNumThreads(solver_options.num_threads);
+#if CERES_VERSION_MAJOR < 2
+    solver_options.num_linear_solver_threads =
+        GetEffectiveNumThreads(solver_options.num_linear_solver_threads);
+#endif  // CERES_VERSION_MAJOR
+  }
 
   std::string solver_error;
   CHECK(solver_options.IsValid(&solver_error)) << solver_error;
@@ -562,9 +570,16 @@ bool ParallelBundleAdjuster::Solve(Reconstruction* reconstruction) {
 
   SetUp(reconstruction);
 
+  const int num_residuals = static_cast<int>(2 * measurements_.size());
+
+  size_t num_threads = options_.num_threads;
+  if (num_residuals < options_.min_num_residuals_for_multi_threading) {
+    num_threads = 1;
+  }
+
   pba::ParallelBA::DeviceT device;
-  const size_t kMaxNumResidualsFloat = 100 * 1000;
-  if (config_.NumResiduals(*reconstruction) > kMaxNumResidualsFloat) {
+  const int kMaxNumResidualsFloat = 100 * 1000;
+  if (num_residuals > kMaxNumResidualsFloat) {
     // The threshold for using double precision is empirically chosen and
     // ensures that the system can be reliable solved.
     device = pba::ParallelBA::PBA_CPU_DOUBLE;
@@ -577,7 +592,7 @@ bool ParallelBundleAdjuster::Solve(Reconstruction* reconstruction) {
     }
   }
 
-  pba::ParallelBA pba(device, options_.num_threads);
+  pba::ParallelBA pba(device, num_threads);
 
   pba.SetNextBundleMode(pba::ParallelBA::BUNDLE_FULL);
   pba.EnableRadialDistortion(pba::ParallelBA::PBA_PROJECTION_DISTORTION);
@@ -603,7 +618,7 @@ bool ParallelBundleAdjuster::Solve(Reconstruction* reconstruction) {
   timer.Pause();
 
   // Compose Ceres solver summary from PBA options.
-  summary_.num_residuals_reduced = static_cast<int>(2 * measurements_.size());
+  summary_.num_residuals_reduced = num_residuals;
   summary_.num_effective_parameters_reduced =
       static_cast<int>(8 * config_.NumImages() -
                        2 * config_.NumConstantCameras() + 3 * points3D_.size());

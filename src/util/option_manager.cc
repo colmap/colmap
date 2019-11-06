@@ -474,6 +474,9 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_refine_principal_point);
   AddAndRegisterDefaultOption("Mapper.ba_refine_extra_params",
                               &mapper->ba_refine_extra_params);
+  AddAndRegisterDefaultOption(
+      "Mapper.ba_min_num_residuals_for_multi_threading",
+      &mapper->ba_min_num_residuals_for_multi_threading);
   AddAndRegisterDefaultOption("Mapper.ba_local_num_images",
                               &mapper->ba_local_num_images);
   AddAndRegisterDefaultOption("Mapper.ba_local_max_num_iterations",

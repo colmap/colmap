@@ -226,6 +226,8 @@ BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
+  options.min_num_residuals_for_multi_threading =
+      ba_min_num_residuals_for_multi_threading;
   options.loss_function_scale = 1.0;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::SOFT_L1;
@@ -249,6 +251,8 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
+  options.min_num_residuals_for_multi_threading =
+	  ba_min_num_residuals_for_multi_threading;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
   return options;
@@ -261,6 +265,8 @@ IncrementalMapperOptions::ParallelGlobalBundleAdjustment() const {
   options.print_summary = true;
   options.gpu_index = ba_global_pba_gpu_index;
   options.num_threads = num_threads;
+  options.min_num_residuals_for_multi_threading =
+	  ba_min_num_residuals_for_multi_threading;
   return options;
 }
 

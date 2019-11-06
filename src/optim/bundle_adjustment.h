@@ -39,9 +39,9 @@
 
 #include <ceres/ceres.h>
 
+#include "PBA/pba.h"
 #include "base/camera_rig.h"
 #include "base/reconstruction.h"
-#include "PBA/pba.h"
 #include "util/alignment.h"
 
 namespace colmap {
@@ -68,6 +68,11 @@ struct BundleAdjustmentOptions {
 
   // Whether to print a final summary.
   bool print_summary = true;
+
+  // Minimum number of residuals to enable multi-threading. Note that
+  // single-threaded is typically better for small bundle adjustment problems
+  // due to the overhead of threading.
+  int min_num_residuals_for_multi_threading = 50000;
 
   // Ceres-Solver options.
   ceres::Solver::Options solver_options;
@@ -214,6 +219,11 @@ class ParallelBundleAdjuster {
 
     // Number of threads for CPU based bundle adjustment.
     int num_threads = -1;
+
+    // Minimum number of residuals to enable multi-threading. Note that
+    // single-threaded is typically better for small bundle adjustment problems
+    // due to the overhead of threading.
+    int min_num_residuals_for_multi_threading = 50000;
 
     bool Check() const;
   };

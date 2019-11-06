@@ -86,6 +86,10 @@ struct IncrementalMapperOptions {
   bool ba_refine_principal_point = false;
   bool ba_refine_extra_params = true;
 
+  // The minimum number of residuals per bundle adjustment problem to
+  // enable multi-threading solving of the problems.
+  int ba_min_num_residuals_for_multi_threading = 50000;
+
   // The number of images to optimize in local bundle adjustment.
   int ba_local_num_images = 6;
 
