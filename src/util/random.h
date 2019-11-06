@@ -43,13 +43,13 @@ namespace colmap {
 
 extern thread_local std::mt19937* PRNG;
 
-static const unsigned kRandomPRNGSeed = std::numeric_limits<unsigned>::max();
+static int kDefaultPRNGSeed = 0;
 
 // Initialize the PRNG with the given seed.
 //
 // @param seed   The seed for the PRNG. If the seed is -1, the current time
 //               is used as the seed.
-void SetPRNGSeed(unsigned seed = kRandomPRNGSeed);
+void SetPRNGSeed(unsigned seed = kDefaultPRNGSeed);
 
 // Generate uniformly distributed random integer number.
 //

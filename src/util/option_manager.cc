@@ -45,6 +45,7 @@
 #include "optim/bundle_adjustment.h"
 #include "ui/render_options.h"
 #include "util/misc.h"
+#include "util/random.h"
 #include "util/version.h"
 
 namespace config = boost::program_options;
@@ -75,6 +76,8 @@ OptionManager::OptionManager(bool add_project_options) {
   Reset();
 
   desc_->add_options()("help,h", "");
+
+  AddAndRegisterDefaultOption("random_seed", &kDefaultPRNGSeed);
 
   if (add_project_options) {
     desc_->add_options()("project_path", config::value<std::string>());
