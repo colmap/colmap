@@ -401,7 +401,8 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     }
 
     max_num_trials = RANSAC<AffineTransformEstimator>::ComputeNumTrials(
-        best_num_inliers, matches.size(), options.confidence);
+        best_num_inliers, matches.size(), options.confidence,
+        /* num_trials_multiplier = */ 3.0);
   }
 
   if (best_num_inliers == 0) {

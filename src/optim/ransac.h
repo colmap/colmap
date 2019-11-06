@@ -57,6 +57,10 @@ struct RANSACOptions {
   // outliers is reached.
   double confidence = 0.99;
 
+  // The num_trials_multiplier to the dynamically computed maximum number of
+  // iterations based on the specified confidence value.
+  double dyn_num_trials_multiplier = 3.0;
+
   // Number of random trials to estimate model from random subset.
   size_t min_num_trials = 0;
   size_t max_num_trials = std::numeric_limits<size_t>::max();
@@ -100,14 +104,18 @@ class RANSAC {
   // outlier-free random set of samples with the specified confidence,
   // given the inlier ratio.
   //
-  // @param num_inliers    The number of inliers.
-  // @param num_samples    The total number of samples.
-  // @param confidence     Confidence that one sample is outlier-free.
+  // @param num_inliers				The number of inliers.
+  // @param num_samples				The total number of samples.
+  // @param confidence				Confidence that one sample is
+  //								outlier-free.
+  // @param num_trials_multiplier   Multiplication factor to the computed
+  //							    number of trials.
   //
   // @return               The required number of iterations.
   static size_t ComputeNumTrials(const size_t num_inliers,
                                  const size_t num_samples,
-                                 const double confidence);
+                                 const double confidence,
+                                 const double num_trials_multiplier);
 
   // Robustly estimate model with RANSAC (RANdom SAmple Consensus).
   //
@@ -142,15 +150,15 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::RANSAC(
   const size_t kNumSamples = 100000;
   const size_t dyn_max_num_trials = ComputeNumTrials(
       static_cast<size_t>(options_.min_inlier_ratio * kNumSamples), kNumSamples,
-      options_.confidence);
+      options_.confidence, options_.dyn_num_trials_multiplier);
   options_.max_num_trials =
       std::min<size_t>(options_.max_num_trials, dyn_max_num_trials);
 }
 
 template <typename Estimator, typename SupportMeasurer, typename Sampler>
 size_t RANSAC<Estimator, SupportMeasurer, Sampler>::ComputeNumTrials(
-    const size_t num_inliers, const size_t num_samples,
-    const double confidence) {
+    const size_t num_inliers, const size_t num_samples, const double confidence,
+    const double num_trials_multiplier) {
   const double inlier_ratio = num_inliers / static_cast<double>(num_samples);
 
   const double nom = 1 - confidence;
@@ -163,7 +171,8 @@ size_t RANSAC<Estimator, SupportMeasurer, Sampler>::ComputeNumTrials(
     return 1;
   }
 
-  return static_cast<size_t>(std::ceil(std::log(nom) / std::log(denom)));
+  return static_cast<size_t>(
+      std::ceil(std::log(nom) / std::log(denom) * num_trials_multiplier));
 }
 
 template <typename Estimator, typename SupportMeasurer, typename Sampler>
@@ -226,8 +235,9 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
         best_support = support;
         best_model = sample_model;
 
-        dyn_max_num_trials = ComputeNumTrials(best_support.num_inliers,
-                                              num_samples, options_.confidence);
+        dyn_max_num_trials = ComputeNumTrials(
+            best_support.num_inliers, num_samples, options_.confidence,
+            options_.dyn_num_trials_multiplier);
       }
 
       if (report.num_trials >= dyn_max_num_trials &&
