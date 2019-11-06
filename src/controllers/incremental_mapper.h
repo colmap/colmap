@@ -97,7 +97,7 @@ struct IncrementalMapperOptions {
   int ba_local_max_num_iterations = 25;
 
   // Whether to use PBA in global bundle adjustment.
-  bool ba_global_use_pba = true;
+  bool ba_global_use_pba = false;
 
   // The GPU index for PBA bundle adjustment.
   int ba_global_pba_gpu_index = -1;
