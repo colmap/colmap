@@ -36,7 +36,6 @@
 
 #include "base/projection.h"
 #include "base/triangulation.h"
-#include "estimators/absolute_pose.h"
 #include "estimators/pose.h"
 #include "util/bitmap.h"
 #include "util/misc.h"
