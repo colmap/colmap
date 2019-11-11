@@ -105,7 +105,8 @@ find_package(Glew REQUIRED)
 find_package(Git)
 
 if (CGAL_ENABLED)
-  find_package(CGAL QUIET)
+    set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE TRUE)
+    find_package(CGAL QUIET)
 endif()
 
 set(CUDA_MIN_VERSION "7.0")
@@ -123,6 +124,7 @@ if(Qt5_FOUND)
 endif()
 
 if(CGAL_FOUND)
+    list(APPEND CGAL_LIBRARY ${CGAL_LIBRARIES})
     message(STATUS "Found CGAL")
     message(STATUS "  Includes : ${CGAL_INCLUDE_DIRS}")
     message(STATUS "  Libraries : ${CGAL_LIBRARY}")
@@ -299,7 +301,6 @@ if(UNIX)
 endif()
 
 set(COLMAP_INTERNAL_LIBRARIES
-    colmap
     flann
     graclus
     lsd
@@ -308,15 +309,6 @@ set(COLMAP_INTERNAL_LIBRARIES
     sqlite3
     sift_gpu
     vlfeat
-)
-
-if(CUDA_ENABLED)
-    list(APPEND COLMAP_INTERNAL_LIBRARIES colmap_cuda colmap)
-endif()
-
-set(COLMAP_LIBRARIES
-    ${COLMAP_INTERNAL_LIBRARIES}
-    ${COLMAP_EXTERNAL_LIBRARIES}
 )
 
 include_directories(

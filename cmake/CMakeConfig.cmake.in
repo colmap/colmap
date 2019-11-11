@@ -160,21 +160,8 @@ if(UNIX)
         pthread)
 endif()
 
-set(COLMAP_INTERNAL_LIBRARIES
-    colmap
-    flann
-    graclus
-    lsd
-    pba
-    poisson_recon
-    sqlite3
-    sift_gpu
-    vlfeat
-)
-
 if(COLMAP_CUDA_ENABLED)
     find_package(CUDA ${COLMAP_CUDA_MIN_VERSION} QUIET)
-    list(APPEND COLMAP_INTERNAL_LIBRARIES colmap_cuda)
     list(APPEND COLMAP_EXTERNAL_LIBRARIES ${CUDA_LIBRARIES})
 endif()
 
@@ -184,7 +171,7 @@ if(COLMAP_CGAL_ENABLED)
 endif()
 
 set(COLMAP_LIBRARIES
-    ${COLMAP_INTERNAL_LIBRARIES}
+    colmap
     ${COLMAP_EXTERNAL_LIBRARIES}
 )
 
