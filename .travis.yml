@@ -35,7 +35,7 @@ matrix:
       env:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON"
         - RUN_TESTS=true
-        - QT_VERSION=596
+        - QT_VERSION=597
     - os: linux
       env:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON"
@@ -45,24 +45,24 @@ matrix:
       env:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=OFF"
         - RUN_TESTS=true
-        - QT_VERSION=596
+        - QT_VERSION=597
     - os: linux
       env:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=ON -DCGAL_ENABLED=ON"
         - RUN_TESTS=false
-        - QT_VERSION=596
+        - QT_VERSION=597
     - os: linux
       env:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON -DCUDA_ARCHS=Kepler"
         - RUN_TESTS=false
-        - QT_VERSION=596
-        - CUDA_VERSION=7.5-18
+        - QT_VERSION=597
+        - CUDA_VERSION=8.0.61-1
     - os: linux
       env:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON -DCUDA_ARCHS=Pascal"
         - RUN_TESTS=false
-        - QT_VERSION=596
-        - CUDA_VERSION=8.0.61-1
+        - QT_VERSION=597
+        - CUDA_VERSION=10.1.243-1
     - os: osx
       env:
         - CMAKE_OPTIONS="-DIPO_ENABLED=OFF -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5"
@@ -95,7 +95,7 @@ before_script:
       sh -e /etc/init.d/xvfb start
       sleep 3
 
-      sudo add-apt-repository --yes ppa:beineri/opt-qt${QT_VERSION}-trusty
+      sudo add-apt-repository --yes ppa:beineri/opt-qt${QT_VERSION}-xenial
       export PATH="/opt/qt${QT_VERSION:0:2}/bin:$PATH"
       sudo apt-get update -qq
       sudo apt-get -y install qt${QT_VERSION:0:2}base
