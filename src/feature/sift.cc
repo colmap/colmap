@@ -110,19 +110,6 @@ Eigen::MatrixXi ComputeSiftDistanceMatrix(
 }
 
 
-struct ReverseDotDistance {
-  using ElementType = int;
-  using ResultType = int;
-
-  template <class Iterator1, class Iterator2>
-  ResultType operator()(Iterator1 a, Iterator2 b, size_t size, ResultType /*worst_dist*/ = -1) const {
-    ResultType result = ResultType();
-    for (size_t i = 0; i < size; ++i) {
-      result -= (*a++) * (*b++);
-    }
-    return result;
-  }
-};
 void FlannMatch(const FeatureDescriptors& query,
                 const FeatureDescriptors& dataset,
                 Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> * indices,
