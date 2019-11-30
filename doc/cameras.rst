@@ -6,9 +6,9 @@ parameters are known a priori, it is generally best to use the simplest camera
 model that is complex enough to model the distortion effects:
 
 - ``SIMPLE_PINHOLE``, ``PINHOLE``: Use these camera models,
-  if your images are undistorted a priori. Note that even in the case of
-  undistorted images, COLMAP could try to improve the intrinsics with a more
-  complex camera model.
+  if your images are undistorted a priori. These use one and two focal length
+  parameters, respectively. Note that even in the case of undistorted images, 
+  COLMAP could try to improve the intrinsics with a more complex camera model.
 - ``SIMPLE_RADIAL``, ``RADIAL``: This should be the camera model of choice,
   if the intrinsics are unknown and every image has a different camera
   calibration, e.g., in the case of Internet photos. Both models are simplified
