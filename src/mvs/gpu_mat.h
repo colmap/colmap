@@ -124,6 +124,17 @@ class GpuMat {
 #ifdef __CUDACC__
 
 namespace internal {
+ 
+template <typename T>
+__global__ void FillWithScalarKernel(GpuMat<T> output, const T value) {
+  const size_t row = blockIdx.y * blockDim.y + threadIdx.y;
+  const size_t col = blockIdx.x * blockDim.x + threadIdx.x;
+  if (row < output.GetHeight() && col < output.GetWidth()) {
+    for (size_t slice = 0; slice < output.GetDepth(); ++slice) {
+      output.Set(row, col, slice, value);
+    }
+  }
+}
 
 template <typename T>
 __global__ void FillWithVectorKernel(const T* values, GpuMat<T> output) {
@@ -258,8 +269,9 @@ __device__ void GpuMat<T>::SetSlice(const size_t row, const size_t col,
 
 template <typename T>
 void GpuMat<T>::FillWithScalar(const T value) {
-  CUDA_SAFE_CALL(
-      cudaMemset(array_ptr_, value, width_ * height_ * depth_ * sizeof(T)));
+  internal::FillWithScalarKernel<T>
+      <<<gridSize_, blockSize_>>>(*this, value);
+  CUDA_SYNC_AND_CHECK();
 }
 
 template <typename T>
