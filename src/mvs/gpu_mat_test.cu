@@ -57,11 +57,10 @@ void TestTransposeImage(const size_t width, const size_t height,
   array.Transpose(&array_transposed);
 
   std::vector<T> array_host(width * height * depth, T(0.0));
-  array.CopyToDevice(array_host.data(), width * sizeof(T));
+  array.CopyToHost(array_host.data(), width * sizeof(T));
 
   std::vector<T> array_transposed_host(width * height * depth, 0);
-  array_transposed.CopyToDevice(array_transposed_host.data(),
-                                height * sizeof(T));
+  array_transposed.CopyToHost(array_transposed_host.data(), height * sizeof(T));
 
   for (size_t r = 0; r < height; ++r) {
     for (size_t c = 0; c < width; ++c) {
@@ -103,10 +102,10 @@ void TestFlipHorizontalImage(const size_t width, const size_t height,
   array.FlipHorizontal(&array_flipped);
 
   std::vector<T> array_host(width * height * depth, T(0.0));
-  array.CopyToDevice(array_host.data(), width * sizeof(T));
+  array.CopyToHost(array_host.data(), width * sizeof(T));
 
   std::vector<T> array_flipped_host(width * height * depth, 0);
-  array_flipped.CopyToDevice(array_flipped_host.data(), width * sizeof(T));
+  array_flipped.CopyToHost(array_flipped_host.data(), width * sizeof(T));
 
   for (size_t r = 0; r < height; ++r) {
     for (size_t c = 0; c < width; ++c) {
@@ -148,10 +147,10 @@ void TestRotateImage(const size_t width, const size_t height,
   array.Rotate(&array_rotated);
 
   std::vector<T> array_host(width * height * depth, T(0.0));
-  array.CopyToDevice(array_host.data(), width * sizeof(T));
+  array.CopyToHost(array_host.data(), width * sizeof(T));
 
   std::vector<T> array_rotated_host(width * height * depth, 0);
-  array_rotated.CopyToDevice(array_rotated_host.data(), height * sizeof(T));
+  array_rotated.CopyToHost(array_rotated_host.data(), height * sizeof(T));
 
   const double arrayCenterH = width / 2.0 - 0.5;
   const double arrayCenterV = height / 2.0 - 0.5;
