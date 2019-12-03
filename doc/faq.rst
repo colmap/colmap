@@ -121,6 +121,11 @@ Example of images.txt::
 
     4 0.698777 0.714625 -0.023996 0.021129 -0.048184 0.004529 -0.313427 2 image0004.png
 
+Each image above must have the same image id (first column) as in the database (next step). 
+This database can be inspected either in the GUI (selecting from the menu ``Database management''
+from under ``Processing''), or, one can create a reconstruction with colmap and later export 
+it as as text in order to see the images.txt file it creates.
+
 To reconstruct a sparse map, you first have to recompute features from the
 images of the known camera poses as follows::
 
