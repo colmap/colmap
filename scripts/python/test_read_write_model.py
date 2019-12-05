@@ -30,7 +30,8 @@
 # Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 import numpy as np
-from read_model import read_model
+from read_model import read_model, write_model
+from tempfile import mkdtemp
 
 
 def compare_cameras(cameras1, cameras2):
@@ -90,6 +91,27 @@ def main():
     compare_points(points3D_txt, points3D_bin)
 
     print("... text and binary models are equal.")
+    print("Saving text model and reloading it ...")
+
+    tmpdir = mkdtemp()
+    write_model(cameras_bin, images_bin, points3D_bin, tmpdir, ext='.txt')
+    cameras_txt, images_txt, points3D_txt = \
+        read_model(tmpdir, ext=".txt")
+    compare_cameras(cameras_txt, cameras_bin)
+    compare_images(images_txt, images_bin)
+    compare_points(points3D_txt, points3D_bin)
+
+    print("... saved text and loaded models are equal.")
+    print("Saving binary model and reloading it ...")
+
+    write_model(cameras_bin, images_bin, points3D_bin, tmpdir, ext='.bin')
+    cameras_bin, images_bin, points3D_bin = \
+        read_model(tmpdir, ext=".bin")
+    compare_cameras(cameras_txt, cameras_bin)
+    compare_images(images_txt, images_bin)
+    compare_points(points3D_txt, points3D_bin)
+
+    print("... saved binary and loaded models are equal.")
 
 
 if __name__ == "__main__":
