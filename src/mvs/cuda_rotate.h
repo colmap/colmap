@@ -67,8 +67,8 @@ __global__ void CudaRotateKernel(T* output_data, const T* input_data,
   int output_x = input_y;
   int output_y = width - 1 - input_x;
 
-  output_data[output_y * output_pitch + output_x] =
-      input_data[input_y * input_pitch + input_x];
+  *((T*)((char*)output_data + output_y * output_pitch) + output_x) =
+      *((T*)((char*)input_data + input_y * input_pitch) + input_x);
 }
 
 }  // namespace internal
@@ -82,8 +82,7 @@ void CudaRotate(const T* input, T* output, const int width, const int height,
   grid_dim.y = height;
 
   internal::CudaRotateKernel<<<grid_dim, block_dim>>>(
-      output, input, width, height, pitch_input / sizeof(T),
-      pitch_output / sizeof(T));
+      output, input, width, height, pitch_input, pitch_output);
 }
 
 #undef TILE_DIM_ROTATE
