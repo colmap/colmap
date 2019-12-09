@@ -70,19 +70,18 @@ __global__ void CudaFlipHorizontalKernel(T* output_data, const T* input_data,
   for (int i = 0; i < TILE_DIM_FLIP; i += BLOCK_ROWS_FLIP) {
     const int x = min(x_index, width - 1);
     const int y = min(y_index, height - i - 1);
-    const int index = y * input_pitch + x + i * input_pitch;
-    tile[tile_y + i][tile_x] = input_data[index];
+    tile[tile_y + i][tile_x] =
+        *((T*)((char*)input_data + y * input_pitch + i * input_pitch) + x);
   }
 
   __syncthreads();
 
   x_index = width - 1 - (blockIdx.x * TILE_DIM_FLIP + threadIdx.x);
   if (x_index < width) {
-    const int index = x_index + y_index * output_pitch;
     for (int i = 0; i < TILE_DIM_FLIP; i += BLOCK_ROWS_FLIP) {
       if (y_index + i < height) {
-        output_data[index + i * output_pitch] =
-            tile[threadIdx.y + i][threadIdx.x];
+        *((T*)((char*)output_data + y_index * output_pitch + i * output_pitch) +
+          x_index) = tile[threadIdx.y + i][threadIdx.x];
       }
     }
   }
@@ -100,8 +99,7 @@ void CudaFlipHorizontal(const T* input, T* output, const int width,
   grid_dim.y = (height - 1) / TILE_DIM_FLIP + 1;
 
   internal::CudaFlipHorizontalKernel<<<grid_dim, block_dim>>>(
-      output, input, width, height, pitch_input / sizeof(T),
-      pitch_output / sizeof(T));
+      output, input, width, height, pitch_input, pitch_output);
 }
 
 #undef TILE_DIM_FLIP
