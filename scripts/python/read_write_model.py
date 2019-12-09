@@ -165,8 +165,8 @@ def write_cameras_text(cameras, path):
     '# Number of cameras: {}\n'.format(len(cameras))
     with open(path, "w") as fid:
         fid.write(HEADER)
-        for id, cam in cameras.items():
-            to_write = [id, cam.model, cam.width, cam.height, *cam.params]
+        for _, cam in cameras.items():
+            to_write = [cam.id, cam.model, cam.width, cam.height, *cam.params]
             line = " ".join([str(elem) for elem in to_write])
             fid.write(line + "\n")
 
@@ -263,8 +263,10 @@ def write_images_text(images, path):
         void Reconstruction::ReadImagesText(const std::string& path)
         void Reconstruction::WriteImagesText(const std::string& path)
     """
-
-    mean_observations = sum((len(img.point3D_ids) for id, img in images.items()))/len(images)
+    if len(images) == 0:
+        mean_observations = 0
+    else:
+        mean_observations = sum((len(img.point3D_ids) for _, img in images.items()))/len(images)
     HEADER = '# Image list with two lines of data per image:\n'
     '#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, NAME\n'
     '#   POINTS2D[] as (X, Y, POINT3D_ID)\n'
@@ -272,8 +274,8 @@ def write_images_text(images, path):
 
     with open(path, "w") as fid:
         fid.write(HEADER)
-        for id, img in images.items():
-            image_header = [id, *img.qvec, *img.tvec, img.camera_id, img.name]
+        for _, img in images.items():
+            image_header = [img.id, *img.qvec, *img.tvec, img.camera_id, img.name]
             first_line = " ".join(map(str, image_header))
             fid.write(first_line + "\n")
 
@@ -291,16 +293,16 @@ def write_images_binary(images, path_to_model_file):
     """
     with open(path_to_model_file, "wb") as fid:
         write_next_bytes(fid, len(images), "Q")
-        for id, image in images.items():
-            write_next_bytes(fid, id, "i")
-            write_next_bytes(fid, image.qvec.tolist(), "dddd")
-            write_next_bytes(fid, image.tvec.tolist(), "ddd")
-            write_next_bytes(fid, image.camera_id, "i")
-            for char in image.name:
+        for _, img in images.items():
+            write_next_bytes(fid, img.id, "i")
+            write_next_bytes(fid, img.qvec.tolist(), "dddd")
+            write_next_bytes(fid, img.tvec.tolist(), "ddd")
+            write_next_bytes(fid, img.camera_id, "i")
+            for char in img.name:
                 write_next_bytes(fid, char.encode("utf-8"), "c")
             write_next_bytes(fid, b"\x00", "c")
-            write_next_bytes(fid, len(image.point3D_ids), "Q")
-            for xy, p3d_id in zip(image.xys, image.point3D_ids):
+            write_next_bytes(fid, len(img.point3D_ids), "Q")
+            for xy, p3d_id in zip(img.xys, img.point3D_ids):
                 write_next_bytes(fid, [*xy, p3d_id], "ddq")
 
 
@@ -367,15 +369,18 @@ def write_points3D_text(points3D, path):
         void Reconstruction::ReadPoints3DText(const std::string& path)
         void Reconstruction::WritePoints3DText(const std::string& path)
     """
-    mean_track_length = sum((len(pt.image_ids) for id, pt in points3D.items()))/len(points3D)
+    if len(points3D) == 0:
+        mean_track_length = 0
+    else:
+        mean_track_length = sum((len(pt.image_ids) for _, pt in points3D.items()))/len(points3D)
     HEADER = '# 3D point list with one line of data per point:\n'
     '#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, TRACK[] as (IMAGE_ID, POINT2D_IDX)\n'
     '# Number of points: {}, mean track length: {}\n'.format(len(points3D), mean_track_length)
 
     with open(path, "w") as fid:
         fid.write(HEADER)
-        for id, pt in points3D.items():
-            point_header = [id, *pt.xyz, *pt.rgb, pt.error]
+        for _, pt in points3D.items():
+            point_header = [pt.id, *pt.xyz, *pt.rgb, pt.error]
             fid.write(" ".join(map(str, point_header)) + " ")
             track_strings = []
             for image_id, point2D in zip(pt.image_ids, pt.point2D_idxs):
@@ -391,14 +396,14 @@ def write_points3d_binary(points3D, path_to_model_file):
     """
     with open(path_to_model_file, "wb") as fid:
         write_next_bytes(fid, len(points3D), "Q")
-        for id, point in points3D.items():
-            write_next_bytes(fid, id, "Q")
-            write_next_bytes(fid, point.xyz.tolist(), "ddd")
-            write_next_bytes(fid, point.rgb.tolist(), "BBB")
-            write_next_bytes(fid, point.error, "d")
-            track_length = point.image_ids.shape[0]
+        for _, pt in points3D.items():
+            write_next_bytes(fid, pt.id, "Q")
+            write_next_bytes(fid, pt.xyz.tolist(), "ddd")
+            write_next_bytes(fid, pt.rgb.tolist(), "BBB")
+            write_next_bytes(fid, pt.error, "d")
+            track_length = pt.image_ids.shape[0]
             write_next_bytes(fid, track_length, "Q")
-            for image_id, point2D_id in zip(point.image_ids, point.point2D_idxs):
+            for image_id, point2D_id in zip(pt.image_ids, pt.point2D_idxs):
                 write_next_bytes(fid, [image_id, point2D_id], "ii")
 
 
@@ -453,17 +458,15 @@ def rotmat2qvec(R):
     return qvec
 
 
-parser = argparse.ArgumentParser(description='Read and write COLMAP binary and text models')
-parser.add_argument('input_model', help='path to input model folder')
-parser.add_argument('input_format', choices=['.bin', '.txt'],
-                    help='input model format')
-parser.add_argument('--output_model', metavar='PATH',
-                    help='path to output model folder')
-parser.add_argument('--output_format', choices=['.bin', '.txt'],
-                    help='outut model format', default='.txt')
-
-
 def main():
+    parser = argparse.ArgumentParser(description='Read and write COLMAP binary and text models')
+    parser.add_argument('input_model', help='path to input model folder')
+    parser.add_argument('input_format', choices=['.bin', '.txt'],
+                        help='input model format')
+    parser.add_argument('--output_model', metavar='PATH',
+                        help='path to output model folder')
+    parser.add_argument('--output_format', choices=['.bin', '.txt'],
+                        help='outut model format', default='.txt')
     args = parser.parse_args()
 
     cameras, images, points3D = read_model(path=args.input_model, ext=args.input_format)
