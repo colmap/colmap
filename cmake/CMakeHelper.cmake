@@ -180,7 +180,7 @@ macro(COLMAP_ADD_CUDA_TEST TARGET_NAME)
         cuda_add_executable(${TARGET_NAME} ${ARGN})
         set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
             ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
-        target_link_libraries(${TARGET_NAME} PRIVATE colmap
+        target_link_libraries(${TARGET_NAME} colmap
                               ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
         add_test("${FOLDER_NAME}/${TARGET_NAME}" ${TARGET_NAME})
         if(IS_MSVC)
