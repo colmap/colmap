@@ -41,8 +41,18 @@ using namespace colmap::mvs;
 
 BOOST_AUTO_TEST_CASE(TestFillWithVector) {
   GpuMat<float> array(100, 100, 2);
-  const std::vector<float> vector = {0.0f, 1.0f};
+  const std::vector<float> vector = {1.0f, 2.0f};
   array.FillWithVector(vector.data());
+
+  std::vector<float> array_host(100 * 100 * 2, 0.0f);
+  array.CopyToHost(array_host.data(), 100 * sizeof(float));
+
+  for (size_t r = 0; r < 100; ++r) {
+    for (size_t c = 0; c < 100; ++c) {
+      BOOST_CHECK_EQUAL(array_host[0 * 100 * 100 + r * 100 + c], 1.0f);
+      BOOST_CHECK_EQUAL(array_host[1 * 100 * 100 + r * 100 + c], 2.0f);
+    }
+  }
 }
 
 template <typename T>
