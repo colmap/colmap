@@ -11,19 +11,25 @@
 ## Quick start:
 
 1. Check that Docker 19.03<sup>[2](#f2)</sup> or higher is installed on your host machine:
+
 `docker --version`
 
 2. Check that you have an NVIDIA driver installed on your host machine:
+
 `nvidia-smi`
 
 3. Setup the nvidia-toolkit on your host machine<sup>[3](#f3)</sup>:
+
 For ubuntu host machines: `./setup-ubuntu.sh`
+
 For centos host machines: `./setup-centos.sh`
 
 4. Run the *QUICK_START* script, using the *full local path* to your prefered local working directory (a folder with your input files/images, etc):
+
 `./QUICK_START.sh /path/where/your/working/folder/is`
 
 This will put you in a directory (inside the Docker container) mounted to the local path you specified. Now you can run COLMAP binaries<sup>[4](#f4)</sup> on your own inputs like this:
+
 `colmap autoreconstruction --image_path ./images --working_folder .`
 
 Enjoy!
