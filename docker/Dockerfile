@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM nvidia/cuda:10.2-base-ubuntu18.04
 
 # Prepare and empty machine for building:
 RUN apt-get update -yq
@@ -35,6 +35,7 @@ RUN cd ceres-solver &&\
 	make -j4 &&\
 	make install
 
+#-----------------------------------------------
 # COLMAP INSTALL
 
 RUN git clone https://github.com/colmap/colmap.git --branch 3.6-dev.3
