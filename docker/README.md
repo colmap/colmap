@@ -41,8 +41,11 @@ Running COLMAP binaries can use a lot of memory (depending on the size of your d
 [dockerParam]: https://i.stack.imgur.com/6iWiW.png "Recommend increasing memory to >4Gb"
 
 <a name="f1">1</a>: COLMAP needs NVIDA GPU compute hardware for dense reconstruction (as of 12/10/2019), and is optional for feature extraction and matching.
+
 <a name="f2">2</a>: This is because Docker 19.03+ natively supports NVIDIA GPUs.
+
 <a name="f3">3</a>: You should get a similar output to what you get when you ran step 2 on your host, since the docker container is detecting the same GPU(s). If you have trouble, you may want to read the [nvidia-docker](https://github.com/NVIDIA/nvidia-docker) webpage, as the scripts `./setup-ubuntu.sh` and `./setup-centos.sh` are based on instructions posted there and may change over time.
+
 <a name="f4">4</a>: Right now this workflow is pinned to build [COLMAP 3.6-dev.3](https://github.com/tjdahlke/colmap/releases/tag/3.6-dev.3). To build a different release, or the latest commit on master, open up the Dockerfile and comment/modify as needed.
 
 
