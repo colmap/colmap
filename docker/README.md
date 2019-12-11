@@ -48,7 +48,7 @@ Running COLMAP binaries can use a lot of memory (depending on the size of your d
 
 <a name="f3">3</a>: You should get a similar output to what you get when you ran step 2 on your host, since the docker container is detecting the same GPU(s). If you have trouble, you may want to read the [nvidia-docker](https://github.com/NVIDIA/nvidia-docker) webpage, as the scripts `./setup-ubuntu.sh` and `./setup-centos.sh` are based on instructions posted there and may change over time.
 
-<a name="f4">4</a>: Right now this workflow is pinned to build [COLMAP 3.6-dev.3](https://github.com/tjdahlke/colmap/releases/tag/3.6-dev.3). To build a different release, or the latest commit on master, open up the Dockerfile and comment/modify as needed.
+<a name="f4">4</a>: Right now this workflow is designed to build the latest release of COLMAP. To build a specific release, open up the Dockerfile and append '--branch *RELEASE_TAG*' as indicated in the Dockerfile, with *RELEASE_TAG* being the specific release you want to build. 
 
 
 
