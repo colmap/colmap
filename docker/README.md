@@ -20,29 +20,30 @@
 For ubuntu host machines: `./setup-ubuntu.sh`
 For centos host machines: `./setup-centos.sh`
 
-4. Run the *QUICK_START* script, using the *full local path* to your prefered local working directory (a folder with your input files/images, etc):
-`./QUICK_START.sh /path/where/your/working/folder/is`
+4. Run the *quick-start* script, using the *full local path* to your prefered local working directory (a folder with your input files/images, etc):
+`./quick-start.sh /path/where/your/working/folder/is`
 
 This will put you in a directory (inside the Docker container) mounted to the local path you specified. Now you can run COLMAP binaries<sup>[4](#f4)</sup> on your own inputs like this:
-`colmap autoreconstruction --image_path ./images --working_folder .`
-
-Enjoy!
+`colmap automatic_reconstructor --image_path ./images --workspace_path .`
 
 ## Build from scratch:
 
 After completing steps 1-3, you can alternatively build the docker image from scratch based on the **Dockerfile** (perhaps with your own changes / modifications) using:
-`./buildFromScratch.sh /path/where/your/working/folder/is`
+`./build.sh /path/where/your/working/folder/is`
 
 ## NOTES
 Running COLMAP binaries can use a lot of memory (depending on the size of your data set / imagery). Docker has a relatively small default memory setting (2Gb on Mac). You will probably want to increase this before you run any larger workflows. From Docker desktop on Mac for example, just open the Docker GUI, go to the *Advanced* tab and increase via the slider:
 
-![alt text][dockerParam]
+![docker-memory-settings.png][dockerParam]
 
-[dockerParam]: https://i.stack.imgur.com/6iWiW.png "Recommend increasing memory to >4Gb"
+[dockerParam]: https://github.com/colmap/colmap/docker/docker-memory-settings.png "Recommend increasing memory to >4Gb"
 
 <a name="f1">1</a>: COLMAP needs NVIDA GPU compute hardware for dense reconstruction (as of 12/10/2019), and is optional for feature extraction and matching.
+
 <a name="f2">2</a>: This is because Docker 19.03+ natively supports NVIDIA GPUs.
+
 <a name="f3">3</a>: You should get a similar output to what you get when you ran step 2 on your host, since the docker container is detecting the same GPU(s). If you have trouble, you may want to read the [nvidia-docker](https://github.com/NVIDIA/nvidia-docker) webpage, as the scripts `./setup-ubuntu.sh` and `./setup-centos.sh` are based on instructions posted there and may change over time.
+
 <a name="f4">4</a>: Right now this workflow is pinned to build [COLMAP 3.6-dev.3](https://github.com/tjdahlke/colmap/releases/tag/3.6-dev.3). To build a different release, or the latest commit on master, open up the Dockerfile and comment/modify as needed.
 
 

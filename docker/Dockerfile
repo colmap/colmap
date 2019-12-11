@@ -1,10 +1,8 @@
 FROM nvidia/cuda:10.2-devel-ubuntu18.04
 
 # Prepare and empty machine for building:
-RUN apt-get update -yq
-RUN apt-get install -yq
-RUN apt-get -y install git cmake vim
-RUN apt-get -y install \
+RUN apt-get update && apt-get install -y \
+    git cmake vim \
     build-essential \
     libboost-program-options-dev \
     libboost-filesystem-dev \
@@ -20,13 +18,12 @@ RUN apt-get -y install \
     libglew-dev \
     qtbase5-dev \
     libqt5opengl5-dev \
-    libcgal-dev
-
-# CGAL
-RUN apt-get -y install libcgal-qt5-dev
+    libcgal-dev \
+    libcgal-qt5-dev
 
 # CERES SOLVER
-RUN apt-get -y install libatlas-base-dev libsuitesparse-dev
+RUN apt-get -y install libatlas-base-dev \
+    libsuitesparse-dev
 RUN git clone https://github.com/ceres-solver/ceres-solver.git --branch 1.14.0
 RUN cd ceres-solver &&\
 	mkdir build &&\
@@ -35,13 +32,11 @@ RUN cd ceres-solver &&\
 	make -j4 &&\
 	make install
 
-#-----------------------------------------------
+#----------------------------------------------------------------
 # COLMAP INSTALL
+RUN git clone https://github.com/colmap/colmap.git #--branch 3.6-dev.3
 
-RUN git clone https://github.com/colmap/colmap.git --branch 3.6-dev.3
-
-# Uncomment below (and comment the above) to use the latest default branch commit instead
-# RUN git clone https://github.com/colmap/colmap.git
+# Note: This Dockerfile has been tested using COLMAP pre-release 3.6-dev.3. Later versions of COLMAP (which will be automatically cloned as default) may have problems using the environment described thus far. If you encounter problems and want to install the tested release, then uncomment the branch specification in the line above.
 
 RUN cd colmap &&\
 	git checkout dev &&\

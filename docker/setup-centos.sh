@@ -7,4 +7,4 @@ sudo yum install -y nvidia-container-toolkit
 sudo systemctl restart docker
 
 # Check that it worked!
-docker run --gpus all nvidia/cuda:9.0-base nvidia-smi
+docker run --gpus all nvidia/cuda:10.2-base nvidia-smi
