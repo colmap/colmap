@@ -1,4 +1,4 @@
-FROM nvidia/cuda:10.2-base-ubuntu18.04
+FROM nvidia/cuda:10.2-devel-ubuntu18.04
 
 # Prepare and empty machine for building:
 RUN apt-get update -yq
