@@ -32,8 +32,6 @@ This will put you in a directory (inside the Docker container) mounted to the lo
 
 `colmap autoreconstruction --image_path ./images --working_folder .`
 
-Enjoy!
-
 ## Build from scratch:
 
 After completing steps 1-3, you can alternatively build the docker image from scratch based on the **Dockerfile** (perhaps with your own changes / modifications) using:
