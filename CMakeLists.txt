@@ -285,6 +285,7 @@ set(COLMAP_EXTERNAL_LIBRARIES
     ${CERES_LIBRARIES}
     ${OPENGL_gl_LIBRARY}
     ${OPENGL_glu_LIBRARY}
+    ${OpenMP_libomp_LIBRARY}
     ${Qt5Core_LIBRARIES}
     ${Qt5OpenGL_LIBRARIES}
     ${Qt5Widgets_LIBRARIES}
