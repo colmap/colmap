@@ -30,7 +30,6 @@
 # Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 import numpy as np
-import pylab as plt
 
 
 def read_array(path):
@@ -57,6 +56,8 @@ def main():
         "path/to/dense/stereo/depth_maps/image1.jpg.photometric.bin")
     normal_map = read_array(
         "path/to/dense/stereo/normal_maps/image1.jpg.photometric.bin")
+
+    import pylab as plt
 
     # Visualize the depth map.
     min_depth, max_depth = np.percentile(depth_map, [5, 95])
