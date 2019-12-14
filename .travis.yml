@@ -114,7 +114,7 @@ before_script:
       fi
       cd ceres-solver
       git pull
-      git checkout $(git describe --tags)
+      git checkout 1.14.0
       mkdir -p build
       cd build
       cmake .. \
