@@ -114,7 +114,8 @@ void LinePainter::Render(const QMatrix4x4& pmv_matrix, const int width,
                                   QVector2D(1.0f / width, 1.0f / height));
   shader_program_.setUniformValue("u_line_width", line_width);
 
-  glDrawArrays(GL_LINES, 0, (GLsizei)(2 * num_geoms_));
+  QOpenGLFunctions* gl_funcs = QOpenGLContext::currentContext()->functions();
+  gl_funcs->glDrawArrays(GL_LINES, 0, (GLsizei)(2 * num_geoms_));
 
   // Make sure the VAO is not changed from the outside
   vao_.release();

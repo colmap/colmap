@@ -1239,7 +1239,9 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
     if (color_sums.count(point3D.first)) {
       Eigen::Vector3d color =
           color_sums[point3D.first] / color_counts[point3D.first];
-      color.unaryExpr(std::ptr_fun<double, double>(std::round));
+      for (Eigen::Index i = 0; i < color.size(); ++i) {
+        color[i] = std::round(color[i]);
+      }
       point3D.second.SetColor(color.cast<uint8_t>());
     } else {
       point3D.second.SetColor(kBlackColor);
