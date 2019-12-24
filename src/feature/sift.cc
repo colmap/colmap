@@ -49,6 +49,99 @@
 namespace colmap {
 namespace {
 
+namespace legacy {
+  size_t FindBestMatchesOneWay(const Eigen::MatrixXi& dists,
+                               const float max_ratio, const float max_distance,
+                               std::vector<int>* matches) {
+    // SIFT descriptor vectors are normalized to length 512.
+    const float kDistNorm = 1.0f / (512.0f * 512.0f);
+
+    size_t num_matches = 0;
+    matches->resize(dists.rows(), -1);
+
+    for (Eigen::MatrixXi::Index i1 = 0; i1 < dists.rows(); ++i1) {
+      int best_i2 = -1;
+      int best_dist = 0;
+      int second_best_dist = 0;
+      for (Eigen::MatrixXi::Index i2 = 0; i2 < dists.cols(); ++i2) {
+        const int dist = dists(i1, i2);
+        if (dist > best_dist) {
+          best_i2 = i2;
+          second_best_dist = best_dist;
+          best_dist = dist;
+        } else if (dist > second_best_dist) {
+          second_best_dist = dist;
+        }
+      }
+
+      // Check if any match found.
+      if (best_i2 == -1) {
+        continue;
+      }
+
+      const float best_dist_normed =
+        std::acos(std::min(kDistNorm * best_dist, 1.0f));
+
+      // Check if match distance passes threshold.
+      if (best_dist_normed > max_distance) {
+        continue;
+      }
+
+      const float second_best_dist_normed =
+        std::acos(std::min(kDistNorm * second_best_dist, 1.0f));
+
+      // Check if match passes ratio test. Keep this comparison >= in order to
+      // ensure that the case of best == second_best is detected.
+      if (best_dist_normed >= max_ratio * second_best_dist_normed) {
+        continue;
+      }
+
+      num_matches += 1;
+      (*matches)[i1] = best_i2;
+    }
+
+    return num_matches;
+  }
+
+  void FindBestMatches(const Eigen::MatrixXi& dists, const float max_ratio,
+                       const float max_distance, const bool cross_check,
+                       FeatureMatches* matches) {
+    matches->clear();
+
+    std::vector<int> matches12;
+    const size_t num_matches12 =
+      FindBestMatchesOneWay(dists, max_ratio, max_distance, &matches12);
+
+    if (cross_check) {
+      std::vector<int> matches21;
+      const size_t num_matches21 = FindBestMatchesOneWay(
+          dists.transpose(), max_ratio, max_distance, &matches21);
+      matches->reserve(std::min(num_matches12, num_matches21));
+      for (size_t i1 = 0; i1 < matches12.size(); ++i1) {
+        if (matches12[i1] != -1 && matches21[matches12[i1]] != -1 &&
+            matches21[matches12[i1]] == static_cast<int>(i1)) {
+          FeatureMatch match;
+          match.point2D_idx1 = i1;
+          match.point2D_idx2 = matches12[i1];
+          matches->push_back(match);
+        }
+      }
+    } else {
+      matches->reserve(num_matches12);
+      for (size_t i1 = 0; i1 < matches12.size(); ++i1) {
+        if (matches12[i1] != -1) {
+          FeatureMatch match;
+          match.point2D_idx1 = i1;
+          match.point2D_idx2 = matches12[i1];
+          matches->push_back(match);
+        }
+      }
+    }
+  }
+
+
+}
+
 // Mutexes that ensure that only one thread extracts/matches on the same GPU
 // at the same time, since SiftGPU internally uses static variables.
 static std::map<int, std::unique_ptr<std::mutex>> sift_extraction_mutexes;
@@ -119,10 +212,15 @@ void FlannMatch(const FeatureDescriptors& query,
   Eigen::Matrix<int, Eigen::Dynamic, 128, Eigen::RowMajor> query_int = query.cast<int>();
   Eigen::Matrix<int, Eigen::Dynamic, 128, Eigen::RowMajor> dataset_int = dataset.cast<int>();
 
-  indices->resize(query.rows(), knn);
-  distances->resize(query.rows(), knn);
+  indices->resize(query.rows(), std::min<int>(knn, dataset.rows()));
+  distances->resize(query.rows(), std::min<int>(knn, dataset.rows()));
   const flann::Matrix<int> data1(query_int.data(), query.rows(), 128);
   const flann::Matrix<int> data2(dataset_int.data(), dataset.rows(), 128);
+
+  // boundary condition
+  if (query.rows() == 0 || dataset.rows() == 0) {
+    return;
+  }
 
   //query
   flann::Matrix<int> f_indices(indices->data(), query.rows(), knn);
@@ -847,10 +945,25 @@ void LoadSiftFeaturesFromTextFile(const std::string& path,
   }
 }
 
-void MatchSiftFeaturesCPU(const SiftMatchingOptions& match_options,
-                          const FeatureDescriptors& descriptors1,
-                          const FeatureDescriptors& descriptors2,
-                          FeatureMatches* matches) {
+
+void MatchSiftFeaturesCPUBruteForce(const SiftMatchingOptions& match_options,
+                                    const FeatureDescriptors& descriptors1,
+                                    const FeatureDescriptors& descriptors2,
+                                    FeatureMatches* matches) {
+  CHECK(match_options.Check());
+  CHECK_NOTNULL(matches);
+
+  const Eigen::MatrixXi dists = ComputeSiftDistanceMatrix(
+      nullptr, nullptr, descriptors1, descriptors2, nullptr);
+
+  legacy::FindBestMatches(dists, match_options.max_ratio, match_options.max_distance,
+                          match_options.cross_check, matches);
+}
+
+void MatchSiftFeaturesCPUFLANN(const SiftMatchingOptions& match_options,
+                               const FeatureDescriptors& descriptors1,
+                               const FeatureDescriptors& descriptors2,
+                               FeatureMatches* matches) {
   CHECK(match_options.Check());
   CHECK_NOTNULL(matches);
 
@@ -869,6 +982,15 @@ void MatchSiftFeaturesCPU(const SiftMatchingOptions& match_options,
                   match_options.max_ratio, match_options.max_distance,
                   match_options.cross_check, matches);
 }
+
+void MatchSiftFeaturesCPU(const SiftMatchingOptions& match_options,
+                          const FeatureDescriptors& descriptors1,
+                          const FeatureDescriptors& descriptors2,
+                          FeatureMatches* matches) {
+  MatchSiftFeaturesCPUFLANN(match_options, descriptors1, descriptors2, matches);
+}
+
+
 
 void MatchGuidedSiftFeaturesCPU(const SiftMatchingOptions& match_options,
                                 const FeatureKeypoints& keypoints1,
