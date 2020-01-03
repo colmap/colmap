@@ -208,10 +208,6 @@ void FindBestMatchesOneWayFLANN(
         distances) {
   const size_t kNumNearestNeighbors = 2;
   const size_t kNumTreesInForest = 4;
-  // Eigen::Matrix<int, Eigen::Dynamic, 128, Eigen::RowMajor> query_int =
-  //     query.cast<int>();
-  // Eigen::Matrix<int, Eigen::Dynamic, 128, Eigen::RowMajor> dataset_int =
-  //     database.cast<int>();
 
   indices->resize(query.rows(), std::min(kNumNearestNeighbors,
                                          static_cast<size_t>(database.rows())));
