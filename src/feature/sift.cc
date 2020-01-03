@@ -49,97 +49,95 @@
 namespace colmap {
 namespace {
 
-namespace legacy {
-  size_t FindBestMatchesOneWay(const Eigen::MatrixXi& dists,
-                               const float max_ratio, const float max_distance,
-                               std::vector<int>* matches) {
-    // SIFT descriptor vectors are normalized to length 512.
-    const float kDistNorm = 1.0f / (512.0f * 512.0f);
+size_t FindBestMatchesOneWayBruteForce(const Eigen::MatrixXi& dists,
+                                       const float max_ratio,
+                                       const float max_distance,
+                                       std::vector<int>* matches) {
+  // SIFT descriptor vectors are normalized to length 512.
+  const float kDistNorm = 1.0f / (512.0f * 512.0f);
 
-    size_t num_matches = 0;
-    matches->resize(dists.rows(), -1);
+  size_t num_matches = 0;
+  matches->resize(dists.rows(), -1);
 
-    for (Eigen::MatrixXi::Index i1 = 0; i1 < dists.rows(); ++i1) {
-      int best_i2 = -1;
-      int best_dist = 0;
-      int second_best_dist = 0;
-      for (Eigen::MatrixXi::Index i2 = 0; i2 < dists.cols(); ++i2) {
-        const int dist = dists(i1, i2);
-        if (dist > best_dist) {
-          best_i2 = i2;
-          second_best_dist = best_dist;
-          best_dist = dist;
-        } else if (dist > second_best_dist) {
-          second_best_dist = dist;
-        }
+  for (Eigen::Index i1 = 0; i1 < dists.rows(); ++i1) {
+    int best_i2 = -1;
+    int best_dist = 0;
+    int second_best_dist = 0;
+    for (Eigen::Index i2 = 0; i2 < dists.cols(); ++i2) {
+      const int dist = dists(i1, i2);
+      if (dist > best_dist) {
+        best_i2 = i2;
+        second_best_dist = best_dist;
+        best_dist = dist;
+      } else if (dist > second_best_dist) {
+        second_best_dist = dist;
       }
+    }
 
-      // Check if any match found.
-      if (best_i2 == -1) {
-        continue;
-      }
+    // Check if any match found.
+    if (best_i2 == -1) {
+      continue;
+    }
 
-      const float best_dist_normed =
+    const float best_dist_normed =
         std::acos(std::min(kDistNorm * best_dist, 1.0f));
 
-      // Check if match distance passes threshold.
-      if (best_dist_normed > max_distance) {
-        continue;
-      }
+    // Check if match distance passes threshold.
+    if (best_dist_normed > max_distance) {
+      continue;
+    }
 
-      const float second_best_dist_normed =
+    const float second_best_dist_normed =
         std::acos(std::min(kDistNorm * second_best_dist, 1.0f));
 
-      // Check if match passes ratio test. Keep this comparison >= in order to
-      // ensure that the case of best == second_best is detected.
-      if (best_dist_normed >= max_ratio * second_best_dist_normed) {
-        continue;
-      }
-
-      num_matches += 1;
-      (*matches)[i1] = best_i2;
+    // Check if match passes ratio test. Keep this comparison >= in order to
+    // ensure that the case of best == second_best is detected.
+    if (best_dist_normed >= max_ratio * second_best_dist_normed) {
+      continue;
     }
 
-    return num_matches;
+    num_matches += 1;
+    (*matches)[i1] = best_i2;
   }
 
-  void FindBestMatches(const Eigen::MatrixXi& dists, const float max_ratio,
-                       const float max_distance, const bool cross_check,
-                       FeatureMatches* matches) {
-    matches->clear();
+  return num_matches;
+}
 
-    std::vector<int> matches12;
-    const size_t num_matches12 =
-      FindBestMatchesOneWay(dists, max_ratio, max_distance, &matches12);
+void FindBestMatchesBruteForce(const Eigen::MatrixXi& dists,
+                               const float max_ratio, const float max_distance,
+                               const bool cross_check,
+                               FeatureMatches* matches) {
+  matches->clear();
 
-    if (cross_check) {
-      std::vector<int> matches21;
-      const size_t num_matches21 = FindBestMatchesOneWay(
-          dists.transpose(), max_ratio, max_distance, &matches21);
-      matches->reserve(std::min(num_matches12, num_matches21));
-      for (size_t i1 = 0; i1 < matches12.size(); ++i1) {
-        if (matches12[i1] != -1 && matches21[matches12[i1]] != -1 &&
-            matches21[matches12[i1]] == static_cast<int>(i1)) {
-          FeatureMatch match;
-          match.point2D_idx1 = i1;
-          match.point2D_idx2 = matches12[i1];
-          matches->push_back(match);
-        }
+  std::vector<int> matches12;
+  const size_t num_matches12 = FindBestMatchesOneWayBruteForce(
+      dists, max_ratio, max_distance, &matches12);
+
+  if (cross_check) {
+    std::vector<int> matches21;
+    const size_t num_matches21 = FindBestMatchesOneWayBruteForce(
+        dists.transpose(), max_ratio, max_distance, &matches21);
+    matches->reserve(std::min(num_matches12, num_matches21));
+    for (size_t i1 = 0; i1 < matches12.size(); ++i1) {
+      if (matches12[i1] != -1 && matches21[matches12[i1]] != -1 &&
+          matches21[matches12[i1]] == static_cast<int>(i1)) {
+        FeatureMatch match;
+        match.point2D_idx1 = i1;
+        match.point2D_idx2 = matches12[i1];
+        matches->push_back(match);
       }
-    } else {
-      matches->reserve(num_matches12);
-      for (size_t i1 = 0; i1 < matches12.size(); ++i1) {
-        if (matches12[i1] != -1) {
-          FeatureMatch match;
-          match.point2D_idx1 = i1;
-          match.point2D_idx2 = matches12[i1];
-          matches->push_back(match);
-        }
+    }
+  } else {
+    matches->reserve(num_matches12);
+    for (size_t i1 = 0; i1 < matches12.size(); ++i1) {
+      if (matches12[i1] != -1) {
+        FeatureMatch match;
+        match.point2D_idx1 = i1;
+        match.point2D_idx2 = matches12[i1];
+        matches->push_back(match);
       }
     }
   }
-
-
 }
 
 // Mutexes that ensure that only one thread extracts/matches on the same GPU
@@ -202,47 +200,63 @@ Eigen::MatrixXi ComputeSiftDistanceMatrix(
   return dists;
 }
 
+void FindBestMatchesOneWayFLANN(
+    const FeatureDescriptors& query, const FeatureDescriptors& database,
+    Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>*
+        indices,
+    Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>*
+        distances) {
+  const size_t kNumNearestNeighbors = 2;
+  const size_t kNumTreesInForest = 4;
+  // Eigen::Matrix<int, Eigen::Dynamic, 128, Eigen::RowMajor> query_int =
+  //     query.cast<int>();
+  // Eigen::Matrix<int, Eigen::Dynamic, 128, Eigen::RowMajor> dataset_int =
+  //     database.cast<int>();
 
-void FlannMatch(const FeatureDescriptors& query,
-                const FeatureDescriptors& dataset,
-                Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> * indices,
-                Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> * distances) {
-  const size_t knn = 2;
-  const size_t amountTreesInForest = 4;
-  Eigen::Matrix<int, Eigen::Dynamic, 128, Eigen::RowMajor> query_int = query.cast<int>();
-  Eigen::Matrix<int, Eigen::Dynamic, 128, Eigen::RowMajor> dataset_int = dataset.cast<int>();
+  indices->resize(query.rows(), std::min(kNumNearestNeighbors,
+                                         static_cast<size_t>(database.rows())));
+  distances->resize(
+      query.rows(),
+      std::min(kNumNearestNeighbors, static_cast<size_t>(database.rows())));
+  const flann::Matrix<uint8_t> query_matrix(const_cast<uint8_t*>(query.data()),
+                                            query.rows(), 128);
+  const flann::Matrix<uint8_t> database_matrix(
+      const_cast<uint8_t*>(database.data()), database.rows(), 128);
 
-  indices->resize(query.rows(), std::min<int>(knn, dataset.rows()));
-  distances->resize(query.rows(), std::min<int>(knn, dataset.rows()));
-  const flann::Matrix<int> data1(query_int.data(), query.rows(), 128);
-  const flann::Matrix<int> data2(dataset_int.data(), dataset.rows(), 128);
-
-  // boundary condition
-  if (query.rows() == 0 || dataset.rows() == 0) {
+  if (query.rows() == 0 || database.rows() == 0) {
     return;
   }
 
-  //query
-  flann::Matrix<int> f_indices(indices->data(), query.rows(), knn);
-  flann::Matrix<float> f_distances(new float[query.rows()*knn], query.rows(), knn);
-  flann::Index<flann::L2<int>> index(data2, flann::KDTreeIndexParams(amountTreesInForest));
+  flann::Matrix<int> indices_matrix(indices->data(), query.rows(),
+                                    kNumNearestNeighbors);
+  std::vector<float> distances_vector(query.rows() * kNumNearestNeighbors);
+  flann::Matrix<float> distances_matrix(distances_vector.data(), query.rows(),
+                                        kNumNearestNeighbors);
+  flann::Index<flann::L2<uint8_t>> index(
+      database_matrix, flann::KDTreeIndexParams(kNumTreesInForest));
   index.buildIndex();
-  index.knnSearch(data1, f_indices, f_distances, knn, flann::SearchParams(128));
-  delete[] f_distances.ptr();
+  index.knnSearch(query_matrix, indices_matrix, distances_matrix,
+                  kNumNearestNeighbors, flann::SearchParams(128));
 
-  for (Eigen::MatrixXi::Index d1_idx = 0; d1_idx < indices->rows(); ++d1_idx) {
-    for (int n_idx = 0; n_idx < indices->cols(); ++n_idx) {
-      const int d2_idx = indices->coeff(d1_idx, n_idx);
-      distances->coeffRef(d1_idx, n_idx) = query_int.row(d1_idx).dot(dataset_int.row(d2_idx));
+  for (Eigen::Index query_index = 0; query_index < indices->rows();
+       ++query_index) {
+    for (Eigen::Index k = 0; k < indices->cols(); ++k) {
+      const Eigen::Index database_index = indices->coeff(query_index, k);
+      distances->coeffRef(query_index, k) =
+          query.row(query_index)
+              .cast<int>()
+              .dot(database.row(database_index).cast<int>());
     }
   }
 }
 
-
-size_t FindBestMatchesOneWay(const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>& indices,
-                             const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>& distances,
-                             const float max_ratio, const float max_distance,
-                             std::vector<int>* matches) {
+size_t FindBestMatchesOneWayFLANN(
+    const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>&
+        indices,
+    const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>&
+        distances,
+    const float max_ratio, const float max_distance,
+    std::vector<int>* matches) {
   // SIFT descriptor vectors are normalized to length 512.
   const float kDistNorm = 1.0f / (512.0f * 512.0f);
 
@@ -294,23 +308,26 @@ size_t FindBestMatchesOneWay(const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dyn
   return num_matches;
 }
 
-
-void FindBestMatches(const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>& indices_1to2,
-                     const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>& distances_1to2,
-                     const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>& indices_2to1,
-                     const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>& distances_2to1,
-                     const float max_ratio,
-                     const float max_distance, const bool cross_check,
-                     FeatureMatches* matches) {
+void FindBestMatchesFLANN(
+    const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>&
+        indices_1to2,
+    const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>&
+        distances_1to2,
+    const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>&
+        indices_2to1,
+    const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>&
+        distances_2to1,
+    const float max_ratio, const float max_distance, const bool cross_check,
+    FeatureMatches* matches) {
   matches->clear();
 
   std::vector<int> matches12;
-  const size_t num_matches12 =
-      FindBestMatchesOneWay(indices_1to2, distances_1to2, max_ratio, max_distance, &matches12);
+  const size_t num_matches12 = FindBestMatchesOneWayFLANN(
+      indices_1to2, distances_1to2, max_ratio, max_distance, &matches12);
 
   if (cross_check && indices_2to1.rows()) {
     std::vector<int> matches21;
-    const size_t num_matches21 = FindBestMatchesOneWay(
+    const size_t num_matches21 = FindBestMatchesOneWayFLANN(
         indices_2to1, distances_2to1, max_ratio, max_distance, &matches21);
     matches->reserve(std::min(num_matches12, num_matches21));
     for (size_t i1 = 0; i1 < matches12.size(); ++i1) {
@@ -945,7 +962,6 @@ void LoadSiftFeaturesFromTextFile(const std::string& path,
   }
 }
 
-
 void MatchSiftFeaturesCPUBruteForce(const SiftMatchingOptions& match_options,
                                     const FeatureDescriptors& descriptors1,
                                     const FeatureDescriptors& descriptors2,
@@ -953,11 +969,12 @@ void MatchSiftFeaturesCPUBruteForce(const SiftMatchingOptions& match_options,
   CHECK(match_options.Check());
   CHECK_NOTNULL(matches);
 
-  const Eigen::MatrixXi dists = ComputeSiftDistanceMatrix(
+  const Eigen::MatrixXi distances = ComputeSiftDistanceMatrix(
       nullptr, nullptr, descriptors1, descriptors2, nullptr);
 
-  legacy::FindBestMatches(dists, match_options.max_ratio, match_options.max_distance,
-                          match_options.cross_check, matches);
+  FindBestMatchesBruteForce(distances, match_options.max_ratio,
+                            match_options.max_distance,
+                            match_options.cross_check, matches);
 }
 
 void MatchSiftFeaturesCPUFLANN(const SiftMatchingOptions& match_options,
@@ -967,20 +984,26 @@ void MatchSiftFeaturesCPUFLANN(const SiftMatchingOptions& match_options,
   CHECK(match_options.Check());
   CHECK_NOTNULL(matches);
 
-  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> indices_1to2;
-  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> distances_1to2;
-  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> indices_2to1;
-  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> distances_2to1;
+  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+      indices_1to2;
+  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+      distances_1to2;
+  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+      indices_2to1;
+  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+      distances_2to1;
 
-  FlannMatch(descriptors1, descriptors2, &indices_1to2, &distances_1to2);
+  FindBestMatchesOneWayFLANN(descriptors1, descriptors2, &indices_1to2,
+                             &distances_1to2);
   if (match_options.cross_check) {
-    FlannMatch(descriptors2, descriptors1, &indices_2to1, &distances_2to1);
+    FindBestMatchesOneWayFLANN(descriptors2, descriptors1, &indices_2to1,
+                               &distances_2to1);
   }
 
-  FindBestMatches(indices_1to2, distances_1to2,
-                  indices_2to1, distances_2to1,
-                  match_options.max_ratio, match_options.max_distance,
-                  match_options.cross_check, matches);
+  FindBestMatchesFLANN(indices_1to2, distances_1to2, indices_2to1,
+                       distances_2to1, match_options.max_ratio,
+                       match_options.max_distance, match_options.cross_check,
+                       matches);
 }
 
 void MatchSiftFeaturesCPU(const SiftMatchingOptions& match_options,
@@ -989,8 +1012,6 @@ void MatchSiftFeaturesCPU(const SiftMatchingOptions& match_options,
                           FeatureMatches* matches) {
   MatchSiftFeaturesCPUFLANN(match_options, descriptors1, descriptors2, matches);
 }
-
-
 
 void MatchGuidedSiftFeaturesCPU(const SiftMatchingOptions& match_options,
                                 const FeatureKeypoints& keypoints1,
@@ -1040,23 +1061,28 @@ void MatchGuidedSiftFeaturesCPU(const SiftMatchingOptions& match_options,
   const Eigen::MatrixXi dists = ComputeSiftDistanceMatrix(
       &keypoints1, &keypoints2, descriptors1, descriptors2, guided_filter);
 
-  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> indices_1to2(dists.rows(), dists.cols());
-  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> indices_2to1(dists.cols(), dists.rows());
-  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> distances_1to2 = dists;
-  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> distances_2to1 = dists.transpose();
+  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+      indices_1to2(dists.rows(), dists.cols());
+  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+      indices_2to1(dists.cols(), dists.rows());
+  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+      distances_1to2 = dists;
+  Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+      distances_2to1 = dists.transpose();
 
   for (int i = 0; i < indices_1to2.rows(); ++i) {
-    indices_1to2.row(i) = Eigen::VectorXi::LinSpaced(indices_1to2.cols(), 0, indices_1to2.cols()-1);
+    indices_1to2.row(i) = Eigen::VectorXi::LinSpaced(indices_1to2.cols(), 0,
+                                                     indices_1to2.cols() - 1);
   }
   for (int i = 0; i < indices_2to1.rows(); ++i) {
-    indices_2to1.row(i) = Eigen::VectorXi::LinSpaced(indices_2to1.cols(), 0, indices_2to1.cols()-1);
+    indices_2to1.row(i) = Eigen::VectorXi::LinSpaced(indices_2to1.cols(), 0,
+                                                     indices_2to1.cols() - 1);
   }
 
-  FindBestMatches(indices_1to2, distances_1to2,
-                  indices_2to1, distances_2to1,
-                  match_options.max_ratio, match_options.max_distance,
-                  match_options.cross_check,
-                  &two_view_geometry->inlier_matches);
+  FindBestMatchesFLANN(indices_1to2, distances_1to2, indices_2to1,
+                       distances_2to1, match_options.max_ratio,
+                       match_options.max_distance, match_options.cross_check,
+                       &two_view_geometry->inlier_matches);
 }
 
 bool CreateSiftGPUMatcher(const SiftMatchingOptions& match_options,
