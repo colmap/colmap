@@ -211,6 +211,14 @@ void LoadSiftFeaturesFromTextFile(const std::string& path,
                                   FeatureDescriptors* descriptors);
 
 // Match the given SIFT features on the CPU.
+void MatchSiftFeaturesCPUBruteForce(const SiftMatchingOptions& match_options,
+                                    const FeatureDescriptors& descriptors1,
+                                    const FeatureDescriptors& descriptors2,
+                                    FeatureMatches* matches);
+void MatchSiftFeaturesCPUFLANN(const SiftMatchingOptions& match_options,
+                               const FeatureDescriptors& descriptors1,
+                               const FeatureDescriptors& descriptors2,
+                               FeatureMatches* matches);
 void MatchSiftFeaturesCPU(const SiftMatchingOptions& match_options,
                           const FeatureDescriptors& descriptors1,
                           const FeatureDescriptors& descriptors2,
@@ -248,3 +256,4 @@ void MatchGuidedSiftFeaturesGPU(const SiftMatchingOptions& match_options,
 }  // namespace colmap
 
 #endif  // COLMAP_SRC_FEATURE_SIFT_H_
+
