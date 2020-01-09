@@ -124,7 +124,7 @@ void IncrementalMapper::BeginReconstruction(Reconstruction* reconstruction) {
   prev_init_image_pair_id_ = kInvalidImagePairId;
   prev_init_two_view_geometry_ = TwoViewGeometry();
 
-  refined_cameras_.clear();
+  num_reg_images_per_camera_.clear();
   filtered_images_.clear();
   num_reg_trials_.clear();
 }
@@ -450,14 +450,13 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   abs_pose_options.ransac_options.confidence = 0.99999;
 
   AbsolutePoseRefinementOptions abs_pose_refinement_options;
-  if (refined_cameras_.count(image.CameraId()) > 0) {
+  if (num_reg_images_per_camera_[image.CameraId()] > 0) {
     // Camera already refined from another image with the same camera.
     if (camera.HasBogusParams(options.min_focal_length_ratio,
                               options.max_focal_length_ratio,
                               options.max_extra_param)) {
       // Previously refined camera has bogus parameters,
       // so reset parameters and try to re-refine.
-      refined_cameras_.erase(image.CameraId());
       camera.SetParams(database_cache_->Camera(image.CameraId()).Params());
       abs_pose_options.estimate_focal_length = !camera.HasPriorFocalLength();
       abs_pose_refinement_options.refine_focal_length = true;
@@ -526,12 +525,6 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
     }
   }
 
-  //////////////////////////////////////////////////////////////////////////////
-  // Update data
-  //////////////////////////////////////////////////////////////////////////////
-
-  refined_cameras_.insert(image.CameraId());
-
   return true;
 }
 
@@ -587,6 +580,22 @@ IncrementalMapper::AdjustLocalBundle(
         if (existing_image_ids_.count(local_image_id)) {
           ba_config.SetConstantPose(local_image_id);
         }
+      }
+    }
+
+    // Determine which cameras to fix, when not all the registered images
+    // are within the current local bundle.
+    std::unordered_map<camera_t, size_t> num_images_per_camera;
+    for (const image_t image_id : ba_config.Images()) {
+      const Image& image = reconstruction_->Image(image_id);
+      num_images_per_camera[image.CameraId()] += 1;
+    }
+
+    for (const auto& camera_id_and_num_images_pair : num_images_per_camera) {
+      const size_t num_reg_images_for_camera =
+          num_reg_images_per_camera_.at(camera_id_and_num_images_pair.first);\
+      if (camera_id_and_num_images_pair.second < num_reg_images_for_camera) {
+        ba_config.SetConstantCamera(camera_id_and_num_images_pair.first);
       }
     }
 
@@ -1100,6 +1109,11 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
 }
 
 void IncrementalMapper::RegisterImageEvent(const image_t image_id) {
+  const Image& image = reconstruction_->Image(image_id);
+  size_t& num_reg_images_for_camera =
+      num_reg_images_per_camera_[image.CameraId()];
+  num_reg_images_for_camera += 1;
+
   size_t& num_regs_for_image = num_registrations_[image_id];
   num_regs_for_image += 1;
   if (num_regs_for_image == 1) {
@@ -1110,6 +1124,12 @@ void IncrementalMapper::RegisterImageEvent(const image_t image_id) {
 }
 
 void IncrementalMapper::DeRegisterImageEvent(const image_t image_id) {
+  const Image& image = reconstruction_->Image(image_id);
+  size_t& num_reg_images_for_camera =
+      num_reg_images_per_camera_.at(image.CameraId());
+  CHECK_GT(num_reg_images_for_camera, 0);
+  num_reg_images_for_camera -= 1;
+
   size_t& num_regs_for_image = num_registrations_[image_id];
   num_regs_for_image -= 1;
   if (num_regs_for_image == 0) {
