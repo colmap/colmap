@@ -113,6 +113,7 @@ void IncrementalMapper::BeginReconstruction(Reconstruction* reconstruction) {
       &database_cache_->CorrespondenceGraph(), reconstruction));
 
   num_shared_reg_images_ = 0;
+  num_reg_images_per_camera_.clear();
   for (const image_t image_id : reconstruction_->RegImageIds()) {
     RegisterImageEvent(image_id);
   }
@@ -124,7 +125,6 @@ void IncrementalMapper::BeginReconstruction(Reconstruction* reconstruction) {
   prev_init_image_pair_id_ = kInvalidImagePairId;
   prev_init_two_view_geometry_ = TwoViewGeometry();
 
-  num_reg_images_per_camera_.clear();
   filtered_images_.clear();
   num_reg_trials_.clear();
 }
