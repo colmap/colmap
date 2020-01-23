@@ -61,9 +61,11 @@ def parse_args():
                         help="path to depth map", type=str, required=True)
     parser.add_argument("-n", "--normal_map",
                         help="path to normal map", type=str, required=True)
-    parser.add_argument("--min_depth", help="minimum visualization depth",
+    parser.add_argument("--min_depth_percentile",
+                        help="minimum visualization depth percentile",
                         type=float, default=5)
-    parser.add_argument("--max_depth", help="maximum visualization depth",
+    parser.add_argument("--max_depth_percentile",
+                        help="maximum visualization depth percentile",
                         type=float, default=95)
     args = parser.parse_args()
     return args
