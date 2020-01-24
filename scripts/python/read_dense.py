@@ -34,7 +34,6 @@
 import argparse
 import numpy as np
 import os
-import pylab as plt
 
 
 def read_array(path):
@@ -93,7 +92,16 @@ def main():
         depth_map, [args.min_depth, args.max_depth])
     depth_map[depth_map < min_depth] = min_depth
     depth_map[depth_map > max_depth] = max_depth
+
+    import pylab as plt
+
     plt.imshow(depth_map)
+    plt.title('depth map')
+
+    # Visualize the normal map.
+    plt.imshow(normal_map)
+    plt.title('normal map')
+
     plt.show()
 
 
