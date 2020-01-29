@@ -55,8 +55,7 @@ Getting Started
    or use your own images.
 3. Use the **automatic reconstruction** to easily build models
    with a single click or command.
-4. Watch the short introductory video at
-   https://www.youtube.com/watch?v=P-EC0DzeVEU or read the tutorial
+4. Read the tutorial
    in the documentation at https://colmap.github.io/ for more details.
 
 
