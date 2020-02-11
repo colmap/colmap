@@ -864,6 +864,16 @@ void Reconstruction::ImportPLY(const std::string& path) {
   }
 }
 
+void Reconstruction::ImportPLY(const std::vector<PlyPoint> &plyPoints)
+{
+  points3D_.clear();
+  points3D_.reserve(plyPoints.size());
+  for (const auto& plyPoint : plyPoints) {
+    AddPoint3D(Eigen::Vector3d(plyPoint.x, plyPoint.y, plyPoint.z), Track(),
+               Eigen::Vector3ub(plyPoint.r, plyPoint.g, plyPoint.b));
+  }
+}
+
 bool Reconstruction::ExportNVM(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc);
   CHECK(file.is_open()) << path;

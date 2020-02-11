@@ -266,6 +266,7 @@ int RunStereoFuser(int argc, char** argv) {
   std::string workspace_format = "COLMAP";
   std::string pmvs_option_name = "option-all";
   std::string output_path;
+  std::string output_type;
 
   OptionManager options;
   options.AddRequiredOption("workspace_path", &workspace_path);
@@ -275,6 +276,8 @@ int RunStereoFuser(int argc, char** argv) {
   options.AddDefaultOption("input_type", &input_type,
                            "{photometric, geometric}");
   options.AddRequiredOption("output_path", &output_path);
+  options.AddRequiredOption("output_type", &output_type,
+                            "{BIN, TXT, PLY}");
   options.AddStereoFusionOptions();
   options.Parse(argc, argv);
 
@@ -300,10 +303,30 @@ int RunStereoFuser(int argc, char** argv) {
   fuser.Start();
   fuser.Wait();
 
-  std::cout << "Writing output: " << output_path << std::endl;
-  WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
-  mvs::WritePointsVisibility(output_path + ".vis",
-                             fuser.GetFusedPointsVisibility());
+  Reconstruction reconstruction;
+
+  // read data from sparse reconstruction
+  if (workspace_format == "colmap" )
+    reconstruction.Read(JoinPaths(workspace_path, "sparse"));
+
+  // overwrite sparse point cloud with dense point cloud from fuser
+  reconstruction.ImportPLY(fuser.GetFusedPoints());
+
+  // write output
+  StringToLower(&output_type);
+  if (output_type == "bin") {
+    reconstruction.WriteBinary(output_path);
+  } else if (output_type == "txt") {
+    reconstruction.WriteText(output_path);
+  } else if (output_type == "ply") {
+    std::cout << "Writing output: " << output_path << std::endl;
+    WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
+    mvs::WritePointsVisibility(output_path + ".vis",
+                               fuser.GetFusedPointsVisibility());
+  } else {
+    std::cerr << "ERROR: Invalid `output_type`" << std::endl;
+    return EXIT_FAILURE;
+  }
 
   return EXIT_SUCCESS;
 }
