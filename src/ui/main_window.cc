@@ -29,6 +29,8 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
+#include <clocale>
+
 #include "ui/main_window.h"
 
 #include "util/version.h"
