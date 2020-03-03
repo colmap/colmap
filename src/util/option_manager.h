@@ -80,6 +80,7 @@ class OptionManager {
 
   void AddAllOptions();
   void AddLogOptions();
+  void AddRandomOptions();
   void AddDatabaseOptions();
   void AddImageOptions();
   void AddExtractionOptions();
@@ -157,6 +158,7 @@ class OptionManager {
   std::vector<std::pair<std::string, const std::string*>> options_string_;
 
   bool added_log_options_;
+  bool added_random_options_;
   bool added_database_options_;
   bool added_image_options_;
   bool added_extraction_options_;
