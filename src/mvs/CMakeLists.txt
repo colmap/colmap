@@ -55,8 +55,5 @@ if(CUDA_ENABLED)
         patch_match_cuda.h patch_match_cuda.cu
     )
 
-    # MSVC/NVCC cannot compile the Boost unit test suite.
-    if(NOT IS_MSVC)
-        COLMAP_ADD_CUDA_TEST(gpu_mat_test gpu_mat_test.cu)
-    endif()
+    COLMAP_ADD_CUDA_TEST(gpu_mat_test gpu_mat_test.cu)
 endif()

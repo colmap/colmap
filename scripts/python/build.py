@@ -271,7 +271,7 @@ def build_freeimage(args):
         elif PLATFORM_IS_LINUX:
             with fileinput.FileInput(
                     os.path.join(path, "Source/LibWebP/src/dsp/"
-                                 "dsp.upsampling_mips_dsp_r2.c"),
+                                 "upsampling_mips_dsp_r2.c"),
                     inplace=True, backup=".bak") as fid:
                 for i, line in enumerate(fid):
                     if i >= 36 and i <= 44:
@@ -280,7 +280,7 @@ def build_freeimage(args):
                     print(line, end="")
             with fileinput.FileInput(
                     os.path.join(path, "Source/LibWebP/src/dsp/"
-                                 "dsp.yuv_mips_dsp_r2.c"),
+                                 "yuv_mips_dsp_r2.c"),
                     inplace=True, backup=".bak") as fid:
                 for i, line in enumerate(fid):
                     if i >= 56 and i <= 58:

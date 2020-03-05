@@ -71,8 +71,8 @@ __global__ void CudaTransposeKernel(T* output_data, const T* input_data,
   for (int i = 0; i < TILE_DIM_TRANSPOSE; i += BLOCK_ROWS_TRANSPOSE) {
     const int x = min(x_index, width - 1);
     const int y = min(y_index, height - i - 1);
-    const int index = y * input_pitch + x + i * input_pitch;
-    tile[tile_y + i][tile_x] = input_data[index];
+    tile[tile_y + i][tile_x] =
+        *((T*)((char*)input_data + y * input_pitch + i * input_pitch) + x);
   }
 
   __syncthreads();
@@ -80,11 +80,10 @@ __global__ void CudaTransposeKernel(T* output_data, const T* input_data,
   x_index = blockIdx.y * TILE_DIM_TRANSPOSE + threadIdx.x;
   if (x_index < height) {
     y_index = blockIdx.x * TILE_DIM_TRANSPOSE + threadIdx.y;
-    const int index = x_index + y_index * output_pitch;
     for (int i = 0; i < TILE_DIM_TRANSPOSE; i += BLOCK_ROWS_TRANSPOSE) {
       if (y_index + i < width) {
-        output_data[index + i * output_pitch] =
-            tile[threadIdx.x][threadIdx.y + i];
+        *((T*)((char*)output_data + y_index * output_pitch + i * output_pitch) +
+          x_index) = tile[threadIdx.x][threadIdx.y + i];
       }
     }
   }
@@ -101,8 +100,7 @@ void CudaTranspose(const T* input, T* output, const int width, const int height,
   grid_dim.y = (height - 1) / TILE_DIM_TRANSPOSE + 1;
 
   internal::CudaTransposeKernel<<<grid_dim, block_dim>>>(
-      output, input, width, height, pitch_input / sizeof(T),
-      pitch_output / sizeof(T));
+      output, input, width, height, pitch_input, pitch_output);
 }
 
 #undef TILE_DIM_TRANSPOSE

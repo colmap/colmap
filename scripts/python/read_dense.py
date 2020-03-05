@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
@@ -29,8 +31,9 @@
 #
 # Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
+import argparse
 import numpy as np
-import pylab as plt
+import os
 
 
 def read_array(path):
@@ -51,18 +54,56 @@ def read_array(path):
     return np.transpose(array, (1, 0, 2)).squeeze()
 
 
-def main():
-    # Read depth and normal maps corresponding to the same image.
-    depth_map = read_array(
-        "path/to/dense/stereo/depth_maps/image1.jpg.photometric.bin")
-    normal_map = read_array(
-        "path/to/dense/stereo/normal_maps/image1.jpg.photometric.bin")
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", "--depth_map",
+                        help="path to depth map", type=str, required=True)
+    parser.add_argument("-n", "--normal_map",
+                        help="path to normal map", type=str, required=True)
+    parser.add_argument("--min_depth_percentile",
+                        help="minimum visualization depth percentile",
+                        type=float, default=5)
+    parser.add_argument("--max_depth_percentile",
+                        help="maximum visualization depth percentile",
+                        type=float, default=95)
+    args = parser.parse_args()
+    return args
 
-    # Visualize the depth map.
-    min_depth, max_depth = np.percentile(depth_map, [5, 95])
+
+def main():
+    args = parse_args()
+
+    if args.min_depth_percentile > args.max_depth_percentile:
+        raise ValueError("min_depth_percentile should be less than or equal "
+                         "to the max_depth_perceintile.")
+
+    # Read depth and normal maps corresponding to the same image.
+    if not os.path.exists(args.depth_map):
+        raise FileNotFoundError("File not found: {}".format(args.depth_map))
+
+    if not os.path.exists(args.normal_map):
+        raise FileNotFoundError("File not found: {}".format(args.normal_map))
+
+    depth_map = read_array(args.depth_map)
+    normal_map = read_array(args.normal_map)
+
+    min_depth, max_depth = np.percentile(
+        depth_map, [args.min_depth_percentile, args.max_depth_percentile])
     depth_map[depth_map < min_depth] = min_depth
     depth_map[depth_map > max_depth] = max_depth
+
+    import pylab as plt
+
+    # Visualize the depth map.
+    plt.figure()
     plt.imshow(depth_map)
+    plt.title('depth map')
+
+    # Visualize the normal map.
+    plt.figure()
+    plt.imshow(normal_map)
+    plt.title('normal map')
+
     plt.show()
 
 

@@ -340,9 +340,9 @@ void GpuMat<T>::FlipHorizontal(GpuMat<T>* output) {
 template <typename T>
 void GpuMat<T>::Rotate(GpuMat<T>* output) {
   for (size_t slice = 0; slice < depth_; ++slice) {
-    CudaRotate(array_ptr_ + slice * pitch_ / sizeof(T) * GetHeight(),
-               output->GetPtr() +
-                   slice * output->pitch_ / sizeof(T) * output->GetHeight(),
+    CudaRotate((T*)((char*)array_ptr_ + slice * pitch_ * GetHeight()),
+               (T*)((char*)output->GetPtr() +
+                   slice * output->pitch_ * output->GetHeight()),
                width_, height_, pitch_, output->pitch_);
   }
   CUDA_SYNC_AND_CHECK();
