@@ -77,7 +77,7 @@ OptionManager::OptionManager(bool add_project_options) {
 
   desc_->add_options()("help,h", "");
 
-  AddAndRegisterDefaultOption("random_seed", &kDefaultPRNGSeed);
+  AddRandomOptions();
 
   if (add_project_options) {
     desc_->add_options()("project_path", config::value<std::string>());
@@ -167,6 +167,7 @@ void OptionManager::ModifyForExtremeQuality() {
 
 void OptionManager::AddAllOptions() {
   AddLogOptions();
+  AddRandomOptions();
   AddDatabaseOptions();
   AddImageOptions();
   AddExtractionOptions();
@@ -193,6 +194,15 @@ void OptionManager::AddLogOptions() {
 
   AddAndRegisterDefaultOption("log_to_stderr", &FLAGS_logtostderr);
   AddAndRegisterDefaultOption("log_level", &FLAGS_v);
+}
+
+void OptionManager::AddRandomOptions() {
+  if (added_random_options_) {
+    return;
+  }
+  added_random_options_ = true;
+
+  AddAndRegisterDefaultOption("random_seed", &kDefaultPRNGSeed);
 }
 
 void OptionManager::AddDatabaseOptions() {
@@ -710,6 +720,7 @@ void OptionManager::Reset() {
   options_string_.clear();
 
   added_log_options_ = false;
+  added_random_options_ = false;
   added_database_options_ = false;
   added_image_options_ = false;
   added_extraction_options_ = false;
