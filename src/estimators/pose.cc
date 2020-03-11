@@ -240,7 +240,6 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                              points3D_copy[i].data(), camera_params_data);
     problem.SetParameterBlockConstant(points3D_copy[i].data());
   }
-  std::cout << "Tvec pose " << tvec_data[0] << ", " << tvec_data[1] << ", " << tvec_data[2] << std::endl;
 
   if (problem.NumResiduals() > 0) {
     // Quaternion parameterization.

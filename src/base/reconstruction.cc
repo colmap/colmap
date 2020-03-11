@@ -323,8 +323,6 @@ void Reconstruction::DeRegisterImage(const image_t image_id) {
 
 void Reconstruction::Normalize(const double extent, const double p0,
                                const double p1, const bool use_images) {
-std::cout << "Reconstruction::Normalize" << std::endl;
-
   CHECK_GT(extent, 0);
   CHECK_GE(p0, 0);
   CHECK_LE(p0, 1);
@@ -395,13 +393,13 @@ std::cout << "Reconstruction::Normalize" << std::endl;
   // translation is applied before scaling.
   const double old_extent = (bbox_max - bbox_min).norm();
   double scale;
-//  if (old_extent < std::numeric_limits<double>::epsilon()) {
+  if (old_extent < std::numeric_limits<double>::epsilon()) {
     scale = 1;
-//  } else {
-//    scale = extent / old_extent;
-//  }
+  } else {
+    scale = extent / old_extent;
+  }
 
-  const Eigen::Vector3d translation = {0,0,0};
+  const Eigen::Vector3d translation = mean_coord;
 
   // Transform images.
   for (auto& image_proj_center : proj_centers) {
