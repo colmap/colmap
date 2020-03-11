@@ -36,11 +36,70 @@
 
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
+#include <iostream>
 
 namespace colmap {
 
 // Standard bundle adjustment cost function for variable
 // camera pose and calibration and point parameters.
+template <typename CameraModel>
+class GpsPriorBundleAdjustmentCostFunction {
+ public:
+    explicit GpsPriorBundleAdjustmentCostFunction(const Eigen::Vector2d& point2D, const Eigen::Vector3d& posPrior)
+	: observed_x_(point2D(0)), observed_y_(point2D(1)), posPrior(posPrior) {
+	//std::cerr << "Created new GPS Prior at " << posPrior << std::endl;
+    }
+
+  static ceres::CostFunction* Create(const Eigen::Vector2d& point2D, const Eigen::Vector3d& posPrior) {
+    return (new ceres::AutoDiffCostFunction<
+            GpsPriorBundleAdjustmentCostFunction<CameraModel>, 5, 4, 3, 3,
+            CameraModel::kNumParams>(
+		new GpsPriorBundleAdjustmentCostFunction(point2D, posPrior)));
+  }
+
+  template <typename T>
+  bool operator()(const T* const qvec, const T* const tvec,
+                  const T* const point3D, const T* const camera_params,
+                  T* residuals) const {
+    // Rotate and translate.
+    T projection[3];
+    T translation[3] = {point3D[0], point3D[1], point3D[2]};
+/*    T angleAxis[3];
+    T tvecWorld[3];
+    ceres::QuaternionToAngleAxis(qvec, angleAxis);
+    for (int i = 0; i < 3; i++) angleAxis[i] *= -1;
+    ceres::AngleAxisRotatePoint(angleAxis, tvec, tvecWorld);*/
+    translation[0] -= tvec[0];
+    translation[1] -= tvec[1];
+    translation[2] -= tvec[2];
+    ceres::UnitQuaternionRotatePoint(qvec, translation, projection);
+
+    // Project to image plane.
+    projection[0] /= projection[2];
+    projection[1] /= projection[2];
+
+    // Distort and transform to pixel space.
+    CameraModel::WorldToImage(camera_params, projection[0], projection[1],
+                              &residuals[0], &residuals[1]);
+
+    // Re-projection error.
+    residuals[0] -= T(observed_x_);
+    residuals[1] -= T(observed_y_);
+    //residuals[0] = T(0.0);
+    //residuals[1] = T(0.0);
+    const T fac = T(1.0e-1);
+    for (int i = 0; i <3; i++)
+	residuals[i + 2] = fac * T(tvec[i] - posPrior(i));
+
+    return true;
+  }
+
+ private:
+  const double observed_x_;
+  const double observed_y_;
+    const Eigen::Vector3d posPrior;
+};
+
 template <typename CameraModel>
 class BundleAdjustmentCostFunction {
  public:
@@ -84,7 +143,7 @@ class BundleAdjustmentCostFunction {
   const double observed_x_;
   const double observed_y_;
 };
-
+    
 // Bundle adjustment cost function for variable
 // camera calibration and point parameters, and fixed camera pose.
 template <typename CameraModel>

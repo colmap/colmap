@@ -172,6 +172,7 @@ class COLMAPDatabase(sqlite3.Connection):
 
     def add_image(self, name, camera_id,
                   prior_q=np.zeros(4), prior_t=np.zeros(3), image_id=None):
+        
         cursor = self.execute(
             "INSERT INTO images VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (image_id, name, camera_id, prior_q[0], prior_q[1], prior_q[2],

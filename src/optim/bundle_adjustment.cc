@@ -353,6 +353,8 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
   image.NormalizeQvec();
 
   double* qvec_data = image.Qvec().data();
+  
+  for (int i = 0; i < 3; i++) image.Tvec()(i) = image.TvecPrior()(i);
   double* tvec_data = image.Tvec().data();
   double* camera_params_data = camera.ParamsData();
 
@@ -395,7 +397,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 #define CAMERA_MODEL_CASE(CameraModel)                                   \
   case CameraModel::kModelId:                                            \
     cost_function =                                                      \
-        BundleAdjustmentCostFunction<CameraModel>::Create(point2D.XY()); \
+    GpsPriorBundleAdjustmentCostFunction<CameraModel>::Create(point2D.XY(), image.TvecPrior()); \
     break;
 
         CAMERA_MODEL_SWITCH_CASES
@@ -406,6 +408,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
       problem_->AddResidualBlock(cost_function, loss_function, qvec_data,
                                  tvec_data, point3D.XYZ().data(),
                                  camera_params_data);
+      problem_->SetParameterBlockConstant(tvec_data);
     }
   }
 
@@ -421,7 +424,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
         const std::vector<int>& constant_tvec_idxs =
             config_.ConstantTvec(image_id);
         ceres::SubsetParameterization* tvec_parameterization =
-            new ceres::SubsetParameterization(3, constant_tvec_idxs);
+	new ceres::SubsetParameterization(3, constant_tvec_idxs); 
         problem_->SetParameterization(tvec_data, tvec_parameterization);
       }
     }
