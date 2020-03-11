@@ -47,7 +47,7 @@ class GpsPriorBundleAdjustmentCostFunction {
  public:
     explicit GpsPriorBundleAdjustmentCostFunction(const Eigen::Vector2d& point2D, const Eigen::Vector3d& posPrior)
 	: observed_x_(point2D(0)), observed_y_(point2D(1)), posPrior(posPrior) {
-	//std::cerr << "Created new GPS Prior at " << posPrior << std::endl;
+//	std::cerr << "Created new GPS Prior at " << posPrior << std::endl;
     }
 
   static ceres::CostFunction* Create(const Eigen::Vector2d& point2D, const Eigen::Vector3d& posPrior) {
@@ -63,16 +63,19 @@ class GpsPriorBundleAdjustmentCostFunction {
                   T* residuals) const {
     // Rotate and translate.
     T projection[3];
-    T translation[3] = {point3D[0], point3D[1], point3D[2]};
+//    T translation[3] = {point3D[0], point3D[1], point3D[2]};
 /*    T angleAxis[3];
     T tvecWorld[3];
     ceres::QuaternionToAngleAxis(qvec, angleAxis);
     for (int i = 0; i < 3; i++) angleAxis[i] *= -1;
     ceres::AngleAxisRotatePoint(angleAxis, tvec, tvecWorld);*/
-    translation[0] -= tvec[0];
+/*    translation[0] -= tvec[0];
     translation[1] -= tvec[1];
     translation[2] -= tvec[2];
-    ceres::UnitQuaternionRotatePoint(qvec, translation, projection);
+*/    ceres::UnitQuaternionRotatePoint(qvec, point3D, projection);
+    projection[0] += tvec[0];
+    projection[1] += tvec[1];
+    projection[2] += tvec[2];
 
     // Project to image plane.
     projection[0] /= projection[2];
@@ -85,11 +88,17 @@ class GpsPriorBundleAdjustmentCostFunction {
     // Re-projection error.
     residuals[0] -= T(observed_x_);
     residuals[1] -= T(observed_y_);
-    //residuals[0] = T(0.0);
-    //residuals[1] = T(0.0);
+
+    T translation[3];
+    T qvecInv[4] = {qvec[0], -qvec[1], -qvec[2], -qvec[3]};
+    ceres::UnitQuaternionRotatePoint(qvecInv, tvec, translation);
+
     const T fac = T(1.0e-1);
     for (int i = 0; i <3; i++)
-	residuals[i + 2] = fac * T(tvec[i] - posPrior(i));
+	residuals[i + 2] = fac* T(translation[i] - posPrior(i));
+
+//  std::cerr << "Tvec init " << tvec[0] << ", " << tvec[1] << ", " << tvec[2] << std::endl;
+//  std::cerr << "posPrior " << posPrior << std::endl;
 
     return true;
   }
@@ -143,7 +152,7 @@ class BundleAdjustmentCostFunction {
   const double observed_x_;
   const double observed_y_;
 };
-    
+
 // Bundle adjustment cost function for variable
 // camera calibration and point parameters, and fixed camera pose.
 template <typename CameraModel>
