@@ -323,11 +323,6 @@ void Reconstruction::DeRegisterImage(const image_t image_id) {
 
 void Reconstruction::Normalize(const double extent, const double p0,
                                const double p1, const bool use_images) {
-
-if (reg_image_ids_.size() < 3) return;
-std::cout << "===========================================" << std::endl;
-std::cout << "Reconstruction::Normalize" << std::endl;
-
   CHECK_GT(extent, 0);
   CHECK_GE(p0, 0);
   CHECK_LE(p0, 1);
@@ -340,6 +335,90 @@ std::cout << "Reconstruction::Normalize" << std::endl;
     return;
   }
 
+  EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
+
+  for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
+    class Image& image = Image(reg_image_ids_[i]);
+    const Eigen::Vector3d proj_center = image.ProjectionCenter();
+    proj_centers[&image] = proj_center;
+  }
+
+  // Coordinates of image centers or point locations.
+  std::vector<float> coords_x;
+  std::vector<float> coords_y;
+  std::vector<float> coords_z;
+  if (use_images) {
+    coords_x.reserve(proj_centers.size());
+    coords_y.reserve(proj_centers.size());
+    coords_z.reserve(proj_centers.size());
+    for (const auto& proj_center : proj_centers) {
+      coords_x.push_back(static_cast<float>(proj_center.second(0)));
+      coords_y.push_back(static_cast<float>(proj_center.second(1)));
+      coords_z.push_back(static_cast<float>(proj_center.second(2)));
+    }
+  } else {
+    coords_x.reserve(points3D_.size());
+    coords_y.reserve(points3D_.size());
+    coords_z.reserve(points3D_.size());
+    for (const auto& point3D : points3D_) {
+      coords_x.push_back(static_cast<float>(point3D.second.X()));
+      coords_y.push_back(static_cast<float>(point3D.second.Y()));
+      coords_z.push_back(static_cast<float>(point3D.second.Z()));
+    }
+  }
+
+  // Determine robust bounding box and mean.
+
+  std::sort(coords_x.begin(), coords_x.end());
+  std::sort(coords_y.begin(), coords_y.end());
+  std::sort(coords_z.begin(), coords_z.end());
+
+  const size_t P0 = static_cast<size_t>(
+      (coords_x.size() > 3) ? p0 * (coords_x.size() - 1) : 0);
+  const size_t P1 = static_cast<size_t>(
+      (coords_x.size() > 3) ? p1 * (coords_x.size() - 1) : coords_x.size() - 1);
+
+  const Eigen::Vector3d bbox_min(coords_x[P0], coords_y[P0], coords_z[P0]);
+  const Eigen::Vector3d bbox_max(coords_x[P1], coords_y[P1], coords_z[P1]);
+
+  Eigen::Vector3d mean_coord(0, 0, 0);
+  for (size_t i = P0; i <= P1; ++i) {
+    mean_coord(0) += coords_x[i];
+    mean_coord(1) += coords_y[i];
+    mean_coord(2) += coords_z[i];
+  }
+  mean_coord /= P1 - P0 + 1;
+
+  // Calculate scale and translation, such that
+  // translation is applied before scaling.
+  const double old_extent = (bbox_max - bbox_min).norm();
+  double scale;
+  if (old_extent < std::numeric_limits<double>::epsilon()) {
+    scale = 1;
+  } else {
+    scale = extent / old_extent;
+  }
+
+  const Eigen::Vector3d translation = mean_coord;
+
+  // Transform images.
+  for (auto& image_proj_center : proj_centers) {
+    image_proj_center.second -= translation;
+    image_proj_center.second *= scale;
+    const Eigen::Quaterniond quat(
+        image_proj_center.first->Qvec(0), image_proj_center.first->Qvec(1),
+        image_proj_center.first->Qvec(2), image_proj_center.first->Qvec(3));
+    image_proj_center.first->SetTvec(quat * -image_proj_center.second);
+  }
+
+  // Transform points.
+  for (auto& point3D : points3D_) {
+    point3D.second.XYZ() -= translation;
+    point3D.second.XYZ() *= scale;
+  }
+}
+
+void Reconstruction::AlignWithPrior() {
   EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
 
 // A - GPS
@@ -355,13 +434,9 @@ std::cout << "Reconstruction::Normalize" << std::endl;
     proj_centers[&image] = proj_center;
     centroid_A += image.TvecPrior();
     centroid_B += image.ProjectionCenter();
-    std::cout << "image.TvecPrior() "  << image.TvecPrior() << std::endl;
-    std::cout << "image.ProjectionCenter() "  << image.ProjectionCenter() << std::endl;
   }
   centroid_A /= reg_image_ids_.size();
   centroid_B /= reg_image_ids_.size();
-  std::cout << "centroid_A "  << centroid_A << std::endl;
-  std::cout << "centroid_B "  << centroid_B << std::endl;
 
   Eigen::Matrix3d W;
   W.setZero(3,3);
@@ -371,38 +446,24 @@ std::cout << "Reconstruction::Normalize" << std::endl;
       W += (image.TvecPrior() - centroid_A) * (image.ProjectionCenter() - centroid_B).transpose();
   }
   W /= reg_image_ids_.size();
-  std::cout << "W "  << W << std::endl;
 
   Eigen::JacobiSVD<Eigen::Matrix3d, Eigen::NoQRPreconditioner> svd(3, 3, Eigen::ComputeFullU | Eigen::ComputeFullV);
   svd.compute(W);
 
   // compute solution in any case; caller can decide whether to use it or not, using the return value
-  const double d1 = svd.singularValues()[0];
-  const double d2 = svd.singularValues()[1];
-  const double d3 = svd.singularValues()[2];
   const Eigen::Matrix3d S = Eigen::Vector3d({1.0, 1.0, svd.matrixU().determinant() * svd.matrixV().determinant() > 0.0 ? 1.0 : -1.0}).asDiagonal();
   const Eigen::Matrix3d R = svd.matrixU() * S * svd.matrixV().transpose();
 
-  std::cout << "R "  << R << std::endl;
+//  const double scale = 1.0;
+  double meanSqrDistance = 0.0;
+  for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
+      class Image& image = Image(reg_image_ids_[i]);
+      meanSqrDistance += (image.ProjectionCenter() - centroid_B).squaredNorm();
+  }
+  meanSqrDistance /= reg_image_ids_.size();
 
-
-/*  std::cout << "S "  << S << std::endl;
-  std::cout << "svd.matrixU() "  << svd.matrixU() << std::endl;
-  std::cout << "svd.matrixV().transpose() "  << svd.matrixV().transpose() << std::endl;
-
-  std::cout << "svd.matrixU() "  << svd.matrixU() << std::endl;
-
-  std::cout << "svd.singularValues()"  << svd.singularValues() << std::endl;
-
-  std::cout << "W recomp"  << svd.matrixU() * svd.singularValues().asDiagonal() * svd.matrixV() << std::endl;
-*/
-//  const Eigen::Matrix3d R = Eigen::Vector3d({1.0, 1.0, 1.0}).asDiagonal();
-  const double scale = 1.0;//(Eigen::Matrix3d::DiagonalMatrix({d1, d2, d3}) * S).trace() /
-//          meanSqrDistance(beginPoints_B, endPoints_B, centroid_B, beginWeights, endWeights);
+  const double scale = (svd.singularValues().asDiagonal() * S).trace() / meanSqrDistance;
   Eigen::Vector3d translation = centroid_A - scale * R * centroid_B;
-
-exit(0);
-  // "GPS" = R * scale * "MAP" + translation
 
 
   // Transform images.

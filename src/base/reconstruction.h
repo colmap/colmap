@@ -178,6 +178,8 @@ class Reconstruction {
   void Normalize(const double extent = 10.0, const double p0 = 0.1,
                  const double p1 = 0.9, const bool use_images = true);
 
+  void AlignWithPrior();
+
   // Apply the 3D similarity transformation to all images and points.
   void Transform(const SimilarityTransform3& tform);
 

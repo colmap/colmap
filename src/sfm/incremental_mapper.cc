@@ -286,35 +286,10 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
     return false;
   }
 
-  std::cout << "image1.Tvec init() " << image1.Tvec();
-  std::cout << "image2.Tvec init() " << image2.Tvec();
-
-  const Eigen::Vector3d transDir_I1_I2_gps = (image2.Tvec() - image1.Tvec()).normalized();
-
-  std::cout << "transDir_I1_I2_gps " << transDir_I1_I2_gps;
-  const Eigen::Vector3d transDir_I1_I2_init = -(QuaternionToRotationMatrix(prev_init_two_view_geometry_.qvec) * prev_init_two_view_geometry_.tvec).normalized();
-  std::cout << "transDir_I1_I2_init " << transDir_I1_I2_init;
-  const Eigen::Vector3d rotAxis_init_to_gps = transDir_I1_I2_init.cross(transDir_I1_I2_gps);
-  std::cout << "rotAxis_init_to_gps " << rotAxis_init_to_gps;
-  const double rotAngle = rotAxis_init_to_gps.norm();
-  const Eigen::AngleAxisd rotAngleAxis_init_to_gps(std::asin(std::min(1.0,rotAngle)), rotAxis_init_to_gps.normalized());
-
-  std::cout << "rotAngleAxis_init_to_gps.toRotationMatrix()*transDir_I1_I2_init " << rotAngleAxis_init_to_gps.toRotationMatrix()*transDir_I1_I2_init;
-
-  image1.Qvec() = RotationMatrixToQuaternion(rotAngleAxis_init_to_gps.toRotationMatrix());
-  image2.Qvec() = RotationMatrixToQuaternion(QuaternionToRotationMatrix(prev_init_two_view_geometry_.qvec) * rotAngleAxis_init_to_gps.toRotationMatrix());
-
-  image1.Tvec() = -QuaternionToRotationMatrix(image1.Qvec()).inverse() * image1.TvecPrior();
-  image2.Tvec() = -QuaternionToRotationMatrix(image2.Qvec()).inverse() * image2.TvecPrior();
-
-
-
-
-
   image1.Qvec() = ComposeIdentityQuaternion();
   image1.Tvec() = Eigen::Vector3d(0, 0, 0);
   image2.Qvec() = prev_init_two_view_geometry_.qvec;
-  image2.Tvec() = prev_init_two_view_geometry_.tvec * (image2.Tvec() - image1.Tvec()).norm();
+  image2.Tvec() = prev_init_two_view_geometry_.tvec;
 
   const Eigen::Matrix3x4d proj_matrix1 = image1.ProjectionMatrix();
   const Eigen::Matrix3x4d proj_matrix2 = image2.ProjectionMatrix();
@@ -374,8 +349,6 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   CHECK(options.Check());
 
   Image& image = reconstruction_->Image(image_id);
-  std::cout << "Tvec RegisterNextImage " << image.Tvec()[0] << ", " << image.Tvec()[1] << ", " << image.Tvec()[2] << std::endl;
-
   Camera& camera = reconstruction_->Camera(image.CameraId());
 
   CHECK(!image.IsRegistered()) << "Image cannot be registered multiple times";
@@ -517,7 +490,6 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
                             &inlier_mask)) {
     return false;
   }
-  image.Tvec() = -QuaternionToRotationMatrix(image.Qvec()).inverse() * image.TvecPrior() / 100;
 
   if (num_inliers < static_cast<size_t>(options.abs_pose_min_num_inliers)) {
     return false;
@@ -552,7 +524,6 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       }
     }
   }
-  std::cout << "Tvec RegisterNextImage end " << image.Tvec()[0] << ", " << image.Tvec()[1] << ", " << image.Tvec()[2] << std::endl;
 
   return true;
 }
@@ -729,6 +700,8 @@ bool IncrementalMapper::AdjustGlobalBundle(
     ba_config.SetConstantTvec(reg_image_ids[1], {0});
   }
 
+  reconstruction_->AlignWithPrior();
+
   // Run bundle adjustment.
   BundleAdjuster bundle_adjuster(ba_options, ba_config);
   if (!bundle_adjuster.Solve(reconstruction_)) {
@@ -737,7 +710,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   // Normalize scene for numerical stability and
   // to avoid large scale changes in viewer.
-  reconstruction_->Normalize();
+  //reconstruction_->Normalize();
 
   return true;
 }

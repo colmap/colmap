@@ -86,7 +86,7 @@ class GpsPriorBundleAdjustmentCostFunction {
     camPosProj[1] += tvec[1];
     camPosProj[2] += tvec[2];
 
-    const double fac = 1.0e-3;
+    const double fac = 1.0e-1;
     residuals[2] = fac * camPosProj[0];
     residuals[3] = fac * camPosProj[1];
     residuals[4] = fac * camPosProj[2];

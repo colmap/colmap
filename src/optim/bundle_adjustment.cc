@@ -353,7 +353,6 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
   image.NormalizeQvec();
 
   double* qvec_data = image.Qvec().data();
-
   double* tvec_data = image.Tvec().data();
   double* camera_params_data = camera.ParamsData();
 
@@ -362,7 +361,6 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 
   // Add residuals to bundle adjustment problem.
   size_t num_observations = 0;
-
   for (const Point2D& point2D : image.Points2D()) {
     if (!point2D.HasPoint3D()) {
       continue;
@@ -411,11 +409,8 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
     }
   }
 
-  auto camcord = QuaternionToRotationMatrix(image.Qvec()).inverse() * image.Tvec();
-//  std::cout << "camcord " << camcord << std::endl;
-//  std::cout << "image.TvecPrior() " << image.TvecPrior() << std::endl;
-  auto resid = image.TvecPrior() + camcord;
-  std::cout << "Tvec residuals " << resid[0] << ", " << resid[1] << ", " << resid[2] << std::endl;
+  auto resid = image.TvecPrior() + QuaternionToRotationMatrix(image.Qvec()).inverse() * image.Tvec();
+  std::cout << "initial Tvec residuals " << resid[0] << ", " << resid[1] << ", " << resid[2] << std::endl;
 
 
   if (num_observations > 0) {
