@@ -285,17 +285,6 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
   if (!EstimateInitialTwoViewGeometry(options, image_id1, image_id2)) {
     return false;
   }
-/*
-  image1.Qvec() = ComposeIdentityQuaternion();
-  image1.Tvec() = Eigen::Vector3d(0, 0, 0);
-  image2.Qvec() = prev_init_two_view_geometry_.qvec;
-  image2.Tvec() = prev_init_two_view_geometry_.tvec;
-*/
-  image1.Tvec() = image1.TvecPrior();
-  image2.Tvec() = image2.TvecPrior();
-
-  std::cout << "prev_init_two_view_geometry_.qvec " << prev_init_two_view_geometry_.qvec;
-  std::cout << "prev_init_two_view_geometry_.tvec " << prev_init_two_view_geometry_.tvec;
 
   std::cout << "image1.Tvec init() " << image1.Tvec();
   std::cout << "image2.Tvec init() " << image2.Tvec();
@@ -303,7 +292,7 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
   const Eigen::Vector3d transDir_I1_I2_gps = (image2.Tvec() - image1.Tvec()).normalized();
 
   std::cout << "transDir_I1_I2_gps " << transDir_I1_I2_gps;
-  const Eigen::Vector3d transDir_I1_I2_init = prev_init_two_view_geometry_.tvec.normalized();
+  const Eigen::Vector3d transDir_I1_I2_init = -(QuaternionToRotationMatrix(prev_init_two_view_geometry_.qvec) * prev_init_two_view_geometry_.tvec).normalized();
   std::cout << "transDir_I1_I2_init " << transDir_I1_I2_init;
   const Eigen::Vector3d rotAxis_init_to_gps = transDir_I1_I2_init.cross(transDir_I1_I2_gps);
   std::cout << "rotAxis_init_to_gps " << rotAxis_init_to_gps;
@@ -315,8 +304,17 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
   image1.Qvec() = RotationMatrixToQuaternion(rotAngleAxis_init_to_gps.toRotationMatrix());
   image2.Qvec() = RotationMatrixToQuaternion(QuaternionToRotationMatrix(prev_init_two_view_geometry_.qvec) * rotAngleAxis_init_to_gps.toRotationMatrix());
 
-  image1.Tvec() = rotAngleAxis_init_to_gps.toRotationMatrix().inverse() * image1.TvecPrior();
-  image2.Tvec() = (QuaternionToRotationMatrix(prev_init_two_view_geometry_.qvec) * rotAngleAxis_init_to_gps.toRotationMatrix()).inverse() * image2.TvecPrior();
+  image1.Tvec() = -QuaternionToRotationMatrix(image1.Qvec()).inverse() * image1.TvecPrior();
+  image2.Tvec() = -QuaternionToRotationMatrix(image2.Qvec()).inverse() * image2.TvecPrior();
+
+
+
+
+
+  image1.Qvec() = ComposeIdentityQuaternion();
+  image1.Tvec() = Eigen::Vector3d(0, 0, 0);
+  image2.Qvec() = prev_init_two_view_geometry_.qvec;
+  image2.Tvec() = prev_init_two_view_geometry_.tvec * (image2.Tvec() - image1.Tvec()).norm();
 
   const Eigen::Matrix3x4d proj_matrix1 = image1.ProjectionMatrix();
   const Eigen::Matrix3x4d proj_matrix2 = image2.ProjectionMatrix();
@@ -514,14 +512,12 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   size_t num_inliers;
   std::vector<char> inlier_mask;
 
-  std::cout << "Tvec EstimateAbsolutePose " << image.Tvec()[0] << ", " << image.Tvec()[1] << ", " << image.Tvec()[2] << std::endl;
   if (!EstimateAbsolutePose(abs_pose_options, tri_points2D, tri_points3D,
                             &image.Qvec(), &image.Tvec(), &camera, &num_inliers,
                             &inlier_mask)) {
     return false;
   }
-//  image.Tvec() = image.TvecPrior();
-  std::cout << "Tvec EstimateAbsolutePose " << image.Tvec()[0] << ", " << image.Tvec()[1] << ", " << image.Tvec()[2] << std::endl;
+  image.Tvec() = -QuaternionToRotationMatrix(image.Qvec()).inverse() * image.TvecPrior() / 100;
 
   if (num_inliers < static_cast<size_t>(options.abs_pose_min_num_inliers)) {
     return false;
@@ -537,7 +533,6 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
     return false;
   }
 
-//  for (int i = 0; i < 3; i++)   image.Tvec()(i) = image.TvecPrior()(i);
   //////////////////////////////////////////////////////////////////////////////
   // Continue tracks
   //////////////////////////////////////////////////////////////////////////////
@@ -632,7 +627,7 @@ IncrementalMapper::AdjustLocalBundle(
         ba_config.SetConstantCamera(camera_id_and_num_images_pair.first);
       }
     }
-
+/*
     // Fix 7 DOF to avoid scale/rotation/translation drift in bundle adjustment.
     if (local_bundle.size() == 1) {
       ba_config.SetConstantPose(local_bundle[0]);
@@ -646,7 +641,7 @@ IncrementalMapper::AdjustLocalBundle(
         ba_config.SetConstantTvec(image_id2, {0});
       }
     }
-
+*/
     // Make sure, we refine all new and short-track 3D points, no matter if
     // they are fully contained in the local image set or not. Do not include
     // long track 3D points as they are usually already very stable and adding

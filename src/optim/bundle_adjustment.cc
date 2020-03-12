@@ -354,7 +354,6 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 
   double* qvec_data = image.Qvec().data();
 
-//  for (int i = 0; i < 3; i++) image.Tvec()(i) = image.TvecPrior()(i);
   double* tvec_data = image.Tvec().data();
   double* camera_params_data = camera.ParamsData();
 
@@ -409,12 +408,15 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
       problem_->AddResidualBlock(cost_function, loss_function, qvec_data,
                                  tvec_data, point3D.XYZ().data(),
                                  camera_params_data);
-
-
-//      problem_->SetParameterBlockConstant(tvec_data);
     }
   }
-  std::cout << "Tvec ba " << tvec_data[0] << ", " << tvec_data[1] << ", " << tvec_data[2] << std::endl;
+
+  auto camcord = QuaternionToRotationMatrix(image.Qvec()).inverse() * image.Tvec();
+//  std::cout << "camcord " << camcord << std::endl;
+//  std::cout << "image.TvecPrior() " << image.TvecPrior() << std::endl;
+  auto resid = image.TvecPrior() + camcord;
+  std::cout << "Tvec residuals " << resid[0] << ", " << resid[1] << ", " << resid[2] << std::endl;
+
 
   if (num_observations > 0) {
     camera_ids_.insert(image.CameraId());
@@ -428,7 +430,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
         const std::vector<int>& constant_tvec_idxs =
             config_.ConstantTvec(image_id);
         ceres::SubsetParameterization* tvec_parameterization =
-	new ceres::SubsetParameterization(3, constant_tvec_idxs);
+            new ceres::SubsetParameterization(3, constant_tvec_idxs);
         problem_->SetParameterization(tvec_data, tvec_parameterization);
       }
     }

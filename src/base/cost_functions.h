@@ -46,9 +46,7 @@ template <typename CameraModel>
 class GpsPriorBundleAdjustmentCostFunction {
  public:
     explicit GpsPriorBundleAdjustmentCostFunction(const Eigen::Vector2d& point2D, const Eigen::Vector3d& posPrior)
-	: observed_x_(point2D(0)), observed_y_(point2D(1)), posPrior(posPrior) {
-//	std::cerr << "Created new GPS Prior at " << posPrior << std::endl;
-    }
+	: observed_x_(point2D(0)), observed_y_(point2D(1)), posPrior(posPrior) {}
 
   static ceres::CostFunction* Create(const Eigen::Vector2d& point2D, const Eigen::Vector3d& posPrior) {
     return (new ceres::AutoDiffCostFunction<
@@ -63,16 +61,7 @@ class GpsPriorBundleAdjustmentCostFunction {
                   T* residuals) const {
     // Rotate and translate.
     T projection[3];
-//    T translation[3] = {point3D[0], point3D[1], point3D[2]};
-/*    T angleAxis[3];
-    T tvecWorld[3];
-    ceres::QuaternionToAngleAxis(qvec, angleAxis);
-    for (int i = 0; i < 3; i++) angleAxis[i] *= -1;
-    ceres::AngleAxisRotatePoint(angleAxis, tvec, tvecWorld);*/
-/*    translation[0] -= tvec[0];
-    translation[1] -= tvec[1];
-    translation[2] -= tvec[2];
-*/    ceres::UnitQuaternionRotatePoint(qvec, point3D, projection);
+    ceres::UnitQuaternionRotatePoint(qvec, point3D, projection);
     projection[0] += tvec[0];
     projection[1] += tvec[1];
     projection[2] += tvec[2];
@@ -89,16 +78,18 @@ class GpsPriorBundleAdjustmentCostFunction {
     residuals[0] -= T(observed_x_);
     residuals[1] -= T(observed_y_);
 
-    T translation[3];
-    T qvecInv[4] = {qvec[0], -qvec[1], -qvec[2], -qvec[3]};
-    ceres::UnitQuaternionRotatePoint(qvecInv, tvec, translation);
+    // GPS pos error.
+    T camPos[3] = {T(posPrior[0]), T(posPrior[1]), T(posPrior[2])};
+    T camPosProj[3];
+    ceres::UnitQuaternionRotatePoint(qvec, camPos, camPosProj);
+    camPosProj[0] += tvec[0];
+    camPosProj[1] += tvec[1];
+    camPosProj[2] += tvec[2];
 
-    const T fac = T(1.0e-1);
-    for (int i = 0; i <3; i++)
-	residuals[i + 2] = fac* T(translation[i] - posPrior(i));
-
-//  std::cerr << "Tvec init " << tvec[0] << ", " << tvec[1] << ", " << tvec[2] << std::endl;
-//  std::cerr << "posPrior " << posPrior << std::endl;
+    const double fac = 1.0e-3;
+    residuals[2] = fac * camPosProj[0];
+    residuals[3] = fac * camPosProj[1];
+    residuals[4] = fac * camPosProj[2];
 
     return true;
   }
