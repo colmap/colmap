@@ -395,7 +395,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 #define CAMERA_MODEL_CASE(CameraModel)                                   \
   case CameraModel::kModelId:                                            \
     cost_function =                                                      \
-    GpsPriorBundleAdjustmentCostFunction<CameraModel>::Create(point2D.XY(), image.TvecPrior()); \
+        BundleAdjustmentCostFunction<CameraModel>::Create(point2D.XY()); \
     break;
 
         CAMERA_MODEL_SWITCH_CASES
@@ -409,9 +409,26 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
     }
   }
 
-  auto resid = image.TvecPrior() + QuaternionToRotationMatrix(image.Qvec()).inverse() * image.Tvec();
-  std::cout << "initial Tvec residuals " << resid[0] << ", " << resid[1] << ", " << resid[2] << std::endl;
+  // Add GPS prior cost function
+  ceres::CostFunction* cost_function = nullptr;
 
+  switch (camera.ModelId()) {
+#define CAMERA_MODEL_CASE(CameraModel)                                   \
+  case CameraModel::kModelId:                                            \
+    cost_function =                                                      \
+        GpsPriorCostFunction<CameraModel>::Create(image.TvecPrior()); \
+    break;
+
+        CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+  }
+
+  problem_->AddResidualBlock(cost_function, loss_function, qvec_data,
+                             tvec_data, camera_params_data);
+
+auto resid = image.ProjectionCenter() - image.TvecPrior();
+  std::cout << "initial Tvec residuals " << resid[0] << ", " << resid[1] << ", " << resid[2] << std::endl;
 
   if (num_observations > 0) {
     camera_ids_.insert(image.CameraId());

@@ -40,6 +40,44 @@
 
 namespace colmap {
 
+template <typename CameraModel>
+class GpsPriorCostFunction {
+ public:
+    explicit GpsPriorCostFunction(const Eigen::Vector3d& posPrior)
+	: posPrior(posPrior) {}
+
+  static ceres::CostFunction* Create(const Eigen::Vector3d& posPrior) {
+    return (new ceres::AutoDiffCostFunction<
+            GpsPriorCostFunction<CameraModel>, 3, 4, 3,
+            CameraModel::kNumParams>(
+		new GpsPriorCostFunction(posPrior)));
+  }
+
+  template <typename T>
+  bool operator()(const T* const qvec, const T* const tvec,
+                  const T* const camera_params,
+                  T* residuals) const {
+    // GPS pos error.
+    T camPos[3] = {T(posPrior[0]), T(posPrior[1]), T(posPrior[2])};
+    T camPosProj[3];
+    ceres::UnitQuaternionRotatePoint(qvec, camPos, camPosProj);
+    camPosProj[0] += tvec[0];
+    camPosProj[1] += tvec[1];
+    camPosProj[2] += tvec[2];
+
+    const double fac = 1.0e-1;
+    residuals[0] = fac * camPosProj[0];
+    residuals[1] = fac * camPosProj[1];
+    residuals[2] = fac * camPosProj[2];
+
+    return true;
+  }
+
+ private:
+    const Eigen::Vector3d posPrior;
+};
+
+
 // Standard bundle adjustment cost function for variable
 // camera pose and calibration and point parameters.
 template <typename CameraModel>
