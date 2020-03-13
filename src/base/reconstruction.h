@@ -60,6 +60,9 @@ class SimilarityTransform3;
 // written to and read from disk.
 class Reconstruction {
  public:
+   double normScale = 1.0;
+   Eigen::Vector3d normTranslation = Eigen::Vector3d(0,0,0);
+
   struct ImagePairStat {
     // The number of triangulated correspondences between two images.
     size_t num_tri_corrs = 0;

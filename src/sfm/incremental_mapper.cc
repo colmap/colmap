@@ -710,7 +710,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   // Normalize scene for numerical stability and
   // to avoid large scale changes in viewer.
-  //reconstruction_->Normalize();
+  reconstruction_->Normalize();
 
   return true;
 }

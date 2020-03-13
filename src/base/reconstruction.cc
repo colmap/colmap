@@ -398,6 +398,7 @@ void Reconstruction::Normalize(const double extent, const double p0,
   } else {
     scale = extent / old_extent;
   }
+  scale = 1;
 
   const Eigen::Vector3d translation = mean_coord;
 
@@ -410,6 +411,10 @@ void Reconstruction::Normalize(const double extent, const double p0,
         image_proj_center.first->Qvec(2), image_proj_center.first->Qvec(3));
     image_proj_center.first->SetTvec(quat * -image_proj_center.second);
   }
+
+  normScale *= scale;
+  normTranslation *= scale;
+  normTranslation -= translation;
 
   // Transform points.
   for (auto& point3D : points3D_) {
@@ -432,7 +437,7 @@ void Reconstruction::AlignWithPrior() {
     class Image& image = Image(reg_image_ids_[i]);
     const Eigen::Vector3d proj_center = image.ProjectionCenter();
     proj_centers[&image] = proj_center;
-    centroid_A += image.TvecPrior();
+    centroid_A += normScale * (image.TvecPrior() + normTranslation);
     centroid_B += image.ProjectionCenter();
   }
   centroid_A /= reg_image_ids_.size();
@@ -443,7 +448,7 @@ void Reconstruction::AlignWithPrior() {
 
   for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
       class Image& image = Image(reg_image_ids_[i]);
-      W += (image.TvecPrior() - centroid_A) * (image.ProjectionCenter() - centroid_B).transpose();
+      W += (normScale * (image.TvecPrior() + normTranslation) - centroid_A) * (image.ProjectionCenter() - centroid_B).transpose();
   }
   W /= reg_image_ids_.size();
 
