@@ -485,6 +485,9 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   size_t num_inliers;
   std::vector<char> inlier_mask;
 
+  if (reconstruction_->aligned) {
+    image.Tvec() = - QuaternionToRotationMatrix(image.Qvec()) * reconstruction_->normScale * (image.TvecPrior() + reconstruction_->normTranslation);
+  }
   if (!EstimateAbsolutePose(abs_pose_options, tri_points2D, tri_points3D,
                             &image.Qvec(), &image.Tvec(), &camera, &num_inliers,
                             &inlier_mask)) {
@@ -499,10 +502,16 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // Pose refinement
   //////////////////////////////////////////////////////////////////////////////
 
+  if (reconstruction_->aligned) {
+    image.Tvec() = - QuaternionToRotationMatrix(image.Qvec()) * reconstruction_->normScale * (image.TvecPrior() + reconstruction_->normTranslation);
+  }
   if (!RefineAbsolutePose(abs_pose_refinement_options, inlier_mask,
                           tri_points2D, tri_points3D, &image.Qvec(),
                           &image.Tvec(), &camera)) {
     return false;
+  }
+  if (reconstruction_->aligned) {
+    image.Tvec() = - QuaternionToRotationMatrix(image.Qvec()) * reconstruction_->normScale * (image.TvecPrior() + reconstruction_->normTranslation);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -578,6 +587,7 @@ IncrementalMapper::AdjustLocalBundle(
     if (options.fix_existing_images) {
       for (const image_t local_image_id : local_bundle) {
         if (existing_image_ids_.count(local_image_id)) {
+          std::cout << "options.fix_existing_images" << std::endl;
           ba_config.SetConstantPose(local_image_id);
         }
       }
@@ -688,18 +698,19 @@ bool IncrementalMapper::AdjustGlobalBundle(
   if (options.fix_existing_images) {
     for (const image_t image_id : reg_image_ids) {
       if (existing_image_ids_.count(image_id)) {
+        std::cout << "options.fix_existing_images" << std::endl;
         ba_config.SetConstantPose(image_id);
       }
     }
   }
-
+/*
   // Fix 7-DOFs of the bundle adjustment problem.
   ba_config.SetConstantPose(reg_image_ids[0]);
   if (!options.fix_existing_images ||
       !existing_image_ids_.count(reg_image_ids[1])) {
     ba_config.SetConstantTvec(reg_image_ids[1], {0});
   }
-
+*/
   reconstruction_->AlignWithPrior();
 
   // Run bundle adjustment.

@@ -60,6 +60,7 @@ class SimilarityTransform3;
 // written to and read from disk.
 class Reconstruction {
  public:
+   bool aligned = false;
    double normScale = 1.0;
    Eigen::Vector3d normTranslation = Eigen::Vector3d(0,0,0);
 

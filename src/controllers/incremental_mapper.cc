@@ -494,7 +494,9 @@ void IncrementalMapperController::Reconstruct(
 
     bool reg_next_success = true;
     bool prev_reg_next_success = true;
-    while (reg_next_success) {
+    static int counter = 0;
+    while (reg_next_success && counter < 2000) {
+      counter++;
       BlockIfPaused();
       if (IsStopped()) {
         break;

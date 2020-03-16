@@ -32,6 +32,7 @@
 set(FOLDER_NAME "base")
 
 COLMAP_ADD_SOURCES(
+    ExpLoss.hh ExpLoss.cc
     camera.h camera.cc
     camera_database.h camera_database.cc
     camera_models.h camera_models.cc

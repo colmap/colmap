@@ -425,10 +425,40 @@ void Reconstruction::Normalize(const double extent, const double p0,
 
 void Reconstruction::AlignWithPrior() {
   EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
-
+if (aligned) return;
 // A - GPS
 // B - map
 // "A" = R * scale * "B" + translation
+
+// Check if trajectory prior is not a strength line
+{
+  Eigen::Vector3d centroid(0,0,0);
+
+  for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
+    class Image& image = Image(reg_image_ids_[i]);
+    centroid += image.TvecPrior();
+  }
+  centroid /= reg_image_ids_.size();
+
+  Eigen::Matrix3d cov;
+  cov.setZero(3,3);
+  for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
+      class Image& image = Image(reg_image_ids_[i]);
+      const Eigen::Vector3d diff = image.TvecPrior() - centroid;
+      cov += diff * diff.transpose();
+  }
+  cov /= reg_image_ids_.size();
+
+  Eigen::JacobiSVD<Eigen::Matrix3d, Eigen::NoQRPreconditioner> svd(3, 3, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  svd.compute(cov);
+  std::cout << "princcomp " << svd.singularValues()[0] << ", " << svd.singularValues()[1] << ", " << svd.singularValues()[2] << std::endl;
+  if (svd.singularValues()[1] < 10.0) {
+      aligned = false;
+      return;
+  }
+  aligned = true;
+}
+
 
   Eigen::Vector3d centroid_A(0,0,0);
   Eigen::Vector3d centroid_B(0,0,0);
