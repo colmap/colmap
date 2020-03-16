@@ -32,7 +32,7 @@
 #include "optim/bundle_adjustment.h"
 
 #include <iomanip>
-#include <iostream>
+
 #ifdef OPENMP_ENABLED
 #include <omp.h>
 #endif
@@ -312,12 +312,6 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
     PrintSolverSummary(summary_);
   }
 
-  for (auto& id : reconstruction->RegImageIds()) {
-      auto& img = reconstruction->Image(id);
-      img.Tvec() +=  QuaternionRotatePoint(img.Qvec() , img.ProjectionCenter() - img.TvecP());
-      assert((img.ProjectionCenter() - img.TvecP()).norm() < 1e-5);
-  }
-
   TearDown(reconstruction);
 
   return true;
@@ -359,8 +353,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
   image.NormalizeQvec();
 
   double* qvec_data = image.Qvec().data();
-  image.TvecP() = image.ProjectionCenter();
-  double* tvec_data = image.TvecP().data();
+  double* tvec_data = image.Tvec().data();
   double* camera_params_data = camera.ParamsData();
 
   const bool constant_pose =
@@ -387,7 +380,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
   case CameraModel::kModelId:                                          \
     cost_function =                                                    \
         BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create( \
-            image.Qvec(), image.TvecP(), point2D.XY());                 \
+            image.Qvec(), image.Tvec(), point2D.XY());                 \
     break;
 
         CAMERA_MODEL_SWITCH_CASES
@@ -413,9 +406,33 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
       problem_->AddResidualBlock(cost_function, loss_function, qvec_data,
                                  tvec_data, point3D.XYZ().data(),
                                  camera_params_data);
-      problem_->SetParameterBlockConstant(tvec_data);
     }
   }
+
+  // Add GPS prior cost function
+  ceres::CostFunction* cost_function = nullptr;
+
+  switch (camera.ModelId()) {
+#define CAMERA_MODEL_CASE(CameraModel)                                   \
+  case CameraModel::kModelId:                                            \
+    cost_function =                                                      \
+        GpsPriorCostFunction<CameraModel>::Create(image.TvecPrior()); \
+    break;
+
+        CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+  }
+
+  problem_->AddResidualBlock(cost_function, loss_function, qvec_data,
+                             tvec_data, camera_params_data);
+
+auto tmp = image.ProjectionCenter() / reconstruction->normScale - reconstruction->normTranslation;
+auto tmp2 = image.TvecPrior();
+auto resid = tmp - tmp2;
+ std::cout << "initial Tvec residuals " << resid[0] << ", " << resid[1] << ", " << resid[2];
+ std::cout << ", " << tmp[0] << ", " << tmp[1] << ", " << tmp[2];
+ std::cout << ", " << tmp2[0] << ", " << tmp2[1] << ", " << tmp2[2] << std::endl;
 
   if (num_observations > 0) {
     camera_ids_.insert(image.CameraId());
@@ -475,7 +492,7 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
   case CameraModel::kModelId:                                          \
     cost_function =                                                    \
         BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create( \
-            image.Qvec(), image.TvecP(), point2D.XY());                 \
+            image.Qvec(), image.Tvec(), point2D.XY());                 \
     break;
 
       CAMERA_MODEL_SWITCH_CASES
@@ -695,7 +712,7 @@ void ParallelBundleAdjuster::TearDown(Reconstruction* reconstruction) {
     Image& image = reconstruction->Image(image_id);
     Eigen::Matrix3d rotation_matrix;
     pba_camera.GetMatrixRotation(rotation_matrix.data());
-    pba_camera.GetTranslation(image.TvecP().data());
+    pba_camera.GetTranslation(image.Tvec().data());
     image.Qvec() = RotationMatrixToQuaternion(rotation_matrix.transpose());
 
     Camera& camera = reconstruction->Camera(image.CameraId());
@@ -729,7 +746,7 @@ void ParallelBundleAdjuster::AddImagesToProblem(
     pba_camera.SetFocalLength(camera.Params(0));
     pba_camera.SetProjectionDistortion(camera.Params(3));
     pba_camera.SetMatrixRotation(rotation_matrix.data());
-    pba_camera.SetTranslation(image.TvecP().data());
+    pba_camera.SetTranslation(image.Tvec().data());
 
     CHECK(!config_.HasConstantTvec(image_id))
         << "PBA cannot fix partial extrinsics";
