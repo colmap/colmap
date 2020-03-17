@@ -630,6 +630,8 @@ IncrementalMapper::AdjustLocalBundle(
       }
     }
 
+    reconstruction_->AlignWithPrior();
+
     // Adjust the local bundle.
     BundleAdjuster bundle_adjuster(ba_options, ba_config);
     bundle_adjuster.Solve(reconstruction_);
