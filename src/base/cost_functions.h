@@ -36,39 +36,31 @@
 
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
-#include <iostream>
 
 namespace colmap {
 
-template <typename CameraModel>
+// This cost function keeps camera position close to the GPS position
 class GpsPriorCostFunction {
  public:
     explicit GpsPriorCostFunction(const Eigen::Vector3d& posPrior)
 	: posPrior(posPrior) {}
 
   static ceres::CostFunction* Create(const Eigen::Vector3d& posPrior) {
-    return (new ceres::AutoDiffCostFunction<
-            GpsPriorCostFunction<CameraModel>, 3, 4, 3,
-            CameraModel::kNumParams>(
-		new GpsPriorCostFunction(posPrior)));
+    return (new ceres::AutoDiffCostFunction<GpsPriorCostFunction, 3, 4, 3>(
+      new GpsPriorCostFunction(posPrior)));
   }
 
   template <typename T>
-  bool operator()(const T* const qvec, const T* const tvec,
-                  const T* const camera_params,
-                  T* residuals) const {
+  bool operator()(const T* const qvec, const T* const tvec, T* residuals) const {
     // GPS pos error.
     T camPos[3] = {T(posPrior[0]), T(posPrior[1]), T(posPrior[2])};
-    T camPosProj[3];
-    ceres::UnitQuaternionRotatePoint(qvec, camPos, camPosProj);
-    camPosProj[0] += tvec[0];
-    camPosProj[1] += tvec[1];
-    camPosProj[2] += tvec[2];
+    T camPosRot[3];
+    ceres::UnitQuaternionRotatePoint(qvec, camPos, camPosRot);
 
     const double fac = 1.0e-0;
-    residuals[0] = fac * camPosProj[0];
-    residuals[1] = fac * camPosProj[1];
-    residuals[2] = fac * camPosProj[2];
+    residuals[0] = fac * (camPosRot[0] + tvec[0]);
+    residuals[1] = fac * (camPosRot[1] + tvec[1]);
+    residuals[2] = fac * (camPosRot[2] + tvec[2]);
 
     return true;
   }
@@ -80,64 +72,6 @@ class GpsPriorCostFunction {
 
 // Standard bundle adjustment cost function for variable
 // camera pose and calibration and point parameters.
-template <typename CameraModel>
-class GpsPriorBundleAdjustmentCostFunction {
- public:
-    explicit GpsPriorBundleAdjustmentCostFunction(const Eigen::Vector2d& point2D, const Eigen::Vector3d& posPrior)
-	: observed_x_(point2D(0)), observed_y_(point2D(1)), posPrior(posPrior) {}
-
-  static ceres::CostFunction* Create(const Eigen::Vector2d& point2D, const Eigen::Vector3d& posPrior) {
-    return (new ceres::AutoDiffCostFunction<
-            GpsPriorBundleAdjustmentCostFunction<CameraModel>, 5, 4, 3, 3,
-            CameraModel::kNumParams>(
-		new GpsPriorBundleAdjustmentCostFunction(point2D, posPrior)));
-  }
-
-  template <typename T>
-  bool operator()(const T* const qvec, const T* const tvec,
-                  const T* const point3D, const T* const camera_params,
-                  T* residuals) const {
-    // Rotate and translate.
-    T projection[3];
-    ceres::UnitQuaternionRotatePoint(qvec, point3D, projection);
-    projection[0] += tvec[0];
-    projection[1] += tvec[1];
-    projection[2] += tvec[2];
-
-    // Project to image plane.
-    projection[0] /= projection[2];
-    projection[1] /= projection[2];
-
-    // Distort and transform to pixel space.
-    CameraModel::WorldToImage(camera_params, projection[0], projection[1],
-                              &residuals[0], &residuals[1]);
-
-    // Re-projection error.
-    residuals[0] -= T(observed_x_);
-    residuals[1] -= T(observed_y_);
-
-    // GPS pos error.
-    T camPos[3] = {T(posPrior[0]), T(posPrior[1]), T(posPrior[2])};
-    T camPosProj[3];
-    ceres::UnitQuaternionRotatePoint(qvec, camPos, camPosProj);
-    camPosProj[0] += tvec[0];
-    camPosProj[1] += tvec[1];
-    camPosProj[2] += tvec[2];
-
-    const double fac = 1.0e-0;
-    residuals[2] = fac * camPosProj[0];
-    residuals[3] = fac * camPosProj[1];
-    residuals[4] = fac * camPosProj[2];
-
-    return true;
-  }
-
- private:
-  const double observed_x_;
-  const double observed_y_;
-    const Eigen::Vector3d posPrior;
-};
-
 template <typename CameraModel>
 class BundleAdjustmentCostFunction {
  public:

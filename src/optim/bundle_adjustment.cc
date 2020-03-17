@@ -261,6 +261,10 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
 
   problem_.reset(new ceres::Problem());
 
+  if (options_.use_prior_in_ba) {
+    reconstruction->AlignWithPrior();
+  }
+
   ceres::LossFunction* loss_function = options_.CreateLossFunction();
   SetUp(reconstruction, loss_function);
 
@@ -407,32 +411,21 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
                                  tvec_data, point3D.XYZ().data(),
                                  camera_params_data);
     }
+
   }
 
-  // Add GPS prior cost function
-  ceres::CostFunction* cost_function = nullptr;
+  if (!constant_pose && options_.use_prior_in_ba && reconstruction->aligned) {
+    auto tmp = image.ProjectionCenter() / reconstruction->normScale - reconstruction->normTranslation;
+    auto tmp2 = image.TvecPrior();
+    auto resid = tmp - tmp2;
+     std::cout << "initial Tvec residuals #" << image_id << ", " << resid[0] << ", " << resid[1] << ", " << resid[2];
+     std::cout << ", " << tmp[0] << ", " << tmp[1] << ", " << tmp[2];
+     std::cout << ", " << tmp2[0] << ", " << tmp2[1] << ", " << tmp2[2] << std::endl;
 
-  switch (camera.ModelId()) {
-#define CAMERA_MODEL_CASE(CameraModel)                                   \
-  case CameraModel::kModelId:                                            \
-    cost_function =                                                      \
-        GpsPriorCostFunction<CameraModel>::Create(image.TvecPrior()); \
-    break;
-
-        CAMERA_MODEL_SWITCH_CASES
-
-#undef CAMERA_MODEL_CASE
+      // Add GPS prior cost function
+      ceres::CostFunction* gps_prior_cost_function = GpsPriorCostFunction::Create((image.TvecPrior() + reconstruction->normTranslation) * reconstruction->normScale);
+      problem_->AddResidualBlock(gps_prior_cost_function, loss_function, qvec_data, tvec_data);
   }
-
-  problem_->AddResidualBlock(cost_function, loss_function, qvec_data,
-                             tvec_data, camera_params_data);
-
-auto tmp = image.ProjectionCenter() / reconstruction->normScale - reconstruction->normTranslation;
-auto tmp2 = image.TvecPrior();
-auto resid = tmp - tmp2;
- std::cout << "initial Tvec residuals " << resid[0] << ", " << resid[1] << ", " << resid[2];
- std::cout << ", " << tmp[0] << ", " << tmp[1] << ", " << tmp[2];
- std::cout << ", " << tmp2[0] << ", " << tmp2[1] << ", " << tmp2[2] << std::endl;
 
   if (num_observations > 0) {
     camera_ids_.insert(image.CameraId());

@@ -334,7 +334,7 @@ void Reconstruction::Normalize(const double extent, const double p0,
       (!use_images && points3D_.size() < 2)) {
     return;
   }
-
+std::cout << "Normalize" << std::endl;
   EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
 
   for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
@@ -426,9 +426,7 @@ void Reconstruction::Normalize(const double extent, const double p0,
 void Reconstruction::AlignWithPrior() {
   EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
 if (aligned) return;
-// A - GPS
-// B - map
-// "A" = R * scale * "B" + translation
+std::cout << "AlignWithPrior" << std::endl;
 
 // Check if trajectory prior is not a strength line
 {
@@ -459,65 +457,18 @@ if (aligned) return;
   aligned = true;
 }
 
-
-  Eigen::Vector3d centroid_A(0,0,0);
-  Eigen::Vector3d centroid_B(0,0,0);
-
-  for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
-    class Image& image = Image(reg_image_ids_[i]);
-    const Eigen::Vector3d proj_center = image.ProjectionCenter();
-    proj_centers[&image] = proj_center;
-    centroid_A += normScale * (image.TvecPrior() + normTranslation);
-    centroid_B += image.ProjectionCenter();
-  }
-  centroid_A /= reg_image_ids_.size();
-  centroid_B /= reg_image_ids_.size();
-
-  Eigen::Matrix3d W;
-  W.setZero(3,3);
+  std::vector<Eigen::Vector3d> src;
+  std::vector<Eigen::Vector3d> dst;
 
   for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
       class Image& image = Image(reg_image_ids_[i]);
-      W += (normScale * (image.TvecPrior() + normTranslation) - centroid_A) * (image.ProjectionCenter() - centroid_B).transpose();
-  }
-  W /= reg_image_ids_.size();
-
-  Eigen::JacobiSVD<Eigen::Matrix3d, Eigen::NoQRPreconditioner> svd(3, 3, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  svd.compute(W);
-
-  // compute solution in any case; caller can decide whether to use it or not, using the return value
-  const Eigen::Matrix3d S = Eigen::Vector3d({1.0, 1.0, svd.matrixU().determinant() * svd.matrixV().determinant() > 0.0 ? 1.0 : -1.0}).asDiagonal();
-  const Eigen::Matrix3d R = svd.matrixU() * S * svd.matrixV().transpose();
-
-//  const double scale = 1.0;
-  double meanSqrDistance = 0.0;
-  for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
-      class Image& image = Image(reg_image_ids_[i]);
-      meanSqrDistance += (image.ProjectionCenter() - centroid_B).squaredNorm();
-  }
-  meanSqrDistance /= reg_image_ids_.size();
-
-  const double scale = (svd.singularValues().asDiagonal() * S).trace() / meanSqrDistance;
-  Eigen::Vector3d translation = centroid_A - scale * R * centroid_B;
-
-
-  // Transform images.
-  for (auto& image_proj_center : proj_centers) {
-    image_proj_center.second = R * scale * image_proj_center.second + translation;
-    const Eigen::Vector4d quat0(
-        image_proj_center.first->Qvec(0), image_proj_center.first->Qvec(1),
-        image_proj_center.first->Qvec(2), image_proj_center.first->Qvec(3));
-    image_proj_center.first->SetQvec(RotationMatrixToQuaternion(QuaternionToRotationMatrix(quat0) * R.inverse()));
-    const Eigen::Quaterniond quat(
-        image_proj_center.first->Qvec(0), image_proj_center.first->Qvec(1),
-        image_proj_center.first->Qvec(2), image_proj_center.first->Qvec(3));
-    image_proj_center.first->SetTvec(quat * -image_proj_center.second);
+      src.push_back(image.ProjectionCenter());
+      dst.push_back(normScale * (image.TvecPrior() + normTranslation));
   }
 
-  // Transform points.
-  for (auto& point3D : points3D_) {
-    point3D.second.XYZ() = R * scale * point3D.second.XYZ() + translation;
-  }
+  SimilarityTransform3 tform;
+  tform.Estimate(src, dst);
+  Transform(tform);
 }
 
 void Reconstruction::Transform(const SimilarityTransform3& tform) {
