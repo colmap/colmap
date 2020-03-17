@@ -69,6 +69,9 @@ struct BundleAdjustmentOptions {
   // Whether to print a final summary.
   bool print_summary = true;
 
+  // If true camera position priors are used in BA.
+  bool use_prior_in_ba = true;
+
   // Minimum number of residuals to enable multi-threading. Note that
   // single-threaded is typically better for small bundle adjustment problems
   // due to the overhead of threading.

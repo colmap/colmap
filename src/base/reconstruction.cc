@@ -418,6 +418,23 @@ void Reconstruction::Normalize(const double extent, const double p0,
   }
 }
 
+void Reconstruction::AlignWithPrior() {
+  EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
+
+  std::vector<Eigen::Vector3d> src;
+  std::vector<Eigen::Vector3d> dst;
+
+  for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
+      class Image& image = Image(reg_image_ids_[i]);
+      src.push_back(image.ProjectionCenter());
+      dst.push_back(image.TvecPrior());
+  }
+
+  SimilarityTransform3 tform;
+  tform.Estimate(src, dst);
+  Transform(tform);
+}
+
 void Reconstruction::Transform(const SimilarityTransform3& tform) {
   for (auto& image : images_) {
     tform.TransformPose(&image.second.Qvec(), &image.second.Tvec());

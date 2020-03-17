@@ -39,6 +39,37 @@
 
 namespace colmap {
 
+// This cost function keeps camera position close to the GPS position
+class GpsPriorCostFunction {
+ public:
+    explicit GpsPriorCostFunction(const Eigen::Vector3d& posPrior)
+	: posPrior(posPrior) {}
+
+  static ceres::CostFunction* Create(const Eigen::Vector3d& posPrior) {
+    return (new ceres::AutoDiffCostFunction<GpsPriorCostFunction, 3, 4, 3>(
+      new GpsPriorCostFunction(posPrior)));
+  }
+
+  template <typename T>
+  bool operator()(const T* const qvec, const T* const tvec, T* residuals) const {
+    // GPS pos error.
+    T camPos[3] = {T(posPrior[0]), T(posPrior[1]), T(posPrior[2])};
+    T camPosRot[3];
+    ceres::UnitQuaternionRotatePoint(qvec, camPos, camPosRot);
+
+    const double fac = 1.0e-0;
+    residuals[0] = fac * (camPosRot[0] + tvec[0]);
+    residuals[1] = fac * (camPosRot[1] + tvec[1]);
+    residuals[2] = fac * (camPosRot[2] + tvec[2]);
+
+    return true;
+  }
+
+ private:
+    const Eigen::Vector3d posPrior;
+};
+
+
 // Standard bundle adjustment cost function for variable
 // camera pose and calibration and point parameters.
 template <typename CameraModel>

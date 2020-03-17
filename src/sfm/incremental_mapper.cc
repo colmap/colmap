@@ -599,18 +599,20 @@ IncrementalMapper::AdjustLocalBundle(
       }
     }
 
-    // Fix 7 DOF to avoid scale/rotation/translation drift in bundle adjustment.
-    if (local_bundle.size() == 1) {
-      ba_config.SetConstantPose(local_bundle[0]);
-      ba_config.SetConstantTvec(image_id, {0});
-    } else if (local_bundle.size() > 1) {
-      const image_t image_id1 = local_bundle[local_bundle.size() - 1];
-      const image_t image_id2 = local_bundle[local_bundle.size() - 2];
-      ba_config.SetConstantPose(image_id1);
-      if (!options.fix_existing_images ||
-          !existing_image_ids_.count(image_id2)) {
-        ba_config.SetConstantTvec(image_id2, {0});
-      }
+    if (!ba_options.use_prior_in_ba) {
+        // Fix 7 DOF to avoid scale/rotation/translation drift in bundle adjustment.
+        if (local_bundle.size() == 1) {
+          ba_config.SetConstantPose(local_bundle[0]);
+          ba_config.SetConstantTvec(image_id, {0});
+        } else if (local_bundle.size() > 1) {
+          const image_t image_id1 = local_bundle[local_bundle.size() - 1];
+          const image_t image_id2 = local_bundle[local_bundle.size() - 2];
+          ba_config.SetConstantPose(image_id1);
+          if (!options.fix_existing_images ||
+              !existing_image_ids_.count(image_id2)) {
+            ba_config.SetConstantTvec(image_id2, {0});
+          }
+        }
     }
 
     // Make sure, we refine all new and short-track 3D points, no matter if
@@ -693,11 +695,13 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
-  // Fix 7-DOFs of the bundle adjustment problem.
-  ba_config.SetConstantPose(reg_image_ids[0]);
-  if (!options.fix_existing_images ||
-      !existing_image_ids_.count(reg_image_ids[1])) {
-    ba_config.SetConstantTvec(reg_image_ids[1], {0});
+  if (!ba_options.use_prior_in_ba) {
+    // Fix 7-DOFs of the bundle adjustment problem.
+    ba_config.SetConstantPose(reg_image_ids[0]);
+    if (!options.fix_existing_images ||
+        !existing_image_ids_.count(reg_image_ids[1])) {
+      ba_config.SetConstantTvec(reg_image_ids[1], {0});
+    }
   }
 
   // Run bundle adjustment.
@@ -706,9 +710,11 @@ bool IncrementalMapper::AdjustGlobalBundle(
     return false;
   }
 
-  // Normalize scene for numerical stability and
-  // to avoid large scale changes in viewer.
-  reconstruction_->Normalize();
+  if (!ba_options.use_prior_in_ba) {
+    // Normalize scene for numerical stability and
+    // to avoid large scale changes in viewer.
+    reconstruction_->Normalize();
+  }
 
   return true;
 }
