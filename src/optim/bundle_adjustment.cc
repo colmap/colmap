@@ -261,6 +261,10 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
 
   problem_.reset(new ceres::Problem());
 
+  if (options_.use_prior_in_ba) {
+    reconstruction->AlignWithPrior();
+  }
+
   ceres::LossFunction* loss_function = options_.CreateLossFunction();
   SetUp(reconstruction, loss_function);
 
@@ -410,7 +414,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 
   }
 
-  if (!constant_pose) {
+  if (!constant_pose && options_.use_prior_in_ba) {
       // Add GPS prior cost function
       ceres::CostFunction* gps_prior_cost_function = GpsPriorCostFunction::Create(image.TvecPrior());
       problem_->AddResidualBlock(gps_prior_cost_function, loss_function, qvec_data, tvec_data);
