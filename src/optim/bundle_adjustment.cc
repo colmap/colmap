@@ -422,7 +422,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 auto tmp = image.ProjectionCenter();
 auto tmp2 = image.TvecPrior();
 auto resid = tmp - tmp2;
- std::cout << "initial Tvec residuals " << resid[0] << ", " << resid[1] << ", " << resid[2];
+ std::cout << "initial Tvec residuals id# " << image_id << ", " << resid[0] << ", " << resid[1] << ", " << resid[2];
  std::cout << ", " << tmp[0] << ", " << tmp[1] << ", " << tmp[2];
  std::cout << ", " << tmp2[0] << ", " << tmp2[1] << ", " << tmp2[2] << std::endl;
 

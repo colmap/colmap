@@ -687,7 +687,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
     auto tmp = image.ProjectionCenter();
     auto tmp2 = image.TvecPrior();
     auto resid = tmp - tmp2;
-    if (resid.norm() > 1.) {
+    if (resid.norm() > 10.) {
       ba_config.AddImage(image_id);
     }
   }
