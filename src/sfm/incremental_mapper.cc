@@ -683,7 +683,13 @@ bool IncrementalMapper::AdjustGlobalBundle(
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
   for (const image_t image_id : reg_image_ids) {
-    ba_config.AddImage(image_id);
+    Image& image = reconstruction_->Image(image_id);
+    auto tmp = image.ProjectionCenter();
+    auto tmp2 = image.TvecPrior();
+    auto resid = tmp - tmp2;
+    if (resid.norm() > 1.) {
+      ba_config.AddImage(image_id);
+    }
   }
 
   // Fix the existing images, if option specified.
