@@ -36,7 +36,6 @@
 
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
-#include <iostream>
 
 namespace colmap {
 

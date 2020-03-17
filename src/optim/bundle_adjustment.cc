@@ -410,7 +410,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 
   }
 
-  if (constant_pose) {
+  if (!constant_pose) {
       // Add GPS prior cost function
       ceres::CostFunction* gps_prior_cost_function = GpsPriorCostFunction::Create(image.TvecPrior());
       problem_->AddResidualBlock(gps_prior_cost_function, loss_function, qvec_data, tvec_data);
