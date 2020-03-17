@@ -599,6 +599,8 @@ IncrementalMapper::AdjustLocalBundle(
       }
     }
 /*
+    Using GPS priors avoid drift. TODO(zp) make using GPS prior optional.
+
     // Fix 7 DOF to avoid scale/rotation/translation drift in bundle adjustment.
     if (local_bundle.size() == 1) {
       ba_config.SetConstantPose(local_bundle[0]);
@@ -693,12 +695,16 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
+/*
+  Using GPS priors avoid drift. TODO(zp) make using GPS prior optional.
+
   // Fix 7-DOFs of the bundle adjustment problem.
   ba_config.SetConstantPose(reg_image_ids[0]);
   if (!options.fix_existing_images ||
       !existing_image_ids_.count(reg_image_ids[1])) {
     ba_config.SetConstantTvec(reg_image_ids[1], {0});
   }
+*/
 
   reconstruction_->AlignWithPrior();
 

@@ -407,28 +407,14 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
                                  tvec_data, point3D.XYZ().data(),
                                  camera_params_data);
     }
+
   }
 
-  // Add GPS prior cost function
-  ceres::CostFunction* cost_function = nullptr;
-
-  switch (camera.ModelId()) {
-#define CAMERA_MODEL_CASE(CameraModel)                                   \
-  case CameraModel::kModelId:                                            \
-    cost_function =                                                      \
-        GpsPriorCostFunction<CameraModel>::Create(image.TvecPrior()); \
-    break;
-
-        CAMERA_MODEL_SWITCH_CASES
-
-#undef CAMERA_MODEL_CASE
+  if (constant_pose) {
+      // Add GPS prior cost function
+      ceres::CostFunction* gps_prior_cost_function = GpsPriorCostFunction::Create(image.TvecPrior());
+      problem_->AddResidualBlock(gps_prior_cost_function, loss_function, qvec_data, tvec_data);
   }
-
-  problem_->AddResidualBlock(cost_function, loss_function, qvec_data,
-                             tvec_data, camera_params_data);
-
-auto resid = image.ProjectionCenter() - image.TvecPrior();
-  std::cout << "initial Tvec residuals " << resid[0] << ", " << resid[1] << ", " << resid[2] << std::endl;
 
   if (num_observations > 0) {
     camera_ids_.insert(image.CameraId());
