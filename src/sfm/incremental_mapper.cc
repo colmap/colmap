@@ -692,15 +692,35 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
-  for (const image_t image_id : reg_image_ids) {
-    Image& image = reconstruction_->Image(image_id);
-    auto tmp = image.ProjectionCenter();
-    auto tmp2 = image.TvecPrior();
-    auto resid = tmp - tmp2;
-    if (resid.norm() > 10.) {
-      ba_config.AddImage(image_id);
+  int count = 0;
+  int countS = 0;
+  static int trueFull = 0;
+  if (trueFull++ > 50) {
+      trueFull = 0;
+      for (const image_t image_id : reg_image_ids) {
+        ba_config.AddImage(image_id);
+      }
+  } else {
+    for (const image_t image_id : reg_image_ids) {
+      countS++;
+      Image& image = reconstruction_->Image(image_id);
+      auto tmp = image.ProjectionCenter() / reconstruction_->normScale - reconstruction_->normTranslation;
+      auto tmp2 = image.TvecPrior();
+      auto resid = tmp - tmp2;
+      if (resid.norm() > 20.) {
+        ba_config.AddImage(image_id);
+        count++;
+      } else {
+        for (const Point2D& point2D : image.Points2D()) {
+          if (!point2D.HasPoint3D()) {
+            continue;
+          }
+          ba_config.AddConstantPoint(point2D.Point3DId());
+        }
+      }
     }
   }
+  std::cout << count << "/" << countS << std::endl;
 
   // Fix the existing images, if option specified.
   if (options.fix_existing_images) {
