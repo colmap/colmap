@@ -39,7 +39,10 @@
 #include <ceres/ceres.h>
 
 #include "base/camera.h"
+#include "base/image.h"
+#include "base/reconstruction.h"
 #include "base/camera_models.h"
+#include "base/ExpLoss.hh"
 #include "optim/loransac.h"
 #include "util/alignment.h"
 #include "util/logging.h"
@@ -161,7 +164,9 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
 //                             in-place to store the estimated focal length.
 //
 // @return                     Whether the solution is usable.
-bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
+bool RefineAbsolutePose(const Reconstruction& reconstruction,
+                        const Image& image,
+                        const AbsolutePoseRefinementOptions& options,
                         const std::vector<char>& inlier_mask,
                         const std::vector<Eigen::Vector2d>& points2D,
                         const std::vector<Eigen::Vector3d>& points3D,

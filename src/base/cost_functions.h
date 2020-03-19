@@ -57,7 +57,7 @@ class GpsPriorCostFunction {
     T camPosRot[3];
     ceres::UnitQuaternionRotatePoint(qvec, camPos, camPosRot);
 
-    const double fac = 1.0e-1;
+    const double fac = 1.0e-0;
     residuals[0] = fac * (camPosRot[0] + tvec[0]);
     residuals[1] = fac * (camPosRot[1] + tvec[1]);
     residuals[2] = fac * (camPosRot[2] + tvec[2]);

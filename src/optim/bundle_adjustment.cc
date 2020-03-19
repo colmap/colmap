@@ -40,6 +40,7 @@
 #include "base/camera_models.h"
 #include "base/cost_functions.h"
 #include "base/projection.h"
+#include "base/ExpLoss.hh"
 #include "util/misc.h"
 #include "util/threading.h"
 #include "util/timer.h"
@@ -424,7 +425,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 
       // Add GPS prior cost function
       ceres::CostFunction* gps_prior_cost_function = GpsPriorCostFunction::Create((image.TvecPrior() + reconstruction->normTranslation) * reconstruction->normScale);
-      problem_->AddResidualBlock(gps_prior_cost_function, loss_function, qvec_data, tvec_data);
+      problem_->AddResidualBlock(gps_prior_cost_function, nullptr, qvec_data, tvec_data);
   }
 
   if (num_observations > 0) {

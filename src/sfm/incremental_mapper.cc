@@ -505,13 +505,10 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   if (reconstruction_->aligned) {
     image.Tvec() = - QuaternionToRotationMatrix(image.Qvec()) * reconstruction_->normScale * (image.TvecPrior() + reconstruction_->normTranslation);
   }
-  if (!RefineAbsolutePose(abs_pose_refinement_options, inlier_mask,
+  if (!RefineAbsolutePose(*reconstruction_, image, abs_pose_refinement_options, inlier_mask,
                           tri_points2D, tri_points3D, &image.Qvec(),
                           &image.Tvec(), &camera)) {
     return false;
-  }
-  if (reconstruction_->aligned) {
-    image.Tvec() = - QuaternionToRotationMatrix(image.Qvec()) * reconstruction_->normScale * (image.TvecPrior() + reconstruction_->normTranslation);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -701,13 +698,19 @@ bool IncrementalMapper::AdjustGlobalBundle(
         ba_config.AddImage(image_id);
       }
   } else {
+    static int trueAlmostFull = 0;
+    int threshold = 5.;
+    if (trueAlmostFull++ > 10) {
+        trueAlmostFull = 0;
+        threshold = 2.;
+    }
     for (const image_t image_id : reg_image_ids) {
       countS++;
       Image& image = reconstruction_->Image(image_id);
       auto tmp = image.ProjectionCenter() / reconstruction_->normScale - reconstruction_->normTranslation;
       auto tmp2 = image.TvecPrior();
       auto resid = tmp - tmp2;
-      if (resid.norm() > 20.) {
+      if (resid.norm() > threshold) {
         ba_config.AddImage(image_id);
         count++;
       } else {
@@ -720,7 +723,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
       }
     }
   }
-  std::cout << count << "/" << countS << std::endl;
+  std::cout << count << "/" << countS << ", " << trueFull << std::endl;
 
   // Fix the existing images, if option specified.
   if (options.fix_existing_images) {
