@@ -33,6 +33,7 @@
 #define COLMAP_SRC_BASE_POINT3D_H_
 
 #include <vector>
+#include <random>
 
 #include <Eigen/Core>
 
@@ -75,6 +76,9 @@ class Point3D {
   inline class Track& Track();
   inline void SetTrack(const class Track& track);
 
+  bool isEnabled() const { return enabled; }
+  void randomEnable(const double r);
+
  private:
   // The 3D position of the point.
   Eigen::Vector3d xyz_;
@@ -87,6 +91,8 @@ class Point3D {
 
   // The track of the point as a list of image observations.
   class Track track_;
+
+  bool enabled;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

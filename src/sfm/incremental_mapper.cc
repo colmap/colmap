@@ -637,6 +637,8 @@ IncrementalMapper::AdjustLocalBundle(
       }
     }
 
+    reconstruction_->randomEnable3DPoints(1.0);
+
     // Adjust the local bundle.
     BundleAdjuster bundle_adjuster(ba_options, ba_config);
     bundle_adjuster.Solve(reconstruction_);
@@ -690,40 +692,61 @@ bool IncrementalMapper::AdjustGlobalBundle(
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
   int count = 0;
+  int count2 = 0;
   int countS = 0;
-  static int trueFull = 0;
-  if (trueFull++ > 50) {
-      trueFull = 0;
-      for (const image_t image_id : reg_image_ids) {
-        ba_config.AddImage(image_id);
-      }
-  } else {
-    static int trueAlmostFull = 0;
-    int threshold = 5.;
-    if (trueAlmostFull++ > 10) {
-        trueAlmostFull = 0;
-        threshold = 2.;
-    }
-    for (const image_t image_id : reg_image_ids) {
-      countS++;
-      Image& image = reconstruction_->Image(image_id);
-      auto tmp = image.ProjectionCenter() / reconstruction_->normScale - reconstruction_->normTranslation;
-      auto tmp2 = image.TvecPrior();
-      auto resid = tmp - tmp2;
-      if (resid.norm() > threshold) {
-        ba_config.AddImage(image_id);
-        count++;
-      } else {
+
+  reconstruction_->randomEnable3DPoints(0.1);
+
+  bool semiGlobal = false;
+  static int trueAlmostFull = 0;
+  if (trueAlmostFull++ > 10) {
+    semiGlobal = true;
+    trueAlmostFull = 0;
+  }
+
+  std::unordered_map<point3D_t, size_t> point3D_num_observations;
+  std::unordered_map<image_t, size_t> image_num_observations;
+  for (const image_t image_id : reg_image_ids) {
+    countS++;
+    Image& image = reconstruction_->Image(image_id);
+    auto tmp = image.ProjectionCenter() / reconstruction_->normScale - reconstruction_->normTranslation;
+    auto tmp2 = image.TvecPrior();
+    auto resid = tmp - tmp2;
+
+    if (resid.norm() > 5.) {
+      count2++;
+      if (semiGlobal) {
         for (const Point2D& point2D : image.Points2D()) {
           if (!point2D.HasPoint3D()) {
             continue;
           }
-          ba_config.AddConstantPoint(point2D.Point3DId());
+          point3D_num_observations[point2D.Point3DId()] += 1;
+        }
+      } else {
+        image_num_observations[image_id] += 1;
+      }
+    }
+  }
+
+  for (const auto elem : point3D_num_observations) {
+    if (elem.second != 0) {
+      auto point3d = reconstruction_->Point3D(elem.first);
+      if (point3d.isEnabled()) {
+        for (auto trackElement : point3d.Track().Elements()) {
+          image_num_observations[trackElement.image_id] += 1;
         }
       }
     }
   }
-  std::cout << count << "/" << countS << ", " << trueFull << std::endl;
+
+  for (const auto elem : image_num_observations) {
+    if (elem.second != 0) {
+      count++;
+      ba_config.AddImage(elem.first);
+    }
+  }
+
+  std::cout << count << "/" << count2 << "/" << countS << ", " << trueAlmostFull << std::endl;
 
   // Fix the existing images, if option specified.
   if (options.fix_existing_images) {
@@ -747,6 +770,19 @@ bool IncrementalMapper::AdjustGlobalBundle(
   // Run bundle adjustment.
   BundleAdjuster bundle_adjuster(ba_options, ba_config);
   if (!bundle_adjuster.Solve(reconstruction_)) {
+    return false;
+  }
+
+  reconstruction_->randomEnable3DPoints(1.0);
+
+  for (const auto elem : image_num_observations) {
+    if (elem.second != 0) {
+      ba_config.SetConstantPose(elem.first);
+    }
+  }
+
+  BundleAdjuster bundle_adjuster_relax(ba_options, ba_config);
+  if (!bundle_adjuster_relax.Solve(reconstruction_)) {
     return false;
   }
 

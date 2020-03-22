@@ -371,11 +371,13 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
       continue;
     }
 
-    num_observations += 1;
     point3D_num_observations_[point2D.Point3DId()] += 1;
 
     Point3D& point3D = reconstruction->Point3D(point2D.Point3DId());
     assert(point3D.Track().Length() > 1);
+
+    if (!point3D.isEnabled()) {continue;}
+    num_observations += 1;
 
     ceres::CostFunction* cost_function = nullptr;
 
@@ -451,6 +453,8 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
                                        Reconstruction* reconstruction,
                                        ceres::LossFunction* loss_function) {
   Point3D& point3D = reconstruction->Point3D(point3D_id);
+
+  if (!point3D.isEnabled()) {return;}
 
   // Is 3D point already fully contained in the problem? I.e. its entire track
   // is contained in `variable_image_ids`, `constant_image_ids`,
@@ -541,6 +545,7 @@ void BundleAdjuster::ParameterizeCameras(Reconstruction* reconstruction) {
 void BundleAdjuster::ParameterizePoints(Reconstruction* reconstruction) {
   for (const auto elem : point3D_num_observations_) {
     Point3D& point3D = reconstruction->Point3D(elem.first);
+    if (!point3D.isEnabled()) {continue;}
     if (point3D.Track().Length() > elem.second) {
       problem_->SetParameterBlockConstant(point3D.XYZ().data());
     }
@@ -548,6 +553,7 @@ void BundleAdjuster::ParameterizePoints(Reconstruction* reconstruction) {
 
   for (const point3D_t point3D_id : config_.ConstantPoints()) {
     Point3D& point3D = reconstruction->Point3D(point3D_id);
+    if (!point3D.isEnabled()) {continue;}
     problem_->SetParameterBlockConstant(point3D.XYZ().data());
   }
 }

@@ -303,6 +303,12 @@ class Reconstruction {
   // Create all image sub-directories in the given path.
   void CreateImageDirs(const std::string& path) const;
 
+  void randomEnable3DPoints(const double r) {
+    for (auto& point3D : points3D_) {
+        point3D.second.randomEnable(r);
+    }
+  }
+
  private:
   size_t FilterPoints3DWithSmallTriangulationAngle(
       const double min_tri_angle,
