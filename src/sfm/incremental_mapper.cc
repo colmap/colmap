@@ -580,12 +580,19 @@ IncrementalMapper::AdjustLocalBundle(
       ba_config.AddImage(local_image_id);
     }
 
-    // Fix the existing images, if option specified.
-    if (options.fix_existing_images) {
-      for (const image_t local_image_id : local_bundle) {
-        if (existing_image_ids_.count(local_image_id)) {
-          std::cout << "options.fix_existing_images" << std::endl;
+    if (ba_options.use_prior_in_ba) {
+      if (reconstruction_->aligned) {
+        for (const image_t local_image_id : local_bundle) {
           ba_config.SetConstantPose(local_image_id);
+        }
+      }
+    } else {
+      // Fix the existing images, if option specified.
+      if (options.fix_existing_images) {
+        for (const image_t local_image_id : local_bundle) {
+          if (existing_image_ids_.count(local_image_id)) {
+            ba_config.SetConstantPose(local_image_id);
+          }
         }
       }
     }
@@ -713,7 +720,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
     auto tmp2 = image.TvecPrior();
     auto resid = tmp - tmp2;
 
-    if (resid.norm() > 5.) {
+    if (resid.norm() > 1.) {
       count2++;
       if (semiGlobal) {
         for (const Point2D& point2D : image.Points2D()) {

@@ -602,6 +602,7 @@ void IncrementalMapperController::Reconstruct(
         reconstruction.NumPoints3D() != ba_prev_num_points) {
       IterativeGlobalRefinement(*options_, &mapper);
     }
+    reconstruction.InvNormalize();
 
     // If the total number of images is small then do not enforce the minimum
     // model size so that we can reconstruct small image collections.

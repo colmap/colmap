@@ -412,15 +412,49 @@ std::cout << "Normalize" << std::endl;
     image_proj_center.first->SetTvec(quat * -image_proj_center.second);
   }
 
-  normScale *= scale;
-  normTranslation *= scale;
-  normTranslation -= translation;
-
   // Transform points.
   for (auto& point3D : points3D_) {
     point3D.second.XYZ() -= translation;
     point3D.second.XYZ() *= scale;
   }
+
+  normScale *= scale;
+  normTranslation -= translation;
+  normTranslation *= scale;
+}
+
+void Reconstruction::InvNormalize() {
+    std::cout << "InvNormalize" << std::endl;
+
+    EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
+
+    for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
+      class Image& image = Image(reg_image_ids_[i]);
+      const Eigen::Vector3d proj_center = image.ProjectionCenter();
+      proj_centers[&image] = proj_center;
+    }
+
+   // Transform images.
+   for (auto& image_proj_center : proj_centers) {
+     image_proj_center.second -= normTranslation;
+     image_proj_center.second /= normScale;
+     const Eigen::Quaterniond quat(
+         image_proj_center.first->Qvec(0), image_proj_center.first->Qvec(1),
+         image_proj_center.first->Qvec(2), image_proj_center.first->Qvec(3));
+     image_proj_center.first->SetTvec(quat * -image_proj_center.second);
+   }
+
+   // Transform points.
+   for (auto& point3D : points3D_) {
+     point3D.second.XYZ() -= normTranslation;
+     point3D.second.XYZ() /= normScale;
+   }
+
+   for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
+     class Image& image = Image(reg_image_ids_[i]);
+     auto resid = image.ProjectionCenter() - image.TvecPrior();
+     std::cout << "final Tvec residuals #" << i << ", " << resid[0] << ", " << resid[1] << ", " << resid[2];
+   }
 }
 
 void Reconstruction::AlignWithPrior() {
@@ -860,7 +894,9 @@ void Reconstruction::Read(const std::string& path) {
   }
 }
 
-void Reconstruction::Write(const std::string& path) const { WriteBinary(path); }
+void Reconstruction::Write(const std::string& path) const {
+  WriteBinary(path);
+}
 
 void Reconstruction::ReadText(const std::string& path) {
   ReadCamerasText(JoinPaths(path, "cameras.txt"));
