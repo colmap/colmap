@@ -60,10 +60,6 @@ class SimilarityTransform3;
 // written to and read from disk.
 class Reconstruction {
  public:
-   bool aligned = false;
-   double normScale = 1.0;
-   Eigen::Vector3d normTranslation = Eigen::Vector3d(0,0,0);
-
   struct ImagePairStat {
     // The number of triangulated correspondences between two images.
     size_t num_tri_corrs = 0;
@@ -305,12 +301,6 @@ class Reconstruction {
   // Create all image sub-directories in the given path.
   void CreateImageDirs(const std::string& path) const;
 
-  void randomEnable3DPoints(const double r) {
-    for (auto& point3D : points3D_) {
-        point3D.second.randomEnable(r);
-    }
-  }
-
  private:
   size_t FilterPoints3DWithSmallTriangulationAngle(
       const double min_tri_angle,
@@ -352,6 +342,13 @@ class Reconstruction {
 
   // Total number of added 3D points, used to generate unique identifiers.
   point3D_t num_added_points3D_;
+
+  // Accumulated reconstruction normalization
+  double normScale = 1.0;
+  Eigen::Vector3d normTranslation = Eigen::Vector3d(0,0,0);
+
+  // Calculates reconstruction normalized pose prior
+  Eigen::Vector3d tvecPriorNormalization(const Eigen::Vector3d &tvecPrior) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -455,6 +452,10 @@ bool Reconstruction::ExistsImagePair(const image_pair_t pair_id) const {
 
 bool Reconstruction::IsImageRegistered(const image_t image_id) const {
   return Image(image_id).IsRegistered();
+}
+
+Eigen::Vector3d tvecPriorNormalization(const Eigen::Vector3d &tvecPrior) const {
+  return tvecPrior * normScale - normTranslation;
 }
 
 }  // namespace colmap

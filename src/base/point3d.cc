@@ -31,12 +31,8 @@
 
 #include "base/point3d.h"
 
-std::mt19937 rng(24387);
-
 namespace colmap {
 
 Point3D::Point3D() : xyz_(0.0, 0.0, 0.0), color_(0, 0, 0), error_(-1.0) {}
-
-void Point3D::randomEnable(const double r) {enabled = (r == 1.0) || static_cast<double>(rng() - rng.min()) / static_cast<double>(rng.max() - rng.min()) < r;}
 
 }  // namespace colmap
