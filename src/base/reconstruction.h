@@ -350,8 +350,8 @@ class Reconstruction {
   point3D_t num_added_points3D_;
 
   // Accumulated reconstruction normalization
-  double normScale;
-  Eigen::Vector3d normTranslation;
+  double norm_scale_;
+  Eigen::Vector3d norm_translation_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -458,7 +458,7 @@ bool Reconstruction::IsImageRegistered(const image_t image_id) const {
 }
 
 Eigen::Vector3d Reconstruction::TvecPriorNormalization(const Eigen::Vector3d &tvecPrior) const {
-  return (tvecPrior - normTranslation) * normScale;
+  return (tvecPrior - norm_translation_) * norm_scale_;
 }
 
 }  // namespace colmap

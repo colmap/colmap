@@ -47,7 +47,7 @@
 namespace colmap {
 
 Reconstruction::Reconstruction()
-    : correspondence_graph_(nullptr), num_added_points3D_(0), normScale(1.), normTranslation({0., 0., 0.}) {}
+    : correspondence_graph_(nullptr), num_added_points3D_(0), norm_scale_(1.), norm_translation_({0., 0., 0.}) {}
 
 std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
   std::unordered_set<point3D_t> point3D_ids;
@@ -418,15 +418,15 @@ void Reconstruction::Normalize(const double extent, const double p0,
   }
 
   // Accumulate normalization
-  normScale *= scale;
-  normTranslation += translation;
-  normTranslation *= scale;
+  norm_scale_ *= scale;
+  norm_translation_ += translation;
+  norm_translation_ *= scale;
 }
 
 void Reconstruction::FinalAlignmentWithPrior() {
   EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
 
-  Transform(SimilarityTransform3(1. / normScale, ComposeIdentityQuaternion(), normTranslation));
+  Transform(SimilarityTransform3(1. / norm_scale_, ComposeIdentityQuaternion(), norm_translation_));
 
   for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
     class Image& image = Image(reg_image_ids_[i]);
@@ -460,8 +460,8 @@ void Reconstruction::PartialAlignmentWithPrior() {
    * - s_normalization = 1 / s_alignment
    * - t_normalization = t_normalization
    */
-  normScale = 1. / tform.Scale();
-  normTranslation = tform.Translation();
+  norm_scale_ = 1. / tform.Scale();
+  norm_translation_ = tform.Translation();
 }
 
 void Reconstruction::Transform(const SimilarityTransform3& tform) {
