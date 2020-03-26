@@ -47,7 +47,7 @@
 namespace colmap {
 
 Reconstruction::Reconstruction()
-    : correspondence_graph_(nullptr), num_added_points3D_(0) {}
+    : correspondence_graph_(nullptr), num_added_points3D_(0), normScale(1.), normTranslation({0., 0., 0.}) {}
 
 std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
   std::unordered_set<point3D_t> point3D_ids;
@@ -398,7 +398,6 @@ void Reconstruction::Normalize(const double extent, const double p0,
   } else {
     scale = extent / old_extent;
   }
-  scale = 1;
 
   const Eigen::Vector3d translation = mean_coord;
 
@@ -418,58 +417,51 @@ void Reconstruction::Normalize(const double extent, const double p0,
     point3D.second.XYZ() *= scale;
   }
 
+  // Accumulate normalization
   normScale *= scale;
   normTranslation += translation;
   normTranslation *= scale;
 }
 
-void Reconstruction::InvNormalize() {
-    std::cout << "InvNormalize" << std::endl;
+void Reconstruction::FinalAlignmentWithPrior() {
+  EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
 
-    EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
+  Transform(SimilarityTransform3(1. / normScale, ComposeIdentityQuaternion(), normTranslation));
 
-    for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
-      class Image& image = Image(reg_image_ids_[i]);
-      const Eigen::Vector3d proj_center = image.ProjectionCenter();
-      proj_centers[&image] = proj_center;
-    }
-
-   // Transform images.
-   for (auto& image_proj_center : proj_centers) {
-     image_proj_center.second += normTranslation;
-     image_proj_center.second /= normScale;
-     const Eigen::Quaterniond quat(
-         image_proj_center.first->Qvec(0), image_proj_center.first->Qvec(1),
-         image_proj_center.first->Qvec(2), image_proj_center.first->Qvec(3));
-     image_proj_center.first->SetTvec(quat * -image_proj_center.second);
-   }
-
-   // Transform points.
-   for (auto& point3D : points3D_) {
-     point3D.second.XYZ() += normTranslation;
-     point3D.second.XYZ() /= normScale;
-   }
-
-   for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
-     class Image& image = Image(reg_image_ids_[i]);
-     auto resid = image.ProjectionCenter() - image.TvecPrior();
-     std::cout << "final Tvec residuals #" << i << ", " << resid[0] << ", " << resid[1] << ", " << resid[2];
-   }
+  for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
+    class Image& image = Image(reg_image_ids_[i]);
+    auto resid = image.ProjectionCenter() - image.TvecPrior();
+    std::cout << "Final alignment residuals #" << i << ", " << resid[0] << ", " << resid[1] << ", " << resid[2] << std::endl;
+  }
 }
 
-void Reconstruction::AlignWithPrior() {
+void Reconstruction::PartialAlignmentWithPrior() {
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> dst;
 
   for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
       class Image& image = Image(reg_image_ids_[i]);
       src.push_back(image.ProjectionCenter());
-      dst.push_back(tvecPriorNormalization(image.TvecPrior());
+      dst.push_back(image.TvecPrior());
   }
 
   SimilarityTransform3 tform;
   tform.Estimate(src, dst);
-  Transform(tform);
+  // Only rotation part is applied, which has no effect on the normalization
+  Transform(SimilarityTransform3(1., tform.Rotation(), {0. ,0. ,0.}));
+  /**
+   * Scale and translation are saved, which used for:
+   * - TvecPrior normalization
+   * - final alignment of the reconstruction
+   *
+   * Relations between scale and translation components of normalization and alignment:
+   * - based on Reconstruction::Normalize: P_normalized = (P_aligned - t_normalization) * s_normalization
+   * - based on SimilarityTransform3: P_aligned = P_normalized * s_alignment + t_alignment
+   * - s_normalization = 1 / s_alignment
+   * - t_normalization = t_normalization
+   */
+  normScale = 1. / tform.Scale();
+  normTranslation = tform.Translation();
 }
 
 void Reconstruction::Transform(const SimilarityTransform3& tform) {
@@ -861,9 +853,7 @@ void Reconstruction::Read(const std::string& path) {
   }
 }
 
-void Reconstruction::Write(const std::string& path) const {
-  WriteBinary(path);
-}
+void Reconstruction::Write(const std::string& path) const { WriteBinary(path); }
 
 void Reconstruction::ReadText(const std::string& path) {
   ReadCamerasText(JoinPaths(path, "cameras.txt"));

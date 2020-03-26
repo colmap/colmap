@@ -710,11 +710,9 @@ bool IncrementalMapper::AdjustGlobalBundle(
     return false;
   }
 
-  if (!ba_options.use_prior_in_ba) {
-    // Normalize scene for numerical stability and
-    // to avoid large scale changes in viewer.
-    reconstruction_->Normalize();
-  }
+  // Normalize scene for numerical stability and
+  // to avoid large scale changes in viewer.
+  reconstruction_->Normalize();
 
   return true;
 }
