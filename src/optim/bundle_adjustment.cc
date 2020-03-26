@@ -277,7 +277,7 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
 
   // Empirical choice.
   const size_t kMaxNumImagesDirectDenseSolver = 50;
-  const size_t kMaxNumImagesDirectSparseSolver = 1000;
+  const size_t kMaxNumImagesDirectSparseSolver = 10000;
   const size_t num_images = config_.NumImages();
   if (num_images <= kMaxNumImagesDirectDenseSolver) {
     solver_options.linear_solver_type = ceres::DENSE_SCHUR;

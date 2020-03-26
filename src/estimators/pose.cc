@@ -252,7 +252,7 @@ bool RefineAbsolutePose(const Reconstruction& reconstruction,
      std::cout << ", " << tmp2[0] << ", " << tmp2[1] << ", " << tmp2[2] << std::endl;
 
       // Add GPS prior cost function
-      ceres::CostFunction* gps_prior_cost_function = GpsPriorCostFunction2::Create((image.TvecPrior() + reconstruction.normTranslation) * reconstruction.normScale);
+      ceres::CostFunction* gps_prior_cost_function = GpsPriorCostFunction::Create((image.TvecPrior() + reconstruction.normTranslation) * reconstruction.normScale);
       problem.AddResidualBlock(gps_prior_cost_function, nullptr, qvec_data, tvec_data);
   }
 

@@ -195,6 +195,14 @@ class Image {
   // The number of levels in the 3D point multi-resolution visibility pyramid.
   static const int kNumPoint3DVisibilityPyramidLevels;
 
+  inline bool IsConverged() const;
+
+  inline void SetConverged(const bool converged);
+
+  inline void InitConvergenceTest();
+
+  void ConvergenceTest(const double conv_threshold);
+
  private:
   // Identifier of the image, if not specified `kInvalidImageId`.
   image_t image_id_;
@@ -232,6 +240,10 @@ class Image {
   // The pose prior of the image, e.g. extracted from EXIF tags.
   Eigen::Vector4d qvec_prior_;
   Eigen::Vector3d tvec_prior_;
+
+  // Setted to true when image position is converged
+  bool converged_;
+  Eigen::Vector3d prev_tvec_;
 
   // All image points, including points that are not part of a 3D point track.
   std::vector<class Point2D> points2D_;
@@ -357,6 +369,19 @@ bool Image::IsPoint3DVisible(const point2D_t point2D_idx) const {
   return num_correspondences_have_point3D_.at(point2D_idx) > 0;
 }
 
+bool Image::IsConverged() const { return converged_; }
+
+void Image::SetConverged(const bool converged) { converged_ = converged; };
+
+void Image::InitConvergenceTest() {
+  prev_tvec_ = ProjectionCenter();
+}
+/*
+void Image::ConvergenceTest(const double conv_threshold) {
+  std::cout << "diff: " << (prev_tvec_ - tvec_).norm() << std::endl;
+  converged_ = (prev_tvec_ - tvec_).norm() < conv_threshold;
+}
+*/
 }  // namespace colmap
 
 EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(colmap::Image)

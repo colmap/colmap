@@ -485,9 +485,6 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   size_t num_inliers;
   std::vector<char> inlier_mask;
 
-  if (reconstruction_->aligned) {
-    image.Tvec() = - QuaternionToRotationMatrix(image.Qvec()) * reconstruction_->normScale * (image.TvecPrior() + reconstruction_->normTranslation);
-  }
   if (!EstimateAbsolutePose(abs_pose_options, tri_points2D, tri_points3D,
                             &image.Qvec(), &image.Tvec(), &camera, &num_inliers,
                             &inlier_mask)) {
@@ -502,9 +499,6 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // Pose refinement
   //////////////////////////////////////////////////////////////////////////////
 
-  if (reconstruction_->aligned) {
-    image.Tvec() = - QuaternionToRotationMatrix(image.Qvec()) * reconstruction_->normScale * (image.TvecPrior() + reconstruction_->normTranslation);
-  }
   if (!RefineAbsolutePose(*reconstruction_, image, abs_pose_refinement_options, inlier_mask,
                           tri_points2D, tri_points3D, &image.Qvec(),
                           &image.Tvec(), &camera)) {
@@ -580,19 +574,11 @@ IncrementalMapper::AdjustLocalBundle(
       ba_config.AddImage(local_image_id);
     }
 
-    if (ba_options.use_prior_in_ba) {
-      if (reconstruction_->aligned) {
-        for (const image_t local_image_id : local_bundle) {
+    // Fix the existing images, if option specified.
+    if (options.fix_existing_images) {
+      for (const image_t local_image_id : local_bundle) {
+        if (existing_image_ids_.count(local_image_id)) {
           ba_config.SetConstantPose(local_image_id);
-        }
-      }
-    } else {
-      // Fix the existing images, if option specified.
-      if (options.fix_existing_images) {
-        for (const image_t local_image_id : local_bundle) {
-          if (existing_image_ids_.count(local_image_id)) {
-            ba_config.SetConstantPose(local_image_id);
-          }
         }
       }
     }
@@ -680,6 +666,11 @@ IncrementalMapper::AdjustLocalBundle(
       options.filter_max_reproj_error, options.filter_min_tri_angle,
       point3D_ids);
 
+  reconstruction_->Image(image_id).SetConverged(false);
+  for (const image_t local_image_id : local_bundle) {
+    reconstruction_->Image(local_image_id).SetConverged(false);
+  }
+
   return report;
 }
 
@@ -720,7 +711,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
     auto tmp2 = image.TvecPrior();
     auto resid = tmp - tmp2;
 
-    if (resid.norm() > 1.) {
+    if (!image.IsConverged()) {
       count2++;
       if (semiGlobal) {
         for (const Point2D& point2D : image.Points2D()) {
@@ -750,6 +741,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
     if (elem.second != 0) {
       count++;
       ba_config.AddImage(elem.first);
+      reconstruction_->Image(elem.first).InitConvergenceTest();
     }
   }
 
@@ -759,7 +751,6 @@ bool IncrementalMapper::AdjustGlobalBundle(
   if (options.fix_existing_images) {
     for (const image_t image_id : reg_image_ids) {
       if (existing_image_ids_.count(image_id)) {
-        std::cout << "options.fix_existing_images" << std::endl;
         ba_config.SetConstantPose(image_id);
       }
     }
@@ -785,6 +776,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   for (const auto elem : image_num_observations) {
     if (elem.second != 0) {
       ba_config.SetConstantPose(elem.first);
+      reconstruction_->Image(elem.first).ConvergenceTest(1.0);
     }
   }
 
