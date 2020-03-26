@@ -601,7 +601,9 @@ void IncrementalMapperController::Reconstruct(
         reconstruction.NumPoints3D() != ba_prev_num_points) {
       IterativeGlobalRefinement(*options_, &mapper);
     }
-    reconstruction.FinalAlignmentWithPrior();
+    if (options_->GlobalBundleAdjustment().use_prior_in_ba) {
+      reconstruction.FinalAlignmentWithPrior();
+    }
 
     // If the total number of images is small then do not enforce the minimum
     // model size so that we can reconstruct small image collections.
