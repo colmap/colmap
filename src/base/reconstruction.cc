@@ -427,12 +427,6 @@ void Reconstruction::FinalAlignmentWithPrior() {
   EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
 
   Transform(SimilarityTransform3(1. / norm_scale_, ComposeIdentityQuaternion(), norm_translation_));
-
-  for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
-    class Image& image = Image(reg_image_ids_[i]);
-    auto resid = image.ProjectionCenter() - image.TvecPrior();
-    std::cout << "Final alignment residuals #" << i << ", " << resid[0] << ", " << resid[1] << ", " << resid[2] << std::endl;
-  }
 }
 
 void Reconstruction::PartialAlignmentWithPrior() {
