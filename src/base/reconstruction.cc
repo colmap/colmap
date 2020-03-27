@@ -47,7 +47,7 @@
 namespace colmap {
 
 Reconstruction::Reconstruction()
-    : correspondence_graph_(nullptr), num_added_points3D_(0) {}
+    : correspondence_graph_(nullptr), num_added_points3D_(0), norm_scale_(1.), norm_translation_({0., 0., 0.}) {}
 
 std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
   std::unordered_set<point3D_t> point3D_ids;
@@ -416,11 +416,20 @@ void Reconstruction::Normalize(const double extent, const double p0,
     point3D.second.XYZ() -= translation;
     point3D.second.XYZ() *= scale;
   }
+
+  // Accumulate normalization
+  norm_scale_ *= scale;
+  norm_translation_ += translation;
+  norm_translation_ *= scale;
 }
 
-void Reconstruction::AlignWithPrior() {
+void Reconstruction::FinalAlignmentWithPrior() {
   EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
 
+  Transform(SimilarityTransform3(1. / norm_scale_, ComposeIdentityQuaternion(), norm_translation_));
+}
+
+void Reconstruction::PartialAlignmentWithPrior() {
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> dst;
 
@@ -432,7 +441,21 @@ void Reconstruction::AlignWithPrior() {
 
   SimilarityTransform3 tform;
   tform.Estimate(src, dst);
-  Transform(tform);
+  // Only rotation part is applied, which has no effect on the normalization
+  Transform(SimilarityTransform3(1., tform.Rotation(), {0. ,0. ,0.}));
+  /**
+   * Scale and translation are saved, which used for:
+   * - TvecPrior normalization
+   * - final alignment of the reconstruction
+   *
+   * Relations between scale and translation components of normalization and alignment:
+   * - based on Reconstruction::Normalize: P_normalized = (P_aligned - t_normalization) * s_normalization
+   * - based on SimilarityTransform3: P_aligned = P_normalized * s_alignment + t_alignment
+   * - s_normalization = 1 / s_alignment
+   * - t_normalization = t_normalization
+   */
+  norm_scale_ = 1. / tform.Scale();
+  norm_translation_ = tform.Translation();
 }
 
 void Reconstruction::Transform(const SimilarityTransform3& tform) {
