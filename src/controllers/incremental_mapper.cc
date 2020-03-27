@@ -494,8 +494,7 @@ void IncrementalMapperController::Reconstruct(
 
     bool reg_next_success = true;
     bool prev_reg_next_success = true;
-    static int counter = 0;
-    while (reg_next_success/* && counter++ < 3000*/) {
+    while (reg_next_success) {
       BlockIfPaused();
       if (IsStopped()) {
         break;
@@ -602,7 +601,9 @@ void IncrementalMapperController::Reconstruct(
         reconstruction.NumPoints3D() != ba_prev_num_points) {
       IterativeGlobalRefinement(*options_, &mapper);
     }
-    reconstruction.InvNormalize();
+    if (options_->GlobalBundleAdjustment().use_prior_in_ba) {
+      reconstruction.FinalAlignmentWithPrior();
+    }
 
     // If the total number of images is small then do not enforce the minimum
     // model size so that we can reconstruct small image collections.

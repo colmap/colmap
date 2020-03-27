@@ -60,10 +60,6 @@ class SimilarityTransform3;
 // written to and read from disk.
 class Reconstruction {
  public:
-   bool aligned = false;
-   double normScale = 1.0;
-   Eigen::Vector3d normTranslation = Eigen::Vector3d(0,0,0);
-
   struct ImagePairStat {
     // The number of triangulated correspondences between two images.
     size_t num_tri_corrs = 0;
@@ -182,9 +178,18 @@ class Reconstruction {
   void Normalize(const double extent = 10.0, const double p0 = 0.1,
                  const double p1 = 0.9, const bool use_images = true);
 
-  void InvNormalize();
+  // Calculates alignment using 'TvecPrior', applies rotation on reconstructions,
+  // and stores scale and translation part. This function has no effect on the normalization!
+  void PartialAlignmentWithPrior();
 
-  void AlignWithPrior();
+  void randomEnable3DPoints(const double r) {
+    for (auto& point3D : points3D_) {
+        point3D.second.randomEnable(r);
+    }
+  }
+
+  // Applies scale and translation part of the alignment on the reconstruction.
+  void FinalAlignmentWithPrior();
 
   // Apply the 3D similarity transformation to all images and points.
   void Transform(const SimilarityTransform3& tform);
@@ -305,13 +310,13 @@ class Reconstruction {
   // Create all image sub-directories in the given path.
   void CreateImageDirs(const std::string& path) const;
 
-  void randomEnable3DPoints(const double r) {
-    for (auto& point3D : points3D_) {
-        point3D.second.randomEnable(r);
-    }
-  }
+  // Calculates reconstruction normalized pose prior
+  inline Eigen::Vector3d TvecPriorNormalization(const Eigen::Vector3d &tvecPrior) const;
 
- private:
+  // Reconstruction normalization scale factor
+  inline double NormScale() const;
+
+  private:
   size_t FilterPoints3DWithSmallTriangulationAngle(
       const double min_tri_angle,
       const std::unordered_set<point3D_t>& point3D_ids);
@@ -352,6 +357,10 @@ class Reconstruction {
 
   // Total number of added 3D points, used to generate unique identifiers.
   point3D_t num_added_points3D_;
+public:
+  // Accumulated reconstruction normalization
+  double norm_scale_;
+  Eigen::Vector3d norm_translation_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -457,6 +466,11 @@ bool Reconstruction::IsImageRegistered(const image_t image_id) const {
   return Image(image_id).IsRegistered();
 }
 
+Eigen::Vector3d Reconstruction::TvecPriorNormalization(const Eigen::Vector3d &tvecPrior) const {
+  return (tvecPrior - norm_translation_) * norm_scale_;
+}
+
+double Reconstruction::NormScale() const { return norm_scale_; }
 }  // namespace colmap
 
 #endif  // COLMAP_SRC_BASE_RECONSTRUCTION_H_

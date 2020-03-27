@@ -707,10 +707,6 @@ bool IncrementalMapper::AdjustGlobalBundle(
   for (const image_t image_id : reg_image_ids) {
     countS++;
     Image& image = reconstruction_->Image(image_id);
-    auto tmp = image.ProjectionCenter() / reconstruction_->normScale - reconstruction_->normTranslation;
-    auto tmp2 = image.TvecPrior();
-    auto resid = tmp - tmp2;
-
     if (!image.IsConverged()) {
       count2++;
       if (semiGlobal) {
@@ -776,7 +772,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   for (const auto elem : image_num_observations) {
     if (elem.second != 0) {
       ba_config.SetConstantPose(elem.first);
-      reconstruction_->Image(elem.first).ConvergenceTest(1.0);
+      reconstruction_->Image(elem.first).ConvergenceTest(1.0 / reconstruction_->NormScale());
     }
   }
 

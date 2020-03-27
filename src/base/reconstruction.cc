@@ -47,7 +47,7 @@
 namespace colmap {
 
 Reconstruction::Reconstruction()
-    : correspondence_graph_(nullptr), num_added_points3D_(0) {}
+    : correspondence_graph_(nullptr), num_added_points3D_(0), norm_scale_(1.), norm_translation_({0., 0., 0.}) {}
 
 std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
   std::unordered_set<point3D_t> point3D_ids;
@@ -334,7 +334,7 @@ void Reconstruction::Normalize(const double extent, const double p0,
       (!use_images && points3D_.size() < 2)) {
     return;
   }
-std::cout << "Normalize" << std::endl;
+
   EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
 
   for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
@@ -398,7 +398,6 @@ std::cout << "Normalize" << std::endl;
   } else {
     scale = extent / old_extent;
   }
-  scale = 1;
 
   const Eigen::Vector3d translation = mean_coord;
 
@@ -418,91 +417,51 @@ std::cout << "Normalize" << std::endl;
     point3D.second.XYZ() *= scale;
   }
 
-  normScale *= scale;
-  normTranslation -= translation;
-  normTranslation *= scale;
+  // Accumulate normalization
+  norm_scale_ *= scale;
+  norm_translation_ += translation;
+  norm_translation_ *= scale;
 }
 
-void Reconstruction::InvNormalize() {
-    std::cout << "InvNormalize" << std::endl;
-
-    EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
-
-    for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
-      class Image& image = Image(reg_image_ids_[i]);
-      const Eigen::Vector3d proj_center = image.ProjectionCenter();
-      proj_centers[&image] = proj_center;
-    }
-
-   // Transform images.
-   for (auto& image_proj_center : proj_centers) {
-     image_proj_center.second -= normTranslation;
-     image_proj_center.second /= normScale;
-     const Eigen::Quaterniond quat(
-         image_proj_center.first->Qvec(0), image_proj_center.first->Qvec(1),
-         image_proj_center.first->Qvec(2), image_proj_center.first->Qvec(3));
-     image_proj_center.first->SetTvec(quat * -image_proj_center.second);
-   }
-
-   // Transform points.
-   for (auto& point3D : points3D_) {
-     point3D.second.XYZ() -= normTranslation;
-     point3D.second.XYZ() /= normScale;
-   }
-
-   for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
-     class Image& image = Image(reg_image_ids_[i]);
-     auto resid = image.ProjectionCenter() - image.TvecPrior();
-     std::cout << "final Tvec residuals #" << i << ", " << resid[0] << ", " << resid[1] << ", " << resid[2];
-   }
-}
-
-void Reconstruction::AlignWithPrior() {
+void Reconstruction::FinalAlignmentWithPrior() {
   EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
-if (aligned) return;
-std::cout << "AlignWithPrior" << std::endl;
 
-// Check if trajectory prior is not a strength line
-{
-  Eigen::Vector3d centroid(0,0,0);
+  Transform(SimilarityTransform3(1. / norm_scale_, ComposeIdentityQuaternion(), norm_translation_));
 
   for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
     class Image& image = Image(reg_image_ids_[i]);
-    centroid += image.TvecPrior();
+    auto resid = image.ProjectionCenter() - image.TvecPrior();
+    std::cout << "Final alignment residuals #" << i << ", " << resid[0] << ", " << resid[1] << ", " << resid[2] << std::endl;
   }
-  centroid /= reg_image_ids_.size();
-
-  Eigen::Matrix3d cov;
-  cov.setZero(3,3);
-  for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
-      class Image& image = Image(reg_image_ids_[i]);
-      const Eigen::Vector3d diff = image.TvecPrior() - centroid;
-      cov += diff * diff.transpose();
-  }
-  cov /= reg_image_ids_.size();
-
-  Eigen::JacobiSVD<Eigen::Matrix3d, Eigen::NoQRPreconditioner> svd(3, 3, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  svd.compute(cov);
-  std::cout << "princcomp " << svd.singularValues()[0] << ", " << svd.singularValues()[1] << ", " << svd.singularValues()[2] << std::endl;
-  if (svd.singularValues()[1] < 10.0) {
-      aligned = false;
-      return;
-  }
-  aligned = true;
 }
 
+void Reconstruction::PartialAlignmentWithPrior() {
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> dst;
 
   for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
       class Image& image = Image(reg_image_ids_[i]);
       src.push_back(image.ProjectionCenter());
-      dst.push_back(normScale * (image.TvecPrior() + normTranslation));
+      dst.push_back(image.TvecPrior());
   }
 
   SimilarityTransform3 tform;
   tform.Estimate(src, dst);
-  Transform(tform);
+  // Only rotation part is applied, which has no effect on the normalization
+  Transform(SimilarityTransform3(1., tform.Rotation(), {0. ,0. ,0.}));
+  /**
+   * Scale and translation are saved, which used for:
+   * - TvecPrior normalization
+   * - final alignment of the reconstruction
+   *
+   * Relations between scale and translation components of normalization and alignment:
+   * - based on Reconstruction::Normalize: P_normalized = (P_aligned - t_normalization) * s_normalization
+   * - based on SimilarityTransform3: P_aligned = P_normalized * s_alignment + t_alignment
+   * - s_normalization = 1 / s_alignment
+   * - t_normalization = t_normalization
+   */
+  norm_scale_ = 1. / tform.Scale();
+  norm_translation_ = tform.Translation();
 }
 
 void Reconstruction::Transform(const SimilarityTransform3& tform) {
@@ -894,9 +853,7 @@ void Reconstruction::Read(const std::string& path) {
   }
 }
 
-void Reconstruction::Write(const std::string& path) const {
-  WriteBinary(path);
-}
+void Reconstruction::Write(const std::string& path) const { WriteBinary(path); }
 
 void Reconstruction::ReadText(const std::string& path) {
   ReadCamerasText(JoinPaths(path, "cameras.txt"));

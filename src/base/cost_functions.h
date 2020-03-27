@@ -42,12 +42,12 @@ namespace colmap {
 // This cost function keeps camera position close to the GPS position
 class GpsPriorCostFunction {
  public:
-    explicit GpsPriorCostFunction(const Eigen::Vector3d& posPrior)
-	: posPrior(posPrior) {}
+    explicit GpsPriorCostFunction(const Eigen::Vector3d& posPrior, const double costFactor)
+	: posPrior(posPrior), costFactor(costFactor) {}
 
-  static ceres::CostFunction* Create(const Eigen::Vector3d& posPrior) {
+  static ceres::CostFunction* Create(const Eigen::Vector3d& posPrior, const double costFactor) {
     return (new ceres::AutoDiffCostFunction<GpsPriorCostFunction, 3, 4, 3>(
-      new GpsPriorCostFunction(posPrior)));
+      new GpsPriorCostFunction(posPrior, costFactor)));
   }
 
   template <typename T>
@@ -57,16 +57,16 @@ class GpsPriorCostFunction {
     T camPosRot[3];
     ceres::UnitQuaternionRotatePoint(qvec, camPos, camPosRot);
 
-    const double fac = 1.0e-0;
-    residuals[0] = fac * (camPosRot[0] + tvec[0]);
-    residuals[1] = fac * (camPosRot[1] + tvec[1]);
-    residuals[2] = fac * (camPosRot[2] + tvec[2]);
+    residuals[0] = costFactor * (camPosRot[0] + tvec[0]);
+    residuals[1] = costFactor * (camPosRot[1] + tvec[1]);
+    residuals[2] = costFactor * (camPosRot[2] + tvec[2]);
 
     return true;
   }
 
  private:
     const Eigen::Vector3d posPrior;
+    const double costFactor;
 };
 
 // Standard bundle adjustment cost function for variable
