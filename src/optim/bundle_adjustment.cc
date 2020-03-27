@@ -417,7 +417,8 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
   if (!constant_pose && options_.use_prior_in_ba) {
       // Add GPS prior cost function
       auto normalizedTvecPrior = reconstruction->TvecPriorNormalization(image.TvecPrior());
-      ceres::CostFunction* gps_prior_cost_function = GpsPriorCostFunction::Create(normalizedTvecPrior);
+      const double cost_factor = options_.prior_cost_factor / reconstruction->NormScale();
+      ceres::CostFunction* gps_prior_cost_function = GpsPriorCostFunction::Create(normalizedTvecPrior, cost_factor);
       problem_->AddResidualBlock(gps_prior_cost_function, loss_function, qvec_data, tvec_data);
   }
 

@@ -307,6 +307,9 @@ class Reconstruction {
   // Calculates reconstruction normalized pose prior
   inline Eigen::Vector3d TvecPriorNormalization(const Eigen::Vector3d &tvecPrior) const;
 
+  // Reconstruction normalization scale factor
+  inline double NormScale() const;
+
   private:
   size_t FilterPoints3DWithSmallTriangulationAngle(
       const double min_tri_angle,
@@ -461,6 +464,7 @@ Eigen::Vector3d Reconstruction::TvecPriorNormalization(const Eigen::Vector3d &tv
   return (tvecPrior - norm_translation_) * norm_scale_;
 }
 
+double Reconstruction::NormScale() const { return norm_scale_; }
 }  // namespace colmap
 
 #endif  // COLMAP_SRC_BASE_RECONSTRUCTION_H_
