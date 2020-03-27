@@ -195,9 +195,7 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
   return points3D.size();
 }
 
-bool RefineAbsolutePose(const Reconstruction& reconstruction,
-                        const Image& image,
-                        const AbsolutePoseRefinementOptions& options,
+bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                         const std::vector<char>& inlier_mask,
                         const std::vector<Eigen::Vector2d>& points2D,
                         const std::vector<Eigen::Vector3d>& points3D,
@@ -242,20 +240,7 @@ bool RefineAbsolutePose(const Reconstruction& reconstruction,
                              points3D_copy[i].data(), camera_params_data);
     problem.SetParameterBlockConstant(points3D_copy[i].data());
   }
-/*
-  if (options_.use_prior_in_ba) {
-    auto tmp = image.ProjectionCenter() / reconstruction.norm_scale_ + reconstruction.norm_translation_;
-    auto tmp2 = image.TvecPrior();
-    auto resid = tmp - tmp2;
-     std::cout << "initial Tvec residuals" << ", " << resid[0] << ", " << resid[1] << ", " << resid[2];
-     std::cout << ", " << tmp[0] << ", " << tmp[1] << ", " << tmp[2];
-     std::cout << ", " << tmp2[0] << ", " << tmp2[1] << ", " << tmp2[2] << std::endl;
 
-      // Add GPS prior cost function
-      ceres::CostFunction* gps_prior_cost_function = GpsPriorCostFunction::Create(reconstruction.TvecPriorNormalization(image.TvecPrior()));
-      problem.AddResidualBlock(gps_prior_cost_function, nullptr, qvec_data, tvec_data);
-  }
-*/
   if (problem.NumResiduals() > 0) {
     // Quaternion parameterization.
     *qvec = NormalizeQuaternion(*qvec);

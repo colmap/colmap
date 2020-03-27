@@ -499,7 +499,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // Pose refinement
   //////////////////////////////////////////////////////////////////////////////
 
-  if (!RefineAbsolutePose(*reconstruction_, image, abs_pose_refinement_options, inlier_mask,
+  if (!RefineAbsolutePose(abs_pose_refinement_options, inlier_mask,
                           tri_points2D, tri_points3D, &image.Qvec(),
                           &image.Tvec(), &camera)) {
     return false;
@@ -630,8 +630,6 @@ IncrementalMapper::AdjustLocalBundle(
       }
     }
 
-    reconstruction_->randomEnable3DPoints(1.0);
-
     // Adjust the local bundle.
     BundleAdjuster bundle_adjuster(ba_options, ba_config);
     bundle_adjuster.Solve(reconstruction_);
@@ -693,9 +691,9 @@ bool IncrementalMapper::AdjustGlobalBundle(
   int count2 = 0;
   int countS = 0;
 
-  reconstruction_->randomEnable3DPoints(0.1);
+  reconstruction_->randomEnable3DPoints(1.0);
 
-  bool semiGlobal = false;
+  bool semiGlobal = true;
   static int trueAlmostFull = 0;
   if (trueAlmostFull++ > 10) {
     semiGlobal = true;
@@ -741,8 +739,6 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
-  std::cout << count << "/" << count2 << "/" << countS << ", " << trueAlmostFull << std::endl;
-
   // Fix the existing images, if option specified.
   if (options.fix_existing_images) {
     for (const image_t image_id : reg_image_ids) {
@@ -772,7 +768,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   for (const auto elem : image_num_observations) {
     if (elem.second != 0) {
       ba_config.SetConstantPose(elem.first);
-      reconstruction_->Image(elem.first).ConvergenceTest(1.0 / reconstruction_->NormScale());
+      reconstruction_->Image(elem.first).ConvergenceTest(reconstruction_->NormScale());
     }
   }
 

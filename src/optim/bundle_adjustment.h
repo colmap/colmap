@@ -72,6 +72,9 @@ struct BundleAdjustmentOptions {
   // If true camera position priors are used in BA.
   bool use_prior_in_ba = true;
 
+  // When position priors are used in BA, the realted costs are multiplied with this factor.
+  double prior_cost_factor = 1.0;
+
   // Minimum number of residuals to enable multi-threading. Note that
   // single-threaded is typically better for small bundle adjustment problems
   // due to the overhead of threading.
