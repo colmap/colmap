@@ -40,7 +40,6 @@
 #include "base/camera_models.h"
 #include "base/cost_functions.h"
 #include "base/projection.h"
-#include "base/ExpLoss.hh"
 #include "util/misc.h"
 #include "util/threading.h"
 #include "util/timer.h"

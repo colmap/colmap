@@ -42,7 +42,6 @@
 #include "base/image.h"
 #include "base/reconstruction.h"
 #include "base/camera_models.h"
-#include "base/ExpLoss.hh"
 #include "optim/loransac.h"
 #include "util/alignment.h"
 #include "util/logging.h"
