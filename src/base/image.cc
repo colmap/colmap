@@ -56,7 +56,8 @@ Image::Image()
       tvec_(0.0, 0.0, 0.0),
       qvec_prior_(kNaN, kNaN, kNaN, kNaN),
       tvec_prior_(kNaN, kNaN, kNaN),
-      converged_(false) {}
+      converged_(false),
+      prev_projection_center_(kNaN, kNaN, kNaN) {}
 
 void Image::SetUp(const class Camera& camera) {
   CHECK_EQ(camera_id_, camera.CameraId());
@@ -154,11 +155,6 @@ Eigen::Vector3d Image::ProjectionCenter() const {
 
 Eigen::Vector3d Image::ViewingDirection() const {
   return RotationMatrix().row(2);
-}
-
-void Image::ConvergenceTest(const double conv_threshold) {
-  std::cout << "diff: " << (prev_tvec_ - ProjectionCenter()).norm() << std::endl;
-  converged_ = (prev_tvec_ - ProjectionCenter()).norm() < conv_threshold;
 }
 
 }  // namespace colmap

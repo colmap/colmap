@@ -276,7 +276,7 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
 
   // Empirical choice.
   const size_t kMaxNumImagesDirectDenseSolver = 50;
-  const size_t kMaxNumImagesDirectSparseSolver = 10000;
+  const size_t kMaxNumImagesDirectSparseSolver = 1000;
   const size_t num_images = config_.NumImages();
   if (num_images <= kMaxNumImagesDirectDenseSolver) {
     solver_options.linear_solver_type = ceres::DENSE_SCHUR;
@@ -370,13 +370,11 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
       continue;
     }
 
+    num_observations += 1;
     point3D_num_observations_[point2D.Point3DId()] += 1;
 
     Point3D& point3D = reconstruction->Point3D(point2D.Point3DId());
     assert(point3D.Track().Length() > 1);
-
-    if (!point3D.isEnabled()) {continue;}
-    num_observations += 1;
 
     ceres::CostFunction* cost_function = nullptr;
 
@@ -417,16 +415,11 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
   }
 
   if (!constant_pose && options_.use_prior_in_ba) {
-    auto tmp = image.ProjectionCenter() / reconstruction->norm_scale_ + reconstruction->norm_translation_;
-    auto tmp2 = image.TvecPrior();
-    auto resid = tmp - tmp2;
-     std::cout << "initial Tvec residuals #" << image_id << ", " << resid[0] << ", " << resid[1] << ", " << resid[2];
-     std::cout << ", " << tmp[0] << ", " << tmp[1] << ", " << tmp[2];
-     std::cout << ", " << tmp2[0] << ", " << tmp2[1] << ", " << tmp2[2] << std::endl;
-
       // Add GPS prior cost function
-      ceres::CostFunction* gps_prior_cost_function = GpsPriorCostFunction::Create(reconstruction->TvecPriorNormalization(image.TvecPrior()), 1. / reconstruction->NormScale());
-      problem_->AddResidualBlock(gps_prior_cost_function, nullptr, qvec_data, tvec_data);
+      auto normalizedTvecPrior = reconstruction->TvecPriorNormalization(image.TvecPrior());
+      const double cost_factor = options_.prior_cost_factor / reconstruction->NormScale();
+      ceres::CostFunction* gps_prior_cost_function = GpsPriorCostFunction::Create(normalizedTvecPrior, cost_factor);
+      problem_->AddResidualBlock(gps_prior_cost_function, loss_function, qvec_data, tvec_data);
   }
 
   if (num_observations > 0) {
@@ -452,8 +445,6 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
                                        Reconstruction* reconstruction,
                                        ceres::LossFunction* loss_function) {
   Point3D& point3D = reconstruction->Point3D(point3D_id);
-
-  if (!point3D.isEnabled()) {return;}
 
   // Is 3D point already fully contained in the problem? I.e. its entire track
   // is contained in `variable_image_ids`, `constant_image_ids`,
@@ -544,7 +535,6 @@ void BundleAdjuster::ParameterizeCameras(Reconstruction* reconstruction) {
 void BundleAdjuster::ParameterizePoints(Reconstruction* reconstruction) {
   for (const auto elem : point3D_num_observations_) {
     Point3D& point3D = reconstruction->Point3D(elem.first);
-    if (!point3D.isEnabled()) {continue;}
     if (point3D.Track().Length() > elem.second) {
       problem_->SetParameterBlockConstant(point3D.XYZ().data());
     }
@@ -552,7 +542,6 @@ void BundleAdjuster::ParameterizePoints(Reconstruction* reconstruction) {
 
   for (const point3D_t point3D_id : config_.ConstantPoints()) {
     Point3D& point3D = reconstruction->Point3D(point3D_id);
-    if (!point3D.isEnabled()) {continue;}
     problem_->SetParameterBlockConstant(point3D.XYZ().data());
   }
 }

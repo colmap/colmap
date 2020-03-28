@@ -182,12 +182,6 @@ class Reconstruction {
   // and stores scale and translation part. This function has no effect on the normalization!
   void PartialAlignmentWithPrior();
 
-  void randomEnable3DPoints(const double r) {
-    for (auto& point3D : points3D_) {
-        point3D.second.randomEnable(r);
-    }
-  }
-
   // Applies scale and translation part of the alignment on the reconstruction.
   void FinalAlignmentWithPrior();
 
@@ -357,7 +351,7 @@ class Reconstruction {
 
   // Total number of added 3D points, used to generate unique identifiers.
   point3D_t num_added_points3D_;
-public:
+
   // Accumulated reconstruction normalization
   double norm_scale_;
   Eigen::Vector3d norm_translation_;

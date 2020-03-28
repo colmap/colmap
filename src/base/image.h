@@ -201,7 +201,7 @@ class Image {
 
   inline void InitConvergenceTest();
 
-  void ConvergenceTest(const double conv_threshold);
+  inline void ConvergenceTest(const double conv_threshold);
 
  private:
   // Identifier of the image, if not specified `kInvalidImageId`.
@@ -243,7 +243,7 @@ class Image {
 
   // Setted to true when image position is converged
   bool converged_;
-  Eigen::Vector3d prev_tvec_;
+  Eigen::Vector3d prev_projection_center_;
 
   // All image points, including points that are not part of a 3D point track.
   std::vector<class Point2D> points2D_;
@@ -374,14 +374,13 @@ bool Image::IsConverged() const { return converged_; }
 void Image::SetConverged(const bool converged) { converged_ = converged; };
 
 void Image::InitConvergenceTest() {
-  prev_tvec_ = ProjectionCenter();
+  prev_projection_center_ = ProjectionCenter();
 }
-/*
+
 void Image::ConvergenceTest(const double conv_threshold) {
-  std::cout << "diff: " << (prev_tvec_ - tvec_).norm() << std::endl;
-  converged_ = (prev_tvec_ - tvec_).norm() < conv_threshold;
+  converged_ = (prev_projection_center_ - ProjectionCenter()).norm() < conv_threshold;
 }
-*/
+
 }  // namespace colmap
 
 EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(colmap::Image)
