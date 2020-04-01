@@ -74,7 +74,7 @@ struct BundleAdjustmentOptions {
 
   // When position priors are used in BA, the realted costs are multiplied with these factors.
   double prior_cost_factor_latlon = 1.0;
-  double prior_cost_factor_alt = 0.0;
+  double prior_cost_factor_alt = 1.0;
 
   // If true global BA runs only non converged part of the reconstruction.
   bool use_semi_global_ba = true;
