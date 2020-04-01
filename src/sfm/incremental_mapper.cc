@@ -664,6 +664,14 @@ IncrementalMapper::AdjustLocalBundle(
       options.filter_max_reproj_error, options.filter_min_tri_angle,
       point3D_ids);
 
+  if (ba_options.use_semi_global_ba) {
+    // Images effected by local BA are set as not converged.
+    reconstruction_->Image(image_id).SetConverged(false);
+    for (const image_t local_image_id : local_bundle) {
+      reconstruction_->Image(local_image_id).SetConverged(false);
+    }
+  }
+
   return report;
 }
 
@@ -682,8 +690,41 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
-  for (const image_t image_id : reg_image_ids) {
-    ba_config.AddImage(image_id);
+  std::unordered_map<image_t, size_t> image_num_observations;
+  if (ba_options.use_semi_global_ba) {
+    // Selects images which are not converged or covisible with not converged images
+    std::unordered_map<point3D_t, size_t> point3D_num_observations;
+    for (const image_t image_id : reg_image_ids) {
+      Image& image = reconstruction_->Image(image_id);
+      if (!image.IsConverged()) {
+        for (const Point2D& point2D : image.Points2D()) {
+          if (!point2D.HasPoint3D()) {
+            continue;
+          }
+          point3D_num_observations[point2D.Point3DId()] += 1;
+        }
+      }
+    }
+
+    for (const auto elem : point3D_num_observations) {
+      if (elem.second != 0) {
+        auto point3d = reconstruction_->Point3D(elem.first);
+        for (auto trackElement : point3d.Track().Elements()) {
+          image_num_observations[trackElement.image_id] += 1;
+        }
+      }
+    }
+
+    for (const auto elem : image_num_observations) {
+      if (elem.second != 0) {
+        ba_config.AddImage(elem.first);
+        reconstruction_->Image(elem.first).InitConvergenceTest();
+      }
+    }
+  } else {
+    for (const image_t image_id : reg_image_ids) {
+      ba_config.AddImage(image_id);
+    }
   }
 
   // Fix the existing images, if option specified.
@@ -708,6 +749,14 @@ bool IncrementalMapper::AdjustGlobalBundle(
   BundleAdjuster bundle_adjuster(ba_options, ba_config);
   if (!bundle_adjuster.Solve(reconstruction_)) {
     return false;
+  }
+
+  if (ba_options.use_semi_global_ba) {
+    for (const auto elem : image_num_observations) {
+      if (elem.second != 0) {
+        reconstruction_->Image(elem.first).ConvergenceTest(ba_options.semi_global_conv_threshold / reconstruction_->NormScale());
+      }
+    }
   }
 
   // Normalize scene for numerical stability and

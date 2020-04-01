@@ -55,7 +55,9 @@ Image::Image()
       qvec_(1.0, 0.0, 0.0, 0.0),
       tvec_(0.0, 0.0, 0.0),
       qvec_prior_(kNaN, kNaN, kNaN, kNaN),
-      tvec_prior_(kNaN, kNaN, kNaN) {}
+      tvec_prior_(kNaN, kNaN, kNaN),
+      converged_(false),
+      prev_projection_center_(kNaN, kNaN, kNaN) {}
 
 void Image::SetUp(const class Camera& camera) {
   CHECK_EQ(camera_id_, camera.CameraId());
