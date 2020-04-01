@@ -76,6 +76,12 @@ struct BundleAdjustmentOptions {
   double prior_cost_factor_latlon = 1.0;
   double prior_cost_factor_alt = 0.0;
 
+  // If true global BA runs only non converged part of the reconstruction.
+  bool use_semi_global_ba = true;
+
+  // Images which position changed less than this threshold are converged.
+  double semi_global_conv_threshold = 1.0;
+
   // Minimum number of residuals to enable multi-threading. Note that
   // single-threaded is typically better for small bundle adjustment problems
   // due to the overhead of threading.
