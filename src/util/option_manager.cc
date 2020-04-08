@@ -448,6 +448,16 @@ void OptionManager::AddBundleAdjustmentOptions() {
                               &bundle_adjustment->refine_extra_params);
   AddAndRegisterDefaultOption("BundleAdjustment.refine_extrinsics",
                               &bundle_adjustment->refine_extrinsics);
+  AddAndRegisterDefaultOption("BundleAdjustment.use_prior_in_ba",
+                              &bundle_adjustment->use_prior_in_ba);
+  AddAndRegisterDefaultOption("BundleAdjustment.prior_cost_factor_latlon",
+                              &bundle_adjustment->prior_cost_factor_latlon);
+  AddAndRegisterDefaultOption("BundleAdjustment.prior_cost_factor_alt",
+                              &bundle_adjustment->prior_cost_factor_alt);
+  AddAndRegisterDefaultOption("BundleAdjustment.use_semi_global_ba",
+                              &bundle_adjustment->use_semi_global_ba);
+  AddAndRegisterDefaultOption("BundleAdjustment.semi_global_conv_threshold",
+                              &bundle_adjustment->semi_global_conv_threshold);
 }
 
 void OptionManager::AddMapperOptions() {
