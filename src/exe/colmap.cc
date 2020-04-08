@@ -978,7 +978,6 @@ int RunMapper(int argc, char** argv) {
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddMapperOptions();
-  options.AddBundleAdjustmentOptions();
   options.Parse(argc, argv);
 
   if (!ExistsDir(output_path)) {

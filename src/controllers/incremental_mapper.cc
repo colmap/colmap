@@ -255,6 +255,11 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
 	  ba_min_num_residuals_for_multi_threading;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+  options.use_prior_in_ba = use_prior_in_ba;
+  options.prior_cost_factor_latlon = prior_cost_factor_latlon;
+  options.prior_cost_factor_alt = prior_cost_factor_alt;
+  options.use_semi_global_ba = use_semi_global_ba;
+  options.semi_global_conv_threshold = semi_global_conv_threshold;
   return options;
 }
 
