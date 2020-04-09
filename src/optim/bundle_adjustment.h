@@ -70,14 +70,14 @@ struct BundleAdjustmentOptions {
   bool print_summary = true;
 
   // If true camera position priors are used in BA.
-  bool use_prior_in_ba = true;
+  bool use_prior_in_ba = false;
 
   // When position priors are used in BA, the realted costs are multiplied with these factors.
   double prior_cost_factor_latlon = 1.0;
   double prior_cost_factor_alt = 1.0;
 
   // If true global BA runs only non converged part of the reconstruction.
-  bool use_semi_global_ba = true;
+  bool use_semi_global_ba = false;
 
   // Images which position changed less than this threshold are converged.
   double semi_global_conv_threshold = 1.0;

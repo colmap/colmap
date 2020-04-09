@@ -518,6 +518,16 @@ void OptionManager::AddMapperOptions() {
                               &mapper->snapshot_images_freq);
   AddAndRegisterDefaultOption("Mapper.fix_existing_images",
                               &mapper->fix_existing_images);
+  AddAndRegisterDefaultOption("Mapper.use_prior_in_ba",
+                              &mapper->use_prior_in_ba);
+  AddAndRegisterDefaultOption("Mapper.prior_cost_factor_latlon",
+                              &mapper->prior_cost_factor_latlon);
+  AddAndRegisterDefaultOption("Mapper.prior_cost_factor_alt",
+                              &mapper->prior_cost_factor_alt);
+  AddAndRegisterDefaultOption("Mapper.use_semi_global_ba",
+                              &mapper->use_semi_global_ba);
+  AddAndRegisterDefaultOption("Mapper.semi_global_conv_threshold",
+                              &mapper->semi_global_conv_threshold);
 
   // IncrementalMapper.
   AddAndRegisterDefaultOption("Mapper.init_min_num_inliers",
