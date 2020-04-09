@@ -127,7 +127,8 @@ struct IncrementalMapperOptions {
   // If true global BA runs only non converged part of the reconstruction.
   bool use_semi_global_ba = false;
 
-  // Images which position changed less than this threshold are converged.
+  // Used in semi global BA. Images which position changed less than this threshold are converged.
+  // This value is related to prior cost factor. Higher prior cost factor needs lower semi_global_conv_threshold.
   double semi_global_conv_threshold = 1.0;
 
   // Path to a folder with reconstruction snapshots during incremental
