@@ -231,6 +231,11 @@ BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
   options.loss_function_scale = 1.0;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::SOFT_L1;
+  options.use_prior_in_ba = use_prior_in_ba;
+  options.prior_cost_factor_latlon = prior_cost_factor_latlon;
+  options.prior_cost_factor_alt = prior_cost_factor_alt;
+  options.use_semi_global_ba = use_semi_global_ba;
+  options.semi_global_conv_threshold = semi_global_conv_threshold;
   return options;
 }
 
