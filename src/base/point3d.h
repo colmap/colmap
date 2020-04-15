@@ -75,6 +75,9 @@ class Point3D {
   inline class Track& Track();
   inline void SetTrack(const class Track& track);
 
+  inline bool IsEnabled() const;
+  inline void SetEnabled(const bool isEnabled);
+
  private:
   // The 3D position of the point.
   Eigen::Vector3d xyz_;
@@ -87,6 +90,9 @@ class Point3D {
 
   // The track of the point as a list of image observations.
   class Track track_;
+
+  // If true point is used in BA
+  bool enabled_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -132,6 +138,10 @@ class Track& Point3D::Track() {
 }
 
 void Point3D::SetTrack(const class Track& track) { track_ = track; }
+
+bool Point3D::IsEnabled() const { return enabled_; }
+
+void Point3D::SetEnabled(const bool enabled) {enabled_ = enabled; };
 
 }  // namespace colmap
 

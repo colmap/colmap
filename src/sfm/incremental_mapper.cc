@@ -709,9 +709,11 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
     for (const auto elem : point3D_num_observations) {
       if (elem.second != 0) {
-        auto point3d = reconstruction_->Point3D(elem.first);
-        for (auto trackElement : point3d.Track().Elements()) {
-          image_num_observations[trackElement.image_id] += 1;
+        auto point3D = reconstruction_->Point3D(elem.first);
+        if (point3D.IsEnabled() || !ba_options.used_reduced_size_global_ba) {
+          for (auto trackElement : point3D.Track().Elements()) {
+            image_num_observations[trackElement.image_id] += 1;
+          }
         }
       }
     }
@@ -757,6 +759,21 @@ bool IncrementalMapper::AdjustGlobalBundle(
       if (elem.second != 0) {
         reconstruction_->Image(elem.first).ConvergenceTest(ba_options.semi_global_conv_threshold / reconstruction_->NormScale());
       }
+    }
+  }
+
+  if (ba_options.used_reduced_size_global_ba) {
+    // Because in this case boundle adjustment didn't include all 3D points,
+    // a second optimization runs which calculates only 3D points.
+    for (const auto elem : image_num_observations) {
+      if (elem.second != 0) {
+        ba_config.SetConstantPose(elem.first);
+      }
+    }
+
+    BundleAdjuster bundle_adjuster_relax(ba_options, ba_config);
+    if (!bundle_adjuster_relax.Solve(reconstruction_)) {
+      return false;
     }
   }
 

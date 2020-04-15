@@ -134,6 +134,12 @@ struct IncrementalMapperOptions {
   // This value is related to prior cost factor. Higher prior cost factor needs lower semi_global_conv_threshold.
   double semi_global_conv_threshold = 1.0;
 
+  // If true global BA uses only a subset of 3D points
+  bool used_reduced_size_global_ba = false;
+
+  // When reduced size global BA is used the minimum number of 3D points selected for every image pairs
+  int min_point3d_per_image_pairs = 8;
+
   // Path to a folder with reconstruction snapshots during incremental
   // reconstruction. Snapshots will be saved according to the specified
   // frequency of registered images.

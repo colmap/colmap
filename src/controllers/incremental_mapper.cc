@@ -238,6 +238,9 @@ BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
   options.prior_cost_factor_alt = prior_cost_factor_alt;
   options.use_semi_global_ba = use_semi_global_ba;
   options.semi_global_conv_threshold = semi_global_conv_threshold;
+  options.used_reduced_size_global_ba = used_reduced_size_global_ba;
+  options.min_point3d_per_image_pairs = min_point3d_per_image_pairs;
+
   return options;
 }
 
@@ -268,6 +271,9 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
   options.prior_cost_factor_alt = prior_cost_factor_alt;
   options.use_semi_global_ba = use_semi_global_ba;
   options.semi_global_conv_threshold = semi_global_conv_threshold;
+  options.used_reduced_size_global_ba = used_reduced_size_global_ba;
+  options.min_point3d_per_image_pairs = min_point3d_per_image_pairs;
+
   return options;
 }
 
@@ -539,6 +545,9 @@ void IncrementalMapperController::Reconstruct(
 
         if (reg_next_success) {
           TriangulateImage(*options_, next_image, &mapper);
+          if (options_->GlobalBundleAdjustment().used_reduced_size_global_ba) {
+            reconstruction.EnableAll3DPoints();
+          }
           IterativeLocalRefinement(*options_, next_image_id, &mapper);
 
           if (reconstruction.NumRegImages() >=
@@ -549,6 +558,9 @@ void IncrementalMapperController::Reconstruct(
                   options_->ba_global_points_ratio * ba_prev_num_points ||
               reconstruction.NumPoints3D() >=
                   options_->ba_global_points_freq + ba_prev_num_points) {
+            if (options_->GlobalBundleAdjustment().used_reduced_size_global_ba) {
+              reconstruction.EnableOptimal3DPoints(options_->GlobalBundleAdjustment().min_point3d_per_image_pairs);
+            }
             IterativeGlobalRefinement(*options_, &mapper);
             ba_prev_num_points = reconstruction.NumPoints3D();
             ba_prev_num_reg_images = reconstruction.NumRegImages();
@@ -596,6 +608,9 @@ void IncrementalMapperController::Reconstruct(
       if (!reg_next_success && prev_reg_next_success) {
         reg_next_success = true;
         prev_reg_next_success = false;
+        if (options_->GlobalBundleAdjustment().used_reduced_size_global_ba) {
+          reconstruction.EnableOptimal3DPoints(options_->GlobalBundleAdjustment().min_point3d_per_image_pairs);
+        }
         IterativeGlobalRefinement(*options_, &mapper);
       } else {
         prev_reg_next_success = reg_next_success;
@@ -612,6 +627,9 @@ void IncrementalMapperController::Reconstruct(
     if (reconstruction.NumRegImages() >= 2 &&
         reconstruction.NumRegImages() != ba_prev_num_reg_images &&
         reconstruction.NumPoints3D() != ba_prev_num_points) {
+      if (options_->GlobalBundleAdjustment().used_reduced_size_global_ba) {
+        reconstruction.EnableOptimal3DPoints(options_->GlobalBundleAdjustment().min_point3d_per_image_pairs);
+      }
       IterativeGlobalRefinement(*options_, &mapper);
     }
     if (options_->GlobalBundleAdjustment().use_position_prior) {

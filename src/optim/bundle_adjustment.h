@@ -82,8 +82,15 @@ struct BundleAdjustmentOptions {
   // If true global BA runs only non converged part of the reconstruction.
   bool use_semi_global_ba = false;
 
-  // Images which position changed less than this threshold are converged.
+  // Used in semi global BA. Images which position changed less than this threshold are converged.
+  // This value is related to prior cost factor. Higher prior cost factor needs lower semi_global_conv_threshold.
   double semi_global_conv_threshold = 1.0;
+
+  // If true global BA uses only a subset of 3D points
+  bool used_reduced_size_global_ba = false;
+
+  // When reduced size global BA is used the minimum number of 3D points selected for every image pairs
+  int min_point3d_per_image_pairs = 8;
 
   // Minimum number of residuals to enable multi-threading. Note that
   // single-threaded is typically better for small bundle adjustment problems

@@ -310,6 +310,12 @@ class Reconstruction {
   // Reconstruction normalization scale factor
   inline double NormScale() const;
 
+  // Set all 3D points in reconstruction to enabled
+  void EnableAll3DPoints();
+
+  // Set an optimal part of 3D points to enabled for global BA
+  void EnableOptimal3DPoints(const size_t min_point3d_per_image_pairs);
+
   private:
   size_t FilterPoints3DWithSmallTriangulationAngle(
       const double min_tri_angle,

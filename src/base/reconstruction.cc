@@ -2037,4 +2037,63 @@ void Reconstruction::ResetTriObservations(const image_t image_id,
   }
 }
 
+void Reconstruction::EnableAll3DPoints() {
+  for (auto& point3D : points3D_) {
+    point3D.second.SetEnabled(true);
+  }
+}
+
+void Reconstruction::EnableOptimal3DPoints(const size_t min_point3d_per_image_pairs) {
+  for (auto& point3D : points3D_) {
+    point3D.second.SetEnabled(false);
+  }
+
+  for (const auto& image : images_) {
+    if (image.second.IsRegistered()) {
+      std::unordered_map<point3D_t, size_t> point3D_num_observations;
+      for (const Point2D& point2D : image.second.Points2D()) {
+        if (point2D.HasPoint3D()) {
+          point3D_num_observations[point2D.Point3DId()] += 1;
+        }
+      }
+
+      if (image.second.IsConverged()) {
+        // Select minimum number of 3D points per images pairs and set them to enabled
+
+        // Collect 3D points for every covisible image
+        std::unordered_map<image_t, std::vector<class Point3D*>> covisible_image_points3d;
+        for (const auto elem : point3D_num_observations) {
+          if (elem.second != 0) {
+            class Point3D& point3D = points3D_.at(elem.first);
+            for (auto trackElement : point3D.Track().Elements()) {
+              covisible_image_points3d[trackElement.image_id].push_back(&point3D);
+            }
+          }
+        }
+
+        for (const auto elem : covisible_image_points3d) {
+          std::vector<class Point3D*> points3d = elem.second;
+          // To minimize number of enabled 3D points 'points3d' is sorted by track length.
+          // Already enabled points are prioritised
+          std::sort(points3d.begin(), points3d.end(), [](const class Point3D *a, const class Point3D *b) {
+            return std::make_pair(a->IsEnabled(), a->Track().Length()) > std::make_pair(b->IsEnabled(), b->Track().Length());
+          });
+
+          for (size_t i = 0; i < std::min(points3d.size(), min_point3d_per_image_pairs); ++i) {
+            points3d[i]->SetEnabled(true);
+          }
+        }
+      } else {
+        // Enable all points related to not converged images
+        for (const auto elem : point3D_num_observations) {
+          if (elem.second != 0) {
+            class Point3D& point3D = points3D_.at(elem.first);
+            point3D.SetEnabled(true);
+          }
+        }
+      }
+    }
+  }
+}
+
 }  // namespace colmap

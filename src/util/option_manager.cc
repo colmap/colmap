@@ -530,6 +530,10 @@ void OptionManager::AddMapperOptions() {
                               &mapper->use_semi_global_ba);
   AddAndRegisterDefaultOption("Mapper.semi_global_conv_threshold",
                               &mapper->semi_global_conv_threshold);
+  AddAndRegisterDefaultOption("Mapper.used_reduced_size_global_ba",
+                              &mapper->used_reduced_size_global_ba);
+  AddAndRegisterDefaultOption("Mapper.min_point3d_per_image_pairs",
+                              &mapper->min_point3d_per_image_pairs);
 
   // IncrementalMapper.
   AddAndRegisterDefaultOption("Mapper.init_min_num_inliers",
