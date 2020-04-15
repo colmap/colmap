@@ -98,6 +98,9 @@ class IncrementalMapper {
     // Number of images to optimize in local bundle adjustment.
     int local_ba_num_images = 6;
 
+    // Whether to use angle cost function in BA. Better for large FOV.
+    bool ba_use_angle_cost = false;
+
     // Minimum triangulation for images to be chosen in local bundle adjustment.
     double local_ba_min_tri_angle = 6;
 

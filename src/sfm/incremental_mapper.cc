@@ -450,6 +450,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   abs_pose_options.ransac_options.confidence = 0.99999;
 
   AbsolutePoseRefinementOptions abs_pose_refinement_options;
+  abs_pose_refinement_options.use_angle_cost = options.ba_use_angle_cost;
   if (num_reg_images_per_camera_[image.CameraId()] > 0) {
     // Camera already refined from another image with the same camera.
     if (camera.HasBogusParams(options.min_focal_length_ratio,
@@ -599,7 +600,7 @@ IncrementalMapper::AdjustLocalBundle(
       }
     }
 
-    if (!ba_options.use_prior_in_ba) {
+    if (!ba_options.use_position_prior) {
         // Fix 7 DOF to avoid scale/rotation/translation drift in bundle adjustment.
         if (local_bundle.size() == 1) {
           ba_config.SetConstantPose(local_bundle[0]);
@@ -736,7 +737,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
-  if (!ba_options.use_prior_in_ba) {
+  if (!ba_options.use_position_prior) {
     // Fix 7-DOFs of the bundle adjustment problem.
     ba_config.SetConstantPose(reg_image_ids[0]);
     if (!options.fix_existing_images ||

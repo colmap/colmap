@@ -224,20 +224,39 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 
     ceres::CostFunction* cost_function = nullptr;
 
-    switch (camera->ModelId()) {
-#define CAMERA_MODEL_CASE(CameraModel)                                  \
-  case CameraModel::kModelId:                                           \
-    cost_function =                                                     \
-        BundleAdjustmentCostFunction<CameraModel>::Create(points2D[i]); \
-    break;
+    if (options.use_angle_cost) {
+      switch (camera->ModelId()) {
+#define CAMERA_MODEL_CASE(CameraModel)                                    \
+        case CameraModel::kModelId:                                       \
+          cost_function =                                                 \
+          BundleAdjustmentAngleCostFunction<CameraModel>::Create(         \
+            points2D[i], camera_params_data);                             \
+          break;
 
-      CAMERA_MODEL_SWITCH_CASES
+        CAMERA_MODEL_SWITCH_CASES
 
 #undef CAMERA_MODEL_CASE
-    }
+        }
 
-    problem.AddResidualBlock(cost_function, loss_function, qvec_data, tvec_data,
-                             points3D_copy[i].data(), camera_params_data);
+      problem.AddResidualBlock(cost_function, loss_function, qvec_data,
+                               tvec_data, points3D_copy[i].data());
+    } else {
+        
+      switch (camera->ModelId()) {
+#define CAMERA_MODEL_CASE(CameraModel)                                    \
+        case CameraModel::kModelId:                                       \
+          cost_function =                                                 \
+          BundleAdjustmentCostFunction<CameraModel>::Create(points2D[i]); \
+          break;
+
+        CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+        }
+
+      problem.AddResidualBlock(cost_function, loss_function, qvec_data, tvec_data,
+                               points3D_copy[i].data(), camera_params_data);
+    }
     problem.SetParameterBlockConstant(points3D_copy[i].data());
   }
 
@@ -249,7 +268,9 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     problem.SetParameterization(qvec_data, quaternion_parameterization);
 
     // Camera parameterization.
-    if (!options.refine_focal_length && !options.refine_extra_params) {
+    if (options.use_angle_cost){
+      //No need to set camera params as constant since they are implicitly
+    } else if (!options.refine_focal_length && !options.refine_extra_params) {
       problem.SetParameterBlockConstant(camera->ParamsData());
     } else {
       // Always set the principal point as fixed.

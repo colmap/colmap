@@ -94,6 +94,9 @@ struct AbsolutePoseRefinementOptions {
   // Whether to refine the extra parameter group.
   bool refine_extra_params = true;
 
+  // Whether to use angle cost function. Better for large angles.
+  bool use_angle_cost = false;
+
   // Whether to print final summary.
   bool print_summary = true;
 

@@ -261,7 +261,7 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
 
   problem_.reset(new ceres::Problem());
 
-  if (options_.use_prior_in_ba) {
+  if (options_.use_position_prior) {
     reconstruction->PartialAlignmentWithPrior();
   }
 
@@ -353,6 +353,10 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
   Image& image = reconstruction->Image(image_id);
   Camera& camera = reconstruction->Camera(image.CameraId());
 
+  const bool constant_camera = !options_.refine_focal_length &&
+                               !options_.refine_principal_point &&
+                               !options_.refine_extra_params;
+  
   // CostFunction assumes unit quaternions.
   image.NormalizeQvec();
 
@@ -378,7 +382,42 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 
     ceres::CostFunction* cost_function = nullptr;
 
-    if (constant_pose) {
+    if (options_.use_angle_cost && constant_pose) {
+      CHECK_EQ(constant_camera, true);
+      switch (camera.ModelId()) {
+#define CAMERA_MODEL_CASE(CameraModel)                                   \
+  case CameraModel::kModelId:                                            \
+    cost_function =                                                      \
+        BundleAdjustmentConstantPoseAngleCostFunction<CameraModel>       \
+          ::Create(image.Qvec(), image.Tvec(), point2D.XY(),             \
+          camera_params_data);                                           \
+    break;
+
+        CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+      }
+
+      problem_->AddResidualBlock(cost_function, loss_function,
+                                 point3D.XYZ().data());
+    } else if (options_.use_angle_cost) {
+      CHECK_EQ(constant_camera, true);
+      switch (camera.ModelId()) {
+#define CAMERA_MODEL_CASE(CameraModel)                                   \
+  case CameraModel::kModelId:                                            \
+    cost_function =                                                      \
+        BundleAdjustmentAngleCostFunction<CameraModel>::Create(          \
+          point2D.XY(), camera_params_data);                             \
+    break;
+
+        CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+      }
+
+      problem_->AddResidualBlock(cost_function, loss_function, qvec_data,
+                                 tvec_data, point3D.XYZ().data());
+    } else if (constant_pose) {
       switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                 \
   case CameraModel::kModelId:                                          \
@@ -414,7 +453,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 
   }
 
-  if (!constant_pose && options_.use_prior_in_ba) {
+  if (!constant_pose && options_.use_position_prior) {
       // Add GPS prior cost function
       auto normalizedTvecPrior = reconstruction->TvecPriorNormalization(image.TvecPrior());
       const double cost_factor_latlon = options_.prior_cost_factor_latlon / reconstruction->NormScale();
@@ -475,21 +514,39 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
     }
 
     ceres::CostFunction* cost_function = nullptr;
+    if (options_.use_angle_cost) {
+        switch (camera.ModelId()) {
+#define CAMERA_MODEL_CASE(CameraModel)                                  \
+            case CameraModel::kModelId:                                 \
+                cost_function =                                         \
+                BundleAdjustmentConstantPoseAngleCostFunction<CameraModel> \
+                ::Create(image.Qvec(), image.Tvec(), point2D.XY(),      \
+                         camera.ParamsData());                           \
+                break;
 
-    switch (camera.ModelId()) {
-#define CAMERA_MODEL_CASE(CameraModel)                                 \
-  case CameraModel::kModelId:                                          \
-    cost_function =                                                    \
-        BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create( \
-            image.Qvec(), image.Tvec(), point2D.XY());                 \
-    break;
-
-      CAMERA_MODEL_SWITCH_CASES
+            CAMERA_MODEL_SWITCH_CASES
 
 #undef CAMERA_MODEL_CASE
+            }
+
+        problem_->AddResidualBlock(cost_function, loss_function,
+                                   point3D.XYZ().data());
+    } else {
+        switch (camera.ModelId()) {
+#define CAMERA_MODEL_CASE(CameraModel)                                  \
+            case CameraModel::kModelId:                                 \
+                cost_function =                                         \
+                BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create( \
+                    image.Qvec(), image.Tvec(), point2D.XY());          \
+                break;
+
+            CAMERA_MODEL_SWITCH_CASES
+
+#undef CAMERA_MODEL_CASE
+            }
+        problem_->AddResidualBlock(cost_function, loss_function,
+                                   point3D.XYZ().data(), camera.ParamsData());
     }
-    problem_->AddResidualBlock(cost_function, loss_function,
-                               point3D.XYZ().data(), camera.ParamsData());
   }
 }
 
@@ -500,6 +557,10 @@ void BundleAdjuster::ParameterizeCameras(Reconstruction* reconstruction) {
   for (const camera_t camera_id : camera_ids_) {
     Camera& camera = reconstruction->Camera(camera_id);
 
+    if (options_.use_angle_cost) {
+      //Camera params are constant when using angular costs
+      continue;
+    }
     if (constant_camera || config_.IsConstantCamera(camera_id)) {
       problem_->SetParameterBlockConstant(camera.ParamsData());
       continue;

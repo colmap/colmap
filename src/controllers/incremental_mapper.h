@@ -117,8 +117,11 @@ struct IncrementalMapperOptions {
   int ba_global_max_refinements = 5;
   double ba_global_max_refinement_change = 0.0005;
 
+  // Whether to use angle cost function in BA. Better for large FOV.
+  bool ba_use_angle_cost = false;
+
   // If true camera position priors are used in BA.
-  bool use_prior_in_ba = false;
+  bool ba_use_position_prior = false;
 
   // When position priors are used in BA, the realted costs are multiplied with these factors.
   double prior_cost_factor_latlon = 1.0;

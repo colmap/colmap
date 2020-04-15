@@ -116,6 +116,135 @@ class BundleAdjustmentCostFunction {
   const double observed_y_;
 };
 
+// Standard bundle adjustment cost function for variable
+// camera pose and point parameters. Fixed camera parameters,
+// Cost function using angular error instead of pixel error
+template <typename CameraModel>
+class BundleAdjustmentAngleCostFunction {
+ public:
+  explicit BundleAdjustmentAngleCostFunction(const Eigen::Vector2d& point2D)
+      : observed_x_(point2D(0)), observed_y_(point2D(1)) {}
+
+    static ceres::CostFunction* Create(const Eigen::Vector2d& point2D, const double* const camera_params) {
+
+      // Distort and transform to normalized world space.
+      Eigen::Vector2d unprojected;
+      CameraModel::ImageToWorld(camera_params, point2D(0), point2D(1),
+                                &unprojected(0), &unprojected(1));
+      return (new ceres::AutoDiffCostFunction<
+              BundleAdjustmentAngleCostFunction<CameraModel>, 2, 4, 3, 3>(
+                  new BundleAdjustmentAngleCostFunction(unprojected)));
+  }
+
+  template <typename T>
+  bool operator()(const T* const qvec, const T* const tvec,
+                  const T* const point3D, 
+                  T* residuals) const {
+    // Rotate and translate.
+    T projection[3];
+    ceres::UnitQuaternionRotatePoint(qvec, point3D, projection);
+    projection[0] += tvec[0];
+    projection[1] += tvec[1];
+    projection[2] += tvec[2];
+
+    // Project to image plane.
+    projection[0] /= projection[2];
+    projection[1] /= projection[2];
+
+    T unprojected[2];
+    //CameraModel::ImageToWorld(camera_params, T(observed_x_), T(observed_y_),
+    //                            &unprojected[0], &unprojected[1]);
+    //std::cerr << (unprojected[0])  << " vs "  << T(observed_x_)<<std::endl;
+    unprojected[0] = T(observed_x_);
+    unprojected[1] = T(observed_y_);
+    // Re-projection error.
+    residuals[0] = T(500) * (atan(projection[0]) - atan(unprojected[0]));
+    residuals[1] = T(500) * (atan(projection[1]) - atan(unprojected[1]));
+
+    return true;
+  }
+
+ private:
+  const double observed_x_;
+  const double observed_y_;
+};
+
+
+// Bundle adjustment cost function for variable
+// point parameters. Fixed camera parameters and pose.
+// Cost function using angular error instead of pixel error
+template <typename CameraModel>
+class BundleAdjustmentConstantPoseAngleCostFunction {
+ public:
+  explicit BundleAdjustmentConstantPoseAngleCostFunction(const Eigen::Vector4d& qvec,
+                                           const Eigen::Vector3d& tvec,
+                                           const Eigen::Vector2d& point2D)
+      : qw_(qvec(0)),
+        qx_(qvec(1)),
+        qy_(qvec(2)),
+        qz_(qvec(3)),
+        tx_(tvec(0)),
+        ty_(tvec(1)),
+        tz_(tvec(2)),
+        observed_x_(point2D(0)),
+        observed_y_(point2D(1)) {}
+
+    static ceres::CostFunction* Create(const Eigen::Vector4d& qvec,
+                                       const Eigen::Vector3d& tvec,
+                                       const Eigen::Vector2d& point2D,
+                                       const double* const camera_params) {
+
+      // Distort and transform to normalized world space.
+      Eigen::Vector2d unprojected;
+      CameraModel::ImageToWorld(camera_params, point2D(0), point2D(1),
+                                &unprojected(0), &unprojected(1));
+      return (new ceres::AutoDiffCostFunction<
+              BundleAdjustmentConstantPoseAngleCostFunction<CameraModel>, 2, 3>(
+                  new BundleAdjustmentConstantPoseAngleCostFunction(qvec, tvec, unprojected)));
+  }
+
+  template <typename T>
+  bool operator()(const T* const point3D, 
+                  T* residuals) const {
+
+    const T qvec[4] = {T(qw_), T(qx_), T(qy_), T(qz_)};
+
+    // Rotate and translate.
+    T projection[3];
+    ceres::UnitQuaternionRotatePoint(qvec, point3D, projection);
+    projection[0] += T(tx_);
+    projection[1] += T(ty_);
+    projection[2] += T(tz_);
+
+    // Project to image plane.
+    projection[0] /= projection[2];
+    projection[1] /= projection[2];
+
+    T unprojected[2];
+    //CameraModel::ImageToWorld(camera_params, T(observed_x_), T(observed_y_),
+    //                            &unprojected[0], &unprojected[1]);
+    //std::cerr << (unprojected[0])  << " vs "  << T(observed_x_)<<std::endl;
+    unprojected[0] = T(observed_x_);
+    unprojected[1] = T(observed_y_);
+    // Re-projection error.
+    residuals[0] = T(500) * (atan(projection[0]) - atan(unprojected[0]));
+    residuals[1] = T(500) * (atan(projection[1]) - atan(unprojected[1]));
+
+    return true;
+  }
+
+ private:
+  const double qw_;
+  const double qx_;
+  const double qy_;
+  const double qz_;
+  const double tx_;
+  const double ty_;
+  const double tz_;
+  const double observed_x_;
+  const double observed_y_;
+};
+
 // Bundle adjustment cost function for variable
 // camera calibration and point parameters, and fixed camera pose.
 template <typename CameraModel>

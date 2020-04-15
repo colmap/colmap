@@ -513,13 +513,15 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_local_max_refinements);
   AddAndRegisterDefaultOption("Mapper.ba_local_max_refinement_change",
                               &mapper->ba_local_max_refinement_change);
+  AddAndRegisterDefaultOption("Mapper.ba_use_position_prior",
+                              &mapper->ba_use_position_prior);
+  AddAndRegisterDefaultOption("Mapper.ba_use_angle_cost",
+                              &mapper->ba_use_angle_cost);
   AddAndRegisterDefaultOption("Mapper.snapshot_path", &mapper->snapshot_path);
   AddAndRegisterDefaultOption("Mapper.snapshot_images_freq",
                               &mapper->snapshot_images_freq);
   AddAndRegisterDefaultOption("Mapper.fix_existing_images",
                               &mapper->fix_existing_images);
-  AddAndRegisterDefaultOption("Mapper.use_prior_in_ba",
-                              &mapper->use_prior_in_ba);
   AddAndRegisterDefaultOption("Mapper.prior_cost_factor_latlon",
                               &mapper->prior_cost_factor_latlon);
   AddAndRegisterDefaultOption("Mapper.prior_cost_factor_alt",

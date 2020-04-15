@@ -549,34 +549,35 @@ void BaseCameraModel<CameraModel>::IterativeUndistortion(const T* params, T* u,
   // Parameters for Newton iteration using numerical differentiation with
   // central differences, 100 iterations should be enough even for complex
   // camera models with higher order terms.
+  auto abs_t = [](T x) {return x < T(0) ? -x : x; };
   const size_t kNumIterations = 100;
-  const double kMaxStepNorm = 1e-10;
-  const double kRelStepSize = 1e-6;
+  const T kMaxStepNorm = T(1e-10);
+  const T kRelStepSize = T(1e-6);
 
-  Eigen::Matrix2d J;
-  const Eigen::Vector2d x0(*u, *v);
-  Eigen::Vector2d x(*u, *v);
-  Eigen::Vector2d dx;
-  Eigen::Vector2d dx_0b;
-  Eigen::Vector2d dx_0f;
-  Eigen::Vector2d dx_1b;
-  Eigen::Vector2d dx_1f;
+  Eigen::Matrix<T, 2, 2> J;
+  const Eigen::Matrix<T, 2, 1> x0(*u, *v);
+  Eigen::Matrix<T, 2, 1> x(*u, *v);
+  Eigen::Matrix<T, 2, 1> dx;
+  Eigen::Matrix<T, 2, 1> dx_0b;
+  Eigen::Matrix<T, 2, 1> dx_0f;
+  Eigen::Matrix<T, 2, 1> dx_1b;
+  Eigen::Matrix<T, 2, 1> dx_1f;
 
   for (size_t i = 0; i < kNumIterations; ++i) {
-    const double step0 = std::max(std::numeric_limits<double>::epsilon(),
-                                  std::abs(kRelStepSize * x(0)));
-    const double step1 = std::max(std::numeric_limits<double>::epsilon(),
-                                  std::abs(kRelStepSize * x(1)));
+    const T step0 = std::max(T(std::numeric_limits<double>::epsilon()),
+                             abs_t(kRelStepSize * x(0)));
+    const T step1 = std::max(T(std::numeric_limits<double>::epsilon()),
+                             abs_t(kRelStepSize * x(1)));
     CameraModel::Distortion(params, x(0), x(1), &dx(0), &dx(1));
     CameraModel::Distortion(params, x(0) - step0, x(1), &dx_0b(0), &dx_0b(1));
     CameraModel::Distortion(params, x(0) + step0, x(1), &dx_0f(0), &dx_0f(1));
     CameraModel::Distortion(params, x(0), x(1) - step1, &dx_1b(0), &dx_1b(1));
     CameraModel::Distortion(params, x(0), x(1) + step1, &dx_1f(0), &dx_1f(1));
-    J(0, 0) = 1 + (dx_0f(0) - dx_0b(0)) / (2 * step0);
-    J(0, 1) = (dx_1f(0) - dx_1b(0)) / (2 * step1);
-    J(1, 0) = (dx_0f(1) - dx_0b(1)) / (2 * step0);
-    J(1, 1) = 1 + (dx_1f(1) - dx_1b(1)) / (2 * step1);
-    const Eigen::Vector2d step_x = J.inverse() * (x + dx - x0);
+    J(0, 0) = T(1) + (dx_0f(0) - dx_0b(0)) / (T(2) * step0);
+    J(0, 1) = (dx_1f(0) - dx_1b(0)) / (T(2) * step1);
+    J(1, 0) = (dx_0f(1) - dx_0b(1)) / (T(2) * step0);
+    J(1, 1) = T(1) + (dx_1f(1) - dx_1b(1)) / (T(2) * step1);
+    const Eigen::Matrix<T, 2, 1> step_x = J.inverse() * (x + dx - x0);
     x -= step_x;
     if (step_x.squaredNorm() < kMaxStepNorm) {
       break;

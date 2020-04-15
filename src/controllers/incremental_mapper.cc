@@ -197,6 +197,7 @@ IncrementalMapper::Options IncrementalMapperOptions::Mapper() const {
   options.num_threads = num_threads;
   options.local_ba_num_images = ba_local_num_images;
   options.fix_existing_images = fix_existing_images;
+  options.ba_use_angle_cost = ba_use_angle_cost;
   return options;
 }
 
@@ -231,7 +232,8 @@ BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
   options.loss_function_scale = 1.0;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::SOFT_L1;
-  options.use_prior_in_ba = use_prior_in_ba;
+  options.use_position_prior = ba_use_position_prior;
+  options.use_angle_cost = ba_use_angle_cost;
   options.prior_cost_factor_latlon = prior_cost_factor_latlon;
   options.prior_cost_factor_alt = prior_cost_factor_alt;
   options.use_semi_global_ba = use_semi_global_ba;
@@ -260,7 +262,8 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
 	  ba_min_num_residuals_for_multi_threading;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
-  options.use_prior_in_ba = use_prior_in_ba;
+  options.use_position_prior = ba_use_position_prior;
+  options.use_angle_cost = ba_use_angle_cost;
   options.prior_cost_factor_latlon = prior_cost_factor_latlon;
   options.prior_cost_factor_alt = prior_cost_factor_alt;
   options.use_semi_global_ba = use_semi_global_ba;
@@ -611,7 +614,7 @@ void IncrementalMapperController::Reconstruct(
         reconstruction.NumPoints3D() != ba_prev_num_points) {
       IterativeGlobalRefinement(*options_, &mapper);
     }
-    if (options_->GlobalBundleAdjustment().use_prior_in_ba) {
+    if (options_->GlobalBundleAdjustment().use_position_prior) {
       reconstruction.FinalAlignmentWithPrior();
     }
 
