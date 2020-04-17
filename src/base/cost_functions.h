@@ -42,12 +42,12 @@ namespace colmap {
 // This cost function keeps camera position close to the GPS position
 class GpsPriorCostFunction {
  public:
-    explicit GpsPriorCostFunction(const Eigen::Vector3d& posPrior, const double costFactorLatLon, const double costFactorAlt)
-	: posPrior(posPrior), costFactorLatLon(costFactorLatLon), costFactorAlt(costFactorAlt) {}
+    explicit GpsPriorCostFunction(const Eigen::Vector3d& posPrior, const Eigen::Vector3d& posPriorOffset, const double costFactorLatLon, const double costFactorAlt)
+	: posPrior(posPrior), posPriorOffset(posPriorOffset), costFactorLatLon(costFactorLatLon), costFactorAlt(costFactorAlt) {}
 
-  static ceres::CostFunction* Create(const Eigen::Vector3d& posPrior, const double costFactorLatLon, const double costFactorAlt) {
+  static ceres::CostFunction* Create(const Eigen::Vector3d& posPrior, const Eigen::Vector3d& posPriorOffset, const double costFactorLatLon, const double costFactorAlt) {
     return (new ceres::AutoDiffCostFunction<GpsPriorCostFunction, 3, 4, 3>(
-      new GpsPriorCostFunction(posPrior, costFactorLatLon, costFactorAlt)));
+      new GpsPriorCostFunction(posPrior, posPriorOffset, costFactorLatLon, costFactorAlt)));
   }
 
   template <typename T>
@@ -57,15 +57,16 @@ class GpsPriorCostFunction {
     T camPosRot[3];
     ceres::UnitQuaternionRotatePoint(qvec, camPos, camPosRot);
 
-    residuals[0] = costFactorLatLon * (camPosRot[0] + tvec[0]);
-    residuals[1] = costFactorLatLon * (camPosRot[1] + tvec[1]);
-    residuals[2] = costFactorAlt * (camPosRot[2] + tvec[2]);
+    residuals[0] = costFactorLatLon * (camPosRot[0] + tvec[0] - posPriorOffset[0]);
+    residuals[1] = costFactorLatLon * (camPosRot[1] + tvec[1] - posPriorOffset[1]);
+    residuals[2] = costFactorAlt * (camPosRot[2] + tvec[2] - posPriorOffset[2]);
 
     return true;
   }
 
  private:
     const Eigen::Vector3d posPrior;
+    const Eigen::Vector3d posPriorOffset;
     const double costFactorLatLon;
     const double costFactorAlt;
 };
@@ -138,7 +139,7 @@ class BundleAdjustmentAngleCostFunction {
 
   template <typename T>
   bool operator()(const T* const qvec, const T* const tvec,
-                  const T* const point3D, 
+                  const T* const point3D,
                   T* residuals) const {
     // Rotate and translate.
     T projection[3];
@@ -204,7 +205,7 @@ class BundleAdjustmentConstantPoseAngleCostFunction {
   }
 
   template <typename T>
-  bool operator()(const T* const point3D, 
+  bool operator()(const T* const point3D,
                   T* residuals) const {
 
     const T qvec[4] = {T(qw_), T(qx_), T(qy_), T(qz_)};

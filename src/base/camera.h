@@ -102,7 +102,13 @@ class Camera {
   inline double& Params(const size_t idx);
   inline const double* ParamsData() const;
   inline double* ParamsData();
+  inline const double* ExtrinsicsData() const;
+  inline double* ExtrinsicsData();
   inline void SetParams(const std::vector<double>& params);
+
+  Eigen::Vector3d GetPriorReferencePositionInCameraFrame() const;
+
+  Eigen::Vector3d CalculateCameraToPriorReferenceVectorInWorldFrame(Eigen::Vector4d camera_qvec) const;
 
   // Concatenate parameters as comma-separated list.
   std::string ParamsToString() const;
@@ -158,6 +164,9 @@ class Camera {
   // model is not specified, this vector is empty.
   std::vector<double> params_;
 
+  // Transformation from prior reference frame to the camera frame
+  Eigen::Matrix4d extrinsics_;
+
   // Whether there is a safe prior for the focal length,
   // e.g. manually provided or extracted from EXIF
   bool prior_focal_length_;
@@ -200,6 +209,10 @@ double& Camera::Params(const size_t idx) { return params_[idx]; }
 const double* Camera::ParamsData() const { return params_.data(); }
 
 double* Camera::ParamsData() { return params_.data(); }
+
+const double* Camera::ExtrinsicsData() const { return extrinsics_.data(); }
+
+double* Camera::ExtrinsicsData() { return extrinsics_.data(); }
 
 void Camera::SetParams(const std::vector<double>& params) { params_ = params; }
 

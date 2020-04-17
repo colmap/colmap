@@ -325,16 +325,20 @@ class Reconstruction {
       const std::unordered_set<point3D_t>& point3D_ids);
 
   void ReadCamerasText(const std::string& path);
+  void ReadCamerasExtrinsicsText(const std::string& path);
   void ReadImagesText(const std::string& path);
   void ReadPoints3DText(const std::string& path);
   void ReadCamerasBinary(const std::string& path);
+  void ReadCamerasExtrinsicsBinary(const std::string& path);
   void ReadImagesBinary(const std::string& path);
   void ReadPoints3DBinary(const std::string& path);
 
   void WriteCamerasText(const std::string& path) const;
+  void WriteCamerasExtrinsicsText(const std::string& path) const;
   void WriteImagesText(const std::string& path) const;
   void WritePoints3DText(const std::string& path) const;
   void WriteCamerasBinary(const std::string& path) const;
+  void WriteCamerasExtrinsicsBinary(const std::string& path) const;
   void WriteImagesBinary(const std::string& path) const;
   void WritePoints3DBinary(const std::string& path) const;
 
@@ -343,6 +347,8 @@ class Reconstruction {
                                     const bool is_continued_point3D);
   void ResetTriObservations(const image_t image_id, const point2D_t point2D_idx,
                             const bool is_deleted_point3D);
+
+  void PreAlignmentWithPrior();
 
   const CorrespondenceGraph* correspondence_graph_;
 
@@ -361,6 +367,8 @@ class Reconstruction {
   // Accumulated reconstruction normalization
   double norm_scale_;
   Eigen::Vector3d norm_translation_;
+
+  bool is_aligned_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

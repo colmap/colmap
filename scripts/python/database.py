@@ -46,6 +46,7 @@ CREATE_CAMERAS_TABLE = """CREATE TABLE IF NOT EXISTS cameras (
     width INTEGER NOT NULL,
     height INTEGER NOT NULL,
     params BLOB,
+    extrinsics BLOB,
     prior_focal_length INTEGER NOT NULL)"""
 
 CREATE_DESCRIPTORS_TABLE = """CREATE TABLE IF NOT EXISTS descriptors (
@@ -161,12 +162,13 @@ class COLMAPDatabase(sqlite3.Connection):
             lambda: self.executescript(CREATE_MATCHES_TABLE)
         self.create_name_index = lambda: self.executescript(CREATE_NAME_INDEX)
 
-    def add_camera(self, model, width, height, params,
+    def add_camera(self, model, width, height, params, extrinsics,
                    prior_focal_length=False, camera_id=None):
         params = np.asarray(params, np.float64)
+        extrinsics = np.asarray(extrinsics, np.float64)
         cursor = self.execute(
-            "INSERT INTO cameras VALUES (?, ?, ?, ?, ?, ?)",
-            (camera_id, model, width, height, array_to_blob(params),
+            "INSERT INTO cameras VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (camera_id, model, width, height, array_to_blob(params), array_to_blob(extrinsics),
              prior_focal_length))
         return cursor.lastrowid
 
@@ -247,13 +249,13 @@ def example_usage():
 
     # Create dummy cameras.
 
-    model1, width1, height1, params1 = \
-        0, 1024, 768, np.array((1024., 512., 384.))
-    model2, width2, height2, params2 = \
-        2, 1024, 768, np.array((1024., 512., 384., 0.1))
+    model1, width1, height1, params1, extrinsics1 = \
+        0, 1024, 768, np.array((1024., 512., 384.)), np.array((1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0.))
+    model2, width2, height2, params2, extrinsics2 = \
+        2, 1024, 768, np.array((1024., 512., 384., 0.1)), np.array((1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 1., 0., 0., 0., 0., 0.))
 
-    camera_id1 = db.add_camera(model1, width1, height1, params1)
-    camera_id2 = db.add_camera(model2, width2, height2, params2)
+    camera_id1 = db.add_camera(model1, width1, height1, params1, extrinsics1)
+    camera_id2 = db.add_camera(model2, width2, height2, params2, extrinsics2)
 
     # Create dummy images.
 
@@ -299,17 +301,21 @@ def example_usage():
 
     rows = db.execute("SELECT * FROM cameras")
 
-    camera_id, model, width, height, params, prior = next(rows)
+    camera_id, model, width, height, params, extrinsics, prior = next(rows)
     params = blob_to_array(params, np.float64)
+    extrinsics = blob_to_array(extrinsics, np.float64)
     assert camera_id == camera_id1
     assert model == model1 and width == width1 and height == height1
     assert np.allclose(params, params1)
+    assert np.allclose(extrinsics, extrinsics1)
 
-    camera_id, model, width, height, params, prior = next(rows)
+    camera_id, model, width, height, params, extrinsics, prior = next(rows)
     params = blob_to_array(params, np.float64)
+    extrinsics = blob_to_array(extrinsics, np.float64)
     assert camera_id == camera_id2
     assert model == model2 and width == width2 and height == height2
     assert np.allclose(params, params2)
+    assert np.allclose(extrinsics, extrinsics2)
 
     # Read and check keypoints.
 

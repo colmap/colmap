@@ -33,6 +33,7 @@
 
 #include <fstream>
 
+#include "base/camera.h"
 #include "base/database_cache.h"
 #include "base/pose.h"
 #include "base/projection.h"
@@ -47,7 +48,7 @@
 namespace colmap {
 
 Reconstruction::Reconstruction()
-    : correspondence_graph_(nullptr), num_added_points3D_(0), norm_scale_(1.), norm_translation_({0., 0., 0.}) {}
+    : correspondence_graph_(nullptr), num_added_points3D_(0), norm_scale_(1.), norm_translation_({0., 0., 0.}), is_aligned_(false) {}
 
 std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
   std::unordered_set<point3D_t> point3D_ids;
@@ -430,13 +431,27 @@ void Reconstruction::FinalAlignmentWithPrior() {
 }
 
 void Reconstruction::PartialAlignmentWithPrior() {
+  if (!is_aligned_) {
+    // Extrinsics usage uses the alignment (extrinsics are in camera frame and we have to
+    // transform it to world frame to before we use it). A solution for this problem is
+    // iterating PartialAlignmentWithPrior until convergence. It converge if translation
+    // part of extrinsics significantly smaller than the the distance between position priors.
+    // The first iteration is critical, because of the unkown scale. To avoid it, the first
+    // iteration, called pre-alignment, doesn't use extrinsics.
+    // Because we call PartialAlignmentWithPrior iteratively in BA, we only do one extra
+    // alignment after pre-alignment.
+    PreAlignmentWithPrior();
+  }
+
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> dst;
 
   for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
-      class Image& image = Image(reg_image_ids_[i]);
-      src.push_back(image.ProjectionCenter());
-      dst.push_back(image.TvecPrior());
+    class Image& image = Image(reg_image_ids_[i]);
+    const class Camera& camera = cameras_.at(image.CameraId());
+    const auto camera_to_ref = camera.CalculateCameraToPriorReferenceVectorInWorldFrame(image.Qvec());
+    src.push_back(image.ProjectionCenter() + camera_to_ref * norm_scale_);
+    dst.push_back(image.TvecPrior());
   }
 
   SimilarityTransform3 tform;
@@ -456,6 +471,27 @@ void Reconstruction::PartialAlignmentWithPrior() {
    */
   norm_scale_ = 1. / tform.Scale();
   norm_translation_ = tform.Translation();
+
+  is_aligned_ = true;
+}
+
+void Reconstruction::PreAlignmentWithPrior() {
+  std::vector<Eigen::Vector3d> src;
+  std::vector<Eigen::Vector3d> dst;
+
+  for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
+    class Image& image = Image(reg_image_ids_[i]);
+    src.push_back(image.ProjectionCenter());
+    dst.push_back(image.TvecPrior());
+  }
+
+  SimilarityTransform3 tform;
+  tform.Estimate(src, dst);
+  Transform(SimilarityTransform3(1., tform.Rotation(), {0. ,0. ,0.}));
+  norm_scale_ = 1. / tform.Scale();
+  norm_translation_ = tform.Translation();
+
+  is_aligned_ = true;
 }
 
 void Reconstruction::Transform(const SimilarityTransform3& tform) {
@@ -584,7 +620,10 @@ bool Reconstruction::Align(const std::vector<std::string>& image_names,
     }
 
     common_image_ids.insert(image->ImageId());
-    src.push_back(image->ProjectionCenter());
+
+    const class Camera& camera = cameras_.at(image->CameraId());
+    const auto camera_to_ref = camera.CalculateCameraToPriorReferenceVectorInWorldFrame(image->Qvec());
+    src.push_back(image->ProjectionCenter() + camera_to_ref);
     dst.push_back(locations[i]);
   }
 
@@ -628,7 +667,10 @@ bool Reconstruction::AlignRobust(const std::vector<std::string>& image_names,
     }
 
     common_image_ids.insert(image->ImageId());
-    src.push_back(image->ProjectionCenter());
+
+    const class Camera& camera = cameras_.at(image->CameraId());
+    const auto camera_to_ref = camera.CalculateCameraToPriorReferenceVectorInWorldFrame(image->Qvec());
+    src.push_back(image->ProjectionCenter() + camera_to_ref);
     dst.push_back(locations[i]);
   }
 
@@ -851,24 +893,28 @@ void Reconstruction::Write(const std::string& path) const { WriteBinary(path); }
 
 void Reconstruction::ReadText(const std::string& path) {
   ReadCamerasText(JoinPaths(path, "cameras.txt"));
+  ReadCamerasExtrinsicsText(JoinPaths(path, "camerasExtrinsics.txt"));
   ReadImagesText(JoinPaths(path, "images.txt"));
   ReadPoints3DText(JoinPaths(path, "points3D.txt"));
 }
 
 void Reconstruction::ReadBinary(const std::string& path) {
   ReadCamerasBinary(JoinPaths(path, "cameras.bin"));
+  ReadCamerasExtrinsicsBinary(JoinPaths(path, "camerasExtrinsics.bin"));
   ReadImagesBinary(JoinPaths(path, "images.bin"));
   ReadPoints3DBinary(JoinPaths(path, "points3D.bin"));
 }
 
 void Reconstruction::WriteText(const std::string& path) const {
   WriteCamerasText(JoinPaths(path, "cameras.txt"));
+  WriteCamerasExtrinsicsText(JoinPaths(path, "camerasExtrinsics.txt"));
   WriteImagesText(JoinPaths(path, "images.txt"));
   WritePoints3DText(JoinPaths(path, "points3D.txt"));
 }
 
 void Reconstruction::WriteBinary(const std::string& path) const {
   WriteCamerasBinary(JoinPaths(path, "cameras.bin"));
+  WriteCamerasExtrinsicsBinary(JoinPaths(path, "camerasExtrinsics.bin"));
   WriteImagesBinary(JoinPaths(path, "images.bin"));
   WritePoints3DBinary(JoinPaths(path, "points3D.bin"));
 }
@@ -1471,6 +1517,40 @@ void Reconstruction::ReadCamerasText(const std::string& path) {
   }
 }
 
+void Reconstruction::ReadCamerasExtrinsicsText(const std::string& path) {
+  cameras_.clear();
+
+  std::ifstream file(path);
+  CHECK(file.is_open()) << path;
+
+  std::string line;
+  std::string item;
+
+  while (std::getline(file, line)) {
+    StringTrim(&line);
+
+    if (line.empty() || line[0] == '#') {
+      continue;
+    }
+
+    std::stringstream line_stream(line);
+
+    // ID
+    std::getline(line_stream, item, ' ');
+    const camera_t cameraId = std::stoul(item);
+
+    class Camera &camera = cameras_.at(cameraId);
+
+    // EXTRINSICS
+    for (size_t i = 0; i < 16; ++i) {
+      std::getline(line_stream, item, ' ');
+      camera.ExtrinsicsData()[i] = std::stold(item);
+    }
+
+    cameras_.emplace(camera.CameraId(), camera);
+  }
+}
+
 void Reconstruction::ReadImagesText(const std::string& path) {
   images_.clear();
 
@@ -1670,6 +1750,18 @@ void Reconstruction::ReadCamerasBinary(const std::string& path) {
   }
 }
 
+void Reconstruction::ReadCamerasExtrinsicsBinary(const std::string& path) {
+  std::ifstream file(path, std::ios::binary);
+  CHECK(file.is_open()) << path;
+
+  const size_t num_cameras = ReadBinaryLittleEndian<uint64_t>(&file);
+  for (size_t i = 0; i < num_cameras; ++i) {
+    const camera_t cameraId = ReadBinaryLittleEndian<camera_t>(&file);
+    class Camera &camera = cameras_.at(cameraId);
+    ReadBinaryLittleEndian<double>(&file, camera.ExtrinsicsData(), 16);
+  }
+}
+
 void Reconstruction::ReadImagesBinary(const std::string& path) {
   std::ifstream file(path, std::ios::binary);
   CHECK(file.is_open()) << path;
@@ -1782,6 +1874,33 @@ void Reconstruction::WriteCamerasText(const std::string& path) const {
 
     for (const double param : camera.second.Params()) {
       line << param << " ";
+    }
+
+    std::string line_string = line.str();
+    line_string = line_string.substr(0, line_string.size() - 1);
+
+    file << line_string << std::endl;
+  }
+}
+
+void Reconstruction::WriteCamerasExtrinsicsText(const std::string& path) const {
+  std::ofstream file(path, std::ios::trunc);
+  CHECK(file.is_open()) << path;
+
+  // Ensure that we don't loose any precision by storing in text.
+  file.precision(17);
+
+  file << "# Camera extrinsics list:" << std::endl;
+  file << "#   CAMERA_ID, EXTRINSICS[], " << std::endl;
+  file << "# Number of cameras: " << cameras_.size() << std::endl;
+
+  for (const auto& camera : cameras_) {
+    std::ostringstream line;
+
+    line << camera.first << " ";
+
+    for (size_t i = 0; i < 16; ++i) {
+      line << camera.second.ExtrinsicsData()[i] << " ";
     }
 
     std::string line_string = line.str();
@@ -1906,6 +2025,18 @@ void Reconstruction::WriteCamerasBinary(const std::string& path) const {
     for (const double param : camera.second.Params()) {
       WriteBinaryLittleEndian<double>(&file, param);
     }
+  }
+}
+
+void Reconstruction::WriteCamerasExtrinsicsBinary(const std::string& path) const {
+  std::ofstream file(path, std::ios::trunc | std::ios::binary);
+  CHECK(file.is_open()) << path;
+
+  WriteBinaryLittleEndian<uint64_t>(&file, cameras_.size());
+
+  for (const auto& camera : cameras_) {
+    WriteBinaryLittleEndian<camera_t>(&file, camera.first);
+    WriteBinaryLittleEndian<double>(&file, camera.second.ExtrinsicsData(), 16);
   }
 }
 

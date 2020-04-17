@@ -34,6 +34,7 @@
 #include <iomanip>
 
 #include "base/camera_models.h"
+#include "base/pose.h"
 #include "util/logging.h"
 #include "util/misc.h"
 
@@ -44,6 +45,7 @@ Camera::Camera()
       model_id_(kInvalidCameraModelId),
       width_(0),
       height_(0),
+      extrinsics_(Eigen::Matrix4d::Identity(4,4)),
       prior_focal_length_(false) {}
 
 std::string Camera::ModelName() const { return CameraModelIdToName(model_id_); }
@@ -264,6 +266,17 @@ void Camera::Rescale(const size_t width, const size_t height) {
     LOG(FATAL)
         << "Camera model must either have 1 or 2 focal length parameters.";
   }
+}
+
+Eigen::Vector3d Camera::GetPriorReferencePositionInCameraFrame() const {
+  return -extrinsics_.block<3,3>(0,0).inverse() * extrinsics_.block<3,1>(0,3);
+}
+
+Eigen::Vector3d Camera::CalculateCameraToPriorReferenceVectorInWorldFrame(Eigen::Vector4d camera_qvec) const {
+  const Eigen::Vector4d normalized_qvec = NormalizeQuaternion(camera_qvec);
+  const Eigen::Quaterniond quat(normalized_qvec(0), -normalized_qvec(1),
+                                -normalized_qvec(2), -normalized_qvec(3));
+  return quat * GetPriorReferencePositionInCameraFrame();
 }
 
 }  // namespace colmap

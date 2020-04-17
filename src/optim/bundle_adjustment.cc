@@ -462,7 +462,8 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
       auto normalizedTvecPrior = reconstruction->TvecPriorNormalization(image.TvecPrior());
       const double cost_factor_latlon = options_.prior_cost_factor_latlon / reconstruction->NormScale();
       const double cost_factor_alt = options_.prior_cost_factor_alt / reconstruction->NormScale();
-      ceres::CostFunction* gps_prior_cost_function = GpsPriorCostFunction::Create(normalizedTvecPrior, cost_factor_latlon, cost_factor_alt);
+      auto tvecPriorPosInCameraFrame = camera.GetPriorReferencePositionInCameraFrame() * reconstruction->NormScale();
+      ceres::CostFunction* gps_prior_cost_function = GpsPriorCostFunction::Create(normalizedTvecPrior, tvecPriorPosInCameraFrame, cost_factor_latlon, cost_factor_alt);
       problem_->AddResidualBlock(gps_prior_cost_function, loss_function, qvec_data, tvec_data);
   }
 

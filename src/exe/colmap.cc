@@ -1182,7 +1182,9 @@ int RunModelAligner(int argc, char** argv) {
     for (size_t i = 0; i < ref_image_names.size(); ++i) {
       const Image* image = reconstruction.FindImageWithName(ref_image_names[i]);
       if (image != nullptr) {
-        errors.push_back((image->ProjectionCenter() - ref_locations[i]).norm());
+        const class Camera& camera = reconstruction.Cameras().at(image->CameraId());
+        const auto camera_to_ref = camera.CalculateCameraToPriorReferenceVectorInWorldFrame(image->Qvec());
+        errors.push_back((image->ProjectionCenter() + camera_to_ref - ref_locations[i]).norm());
       }
     }
 

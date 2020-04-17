@@ -208,7 +208,14 @@ Camera ReadCameraRow(sqlite3_stmt* sql_stmt) {
   memcpy(camera.ParamsData(), sqlite3_column_blob(sql_stmt, 4),
          num_params_bytes);
 
-  camera.SetPriorFocalLength(sqlite3_column_int64(sql_stmt, 5) != 0);
+  const size_t num_extrinsics_bytes =
+     static_cast<size_t>(sqlite3_column_bytes(sql_stmt, 5));
+  const size_t num_extrinsics = num_extrinsics_bytes / sizeof(double);
+  CHECK_EQ(num_extrinsics, 16);
+  memcpy(camera.ExtrinsicsData(), sqlite3_column_blob(sql_stmt, 5),
+        num_extrinsics_bytes);
+
+  camera.SetPriorFocalLength(sqlite3_column_int64(sql_stmt, 6) != 0);
 
   return camera;
 }
@@ -609,7 +616,12 @@ camera_t Database::WriteCamera(const Camera& camera,
                                  static_cast<int>(num_params_bytes),
                                  SQLITE_STATIC));
 
-  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_add_camera_, 6,
+  const size_t num_extrinsics_bytes = sizeof(double) * 16;
+  SQLITE3_CALL(sqlite3_bind_blob(sql_stmt_add_camera_, 6, camera.ExtrinsicsData(),
+                                static_cast<int>(num_extrinsics_bytes),
+                                SQLITE_STATIC));
+
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_add_camera_, 7,
                                   camera.HasPriorFocalLength()));
 
   SQLITE3_CALL(sqlite3_step(sql_stmt_add_camera_));
@@ -750,11 +762,16 @@ void Database::UpdateCamera(const Camera& camera) const {
       sqlite3_bind_blob(sql_stmt_update_camera_, 4, camera.ParamsData(),
                         static_cast<int>(num_params_bytes), SQLITE_STATIC));
 
-  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_camera_, 5,
+  const size_t num_extrinsics_bytes = sizeof(double) * 16;
+  SQLITE3_CALL(
+      sqlite3_bind_blob(sql_stmt_update_camera_, 5, camera.ParamsData(),
+                        static_cast<int>(num_extrinsics_bytes), SQLITE_STATIC));
+
+  SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_camera_, 6,
                                   camera.HasPriorFocalLength()));
 
   SQLITE3_CALL(
-      sqlite3_bind_int64(sql_stmt_update_camera_, 6, camera.CameraId()));
+      sqlite3_bind_int64(sql_stmt_update_camera_, 7, camera.CameraId()));
 
   SQLITE3_CALL(sqlite3_step(sql_stmt_update_camera_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_update_camera_));
@@ -989,8 +1006,8 @@ void Database::PrepareSQLStatements() {
   // add_*
   //////////////////////////////////////////////////////////////////////////////
   sql =
-      "INSERT INTO cameras(camera_id, model, width, height, params, "
-      "prior_focal_length) VALUES(?, ?, ?, ?, ?, ?);";
+      "INSERT INTO cameras(camera_id, model, width, height, params, extrinsics, "
+      "prior_focal_length) VALUES(?, ?, ?, ?, ?, ?, ?);";
   SQLITE3_CALL(
       sqlite3_prepare_v2(database_, sql.c_str(), -1, &sql_stmt_add_camera_, 0));
   sql_stmts_.push_back(sql_stmt_add_camera_);
@@ -1007,7 +1024,7 @@ void Database::PrepareSQLStatements() {
   // update_*
   //////////////////////////////////////////////////////////////////////////////
   sql =
-      "UPDATE cameras SET model=?, width=?, height=?, params=?, "
+      "UPDATE cameras SET model=?, width=?, height=?, params=?, extrinsics=?,"
       "prior_focal_length=? WHERE camera_id=?;";
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
                                   &sql_stmt_update_camera_, 0));
@@ -1163,6 +1180,7 @@ void Database::CreateCameraTable() const {
       "    width                INTEGER                             NOT NULL,"
       "    height               INTEGER                             NOT NULL,"
       "    params               BLOB,"
+      "    extrinsics           BLOB,"
       "    prior_focal_length   INTEGER                             NOT NULL);";
 
   SQLITE3_EXEC(database_, sql.c_str(), nullptr);

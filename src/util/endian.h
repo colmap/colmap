@@ -61,12 +61,16 @@ template <typename T>
 T ReadBinaryLittleEndian(std::istream* stream);
 template <typename T>
 void ReadBinaryLittleEndian(std::istream* stream, std::vector<T>* data);
+template <typename T>
+void ReadBinaryLittleEndian(std::istream* stream, T* data, const size_t size);
 
 // Write data in little endian format for cross-platform support.
 template <typename T>
 void WriteBinaryLittleEndian(std::ostream* stream, const T& data);
 template <typename T>
 void WriteBinaryLittleEndian(std::ostream* stream, const std::vector<T>& data);
+template <typename T>
+void WriteBinaryLittleEndian(std::ostream* stream, const T* data, const size_t size);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -147,6 +151,13 @@ void ReadBinaryLittleEndian(std::istream* stream, std::vector<T>* data) {
 }
 
 template <typename T>
+void ReadBinaryLittleEndian(std::istream* stream, T* data, const size_t size) {
+  for (size_t i = 0; i < size; ++i) {
+    data[i] = ReadBinaryLittleEndian<T>(stream);
+  }
+}
+
+template <typename T>
 void WriteBinaryLittleEndian(std::ostream* stream, const T& data) {
   const T data_little_endian = NativeToLittleEndian(data);
   stream->write(reinterpret_cast<const char*>(&data_little_endian), sizeof(T));
@@ -156,6 +167,13 @@ template <typename T>
 void WriteBinaryLittleEndian(std::ostream* stream, const std::vector<T>& data) {
   for (const auto& elem : data) {
     WriteBinaryLittleEndian<T>(stream, elem);
+  }
+}
+
+template <typename T>
+void WriteBinaryLittleEndian(std::ostream* stream, const T* data, const size_t size) {
+  for (size_t i = 0; i < size; ++i) {
+    WriteBinaryLittleEndian<T>(stream, data[i]);
   }
 }
 
