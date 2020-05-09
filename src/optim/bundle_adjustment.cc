@@ -276,7 +276,7 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
 
   // Empirical choice.
   const size_t kMaxNumImagesDirectDenseSolver = 50;
-  const size_t kMaxNumImagesDirectSparseSolver = 1000;
+  const size_t kMaxNumImagesDirectSparseSolver = 10000;
   const size_t num_images = config_.NumImages();
   if (num_images <= kMaxNumImagesDirectDenseSolver) {
     solver_options.linear_solver_type = ceres::DENSE_SCHUR;
@@ -356,7 +356,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
   const bool constant_camera = !options_.refine_focal_length &&
                                !options_.refine_principal_point &&
                                !options_.refine_extra_params;
-  
+
   // CostFunction assumes unit quaternions.
   image.NormalizeQvec();
 
