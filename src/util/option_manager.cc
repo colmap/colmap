@@ -65,6 +65,7 @@ OptionManager::OptionManager(bool add_project_options) {
   vocab_tree_matching.reset(new VocabTreeMatchingOptions());
   spatial_matching.reset(new SpatialMatchingOptions());
   transitive_matching.reset(new TransitiveMatchingOptions());
+  image_pairs_matching.reset(new ImagePairsMatchingOptions());
   bundle_adjustment.reset(new BundleAdjustmentOptions());
   mapper.reset(new IncrementalMapperOptions());
   patch_match_stereo.reset(new mvs::PatchMatchOptions());
@@ -177,6 +178,7 @@ void OptionManager::AddAllOptions() {
   AddVocabTreeMatchingOptions();
   AddSpatialMatchingOptions();
   AddTransitiveMatchingOptions();
+  AddImagePairsMatchingOptions();
   AddBundleAdjustmentOptions();
   AddMapperOptions();
   AddPatchMatchStereoOptions();
@@ -417,6 +419,18 @@ void OptionManager::AddTransitiveMatchingOptions() {
                               &transitive_matching->batch_size);
   AddAndRegisterDefaultOption("TransitiveMatching.num_iterations",
                               &transitive_matching->num_iterations);
+}
+
+void OptionManager::AddImagePairsMatchingOptions() {
+  if (added_image_pairs_match_options_) {
+    return;
+  }
+  added_image_pairs_match_options_ = true;
+
+  AddMatchingOptions();
+
+  AddAndRegisterDefaultOption("ImagePairsMatching.block_size",
+                              &image_pairs_matching->block_size);
 }
 
 void OptionManager::AddBundleAdjustmentOptions() {
@@ -730,6 +744,7 @@ void OptionManager::Reset() {
   added_vocab_tree_match_options_ = false;
   added_spatial_match_options_ = false;
   added_transitive_match_options_ = false;
+  added_image_pairs_match_options_ = false;
   added_ba_options_ = false;
   added_mapper_options_ = false;
   added_patch_match_stereo_options_ = false;
@@ -753,6 +768,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *vocab_tree_matching = VocabTreeMatchingOptions();
   *spatial_matching = SpatialMatchingOptions();
   *transitive_matching = TransitiveMatchingOptions();
+  *image_pairs_matching = ImagePairsMatchingOptions();
   *bundle_adjustment = BundleAdjustmentOptions();
   *mapper = IncrementalMapperOptions();
   *patch_match_stereo = mvs::PatchMatchOptions();
@@ -783,6 +799,8 @@ bool OptionManager::Check() {
   if (sequential_matching) success = success && sequential_matching->Check();
   if (vocab_tree_matching) success = success && vocab_tree_matching->Check();
   if (spatial_matching) success = success && spatial_matching->Check();
+  if (transitive_matching) success = success && transitive_matching->Check();
+  if (image_pairs_matching) success = success && image_pairs_matching->Check();
 
   if (bundle_adjustment) success = success && bundle_adjustment->Check();
   if (mapper) success = success && mapper->Check();
