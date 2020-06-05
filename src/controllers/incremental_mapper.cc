@@ -178,11 +178,11 @@ size_t CompleteAndMergeTracks(const IncrementalMapperOptions& options,
                               IncrementalMapper* mapper) {
   const size_t num_completed_observations =
       mapper->CompleteTracks(options.Triangulation());
-  std::cout << "  => Merged observations: " << num_completed_observations
+  std::cout << "  => Completed observations: " << num_completed_observations
             << std::endl;
   const size_t num_merged_observations =
       mapper->MergeTracks(options.Triangulation());
-  std::cout << "  => Completed observations: " << num_merged_observations
+  std::cout << "  => Merged observations: " << num_merged_observations
             << std::endl;
   return num_completed_observations + num_merged_observations;
 }
