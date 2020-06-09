@@ -83,7 +83,7 @@ void WriteCOLMAPCommands(const bool geometric,
                          const std::string& output_prefix,
                          const std::string& indent, std::ofstream* file) {
   if (geometric) {
-    *file << indent << "$COLMAP_EXE_PATH/patch_match_stereo \\" << std::endl;
+    *file << indent << "$COLMAP_EXE_PATH/colmap patch_match_stereo \\" << std::endl;
     *file << indent << "  --workspace_path " << workspace_path << " \\"
           << std::endl;
     *file << indent << "  --workspace_format " << workspace_format << " \\"
@@ -97,7 +97,7 @@ void WriteCOLMAPCommands(const bool geometric,
     *file << indent << "  --PatchMatchStereo.geom_consistency true"
           << std::endl;
   } else {
-    *file << indent << "$COLMAP_EXE_PATH/patch_match_stereo \\" << std::endl;
+    *file << indent << "$COLMAP_EXE_PATH/colmap patch_match_stereo \\" << std::endl;
     *file << indent << "  --workspace_path " << workspace_path << " \\"
           << std::endl;
     *file << indent << "  --workspace_format " << workspace_format << " \\"
@@ -112,7 +112,7 @@ void WriteCOLMAPCommands(const bool geometric,
           << std::endl;
   }
 
-  *file << indent << "$COLMAP_EXE_PATH/stereo_fusion \\" << std::endl;
+  *file << indent << "$COLMAP_EXE_PATH/colmap stereo_fusion \\" << std::endl;
   *file << indent << "  --workspace_path " << workspace_path << " \\"
         << std::endl;
   *file << indent << "  --workspace_format " << workspace_format << " \\"
@@ -129,7 +129,7 @@ void WriteCOLMAPCommands(const bool geometric,
   *file << indent << "  --output_path "
         << JoinPaths(workspace_path, output_prefix + "fused.ply") << std::endl;
 
-  *file << indent << "$COLMAP_EXE_PATH/poisson_mesher \\" << std::endl;
+  *file << indent << "$COLMAP_EXE_PATH/colmap poisson_mesher \\" << std::endl;
   *file << indent << "  --input_path "
         << JoinPaths(workspace_path, output_prefix + "fused.ply") << " \\"
         << std::endl;
@@ -137,7 +137,7 @@ void WriteCOLMAPCommands(const bool geometric,
         << JoinPaths(workspace_path, output_prefix + "meshed-poisson.ply")
         << std::endl;
 
-  *file << indent << "$COLMAP_EXE_PATH/delaunay_mesher \\" << std::endl;
+  *file << indent << "$COLMAP_EXE_PATH/colmap delaunay_mesher \\" << std::endl;
   *file << indent << "  --input_path "
         << JoinPaths(workspace_path, output_prefix) << " \\" << std::endl;
   *file << indent << "  --input_type dense " << std::endl;
