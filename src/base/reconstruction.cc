@@ -1334,8 +1334,16 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
     const std::unordered_set<point3D_t>& point3D_ids) {
   const double max_squared_reproj_error = max_reproj_error * max_reproj_error;
 
-  // Number of filtered points.
-  size_t num_filtered = 0;
+  // Number observations from filtered points.
+  size_t num_obs_filtered = 0;
+  // Number filtered points.
+  size_t num_point3D_filtered = 0;
+  // Number of observations filtered by reprojection error
+  size_t num_obs_with_large_reproj = 0;
+  // Number of observations filtered by negative depth
+  size_t num_obs_with_neg_depth = 0;
+  // Cache for projection matrices.
+  EIGEN_STL_UMAP(image_t, Eigen::Matrix3x4d) proj_matrices;
 
   for (const auto point3D_id : point3D_ids) {
     if (!ExistsPoint3D(point3D_id)) {
@@ -1346,7 +1354,8 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
 
     if (point3D.Track().Length() < 2) {
       DeletePoint3D(point3D_id);
-      num_filtered += point3D.Track().Length();
+      num_obs_filtered += point3D.Track().Length();
+      num_point3D_filtered++;
       continue;
     }
 
@@ -1356,30 +1365,49 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
 
     for (const auto& track_el : point3D.Track().Elements()) {
       const class Image& image = Image(track_el.image_id);
-      const class Camera& camera = Camera(image.CameraId());
-      const Point2D& point2D = image.Point2D(track_el.point2D_idx);
-      const double squared_reproj_error = CalculateSquaredReprojectionError(
-          point2D.XY(), point3D.XYZ(), image.Qvec(), image.Tvec(), camera);
-      if (squared_reproj_error > max_squared_reproj_error) {
-        track_els_to_delete.push_back(track_el);
+      Eigen::Matrix3x4d proj_matrix;
+      if (proj_matrices.count(track_el.image_id) == 0) {
+        proj_matrix = image.ProjectionMatrix();
+        proj_matrices[track_el.image_id] = proj_matrix;
       } else {
-        reproj_error_sum += std::sqrt(squared_reproj_error);
+        proj_matrix = proj_matrices[track_el.image_id];
+      }
+
+      if (HasPointPositiveDepth(proj_matrix, point3D.XYZ())) {
+        const class Camera& camera = Camera(image.CameraId());
+        const Point2D& point2D = image.Point2D(track_el.point2D_idx);
+        const double squared_reproj_error = CalculateSquaredReprojectionError(
+            point2D.XY(), point3D.XYZ(), image.Qvec(), image.Tvec(), camera);
+        if (squared_reproj_error > max_squared_reproj_error) {
+          track_els_to_delete.push_back(track_el);
+          ++num_obs_with_large_reproj;
+        } else {
+          reproj_error_sum += std::sqrt(squared_reproj_error);
+        }
+      } else {
+        track_els_to_delete.push_back(track_el);
+        ++num_obs_with_neg_depth;
       }
     }
 
     if (track_els_to_delete.size() >= point3D.Track().Length() - 1) {
-      num_filtered += point3D.Track().Length();
+      num_obs_filtered += point3D.Track().Length();
       DeletePoint3D(point3D_id);
+      ++num_point3D_filtered;
     } else {
-      num_filtered += track_els_to_delete.size();
+      num_obs_filtered += track_els_to_delete.size();
       for (const auto& track_el : track_els_to_delete) {
         DeleteObservation(track_el.image_id, track_el.point2D_idx);
       }
       point3D.SetError(reproj_error_sum / point3D.Track().Length());
     }
   }
+  
+  std::cout << StringPrintf("  => filtered observations due to large reprojection error: %d \n", num_obs_with_large_reproj)
+            << StringPrintf("  => filtered observations due to negative depth: %d \n", num_obs_with_neg_depth)
+            << StringPrintf("  => filtered 3D points: %d \n", num_point3D_filtered);
 
-  return num_filtered;
+  return num_obs_filtered;
 }
 
 void Reconstruction::ReadCamerasText(const std::string& path) {
