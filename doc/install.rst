@@ -103,7 +103,7 @@ Install `Ceres Solver <http://ceres-solver.org/>`_::
     mkdir build
     cd build
     cmake .. -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF
-    make
+    make -j
     sudo make install
 
 Configure and compile COLMAP::
@@ -114,7 +114,7 @@ Configure and compile COLMAP::
     mkdir build
     cd build
     cmake ..
-    make
+    make -j
     sudo make install
 
 Under newer Ubuntu versions it might be necessary to explicitly select the used
