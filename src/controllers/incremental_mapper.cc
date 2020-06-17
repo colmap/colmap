@@ -116,6 +116,7 @@ void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
         mapper->GetReconstruction().ComputeNumObservations();
     size_t num_changed_observations = 0;
     AdjustGlobalBundle(options, mapper);
+    num_changed_observations += mapper->Retriangulate(options.Triangulation());
     num_changed_observations += CompleteAndMergeTracks(options, mapper);
     num_changed_observations += FilterPoints(options, mapper);
     const double changed =
