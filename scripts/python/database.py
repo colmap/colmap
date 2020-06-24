@@ -171,7 +171,7 @@ class COLMAPDatabase(sqlite3.Connection):
         return cursor.lastrowid
 
     def add_image(self, name, camera_id,
-                  prior_q=np.zeros(4), prior_t=np.zeros(3), image_id=None):
+                  prior_q=np.full(4, np.NaN), prior_t=np.full(3, np.NaN), image_id=None):
         cursor = self.execute(
             "INSERT INTO images VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (image_id, name, camera_id, prior_q[0], prior_q[1], prior_q[2],

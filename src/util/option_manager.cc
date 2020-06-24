@@ -78,7 +78,8 @@ OptionManager::OptionManager(bool add_project_options) {
   desc_->add_options()("help,h", "");
 
   AddRandomOptions();
-
+  AddLogOptions();
+  
   if (add_project_options) {
     desc_->add_options()("project_path", config::value<std::string>());
   }
@@ -542,6 +543,8 @@ void OptionManager::AddMapperOptions() {
                               &mapper->mapper.filter_min_tri_angle);
   AddAndRegisterDefaultOption("Mapper.max_reg_trials",
                               &mapper->mapper.max_reg_trials);
+  AddAndRegisterDefaultOption("Mapper.local_ba_min_tri_angle",
+                              &mapper->mapper.local_ba_min_tri_angle);
 
   // IncrementalTriangulator.
   AddAndRegisterDefaultOption("Mapper.tri_max_transitivity",
