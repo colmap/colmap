@@ -147,7 +147,7 @@ struct TransitiveMatchingOptions {
 
 struct ImagePairsMatchingOptions {
   // Number of image pairs to match in one batch.
-  int block_size = 100;
+  int block_size = 1225;
 
   // Path to the file with the matches.
   std::string match_list_path = "";

@@ -1439,6 +1439,7 @@ void ImagePairsFeatureMatcher::Run() {
 
   std::string line;
   std::vector<std::pair<image_t, image_t>> image_pairs;
+  std::unordered_set<colmap::image_pair_t> image_pairs_set;
   while (std::getline(file, line)) {
     StringTrim(&line);
 
@@ -1467,8 +1468,16 @@ void ImagePairsFeatureMatcher::Run() {
       continue;
     }
 
-    image_pairs.emplace_back(image_name_to_image_id.at(image_name1),
-                             image_name_to_image_id.at(image_name2));
+    image_pairs_set.insert(
+        Database::ImagePairToPairId(image_name_to_image_id.at(image_name1),
+                                    image_name_to_image_id.at(image_name2)));
+  }
+
+  image_pairs.reserve(image_pairs_set.size());
+  for (const auto& pid : image_pairs_set) {
+    image_pairs.resize(image_pairs.size() + 1);
+    Database::PairIdToImagePair(pid, &image_pairs.back().first,
+                                &image_pairs.back().second);
   }
 
   //////////////////////////////////////////////////////////////////////////////

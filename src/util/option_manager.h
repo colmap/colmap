@@ -48,6 +48,7 @@ struct SequentialMatchingOptions;
 struct VocabTreeMatchingOptions;
 struct SpatialMatchingOptions;
 struct TransitiveMatchingOptions;
+struct ImagePairsMatchingOptions;
 struct BundleAdjustmentOptions;
 struct IncrementalMapperOptions;
 struct RenderOptions;
@@ -90,6 +91,7 @@ class OptionManager {
   void AddVocabTreeMatchingOptions();
   void AddSpatialMatchingOptions();
   void AddTransitiveMatchingOptions();
+  void AddImagePairsMatchingOptions();
   void AddBundleAdjustmentOptions();
   void AddMapperOptions();
   void AddPatchMatchStereoOptions();
@@ -128,6 +130,7 @@ class OptionManager {
   std::shared_ptr<VocabTreeMatchingOptions> vocab_tree_matching;
   std::shared_ptr<SpatialMatchingOptions> spatial_matching;
   std::shared_ptr<TransitiveMatchingOptions> transitive_matching;
+  std::shared_ptr<ImagePairsMatchingOptions> image_pairs_matching;
 
   std::shared_ptr<BundleAdjustmentOptions> bundle_adjustment;
   std::shared_ptr<IncrementalMapperOptions> mapper;
@@ -168,6 +171,7 @@ class OptionManager {
   bool added_vocab_tree_match_options_;
   bool added_spatial_match_options_;
   bool added_transitive_match_options_;
+  bool added_image_pairs_match_options_;
   bool added_ba_options_;
   bool added_mapper_options_;
   bool added_patch_match_stereo_options_;
