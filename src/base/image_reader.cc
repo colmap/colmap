@@ -60,7 +60,8 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
     options_.image_list = GetRecursiveFileList(options_.image_path);
     std::sort(options_.image_list.begin(), options_.image_list.end());
   } else {
-    if (!std::is_sorted(options_.image_list.begin(), options_.image_list.end())) {
+    if (!std::is_sorted(options_.image_list.begin(),
+                        options_.image_list.end())) {
       std::sort(options_.image_list.begin(), options_.image_list.end());
     }
     for (auto& image_name : options_.image_list) {
@@ -166,9 +167,7 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
 
     prev_camera_ = current_camera;
 
-
-  }else{
-
+  } else {
     //////////////////////////////////////////////////////////////////////////////
     // Check image dimensions.
     //////////////////////////////////////////////////////////////////////////////

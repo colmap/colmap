@@ -1468,16 +1468,14 @@ void ImagePairsFeatureMatcher::Run() {
       continue;
     }
 
-    image_pairs_set.insert(
-        Database::ImagePairToPairId(image_name_to_image_id.at(image_name1),
-                                    image_name_to_image_id.at(image_name2)));
-  }
-
-  image_pairs.reserve(image_pairs_set.size());
-  for (const auto& pid : image_pairs_set) {
-    image_pairs.resize(image_pairs.size() + 1);
-    Database::PairIdToImagePair(pid, &image_pairs.back().first,
-                                &image_pairs.back().second);
+    const image_t image_id1 = image_name_to_image_id.at(image_name1);
+    const image_t image_id2 = image_name_to_image_id.at(image_name2);
+    const image_pair_t image_pair =
+        Database::ImagePairToPairId(image_id1, image_id2);
+    const bool image_pair_exists = image_pairs_set.insert(image_pair).second;
+    if (image_pair_exists) {
+      image_pairs.emplace_back(image_id1, image_id2);
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
