@@ -195,10 +195,17 @@ SimilarityTransform3::SimilarityTransform3(const double scale,
   transform_.matrix() = matrix;
 }
 
-void SimilarityTransform3::Estimate(const std::vector<Eigen::Vector3d>& src,
+bool SimilarityTransform3::Estimate(const std::vector<Eigen::Vector3d>& src,
                                     const std::vector<Eigen::Vector3d>& dst) {
-  transform_.matrix().topLeftCorner<3, 4>() =
-      SimilarityTransformEstimator<3>().Estimate(src, dst)[0];
+  const auto results = SimilarityTransformEstimator<3>().Estimate(src, dst);
+  if (results.empty()) {
+    return false;
+  }
+
+  CHECK_EQ(results.size(), 1);
+  transform_.matrix().topLeftCorner<3, 4>() = results[0];
+
+  return true;
 }
 
 SimilarityTransform3 SimilarityTransform3::Inverse() const {
