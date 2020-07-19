@@ -229,14 +229,7 @@ void AutomaticReconstructionController::RunSparseMapper() {
 }
 
 void AutomaticReconstructionController::RunDenseMapper() {
-#ifndef CUDA_ENABLED
-  std::cout
-      << std::endl
-      << "WARNING: Skipping dense reconstruction because CUDA is not available."
-      << std::endl;
-  return;
-#endif  // CUDA_ENABLED
-
+#ifdef CUDA_ENABLED
   CreateDirIfNotExists(JoinPaths(options_.workspace_path, "dense"));
 
   for (size_t i = 0; i < reconstruction_manager_->Size(); ++i) {
@@ -330,7 +323,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
 #ifdef CGAL_ENABLED
         mvs::DenseDelaunayMeshing(*option_manager_.delaunay_meshing, dense_path,
                                   meshing_path);
-#else   // CGAL_ENABLED
+#else  // CGAL_ENABLED
         std::cout << std::endl
                   << "WARNING: Skipping Delaunay meshing because CGAL is "
                      "not available."
@@ -339,7 +332,13 @@ void AutomaticReconstructionController::RunDenseMapper() {
 #endif  // CGAL_ENABLED
       }
     }
+#else   // CUDA_ENABLED
+  std::cout << std::endl
+            << "WARNING: Skipping dense reconstruction because CUDA is not "
+               "available."
+            << std::endl;
+  return;
+#endif  // CUDA_ENABLED
   }
-}
-
+  
 }  // namespace colmap
