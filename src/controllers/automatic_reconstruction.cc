@@ -229,7 +229,6 @@ void AutomaticReconstructionController::RunSparseMapper() {
 }
 
 void AutomaticReconstructionController::RunDenseMapper() {
-#ifdef CUDA_ENABLED
   CreateDirIfNotExists(JoinPaths(options_.workspace_path, "dense"));
 
   for (size_t i = 0; i < reconstruction_manager_->Size(); ++i) {
@@ -275,6 +274,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     // Patch match stereo.
 
+#ifdef CUDA_ENABLED
     {
       mvs::PatchMatchController patch_match_controller(
           *option_manager_.patch_match_stereo, dense_path, "COLMAP", "");
@@ -283,6 +283,13 @@ void AutomaticReconstructionController::RunDenseMapper() {
       patch_match_controller.Wait();
       active_thread_ = nullptr;
     }
+#else   // CUDA_ENABLED
+    std::cout
+        << std::endl
+        << "WARNING: Skipping patch match stereo because CUDA is not available."
+        << std::endl;
+    return;
+#endif  // CUDA_ENABLED
 
     if (IsStopped()) {
       return;
@@ -329,16 +336,11 @@ void AutomaticReconstructionController::RunDenseMapper() {
                      "not available."
                   << std::endl;
         return;
+
 #endif  // CGAL_ENABLED
       }
     }
-#else   // CUDA_ENABLED
-  std::cout << std::endl
-            << "WARNING: Skipping dense reconstruction because CUDA is not "
-               "available."
-            << std::endl;
-  return;
-#endif  // CUDA_ENABLED
   }
-  
+}
+
 }  // namespace colmap
