@@ -1,3 +1,27 @@
+COLMAP 3.6 (07/24/2020)
+-----------------------
+- Improved robustness and faster incremental reconstruction process
+- Add ``image_deleter`` command to remove images from sparse model
+- Add ``image_filter`` command to filter bad registrations from sparse model
+- Add ``point_filtering`` command to filter sparse model point clouds
+- Add ``database_merger`` command to merge two databases, which is
+  useful to parallelize matching across different machines
+- Add ``image_undistorter_standalone`` to enable undistorting images
+  without a pre-existing full sparse model
+- Improved undistortion for fisheye cameras and FOV camera model
+- Support for masking input images in feature extraction stage
+- Improved HiDPI support in GUI for high-resolution monitors
+- Import sparse model when launching GUI from CLI
+- Faster CPU-based matching using approximate NN search
+- Support for bundle adjustment with fixed extrinsics
+- Support for fixing existing images when continuing reconstruction
+- Camera model colors in viewer can be customized
+- Support for latest GPU architectures in CUDA build
+- Support for writing sparse models in Python scripts
+- Scripts for building and running COLMAP in Docker
+- Many more bug fixes and improvements to code and documentation
+
+
 COLMAP 3.5 (08/22/2018)
 -----------------------
 - COLMAP is now released under the BSD license instead of the GPL
