@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_BASE_COST_FUNCTIONS_H_
 #define COLMAP_SRC_BASE_COST_FUNCTIONS_H_
@@ -93,8 +93,13 @@ class BundleAdjustmentConstantPoseCostFunction {
   BundleAdjustmentConstantPoseCostFunction(const Eigen::Vector4d& qvec,
                                            const Eigen::Vector3d& tvec,
                                            const Eigen::Vector2d& point2D)
-      : qvec_{qvec[0], qvec[1], qvec[2], qvec[3]},
-        tvec_{tvec[0], tvec[1], tvec[2]},
+      : qw_(qvec(0)),
+        qx_(qvec(1)),
+        qy_(qvec(2)),
+        qz_(qvec(3)),
+        tx_(tvec(0)),
+        ty_(tvec(1)),
+        tz_(tvec(2)),
         observed_x_(point2D(0)),
         observed_y_(point2D(1)) {}
 
@@ -110,14 +115,14 @@ class BundleAdjustmentConstantPoseCostFunction {
   template <typename T>
   bool operator()(const T* const point3D, const T* const camera_params,
                   T* residuals) const {
-    const T qvec[4] = {T(qvec_[0]), T(qvec_[1]), T(qvec_[2]), T(qvec_[3])};
+    const T qvec[4] = {T(qw_), T(qx_), T(qy_), T(qz_)};
 
     // Rotate and translate.
     T projection[3];
     ceres::UnitQuaternionRotatePoint(qvec, point3D, projection);
-    projection[0] += T(tvec_[0]);
-    projection[1] += T(tvec_[1]);
-    projection[2] += T(tvec_[2]);
+    projection[0] += T(tx_);
+    projection[1] += T(ty_);
+    projection[2] += T(tz_);
 
     // Project to image plane.
     projection[0] /= projection[2];
@@ -135,8 +140,13 @@ class BundleAdjustmentConstantPoseCostFunction {
   }
 
  private:
-  const double qvec_[4];
-  const double tvec_[3];
+  const double qw_;
+  const double qx_;
+  const double qy_;
+  const double qz_;
+  const double tx_;
+  const double ty_;
+  const double tz_;
   const double observed_x_;
   const double observed_y_;
 };

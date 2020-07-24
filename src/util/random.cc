@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "util/random.h"
 
@@ -36,14 +36,13 @@ namespace colmap {
 thread_local std::mt19937* PRNG = nullptr;
 
 void SetPRNGSeed(unsigned seed) {
+  // Avoid race conditions, especially for srand().
+  static std::mutex mutex;
+  std::unique_lock<std::mutex> lock(mutex);
+
   // Overwrite existing PRNG
   if (PRNG != nullptr) {
     delete PRNG;
-  }
-
-  if (seed == kRandomPRNGSeed) {
-    seed = static_cast<unsigned>(
-        std::chrono::system_clock::now().time_since_epoch().count());
   }
 
   PRNG = new std::mt19937(seed);

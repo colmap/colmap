@@ -27,10 +27,11 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-# Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 import numpy as np
-from read_model import read_model
+from read_write_model import read_model, write_model
+from tempfile import mkdtemp
 
 
 def compare_cameras(cameras1, cameras2):
@@ -63,11 +64,11 @@ def compare_points(points3D1, points3D2):
         point3D1 = points3D1[point3D_id1]
         point3D2 = points3D2[point3D_id1]
         assert point3D1.id == point3D2.id
-        assert np.allclose(point3D1.xyz, point3D1.xyz)
-        assert np.array_equal(point3D1.rgb, point3D1.rgb)
+        assert np.allclose(point3D1.xyz, point3D2.xyz)
+        assert np.array_equal(point3D1.rgb, point3D2.rgb)
         assert np.allclose(point3D1.error, point3D2.error)
-        assert np.array_equal(point3D1.image_ids, point3D1.image_ids)
-        assert np.array_equal(point3D1.point2D_idxs, point3D1.point2D_idxs)
+        assert np.array_equal(point3D1.image_ids, point3D2.image_ids)
+        assert np.array_equal(point3D1.point2D_idxs, point3D2.point2D_idxs)
 
 
 def main():
@@ -90,6 +91,27 @@ def main():
     compare_points(points3D_txt, points3D_bin)
 
     print("... text and binary models are equal.")
+    print("Saving text model and reloading it ...")
+
+    tmpdir = mkdtemp()
+    write_model(cameras_bin, images_bin, points3D_bin, tmpdir, ext='.txt')
+    cameras_txt, images_txt, points3D_txt = \
+        read_model(tmpdir, ext=".txt")
+    compare_cameras(cameras_txt, cameras_bin)
+    compare_images(images_txt, images_bin)
+    compare_points(points3D_txt, points3D_bin)
+
+    print("... saved text and loaded models are equal.")
+    print("Saving binary model and reloading it ...")
+
+    write_model(cameras_bin, images_bin, points3D_bin, tmpdir, ext='.bin')
+    cameras_bin, images_bin, points3D_bin = \
+        read_model(tmpdir, ext=".bin")
+    compare_cameras(cameras_txt, cameras_bin)
+    compare_images(images_txt, images_bin)
+    compare_points(points3D_txt, points3D_bin)
+
+    print("... saved binary and loaded models are equal.")
 
 
 if __name__ == "__main__":

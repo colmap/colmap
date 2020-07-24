@@ -27,7 +27,9 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
+#include <clocale>
 
 #include "ui/main_window.h"
 
@@ -39,6 +41,7 @@ MainWindow::MainWindow(const OptionManager& options)
     : options_(options),
       thread_control_widget_(new ThreadControlWidget(this)),
       window_closed_(false) {
+  std::setlocale(LC_NUMERIC, "C");
   resize(1024, 600);
   UpdateWindowTitle();
 
@@ -54,8 +57,11 @@ MainWindow::MainWindow(const OptionManager& options)
   options_.AddAllOptions();
 }
 
-const ReconstructionManager& MainWindow::GetReconstructionManager() const {
-  return reconstruction_manager_;
+void MainWindow::ImportReconstruction(const std::string& path) {
+  const size_t idx = reconstruction_manager_.Read(path);
+  reconstruction_manager_widget_->Update();
+  reconstruction_manager_widget_->SelectReconstruction(idx);
+  RenderNow();
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
@@ -1244,7 +1250,7 @@ void MainWindow::About() {
       QString().sprintf("<span style='font-weight:normal'><b>%s</b><br />"
                         "<small>(%s)</small><br /><br />"
                         "<b>Author:</b> Johannes L. Schönberger<br /><br />"
-                        "<b>Email:</b> jsch at inf.ethz.ch</span>",
+                        "<b>Email:</b> jsch-at-demuc-dot-de</span>",
                         GetVersionInfo().c_str(), GetBuildInfo().c_str()));
 }
 

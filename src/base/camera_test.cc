@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/camera"
 #include "util/testing.h"
@@ -183,8 +183,11 @@ BOOST_AUTO_TEST_CASE(TestParamsToString) {
 BOOST_AUTO_TEST_CASE(TestParamsFromString) {
   Camera camera;
   camera.SetModelId(SimplePinholeCameraModel::model_id);
-  camera.SetParamsFromString("1.000000, 0.500000, 0.500000");
+  BOOST_CHECK(camera.SetParamsFromString("1.000000, 0.500000, 0.500000"));
   const std::vector<double> params{1.0, 0.5, 0.5};
+  BOOST_CHECK_EQUAL_COLLECTIONS(camera.Params().begin(), camera.Params().end(),
+                                params.begin(), params.end());
+  BOOST_CHECK(!camera.SetParamsFromString("1.000000, 0.500000"));
   BOOST_CHECK_EQUAL_COLLECTIONS(camera.Params().begin(), camera.Params().end(),
                                 params.begin(), params.end());
 }

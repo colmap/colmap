@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "util/random"
 #include "util/testing.h"
@@ -53,7 +53,7 @@ BOOST_AUTO_TEST_CASE(TestRepeatability) {
   for (size_t i = 0; i < 100; ++i) {
     numbers1.push_back(RandomInteger(0, 10000));
   }
-  SetPRNGSeed();
+  SetPRNGSeed(1);
   std::vector<int> numbers2;
   for (size_t i = 0; i < 100; ++i) {
     numbers2.push_back(RandomInteger(0, 10000));

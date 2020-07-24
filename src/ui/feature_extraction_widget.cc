@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "ui/feature_extraction_widget.h"
 
@@ -75,6 +75,10 @@ ExtractionWidget::ExtractionWidget(QWidget* parent, OptionManager* options)
 SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
                                            OptionManager* options)
     : ExtractionWidget(parent, options) {
+  AddOptionDirPath(&options->image_reader->mask_path, "mask_path");
+  AddOptionFilePath(&options->image_reader->camera_mask_path,
+                    "camera_mask_path");
+
   AddOptionInt(&options->sift_extraction->max_image_size, "max_image_size");
   AddOptionInt(&options->sift_extraction->max_num_features, "max_num_features");
   AddOptionInt(&options->sift_extraction->first_octave, "first_octave", -5);
@@ -149,8 +153,17 @@ FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
   grid->addWidget(CreateCameraModelBox(), 0, 0);
 
   tab_widget_ = new QTabWidget(this);
-  tab_widget_->addTab(new SIFTExtractionWidget(this, options), tr("Extract"));
-  tab_widget_->addTab(new ImportFeaturesWidget(this, options), tr("Import"));
+
+  QScrollArea* extraction_widget = new QScrollArea(this);
+  extraction_widget->setAlignment(Qt::AlignHCenter);
+  extraction_widget->setWidget(new SIFTExtractionWidget(this, options));
+  tab_widget_->addTab(extraction_widget, tr("Extract"));
+
+  QScrollArea* import_widget = new QScrollArea(this);
+  import_widget->setAlignment(Qt::AlignHCenter);
+  import_widget->setWidget(new ImportFeaturesWidget(this, options));
+  tab_widget_->addTab(import_widget, tr("Import"));
+
   grid->addWidget(tab_widget_);
 
   QPushButton* extract_button = new QPushButton(tr("Extract"), this);
@@ -288,7 +301,9 @@ void FeatureExtractionWidget::Extract() {
     return;
   }
 
-  static_cast<ExtractionWidget*>(tab_widget_->currentWidget())->Run();
+  QWidget* widget =
+      static_cast<QScrollArea*>(tab_widget_->currentWidget())->widget();
+  static_cast<ExtractionWidget*>(widget)->Run();
 
   camera_params_text_->setText(old_camera_params_text);
 }

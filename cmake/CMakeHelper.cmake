@@ -116,6 +116,13 @@ macro(COLMAP_ADD_LIBRARY TARGET_NAME)
         ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
     install(TARGETS ${TARGET_NAME} DESTINATION lib/colmap/)
 endmacro(COLMAP_ADD_LIBRARY)
+macro(COLMAP_ADD_STATIC_LIBRARY TARGET_NAME)
+    # ${ARGN} will store the list of source files passed to this function.
+    add_library(${TARGET_NAME} STATIC ${ARGN})
+    set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
+        ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
+    install(TARGETS ${TARGET_NAME} DESTINATION lib/colmap)
+endmacro(COLMAP_ADD_STATIC_LIBRARY)
 
 # Replacement for the normal cuda_add_library() command. The syntax remains the
 # same in that the first argument is the target name, and the following
@@ -127,6 +134,13 @@ macro(COLMAP_ADD_CUDA_LIBRARY TARGET_NAME)
         ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
     install(TARGETS ${TARGET_NAME} DESTINATION lib/colmap/)
 endmacro(COLMAP_ADD_CUDA_LIBRARY)
+macro(COLMAP_ADD_STATIC_CUDA_LIBRARY TARGET_NAME)
+    # ${ARGN} will store the list of source files passed to this function.
+    cuda_add_library(${TARGET_NAME} STATIC ${ARGN})
+    set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
+        ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
+    install(TARGETS ${TARGET_NAME} DESTINATION lib/colmap/)
+endmacro(COLMAP_ADD_STATIC_CUDA_LIBRARY)
 
 # Replacement for the normal add_executable() command. The syntax remains the
 # same in that the first argument is the target name, and the following
@@ -136,8 +150,12 @@ macro(COLMAP_ADD_EXECUTABLE TARGET_NAME)
     add_executable(${TARGET_NAME} ${ARGN})
     set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
         ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
-    target_link_libraries(${TARGET_NAME} ${COLMAP_LIBRARIES})
-    install(TARGETS ${TARGET_NAME} DESTINATION bin/)
+    target_link_libraries(${TARGET_NAME} colmap)
+    if(VCPKG_BUILD)
+        install(TARGETS ${TARGET_NAME} DESTINATION tools/)
+    else()
+        install(TARGETS ${TARGET_NAME} DESTINATION bin/)
+    endif()
 endmacro(COLMAP_ADD_EXECUTABLE)
 
 # Wrapper for test executables.
@@ -147,8 +165,7 @@ macro(COLMAP_ADD_TEST TARGET_NAME)
         add_executable(${TARGET_NAME} ${ARGN})
         set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
             ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
-        target_link_libraries(${TARGET_NAME}
-                              ${COLMAP_LIBRARIES}
+        target_link_libraries(${TARGET_NAME} colmap
                               ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
         add_test("${FOLDER_NAME}/${TARGET_NAME}" ${TARGET_NAME})
         if(IS_MSVC)
@@ -164,8 +181,7 @@ macro(COLMAP_ADD_CUDA_TEST TARGET_NAME)
         cuda_add_executable(${TARGET_NAME} ${ARGN})
         set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
             ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
-        target_link_libraries(${TARGET_NAME}
-                              ${COLMAP_LIBRARIES}
+        target_link_libraries(${TARGET_NAME} colmap
                               ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
         add_test("${FOLDER_NAME}/${TARGET_NAME}" ${TARGET_NAME})
         if(IS_MSVC)

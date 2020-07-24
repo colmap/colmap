@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_MVS_GPU_MAT_H_
 #define COLMAP_SRC_MVS_GPU_MAT_H_
@@ -124,6 +124,17 @@ class GpuMat {
 #ifdef __CUDACC__
 
 namespace internal {
+ 
+template <typename T>
+__global__ void FillWithScalarKernel(GpuMat<T> output, const T value) {
+  const size_t row = blockIdx.y * blockDim.y + threadIdx.y;
+  const size_t col = blockIdx.x * blockDim.x + threadIdx.x;
+  if (row < output.GetHeight() && col < output.GetWidth()) {
+    for (size_t slice = 0; slice < output.GetDepth(); ++slice) {
+      output.Set(row, col, slice, value);
+    }
+  }
+}
 
 template <typename T>
 __global__ void FillWithVectorKernel(const T* values, GpuMat<T> output) {
@@ -258,8 +269,9 @@ __device__ void GpuMat<T>::SetSlice(const size_t row, const size_t col,
 
 template <typename T>
 void GpuMat<T>::FillWithScalar(const T value) {
-  CUDA_SAFE_CALL(
-      cudaMemset(array_ptr_, value, width_ * height_ * depth_ * sizeof(T)));
+  internal::FillWithScalarKernel<T>
+      <<<gridSize_, blockSize_>>>(*this, value);
+  CUDA_SYNC_AND_CHECK();
 }
 
 template <typename T>
@@ -328,9 +340,9 @@ void GpuMat<T>::FlipHorizontal(GpuMat<T>* output) {
 template <typename T>
 void GpuMat<T>::Rotate(GpuMat<T>* output) {
   for (size_t slice = 0; slice < depth_; ++slice) {
-    CudaRotate(array_ptr_ + slice * pitch_ / sizeof(T) * GetHeight(),
-               output->GetPtr() +
-                   slice * output->pitch_ / sizeof(T) * output->GetHeight(),
+    CudaRotate((T*)((char*)array_ptr_ + slice * pitch_ * GetHeight()),
+               (T*)((char*)output->GetPtr() +
+                   slice * output->pitch_ * output->GetHeight()),
                width_, height_, pitch_, output->pitch_);
   }
   CUDA_SYNC_AND_CHECK();

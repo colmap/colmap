@@ -7,7 +7,8 @@ This tutorial covers the topic of image-based 3D reconstruction by demonstrating
 the individual processing steps in COLMAP. If you are interested in a more
 general and mathematical introduction to the topic of image-based 3D
 reconstruction, please also refer to the `CVPR 2017 Tutorial on Large-scale 3D
-Modeling from Crowdsourced Data <https://demuc.de/tutorials/cvpr2017/>`_.
+Modeling from Crowdsourced Data <https://demuc.de/tutorials/cvpr2017/>`_ and
+[schoenberger_thesis]_.
 
 Image-based 3D reconstruction from images traditionally first recovers a sparse
 representation of the scene and the camera poses of the input images using
@@ -448,13 +449,12 @@ of the point cloud cannot be directly visualized in COLMAP, but e.g. in Meshlab
 by enabling ``Render > Show Normal/Curvature``. Similarly, the reconstructed
 dense surface mesh model must be visualized with external software.
 
-Note that COLMAP requires a CUDA-enabled GPU, so in addition to the internal
-dense reconstruction functionality, COLMAP exports to several other dense
-reconstruction libraries, such as CMVS/PMVS [furukawa10]_ or CMP-MVS
-[jancosek11]_. Please choose ``Extras > Undistort images`` and select the
-appropriate format. The output folders contain the reconstruction and the
+In addition to the internal dense reconstruction functionality, COLMAP exports 
+to several other dense reconstruction libraries, such as CMVS/PMVS [furukawa10]_ 
+or CMP-MVS [jancosek11]_. Please choose ``Extras > Undistort images`` and select 
+the appropriate format. The output folders contain the reconstruction and the
 undistorted images. In addition, the folders contain sample shell scripts to
-perform the dense reconstruction. To run PMVS2, execute the following commands::
+perform the dense reconstruction. To run PMVS2, execute the following commands:
 
     ./path/to/pmvs2 /path/to/undistortion/folder/pmvs/ option-all
 

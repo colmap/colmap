@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "base/camera.h"
 
@@ -170,8 +170,13 @@ void Camera::SetPrincipalPointY(const double ppy) {
 std::string Camera::ParamsToString() const { return VectorToCSV(params_); }
 
 bool Camera::SetParamsFromString(const std::string& string) {
-  params_ = CSVToVector<double>(string);
-  return VerifyParams();
+  const std::vector<double> new_camera_params = CSVToVector<double>(string);
+  if (!CameraModelVerifyParams(model_id_, new_camera_params)) {
+    return false;
+  }
+
+  params_ = new_camera_params;
+  return true;
 }
 
 bool Camera::VerifyParams() const {

@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_UI_MODEL_VIEWER_WIDGET_H_
 #define COLMAP_SRC_UI_MODEL_VIEWER_WIDGET_H_
@@ -81,7 +81,9 @@ class ModelViewerWidget : public QOpenGLWidget,
 
   int GetProjectionType() const;
 
+  // Takes ownwership of the colormap objects.
   void SetPointColormap(PointColormapBase* colormap);
+  void SetImageColormap(ImageColormapBase* colormap);
 
   void UpdateMovieGrabber();
 
@@ -120,7 +122,7 @@ class ModelViewerWidget : public QOpenGLWidget,
   void SetBackgroundColor(const float r, const float g, const float b);
 
   // Copy of current scene data that is displayed
-  Reconstruction* reconstruction;
+  Reconstruction* reconstruction = nullptr;
   EIGEN_STL_UMAP(camera_t, Camera) cameras;
   EIGEN_STL_UMAP(image_t, Image) images;
   EIGEN_STL_UMAP(point3D_t, Point3D) points3D;
@@ -182,6 +184,7 @@ class ModelViewerWidget : public QOpenGLWidget,
   MovieGrabberWidget* movie_grabber_widget_;
 
   std::unique_ptr<PointColormapBase> point_colormap_;
+  std::unique_ptr<ImageColormapBase> image_colormap_;
 
   bool mouse_is_pressed_;
   QTimer mouse_press_timer_;
@@ -203,7 +206,7 @@ class ModelViewerWidget : public QOpenGLWidget,
   // Near clipping plane.
   float near_plane_;
 
-  float bg_color_[3];
+  float background_color_[3];
 };
 
 }  // namespace colmap

@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "ui/bundle_adjustment_widget.h"
 
@@ -67,6 +67,8 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
                 "refine_principal_point");
   AddOptionBool(&options->bundle_adjustment->refine_extra_params,
                 "refine_extra_params");
+  AddOptionBool(&options->bundle_adjustment->refine_extrinsics,
+                "refine_extrinsics");
 
   QPushButton* run_button = new QPushButton(tr("Run"), this);
   grid_layout_->addWidget(run_button, grid_layout_->rowCount(), 1);
@@ -92,6 +94,10 @@ void BundleAdjustmentWidget::Run() {
   Thread* thread = new BundleAdjustmentController(*options_, reconstruction_);
   thread->AddCallback(Thread::FINISHED_CALLBACK,
                       [this]() { render_action_->trigger(); });
+
+  // Normalize scene for numerical stability and
+  // to avoid large scale changes in viewer.
+  reconstruction_->Normalize();
 
   thread_control_widget_->StartThread("Bundle adjusting...", true, thread);
 }

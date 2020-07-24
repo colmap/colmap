@@ -27,7 +27,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-# Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 import os
 import sys
@@ -138,7 +138,10 @@ def parse_args():
         args.cmake_config_args.extend(["-G", args.cmake_generator])
     if PLATFORM_IS_WINDOWS:
         args.cmake_config_args.append(
-            "-DCMAKE_GENERATOR_PLATFORM=x64")
+            "-DCMAKE_GENERATOR_TOOLSET='host=x64'")
+        if "Win64" not in args.cmake_generator:
+            args.cmake_config_args.append(
+                "-DCMAKE_GENERATOR_PLATFORM=x64")
 
     args.cmake_build_args = ["--"]
     if PLATFORM_IS_WINDOWS:
@@ -218,10 +221,10 @@ def build_eigen(args):
     if os.path.exists(path):
         return
 
-    url = "https://bitbucket.org/eigen/eigen/get/3.3.5.zip"
-    archive_path = os.path.join(args.download_path, "eigen-3.3.5.zip")
+    url = "https://bitbucket.org/eigen/eigen/get/3.3.7.zip"
+    archive_path = os.path.join(args.download_path, "eigen-3.3.7.zip")
     download_zipfile(url, archive_path, args.build_path,
-                     "2a3e158738a4dc02f44c3fbb73d58ad7")
+                     "0d9c8496922d5c07609b9f3585f00e49")
     shutil.move(glob.glob(os.path.join(args.build_path, "eigen-*"))[0], path)
 
     build_cmake_project(args, os.path.join(path, "__build__"))
@@ -268,7 +271,7 @@ def build_freeimage(args):
         elif PLATFORM_IS_LINUX:
             with fileinput.FileInput(
                     os.path.join(path, "Source/LibWebP/src/dsp/"
-                                 "dsp.upsampling_mips_dsp_r2.c"),
+                                 "upsampling_mips_dsp_r2.c"),
                     inplace=True, backup=".bak") as fid:
                 for i, line in enumerate(fid):
                     if i >= 36 and i <= 44:
@@ -277,7 +280,7 @@ def build_freeimage(args):
                     print(line, end="")
             with fileinput.FileInput(
                     os.path.join(path, "Source/LibWebP/src/dsp/"
-                                 "dsp.yuv_mips_dsp_r2.c"),
+                                 "yuv_mips_dsp_r2.c"),
                     inplace=True, backup=".bak") as fid:
                 for i, line in enumerate(fid):
                     if i >= 56 and i <= 58:
@@ -322,11 +325,11 @@ def build_gflags(args):
     if os.path.exists(path):
         return
 
-    url = "https://github.com/gflags/gflags/archive/v2.2.1.zip"
-    archive_path = os.path.join(args.download_path, "gflags-2.2.1.zip")
+    url = "https://github.com/gflags/gflags/archive/v2.2.2.zip"
+    archive_path = os.path.join(args.download_path, "gflags-2.2.2.zip")
     download_zipfile(url, archive_path, args.build_path,
-                     "2d988ef0b50939fb50ada965dafce96b")
-    shutil.move(os.path.join(args.build_path, "gflags-2.2.1"), path)
+                     "ff856ff64757f1381f7da260f79ba79b")
+    shutil.move(os.path.join(args.build_path, "gflags-2.2.2"), path)
     os.remove(os.path.join(path, "BUILD"))
 
     build_cmake_project(args, os.path.join(path, "__build__"))
@@ -367,11 +370,14 @@ def build_suite_sparse(args):
     build_cmake_project(args, os.path.join(path, "__build__"))
 
     if PLATFORM_IS_WINDOWS:
-        lapack_blas_path = os.path.join(args.install_path,
-                                        "lib64/lapack_blas_windows/*.dll")
+        lapack_blas_path = os.path.join(path, "lapack_windows/x64/*")
+        mkdir_if_not_exists(os.path.join(args.install_path, "lib64"))
+        mkdir_if_not_exists(os.path.join(args.install_path,
+                                         "lib64/lapack_blas_windows"))
         for library_path in glob.glob(lapack_blas_path):
             copy_file_if_not_exists(
-                library_path, os.path.join(args.install_path, "lib",
+                library_path, os.path.join(args.install_path,
+                                           "lib64/lapack_blas_windows",
                                            os.path.basename(library_path)))
 
 
@@ -462,6 +468,16 @@ def build_colmap(args):
 
 def build_post_process(args):
     if PLATFORM_IS_WINDOWS:
+        lapack_paths = glob.glob(
+            os.path.join(args.install_path, "lib64/lapack_blas_windows/*.dll"))
+        if lapack_paths:
+            for lapack_path in lapack_paths:
+                copy_file_if_not_exists(
+                    lapack_path,
+                    os.path.join(
+                        args.install_path, "lib",
+                        os.path.basename(lapack_path)))
+
         if args.qt_path:
             copy_file_if_not_exists(
                 os.path.join(args.qt_path, "bin/Qt5Core.dll"),
@@ -477,6 +493,7 @@ def build_post_process(args):
             copy_file_if_not_exists(
                 os.path.join(args.qt_path, "plugins/platforms/qwindows.dll"),
                 os.path.join(args.install_path, "lib/platforms/qwindows.dll"))
+
         if args.with_cuda and args.cuda_path:
             cudart_lib_path = glob.glob(os.path.join(args.cuda_path,
                                                      "bin/cudart64_*.dll"))[0]
@@ -484,17 +501,20 @@ def build_post_process(args):
                 cudart_lib_path,
                 os.path.join(args.install_path, "lib",
                              os.path.basename(cudart_lib_path)))
+
         if args.cgal_path:
             gmp_lib_path = os.path.join(
-                args.cgal_path, "../auxiliary/gmp/lib/libgmp-10.dll")
+                args.cgal_path, "auxiliary/gmp/lib/libgmp-10.dll")
             if os.path.exists(gmp_lib_path):
                 copy_file_if_not_exists(
                     gmp_lib_path,
                     os.path.join(args.install_path, "lib/libgmp-10.dll"))
+            cgal_lib_path = glob.glob(os.path.join(
+                args.cgal_path, "bin/CGAL-vc*-mt-*.dll"))
             copy_file_if_not_exists(
-                os.path.join(args.cgal_path,
-                             "bin/Release/CGAL-vc140-mt-4.11.2.dll"),
-                os.path.join(args.install_path, "lib/CGAL-vc140-mt-4.11.2.dll"))
+                cgal_lib_path[0],
+                os.path.join(args.install_path, "lib",
+                    os.path.basename(cgal_lib_path[0])))
 
 
 def main():

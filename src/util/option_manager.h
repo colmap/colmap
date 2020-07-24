@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_UTIL_OPTION_MANAGER_H_
 #define COLMAP_SRC_UTIL_OPTION_MANAGER_H_
@@ -48,6 +48,7 @@ struct SequentialMatchingOptions;
 struct VocabTreeMatchingOptions;
 struct SpatialMatchingOptions;
 struct TransitiveMatchingOptions;
+struct ImagePairsMatchingOptions;
 struct BundleAdjustmentOptions;
 struct IncrementalMapperOptions;
 struct RenderOptions;
@@ -61,7 +62,7 @@ struct DelaunayMeshingOptions;
 
 class OptionManager {
  public:
-  OptionManager();
+  OptionManager(bool add_project_options = true);
 
   // Create "optimal" set of options for different reconstruction scenarios.
   // Note that the existing options are modified, so if your parameters are
@@ -80,6 +81,7 @@ class OptionManager {
 
   void AddAllOptions();
   void AddLogOptions();
+  void AddRandomOptions();
   void AddDatabaseOptions();
   void AddImageOptions();
   void AddExtractionOptions();
@@ -89,6 +91,7 @@ class OptionManager {
   void AddVocabTreeMatchingOptions();
   void AddSpatialMatchingOptions();
   void AddTransitiveMatchingOptions();
+  void AddImagePairsMatchingOptions();
   void AddBundleAdjustmentOptions();
   void AddMapperOptions();
   void AddPatchMatchStereoOptions();
@@ -127,6 +130,7 @@ class OptionManager {
   std::shared_ptr<VocabTreeMatchingOptions> vocab_tree_matching;
   std::shared_ptr<SpatialMatchingOptions> spatial_matching;
   std::shared_ptr<TransitiveMatchingOptions> transitive_matching;
+  std::shared_ptr<ImagePairsMatchingOptions> image_pairs_matching;
 
   std::shared_ptr<BundleAdjustmentOptions> bundle_adjustment;
   std::shared_ptr<IncrementalMapperOptions> mapper;
@@ -157,6 +161,7 @@ class OptionManager {
   std::vector<std::pair<std::string, const std::string*>> options_string_;
 
   bool added_log_options_;
+  bool added_random_options_;
   bool added_database_options_;
   bool added_image_options_;
   bool added_extraction_options_;
@@ -166,6 +171,7 @@ class OptionManager {
   bool added_vocab_tree_match_options_;
   bool added_spatial_match_options_;
   bool added_transitive_match_options_;
+  bool added_image_pairs_match_options_;
   bool added_ba_options_;
   bool added_mapper_options_;
   bool added_patch_match_stereo_options_;

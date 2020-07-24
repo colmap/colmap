@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_BASE_DATABASE_H_
 #define COLMAP_SRC_BASE_DATABASE_H_
@@ -207,6 +207,10 @@ class Database {
   // Clear the entire inlier matches table.
   void ClearTwoViewGeometries() const;
 
+  // Merge two databases into a single, new database.
+  static void Merge(const Database& database1, const Database& database2,
+                    Database* merged_database);
+
  private:
   friend class DatabaseTransaction;
 
@@ -339,9 +343,9 @@ image_pair_t Database::ImagePairToPairId(const image_t image_id1,
   CHECK_LT(image_id1, kMaxNumImages);
   CHECK_LT(image_id2, kMaxNumImages);
   if (SwapImagePair(image_id1, image_id2)) {
-    return kMaxNumImages * image_id2 + image_id1;
+    return static_cast<image_pair_t>(kMaxNumImages) * image_id2 + image_id1;
   } else {
-    return kMaxNumImages * image_id1 + image_id2;
+    return static_cast<image_pair_t>(kMaxNumImages) * image_id1 + image_id2;
   }
 }
 

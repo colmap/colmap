@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_UI_MAIN_WINDOW_H_
 #define COLMAP_SRC_UI_MAIN_WINDOW_H_
@@ -62,7 +62,7 @@ class MainWindow : public QMainWindow {
  public:
   explicit MainWindow(const OptionManager& options);
 
-  const ReconstructionManager& GetReconstructionManager() const;
+  void ImportReconstruction(const std::string& path);
 
  protected:
   void closeEvent(QCloseEvent* event);

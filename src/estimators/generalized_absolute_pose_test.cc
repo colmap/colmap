@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/generalized_absolute_pose"
 #include "util/testing.h"
@@ -115,14 +115,14 @@ BOOST_AUTO_TEST_CASE(Estimate) {
       std::vector<double> residuals;
       GP3PEstimator::Residuals(points2D, points3D, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
-        BOOST_CHECK(residuals[i] < 1e-3);
+        BOOST_CHECK(residuals[i] < 1e-10);
       }
 
       // Test residuals of faulty points.
       GP3PEstimator::Residuals(points2D, points3D_faulty, report.model,
                                &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
-        BOOST_CHECK(residuals[i] > 0.1);
+        BOOST_CHECK(residuals[i] > 1e-10);
       }
     }
   }

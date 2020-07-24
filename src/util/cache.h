@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_UTIL_CACHE_H_
 #define COLMAP_SRC_UTIL_CACHE_H_
@@ -47,6 +47,7 @@ class LRUCache {
  public:
   LRUCache(const size_t max_num_elems,
            const std::function<value_t(const key_t&)>& getter_func);
+  virtual ~LRUCache() = default;
 
   // The number of elements in the cache.
   size_t NumElems() const;

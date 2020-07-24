@@ -27,7 +27,11 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+
+#ifdef __CUDACC__
+#define BOOST_PP_VARIADICS 0
+#endif  // __CUDACC__
 
 #define TEST_NAME "mvs/gpu_mat_test"
 #include "util/testing.h"
@@ -41,8 +45,18 @@ using namespace colmap::mvs;
 
 BOOST_AUTO_TEST_CASE(TestFillWithVector) {
   GpuMat<float> array(100, 100, 2);
-  const std::vector<float> vector = {0.0f, 1.0f};
+  const std::vector<float> vector = {1.0f, 2.0f};
   array.FillWithVector(vector.data());
+
+  std::vector<float> array_host(100 * 100 * 2, 0.0f);
+  array.CopyToHost(array_host.data(), 100 * sizeof(float));
+
+  for (size_t r = 0; r < 100; ++r) {
+    for (size_t c = 0; c < 100; ++c) {
+      BOOST_CHECK_EQUAL(array_host[0 * 100 * 100 + r * 100 + c], 1.0f);
+      BOOST_CHECK_EQUAL(array_host[1 * 100 * 100 + r * 100 + c], 2.0f);
+    }
+  }
 }
 
 template <typename T>
@@ -57,11 +71,10 @@ void TestTransposeImage(const size_t width, const size_t height,
   array.Transpose(&array_transposed);
 
   std::vector<T> array_host(width * height * depth, T(0.0));
-  array.CopyToDevice(array_host.data(), width * sizeof(T));
+  array.CopyToHost(array_host.data(), width * sizeof(T));
 
   std::vector<T> array_transposed_host(width * height * depth, 0);
-  array_transposed.CopyToDevice(array_transposed_host.data(),
-                                height * sizeof(T));
+  array_transposed.CopyToHost(array_transposed_host.data(), height * sizeof(T));
 
   for (size_t r = 0; r < height; ++r) {
     for (size_t c = 0; c < width; ++c) {
@@ -103,10 +116,10 @@ void TestFlipHorizontalImage(const size_t width, const size_t height,
   array.FlipHorizontal(&array_flipped);
 
   std::vector<T> array_host(width * height * depth, T(0.0));
-  array.CopyToDevice(array_host.data(), width * sizeof(T));
+  array.CopyToHost(array_host.data(), width * sizeof(T));
 
   std::vector<T> array_flipped_host(width * height * depth, 0);
-  array_flipped.CopyToDevice(array_flipped_host.data(), width * sizeof(T));
+  array_flipped.CopyToHost(array_flipped_host.data(), width * sizeof(T));
 
   for (size_t r = 0; r < height; ++r) {
     for (size_t c = 0; c < width; ++c) {
@@ -148,10 +161,10 @@ void TestRotateImage(const size_t width, const size_t height,
   array.Rotate(&array_rotated);
 
   std::vector<T> array_host(width * height * depth, T(0.0));
-  array.CopyToDevice(array_host.data(), width * sizeof(T));
+  array.CopyToHost(array_host.data(), width * sizeof(T));
 
   std::vector<T> array_rotated_host(width * height * depth, 0);
-  array_rotated.CopyToDevice(array_rotated_host.data(), height * sizeof(T));
+  array_rotated.CopyToHost(array_rotated_host.data(), height * sizeof(T));
 
   const double arrayCenterH = width / 2.0 - 0.5;
   const double arrayCenterV = height / 2.0 - 0.5;

@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "controllers/bundle_adjustment.h"
 
@@ -98,10 +98,6 @@ void BundleAdjustmentController::Run() {
   // Run bundle adjustment.
   BundleAdjuster bundle_adjuster(ba_options, ba_config);
   bundle_adjuster.Solve(reconstruction_);
-
-  // Normalize scene for numerical stability and
-  // to avoid large scale changes in viewer.
-  reconstruction_->Normalize();
 
   GetTimer().PrintMinutes();
 }

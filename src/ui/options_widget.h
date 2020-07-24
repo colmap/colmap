@@ -27,10 +27,12 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_UI_OPTIONS_WIDGET_H_
 #define COLMAP_SRC_UI_OPTIONS_WIDGET_H_
+
+#include <unordered_map>
 
 #include <QtCore>
 #include <QtWidgets>
@@ -41,12 +43,10 @@ class OptionsWidget : public QWidget {
  public:
   explicit OptionsWidget(QWidget* parent);
 
- protected:
-  void showEvent(QShowEvent* event);
-  void closeEvent(QCloseEvent* event);
-  void hideEvent(QHideEvent* event);
-
-  void AddOptionRow(const std::string& label_text, QWidget* widget);
+  void AddOptionRow(const std::string& label_text, QWidget* widget,
+                    void* option);
+  void AddWidgetRow(const std::string& label_text, QWidget* widget);
+  void AddLayoutRow(const std::string& label_text, QLayout* layout);
 
   QSpinBox* AddOptionInt(int* option, const std::string& label_text,
                          const int min = 0,
@@ -64,13 +64,32 @@ class OptionsWidget : public QWidget {
                                const std::string& label_text);
   QLineEdit* AddOptionDirPath(std::string* option,
                               const std::string& label_text);
+
   void AddSpacer();
-  void AddSection(const std::string& label_text);
+  void AddSection(const std::string& title);
 
   void ReadOptions();
   void WriteOptions();
 
+ protected:
+  void showEvent(QShowEvent* event);
+  void closeEvent(QCloseEvent* event);
+  void hideEvent(QHideEvent* event);
+
+  void ShowOption(void* option);
+  void HideOption(void* option);
+
+  void ShowWidget(QWidget* option);
+  void HideWidget(QWidget* option);
+
+  void ShowLayout(QLayout* option);
+  void HideLayout(QLayout* option);
+
   QGridLayout* grid_layout_;
+
+  std::unordered_map<void*, std::pair<QLabel*, QWidget*>> option_rows_;
+  std::unordered_map<QWidget*, std::pair<QLabel*, QWidget*>> widget_rows_;
+  std::unordered_map<QLayout*, std::pair<QLabel*, QWidget*>> layout_rows_;
 
   std::vector<std::pair<QSpinBox*, int*>> options_int_;
   std::vector<std::pair<QDoubleSpinBox*, double*>> options_double_;

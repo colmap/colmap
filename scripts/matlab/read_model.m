@@ -27,7 +27,7 @@
 % ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 % POSSIBILITY OF SUCH DAMAGE.
 %
-% Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+% Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 function [cameras, images, points3D] = read_model(path)
 % Read COLMAP model from folder, which contains a
@@ -151,7 +151,7 @@ while ischar(tline)
     point = struct;
     point.point3D_id = int64(elems(1));
     point.xyz = elems(2:4);
-    point.rgb = int8(elems(5:7));
+    point.rgb = uint8(elems(5:7));
     point.error = elems(8);
     point.track = int64(elems(9:end));
     point.track = reshape(point.track, [2, numel(point.track) / 2])';

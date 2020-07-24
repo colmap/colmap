@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_OPTIM_BUNDLE_ADJUSTMENT_H_
 #define COLMAP_SRC_OPTIM_BUNDLE_ADJUSTMENT_H_
@@ -39,9 +39,9 @@
 
 #include <ceres/ceres.h>
 
+#include "PBA/pba.h"
 #include "base/camera_rig.h"
 #include "base/reconstruction.h"
-#include "PBA/pba.h"
 #include "util/alignment.h"
 
 namespace colmap {
@@ -63,8 +63,16 @@ struct BundleAdjustmentOptions {
   // Whether to refine the extra parameter group.
   bool refine_extra_params = true;
 
+  // Whether to refine the extrinsic parameter group.
+  bool refine_extrinsics = true;
+
   // Whether to print a final summary.
   bool print_summary = true;
+
+  // Minimum number of residuals to enable multi-threading. Note that
+  // single-threaded is typically better for small bundle adjustment problems
+  // due to the overhead of threading.
+  int min_num_residuals_for_multi_threading = 50000;
 
   // Ceres-Solver options.
   ceres::Solver::Options solver_options;
@@ -211,6 +219,11 @@ class ParallelBundleAdjuster {
 
     // Number of threads for CPU based bundle adjustment.
     int num_threads = -1;
+
+    // Minimum number of residuals to enable multi-threading. Note that
+    // single-threaded is typically better for small bundle adjustment problems
+    // due to the overhead of threading.
+    int min_num_residuals_for_multi_threading = 50000;
 
     bool Check() const;
   };

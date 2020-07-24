@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_CONTROLLERS_INCREMENTAL_MAPPER_H_
 #define COLMAP_SRC_CONTROLLERS_INCREMENTAL_MAPPER_H_
@@ -86,6 +86,10 @@ struct IncrementalMapperOptions {
   bool ba_refine_principal_point = false;
   bool ba_refine_extra_params = true;
 
+  // The minimum number of residuals per bundle adjustment problem to
+  // enable multi-threading solving of the problems.
+  int ba_min_num_residuals_for_multi_threading = 50000;
+
   // The number of images to optimize in local bundle adjustment.
   int ba_local_num_images = 6;
 
@@ -93,7 +97,7 @@ struct IncrementalMapperOptions {
   int ba_local_max_num_iterations = 25;
 
   // Whether to use PBA in global bundle adjustment.
-  bool ba_global_use_pba = true;
+  bool ba_global_use_pba = false;
 
   // The GPU index for PBA bundle adjustment.
   int ba_global_pba_gpu_index = -1;
@@ -121,7 +125,10 @@ struct IncrementalMapperOptions {
 
   // Which images to reconstruct. If no images are specified, all images will
   // be reconstructed by default.
-  std::set<std::string> image_names;
+  std::unordered_set<std::string> image_names;
+
+  // If reconstruction is provided as input, fix the existing image poses.
+  bool fix_existing_images = false;
 
   IncrementalMapper::Options Mapper() const;
   IncrementalTriangulator::Options Triangulation() const;
@@ -178,9 +185,8 @@ size_t FilterImages(const IncrementalMapperOptions& options,
                     IncrementalMapper* mapper);
 
 // Globally complete and merge tracks in mapper.
-size_t CompleteAndMergeTracks(
-    const IncrementalMapperOptions& options,
-    IncrementalMapper* mapper);
+size_t CompleteAndMergeTracks(const IncrementalMapperOptions& options,
+                              IncrementalMapper* mapper);
 
 }  // namespace colmap
 

@@ -27,7 +27,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-# Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 # This script exports a COLMAP database to the file structure to run VisualSfM.
 
@@ -46,6 +46,7 @@ def parse_args():
     parser.add_argument("--image_path", required=True)
     parser.add_argument("--output_path", required=True)
     parser.add_argument("--min_num_matches", type=int, default=15)
+    parser.add_argument("--binary_feature_files", type=bool, default=True)
     args = parser.parse_args()
     return args
 
@@ -86,6 +87,12 @@ def main():
             shutil.copyfile(os.path.join(args.image_path, image_name),
                             os.path.join(args.output_path, image_name))
 
+    # The magic numbers used in VisualSfM's binary file format for storing the
+    # feature descriptors.
+    sift_name = 1413892435
+    sift_version_v4 = 808334422
+    sift_eof_marker = 1179600383
+
     for image_id, (image_idx, image_name) in images.iteritems():
         print "Exporting key file for", image_name
         base_name, ext = os.path.splitext(image_name)
@@ -97,22 +104,35 @@ def main():
                        (image_id,))
         row = next(cursor)
         if row[0] is None:
-            keypoints = np.zeros((0, 4), dtype=np.float32)
+            keypoints = np.zeros((0, 6), dtype=np.float32)
             descriptors = np.zeros((0, 128), dtype=np.uint8)
         else:
-            keypoints = np.fromstring(row[0], dtype=np.float32).reshape(-1, 4)
+            keypoints = np.fromstring(row[0], dtype=np.float32).reshape(-1, 6)
             cursor.execute("SELECT data FROM descriptors WHERE image_id=?;",
                            (image_id,))
             row = next(cursor)
             descriptors = np.fromstring(row[0], dtype=np.uint8).reshape(-1, 128)
 
-        with open(key_file_name, "w") as fid:
-            fid.write("%d %d\n" % (keypoints.shape[0], descriptors.shape[1]))
-            for r in range(keypoints.shape[0]):
-                fid.write("%f %f %f %f " % (keypoints[r, 0], keypoints[r, 1],
-                                            keypoints[r, 2], keypoints[r, 3]))
-                fid.write(" ".join(map(str, descriptors[r].ravel().tolist())))
-                fid.write("\n")
+        if args.binary_feature_files:
+            with open(key_file_name, "wb") as fid:
+                fid.write(struct.pack("i", sift_name))
+                fid.write(struct.pack("i", sift_version_v4))
+                fid.write(struct.pack("i", keypoints.shape[0]))
+                fid.write(struct.pack("i", 4))
+                fid.write(struct.pack("i", 128))
+                keypoints[:, :4].astype(np.float32).tofile(fid)
+                descriptors.astype(np.uint8).tofile(fid)
+                fid.write(struct.pack("i", sift_eof_marker))
+        else:
+            with open(key_file_name, "w") as fid:
+                fid.write("%d %d\n" % (keypoints.shape[0],
+                                       descriptors.shape[1]))
+                for r in range(keypoints.shape[0]):
+                    fid.write("%f %f 0 0 " % (keypoints[r, 0],
+                                              keypoints[r, 1]))
+                    fid.write(" ".join(map(str,
+                                           descriptors[r].ravel().tolist())))
+                    fid.write("\n")
 
     with open(os.path.join(args.output_path, "matches.txt"), "w") as fid:
         cursor.execute("SELECT pair_id, data FROM two_view_geometries "

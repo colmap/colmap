@@ -27,7 +27,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-# Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 # This script exports inlier image pairs from a COLMAP database to a text file.
 

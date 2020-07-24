@@ -27,9 +27,13 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-# Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 set(FOLDER_NAME "exe")
+
+if(IS_MSVC)
+    add_compile_options("/bigobj")
+endif()
 
 COLMAP_ADD_EXECUTABLE(colmap_exe colmap.cc)
 set_target_properties(colmap_exe PROPERTIES OUTPUT_NAME colmap)

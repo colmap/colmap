@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "ui/license_widget.h"
 
@@ -107,7 +107,7 @@ QString LicenseWidget::GetCOLMAPLicense() const {
       "THE<br>"
       "POSSIBILITY OF SUCH DAMAGE.<br>"
       "<br>"
-      "Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)";
+      "Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)";
   return license;
 }
 

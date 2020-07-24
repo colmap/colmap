@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "ui/triangle_painter.h"
 
@@ -108,7 +108,8 @@ void TrianglePainter::Render(const QMatrix4x4& pmv_matrix) {
 
   shader_program_.setUniformValue("u_pmv_matrix", pmv_matrix);
 
-  glDrawArrays(GL_TRIANGLES, 0, (GLsizei)(3 * num_geoms_));
+  QOpenGLFunctions* gl_funcs = QOpenGLContext::currentContext()->functions();
+  gl_funcs->glDrawArrays(GL_TRIANGLES, 0, (GLsizei)(3 * num_geoms_));
 
   // Make sure the VAO is not changed from the outside
   vao_.release();

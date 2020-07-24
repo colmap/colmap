@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_BASE_TRACK_H_
 #define COLMAP_SRC_BASE_TRACK_H_
@@ -58,6 +58,7 @@ class Track {
 
   // Access all elements.
   inline const std::vector<TrackElement>& Elements() const;
+  inline std::vector<TrackElement>& Elements();
   inline void SetElements(const std::vector<TrackElement>& elements);
 
   // Access specific elements.
@@ -89,11 +90,11 @@ class Track {
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-// The number of track elements.
 size_t Track::Length() const { return elements_.size(); }
 
-// Access all elements.
 const std::vector<TrackElement>& Track::Elements() const { return elements_; }
+
+std::vector<TrackElement>& Track::Elements() { return elements_; }
 
 void Track::SetElements(const std::vector<TrackElement>& elements) {
   elements_ = elements;

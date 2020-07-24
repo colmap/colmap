@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "base/triangulation.h"
 
@@ -128,20 +128,20 @@ double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,
   const double ray_length_squared1 = (point3D - proj_center1).squaredNorm();
   const double ray_length_squared2 = (point3D - proj_center2).squaredNorm();
 
-  // Angle between rays at point within the enclosing triangle,
-  // see "law of cosines".
-  const double angle = std::abs(std::acos(
-      (ray_length_squared1 + ray_length_squared2 - baseline_length_squared) /
-      (2.0 * std::sqrt(ray_length_squared1) * std::sqrt(ray_length_squared2))));
-
-  if (IsNaN(angle)) {
-    return 0;
-  } else {
-    // Triangulation is unstable for acute angles (far away points) and
-    // obtuse angles (close points), so always compute the minimum angle
-    // between the two intersecting rays.
-    return std::min(angle, M_PI - angle);
+  // Using "law of cosines" to compute the enclosing angle between rays.
+  const double denominator =
+      2.0 * std::sqrt(ray_length_squared1 * ray_length_squared2);
+  if (denominator == 0.0) {
+    return 0.0;
   }
+  const double nominator =
+      ray_length_squared1 + ray_length_squared2 - baseline_length_squared;
+  const double angle = std::abs(std::acos(nominator / denominator));
+
+  // Triangulation is unstable for acute angles (far away points) and
+  // obtuse angles (close points), so always compute the minimum angle
+  // between the two intersecting rays.
+  return std::min(angle, M_PI - angle);
 }
 
 std::vector<double> CalculateTriangulationAngles(
@@ -160,21 +160,21 @@ std::vector<double> CalculateTriangulationAngles(
     const double ray_length_squared2 =
         (points3D[i] - proj_center2).squaredNorm();
 
-    // Angle between rays at point within the enclosing triangle,
-    // see "law of cosines".
-    const double angle = std::abs(std::acos(
-        (ray_length_squared1 + ray_length_squared2 - baseline_length_squared) /
-        (2.0 * std::sqrt(ray_length_squared1) *
-         std::sqrt(ray_length_squared2))));
-
-    if (IsNaN(angle)) {
-      angles[i] = 0;
-    } else {
-      // Triangulation is unstable for acute angles (far away points) and
-      // obtuse angles (close points), so always compute the minimum angle
-      // between the two intersecting rays.
-      angles[i] = std::min(angle, M_PI - angle);
+    // Using "law of cosines" to compute the enclosing angle between rays.
+    const double denominator =
+        2.0 * std::sqrt(ray_length_squared1 * ray_length_squared2);
+    if (denominator == 0.0) {
+      angles[i] = 0.0;
+      continue;
     }
+    const double nominator =
+        ray_length_squared1 + ray_length_squared2 - baseline_length_squared;
+    const double angle = std::abs(std::acos(nominator / denominator));
+
+    // Triangulation is unstable for acute angles (far away points) and
+    // obtuse angles (close points), so always compute the minimum angle
+    // between the two intersecting rays.
+    angles[i] = std::min(angle, M_PI - angle);
   }
 
   return angles;

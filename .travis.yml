@@ -1,11 +1,9 @@
 language: cpp
 sudo: true
-dist: trusty
+dist: xenial
 
 addons:
   apt:
-    sources:
-      - ubuntu-toolchain-r-test
     packages:
       - cmake
       - build-essential
@@ -16,16 +14,21 @@ addons:
       - libboost-system-dev
       - libboost-test-dev
       - libeigen3-dev
-      - libatlas-base-dev
       - libsuitesparse-dev
       - libfreeimage-dev
       - libgoogle-glog-dev
       - libgflags-dev
       - libglew-dev
+      - qtbase5-dev
+      - libqt5opengl5-dev
       - libcgal-dev
+      - libcgal-qt5-dev
 
 env:
   - QT_QPA_PLATFORM="offscreen"
+
+services:
+  - xvfb
 
 matrix:
   include:
@@ -33,7 +36,7 @@ matrix:
       env:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON"
         - RUN_TESTS=true
-        - QT_VERSION=596
+        - QT_VERSION=597
     - os: linux
       env:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON"
@@ -43,24 +46,24 @@ matrix:
       env:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=OFF"
         - RUN_TESTS=true
-        - QT_VERSION=596
+        - QT_VERSION=597
     - os: linux
       env:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=ON -DCGAL_ENABLED=ON"
         - RUN_TESTS=false
-        - QT_VERSION=596
+        - QT_VERSION=597
     - os: linux
       env:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON -DCUDA_ARCHS=Kepler"
         - RUN_TESTS=false
-        - QT_VERSION=596
-        - CUDA_VERSION=7.5-18
+        - QT_VERSION=597
+        - CUDA_VERSION=8.0.61-1
     - os: linux
       env:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON -DCUDA_ARCHS=Pascal"
         - RUN_TESTS=false
-        - QT_VERSION=596
-        - CUDA_VERSION=8.0.61-1
+        - QT_VERSION=597
+        - CUDA_VERSION=10.1.243-1
     - os: osx
       env:
         - CMAKE_OPTIONS="-DIPO_ENABLED=OFF -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5"
@@ -90,17 +93,15 @@ before_script:
   - |
     if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
       export DISPLAY=:99.0
-      sh -e /etc/init.d/xvfb start
-      sleep 3
 
-      sudo add-apt-repository --yes ppa:beineri/opt-qt${QT_VERSION}-trusty
+      sudo add-apt-repository --yes ppa:beineri/opt-qt${QT_VERSION}-xenial
       export PATH="/opt/qt${QT_VERSION:0:2}/bin:$PATH"
       sudo apt-get update -qq
       sudo apt-get -y install qt${QT_VERSION:0:2}base
 
       if [[ ! -z "$CUDA_VERSION" ]]; then
-        wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1404/x86_64/cuda-repo-ubuntu1404_${CUDA_VERSION}_amd64.deb
-        sudo dpkg -i cuda-repo-ubuntu1404_${CUDA_VERSION}_amd64.deb
+        wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_${CUDA_VERSION}_amd64.deb
+        sudo dpkg -i cuda-repo-ubuntu1604_${CUDA_VERSION}_amd64.deb
         sudo apt-get update -qq
         CUDA_VERSION_APT=${CUDA_VERSION:0:3}
         sudo apt-get install -y cuda-drivers cuda-core-${CUDA_VERSION_APT} cuda-cudart-dev-${CUDA_VERSION_APT} cuda-curand-dev-${CUDA_VERSION_APT}
@@ -113,6 +114,7 @@ before_script:
       fi
       cd ceres-solver
       git pull
+      git checkout 1.14.0
       mkdir -p build
       cd build
       cmake .. \

@@ -27,14 +27,14 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_BASE_DATABASE_CACHE_H_
 #define COLMAP_SRC_BASE_DATABASE_CACHE_H_
 
-#include <set>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <Eigen/Core>
@@ -90,7 +90,10 @@ class DatabaseCache {
   //                              of the images. All images are used if empty.
   void Load(const Database& database, const size_t min_num_matches,
             const bool ignore_watermarks,
-            const std::set<std::string>& image_names);
+            const std::unordered_set<std::string>& image_names);
+
+  // Find specific image by name. Note that this uses linear search.
+  const class Image* FindImageWithName(const std::string& name) const;
 
  private:
   class CorrespondenceGraph correspondence_graph_;

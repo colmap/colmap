@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_BASE_IMAGE_READER_H_
 #define COLMAP_SRC_BASE_IMAGE_READER_H_
@@ -44,8 +44,17 @@ struct ImageReaderOptions {
   // Path to database in which to store the extracted data.
   std::string database_path = "";
 
-  // Root path to folder which contains the image.
+  // Root path to folder which contains the images.
   std::string image_path = "";
+
+  // Optional root path to folder which contains image masks. For a given image,
+  // the corresponding mask must have the same sub-path below this root as the
+  // image has below image_path. The filename must be equal, aside from the
+  // added extension .png. For example, for an image image_path/abc/012.jpg, the
+  // mask would be mask_path/abc/012.jpg.png. No features will be extracted in
+  // regions where the mask image is black (pixel intensity value 0 in
+  // grayscale).
+  std::string mask_path = "";
 
   // Optional list of images to read. The list must contain the relative path
   // of the images with respect to the image_path.
@@ -72,6 +81,11 @@ struct ImageReaderOptions {
   // have focal length EXIF information, the focal length is set to the
   // value `default_focal_length_factor * max(width, height)`.
   double default_focal_length_factor = 1.2;
+  
+  // Optional path to an image file specifying a mask for all images. No
+  // features will be extracted in regions where the mask is black (pixel
+  // intensity value 0 in grayscale).
+  std::string camera_mask_path = "";
 
   bool Check() const;
 };
@@ -93,7 +107,7 @@ class ImageReader {
 
   ImageReader(const ImageReaderOptions& options, Database* database);
 
-  Status Next(Camera* camera, Image* image, Bitmap* bitmap);
+  Status Next(Camera* camera, Image* image, Bitmap* bitmap, Bitmap* mask);
   size_t NextIndex() const;
   size_t NumImages() const;
 

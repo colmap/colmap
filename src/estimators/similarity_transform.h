@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_ESTIMATORS_SIMILARITY_TRANSFORM_H_
 #define COLMAP_SRC_ESTIMATORS_SIMILARITY_TRANSFORM_H_
@@ -109,11 +109,14 @@ SimilarityTransformEstimator<kDim, kEstimateScale>::Estimate(
     dst_mat.col(i) = dst[i];
   }
 
-  std::vector<M_t> models(1);
-  models[0] = Eigen::umeyama(src_mat, dst_mat, kEstimateScale)
-                  .topLeftCorner(kDim, kDim + 1);
+  const auto model = Eigen::umeyama(src_mat, dst_mat, kEstimateScale)
+                         .topLeftCorner(kDim, kDim + 1);
 
-  return models;
+  if (model.array().isNaN().any()) {
+    return std::vector<M_t>{};
+  }
+
+  return {model};
 }
 
 template <int kDim, bool kEstimateScale>

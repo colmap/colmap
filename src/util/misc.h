@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_UTIL_MISC_H_
 #define COLMAP_SRC_UTIL_MISC_H_
@@ -78,6 +78,10 @@ std::string GetPathBaseName(const std::string& path);
 
 // Get the path of the parent directory for the given path.
 std::string GetParentDir(const std::string& path);
+
+// Get the relative path between from and to. Both the from and to paths must
+// exist.
+std::string GetRelativePath(const std::string& from, const std::string& to);
 
 // Join multiple paths into one path.
 template <typename... T>

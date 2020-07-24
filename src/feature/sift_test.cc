@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "feature/sift_test"
 #include "util/testing.h"
@@ -322,6 +322,112 @@ BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPU) {
   MatchSiftFeaturesCPU(SiftMatchingOptions(), empty_descriptors,
                        empty_descriptors, &matches);
   BOOST_CHECK_EQUAL(matches.size(), 0);
+}
+
+BOOST_AUTO_TEST_CASE(TestMatchSiftFeaturesCPUFLANNvsBruteForce) {
+  SiftMatchingOptions match_options;
+  match_options.max_num_matches = 1000;
+
+  auto TestFLANNvsBruteForce = [](
+      const SiftMatchingOptions& options,
+      const FeatureDescriptors& descriptors1,
+      const FeatureDescriptors& descriptors2) {
+    FeatureMatches matches_bf;
+    FeatureMatches matches_flann;
+
+    MatchSiftFeaturesCPUBruteForce(options, descriptors1, descriptors2,
+        &matches_bf);
+    MatchSiftFeaturesCPUFLANN(options, descriptors1, descriptors2,
+        &matches_flann);
+    CheckEqualMatches(matches_bf, matches_flann);
+
+    const size_t num_matches = matches_bf.size();
+
+    const FeatureDescriptors empty_descriptors =
+      CreateRandomFeatureDescriptors(0);
+
+    MatchSiftFeaturesCPUBruteForce(options, empty_descriptors, descriptors2, &matches_bf);
+    MatchSiftFeaturesCPUFLANN(options, empty_descriptors, descriptors2, &matches_flann);
+    CheckEqualMatches(matches_bf, matches_flann);
+
+    MatchSiftFeaturesCPUBruteForce(options, descriptors1, empty_descriptors, &matches_bf);
+    MatchSiftFeaturesCPUFLANN(options, descriptors1, empty_descriptors, &matches_flann);
+    CheckEqualMatches(matches_bf, matches_flann);
+
+    MatchSiftFeaturesCPUBruteForce(options, empty_descriptors, empty_descriptors, &matches_bf);
+    MatchSiftFeaturesCPUFLANN(options, empty_descriptors, empty_descriptors, &matches_flann);
+    CheckEqualMatches(matches_bf, matches_flann);
+
+    return num_matches;
+  };
+
+  {
+    const FeatureDescriptors descriptors1 =
+      CreateRandomFeatureDescriptors(100);
+    const FeatureDescriptors descriptors2 =
+      CreateRandomFeatureDescriptors(100);
+    SiftMatchingOptions match_options;
+    TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
+  }
+
+  {
+    const FeatureDescriptors descriptors1 =
+      CreateRandomFeatureDescriptors(100);
+    const FeatureDescriptors descriptors2 =
+      descriptors1.colwise().reverse();
+    SiftMatchingOptions match_options;
+    const size_t num_matches =
+      TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
+    BOOST_CHECK_EQUAL(num_matches, 100);
+  }
+
+  // Check the ratio test.
+  {
+    FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(100);
+    FeatureDescriptors descriptors2 = descriptors1;
+
+    SiftMatchingOptions match_options;
+    const size_t num_matches1 =
+      TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
+    BOOST_CHECK_EQUAL(num_matches1, 100);
+
+    descriptors2.row(99) = descriptors2.row(0);
+    descriptors2(0, 0) += 50.0f;
+    descriptors2.row(0) = FeatureDescriptorsToUnsignedByte(
+        L2NormalizeFeatureDescriptors(descriptors2.row(0).cast<float>()));
+    descriptors2(99, 0) += 100.0f;
+    descriptors2.row(99) = FeatureDescriptorsToUnsignedByte(
+        L2NormalizeFeatureDescriptors(descriptors2.row(99).cast<float>()));
+
+    match_options.max_ratio = 0.4;
+    const size_t num_matches2 =
+      TestFLANNvsBruteForce(match_options, descriptors1.topRows(99), descriptors2);
+    BOOST_CHECK_EQUAL(num_matches2, 98);
+
+    match_options.max_ratio = 0.5;
+    const size_t num_matches3 =
+      TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
+    BOOST_CHECK_EQUAL(num_matches3, 99);
+  }
+
+  // Check the cross check.
+  {
+    FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(100);
+    FeatureDescriptors descriptors2 = descriptors1;
+    descriptors1.row(0) = descriptors1.row(1);
+
+    SiftMatchingOptions match_options;
+
+    match_options.cross_check = false;
+    const size_t num_matches1 =
+      TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
+    BOOST_CHECK_EQUAL(num_matches1, 100);
+
+    match_options.cross_check = true;
+    const size_t num_matches2 =
+      TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
+    BOOST_CHECK_EQUAL(num_matches2, 98);
+  }
 }
 
 BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesCPU) {

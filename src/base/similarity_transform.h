@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_BASE_SIMILARITY_TRANSFORM_H_
 #define COLMAP_SRC_BASE_SIMILARITY_TRANSFORM_H_
@@ -60,7 +60,7 @@ class SimilarityTransform3 {
   SimilarityTransform3(const double scale, const Eigen::Vector4d& qvec,
                        const Eigen::Vector3d& tvec);
 
-  void Estimate(const std::vector<Eigen::Vector3d>& src,
+  bool Estimate(const std::vector<Eigen::Vector3d>& src,
                 const std::vector<Eigen::Vector3d>& dst);
 
   SimilarityTransform3 Inverse() const;

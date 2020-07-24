@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "retrieval/geometry.h"
 
@@ -71,7 +71,7 @@ Eigen::Matrix<float, 2, 3> FeatureGeometry::TransformMatrixFromMatch(
 
   T.rightCols<1>() =
       Eigen::Vector2f(feature2.x, feature2.y) -
-      scale * T.leftCols<2>() * Eigen::Vector2f(feature1.x, feature1.y);
+      T.leftCols<2>() * Eigen::Vector2f(feature1.x, feature1.y);
 
   return T;
 }

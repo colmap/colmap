@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "controllers/automatic_reconstruction.h"
 
@@ -88,6 +88,10 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   ImageReaderOptions reader_options = *option_manager_.image_reader;
   reader_options.database_path = *option_manager_.database_path;
   reader_options.image_path = *option_manager_.image_path;
+  if (!options_.mask_path.empty()) {
+    reader_options.mask_path = options_.mask_path;
+    option_manager_.image_reader->mask_path = options_.mask_path;
+  }
   reader_options.single_camera = options_.single_camera;
   reader_options.camera_model = options_.camera_model;
 
@@ -225,14 +229,6 @@ void AutomaticReconstructionController::RunSparseMapper() {
 }
 
 void AutomaticReconstructionController::RunDenseMapper() {
-#ifndef CUDA_ENABLED
-  std::cout
-      << std::endl
-      << "WARNING: Skipping dense reconstruction because CUDA is not available."
-      << std::endl;
-  return;
-#endif  // CUDA_ENABLED
-
   CreateDirIfNotExists(JoinPaths(options_.workspace_path, "dense"));
 
   for (size_t i = 0; i < reconstruction_manager_->Size(); ++i) {
@@ -278,6 +274,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     // Patch match stereo.
 
+#ifdef CUDA_ENABLED
     {
       mvs::PatchMatchController patch_match_controller(
           *option_manager_.patch_match_stereo, dense_path, "COLMAP", "");
@@ -286,6 +283,13 @@ void AutomaticReconstructionController::RunDenseMapper() {
       patch_match_controller.Wait();
       active_thread_ = nullptr;
     }
+#else   // CUDA_ENABLED
+    std::cout
+        << std::endl
+        << "WARNING: Skipping patch match stereo because CUDA is not available."
+        << std::endl;
+    return;
+#endif  // CUDA_ENABLED
 
     if (IsStopped()) {
       return;
@@ -326,12 +330,13 @@ void AutomaticReconstructionController::RunDenseMapper() {
 #ifdef CGAL_ENABLED
         mvs::DenseDelaunayMeshing(*option_manager_.delaunay_meshing, dense_path,
                                   meshing_path);
-#else   // CGAL_ENABLED
+#else  // CGAL_ENABLED
         std::cout << std::endl
                   << "WARNING: Skipping Delaunay meshing because CGAL is "
                      "not available."
                   << std::endl;
         return;
+
 #endif  // CGAL_ENABLED
       }
     }

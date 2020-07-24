@@ -27,9 +27,11 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "feature/extraction.h"
+
+#include <numeric>
 
 #include "SiftGPU/SiftGPU.h"
 #include "feature/sift.h"
@@ -51,6 +53,32 @@ void ScaleKeypoints(const Bitmap& bitmap, const Camera& camera,
   }
 }
 
+void MaskKeypoints(const Bitmap& mask, FeatureKeypoints* keypoints,
+                   FeatureDescriptors* descriptors) {
+  size_t out_index = 0;
+  BitmapColor<uint8_t> color;
+  for (size_t i = 0; i < keypoints->size(); ++i) {
+    if (!mask.GetPixel(static_cast<int>(keypoints->at(i).x),
+                       static_cast<int>(keypoints->at(i).y), &color) ||
+        color.r == 0) {
+      // Delete this keypoint by not copying it to the output.
+    } else {
+      // Retain this keypoint by copying it to the output index (in case this
+      // index differs from its current position).
+      if (out_index != i) {
+        keypoints->at(out_index) = keypoints->at(i);
+        for (int col = 0; col < descriptors->cols(); ++col) {
+          (*descriptors)(out_index, col) = (*descriptors)(i, col);
+        }
+      }
+      out_index += 1;
+    }
+  }
+
+  keypoints->resize(out_index);
+  descriptors->conservativeResize(out_index, descriptors->cols());
+}
+
 }  // namespace
 
 SiftFeatureExtractor::SiftFeatureExtractor(
@@ -62,6 +90,18 @@ SiftFeatureExtractor::SiftFeatureExtractor(
       image_reader_(reader_options_, &database_) {
   CHECK(reader_options_.Check());
   CHECK(sift_options_.Check());
+
+  std::shared_ptr<Bitmap> camera_mask;
+  if (!reader_options_.camera_mask_path.empty()) {
+    camera_mask = std::shared_ptr<Bitmap>(new Bitmap());
+    if (!camera_mask->Read(reader_options_.camera_mask_path,
+                           /*as_rgb*/ false)) {
+      std::cerr << "  ERROR: Cannot read camera mask file: "
+                << reader_options_.camera_mask_path
+                << ". No mask is going to be used." << std::endl;
+      camera_mask.reset();
+    }
+  }
 
   const int num_threads = GetEffectiveNumThreads(sift_options_.num_threads);
   CHECK_GT(num_threads, 0);
@@ -99,14 +139,16 @@ SiftFeatureExtractor::SiftFeatureExtractor(
     for (const auto& gpu_index : gpu_indices) {
       sift_gpu_options.gpu_index = std::to_string(gpu_index);
       extractors_.emplace_back(new internal::SiftFeatureExtractorThread(
-          sift_gpu_options, extractor_queue_.get(), writer_queue_.get()));
+          sift_gpu_options, camera_mask, extractor_queue_.get(),
+          writer_queue_.get()));
     }
   } else {
     auto custom_sift_options = sift_options_;
     custom_sift_options.use_gpu = false;
     for (int i = 0; i < num_threads; ++i) {
       extractors_.emplace_back(new internal::SiftFeatureExtractorThread(
-          custom_sift_options, extractor_queue_.get(), writer_queue_.get()));
+          custom_sift_options, camera_mask, extractor_queue_.get(),
+          writer_queue_.get()));
     }
   }
 
@@ -143,8 +185,9 @@ void SiftFeatureExtractor::Run() {
     }
 
     internal::ImageData image_data;
-    image_data.status = image_reader_.Next(
-        &image_data.camera, &image_data.image, &image_data.bitmap);
+    image_data.status =
+        image_reader_.Next(&image_data.camera, &image_data.image,
+                           &image_data.bitmap, &image_data.mask);
 
     if (image_data.status != ImageReader::Status::SUCCESS) {
       image_data.bitmap.Deallocate();
@@ -205,7 +248,7 @@ void FeatureImporter::Run() {
     Camera camera;
     Image image;
     Bitmap bitmap;
-    if (image_reader.Next(&camera, &image, &bitmap) !=
+    if (image_reader.Next(&camera, &image, &bitmap, nullptr) !=
         ImageReader::Status::SUCCESS) {
       continue;
     }
@@ -283,9 +326,11 @@ void ImageResizerThread::Run() {
 }
 
 SiftFeatureExtractorThread::SiftFeatureExtractorThread(
-    const SiftExtractionOptions& sift_options, JobQueue<ImageData>* input_queue,
-    JobQueue<ImageData>* output_queue)
+    const SiftExtractionOptions& sift_options,
+    const std::shared_ptr<Bitmap>& camera_mask,
+    JobQueue<ImageData>* input_queue, JobQueue<ImageData>* output_queue)
     : sift_options_(sift_options),
+      camera_mask_(camera_mask),
       input_queue_(input_queue),
       output_queue_(output_queue) {
   CHECK(sift_options_.Check());
@@ -343,6 +388,14 @@ void SiftFeatureExtractorThread::Run() {
         if (success) {
           ScaleKeypoints(image_data.bitmap, image_data.camera,
                          &image_data.keypoints);
+          if (camera_mask_) {
+            MaskKeypoints(*camera_mask_, &image_data.keypoints,
+                          &image_data.descriptors);
+          }
+          if (image_data.mask.Data()) {
+            MaskKeypoints(image_data.mask, &image_data.keypoints,
+                          &image_data.descriptors);
+          }
         } else {
           image_data.status = ImageReader::Status::FAILURE;
         }
@@ -424,12 +477,12 @@ void FeatureWriterThread::Run() {
         std::cout << std::endl;
       }
       if (image_data.image.HasTvecPrior()) {
-        std::cout
-            << StringPrintf(
-                   "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
-                   image_data.image.TvecPrior(0), image_data.image.TvecPrior(1),
-                   image_data.image.TvecPrior(2))
-            << std::endl;
+        std::cout << StringPrintf(
+                         "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
+                         image_data.image.TvecPrior(0),
+                         image_data.image.TvecPrior(1),
+                         image_data.image.TvecPrior(2))
+                  << std::endl;
       }
       std::cout << StringPrintf("  Features:        %d",
                                 image_data.keypoints.size())

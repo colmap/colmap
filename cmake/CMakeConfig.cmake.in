@@ -27,7 +27,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-# Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 # Find package module for COLMAP library.
 #
@@ -113,6 +113,9 @@ endif()
 set(COLMAP_FOUND TRUE)
 
 set(COLMAP_VERSION @COLMAP_VERSION@)
+
+set(COLMAP_OPENMP_ENABLED @OPENMP_ENABLED@)
+
 set(COLMAP_CUDA_ENABLED @CUDA_ENABLED@)
 set(COLMAP_CUDA_MIN_VERSION @CUDA_MIN_VERSION@)
 
@@ -138,6 +141,17 @@ set(COLMAP_LINK_DIRS
     ${Boost_LIBRARY_DIRS}
 )
 
+set(COLMAP_INTERNAL_LIBRARIES
+    flann
+    graclus
+    lsd
+    pba
+    poisson_recon
+    sqlite3
+    sift_gpu
+    vlfeat
+)
+
 set(COLMAP_EXTERNAL_LIBRARIES
     ${CMAKE_DL_LIBS}
     ${GLOG_LIBRARIES}
@@ -160,21 +174,15 @@ if(UNIX)
         pthread)
 endif()
 
-set(COLMAP_INTERNAL_LIBRARIES
-    colmap
-    flann
-    graclus
-    lsd
-    pba
-    poisson_recon
-    sqlite3
-    sift_gpu
-    vlfeat
-)
+if(COLMAP_OPENMP_ENABLED)
+    find_package(OpenMP QUIET)
+    add_definitions("-DOPENMP_ENABLED")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif()
 
 if(COLMAP_CUDA_ENABLED)
     find_package(CUDA ${COLMAP_CUDA_MIN_VERSION} QUIET)
-    list(APPEND COLMAP_INTERNAL_LIBRARIES colmap_cuda)
     list(APPEND COLMAP_EXTERNAL_LIBRARIES ${CUDA_LIBRARIES})
 endif()
 
@@ -184,6 +192,7 @@ if(COLMAP_CGAL_ENABLED)
 endif()
 
 set(COLMAP_LIBRARIES
+    colmap
     ${COLMAP_INTERNAL_LIBRARIES}
     ${COLMAP_EXTERNAL_LIBRARIES}
 )

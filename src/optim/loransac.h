@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_OPTIM_LORANSAC_H_
 #define COLMAP_SRC_OPTIM_LORANSAC_H_
@@ -187,7 +187,8 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
 
         dyn_max_num_trials =
             RANSAC<Estimator, SupportMeasurer, Sampler>::ComputeNumTrials(
-                best_support.num_inliers, num_samples, options_.confidence);
+                best_support.num_inliers, num_samples, options_.confidence,
+                options_.dyn_num_trials_multiplier);
       }
 
       if (report.num_trials >= dyn_max_num_trials &&

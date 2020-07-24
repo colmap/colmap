@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_CONTROLLERS_AUTOMATIC_RECONSTRUCTION_H_
 #define COLMAP_SRC_CONTROLLERS_AUTOMATIC_RECONSTRUCTION_H_
@@ -52,6 +52,9 @@ class AutomaticReconstructionController : public Thread {
 
     // The path to the image folder which are used as input.
     std::string image_path;
+
+    // The path to the mask folder which are used as input.
+    std::string mask_path;
 
     // The path to the vocabulary tree for feature matching.
     std::string vocab_tree_path;

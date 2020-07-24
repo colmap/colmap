@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "util/option_manager.h"
 
@@ -45,13 +45,14 @@
 #include "optim/bundle_adjustment.h"
 #include "ui/render_options.h"
 #include "util/misc.h"
+#include "util/random.h"
 #include "util/version.h"
 
 namespace config = boost::program_options;
 
 namespace colmap {
 
-OptionManager::OptionManager() {
+OptionManager::OptionManager(bool add_project_options) {
   project_path.reset(new std::string());
   database_path.reset(new std::string());
   image_path.reset(new std::string());
@@ -64,6 +65,7 @@ OptionManager::OptionManager() {
   vocab_tree_matching.reset(new VocabTreeMatchingOptions());
   spatial_matching.reset(new SpatialMatchingOptions());
   transitive_matching.reset(new TransitiveMatchingOptions());
+  image_pairs_matching.reset(new ImagePairsMatchingOptions());
   bundle_adjustment.reset(new BundleAdjustmentOptions());
   mapper.reset(new IncrementalMapperOptions());
   patch_match_stereo.reset(new mvs::PatchMatchOptions());
@@ -75,7 +77,13 @@ OptionManager::OptionManager() {
   Reset();
 
   desc_->add_options()("help,h", "");
-  desc_->add_options()("project_path", config::value<std::string>());
+
+  AddRandomOptions();
+  AddLogOptions();
+  
+  if (add_project_options) {
+    desc_->add_options()("project_path", config::value<std::string>());
+  }
 }
 
 void OptionManager::ModifyForIndividualData() {
@@ -161,6 +169,7 @@ void OptionManager::ModifyForExtremeQuality() {
 
 void OptionManager::AddAllOptions() {
   AddLogOptions();
+  AddRandomOptions();
   AddDatabaseOptions();
   AddImageOptions();
   AddExtractionOptions();
@@ -170,6 +179,7 @@ void OptionManager::AddAllOptions() {
   AddVocabTreeMatchingOptions();
   AddSpatialMatchingOptions();
   AddTransitiveMatchingOptions();
+  AddImagePairsMatchingOptions();
   AddBundleAdjustmentOptions();
   AddMapperOptions();
   AddPatchMatchStereoOptions();
@@ -187,6 +197,15 @@ void OptionManager::AddLogOptions() {
 
   AddAndRegisterDefaultOption("log_to_stderr", &FLAGS_logtostderr);
   AddAndRegisterDefaultOption("log_level", &FLAGS_v);
+}
+
+void OptionManager::AddRandomOptions() {
+  if (added_random_options_) {
+    return;
+  }
+  added_random_options_ = true;
+
+  AddAndRegisterDefaultOption("random_seed", &kDefaultPRNGSeed);
 }
 
 void OptionManager::AddDatabaseOptions() {
@@ -213,6 +232,8 @@ void OptionManager::AddExtractionOptions() {
   }
   added_extraction_options_ = true;
 
+  AddAndRegisterDefaultOption("ImageReader.mask_path",
+                              &image_reader->mask_path);
   AddAndRegisterDefaultOption("ImageReader.camera_model",
                               &image_reader->camera_model);
   AddAndRegisterDefaultOption("ImageReader.single_camera",
@@ -225,6 +246,8 @@ void OptionManager::AddExtractionOptions() {
                               &image_reader->camera_params);
   AddAndRegisterDefaultOption("ImageReader.default_focal_length_factor",
                               &image_reader->default_focal_length_factor);
+  AddAndRegisterDefaultOption("ImageReader.camera_mask_path",
+                              &image_reader->camera_mask_path);
 
   AddAndRegisterDefaultOption("SiftExtraction.num_threads",
                               &sift_extraction->num_threads);
@@ -399,6 +422,18 @@ void OptionManager::AddTransitiveMatchingOptions() {
                               &transitive_matching->num_iterations);
 }
 
+void OptionManager::AddImagePairsMatchingOptions() {
+  if (added_image_pairs_match_options_) {
+    return;
+  }
+  added_image_pairs_match_options_ = true;
+
+  AddMatchingOptions();
+
+  AddAndRegisterDefaultOption("ImagePairsMatching.block_size",
+                              &image_pairs_matching->block_size);
+}
+
 void OptionManager::AddBundleAdjustmentOptions() {
   if (added_ba_options_) {
     return;
@@ -426,6 +461,8 @@ void OptionManager::AddBundleAdjustmentOptions() {
                               &bundle_adjustment->refine_principal_point);
   AddAndRegisterDefaultOption("BundleAdjustment.refine_extra_params",
                               &bundle_adjustment->refine_extra_params);
+  AddAndRegisterDefaultOption("BundleAdjustment.refine_extrinsics",
+                              &bundle_adjustment->refine_extrinsics);
 }
 
 void OptionManager::AddMapperOptions() {
@@ -462,6 +499,9 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_refine_principal_point);
   AddAndRegisterDefaultOption("Mapper.ba_refine_extra_params",
                               &mapper->ba_refine_extra_params);
+  AddAndRegisterDefaultOption(
+      "Mapper.ba_min_num_residuals_for_multi_threading",
+      &mapper->ba_min_num_residuals_for_multi_threading);
   AddAndRegisterDefaultOption("Mapper.ba_local_num_images",
                               &mapper->ba_local_num_images);
   AddAndRegisterDefaultOption("Mapper.ba_local_max_num_iterations",
@@ -491,6 +531,8 @@ void OptionManager::AddMapperOptions() {
   AddAndRegisterDefaultOption("Mapper.snapshot_path", &mapper->snapshot_path);
   AddAndRegisterDefaultOption("Mapper.snapshot_images_freq",
                               &mapper->snapshot_images_freq);
+  AddAndRegisterDefaultOption("Mapper.fix_existing_images",
+                              &mapper->fix_existing_images);
 
   // IncrementalMapper.
   AddAndRegisterDefaultOption("Mapper.init_min_num_inliers",
@@ -515,6 +557,8 @@ void OptionManager::AddMapperOptions() {
                               &mapper->mapper.filter_min_tri_angle);
   AddAndRegisterDefaultOption("Mapper.max_reg_trials",
                               &mapper->mapper.max_reg_trials);
+  AddAndRegisterDefaultOption("Mapper.local_ba_min_tri_angle",
+                              &mapper->mapper.local_ba_min_tri_angle);
 
   // IncrementalTriangulator.
   AddAndRegisterDefaultOption("Mapper.tri_max_transitivity",
@@ -693,6 +737,7 @@ void OptionManager::Reset() {
   options_string_.clear();
 
   added_log_options_ = false;
+  added_random_options_ = false;
   added_database_options_ = false;
   added_image_options_ = false;
   added_extraction_options_ = false;
@@ -702,6 +747,7 @@ void OptionManager::Reset() {
   added_vocab_tree_match_options_ = false;
   added_spatial_match_options_ = false;
   added_transitive_match_options_ = false;
+  added_image_pairs_match_options_ = false;
   added_ba_options_ = false;
   added_mapper_options_ = false;
   added_patch_match_stereo_options_ = false;
@@ -725,6 +771,7 @@ void OptionManager::ResetOptions(const bool reset_paths) {
   *vocab_tree_matching = VocabTreeMatchingOptions();
   *spatial_matching = SpatialMatchingOptions();
   *transitive_matching = TransitiveMatchingOptions();
+  *image_pairs_matching = ImagePairsMatchingOptions();
   *bundle_adjustment = BundleAdjustmentOptions();
   *mapper = IncrementalMapperOptions();
   *patch_match_stereo = mvs::PatchMatchOptions();
@@ -755,6 +802,8 @@ bool OptionManager::Check() {
   if (sequential_matching) success = success && sequential_matching->Check();
   if (vocab_tree_matching) success = success && vocab_tree_matching->Check();
   if (spatial_matching) success = success && spatial_matching->Check();
+  if (transitive_matching) success = success && transitive_matching->Check();
+  if (image_pairs_matching) success = success && image_pairs_matching->Check();
 
   if (bundle_adjustment) success = success && bundle_adjustment->Check();
   if (mapper) success = success && mapper->Check();

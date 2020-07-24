@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/similarity_transform"
 #include "util/testing.h"
@@ -71,9 +71,12 @@ void TestEstimationWithNumCoords(const size_t num_coords) {
   }
 
   SimilarityTransform3 est_tform;
-  est_tform.Estimate(src, dst);
+  BOOST_CHECK(est_tform.Estimate(src, dst));
 
   BOOST_CHECK((orig_tform.Matrix() - est_tform.Matrix()).norm() < 1e-6);
+
+  std::vector<Eigen::Vector3d> invalid_src_dst(3, Eigen::Vector3d::Zero());
+  BOOST_CHECK(!est_tform.Estimate(invalid_src_dst, invalid_src_dst));
 }
 
 BOOST_AUTO_TEST_CASE(TestEstimation) {

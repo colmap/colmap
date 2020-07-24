@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_FEATURE_EXTRACTION_H_
 #define COLMAP_SRC_FEATURE_EXTRACTION_H_
@@ -96,6 +96,7 @@ struct ImageData {
   Camera camera;
   Image image;
   Bitmap bitmap;
+  Bitmap mask;
 
   FeatureKeypoints keypoints;
   FeatureDescriptors descriptors;
@@ -118,6 +119,7 @@ class ImageResizerThread : public Thread {
 class SiftFeatureExtractorThread : public Thread {
  public:
   SiftFeatureExtractorThread(const SiftExtractionOptions& sift_options,
+                             const std::shared_ptr<Bitmap>& camera_mask,
                              JobQueue<ImageData>* input_queue,
                              JobQueue<ImageData>* output_queue);
 
@@ -125,6 +127,7 @@ class SiftFeatureExtractorThread : public Thread {
   void Run();
 
   const SiftExtractionOptions sift_options_;
+  std::shared_ptr<Bitmap> camera_mask_;
 
   std::unique_ptr<OpenGLContextManager> opengl_context_;
 

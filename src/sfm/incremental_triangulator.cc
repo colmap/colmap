@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "sfm/incremental_triangulator.h"
 
@@ -299,7 +299,8 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
   for (const auto& image_pair : reconstruction_->ImagePairs()) {
     // Only perform retriangulation for under-reconstructed image pairs.
     const double tri_ratio =
-        static_cast<double>(image_pair.second.first) / image_pair.second.second;
+        static_cast<double>(image_pair.second.num_tri_corrs) /
+        static_cast<double>(image_pair.second.num_total_corrs);
     if (tri_ratio >= options.re_min_ratio) {
       continue;
     }
@@ -386,6 +387,10 @@ size_t IncrementalTriangulator::Retriangulate(const Options& options) {
   }
 
   return num_tris;
+}
+
+void IncrementalTriangulator::AddModifiedPoint3D(const point3D_t point3D_id) {
+  modified_point3D_ids_.insert(point3D_id);
 }
 
 const std::unordered_set<point3D_t>&

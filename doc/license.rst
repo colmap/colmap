@@ -2,9 +2,9 @@ License
 =======
 
 The COLMAP library is licensed under the new BSD license. Note that this text
-refers only to the license for COLMAP itself, independent of its optional
-dependencies, which are separately licensed. Building COLMAP with these optional
-dependencies may affect the resulting COLMAP license.
+refers only to the license for COLMAP itself, independent of its dependencies,
+which are separately licensed. Building COLMAP with these dependencies may
+affect the resulting COLMAP license.
 
 .. code-block:: text
 
@@ -37,4 +37,4 @@ dependencies may affect the resulting COLMAP license.
     ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
     POSSIBILITY OF SUCH DAMAGE.
 
-    Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+    Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)

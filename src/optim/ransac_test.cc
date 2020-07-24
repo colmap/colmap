@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "optim/ransac"
 #include "util/testing.h"
@@ -63,24 +63,27 @@ BOOST_AUTO_TEST_CASE(TestReport) {
 }
 
 BOOST_AUTO_TEST_CASE(TestNumTrials) {
-  BOOST_CHECK_EQUAL(
-      RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(1, 100, 0.99),
-      4605168);
-  BOOST_CHECK_EQUAL(
-      RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(10, 100, 0.99),
-      4603);
-  BOOST_CHECK_EQUAL(
-      RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(10, 100, 0.999),
-      6905);
-  BOOST_CHECK_EQUAL(
-      RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(100, 100, 0.99),
-      1);
   BOOST_CHECK_EQUAL(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
-                        100, 100, 0.999),
+                        1, 100, 0.99, 1.0),
+                    4605168);
+  BOOST_CHECK_EQUAL(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
+                        10, 100, 0.99, 1.0),
+                    4603);
+  BOOST_CHECK_EQUAL(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
+                        10, 100, 0.999, 1.0),
+                    6905);
+  BOOST_CHECK_EQUAL(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
+                        10, 100, 0.999, 2.0),
+                    13809);
+  BOOST_CHECK_EQUAL(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
+                        100, 100, 0.99, 1.0),
                     1);
-  BOOST_CHECK_EQUAL(
-      RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(100, 100, 0),
-      1);
+  BOOST_CHECK_EQUAL(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
+                        100, 100, 0.999, 1.0),
+                    1);
+  BOOST_CHECK_EQUAL(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
+                        100, 100, 0, 1.0),
+                    1);
 }
 
 BOOST_AUTO_TEST_CASE(TestSimilarityTransform) {

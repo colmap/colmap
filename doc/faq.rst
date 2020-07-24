@@ -12,6 +12,8 @@ quality levels, which can be set in the GUI as ``Extras > Set options for ...``.
 To use these presets from the command-line, you can save the current set of
 options as ``File > Save project`` after choosing the presets. The resulting
 project file can be opened with a text editor to view the different options.
+Alternatively, you can generate the project file also from the command-line
+by running ``colmap project_generator``.
 
 
 Extending COLMAP
@@ -97,13 +99,34 @@ Reconstruct sparse/dense model from known camera poses
 
 If the camera poses are known and you want to reconstruct a sparse or dense
 model of the scene, you must first manually construct a sparse model by creating
-a ``cameras.txt`` and ``images.txt`` file. The ``points3D.txt`` file should be
-empty while every other line in the ``images.txt`` should also be empty, since
-the sparse features are computed, as described below. You can refer to
-:ref:`this article <output-format>` for more information about the structure of
+a ``cameras.txt``, ``points3D.txt``, and ``images.txt`` under a new folder::
+
+    +── path/to/manually/created/sparse/model
+    │   +── cameras.txt
+    │   +── images.txt
+    │   +── points3D.txt
+
+The ``points3D.txt`` file should be empty while every other line in the ``images.txt``
+should also be empty, since the sparse features are computed, as described below. You can
+refer to :ref:`this article <output-format>` for more information about the structure of
 a sparse model.
 
-To reconstruct a sparse model, you first have to recompute features from the
+Example of images.txt::
+
+    1 0.695104 0.718385 -0.024566 0.012285 -0.046895 0.005253 -0.199664 1 image0001.png
+    # Make sure every other line is left empty
+    2 0.696445 0.717090 -0.023185 0.014441 -0.041213 0.001928 -0.134851 2 image0002.png
+
+    3 0.697457 0.715925 -0.025383 0.018967 -0.054056 0.008579 -0.378221 1 image0003.png
+
+    4 0.698777 0.714625 -0.023996 0.021129 -0.048184 0.004529 -0.313427 2 image0004.png
+
+Each image above must have the same ``image_id`` (first column) as in the database (next step). 
+This database can be inspected either in the GUI (under ``Database management > Processing``),
+or, one can create a reconstruction with colmap and later export  it as text in order to see
+the images.txt file it creates.
+
+To reconstruct a sparse map, you first have to recompute features from the
 images of the known camera poses as follows::
 
     colmap feature_extractor \
@@ -156,8 +179,8 @@ now also requires a manual specification of the depth range::
 
     colmap patch_match_stereo \
         --workspace_path path/to/dense/workspace \
-        --DenseStereo.depth_min $MIN_DEPTH \
-        --DenseStereo.depth_max $MAX_DEPTH
+        --PatchMatchStereo.depth_min $MIN_DEPTH \
+        --PatchMatchStereo.depth_max $MAX_DEPTH
 
     colmap stereo_fusion \
         --workspace_path path/to/dense/workspace \
@@ -221,6 +244,18 @@ vanishing point detection in the images. Please, refer to the
 ``model_orientation_aligner`` for more details.
 
 
+Mask image regions
+------------------
+
+COLMAP supports masking of keypoints during feature extraction by passing a
+``mask_path`` to a folder with image masks. For a given image, the corresponding
+mask must have the same sub-path below this root as the image has below
+``image_path``. The filename must be equal, aside from the added extension
+``.png``. For example, for an image ``image_path/abc/012.jpg``, the mask would
+be ``mask_path/abc/012.jpg.png``. No features will be extracted in regions,
+where the mask image is black (pixel intensity value 0 in grayscale).
+
+
 Register/localize new images into an existing reconstruction
 ------------------------------------------------------------
 
@@ -239,7 +274,6 @@ new images within this reconstruction, you can follow these steps::
 
     colmap image_registrator \
         --database_path $PROJECT_PATH/database.db \
-        --image_path $PROJECT_PATH/images \
         --input_path /path/to/existing-model \
         --output_path /path/to/model-with-new-images
 
@@ -351,10 +385,10 @@ Improving dense reconstruction results for weakly textured surfaces
 -------------------------------------------------------------------
 
 For scenes with weakly textured surfaces it can help to have a high resolution
-of the input images (``--DenseStereo.max_image_size``) and a large patch window
-radius (``--DenseStereo.window_radius``). You may also want to reduce the
+of the input images (``--PatchMatchStereo.max_image_size``) and a large patch window
+radius (``--PatchMatchStereo.window_radius``). You may also want to reduce the
 filtering threshold for the photometric consistency cost
-(``--DenseStereo.filter_min_ncc``).
+(``--PatchMatchStereo.filter_min_ncc``).
 
 
 Surface mesh reconstruction
@@ -385,27 +419,27 @@ The dense reconstruction can be speeded up in multiple ways:
 
 - Put more GPUs in your system as the dense reconstruction can make use of
   multiple GPUs during the stereo reconstruction step. Put more RAM into your
-  system and increase the ``--DenseStereo.cache_size``,
+  system and increase the ``--PatchMatchStereo.cache_size``,
   ``--StereoFusion.cache_size`` to the largest possible value in order to
   speed up the dense fusion step.
 
 - Do not perform geometric dense stereo reconstruction
-  ``--DenseStereo.geom_consistency false``. Make sure to also enable
-  ``--DenseStereo.filter true`` in this case.
+  ``--PatchMatchStereo.geom_consistency false``. Make sure to also enable
+  ``--PatchMatchStereo.filter true`` in this case.
 
-- Reduce the ``--DenseStereo.max_image_size``, ``--StereoFusion.max_image_size``
+- Reduce the ``--PatchMatchStereo.max_image_size``, ``--StereoFusion.max_image_size``
   values to perform dense reconstruction on a maximum image resolution.
 
 - Reduce the number of source images per reference image to be considered, as
   described :ref:`here <faq-dense-memory>`.
 
-- Increase the patch windows step ``--DenseStereo.window_step`` to 2.
+- Increase the patch windows step ``--PatchMatchStereo.window_step`` to 2.
 
-- Reduce the patch window radius ``--DenseStereo.window_radius``.
+- Reduce the patch window radius ``--PatchMatchStereo.window_radius``.
 
-- Reduce the number of patch match iterations ``--DenseStereo.num_iterations``.
+- Reduce the number of patch match iterations ``--PatchMatchStereo.num_iterations``.
 
-- Reduce the number of sampled views ``--DenseStereo.num_samples``.
+- Reduce the number of sampled views ``--PatchMatchStereo.num_samples``.
 
 - To speedup the dense stereo and fusion step for very large reconstructions,
   you can use CMVS to partition your scene into multiple clusters and to prune
@@ -423,14 +457,14 @@ Reduce memory usage during dense reconstruction
 -----------------------------------------------
 
 If you run out of GPU memory during patch match stereo, you can either reduce
-the maximum image size by setting the option ``--DenseStereo.max_image_size`` or
+the maximum image size by setting the option ``--PatchMatchStereo.max_image_size`` or
 reduce the number of source images in the ``stereo/patch-match.cfg`` file from
 e.g. ``__auto__, 30`` to ``__auto__, 10``. Note that enabling the
 ``geom_consistency`` option increases the required GPU memory.
 
 If you run out of CPU memory during stereo or fusion, you can reduce the
-``--DenseStereo.cache_size`` or ``--StereoFusion.cache_size`` specified in
-gigabytes or you can reduce ``--DenseStereo.max_image_size`` or
+``--PatchMatchStereo.cache_size`` or ``--StereoFusion.cache_size`` specified in
+gigabytes or you can reduce ``--PatchMatchStereo.max_image_size`` or
 ``--StereoFusion.max_image_size``. Note that a too low value might lead to very
 slow processing and heavy load on the hard disk.
 
@@ -477,10 +511,10 @@ Multi-GPU support in dense reconstruction
 -----------------------------------------
 
 You can run dense reconstruction on multiple GPUs by specifying multiple indices
-for CUDA-enabled GPUs, e.g., ``--DenseStereo.gpu_index=0,1,2,3`` runs the dense
+for CUDA-enabled GPUs, e.g., ``--PatchMatchStereo.gpu_index=0,1,2,3`` runs the dense
 reconstruction on 4 GPUs in parallel. You can also run multiple dense
 reconstruction threads on the same GPU by specifying the same GPU index twice,
-e.g., ``--DenseStereo.gpu_index=0,0,1,1,2,3``. By default, COLMAP runs one
+e.g., ``--PatchMatchStereo.gpu_index=0,0,1,1,2,3``. By default, COLMAP runs one
 dense reconstruction thread per CUDA-enabled GPU.
 
 

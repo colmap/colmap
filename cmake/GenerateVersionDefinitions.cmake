@@ -27,9 +27,12 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-# Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+# Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-if(Git_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
+if (DEFINED GIT_COMMIT_ID OR DEFINED GIT_COMMIT_DATE)
+    message(STATUS "Using custom-defined GIT_COMMIT_ID (${GIT_COMMIT_ID}) "
+            "and GIT_COMMIT_DATE (${GIT_COMMIT_DATE})")
+elseif(Git_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
     execute_process(COMMAND
         "${GIT_EXECUTABLE}" rev-parse --short HEAD
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"

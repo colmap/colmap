@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "ui/automatic_reconstruction_widget.h"
 
@@ -45,6 +45,8 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
   AddOptionDirPath(&options_.workspace_path, "Workspace folder");
   AddSpacer();
   AddOptionDirPath(&options_.image_path, "Image folder");
+  AddSpacer();
+  AddOptionDirPath(&options_.mask_path, "Mask folder");
   AddSpacer();
   AddOptionFilePath(&options_.vocab_tree_path, "Vocabulary tree<br>(optional)");
 

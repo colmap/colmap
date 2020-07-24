@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "ui/point_viewer_widget.h"
 
@@ -82,11 +82,12 @@ PointViewerWidget::PointViewerWidget(QWidget* parent,
   grid->addWidget(info_table_, 0, 0);
 
   location_table_ = new QTableWidget(this);
-  location_table_->setColumnCount(3);
+  location_table_->setColumnCount(4);
   QStringList table_header;
   table_header << "image_id"
                << "reproj_error"
-               << "track_location";
+               << "track_location"
+               << "image_name";
   location_table_->setHorizontalHeaderLabels(table_header);
   location_table_->resizeColumnsToContents();
   location_table_->setShowGrid(true);
@@ -127,6 +128,7 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
   location_pixmaps_.clear();
   image_ids_.clear();
   reproj_errors_.clear();
+  image_names_.clear();
 
   if (model_viewer_widget_->points3D.count(point3D_id) == 0) {
     point3D_id_ = kInvalidPoint3DId;
@@ -138,6 +140,8 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
   raise();
 
   point3D_id_ = point3D_id;
+
+  // Show some general information about the point.
 
   setWindowTitle(QString::fromStdString("Point " + std::to_string(point3D_id)));
 
@@ -153,18 +157,34 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
 
   ResizeInfoTable();
 
-  // Paint features for each track element.
+  // Sort the track elements by the image names.
+
+  std::vector<std::pair<TrackElement, std::string>> track_idx_image_name_pairs;
+  track_idx_image_name_pairs.reserve(point3D.Track().Length());
   for (const auto& track_el : point3D.Track().Elements()) {
     const Image& image = model_viewer_widget_->images[track_el.image_id];
+    track_idx_image_name_pairs.emplace_back(track_el, image.Name());
+  }
+
+  std::sort(track_idx_image_name_pairs.begin(),
+            track_idx_image_name_pairs.end(),
+            [](const std::pair<TrackElement, std::string>& track_el1,
+               const std::pair<TrackElement, std::string>& track_el2) {
+              return track_el1.second < track_el2.second;
+            });
+
+  // Paint features for each track element.
+
+  for (const auto& track_el : track_idx_image_name_pairs) {
+    const Image& image = model_viewer_widget_->images[track_el.first.image_id];
     const Camera& camera = model_viewer_widget_->cameras[image.CameraId()];
-    const Point2D& point2D = image.Point2D(track_el.point2D_idx);
-
-    const double reproj_error = std::sqrt(CalculateSquaredReprojectionError(
-        point2D.XY(), point3D.XYZ(), image.Qvec(), image.Tvec(), camera));
-
-    const std::string path = JoinPaths(*options_->image_path, image.Name());
+    const Point2D& point2D = image.Point2D(track_el.first.point2D_idx);
+    const Eigen::Vector2d proj_point2D =
+        ProjectPointToImage(point3D.XYZ(), image.ProjectionMatrix(), camera);
+    const double reproj_error = (point2D.XY() - proj_point2D).norm();
 
     Bitmap bitmap;
+    const std::string path = JoinPaths(*options_->image_path, image.Name());
     if (!bitmap.Read(path, true)) {
       std::cerr << "ERROR: Cannot read image at path " << path << std::endl;
       continue;
@@ -175,20 +195,33 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
     // Paint feature in current image.
     QPainter painter(&pixmap);
     painter.setRenderHint(QPainter::Antialiasing);
+
     QPen pen;
     pen.setWidth(3);
+    pen.setColor(Qt::green);
+    painter.setPen(pen);
+
+    const int kCrossSize = 15;
+    const int x = static_cast<int>(std::round(point2D.X()));
+    const int y = static_cast<int>(std::round(point2D.Y()));
+    painter.drawLine(x - kCrossSize, y - kCrossSize, x + kCrossSize,
+                     y + kCrossSize);
+    painter.drawLine(x - kCrossSize, y + kCrossSize, x + kCrossSize,
+                     y - kCrossSize);
+
     pen.setColor(Qt::red);
     painter.setPen(pen);
-    painter.drawEllipse(static_cast<int>(point2D.X() - 5),
-                        static_cast<int>(point2D.Y() - 5), 10, 10);
-    painter.drawEllipse(static_cast<int>(point2D.X() - 15),
-                        static_cast<int>(point2D.Y() - 15), 30, 30);
-    painter.drawEllipse(static_cast<int>(point2D.X() - 45),
-                        static_cast<int>(point2D.Y() - 45), 90, 90);
+
+    const int proj_x = static_cast<int>(std::round(proj_point2D.x()));
+    const int proj_y = static_cast<int>(std::round(proj_point2D.y()));
+    painter.drawEllipse(proj_x - 5, proj_y - 5, 10, 10);
+    painter.drawEllipse(proj_x - 15, proj_y - 15, 30, 30);
+    painter.drawEllipse(proj_x - 45, proj_y - 45, 90, 90);
 
     location_pixmaps_.push_back(pixmap);
-    image_ids_.push_back(track_el.image_id);
+    image_ids_.push_back(track_el.first.image_id);
     reproj_errors_.push_back(reproj_error);
+    image_names_.push_back(image.Name());
   }
 
   UpdateImages();
@@ -199,6 +232,7 @@ void PointViewerWidget::closeEvent(QCloseEvent* event) {
   location_pixmaps_.clear();
   image_ids_.clear();
   reproj_errors_.clear();
+  image_names_.clear();
   ClearLocations();
 }
 
@@ -230,10 +264,12 @@ void PointViewerWidget::UpdateImages() {
 
   for (size_t i = 0; i < location_pixmaps_.size(); ++i) {
     QLabel* image_id_label = new QLabel(QString::number(image_ids_[i]), this);
+    image_id_label->setAlignment(Qt::AlignCenter);
     location_table_->setCellWidget(i, 0, image_id_label);
     location_labels_.push_back(image_id_label);
 
     QLabel* error_label = new QLabel(QString::number(reproj_errors_[i]), this);
+    error_label->setAlignment(Qt::AlignCenter);
     location_table_->setCellWidget(i, 1, error_label);
     location_labels_.push_back(error_label);
 
@@ -244,6 +280,11 @@ void PointViewerWidget::UpdateImages() {
     location_table_->setCellWidget(i, 2, image_label);
     location_table_->resizeRowToContents(i);
     location_labels_.push_back(image_label);
+
+    QLabel* image_name_label = new QLabel(image_names_[i].c_str(), this);
+    image_name_label->setAlignment(Qt::AlignCenter);
+    location_table_->setCellWidget(i, 3, image_name_label);
+    location_labels_.push_back(image_name_label);
   }
   location_table_->resizeColumnToContents(2);
 }

@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "estimators/generalized_absolute_pose.h"
 
@@ -316,8 +316,10 @@ void GP3PEstimator::Residuals(const std::vector<X_t>& points2D,
       const double x_1 = points2D[i].xy(1);
       const double inv_x_norm = 1 / std::sqrt(x_0 * x_0 + x_1 * x_1 + 1);
 
-      (*residuals)[i] =
+      const double cosine_dist =
           1 - inv_pcx_norm * inv_x_norm * (pcx_0 * x_0 + pcx_1 * x_1 + pcx_2);
+      (*residuals)[i] = cosine_dist * cosine_dist;
+
     } else {
       (*residuals)[i] = std::numeric_limits<double>::max();
     }

@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "feature/matching.h"
 
@@ -753,8 +753,6 @@ void SiftFeatureMatcher::Match(
     return;
   }
 
-  DatabaseTransaction database_transaction(database_);
-
   //////////////////////////////////////////////////////////////////////////////
   // Match the image pairs
   //////////////////////////////////////////////////////////////////////////////
@@ -903,6 +901,7 @@ void ExhaustiveFeatureMatcher::Run() {
         }
       }
 
+      DatabaseTransaction database_transaction(&database_);
       matcher_.Match(image_pairs);
 
       PrintElapsedTime(timer);
@@ -1004,6 +1003,7 @@ void SequentialFeatureMatcher::RunSequentialMatching(
       }
     }
 
+    DatabaseTransaction database_transaction(&database_);
     matcher_.Match(image_pairs);
 
     PrintElapsedTime(timer);
@@ -1295,6 +1295,7 @@ void SpatialFeatureMatcher::Run() {
       image_pairs.emplace_back(image_id, nn_image_id);
     }
 
+    DatabaseTransaction database_transaction(&database_);
     matcher_.Match(image_pairs);
 
     PrintElapsedTime(timer);
@@ -1374,6 +1375,7 @@ void TransitiveFeatureMatcher::Run() {
                 num_batches += 1;
                 std::cout << StringPrintf("  Batch %d", num_batches)
                           << std::flush;
+                DatabaseTransaction database_transaction(&database_);
                 matcher_.Match(image_pairs);
                 image_pairs.clear();
                 PrintElapsedTime(timer);
@@ -1392,6 +1394,7 @@ void TransitiveFeatureMatcher::Run() {
 
     num_batches += 1;
     std::cout << StringPrintf("  Batch %d", num_batches) << std::flush;
+    DatabaseTransaction database_transaction(&database_);
     matcher_.Match(image_pairs);
     PrintElapsedTime(timer);
   }
@@ -1436,6 +1439,7 @@ void ImagePairsFeatureMatcher::Run() {
 
   std::string line;
   std::vector<std::pair<image_t, image_t>> image_pairs;
+  std::unordered_set<colmap::image_pair_t> image_pairs_set;
   while (std::getline(file, line)) {
     StringTrim(&line);
 
@@ -1464,8 +1468,14 @@ void ImagePairsFeatureMatcher::Run() {
       continue;
     }
 
-    image_pairs.emplace_back(image_name_to_image_id.at(image_name1),
-                             image_name_to_image_id.at(image_name2));
+    const image_t image_id1 = image_name_to_image_id.at(image_name1);
+    const image_t image_id2 = image_name_to_image_id.at(image_name2);
+    const image_pair_t image_pair =
+        Database::ImagePairToPairId(image_id1, image_id2);
+    const bool image_pair_exists = image_pairs_set.insert(image_pair).second;
+    if (image_pair_exists) {
+      image_pairs.emplace_back(image_id1, image_id2);
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1498,6 +1508,7 @@ void ImagePairsFeatureMatcher::Run() {
       block_image_pairs.push_back(image_pairs[j]);
     }
 
+    DatabaseTransaction database_transaction(&database_);
     matcher_.Match(block_image_pairs);
 
     PrintElapsedTime(timer);

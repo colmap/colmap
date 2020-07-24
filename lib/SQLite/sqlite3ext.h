@@ -295,6 +295,46 @@ struct sqlite3_api_routines {
   int (*vtab_nochange)(sqlite3_context*);
   int (*value_nochange)(sqlite3_value*);
   const char *(*vtab_collation)(sqlite3_index_info*,int);
+  /* Version 3.24.0 and later */
+  int (*keyword_count)(void);
+  int (*keyword_name)(int,const char**,int*);
+  int (*keyword_check)(const char*,int);
+  sqlite3_str *(*str_new)(sqlite3*);
+  char *(*str_finish)(sqlite3_str*);
+  void (*str_appendf)(sqlite3_str*, const char *zFormat, ...);
+  void (*str_vappendf)(sqlite3_str*, const char *zFormat, va_list);
+  void (*str_append)(sqlite3_str*, const char *zIn, int N);
+  void (*str_appendall)(sqlite3_str*, const char *zIn);
+  void (*str_appendchar)(sqlite3_str*, int N, char C);
+  void (*str_reset)(sqlite3_str*);
+  int (*str_errcode)(sqlite3_str*);
+  int (*str_length)(sqlite3_str*);
+  char *(*str_value)(sqlite3_str*);
+  /* Version 3.25.0 and later */
+  int (*create_window_function)(sqlite3*,const char*,int,int,void*,
+                            void (*xStep)(sqlite3_context*,int,sqlite3_value**),
+                            void (*xFinal)(sqlite3_context*),
+                            void (*xValue)(sqlite3_context*),
+                            void (*xInv)(sqlite3_context*,int,sqlite3_value**),
+                            void(*xDestroy)(void*));
+  /* Version 3.26.0 and later */
+  const char *(*normalized_sql)(sqlite3_stmt*);
+  /* Version 3.28.0 and later */
+  int (*stmt_isexplain)(sqlite3_stmt*);
+  int (*value_frombind)(sqlite3_value*);
+  /* Version 3.30.0 and later */
+  int (*drop_modules)(sqlite3*,const char**);
+  /* Version 3.31.0 and later */
+  sqlite3_int64 (*hard_heap_limit64)(sqlite3_int64);
+  const char *(*uri_key)(const char*,int);
+  const char *(*filename_database)(const char*);
+  const char *(*filename_journal)(const char*);
+  const char *(*filename_wal)(const char*);
+  /* Version 3.32.0 and later */
+  char *(*create_filename)(const char*,const char*,const char*,
+                           int,const char**);
+  void (*free_filename)(char*);
+  sqlite3_file *(*database_file_object)(const char*);
 };
 
 /*
@@ -565,6 +605,40 @@ typedef int (*sqlite3_loadext_entry)(
 #define sqlite3_vtab_nochange          sqlite3_api->vtab_nochange
 #define sqlite3_value_nochange         sqlite3_api->value_nochange
 #define sqlite3_vtab_collation         sqlite3_api->vtab_collation
+/* Version 3.24.0 and later */
+#define sqlite3_keyword_count          sqlite3_api->keyword_count
+#define sqlite3_keyword_name           sqlite3_api->keyword_name
+#define sqlite3_keyword_check          sqlite3_api->keyword_check
+#define sqlite3_str_new                sqlite3_api->str_new
+#define sqlite3_str_finish             sqlite3_api->str_finish
+#define sqlite3_str_appendf            sqlite3_api->str_appendf
+#define sqlite3_str_vappendf           sqlite3_api->str_vappendf
+#define sqlite3_str_append             sqlite3_api->str_append
+#define sqlite3_str_appendall          sqlite3_api->str_appendall
+#define sqlite3_str_appendchar         sqlite3_api->str_appendchar
+#define sqlite3_str_reset              sqlite3_api->str_reset
+#define sqlite3_str_errcode            sqlite3_api->str_errcode
+#define sqlite3_str_length             sqlite3_api->str_length
+#define sqlite3_str_value              sqlite3_api->str_value
+/* Version 3.25.0 and later */
+#define sqlite3_create_window_function sqlite3_api->create_window_function
+/* Version 3.26.0 and later */
+#define sqlite3_normalized_sql         sqlite3_api->normalized_sql
+/* Version 3.28.0 and later */
+#define sqlite3_stmt_isexplain         sqlite3_api->stmt_isexplain
+#define sqlite3_value_frombind         sqlite3_api->value_frombind
+/* Version 3.30.0 and later */
+#define sqlite3_drop_modules           sqlite3_api->drop_modules
+/* Version 3.31.0 and later */
+#define sqlite3_hard_heap_limit64      sqlite3_api->hard_heap_limit64
+#define sqlite3_uri_key                sqlite3_api->uri_key
+#define sqlite3_filename_database      sqlite3_api->filename_database
+#define sqlite3_filename_journal       sqlite3_api->filename_journal
+#define sqlite3_filename_wal           sqlite3_api->filename_wal
+/* Version 3.32.0 and later */
+#define sqlite3_create_filename        sqlite3_api->create_filename
+#define sqlite3_free_filename          sqlite3_api->free_filename
+#define sqlite3_database_file_object   sqlite3_api->database_file_object
 #endif /* !defined(SQLITE_CORE) && !defined(SQLITE_OMIT_LOAD_EXTENSION) */
 
 #if !defined(SQLITE_CORE) && !defined(SQLITE_OMIT_LOAD_EXTENSION)

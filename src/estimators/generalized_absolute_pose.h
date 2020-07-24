@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_ESTIMATORS_GENERALIZED_ABSOLUTE_POSE_H_
 #define COLMAP_SRC_ESTIMATORS_GENERALIZED_ABSOLUTE_POSE_H_
@@ -74,8 +74,9 @@ class GP3PEstimator {
   static std::vector<M_t> Estimate(const std::vector<X_t>& points2D,
                                    const std::vector<Y_t>& points3D);
 
-  // Calculate the cosine distance error between the rays given a set of 2D-3D
-  // point correspondences and a projection matrix of the generalized camera.
+  // Calculate the squared cosine distance error between the rays given a set of
+  // 2D-3D point correspondences and a projection matrix of the generalized
+  // camera.
   static void Residuals(const std::vector<X_t>& points2D,
                         const std::vector<Y_t>& points3D,
                         const M_t& proj_matrix, std::vector<double>* residuals);

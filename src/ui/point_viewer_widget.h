@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #ifndef COLMAP_SRC_UI_POINT_VIEWER_WIDGET_H_
 #define COLMAP_SRC_UI_POINT_VIEWER_WIDGET_H_
@@ -77,6 +77,7 @@ class PointViewerWidget : public QWidget {
   std::vector<QLabel*> location_labels_;
   std::vector<image_t> image_ids_;
   std::vector<double> reproj_errors_;
+  std::vector<std::string> image_names_;
 
   QPushButton* zoom_in_button_;
   QPushButton* zoom_out_button_;

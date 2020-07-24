@@ -89,8 +89,8 @@ Dependencies from the default Ubuntu repositories::
         libqt5opengl5-dev \
         libcgal-dev
 
-Under Ubuntu 16.04 the CMake configuration scripts of CGAL are broken and you
-must also install the CGAL Qt5 package::
+Under Ubuntu 16.04/18.04 the CMake configuration scripts of CGAL are broken and
+you must also install the CGAL Qt5 package::
 
     sudo apt-get install libcgal-qt5-dev
 
@@ -103,7 +103,7 @@ Install `Ceres Solver <http://ceres-solver.org/>`_::
     mkdir build
     cd build
     cmake .. -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF
-    make
+    make -j
     sudo make install
 
 Configure and compile COLMAP::
@@ -114,7 +114,7 @@ Configure and compile COLMAP::
     mkdir build
     cd build
     cmake ..
-    make
+    make -j
     sudo make install
 
 Under newer Ubuntu versions it might be necessary to explicitly select the used

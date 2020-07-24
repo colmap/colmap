@@ -27,7 +27,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch at inf.ethz.ch)
+// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "sfm/incremental_mapper.h"
 
@@ -113,14 +113,18 @@ void IncrementalMapper::BeginReconstruction(Reconstruction* reconstruction) {
       &database_cache_->CorrespondenceGraph(), reconstruction));
 
   num_shared_reg_images_ = 0;
+  num_reg_images_per_camera_.clear();
   for (const image_t image_id : reconstruction_->RegImageIds()) {
     RegisterImageEvent(image_id);
   }
 
+  existing_image_ids_ =
+      std::unordered_set<image_t>(reconstruction->RegImageIds().begin(),
+                                  reconstruction->RegImageIds().end());
+
   prev_init_image_pair_id_ = kInvalidImagePairId;
   prev_init_two_view_geometry_ = TwoViewGeometry();
 
-  refined_cameras_.clear();
   filtered_images_.clear();
   num_reg_trials_.clear();
 }
@@ -441,18 +445,18 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       options.abs_pose_min_inlier_ratio;
   // Use high confidence to avoid preemptive termination of P3P RANSAC
   // - too early termination may lead to bad registration.
-  abs_pose_options.ransac_options.min_num_trials = 30;
-  abs_pose_options.ransac_options.confidence = 0.9999;
+  abs_pose_options.ransac_options.min_num_trials = 100;
+  abs_pose_options.ransac_options.max_num_trials = 10000;
+  abs_pose_options.ransac_options.confidence = 0.99999;
 
   AbsolutePoseRefinementOptions abs_pose_refinement_options;
-  if (refined_cameras_.count(image.CameraId()) > 0) {
+  if (num_reg_images_per_camera_[image.CameraId()] > 0) {
     // Camera already refined from another image with the same camera.
     if (camera.HasBogusParams(options.min_focal_length_ratio,
                               options.max_focal_length_ratio,
                               options.max_extra_param)) {
       // Previously refined camera has bogus parameters,
       // so reset parameters and try to re-refine.
-      refined_cameras_.erase(image.CameraId());
       camera.SetParams(database_cache_->Camera(image.CameraId()).Params());
       abs_pose_options.estimate_focal_length = !camera.HasPriorFocalLength();
       abs_pose_refinement_options.refine_focal_length = true;
@@ -460,6 +464,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
     } else {
       abs_pose_options.estimate_focal_length = false;
       abs_pose_refinement_options.refine_focal_length = false;
+      abs_pose_refinement_options.refine_extra_params = false;
     }
   } else {
     // Camera not refined before.
@@ -515,15 +520,10 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
         const point3D_t point3D_id = tri_corrs[i].second;
         const TrackElement track_el(image_id, point2D_idx);
         reconstruction_->AddObservation(point3D_id, track_el);
+        triangulator_->AddModifiedPoint3D(point3D_id);
       }
     }
   }
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Update data
-  //////////////////////////////////////////////////////////////////////////////
-
-  refined_cameras_.insert(image.CameraId());
 
   return true;
 }
@@ -574,13 +574,43 @@ IncrementalMapper::AdjustLocalBundle(
       ba_config.AddImage(local_image_id);
     }
 
+    // Fix the existing images, if option specified.
+    if (options.fix_existing_images) {
+      for (const image_t local_image_id : local_bundle) {
+        if (existing_image_ids_.count(local_image_id)) {
+          ba_config.SetConstantPose(local_image_id);
+        }
+      }
+    }
+
+    // Determine which cameras to fix, when not all the registered images
+    // are within the current local bundle.
+    std::unordered_map<camera_t, size_t> num_images_per_camera;
+    for (const image_t image_id : ba_config.Images()) {
+      const Image& image = reconstruction_->Image(image_id);
+      num_images_per_camera[image.CameraId()] += 1;
+    }
+
+    for (const auto& camera_id_and_num_images_pair : num_images_per_camera) {
+      const size_t num_reg_images_for_camera =
+          num_reg_images_per_camera_.at(camera_id_and_num_images_pair.first);\
+      if (camera_id_and_num_images_pair.second < num_reg_images_for_camera) {
+        ba_config.SetConstantCamera(camera_id_and_num_images_pair.first);
+      }
+    }
+
     // Fix 7 DOF to avoid scale/rotation/translation drift in bundle adjustment.
     if (local_bundle.size() == 1) {
       ba_config.SetConstantPose(local_bundle[0]);
       ba_config.SetConstantTvec(image_id, {0});
     } else if (local_bundle.size() > 1) {
-      ba_config.SetConstantPose(local_bundle[local_bundle.size() - 1]);
-      ba_config.SetConstantTvec(local_bundle[local_bundle.size() - 2], {0});
+      const image_t image_id1 = local_bundle[local_bundle.size() - 1];
+      const image_t image_id2 = local_bundle[local_bundle.size() - 2];
+      ba_config.SetConstantPose(image_id1);
+      if (!options.fix_existing_images ||
+          !existing_image_ids_.count(image_id2)) {
+        ba_config.SetConstantTvec(image_id2, {0});
+      }
     }
 
     // Make sure, we refine all new and short-track 3D points, no matter if
@@ -636,7 +666,7 @@ IncrementalMapper::AdjustLocalBundle(
 }
 
 bool IncrementalMapper::AdjustGlobalBundle(
-    const BundleAdjustmentOptions& ba_options) {
+    const Options& options, const BundleAdjustmentOptions& ba_options) {
   CHECK_NOTNULL(reconstruction_);
 
   const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
@@ -653,8 +683,22 @@ bool IncrementalMapper::AdjustGlobalBundle(
   for (const image_t image_id : reg_image_ids) {
     ba_config.AddImage(image_id);
   }
+
+  // Fix the existing images, if option specified.
+  if (options.fix_existing_images) {
+    for (const image_t image_id : reg_image_ids) {
+      if (existing_image_ids_.count(image_id)) {
+        ba_config.SetConstantPose(image_id);
+      }
+    }
+  }
+
+  // Fix 7-DOFs of the bundle adjustment problem.
   ba_config.SetConstantPose(reg_image_ids[0]);
-  ba_config.SetConstantTvec(reg_image_ids[1], {0});
+  if (!options.fix_existing_images ||
+      !existing_image_ids_.count(reg_image_ids[1])) {
+    ba_config.SetConstantTvec(reg_image_ids[1], {0});
+  }
 
   // Run bundle adjustment.
   BundleAdjuster bundle_adjuster(ba_options, ba_config);
@@ -1065,6 +1109,11 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
 }
 
 void IncrementalMapper::RegisterImageEvent(const image_t image_id) {
+  const Image& image = reconstruction_->Image(image_id);
+  size_t& num_reg_images_for_camera =
+      num_reg_images_per_camera_[image.CameraId()];
+  num_reg_images_for_camera += 1;
+
   size_t& num_regs_for_image = num_registrations_[image_id];
   num_regs_for_image += 1;
   if (num_regs_for_image == 1) {
@@ -1075,6 +1124,12 @@ void IncrementalMapper::RegisterImageEvent(const image_t image_id) {
 }
 
 void IncrementalMapper::DeRegisterImageEvent(const image_t image_id) {
+  const Image& image = reconstruction_->Image(image_id);
+  size_t& num_reg_images_for_camera =
+      num_reg_images_per_camera_.at(image.CameraId());
+  CHECK_GT(num_reg_images_for_camera, 0);
+  num_reg_images_for_camera -= 1;
+
   size_t& num_regs_for_image = num_registrations_[image_id];
   num_regs_for_image -= 1;
   if (num_regs_for_image == 0) {
