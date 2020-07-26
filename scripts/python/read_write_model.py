@@ -407,7 +407,27 @@ def write_points3d_binary(points3D, path_to_model_file):
                 write_next_bytes(fid, [image_id, point2D_id], "ii")
 
 
-def read_model(path, ext):
+def detect_model_format(path, ext):
+    if os.path.isfile(os.path.join(path, "cameras"  + ext)) and \
+       os.path.isfile(os.path.join(path, "images"   + ext)) and \
+       os.path.isfile(os.path.join(path, "points3D" + ext)):
+        print("Detected model format: '" + ext + "'")
+        return True
+
+    return False
+
+
+def read_model(path, ext=""):
+    # try to detect the extension automatically
+    if ext == "":
+        if detect_model_format(path, ".bin"):
+            ext = ".bin"
+        elif detect_model_format(path, ".txt"):
+            ext = ".txt"
+        else:
+            print("Provide model format: '.bin' or '.txt'")
+            return
+
     if ext == ".txt":
         cameras = read_cameras_text(os.path.join(path, "cameras" + ext))
         images = read_images_text(os.path.join(path, "images" + ext))
@@ -419,7 +439,7 @@ def read_model(path, ext):
     return cameras, images, points3D
 
 
-def write_model(cameras, images, points3D, path, ext):
+def write_model(cameras, images, points3D, path, ext=".bin"):
     if ext == ".txt":
         write_cameras_text(cameras, os.path.join(path, "cameras" + ext))
         write_images_text(images, os.path.join(path, "images" + ext))
