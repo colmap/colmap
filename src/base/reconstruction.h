@@ -266,6 +266,7 @@ class Reconstruction {
   // Import from other data formats. Note that these import functions are
   // only intended for visualization of data and usable for reconstruction.
   void ImportPLY(const std::string& path);
+  void ImportPLY(const std::vector<PlyPoint>& ply_points);
 
   // Export to other data formats.
   bool ExportNVM(const std::string& path) const;
