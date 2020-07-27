@@ -864,13 +864,13 @@ void Reconstruction::ImportPLY(const std::string& path) {
   }
 }
 
-void Reconstruction::ImportPLY(const std::vector<PlyPoint> &plyPoints)
+void Reconstruction::ImportPLY(const std::vector<PlyPoint> &ply_points)
 {
   points3D_.clear();
-  points3D_.reserve(plyPoints.size());
-  for (const auto& plyPoint : plyPoints) {
-    AddPoint3D(Eigen::Vector3d(plyPoint.x, plyPoint.y, plyPoint.z), Track(),
-               Eigen::Vector3ub(plyPoint.r, plyPoint.g, plyPoint.b));
+  points3D_.reserve(ply_points.size());
+  for (const auto& ply_point : ply_points) {
+    AddPoint3D(Eigen::Vector3d(ply_point.x, ply_point.y, ply_point.z), Track(),
+               Eigen::Vector3ub(ply_point.r, ply_point.g, ply_point.b));
   }
 }
 

@@ -306,11 +306,14 @@ int RunStereoFuser(int argc, char** argv) {
   Reconstruction reconstruction;
 
   // read data from sparse reconstruction
-  if (workspace_format == "colmap" )
+  if (workspace_format == "colmap") {
     reconstruction.Read(JoinPaths(workspace_path, "sparse"));
+  }
 
   // overwrite sparse point cloud with dense point cloud from fuser
   reconstruction.ImportPLY(fuser.GetFusedPoints());
+
+  std::cout << "Writing output: " << output_path << std::endl;
 
   // write output
   StringToLower(&output_type);
@@ -319,7 +322,6 @@ int RunStereoFuser(int argc, char** argv) {
   } else if (output_type == "txt") {
     reconstruction.WriteText(output_path);
   } else if (output_type == "ply") {
-    std::cout << "Writing output: " << output_path << std::endl;
     WriteBinaryPlyPoints(output_path, fuser.GetFusedPoints());
     mvs::WritePointsVisibility(output_path + ".vis",
                                fuser.GetFusedPointsVisibility());
