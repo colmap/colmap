@@ -265,8 +265,8 @@ int RunStereoFuser(int argc, char** argv) {
   std::string input_type = "geometric";
   std::string workspace_format = "COLMAP";
   std::string pmvs_option_name = "option-all";
+  std::string output_type = "PLY";
   std::string output_path;
-  std::string output_type;
 
   OptionManager options;
   options.AddRequiredOption("workspace_path", &workspace_path);
@@ -275,9 +275,9 @@ int RunStereoFuser(int argc, char** argv) {
   options.AddDefaultOption("pmvs_option_name", &pmvs_option_name);
   options.AddDefaultOption("input_type", &input_type,
                            "{photometric, geometric}");
-  options.AddRequiredOption("output_path", &output_path);
-  options.AddRequiredOption("output_type", &output_type,
+  options.AddDefaultOption("output_type", &output_type,
                             "{BIN, TXT, PLY}");
+  options.AddRequiredOption("output_path", &output_path);
   options.AddStereoFusionOptions();
   options.Parse(argc, argv);
 
