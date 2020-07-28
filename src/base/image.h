@@ -125,7 +125,7 @@ class Image {
   inline bool HasQvecPrior() const;
   inline void SetQvecPrior(const Eigen::Vector4d& qvec);
 
-  // Access quaternion vector as (tx, ty, tz) specifying the translation of the
+  // Access translation vector as (tx, ty, tz) specifying the translation of the
   // pose which is defined as the transformation from world to image space.
   inline const Eigen::Vector3d& Tvec() const;
   inline Eigen::Vector3d& Tvec();
@@ -133,7 +133,7 @@ class Image {
   inline double& Tvec(const size_t idx);
   inline void SetTvec(const Eigen::Vector3d& tvec);
 
-  // Quaternion prior, e.g. given by EXIF GPS tag.
+  // Translation prior, e.g. given by EXIF GPS tag.
   inline const Eigen::Vector3d& TvecPrior() const;
   inline Eigen::Vector3d& TvecPrior();
   inline double TvecPrior(const size_t idx) const;
