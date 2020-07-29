@@ -60,7 +60,7 @@ class SimilarityTransform3 {
   SimilarityTransform3(const double scale, const Eigen::Vector4d& qvec,
                        const Eigen::Vector3d& tvec);
 
-  void Estimate(const std::vector<Eigen::Vector3d>& src,
+  bool Estimate(const std::vector<Eigen::Vector3d>& src,
                 const std::vector<Eigen::Vector3d>& dst);
 
   SimilarityTransform3 Inverse() const;

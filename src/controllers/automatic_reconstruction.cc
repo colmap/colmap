@@ -229,14 +229,6 @@ void AutomaticReconstructionController::RunSparseMapper() {
 }
 
 void AutomaticReconstructionController::RunDenseMapper() {
-#ifndef CUDA_ENABLED
-  std::cout
-      << std::endl
-      << "WARNING: Skipping dense reconstruction because CUDA is not available."
-      << std::endl;
-  return;
-#endif  // CUDA_ENABLED
-
   CreateDirIfNotExists(JoinPaths(options_.workspace_path, "dense"));
 
   for (size_t i = 0; i < reconstruction_manager_->Size(); ++i) {
@@ -282,6 +274,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     // Patch match stereo.
 
+#ifdef CUDA_ENABLED
     {
       mvs::PatchMatchController patch_match_controller(
           *option_manager_.patch_match_stereo, dense_path, "COLMAP", "");
@@ -290,6 +283,13 @@ void AutomaticReconstructionController::RunDenseMapper() {
       patch_match_controller.Wait();
       active_thread_ = nullptr;
     }
+#else   // CUDA_ENABLED
+    std::cout
+        << std::endl
+        << "WARNING: Skipping patch match stereo because CUDA is not available."
+        << std::endl;
+    return;
+#endif  // CUDA_ENABLED
 
     if (IsStopped()) {
       return;
@@ -330,12 +330,13 @@ void AutomaticReconstructionController::RunDenseMapper() {
 #ifdef CGAL_ENABLED
         mvs::DenseDelaunayMeshing(*option_manager_.delaunay_meshing, dense_path,
                                   meshing_path);
-#else   // CGAL_ENABLED
+#else  // CGAL_ENABLED
         std::cout << std::endl
                   << "WARNING: Skipping Delaunay meshing because CGAL is "
                      "not available."
                   << std::endl;
         return;
+
 #endif  // CGAL_ENABLED
       }
     }

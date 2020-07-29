@@ -298,6 +298,8 @@ CustomMatchingTab::CustomMatchingTab(QWidget* parent, OptionManager* options)
   options_widget_->AddOptionRow("type", match_type_cb_, nullptr);
 
   options_widget_->AddOptionFilePath(&match_list_path_, "match_list_path");
+  options_widget_->AddOptionInt(&options_->image_pairs_matching->block_size,
+                                "block_size", 2);
 
   CreateGeneralOptions();
 }

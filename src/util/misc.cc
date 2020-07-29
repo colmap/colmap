@@ -120,10 +120,10 @@ std::string GetRelativePath(const std::string& from, const std::string& to) {
   // A native implementation in boost::filesystem is only available starting
   // from boost version 1.60.
   using namespace boost::filesystem;
-  
+
   path from_path = canonical(path(from));
   path to_path = canonical(path(to));
-  
+
   // Start at the root path and while they are the same then do nothing then
   // when they first diverge take the entire from path, swap it with '..'
   // segments, and then append the remainder of the to path.
@@ -132,22 +132,22 @@ std::string GetRelativePath(const std::string& from, const std::string& to) {
 
   // Loop through both while they are the same to find nearest common directory
   while (from_iter != from_path.end() && to_iter != to_path.end() &&
-        (*to_iter) == (*from_iter)) {
-    ++ to_iter;
-    ++ from_iter;
+         (*to_iter) == (*from_iter)) {
+    ++to_iter;
+    ++from_iter;
   }
 
   // Replace from path segments with '..' (from => nearest common directory)
   path rel_path;
   while (from_iter != from_path.end()) {
     rel_path /= "..";
-    ++ from_iter;
+    ++from_iter;
   }
 
   // Append the remainder of the to path (nearest common directory => to)
   while (to_iter != to_path.end()) {
     rel_path /= *to_iter;
-    ++ to_iter;
+    ++to_iter;
   }
 
   return rel_path.string();
@@ -245,7 +245,7 @@ std::vector<int> CSVToVector(const std::string& csv) {
     }
     try {
       values.push_back(std::stoi(elem));
-    } catch (std::exception) {
+    } catch (const std::invalid_argument&) {
       return std::vector<int>(0);
     }
   }
@@ -264,7 +264,7 @@ std::vector<float> CSVToVector(const std::string& csv) {
     }
     try {
       values.push_back(std::stod(elem));
-    } catch (std::exception) {
+    } catch (const std::invalid_argument&) {
       return std::vector<float>(0);
     }
   }
@@ -283,7 +283,7 @@ std::vector<double> CSVToVector(const std::string& csv) {
     }
     try {
       values.push_back(std::stold(elem));
-    } catch (std::exception) {
+    } catch (const std::invalid_argument&) {
       return std::vector<double>(0);
     }
   }

@@ -109,11 +109,14 @@ SimilarityTransformEstimator<kDim, kEstimateScale>::Estimate(
     dst_mat.col(i) = dst[i];
   }
 
-  std::vector<M_t> models(1);
-  models[0] = Eigen::umeyama(src_mat, dst_mat, kEstimateScale)
-                  .topLeftCorner(kDim, kDim + 1);
+  const auto model = Eigen::umeyama(src_mat, dst_mat, kEstimateScale)
+                         .topLeftCorner(kDim, kDim + 1);
 
-  return models;
+  if (model.array().isNaN().any()) {
+    return std::vector<M_t>{};
+  }
+
+  return {model};
 }
 
 template <int kDim, bool kEstimateScale>

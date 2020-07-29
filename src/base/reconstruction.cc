@@ -554,7 +554,10 @@ bool Reconstruction::Align(const std::vector<std::string>& image_names,
   }
 
   SimilarityTransform3 tform;
-  tform.Estimate(src, dst);
+  if (!tform.Estimate(src, dst)) {
+    return false;
+  }
+
   Transform(tform);
 
   return true;

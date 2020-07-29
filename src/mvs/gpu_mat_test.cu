@@ -29,6 +29,10 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
+#ifdef __CUDACC__
+#define BOOST_PP_VARIADICS 0
+#endif  // __CUDACC__
+
 #define TEST_NAME "mvs/gpu_mat_test"
 #include "util/testing.h"
 

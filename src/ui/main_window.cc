@@ -29,6 +29,8 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
+#include <clocale>
+
 #include "ui/main_window.h"
 
 #include "util/version.h"
@@ -39,6 +41,7 @@ MainWindow::MainWindow(const OptionManager& options)
     : options_(options),
       thread_control_widget_(new ThreadControlWidget(this)),
       window_closed_(false) {
+  std::setlocale(LC_NUMERIC, "C");
   resize(1024, 600);
   UpdateWindowTitle();
 
