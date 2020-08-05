@@ -536,7 +536,7 @@ void EPNPEstimator::ComputePcs() {
 }
 
 void EPNPEstimator::SolveForSign() {
-  if (pcs_[0][2] < 0.0 || pcs_[0][2] > 0.0) {
+  if (pcs_[0][2] < 0.0) {
     for (int i = 0; i < 4; ++i) {
       ccs_[i] = -ccs_[i];
     }
