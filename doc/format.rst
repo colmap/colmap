@@ -57,7 +57,7 @@ To convert between various formats from the CLI, use the ``model_converter``
 executable.
 
 There are two source files to conveniently read the sparse reconstructions using
-Python (``scripts/python/read_model.py`` supporting binary and text) and Matlab
+Python (``scripts/python/read_write_model.py`` supporting binary and text) and Matlab
 (``scripts/matlab/read_model.m`` supporting text).
 
 

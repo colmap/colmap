@@ -134,7 +134,7 @@ def read_cameras_binary(path_to_model_file):
     cameras = {}
     with open(path_to_model_file, "rb") as fid:
         num_cameras = read_next_bytes(fid, 8, "Q")[0]
-        for camera_line_index in range(num_cameras):
+        for _ in range(num_cameras):
             camera_properties = read_next_bytes(
                 fid, num_bytes=24, format_char_sequence="iiQQ")
             camera_id = camera_properties[0]
@@ -160,9 +160,9 @@ def write_cameras_text(cameras, path):
         void Reconstruction::WriteCamerasText(const std::string& path)
         void Reconstruction::ReadCamerasText(const std::string& path)
     """
-    HEADER = '# Camera list with one line of data per camera:\n'
-    '#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]\n'
-    '# Number of cameras: {}\n'.format(len(cameras))
+    HEADER = "# Camera list with one line of data per camera:\n"
+    "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]\n"
+    "# Number of cameras: {}\n".format(len(cameras))
     with open(path, "w") as fid:
         fid.write(HEADER)
         for _, cam in cameras.items():
@@ -231,7 +231,7 @@ def read_images_binary(path_to_model_file):
     images = {}
     with open(path_to_model_file, "rb") as fid:
         num_reg_images = read_next_bytes(fid, 8, "Q")[0]
-        for image_index in range(num_reg_images):
+        for _ in range(num_reg_images):
             binary_image_properties = read_next_bytes(
                 fid, num_bytes=64, format_char_sequence="idddddddi")
             image_id = binary_image_properties[0]
@@ -267,10 +267,10 @@ def write_images_text(images, path):
         mean_observations = 0
     else:
         mean_observations = sum((len(img.point3D_ids) for _, img in images.items()))/len(images)
-    HEADER = '# Image list with two lines of data per image:\n'
-    '#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, NAME\n'
-    '#   POINTS2D[] as (X, Y, POINT3D_ID)\n'
-    '# Number of images: {}, mean observations per image: {}\n'.format(len(images), mean_observations)
+    HEADER = "# Image list with two lines of data per image:\n"
+    "#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, NAME\n"
+    "#   POINTS2D[] as (X, Y, POINT3D_ID)\n"
+    "# Number of images: {}, mean observations per image: {}\n".format(len(images), mean_observations)
 
     with open(path, "w") as fid:
         fid.write(HEADER)
@@ -342,7 +342,7 @@ def read_points3d_binary(path_to_model_file):
     points3D = {}
     with open(path_to_model_file, "rb") as fid:
         num_points = read_next_bytes(fid, 8, "Q")[0]
-        for point_line_index in range(num_points):
+        for _ in range(num_points):
             binary_point_line_properties = read_next_bytes(
                 fid, num_bytes=43, format_char_sequence="QdddBBBd")
             point3D_id = binary_point_line_properties[0]
@@ -373,9 +373,9 @@ def write_points3D_text(points3D, path):
         mean_track_length = 0
     else:
         mean_track_length = sum((len(pt.image_ids) for _, pt in points3D.items()))/len(points3D)
-    HEADER = '# 3D point list with one line of data per point:\n'
-    '#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, TRACK[] as (IMAGE_ID, POINT2D_IDX)\n'
-    '# Number of points: {}, mean track length: {}\n'.format(len(points3D), mean_track_length)
+    HEADER = "# 3D point list with one line of data per point:\n"
+    "#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, TRACK[] as (IMAGE_ID, POINT2D_IDX)\n"
+    "# Number of points: {}, mean track length: {}\n".format(len(points3D), mean_track_length)
 
     with open(path, "w") as fid:
         fid.write(HEADER)
@@ -407,7 +407,27 @@ def write_points3d_binary(points3D, path_to_model_file):
                 write_next_bytes(fid, [image_id, point2D_id], "ii")
 
 
-def read_model(path, ext):
+def detect_model_format(path, ext):
+    if os.path.isfile(os.path.join(path, "cameras"  + ext)) and \
+       os.path.isfile(os.path.join(path, "images"   + ext)) and \
+       os.path.isfile(os.path.join(path, "points3D" + ext)):
+        print("Detected model format: '" + ext + "'")
+        return True
+
+    return False
+
+
+def read_model(path, ext=""):
+    # try to detect the extension automatically
+    if ext == "":
+        if detect_model_format(path, ".bin"):
+            ext = ".bin"
+        elif detect_model_format(path, ".txt"):
+            ext = ".txt"
+        else:
+            print("Provide model format: '.bin' or '.txt'")
+            return
+
     if ext == ".txt":
         cameras = read_cameras_text(os.path.join(path, "cameras" + ext))
         images = read_images_text(os.path.join(path, "images" + ext))
@@ -419,7 +439,7 @@ def read_model(path, ext):
     return cameras, images, points3D
 
 
-def write_model(cameras, images, points3D, path, ext):
+def write_model(cameras, images, points3D, path, ext=".bin"):
     if ext == ".txt":
         write_cameras_text(cameras, os.path.join(path, "cameras" + ext))
         write_images_text(images, os.path.join(path, "images" + ext))
@@ -459,14 +479,14 @@ def rotmat2qvec(R):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Read and write COLMAP binary and text models')
-    parser.add_argument('input_model', help='path to input model folder')
-    parser.add_argument('input_format', choices=['.bin', '.txt'],
-                        help='input model format')
-    parser.add_argument('--output_model', metavar='PATH',
-                        help='path to output model folder')
-    parser.add_argument('--output_format', choices=['.bin', '.txt'],
-                        help='outut model format', default='.txt')
+    parser = argparse.ArgumentParser(description="Read and write COLMAP binary and text models")
+    parser.add_argument("--input_model", help="path to input model folder")
+    parser.add_argument("--input_format", choices=[".bin", ".txt"],
+                        help="input model format", default="")
+    parser.add_argument("--output_model",
+                        help="path to output model folder")
+    parser.add_argument("--output_format", choices=[".bin", ".txt"],
+                        help="outut model format", default=".txt")
     args = parser.parse_args()
 
     cameras, images, points3D = read_model(path=args.input_model, ext=args.input_format)

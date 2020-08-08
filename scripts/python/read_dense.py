@@ -97,12 +97,12 @@ def main():
     # Visualize the depth map.
     plt.figure()
     plt.imshow(depth_map)
-    plt.title('depth map')
+    plt.title("depth map")
 
     # Visualize the normal map.
     plt.figure()
     plt.imshow(normal_map)
-    plt.title('normal map')
+    plt.title("normal map")
 
     plt.show()
 
