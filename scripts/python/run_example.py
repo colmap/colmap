@@ -2,14 +2,14 @@ import colmap
 import argparse
 
 def main():
-    parser = argparse.ArgumentParser(description='Read and write COLMAP binary and text models')
-    parser.add_argument('--input_model', help='path to input model folder')
-    parser.add_argument('--input_format', choices=['.bin', '.txt'],
-                        help='input model format', default='')
-    parser.add_argument('--output_model', metavar='PATH',
-                        help='path to output model folder')
-    parser.add_argument('--output_format', choices=['.bin', '.txt'],
-                        help='outut model format', default='.txt')
+    parser = argparse.ArgumentParser(description="Read and write COLMAP binary and text models")
+    parser.add_argument("--input_model", required=True, help="path to input model folder")
+    parser.add_argument("--input_format", choices=[".bin", ".txt"],
+                        help="input model format", default="")
+    parser.add_argument("--output_model", metavar="PATH",
+                        help="path to output model folder")
+    parser.add_argument("--output_format", choices=[".bin", ".txt"],
+                        help="outut model format", default=".txt")
     args = parser.parse_args()
 
     # read COLMAP model
