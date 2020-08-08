@@ -106,6 +106,19 @@ SiftFeatureExtractor::SiftFeatureExtractor(
   const int num_threads = GetEffectiveNumThreads(sift_options_.num_threads);
   CHECK_GT(num_threads, 0);
 
+  if (sift_options_.num_threads == -1 &&
+      sift_options_.max_image_size == SiftExtractionOptions().max_image_size &&
+      sift_options_.max_image_size == SiftExtractionOptions().first_octave) {
+    std::cout << "WARNING: Your current options use the maximum number of "
+                 "threads on the machine to extract features. Exracting SIFT "
+                 "features on the CPU can consume a lot of RAM per thread for "
+                 "large images. Consider reducing the maximum "
+                 "image size and/or the first octave or manually limit the "
+                 "number of extraction threads. Ignore this warning, if your "
+                 "machine has sufficient memory for the current settings."
+              << std::endl;
+  }
+
   // Make sure that we only have limited number of objects in the queue to avoid
   // excess in memory usage since images and features take lots of memory.
   const int kQueueSize = 1;
