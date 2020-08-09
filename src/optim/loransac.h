@@ -112,7 +112,8 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
 
   const double max_residual = options_.max_error * options_.max_error;
 
-  std::vector<double> residuals(num_samples);
+  std::vector<double> residuals;
+  std::vector<double> best_local_residuals;
 
   std::vector<typename LocalEstimator::X_t> X_inlier;
   std::vector<typename LocalEstimator::Y_t> Y_inlier;
@@ -142,7 +143,7 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
     // Iterate through all estimated models
     for (const auto& sample_model : sample_models) {
       estimator.Residuals(X, Y, sample_model, &residuals);
-      CHECK_EQ(residuals.size(), X.size());
+      CHECK_EQ(residuals.size(), num_samples);
 
       const auto support = support_measurer.Evaluate(residuals, max_residual);
 
@@ -155,33 +156,51 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
         // Estimate locally optimized model from inliers.
         if (support.num_inliers > Estimator::kMinNumSamples &&
             support.num_inliers >= LocalEstimator::kMinNumSamples) {
-          X_inlier.clear();
-          Y_inlier.clear();
-          X_inlier.reserve(support.num_inliers);
-          Y_inlier.reserve(support.num_inliers);
-          for (size_t i = 0; i < residuals.size(); ++i) {
-            if (residuals[i] <= max_residual) {
-              X_inlier.push_back(X[i]);
-              Y_inlier.push_back(Y[i]);
+          // Recursive local optimization to expand inlier set.
+          const size_t kMaxNumLocalTrials = 10;
+          for (size_t local_num_trials = 0;
+               local_num_trials < kMaxNumLocalTrials; ++local_num_trials) {
+            X_inlier.clear();
+            Y_inlier.clear();
+            X_inlier.reserve(num_samples);
+            Y_inlier.reserve(num_samples);
+            for (size_t i = 0; i < residuals.size(); ++i) {
+              if (residuals[i] <= max_residual) {
+                X_inlier.push_back(X[i]);
+                Y_inlier.push_back(Y[i]);
+              }
             }
-          }
 
-          const std::vector<typename LocalEstimator::M_t> local_models =
-              local_estimator.Estimate(X_inlier, Y_inlier);
+            const std::vector<typename LocalEstimator::M_t> local_models =
+                local_estimator.Estimate(X_inlier, Y_inlier);
 
-          for (const auto& local_model : local_models) {
-            local_estimator.Residuals(X, Y, local_model, &residuals);
-            CHECK_EQ(residuals.size(), X.size());
+            const size_t prev_best_num_inliers = best_support.num_inliers;
 
-            const auto local_support =
-                support_measurer.Evaluate(residuals, max_residual);
+            for (const auto& local_model : local_models) {
+              local_estimator.Residuals(X, Y, local_model, &residuals);
+              CHECK_EQ(residuals.size(), num_samples);
 
-            // Check if non-locally optimized model is better.
-            if (support_measurer.Compare(local_support, best_support)) {
-              best_support = local_support;
-              best_model = local_model;
-              best_model_is_local = true;
+              const auto local_support =
+                  support_measurer.Evaluate(residuals, max_residual);
+
+              // Check if locally optimized model is better.
+              if (support_measurer.Compare(local_support, best_support)) {
+                best_support = local_support;
+                best_model = local_model;
+                best_model_is_local = true;
+                std::swap(residuals, best_local_residuals);
+              }
             }
+
+            // Only continue recursive local optimization, if the inlier set
+            // size increased and we thus have a chance to further improve.
+            if (best_support.num_inliers <= prev_best_num_inliers) {
+              break;
+            }
+
+            // Swap back the residuals, so we can extract the best inlier
+            // set in the next recursion of local optimization.
+            std::swap(residuals, best_local_residuals);
           }
         }
 
@@ -219,15 +238,11 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
     estimator.Residuals(X, Y, report.model, &residuals);
   }
 
-  CHECK_EQ(residuals.size(), X.size());
+  CHECK_EQ(residuals.size(), num_samples);
 
   report.inlier_mask.resize(num_samples);
   for (size_t i = 0; i < residuals.size(); ++i) {
-    if (residuals[i] <= max_residual) {
-      report.inlier_mask[i] = true;
-    } else {
-      report.inlier_mask[i] = false;
-    }
+    report.inlier_mask[i] = residuals[i] <= max_residual;
   }
 
   return report;
