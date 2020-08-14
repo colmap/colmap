@@ -165,7 +165,7 @@ directory, and it supports various different image formats (see `FreeImage
 <http://freeimage.sourceforge.net/documentation.html>`_). Other files are
 automatically ignored. If high performance is a requirement, then you should
 separate any files that are not images. Images are identified uniquely by their
-relative file path. For lather processing, such as image undistortion or dense
+relative file path. For later processing, such as image undistortion or dense
 reconstruction, the relative folder structure should be preserved. COLMAP does
 not modify the input images or directory and all extracted data is stored in a
 single, self-contained SQLite database file (see :doc:`database`).
