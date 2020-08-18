@@ -71,9 +71,8 @@ inline Eigen::Vector4f IndexToRGB(const size_t index) {
 void BuildImageModel(const Image& image, const Camera& camera,
                      const float image_size, const Eigen::Vector4f& plane_color,
                      const Eigen::Vector4f& frame_color,
-                     std::vector<TrianglePainter::Data>& triangle_data,
-                     std::vector<LinePainter::Data>& line_data,
-                     const bool show_lines = true) {
+                     std::vector<TrianglePainter::Data>* triangle_data,
+                     std::vector<LinePainter::Data>* line_data) {
   // Generate camera dimensions in OpenGL (world) coordinate space.
   const float kBaseCameraWidth = 1024.0f;
   const float image_width = image_size * camera.Width() / kBaseCameraWidth;
@@ -105,71 +104,70 @@ void BuildImageModel(const Image& image, const Camera& camera,
       Eigen::Vector4f(-image_width, -image_height, focal_length, 1);
 
   // Image plane as two triangles.
-  triangle_data.reserve(triangle_data.size() + 2);
+  if (triangle_data != nullptr) {
+    triangle_data->emplace_back(
+        PointPainter::Data(tl(0), tl(1), tl(2), plane_color(0), plane_color(1),
+                           plane_color(2), plane_color(3)),
+        PointPainter::Data(tr(0), tr(1), tr(2), plane_color(0), plane_color(1),
+                           plane_color(2), plane_color(3)),
+        PointPainter::Data(bl(0), bl(1), bl(2), plane_color(0), plane_color(1),
+                           plane_color(2), plane_color(3)));
 
-  triangle_data.emplace_back(
-      PointPainter::Data(tl(0), tl(1), tl(2), plane_color(0), plane_color(1),
-                         plane_color(2), plane_color(3)),
-      PointPainter::Data(tr(0), tr(1), tr(2), plane_color(0), plane_color(1),
-                         plane_color(2), plane_color(3)),
-      PointPainter::Data(bl(0), bl(1), bl(2), plane_color(0), plane_color(1),
-                         plane_color(2), plane_color(3)));
+    triangle_data->emplace_back(
+        PointPainter::Data(bl(0), bl(1), bl(2), plane_color(0), plane_color(1),
+                           plane_color(2), plane_color(3)),
+        PointPainter::Data(tr(0), tr(1), tr(2), plane_color(0), plane_color(1),
+                           plane_color(2), plane_color(3)),
+        PointPainter::Data(br(0), br(1), br(2), plane_color(0), plane_color(1),
+                           plane_color(2), plane_color(3)));
+  }
 
-  triangle_data.emplace_back(
-      PointPainter::Data(bl(0), bl(1), bl(2), plane_color(0), plane_color(1),
-                         plane_color(2), plane_color(3)),
-      PointPainter::Data(tr(0), tr(1), tr(2), plane_color(0), plane_color(1),
-                         plane_color(2), plane_color(3)),
-      PointPainter::Data(br(0), br(1), br(2), plane_color(0), plane_color(1),
-                         plane_color(2), plane_color(3)));
-
-  if (show_lines) {
+  if (line_data != nullptr) {
     // Frame around image plane and connecting lines to projection center.
-    line_data.reserve(line_data.size() + 8);
 
-    line_data.emplace_back(
+    line_data->emplace_back(
         PointPainter::Data(pc(0), pc(1), pc(2), frame_color(0), frame_color(1),
                            frame_color(2), frame_color(3)),
         PointPainter::Data(tl(0), tl(1), tl(2), frame_color(0), frame_color(1),
                            frame_color(2), frame_color(3)));
 
-    line_data.emplace_back(
+    line_data->emplace_back(
         PointPainter::Data(pc(0), pc(1), pc(2), frame_color(0), frame_color(1),
                            frame_color(2), frame_color(3)),
         PointPainter::Data(tr(0), tr(1), tr(2), frame_color(0), frame_color(1),
                            frame_color(2), frame_color(3)));
 
-    line_data.emplace_back(
+    line_data->emplace_back(
         PointPainter::Data(pc(0), pc(1), pc(2), frame_color(0), frame_color(1),
                            frame_color(2), frame_color(3)),
         PointPainter::Data(br(0), br(1), br(2), frame_color(0), frame_color(1),
                            frame_color(2), frame_color(3)));
 
-    line_data.emplace_back(
+    line_data->emplace_back(
         PointPainter::Data(pc(0), pc(1), pc(2), frame_color(0), frame_color(1),
                            frame_color(2), frame_color(3)),
         PointPainter::Data(bl(0), bl(1), bl(2), frame_color(0), frame_color(1),
                            frame_color(2), frame_color(3)));
 
-    line_data.emplace_back(
+    line_data->emplace_back(
         PointPainter::Data(tl(0), tl(1), tl(2), frame_color(0), frame_color(1),
                            frame_color(2), frame_color(3)),
         PointPainter::Data(tr(0), tr(1), tr(2), frame_color(0), frame_color(1),
                            frame_color(2), frame_color(3)));
 
-    line_data.emplace_back(
+    line_data->emplace_back(
         PointPainter::Data(tr(0), tr(1), tr(2), frame_color(0), frame_color(1),
                            frame_color(2), frame_color(3)),
         PointPainter::Data(br(0), br(1), br(2), frame_color(0), frame_color(1),
                            frame_color(2), frame_color(3)));
 
-    line_data.emplace_back(
+    line_data->emplace_back(
         PointPainter::Data(br(0), br(1), br(2), frame_color(0), frame_color(1),
                            frame_color(2), frame_color(3)),
         PointPainter::Data(bl(0), bl(1), bl(2), frame_color(0), frame_color(1),
                            frame_color(2), frame_color(3)));
 
-    line_data.emplace_back(
+    line_data->emplace_back(
         PointPainter::Data(bl(0), bl(1), bl(2), frame_color(0), frame_color(1),
                            frame_color(2), frame_color(3)),
         PointPainter::Data(tl(0), tl(1), tl(2), frame_color(0), frame_color(1),
@@ -888,7 +886,7 @@ void ModelViewerWidget::UploadImageData(const bool selection_mode) {
     // Lines are not colored with the indexed color in selection mode, so do not
     // show them, so they do not block the selection process
     BuildImageModel(image, camera, image_size_, plane_color, frame_color,
-                    triangle_data, line_data, !selection_mode);
+                    &triangle_data, selection_mode ? nullptr : &line_data);
   }
 
   image_line_painter_.Upload(line_data);
@@ -1008,7 +1006,7 @@ void ModelViewerWidget::UploadMovieGrabberData() {
       }
 
       BuildImageModel(image, camera, image_size_, plane_color, frame_color,
-                      triangle_data, line_data);
+                      &triangle_data, &line_data);
     }
   }
 
