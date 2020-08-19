@@ -170,26 +170,60 @@ Run COLMAP::
 Windows
 -------
 
-*Recommended dependencies:* CUDA (at least version 7.X), CGAL
+*Recommended dependencies:* CUDA (at least version 7.X), Visual Studio 2019
 
-On Windows it is recommended to use the Python build script. Please follow the
-instructions in the next section.
+On Windows, the recommended way is to build COLMAP using vcpkg:
 
-Alternatively, you can install the dependencies manually. Microsoft Visual
-Studio 2013 and newer are confirmed to compile COLMAP without any issues.
+    git clone https://github.com/microsoft/vcpkg
+    cd vcpkg
+    .\bootstrap-vcpkg.bat
+    .\vcpkg install colmap[cuda,tests]:x64-windows
+
+Please refer to the next section for more details.
+
+
+VCPKG
+-----
+
+COLMAP ships as part of the vcpkg distribution. This enables to conveniently
+build COLMAP and all of its dependencies from scratch under different platforms.
+Note that VCPKG requires you to install CUDA manually in the standard way on
+your platform. To compile COLMAP using VCPKG, you run:
+
+    git clone https://github.com/microsoft/vcpkg
+    cd vcpkg
+    ./bootstrap-vcpkg.sh
+    .\vcpkg install colmap:x64-linux
+
+VCPKG ships with support for various other platforms (e.g., x64-osx,
+x64-windows, etc.). To compile with CUDA support and to build all tests:
+
+    .\vcpkg install colmap[cuda,tests]:x64-linux
+
+The above commands will build the latest release version of COLMAP. To compile
+the latest commit in the dev branch, you can use the following options:
+
+    .\vcpkg install colmap:x64-linux --head
+    
+To modify the source code, you can further add ``--editable --no-downloads``.
+
+Alternatively, you can also use the Python build script. Please follow the
+instructions in the next section, but VCPKG is now the recommended approach.
 
 
 Build Script
 ------------
 
-COLMAP ships with an automated Python build script. The build script installs
-COLMAP and its dependencies locally under Windows, Mac, and Linux. Note that
-under Mac and Linux, it is usually easier and faster to use the available
-package managers for the dependencies (see above). However, if you are on a
-(cluster) system without root access, this script might be useful. This script
-downloads the necessary dependencies automatically from the Internet. It assumes
-that CMake, Boost, Qt5, CUDA (optional), and CGAL (optional) are already
-installed on the system. E.g., under Windows you must specify the location of
+Alternative to the above solutions, COLMAP also ships with an automated Python
+build script. Note that VCPKG is the preferred way to achieve the same now.
+The build script installs COLMAP and its dependencies locally
+under Windows, Mac, and Linux. Note that under Mac and Linux, it is usually
+easier and faster to use the available package managers for the dependencies
+(see above). However, if you are on a (cluster) system without root access,
+this script might be useful. This script downloads the necessary dependencies
+automatically from the Internet. It assumes that CMake, Boost, Qt5, CUDA
+(optional), and CGAL (optional) are already installed on the system.
+E.g., under Windows you must specify the location of
 these libraries similar to this::
 
     python scripts/python/build.py \
