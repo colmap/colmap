@@ -172,7 +172,7 @@ Windows
 
 *Recommended dependencies:* CUDA (at least version 7.X), Visual Studio 2019
 
-On Windows, the recommended way is to build COLMAP using vcpkg:
+On Windows, the recommended way is to build COLMAP using vcpkg::
 
     git clone https://github.com/microsoft/vcpkg
     cd vcpkg
@@ -188,7 +188,7 @@ VCPKG
 COLMAP ships as part of the vcpkg distribution. This enables to conveniently
 build COLMAP and all of its dependencies from scratch under different platforms.
 Note that VCPKG requires you to install CUDA manually in the standard way on
-your platform. To compile COLMAP using VCPKG, you run:
+your platform. To compile COLMAP using VCPKG, you run::
 
     git clone https://github.com/microsoft/vcpkg
     cd vcpkg
@@ -196,12 +196,12 @@ your platform. To compile COLMAP using VCPKG, you run:
     .\vcpkg install colmap:x64-linux
 
 VCPKG ships with support for various other platforms (e.g., x64-osx,
-x64-windows, etc.). To compile with CUDA support and to build all tests:
+x64-windows, etc.). To compile with CUDA support and to build all tests::
 
     .\vcpkg install colmap[cuda,tests]:x64-linux
 
 The above commands will build the latest release version of COLMAP. To compile
-the latest commit in the dev branch, you can use the following options:
+the latest commit in the dev branch, you can use the following options::
 
     .\vcpkg install colmap:x64-linux --head
     
