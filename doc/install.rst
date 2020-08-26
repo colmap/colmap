@@ -135,7 +135,6 @@ Mac
 
 Dependencies from `Homebrew <http://brew.sh/>`_::
 
-    brew tap homebrew/science
     brew install \
         git \
         cmake \
@@ -179,6 +178,10 @@ On Windows, the recommended way is to build COLMAP using vcpkg::
     .\bootstrap-vcpkg.bat
     .\vcpkg install colmap[cuda,tests]:x64-windows
 
+To compile CUDA for multiple compute architectures, please use::
+
+    .\vcpkg install colmap[cuda-redist]:x64-windows
+
 Please refer to the next section for more details.
 
 
@@ -193,18 +196,18 @@ your platform. To compile COLMAP using VCPKG, you run::
     git clone https://github.com/microsoft/vcpkg
     cd vcpkg
     ./bootstrap-vcpkg.sh
-    .\vcpkg install colmap:x64-linux
+    ./vcpkg install colmap:x64-linux
 
 VCPKG ships with support for various other platforms (e.g., x64-osx,
 x64-windows, etc.). To compile with CUDA support and to build all tests::
 
-    .\vcpkg install colmap[cuda,tests]:x64-linux
+    ./vcpkg install colmap[cuda,tests]:x64-linux
 
 The above commands will build the latest release version of COLMAP. To compile
 the latest commit in the dev branch, you can use the following options::
 
-    .\vcpkg install colmap:x64-linux --head
-    
+    ./vcpkg install colmap:x64-linux --head
+
 To modify the source code, you can further add ``--editable --no-downloads``.
 
 Alternatively, you can also use the Python build script. Please follow the
