@@ -70,7 +70,6 @@ if(COLMAP_FIND_QUIETLY)
     find_package(Boost COMPONENTS
                 program_options
                 filesystem
-                regex
                 system
                 unit_test_framework
                 QUIET)
@@ -91,7 +90,6 @@ else()
     find_package(Boost COMPONENTS
                 program_options
                 filesystem
-                regex
                 system
                 unit_test_framework
                 REQUIRED)
@@ -169,7 +167,6 @@ if(UNIX)
     list(APPEND COLMAP_EXTERNAL_LIBRARIES
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_PROGRAM_OPTIONS_LIBRARY}
-        ${Boost_REGEX_LIBRARY}
         ${Boost_SYSTEM_LIBRARY}
         pthread)
 endif()

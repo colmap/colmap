@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install -y \
     libboost-program-options-dev \
     libboost-filesystem-dev \
     libboost-graph-dev \
-    libboost-regex-dev \
     libboost-system-dev \
     libboost-test-dev \
     libeigen3-dev \

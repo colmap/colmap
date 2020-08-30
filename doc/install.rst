@@ -76,7 +76,6 @@ Dependencies from the default Ubuntu repositories::
         libboost-program-options-dev \
         libboost-filesystem-dev \
         libboost-graph-dev \
-        libboost-regex-dev \
         libboost-system-dev \
         libboost-test-dev \
         libeigen3-dev \
