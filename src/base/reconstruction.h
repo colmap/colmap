@@ -194,13 +194,15 @@ class Reconstruction {
   // of projection of the image with name image_names[i].
   bool Align(const std::vector<std::string>& image_names,
              const std::vector<Eigen::Vector3d>& locations,
-             const int min_common_images);
+             const int min_common_images,
+             SimilarityTransform3* out_tform = nullptr);
 
   // Robust alignment using RANSAC.
   bool AlignRobust(const std::vector<std::string>& image_names,
                    const std::vector<Eigen::Vector3d>& locations,
                    const int min_common_images,
-                   const RANSACOptions& ransac_options);
+                   const RANSACOptions& ransac_options,
+                   SimilarityTransform3* out_tform = nullptr);
 
   // Find specific image by name. Note that this uses linear search.
   const class Image* FindImageWithName(const std::string& name) const;

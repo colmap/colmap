@@ -1188,13 +1188,14 @@ int RunModelAligner(int argc, char** argv) {
                             ref_image_names.size())
             << std::endl;
 
+  SimilarityTransform3 sim_tform;
   bool alignment_success;
   if (robust_alignment) {
     alignment_success = reconstruction.AlignRobust(
-        ref_image_names, ref_locations, min_common_images, ransac_options);
+        ref_image_names, ref_locations, min_common_images, ransac_options, &sim_tform);
   } else {
     alignment_success =
-        reconstruction.Align(ref_image_names, ref_locations, min_common_images);
+        reconstruction.Align(ref_image_names, ref_locations, min_common_images, &sim_tform);
   }
 
   if (alignment_success) {
@@ -1214,6 +1215,9 @@ int RunModelAligner(int argc, char** argv) {
     std::cout << StringPrintf(" => Alignment error: %f (mean), %f (median)",
                               Mean(errors), Median(errors))
               << std::endl;
+
+    // save resulting transformation
+    sim_tform.Write(output_path)
   } else {
     std::cout << " => Alignment failed" << std::endl;
   }

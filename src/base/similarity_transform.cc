@@ -36,6 +36,7 @@
 #include "base/reconstruction.h"
 #include "estimators/similarity_transform.h"
 #include "optim/loransac.h"
+#include "util/misc.h"
 
 namespace colmap {
 namespace {
@@ -256,6 +257,65 @@ Eigen::Vector4d SimilarityTransform3::Rotation() const {
 
 Eigen::Vector3d SimilarityTransform3::Translation() const {
   return Matrix().block<3, 1>(0, 3);
+}
+
+void SimilarityTransform3::Write(const std::string& path) const {
+  std::ofstream file(JoinPaths(path, "transform.txt"), std::ios::trunc);
+  CHECK(file.is_open()) << path;
+
+  // Ensure that we don't loose any precision by storing in text.
+  file.precision(17);
+
+  file << "# 4x4 Similarity Transform" << std::endl;
+  file << "# Data stored in each line as follows:" << std::endl;
+  file << "#   16 parameters of the full transformation matrix stored in row-major format" << std::endl;
+  file << "#   4-vec quaternion representing rotational part of the similarity transform (qW, qX, qY, qZ)" << std::endl;
+  file << "#   3-vec translational parameters of the similarity transform stored (tX, tY, tZ)" << std::endl;
+  file << "#   scale parameter of the similarity transform" << std::endl;
+
+  std::ostringstream line;
+
+  // write 4x4 transform matrix
+  for(int m = 0; m < 4; ++m) {
+    for(int n = 0; n < 4; ++n) {
+      line << Matrix()(m,n) << " ";
+    }
+  }
+
+  std::string line_string = line.str();
+  line_string = line_string.substr(0, line_string.size() - 1);
+  file << line_string << std::endl;
+
+  // write 4D quaternion vector 
+  Eigen::Vector4d quat = Rotation();
+  line.clear();
+  for(int m = 0; m < 4; ++m) {
+    line << quat(m) << " ";
+  }
+
+  line_string = line.str();
+  line_string = line_string.substr(0, line_string.size() - 1);
+  file << line_string << std::endl;
+
+  // write 3D translation vector 
+  Eigen::Vector3d translation = Translation();
+  line.clear();
+  for(int m = 0; m < 3; ++m) {
+    line << translation(m) << " ";
+  }
+
+  line_string = line.str();
+  line_string = line_string.substr(0, line_string.size() - 1);
+  file << line_string << std::endl;
+
+  // write scale
+  line.clear();
+  line << Scale() << " ";
+
+  line_string = line.str();
+  line_string = line_string.substr(0, line_string.size() - 1);
+  file << line_string << std::endl;
+
 }
 
 bool ComputeAlignmentBetweenReconstructions(

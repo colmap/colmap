@@ -519,7 +519,8 @@ bool Reconstruction::Merge(const Reconstruction& reconstruction,
 
 bool Reconstruction::Align(const std::vector<std::string>& image_names,
                            const std::vector<Eigen::Vector3d>& locations,
-                           const int min_common_images) {
+                           const int min_common_images,
+                           SimilarityTransform3* out_tform) {
   CHECK_GE(min_common_images, 3);
   CHECK_EQ(image_names.size(), locations.size());
 
@@ -560,13 +561,19 @@ bool Reconstruction::Align(const std::vector<std::string>& image_names,
 
   Transform(tform);
 
+  // copy transform to output variable if not null
+  if(out_tform != nullptr) {
+    *out_tform = tform;
+  }
+
   return true;
 }
 
 bool Reconstruction::AlignRobust(const std::vector<std::string>& image_names,
                                  const std::vector<Eigen::Vector3d>& locations,
                                  const int min_common_images,
-                                 const RANSACOptions& ransac_options) {
+                                 const RANSACOptions& ransac_options,
+                                 SimilarityTransform3* out_tform) {
   CHECK_GE(min_common_images, 3);
   CHECK_EQ(image_names.size(), locations.size());
 
@@ -609,7 +616,14 @@ bool Reconstruction::AlignRobust(const std::vector<std::string>& image_names,
     return false;
   }
 
-  Transform(SimilarityTransform3(report.model));
+  SimilarityTransform3 tform = SimilarityTransform3(report.model);
+
+  Transform(tform);
+
+  // copy transform to output variable if not null
+  if(out_tform != nullptr) {
+    *out_tform = tform;
+  }
 
   return true;
 }

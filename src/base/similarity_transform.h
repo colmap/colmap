@@ -73,6 +73,8 @@ class SimilarityTransform3 {
   Eigen::Vector4d Rotation() const;
   Eigen::Vector3d Translation() const;
 
+  void Write(const std::string& path) const;
+
  private:
   Eigen::Transform<double, 3, Eigen::Affine> transform_;
 };
