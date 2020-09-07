@@ -1217,7 +1217,7 @@ int RunModelAligner(int argc, char** argv) {
               << std::endl;
 
     // save resulting transformation
-    sim_tform.Write(output_path)
+    sim_tform.Write(output_path);
   } else {
     std::cout << " => Alignment failed" << std::endl;
   }
