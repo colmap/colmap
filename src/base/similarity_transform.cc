@@ -288,7 +288,7 @@ void SimilarityTransform3::Write(const std::string& path) const {
 
   // write 4D quaternion vector 
   Eigen::Vector4d quat = Rotation();
-  line.clear();
+  line.str(std::string());
   for(int m = 0; m < 4; ++m) {
     line << quat(m) << " ";
   }
@@ -299,7 +299,7 @@ void SimilarityTransform3::Write(const std::string& path) const {
 
   // write 3D translation vector 
   Eigen::Vector3d translation = Translation();
-  line.clear();
+  line.str(std::string());
   for(int m = 0; m < 3; ++m) {
     line << translation(m) << " ";
   }
@@ -309,7 +309,7 @@ void SimilarityTransform3::Write(const std::string& path) const {
   file << line_string << std::endl;
 
   // write scale
-  line.clear();
+  line.str(std::string());
   line << Scale() << " ";
 
   line_string = line.str();
