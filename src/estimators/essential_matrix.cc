@@ -185,20 +185,22 @@ EssentialMatrixEightPointEstimator::Estimate(const std::vector<X_t>& points1,
   const Eigen::VectorXd ematrix_nullspace = cmatrix_svd.matrixV().col(8);
   const Eigen::Map<const Eigen::Matrix3d> ematrix_t(ematrix_nullspace.data());
 
+  // De-normalize to image points.
+  const Eigen::Matrix3d E_raw = points2_norm_matrix.transpose() * ematrix_t.transpose() * points1_norm_matrix;
+
   // Enforcing the internal constraint that two singular values must be equal
   // and one must be zero.
-  Eigen::JacobiSVD<Eigen::Matrix3d> ematrix_svd(
-      ematrix_t.transpose(), Eigen::ComputeFullU | Eigen::ComputeFullV);
-  Eigen::Vector3d singular_values = ematrix_svd.singularValues();
+  Eigen::JacobiSVD<Eigen::Matrix3d> E_raw_svd(
+      E_raw, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  Eigen::Vector3d singular_values = E_raw_svd.singularValues();
   singular_values(0) = (singular_values(0) + singular_values(1)) / 2.0;
   singular_values(1) = singular_values(0);
   singular_values(2) = 0.0;
-  const Eigen::Matrix3d E = ematrix_svd.matrixU() *
+  const Eigen::Matrix3d E = E_raw_svd.matrixU() *
                             singular_values.asDiagonal() *
-                            ematrix_svd.matrixV().transpose();
+                            E_raw_svd.matrixV().transpose();
 
-  const std::vector<M_t> models = {points2_norm_matrix.transpose() * E *
-                                   points1_norm_matrix};
+  const std::vector<M_t> models = {E};
   return models;
 }
 
