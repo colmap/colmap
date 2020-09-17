@@ -111,14 +111,20 @@ BOOST_AUTO_TEST_CASE(TestEightPoint) {
   EssentialMatrixEightPointEstimator estimator;
   const auto E = estimator.Estimate(points1, points2)[0];
 
-  // Reference values obtained from Matlab.
-  BOOST_CHECK(std::abs(E(0, 0) - -0.0811666) < 1e-5);
-  BOOST_CHECK(std::abs(E(0, 1) - 0.255449) < 1e-5);
-  BOOST_CHECK(std::abs(E(0, 2) - -0.0478999) < 1e-5);
-  BOOST_CHECK(std::abs(E(1, 0) - -0.192392) < 1e-5);
-  BOOST_CHECK(std::abs(E(1, 1) - -0.0531675) < 1e-5);
-  BOOST_CHECK(std::abs(E(1, 2) - 0.119547) < 1e-5);
-  BOOST_CHECK(std::abs(E(2, 0) - 0.177784) < 1e-5);
-  BOOST_CHECK(std::abs(E(2, 1) - -0.22008) < 1e-5);
-  BOOST_CHECK(std::abs(E(2, 2) - -0.015203) < 1e-5);
+  // Reference values.
+  BOOST_CHECK(std::abs(E(0, 0) - -0.0368602) < 1e-5);
+  BOOST_CHECK(std::abs(E(0, 1) - 0.265019) < 1e-5);
+  BOOST_CHECK(std::abs(E(0, 2) - -0.0625948) < 1e-5);
+  BOOST_CHECK(std::abs(E(1, 0) - -0.299679) < 1e-5);
+  BOOST_CHECK(std::abs(E(1, 1) - -0.110667) < 1e-5);
+  BOOST_CHECK(std::abs(E(1, 2) - 0.147114) < 1e-5);
+  BOOST_CHECK(std::abs(E(2, 0) - 0.169381) < 1e-5);
+  BOOST_CHECK(std::abs(E(2, 1) - -0.21072) < 1e-5);
+  BOOST_CHECK(std::abs(E(2, 2) - -0.00401306) < 1e-5);
+  
+  // Check that the internal constraint is satisfied (two singular values equal and one zero).
+  Eigen::JacobiSVD<Eigen::Matrix3d> svd(E);
+  Eigen::Vector3d s = svd.singularValues();
+  BOOST_CHECK(std::abs(s(0) - s(1)) < 1e-5);
+  BOOST_CHECK(std::abs(s(2)) < 1e-5);
 }
