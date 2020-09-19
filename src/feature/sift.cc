@@ -214,7 +214,7 @@ void FindBestMatchesOneWayFLANN(
   const size_t kNumTreesInForest = 4;
 
   if (kNumNearestNeighbors > database.rows()) {
-    return false;
+    return;
   }
 
   indices->resize(query.rows(), kNumNearestNeighbors);
