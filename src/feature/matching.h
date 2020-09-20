@@ -212,6 +212,8 @@ class FeatureMatcherCache {
   EIGEN_STL_UMAP(image_t, Image) images_cache_;
   std::unique_ptr<LRUCache<image_t, FeatureKeypoints>> keypoints_cache_;
   std::unique_ptr<LRUCache<image_t, FeatureDescriptors>> descriptors_cache_;
+  std::unique_ptr<LRUCache<image_t, bool>> keypoints_exists_cache_;
+  std::unique_ptr<LRUCache<image_t, bool>> descriptors_exists_cache_;
 };
 
 class FeatureMatcherThread : public Thread {

@@ -240,6 +240,16 @@ void FeatureMatcherCache::Setup() {
       cache_size_, [this](const image_t image_id) {
         return database_->ReadDescriptors(image_id);
       }));
+
+  keypoints_exists_cache_.reset(new LRUCache<image_t, bool>(
+      images.size(), [this](const image_t image_id) {
+        return database_->ExistsKeypoints(image_id);
+      }));
+
+  descriptors_exists_cache_.reset(new LRUCache<image_t, bool>(
+      images.size(), [this](const image_t image_id) {
+        return database_->ExistsDescriptors(image_id);
+      }));
 }
 
 const Camera& FeatureMatcherCache::GetCamera(const camera_t camera_id) const {
@@ -279,12 +289,12 @@ std::vector<image_t> FeatureMatcherCache::GetImageIds() const {
 
 bool FeatureMatcherCache::ExistsKeypoints(const image_t image_id) {
   std::unique_lock<std::mutex> lock(database_mutex_);
-  return database_->ExistsKeypoints(image_id);
+  return keypoints_exists_cache_->Get(image_id);
 }
 
 bool FeatureMatcherCache::ExistsDescriptors(const image_t image_id) {
   std::unique_lock<std::mutex> lock(database_mutex_);
-  return database_->ExistsDescriptors(image_id);
+  return descriptors_exists_cache_->Get(image_id);
 }
 
 bool FeatureMatcherCache::ExistsMatches(const image_t image_id1,
