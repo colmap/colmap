@@ -277,12 +277,12 @@ std::vector<image_t> FeatureMatcherCache::GetImageIds() const {
   return image_ids;
 }
 
-bool FeatureMatcherCache::ExiststKeypoints(const image_t image_id) {
+bool FeatureMatcherCache::ExistsKeypoints(const image_t image_id) {
   std::unique_lock<std::mutex> lock(database_mutex_);
   return database_->ExistsKeypoints(image_id);
 }
 
-bool FeatureMatcherCache::ExiststDescriptors(const image_t image_id) {
+bool FeatureMatcherCache::ExistsDescriptors(const image_t image_id) {
   std::unique_lock<std::mutex> lock(database_mutex_);
   return database_->ExistsDescriptors(image_id);
 }
@@ -355,8 +355,8 @@ void SiftCPUFeatureMatcher::Run() {
     if (input_job.IsValid()) {
       auto data = input_job.Data();
 
-      if (!cache_->ExiststDescriptors(data.image_id1) ||
-          !cache_->ExiststDescriptors(data.image_id2)) {
+      if (!cache_->ExistsDescriptors(data.image_id1) ||
+          !cache_->ExistsDescriptors(data.image_id2)) {
         CHECK(output_queue_->Push(data));
         continue;
       }
@@ -413,8 +413,8 @@ void SiftGPUFeatureMatcher::Run() {
     if (input_job.IsValid()) {
       auto data = input_job.Data();
 
-      if (!cache_->ExiststDescriptors(data.image_id1) ||
-          !cache_->ExiststDescriptors(data.image_id2)) {
+      if (!cache_->ExistsDescriptors(data.image_id1) ||
+          !cache_->ExistsDescriptors(data.image_id2)) {
         CHECK(output_queue_->Push(data));
         continue;
       }
@@ -472,14 +472,10 @@ void GuidedSiftCPUFeatureMatcher::Run() {
         continue;
       }
 
-      if (!cache_->ExiststKeypoints(data.image_id1) ||
-          !cache_->ExiststKeypoints(data.image_id2)) {
-        CHECK(output_queue_->Push(data));
-        continue;
-      }
-
-      if (!cache_->ExiststDescriptors(data.image_id1) ||
-          !cache_->ExiststDescriptors(data.image_id2)) {
+      if (!cache_->ExistsKeypoints(data.image_id1) ||
+          !cache_->ExistsKeypoints(data.image_id2) ||
+          !cache_->ExistsDescriptors(data.image_id1) ||
+          !cache_->ExistsDescriptors(data.image_id2)) {
         CHECK(output_queue_->Push(data));
         continue;
       }
@@ -544,14 +540,10 @@ void GuidedSiftGPUFeatureMatcher::Run() {
         continue;
       }
 
-      if (!cache_->ExiststKeypoints(data.image_id1) ||
-          !cache_->ExiststKeypoints(data.image_id2)) {
-        CHECK(output_queue_->Push(data));
-        continue;
-      }
-
-      if (!cache_->ExiststDescriptors(data.image_id1) ||
-          !cache_->ExiststDescriptors(data.image_id2)) {
+      if (!cache_->ExistsKeypoints(data.image_id1) ||
+          !cache_->ExistsKeypoints(data.image_id2) ||
+          !cache_->ExistsDescriptors(data.image_id1) ||
+          !cache_->ExistsDescriptors(data.image_id2)) {
         CHECK(output_queue_->Push(data));
         continue;
       }

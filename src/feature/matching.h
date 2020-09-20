@@ -190,8 +190,8 @@ class FeatureMatcherCache {
   FeatureMatches GetMatches(const image_t image_id1, const image_t image_id2);
   std::vector<image_t> GetImageIds() const;
 
-  bool ExiststKeypoints(const image_t image_id);
-  bool ExiststDescriptors(const image_t image_id);
+  bool ExistsKeypoints(const image_t image_id);
+  bool ExistsDescriptors(const image_t image_id);
 
   bool ExistsMatches(const image_t image_id1, const image_t image_id2);
   bool ExistsInlierMatches(const image_t image_id1, const image_t image_id2);
