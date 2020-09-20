@@ -456,7 +456,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
                               options.max_focal_length_ratio,
                               options.max_extra_param)) {
       // Previously refined camera has bogus parameters,
-      // so reset parameters and try to re-refine.
+      // so reset parameters and try to re-estimage.
       camera.SetParams(database_cache_->Camera(image.CameraId()).Params());
       abs_pose_options.estimate_focal_length = !camera.HasPriorFocalLength();
       abs_pose_refinement_options.refine_focal_length = true;
@@ -467,7 +467,10 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       abs_pose_refinement_options.refine_extra_params = false;
     }
   } else {
-    // Camera not refined before.
+    // Camera not refined before. Note that the camera parameters might have
+    // been changed before but the image was filtered, so we explicitly reset
+    // the camera parameters and try to re-estimate them.
+    camera.SetParams(database_cache_->Camera(image.CameraId()).Params());
     abs_pose_options.estimate_focal_length = !camera.HasPriorFocalLength();
     abs_pose_refinement_options.refine_focal_length = true;
     abs_pose_refinement_options.refine_extra_params = true;
@@ -593,7 +596,7 @@ IncrementalMapper::AdjustLocalBundle(
 
     for (const auto& camera_id_and_num_images_pair : num_images_per_camera) {
       const size_t num_reg_images_for_camera =
-          num_reg_images_per_camera_.at(camera_id_and_num_images_pair.first);\
+          num_reg_images_per_camera_.at(camera_id_and_num_images_pair.first);
       if (camera_id_and_num_images_pair.second < num_reg_images_for_camera) {
         ba_config.SetConstantCamera(camera_id_and_num_images_pair.first);
       }
