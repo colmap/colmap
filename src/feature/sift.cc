@@ -206,22 +206,24 @@ void FindBestMatchesOneWayFLANN(
         indices,
     Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>*
         distances) {
+  if (query.rows() == 0 || database.rows() == 0) {
+    return;
+  }
+
   const size_t kNumNearestNeighbors = 2;
   const size_t kNumTreesInForest = 4;
 
-  indices->resize(query.rows(), std::min(kNumNearestNeighbors,
-                                         static_cast<size_t>(database.rows())));
-  distances->resize(
-      query.rows(),
-      std::min(kNumNearestNeighbors, static_cast<size_t>(database.rows())));
+  if (kNumNearestNeighbors > database.rows()) {
+    return;
+  }
+
+  indices->resize(query.rows(), kNumNearestNeighbors);
+  distances->resize(query.rows(), kNumNearestNeighbors);
   const flann::Matrix<uint8_t> query_matrix(const_cast<uint8_t*>(query.data()),
                                             query.rows(), 128);
   const flann::Matrix<uint8_t> database_matrix(
       const_cast<uint8_t*>(database.data()), database.rows(), 128);
 
-  if (query.rows() == 0 || database.rows() == 0) {
-    return;
-  }
 
   flann::Matrix<int> indices_matrix(indices->data(), query.rows(),
                                     kNumNearestNeighbors);

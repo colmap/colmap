@@ -190,6 +190,9 @@ class FeatureMatcherCache {
   FeatureMatches GetMatches(const image_t image_id1, const image_t image_id2);
   std::vector<image_t> GetImageIds() const;
 
+  bool ExistsKeypoints(const image_t image_id);
+  bool ExistsDescriptors(const image_t image_id);
+
   bool ExistsMatches(const image_t image_id1, const image_t image_id2);
   bool ExistsInlierMatches(const image_t image_id1, const image_t image_id2);
 
@@ -209,6 +212,8 @@ class FeatureMatcherCache {
   EIGEN_STL_UMAP(image_t, Image) images_cache_;
   std::unique_ptr<LRUCache<image_t, FeatureKeypoints>> keypoints_cache_;
   std::unique_ptr<LRUCache<image_t, FeatureDescriptors>> descriptors_cache_;
+  std::unique_ptr<LRUCache<image_t, bool>> keypoints_exists_cache_;
+  std::unique_ptr<LRUCache<image_t, bool>> descriptors_exists_cache_;
 };
 
 class FeatureMatcherThread : public Thread {

@@ -240,6 +240,16 @@ void FeatureMatcherCache::Setup() {
       cache_size_, [this](const image_t image_id) {
         return database_->ReadDescriptors(image_id);
       }));
+
+  keypoints_exists_cache_.reset(new LRUCache<image_t, bool>(
+      images.size(), [this](const image_t image_id) {
+        return database_->ExistsKeypoints(image_id);
+      }));
+
+  descriptors_exists_cache_.reset(new LRUCache<image_t, bool>(
+      images.size(), [this](const image_t image_id) {
+        return database_->ExistsDescriptors(image_id);
+      }));
 }
 
 const Camera& FeatureMatcherCache::GetCamera(const camera_t camera_id) const {
@@ -275,6 +285,16 @@ std::vector<image_t> FeatureMatcherCache::GetImageIds() const {
     image_ids.push_back(image.first);
   }
   return image_ids;
+}
+
+bool FeatureMatcherCache::ExistsKeypoints(const image_t image_id) {
+  std::unique_lock<std::mutex> lock(database_mutex_);
+  return keypoints_exists_cache_->Get(image_id);
+}
+
+bool FeatureMatcherCache::ExistsDescriptors(const image_t image_id) {
+  std::unique_lock<std::mutex> lock(database_mutex_);
+  return descriptors_exists_cache_->Get(image_id);
 }
 
 bool FeatureMatcherCache::ExistsMatches(const image_t image_id1,
@@ -345,6 +365,12 @@ void SiftCPUFeatureMatcher::Run() {
     if (input_job.IsValid()) {
       auto data = input_job.Data();
 
+      if (!cache_->ExistsDescriptors(data.image_id1) ||
+          !cache_->ExistsDescriptors(data.image_id2)) {
+        CHECK(output_queue_->Push(data));
+        continue;
+      }
+
       const FeatureDescriptors descriptors1 =
           cache_->GetDescriptors(data.image_id1);
       const FeatureDescriptors descriptors2 =
@@ -397,6 +423,12 @@ void SiftGPUFeatureMatcher::Run() {
     if (input_job.IsValid()) {
       auto data = input_job.Data();
 
+      if (!cache_->ExistsDescriptors(data.image_id1) ||
+          !cache_->ExistsDescriptors(data.image_id2)) {
+        CHECK(output_queue_->Push(data));
+        continue;
+      }
+
       const FeatureDescriptors* descriptors1_ptr;
       GetDescriptorData(0, data.image_id1, &descriptors1_ptr);
       const FeatureDescriptors* descriptors2_ptr;
@@ -446,6 +478,14 @@ void GuidedSiftCPUFeatureMatcher::Run() {
 
       if (data.two_view_geometry.inlier_matches.size() <
           static_cast<size_t>(options_.min_num_inliers)) {
+        CHECK(output_queue_->Push(data));
+        continue;
+      }
+
+      if (!cache_->ExistsKeypoints(data.image_id1) ||
+          !cache_->ExistsKeypoints(data.image_id2) ||
+          !cache_->ExistsDescriptors(data.image_id1) ||
+          !cache_->ExistsDescriptors(data.image_id2)) {
         CHECK(output_queue_->Push(data));
         continue;
       }
@@ -506,6 +546,14 @@ void GuidedSiftGPUFeatureMatcher::Run() {
 
       if (data.two_view_geometry.inlier_matches.size() <
           static_cast<size_t>(options_.min_num_inliers)) {
+        CHECK(output_queue_->Push(data));
+        continue;
+      }
+
+      if (!cache_->ExistsKeypoints(data.image_id1) ||
+          !cache_->ExistsKeypoints(data.image_id2) ||
+          !cache_->ExistsDescriptors(data.image_id1) ||
+          !cache_->ExistsDescriptors(data.image_id2)) {
         CHECK(output_queue_->Push(data));
         continue;
       }
