@@ -422,6 +422,7 @@ void IncrementalMapperController::Reconstruct(
 
       // Try to find good initial pair.
       if (options_->init_image_id1 == -1 || options_->init_image_id2 == -1) {
+        PrintHeading1("Finding good initial image pair");
         const bool find_init_success = mapper.FindInitialImagePair(
             init_mapper_options, &image_id1, &image_id2);
         if (!find_init_success) {
