@@ -1,5 +1,8 @@
 if(NOT IS_MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -funroll-loops -ffast-math -std=c++11")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -funroll-loops -std=c++11")
+    if(NOT IS_CLANG)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}-ffast-math")
+    endif()
 endif()
 
 add_definitions("-DRELEASE")
