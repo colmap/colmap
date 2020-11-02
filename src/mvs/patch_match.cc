@@ -314,8 +314,8 @@ void PatchMatchController::ReadProblems() {
       // Use all images as source images.
       problem.src_image_idxs.clear();
       problem.src_image_idxs.reserve(model.images.size() - 1);
-      for (const int image_idx : ref_image_idxs) {
-        if (image_idx != problem.ref_image_idx) {
+      for (size_t image_idx = 0; image_idx < model.images.size(); ++image_idx) {
+        if (static_cast<int>(image_idx) != problem.ref_image_idx) {
           problem.src_image_idxs.push_back(image_idx);
         }
       }
@@ -346,8 +346,7 @@ void PatchMatchController::ReadProblems() {
       std::vector<std::pair<int, int>> src_images;
       src_images.reserve(overlapping_images.size());
       for (const auto& image : overlapping_images) {
-        if (ref_image_idxs.count(image.first) &&
-            overlapping_triangulation_angles.at(image.first) >=
+        if (overlapping_triangulation_angles.at(image.first) >=
                 min_triangulation_angle_rad) {
           src_images.emplace_back(image.first, image.second);
         }
