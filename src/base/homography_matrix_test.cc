@@ -32,6 +32,8 @@
 #define TEST_NAME "base/homography_matrix"
 #include "util/testing.h"
 
+#include <cmath>
+
 #include <Eigen/Geometry>
 
 #include "base/homography_matrix.h"
@@ -76,6 +78,43 @@ BOOST_AUTO_TEST_CASE(TestDecomposeHomographyMatrix) {
     }
   }
   BOOST_CHECK(ref_solution_exists);
+}
+
+BOOST_AUTO_TEST_CASE(TestDecomposeHomographyMatrixRandom) {
+  const int numIters = 100;
+
+  const double epsilon = 1e-6;
+
+  const Eigen::Matrix3d id3 = Eigen::Matrix3d::Identity();
+
+  for (int i = 0; i < numIters; ++i) {
+    const Eigen::Matrix3d H = Eigen::Matrix3d::Random();
+
+    if (std::abs(H.determinant()) < epsilon) {
+      continue;
+    }
+
+    std::vector<Eigen::Matrix3d> R;
+    std::vector<Eigen::Vector3d> t;
+    std::vector<Eigen::Vector3d> n;
+    DecomposeHomographyMatrix(H, id3, id3, &R, &t, &n);
+
+    BOOST_CHECK_EQUAL(R.size(), 4);
+    BOOST_CHECK_EQUAL(t.size(), 4);
+    BOOST_CHECK_EQUAL(n.size(), 4);
+
+    // Test that each candidate rotation is a rotation
+    for (const Eigen::Matrix3d& candidate_R : R) {
+      const Eigen::Matrix3d orthog_error =
+          candidate_R.transpose() * candidate_R - id3;
+
+      // Check that candidate_R is an orthognal matrix
+      BOOST_CHECK_LT(orthog_error.lpNorm<Eigen::Infinity>(), epsilon);
+
+      // Check determinant is 1
+      BOOST_CHECK_CLOSE(candidate_R.determinant(), 1.0, epsilon);
+    }
+  }
 }
 
 BOOST_AUTO_TEST_CASE(TestPoseFromHomographyMatrix) {

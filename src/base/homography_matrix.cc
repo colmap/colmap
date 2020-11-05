@@ -75,6 +75,21 @@ void DecomposeHomographyMatrix(const Eigen::Matrix3d& H,
   Eigen::JacobiSVD<Eigen::Matrix3d> hmatrix_norm_svd(H_normalized);
   H_normalized.array() /= hmatrix_norm_svd.singularValues()[1];
 
+  // Ensure that we always return rotations, and never reflections.
+  //
+  // It's enough to take det(H_normalized) > 0.
+  //
+  // To see this:
+  // - In the paper: R := H_normalized * (Id + x y^t)^{-1} (page 32).
+  // - Can check that this implies that R is orthogonal: RR^t = Id.
+  // - To return a rotation, we also need det(R) > 0.
+  // - By Sylvester's idenitity: det(Id + x y^t) = (1 + x^t y), which
+  //   is positive by choice of x and y (page 24).
+  // - So det(R) and det(H_normalized) have the same sign.
+  if (H_normalized.determinant() < 0) {
+    H_normalized.array() *= -1.0;
+  }
+
   const Eigen::Matrix3d S =
       H_normalized.transpose() * H_normalized - Eigen::Matrix3d::Identity();
 
