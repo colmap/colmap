@@ -136,7 +136,7 @@ void MovieGrabberWidget::Add() {
 
 void MovieGrabberWidget::Delete() {
   QModelIndexList selection = table_->selectionModel()->selectedIndexes();
-  for (const auto& index: selection) { table_->removeRow(index.row()); }
+  for (const auto& index : selection) { table_->removeRow(index.row()); }
   UpdateViews();
   model_viewer_widget_->UpdateMovieGrabber();
 }
@@ -278,7 +278,7 @@ void MovieGrabberWidget::TimeChanged(QTableWidgetItem* item) {
 
 void MovieGrabberWidget::SelectionChanged(const QItemSelection& selected,
                                           const QItemSelection& deselected) {
-  for (const auto& index: table_->selectionModel()->selectedIndexes()) {
+  for (const auto& index : table_->selectionModel()->selectedIndexes()) {
     model_viewer_widget_->SelectMoviewGrabberView(index.row());
   }
 }
