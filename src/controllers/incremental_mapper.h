@@ -123,6 +123,8 @@ struct IncrementalMapperOptions {
   std::string snapshot_path = "";
   int snapshot_images_freq = 0;
 
+  // Path to file with list of images to reconstruct, fills up image_names
+  std::string image_list_path = "";
   // Which images to reconstruct. If no images are specified, all images will
   // be reconstructed by default.
   std::unordered_set<std::string> image_names;

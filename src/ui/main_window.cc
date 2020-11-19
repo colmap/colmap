@@ -531,6 +531,12 @@ void MainWindow::CreateControllers() {
     mapper_controller_->Wait();
   }
 
+  if (!options_.mapper->image_list_path.empty()) {
+    const auto image_names = ReadTextFileLines(options_.mapper->image_list_path);
+    options_.mapper->image_names =
+        std::unordered_set<std::string>(image_names.begin(), image_names.end());
+  }
+
   mapper_controller_.reset(new IncrementalMapperController(
       options_.mapper.get(), *options_.image_path, *options_.database_path,
       &reconstruction_manager_));
