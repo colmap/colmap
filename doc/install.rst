@@ -116,11 +116,6 @@ Configure and compile COLMAP::
     make -j
     sudo make install
 
-Under newer Ubuntu versions it might be necessary to explicitly select the used
-GCC version due to compatiblity issues with CUDA, which can be done as::
-
-    CC=/usr/bin/gcc-6 CXX=/usr/bin/g++-6 cmake ..
-
 Run COLMAP::
 
     colmap -h
