@@ -80,7 +80,7 @@ Acknowledgments
 
 The library was written by Johannes L. Schönberger (https://demuc.de/). Funding
 was provided by his PhD advisors Jan-Michael Frahm (http://frahm.web.unc.edu/)
-and Marc Pollefeys (https://www.inf.ethz.ch/personal/marc.pollefeys/).
+and Marc Pollefeys (https://people.inf.ethz.ch/pomarc/).
 
 
 Contribution
