@@ -39,6 +39,21 @@
 
 using namespace colmap;
 
+BOOST_AUTO_TEST_CASE(TestDefaultInitialization) {
+  const SimilarityTransform3 tform;
+
+  BOOST_CHECK_EQUAL(tform.Scale(), 1);
+
+  BOOST_CHECK_EQUAL(tform.Rotation()[0], 1);
+  BOOST_CHECK_EQUAL(tform.Rotation()[1], 0);
+  BOOST_CHECK_EQUAL(tform.Rotation()[2], 0);
+  BOOST_CHECK_EQUAL(tform.Rotation()[3], 0);
+
+  BOOST_CHECK_EQUAL(tform.Translation()[0], 0);
+  BOOST_CHECK_EQUAL(tform.Translation()[1], 0);
+  BOOST_CHECK_EQUAL(tform.Translation()[2], 0);
+}
+
 BOOST_AUTO_TEST_CASE(TestInitialization) {
   const Eigen::Vector4d qvec =
       NormalizeQuaternion(Eigen::Vector4d(0.1, 0.3, 0.2, 0.4));
@@ -47,10 +62,10 @@ BOOST_AUTO_TEST_CASE(TestInitialization) {
 
   BOOST_CHECK_CLOSE(tform.Scale(), 2, 1e-10);
 
-  BOOST_CHECK_CLOSE(tform.Rotation()(0), qvec(0), 1e-10);
-  BOOST_CHECK_CLOSE(tform.Rotation()(1), qvec(1), 1e-10);
-  BOOST_CHECK_CLOSE(tform.Rotation()(2), qvec(2), 1e-10);
-  BOOST_CHECK_CLOSE(tform.Rotation()(3), qvec(3), 1e-10);
+  BOOST_CHECK_CLOSE(tform.Rotation()[0], qvec(0), 1e-10);
+  BOOST_CHECK_CLOSE(tform.Rotation()[1], qvec(1), 1e-10);
+  BOOST_CHECK_CLOSE(tform.Rotation()[2], qvec(2), 1e-10);
+  BOOST_CHECK_CLOSE(tform.Rotation()[3], qvec(3), 1e-10);
 
   BOOST_CHECK_CLOSE(tform.Translation()[0], 100, 1e-10);
   BOOST_CHECK_CLOSE(tform.Translation()[1], 10, 1e-10);

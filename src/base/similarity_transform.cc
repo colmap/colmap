@@ -173,10 +173,9 @@ struct ReconstructionAlignmentEstimator {
 
 }  // namespace
 
-SimilarityTransform3::SimilarityTransform3() {
-  SimilarityTransform3(1, ComposeIdentityQuaternion(),
-                       Eigen::Vector3d(0, 0, 0));
-}
+SimilarityTransform3::SimilarityTransform3()
+    : SimilarityTransform3(1, ComposeIdentityQuaternion(),
+                           Eigen::Vector3d(0, 0, 0)) {}
 
 SimilarityTransform3::SimilarityTransform3(const Eigen::Matrix3x4d& matrix) {
   transform_.matrix().topLeftCorner<3, 4>() = matrix;
