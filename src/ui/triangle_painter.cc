@@ -80,14 +80,14 @@ void TrianglePainter::Upload(const std::vector<TrianglePainter::Data>& data) {
                 static_cast<int>(data.size() * sizeof(TrianglePainter::Data)));
 
   // in_position
-  shader_program_.enableAttributeArray(0);
-  shader_program_.setAttributeBuffer(0, GL_FLOAT, 0, 3,
+  shader_program_.enableAttributeArray("a_position");
+  shader_program_.setAttributeBuffer("a_position", GL_FLOAT, 0, 3,
                                      sizeof(PointPainter::Data));
 
   // in_color
-  shader_program_.enableAttributeArray(1);
-  shader_program_.setAttributeBuffer(1, GL_FLOAT, 3 * sizeof(GLfloat), 4,
-                                     sizeof(PointPainter::Data));
+  shader_program_.enableAttributeArray("a_color");
+  shader_program_.setAttributeBuffer("a_color", GL_FLOAT, 3 * sizeof(GLfloat),
+                                     4, sizeof(PointPainter::Data));
 
   // Make sure they are not changed from the outside
   vbo_.release();

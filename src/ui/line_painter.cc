@@ -82,14 +82,14 @@ void LinePainter::Upload(const std::vector<LinePainter::Data>& data) {
                 static_cast<int>(data.size() * sizeof(LinePainter::Data)));
 
   // in_position
-  shader_program_.enableAttributeArray(0);
-  shader_program_.setAttributeBuffer(0, GL_FLOAT, 0, 3,
+  shader_program_.enableAttributeArray("a_pos");
+  shader_program_.setAttributeBuffer("a_pos", GL_FLOAT, 0, 3,
                                      sizeof(PointPainter::Data));
 
   // in_color
-  shader_program_.enableAttributeArray(1);
-  shader_program_.setAttributeBuffer(1, GL_FLOAT, 3 * sizeof(GLfloat), 4,
-                                     sizeof(PointPainter::Data));
+  shader_program_.enableAttributeArray("a_color");
+  shader_program_.setAttributeBuffer("a_color", GL_FLOAT, 3 * sizeof(GLfloat),
+                                     4, sizeof(PointPainter::Data));
 
   // Make sure they are not changed from the outside
   vbo_.release();
