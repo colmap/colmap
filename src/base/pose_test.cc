@@ -90,6 +90,20 @@ BOOST_AUTO_TEST_CASE(TestEulerAnglesZ) {
   BOOST_CHECK_CLOSE(rz, rzz, 1e-6);
 }
 
+BOOST_AUTO_TEST_CASE(TestEulerAnglesXYZ) {
+  const double rx = 0.1;
+  const double ry = 0.2;
+  const double rz = 0.3;
+  double rxx, ryy, rzz;
+
+  RotationMatrixToEulerAngles(EulerAnglesToRotationMatrix(rx, ry, rz), &rxx,
+                              &ryy, &rzz);
+
+  BOOST_CHECK_CLOSE(rx, rxx, 1e-6);
+  BOOST_CHECK_CLOSE(ry, ryy, 1e-6);
+  BOOST_CHECK_CLOSE(rz, rzz, 1e-6);
+}
+
 BOOST_AUTO_TEST_CASE(TestQuaternionToRotationMatrix) {
   const double rx = 0;
   const double ry = 0;
