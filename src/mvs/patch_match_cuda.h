@@ -95,6 +95,7 @@ class PatchMatchCuda {
   // calls to `rotate` mod 4.
   int rotation_in_half_pi_;
 
+  // Reference and source image input data.
   std::unique_ptr<CudaArrayWrapper<uint8_t>> ref_image_device_;
   std::unique_ptr<CudaArrayWrapper<uint8_t>> src_images_device_;
   std::unique_ptr<CudaArrayWrapper<float>> src_depth_maps_device_;

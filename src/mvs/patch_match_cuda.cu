@@ -218,7 +218,7 @@ __device__ inline float PropagateDepth(const float depth1,
 
   // Intersection of the lines ((x1, y1), (x2, y2)) and ((x3, y3), (x4, y4)).
   const float denom = x2 - x1 + x4 * (y1 - y2);
-  const float kEps = 1e-5f;
+  constexpr float kEps = 1e-5f;
   if (abs(denom) < kEps) {
     return depth1;
   }
@@ -314,11 +314,87 @@ __device__ inline void ComposeHomography(const int image_idx, const int row,
          ref_inv_K[3] * (R[7] + inv_dist_N1 * T[2]) + inv_dist_N2 * T[2];
 }
 
+// Each thread in the current warp / thread block reads in 3 columns of the
+// reference image. The shared memory holds 3 * THREADS_PER_BLOCK columns and
+// kWindowSize rows of the reference image. Each thread copies every
+// THREADS_PER_BLOCK-th column from global to shared memory offset by its ID.
+// For example, if THREADS_PER_BLOCK = 32, then thread 0 reads columns 0, 32, 64
+// and thread 1 columns 1, 33, 65. When computing the photoconsistency, which is
+// shared among each thread block, each thread can then read the reference image
+// colors from shared memory. Note that this limits the window radius to a
+// maximum of THREADS_PER_BLOCK.
+template <int kWindowSize>
+struct LocalRefImage {
+  const static int kWindowRadius = kWindowSize / 2;
+  const static int kThreadBlockRadius = 1;
+  const static int kThreadBlockSize = 2 * kThreadBlockRadius + 1;
+  const static int kNumRows = kWindowSize;
+  const static int kNumColumns = kThreadBlockSize * THREADS_PER_BLOCK;
+  const static int kDataSize = kNumRows * kNumColumns;
+
+  float* data = nullptr;
+
+  __device__ inline void Read(const int row) {
+    // For the first row, read the entire block into shared memory. For all
+    // consecutive rows, it is only necessary to shift the rows in shared memory
+    // up by one element and then read in a new row at the bottom of the shared
+    // memory. Note that this assumes that the calling loop starts with the
+    // first row and then consecutively reads in the next row.
+
+    const int thread_id = threadIdx.x;
+    const int thread_block_first_id = blockDim.x * blockIdx.x;
+
+    const int local_col_start = thread_id;
+    const int global_col_start = thread_block_first_id -
+                                 kThreadBlockRadius * THREADS_PER_BLOCK +
+                                 thread_id;
+
+    if (row == 0) {
+      int global_row = row - kWindowRadius;
+      for (int local_row = 0; local_row < kNumRows; ++local_row, ++global_row) {
+        int local_col = local_col_start;
+        int global_col = global_col_start;
+#pragma unroll
+        for (int block = 0; block < kThreadBlockSize; ++block) {
+          data[local_row * kNumColumns + local_col] =
+              tex2D(ref_image_texture, global_col, global_row);
+          local_col += THREADS_PER_BLOCK;
+          global_col += THREADS_PER_BLOCK;
+        }
+      }
+    } else {
+      // Move rows in shared memory up by one row.
+      for (int local_row = 1; local_row < kNumRows; ++local_row) {
+        int local_col = local_col_start;
+#pragma unroll
+        for (int block = 0; block < kThreadBlockSize; ++block) {
+          data[(local_row - 1) * kNumColumns + local_col] =
+              data[local_row * kNumColumns + local_col];
+          local_col += THREADS_PER_BLOCK;
+        }
+      }
+
+      // Read next row into the last row of shared memory.
+      const int local_row = kNumRows - 1;
+      const int global_row = row + kWindowRadius;
+      int local_col = local_col_start;
+      int global_col = global_col_start;
+#pragma unroll
+      for (int block = 0; block < kThreadBlockSize; ++block) {
+        data[local_row * kNumColumns + local_col] =
+            tex2D(ref_image_texture, global_col, global_row);
+        local_col += THREADS_PER_BLOCK;
+        global_col += THREADS_PER_BLOCK;
+      }
+    }
+  }
+};
+
 // The return values is 1 - NCC, so the range is [0, 2], the smaller the
 // value, the better the color consistency.
 template <int kWindowSize, int kWindowStep>
 struct PhotoConsistencyCostComputer {
-  const int kWindowRadius = kWindowSize / 2;
+  const static int kWindowRadius = kWindowSize / 2;
 
   __device__ PhotoConsistencyCostComputer(const float sigma_spatial,
                                           const float sigma_color)
@@ -327,8 +403,9 @@ struct PhotoConsistencyCostComputer {
   // Maximum photo consistency cost as 1 - min(NCC).
   const float kMaxCost = 2.0f;
 
-  // Image data in local window around patch.
-  const float* local_ref_image = nullptr;
+  // Thread warp local reference image data around current patch.
+  typedef LocalRefImage<kWindowSize> LocalRefImageType;
+  LocalRefImageType local_ref_image;
 
   // Precomputed sum of raw and squared image intensities.
   float local_ref_sum = 0.0f;
@@ -345,12 +422,17 @@ struct PhotoConsistencyCostComputer {
   float depth = 0.0f;
   const float* normal = nullptr;
 
+  __device__ inline void Read(const int row) {
+    local_ref_image.Read(row);
+    __syncthreads();
+  }
+
   __device__ inline float Compute() const {
     float tform[9];
     ComposeHomography(src_image_idx, row, col, depth, normal, tform);
 
-    float tform_step[9];
-    for (int i = 0; i < 9; ++i) {
+    float tform_step[8];
+    for (int i = 0; i < 8; ++i) {
       tform_step[i] = kWindowStep * tform[i];
     }
 
@@ -369,8 +451,9 @@ struct PhotoConsistencyCostComputer {
     int ref_image_base_idx = ref_image_idx;
 
     const float ref_center_color =
-        local_ref_image[ref_image_idx + kWindowRadius * 3 * THREADS_PER_BLOCK +
-                        kWindowRadius];
+        local_ref_image
+            .data[ref_image_idx + kWindowRadius * 3 * THREADS_PER_BLOCK +
+                  kWindowRadius];
     const float ref_color_sum = local_ref_sum;
     const float ref_color_squared_sum = local_ref_squared_sum;
     float src_color_sum = 0.0f;
@@ -383,7 +466,7 @@ struct PhotoConsistencyCostComputer {
         const float inv_z = 1.0f / z;
         const float norm_col_src = inv_z * col_src + 0.5f;
         const float norm_row_src = inv_z * row_src + 0.5f;
-        const float ref_color = local_ref_image[ref_image_idx];
+        const float ref_color = local_ref_image.data[ref_image_idx];
         const float src_color = tex2DLayered(src_images_texture, norm_col_src,
                                              norm_row_src, src_image_idx);
 
@@ -432,7 +515,7 @@ struct PhotoConsistencyCostComputer {
 
     // Based on Jensen's Inequality for convex functions, the variance
     // should always be larger than 0. Do not make this threshold smaller.
-    const float kMinVar = 1e-5f;
+    constexpr float kMinVar = 1e-5f;
     if (ref_color_var < kMinVar || src_color_var < kMinVar) {
       return kMaxCost;
     } else {
@@ -525,56 +608,6 @@ __device__ inline int FindMinCost(const float costs[kNumCosts]) {
     }
   }
   return min_cost_idx;
-}
-
-template <int kWindowSize>
-__device__ inline void ReadRefImageIntoSharedMemory(float* local_image,
-                                                    const int row,
-                                                    const int col,
-                                                    const int thread_id) {
-  // For the first row, read the entire block into shared memory. For all
-  // consecutive rows, it is only necessary to shift the rows in shared memory
-  // up by one element and then read in a new row at the bottom of the shared
-  // memory. Note that this assumes that the calling loop starts with the first
-  // row and then consecutively reads in a new row.
-
-  if (row == 0) {
-    int r = row - kWindowSize / 2;
-    for (int i = 0; i < kWindowSize; ++i) {
-      int c = col - THREADS_PER_BLOCK;
-#pragma unroll
-      for (int j = 0; j < 3; ++j) {
-        local_image[thread_id + i * 3 * THREADS_PER_BLOCK +
-                    j * THREADS_PER_BLOCK] = tex2D(ref_image_texture, c, r);
-        c += THREADS_PER_BLOCK;
-      }
-      r += 1;
-    }
-  } else {
-    // Move rows in shared memory up by one row.
-    for (int i = 1; i < kWindowSize; ++i) {
-#pragma unroll
-      for (int j = 0; j < 3; ++j) {
-        local_image[thread_id + (i - 1) * 3 * THREADS_PER_BLOCK +
-                    j * THREADS_PER_BLOCK] =
-            local_image[thread_id + i * 3 * THREADS_PER_BLOCK +
-                        j * THREADS_PER_BLOCK];
-      }
-    }
-
-    // Read next row into the last row of shared memory.
-    const int r = row + kWindowSize / 2;
-    int c = col - THREADS_PER_BLOCK;
-    const int i = kWindowSize - 1;
-#pragma unroll
-    for (int j = 0; j < 3; ++j) {
-      local_image[thread_id + i * 3 * THREADS_PER_BLOCK +
-                  j * THREADS_PER_BLOCK] = tex2D(ref_image_texture, c, r);
-      c += THREADS_PER_BLOCK;
-    }
-  }
-
-  __syncthreads();
 }
 
 __device__ inline void TransformPDFToCDF(float* probs, const int num_probs) {
@@ -702,8 +735,8 @@ class LikelihoodComputer {
   template <bool kForward>
   __device__ inline float ComputeMessage(const float cost,
                                          const float prev) const {
-    const float kUniformProb = 0.5f;
-    const float kNoChangeProb = 0.99999f;
+    constexpr float kUniformProb = 0.5f;
+    constexpr float kNoChangeProb = 0.99999f;
     const float kChangeProb = 1.0f - kNoChangeProb;
     const float emission = ComputeNCCProb(cost);
 
@@ -765,30 +798,30 @@ __global__ void ComputeInitialCost(GpuMat<float> cost_map,
                                    const GpuMat<float> ref_squared_sum_image,
                                    const float sigma_spatial,
                                    const float sigma_color) {
-  const int thread_id = threadIdx.x;
   const int col = blockDim.x * blockIdx.x + threadIdx.x;
 
-  __shared__ float local_ref_image[THREADS_PER_BLOCK * 3 * kWindowSize];
-
-  PhotoConsistencyCostComputer<kWindowSize, kWindowStep> pcc_computer(
-      sigma_spatial, sigma_color);
-  pcc_computer.local_ref_image = local_ref_image;
-  pcc_computer.row = 0;
+  typedef PhotoConsistencyCostComputer<kWindowSize, kWindowStep>
+      PhotoConsistencyCostComputerType;
+  PhotoConsistencyCostComputerType pcc_computer(sigma_spatial, sigma_color);
   pcc_computer.col = col;
 
-  float normal[3];
+  __shared__ float local_ref_image_data
+      [PhotoConsistencyCostComputerType::LocalRefImageType::kDataSize];
+  pcc_computer.local_ref_image.data = &local_ref_image_data[0];
+
+  float normal[3] = {0};
   pcc_computer.normal = normal;
 
   for (int row = 0; row < cost_map.GetHeight(); ++row) {
     // Note that this must be executed even for pixels outside the borders,
     // since pixels are used in the local neighborhood of the current pixel.
-    ReadRefImageIntoSharedMemory<kWindowSize>(local_ref_image, row, col,
-                                              thread_id);
+    pcc_computer.Read(row);
 
     if (col < cost_map.GetWidth()) {
       pcc_computer.depth = depth_map.Get(row, col);
       normal_map.GetSlice(row, col, normal);
 
+      pcc_computer.row = row;
       pcc_computer.local_ref_sum = ref_sum_image.Get(row, col);
       pcc_computer.local_ref_squared_sum = ref_squared_sum_image.Get(row, col);
 
@@ -796,8 +829,6 @@ __global__ void ComputeInitialCost(GpuMat<float> cost_map,
         pcc_computer.src_image_idx = image_idx;
         cost_map.Set(row, col, image_idx, pcc_computer.Compute());
       }
-
-      pcc_computer.row += 1;
     }
   }
 }
@@ -830,11 +861,10 @@ __global__ void SweepFromTopToBottom(
     GpuMat<uint8_t> consistency_mask, GpuMat<float> sel_prob_map,
     const GpuMat<float> prev_sel_prob_map, const GpuMat<float> ref_sum_image,
     const GpuMat<float> ref_squared_sum_image, const SweepOptions options) {
-  const int thread_id = threadIdx.x;
   const int col = blockDim.x * blockIdx.x + threadIdx.x;
 
   // Probability for boundary pixels.
-  const float kUniformProb = 0.5f;
+  constexpr float kUniformProb = 0.5f;
 
   LikelihoodComputer likelihood_computer(options.ncc_sigma,
                                          options.min_triangulation_angle,
@@ -872,20 +902,19 @@ __global__ void SweepFromTopToBottom(
   // Estimate parameters for remaining rows and compute selection probabilities.
   //////////////////////////////////////////////////////////////////////////////
 
-  // Shared memory holding local patch around current position for one warp.
-  // Contains 3 vertical stripes of height kWindowSize, that are reused within
-  // one warp for NCC computation. Note that this limits the maximum window
-  // size to 2 * THREADS_PER_BLOCK + 1.
-  __shared__ float local_ref_image[THREADS_PER_BLOCK * 3 * kWindowSize];
-
-  PhotoConsistencyCostComputer<kWindowSize, kWindowStep> pcc_computer(
-      options.sigma_spatial, options.sigma_color);
-  pcc_computer.local_ref_image = local_ref_image;
+  typedef PhotoConsistencyCostComputer<kWindowSize, kWindowStep>
+      PhotoConsistencyCostComputerType;
+  PhotoConsistencyCostComputerType pcc_computer(options.sigma_spatial,
+                                                options.sigma_color);
   pcc_computer.col = col;
+
+  __shared__ float local_ref_image_data
+      [PhotoConsistencyCostComputerType::LocalRefImageType::kDataSize];
+  pcc_computer.local_ref_image.data = &local_ref_image_data[0];
 
   struct ParamState {
     float depth = 0.0f;
-    float normal[3];
+    float normal[3] = {0};
   };
 
   // Parameters of previous pixel in column.
@@ -908,8 +937,7 @@ __global__ void SweepFromTopToBottom(
   for (int row = 0; row < cost_map.GetHeight(); ++row) {
     // Note that this must be executed even for pixels outside the borders,
     // since pixels are used in the local neighborhood of the current pixel.
-    ReadRefImageIntoSharedMemory<kWindowSize>(local_ref_image, row, col,
-                                              thread_id);
+    pcc_computer.Read(row);
 
     if (col >= cost_map.GetWidth()) {
       continue;
@@ -979,8 +1007,8 @@ __global__ void SweepFromTopToBottom(
     // the best K probabilities, this sampling scheme has the advantage of
     // being adaptive to any distribution of selection probabilities.
 
-    const int kNumCosts = 5;
-    float costs[kNumCosts];
+    constexpr int kNumCosts = 5;
+    float costs[kNumCosts] = {0};
     const float depths[kNumCosts] = {
         curr_param_state.depth, prev_param_state.depth, rand_param_state.depth,
         curr_param_state.depth, rand_param_state.depth};
@@ -988,10 +1016,6 @@ __global__ void SweepFromTopToBottom(
         curr_param_state.normal, prev_param_state.normal,
         rand_param_state.normal, rand_param_state.normal,
         curr_param_state.normal};
-
-    for (int i = 0; i < kNumCosts; ++i) {
-      costs[i] = 0.0f;
-    }
 
     for (int sample = 0; sample < options.num_samples; ++sample) {
       const float rand_prob = curand_uniform(&rand_state) - FLT_EPSILON;
@@ -1109,11 +1133,10 @@ __global__ void SweepFromTopToBottom(
       }
 
       if (num_consistent < options.filter_min_num_consistent) {
-        const float kFilterValue = 0.0f;
-        depth_map.Set(row, col, kFilterValue);
-        normal_map.Set(row, col, 0, kFilterValue);
-        normal_map.Set(row, col, 1, kFilterValue);
-        normal_map.Set(row, col, 2, kFilterValue);
+        depth_map.Set(row, col, 0.0f);
+        normal_map.Set(row, col, 0, 0.0f);
+        normal_map.Set(row, col, 1, 0.0f);
+        normal_map.Set(row, col, 2, 0.0f);
         for (int image_idx = 0; image_idx < cost_map.GetDepth(); ++image_idx) {
           consistency_mask.Set(row, col, image_idx, 0);
         }
