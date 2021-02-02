@@ -79,7 +79,9 @@ CREATE TABLE IF NOT EXISTS two_view_geometries (
     config INTEGER NOT NULL,
     F BLOB,
     E BLOB,
-    H BLOB)
+    H BLOB,
+    qvec BLOB,
+    tvec BLOB)
 """
 
 CREATE_KEYPOINTS_TABLE = """CREATE TABLE IF NOT EXISTS keypoints (
@@ -207,7 +209,9 @@ class COLMAPDatabase(sqlite3.Connection):
             (pair_id,) + matches.shape + (array_to_blob(matches),))
 
     def add_two_view_geometry(self, image_id1, image_id2, matches,
-                              F=np.eye(3), E=np.eye(3), H=np.eye(3), config=2):
+                              F=np.eye(3), E=np.eye(3), H=np.eye(3),
+                              qvec=np.array([1.0, 0.0, 0.0, 0.0]),
+                              tvec=np.zeros(3), config=2):
         assert(len(matches.shape) == 2)
         assert(matches.shape[1] == 2)
 
@@ -219,10 +223,13 @@ class COLMAPDatabase(sqlite3.Connection):
         F = np.asarray(F, dtype=np.float64)
         E = np.asarray(E, dtype=np.float64)
         H = np.asarray(H, dtype=np.float64)
+        qvec = np.asarray(qvec, dtype=np.float64)
+        tvec = np.asarray(tvec, dtype=np.float64)
         self.execute(
-            "INSERT INTO two_view_geometries VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO two_view_geometries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (pair_id,) + matches.shape + (array_to_blob(matches), config,
-             array_to_blob(F), array_to_blob(E), array_to_blob(H)))
+             array_to_blob(F), array_to_blob(E), array_to_blob(H),
+             array_to_blob(qvec), array_to_blob(tvec)))
 
 
 def example_usage():

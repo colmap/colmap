@@ -513,6 +513,10 @@ TwoViewGeometry Database::ReadTwoViewGeometry(const image_t image_id1,
       sql_stmt_read_two_view_geometry_, rc, 5);
   two_view_geometry.H = ReadStaticMatrixBlob<Eigen::Matrix3d>(
       sql_stmt_read_two_view_geometry_, rc, 6);
+  two_view_geometry.qvec = ReadStaticMatrixBlob<Eigen::Vector4d>(
+      sql_stmt_read_two_view_geometry_, rc, 7);
+  two_view_geometry.tvec = ReadStaticMatrixBlob<Eigen::Vector3d>(
+      sql_stmt_read_two_view_geometry_, rc, 8);
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_two_view_geometry_));
 
@@ -553,6 +557,10 @@ void Database::ReadTwoViewGeometries(
         sql_stmt_read_two_view_geometries_, rc, 6);
     two_view_geometry.H = ReadStaticMatrixBlob<Eigen::Matrix3d>(
         sql_stmt_read_two_view_geometries_, rc, 7);
+    two_view_geometry.qvec = ReadStaticMatrixBlob<Eigen::Vector4d>(
+        sql_stmt_read_two_view_geometries_, rc, 8);
+    two_view_geometry.tvec = ReadStaticMatrixBlob<Eigen::Vector3d>(
+        sql_stmt_read_two_view_geometries_, rc, 9);
 
     two_view_geometry.F.transposeInPlace();
     two_view_geometry.E.transposeInPlace();
@@ -719,11 +727,15 @@ void Database::WriteTwoViewGeometry(
   const Eigen::Matrix3d Ft = two_view_geometry_ptr->F.transpose();
   const Eigen::Matrix3d Et = two_view_geometry_ptr->E.transpose();
   const Eigen::Matrix3d Ht = two_view_geometry_ptr->H.transpose();
+  const Eigen::Vector4d& qvec = two_view_geometry_ptr->qvec;
+  const Eigen::Vector3d& tvec = two_view_geometry_ptr->tvec;
 
   if (two_view_geometry_ptr->inlier_matches.size() > 0) {
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ft, 6);
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Et, 7);
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ht, 8);
+    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, qvec, 9);
+    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, tvec, 10);
   } else {
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_,
                           Eigen::MatrixXd(0, 0), 6);
@@ -731,6 +743,10 @@ void Database::WriteTwoViewGeometry(
                           Eigen::MatrixXd(0, 0), 7);
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_,
                           Eigen::MatrixXd(0, 0), 8);
+    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_,
+                          Eigen::MatrixXd(0, 0), 9);
+    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_,
+                          Eigen::MatrixXd(0, 0), 10);
   }
 
   SQLITE3_CALL(sqlite3_step(sql_stmt_write_two_view_geometry_));
@@ -1070,7 +1086,7 @@ void Database::PrepareSQLStatements() {
   sql_stmts_.push_back(sql_stmt_read_matches_all_);
 
   sql =
-      "SELECT rows, cols, data, config, F, E, H FROM two_view_geometries WHERE "
+      "SELECT rows, cols, data, config, F, E, H, qvec, tvec FROM two_view_geometries WHERE "
       "pair_id = ?;";
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
                                   &sql_stmt_read_two_view_geometry_, 0));
@@ -1108,7 +1124,7 @@ void Database::PrepareSQLStatements() {
 
   sql =
       "INSERT INTO two_view_geometries(pair_id, rows, cols, data, config, F, "
-      "E, H) VALUES(?, ?, ?, ?, ?, ?, ?, ?);";
+      "E, H, qvec, tvec) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
                                   &sql_stmt_write_two_view_geometry_, 0));
   sql_stmts_.push_back(sql_stmt_write_two_view_geometry_);
@@ -1239,7 +1255,9 @@ void Database::CreateTwoViewGeometriesTable() const {
         "    config   INTEGER               NOT NULL,"
         "    F        BLOB,"
         "    E        BLOB,"
-        "    H        BLOB);";
+        "    H        BLOB,"
+        "    qvec     BLOB,"
+        "    tvec     BLOB);";
     SQLITE3_EXEC(database_, sql.c_str(), nullptr);
   }
 }
@@ -1258,6 +1276,16 @@ void Database::UpdateSchema() const {
   if (!ExistsColumn("two_view_geometries", "H")) {
     SQLITE3_EXEC(database_,
                  "ALTER TABLE two_view_geometries ADD COLUMN H BLOB;", nullptr);
+  }
+
+  if (!ExistsColumn("two_view_geometries", "qvec")) {
+    SQLITE3_EXEC(database_,
+                 "ALTER TABLE two_view_geometries ADD COLUMN qvec BLOB;", nullptr);
+  }
+
+  if (!ExistsColumn("two_view_geometries", "tvec")) {
+    SQLITE3_EXEC(database_,
+                 "ALTER TABLE two_view_geometries ADD COLUMN tvec BLOB;", nullptr);
   }
 
   // Update user version number.
