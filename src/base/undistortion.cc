@@ -164,10 +164,12 @@ void COLMAPUndistorter::Run() {
   CreateDirIfNotExists(JoinPaths(output_path_, "sparse"));
   CreateDirIfNotExists(JoinPaths(output_path_, "stereo"));
   CreateDirIfNotExists(JoinPaths(output_path_, "stereo/depth_maps"));
+  CreateDirIfNotExists(JoinPaths(output_path_, "stereo/confidence_maps"));
   CreateDirIfNotExists(JoinPaths(output_path_, "stereo/normal_maps"));
   CreateDirIfNotExists(JoinPaths(output_path_, "stereo/consistency_graphs"));
   reconstruction_.CreateImageDirs(JoinPaths(output_path_, "images"));
   reconstruction_.CreateImageDirs(JoinPaths(output_path_, "stereo/depth_maps"));
+  reconstruction_.CreateImageDirs(JoinPaths(output_path_, "stereo/confidence_maps"));
   reconstruction_.CreateImageDirs(
       JoinPaths(output_path_, "stereo/normal_maps"));
   reconstruction_.CreateImageDirs(

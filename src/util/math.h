@@ -311,7 +311,7 @@ T ScaleSigmoid(T x, const T alpha, const T x0) {
 
 template <typename T1, typename T2>
 T2 TruncateCast(const T1 value) {
-  return std::min(
+  return (T2)std::min(
       static_cast<T1>(std::numeric_limits<T2>::max()),
       std::max(static_cast<T1>(std::numeric_limits<T2>::min()), value));
 }

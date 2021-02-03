@@ -66,16 +66,27 @@ struct StereoFusionOptions {
   int max_traversal_depth = 100;
 
   // Maximum relative difference between measured and projected pixel.
-  double max_reproj_error = 2.0f;
+  double max_reproj_error = 2.0;
 
   // Maximum relative difference between measured and projected depth.
-  double max_depth_error = 0.01f;
+  double max_depth_error = 0.01;
 
   // Maximum angular difference in degrees of normals of pixels to be fused.
-  double max_normal_error = 10.0f;
+  double max_normal_error = 10.0;
+
+  // Depth confidence probability threshold
+  double confidence_threshold = 0.8;
 
   // Number of overlapping images to transitively check for fusing points.
   int check_num_images = 50;
+
+  // Flag indicating that normal maps will be calculated from depth maps instead
+  // of using estimated maps from patch-match
+  bool calculate_normals = false;
+
+  // Use score calcultion instead of percentile when computing triangulation
+  // angles between images
+  bool use_triangulation_scoring = false;
 
   // Cache size in gigabytes for fusion. The fusion keeps the bitmaps, depth
   // maps, normal maps, and consistency graphs of this number of images in

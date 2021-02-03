@@ -48,13 +48,15 @@ class DepthMap : public Mat<float> {
            const float depth_max);
   DepthMap(const Mat<float>& mat, const float depth_min, const float depth_max);
 
-  inline float GetDepthMin() const;
-  inline float GetDepthMax() const;
+  inline float GetDepthMin() const { return depth_min_; }
+  inline float GetDepthMax() const { return depth_max_; }
 
-  inline float Get(const size_t row, const size_t col) const;
+  virtual inline float Get(const size_t row, const size_t col) const {
+    return data_.at(row * width_ + col);
+  }
 
-  void Rescale(const float factor);
-  void Downsize(const size_t max_width, const size_t max_height);
+  virtual void Rescale(const float factor);
+  virtual void Downsize(const size_t max_width, const size_t max_height);
 
   Bitmap ToBitmap(const float min_percentile, const float max_percentile) const;
 
@@ -63,17 +65,16 @@ class DepthMap : public Mat<float> {
   float depth_max_ = -1.0f;
 };
 
-////////////////////////////////////////////////////////////////////////////////
-// Implementation
-////////////////////////////////////////////////////////////////////////////////
-
-float DepthMap::GetDepthMin() const { return depth_min_; }
-
-float DepthMap::GetDepthMax() const { return depth_max_; }
-
-float DepthMap::Get(const size_t row, const size_t col) const {
-  return data_.at(row * width_ + col);
-}
+class ConfidenceMap : public DepthMap {
+ public:
+  ConfidenceMap() : ConfidenceMap(0, 0) {}
+  ConfidenceMap(const size_t width, const size_t height)
+      : DepthMap(width, height, 0.0f, 1.0f) {
+    Fill(1.0f);
+  }
+  ConfidenceMap(const Mat<float>& mat) : DepthMap(mat, 0.0f, 1.0f) {}
+  Bitmap ToBitmap() const;
+};
 
 }  // namespace mvs
 }  // namespace colmap

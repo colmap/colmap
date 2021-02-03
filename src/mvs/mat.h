@@ -64,6 +64,7 @@ class Mat {
   void Set(const size_t row, const size_t col, const T value);
   void Set(const size_t row, const size_t col, const size_t slice,
            const T value);
+  void SetSlice(const size_t row, const size_t col, const T* values);
 
   void Fill(const T value);
 
@@ -146,6 +147,13 @@ template <typename T>
 void Mat<T>::Set(const size_t row, const size_t col, const size_t slice,
                  const T value) {
   data_.at(slice * width_ * height_ + row * width_ + col) = value;
+}
+
+template <typename T>
+void Mat<T>::SetSlice(const size_t row, const size_t col, const T* values) {
+  for (size_t slice = 0; slice < depth_; ++slice) {
+    Set(row, col, slice, values[slice]);
+  }
 }
 
 template <typename T>
