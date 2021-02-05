@@ -130,6 +130,9 @@ if(CGAL_FOUND)
     message(STATUS "  Libraries : ${CGAL_LIBRARY}")
 endif()
 
+set(CMAKE_TORCHLIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/lib/libtorch)
+list(APPEND CMAKE_PREFIX_PATH ${CMAKE_TORCHLIB_PATH})
+find_package(Torch REQUIRED)
 
 ################################################################################
 # Compiler specific configuration
@@ -220,6 +223,11 @@ else()
     endif()
 endif()
 
+if(Torch_FOUND)
+    message(STATUS "Enabling LibTorch support")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+endif()
+
 if(OPENGL_ENABLED)
     add_definitions("-DOPENGL_ENABLED")
     message(STATUS "Enabling OpenGL support")
@@ -272,6 +280,7 @@ set(COLMAP_INCLUDE_DIRS
     ${Qt5Core_INCLUDE_DIRS}
     ${Qt5OpenGL_INCLUDE_DIRS}
     ${Qt5Widgets_INCLUDE_DIRS}
+    ${Torch_INCLUDE_DIRS}
 )
 
 set(COLMAP_LINK_DIRS
@@ -290,6 +299,8 @@ set(COLMAP_EXTERNAL_LIBRARIES
     ${Qt5Core_LIBRARIES}
     ${Qt5OpenGL_LIBRARIES}
     ${Qt5Widgets_LIBRARIES}
+    ${OPENGL_gl_LIBRARY}
+    ${TORCH_LIBRARIES}
 )
 
 if(OPENMP_FOUND)

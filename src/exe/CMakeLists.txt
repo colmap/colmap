@@ -37,3 +37,12 @@ endif()
 
 COLMAP_ADD_EXECUTABLE(colmap_exe colmap.cc)
 set_target_properties(colmap_exe PROPERTIES OUTPUT_NAME colmap)
+
+if(IS_MSVC)
+  file(GLOB TORCH_DLLS "${CMAKE_TORCHLIB_PATH}/lib/*.dll")
+  add_custom_command(TARGET colmap_exe
+                     POST_BUILD
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                     ${TORCH_DLLS}
+                     $<TARGET_FILE_DIR:colmap_exe>)
+endif()
