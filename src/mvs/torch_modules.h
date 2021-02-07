@@ -40,12 +40,12 @@ namespace mvs {
 static const int NUM_STAGES = 4;
 static const torch::nn::functional::InterpolateFuncOptions INTERP_NEAREST =
     torch::nn::functional::InterpolateFuncOptions()
-                                  .scale_factor(std::vector<double>(2, 2.0))
-                                  .mode(torch::kNearest);
+        .scale_factor(std::vector<double>(2, 2.0))
+        .mode(torch::kNearest);
 static const torch::nn::functional::InterpolateFuncOptions INTERP_BILINEAR =
     torch::nn::functional::InterpolateFuncOptions()
-                                  .scale_factor(std::vector<double>(2, 2.0))
-                                  .mode(torch::kBilinear);
+        .scale_factor(std::vector<double>(2, 2.0))
+        .mode(torch::kBilinear);
 
 class ConvBnReLU1DImpl : public torch::nn::Module {
  public:
@@ -261,7 +261,7 @@ class FeatureWeightNetImpl : torch::nn::Module {
                 torch::nn::Conv3dOptions(8, 1, 1).stride(1).padding(0)),
             torch::nn::Sigmoid()));
   }
-  
+
   torch::Tensor forward(const torch::Tensor& feature,
                         const torch::Tensor& grid) {
     const int64_t batch_size = feature.size(0);
@@ -341,8 +341,7 @@ class PixelwiseNetImpl : public torch::nn::Module {
   }
 
   torch::Tensor forward(const torch::Tensor& input) {
-    return std::get<0>(
-        torch::max(conv->forward(input).squeeze(1), 1, true));
+    return std::get<0>(torch::max(conv->forward(input).squeeze(1), 1, true));
   }
 
  private:
@@ -359,21 +358,26 @@ class InitDepthImpl : public torch::nn::Module {
         interval_scale(interval_scale) {}
 
   torch::Tensor forward(const torch::Tensor& depth_init, const double depth_min,
-                        const double depth_max, const int64_t batch_size, const int64_t height,
-                        const int64_t width) {
+                        const double depth_max, const int64_t batch_size,
+                        const int64_t height, const int64_t width,
+                        torch::Device device) {
     const double inv_depth_min = 1.0 / depth_min;
     const double inv_depth_max = 1.0 / depth_max;
     torch::Tensor depth;
     if (!depth_init.defined()) {
       const int rand_num_samples = 48;
-      depth = torch::rand({batch_size, num_samples, height, width}) +
-              torch::arange(0, num_samples, 1).view({1, num_samples, 1, 1});
+      depth = torch::rand({batch_size, num_samples, height, width},
+                          torch::TensorOptions().device(device)) +
+              torch::arange(0, num_samples, 1,
+                            torch::TensorOptions().device(device))
+                  .view({1, num_samples, 1, 1});
       return 1.0 / (((inv_depth_min - inv_depth_max) / num_samples) * depth +
                     inv_depth_max);
     } else if (num_samples == 1) {
       return depth_init.detach();
     } else {
-      depth = torch::arange(-num_samples / 2, num_samples / 2, 1)
+      depth = torch::arange(-num_samples / 2, num_samples / 2, 1,
+                            torch::TensorOptions().device(device))
                   .view({1, num_samples, 1, 1})
                   .repeat({batch_size, 1, height, width});
       depth = 1.0 / depth_init.detach() +
@@ -391,9 +395,7 @@ TORCH_MODULE(InitDepth);
 
 class PropagationImpl : public torch::nn::Module {
  public:
-  PropagationImpl(const int num_neighbors)
-      : Module("Propagation") {
-  }
+  PropagationImpl(const int num_neighbors) : Module("Propagation") {}
 
   torch::Tensor forward(const torch::Tensor& depth, const torch::Tensor& grid,
                         const double depth_min, const double depth_max) {
@@ -431,6 +433,7 @@ class EvaluationImpl : public torch::nn::Module {
       const torch::Tensor& grid, const torch::Tensor& weight,
       const torch::Tensor& view_weights, const bool is_inverse) {
     torch::Tensor depth = depth_init;
+    torch::Device device = ref_feature_in.device();
     const int64_t batch_size = ref_feature_in.size(0);
     const int64_t num_channels = ref_feature_in.size(1);
     const int64_t height = ref_feature_in.size(2);
@@ -441,9 +444,12 @@ class EvaluationImpl : public torch::nn::Module {
     std::vector<torch::Tensor> weights;
     torch::Tensor ref_feature = ref_feature_in.view(
         {batch_size, num_groups, num_channels / num_groups, 1, height, width});
-    torch::Tensor weight_sum = torch::zeros({batch_size, 1, 1, height, width});
+    torch::Tensor weight_sum =
+        torch::zeros({batch_size, 1, 1, height, width},
+                     torch::TensorOptions().device(device));
     torch::Tensor similarity_sum =
-        torch::zeros({batch_size, num_groups, num_depth, height, width});
+        torch::zeros({batch_size, num_groups, num_depth, height, width},
+                     torch::TensorOptions().device(device));
 
     for (size_t i = 0; i < src_features.size(); ++i) {
       torch::Tensor warped_feature =
@@ -474,6 +480,7 @@ class EvaluationImpl : public torch::nn::Module {
                                       const torch::Tensor& proj,
                                       const torch::Tensor& ref_proj,
                                       const torch::Tensor& depth) {
+    torch::Device device = feature.device();
     const int64_t batch_size = feature.size(0);
     const int64_t num_channels = feature.size(1);
     const int64_t height = feature.size(2);
@@ -488,9 +495,11 @@ class EvaluationImpl : public torch::nn::Module {
       torch::Tensor rot = pmtx.narrow(1, 0, 3).narrow(2, 0, 3);
       torch::Tensor trans = pmtx.narrow(1, 0, 3).narrow(2, 3, 1);
 
-      torch::TensorList xy =
-          torch::meshgrid({torch::arange(0.0, (double)height),
-                           torch::arange(0.0, (double)width)});
+      torch::TensorList xy = torch::meshgrid(
+          {torch::arange(0.0, (double)height,
+                         torch::TensorOptions().device(device)),
+           torch::arange(0.0, (double)width,
+                         torch::TensorOptions().device(device))});
       torch::Tensor x = xy[1].contiguous().view(height * width);
       torch::Tensor y = xy[0].contiguous().view(height * width);
       torch::Tensor xyz = torch::stack({x, y, torch::ones_like(x)})
@@ -522,15 +531,17 @@ class EvaluationImpl : public torch::nn::Module {
                                        const torch::Tensor& score) {
     const int64_t num_depth = depth.size(1);
     torch::Tensor depth_index =
-        torch::arange(0.0, (double)num_depth, 1).view({1, num_depth, 1, 1});
+        torch::arange(0.0, (double)num_depth, 1,
+                      torch::TensorOptions().device(depth.device()))
+            .view({1, num_depth, 1, 1});
     depth_index = torch::sum(depth_index * score, 1);
     const torch::Tensor inv_depth_min = 1.0 / depth.select(1, num_depth - 1);
     const torch::Tensor inv_depth_max = 1.0 / depth.select(1, 0);
-    
+
     return 1.0 / (inv_depth_max + (inv_depth_min - inv_depth_max) *
                                       depth_index / (num_depth - 1));
   }
-  
+
   const int num_groups;
   PixelwiseNet pixelwise_net{nullptr};
   SimilarityNet similarity_net{nullptr};
@@ -561,6 +572,7 @@ class PatchMatchImpl : public torch::nn::Module {
       const torch::Tensor& depth_init, const torch::Tensor& ref_image,
       const torch::Tensor& view_weights_init) {
     torch::Tensor depth = depth_init, view_weights = view_weights_init, score;
+    torch::Device device = ref_feature.device();
     const int64_t batch_size = ref_feature.size(0);
     const int64_t height = ref_feature.size(2);
     const int64_t width = ref_feature.size(3);
@@ -572,7 +584,7 @@ class PatchMatchImpl : public torch::nn::Module {
               .view({batch_size, 2 * propagation_neighbors, height * width});
       propagation_grid =
           GetGrid(propagation_offset, prop_offset_orig, propagation_neighbors,
-                  batch_size, height, width);
+                  batch_size, height, width, device);
     }
 
     torch::Tensor evaluation_offset =
@@ -580,14 +592,14 @@ class PatchMatchImpl : public torch::nn::Module {
             .view({batch_size, 2 * evaluation_neighbors, height * width});
     torch::Tensor evaluation_grid =
         GetGrid(evaluation_offset, eval_offset_orig, evaluation_neighbors,
-                batch_size, height, width);
+                batch_size, height, width, device);
 
     torch::Tensor feature_weight =
         feature_weight_net->forward(ref_feature, evaluation_grid);
 
     for (int iter = 0; iter < iterations; ++iter) {
       depth = init_depth->forward(depth, depth_min, depth_max, batch_size,
-                                  height, width);
+                                  height, width, device);
       if (propagation_neighbors > 0 &&
           !(stage == 1 && iter == iterations - 1)) {
         depth =
@@ -664,13 +676,16 @@ class PatchMatchImpl : public torch::nn::Module {
   torch::Tensor GetGrid(const torch::Tensor& offset,
                         const std::vector<std::array<int, 2>>& orig_offset,
                         const int num_neighbors, const int64_t batch_size,
-                        const int64_t height, const int64_t width) {
+                        const int64_t height, const int64_t width,
+                        torch::Device device) {
     torch::Tensor xy_grid;
     {
       torch::NoGradGuard no_grad;
-      torch::TensorList grid =
-          torch::meshgrid({torch::arange(0.0, (double)height),
-                           torch::arange(0.0, (double)width)});
+      torch::TensorList grid = torch::meshgrid(
+          {torch::arange(0.0, (double)height,
+                         torch::TensorOptions().device(device)),
+           torch::arange(0.0, (double)width,
+                         torch::TensorOptions().device(device))});
       torch::Tensor y_grid = grid[0].contiguous().view(height * width);
       torch::Tensor x_grid = grid[1].contiguous().view(height * width);
       xy_grid = torch::stack({x_grid, y_grid})
@@ -770,7 +785,8 @@ class PatchMatchNetImpl : public torch::nn::Module {
       proj_mtx[stage] = torch::unbind(proj_matrices[stage], 1);
     }
 
-    std::vector<torch::Tensor> ref_features = feature->forward(images_stage0[0]);
+    std::vector<torch::Tensor> ref_features =
+        feature->forward(images_stage0[0]);
     std::vector<std::vector<torch::Tensor>> src_features(NUM_STAGES);
     for (size_t im_idx = 1; im_idx < num_images; ++im_idx) {
       torch::TensorList stage_features =
@@ -795,7 +811,7 @@ class PatchMatchNetImpl : public torch::nn::Module {
             torch::nn::functional::interpolate(view_weights, INTERP_NEAREST);
       }
     }
-    
+
     depth = refinement->forward(ref_image[0], depth, depth_min, depth_max);
     torch::Dict<std::string, torch::Tensor> out;
     out.insert("depth", depth);
@@ -815,11 +831,12 @@ class PatchMatchNetImpl : public torch::nn::Module {
                       .padding(0))
                   .squeeze(1);
 
-    torch::Tensor depth_index = torch::arange(num_depth);
+    torch::Tensor depth_index = torch::arange(
+        (double)num_depth, torch::TensorOptions().device(score.device()));
     depth_index =
         depth_index.view({depth_index.size(0), depth_index.size(1), 1, 1});
     depth_index =
-        torch::sum(score * depth_index, 1, true, c10::ScalarType::Long)
+        torch::sum(score * depth_index, 1, true, torch::ScalarType::Long)
             .clamp(0, num_depth - 1);
 
     return torch::nn::functional::interpolate(score_sum.gather(1, depth_index),
