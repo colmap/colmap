@@ -35,11 +35,16 @@
 #include <unordered_set>
 
 #include "mvs/consistency_graph.h"
+#ifdef CUDA_ENABLED
 #include "mvs/patch_match_cuda.h"
+#endif
+#ifdef TORCH_ENABLED
 #include "mvs/patch_match_net.h"
+#endif
 #include "mvs/workspace.h"
 #include "util/math.h"
 #include "util/misc.h"
+#include "util/timer.h"
 
 #define PrintOption(option) std::cout << #option ": " << option << std::endl
 
@@ -76,9 +81,7 @@ void PatchMatchOptions::Print() const {
   PrintOption(filter_geom_consistency_max_cost);
   PrintOption(cache_size);
   PrintOption(write_consistency_graph);
-  PrintOption(allow_missing_files);
-  PrintOption(checkpoint_path);
-  PrintOption(param_dict_path);
+  PrintOption(mvs_module_path);
 }
 
 void PatchMatch::Problem::Print() const {
@@ -394,6 +397,8 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
   if (IsStopped()) {
     return;
   }
+  Timer timer_problem, timer_patch_match;
+  timer_problem.Start();
 
   const bool is_learned = options_.patch_match_method ==
                           PatchMatchOptions::PatchMatchMethod::Learned;
@@ -418,7 +423,9 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
   const std::string consistency_graph_path = JoinPaths(
       workspace_path_, stereo_folder, "consistency_graphs", file_name);
 
-  if (ExistsFile(depth_map_path) && ExistsFile(normal_map_path) &&
+  if (ExistsFile(depth_map_path) &&
+      (is_learned || ExistsFile(normal_map_path)) &&
+      (!is_learned || ExistsFile(confidence_map_path)) &&
       (!options.write_consistency_graph ||
        ExistsFile(consistency_graph_path))) {
     return;
@@ -488,11 +495,15 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
   std::unique_ptr<PatchMatch> patch_match = nullptr;
   if (options_.patch_match_method ==
       PatchMatchOptions::PatchMatchMethod::Learned) {
-    patch_match.reset(new PatchMatchNet(patch_match_options, problem));
+    patch_match.reset(new PatchMatchNet(patch_match_options, problem,
+                                        thread_pool_->GetThreadIndex()));
   } else {
     patch_match.reset(new PatchMatchCuda(patch_match_options, problem));
   }
+  timer_patch_match.Start();
   patch_match->Run();
+  std::cout << "Finished depth map estimation: ";
+  timer_patch_match.PrintSeconds();
 
   std::cout << std::endl
             << StringPrintf("Writing %s output for %s", output_type.c_str(),
@@ -509,6 +520,8 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     patch_match->GetConsistencyGraph(patch_match->GetConsistentImageIdxs())
         .Write(consistency_graph_path);
   }
+  std::cout << "Finished problem processing: ";
+  timer_problem.PrintSeconds();
 }
 
 }  // namespace mvs

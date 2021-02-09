@@ -36,69 +36,72 @@
 namespace colmap {
 namespace mvs {
 
-const int kNumStages = 4;
+static const torch::Device kDevOut(torch::kCPU);
+static const torch::Device kDevIn(torch::cuda::is_available() ? torch::kCUDA
+                                                              : torch::kCPU);
+
+std::unordered_map<int, torch::jit::Module> PatchMatchNet::model_;
 
 PatchMatchNet::PatchMatchNet(const PatchMatchOptions& options,
-                             const PatchMatch::Problem& problem)
-    : PatchMatch(options, problem),
-      dev_in_(torch::cuda::is_available() ? torch::kCUDA : torch::kCPU),
-      dev_out_(torch::kCPU) {
-  InitParamDictionary();
+                             const PatchMatch::Problem& problem,
+                             const int thread_index)
+    : PatchMatch(options, problem), thread_index_(thread_index) {
+  InitModule();
   InitProblemInputs();
 }
 
 void PatchMatchNet::Run() {
   // Gradients should be disabled during evaluation to save up on GPU memory
   torch::NoGradGuard no_grad;
-  std::cout << "Starting PatchMatchNet" << std::endl;
-  torch::Tensor cuda_depth, cuda_confidence;
-  PatchMatchNetModule model = PatchMatchNetModule(param_dict_);
-  torch::load(model, options_.checkpoint_path);
-  model->eval();
-  model->to(dev_in_);
-  std::tie(cuda_depth, cuda_confidence) = model->forward(
-      images_, proj_matrices_, options_.depth_min, options_.depth_max);
+  std::cout << "Starting PatchMatchNet..." << std::endl;
+
+  // Run TorchScript module
+  torch::IValue result = model_[thread_index_].forward(
+      {images_, intrinsics_, extrinsics_, depth_params_});
 
   // Copy tensor data to outputs
-  torch::Tensor depth = cuda_depth.to(dev_out_);
+  size_t width = problem_.images->at(problem_.ref_image_idx).GetWidth();
+  size_t height = problem_.images->at(problem_.ref_image_idx).GetHeight();
+  torch::Tensor depth = result.toTuple()->elements()[0].toTensor().to(kDevOut);
   const float* depth_ptr = depth.data_ptr<float>();
-  std::copy(depth_ptr, depth_ptr + (width_ * height_), depth_map_.GetPtr());
+  std::copy(depth_ptr, depth_ptr + (width * height), depth_map_.GetPtr());
 
-  torch::Tensor confidence = cuda_confidence.to(dev_out_);
+  torch::Tensor confidence =
+      result.toTuple()->elements()[1].toTensor().to(kDevOut);
   const float* confidence_ptr = confidence.data_ptr<float>();
-  std::copy(confidence_ptr, confidence_ptr + (width_ * height_),
+  std::copy(confidence_ptr, confidence_ptr + (width * height),
             confidence_map_.GetPtr());
 }
 
-void PatchMatchNet::InitParamDictionary() {
-  if (ExistsFile(options_.param_dict_path)) {
-    std::cout << "Reading parameter dictionary from: "
-              << options_.param_dict_path << std::endl;
-    std::vector<std::string> lines =
-        ReadTextFileLines(options_.param_dict_path);
-    for (const std::string& line : lines) {
-      std::vector<std::string> entry = StringSplit(line, ",");
-      if (entry.size() != 2) {
-        std::cout << "WARN: skipping malformed param dictionary entry: " << line
-                  << std::endl;
-        continue;
-      }
-      StringTrim(&entry[0]);
-      StringTrim(&entry[1]);
-      param_dict_[entry[0]] = entry[1];
-    }
+void PatchMatchNet::InitModule() {
+  torch::jit::setGraphExecutorOptimize(true);
+  // Load module only once per thread index from the execution thread-pool.
+  // Ensures we use execution optimization in a thread-safe manner
+  if (model_.count(thread_index_) == 0) {
+    std::cout << "First definition of patch-match module for thread index: "
+              << options_.gpu_index << std::endl;
+    model_[thread_index_] =
+        torch::jit::load(options_.mvs_module_path, kDevIn);
+  } else {
+    std::cout << "Patch-match module already defined for thread index: "
+              << options_.gpu_index << std::endl;
   }
-  std::cout << "Loaded dictionary with " << param_dict_.size() << " entries"
-            << std::endl;
+
+  std::cout << "PatchMatchNet: Device input type: " << kDevIn << std::endl;
 }
 
 void PatchMatchNet::InitProblemInputs() {
   Image& ref_image = problem_.images->at(problem_.ref_image_idx);
-  width_ = ref_image.GetWidth();
-  height_ = ref_image.GetHeight();
+  size_t ref_width = ref_image.GetWidth();
+  size_t ref_height = ref_image.GetHeight();
   depth_map_ =
-      DepthMap(width_, height_, options_.depth_min, options_.depth_max);
-  confidence_map_ = ConfidenceMap(width_, height_);
+      DepthMap(ref_width, ref_height, options_.depth_min, options_.depth_max);
+  confidence_map_ = ConfidenceMap(ref_width, ref_height);
+
+  // Create tensor from depth_min and depth_max
+  std::vector<float> depth_data(
+      {(float)options_.depth_min, (float)options_.depth_max});
+  depth_params_ = torch::tensor(depth_data, torch::device(kDevIn)).view({1, 2});
 
   // collect all indexes for ref and src images
   std::vector<int> indexes;
@@ -106,51 +109,47 @@ void PatchMatchNet::InitProblemInputs() {
   indexes.insert(indexes.end(), problem_.src_image_idxs.begin(),
                  problem_.src_image_idxs.end());
 
-  // convert input bitmaps to float tensors of size {1, numImages, 3, height, width}
-  // the shape has a leading singleton dimension for the batcn size, and the
-  // third dim represents the image RGB channels
-  std::vector<torch::Tensor> images(indexes.size());
+  // convert input bitmaps, intrinsics, and extrinsics to float tensors of size
+  // {1, numImages, 3, height, width}, {1, numImages, 3, 3}, and {1, numImages,
+  // 4, 4} respectively. The shape has a leading singleton dimension for the
+  // batcn size, and the third dim of the images tensor represents the image RGB
+  // channels
+  images_.resize(indexes.size());
+  std::vector<torch::Tensor> intrinsics(indexes.size());
+  std::vector<torch::Tensor> extrinsics(indexes.size());
   for (int i = 0; i < indexes.size(); ++i) {
-    std::vector<uint8_t> data =
-        problem_.images->at(indexes[i]).GetBitmap().ConvertToRowMajorArray();
-    std::vector<float> float_data(data.size());
-    for (size_t i = 0; i < data.size(); ++i) {
-      float_data[i] = static_cast<float>(data[i]) / 255.0f;
-    }
-    images[i] = torch::tensor(float_data, torch::device(dev_in_))
-                    .view({1, 1, height_, width_, 3})
-                    .transpose(1, 4)
-                    .squeeze(4);
-  }
-  images_ = torch::stack(images, 1);
-  std::cout << "Created images input with size: " << images_.sizes()
-            << std::endl;
+    const Image& image = problem_.images->at(indexes[i]);
 
-  // convert the input projection matrices to float tensors of size {1, kNumStages, numImages, 4, 4}
-  // the leading singleton dimension is the batch size
-  std::vector<torch::Tensor> stage_matrices(kNumStages);
-  float scale = 0.125; // 8x downsampling for the last stage
-  for (int stage = kNumStages - 1; stage >= 0; --stage) {
-    std::vector<torch::Tensor> proj_matrices(indexes.size());
-    for (int i = 0; i < indexes.size(); ++i) {
-      // Creating a copy of the image and rescaling to get the correct values in
-      // the projection matrix
-      Image image(problem_.images->at(indexes[i]));
-      image.Rescale(scale);
-      // Reformating the projection matrix as a 4x4 flat array
-      std::vector<float> data(16, 0.0f);
-      std::copy_n(image.GetP(), 12, data.begin());
-      data[15] = 1.0f;
-      proj_matrices[i] =
-          torch::tensor(data, torch::device(dev_in_)).view({1, 4, 4});
+    // Read bitmap uint data and convert to float in range [0, 1]
+    std::vector<uint8_t> bitmap_data =
+        image.GetBitmap().ConvertToRowMajorArray();
+    std::vector<float> image_data(bitmap_data.size());
+    for (size_t i = 0; i < bitmap_data.size(); ++i) {
+      image_data[i] = static_cast<float>(bitmap_data[i]) / 255.0f;
     }
-    stage_matrices[stage] = torch::stack(proj_matrices, 1);
-    // doubling the scale for the next stage
-    scale *= 2.0f;
+    images_[i] = torch::tensor(image_data, torch::device(kDevIn))
+                     .view({1, 1, (int64_t)image.GetHeight(),
+                            (int64_t)image.GetWidth(), 3})
+                     .transpose(1, 4)
+                     .squeeze(4);
+
+    // Copying the intrinsics matrix data in 3x3 tensor
+    std::vector<float> intrinsic_data(image.GetK(), image.GetK() + 9);
+    intrinsics[i] =
+        torch::tensor(intrinsic_data, torch::device(kDevIn)).view({1, 3, 3});
+
+    // Reformating the intrinsics matrix as a 4x4 flat array
+    std::vector<float> extrinsic_data(16, 0.0f);
+    ComposePoseMatrix(image.GetR(), image.GetT(), extrinsic_data.data());
+    extrinsic_data[15] = 1.0f;
+    extrinsics[i] =
+        torch::tensor(extrinsic_data, torch::device(kDevIn)).view({1, 4, 4});
   }
-  proj_matrices_ = torch::stack(stage_matrices, 1);
-  std::cout << "Created projection matrices input with size: "
-            << proj_matrices_.sizes() << std::endl;
+  intrinsics_ = torch::stack(intrinsics, 1);
+  extrinsics_ = torch::stack(extrinsics, 1);
+  std::cout << "Created image, intrinsinc, and extrinsic inputs with size: "
+            << images_[0].sizes() << ", " << intrinsics_.sizes() << ", "
+            << extrinsics_.sizes() << std::endl;
 }
 
 }  // namespace mvs

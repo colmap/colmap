@@ -109,6 +109,13 @@ void ComputeRelativePose(const float R1[9], const float T1[3],
   T_m = T2_m - R_m * T1_m;
 }
 
+void ComposePoseMatrix(const float R[9], const float T[3], float P[12]) {
+  Eigen::Map<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> P_m(P);
+  P_m.leftCols<3>() =
+      Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(R);
+  P_m.rightCols<1>() = Eigen::Map<const Eigen::Vector3f>(T);
+}
+
 void ComposeProjectionMatrix(const float K[9], const float R[9],
                              const float T[3], float P[12]) {
   Eigen::Map<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> P_m(P);

@@ -417,12 +417,12 @@ int RunDelaunayMesher(int argc, char** argv) {
 }
 
 int RunPatchMatchStereo(int argc, char** argv) {
-#ifndef CUDA_ENABLED
-  std::cerr << "ERROR: Dense stereo reconstruction requires CUDA, which is not "
-               "available on your system."
+#if !defined(CUDA_ENABLED) && !defined(TORCH_ENABLED)
+  std::cerr << "ERROR: Dense stereo reconstruction requires CUDA or Torch, and "
+               "neither is available on your system."
             << std::endl;
   return EXIT_FAILURE;
-#else   // CUDA_ENABLED
+#else
   std::string workspace_path;
   std::string workspace_format = "COLMAP";
   std::string pmvs_option_name = "option-all";
@@ -449,17 +449,28 @@ int RunPatchMatchStereo(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  StringToLower(&method);
-  if (method == "learned") {
-    if (ExistsFile(options.patch_match_stereo->checkpoint_path)) {
-      options.patch_match_stereo->patch_match_method =
-          mvs::PatchMatchOptions::PatchMatchMethod::Learned;
-      options.patch_match_stereo->geom_consistency = false;
-    } else {
-      std::cout << "WARN: Cannot use learned method without checkpoint file; "
-                   "reverting to standard patch-match."
-                << std::endl;
-    }
+  if (ExistsFile(options.patch_match_stereo->mvs_module_path)) {
+#ifdef TORCH_ENABLED
+    std::cout << "Using learned patch-patch with module from: "
+              << options.patch_match_stereo->mvs_module_path << std::endl;
+    options.patch_match_stereo->patch_match_method =
+        mvs::PatchMatchOptions::PatchMatchMethod::Learned;
+    options.patch_match_stereo->geom_consistency = false;
+#else
+    std::cout << "WARN: Learned dense stereo reconstruction requires Torch, "
+                 "which is not available on your system; reverting to standard "
+                 "dense reconstruction with CUDA."
+              << std::endl;
+#endif
+  } else {
+#ifdef CUDA_ENABLED
+    std::cout << "Using standard patch-match" << std::endl;
+#else
+    std::cerr << "ERROR: Standard dense stereo reconstruction requires CUDA, "
+                 "which is not available on your system."
+              << std::endl;
+    return EXIT_FAILURE;
+#endif
   }
 
   mvs::PatchMatchController controller(*options.patch_match_stereo,
@@ -470,7 +481,7 @@ int RunPatchMatchStereo(int argc, char** argv) {
   controller.Wait();
 
   return EXIT_SUCCESS;
-#endif  // CUDA_ENABLED
+#endif  // !defined(CUDA_ENABLED) && !defined(TORCH_ENABLED)
 }
 
 int RunExhaustiveMatcher(int argc, char** argv) {

@@ -38,7 +38,7 @@
 #include "mvs/depth_map.h"
 #include "mvs/normal_map.h"
 #include "mvs/patch_match.h"
-#include "mvs/torch_modules.h"
+#include "torch/torch.h"
 
 namespace colmap {
 namespace mvs {
@@ -46,7 +46,7 @@ namespace mvs {
 class PatchMatchNet : public PatchMatch {
  public:
   PatchMatchNet(const PatchMatchOptions& options,
-                const PatchMatch::Problem& problem);
+                const PatchMatch::Problem& problem, const int thread_index = 0);
 
   virtual ~PatchMatchNet() {}
 
@@ -61,16 +61,16 @@ class PatchMatchNet : public PatchMatch {
   }
 
  private:
-  void InitParamDictionary();
+  void InitModule();
   void InitProblemInputs();
 
-  int64_t width_, height_;
-  std::unordered_map<std::string, std::string> param_dict_;
-  torch::Tensor images_;
-  torch::Tensor proj_matrices_;
-  const torch::Device dev_in_, dev_out_;
+  const int thread_index_;
+  torch::Tensor intrinsics_, extrinsics_, depth_params_;
+  std::vector<torch::Tensor> images_;
   DepthMap depth_map_;
   ConfidenceMap confidence_map_;
+
+  static std::unordered_map<int, torch::jit::Module> model_;
 };
 
 }  // namespace mvs

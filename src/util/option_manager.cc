@@ -646,10 +646,8 @@ void OptionManager::AddPatchMatchStereoOptions() {
                               &patch_match_stereo->cache_size);
   AddAndRegisterDefaultOption("PatchMatchStereo.write_consistency_graph",
                               &patch_match_stereo->write_consistency_graph);
-  AddAndRegisterDefaultOption("PatchMatchStereo.checkpoint_path",
-                              &patch_match_stereo->checkpoint_path);
-  AddAndRegisterDefaultOption("PatchMatchStereo.param_dict_path",
-                              &patch_match_stereo->param_dict_path);
+  AddAndRegisterDefaultOption("PatchMatchStereo.mvs_module_path",
+                              &patch_match_stereo->mvs_module_path);
 }
 
 void OptionManager::AddStereoFusionOptions() {

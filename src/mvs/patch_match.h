@@ -53,7 +53,6 @@ namespace mvs {
 const static size_t kMaxPatchMatchWindowRadius = 32;
 
 class ConsistencyGraph;
-class PatchMatchCuda;
 class Workspace;
 
 struct PatchMatchOptions {
@@ -137,8 +136,8 @@ struct PatchMatchOptions {
   // Whether to write the consistency graph.
   bool write_consistency_graph = false;
 
-  std::string checkpoint_path = "";
-  std::string param_dict_path = "";
+  // Path for TorchScipt module of PatchMatchNet
+  std::string mvs_module_path = "";
 
   enum class PatchMatchMethod { Standard, Learned };
   PatchMatchMethod patch_match_method = PatchMatchMethod::Standard;
@@ -219,6 +218,46 @@ class PatchMatch {
   const PatchMatchOptions options_;
   const Problem problem_;
 };
+
+#ifndef CUDA_ENABLED
+// Dummy implementation of PatchMatchCuda when CUDA is disabled
+class PatchMatchCuda : public PatchMatch {
+ public:
+  PatchMatchCuda(const PatchMatchOptions& options, const Problem& problem)
+      : PatchMatch(options, problem) {}
+  virtual ~PatchMatchCuda() {}
+
+  // Run the patch match algorithm.
+  virtual void Run() {}
+
+  // Get the computed values after running the algorithm.
+  virtual DepthMap GetDepthMap() const { return DepthMap(); }
+  virtual ConfidenceMap GetConfidenceMap() const { return ConfidenceMap(); }
+  virtual NormalMap GetNormalMap() const { return NormalMap(); }
+};
+
+inline int GetNumCudaDevices() { return 1; }
+#endif  // CUDA_ENABLED
+
+#ifndef TORCH_ENABLED
+// Dummy implementation of PatchMatchNet when Torch is disabled
+class PatchMatchNet : public PatchMatch {
+ public:
+  PatchMatchNet(const PatchMatchOptions& options, const Problem& problem,
+                const int thread_index = 0)
+      : PatchMatch(options, problem) {}
+  virtual ~PatchMatchNet() {}
+
+  // Run the patch match algorithm.
+  virtual void Run() {}
+
+  // Get the computed values after running the algorithm.
+  virtual DepthMap GetDepthMap() const { return DepthMap(); }
+  virtual ConfidenceMap GetConfidenceMap() const { return ConfidenceMap(); }
+  virtual NormalMap GetNormalMap() const { return NormalMap(); }
+};
+
+#endif  // TORCH_ENABLED
 
 // This thread processes all problems in a workspace. A workspace has the
 // following file structure, if the workspace format is "COLMAP":

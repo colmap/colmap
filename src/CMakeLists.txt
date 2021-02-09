@@ -79,9 +79,22 @@ if(CUDA_ENABLED)
 
     COLMAP_ADD_STATIC_CUDA_LIBRARY(colmap_cuda ${COLMAP_CUDA_SOURCES})
     target_link_libraries(colmap_cuda colmap)
+endif()
 
+if(TORCH_ENABLED)
+    COLMAP_ADD_STATIC_LIBRARY(colmap_torch ${COLMAP_TORCH_SOURCES})
+    target_link_libraries(colmap_torch colmap)
+endif()
+
+if(CUDA_ENABLED AND TORCH_ENABLED)
+    target_link_libraries(colmap
+        colmap_cuda colmap_torch ${COLMAP_INTERNAL_LIBRARIES} ${COLMAP_EXTERNAL_LIBRARIES})
+elseif(CUDA_ENABLED)
     target_link_libraries(colmap
         colmap_cuda ${COLMAP_INTERNAL_LIBRARIES} ${COLMAP_EXTERNAL_LIBRARIES})
+elseif(TORCH_ENABLED)
+    target_link_libraries(colmap
+        colmap_torch ${COLMAP_INTERNAL_LIBRARIES} ${COLMAP_EXTERNAL_LIBRARIES})
 else()
     target_link_libraries(colmap
         ${COLMAP_INTERNAL_LIBRARIES} ${COLMAP_EXTERNAL_LIBRARIES})

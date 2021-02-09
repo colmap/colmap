@@ -87,6 +87,8 @@ void ComputeRelativePose(const float R1[9], const float T1[3],
                          const float R2[9], const float T2[3], float R[9],
                          float T[3]);
 
+void ComposePoseMatrix(const float R[9], const float T[3], float P[16]);
+
 void ComposeProjectionMatrix(const float K[9], const float R[9],
                              const float T[3], float P[12]);
 
