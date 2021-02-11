@@ -41,6 +41,10 @@ namespace mvs {
 
 Image::Image() {}
 
+Image::Image(const Image& image)
+    : Image(image.GetPath(), image.GetWidth(), image.GetHeight(), image.GetK(),
+            image.GetR(), image.GetT()) {}
+
 Image::Image(const std::string& path, const size_t width, const size_t height,
              const float* K, const float* R, const float* T)
     : path_(path), width_(width), height_(height) {

@@ -47,6 +47,7 @@ namespace mvs {
 class Image {
  public:
   Image();
+  Image(const Image& image);
   Image(const std::string& path, const size_t width, const size_t height,
         const float* K, const float* R, const float* T);
 

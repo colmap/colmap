@@ -137,6 +137,12 @@ struct PatchMatchOptions {
   // Whether to write the consistency graph.
   bool write_consistency_graph = false;
 
+  std::string checkpoint_path = "";
+  std::string param_dict_path = "";
+
+  enum class PatchMatchMethod { Standard, Learned };
+  PatchMatchMethod patch_match_method = PatchMatchMethod::Standard;
+
   void Print() const;
   bool Check() const {
     if (depth_min != -1.0f || depth_max != -1.0f) {
@@ -194,24 +200,24 @@ class PatchMatch {
   };
 
   PatchMatch(const PatchMatchOptions& options, const Problem& problem);
-  ~PatchMatch();
+  virtual ~PatchMatch();
 
   // Check the options and the problem for validity.
-  void Check() const;
+  virtual void Check() const;
 
   // Run the patch match algorithm.
-  void Run();
+  virtual void Run() = 0;
 
   // Get the computed values after running the algorithm.
-  DepthMap GetDepthMap() const;
-  NormalMap GetNormalMap() const;
-  ConsistencyGraph GetConsistencyGraph() const;
-  Mat<float> GetSelProbMap() const;
+  virtual DepthMap GetDepthMap() const = 0;
+  virtual ConfidenceMap GetConfidenceMap() const = 0;
+  virtual NormalMap GetNormalMap() const = 0;
+  virtual ConsistencyGraph GetConsistencyGraph(std::vector<int> indexes) const;
+  virtual std::vector<int> GetConsistentImageIdxs() { return std::vector<int>(); }
 
- private:
+ protected:
   const PatchMatchOptions options_;
   const Problem problem_;
-  std::unique_ptr<PatchMatchCuda> patch_match_cuda_;
 };
 
 // This thread processes all problems in a workspace. A workspace has the

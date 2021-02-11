@@ -36,6 +36,7 @@
 
 #include "mvs/consistency_graph.h"
 #include "mvs/patch_match_cuda.h"
+#include "mvs/patch_match_net.h"
 #include "mvs/workspace.h"
 #include "util/math.h"
 #include "util/misc.h"
@@ -73,7 +74,11 @@ void PatchMatchOptions::Print() const {
   PrintOption(filter_min_triangulation_angle);
   PrintOption(filter_min_num_consistent);
   PrintOption(filter_geom_consistency_max_cost);
+  PrintOption(cache_size);
   PrintOption(write_consistency_graph);
+  PrintOption(allow_missing_files);
+  PrintOption(checkpoint_path);
+  PrintOption(param_dict_path);
 }
 
 void PatchMatch::Problem::Print() const {
@@ -153,31 +158,10 @@ void PatchMatch::Check() const {
   }
 }
 
-void PatchMatch::Run() {
-  PrintHeading2("PatchMatch::Run");
-
-  Check();
-
-  patch_match_cuda_.reset(new PatchMatchCuda(options_, problem_));
-  patch_match_cuda_->Run();
-}
-
-DepthMap PatchMatch::GetDepthMap() const {
-  return patch_match_cuda_->GetDepthMap();
-}
-
-NormalMap PatchMatch::GetNormalMap() const {
-  return patch_match_cuda_->GetNormalMap();
-}
-
-Mat<float> PatchMatch::GetSelProbMap() const {
-  return patch_match_cuda_->GetSelProbMap();
-}
-
-ConsistencyGraph PatchMatch::GetConsistencyGraph() const {
+ConsistencyGraph PatchMatch::GetConsistencyGraph(
+    std::vector<int> indexes) const {
   const auto& ref_image = problem_.images->at(problem_.ref_image_idx);
-  return ConsistencyGraph(ref_image.GetWidth(), ref_image.GetHeight(),
-                          patch_match_cuda_->GetConsistentImageIdxs());
+  return ConsistencyGraph(ref_image.GetWidth(), ref_image.GetHeight(), indexes);
 }
 
 PatchMatchController::PatchMatchController(const PatchMatchOptions& options,
@@ -200,7 +184,9 @@ void PatchMatchController::Run() {
 
   // If geometric consistency is enabled, then photometric output must be
   // computed first for all images without filtering.
-  if (options_.geom_consistency) {
+  if (options_.patch_match_method ==
+          PatchMatchOptions::PatchMatchMethod::Standard &&
+      options_.geom_consistency) {
     auto photometric_options = options_;
     photometric_options.geom_consistency = false;
     photometric_options.filter = false;
@@ -237,7 +223,8 @@ void PatchMatchController::ReadWorkspace() {
   }
 
   workspace_options.max_image_size = options_.max_image_size;
-  workspace_options.image_as_rgb = false;
+  workspace_options.image_as_rgb = options_.patch_match_method ==
+                                   PatchMatchOptions::PatchMatchMethod::Learned;
   workspace_options.cache_size = options_.cache_size;
   workspace_options.workspace_path = workspace_path_;
   workspace_options.workspace_format = workspace_format_;
@@ -408,6 +395,8 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     return;
   }
 
+  const bool is_learned = options_.patch_match_method ==
+                          PatchMatchOptions::PatchMatchMethod::Learned;
   const auto& model = workspace_->GetModel();
 
   auto& problem = problems_.at(problem_idx);
@@ -416,12 +405,14 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
 
   const std::string& stereo_folder = workspace_->GetOptions().stereo_folder;
   const std::string output_type =
-      options.geom_consistency ? "geometric" : "photometric";
+      (options.geom_consistency || is_learned) ? "geometric" : "photometric";
   const std::string image_name = model.GetImageName(problem.ref_image_idx);
   const std::string file_name =
       StringPrintf("%s.%s.bin", image_name.c_str(), output_type.c_str());
   const std::string depth_map_path =
       JoinPaths(workspace_path_, stereo_folder, "depth_maps", file_name);
+  const std::string confidence_map_path =
+      JoinPaths(workspace_path_, stereo_folder, "confidence_maps", file_name);
   const std::string normal_map_path =
       JoinPaths(workspace_path_, stereo_folder, "normal_maps", file_name);
   const std::string consistency_graph_path = JoinPaths(
@@ -494,18 +485,29 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
   problem.Print();
   patch_match_options.Print();
 
-  PatchMatch patch_match(patch_match_options, problem);
-  patch_match.Run();
+  std::unique_ptr<PatchMatch> patch_match = nullptr;
+  if (options_.patch_match_method ==
+      PatchMatchOptions::PatchMatchMethod::Learned) {
+    patch_match.reset(new PatchMatchNet(patch_match_options, problem));
+  } else {
+    patch_match.reset(new PatchMatchCuda(patch_match_options, problem));
+  }
+  patch_match->Run();
 
   std::cout << std::endl
             << StringPrintf("Writing %s output for %s", output_type.c_str(),
                             image_name.c_str())
             << std::endl;
 
-  patch_match.GetDepthMap().Write(depth_map_path);
-  patch_match.GetNormalMap().Write(normal_map_path);
+  patch_match->GetDepthMap().Write(depth_map_path);
+  if (is_learned) {
+    patch_match->GetConfidenceMap().Write(confidence_map_path);
+  } else {
+    patch_match->GetNormalMap().Write(normal_map_path);
+  }
   if (options.write_consistency_graph) {
-    patch_match.GetConsistencyGraph().Write(consistency_graph_path);
+    patch_match->GetConsistencyGraph(patch_match->GetConsistentImageIdxs())
+        .Write(consistency_graph_path);
   }
 }
 

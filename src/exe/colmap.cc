@@ -426,6 +426,8 @@ int RunPatchMatchStereo(int argc, char** argv) {
   std::string workspace_path;
   std::string workspace_format = "COLMAP";
   std::string pmvs_option_name = "option-all";
+  std::string method = "standard";
+  std::string config_path;
 
   OptionManager options;
   options.AddRequiredOption(
@@ -434,6 +436,8 @@ int RunPatchMatchStereo(int argc, char** argv) {
   options.AddDefaultOption("workspace_format", &workspace_format,
                            "{COLMAP, PMVS}");
   options.AddDefaultOption("pmvs_option_name", &pmvs_option_name);
+  options.AddDefaultOption("method", &method, "{standard, learned}");
+  options.AddDefaultOption("config_path", &config_path);
   options.AddPatchMatchStereoOptions();
   options.Parse(argc, argv);
 
@@ -443,6 +447,19 @@ int RunPatchMatchStereo(int argc, char** argv) {
                  "'COLMAP' or 'PMVS'."
               << std::endl;
     return EXIT_FAILURE;
+  }
+
+  StringToLower(&method);
+  if (method == "learned") {
+    if (ExistsFile(options.patch_match_stereo->checkpoint_path)) {
+      options.patch_match_stereo->patch_match_method =
+          mvs::PatchMatchOptions::PatchMatchMethod::Learned;
+      options.patch_match_stereo->geom_consistency = false;
+    } else {
+      std::cout << "WARN: Cannot use learned method without checkpoint file; "
+                   "reverting to standard patch-match."
+                << std::endl;
+    }
   }
 
   mvs::PatchMatchController controller(*options.patch_match_stereo,

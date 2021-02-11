@@ -1157,8 +1157,7 @@ __global__ void SweepFromTopToBottom(
 
 PatchMatchCuda::PatchMatchCuda(const PatchMatchOptions& options,
                                const PatchMatch::Problem& problem)
-    : options_(options),
-      problem_(problem),
+    : PatchMatch(options, problem),
       ref_width_(0),
       ref_height_(0),
       rotation_in_half_pi_(0) {
@@ -1176,6 +1175,7 @@ PatchMatchCuda::~PatchMatchCuda() {
 }
 
 void PatchMatchCuda::Run() {
+  Check();
 #define CASE_WINDOW_RADIUS(window_radius, window_step)              \
   case window_radius:                                               \
     RunWithWindowSizeAndStep<2 * window_radius + 1, window_step>(); \
@@ -1229,12 +1229,12 @@ DepthMap PatchMatchCuda::GetDepthMap() const {
                   options_.depth_max);
 }
 
-NormalMap PatchMatchCuda::GetNormalMap() const {
-  return NormalMap(normal_map_->CopyToMat());
+ConfidenceMap PatchMatchCuda::GetConfidenceMap() const {
+  return ConfidenceMap(ref_width_, ref_height_);
 }
 
-Mat<float> PatchMatchCuda::GetSelProbMap() const {
-  return prev_sel_prob_map_->CopyToMat();
+NormalMap PatchMatchCuda::GetNormalMap() const {
+  return NormalMap(normal_map_->CopyToMat());
 }
 
 std::vector<int> PatchMatchCuda::GetConsistentImageIdxs() const {
