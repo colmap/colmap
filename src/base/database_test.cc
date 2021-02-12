@@ -35,6 +35,7 @@
 #include <thread>
 
 #include "base/database.h"
+#include "base/pose.h"
 
 using namespace colmap;
 
@@ -315,6 +316,8 @@ BOOST_AUTO_TEST_CASE(TestTwoViewGeometry) {
   two_view_geometry.F = Eigen::Matrix3d::Random();
   two_view_geometry.E = Eigen::Matrix3d::Random();
   two_view_geometry.H = Eigen::Matrix3d::Random();
+  two_view_geometry.qvec = Eigen::Vector4d::Random();
+  two_view_geometry.tvec = Eigen::Vector3d::Random();
   database.WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
   const TwoViewGeometry two_view_geometry_read =
       database.ReadTwoViewGeometry(image_id1, image_id2);
@@ -331,6 +334,8 @@ BOOST_AUTO_TEST_CASE(TestTwoViewGeometry) {
   BOOST_CHECK_EQUAL(two_view_geometry.F, two_view_geometry_read.F);
   BOOST_CHECK_EQUAL(two_view_geometry.E, two_view_geometry_read.E);
   BOOST_CHECK_EQUAL(two_view_geometry.H, two_view_geometry_read.H);
+  BOOST_CHECK_EQUAL(two_view_geometry.qvec, two_view_geometry_read.qvec);
+  BOOST_CHECK_EQUAL(two_view_geometry.tvec, two_view_geometry_read.tvec);
 
   const TwoViewGeometry two_view_geometry_read_inv =
       database.ReadTwoViewGeometry(image_id2, image_id1);
@@ -352,6 +357,13 @@ BOOST_AUTO_TEST_CASE(TestTwoViewGeometry) {
   BOOST_CHECK(two_view_geometry_read_inv.H.inverse().eval().isApprox(
       two_view_geometry_read.H));
 
+  Eigen::Vector4d read_inv_qvec_inv;
+  Eigen::Vector3d read_inv_tvec_inv;
+  InvertPose(two_view_geometry_read_inv.qvec, two_view_geometry_read_inv.tvec,
+                &read_inv_qvec_inv, &read_inv_tvec_inv);
+  BOOST_CHECK_EQUAL(read_inv_qvec_inv, two_view_geometry_read.qvec);
+  BOOST_CHECK(read_inv_tvec_inv.isApprox(two_view_geometry_read.tvec));
+
   std::vector<image_pair_t> image_pair_ids;
   std::vector<TwoViewGeometry> two_view_geometries;
   database.ReadTwoViewGeometries(&image_pair_ids, &two_view_geometries);
@@ -363,6 +375,8 @@ BOOST_AUTO_TEST_CASE(TestTwoViewGeometry) {
   BOOST_CHECK_EQUAL(two_view_geometry.F, two_view_geometries[0].F);
   BOOST_CHECK_EQUAL(two_view_geometry.E, two_view_geometries[0].E);
   BOOST_CHECK_EQUAL(two_view_geometry.H, two_view_geometries[0].H);
+  BOOST_CHECK_EQUAL(two_view_geometry.qvec, two_view_geometries[0].qvec);
+  BOOST_CHECK_EQUAL(two_view_geometry.tvec, two_view_geometries[0].tvec);
   BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(),
                     two_view_geometries[0].inlier_matches.size());
   std::vector<std::pair<image_t, image_t>> image_pairs;
