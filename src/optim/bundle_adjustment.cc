@@ -269,6 +269,8 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   }
 
   ceres::Solver::Options solver_options = options_.solver_options;
+  const bool has_sparse =
+      solver_options.sparse_linear_algebra_library_type != ceres::NO_SPARSE;
 
   // Empirical choice.
   const size_t kMaxNumImagesDirectDenseSolver = 50;
@@ -276,7 +278,7 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   const size_t num_images = config_.NumImages();
   if (num_images <= kMaxNumImagesDirectDenseSolver) {
     solver_options.linear_solver_type = ceres::DENSE_SCHUR;
-  } else if (num_images <= kMaxNumImagesDirectSparseSolver) {
+  } else if (num_images <= kMaxNumImagesDirectSparseSolver && has_sparse) {
     solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
   } else {  // Indirect sparse (preconditioned CG) solver.
     solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
@@ -830,6 +832,8 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
   }
 
   ceres::Solver::Options solver_options = options_.solver_options;
+  const bool has_sparse =
+      solver_options.sparse_linear_algebra_library_type != ceres::NO_SPARSE;
 
   // Empirical choice.
   const size_t kMaxNumImagesDirectDenseSolver = 50;
@@ -837,7 +841,7 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
   const size_t num_images = config_.NumImages();
   if (num_images <= kMaxNumImagesDirectDenseSolver) {
     solver_options.linear_solver_type = ceres::DENSE_SCHUR;
-  } else if (num_images <= kMaxNumImagesDirectSparseSolver) {
+  } else if (num_images <= kMaxNumImagesDirectSparseSolver && has_sparse) {
     solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
   } else {  // Indirect sparse (preconditioned CG) solver.
     solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
