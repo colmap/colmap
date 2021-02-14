@@ -2,13 +2,15 @@ parameters:
   ubuntuVersion: '18.04'
   cudaEnabled: false
 
+variables:
+  ${{ if eq(parameters.cudaEnabled, false) }}:
+    displayName: 'Ubuntu ${{ parameters.ubuntuVersion }}'
+  ${{ if eq(parameters.cudaEnabled, true) }}:
+    displayName: 'Ubuntu ${{ parameters.ubuntuVersion }} (CUDA)'
+
 jobs:
 - job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}
-  displayName:
-    ${{ if eq(parameters.cudaEnabled, false) }}:
-      'Ubuntu ${{ parameters.ubuntuVersion }}'
-    ${{ if eq(parameters.cudaEnabled, true) }}:
-      'Ubuntu ${{ parameters.ubuntuVersion (CUDA) }}'
+  displayName: $(displayName)
   pool:
     vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
   steps:
