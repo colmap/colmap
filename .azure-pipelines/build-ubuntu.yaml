@@ -54,5 +54,6 @@ steps:
   displayName: 'Configure and build'
 
 - script: |
+    cd build
     ninja test
   displayName: 'Run tests'
