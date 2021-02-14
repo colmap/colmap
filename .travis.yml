@@ -1,6 +1,6 @@
 arch:
-      - amd64
-      - ppc64le
+  - amd64
+  - ppc64le
 language: cpp
 sudo: true
 dist: bionic
@@ -38,33 +38,23 @@ matrix:
       env:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON"
         - RUN_TESTS=true
-        - QT_VERSION=597
-    - os: linux
-      env:
-        - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON"
-        - RUN_TESTS=true
-        - QT_VERSION=542
     - os: linux
       env:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=OFF"
         - RUN_TESTS=true
-        - QT_VERSION=597
     - os: linux
       env:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=ON -DCGAL_ENABLED=ON"
         - RUN_TESTS=false
-        - QT_VERSION=597
     - os: linux
       env:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON -DCUDA_ARCHS=Kepler"
         - RUN_TESTS=false
-        - QT_VERSION=597
         - CUDA_VERSION=8.0.61-1
     - os: linux
       env:
         - CMAKE_OPTIONS="-DOPENGL_ENABLED=OFF -DCGAL_ENABLED=ON -DCUDA_ARCHS=Pascal"
         - RUN_TESTS=false
-        - QT_VERSION=597
         - CUDA_VERSION=10.1.243-1
     - os: osx
       env:
@@ -95,11 +85,6 @@ before_script:
   - |
     if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
       export DISPLAY=:99.0
-
-      sudo add-apt-repository --yes ppa:beineri/opt-qt${QT_VERSION}-xenial
-      export PATH="/opt/qt${QT_VERSION:0:2}/bin:$PATH"
-      sudo apt-get update -qq
-      sudo apt-get -y install qt${QT_VERSION:0:2}base
 
       if [[ ! -z "$CUDA_VERSION" ]]; then
         wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-repo-ubuntu1804_${CUDA_VERSION}_amd64.deb
