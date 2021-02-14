@@ -1,10 +1,10 @@
 parameters:
   displayName: 'Ubuntu 18.04'
   ubuntuVersion: '18.04'
-  cudaVersion: ''
+  cudaEnabled: false
 
 jobs:
-- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ replace(parameters.cudaVersion, '.', '') }}
+- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}
   displayName: '${{ parameters.displayName }}'
   pool:
     vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
@@ -28,16 +28,17 @@ jobs:
         libqt5opengl5-dev \
         libcgal-dev \
         libcgal-qt5-dev \
+        libgl1-mesa-dri \
         xvfb
     displayName: 'Install dependencies'
   
-  - ${{ if not(eq(parameters.cudaVersion, '')) }}:
+  - ${{ if not(eq(parameters.cudaEnabled, true) }}:
     - script: |
-        ubuntu_version=${{ replace(parameters.ubuntuVersion, '.', '') }}
-        sudo wget -O /etc/apt/preferences.d/cuda-repository-pin-600 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${ubuntu_version}/x86_64/cuda-ubuntu${ubuntu_version}.pin
-        sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${ubuntu_version}/x86_64/7fa2af80.pub
-        sudo add-apt-repository "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu${ubuntu_version}/x86_64/ /"
-        sudo apt-get install cuda-toolkit-${{ replace(parameters.cudaVersion, '.', '-') }}
+        sudo apt-get install -y \
+          nvidia-cuda-toolkit
+          nvidia-cuda-toolkit-gcc
+        export CC=/usr/bin/cuda-gcc
+        export CXX=/usr/bin/cuda-g++
       displayName: 'Install CUDA'
 
   - script: |
