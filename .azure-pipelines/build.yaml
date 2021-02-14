@@ -8,4 +8,8 @@ jobs:
   - template: build-ubuntu.yaml
     parameters:
       ubuntuVersion: 20.04
+  - template: build-ubuntu.yaml
+    parameters:
+      ubuntuVersion: 20.04
+      cudaEnabled: true
   - template: build-mac.yaml

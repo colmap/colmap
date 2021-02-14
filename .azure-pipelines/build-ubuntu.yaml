@@ -1,9 +1,13 @@
 parameters:
-  buildType: ubuntuVersion
+  ubuntuVersion: '18.04'
+  cudaEnabled: false
 
 jobs:
-- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}
-  displayName: 'Ubuntu ${{ parameters.ubuntuVersion }}'
+- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '')_cuda_${{ parameters.cudaEnabled }} }}
+  ${{ if eq(parameters.cudaEnabled, false) }}:
+    displayName: 'Ubuntu ${{ parameters.ubuntuVersion }}'
+  ${{ if eq(parameters.cudaEnabled, true) }}:
+    displayName: 'Ubuntu ${{ parameters.ubuntuVersion (CUDA) }}'
   pool:
     vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
   steps:
@@ -27,6 +31,8 @@ jobs:
         libcgal-dev \
         libcgal-qt5-dev \
         xvfb
+      ${{ if eq(parameters.cudaEnabled, true) }}:
+        sudo apt install -y nvidia-cuda-dev
     displayName: 'Install dependencies'
 
   - script: |
@@ -41,13 +47,14 @@ jobs:
 
   - script: |
       export DISPLAY=":99.0"
-      sh -e /etc/init.d/xvfb start
+      export QT_QPA_PLATFORM="offscreen"
+      Xvfb :99 &
       sleep 3
       cd build
       ctest
       tests_pass=$?
       if [ $tests_pass -ne 0 ]; then
-          echo "\n\n\nTests failed, rerunning with verbose output"
+          echo "Tests failed, rerunning with verbose output"
           ctest --rerun-failed --output-on-failure
       fi
       exit $tests_pass

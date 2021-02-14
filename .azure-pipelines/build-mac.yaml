@@ -31,9 +31,6 @@ jobs:
     displayName: 'Configure and build'
 
   - script: |
-      Xvfb :99 &
-      export DISPLAY=:99
-      sleep 3
       cd build
       ctest
       tests_pass=$?
