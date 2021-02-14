@@ -51,4 +51,8 @@ steps:
     cd build
     cmake .. -GNinja
     ninja
-  displayName: 'Compile COLMAP'
+  displayName: 'Configure and build'
+
+- script: |
+    ninja test
+  displayName: 'Run tests'
