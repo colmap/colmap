@@ -4,8 +4,8 @@ trigger:
 jobs:
   - template: build-ubuntu.yaml
     parameters:
-      ubuntuVersion: 1804
+      ubuntuVersion: 18.04
   - template: build-ubuntu.yaml
     parameters:
-      ubuntuVersion: 2004
+      ubuntuVersion: 20.04
   - template: build-mac.yaml
