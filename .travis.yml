@@ -3,7 +3,7 @@ arch:
       - ppc64le
 language: cpp
 sudo: true
-dist: xenial
+dist: bionic
 
 addons:
   apt:
@@ -102,8 +102,8 @@ before_script:
       sudo apt-get -y install qt${QT_VERSION:0:2}base
 
       if [[ ! -z "$CUDA_VERSION" ]]; then
-        wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_${CUDA_VERSION}_amd64.deb
-        sudo dpkg -i cuda-repo-ubuntu1604_${CUDA_VERSION}_amd64.deb
+        wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/cuda-repo-ubuntu1804_${CUDA_VERSION}_amd64.deb
+        sudo dpkg -i cuda-repo-ubuntu1804_${CUDA_VERSION}_amd64.deb
         sudo apt-get update -qq
         CUDA_VERSION_APT=${CUDA_VERSION:0:3}
         sudo apt-get install -y cuda-drivers cuda-core-${CUDA_VERSION_APT} cuda-cudart-dev-${CUDA_VERSION_APT} cuda-curand-dev-${CUDA_VERSION_APT}
