@@ -1,10 +1,10 @@
 parameters:
   displayName: 'Ubuntu 18.04'
   ubuntuVersion: '18.04'
-  cudaEnabled: false
+  cudaVersion: ''
 
 jobs:
-- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}
+- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ replace(parameters.cudaVersion, '.', '') }}
   displayName: '${{ parameters.displayName }}'
   pool:
     vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
@@ -31,9 +31,16 @@ jobs:
         xvfb
     displayName: 'Install dependencies'
   
-  - ${{ if eq(parameters.cudaEnabled, true) }}:
+  - ${{ if not(eq(parameters.cudaEnabled, '')) }}:
     - script: |
-        sudo apt install -y nvidia-cuda-dev
+        ubuntu_version=${{ replace(parameters.ubuntuVersion, '.', '') }}
+        cuda_version=${{ parameters.cudaVersion }}
+        wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu${ubuntu_version}/x86_64/cuda-repo-ubuntu${ubuntu_version}_${cuda_version}_amd64.deb
+        sudo dpkg -i cuda-repo-ubuntu${ubuntu_version}_${cuda_version}_amd64.deb
+        sudo apt-get update -qq
+        cuda_version_apt=${cuda_version:0:3}
+        sudo apt-get install -y cuda-drivers cuda-core-${cuda_version_apt} cuda-cudart-dev-${cuda_version_apt} cuda-curand-dev-${cuda_version_apt}
+        sudo ln -s /usr/local/cuda-${cuda_version:0:3}/ /usr/local/cuda
       displayName: 'Install CUDA'
 
   - script: |
