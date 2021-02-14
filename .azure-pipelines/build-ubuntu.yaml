@@ -49,7 +49,7 @@ steps:
     cmake --version
     mkdir build
     cd build
-    cmake .. -GNinja
+    cmake .. -GNinja -DTESTS_ENABLED=ON
     ninja
   displayName: 'Configure and build'
 
