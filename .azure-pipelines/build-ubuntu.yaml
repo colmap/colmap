@@ -32,6 +32,10 @@ jobs:
       ${{ if eq(parameters.cudaEnabled, true) }}:
         sudo apt install -y nvidia-cuda-dev
     displayName: 'Install dependencies'
+  
+  - ${{ if eq(parameters.cudaEnabled, true) }}:
+      script: sudo apt install -y nvidia-cuda-dev
+      displayName: 'Install CUDA'
 
   - script: |
       cmake --version
