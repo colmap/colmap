@@ -31,8 +31,9 @@ jobs:
         xvfb
     displayName: 'Install dependencies'
   
-  ${{ if eq(parameters.cudaEnabled, true) }}:
-    - script: sudo apt install -y nvidia-cuda-dev
+  - ${{ if eq(parameters.cudaEnabled, true) }}:
+    - script: |
+        sudo apt install -y nvidia-cuda-dev
       displayName: 'Install CUDA'
 
   - script: |
