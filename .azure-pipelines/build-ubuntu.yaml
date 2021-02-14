@@ -15,7 +15,7 @@ steps:
       libboost-system-dev \
       libboost-test-dev \
       libeigen3-dev \
-      libsuitesparse-dev \
+      libceres-dev \
       libfreeimage-dev \
       libgoogle-glog-dev \
       libgflags-dev \
@@ -25,25 +25,6 @@ steps:
       libcgal-dev \
       libcgal-qt5-dev
   displayName: 'Install dependencies'
-
-- script: |
-    mkdir -p deps
-    cd deps
-    if [[ -z "$(ls -A ceres-solver)" ]]; then
-      git clone https://ceres-solver.googlesource.com/ceres-solver
-    fi
-    cd ceres-solver
-    git pull
-    git checkout 2.0.0
-    mkdir -p build
-    cd build
-    cmake .. \
-      -DBUILD_TESTING=OFF \
-      -DBUILD_EXAMPLES=OFF \
-      -GNinja
-    ninja
-    sudo ninja install
-  displayName: 'Install ceres-solver'
 
 - script: |
     cmake --version
