@@ -1,5 +1,5 @@
 jobs:
-- job: mac_build
+- job: ubuntu_build
   displayName: 'Ubuntu build'
   pool:
     vmImage: 'ubuntu-18.04'
