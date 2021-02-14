@@ -1,6 +1,0 @@
-trigger:
-  - dev
-
-jobs:
-  - template: build-ubuntu.yaml
-  - template: build-mac.yaml

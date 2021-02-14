@@ -13,7 +13,6 @@ jobs:
         freeimage \
         glog \
         gflags \
-        suite-sparse \
         ceres-solver \
         qt5 \
         glew \
@@ -24,7 +23,10 @@ jobs:
       cmake --version
       mkdir build
       cd build
-      cmake .. -GNinja -DTESTS_ENABLED=ON
+      cmake .. \
+        -GNinja \
+        -DTESTS_ENABLED=ON \
+        -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
       ninja
     displayName: 'Configure and build'
 

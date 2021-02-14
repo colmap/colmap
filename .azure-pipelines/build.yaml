@@ -1,0 +1,11 @@
+trigger:
+  - dev
+
+jobs:
+  - template: build-ubuntu.yaml
+    parameters:
+      ubuntuVersion: 1804
+  - template: build-ubuntu.yaml
+    parameters:
+      ubuntuVersion: 2004
+  - template: build-mac.yaml

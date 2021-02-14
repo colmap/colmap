@@ -1,8 +1,11 @@
+parameters:
+  buildType: ubuntuVersion
+
 jobs:
 - job: ubuntu_build
-  displayName: 'Ubuntu build'
+  displayName: 'Ubuntu ${{ parameters.ubuntuVersion }}'
   pool:
-    vmImage: 'ubuntu-18.04'
+    vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
   steps:
   - script: |
       sudo apt install -y \
@@ -29,7 +32,9 @@ jobs:
       cmake --version
       mkdir build
       cd build
-      cmake .. -GNinja -DTESTS_ENABLED=ON
+      cmake .. \
+        -GNinja \
+        -DTESTS_ENABLED=ON
       ninja
     displayName: 'Configure and build'
 
