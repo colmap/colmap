@@ -3,7 +3,7 @@ parameters:
   cudaEnabled: false
 
 jobs:
-- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '')_cuda_${{ parameters.cudaEnabled }} }}
+- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}
   ${{ if eq(parameters.cudaEnabled, false) }}:
     displayName: 'Ubuntu ${{ parameters.ubuntuVersion }}'
   ${{ if eq(parameters.cudaEnabled, true) }}:
