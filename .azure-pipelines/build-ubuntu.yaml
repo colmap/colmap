@@ -37,8 +37,8 @@ jobs:
         sudo apt-get install -y \
           nvidia-cuda-toolkit \
           nvidia-cuda-toolkit-gcc
-        export CC=/usr/bin/cuda-gcc
-        export CXX=/usr/bin/cuda-g++
+        echo '##vso[task.setvariable variable=CC]/usr/bin/cuda-gcc'
+        echo '##vso[task.setvariable variable=CXX]/usr/bin/cuda-g++'
       displayName: 'Install CUDA'
 
   - script: |
