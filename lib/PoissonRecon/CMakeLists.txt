@@ -1,6 +1,6 @@
 if(NOT IS_MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -funroll-loops -std=c++11")
-    
+
     # Workaround for bug: https://bugzilla.redhat.com/show_bug.cgi?id=1803203
     if(NOT (IS_CLANG AND CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL 9))
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffast-math")
