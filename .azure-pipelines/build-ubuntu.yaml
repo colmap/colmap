@@ -31,7 +31,7 @@ jobs:
         xvfb
     displayName: 'Install dependencies'
   
-  - ${{ if not(eq(parameters.cudaEnabled, '')) }}:
+  - ${{ if not(eq(parameters.cudaVersion, '')) }}:
     - script: |
         ubuntu_version=${{ replace(parameters.ubuntuVersion, '.', '') }}
         cuda_version=${{ parameters.cudaVersion }}
