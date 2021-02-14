@@ -44,8 +44,8 @@ steps:
     sudo ninja install
 
 - script: |
-  - cmake --version
-  - mkdir build
-  - cd build
-  - cmake .. -GNinja
-  - ninja
+    cmake --version
+    mkdir build
+    cd build
+    cmake .. -GNinja
+    ninja
