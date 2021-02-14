@@ -116,7 +116,7 @@ BOOST_AUTO_TEST_CASE(TestThreadStop) {
     void Run() {
       std::this_thread::sleep_for(std::chrono::milliseconds(200));
       if (IsStopped()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
         return;
       }
     }
@@ -137,7 +137,7 @@ BOOST_AUTO_TEST_CASE(TestThreadStop) {
   BOOST_CHECK(!thread.IsFinished());
 
   thread.Stop();
-  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  std::this_thread::sleep_for(std::chrono::milliseconds(300));
   BOOST_CHECK(thread.IsStarted());
   BOOST_CHECK(thread.IsStopped());
   BOOST_CHECK(!thread.IsPaused());
