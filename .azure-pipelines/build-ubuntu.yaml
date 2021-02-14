@@ -10,7 +10,7 @@ jobs:
     vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
   steps:
   - script: |
-      sudo apt-get install -y \
+      sudo apt-get update && sudo apt-get install -y \
         build-essential \
         ninja-build \
         libboost-program-options-dev \
@@ -35,7 +35,7 @@ jobs:
   - ${{ if eq(parameters.cudaEnabled, true) }}:
     - script: |
         sudo apt-get install -y \
-          nvidia-cuda-toolkit
+          nvidia-cuda-toolkit \
           nvidia-cuda-toolkit-gcc
         export CC=/usr/bin/cuda-gcc
         export CXX=/usr/bin/cuda-g++
