@@ -10,7 +10,7 @@ jobs:
     vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
   steps:
   - script: |
-      sudo apt install -y \
+      sudo apt-get install -y \
         build-essential \
         ninja-build \
         libboost-program-options-dev \
@@ -37,7 +37,7 @@ jobs:
         sudo wget -O /etc/apt/preferences.d/cuda-repository-pin-600 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${ubuntu_version}/x86_64/cuda-ubuntu${ubuntu_version}.pin
         sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${ubuntu_version}/x86_64/7fa2af80.pub
         sudo add-apt-repository "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu${ubuntu_version}/x86_64/ /"
-        sudo apt install cuda-${{ replace(parameters.cudaVersion, '.', '-') }}
+        sudo apt-get install cuda-toolkit-${{ replace(parameters.cudaVersion, '.', '-') }}
       displayName: 'Install CUDA'
 
   - script: |
@@ -46,7 +46,8 @@ jobs:
       cd build
       cmake .. \
         -GNinja \
-        -DTESTS_ENABLED=ON
+        -DTESTS_ENABLED=ON \
+        -DCUDA_ARCHS=6.0
       ninja
     displayName: 'Configure and build'
 
