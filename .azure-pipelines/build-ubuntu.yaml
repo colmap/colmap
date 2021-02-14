@@ -1,11 +1,11 @@
 jobs:
 - job: mac_build
-  displayName: 'Mac build'
+  displayName: 'Ubuntu build'
   pool:
     vmImage: 'ubuntu-18.04'
   steps:
   - script: |
-      sudo apt update && sudo apt install -y \
+      sudo apt install -y \
         build-essential \
         ninja-build \
         libboost-program-options-dev \
