@@ -8,6 +8,7 @@ steps:
 - script: |
     sudo apt update && sudo apt install -y \
       build-essential \
+      ninja-build \
       libboost-program-options-dev \
       libboost-filesystem-dev \
       libboost-graph-dev \
@@ -42,6 +43,7 @@ steps:
       -GNinja
     ninja
     sudo ninja install
+  displayName: 'Install ceres-solver'
 
 - script: |
     cmake --version
@@ -49,3 +51,4 @@ steps:
     cd build
     cmake .. -GNinja
     ninja
+  displayName: 'Compile COLMAP'
