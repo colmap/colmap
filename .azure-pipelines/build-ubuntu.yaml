@@ -35,8 +35,8 @@ steps:
   displayName: 'Configure and build'
 
 - script: |
-    export DISPLAY=:99.0
+    export QT_QPA_PLATFORM=offscreen
+    export TEST_OUTPUT_ON_FAILURE=1
     cd build
-    export TEST_OUTPUT_ON_FAILURE=1 
     ninja test
   displayName: 'Run tests'

@@ -1,0 +1,37 @@
+trigger:
+- dev
+
+pool:
+  vmImage: 'macOS-10.15'
+
+steps:
+- script: |
+    brew install \
+      cmake \
+      ninja \
+      boost \
+      eigen \
+      freeimage \
+      glog \
+      gflags \
+      suite-sparse \
+      ceres-solver \
+      qt5 \
+      glew \
+      cgal
+  displayName: 'Install dependencies'
+
+- script: |
+    cmake --version
+    mkdir build
+    cd build
+    cmake .. -GNinja -DTESTS_ENABLED=ON
+    ninja
+  displayName: 'Configure and build'
+
+- script: |
+    export QT_QPA_PLATFORM=offscreen
+    export TEST_OUTPUT_ON_FAILURE=1
+    cd build
+    ninja test
+  displayName: 'Run tests'
