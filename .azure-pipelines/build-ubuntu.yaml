@@ -2,7 +2,7 @@ trigger:
 - dev
 
 pool:
-  vmImage: 'ubuntu-1804'
+  vmImage: 'ubuntu-18.04'
 
 steps:
 - script: |
