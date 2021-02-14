@@ -2,7 +2,7 @@ parameters:
   buildType: ubuntuVersion
 
 jobs:
-- job: ubuntu_build
+- job: ubuntu_build_${{ parameters.ubuntuVersion }}
   displayName: 'Ubuntu ${{ parameters.ubuntuVersion }}'
   pool:
     vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'

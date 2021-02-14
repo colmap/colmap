@@ -1,6 +1,6 @@
 jobs:
 - job: mac_build
-  displayName: 'Mac build'
+  displayName: 'Mac 10.15'
   pool:
     vmImage: 'macOS-10.15'
   steps:
