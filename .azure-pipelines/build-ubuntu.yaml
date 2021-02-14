@@ -1,42 +1,41 @@
-trigger:
-- dev
+jobs:
+- job: mac_build
+  displayName: 'Mac build'
+  pool:
+    vmImage: 'ubuntu-18.04'
+  steps:
+  - script: |
+      sudo apt update && sudo apt install -y \
+        build-essential \
+        ninja-build \
+        libboost-program-options-dev \
+        libboost-filesystem-dev \
+        libboost-graph-dev \
+        libboost-system-dev \
+        libboost-test-dev \
+        libeigen3-dev \
+        libceres-dev \
+        libfreeimage-dev \
+        libgoogle-glog-dev \
+        libgflags-dev \
+        libglew-dev \
+        qtbase5-dev \
+        libqt5opengl5-dev \
+        libcgal-dev \
+        libcgal-qt5-dev
+    displayName: 'Install dependencies'
 
-pool:
-  vmImage: 'ubuntu-18.04'
+  - script: |
+      cmake --version
+      mkdir build
+      cd build
+      cmake .. -GNinja -DTESTS_ENABLED=ON
+      ninja
+    displayName: 'Configure and build'
 
-steps:
-- script: |
-    sudo apt update && sudo apt install -y \
-      build-essential \
-      ninja-build \
-      libboost-program-options-dev \
-      libboost-filesystem-dev \
-      libboost-graph-dev \
-      libboost-system-dev \
-      libboost-test-dev \
-      libeigen3-dev \
-      libceres-dev \
-      libfreeimage-dev \
-      libgoogle-glog-dev \
-      libgflags-dev \
-      libglew-dev \
-      qtbase5-dev \
-      libqt5opengl5-dev \
-      libcgal-dev \
-      libcgal-qt5-dev
-  displayName: 'Install dependencies'
-
-- script: |
-    cmake --version
-    mkdir build
-    cd build
-    cmake .. -GNinja -DTESTS_ENABLED=ON
-    ninja
-  displayName: 'Configure and build'
-
-- script: |
-    export QT_QPA_PLATFORM=offscreen
-    export TEST_OUTPUT_ON_FAILURE=1
-    cd build
-    ninja test
-  displayName: 'Run tests'
+  - script: |
+      export QT_QPA_PLATFORM=offscreen
+      export TEST_OUTPUT_ON_FAILURE=1
+      cd build
+      ninja test
+    displayName: 'Run tests'
