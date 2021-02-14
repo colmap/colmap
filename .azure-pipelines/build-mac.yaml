@@ -1,8 +1,12 @@
+parameters:
+  displayName: 'Mac 10.15'
+  macVersion: '10.15'
+  
 jobs:
 - job: mac_build
-  displayName: 'Mac 10.15'
+  displayName: '${{ parameters.displayName }}'
   pool:
-    vmImage: 'macOS-10.15'
+    vmImage: 'macOS-${{ parameters.macVersion }}'
   steps:
   - script: |
       brew install \
