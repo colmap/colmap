@@ -29,8 +29,6 @@ jobs:
         libcgal-dev \
         libcgal-qt5-dev \
         xvfb
-      ${{ if eq(parameters.cudaEnabled, true) }}:
-        sudo apt install -y nvidia-cuda-dev
     displayName: 'Install dependencies'
   
   - ${{ if eq(parameters.cudaEnabled, true) }}:
