@@ -12,9 +12,9 @@ jobs:
       ubuntuVersion: 20.04
   - template: build-ubuntu.yaml
     parameters:
-      displayName: 'Ubuntu 20.04 (CUDA 10.1)'
+      displayName: 'Ubuntu 20.04 (CUDA 11.2)'
       ubuntuVersion: 20.04
-      cudaVersion: 10.1
+      cudaVersion: 11.2
   - template: build-mac.yaml
     parameters:
       displayName: 'Mac 10.15'

@@ -34,13 +34,10 @@ jobs:
   - ${{ if not(eq(parameters.cudaVersion, '')) }}:
     - script: |
         ubuntu_version=${{ replace(parameters.ubuntuVersion, '.', '') }}
-        cuda_version=${{ parameters.cudaVersion }}
-        wget http://developer.download.nvidia.com/compute/cuda/repos/ubuntu${ubuntu_version}/x86_64/cuda-repo-ubuntu${ubuntu_version}_${cuda_version}_amd64.deb
-        sudo dpkg -i cuda-repo-ubuntu${ubuntu_version}_${cuda_version}_amd64.deb
-        sudo apt-get update -qq
-        cuda_version_apt=${cuda_version:0:3}
-        sudo apt-get install -y cuda-drivers cuda-core-${cuda_version_apt} cuda-cudart-dev-${cuda_version_apt} cuda-curand-dev-${cuda_version_apt}
-        sudo ln -s /usr/local/cuda-${cuda_version:0:3}/ /usr/local/cuda
+        sudo wget -O /etc/apt/preferences.d/cuda-repository-pin-600 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${ubuntu_version}/x86_64/cuda-ubuntu${ubuntu_version}.pin
+        sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${ubuntu_version}/x86_64/7fa2af80.pub
+        sudo add-apt-repository "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu${ubuntu_version}/x86_64/ /"
+        sudo apt install cuda-${{ replace(parameters.cudaVersion, '.', '-') }}
       displayName: 'Install CUDA'
 
   - script: |
