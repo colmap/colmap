@@ -25,7 +25,8 @@ jobs:
         qtbase5-dev \
         libqt5opengl5-dev \
         libcgal-dev \
-        libcgal-qt5-dev
+        libcgal-qt5-dev \
+        xvfb
     displayName: 'Install dependencies'
 
   - script: |
@@ -39,6 +40,9 @@ jobs:
     displayName: 'Configure and build'
 
   - script: |
+      export DISPLAY=":99.0"
+      sh -e /etc/init.d/xvfb start
+      sleep 3
       cd build
       ctest
       tests_pass=$?
