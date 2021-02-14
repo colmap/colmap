@@ -32,7 +32,7 @@ jobs:
         xvfb
     displayName: 'Install dependencies'
   
-  - ${{ if not(eq(parameters.cudaEnabled, true) }}:
+  - ${{ if eq(parameters.cudaEnabled, true) }}:
     - script: |
         sudo apt-get install -y \
           nvidia-cuda-toolkit
