@@ -64,7 +64,7 @@ def main():
 
         for i in range(num_points):
             if i % 1000 == 0:
-                print "Reading point", i, "/", num_points
+                print("Reading point", i, "/", num_points)
             xyz[i] = map(float, fid.readline().split())
             rgb[i] = map(int, fid.readline().split())
             track_lengths[i] = int(fid.readline().split()[0])
@@ -112,7 +112,7 @@ def main():
         fid.write("end_header\n")
         for i in range(xyz.shape[0]):
             if i % 1000 == 0:
-                print "Writing point", i, "/", xyz.shape[0]
+                print("Writing point", i, "/", xyz.shape[0])
             fid.write("%f %f %f 0 0 0 %d %d %d\n" % (xyz[i, 0], xyz[i, 1],
                                                      xyz[i, 2], rgb[i, 0],
                                                      rgb[i, 1], rgb[i, 2]))

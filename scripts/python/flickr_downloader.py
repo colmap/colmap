@@ -115,7 +115,7 @@ class PhotoDownloader(object):
                     url = photo.get(url_attr)
                     break
             if url is not None:
-                print url
+                print(url)
                 for _ in range(MAX_IMAGE_REQUESTS):
                     try:
                         urllib.urlretrieve(url, path)
@@ -149,12 +149,12 @@ def main():
 
         num_pages = int(metadata["pages"])
 
-        print 78 * "="
-        print "Page:\t\t", page, "of", num_pages
-        print "Min-Date:\t", datetime.datetime.fromtimestamp(min_date)
-        print "Max-Date:\t", datetime.datetime.fromtimestamp(max_date)
-        print "Num-Photos:\t", len(photos)
-        print 78 * "="
+        print(78 * "=")
+        print("Page:\t\t", page, "of", num_pages)
+        print("Min-Date:\t", datetime.datetime.fromtimestamp(min_date))
+        print("Max-Date:\t", datetime.datetime.fromtimestamp(max_date))
+        print("Num-Photos:\t", len(photos))
+        print(78 * "=")
 
         try:
             pool.map_async(downloader, photos).get(1e10)
@@ -171,7 +171,7 @@ def main():
             days_in_row = days_in_row + 1
             num_pages = float("inf")
 
-            print "    No images in", days_in_row, "days in a row"
+            print("    No images in", days_in_row, "days in a row")
 
             if days_in_row == args.max_days_without_image:
                 break
