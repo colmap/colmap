@@ -3,7 +3,7 @@ parameters:
   macVersion: '10.15'
   
 jobs:
-- job: mac_build
+- job: mac_build_${{ replace(parameters.macVersion, '.', '') }}
   displayName: '${{ parameters.displayName }}'
   pool:
     vmImage: 'macOS-${{ parameters.macVersion }}'
