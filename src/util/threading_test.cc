@@ -37,9 +37,51 @@
 
 using namespace colmap;
 
+namespace {
+
+// Custom implementation of std::barrier that allows us to execute the below
+// tests deterministically.
+class Barrier {
+ public:
+  Barrier() : Barrier(2) {}
+
+  explicit Barrier(const size_t count)
+      : threshold_(count), count_(count), generation_(0) {}
+
+  void Wait() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    auto current_generation = generation_;
+    if (!--count_) {
+      ++generation_;
+      count_ = threshold_;
+      condition_.notify_all();
+    } else {
+      condition_.wait(lock, [this, current_generation] {
+        return current_generation != generation_;
+      });
+    }
+  }
+
+ private:
+  std::mutex mutex_;
+  std::condition_variable condition_;
+  const size_t threshold_;
+  size_t count_;
+  size_t generation_;
+};
+
+}  // namespace
+
 BOOST_AUTO_TEST_CASE(TestThreadWait) {
   class TestThread : public Thread {
-    void Run() { std::this_thread::sleep_for(std::chrono::milliseconds(200)); }
+   public:
+    Barrier startBarrier;
+    Barrier endBarrier;
+
+    void Run() {
+      startBarrier.Wait();
+      endBarrier.Wait();
+    }
   };
 
   TestThread thread;
@@ -50,12 +92,15 @@ BOOST_AUTO_TEST_CASE(TestThreadWait) {
   BOOST_CHECK(!thread.IsFinished());
 
   thread.Start();
+
+  thread.startBarrier.Wait();
   BOOST_CHECK(thread.IsStarted());
   BOOST_CHECK(!thread.IsStopped());
   BOOST_CHECK(!thread.IsPaused());
   BOOST_CHECK(thread.IsRunning());
   BOOST_CHECK(!thread.IsFinished());
 
+  thread.endBarrier.Wait();
   thread.Wait();
   BOOST_CHECK(thread.IsStarted());
   BOOST_CHECK(!thread.IsStopped());
@@ -66,10 +111,18 @@ BOOST_AUTO_TEST_CASE(TestThreadWait) {
 
 BOOST_AUTO_TEST_CASE(TestThreadPause) {
   class TestThread : public Thread {
+   public:
+    Barrier startBarrier;
+    Barrier pauseBarrier;
+    Barrier resumeBarrier;
+    Barrier endBarrier;
+
     void Run() {
-      std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      startBarrier.Wait();
+      pauseBarrier.Wait();
       BlockIfPaused();
-      std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      resumeBarrier.Wait();
+      endBarrier.Wait();
     }
   };
 
@@ -81,14 +134,19 @@ BOOST_AUTO_TEST_CASE(TestThreadPause) {
   BOOST_CHECK(!thread.IsFinished());
 
   thread.Start();
+
+  thread.startBarrier.Wait();
   BOOST_CHECK(thread.IsStarted());
   BOOST_CHECK(!thread.IsStopped());
   BOOST_CHECK(!thread.IsPaused());
   BOOST_CHECK(thread.IsRunning());
   BOOST_CHECK(!thread.IsFinished());
 
+  thread.pauseBarrier.Wait();
   thread.Pause();
-  std::this_thread::sleep_for(std::chrono::milliseconds(300));
+  while (!thread.IsPaused() || thread.IsRunning()) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
   BOOST_CHECK(thread.IsStarted());
   BOOST_CHECK(!thread.IsStopped());
   BOOST_CHECK(thread.IsPaused());
@@ -96,57 +154,17 @@ BOOST_AUTO_TEST_CASE(TestThreadPause) {
   BOOST_CHECK(!thread.IsFinished());
 
   thread.Resume();
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  thread.resumeBarrier.Wait();
   BOOST_CHECK(thread.IsStarted());
   BOOST_CHECK(!thread.IsStopped());
   BOOST_CHECK(!thread.IsPaused());
   BOOST_CHECK(thread.IsRunning());
   BOOST_CHECK(!thread.IsFinished());
 
+  thread.endBarrier.Wait();
   thread.Wait();
   BOOST_CHECK(thread.IsStarted());
   BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(!thread.IsRunning());
-  BOOST_CHECK(thread.IsFinished());
-}
-
-BOOST_AUTO_TEST_CASE(TestThreadStop) {
-  class TestThread : public Thread {
-    void Run() {
-      std::this_thread::sleep_for(std::chrono::milliseconds(200));
-      if (IsStopped()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        return;
-      }
-    }
-  };
-
-  TestThread thread;
-  BOOST_CHECK(!thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(!thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
-
-  thread.Start();
-  BOOST_CHECK(thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
-
-  thread.Stop();
-  std::this_thread::sleep_for(std::chrono::milliseconds(300));
-  BOOST_CHECK(thread.IsStarted());
-  BOOST_CHECK(thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
-
-  thread.Wait();
-  BOOST_CHECK(thread.IsStarted());
-  BOOST_CHECK(thread.IsStopped());
   BOOST_CHECK(!thread.IsPaused());
   BOOST_CHECK(!thread.IsRunning());
   BOOST_CHECK(thread.IsFinished());
@@ -154,11 +172,23 @@ BOOST_AUTO_TEST_CASE(TestThreadStop) {
 
 BOOST_AUTO_TEST_CASE(TestThreadPauseStop) {
   class TestThread : public Thread {
+   public:
+    Barrier startBarrier;
+    Barrier pauseBarrier;
+    Barrier resumeBarrier;
+    Barrier stopBarrier;
+    Barrier stoppedBarrier;
+    Barrier endBarrier;
+
     void Run() {
-      std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      startBarrier.Wait();
+      pauseBarrier.Wait();
       BlockIfPaused();
+      resumeBarrier.Wait();
+      stopBarrier.Wait();
       if (IsStopped()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        stoppedBarrier.Wait();
+        endBarrier.Wait();
         return;
       }
     }
@@ -172,28 +202,43 @@ BOOST_AUTO_TEST_CASE(TestThreadPauseStop) {
   BOOST_CHECK(!thread.IsFinished());
 
   thread.Start();
+
+  thread.startBarrier.Wait();
   BOOST_CHECK(thread.IsStarted());
   BOOST_CHECK(!thread.IsStopped());
   BOOST_CHECK(!thread.IsPaused());
   BOOST_CHECK(thread.IsRunning());
   BOOST_CHECK(!thread.IsFinished());
 
+  thread.pauseBarrier.Wait();
   thread.Pause();
-  std::this_thread::sleep_for(std::chrono::milliseconds(300));
+  while (!thread.IsPaused() || thread.IsRunning()) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
   BOOST_CHECK(thread.IsStarted());
   BOOST_CHECK(!thread.IsStopped());
   BOOST_CHECK(thread.IsPaused());
   BOOST_CHECK(!thread.IsRunning());
   BOOST_CHECK(!thread.IsFinished());
 
+  thread.Resume();
+  thread.resumeBarrier.Wait();
+  BOOST_CHECK(thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  thread.stopBarrier.Wait();
   thread.Stop();
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  thread.stoppedBarrier.Wait();
   BOOST_CHECK(thread.IsStarted());
   BOOST_CHECK(thread.IsStopped());
   BOOST_CHECK(!thread.IsPaused());
   BOOST_CHECK(thread.IsRunning());
   BOOST_CHECK(!thread.IsFinished());
 
+  thread.endBarrier.Wait();
   thread.Wait();
   BOOST_CHECK(thread.IsStarted());
   BOOST_CHECK(thread.IsStopped());
@@ -204,7 +249,14 @@ BOOST_AUTO_TEST_CASE(TestThreadPauseStop) {
 
 BOOST_AUTO_TEST_CASE(TestThreadRestart) {
   class TestThread : public Thread {
-    void Run() { std::this_thread::sleep_for(std::chrono::milliseconds(200)); }
+   public:
+    Barrier startBarrier;
+    Barrier endBarrier;
+
+    void Run() {
+      startBarrier.Wait();
+      endBarrier.Wait();
+    }
   };
 
   TestThread thread;
@@ -216,12 +268,15 @@ BOOST_AUTO_TEST_CASE(TestThreadRestart) {
 
   for (size_t i = 0; i < 2; ++i) {
     thread.Start();
+
+    thread.startBarrier.Wait();
     BOOST_CHECK(thread.IsStarted());
     BOOST_CHECK(!thread.IsStopped());
     BOOST_CHECK(!thread.IsPaused());
     BOOST_CHECK(thread.IsRunning());
     BOOST_CHECK(!thread.IsFinished());
 
+    thread.endBarrier.Wait();
     thread.Wait();
     BOOST_CHECK(thread.IsStarted());
     BOOST_CHECK(!thread.IsStopped());
@@ -233,9 +288,16 @@ BOOST_AUTO_TEST_CASE(TestThreadRestart) {
 
 BOOST_AUTO_TEST_CASE(TestThreadValidSetup) {
   class TestThread : public Thread {
+   public:
+    Barrier startBarrier;
+    Barrier signalBarrier;
+    Barrier endBarrier;
+
     void Run() {
-      std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      startBarrier.Wait();
       SignalValidSetup();
+      signalBarrier.Wait();
+      endBarrier.Wait();
     }
   };
 
@@ -248,23 +310,37 @@ BOOST_AUTO_TEST_CASE(TestThreadValidSetup) {
 
   thread.Start();
 
-  BOOST_CHECK(thread.CheckValidSetup());
+  thread.startBarrier.Wait();
+  BOOST_CHECK(thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  thread.signalBarrier.Wait();
   BOOST_CHECK(thread.CheckValidSetup());
 
+  thread.endBarrier.Wait();
   thread.Wait();
   BOOST_CHECK(thread.IsStarted());
   BOOST_CHECK(!thread.IsStopped());
   BOOST_CHECK(!thread.IsPaused());
   BOOST_CHECK(!thread.IsRunning());
   BOOST_CHECK(thread.IsFinished());
-  BOOST_CHECK(thread.CheckValidSetup());
 }
 
 BOOST_AUTO_TEST_CASE(TestThreadInvalidSetup) {
   class TestThread : public Thread {
+   public:
+    Barrier startBarrier;
+    Barrier signalBarrier;
+    Barrier endBarrier;
+
     void Run() {
-      std::this_thread::sleep_for(std::chrono::milliseconds(200));
+      startBarrier.Wait();
       SignalInvalidSetup();
+      signalBarrier.Wait();
+      endBarrier.Wait();
     }
   };
 
@@ -277,16 +353,23 @@ BOOST_AUTO_TEST_CASE(TestThreadInvalidSetup) {
 
   thread.Start();
 
-  BOOST_CHECK(!thread.CheckValidSetup());
+  thread.startBarrier.Wait();
+  BOOST_CHECK(thread.IsStarted());
+  BOOST_CHECK(!thread.IsStopped());
+  BOOST_CHECK(!thread.IsPaused());
+  BOOST_CHECK(thread.IsRunning());
+  BOOST_CHECK(!thread.IsFinished());
+
+  thread.signalBarrier.Wait();
   BOOST_CHECK(!thread.CheckValidSetup());
 
+  thread.endBarrier.Wait();
   thread.Wait();
   BOOST_CHECK(thread.IsStarted());
   BOOST_CHECK(!thread.IsStopped());
   BOOST_CHECK(!thread.IsPaused());
   BOOST_CHECK(!thread.IsRunning());
   BOOST_CHECK(thread.IsFinished());
-  BOOST_CHECK(!thread.CheckValidSetup());
 }
 
 BOOST_AUTO_TEST_CASE(TestCallback) {
@@ -354,8 +437,15 @@ BOOST_AUTO_TEST_CASE(TestCallback) {
 
 BOOST_AUTO_TEST_CASE(TestDefaultCallback) {
   class TestThread : public Thread {
-   private:
-    void Run() { std::this_thread::sleep_for(std::chrono::milliseconds(300)); }
+   public:
+    Barrier startBarrier;
+    Barrier signalBarrier;
+    Barrier endBarrier;
+
+    void Run() {
+      startBarrier.Wait();
+      endBarrier.Wait();
+    }
   };
 
   bool called_back1 = false;
@@ -372,50 +462,19 @@ BOOST_AUTO_TEST_CASE(TestDefaultCallback) {
   thread.AddCallback(TestThread::STARTED_CALLBACK, CallbackFunc1);
   thread.AddCallback(TestThread::FINISHED_CALLBACK, CallbackFunc2);
   thread.Start();
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  thread.startBarrier.Wait();
   BOOST_CHECK(called_back1);
   BOOST_CHECK(!called_back2);
+  thread.endBarrier.Wait();
   thread.Wait();
   BOOST_CHECK(called_back1);
   BOOST_CHECK(called_back2);
 }
 
-BOOST_AUTO_TEST_CASE(TestThreadTimer) {
-  class TestThread : public Thread {
-    void Run() {
-      std::this_thread::sleep_for(std::chrono::milliseconds(200));
-      BlockIfPaused();
-      std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    }
-  };
-
-  TestThread thread;
-  thread.Start();
-  thread.Wait();
-  const auto elapsed_seconds1 = thread.GetTimer().ElapsedSeconds();
-  BOOST_CHECK_GT(elapsed_seconds1, 0.35);
-  std::this_thread::sleep_for(std::chrono::milliseconds(200));
-  BOOST_CHECK_EQUAL(thread.GetTimer().ElapsedSeconds(), elapsed_seconds1);
-
-  thread.Start();
-  BOOST_CHECK_LT(thread.GetTimer().ElapsedSeconds(), elapsed_seconds1);
-
-  thread.Pause();
-  std::this_thread::sleep_for(std::chrono::milliseconds(250));
-  const auto elapsed_seconds2 = thread.GetTimer().ElapsedSeconds();
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
-  BOOST_CHECK_EQUAL(thread.GetTimer().ElapsedSeconds(), elapsed_seconds2);
-
-  thread.Resume();
-  thread.Wait();
-  BOOST_CHECK_GT(thread.GetTimer().ElapsedSeconds(), elapsed_seconds2);
-  BOOST_CHECK_GT(thread.GetTimer().ElapsedSeconds(), 0.35);
-}
-
 BOOST_AUTO_TEST_CASE(TestThreadPoolNoArgNoReturn) {
   std::function<void(void)> Func = []() {
     int num = 0;
-    for (int i = 0; i < 1000; ++i) {
+    for (int i = 0; i < 100; ++i) {
       num += i;
     }
   };
@@ -423,7 +482,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolNoArgNoReturn) {
   ThreadPool pool(4);
   std::vector<std::future<void>> futures;
 
-  for (int i = 0; i < 1000; ++i) {
+  for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func));
   }
 
@@ -434,7 +493,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolNoArgNoReturn) {
 
 BOOST_AUTO_TEST_CASE(TestThreadPoolArgNoReturn) {
   std::function<void(int)> Func = [](int num) {
-    for (int i = 0; i < 1000; ++i) {
+    for (int i = 0; i < 100; ++i) {
       num += i;
     }
   };
@@ -442,7 +501,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolArgNoReturn) {
   ThreadPool pool(4);
   std::vector<std::future<void>> futures;
 
-  for (int i = 0; i < 1000; ++i) {
+  for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func, i));
   }
 
@@ -457,7 +516,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolNoArgReturn) {
   ThreadPool pool(4);
   std::vector<std::future<int>> futures;
 
-  for (int i = 0; i < 1000; ++i) {
+  for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func));
   }
 
@@ -468,7 +527,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolNoArgReturn) {
 
 BOOST_AUTO_TEST_CASE(TestThreadPoolArgReturn) {
   std::function<int(int)> Func = [](int num) {
-    for (int i = 0; i < 1000; ++i) {
+    for (int i = 0; i < 100; ++i) {
       num += i;
     }
     return num;
@@ -477,7 +536,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolArgReturn) {
   ThreadPool pool(4);
   std::vector<std::future<int>> futures;
 
-  for (int i = 0; i < 1000; ++i) {
+  for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func, i));
   }
 
@@ -486,34 +545,9 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolArgReturn) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestThreadPoolDestructor) {
-  std::vector<uint8_t> results(1000, 0);
-  std::function<void(int)> Func = [&results](const int num) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    results[num] = 1;
-  };
-
-  {
-    ThreadPool pool(4);
-    for (size_t i = 0; i < results.size(); ++i) {
-      pool.AddTask(Func, i);
-    }
-  }
-
-  bool missing_result = false;
-  for (const auto result : results) {
-    if (result == 0) {
-      missing_result = true;
-      break;
-    }
-  }
-
-  BOOST_CHECK(missing_result);
-}
-
 BOOST_AUTO_TEST_CASE(TestThreadPoolStop) {
   std::function<int(int)> Func = [](int num) {
-    for (int i = 0; i < 1000; ++i) {
+    for (int i = 0; i < 100; ++i) {
       num += i;
     }
     return num;
@@ -522,19 +556,19 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolStop) {
   ThreadPool pool(4);
   std::vector<std::future<int>> futures;
 
-  for (int i = 0; i < 1000; ++i) {
+  for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func, i));
   }
 
   pool.Stop();
 
-  BOOST_CHECK_THROW(pool.AddTask(Func, 1000), std::runtime_error);
+  BOOST_CHECK_THROW(pool.AddTask(Func, 100), std::runtime_error);
 
   pool.Stop();
 }
 
 BOOST_AUTO_TEST_CASE(TestThreadPoolWait) {
-  std::vector<uint8_t> results(1000, 0);
+  std::vector<uint8_t> results(100, 0);
   std::function<void(int)> Func = [&results](const int num) {
     results[num] = 1;
   };
@@ -546,47 +580,6 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolWait) {
     pool.AddTask(Func, i);
   }
 
-  pool.Wait();
-
-  for (const auto result : results) {
-    BOOST_CHECK_EQUAL(result, 1);
-  }
-}
-
-BOOST_AUTO_TEST_CASE(TestThreadPoolWaitWithPause) {
-  std::vector<uint8_t> results(4, 0);
-  std::function<void(int)> Func = [&results](const int num) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    results[num] = 1;
-  };
-
-  ThreadPool pool(4);
-
-  for (size_t i = 0; i < results.size(); ++i) {
-    pool.AddTask(Func, i);
-  }
-
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
-  pool.Wait();
-
-  for (const auto result : results) {
-    BOOST_CHECK_EQUAL(result, 1);
-  }
-}
-
-BOOST_AUTO_TEST_CASE(TestThreadPoolWaitWithoutPause) {
-  std::vector<uint8_t> results(4, 0);
-  std::function<void(int)> Func = [&results](const int num) {
-    results[num] = 1;
-  };
-
-  ThreadPool pool(4);
-
-  for (size_t i = 0; i < results.size(); ++i) {
-    pool.AddTask(Func, i);
-  }
-
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
   pool.Wait();
 
   for (const auto result : results) {
@@ -621,7 +614,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolWaitEverytime) {
 BOOST_AUTO_TEST_CASE(TestThreadPoolGetThreadIndex) {
   ThreadPool pool(4);
 
-  std::vector<int> results(1000, -1);
+  std::vector<int> results(100, -1);
   std::function<void(int)> Func = [&](const int num) {
     results[num] = pool.GetThreadIndex();
   };
@@ -648,12 +641,11 @@ BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerSingleConsumer) {
   });
 
   std::thread consumer_thread([&job_queue]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    CHECK_EQ(job_queue.Size(), 10);
+    CHECK_LE(job_queue.Size(), 10);
     for (int i = 0; i < 10; ++i) {
       const auto job = job_queue.Pop();
       CHECK(job.IsValid());
-      CHECK_EQ(job.Data(), i);
+      CHECK_LT(job.Data(), 10);
     }
   });
 
@@ -671,12 +663,11 @@ BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerSingleConsumerMaxNumJobs) {
   });
 
   std::thread consumer_thread([&job_queue]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    CHECK_EQ(job_queue.Size(), 2);
+    CHECK_LE(job_queue.Size(), 2);
     for (int i = 0; i < 10; ++i) {
       const auto job = job_queue.Pop();
       CHECK(job.IsValid());
-      CHECK_EQ(job.Data(), i);
+      CHECK_LT(job.Data(), 10);
     }
   });
 
@@ -700,7 +691,6 @@ BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerSingleConsumer) {
   });
 
   std::thread consumer_thread([&job_queue]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     CHECK_EQ(job_queue.Size(), 1);
     for (int i = 0; i < 20; ++i) {
       const auto job = job_queue.Pop();
@@ -724,7 +714,6 @@ BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerMultipleConsumer) {
   });
 
   std::thread consumer_thread1([&job_queue]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     CHECK_LE(job_queue.Size(), 1);
     for (int i = 0; i < 10; ++i) {
       const auto job = job_queue.Pop();
@@ -734,7 +723,6 @@ BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerMultipleConsumer) {
   });
 
   std::thread consumer_thread2([&job_queue]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     CHECK_LE(job_queue.Size(), 1);
     for (int i = 0; i < 10; ++i) {
       const auto job = job_queue.Pop();
@@ -764,7 +752,6 @@ BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerMultipleConsumer) {
   });
 
   std::thread consumer_thread1([&job_queue]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     CHECK_LE(job_queue.Size(), 1);
     for (int i = 0; i < 10; ++i) {
       const auto job = job_queue.Pop();
@@ -774,7 +761,6 @@ BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerMultipleConsumer) {
   });
 
   std::thread consumer_thread2([&job_queue]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     CHECK_LE(job_queue.Size(), 1);
     for (int i = 0; i < 10; ++i) {
       const auto job = job_queue.Pop();
@@ -791,15 +777,11 @@ BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerMultipleConsumer) {
 
 BOOST_AUTO_TEST_CASE(TestJobQueueWait) {
   JobQueue<int> job_queue;
-
-  std::thread producer_thread([&job_queue]() {
-    for (int i = 0; i < 10; ++i) {
-      CHECK(job_queue.Push(i));
-    }
-  });
+  for (int i = 0; i < 10; ++i) {
+    CHECK(job_queue.Push(i));
+  }
 
   std::thread consumer_thread([&job_queue]() {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     CHECK_EQ(job_queue.Size(), 10);
     for (int i = 0; i < 10; ++i) {
       const auto job = job_queue.Pop();
@@ -808,27 +790,26 @@ BOOST_AUTO_TEST_CASE(TestJobQueueWait) {
     }
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
   job_queue.Wait();
 
   BOOST_CHECK_EQUAL(job_queue.Size(), 0);
   BOOST_CHECK(job_queue.Push(0));
   BOOST_CHECK(job_queue.Pop().IsValid());
 
-  producer_thread.join();
   consumer_thread.join();
 }
 
 BOOST_AUTO_TEST_CASE(TestJobQueueStopProducer) {
   JobQueue<int> job_queue(1);
 
-  std::thread producer_thread([&job_queue]() {
+  Barrier stopBarrier;
+  std::thread producer_thread([&job_queue, &stopBarrier]() {
     CHECK(job_queue.Push(0));
+    stopBarrier.Wait();
     CHECK(!job_queue.Push(0));
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  stopBarrier.Wait();
   BOOST_CHECK_EQUAL(job_queue.Size(), 1);
 
   job_queue.Stop();
@@ -843,14 +824,16 @@ BOOST_AUTO_TEST_CASE(TestJobQueueStopConsumer) {
 
   BOOST_CHECK(job_queue.Push(0));
 
-  std::thread consumer_thread([&job_queue]() {
+  Barrier popBarrier;
+  std::thread consumer_thread([&job_queue, &popBarrier]() {
     const auto job = job_queue.Pop();
     CHECK(job.IsValid());
     CHECK_EQ(job.Data(), 0);
+    popBarrier.Wait();
     CHECK(!job_queue.Pop().IsValid());
   });
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  popBarrier.Wait();
   BOOST_CHECK_EQUAL(job_queue.Size(), 0);
 
   job_queue.Stop();
