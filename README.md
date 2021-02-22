@@ -1,14 +1,6 @@
 COLMAP
 ======
 
-Important
----------
-
-This repo contains checked-in binaries for the LibTorch dependency; LibTorch 1.7.1 for CUDA 10.1 from [here](https://download.pytorch.org/libtorch/cu101/libtorch-win-shared-with-deps-1.7.1%2Bcu101.zip).
-
-Binaries will be removed once the dependncy is ported to vcpkg or built from source as a submodule.
-
-
 About
 -----
 

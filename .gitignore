@@ -4,12 +4,12 @@ src/util/version.h
 
 # Custom directories
 .idea/
-.vs
 .vscode
 .DS_Store
 build*/
 install-debug/
 install-release/
+data/
 doc/_build
 
 # Compiled Object files
@@ -23,8 +23,19 @@ doc/_build
 *.gch
 *.pch
 
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
 # Fortran module files
 *.mod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
 
 # Executables
 *.exe
