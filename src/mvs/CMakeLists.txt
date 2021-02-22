@@ -59,8 +59,6 @@ if(CUDA_ENABLED)
         gpu_mat_prng.h gpu_mat_prng.cu
         gpu_mat_ref_image.h gpu_mat_ref_image.cu
         patch_match_cuda.h patch_match_cuda.cu
-        patch_match_net.h patch_match_net.cc
-        torch_modules.h torch_modules.cc
     )
 
     COLMAP_ADD_CUDA_TEST(gpu_mat_test gpu_mat_test.cu)
