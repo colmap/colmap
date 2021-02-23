@@ -208,6 +208,55 @@ int RunBundleAdjuster(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+int RunCameraUpdater(int argc, char** argv) {
+  std::string params_path;
+  OptionManager options;
+  options.AddDatabaseOptions();
+  options.AddRequiredOption("params_path", &params_path);
+  options.Parse(argc, argv);
+
+  if (!ExistsFile(params_path)) {
+    std::cout << "WARN: Camera params file not found; skipping update"
+              << std::endl;
+    return EXIT_SUCCESS;
+  }
+
+  Database database(*options.database_path);
+  std::vector<Image> images = database.ReadAllImages();
+
+  PrintHeading1("Reading camera parameters from file");
+  std::unordered_map<camera_t, std::array<double, 3>> params;
+  auto lines = ReadTextFileLines(params_path);
+  for (std::string line : lines) {
+    std::vector<double> parts = CSVToVector<double>(line);
+    if (parts.size() != 4) {
+      std::cout << "ERROR: Malformed camera parameters file for line: " << line
+                << std::endl;
+      return EXIT_FAILURE;
+    }
+    params[(camera_t)parts[0]] = {parts[1], parts[2], parts[3]};
+  }
+
+  PrintHeading1("Updating database cameras");
+  {
+    DatabaseTransaction transaction(&database);
+    for (const auto& elem : params) {
+      if (elem.first == kInvalidCameraId) {
+        std::cout << "WARN: Skipping camera with invalid ID" << std::endl;
+        continue;
+      }
+      Camera camera = database.ReadCamera(elem.first);
+      camera.SetFocalLength(elem.second[0]);
+      camera.SetPrincipalPointX(elem.second[1]);
+      camera.SetPrincipalPointY(elem.second[2]);
+      camera.SetPriorFocalLength(true);
+      database.UpdateCamera(camera);
+    }
+  }
+  PrintHeading2("All cameras updated successfully");
+  return EXIT_SUCCESS;
+}
+
 int RunColorExtractor(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
@@ -2139,6 +2188,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("gui", &RunGraphicalUserInterface);
   commands.emplace_back("automatic_reconstructor", &RunAutomaticReconstructor);
   commands.emplace_back("bundle_adjuster", &RunBundleAdjuster);
+  commands.emplace_back("camera_updater", &RunCameraUpdater);
   commands.emplace_back("color_extractor", &RunColorExtractor);
   commands.emplace_back("database_creator", &RunDatabaseCreator);
   commands.emplace_back("database_merger", &RunDatabaseMerger);
