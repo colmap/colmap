@@ -226,6 +226,49 @@ int RunColorExtractor(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+int RunDatabaseCleaner(int argc, char** argv) {
+  int cleanup_type = -1;
+
+  OptionManager options;
+  options.AddRequiredOption("cleanup_type", &cleanup_type,
+                            "{0: All, 1: Images, 2: Features, 3: Matches}");
+  options.AddDatabaseOptions();
+  options.Parse(argc, argv);
+
+  Database database(*options.database_path);
+  PrintHeading1("Clearing database");
+  {
+    DatabaseTransaction transaction(&database);
+    switch (cleanup_type) {
+      case 0:
+        PrintHeading2("Clearing all tables");
+        database.ClearAllTables();
+        break;
+      case 1:
+        PrintHeading2("Clearing Images and all dependent tables");
+        database.ClearImages();
+        database.ClearTwoViewGeometries();
+        database.ClearMatches();
+        break;
+      case 2:
+        PrintHeading2("Clearing image features");
+        database.ClearDescriptors();
+        database.ClearKeypoints();
+      case 3:
+        PrintHeading2("Clearing image matches");
+        database.ClearTwoViewGeometries();
+        database.ClearMatches();
+        break;
+      default:
+        std::cout << "WARN: Invalid cleanup option; no changes in database"
+                  << std::endl;
+        break;
+    }
+  }
+
+  return EXIT_SUCCESS;
+}
+
 int RunDatabaseCreator(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
@@ -2140,6 +2183,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("automatic_reconstructor", &RunAutomaticReconstructor);
   commands.emplace_back("bundle_adjuster", &RunBundleAdjuster);
   commands.emplace_back("color_extractor", &RunColorExtractor);
+  commands.emplace_back("database_cleaner", &RunDatabaseCleaner);
   commands.emplace_back("database_creator", &RunDatabaseCreator);
   commands.emplace_back("database_merger", &RunDatabaseMerger);
   commands.emplace_back("delaunay_mesher", &RunDelaunayMesher);
