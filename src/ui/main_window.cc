@@ -535,6 +535,8 @@ void MainWindow::CreateControllers() {
     const auto image_names = ReadTextFileLines(options_.mapper->image_list_path);
     options_.mapper->image_names =
         std::unordered_set<std::string>(image_names.begin(), image_names.end());
+  } else {
+    options_.mapper->image_names.clear();
   }
 
   mapper_controller_.reset(new IncrementalMapperController(
