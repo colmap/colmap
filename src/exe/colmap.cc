@@ -1297,48 +1297,174 @@ int RunModelConverter(int argc, char** argv) {
 }
 
 int RunModelMerger(int argc, char** argv) {
+  Timer timer;
+  timer.Start();
+  std::string input_path;
   std::string input_path1;
   std::string input_path2;
   std::string output_path;
   double max_reproj_error = 64.0;
 
   OptionManager options;
-  options.AddRequiredOption("input_path1", &input_path1);
-  options.AddRequiredOption("input_path2", &input_path2);
+  options.AddDefaultOption("input_path", &input_path);
+  options.AddDefaultOption("input_path1", &input_path1);
+  options.AddDefaultOption("input_path2", &input_path2);
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("max_reproj_error", &max_reproj_error);
   options.Parse(argc, argv);
 
-  Reconstruction reconstruction1;
-  reconstruction1.Read(input_path1);
-  PrintHeading2("Reconstruction 1");
-  std::cout << StringPrintf("Images: %d", reconstruction1.NumRegImages())
-            << std::endl;
-  std::cout << StringPrintf("Points: %d", reconstruction1.NumPoints3D())
-            << std::endl;
-
-  Reconstruction reconstruction2;
-  reconstruction2.Read(input_path2);
-  PrintHeading2("Reconstruction 2");
-  std::cout << StringPrintf("Images: %d", reconstruction2.NumRegImages())
-            << std::endl;
-  std::cout << StringPrintf("Points: %d", reconstruction2.NumPoints3D())
-            << std::endl;
-
-  PrintHeading2("Merging reconstructions");
-  if (reconstruction1.Merge(reconstruction2, max_reproj_error)) {
-    std::cout << "=> Merge succeeded" << std::endl;
-    PrintHeading2("Merged reconstruction");
+  if (input_path.empty())
+  {
+    if (input_path1.empty() || input_path2.empty()) {
+      std::cerr << "ERROR: `input_path1` and `input_path2` cannot be empty "
+                   "when merging two reconstructions"
+                << std::endl;
+      return EXIT_FAILURE;
+    }
+    Reconstruction reconstruction1;
+    reconstruction1.Read(input_path1);
+    PrintHeading2("Reconstruction 1");
     std::cout << StringPrintf("Images: %d", reconstruction1.NumRegImages())
               << std::endl;
     std::cout << StringPrintf("Points: %d", reconstruction1.NumPoints3D())
               << std::endl;
+
+    Reconstruction reconstruction2;
+    reconstruction2.Read(input_path2);
+    PrintHeading2("Reconstruction 2");
+    std::cout << StringPrintf("Images: %d", reconstruction2.NumRegImages())
+              << std::endl;
+    std::cout << StringPrintf("Points: %d", reconstruction2.NumPoints3D())
+              << std::endl;
+
+    PrintHeading2("Merging reconstructions");
+    if (reconstruction1.Merge(reconstruction2, max_reproj_error)) {
+      std::cout << "=> Merge succeeded" << std::endl;
+      PrintHeading2("Merged reconstruction");
+      std::cout << StringPrintf("Images: %d", reconstruction1.NumRegImages())
+                << std::endl;
+      std::cout << StringPrintf("Points: %d", reconstruction1.NumPoints3D())
+                << std::endl;
+      reconstruction1.Write(output_path);
+    } else {
+      std::cout << "=> Merge failed" << std::endl;
+      return EXIT_FAILURE;
+    }
   } else {
-    std::cout << "=> Merge failed" << std::endl;
+    if (!ExistsDir(input_path)) {
+      std::cerr << "ERROR: `input_path` is not a directory" << std::endl;
+      return EXIT_FAILURE;
+    }
+
+    auto dir_list = GetDirList(input_path);
+    if (dir_list.empty()) {
+      std::cerr << "ERROR: no input reconstruction directories found"
+                << std::endl;
+      return EXIT_FAILURE;
+    }
+
+    const int small_recon_threshold = 100;
+
+    // Read all reconstructions
+    std::vector<Reconstruction> reconstructions;
+    std::vector<Reconstruction> small_recons;
+    int num_recon = 0;
+    for (const auto& dir : dir_list) {
+      auto sub_dir_list = GetDirList(dir);
+      for (const auto& sub_dir : sub_dir_list) {
+        Reconstruction recon;
+        recon.Read(sub_dir);
+        if (recon.NumRegImages() < small_recon_threshold) {
+          small_recons.push_back(recon);
+        } else {
+          reconstructions.push_back(recon);
+        }
+        PrintHeading2("Reconstruction " + std::to_string(++num_recon));
+        std::cout << StringPrintf("Images: %d", recon.NumRegImages())
+                  << std::endl;
+        std::cout << StringPrintf("Points: %d", recon.NumPoints3D())
+                  << std::endl;
+      }
+    }
+
+    // if there are no large reconstructions then use only the small
+    // ones for merging
+    if (reconstructions.empty()) {
+      reconstructions = small_recons;
+      small_recons.clear();
+    }
+
+    // Try to merge all cluster reconstructions.
+    PrintHeading2(StringPrintf("Merging %d large reconstructions",
+                               reconstructions.size()));
+    // Sort reconstructions by descending number of images
+    std::sort(reconstructions.begin(), reconstructions.end(),
+              [](const Reconstruction recon1, const Reconstruction recon2) {
+                return recon1.NumRegImages() > recon2.NumRegImages();
+              });
+
+    while (reconstructions.size() > 1) {
+      bool merge_success = false;
+      for (size_t i = 0; i < reconstructions.size(); ++i) {
+        for (size_t j = 0; j < i; ++j) {
+          std::cout << StringPrintf(
+                           "Attempting to merge reconstruction %d with %d "
+                           "images into %d with %d images",
+                           j, reconstructions[j].NumRegImages(), i,
+                           reconstructions[i].NumRegImages())
+                    << std::endl;
+          if (reconstructions[i].Merge(reconstructions[j], max_reproj_error)) {
+            std::cout << "Merge successful; removing reconstruction " << j
+                      << std::endl;
+            reconstructions.erase(reconstructions.begin() + j);
+            merge_success = true;
+            break;
+          }
+        }
+
+        if (merge_success) {
+          break;
+        }
+      }
+
+      if (!merge_success) {
+        std::cout << "Unable to merge all models. Total remaining recons: "
+                  << reconstructions.size() << std::endl;
+        // Sort remaining reconstructions by number of images to ensure
+        // the largest one is written
+        std::sort(reconstructions.begin(), reconstructions.end(),
+                  [](const Reconstruction recon1, const Reconstruction recon2) {
+                    return recon1.NumRegImages() > recon2.NumRegImages();
+                  });
+        break;
+      }
+    }
+
+    PrintHeading2(StringPrintf("Merging %d small reconstructions",
+                               small_recons.size()));
+    for (auto& recon : small_recons) {
+      std::cout << StringPrintf(
+                       "Attempting to merge small recon with %d images into main "
+                       "recon with %d images",
+                       recon.NumRegImages(), reconstructions[0].NumRegImages())
+                << std::endl;
+      if (reconstructions[0].Merge(recon, max_reproj_error)) {
+        std::cout << "Merge successful" << std::endl;
+      } else {
+        std::wcout << "Merge failed" << std::endl;
+      }
+    }
+
+    std::cout << "=> Merge succeeded" << std::endl;
+    PrintHeading2("Merged reconstruction");
+    std::cout << StringPrintf("Images: %d", reconstructions[0].NumRegImages())
+              << std::endl;
+    std::cout << StringPrintf("Points: %d", reconstructions[0].NumPoints3D())
+              << std::endl;
+    reconstructions[0].Write(output_path);
   }
 
-  reconstruction1.Write(output_path);
-
+  timer.PrintMinutes();
   return EXIT_SUCCESS;
 }
 
