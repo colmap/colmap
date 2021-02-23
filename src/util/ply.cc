@@ -70,6 +70,14 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
   int G_byte_pos = -1;
   int B_byte_pos = -1;
 
+  // Flag to use double precision in binary PLY files
+  bool X_double = false;
+  bool Y_double = false;
+  bool Z_double = false;
+  bool NX_double = false;
+  bool NY_double = false;
+  bool NZ_double = false;
+
   bool in_vertex_section = false;
   bool is_binary = false;
   bool is_little_endian = false;
@@ -108,7 +116,8 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
         num_vertices = std::stoll(line_elems[2]);
         in_vertex_section = true;
       } else if (std::stoll(line_elems[2]) > 0) {
-        LOG(FATAL) << "Only vertex elements supported";
+        std::cout << "WARN: Only vertex elements supported; ignoring "
+                  << line_elems[1] << std::endl;
       }
     }
 
@@ -120,27 +129,40 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
 
     if (line_elems.size() >= 3 && line_elems[0] == "property") {
       CHECK(line_elems[1] == "float" || line_elems[1] == "float32" ||
+            line_elems[1] == "double" || line_elems[1] == "float64" ||
             line_elems[1] == "uchar")
-          << "PLY import only supports the float and uchar data types";
+          << "PLY import only supports the float. double, and uchar data types";
 
-      if (line == "property float x" || line == "property float32 x") {
+      if (line == "property float x" || line == "property float32 x" ||
+          line == "property double x" || line == "property float64 x") {
         X_index = index;
         X_byte_pos = num_bytes_per_line;
-      } else if (line == "property float y" || line == "property float32 y") {
+        X_double = (line_elems[1] == "double" || line_elems[1] == "float64");
+      } else if (line == "property float y" || line == "property float32 y" ||
+                 line == "property double y" || line == "property float64 y") {
         Y_index = index;
         Y_byte_pos = num_bytes_per_line;
-      } else if (line == "property float z" || line == "property float32 z") {
+        Y_double = (line_elems[1] == "double" || line_elems[1] == "float64");
+      } else if (line == "property float z" || line == "property float32 z" ||
+                 line == "property double z" || line == "property float64 z") {
         Z_index = index;
         Z_byte_pos = num_bytes_per_line;
-      } else if (line == "property float nx" || line == "property float32 nx") {
+        Z_double = (line_elems[1] == "double" || line_elems[1] == "float64");
+      } else if (line == "property float nx" || line == "property float32 nx" ||
+                 line == "property double nx" || line == "property float64 nx") {
         NX_index = index;
         NX_byte_pos = num_bytes_per_line;
-      } else if (line == "property float ny" || line == "property float32 ny") {
+        NX_double = (line_elems[1] == "double" || line_elems[1] == "float64");
+      } else if (line == "property float ny" || line == "property float32 ny" ||
+                 line == "property double ny" || line == "property float64 ny") {
         NY_index = index;
         NY_byte_pos = num_bytes_per_line;
-      } else if (line == "property float nz" || line == "property float32 nz") {
+        NY_double = (line_elems[1] == "double" || line_elems[1] == "float64");
+      } else if (line == "property float nz" || line == "property float32 nz" ||
+                 line == "property double nz" || line == "property float64 nz") {
         NZ_index = index;
         NZ_byte_pos = num_bytes_per_line;
+        NZ_double = (line_elems[1] == "double" || line_elems[1] == "float64");
       } else if (line == "property uchar r" || line == "property uchar red" ||
                  line == "property uchar diffuse_red" ||
                  line == "property uchar ambient_red" ||
@@ -164,6 +186,8 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
       index += 1;
       if (line_elems[1] == "float" || line_elems[1] == "float32") {
         num_bytes_per_line += 4;
+      } else if (line_elems[1] == "double" || line_elems[1] == "float64") {
+        num_bytes_per_line += 8;
       } else if (line_elems[1] == "uchar") {
         num_bytes_per_line += 1;
       } else {
@@ -191,19 +215,26 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
 
       if (is_little_endian) {
         point.x = LittleEndianToNative(
-            *reinterpret_cast<float*>(&buffer[X_byte_pos]));
+            X_double ? *reinterpret_cast<double*>(&buffer[X_byte_pos])
+                     : *reinterpret_cast<float*>(&buffer[X_byte_pos]));
         point.y = LittleEndianToNative(
-            *reinterpret_cast<float*>(&buffer[Y_byte_pos]));
+            Y_double ? *reinterpret_cast<double*>(&buffer[Y_byte_pos])
+                     : *reinterpret_cast<float*>(&buffer[Y_byte_pos]));
         point.z = LittleEndianToNative(
-            *reinterpret_cast<float*>(&buffer[Z_byte_pos]));
+            Z_double ? *reinterpret_cast<double*>(&buffer[Z_byte_pos])
+                     : *reinterpret_cast<float*>(&buffer[Z_byte_pos]));
 
         if (!is_normal_missing) {
           point.nx = LittleEndianToNative(
-              *reinterpret_cast<float*>(&buffer[NX_byte_pos]));
+              NX_double ? *reinterpret_cast<double*>(&buffer[NX_byte_pos])
+                        : *reinterpret_cast<float*>(&buffer[NX_byte_pos]));
           point.ny = LittleEndianToNative(
-              *reinterpret_cast<float*>(&buffer[NY_byte_pos]));
+              NY_double ? *reinterpret_cast<double*>(&buffer[NY_byte_pos])
+                        : *reinterpret_cast<float*>(&buffer[NY_byte_pos]));
           point.nz = LittleEndianToNative(
-              *reinterpret_cast<float*>(&buffer[NZ_byte_pos]));
+              NZ_double ? *reinterpret_cast<double*>(&buffer[NZ_byte_pos])
+                        : *reinterpret_cast<float*>(&buffer[NZ_byte_pos]));
+
         }
 
         if (!is_rgb_missing) {
@@ -215,20 +246,26 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
               *reinterpret_cast<uint8_t*>(&buffer[B_byte_pos]));
         }
       } else {
-        point.x =
-            BigEndianToNative(*reinterpret_cast<float*>(&buffer[X_byte_pos]));
-        point.y =
-            BigEndianToNative(*reinterpret_cast<float*>(&buffer[Y_byte_pos]));
-        point.z =
-            BigEndianToNative(*reinterpret_cast<float*>(&buffer[Z_byte_pos]));
+        point.x = BigEndianToNative(
+            X_double ? *reinterpret_cast<double*>(&buffer[X_byte_pos])
+                     : *reinterpret_cast<float*>(&buffer[X_byte_pos]));
+        point.y = BigEndianToNative(
+            Y_double ? *reinterpret_cast<double*>(&buffer[Y_byte_pos])
+                     : *reinterpret_cast<float*>(&buffer[Y_byte_pos]));
+        point.z = BigEndianToNative(
+            Z_double ? *reinterpret_cast<double*>(&buffer[Z_byte_pos])
+                     : *reinterpret_cast<float*>(&buffer[Z_byte_pos]));
 
         if (!is_normal_missing) {
           point.nx = BigEndianToNative(
-              *reinterpret_cast<float*>(&buffer[NX_byte_pos]));
+              NX_double ? *reinterpret_cast<double*>(&buffer[NX_byte_pos])
+                        : *reinterpret_cast<float*>(&buffer[NX_byte_pos]));
           point.ny = BigEndianToNative(
-              *reinterpret_cast<float*>(&buffer[NY_byte_pos]));
+              NY_double ? *reinterpret_cast<double*>(&buffer[NY_byte_pos])
+                        : *reinterpret_cast<float*>(&buffer[NY_byte_pos]));
           point.nz = BigEndianToNative(
-              *reinterpret_cast<float*>(&buffer[NZ_byte_pos]));
+              NZ_double ? *reinterpret_cast<double*>(&buffer[NZ_byte_pos])
+                        : *reinterpret_cast<float*>(&buffer[NZ_byte_pos]));
         }
 
         if (!is_rgb_missing) {
