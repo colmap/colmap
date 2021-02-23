@@ -504,6 +504,8 @@ void OptionManager::AddMapperOptions() {
       &mapper->ba_min_num_residuals_for_multi_threading);
   AddAndRegisterDefaultOption("Mapper.ba_local_num_images",
                               &mapper->ba_local_num_images);
+  AddAndRegisterDefaultOption("Mapper.ba_local_function_tolerance",
+                              &mapper->ba_local_function_tolerance);
   AddAndRegisterDefaultOption("Mapper.ba_local_max_num_iterations",
                               &mapper->ba_local_max_num_iterations);
   AddAndRegisterDefaultOption("Mapper.ba_global_use_pba",
@@ -518,6 +520,8 @@ void OptionManager::AddMapperOptions() {
                               &mapper->ba_global_images_freq);
   AddAndRegisterDefaultOption("Mapper.ba_global_points_freq",
                               &mapper->ba_global_points_freq);
+  AddAndRegisterDefaultOption("Mapper.ba_global_function_tolerance",
+                              &mapper->ba_global_function_tolerance);
   AddAndRegisterDefaultOption("Mapper.ba_global_max_num_iterations",
                               &mapper->ba_global_max_num_iterations);
   AddAndRegisterDefaultOption("Mapper.ba_global_max_refinements",

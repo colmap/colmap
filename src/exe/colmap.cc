@@ -1054,6 +1054,11 @@ int RunMapper(int argc, char** argv) {
   mapper.Start();
   mapper.Wait();
 
+  if (reconstruction_manager.Size() == 0) {
+    std::cerr << "ERROR: failed to create sparse model" << std::endl;
+    return EXIT_FAILURE;
+  }
+
   // In case the reconstruction is continued from an existing reconstruction, do
   // not create sub-folders but directly write the results.
   if (input_path != "" && reconstruction_manager.Size() > 0) {
@@ -1092,6 +1097,11 @@ int RunHierarchicalMapper(int argc, char** argv) {
       &reconstruction_manager);
   hierarchical_mapper.Start();
   hierarchical_mapper.Wait();
+
+  if (reconstruction_manager.Size() == 0) {
+    std::cerr << "ERROR: failed to create sparse model" << std::endl;
+    return EXIT_FAILURE;
+  }
 
   reconstruction_manager.Write(output_path, &options);
 
