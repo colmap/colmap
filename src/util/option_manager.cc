@@ -638,6 +638,8 @@ void OptionManager::AddPatchMatchStereoOptions() {
       &patch_match_stereo->filter_geom_consistency_max_cost);
   AddAndRegisterDefaultOption("PatchMatchStereo.cache_size",
                               &patch_match_stereo->cache_size);
+  AddAndRegisterDefaultOption("PatchMatchStereo.allow_missing_files",
+                              &patch_match_stereo->allow_missing_files);
   AddAndRegisterDefaultOption("PatchMatchStereo.write_consistency_graph",
                               &patch_match_stereo->write_consistency_graph);
 }

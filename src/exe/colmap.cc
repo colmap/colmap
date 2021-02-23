@@ -426,6 +426,7 @@ int RunPatchMatchStereo(int argc, char** argv) {
   std::string workspace_path;
   std::string workspace_format = "COLMAP";
   std::string pmvs_option_name = "option-all";
+  std::string config_path;
 
   OptionManager options;
   options.AddRequiredOption(
@@ -434,6 +435,7 @@ int RunPatchMatchStereo(int argc, char** argv) {
   options.AddDefaultOption("workspace_format", &workspace_format,
                            "{COLMAP, PMVS}");
   options.AddDefaultOption("pmvs_option_name", &pmvs_option_name);
+  options.AddDefaultOption("config_path", &config_path);
   options.AddPatchMatchStereoOptions();
   options.Parse(argc, argv);
 
@@ -447,7 +449,7 @@ int RunPatchMatchStereo(int argc, char** argv) {
 
   mvs::PatchMatchController controller(*options.patch_match_stereo,
                                        workspace_path, workspace_format,
-                                       pmvs_option_name);
+                                       pmvs_option_name, config_path);
 
   controller.Start();
   controller.Wait();
