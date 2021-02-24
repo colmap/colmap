@@ -120,7 +120,7 @@ class StereoFusion : public Thread {
  private:
   void Run();
   void InitFusedPixelMask(int image_idx, size_t width, size_t height);
-  void Fuse(int tid);
+  void Fuse(int thread_id);
 
   const StereoFusionOptions options_;
   const std::string workspace_path_;

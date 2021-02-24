@@ -349,31 +349,31 @@ void StereoFusion::InitFusedPixelMask(int image_idx, size_t width,
   }
 }
 
-void StereoFusion::Fuse(int tid) {
-  CHECK_EQ(fusion_queue_[tid].size(), 1);
+void StereoFusion::Fuse(int thread_id) {
+  CHECK_EQ(fusion_queue_[thread_id].size(), 1);
 
   Eigen::Vector4f fused_ref_point = Eigen::Vector4f::Zero();
   Eigen::Vector3f fused_ref_normal = Eigen::Vector3f::Zero();
 
-  fused_point_x_[tid].clear();
-  fused_point_y_[tid].clear();
-  fused_point_z_[tid].clear();
-  fused_point_nx_[tid].clear();
-  fused_point_ny_[tid].clear();
-  fused_point_nz_[tid].clear();
-  fused_point_r_[tid].clear();
-  fused_point_g_[tid].clear();
-  fused_point_b_[tid].clear();
-  fused_point_visibility_[tid].clear();
+  fused_point_x_[thread_id].clear();
+  fused_point_y_[thread_id].clear();
+  fused_point_z_[thread_id].clear();
+  fused_point_nx_[thread_id].clear();
+  fused_point_ny_[thread_id].clear();
+  fused_point_nz_[thread_id].clear();
+  fused_point_r_[thread_id].clear();
+  fused_point_g_[thread_id].clear();
+  fused_point_b_[thread_id].clear();
+  fused_point_visibility_[thread_id].clear();
 
-  while (!fusion_queue_[tid].empty()) {
-    const auto data = fusion_queue_[tid].back();
+  while (!fusion_queue_[thread_id].empty()) {
+    const auto data = fusion_queue_[thread_id].back();
     const int image_idx = data.image_idx;
     const int row = data.row;
     const int col = data.col;
     const int traversal_depth = data.traversal_depth;
 
-    fusion_queue_[tid].pop_back();
+    fusion_queue_[thread_id].pop_back();
 
     // Check if pixel already fused.
     auto& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
@@ -438,7 +438,10 @@ void StereoFusion::Fuse(int tid) {
         col / bitmap_scale.first, row / bitmap_scale.second, &color);
 
     // Set the current pixel as visited.
-    fused_pixel_mask.Set(row, col, true);
+    bool* mask_ptr = fused_pixel_mask.GetPtr();
+    const int width = depth_map_sizes_[thread_id].first;
+#pragma omp atomic
+    mask_ptr[row * width + col] = true;
 
     // Pixels out of bounds are filtered
     if (xyz(0) < options_.bounds.first(0) ||
@@ -451,16 +454,16 @@ void StereoFusion::Fuse(int tid) {
     }
 
     // Accumulate statistics for fused point.
-    fused_point_x_[tid].push_back(xyz(0));
-    fused_point_y_[tid].push_back(xyz(1));
-    fused_point_z_[tid].push_back(xyz(2));
-    fused_point_nx_[tid].push_back(normal(0));
-    fused_point_ny_[tid].push_back(normal(1));
-    fused_point_nz_[tid].push_back(normal(2));
-    fused_point_r_[tid].push_back(color.r);
-    fused_point_g_[tid].push_back(color.g);
-    fused_point_b_[tid].push_back(color.b);
-    fused_point_visibility_[tid].insert(image_idx);
+    fused_point_x_[thread_id].push_back(xyz(0));
+    fused_point_y_[thread_id].push_back(xyz(1));
+    fused_point_z_[thread_id].push_back(xyz(2));
+    fused_point_nx_[thread_id].push_back(normal(0));
+    fused_point_ny_[thread_id].push_back(normal(1));
+    fused_point_nz_[thread_id].push_back(normal(2));
+    fused_point_r_[thread_id].push_back(color.r);
+    fused_point_g_[thread_id].push_back(color.g);
+    fused_point_b_[thread_id].push_back(color.b);
+    fused_point_visibility_[thread_id].insert(image_idx);
 
     // Remember the first pixel as the reference.
     if (traversal_depth == 0) {
@@ -468,7 +471,7 @@ void StereoFusion::Fuse(int tid) {
       fused_ref_normal = normal;
     }
 
-    if (fused_point_x_[tid].size() >= static_cast<size_t>(options_.max_num_pixels)) {
+    if (fused_point_x_[thread_id].size() >= static_cast<size_t>(options_.max_num_pixels)) {
       break;
     }
 
@@ -499,46 +502,46 @@ void StereoFusion::Fuse(int tid) {
         continue;
       }
 
-      fusion_queue_[tid].push_back(next_data);
+      fusion_queue_[thread_id].push_back(next_data);
     }
   }
 
-  fusion_queue_[tid].clear();
+  fusion_queue_[thread_id].clear();
 
-  const size_t num_pixels = fused_point_x_[tid].size();
+  const size_t num_pixels = fused_point_x_[thread_id].size();
   if (num_pixels >= static_cast<size_t>(options_.min_num_pixels)) {
     PlyPoint fused_point;
 
     Eigen::Vector3f fused_normal;
-    fused_normal.x() = internal::Median(&fused_point_nx_[tid]);
-    fused_normal.y() = internal::Median(&fused_point_ny_[tid]);
-    fused_normal.z() = internal::Median(&fused_point_nz_[tid]);
+    fused_normal.x() = internal::Median(&fused_point_nx_[thread_id]);
+    fused_normal.y() = internal::Median(&fused_point_ny_[thread_id]);
+    fused_normal.z() = internal::Median(&fused_point_nz_[thread_id]);
     const float fused_normal_norm = fused_normal.norm();
     if (fused_normal_norm < std::numeric_limits<float>::epsilon()) {
       return;
     }
 
-    fused_point.x = internal::Median(&fused_point_x_[tid]);
-    fused_point.y = internal::Median(&fused_point_y_[tid]);
-    fused_point.z = internal::Median(&fused_point_z_[tid]);
+    fused_point.x = internal::Median(&fused_point_x_[thread_id]);
+    fused_point.y = internal::Median(&fused_point_y_[thread_id]);
+    fused_point.z = internal::Median(&fused_point_z_[thread_id]);
 
     fused_point.nx = fused_normal.x() / fused_normal_norm;
     fused_point.ny = fused_normal.y() / fused_normal_norm;
     fused_point.nz = fused_normal.z() / fused_normal_norm;
 
     fused_point.r = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_r_[tid])));
+        std::round(internal::Median(&fused_point_r_[thread_id])));
     fused_point.g = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_g_[tid])));
+        std::round(internal::Median(&fused_point_g_[thread_id])));
     fused_point.b = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_b_[tid])));
+        std::round(internal::Median(&fused_point_b_[thread_id])));
 
 #pragma omp critical(update_fused_points)
     {
       fused_points_.push_back(fused_point);
       fused_points_visibility_.emplace_back(
-          fused_point_visibility_[tid].begin(),
-          fused_point_visibility_[tid].end());
+          fused_point_visibility_[thread_id].begin(),
+          fused_point_visibility_[thread_id].end());
     }
   }
 }
