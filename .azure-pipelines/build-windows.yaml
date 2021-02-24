@@ -6,7 +6,7 @@ parameters:
 jobs:
 - job: windows_build
   displayName: 'Windows VS2019'
-  timeoutInMinutes: 120
+  timeoutInMinutes: 240
   pool:
     vmImage: 'windows-2019'
   variables:
