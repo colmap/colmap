@@ -20,17 +20,22 @@ jobs:
       vcpkgGitCommitId: $(vcpkgGitCommitId)
       vcpkgGitURL: https://github.com/microsoft/vcpkg
 
+  - pwsh: |
+      mkdir $(Build.SourcesDirectory)/build
+    displayName: 'Prepare build'
+
   - task: run-cmake@0
     displayName: 'Configure and build'
     inputs:
       cmakeListsTxtPath: '$(Build.SourcesDirectory)/CMakeLists.txt'
       cmakeBuildType: 'Release'
       cmakeGenerator: 'Ninja'
-      buildDirectory: '$(Build.ArtifactStagingDirectory)'
+      buildDirectory: '$(Build.SourcesDirectory)/build'
       useVcpkgToolchainFile: true
 
   - pwsh: |
       $env:PATH = "$(Build.BinariesDirectory)/vcpkg/installed/x64-windows/release/bin/;$env:Path"
+      cd $(Build.SourcesDirectory)/build
       ctest
       $tests_pass=$LastExitCode
       if ($tests_pass -ne 0) {
@@ -39,4 +44,3 @@ jobs:
       }
       exit $tests_pass
     displayName: 'Run tests'
-    workingDirectory: $(Build.ArtifactStagingDirectory)
