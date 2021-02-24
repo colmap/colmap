@@ -600,8 +600,8 @@ int RunFeatureImporter(int argc, char** argv) {
     }
   }
 
-  if (!VerifyCameraParams(options.image_reader->camera_model,
-                          options.image_reader->camera_params)) {
+  if (!VerifyCameraParams(reader_options.camera_model,
+                          reader_options.camera_params)) {
     return EXIT_FAILURE;
   }
 
