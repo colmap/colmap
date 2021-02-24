@@ -240,6 +240,8 @@ void OptionManager::AddExtractionOptions() {
                               &image_reader->single_camera);
   AddAndRegisterDefaultOption("ImageReader.single_camera_per_folder",
                               &image_reader->single_camera_per_folder);
+  AddAndRegisterDefaultOption("ImageReader.single_camera_per_image",
+                              &image_reader->single_camera_per_image);
   AddAndRegisterDefaultOption("ImageReader.existing_camera_id",
                               &image_reader->existing_camera_id);
   AddAndRegisterDefaultOption("ImageReader.camera_params",

@@ -279,6 +279,21 @@ bool Bitmap::InterpolateBilinear(const double x, const double y,
   return false;
 }
 
+bool Bitmap::ExifCameraModel(std::string& camera_model) const {
+  // Read camera make and model
+  std::string make_str;
+  std::string model_str;
+  camera_model = "";
+  if (ReadExifTag(FIMD_EXIF_MAIN, "Make", &make_str)) {
+    camera_model += (make_str + "-");
+  }
+  if (ReadExifTag(FIMD_EXIF_MAIN, "Model", &model_str)) {
+    camera_model += (model_str + "-");
+  }
+  camera_model += (std::to_string(width_) + "x" + std::to_string(height_));
+  return true;
+}
+
 bool Bitmap::ExifFocalLength(double* focal_length) const {
   const double max_size = std::max(width_, height_);
 
@@ -361,6 +376,14 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
 
 bool Bitmap::ExifLatitude(double* latitude) const {
   std::string str;
+  double sign = 1.0;
+  if (ReadExifTag(FIMD_EXIF_GPS, "GPSLatitudeRef", &str)) {
+    StringTrim(&str);
+    StringToLower(&str);
+    if (!str.empty() && str[0] == 's') {
+        sign = -1.0;
+    }
+  }
   if (ReadExifTag(FIMD_EXIF_GPS, "GPSLatitude", &str)) {
     const std::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
     std::cmatch result;
@@ -368,7 +391,11 @@ bool Bitmap::ExifLatitude(double* latitude) const {
       const double hours = std::stold(result[1]);
       const double minutes = std::stold(result[2]);
       const double seconds = std::stold(result[3]);
-      *latitude = hours + minutes / 60.0 + seconds / 3600.0;
+      double value = hours + minutes / 60.0 + seconds / 3600.0;
+      if (value > 0 && sign < 0) {
+        value *= sign;
+      }
+      *latitude = value;
       return true;
     }
   }
@@ -377,6 +404,14 @@ bool Bitmap::ExifLatitude(double* latitude) const {
 
 bool Bitmap::ExifLongitude(double* longitude) const {
   std::string str;
+  double sign = 1.0;
+  if (ReadExifTag(FIMD_EXIF_GPS, "GPSLongitudeRef", &str)) {
+    StringTrim(&str);
+    StringToLower(&str);
+    if (!str.empty() && str[0] == 'w') {
+      sign = -1.0;
+    }
+  }
   if (ReadExifTag(FIMD_EXIF_GPS, "GPSLongitude", &str)) {
     const std::regex regex(".*?([0-9.]+):([0-9.]+):([0-9.]+).*?");
     std::cmatch result;
@@ -384,7 +419,11 @@ bool Bitmap::ExifLongitude(double* longitude) const {
       const double hours = std::stold(result[1]);
       const double minutes = std::stold(result[2]);
       const double seconds = std::stold(result[3]);
-      *longitude = hours + minutes / 60.0 + seconds / 3600.0;
+      double value = hours + minutes / 60.0 + seconds / 3600.0;
+      if (value > 0 && sign < 0) {
+        value *= sign;
+      }
+      *longitude = value;
       return true;
     }
   }

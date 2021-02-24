@@ -145,6 +145,7 @@ class Bitmap {
 
   // Extract EXIF information from bitmap. Returns false if no EXIF information
   // is embedded in the bitmap.
+  bool ExifCameraModel(std::string& camera_model) const;
   bool ExifFocalLength(double* focal_length) const;
   bool ExifLatitude(double* latitude) const;
   bool ExifLongitude(double* longitude) const;
@@ -164,7 +165,7 @@ class Bitmap {
 
   // Rescale image to the new dimensions.
   void Rescale(const int new_width, const int new_height,
-               const FREE_IMAGE_FILTER filter = FILTER_BILINEAR);
+               const FREE_IMAGE_FILTER filter = FILTER_CATMULLROM);
 
   // Clone the image to a new bitmap object.
   Bitmap Clone() const;
