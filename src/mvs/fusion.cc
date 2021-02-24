@@ -439,7 +439,7 @@ void StereoFusion::Fuse(int thread_id) {
 
     // Set the current pixel as visited.
     bool* mask_ptr = fused_pixel_mask.GetPtr();
-    const int width = depth_map_sizes_[thread_id].first;
+    const int width = depth_map_sizes_.at(image_idx).first;
 #pragma omp atomic
     mask_ptr[row * width + col] = true;
 
