@@ -17,14 +17,14 @@ jobs:
       key: $(Build.SourcesDirectory)/.azure-pipelines/build-windows-vcpkg.txt | "$(vcpkgGitCommitId)" | "$(Agent.OS)"
       path: '$(Build.BinariesDirectory)/vcpkg'
 
-  - task: lucappa.cmake-ninja-vcpkg-tasks.d855c326-b1c0-4d6f-b1c7-440ade6835fb.run-vcpkg@0
+  - task: run-vcpkg@0
     displayName: 'Run vcpkg'
     inputs:
       vcpkgArguments: '@$(Build.SourcesDirectory)/.azure-pipelines/build-windows-vcpkg.txt'
       vcpkgGitCommitId: $(vcpkgGitCommitId)
       vcpkgGitURL: https://github.com/microsoft/vcpkg
 
-  - task: lucappa.cmake-ninja-vcpkg-tasks.f2b1ec7d-bc54-4cc8-b9ed-1bc7f37c9dc6.run-cmake@0
+  - task: run-cmake@0
     displayName: 'Run CMake with Ninja'
     inputs:
       cmakeListsTxtPath: '$(Build.SourcesDirectory)/CMakeLists.txt'
