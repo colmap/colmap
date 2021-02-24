@@ -1,0 +1,33 @@
+parameters:
+  displayName: 'Ubuntu 18.04'
+  ubuntuVersion: '18.04'
+  cudaEnabled: false
+
+jobs:
+- job: windows_build
+  displayName: 'Windows VS2019'
+  pool:
+    vmImage: 'windows-2019'
+  variables:
+    vcpkgGitCommitId: ec6fe06e8da05a8157dc8581fa96b36b571c1bd5
+  steps:
+  - task: Cache@2
+    displayName: 'Cache vcpkg'
+    inputs:
+      key: $(Build.SourcesDirectory)/.azure-pipelines/build-windows-vcpkg.txt | "$(vcpkgGitCommitId)" | "$(Agent.OS)"
+      path: '$(Build.BinariesDirectory)/vcpkg'
+
+  - task: lucappa.cmake-ninja-vcpkg-tasks.d855c326-b1c0-4d6f-b1c7-440ade6835fb.run-vcpkg@0
+    displayName: 'Run vcpkg'
+    inputs:
+      vcpkgArguments: '@$(Build.SourcesDirectory)/.azure-pipelines/build-windows-vcpkg.txt'
+      vcpkgGitCommitId: $(vcpkgGitCommitId)
+      vcpkgGitURL: https://github.com/microsoft/vcpkg
+
+  - task: lucappa.cmake-ninja-vcpkg-tasks.f2b1ec7d-bc54-4cc8-b9ed-1bc7f37c9dc6.run-cmake@0
+    displayName: 'Run CMake with Ninja'
+    inputs:
+      cmakeListsTxtPath: '$(Build.SourcesDirectory)/CMakeLists.txt'
+      useVcpkgToolchainFile: true
+      vcpkgTriplet: '$(RUNVCPKG_VCPKG_TRIPLET)'
+      buildWithCMakeArgs: '-- -v'

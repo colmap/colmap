@@ -1,0 +1,4 @@
+--triplet
+x64-windows
+eigen3
+freeimage
