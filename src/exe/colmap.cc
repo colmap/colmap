@@ -1633,36 +1633,37 @@ int RunPointTriangulator(int argc, char** argv) {
 //       {
 //           "camera_id": 1,
 //           "image_prefix": "left1_image"
-//           "location": [0, 0, 0],
-//           "orientation": [1, 0, 0, 0]
+//           "rel_tvec": [0, 0, 0],
+//           "rel_qvec": [1, 0, 0, 0]
 //       },
 //       {
 //           "camera_id": 2,
 //           "image_prefix": "left2_image"
-//           "location": [0, 0, 0],
-//           "orientation": [0, 1, 0, 0]
+//           "rel_tvec": [0, 0, 0],
+//           "rel_qvec": [0, 1, 0, 0]
 //       },
 //       {
 //           "camera_id": 3,
 //           "image_prefix": "right1_image"
-//           "location": [0, 0, 0],
-//           "orientation": [0, 0, 1, 0]
+//           "rel_tvec": [0, 0, 0],
+//           "rel_qvec": [0, 0, 1, 0]
 //       },
 //       {
 //           "camera_id": 4,
 //           "image_prefix": "right2_image"
-//           "location": [0, 0, 0],
-//           "orientation": [0, 0, 0, 1]
+//           "rel_tvec": [0, 0, 0],
+//           "rel_qvec": [0, 0, 0, 1]
 //       }
 //     ]
 //   }
 // ]
 //
 // The "camera_id" and "image_prefix" fields are required, whereas the
-// "location" and "orientation" fields optionally specify the relative
+// "rel_tvec" and "rel_qvec" fields optionally specify the relative
 // extrinsics of the camera rig in the form of a translation vector and a
-// rotation quaternion. If the relative extrinsics are not provided then they
-// are automatically inferred from the reconstruction.
+// rotation quaternion. The relative extrinsics rel_qvec and rel_tvec transform
+// coordinates from rig to camera coordinate space. If the relative extrinsics
+// are not provided then they are automatically inferred from the reconstruction.
 //
 // This file specifies the configuration for a single camera rig and that you
 // could potentially define multiple camera rigs. The rig is composed of 4
@@ -1714,19 +1715,19 @@ std::vector<CameraRig> ReadCameraRigConfig(const std::string& rig_config_path,
       Eigen::Vector3d rel_tvec;
       Eigen::Vector4d rel_qvec;
       int index = 0;
-      auto locations = camera.second.get_child_optional("location");
-      if (locations) {
-        for (const auto& location : locations.get()) {
-          rel_tvec[index] = location.second.get_value<double>();
+      auto rel_tvec_node = camera.second.get_child_optional("rel_tvec");
+      if (rel_tvec_node) {
+        for (const auto& node : rel_tvec_node.get()) {
+          rel_tvec[index] = node.second.get_value<double>();
         }
       } else {
         estimate_rig_relative_poses = true;
       }
       index = 0;
-      auto rotations = camera.second.get_child_optional("location");
-      if (rotations) {
-        for (const auto& rotation : rotations.get()) {
-          rel_qvec[index] = rotation.second.get_value<double>();
+      auto rel_qvec_node = camera.second.get_child_optional("rel_qvec");
+      if (rel_qvec_node) {
+        for (const auto& node : rel_qvec_node.get()) {
+          rel_qvec[index] = node.second.get_value<double>();
         }
       } else {
         estimate_rig_relative_poses = true;
