@@ -499,9 +499,9 @@ bool VerifyCameraParams(const std::string& camera_model,
   return true;
 }
 
-int RunFeatureExtractor(int argc, char** argv) {
-  enum class CameraMode { AUTO = 0, SINGLE = 1, PER_FOLDER = 2, PER_IMAGE = 3 };
+enum class CameraMode { AUTO = 0, SINGLE = 1, PER_FOLDER = 2, PER_IMAGE = 3 };
 
+int RunFeatureExtractor(int argc, char** argv) {
   std::string image_list_path;
   int camera_mode = (int)CameraMode::AUTO;
 
@@ -516,6 +516,18 @@ int RunFeatureExtractor(int argc, char** argv) {
   ImageReaderOptions reader_options = *options.image_reader;
   reader_options.database_path = *options.database_path;
   reader_options.image_path = *options.image_path;
+
+  switch ((CameraMode)camera_mode) {
+    case CameraMode::SINGLE:
+      reader_options.single_camera = true;
+      break;
+    case CameraMode::PER_FOLDER:
+      reader_options.single_camera_per_folder = true;
+      break;
+    case CameraMode::PER_IMAGE:
+      reader_options.single_camera_per_image = true;
+      break;
+  }
 
   if (!image_list_path.empty()) {
     reader_options.image_list = ReadTextFileLines(image_list_path);
@@ -554,10 +566,12 @@ int RunFeatureExtractor(int argc, char** argv) {
 int RunFeatureImporter(int argc, char** argv) {
   std::string import_path;
   std::string image_list_path;
+  int camera_mode = (int)CameraMode::AUTO;
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
+  options.AddDefaultOption("camera_mode", &camera_mode);
   options.AddRequiredOption("import_path", &import_path);
   options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddExtractionOptions();
