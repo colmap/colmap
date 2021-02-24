@@ -227,42 +227,40 @@ int RunColorExtractor(int argc, char** argv) {
 }
 
 int RunDatabaseCleaner(int argc, char** argv) {
-  int cleanup_type = -1;
+  std::string type;
 
   OptionManager options;
-  options.AddRequiredOption("cleanup_type", &cleanup_type,
-                            "{0: All, 1: Images, 2: Features, 3: Matches}");
+  options.AddRequiredOption("type", &type, "{all, images, features, matches}");
   options.AddDatabaseOptions();
   options.Parse(argc, argv);
 
+  StringToLower(&type);
   Database database(*options.database_path);
   PrintHeading1("Clearing database");
   {
     DatabaseTransaction transaction(&database);
-    switch (cleanup_type) {
-      case 0:
+    if (type == "all") {
         PrintHeading2("Clearing all tables");
         database.ClearAllTables();
-        break;
-      case 1:
+    } else if (type == "images") {
         PrintHeading2("Clearing Images and all dependent tables");
         database.ClearImages();
         database.ClearTwoViewGeometries();
         database.ClearMatches();
-        break;
-      case 2:
-        PrintHeading2("Clearing image features");
+    } else if (type == "features") {
+        PrintHeading2("Clearing image features and matches");
         database.ClearDescriptors();
         database.ClearKeypoints();
-      case 3:
+        database.ClearTwoViewGeometries();
+        database.ClearMatches();
+    } else if (type == "matches") {
         PrintHeading2("Clearing image matches");
         database.ClearTwoViewGeometries();
         database.ClearMatches();
-        break;
-      default:
-        std::cout << "WARN: Invalid cleanup option; no changes in database"
+    } else {
+        std::cout << "ERROR: Invalid cleanup type; no changes in database"
                   << std::endl;
-        break;
+        return EXIT_FAILURE;
     }
   }
 
