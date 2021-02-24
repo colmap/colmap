@@ -510,7 +510,7 @@ bool VerifyCameraParams(const std::string& camera_model,
 // | AUTO       | false         | false                    | false                   |
 // | SINGLE     | true          | false                    | false                   |
 // | PER_FOLDER | false         | true                     | false                   |
-// | PER_IMAGE  | false         | false                    | false                   |
+// | PER_IMAGE  | false         | false                    | true                    |
 // -----------------------------------------------------------------------------------
 enum class CameraMode { AUTO = 0, SINGLE = 1, PER_FOLDER = 2, PER_IMAGE = 3 };
 
