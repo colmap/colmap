@@ -162,6 +162,9 @@ class Reconstruction {
   // De-register an existing image, and all its references.
   void DeRegisterImage(const image_t image_id);
 
+  // De-register existing images with specific prefix and all their references.
+  void DeRegisterImages(const std::string& prefix);
+
   // Check if image is registered.
   inline bool IsImageRegistered(const image_t image_id) const;
 
@@ -269,9 +272,12 @@ class Reconstruction {
   void ImportPLY(const std::vector<PlyPoint>& ply_points);
 
   // Export to other data formats.
-  bool ExportNVM(const std::string& path) const;
-  bool ExportBundler(const std::string& path,
-                     const std::string& list_path) const;
+  bool ExportNVM(const std::string& path, bool skip_distortion = false) const;
+  bool ExportCam(const std::string& path, bool skip_distortion = false) const;
+  bool ExportRecon3D(const std::string& path,
+                     bool skip_distortion = false) const;
+  bool ExportBundler(const std::string& path, const std::string& list_path,
+                     bool skip_distortion = false) const;
   void ExportPLY(const std::string& path) const;
   void ExportVRML(const std::string& images_path,
                   const std::string& points3D_path, const double image_scale,
