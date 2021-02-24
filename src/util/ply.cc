@@ -131,7 +131,7 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
       CHECK(line_elems[1] == "float" || line_elems[1] == "float32" ||
             line_elems[1] == "double" || line_elems[1] == "float64" ||
             line_elems[1] == "uchar")
-          << "PLY import only supports the float. double, and uchar data types";
+          << "PLY import only supports float, double, and uchar data types";
 
       if (line == "property float x" || line == "property float32 x" ||
           line == "property double x" || line == "property float64 x") {
