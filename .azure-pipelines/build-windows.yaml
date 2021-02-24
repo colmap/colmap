@@ -1,8 +1,3 @@
-parameters:
-  displayName: 'Ubuntu 18.04'
-  ubuntuVersion: '18.04'
-  cudaEnabled: false
-
 jobs:
 - job: windows_build
   displayName: 'Windows VS2019'
@@ -31,4 +26,3 @@ jobs:
       cmakeListsTxtPath: '$(Build.SourcesDirectory)/CMakeLists.txt'
       useVcpkgToolchainFile: true
       vcpkgTriplet: '$(RUNVCPKG_VCPKG_TRIPLET)'
-      buildWithCMakeArgs: '-- -v'
