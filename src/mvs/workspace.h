@@ -42,6 +42,8 @@
 namespace colmap {
 namespace mvs {
 
+class ConfidenceMap;
+
 class Workspace {
  public:
   struct Options {
@@ -68,9 +70,10 @@ class Workspace {
   const Options& GetOptions() const;
 
   const Model& GetModel() const;
-  const Bitmap& GetBitmap(const int image_idx);
-  const DepthMap& GetDepthMap(const int image_idx);
-  const NormalMap& GetNormalMap(const int image_idx);
+  virtual const Bitmap& GetBitmap(const int image_idx);
+  virtual const DepthMap& GetDepthMap(const int image_idx);
+  virtual const ConfidenceMap& GetConfidenceMap(const int image_idx);
+  virtual const NormalMap& GetNormalMap(const int image_idx);
 
   // Get paths to bitmap, depth map, normal map and consistency graph.
   std::string GetBitmapPath(const int image_idx) const;
@@ -82,7 +85,10 @@ class Workspace {
   bool HasDepthMap(const int image_idx) const;
   bool HasNormalMap(const int image_idx) const;
 
- private:
+  // Do nothing when we use a cache. Data is loaded as needed.
+  virtual void Load(const std::vector<std::string>& image_names) {}
+
+ protected:
   std::string GetFileName(const int image_idx) const;
 
   class CachedImage {
@@ -105,6 +111,35 @@ class Workspace {
   MemoryConstrainedLRUCache<int, CachedImage> cache_;
   std::string depth_map_path_;
   std::string normal_map_path_;
+};
+
+class NoCacheWorkspace : public Workspace {
+ public:
+  NoCacheWorkspace(const Options& options) : Workspace(options) {}
+
+  void Load(const std::vector<std::string>& image_names) override;
+
+  inline const Bitmap& GetBitmap(const int image_idx) override {
+    return *bitmaps_[image_idx];
+  }
+
+  inline const DepthMap& GetDepthMap(const int image_idx) override {
+    return *depth_maps_[image_idx];
+  }
+
+  inline const ConfidenceMap& GetConfidenceMap(const int image_idx) override {
+    return *confidence_maps_[image_idx];
+  }
+
+  inline const NormalMap& GetNormalMap(const int image_idx) override {
+    return *normal_maps_[image_idx];
+  }
+
+ private:
+  std::vector<std::unique_ptr<Bitmap>> bitmaps_;
+  std::vector<std::unique_ptr<DepthMap>> depth_maps_;
+  std::vector<std::unique_ptr<ConfidenceMap>> confidence_maps_;
+  std::vector<std::unique_ptr<NormalMap>> normal_maps_;
 };
 
 // Import a PMVS workspace into the COLMAP workspace format. Only images in the

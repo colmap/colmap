@@ -53,6 +53,9 @@ namespace colmap {
 namespace mvs {
 
 struct StereoFusionOptions {
+  // Path for PNG masks. Same format expected as ImageReaderOptions
+  std::string mask_path = "";
+
   // Maximum image size in either dimension.
   int max_image_size = -1;
 
@@ -77,12 +80,22 @@ struct StereoFusionOptions {
   // Number of overlapping images to transitively check for fusing points.
   int check_num_images = 50;
 
+  // Flag indicating whether to use LRU cache or pre-load all data
+  bool use_cache = false;
+
+  // Flag to force saving of calculated maps from the workspace
+  bool save_calculated_maps = false;
+
   // Cache size in gigabytes for fusion. The fusion keeps the bitmaps, depth
   // maps, normal maps, and consistency graphs of this number of images in
   // memory. A higher value leads to less disk access and faster fusion, while
   // a lower value leads to reduced memory usage. Note that a single image can
   // consume a lot of memory, if the consistency graph is dense.
   double cache_size = 32.0;
+
+  std::pair<Eigen::Vector3f, Eigen::Vector3f> bounds =
+      std::make_pair(Eigen::Vector3f(-FLT_MAX, -FLT_MAX, -FLT_MAX),
+                     Eigen::Vector3f(FLT_MAX, FLT_MAX, FLT_MAX));
 
   // Check the options for validity.
   bool Check() const;
@@ -106,7 +119,8 @@ class StereoFusion : public Thread {
 
  private:
   void Run();
-  void Fuse();
+  void InitFusedPixelMask(int image_idx, size_t width, size_t height);
+  void Fuse(int tid);
 
   const StereoFusionOptions options_;
   const std::string workspace_path_;
@@ -120,6 +134,8 @@ class StereoFusion : public Thread {
   std::vector<char> used_images_;
   std::vector<char> fused_images_;
   std::vector<std::vector<int>> overlapping_images_;
+  // Contains image masks of pre-masked and already fused pixels.
+  // Initialized from image masks if provided in StereoFusionOptions.
   std::vector<Mat<bool>> fused_pixel_masks_;
   std::vector<std::pair<int, int>> depth_map_sizes_;
   std::vector<std::pair<float, float>> bitmap_scales_;
@@ -138,23 +154,23 @@ class StereoFusion : public Thread {
   };
 
   // Next points to fuse.
-  std::vector<FusionData> fusion_queue_;
+  std::vector<std::vector<FusionData>> fusion_queue_;
 
   // Already fused points.
   std::vector<PlyPoint> fused_points_;
   std::vector<std::vector<int>> fused_points_visibility_;
 
   // Points of different pixels of the currently point to be fused.
-  std::vector<float> fused_point_x_;
-  std::vector<float> fused_point_y_;
-  std::vector<float> fused_point_z_;
-  std::vector<float> fused_point_nx_;
-  std::vector<float> fused_point_ny_;
-  std::vector<float> fused_point_nz_;
-  std::vector<uint8_t> fused_point_r_;
-  std::vector<uint8_t> fused_point_g_;
-  std::vector<uint8_t> fused_point_b_;
-  std::unordered_set<int> fused_point_visibility_;
+  std::vector<std::vector<float>> fused_point_x_;
+  std::vector<std::vector<float>> fused_point_y_;
+  std::vector<std::vector<float>> fused_point_z_;
+  std::vector<std::vector<float>> fused_point_nx_;
+  std::vector<std::vector<float>> fused_point_ny_;
+  std::vector<std::vector<float>> fused_point_nz_;
+  std::vector<std::vector<uint8_t>> fused_point_r_;
+  std::vector<std::vector<uint8_t>> fused_point_g_;
+  std::vector<std::vector<uint8_t>> fused_point_b_;
+  std::vector<std::unordered_set<int>> fused_point_visibility_;
 };
 
 // Write the visiblity information into a binary file of the following format:

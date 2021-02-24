@@ -234,5 +234,78 @@ void ImportPMVSWorkspace(const Workspace& workspace,
   }
 }
 
+void NoCacheWorkspace::Load(const std::vector<std::string>& image_names) {
+  const size_t num_images = model_.images.size();
+  bitmaps_.resize(num_images);
+  depth_maps_.resize(num_images);
+  confidence_maps_.resize(num_images);
+  normal_maps_.resize(num_images);
+
+  std::cout << "Loading workspace data..." << std::endl;
+#pragma omp parallel for
+  for (int i = 0; i < image_names.size(); i) {
+    const int image_idx = model_.GetImageIdx(image_names[i]);
+
+    if (!HasBitmap(image_idx) || !HasDepthMap(image_idx)) {
+      std::cout
+          << StringPrintf(
+                 "WARNING: Ignoring image %s, because input does not exist.",
+                 image_names[i].c_str())
+          << std::endl;
+      continue;
+    }
+
+    const size_t width = model_.images.at(image_idx).GetWidth();
+    const size_t height = model_.images.at(image_idx).GetHeight();
+
+    // Read and rescale bitmap
+    bitmaps_[image_idx].reset(new Bitmap());
+    bitmaps_[image_idx]->Read(GetBitmapPath(image_idx), options_.image_as_rgb);
+    if (options_.max_image_size > 0) {
+      bitmaps_[image_idx]->Rescale((int)width, (int)height);
+    }
+
+    // Read and rescale depth map
+    depth_maps_[image_idx].reset(new DepthMap());
+    depth_maps_[image_idx]->Read(GetDepthMapPath(image_idx));
+    if (options_.max_image_size > 0) {
+      depth_maps_[image_idx]->Downsize(width, height);
+    }
+
+    // Read and rescale confidence map
+    const std::string confidence_map_path = GetConfidenceMapPath(image_idx);
+    if (HasConfidenceMap(image_idx)) {
+      confidence_maps_[image_idx].reset(new ConfidenceMap());
+      confidence_maps_[image_idx]->Read(confidence_map_path);
+      if (options_.max_image_size > 0) {
+        confidence_maps_[image_idx]->Downsize(width, height);
+      }
+    } else {
+      // Assume depth confidence probability of 1.0 when the map is not given
+      confidence_maps_[image_idx].reset(new ConfidenceMap(width, height));
+      if (options_.save_calculated_maps) {
+        confidence_maps_[image_idx]->Write(confidence_map_path);
+      }
+    }
+
+    // Read and rescale normal map
+    const std::string normal_map_path = GetNormalMapPath(image_idx);
+    normal_maps_[image_idx].reset(new NormalMap());
+    if (!options_.calculate_normals && HasNormalMap(image_idx)) {
+      normal_maps_[image_idx]->Read(normal_map_path);
+      if (options_.max_image_size > 0) {
+        normal_maps_[image_idx]->Downsize(width, height);
+      }
+    } else {
+      // Estimate normal map from depth when the map is not given
+      normal_maps_[image_idx]->EstimateFromDepth(
+          *depth_maps_[image_idx], model_.images.at(image_idx).GetInvK());
+      if (options_.save_calculated_maps) {
+        normal_maps_[image_idx]->Write(normal_map_path);
+      }
+    }
+  }
+}
+
 }  // namespace mvs
 }  // namespace colmap

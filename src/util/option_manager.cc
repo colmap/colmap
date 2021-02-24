@@ -591,6 +591,8 @@ void OptionManager::AddPatchMatchStereoOptions() {
   }
   added_patch_match_stereo_options_ = true;
 
+  AddAndRegisterDefaultOption("StereoFusion.mask_path",
+                              &stereo_fusion->mask_path);
   AddAndRegisterDefaultOption("PatchMatchStereo.max_image_size",
                               &patch_match_stereo->max_image_size);
   AddAndRegisterDefaultOption("PatchMatchStereo.gpu_index",
@@ -638,6 +640,10 @@ void OptionManager::AddPatchMatchStereoOptions() {
       &patch_match_stereo->filter_geom_consistency_max_cost);
   AddAndRegisterDefaultOption("PatchMatchStereo.cache_size",
                               &patch_match_stereo->cache_size);
+  AddAndRegisterDefaultOption("StereoFusion.use_cache",
+                              &stereo_fusion->use_cache);
+  AddAndRegisterDefaultOption("StereoFusion.save_calculated_maps",
+                              &stereo_fusion->save_calculated_maps);
   AddAndRegisterDefaultOption("PatchMatchStereo.write_consistency_graph",
                               &patch_match_stereo->write_consistency_graph);
 }

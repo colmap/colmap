@@ -83,6 +83,7 @@ int FindNextImage(const std::vector<std::vector<int>>& overlapping_images,
 void StereoFusionOptions::Print() const {
 #define PrintOption(option) std::cout << #option ": " << option << std::endl
   PrintHeading2("StereoFusion::Options");
+  PrintOption(mask_path);
   PrintOption(max_image_size);
   PrintOption(min_num_pixels);
   PrintOption(max_num_pixels);
@@ -91,7 +92,12 @@ void StereoFusionOptions::Print() const {
   PrintOption(max_depth_error);
   PrintOption(max_normal_error);
   PrintOption(check_num_images);
+  PrintOption(use_cache);
   PrintOption(cache_size);
+  const auto& min_bound = bounds.first.transpose().eval();
+  const auto& max_bound = bounds.second.transpose().eval();
+  PrintOption(min_bound);
+  PrintOption(max_bound);
 #undef PrintOption
 }
 
@@ -151,12 +157,27 @@ void StereoFusion::Run() {
   }
 
   workspace_options.max_image_size = options_.max_image_size;
+  // Saving calculated maps only when the option is set (useful for debugging)
+  // or when using cache to avoid potential multiple calculations of the same
+  // map.
+  workspace_options.save_calculated_maps =
+      options_.save_calculated_maps || options_.use_cache;
   workspace_options.image_as_rgb = true;
   workspace_options.cache_size = options_.cache_size;
   workspace_options.workspace_path = workspace_path_;
   workspace_options.workspace_format = workspace_format_;
   workspace_options.input_type = input_type_;
 
+  const auto image_names = ReadTextFileLines(JoinPaths(
+      workspace_path_, workspace_options.stereo_folder, "fusion.cfg"));
+  int num_threads = 1;
+  if (options_.use_cache) {
+    workspace_.reset(new Workspace(workspace_options));
+  } else {
+    workspace_.reset(new NoCacheWorkspace(workspace_options));
+    workspace_->Load(image_names);
+    num_threads = omp_get_max_threads();
+  }
   workspace_.reset(new Workspace(workspace_options));
 
   if (IsStopped()) {
@@ -176,6 +197,18 @@ void StereoFusion::Run() {
     overlapping_images_ = model.GetMaxOverlappingImagesFromPMVS();
   }
 
+  fusion_queue_.resize(num_threads);
+  fused_point_x_.resize(num_threads);
+  fused_point_y_.resize(num_threads);
+  fused_point_z_.resize(num_threads);
+  fused_point_nx_.resize(num_threads);
+  fused_point_ny_.resize(num_threads);
+  fused_point_nz_.resize(num_threads);
+  fused_point_r_.resize(num_threads);
+  fused_point_g_.resize(num_threads);
+  fused_point_b_.resize(num_threads);
+  fused_point_visibility_.resize(num_threads);
+
   used_images_.resize(model.images.size(), false);
   fused_images_.resize(model.images.size(), false);
   fused_pixel_masks_.resize(model.images.size());
@@ -185,8 +218,6 @@ void StereoFusion::Run() {
   inv_P_.resize(model.images.size());
   inv_R_.resize(model.images.size());
 
-  const auto image_names = ReadTextFileLines(JoinPaths(
-      workspace_path_, workspace_options.stereo_folder, "fusion.cfg"));
   for (const auto& image_name : image_names) {
     const int image_idx = model.GetImageIdx(image_name);
 
@@ -206,9 +237,7 @@ void StereoFusion::Run() {
 
     used_images_.at(image_idx) = true;
 
-    fused_pixel_masks_.at(image_idx) =
-        Mat<bool>(depth_map.GetWidth(), depth_map.GetHeight(), 1);
-    fused_pixel_masks_.at(image_idx).Fill(false);
+    InitFusedPixelMask(image_idx, depth_map.GetWidth(), depth_map.GetHeight());
 
     depth_map_sizes_.at(image_idx) =
         std::make_pair(depth_map.GetWidth(), depth_map.GetHeight());
@@ -235,6 +264,8 @@ void StereoFusion::Run() {
             .transpose();
   }
 
+  std::cout << "Starting fusion with " << num_threads << " threads"
+            << std::endl;
   size_t num_fused_images = 0;
   for (int image_idx = 0; image_idx >= 0;
        image_idx = internal::FindNextImage(overlapping_images_, used_images_,
@@ -246,27 +277,30 @@ void StereoFusion::Run() {
     Timer timer;
     timer.Start();
 
-    std::cout << StringPrintf("Fusing image [%d/%d]", num_fused_images + 1,
-                              model.images.size())
+    std::cout << StringPrintf("Fusing image [%d/%d] with index %d",
+                              num_fused_images + 1, model.images.size(),
+                              image_idx)
               << std::flush;
 
     const int width = depth_map_sizes_.at(image_idx).first;
     const int height = depth_map_sizes_.at(image_idx).second;
     const auto& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
 
-    FusionData data;
-    data.image_idx = image_idx;
-    data.traversal_depth = 0;
-
-    for (data.row = 0; data.row < height; ++data.row) {
-      for (data.col = 0; data.col < width; ++data.col) {
-        if (fused_pixel_mask.Get(data.row, data.col)) {
+#pragma omp parallel for schedule(dynamic) num_threads(num_threads)
+    for (int row = 0; row < height; ++row) {
+      for (int col = 0; col < width; ++col) {
+        if (fused_pixel_mask.Get(row, col)) {
           continue;
         }
+        FusionData data;
+        data.image_idx = image_idx;
+        data.traversal_depth = 0;
+        data.row = row;
+        data.col = col;
 
-        fusion_queue_.push_back(data);
-
-        Fuse();
+        const int tid = omp_get_thread_num();
+        fusion_queue_[tid].push_back(std::move(data));
+        Fuse(tid);
       }
     }
 
@@ -292,31 +326,54 @@ void StereoFusion::Run() {
   GetTimer().PrintMinutes();
 }
 
-void StereoFusion::Fuse() {
-  CHECK_EQ(fusion_queue_.size(), 1);
+void StereoFusion::InitFusedPixelMask(int image_idx, size_t width,
+                                      size_t height) {
+  Bitmap mask;
+  Mat<bool>& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
+  const std::string mask_path =
+      JoinPaths(options_.mask_path,
+                workspace_->GetModel().GetImageName(image_idx) + ".png");
+  fused_pixel_mask = Mat<bool>(width, height, 1);
+  if (!options_.mask_path.empty() && ExistsFile(mask_path) &&
+      mask.Read(mask_path, false)) {
+    BitmapColor<uint8_t> color;
+    mask.Rescale((int)width, (int)height, FILTER_BOX);
+    for (int row = 0; row < height; ++row) {
+      for (int col = 0; col < width; ++col) {
+        mask.GetPixel(col, row, &color);
+        fused_pixel_mask.Set(row, col, color.r == 0);
+      }
+    }
+  } else {
+    fused_pixel_mask.Fill(false);
+  }
+}
+
+void StereoFusion::Fuse(int tid) {
+  CHECK_EQ(fusion_queue_[tid].size(), 1);
 
   Eigen::Vector4f fused_ref_point = Eigen::Vector4f::Zero();
   Eigen::Vector3f fused_ref_normal = Eigen::Vector3f::Zero();
 
-  fused_point_x_.clear();
-  fused_point_y_.clear();
-  fused_point_z_.clear();
-  fused_point_nx_.clear();
-  fused_point_ny_.clear();
-  fused_point_nz_.clear();
-  fused_point_r_.clear();
-  fused_point_g_.clear();
-  fused_point_b_.clear();
-  fused_point_visibility_.clear();
+  fused_point_x_[tid].clear();
+  fused_point_y_[tid].clear();
+  fused_point_z_[tid].clear();
+  fused_point_nx_[tid].clear();
+  fused_point_ny_[tid].clear();
+  fused_point_nz_[tid].clear();
+  fused_point_r_[tid].clear();
+  fused_point_g_[tid].clear();
+  fused_point_b_[tid].clear();
+  fused_point_visibility_[tid].clear();
 
-  while (!fusion_queue_.empty()) {
-    const auto data = fusion_queue_.back();
+  while (!fusion_queue_[tid].empty()) {
+    const auto data = fusion_queue_[tid].back();
     const int image_idx = data.image_idx;
     const int row = data.row;
     const int col = data.col;
     const int traversal_depth = data.traversal_depth;
 
-    fusion_queue_.pop_back();
+    fusion_queue_[tid].pop_back();
 
     // Check if pixel already fused.
     auto& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
@@ -383,17 +440,27 @@ void StereoFusion::Fuse() {
     // Set the current pixel as visited.
     fused_pixel_mask.Set(row, col, true);
 
+    // Pixels out of bounds are filtered
+    if (xyz(0) < options_.bounds.first(0) ||
+        xyz(1) < options_.bounds.first(1) ||
+        xyz(2) < options_.bounds.first(2) ||
+        xyz(0) > options_.bounds.second(0) ||
+        xyz(1) > options_.bounds.second(1) ||
+        xyz(2) > options_.bounds.second(2)) {
+      continue;
+    }
+
     // Accumulate statistics for fused point.
-    fused_point_x_.push_back(xyz(0));
-    fused_point_y_.push_back(xyz(1));
-    fused_point_z_.push_back(xyz(2));
-    fused_point_nx_.push_back(normal(0));
-    fused_point_ny_.push_back(normal(1));
-    fused_point_nz_.push_back(normal(2));
-    fused_point_r_.push_back(color.r);
-    fused_point_g_.push_back(color.g);
-    fused_point_b_.push_back(color.b);
-    fused_point_visibility_.insert(image_idx);
+    fused_point_x_[tid].push_back(xyz(0));
+    fused_point_y_[tid].push_back(xyz(1));
+    fused_point_z_[tid].push_back(xyz(2));
+    fused_point_nx_[tid].push_back(normal(0));
+    fused_point_ny_[tid].push_back(normal(1));
+    fused_point_nz_[tid].push_back(normal(2));
+    fused_point_r_[tid].push_back(color.r);
+    fused_point_g_[tid].push_back(color.g);
+    fused_point_b_[tid].push_back(color.b);
+    fused_point_visibility_[tid].insert(image_idx);
 
     // Remember the first pixel as the reference.
     if (traversal_depth == 0) {
@@ -401,7 +468,7 @@ void StereoFusion::Fuse() {
       fused_ref_normal = normal;
     }
 
-    if (fused_point_x_.size() >= static_cast<size_t>(options_.max_num_pixels)) {
+    if (fused_point_x_[tid].size() >= static_cast<size_t>(options_.max_num_pixels)) {
       break;
     }
 
@@ -432,43 +499,47 @@ void StereoFusion::Fuse() {
         continue;
       }
 
-      fusion_queue_.push_back(next_data);
+      fusion_queue_[tid].push_back(next_data);
     }
   }
 
-  fusion_queue_.clear();
+  fusion_queue_[tid].clear();
 
-  const size_t num_pixels = fused_point_x_.size();
+  const size_t num_pixels = fused_point_x_[tid].size();
   if (num_pixels >= static_cast<size_t>(options_.min_num_pixels)) {
     PlyPoint fused_point;
 
     Eigen::Vector3f fused_normal;
-    fused_normal.x() = internal::Median(&fused_point_nx_);
-    fused_normal.y() = internal::Median(&fused_point_ny_);
-    fused_normal.z() = internal::Median(&fused_point_nz_);
+    fused_normal.x() = internal::Median(&fused_point_nx_[tid]);
+    fused_normal.y() = internal::Median(&fused_point_ny_[tid]);
+    fused_normal.z() = internal::Median(&fused_point_nz_[tid]);
     const float fused_normal_norm = fused_normal.norm();
     if (fused_normal_norm < std::numeric_limits<float>::epsilon()) {
       return;
     }
 
-    fused_point.x = internal::Median(&fused_point_x_);
-    fused_point.y = internal::Median(&fused_point_y_);
-    fused_point.z = internal::Median(&fused_point_z_);
+    fused_point.x = internal::Median(&fused_point_x_[tid]);
+    fused_point.y = internal::Median(&fused_point_y_[tid]);
+    fused_point.z = internal::Median(&fused_point_z_[tid]);
 
     fused_point.nx = fused_normal.x() / fused_normal_norm;
     fused_point.ny = fused_normal.y() / fused_normal_norm;
     fused_point.nz = fused_normal.z() / fused_normal_norm;
 
     fused_point.r = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_r_)));
+        std::round(internal::Median(&fused_point_r_[tid])));
     fused_point.g = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_g_)));
+        std::round(internal::Median(&fused_point_g_[tid])));
     fused_point.b = TruncateCast<float, uint8_t>(
-        std::round(internal::Median(&fused_point_b_)));
+        std::round(internal::Median(&fused_point_b_[tid])));
 
-    fused_points_.push_back(fused_point);
-    fused_points_visibility_.emplace_back(fused_point_visibility_.begin(),
-                                          fused_point_visibility_.end());
+#pragma omp critical(update_fused_points)
+    {
+      fused_points_.push_back(fused_point);
+      fused_points_visibility_.emplace_back(
+          fused_point_visibility_[tid].begin(),
+          fused_point_visibility_[tid].end());
+    }
   }
 }
 
