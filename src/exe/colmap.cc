@@ -1256,6 +1256,98 @@ int RunModelAnalyzer(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+void PrintErrorStats(std::vector<double>& vals, double avg) {
+  const size_t len = vals.size();
+  std::sort(vals.begin(), vals.end());
+  std::cout << "Min:    " << vals[0] << std::endl;
+  std::cout << "Max:    " << vals[len - 1] << std::endl;
+  std::cout << "Mean:   " << avg << std::endl;
+  std::cout << "Median: " << vals[len / 2] << std::endl;
+  std::cout << "P90:    " << vals[size_t(0.9 * len)] << std::endl;
+  std::cout << "P99:    " << vals[size_t(0.99 * len)] << std::endl;
+}
+
+int RunModelComparator(int argc, char** argv) {
+  std::string input_path1;
+  std::string input_path2;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path1", &input_path1);
+  options.AddRequiredOption("input_path2", &input_path2);
+  options.Parse(argc, argv);
+
+  Reconstruction reconstruction1;
+  reconstruction1.Read(input_path1);
+  PrintHeading1("Reconstruction 1");
+  std::cout << StringPrintf("Images: %d", reconstruction1.NumRegImages())
+            << std::endl;
+  std::cout << StringPrintf("Points: %d", reconstruction1.NumPoints3D())
+            << std::endl;
+
+  Reconstruction reconstruction2;
+  reconstruction2.Read(input_path2);
+  PrintHeading1("Reconstruction 2");
+  std::cout << StringPrintf("Images: %d", reconstruction2.NumRegImages())
+            << std::endl;
+  std::cout << StringPrintf("Points: %d", reconstruction2.NumPoints3D())
+            << std::endl;
+
+  PrintHeading1("Comparing reconstruction image poses");
+  auto common_ids = reconstruction1.FindCommonRegImageIds(reconstruction2);
+  std::cout << StringPrintf("Common images: %d", common_ids.size())
+            << std::endl;
+
+  Eigen::Matrix3x4d alignment;
+  const double kMinInlierObservations = 0.3;
+  const double kMaxReprojError = 8.0;
+  if (!ComputeAlignmentBetweenReconstructions(reconstruction2, reconstruction1,
+                                              kMinInlierObservations,
+                                              kMaxReprojError, &alignment)) {
+    std::cout << "=> Reconstruction alignment failed" << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  const SimilarityTransform3 tform(alignment);
+  std::cout << "Transform:\n" << tform.Matrix() << std::endl;
+
+  const size_t num_images = common_ids.size();
+  std::vector<double> qdist(num_images, 0.0);
+  std::vector<double> tdist(num_images, 0.0);
+  std::vector<double> pdist(num_images, 0.0);
+  double qavg = 0.0, tavg = 0.0, pavg = 0.0;
+  for (int i = 0; i < num_images; ++i) {
+    const auto im_id = common_ids[i];
+    const auto im1 = reconstruction1.Image(im_id);
+    auto& im2 = reconstruction2.Image(im_id);
+    tform.TransformPose(&im2.Qvec(), &im2.Tvec());
+
+    Eigen::Vector4d tmp = NormalizeQuaternion(im1.Qvec());
+    Eigen::Quaterniond q1(tmp(0), tmp(1), tmp(2), tmp(3));
+    tmp = NormalizeQuaternion(im2.Qvec());
+    Eigen::Quaterniond q2(tmp(0), tmp(1), tmp(2), tmp(3));
+
+    qdist[i] = RadToDeg(q1.angularDistance(q2));
+    tdist[i] = (im1.Tvec() - im2.Tvec()).norm();
+    pdist[i] = (im1.ProjectionCenter() - im2.ProjectionCenter()).norm();
+
+    qavg += qdist[i];
+    tavg += tdist[i];
+    pavg += pdist[i];
+  }
+  qavg /= num_images;
+  tavg /= num_images;
+  pavg /= num_images;
+
+  PrintHeading2("Rotation angular errors (degrees)");
+  PrintErrorStats(qdist, qavg);
+  PrintHeading2("Translation distance errors");
+  PrintErrorStats(tdist, tavg);
+  PrintHeading2("Projection center distance errors");
+  PrintErrorStats(pdist, pavg);
+
+  return EXIT_SUCCESS;
+}
+
 int RunModelConverter(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
@@ -2158,6 +2250,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("matches_importer", &RunMatchesImporter);
   commands.emplace_back("model_aligner", &RunModelAligner);
   commands.emplace_back("model_analyzer", &RunModelAnalyzer);
+  commands.emplace_back("model_comparator", &RunModelComparator);
   commands.emplace_back("model_converter", &RunModelConverter);
   commands.emplace_back("model_merger", &RunModelMerger);
   commands.emplace_back("model_orientation_aligner",
