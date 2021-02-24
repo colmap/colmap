@@ -34,7 +34,7 @@ jobs:
       cmakeListsTxtPath: '$(Build.SourcesDirectory)/CMakeLists.txt'
       cmakeBuildType: 'Release'
       cmakeGenerator: 'Ninja'
-      cmakeAppendedArgs: -GNinja -DCMAKE_MAKE_PROGRAM=$(Build.BinariesDirectory)/ninja.exe -DTESTS_ENABLED=ON
+      cmakeAppendedArgs: -GNinja -DCMAKE_MAKE_PROGRAM=$(Build.BinariesDirectory)/ninja.exe -DCMAKE_BUILD_TYPE=Release -DTESTS_ENABLED=ON
       useVcpkgToolchainFile: true
 
   - pwsh: |
