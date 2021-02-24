@@ -499,11 +499,50 @@ bool VerifyCameraParams(const std::string& camera_model,
   return true;
 }
 
+// This enum can be used as optional input for feature_extractor and feature_importer
+// to ensure that the camera flags of ImageReader are set in an exclusive an unambigous way.
+// The table below explains the corespondence of each setting with the flags
+//
+// -----------------------------------------------------------------------------------
+// |            |                         ImageReaderOptions                         |
+// | CameraMode | single_camera | single_camera_per_folder | single_camera_per_image |
+// |------------|---------------|--------------------------|-------------------------|
+// | AUTO       | false         | false                    | false                   |
+// | SINGLE     | true          | false                    | false                   |
+// | PER_FOLDER | false         | true                     | false                   |
+// | PER_IMAGE  | false         | false                    | false                   |
+// -----------------------------------------------------------------------------------
 enum class CameraMode { AUTO = 0, SINGLE = 1, PER_FOLDER = 2, PER_IMAGE = 3 };
+
+void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
+                                            CameraMode mode) {
+  switch (mode) {
+    case CameraMode::AUTO:
+      options.single_camera = false;
+      options.single_camera_per_folder = false;
+      options.single_camera_per_image = false;
+      break;
+    case CameraMode::SINGLE:
+      options.single_camera = true;
+      options.single_camera_per_folder = false;
+      options.single_camera_per_image = false;
+      break;
+    case CameraMode::PER_FOLDER:
+      options.single_camera = false;
+      options.single_camera_per_folder = true;
+      options.single_camera_per_image = false;
+      break;
+    case CameraMode::PER_IMAGE:
+      options.single_camera = false;
+      options.single_camera_per_folder = false;
+      options.single_camera_per_image = true;
+      break;
+  }
+}
 
 int RunFeatureExtractor(int argc, char** argv) {
   std::string image_list_path;
-  int camera_mode = (int)CameraMode::AUTO;
+  int camera_mode = -1;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -517,16 +556,9 @@ int RunFeatureExtractor(int argc, char** argv) {
   reader_options.database_path = *options.database_path;
   reader_options.image_path = *options.image_path;
 
-  switch ((CameraMode)camera_mode) {
-    case CameraMode::SINGLE:
-      reader_options.single_camera = true;
-      break;
-    case CameraMode::PER_FOLDER:
-      reader_options.single_camera_per_folder = true;
-      break;
-    case CameraMode::PER_IMAGE:
-      reader_options.single_camera_per_image = true;
-      break;
+  if (camera_mode >= 0) {
+    UpdateImageReaderOptionsFromCameraMode(reader_options,
+                                           (CameraMode)camera_mode);
   }
 
   if (!image_list_path.empty()) {
@@ -566,7 +598,7 @@ int RunFeatureExtractor(int argc, char** argv) {
 int RunFeatureImporter(int argc, char** argv) {
   std::string import_path;
   std::string image_list_path;
-  int camera_mode = (int)CameraMode::AUTO;
+  int camera_mode = -1;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -581,16 +613,9 @@ int RunFeatureImporter(int argc, char** argv) {
   reader_options.database_path = *options.database_path;
   reader_options.image_path = *options.image_path;
 
-  switch ((CameraMode)camera_mode) {
-    case CameraMode::SINGLE:
-      reader_options.single_camera = true;
-      break;
-    case CameraMode::PER_FOLDER:
-      reader_options.single_camera_per_folder = true;
-      break;
-    case CameraMode::PER_IMAGE:
-      reader_options.single_camera_per_image = true;
-      break;
+  if (camera_mode >= 0) {
+    UpdateImageReaderOptionsFromCameraMode(reader_options,
+                                           (CameraMode)camera_mode);
   }
 
   if (!image_list_path.empty()) {

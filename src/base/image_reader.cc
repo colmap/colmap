@@ -185,7 +185,7 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
     // Read camera model and check for consistency if it exists
     //////////////////////////////////////////////////////////////////////////////
     std::string camera_model = "Undefined";
-    bitmap->ExifCameraModel(camera_model);
+    bitmap->ExifCameraModel(&camera_model);
     if (cameras_.count(camera_model) > 0) {
       const Camera& cam = database_->ReadCamera(cameras_[camera_model]);
       if (cam.Width() != static_cast<size_t>(bitmap->Width()) ||
