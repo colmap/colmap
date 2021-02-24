@@ -21,8 +21,22 @@ jobs:
       vcpkgGitURL: https://github.com/microsoft/vcpkg
 
   - task: run-cmake@0
-    displayName: 'Run CMake with Ninja'
+    displayName: 'Configure and build'
     inputs:
       cmakeListsTxtPath: '$(Build.SourcesDirectory)/CMakeLists.txt'
+      cmakeBuildType: 'Release'
+      cmakeGenerator: 'Ninja'
+      buildDirectory: '$(Build.ArtifactStagingDirectory)'
       useVcpkgToolchainFile: true
-      vcpkgTriplet: '$(RUNVCPKG_VCPKG_TRIPLET)'
+
+  - pwsh: |
+      $env:PATH = "$(Build.BinariesDirectory)/vcpkg/installed/x64-windows/release/bin/;$env:Path"
+      ctest
+      $tests_pass=$LastExitCode
+      if ($tests_pass -ne 0) {
+          echo "`n`n`nTests failed, rerunning with verbose output"
+          ctest --rerun-failed --output-on-failure
+      }
+      exit $tests_pass
+    displayName: 'Run tests'
+    workingDirectory: $(Build.ArtifactStagingDirectory)
