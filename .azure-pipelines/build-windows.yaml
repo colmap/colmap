@@ -1,6 +1,10 @@
+parameters:
+  displayName: 'Windows VS 2019'
+  cudaEnabled: false
+  
 jobs:
 - job: windows_build
-  displayName: 'Windows VS2019'
+  displayName: ${{ parameters.displayName }}
   timeoutInMinutes: 240
   pool:
     vmImage: 'windows-2019'
@@ -19,6 +23,12 @@ jobs:
       vcpkgArguments: '@$(Build.SourcesDirectory)/.azure-pipelines/build-windows-vcpkg.txt'
       vcpkgGitCommitId: $(vcpkgGitCommitId)
       vcpkgGitURL: https://github.com/microsoft/vcpkg
+
+  - ${{ if eq(parameters.cudaEnabled, true) }}:
+    - pwsh: |
+        curl -O https://developer.download.nvidia.com/compute/cuda/11.2.1/network_installers/cuda_11.2.1_win10_network.exe
+        .\cuda_11.2.1_win10_network.exe -s nvcc_11.2
+      displayName: Install CUDA
 
   - pwsh: |
       curl -L -o `

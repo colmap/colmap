@@ -3,6 +3,12 @@ trigger:
 
 jobs:
   - template: build-windows.yaml
+    parameters:
+      displayName: 'Windows VS 2019'
+  - template: build-windows.yaml
+    parameters:
+      displayName: 'Windows VS 2019 (CUDA)'
+      cudaEnabled: true
   - template: build-ubuntu.yaml
     parameters:
       displayName: 'Ubuntu 18.04'
