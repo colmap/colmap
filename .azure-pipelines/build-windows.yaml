@@ -27,7 +27,7 @@ jobs:
   - ${{ if eq(parameters.cudaEnabled, true) }}:
     - pwsh: |
         curl -O https://developer.download.nvidia.com/compute/cuda/11.2.1/network_installers/cuda_11.2.1_win10_network.exe
-        .\cuda_11.2.1_win10_network.exe -s nvcc_11.2
+        Start-Process -FilePath "cuda_11.2.1_win10_network.exe" -ArgumentList "-s nvcc_11.2" -Wait -NoNewWindow
       displayName: Install CUDA
 
   - pwsh: |
