@@ -3,7 +3,7 @@ parameters:
   cudaEnabled: false
   
 jobs:
-- job: windows_build
+- job: windows_build_cuda_${{ parameters.cudaEnabled }}
   displayName: ${{ parameters.displayName }}
   timeoutInMinutes: 240
   pool:
