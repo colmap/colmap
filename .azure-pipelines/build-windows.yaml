@@ -20,30 +20,18 @@ jobs:
       vcpkgGitCommitId: $(vcpkgGitCommitId)
       vcpkgGitURL: https://github.com/microsoft/vcpkg
 
-  - pwsh: |
-      cmake --version
-      $vcpkg_exe = "$(Build.BinariesDirectory)/vcpkg/vcpkg.exe"
-      mkdir build
-      cd build
-      & $vcpkg_exe env --bin --include --tools --python --triplet x64-windows set
-      cmake .. `
-        -GNinja `
-        -DTESTS_ENABLED=ON
-      ninja
+  - task: run-cmake@0
     displayName: 'Configure and build'
-
-  # - task: run-cmake@0
-  #   displayName: 'Configure and build'
-  #   inputs:
-  #     cmakeListsTxtPath: '$(Build.SourcesDirectory)/CMakeLists.txt'
-  #     cmakeBuildType: 'Release'
-  #     cmakeGenerator: 'Ninja'
-  #     buildDirectory: '$(Build.SourcesDirectory)/build'
-  #     useVcpkgToolchainFile: true
+    inputs:
+      cmakeListsOrSettingsJson: 'CMakeListsTxtAdvanced'
+      cmakeListsTxtPath: '$(Build.SourcesDirectory)/CMakeLists.txt'
+      cmakeBuildType: 'Release'
+      cmakeGenerator: 'Ninja'
+      cmakeAppendedArgs: -DTESTS_ENABLED=ON
+      useVcpkgToolchainFile: true
 
   - pwsh: |
       $env:PATH = "$(Build.BinariesDirectory)/vcpkg/installed/x64-windows/release/bin/;$env:Path"
-      cd $(Build.SourcesDirectory)/build
       ctest
       $tests_pass=$LastExitCode
       if ($tests_pass -ne 0) {
@@ -51,4 +39,5 @@ jobs:
           ctest --rerun-failed --output-on-failure
       }
       exit $tests_pass
+    workingDirectory: $(Build.ArtifactStagingDirectory)
     displayName: 'Run tests'
