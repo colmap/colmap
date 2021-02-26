@@ -20,6 +20,13 @@ jobs:
       vcpkgGitCommitId: $(vcpkgGitCommitId)
       vcpkgGitURL: https://github.com/microsoft/vcpkg
 
+  - pwsh: |
+      curl -L -o `
+        $(Build.BinariesDirectory)/ninja.zip `
+        https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-win.zip
+      Expand-Archive -LiteralPath $(Build.BinariesDirectory)/ninja.zip -DestinationPath $(Build.BinariesDirectory)
+    displayName: Prepare build
+
   - task: run-cmake@0
     displayName: 'Configure and build'
     inputs:
@@ -27,7 +34,10 @@ jobs:
       cmakeListsTxtPath: '$(Build.SourcesDirectory)/CMakeLists.txt'
       cmakeBuildType: 'Release'
       cmakeGenerator: 'Ninja'
-      cmakeAppendedArgs: -DTESTS_ENABLED=ON
+      cmakeAppendedArgs: |
+        -GNinja
+        -DCMAKE_MAKE_PROGRAM=$(Build.BinariesDirectory)/ninja.exe
+        -DTESTS_ENABLED=ON
       useVcpkgToolchainFile: true
 
   - pwsh: |
