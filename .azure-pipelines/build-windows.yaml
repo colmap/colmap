@@ -21,17 +21,25 @@ jobs:
       vcpkgGitURL: https://github.com/microsoft/vcpkg
 
   - pwsh: |
-      mkdir $(Build.SourcesDirectory)/build
-    displayName: 'Prepare build'
-
-  - task: run-cmake@0
+      cmake --version
+      $vcpkg_exe = "$(Build.BinariesDirectory)/vcpkg/vcpkg.exe"
+      mkdir build
+      cd build
+      & $vcpkg_exe env --bin --include --tools --python --triplet x64-windows set
+      cmake .. `
+        -GNinja `
+        -DTESTS_ENABLED=ON
+      ninja
     displayName: 'Configure and build'
-    inputs:
-      cmakeListsTxtPath: '$(Build.SourcesDirectory)/CMakeLists.txt'
-      cmakeBuildType: 'Release'
-      cmakeGenerator: 'Ninja'
-      buildDirectory: '$(Build.SourcesDirectory)/build'
-      useVcpkgToolchainFile: true
+
+  # - task: run-cmake@0
+  #   displayName: 'Configure and build'
+  #   inputs:
+  #     cmakeListsTxtPath: '$(Build.SourcesDirectory)/CMakeLists.txt'
+  #     cmakeBuildType: 'Release'
+  #     cmakeGenerator: 'Ninja'
+  #     buildDirectory: '$(Build.SourcesDirectory)/build'
+  #     useVcpkgToolchainFile: true
 
   - pwsh: |
       $env:PATH = "$(Build.BinariesDirectory)/vcpkg/installed/x64-windows/release/bin/;$env:Path"
