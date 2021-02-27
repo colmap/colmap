@@ -1643,22 +1643,37 @@ int RunPointTriangulator(int argc, char** argv) {
 //       {
 //           "camera_id": 1,
 //           "image_prefix": "left1_image"
+//           "rel_tvec": [0, 0, 0],
+//           "rel_qvec": [1, 0, 0, 0]
 //       },
 //       {
 //           "camera_id": 2,
 //           "image_prefix": "left2_image"
+//           "rel_tvec": [0, 0, 0],
+//           "rel_qvec": [0, 1, 0, 0]
 //       },
 //       {
 //           "camera_id": 3,
 //           "image_prefix": "right1_image"
+//           "rel_tvec": [0, 0, 0],
+//           "rel_qvec": [0, 0, 1, 0]
 //       },
 //       {
 //           "camera_id": 4,
 //           "image_prefix": "right2_image"
+//           "rel_tvec": [0, 0, 0],
+//           "rel_qvec": [0, 0, 0, 1]
 //       }
 //     ]
 //   }
 // ]
+//
+// The "camera_id" and "image_prefix" fields are required, whereas the
+// "rel_tvec" and "rel_qvec" fields optionally specify the relative
+// extrinsics of the camera rig in the form of a translation vector and a
+// rotation quaternion. The relative extrinsics rel_qvec and rel_tvec transform
+// coordinates from rig to camera coordinate space. If the relative extrinsics
+// are not provided then they are automatically inferred from the reconstruction.
 //
 // This file specifies the configuration for a single camera rig and that you
 // could potentially define multiple camera rigs. The rig is composed of 4
@@ -1693,11 +1708,9 @@ int RunPointTriangulator(int argc, char** argv) {
 //            frame002.png
 //            ...
 //
-// TODO: Provide an option to manually / explicitly set the relative extrinsics
-// of the camera rig. At the moment, the relative extrinsics are automatically
-// inferred from the reconstruction.
-std::vector<CameraRig> ReadCameraRigConfig(
-    const std::string& rig_config_path, const Reconstruction& reconstruction) {
+std::vector<CameraRig> ReadCameraRigConfig(const std::string& rig_config_path,
+                                           const Reconstruction& reconstruction,
+                                           bool estimate_rig_relative_poses) {
   boost::property_tree::ptree pt;
   boost::property_tree::read_json(rig_config_path.c_str(), pt);
 
@@ -1709,8 +1722,28 @@ std::vector<CameraRig> ReadCameraRigConfig(
     for (const auto& camera : rig_config.second.get_child("cameras")) {
       const int camera_id = camera.second.get<int>("camera_id");
       image_prefixes.push_back(camera.second.get<std::string>("image_prefix"));
-      camera_rig.AddCamera(camera_id, ComposeIdentityQuaternion(),
-                           Eigen::Vector3d(0, 0, 0));
+      Eigen::Vector3d rel_tvec;
+      Eigen::Vector4d rel_qvec;
+      int index = 0;
+      auto rel_tvec_node = camera.second.get_child_optional("rel_tvec");
+      if (rel_tvec_node) {
+        for (const auto& node : rel_tvec_node.get()) {
+          rel_tvec[index] = node.second.get_value<double>();
+        }
+      } else {
+        estimate_rig_relative_poses = true;
+      }
+      index = 0;
+      auto rel_qvec_node = camera.second.get_child_optional("rel_qvec");
+      if (rel_qvec_node) {
+        for (const auto& node : rel_qvec_node.get()) {
+          rel_qvec[index] = node.second.get_value<double>();
+        }
+      } else {
+        estimate_rig_relative_poses = true;
+      }
+
+      camera_rig.AddCamera(camera_id, rel_qvec, rel_tvec);
     }
 
     camera_rig.SetRefCameraId(rig_config.second.get<int>("ref_camera_id"));
@@ -1742,7 +1775,15 @@ std::vector<CameraRig> ReadCameraRigConfig(
     }
 
     camera_rig.Check(reconstruction);
-    camera_rig.ComputeRelativePoses(reconstruction);
+    if (estimate_rig_relative_poses) {
+      PrintHeading2("Estimating relative rig poses");
+      if (!camera_rig.ComputeRelativePoses(reconstruction)) {
+        std::cout << "WARN: Failed to estimate rig poses from reconstruction; "
+                     "cannot use rig BA"
+                  << std::endl;
+        return std::vector<CameraRig>();
+      }
+    }
 
     camera_rigs.push_back(camera_rig);
   }
@@ -1754,6 +1795,7 @@ int RunRigBundleAdjuster(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
   std::string rig_config_path;
+  bool estimate_rig_relative_poses = true;
 
   RigBundleAdjuster::Options rig_ba_options;
 
@@ -1761,6 +1803,8 @@ int RunRigBundleAdjuster(int argc, char** argv) {
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddRequiredOption("rig_config_path", &rig_config_path);
+  options.AddDefaultOption("estimate_rig_relative_poses",
+                           &estimate_rig_relative_poses);
   options.AddDefaultOption("RigBundleAdjustment.refine_relative_poses",
                            &rig_ba_options.refine_relative_poses);
   options.AddBundleAdjustmentOptions();
@@ -1771,7 +1815,8 @@ int RunRigBundleAdjuster(int argc, char** argv) {
 
   PrintHeading1("Camera rig configuration");
 
-  auto camera_rigs = ReadCameraRigConfig(rig_config_path, reconstruction);
+  auto camera_rigs = ReadCameraRigConfig(rig_config_path, reconstruction,
+                                         estimate_rig_relative_poses);
 
   BundleAdjustmentConfig config;
   for (size_t i = 0; i < camera_rigs.size(); ++i) {
