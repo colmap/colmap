@@ -1766,7 +1766,7 @@ std::vector<CameraRig> ReadCameraRigConfig(const std::string& rig_config_path,
 
     camera_rig.Check(reconstruction);
     if (estimate_rig_relative_poses) {
-      PrintHeading2("Estimating rig relative poses");
+      PrintHeading2("Estimating relative rig poses");
       if (!camera_rig.ComputeRelativePoses(reconstruction)) {
         std::cout << "WARN: Failed to estimate rig poses from reconstruction; "
                      "cannot use rig BA"
