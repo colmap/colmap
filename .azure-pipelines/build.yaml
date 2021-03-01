@@ -2,6 +2,7 @@ trigger:
   - dev
 
 jobs:
+  - template: build-windows.yaml
   - template: build-ubuntu.yaml
     parameters:
       displayName: 'Ubuntu 18.04'

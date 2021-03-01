@@ -38,14 +38,12 @@ namespace colmap {
 GPSTransform::GPSTransform(const int ellipsoid) {
   switch (ellipsoid) {
     case GRS80:
-      a_ = 6378137;
-      b_ = 6.356752314140356e+06;
-      f_ = 0.003352810681182;
-      break;
     case WGS84:
-      a_ = 6378137;
-      b_ = 6.356752314245179e+06;
-      f_ = 0.003352810664747;
+      a_ = 6378137.0;
+      // Using flattening factor and semi-minor axis calculation from Bing maps.
+      // New calculations are marginally more accurate than the original values.
+      f_ = 1.0 / 298.257222101;
+      b_ = (1.0 - f_) * a_;
       break;
     default:
       a_ = std::numeric_limits<double>::quiet_NaN();
@@ -53,8 +51,7 @@ GPSTransform::GPSTransform(const int ellipsoid) {
       f_ = std::numeric_limits<double>::quiet_NaN();
       throw std::invalid_argument("Ellipsoid not defined");
   }
-
-  e2_ = (a_ * a_ - b_ * b_) / (a_ * a_);
+  e2_ = f_ * (2.0 - f_);
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::EllToXYZ(
@@ -91,21 +88,19 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
     const double y = xyz[i](1);
     const double z = xyz[i](2);
 
-    const double xx = x * x;
-    const double yy = y * y;
-
+    const double radius_xy = sqrt(x * x + y * y);
     const double kEps = 1e-12;
 
     // Latitude
-    double lat = atan2(z, sqrt(xx + yy));
+    double lat = atan2(z, radius_xy);
     double alt;
 
     for (size_t j = 0; j < 100; ++j) {
       const double sin_lat0 = sin(lat);
       const double N = a_ / sqrt(1 - e2_ * sin_lat0 * sin_lat0);
-      alt = sqrt(xx + yy) / cos(lat) - N;
+      alt = radius_xy / cos(lat) - N;
       const double prev_lat = lat;
-      lat = atan((z / sqrt(xx + yy)) * 1 / (1 - e2_ * N / (N + alt)));
+      lat = atan((z / radius_xy) * 1 / (1 - e2_ * N / (N + alt)));
 
       if (std::abs(prev_lat - lat) < kEps) {
         break;

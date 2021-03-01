@@ -37,6 +37,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+#include "estimators/similarity_transform.h"
 #include "util/alignment.h"
 #include "util/types.h"
 
@@ -60,6 +61,7 @@ class SimilarityTransform3 {
   SimilarityTransform3(const double scale, const Eigen::Vector4d& qvec,
                        const Eigen::Vector3d& tvec);
 
+  template <bool kEstimateScale = true>
   bool Estimate(const std::vector<Eigen::Vector3d>& src,
                 const std::vector<Eigen::Vector3d>& dst);
 
@@ -88,6 +90,25 @@ bool ComputeAlignmentBetweenReconstructions(
     const Reconstruction& ref_reconstruction,
     const double min_inlier_observations, const double max_reproj_error,
     Eigen::Matrix3x4d* alignment);
+
+////////////////////////////////////////////////////////////////////////////////
+// Implementation
+////////////////////////////////////////////////////////////////////////////////
+
+template <bool kEstimateScale>
+bool SimilarityTransform3::Estimate(const std::vector<Eigen::Vector3d>& src,
+                                    const std::vector<Eigen::Vector3d>& dst) {
+  const auto results =
+      SimilarityTransformEstimator<3, kEstimateScale>().Estimate(src, dst);
+  if (results.empty()) {
+    return false;
+  }
+
+  CHECK_EQ(results.size(), 1);
+  transform_.matrix().topLeftCorner<3, 4>() = results[0];
+
+  return true;
+}
 
 }  // namespace colmap
 
