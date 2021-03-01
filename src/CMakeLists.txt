@@ -68,6 +68,9 @@ if(CUDA_ENABLED)
     # Use a separate stream per thread to allow for concurrent kernel execution
     # between multiple threads on the same device.
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --default-stream per-thread")
+    # Remove NVCC flag set by LibTorch configuration that causes compilation error
+    # in Eigen/Core when compiling patch_match_cuda.cu
+    list(REMOVE_ITEM CUDA_NVCC_FLAGS "--Werror" "cross-execution-space-call")
 
     # Fix for Ubuntu 16.04.
     add_definitions("-D_MWAITXINTRIN_H_INCLUDED")
