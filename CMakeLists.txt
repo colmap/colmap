@@ -134,9 +134,10 @@ endif()
 set(CMAKE_TORCH_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/mvs-modules)
 if (TORCH_ENABLED)
     set(CMAKE_TORCHLIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/lib/libtorch)
-    # Set the MKL include path to LibTorch's self contained headers instead
-    # of requiring a full MKL installation to be present
+    # Set the MKL include path to LibTorch's self contained headers
+    # instead of requiring a full MKL installation to be present
     set(MKL_INCLUDE_DIR ${CMAKE_TORCHLIB_PATH}/include)
+    set(MKL_LIBRARIES ";")
     list(APPEND CMAKE_PREFIX_PATH ${CMAKE_TORCHLIB_PATH})
     find_package(Torch QUIET)
 endif()
