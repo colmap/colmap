@@ -82,6 +82,7 @@ void PatchMatchOptions::Print() const {
   PrintOption(cache_size);
   PrintOption(write_consistency_graph);
   PrintOption(mvs_module_path);
+  PrintOption(allow_missing_files);
 }
 
 void PatchMatch::Problem::Print() const {
@@ -170,11 +171,13 @@ ConsistencyGraph PatchMatch::GetConsistencyGraph(
 PatchMatchController::PatchMatchController(const PatchMatchOptions& options,
                                            const std::string& workspace_path,
                                            const std::string& workspace_format,
-                                           const std::string& pmvs_option_name)
+                                           const std::string& pmvs_option_name,
+                                           const std::string& config_path)
     : options_(options),
       workspace_path_(workspace_path),
       workspace_format_(workspace_format),
-      pmvs_option_name_(pmvs_option_name) {
+      pmvs_option_name_(pmvs_option_name),
+      config_path_(config_path) {
   std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
 }
 
@@ -252,9 +255,12 @@ void PatchMatchController::ReadProblems() {
 
   const auto& model = workspace_->GetModel();
 
-  std::vector<std::string> config = ReadTextFileLines(
-      JoinPaths(workspace_path_, workspace_->GetOptions().stereo_folder,
-                "patch-match.cfg"));
+  const std::string config_path =
+      config_path_.empty()
+          ? JoinPaths(workspace_path_, workspace_->GetOptions().stereo_folder,
+                      "patch-match.cfg")
+          : config_path_;
+  std::vector<std::string> config = ReadTextFileLines(config_path);
 
   std::vector<std::map<int, int>> shared_num_points;
   std::vector<std::map<int, float>> triangulation_angles;
@@ -430,8 +436,8 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     return;
   }
 
-  PrintHeading1(StringPrintf("Processing view %d / %d", problem_idx + 1,
-                             problems_.size()));
+  PrintHeading1(StringPrintf("Processing view %d / %d for %s", problem_idx + 1,
+                             problems_.size(), image_name.c_str()));
 
   auto patch_match_options = options;
 
@@ -479,13 +485,41 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     std::unique_lock<std::mutex> lock(workspace_mutex_);
 
     std::cout << "Reading inputs..." << std::endl;
+    std::vector<int> src_image_idxs;
     for (const auto image_idx : used_image_idxs) {
+      std::string image_path = workspace_->GetBitmapPath(image_idx);
+      std::string depth_path = workspace_->GetDepthMapPath(image_idx);
+      std::string normal_path = workspace_->GetNormalMapPath(image_idx);
+
+      if (!ExistsFile(image_path) ||
+          (options.geom_consistency && !ExistsFile(depth_path)) ||
+          (options.geom_consistency && !ExistsFile(normal_path))) {
+        if (options.allow_missing_files) {
+          std::cout << StringPrintf(
+                           "WARN: Skipping source image %d: %s for missing "
+                           "image or depth/normal map",
+                           image_idx, model.GetImageName(image_idx).c_str())
+                    << std::endl;
+          continue;
+        } else {
+          std::cout
+              << StringPrintf(
+                     "ERROR: Missing image or map dependency for image %d: %s",
+                     image_idx, model.GetImageName(image_idx).c_str())
+              << std::endl;
+        }
+      }
+
+      if (image_idx != problem.ref_image_idx) {
+        src_image_idxs.push_back(image_idx);
+      }
       images.at(image_idx).SetBitmap(workspace_->GetBitmap(image_idx));
       if (options.geom_consistency) {
         depth_maps.at(image_idx) = workspace_->GetDepthMap(image_idx);
         normal_maps.at(image_idx) = workspace_->GetNormalMap(image_idx);
       }
     }
+    problem.src_image_idxs = src_image_idxs;
   }
 
   problem.Print();

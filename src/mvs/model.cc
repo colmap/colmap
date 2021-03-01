@@ -53,9 +53,11 @@ void Model::Read(const std::string& path, const std::string& format) {
   }
 }
 
-void Model::ReadFromCOLMAP(const std::string& path) {
+void Model::ReadFromCOLMAP(const std::string& path,
+                           const std::string& sparse_path,
+                           const std::string& images_path) {
   Reconstruction reconstruction;
-  reconstruction.Read(JoinPaths(path, "sparse"));
+  reconstruction.Read(JoinPaths(path, sparse_path));
 
   images.reserve(reconstruction.NumRegImages());
   std::unordered_map<image_t, size_t> image_id_to_idx;
@@ -64,9 +66,7 @@ void Model::ReadFromCOLMAP(const std::string& path) {
     const auto& image = reconstruction.Image(image_id);
     const auto& camera = reconstruction.Camera(image.CameraId());
 
-    CHECK_EQ(camera.ModelId(), PinholeCameraModel::model_id);
-
-    const std::string image_path = JoinPaths(path, "images", image.Name());
+    const std::string image_path = JoinPaths(path, images_path, image.Name());
     const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> K =
         camera.CalibrationMatrix().cast<float>();
     const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> R =
