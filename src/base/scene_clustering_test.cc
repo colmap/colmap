@@ -239,20 +239,20 @@ BOOST_AUTO_TEST_CASE(TestThreeFlatClusters) {
   const std::set<image_t> image_ids0(
       scene_clustering.GetLeafClusters()[0]->image_ids.begin(),
       scene_clustering.GetLeafClusters()[0]->image_ids.end());
-  BOOST_CHECK(image_ids0.count(2));
-  BOOST_CHECK(image_ids0.count(3));
+  BOOST_CHECK(image_ids0.count(0));
+  BOOST_CHECK(image_ids0.count(1));
   BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters()[1]->image_ids.size(), 2);
   const std::set<image_t> image_ids1(
       scene_clustering.GetLeafClusters()[1]->image_ids.begin(),
       scene_clustering.GetLeafClusters()[1]->image_ids.end());
-  BOOST_CHECK(image_ids1.count(4));
-  BOOST_CHECK(image_ids1.count(5));
+  BOOST_CHECK(image_ids1.count(2));
+  BOOST_CHECK(image_ids1.count(3));
   BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters()[2]->image_ids.size(), 2);
   const std::set<image_t> image_ids2(
       scene_clustering.GetLeafClusters()[2]->image_ids.begin(),
       scene_clustering.GetLeafClusters()[2]->image_ids.end());
-  BOOST_CHECK(image_ids2.count(0));
-  BOOST_CHECK(image_ids2.count(1));
+  BOOST_CHECK(image_ids2.count(4));
+  BOOST_CHECK(image_ids2.count(5));
 }
 
 BOOST_AUTO_TEST_CASE(TestThreeFlatClustersTwoOverlap) {
@@ -279,25 +279,25 @@ BOOST_AUTO_TEST_CASE(TestThreeFlatClustersTwoOverlap) {
   const std::set<image_t> image_ids0(
       scene_clustering.GetLeafClusters()[0]->image_ids.begin(),
       scene_clustering.GetLeafClusters()[0]->image_ids.end());
+  BOOST_CHECK(image_ids0.count(0));
   BOOST_CHECK(image_ids0.count(1));
   BOOST_CHECK(image_ids0.count(2));
-  BOOST_CHECK(image_ids0.count(3));
-  BOOST_CHECK(image_ids0.count(4));
+  BOOST_CHECK(image_ids0.count(5));
   BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters()[1]->image_ids.size(), 4);
   const std::set<image_t> image_ids1(
       scene_clustering.GetLeafClusters()[1]->image_ids.begin(),
       scene_clustering.GetLeafClusters()[1]->image_ids.end());
+  BOOST_CHECK(image_ids1.count(1));
+  BOOST_CHECK(image_ids1.count(2));
   BOOST_CHECK(image_ids1.count(3));
   BOOST_CHECK(image_ids1.count(4));
-  BOOST_CHECK(image_ids1.count(5));
-  BOOST_CHECK(image_ids1.count(0));
   BOOST_CHECK_EQUAL(scene_clustering.GetLeafClusters()[2]->image_ids.size(), 4);
   const std::set<image_t> image_ids2(
       scene_clustering.GetLeafClusters()[2]->image_ids.begin(),
       scene_clustering.GetLeafClusters()[2]->image_ids.end());
   BOOST_CHECK(image_ids2.count(0));
-  BOOST_CHECK(image_ids2.count(1));
-  BOOST_CHECK(image_ids2.count(2));
+  BOOST_CHECK(image_ids2.count(3));
+  BOOST_CHECK(image_ids2.count(4));
   BOOST_CHECK(image_ids2.count(5));
 }
 

@@ -184,12 +184,25 @@ void SceneClustering::PartitionFlatCluster(
     }
   }
 
+  // Sort child clusters by descending size of images and secondarily by lowest
+  // image id.
+  std::sort(root_cluster_->child_clusters.begin(),
+            root_cluster_->child_clusters.end(),
+            [](const Cluster& first, const Cluster& second) {
+              return first.image_ids.size() >= second.image_ids.size() &&
+                     *std::min_element(first.image_ids.begin(),
+                                       first.image_ids.end()) <
+                         *std::min_element(second.image_ids.begin(),
+                                           second.image_ids.end());
+            });
+
   // For each image find all related images with their weights
   std::unordered_map<int, std::vector<std::pair<int, int>>> related_images;
   for (size_t i = 0; i < edges.size(); ++i) {
     related_images[edges[i].first].emplace_back(edges[i].second, weights[i]);
     related_images[edges[i].second].emplace_back(edges[i].first, weights[i]);
   }
+
   // Sort related images by decreasing weights
   for (auto& image : related_images) {
     std::sort(image.second.begin(), image.second.end(),
