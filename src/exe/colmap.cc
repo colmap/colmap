@@ -226,6 +226,47 @@ int RunColorExtractor(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+int RunDatabaseCleaner(int argc, char** argv) {
+  std::string type;
+
+  OptionManager options;
+  options.AddRequiredOption("type", &type, "{all, images, features, matches}");
+  options.AddDatabaseOptions();
+  options.Parse(argc, argv);
+
+  StringToLower(&type);
+  Database database(*options.database_path);
+  PrintHeading1("Clearing database");
+  {
+    DatabaseTransaction transaction(&database);
+    if (type == "all") {
+        PrintHeading2("Clearing all tables");
+        database.ClearAllTables();
+    } else if (type == "images") {
+        PrintHeading2("Clearing Images and all dependent tables");
+        database.ClearImages();
+        database.ClearTwoViewGeometries();
+        database.ClearMatches();
+    } else if (type == "features") {
+        PrintHeading2("Clearing image features and matches");
+        database.ClearDescriptors();
+        database.ClearKeypoints();
+        database.ClearTwoViewGeometries();
+        database.ClearMatches();
+    } else if (type == "matches") {
+        PrintHeading2("Clearing image matches");
+        database.ClearTwoViewGeometries();
+        database.ClearMatches();
+    } else {
+        std::cout << "ERROR: Invalid cleanup type; no changes in database"
+                  << std::endl;
+        return EXIT_FAILURE;
+    }
+  }
+
+  return EXIT_SUCCESS;
+}
+
 int RunDatabaseCreator(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
@@ -2197,6 +2238,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("automatic_reconstructor", &RunAutomaticReconstructor);
   commands.emplace_back("bundle_adjuster", &RunBundleAdjuster);
   commands.emplace_back("color_extractor", &RunColorExtractor);
+  commands.emplace_back("database_cleaner", &RunDatabaseCleaner);
   commands.emplace_back("database_creator", &RunDatabaseCreator);
   commands.emplace_back("database_merger", &RunDatabaseMerger);
   commands.emplace_back("delaunay_mesher", &RunDelaunayMesher);
