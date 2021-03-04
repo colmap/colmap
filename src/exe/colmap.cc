@@ -1282,7 +1282,8 @@ int RunModelConverter(int argc, char** argv) {
     reconstruction.ExportNVM(output_path, skip_distortion);
   } else if (output_type == "bundler") {
     reconstruction.ExportBundler(output_path + ".bundle.out",
-                                 output_path + ".list.txt");
+                                 output_path + ".list.txt",
+                                 skip_distortion);
   } else if (output_type == "ply") {
     reconstruction.ExportPLY(output_path);
   } else if (output_type == "r3d") {
