@@ -1128,7 +1128,7 @@ bool Reconstruction::ExportBundler(const std::string& path,
   CHECK(list_file.is_open()) << list_path;
 
   // Ensure that we don't lose any precision by storing in text.
-  synth_file.precision(17);
+  file.precision(17);
 
   file << "# Bundle file v0.3" << std::endl;
 
