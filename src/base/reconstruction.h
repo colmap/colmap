@@ -277,7 +277,7 @@ class Reconstruction {
   // SIMPLE_RADIAL camera model when exporting distortion parameters. When
   // skip_distortion == true it supports all camera models with the caveat that
   // it's using the mean focal length which will be inaccurate for camera models
-  // with two focal length parameters.
+  // with two focal lengths and distortion.
   bool ExportNVM(const std::string& path, bool skip_distortion = false) const;
 
   // Exports in CAM format which is a simple text file that contains pose
@@ -292,7 +292,7 @@ class Reconstruction {
   // Only supports SIMPLE_RADIAL and RADIAL camera models when exporting
   // distortion parameters. When skip_distortion == true it supports all camera
   // models with the caveat that it's using the mean focal length which will be
-  // inaccurate for camera models with two focal length parameters.
+  // inaccurate for camera models with two focal lengths and distortion.
   bool ExportCam(const std::string& path, bool skip_distortion = false) const;
 
   // Exports in Recon3D format which consists of three text files with the
@@ -321,6 +321,10 @@ class Reconstruction {
   //    <image ID> <2D point ID> -1.0 <X> <Y>
   //    Note that the 2D point coordinates are centered around the principal
   //    point and scaled by 1 / max(width, height).
+  //
+  // When skip_distortion == true it supports all camera models with the
+  // caveat that it's using the mean focal length which will be inaccurate
+  // for camera models with two focal lengths and distortion.
   bool ExportRecon3D(const std::string& path,
                      bool skip_distortion = false) const;
 
@@ -328,8 +332,8 @@ class Reconstruction {
   // Supports SIMPLE_PINHOLE, PINHOLE, SIMPLE_RADIAL and RADIAL camera models
   // when exporting distortion parameters. When skip_distortion == true it
   // supports all camera models with the caveat that it's using the mean focal
-  // length which will be inaccurate for camera models with two focal length
-  // parameters.
+  // length which will be inaccurate for camera models with two focal lengths
+  // and distortion.
   bool ExportBundler(const std::string& path, const std::string& list_path,
                      bool skip_distortion = false) const;
 
