@@ -1260,7 +1260,6 @@ int RunModelConverter(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
   std::string output_type;
-  std::string remove_image_prefix;
   bool skip_distortion = false;
 
   OptionManager options;
@@ -1268,16 +1267,11 @@ int RunModelConverter(int argc, char** argv) {
   options.AddRequiredOption("output_path", &output_path);
   options.AddRequiredOption("output_type", &output_type,
                             "{BIN, TXT, NVM, Bundler, VRML, PLY, R3D, CAM}");
-  options.AddDefaultOption("remove_image_prefix", &remove_image_prefix);
   options.AddDefaultOption("skip_distortion", &skip_distortion);
   options.Parse(argc, argv);
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
-
-  if (!remove_image_prefix.empty()) {
-    reconstruction.DeRegisterImages(remove_image_prefix);
-  }
 
   StringToLower(&output_type);
   if (output_type == "bin") {
