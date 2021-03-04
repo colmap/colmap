@@ -321,15 +321,6 @@ void Reconstruction::DeRegisterImage(const image_t image_id) {
       reg_image_ids_.end());
 }
 
-void Reconstruction::DeRegisterImages(const std::string& prefix) {
-  const auto reg_image_ids = reg_image_ids_;
-  for (auto id : reg_image_ids) {
-    if (StringContains(Image(id).Name(), prefix)) {
-      DeRegisterImage(id);
-    }
-  }
-}
-
 void Reconstruction::Normalize(const double extent, const double p0,
                                const double p1, const bool use_images) {
   CHECK_GT(extent, 0);
