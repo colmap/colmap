@@ -162,9 +162,6 @@ class Reconstruction {
   // De-register an existing image, and all its references.
   void DeRegisterImage(const image_t image_id);
 
-  // De-register existing images with specific prefix and all their references.
-  void DeRegisterImages(const std::string& prefix);
-
   // Check if image is registered.
   inline bool IsImageRegistered(const image_t image_id) const;
 
