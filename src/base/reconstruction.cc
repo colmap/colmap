@@ -1127,6 +1127,9 @@ bool Reconstruction::ExportBundler(const std::string& path,
   std::ofstream list_file(list_path, std::ios::trunc);
   CHECK(list_file.is_open()) << list_path;
 
+  // Ensure that we don't lose any precision by storing in text.
+  synth_file.precision(17);
+
   file << "# Bundle file v0.3" << std::endl;
 
   file << reg_image_ids_.size() << " " << points3D_.size() << std::endl;
