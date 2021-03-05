@@ -1256,25 +1256,69 @@ int RunModelAnalyzer(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-void PrintErrorStats(std::vector<double>& vals, double avg) {
-  const size_t len = vals.size();
-  std::sort(vals.begin(), vals.end());
-  std::cout << "Min:    " << vals[0] << std::endl;
-  std::cout << "Max:    " << vals[len - 1] << std::endl;
-  std::cout << "Mean:   " << avg << std::endl;
-  std::cout << "Median: " << vals[len / 2] << std::endl;
-  std::cout << "P90:    " << vals[size_t(0.9 * len)] << std::endl;
-  std::cout << "P99:    " << vals[size_t(0.99 * len)] << std::endl;
+void WriteComparisonErrors(const std::string& path,
+                           const std::vector<double>& rotation_errors,
+                           const std::vector<double>& translation_errors,
+                           const std::vector<double>& proj_center_errors) {
+  std::ofstream file(path, std::ios::trunc);
+  CHECK(file.is_open()) << path;
+
+  file.precision(17);
+  file << "# Model comparison pose errors; one entry per common image"
+       << std::endl;
+  file << "# <rotation error (deg)>, <translation error>, <proj center error>"
+       << std::endl;
+  for (int i = 0; i < rotation_errors.size(); ++i) {
+    file << rotation_errors[i] << ", " << translation_errors[i] << ", "
+         << proj_center_errors[i] << std::endl;
+  }
+  file.close();
 }
 
-int RunModelComparator(int argc, char** argv) {
+void PrintErrorStats(std::ostream& out, std::vector<double>& vals) {
+  const size_t len = vals.size();
+  std::sort(vals.begin(), vals.end());
+  out << "Min:    " << vals[0] << std::endl;
+  out << "Max:    " << vals[len - 1] << std::endl;
+  out << "Mean:   " << Mean(vals) << std::endl;
+  out << "Median: " << vals[len / 2] << std::endl;
+  out << "P90:    " << vals[size_t(0.9 * len)] << std::endl;
+  out << "P99:    " << vals[size_t(0.99 * len)] << std::endl;
+}
+
+void PrintComparisonSummary(std::ostream& out,
+                            std::vector<double>& rotation_errors,
+                            std::vector<double>& translation_errors,
+                            std::vector<double>& proj_center_errors) {
+  out << "## Image pose error summary" << std::endl;
+  out << std::endl << "Rotation angular errors (degrees)" << std::endl;
+  PrintErrorStats(out, rotation_errors);
+  out << std::endl << "Translation distance errors" << std::endl;
+  PrintErrorStats(out, translation_errors);
+  out << std::endl << "Projection center distance errors" << std::endl;
+  PrintErrorStats(out, proj_center_errors);
+}
+
+int RunModelComparer(int argc, char** argv) {
   std::string input_path1;
   std::string input_path2;
+  std::string output_path;
+  double min_inlier_observations = 0.3;
+  double max_reproj_error = 8.0;
 
   OptionManager options;
   options.AddRequiredOption("input_path1", &input_path1);
   options.AddRequiredOption("input_path2", &input_path2);
+  options.AddDefaultOption("output_path", &output_path);
+  options.AddDefaultOption("min_inlier_observations", &min_inlier_observations);
+  options.AddDefaultOption("max_reproj_error", &max_reproj_error);
   options.Parse(argc, argv);
+
+  if (!output_path.empty() && !ExistsDir(output_path)) {
+    std::cerr << "ERROR: Provided output path is not a valid directory"
+              << std::endl;
+    return EXIT_FAILURE;
+  }
 
   Reconstruction reconstruction1;
   reconstruction1.Read(input_path1);
@@ -1298,11 +1342,9 @@ int RunModelComparator(int argc, char** argv) {
             << std::endl;
 
   Eigen::Matrix3x4d alignment;
-  const double kMinInlierObservations = 0.3;
-  const double kMaxReprojError = 8.0;
   if (!ComputeAlignmentBetweenReconstructions(reconstruction2, reconstruction1,
-                                              kMinInlierObservations,
-                                              kMaxReprojError, &alignment)) {
+                                              min_inlier_observations,
+                                              max_reproj_error, &alignment)) {
     std::cout << "=> Reconstruction alignment failed" << std::endl;
     return EXIT_FAILURE;
   }
@@ -1338,12 +1380,18 @@ int RunModelComparator(int argc, char** argv) {
   tavg /= num_images;
   pavg /= num_images;
 
-  PrintHeading2("Rotation angular errors (degrees)");
-  PrintErrorStats(qdist, qavg);
-  PrintHeading2("Translation distance errors");
-  PrintErrorStats(tdist, tavg);
-  PrintHeading2("Projection center distance errors");
-  PrintErrorStats(pdist, pavg);
+  if (output_path.empty()) {
+    PrintComparisonSummary(std::cout, qdist, tdist, pdist);
+  } else {
+    const std::string error_path = JoinPaths(output_path, "errors.csv");
+    WriteComparisonErrors(error_path, qdist, tdist, pdist);
+    const std::string summary_path =
+        JoinPaths(output_path, "error_summary.txt");
+    std::ofstream file(summary_path, std::ios::trunc);
+    CHECK(file.is_open()) << summary_path;
+    PrintComparisonSummary(file, qdist, tdist, pdist);
+    file.close();
+  }
 
   return EXIT_SUCCESS;
 }
