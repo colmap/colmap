@@ -1,0 +1,68 @@
+parameters:
+  displayName: 'Ubuntu 18.04'
+  ubuntuVersion: '18.04'
+  cudaEnabled: false
+
+jobs:
+- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}
+  displayName: '${{ parameters.displayName }}'
+  pool:
+    vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
+  steps:
+  - script: |
+      sudo apt-get update && sudo apt-get install -y \
+        build-essential \
+        ninja-build \
+        libboost-program-options-dev \
+        libboost-filesystem-dev \
+        libboost-graph-dev \
+        libboost-system-dev \
+        libboost-test-dev \
+        libeigen3-dev \
+        libceres-dev \
+        libfreeimage-dev \
+        libgoogle-glog-dev \
+        libgflags-dev \
+        libglew-dev \
+        qtbase5-dev \
+        libqt5opengl5-dev \
+        libcgal-dev \
+        libcgal-qt5-dev \
+        libgl1-mesa-dri \
+        xvfb
+    displayName: 'Install dependencies'
+  
+  - ${{ if eq(parameters.cudaEnabled, true) }}:
+    - script: |
+        sudo apt-get install -y \
+          nvidia-cuda-toolkit \
+          nvidia-cuda-toolkit-gcc
+        echo '##vso[task.setvariable variable=CC]/usr/bin/cuda-gcc'
+        echo '##vso[task.setvariable variable=CXX]/usr/bin/cuda-g++'
+      displayName: 'Install CUDA'
+
+  - script: |
+      cmake --version
+      mkdir build
+      cd build
+      cmake .. \
+        -GNinja \
+        -DTESTS_ENABLED=ON \
+        -DCUDA_ARCHS=6.0
+      ninja
+    displayName: 'Configure and build'
+
+  - script: |
+      export DISPLAY=":99.0"
+      export QT_QPA_PLATFORM="offscreen"
+      Xvfb :99 &
+      sleep 3
+      cd build
+      ctest -E "(feature/sift_test)|(util/opengl_utils_test)|(mvs/gpu_mat_test)"
+      tests_pass=$?
+      if [ $tests_pass -ne 0 ]; then
+          echo "Tests failed, rerunning with verbose output"
+          ctest --rerun-failed --output-on-failure
+      fi
+      exit $tests_pass
+    displayName: 'Run tests'

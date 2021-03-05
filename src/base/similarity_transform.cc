@@ -173,10 +173,9 @@ struct ReconstructionAlignmentEstimator {
 
 }  // namespace
 
-SimilarityTransform3::SimilarityTransform3() {
-  SimilarityTransform3(1, ComposeIdentityQuaternion(),
-                       Eigen::Vector3d(0, 0, 0));
-}
+SimilarityTransform3::SimilarityTransform3()
+    : SimilarityTransform3(1, ComposeIdentityQuaternion(),
+                           Eigen::Vector3d(0, 0, 0)) {}
 
 SimilarityTransform3::SimilarityTransform3(const Eigen::Matrix3x4d& matrix) {
   transform_.matrix().topLeftCorner<3, 4>() = matrix;
@@ -193,19 +192,6 @@ SimilarityTransform3::SimilarityTransform3(const double scale,
   matrix.topLeftCorner<3, 4>() = ComposeProjectionMatrix(qvec, tvec);
   matrix.block<3, 3>(0, 0) *= scale;
   transform_.matrix() = matrix;
-}
-
-bool SimilarityTransform3::Estimate(const std::vector<Eigen::Vector3d>& src,
-                                    const std::vector<Eigen::Vector3d>& dst) {
-  const auto results = SimilarityTransformEstimator<3>().Estimate(src, dst);
-  if (results.empty()) {
-    return false;
-  }
-
-  CHECK_EQ(results.size(), 1);
-  transform_.matrix().topLeftCorner<3, 4>() = results[0];
-
-  return true;
 }
 
 SimilarityTransform3 SimilarityTransform3::Inverse() const {

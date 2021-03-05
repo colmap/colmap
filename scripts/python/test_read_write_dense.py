@@ -29,43 +29,33 @@
 #
 # Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-# This script merges multiple homogeneous PLY files into a single PLY file.
-
-import os
-import glob
-import argparse
 import numpy as np
-import plyfile
-
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--folder_path", required=True)
-    parser.add_argument("--merged_path", required=True)
-    args = parser.parse_args()
-    return args
+from read_write_dense import read_array, write_array
 
 
 def main():
-    args = parse_args()
+    import sys
+    if len(sys.argv) != 3:
+        print("Usage: python test_read_write_dense.py "
+              "path/to/dense/input.bin path/to/dense/output.bin")
+        return
 
-    files = []
-    for file_name in os.listdir(args.folder_path):
-        if len(file_name) < 4 or file_name[-4:].lower() != ".ply":
-            continue
+    print("Checking consistency of reading and writing dense arrays "
+          + "(depth maps / normal maps) ...")
 
-        print("Reading file", file_name)
-        file = plyfile.PlyData.read(os.path.join(args.folder_path, file_name))
-        for element in file.elements:
-            files.append(element.data)
+    path_to_dense_input = sys.argv[1]
+    path_to_dense_output = sys.argv[2]
 
-    print("Merging files")
-    merged_file = np.concatenate(files, -1)
-    merged_el = plyfile.PlyElement.describe(merged_file, 'vertex')
+    dense_input = read_array(path_to_dense_input)
+    print("Input shape: " + str(dense_input.shape))
 
-    print("Writing merged file")
-    plyfile.PlyData([merged_el]).write(args.merged_path)
+    write_array(dense_input, path_to_dense_output)
+    dense_output = read_array(path_to_dense_output)
+
+    np.testing.assert_array_equal(dense_input, dense_output)
+
+    print("... dense arrays are equal.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

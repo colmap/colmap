@@ -50,6 +50,8 @@ namespace colmap {
 #define STRINGIFY_(s) #s
 #endif  // STRINGIFY
 
+enum class CopyType { COPY, HARD_LINK, SOFT_LINK };
+
 // Append trailing slash to string if it does not yet end with a slash.
 std::string EnsureTrailingSlash(const std::string& str);
 
@@ -60,6 +62,10 @@ bool HasFileExtension(const std::string& file_name, const std::string& ext);
 // "dir/file.jpg" into "dir/file" and ".jpg".
 void SplitFileExtension(const std::string& path, std::string* root,
                         std::string* ext);
+
+// Copy or link file from source to destination path
+void FileCopy(const std::string& src_path, const std::string& dst_path,
+              CopyType type = CopyType::COPY);
 
 // Check if the path points to an existing directory.
 bool ExistsFile(const std::string& path);

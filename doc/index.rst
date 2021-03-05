@@ -89,7 +89,7 @@ Acknowledgments
 The library was written by `Johannes L. Schönberger <https://demuc.de/>`_.
 Funding was provided by his PhD advisors `Jan-Michael Frahm
 <http://frahm.web.unc.edu/>`_ and `Marc Pollefeys
-<https://www.inf.ethz.ch/personal/marc.pollefeys/>`_.
+<https://people.inf.ethz.ch/pomarc/>`_.
 
 
 .. toctree::

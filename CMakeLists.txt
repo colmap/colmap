@@ -99,6 +99,7 @@ find_package(FreeImage REQUIRED)
 
 find_package(Glog REQUIRED)
 
+set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL REQUIRED)
 find_package(Glew REQUIRED)
 find_package(Git)
@@ -285,8 +286,7 @@ set(COLMAP_EXTERNAL_LIBRARIES
     ${GLOG_LIBRARIES}
     ${FREEIMAGE_LIBRARIES}
     ${CERES_LIBRARIES}
-    ${OPENGL_gl_LIBRARY}
-    ${OPENGL_glu_LIBRARY}
+    ${OPENGL_LIBRARIES}
     ${Qt5Core_LIBRARIES}
     ${Qt5OpenGL_LIBRARIES}
     ${Qt5Widgets_LIBRARIES}

@@ -200,7 +200,7 @@ Eigen::MatrixXi ComputeSiftDistanceMatrix(
   return dists;
 }
 
-void FindBestMatchesOneWayFLANN(
+void FindNearestNeighborsFLANN(
     const FeatureDescriptors& query, const FeatureDescriptors& database,
     Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>*
         indices,
@@ -213,28 +213,26 @@ void FindBestMatchesOneWayFLANN(
   const size_t kNumNearestNeighbors = 2;
   const size_t kNumTreesInForest = 4;
 
-  if (kNumNearestNeighbors > database.rows()) {
-    return;
-  }
+  const size_t num_nearest_neighbors =
+      std::min(kNumNearestNeighbors, static_cast<size_t>(database.rows()));
 
-  indices->resize(query.rows(), kNumNearestNeighbors);
-  distances->resize(query.rows(), kNumNearestNeighbors);
+  indices->resize(query.rows(), num_nearest_neighbors);
+  distances->resize(query.rows(), num_nearest_neighbors);
   const flann::Matrix<uint8_t> query_matrix(const_cast<uint8_t*>(query.data()),
                                             query.rows(), 128);
   const flann::Matrix<uint8_t> database_matrix(
       const_cast<uint8_t*>(database.data()), database.rows(), 128);
 
-
   flann::Matrix<int> indices_matrix(indices->data(), query.rows(),
-                                    kNumNearestNeighbors);
-  std::vector<float> distances_vector(query.rows() * kNumNearestNeighbors);
+                                    num_nearest_neighbors);
+  std::vector<float> distances_vector(query.rows() * num_nearest_neighbors);
   flann::Matrix<float> distances_matrix(distances_vector.data(), query.rows(),
-                                        kNumNearestNeighbors);
+                                        num_nearest_neighbors);
   flann::Index<flann::L2<uint8_t>> index(
       database_matrix, flann::KDTreeIndexParams(kNumTreesInForest));
   index.buildIndex();
   index.knnSearch(query_matrix, indices_matrix, distances_matrix,
-                  kNumNearestNeighbors, flann::SearchParams(128));
+                  num_nearest_neighbors, flann::SearchParams(128));
 
   for (Eigen::Index query_index = 0; query_index < indices->rows();
        ++query_index) {
@@ -991,11 +989,11 @@ void MatchSiftFeaturesCPUFLANN(const SiftMatchingOptions& match_options,
   Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
       distances_2to1;
 
-  FindBestMatchesOneWayFLANN(descriptors1, descriptors2, &indices_1to2,
-                             &distances_1to2);
+  FindNearestNeighborsFLANN(descriptors1, descriptors2, &indices_1to2,
+                            &distances_1to2);
   if (match_options.cross_check) {
-    FindBestMatchesOneWayFLANN(descriptors2, descriptors1, &indices_2to1,
-                               &distances_2to1);
+    FindNearestNeighborsFLANN(descriptors2, descriptors1, &indices_2to1,
+                              &distances_2to1);
   }
 
   FindBestMatchesFLANN(indices_1to2, distances_1to2, indices_2to1,

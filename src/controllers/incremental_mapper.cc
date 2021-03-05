@@ -212,7 +212,7 @@ IncrementalTriangulator::Options IncrementalMapperOptions::Triangulation()
 BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
     const {
   BundleAdjustmentOptions options;
-  options.solver_options.function_tolerance = 0.0;
+  options.solver_options.function_tolerance = ba_local_function_tolerance;
   options.solver_options.gradient_tolerance = 10.0;
   options.solver_options.parameter_tolerance = 0.0;
   options.solver_options.max_num_iterations = ba_local_max_num_iterations;
@@ -237,7 +237,7 @@ BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
 BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
     const {
   BundleAdjustmentOptions options;
-  options.solver_options.function_tolerance = 0.0;
+  options.solver_options.function_tolerance = ba_global_function_tolerance;
   options.solver_options.gradient_tolerance = 1.0;
   options.solver_options.parameter_tolerance = 0.0;
   options.solver_options.max_num_iterations = ba_global_max_num_iterations;
@@ -422,6 +422,7 @@ void IncrementalMapperController::Reconstruct(
 
       // Try to find good initial pair.
       if (options_->init_image_id1 == -1 || options_->init_image_id2 == -1) {
+        PrintHeading1("Finding good initial image pair");
         const bool find_init_success = mapper.FindInitialImagePair(
             init_mapper_options, &image_id1, &image_id2);
         if (!find_init_success) {

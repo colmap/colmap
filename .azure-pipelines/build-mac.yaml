@@ -1,0 +1,47 @@
+parameters:
+  displayName: 'Mac 10.15'
+  macVersion: '10.15'
+  
+jobs:
+- job: mac_build_${{ replace(parameters.macVersion, '.', '') }}
+  displayName: '${{ parameters.displayName }}'
+  pool:
+    vmImage: 'macOS-${{ parameters.macVersion }}'
+  steps:
+  - script: |
+      brew install \
+        cmake \
+        ninja \
+        boost \
+        eigen \
+        freeimage \
+        glog \
+        gflags \
+        ceres-solver \
+        qt5 \
+        glew \
+        cgal
+    displayName: 'Install dependencies'
+
+  - script: |
+      export PATH="/usr/local/opt/qt@5/bin:$PATH"
+      cmake --version
+      mkdir build
+      cd build
+      cmake .. \
+        -GNinja \
+        -DTESTS_ENABLED=ON \
+        -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
+      ninja
+    displayName: 'Configure and build'
+
+  - script: |
+      cd build
+      ctest
+      tests_pass=$?
+      if [ $tests_pass -ne 0 ]; then
+          echo "\n\n\nTests failed, rerunning with verbose output"
+          ctest --rerun-failed --output-on-failure
+      fi
+      exit $tests_pass
+    displayName: 'Run tests'

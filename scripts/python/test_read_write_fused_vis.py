@@ -29,43 +29,34 @@
 #
 # Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-# This script merges multiple homogeneous PLY files into a single PLY file.
-
-import os
-import glob
-import argparse
-import numpy as np
-import plyfile
-
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--folder_path", required=True)
-    parser.add_argument("--merged_path", required=True)
-    args = parser.parse_args()
-    return args
+import filecmp
+from read_write_fused_vis import read_fused, write_fused
 
 
 def main():
-    args = parse_args()
+    import sys
+    if len(sys.argv) != 5:
+        print("Usage: python test_read_write_fused_vis.py "
+              "path/to/input_fused.ply path/to/input_fused.ply.vis " 
+              "path/to/output_fused.ply path/to/output_fused.ply.vis")
+        return
 
-    files = []
-    for file_name in os.listdir(args.folder_path):
-        if len(file_name) < 4 or file_name[-4:].lower() != ".ply":
-            continue
+    print("Checking consistency of reading and writing fused.ply and fused.ply.vis files ...")
 
-        print("Reading file", file_name)
-        file = plyfile.PlyData.read(os.path.join(args.folder_path, file_name))
-        for element in file.elements:
-            files.append(element.data)
+    path_to_fused_ply_input = sys.argv[1]
+    path_to_fused_ply_vis_input = sys.argv[2]
+    path_to_fused_ply_output = sys.argv[3]
+    path_to_fused_ply_vis_output = sys.argv[4]
 
-    print("Merging files")
-    merged_file = np.concatenate(files, -1)
-    merged_el = plyfile.PlyElement.describe(merged_file, 'vertex')
+    mesh_points = read_fused(path_to_fused_ply_input, path_to_fused_ply_vis_input)
+    write_fused(mesh_points, path_to_fused_ply_output, path_to_fused_ply_vis_output)
 
-    print("Writing merged file")
-    plyfile.PlyData([merged_el]).write(args.merged_path)
+    assert filecmp.cmp(path_to_fused_ply_input, path_to_fused_ply_output)
+    assert filecmp.cmp(path_to_fused_ply_vis_input, path_to_fused_ply_vis_output)
+
+    print("... Results are equal.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
+
