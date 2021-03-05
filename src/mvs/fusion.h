@@ -53,8 +53,11 @@ namespace colmap {
 namespace mvs {
 
 struct StereoFusionOptions {
-  // Path for PNG masks. Same format expected as ImageReaderOptions
+  // Path for PNG masks. Same format expected as ImageReaderOptions.
   std::string mask_path = "";
+
+  // The number of threads to use during fusion.
+  int num_threads = -1;
 
   // Maximum image size in either dimension.
   int max_image_size = -1;
@@ -93,7 +96,7 @@ struct StereoFusionOptions {
   // consume a lot of memory, if the consistency graph is dense.
   double cache_size = 32.0;
 
-  std::pair<Eigen::Vector3f, Eigen::Vector3f> bounds =
+  std::pair<Eigen::Vector3f, Eigen::Vector3f> bounding_box =
       std::make_pair(Eigen::Vector3f(-FLT_MAX, -FLT_MAX, -FLT_MAX),
                      Eigen::Vector3f(FLT_MAX, FLT_MAX, FLT_MAX));
 
@@ -136,7 +139,7 @@ class StereoFusion : public Thread {
   std::vector<std::vector<int>> overlapping_images_;
   // Contains image masks of pre-masked and already fused pixels.
   // Initialized from image masks if provided in StereoFusionOptions.
-  std::vector<Mat<bool>> fused_pixel_masks_;
+  std::vector<Mat<char>> fused_pixel_masks_;
   std::vector<std::pair<int, int>> depth_map_sizes_;
   std::vector<std::pair<float, float>> bitmap_scales_;
   std::vector<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> P_;

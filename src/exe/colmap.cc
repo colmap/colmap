@@ -303,8 +303,8 @@ int RunStereoFuser(int argc, char** argv) {
   if (!bbox_path.empty()) {
     std::ifstream file(bbox_path);
     if (file.is_open()) {
-      auto& min_bound = options.stereo_fusion->bounds.first;
-      auto& max_bound = options.stereo_fusion->bounds.second;
+      auto& min_bound = options.stereo_fusion->bounding_box.first;
+      auto& max_bound = options.stereo_fusion->bounding_box.second;
       file >> min_bound(0) >> min_bound(1) >> min_bound(2);
       file >> max_bound(0) >> max_bound(1) >> max_bound(2);
       file.close();

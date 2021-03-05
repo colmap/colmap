@@ -94,10 +94,10 @@ void StereoFusionOptions::Print() const {
   PrintOption(check_num_images);
   PrintOption(use_cache);
   PrintOption(cache_size);
-  const auto& min_bound = bounds.first.transpose().eval();
-  const auto& max_bound = bounds.second.transpose().eval();
-  PrintOption(min_bound);
-  PrintOption(max_bound);
+  const auto& bbox_min = bounding_box.first.transpose().eval();
+  const auto& bbox_max = bounding_box.second.transpose().eval();
+  PrintOption(bbox_min);
+  PrintOption(bbox_max);
 #undef PrintOption
 }
 
@@ -156,6 +156,7 @@ void StereoFusion::Run() {
         StringPrintf("stereo-%s", pmvs_option_name_.c_str());
   }
 
+  workspace_options.num_threads = options_.num_threads;
   workspace_options.max_image_size = options_.max_image_size;
   // Saving calculated maps only when the option is set (useful for debugging)
   // or when using cache to avoid potential multiple calculations of the same
@@ -176,7 +177,7 @@ void StereoFusion::Run() {
   } else {
     workspace_.reset(new NoCacheWorkspace(workspace_options));
     workspace_->Load(image_names);
-    num_threads = omp_get_max_threads();
+    num_threads = GetEffectiveNumThreads(options_.num_threads);
   }
   workspace_.reset(new Workspace(workspace_options));
 
@@ -264,7 +265,7 @@ void StereoFusion::Run() {
             .transpose();
   }
 
-  std::cout << "Starting fusion with " << num_threads << " threads"
+  std::cout << StringPrintf("Starting fusion with %d threads", num_threads)
             << std::endl;
   size_t num_fused_images = 0;
   for (int image_idx = 0; image_idx >= 0;
@@ -286,10 +287,12 @@ void StereoFusion::Run() {
     const int height = depth_map_sizes_.at(image_idx).second;
     const auto& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
 
-#pragma omp parallel for schedule(dynamic) num_threads(num_threads)
+#ifdef OPENMP_ENABLED
+#pragma omp parallel for schedule(dynamic, 10) num_threads(num_threads)
+#endif
     for (int row = 0; row < height; ++row) {
       for (int col = 0; col < width; ++col) {
-        if (fused_pixel_mask.Get(row, col)) {
+        if (fused_pixel_mask.Get(row, col) > 0) {
           continue;
         }
         FusionData data;
@@ -298,9 +301,9 @@ void StereoFusion::Run() {
         data.row = row;
         data.col = col;
 
-        const int tid = omp_get_thread_num();
-        fusion_queue_[tid].push_back(std::move(data));
-        Fuse(tid);
+        const int thread_id = omp_get_thread_num();
+        fusion_queue_[thread_id].push_back(std::move(data));
+        Fuse(thread_id);
       }
     }
 
@@ -329,11 +332,11 @@ void StereoFusion::Run() {
 void StereoFusion::InitFusedPixelMask(int image_idx, size_t width,
                                       size_t height) {
   Bitmap mask;
-  Mat<bool>& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
+  Mat<char>& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
   const std::string mask_path =
       JoinPaths(options_.mask_path,
                 workspace_->GetModel().GetImageName(image_idx) + ".png");
-  fused_pixel_mask = Mat<bool>(width, height, 1);
+  fused_pixel_mask = Mat<char>(width, height, 1);
   if (!options_.mask_path.empty() && ExistsFile(mask_path) &&
       mask.Read(mask_path, false)) {
     BitmapColor<uint8_t> color;
@@ -341,11 +344,11 @@ void StereoFusion::InitFusedPixelMask(int image_idx, size_t width,
     for (int row = 0; row < height; ++row) {
       for (int col = 0; col < width; ++col) {
         mask.GetPixel(col, row, &color);
-        fused_pixel_mask.Set(row, col, color.r == 0);
+        fused_pixel_mask.Set(row, col, color.r == 0 ? 1 : 0);
       }
     }
   } else {
-    fused_pixel_mask.Fill(false);
+    fused_pixel_mask.Fill(0);
   }
 }
 
@@ -377,7 +380,7 @@ void StereoFusion::Fuse(int thread_id) {
 
     // Check if pixel already fused.
     auto& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
-    if (fused_pixel_mask.Get(row, col)) {
+    if (fused_pixel_mask.Get(row, col) > 0) {
       continue;
     }
 
@@ -438,18 +441,15 @@ void StereoFusion::Fuse(int thread_id) {
         col / bitmap_scale.first, row / bitmap_scale.second, &color);
 
     // Set the current pixel as visited.
-    bool* mask_ptr = fused_pixel_mask.GetPtr();
-    const int width = depth_map_sizes_.at(image_idx).first;
-#pragma omp atomic
-    mask_ptr[row * width + col] = true;
+    fused_pixel_mask.Set(row, col, 1);
 
     // Pixels out of bounds are filtered
-    if (xyz(0) < options_.bounds.first(0) ||
-        xyz(1) < options_.bounds.first(1) ||
-        xyz(2) < options_.bounds.first(2) ||
-        xyz(0) > options_.bounds.second(0) ||
-        xyz(1) > options_.bounds.second(1) ||
-        xyz(2) > options_.bounds.second(2)) {
+    if (xyz(0) < options_.bounding_box.first(0) ||
+        xyz(1) < options_.bounding_box.first(1) ||
+        xyz(2) < options_.bounding_box.first(2) ||
+        xyz(0) > options_.bounding_box.second(0) ||
+        xyz(1) > options_.bounding_box.second(1) ||
+        xyz(2) > options_.bounding_box.second(2)) {
       continue;
     }
 
@@ -471,7 +471,8 @@ void StereoFusion::Fuse(int thread_id) {
       fused_ref_normal = normal;
     }
 
-    if (fused_point_x_[thread_id].size() >= static_cast<size_t>(options_.max_num_pixels)) {
+    if (fused_point_x_[thread_id].size() >=
+        static_cast<size_t>(options_.max_num_pixels)) {
       break;
     }
 
@@ -536,7 +537,9 @@ void StereoFusion::Fuse(int thread_id) {
     fused_point.b = TruncateCast<float, uint8_t>(
         std::round(internal::Median(&fused_point_b_[thread_id])));
 
+#ifdef OPENMP_ENABLED
 #pragma omp critical(update_fused_points)
+#endif
     {
       fused_points_.push_back(fused_point);
       fused_points_visibility_.emplace_back(

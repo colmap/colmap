@@ -34,6 +34,7 @@
 #include <numeric>
 
 #include "util/misc.h"
+#include "util/threading.h"
 
 namespace colmap {
 namespace mvs {
@@ -241,9 +242,14 @@ void NoCacheWorkspace::Load(const std::vector<std::string>& image_names) {
   confidence_maps_.resize(num_images);
   normal_maps_.resize(num_images);
 
-  std::cout << "Loading workspace data..." << std::endl;
-#pragma omp parallel for
-  for (int i = 0; i < image_names.size(); i) {
+  Timer timer;
+  timer.Start();
+  int num_threads = GetEffectiveNumThreads(options_.num_threads);
+  std::cout << StringPrintf("Loading workspace data with %d threads...", num_threads) << std::endl;
+#ifdef OPENMP_ENABLED
+#pragma omp parallel for schedule(dynamic) num_threads(num_threads)
+#endif
+  for (int i = 0; i < image_names.size(); ++i) {
     const int image_idx = model_.GetImageIdx(image_names[i]);
 
     if (!HasBitmap(image_idx) || !HasDepthMap(image_idx)) {
@@ -305,6 +311,7 @@ void NoCacheWorkspace::Load(const std::vector<std::string>& image_names) {
       }
     }
   }
+  timer.PrintMinutes();
 }
 
 }  // namespace mvs

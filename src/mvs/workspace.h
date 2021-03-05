@@ -50,6 +50,9 @@ class Workspace {
     // The maximum cache size in gigabytes.
     double cache_size = 32.0;
 
+    // The number of threads to use when pre-loading workspace.
+    int num_threads = -1;
+
     // Maximum image size in either dimension.
     int max_image_size = -1;
 
