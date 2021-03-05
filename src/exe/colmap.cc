@@ -60,6 +60,98 @@ const bool kUseOpenGL = false;
 const bool kUseOpenGL = true;
 #endif
 
+// Helper functions for commands
+namespace {
+
+bool UseSpatialMatcher(const std::string& database_path, double max_distance,
+                       bool is_lla) {
+  PrintHeading1("Checking for spatial matching");
+  Database database(database_path);
+  constexpr double limit = std::numeric_limits<double>::max();
+  Eigen::Vector3d min_coord(limit, limit, limit);
+  Eigen::Vector3d max_coord(-limit, -limit, -limit);
+  GPSTransform gps(GPSTransform::WGS84);
+  std::vector<Image> images = database.ReadAllImages();
+  for (const Image& image : database.ReadAllImages()) {
+    if (!image.HasTvecPrior()) {
+      std::cout << "Found image with invalid location prior; using exhaustive "
+                   "matching"
+                << std::endl;
+      return false;
+    }
+    Eigen::Vector3d xyz;
+    if (is_lla) {
+      xyz = gps.EllToXYZ({image.TvecPrior()}).front();
+    } else {
+      xyz = image.TvecPrior();
+    }
+    min_coord = xyz.cwiseMin(min_coord);
+    max_coord = xyz.cwiseMax(max_coord);
+  }
+
+  const double image_distance = (max_coord - min_coord).norm();
+  std::cout << StringPrintf("Max matching distance %f vs max image distance %f",
+                            max_distance, image_distance)
+            << std::endl;
+  if (image_distance > max_distance) {
+    std::cout << "All images have valid location priors and distance; using "
+                 "spatial matching"
+              << std::endl;
+    return true;
+  } else {
+    std::cout << "Max matching distance exceeds max image distance; using "
+                 "exhaustive matching"
+              << std::endl;
+    return false;
+  }
+}
+
+bool UseImagePairsMatcher(const std::string& database_path,
+                          const std::string& match_list_path) {
+  PrintHeading1("Checking for fixed pair matching");
+  if (!ExistsFile(match_list_path)) {
+    std::cout << "Invalid matches file provided; trying spatial matching next"
+              << std::endl;
+    return false;
+  }
+  Database database(database_path);
+  size_t num_images_read = 0;
+  std::vector<std::string> match_image_pairs =
+      ReadTextFileLines(match_list_path);
+  std::unordered_set<std::string> match_images;
+
+  for (const std::string image_name_pair : match_image_pairs) {
+    std::vector<std::string> image_names = StringSplit(image_name_pair, " ");
+    match_images.insert(image_names[0]);
+    match_images.insert(image_names[1]);
+  }
+
+  for (const Image& image : database.ReadAllImages()) {
+    if (match_images.count(image.Name()) == 0) {
+      std::cout << "Image " << image.Name()
+                << " exists in the DB, but was not found in the match file; "
+                   "fixed image matching cannot be used, trying spatial "
+                   "matching next."
+                << std::endl;
+      return false;
+    }
+    num_images_read++;
+  }
+
+  if (match_images.size() == num_images_read) {
+    std::cout << "All images have valid pairings in the database; using "
+                 "fixed matching."
+              << std::endl;
+  } else {
+    std::cout << "WARN: Matching file contains more images than DB; "
+                 "additional images will be ignored."
+              << std::endl;
+  }
+  return true;
+}
+
+}  // namespace
+
 int RunGraphicalUserInterface(int argc, char** argv) {
   OptionManager options;
 
@@ -175,92 +267,6 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   }
 
   return EXIT_SUCCESS;
-}
-
-static bool UseSpatialMatcher(const std::string& database_path,
-                              double max_distance, bool is_gps) {
-  PrintHeading1("Checking for spatial matching");
-  Database database(database_path);
-  constexpr double limit = std::numeric_limits<double>::max();
-  Eigen::Vector3d min_coord(limit, limit, limit);
-  Eigen::Vector3d max_coord(-limit, -limit, -limit);
-  GPSTransform gps(GPSTransform::WGS84);
-  std::vector<Image> images = database.ReadAllImages();
-  for (const Image& image : database.ReadAllImages()) {
-    if (!image.HasTvecPrior()) {
-      std::cout << "Found image with invalid location prior; using exhaustive "
-                   "matching"
-                << std::endl;
-      return false;
-    }
-    Eigen::Vector3d xyz;
-    if (is_gps) {
-      xyz = gps.EllToXYZ({image.TvecPrior()}).front();
-    } else {
-      xyz = image.TvecPrior();
-    }
-    min_coord = xyz.cwiseMin(min_coord);
-    max_coord = xyz.cwiseMax(max_coord);
-  }
-
-  const double image_distance = (max_coord - min_coord).norm();
-  std::cout << StringPrintf("Max matching distance %f vs max image distance %f",
-                            max_distance, image_distance)
-            << std::endl;
-  if (image_distance > max_distance) {
-    std::cout << "All images have valid location priors and distance; using "
-                 "spatial matching"
-              << std::endl;
-    return true;
-  } else {
-    std::cout << "Max matching distance exceeds max image distance; using "
-                 "exhaustive matching"
-              << std::endl;
-    return false;
-  }
-}
-
-static bool UseImagePairsMatcher(const std::string& database_path,
-                                 const std::string& match_list_path) {
-  PrintHeading1("Checking for fixed pair matching");
-  if (!ExistsFile(match_list_path)) {
-    std::cout << "Invalid matches file provided; trying spatial matching next"
-              << std::endl;
-    return false;
-  }
-  Database database(database_path);
-  size_t num_images_read = 0;
-  std::vector<std::string> match_image_pairs = ReadTextFileLines(match_list_path);
-  std::unordered_set<std::string> match_images;
-
-  for (const std::string image_name_pair : match_image_pairs) {
-    std::vector<std::string> image_names = StringSplit(image_name_pair, " ");
-    match_images.insert(image_names[0]);
-    match_images.insert(image_names[1]);
-  }
-
-  for (const Image& image : database.ReadAllImages()) {
-    if (match_images.count(image.Name()) == 0) {
-      std::cout << "Image " << image.Name()
-                << " exists in the DB, but was not found in the match file; "
-                   "fixed image matching cannot be used, trying spatial "
-                   "matching next."
-                << std::endl;
-      return false;
-    }
-    num_images_read++;
-  }
-
-  if (match_images.size() == num_images_read) {
-    std::cout << "All images have valid pairings in the database; using "
-                 "fixed matching."
-              << std::endl;
-  } else {
-    std::cout << "WARN: Matching file contains more images than DB; "
-                 "additional images will be ignored."
-              << std::endl;
-  }
-  return true;
 }
 
 int RunAutoMatcher(int argc, char** argv) {
