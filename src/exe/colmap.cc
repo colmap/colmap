@@ -1778,7 +1778,7 @@ std::vector<CameraRig> ReadCameraRigConfig(const std::string& rig_config_path,
       auto rel_tvec_node = camera.second.get_child_optional("rel_tvec");
       if (rel_tvec_node) {
         for (const auto& node : rel_tvec_node.get()) {
-          rel_tvec[index] = node.second.get_value<double>();
+          rel_tvec[index++] = node.second.get_value<double>();
         }
       } else {
         estimate_rig_relative_poses = true;
@@ -1787,7 +1787,7 @@ std::vector<CameraRig> ReadCameraRigConfig(const std::string& rig_config_path,
       auto rel_qvec_node = camera.second.get_child_optional("rel_qvec");
       if (rel_qvec_node) {
         for (const auto& node : rel_qvec_node.get()) {
-          rel_qvec[index] = node.second.get_value<double>();
+          rel_qvec[index++] = node.second.get_value<double>();
         }
       } else {
         estimate_rig_relative_poses = true;
