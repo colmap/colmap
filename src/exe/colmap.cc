@@ -1260,6 +1260,9 @@ void WriteComparisonErrors(const std::string& path,
                            const std::vector<double>& rotation_errors,
                            const std::vector<double>& translation_errors,
                            const std::vector<double>& proj_center_errors) {
+  CHECK_EQ(rotation_errors.size(), translation_errors.size());
+  CHECK_EQ(rotation_errors.size(), proj_center_errors.size());
+
   std::ofstream file(path, std::ios::trunc);
   CHECK(file.is_open()) << path;
 
@@ -1268,7 +1271,7 @@ void WriteComparisonErrors(const std::string& path,
        << std::endl;
   file << "# <rotation error (deg)>, <translation error>, <proj center error>"
        << std::endl;
-  for (int i = 0; i < rotation_errors.size(); ++i) {
+  for (size_t i = 0; i < rotation_errors.size(); ++i) {
     file << rotation_errors[i] << ", " << translation_errors[i] << ", "
          << proj_center_errors[i] << std::endl;
   }
