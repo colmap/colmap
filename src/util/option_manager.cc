@@ -533,6 +533,8 @@ void OptionManager::AddMapperOptions() {
                               &mapper->snapshot_images_freq);
   AddAndRegisterDefaultOption("Mapper.fix_existing_images",
                               &mapper->fix_existing_images);
+  AddAndRegisterDefaultOption("Mapper.image_list_path",
+                              &mapper->image_list_path);
 
   // IncrementalMapper.
   AddAndRegisterDefaultOption("Mapper.init_min_num_inliers",
