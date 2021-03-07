@@ -71,7 +71,8 @@ struct Model {
   // the number of shared points subject to a minimum robust average
   // triangulation angle of the points.
   std::vector<std::vector<int>> GetMaxOverlappingImages(
-      const size_t num_images, const double min_triangulation_angle) const;
+      const size_t num_images, const double min_triangulation_angle,
+      const bool use_scoring = false) const;
 
   // Get the overlapping images defined in the vis.dat file.
   const std::vector<std::vector<int>>& GetMaxOverlappingImagesFromPMVS() const;

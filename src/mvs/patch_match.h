@@ -53,7 +53,6 @@ namespace mvs {
 const static size_t kMaxPatchMatchWindowRadius = 32;
 
 class ConsistencyGraph;
-class PatchMatchCuda;
 class Workspace;
 
 struct PatchMatchOptions {
@@ -140,6 +139,12 @@ struct PatchMatchOptions {
   // Whether to write the consistency graph.
   bool write_consistency_graph = false;
 
+  // Path for TorchScipt module of PatchMatchNet
+  std::string mvs_module_path = "";
+
+  enum class PatchMatchMethod { Standard, Learned };
+  PatchMatchMethod patch_match_method = PatchMatchMethod::Standard;
+
   void Print() const;
   bool Check() const {
     if (depth_min != -1.0f || depth_max != -1.0f) {
@@ -197,25 +202,65 @@ class PatchMatch {
   };
 
   PatchMatch(const PatchMatchOptions& options, const Problem& problem);
-  ~PatchMatch();
+  virtual ~PatchMatch();
 
   // Check the options and the problem for validity.
-  void Check() const;
+  virtual void Check() const;
 
   // Run the patch match algorithm.
-  void Run();
+  virtual void Run() = 0;
 
   // Get the computed values after running the algorithm.
-  DepthMap GetDepthMap() const;
-  NormalMap GetNormalMap() const;
-  ConsistencyGraph GetConsistencyGraph() const;
-  Mat<float> GetSelProbMap() const;
+  virtual DepthMap GetDepthMap() const = 0;
+  virtual ConfidenceMap GetConfidenceMap() const = 0;
+  virtual NormalMap GetNormalMap() const = 0;
+  virtual ConsistencyGraph GetConsistencyGraph(std::vector<int> indexes) const;
+  virtual std::vector<int> GetConsistentImageIdxs() { return std::vector<int>(); }
 
- private:
+ protected:
   const PatchMatchOptions options_;
   const Problem problem_;
-  std::unique_ptr<PatchMatchCuda> patch_match_cuda_;
 };
+
+#ifndef CUDA_ENABLED
+// Dummy implementation of PatchMatchCuda when CUDA is disabled
+class PatchMatchCuda : public PatchMatch {
+ public:
+  PatchMatchCuda(const PatchMatchOptions& options, const Problem& problem)
+      : PatchMatch(options, problem) {}
+  virtual ~PatchMatchCuda() {}
+
+  // Run the patch match algorithm.
+  virtual void Run() {}
+
+  // Get the computed values after running the algorithm.
+  virtual DepthMap GetDepthMap() const { return DepthMap(); }
+  virtual ConfidenceMap GetConfidenceMap() const { return ConfidenceMap(); }
+  virtual NormalMap GetNormalMap() const { return NormalMap(); }
+};
+
+inline int GetNumCudaDevices() { return 1; }
+#endif  // CUDA_ENABLED
+
+#ifndef TORCH_ENABLED
+// Dummy implementation of PatchMatchNet when Torch is disabled
+class PatchMatchNet : public PatchMatch {
+ public:
+  PatchMatchNet(const PatchMatchOptions& options, const Problem& problem,
+                const int thread_index = 0)
+      : PatchMatch(options, problem) {}
+  virtual ~PatchMatchNet() {}
+
+  // Run the patch match algorithm.
+  virtual void Run() {}
+
+  // Get the computed values after running the algorithm.
+  virtual DepthMap GetDepthMap() const { return DepthMap(); }
+  virtual ConfidenceMap GetConfidenceMap() const { return ConfidenceMap(); }
+  virtual NormalMap GetNormalMap() const { return NormalMap(); }
+};
+
+#endif  // TORCH_ENABLED
 
 // This thread processes all problems in a workspace. A workspace has the
 // following file structure, if the workspace format is "COLMAP":

@@ -41,6 +41,10 @@ namespace mvs {
 
 Image::Image() {}
 
+Image::Image(const Image& image)
+    : Image(image.GetPath(), image.GetWidth(), image.GetHeight(), image.GetK(),
+            image.GetR(), image.GetT()) {}
+
 Image::Image(const std::string& path, const size_t width, const size_t height,
              const float* K, const float* R, const float* T)
     : path_(path), width_(width), height_(height) {
@@ -49,6 +53,7 @@ Image::Image(const std::string& path, const size_t width, const size_t height,
   memcpy(T_, T, 3 * sizeof(float));
   ComposeProjectionMatrix(K_, R_, T_, P_);
   ComposeInverseProjectionMatrix(K_, R_, T_, inv_P_);
+  ComposeInverseKMatrix(K_, inv_K_);
 }
 
 void Image::SetBitmap(const Bitmap& bitmap) {
@@ -75,6 +80,7 @@ void Image::Rescale(const float factor_x, const float factor_y) {
   K_[5] *= scale_y;
   ComposeProjectionMatrix(K_, R_, T_, P_);
   ComposeInverseProjectionMatrix(K_, R_, T_, inv_P_);
+  ComposeInverseKMatrix(K_, inv_K_);
 
   width_ = new_width;
   height_ = new_height;
@@ -103,6 +109,13 @@ void ComputeRelativePose(const float R1[9], const float T1[3],
   T_m = T2_m - R_m * T1_m;
 }
 
+void ComposePoseMatrix(const float R[9], const float T[3], float P[12]) {
+  Eigen::Map<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> P_m(P);
+  P_m.leftCols<3>() =
+      Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(R);
+  P_m.rightCols<1>() = Eigen::Map<const Eigen::Vector3f>(T);
+}
+
 void ComposeProjectionMatrix(const float K[9], const float R[9],
                              const float T[3], float P[12]) {
   Eigen::Map<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> P_m(P);
@@ -120,6 +133,12 @@ void ComposeInverseProjectionMatrix(const float K[9], const float R[9],
   const Eigen::Matrix4f inv_P_temp = P.inverse();
   Eigen::Map<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> inv_P_m(inv_P);
   inv_P_m = inv_P_temp.topRows<3>();
+}
+
+void ComposeInverseKMatrix(const float K[9], float inv_K[9]) {
+  Eigen::Map<Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> inv_K_m(inv_K);
+  inv_K_m = Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(K)
+                .inverse();
 }
 
 void ComputeProjectionCenter(const float R[9], const float T[3], float C[3]) {

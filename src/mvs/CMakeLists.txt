@@ -39,8 +39,15 @@ COLMAP_ADD_SOURCES(
     meshing.h meshing.cc
     model.h model.cc
     normal_map.h normal_map.cc
+    patch_match.h patch_match.cc
     workspace.h workspace.cc
 )
+
+if(TORCH_ENABLED)
+    COLMAP_ADD_TORCH_SOURCES(
+        patch_match_net.h patch_match_net.cc
+    )
+endif()
 
 COLMAP_ADD_TEST(consistency_graph_test consistency_graph_test.cc)
 COLMAP_ADD_TEST(depth_map_test depth_map_test.cc)
@@ -51,7 +58,6 @@ if(CUDA_ENABLED)
     COLMAP_ADD_CUDA_SOURCES(
         gpu_mat_prng.h gpu_mat_prng.cu
         gpu_mat_ref_image.h gpu_mat_ref_image.cu
-        patch_match.h patch_match.cc
         patch_match_cuda.h patch_match_cuda.cu
     )
 

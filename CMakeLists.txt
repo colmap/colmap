@@ -59,6 +59,7 @@ option(OPENMP_ENABLED "Whether to enable OpenMP parallelization" ON)
 option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
 option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
 option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
+option(TORCH_ENABLED "Whether to enable LibTorch if available" ON)
 option(TESTS_ENABLED "Whether to build test binaries" OFF)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
@@ -130,6 +131,16 @@ if(CGAL_FOUND)
     message(STATUS "  Libraries : ${CGAL_LIBRARY}")
 endif()
 
+set(CMAKE_TORCH_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/mvs-modules)
+if (TORCH_ENABLED)
+    set(CMAKE_TORCHLIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/lib/libtorch)
+    # Set the MKL include path to LibTorch's self contained headers
+    # instead of requiring a full MKL installation to be present
+    set(MKL_INCLUDE_DIR ${CMAKE_TORCHLIB_PATH}/include)
+    set(MKL_LIBRARIES ";")
+    list(APPEND CMAKE_PREFIX_PATH ${CMAKE_TORCHLIB_PATH})
+    find_package(Torch QUIET)
+endif()
 
 ################################################################################
 # Compiler specific configuration
@@ -220,6 +231,20 @@ else()
     endif()
 endif()
 
+if(Torch_FOUND)
+    if(TORCH_ENABLED)
+        add_definitions("-DTORCH_ENABLED")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+        message(STATUS "Enabling LibTorch support")
+    else()
+        set(Torch_FOUND OFF)
+        message(STATUS "Disabling LibTorch support")
+    endif()
+else()
+    set(TORCH_ENABLED OFF)
+    message(STATUS "Disabling LibTorch support")
+endif()
+
 if(OPENGL_ENABLED)
     add_definitions("-DOPENGL_ENABLED")
     message(STATUS "Enabling OpenGL support")
@@ -272,6 +297,7 @@ set(COLMAP_INCLUDE_DIRS
     ${Qt5Core_INCLUDE_DIRS}
     ${Qt5OpenGL_INCLUDE_DIRS}
     ${Qt5Widgets_INCLUDE_DIRS}
+    ${Torch_INCLUDE_DIRS}
 )
 
 set(COLMAP_LINK_DIRS
@@ -290,6 +316,7 @@ set(COLMAP_EXTERNAL_LIBRARIES
     ${Qt5Core_LIBRARIES}
     ${Qt5OpenGL_LIBRARIES}
     ${Qt5Widgets_LIBRARIES}
+    ${OPENGL_gl_LIBRARY}
 )
 
 if(OPENMP_FOUND)
@@ -300,6 +327,11 @@ if(CGAL_FOUND)
     list(APPEND COLMAP_INCLUDE_DIRS ${CGAL_INCLUDE_DIRS} ${GMP_INCLUDE_DIR})
     list(APPEND COLMAP_EXTERNAL_LIBRARIES ${CGAL_LIBRARY} ${GMP_LIBRARIES})
     list(APPEND COLMAP_LINK_DIRS ${CGAL_LIBRARIES_DIR})
+endif()
+
+if(Torch_FOUND)
+    list(APPEND COLMAP_INCLUDE_DIRS ${TORCH_INCLUDE_DIRS})
+    list(APPEND COLMAP_EXTERNAL_LIBRARIES ${TORCH_LIBRARIES})
 endif()
 
 if(UNIX)

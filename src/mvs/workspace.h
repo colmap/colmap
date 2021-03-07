@@ -54,6 +54,12 @@ class Workspace {
     // Whether to read image as RGB or gray scale.
     bool image_as_rgb = true;
 
+    // Whether to calculate normals from depth maps or use maps from patch-match
+    bool calculate_normals = false;
+
+    // Whether to save calculated normal and confidence maps
+    bool save_calculated_maps = false;
+
     // Location and type of workspace.
     std::string workspace_path;
     std::string workspace_format;
@@ -68,21 +74,24 @@ class Workspace {
   const Options& GetOptions() const;
 
   const Model& GetModel() const;
-  const Bitmap& GetBitmap(const int image_idx);
-  const DepthMap& GetDepthMap(const int image_idx);
-  const NormalMap& GetNormalMap(const int image_idx);
+  virtual const Bitmap& GetBitmap(const int image_idx);
+  virtual const DepthMap& GetDepthMap(const int image_idx);
+  virtual const ConfidenceMap& GetConfidenceMap(const int image_idx);
+  virtual const NormalMap& GetNormalMap(const int image_idx);
 
   // Get paths to bitmap, depth map, normal map and consistency graph.
   std::string GetBitmapPath(const int image_idx) const;
   std::string GetDepthMapPath(const int image_idx) const;
+  std::string GetConfidenceMapPath(const int image_idx) const;
   std::string GetNormalMapPath(const int image_idx) const;
 
   // Return whether bitmap, depth map, normal map, and consistency graph exist.
   bool HasBitmap(const int image_idx) const;
   bool HasDepthMap(const int image_idx) const;
+  bool HasConfidenceMap(const int image_idx) const;
   bool HasNormalMap(const int image_idx) const;
 
- private:
+ protected:
   std::string GetFileName(const int image_idx) const;
 
   class CachedImage {
@@ -94,6 +103,7 @@ class Workspace {
     size_t num_bytes = 0;
     std::unique_ptr<Bitmap> bitmap;
     std::unique_ptr<DepthMap> depth_map;
+    std::unique_ptr<ConfidenceMap> confidence_map;
     std::unique_ptr<NormalMap> normal_map;
 
    private:
@@ -104,6 +114,7 @@ class Workspace {
   Model model_;
   MemoryConstrainedLRUCache<int, CachedImage> cache_;
   std::string depth_map_path_;
+  std::string confidence_map_path_;
   std::string normal_map_path_;
 };
 

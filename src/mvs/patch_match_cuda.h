@@ -50,17 +50,17 @@
 namespace colmap {
 namespace mvs {
 
-class PatchMatchCuda {
+class PatchMatchCuda : public PatchMatch {
  public:
   PatchMatchCuda(const PatchMatchOptions& options,
                  const PatchMatch::Problem& problem);
-  ~PatchMatchCuda();
+  virtual ~PatchMatchCuda();
 
-  void Run();
+  virtual void Run() override;
 
-  DepthMap GetDepthMap() const;
-  NormalMap GetNormalMap() const;
-  Mat<float> GetSelProbMap() const;
+  virtual DepthMap GetDepthMap() const override;
+  virtual ConfidenceMap GetConfidenceMap() const override;
+  virtual NormalMap GetNormalMap() const override;
   std::vector<int> GetConsistentImageIdxs() const;
 
  private:
@@ -76,9 +76,6 @@ class PatchMatchCuda {
 
   // Rotate reference image by 90 degrees in counter-clockwise direction.
   void Rotate();
-
-  const PatchMatchOptions options_;
-  const PatchMatch::Problem problem_;
 
   // Dimensions for sweeping from top to bottom, i.e. one thread per column.
   dim3 sweep_block_size_;

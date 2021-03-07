@@ -47,6 +47,7 @@ namespace mvs {
 class Image {
  public:
   Image();
+  Image(const Image& image);
   Image(const std::string& path, const size_t width, const size_t height,
         const float* K, const float* R, const float* T);
 
@@ -60,6 +61,7 @@ class Image {
   inline const float* GetR() const;
   inline const float* GetT() const;
   inline const float* GetK() const;
+  inline const float* GetInvK() const;
   inline const float* GetP() const;
   inline const float* GetInvP() const;
   inline const float* GetViewingDirection() const;
@@ -73,6 +75,7 @@ class Image {
   size_t width_;
   size_t height_;
   float K_[9];
+  float inv_K_[9];
   float R_[9];
   float T_[3];
   float P_[12];
@@ -84,13 +87,18 @@ void ComputeRelativePose(const float R1[9], const float T1[3],
                          const float R2[9], const float T2[3], float R[9],
                          float T[3]);
 
+void ComposePoseMatrix(const float R[9], const float T[3], float P[16]);
+
 void ComposeProjectionMatrix(const float K[9], const float R[9],
                              const float T[3], float P[12]);
 
 void ComposeInverseProjectionMatrix(const float K[9], const float R[9],
                                     const float T[3], float inv_P[12]);
 
-void ComputeProjectionCenter(const float R[9], const float T[3], float C[3]);
+void ComposeInverseKMatrix(const float K[9], float inv_K[9]);
+
+void ComputeProjectionCenter(
+    const float R[9], const float T[3], float C[3]);
 
 void RotatePose(const float RR[9], float R[9], float T[3]);
 
@@ -111,6 +119,8 @@ const float* Image::GetR() const { return R_; }
 const float* Image::GetT() const { return T_; }
 
 const float* Image::GetK() const { return K_; }
+
+const float* Image::GetInvK() const { return inv_K_; }
 
 const float* Image::GetP() const { return P_; }
 

@@ -117,47 +117,42 @@ std::string Model::GetImageName(const int image_idx) const {
 }
 
 std::vector<std::vector<int>> Model::GetMaxOverlappingImages(
-    const size_t num_images, const double min_triangulation_angle) const {
+    const size_t num_images, const double min_triangulation_angle,
+    const bool use_scoring) const {
   std::vector<std::vector<int>> overlapping_images(images.size());
 
   const float min_triangulation_angle_rad = DegToRad(min_triangulation_angle);
 
   const auto shared_num_points = ComputeSharedPoints();
 
-  const float kTriangulationAnglePercentile = 75;
+  const float kTriangulationAnglePercentile = 75.0f;
   const auto triangulation_angles =
-      ComputeTriangulationAngles(kTriangulationAnglePercentile);
+      ComputeTriangulationAngles(use_scoring ? -1.0f : kTriangulationAnglePercentile);
 
   for (size_t image_idx = 0; image_idx < images.size(); ++image_idx) {
     const auto& shared_images = shared_num_points.at(image_idx);
     const auto& overlapping_triangulation_angles =
         triangulation_angles.at(image_idx);
 
-    std::vector<std::pair<int, int>> ordered_images;
+    std::vector<std::pair<int, float>> ordered_images;
     ordered_images.reserve(shared_images.size());
     for (const auto& image : shared_images) {
       if (overlapping_triangulation_angles.at(image.first) >=
           min_triangulation_angle_rad) {
-        ordered_images.emplace_back(image.first, image.second);
+        ordered_images.emplace_back(
+            image.first, use_scoring
+                             ? overlapping_triangulation_angles.at(image.first)
+                             : (float)image.second);
       }
     }
 
     const size_t eff_num_images = std::min(ordered_images.size(), num_images);
-    if (eff_num_images < shared_images.size()) {
-      std::partial_sort(ordered_images.begin(),
-                        ordered_images.begin() + eff_num_images,
-                        ordered_images.end(),
-                        [](const std::pair<int, int> image1,
-                           const std::pair<int, int> image2) {
-                          return image1.second > image2.second;
-                        });
-    } else {
-      std::sort(ordered_images.begin(), ordered_images.end(),
-                [](const std::pair<int, int> image1,
-                   const std::pair<int, int> image2) {
-                  return image1.second > image2.second;
-                });
-    }
+    std::partial_sort(
+        ordered_images.begin(), ordered_images.begin() + eff_num_images,
+        ordered_images.end(),
+        [](const std::pair<int, float> image1, const std::pair<int, float> image2) {
+          return image1.second > image2.second;
+        });
 
     overlapping_images[image_idx].reserve(eff_num_images);
     for (size_t i = 0; i < eff_num_images; ++i) {
@@ -260,13 +255,28 @@ std::vector<std::map<int, float>> Model::ComputeTriangulationAngles(
     }
   }
 
+  const double kTheta0 = 5.0;
+  const double kSigma1Den = 2.0;
+  const double kSigma2Den = 200.0;
+  auto CalcAngularScore = [&](const std::vector<float>& angles) {
+    double score = 0.0f;
+    for (float angle_rad : angles) {
+      double angle_deg = RadToDeg((double)angle_rad);
+      const double num = -(angle_deg - kTheta0) * (angle_deg - kTheta0);
+      const double den = angle_deg <= kTheta0 ? kSigma1Den : kSigma2Den;
+      score += std::exp(num / den);
+    }
+    return (float)score;
+  };
+
   std::vector<std::map<int, float>> triangulation_angles(images.size());
   for (size_t image_idx = 0; image_idx < all_triangulation_angles.size();
        ++image_idx) {
     const auto& overlapping_images = all_triangulation_angles[image_idx];
     for (const auto& image : overlapping_images) {
       triangulation_angles[image_idx].emplace(
-          image.first, Percentile(image.second, percentile));
+          image.first, percentile < 0 ? CalcAngularScore(image.second)
+                                      : Percentile(image.second, percentile));
     }
   }
 

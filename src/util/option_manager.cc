@@ -129,20 +129,26 @@ void OptionManager::ModifyForLowQuality() {
 
 void OptionManager::ModifyForMediumQuality() {
   sift_extraction->max_image_size = 1600;
-  sequential_matching->loop_detection_num_images /= 1.5;
-  vocab_tree_matching->num_images /= 1.5;
-  mapper->ba_local_max_num_iterations /= 1.5;
-  mapper->ba_global_max_num_iterations /= 1.5;
+  sequential_matching->loop_detection_num_images =
+      (int)(sequential_matching->loop_detection_num_images / 1.5);
+  vocab_tree_matching->num_images =
+      (int)(vocab_tree_matching->num_images / 1.5);
+  mapper->ba_local_max_num_iterations =
+      (int)(mapper->ba_local_max_num_iterations / 1.5);
+  mapper->ba_global_max_num_iterations =
+      (int)(mapper->ba_global_max_num_iterations / 1.5);
   mapper->ba_global_images_ratio *= 1.1;
   mapper->ba_global_points_ratio *= 1.1;
   mapper->ba_global_max_refinements = 2;
   patch_match_stereo->max_image_size = 1600;
   patch_match_stereo->window_radius = 4;
   patch_match_stereo->window_step = 2;
-  patch_match_stereo->num_samples /= 1.5;
+  patch_match_stereo->num_samples =
+      (int)(patch_match_stereo->num_samples / 1.5);
   patch_match_stereo->num_iterations = 5;
   patch_match_stereo->geom_consistency = false;
-  stereo_fusion->check_num_images /= 1.5;
+  stereo_fusion->check_num_images =
+      (int)(stereo_fusion->check_num_images / 1.5);
   stereo_fusion->max_image_size = 1600;
 }
 
@@ -646,6 +652,8 @@ void OptionManager::AddPatchMatchStereoOptions() {
                               &patch_match_stereo->allow_missing_files);
   AddAndRegisterDefaultOption("PatchMatchStereo.write_consistency_graph",
                               &patch_match_stereo->write_consistency_graph);
+  AddAndRegisterDefaultOption("PatchMatchStereo.mvs_module_path",
+                              &patch_match_stereo->mvs_module_path);
 }
 
 void OptionManager::AddStereoFusionOptions() {
@@ -668,10 +676,16 @@ void OptionManager::AddStereoFusionOptions() {
                               &stereo_fusion->max_depth_error);
   AddAndRegisterDefaultOption("StereoFusion.max_normal_error",
                               &stereo_fusion->max_normal_error);
+  AddAndRegisterDefaultOption("StereoFusion.confidence_threshold",
+                              &stereo_fusion->confidence_threshold);
   AddAndRegisterDefaultOption("StereoFusion.check_num_images",
                               &stereo_fusion->check_num_images);
   AddAndRegisterDefaultOption("StereoFusion.cache_size",
                               &stereo_fusion->cache_size);
+  AddAndRegisterDefaultOption("StereoFusion.calculate_normals",
+                              &stereo_fusion->calculate_normals);
+  AddAndRegisterDefaultOption("StereoFusion.use_triangulation_scoring",
+                              &stereo_fusion->use_triangulation_scoring);
 }
 
 void OptionManager::AddPoissonMeshingOptions() {

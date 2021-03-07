@@ -38,13 +38,24 @@ namespace mvs {
 
 NormalMap::NormalMap() : Mat<float>(0, 0, 3) {}
 
-NormalMap::NormalMap(const size_t width, const size_t height)
-    : Mat<float>(width, height, 3) {}
+NormalMap::NormalMap(const size_t width, const size_t height,
+                     const Eigen::Vector3f& value)
+    : Mat<float>(width, height, 3) {
+  Fill(value);
+}
 
 NormalMap::NormalMap(const Mat<float>& mat)
     : Mat<float>(mat.GetWidth(), mat.GetHeight(), mat.GetDepth()) {
   CHECK_EQ(mat.GetDepth(), 3);
   data_ = mat.GetData();
+}
+
+void NormalMap::Fill(const Eigen::Vector3f& value) {
+  for (size_t r = 0; r < height_; ++r) {
+    for (size_t c = 0; c < width_; ++c) {
+      SetSlice(r, c, value.data());
+    }
+  }
 }
 
 void NormalMap::Rescale(const float factor) {
@@ -78,9 +89,7 @@ void NormalMap::Rescale(const float factor) {
       if (squared_norm > 0) {
         normal /= std::sqrt(squared_norm);
       }
-      Set(r, c, 0, normal(0));
-      Set(r, c, 1, normal(1));
-      Set(r, c, 2, normal(2));
+      SetSlice(r, c, normal.data());
     }
   }
 }
@@ -118,6 +127,66 @@ Bitmap NormalMap::ToBitmap() const {
   }
 
   return bitmap;
+}
+
+void NormalMap::EstimateFromDepth(const DepthMap& depth_map,
+                                  const float inv_K_data[9],
+                                  const int window_radius) {
+  width_ = depth_map.GetWidth();
+  height_ = depth_map.GetHeight();
+  data_.resize(width_ * height_ * depth_, 0.0f);
+  Eigen::Matrix3f inv_K =
+      Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(inv_K_data);
+
+  auto GetPoint = [&](int row, int col) {
+    float depth = depth_map.Get(row, col);
+    Eigen::Vector3f point = depth * inv_K * Eigen::Vector3f(col, row, 1.0f);
+    return point;
+  };
+
+  // Estimate normal from plane in neighborhood of target point
+  auto CalcNormal = [&](int row, int col) {
+    std::vector<Eigen::Vector3f> points;
+    Eigen::Vector3f centroid(0.0f, 0.0f, 0.0f);
+    for (int r = std::max(row - window_radius, 0);
+         r <= std::min(row + window_radius, (int)height_ - 1); ++r) {
+      for (int c = std::max(col - window_radius, 0);
+           c <= std::min(col + window_radius, (int)width_ - 1); ++c) {
+        points.push_back(GetPoint(r, c));
+        centroid += points.back();
+      }
+    }
+    centroid /= (float)points.size();
+
+    Eigen::MatrixXf points_mtx(3, points.size());
+    for (int i = 0; i < points.size(); ++i) {
+      points_mtx.col(i) = points[i] - centroid;
+    }
+
+    return points_mtx.jacobiSvd(Eigen::ComputeThinU).matrixU().col(2);
+  };
+
+  for (size_t row = 1; row < height_ - 1; ++row) {
+    for (size_t col = 1; col < width_ - 1; ++col) {
+      // skip pixels with negative depth since those are not included in fusion
+      if (depth_map.Get(row, col) <= 0.0f) {
+        continue;
+      }
+
+      // Calculate normal in local coordinate frame
+      Eigen::Vector3f normal = CalcNormal(row, col);
+      if (normal.array().isNaN().any()) {
+        continue;
+      }
+
+      // Ensure normal is in opposing direction of view ray
+      if (GetPoint(row, col).normalized().dot(normal) > 0) {
+        normal = -normal;
+      }
+
+      SetSlice(row, col, normal.data());
+    }
+  }
 }
 
 }  // namespace mvs

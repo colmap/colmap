@@ -106,6 +106,20 @@ macro(COLMAP_ADD_CUDA_SOURCES)
         PARENT_SCOPE)
 endmacro(COLMAP_ADD_CUDA_SOURCES)
 
+# Macro to add Torch source files to COLMAP library.
+macro(COLMAP_ADD_TORCH_SOURCES)
+    set(SOURCE_FILES "")
+    foreach(SOURCE_FILE ${ARGN})
+        if(SOURCE_FILE MATCHES "^/.*")
+            list(APPEND SOURCE_FILES ${SOURCE_FILE})
+        else()
+            list(APPEND SOURCE_FILES
+                 "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE_FILE}")
+        endif()
+    endforeach()
+    set(COLMAP_TORCH_SOURCES ${COLMAP_TORCH_SOURCES} ${SOURCE_FILES} PARENT_SCOPE)
+endmacro(COLMAP_ADD_TORCH_SOURCES)
+
 # Replacement for the normal add_library() command. The syntax remains the same
 # in that the first argument is the target name, and the following arguments
 # are the source files to use when building the target.

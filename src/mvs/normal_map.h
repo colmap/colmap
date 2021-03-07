@@ -35,7 +35,10 @@
 #include <string>
 #include <vector>
 
+#include <Eigen/Core>
+
 #include "mvs/mat.h"
+#include "mvs/depth_map.h"
 #include "util/bitmap.h"
 
 namespace colmap {
@@ -45,13 +48,19 @@ namespace mvs {
 class NormalMap : public Mat<float> {
  public:
   NormalMap();
-  NormalMap(const size_t width, const size_t height);
+  NormalMap(const size_t width, const size_t height,
+            const Eigen::Vector3f& value = Eigen::Vector3f::Zero());
   explicit NormalMap(const Mat<float>& mat);
 
+  void Fill(const Eigen::Vector3f& value);
   void Rescale(const float factor);
   void Downsize(const size_t max_width, const size_t max_height);
 
   Bitmap ToBitmap() const;
+
+  void EstimateFromDepth(const DepthMap& depth_map,
+                         const float inv_K_data[9],
+                         const int window_radius = 2);
 };
 
 }  // namespace mvs

@@ -68,6 +68,9 @@ if(CUDA_ENABLED)
     # Use a separate stream per thread to allow for concurrent kernel execution
     # between multiple threads on the same device.
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --default-stream per-thread")
+    # Remove NVCC flag set by LibTorch configuration that causes compilation error
+    # in Eigen/Core when compiling patch_match_cuda.cu
+    list(REMOVE_ITEM CUDA_NVCC_FLAGS "--Werror" "cross-execution-space-call")
 
     # Fix for Ubuntu 16.04.
     add_definitions("-D_MWAITXINTRIN_H_INCLUDED")
@@ -79,9 +82,22 @@ if(CUDA_ENABLED)
 
     COLMAP_ADD_STATIC_CUDA_LIBRARY(colmap_cuda ${COLMAP_CUDA_SOURCES})
     target_link_libraries(colmap_cuda colmap)
+endif()
 
+if(TORCH_ENABLED)
+    COLMAP_ADD_STATIC_LIBRARY(colmap_torch ${COLMAP_TORCH_SOURCES})
+    target_link_libraries(colmap_torch colmap)
+endif()
+
+if(CUDA_ENABLED AND TORCH_ENABLED)
+    target_link_libraries(colmap
+        colmap_cuda colmap_torch ${COLMAP_INTERNAL_LIBRARIES} ${COLMAP_EXTERNAL_LIBRARIES})
+elseif(CUDA_ENABLED)
     target_link_libraries(colmap
         colmap_cuda ${COLMAP_INTERNAL_LIBRARIES} ${COLMAP_EXTERNAL_LIBRARIES})
+elseif(TORCH_ENABLED)
+    target_link_libraries(colmap
+        colmap_torch ${COLMAP_INTERNAL_LIBRARIES} ${COLMAP_EXTERNAL_LIBRARIES})
 else()
     target_link_libraries(colmap
         ${COLMAP_INTERNAL_LIBRARIES} ${COLMAP_EXTERNAL_LIBRARIES})

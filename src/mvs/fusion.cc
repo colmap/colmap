@@ -71,7 +71,7 @@ int FindNextImage(const std::vector<std::vector<int>>& overlapping_images,
   // first image that has not yet been fused.
   for (size_t image_idx = 0; image_idx < fused_images.size(); ++image_idx) {
     if (used_images[image_idx] && !fused_images[image_idx]) {
-      return image_idx;
+      return (int)image_idx;
     }
   }
 
@@ -90,7 +90,9 @@ void StereoFusionOptions::Print() const {
   PrintOption(max_reproj_error);
   PrintOption(max_depth_error);
   PrintOption(max_normal_error);
+  PrintOption(confidence_threshold);
   PrintOption(check_num_images);
+  PrintOption(use_triangulation_scoring);
   PrintOption(cache_size);
 #undef PrintOption
 }
@@ -117,9 +119,10 @@ StereoFusion::StereoFusion(const StereoFusionOptions& options,
       workspace_format_(workspace_format),
       pmvs_option_name_(pmvs_option_name),
       input_type_(input_type),
-      max_squared_reproj_error_(options_.max_reproj_error *
-                                options_.max_reproj_error),
-      min_cos_normal_error_(std::cos(DegToRad(options_.max_normal_error))) {
+      max_squared_reproj_error_(
+          (float)(options_.max_reproj_error * options_.max_reproj_error)),
+      min_cos_normal_error_(
+          (float)std::cos(DegToRad(options_.max_normal_error))) {
   CHECK(options_.Check());
 }
 
@@ -151,6 +154,8 @@ void StereoFusion::Run() {
   }
 
   workspace_options.max_image_size = options_.max_image_size;
+  workspace_options.calculate_normals = options_.calculate_normals;
+  workspace_options.save_calculated_maps = true;
   workspace_options.image_as_rgb = true;
   workspace_options.cache_size = options_.cache_size;
   workspace_options.workspace_path = workspace_path_;
@@ -171,7 +176,7 @@ void StereoFusion::Run() {
   const double kMinTriangulationAngle = 0;
   if (model.GetMaxOverlappingImagesFromPMVS().empty()) {
     overlapping_images_ = model.GetMaxOverlappingImages(
-        options_.check_num_images, kMinTriangulationAngle);
+        options_.check_num_images, kMinTriangulationAngle, options_.use_triangulation_scoring);
   } else {
     overlapping_images_ = model.GetMaxOverlappingImagesFromPMVS();
   }
@@ -191,8 +196,7 @@ void StereoFusion::Run() {
     const int image_idx = model.GetImageIdx(image_name);
 
     if (!workspace_->HasBitmap(image_idx) ||
-        !workspace_->HasDepthMap(image_idx) ||
-        !workspace_->HasNormalMap(image_idx)) {
+        !workspace_->HasDepthMap(image_idx)) {
       std::cout
           << StringPrintf(
                  "WARNING: Ignoring image %s, because input does not exist.",
@@ -211,7 +215,7 @@ void StereoFusion::Run() {
     fused_pixel_masks_.at(image_idx).Fill(false);
 
     depth_map_sizes_.at(image_idx) =
-        std::make_pair(depth_map.GetWidth(), depth_map.GetHeight());
+        std::make_pair((int)depth_map.GetWidth(), (int)depth_map.GetHeight());
 
     bitmap_scales_.at(image_idx) = std::make_pair(
         static_cast<float>(depth_map.GetWidth()) / image.GetWidth(),
@@ -324,11 +328,17 @@ void StereoFusion::Fuse() {
       continue;
     }
 
-    const auto& depth_map = workspace_->GetDepthMap(image_idx);
-    const float depth = depth_map.Get(row, col);
+    const float depth = workspace_->GetDepthMap(image_idx).Get(row, col);
+    const float confidence =
+        workspace_->GetConfidenceMap(image_idx).Get(row, col);
 
     // Pixels with negative depth are filtered.
     if (depth <= 0.0f) {
+      continue;
+    }
+
+    // pixels with confidence probability below threshold are filtered
+    if (confidence <= options_.confidence_threshold) {
       continue;
     }
 
@@ -355,11 +365,9 @@ void StereoFusion::Fuse() {
     }
 
     // Determine normal direction in global reference frame.
-    const auto& normal_map = workspace_->GetNormalMap(image_idx);
-    const Eigen::Vector3f normal =
-        inv_R_.at(image_idx) * Eigen::Vector3f(normal_map.Get(row, col, 0),
-                                               normal_map.Get(row, col, 1),
-                                               normal_map.Get(row, col, 2));
+    float norm[3];
+    workspace_->GetNormalMap(image_idx).GetSlice(row, col, norm);
+    const Eigen::Vector3f normal = inv_R_.at(image_idx) * Eigen::Vector3f(norm);
 
     // Check for consistent normal direction with reference normal.
     if (traversal_depth > 0) {
@@ -481,9 +489,9 @@ void WritePointsVisibility(
   WriteBinaryLittleEndian<uint64_t>(&file, points_visibility.size());
 
   for (const auto& visibility : points_visibility) {
-    WriteBinaryLittleEndian<uint32_t>(&file, visibility.size());
+    WriteBinaryLittleEndian(&file, (uint32_t)visibility.size());
     for (const auto& image_idx : visibility) {
-      WriteBinaryLittleEndian<uint32_t>(&file, image_idx);
+      WriteBinaryLittleEndian(&file, (uint32_t)image_idx);
     }
   }
 }

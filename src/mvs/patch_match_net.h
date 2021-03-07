@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2021, Microsoft.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -27,56 +27,53 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 //
-// Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+// Author: Antonios Matakos (anmatako-at-microsoft-dot-com)
 
-#ifndef COLMAP_SRC_MVS_DEPTH_MAP_H_
-#define COLMAP_SRC_MVS_DEPTH_MAP_H_
+#ifndef COLMAP_SRC_MVS_PATCH_MATCH_NET_H_
+#define COLMAP_SRC_MVS_PATCH_MATCH_NET_H_
 
-#include <string>
+#include <memory>
 #include <vector>
 
-#include "mvs/mat.h"
-#include "util/bitmap.h"
+#include "mvs/depth_map.h"
+#include "mvs/normal_map.h"
+#include "mvs/patch_match.h"
+#include "torch/torch.h"
 
 namespace colmap {
 namespace mvs {
 
-class DepthMap : public Mat<float> {
+class PatchMatchNet : public PatchMatch {
  public:
-  DepthMap();
-  DepthMap(const size_t width, const size_t height, const float depth_min,
-           const float depth_max);
-  DepthMap(const Mat<float>& mat, const float depth_min, const float depth_max);
+  PatchMatchNet(const PatchMatchOptions& options,
+                const PatchMatch::Problem& problem, const int thread_index = 0);
 
-  inline float GetDepthMin() const { return depth_min_; }
-  inline float GetDepthMax() const { return depth_max_; }
+  virtual ~PatchMatchNet() {}
 
-  virtual inline float Get(const size_t row, const size_t col) const {
-    return data_.at(row * width_ + col);
+  virtual void Run() override;
+
+  inline virtual DepthMap GetDepthMap() const override { return depth_map_; }
+  inline virtual ConfidenceMap GetConfidenceMap() const override {
+    return confidence_map_;
   }
-
-  virtual void Rescale(const float factor);
-  virtual void Downsize(const size_t max_width, const size_t max_height);
-
-  Bitmap ToBitmap(const float min_percentile, const float max_percentile) const;
+  inline virtual NormalMap GetNormalMap() const override {
+    return NormalMap(depth_map_.GetWidth(), depth_map_.GetHeight());
+  }
 
  private:
-  float depth_min_ = -1.0f;
-  float depth_max_ = -1.0f;
-};
+  void InitModule();
+  void InitProblemInputs();
 
-class ConfidenceMap : public DepthMap {
- public:
-  ConfidenceMap() : ConfidenceMap(0, 0) {}
-  ConfidenceMap(const size_t width, const size_t height)
-      : DepthMap(width, height, 0.0f, 1.0f) {
-    Fill(1.0f);
-  }
-  ConfidenceMap(const Mat<float>& mat) : DepthMap(mat, 0.0f, 1.0f) {}
-  Bitmap ToBitmap() const;
+  const int thread_index_;
+  torch::Tensor intrinsics_, extrinsics_, depth_params_;
+  std::vector<torch::Tensor> images_;
+  DepthMap depth_map_;
+  ConfidenceMap confidence_map_;
+
+  static std::unordered_map<int, torch::jit::Module> model_;
 };
 
 }  // namespace mvs
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_MVS_DEPTH_MAP_H_
+#endif  // COLMAP_SRC_MVS_PATCH_MATCH_NET_H_

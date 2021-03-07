@@ -127,5 +127,44 @@ Bitmap DepthMap::ToBitmap(const float min_percentile,
   return bitmap;
 }
 
+Bitmap ConfidenceMap::ToBitmap() const {
+  CHECK_GT(width_, 0);
+  CHECK_GT(height_, 0);
+
+  Bitmap bitmap;
+  bitmap.Allocate(width_, height_, true);
+
+  std::vector<float> valid_values;
+  valid_values.reserve(data_.size());
+  for (const float value : data_) {
+    if (value >= 0.0f && value <= 1.0f) {
+      valid_values.push_back(value);
+    }
+  }
+
+  if (valid_values.empty()) {
+    bitmap.Fill(BitmapColor<uint8_t>(0));
+    return bitmap;
+  }
+
+  for (size_t y = 0; y < height_; ++y) {
+    for (size_t x = 0; x < width_; ++x) {
+      const float confidence = Get(y, x);
+      if (confidence < 0) {
+        bitmap.SetPixel(x, y, BitmapColor<uint8_t>(0));
+      } else if (confidence > 1.0f) {
+        bitmap.SetPixel(x, y, BitmapColor<uint8_t>(255));
+      } else {
+        const BitmapColor<float> color(255 * JetColormap::Red(confidence),
+                                       255 * JetColormap::Green(confidence),
+                                       255 * JetColormap::Blue(confidence));
+        bitmap.SetPixel(x, y, color.Cast<uint8_t>());
+      }
+    }
+  }
+
+  return bitmap;
+}
+
 }  // namespace mvs
 }  // namespace colmap
