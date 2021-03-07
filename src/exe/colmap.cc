@@ -316,8 +316,7 @@ int RunStereoFuser(int argc, char** argv) {
   options.AddDefaultOption("pmvs_option_name", &pmvs_option_name);
   options.AddDefaultOption("input_type", &input_type,
                            "{photometric, geometric}");
-  options.AddDefaultOption("output_type", &output_type,
-                            "{BIN, TXT, PLY}");
+  options.AddDefaultOption("output_type", &output_type, "{BIN, TXT, PLY}");
   options.AddRequiredOption("output_path", &output_path);
   options.AddStereoFusionOptions();
   options.Parse(argc, argv);
@@ -1309,6 +1308,151 @@ int RunModelAnalyzer(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+void WriteComparisonErrorsCSV(const std::string& path,
+                              const std::vector<double>& rotation_errors,
+                              const std::vector<double>& translation_errors,
+                              const std::vector<double>& proj_center_errors) {
+  CHECK_EQ(rotation_errors.size(), translation_errors.size());
+  CHECK_EQ(rotation_errors.size(), proj_center_errors.size());
+
+  std::ofstream file(path, std::ios::trunc);
+  CHECK(file.is_open()) << path;
+
+  file.precision(17);
+  file << "# Model comparison pose errors: one entry per common image"
+       << std::endl;
+  file << "# <rotation error (deg)>, <translation error>, <proj center error>"
+       << std::endl;
+  for (size_t i = 0; i < rotation_errors.size(); ++i) {
+    file << rotation_errors[i] << ", " << translation_errors[i] << ", "
+         << proj_center_errors[i] << std::endl;
+  }
+}
+
+void PrintErrorStats(std::ostream& out, std::vector<double>& vals) {
+  const size_t len = vals.size();
+  if (len == 0) {
+    out << "Cannot extract error statistics from empty input" << std::endl;
+    return;
+  }
+  std::sort(vals.begin(), vals.end());
+  out << "Min:    " << vals.front() << std::endl;
+  out << "Max:    " << vals.back() << std::endl;
+  out << "Mean:   " << Mean(vals) << std::endl;
+  out << "Median: " << Median(vals) << std::endl;
+  out << "P90:    " << vals[size_t(0.9 * len)] << std::endl;
+  out << "P99:    " << vals[size_t(0.99 * len)] << std::endl;
+}
+
+void PrintComparisonSummary(std::ostream& out,
+                            std::vector<double>& rotation_errors,
+                            std::vector<double>& translation_errors,
+                            std::vector<double>& proj_center_errors) {
+  out << "# Image pose error summary" << std::endl;
+  out << std::endl << "Rotation angular errors (degrees)" << std::endl;
+  PrintErrorStats(out, rotation_errors);
+  out << std::endl << "Translation distance errors" << std::endl;
+  PrintErrorStats(out, translation_errors);
+  out << std::endl << "Projection center distance errors" << std::endl;
+  PrintErrorStats(out, proj_center_errors);
+}
+
+int RunModelComparer(int argc, char** argv) {
+  std::string input_path1;
+  std::string input_path2;
+  std::string output_path;
+  double min_inlier_observations = 0.3;
+  double max_reproj_error = 8.0;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path1", &input_path1);
+  options.AddRequiredOption("input_path2", &input_path2);
+  options.AddDefaultOption("output_path", &output_path);
+  options.AddDefaultOption("min_inlier_observations", &min_inlier_observations);
+  options.AddDefaultOption("max_reproj_error", &max_reproj_error);
+  options.Parse(argc, argv);
+
+  if (!output_path.empty() && !ExistsDir(output_path)) {
+    std::cerr << "ERROR: Provided output path is not a valid directory"
+              << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  Reconstruction reconstruction1;
+  reconstruction1.Read(input_path1);
+  PrintHeading1("Reconstruction 1");
+  std::cout << StringPrintf("Images: %d", reconstruction1.NumRegImages())
+            << std::endl;
+  std::cout << StringPrintf("Points: %d", reconstruction1.NumPoints3D())
+            << std::endl;
+
+  Reconstruction reconstruction2;
+  reconstruction2.Read(input_path2);
+  PrintHeading1("Reconstruction 2");
+  std::cout << StringPrintf("Images: %d", reconstruction2.NumRegImages())
+            << std::endl;
+  std::cout << StringPrintf("Points: %d", reconstruction2.NumPoints3D())
+            << std::endl;
+
+  PrintHeading1("Comparing reconstructed image poses");
+  const auto common_image_ids =
+      reconstruction1.FindCommonRegImageIds(reconstruction2);
+  std::cout << StringPrintf("Common images: %d", common_image_ids.size())
+            << std::endl;
+
+  Eigen::Matrix3x4d alignment;
+  if (!ComputeAlignmentBetweenReconstructions(reconstruction2, reconstruction1,
+                                              min_inlier_observations,
+                                              max_reproj_error, &alignment)) {
+    std::cout << "=> Reconstruction alignment failed" << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  const SimilarityTransform3 tform(alignment);
+  std::cout << "Computed alignment transform:" << std::endl
+            << tform.Matrix() << std::endl;
+
+  const size_t num_images = common_image_ids.size();
+  std::vector<double> rotation_errors(num_images, 0.0);
+  std::vector<double> translation_errors(num_images, 0.0);
+  std::vector<double> proj_center_errors(num_images, 0.0);
+  for (size_t i = 0; i < num_images; ++i) {
+    const image_t image_id = common_image_ids[i];
+    const Image& image1 = reconstruction1.Image(image_id);
+    Image& image2 = reconstruction2.Image(image_id);
+    tform.TransformPose(&image2.Qvec(), &image2.Tvec());
+
+    const Eigen::Vector4d normalized_qvec1 = NormalizeQuaternion(image1.Qvec());
+    const Eigen::Quaterniond quat1(normalized_qvec1(0), normalized_qvec1(1),
+                                   normalized_qvec1(2), normalized_qvec1(3));
+    const Eigen::Vector4d normalized_qvec2 = NormalizeQuaternion(image2.Qvec());
+    const Eigen::Quaterniond quat2(normalized_qvec2(0), normalized_qvec2(1),
+                                   normalized_qvec2(2), normalized_qvec2(3));
+
+    rotation_errors[i] = RadToDeg(quat1.angularDistance(quat2));
+    translation_errors[i] = (image1.Tvec() - image2.Tvec()).norm();
+    proj_center_errors[i] =
+        (image1.ProjectionCenter() - image2.ProjectionCenter()).norm();
+  }
+
+  if (output_path.empty()) {
+    PrintComparisonSummary(std::cout, rotation_errors, translation_errors,
+                           proj_center_errors);
+  } else {
+    const std::string errors_path = JoinPaths(output_path, "errors.csv");
+    WriteComparisonErrorsCSV(errors_path, rotation_errors, translation_errors,
+                             proj_center_errors);
+    const std::string summary_path =
+        JoinPaths(output_path, "errors_summary.txt");
+    std::ofstream file(summary_path, std::ios::trunc);
+    CHECK(file.is_open()) << summary_path;
+    PrintComparisonSummary(file, rotation_errors, translation_errors,
+                           proj_center_errors);
+  }
+
+  return EXIT_SUCCESS;
+}
+
 int RunModelConverter(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
@@ -2264,6 +2408,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("matches_importer", &RunMatchesImporter);
   commands.emplace_back("model_aligner", &RunModelAligner);
   commands.emplace_back("model_analyzer", &RunModelAnalyzer);
+  commands.emplace_back("model_comparer", &RunModelComparer);
   commands.emplace_back("model_converter", &RunModelConverter);
   commands.emplace_back("model_merger", &RunModelMerger);
   commands.emplace_back("model_orientation_aligner",
