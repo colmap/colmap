@@ -283,12 +283,18 @@ bool Bitmap::ExifCameraModel(std::string* camera_model) const {
   // Read camera make and model
   std::string make_str;
   std::string model_str;
+  std::string focal_length;
   *camera_model = "";
   if (ReadExifTag(FIMD_EXIF_MAIN, "Make", &make_str)) {
     *camera_model += (make_str + "-");
   }
   if (ReadExifTag(FIMD_EXIF_MAIN, "Model", &model_str)) {
     *camera_model += (model_str + "-");
+  }
+  if (ReadExifTag(FIMD_EXIF_EXIF, "FocalLengthIn35mmFilm", &focal_length)) {
+    *camera_model += (focal_length + "-");
+  } else if (ReadExifTag(FIMD_EXIF_EXIF, "FocalLength", &focal_length)) {
+    *camera_model += (focal_length + "-");
   }
   *camera_model += (std::to_string(width_) + "x" + std::to_string(height_));
   return true;
