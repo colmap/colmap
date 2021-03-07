@@ -81,7 +81,7 @@ def main():
         image_id = row[0]
         camera_id = row[1]
         image_name = row[2]
-        print "Copying image", image_name
+        print("Copying image", image_name)
         images[image_id] = (len(images), image_name)
         if not os.path.exists(os.path.join(args.output_path, image_name)):
             shutil.copyfile(os.path.join(args.image_path, image_name),
@@ -94,7 +94,7 @@ def main():
     sift_eof_marker = 1179600383
 
     for image_id, (image_idx, image_name) in images.iteritems():
-        print "Exporting key file for", image_name
+        print("Exporting key file for", image_name)
         base_name, ext = os.path.splitext(image_name)
         key_file_name = os.path.join(args.output_path, base_name + ".sift")
         if os.path.exists(key_file_name):

@@ -72,6 +72,9 @@ class Barrier {
 
 }  // namespace
 
+// IMPORTANT: BOOST_CHECK_* macros are not thread-safe,
+//            so we use glog's CHECK macros inside threads.
+
 BOOST_AUTO_TEST_CASE(TestThreadWait) {
   class TestThread : public Thread {
    public:
@@ -114,14 +117,16 @@ BOOST_AUTO_TEST_CASE(TestThreadPause) {
    public:
     Barrier startBarrier;
     Barrier pauseBarrier;
-    Barrier resumeBarrier;
+    Barrier pausedBarrier;
+    Barrier resumedBarrier;
     Barrier endBarrier;
 
     void Run() {
       startBarrier.Wait();
       pauseBarrier.Wait();
+      pausedBarrier.Wait();
       BlockIfPaused();
-      resumeBarrier.Wait();
+      resumedBarrier.Wait();
       endBarrier.Wait();
     }
   };
@@ -144,6 +149,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPause) {
 
   thread.pauseBarrier.Wait();
   thread.Pause();
+  thread.pausedBarrier.Wait();
   while (!thread.IsPaused() || thread.IsRunning()) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
@@ -154,7 +160,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPause) {
   BOOST_CHECK(!thread.IsFinished());
 
   thread.Resume();
-  thread.resumeBarrier.Wait();
+  thread.resumedBarrier.Wait();
   BOOST_CHECK(thread.IsStarted());
   BOOST_CHECK(!thread.IsStopped());
   BOOST_CHECK(!thread.IsPaused());
@@ -175,17 +181,22 @@ BOOST_AUTO_TEST_CASE(TestThreadPauseStop) {
    public:
     Barrier startBarrier;
     Barrier pauseBarrier;
-    Barrier resumeBarrier;
+    Barrier pausedBarrier;
+    Barrier resumedBarrier;
     Barrier stopBarrier;
+    Barrier stoppingBarrier;
     Barrier stoppedBarrier;
     Barrier endBarrier;
 
     void Run() {
       startBarrier.Wait();
       pauseBarrier.Wait();
+      pausedBarrier.Wait();
       BlockIfPaused();
-      resumeBarrier.Wait();
+      resumedBarrier.Wait();
       stopBarrier.Wait();
+      stoppingBarrier.Wait();
+
       if (IsStopped()) {
         stoppedBarrier.Wait();
         endBarrier.Wait();
@@ -212,6 +223,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPauseStop) {
 
   thread.pauseBarrier.Wait();
   thread.Pause();
+  thread.pausedBarrier.Wait();
   while (!thread.IsPaused() || thread.IsRunning()) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
@@ -222,7 +234,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPauseStop) {
   BOOST_CHECK(!thread.IsFinished());
 
   thread.Resume();
-  thread.resumeBarrier.Wait();
+  thread.resumedBarrier.Wait();
   BOOST_CHECK(thread.IsStarted());
   BOOST_CHECK(!thread.IsStopped());
   BOOST_CHECK(!thread.IsPaused());
@@ -231,6 +243,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPauseStop) {
 
   thread.stopBarrier.Wait();
   thread.Stop();
+  thread.stoppingBarrier.Wait();
   thread.stoppedBarrier.Wait();
   BOOST_CHECK(thread.IsStarted());
   BOOST_CHECK(thread.IsStopped());
@@ -634,6 +647,9 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolGetThreadIndex) {
 BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerSingleConsumer) {
   JobQueue<int> job_queue;
 
+  // IMPORTANT: BOOST_CHECK_* macros are not thread-safe,
+  //            so we use glog's CHECK macros inside threads.
+
   std::thread producer_thread([&job_queue]() {
     for (int i = 0; i < 10; ++i) {
       CHECK(job_queue.Push(i));
@@ -655,6 +671,9 @@ BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerSingleConsumer) {
 
 BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerSingleConsumerMaxNumJobs) {
   JobQueue<int> job_queue(2);
+
+  // IMPORTANT: BOOST_CHECK_* macros are not thread-safe,
+  //            so we use glog's CHECK macros inside threads.
 
   std::thread producer_thread([&job_queue]() {
     for (int i = 0; i < 10; ++i) {
@@ -678,6 +697,9 @@ BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerSingleConsumerMaxNumJobs) {
 BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerSingleConsumer) {
   JobQueue<int> job_queue(1);
 
+  // IMPORTANT: BOOST_CHECK_* macros are not thread-safe,
+  //            so we use glog's CHECK macros inside threads.
+
   std::thread producer_thread1([&job_queue]() {
     for (int i = 0; i < 10; ++i) {
       CHECK(job_queue.Push(i));
@@ -691,7 +713,7 @@ BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerSingleConsumer) {
   });
 
   std::thread consumer_thread([&job_queue]() {
-    CHECK_EQ(job_queue.Size(), 1);
+    CHECK_LE(job_queue.Size(), 1);
     for (int i = 0; i < 20; ++i) {
       const auto job = job_queue.Pop();
       CHECK(job.IsValid());
@@ -706,6 +728,9 @@ BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerSingleConsumer) {
 
 BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerMultipleConsumer) {
   JobQueue<int> job_queue(1);
+
+  // IMPORTANT: BOOST_CHECK_* macros are not thread-safe,
+  //            so we use glog's CHECK macros inside threads.
 
   std::thread producer_thread([&job_queue]() {
     for (int i = 0; i < 20; ++i) {
@@ -738,6 +763,9 @@ BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerMultipleConsumer) {
 
 BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerMultipleConsumer) {
   JobQueue<int> job_queue(1);
+
+  // IMPORTANT: BOOST_CHECK_* macros are not thread-safe,
+  //            so we use glog's CHECK macros inside threads.
 
   std::thread producer_thread1([&job_queue]() {
     for (int i = 0; i < 10; ++i) {
@@ -777,6 +805,10 @@ BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerMultipleConsumer) {
 
 BOOST_AUTO_TEST_CASE(TestJobQueueWait) {
   JobQueue<int> job_queue;
+
+  // IMPORTANT: BOOST_CHECK_* macros are not thread-safe,
+  //            so we use glog's CHECK macros inside threads.
+
   for (int i = 0; i < 10; ++i) {
     CHECK(job_queue.Push(i));
   }
@@ -802,6 +834,9 @@ BOOST_AUTO_TEST_CASE(TestJobQueueWait) {
 BOOST_AUTO_TEST_CASE(TestJobQueueStopProducer) {
   JobQueue<int> job_queue(1);
 
+  // IMPORTANT: BOOST_CHECK_* macros are not thread-safe,
+  //            so we use glog's CHECK macros inside threads.
+
   Barrier stopBarrier;
   std::thread producer_thread([&job_queue, &stopBarrier]() {
     CHECK(job_queue.Push(0));
@@ -821,6 +856,9 @@ BOOST_AUTO_TEST_CASE(TestJobQueueStopProducer) {
 
 BOOST_AUTO_TEST_CASE(TestJobQueueStopConsumer) {
   JobQueue<int> job_queue(1);
+
+  // IMPORTANT: BOOST_CHECK_* macros are not thread-safe,
+  //            so we use glog's CHECK macros inside threads.
 
   BOOST_CHECK(job_queue.Push(0));
 

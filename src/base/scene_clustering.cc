@@ -33,7 +33,6 @@
 
 #include <set>
 
-#include "base/database.h"
 #include "base/graph_cut.h"
 #include "util/random.h"
 
@@ -67,10 +66,14 @@ void SceneClustering::Partition(
   root_cluster_.reset(new Cluster());
   root_cluster_->image_ids.insert(root_cluster_->image_ids.end(),
                                   image_ids.begin(), image_ids.end());
-  PartitionCluster(edges, num_inliers, root_cluster_.get());
+  if (options_.is_hierarchical) {
+    PartitionHierarchicalCluster(edges, num_inliers, root_cluster_.get());
+  } else {
+    PartitionFlatCluster(edges, num_inliers);
+  }
 }
 
-void SceneClustering::PartitionCluster(
+void SceneClustering::PartitionHierarchicalCluster(
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& weights, Cluster* cluster) {
   CHECK_EQ(edges.size(), weights.size());
@@ -92,6 +95,10 @@ void SceneClustering::PartitionCluster(
     if (labels.count(image_id)) {
       auto& child_cluster = cluster->child_clusters.at(labels.at(image_id));
       child_cluster.image_ids.push_back(image_id);
+    } else {
+      std::cout << "WARN: Graph cut failed to assign cluster label to image "
+                << image_id << "; assigning to cluster 0" << std::endl;
+      cluster->child_clusters.at(0).image_ids.push_back(image_id);
     }
   }
 
@@ -114,8 +121,8 @@ void SceneClustering::PartitionCluster(
 
   // Recursively partition all the child clusters.
   for (int i = 0; i < options_.branching; ++i) {
-    PartitionCluster(child_edges[i], child_weights[i],
-                     &cluster->child_clusters[i]);
+    PartitionHierarchicalCluster(child_edges[i], child_weights[i],
+                                 &cluster->child_clusters[i]);
   }
 
   if (options_.image_overlap > 0) {
@@ -158,6 +165,88 @@ void SceneClustering::PartitionCluster(
   }
 }
 
+void SceneClustering::PartitionFlatCluster(
+    const std::vector<std::pair<int, int>>& edges,
+    const std::vector<int>& weights) {
+  CHECK_EQ(edges.size(), weights.size());
+
+  // Partition the cluster using a normalized cut on the scene graph.
+  const auto labels =
+      ComputeNormalizedMinGraphCut(edges, weights, options_.branching);
+
+  // Assign the images to the clustered child clusters.
+  root_cluster_->child_clusters.resize(options_.branching);
+  for (const auto image_id : root_cluster_->image_ids) {
+    if (labels.count(image_id)) {
+      auto& child_cluster =
+          root_cluster_->child_clusters.at(labels.at(image_id));
+      child_cluster.image_ids.push_back(image_id);
+    }
+  }
+
+  // Sort child clusters by descending size of images and secondarily by lowest
+  // image id.
+  std::sort(root_cluster_->child_clusters.begin(),
+            root_cluster_->child_clusters.end(),
+            [](const Cluster& first, const Cluster& second) {
+              return first.image_ids.size() >= second.image_ids.size() &&
+                     *std::min_element(first.image_ids.begin(),
+                                       first.image_ids.end()) <
+                         *std::min_element(second.image_ids.begin(),
+                                           second.image_ids.end());
+            });
+
+  // For each image find all related images with their weights
+  std::unordered_map<int, std::vector<std::pair<int, int>>> related_images;
+  for (size_t i = 0; i < edges.size(); ++i) {
+    related_images[edges[i].first].emplace_back(edges[i].second, weights[i]);
+    related_images[edges[i].second].emplace_back(edges[i].first, weights[i]);
+  }
+
+  // Sort related images by decreasing weights
+  for (auto& image : related_images) {
+    std::sort(image.second.begin(), image.second.end(),
+              [](const std::pair<int, int>& first,
+                 const std::pair<int, int>& second) {
+                return first.second > second.second;
+              });
+  }
+
+  // For each cluster add as many of the needed matching images up to
+  // the max image overal allowance
+  // We do the process sequentially for each image to ensure that at
+  // least we get the best matches firat
+  for (int i = 0; i < options_.branching; ++i) {
+    auto& orig_image_ids = root_cluster_->child_clusters[i].image_ids;
+    std::set<int> cluster_images(
+        root_cluster_->child_clusters[i].image_ids.begin(),
+        root_cluster_->child_clusters[i].image_ids.end());
+    const size_t max_size = cluster_images.size() + options_.image_overlap;
+    // check up to all the desired matches
+    for (size_t j = 0; j < static_cast<size_t>(options_.num_image_matches) &&
+                       cluster_images.size() < max_size;
+         ++j) {
+      for (const image_t image_id : orig_image_ids) {
+        const auto& images = related_images[image_id];
+        if (j >= images.size()) {
+          continue;
+        }
+        // image not exists in cluster so we add it in the overlap set
+        const int related_id = images[j].first;
+        if (cluster_images.count(related_id) == 0) {
+          cluster_images.insert(related_id);
+        }
+        if (cluster_images.size() >= max_size) {
+          break;
+        }
+      }
+    }
+    orig_image_ids.clear();
+    orig_image_ids.insert(orig_image_ids.end(), cluster_images.begin(),
+                          cluster_images.end());
+  }
+}
+
 const SceneClustering::Cluster* SceneClustering::GetRootCluster() const {
   return root_cluster_.get();
 }
@@ -192,6 +281,19 @@ std::vector<const SceneClustering::Cluster*> SceneClustering::GetLeafClusters()
   }
 
   return leaf_clusters;
+}
+
+SceneClustering SceneClustering::Create(const Options& options,
+                                        const Database& database) {
+  std::cout << "Reading scene graph..." << std::endl;
+  std::vector<std::pair<image_t, image_t>> image_pairs;
+  std::vector<int> num_inliers;
+  database.ReadTwoViewGeometryNumInliers(&image_pairs, &num_inliers);
+
+  std::cout << "Partitioning scene graph..." << std::endl;
+  SceneClustering scene_clustering(options);
+  scene_clustering.Partition(image_pairs, num_inliers);
+  return scene_clustering;
 }
 
 }  // namespace colmap

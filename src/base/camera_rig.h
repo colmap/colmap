@@ -101,7 +101,7 @@ class CameraRig {
   // the relative poses over all snapshots. The pose of the reference camera
   // will be the identity transformation. This assumes that the camera rig has
   // snapshots that are registered in the reconstruction.
-  void ComputeRelativePoses(const Reconstruction& reconstruction);
+  bool ComputeRelativePoses(const Reconstruction& reconstruction);
 
   // Compute the absolute camera pose of the rig. The absolute camera pose of
   // the rig is computed as the average of all relative camera poses in the rig

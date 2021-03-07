@@ -93,6 +93,9 @@ struct IncrementalMapperOptions {
   // The number of images to optimize in local bundle adjustment.
   int ba_local_num_images = 6;
 
+  // Ceres solver function tolerance for local bundle adjustment
+  double ba_local_function_tolerance = 0.0;
+
   // The maximum number of local bundle adjustment iterations.
   int ba_local_max_num_iterations = 25;
 
@@ -107,6 +110,9 @@ struct IncrementalMapperOptions {
   double ba_global_points_ratio = 1.1;
   int ba_global_images_freq = 500;
   int ba_global_points_freq = 250000;
+
+  // Ceres solver function tolerance for global bundle adjustment
+  double ba_global_function_tolerance = 0.0;
 
   // The maximum number of global bundle adjustment iterations.
   int ba_global_max_num_iterations = 50;
