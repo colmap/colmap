@@ -242,25 +242,7 @@ void NoCacheWorkspace::Load(const std::vector<std::string>& image_names) {
   confidence_maps_.resize(num_images);
   normal_maps_.resize(num_images);
 
-  Timer timer;
-  timer.Start();
-  int num_threads = GetEffectiveNumThreads(options_.num_threads);
-  std::cout << StringPrintf("Loading workspace data with %d threads...", num_threads) << std::endl;
-#ifdef OPENMP_ENABLED
-#pragma omp parallel for schedule(dynamic) num_threads(num_threads)
-#endif
-  for (int i = 0; i < image_names.size(); ++i) {
-    const int image_idx = model_.GetImageIdx(image_names[i]);
-
-    if (!HasBitmap(image_idx) || !HasDepthMap(image_idx)) {
-      std::cout
-          << StringPrintf(
-                 "WARNING: Ignoring image %s, because input does not exist.",
-                 image_names[i].c_str())
-          << std::endl;
-      continue;
-    }
-
+  auto LoadWorkspaceData = [&, this](int image_idx) {
     const size_t width = model_.images.at(image_idx).GetWidth();
     const size_t height = model_.images.at(image_idx).GetHeight();
 
@@ -310,7 +292,29 @@ void NoCacheWorkspace::Load(const std::vector<std::string>& image_names) {
         normal_maps_[image_idx]->Write(normal_map_path);
       }
     }
+  };
+
+  int num_threads = GetEffectiveNumThreads(options_.num_threads);
+  ThreadPool thread_pool(num_threads);
+  Timer timer;
+  timer.Start();
+
+  std::cout << StringPrintf("Loading workspace data with %d threads...",
+                            num_threads)
+            << std::endl;
+  for (int i = 0; i < image_names.size(); ++i) {
+    const int image_idx = model_.GetImageIdx(image_names[i]);
+    if (HasBitmap(image_idx) && HasDepthMap(image_idx)) {
+      thread_pool.AddTask(LoadWorkspaceData, image_idx);
+    } else {
+      std::cout
+          << StringPrintf(
+                 "WARNING: Ignoring image %s, because input does not exist.",
+                 image_names[i].c_str())
+          << std::endl;
+    }
   }
+  thread_pool.Wait();
   timer.PrintMinutes();
 }
 

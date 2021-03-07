@@ -123,7 +123,7 @@ class StereoFusion : public Thread {
  private:
   void Run();
   void InitFusedPixelMask(int image_idx, size_t width, size_t height);
-  void Fuse(int thread_id);
+  void Fuse(int thread_id, int image_idx, int row, int col);
 
   const StereoFusionOptions options_;
   const std::string workspace_path_;
@@ -147,33 +147,26 @@ class StereoFusion : public Thread {
   std::vector<Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> inv_R_;
 
   struct FusionData {
-    int image_idx = kInvalidImageId;
-    int row = 0;
-    int col = 0;
-    int traversal_depth = -1;
+    int image_idx;
+    int row;
+    int col;
+    int traversal_depth;
+    FusionData(int image_idx, int row, int col, int traversal_depth)
+        : image_idx(image_idx),
+          row(row),
+          col(col),
+          traversal_depth(traversal_depth) {}
     bool operator()(const FusionData& data1, const FusionData& data2) {
       return data1.image_idx > data2.image_idx;
     }
   };
 
-  // Next points to fuse.
-  std::vector<std::vector<FusionData>> fusion_queue_;
-
   // Already fused points.
   std::vector<PlyPoint> fused_points_;
   std::vector<std::vector<int>> fused_points_visibility_;
 
-  // Points of different pixels of the currently point to be fused.
-  std::vector<std::vector<float>> fused_point_x_;
-  std::vector<std::vector<float>> fused_point_y_;
-  std::vector<std::vector<float>> fused_point_z_;
-  std::vector<std::vector<float>> fused_point_nx_;
-  std::vector<std::vector<float>> fused_point_ny_;
-  std::vector<std::vector<float>> fused_point_nz_;
-  std::vector<std::vector<uint8_t>> fused_point_r_;
-  std::vector<std::vector<uint8_t>> fused_point_g_;
-  std::vector<std::vector<uint8_t>> fused_point_b_;
-  std::vector<std::unordered_set<int>> fused_point_visibility_;
+  std::vector<std::vector<PlyPoint>> task_fused_points_;
+  std::vector<std::vector<std::vector<int>>> task_fused_points_visibility_;
 };
 
 // Write the visiblity information into a binary file of the following format:
