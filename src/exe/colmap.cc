@@ -275,8 +275,7 @@ int RunStereoFuser(int argc, char** argv) {
   options.AddDefaultOption("pmvs_option_name", &pmvs_option_name);
   options.AddDefaultOption("input_type", &input_type,
                            "{photometric, geometric}");
-  options.AddDefaultOption("output_type", &output_type,
-                            "{BIN, TXT, PLY}");
+  options.AddDefaultOption("output_type", &output_type, "{BIN, TXT, PLY}");
   options.AddRequiredOption("output_path", &output_path);
   options.AddStereoFusionOptions();
   options.Parse(argc, argv);
@@ -1342,9 +1341,10 @@ int RunModelComparer(int argc, char** argv) {
   std::cout << StringPrintf("Points: %d", reconstruction2.NumPoints3D())
             << std::endl;
 
-  PrintHeading1("Comparing reconstruction image poses");
-  auto common_ids = reconstruction1.FindCommonRegImageIds(reconstruction2);
-  std::cout << StringPrintf("Common images: %d", common_ids.size())
+  PrintHeading1("Comparing reconstructed image poses");
+  const auto common_image_ids =
+      reconstruction1.FindCommonRegImageIds(reconstruction2);
+  std::cout << StringPrintf("Common images: %d", common_image_ids.size())
             << std::endl;
 
   Eigen::Matrix3x4d alignment;
@@ -1356,48 +1356,45 @@ int RunModelComparer(int argc, char** argv) {
   }
 
   const SimilarityTransform3 tform(alignment);
-  std::cout << "Transform:"  << std::endl << tform.Matrix() << std::endl;
+  std::cout << "Computed alignment transform:" << std::endl
+            << tform.Matrix() << std::endl;
 
-  const size_t num_images = common_ids.size();
-  std::vector<double> qdist(num_images, 0.0);
-  std::vector<double> tdist(num_images, 0.0);
-  std::vector<double> pdist(num_images, 0.0);
-  double qavg = 0.0;
-  double tavg = 0.0;
-  double pavg = 0.0;
+  const size_t num_images = common_image_ids.size();
+  std::vector<double> rotation_errors(num_images, 0.0);
+  std::vector<double> translation_errors(num_images, 0.0);
+  std::vector<double> proj_center_errors(num_images, 0.0);
   for (size_t i = 0; i < num_images; ++i) {
-    const auto im_id = common_ids[i];
-    const auto im1 = reconstruction1.Image(im_id);
-    auto& im2 = reconstruction2.Image(im_id);
-    tform.TransformPose(&im2.Qvec(), &im2.Tvec());
+    const image_t image_id = common_image_ids[i];
+    const Image& image1 = reconstruction1.Image(image_id);
+    Image& image2 = reconstruction2.Image(image_id);
+    tform.TransformPose(&image2.Qvec(), &image2.Tvec());
 
-    Eigen::Vector4d tmp = NormalizeQuaternion(im1.Qvec());
-    Eigen::Quaterniond q1(tmp(0), tmp(1), tmp(2), tmp(3));
-    tmp = NormalizeQuaternion(im2.Qvec());
-    Eigen::Quaterniond q2(tmp(0), tmp(1), tmp(2), tmp(3));
+    const Eigen::Vector4d normalized_qvec1 = NormalizeQuaternion(image1.Qvec());
+    const Eigen::Quaterniond quat1(normalized_qvec1(0), normalized_qvec1(1),
+                                   normalized_qvec1(2), normalized_qvec1(3));
+    const Eigen::Vector4d normalized_qvec2 = NormalizeQuaternion(image2.Qvec());
+    const Eigen::Quaterniond quat2(normalized_qvec2(0), normalized_qvec2(1),
+                                   normalized_qvec2(2), normalized_qvec2(3));
 
-    qdist[i] = RadToDeg(q1.angularDistance(q2));
-    tdist[i] = (im1.Tvec() - im2.Tvec()).norm();
-    pdist[i] = (im1.ProjectionCenter() - im2.ProjectionCenter()).norm();
-
-    qavg += qdist[i];
-    tavg += tdist[i];
-    pavg += pdist[i];
+    rotation_errors[i] = RadToDeg(quat1.angularDistance(quat2));
+    translation_errors[i] = (image1.Tvec() - image2.Tvec()).norm();
+    proj_center_errors[i] =
+        (image1.ProjectionCenter() - image2.ProjectionCenter()).norm();
   }
-  qavg /= num_images;
-  tavg /= num_images;
-  pavg /= num_images;
 
   if (output_path.empty()) {
-    PrintComparisonSummary(std::cout, qdist, tdist, pdist);
+    PrintComparisonSummary(std::cout, rotation_errors, translation_errors,
+                           proj_center_errors);
   } else {
-    const std::string error_path = JoinPaths(output_path, "errors.csv");
-    WriteComparisonErrorsCSV(error_path, qdist, tdist, pdist);
+    const std::string errors_path = JoinPaths(output_path, "errors.csv");
+    WriteComparisonErrorsCSV(errors_path, rotation_errors, translation_errors,
+                             proj_center_errors);
     const std::string summary_path =
-        JoinPaths(output_path, "error_summary.txt");
+        JoinPaths(output_path, "errors_summary.txt");
     std::ofstream file(summary_path, std::ios::trunc);
     CHECK(file.is_open()) << summary_path;
-    PrintComparisonSummary(file, qdist, tdist, pdist);
+    PrintComparisonSummary(file, rotation_errors, translation_errors,
+                           proj_center_errors);
   }
 
   return EXIT_SUCCESS;
