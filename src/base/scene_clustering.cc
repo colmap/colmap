@@ -217,17 +217,17 @@ void SceneClustering::PartitionFlatCluster(
   // We do the process sequentially for each image to ensure that at
   // least we get the best matches firat
   for (int i = 0; i < options_.branching; ++i) {
-    auto& orig_images = root_cluster_->child_clusters[i].image_ids;
+    auto& orig_image_ids = root_cluster_->child_clusters[i].image_ids;
     std::set<int> cluster_images(
         root_cluster_->child_clusters[i].image_ids.begin(),
         root_cluster_->child_clusters[i].image_ids.end());
-    const int max_size = cluster_images.size() + options_.image_overlap;
+    const size_t max_size = cluster_images.size() + options_.image_overlap;
     // check up to all the desired matches
-    for (int j = 0;
-         j < options_.num_image_matches && cluster_images.size() < max_size;
+    for (size_t j = 0; j < static_cast<size_t>(options_.num_image_matches) &&
+                       cluster_images.size() < max_size;
          ++j) {
-      for (auto im_id : orig_images) {
-        const auto& images = related_images[im_id];
+      for (const image_t image_id : orig_image_ids) {
+        const auto& images = related_images[image_id];
         if (j >= images.size()) {
           continue;
         }
@@ -241,9 +241,9 @@ void SceneClustering::PartitionFlatCluster(
         }
       }
     }
-    orig_images.clear();
-    orig_images.insert(orig_images.end(), cluster_images.begin(),
-                       cluster_images.end());
+    orig_image_ids.clear();
+    orig_image_ids.insert(orig_image_ids.end(), cluster_images.begin(),
+                          cluster_images.end());
   }
 }
 
