@@ -512,6 +512,19 @@ bool VerifyCameraParams(const std::string& camera_model,
 // | PER_FOLDER | false         | true                     | false                   |
 // | PER_IMAGE  | false         | false                    | true                    |
 // -----------------------------------------------------------------------------------
+//
+// Note: When using AUTO mode a camera will be uniquely identified by the
+// following 5 parameters:
+// 1. Camera Make (from EXIF tags if exists)
+// 2. Camera Model (from EXIF tags if exists)
+// 3. Focal Length (from EXIF tags if exists)
+// 4. Image Width
+// 5. Image Height
+//
+// If these considered fields are not sufficient to uniquely identify a camera
+// then using the AUTO mode will lead to incorrect setup for the cameras, e.g. the same
+// camera is used with same focal length but different principal point between captures.
+// In these cases it is recommended to either use the PER_FOLDER or PER_IMAGE settings.
 enum class CameraMode { AUTO = 0, SINGLE = 1, PER_FOLDER = 2, PER_IMAGE = 3 };
 
 void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
