@@ -1256,10 +1256,10 @@ int RunModelAnalyzer(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-void WriteComparisonErrors(const std::string& path,
-                           const std::vector<double>& rotation_errors,
-                           const std::vector<double>& translation_errors,
-                           const std::vector<double>& proj_center_errors) {
+void WriteComparisonErrorsCSV(const std::string& path,
+                              const std::vector<double>& rotation_errors,
+                              const std::vector<double>& translation_errors,
+                              const std::vector<double>& proj_center_errors) {
   CHECK_EQ(rotation_errors.size(), translation_errors.size());
   CHECK_EQ(rotation_errors.size(), proj_center_errors.size());
 
@@ -1267,7 +1267,7 @@ void WriteComparisonErrors(const std::string& path,
   CHECK(file.is_open()) << path;
 
   file.precision(17);
-  file << "# Model comparison pose errors; one entry per common image"
+  file << "# Model comparison pose errors: one entry per common image"
        << std::endl;
   file << "# <rotation error (deg)>, <translation error>, <proj center error>"
        << std::endl;
@@ -1275,16 +1275,19 @@ void WriteComparisonErrors(const std::string& path,
     file << rotation_errors[i] << ", " << translation_errors[i] << ", "
          << proj_center_errors[i] << std::endl;
   }
-  file.close();
 }
 
 void PrintErrorStats(std::ostream& out, std::vector<double>& vals) {
   const size_t len = vals.size();
+  if (len == 0) {
+    out << "Cannot extract error statistics from empty input" << std::endl;
+    return;
+  }
   std::sort(vals.begin(), vals.end());
-  out << "Min:    " << vals[0] << std::endl;
-  out << "Max:    " << vals[len - 1] << std::endl;
+  out << "Min:    " << vals.front() << std::endl;
+  out << "Max:    " << vals.back() << std::endl;
   out << "Mean:   " << Mean(vals) << std::endl;
-  out << "Median: " << vals[len / 2] << std::endl;
+  out << "Median: " << Median(vals) << std::endl;
   out << "P90:    " << vals[size_t(0.9 * len)] << std::endl;
   out << "P99:    " << vals[size_t(0.99 * len)] << std::endl;
 }
@@ -1293,7 +1296,7 @@ void PrintComparisonSummary(std::ostream& out,
                             std::vector<double>& rotation_errors,
                             std::vector<double>& translation_errors,
                             std::vector<double>& proj_center_errors) {
-  out << "## Image pose error summary" << std::endl;
+  out << "# Image pose error summary" << std::endl;
   out << std::endl << "Rotation angular errors (degrees)" << std::endl;
   PrintErrorStats(out, rotation_errors);
   out << std::endl << "Translation distance errors" << std::endl;
@@ -1353,14 +1356,16 @@ int RunModelComparer(int argc, char** argv) {
   }
 
   const SimilarityTransform3 tform(alignment);
-  std::cout << "Transform:\n" << tform.Matrix() << std::endl;
+  std::cout << "Transform:"  << std::endl << tform.Matrix() << std::endl;
 
   const size_t num_images = common_ids.size();
   std::vector<double> qdist(num_images, 0.0);
   std::vector<double> tdist(num_images, 0.0);
   std::vector<double> pdist(num_images, 0.0);
-  double qavg = 0.0, tavg = 0.0, pavg = 0.0;
-  for (int i = 0; i < num_images; ++i) {
+  double qavg = 0.0;
+  double tavg = 0.0;
+  double pavg = 0.0;
+  for (size_t i = 0; i < num_images; ++i) {
     const auto im_id = common_ids[i];
     const auto im1 = reconstruction1.Image(im_id);
     auto& im2 = reconstruction2.Image(im_id);
@@ -1387,13 +1392,12 @@ int RunModelComparer(int argc, char** argv) {
     PrintComparisonSummary(std::cout, qdist, tdist, pdist);
   } else {
     const std::string error_path = JoinPaths(output_path, "errors.csv");
-    WriteComparisonErrors(error_path, qdist, tdist, pdist);
+    WriteComparisonErrorsCSV(error_path, qdist, tdist, pdist);
     const std::string summary_path =
         JoinPaths(output_path, "error_summary.txt");
     std::ofstream file(summary_path, std::ios::trunc);
     CHECK(file.is_open()) << summary_path;
     PrintComparisonSummary(file, qdist, tdist, pdist);
-    file.close();
   }
 
   return EXIT_SUCCESS;
