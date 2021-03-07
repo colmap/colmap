@@ -260,9 +260,12 @@ void StereoFusion::Run() {
             << std::endl;
   ThreadPool thread_pool(num_threads);
 
+  // Using a row stride of 10 to avoid starting parallel processing in rows that
+  // are too close to each other which may lead to duplicated work, since nearby
+  // pixels are likely to get fused into the same point.
   const int kRowStride = 10;
-  auto ProcessImageRows = [&, this](int row_start, int height, int width,
-                                    int image_idx,
+  auto ProcessImageRows = [&, this](const int row_start, const int height,
+                                    const int width, const int image_idx,
                                     const Mat<char>& fused_pixel_mask) {
     const int row_end = std::min(height, row_start + kRowStride);
     for (int row = row_start; row < row_end; ++row) {
@@ -317,17 +320,18 @@ void StereoFusion::Run() {
 
   fused_points_.reserve(total_fused_points);
   fused_points_visibility_.reserve(total_fused_points);
-  for (size_t task_id = 0; task_id < task_fused_points_.size(); ++task_id) {
+  for (size_t thread_id = 0; thread_id < task_fused_points_.size();
+       ++thread_id) {
     fused_points_.insert(fused_points_.end(),
-                         task_fused_points_[task_id].begin(),
-                         task_fused_points_[task_id].end());
-    task_fused_points_[task_id].clear();
+                         task_fused_points_[thread_id].begin(),
+                         task_fused_points_[thread_id].end());
+    task_fused_points_[thread_id].clear();
 
     fused_points_visibility_.insert(
         fused_points_visibility_.end(),
-        task_fused_points_visibility_[task_id].begin(),
-        task_fused_points_visibility_[task_id].end());
-    task_fused_points_visibility_[task_id].clear();
+        task_fused_points_visibility_[thread_id].begin(),
+        task_fused_points_visibility_[thread_id].end());
+    task_fused_points_visibility_[thread_id].clear();
   }
 
   if (fused_points_.empty()) {
@@ -364,7 +368,8 @@ void StereoFusion::InitFusedPixelMask(int image_idx, size_t width,
   }
 }
 
-void StereoFusion::Fuse(int thread_id, int image_idx, int row, int col) {
+void StereoFusion::Fuse(const int thread_id, const int image_idx, const int row,
+                        const int col) {
   // Next points to fuse.
   std::vector<FusionData> fusion_queue;
   fusion_queue.emplace_back(image_idx, row, col, 0);
@@ -502,8 +507,10 @@ void StereoFusion::Fuse(int thread_id, int image_idx, int row, int col) {
 
       const Eigen::Vector3f next_proj =
           P_.at(next_image_idx) * xyz.homogeneous();
-      int next_col = static_cast<int>(std::round(next_proj(0) / next_proj(2)));
-      int next_row = static_cast<int>(std::round(next_proj(1) / next_proj(2)));
+      const int next_col =
+          static_cast<int>(std::round(next_proj(0) / next_proj(2)));
+      const int next_row =
+          static_cast<int>(std::round(next_proj(1) / next_proj(2)));
 
       const auto& depth_map_size = depth_map_sizes_.at(next_image_idx);
       if (next_col < 0 || next_row < 0 || next_col >= depth_map_size.first ||

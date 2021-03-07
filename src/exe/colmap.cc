@@ -307,7 +307,6 @@ int RunStereoFuser(int argc, char** argv) {
       auto& max_bound = options.stereo_fusion->bounding_box.second;
       file >> min_bound(0) >> min_bound(1) >> min_bound(2);
       file >> max_bound(0) >> max_bound(1) >> max_bound(2);
-      file.close();
     } else {
       std::cout << "WARN: Invalid bounds path: \"" << bbox_path
                 << "\" - continuing without bounds check" << std::endl;

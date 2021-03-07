@@ -242,7 +242,7 @@ void NoCacheWorkspace::Load(const std::vector<std::string>& image_names) {
   confidence_maps_.resize(num_images);
   normal_maps_.resize(num_images);
 
-  auto LoadWorkspaceData = [&, this](int image_idx) {
+  auto LoadWorkspaceData = [&, this](const int image_idx) {
     const size_t width = model_.images.at(image_idx).GetWidth();
     const size_t height = model_.images.at(image_idx).GetHeight();
 
@@ -294,7 +294,7 @@ void NoCacheWorkspace::Load(const std::vector<std::string>& image_names) {
     }
   };
 
-  int num_threads = GetEffectiveNumThreads(options_.num_threads);
+  const int num_threads = GetEffectiveNumThreads(options_.num_threads);
   ThreadPool thread_pool(num_threads);
   Timer timer;
   timer.Start();
@@ -302,7 +302,7 @@ void NoCacheWorkspace::Load(const std::vector<std::string>& image_names) {
   std::cout << StringPrintf("Loading workspace data with %d threads...",
                             num_threads)
             << std::endl;
-  for (int i = 0; i < image_names.size(); ++i) {
+  for (size_t i = 0; i < image_names.size(); ++i) {
     const int image_idx = model_.GetImageIdx(image_names[i]);
     if (HasBitmap(image_idx) && HasDepthMap(image_idx)) {
       thread_pool.AddTask(LoadWorkspaceData, image_idx);
