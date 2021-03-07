@@ -867,8 +867,7 @@ void Reconstruction::ImportPLY(const std::string& path) {
   }
 }
 
-void Reconstruction::ImportPLY(const std::vector<PlyPoint> &ply_points)
-{
+void Reconstruction::ImportPLY(const std::vector<PlyPoint>& ply_points) {
   points3D_.clear();
   points3D_.reserve(ply_points.size());
   for (const auto& ply_point : ply_points) {
@@ -995,18 +994,17 @@ bool Reconstruction::ExportCam(const std::string& path,
                 << std::endl;
       return false;
     }
-    Eigen::Vector3d proj_center = image.ProjectionCenter();
-    Eigen::Matrix3d rot_mtx = image.RotationMatrix();
-    double max_size = std::max(camera.Width(), camera.Height());
+
+    const Eigen::Matrix3d rot_mat = image.RotationMatrix();
+    const double max_image_size = std::max(camera.Width(), camera.Height());
     file << image.Tvec(0) << " " << image.Tvec(1) << " " << image.Tvec(2) << " "
-         << rot_mtx(0, 0) << " " << rot_mtx(0, 1) << " " << rot_mtx(0, 2) << " "
-         << rot_mtx(1, 0) << " " << rot_mtx(1, 1) << " " << rot_mtx(1, 2) << " "
-         << rot_mtx(2, 0) << " " << rot_mtx(2, 1) << " " << rot_mtx(2, 2)
+         << rot_mat(0, 0) << " " << rot_mat(0, 1) << " " << rot_mat(0, 2) << " "
+         << rot_mat(1, 0) << " " << rot_mat(1, 1) << " " << rot_mat(1, 2) << " "
+         << rot_mat(2, 0) << " " << rot_mat(2, 1) << " " << rot_mat(2, 2)
          << std::endl;
-    file << camera.MeanFocalLength() / max_size << " " << k1 << " " << k2 << " 1.0 "
-         << camera.PrincipalPointX() / camera.Width() << " "
+    file << camera.MeanFocalLength() / max_image_size << " " << k1 << " " << k2
+         << " 1.0 " << camera.PrincipalPointX() / camera.Width() << " "
          << camera.PrincipalPointY() / camera.Height() << std::endl;
-    file.close();
   }
 
   return true;
@@ -1055,7 +1053,8 @@ bool Reconstruction::ExportRecon3D(const std::string& path,
       k1 = -1 * camera.Params(RadialCameraModel::extra_params_idxs[0]);
       k2 = -1 * camera.Params(RadialCameraModel::extra_params_idxs[1]);
     } else {
-      std::cout << "WARNING: Recon3D only supports `SIMPLE_RADIAL` and `RADIAL` camera model."
+      std::cout << "WARNING: Recon3D only supports `SIMPLE_RADIAL` and "
+                   "`RADIAL` camera model."
                 << std::endl;
       return false;
     }
@@ -1064,8 +1063,10 @@ bool Reconstruction::ExportRecon3D(const std::string& path,
         1.0 / (double)std::max(camera.Width(), camera.Height());
     synth_file << scale * camera.MeanFocalLength() << " " << k1 << " " << k2
                << std::endl;
-    synth_file << QuaternionToRotationMatrix(NormalizeQuaternion(image.Qvec())) << std::endl;
-    synth_file << image.Tvec(0) << " " << image.Tvec(1) << " " << image.Tvec(2) << std::endl;
+    synth_file << QuaternionToRotationMatrix(NormalizeQuaternion(image.Qvec()))
+               << std::endl;
+    synth_file << image.Tvec(0) << " " << image.Tvec(1) << " " << image.Tvec(2)
+               << std::endl;
 
     image_id_to_idx_[image_id] = image_idx;
     image_list_file << image.Name() << std::endl
@@ -1080,8 +1081,10 @@ bool Reconstruction::ExportRecon3D(const std::string& path,
   // Write point info
   for (const auto& point3D : points3D_) {
     auto& p = point3D.second;
-    synth_file << p.XYZ()(0) << " " << p.XYZ()(1) << " " << p.XYZ()(2) << std::endl;
-    synth_file << (int)p.Color(0) << " " << (int)p.Color(1) << " " << (int)p.Color(2) << std::endl;
+    synth_file << p.XYZ()(0) << " " << p.XYZ()(1) << " " << p.XYZ()(2)
+               << std::endl;
+    synth_file << (int)p.Color(0) << " " << (int)p.Color(1) << " "
+               << (int)p.Color(2) << std::endl;
 
     std::ostringstream line;
 
@@ -1146,7 +1149,7 @@ bool Reconstruction::ExportBundler(const std::string& path,
       k1 = 0.0;
       k2 = 0.0;
     } else if (camera.ModelId() == SimplePinholeCameraModel::model_id ||
-        camera.ModelId() == PinholeCameraModel::model_id) {
+               camera.ModelId() == PinholeCameraModel::model_id) {
       k1 = 0.0;
       k2 = 0.0;
     } else if (camera.ModelId() == SimpleRadialCameraModel::model_id) {
