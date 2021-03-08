@@ -84,7 +84,7 @@ struct ImageReaderOptions {
   // have focal length EXIF information, the focal length is set to the
   // value `default_focal_length_factor * max(width, height)`.
   double default_focal_length_factor = 1.2;
-  
+
   // Optional path to an image file specifying a mask for all images. No
   // features will be extracted in regions where the mask is black (pixel
   // intensity value 0 in grayscale).

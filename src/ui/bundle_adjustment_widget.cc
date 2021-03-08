@@ -102,8 +102,6 @@ void BundleAdjustmentWidget::Run() {
   thread_control_widget_->StartThread("Bundle adjusting...", true, thread);
 }
 
-void BundleAdjustmentWidget::Render() {
-  main_window_->RenderNow();
-}
+void BundleAdjustmentWidget::Render() { main_window_->RenderNow(); }
 
 }  // namespace colmap

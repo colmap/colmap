@@ -1,0 +1,16 @@
+--triplet
+x64-windows
+boost-filesystem
+boost-graph
+boost-program-options
+boost-regex
+boost-system
+boost-test
+ceres[lapack,suitesparse]
+cgal
+eigen3
+freeimage
+gflags
+glew
+glog
+qt5-base

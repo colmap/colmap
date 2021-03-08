@@ -24,6 +24,7 @@ jobs:
     displayName: 'Install dependencies'
 
   - script: |
+      export PATH="/usr/local/opt/qt@5/bin:$PATH"
       cmake --version
       mkdir build
       cd build

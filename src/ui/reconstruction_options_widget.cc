@@ -102,7 +102,7 @@ MapperInitializationOptionsWidget::MapperInitializationOptionsWidget(
   AddOptionDouble(&options->mapper->mapper.init_min_tri_angle,
                   "init_min_tri_angle [deg]");
   AddOptionInt(&options->mapper->mapper.init_max_reg_trials,
-                  "init_max_reg_trials", 1);
+               "init_max_reg_trials", 1);
 }
 
 MapperBundleAdjustmentOptionsWidget::MapperBundleAdjustmentOptionsWidget(

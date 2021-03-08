@@ -82,6 +82,21 @@ void SplitFileExtension(const std::string& path, std::string* root,
   }
 }
 
+void FileCopy(const std::string& src_path, const std::string& dst_path,
+              CopyType type) {
+  switch (type) {
+    case CopyType::COPY:
+      boost::filesystem::copy_file(src_path, dst_path);
+      break;
+    case CopyType::HARD_LINK:
+      boost::filesystem::create_hard_link(src_path, dst_path);
+      break;
+    case CopyType::SOFT_LINK:
+      boost::filesystem::create_symlink(src_path, dst_path);
+      break;
+  }
+}
+
 bool ExistsFile(const std::string& path) {
   return boost::filesystem::is_regular_file(path);
 }

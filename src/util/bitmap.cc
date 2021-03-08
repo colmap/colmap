@@ -34,8 +34,8 @@
 #include <regex>
 #include <unordered_map>
 
-#include "base/camera_database.h"
 #include "VLFeat/imopv.h"
+#include "base/camera_database.h"
 #include "util/logging.h"
 #include "util/math.h"
 #include "util/misc.h"
