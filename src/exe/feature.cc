@@ -78,13 +78,16 @@ bool VerifyCameraParams(const std::string& camera_model,
 // | PER_IMAGE  | false         | false                    | true                    |
 // -----------------------------------------------------------------------------------
 //
-// Note: When using AUTO mode a camera will be uniquely identified by the
-// following 5 parameters:
-// 1. Camera Make (from EXIF tags if exists)
-// 2. Camera Model (from EXIF tags if exists)
-// 3. Focal Length (from EXIF tags if exists)
+// Note: When using AUTO mode a camera model will be uniquely identified by the
+// following 5 parameters from EXIF tags:
+// 1. Camera Make
+// 2. Camera Model
+// 3. Focal Length
 // 4. Image Width
 // 5. Image Height
+//
+// If any of the tags is missing then a camera model is considered invalid and a
+// new camera is created similar to the PER_IMAGE mode.
 //
 // If these considered fields are not sufficient to uniquely identify a camera
 // then using the AUTO mode will lead to incorrect setup for the cameras, e.g.
