@@ -29,6 +29,19 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
+#include <iostream>
+
+#ifdef GUI_ENABLED
+#include <QApplication>
+#include "ui/main_window.h"
+#else
+// Dummy QApplication class when GUI is disabled
+class QApplication {
+ public:
+  QApplication(int argc, char** argv) {}
+};
+#endif
+
 namespace colmap {
 
 #ifdef CUDA_ENABLED

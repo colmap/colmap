@@ -61,7 +61,12 @@ struct RenderOptions {
   // The projection type of the renderer.
   int projection_type = ProjectionType::PERSPECTIVE;
 
+#ifndef GUI_ENABLED
+  // dummy check for render options when GUI is disabled
+  inline bool Check() const { return true; }
+#else
   bool Check() const;
+#endif
 };
 
 }  // namespace colmap

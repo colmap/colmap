@@ -31,8 +31,6 @@
 
 #include "exe/feature.h"
 
-#include <QApplication>
-
 #include "base/camera_models.h"
 #include "base/image_reader.h"
 #include "exe/gui.h"
