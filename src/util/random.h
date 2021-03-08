@@ -33,6 +33,7 @@
 #define COLMAP_SRC_UTIL_RANDOM_H_
 
 #include <chrono>
+#include <memory>
 #include <random>
 #include <thread>
 
