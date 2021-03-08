@@ -191,7 +191,7 @@ CorrespondenceGraph::FindTransitiveCorrespondences(
       const std::vector<Correspondence>& ref_corrs =
           image.corrs[ref_corr.point2D_idx];
 
-      for (const Correspondence corr : ref_corrs) {
+      for (const Correspondence& corr : ref_corrs) {
         // Check if correspondence already collected, otherwise collect.
         auto& corr_image_corrs = image_corrs[corr.image_id];
         if (corr_image_corrs.count(corr.point2D_idx) == 0) {

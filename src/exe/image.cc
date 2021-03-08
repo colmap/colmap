@@ -97,7 +97,7 @@ int RunImageDeleter(int argc, char** argv) {
   if (!image_ids_path.empty()) {
     const auto image_ids = ReadTextFileLines(image_ids_path);
 
-    for (const auto image_id_str : image_ids) {
+    for (const auto& image_id_str : image_ids) {
       if (image_id_str.empty()) {
         continue;
       }
@@ -124,7 +124,7 @@ int RunImageDeleter(int argc, char** argv) {
   if (!image_names_path.empty()) {
     const auto image_names = ReadTextFileLines(image_names_path);
 
-    for (const auto image_name : image_names) {
+    for (const auto& image_name : image_names) {
       if (image_name.empty()) {
         continue;
       }
