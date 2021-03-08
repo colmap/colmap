@@ -41,7 +41,7 @@
 
 namespace colmap {
 
-extern thread_local std::mt19937* PRNG;
+extern thread_local std::unique_ptr<std::mt19937> PRNG;
 
 static int kDefaultPRNGSeed = 0;
 
