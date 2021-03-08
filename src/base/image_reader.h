@@ -122,7 +122,7 @@ class ImageReader {
   size_t image_index_;
   // Previously processed camera.
   Camera prev_camera_;
-  std::unordered_map<std::string, camera_t> cameras_;
+  std::unordered_map<std::string, camera_t> camera_model_to_id_;
   // Names of image sub-folders.
   std::string prev_image_folder_;
   std::unordered_set<std::string> image_folders_;
