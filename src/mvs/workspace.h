@@ -38,6 +38,7 @@
 #include "mvs/normal_map.h"
 #include "util/bitmap.h"
 #include "util/cache.h"
+#include "util/misc.h"
 
 namespace colmap {
 namespace mvs {
@@ -68,38 +69,90 @@ class Workspace {
 
   Workspace(const Options& options);
 
-  void ClearCache();
+  // Do nothing when we use a cache. Data is loaded as needed.
+  virtual void Load(const std::vector<std::string>& image_names);
 
-  const Options& GetOptions() const;
+  inline const Options& GetOptions() const { return options_; }
 
-  const Model& GetModel() const;
-  virtual const Bitmap& GetBitmap(const int image_idx);
-  virtual const DepthMap& GetDepthMap(const int image_idx);
-  virtual const ConfidenceMap& GetConfidenceMap(const int image_idx);
-  virtual const NormalMap& GetNormalMap(const int image_idx);
+  inline const Model& GetModel() const { return model_; }
+
+  virtual inline const Bitmap& GetBitmap(const int image_idx) {
+    return *bitmaps_[image_idx];
+  }
+  virtual inline const DepthMap& GetDepthMap(const int image_idx) {
+    return *depth_maps_[image_idx];
+  }
+  virtual inline const ConfidenceMap& GetConfidenceMap(const int image_idx) {
+    return *confidence_maps_[image_idx];
+  }
+  virtual inline const NormalMap& GetNormalMap(const int image_idx) {
+    return *normal_maps_[image_idx];
+  }
 
   // Get paths to bitmap, depth map, normal map and consistency graph.
-  std::string GetBitmapPath(const int image_idx) const;
-  std::string GetDepthMapPath(const int image_idx) const;
-  std::string GetNormalMapPath(const int image_idx) const;
+  inline std::string GetBitmapPath(const int image_idx) const {
+    return model_.images.at(image_idx).GetPath();
+  }
+  inline std::string GetDepthMapPath(const int image_idx) const {
+    return depth_map_path_ + GetFileName(image_idx);
+  }
+  inline std::string GetConfidenceMapPath(const int image_idx) const {
+    return confidence_map_path_ + GetFileName(image_idx);
+  }
+  inline std::string GetNormalMapPath(const int image_idx) const {
+    return normal_map_path_ + GetFileName(image_idx);
+  }
 
   // Return whether bitmap, depth map, normal map, and consistency graph exist.
-  bool HasBitmap(const int image_idx) const;
-  bool HasDepthMap(const int image_idx) const;
-  bool HasNormalMap(const int image_idx) const;
-
-  // Do nothing when we use a cache. Data is loaded as needed.
-  virtual void Load(const std::vector<std::string>& image_names) {}
+  inline bool HasBitmap(const int image_idx) const {
+    return ExistsFile(GetBitmapPath(image_idx));
+  }
+  inline bool HasDepthMap(const int image_idx) const {
+    return ExistsFile(GetDepthMapPath(image_idx));
+  }
+  inline bool HasConfidenceMap(const int image_idx) const {
+    return ExistsFile(GetConfidenceMapPath(image_idx));
+  }
+  inline bool HasNormalMap(const int image_idx) const {
+    return ExistsFile(GetNormalMapPath(image_idx));
+  }
 
  protected:
   std::string GetFileName(const int image_idx) const;
 
+  Options options_;
+  Model model_;
+
+ private:
+  std::string depth_map_path_;
+  std::string confidence_map_path_;
+  std::string normal_map_path_;
+  std::vector<std::unique_ptr<Bitmap>> bitmaps_;
+  std::vector<std::unique_ptr<DepthMap>> depth_maps_;
+  std::vector<std::unique_ptr<ConfidenceMap>> confidence_maps_;
+  std::vector<std::unique_ptr<NormalMap>> normal_maps_;
+};
+
+class CachedWorkspace : public Workspace {
+ public:
+  CachedWorkspace(const Options& options);
+
+  void Load(const std::vector<std::string>& image_names) override {}
+
+  inline void ClearCache() { cache_.Clear(); }
+
+  const Bitmap& GetBitmap(const int image_idx) override;
+  const DepthMap& GetDepthMap(const int image_idx) override;
+  const ConfidenceMap& GetConfidenceMap(const int image_idx) override;
+  const NormalMap& GetNormalMap(const int image_idx) override;
+
+ private:
   class CachedImage {
    public:
-    CachedImage();
+    CachedImage() {}
     CachedImage(CachedImage&& other);
     CachedImage& operator=(CachedImage&& other);
-    size_t NumBytes() const;
+    inline size_t NumBytes() const { return num_bytes; }
     size_t num_bytes = 0;
     std::unique_ptr<Bitmap> bitmap;
     std::unique_ptr<DepthMap> depth_map;
@@ -109,40 +162,7 @@ class Workspace {
     NON_COPYABLE(CachedImage)
   };
 
-  Options options_;
-  Model model_;
   MemoryConstrainedLRUCache<int, CachedImage> cache_;
-  std::string depth_map_path_;
-  std::string normal_map_path_;
-};
-
-class NoCacheWorkspace : public Workspace {
- public:
-  NoCacheWorkspace(const Options& options) : Workspace(options) {}
-
-  void Load(const std::vector<std::string>& image_names) override;
-
-  inline const Bitmap& GetBitmap(const int image_idx) override {
-    return *bitmaps_[image_idx];
-  }
-
-  inline const DepthMap& GetDepthMap(const int image_idx) override {
-    return *depth_maps_[image_idx];
-  }
-
-  inline const ConfidenceMap& GetConfidenceMap(const int image_idx) override {
-    return *confidence_maps_[image_idx];
-  }
-
-  inline const NormalMap& GetNormalMap(const int image_idx) override {
-    return *normal_maps_[image_idx];
-  }
-
- private:
-  std::vector<std::unique_ptr<Bitmap>> bitmaps_;
-  std::vector<std::unique_ptr<DepthMap>> depth_maps_;
-  std::vector<std::unique_ptr<ConfidenceMap>> confidence_maps_;
-  std::vector<std::unique_ptr<NormalMap>> normal_maps_;
 };
 
 // Import a PMVS workspace into the COLMAP workspace format. Only images in the

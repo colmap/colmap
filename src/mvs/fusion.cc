@@ -173,9 +173,9 @@ void StereoFusion::Run() {
       workspace_path_, workspace_options.stereo_folder, "fusion.cfg"));
   int num_threads = 1;
   if (options_.use_cache) {
-    workspace_.reset(new Workspace(workspace_options));
+    workspace_.reset(new CachedWorkspace(workspace_options));
   } else {
-    workspace_.reset(new NoCacheWorkspace(workspace_options));
+    workspace_.reset(new Workspace(workspace_options));
     workspace_->Load(image_names);
     num_threads = GetEffectiveNumThreads(options_.num_threads);
   }
