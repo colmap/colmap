@@ -353,7 +353,7 @@ void PatchMatchController::ReadProblems() {
       src_images.reserve(overlapping_images.size());
       for (const auto& image : overlapping_images) {
         if (overlapping_triangulation_angles.at(image.first) >=
-                min_triangulation_angle_rad) {
+            min_triangulation_angle_rad) {
           src_images.emplace_back(image.first, image.second);
         }
       }

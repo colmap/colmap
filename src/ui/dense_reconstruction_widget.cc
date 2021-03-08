@@ -207,8 +207,7 @@ DenseReconstructionWidget::DenseReconstructionWidget(MainWindow* main_window,
   setWindowFlags(Qt::Dialog);
   setWindowModality(Qt::ApplicationModal);
   setWindowTitle("Dense reconstruction");
-  resize(main_window_->size().width() - 20,
-         main_window_->size().height() - 20);
+  resize(main_window_->size().width() - 20, main_window_->size().height() - 20);
 
   QGridLayout* grid = new QGridLayout(this);
 

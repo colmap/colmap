@@ -294,7 +294,7 @@ class Reconstruction {
 
   // Exports in Recon3D format which consists of three text files with the
   // following format and content:
-  // 1) imagemap_0.txt: just a list of image numeric IDs with one entry per line.
+  // 1) imagemap_0.txt: a list of image numeric IDs with one entry per line.
   // 2) urd-images.txt: A list of images with one entry per line as:
   //    <image file name> <width> <height>
   // 3) synth_0.out: Contains information for image poses, camera intrinsics,

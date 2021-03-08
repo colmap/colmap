@@ -83,7 +83,8 @@ void WriteCOLMAPCommands(const bool geometric,
                          const std::string& output_prefix,
                          const std::string& indent, std::ofstream* file) {
   if (geometric) {
-    *file << indent << "$COLMAP_EXE_PATH/colmap patch_match_stereo \\" << std::endl;
+    *file << indent << "$COLMAP_EXE_PATH/colmap patch_match_stereo \\"
+          << std::endl;
     *file << indent << "  --workspace_path " << workspace_path << " \\"
           << std::endl;
     *file << indent << "  --workspace_format " << workspace_format << " \\"
@@ -97,7 +98,8 @@ void WriteCOLMAPCommands(const bool geometric,
     *file << indent << "  --PatchMatchStereo.geom_consistency true"
           << std::endl;
   } else {
-    *file << indent << "$COLMAP_EXE_PATH/colmap patch_match_stereo \\" << std::endl;
+    *file << indent << "$COLMAP_EXE_PATH/colmap patch_match_stereo \\"
+          << std::endl;
     *file << indent << "  --workspace_path " << workspace_path << " \\"
           << std::endl;
     *file << indent << "  --workspace_format " << workspace_format << " \\"
@@ -379,7 +381,7 @@ void PMVSUndistorter::WriteVisibilityData() const {
       const Point2D& point2D = image.Point2D(point2D_idx);
       if (point2D.HasPoint3D()) {
         const Point3D& point3D = reconstruction_.Point3D(point2D.Point3DId());
-        for (const TrackElement track_el : point3D.Track().Elements()) {
+        for (const TrackElement& track_el : point3D.Track().Elements()) {
           if (track_el.image_id != image_id) {
             visible_image_ids.insert(track_el.image_id);
           }
@@ -561,9 +563,9 @@ void CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
 }
 
 PureImageUndistorter::PureImageUndistorter(
-  const UndistortCameraOptions& options, const std::string& image_path,
-  const std::string& output_path,
-  const std::vector<std::pair<std::string, Camera>>& image_names_and_cameras)
+    const UndistortCameraOptions& options, const std::string& image_path,
+    const std::string& output_path,
+    const std::vector<std::pair<std::string, Camera>>& image_names_and_cameras)
     : options_(options),
       image_path_(image_path),
       output_path_(output_path),
@@ -571,40 +573,39 @@ PureImageUndistorter::PureImageUndistorter(
 
 void PureImageUndistorter::Run() {
   PrintHeading1("Image undistortion");
-    
+
   CreateDirIfNotExists(output_path_);
-    
+
   ThreadPool thread_pool;
   std::vector<std::future<void>> futures;
   size_t num_images = image_names_and_cameras_.size();
   futures.reserve(num_images);
   for (size_t i = 0; i < num_images; ++i) {
-    futures.push_back(thread_pool.AddTask(&PureImageUndistorter::Undistort,
-                                          this, i));
+    futures.push_back(
+        thread_pool.AddTask(&PureImageUndistorter::Undistort, this, i));
   }
-    
+
   for (size_t i = 0; i < futures.size(); ++i) {
     if (IsStopped()) {
       break;
     }
-    
+
     std::cout << StringPrintf("Undistorting image [%d/%d]", i + 1,
                               futures.size())
               << std::endl;
-      
+
     futures[i].get();
   }
-  
+
   GetTimer().PrintMinutes();
 }
 
 void PureImageUndistorter::Undistort(const size_t image_idx) const {
   const std::string& image_name = image_names_and_cameras_[image_idx].first;
   const Camera& camera = image_names_and_cameras_[image_idx].second;
- 
-  const std::string output_image_path =
-  JoinPaths(output_path_, image_name);
-  
+
+  const std::string output_image_path = JoinPaths(output_path_, image_name);
+
   Bitmap distorted_bitmap;
   const std::string input_image_path = JoinPaths(image_path_, image_name);
   if (!distorted_bitmap.Read(input_image_path)) {
@@ -612,12 +613,12 @@ void PureImageUndistorter::Undistort(const size_t image_idx) const {
               << std::endl;
     return;
   }
-    
+
   Bitmap undistorted_bitmap;
   Camera undistorted_camera;
   UndistortImage(options_, distorted_bitmap, camera, &undistorted_bitmap,
                  &undistorted_camera);
-    
+
   undistorted_bitmap.Write(output_image_path);
 }
 

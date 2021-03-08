@@ -224,8 +224,8 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::AddEntry(
   CHECK_EQ(descriptor.size(), kDescDim);
   const ProjDescType proj_desc =
       proj_matrix_ * descriptor.transpose().template cast<float>();
-  inverted_files_.at(word_id)
-      .AddEntry(image_id, feature_idx, proj_desc, geometry);
+  inverted_files_.at(word_id).AddEntry(image_id, feature_idx, proj_desc,
+                                       geometry);
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
@@ -288,14 +288,14 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::ConvertToBinaryDescriptor(
-    const int word_id,
-    const DescType& descriptor,
-    std::bitset<kEmbeddingDim>* binary_descriptor) const {
+void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::
+    ConvertToBinaryDescriptor(
+        const int word_id, const DescType& descriptor,
+        std::bitset<kEmbeddingDim>* binary_descriptor) const {
   const ProjDescType proj_desc =
       proj_matrix_ * descriptor.transpose().template cast<float>();
-  inverted_files_.at(word_id)
-      .ConvertToBinaryDescriptor(proj_desc, binary_descriptor);
+  inverted_files_.at(word_id).ConvertToBinaryDescriptor(proj_desc,
+                                                        binary_descriptor);
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>

@@ -1119,8 +1119,8 @@ void Database::PrepareSQLStatements() {
   sql_stmts_.push_back(sql_stmt_read_matches_all_);
 
   sql =
-      "SELECT rows, cols, data, config, F, E, H, qvec, tvec FROM two_view_geometries WHERE "
-      "pair_id = ?;";
+      "SELECT rows, cols, data, config, F, E, H, qvec, tvec FROM "
+      "two_view_geometries WHERE pair_id = ?;";
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
                                   &sql_stmt_read_two_view_geometry_, 0));
   sql_stmts_.push_back(sql_stmt_read_two_view_geometry_);
@@ -1333,12 +1333,14 @@ void Database::UpdateSchema() const {
 
   if (!ExistsColumn("two_view_geometries", "qvec")) {
     SQLITE3_EXEC(database_,
-                 "ALTER TABLE two_view_geometries ADD COLUMN qvec BLOB;", nullptr);
+                 "ALTER TABLE two_view_geometries ADD COLUMN qvec BLOB;",
+                 nullptr);
   }
 
   if (!ExistsColumn("two_view_geometries", "tvec")) {
     SQLITE3_EXEC(database_,
-                 "ALTER TABLE two_view_geometries ADD COLUMN tvec BLOB;", nullptr);
+                 "ALTER TABLE two_view_geometries ADD COLUMN tvec BLOB;",
+                 nullptr);
   }
 
   // Update user version number.

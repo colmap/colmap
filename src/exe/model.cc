@@ -118,7 +118,7 @@ int RunModelAligner(int argc, char** argv) {
   std::vector<std::string> ref_image_names;
   std::vector<Eigen::Vector3d> ref_locations;
   std::vector<std::string> lines = ReadTextFileLines(ref_images_path);
-  for (const auto line : lines) {
+  for (const auto& line : lines) {
     std::stringstream line_parser(line);
     std::string image_name = "";
     Eigen::Vector3d camera_position;
