@@ -158,11 +158,6 @@ void StereoFusion::Run() {
 
   workspace_options.num_threads = options_.num_threads;
   workspace_options.max_image_size = options_.max_image_size;
-  // Saving calculated maps only when the option is set (useful for debugging)
-  // or when using cache to avoid potential multiple calculations of the same
-  // map.
-  workspace_options.save_calculated_maps =
-      options_.save_calculated_maps || options_.use_cache;
   workspace_options.image_as_rgb = true;
   workspace_options.cache_size = options_.cache_size;
   workspace_options.workspace_path = workspace_path_;

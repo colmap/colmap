@@ -678,8 +678,6 @@ void OptionManager::AddStereoFusionOptions() {
                               &stereo_fusion->cache_size);
   AddAndRegisterDefaultOption("StereoFusion.use_cache",
                               &stereo_fusion->use_cache);
-  AddAndRegisterDefaultOption("StereoFusion.save_calculated_maps",
-                              &stereo_fusion->save_calculated_maps);
 }
 
 void OptionManager::AddPoissonMeshingOptions() {

@@ -43,8 +43,6 @@
 namespace colmap {
 namespace mvs {
 
-class ConfidenceMap;
-
 class Workspace {
  public:
   struct Options {
@@ -82,9 +80,6 @@ class Workspace {
   virtual inline const DepthMap& GetDepthMap(const int image_idx) {
     return *depth_maps_[image_idx];
   }
-  virtual inline const ConfidenceMap& GetConfidenceMap(const int image_idx) {
-    return *confidence_maps_[image_idx];
-  }
   virtual inline const NormalMap& GetNormalMap(const int image_idx) {
     return *normal_maps_[image_idx];
   }
@@ -96,9 +91,6 @@ class Workspace {
   inline std::string GetDepthMapPath(const int image_idx) const {
     return depth_map_path_ + GetFileName(image_idx);
   }
-  inline std::string GetConfidenceMapPath(const int image_idx) const {
-    return confidence_map_path_ + GetFileName(image_idx);
-  }
   inline std::string GetNormalMapPath(const int image_idx) const {
     return normal_map_path_ + GetFileName(image_idx);
   }
@@ -109,9 +101,6 @@ class Workspace {
   }
   inline bool HasDepthMap(const int image_idx) const {
     return ExistsFile(GetDepthMapPath(image_idx));
-  }
-  inline bool HasConfidenceMap(const int image_idx) const {
-    return ExistsFile(GetConfidenceMapPath(image_idx));
   }
   inline bool HasNormalMap(const int image_idx) const {
     return ExistsFile(GetNormalMapPath(image_idx));
@@ -125,11 +114,9 @@ class Workspace {
 
  private:
   std::string depth_map_path_;
-  std::string confidence_map_path_;
   std::string normal_map_path_;
   std::vector<std::unique_ptr<Bitmap>> bitmaps_;
   std::vector<std::unique_ptr<DepthMap>> depth_maps_;
-  std::vector<std::unique_ptr<ConfidenceMap>> confidence_maps_;
   std::vector<std::unique_ptr<NormalMap>> normal_maps_;
 };
 
@@ -143,7 +130,6 @@ class CachedWorkspace : public Workspace {
 
   const Bitmap& GetBitmap(const int image_idx) override;
   const DepthMap& GetDepthMap(const int image_idx) override;
-  const ConfidenceMap& GetConfidenceMap(const int image_idx) override;
   const NormalMap& GetNormalMap(const int image_idx) override;
 
  private:

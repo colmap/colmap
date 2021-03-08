@@ -64,7 +64,6 @@ void Workspace::Load(const std::vector<std::string>& image_names) {
   const size_t num_images = model_.images.size();
   bitmaps_.resize(num_images);
   depth_maps_.resize(num_images);
-  confidence_maps_.resize(num_images);
   normal_maps_.resize(num_images);
 
   auto LoadWorkspaceData = [&, this](const int image_idx) {
@@ -85,37 +84,11 @@ void Workspace::Load(const std::vector<std::string>& image_names) {
       depth_maps_[image_idx]->Downsize(width, height);
     }
 
-    // Read and rescale confidence map
-    const std::string confidence_map_path = GetConfidenceMapPath(image_idx);
-    if (HasConfidenceMap(image_idx)) {
-      confidence_maps_[image_idx].reset(new ConfidenceMap());
-      confidence_maps_[image_idx]->Read(confidence_map_path);
-      if (options_.max_image_size > 0) {
-        confidence_maps_[image_idx]->Downsize(width, height);
-      }
-    } else {
-      // Assume depth confidence probability of 1.0 when the map is not given
-      confidence_maps_[image_idx].reset(new ConfidenceMap(width, height));
-      if (options_.save_calculated_maps) {
-        confidence_maps_[image_idx]->Write(confidence_map_path);
-      }
-    }
-
     // Read and rescale normal map
-    const std::string normal_map_path = GetNormalMapPath(image_idx);
     normal_maps_[image_idx].reset(new NormalMap());
-    if (!options_.calculate_normals && HasNormalMap(image_idx)) {
-      normal_maps_[image_idx]->Read(normal_map_path);
-      if (options_.max_image_size > 0) {
-        normal_maps_[image_idx]->Downsize(width, height);
-      }
-    } else {
-      // Estimate normal map from depth when the map is not given
-      normal_maps_[image_idx]->EstimateFromDepth(
-          *depth_maps_[image_idx], model_.images.at(image_idx).GetInvK());
-      if (options_.save_calculated_maps) {
-        normal_maps_[image_idx]->Write(normal_map_path);
-      }
+    normal_maps_[image_idx]->Read(GetNormalMapPath(image_idx));
+    if (options_.max_image_size > 0) {
+      normal_maps_[image_idx]->Downsize(width, height);
     }
   };
 
@@ -147,7 +120,6 @@ CachedWorkspace::CachedImage::CachedImage(CachedImage&& other) {
   num_bytes = other.num_bytes;
   bitmap = std::move(other.bitmap);
   depth_map = std::move(other.depth_map);
-  confidence_map = std::move(other.confidence_map);
   normal_map = std::move(other.normal_map);
 }
 
@@ -157,7 +129,6 @@ CachedWorkspace::CachedImage& CachedWorkspace::CachedImage::operator=(
     num_bytes = other.num_bytes;
     bitmap = std::move(other.bitmap);
     depth_map = std::move(other.depth_map);
-    confidence_map = std::move(other.confidence_map);
     normal_map = std::move(other.normal_map);
   }
   return *this;
@@ -196,31 +167,6 @@ const DepthMap& CachedWorkspace::GetDepthMap(const int image_idx) {
     cache_.UpdateNumBytes(image_idx);
   }
   return *cached_image.depth_map;
-}
-
-const ConfidenceMap& CachedWorkspace::GetConfidenceMap(const int image_idx) {
-  auto& cached_image = cache_.GetMutable(image_idx);
-  if (!cached_image.confidence_map) {
-    const size_t width = model_.images.at(image_idx).GetWidth();
-    const size_t height = model_.images.at(image_idx).GetHeight();
-    const std::string confidence_map_path = GetConfidenceMapPath(image_idx);
-
-    if (HasConfidenceMap(image_idx)) {
-      cached_image.confidence_map.reset(new ConfidenceMap());
-      cached_image.confidence_map->Read(confidence_map_path);
-      if (options_.max_image_size > 0) {
-        cached_image.confidence_map->Downsize(width, height);
-      }
-    } else {
-      cached_image.confidence_map.reset(new ConfidenceMap(width, height));
-      if (options_.save_calculated_maps) {
-        cached_image.confidence_map->Write(confidence_map_path);
-      }
-    }
-    cached_image.num_bytes += cached_image.confidence_map->GetNumBytes();
-    cache_.UpdateNumBytes(image_idx);
-  }
-  return *cached_image.confidence_map;
 }
 
 const NormalMap& CachedWorkspace::GetNormalMap(const int image_idx) {

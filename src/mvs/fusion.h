@@ -86,9 +86,6 @@ struct StereoFusionOptions {
   // Flag indicating whether to use LRU cache or pre-load all data
   bool use_cache = false;
 
-  // Flag to force saving of calculated maps from the workspace
-  bool save_calculated_maps = false;
-
   // Cache size in gigabytes for fusion. The fusion keeps the bitmaps, depth
   // maps, normal maps, and consistency graphs of this number of images in
   // memory. A higher value leads to less disk access and faster fusion, while
@@ -148,10 +145,10 @@ class StereoFusion : public Thread {
   std::vector<Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> inv_R_;
 
   struct FusionData {
-    int image_idx;
-    int row;
-    int col;
-    int traversal_depth;
+    int image_idx = kInvalidImageId;
+    int row = 0;
+    int col = 0;
+    int traversal_depth = -1;
     FusionData(int image_idx, int row, int col, int traversal_depth)
         : image_idx(image_idx),
           row(row),
