@@ -32,6 +32,7 @@
 #ifndef COLMAP_SRC_MVS_FUSION_H_
 #define COLMAP_SRC_MVS_FUSION_H_
 
+#include <float>
 #include <unordered_set>
 #include <vector>
 
