@@ -256,4 +256,3 @@ void MatchGuidedSiftFeaturesGPU(const SiftMatchingOptions& match_options,
 }  // namespace colmap
 
 #endif  // COLMAP_SRC_FEATURE_SIFT_H_
-
