@@ -381,7 +381,7 @@ void PMVSUndistorter::WriteVisibilityData() const {
       const Point2D& point2D = image.Point2D(point2D_idx);
       if (point2D.HasPoint3D()) {
         const Point3D& point3D = reconstruction_.Point3D(point2D.Point3DId());
-        for (const TrackElement track_el : point3D.Track().Elements()) {
+        for (const TrackElement& track_el : point3D.Track().Elements()) {
           if (track_el.image_id != image_id) {
             visible_image_ids.insert(track_el.image_id);
           }
