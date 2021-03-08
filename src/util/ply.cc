@@ -149,17 +149,20 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
         Z_byte_pos = num_bytes_per_line;
         Z_double = (line_elems[1] == "double" || line_elems[1] == "float64");
       } else if (line == "property float nx" || line == "property float32 nx" ||
-                 line == "property double nx" || line == "property float64 nx") {
+                 line == "property double nx" ||
+                 line == "property float64 nx") {
         NX_index = index;
         NX_byte_pos = num_bytes_per_line;
         NX_double = (line_elems[1] == "double" || line_elems[1] == "float64");
       } else if (line == "property float ny" || line == "property float32 ny" ||
-                 line == "property double ny" || line == "property float64 ny") {
+                 line == "property double ny" ||
+                 line == "property float64 ny") {
         NY_index = index;
         NY_byte_pos = num_bytes_per_line;
         NY_double = (line_elems[1] == "double" || line_elems[1] == "float64");
       } else if (line == "property float nz" || line == "property float32 nz" ||
-                 line == "property double nz" || line == "property float64 nz") {
+                 line == "property double nz" ||
+                 line == "property float64 nz") {
         NZ_index = index;
         NZ_byte_pos = num_bytes_per_line;
         NZ_double = (line_elems[1] == "double" || line_elems[1] == "float64");
@@ -234,7 +237,6 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
           point.nz = LittleEndianToNative(
               NZ_double ? *reinterpret_cast<double*>(&buffer[NZ_byte_pos])
                         : *reinterpret_cast<float*>(&buffer[NZ_byte_pos]));
-
         }
 
         if (!is_rgb_missing) {

@@ -275,6 +275,9 @@ void Database::Open(const std::string& path) {
   // Disabled by default
   SQLITE3_EXEC(database_, "PRAGMA foreign_keys=ON", nullptr);
 
+  // Enable auto vacuum to reduce DB file size
+  SQLITE3_EXEC(database_, "PRAGMA auto_vacuum=1", nullptr);
+
   CreateTables();
   UpdateSchema();
   PrepareSQLStatements();
@@ -283,6 +286,7 @@ void Database::Open(const std::string& path) {
 void Database::Close() {
   if (database_ != nullptr) {
     FinalizeSQLStatements();
+    SQLITE3_EXEC(database_, "VACUUM", nullptr);
     sqlite3_close_v2(database_);
     database_ = nullptr;
   }
@@ -820,6 +824,35 @@ void Database::DeleteInlierMatches(const image_t image_id1,
   SQLITE3_CALL(sqlite3_reset(sql_stmt_delete_two_view_geometry_));
 }
 
+void Database::ClearAllTables() const {
+  ClearMatches();
+  ClearTwoViewGeometries();
+  ClearDescriptors();
+  ClearKeypoints();
+  ClearImages();
+  ClearCameras();
+}
+
+void Database::ClearCameras() const {
+  SQLITE3_CALL(sqlite3_step(sql_stmt_clear_cameras_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_cameras_));
+}
+
+void Database::ClearImages() const {
+  SQLITE3_CALL(sqlite3_step(sql_stmt_clear_images_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_images_));
+}
+
+void Database::ClearDescriptors() const {
+  SQLITE3_CALL(sqlite3_step(sql_stmt_clear_descriptors_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_descriptors_));
+}
+
+void Database::ClearKeypoints() const {
+  SQLITE3_CALL(sqlite3_step(sql_stmt_clear_keypoints_));
+  SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_keypoints_));
+}
+
 void Database::ClearMatches() const {
   SQLITE3_CALL(sqlite3_step(sql_stmt_clear_matches_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_matches_));
@@ -1086,8 +1119,8 @@ void Database::PrepareSQLStatements() {
   sql_stmts_.push_back(sql_stmt_read_matches_all_);
 
   sql =
-      "SELECT rows, cols, data, config, F, E, H, qvec, tvec FROM two_view_geometries WHERE "
-      "pair_id = ?;";
+      "SELECT rows, cols, data, config, F, E, H, qvec, tvec FROM "
+      "two_view_geometries WHERE pair_id = ?;";
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
                                   &sql_stmt_read_two_view_geometry_, 0));
   sql_stmts_.push_back(sql_stmt_read_two_view_geometry_);
@@ -1145,6 +1178,26 @@ void Database::PrepareSQLStatements() {
   //////////////////////////////////////////////////////////////////////////////
   // clear_*
   //////////////////////////////////////////////////////////////////////////////
+  sql = "DELETE FROM cameras;";
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
+                                  &sql_stmt_clear_cameras_, 0));
+  sql_stmts_.push_back(sql_stmt_clear_cameras_);
+
+  sql = "DELETE FROM images;";
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
+                                  &sql_stmt_clear_images_, 0));
+  sql_stmts_.push_back(sql_stmt_clear_images_);
+
+  sql = "DELETE FROM descriptors;";
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
+                                  &sql_stmt_clear_descriptors_, 0));
+  sql_stmts_.push_back(sql_stmt_clear_descriptors_);
+
+  sql = "DELETE FROM keypoints;";
+  SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
+                                  &sql_stmt_clear_keypoints_, 0));
+  sql_stmts_.push_back(sql_stmt_clear_keypoints_);
+
   sql = "DELETE FROM matches;";
   SQLITE3_CALL(sqlite3_prepare_v2(database_, sql.c_str(), -1,
                                   &sql_stmt_clear_matches_, 0));
@@ -1280,12 +1333,14 @@ void Database::UpdateSchema() const {
 
   if (!ExistsColumn("two_view_geometries", "qvec")) {
     SQLITE3_EXEC(database_,
-                 "ALTER TABLE two_view_geometries ADD COLUMN qvec BLOB;", nullptr);
+                 "ALTER TABLE two_view_geometries ADD COLUMN qvec BLOB;",
+                 nullptr);
   }
 
   if (!ExistsColumn("two_view_geometries", "tvec")) {
     SQLITE3_EXEC(database_,
-                 "ALTER TABLE two_view_geometries ADD COLUMN tvec BLOB;", nullptr);
+                 "ALTER TABLE two_view_geometries ADD COLUMN tvec BLOB;",
+                 nullptr);
   }
 
   // Update user version number.

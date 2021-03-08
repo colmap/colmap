@@ -35,8 +35,7 @@
 
 namespace colmap {
 
-FeatureKeypoint::FeatureKeypoint()
-    : FeatureKeypoint(0, 0) {}
+FeatureKeypoint::FeatureKeypoint() : FeatureKeypoint(0, 0) {}
 
 FeatureKeypoint::FeatureKeypoint(const float x, const float y)
     : FeatureKeypoint(x, y, 1, 0, 0, 1) {}
@@ -69,9 +68,7 @@ FeatureKeypoint FeatureKeypoint::FromParameters(const float x, const float y,
                          scale_y * std::cos(orientation + shear));
 }
 
-void FeatureKeypoint::Rescale(const float scale) {
-  Rescale(scale, scale);
-}
+void FeatureKeypoint::Rescale(const float scale) { Rescale(scale, scale); }
 
 void FeatureKeypoint::Rescale(const float scale_x, const float scale_y) {
   CHECK_GT(scale_x, 0);

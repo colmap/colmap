@@ -40,14 +40,14 @@ void CenterAndNormalizeImagePoints(const std::vector<Eigen::Vector2d>& points,
                                    Eigen::Matrix3d* matrix) {
   // Calculate centroid
   Eigen::Vector2d centroid(0, 0);
-  for (const auto point : points) {
+  for (const Eigen::Vector2d& point : points) {
     centroid += point;
   }
   centroid /= points.size();
 
   // Root mean square error to centroid of all points
   double rms_mean_dist = 0;
-  for (const auto point : points) {
+  for (const Eigen::Vector2d& point : points) {
     rms_mean_dist += (point - centroid).squaredNorm();
   }
   rms_mean_dist = std::sqrt(rms_mean_dist / points.size());

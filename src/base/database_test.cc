@@ -148,6 +148,8 @@ BOOST_AUTO_TEST_CASE(TestCamera) {
   BOOST_CHECK_EQUAL(database.ReadAllCameras()[0].CameraId(), camera.CameraId());
   BOOST_CHECK_EQUAL(database.ReadAllCameras()[1].CameraId(),
                     camera2.CameraId());
+  database.ClearCameras();
+  BOOST_CHECK_EQUAL(database.NumCameras(), 0);
 }
 
 BOOST_AUTO_TEST_CASE(TestImage) {
@@ -210,6 +212,8 @@ BOOST_AUTO_TEST_CASE(TestImage) {
   BOOST_CHECK_EQUAL(database.ExistsImage(image.ImageId()), true);
   BOOST_CHECK_EQUAL(database.ExistsImage(image2.ImageId()), true);
   BOOST_CHECK_EQUAL(database.ReadAllImages().size(), 2);
+  database.ClearImages();
+  BOOST_CHECK_EQUAL(database.NumImages(), 0);
 }
 
 BOOST_AUTO_TEST_CASE(TestKeypoints) {
@@ -245,6 +249,10 @@ BOOST_AUTO_TEST_CASE(TestKeypoints) {
   BOOST_CHECK_EQUAL(database.NumKeypoints(), 30);
   BOOST_CHECK_EQUAL(database.MaxNumKeypoints(), 20);
   BOOST_CHECK_EQUAL(database.NumKeypointsForImage(image.ImageId()), 20);
+  database.ClearKeypoints();
+  BOOST_CHECK_EQUAL(database.NumKeypoints(), 0);
+  BOOST_CHECK_EQUAL(database.MaxNumKeypoints(), 0);
+  BOOST_CHECK_EQUAL(database.NumKeypointsForImage(image.ImageId()), 0);
 }
 
 BOOST_AUTO_TEST_CASE(TestDescriptors) {
@@ -278,6 +286,10 @@ BOOST_AUTO_TEST_CASE(TestDescriptors) {
   BOOST_CHECK_EQUAL(database.NumDescriptors(), 30);
   BOOST_CHECK_EQUAL(database.MaxNumDescriptors(), 20);
   BOOST_CHECK_EQUAL(database.NumDescriptorsForImage(image.ImageId()), 20);
+  database.ClearDescriptors();
+  BOOST_CHECK_EQUAL(database.NumDescriptors(), 0);
+  BOOST_CHECK_EQUAL(database.MaxNumDescriptors(), 0);
+  BOOST_CHECK_EQUAL(database.NumDescriptorsForImage(image.ImageId()), 0);
 }
 
 BOOST_AUTO_TEST_CASE(TestMatches) {
@@ -360,7 +372,7 @@ BOOST_AUTO_TEST_CASE(TestTwoViewGeometry) {
   Eigen::Vector4d read_inv_qvec_inv;
   Eigen::Vector3d read_inv_tvec_inv;
   InvertPose(two_view_geometry_read_inv.qvec, two_view_geometry_read_inv.tvec,
-                &read_inv_qvec_inv, &read_inv_tvec_inv);
+             &read_inv_qvec_inv, &read_inv_tvec_inv);
   BOOST_CHECK_EQUAL(read_inv_qvec_inv, two_view_geometry_read.qvec);
   BOOST_CHECK(read_inv_tvec_inv.isApprox(two_view_geometry_read.tvec));
 
@@ -478,4 +490,10 @@ BOOST_AUTO_TEST_CASE(TestMerge) {
   BOOST_CHECK(!merged_database.ExistsMatches(2, 3));
   BOOST_CHECK(!merged_database.ExistsMatches(2, 4));
   BOOST_CHECK(merged_database.ExistsMatches(3, 4));
+  merged_database.ClearAllTables();
+  BOOST_CHECK_EQUAL(merged_database.NumCameras(), 0);
+  BOOST_CHECK_EQUAL(merged_database.NumImages(), 0);
+  BOOST_CHECK_EQUAL(merged_database.NumKeypoints(), 0);
+  BOOST_CHECK_EQUAL(merged_database.NumDescriptors(), 0);
+  BOOST_CHECK_EQUAL(merged_database.NumMatches(), 0);
 }

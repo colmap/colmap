@@ -70,7 +70,8 @@ BOOST_AUTO_TEST_CASE(TestStringGetAfter) {
   BOOST_CHECK_EQUAL(StringGetAfter("test", "e"), "st");
   BOOST_CHECK_EQUAL(StringGetAfter("test, multiple tests", "test"), "s");
   BOOST_CHECK_EQUAL(StringGetAfter("", ""), "");
-  BOOST_CHECK_EQUAL(StringGetAfter("path/to/dataset/sub1/image.png", "sub1/"), "image.png");
+  BOOST_CHECK_EQUAL(StringGetAfter("path/to/dataset/sub1/image.png", "sub1/"),
+                    "image.png");
 }
 
 BOOST_AUTO_TEST_CASE(TestStringSplit) {
