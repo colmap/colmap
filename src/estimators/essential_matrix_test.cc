@@ -121,8 +121,9 @@ BOOST_AUTO_TEST_CASE(TestEightPoint) {
   BOOST_CHECK(std::abs(E(2, 0) - 0.169381) < 1e-5);
   BOOST_CHECK(std::abs(E(2, 1) - -0.21072) < 1e-5);
   BOOST_CHECK(std::abs(E(2, 2) - -0.00401306) < 1e-5);
-  
-  // Check that the internal constraint is satisfied (two singular values equal and one zero).
+
+  // Check that the internal constraint is satisfied (two singular values equal
+  // and one zero).
   Eigen::JacobiSVD<Eigen::Matrix3d> svd(E);
   Eigen::Vector3d s = svd.singularValues();
   BOOST_CHECK(std::abs(s(0) - s(1)) < 1e-5);

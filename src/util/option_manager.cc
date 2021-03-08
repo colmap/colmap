@@ -80,7 +80,7 @@ OptionManager::OptionManager(bool add_project_options) {
 
   AddRandomOptions();
   AddLogOptions();
-  
+
   if (add_project_options) {
     desc_->add_options()("project_path", config::value<std::string>());
   }
