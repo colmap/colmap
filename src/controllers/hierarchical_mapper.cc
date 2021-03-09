@@ -120,27 +120,18 @@ void HierarchicalMapperController::Run() {
   // Cluster scene
   //////////////////////////////////////////////////////////////////////////////
 
-  SceneClustering scene_clustering(clustering_options_);
-
   std::unordered_map<image_t, std::string> image_id_to_name;
 
-  {
-    Database database(options_.database_path);
+  Database database(options_.database_path);
 
-    std::cout << "Reading images..." << std::endl;
-    const auto images = database.ReadAllImages();
-    for (const auto& image : images) {
-      image_id_to_name.emplace(image.ImageId(), image.Name());
-    }
-
-    std::cout << "Reading scene graph..." << std::endl;
-    std::vector<std::pair<image_t, image_t>> image_pairs;
-    std::vector<int> num_inliers;
-    database.ReadTwoViewGeometryNumInliers(&image_pairs, &num_inliers);
-
-    std::cout << "Partitioning scene graph..." << std::endl;
-    scene_clustering.Partition(image_pairs, num_inliers);
+  std::cout << "Reading images..." << std::endl;
+  const auto images = database.ReadAllImages();
+  for (const auto& image : images) {
+    image_id_to_name.emplace(image.ImageId(), image.Name());
   }
+
+  SceneClustering scene_clustering =
+      SceneClustering::Create(clustering_options_, database);
 
   auto leaf_clusters = scene_clustering.GetLeafClusters();
 
@@ -184,7 +175,9 @@ void HierarchicalMapperController::Run() {
     IncrementalMapperOptions custom_options = mapper_options_;
     custom_options.max_model_overlap = 3;
     custom_options.init_num_trials = options_.init_num_trials;
-    custom_options.num_threads = num_threads_per_worker;
+    if (custom_options.num_threads < 0) {
+      custom_options.num_threads = num_threads_per_worker;
+    }
 
     for (const auto image_id : cluster.image_ids) {
       custom_options.image_names.insert(image_id_to_name.at(image_id));

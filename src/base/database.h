@@ -201,6 +201,21 @@ class Database {
   void DeleteInlierMatches(const image_t image_id1,
                            const image_t image_id2) const;
 
+  // Clear all database tables
+  void ClearAllTables() const;
+
+  // Clear the entire cameras table
+  void ClearCameras() const;
+
+  // Clear the entire images, keypoints, and descriptors tables
+  void ClearImages() const;
+
+  // Clear the entire descriptors table
+  void ClearDescriptors() const;
+
+  // Clear the entire keypoints table
+  void ClearKeypoints() const;
+
   // Clear the entire matches table.
   void ClearMatches() const;
 
@@ -313,6 +328,10 @@ class Database {
   sqlite3_stmt* sql_stmt_delete_two_view_geometry_ = nullptr;
 
   // clear_*
+  sqlite3_stmt* sql_stmt_clear_cameras_ = nullptr;
+  sqlite3_stmt* sql_stmt_clear_images_ = nullptr;
+  sqlite3_stmt* sql_stmt_clear_descriptors_ = nullptr;
+  sqlite3_stmt* sql_stmt_clear_keypoints_ = nullptr;
   sqlite3_stmt* sql_stmt_clear_matches_ = nullptr;
   sqlite3_stmt* sql_stmt_clear_two_view_geometries_ = nullptr;
 };

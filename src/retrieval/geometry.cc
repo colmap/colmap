@@ -69,9 +69,8 @@ Eigen::Matrix<float, 2, 3> FeatureGeometry::TransformMatrixFromMatch(
   T.leftCols<2>() << cos_angle, -sin_angle, sin_angle, cos_angle;
   T.leftCols<2>() *= scale;
 
-  T.rightCols<1>() =
-      Eigen::Vector2f(feature2.x, feature2.y) -
-      T.leftCols<2>() * Eigen::Vector2f(feature1.x, feature1.y);
+  T.rightCols<1>() = Eigen::Vector2f(feature2.x, feature2.y) -
+                     T.leftCols<2>() * Eigen::Vector2f(feature1.x, feature1.y);
 
   return T;
 }
