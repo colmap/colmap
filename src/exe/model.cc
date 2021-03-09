@@ -138,12 +138,13 @@ int RunModelAligner(int argc, char** argv) {
             << std::endl;
 
   bool alignment_success;
+  SimilarityTransform3 tform;
   if (robust_alignment) {
     alignment_success = reconstruction.AlignRobust(
-        ref_image_names, ref_locations, min_common_images, ransac_options);
+        ref_image_names, ref_locations, min_common_images, ransac_options, tform);
   } else {
     alignment_success =
-        reconstruction.Align(ref_image_names, ref_locations, min_common_images);
+        reconstruction.Align(ref_image_names, ref_locations, min_common_images, tform);
   }
 
   if (alignment_success) {

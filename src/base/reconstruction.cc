@@ -34,12 +34,10 @@
 #include <fstream>
 
 #include "base/database_cache.h"
+#include "base/gps.h"
 #include "base/pose.h"
 #include "base/projection.h"
-#include "base/similarity_transform.h"
 #include "base/triangulation.h"
-#include "estimators/similarity_transform.h"
-#include "optim/loransac.h"
 #include "util/bitmap.h"
 #include "util/misc.h"
 #include "util/ply.h"
@@ -124,6 +122,7 @@ void Reconstruction::SetUp(const CorrespondenceGraph* correspondence_graph) {
 
 void Reconstruction::TearDown() {
   correspondence_graph_ = nullptr;
+  image_pair_stats_.clear();
 
   // Remove all not yet registered images.
   std::unordered_set<camera_t> keep_camera_ids;
@@ -335,12 +334,42 @@ void Reconstruction::Normalize(const double extent, const double p0,
     return;
   }
 
-  EIGEN_STL_UMAP(class Image*, Eigen::Vector3d) proj_centers;
+  auto bound = ComputeBoundsAndCentroid(p0, p1, use_images);
 
-  for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
-    class Image& image = Image(reg_image_ids_[i]);
-    const Eigen::Vector3d proj_center = image.ProjectionCenter();
-    proj_centers[&image] = proj_center;
+  // Calculate scale and translation, such that
+  // translation is applied before scaling.
+  const double old_extent = (std::get<1>(bound) - std::get<0>(bound)).norm();
+  double scale;
+  if (old_extent < std::numeric_limits<double>::epsilon()) {
+    scale = 1;
+  } else {
+    scale = extent / old_extent;
+  }
+
+  SimilarityTransform3 tform(scale, ComposeIdentityQuaternion(),
+                             -scale * std::get<2>(bound));
+  Transform(tform);
+}
+
+Eigen::Vector3d Reconstruction::ComputeCentroid(double p0, double p1) const {
+  return std::get<2>(ComputeBoundsAndCentroid(p0, p1, false));
+}
+
+std::pair<Eigen::Vector3d, Eigen::Vector3d> Reconstruction::ComputeBoundingBox(
+    double p0, double p1) const {
+  auto bound = ComputeBoundsAndCentroid(p0, p1, false);
+  return std::make_pair(std::get<0>(bound), std::get<1>(bound));
+}
+
+std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d>
+Reconstruction::ComputeBoundsAndCentroid(double p0, double p1,
+                                         bool use_images) const {
+
+  size_t num_elements = use_images ? reg_image_ids_.size() : points3D_.size();
+  if (num_elements == 0)
+  {
+    return std::make_tuple(Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0),
+                           Eigen::Vector3d(0, 0, 0));
   }
 
   // Coordinates of image centers or point locations.
@@ -348,13 +377,14 @@ void Reconstruction::Normalize(const double extent, const double p0,
   std::vector<float> coords_y;
   std::vector<float> coords_z;
   if (use_images) {
-    coords_x.reserve(proj_centers.size());
-    coords_y.reserve(proj_centers.size());
-    coords_z.reserve(proj_centers.size());
-    for (const auto& proj_center : proj_centers) {
-      coords_x.push_back(static_cast<float>(proj_center.second(0)));
-      coords_y.push_back(static_cast<float>(proj_center.second(1)));
-      coords_z.push_back(static_cast<float>(proj_center.second(2)));
+    coords_x.reserve(reg_image_ids_.size());
+    coords_y.reserve(reg_image_ids_.size());
+    coords_z.reserve(reg_image_ids_.size());
+    for (image_t im_id : reg_image_ids_) {
+      const Eigen::Vector3d proj_center = Image(im_id).ProjectionCenter();
+      coords_x.push_back(static_cast<float>(proj_center(0)));
+      coords_y.push_back(static_cast<float>(proj_center(1)));
+      coords_z.push_back(static_cast<float>(proj_center(2)));
     }
   } else {
     coords_x.reserve(points3D_.size());
@@ -389,33 +419,7 @@ void Reconstruction::Normalize(const double extent, const double p0,
   }
   mean_coord /= P1 - P0 + 1;
 
-  // Calculate scale and translation, such that
-  // translation is applied before scaling.
-  const double old_extent = (bbox_max - bbox_min).norm();
-  double scale;
-  if (old_extent < std::numeric_limits<double>::epsilon()) {
-    scale = 1;
-  } else {
-    scale = extent / old_extent;
-  }
-
-  const Eigen::Vector3d translation = mean_coord;
-
-  // Transform images.
-  for (auto& image_proj_center : proj_centers) {
-    image_proj_center.second -= translation;
-    image_proj_center.second *= scale;
-    const Eigen::Quaterniond quat(
-        image_proj_center.first->Qvec(0), image_proj_center.first->Qvec(1),
-        image_proj_center.first->Qvec(2), image_proj_center.first->Qvec(3));
-    image_proj_center.first->SetTvec(quat * -image_proj_center.second);
-  }
-
-  // Transform points.
-  for (auto& point3D : points3D_) {
-    point3D.second.XYZ() -= translation;
-    point3D.second.XYZ() *= scale;
-  }
+  return std::make_tuple(bbox_min, bbox_max, mean_coord);
 }
 
 void Reconstruction::Transform(const SimilarityTransform3& tform) {
@@ -425,6 +429,34 @@ void Reconstruction::Transform(const SimilarityTransform3& tform) {
   for (auto& point3D : points3D_) {
     tform.TransformPoint(&point3D.second.XYZ());
   }
+}
+
+bool Reconstruction::Crop(
+    const std::pair<Eigen::Vector3d, Eigen::Vector3d>& boundary,
+    Reconstruction& reconstruction) const {
+  // add all cameras and images. Only the registered images will be used.
+  for (const auto& camera_el : cameras_) {
+    reconstruction.AddCamera(camera_el.second);
+  }
+  for (const auto& image_el : images_) {
+    reconstruction.AddImage(image_el.second);
+    auto& image = reconstruction.Image(image_el.first);
+    image.SetRegistered(false);
+    for (point2D_t pid = 0; pid < image.NumPoints2D(); ++pid) {
+      image.ResetPoint3DForPoint2D(pid);
+    }
+  }
+  for (const auto& point_el : points3D_) {
+    const auto& point = point_el.second;
+    if ((point.XYZ().array() >= boundary.first.array()).all() &&
+        (point.XYZ().array() <= boundary.second.array()).all()) {
+      for (const auto& track_el : point.Track().Elements()) {
+        reconstruction.RegisterImage(track_el.image_id);
+      }
+      reconstruction.AddPoint3D(point.XYZ(), point.Track(), point.Color());
+    }
+  }
+  return true;
 }
 
 bool Reconstruction::Merge(const Reconstruction& reconstruction,
@@ -513,103 +545,6 @@ bool Reconstruction::Merge(const Reconstruction& reconstruction,
   }
 
   FilterPoints3DWithLargeReprojectionError(max_reproj_error, Point3DIds());
-
-  return true;
-}
-
-bool Reconstruction::Align(const std::vector<std::string>& image_names,
-                           const std::vector<Eigen::Vector3d>& locations,
-                           const int min_common_images) {
-  CHECK_GE(min_common_images, 3);
-  CHECK_EQ(image_names.size(), locations.size());
-
-  // Find out which images are contained in the reconstruction and get the
-  // positions of their camera centers.
-  std::set<image_t> common_image_ids;
-  std::vector<Eigen::Vector3d> src;
-  std::vector<Eigen::Vector3d> dst;
-  for (size_t i = 0; i < image_names.size(); ++i) {
-    const class Image* image = FindImageWithName(image_names[i]);
-    if (image == nullptr) {
-      continue;
-    }
-
-    if (!IsImageRegistered(image->ImageId())) {
-      continue;
-    }
-
-    // Ignore duplicate images.
-    if (common_image_ids.count(image->ImageId()) > 0) {
-      continue;
-    }
-
-    common_image_ids.insert(image->ImageId());
-    src.push_back(image->ProjectionCenter());
-    dst.push_back(locations[i]);
-  }
-
-  // Only compute the alignment if there are enough correspondences.
-  if (common_image_ids.size() < static_cast<size_t>(min_common_images)) {
-    return false;
-  }
-
-  SimilarityTransform3 tform;
-  if (!tform.Estimate(src, dst)) {
-    return false;
-  }
-
-  Transform(tform);
-
-  return true;
-}
-
-bool Reconstruction::AlignRobust(const std::vector<std::string>& image_names,
-                                 const std::vector<Eigen::Vector3d>& locations,
-                                 const int min_common_images,
-                                 const RANSACOptions& ransac_options) {
-  CHECK_GE(min_common_images, 3);
-  CHECK_EQ(image_names.size(), locations.size());
-
-  // Find out which images are contained in the reconstruction and get the
-  // positions of their camera centers.
-  std::set<image_t> common_image_ids;
-  std::vector<Eigen::Vector3d> src;
-  std::vector<Eigen::Vector3d> dst;
-  for (size_t i = 0; i < image_names.size(); ++i) {
-    const class Image* image = FindImageWithName(image_names[i]);
-    if (image == nullptr) {
-      continue;
-    }
-
-    if (!IsImageRegistered(image->ImageId())) {
-      continue;
-    }
-
-    // Ignore duplicate images.
-    if (common_image_ids.count(image->ImageId()) > 0) {
-      continue;
-    }
-
-    common_image_ids.insert(image->ImageId());
-    src.push_back(image->ProjectionCenter());
-    dst.push_back(locations[i]);
-  }
-
-  // Only compute the alignment if there are enough correspondences.
-  if (common_image_ids.size() < static_cast<size_t>(min_common_images)) {
-    return false;
-  }
-
-  LORANSAC<SimilarityTransformEstimator<3>, SimilarityTransformEstimator<3>>
-      ransac(ransac_options);
-
-  const auto report = ransac.Estimate(src, dst);
-
-  if (report.support.num_inliers < static_cast<size_t>(min_common_images)) {
-    return false;
-  }
-
-  Transform(SimilarityTransform3(report.model));
 
   return true;
 }
