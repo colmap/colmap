@@ -470,6 +470,7 @@ int RunAutoMapper(int argc, char** argv) {
   ReconstructionManager reconstruction_manager;
   PrintHeading1("Mapper");
 
+  const double kDatabaseImageProportion = 0.8;
   if (ExistsDir(input_path)) {
     size_t idx = reconstruction_manager.Read(input_path);
     const Reconstruction& recon = reconstruction_manager.Get(idx);
@@ -480,7 +481,8 @@ int RunAutoMapper(int argc, char** argv) {
               << std::endl;
     // accepted reconstruction must have at least one camera and register at
     // least 80% of all images in the database
-    if (recon.NumCameras() == 0 || recon.NumImages() < 0.8 * num_db_images) {
+    if (recon.NumCameras() == 0 ||
+        recon.NumImages() < kDatabaseImageProportion * num_db_images) {
       std::cout << "WARN: Cannot use provided reconstruction; creating new "
                    "one with mapper"
                 << std::endl;
@@ -517,7 +519,7 @@ int RunAutoMapper(int argc, char** argv) {
   }
   timer.PrintMinutes();
 
-  if (is_prior || is_hierarchical) {
+  if (is_prior || is_hierarchical || ExistsFile(rig_config_path)) {
     Reconstruction& recon = reconstruction_manager.Get(0);
     DatabaseCache database_cache;
     PrintHeading1("Point Triangulation");
