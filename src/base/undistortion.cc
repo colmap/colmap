@@ -154,14 +154,14 @@ COLMAPUndistorter::COLMAPUndistorter(const UndistortCameraOptions& options,
                                      const Reconstruction& reconstruction,
                                      const std::string& image_path,
                                      const std::string& output_path,
-                                     const int num_related_images,
+                                     const int num_patch_match_src_images,
                                      const CopyType copy_type,
                                      const std::vector<image_t>& image_ids)
     : options_(options),
       image_path_(image_path),
       output_path_(output_path),
       copy_type_(copy_type),
-      num_related_images_(num_related_images),
+      num_patch_match_src_images_(num_patch_match_src_images),
       image_ids_(image_ids),
       reconstruction_(reconstruction) {}
 
@@ -191,7 +191,7 @@ void COLMAPUndistorter::Run() {
           thread_pool.AddTask(&COLMAPUndistorter::Undistort, this, image_id));
     }
   } else {
-    for (auto image_id : image_ids_) {
+    for (const image_t image_id : image_ids_) {
       futures.push_back(
           thread_pool.AddTask(&COLMAPUndistorter::Undistort, this, image_id));
     }
@@ -274,7 +274,7 @@ void COLMAPUndistorter::WritePatchMatchConfig() const {
   CHECK(file.is_open()) << path;
   for (const auto& image_name : image_names_) {
     file << image_name << std::endl;
-    file << "__auto__, " << num_related_images_ << std::endl;
+    file << "__auto__, " << num_patch_match_src_images_ << std::endl;
   }
 }
 

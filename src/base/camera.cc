@@ -192,8 +192,8 @@ bool Camera::HasBogusParams(const double min_focal_length_ratio,
 }
 
 bool Camera::IsUndistorted() const {
-  for (size_t idx : ExtraParamsIdxs()) {
-    if (fabs(params_[idx]) > 1e-8) {
+  for (const size_t idx : ExtraParamsIdxs()) {
+    if (std::abs(params_[idx]) > 1e-8) {
       return false;
     }
   }

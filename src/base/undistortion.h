@@ -85,7 +85,7 @@ class COLMAPUndistorter : public Thread {
   const std::string image_path_;
   const std::string output_path_;
   const CopyType copy_type_;
-  const int num_related_images_;
+  const int num_patch_match_src_images_;
   const Reconstruction& reconstruction_;
   const std::vector<image_t> image_ids_;
   std::vector<std::string> image_names_;

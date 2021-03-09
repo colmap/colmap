@@ -311,9 +311,9 @@ int RunImageUndistorter(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
   std::string output_type = "COLMAP";
-  std::string input_images;
+  std::string image_list_path;
   std::string copy_policy = "copy";
-  int num_related_images = 20;
+  int num_patch_match_src_images = 20;
   CopyType copy_type;
 
   UndistortCameraOptions undistort_camera_options;
@@ -324,10 +324,11 @@ int RunImageUndistorter(int argc, char** argv) {
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("output_type", &output_type,
                            "{COLMAP, PMVS, CMP-MVS}");
-  options.AddDefaultOption("input_images", &input_images);
+  options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddDefaultOption("copy_policy", &copy_policy,
                            "{copy, soft-link, hard-link}");
-  options.AddDefaultOption("num_related_images", &num_related_images);
+  options.AddDefaultOption("num_patch_match_src_images",
+                           &num_patch_match_src_images);
   options.AddDefaultOption("blank_pixels",
                            &undistort_camera_options.blank_pixels);
   options.AddDefaultOption("min_scale", &undistort_camera_options.min_scale);
@@ -351,8 +352,8 @@ int RunImageUndistorter(int argc, char** argv) {
             << std::endl;
 
   std::vector<image_t> image_ids;
-  if (!input_images.empty()) {
-    auto image_names = ReadTextFileLines(input_images);
+  if (!image_list_path.empty()) {
+    const auto& image_names = ReadTextFileLines(image_list_path);
     for (const auto& image_name : image_names) {
       const Image* image = reconstruction.FindImageWithName(image_name);
       if (image != nullptr) {
@@ -364,19 +365,24 @@ int RunImageUndistorter(int argc, char** argv) {
   }
 
   StringToLower(&copy_policy);
-  if (copy_policy == "soft-link") {
+  if (copy_policy == "copy") {
+    copy_type = CopyType::COPY;
+  } else if (copy_policy == "soft-link") {
     copy_type = CopyType::SOFT_LINK;
   } else if (copy_policy == "hard-link") {
     copy_type = CopyType::HARD_LINK;
   } else {
-    copy_type = CopyType::COPY;
+    std::cerr << "ERROR: Invalid `copy_policy` - supported values are "
+                 "{'copy', 'soft-link', 'hard-link'}."
+              << std::endl;
+    return EXIT_FAILURE;
   }
 
   std::unique_ptr<Thread> undistorter;
   if (output_type == "COLMAP") {
     undistorter.reset(new COLMAPUndistorter(
         undistort_camera_options, reconstruction, *options.image_path,
-        output_path, num_related_images, copy_type, image_ids));
+        output_path, num_patch_match_src_images, copy_type, image_ids));
   } else if (output_type == "PMVS") {
     undistorter.reset(new PMVSUndistorter(undistort_camera_options,
                                           reconstruction, *options.image_path,
