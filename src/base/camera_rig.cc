@@ -164,7 +164,7 @@ double CameraRig::ComputeScale(const Reconstruction& reconstruction) const {
   return scaling_factor / num_dists;
 }
 
-void CameraRig::ComputeRelativePoses(const Reconstruction& reconstruction) {
+bool CameraRig::ComputeRelativePoses(const Reconstruction& reconstruction) {
   CHECK_GT(NumSnapshots(), 0);
   CHECK_NE(ref_camera_id_, kInvalidCameraId);
 
@@ -208,10 +208,14 @@ void CameraRig::ComputeRelativePoses(const Reconstruction& reconstruction) {
   // Compute the average relative poses.
   for (auto& rig_camera : rig_cameras_) {
     if (rig_camera.first != ref_camera_id_) {
-      CHECK_GT(rel_qvecs.count(rig_camera.first), 0)
-          << "Need at least one snapshot with an image of camera "
-          << rig_camera.first << " and the reference camera " << ref_camera_id_
-          << " to compute its relative pose in the camera rig";
+      if (rel_qvecs.count(rig_camera.first) == 0) {
+        std::cout << "Need at least one snapshot with an image of camera "
+                  << rig_camera.first << " and the reference camera "
+                  << ref_camera_id_
+                  << " to compute its relative pose in the camera rig"
+                  << std::endl;
+        return false;
+      }
       const std::vector<Eigen::Vector4d>& camera_rel_qvecs =
           rel_qvecs.at(rig_camera.first);
       const std::vector<double> rel_qvec_weights(camera_rel_qvecs.size(), 1.0);
@@ -220,6 +224,7 @@ void CameraRig::ComputeRelativePoses(const Reconstruction& reconstruction) {
       rig_camera.second.rel_tvec /= camera_rel_qvecs.size();
     }
   }
+  return true;
 }
 
 void CameraRig::ComputeAbsolutePose(const size_t snapshot_idx,

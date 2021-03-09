@@ -124,7 +124,7 @@ class GpuMat {
 #ifdef __CUDACC__
 
 namespace internal {
- 
+
 template <typename T>
 __global__ void FillWithScalarKernel(GpuMat<T> output, const T value) {
   const size_t row = blockIdx.y * blockDim.y + threadIdx.y;
@@ -269,8 +269,7 @@ __device__ void GpuMat<T>::SetSlice(const size_t row, const size_t col,
 
 template <typename T>
 void GpuMat<T>::FillWithScalar(const T value) {
-  internal::FillWithScalarKernel<T>
-      <<<gridSize_, blockSize_>>>(*this, value);
+  internal::FillWithScalarKernel<T><<<gridSize_, blockSize_>>>(*this, value);
   CUDA_SYNC_AND_CHECK();
 }
 
@@ -342,7 +341,7 @@ void GpuMat<T>::Rotate(GpuMat<T>* output) {
   for (size_t slice = 0; slice < depth_; ++slice) {
     CudaRotate((T*)((char*)array_ptr_ + slice * pitch_ * GetHeight()),
                (T*)((char*)output->GetPtr() +
-                   slice * output->pitch_ * output->GetHeight()),
+                    slice * output->pitch_ * output->GetHeight()),
                width_, height_, pitch_, output->pitch_);
   }
   CUDA_SYNC_AND_CHECK();

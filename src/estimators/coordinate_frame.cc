@@ -142,8 +142,7 @@ Eigen::Vector3d FindBestConsensusAxis(const std::vector<Eigen::Vector3d>& axes,
 }  // namespace
 
 Eigen::Vector3d EstimateGravityVectorFromImageOrientation(
-    const Reconstruction& reconstruction,
-    const double max_axis_distance) {
+    const Reconstruction& reconstruction, const double max_axis_distance) {
   std::vector<Eigen::Vector3d> downward_axes;
   downward_axes.reserve(reconstruction.NumRegImages());
   for (const auto image_id : reconstruction.RegImageIds()) {

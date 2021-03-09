@@ -54,16 +54,16 @@ def main():
         if len(file_name) < 4 or file_name[-4:].lower() != ".ply":
             continue
 
-        print "Reading file", file_name
+        print("Reading file", file_name)
         file = plyfile.PlyData.read(os.path.join(args.folder_path, file_name))
         for element in file.elements:
             files.append(element.data)
 
-    print "Merging files"
+    print("Merging files")
     merged_file = np.concatenate(files, -1)
     merged_el = plyfile.PlyElement.describe(merged_file, 'vertex')
 
-    print "Writing merged file"
+    print("Writing merged file")
     plyfile.PlyData([merged_el]).write(args.merged_path)
 
 
