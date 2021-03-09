@@ -36,6 +36,7 @@
 #include "estimators/coordinate_frame.h"
 #include "util/misc.h"
 #include "util/option_manager.h"
+#include "util/timer.h"
 
 namespace colmap {
 namespace {
