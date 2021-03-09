@@ -191,7 +191,19 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
              kInvalidCameraId) ||
         (options_.single_camera_per_folder &&
          image_folders_.count(image_folder) == 0)) {
-      if (options_.camera_params.empty()) {
+      prev_camera_.SetModelIdFromName(options_.camera_model);
+      if (options_.single_camera_per_folder &&
+          options_.camera_params_per_folder.count(GetPathBaseName(image_folder))) {
+        std::string line = options_.camera_params_per_folder.at(GetPathBaseName(image_folder));
+        StringTrim(&line);
+        const size_t split_idx = line.find_first_of(" \t");
+        const std::string model_name = line.substr(0, split_idx);
+        const std::string params = line.substr(split_idx);
+        prev_camera_.SetModelIdFromName(model_name);
+        prev_camera_.SetParamsFromString(params);
+        prev_camera_.SetPriorFocalLength(true);
+      }
+      else if (options_.camera_params.empty()) {
         // Extract focal length.
         double focal_length = 0.0;
         if (bitmap->ExifFocalLength(&focal_length)) {

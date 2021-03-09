@@ -33,6 +33,7 @@
 #define COLMAP_SRC_BASE_IMAGE_READER_H_
 
 #include <unordered_set>
+#include <unordered_map>
 
 #include "base/database.h"
 #include "util/bitmap.h"
@@ -76,6 +77,9 @@ struct ImageReaderOptions {
   // Manual specification of camera parameters. If empty, camera parameters
   // will be extracted from EXIF, i.e. principal point and focal length.
   std::string camera_params = "";
+
+  // Manual specification of camera parameters per folder.
+  std::unordered_map<std::string, std::string> camera_params_per_folder;
 
   // If camera parameters are not specified manually and the image does not
   // have focal length EXIF information, the focal length is set to the
