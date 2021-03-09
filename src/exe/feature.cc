@@ -71,6 +71,7 @@ bool VerifySiftGPUParams(const bool use_gpu) {
   }
 #endif
   return true;
+}
 
 // This enum can be used as optional input for feature_extractor and
 // feature_importer to ensure that the camera flags of ImageReader are set in an
