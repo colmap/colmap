@@ -47,6 +47,293 @@
 
 namespace colmap {
 
+namespace {
+
+// Read the configuration of the camera rigs from a JSON file. The input images
+// of a camera rig must be named consistently to assign them to the appropriate
+// camera rig and the respective snapshots.
+//
+// An example configuration of a single camera rig:
+// [
+//   {
+//     "ref_camera_id": 1,
+//     "cameras":
+//     [
+//       {
+//           "camera_id": 1,
+//           "image_prefix": "left1_image"
+//           "rel_tvec": [0, 0, 0],
+//           "rel_qvec": [1, 0, 0, 0]
+//       },
+//       {
+//           "camera_id": 2,
+//           "image_prefix": "left2_image"
+//           "rel_tvec": [0, 0, 0],
+//           "rel_qvec": [0, 1, 0, 0]
+//       },
+//       {
+//           "camera_id": 3,
+//           "image_prefix": "right1_image"
+//           "rel_tvec": [0, 0, 0],
+//           "rel_qvec": [0, 0, 1, 0]
+//       },
+//       {
+//           "camera_id": 4,
+//           "image_prefix": "right2_image"
+//           "rel_tvec": [0, 0, 0],
+//           "rel_qvec": [0, 0, 0, 1]
+//       }
+//     ]
+//   }
+// ]
+//
+// The "camera_id" and "image_prefix" fields are required, whereas the
+// "rel_tvec" and "rel_qvec" fields optionally specify the relative
+// extrinsics of the camera rig in the form of a translation vector and a
+// rotation quaternion. The relative extrinsics rel_qvec and rel_tvec transform
+// coordinates from rig to camera coordinate space. If the relative extrinsics
+// are not provided then they are automatically inferred from the
+// reconstruction.
+//
+// This file specifies the configuration for a single camera rig and that you
+// could potentially define multiple camera rigs. The rig is composed of 4
+// cameras: all images of the first camera must have "left1_image" as a name
+// prefix, e.g., "left1_image_frame000.png" or "left1_image/frame000.png".
+// Images with the same suffix ("_frame000.png" and "/frame000.png") are
+// assigned to the same snapshot, i.e., they are assumed to be captured at the
+// same time. Only snapshots with the reference image registered will be added
+// to the bundle adjustment problem. The remaining images will be added with
+// independent poses to the bundle adjustment problem. The above configuration
+// could have the following input image file structure:
+//
+//    /path/to/images/...
+//        left1_image/...
+//            frame000.png
+//            frame001.png
+//            frame002.png
+//            ...
+//        left2_image/...
+//            frame000.png
+//            frame001.png
+//            frame002.png
+//            ...
+//        right1_image/...
+//            frame000.png
+//            frame001.png
+//            frame002.png
+//            ...
+//        right2_image/...
+//            frame000.png
+//            frame001.png
+//            frame002.png
+//            ...
+//
+std::vector<CameraRig> ReadCameraRigConfig(const std::string& rig_config_path,
+                                           const Reconstruction& reconstruction,
+                                           bool estimate_rig_relative_poses) {
+  boost::property_tree::ptree pt;
+  boost::property_tree::read_json(rig_config_path.c_str(), pt);
+
+  std::vector<CameraRig> camera_rigs;
+  for (const auto& rig_config : pt) {
+    CameraRig camera_rig;
+
+    std::vector<std::string> image_prefixes;
+    for (const auto& camera : rig_config.second.get_child("cameras")) {
+      const int camera_id = camera.second.get<int>("camera_id");
+      image_prefixes.push_back(camera.second.get<std::string>("image_prefix"));
+      Eigen::Vector3d rel_tvec;
+      Eigen::Vector4d rel_qvec;
+      int index = 0;
+      auto rel_tvec_node = camera.second.get_child_optional("rel_tvec");
+      if (rel_tvec_node) {
+        for (const auto& node : rel_tvec_node.get()) {
+          rel_tvec[index++] = node.second.get_value<double>();
+        }
+      } else {
+        estimate_rig_relative_poses = true;
+      }
+      index = 0;
+      auto rel_qvec_node = camera.second.get_child_optional("rel_qvec");
+      if (rel_qvec_node) {
+        for (const auto& node : rel_qvec_node.get()) {
+          rel_qvec[index++] = node.second.get_value<double>();
+        }
+      } else {
+        estimate_rig_relative_poses = true;
+      }
+
+      camera_rig.AddCamera(camera_id, rel_qvec, rel_tvec);
+    }
+
+    camera_rig.SetRefCameraId(rig_config.second.get<int>("ref_camera_id"));
+
+    std::unordered_map<std::string, std::vector<image_t>> snapshots;
+    for (const auto image_id : reconstruction.RegImageIds()) {
+      const auto& image = reconstruction.Image(image_id);
+      for (const auto& image_prefix : image_prefixes) {
+        if (StringContains(image.Name(), image_prefix)) {
+          const std::string image_suffix =
+              StringGetAfter(image.Name(), image_prefix);
+          snapshots[image_suffix].push_back(image_id);
+        }
+      }
+    }
+
+    for (const auto& snapshot : snapshots) {
+      bool has_ref_camera = false;
+      for (const auto image_id : snapshot.second) {
+        const auto& image = reconstruction.Image(image_id);
+        if (image.CameraId() == camera_rig.RefCameraId()) {
+          has_ref_camera = true;
+        }
+      }
+
+      if (has_ref_camera) {
+        camera_rig.AddSnapshot(snapshot.second);
+      }
+    }
+
+    camera_rig.Check(reconstruction);
+    if (estimate_rig_relative_poses) {
+      PrintHeading2("Estimating relative rig poses");
+      if (!camera_rig.ComputeRelativePoses(reconstruction)) {
+        std::cout << "WARN: Failed to estimate rig poses from reconstruction; "
+                     "cannot use rig BA"
+                  << std::endl;
+        return std::vector<CameraRig>();
+      }
+    }
+
+    camera_rigs.push_back(camera_rig);
+  }
+
+  return camera_rigs;
+}
+
+IncrementalMapper SetupIncrementalMapper(DatabaseCache& database_cache,
+                                         Reconstruction& reconstruction,
+                                         const OptionManager& options,
+                                         bool clear_points = true) {
+  const auto& mapper_options = *options.mapper;
+
+  Timer timer;
+  timer.Start();
+
+  Database database(*options.database_path);
+
+  const size_t min_num_matches =
+      static_cast<size_t>(mapper_options.min_num_matches);
+  database_cache.Load(database, min_num_matches,
+                      mapper_options.ignore_watermarks,
+                      mapper_options.image_names);
+
+  if (clear_points) {
+    reconstruction.DeleteAllPoints2DAndPoints3D();
+    reconstruction.TranscribeImageIdsToDatabase(database);
+  }
+
+  std::cout << std::endl;
+  timer.PrintMinutes();
+  std::cout << std::endl;
+
+  CHECK_GE(reconstruction.NumRegImages(), 2)
+      << "Need at least two images for triangulation";
+
+  IncrementalMapper mapper(&database_cache);
+  mapper.BeginReconstruction(&reconstruction);
+  return mapper;
+}
+
+void ExecuteTriangulation(IncrementalMapper& mapper,
+                          const IncrementalMapperOptions& mapper_options) {
+  const auto tri_options = mapper_options.Triangulation();
+
+  const auto& reconstruction = mapper.GetReconstruction();
+  const auto& reg_image_ids = reconstruction.RegImageIds();
+
+  for (size_t i = 0; i < reg_image_ids.size(); ++i) {
+    const image_t image_id = reg_image_ids[i];
+
+    const auto& image = reconstruction.Image(image_id);
+
+    PrintHeading2(StringPrintf("Triangulating image #%d (%d)", image_id, i));
+
+    const size_t num_existing_points3D = image.NumPoints3D();
+
+    std::cout << "  => Image sees " << num_existing_points3D << " / "
+              << image.NumObservations() << " points" << std::endl;
+
+    mapper.TriangulateImage(tri_options, image_id);
+
+    std::cout << "  => Triangulated "
+              << (image.NumPoints3D() - num_existing_points3D) << " points"
+              << std::endl;
+  }
+
+  PrintHeading2("Retriangulation");
+  CompleteAndMergeTracks(mapper_options, &mapper);
+}
+
+void ExecuteGlobalBundleAdjustment(
+    Reconstruction& reconstruction, IncrementalMapper* mapper,
+    const IncrementalMapperOptions& mapper_options,
+    std::string rig_config_path = "", bool estimate_rig_relative_poses = true,
+    bool refine_rig_relative_poses = true) {
+  auto ba_options = mapper_options.GlobalBundleAdjustment();
+  // Configure bundle adjustment.
+  BundleAdjustmentConfig ba_config;
+  for (const image_t image_id : reconstruction.RegImageIds()) {
+    ba_config.AddImage(image_id);
+  }
+
+  RigBundleAdjuster::Options rig_ba_options;
+  rig_ba_options.refine_relative_poses = refine_rig_relative_poses;
+  std::vector<CameraRig> camera_rigs;
+  if (!rig_config_path.empty() && ExistsFile(rig_config_path)) {
+    camera_rigs = ReadCameraRigConfig(rig_config_path, reconstruction,
+                                      estimate_rig_relative_poses);
+    for (size_t i = 0; i < camera_rigs.size(); ++i) {
+      const auto& camera_rig = camera_rigs[i];
+      PrintHeading2(StringPrintf("Camera Rig %d", i + 1));
+      std::cout << StringPrintf("Cameras: %d", camera_rig.NumCameras())
+                << std::endl;
+      std::cout << StringPrintf("Snapshots: %d", camera_rig.NumSnapshots())
+                << std::endl;
+    }
+  }
+
+  for (int i = 0; i < mapper_options.ba_global_max_refinements; ++i) {
+    // Avoid degeneracies in bundle adjustment.
+    reconstruction.FilterObservationsWithNegativeDepth();
+
+    const size_t num_observations = reconstruction.ComputeNumObservations();
+
+    if (!camera_rigs.empty()) {
+      PrintHeading1("Rig bundle adjustment");
+      RigBundleAdjuster bundle_adjuster(ba_options, rig_ba_options, ba_config);
+      CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
+    } else {
+      PrintHeading1("Bundle adjustment");
+      BundleAdjuster bundle_adjuster(ba_options, ba_config);
+      CHECK(bundle_adjuster.Solve(&reconstruction));
+    }
+
+    size_t num_changed_observations = 0;
+    num_changed_observations += CompleteAndMergeTracks(mapper_options, mapper);
+    num_changed_observations += FilterPoints(mapper_options, mapper);
+    const double changed =
+        static_cast<double>(num_changed_observations) / num_observations;
+    std::cout << StringPrintf("  => Changed observations: %.6f", changed)
+              << std::endl;
+    if (changed < mapper_options.ba_global_max_refinement_change) {
+      break;
+    }
+  }
+}
+
+}  // namespace
+
 int RunAutomaticReconstructor(int argc, char** argv) {
   AutomaticReconstructionController::Options reconstruction_options;
   std::string data_type = "individual";
@@ -130,6 +417,137 @@ int RunAutomaticReconstructor(int argc, char** argv) {
     controller.Start();
     controller.Wait();
   }
+
+  return EXIT_SUCCESS;
+}
+
+int RunAutoMapper(int argc, char** argv) {
+  Timer timer;
+  timer.Start();
+  HierarchicalMapperController::Options hierarchical_options;
+  SceneClustering::Options clustering_options;
+  std::string output_path;
+  std::string input_path;
+  std::string rig_config_path;
+  bool estimate_rig_relative_poses = false;
+  bool refine_rig_relative_poses = false;
+  bool skip_color_extraction = false;
+  bool is_prior = false;
+  bool is_hierarchical = false;
+
+  OptionManager options;
+  options.AddDatabaseOptions();
+  options.AddImageOptions();
+  options.AddMapperOptions();
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption("input_path", &input_path);
+  options.AddDefaultOption("rig_config_path", &rig_config_path);
+  options.AddDefaultOption("num_workers", &hierarchical_options.num_workers);
+  options.AddDefaultOption("image_overlap", &clustering_options.image_overlap);
+  options.AddDefaultOption("leaf_max_num_images",
+                           &clustering_options.leaf_max_num_images);
+  options.AddDefaultOption("estimate_rig_relative_poses",
+                           &estimate_rig_relative_poses);
+  options.AddDefaultOption("refine_rig_relative_poses",
+                           &refine_rig_relative_poses);
+  options.AddDefaultOption("skip_color_extraction", &skip_color_extraction,
+                           "Whether to skip color extraction step");
+
+  options.Parse(argc, argv);
+
+  if (!ExistsDir(output_path)) {
+    std::cerr << "ERROR: `output_path` is not a directory." << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  int num_db_images = 0;
+  {
+    Database database(*options.database_path);
+    num_db_images = database.NumImages();
+  }
+
+  std::shared_ptr<Thread> mapper = nullptr;
+  ReconstructionManager reconstruction_manager;
+  PrintHeading1("Mapper");
+
+  if (ExistsDir(input_path)) {
+    size_t idx = reconstruction_manager.Read(input_path);
+    const Reconstruction& recon = reconstruction_manager.Get(idx);
+    std::cout << StringPrintf(
+                     " => Loaded reconstruction with %d cameras, %d images, "
+                     "and %d 3D points",
+                     recon.NumCameras(), recon.NumImages(), recon.NumPoints3D())
+              << std::endl;
+    // accepted reconstruction must have at least one camera and register at
+    // least 80% of all images in the database
+    if (recon.NumCameras() == 0 || recon.NumImages() < 0.8 * num_db_images) {
+      std::cout << "WARN: Cannot use provided reconstruction; creating new "
+                   "one with mapper"
+                << std::endl;
+      reconstruction_manager.Clear();
+    } else {
+      PrintHeading2("Using prior reconstruction without mapper");
+      is_prior = true;
+    }
+  }
+
+  if (reconstruction_manager.Size() == 0) {
+    if (num_db_images > clustering_options.leaf_max_num_images) {
+      PrintHeading2("Using hierarchical mapper");
+      hierarchical_options.database_path = *options.database_path;
+      hierarchical_options.image_path = *options.image_path;
+      mapper = std::shared_ptr<Thread>(new HierarchicalMapperController(
+          hierarchical_options, clustering_options, *options.mapper,
+          &reconstruction_manager));
+      is_hierarchical = true;
+    } else {
+      PrintHeading2("Using incremental mapper");
+      mapper = std::shared_ptr<Thread>(new IncrementalMapperController(
+          options.mapper.get(), *options.image_path, *options.database_path,
+          &reconstruction_manager));
+    }
+
+    mapper->Start();
+    mapper->Wait();
+
+    if (reconstruction_manager.Size() == 0) {
+      std::cerr << "ERROR: failed to create sparse model" << std::endl;
+      return EXIT_FAILURE;
+    }
+  }
+  timer.PrintMinutes();
+
+  if (is_prior || is_hierarchical) {
+    Reconstruction& recon = reconstruction_manager.Get(0);
+    DatabaseCache database_cache;
+    PrintHeading1("Point Triangulation");
+    IncrementalMapper tri_mapper =
+        SetupIncrementalMapper(database_cache, recon, options, is_prior);
+    ExecuteTriangulation(tri_mapper, *options.mapper);
+    timer.PrintMinutes();
+
+    PrintHeading1("Global Bundle Adjustment");
+    // Do more thorough pass of global BA when reconstructing from priors
+    if (is_prior) {
+      options.mapper->ba_global_max_num_iterations *= 4;
+      options.mapper->ba_global_max_refinements *= 8;
+    }
+    ExecuteGlobalBundleAdjustment(recon, &tri_mapper, *options.mapper,
+                                  rig_config_path, estimate_rig_relative_poses,
+                                  refine_rig_relative_poses);
+    timer.PrintMinutes();
+
+    if (!skip_color_extraction) {
+      PrintHeading1("Color Extraction");
+      recon.ExtractColorsForAllImages(*options.image_path);
+    }
+
+    tri_mapper.EndReconstruction(false);
+  }
+
+  PrintHeading1("Writing reconstructions");
+  reconstruction_manager.Write(output_path, &options);
+  timer.PrintMinutes();
 
   return EXIT_SUCCESS;
 }
@@ -339,9 +757,14 @@ int RunPointFiltering(int argc, char** argv) {
 }
 
 int RunPointTriangulator(int argc, char** argv) {
+  Timer global_timer;
+  Timer local_timer;
+  global_timer.Start();
+  local_timer.Start();
   std::string input_path;
   std::string output_path;
   bool clear_points = false;
+  bool skip_color_extraction = false;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -351,6 +774,8 @@ int RunPointTriangulator(int argc, char** argv) {
   options.AddDefaultOption(
       "clear_points", &clear_points,
       "Whether to clear all existing points and observations");
+  options.AddDefaultOption("skip_color_extraction", &skip_color_extraction,
+                           "Whether to skip color extraction step");
   options.AddMapperOptions();
   options.Parse(argc, argv);
 
@@ -374,285 +799,38 @@ int RunPointTriangulator(int argc, char** argv) {
   PrintHeading1("Loading database");
 
   DatabaseCache database_cache;
+  IncrementalMapper mapper = SetupIncrementalMapper(
+      database_cache, reconstruction, options, clear_points);
+  local_timer.PrintMinutes();
+  local_timer.Restart();
 
-  {
-    Timer timer;
-    timer.Start();
+  PrintHeading1("Triangulating");
 
-    Database database(*options.database_path);
-
-    const size_t min_num_matches =
-        static_cast<size_t>(mapper_options.min_num_matches);
-    database_cache.Load(database, min_num_matches,
-                        mapper_options.ignore_watermarks,
-                        mapper_options.image_names);
-
-    if (clear_points) {
-      reconstruction.DeleteAllPoints2DAndPoints3D();
-      reconstruction.TranscribeImageIdsToDatabase(database);
-    }
-
-    std::cout << std::endl;
-    timer.PrintMinutes();
-  }
-
-  std::cout << std::endl;
-
-  CHECK_GE(reconstruction.NumRegImages(), 2)
-      << "Need at least two images for triangulation";
-
-  IncrementalMapper mapper(&database_cache);
-  mapper.BeginReconstruction(&reconstruction);
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Triangulation
-  //////////////////////////////////////////////////////////////////////////////
-
-  const auto tri_options = mapper_options.Triangulation();
-
-  const auto& reg_image_ids = reconstruction.RegImageIds();
-
-  for (size_t i = 0; i < reg_image_ids.size(); ++i) {
-    const image_t image_id = reg_image_ids[i];
-
-    const auto& image = reconstruction.Image(image_id);
-
-    PrintHeading1(StringPrintf("Triangulating image #%d (%d)", image_id, i));
-
-    const size_t num_existing_points3D = image.NumPoints3D();
-
-    std::cout << "  => Image sees " << num_existing_points3D << " / "
-              << image.NumObservations() << " points" << std::endl;
-
-    mapper.TriangulateImage(tri_options, image_id);
-
-    std::cout << "  => Triangulated "
-              << (image.NumPoints3D() - num_existing_points3D) << " points"
-              << std::endl;
-  }
-
-  //////////////////////////////////////////////////////////////////////////////
-  // Retriangulation
-  //////////////////////////////////////////////////////////////////////////////
-
-  PrintHeading1("Retriangulation");
-
-  CompleteAndMergeTracks(mapper_options, &mapper);
+  ExecuteTriangulation(mapper, mapper_options);
+  local_timer.PrintMinutes();
+  local_timer.Restart();
 
   //////////////////////////////////////////////////////////////////////////////
   // Bundle adjustment
   //////////////////////////////////////////////////////////////////////////////
+  ExecuteGlobalBundleAdjustment(reconstruction, &mapper, mapper_options);
+  local_timer.PrintMinutes();
+  local_timer.Restart();
 
-  auto ba_options = mapper_options.GlobalBundleAdjustment();
-  ba_options.refine_focal_length = false;
-  ba_options.refine_principal_point = false;
-  ba_options.refine_extra_params = false;
-  ba_options.refine_extrinsics = false;
-
-  // Configure bundle adjustment.
-  BundleAdjustmentConfig ba_config;
-  for (const image_t image_id : reconstruction.RegImageIds()) {
-    ba_config.AddImage(image_id);
+  if (!skip_color_extraction) {
+    PrintHeading1("Extracting colors");
+    reconstruction.ExtractColorsForAllImages(*options.image_path);
+    local_timer.PrintMinutes();
   }
-
-  for (int i = 0; i < mapper_options.ba_global_max_refinements; ++i) {
-    // Avoid degeneracies in bundle adjustment.
-    reconstruction.FilterObservationsWithNegativeDepth();
-
-    const size_t num_observations = reconstruction.ComputeNumObservations();
-
-    PrintHeading1("Bundle adjustment");
-    BundleAdjuster bundle_adjuster(ba_options, ba_config);
-    CHECK(bundle_adjuster.Solve(&reconstruction));
-
-    size_t num_changed_observations = 0;
-    num_changed_observations += CompleteAndMergeTracks(mapper_options, &mapper);
-    num_changed_observations += FilterPoints(mapper_options, &mapper);
-    const double changed =
-        static_cast<double>(num_changed_observations) / num_observations;
-    std::cout << StringPrintf("  => Changed observations: %.6f", changed)
-              << std::endl;
-    if (changed < mapper_options.ba_global_max_refinement_change) {
-      break;
-    }
-  }
-
-  PrintHeading1("Extracting colors");
-  reconstruction.ExtractColorsForAllImages(*options.image_path);
 
   const bool kDiscardReconstruction = false;
   mapper.EndReconstruction(kDiscardReconstruction);
 
   reconstruction.Write(output_path);
+  global_timer.PrintMinutes();
 
   return EXIT_SUCCESS;
 }
-
-namespace {
-
-// Read the configuration of the camera rigs from a JSON file. The input images
-// of a camera rig must be named consistently to assign them to the appropriate
-// camera rig and the respective snapshots.
-//
-// An example configuration of a single camera rig:
-// [
-//   {
-//     "ref_camera_id": 1,
-//     "cameras":
-//     [
-//       {
-//           "camera_id": 1,
-//           "image_prefix": "left1_image"
-//           "rel_tvec": [0, 0, 0],
-//           "rel_qvec": [1, 0, 0, 0]
-//       },
-//       {
-//           "camera_id": 2,
-//           "image_prefix": "left2_image"
-//           "rel_tvec": [0, 0, 0],
-//           "rel_qvec": [0, 1, 0, 0]
-//       },
-//       {
-//           "camera_id": 3,
-//           "image_prefix": "right1_image"
-//           "rel_tvec": [0, 0, 0],
-//           "rel_qvec": [0, 0, 1, 0]
-//       },
-//       {
-//           "camera_id": 4,
-//           "image_prefix": "right2_image"
-//           "rel_tvec": [0, 0, 0],
-//           "rel_qvec": [0, 0, 0, 1]
-//       }
-//     ]
-//   }
-// ]
-//
-// The "camera_id" and "image_prefix" fields are required, whereas the
-// "rel_tvec" and "rel_qvec" fields optionally specify the relative
-// extrinsics of the camera rig in the form of a translation vector and a
-// rotation quaternion. The relative extrinsics rel_qvec and rel_tvec transform
-// coordinates from rig to camera coordinate space. If the relative extrinsics
-// are not provided then they are automatically inferred from the
-// reconstruction.
-//
-// This file specifies the configuration for a single camera rig and that you
-// could potentially define multiple camera rigs. The rig is composed of 4
-// cameras: all images of the first camera must have "left1_image" as a name
-// prefix, e.g., "left1_image_frame000.png" or "left1_image/frame000.png".
-// Images with the same suffix ("_frame000.png" and "/frame000.png") are
-// assigned to the same snapshot, i.e., they are assumed to be captured at the
-// same time. Only snapshots with the reference image registered will be added
-// to the bundle adjustment problem. The remaining images will be added with
-// independent poses to the bundle adjustment problem. The above configuration
-// could have the following input image file structure:
-//
-//    /path/to/images/...
-//        left1_image/...
-//            frame000.png
-//            frame001.png
-//            frame002.png
-//            ...
-//        left2_image/...
-//            frame000.png
-//            frame001.png
-//            frame002.png
-//            ...
-//        right1_image/...
-//            frame000.png
-//            frame001.png
-//            frame002.png
-//            ...
-//        right2_image/...
-//            frame000.png
-//            frame001.png
-//            frame002.png
-//            ...
-//
-std::vector<CameraRig> ReadCameraRigConfig(const std::string& rig_config_path,
-                                           const Reconstruction& reconstruction,
-                                           bool estimate_rig_relative_poses) {
-  boost::property_tree::ptree pt;
-  boost::property_tree::read_json(rig_config_path.c_str(), pt);
-
-  std::vector<CameraRig> camera_rigs;
-  for (const auto& rig_config : pt) {
-    CameraRig camera_rig;
-
-    std::vector<std::string> image_prefixes;
-    for (const auto& camera : rig_config.second.get_child("cameras")) {
-      const int camera_id = camera.second.get<int>("camera_id");
-      image_prefixes.push_back(camera.second.get<std::string>("image_prefix"));
-      Eigen::Vector3d rel_tvec;
-      Eigen::Vector4d rel_qvec;
-      int index = 0;
-      auto rel_tvec_node = camera.second.get_child_optional("rel_tvec");
-      if (rel_tvec_node) {
-        for (const auto& node : rel_tvec_node.get()) {
-          rel_tvec[index++] = node.second.get_value<double>();
-        }
-      } else {
-        estimate_rig_relative_poses = true;
-      }
-      index = 0;
-      auto rel_qvec_node = camera.second.get_child_optional("rel_qvec");
-      if (rel_qvec_node) {
-        for (const auto& node : rel_qvec_node.get()) {
-          rel_qvec[index++] = node.second.get_value<double>();
-        }
-      } else {
-        estimate_rig_relative_poses = true;
-      }
-
-      camera_rig.AddCamera(camera_id, rel_qvec, rel_tvec);
-    }
-
-    camera_rig.SetRefCameraId(rig_config.second.get<int>("ref_camera_id"));
-
-    std::unordered_map<std::string, std::vector<image_t>> snapshots;
-    for (const auto image_id : reconstruction.RegImageIds()) {
-      const auto& image = reconstruction.Image(image_id);
-      for (const auto& image_prefix : image_prefixes) {
-        if (StringContains(image.Name(), image_prefix)) {
-          const std::string image_suffix =
-              StringGetAfter(image.Name(), image_prefix);
-          snapshots[image_suffix].push_back(image_id);
-        }
-      }
-    }
-
-    for (const auto& snapshot : snapshots) {
-      bool has_ref_camera = false;
-      for (const auto image_id : snapshot.second) {
-        const auto& image = reconstruction.Image(image_id);
-        if (image.CameraId() == camera_rig.RefCameraId()) {
-          has_ref_camera = true;
-        }
-      }
-
-      if (has_ref_camera) {
-        camera_rig.AddSnapshot(snapshot.second);
-      }
-    }
-
-    camera_rig.Check(reconstruction);
-    if (estimate_rig_relative_poses) {
-      PrintHeading2("Estimating relative rig poses");
-      if (!camera_rig.ComputeRelativePoses(reconstruction)) {
-        std::cout << "WARN: Failed to estimate rig poses from reconstruction; "
-                     "cannot use rig BA"
-                  << std::endl;
-        return std::vector<CameraRig>();
-      }
-    }
-
-    camera_rigs.push_back(camera_rig);
-  }
-
-  return camera_rigs;
-}
-
-}  // namespace
 
 int RunRigBundleAdjuster(int argc, char** argv) {
   std::string input_path;
