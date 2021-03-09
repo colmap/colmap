@@ -116,6 +116,42 @@ void Workspace::Load(const std::vector<std::string>& image_names) {
   timer.PrintMinutes();
 }
 
+const Bitmap& Workspace::GetBitmap(const int image_idx) {
+  return *bitmaps_[image_idx];
+}
+
+const DepthMap& Workspace::GetDepthMap(const int image_idx) {
+  return *depth_maps_[image_idx];
+}
+
+const NormalMap& Workspace::GetNormalMap(const int image_idx) {
+  return *normal_maps_[image_idx];
+}
+
+std::string Workspace::GetBitmapPath(const int image_idx) const {
+  return model_.images.at(image_idx).GetPath();
+}
+
+std::string Workspace::GetDepthMapPath(const int image_idx) const {
+  return depth_map_path_ + GetFileName(image_idx);
+}
+
+std::string Workspace::GetNormalMapPath(const int image_idx) const {
+  return normal_map_path_ + GetFileName(image_idx);
+}
+
+bool Workspace::HasBitmap(const int image_idx) const {
+  return ExistsFile(GetBitmapPath(image_idx));
+}
+
+bool Workspace::HasDepthMap(const int image_idx) const {
+  return ExistsFile(GetDepthMapPath(image_idx));
+}
+
+bool Workspace::HasNormalMap(const int image_idx) const {
+  return ExistsFile(GetNormalMapPath(image_idx));
+}
+
 CachedWorkspace::CachedImage::CachedImage(CachedImage&& other) {
   num_bytes = other.num_bytes;
   bitmap = std::move(other.bitmap);

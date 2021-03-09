@@ -74,37 +74,19 @@ class Workspace {
 
   inline const Model& GetModel() const { return model_; }
 
-  virtual inline const Bitmap& GetBitmap(const int image_idx) {
-    return *bitmaps_[image_idx];
-  }
-  virtual inline const DepthMap& GetDepthMap(const int image_idx) {
-    return *depth_maps_[image_idx];
-  }
-  virtual inline const NormalMap& GetNormalMap(const int image_idx) {
-    return *normal_maps_[image_idx];
-  }
+  virtual const Bitmap& GetBitmap(const int image_idx);
+  virtual const DepthMap& GetDepthMap(const int image_idx);
+  virtual const NormalMap& GetNormalMap(const int image_idx);
 
   // Get paths to bitmap, depth map, normal map and consistency graph.
-  inline std::string GetBitmapPath(const int image_idx) const {
-    return model_.images.at(image_idx).GetPath();
-  }
-  inline std::string GetDepthMapPath(const int image_idx) const {
-    return depth_map_path_ + GetFileName(image_idx);
-  }
-  inline std::string GetNormalMapPath(const int image_idx) const {
-    return normal_map_path_ + GetFileName(image_idx);
-  }
+  std::string GetBitmapPath(const int image_idx) const;
+  std::string GetDepthMapPath(const int image_idx) const;
+  std::string GetNormalMapPath(const int image_idx) const;
 
   // Return whether bitmap, depth map, normal map, and consistency graph exist.
-  inline bool HasBitmap(const int image_idx) const {
-    return ExistsFile(GetBitmapPath(image_idx));
-  }
-  inline bool HasDepthMap(const int image_idx) const {
-    return ExistsFile(GetDepthMapPath(image_idx));
-  }
-  inline bool HasNormalMap(const int image_idx) const {
-    return ExistsFile(GetNormalMapPath(image_idx));
-  }
+  bool HasBitmap(const int image_idx) const;
+  bool HasDepthMap(const int image_idx) const;
+  bool HasNormalMap(const int image_idx) const;
 
  protected:
   std::string GetFileName(const int image_idx) const;
