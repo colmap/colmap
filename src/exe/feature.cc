@@ -34,6 +34,7 @@
 #include <QApplication>
 
 #include "base/camera_models.h"
+#include "base/gps.h"
 #include "base/image_reader.h"
 #include "exe/gui.h"
 #include "feature/extraction.h"
