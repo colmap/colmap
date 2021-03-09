@@ -35,6 +35,7 @@
 #include "base/reconstruction.h"
 #include "util/alignment.h"
 #include "util/bitmap.h"
+#include "util/misc.h"
 #include "util/threading.h"
 
 namespace colmap {
@@ -65,23 +66,29 @@ struct UndistortCameraOptions {
 // mvs::PatchMatchController class.
 class COLMAPUndistorter : public Thread {
  public:
-  COLMAPUndistorter(const UndistortCameraOptions& options,
-                    const Reconstruction& reconstruction,
-                    const std::string& image_path,
-                    const std::string& output_path);
+  COLMAPUndistorter(
+      const UndistortCameraOptions& options,
+      const Reconstruction& reconstruction, const std::string& image_path,
+      const std::string& output_path, const int num_related_images = 20,
+      const CopyType copy_type = CopyType::COPY,
+      const std::vector<image_t>& image_ids = std::vector<image_t>());
 
  private:
   void Run();
 
-  void Undistort(const size_t reg_image_idx) const;
+  bool Undistort(const image_t image_id) const;
   void WritePatchMatchConfig() const;
   void WriteFusionConfig() const;
   void WriteScript(const bool geometric) const;
 
   UndistortCameraOptions options_;
-  std::string image_path_;
-  std::string output_path_;
+  const std::string image_path_;
+  const std::string output_path_;
+  const CopyType copy_type_;
+  const int num_related_images_;
   const Reconstruction& reconstruction_;
+  const std::vector<image_t> image_ids_;
+  std::vector<std::string> image_names_;
 };
 
 // Undistort images and prepare data for CMVS/PMVS.
@@ -95,7 +102,7 @@ class PMVSUndistorter : public Thread {
  private:
   void Run();
 
-  void Undistort(const size_t reg_image_idx) const;
+  bool Undistort(const size_t reg_image_idx) const;
   void WriteVisibilityData() const;
   void WriteOptionFile() const;
   void WritePMVSScript() const;
@@ -120,7 +127,7 @@ class CMPMVSUndistorter : public Thread {
  private:
   void Run();
 
-  void Undistort(const size_t reg_image_idx) const;
+  bool Undistort(const size_t reg_image_idx) const;
 
   UndistortCameraOptions options_;
   std::string image_path_;
@@ -141,9 +148,9 @@ class PureImageUndistorter : public Thread {
 
  private:
   void Run();
-
-  void Undistort(const size_t reg_image_idx) const;
-
+  
+  bool Undistort(const size_t reg_image_idx) const;
+  
   UndistortCameraOptions options_;
   std::string image_path_;
   std::string output_path_;

@@ -191,6 +191,15 @@ bool Camera::HasBogusParams(const double min_focal_length_ratio,
                                    max_focal_length_ratio, max_extra_param);
 }
 
+bool Camera::IsUndistorted() const {
+  for (size_t idx : ExtraParamsIdxs()) {
+    if (fabs(params_[idx]) > 1e-8) {
+      return false;
+    }
+  }
+  return true;
+}
+
 void Camera::InitializeWithId(const int model_id, const double focal_length,
                               const size_t width, const size_t height) {
   CHECK(ExistsCameraModelWithId(model_id));
