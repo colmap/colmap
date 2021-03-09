@@ -541,7 +541,7 @@ bool Reconstruction::Align(const std::vector<std::string>& image_names,
 
   // Find out which images are contained in the reconstruction and get the
   // positions of their camera centers.
-  std::set<image_t> common_image_ids;
+  std::unordered_set<image_t> common_image_ids;
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> dst;
   for (size_t i = 0; i < image_names.size(); ++i) {
@@ -590,7 +590,7 @@ bool Reconstruction::AlignRobust(const std::vector<std::string>& image_names,
 
   // Find out which images are contained in the reconstruction and get the
   // positions of their camera centers.
-  std::set<image_t> common_image_ids;
+  std::unordered_set<image_t> common_image_ids;
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> dst;
   for (size_t i = 0; i < image_names.size(); ++i) {

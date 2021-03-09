@@ -512,7 +512,7 @@ bool Reconstruction::Merge(const Reconstruction& reconstruction,
   for (const auto& point3D : reconstruction.Points3D()) {
     Track new_track;
     Track old_track;
-    std::set<point3D_t> old_point3D_ids;
+    std::unordered_set<point3D_t> old_point3D_ids;
     for (const auto& track_el : point3D.second.Track().Elements()) {
       if (common_image_ids.count(track_el.image_id) > 0) {
         const auto& point2D =
@@ -1364,7 +1364,7 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
 }
 
 void Reconstruction::CreateImageDirs(const std::string& path) const {
-  std::set<std::string> image_dirs;
+  std::unordered_set<std::string> image_dirs;
   for (const auto& image : images_) {
     const std::vector<std::string> name_split =
         StringSplit(image.second.Name(), "/");
