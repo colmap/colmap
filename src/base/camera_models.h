@@ -1356,8 +1356,7 @@ void RadialFisheyeCameraModel::Distortion(const T* extra_params, const T u,
     const T theta = ceres::atan(r);
     const T theta2 = theta * theta;
     const T theta4 = theta2 * theta2;
-    const T thetad =
-        theta * (T(1) + k1 * theta2 + k2 * theta4);
+    const T thetad = theta * (T(1) + k1 * theta2 + k2 * theta4);
     *du = u * thetad / r - u;
     *dv = v * thetad / r - v;
   } else {

@@ -32,8 +32,8 @@
 #ifndef COLMAP_SRC_RETRIEVAL_VISUAL_INDEX_H_
 #define COLMAP_SRC_RETRIEVAL_VISUAL_INDEX_H_
 
-#include <boost/heap/fibonacci_heap.hpp>
 #include <Eigen/Core>
+#include <boost/heap/fibonacci_heap.hpp>
 
 #include "FLANN/flann.hpp"
 #include "feature/types.h"
@@ -251,8 +251,8 @@ bool VisualIndex<kDescType, kDescDim, kEmbeddingDim>::ImageIndexed(
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
-    const QueryOptions& options,
-    const DescType& descriptors, std::vector<ImageScore>* image_scores) const {
+    const QueryOptions& options, const DescType& descriptors,
+    std::vector<ImageScore>* image_scores) const {
   const GeomType geometries;
   Query(options, geometries, descriptors, image_scores);
 }
