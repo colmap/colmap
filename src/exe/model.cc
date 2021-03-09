@@ -306,12 +306,14 @@ int RunModelConverter(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
   std::string output_type;
+  bool skip_distortion = false;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddRequiredOption("output_type", &output_type,
-                            "{BIN, TXT, NVM, Bundler, VRML, PLY}");
+                            "{BIN, TXT, NVM, Bundler, VRML, PLY, R3D, CAM}");
+  options.AddDefaultOption("skip_distortion", &skip_distortion);
   options.Parse(argc, argv);
 
   Reconstruction reconstruction;
@@ -323,10 +325,14 @@ int RunModelConverter(int argc, char** argv) {
   } else if (output_type == "txt") {
     reconstruction.WriteText(output_path);
   } else if (output_type == "nvm") {
-    reconstruction.ExportNVM(output_path);
+    reconstruction.ExportNVM(output_path, skip_distortion);
   } else if (output_type == "bundler") {
     reconstruction.ExportBundler(output_path + ".bundle.out",
-                                 output_path + ".list.txt");
+                                 output_path + ".list.txt", skip_distortion);
+  } else if (output_type == "r3d") {
+    reconstruction.ExportRecon3D(output_path, skip_distortion);
+  } else if (output_type == "cam") {
+    reconstruction.ExportCam(output_path, skip_distortion);
   } else if (output_type == "ply") {
     reconstruction.ExportPLY(output_path);
   } else if (output_type == "vrml") {
