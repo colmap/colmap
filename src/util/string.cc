@@ -157,7 +157,8 @@ std::string StringGetAfter(const std::string& str, const std::string& key) {
   }
   std::size_t found = str.rfind(key);
   if (found != std::string::npos) {
-    return str.substr(found + key.length(), str.length() - (found + key.length()));
+    return str.substr(found + key.length(),
+                      str.length() - (found + key.length()));
   }
   return "";
 }

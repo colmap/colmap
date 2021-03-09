@@ -43,10 +43,10 @@ BOOST_AUTO_TEST_CASE(TestEllToXYZGRS80) {
   ell.emplace_back(48 + 8. / 60 + 52.40575 / 3600,
                    11 + 34. / 60 + 11.77179 / 3600, 561.1509);
   std::vector<Eigen::Vector3d> ref_xyz;
-  ref_xyz.emplace_back(4.177239709080851e6, 0.855153779931214e6,
-                       4.728267404656370e6);
-  ref_xyz.emplace_back(4.177218660490202e6, 0.855175931351848e6,
-                       4.728281850269709e6);
+  ref_xyz.emplace_back(4.1772397090808507e6, 0.85515377993121441e6,
+                       4.7282674046563692e6);
+  ref_xyz.emplace_back(4.1772186604902023e6, 0.8551759313518483e6,
+                       4.7282818502697079e6);
 
   GPSTransform gps_tform(GPSTransform::GRS80);
 
@@ -66,10 +66,10 @@ BOOST_AUTO_TEST_CASE(TestEllToXYZWGS84) {
   ell.emplace_back(48 + 8. / 60 + 52.40575 / 3600,
                    11 + 34. / 60 + 11.77179 / 3600, 561.1509);
   std::vector<Eigen::Vector3d> ref_xyz;
-  ref_xyz.emplace_back(4.177239709042750e6, 0.855153779923415e6,
-                       4.728267404769168e6);
-  ref_xyz.emplace_back(4.177218660452103e6, 0.855175931344048e6,
-                       4.728281850382507e6);
+  ref_xyz.emplace_back(4.1772397090808507e6, 0.85515377993121441e6,
+                       4.7282674046563692e6);
+  ref_xyz.emplace_back(4.1772186604902023e6, 0.8551759313518483e6,
+                       4.7282818502697079e6);
 
   GPSTransform gps_tform(GPSTransform::WGS84);
 
@@ -84,10 +84,10 @@ BOOST_AUTO_TEST_CASE(TestEllToXYZWGS84) {
 
 BOOST_AUTO_TEST_CASE(TestXYZToEll_GRS80) {
   std::vector<Eigen::Vector3d> xyz;
-  xyz.emplace_back(4.177239709080851e6, 0.855153779931214e6,
-                   4.728267404656370e6);
-  xyz.emplace_back(4.177218660490202e6, 0.855175931351848e6,
-                   4.728281850269709e6);
+  xyz.emplace_back(4.1772397090808507e6, 0.85515377993121441e6,
+                   4.7282674046563692e6);
+  xyz.emplace_back(4.1772186604902023e6, 0.8551759313518483e6,
+                   4.7282818502697079e6);
   std::vector<Eigen::Vector3d> ref_ell;
   ref_ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
                        11 + 34. / 60 + 10.51777 / 3600, 561.1851);
@@ -107,10 +107,10 @@ BOOST_AUTO_TEST_CASE(TestXYZToEll_GRS80) {
 
 BOOST_AUTO_TEST_CASE(TestXYZToEll_WGS84) {
   std::vector<Eigen::Vector3d> xyz;
-  xyz.emplace_back(4.177239709042750e6, 0.855153779923415e6,
-                   4.728267404769168e6);
-  xyz.emplace_back(4.177218660452103e6, 0.855175931344048e6,
-                   4.728281850382507e6);
+  xyz.emplace_back(4.1772397090808507e6, 0.85515377993121441e6,
+                   4.7282674046563692e6);
+  xyz.emplace_back(4.1772186604902023e6, 0.8551759313518483e6,
+                   4.7282818502697079e6);
   std::vector<Eigen::Vector3d> ref_ell;
   ref_ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
                        11 + 34. / 60 + 10.51777 / 3600, 561.1851);
