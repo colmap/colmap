@@ -44,7 +44,7 @@ class QApplication {
 
 namespace colmap {
 
-#ifdef CUDA_ENABLED
+#if defined(CUDA_ENABLED) || !defined(OPENGL_ENABLED)
 const bool kUseOpenGL = false;
 #else
 const bool kUseOpenGL = true;
