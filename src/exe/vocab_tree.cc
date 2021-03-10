@@ -32,6 +32,7 @@
 #include "exe/vocab_tree.h"
 
 #include <numeric>
+
 #include "base/database.h"
 #include "exe/gui.h"
 #include "feature/matching.h"
