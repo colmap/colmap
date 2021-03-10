@@ -240,6 +240,8 @@ void OptionManager::AddExtractionOptions() {
                               &image_reader->single_camera);
   AddAndRegisterDefaultOption("ImageReader.single_camera_per_folder",
                               &image_reader->single_camera_per_folder);
+  AddAndRegisterDefaultOption("ImageReader.single_camera_per_image",
+                              &image_reader->single_camera_per_image);
   AddAndRegisterDefaultOption("ImageReader.existing_camera_id",
                               &image_reader->existing_camera_id);
   AddAndRegisterDefaultOption("ImageReader.camera_params",
@@ -668,6 +670,10 @@ void OptionManager::AddStereoFusionOptions() {
   }
   added_stereo_fusion_options_ = true;
 
+  AddAndRegisterDefaultOption("StereoFusion.mask_path",
+                              &stereo_fusion->mask_path);
+  AddAndRegisterDefaultOption("StereoFusion.num_threads",
+                              &stereo_fusion->num_threads);
   AddAndRegisterDefaultOption("StereoFusion.max_image_size",
                               &stereo_fusion->max_image_size);
   AddAndRegisterDefaultOption("StereoFusion.min_num_pixels",
@@ -686,6 +692,8 @@ void OptionManager::AddStereoFusionOptions() {
                               &stereo_fusion->check_num_images);
   AddAndRegisterDefaultOption("StereoFusion.cache_size",
                               &stereo_fusion->cache_size);
+  AddAndRegisterDefaultOption("StereoFusion.use_cache",
+                              &stereo_fusion->use_cache);
 }
 
 void OptionManager::AddPoissonMeshingOptions() {
