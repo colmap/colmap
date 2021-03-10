@@ -285,6 +285,85 @@ BOOST_AUTO_TEST_CASE(TestNormalize) {
   BOOST_CHECK_LT(std::abs(reconstruction.Image(7).Tvec(2) - 3.75), 1e-6);
 }
 
+BOOST_AUTO_TEST_CASE(TestComputeBoundsAndCentroid) {
+  Reconstruction reconstruction;
+
+  // Test emtpy reconstruction first
+  auto centroid = reconstruction.ComputeCentroid(0.0, 1.0);
+  auto bbox = reconstruction.ComputeBoundingBox(0.0, 1.0);
+  BOOST_CHECK_LT(std::abs(centroid(0)), 1e-6);
+  BOOST_CHECK_LT(std::abs(centroid(1)), 1e-6);
+  BOOST_CHECK_LT(std::abs(centroid(2)), 1e-6);
+  BOOST_CHECK_LT(std::abs(bbox.first(0)), 1e-6);
+  BOOST_CHECK_LT(std::abs(bbox.first(1)), 1e-6);
+  BOOST_CHECK_LT(std::abs(bbox.first(2)), 1e-6);
+  BOOST_CHECK_LT(std::abs(bbox.second(0)), 1e-6);
+  BOOST_CHECK_LT(std::abs(bbox.second(1)), 1e-6);
+  BOOST_CHECK_LT(std::abs(bbox.second(2)), 1e-6);
+
+  // Test reconstruction with 3D points
+  reconstruction.AddPoint3D(Eigen::Vector3d(3.0, 0.0, 0.0), Track());
+  reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 3.0, 0.0), Track());
+  reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 0.0, 3.0), Track());
+  centroid = reconstruction.ComputeCentroid(0.0, 1.0);
+  bbox = reconstruction.ComputeBoundingBox(0.0, 1.0);
+  BOOST_CHECK_LT(std::abs(centroid(0) - 1.0), 1e-6);
+  BOOST_CHECK_LT(std::abs(centroid(1) - 1.0), 1e-6);
+  BOOST_CHECK_LT(std::abs(centroid(2) - 1.0), 1e-6);
+  BOOST_CHECK_LT(std::abs(bbox.first(0)), 1e-6);
+  BOOST_CHECK_LT(std::abs(bbox.first(1)), 1e-6);
+  BOOST_CHECK_LT(std::abs(bbox.first(2)), 1e-6);
+  BOOST_CHECK_LT(std::abs(bbox.second(0) - 3.0), 1e-6);
+  BOOST_CHECK_LT(std::abs(bbox.second(1) - 3.0), 1e-6);
+  BOOST_CHECK_LT(std::abs(bbox.second(2) - 3.0), 1e-6);
+}
+
+BOOST_AUTO_TEST_CASE(TestCrop) {
+  Reconstruction reconstruction;
+  CorrespondenceGraph correspondence_graph;
+  GenerateReconstruction(3, &reconstruction, &correspondence_graph);
+  point3D_t point_id =
+      reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 0.0, 0.0), Track());
+  reconstruction.AddObservation(point_id, TrackElement(1, 1));
+  point_id = reconstruction.AddPoint3D(Eigen::Vector3d(0.5, 0.5, 0.0), Track());
+  reconstruction.AddObservation(point_id, TrackElement(1, 2));
+  point_id = reconstruction.AddPoint3D(Eigen::Vector3d(1.0, 1.0, 0.0), Track());
+  reconstruction.AddObservation(point_id, TrackElement(2, 3));
+  point_id = reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 0.0, 0.5), Track());
+  reconstruction.AddObservation(point_id, TrackElement(2, 4));
+  point_id = reconstruction.AddPoint3D(Eigen::Vector3d(0.5, 0.5, 1.0), Track());
+  reconstruction.AddObservation(point_id, TrackElement(3, 5));
+
+  // Check correct reconstruction setup
+  BOOST_CHECK_EQUAL(reconstruction.NumCameras(), 1);
+  BOOST_CHECK_EQUAL(reconstruction.NumImages(), 3);
+  BOOST_CHECK_EQUAL(reconstruction.NumRegImages(), 3);
+  BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 5);
+
+  std::pair<Eigen::Vector3d, Eigen::Vector3d> bbox;
+
+  // Test emtpy reconstruction after cropping
+  bbox.first = Eigen::Vector3d(-1, -1, -1);
+  bbox.second = Eigen::Vector3d(-0.5, -0.5, -0.5);
+  Reconstruction recon1 = reconstruction.Crop(bbox);
+  BOOST_CHECK_EQUAL(recon1.NumCameras(), 1);
+  BOOST_CHECK_EQUAL(recon1.NumImages(), 3);
+  BOOST_CHECK_EQUAL(recon1.NumRegImages(), 0);
+  BOOST_CHECK_EQUAL(recon1.NumPoints3D(), 0);
+
+  // Test reconstruction with contents after cropping
+  bbox.first = Eigen::Vector3d(0.0, 0.0, 0.0);
+  bbox.second = Eigen::Vector3d(0.75, 0.75, 0.75);
+  Reconstruction recon2 = reconstruction.Crop(bbox);
+  BOOST_CHECK_EQUAL(recon2.NumCameras(), 1);
+  BOOST_CHECK_EQUAL(recon2.NumImages(), 3);
+  BOOST_CHECK_EQUAL(recon2.NumRegImages(), 2);
+  BOOST_CHECK_EQUAL(recon2.NumPoints3D(), 3);
+  BOOST_CHECK(recon2.IsImageRegistered(1));
+  BOOST_CHECK(recon2.IsImageRegistered(2));
+  BOOST_CHECK(!recon2.IsImageRegistered(3));
+}
+
 BOOST_AUTO_TEST_CASE(TestTransform) {
   Reconstruction reconstruction;
   CorrespondenceGraph correspondence_graph;
