@@ -182,19 +182,22 @@ class Reconstruction {
                  const double p1 = 0.9, const bool use_images = true);
 
   // Compute the centroid of the 3D points
-  Eigen::Vector3d ComputeCentroid(double p0 = 0.1, double p1 = 0.9) const;
+  Eigen::Vector3d ComputeCentroid(const double p0 = 0.1,
+                                  const double p1 = 0.9) const;
 
   // Compute the bounding box corners of the 3D points
-  std::pair<Eigen::Vector3d, Eigen::Vector3d> ComputeBoundingBox(double p0 = 0.0, double p1 = 1.0) const;
+  std::pair<Eigen::Vector3d, Eigen::Vector3d> ComputeBoundingBox(
+      const double p0 = 0.0, const double p1 = 1.0) const;
 
   // Apply the 3D similarity transformation to all images and points.
   void Transform(const SimilarityTransform3& tform);
 
   // Creates a cropped reconstruction using the input bounds as corner points
-  // of the bounding box containing the included 3D points of the new reconstruction.
-  // Only the cameras and images of the included points are registered.
-  bool Crop(const std::pair<Eigen::Vector3d, Eigen::Vector3d>& boundary,
-            Reconstruction& reconstruction) const;
+  // of the bounding box containing the included 3D points of the new
+  // reconstruction. Only the cameras and images of the included points are
+  // registered.
+  Reconstruction Crop(
+      const std::pair<Eigen::Vector3d, Eigen::Vector3d>& bbox) const;
 
   // Merge the given reconstruction into this reconstruction by registering the
   // images registered in the given but not in this reconstruction and by
@@ -207,10 +210,11 @@ class Reconstruction {
   // Align the given reconstruction with a set of pre-defined camera positions.
   // Assuming that locations[i] gives the 3D coordinates of the center
   // of projection of the image with name image_names[i].
-  template<bool kEstimateScale = true>
+  template <bool kEstimateScale = true>
   bool Align(const std::vector<std::string>& image_names,
              const std::vector<Eigen::Vector3d>& locations,
-             const int min_common_images, SimilarityTransform3& tform);
+             const int min_common_images,
+             SimilarityTransform3* tform = nullptr);
 
   // Robust alignment using RANSAC.
   template <bool kEstimateScale = true>
@@ -218,8 +222,7 @@ class Reconstruction {
                    const std::vector<Eigen::Vector3d>& locations,
                    const int min_common_images,
                    const RANSACOptions& ransac_options,
-                   SimilarityTransform3& tform);
-
+                   SimilarityTransform3* tform = nullptr);
 
   // Find specific image by name. Note that this uses linear search.
   const class Image* FindImageWithName(const std::string& name) const;
@@ -391,7 +394,8 @@ class Reconstruction {
       const std::unordered_set<point3D_t>& point3D_ids);
 
   std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d>
-  ComputeBoundsAndCentroid(double p0, double p1, bool use_images) const;
+  ComputeBoundsAndCentroid(const double p0, const double p1,
+                           const bool use_images) const;
 
   void ReadCamerasText(const std::string& path);
   void ReadImagesText(const std::string& path);
@@ -535,7 +539,7 @@ template <bool kEstimateScale>
 bool Reconstruction::Align(const std::vector<std::string>& image_names,
                            const std::vector<Eigen::Vector3d>& locations,
                            const int min_common_images,
-                           SimilarityTransform3& tform) {
+                           SimilarityTransform3* tform) {
   CHECK_GE(min_common_images, 3);
   CHECK_EQ(image_names.size(), locations.size());
 
@@ -569,12 +573,16 @@ bool Reconstruction::Align(const std::vector<std::string>& image_names,
     return false;
   }
 
-  if (!tform.Estimate<kEstimateScale>(src, dst))
-  {
-     return false;
+  SimilarityTransform3 transform;
+  if (!transform.Estimate<kEstimateScale>(src, dst)) {
+    return false;
   }
 
-  Transform(tform);
+  Transform(transform);
+
+  if (tform != nullptr) {
+    *tform = transform;
+  }
 
   return true;
 }
@@ -584,7 +592,7 @@ bool Reconstruction::AlignRobust(const std::vector<std::string>& image_names,
                                  const std::vector<Eigen::Vector3d>& locations,
                                  const int min_common_images,
                                  const RANSACOptions& ransac_options,
-                                 SimilarityTransform3& tform) {
+                                 SimilarityTransform3* tform) {
   CHECK_GE(min_common_images, 3);
   CHECK_EQ(image_names.size(), locations.size());
 
@@ -618,7 +626,8 @@ bool Reconstruction::AlignRobust(const std::vector<std::string>& image_names,
     return false;
   }
 
-  LORANSAC<SimilarityTransformEstimator<3, kEstimateScale>, SimilarityTransformEstimator<3, kEstimateScale>>
+  LORANSAC<SimilarityTransformEstimator<3, kEstimateScale>,
+           SimilarityTransformEstimator<3, kEstimateScale>>
       ransac(ransac_options);
 
   const auto report = ransac.Estimate(src, dst);
@@ -627,8 +636,12 @@ bool Reconstruction::AlignRobust(const std::vector<std::string>& image_names,
     return false;
   }
 
-  tform = SimilarityTransform3(report.model);
-  Transform(tform);
+  SimilarityTransform3 transform = SimilarityTransform3(report.model);
+  Transform(transform);
+
+  if (tform != nullptr) {
+    *tform = transform;
+  }
 
   return true;
 }

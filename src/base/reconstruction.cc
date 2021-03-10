@@ -351,23 +351,23 @@ void Reconstruction::Normalize(const double extent, const double p0,
   Transform(tform);
 }
 
-Eigen::Vector3d Reconstruction::ComputeCentroid(double p0, double p1) const {
+Eigen::Vector3d Reconstruction::ComputeCentroid(const double p0,
+                                                const double p1) const {
   return std::get<2>(ComputeBoundsAndCentroid(p0, p1, false));
 }
 
 std::pair<Eigen::Vector3d, Eigen::Vector3d> Reconstruction::ComputeBoundingBox(
-    double p0, double p1) const {
+    const double p0, const double p1) const {
   auto bound = ComputeBoundsAndCentroid(p0, p1, false);
   return std::make_pair(std::get<0>(bound), std::get<1>(bound));
 }
 
 std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d>
-Reconstruction::ComputeBoundsAndCentroid(double p0, double p1,
-                                         bool use_images) const {
-
-  size_t num_elements = use_images ? reg_image_ids_.size() : points3D_.size();
-  if (num_elements == 0)
-  {
+Reconstruction::ComputeBoundsAndCentroid(const double p0, const double p1,
+                                         const bool use_images) const {
+  const size_t num_elements =
+      use_images ? reg_image_ids_.size() : points3D_.size();
+  if (num_elements == 0) {
     return std::make_tuple(Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0),
                            Eigen::Vector3d(0, 0, 0));
   }
@@ -431,10 +431,10 @@ void Reconstruction::Transform(const SimilarityTransform3& tform) {
   }
 }
 
-bool Reconstruction::Crop(
-    const std::pair<Eigen::Vector3d, Eigen::Vector3d>& boundary,
-    Reconstruction& reconstruction) const {
+Reconstruction Reconstruction::Crop(
+    const std::pair<Eigen::Vector3d, Eigen::Vector3d>& bbox) const {
   // add all cameras and images. Only the registered images will be used.
+  Reconstruction reconstruction;
   for (const auto& camera_el : cameras_) {
     reconstruction.AddCamera(camera_el.second);
   }
@@ -448,15 +448,15 @@ bool Reconstruction::Crop(
   }
   for (const auto& point_el : points3D_) {
     const auto& point = point_el.second;
-    if ((point.XYZ().array() >= boundary.first.array()).all() &&
-        (point.XYZ().array() <= boundary.second.array()).all()) {
+    if ((point.XYZ().array() >= bbox.first.array()).all() &&
+        (point.XYZ().array() <= bbox.second.array()).all()) {
       for (const auto& track_el : point.Track().Elements()) {
         reconstruction.RegisterImage(track_el.image_id);
       }
       reconstruction.AddPoint3D(point.XYZ(), point.Track(), point.Color());
     }
   }
-  return true;
+  return reconstruction;
 }
 
 bool Reconstruction::Merge(const Reconstruction& reconstruction,
