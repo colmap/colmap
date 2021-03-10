@@ -246,7 +246,7 @@ void PatchMatchController::ReadWorkspace() {
   workspace_options.workspace_format = workspace_format_;
   workspace_options.input_type = options_.geom_consistency ? "photometric" : "";
 
-  workspace_.reset(new Workspace(workspace_options));
+  workspace_.reset(new CachedWorkspace(workspace_options));
 
   if (workspace_format_lower_case == "pmvs") {
     std::cout << StringPrintf("Importing PMVS workspace (option %s)...",
@@ -353,7 +353,7 @@ void PatchMatchController::ReadProblems() {
       src_images.reserve(overlapping_images.size());
       for (const auto& image : overlapping_images) {
         if (overlapping_triangulation_angles.at(image.first) >=
-                min_triangulation_angle_rad) {
+            min_triangulation_angle_rad) {
           src_images.emplace_back(image.first, image.second);
         }
       }

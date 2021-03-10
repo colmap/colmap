@@ -82,7 +82,8 @@ void SplitFileExtension(const std::string& path, std::string* root,
   }
 }
 
-void FileCopy(const std::string& src_path, const std::string& dst_path, CopyType type) {
+void FileCopy(const std::string& src_path, const std::string& dst_path,
+              CopyType type) {
   switch (type) {
     case CopyType::COPY:
       boost::filesystem::copy_file(src_path, dst_path);
