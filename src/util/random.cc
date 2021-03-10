@@ -31,11 +31,22 @@
 
 #include "util/random.h"
 
+#include <mutex>
+
 namespace colmap {
 
+#ifdef _MSC_VER
 thread_local std::unique_ptr<std::mt19937> PRNG;
+#else
+thread_local std::unique_ptr<std::mt19937> PRNG =
+    std::unique_ptr<std::mt19937>();
+#endif  // MSVC
 
 void SetPRNGSeed(unsigned seed) {
+  // Avoid race conditions, especially for srand().
+  static std::mutex mutex;
+  std::unique_lock<std::mutex> lock(mutex);
+
   // Overwrite existing PRNG
   PRNG.reset(new std::mt19937(seed));
   srand(seed);
