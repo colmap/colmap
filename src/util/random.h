@@ -33,15 +33,13 @@
 #define COLMAP_SRC_UTIL_RANDOM_H_
 
 #include <chrono>
+#include <memory>
 #include <random>
 #include <thread>
 
-#include "util/logging.h"
-#include "util/threading.h"
-
 namespace colmap {
 
-extern thread_local std::mt19937* PRNG;
+extern thread_local std::unique_ptr<std::mt19937> PRNG;
 
 static int kDefaultPRNGSeed = 0;
 
