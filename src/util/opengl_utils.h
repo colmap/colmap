@@ -45,7 +45,7 @@
 
 namespace colmap {
 
-#if defined(GUI_ENABLED) && defined(DEBUG)
+#ifdef DEBUG
 #define glDebugLog() glError(__FILE__, __LINE__)
 #else
 #define glDebugLog()
