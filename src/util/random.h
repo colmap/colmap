@@ -42,7 +42,11 @@
 
 namespace colmap {
 
+#ifdef _MSC_VER
 extern thread_local std::unique_ptr<std::mt19937> PRNG;
+#else
+extern thread_local std::mt19937* PRNG;
+#endif
 
 static int kDefaultPRNGSeed = 0;
 
