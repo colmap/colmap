@@ -63,15 +63,76 @@ bool VerifyCameraParams(const std::string& camera_model,
   return true;
 }
 
+// This enum can be used as optional input for feature_extractor and
+// feature_importer to ensure that the camera flags of ImageReader are set in an
+// exclusive and unambigous way. The table below explains the corespondence of
+// each setting with the flags
+//
+// -----------------------------------------------------------------------------------
+// |            |                         ImageReaderOptions                         |
+// | CameraMode | single_camera | single_camera_per_folder | single_camera_per_image |
+// |------------|---------------|--------------------------|-------------------------|
+// | AUTO       | false         | false                    | false                   |
+// | SINGLE     | true          | false                    | false                   |
+// | PER_FOLDER | false         | true                     | false                   |
+// | PER_IMAGE  | false         | false                    | true                    |
+// -----------------------------------------------------------------------------------
+//
+// Note: When using AUTO mode a camera model will be uniquely identified by the
+// following 5 parameters from EXIF tags:
+// 1. Camera Make
+// 2. Camera Model
+// 3. Focal Length
+// 4. Image Width
+// 5. Image Height
+//
+// If any of the tags is missing then a camera model is considered invalid and a
+// new camera is created similar to the PER_IMAGE mode.
+//
+// If these considered fields are not sufficient to uniquely identify a camera
+// then using the AUTO mode will lead to incorrect setup for the cameras, e.g.
+// the same camera is used with same focal length but different principal point
+// between captures. In these cases it is recommended to either use the
+// PER_FOLDER or PER_IMAGE settings.
+enum class CameraMode { AUTO = 0, SINGLE = 1, PER_FOLDER = 2, PER_IMAGE = 3 };
+
+void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
+                                            CameraMode mode) {
+  switch (mode) {
+    case CameraMode::AUTO:
+      options.single_camera = false;
+      options.single_camera_per_folder = false;
+      options.single_camera_per_image = false;
+      break;
+    case CameraMode::SINGLE:
+      options.single_camera = true;
+      options.single_camera_per_folder = false;
+      options.single_camera_per_image = false;
+      break;
+    case CameraMode::PER_FOLDER:
+      options.single_camera = false;
+      options.single_camera_per_folder = true;
+      options.single_camera_per_image = false;
+      break;
+    case CameraMode::PER_IMAGE:
+      options.single_camera = false;
+      options.single_camera_per_folder = false;
+      options.single_camera_per_image = true;
+      break;
+  }
+}
+
 }  // namespace
 
 int RunFeatureExtractor(int argc, char** argv) {
   std::string image_list_path;
   std::string camera_params_per_folder_path;
+  int camera_mode = -1;
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
+  options.AddDefaultOption("camera_mode", &camera_mode);
   options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddDefaultOption("camera_params_per_folder_path", &camera_params_per_folder_path);
   options.AddExtractionOptions();
@@ -80,6 +141,11 @@ int RunFeatureExtractor(int argc, char** argv) {
   ImageReaderOptions reader_options = *options.image_reader;
   reader_options.database_path = *options.database_path;
   reader_options.image_path = *options.image_path;
+
+  if (camera_mode >= 0) {
+    UpdateImageReaderOptionsFromCameraMode(reader_options,
+                                           (CameraMode)camera_mode);
+  }
 
   if (!image_list_path.empty()) {
     reader_options.image_list = ReadTextFileLines(image_list_path);
@@ -102,12 +168,12 @@ int RunFeatureExtractor(int argc, char** argv) {
     }
   }
 
-  if (!ExistsCameraModelWithName(options.image_reader->camera_model)) {
+  if (!ExistsCameraModelWithName(reader_options.camera_model)) {
     std::cerr << "ERROR: Camera model does not exist" << std::endl;
   }
 
-  if (!VerifyCameraParams(options.image_reader->camera_model,
-                          options.image_reader->camera_params)) {
+  if (!VerifyCameraParams(reader_options.camera_model,
+                          reader_options.camera_params)) {
     return EXIT_FAILURE;
   }
 
@@ -132,10 +198,12 @@ int RunFeatureExtractor(int argc, char** argv) {
 int RunFeatureImporter(int argc, char** argv) {
   std::string import_path;
   std::string image_list_path;
+  int camera_mode = -1;
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
+  options.AddDefaultOption("camera_mode", &camera_mode);
   options.AddRequiredOption("import_path", &import_path);
   options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddExtractionOptions();
@@ -145,6 +213,11 @@ int RunFeatureImporter(int argc, char** argv) {
   reader_options.database_path = *options.database_path;
   reader_options.image_path = *options.image_path;
 
+  if (camera_mode >= 0) {
+    UpdateImageReaderOptionsFromCameraMode(reader_options,
+                                           (CameraMode)camera_mode);
+  }
+
   if (!image_list_path.empty()) {
     reader_options.image_list = ReadTextFileLines(image_list_path);
     if (reader_options.image_list.empty()) {
@@ -152,8 +225,8 @@ int RunFeatureImporter(int argc, char** argv) {
     }
   }
 
-  if (!VerifyCameraParams(options.image_reader->camera_model,
-                          options.image_reader->camera_params)) {
+  if (!VerifyCameraParams(reader_options.camera_model,
+                          reader_options.camera_params)) {
     return EXIT_FAILURE;
   }
 

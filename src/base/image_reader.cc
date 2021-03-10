@@ -182,13 +182,30 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
     }
 
     //////////////////////////////////////////////////////////////////////////////
+    // Read camera model and check for consistency if it exists
+    //////////////////////////////////////////////////////////////////////////////
+    std::string camera_model;
+    const bool valid_camera_model = bitmap->ExifCameraModel(&camera_model);
+    if (camera_model_to_id_.count(camera_model) > 0) {
+      const Camera& cam =
+          database_->ReadCamera(camera_model_to_id_.at(camera_model));
+      if (cam.Width() != static_cast<size_t>(bitmap->Width()) ||
+          cam.Height() != static_cast<size_t>(bitmap->Height())) {
+        return Status::CAMERA_EXIST_DIM_ERROR;
+      }
+      prev_camera_ = cam;
+    }
+
+    //////////////////////////////////////////////////////////////////////////////
     // Extract camera model and focal length
     //////////////////////////////////////////////////////////////////////////////
 
     if (prev_camera_.CameraId() == kInvalidCameraId ||
+        options_.single_camera_per_image ||
         (!options_.single_camera && !options_.single_camera_per_folder &&
          static_cast<camera_t>(options_.existing_camera_id) ==
-             kInvalidCameraId) ||
+             kInvalidCameraId &&
+         camera_model_to_id_.count(camera_model) == 0) ||
         (options_.single_camera_per_folder &&
          image_folders_.count(image_folder) == 0)) {
       prev_camera_.SetModelIdFromName(options_.camera_model);
@@ -226,6 +243,9 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
       }
 
       prev_camera_.SetCameraId(database_->WriteCamera(prev_camera_));
+      if (valid_camera_model) {
+        camera_model_to_id_[camera_model] = prev_camera_.CameraId();
+      }
     }
 
     image->SetCameraId(prev_camera_.CameraId());
