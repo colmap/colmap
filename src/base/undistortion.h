@@ -148,9 +148,9 @@ class PureImageUndistorter : public Thread {
 
  private:
   void Run();
-  
+
   bool Undistort(const size_t reg_image_idx) const;
-  
+
   UndistortCameraOptions options_;
   std::string image_path_;
   std::string output_path_;
