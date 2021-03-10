@@ -322,21 +322,17 @@ BOOST_AUTO_TEST_CASE(TestCrop) {
   Reconstruction reconstruction;
   CorrespondenceGraph correspondence_graph;
   GenerateReconstruction(3, &reconstruction, &correspondence_graph);
-  const point3D_t p1 =
+  point3D_t point_id =
       reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 0.0, 0.0), Track());
-  reconstruction.AddObservation(p1, TrackElement(1, 1));
-  const point3D_t p2 =
-      reconstruction.AddPoint3D(Eigen::Vector3d(0.5, 0.5, 0.0), Track());
-  reconstruction.AddObservation(p2, TrackElement(1, 2));
-  const point3D_t p3 =
-      reconstruction.AddPoint3D(Eigen::Vector3d(1.0, 1.0, 0.0), Track());
-  reconstruction.AddObservation(p3, TrackElement(2, 3));
-  const point3D_t p4 =
-      reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 0.0, 0.5), Track());
-  reconstruction.AddObservation(p4, TrackElement(2, 4));
-  const point3D_t p5 =
-      reconstruction.AddPoint3D(Eigen::Vector3d(0.5, 0.5, 1.0), Track());
-  reconstruction.AddObservation(p5, TrackElement(3, 5));
+  reconstruction.AddObservation(point_id, TrackElement(1, 1));
+  point_id = reconstruction.AddPoint3D(Eigen::Vector3d(0.5, 0.5, 0.0), Track());
+  reconstruction.AddObservation(point_id, TrackElement(1, 2));
+  point_id = reconstruction.AddPoint3D(Eigen::Vector3d(1.0, 1.0, 0.0), Track());
+  reconstruction.AddObservation(point_id, TrackElement(2, 3));
+  point_id = reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 0.0, 0.5), Track());
+  reconstruction.AddObservation(point_id, TrackElement(2, 4));
+  point_id = reconstruction.AddPoint3D(Eigen::Vector3d(0.5, 0.5, 1.0), Track());
+  reconstruction.AddObservation(point_id, TrackElement(3, 5));
 
   // Check correct reconstruction setup
   BOOST_CHECK_EQUAL(reconstruction.NumCameras(), 1);
@@ -366,12 +362,6 @@ BOOST_AUTO_TEST_CASE(TestCrop) {
   BOOST_CHECK(recon2.IsImageRegistered(1));
   BOOST_CHECK(recon2.IsImageRegistered(2));
   BOOST_CHECK(!recon2.IsImageRegistered(3));
-  BOOST_CHECK_LE(
-      (recon2.Point3D(1).XYZ() - Eigen::Vector3d(0.0, 0.0, 0.0)).norm(), 1e-6);
-  BOOST_CHECK_LE(
-      (recon2.Point3D(2).XYZ() - Eigen::Vector3d(0.5, 0.5, 0.0)).norm(), 1e-6);
-  BOOST_CHECK_LE(
-      (recon2.Point3D(3).XYZ() - Eigen::Vector3d(0.0, 0.0, 0.5)).norm(), 1e-6);
 }
 
 BOOST_AUTO_TEST_CASE(TestTransform) {
