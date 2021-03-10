@@ -38,7 +38,7 @@ namespace colmap {
 #ifdef _MSC_VER
 thread_local std::unique_ptr<std::mt19937> PRNG;
 #else
-thread_local std::mt19937 PRNG = nullptr;
+thread_local std::mt19937 *PRNG = nullptr;
 #endif  // MSVC
 
 void SetPRNGSeed(unsigned seed) {
