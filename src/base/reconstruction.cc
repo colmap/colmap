@@ -380,7 +380,7 @@ Reconstruction::ComputeBoundsAndCentroid(const double p0, const double p1,
     coords_x.reserve(reg_image_ids_.size());
     coords_y.reserve(reg_image_ids_.size());
     coords_z.reserve(reg_image_ids_.size());
-    for (image_t im_id : reg_image_ids_) {
+    for (const image_t im_id : reg_image_ids_) {
       const Eigen::Vector3d proj_center = Image(im_id).ProjectionCenter();
       coords_x.push_back(static_cast<float>(proj_center(0)));
       coords_y.push_back(static_cast<float>(proj_center(1)));
