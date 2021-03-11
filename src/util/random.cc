@@ -35,26 +35,13 @@
 
 namespace colmap {
 
-#ifdef _MSC_VER
-thread_local std::unique_ptr<std::mt19937> PRNG;
-#else
-thread_local std::mt19937 *PRNG = nullptr;
-#endif  // MSVC
+thread_local std::unique_ptr<std::mt19937> PRNG = nullptr;
 
 void SetPRNGSeed(unsigned seed) {
-  // Avoid race conditions, especially for srand().
+  PRNG.reset(new std::mt19937(seed));
+  // srand is not thread-safe.
   static std::mutex mutex;
   std::unique_lock<std::mutex> lock(mutex);
-
-  // Overwrite existing PRNG
-#ifdef _MSC_VER
-  PRNG.reset(new std::mt19937(seed));
-#else
-  if (PRNG != nullptr) {
-    delete PRNG;
-  }
-  PRNG = new std::mt19937(seed);
-#endif
   srand(seed);
 }
 
