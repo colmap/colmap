@@ -35,7 +35,7 @@
 
 namespace colmap {
 
-thread_local std::unique_ptr<std::mt19937> PRNG = nullptr;
+thread_local std::unique_ptr<std::mt19937> PRNG;
 
 void SetPRNGSeed(unsigned seed) {
   PRNG.reset(new std::mt19937(seed));
