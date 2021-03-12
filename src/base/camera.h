@@ -114,6 +114,9 @@ class Camera {
   // the correct dimensions that match the specified camera model.
   bool VerifyParams() const;
 
+  // Check whether camera is already undistorted
+  bool IsUndistorted() const;
+
   // Check whether camera has bogus parameters.
   bool HasBogusParams(const double min_focal_length_ratio,
                       const double max_focal_length_ratio,

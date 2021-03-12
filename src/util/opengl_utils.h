@@ -32,11 +32,14 @@
 #ifndef COLMAP_SRC_OPENGL_UTILS_H_
 #define COLMAP_SRC_OPENGL_UTILS_H_
 
+#ifdef GUI_ENABLED
 #include <QAction>
+#include <QApplication>
 #include <QOffscreenSurface>
 #include <QOpenGLContext>
 #include <QThread>
 #include <QWaitCondition>
+#endif
 
 #include "util/threading.h"
 
@@ -47,6 +50,8 @@ namespace colmap {
 #else
 #define glDebugLog()
 #endif
+
+#ifdef GUI_ENABLED
 
 // This class manages a thread-safe OpenGL context. Note that this class must be
 // instantiated in the main Qt thread, since an OpenGL context must be created
@@ -86,6 +91,23 @@ void RunThreadWithOpenGLContext(Thread* thread);
 
 // Get the OpenGL errors and print them to stderr.
 void GLError(const char* file, const int line);
+
+#else
+
+// Dummy implementation when GUI support is disabled
+class OpenGLContextManager {
+ public:
+  OpenGLContextManager(int opengl_major_version = 2,
+                       int opengl_minor_version = 1) {}
+  inline void MakeCurrent() {}
+  inline static bool HasOpenGL() { return false; }
+};
+
+inline void RunThreadWithOpenGLContext(Thread* thread) {}
+
+inline void GLError(const char* file, const int line) {}
+
+#endif
 
 }  // namespace colmap
 

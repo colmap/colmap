@@ -142,6 +142,7 @@ int RunStereoFuser(int argc, char** argv) {
   std::string pmvs_option_name = "option-all";
   std::string output_type = "PLY";
   std::string output_path;
+  std::string bbox_path;
 
   OptionManager options;
   options.AddRequiredOption("workspace_path", &workspace_path);
@@ -152,6 +153,7 @@ int RunStereoFuser(int argc, char** argv) {
                            "{photometric, geometric}");
   options.AddDefaultOption("output_type", &output_type, "{BIN, TXT, PLY}");
   options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption("bbox_path", &bbox_path);
   options.AddStereoFusionOptions();
   options.Parse(argc, argv);
 
@@ -169,6 +171,19 @@ int RunStereoFuser(int argc, char** argv) {
                  "'photometric' and 'geometric'."
               << std::endl;
     return EXIT_FAILURE;
+  }
+
+  if (!bbox_path.empty()) {
+    std::ifstream file(bbox_path);
+    if (file.is_open()) {
+      auto& min_bound = options.stereo_fusion->bounding_box.first;
+      auto& max_bound = options.stereo_fusion->bounding_box.second;
+      file >> min_bound(0) >> min_bound(1) >> min_bound(2);
+      file >> max_bound(0) >> max_bound(1) >> max_bound(2);
+    } else {
+      std::cout << "WARN: Invalid bounds path: \"" << bbox_path
+                << "\" - continuing without bounds check" << std::endl;
+    }
   }
 
   mvs::StereoFusion fuser(*options.stereo_fusion, workspace_path,
