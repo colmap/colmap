@@ -174,7 +174,6 @@ void StereoFusion::Run() {
     workspace_->Load(image_names);
     num_threads = GetEffectiveNumThreads(options_.num_threads);
   }
-  workspace_.reset(new Workspace(workspace_options));
 
   if (IsStopped()) {
     GetTimer().PrintMinutes();
