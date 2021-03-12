@@ -57,8 +57,10 @@ add_subdirectory(optim)
 add_subdirectory(retrieval)
 add_subdirectory(sfm)
 add_subdirectory(tools)
-add_subdirectory(ui)
 add_subdirectory(util)
+if (GUI_ENABLED)
+    add_subdirectory(ui)
+endif()
 
 COLMAP_ADD_STATIC_LIBRARY(colmap ${COLMAP_SOURCES})
 
