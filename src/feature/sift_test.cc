@@ -32,7 +32,11 @@
 #define TEST_NAME "feature/sift_test"
 #include "util/testing.h"
 
+#ifdef GUI_ENABLED
 #include <QApplication>
+#else
+#include "exe/gui.h"
+#endif
 
 #include "SiftGPU/SiftGPU.h"
 #include "feature/sift.h"

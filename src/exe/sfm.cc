@@ -34,8 +34,6 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
-#include <QApplication>
-
 #include "base/reconstruction.h"
 #include "controllers/automatic_reconstruction.h"
 #include "controllers/bundle_adjustment.h"

@@ -31,8 +31,6 @@
 
 #include "exe/feature.h"
 
-#include <QApplication>
-
 #include "base/camera_models.h"
 #include "base/image_reader.h"
 #include "exe/gui.h"
@@ -60,6 +58,18 @@ bool VerifyCameraParams(const std::string& camera_model,
     std::cerr << "ERROR: Invalid camera parameters" << std::endl;
     return false;
   }
+  return true;
+}
+
+bool VerifySiftGPUParams(const bool use_gpu) {
+#if !defined(CUDA_ENABLED) && !defined(OPENGL_ENABLED)
+  if (use_gpu) {
+    std::cerr << "ERROR: Cannot use Sift GPU without CUDA or OpenGL support; "
+                 "set SiftExtraction.use_gpu or SiftMatching.use_gpu to false."
+              << std::endl;
+    return false;
+  }
+#endif
   return true;
 }
 
@@ -161,6 +171,10 @@ int RunFeatureExtractor(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
+  if (!VerifySiftGPUParams(options.sift_extraction->use_gpu)) {
+    return EXIT_FAILURE;
+  }
+
   std::unique_ptr<QApplication> app;
   if (options.sift_extraction->use_gpu && kUseOpenGL) {
     app.reset(new QApplication(argc, argv));
@@ -227,6 +241,10 @@ int RunExhaustiveMatcher(int argc, char** argv) {
   options.AddExhaustiveMatchingOptions();
   options.Parse(argc, argv);
 
+  if (!VerifySiftGPUParams(options.sift_matching->use_gpu)) {
+    return EXIT_FAILURE;
+  }
+
   std::unique_ptr<QApplication> app;
   if (options.sift_matching->use_gpu && kUseOpenGL) {
     app.reset(new QApplication(argc, argv));
@@ -257,6 +275,10 @@ int RunMatchesImporter(int argc, char** argv) {
                            "{'pairs', 'raw', 'inliers'}");
   options.AddMatchingOptions();
   options.Parse(argc, argv);
+
+  if (!VerifySiftGPUParams(options.sift_matching->use_gpu)) {
+    return EXIT_FAILURE;
+  }
 
   std::unique_ptr<QApplication> app;
   if (options.sift_matching->use_gpu && kUseOpenGL) {
@@ -296,6 +318,10 @@ int RunSequentialMatcher(int argc, char** argv) {
   options.AddSequentialMatchingOptions();
   options.Parse(argc, argv);
 
+  if (!VerifySiftGPUParams(options.sift_matching->use_gpu)) {
+    return EXIT_FAILURE;
+  }
+
   std::unique_ptr<QApplication> app;
   if (options.sift_matching->use_gpu && kUseOpenGL) {
     app.reset(new QApplication(argc, argv));
@@ -320,6 +346,10 @@ int RunSpatialMatcher(int argc, char** argv) {
   options.AddDatabaseOptions();
   options.AddSpatialMatchingOptions();
   options.Parse(argc, argv);
+
+  if (!VerifySiftGPUParams(options.sift_matching->use_gpu)) {
+    return EXIT_FAILURE;
+  }
 
   std::unique_ptr<QApplication> app;
   if (options.sift_matching->use_gpu && kUseOpenGL) {
@@ -346,6 +376,10 @@ int RunTransitiveMatcher(int argc, char** argv) {
   options.AddTransitiveMatchingOptions();
   options.Parse(argc, argv);
 
+  if (!VerifySiftGPUParams(options.sift_matching->use_gpu)) {
+    return EXIT_FAILURE;
+  }
+
   std::unique_ptr<QApplication> app;
   if (options.sift_matching->use_gpu && kUseOpenGL) {
     app.reset(new QApplication(argc, argv));
@@ -370,6 +404,10 @@ int RunVocabTreeMatcher(int argc, char** argv) {
   options.AddDatabaseOptions();
   options.AddVocabTreeMatchingOptions();
   options.Parse(argc, argv);
+
+  if (!VerifySiftGPUParams(options.sift_matching->use_gpu)) {
+    return EXIT_FAILURE;
+  }
 
   std::unique_ptr<QApplication> app;
   if (options.sift_matching->use_gpu && kUseOpenGL) {

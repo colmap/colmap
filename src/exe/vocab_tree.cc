@@ -31,7 +31,7 @@
 
 #include "exe/vocab_tree.h"
 
-#include <QApplication>
+#include <numeric>
 
 #include "base/database.h"
 #include "exe/gui.h"
