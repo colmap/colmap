@@ -31,12 +31,11 @@
 
 #include "util/opengl_utils.h"
 
-#include <QApplication>
-
 #include "util/logging.h"
 
 namespace colmap {
 
+#ifdef GUI_ENABLED
 OpenGLContextManager::OpenGLContextManager(int opengl_major_version,
                                            int opengl_minor_version)
     : parent_thread_(QThread::currentThread()),
@@ -129,5 +128,7 @@ void GLError(const char* file, const int line) {
     error_code = glGetError();
   }
 }
+
+#endif
 
 }  // namespace colmap

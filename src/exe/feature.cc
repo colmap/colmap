@@ -31,8 +31,6 @@
 
 #include "exe/feature.h"
 
-#include <QApplication>
-
 #include "base/camera_models.h"
 #include "base/gps.h"
 #include "base/image_reader.h"
@@ -61,6 +59,18 @@ bool VerifyCameraParams(const std::string& camera_model,
     std::cerr << "ERROR: Invalid camera parameters" << std::endl;
     return false;
   }
+  return true;
+}
+
+bool VerifySiftGPUParams(const bool use_gpu) {
+#if !defined(CUDA_ENABLED) && !defined(OPENGL_ENABLED)
+  if (use_gpu) {
+    std::cerr << "ERROR: Cannot use Sift GPU without CUDA or OpenGL support; "
+                 "set SiftExtraction.use_gpu or SiftMatching.use_gpu to false."
+              << std::endl;
+    return false;
+  }
+#endif
   return true;
 }
 
@@ -148,7 +158,6 @@ bool UseImagePairsMatcher(const std::string& database_path,
                  "additional images will be ignored."
               << std::endl;
   }
-  return true;
 }
 
 // This enum can be used as optional input for feature_extractor and
@@ -246,6 +255,10 @@ int RunFeatureExtractor(int argc, char** argv) {
 
   if (!VerifyCameraParams(reader_options.camera_model,
                           reader_options.camera_params)) {
+    return EXIT_FAILURE;
+  }
+
+  if (!VerifySiftGPUParams(options.sift_extraction->use_gpu)) {
     return EXIT_FAILURE;
   }
 
@@ -355,6 +368,10 @@ int RunExhaustiveMatcher(int argc, char** argv) {
   options.AddExhaustiveMatchingOptions();
   options.Parse(argc, argv);
 
+  if (!VerifySiftGPUParams(options.sift_matching->use_gpu)) {
+    return EXIT_FAILURE;
+  }
+
   std::unique_ptr<QApplication> app;
   if (options.sift_matching->use_gpu && kUseOpenGL) {
     app.reset(new QApplication(argc, argv));
@@ -385,6 +402,10 @@ int RunMatchesImporter(int argc, char** argv) {
                            "{'pairs', 'raw', 'inliers'}");
   options.AddMatchingOptions();
   options.Parse(argc, argv);
+
+  if (!VerifySiftGPUParams(options.sift_matching->use_gpu)) {
+    return EXIT_FAILURE;
+  }
 
   std::unique_ptr<QApplication> app;
   if (options.sift_matching->use_gpu && kUseOpenGL) {
@@ -424,6 +445,10 @@ int RunSequentialMatcher(int argc, char** argv) {
   options.AddSequentialMatchingOptions();
   options.Parse(argc, argv);
 
+  if (!VerifySiftGPUParams(options.sift_matching->use_gpu)) {
+    return EXIT_FAILURE;
+  }
+
   std::unique_ptr<QApplication> app;
   if (options.sift_matching->use_gpu && kUseOpenGL) {
     app.reset(new QApplication(argc, argv));
@@ -448,6 +473,10 @@ int RunSpatialMatcher(int argc, char** argv) {
   options.AddDatabaseOptions();
   options.AddSpatialMatchingOptions();
   options.Parse(argc, argv);
+
+  if (!VerifySiftGPUParams(options.sift_matching->use_gpu)) {
+    return EXIT_FAILURE;
+  }
 
   std::unique_ptr<QApplication> app;
   if (options.sift_matching->use_gpu && kUseOpenGL) {
@@ -474,6 +503,10 @@ int RunTransitiveMatcher(int argc, char** argv) {
   options.AddTransitiveMatchingOptions();
   options.Parse(argc, argv);
 
+  if (!VerifySiftGPUParams(options.sift_matching->use_gpu)) {
+    return EXIT_FAILURE;
+  }
+
   std::unique_ptr<QApplication> app;
   if (options.sift_matching->use_gpu && kUseOpenGL) {
     app.reset(new QApplication(argc, argv));
@@ -498,6 +531,10 @@ int RunVocabTreeMatcher(int argc, char** argv) {
   options.AddDatabaseOptions();
   options.AddVocabTreeMatchingOptions();
   options.Parse(argc, argv);
+
+  if (!VerifySiftGPUParams(options.sift_matching->use_gpu)) {
+    return EXIT_FAILURE;
+  }
 
   std::unique_ptr<QApplication> app;
   if (options.sift_matching->use_gpu && kUseOpenGL) {
