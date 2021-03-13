@@ -29,8 +29,6 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include <QApplication>
-
 #include "exe/database.h"
 #include "exe/feature.h"
 #include "exe/gui.h"
@@ -96,7 +94,9 @@ int main(int argc, char** argv) {
   using namespace colmap;
 
   InitializeGlog(argv);
+#ifdef GUI_ENABLED
   Q_INIT_RESOURCE(resources);
+#endif
 
   std::vector<std::pair<std::string, command_func_t>> commands;
   commands.emplace_back("gui", &RunGraphicalUserInterface);
