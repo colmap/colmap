@@ -323,11 +323,6 @@ void Reconstruction::DeRegisterImage(const image_t image_id) {
 void Reconstruction::Normalize(const double extent, const double p0,
                                const double p1, const bool use_images) {
   CHECK_GT(extent, 0);
-  CHECK_GE(p0, 0);
-  CHECK_LE(p0, 1);
-  CHECK_GE(p1, 0);
-  CHECK_LE(p1, 1);
-  CHECK_LE(p0, p1);
 
   if ((use_images && reg_image_ids_.size() < 2) ||
       (!use_images && points3D_.size() < 2)) {
@@ -365,6 +360,12 @@ std::pair<Eigen::Vector3d, Eigen::Vector3d> Reconstruction::ComputeBoundingBox(
 std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d>
 Reconstruction::ComputeBoundsAndCentroid(const double p0, const double p1,
                                          const bool use_images) const {
+  CHECK_GE(p0, 0);
+  CHECK_LE(p0, 1);
+  CHECK_GE(p1, 0);
+  CHECK_LE(p1, 1);
+  CHECK_LE(p0, p1);
+
   const size_t num_elements =
       use_images ? reg_image_ids_.size() : points3D_.size();
   if (num_elements == 0) {

@@ -37,6 +37,8 @@
 #include "estimators/similarity_transform.h"
 #include "optim/loransac.h"
 
+#include <fstream>
+
 namespace colmap {
 namespace {
 
@@ -184,6 +186,19 @@ SimilarityTransform3::SimilarityTransform3(const Eigen::Matrix3x4d& matrix) {
 SimilarityTransform3::SimilarityTransform3(
     const Eigen::Transform<double, 3, Eigen::Affine>& transform)
     : transform_(transform) {}
+
+SimilarityTransform3::SimilarityTransform3(const std::string& path) {
+  std::ifstream file(path);
+  CHECK(file.is_open()) << path;
+
+  Eigen::Matrix4d matrix = Eigen::MatrixXd::Identity(4, 4);
+  for (int i = 0; i < matrix.rows(); ++i) {
+    for (int j = 0; j < matrix.cols(); ++j) {
+      file >> matrix(i, j);
+    }
+  }
+  transform_.matrix() = matrix;
+}
 
 SimilarityTransform3::SimilarityTransform3(const double scale,
                                            const Eigen::Vector4d& qvec,
