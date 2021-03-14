@@ -31,6 +31,7 @@
 
 #include "exe/model.h"
 
+#include "base/gps.h"
 #include "base/pose.h"
 #include "base/similarity_transform.h"
 #include "estimators/coordinate_frame.h"
@@ -39,6 +40,99 @@
 
 namespace colmap {
 namespace {
+
+// Aligns the reconstruction to the plane defined by running PCA on the 3D
+// points. The model centroid is at the origin of the new coordinate system
+// and the X axis is the first principal component with the Y axis being the
+// second principal component
+void AlignToPrincipalPlane(Reconstruction& recon, SimilarityTransform3& tform) {
+  // Perform SVD on the 3D points to estimate the ground plane basis
+  auto centroid = recon.ComputeCentroid();
+  Eigen::MatrixXd points(3, recon.NumPoints3D());
+  int pidx = 0;
+  for (const auto point : recon.Points3D()) {
+    points.col(pidx++) = point.second.XYZ() - centroid;
+  }
+  Eigen::Matrix3d basis =
+      points.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).matrixU();
+  Eigen::Matrix3d rot_mat;
+  rot_mat << basis.col(0), basis.col(1), basis.col(0).cross(basis.col(1));
+  rot_mat.transposeInPlace();
+
+  tform = SimilarityTransform3(1.0, RotationMatrixToQuaternion(rot_mat),
+                               -rot_mat * centroid);
+
+  // if camera plane ends up below ground then flip basis vectors and create new
+  // transform
+  class Image* test_img = new class Image(recon.Images().begin()->second);
+  tform.TransformPose(&test_img->Qvec(), &test_img->Tvec());
+  if (test_img->ProjectionCenter().z() < 0.0) {
+    rot_mat << basis.col(0), -basis.col(1), basis.col(0).cross(-basis.col(1));
+    rot_mat.transposeInPlace();
+    tform = SimilarityTransform3(1.0, RotationMatrixToQuaternion(rot_mat),
+                                 -rot_mat * centroid);
+  }
+
+  recon.Transform(tform);
+}
+
+// Aligns the reconstruction to the local ENU plane orientation. Rotates the
+// reconstruction such that the x-y plane aligns with the ENU tangent plane at
+// the point cloud centroid and translates the origin to the centroid.
+// If unscaled == true, then the original scale of the model remains unchanged.
+void AlignToENUPlane(Reconstruction& recon, SimilarityTransform3& tform,
+                     bool unscaled) {
+  Eigen::Vector3d centroid = recon.ComputeCentroid();
+  GPSTransform gps_tform;
+  const auto ell_centroid = gps_tform.XYZToEll({centroid}).at(0);
+
+  // Create rotation matrix from ECEF to ENU coordinates
+  const double sin_lat = sin(DegToRad(ell_centroid(0)));
+  const double sin_lon = sin(DegToRad(ell_centroid(1)));
+  const double cos_lat = cos(DegToRad(ell_centroid(0)));
+  const double cos_lon = cos(DegToRad(ell_centroid(1)));
+
+  // Create ECEF to ENU rotation matrix
+  Eigen::Matrix3d rot_mat;
+  rot_mat << -sin_lon, cos_lon, 0, -cos_lon * sin_lat, -sin_lon * sin_lat,
+      cos_lat, cos_lon * cos_lat, sin_lon * cos_lat, sin_lat;
+
+  double scale = unscaled ? 1.0 / tform.Scale() : 1.0;
+  tform = SimilarityTransform3(scale, RotationMatrixToQuaternion(rot_mat),
+                               -(scale * rot_mat) * centroid);
+  recon.Transform(tform);
+}
+
+void ReadFileCameraLocations(const std::string& ref_images_path,
+                             std::vector<std::string>& ref_image_names,
+                             std::vector<Eigen::Vector3d>& ref_locations) {
+  auto lines = ReadTextFileLines(ref_images_path);
+  for (const auto& line : lines) {
+    std::stringstream line_parser(line);
+    std::string image_name = "";
+    Eigen::Vector3d camera_position;
+    line_parser >> image_name >> camera_position[0] >> camera_position[1] >>
+        camera_position[2];
+    ref_image_names.push_back(image_name);
+    ref_locations.push_back(camera_position);
+  }
+}
+
+void ReadDatabaseCameraLocations(const std::string& database_path,
+                                 std::vector<std::string>& ref_image_names,
+                                 std::vector<Eigen::Vector3d>& ref_locations) {
+  Database database(database_path);
+  auto images = database.ReadAllImages();
+  std::vector<Eigen::Vector3d> gps_locations;
+  GPSTransform gps_transform(GPSTransform::WGS84);
+  for (const auto image : images) {
+    if (image.HasTvecPrior()) {
+      ref_image_names.push_back(image.Name());
+      gps_locations.push_back(image.TvecPrior());
+    }
+  }
+  ref_locations = gps_transform.EllToXYZ(gps_locations);
+}
 
 void WriteComparisonErrorsCSV(const std::string& path,
                               const std::vector<double>& rotation_errors,
@@ -93,21 +187,40 @@ void PrintComparisonSummary(std::ostream& out,
 
 int RunModelAligner(int argc, char** argv) {
   std::string input_path;
-  std::string ref_images_path;
   std::string output_path;
+  std::string database_path;
+  std::string ref_images_path;
+  std::string transform_path;
+  std::string alignment_type = "plane";
   int min_common_images = 3;
   bool robust_alignment = true;
+  bool estimate_scale = true;
   RANSACOptions ransac_options;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
-  options.AddRequiredOption("ref_images_path", &ref_images_path);
   options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption("database_path", &database_path);
+  options.AddDefaultOption("ref_images_path", &ref_images_path);
+  options.AddDefaultOption("transform_path", &transform_path);
+  options.AddDefaultOption("alignment_type", &alignment_type,
+                           "{plane, ecef, enu, enu-unscaled, custom}");
   options.AddDefaultOption("min_common_images", &min_common_images);
   options.AddDefaultOption("robust_alignment", &robust_alignment);
+  options.AddDefaultOption("estimate_scale", &estimate_scale);
   options.AddDefaultOption("robust_alignment_max_error",
                            &ransac_options.max_error);
   options.Parse(argc, argv);
+
+  StringToLower(&alignment_type);
+  const std::unordered_set<std::string> alignment_options{
+      "plane", "ecef", "enu", "enu-unscaled", "custom"};
+  if (alignment_options.count(alignment_type) == 0) {
+    std::cerr << "ERROR: Invalid `alignment_type` - supported values are "
+                 "{'plane', 'ecef', 'enu', 'enu-unscaled', 'custom'}"
+              << std::endl;
+    return EXIT_FAILURE;
+  }
 
   if (robust_alignment && ransac_options.max_error <= 0) {
     std::cout << "ERROR: You must provide a maximum alignment error > 0"
@@ -115,40 +228,64 @@ int RunModelAligner(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
+  if (alignment_type != "plane" && database_path.empty() &&
+      ref_images_path.empty()) {
+    std::cerr << "ERROR: Location alignment requires either database or "
+                 "location file path."
+              << std::endl;
+    return EXIT_FAILURE;
+  }
+
   std::vector<std::string> ref_image_names;
   std::vector<Eigen::Vector3d> ref_locations;
-  std::vector<std::string> lines = ReadTextFileLines(ref_images_path);
-  for (const auto& line : lines) {
-    std::stringstream line_parser(line);
-    std::string image_name = "";
-    Eigen::Vector3d camera_position;
-    line_parser >> image_name >> camera_position[0] >> camera_position[1] >>
-        camera_position[2];
-    ref_image_names.push_back(image_name);
-    ref_locations.push_back(camera_position);
+  if (!ref_images_path.empty() && database_path.empty()) {
+    ReadFileCameraLocations(ref_images_path, ref_image_names, ref_locations);
+  } else if (!database_path.empty() && ref_images_path.empty()) {
+    ReadDatabaseCameraLocations(database_path, ref_image_names, ref_locations);
+  } else {
+    std::cerr << "ERROR: Use location file or database, not both" << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  if (alignment_type != "plane" && ref_locations.size() < min_common_images) {
+    std::cout << "ERROR: Cannot align with insufficient reference locations."
+              << std::endl;
+    return EXIT_FAILURE;
   }
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
+  SimilarityTransform3 tform;
+  bool alignment_success = true;
 
-  PrintHeading2("Aligning reconstruction");
-
-  std::cout << StringPrintf(" => Using %d reference images",
-                            ref_image_names.size())
-            << std::endl;
-
-  bool alignment_success;
-  if (robust_alignment) {
-    alignment_success = reconstruction.AlignRobust(
-        ref_image_names, ref_locations, min_common_images, ransac_options);
+  if (alignment_type == "plane") {
+    PrintHeading2("Aligning reconstruction to principal plane");
+    AlignToPrincipalPlane(reconstruction, tform);
   } else {
-    alignment_success =
-        reconstruction.Align(ref_image_names, ref_locations, min_common_images);
-  }
+    PrintHeading2("Aligning reconstruction to ECEF");
+    std::cout << StringPrintf(" => Using %d reference images",
+                              ref_image_names.size())
+              << std::endl;
 
-  if (alignment_success) {
-    std::cout << " => Alignment succeeded" << std::endl;
-    reconstruction.Write(output_path);
+    if (estimate_scale) {
+      if (robust_alignment) {
+        alignment_success = reconstruction.AlignRobust(
+            ref_image_names, ref_locations, min_common_images, ransac_options,
+            &tform);
+      } else {
+        alignment_success = reconstruction.Align(ref_image_names, ref_locations,
+                                                 min_common_images, &tform);
+      }
+    } else {
+      if (robust_alignment) {
+        alignment_success = reconstruction.AlignRobust<false>(
+            ref_image_names, ref_locations, min_common_images, ransac_options,
+            &tform);
+      } else {
+        alignment_success = reconstruction.Align<false>(
+            ref_image_names, ref_locations, min_common_images, &tform);
+      }
+    }
 
     std::vector<double> errors;
     errors.reserve(ref_image_names.size());
@@ -159,15 +296,27 @@ int RunModelAligner(int argc, char** argv) {
         errors.push_back((image->ProjectionCenter() - ref_locations[i]).norm());
       }
     }
-
     std::cout << StringPrintf(" => Alignment error: %f (mean), %f (median)",
                               Mean(errors), Median(errors))
               << std::endl;
-  } else {
-    std::cout << " => Alignment failed" << std::endl;
+
+    if (alignment_success && StringStartsWith(alignment_type, "enu")) {
+      PrintHeading2("Aligning reconstruction to ENU");
+      AlignToENUPlane(reconstruction, tform, alignment_type == "enu-unscaled");
+    }
   }
 
-  return EXIT_SUCCESS;
+  if (alignment_success) {
+    std::cout << " => Alignment succeeded" << std::endl;
+    reconstruction.Write(output_path);
+    if (!transform_path.empty()) {
+      tform.Write(transform_path);
+    }
+    return EXIT_SUCCESS;
+  } else {
+    std::cout << " => Alignment failed" << std::endl;
+    return EXIT_FAILURE;
+  }
 }
 
 int RunModelAnalyzer(int argc, char** argv) {
