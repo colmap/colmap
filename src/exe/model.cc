@@ -459,4 +459,50 @@ int RunModelOrientationAligner(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+int RunModelTransformer(int argc, char** argv) {
+  std::string input_path;
+  std::string output_path;
+  std::string transform_path;
+  bool is_dense = false;
+  bool is_inverse = false;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddRequiredOption("transform_path", &transform_path);
+  options.AddDefaultOption("is_dense", &is_dense);
+  options.AddDefaultOption("is_inverse", &is_inverse);
+  options.Parse(argc, argv);
+
+  std::cout << "Reading points input: " << input_path << std::endl;
+  Reconstruction recon;
+  if (is_dense || HasFileExtension(input_path, ".ply")) {
+    is_dense = true;
+    recon.ImportPLY(input_path);
+  } else {
+    recon.Read(input_path);
+  }
+
+  std::cout << "Reading transform input: " << transform_path << std::endl;
+  SimilarityTransform3 tform(transform_path);
+  if (is_inverse) {
+    tform = tform.Inverse();
+  }
+
+  // apply full transform to point coordinates (scale, rotation, translation),
+  // only apply rotation to normal vectors, and leave RGB values unaffected
+  std::cout << "Applying transform to recon with " << recon.NumPoints3D()
+            << " points" << std::endl;
+  recon.Transform(tform);
+
+  std::cout << "Writing output: " << output_path << std::endl;
+  if (is_dense) {
+    recon.ExportPLY(output_path);
+  } else {
+    recon.Write(output_path);
+  }
+
+  return EXIT_SUCCESS;
+}
+
 }  // namespace colmap
