@@ -127,7 +127,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("model_merger", &RunModelMerger);
   commands.emplace_back("model_orientation_aligner",
                         &RunModelOrientationAligner);
-  commands.emplace_back("model_transformerr", &RunModelTransformer);
+  commands.emplace_back("model_transformer", &RunModelTransformer);
   commands.emplace_back("patch_match_stereo", &RunPatchMatchStereo);
   commands.emplace_back("point_filtering", &RunPointFiltering);
   commands.emplace_back("point_triangulator", &RunPointTriangulator);
