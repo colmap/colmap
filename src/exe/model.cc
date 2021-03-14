@@ -65,20 +65,6 @@ ComputeEqualPartsBounds(const Reconstruction& reconstruction,
   return bounds;
 }
 
-std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> ComputePaddedBounds(
-    const std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>>& bounds,
-    double overlap_ratio) {
-  std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> padded_bounds;
-  for (int i = 0; i < bounds.size(); ++i) {
-    const Eigen::Vector3d padding =
-        (overlap_ratio * (bounds[i].second - bounds[i].first));
-    padded_bounds.emplace_back(bounds[i].first - padding,
-                               bounds[i].second + padding);
-  }
-
-  return padded_bounds;
-}
-
 Eigen::Vector3d TransformLatLonAltToModelCoords(
     const SimilarityTransform3& tform, double lat, double lon, double alt) {
   // Since this is intended for use in ENU aligned models we want to define the
