@@ -61,8 +61,6 @@ class SimilarityTransform3 {
   SimilarityTransform3(const double scale, const Eigen::Vector4d& qvec,
                        const Eigen::Vector3d& tvec);
 
-  SimilarityTransform3(const std::string& path);
-
   void Write(const std::string& path);
 
   template <bool kEstimateScale = true>
