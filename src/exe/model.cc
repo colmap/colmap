@@ -615,7 +615,6 @@ int RunModelSplitter(int argc, char** argv) {
   std::string split_type;
   std::string split_params;
   std::string gps_transform_path;
-  std::string input_dense;
   int num_threads = -1;
   size_t min_reg_images = 10;
   size_t min_num_points = 100;
@@ -628,9 +627,8 @@ int RunModelSplitter(int argc, char** argv) {
   options.AddRequiredOption("output_path", &output_path);
   options.AddRequiredOption("split_type", &split_type,
                             "{tiles, extent, parts}");
-  options.AddRequiredOption("gps_transform_path", &gps_transform_path);
-  options.AddDefaultOption("input_dense", &input_dense);
-  options.AddDefaultOption("input_dense", &input_dense);
+  options.AddRequiredOption("split_params", &split_params);
+  options.AddDefaultOption("gps_transform_path", &gps_transform_path);
   options.AddDefaultOption("num_threads", &num_threads);
   options.AddDefaultOption("min_reg_images", &min_reg_images);
   options.AddDefaultOption("min_num_points", &min_num_points);
@@ -741,37 +739,18 @@ int RunModelSplitter(int argc, char** argv) {
   std::cout << StringPrintf(" => Splitting to %d parts", num_parts)
             << std::endl;
 
-  bool use_dense = false;
-  Reconstruction dense_recon;
-  if (!input_dense.empty()) {
-    std::cout << "Using dense model for determining included tiles"
-              << std::endl;
-    use_dense = true;
-    dense_recon = reconstruction;
-    dense_recon.ImportPLY(input_dense);
-    std::cout << StringPrintf("Read %d points from PLY file",
-                              dense_recon.NumPoints3D())
-              << std::endl;
-  }
 
   const bool use_tile_keys = split_type == "tiles";
 
   auto SplitRecon = [&](int idx) {
     Reconstruction tile_recon = reconstruction.Crop(bounds[idx]);
-    Reconstruction tile_dense_recon;
-    if (use_dense) {
-      tile_dense_recon = dense_recon.Crop(exact_bounds[idx]);
-    }
-
     // calculate area covered by model as proportion of box area
     auto bbox_extent = bounds[idx].second - bounds[idx].first;
-    auto model_bbox = use_dense ? tile_dense_recon.ComputeBoundingBox()
-                                 : tile_recon.ComputeBoundingBox();
+    auto model_bbox = tile_recon.ComputeBoundingBox();
     auto model_extent = model_bbox.second - model_bbox.first;
     double area_ratio =
         (model_extent(0) * model_extent(1)) / (bbox_extent(0) * bbox_extent(1));
-    int tile_num_points =
-        use_dense ? tile_dense_recon.NumPoints3D() : tile_recon.NumPoints3D();
+    int tile_num_points = tile_recon.NumPoints3D();
 
     std::string name = use_tile_keys ? tile_keys[idx] : std::to_string(idx);
     const bool include_tile = area_ratio >= min_area_ratio &&
