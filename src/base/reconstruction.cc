@@ -939,15 +939,16 @@ bool Reconstruction::ExportCam(const std::string& path,
     if (camera.FocalLengthIdxs().size() == 2) {
       fx = camera.FocalLengthX();
       fy = camera.FocalLengthY();
-    }
-    else
+    } else {
       fx = fy = camera.MeanFocalLength();
+    }
 
     double focal_length;
-    if (camera.Width() * fy < camera.Height() * fx)
+    if (camera.Width() * fy < camera.Height() * fx) {
       focal_length = fy / camera.Height();
-    else
+    } else {
       focal_length = fx / camera.Width();
+    }
 
     const Eigen::Matrix3d rot_mat = image.RotationMatrix();
     file << image.Tvec(0) << " " << image.Tvec(1) << " " << image.Tvec(2) << " "
