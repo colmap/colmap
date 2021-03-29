@@ -724,7 +724,7 @@ void ProgramCU::ReduceHistogram(CuTexImage*hist1, CuTexImage* hist2)
 {
 	int ws = hist1->GetImgWidth(), hs = hist1->GetImgHeight();
 	int wd = hist2->GetImgWidth(), hd = hist2->GetImgHeight();
-	int temp = (int)floor(logf(float(wd * 2/ 3)) / logf(2.0f));
+	int temp = (int)floorf(logf(float(wd * 2/ 3)) / logf(2.0f));
 	const int wi = min(7, max(temp , 0));
 	hist1->BindTexture(texDataI4);
 
@@ -821,10 +821,10 @@ void __global__ ComputeOrientation_Kernel(float4* d_list,
 	float win = fabs(key.z) * sample_factor;
 	float dist_threshold = win * win + 0.5;
 	float factor = -0.5f / (gsigma * gsigma);
-	float xmin = max(1.5f, floor(key.x - win) + 0.5f);
-	float ymin = max(1.5f, floor(key.y - win) + 0.5f);
-	float xmax = min(width - 1.5f, floor(key.x + win) + 0.5f);
-	float ymax = min(height -1.5f, floor(key.y + win) + 0.5f);
+	float xmin = max(1.5f, floorf(key.x - win) + 0.5f);
+	float ymin = max(1.5f, floorf(key.y - win) + 0.5f);
+	float xmax = min(width - 1.5f, floorf(key.x + win) + 0.5f);
+	float ymax = min(height -1.5f, floorf(key.y + win) + 0.5f);
 #pragma unroll
 	for(int i = 0; i < 36; ++i) vote[i] = 0.0f;
 	for(float y = ymin; y <= ymax; y += 1.0f)
@@ -837,7 +837,7 @@ void __global__ ComputeOrientation_Kernel(float4* d_list,
 			if(sq_dist >= dist_threshold) continue;
 			float2 got = tex2D(texDataF2, x, y);
 			float weight = got.x * exp(sq_dist * factor);
-			float fidx = floor(got.y * ten_degree_per_radius);
+			float fidx = floorf(got.y * ten_degree_per_radius);
 			int oidx = fidx;
 			if(oidx < 0) oidx += 36;
 			vote[oidx] += weight;
@@ -919,13 +919,13 @@ void __global__ ComputeOrientation_Kernel(float4* d_list,
 		}
 		float fr1 = max_rot[0] / 36.0f;
 		if(fr1 < 0) fr1 += 1.0f;
-		unsigned short us1 = ocount == 0? 65535 : ((unsigned short )floor(fr1 * 65535.0f));
+		unsigned short us1 = ocount == 0? 65535 : ((unsigned short )floorf(fr1 * 65535.0f));
 		unsigned short us2 = 65535;
 		if(ocount > 1)
 		{
 			float fr2 = max_rot[1] / 36.0f;
 			if(fr2 < 0) fr2 += 1.0f;
-			us2 = (unsigned short ) floor(fr2 * 65535.0f);
+			us2 = (unsigned short ) floorf(fr2 * 65535.0f);
 		}
 		unsigned int uspack = (us2 << 16) | us1;
 		key.w = __int_as_float(uspack);
@@ -988,10 +988,10 @@ template <bool DYNAMIC_INDEXING> void __global__ ComputeDescriptor_Kernel(float4
 	pt.x = cspt * offsetpt.x - sspt * offsetpt.y + key.x;
 	pt.y = cspt * offsetpt.y + sspt * offsetpt.x + key.y;
 	bsz =  fabs(cspt) + fabs(sspt);
-	xmin = max(1.5f, floor(pt.x - bsz) + 0.5f);
-	ymin = max(1.5f, floor(pt.y - bsz) + 0.5f);
-	xmax = min(width - 1.5f, floor(pt.x + bsz) + 0.5f);
-	ymax = min(height - 1.5f, floor(pt.y + bsz) + 0.5f);
+	xmin = max(1.5f, floorf(pt.x - bsz) + 0.5f);
+	ymin = max(1.5f, floorf(pt.y - bsz) + 0.5f);
+	xmax = min(width - 1.5f, floorf(pt.x + bsz) + 0.5f);
+	ymax = min(height - 1.5f, floorf(pt.y + bsz) + 0.5f);
 	float des[9];
 #pragma unroll
 	for(int i =0; i < 9; ++i) des[i] = 0.0f;
@@ -1016,7 +1016,7 @@ template <bool DYNAMIC_INDEXING> void __global__ ComputeDescriptor_Kernel(float4
 				float weight = ww * wx * wy * cc.x;
 				float theta = (anglef - cc.y) * rpi;
 				if(theta < 0) theta += 8.0f;
-				float fo = floor(theta);
+				float fo = floorf(theta);
 				int fidx = fo;
 				float weight1 = fo + 1.0f  - theta;
 				float weight2 = theta - fo;
@@ -1063,10 +1063,10 @@ template <bool DYNAMIC_INDEXING> void __global__ ComputeDescriptorRECT_Kernel(fl
 	float xmin, ymin, xmax, ymax; float2 pt;
 	pt.x = sptx * (ix + 0.5f)  + key.x;
 	pt.y = spty * (iy + 0.5f)  + key.y;
-	xmin = max(1.5f, floor(pt.x - sptx) + 0.5f);
-	ymin = max(1.5f, floor(pt.y - spty) + 0.5f);
-	xmax = min(width - 1.5f, floor(pt.x + sptx) + 0.5f);
-	ymax = min(height - 1.5f, floor(pt.y + spty) + 0.5f);
+	xmin = max(1.5f, floorf(pt.x - sptx) + 0.5f);
+	ymin = max(1.5f, floorf(pt.y - spty) + 0.5f);
+	xmax = min(width - 1.5f, floorf(pt.x + sptx) + 0.5f);
+	ymax = min(height - 1.5f, floorf(pt.y + spty) + 0.5f);
 	float des[9];
 #pragma unroll
 	for(int i =0; i < 9; ++i) des[i] = 0.0f;
@@ -1086,7 +1086,7 @@ template <bool DYNAMIC_INDEXING> void __global__ ComputeDescriptorRECT_Kernel(fl
 				float weight =  wx * wy * cc.x;
 				float theta = (- cc.y) * rpi;
 				if(theta < 0) theta += 8.0f;
-				float fo = floor(theta);
+				float fo = floorf(theta);
 				int fidx = fo;
 				float weight1 = fo + 1.0f  - theta;
 				float weight2 = theta - fo;
