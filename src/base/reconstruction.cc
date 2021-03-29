@@ -832,12 +832,15 @@ bool Reconstruction::ExportNVM(const std::string& path,
     const class Camera& camera = Camera(image.CameraId());
 
     double k;
-    if (skip_distortion) {
+    if (skip_distortion ||
+        camera.ModelId() == SimplePinholeCameraModel::model_id ||
+        camera.ModelId() == PinholeCameraModel::model_id) {
       k = 0.0;
     } else if (camera.ModelId() == SimpleRadialCameraModel::model_id) {
       k = -1 * camera.Params(SimpleRadialCameraModel::extra_params_idxs[0]);
     } else {
-      std::cout << "WARNING: NVM only supports `SIMPLE_RADIAL` camera model."
+      std::cout << "WARNING: NVM only supports `SIMPLE_RADIAL` "
+                   "and pinhole camera models."
                 << std::endl;
       return false;
     }
@@ -915,31 +918,47 @@ bool Reconstruction::ExportCam(const std::string& path,
     file.precision(17);
 
     double k1, k2;
-    if (skip_distortion) {
+    if (skip_distortion ||
+        camera.ModelId() == SimplePinholeCameraModel::model_id ||
+        camera.ModelId() == PinholeCameraModel::model_id) {
       k1 = 0.0;
       k2 = 0.0;
     } else if (camera.ModelId() == SimpleRadialCameraModel::model_id) {
       k1 = -1 * camera.Params(SimpleRadialCameraModel::extra_params_idxs[0]);
       k2 = 0.0;
-    } else if (camera.ModelId() != RadialCameraModel::model_id) {
+    } else if (camera.ModelId() == RadialCameraModel::model_id) {
       k1 = -1 * camera.Params(RadialCameraModel::extra_params_idxs[0]);
       k2 = -1 * camera.Params(RadialCameraModel::extra_params_idxs[1]);
     } else {
-      std::cout << "WARNING: CAM only supports `SIMPLE_RADIAL` and `RADIAL` "
-                   "camera model."
+      std::cout << "WARNING: CAM only supports `SIMPLE_RADIAL`, `RADIAL`, "
+                   "and pinhole camera models."
                 << std::endl;
       return false;
     }
 
+    double fx, fy;
+    if (camera.FocalLengthIdxs().size() == 2) {
+      fx = camera.FocalLengthX();
+      fy = camera.FocalLengthY();
+    } else {
+      fx = fy = camera.MeanFocalLength();
+    }
+
+    double focal_length;
+    if (camera.Width() * fy < camera.Height() * fx) {
+      focal_length = fy / camera.Height();
+    } else {
+      focal_length = fx / camera.Width();
+    }
+
     const Eigen::Matrix3d rot_mat = image.RotationMatrix();
-    const double max_image_size = std::max(camera.Width(), camera.Height());
     file << image.Tvec(0) << " " << image.Tvec(1) << " " << image.Tvec(2) << " "
          << rot_mat(0, 0) << " " << rot_mat(0, 1) << " " << rot_mat(0, 2) << " "
          << rot_mat(1, 0) << " " << rot_mat(1, 1) << " " << rot_mat(1, 2) << " "
          << rot_mat(2, 0) << " " << rot_mat(2, 1) << " " << rot_mat(2, 2)
          << std::endl;
-    file << camera.MeanFocalLength() / max_image_size << " " << k1 << " " << k2
-         << " 1.0 " << camera.PrincipalPointX() / camera.Width() << " "
+    file << focal_length << " " << k1 << " " << k2 << " " << fy / fx << " "
+         << camera.PrincipalPointX() / camera.Width() << " "
          << camera.PrincipalPointY() / camera.Height() << std::endl;
   }
 
@@ -979,18 +998,20 @@ bool Reconstruction::ExportRecon3D(const std::string& path,
     const class Camera& camera = Camera(image.CameraId());
 
     double k1, k2;
-    if (skip_distortion) {
+    if (skip_distortion ||
+        camera.ModelId() == SimplePinholeCameraModel::model_id ||
+        camera.ModelId() == PinholeCameraModel::model_id) {
       k1 = 0.0;
       k2 = 0.0;
     } else if (camera.ModelId() == SimpleRadialCameraModel::model_id) {
       k1 = -1 * camera.Params(SimpleRadialCameraModel::extra_params_idxs[0]);
       k2 = 0.0;
-    } else if (camera.ModelId() != RadialCameraModel::model_id) {
+    } else if (camera.ModelId() == RadialCameraModel::model_id) {
       k1 = -1 * camera.Params(RadialCameraModel::extra_params_idxs[0]);
       k2 = -1 * camera.Params(RadialCameraModel::extra_params_idxs[1]);
     } else {
-      std::cout << "WARNING: Recon3D only supports `SIMPLE_RADIAL` and "
-                   "`RADIAL` camera model."
+      std::cout << "WARNING: Recon3D only supports `SIMPLE_RADIAL`, "
+                   "`RADIAL`, and pinhole camera models."
                 << std::endl;
       return false;
     }
@@ -1081,11 +1102,9 @@ bool Reconstruction::ExportBundler(const std::string& path,
     const class Camera& camera = Camera(image.CameraId());
 
     double k1, k2;
-    if (skip_distortion) {
-      k1 = 0.0;
-      k2 = 0.0;
-    } else if (camera.ModelId() == SimplePinholeCameraModel::model_id ||
-               camera.ModelId() == PinholeCameraModel::model_id) {
+    if (skip_distortion ||
+        camera.ModelId() == SimplePinholeCameraModel::model_id ||
+        camera.ModelId() == PinholeCameraModel::model_id) {
       k1 = 0.0;
       k2 = 0.0;
     } else if (camera.ModelId() == SimpleRadialCameraModel::model_id) {
@@ -1095,8 +1114,8 @@ bool Reconstruction::ExportBundler(const std::string& path,
       k1 = camera.Params(RadialCameraModel::extra_params_idxs[0]);
       k2 = camera.Params(RadialCameraModel::extra_params_idxs[1]);
     } else {
-      std::cout << "WARNING: Bundler only supports `SIMPLE_RADIAL` and "
-                   "`RADIAL` camera models."
+      std::cout << "WARNING: Bundler only supports `SIMPLE_RADIAL`, "
+                   "`RADIAL`, and pinhole camera models."
                 << std::endl;
       return false;
     }
