@@ -299,10 +299,6 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
   return frame;
 }
 
-// Aligns the reconstruction to the plane defined by running PCA on the 3D
-// points. The model centroid is at the origin of the new coordinate system
-// and the X axis is the first principal component with the Y axis being the
-// second principal component
 void AlignToPrincipalPlane(Reconstruction* recon, SimilarityTransform3* tform) {
   // Perform SVD on the 3D points to estimate the ground plane basis
   const Eigen::Vector3d centroid = recon->ComputeCentroid(0.0, 1.0);
@@ -334,10 +330,6 @@ void AlignToPrincipalPlane(Reconstruction* recon, SimilarityTransform3* tform) {
   recon->Transform(*tform);
 }
 
-// Aligns the reconstruction to the local ENU plane orientation. Rotates the
-// reconstruction such that the x-y plane aligns with the ENU tangent plane at
-// the point cloud centroid and translates the origin to the centroid.
-// If unscaled == true, then the original scale of the model remains unchanged.
 void AlignToENUPlane(Reconstruction* recon, SimilarityTransform3* tform,
                      bool unscaled) {
   const Eigen::Vector3d centroid = recon->ComputeCentroid(0.0, 1.0);
