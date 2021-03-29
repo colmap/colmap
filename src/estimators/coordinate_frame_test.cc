@@ -75,23 +75,27 @@ BOOST_AUTO_TEST_CASE(TestAlignToPrincipalPlane) {
   point3D_t p4 =
       reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 0.0, 1.0), Track());
   AlignToPrincipalPlane(&reconstruction, &tform);
+  // Note that the final X and Y axes may be inverted after alignment, so we
+  // need to account for both cases when checking for correctness
+  const bool inverted = tform.Rotation()(2) < 0;
+
   // Verify that points lie on the correct locations of the X-Y plane
-  BOOST_CHECK_LE(
-      (reconstruction.Point3D(p1).XYZ() - Eigen::Vector3d(-1.0, 0.0, 0.0))
-          .norm(),
-      1e-6);
-  BOOST_CHECK_LE(
-      (reconstruction.Point3D(p2).XYZ() - Eigen::Vector3d(1.0, 0.0, 0.0))
-          .norm(),
-      1e-6);
-  BOOST_CHECK_LE(
-      (reconstruction.Point3D(p3).XYZ() - Eigen::Vector3d(0.0, -1.0, 0.0))
-          .norm(),
-      1e-6);
-  BOOST_CHECK_LE(
-      (reconstruction.Point3D(p4).XYZ() - Eigen::Vector3d(0.0, 1.0, 0.0))
-          .norm(),
-      1e-6);
+  BOOST_CHECK_LE((reconstruction.Point3D(p1).XYZ() -
+                  Eigen::Vector3d(inverted ? 1.0 : -1.0, 0.0, 0.0))
+                     .norm(),
+                 1e-6);
+  BOOST_CHECK_LE((reconstruction.Point3D(p2).XYZ() -
+                  Eigen::Vector3d(inverted ? -1.0 : 1.0, 0.0, 0.0))
+                     .norm(),
+                 1e-6);
+  BOOST_CHECK_LE((reconstruction.Point3D(p3).XYZ() -
+                  Eigen::Vector3d(0.0, inverted ? 1.0 : -1.0, 0.0))
+                     .norm(),
+                 1e-6);
+  BOOST_CHECK_LE((reconstruction.Point3D(p4).XYZ() -
+                  Eigen::Vector3d(0.0, inverted ? -1.0 : 1.0, 0.0))
+                     .norm(),
+                 1e-6);
   // Verify that projection center is at (0, 0, 1)
   BOOST_CHECK_LE((reconstruction.Image(1).ProjectionCenter() -
                   Eigen::Vector3d(0.0, 0.0, 1.0))
@@ -99,7 +103,12 @@ BOOST_AUTO_TEST_CASE(TestAlignToPrincipalPlane) {
                  1e-6);
   // Verify that transform matrix does shuffling of axes
   Eigen::Matrix4d mat;
-  mat << 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1;
+  if (inverted) {
+    mat << 0, -1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0, 0, 0, 1;
+  } else {
+    mat << 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1;
+  }
+  std::cout << tform.Matrix() << std::endl;
   BOOST_CHECK_LE((tform.Matrix() - mat).norm(), 1e-6);
 }
 
