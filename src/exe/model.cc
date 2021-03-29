@@ -421,7 +421,7 @@ int RunModelConverter(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-int RunModelCropping(int argc, char** argv) {
+int RunModelCropper(int argc, char** argv) {
   Timer timer;
   timer.Start();
 
@@ -466,7 +466,7 @@ int RunModelCropping(int argc, char** argv) {
     if (!gps_transform_path.empty()) {
       PrintHeading2("Reading model to ECEF transform");
       is_gps = true;
-      tform = SimilarityTransform3(gps_transform_path).Inverse();
+      tform = SimilarityTransform3::FromFile(gps_transform_path).Inverse();
     }
     bounding_box.first =
         is_gps ? TransformLatLonAltToModelCoords(tform, boundary_elements[0],
@@ -662,7 +662,7 @@ int RunModelSplitter(int argc, char** argv) {
   if (!gps_transform_path.empty()) {
     PrintHeading2("Reading model to ECEF transform");
     is_gps = true;
-    tform = SimilarityTransform3(gps_transform_path).Inverse();
+    tform = SimilarityTransform3::FromFile(gps_transform_path).Inverse();
   }
   const double scale = tform.Scale();
 
@@ -742,7 +742,7 @@ int RunModelSplitter(int argc, char** argv) {
 
   const bool use_tile_keys = split_type == "tiles";
 
-  auto SplitRecon = [&](int idx) {
+  auto SplitRecon = [&](const int idx) {
     Reconstruction tile_recon = reconstruction.Crop(bounds[idx]);
     // calculate area covered by model as proportion of box area
     auto bbox_extent = bounds[idx].second - bounds[idx].first;
