@@ -202,7 +202,6 @@ void SimilarityTransform3::Write(const std::string& path) {
   // Ensure that we don't loose any precision by storing in text.
   file.precision(17);
   file << transform_.matrix() << std::endl;
-  file.close();
 }
 
 SimilarityTransform3 SimilarityTransform3::Inverse() const {
