@@ -39,7 +39,7 @@ import argparse
 import zipfile
 import hashlib
 import ssl
-import urllib.request
+import requests
 import subprocess
 import multiprocessing
 
@@ -185,7 +185,9 @@ def check_md5_hash(path, md5_hash):
 
 def download_zipfile(url, archive_path, unzip_path, md5_hash):
     if not os.path.exists(archive_path):
-        urllib.request.urlretrieve(url, archive_path)
+        r = requests.get(url)
+        with open(archive_path, 'wb') as outfile:
+            outfile.write(r.content)
     check_md5_hash(archive_path, md5_hash)
     with zipfile.ZipFile(archive_path, "r") as fid:
         fid.extractall(unzip_path)
