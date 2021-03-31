@@ -37,6 +37,8 @@
 #include "estimators/similarity_transform.h"
 #include "optim/loransac.h"
 
+#include <fstream>
+
 namespace colmap {
 namespace {
 
@@ -192,6 +194,14 @@ SimilarityTransform3::SimilarityTransform3(const double scale,
   matrix.topLeftCorner<3, 4>() = ComposeProjectionMatrix(qvec, tvec);
   matrix.block<3, 3>(0, 0) *= scale;
   transform_.matrix() = matrix;
+}
+
+void SimilarityTransform3::Write(const std::string& path) {
+  std::ofstream file(path, std::ios::trunc);
+  CHECK(file.is_open()) << path;
+  // Ensure that we don't loose any precision by storing in text.
+  file.precision(17);
+  file << transform_.matrix() << std::endl;
 }
 
 SimilarityTransform3 SimilarityTransform3::Inverse() const {
