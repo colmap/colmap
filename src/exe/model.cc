@@ -788,9 +788,9 @@ int RunModelSplitter(int argc, char** argv) {
     const auto bbox = reconstruction.ComputeBoundingBox();
     const Eigen::Vector3d full_extent = bbox.second - bbox.first;
     const Eigen::Vector3i split(
-        statit_cast<int>(full_extent(0) / extent(0)) + 1,
-        statit_cast<int>(full_extent(1) / extent(1)) + 1,
-        statit_cast<int>(full_extent(2) / extent(2)) + 1);
+        static_cast<int>(full_extent(0) / extent(0)) + 1,
+        static_cast<int>(full_extent(1) / extent(1)) + 1,
+        static_cast<int>(full_extent(2) / extent(2)) + 1);
 
     exact_bounds = ComputeEqualPartsBounds(reconstruction, split);
 
