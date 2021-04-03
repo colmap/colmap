@@ -196,6 +196,14 @@ SimilarityTransform3::SimilarityTransform3(const double scale,
   transform_.matrix() = matrix;
 }
 
+void SimilarityTransform3::Write(const std::string& path) {
+  std::ofstream file(path, std::ios::trunc);
+  CHECK(file.is_open()) << path;
+  // Ensure that we don't loose any precision by storing in text.
+  file.precision(17);
+  file << transform_.matrix() << std::endl;
+}
+
 SimilarityTransform3 SimilarityTransform3::Inverse() const {
   return SimilarityTransform3(transform_.inverse());
 }

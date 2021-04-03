@@ -70,6 +70,19 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
     const ManhattanWorldFrameEstimationOptions& options,
     const Reconstruction& reconstruction, const std::string& image_path);
 
+// Aligns the reconstruction to the plane defined by running PCA on the 3D
+// points. The model centroid is at the origin of the new coordinate system
+// and the X axis is the first principal component with the Y axis being the
+// second principal component
+void AlignToPrincipalPlane(Reconstruction* recon, SimilarityTransform3* tform);
+
+// Aligns the reconstruction to the local ENU plane orientation. Rotates the
+// reconstruction such that the x-y plane aligns with the ENU tangent plane at
+// the point cloud centroid and translates the origin to the centroid.
+// If unscaled == true, then the original scale of the model remains unchanged.
+void AlignToENUPlane(Reconstruction* recon, SimilarityTransform3* tform,
+                     bool unscaled);
+
 }  // namespace colmap
 
 #endif  // COLMAP_SRC_ESTIMATORS_COORDINATE_AXES_H_
