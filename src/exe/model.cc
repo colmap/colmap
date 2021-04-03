@@ -79,10 +79,9 @@ Eigen::Vector3d TransformLatLonAltToModelCoords(
   return xyz;
 }
 
-void WriteBoundingBox(
-    const std::string& reconstruction_path,
-    const std::pair<Eigen::Vector3d, Eigen::Vector3d>& bounds,
-    const std::string& suffix = "") {
+void WriteBoundingBox(const std::string& reconstruction_path,
+                      const std::pair<Eigen::Vector3d, Eigen::Vector3d>& bounds,
+                      const std::string& suffix = "") {
   const Eigen::Vector3d extent = bounds.second - bounds.first;
   // write axis-aligned bounding box
   {
@@ -95,7 +94,6 @@ void WriteBoundingBox(
     file.precision(17);
     file << bounds.first.transpose() << std::endl;
     file << bounds.second.transpose() << std::endl;
-    file.close();
   }
   // write oriented bounding box
   {
@@ -110,7 +108,6 @@ void WriteBoundingBox(
     file << center.transpose() << std::endl << std::endl;
     file << "1 0 0\n0 1 0\n0 0 1" << std::endl << std::endl;
     file << extent.transpose() << std::endl;
-    file.close();
   }
 }
 
@@ -704,9 +701,10 @@ int RunModelSplitter(int argc, char** argv) {
 
     const auto bbox = reconstruction.ComputeBoundingBox();
     const Eigen::Vector3d full_extent = bbox.second - bbox.first;
-    const Eigen::Vector3i split(int(full_extent(0) / extent(0)) + 1,
-                                int(full_extent(1) / extent(1)) + 1,
-                                int(full_extent(2) / extent(2)) + 1);
+    const Eigen::Vector3i split(
+        statit_cast<int>(full_extent(0) / extent(0)) + 1,
+        statit_cast<int>(full_extent(1) / extent(1)) + 1,
+        statit_cast<int>(full_extent(2) / extent(2)) + 1);
 
     exact_bounds = ComputeEqualPartsBounds(reconstruction, split);
 
@@ -738,7 +736,6 @@ int RunModelSplitter(int argc, char** argv) {
   const size_t num_parts = bounds.size();
   std::cout << StringPrintf(" => Splitting to %d parts", num_parts)
             << std::endl;
-
 
   const bool use_tile_keys = split_type == "tiles";
 
