@@ -575,7 +575,7 @@ int RunModelTransformer(int argc, char** argv) {
   }
 
   std::cout << "Reading transform input: " << transform_path << std::endl;
-  SimilarityTransform3 tform(transform_path);
+  SimilarityTransform3 tform = SimilarityTransform3::FromFile(transform_path);
   if (is_inverse) {
     tform = tform.Inverse();
   }
