@@ -272,6 +272,13 @@ available as ``colmap [command]``:
 - ``model_converter``: Convert the COLMAP export format to another format,
   such as PLY or NVM.
 
+- ``model_cropper``: Crop model to specific bounding box described in GPS or
+  model coordinate system.
+
+- ``model_splitter``: Divide model in rectangular sub-models specified from
+  file containing bounding box coordinates, or max extent of sub-model, or
+  number of subdivisions in each dimension.
+
 - ``model_merger``: Attempt to merge two disconnected reconstructions,
   if they have common registered images.
 
