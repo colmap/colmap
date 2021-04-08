@@ -924,16 +924,24 @@ bool Reconstruction::ExportCam(const std::string& path,
       k1 = 0.0;
       k2 = 0.0;
     } else if (camera.ModelId() == SimpleRadialCameraModel::model_id) {
-      k1 = -1 * camera.Params(SimpleRadialCameraModel::extra_params_idxs[0]);
+      k1 = camera.Params(SimpleRadialCameraModel::extra_params_idxs[0]);
       k2 = 0.0;
     } else if (camera.ModelId() == RadialCameraModel::model_id) {
-      k1 = -1 * camera.Params(RadialCameraModel::extra_params_idxs[0]);
-      k2 = -1 * camera.Params(RadialCameraModel::extra_params_idxs[1]);
+      k1 = camera.Params(RadialCameraModel::extra_params_idxs[0]);
+      k2 = camera.Params(RadialCameraModel::extra_params_idxs[1]);
     } else {
       std::cout << "WARNING: CAM only supports `SIMPLE_RADIAL`, `RADIAL`, "
                    "and pinhole camera models."
                 << std::endl;
       return false;
+    }
+
+    // If both k1 and k2 values are non-zero, then the CAM format assumes
+    // a Bundler-like radial distortion model, which converts well from
+    // COLMAP. However, if k2 is zero, then a different model is used
+    // that does not translate as well, so we avoid setting k2 to zero.
+    if (k1 != 0.0 && k2 == 0.0) {
+      k2 = 1e-10;
     }
 
     double fx, fy;
