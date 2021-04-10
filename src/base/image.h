@@ -237,7 +237,7 @@ class Image {
   std::vector<class Point2D> points2D_;
 
   // Per image point, the number of correspondences that have a 3D point.
-  std::vector<image_t> num_correspondences_have_point3D_;
+  std::vector<point2D_t> num_correspondences_have_point3D_;
 
   // Data structure to compute the distribution of triangulated correspondences
   // in the image. Note that this structure is only usable after `SetUp`.

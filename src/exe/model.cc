@@ -37,9 +37,79 @@
 #include "estimators/coordinate_frame.h"
 #include "util/misc.h"
 #include "util/option_manager.h"
+#include "util/threading.h"
 
 namespace colmap {
 namespace {
+
+std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>>
+ComputeEqualPartsBounds(const Reconstruction& reconstruction,
+                        const Eigen::Vector3i& split) {
+  std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> bounds;
+  const auto bbox = reconstruction.ComputeBoundingBox();
+  const Eigen::Vector3d extent = bbox.second - bbox.first;
+  const Eigen::Vector3d offset(extent(0) / split(0), extent(1) / split(1),
+                               extent(2) / split(2));
+
+  for (int k = 0; k < split(2); ++k) {
+    for (int j = 0; j < split(1); ++j) {
+      for (int i = 0; i < split(0); ++i) {
+        Eigen::Vector3d min_bound(bbox.first(0) + i * offset(0),
+                                  bbox.first(1) + j * offset(1),
+                                  bbox.first(2) + k * offset(2));
+        bounds.emplace_back(min_bound, min_bound + offset);
+      }
+    }
+  }
+
+  return bounds;
+}
+
+Eigen::Vector3d TransformLatLonAltToModelCoords(
+    const SimilarityTransform3& tform, double lat, double lon, double alt) {
+  // Since this is intended for use in ENU aligned models we want to define the
+  // altitude along the ENU frame z axis and not the Earth's radius. Thus, we
+  // set the altitude to 0 when converting from LLA to ECEF and then we use the
+  // altitude at the end, after scaling, to set it as the z coordinate in the
+  // ENU frame.
+  Eigen::Vector3d xyz = GPSTransform(GPSTransform::WGS84)
+                            .EllToXYZ({Eigen::Vector3d(lat, lon, 0.0)})[0];
+  tform.TransformPoint(&xyz);
+  xyz(2) = tform.Scale() * alt;
+  return xyz;
+}
+
+void WriteBoundingBox(const std::string& reconstruction_path,
+                      const std::pair<Eigen::Vector3d, Eigen::Vector3d>& bounds,
+                      const std::string& suffix = "") {
+  const Eigen::Vector3d extent = bounds.second - bounds.first;
+  // write axis-aligned bounding box
+  {
+    const std::string path =
+        JoinPaths(reconstruction_path, "bbox_aligned" + suffix + ".txt");
+    std::ofstream file(path, std::ios::trunc);
+    CHECK(file.is_open()) << path;
+
+    // Ensure that we don't loose any precision by storing in text.
+    file.precision(17);
+    file << bounds.first.transpose() << std::endl;
+    file << bounds.second.transpose() << std::endl;
+  }
+  // write oriented bounding box
+  {
+    const std::string path =
+        JoinPaths(reconstruction_path, "bbox_oriented" + suffix + ".txt");
+    std::ofstream file(path, std::ios::trunc);
+    CHECK(file.is_open()) << path;
+
+    // Ensure that we don't loose any precision by storing in text.
+    file.precision(17);
+    const Eigen::Vector3d center = (bounds.first + bounds.second) * 0.5;
+    file << center.transpose() << std::endl << std::endl;
+    file << "1 0 0\n0 1 0\n0 0 1" << std::endl << std::endl;
+    file << extent.transpose() << std::endl;
+  }
+}
 
 void ReadFileCameraLocations(const std::string& ref_images_path,
                              std::vector<std::string>& ref_image_names,
@@ -434,6 +504,79 @@ int RunModelConverter(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+int RunModelCropper(int argc, char** argv) {
+  Timer timer;
+  timer.Start();
+
+  std::string input_path;
+  std::string output_path;
+  std::string boundary;
+  std::string gps_transform_path;
+  bool is_gps = false;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddRequiredOption("boundary", &boundary);
+  options.AddDefaultOption("gps_transform_path", &gps_transform_path);
+  options.Parse(argc, argv);
+
+  if (!ExistsDir(input_path)) {
+    std::cerr << "ERROR: `input_path` is not a directory" << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(output_path)) {
+    std::cerr << "ERROR: `output_path` is not a directory" << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  std::vector<double> boundary_elements = CSVToVector<double>(boundary);
+  if (boundary_elements.size() != 2 && boundary_elements.size() != 6) {
+    std::cerr << "ERROR: Invalid `boundary` - supported values are "
+                 "'x1,y1,z1,x2,y2,z2' or 'p1,p2'."
+              << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  Reconstruction reconstruction;
+  reconstruction.Read(input_path);
+
+  PrintHeading2("Calculating boundary coordinates");
+  std::pair<Eigen::Vector3d, Eigen::Vector3d> bounding_box;
+  if (boundary_elements.size() == 6) {
+    SimilarityTransform3 tform;
+    if (!gps_transform_path.empty()) {
+      PrintHeading2("Reading model to ECEF transform");
+      is_gps = true;
+      tform = SimilarityTransform3::FromFile(gps_transform_path).Inverse();
+    }
+    bounding_box.first =
+        is_gps ? TransformLatLonAltToModelCoords(tform, boundary_elements[0],
+                                                 boundary_elements[1],
+                                                 boundary_elements[2])
+               : Eigen::Vector3d(boundary_elements[0], boundary_elements[1],
+                                 boundary_elements[2]);
+    bounding_box.second =
+        is_gps ? TransformLatLonAltToModelCoords(tform, boundary_elements[3],
+                                                 boundary_elements[4],
+                                                 boundary_elements[5])
+               : Eigen::Vector3d(boundary_elements[3], boundary_elements[4],
+                                 boundary_elements[5]);
+  } else {
+    bounding_box = reconstruction.ComputeBoundingBox(boundary_elements[0],
+                                                     boundary_elements[1]);
+  }
+
+  PrintHeading2("Cropping reconstruction");
+  reconstruction.Crop(bounding_box).Write(output_path);
+  WriteBoundingBox(output_path, bounding_box);
+
+  std::cout << "=> Cropping succeeded" << std::endl;
+  timer.PrintMinutes();
+  return EXIT_SUCCESS;
+}
+
 int RunModelMerger(int argc, char** argv) {
   std::string input_path1;
   std::string input_path2;
@@ -542,6 +685,238 @@ int RunModelOrientationAligner(int argc, char** argv) {
 
   std::cout << "Writing aligned reconstruction..." << std::endl;
   reconstruction.Write(output_path);
+
+  return EXIT_SUCCESS;
+}
+
+int RunModelSplitter(int argc, char** argv) {
+  Timer timer;
+  timer.Start();
+
+  std::string input_path;
+  std::string output_path;
+  std::string split_type;
+  std::string split_params;
+  std::string gps_transform_path;
+  int num_threads = -1;
+  size_t min_reg_images = 10;
+  size_t min_num_points = 100;
+  double overlap_ratio = 0.0;
+  double min_area_ratio = 0.0;
+  bool is_gps = false;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddRequiredOption("split_type", &split_type,
+                            "{tiles, extent, parts}");
+  options.AddRequiredOption("split_params", &split_params);
+  options.AddDefaultOption("gps_transform_path", &gps_transform_path);
+  options.AddDefaultOption("num_threads", &num_threads);
+  options.AddDefaultOption("min_reg_images", &min_reg_images);
+  options.AddDefaultOption("min_num_points", &min_num_points);
+  options.AddDefaultOption("overlap_ratio", &overlap_ratio);
+  options.AddDefaultOption("min_area_ratio", &min_area_ratio);
+  options.Parse(argc, argv);
+
+  if (!ExistsDir(input_path)) {
+    std::cerr << "ERROR: `input_path` is not a directory" << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  if (!ExistsDir(output_path)) {
+    std::cerr << "ERROR: `output_path` is not a directory" << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  if (overlap_ratio < 0) {
+    std::cout << "WARN: Invalid `overlap_ratio`; resetting to 0" << std::endl;
+    overlap_ratio = 0.0;
+  }
+
+  PrintHeading1("Splitting sparse model");
+  std::cout << StringPrintf(" => Using \"%s\" split type", split_type.c_str())
+            << std::endl;
+
+  Reconstruction reconstruction;
+  reconstruction.Read(input_path);
+
+  SimilarityTransform3 tform;
+  if (!gps_transform_path.empty()) {
+    PrintHeading2("Reading model to ECEF transform");
+    is_gps = true;
+    tform = SimilarityTransform3::FromFile(gps_transform_path).Inverse();
+  }
+  const double scale = tform.Scale();
+
+  // Create the necessary number of reconstructions based on the split method
+  // and get the bounding boxes for each sub-reconstruction
+  PrintHeading2("Computing bound_coords");
+  std::vector<std::string> tile_keys;
+  std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> exact_bounds;
+  StringToLower(&split_type);
+  if (split_type == "tiles") {
+    std::ifstream file(split_params);
+    CHECK(file.is_open()) << split_params;
+
+    double x1, y1, z1, x2, y2, z2;
+    std::string tile_key;
+    std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> bounds;
+    tile_keys.clear();
+    file >> tile_key >> x1 >> y1 >> z1 >> x2 >> y2 >> z2;
+    while (!file.fail()) {
+      tile_keys.push_back(tile_key);
+      if (is_gps) {
+        exact_bounds.emplace_back(
+            TransformLatLonAltToModelCoords(tform, x1, y1, z1),
+            TransformLatLonAltToModelCoords(tform, x2, y2, z2));
+      } else {
+        exact_bounds.emplace_back(Eigen::Vector3d(x1, y1, z1),
+                                  Eigen::Vector3d(x2, y2, z2));
+      }
+      file >> tile_key >> x1 >> y1 >> z1 >> x2 >> y2 >> z2;
+    }
+  } else if (split_type == "extent") {
+    std::vector<double> parts = CSVToVector<double>(split_params);
+    Eigen::Vector3d extent(std::numeric_limits<double>::max(),
+                           std::numeric_limits<double>::max(),
+                           std::numeric_limits<double>::max());
+    for (int i = 0; i < parts.size(); ++i) {
+      extent(i) = parts[i] * scale;
+    }
+
+    const auto bbox = reconstruction.ComputeBoundingBox();
+    const Eigen::Vector3d full_extent = bbox.second - bbox.first;
+    const Eigen::Vector3i split(
+        static_cast<int>(full_extent(0) / extent(0)) + 1,
+        static_cast<int>(full_extent(1) / extent(1)) + 1,
+        static_cast<int>(full_extent(2) / extent(2)) + 1);
+
+    exact_bounds = ComputeEqualPartsBounds(reconstruction, split);
+
+  } else if (split_type == "parts") {
+    auto parts = CSVToVector<int>(split_params);
+    Eigen::Vector3i split(1, 1, 1);
+    for (int i = 0; i < parts.size(); ++i) {
+      split(i) = parts[i];
+      if (split(i) < 1) {
+        std::cerr << "ERROR: Cannot split in less than 1 parts for dim " << i
+                  << std::endl;
+        return EXIT_FAILURE;
+      }
+    }
+    exact_bounds = ComputeEqualPartsBounds(reconstruction, split);
+  } else {
+    std::cout << "ERROR: Invalid split type: " << split_type << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> bounds;
+  for (const auto& bbox : exact_bounds) {
+    const Eigen::Vector3d padding =
+        (overlap_ratio * (bbox.second - bbox.first));
+    bounds.emplace_back(bbox.first - padding, bbox.second + padding);
+  }
+
+  PrintHeading2("Applying split and writing reconstructions");
+  const size_t num_parts = bounds.size();
+  std::cout << StringPrintf(" => Splitting to %d parts", num_parts)
+            << std::endl;
+
+  const bool use_tile_keys = split_type == "tiles";
+
+  auto SplitRecon = [&](const int idx) {
+    Reconstruction tile_recon = reconstruction.Crop(bounds[idx]);
+    // calculate area covered by model as proportion of box area
+    auto bbox_extent = bounds[idx].second - bounds[idx].first;
+    auto model_bbox = tile_recon.ComputeBoundingBox();
+    auto model_extent = model_bbox.second - model_bbox.first;
+    double area_ratio =
+        (model_extent(0) * model_extent(1)) / (bbox_extent(0) * bbox_extent(1));
+    int tile_num_points = tile_recon.NumPoints3D();
+
+    std::string name = use_tile_keys ? tile_keys[idx] : std::to_string(idx);
+    const bool include_tile = area_ratio >= min_area_ratio &&
+                              tile_num_points >= min_num_points &&
+                              tile_recon.NumRegImages() >= min_reg_images;
+
+    if (include_tile) {
+      std::cout << StringPrintf(
+                       "Writing reconstruction %s with %d images, %d points, "
+                       "and %.2f%% area coverage",
+                       name.c_str(), tile_recon.NumRegImages(), tile_num_points,
+                       100.0 * area_ratio)
+                << std::endl;
+      const std::string reconstruction_path = JoinPaths(output_path, name);
+      CreateDirIfNotExists(reconstruction_path);
+      reconstruction.Write(reconstruction_path);
+      WriteBoundingBox(reconstruction_path, bounds[idx]);
+      WriteBoundingBox(reconstruction_path, exact_bounds[idx], "_exact");
+
+    } else {
+      std::cout << StringPrintf(
+                       "Skipping reconstruction %s with %d images, %d points, "
+                       "and %.2f%% area coverage",
+                       name.c_str(), tile_recon.NumRegImages(), tile_num_points,
+                       100.0 * area_ratio)
+                << std::endl;
+    }
+  };
+
+  ThreadPool thread_pool(GetEffectiveNumThreads(num_threads));
+  for (int idx = 0; idx < num_parts; ++idx) {
+    thread_pool.AddTask(SplitRecon, idx);
+  }
+  thread_pool.Wait();
+
+  timer.PrintMinutes();
+  return EXIT_SUCCESS;
+}
+
+int RunModelTransformer(int argc, char** argv) {
+  std::string input_path;
+  std::string output_path;
+  std::string transform_path;
+  bool is_inverse = false;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddRequiredOption("transform_path", &transform_path);
+  options.AddDefaultOption("is_inverse", &is_inverse);
+  options.Parse(argc, argv);
+
+  std::cout << "Reading points input: " << input_path << std::endl;
+  Reconstruction recon;
+  bool is_dense = false;
+  if (HasFileExtension(input_path, ".ply")) {
+    is_dense = true;
+    recon.ImportPLY(input_path);
+  } else if (ExistsDir(input_path)) {
+    recon.Read(input_path);
+  } else {
+    std::cerr << "Invalid model input; not a PLY file or sparse reconstruction "
+                 "directory."
+              << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  std::cout << "Reading transform input: " << transform_path << std::endl;
+  SimilarityTransform3 tform = SimilarityTransform3::FromFile(transform_path);
+  if (is_inverse) {
+    tform = tform.Inverse();
+  }
+
+  std::cout << "Applying transform to recon with " << recon.NumPoints3D()
+            << " points" << std::endl;
+  recon.Transform(tform);
+
+  std::cout << "Writing output: " << output_path << std::endl;
+  if (is_dense) {
+    recon.ExportPLY(output_path);
+  } else {
+    recon.Write(output_path);
+  }
 
   return EXIT_SUCCESS;
 }
