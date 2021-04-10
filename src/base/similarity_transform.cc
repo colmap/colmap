@@ -254,6 +254,21 @@ Eigen::Vector3d SimilarityTransform3::Translation() const {
   return Matrix().block<3, 1>(0, 3);
 }
 
+SimilarityTransform3 SimilarityTransform3::FromFile(const std::string& path) {
+  std::ifstream file(path);
+  CHECK(file.is_open()) << path;
+
+  Eigen::Matrix4d matrix = Eigen::MatrixXd::Identity(4, 4);
+  for (int i = 0; i < matrix.rows(); ++i) {
+    for (int j = 0; j < matrix.cols(); ++j) {
+      file >> matrix(i, j);
+    }
+  }
+  SimilarityTransform3 tform;
+  tform.transform_.matrix() = matrix;
+  return tform;
+}
+
 bool ComputeAlignmentBetweenReconstructions(
     const Reconstruction& src_reconstruction,
     const Reconstruction& ref_reconstruction,

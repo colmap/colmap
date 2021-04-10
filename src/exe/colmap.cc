@@ -124,9 +124,12 @@ int main(int argc, char** argv) {
   commands.emplace_back("model_analyzer", &RunModelAnalyzer);
   commands.emplace_back("model_comparer", &RunModelComparer);
   commands.emplace_back("model_converter", &RunModelConverter);
+  commands.emplace_back("model_cropper", &RunModelCropper);
   commands.emplace_back("model_merger", &RunModelMerger);
   commands.emplace_back("model_orientation_aligner",
                         &RunModelOrientationAligner);
+  commands.emplace_back("model_splitter", &RunModelSplitter);
+  commands.emplace_back("model_transformer", &RunModelTransformer);
   commands.emplace_back("patch_match_stereo", &RunPatchMatchStereo);
   commands.emplace_back("point_filtering", &RunPointFiltering);
   commands.emplace_back("point_triangulator", &RunPointTriangulator);
