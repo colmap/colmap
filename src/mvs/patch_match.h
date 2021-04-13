@@ -256,7 +256,7 @@ class PatchMatchController : public Thread {
                        const std::string& pmvs_option_name,
                        const std::string& config_path = "");
 
- private:
+ protected:
   void Run();
   void ReadWorkspace();
   void ReadProblems();
