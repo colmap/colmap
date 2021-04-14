@@ -1,0 +1,50 @@
+jobs:
+- job: windows_build
+  displayName: 'Windows VS2019'
+  timeoutInMinutes: 240
+  pool:
+    vmImage: 'windows-2019'
+  variables:
+    vcpkgGitCommitId: ec6fe06e8da05a8157dc8581fa96b36b571c1bd5
+  steps:
+  - task: Cache@2
+    displayName: 'Cache vcpkg'
+    inputs:
+      key: $(Build.SourcesDirectory)/.azure-pipelines/build-windows-vcpkg.txt | "$(vcpkgGitCommitId)" | "$(Agent.OS)"
+      path: '$(Build.BinariesDirectory)/vcpkg'
+
+  - task: run-vcpkg@0
+    displayName: 'Run vcpkg'
+    inputs:
+      vcpkgArguments: '@$(Build.SourcesDirectory)/.azure-pipelines/build-windows-vcpkg.txt'
+      vcpkgGitCommitId: $(vcpkgGitCommitId)
+      vcpkgGitURL: https://github.com/microsoft/vcpkg
+
+  - pwsh: |
+      curl -L -o `
+        $(Build.BinariesDirectory)/ninja.zip `
+        https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-win.zip
+      Expand-Archive -LiteralPath $(Build.BinariesDirectory)/ninja.zip -DestinationPath $(Build.BinariesDirectory)
+    displayName: Prepare build
+
+  - task: run-cmake@0
+    displayName: 'Configure and build'
+    inputs:
+      cmakeListsOrSettingsJson: 'CMakeListsTxtAdvanced'
+      cmakeListsTxtPath: '$(Build.SourcesDirectory)/CMakeLists.txt'
+      cmakeBuildType: 'Release'
+      cmakeGenerator: 'Ninja'
+      cmakeAppendedArgs: -GNinja -DCMAKE_MAKE_PROGRAM=$(Build.BinariesDirectory)/ninja.exe -DCMAKE_BUILD_TYPE=Release -DTESTS_ENABLED=ON
+      useVcpkgToolchainFile: true
+
+  - pwsh: |
+      $env:PATH = "$(Build.BinariesDirectory)/vcpkg/installed/x64-windows/release/bin/;$env:Path"
+      ctest
+      $tests_pass=$LastExitCode
+      if ($tests_pass -ne 0) {
+          echo "`n`n`nTests failed, rerunning with verbose output"
+          ctest --rerun-failed --output-on-failure
+      }
+      exit $tests_pass
+    workingDirectory: $(Build.ArtifactStagingDirectory)
+    displayName: 'Run tests'

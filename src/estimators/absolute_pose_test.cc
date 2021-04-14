@@ -177,7 +177,7 @@ BOOST_AUTO_TEST_CASE(TestEPNP_BrokenSolveSignCase) {
   points2D.emplace_back(2.0239567448222310e-02, -3.2845953375344145e-01);
   points2D.emplace_back(4.2571014715170657e-01, -2.8321173570154773e-01);
   points2D.emplace_back(-5.4597596412987237e-01, 9.1431935871671977e-02);
-  
+
   std::vector<Eigen::Vector3d> points3D;
   points3D.emplace_back(4.4276865308679305e+00, -1.3384364366019632e+00,
                         -3.5997423085253892e+00);

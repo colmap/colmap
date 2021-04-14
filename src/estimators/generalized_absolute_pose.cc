@@ -195,9 +195,9 @@ std::vector<Eigen::Vector3d> ComputeDepthsSylvester(
           const double kMaxLambdaRatio = 1e-2;
           if (std::abs(lambda_1_1 - lambda_1_2) <
               kMaxLambdaRatio * std::max(lambda_1_1, lambda_1_2)) {
-              const double lambda_1 = (lambda_1_1 + lambda_1_2) / 2;
-              depths.emplace_back(lambda_1, lambda_2, lambda_3);
-            }
+            const double lambda_1 = (lambda_1_1 + lambda_1_2) / 2;
+            depths.emplace_back(lambda_1, lambda_2, lambda_3);
+          }
         }
       }
     }

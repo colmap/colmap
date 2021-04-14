@@ -69,6 +69,9 @@ struct ImageReaderOptions {
   // Whether to use the same camera for all images in the same sub-folder.
   bool single_camera_per_folder = false;
 
+  // Whether to use a different camera for each image.
+  bool single_camera_per_image = false;
+
   // Whether to explicitly use an existing camera for all images. Note that in
   // this case the specified camera model and parameters are ignored.
   int existing_camera_id = kInvalidCameraId;
@@ -81,7 +84,7 @@ struct ImageReaderOptions {
   // have focal length EXIF information, the focal length is set to the
   // value `default_focal_length_factor * max(width, height)`.
   double default_focal_length_factor = 1.2;
-  
+
   // Optional path to an image file specifying a mask for all images. No
   // features will be extracted in regions where the mask is black (pixel
   // intensity value 0 in grayscale).
@@ -119,6 +122,7 @@ class ImageReader {
   size_t image_index_;
   // Previously processed camera.
   Camera prev_camera_;
+  std::unordered_map<std::string, camera_t> camera_model_to_id_;
   // Names of image sub-folders.
   std::string prev_image_folder_;
   std::unordered_set<std::string> image_folders_;

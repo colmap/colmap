@@ -80,7 +80,7 @@ def main():
             image_id = row[0]
             camera_id = row[1]
             image_name = row[2]
-            print "Copying image", image_name
+            print("Copying image", image_name)
             images[image_id] = (len(images), image_name)
             fid.write("./%s 0 %f\n" % (image_name, cameras[camera_id][0]))
             if not os.path.exists(os.path.join(args.output_path, image_name)):
@@ -88,7 +88,7 @@ def main():
                                 os.path.join(args.output_path, image_name))
 
     for image_id, (image_idx, image_name) in images.iteritems():
-        print "Exporting key file for", image_name
+        print("Exporting key file for", image_name)
         base_name, ext = os.path.splitext(image_name)
         key_file_name = os.path.join(args.output_path, base_name + ".key")
         key_file_name_gz = key_file_name + ".gz"

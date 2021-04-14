@@ -118,8 +118,8 @@ def main():
                                 float(sensor_width.replace(" ", "")))
                         models_code += "    make_specs.emplace_back(\"%s\", %.4ff);\n" % data
 
-                        print make, model_name
-                        print "   ", sensor_text
+                        print(make, model_name)
+                        print("   ", sensor_text)
 
                         num_models += 1
 

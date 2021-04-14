@@ -146,7 +146,7 @@ SiftFeatureExtractor::SiftFeatureExtractor(
     if (sift_options_.num_threads == -1 &&
         sift_options_.max_image_size ==
             SiftExtractionOptions().max_image_size &&
-        sift_options_.max_image_size == SiftExtractionOptions().first_octave) {
+        sift_options_.first_octave == SiftExtractionOptions().first_octave) {
       std::cout
           << "WARNING: Your current options use the maximum number of "
              "threads on the machine to extract features. Exracting SIFT "

@@ -1,0 +1,26 @@
+trigger:
+  - dev
+
+jobs:
+  - template: build-windows.yaml
+  - template: build-ubuntu.yaml
+    parameters:
+      displayName: 'Ubuntu 18.04'
+      ubuntuVersion: 18.04
+  - template: build-ubuntu.yaml
+    parameters:
+      displayName: 'Ubuntu 20.04'
+      ubuntuVersion: 20.04
+  - template: build-ubuntu.yaml
+    parameters:
+      displayName: 'Ubuntu 20.04 (CUDA)'
+      ubuntuVersion: 20.04
+      cudaEnabled: true
+  - template: build-mac.yaml
+    parameters:
+      displayName: 'Mac 10.14'
+      macVersion: 10.14
+  - template: build-mac.yaml
+    parameters:
+      displayName: 'Mac 10.15'
+      macVersion: 10.15

@@ -31,6 +31,7 @@
 
 #include "estimators/coordinate_frame.h"
 
+#include "base/gps.h"
 #include "base/line.h"
 #include "base/pose.h"
 #include "base/undistortion.h"
@@ -142,8 +143,7 @@ Eigen::Vector3d FindBestConsensusAxis(const std::vector<Eigen::Vector3d>& axes,
 }  // namespace
 
 Eigen::Vector3d EstimateGravityVectorFromImageOrientation(
-    const Reconstruction& reconstruction,
-    const double max_axis_distance) {
+    const Reconstruction& reconstruction, const double max_axis_distance) {
   std::vector<Eigen::Vector3d> downward_axes;
   downward_axes.reserve(reconstruction.NumRegImages());
   for (const auto image_id : reconstruction.RegImageIds()) {
@@ -297,6 +297,60 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
   std::cout << frame << std::endl;
 
   return frame;
+}
+
+void AlignToPrincipalPlane(Reconstruction* recon, SimilarityTransform3* tform) {
+  // Perform SVD on the 3D points to estimate the ground plane basis
+  const Eigen::Vector3d centroid = recon->ComputeCentroid(0.0, 1.0);
+  Eigen::MatrixXd points(3, recon->NumPoints3D());
+  int pidx = 0;
+  for (const auto& point : recon->Points3D()) {
+    points.col(pidx++) = point.second.XYZ() - centroid;
+  }
+  const Eigen::Matrix3d basis =
+      points.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).matrixU();
+  Eigen::Matrix3d rot_mat;
+  rot_mat << basis.col(0), basis.col(1), basis.col(0).cross(basis.col(1));
+  rot_mat.transposeInPlace();
+
+  *tform = SimilarityTransform3(1.0, RotationMatrixToQuaternion(rot_mat),
+                                -rot_mat * centroid);
+
+  // if camera plane ends up below ground then flip basis vectors and create new
+  // transform
+  Image test_img = recon->Images().begin()->second;
+  tform->TransformPose(&test_img.Qvec(), &test_img.Tvec());
+  if (test_img.ProjectionCenter().z() < 0.0) {
+    rot_mat << basis.col(0), -basis.col(1), basis.col(0).cross(-basis.col(1));
+    rot_mat.transposeInPlace();
+    *tform = SimilarityTransform3(1.0, RotationMatrixToQuaternion(rot_mat),
+                                  -rot_mat * centroid);
+  }
+
+  recon->Transform(*tform);
+}
+
+void AlignToENUPlane(Reconstruction* recon, SimilarityTransform3* tform,
+                     bool unscaled) {
+  const Eigen::Vector3d centroid = recon->ComputeCentroid(0.0, 1.0);
+  GPSTransform gps_tform;
+  const Eigen::Vector3d ell_centroid = gps_tform.XYZToEll({centroid}).at(0);
+
+  // Create rotation matrix from ECEF to ENU coordinates
+  const double sin_lat = sin(DegToRad(ell_centroid(0)));
+  const double sin_lon = sin(DegToRad(ell_centroid(1)));
+  const double cos_lat = cos(DegToRad(ell_centroid(0)));
+  const double cos_lon = cos(DegToRad(ell_centroid(1)));
+
+  // Create ECEF to ENU rotation matrix
+  Eigen::Matrix3d rot_mat;
+  rot_mat << -sin_lon, cos_lon, 0, -cos_lon * sin_lat, -sin_lon * sin_lat,
+      cos_lat, cos_lon * cos_lat, sin_lon * cos_lat, sin_lat;
+
+  const double scale = unscaled ? 1.0 / tform->Scale() : 1.0;
+  *tform = SimilarityTransform3(scale, RotationMatrixToQuaternion(rot_mat),
+                                -(scale * rot_mat) * centroid);
+  recon->Transform(*tform);
 }
 
 }  // namespace colmap

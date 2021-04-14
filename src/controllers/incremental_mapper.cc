@@ -212,7 +212,7 @@ IncrementalTriangulator::Options IncrementalMapperOptions::Triangulation()
 BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
     const {
   BundleAdjustmentOptions options;
-  options.solver_options.function_tolerance = 0.0;
+  options.solver_options.function_tolerance = ba_local_function_tolerance;
   options.solver_options.gradient_tolerance = 10.0;
   options.solver_options.parameter_tolerance = 0.0;
   options.solver_options.max_num_iterations = ba_local_max_num_iterations;
@@ -237,7 +237,7 @@ BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
 BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
     const {
   BundleAdjustmentOptions options;
-  options.solver_options.function_tolerance = 0.0;
+  options.solver_options.function_tolerance = ba_global_function_tolerance;
   options.solver_options.gradient_tolerance = 1.0;
   options.solver_options.parameter_tolerance = 0.0;
   options.solver_options.max_num_iterations = ba_global_max_num_iterations;
@@ -252,7 +252,7 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
   options.refine_principal_point = ba_refine_principal_point;
   options.refine_extra_params = ba_refine_extra_params;
   options.min_num_residuals_for_multi_threading =
-	  ba_min_num_residuals_for_multi_threading;
+      ba_min_num_residuals_for_multi_threading;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
   return options;
@@ -266,7 +266,7 @@ IncrementalMapperOptions::ParallelGlobalBundleAdjustment() const {
   options.gpu_index = ba_global_pba_gpu_index;
   options.num_threads = num_threads;
   options.min_num_residuals_for_multi_threading =
-	  ba_min_num_residuals_for_multi_threading;
+      ba_min_num_residuals_for_multi_threading;
   return options;
 }
 

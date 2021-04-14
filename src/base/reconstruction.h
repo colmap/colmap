@@ -32,6 +32,7 @@
 #ifndef COLMAP_SRC_BASE_RECONSTRUCTION_H_
 #define COLMAP_SRC_BASE_RECONSTRUCTION_H_
 
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -43,7 +44,10 @@
 #include "base/image.h"
 #include "base/point2d.h"
 #include "base/point3d.h"
+#include "base/similarity_transform.h"
 #include "base/track.h"
+#include "estimators/similarity_transform.h"
+#include "optim/loransac.h"
 #include "util/alignment.h"
 #include "util/types.h"
 
@@ -53,7 +57,6 @@ struct PlyPoint;
 struct RANSACOptions;
 class DatabaseCache;
 class CorrespondenceGraph;
-class SimilarityTransform3;
 
 // Reconstruction class holds all information about a single reconstructed
 // model. It is used by the mapping and bundle adjustment classes and can be
@@ -178,8 +181,23 @@ class Reconstruction {
   void Normalize(const double extent = 10.0, const double p0 = 0.1,
                  const double p1 = 0.9, const bool use_images = true);
 
+  // Compute the centroid of the 3D points
+  Eigen::Vector3d ComputeCentroid(const double p0 = 0.1,
+                                  const double p1 = 0.9) const;
+
+  // Compute the bounding box corners of the 3D points
+  std::pair<Eigen::Vector3d, Eigen::Vector3d> ComputeBoundingBox(
+      const double p0 = 0.0, const double p1 = 1.0) const;
+
   // Apply the 3D similarity transformation to all images and points.
   void Transform(const SimilarityTransform3& tform);
+
+  // Creates a cropped reconstruction using the input bounds as corner points
+  // of the bounding box containing the included 3D points of the new
+  // reconstruction. Only the cameras and images of the included points are
+  // registered.
+  Reconstruction Crop(
+      const std::pair<Eigen::Vector3d, Eigen::Vector3d>& bbox) const;
 
   // Merge the given reconstruction into this reconstruction by registering the
   // images registered in the given but not in this reconstruction and by
@@ -192,15 +210,19 @@ class Reconstruction {
   // Align the given reconstruction with a set of pre-defined camera positions.
   // Assuming that locations[i] gives the 3D coordinates of the center
   // of projection of the image with name image_names[i].
+  template <bool kEstimateScale = true>
   bool Align(const std::vector<std::string>& image_names,
              const std::vector<Eigen::Vector3d>& locations,
-             const int min_common_images);
+             const int min_common_images,
+             SimilarityTransform3* tform = nullptr);
 
   // Robust alignment using RANSAC.
+  template <bool kEstimateScale = true>
   bool AlignRobust(const std::vector<std::string>& image_names,
                    const std::vector<Eigen::Vector3d>& locations,
                    const int min_common_images,
-                   const RANSACOptions& ransac_options);
+                   const RANSACOptions& ransac_options,
+                   SimilarityTransform3* tform = nullptr);
 
   // Find specific image by name. Note that this uses linear search.
   const class Image* FindImageWithName(const std::string& name) const;
@@ -269,10 +291,75 @@ class Reconstruction {
   void ImportPLY(const std::vector<PlyPoint>& ply_points);
 
   // Export to other data formats.
-  bool ExportNVM(const std::string& path) const;
-  bool ExportBundler(const std::string& path,
-                     const std::string& list_path) const;
+
+  // Exports in NVM format http://ccwu.me/vsfm/doc.html#nvm. Only supports
+  // SIMPLE_RADIAL camera model when exporting distortion parameters. When
+  // skip_distortion == true it supports all camera models with the caveat that
+  // it's using the mean focal length which will be inaccurate for camera models
+  // with two focal lengths and distortion.
+  bool ExportNVM(const std::string& path, bool skip_distortion = false) const;
+
+  // Exports in CAM format which is a simple text file that contains pose
+  // information and camera intrinsics for each image and exports one file per
+  // image; it does not include information on the 3D points. The format is as
+  // follows (2 lines of text with space separated numbers):
+  // <Tvec; 3 values> <Rotation matrix in row-major format; 9 values>
+  // <focal_length> <k1> <k2> 1.0 <principal point X> <principal point Y>
+  // Note that focal length is relative to the image max(width, height),
+  // and principal points x and y are relative to width and height respectively.
+  //
+  // Only supports SIMPLE_RADIAL and RADIAL camera models when exporting
+  // distortion parameters. When skip_distortion == true it supports all camera
+  // models with the caveat that it's using the mean focal length which will be
+  // inaccurate for camera models with two focal lengths and distortion.
+  bool ExportCam(const std::string& path, bool skip_distortion = false) const;
+
+  // Exports in Recon3D format which consists of three text files with the
+  // following format and content:
+  // 1) imagemap_0.txt: a list of image numeric IDs with one entry per line.
+  // 2) urd-images.txt: A list of images with one entry per line as:
+  //    <image file name> <width> <height>
+  // 3) synth_0.out: Contains information for image poses, camera intrinsics,
+  //    and 3D points as:
+  //    <N; num images> <M; num points>
+  //    <N lines of image entries>
+  //    <M lines of point entries>
+  //
+  //    Each image entry consists of 5 lines as:
+  //    <focal length> <k1> <k2>
+  //    <Rotation matrix; 3x3 array>
+  //    <Tvec; 3 values>
+  //    Note that the focal length is scaled by 1 / max(width, height)
+  //
+  //    Each point entry consists of 3 lines as:
+  //    <point x, y, z coordinates>
+  //    <point RGB color>
+  //    <K; num track elements> <Track Element 1> ... <Track Element K>
+  //
+  //    Each track elemenet is a sequence of 5 values as:
+  //    <image ID> <2D point ID> -1.0 <X> <Y>
+  //    Note that the 2D point coordinates are centered around the principal
+  //    point and scaled by 1 / max(width, height).
+  //
+  // When skip_distortion == true it supports all camera models with the
+  // caveat that it's using the mean focal length which will be inaccurate
+  // for camera models with two focal lengths and distortion.
+  bool ExportRecon3D(const std::string& path,
+                     bool skip_distortion = false) const;
+
+  // Exports in Bundler format https://www.cs.cornell.edu/~snavely/bundler/.
+  // Supports SIMPLE_PINHOLE, PINHOLE, SIMPLE_RADIAL and RADIAL camera models
+  // when exporting distortion parameters. When skip_distortion == true it
+  // supports all camera models with the caveat that it's using the mean focal
+  // length which will be inaccurate for camera models with two focal lengths
+  // and distortion.
+  bool ExportBundler(const std::string& path, const std::string& list_path,
+                     bool skip_distortion = false) const;
+
+  // Exports 3D points only in PLY format.
   void ExportPLY(const std::string& path) const;
+
+  // Exports in VRML format https://en.wikipedia.org/wiki/VRML.
   void ExportVRML(const std::string& images_path,
                   const std::string& points3D_path, const double image_scale,
                   const Eigen::Vector3d& image_rgb) const;
@@ -305,6 +392,10 @@ class Reconstruction {
   size_t FilterPoints3DWithLargeReprojectionError(
       const double max_reproj_error,
       const std::unordered_set<point3D_t>& point3D_ids);
+
+  std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d>
+  ComputeBoundsAndCentroid(const double p0, const double p1,
+                           const bool use_images) const;
 
   void ReadCamerasText(const std::string& path);
   void ReadImagesText(const std::string& path);
@@ -442,6 +533,117 @@ bool Reconstruction::ExistsImagePair(const image_pair_t pair_id) const {
 
 bool Reconstruction::IsImageRegistered(const image_t image_id) const {
   return Image(image_id).IsRegistered();
+}
+
+template <bool kEstimateScale>
+bool Reconstruction::Align(const std::vector<std::string>& image_names,
+                           const std::vector<Eigen::Vector3d>& locations,
+                           const int min_common_images,
+                           SimilarityTransform3* tform) {
+  CHECK_GE(min_common_images, 3);
+  CHECK_EQ(image_names.size(), locations.size());
+
+  // Find out which images are contained in the reconstruction and get the
+  // positions of their camera centers.
+  std::unordered_set<image_t> common_image_ids;
+  std::vector<Eigen::Vector3d> src;
+  std::vector<Eigen::Vector3d> dst;
+  for (size_t i = 0; i < image_names.size(); ++i) {
+    const class Image* image = FindImageWithName(image_names[i]);
+    if (image == nullptr) {
+      continue;
+    }
+
+    if (!IsImageRegistered(image->ImageId())) {
+      continue;
+    }
+
+    // Ignore duplicate images.
+    if (common_image_ids.count(image->ImageId()) > 0) {
+      continue;
+    }
+
+    common_image_ids.insert(image->ImageId());
+    src.push_back(image->ProjectionCenter());
+    dst.push_back(locations[i]);
+  }
+
+  // Only compute the alignment if there are enough correspondences.
+  if (common_image_ids.size() < static_cast<size_t>(min_common_images)) {
+    return false;
+  }
+
+  SimilarityTransform3 transform;
+  if (!transform.Estimate<kEstimateScale>(src, dst)) {
+    return false;
+  }
+
+  Transform(transform);
+
+  if (tform != nullptr) {
+    *tform = transform;
+  }
+
+  return true;
+}
+
+template <bool kEstimateScale>
+bool Reconstruction::AlignRobust(const std::vector<std::string>& image_names,
+                                 const std::vector<Eigen::Vector3d>& locations,
+                                 const int min_common_images,
+                                 const RANSACOptions& ransac_options,
+                                 SimilarityTransform3* tform) {
+  CHECK_GE(min_common_images, 3);
+  CHECK_EQ(image_names.size(), locations.size());
+
+  // Find out which images are contained in the reconstruction and get the
+  // positions of their camera centers.
+  std::unordered_set<image_t> common_image_ids;
+  std::vector<Eigen::Vector3d> src;
+  std::vector<Eigen::Vector3d> dst;
+  for (size_t i = 0; i < image_names.size(); ++i) {
+    const class Image* image = FindImageWithName(image_names[i]);
+    if (image == nullptr) {
+      continue;
+    }
+
+    if (!IsImageRegistered(image->ImageId())) {
+      continue;
+    }
+
+    // Ignore duplicate images.
+    if (common_image_ids.count(image->ImageId()) > 0) {
+      continue;
+    }
+
+    common_image_ids.insert(image->ImageId());
+    src.push_back(image->ProjectionCenter());
+    dst.push_back(locations[i]);
+  }
+
+  // Only compute the alignment if there are enough correspondences.
+  if (common_image_ids.size() < static_cast<size_t>(min_common_images)) {
+    return false;
+  }
+
+  LORANSAC<SimilarityTransformEstimator<3, kEstimateScale>,
+           SimilarityTransformEstimator<3, kEstimateScale>>
+      ransac(ransac_options);
+
+  const auto report = ransac.Estimate(src, dst);
+
+  if (report.support.num_inliers < static_cast<size_t>(min_common_images)) {
+    return false;
+  }
+
+  SimilarityTransform3 transform = SimilarityTransform3(report.model);
+  Transform(transform);
+
+  if (tform != nullptr) {
+    *tform = transform;
+  }
+
+  return true;
 }
 
 }  // namespace colmap

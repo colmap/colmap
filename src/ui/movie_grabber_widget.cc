@@ -136,7 +136,9 @@ void MovieGrabberWidget::Add() {
 
 void MovieGrabberWidget::Delete() {
   QModelIndexList selection = table_->selectionModel()->selectedIndexes();
-  for (const auto& index : selection) { table_->removeRow(index.row()); }
+  for (const auto& index : selection) {
+    table_->removeRow(index.row());
+  }
   UpdateViews();
   model_viewer_widget_->UpdateMovieGrabber();
 }
