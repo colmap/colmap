@@ -30,7 +30,6 @@
 # Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 import os
-import sys
 import collections
 import numpy as np
 import struct
