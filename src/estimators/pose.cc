@@ -200,7 +200,10 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                         const std::vector<Eigen::Vector2d>& points2D,
                         const std::vector<Eigen::Vector3d>& points3D,
                         Eigen::Vector4d* qvec, Eigen::Vector3d* tvec,
-                        Camera* camera) {
+                        Camera* camera,
+                        double* tvec_covariance,
+                        double* qvec_covariance,
+                        double* tqvec_covariance) {
   CHECK_EQ(inlier_mask.size(), points2D.size());
   CHECK_EQ(points2D.size(), points3D.size());
   options.Check();
@@ -310,6 +313,26 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     PrintHeading2("Pose refinement report");
     PrintSolverSummary(summary);
   }
+
+  ceres::Covariance::Options options;
+  ceres::Covariance covariance(options);
+
+  std::vector<std::pair<const double*, const double*> > covariance_blocks;
+  if (tvec_covariance != nullptr)
+    covariance_blocks.push_back(std::make_pair(tvec_data, tvec_data));
+  if (qvec_covariance != nullptr)
+    covariance_blocks.push_back(std::make_pair(qvec_data, qvec_data));
+  if (tqvec_covariance != nullptr)
+    covariance_blocks.push_back(std::make_pair(tvec_data, qvec_data));
+
+  CHECK(covariance.Compute(covariance_blocks, &problem));
+
+  if (tvec_covariance != nullptr)
+    covariance.GetCovarianceBlock(tvec_data, tvec_data, tvec_covariance);
+  if (qvec_covariance != nullptr)
+    covariance.GetCovarianceBlock(qvec_data, qvec_data, qvec_covariance);
+  if (tqvec_covariance != nullptr)
+    covariance.GetCovarianceBlock(tvec_data, qvec_data, tqvec_covariance);
 
   return summary.IsSolutionUsable();
 }

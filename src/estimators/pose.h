@@ -159,6 +159,9 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
 // @param tvec                 Estimated translation component.
 // @param camera               Camera for which to estimate pose. Modified
 //                             in-place to store the estimated focal length.
+// @param tvec_covariance      if not nullptr,  return the 3x3 array of tvec covariance
+// @param qvec_covariance      if not nullptr,  return the 4x4 array of qvec covariance
+// @param tqvec_covariance     if not nullptr,  return the 3x4 array of tvec with qvec covariance
 //
 // @return                     Whether the solution is usable.
 bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
@@ -166,7 +169,10 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                         const std::vector<Eigen::Vector2d>& points2D,
                         const std::vector<Eigen::Vector3d>& points3D,
                         Eigen::Vector4d* qvec, Eigen::Vector3d* tvec,
-                        Camera* camera);
+                        Camera* camera,
+                        double* tvec_covariance = nullptr,
+                        double* qvec_covariance = nullptr,
+                        double* tqvec_covariance = nullptr);
 
 // Refine relative pose of two cameras.
 //
