@@ -707,6 +707,8 @@ void OptionManager::AddDelaunayMeshingOptions() {
                               &delaunay_meshing->max_proj_dist);
   AddAndRegisterDefaultOption("DelaunayMeshing.max_depth_dist",
                               &delaunay_meshing->max_depth_dist);
+  AddAndRegisterDefaultOption("DelaunayMeshing.visibility_sigma",
+                              &delaunay_meshing->visibility_sigma);    
   AddAndRegisterDefaultOption("DelaunayMeshing.distance_sigma_factor",
                               &delaunay_meshing->distance_sigma_factor);
   AddAndRegisterDefaultOption("DelaunayMeshing.quality_regularization",

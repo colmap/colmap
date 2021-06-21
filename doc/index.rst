@@ -69,9 +69,6 @@ Getting Started
    or use your own images.
 3. Use the **automatic reconstruction** to easily build models
    with a single click (see :ref:`Quickstart <quick-start>`).
-4. Watch the short introductory video at
-   `YouTube <https://www.youtube.com/watch?v=P-EC0DzeVEU>`_ or read the
-   :ref:`Tutorial <tutorial>` for more details.
 
 
 Support

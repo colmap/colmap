@@ -30,7 +30,6 @@
 # Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 import os
-import sys
 import collections
 import numpy as np
 import struct
@@ -160,9 +159,9 @@ def write_cameras_text(cameras, path):
         void Reconstruction::WriteCamerasText(const std::string& path)
         void Reconstruction::ReadCamerasText(const std::string& path)
     """
-    HEADER = "# Camera list with one line of data per camera:\n"
-    "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]\n"
-    "# Number of cameras: {}\n".format(len(cameras))
+    HEADER = "# Camera list with one line of data per camera:\n" + \
+             "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]\n" + \
+             "# Number of cameras: {}\n".format(len(cameras))
     with open(path, "w") as fid:
         fid.write(HEADER)
         for _, cam in cameras.items():
@@ -267,10 +266,10 @@ def write_images_text(images, path):
         mean_observations = 0
     else:
         mean_observations = sum((len(img.point3D_ids) for _, img in images.items()))/len(images)
-    HEADER = "# Image list with two lines of data per image:\n"
-    "#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, NAME\n"
-    "#   POINTS2D[] as (X, Y, POINT3D_ID)\n"
-    "# Number of images: {}, mean observations per image: {}\n".format(len(images), mean_observations)
+    HEADER = "# Image list with two lines of data per image:\n" + \
+             "#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, NAME\n" + \
+             "#   POINTS2D[] as (X, Y, POINT3D_ID)\n" + \
+             "# Number of images: {}, mean observations per image: {}\n".format(len(images), mean_observations)
 
     with open(path, "w") as fid:
         fid.write(HEADER)
@@ -333,7 +332,7 @@ def read_points3D_text(path):
     return points3D
 
 
-def read_points3d_binary(path_to_model_file):
+def read_points3D_binary(path_to_model_file):
     """
     see: src/base/reconstruction.cc
         void Reconstruction::ReadPoints3DBinary(const std::string& path)
@@ -373,9 +372,9 @@ def write_points3D_text(points3D, path):
         mean_track_length = 0
     else:
         mean_track_length = sum((len(pt.image_ids) for _, pt in points3D.items()))/len(points3D)
-    HEADER = "# 3D point list with one line of data per point:\n"
-    "#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, TRACK[] as (IMAGE_ID, POINT2D_IDX)\n"
-    "# Number of points: {}, mean track length: {}\n".format(len(points3D), mean_track_length)
+    HEADER = "# 3D point list with one line of data per point:\n" + \
+             "#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, TRACK[] as (IMAGE_ID, POINT2D_IDX)\n" + \
+             "# Number of points: {}, mean track length: {}\n".format(len(points3D), mean_track_length)
 
     with open(path, "w") as fid:
         fid.write(HEADER)
@@ -388,7 +387,7 @@ def write_points3D_text(points3D, path):
             fid.write(" ".join(track_strings) + "\n")
 
 
-def write_points3d_binary(points3D, path_to_model_file):
+def write_points3D_binary(points3D, path_to_model_file):
     """
     see: src/base/reconstruction.cc
         void Reconstruction::ReadPoints3DBinary(const std::string& path)
@@ -435,7 +434,7 @@ def read_model(path, ext=""):
     else:
         cameras = read_cameras_binary(os.path.join(path, "cameras" + ext))
         images = read_images_binary(os.path.join(path, "images" + ext))
-        points3D = read_points3d_binary(os.path.join(path, "points3D") + ext)
+        points3D = read_points3D_binary(os.path.join(path, "points3D") + ext)
     return cameras, images, points3D
 
 
@@ -447,7 +446,7 @@ def write_model(cameras, images, points3D, path, ext=".bin"):
     else:
         write_cameras_binary(cameras, os.path.join(path, "cameras" + ext))
         write_images_binary(images, os.path.join(path, "images" + ext))
-        write_points3d_binary(points3D, os.path.join(path, "points3D") + ext)
+        write_points3D_binary(points3D, os.path.join(path, "points3D") + ext)
     return cameras, images, points3D
 
 
