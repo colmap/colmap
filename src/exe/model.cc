@@ -199,7 +199,7 @@ int RunModelAligner(int argc, char** argv) {
   std::string database_path;
   std::string ref_images_path;
   std::string transform_path;
-  std::string alignment_type = "plane";
+  std::string alignment_type = "custom";
   int min_common_images = 3;
   bool robust_alignment = true;
   bool estimate_scale = true;
