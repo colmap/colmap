@@ -32,6 +32,7 @@
 namespace colmap {
 
 int RunAutomaticReconstructor(int argc, char** argv);
+int RunAutoMapper(int argc, char** argv);
 int RunBundleAdjuster(int argc, char** argv);
 int RunColorExtractor(int argc, char** argv);
 int RunMapper(int argc, char** argv);
