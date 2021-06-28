@@ -86,6 +86,7 @@ class OptionManager {
   void AddImageOptions();
   void AddExtractionOptions();
   void AddMatchingOptions();
+  void AddAutoMatchingOptions();
   void AddExhaustiveMatchingOptions();
   void AddSequentialMatchingOptions();
   void AddVocabTreeMatchingOptions();
@@ -166,6 +167,7 @@ class OptionManager {
   bool added_image_options_;
   bool added_extraction_options_;
   bool added_match_options_;
+  bool added_auto_match_options_;
   bool added_exhaustive_match_options_;
   bool added_sequential_match_options_;
   bool added_vocab_tree_match_options_;

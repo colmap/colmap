@@ -322,6 +322,18 @@ void OptionManager::AddMatchingOptions() {
                               &sift_matching->guided_matching);
 }
 
+void OptionManager::AddAutoMatchingOptions() {
+  if (added_auto_match_options_) {
+    return;
+  }
+  added_auto_match_options_ = true;
+
+  AddMatchingOptions();
+  AddExhaustiveMatchingOptions();
+  AddSpatialMatchingOptions();
+  AddImagePairsMatchingOptions();
+}
+
 void OptionManager::AddExhaustiveMatchingOptions() {
   if (added_exhaustive_match_options_) {
     return;
@@ -434,6 +446,8 @@ void OptionManager::AddImagePairsMatchingOptions() {
 
   AddAndRegisterDefaultOption("ImagePairsMatching.block_size",
                               &image_pairs_matching->block_size);
+  AddAndRegisterDefaultOption("ImagePairsMatching.match_list_path",
+                              &image_pairs_matching->match_list_path);
 }
 
 void OptionManager::AddBundleAdjustmentOptions() {
@@ -758,6 +772,7 @@ void OptionManager::Reset() {
   added_image_options_ = false;
   added_extraction_options_ = false;
   added_match_options_ = false;
+  added_auto_match_options_ = false;
   added_exhaustive_match_options_ = false;
   added_sequential_match_options_ = false;
   added_vocab_tree_match_options_ = false;
