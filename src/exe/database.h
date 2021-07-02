@@ -31,6 +31,7 @@
 
 namespace colmap {
 
+int RunCameraUpdater(int argc, char** argv);
 int RunDatabaseCleaner(int argc, char** argv);
 int RunDatabaseCreator(int argc, char** argv);
 int RunDatabaseMerger(int argc, char** argv);

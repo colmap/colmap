@@ -102,6 +102,7 @@ int main(int argc, char** argv) {
   commands.emplace_back("gui", &RunGraphicalUserInterface);
   commands.emplace_back("automatic_reconstructor", &RunAutomaticReconstructor);
   commands.emplace_back("bundle_adjuster", &RunBundleAdjuster);
+  commands.emplace_back("camera_updater", &RunCameraUpdater);
   commands.emplace_back("color_extractor", &RunColorExtractor);
   commands.emplace_back("database_cleaner", &RunDatabaseCleaner);
   commands.emplace_back("database_creator", &RunDatabaseCreator);
