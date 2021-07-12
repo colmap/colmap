@@ -69,6 +69,9 @@ class GP3PEstimator {
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 3;
 
+  // Whether to compute the cosine similarity or the reprojection error.
+  bool do_cosine_similarity = true;
+
   // Estimate the most probable solution of the GP3P problem from a set of
   // three 2D-3D point correspondences.
   static std::vector<M_t> Estimate(const std::vector<X_t>& points2D,
@@ -77,7 +80,7 @@ class GP3PEstimator {
   // Calculate the squared cosine distance error between the rays given a set of
   // 2D-3D point correspondences and a projection matrix of the generalized
   // camera.
-  static void Residuals(const std::vector<X_t>& points2D,
+  void Residuals(const std::vector<X_t>& points2D,
                         const std::vector<Y_t>& points3D,
                         const M_t& proj_matrix, std::vector<double>* residuals);
 };
