@@ -70,6 +70,9 @@ class GP3PEstimator {
   static const int kMinNumSamples = 3;
 
   // Whether to compute the cosine similarity or the reprojection error.
+  // [WARNING] The reprojection error being in normalized coordinates,
+  // the unique error threshold of RANSAC corresponds to different pixel values
+  // in the different cameras of the rig if they have different intrinsics.
   bool do_cosine_similarity = true;
 
   // Estimate the most probable solution of the GP3P problem from a set of
