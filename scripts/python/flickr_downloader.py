@@ -106,8 +106,8 @@ class PhotoDownloader(object):
 
     def __call__(self, photo):
         # Find the URL corresponding to the highest image resolution. We will
-        # need this URL here to determine the image extension
-        # (typically .jpg, but could be .png, .gif, etc).
+        # need this URL here to determine the image extension (typically .jpg,
+        # but could be .png, .gif, etc).
         url = None
         for url_suffix in ("o", "l", "k", "h", "b", "c", "z"):
             url_attr = "url_%s" % url_suffix
