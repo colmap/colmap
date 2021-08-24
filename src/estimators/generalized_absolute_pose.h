@@ -69,11 +69,16 @@ class GP3PEstimator {
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 3;
 
+  enum class ResidualType {
+    CosineDistance,
+    ReprojectionError,
+  };
+
   // Whether to compute the cosine similarity or the reprojection error.
   // [WARNING] The reprojection error being in normalized coordinates,
   // the unique error threshold of RANSAC corresponds to different pixel values
   // in the different cameras of the rig if they have different intrinsics.
-  bool do_cosine_similarity = true;
+  ResidualType residual_type = ResidualType::CosineDistance;
 
   // Estimate the most probable solution of the GP3P problem from a set of
   // three 2D-3D point correspondences.
