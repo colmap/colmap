@@ -142,7 +142,7 @@ void WriteCOLMAPCommands(const bool geometric,
   *file << indent << "$COLMAP_EXE_PATH/colmap delaunay_mesher \\" << std::endl;
   *file << indent << "  --input_path "
         << JoinPaths(workspace_path, output_prefix) << " \\" << std::endl;
-  *file << indent << "  --input_type dense " << std::endl;
+  *file << indent << "  --input_type dense \\" << std::endl;
   *file << indent << "  --output_path "
         << JoinPaths(workspace_path, output_prefix + "meshed-delaunay.ply")
         << std::endl;
