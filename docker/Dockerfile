@@ -1,5 +1,8 @@
 FROM nvidia/cuda:10.2-devel-ubuntu18.04
 
+# Prevent stop building ubuntu at time zone selection.  
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Prepare and empty machine for building
 RUN apt-get update && apt-get install -y \
     git \
@@ -20,7 +23,8 @@ RUN apt-get update && apt-get install -y \
     qtbase5-dev \
     libqt5opengl5-dev \
     libcgal-dev \
-    libcgal-qt5-dev
+    libcgal-qt5-dev \
+    python3-pandas
 
 # Build and install ceres solver
 RUN apt-get -y install \
