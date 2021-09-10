@@ -105,8 +105,11 @@ def write_next_bytes(fid: BinaryIO, data: Any, format_char_sequence: str, endian
 
 def read_cameras_text(path: str) -> Dict[int, Camera]:
     """Read intrinsic parameters of reconstructed cameras from text file.
-
+    
     Ref: https://colmap.github.io/format.html#cameras-txt
+    see: src/base/reconstruction.cc
+        void Reconstruction::WriteCamerasText(const std::string& path)
+        void Reconstruction::ReadCamerasText(const std::string& path)
 
     Args:
         path: path to cameras.txt file.
@@ -136,7 +139,10 @@ def read_cameras_binary(path_to_model_file: str) -> Dict[int, Camera]:
     """Read intrinsic parameters of reconstructed cameras from binary file.
 
     Ref: https://colmap.github.io/format.html#cameras-txt
-
+    see: src/base/reconstruction.cc
+        void Reconstruction::WriteCamerasBinary(const std::string& path)
+        void Reconstruction::ReadCamerasBinary(const std::string& path)
+        
     Args:
         path_to_model_file: path to cameras.bin file.
 
@@ -166,7 +172,10 @@ def write_cameras_text(cameras: Dict[int, Camera], path: str) -> None:
     """Write intrinsic parameters of reconstructed cameras to text file.
 
     Ref: https://colmap.github.io/format.html#cameras-txt
-
+    see: src/base/reconstruction.cc
+        void Reconstruction::WriteCamerasText(const std::string& path)
+        void Reconstruction::ReadCamerasText(const std::string& path)
+        
     Args:
         cameras: Dictionary of Camera(s).
         path: path to text file.
@@ -188,7 +197,10 @@ def write_cameras_binary(cameras: Dict[int, Camera], path_to_model_file: str) ->
     """Write intrinsic parameters of reconstructed cameras to binary file.
 
     Ref: https://colmap.github.io/format.html#cameras-txt
-
+    see: src/base/reconstruction.cc
+        void Reconstruction::WriteCamerasBinary(const std::string& path)
+        void Reconstruction::ReadCamerasBinary(const std::string& path)
+        
     Args:
         cameras: Dictionary of Camera(s).
         path_to_model_file: path to binary file.
@@ -207,7 +219,10 @@ def read_images_text(path: str) -> Dict[int, Image]:
     """Read pose and keypoints of all reconstructed images from text file.
 
     Ref: https://colmap.github.io/format.html#images-txt
-
+    see: src/base/reconstruction.cc
+        void Reconstruction::ReadImagesText(const std::string& path)
+        void Reconstruction::WriteImagesText(const std::string& path)
+        
     Args:
         path: path to images.txt file.
 
@@ -249,7 +264,10 @@ def read_images_binary(path_to_model_file: str) -> Dict[int, Image]:
     Refs:
     - https://colmap.github.io/format.html#images-txt
     - https://colmap.github.io/format.html#binary-file-format
-
+    see: src/base/reconstruction.cc
+        void Reconstruction::ReadImagesBinary(const std::string& path)
+        void Reconstruction::WriteImagesBinary(const std::string& path)
+        
     Args:
         path_to_model_file: path to images.txt file.
 
@@ -290,7 +308,10 @@ def write_images_text(images: Dict[int, Image], path: str) -> None:
     """Write pose and keypoints of all reconstructed images to text file.
 
     Ref: https://colmap.github.io/format.html#images-txt
-
+    see: src/base/reconstruction.cc
+        void Reconstruction::ReadImagesText(const std::string& path)
+        void Reconstruction::WriteImagesText(const std::string& path)
+        
     Args:
         images: Dictionary of Image(s) to write.
         path: file path to write data.
@@ -325,7 +346,10 @@ def write_images_binary(images, path_to_model_file):
     Refs:
     - https://colmap.github.io/format.html#images-txt
     - https://colmap.github.io/format.html#binary-file-format
-
+    see: src/base/reconstruction.cc
+        void Reconstruction::ReadImagesBinary(const std::string& path)
+        void Reconstruction::WriteImagesBinary(const std::string& path)
+        
     Args:
         images: Dictionary of Image(s) to write.
         path_to_model_file: file path to write data.
@@ -349,7 +373,10 @@ def read_points3D_text(path: str) -> Dict[int, Point3D]:
     """Read information of all reconstructed 3D points from text file.
 
     Ref: https://colmap.github.io/format.html#points3d-txt
-
+    see: src/base/reconstruction.cc
+        void Reconstruction::ReadPoints3DText(const std::string& path)
+        void Reconstruction::WritePoints3DText(const std::string& path)
+        
     Args:
         path: path to points3d.txt file.
 
@@ -383,7 +410,10 @@ def read_points3D_binary(path_to_model_file: str) -> Dict[int, Point3D]:
     Refs:
     - https://colmap.github.io/format.html#points3d-txt
     - https://colmap.github.io/format.html#binary-file-format
-
+    see: src/base/reconstruction.cc
+        void Reconstruction::ReadPoints3DBinary(const std::string& path)
+        void Reconstruction::WritePoints3DBinary(const std::string& path)
+        
     Args:
         path_to_model_file: path to points3d.bin file.
 
@@ -413,7 +443,10 @@ def write_points3D_text(points3D: Dict[int, Point3D], path: str) -> None:
     """Write information of all reconstructed 3D points to text file.
 
     Ref: https://colmap.github.io/format.html#points3d-txt
-
+    see: src/base/reconstruction.cc
+        void Reconstruction::ReadPoints3DText(const std::string& path)
+        void Reconstruction::WritePoints3DText(const std::string& path)
+        
     Args:
         points3D: Dictionary of Point3D(s) to write.
         path: file path to write data.
@@ -445,7 +478,10 @@ def write_points3D_binary(points3D: Dict[int, Point3D], path_to_model_file: str)
     Refs:
     - https://colmap.github.io/format.html#points3d-txt
     - https://colmap.github.io/format.html#binary-file-format
-
+    see: src/base/reconstruction.cc
+        void Reconstruction::ReadPoints3DBinary(const std::string& path)
+        void Reconstruction::WritePoints3DBinary(const std::string& path)
+        
     Args:
         points3D: Dictionary of Point3D(s) to write.
         path_to_model_file: file path to write data.
