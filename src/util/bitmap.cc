@@ -469,7 +469,7 @@ bool Bitmap::Read(const std::string& path, const bool as_rgb) {
     return false;
   }
 
-  FIBITMAP* fi_bitmap = FreeImage_Load(format, path.c_str());
+  FIBITMAP* fi_bitmap = FreeImage_Load(format, path.c_str(), JPEG_EXIFROTATE);
   if (fi_bitmap == nullptr) {
     return false;
   }
