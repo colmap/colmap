@@ -5,7 +5,7 @@ jobs:
   pool:
     vmImage: 'windows-2019'
   variables:
-    vcpkgGitCommitId: ec6fe06e8da05a8157dc8581fa96b36b571c1bd5
+    vcpkgGitCommitId: b430ff7ec36375cd554811eafd62c8f70304595f
   steps:
   - task: Cache@2
     displayName: 'Cache vcpkg'
