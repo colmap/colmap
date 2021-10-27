@@ -295,8 +295,8 @@ void StereoFusion::Run() {
     const auto& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
 
     for (int row_start = 0; row_start < height; row_start += kRowStride) {
-      thread_pool.AddTask(ProcessImageRows, row_start, height, width,
-                            image_idx, fused_pixel_mask);
+      thread_pool.AddTask(ProcessImageRows, row_start, height, width, image_idx,
+                          fused_pixel_mask);
     }
     thread_pool.Wait();
 
@@ -350,9 +350,9 @@ void StereoFusion::InitFusedPixelMask(int image_idx, size_t width,
   if (!options_.mask_path.empty() && ExistsFile(mask_path) &&
       mask.Read(mask_path, false)) {
     BitmapColor<uint8_t> color;
-    mask.Rescale((int)width, (int)height, FILTER_BOX);
-    for (int row = 0; row < height; ++row) {
-      for (int col = 0; col < width; ++col) {
+    mask.Rescale(static_cast<int>(width), static_cast<int>(height), FILTER_BOX);
+    for (size_t row = 0; row < height; ++row) {
+      for (size_t col = 0; col < width; ++col) {
         mask.GetPixel(col, row, &color);
         fused_pixel_mask.Set(row, col, color.r == 0 ? 1 : 0);
       }

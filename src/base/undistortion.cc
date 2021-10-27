@@ -162,8 +162,8 @@ COLMAPUndistorter::COLMAPUndistorter(const UndistortCameraOptions& options,
       output_path_(output_path),
       copy_type_(copy_type),
       num_patch_match_src_images_(num_patch_match_src_images),
-      image_ids_(image_ids),
-      reconstruction_(reconstruction) {}
+      reconstruction_(reconstruction),
+      image_ids_(image_ids) {}
 
 void COLMAPUndistorter::Run() {
   PrintHeading1("Image undistortion");
