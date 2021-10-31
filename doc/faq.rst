@@ -65,6 +65,62 @@ a final global bundle adjustment by setting ``Reconstruction > Bundle adj.
 options > refine_*`` and then running ``Reconstruction > Bundle adjustment``.
 
 
+.. _faq-prior-intrinsic
+
+Prior intrinsics
+----------------
+
+Prior intrinsics could provide by Comma-separated values (csv) string::
+
+    $ colmap feature_extractor \
+        --database_path <output sqlite file> \
+        --image_path <image path>
+        --ImageReader.camera_model SIMPLE_RADIAL
+        --ImageReader.camera_params "<f>, <cx>, <cy>, <k>"
+
+In this case all photos will be with one share camera.
+
+If you have photos from different cameras, you should put photos
+from different cameras to different subfolders and enable flag
+``--ImageReader.single_camera_per_folder``.
+In this case photos with same subfolder will share same camera.
+
+Example file structure for multiple cameras::
+
+    +── path/to/root/images/path
+    │   +── camera_1
+    │   |   +── photo1.jpg
+    │   |   +── photo2.jpg
+    │   |   +── photo3.jpg
+    │   +── camera_2
+    │   |   +── photo1.jpg
+    │   |   +── photo2.jpg
+    │   |   +── photo3.jpg
+    │   +── camera_3
+    │   |   +── photo1.jpg
+    │   |   +── photo2.jpg
+    │   |   +── photo3.jpg
+
+To specify prior intrinsics per camera, you should
+provide config file to ``--camera_params_per_folder_path`` parameter.
+The structure of config file::
+
+    <camera(path) name 1>
+    <camera model string> <CSV string with parameters>
+    <camera(path) name 2>
+    <camera model string> <CSV string with parameters>
+    <camera(path) name 3>
+    <camera model string> <CSV string with parameters>
+
+Example::
+
+    camera_1
+    FULL_OPENCV 7174.9, 7174.9, 3723.3, 2402.9, -0.05, -0.006, 0.001, -0.001, 0.07, 0.0, 0.0, 0.0
+    camera_2
+    RADIAL 7174, 3723, 2402, -0.05, -0.006
+
+If camera not specified, camera model and params will be set by default.
+
 Principal point refinement
 --------------------------
 

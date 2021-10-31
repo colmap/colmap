@@ -158,8 +158,10 @@ the available options, e.g.::
           --database_path arg
           --image_path arg
           --image_list_path arg
+          --camera_params_per_folder_path arg
           --ImageReader.camera_model arg (=SIMPLE_RADIAL)
           --ImageReader.single_camera arg (=0)
+          --ImageReader.single_camera_per_folder arg (=0)
           --ImageReader.camera_params arg
           --ImageReader.default_focal_length_factor arg (=1.2)
           --SiftExtraction.num_threads arg (=-1)

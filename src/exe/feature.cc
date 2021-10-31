@@ -136,6 +136,7 @@ void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
 
 int RunFeatureExtractor(int argc, char** argv) {
   std::string image_list_path;
+  std::string camera_params_per_folder_path;
   int camera_mode = -1;
 
   OptionManager options;
@@ -143,6 +144,7 @@ int RunFeatureExtractor(int argc, char** argv) {
   options.AddImageOptions();
   options.AddDefaultOption("camera_mode", &camera_mode);
   options.AddDefaultOption("image_list_path", &image_list_path);
+  options.AddDefaultOption("camera_params_per_folder_path", &camera_params_per_folder_path);
   options.AddExtractionOptions();
   options.Parse(argc, argv);
 
@@ -159,6 +161,20 @@ int RunFeatureExtractor(int argc, char** argv) {
     reader_options.image_list = ReadTextFileLines(image_list_path);
     if (reader_options.image_list.empty()) {
       return EXIT_SUCCESS;
+    }
+  }
+
+  if (!camera_params_per_folder_path.empty()) {
+    std::vector<std::string> lines = ReadTextFileLines(camera_params_per_folder_path);
+    size_t i = 0;
+    while (i + 1 < lines.size()) {
+      if (lines[i].empty()) {
+        ++i;
+      }
+      else {
+        reader_options.camera_params_per_folder.emplace(lines[i], lines[i+1]);
+        i += 2;
+      }
     }
   }
 
