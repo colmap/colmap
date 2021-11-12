@@ -510,14 +510,10 @@ bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
           Eigen::MatrixXf desc(1, 128);
           vl_sift_calc_keypoint_descriptor(sift.get(), desc.data(),
                                            &vl_keypoints[i], angles[o]);
-          if (options.normalization ==
-              SiftExtractionOptions::Normalization::L2) {
-            desc = L2NormalizeFeatureDescriptors(desc);
-          } else if (options.normalization ==
-                     SiftExtractionOptions::Normalization::L1_ROOT) {
+          if (options.rootsift) {
             desc = L1RootNormalizeFeatureDescriptors(desc);
           } else {
-            LOG(FATAL) << "Normalization type not supported";
+            desc = L2NormalizeFeatureDescriptors(desc);
           }
 
           level_descriptors.back().row(level_idx) =
@@ -730,13 +726,10 @@ bool ExtractCovariantSiftFeaturesCPU(const SiftExtractionOptions& options,
         descriptor = scaled_descriptors;
       }
 
-      if (options.normalization == SiftExtractionOptions::Normalization::L2) {
-        descriptor = L2NormalizeFeatureDescriptors(descriptor);
-      } else if (options.normalization ==
-                 SiftExtractionOptions::Normalization::L1_ROOT) {
+      if (options.rootsift) {
         descriptor = L1RootNormalizeFeatureDescriptors(descriptor);
       } else {
-        LOG(FATAL) << "Normalization type not supported";
+        descriptor = L2NormalizeFeatureDescriptors(descriptor);
       }
 
       descriptors->row(i) = FeatureDescriptorsToUnsignedByte(descriptor);
@@ -889,13 +882,10 @@ bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
   }
 
   // Save and normalize the descriptors.
-  if (options.normalization == SiftExtractionOptions::Normalization::L2) {
-    descriptors_float = L2NormalizeFeatureDescriptors(descriptors_float);
-  } else if (options.normalization ==
-             SiftExtractionOptions::Normalization::L1_ROOT) {
+  if (options.rootsift) {
     descriptors_float = L1RootNormalizeFeatureDescriptors(descriptors_float);
   } else {
-    LOG(FATAL) << "Normalization type not supported";
+    descriptors_float = L2NormalizeFeatureDescriptors(descriptors_float);
   }
 
   *descriptors = FeatureDescriptorsToUnsignedByte(descriptors_float);

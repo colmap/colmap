@@ -277,6 +277,8 @@ void OptionManager::AddExtractionOptions() {
                               &sift_extraction->max_num_orientations);
   AddAndRegisterDefaultOption("SiftExtraction.upright",
                               &sift_extraction->upright);
+  AddAndRegisterDefaultOption("SiftExtraction.rootsift",
+                              &sift_extraction->rootsift);
   AddAndRegisterDefaultOption("SiftExtraction.domain_size_pooling",
                               &sift_extraction->domain_size_pooling);
   AddAndRegisterDefaultOption("SiftExtraction.dsp_min_scale",

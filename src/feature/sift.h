@@ -83,6 +83,13 @@ struct SiftExtractionOptions {
   // Fix the orientation to 0 for upright features.
   bool upright = false;
 
+  // Whether to use RootSIFT descriptors.
+  // L1-normalizes each descriptor followed by element-wise square rooting.
+  // This normalization is usually better than standard L2-normalization.
+  // See "Three things everyone should know to improve object retrieval",
+  // Relja Arandjelovic and Andrew Zisserman, CVPR 2012.
+  bool rootsift = true;
+
   // Whether to adapt the feature detection depending on the image darkness.
   // Note that this feature is only available in the OpenGL SiftGPU version.
   bool darkness_adaptivity = false;
@@ -98,17 +105,6 @@ struct SiftExtractionOptions {
   double dsp_min_scale = 1.0 / 6.0;
   double dsp_max_scale = 3.0;
   int dsp_num_scales = 10;
-
-  enum class Normalization {
-    // L1-normalizes each descriptor followed by element-wise square rooting.
-    // This normalization is usually better than standard L2-normalization.
-    // See "Three things everyone should know to improve object retrieval",
-    // Relja Arandjelovic and Andrew Zisserman, CVPR 2012.
-    L1_ROOT,
-    // Each vector is L2-normalized.
-    L2,
-  };
-  Normalization normalization = Normalization::L1_ROOT;
 
   bool Check() const;
 };
