@@ -56,7 +56,7 @@ bool CompareCudaDevice(const cudaDeviceProp& d1, const cudaDeviceProp& d2) {
 
 int GetNumCudaDevices() {
   int num_cuda_devices;
-  cudaGetDeviceCount(&num_cuda_devices);
+  CUDA_SAFE_CALL(cudaGetDeviceCount(&num_cuda_devices));
   return num_cuda_devices;
 }
 
