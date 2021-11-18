@@ -137,12 +137,15 @@ void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
 int RunFeatureExtractor(int argc, char** argv) {
   std::string image_list_path;
   int camera_mode = -1;
+  std::string descriptor_normalization = "l1_root";
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
   options.AddDefaultOption("camera_mode", &camera_mode);
   options.AddDefaultOption("image_list_path", &image_list_path);
+  options.AddDefaultOption("descriptor_normalization", &descriptor_normalization,
+                           "{'l1_root', 'l2'}");
   options.AddExtractionOptions();
   options.Parse(argc, argv);
 
@@ -153,6 +156,19 @@ int RunFeatureExtractor(int argc, char** argv) {
   if (camera_mode >= 0) {
     UpdateImageReaderOptionsFromCameraMode(reader_options,
                                            (CameraMode)camera_mode);
+  }
+
+  StringToLower(&descriptor_normalization);
+  if (descriptor_normalization == "l1_root") {
+    options.sift_extraction->normalization = 
+      SiftExtractionOptions::Normalization::L1_ROOT;
+  } else if (descriptor_normalization == "l2") {
+    options.sift_extraction->normalization = 
+      SiftExtractionOptions::Normalization::L2;
+  } else {
+    std::cerr << "ERROR: Invalid `descriptor_normalization`"
+              << std::endl;
+    return EXIT_FAILURE;
   }
 
   if (!image_list_path.empty()) {
