@@ -108,7 +108,7 @@ void StringAppendV(std::string* dst, const char* format, va_list ap) {
   // Increase the buffer size to the size requested by vsnprintf,
   // plus one for the closing \0.
   const int variable_buffer_size = result + 1;
-  std::unique_ptr<char> variable_buffer(new char[variable_buffer_size]);
+  std::unique_ptr<char[]> variable_buffer(new char[variable_buffer_size]);
 
   // Restore the va_list before we use it again.
   va_copy(backup_ap, ap);
