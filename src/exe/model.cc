@@ -199,7 +199,7 @@ int RunModelAligner(int argc, char** argv) {
   std::string database_path;
   std::string ref_images_path;
   std::string transform_path;
-  std::string alignment_type = "plane";
+  std::string alignment_type = "custom";
   int min_common_images = 3;
   bool robust_alignment = true;
   bool estimate_scale = true;
@@ -255,7 +255,8 @@ int RunModelAligner(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  if (alignment_type != "plane" && ref_locations.size() < min_common_images) {
+  if (alignment_type != "plane" &&
+      static_cast<int>(ref_locations.size()) < min_common_images) {
     std::cout << "ERROR: Cannot align with insufficient reference locations."
               << std::endl;
     return EXIT_FAILURE;
@@ -310,7 +311,8 @@ int RunModelAligner(int argc, char** argv) {
 
     if (alignment_success && StringStartsWith(alignment_type, "enu")) {
       PrintHeading2("Aligning reconstruction to ENU");
-      AlignToENUPlane(&reconstruction, &tform, alignment_type == "enu-unscaled");
+      AlignToENUPlane(&reconstruction, &tform,
+                      alignment_type == "enu-unscaled");
     }
   }
 
@@ -699,8 +701,8 @@ int RunModelSplitter(int argc, char** argv) {
   std::string split_params;
   std::string gps_transform_path;
   int num_threads = -1;
-  size_t min_reg_images = 10;
-  size_t min_num_points = 100;
+  int min_reg_images = 10;
+  int min_num_points = 100;
   double overlap_ratio = 0.0;
   double min_area_ratio = 0.0;
   bool is_gps = false;
@@ -781,7 +783,7 @@ int RunModelSplitter(int argc, char** argv) {
     Eigen::Vector3d extent(std::numeric_limits<double>::max(),
                            std::numeric_limits<double>::max(),
                            std::numeric_limits<double>::max());
-    for (int i = 0; i < parts.size(); ++i) {
+    for (size_t i = 0; i < parts.size(); ++i) {
       extent(i) = parts[i] * scale;
     }
 
@@ -797,7 +799,7 @@ int RunModelSplitter(int argc, char** argv) {
   } else if (split_type == "parts") {
     auto parts = CSVToVector<int>(split_params);
     Eigen::Vector3i split(1, 1, 1);
-    for (int i = 0; i < parts.size(); ++i) {
+    for (size_t i = 0; i < parts.size(); ++i) {
       split(i) = parts[i];
       if (split(i) < 1) {
         std::cerr << "ERROR: Cannot split in less than 1 parts for dim " << i
@@ -825,7 +827,7 @@ int RunModelSplitter(int argc, char** argv) {
 
   const bool use_tile_keys = split_type == "tiles";
 
-  auto SplitRecon = [&](const int idx) {
+  auto SplitReconstruction = [&](const int idx) {
     Reconstruction tile_recon = reconstruction.Crop(bounds[idx]);
     // calculate area covered by model as proportion of box area
     auto bbox_extent = bounds[idx].second - bounds[idx].first;
@@ -836,9 +838,10 @@ int RunModelSplitter(int argc, char** argv) {
     int tile_num_points = tile_recon.NumPoints3D();
 
     std::string name = use_tile_keys ? tile_keys[idx] : std::to_string(idx);
-    const bool include_tile = area_ratio >= min_area_ratio &&
-                              tile_num_points >= min_num_points &&
-                              tile_recon.NumRegImages() >= min_reg_images;
+    const bool include_tile =
+        area_ratio >= min_area_ratio &&       //
+        tile_num_points >= min_num_points &&  //
+        tile_recon.NumRegImages() >= static_cast<size_t>(min_reg_images);
 
     if (include_tile) {
       std::cout << StringPrintf(
@@ -864,8 +867,8 @@ int RunModelSplitter(int argc, char** argv) {
   };
 
   ThreadPool thread_pool(GetEffectiveNumThreads(num_threads));
-  for (int idx = 0; idx < num_parts; ++idx) {
-    thread_pool.AddTask(SplitRecon, idx);
+  for (size_t idx = 0; idx < num_parts; ++idx) {
+    thread_pool.AddTask(SplitReconstruction, idx);
   }
   thread_pool.Wait();
 

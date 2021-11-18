@@ -1,5 +1,8 @@
 FROM nvidia/cuda:10.2-devel-ubuntu18.04
 
+# Prevent stop building ubuntu at time zone selection.  
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Prepare and empty machine for building
 RUN apt-get update && apt-get install -y \
     git \

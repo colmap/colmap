@@ -139,7 +139,7 @@ Dependencies from `Homebrew <http://brew.sh/>`_::
         gflags \
         suite-sparse \
         ceres-solver \
-        qt \
+        qt5 \
         glew \
         cgal
 
@@ -153,6 +153,13 @@ Configure and compile COLMAP::
     cmake .. -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
     make
     sudo make install
+
+If you have Qt 6 installed on your system as well, you might have to temporarily
+link your Qt 5 installation while configuring CMake:
+
+    brew link qt5
+    ... cmake configuration
+    brew unlink qt5
 
 Run COLMAP::
 

@@ -314,12 +314,21 @@ void GP3PEstimator::Residuals(const std::vector<X_t>& points2D,
 
       const double x_0 = points2D[i].xy(0);
       const double x_1 = points2D[i].xy(1);
-      const double inv_x_norm = 1 / std::sqrt(x_0 * x_0 + x_1 * x_1 + 1);
 
-      const double cosine_dist =
-          1 - inv_pcx_norm * inv_x_norm * (pcx_0 * x_0 + pcx_1 * x_1 + pcx_2);
-      (*residuals)[i] = cosine_dist * cosine_dist;
-
+      if (residual_type == ResidualType::CosineDistance) {
+        const double inv_x_norm = 1 / std::sqrt(x_0 * x_0 + x_1 * x_1 + 1);
+        const double cosine_dist =
+            1 - inv_pcx_norm * inv_x_norm * (pcx_0 * x_0 + pcx_1 * x_1 + pcx_2);
+        (*residuals)[i] = cosine_dist * cosine_dist;
+      } else if (residual_type == ResidualType::ReprojectionError) {
+        const double inv_pcx_2 = 1.0 / pcx_2;
+        const double dx_0 = x_0 - pcx_0 * inv_pcx_2;
+        const double dx_1 = x_1 - pcx_1 * inv_pcx_2;
+        const double reproj_error = dx_0 * dx_0 + dx_1 * dx_1;
+        (*residuals)[i] = reproj_error;
+      } else {
+         LOG(FATAL) << "Invalid residual type";
+      }
     } else {
       (*residuals)[i] = std::numeric_limits<double>::max();
     }
