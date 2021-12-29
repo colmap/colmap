@@ -33,6 +33,7 @@
 #define COLMAP_SRC_UTIL_ENDIAN_H_
 
 #include <algorithm>
+#include <iostream>
 
 namespace colmap {
 
