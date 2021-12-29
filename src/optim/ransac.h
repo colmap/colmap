@@ -170,6 +170,10 @@ size_t RANSAC<Estimator, SupportMeasurer, Sampler>::ComputeNumTrials(
   if (denom <= 0) {
     return 1;
   }
+  // Prevent divide by zero below.
+  if (denom == 1.0) {
+    return std::numeric_limits<size_t>::max();
+  }
 
   return static_cast<size_t>(
       std::ceil(std::log(nom) / std::log(denom) * num_trials_multiplier));
