@@ -1868,6 +1868,7 @@ void Reconstruction::WriteCamerasText(const std::string& path) const {
   CHECK(file.is_open()) << path;
 
   // Ensure that we don't loose any precision by storing in text.
+  file << std::fixed;
   file.precision(17);
 
   file << "# Camera list with one line of data per camera:" << std::endl;
@@ -1876,6 +1877,8 @@ void Reconstruction::WriteCamerasText(const std::string& path) const {
 
   for (const auto& camera : cameras_) {
     std::ostringstream line;
+    line << std::fixed;
+    line.precision(17);
 
     line << camera.first << " ";
     line << camera.second.ModelName() << " ";
@@ -1898,6 +1901,7 @@ void Reconstruction::WriteImagesText(const std::string& path) const {
   CHECK(file.is_open()) << path;
 
   // Ensure that we don't loose any precision by storing in text.
+  file << std::fixed;
   file.precision(17);
 
   file << "# Image list with two lines of data per image:" << std::endl;
@@ -1915,6 +1919,9 @@ void Reconstruction::WriteImagesText(const std::string& path) const {
     }
 
     std::ostringstream line;
+    line << std::fixed;
+    line.precision(17);
+
     std::string line_string;
 
     line << image.first << " ";
@@ -1941,6 +1948,7 @@ void Reconstruction::WriteImagesText(const std::string& path) const {
     line.str("");
     line.clear();
 
+    line.precision(3);
     for (const Point2D& point2D : image.second.Points2D()) {
       line << point2D.X() << " ";
       line << point2D.Y() << " ";
@@ -1961,6 +1969,7 @@ void Reconstruction::WritePoints3DText(const std::string& path) const {
   CHECK(file.is_open()) << path;
 
   // Ensure that we don't loose any precision by storing in text.
+  file << std::fixed;
   file.precision(17);
 
   file << "# 3D point list with one line of data per point:" << std::endl;
