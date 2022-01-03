@@ -36,6 +36,7 @@
 #include <memory>
 
 #include "FLANN/flann.hpp"
+#include "GL/glew.h"  // Needed if CUDA / GUI is not available.
 #include "SiftGPU/SiftGPU.h"
 #include "VLFeat/covdet.h"
 #include "VLFeat/sift.h"

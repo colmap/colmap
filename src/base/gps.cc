@@ -38,11 +38,13 @@ namespace colmap {
 GPSTransform::GPSTransform(const int ellipsoid) {
   switch (ellipsoid) {
     case GRS80:
+      a_ = 6378137.0;
+      f_ = 1.0 / 298.257222100882711243162837;  // More accurate GRS80 ellipsoid
+      b_ = (1.0 - f_) * a_;
+      break;
     case WGS84:
       a_ = 6378137.0;
-      // Using flattening factor and semi-minor axis calculation from Bing maps.
-      // New calculations are marginally more accurate than the original values.
-      f_ = 1.0 / 298.257222101;
+      f_ = 1.0 / 298.257223563;  // The WGS84 ellipsoid
       b_ = (1.0 - f_) * a_;
       break;
     default:
