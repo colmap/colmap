@@ -39,6 +39,7 @@
 #   COLMAP_LINK_DIRS: Link directories for COLMAP.
 #   COLMAP_LIBRARIES: Libraries required to link COLMAP.
 #   COLMAP_CUDA_ENABLED: Whether COLMAP was compiled with CUDA support.
+#   COLMAP_GUI_ENABLED: Whether COLMAP was compiled with the graphical UI.
 #   COLMAP_CGAL_ENABLED: Whether COLMAP was compiled with CGAL dependencies.
 
 get_filename_component(COLMAP_INSTALL_PREFIX ${CMAKE_CURRENT_LIST_FILE} PATH)
@@ -82,8 +83,6 @@ if(COLMAP_FIND_QUIETLY)
 
     find_package(OpenGL QUIET)
     find_package(Glew QUIET)
-
-    find_package(Qt5 5.4 QUIET COMPONENTS Core OpenGL Widgets)
 else()
     find_package(Ceres REQUIRED)
 
@@ -102,8 +101,6 @@ else()
 
     find_package(OpenGL REQUIRED)
     find_package(Glew REQUIRED)
-
-    find_package(Qt5 5.4 REQUIRED COMPONENTS Core OpenGL Widgets)
 endif()
 
 # Set the exported variables.
@@ -117,6 +114,8 @@ set(COLMAP_OPENMP_ENABLED @OPENMP_ENABLED@)
 set(COLMAP_CUDA_ENABLED @CUDA_ENABLED@)
 set(COLMAP_CUDA_MIN_VERSION @CUDA_MIN_VERSION@)
 
+set(COLMAP_GUI_ENABLED @GUI_ENABLED@)
+
 set(COLMAP_CGAL_ENABLED @CGAL_ENABLED@)
 
 set(COLMAP_INCLUDE_DIRS
@@ -129,9 +128,6 @@ set(COLMAP_INCLUDE_DIRS
     ${FREEIMAGE_INCLUDE_DIRS}
     ${CERES_INCLUDE_DIRS}
     ${GLEW_INCLUDE_DIRS}
-    ${Qt5Core_INCLUDE_DIRS}
-    ${Qt5OpenGL_INCLUDE_DIRS}
-    ${Qt5Widgets_INCLUDE_DIRS}
 )
 
 set(COLMAP_LINK_DIRS
@@ -157,9 +153,6 @@ set(COLMAP_EXTERNAL_LIBRARIES
     ${CERES_LIBRARIES}
     ${OPENGL_LIBRARIES}
     ${GLEW_LIBRARIES}
-    ${Qt5Core_LIBRARIES}
-    ${Qt5OpenGL_LIBRARIES}
-    ${Qt5Widgets_LIBRARIES}
 )
 
 if(UNIX)
@@ -181,6 +174,18 @@ if(COLMAP_CUDA_ENABLED)
     find_package(CUDA ${COLMAP_CUDA_MIN_VERSION} QUIET)
     list(APPEND COLMAP_EXTERNAL_LIBRARIES ${CUDA_LIBRARIES})
     list(APPEND COLMAP_INTERNAL_LIBRARIES colmap_cuda)
+endif()
+
+if(COLMAP_GUI_ENABLED)
+    find_package(Qt5 5.4 REQUIRED COMPONENTS Core OpenGL Widgets)
+    list(APPEND COLMAP_EXTERNAL_LIBRARIES
+        ${Qt5Core_LIBRARIES}
+        ${Qt5OpenGL_LIBRARIES}
+        ${Qt5Widgets_LIBRARIES})
+    list(APPEND COLMAP_INCLUDE_DIRS
+        ${Qt5Core_INCLUDE_DIRS}
+        ${Qt5OpenGL_INCLUDE_DIRS}
+        ${Qt5Widgets_INCLUDE_DIRS})
 endif()
 
 if(COLMAP_CGAL_ENABLED)
