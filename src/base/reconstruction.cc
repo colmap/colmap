@@ -1876,6 +1876,7 @@ void Reconstruction::WriteCamerasText(const std::string& path) const {
 
   for (const auto& camera : cameras_) {
     std::ostringstream line;
+    line.precision(17);
 
     line << camera.first << " ";
     line << camera.second.ModelName() << " ";
@@ -1915,6 +1916,8 @@ void Reconstruction::WriteImagesText(const std::string& path) const {
     }
 
     std::ostringstream line;
+    line.precision(17);
+
     std::string line_string;
 
     line << image.first << " ";
@@ -1981,6 +1984,7 @@ void Reconstruction::WritePoints3DText(const std::string& path) const {
     file << point3D.second.Error() << " ";
 
     std::ostringstream line;
+    line.precision(17);
 
     for (const auto& track_el : point3D.second.Track().Elements()) {
       line << track_el.image_id << " ";
