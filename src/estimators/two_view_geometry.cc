@@ -409,19 +409,25 @@ void TwoViewGeometry::EstimateUncalibrated(
       static_cast<double>(H_report.support.num_inliers) /
       F_report.support.num_inliers;
 
+  const std::vector<char>* best_inlier_mask = &F_report.inlier_mask;
+  size_t num_inliers = F_report.support.num_inliers;
+
   if (H_F_inlier_ratio > options.max_H_inlier_ratio) {
     config = ConfigurationType::PLANAR_OR_PANORAMIC;
+    if (H_report.support.num_inliers >= F_report.support.num_inliers) {
+      num_inliers = H_report.support.num_inliers;
+      best_inlier_mask = &H_report.inlier_mask;
+    }
   } else {
     config = ConfigurationType::UNCALIBRATED;
   }
 
-  inlier_matches = ExtractInlierMatches(matches, F_report.support.num_inliers,
-                                        F_report.inlier_mask);
+  inlier_matches =
+      ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
 
   if (options.detect_watermark &&
       DetectWatermark(camera1, matched_points1, camera2, matched_points2,
-                      F_report.support.num_inliers, F_report.inlier_mask,
-                      options)) {
+                      num_inliers, *best_inlier_mask, options)) {
     config = ConfigurationType::WATERMARK;
   }
 }
