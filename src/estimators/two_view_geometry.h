@@ -86,6 +86,10 @@ struct TwoViewGeometry {
     // a planar or panoramic configuration is assumed.
     double max_H_inlier_ratio = 0.8;
 
+    // In case the user asks for it, only going to estimate a Homography
+    // between both cameras.
+    bool force_H_use = false;
+
     // In case of valid two-view geometry, it is checked whether the geometry
     // describes a pure translation in the border region of the image. If more
     // than a certain ratio of inlier points conform with a pure image
@@ -208,6 +212,22 @@ struct TwoViewGeometry {
   // @param matches         Feature matches between first and second image.
   // @param options         Two-view geometry estimation options.
   void EstimateUncalibrated(const Camera& camera1,
+                            const std::vector<Eigen::Vector2d>& points1,
+                            const Camera& camera2,
+                            const std::vector<Eigen::Vector2d>& points2,
+                            const FeatureMatches& matches,
+                            const Options& options);
+
+  // Estimate two-view geometry using a Homography,
+  // depending on the option was user specified or not.
+  //
+  // @param camera1         Camera of first image.
+  // @param points1         Feature points in first image.
+  // @param camera2         Camera of second image.
+  // @param points2         Feature points in second image.
+  // @param matches         Feature matches between first and second image.
+  // @param options         Two-view geometry estimation options.
+  void EstimateHomography(const Camera& camera1,
                             const std::vector<Eigen::Vector2d>& points1,
                             const Camera& camera2,
                             const std::vector<Eigen::Vector2d>& points2,
