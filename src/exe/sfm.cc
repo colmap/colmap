@@ -362,13 +362,22 @@ int RunPointTriangulator(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  const auto& mapper_options = *options.mapper;
-
   PrintHeading1("Loading model");
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
+  return RunPointTriangulatorImpl(
+      reconstruction, *options.database_path, *options.image_path, output_path,
+      *options.mapper, clear_points);
+}
+
+int RunPointTriangulatorImpl(Reconstruction& reconstruction,
+                             const std::string database_path,
+                             const std::string image_path,
+                             const std::string output_path,
+                             const IncrementalMapperOptions& mapper_options,
+                             const bool clear_points) {
   PrintHeading1("Loading database");
 
   DatabaseCache database_cache;
@@ -377,7 +386,7 @@ int RunPointTriangulator(int argc, char** argv) {
     Timer timer;
     timer.Start();
 
-    Database database(*options.database_path);
+    Database database(database_path);
 
     const size_t min_num_matches =
         static_cast<size_t>(mapper_options.min_num_matches);
@@ -476,7 +485,7 @@ int RunPointTriangulator(int argc, char** argv) {
   }
 
   PrintHeading1("Extracting colors");
-  reconstruction.ExtractColorsForAllImages(*options.image_path);
+  reconstruction.ExtractColorsForAllImages(image_path);
 
   const bool kDiscardReconstruction = false;
   mapper.EndReconstruction(kDiscardReconstruction);

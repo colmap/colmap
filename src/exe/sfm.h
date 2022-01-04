@@ -29,7 +29,20 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
+#ifndef COLMAP_SRC_EXE_SFM_H_
+#define COLMAP_SRC_EXE_SFM_H_
+
+#include "base/reconstruction.h"
+#include "controllers/incremental_mapper.h"
+
 namespace colmap {
+
+int RunPointTriangulatorImpl(Reconstruction& reconstruction,
+                             const std::string database_path,
+                             const std::string image_path,
+                             const std::string output_path,
+                             const IncrementalMapperOptions& mapper_options,
+                             const bool clear_points);
 
 int RunAutomaticReconstructor(int argc, char** argv);
 int RunBundleAdjuster(int argc, char** argv);
@@ -41,3 +54,5 @@ int RunPointTriangulator(int argc, char** argv);
 int RunRigBundleAdjuster(int argc, char** argv);
 
 }  // namespace colmap
+
+#endif  // COLMAP_SRC_EXE_SFM_H_
