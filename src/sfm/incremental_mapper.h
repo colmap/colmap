@@ -80,6 +80,10 @@ class IncrementalMapper {
     // Maximum number of trials to use an image for initialization.
     int init_max_reg_trials = 2;
 
+    // Whether to force the use of a Homography for the computed relative pose
+    // to initialize the SfM reconstruction
+    bool init_with_homography = false;
+
     // Maximum reprojection error in absolute pose estimation.
     double abs_pose_max_error = 12.0;
 

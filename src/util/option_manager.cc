@@ -553,6 +553,8 @@ void OptionManager::AddMapperOptions() {
                               &mapper->mapper.init_min_tri_angle);
   AddAndRegisterDefaultOption("Mapper.init_max_reg_trials",
                               &mapper->mapper.init_max_reg_trials);
+  AddAndRegisterDefaultOption("Mapper.init_with_homography",
+                              &mapper->mapper.init_with_homography);
   AddAndRegisterDefaultOption("Mapper.abs_pose_max_error",
                               &mapper->mapper.abs_pose_max_error);
   AddAndRegisterDefaultOption("Mapper.abs_pose_min_num_inliers",
@@ -710,7 +712,7 @@ void OptionManager::AddDelaunayMeshingOptions() {
   AddAndRegisterDefaultOption("DelaunayMeshing.max_depth_dist",
                               &delaunay_meshing->max_depth_dist);
   AddAndRegisterDefaultOption("DelaunayMeshing.visibility_sigma",
-                              &delaunay_meshing->visibility_sigma);    
+                              &delaunay_meshing->visibility_sigma);
   AddAndRegisterDefaultOption("DelaunayMeshing.distance_sigma_factor",
                               &delaunay_meshing->distance_sigma_factor);
   AddAndRegisterDefaultOption("DelaunayMeshing.quality_regularization",

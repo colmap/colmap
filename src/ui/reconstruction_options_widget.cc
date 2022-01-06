@@ -103,6 +103,8 @@ MapperInitializationOptionsWidget::MapperInitializationOptionsWidget(
                   "init_min_tri_angle [deg]");
   AddOptionInt(&options->mapper->mapper.init_max_reg_trials,
                "init_max_reg_trials", 1);
+  AddOptionBool(&options->mapper->mapper.init_with_homography,
+                "init_with_homography");
 }
 
 MapperBundleAdjustmentOptionsWidget::MapperBundleAdjustmentOptionsWidget(
