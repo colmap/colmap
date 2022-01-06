@@ -267,6 +267,55 @@ class RelativePoseCostFunction {
   const double y2_;
 };
 
+// Position alignment cost function (position meas. expected to be in world
+// frame).
+class PositionAlignCostFunction {
+ public:
+  explicit PositionAlignCostFunction(
+      const Eigen::Vector3d& pos_xyz,
+      const Eigen::Vector3d& std_xyz = Eigen::Vector3d::Ones())
+      : pos_x_(pos_xyz(0)),
+        pos_y_(pos_xyz(1)),
+        pos_z_(pos_xyz(2)),
+        inv_std_x_(1. / std_xyz(0)),
+        inv_std_y_(1. / std_xyz(1)),
+        inv_std_z_(1. / std_xyz(2)) {}
+
+  static ceres::CostFunction* Create(const Eigen::Vector3d& pos_xyz) {
+    return (new ceres::AutoDiffCostFunction<PositionAlignCostFunction, 3, 4, 3>(
+        new PositionAlignCostFunction(pos_xyz)));
+  }
+
+  template <typename T>
+  bool operator()(const T* const qvec, const T* const tvec,
+                  T* residuals) const {
+    // Get Pose in world frame (cam -> world transform)
+    Eigen::Matrix<T, 3, 3, Eigen::RowMajor> R;
+    ceres::QuaternionToRotation(qvec, R.data());
+
+    const Eigen::Matrix<T, 3, 1> t(tvec[0], tvec[1], tvec[2]);
+
+    const Eigen::Matrix<T, 3, 3, Eigen::RowMajor> Rwc = R.transpose();
+    const Eigen::Matrix<T, 3, 1> twc = T(-1.) * Rwc * t;
+
+    // Weighted Position error.
+    residuals[0] = T(inv_std_x_) * (twc[0] - T(pos_x_));
+    residuals[1] = T(inv_std_y_) * (twc[1] - T(pos_y_));
+    residuals[2] = T(inv_std_z_) * (twc[2] - T(pos_z_));
+
+    return true;
+  }
+
+ private:
+  const double pos_x_;
+  const double pos_y_;
+  const double pos_z_;
+
+  const double inv_std_x_;
+  const double inv_std_y_;
+  const double inv_std_z_;
+};
+
 }  // namespace colmap
 
 #endif  // COLMAP_SRC_BASE_COST_FUNCTIONS_H_

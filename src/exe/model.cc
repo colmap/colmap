@@ -924,4 +924,135 @@ int RunModelTransformer(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
+int RunModelSfmGPSAlign(int argc, char** argv) {
+  std::string input_path;
+  std::string output_path;
+  std::string database_path;
+  std::string ref_images_path;
+  std::string alignment_type = "enu";
+  int min_common_images = 3;
+  bool robust_alignment = true;
+  bool estimate_scale = true;
+  RANSACOptions ransac_options;
+
+  OptionManager options;
+  options.AddRequiredOption("input_path", &input_path);
+  options.AddRequiredOption("output_path", &output_path);
+  options.AddDefaultOption("database_path", &database_path);
+  options.AddDefaultOption("ref_images_path", &ref_images_path);
+  options.AddDefaultOption("alignment_type", &alignment_type,
+                           "{plane, ecef, enu, enu-unscaled, custom}");
+  options.AddDefaultOption("min_common_images", &min_common_images);
+  options.AddDefaultOption("robust_alignment", &robust_alignment);
+  options.AddDefaultOption("estimate_scale", &estimate_scale);
+  options.AddDefaultOption("robust_alignment_max_error",
+                           &ransac_options.max_error);
+  options.Parse(argc, argv);
+
+  StringToLower(&alignment_type);
+  const std::unordered_set<std::string> alignment_options{
+      "plane", "ecef", "enu", "enu-unscaled", "custom"};
+  if (alignment_options.count(alignment_type) == 0) {
+    std::cerr << "ERROR: Invalid `alignment_type` - supported values are "
+                 "{'plane', 'ecef', 'enu', 'enu-unscaled', 'custom'}"
+              << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  if (robust_alignment && ransac_options.max_error <= 0) {
+    std::cout << "ERROR: You must provide a maximum alignment error > 0"
+              << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  if (alignment_type != "plane" && database_path.empty() &&
+      ref_images_path.empty()) {
+    std::cerr << "ERROR: Location alignment requires either database or "
+                 "location file path."
+              << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  std::vector<std::string> ref_image_names;
+  std::vector<Eigen::Vector3d> ref_locations;
+  if (!ref_images_path.empty() && database_path.empty()) {
+    ReadFileCameraLocations(ref_images_path, ref_image_names, ref_locations);
+  } else if (!database_path.empty() && ref_images_path.empty()) {
+    ReadDatabaseCameraLocations(database_path, ref_image_names, ref_locations);
+  } else {
+    std::cerr << "ERROR: Use location file or database, not both" << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  if (alignment_type != "plane" &&
+      static_cast<int>(ref_locations.size()) < min_common_images) {
+    std::cout << "ERROR: Cannot align with insufficient reference locations."
+              << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  Reconstruction reconstruction;
+  reconstruction.Read(input_path);
+  SimilarityTransform3 tform;
+  bool alignment_success = true;
+
+  if (alignment_type == "plane") {
+    PrintHeading2("Aligning reconstruction to principal plane");
+    AlignToPrincipalPlane(&reconstruction, &tform);
+  } else {
+    PrintHeading2("Aligning reconstruction to ECEF");
+    std::cout << StringPrintf(" => Using %d reference images",
+                              ref_image_names.size())
+              << std::endl;
+
+    if (estimate_scale) {
+      if (robust_alignment) {
+        alignment_success = reconstruction.AlignRobust(
+            ref_image_names, ref_locations, min_common_images, ransac_options,
+            &tform);
+      } else {
+        alignment_success = reconstruction.Align(ref_image_names, ref_locations,
+                                                 min_common_images, &tform);
+      }
+    } else {
+      if (robust_alignment) {
+        alignment_success = reconstruction.AlignRobust<false>(
+            ref_image_names, ref_locations, min_common_images, ransac_options,
+            &tform);
+      } else {
+        alignment_success = reconstruction.Align<false>(
+            ref_image_names, ref_locations, min_common_images, &tform);
+      }
+    }
+
+    std::vector<double> errors;
+    errors.reserve(ref_image_names.size());
+
+    for (size_t i = 0; i < ref_image_names.size(); ++i) {
+      const Image* image = reconstruction.FindImageWithName(ref_image_names[i]);
+      if (image != nullptr) {
+        errors.push_back((image->ProjectionCenter() - ref_locations[i]).norm());
+      }
+    }
+    std::cout << StringPrintf(" => Alignment error: %f (mean), %f (median)",
+                              Mean(errors), Median(errors))
+              << std::endl;
+
+    if (alignment_success && StringStartsWith(alignment_type, "enu")) {
+      PrintHeading2("Aligning reconstruction to ENU");
+      AlignToENUPlane(&reconstruction, &tform,
+                      alignment_type == "enu-unscaled");
+    }
+  }
+
+  if (alignment_success) {
+    std::cout << " => Alignment succeeded" << std::endl;
+    reconstruction.Write(output_path);
+    return EXIT_SUCCESS;
+  } else {
+    std::cout << " => Alignment failed" << std::endl;
+    return EXIT_FAILURE;
+  }
+}
+
 }  // namespace colmap

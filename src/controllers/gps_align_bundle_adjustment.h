@@ -29,18 +29,28 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
+#ifndef COLMAP_SRC_CONTROLLERS_GPS_ALIGN_BUNDLE_ADJUSTMENT_H_
+#define COLMAP_SRC_CONTROLLERS_GPS_ALIGN_BUNDLE_ADJUSTMENT_H_
+
+#include "base/reconstruction.h"
+#include "util/option_manager.h"
+#include "util/threading.h"
+
 namespace colmap {
 
-int RunModelAligner(int argc, char** argv);
-int RunModelAnalyzer(int argc, char** argv);
-int RunModelComparer(int argc, char** argv);
-int RunModelConverter(int argc, char** argv);
-int RunModelCropper(int argc, char** argv);
-int RunModelMerger(int argc, char** argv);
-int RunModelOrientationAligner(int argc, char** argv);
-int RunModelSplitter(int argc, char** argv);
-int RunModelTransformer(int argc, char** argv);
+// Class that controls the global bundle adjustment procedure.
+class GPSAlignBundleAdjustmentController : public Thread {
+ public:
+  GPSAlignBundleAdjustmentController(const OptionManager& options,
+                             Reconstruction* reconstruction);
 
-int RunModelSfmGPSAlign(int argc, char** argv);
+ private:
+  void Run();
+
+  const OptionManager options_;
+  Reconstruction* reconstruction_;
+};
 
 }  // namespace colmap
+
+#endif  // COLMAP_SRC_CONTROLLERS_GPS_ALIGN_BUNDLE_ADJUSTMENT_H_
