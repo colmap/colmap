@@ -55,6 +55,21 @@ class GPSTransform {
   std::vector<Eigen::Vector3d> XYZToEll(
       const std::vector<Eigen::Vector3d>& xyz) const;
 
+  std::vector<Eigen::Vector3d> EllToENU(
+      const std::vector<Eigen::Vector3d>& ell) const;
+
+  std::vector<Eigen::Vector3d> XYZToENU(const std::vector<Eigen::Vector3d>& xyz,
+                                        const double lat0,
+                                        const double lon0) const;
+
+  std::vector<Eigen::Vector3d> ENUToEll(const std::vector<Eigen::Vector3d>& enu,
+                                        const double lat0, const double lon0,
+                                        const double alt0) const;
+
+  std::vector<Eigen::Vector3d> ENUToXYZ(const std::vector<Eigen::Vector3d>& enu,
+                                        const double lat0, const double lon0,
+                                        const double alt0) const;
+
  private:
   // Semimajor axis.
   double a_;

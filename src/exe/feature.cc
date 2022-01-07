@@ -73,38 +73,7 @@ bool VerifySiftGPUParams(const bool use_gpu) {
   return true;
 }
 
-// This enum can be used as optional input for feature_extractor and
-// feature_importer to ensure that the camera flags of ImageReader are set in an
-// exclusive and unambigous way. The table below explains the corespondence of
-// each setting with the flags
-//
-// -----------------------------------------------------------------------------------
-// |            |                         ImageReaderOptions                         |
-// | CameraMode | single_camera | single_camera_per_folder | single_camera_per_image |
-// |------------|---------------|--------------------------|-------------------------|
-// | AUTO       | false         | false                    | false                   |
-// | SINGLE     | true          | false                    | false                   |
-// | PER_FOLDER | false         | true                     | false                   |
-// | PER_IMAGE  | false         | false                    | true                    |
-// -----------------------------------------------------------------------------------
-//
-// Note: When using AUTO mode a camera model will be uniquely identified by the
-// following 5 parameters from EXIF tags:
-// 1. Camera Make
-// 2. Camera Model
-// 3. Focal Length
-// 4. Image Width
-// 5. Image Height
-//
-// If any of the tags is missing then a camera model is considered invalid and a
-// new camera is created similar to the PER_IMAGE mode.
-//
-// If these considered fields are not sufficient to uniquely identify a camera
-// then using the AUTO mode will lead to incorrect setup for the cameras, e.g.
-// the same camera is used with same focal length but different principal point
-// between captures. In these cases it is recommended to either use the
-// PER_FOLDER or PER_IMAGE settings.
-enum class CameraMode { AUTO = 0, SINGLE = 1, PER_FOLDER = 2, PER_IMAGE = 3 };
+}  // namespace
 
 void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
                                             CameraMode mode) {
@@ -131,8 +100,6 @@ void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
       break;
   }
 }
-
-}  // namespace
 
 int RunFeatureExtractor(int argc, char** argv) {
   std::string image_list_path;

@@ -426,6 +426,7 @@ void TwoViewGeometry::EstimateUncalibrated(
 
   inlier_matches =
       ExtractInlierMatches(matches, num_inliers, *best_inlier_mask);
+<<<<<<< HEAD
 
   if (options.detect_watermark &&
       DetectWatermark(camera1, matched_points1, camera2, matched_points2,
@@ -475,6 +476,12 @@ void TwoViewGeometry::EstimateHomography(
       DetectWatermark(camera1, matched_points1, camera2, matched_points2,
                       H_report.support.num_inliers, H_report.inlier_mask,
                       options)) {
+=======
+
+  if (options.detect_watermark &&
+      DetectWatermark(camera1, matched_points1, camera2, matched_points2,
+                      num_inliers, *best_inlier_mask, options)) {
+>>>>>>> model_aligner_handle_gps_in_txt_file
     config = ConfigurationType::WATERMARK;
   }
 }

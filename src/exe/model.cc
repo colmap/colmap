@@ -112,6 +112,8 @@ void WriteBoundingBox(const std::string& reconstruction_path,
 }
 
 void ReadFileCameraLocations(const std::string& ref_images_path,
+                             const bool ref_is_gps,
+                             const std::string& alignment_type,
                              std::vector<std::string>& ref_image_names,
                              std::vector<Eigen::Vector3d>& ref_locations) {
   const auto lines = ReadTextFileLines(ref_images_path);
@@ -124,22 +126,53 @@ void ReadFileCameraLocations(const std::string& ref_images_path,
     ref_image_names.push_back(image_name);
     ref_locations.push_back(camera_position);
   }
+
+  if (ref_is_gps) {
+    GPSTransform gps_transform(GPSTransform::WGS84);
+    if (alignment_type != "enu") {
+      std::cout << "\n Converting Alignment Coordinates from GPS (lat/lon/alt) "
+                   "to ECEF. \n";
+      ref_locations = gps_transform.EllToXYZ(ref_locations);
+    } else {
+      std::cout << "\n Converting Alignment Coordinates from GPS (lat/lon/alt) "
+                   "to ENU. \n";
+      ref_locations = gps_transform.EllToENU(ref_locations);
+    }
+  } else {
+    std::cout << "\n Cartesian Alignment Coordinates extracted (MUST NOT BE "
+                 "GPS coords!). \n";
+  }
 }
 
 void ReadDatabaseCameraLocations(const std::string& database_path,
+                                 const bool ref_is_gps,
+                                 const std::string& alignment_type,
                                  std::vector<std::string>& ref_image_names,
                                  std::vector<Eigen::Vector3d>& ref_locations) {
   Database database(database_path);
   auto images = database.ReadAllImages();
-  std::vector<Eigen::Vector3d> gps_locations;
-  GPSTransform gps_transform(GPSTransform::WGS84);
   for (const auto image : images) {
     if (image.HasTvecPrior()) {
       ref_image_names.push_back(image.Name());
-      gps_locations.push_back(image.TvecPrior());
+      ref_locations.push_back(image.TvecPrior());
     }
   }
-  ref_locations = gps_transform.EllToXYZ(gps_locations);
+
+  if (ref_is_gps) {
+    GPSTransform gps_transform(GPSTransform::WGS84);
+    if (alignment_type != "enu") {
+      std::cout << "\n Converting Alignment Coordinates from GPS (lat/lon/alt) "
+                   "to ECEF. \n";
+      ref_locations = gps_transform.EllToXYZ(ref_locations);
+    } else {
+      std::cout << "\n Converting Alignment Coordinates from GPS (lat/lon/alt) "
+                   "to ENU. \n";
+      ref_locations = gps_transform.EllToENU(ref_locations);
+    }
+  } else {
+    std::cout << "\n Cartesian Alignment Coordinates extracted (MUST NOT BE "
+                 "GPS coords!). \n";
+  }
 }
 
 void WriteComparisonErrorsCSV(const std::string& path,
@@ -193,11 +226,54 @@ void PrintComparisonSummary(std::ostream& out,
 
 }  // namespace
 
+// Align given reconstruction with user provided cameras positions
+// (can be used for geo-registration for instance).
+// The cameras positions to be used for aligning the reconstruction
+// model must be provided either by a txt file (with each line being: img_name x
+// y z) or through a colmap database file containing a prior position for the
+// registered images.
+//
+// Required Options:
+// - input_path: path to initial reconstruction model
+// - output_path: path to store the aligned reconstruction model
+//
+// Additional Options:
+// - database_path: path to database file with prior positions for
+// reconstruction images
+// - ref_images_path: path to txt file with prior positions for reconstruction
+// images (WARNING: provide only one of the above)
+// - ref_is_gps: if true the prior positions are converted from GPS
+// (lat/lon/alt) to ECEF or ENU
+// - merge_image_and_ref_origins: if true the reconstuction will be shifted so
+// that the first prior position is used for its camera position
+// - transform_path: path to store the Sim3 transformation used for the
+// alignment
+// - alignment_type:
+//    > plane: align with reconstruction principal plane
+//    > ecef: align with ecef coords. (requires gps coords. or user provided
+//    ecef coords.)
+//    > enu: align with enu coords. (requires gps coords. or user provided enu
+//    coords.)
+//    > enu-plane: align to ecef and then to enu plane (requires gps
+//    coords. or user provided ecef coords.)
+//    > enu-plane-unscaled: same as above but do not apply the computed
+//    scale when aligning the reconstruction
+//    > custom: align to provided coords.
+// - min_common_images: minimum number of images with prior positions to perform
+// the estimate an alignment
+// - estimate_scale: if true apply the computed scale when aligning the
+// reconstruction
+// - robust_alignment: if true use a ransac-based estimation for robust
+// alignment
+// - robust_alignment_max_error: ransac error to use if robust alignment is
+// enabled
 int RunModelAligner(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
   std::string database_path;
   std::string ref_images_path;
+  bool ref_is_gps = true;
+  bool merge_origins = false;
   std::string transform_path;
   std::string alignment_type = "custom";
   int min_common_images = 3;
@@ -210,22 +286,28 @@ int RunModelAligner(int argc, char** argv) {
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("database_path", &database_path);
   options.AddDefaultOption("ref_images_path", &ref_images_path);
+  options.AddDefaultOption("ref_is_gps", &ref_is_gps, "Default: true");
+  options.AddDefaultOption("merge_image_and_ref_origins", &merge_origins,
+                           "Default: false");
   options.AddDefaultOption("transform_path", &transform_path);
-  options.AddDefaultOption("alignment_type", &alignment_type,
-                           "{plane, ecef, enu, enu-unscaled, custom}");
+  options.AddDefaultOption(
+      "alignment_type", &alignment_type,
+      "{plane, ecef, enu, enu-plane, enu-plane-unscaled, custom}");
   options.AddDefaultOption("min_common_images", &min_common_images);
-  options.AddDefaultOption("robust_alignment", &robust_alignment);
-  options.AddDefaultOption("estimate_scale", &estimate_scale);
+  options.AddDefaultOption("estimate_scale", &estimate_scale, "Default: true");
+  options.AddDefaultOption("robust_alignment", &robust_alignment,
+                           "Default: true");
   options.AddDefaultOption("robust_alignment_max_error",
                            &ransac_options.max_error);
   options.Parse(argc, argv);
 
   StringToLower(&alignment_type);
   const std::unordered_set<std::string> alignment_options{
-      "plane", "ecef", "enu", "enu-unscaled", "custom"};
+      "plane", "ecef", "enu", "enu-plane", "enu-plane-unscaled", "custom"};
   if (alignment_options.count(alignment_type) == 0) {
     std::cerr << "ERROR: Invalid `alignment_type` - supported values are "
-                 "{'plane', 'ecef', 'enu', 'enu-unscaled', 'custom'}"
+                 "{'plane', 'ecef', 'enu', 'enu-plane', 'enu-plane-unscaled', "
+                 "'custom'}"
               << std::endl;
     return EXIT_FAILURE;
   }
@@ -247,10 +329,12 @@ int RunModelAligner(int argc, char** argv) {
   std::vector<std::string> ref_image_names;
   std::vector<Eigen::Vector3d> ref_locations;
   if (!ref_images_path.empty() && database_path.empty()) {
-    ReadFileCameraLocations(ref_images_path, ref_image_names, ref_locations);
+    ReadFileCameraLocations(ref_images_path, ref_is_gps, alignment_type,
+                            ref_image_names, ref_locations);
   } else if (!database_path.empty() && ref_images_path.empty()) {
-    ReadDatabaseCameraLocations(database_path, ref_image_names, ref_locations);
-  } else {
+    ReadDatabaseCameraLocations(database_path, ref_is_gps, alignment_type,
+                                ref_image_names, ref_locations);
+  } else if (alignment_type != "plane") {
     std::cerr << "ERROR: Use location file or database, not both" << std::endl;
     return EXIT_FAILURE;
   }
@@ -271,7 +355,7 @@ int RunModelAligner(int argc, char** argv) {
     PrintHeading2("Aligning reconstruction to principal plane");
     AlignToPrincipalPlane(&reconstruction, &tform);
   } else {
-    PrintHeading2("Aligning reconstruction to ECEF");
+    PrintHeading2("Aligning reconstruction to " + alignment_type);
     std::cout << StringPrintf(" => Using %d reference images",
                               ref_image_names.size())
               << std::endl;
@@ -309,11 +393,33 @@ int RunModelAligner(int argc, char** argv) {
                               Mean(errors), Median(errors))
               << std::endl;
 
-    if (alignment_success && StringStartsWith(alignment_type, "enu")) {
-      PrintHeading2("Aligning reconstruction to ENU");
+    if (alignment_success && StringStartsWith(alignment_type, "enu-plane")) {
+      PrintHeading2("Aligning ECEF aligned reconstruction to ENU plane");
       AlignToENUPlane(&reconstruction, &tform,
-                      alignment_type == "enu-unscaled");
+                      alignment_type == "enu-plane-unscaled");
     }
+  }
+
+  if (merge_origins) {
+    const Image* first_image =
+        reconstruction.FindImageWithName(ref_image_names[0]);
+
+    const Eigen::Vector3d first_img_position = ref_locations[0];
+
+    const Eigen::Vector3d trans_align =
+        first_img_position - first_image->ProjectionCenter();
+
+    SimilarityTransform3 origin_align(1.0, ComposeIdentityQuaternion(),
+                                      trans_align);
+
+    std::cout << "\n Aligning Reconstruction's origin with Ref origin : "
+              << first_img_position.transpose() << "\n";
+
+    reconstruction.Transform(origin_align);
+
+    // Update the Sim3 transformation in case it is stored next
+    tform = SimilarityTransform3(tform.Scale(), tform.Rotation(),
+                                 tform.Translation() + trans_align);
   }
 
   if (alignment_success) {
