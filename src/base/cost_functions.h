@@ -281,9 +281,11 @@ class PositionAlignCostFunction {
         inv_std_y_(1. / std_xyz(1)),
         inv_std_z_(1. / std_xyz(2)) {}
 
-  static ceres::CostFunction* Create(const Eigen::Vector3d& pos_xyz) {
+  static ceres::CostFunction* Create(
+      const Eigen::Vector3d& pos_xyz,
+      const Eigen::Vector3d& std_xyz = Eigen::Vector3d::Ones()) {
     return (new ceres::AutoDiffCostFunction<PositionAlignCostFunction, 3, 4, 3>(
-        new PositionAlignCostFunction(pos_xyz)));
+        new PositionAlignCostFunction(pos_xyz, std_xyz)));
   }
 
   template <typename T>
