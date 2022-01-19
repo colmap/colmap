@@ -31,6 +31,7 @@
 
 #include "feature/sift.h"
 
+#include <QOpenGLFunctions>  // Needs to be included before glew.
 #include <array>
 #include <fstream>
 #include <memory>

@@ -133,7 +133,7 @@ void ReadDatabaseCameraLocations(const std::string& database_path,
   auto images = database.ReadAllImages();
   std::vector<Eigen::Vector3d> gps_locations;
   GPSTransform gps_transform(GPSTransform::WGS84);
-  for (const auto image : images) {
+  for (const auto& image : images) {
     if (image.HasTvecPrior()) {
       ref_image_names.push_back(image.Name());
       gps_locations.push_back(image.TvecPrior());

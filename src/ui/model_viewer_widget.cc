@@ -281,7 +281,7 @@ void ModelViewerWidget::ReloadReconstruction() {
     images[image_id] = reconstruction->Image(image_id);
   }
 
-  statusbar_status_label->setText(QString().sprintf(
+  statusbar_status_label->setText(QString().asprintf(
       "%d Images - %d Points", static_cast<int>(reg_image_ids.size()),
       static_cast<int>(points3D.size())));
 
@@ -629,13 +629,13 @@ void ModelViewerWidget::mouseMoveEvent(QMouseEvent* event) {
 
 void ModelViewerWidget::wheelEvent(QWheelEvent* event) {
   if (event->modifiers() & Qt::ControlModifier) {
-    ChangePointSize(event->delta());
+    ChangePointSize(event->angleDelta().y());
   } else if (event->modifiers() & Qt::AltModifier) {
-    ChangeCameraSize(event->delta());
+    ChangeCameraSize(event->angleDelta().y());
   } else if (event->modifiers() & Qt::ShiftModifier) {
-    ChangeNearPlane(event->delta());
+    ChangeNearPlane(event->angleDelta().y());
   } else {
-    ChangeFocusDistance(event->delta());
+    ChangeFocusDistance(event->angleDelta().y());
   }
   event->accept();
 }
