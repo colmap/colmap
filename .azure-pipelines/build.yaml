@@ -18,9 +18,9 @@ jobs:
       cudaEnabled: true
   - template: build-mac.yaml
     parameters:
-      displayName: 'Mac 10.14'
-      macVersion: 10.14
-  - template: build-mac.yaml
-    parameters:
       displayName: 'Mac 10.15'
       macVersion: 10.15
+  - template: build-mac.yaml
+    parameters:
+      displayName: 'Mac 11'
+      macVersion: 11
