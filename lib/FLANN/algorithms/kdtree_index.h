@@ -261,11 +261,13 @@ protected:
         mean_ = new DistanceType[veclen_];
         var_ = new DistanceType[veclen_];
 
+        RandomGenerator generator;
+
         tree_roots_.resize(trees_);
         /* Construct the randomized trees. */
         for (int i = 0; i < trees_; i++) {
             /* Randomize the order of vectors to allow for unbiased sampling. */
-            std::random_shuffle(ind.begin(), ind.end());
+            std::shuffle(ind.begin(), ind.end(), generator);
             tree_roots_[i] = divideTree(&ind[0], int(size_) );
         }
         delete[] mean_;
