@@ -37,6 +37,7 @@
 #include <cstring>
 #include <stdarg.h>
 #include <cmath>
+#include <random>
 
 #include "FLANN/general.h"
 #include "FLANN/algorithms/nn_index.h"
@@ -261,7 +262,7 @@ protected:
         mean_ = new DistanceType[veclen_];
         var_ = new DistanceType[veclen_];
 
-        RandomGenerator generator;
+        std::default_random_engine generator;
 
         tree_roots_.resize(trees_);
         /* Construct the randomized trees. */
