@@ -31,6 +31,7 @@
 
 #include "controllers/incremental_mapper.h"
 
+#include "base/gps.h"
 #include "util/misc.h"
 
 namespace colmap {
@@ -64,6 +65,7 @@ void AdjustGlobalBundle(const IncrementalMapperOptions& options,
 
   PrintHeading1("Global bundle adjustment");
   if (options.ba_global_use_pba && !options.fix_existing_images &&
+      !options.ba_use_prior_motion &&
       num_reg_images >= kMinNumRegImagesForFastBA &&
       ParallelBundleAdjuster::IsSupported(custom_ba_options,
                                           mapper->GetReconstruction())) {
@@ -112,6 +114,17 @@ void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
             << mapper->Retriangulate(options.Triangulation()) << std::endl;
 
   for (int i = 0; i < options.ba_global_max_refinements; ++i) {
+    // if (options.ba_use_prior_motion) {
+    //   if (i == 0) {
+    //     options.ba_global_use_robust_cost = true;
+    //   } else {
+    //     options.ba_global_use_robust_cost = false;
+    //   }
+    // }
+    // TODO: Add A BundleAdjustmentOptions Parameter to AdjustGlobalBundle
+    // in order to modify the behavior of the global BA between iterations
+    // (seems fine to do 1st iter with robust cost on visual + gps and then
+    // on gps only just in case there are some outliers in the nav)
     const size_t num_observations =
         mapper->GetReconstruction().ComputeNumObservations();
     size_t num_changed_observations = 0;
@@ -197,6 +210,7 @@ IncrementalMapper::Options IncrementalMapperOptions::Mapper() const {
   options.num_threads = num_threads;
   options.local_ba_num_images = ba_local_num_images;
   options.fix_existing_images = fix_existing_images;
+  options.use_prior_motion = ba_use_prior_motion;
   return options;
 }
 
@@ -231,6 +245,9 @@ BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
   options.loss_function_scale = 1.0;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::SOFT_L1;
+  options.use_prior_motion = false;
+  // options.motion_prior_xyz_std =
+  //     Eigen::Vector3d(ba_prior_std_x, ba_prior_std_y, ba_prior_std_z);
   return options;
 }
 
@@ -255,6 +272,20 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
       ba_min_num_residuals_for_multi_threading;
   options.loss_function_type =
       BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+  if (ba_use_prior_motion) {
+    options.use_prior_motion = ba_use_prior_motion;
+    options.motion_prior_xyz_std =
+        Eigen::Vector3d(ba_prior_std_x, ba_prior_std_y, ba_prior_std_z);
+    if (ba_global_use_robust_loss_on_prior) {
+      options.use_robust_loss_on_prior = true;
+      options.prior_loss_scale = prior_loss_scale;
+    }
+    if (ba_global_use_robust_cost) {
+      options.loss_function_scale = ba_global_loss_scale;
+      options.loss_function_type =
+          BundleAdjustmentOptions::LossFunctionType::SOFT_L1;
+    }
+  }
   return options;
 }
 
@@ -315,6 +346,13 @@ void IncrementalMapperController::Run() {
     return;
   }
 
+  if (options_->ba_use_prior_motion) {
+    std::cout << "\nSETTING UP PRIOR MOTION!";
+    if (!SetUpPriorMotions()) {
+      return;
+    }
+  }
+
   IncrementalMapper::Options init_mapper_options = options_->Mapper();
   Reconstruct(init_mapper_options);
 
@@ -371,6 +409,71 @@ bool IncrementalMapperController::LoadDatabase() {
               << std::endl
               << std::endl;
     return false;
+  }
+
+  return true;
+}
+
+bool IncrementalMapperController::SetUpPriorMotions() {
+  GPSTransform gps_transform(GPSTransform::WGS84);
+  size_t nb_motion_prior = 0;
+
+  std::cout << "\nSetting Up Prior Motions!\n";
+
+  // GPS to ENU conversion
+  if (options_->ba_prior_is_gps && options_->ba_use_enu_coords) {
+    // Get image ids to get ordered GPS prior coords.
+    std::set<image_t> image_prior_ids;
+
+    for (const auto& image : database_cache_.Images()) {
+      if (image.second.HasTvecPrior()) {
+        image_prior_ids.insert(image.first);
+        ++nb_motion_prior;
+      }
+    }
+
+    // Get ordered GPS prior coords.
+    std::vector<Eigen::Vector3d> vgps_priors;
+    vgps_priors.reserve(database_cache_.NumImages());
+
+    for (const auto image_id : image_prior_ids) {
+      vgps_priors.push_back(database_cache_.Image(image_id).TvecPrior());
+    }
+
+    // Convert to GPS to ENU coords.
+    std::vector<Eigen::Vector3d> vtvec_priors =
+        gps_transform.EllToENU(vgps_priors);
+
+    // Set back the prior coords.
+    size_t k = 0;
+    for (const auto image_id : image_prior_ids) {
+      database_cache_.Image(image_id).SetTvecPrior(vtvec_priors[k]);
+      k++;
+    }
+  } else {
+    for (auto& image : database_cache_.Images()) {
+      if (image.second.HasTvecPrior()) {
+        if (options_->ba_prior_is_gps) {
+          // GPS to ECEF conversion
+          database_cache_.Image(image.first)
+              .SetTvecPrior(
+                  gps_transform.EllToXYZ({image.second.TvecPrior()})[0]);
+        }
+        ++nb_motion_prior;
+      }
+    }
+  }
+
+  if (nb_motion_prior < database_cache_.NumImages()) {
+    std::cout << "WARNING! Not all images have a motion prior!\n";
+
+    if (nb_motion_prior < 3) {
+      std::cout << StringPrintf(
+          "Only %d motion priors! Cannot optimize with use_motion_prior "
+          "checked...",
+          nb_motion_prior);
+      return false;
+    }
   }
 
   return true;

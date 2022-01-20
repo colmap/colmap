@@ -57,10 +57,10 @@ ceres::LossFunction* BundleAdjustmentOptions::CreateLossFunction() const {
       loss_function = new ceres::TrivialLoss();
       break;
     case LossFunctionType::SOFT_L1:
-      loss_function = new ceres::SoftLOneLoss(loss_function_scale);
+      loss_function = new ceres::SoftLOneLoss(std::sqrt(loss_function_scale));
       break;
     case LossFunctionType::CAUCHY:
-      loss_function = new ceres::CauchyLoss(loss_function_scale);
+      loss_function = new ceres::CauchyLoss(std::sqrt(loss_function_scale));
       break;
   }
   CHECK_NOTNULL(loss_function);
@@ -261,8 +261,67 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
 
   problem_.reset(new ceres::Problem());
 
+  if (options_.use_prior_motion) {
+    std::vector<double> vini_err;
+    std::vector<Eigen::Vector3d> src, dst;
+    vini_err.reserve(config_.NumImages());
+    src.reserve(config_.NumImages());
+    dst.reserve(config_.NumImages());
+    for (const auto image_id : config_.Images()) {
+      auto& image = reconstruction->Image(image_id);
+      if (image.HasTvecPrior()) {
+        src.push_back(image.ProjectionCenter());
+        dst.push_back(image.TvecPrior());
+        vini_err.push_back(
+            (image.ProjectionCenter() - image.TvecPrior()).norm());
+      }
+    }
+
+    std::cout << "\n Initial Alignment tvec err (median / mean / std): "
+              << Median(vini_err) << " / " << Mean(vini_err) << " / "
+              << StdDev(vini_err) << "\n";
+
+    if (src.size() > 3) {
+      SimilarityTransform3 tform;
+      // bool success = reconstruction->Align(src, dst, &tform);
+      RANSACOptions ransac;
+      ransac.max_error = (options_.motion_prior_xyz_std * 3.).norm();
+      const int min_num_inliers = 3;
+      bool success = reconstruction->AlignRobust(src, dst, min_num_inliers,
+                                                 ransac, &tform);
+      if (success) {
+        std::vector<double> verr;
+        verr.reserve(config_.NumImages());
+        for (const auto image_id : config_.Images()) {
+          const auto& image = reconstruction->Image(image_id);
+          if (image.HasTvecPrior()) {
+            verr.push_back(
+                (image.ProjectionCenter() - image.TvecPrior()).norm());
+          }
+        }
+
+        std::cout << "\nRigid Sim3 Alignment : \n";
+        std::cout << "- scale : " << tform.Scale() << "\n";
+        std::cout << "- trans : " << tform.Translation().transpose() << "\n";
+        std::cout << "- rot : " << tform.Rotation().transpose() << "\n\n";
+
+        std::cout << "\n Sim3 Alignment tvec err (median / mean / std): "
+                  << Median(verr) << " / " << Mean(verr) << " / "
+                  << StdDev(verr) << "\n";
+      } else {
+        std::cout << "\nRobust Sim3 Alignment failed!\n";
+      }
+    }
+  }
+
   ceres::LossFunction* loss_function = options_.CreateLossFunction();
   SetUp(reconstruction, loss_function);
+
+  std::cout << "\nVisual Loss Function : " << int(options_.loss_function_type) << "\n";
+  std::cout << "\nLoss Function scale : " << options_.loss_function_scale << "\n";
+
+  std::cout << "\nPrior Loss Function : " << options_.use_robust_loss_on_prior << "\n";
+  std::cout << "\nPrior Loss Function scale : " << options_.prior_loss_scale << "\n";
 
   if (problem_->NumResiduals() == 0) {
     return false;
@@ -274,7 +333,7 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
 
   // Empirical choice.
   const size_t kMaxNumImagesDirectDenseSolver = 50;
-  const size_t kMaxNumImagesDirectSparseSolver = 1000;
+  const size_t kMaxNumImagesDirectSparseSolver = 4000;
   const size_t num_images = config_.NumImages();
   if (num_images <= kMaxNumImagesDirectDenseSolver) {
     solver_options.linear_solver_type = ceres::DENSE_SCHUR;
@@ -312,6 +371,29 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   if (options_.print_summary) {
     PrintHeading2("Bundle adjustment report");
     PrintSolverSummary(summary_);
+  }
+
+  if (options_.use_prior_motion) {
+    if (problem_->HasParameterBlock(qwc0_.data())) {
+      const SimilarityTransform3& tform =
+          SimilarityTransform3(1.0, qwc0_, Eigen::Vector3d::Zero());
+      reconstruction->Transform(tform);
+    }
+
+    std::cout << summary_.FullReport() << std::endl;
+
+    std::vector<double> verr;
+    verr.reserve(config_.NumImages());
+    for (const auto image_id : config_.Images()) {
+      const auto& image = reconstruction->Image(image_id);
+      if (image.HasTvecPrior()) {
+        verr.push_back((image.ProjectionCenter() - image.TvecPrior()).norm());
+      }
+    }
+
+    std::cout << "\n GPS - SfM based BA tvec err (median / mean / std): "
+              << Median(verr) << " / " << Mean(verr) << " / " << StdDev(verr)
+              << "\n";
   }
 
   TearDown(reconstruction);
@@ -426,6 +508,32 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
             new ceres::SubsetParameterization(3, constant_tvec_idxs);
         problem_->SetParameterization(tvec_data, tvec_parameterization);
       }
+    }
+  }
+
+  if (options_.use_prior_motion && image.HasTvecPrior()) {
+    ceres::LossFunction* prior_loss = nullptr;
+    if (options_.use_robust_loss_on_prior) {
+      prior_loss = new ceres::HuberLoss(std::sqrt(options_.prior_loss_scale));
+    }
+
+    if (config_.NumConstantPoses() > 0 || config_.NumConstantTvecs() > 0 ||
+        config_.NumConstantPoints() > 0) {
+      if (!problem_->HasParameterBlock(qwc0_.data())) {
+        problem_->AddParameterBlock(qwc0_.data(), 4,
+                                    new ceres::QuaternionParameterization);
+      }
+      ceres::CostFunction* prior_pos_cost_func =
+          PositionAlignGloblaRotCostFunction::Create(
+              image.TvecPrior(), options_.motion_prior_xyz_std);
+      problem_->AddResidualBlock(prior_pos_cost_func, prior_loss, qwc0_.data(),
+                                 qvec_data, tvec_data);
+    } else {
+      ceres::CostFunction* prior_pos_cost_func =
+          PositionAlignCostFunction::Create(image.TvecPrior(),
+                                            options_.motion_prior_xyz_std);
+      problem_->AddResidualBlock(prior_pos_cost_func, prior_loss, qvec_data,
+                                 tvec_data);
     }
   }
 }

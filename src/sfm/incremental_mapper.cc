@@ -291,6 +291,13 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
   image2.Qvec() = prev_init_two_view_geometry_.qvec;
   image2.Tvec() = prev_init_two_view_geometry_.tvec;
 
+  if (options.use_prior_motion) {
+    // Roughly align initial images w.r.t. priors
+    double scale = (image2.TvecPrior() - image1.TvecPrior()).norm();
+    image1.Tvec() = -1. * image1.TvecPrior();
+    image2.Tvec() = scale * image2.Tvec() + image1.Tvec();
+  }
+
   const Eigen::Matrix3x4d proj_matrix1 = image1.ProjectionMatrix();
   const Eigen::Matrix3x4d proj_matrix2 = image2.ProjectionMatrix();
   const Eigen::Vector3d proj_center1 = image1.ProjectionCenter();
@@ -696,11 +703,13 @@ bool IncrementalMapper::AdjustGlobalBundle(
     }
   }
 
-  // Fix 7-DOFs of the bundle adjustment problem.
-  ba_config.SetConstantPose(reg_image_ids[0]);
-  if (!options.fix_existing_images ||
-      !existing_image_ids_.count(reg_image_ids[1])) {
-    ba_config.SetConstantTvec(reg_image_ids[1], {0});
+  if (!options.use_prior_motion) {
+    // Fix 7-DOFs of the bundle adjustment problem.
+    ba_config.SetConstantPose(reg_image_ids[0]);
+    if (!options.fix_existing_images ||
+        !existing_image_ids_.count(reg_image_ids[1])) {
+      ba_config.SetConstantTvec(reg_image_ids[1], {0});
+    }
   }
 
   // Run bundle adjustment.
@@ -709,9 +718,11 @@ bool IncrementalMapper::AdjustGlobalBundle(
     return false;
   }
 
-  // Normalize scene for numerical stability and
-  // to avoid large scale changes in viewer.
-  reconstruction_->Normalize();
+  if (!options.use_prior_motion) {
+    // Normalize scene for numerical stability and
+    // to avoid large scale changes in viewer.
+    reconstruction_->Normalize();
+  }
 
   return true;
 }
@@ -823,6 +834,11 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
       continue;
     }
 
+    // If using motion prior, image must have a prior for init
+    if (options.use_prior_motion && !image.second.HasTvecPrior()) {
+      continue;
+    }
+
     // Only use images for initialization a maximum number of times.
     if (init_num_reg_trials_.count(image.first) &&
         init_num_reg_trials_.at(image.first) >= init_max_reg_trials) {
@@ -907,6 +923,10 @@ std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
   for (const auto elem : num_correspondences) {
     if (elem.second >= init_min_num_inliers) {
       const class Image& image = reconstruction_->Image(elem.first);
+      // If using motion prior, image must have a prior for init
+      if (options.use_prior_motion && !image.HasTvecPrior()) {
+        continue;
+      }
       const class Camera& camera = reconstruction_->Camera(image.CameraId());
       ImageInfo image_info;
       image_info.image_id = elem.first;

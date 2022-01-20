@@ -52,7 +52,7 @@ struct BundleAdjustmentOptions {
   LossFunctionType loss_function_type = LossFunctionType::TRIVIAL;
 
   // Scaling factor determines residual at which robustification takes place.
-  double loss_function_scale = 1.0;
+  double loss_function_scale = 5.9915; // 1.0;
 
   // Whether to refine the focal length parameter group.
   bool refine_focal_length = true;
@@ -69,6 +69,12 @@ struct BundleAdjustmentOptions {
   // Whether to print a final summary.
   bool print_summary = true;
 
+  // Whether to use prior positions
+  bool use_prior_motion = false;
+  Eigen::Vector3d motion_prior_xyz_std = Eigen::Vector3d::Ones();
+  bool use_robust_loss_on_prior = false;
+  double prior_loss_scale = 7.815;
+
   // Minimum number of residuals to enable multi-threading. Note that
   // single-threaded is typically better for small bundle adjustment problems
   // due to the overhead of threading.
@@ -78,7 +84,7 @@ struct BundleAdjustmentOptions {
   ceres::Solver::Options solver_options;
 
   BundleAdjustmentOptions() {
-    solver_options.function_tolerance = 0.0;
+    solver_options.function_tolerance = 1e-5;
     solver_options.gradient_tolerance = 0.0;
     solver_options.parameter_tolerance = 0.0;
     solver_options.minimizer_progress_to_stdout = false;
@@ -200,6 +206,10 @@ class BundleAdjuster {
   ceres::Solver::Summary summary_;
   std::unordered_set<camera_t> camera_ids_;
   std::unordered_map<point3D_t, size_t> point3D_num_observations_;
+
+  // Rotation from camera frame to world frame
+  // to be used with motion priors
+  Eigen::Vector4d qwc0_ = Eigen::Vector4d(1.0, 0.0, 0.0, 0.0);
 };
 
 // Bundle adjustment using PBA (GPU or CPU). Less flexible and accurate than

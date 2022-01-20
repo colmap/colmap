@@ -39,6 +39,9 @@
 #include "util/option_manager.h"
 #include "util/threading.h"
 
+#include "controllers/gps_align_bundle_adjustment.h"
+#include "optim/bundle_adjustment.h"
+
 namespace colmap {
 namespace {
 
@@ -401,25 +404,31 @@ int RunModelAligner(int argc, char** argv) {
   }
 
   if (merge_origins) {
-    const Image* first_image =
-        reconstruction.FindImageWithName(ref_image_names[0]);
+    for (size_t i = 0; i < ref_image_names.size(); i++) {
+      const Image* first_image =
+          reconstruction.FindImageWithName(ref_image_names[i]);
 
-    const Eigen::Vector3d first_img_position = ref_locations[0];
+      if (first_image != nullptr) {
+        const Eigen::Vector3d first_img_position = ref_locations[i];
 
-    const Eigen::Vector3d trans_align =
-        first_img_position - first_image->ProjectionCenter();
+        const Eigen::Vector3d trans_align =
+            first_img_position - first_image->ProjectionCenter();
 
-    SimilarityTransform3 origin_align(1.0, ComposeIdentityQuaternion(),
-                                      trans_align);
+        SimilarityTransform3 origin_align(1.0, ComposeIdentityQuaternion(),
+                                          trans_align);
 
-    std::cout << "\n Aligning Reconstruction's origin with Ref origin : "
-              << first_img_position.transpose() << "\n";
+        std::cout << "\n Aligning Reconstruction's origin with Ref origin : "
+                  << first_img_position.transpose() << "\n";
 
-    reconstruction.Transform(origin_align);
+        reconstruction.Transform(origin_align);
 
-    // Update the Sim3 transformation in case it is stored next
-    tform = SimilarityTransform3(tform.Scale(), tform.Rotation(),
-                                 tform.Translation() + trans_align);
+        // Update the Sim3 transformation in case it is stored next
+        tform = SimilarityTransform3(tform.Scale(), tform.Rotation(),
+                                     tform.Translation() + trans_align);
+
+        break;
+      }
+    }
   }
 
   if (alignment_success) {
@@ -1035,130 +1044,177 @@ int RunModelSfmGPSAlign(int argc, char** argv) {
   std::string output_path;
   std::string database_path;
   std::string ref_images_path;
+  bool ref_is_gps = true;
   std::string alignment_type = "enu";
-  int min_common_images = 3;
-  bool robust_alignment = true;
-  bool estimate_scale = true;
-  RANSACOptions ransac_options;
+  double prior_std_x = 1.0;
+  double prior_std_y = 1.0;
+  double prior_std_z = 1.0;
+  bool use_robust_cost_on_prior = true;
+  double robust_prior_huber_cost_squared = 7.815;
+  bool use_robust_cost_on_visual_meas = true;
+  double robust_visual_soft_l1_cost_squared = 5.9915;
+  bool refine_extra_params = false;
+  bool refine_focal_length = false;
+  bool refine_principal_point = false;
+  int ba_max_iterations = 100;
+  int nb_ba_refinement = 5;
+
+  const int min_common_images = 3;
 
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("database_path", &database_path);
   options.AddDefaultOption("ref_images_path", &ref_images_path);
+  options.AddDefaultOption("ref_is_gps", &ref_is_gps);
   options.AddDefaultOption("alignment_type", &alignment_type,
-                           "{plane, ecef, enu, enu-unscaled, custom}");
-  options.AddDefaultOption("min_common_images", &min_common_images);
-  options.AddDefaultOption("robust_alignment", &robust_alignment);
-  options.AddDefaultOption("estimate_scale", &estimate_scale);
-  options.AddDefaultOption("robust_alignment_max_error",
-                           &ransac_options.max_error);
+                           "{ecef, enu, custom}");
+  options.AddDefaultOption("motion_prior_std_x", &prior_std_x);
+  options.AddDefaultOption("motion_prior_std_y", &prior_std_y);
+  options.AddDefaultOption("motion_prior_std_z", &prior_std_z);
+  options.AddDefaultOption("use_robust_cost_on_motion_prior", &use_robust_cost_on_prior);
+  options.AddDefaultOption("robust_prior_huber_cost_squared", &robust_prior_huber_cost_squared);
+  options.AddDefaultOption("use_robust_visual_cost", &use_robust_cost_on_visual_meas);
+  options.AddDefaultOption("robust_visual_soft_l1_cost_squared", &robust_visual_soft_l1_cost_squared);
+  options.AddDefaultOption("refine_extra_params", &refine_extra_params);
+  options.AddDefaultOption("refine_focal_length", &refine_focal_length);
+  options.AddDefaultOption("refine_principal_point", &refine_principal_point);
+  options.AddDefaultOption("ba_max_iterations", &ba_max_iterations);
+  options.AddDefaultOption("nb_ba_refinement", &nb_ba_refinement);
   options.Parse(argc, argv);
 
+  // Check Parsed Arguments
+  // =======================
   StringToLower(&alignment_type);
-  const std::unordered_set<std::string> alignment_options{
-      "plane", "ecef", "enu", "enu-unscaled", "custom"};
+  const std::unordered_set<std::string> alignment_options{"ecef", "enu",
+                                                          "custom"};
   if (alignment_options.count(alignment_type) == 0) {
     std::cerr << "ERROR: Invalid `alignment_type` - supported values are "
-                 "{'plane', 'ecef', 'enu', 'enu-unscaled', 'custom'}"
+                 "{'ecef', 'enu', 'custom'}"
               << std::endl;
     return EXIT_FAILURE;
   }
 
-  if (robust_alignment && ransac_options.max_error <= 0) {
-    std::cout << "ERROR: You must provide a maximum alignment error > 0"
-              << std::endl;
-    return EXIT_FAILURE;
-  }
-
-  if (alignment_type != "plane" && database_path.empty() &&
-      ref_images_path.empty()) {
+  if (database_path.empty() && ref_images_path.empty()) {
     std::cerr << "ERROR: Location alignment requires either database or "
                  "location file path."
               << std::endl;
     return EXIT_FAILURE;
   }
 
+  // Init Prior Positions
+  // =======================
   std::vector<std::string> ref_image_names;
   std::vector<Eigen::Vector3d> ref_locations;
   if (!ref_images_path.empty() && database_path.empty()) {
-    ReadFileCameraLocations(ref_images_path, ref_image_names, ref_locations);
+    ReadFileCameraLocations(ref_images_path, ref_is_gps, alignment_type,
+                            ref_image_names, ref_locations);
   } else if (!database_path.empty() && ref_images_path.empty()) {
-    ReadDatabaseCameraLocations(database_path, ref_image_names, ref_locations);
+    ReadDatabaseCameraLocations(database_path, ref_is_gps, alignment_type,
+                                ref_image_names, ref_locations);
   } else {
     std::cerr << "ERROR: Use location file or database, not both" << std::endl;
     return EXIT_FAILURE;
   }
 
-  if (alignment_type != "plane" &&
-      static_cast<int>(ref_locations.size()) < min_common_images) {
+  if (static_cast<int>(ref_locations.size()) < min_common_images) {
     std::cout << "ERROR: Cannot align with insufficient reference locations."
               << std::endl;
     return EXIT_FAILURE;
   }
 
+  // Load Reconstruction
+  // =======================
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
-  SimilarityTransform3 tform;
-  bool alignment_success = true;
 
-  if (alignment_type == "plane") {
-    PrintHeading2("Aligning reconstruction to principal plane");
-    AlignToPrincipalPlane(&reconstruction, &tform);
-  } else {
-    PrintHeading2("Aligning reconstruction to ECEF");
-    std::cout << StringPrintf(" => Using %d reference images",
-                              ref_image_names.size())
-              << std::endl;
+  // Apply Initial Sim3 Transformation
+  // =================================
+  PrintHeading2("Aligning reconstruction to " + alignment_type);
+  std::cout << StringPrintf(" => Using %d reference images",
+                            ref_image_names.size())
+            << std::endl;
 
-    if (estimate_scale) {
-      if (robust_alignment) {
-        alignment_success = reconstruction.AlignRobust(
-            ref_image_names, ref_locations, min_common_images, ransac_options,
-            &tform);
-      } else {
-        alignment_success = reconstruction.Align(ref_image_names, ref_locations,
-                                                 min_common_images, &tform);
-      }
-    } else {
-      if (robust_alignment) {
-        alignment_success = reconstruction.AlignRobust<false>(
-            ref_image_names, ref_locations, min_common_images, ransac_options,
-            &tform);
-      } else {
-        alignment_success = reconstruction.Align<false>(
-            ref_image_names, ref_locations, min_common_images, &tform);
-      }
-    }
+  // Update TvecPriors & compute initial error
+  // ===========================================
+  std::vector<double> vini_err;
+  vini_err.reserve(ref_image_names.size());
 
-    std::vector<double> errors;
-    errors.reserve(ref_image_names.size());
+  for (size_t i = 0; i < ref_image_names.size(); ++i) {
+    const Image* image = reconstruction.FindImageWithName(ref_image_names[i]);
 
-    for (size_t i = 0; i < ref_image_names.size(); ++i) {
-      const Image* image = reconstruction.FindImageWithName(ref_image_names[i]);
-      if (image != nullptr) {
-        errors.push_back((image->ProjectionCenter() - ref_locations[i]).norm());
-      }
-    }
-    std::cout << StringPrintf(" => Alignment error: %f (mean), %f (median)",
-                              Mean(errors), Median(errors))
-              << std::endl;
+    if (image != nullptr) {
+      vini_err.push_back((image->ProjectionCenter() - ref_locations[i]).norm());
 
-    if (alignment_success && StringStartsWith(alignment_type, "enu")) {
-      PrintHeading2("Aligning reconstruction to ENU");
-      AlignToENUPlane(&reconstruction, &tform,
-                      alignment_type == "enu-unscaled");
+      reconstruction.Image(image->ImageId()).SetTvecPrior(ref_locations[i]);
     }
   }
+  std::cout << StringPrintf(
+                   " => Initial Alignment error with #%d poses: %f "
+                   "(mean), %f (median), %f (std_dev)",
+                   vini_err.size(), Mean(vini_err), Median(vini_err), StdDev(vini_err))
+            << std::endl;
 
-  if (alignment_success) {
-    std::cout << " => Alignment succeeded" << std::endl;
+  PrintHeading2("Going for GPSAlignBundleAdjustment!");
+
+  options.AddBundleAdjustmentOptions();
+
+  options.bundle_adjustment->use_prior_motion = true;
+  options.bundle_adjustment->motion_prior_xyz_std =
+      Eigen::Vector3d(prior_std_x, prior_std_y, prior_std_z);
+
+  if (use_robust_cost_on_prior) {
+    options.bundle_adjustment->use_robust_loss_on_prior = true;
+    options.bundle_adjustment->prior_loss_scale = robust_prior_huber_cost_squared;
+  }
+
+  if (use_robust_cost_on_visual_meas) {
+    options.bundle_adjustment->loss_function_type =
+        BundleAdjustmentOptions::LossFunctionType::SOFT_L1;
+    options.bundle_adjustment->loss_function_scale = robust_visual_soft_l1_cost_squared;
+  }
+
+  options.bundle_adjustment->refine_extra_params = refine_extra_params;
+  options.bundle_adjustment->refine_focal_length = refine_focal_length;
+  options.bundle_adjustment->refine_principal_point = refine_principal_point;
+
+  options.bundle_adjustment->solver_options.max_num_iterations = ba_max_iterations;
+  options.bundle_adjustment->solver_options.max_linear_solver_iterations =
+      50;
+  options.bundle_adjustment->solver_options.inner_iteration_tolerance = 1e-1;
+  options.bundle_adjustment->solver_options.function_tolerance = 1e-5;
+
+  options.bundle_adjustment->solver_options.minimizer_progress_to_stdout =
+      true;
+
+  int nb_iters = nb_ba_refinement;
+
+  for (int iter = 0; iter < nb_iters; iter++) {
+    GPSAlignBundleAdjustmentController ba_controller(options,
+                                                      &reconstruction);
+    ba_controller.Start();
+    ba_controller.Wait();
+
+    std::vector<double> verr;
+    verr.reserve(ref_image_names.size());
+
+    for (const auto &image : reconstruction.Images()) {
+      if (image.second.HasTvecPrior()) {
+        verr.push_back((image.second.ProjectionCenter() - image.second.TvecPrior()).norm());
+      }
+    }
+
+    std::cout
+        << StringPrintf(
+                " => Iter #%d SfM-based GPS Alignment error: %f (median), %f "
+                "(mean), %f (std)",
+                iter, Median(verr), Mean(verr), StdDev(verr))
+        << std::endl;
+
     reconstruction.Write(output_path);
-    return EXIT_SUCCESS;
-  } else {
-    std::cout << " => Alignment failed" << std::endl;
-    return EXIT_FAILURE;
   }
+
+  return EXIT_SUCCESS;
 }
 
 }  // namespace colmap

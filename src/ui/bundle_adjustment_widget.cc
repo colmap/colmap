@@ -70,6 +70,26 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
   AddOptionBool(&options->bundle_adjustment->refine_extrinsics,
                 "refine_extrinsics");
 
+  AddSpacer();
+
+  AddSection("Prior Motion parameters");
+  AddOptionBool(&options->bundle_adjustment->use_prior_motion,
+                "use_prior_motion");
+  AddOptionDouble(&options->bundle_adjustment->motion_prior_xyz_std(0),
+                  "Prior - std_x", 0.0, 1e9, 1e-2, 3);
+  AddOptionDouble(&options->bundle_adjustment->motion_prior_xyz_std(1),
+                  "Prior - std_y", 0.0, 1e9, 1e-2, 3);
+  AddOptionDouble(&options->bundle_adjustment->motion_prior_xyz_std(2),
+                  "Prior - std_z", 0.0, 1e9, 1e-2, 3);
+  AddOptionBool(&options->bundle_adjustment->use_robust_loss_on_prior,
+                "Use Robust Cost function on Motion Priors");
+  AddOptionDouble(&options->bundle_adjustment->prior_loss_scale,
+                  "Motion Prior Robust Squared Cost", 0.0, 1e6, 1e-3, 4);
+  AddOptionInt((reinterpret_cast<int*>(&options->bundle_adjustment->loss_function_type)),
+                "Use Robust Cost function on Visual Measurements\n(0: No, 1: Soft_L1, 2: Cauchy", 0, 2);
+  AddOptionDouble(&options->bundle_adjustment->loss_function_scale,
+                  "Visual meas. Robust Squared Cost", 0.0, 1e6, 1e-3, 4);
+
   QPushButton* run_button = new QPushButton(tr("Run"), this);
   grid_layout_->addWidget(run_button, grid_layout_->rowCount(), 1);
   connect(run_button, &QPushButton::released, this,
@@ -95,9 +115,26 @@ void BundleAdjustmentWidget::Run() {
   thread->AddCallback(Thread::FINISHED_CALLBACK,
                       [this]() { render_action_->trigger(); });
 
-  // Normalize scene for numerical stability and
-  // to avoid large scale changes in viewer.
-  reconstruction_->Normalize();
+  size_t nb_motion_prior = 0;
+  if (options_->bundle_adjustment->use_prior_motion) {
+    for (const auto& image : reconstruction_->Images()) {
+      if (image.second.HasTvecPrior()) {
+        ++nb_motion_prior;
+      }
+    }
+    if (nb_motion_prior < 3) {
+      options_->bundle_adjustment->use_prior_motion = false;
+      std::cout << "\nBA with Motion Prior required but only #"
+                << nb_motion_prior << " images have a prior!";
+      std::cout << "\nNot going to use priors!\n";
+    }
+  }
+
+  if (!options_->bundle_adjustment->use_prior_motion) {
+    // Normalize scene for numerical stability and
+    // to avoid large scale changes in viewer.
+    reconstruction_->Normalize();
+  }
 
   thread_control_widget_->StartThread("Bundle adjusting...", true, thread);
 }

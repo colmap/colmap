@@ -36,11 +36,14 @@
 #include "optim/bundle_adjustment.h"
 #include "util/misc.h"
 
+#include "base/gps.h"
+
 namespace colmap {
 namespace {
 
 // Callback functor called after each bundle adjustment iteration.
-class GPSAlignBundleAdjustmentIterationCallback : public ceres::IterationCallback {
+class GPSAlignBundleAdjustmentIterationCallback
+    : public ceres::IterationCallback {
  public:
   explicit GPSAlignBundleAdjustmentIterationCallback(Thread* thread)
       : thread_(thread) {}
@@ -88,16 +91,29 @@ void GPSAlignBundleAdjustmentController::Run() {
   ba_options.solver_options.callbacks.push_back(&iteration_callback);
 
   // Configure bundle adjustment.
+  // bool is_gauge_fixed = true;
   BundleAdjustmentConfig ba_config;
   for (const image_t image_id : reg_image_ids) {
     ba_config.AddImage(image_id);
   }
-  // Only keep constant the origin of the 3D model frame
-  ba_config.SetConstantTvec(reg_image_ids[0], {0});
+
+  std::cout << "\n\nGPS-SfM Details -- Pre-BA : \n";
+  std::cout << ">>> Num Images : " << reconstruction_->NumImages() << "\n";
+  std::cout << ">>> Num 2D-3D obs : " << reconstruction_->ComputeNumObservations() << "\n";
+  std::cout << ">>> Num 3D Points : " << reconstruction_->NumPoints3D() << "\n\n";
 
   // Run bundle adjustment.
   BundleAdjuster bundle_adjuster(ba_options, ba_config);
   bundle_adjuster.Solve(reconstruction_);
+
+  // Filter GPS-SfM Results.
+  reconstruction_->FilterObservationsWithNegativeDepth();
+  reconstruction_->FilterAllPoints3D(3.0, 0.0);
+
+  std::cout << "\n\nGPS-SfM Details -- Post-BA : \n";
+  std::cout << ">>> Num Images : " << reconstruction_->NumImages() << "\n";
+  std::cout << ">>> Num 2D-3D obs : " << reconstruction_->ComputeNumObservations() << "\n";
+  std::cout << ">>> Num 3D Points : " << reconstruction_->NumPoints3D() << "\n\n";
 
   GetTimer().PrintMinutes();
 }

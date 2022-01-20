@@ -120,6 +120,28 @@ MapperBundleAdjustmentOptionsWidget::MapperBundleAdjustmentOptionsWidget(
 
   AddSpacer();
 
+  AddSection("Prior Motion parameters");
+  AddOptionBool(&options->mapper->ba_use_prior_motion, "use_prior_motion");
+  AddOptionBool(&options->mapper->ba_prior_is_gps,
+                "is_gps (will convert priors to ecef coords.)");
+  AddOptionBool(&options->mapper->ba_use_enu_coords,
+                "use_enu_coords (instead of ecef coords.)");
+  AddOptionDouble(&options->mapper->ba_prior_std_x, "Prior - std_x", 0.0, 1e9,
+                  1e-2, 3);
+  AddOptionDouble(&options->mapper->ba_prior_std_y, "Prior - std_y", 0.0, 1e9,
+                  1e-2, 3);
+  AddOptionDouble(&options->mapper->ba_prior_std_z, "Prior - std_z", 0.0, 1e9,
+                  1e-2, 3);
+  AddOptionBool(&options->mapper->ba_global_use_robust_loss_on_prior,
+                "Use Robust Cost function on Motion Priors");
+  AddOptionDouble(&options->mapper->prior_loss_scale,
+                  "Motion Prior Robust Squared Cost", 0.0, 1e6, 1e-3, 4);
+  AddOptionBool(&options->mapper->ba_global_use_robust_cost,
+                "Use Robust Cost function on Visual Measurements");
+  AddOptionDouble(&options->mapper->ba_global_loss_scale,
+                  "Visual meas. Robust Squared Cost", 0.0, 1e6, 1e-3, 4);
+  AddSpacer();
+
   AddSection("Local Bundle Adjustment");
   AddOptionInt(&options->mapper->ba_local_num_images, "num_images");
   AddOptionInt(&options->mapper->ba_local_max_num_iterations,

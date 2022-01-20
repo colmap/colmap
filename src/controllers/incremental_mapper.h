@@ -94,7 +94,7 @@ struct IncrementalMapperOptions {
   int ba_local_num_images = 6;
 
   // Ceres solver function tolerance for local bundle adjustment
-  double ba_local_function_tolerance = 0.0;
+  double ba_local_function_tolerance = 1e-5;
 
   // The maximum number of local bundle adjustment iterations.
   int ba_local_max_num_iterations = 25;
@@ -112,7 +112,7 @@ struct IncrementalMapperOptions {
   int ba_global_points_freq = 250000;
 
   // Ceres solver function tolerance for global bundle adjustment
-  double ba_global_function_tolerance = 0.0;
+  double ba_global_function_tolerance = 1e-5;
 
   // The maximum number of global bundle adjustment iterations.
   int ba_global_max_num_iterations = 50;
@@ -122,6 +122,20 @@ struct IncrementalMapperOptions {
   double ba_local_max_refinement_change = 0.001;
   int ba_global_max_refinements = 5;
   double ba_global_max_refinement_change = 0.0005;
+
+  // Prior motion based alignment options
+  bool ba_use_prior_motion = false;
+  bool ba_prior_is_gps = false;
+  bool ba_use_enu_coords = false;
+  double ba_prior_std_x = 1.0;
+  double ba_prior_std_y = 1.0;
+  double ba_prior_std_z = 1.0;
+
+  bool ba_global_use_robust_loss_on_prior = true;
+  double prior_loss_scale = 7.815;   // Chi2 at 0.95 for 3 dof
+
+  bool ba_global_use_robust_cost = true;
+  double ba_global_loss_scale = 5.9915;   // Chi2 at 0.95 for 2 dof
 
   // Path to a folder with reconstruction snapshots during incremental
   // reconstruction. Snapshots will be saved according to the specified
@@ -175,6 +189,7 @@ class IncrementalMapperController : public Thread {
  private:
   void Run();
   bool LoadDatabase();
+  bool SetUpPriorMotions();
   void Reconstruct(const IncrementalMapper::Options& init_mapper_options);
 
   const IncrementalMapperOptions* options_;

@@ -123,6 +123,9 @@ class IncrementalMapper {
     // If reconstruction is provided as input, fix the existing image poses.
     bool fix_existing_images = false;
 
+    // If prior motion use is set
+    bool use_prior_motion = false;
+
     // Number of threads.
     int num_threads = -1;
 

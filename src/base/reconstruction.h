@@ -216,11 +216,25 @@ class Reconstruction {
              const int min_common_images,
              SimilarityTransform3* tform = nullptr);
 
+  // Align given src and dst 3D vectors
+  template <bool kEstimateScale = true>
+  bool Align(const std::vector<Eigen::Vector3d>& src,
+             const std::vector<Eigen::Vector3d>& dst,
+             SimilarityTransform3* tform = nullptr);
+
   // Robust alignment using RANSAC.
   template <bool kEstimateScale = true>
   bool AlignRobust(const std::vector<std::string>& image_names,
                    const std::vector<Eigen::Vector3d>& locations,
                    const int min_common_images,
+                   const RANSACOptions& ransac_options,
+                   SimilarityTransform3* tform = nullptr);
+
+  // Robust alignment using RANSAC given src and dst 3D vectors.
+  template <bool kEstimateScale = true>
+  bool AlignRobust(const std::vector<Eigen::Vector3d>& src,
+                   const std::vector<Eigen::Vector3d>& dst,
+                   const int min_num_inliers,
                    const RANSACOptions& ransac_options,
                    SimilarityTransform3* tform = nullptr);
 
@@ -568,10 +582,15 @@ bool Reconstruction::Align(const std::vector<std::string>& image_names,
     dst.push_back(locations[i]);
   }
 
-  // Only compute the alignment if there are enough correspondences.
-  if (common_image_ids.size() < static_cast<size_t>(min_common_images)) {
-    return false;
-  }
+  return Align(src,dst,tform);
+}
+
+template <bool kEstimateScale>
+bool Reconstruction::Align(const std::vector<Eigen::Vector3d>& src,
+                           const std::vector<Eigen::Vector3d>& dst,
+                           SimilarityTransform3* tform) {
+  CHECK_GE(src.size(), 3);
+  CHECK_EQ(src.size(), dst.size());
 
   SimilarityTransform3 transform;
   if (!transform.Estimate<kEstimateScale>(src, dst)) {
@@ -626,13 +645,25 @@ bool Reconstruction::AlignRobust(const std::vector<std::string>& image_names,
     return false;
   }
 
+  return AlignRobust(src,dst,min_common_images,ransac_options,tform);
+}
+
+template <bool kEstimateScale>
+bool Reconstruction::AlignRobust(const std::vector<Eigen::Vector3d>& src,
+                                 const std::vector<Eigen::Vector3d>& dst,
+                                 const int min_num_inliers,
+                                 const RANSACOptions& ransac_options,
+                                 SimilarityTransform3* tform) {
+  CHECK_GE(src.size(), 3);
+  CHECK_EQ(src.size(), dst.size());
+
   LORANSAC<SimilarityTransformEstimator<3, kEstimateScale>,
            SimilarityTransformEstimator<3, kEstimateScale>>
       ransac(ransac_options);
 
   const auto report = ransac.Estimate(src, dst);
 
-  if (report.support.num_inliers < static_cast<size_t>(min_common_images)) {
+  if (report.support.num_inliers < static_cast<size_t>(min_num_inliers)) {
     return false;
   }
 
@@ -642,7 +673,6 @@ bool Reconstruction::AlignRobust(const std::vector<std::string>& image_names,
   if (tform != nullptr) {
     *tform = transform;
   }
-
   return true;
 }
 

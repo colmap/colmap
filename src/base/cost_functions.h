@@ -292,18 +292,71 @@ class PositionAlignCostFunction {
   bool operator()(const T* const qvec, const T* const tvec,
                   T* residuals) const {
     // Get Pose in world frame (cam -> world transform)
-    Eigen::Matrix<T, 3, 3, Eigen::RowMajor> R;
-    ceres::QuaternionToRotation(qvec, R.data());
+    Eigen::Matrix<T, 3, 3, Eigen::RowMajor> Rciw;
+    ceres::QuaternionToRotation(qvec, Rciw.data());
 
-    const Eigen::Matrix<T, 3, 1> t(tvec[0], tvec[1], tvec[2]);
+    const Eigen::Matrix<T, 3, 1> tciw(tvec[0], tvec[1], tvec[2]);
 
-    const Eigen::Matrix<T, 3, 3, Eigen::RowMajor> Rwc = R.transpose();
-    const Eigen::Matrix<T, 3, 1> twc = T(-1.) * Rwc * t;
+    const Eigen::Matrix<T, 3, 1> twci = T(-1.) * (Rciw.transpose() * tciw);
 
     // Weighted Position error.
-    residuals[0] = T(inv_std_x_) * (twc[0] - T(pos_x_));
-    residuals[1] = T(inv_std_y_) * (twc[1] - T(pos_y_));
-    residuals[2] = T(inv_std_z_) * (twc[2] - T(pos_z_));
+    residuals[0] = T(inv_std_x_) * (twci[0] - T(pos_x_));
+    residuals[1] = T(inv_std_y_) * (twci[1] - T(pos_y_));
+    residuals[2] = T(inv_std_z_) * (twci[2] - T(pos_z_));
+
+    return true;
+  }
+
+ private:
+  const double pos_x_;
+  const double pos_y_;
+  const double pos_z_;
+
+  const double inv_std_x_;
+  const double inv_std_y_;
+  const double inv_std_z_;
+};
+
+// Position alignment cost function with Global Rotation Aligner
+// (position meas. expected to be in world frame).
+class PositionAlignGloblaRotCostFunction {
+ public:
+  explicit PositionAlignGloblaRotCostFunction(
+      const Eigen::Vector3d& pos_xyz,
+      const Eigen::Vector3d& std_xyz = Eigen::Vector3d::Ones())
+      : pos_x_(pos_xyz(0)),
+        pos_y_(pos_xyz(1)),
+        pos_z_(pos_xyz(2)),
+        inv_std_x_(1. / std_xyz(0)),
+        inv_std_y_(1. / std_xyz(1)),
+        inv_std_z_(1. / std_xyz(2)) {}
+
+  static ceres::CostFunction* Create(
+      const Eigen::Vector3d& pos_xyz,
+      const Eigen::Vector3d& std_xyz = Eigen::Vector3d::Ones()) {
+    return (new ceres::AutoDiffCostFunction<PositionAlignGloblaRotCostFunction,
+                                            3, 4, 4, 3>(
+        new PositionAlignGloblaRotCostFunction(pos_xyz, std_xyz)));
+  }
+
+  template <typename T>
+  bool operator()(const T* const qwc0, const T* const qvec, const T* const tvec,
+                  T* residuals) const {
+    // Get Pose in world frame (cam -> world transform)
+    Eigen::Matrix<T, 3, 3, Eigen::RowMajor> Rcic0;
+    ceres::QuaternionToRotation(qvec, Rcic0.data());
+
+    const Eigen::Matrix<T, 3, 1> tcic0(tvec[0], tvec[1], tvec[2]);
+
+    Eigen::Matrix<T, 3, 3, Eigen::RowMajor> Rwc0;
+    ceres::QuaternionToRotation(qwc0, Rwc0.data());
+
+    const Eigen::Matrix<T, 3, 1> twci = T(-1.) * Rwc0 * Rcic0.transpose() * tcic0;
+
+    // Weighted Position error.
+    residuals[0] = T(inv_std_x_) * (twci[0] - T(pos_x_));
+    residuals[1] = T(inv_std_y_) * (twci[1] - T(pos_y_));
+    residuals[2] = T(inv_std_z_) * (twci[2] - T(pos_z_));
 
     return true;
   }
