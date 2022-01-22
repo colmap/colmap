@@ -52,6 +52,6 @@ jobs:
   - pwsh: |
       mkdir install
       cmake --build . --target install
-      $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools/qt5/bin/windeployqt.exe ./bin/colmap.exe --no-angle
+      $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools/qt5/bin/windeployqt.exe ./install/bin/colmap.exe --no-angle
     workingDirectory: $(Build.ArtifactStagingDirectory)
     displayName: 'Install'
