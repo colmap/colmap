@@ -5,7 +5,7 @@ parameters:
   asanEnabled: false
 
 jobs:
-- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}_asa_${{ parameters.asanEnabled }}
+- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}_asan_${{ parameters.asanEnabled }}
   displayName: '${{ parameters.displayName }}'
   pool:
     vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
@@ -47,7 +47,7 @@ jobs:
         sudo apt-get install -y clang-10
         echo '##vso[task.setvariable variable=CC]/usr/bin/clang'
         echo '##vso[task.setvariable variable=CXX]/usr/bin/clang++'
-      displayName: 'Install CUDA'
+      displayName: 'Install Clang'
 
   - script: |
       cmake --version

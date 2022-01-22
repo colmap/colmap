@@ -200,7 +200,7 @@ else()
 endif()
 
 if(ASAN_ENABLED)
-    message(STATUS "Enabling ASan flags")
+    message(STATUS "Enabling ASan support")
     if(IS_CLANG OR IS_GNU)
         add_compile_options(-fsanitize=address -fno-omit-frame-pointer -fsanitize-address-use-after-scope)
         add_link_options(-fsanitize=address)
