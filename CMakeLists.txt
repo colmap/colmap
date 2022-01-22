@@ -453,7 +453,7 @@ if(IS_MSVC)
     if(INSTALL_RUNTIME_DEPS)
         # Copies all the relevant runtime dependency DLLs under Windows.
         install(RUNTIME_DEPENDENCY_SET colmap
-                PRE_EXCLUDE_REGEXES "(ext-ms-).*|(api-ms-).*|(hvsifiletrust.dll)|(pdmutilities.dll)|(wpaxholder.dll)")
+                PRE_EXCLUDE_REGEXES "(ext-ms-).*|(api-ms-).*|(hvsifiletrust.dll)|(pdmutilities.dll)|(wpaxholder.dll)|(emclient.dll)")
     endif()
 endif()
 
