@@ -67,6 +67,7 @@ option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(BOOST_STATIC "Whether to enable static boost library linker flags" ON)
 set(CUDA_ARCHS "Auto" CACHE STRING "List of CUDA architectures for which to \
 generate code, e.g., Auto, All, Maxwell, Pascal, ...")
+option(INSTALL_RUNTIME_DEPS "Whether to install runtime dependencies" OFF)
 
 if(TESTS_ENABLED)
     enable_testing()
@@ -449,6 +450,11 @@ if(IS_MSVC)
             PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
                         GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
             DESTINATION "/")
+    if(INSTALL_RUNTIME_DEPS)
+        # Copies all the relevant runtime dependency DLLs under Windows.
+        install(RUNTIME_DEPENDENCY_SET colmap
+                PRE_EXCLUDE_REGEXES "(ext-ms-).*|(api-ms-).*|(hvsifiletrust.dll)|(pdmutilities.dll)|(wpaxholder.dll)")
+    endif()
 endif()
 
 # Install application meny entry under Linux/Unix.
