@@ -116,14 +116,14 @@ void ParallelBA::SetFocalMask(const int* fmask, float weight) {
   if (_optimizer && weight > 0) _optimizer->SetFocalMask(fmask, weight);
 }
 
-void* ParallelBA::operator new(size_t size) {
-  void* p = malloc(size);
-  if (p == 0) {
-    const std::bad_alloc ba;
-    throw ba;
-  }
-  return p;
-}
+// void* ParallelBA::operator new(size_t size) {
+//   void* p = malloc(size);
+//   if (p == 0) {
+//     const std::bad_alloc ba;
+//     throw ba;
+//   }
+//   return p;
+// }
 
 ParallelBA* NewParallelBA(ParallelBA::DeviceT device) {
   return new ParallelBA(device);

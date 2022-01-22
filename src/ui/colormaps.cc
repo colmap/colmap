@@ -150,7 +150,7 @@ void PointColormapGroundResolution::Prepare(
 
     const Eigen::Vector3f xyz = point3D.second.XYZ().cast<float>();
 
-    for (const auto track_el : point3D.second.Track().Elements()) {
+    for (const auto& track_el : point3D.second.Track().Elements()) {
       const auto& image = images[track_el.image_id];
       const float focal_length = focal_lengths[image.CameraId()];
       const float focal_length2 = focal_length * focal_length;
