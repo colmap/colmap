@@ -182,12 +182,12 @@ int MLKKMPartitioning(CtrlType *ctrl, GraphType *graph, int nparts, int chain_le
   GraphType *cgraph;
   int wgtflag=3, numflag=0, options[10], edgecut;
   float ncut;
-  idxtype *cptr, *cind;
+  // idxtype *cptr, *cind;
   int numcomponents;
   char *mlwkkm_fname = "coarse.graph";
 
-  cptr = idxmalloc(graph->nvtxs, "MLKKMPartitioning: cptr");
-  cind = idxmalloc(graph->nvtxs, "MLKKMPartitioning: cind");
+  // cptr = idxmalloc(graph->nvtxs, "MLKKMPartitioning: cptr");
+  // cind = idxmalloc(graph->nvtxs, "MLKKMPartitioning: cind");
   //printf("Computing the number of connected components.\n");
   /*numcomponents = FindComponents(ctrl, graph, cptr, cind);
 

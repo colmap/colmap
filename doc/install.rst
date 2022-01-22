@@ -316,6 +316,22 @@ with the source code ``hello_world.cc``::
     }
 
 
+----------------
+AddressSanitizer
+----------------
+
+If you want to build COLMAP with address sanitizer flags enabled, you need to
+use a recent compiler with ASan support. For example, you can manually install
+a recent clang version on your Ubuntu machine and invoke CMake as follows::
+
+    CC=/usr/bin/clang CXX=/usr/bin/clang++ cmake .. \
+        -DASAN_ENABLED=ON \
+        -DTESTS_ENABLED=ON \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+Note that it is generally useful to combine ASan with debug symbols to get
+meaningful traces for reported issues.
+
 -------------
 Documentation
 -------------
