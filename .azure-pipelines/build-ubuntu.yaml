@@ -2,9 +2,10 @@ parameters:
   displayName: 'Ubuntu 18.04'
   ubuntuVersion: '18.04'
   cudaEnabled: false
+  asanEnabled: false
 
 jobs:
-- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}
+- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}_asa_${{ parameters.asanEnabled }}
   displayName: '${{ parameters.displayName }}'
   pool:
     vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
@@ -48,7 +49,8 @@ jobs:
       cmake .. \
         -GNinja \
         -DTESTS_ENABLED=ON \
-        -DCUDA_ARCHS=6.0
+        -DCUDA_ARCHS=6.0 \
+        -DASAN_ENABLED=${{ parameters.asanEnabled }}
       ninja
     displayName: 'Configure and build'
 
