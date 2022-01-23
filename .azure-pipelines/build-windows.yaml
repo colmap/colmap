@@ -41,6 +41,10 @@ jobs:
       useVcpkgToolchainFile: true
 
   - pwsh: |
+      ls $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/
+      ls $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/release
+
+  - pwsh: |
       $env:PATH = "$(Build.BinariesDirectory)/vcpkg/installed/x64-windows/release/bin/;$env:Path"
       ctest
       $tests_pass=$LastExitCode
@@ -55,6 +59,8 @@ jobs:
   - pwsh: |
       mkdir install
       cmake --build . --target install
-      $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools/qt5/bin/windeployqt.exe ./install/bin/colmap.exe --no-angle
+      ls $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/
+      ls $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/release
+      & $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools/qt5/bin/windeployqt.exe ./install/bin/colmap.exe --no-angle
     workingDirectory: $(Build.ArtifactStagingDirectory)
     displayName: 'Install'
