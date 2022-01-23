@@ -87,7 +87,12 @@ if(SIMD_ENABLED AND IS_X86)
 
     list(APPEND VLFEAT_SOURCE_FILES ${AVX_SOURCES} ${SSE2_SOURCES})
 
-    if (NOT MSVC)
+    if (MSVC)
+        set_source_files_properties(${AVX_SOURCES}
+            PROPERTIES COMPILE_FLAGS "/arch:AVX")
+        set_source_files_properties(${SSE2_SOURCES}
+            PROPERTIES COMPILE_FLAGS "/D__SSE2__")
+    else()
         set_source_files_properties(${AVX_SOURCES}
             PROPERTIES COMPILE_FLAGS "-mavx")
         set_source_files_properties(${SSE2_SOURCES}
