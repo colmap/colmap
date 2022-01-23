@@ -76,7 +76,7 @@ jobs:
           ctest --rerun-failed --output-on-failure
       fi
       exit $tests_pass
-    displayName: 'Run tests'
+    displayName: 'Run unit tests'
 
   - ${{ if eq(parameters.e2eTestsEnabled, true) }}:
     - script: |
@@ -92,11 +92,12 @@ jobs:
             --quality low
         ./build/src/exe/colmap model_comparer \
             --input_path1 south-building-test/sparse/0 \
-            --input_path2 south-building-test/expected-sparse/0
+            --input_path2 south-building-test/expected-sparse/0 \
+            --output_path .
         python ./scripts/python/expect_model_comparer_errors.py \
             --errors_csv_path errors.csv \
-            --max_rotation_error 0.001 \
-            --max_translation_error 0.001 \
-            --max_proj_center_error 0.001 \
+            --max_rotation_error 0.05 \
+            --max_translation_error 0.05 \
+            --max_proj_center_error 0.05 \
             --expected_num_images 6
       displayName: 'Run E2E tests'
