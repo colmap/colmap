@@ -84,7 +84,7 @@ jobs:
         export QT_QPA_PLATFORM="offscreen"
         wget https://demuc.de/colmap/datasets/south-building-test.zip
         unzip https://demuc.de/colmap/datasets/south-building-test.zip
-        ./src/exe/colmap automatic_reconstructor \
+        ./build/src/exe/colmap automatic_reconstructor \
             --image_path south-building-test/images \
             --workspace_path south-building-test
         ./build/src/exe/colmap model_comparer \
