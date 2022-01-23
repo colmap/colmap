@@ -137,8 +137,7 @@ void ReadFileCameraLocations(const std::string& ref_images_path,
                              const std::string& alignment_type,
                              std::vector<std::string>& ref_image_names,
                              std::vector<Eigen::Vector3d>& ref_locations) {
-  const auto lines = ReadTextFileLines(ref_images_path);
-  for (const auto& line : lines) {
+  for (const auto& line : ReadTextFileLines(ref_images_path)) {
     std::stringstream line_parser(line);
     std::string image_name;
     Eigen::Vector3d camera_position;
@@ -157,8 +156,7 @@ void ReadDatabaseCameraLocations(const std::string& database_path,
                                  std::vector<std::string>& ref_image_names,
                                  std::vector<Eigen::Vector3d>& ref_locations) {
   Database database(database_path);
-  auto images = database.ReadAllImages();
-  for (const auto image : images) {
+  for (const auto& image : database.ReadAllImages()) {
     if (image.HasTvecPrior()) {
       ref_image_names.push_back(image.Name());
       ref_locations.push_back(image.TvecPrior());
@@ -279,17 +277,15 @@ int RunModelAligner(int argc, char** argv) {
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("database_path", &database_path);
   options.AddDefaultOption("ref_images_path", &ref_images_path);
-  options.AddDefaultOption("ref_is_gps", &ref_is_gps, "Default: true");
-  options.AddDefaultOption("merge_image_and_ref_origins", &merge_origins,
-                           "Default: false");
+  options.AddDefaultOption("ref_is_gps", &ref_is_gps);
+  options.AddDefaultOption("merge_image_and_ref_origins", &merge_origins);
   options.AddDefaultOption("transform_path", &transform_path);
   options.AddDefaultOption(
       "alignment_type", &alignment_type,
       "{plane, ecef, enu, enu-plane, enu-plane-unscaled, custom}");
   options.AddDefaultOption("min_common_images", &min_common_images);
-  options.AddDefaultOption("estimate_scale", &estimate_scale, "Default: true");
-  options.AddDefaultOption("robust_alignment", &robust_alignment,
-                           "Default: true");
+  options.AddDefaultOption("estimate_scale", &estimate_scale);
+  options.AddDefaultOption("robust_alignment", &robust_alignment);
   options.AddDefaultOption("robust_alignment_max_error",
                            &ransac_options.max_error);
   options.Parse(argc, argv);
