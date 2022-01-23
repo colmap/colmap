@@ -31,7 +31,8 @@ jobs:
         libcgal-dev \
         libcgal-qt5-dev \
         libgl1-mesa-dri \
-        xvfb
+        xvfb \
+        zip
     displayName: 'Install dependencies'
   
   - ${{ if eq(parameters.cudaEnabled, true) }}:
@@ -95,3 +96,4 @@ jobs:
             --max_translation_error 0.001 \
             --max_proj_center_error 0.001 \
             --expected_num_images 6
+      displayName: 'Run E2E tests'
