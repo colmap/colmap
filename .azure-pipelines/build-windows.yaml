@@ -50,7 +50,7 @@ jobs:
       }
       exit $tests_pass
     workingDirectory: $(Build.ArtifactStagingDirectory)
-    displayName: 'Run tests'
+    displayName: 'Run unit tests'
 
   - ${{ if eq(parameters.e2eTestsEnabled, true) }}:
     - pwsh: |
