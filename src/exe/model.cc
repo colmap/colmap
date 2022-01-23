@@ -182,7 +182,7 @@ void PrintComparisonSummary(std::ostream& out,
                             std::vector<double>& rotation_errors,
                             std::vector<double>& translation_errors,
                             std::vector<double>& proj_center_errors) {
-  out << "# Image pose error summary" << std::endl;
+  PrintHeading2("Image pose error summary");
   out << std::endl << "Rotation angular errors (degrees)" << std::endl;
   PrintErrorStats(out, rotation_errors);
   out << std::endl << "Translation distance errors" << std::endl;
@@ -420,9 +420,12 @@ int RunModelComparer(int argc, char** argv) {
             << tform.Matrix() << std::endl;
 
   const size_t num_images = common_image_ids.size();
-  std::vector<double> rotation_errors(num_images, 0.0);
-  std::vector<double> translation_errors(num_images, 0.0);
-  std::vector<double> proj_center_errors(num_images, 0.0);
+  std::vector<double> rotation_errors(num_images,
+                                      std::numeric_limits<double>::infinity());
+  std::vector<double> translation_errors(
+      num_images, std::numeric_limits<double>::infinity());
+  std::vector<double> proj_center_errors(
+      num_images, std::numeric_limits<double>::infinity());
   for (size_t i = 0; i < num_images; ++i) {
     const image_t image_id = common_image_ids[i];
     const Image& image1 = reconstruction1.Image(image_id);

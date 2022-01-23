@@ -3,9 +3,10 @@ parameters:
   ubuntuVersion: '18.04'
   cudaEnabled: false
   asanEnabled: false
+  e2eTestsEnabled: false
 
 jobs:
-- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}_asan_${{ parameters.asanEnabled }}
+- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}_asan_${{ parameters.asanEnabled }}_e2e_${{ parameters.e2eTestsEnabled }}
   displayName: '${{ parameters.displayName }}'
   pool:
     vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
@@ -75,3 +76,22 @@ jobs:
       fi
       exit $tests_pass
     displayName: 'Run tests'
+
+  - ${{ if eq(parameters.e2eTestsEnabled, true) }}:
+    - script: |
+        export DISPLAY=":99.0"
+        export QT_QPA_PLATFORM="offscreen"
+        wget https://demuc.de/colmap/datasets/south-building-test.zip
+        unzip https://demuc.de/colmap/datasets/south-building-test.zip
+        ./src/exe/colmap automatic_reconstructor \
+            --image_path south-building-test/images \
+            --workspace_path south-building-test
+        ./build/src/exe/colmap model_comparer \
+            --input_path1 south-building-test/sparse/0 \
+            --input_path2 south-building-test/expected-sparse/0
+        python ../scripts/python/expect_model_comparer_errors.py \
+            --errors_csv_path errors.csv \
+            --max_rotation_error 0.001 \
+            --max_translation_error 0.001 \
+            --max_proj_center_error 0.001 \
+            --expected_num_images 6
