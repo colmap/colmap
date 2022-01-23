@@ -401,25 +401,31 @@ int RunModelAligner(int argc, char** argv) {
   }
 
   if (merge_origins) {
-    const Image* first_image =
-        reconstruction.FindImageWithName(ref_image_names[0]);
+    for (size_t i = 0; i < ref_image_names.size(); i++) {
+      const Image* first_image =
+          reconstruction.FindImageWithName(ref_image_names[i]);
 
-    const Eigen::Vector3d& first_img_position = ref_locations[0];
+      if (first_image != nullptr) {
+        const Eigen::Vector3d& first_img_position = ref_locations[i];
 
-    const Eigen::Vector3d trans_align =
-        first_img_position - first_image->ProjectionCenter();
+        const Eigen::Vector3d trans_align =
+            first_img_position - first_image->ProjectionCenter();
 
-    const SimilarityTransform3 origin_align(1.0, ComposeIdentityQuaternion(),
-                                      trans_align);
+        const SimilarityTransform3 origin_align(1.0, ComposeIdentityQuaternion(),
+                                          trans_align);
 
-    std::cout << "\nAligning Reconstruction's origin with Ref origin :"
-              << first_img_position.transpose() << "\n";
+        std::cout << "\n Aligning Reconstruction's origin with Ref origin : "
+                  << first_img_position.transpose() << "\n";
 
-    reconstruction.Transform(origin_align);
+        reconstruction.Transform(origin_align);
 
-    // Update the Sim3 transformation in case it is stored next
-    tform = SimilarityTransform3(tform.Scale(), tform.Rotation(),
-                                 tform.Translation() + trans_align);
+        // Update the Sim3 transformation in case it is stored next
+        tform = SimilarityTransform3(tform.Scale(), tform.Rotation(),
+                                     tform.Translation() + trans_align);
+
+        break;
+      }
+    }
   }
 
   if (alignment_success) {
