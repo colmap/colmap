@@ -121,13 +121,10 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::EllToENU(
-    const std::vector<Eigen::Vector3d>& ell) const {
+    const std::vector<Eigen::Vector3d>& ell, const double lat0,
+    const double lon0) const {
   // Convert GPS (lat / lon / alt) to ECEF
   std::vector<Eigen::Vector3d> xyz = EllToXYZ(ell);
-
-  // GPS reference origin
-  const double lat0 = ell[0](0);
-  const double lon0 = ell[0](1);
 
   return XYZToENU(xyz, lat0, lon0);
 }

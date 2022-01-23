@@ -136,7 +136,7 @@ void ReadFileCameraLocations(const std::string& ref_images_path,
     } else {
       std::cout << "\n Converting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to ENU. \n";
-      ref_locations = gps_transform.EllToENU(ref_locations);
+      ref_locations = gps_transform.EllToENU(ref_locations, ref_locations[0](0), ref_locations[0](1));
     }
   } else {
     std::cout << "\n Cartesian Alignment Coordinates extracted (MUST NOT BE "
@@ -167,7 +167,7 @@ void ReadDatabaseCameraLocations(const std::string& database_path,
     } else {
       std::cout << "\nConverting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to ENU.\n";
-      ref_locations = gps_transform.EllToENU(ref_locations);
+      ref_locations = gps_transform.EllToENU(ref_locations, ref_locations[0](0), ref_locations[0](1));
     }
   } else {
     std::cout << "\nCartesian Alignment Coordinates extracted (MUST NOT BE "

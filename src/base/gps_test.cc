@@ -175,7 +175,7 @@ BOOST_AUTO_TEST_CASE(TestEllToENUWGS84) {
   const auto ref_enu = gps_tform.XYZToENU(ref_xyz, ori_ell(0), ori_ell(1));
 
   // Get ENU from Ell
-  const auto enu = gps_tform.EllToENU(ell);
+  const auto enu = gps_tform.EllToENU(ell, ori_ell(0), ori_ell(1));
 
   for (size_t i = 0; i < ell.size(); ++i) {
     BOOST_CHECK(enu[i].isApprox(ref_enu[i], 1e-8));
@@ -266,7 +266,7 @@ BOOST_AUTO_TEST_CASE(TestENUToXYZ) {
   const double alt0 = ell[0](2);
 
   // Get ENU from Ell
-  const auto enu = gps_tform.EllToENU(ell);
+  const auto enu = gps_tform.EllToENU(ell, lat0, lon0);
 
   // Get XYZ from ENU
   const auto xyz = gps_tform.ENUToXYZ(enu, lat0, lon0, alt0);
