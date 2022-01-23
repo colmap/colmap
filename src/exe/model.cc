@@ -111,59 +111,62 @@ void WriteBoundingBox(const std::string& reconstruction_path,
   }
 }
 
-void ConvertCameraLocations(const bool ref_is_gps,
-                            const std::string& alignment_type,
-                            std::vector<Eigen::Vector3d>& ref_locations) {
+std::vector<Eigen::Vector3d> ConvertCameraLocations(
+    const bool ref_is_gps, const std::string& alignment_type,
+    const std::vector<Eigen::Vector3d>& ref_locations) {
   if (ref_is_gps) {
-    GPSTransform gps_transform(GPSTransform::WGS84);
+    const GPSTransform gps_transform(GPSTransform::WGS84);
     if (alignment_type != "enu") {
-      std::cout << "\n Converting Alignment Coordinates from GPS (lat/lon/alt) "
-                   "to ECEF. \n";
-      ref_locations = gps_transform.EllToXYZ(ref_locations);
+      std::cout << "\nConverting Alignment Coordinates from GPS (lat/lon/alt) "
+                   "to ECEF.\n";
+      return gps_transform.EllToXYZ(ref_locations);
     } else {
-      std::cout << "\n Converting Alignment Coordinates from GPS (lat/lon/alt) "
-                   "to ENU. \n";
-      ref_locations = gps_transform.EllToENU(ref_locations, ref_locations[0](0),
-                                             ref_locations[0](1));
+      std::cout << "\nConverting Alignment Coordinates from GPS (lat/lon/alt) "
+                   "to ENU.\n";
+      return gps_transform.EllToENU(ref_locations, ref_locations[0](0),
+                                    ref_locations[0](1));
     }
   } else {
-    std::cout << "\n Cartesian Alignment Coordinates extracted (MUST NOT BE "
-                 "GPS coords!). \n";
+    std::cout << "\nCartesian Alignment Coordinates extracted (MUST NOT BE "
+                 "GPS coords!).\n";
+    return ref_locations;
   }
 }
 
 void ReadFileCameraLocations(const std::string& ref_images_path,
                              const bool ref_is_gps,
                              const std::string& alignment_type,
-                             std::vector<std::string>& ref_image_names,
-                             std::vector<Eigen::Vector3d>& ref_locations) {
+                             std::vector<std::string>* ref_image_names,
+                             std::vector<Eigen::Vector3d>* ref_locations) {
   for (const auto& line : ReadTextFileLines(ref_images_path)) {
     std::stringstream line_parser(line);
     std::string image_name;
     Eigen::Vector3d camera_position;
     line_parser >> image_name >> camera_position[0] >> camera_position[1] >>
         camera_position[2];
-    ref_image_names.push_back(image_name);
-    ref_locations.push_back(camera_position);
+    ref_image_names->push_back(image_name);
+    ref_locations->push_back(camera_position);
   }
 
-  ConvertCameraLocations(ref_is_gps, alignment_type, ref_locations);
+  *ref_locations =
+      ConvertCameraLocations(ref_is_gps, alignment_type, *ref_locations);
 }
 
 void ReadDatabaseCameraLocations(const std::string& database_path,
                                  const bool ref_is_gps,
                                  const std::string& alignment_type,
-                                 std::vector<std::string>& ref_image_names,
-                                 std::vector<Eigen::Vector3d>& ref_locations) {
+                                 std::vector<std::string>* ref_image_names,
+                                 std::vector<Eigen::Vector3d>* ref_locations) {
   Database database(database_path);
   for (const auto& image : database.ReadAllImages()) {
     if (image.HasTvecPrior()) {
-      ref_image_names.push_back(image.Name());
-      ref_locations.push_back(image.TvecPrior());
+      ref_image_names->push_back(image.Name());
+      ref_locations->push_back(image.TvecPrior());
     }
   }
 
-  ConvertCameraLocations(ref_is_gps, alignment_type, ref_locations);
+  *ref_locations =
+      ConvertCameraLocations(ref_is_gps, alignment_type, *ref_locations);
 }
 
 void WriteComparisonErrorsCSV(const std::string& path,
@@ -319,10 +322,10 @@ int RunModelAligner(int argc, char** argv) {
   std::vector<Eigen::Vector3d> ref_locations;
   if (!ref_images_path.empty() && database_path.empty()) {
     ReadFileCameraLocations(ref_images_path, ref_is_gps, alignment_type,
-                            ref_image_names, ref_locations);
+                            &ref_image_names, &ref_locations);
   } else if (!database_path.empty() && ref_images_path.empty()) {
     ReadDatabaseCameraLocations(database_path, ref_is_gps, alignment_type,
-                                ref_image_names, ref_locations);
+                                &ref_image_names, &ref_locations);
   } else if (alignment_type != "plane") {
     std::cerr << "ERROR: Use location file or database, not both" << std::endl;
     return EXIT_FAILURE;
