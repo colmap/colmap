@@ -404,12 +404,12 @@ int RunModelAligner(int argc, char** argv) {
     const Image* first_image =
         reconstruction.FindImageWithName(ref_image_names[0]);
 
-    const Eigen::Vector3d first_img_position = ref_locations[0];
+    const Eigen::Vector3d& first_img_position = ref_locations[0];
 
     const Eigen::Vector3d trans_align =
         first_img_position - first_image->ProjectionCenter();
 
-    SimilarityTransform3 origin_align(1.0, ComposeIdentityQuaternion(),
+    const SimilarityTransform3 origin_align(1.0, ComposeIdentityQuaternion(),
                                       trans_align);
 
     std::cout << "\n Aligning Reconstruction's origin with Ref origin : "
