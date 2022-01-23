@@ -1,8 +1,9 @@
 parameters:
   visualStudioVersion: '2019'
+  e2eTestsEnabled: false
 
 jobs:
-- job: windows_build_${{ parameters.visualStudioVersion }}
+- job: windows_build_${{ parameters.visualStudioVersion }}_e2e_${{ parameters.e2eTestsEnabled }}
   displayName: 'Windows VS${{ parameters.visualStudioVersion }}'
   timeoutInMinutes: 240
   pool:
@@ -41,7 +42,6 @@ jobs:
       useVcpkgToolchainFile: true
 
   - pwsh: |
-      $env:PATH = "$(Build.BinariesDirectory)/vcpkg/installed/x64-windows/release/bin/;$env:Path"
       ctest
       $tests_pass=$LastExitCode
       if ($tests_pass -ne 0) {
@@ -51,3 +51,28 @@ jobs:
       exit $tests_pass
     workingDirectory: $(Build.ArtifactStagingDirectory)
     displayName: 'Run tests'
+
+  - ${{ if eq(parameters.e2eTestsEnabled, true) }}:
+    - pwsh: |
+        curl -L -o `
+          south-building-test.zip `
+          https://demuc.de/colmap/datasets/south-building-test.zip
+        Expand-Archive -LiteralPath south-building-test.zip -DestinationPath .
+        ./src/exe/Release/colmap.exe automatic_reconstructor `
+            --image_path south-building-test/images `
+            --workspace_path south-building-test `
+            --use_gpu 0 `
+            --num_threads 1 `
+            --quality low
+        ./src/exe/Release/colmap.exe model_comparer `
+            --input_path1 south-building-test/sparse/0 `
+            --input_path2 south-building-test/expected-sparse/0 `
+            --output_path .
+        python ./scripts/python/expect_model_comparer_errors.py `
+            --errors_csv_path errors.csv `
+            --max_rotation_error 0.05 `
+            --max_translation_error 0.05 `
+            --max_proj_center_error 0.05 `
+            --expected_num_images 6
+      workingDirectory: $(Build.ArtifactStagingDirectory)
+      displayName: 'Run E2E tests'
