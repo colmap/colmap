@@ -86,7 +86,10 @@ jobs:
         unzip south-building-test.zip
         ./build/src/exe/colmap automatic_reconstructor \
             --image_path south-building-test/images \
-            --workspace_path south-building-test
+            --workspace_path south-building-test \
+            --use_gpu 0 \
+            --num_threads 1 \
+            --quality low
         ./build/src/exe/colmap model_comparer \
             --input_path1 south-building-test/sparse/0 \
             --input_path2 south-building-test/expected-sparse/0
