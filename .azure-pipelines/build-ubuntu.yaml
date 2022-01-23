@@ -96,8 +96,8 @@ jobs:
             --output_path .
         python ./scripts/python/expect_model_comparer_errors.py \
             --errors_csv_path errors.csv \
-            --max_rotation_error 0.05 \
-            --max_translation_error 0.05 \
-            --max_proj_center_error 0.05 \
+            --max_rotation_error 0.5 \
+            --max_translation_error 0.5 \
+            --max_proj_center_error 0.5 \
             --expected_num_images 6
       displayName: 'Run E2E tests'
