@@ -2,9 +2,10 @@ parameters:
   displayName: 'Ubuntu 18.04'
   ubuntuVersion: '18.04'
   cudaEnabled: false
+  asanEnabled: false
 
 jobs:
-- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}
+- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}_asan_${{ parameters.asanEnabled }}
   displayName: '${{ parameters.displayName }}'
   pool:
     vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
@@ -41,6 +42,13 @@ jobs:
         echo '##vso[task.setvariable variable=CXX]/usr/bin/cuda-g++'
       displayName: 'Install CUDA'
 
+  - ${{ if eq(parameters.asanEnabled, true) }}:
+    - script: |
+        sudo apt-get install -y clang-10
+        echo '##vso[task.setvariable variable=CC]/usr/bin/clang'
+        echo '##vso[task.setvariable variable=CXX]/usr/bin/clang++'
+      displayName: 'Install Clang'
+
   - script: |
       cmake --version
       mkdir build
@@ -48,7 +56,8 @@ jobs:
       cmake .. \
         -GNinja \
         -DTESTS_ENABLED=ON \
-        -DCUDA_ARCHS=6.0
+        -DCUDA_ARCHS=6.0 \
+        -DASAN_ENABLED=${{ parameters.asanEnabled }}
       ninja
     displayName: 'Configure and build'
 

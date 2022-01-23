@@ -809,7 +809,7 @@ void SiftFeatureMatcher::Match(
   image_pair_ids.reserve(image_pairs.size());
 
   size_t num_outputs = 0;
-  for (const auto image_pair : image_pairs) {
+  for (const auto& image_pair : image_pairs) {
     // Avoid self-matches.
     if (image_pair.first == image_pair.second) {
       continue;

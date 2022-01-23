@@ -1247,11 +1247,11 @@ void MainWindow::ResetOptions() {
 void MainWindow::About() {
   QMessageBox::about(
       this, tr("About"),
-      QString().sprintf("<span style='font-weight:normal'><b>%s</b><br />"
-                        "<small>(%s)</small><br /><br />"
-                        "<b>Author:</b> Johannes L. Schönberger<br /><br />"
-                        "<b>Email:</b> jsch-at-demuc-dot-de</span>",
-                        GetVersionInfo().c_str(), GetBuildInfo().c_str()));
+      QString().asprintf("<span style='font-weight:normal'><b>%s</b><br />"
+                         "<small>(%s)</small><br /><br />"
+                         "<b>Author:</b> Johannes L. Schönberger<br /><br />"
+                         "<b>Email:</b> jsch-at-demuc-dot-de</span>",
+                         GetVersionInfo().c_str(), GetBuildInfo().c_str()));
 }
 
 void MainWindow::Documentation() {
@@ -1284,7 +1284,7 @@ void MainWindow::UpdateTimer() {
   const int minutes = (elapsed_time / 60) % 60;
   const int hours = (elapsed_time / 3600) % 24;
   const int days = elapsed_time / 86400;
-  statusbar_timer_label_->setText(QString().sprintf(
+  statusbar_timer_label_->setText(QString().asprintf(
       "Time %02d:%02d:%02d:%02d", days, hours, minutes, seconds));
 }
 

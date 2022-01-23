@@ -1,16 +1,19 @@
+parameters:
+  visualStudioVersion: '2019'
+
 jobs:
-- job: windows_build
-  displayName: 'Windows VS2019'
+- job: windows_build_${{ parameters.visualStudioVersion }}
+  displayName: 'Windows VS${{ parameters.visualStudioVersion }}'
   timeoutInMinutes: 240
   pool:
-    vmImage: 'windows-2019'
+    vmImage: 'windows-${{ parameters.visualStudioVersion }}'
   variables:
     vcpkgGitCommitId: 8cfe802099de05ed9abab9a63db2524dd1fe1cae
   steps:
   - task: Cache@2
     displayName: 'Cache vcpkg'
     inputs:
-      key: $(Build.SourcesDirectory)/.azure-pipelines/build-windows-vcpkg.txt | "$(vcpkgGitCommitId)" | "$(Agent.OS)"
+      key: $(Build.SourcesDirectory)/.azure-pipelines/build-windows-vcpkg.txt | "$(vcpkgGitCommitId)" | "$(Agent.OS)" | "${{ parameters.visualStudioVersion }}"
       path: '$(Build.BinariesDirectory)/vcpkg'
 
   - task: run-vcpkg@0
