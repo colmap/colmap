@@ -41,12 +41,6 @@ jobs:
       useVcpkgToolchainFile: true
 
   - pwsh: |
-      ls $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/
-      ls $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools
-      ls $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools/qt5
-      ls $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools/qt5/bin
-
-  - pwsh: |
       ctest
       $tests_pass=$LastExitCode
       if ($tests_pass -ne 0) {
@@ -55,12 +49,12 @@ jobs:
       }
       exit $tests_pass
     workingDirectory: $(Build.ArtifactStagingDirectory)
-    displayName: 'Run tests'
+    displayName: 'Run unit tests'
 
   - pwsh: |
       mkdir install
       cmake --build . --target install
-      ls $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/
-      & $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools/qt5/bin/windeployqt.exe ./install/bin/colmap.exe --no-angle
+      mkdir ./install/bin/platforms
+      cp $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/plugins/platforms/qwindows.dll ./install/bin/platforms
     workingDirectory: $(Build.ArtifactStagingDirectory)
     displayName: 'Install'

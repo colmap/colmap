@@ -74,4 +74,4 @@ jobs:
           ctest --rerun-failed --output-on-failure
       fi
       exit $tests_pass
-    displayName: 'Run tests'
+    displayName: 'Run unit tests'

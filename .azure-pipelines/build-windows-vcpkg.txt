@@ -14,4 +14,3 @@ gflags
 glew
 glog
 qt5-base
-qt5-tools
