@@ -111,6 +111,27 @@ void WriteBoundingBox(const std::string& reconstruction_path,
   }
 }
 
+void ConvertCameraLocations(const bool ref_is_gps,
+                            const std::string& alignment_type,
+                            std::vector<Eigen::Vector3d>& ref_locations) {
+  if (ref_is_gps) {
+    GPSTransform gps_transform(GPSTransform::WGS84);
+    if (alignment_type != "enu") {
+      std::cout << "\n Converting Alignment Coordinates from GPS (lat/lon/alt) "
+                   "to ECEF. \n";
+      ref_locations = gps_transform.EllToXYZ(ref_locations);
+    } else {
+      std::cout << "\n Converting Alignment Coordinates from GPS (lat/lon/alt) "
+                   "to ENU. \n";
+      ref_locations = gps_transform.EllToENU(ref_locations, ref_locations[0](0),
+                                             ref_locations[0](1));
+    }
+  } else {
+    std::cout << "\n Cartesian Alignment Coordinates extracted (MUST NOT BE "
+                 "GPS coords!). \n";
+  }
+}
+
 void ReadFileCameraLocations(const std::string& ref_images_path,
                              const bool ref_is_gps,
                              const std::string& alignment_type,
@@ -127,21 +148,7 @@ void ReadFileCameraLocations(const std::string& ref_images_path,
     ref_locations.push_back(camera_position);
   }
 
-  if (ref_is_gps) {
-    GPSTransform gps_transform(GPSTransform::WGS84);
-    if (alignment_type != "enu") {
-      std::cout << "\n Converting Alignment Coordinates from GPS (lat/lon/alt) "
-                   "to ECEF. \n";
-      ref_locations = gps_transform.EllToXYZ(ref_locations);
-    } else {
-      std::cout << "\n Converting Alignment Coordinates from GPS (lat/lon/alt) "
-                   "to ENU. \n";
-      ref_locations = gps_transform.EllToENU(ref_locations, ref_locations[0](0), ref_locations[0](1));
-    }
-  } else {
-    std::cout << "\n Cartesian Alignment Coordinates extracted (MUST NOT BE "
-                 "GPS coords!). \n";
-  }
+  ConvertCameraLocations(ref_is_gps, alignment_type, ref_locations);
 }
 
 void ReadDatabaseCameraLocations(const std::string& database_path,
@@ -158,21 +165,7 @@ void ReadDatabaseCameraLocations(const std::string& database_path,
     }
   }
 
-  if (ref_is_gps) {
-    GPSTransform gps_transform(GPSTransform::WGS84);
-    if (alignment_type != "enu") {
-      std::cout << "\nConverting Alignment Coordinates from GPS (lat/lon/alt) "
-                   "to ECEF.\n";
-      ref_locations = gps_transform.EllToXYZ(ref_locations);
-    } else {
-      std::cout << "\nConverting Alignment Coordinates from GPS (lat/lon/alt) "
-                   "to ENU.\n";
-      ref_locations = gps_transform.EllToENU(ref_locations, ref_locations[0](0), ref_locations[0](1));
-    }
-  } else {
-    std::cout << "\nCartesian Alignment Coordinates extracted (MUST NOT BE "
-                 "GPS coords!).\n";
-  }
+  ConvertCameraLocations(ref_is_gps, alignment_type, ref_locations);
 }
 
 void WriteComparisonErrorsCSV(const std::string& path,
@@ -411,8 +404,8 @@ int RunModelAligner(int argc, char** argv) {
         const Eigen::Vector3d trans_align =
             first_img_position - first_image->ProjectionCenter();
 
-        const SimilarityTransform3 origin_align(1.0, ComposeIdentityQuaternion(),
-                                          trans_align);
+        const SimilarityTransform3 origin_align(
+            1.0, ComposeIdentityQuaternion(), trans_align);
 
         std::cout << "\n Aligning Reconstruction's origin with Ref origin : "
                   << first_img_position.transpose() << "\n";
