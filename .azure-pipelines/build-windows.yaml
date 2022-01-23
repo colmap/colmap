@@ -43,7 +43,8 @@ jobs:
   - pwsh: |
       ls $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/
       ls $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools
-      ls $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools/qt5/bin
+      ls $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools/qt5-base
+      ls $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools/qt5-base/bin
 
   - pwsh: |
       ctest
@@ -60,6 +61,6 @@ jobs:
       mkdir install
       cmake --build . --target install
       ls $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/
-      & $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools/qt5/bin/windeployqt.exe ./install/bin/colmap.exe --no-angle
+      & $(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools/qt5-base/bin/windeployqt.exe ./install/bin/colmap.exe --no-angle
     workingDirectory: $(Build.ArtifactStagingDirectory)
     displayName: 'Install'
