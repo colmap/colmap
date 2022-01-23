@@ -161,17 +161,17 @@ void ReadDatabaseCameraLocations(const std::string& database_path,
   if (ref_is_gps) {
     GPSTransform gps_transform(GPSTransform::WGS84);
     if (alignment_type != "enu") {
-      std::cout << "\n Converting Alignment Coordinates from GPS (lat/lon/alt) "
-                   "to ECEF. \n";
+      std::cout << "\nConverting Alignment Coordinates from GPS (lat/lon/alt) "
+                   "to ECEF.\n";
       ref_locations = gps_transform.EllToXYZ(ref_locations);
     } else {
-      std::cout << "\n Converting Alignment Coordinates from GPS (lat/lon/alt) "
-                   "to ENU. \n";
+      std::cout << "\nConverting Alignment Coordinates from GPS (lat/lon/alt) "
+                   "to ENU.\n";
       ref_locations = gps_transform.EllToENU(ref_locations);
     }
   } else {
-    std::cout << "\n Cartesian Alignment Coordinates extracted (MUST NOT BE "
-                 "GPS coords!). \n";
+    std::cout << "\nCartesian Alignment Coordinates extracted (MUST NOT BE "
+                 "GPS coords!).\n";
   }
 }
 
@@ -389,7 +389,7 @@ int RunModelAligner(int argc, char** argv) {
         errors.push_back((image->ProjectionCenter() - ref_locations[i]).norm());
       }
     }
-    std::cout << StringPrintf(" => Alignment error: %f (mean), %f (median)",
+    std::cout << StringPrintf("=> Alignment error: %f (mean), %f (median)",
                               Mean(errors), Median(errors))
               << std::endl;
 
@@ -412,7 +412,7 @@ int RunModelAligner(int argc, char** argv) {
     const SimilarityTransform3 origin_align(1.0, ComposeIdentityQuaternion(),
                                       trans_align);
 
-    std::cout << "\n Aligning Reconstruction's origin with Ref origin : "
+    std::cout << "\nAligning Reconstruction's origin with Ref origin :"
               << first_img_position.transpose() << "\n";
 
     reconstruction.Transform(origin_align);
@@ -423,14 +423,14 @@ int RunModelAligner(int argc, char** argv) {
   }
 
   if (alignment_success) {
-    std::cout << " => Alignment succeeded" << std::endl;
+    std::cout << "=> Alignment succeeded" << std::endl;
     reconstruction.Write(output_path);
     if (!transform_path.empty()) {
       tform.Write(transform_path);
     }
     return EXIT_SUCCESS;
   } else {
-    std::cout << " => Alignment failed" << std::endl;
+    std::cout << "=> Alignment failed" << std::endl;
     return EXIT_FAILURE;
   }
 }
