@@ -48,8 +48,8 @@ size_t TriangulateImage(const IncrementalMapperOptions& options,
 }
 
 void AdjustGlobalBundle(const IncrementalMapperOptions& options,
+                        BundleAdjustmentOptions& custom_ba_options,
                         IncrementalMapper* mapper) {
-  BundleAdjustmentOptions custom_ba_options = options.GlobalBundleAdjustment();
 
   const size_t num_reg_images = mapper->GetReconstruction().NumRegImages();
 
@@ -113,22 +113,13 @@ void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
   std::cout << "  => Retriangulated observations: "
             << mapper->Retriangulate(options.Triangulation()) << std::endl;
 
+  BundleAdjustmentOptions custom_ba_options = options.GlobalBundleAdjustment();
+
   for (int i = 0; i < options.ba_global_max_refinements; ++i) {
-    // if (options.ba_use_prior_motion) {
-    //   if (i == 0) {
-    //     options.ba_global_use_robust_cost = true;
-    //   } else {
-    //     options.ba_global_use_robust_cost = false;
-    //   }
-    // }
-    // TODO: Add A BundleAdjustmentOptions Parameter to AdjustGlobalBundle
-    // in order to modify the behavior of the global BA between iterations
-    // (seems fine to do 1st iter with robust cost on visual + gps and then
-    // on gps only just in case there are some outliers in the nav)
     const size_t num_observations =
         mapper->GetReconstruction().ComputeNumObservations();
     size_t num_changed_observations = 0;
-    AdjustGlobalBundle(options, mapper);
+    AdjustGlobalBundle(options, custom_ba_options, mapper);
     num_changed_observations += CompleteAndMergeTracks(options, mapper);
     num_changed_observations += FilterPoints(options, mapper);
     const double changed =
@@ -137,6 +128,10 @@ void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
               << std::endl;
     if (changed < options.ba_global_max_refinement_change) {
       break;
+    }
+    if (options.ba_use_prior_motion && i == 0) {
+      // Only use robust cost function on visual meas. for first iteration.
+      custom_ba_options.loss_function_type = BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
     }
   }
 
@@ -563,7 +558,9 @@ void IncrementalMapperController::Reconstruct(
         break;
       }
 
-      AdjustGlobalBundle(*options_, &mapper);
+      BundleAdjustmentOptions custom_ba_options = options_->GlobalBundleAdjustment();
+      
+      AdjustGlobalBundle(*options_, custom_ba_options, &mapper);
       FilterPoints(*options_, &mapper);
       FilterImages(*options_, &mapper);
 

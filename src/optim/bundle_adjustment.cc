@@ -305,7 +305,7 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
         std::cout << "- trans : " << tform.Translation().transpose() << "\n";
         std::cout << "- rot : " << tform.Rotation().transpose() << "\n\n";
 
-        std::cout << "\n Sim3 Alignment tvec err (median / mean / std): "
+        std::cout << "\nSim3 Alignment tvec err (median / mean / std): "
                   << Median(verr) << " / " << Mean(verr) << " / "
                   << StdDev(verr) << "\n";
       } else {
@@ -320,8 +320,10 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   std::cout << "\nVisual Loss Function : " << int(options_.loss_function_type) << "\n";
   std::cout << "\nLoss Function scale : " << options_.loss_function_scale << "\n";
 
-  std::cout << "\nPrior Loss Function : " << options_.use_robust_loss_on_prior << "\n";
-  std::cout << "\nPrior Loss Function scale : " << options_.prior_loss_scale << "\n";
+  if (options_.use_prior_motion) {
+    std::cout << "\nPrior Loss Function : " << options_.use_robust_loss_on_prior << "\n";
+    std::cout << "\nPrior Loss Function scale : " << options_.prior_loss_scale << "\n";
+  }
 
   if (problem_->NumResiduals() == 0) {
     return false;
