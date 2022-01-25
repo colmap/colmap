@@ -628,14 +628,16 @@ void ModelViewerWidget::mouseMoveEvent(QMouseEvent* event) {
 }
 
 void ModelViewerWidget::wheelEvent(QWheelEvent* event) {
-  if (event->modifiers() & Qt::ControlModifier) {
-    ChangePointSize(event->angleDelta().y());
-  } else if (event->modifiers() & Qt::AltModifier) {
-    ChangeCameraSize(event->angleDelta().y());
-  } else if (event->modifiers() & Qt::ShiftModifier) {
-    ChangeNearPlane(event->angleDelta().y());
+  // We don't mind whether horizontal or vertical scroll.
+  const float delta = event->angleDelta().x() + event->angleDelta().y();
+  if (event->modifiers().testFlag(Qt::ControlModifier)) {
+    ChangePointSize(delta);
+  } else if (event->modifiers().testFlag(Qt::AltModifier)) {
+    ChangeCameraSize(delta);
+  } else if (event->modifiers().testFlag(Qt::ShiftModifier)) {
+    ChangeNearPlane(delta);
   } else {
-    ChangeFocusDistance(event->angleDelta().y());
+    ChangeFocusDistance(delta);
   }
   event->accept();
 }
