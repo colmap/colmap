@@ -1,3 +1,98 @@
+COLMAP 3.7 (01/26/2022)
+-----------------------
+* Allow to save fused point cloud in colmap format when using command line by @boitumeloruf in https://github.com/colmap/colmap/pull/799
+* Fix typos in image.h by @Pascal-So in https://github.com/colmap/colmap/pull/936
+* Fix for EPnP estimator by @vlarsson in https://github.com/colmap/colmap/pull/943
+* Visualize models using Python in Open3D by @ahojnnes in https://github.com/colmap/colmap/pull/948
+* Update tutorial.rst by @ignacio-rocco in https://github.com/colmap/colmap/pull/953
+* 8 point algorithm internal contraint fix by @mihaidusmanu in https://github.com/colmap/colmap/pull/982
+* Python script for writing depth/normal arrays by @SBCV in https://github.com/colmap/colmap/pull/957
+* BuildImageModel: use std::vector instead of numbered arguments by @Pascal-So in https://github.com/colmap/colmap/pull/949
+* Fix bugs of sift feature matching by @whuaegeanse in https://github.com/colmap/colmap/pull/985
+* script for modifying fused results by @SBCV in https://github.com/colmap/colmap/pull/984
+* fix camera model query by @Pascal-So in https://github.com/colmap/colmap/pull/997
+* fixed small bug in visualize_model.py by @sniklaus in https://github.com/colmap/colmap/pull/1007
+* Update .travis.yml by @srinivas32 in https://github.com/colmap/colmap/pull/989
+* Ensure DecomposeHomographyMatrix() always returns rotations by @daithimaco in https://github.com/colmap/colmap/pull/1040
+* Remove deprecated qt foreach by @UncleGene in https://github.com/colmap/colmap/pull/1039
+* Fix AMD/Windows GUI visualization bug by @drkoller in https://github.com/colmap/colmap/pull/1079
+* include colmap_cuda in COLMAP_LIBRARIES when compiled with cuda by @ClementPinard in https://github.com/colmap/colmap/pull/1084
+* Fix runtime crash when sparsesuite is missing from ceres by @anmatako in https://github.com/colmap/colmap/pull/1115
+* Store relative poses in two_view_geometry table by @Ahmed-Salama in https://github.com/colmap/colmap/pull/1103
+* search src images for patch_match from all set, not only referenced subset by @DaniilSNikulin in https://github.com/colmap/colmap/pull/1038
+* Replace Travis CI with Azure Pipelines for Linux/Mac builds by @ahojnnes in https://github.com/colmap/colmap/pull/1119
+* Allow ReadPly to handle double precision files by @anmatako in https://github.com/colmap/colmap/pull/1131
+* Update GPSTransform calculations to improve accuracy by @anmatako in https://github.com/colmap/colmap/pull/1132
+* Add scale template flag in SimilarityTransform3::Estimate by @anmatako in https://github.com/colmap/colmap/pull/1133
+* Add CopyFile utility that can copy or hard/soft-link files by @anmatako in https://github.com/colmap/colmap/pull/1134
+* Expose BA options in IncrementalMapper by @anmatako in https://github.com/colmap/colmap/pull/1139
+* Allow configurable paths for mvs::Model by @anmatako in https://github.com/colmap/colmap/pull/1141
+* Change ReconstructionMaanger to write larger recons first by @anmatako in https://github.com/colmap/colmap/pull/1137
+* Setup Azure pipelines for Windows build by @ahojnnes in https://github.com/colmap/colmap/pull/1150
+* Add fixed extrinsics in rig config by @anmatako in https://github.com/colmap/colmap/pull/1144
+* Allow custom config and missing dependencies for patch-match by @anmatako in https://github.com/colmap/colmap/pull/1142
+* Update print statements for Python 3 compatibility by @UncleGene in https://github.com/colmap/colmap/pull/1126
+* Allow cleanup of SQLite tables using new database_cleaner command by @anmatako in https://github.com/colmap/colmap/pull/1136
+* Extend SceneClustering to support non-hierarchical (flat) clusters by @anmatako in https://github.com/colmap/colmap/pull/1140
+* Support more formats in model_converter by @anmatako in https://github.com/colmap/colmap/pull/1147
+* Fix Mac 10.15 build due to changed Qt5 path by @ahojnnes in https://github.com/colmap/colmap/pull/1157
+* Fix bug in ReadCameraRigConfig when reading extrinsics by @anmatako in https://github.com/colmap/colmap/pull/1158
+* Add utility to compare poses between two sparse models by @ahojnnes in https://github.com/colmap/colmap/pull/1159
+* Modularize executable main functions into separate sources by @ahojnnes in https://github.com/colmap/colmap/pull/1160
+* Fix unnecessary copies in for range loops by @ahojnnes in https://github.com/colmap/colmap/pull/1162
+* Add script to clang-format all source code by @ahojnnes in https://github.com/colmap/colmap/pull/1163
+* Add back new options and formats for model_converter by @anmatako in https://github.com/colmap/colmap/pull/1164
+* ImageReder new option and bug fix in GPS priors by @anmatako in https://github.com/colmap/colmap/pull/1146
+* Parallelize stereo fusion; needs pre-loading of entire workspace by @anmatako in https://github.com/colmap/colmap/pull/1148
+* Refactoring and new functionality in Reconstruction class by @anmatako in https://github.com/colmap/colmap/pull/1169
+* Add new functionality in image_undistorter by @anmatako in https://github.com/colmap/colmap/pull/1168
+* Add new CMake option to disable GUI by @anmatako in https://github.com/colmap/colmap/pull/1165
+* Fix the memory leak caused by not releasing the memory of the PRNG at the end of the thread by @whuaegeanse in https://github.com/colmap/colmap/pull/1170
+* Fix fusion segfault bug by @anmatako in https://github.com/colmap/colmap/pull/1176
+* Update SiftGPU to use floorf for floats by @anmatako in https://github.com/colmap/colmap/pull/1182
+* fix typo in extraction.cc by @iuk in https://github.com/colmap/colmap/pull/1191
+* Improvements to NVM, Cam, Recon3D, and Bundler exporters by @drkoller in https://github.com/colmap/colmap/pull/1187
+* Update model_aligner functionality by @anmatako in https://github.com/colmap/colmap/pull/1177
+* Add new model_cropper and model_splitter commands by @anmatako in https://github.com/colmap/colmap/pull/1179
+* use type point2D_t instead of image_t by @iuk in https://github.com/colmap/colmap/pull/1199
+* Fix radial distortion in Cam format exporter by @drkoller in https://github.com/colmap/colmap/pull/1196
+* Add new model_transformer command by @anmatako in https://github.com/colmap/colmap/pull/1178
+* Fix error of using urllib to download eigen from gitlab by @whuaegeanse in https://github.com/colmap/colmap/pull/1194
+* Multi-line string fix in Python model script by @mihaidusmanu in https://github.com/colmap/colmap/pull/1217
+* added visibility_sigma to CLI input options for delaunay_mesher. by @Matstah in https://github.com/colmap/colmap/pull/1236
+* Backwards compatibility of model_aligner by @tsattler in https://github.com/colmap/colmap/pull/1240
+* [update undistortion] update dumped commands by @hiakru in https://github.com/colmap/colmap/pull/1276
+* Compute reprojection error in generalized absolute solver by @Skydes in https://github.com/colmap/colmap/pull/1257
+* Modifying scripts/python/flickr_downloader.py to create files with correct extensions by @snavely in https://github.com/colmap/colmap/pull/1275
+* revise Dockerfile and readme. by @MasahiroOgawa in https://github.com/colmap/colmap/pull/1281
+* Update to latest vcpkg version by @ahojnnes in https://github.com/colmap/colmap/pull/1319
+* Fix compiler warnings reported by GCC by @ahojnnes in https://github.com/colmap/colmap/pull/1317
+* Auto-rotate JPEG images based on EXIF orientation by @ahojnnes in https://github.com/colmap/colmap/pull/1318
+* Upgrade vcpkg to fix CI build issues by @ahojnnes in https://github.com/colmap/colmap/pull/1331
+* Added descriptor normalization argument to feature_extractor. by @mihaidusmanu in https://github.com/colmap/colmap/pull/1332
+* Fix memory leak in the function of StringAppendV by @whuaegeanse in https://github.com/colmap/colmap/pull/1337
+* Add CUDA_SAFE_CALL to cudaGetDeviceCount. by @chpatrick in https://github.com/colmap/colmap/pull/1334
+* Add missing include in case CUDA/GUI is not available by @ahojnnes in https://github.com/colmap/colmap/pull/1329
+* Fix wrong WGS84 model and test cases in GPSTransform by @Freeverc in https://github.com/colmap/colmap/pull/1333
+* Fixes bug in sprt.cc: num_inliers was not set. by @rmbrualla in https://github.com/colmap/colmap/pull/1360
+* Prevent a divide by zero corner case. by @rmbrualla in https://github.com/colmap/colmap/pull/1361
+* Adds missing header. by @rmbrualla in https://github.com/colmap/colmap/pull/1362
+* Require Qt in COLMAPConfig only if GUI is enabled by @Skydes in https://github.com/colmap/colmap/pull/1365
+* Keep precision in the process of storing in text. by @whuaegeanse in https://github.com/colmap/colmap/pull/1363
+* Expose exe internals by @Skydes in https://github.com/colmap/colmap/pull/1366
+* Fix inliers matches extraction in EstimateUncalibrated function. by @ferreram in https://github.com/colmap/colmap/pull/1369
+* Expose exe internals - fix by @Skydes in https://github.com/colmap/colmap/pull/1368
+* Remove deprecated Mac OSX 10.14 image in ADO pipeline by @ahojnnes in https://github.com/colmap/colmap/pull/1383
+* Add Mac OSX 11 ADO pipeline job by @ahojnnes in https://github.com/colmap/colmap/pull/1384
+* Fix warnings for latest compiler/libraries by @ahojnnes in https://github.com/colmap/colmap/pull/1382
+* Fix clang compiler warnings by @ahojnnes in https://github.com/colmap/colmap/pull/1387
+* Add Address Sanitizer options and fix reported issues by @ahojnnes in https://github.com/colmap/colmap/pull/1390
+* User/joschonb/asan cleanup by @ahojnnes in https://github.com/colmap/colmap/pull/1391
+* Add ADO pipeline for Visual Studio 2022 by @ahojnnes in https://github.com/colmap/colmap/pull/1392
+* Add ccache option by @ahojnnes in https://github.com/colmap/colmap/pull/1395
+* Update ModelAligner to handle GPS and custom coords. and more by @ferreram in https://github.com/colmap/colmap/pull/1371
+
+
 COLMAP 3.6 (07/24/2020)
 -----------------------
 - Improved robustness and faster incremental reconstruction process
