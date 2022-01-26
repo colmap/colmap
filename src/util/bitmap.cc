@@ -396,7 +396,7 @@ bool Bitmap::ExifLatitude(double* latitude) const {
     StringTrim(&str);
     StringToLower(&str);
     if (!str.empty() && str[0] == 's') {
-        sign = -1.0;
+      sign = -1.0;
     }
   }
   if (ReadExifTag(FIMD_EXIF_GPS, "GPSLatitude", &str)) {
@@ -469,7 +469,7 @@ bool Bitmap::Read(const std::string& path, const bool as_rgb) {
     return false;
   }
 
-  FIBITMAP* fi_bitmap = FreeImage_Load(format, path.c_str(), JPEG_EXIFROTATE);
+  FIBITMAP* fi_bitmap = FreeImage_Load(format, path.c_str());
   if (fi_bitmap == nullptr) {
     return false;
   }
