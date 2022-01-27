@@ -320,7 +320,7 @@ void OptionManager::AddMatchingOptions() {
                               &sift_matching->multiple_models);
   AddAndRegisterDefaultOption("SiftMatching.guided_matching",
                               &sift_matching->guided_matching);
-  AddAndRegisterDefaultOption("SiftMatching.pure_planar_scene",
+  AddAndRegisterDefaultOption("SiftMatching.planar_scene",
                               &sift_matching->planar_scene);
 }
 

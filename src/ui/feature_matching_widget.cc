@@ -133,7 +133,7 @@ void FeatureMatchingTab::CreateGeneralOptions() {
   options_widget_->AddOptionBool(&options_->sift_matching->guided_matching,
                                  "guided_matching");
   options_widget_->AddOptionBool(&options_->sift_matching->planar_scene,
-                                 "pure_planar_scene");
+                                 "planar_scene");
   options_widget_->AddSpacer();
 
   QScrollArea* options_scroll_area = new QScrollArea(this);
