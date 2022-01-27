@@ -320,6 +320,8 @@ void OptionManager::AddMatchingOptions() {
                               &sift_matching->multiple_models);
   AddAndRegisterDefaultOption("SiftMatching.guided_matching",
                               &sift_matching->guided_matching);
+  AddAndRegisterDefaultOption("SiftMatching.planar_scene",
+                              &sift_matching->planar_scene);
 }
 
 void OptionManager::AddExhaustiveMatchingOptions() {
@@ -708,7 +710,7 @@ void OptionManager::AddDelaunayMeshingOptions() {
   AddAndRegisterDefaultOption("DelaunayMeshing.max_depth_dist",
                               &delaunay_meshing->max_depth_dist);
   AddAndRegisterDefaultOption("DelaunayMeshing.visibility_sigma",
-                              &delaunay_meshing->visibility_sigma);    
+                              &delaunay_meshing->visibility_sigma);
   AddAndRegisterDefaultOption("DelaunayMeshing.distance_sigma_factor",
                               &delaunay_meshing->distance_sigma_factor);
   AddAndRegisterDefaultOption("DelaunayMeshing.quality_regularization",

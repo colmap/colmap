@@ -116,7 +116,9 @@ void TwoViewGeometry::Estimate(const Camera& camera1,
                                const std::vector<Eigen::Vector2d>& points2,
                                const FeatureMatches& matches,
                                const Options& options) {
-  if (camera1.HasPriorFocalLength() && camera2.HasPriorFocalLength()) {
+  if (options.force_H_use) {
+    EstimateHomography(camera1, points1, camera2, points2, matches, options);
+  } else if (camera1.HasPriorFocalLength() && camera2.HasPriorFocalLength()) {
     EstimateCalibrated(camera1, points1, camera2, points2, matches, options);
   } else {
     EstimateUncalibrated(camera1, points1, camera2, points2, matches, options);
@@ -428,6 +430,50 @@ void TwoViewGeometry::EstimateUncalibrated(
   if (options.detect_watermark &&
       DetectWatermark(camera1, matched_points1, camera2, matched_points2,
                       num_inliers, *best_inlier_mask, options)) {
+    config = ConfigurationType::WATERMARK;
+  }
+}
+
+void TwoViewGeometry::EstimateHomography(
+    const Camera& camera1, const std::vector<Eigen::Vector2d>& points1,
+    const Camera& camera2, const std::vector<Eigen::Vector2d>& points2,
+    const FeatureMatches& matches, const Options& options) {
+  options.Check();
+
+  if (matches.size() < options.min_num_inliers) {
+    config = ConfigurationType::DEGENERATE;
+    return;
+  }
+
+  // Extract corresponding points.
+  std::vector<Eigen::Vector2d> matched_points1(matches.size());
+  std::vector<Eigen::Vector2d> matched_points2(matches.size());
+  for (size_t i = 0; i < matches.size(); ++i) {
+    matched_points1[i] = points1[matches[i].point2D_idx1];
+    matched_points2[i] = points2[matches[i].point2D_idx2];
+  }
+
+  // Estimate planar or panoramic model.
+
+  LORANSAC<HomographyMatrixEstimator, HomographyMatrixEstimator> H_ransac(
+      options.ransac_options);
+  const auto H_report = H_ransac.Estimate(matched_points1, matched_points2);
+  H = H_report.model;
+
+  if (!H_report.success ||
+      H_report.support.num_inliers < options.min_num_inliers) {
+    config = ConfigurationType::DEGENERATE;
+    return;
+  } else {
+    config = ConfigurationType::PLANAR_OR_PANORAMIC;
+  }
+
+  inlier_matches = ExtractInlierMatches(matches, H_report.support.num_inliers,
+                                        H_report.inlier_mask);
+  if (options.detect_watermark &&
+      DetectWatermark(camera1, matched_points1, camera2, matched_points2,
+                      H_report.support.num_inliers, H_report.inlier_mask,
+                      options)) {
     config = ConfigurationType::WATERMARK;
   }
 }

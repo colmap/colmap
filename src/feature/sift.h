@@ -161,6 +161,9 @@ struct SiftMatchingOptions {
   // Whether to perform guided matching, if geometric verification succeeds.
   bool guided_matching = false;
 
+  // Force Homography use for Two-view Geometry (can help for planar scenes)
+  bool planar_scene = false;
+
   bool Check() const;
 };
 
