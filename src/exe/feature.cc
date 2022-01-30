@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -127,10 +127,10 @@ int RunFeatureExtractor(int argc, char** argv) {
 
   StringToLower(&descriptor_normalization);
   if (descriptor_normalization == "l1_root") {
-    options.sift_extraction->normalization = 
+    options.sift_extraction->normalization =
       SiftExtractionOptions::Normalization::L1_ROOT;
   } else if (descriptor_normalization == "l2") {
-    options.sift_extraction->normalization = 
+    options.sift_extraction->normalization =
       SiftExtractionOptions::Normalization::L2;
   } else {
     std::cerr << "ERROR: Invalid `descriptor_normalization`"

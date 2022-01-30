@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -201,7 +201,7 @@ BOOST_AUTO_TEST_CASE(TestVerifyParams) {
   BOOST_CHECK_EQUAL(camera.VerifyParams(), false);
 }
 
-BOOST_AUTO_TEST_CASE(TestIsUndistorted) { 
+BOOST_AUTO_TEST_CASE(TestIsUndistorted) {
   Camera camera;
   camera.InitializeWithId(SimplePinholeCameraModel::model_id, 1.0, 1, 1);
   BOOST_CHECK(camera.IsUndistorted());
