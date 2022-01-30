@@ -1,4 +1,4 @@
-# Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+# Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -37,7 +37,7 @@ def main():
     import sys
     if len(sys.argv) != 5:
         print("Usage: python test_read_write_fused_vis.py "
-              "path/to/input_fused.ply path/to/input_fused.ply.vis " 
+              "path/to/input_fused.ply path/to/input_fused.ply.vis "
               "path/to/output_fused.ply path/to/output_fused.ply.vis")
         return
 
