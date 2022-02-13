@@ -51,8 +51,6 @@ class MetisGraph {
  public:
   MetisGraph(const std::vector<std::pair<int, int>>& edges,
              const std::vector<int>& weights) {
-    CHECK_EQ(edges.size(), weights.size());
-
     std::unordered_map<int, std::vector<std::pair<int, int>>> adjacency_list;
     for (size_t i = 0; i < edges.size(); ++i) {
       const auto& edge = edges[i];
@@ -167,16 +165,20 @@ void ComputeMinGraphCutStoerWagner(
 std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& weights, const int num_parts) {
+  CHECK(!edges.empty());
+  CHECK_EQ(edges.size(), weights.size());
+  CHECK_GT(num_parts, 0);
+
   MetisGraph graph(edges, weights);
 
   int ncon = 1;
-  int edgecut = 0;
+  int edgecut = -1;
   int nparts = num_parts;
 
   int metisOptions[METIS_NOPTIONS];
   METIS_SetDefaultOptions(metisOptions);
 
-  std::vector<idx_t> cut_labels(graph.nvtxs);
+  std::vector<idx_t> cut_labels(graph.nvtxs, -1);
   const int metisResult = METIS_PartGraphKway(
       &graph.nvtxs,
       /*ncon=*/&ncon, graph.xadj, graph.adjncy,

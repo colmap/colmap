@@ -108,10 +108,14 @@ BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCut) {
                                     8, 1, 1, 80, 2, 1, 1, 4};
   const auto cut_labels = ComputeNormalizedMinGraphCut(edges, weights, 2);
   BOOST_CHECK_EQUAL(cut_labels.size(), 8);
+  size_t num_labels[2] = {0};
   for (const auto& label : cut_labels) {
     BOOST_CHECK_GE(label.second, 0);
     BOOST_CHECK_LT(label.second, 2);
+    num_labels[label.second] += 1;
   }
+  BOOST_CHECK_GT(num_labels[0], 0);
+  BOOST_CHECK_GT(num_labels[1], 0);
 }
 
 BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCutDuplicateEdge) {
@@ -122,10 +126,14 @@ BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCutDuplicateEdge) {
                                     1, 1, 80, 2, 1, 1, 4, 4};
   const auto cut_labels = ComputeNormalizedMinGraphCut(edges, weights, 2);
   BOOST_CHECK_EQUAL(cut_labels.size(), 8);
+  size_t num_labels[2] = {0};
   for (const auto& label : cut_labels) {
     BOOST_CHECK_GE(label.second, 0);
     BOOST_CHECK_LT(label.second, 2);
+    num_labels[label.second] += 1;
   }
+  BOOST_CHECK_GT(num_labels[0], 0);
+  BOOST_CHECK_GT(num_labels[1], 0);
 }
 
 BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCutMissingVertex) {
@@ -135,10 +143,14 @@ BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCutMissingVertex) {
   const std::vector<int> weights = {0, 3, 1, 3, 1, 2, 6, 1, 8, 1, 1, 80, 2, 1};
   const auto cut_labels = ComputeNormalizedMinGraphCut(edges, weights, 2);
   BOOST_CHECK_EQUAL(cut_labels.size(), 8);
+  size_t num_labels[2] = {0};
   for (const auto& label : cut_labels) {
     BOOST_CHECK_GE(label.second, 0);
     BOOST_CHECK_LT(label.second, 2);
+    num_labels[label.second] += 1;
   }
+  BOOST_CHECK_GT(num_labels[0], 0);
+  BOOST_CHECK_GT(num_labels[1], 0);
 }
 
 BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCutDisconnected) {
@@ -146,10 +158,10 @@ BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCutDisconnected) {
   const std::vector<int> weights = {1, 3, 1};
   const auto cut_labels = ComputeNormalizedMinGraphCut(edges, weights, 2);
   BOOST_CHECK_EQUAL(cut_labels.size(), 5);
-  for (const auto& label : cut_labels) {
-    BOOST_CHECK_GE(label.second, 0);
-    BOOST_CHECK_LT(label.second, 2);
-  }
+  BOOST_CHECK_EQUAL(cut_labels.at(0), cut_labels.at(1));
+  BOOST_CHECK_EQUAL(cut_labels.at(1), cut_labels.at(2));
+  BOOST_CHECK_NE(cut_labels.at(2), cut_labels.at(3));
+  BOOST_CHECK_EQUAL(cut_labels.at(3), cut_labels.at(4));
 }
 
 BOOST_AUTO_TEST_CASE(TestMinSTGraphCut1) {
