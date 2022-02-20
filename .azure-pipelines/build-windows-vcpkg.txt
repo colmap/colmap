@@ -1,5 +1,5 @@
 --triplet
-x64-windows-release
+x64-windows
 boost-filesystem
 boost-graph
 boost-program-options
