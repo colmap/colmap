@@ -100,6 +100,8 @@ find_package(Eigen3 REQUIRED)
 
 find_package(FreeImage REQUIRED)
 
+find_package(Metis REQUIRED)
+
 find_package(Glog REQUIRED)
 
 set(OpenGL_GL_PREFERENCE GLVND)
@@ -310,6 +312,7 @@ set(COLMAP_INCLUDE_DIRS
     ${GLOG_INCLUDE_DIRS}
     ${FREEIMAGE_INCLUDE_DIRS}
     ${CERES_INCLUDE_DIRS}
+    ${METIS_INCLUDE_DIRS}
     ${GLEW_INCLUDE_DIRS}
 )
 
@@ -324,6 +327,7 @@ set(COLMAP_EXTERNAL_LIBRARIES
     ${Boost_SYSTEM_LIBRARY}
     ${GLOG_LIBRARIES}
     ${FREEIMAGE_LIBRARIES}
+    ${METIS_LIBRARIES}
     ${CERES_LIBRARIES}
     ${OPENGL_LIBRARIES}
 )
@@ -349,7 +353,6 @@ endif()
 
 set(COLMAP_INTERNAL_LIBRARIES
     flann
-    graclus
     lsd
     pba
     poisson_recon
@@ -375,7 +378,6 @@ add_subdirectory(src)
 ################################################################################
 
 COLMAP_ADD_SOURCE_DIR(lib/FLANN LIB_FLANN_SRCS *.h *.cpp *.hpp *.cu)
-COLMAP_ADD_SOURCE_DIR(lib/Graclus LIB_GRACLUS_SRCS *.h *.c)
 COLMAP_ADD_SOURCE_DIR(lib/LSD LIB_LSD_SRCS *.h *.c)
 COLMAP_ADD_SOURCE_DIR(lib/PBA LIB_PBA_SRCS *.h *.cpp *.cu)
 COLMAP_ADD_SOURCE_DIR(lib/PoissonRecon LIB_POISSON_RECON_SRCS *.h *.cpp *.inl)
@@ -402,7 +404,6 @@ COLMAP_ADD_SOURCE_DIR(src/util UTIL_SRCS *.h *.cc)
 add_library(
     ${COLMAP_SRC_ROOT_FOLDER}
     ${LIB_FLANN_SRCS}
-    ${LIB_GRACLUS_SRCS}
     ${LIB_LSD_SRCS}
     ${LIB_PBA_SRCS}
     ${LIB_POISSON_RECON_SRCS}

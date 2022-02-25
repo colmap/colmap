@@ -8,7 +8,7 @@ jobs:
   pool:
     vmImage: 'windows-${{ parameters.visualStudioVersion }}'
   variables:
-    vcpkgGitCommitId: 8cfe802099de05ed9abab9a63db2524dd1fe1cae
+    vcpkgGitCommitId: 5cf60186a241e84e8232641ee973395d4fde90e1
   steps:
   - task: Cache@2
     displayName: 'Cache vcpkg'
@@ -51,3 +51,12 @@ jobs:
       exit $tests_pass
     workingDirectory: $(Build.ArtifactStagingDirectory)
     displayName: 'Run tests'
+
+  - pwsh: |
+      # Deleting a directory that breaks the caching of vcpkg.
+      # Could potentially be disabled again in future vcpkg versions.
+      $path = "$(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools/meson/test cases"
+      if (Test-Path $path) {
+        Remove-Item -Recurse -Force $path
+      }
+    displayName: 'Cleanup environment'

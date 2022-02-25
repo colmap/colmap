@@ -10,6 +10,7 @@ ceres[lapack,suitesparse]
 cgal
 eigen3
 freeimage
+metis
 gflags
 glew
 glog

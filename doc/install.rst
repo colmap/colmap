@@ -81,6 +81,7 @@ Dependencies from the default Ubuntu repositories::
         libeigen3-dev \
         libsuitesparse-dev \
         libfreeimage-dev \
+        libmetis-dev \
         libgoogle-glog-dev \
         libgflags-dev \
         libglew-dev \
@@ -137,6 +138,7 @@ Dependencies from `Homebrew <http://brew.sh/>`_::
         freeimage \
         glog \
         gflags \
+        metis \
         suite-sparse \
         ceres-solver \
         qt5 \

@@ -22,6 +22,7 @@ jobs:
         libeigen3-dev \
         libceres-dev \
         libfreeimage-dev \
+        libmetis-dev \
         libgoogle-glog-dev \
         libgflags-dev \
         libglew-dev \

@@ -15,6 +15,7 @@ jobs:
         boost \
         eigen \
         freeimage \
+        metis \
         glog \
         gflags \
         ceres-solver \

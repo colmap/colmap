@@ -38,7 +38,7 @@
 #include <boost/typeof/typeof.hpp>
 
 extern "C" {
-#include "Graclus/metisLib/metis.h"
+#include "metis.h"
 }
 
 #include "util/logging.h"
@@ -46,13 +46,11 @@ extern "C" {
 namespace colmap {
 namespace {
 
-// Wrapper class for weighted, undirected Graclus graph.
-class GraclusGraph {
+// Wrapper class for weighted, undirected Metis graph.
+class MetisGraph {
  public:
-  GraclusGraph(const std::vector<std::pair<int, int>>& edges,
-               const std::vector<int>& weights) {
-    CHECK_EQ(edges.size(), weights.size());
-
+  MetisGraph(const std::vector<std::pair<int, int>>& edges,
+             const std::vector<int>& weights) {
     std::unordered_map<int, std::vector<std::pair<int, int>>> adjacency_list;
     for (size_t i = 0; i < edges.size(); ++i) {
       const auto& edge = edges[i];
@@ -67,7 +65,7 @@ class GraclusGraph {
     adjncy_.reserve(2 * edges.size());
     adjwgt_.reserve(2 * edges.size());
 
-    idxtype edge_idx = 0;
+    idx_t edge_idx = 0;
     for (size_t i = 0; i < vertex_id_to_idx_.size(); ++i) {
       xadj_.push_back(edge_idx);
 
@@ -89,36 +87,13 @@ class GraclusGraph {
     CHECK_EQ(adjncy_.size(), 2 * edges.size());
     CHECK_EQ(adjwgt_.size(), 2 * edges.size());
 
-    data.gdata = data.rdata = nullptr;
+    nvtxs = vertex_id_to_idx_.size();
 
-    data.nvtxs = vertex_id_to_idx_.size();
-    data.nedges = 2 * edges.size();
-    data.mincut = data.minvol = -1;
+    xadj = xadj_.data();
+    adjncy = adjncy_.data();
 
-    data.xadj = xadj_.data();
-    data.adjncy = adjncy_.data();
-
-    data.vwgt = nullptr;
-    data.adjwgt = adjwgt_.data();
-
-    data.adjwgtsum = nullptr;
-    data.label = nullptr;
-    data.cmap = nullptr;
-
-    data.where = data.pwgts = nullptr;
-    data.id = data.ed = nullptr;
-    data.bndptr = data.bndind = nullptr;
-    data.rinfo = nullptr;
-    data.vrinfo = nullptr;
-    data.nrinfo = nullptr;
-
-    data.ncon = 1;
-    data.nvwgt = nullptr;
-    data.npwgts = nullptr;
-
-    data.vsize = nullptr;
-
-    data.coarser = data.finer = nullptr;
+    vwgt = nullptr;
+    adjwgt = adjwgt_.data();
   }
 
   int GetVertexIdx(const int id) {
@@ -135,14 +110,18 @@ class GraclusGraph {
 
   int GetVertexId(const int idx) { return vertex_idx_to_id_.at(idx); }
 
-  GraphType data;
+  int nvtxs = 0;
+  idx_t* xadj = nullptr;
+  idx_t* vwgt = nullptr;
+  idx_t* adjncy = nullptr;
+  idx_t* adjwgt = nullptr;
 
  private:
   std::unordered_map<int, int> vertex_id_to_idx_;
   std::unordered_map<int, int> vertex_idx_to_id_;
-  std::vector<idxtype> xadj_;
-  std::vector<idxtype> adjncy_;
-  std::vector<idxtype> adjwgt_;
+  std::vector<idx_t> xadj_;
+  std::vector<idx_t> adjncy_;
+  std::vector<idx_t> adjwgt_;
 };
 
 }  // namespace
@@ -186,30 +165,35 @@ void ComputeMinGraphCutStoerWagner(
 std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& weights, const int num_parts) {
-  GraclusGraph graph(edges, weights);
+  CHECK(!edges.empty());
+  CHECK_EQ(edges.size(), weights.size());
+  CHECK_GT(num_parts, 0);
 
-  const int levels =
-      amax((graph.data.nvtxs) / (40 * log2_metis(num_parts)), 20 * (num_parts));
+  MetisGraph graph(edges, weights);
 
-  std::vector<idxtype> cut_labels(graph.data.nvtxs);
+  int ncon = 1;
+  int edgecut = -1;
+  int nparts = num_parts;
 
-  int options[11];
-  options[0] = 0;
-  int wgtflag = 1;
-  int numflag = 0;
-  int chain_length = 0;
-  int edgecut;
-  int var_num_parts = num_parts;
+  int metisOptions[METIS_NOPTIONS];
+  METIS_SetDefaultOptions(metisOptions);
 
-  MLKKM_PartGraphKway(&graph.data.nvtxs, graph.data.xadj, graph.data.adjncy,
-                      graph.data.vwgt, graph.data.adjwgt, &wgtflag, &numflag,
-                      &var_num_parts, &chain_length, options, &edgecut,
-                      cut_labels.data(), levels);
+  std::vector<idx_t> cut_labels(graph.nvtxs, -1);
+  const int metisResult = METIS_PartGraphKway(
+      &graph.nvtxs,
+      /*ncon=*/&ncon, graph.xadj, graph.adjncy,
+      /*vwgt=*/nullptr,
+      /*vsize=*/nullptr, graph.adjwgt, &nparts,
+      /*tpwgts=*/nullptr,
+      /*ubvec=*/nullptr, metisOptions, &edgecut, cut_labels.data());
 
-  float lbvec[MAXNCON];
-  ComputePartitionBalance(&graph.data, num_parts, cut_labels.data(), lbvec);
-
-  ComputeNCut(&graph.data, &cut_labels[0], num_parts);
+  if (metisResult == METIS_ERROR_INPUT) {
+    LOG(FATAL) << "INTERNAL: Metis input error";
+  } else if (metisResult == METIS_ERROR_MEMORY) {
+    LOG(FATAL) << "INTERNAL: Metis memory error";
+  } else if (metisResult == METIS_ERROR) {
+    LOG(FATAL) << "INTERNAL: Metis 'some other type of error'";
+  }
 
   std::unordered_map<int, int> labels;
   for (size_t idx = 0; idx < cut_labels.size(); ++idx) {
