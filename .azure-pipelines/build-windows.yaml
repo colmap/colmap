@@ -51,3 +51,6 @@ jobs:
       exit $tests_pass
     workingDirectory: $(Build.ArtifactStagingDirectory)
     displayName: 'Run tests'
+
+  - pwsh: |
+      Remove-Item -Recurse -Force "$(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools/meson/test cases"
