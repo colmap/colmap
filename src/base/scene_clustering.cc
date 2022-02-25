@@ -79,9 +79,8 @@ void SceneClustering::PartitionHierarchicalCluster(
   CHECK_EQ(edges.size(), weights.size());
 
   // If the cluster is small enough, we return from the recursive clustering.
-  if (edges.size() == 0 ||
-      cluster->image_ids.size() <=
-          static_cast<size_t>(options_.leaf_max_num_images)) {
+  if (edges.empty() || cluster->image_ids.size() <=
+                           static_cast<size_t>(options_.leaf_max_num_images)) {
     return;
   }
 
@@ -121,8 +120,35 @@ void SceneClustering::PartitionHierarchicalCluster(
 
   // Recursively partition all the child clusters.
   for (int i = 0; i < options_.branching; ++i) {
+    // Skip empty clusters or clusters where the current cluster has as many
+    // images as its child to avoid infinite loops. This can happen because
+    // the normalized cut sometimes decides to put all images into one
+    // cluster.
+    if (cluster->child_clusters[i].image_ids.empty() ||
+        cluster->child_clusters[i].image_ids.size() ==
+            cluster->image_ids.size()) {
+      continue;
+    }
+
     PartitionHierarchicalCluster(child_edges[i], child_weights[i],
                                  &cluster->child_clusters[i]);
+  }
+
+  // Remove empty clusters.
+  cluster->child_clusters.erase(
+      std::remove_if(cluster->child_clusters.begin(),
+                     cluster->child_clusters.end(),
+                     [](const Cluster& childCluster) {
+                       return childCluster.image_ids.empty();
+                     }),
+      cluster->child_clusters.end());
+
+  // If the child cluster is the same as the current cluster, it is redundant
+  // and we can remove it.
+  if (cluster->child_clusters.size() == 1 &&
+      cluster->image_ids.size() ==
+          cluster->child_clusters[0].image_ids.size()) {
+    cluster->child_clusters = {};
   }
 
   if (options_.image_overlap > 0) {

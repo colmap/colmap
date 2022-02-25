@@ -5,9 +5,10 @@ jobs:
   - template: build-windows.yaml
     parameters:
       visualStudioVersion: 2019
-  - template: build-windows.yaml
-    parameters:
-      visualStudioVersion: 2022
+  # Temporarily disabled, because of issue of compiling Eigen with VS2022.
+  # - template: build-windows.yaml
+  #   parameters:
+  #     visualStudioVersion: 2022
   - template: build-ubuntu.yaml
     parameters:
       displayName: 'Ubuntu 18.04'
