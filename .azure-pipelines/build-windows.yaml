@@ -55,5 +55,8 @@ jobs:
   - pwsh: |
       # Deleting a directory that breaks the caching of vcpkg.
       # Could potentially be disabled again in future vcpkg versions.
-      Remove-Item -Recurse -Force "$(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools/meson/test cases"
+      $path = "$(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools/meson/test cases"
+      if (Test-Path $path) {
+        Remove-Item -Recurse -Force $path
+      }
     displayName: 'Cleanup environment'
