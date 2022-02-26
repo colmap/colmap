@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -118,6 +118,78 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
   }
 
   return ell;
+}
+
+std::vector<Eigen::Vector3d> GPSTransform::EllToENU(
+    const std::vector<Eigen::Vector3d>& ell, const double lat0,
+    const double lon0) const {
+  // Convert GPS (lat / lon / alt) to ECEF
+  std::vector<Eigen::Vector3d> xyz = EllToXYZ(ell);
+
+  return XYZToENU(xyz, lat0, lon0);
+}
+
+std::vector<Eigen::Vector3d> GPSTransform::XYZToENU(
+    const std::vector<Eigen::Vector3d>& xyz, const double lat0,
+    const double lon0) const {
+  std::vector<Eigen::Vector3d> enu(xyz.size());
+
+  // https://en.wikipedia.org/wiki/Geographic_coordinate_conversion#From_ECEF_to_ENU
+
+  // ECEF to ENU Rot :
+  const double cos_lat0 = std::cos(DegToRad(lat0));
+  const double sin_lat0 = std::sin(DegToRad(lat0));
+
+  const double cos_lon0 = std::cos(DegToRad(lon0));
+  const double sin_lon0 = std::sin(DegToRad(lon0));
+
+  Eigen::Matrix3d R;
+  R << -sin_lon0, cos_lon0, 0., -sin_lat0 * cos_lon0, -sin_lat0 * sin_lon0,
+      cos_lat0, cos_lat0 * cos_lon0, cos_lat0 * sin_lon0, sin_lat0;
+
+  // Convert ECEF to ENU coords. (w.r.t. ECEF ref == xyz[0])
+  for (size_t i = 0; i < xyz.size(); ++i) {
+    enu[i] = R * (xyz[i] - xyz[0]);
+  }
+
+  return enu;
+}
+
+std::vector<Eigen::Vector3d> GPSTransform::ENUToEll(
+    const std::vector<Eigen::Vector3d>& enu, const double lat0,
+    const double lon0, const double alt0) const {
+  return XYZToEll(ENUToXYZ(enu, lat0, lon0, alt0));
+}
+
+std::vector<Eigen::Vector3d> GPSTransform::ENUToXYZ(
+    const std::vector<Eigen::Vector3d>& enu, const double lat0,
+    const double lon0, const double alt0) const {
+  std::vector<Eigen::Vector3d> xyz(enu.size());
+
+  // ECEF ref (origin)
+  const Eigen::Vector3d xyz_ref =
+      EllToXYZ({Eigen::Vector3d(lat0, lon0, alt0)})[0];
+
+  // ENU to ECEF Rot :
+  const double cos_lat0 = std::cos(DegToRad(lat0));
+  const double sin_lat0 = std::sin(DegToRad(lat0));
+
+  const double cos_lon0 = std::cos(DegToRad(lon0));
+  const double sin_lon0 = std::sin(DegToRad(lon0));
+
+  Eigen::Matrix3d R;
+  R << -sin_lon0, cos_lon0, 0., -sin_lat0 * cos_lon0, -sin_lat0 * sin_lon0,
+      cos_lat0, cos_lat0 * cos_lon0, cos_lat0 * sin_lon0, sin_lat0;
+
+  // R is ECEF to ENU so Transpose to get inverse
+  R.transposeInPlace();
+
+  // Convert ENU to ECEF coords.
+  for (size_t i = 0; i < enu.size(); ++i) {
+    xyz[i] = (R * enu[i]) + xyz_ref;
+  }
+
+  return xyz;
 }
 
 }  // namespace colmap

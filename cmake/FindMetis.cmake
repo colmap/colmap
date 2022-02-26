@@ -29,6 +29,65 @@
 #
 # Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-set(FOLDER_NAME "tools")
+# Find package module for Metis library.
+#
+# The following variables are set by this module:
+#
+#   METIS_FOUND: TRUE if Metis is found.
+#   METIS_INCLUDE_DIRS: Include directories for Metis.
+#   METIS_LIBRARIES: Libraries required to link Metis.
+#
+# The following variables control the behavior of this module:
+#
+# METIS_INCLUDE_DIR_HINTS: List of additional directories in which to
+#                              search for Metis includes.
+# METIS_LIBRARY_DIR_HINTS: List of additional directories in which to
+#                              search for Metis libraries.
 
-# COLMAP_ADD_EXECUTABLE(example example.cc)
+set(METIS_INCLUDE_DIR_HINTS "" CACHE PATH "Metis include directory")
+set(METIS_LIBRARY_DIR_HINTS "" CACHE PATH "Metis library directory")
+
+unset(METIS_FOUND)
+unset(METIS_INCLUDE_DIRS)
+unset(METIS_LIBRARIES)
+
+list(APPEND METIS_CHECK_INCLUDE_DIRS
+    ${METIS_INCLUDE_DIR_HINTS}
+    /usr/include
+    /usr/local/include
+    /opt/include
+    /opt/local/include
+)
+
+list(APPEND METIS_CHECK_LIBRARY_DIRS
+    ${METIS_LIBRARY_DIR_HINTS}
+    /usr/lib
+    /usr/local/lib
+    /opt/lib
+    /opt/local/lib
+)
+
+find_path(METIS_INCLUDE_DIRS
+    NAMES
+    metis.h
+    PATHS
+    ${METIS_CHECK_INCLUDE_DIRS})
+find_library(METIS_LIBRARIES
+    NAMES
+    metis
+    PATHS
+    ${METIS_CHECK_LIBRARY_DIRS})
+
+if(METIS_INCLUDE_DIRS AND METIS_LIBRARIES)
+    set(METIS_FOUND TRUE)
+endif()
+
+if(METIS_FOUND)
+    message(STATUS "Found Metis")
+    message(STATUS "  Includes : ${METIS_INCLUDE_DIRS}")
+    message(STATUS "  Libraries : ${METIS_LIBRARIES}")
+else()
+    if(METIS_FIND_REQUIRED)
+        message(FATAL_ERROR "Could not find Metis")
+    endif()
+endif()

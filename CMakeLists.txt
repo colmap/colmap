@@ -1,4 +1,4 @@
-# Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+# Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -33,8 +33,8 @@ cmake_minimum_required(VERSION 3.0)
 
 project(COLMAP)
 
-set(COLMAP_VERSION "3.7")
-set(COLMAP_VERSION_NUMBER "3700")
+set(COLMAP_VERSION "3.8")
+set(COLMAP_VERSION_NUMBER "3800")
 
 
 ################################################################################
@@ -63,6 +63,7 @@ option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
 option(TESTS_ENABLED "Whether to build test binaries" OFF)
 option(ASAN_ENABLED "Whether to enable AddressSanitizer flags" OFF)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
+option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(BOOST_STATIC "Whether to enable static boost library linker flags" ON)
 set(CUDA_ARCHS "Auto" CACHE STRING "List of CUDA architectures for which to \
@@ -98,6 +99,8 @@ find_package(Boost REQUIRED COMPONENTS
 find_package(Eigen3 REQUIRED)
 
 find_package(FreeImage REQUIRED)
+
+find_package(Metis REQUIRED)
 
 find_package(Glog REQUIRED)
 
@@ -254,6 +257,19 @@ else()
     message(STATUS "Disabling OpenGL support")
 endif()
 
+if(CCACHE_ENABLED)
+    find_program(CCACHE ccache)
+    if(CCACHE)
+        message(STATUS "Enabling ccache support")
+        set(CMAKE_C_COMPILER_LAUNCHER ${CCACHE})
+        set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE})
+    else()
+        message(STATUS "Disabling ccache support")
+    endif()
+else()
+    message(STATUS "Disabling ccache support")
+endif()
+
 if(PROFILING_ENABLED)
     message(STATUS "Enabling profiling support")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -lprofiler -ltcmalloc")
@@ -296,6 +312,7 @@ set(COLMAP_INCLUDE_DIRS
     ${GLOG_INCLUDE_DIRS}
     ${FREEIMAGE_INCLUDE_DIRS}
     ${CERES_INCLUDE_DIRS}
+    ${METIS_INCLUDE_DIRS}
     ${GLEW_INCLUDE_DIRS}
 )
 
@@ -310,6 +327,7 @@ set(COLMAP_EXTERNAL_LIBRARIES
     ${Boost_SYSTEM_LIBRARY}
     ${GLOG_LIBRARIES}
     ${FREEIMAGE_LIBRARIES}
+    ${METIS_LIBRARIES}
     ${CERES_LIBRARIES}
     ${OPENGL_LIBRARIES}
 )
@@ -335,7 +353,6 @@ endif()
 
 set(COLMAP_INTERNAL_LIBRARIES
     flann
-    graclus
     lsd
     pba
     poisson_recon
@@ -361,7 +378,6 @@ add_subdirectory(src)
 ################################################################################
 
 COLMAP_ADD_SOURCE_DIR(lib/FLANN LIB_FLANN_SRCS *.h *.cpp *.hpp *.cu)
-COLMAP_ADD_SOURCE_DIR(lib/Graclus LIB_GRACLUS_SRCS *.h *.c)
 COLMAP_ADD_SOURCE_DIR(lib/LSD LIB_LSD_SRCS *.h *.c)
 COLMAP_ADD_SOURCE_DIR(lib/PBA LIB_PBA_SRCS *.h *.cpp *.cu)
 COLMAP_ADD_SOURCE_DIR(lib/PoissonRecon LIB_POISSON_RECON_SRCS *.h *.cpp *.inl)
@@ -388,7 +404,6 @@ COLMAP_ADD_SOURCE_DIR(src/util UTIL_SRCS *.h *.cc)
 add_library(
     ${COLMAP_SRC_ROOT_FOLDER}
     ${LIB_FLANN_SRCS}
-    ${LIB_GRACLUS_SRCS}
     ${LIB_LSD_SRCS}
     ${LIB_PBA_SRCS}
     ${LIB_POISSON_RECON_SRCS}

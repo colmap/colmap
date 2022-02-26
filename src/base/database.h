@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -268,6 +268,10 @@ class Database {
   size_t MaxColumn(const std::string& column, const std::string& table) const;
 
   sqlite3* database_ = nullptr;
+
+  // Check if elements got removed from the database to only apply
+  // the VACUUM command in such case
+  mutable bool database_cleared_ = false;
 
   // Ensure that only one database object at a time updates the schema of a
   // database. Since the schema is updated every time a database is opened, this
