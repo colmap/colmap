@@ -110,7 +110,7 @@ class MetisGraph {
 
   int GetVertexId(const int idx) { return vertex_idx_to_id_.at(idx); }
 
-  int nvtxs = 0;
+  idx_t nvtxs = 0;
   idx_t* xadj = nullptr;
   idx_t* vwgt = nullptr;
   idx_t* adjncy = nullptr;
@@ -171,11 +171,11 @@ std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
 
   MetisGraph graph(edges, weights);
 
-  int ncon = 1;
-  int edgecut = -1;
-  int nparts = num_parts;
+  idx_t ncon = 1;
+  idx_t edgecut = -1;
+  idx_t nparts = num_parts;
 
-  int metisOptions[METIS_NOPTIONS];
+  idx_t metisOptions[METIS_NOPTIONS];
   METIS_SetDefaultOptions(metisOptions);
 
   std::vector<idx_t> cut_labels(graph.nvtxs, -1);
