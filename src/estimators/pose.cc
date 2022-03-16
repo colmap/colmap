@@ -311,7 +311,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     PrintSolverSummary(summary);
   }
 
-  if (problem.NumResiduals() > 0 and qtvec_covariance != nullptr) {
+  if (problem.NumResiduals() > 0 && qtvec_covariance != nullptr) {
     ceres::Covariance::Options options;
     ceres::Covariance covariance(options);
     std::vector<const double*> parameter_blocks = {qvec_data, tvec_data};
@@ -503,7 +503,7 @@ bool RefineGeneralizedAbsolutePose(
     PrintSolverSummary(summary);
   }
 
-  if (problem.NumResiduals() > 0 and qtvec_covariance != nullptr) {
+  if (problem.NumResiduals() > 0 && qtvec_covariance != nullptr) {
     ceres::Covariance::Options options;
     ceres::Covariance covariance(options);
     std::vector<const double*> parameter_blocks = {qvec_data, tvec_data};
