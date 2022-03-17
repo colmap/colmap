@@ -159,6 +159,9 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
 // @param tvec                 Estimated translation component.
 // @param camera               Camera for which to estimate pose. Modified
 //                             in-place to store the estimated focal length.
+// @param rot_tvec_covariance  Estimated 6x6 covariance matrix of
+//                             the rotation (as axis-angle, in tangent space)
+//                             and translation terms (optional).
 //
 // @return                     Whether the solution is usable.
 bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
@@ -166,7 +169,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                         const std::vector<Eigen::Vector2d>& points2D,
                         const std::vector<Eigen::Vector3d>& points3D,
                         Eigen::Vector4d* qvec, Eigen::Vector3d* tvec,
-                        Camera* camera);
+                        Camera* camera,
+                        Eigen::Matrix6d* rot_tvec_covariance = nullptr);
 
 // Refine relative pose of two cameras.
 //
@@ -192,6 +196,38 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
                         const std::vector<Eigen::Vector2d>& points1,
                         const std::vector<Eigen::Vector2d>& points2,
                         Eigen::Vector4d* qvec, Eigen::Vector3d* tvec);
+
+// Refine generalized absolute pose (optionally focal lengths)
+// from 2D-3D correspondences.
+//
+// @param options              Refinement options.
+// @param inlier_mask          Inlier mask for 2D-3D correspondences.
+// @param points2D             Corresponding 2D points.
+// @param points3D             Corresponding 3D points.
+// @param camera_idxs          Index of the rig camera for each correspondence.
+// @param rig_qvecs            Relative rotations from rig to each camera frame
+// @param rig_tvecs            Relative translations from rig
+//                             to each camera frame.
+// @param qvec                 Estimated rotation component of the rig as
+//                             unit Quaternion coefficients (w, x, y, z).
+// @param tvec                 Estimated translation component of the rig.
+// @param cameras              Cameras for which to estimate pose. Modified
+//                             in-place to store the estimated focal lengths.
+// @param rot_tvec_covariance  Estimated 6x6 covariance matrix of
+//                             the rotation (as axis-angle, in tangent space)
+//                             and translation terms (optional).
+//
+// @return                     Whether the solution is usable.
+bool RefineGeneralizedAbsolutePose(
+    const AbsolutePoseRefinementOptions& options,
+    const std::vector<char>& inlier_mask,
+    const std::vector<Eigen::Vector2d>& points2D,
+    const std::vector<Eigen::Vector3d>& points3D,
+    const std::vector<size_t>& camera_idxs,
+    const std::vector<Eigen::Vector4d>& rig_qvecs,
+    const std::vector<Eigen::Vector3d>& rig_tvecs, Eigen::Vector4d* qvec,
+    Eigen::Vector3d* tvec, std::vector<Camera>* cameras,
+    Eigen::Matrix6d* rot_tvec_covariance = nullptr);
 
 }  // namespace colmap
 
