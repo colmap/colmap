@@ -400,7 +400,7 @@ bool RefineGeneralizedAbsolutePose(
     if (!inlier_mask[i]) {
       continue;
     }
-    size_t camera_idx = camera_idxs[i];
+    const size_t camera_idx = camera_idxs[i];
     camera_counts[camera_idx] += 1;
 
     ceres::CostFunction* cost_function = nullptr;
@@ -435,7 +435,7 @@ bool RefineGeneralizedAbsolutePose(
       if (camera_counts[i] == 0) continue;
       Camera& camera = cameras->at(i);
 
-      // We don't optimize the rig parameters (it's likely very unconstrainted)
+      // We don't optimize the rig parameters (it's likely under-constrained)
       problem.SetParameterBlockConstant(rig_qvecs_copy[i].data());
       problem.SetParameterBlockConstant(rig_tvecs_copy[i].data());
 
@@ -483,7 +483,6 @@ bool RefineGeneralizedAbsolutePose(
   solver_options.gradient_tolerance = options.gradient_tolerance;
   solver_options.max_num_iterations = options.max_num_iterations;
   solver_options.linear_solver_type = ceres::DENSE_QR;
-  // solver_options.minimizer_progress_to_stdout = true;  // fixme
 
   // The overhead of creating threads is too large.
   solver_options.num_threads = 1;
