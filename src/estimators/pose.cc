@@ -200,7 +200,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                         const std::vector<Eigen::Vector2d>& points2D,
                         const std::vector<Eigen::Vector3d>& points3D,
                         Eigen::Vector4d* qvec, Eigen::Vector3d* tvec,
-                        Camera* camera, Eigen::Matrix6d* qtvec_covariance) {
+                        Camera* camera, Eigen::Matrix6d* rot_tvec_covariance) {
   CHECK_EQ(inlier_mask.size(), points2D.size());
   CHECK_EQ(points2D.size(), points3D.size());
   options.Check();
@@ -311,13 +311,16 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     PrintSolverSummary(summary);
   }
 
-  if (problem.NumResiduals() > 0 && qtvec_covariance != nullptr) {
+  if (problem.NumResiduals() > 0 && rot_tvec_covariance != nullptr) {
     ceres::Covariance::Options options;
     ceres::Covariance covariance(options);
     std::vector<const double*> parameter_blocks = {qvec_data, tvec_data};
     covariance.Compute(parameter_blocks, &problem);
+    // The rotation covariance is estimated in the tangent space of the
+    // quaternion, which corresponds to the 3-DoF axis-angle local
+    // parameterization.
     covariance.GetCovarianceMatrixInTangentSpace(parameter_blocks,
-                                                 qtvec_covariance->data());
+                                                 rot_tvec_covariance->data());
   }
 
   return summary.IsSolutionUsable();
@@ -367,7 +370,7 @@ bool RefineGeneralizedAbsolutePose(
     const std::vector<Eigen::Vector4d>& rig_qvecs,
     const std::vector<Eigen::Vector3d>& rig_tvecs, Eigen::Vector4d* qvec,
     Eigen::Vector3d* tvec, std::vector<Camera>* cameras,
-    Eigen::Matrix6d* qtvec_covariance) {
+    Eigen::Matrix6d* rot_tvec_covariance) {
   CHECK_EQ(points2D.size(), inlier_mask.size());
   CHECK_EQ(points2D.size(), points3D.size());
   CHECK_EQ(points2D.size(), camera_idxs.size());
@@ -502,13 +505,13 @@ bool RefineGeneralizedAbsolutePose(
     PrintSolverSummary(summary);
   }
 
-  if (problem.NumResiduals() > 0 && qtvec_covariance != nullptr) {
+  if (problem.NumResiduals() > 0 && rot_tvec_covariance != nullptr) {
     ceres::Covariance::Options options;
     ceres::Covariance covariance(options);
     std::vector<const double*> parameter_blocks = {qvec_data, tvec_data};
     covariance.Compute(parameter_blocks, &problem);
     covariance.GetCovarianceMatrixInTangentSpace(parameter_blocks,
-                                                 qtvec_covariance->data());
+                                                 rot_tvec_covariance->data());
   }
 
   return summary.IsSolutionUsable();
