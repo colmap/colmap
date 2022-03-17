@@ -160,7 +160,8 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
 // @param camera               Camera for which to estimate pose. Modified
 //                             in-place to store the estimated focal length.
 // @param qtvec_covariance     Estimated 6x6 covariance matrix of
-//                             the rotation and translation terms (optional).
+//                             the rotation (in tangent space) and translation
+//                             terms (optional).
 //
 // @return                     Whether the solution is usable.
 bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
@@ -213,7 +214,8 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
 // @param cameras              Cameras for which to estimate pose. Modified
 //                             in-place to store the estimated focal lengths.
 // @param qtvec_covariance     Estimated 6x6 covariance matrix of
-//                             the rotation and translation terms (optional).
+//                             the rotation (in tangent space) and translation
+//                             terms (optional).
 //
 // @return                     Whether the solution is usable.
 bool RefineGeneralizedAbsolutePose(
