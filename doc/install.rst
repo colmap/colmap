@@ -99,7 +99,7 @@ Install `Ceres Solver <http://ceres-solver.org/>`_::
     sudo apt-get install libatlas-base-dev libsuitesparse-dev
     git clone https://ceres-solver.googlesource.com/ceres-solver
     cd ceres-solver
-    git checkout $(git describe --tags) # Checkout the latest release
+    git checkout 2.1.0
     mkdir build
     cd build
     cmake .. -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF

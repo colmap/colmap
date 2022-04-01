@@ -219,7 +219,7 @@ class RigBundleAdjustmentCostFunction {
 // pose is assumed to be on the unit sphere around the first pose, i.e. the
 // pose of the second camera is parameterized by a 3D rotation and a
 // 3D translation with unit norm. `tvec` is therefore over-parameterized as is
-// and should be down-projected using `HomogeneousVectorParameterization`.
+// and should be down-projected using `SphereManifold`.
 class RelativePoseCostFunction {
  public:
   RelativePoseCostFunction(const Eigen::Vector2d& x1, const Eigen::Vector2d& x2)
@@ -266,6 +266,35 @@ class RelativePoseCostFunction {
   const double x2_;
   const double y2_;
 };
+
+inline void SetQuaternionManifold(ceres::Problem* problem, double* qvec) {
+#if CERES_VERSION_MAJOR >= 2 && CERES_VERSION_MINOR >= 1
+  problem->SetManifold(qvec, new ceres::QuaternionManifold);
+#else
+  problem->SetParameterization(qvec, new ceres::QuaternionParameterization);
+#endif
+}
+
+inline void SetSubsetManifold(int size, const std::vector<int>& constant_params,
+                              ceres::Problem* problem, double* params) {
+#if CERES_VERSION_MAJOR >= 2 && CERES_VERSION_MINOR >= 1
+  problem->SetManifold(params,
+                       new ceres::SubsetManifold(size, constant_params));
+#else
+  problem->SetParameterization(
+      params, new ceres::SubsetParameterization(size, constant_params));
+#endif
+}
+
+template <int size>
+inline void SetSphereManifold(ceres::Problem* problem, double* params) {
+#if CERES_VERSION_MAJOR >= 2 && CERES_VERSION_MINOR >= 1
+  problem->SetManifold(params, new ceres::SphereManifold<size>);
+#else
+  problem->SetParameterization(
+      params, new ceres::HomogeneousVectorParameterization(size));
+#endif
+}
 
 }  // namespace colmap
 
