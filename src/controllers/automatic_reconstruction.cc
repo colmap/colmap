@@ -91,6 +91,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   if (!options_.mask_path.empty()) {
     reader_options.mask_path = options_.mask_path;
     option_manager_.image_reader->mask_path = options_.mask_path;
+    option_manager_.stereo_fusion->mask_path = options_.mask_path;
   }
   reader_options.single_camera = options_.single_camera;
   reader_options.camera_model = options_.camera_model;
