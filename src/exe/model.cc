@@ -765,10 +765,10 @@ int RunModelOrientationAligner(int argc, char** argv) {
     const Eigen::Matrix3d frame = EstimateManhattanWorldFrame(
         frame_estimation_options, reconstruction, *options.image_path);
 
-    if (frame.col(0).nonZeros() == 0) {
+    if (frame.col(0).lpNorm<1>() == 0) {
       std::cout << "Only aligning vertical axis" << std::endl;
       tform = RotationFromUnitVectors(frame.col(1), Eigen::Vector3d(0, 1, 0));
-    } else if (frame.col(1).nonZeros() == 0) {
+    } else if (frame.col(1).lpNorm<1>() == 0) {
       tform = RotationFromUnitVectors(frame.col(0), Eigen::Vector3d(1, 0, 0));
       std::cout << "Only aligning horizontal axis" << std::endl;
     } else {
