@@ -90,7 +90,7 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
     const double y = xyz[i](1);
     const double z = xyz[i](2);
 
-    const double radius_xy = sqrt(x * x + y * y);
+    const double radius_xy = std::sqrt(x * x + y * y);
     const double kEps = 1e-12;
 
     // Latitude
@@ -100,11 +100,12 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
     for (size_t j = 0; j < 100; ++j) {
       const double sin_lat0 = sin(lat);
       const double N = a_ / sqrt(1 - e2_ * sin_lat0 * sin_lat0);
+      const double prev_alt = alt;
       alt = radius_xy / cos(lat) - N;
       const double prev_lat = lat;
-      lat = atan((z / radius_xy) * 1 / (1 - e2_ * N / (N + alt)));
+      lat = std::atan((z / radius_xy) * 1 / (1 - e2_ * N / (N + alt)));
 
-      if (std::abs(prev_lat - lat) < kEps) {
+      if (std::abs(prev_lat - lat) < kEps && std::abs(prev_alt - alt) < kEps) {
         break;
       }
     }
