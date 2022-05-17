@@ -263,6 +263,7 @@ class JobQueue {
    public:
     Job() : valid_(false) {}
     explicit Job(const T& data) : data_(data), valid_(true) {}
+    explicit Job(T&& data) : data_(std::move(data)), valid_(true) {}
 
     // Check whether the data is valid.
     bool IsValid() const { return valid_; }
@@ -285,6 +286,8 @@ class JobQueue {
 
   // Push a new job to the queue. Waits if the number of jobs is exceeded.
   bool Push(const T& data);
+  // Push a new job to the queue. Waits if the number of jobs is exceeded.
+  bool Push(T&& data);
 
   // Pop a job from the queue. Waits if there is no job in the queue.
   Job Pop();
@@ -375,6 +378,21 @@ bool JobQueue<T>::Push(const T& data) {
 }
 
 template <typename T>
+bool JobQueue<T>::Push(T&& data) {
+  std::unique_lock<std::mutex> lock(mutex_);
+  while (jobs_.size() >= max_num_jobs_ && !stop_) {
+    pop_condition_.wait(lock);
+  }
+  if (stop_) {
+    return false;
+  } else {
+    jobs_.push(std::move(data));
+    push_condition_.notify_one();
+    return true;
+  }
+}
+
+template <typename T>
 typename JobQueue<T>::Job JobQueue<T>::Pop() {
   std::unique_lock<std::mutex> lock(mutex_);
   while (jobs_.empty() && !stop_) {
@@ -383,13 +401,13 @@ typename JobQueue<T>::Job JobQueue<T>::Pop() {
   if (stop_) {
     return Job();
   } else {
-    const T data = jobs_.front();
+    Job job(std::move(jobs_.front()));
     jobs_.pop();
     pop_condition_.notify_one();
     if (jobs_.empty()) {
       empty_condition_.notify_all();
     }
-    return Job(data);
+    return std::move(job);
   }
 }
 
