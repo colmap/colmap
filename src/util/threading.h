@@ -354,6 +354,12 @@ JobQueue<T>::~JobQueue() {
 }
 
 template <typename T>
+size_t JobQueue<T>::Size() {
+  std::unique_lock<std::mutex> lock(mutex_);
+  return jobs_.size();
+}
+
+template <typename T>
 bool JobQueue<T>::Push(T data) {
   std::unique_lock<std::mutex> lock(mutex_);
   while (jobs_.size() >= max_num_jobs_ && !stop_) {
