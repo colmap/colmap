@@ -313,7 +313,7 @@ void ImageResizerThread::Run() {
       break;
     }
 
-    auto&& input_job = input_queue_->Pop();
+    auto input_job = input_queue_->Pop();
     if (input_job.IsValid()) {
       auto& image_data = input_job.Data();
 
@@ -380,7 +380,7 @@ void SiftFeatureExtractorThread::Run() {
       break;
     }
 
-    auto&& input_job = input_queue_->Pop();
+    auto input_job = input_queue_->Pop();
     if (input_job.IsValid()) {
       auto& image_data = input_job.Data();
 
@@ -437,7 +437,7 @@ void FeatureWriterThread::Run() {
       break;
     }
 
-    auto&& input_job = input_queue_->Pop();
+    auto input_job = input_queue_->Pop();
     if (input_job.IsValid()) {
       auto& image_data = input_job.Data();
 

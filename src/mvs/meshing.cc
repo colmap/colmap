@@ -849,7 +849,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
     }
 
     // Pop the next results from the queue.
-    auto&& result = result_queue.Pop();
+    auto result = result_queue.Pop();
     CHECK(result.IsValid());
 
     // Accumulate the weights of the image into the global graph.

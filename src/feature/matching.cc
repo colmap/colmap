@@ -151,7 +151,7 @@ void MatchNearestNeighborsInVisualIndex(
     }
 
     // Pop the next results from the retrieval queue.
-    auto&& retrieval = retrieval_queue.Pop();
+    auto retrieval = retrieval_queue.Pop();
     CHECK(retrieval.IsValid());
 
     const auto& image_id = retrieval.Data().image_id;
@@ -361,7 +361,7 @@ void SiftCPUFeatureMatcher::Run() {
       break;
     }
 
-    auto&& input_job = input_queue_->Pop();
+    auto input_job = input_queue_->Pop();
     if (input_job.IsValid()) {
       auto& data = input_job.Data();
 
@@ -419,7 +419,7 @@ void SiftGPUFeatureMatcher::Run() {
       break;
     }
 
-    auto&& input_job = input_queue_->Pop();
+    auto input_job = input_queue_->Pop();
     if (input_job.IsValid()) {
       auto& data = input_job.Data();
 
@@ -472,7 +472,7 @@ void GuidedSiftCPUFeatureMatcher::Run() {
       break;
     }
 
-    auto&& input_job = input_queue_->Pop();
+    auto input_job = input_queue_->Pop();
     if (input_job.IsValid()) {
       auto& data = input_job.Data();
 
@@ -540,7 +540,7 @@ void GuidedSiftGPUFeatureMatcher::Run() {
       break;
     }
 
-    auto&& input_job = input_queue_->Pop();
+    auto input_job = input_queue_->Pop();
     if (input_job.IsValid()) {
       auto& data = input_job.Data();
 
@@ -620,7 +620,7 @@ void TwoViewGeometryVerifier::Run() {
       break;
     }
 
-    auto&& input_job = input_queue_->Pop();
+    auto input_job = input_queue_->Pop();
     if (input_job.IsValid()) {
       auto& data = input_job.Data();
 
@@ -863,7 +863,7 @@ void SiftFeatureMatcher::Match(
   //////////////////////////////////////////////////////////////////////////////
 
   for (size_t i = 0; i < num_outputs; ++i) {
-    auto&& output_job = output_queue_.Pop();
+    auto output_job = output_queue_.Pop();
     CHECK(output_job.IsValid());
     auto& output = output_job.Data();
 
