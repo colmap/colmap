@@ -604,8 +604,9 @@ bool Bitmap::ReadExifTag(const FREE_IMAGE_MDMODEL model,
 
 void Bitmap::SetPtr(FIBITMAP* data) {
   if (!IsPtrSupported(data)) {
-    FreeImage_Unload(data);
-    data = FreeImage_ConvertTo24Bits(data);
+    FIBITMAP* temp_data = data;
+    data = FreeImage_ConvertTo24Bits(temp_data);
+    FreeImage_Unload(temp_data);
   }
 
   data_ = FIBitmapPtr(data, &FreeImage_Unload);
