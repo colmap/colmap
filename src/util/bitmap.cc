@@ -31,6 +31,7 @@
 
 #include "util/bitmap.h"
 
+#include <cstring>
 #include <regex>
 #include <unordered_map>
 
@@ -103,7 +104,7 @@ void Bitmap::Deallocate() {
 
 size_t Bitmap::NumBytes() const {
   if (data_) {
-    return ScanWidth() * height_;
+    return static_cast<size_t>(ScanWidth()) * height_;
   } else {
     return 0;
   }
@@ -113,7 +114,7 @@ std::vector<uint8_t> Bitmap::ConvertToRawBits() const {
   const unsigned int scan_width = ScanWidth();
   const unsigned int bpp = BitsPerPixel();
   const bool kTopDown = true;
-  std::vector<uint8_t> raw_bits(scan_width * height_, 0);
+  std::vector<uint8_t> raw_bits(static_cast<size_t>(scan_width) * height_, 0);
   FreeImage_ConvertToRawBits(raw_bits.data(), data_.get(), scan_width, bpp,
                              FI_RGBA_RED_MASK, FI_RGBA_GREEN_MASK,
                              FI_RGBA_BLUE_MASK, kTopDown);
@@ -121,30 +122,26 @@ std::vector<uint8_t> Bitmap::ConvertToRawBits() const {
 }
 
 std::vector<uint8_t> Bitmap::ConvertToRowMajorArray() const {
-  std::vector<uint8_t> array(width_ * height_ * channels_);
-  size_t i = 0;
+  std::vector<uint8_t> array(static_cast<size_t>(width_) * height_ * channels_);
+  const size_t line_size = static_cast<size_t>(width_ * channels_);
+  const size_t line_bytes = sizeof(uint8_t) * line_size;
   for (int y = 0; y < height_; ++y) {
     const uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
-    for (int x = 0; x < width_; ++x) {
-      for (int d = 0; d < channels_; ++d) {
-        array[i] = line[x * channels_ + d];
-        i += 1;
-      }
-    }
+    uint8_t* array_line = array.data() + y * line_size;
+    std::memcpy(array_line, line, line_bytes);
   }
   return array;
 }
 
 std::vector<uint8_t> Bitmap::ConvertToColMajorArray() const {
-  std::vector<uint8_t> array(width_ * height_ * channels_);
+  std::vector<uint8_t> array(static_cast<size_t>(width_) * height_ * channels_);
   size_t i = 0;
   for (int d = 0; d < channels_; ++d) {
-    for (int x = 0; x < width_; ++x) {
-      for (int y = 0; y < height_; ++y) {
+    for (int x = 0, pi = 0; x < width_; ++x, pi += channels_) {
+      for (int y = 0; y < height_; ++y, ++i) {
         const uint8_t* line =
             FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
-        array[i] = line[x * channels_ + d];
-        i += 1;
+        array[i] = line[pi + d];
       }
     }
   }
@@ -163,9 +160,10 @@ bool Bitmap::GetPixel(const int x, const int y,
     color->r = line[x];
     return true;
   } else if (IsRGB()) {
-    color->r = line[3 * x + FI_RGBA_RED];
-    color->g = line[3 * x + FI_RGBA_GREEN];
-    color->b = line[3 * x + FI_RGBA_BLUE];
+    const int pi = 3 * x;
+    color->r = line[pi + FI_RGBA_RED];
+    color->g = line[pi + FI_RGBA_GREEN];
+    color->b = line[pi + FI_RGBA_BLUE];
     return true;
   }
 
@@ -184,9 +182,10 @@ bool Bitmap::SetPixel(const int x, const int y,
     line[x] = color.r;
     return true;
   } else if (IsRGB()) {
-    line[3 * x + FI_RGBA_RED] = color.r;
-    line[3 * x + FI_RGBA_GREEN] = color.g;
-    line[3 * x + FI_RGBA_BLUE] = color.b;
+    const int pi = 3 * x;
+    line[pi + FI_RGBA_RED] = color.r;
+    line[pi + FI_RGBA_GREEN] = color.g;
+    line[pi + FI_RGBA_BLUE] = color.b;
     return true;
   }
 
@@ -200,17 +199,25 @@ const uint8_t* Bitmap::GetScanline(const int y) const {
 }
 
 void Bitmap::Fill(const BitmapColor<uint8_t>& color) {
-  for (int y = 0; y < height_; ++y) {
-    uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
-    for (int x = 0; x < width_; ++x) {
-      if (IsGrey()) {
-        line[x] = color.r;
-      } else if (IsRGB()) {
-        line[3 * x + FI_RGBA_RED] = color.r;
-        line[3 * x + FI_RGBA_GREEN] = color.g;
-        line[3 * x + FI_RGBA_BLUE] = color.b;
+  if (IsGrey()) {
+    const size_t line_bytes = sizeof(uint8_t) * width_;
+    for (int y = 0; y < height_; ++y) {
+      uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
+      std::memset(line, color.r, line_bytes);
+    }
+    return;
+  }
+
+  if (IsRGB()) {
+    for (int y = 0; y < height_; ++y) {
+      uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
+      for (int x = 0, pi = 0; x < width_; ++x, pi += 3) {
+        line[pi + FI_RGBA_RED] = color.r;
+        line[pi + FI_RGBA_GREEN] = color.g;
+        line[pi + FI_RGBA_BLUE] = color.b;
       }
     }
+    return;
   }
 }
 
@@ -527,15 +534,15 @@ bool Bitmap::Write(const std::string& path, const FREE_IMAGE_FORMAT format,
 }
 
 void Bitmap::Smooth(const float sigma_x, const float sigma_y) {
-  std::vector<float> array(width_ * height_);
-  std::vector<float> array_smoothed(width_ * height_);
-  for (int d = 0; d < channels_; ++d) {
+  std::vector<float> array(static_cast<size_t>(width_) * height_);
+  std::vector<float> array_smoothed(static_cast<size_t>(width_) * height_);
+
+  if (channels_ == 1) {
     size_t i = 0;
     for (int y = 0; y < height_; ++y) {
       const uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
-      for (int x = 0; x < width_; ++x) {
-        array[i] = line[x * channels_ + d];
-        i += 1;
+      for (int x = 0; x < width_; ++x, ++i) {
+        array[i] = line[x];
       }
     }
 
@@ -545,10 +552,31 @@ void Bitmap::Smooth(const float sigma_x, const float sigma_y) {
     i = 0;
     for (int y = 0; y < height_; ++y) {
       uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
-      for (int x = 0; x < width_; ++x) {
-        line[x * channels_ + d] =
-            TruncateCast<float, uint8_t>(array_smoothed[i]);
-        i += 1;
+      for (int x = 0; x < width_; ++x, ++i) {
+        line[x] = TruncateCast<float, uint8_t>(array_smoothed[i]);
+      }
+    }
+  } else {
+    for (int d = 0; d < channels_; ++d) {
+      size_t i = 0;
+      for (int y = 0; y < height_; ++y) {
+        const uint8_t* line =
+            FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
+        for (int x = 0; x < width_; ++x, ++i) {
+          array[i] = line[x * channels_ + d];
+        }
+      }
+
+      vl_imsmooth_f(array_smoothed.data(), width_, array.data(), width_,
+                    height_, width_, sigma_x, sigma_y);
+
+      i = 0;
+      for (int y = 0; y < height_; ++y) {
+        uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
+        for (int x = 0; x < width_; ++x, ++i) {
+          line[x * channels_ + d] =
+              TruncateCast<float, uint8_t>(array_smoothed[i]);
+        }
       }
     }
   }
