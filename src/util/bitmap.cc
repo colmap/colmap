@@ -135,13 +135,14 @@ std::vector<uint8_t> Bitmap::ConvertToRowMajorArray() const {
 
 std::vector<uint8_t> Bitmap::ConvertToColMajorArray() const {
   std::vector<uint8_t> array(static_cast<size_t>(width_) * height_ * channels_);
-  size_t i = 0;
+  const size_t line_size = static_cast<size_t>(height_ * channels_);
   for (int d = 0; d < channels_; ++d) {
     for (int x = 0, pi = 0; x < width_; ++x, pi += channels_) {
-      for (int y = 0; y < height_; ++y, ++i) {
+      uint8_t* array_line = array.data() + x * line_size;
+      for (int y = 0; y < height_; ++y) {
         const uint8_t* line =
             FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
-        array[i] = line[pi + d];
+        array_line[y] = line[pi + d];
       }
     }
   }
@@ -217,7 +218,6 @@ void Bitmap::Fill(const BitmapColor<uint8_t>& color) {
         line[pi + FI_RGBA_BLUE] = color.b;
       }
     }
-    return;
   }
 }
 
@@ -537,46 +537,47 @@ void Bitmap::Smooth(const float sigma_x, const float sigma_y) {
   std::vector<float> array(static_cast<size_t>(width_) * height_);
   std::vector<float> array_smoothed(static_cast<size_t>(width_) * height_);
 
-  if (channels_ == 1) {
-    size_t i = 0;
+  const size_t line_size = static_cast<size_t>(width_);
+
+  if (IsGrey()) {
     for (int y = 0; y < height_; ++y) {
       const uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
-      for (int x = 0; x < width_; ++x, ++i) {
-        array[i] = line[x];
+      float* array_line = array.data() + y * line_size;
+      for (int x = 0; x < width_; ++x) {
+        array_line[x] = line[x];
       }
     }
 
     vl_imsmooth_f(array_smoothed.data(), width_, array.data(), width_, height_,
                   width_, sigma_x, sigma_y);
 
-    i = 0;
     for (int y = 0; y < height_; ++y) {
       uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
-      for (int x = 0; x < width_; ++x, ++i) {
-        line[x] = TruncateCast<float, uint8_t>(array_smoothed[i]);
+      const float* array_line = array_smoothed.data() + y * line_size;
+      for (int x = 0; x < width_; ++x) {
+        line[x] = TruncateCast<float, uint8_t>(array_line[x]);
       }
     }
-  } else {
-    for (int d = 0; d < channels_; ++d) {
-      size_t i = 0;
-      for (int y = 0; y < height_; ++y) {
-        const uint8_t* line =
-            FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
-        for (int x = 0; x < width_; ++x, ++i) {
-          array[i] = line[x * channels_ + d];
-        }
+    return;
+  }
+
+  for (int d = 0; d < channels_; ++d) {
+    for (int y = 0; y < height_; ++y) {
+      const uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
+      float* array_line = array.data() + y * line_size;
+      for (int x = 0; x < width_; ++x) {
+        array_line[x] = line[x * channels_ + d];
       }
+    }
 
-      vl_imsmooth_f(array_smoothed.data(), width_, array.data(), width_,
-                    height_, width_, sigma_x, sigma_y);
+    vl_imsmooth_f(array_smoothed.data(), width_, array.data(), width_, height_,
+                  width_, sigma_x, sigma_y);
 
-      i = 0;
-      for (int y = 0; y < height_; ++y) {
-        uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
-        for (int x = 0; x < width_; ++x, ++i) {
-          line[x * channels_ + d] =
-              TruncateCast<float, uint8_t>(array_smoothed[i]);
-        }
+    for (int y = 0; y < height_; ++y) {
+      uint8_t* line = FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
+      const float* array_line = array_smoothed.data() + y * line_size;
+      for (int x = 0; x < width_; ++x) {
+        line[x * channels_ + d] = TruncateCast<float, uint8_t>(array_line[x]);
       }
     }
   }
