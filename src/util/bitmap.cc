@@ -137,12 +137,12 @@ std::vector<uint8_t> Bitmap::ConvertToColMajorArray() const {
   std::vector<uint8_t> array(static_cast<size_t>(width_) * height_ * channels_);
   const size_t line_size = static_cast<size_t>(height_ * channels_);
   for (int d = 0; d < channels_; ++d) {
-    for (int x = 0, pi = 0; x < width_; ++x, pi += channels_) {
+    for (int x = 0, px = 0; x < width_; ++x, px += channels_) {
       uint8_t* array_line = array.data() + x * line_size;
       for (int y = 0, py = 0; y < height_; ++y, py += channels_) {
         const uint8_t* line =
             FreeImage_GetScanLine(data_.get(), height_ - 1 - y);
-        array_line[py + d] = line[pi + d];
+        array_line[py + d] = line[px + d];
       }
     }
   }

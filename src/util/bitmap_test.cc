@@ -170,12 +170,12 @@ BOOST_AUTO_TEST_CASE(TestConvertToColMajorArrayRGB) {
   BOOST_CHECK_EQUAL(array[2], 0);
   BOOST_CHECK_EQUAL(array[3], 0);
   BOOST_CHECK_EQUAL(array[4], 0);
-  BOOST_CHECK_EQUAL(array[5], 0);
+  BOOST_CHECK_EQUAL(array[5], 1);
   BOOST_CHECK_EQUAL(array[6], 0);
   BOOST_CHECK_EQUAL(array[7], 0);
-  BOOST_CHECK_EQUAL(array[8], 0);
-  BOOST_CHECK_EQUAL(array[9], 1);
-  BOOST_CHECK_EQUAL(array[10], 2);
+  BOOST_CHECK_EQUAL(array[8], 2);
+  BOOST_CHECK_EQUAL(array[9], 0);
+  BOOST_CHECK_EQUAL(array[10], 0);
   BOOST_CHECK_EQUAL(array[11], 3);
 }
 
