@@ -41,6 +41,20 @@
 #include "util/misc.h"
 
 namespace colmap {
+namespace {
+
+#ifdef FREEIMAGE_LIB  // Only needed for static FreeImage.
+
+struct FreeImageInitializer {
+  FreeImageInitializer() { FreeImage_Initialise(); }
+  ~FreeImageInitializer() { FreeImage_DeInitialise(); }
+};
+
+const static auto initializer = FreeImageInitializer();
+
+#endif  // FREEIMAGE_LIB
+
+}  // namespace
 
 Bitmap::Bitmap()
     : data_(nullptr, &FreeImage_Unload), width_(0), height_(0), channels_(0) {}
