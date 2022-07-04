@@ -308,7 +308,9 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     ceres::Covariance::Options options;
     ceres::Covariance covariance(options);
     std::vector<const double*> parameter_blocks = {qvec_data, tvec_data};
-    covariance.Compute(parameter_blocks, &problem);
+    if (!covariance.Compute(parameter_blocks, &problem)) {
+      return false;
+    }
     // The rotation covariance is estimated in the tangent space of the
     // quaternion, which corresponds to the 3-DoF axis-angle local
     // parameterization.
@@ -490,7 +492,9 @@ bool RefineGeneralizedAbsolutePose(
     ceres::Covariance::Options options;
     ceres::Covariance covariance(options);
     std::vector<const double*> parameter_blocks = {qvec_data, tvec_data};
-    covariance.Compute(parameter_blocks, &problem);
+    if (!covariance.Compute(parameter_blocks, &problem)) {
+      return false;
+    }
     covariance.GetCovarianceMatrixInTangentSpace(parameter_blocks,
                                                  rot_tvec_covariance->data());
   }
