@@ -119,7 +119,7 @@ void TwoViewGeometry::Estimate(const Camera& camera1,
   if (options.force_H_use) {
     EstimateHomography(camera1, points1, camera2, points2, matches, options);
   } else if (camera1.HasPriorFocalLength() && camera2.HasPriorFocalLength()) {
-    EstimateCalibrated(camera1, points1, camera2, points2, matches, options);
+    EstimateWithRelativePose(camera1, points1, camera2, points2, matches, options);
   } else {
     EstimateUncalibrated(camera1, points1, camera2, points2, matches, options);
   }
@@ -227,6 +227,70 @@ bool TwoViewGeometry::EstimateRelativePose(
   }
 
   return true;
+}
+
+void TwoViewGeometry::EstimateWithRelativePose(
+    const Camera& camera1, const std::vector<Eigen::Vector2d>& points1,
+    const Camera& camera2, const std::vector<Eigen::Vector2d>& points2,
+    const FeatureMatches& matches, const Options& options) {
+  // Warning: Do not change this call to another `Estimate*` method, since E is
+  // need further down in this method.
+  EstimateCalibrated(camera1, points1, camera2, points2, matches, options);
+
+  // Extract normalized inlier points.
+  std::vector<Eigen::Vector2d> inlier_points1_N;
+  inlier_points1_N.reserve(inlier_matches.size());
+  std::vector<Eigen::Vector2d> inlier_points2_N;
+  inlier_points2_N.reserve(inlier_matches.size());
+  for (const auto& match : inlier_matches) {
+    const point2D_t idx1 = match.point2D_idx1;
+    const point2D_t idx2 = match.point2D_idx2;
+    inlier_points1_N.push_back(camera1.ImageToWorld(points1[idx1]));
+    inlier_points2_N.push_back(camera2.ImageToWorld(points2[idx2]));
+  }
+
+  Eigen::Matrix3d R;
+  std::vector<Eigen::Vector3d> points3D;
+
+  if (config == CALIBRATED || config == UNCALIBRATED) {
+    // Try to recover relative pose for calibrated and uncalibrated
+    // configurations. In the uncalibrated case, this most likely leads to a
+    // ill-defined reconstruction, but sometimes it succeeds anyways after e.g.
+    // subsequent bundle-adjustment etc.
+    PoseFromEssentialMatrix(E, inlier_points1_N, inlier_points2_N, &R, &tvec,
+                            &points3D);
+  } else {
+    Eigen::Vector3d n;
+    PoseFromHomographyMatrix(H, camera1.CalibrationMatrix(),
+                             camera2.CalibrationMatrix(), inlier_points1_N,
+                             inlier_points2_N, &R, &tvec, &n, &points3D);
+  }
+
+  qvec = RotationMatrixToQuaternion(R);
+
+  // Determine triangulation angle.
+  const Eigen::Matrix3x4d proj_matrix1 = Eigen::Matrix3x4d::Identity();
+  const Eigen::Matrix3x4d proj_matrix2 = ComposeProjectionMatrix(R, tvec);
+
+  if (points3D.empty()) {
+    tri_angle = 0;
+  } else {
+    const Eigen::Vector3d& proj_center1 =
+        ProjectionCenterFromMatrix(proj_matrix1);
+    const Eigen::Vector3d& proj_center2 =
+        ProjectionCenterFromMatrix(proj_matrix2);
+    tri_angle = Median(CalculateTriangulationAngles(
+        proj_center1, proj_center2, points3D));
+  }
+
+  if (config == PLANAR_OR_PANORAMIC) {
+    if (tvec.norm() == 0) {
+      config = PANORAMIC;
+      tri_angle = 0;
+    } else {
+      config = PLANAR;
+    }
+  }
 }
 
 void TwoViewGeometry::EstimateCalibrated(
