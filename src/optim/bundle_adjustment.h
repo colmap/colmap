@@ -48,7 +48,7 @@ namespace colmap {
 
 struct BundleAdjustmentOptions {
   // Loss function types: Trivial (non-robust) and Cauchy (robust) loss.
-  enum class LossFunctionType { TRIVIAL, SOFT_L1, CAUCHY };
+  enum class LossFunctionType { TRIVIAL, SOFT_L1, CAUCHY, HUBER };
   LossFunctionType loss_function_type = LossFunctionType::TRIVIAL;
 
   // Scaling factor determines residual at which robustification takes place.
