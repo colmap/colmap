@@ -152,7 +152,7 @@ Configure and compile COLMAP::
     git checkout dev
     mkdir build
     cd build
-    cmake .. -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
+    cmake .. -DQt5_DIR=/opt/homebrew/opt/qt@5/lib/cmake/Qt5
     make
     sudo make install
 
