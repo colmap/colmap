@@ -102,7 +102,8 @@ IncrementalMapper::IncrementalMapper(const DatabaseCache* database_cache)
       triangulator_(nullptr),
       num_total_reg_images_(0),
       num_shared_reg_images_(0),
-      prev_init_image_pair_id_(kInvalidImagePairId) {}
+      prev_init_image_pair_id_(kInvalidImagePairId),
+      ceres_context_(ceres::Context::Create()) {}
 
 void IncrementalMapper::BeginReconstruction(Reconstruction* reconstruction) {
   CHECK(reconstruction_ == nullptr);
@@ -450,6 +451,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   abs_pose_options.ransac_options.confidence = 0.99999;
 
   AbsolutePoseRefinementOptions abs_pose_refinement_options;
+  abs_pose_refinement_options.num_threads = options.num_threads;
   if (num_reg_images_per_camera_[image.CameraId()] > 0) {
     // Camera already refined from another image with the same camera.
     if (camera.HasBogusParams(options.min_focal_length_ratio,
@@ -504,7 +506,8 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
 
   if (!RefineAbsolutePose(abs_pose_refinement_options, inlier_mask,
                           tri_points2D, tri_points3D, &image.Qvec(),
-                          &image.Tvec(), &camera)) {
+                          &image.Tvec(), &camera, nullptr,
+                          ceres_context_.get())) {
     return false;
   }
 
@@ -571,7 +574,7 @@ IncrementalMapper::AdjustLocalBundle(
 
   // Do the bundle adjustment only if there is any connected images.
   if (local_bundle.size() > 0) {
-    BundleAdjustmentConfig ba_config;
+    BundleAdjustmentConfig ba_config(ceres_context_.get());
     ba_config.AddImage(image_id);
     for (const image_t local_image_id : local_bundle) {
       ba_config.AddImage(local_image_id);
@@ -682,7 +685,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
   reconstruction_->FilterObservationsWithNegativeDepth();
 
   // Configure bundle adjustment.
-  BundleAdjustmentConfig ba_config;
+  BundleAdjustmentConfig ba_config(ceres_context_.get());
   for (const image_t image_id : reg_image_ids) {
     ba_config.AddImage(image_id);
   }

@@ -97,6 +97,9 @@ struct AbsolutePoseRefinementOptions {
   // Whether to print final summary.
   bool print_summary = true;
 
+  // Number of threads to use during refinement.
+  int num_threads = 1;
+
   void Check() const {
     CHECK_GE(gradient_tolerance, 0.0);
     CHECK_GE(max_num_iterations, 0);
@@ -162,6 +165,7 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
 // @param rot_tvec_covariance  Estimated 6x6 covariance matrix of
 //                             the rotation (as axis-angle, in tangent space)
 //                             and translation terms (optional).
+// @param ceres_context        Ceres Solver internal context (optional).
 //
 // @return                     Whether the solution is usable.
 bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
@@ -170,7 +174,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                         const std::vector<Eigen::Vector3d>& points3D,
                         Eigen::Vector4d* qvec, Eigen::Vector3d* tvec,
                         Camera* camera,
-                        Eigen::Matrix6d* rot_tvec_covariance = nullptr);
+                        Eigen::Matrix6d* rot_tvec_covariance = nullptr,
+                        ceres::Context* ceres_context = nullptr);
 
 // Refine relative pose of two cameras.
 //

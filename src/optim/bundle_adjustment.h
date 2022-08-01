@@ -103,6 +103,7 @@ struct BundleAdjustmentOptions {
 class BundleAdjustmentConfig {
  public:
   BundleAdjustmentConfig();
+  explicit BundleAdjustmentConfig(ceres::Context *ceres_context);
 
   size_t NumImages() const;
   size_t NumPoints() const;
@@ -157,6 +158,7 @@ class BundleAdjustmentConfig {
   const std::unordered_set<point3D_t>& ConstantPoints() const;
   const std::vector<int>& ConstantTvec(const image_t image_id) const;
 
+  ceres::Context* GetCeresContext() const;
  private:
   std::unordered_set<camera_t> constant_camera_ids_;
   std::unordered_set<image_t> image_ids_;
@@ -164,6 +166,7 @@ class BundleAdjustmentConfig {
   std::unordered_set<point3D_t> constant_point3D_ids_;
   std::unordered_set<image_t> constant_poses_;
   std::unordered_map<image_t, std::vector<int>> constant_tvecs_;
+  ceres::Context* ceres_context_;
 };
 
 // Bundle adjustment based on Ceres-Solver. Enables most flexible configurations
