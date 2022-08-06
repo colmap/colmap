@@ -4,7 +4,7 @@ parameters:
 jobs:
 - job: windows_build_${{ parameters.visualStudioVersion }}
   displayName: 'Windows VS${{ parameters.visualStudioVersion }}'
-  timeoutInMinutes: 240
+  timeoutInMinutes: 360
   pool:
     vmImage: 'windows-${{ parameters.visualStudioVersion }}'
   variables:
