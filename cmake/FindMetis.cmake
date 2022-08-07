@@ -77,9 +77,17 @@ find_library(METIS_LIBRARIES
     metis
     PATHS
     ${METIS_CHECK_LIBRARY_DIRS})
+find_library(GK_LIBRARIES
+    NAMES
+    GKlib
+    PATHS
+    ${METIS_CHECK_LIBRARY_DIRS})
 
 if(METIS_INCLUDE_DIRS AND METIS_LIBRARIES)
     set(METIS_FOUND TRUE)
+    if(GK_LIBRARIES)
+        set(METIS_LIBRARIES "$METIS_LIBRARIES $GK_LIBRARIES")
+    endif()
 endif()
 
 if(METIS_FOUND)
