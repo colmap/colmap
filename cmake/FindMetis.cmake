@@ -51,7 +51,7 @@ unset(METIS_FOUND)
 unset(METIS_INCLUDE_DIRS)
 unset(METIS_LIBRARIES)
 
-find_package(metis CONFIG REQUIRED)
+find_package(metis CONFIG QUIET)
 if(TARGET metis)
     set(METIS_FOUND TRUE)
     set(METIS_LIBRARIES metis)
