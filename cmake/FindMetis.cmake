@@ -51,42 +51,49 @@ unset(METIS_FOUND)
 unset(METIS_INCLUDE_DIRS)
 unset(METIS_LIBRARIES)
 
-list(APPEND METIS_CHECK_INCLUDE_DIRS
-    ${METIS_INCLUDE_DIR_HINTS}
-    /usr/include
-    /usr/local/include
-    /opt/include
-    /opt/local/include
-)
-
-list(APPEND METIS_CHECK_LIBRARY_DIRS
-    ${METIS_LIBRARY_DIR_HINTS}
-    /usr/lib
-    /usr/local/lib
-    /opt/lib
-    /opt/local/lib
-)
-
-find_path(METIS_INCLUDE_DIRS
-    NAMES
-    metis.h
-    PATHS
-    ${METIS_CHECK_INCLUDE_DIRS})
-find_library(METIS_LIBRARIES
-    NAMES
-    metis
-    PATHS
-    ${METIS_CHECK_LIBRARY_DIRS})
-find_library(GK_LIBRARIES
-    NAMES
-    GKlib
-    PATHS
-    ${METIS_CHECK_LIBRARY_DIRS})
-
-if(METIS_INCLUDE_DIRS AND METIS_LIBRARIES)
+find_package(metis CONFIG REQUIRED)
+if(TARGET metis)
     set(METIS_FOUND TRUE)
-    if(GK_LIBRARIES)
-        set(METIS_LIBRARIES "$METIS_LIBRARIES $GK_LIBRARIES")
+    set(METIS_LIBRARIES metis)
+    get_target_property(METIS_INCLUDE_DIRS metis INCLUDE_DIRECTORIES)
+else()
+    list(APPEND METIS_CHECK_INCLUDE_DIRS
+        ${METIS_INCLUDE_DIR_HINTS}
+        /usr/include
+        /usr/local/include
+        /opt/include
+        /opt/local/include
+    )
+
+    list(APPEND METIS_CHECK_LIBRARY_DIRS
+        ${METIS_LIBRARY_DIR_HINTS}
+        /usr/lib
+        /usr/local/lib
+        /opt/lib
+        /opt/local/lib
+    )
+
+    find_path(METIS_INCLUDE_DIRS
+        NAMES
+        metis.h
+        PATHS
+        ${METIS_CHECK_INCLUDE_DIRS})
+    find_library(METIS_LIBRARIES
+        NAMES
+        metis
+        PATHS
+        ${METIS_CHECK_LIBRARY_DIRS})
+    find_library(GK_LIBRARIES
+        NAMES
+        GKlib
+        PATHS
+        ${METIS_CHECK_LIBRARY_DIRS})
+
+    if(METIS_INCLUDE_DIRS AND METIS_LIBRARIES)
+        set(METIS_FOUND TRUE)
+        if(GK_LIBRARIES)
+            set(METIS_LIBRARIES "$METIS_LIBRARIES $GK_LIBRARIES")
+        endif()
     endif()
 endif()
 
