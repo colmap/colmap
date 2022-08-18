@@ -51,43 +51,54 @@ unset(METIS_FOUND)
 unset(METIS_INCLUDE_DIRS)
 unset(METIS_LIBRARIES)
 
-list(APPEND METIS_CHECK_INCLUDE_DIRS
-    ${METIS_INCLUDE_DIR_HINTS}
-    /usr/include
-    /usr/local/include
-    /opt/include
-    /opt/local/include
-)
-
-list(APPEND METIS_CHECK_LIBRARY_DIRS
-    ${METIS_LIBRARY_DIR_HINTS}
-    /usr/lib
-    /usr/local/lib
-    /opt/lib
-    /opt/local/lib
-)
-
-find_path(METIS_INCLUDE_DIRS
-    NAMES
-    metis.h
-    PATHS
-    ${METIS_CHECK_INCLUDE_DIRS})
-find_library(METIS_LIBRARIES
-    NAMES
-    metis
-    PATHS
-    ${METIS_CHECK_LIBRARY_DIRS})
-
-if(METIS_INCLUDE_DIRS AND METIS_LIBRARIES)
+find_package(metis CONFIG QUIET)
+if(TARGET metis)
     set(METIS_FOUND TRUE)
+    set(METIS_LIBRARIES metis)
+    if(METIS_FOUND)
+        message(STATUS "Found Metis")
+        message(STATUS "  Target : ${METIS_LIBRARIES}")
+    endif()
+else()
+    list(APPEND METIS_CHECK_INCLUDE_DIRS
+        ${METIS_INCLUDE_DIR_HINTS}
+        /usr/include
+        /usr/local/include
+        /opt/include
+        /opt/local/include
+    )
+
+    list(APPEND METIS_CHECK_LIBRARY_DIRS
+        ${METIS_LIBRARY_DIR_HINTS}
+        /usr/lib
+        /usr/local/lib
+        /opt/lib
+        /opt/local/lib
+    )
+
+    find_path(METIS_INCLUDE_DIRS
+        NAMES
+        metis.h
+        PATHS
+        ${METIS_CHECK_INCLUDE_DIRS})
+    find_library(METIS_LIBRARIES
+        NAMES
+        metis
+        PATHS
+        ${METIS_CHECK_LIBRARY_DIRS})
+    find_library(GK_LIBRARIES
+        NAMES
+        GKlib
+        PATHS
+        ${METIS_CHECK_LIBRARY_DIRS})
+
+    if(METIS_FOUND)
+        message(STATUS "Found Metis")
+        message(STATUS "  Includes : ${METIS_INCLUDE_DIRS}")
+        message(STATUS "  Libraries : ${METIS_LIBRARIES}")
+    endif()
 endif()
 
-if(METIS_FOUND)
-    message(STATUS "Found Metis")
-    message(STATUS "  Includes : ${METIS_INCLUDE_DIRS}")
-    message(STATUS "  Libraries : ${METIS_LIBRARIES}")
-else()
-    if(METIS_FIND_REQUIRED)
-        message(FATAL_ERROR "Could not find Metis")
-    endif()
+if(NOT METIS_FOUND AND METIS_FIND_REQUIRED)
+    message(FATAL_ERROR "Could not find Metis")
 endif()
