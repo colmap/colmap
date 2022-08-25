@@ -4,11 +4,11 @@ parameters:
 jobs:
 - job: windows_build_${{ parameters.visualStudioVersion }}
   displayName: 'Windows VS${{ parameters.visualStudioVersion }}'
-  timeoutInMinutes: 240
+  timeoutInMinutes: 360
   pool:
     vmImage: 'windows-${{ parameters.visualStudioVersion }}'
   variables:
-    vcpkgGitCommitId: 5cf60186a241e84e8232641ee973395d4fde90e1
+    vcpkgGitCommitId: 9b22b40c6c61bf0da2d46346dd44a11e90972cc9
   steps:
   - task: Cache@2
     displayName: 'Cache vcpkg'
