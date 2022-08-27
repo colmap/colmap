@@ -77,7 +77,7 @@ bool ExistsDir(const std::string& path);
 bool ExistsPath(const std::string& path);
 
 // Create the directory if it does not exist.
-void CreateDirIfNotExists(const std::string& path);
+void CreateDirIfNotExists(const std::string& path, bool recursive = false);
 
 // Extract the base name of a path, e.g., "image.jpg" for "/dir/image.jpg".
 std::string GetPathBaseName(const std::string& path);

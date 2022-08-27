@@ -109,8 +109,13 @@ bool ExistsPath(const std::string& path) {
   return boost::filesystem::exists(path);
 }
 
-void CreateDirIfNotExists(const std::string& path) {
-  if (!ExistsDir(path)) {
+void CreateDirIfNotExists(const std::string& path, bool recursive) {
+  if (ExistsDir(path)) {
+    return;
+  }
+  if (recursive) {
+    CHECK(boost::filesystem::create_directories(path));
+  } else {
     CHECK(boost::filesystem::create_directory(path));
   }
 }

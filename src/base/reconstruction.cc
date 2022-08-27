@@ -1405,7 +1405,7 @@ void Reconstruction::CreateImageDirs(const std::string& path) const {
     }
   }
   for (const auto& dir : image_dirs) {
-    CreateDirIfNotExists(dir);
+    CreateDirIfNotExists(dir, /*recursive=*/true);
   }
 }
 
