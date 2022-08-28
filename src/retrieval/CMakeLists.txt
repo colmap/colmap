@@ -41,6 +41,12 @@ COLMAP_ADD_SOURCES(
     vote_and_verify.h vote_and_verify.cc
 )
 
+find_package(OpenCV CONFIG REQUIRED) 
+
+
 COLMAP_ADD_TEST(geometry_test geometry_test.cc)
 COLMAP_ADD_TEST(inverted_file_entry_test inverted_file_entry_test.cc)
 COLMAP_ADD_TEST(visual_index_test visual_index_test.cc)
+COLMAP_ADD_TEST(vote_and_verify_test vote_and_verify_test.cc)
+find_package(OpenCV REQUIRED) 
+target_link_libraries(vote_and_verify_test ${OpenCV_LIBS})
