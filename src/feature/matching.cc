@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -68,8 +68,8 @@ void IndexImagesInVisualIndex(const int num_threads, const int num_checks,
     std::cout << StringPrintf("Indexing image [%d/%d]", i + 1, image_ids.size())
               << std::flush;
 
-    auto keypoints = cache->GetKeypoints(image_ids[i]);
-    auto descriptors = cache->GetDescriptors(image_ids[i]);
+    auto keypoints = *cache->GetKeypoints(image_ids[i]);
+    auto descriptors = *cache->GetDescriptors(image_ids[i]);
     if (max_num_features > 0 && descriptors.rows() > max_num_features) {
       ExtractTopScaleFeatures(&keypoints, &descriptors, max_num_features);
     }
@@ -107,8 +107,8 @@ void MatchNearestNeighborsInVisualIndex(
   query_options.num_checks = num_checks;
   query_options.num_images_after_verification = num_images_after_verification;
   auto QueryFunc = [&](const image_t image_id) {
-    auto keypoints = cache->GetKeypoints(image_id);
-    auto descriptors = cache->GetDescriptors(image_id);
+    auto keypoints = *cache->GetKeypoints(image_id);
+    auto descriptors = *cache->GetDescriptors(image_id);
     if (max_num_features > 0 && descriptors.rows() > max_num_features) {
       ExtractTopScaleFeatures(&keypoints, &descriptors, max_num_features);
     }
@@ -118,7 +118,7 @@ void MatchNearestNeighborsInVisualIndex(
     visual_index->Query(query_options, keypoints, descriptors,
                         &retrieval.image_scores);
 
-    CHECK(retrieval_queue.Push(retrieval));
+    CHECK(retrieval_queue.Push(std::move(retrieval)));
   };
 
   // Initially, make all retrieval threads busy and continue with the matching.
@@ -151,7 +151,7 @@ void MatchNearestNeighborsInVisualIndex(
     }
 
     // Pop the next results from the retrieval queue.
-    const auto retrieval = retrieval_queue.Pop();
+    auto retrieval = retrieval_queue.Pop();
     CHECK(retrieval.IsValid());
 
     const auto& image_id = retrieval.Data().image_id;
@@ -231,14 +231,16 @@ void FeatureMatcherCache::Setup() {
     images_cache_.emplace(image.ImageId(), image);
   }
 
-  keypoints_cache_.reset(new LRUCache<image_t, FeatureKeypoints>(
+  keypoints_cache_.reset(new LRUCache<image_t, FeatureKeypointsPtr>(
       cache_size_, [this](const image_t image_id) {
-        return database_->ReadKeypoints(image_id);
+        return std::make_shared<FeatureKeypoints>(
+            database_->ReadKeypoints(image_id));
       }));
 
-  descriptors_cache_.reset(new LRUCache<image_t, FeatureDescriptors>(
+  descriptors_cache_.reset(new LRUCache<image_t, FeatureDescriptorsPtr>(
       cache_size_, [this](const image_t image_id) {
-        return database_->ReadDescriptors(image_id);
+        return std::make_shared<FeatureDescriptors>(
+            database_->ReadDescriptors(image_id));
       }));
 
   keypoints_exists_cache_.reset(new LRUCache<image_t, bool>(
@@ -260,13 +262,12 @@ const Image& FeatureMatcherCache::GetImage(const image_t image_id) const {
   return images_cache_.at(image_id);
 }
 
-const FeatureKeypoints& FeatureMatcherCache::GetKeypoints(
-    const image_t image_id) {
+FeatureKeypointsPtr FeatureMatcherCache::GetKeypoints(const image_t image_id) {
   std::unique_lock<std::mutex> lock(database_mutex_);
   return keypoints_cache_->Get(image_id);
 }
 
-const FeatureDescriptors& FeatureMatcherCache::GetDescriptors(
+FeatureDescriptorsPtr FeatureMatcherCache::GetDescriptors(
     const image_t image_id) {
   std::unique_lock<std::mutex> lock(database_mutex_);
   return descriptors_cache_->Get(image_id);
@@ -361,23 +362,22 @@ void SiftCPUFeatureMatcher::Run() {
       break;
     }
 
-    const auto input_job = input_queue_->Pop();
+    auto input_job = input_queue_->Pop();
     if (input_job.IsValid()) {
-      auto data = input_job.Data();
+      auto& data = input_job.Data();
 
       if (!cache_->ExistsDescriptors(data.image_id1) ||
           !cache_->ExistsDescriptors(data.image_id2)) {
-        CHECK(output_queue_->Push(data));
+        CHECK(output_queue_->Push(std::move(data)));
         continue;
       }
 
-      const FeatureDescriptors descriptors1 =
-          cache_->GetDescriptors(data.image_id1);
-      const FeatureDescriptors descriptors2 =
-          cache_->GetDescriptors(data.image_id2);
-      MatchSiftFeaturesCPU(options_, descriptors1, descriptors2, &data.matches);
+      const auto descriptors1 = cache_->GetDescriptors(data.image_id1);
+      const auto descriptors2 = cache_->GetDescriptors(data.image_id2);
+      MatchSiftFeaturesCPU(options_, *descriptors1, *descriptors2,
+                           &data.matches);
 
-      CHECK(output_queue_->Push(data));
+      CHECK(output_queue_->Push(std::move(data)));
     }
   }
 }
@@ -419,13 +419,13 @@ void SiftGPUFeatureMatcher::Run() {
       break;
     }
 
-    const auto input_job = input_queue_->Pop();
+    auto input_job = input_queue_->Pop();
     if (input_job.IsValid()) {
-      auto data = input_job.Data();
+      auto& data = input_job.Data();
 
       if (!cache_->ExistsDescriptors(data.image_id1) ||
           !cache_->ExistsDescriptors(data.image_id2)) {
-        CHECK(output_queue_->Push(data));
+        CHECK(output_queue_->Push(std::move(data)));
         continue;
       }
 
@@ -436,7 +436,7 @@ void SiftGPUFeatureMatcher::Run() {
       MatchSiftFeaturesGPU(options_, descriptors1_ptr, descriptors2_ptr,
                            &sift_match_gpu, &data.matches);
 
-      CHECK(output_queue_->Push(data));
+      CHECK(output_queue_->Push(std::move(data)));
     }
   }
 }
@@ -450,7 +450,7 @@ void SiftGPUFeatureMatcher::GetDescriptorData(
     *descriptors_ptr = nullptr;
   } else {
     prev_uploaded_descriptors_[index] = cache_->GetDescriptors(image_id);
-    *descriptors_ptr = &prev_uploaded_descriptors_[index];
+    *descriptors_ptr = prev_uploaded_descriptors_[index].get();
     prev_uploaded_image_ids_[index] = image_id;
   }
 }
@@ -472,13 +472,13 @@ void GuidedSiftCPUFeatureMatcher::Run() {
       break;
     }
 
-    const auto input_job = input_queue_->Pop();
+    auto input_job = input_queue_->Pop();
     if (input_job.IsValid()) {
-      auto data = input_job.Data();
+      auto& data = input_job.Data();
 
       if (data.two_view_geometry.inlier_matches.size() <
           static_cast<size_t>(options_.min_num_inliers)) {
-        CHECK(output_queue_->Push(data));
+        CHECK(output_queue_->Push(std::move(data)));
         continue;
       }
 
@@ -486,20 +486,19 @@ void GuidedSiftCPUFeatureMatcher::Run() {
           !cache_->ExistsKeypoints(data.image_id2) ||
           !cache_->ExistsDescriptors(data.image_id1) ||
           !cache_->ExistsDescriptors(data.image_id2)) {
-        CHECK(output_queue_->Push(data));
+        CHECK(output_queue_->Push(std::move(data)));
         continue;
       }
 
-      const FeatureKeypoints keypoints1 = cache_->GetKeypoints(data.image_id1);
-      const FeatureKeypoints keypoints2 = cache_->GetKeypoints(data.image_id2);
-      const FeatureDescriptors descriptors1 =
-          cache_->GetDescriptors(data.image_id1);
-      const FeatureDescriptors descriptors2 =
-          cache_->GetDescriptors(data.image_id2);
-      MatchGuidedSiftFeaturesCPU(options_, keypoints1, keypoints2, descriptors1,
-                                 descriptors2, &data.two_view_geometry);
+      const auto keypoints1 = cache_->GetKeypoints(data.image_id1);
+      const auto keypoints2 = cache_->GetKeypoints(data.image_id2);
+      const auto descriptors1 = cache_->GetDescriptors(data.image_id1);
+      const auto descriptors2 = cache_->GetDescriptors(data.image_id2);
+      MatchGuidedSiftFeaturesCPU(options_, *keypoints1, *keypoints2,
+                                 *descriptors1, *descriptors2,
+                                 &data.two_view_geometry);
 
-      CHECK(output_queue_->Push(data));
+      CHECK(output_queue_->Push(std::move(data)));
     }
   }
 }
@@ -540,13 +539,13 @@ void GuidedSiftGPUFeatureMatcher::Run() {
       break;
     }
 
-    const auto input_job = input_queue_->Pop();
+    auto input_job = input_queue_->Pop();
     if (input_job.IsValid()) {
-      auto data = input_job.Data();
+      auto& data = input_job.Data();
 
       if (data.two_view_geometry.inlier_matches.size() <
           static_cast<size_t>(options_.min_num_inliers)) {
-        CHECK(output_queue_->Push(data));
+        CHECK(output_queue_->Push(std::move(data)));
         continue;
       }
 
@@ -554,7 +553,7 @@ void GuidedSiftGPUFeatureMatcher::Run() {
           !cache_->ExistsKeypoints(data.image_id2) ||
           !cache_->ExistsDescriptors(data.image_id1) ||
           !cache_->ExistsDescriptors(data.image_id2)) {
-        CHECK(output_queue_->Push(data));
+        CHECK(output_queue_->Push(std::move(data)));
         continue;
       }
 
@@ -569,7 +568,7 @@ void GuidedSiftGPUFeatureMatcher::Run() {
                                  descriptors1_ptr, descriptors2_ptr,
                                  &sift_match_gpu, &data.two_view_geometry);
 
-      CHECK(output_queue_->Push(data));
+      CHECK(output_queue_->Push(std::move(data)));
     }
   }
 }
@@ -586,8 +585,8 @@ void GuidedSiftGPUFeatureMatcher::GetFeatureData(
   } else {
     prev_uploaded_keypoints_[index] = cache_->GetKeypoints(image_id);
     prev_uploaded_descriptors_[index] = cache_->GetDescriptors(image_id);
-    *keypoints_ptr = &prev_uploaded_keypoints_[index];
-    *descriptors_ptr = &prev_uploaded_descriptors_[index];
+    *keypoints_ptr = prev_uploaded_keypoints_[index].get();
+    *descriptors_ptr = prev_uploaded_descriptors_[index].get();
     prev_uploaded_image_ids_[index] = image_id;
   }
 }
@@ -611,6 +610,7 @@ TwoViewGeometryVerifier::TwoViewGeometryVerifier(
       static_cast<size_t>(options_.max_num_trials);
   two_view_geometry_options_.ransac_options.min_inlier_ratio =
       options_.min_inlier_ratio;
+  two_view_geometry_options_.force_H_use = options_.planar_scene;
 }
 
 void TwoViewGeometryVerifier::Run() {
@@ -619,12 +619,12 @@ void TwoViewGeometryVerifier::Run() {
       break;
     }
 
-    const auto input_job = input_queue_->Pop();
+    auto input_job = input_queue_->Pop();
     if (input_job.IsValid()) {
-      auto data = input_job.Data();
+      auto& data = input_job.Data();
 
       if (data.matches.size() < static_cast<size_t>(options_.min_num_inliers)) {
-        CHECK(output_queue_->Push(data));
+        CHECK(output_queue_->Push(std::move(data)));
         continue;
       }
 
@@ -634,8 +634,8 @@ void TwoViewGeometryVerifier::Run() {
           cache_->GetCamera(cache_->GetImage(data.image_id2).CameraId());
       const auto keypoints1 = cache_->GetKeypoints(data.image_id1);
       const auto keypoints2 = cache_->GetKeypoints(data.image_id2);
-      const auto points1 = FeatureKeypointsToPointsVector(keypoints1);
-      const auto points2 = FeatureKeypointsToPointsVector(keypoints2);
+      const auto& points1 = FeatureKeypointsToPointsVector(*keypoints1);
+      const auto& points2 = FeatureKeypointsToPointsVector(*keypoints2);
 
       if (options_.multiple_models) {
         data.two_view_geometry.EstimateMultiple(camera1, points1, camera2,
@@ -647,7 +647,7 @@ void TwoViewGeometryVerifier::Run() {
                                         two_view_geometry_options_);
       }
 
-      CHECK(output_queue_->Push(data));
+      CHECK(output_queue_->Push(std::move(data)));
     }
   }
 }
@@ -809,7 +809,7 @@ void SiftFeatureMatcher::Match(
   image_pair_ids.reserve(image_pairs.size());
 
   size_t num_outputs = 0;
-  for (const auto image_pair : image_pairs) {
+  for (const auto& image_pair : image_pairs) {
     // Avoid self-matches.
     if (image_pair.first == image_pair.second) {
       continue;
@@ -851,9 +851,9 @@ void SiftFeatureMatcher::Match(
     if (exists_matches) {
       data.matches = cache_->GetMatches(image_pair.first, image_pair.second);
       cache_->DeleteMatches(image_pair.first, image_pair.second);
-      CHECK(verifier_queue_.Push(data));
+      CHECK(verifier_queue_.Push(std::move(data)));
     } else {
-      CHECK(matcher_queue_.Push(data));
+      CHECK(matcher_queue_.Push(std::move(data)));
     }
   }
 
@@ -862,9 +862,9 @@ void SiftFeatureMatcher::Match(
   //////////////////////////////////////////////////////////////////////////////
 
   for (size_t i = 0; i < num_outputs; ++i) {
-    const auto output_job = output_queue_.Pop();
+    auto output_job = output_queue_.Pop();
     CHECK(output_job.IsValid());
-    auto output = output_job.Data();
+    auto& output = output_job.Data();
 
     if (output.matches.size() < static_cast<size_t>(options_.min_num_inliers)) {
       output.matches = {};
@@ -1690,8 +1690,8 @@ void FeaturePairsFeatureMatcher::Run() {
           match_options_.min_inlier_ratio;
 
       two_view_geometry.Estimate(
-          camera1, FeatureKeypointsToPointsVector(keypoints1), camera2,
-          FeatureKeypointsToPointsVector(keypoints2), matches,
+          camera1, FeatureKeypointsToPointsVector(*keypoints1), camera2,
+          FeatureKeypointsToPointsVector(*keypoints2), matches,
           two_view_geometry_options);
 
       database_.WriteTwoViewGeometry(image1.ImageId(), image2.ImageId(),

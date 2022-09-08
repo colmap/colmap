@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -113,14 +113,14 @@ BOOST_AUTO_TEST_CASE(Estimate) {
 
       // Test residuals of exact points.
       std::vector<double> residuals;
-      GP3PEstimator::Residuals(points2D, points3D, report.model, &residuals);
+      ransac.estimator.Residuals(points2D, points3D, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
         BOOST_CHECK(residuals[i] < 1e-10);
       }
 
       // Test residuals of faulty points.
-      GP3PEstimator::Residuals(points2D, points3D_faulty, report.model,
-                               &residuals);
+      ransac.estimator.Residuals(points2D, points3D_faulty, report.model,
+                                 &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
         BOOST_CHECK(residuals[i] > 1e-10);
       }

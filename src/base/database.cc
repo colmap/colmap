@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -286,7 +286,10 @@ void Database::Open(const std::string& path) {
 void Database::Close() {
   if (database_ != nullptr) {
     FinalizeSQLStatements();
-    SQLITE3_EXEC(database_, "VACUUM", nullptr);
+    if (database_cleared_) {
+      SQLITE3_EXEC(database_, "VACUUM", nullptr);
+      database_cleared_ = false;
+    }
     sqlite3_close_v2(database_);
     database_ = nullptr;
   }
@@ -813,6 +816,7 @@ void Database::DeleteMatches(const image_t image_id1,
                                   static_cast<sqlite3_int64>(pair_id)));
   SQLITE3_CALL(sqlite3_step(sql_stmt_delete_matches_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_delete_matches_));
+  database_cleared_ = true;
 }
 
 void Database::DeleteInlierMatches(const image_t image_id1,
@@ -822,6 +826,7 @@ void Database::DeleteInlierMatches(const image_t image_id1,
                                   static_cast<sqlite3_int64>(pair_id)));
   SQLITE3_CALL(sqlite3_step(sql_stmt_delete_two_view_geometry_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_delete_two_view_geometry_));
+  database_cleared_ = true;
 }
 
 void Database::ClearAllTables() const {
@@ -836,31 +841,37 @@ void Database::ClearAllTables() const {
 void Database::ClearCameras() const {
   SQLITE3_CALL(sqlite3_step(sql_stmt_clear_cameras_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_cameras_));
+  database_cleared_ = true;
 }
 
 void Database::ClearImages() const {
   SQLITE3_CALL(sqlite3_step(sql_stmt_clear_images_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_images_));
+  database_cleared_ = true;
 }
 
 void Database::ClearDescriptors() const {
   SQLITE3_CALL(sqlite3_step(sql_stmt_clear_descriptors_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_descriptors_));
+  database_cleared_ = true;
 }
 
 void Database::ClearKeypoints() const {
   SQLITE3_CALL(sqlite3_step(sql_stmt_clear_keypoints_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_keypoints_));
+  database_cleared_ = true;
 }
 
 void Database::ClearMatches() const {
   SQLITE3_CALL(sqlite3_step(sql_stmt_clear_matches_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_matches_));
+  database_cleared_ = true;
 }
 
 void Database::ClearTwoViewGeometries() const {
   SQLITE3_CALL(sqlite3_step(sql_stmt_clear_two_view_geometries_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_clear_two_view_geometries_));
+  database_cleared_ = true;
 }
 
 void Database::Merge(const Database& database1, const Database& database2,

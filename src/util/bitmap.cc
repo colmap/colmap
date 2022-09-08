@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,20 @@
 #include "util/misc.h"
 
 namespace colmap {
+namespace {
+
+#ifdef FREEIMAGE_LIB  // Only needed for static FreeImage.
+
+struct FreeImageInitializer {
+  FreeImageInitializer() { FreeImage_Initialise(); }
+  ~FreeImageInitializer() { FreeImage_DeInitialise(); }
+};
+
+const static auto initializer = FreeImageInitializer();
+
+#endif  // FREEIMAGE_LIB
+
+}  // namespace
 
 Bitmap::Bitmap()
     : data_(nullptr, &FreeImage_Unload), width_(0), height_(0), channels_(0) {}
@@ -396,7 +410,7 @@ bool Bitmap::ExifLatitude(double* latitude) const {
     StringTrim(&str);
     StringToLower(&str);
     if (!str.empty() && str[0] == 's') {
-        sign = -1.0;
+      sign = -1.0;
     }
   }
   if (ReadExifTag(FIMD_EXIF_GPS, "GPSLatitude", &str)) {
@@ -604,8 +618,9 @@ bool Bitmap::ReadExifTag(const FREE_IMAGE_MDMODEL model,
 
 void Bitmap::SetPtr(FIBITMAP* data) {
   if (!IsPtrSupported(data)) {
-    FreeImage_Unload(data);
-    data = FreeImage_ConvertTo24Bits(data);
+    FIBITMAP* temp_data = data;
+    data = FreeImage_ConvertTo24Bits(temp_data);
+    FreeImage_Unload(temp_data);
   }
 
   data_ = FIBitmapPtr(data, &FreeImage_Unload);

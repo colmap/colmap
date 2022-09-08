@@ -1,4 +1,4 @@
-# Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+# Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -46,3 +46,8 @@ COLMAP_ADD_EXECUTABLE(colmap_exe
     sfm.cc
     vocab_tree.cc)
 set_target_properties(colmap_exe PROPERTIES OUTPUT_NAME colmap)
+
+COLMAP_ADD_SOURCES(
+    feature.h feature.cc
+    sfm.h sfm.cc
+)

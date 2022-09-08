@@ -132,7 +132,7 @@ class ParallelBA {
  public:
   PBA_EXPORT ParallelBA(DeviceT device = PBA_CUDA_DEVICE_DEFAULT,
                         const int num_threads = -1);
-  PBA_EXPORT void* operator new(size_t size);
+  // PBA_EXPORT void* operator new(size_t size);
   PBA_EXPORT virtual ~ParallelBA();
 
  public:

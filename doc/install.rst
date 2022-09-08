@@ -81,6 +81,7 @@ Dependencies from the default Ubuntu repositories::
         libeigen3-dev \
         libsuitesparse-dev \
         libfreeimage-dev \
+        libmetis-dev \
         libgoogle-glog-dev \
         libgflags-dev \
         libglew-dev \
@@ -98,7 +99,7 @@ Install `Ceres Solver <http://ceres-solver.org/>`_::
     sudo apt-get install libatlas-base-dev libsuitesparse-dev
     git clone https://ceres-solver.googlesource.com/ceres-solver
     cd ceres-solver
-    git checkout $(git describe --tags) # Checkout the latest release
+    git checkout 2.1.0
     mkdir build
     cd build
     cmake .. -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF
@@ -137,9 +138,10 @@ Dependencies from `Homebrew <http://brew.sh/>`_::
         freeimage \
         glog \
         gflags \
+        metis \
         suite-sparse \
         ceres-solver \
-        qt \
+        qt5 \
         glew \
         cgal
 
@@ -150,9 +152,16 @@ Configure and compile COLMAP::
     git checkout dev
     mkdir build
     cd build
-    cmake .. -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
+    cmake .. -DQt5_DIR=/opt/homebrew/opt/qt@5/lib/cmake/Qt5
     make
     sudo make install
+
+If you have Qt 6 installed on your system as well, you might have to temporarily
+link your Qt 5 installation while configuring CMake:
+
+    brew link qt5
+    ... cmake configuration
+    brew unlink qt5
 
 Run COLMAP::
 
@@ -308,6 +317,22 @@ with the source code ``hello_world.cc``::
         return EXIT_SUCCESS;
     }
 
+
+----------------
+AddressSanitizer
+----------------
+
+If you want to build COLMAP with address sanitizer flags enabled, you need to
+use a recent compiler with ASan support. For example, you can manually install
+a recent clang version on your Ubuntu machine and invoke CMake as follows::
+
+    CC=/usr/bin/clang CXX=/usr/bin/clang++ cmake .. \
+        -DASAN_ENABLED=ON \
+        -DTESTS_ENABLED=ON \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+Note that it is generally useful to combine ASan with debug symbols to get
+meaningful traces for reported issues.
 
 -------------
 Documentation

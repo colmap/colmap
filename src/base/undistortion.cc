@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -142,7 +142,7 @@ void WriteCOLMAPCommands(const bool geometric,
   *file << indent << "$COLMAP_EXE_PATH/colmap delaunay_mesher \\" << std::endl;
   *file << indent << "  --input_path "
         << JoinPaths(workspace_path, output_prefix) << " \\" << std::endl;
-  *file << indent << "  --input_type dense " << std::endl;
+  *file << indent << "  --input_type dense \\" << std::endl;
   *file << indent << "  --output_path "
         << JoinPaths(workspace_path, output_prefix + "meshed-delaunay.ply")
         << std::endl;
@@ -162,8 +162,8 @@ COLMAPUndistorter::COLMAPUndistorter(const UndistortCameraOptions& options,
       output_path_(output_path),
       copy_type_(copy_type),
       num_patch_match_src_images_(num_patch_match_src_images),
-      image_ids_(image_ids),
-      reconstruction_(reconstruction) {}
+      reconstruction_(reconstruction),
+      image_ids_(image_ids) {}
 
 void COLMAPUndistorter::Run() {
   PrintHeading1("Image undistortion");
@@ -649,7 +649,7 @@ bool PureImageUndistorter::Undistort(const size_t image_idx) const {
   Camera undistorted_camera;
   UndistortImage(options_, distorted_bitmap, camera, &undistorted_bitmap,
                  &undistorted_camera);
-    
+
   return undistorted_bitmap.Write(output_image_path);
 }
 

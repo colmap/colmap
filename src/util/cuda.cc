@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -56,7 +56,7 @@ bool CompareCudaDevice(const cudaDeviceProp& d1, const cudaDeviceProp& d2) {
 
 int GetNumCudaDevices() {
   int num_cuda_devices;
-  cudaGetDeviceCount(&num_cuda_devices);
+  CUDA_SAFE_CALL(cudaGetDeviceCount(&num_cuda_devices));
   return num_cuda_devices;
 }
 

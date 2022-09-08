@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -821,7 +821,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
       }
     }
 
-    CHECK(result_queue.Push(image_cell_graph_data));
+    CHECK(result_queue.Push(std::move(image_cell_graph_data)));
   };
 
   // Add first batch of images to the thread job queue.
@@ -849,7 +849,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
     }
 
     // Pop the next results from the queue.
-    const auto result = result_queue.Pop();
+    auto result = result_queue.Pop();
     CHECK(result.IsValid());
 
     // Accumulate the weights of the image into the global graph.

@@ -1,6 +1,6 @@
 @echo off
 
-rem Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+rem Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 rem All rights reserved.
 rem
 rem Redistribution and use in source and binary forms, with or without

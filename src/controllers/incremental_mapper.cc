@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -89,9 +89,12 @@ void IterativeLocalRefinement(const IncrementalMapperOptions& options,
     std::cout << "  => Filtered observations: "
               << report.num_filtered_observations << std::endl;
     const double changed =
-        (report.num_merged_observations + report.num_completed_observations +
-         report.num_filtered_observations) /
-        static_cast<double>(report.num_adjusted_observations);
+        report.num_adjusted_observations == 0
+            ? 0
+            : (report.num_merged_observations +
+               report.num_completed_observations +
+               report.num_filtered_observations) /
+                  static_cast<double>(report.num_adjusted_observations);
     std::cout << StringPrintf("  => Changed observations: %.6f", changed)
               << std::endl;
     if (changed < options.ba_local_max_refinement_change) {
@@ -119,7 +122,9 @@ void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
     num_changed_observations += CompleteAndMergeTracks(options, mapper);
     num_changed_observations += FilterPoints(options, mapper);
     const double changed =
-        static_cast<double>(num_changed_observations) / num_observations;
+        num_observations == 0
+            ? 0
+            : static_cast<double>(num_changed_observations) / num_observations;
     std::cout << StringPrintf("  => Changed observations: %.6f", changed)
               << std::endl;
     if (changed < options.ba_global_max_refinement_change) {

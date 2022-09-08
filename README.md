@@ -55,9 +55,6 @@ Getting Started
    or use your own images.
 3. Use the **automatic reconstruction** to easily build models
    with a single click or command.
-4. Watch the short introductory video at
-   https://www.youtube.com/watch?v=P-EC0DzeVEU or read the tutorial
-   in the documentation at https://colmap.github.io/ for more details.
 
 
 Documentation
@@ -98,7 +95,7 @@ refers only to the license for COLMAP itself, independent of its dependencies,
 which are separately licensed. Building COLMAP with these dependencies may
 affect the resulting COLMAP license.
 
-    Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+    Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without

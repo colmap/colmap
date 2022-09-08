@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -59,7 +59,7 @@ void ReconstructionManagerWidget::Update() {
 
   int max_width = 0;
   for (size_t i = 0; i < reconstruction_manager_->Size(); ++i) {
-    const QString item = QString().sprintf(
+    const QString item = QString().asprintf(
         "Model %d (%d images, %d points)", static_cast<int>(i + 1),
         static_cast<int>(reconstruction_manager_->Get(i).NumRegImages()),
         static_cast<int>(reconstruction_manager_->Get(i).NumPoints3D()));

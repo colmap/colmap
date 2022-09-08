@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -109,8 +109,13 @@ bool ExistsPath(const std::string& path) {
   return boost::filesystem::exists(path);
 }
 
-void CreateDirIfNotExists(const std::string& path) {
-  if (!ExistsDir(path)) {
+void CreateDirIfNotExists(const std::string& path, bool recursive) {
+  if (ExistsDir(path)) {
+    return;
+  }
+  if (recursive) {
+    CHECK(boost::filesystem::create_directories(path));
+  } else {
     CHECK(boost::filesystem::create_directory(path));
   }
 }

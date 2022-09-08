@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,13 @@ extern "C" {
 }
 
 namespace colmap {
+namespace {
+
+struct RawDeleter {
+  void operator()(double* p) { free(p); }
+};
+
+}  // namespace
 
 std::vector<LineSegment> DetectLineSegments(const Bitmap& bitmap,
                                             const double min_length) {
@@ -55,9 +62,9 @@ std::vector<LineSegment> DetectLineSegments(const Bitmap& bitmap,
                                          bitmap_data.end());
 
   int num_segments;
-  std::unique_ptr<double> segments_data(lsd(&num_segments,
-                                            bitmap_data_double.data(),
-                                            bitmap.Width(), bitmap.Height()));
+  std::unique_ptr<double, RawDeleter> segments_data(
+      lsd(&num_segments, bitmap_data_double.data(), bitmap.Width(),
+          bitmap.Height()));
 
   std::vector<LineSegment> segments;
   segments.reserve(num_segments);

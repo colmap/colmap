@@ -1,16 +1,19 @@
+parameters:
+  visualStudioVersion: '2019'
+
 jobs:
-- job: windows_build
-  displayName: 'Windows VS2019'
-  timeoutInMinutes: 240
+- job: windows_build_${{ parameters.visualStudioVersion }}
+  displayName: 'Windows VS${{ parameters.visualStudioVersion }}'
+  timeoutInMinutes: 360
   pool:
-    vmImage: 'windows-2019'
+    vmImage: 'windows-${{ parameters.visualStudioVersion }}'
   variables:
-    vcpkgGitCommitId: ec6fe06e8da05a8157dc8581fa96b36b571c1bd5
+    vcpkgGitCommitId: 9b22b40c6c61bf0da2d46346dd44a11e90972cc9
   steps:
   - task: Cache@2
     displayName: 'Cache vcpkg'
     inputs:
-      key: $(Build.SourcesDirectory)/.azure-pipelines/build-windows-vcpkg.txt | "$(vcpkgGitCommitId)" | "$(Agent.OS)"
+      key: $(Build.SourcesDirectory)/.azure-pipelines/build-windows-vcpkg.txt | "$(vcpkgGitCommitId)" | "$(Agent.OS)" | "${{ parameters.visualStudioVersion }}"
       path: '$(Build.BinariesDirectory)/vcpkg'
 
   - task: run-vcpkg@0
@@ -48,3 +51,12 @@ jobs:
       exit $tests_pass
     workingDirectory: $(Build.ArtifactStagingDirectory)
     displayName: 'Run tests'
+
+  - pwsh: |
+      # Deleting a directory that breaks the caching of vcpkg.
+      # Could potentially be disabled again in future vcpkg versions.
+      $path = "$(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools/meson/test cases"
+      if (Test-Path $path) {
+        Remove-Item -Recurse -Force $path
+      }
+    displayName: 'Cleanup environment'

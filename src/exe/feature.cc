@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -73,38 +73,7 @@ bool VerifySiftGPUParams(const bool use_gpu) {
   return true;
 }
 
-// This enum can be used as optional input for feature_extractor and
-// feature_importer to ensure that the camera flags of ImageReader are set in an
-// exclusive and unambigous way. The table below explains the corespondence of
-// each setting with the flags
-//
-// -----------------------------------------------------------------------------------
-// |            |                         ImageReaderOptions                         |
-// | CameraMode | single_camera | single_camera_per_folder | single_camera_per_image |
-// |------------|---------------|--------------------------|-------------------------|
-// | AUTO       | false         | false                    | false                   |
-// | SINGLE     | true          | false                    | false                   |
-// | PER_FOLDER | false         | true                     | false                   |
-// | PER_IMAGE  | false         | false                    | true                    |
-// -----------------------------------------------------------------------------------
-//
-// Note: When using AUTO mode a camera model will be uniquely identified by the
-// following 5 parameters from EXIF tags:
-// 1. Camera Make
-// 2. Camera Model
-// 3. Focal Length
-// 4. Image Width
-// 5. Image Height
-//
-// If any of the tags is missing then a camera model is considered invalid and a
-// new camera is created similar to the PER_IMAGE mode.
-//
-// If these considered fields are not sufficient to uniquely identify a camera
-// then using the AUTO mode will lead to incorrect setup for the cameras, e.g.
-// the same camera is used with same focal length but different principal point
-// between captures. In these cases it is recommended to either use the
-// PER_FOLDER or PER_IMAGE settings.
-enum class CameraMode { AUTO = 0, SINGLE = 1, PER_FOLDER = 2, PER_IMAGE = 3 };
+}  // namespace
 
 void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
                                             CameraMode mode) {
@@ -132,17 +101,18 @@ void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
   }
 }
 
-}  // namespace
-
 int RunFeatureExtractor(int argc, char** argv) {
   std::string image_list_path;
   int camera_mode = -1;
+  std::string descriptor_normalization = "l1_root";
 
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
   options.AddDefaultOption("camera_mode", &camera_mode);
   options.AddDefaultOption("image_list_path", &image_list_path);
+  options.AddDefaultOption("descriptor_normalization", &descriptor_normalization,
+                           "{'l1_root', 'l2'}");
   options.AddExtractionOptions();
   options.Parse(argc, argv);
 
@@ -153,6 +123,19 @@ int RunFeatureExtractor(int argc, char** argv) {
   if (camera_mode >= 0) {
     UpdateImageReaderOptionsFromCameraMode(reader_options,
                                            (CameraMode)camera_mode);
+  }
+
+  StringToLower(&descriptor_normalization);
+  if (descriptor_normalization == "l1_root") {
+    options.sift_extraction->normalization =
+      SiftExtractionOptions::Normalization::L1_ROOT;
+  } else if (descriptor_normalization == "l2") {
+    options.sift_extraction->normalization =
+      SiftExtractionOptions::Normalization::L2;
+  } else {
+    std::cerr << "ERROR: Invalid `descriptor_normalization`"
+              << std::endl;
+    return EXIT_FAILURE;
   }
 
   if (!image_list_path.empty()) {

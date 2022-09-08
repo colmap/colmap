@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -1405,7 +1405,7 @@ void Reconstruction::CreateImageDirs(const std::string& path) const {
     }
   }
   for (const auto& dir : image_dirs) {
-    CreateDirIfNotExists(dir);
+    CreateDirIfNotExists(dir, /*recursive=*/true);
   }
 }
 
@@ -1487,8 +1487,8 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
     class Point3D& point3D = Point3D(point3D_id);
 
     if (point3D.Track().Length() < 2) {
-      DeletePoint3D(point3D_id);
       num_filtered += point3D.Track().Length();
+      DeletePoint3D(point3D_id);
       continue;
     }
 
@@ -1876,6 +1876,7 @@ void Reconstruction::WriteCamerasText(const std::string& path) const {
 
   for (const auto& camera : cameras_) {
     std::ostringstream line;
+    line.precision(17);
 
     line << camera.first << " ";
     line << camera.second.ModelName() << " ";
@@ -1915,6 +1916,8 @@ void Reconstruction::WriteImagesText(const std::string& path) const {
     }
 
     std::ostringstream line;
+    line.precision(17);
+
     std::string line_string;
 
     line << image.first << " ";
@@ -1981,6 +1984,7 @@ void Reconstruction::WritePoints3DText(const std::string& path) const {
     file << point3D.second.Error() << " ";
 
     std::ostringstream line;
+    line.precision(17);
 
     for (const auto& track_el : point3D.second.Track().Elements()) {
       line << track_el.image_id << " ";

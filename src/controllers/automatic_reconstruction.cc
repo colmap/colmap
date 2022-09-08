@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -85,12 +85,13 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.mapper->num_threads = options_.num_threads;
   option_manager_.poisson_meshing->num_threads = options_.num_threads;
 
-  ImageReaderOptions reader_options = *option_manager_.image_reader;
+  ImageReaderOptions& reader_options = *option_manager_.image_reader;
   reader_options.database_path = *option_manager_.database_path;
   reader_options.image_path = *option_manager_.image_path;
   if (!options_.mask_path.empty()) {
     reader_options.mask_path = options_.mask_path;
     option_manager_.image_reader->mask_path = options_.mask_path;
+    option_manager_.stereo_fusion->mask_path = options_.mask_path;
   }
   reader_options.single_camera = options_.single_camera;
   reader_options.camera_model = options_.camera_model;

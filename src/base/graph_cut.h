@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -50,7 +50,7 @@ void ComputeMinGraphCutStoerWagner(
     const std::vector<int>& weights, int* cut_weight,
     std::vector<char>* cut_labels);
 
-// Compute the normalized min-cut of an undirected graph using Graclus.
+// Compute the normalized min-cut of an undirected graph using Metis.
 // Partitions the graph into clusters and returns the cluster labels per vertex.
 std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
     const std::vector<std::pair<int, int>>& edges,

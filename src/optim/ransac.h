@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -169,6 +169,10 @@ size_t RANSAC<Estimator, SupportMeasurer, Sampler>::ComputeNumTrials(
   const double denom = 1 - std::pow(inlier_ratio, Estimator::kMinNumSamples);
   if (denom <= 0) {
     return 1;
+  }
+  // Prevent divide by zero below.
+  if (denom == 1.0) {
+    return std::numeric_limits<size_t>::max();
   }
 
   return static_cast<size_t>(

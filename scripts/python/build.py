@@ -1,4 +1,4 @@
-# Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+# Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -388,11 +388,11 @@ def build_ceres_solver(args):
     if os.path.exists(path):
         return
 
-    url = "https://github.com/ceres-solver/ceres-solver/archive/1.14.0.zip"
-    archive_path = os.path.join(args.download_path, "ceres-solver-1.14.0.zip")
+    url = "https://github.com/ceres-solver/ceres-solver/archive/2.1.0.zip"
+    archive_path = os.path.join(args.download_path, "ceres-solver-2.1.0.zip")
     download_zipfile(url, archive_path, args.build_path,
-                     "26b255b7a9f330bbc1def3b839724a2a")
-    shutil.move(os.path.join(args.build_path, "ceres-solver-1.14.0"), path)
+                     "0d4fbfd9d381b85a362365c8d5f468c8")
+    shutil.move(os.path.join(args.build_path, "ceres-solver-2.1.0"), path)
 
     extra_config_args = [
         "-DBUILD_TESTING=OFF",

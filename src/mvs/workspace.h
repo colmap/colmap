@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -66,6 +66,7 @@ class Workspace {
   };
 
   Workspace(const Options& options);
+  virtual ~Workspace() = default;
 
   // Do nothing when we use a cache. Data is loaded as needed.
   virtual void Load(const std::vector<std::string>& image_names);

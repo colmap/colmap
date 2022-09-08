@@ -1,4 +1,4 @@
-// Copyright (c) 2018, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -38,11 +38,13 @@ namespace colmap {
 GPSTransform::GPSTransform(const int ellipsoid) {
   switch (ellipsoid) {
     case GRS80:
+      a_ = 6378137.0;
+      f_ = 1.0 / 298.257222100882711243162837;  // More accurate GRS80 ellipsoid
+      b_ = (1.0 - f_) * a_;
+      break;
     case WGS84:
       a_ = 6378137.0;
-      // Using flattening factor and semi-minor axis calculation from Bing maps.
-      // New calculations are marginally more accurate than the original values.
-      f_ = 1.0 / 298.257222101;
+      f_ = 1.0 / 298.257223563;  // The WGS84 ellipsoid
       b_ = (1.0 - f_) * a_;
       break;
     default:
@@ -88,7 +90,7 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
     const double y = xyz[i](1);
     const double z = xyz[i](2);
 
-    const double radius_xy = sqrt(x * x + y * y);
+    const double radius_xy = std::sqrt(x * x + y * y);
     const double kEps = 1e-12;
 
     // Latitude
@@ -98,11 +100,12 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
     for (size_t j = 0; j < 100; ++j) {
       const double sin_lat0 = sin(lat);
       const double N = a_ / sqrt(1 - e2_ * sin_lat0 * sin_lat0);
+      const double prev_alt = alt;
       alt = radius_xy / cos(lat) - N;
       const double prev_lat = lat;
-      lat = atan((z / radius_xy) * 1 / (1 - e2_ * N / (N + alt)));
+      lat = std::atan((z / radius_xy) * 1 / (1 - e2_ * N / (N + alt)));
 
-      if (std::abs(prev_lat - lat) < kEps) {
+      if (std::abs(prev_lat - lat) < kEps && std::abs(prev_alt - alt) < kEps) {
         break;
       }
     }
@@ -116,6 +119,78 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
   }
 
   return ell;
+}
+
+std::vector<Eigen::Vector3d> GPSTransform::EllToENU(
+    const std::vector<Eigen::Vector3d>& ell, const double lat0,
+    const double lon0) const {
+  // Convert GPS (lat / lon / alt) to ECEF
+  std::vector<Eigen::Vector3d> xyz = EllToXYZ(ell);
+
+  return XYZToENU(xyz, lat0, lon0);
+}
+
+std::vector<Eigen::Vector3d> GPSTransform::XYZToENU(
+    const std::vector<Eigen::Vector3d>& xyz, const double lat0,
+    const double lon0) const {
+  std::vector<Eigen::Vector3d> enu(xyz.size());
+
+  // https://en.wikipedia.org/wiki/Geographic_coordinate_conversion#From_ECEF_to_ENU
+
+  // ECEF to ENU Rot :
+  const double cos_lat0 = std::cos(DegToRad(lat0));
+  const double sin_lat0 = std::sin(DegToRad(lat0));
+
+  const double cos_lon0 = std::cos(DegToRad(lon0));
+  const double sin_lon0 = std::sin(DegToRad(lon0));
+
+  Eigen::Matrix3d R;
+  R << -sin_lon0, cos_lon0, 0., -sin_lat0 * cos_lon0, -sin_lat0 * sin_lon0,
+      cos_lat0, cos_lat0 * cos_lon0, cos_lat0 * sin_lon0, sin_lat0;
+
+  // Convert ECEF to ENU coords. (w.r.t. ECEF ref == xyz[0])
+  for (size_t i = 0; i < xyz.size(); ++i) {
+    enu[i] = R * (xyz[i] - xyz[0]);
+  }
+
+  return enu;
+}
+
+std::vector<Eigen::Vector3d> GPSTransform::ENUToEll(
+    const std::vector<Eigen::Vector3d>& enu, const double lat0,
+    const double lon0, const double alt0) const {
+  return XYZToEll(ENUToXYZ(enu, lat0, lon0, alt0));
+}
+
+std::vector<Eigen::Vector3d> GPSTransform::ENUToXYZ(
+    const std::vector<Eigen::Vector3d>& enu, const double lat0,
+    const double lon0, const double alt0) const {
+  std::vector<Eigen::Vector3d> xyz(enu.size());
+
+  // ECEF ref (origin)
+  const Eigen::Vector3d xyz_ref =
+      EllToXYZ({Eigen::Vector3d(lat0, lon0, alt0)})[0];
+
+  // ENU to ECEF Rot :
+  const double cos_lat0 = std::cos(DegToRad(lat0));
+  const double sin_lat0 = std::sin(DegToRad(lat0));
+
+  const double cos_lon0 = std::cos(DegToRad(lon0));
+  const double sin_lon0 = std::sin(DegToRad(lon0));
+
+  Eigen::Matrix3d R;
+  R << -sin_lon0, cos_lon0, 0., -sin_lat0 * cos_lon0, -sin_lat0 * sin_lon0,
+      cos_lat0, cos_lat0 * cos_lon0, cos_lat0 * sin_lon0, sin_lat0;
+
+  // R is ECEF to ENU so Transpose to get inverse
+  R.transposeInPlace();
+
+  // Convert ENU to ECEF coords.
+  for (size_t i = 0; i < enu.size(); ++i) {
+    xyz[i] = (R * enu[i]) + xyz_ref;
+  }
+
+  return xyz;
 }
 
 }  // namespace colmap
