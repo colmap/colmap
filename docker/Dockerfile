@@ -29,8 +29,8 @@ RUN apt-get -y install \
     libatlas-base-dev \
     libsuitesparse-dev
 ARG CERES_SOLVER_VERSION=2.1.0
-RUN git clone https://github.com/ceres-solver/ceres-solver.git --tag ${CERES_SOLVER_VERSION}
-RUN cd ${CERES_SOLVER_VERSION} && \
+RUN git clone https://github.com/ceres-solver/ceres-solver.git --branch ${CERES_SOLVER_VERSION}
+RUN cd ceres-solver && \
 	mkdir build && \
 	cd build && \
 	cmake .. -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF && \

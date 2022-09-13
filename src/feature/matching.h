@@ -176,6 +176,9 @@ struct FeatureMatcherData {
 
 }  // namespace internal
 
+using FeatureKeypointsPtr = std::shared_ptr<FeatureKeypoints>;
+using FeatureDescriptorsPtr = std::shared_ptr<FeatureDescriptors>;
+
 // Cache for feature matching to minimize database access during matching.
 class FeatureMatcherCache {
  public:
@@ -185,8 +188,8 @@ class FeatureMatcherCache {
 
   const Camera& GetCamera(const camera_t camera_id) const;
   const Image& GetImage(const image_t image_id) const;
-  const FeatureKeypoints& GetKeypoints(const image_t image_id);
-  const FeatureDescriptors& GetDescriptors(const image_t image_id);
+  FeatureKeypointsPtr GetKeypoints(const image_t image_id);
+  FeatureDescriptorsPtr GetDescriptors(const image_t image_id);
   FeatureMatches GetMatches(const image_t image_id1, const image_t image_id2);
   std::vector<image_t> GetImageIds() const;
 
@@ -210,8 +213,8 @@ class FeatureMatcherCache {
   std::mutex database_mutex_;
   EIGEN_STL_UMAP(camera_t, Camera) cameras_cache_;
   EIGEN_STL_UMAP(image_t, Image) images_cache_;
-  std::unique_ptr<LRUCache<image_t, FeatureKeypoints>> keypoints_cache_;
-  std::unique_ptr<LRUCache<image_t, FeatureDescriptors>> descriptors_cache_;
+  std::unique_ptr<LRUCache<image_t, FeatureKeypointsPtr>> keypoints_cache_;
+  std::unique_ptr<LRUCache<image_t, FeatureDescriptorsPtr>> descriptors_cache_;
   std::unique_ptr<LRUCache<image_t, bool>> keypoints_exists_cache_;
   std::unique_ptr<LRUCache<image_t, bool>> descriptors_exists_cache_;
 };
@@ -268,7 +271,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcherThread {
 
   // The previously uploaded images to the GPU.
   std::array<image_t, 2> prev_uploaded_image_ids_;
-  std::array<FeatureDescriptors, 2> prev_uploaded_descriptors_;
+  std::array<FeatureDescriptorsPtr, 2> prev_uploaded_descriptors_;
 };
 
 class GuidedSiftCPUFeatureMatcher : public FeatureMatcherThread {
@@ -312,8 +315,8 @@ class GuidedSiftGPUFeatureMatcher : public FeatureMatcherThread {
 
   // The previously uploaded images to the GPU.
   std::array<image_t, 2> prev_uploaded_image_ids_;
-  std::array<FeatureKeypoints, 2> prev_uploaded_keypoints_;
-  std::array<FeatureDescriptors, 2> prev_uploaded_descriptors_;
+  std::array<FeatureKeypointsPtr, 2> prev_uploaded_keypoints_;
+  std::array<FeatureDescriptorsPtr, 2> prev_uploaded_descriptors_;
 };
 
 class TwoViewGeometryVerifier : public Thread {
