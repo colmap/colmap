@@ -795,7 +795,7 @@ bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
 
   // Fixed maximum image dimension.
   sift_gpu_args.push_back("-maxd");
-  sift_gpu_args.push_back(std::to_string(options.max_image_size));
+  sift_gpu_args.push_back(std::to_string(options.max_image_size * 2));
 
   // Keep the highest level features.
   sift_gpu_args.push_back("-tc2");
@@ -854,7 +854,7 @@ bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
   CHECK(bitmap.IsGrey());
   CHECK_NOTNULL(keypoints);
   CHECK_NOTNULL(descriptors);
-  CHECK_EQ(options.max_image_size, sift_gpu->GetMaxDimension());
+  CHECK_EQ(options.max_image_size * 2, sift_gpu->GetMaxDimension());
 
   CHECK(!options.estimate_affine_shape);
   CHECK(!options.domain_size_pooling);
