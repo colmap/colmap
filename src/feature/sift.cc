@@ -794,8 +794,13 @@ bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
   sift_gpu_args.push_back("0");
 
   // Fixed maximum image dimension.
+  // Note the max dimension of siftGPU is the maximum dimension of the
+  // first scale in the pyramid(which is the 'first_octave')
+  const double compensation_ratio = options.first_octave < 0 ?
+                              std::pow(2, -options.first_octave) : 1;
   sift_gpu_args.push_back("-maxd");
-  sift_gpu_args.push_back(std::to_string(options.max_image_size * 2));
+  sift_gpu_args.push_back(
+      std::to_string(options.max_image_size * compensation_ratio));
 
   // Keep the highest level features.
   sift_gpu_args.push_back("-tc2");
@@ -854,7 +859,11 @@ bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
   CHECK(bitmap.IsGrey());
   CHECK_NOTNULL(keypoints);
   CHECK_NOTNULL(descriptors);
-  CHECK_EQ(options.max_image_size * 2, sift_gpu->GetMaxDimension());
+
+  const double compensation_ratio = options.first_octave < 0 ?
+                              std::pow(2, -options.first_octave) : 1;
+  CHECK_EQ(options.max_image_size * compensation_ratio,
+           sift_gpu->GetMaxDimension());
 
   CHECK(!options.estimate_affine_shape);
   CHECK(!options.domain_size_pooling);
