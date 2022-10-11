@@ -36,9 +36,7 @@
 #include <memory>
 
 #include "FLANN/flann.hpp"
-#if !defined(GUI_ENABLED) && !defined(CUDA_ENABLED)
 #include "GL/glew.h"
-#endif
 #include "SiftGPU/SiftGPU.h"
 #include "VLFeat/covdet.h"
 #include "VLFeat/sift.h"
