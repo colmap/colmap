@@ -306,8 +306,7 @@ def build_glew(args):
     if os.path.exists(path):
         return
 
-    url = "https://kent.dl.sourceforge.net/project/glew/" \
-          "glew/2.1.0/glew-2.1.0.zip"
+    url = "https://github.com/nigels-com/glew/releases/download/glew-2.1.0/glew-2.1.0.zip"
     archive_path = os.path.join(args.download_path, "glew-2.1.0.zip")
     download_zipfile(url, archive_path, args.build_path,
                      "dff2939fd404d054c1036cc0409d19f1")
