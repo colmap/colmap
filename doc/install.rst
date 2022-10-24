@@ -157,10 +157,10 @@ Configure and compile COLMAP::
     sudo make install
 
 If you have Qt 6 installed on your system as well, you might have to temporarily
-link your Qt 5 installation while configuring CMake:
+link your Qt 5 installation while configuring CMake::
 
     brew link qt5
-    ... cmake configuration
+    cmake configuration (from previous code block)
     brew unlink qt5
 
 Run COLMAP::
