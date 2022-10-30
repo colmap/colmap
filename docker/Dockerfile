@@ -22,7 +22,8 @@ RUN apt-get update && apt-get install -y \
     libglew-dev \
     qtbase5-dev \
     libqt5opengl5-dev \
-    libcgal-dev
+    libcgal-dev \
+    libmetis-dev
 
 # Build and install ceres solver
 RUN apt-get -y install \
