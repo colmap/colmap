@@ -239,7 +239,7 @@ def build_freeimage(args):
 
     if PLATFORM_IS_WINDOWS:
         url = "http://downloads.sourceforge.net/freeimage/FreeImage3180Win32Win64.zip"
-        archive_path = os.path.join(args.download_path, "freeimage-3.18.0.zip")
+        archive_path = os.path.join(args.download_path, "FreeImage3180Win32Win64.zip")
         download_zipfile(url, archive_path, args.build_path,
                          "393d3df75b14cbcb4887da1c395596e2")
         shutil.move(os.path.join(args.build_path, "FreeImage"), path)
@@ -254,7 +254,7 @@ def build_freeimage(args):
             os.path.join(args.install_path, "lib/FreeImage.dll"))
     else:
         url = "http://downloads.sourceforge.net/freeimage/FreeImage3180.zip"
-        archive_path = os.path.join(args.download_path, "freeimage-3.18.0.zip")
+        archive_path = os.path.join(args.download_path, "FreeImage3180.zip")
         download_zipfile(url, archive_path, args.build_path,
                          "f8ba138a3be233a3eed9c456e42e2578")
         shutil.move(os.path.join(args.build_path, "FreeImage"), path)
