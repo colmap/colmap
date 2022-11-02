@@ -149,7 +149,7 @@ SiftFeatureExtractor::SiftFeatureExtractor(
         sift_options_.first_octave == SiftExtractionOptions().first_octave) {
       std::cout
           << "WARNING: Your current options use the maximum number of "
-             "threads on the machine to extract features. Exracting SIFT "
+             "threads on the machine to extract features. Extracting SIFT "
              "features on the CPU can consume a lot of RAM per thread for "
              "large images. Consider reducing the maximum image size and/or "
              "the first octave or manually limit the number of extraction "
