@@ -1,6 +1,6 @@
 parameters:
-  displayName: 'Ubuntu 18.04'
-  ubuntuVersion: '18.04'
+  displayName: 'Ubuntu 20.04'
+  ubuntuVersion: '20.04'
   cudaEnabled: false
   asanEnabled: false
 
