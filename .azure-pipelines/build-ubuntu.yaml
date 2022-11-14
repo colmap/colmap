@@ -31,6 +31,7 @@ jobs:
         libcgal-dev \
         libcgal-qt5-dev \
         libgl1-mesa-dri \
+        libunwind-dev \
         xvfb
     displayName: 'Install dependencies'
   
