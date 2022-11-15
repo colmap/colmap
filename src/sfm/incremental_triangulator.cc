@@ -221,7 +221,8 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
       }
     }
 
-    const point3D_t point3D_id = reconstruction_->AddPoint3D(xyz, track);
+    const point3D_t point3D_id =
+        reconstruction_->AddPoint3D(xyz, std::move(track));
     modified_point3D_ids_.insert(point3D_id);
   }
 
@@ -531,15 +532,17 @@ size_t IncrementalTriangulator::Create(
   }
 
   // Add estimated point to reconstruction.
-  const point3D_t point3D_id = reconstruction_->AddPoint3D(xyz, track);
+  const size_t track_length = track.Length();
+  const point3D_t point3D_id =
+      reconstruction_->AddPoint3D(xyz, std::move(track));
   modified_point3D_ids_.insert(point3D_id);
 
   const size_t kMinRecursiveTrackLength = 3;
-  if (create_corrs_data.size() - track.Length() >= kMinRecursiveTrackLength) {
-    return track.Length() + Create(options, create_corrs_data);
+  if (create_corrs_data.size() - track_length >= kMinRecursiveTrackLength) {
+    return track_length + Create(options, create_corrs_data);
   }
 
-  return track.Length();
+  return track_length;
 }
 
 size_t IncrementalTriangulator::Continue(
