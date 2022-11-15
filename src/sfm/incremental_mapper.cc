@@ -334,7 +334,7 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
         HasPointPositiveDepth(proj_matrix2, xyz)) {
       track.Element(0).point2D_idx = corr.point2D_idx1;
       track.Element(1).point2D_idx = corr.point2D_idx2;
-      reconstruction_->AddPoint3D(xyz, track);
+      reconstruction_->AddPoint3D(xyz, std::move(track));
     }
   }
 
