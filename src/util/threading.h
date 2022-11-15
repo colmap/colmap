@@ -39,6 +39,7 @@
 #include <list>
 #include <queue>
 #include <unordered_map>
+#include <thread>
 
 #include "util/timer.h"
 
