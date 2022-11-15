@@ -415,6 +415,7 @@ void IncrementalTriangulator::ClearModifiedPoints3D() {
 void IncrementalTriangulator::ClearCaches() {
   camera_has_bogus_params_.clear();
   merge_trials_.clear();
+  found_corrs_.clear();
 }
 
 size_t IncrementalTriangulator::Find(const Options& options,
@@ -422,16 +423,23 @@ size_t IncrementalTriangulator::Find(const Options& options,
                                      const point2D_t point2D_idx,
                                      const size_t transitivity,
                                      std::vector<CorrData>* corrs_data) {
-  const std::vector<CorrespondenceGraph::Correspondence>& corrs =
-      correspondence_graph_->FindTransitiveCorrespondences(
-          image_id, point2D_idx, transitivity);
+  const std::vector<CorrespondenceGraph::Correspondence>* found_corrs_ptr =
+      nullptr;
+  if (transitivity == 1) {
+    found_corrs_ptr =
+        &correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
+  } else {
+    correspondence_graph_->FindTransitiveCorrespondences(
+        image_id, point2D_idx, transitivity, &found_corrs_);
+    found_corrs_ptr = &found_corrs_;
+  }
 
   corrs_data->clear();
-  corrs_data->reserve(corrs.size());
+  corrs_data->reserve(found_corrs_ptr->size());
 
   size_t num_triangulated = 0;
 
-  for (const CorrespondenceGraph::Correspondence corr : corrs) {
+  for (const auto& corr : *found_corrs_ptr) {
     const Image& corr_image = reconstruction_->Image(corr.image_id);
     if (!corr_image.IsRegistered()) {
       continue;

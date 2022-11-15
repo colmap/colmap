@@ -195,6 +195,9 @@ class IncrementalTriangulator {
   // Cache for tried track merges to avoid duplicate merge trials.
   std::unordered_map<point3D_t, std::unordered_set<point3D_t>> merge_trials_;
 
+  // Cache for found correspondences in the graph.
+  std::vector<CorrespondenceGraph::Correspondence> found_corrs_;
+
   // Number of trials to retriangulate image pair.
   std::unordered_map<image_pair_t, int> re_num_trials_;
 
