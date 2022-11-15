@@ -334,7 +334,7 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
         HasPointPositiveDepth(proj_matrix2, xyz)) {
       track.Element(0).point2D_idx = corr.point2D_idx1;
       track.Element(1).point2D_idx = corr.point2D_idx2;
-      reconstruction_->AddPoint3D(xyz, std::move(track));
+      reconstruction_->AddPoint3D(xyz, track);
     }
   }
 
@@ -371,6 +371,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   std::vector<Eigen::Vector2d> tri_points2D;
   std::vector<Eigen::Vector3d> tri_points3D;
 
+  std::unordered_set<point3D_t> corr_point3D_ids;
   for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
        ++point2D_idx) {
     const Point2D& point2D = image.Point2D(point2D_idx);
@@ -380,8 +381,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
         correspondence_graph.FindTransitiveCorrespondences(
             image_id, point2D_idx, kCorrTransitivity);
 
-    std::unordered_set<point3D_t> point3D_ids;
-
+    corr_point3D_ids.clear();
     for (const auto corr : corrs) {
       const Image& corr_image = reconstruction_->Image(corr.image_id);
       if (!corr_image.IsRegistered()) {
@@ -394,7 +394,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       }
 
       // Avoid duplicate correspondences.
-      if (point3D_ids.count(corr_point2D.Point3DId()) > 0) {
+      if (corr_point3D_ids.count(corr_point2D.Point3DId()) > 0) {
         continue;
       }
 
@@ -412,7 +412,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
           reconstruction_->Point3D(corr_point2D.Point3DId());
 
       tri_corrs.emplace_back(point2D_idx, corr_point2D.Point3DId());
-      point3D_ids.insert(corr_point2D.Point3DId());
+      corr_point3D_ids.insert(corr_point2D.Point3DId());
       tri_points2D.push_back(point2D.XY());
       tri_points3D.push_back(point3D.XYZ());
     }
