@@ -36,6 +36,16 @@
 
 using namespace colmap;
 
+int FindNumTransitiveCorrespondences(const CorrespondenceGraph& graph,
+                                     const image_t image_id,
+                                     const point2D_t point2D_idx,
+                                     const size_t transitivity) {
+  std::vector<CorrespondenceGraph::Correspondence> corrs;
+  graph.FindTransitiveCorrespondences(image_id, point2D_idx, transitivity,
+                                      &corrs);
+  return corrs.size();
+}
+
 BOOST_AUTO_TEST_CASE(TestDefault) {
   CorrespondenceGraph correspondence_graph;
   BOOST_CHECK_EQUAL(correspondence_graph.NumImages(), 0);
@@ -137,23 +147,18 @@ BOOST_AUTO_TEST_CASE(TestTwoView) {
       correspondence_graph.FindCorrespondences(1, 8).at(0).image_id, 0);
   BOOST_CHECK_EQUAL(
       correspondence_graph.FindCorrespondences(1, 8).at(0).point2D_idx, 4);
+  std::vector<CorrespondenceGraph::Correspondence> corrs;
   for (size_t i = 0; i < 10; ++i) {
     BOOST_CHECK_EQUAL(
-        correspondence_graph.FindTransitiveCorrespondences(0, i, 0).size(), 0);
+        FindNumTransitiveCorrespondences(correspondence_graph, 0, i, 0), 0);
     BOOST_CHECK_EQUAL(
         correspondence_graph.FindCorrespondences(0, i).size(),
-        correspondence_graph.FindTransitiveCorrespondences(0, i, 1).size());
+        FindNumTransitiveCorrespondences(correspondence_graph, 0, i, 2));
     BOOST_CHECK_EQUAL(
-        correspondence_graph.FindCorrespondences(0, i).size(),
-        correspondence_graph.FindTransitiveCorrespondences(0, i, 2).size());
-    BOOST_CHECK_EQUAL(
-        correspondence_graph.FindTransitiveCorrespondences(1, i, 0).size(), 0);
+        FindNumTransitiveCorrespondences(correspondence_graph, 1, i, 0), 0);
     BOOST_CHECK_EQUAL(
         correspondence_graph.FindCorrespondences(1, i).size(),
-        correspondence_graph.FindTransitiveCorrespondences(1, i, 1).size());
-    BOOST_CHECK_EQUAL(
-        correspondence_graph.FindCorrespondences(1, i).size(),
-        correspondence_graph.FindTransitiveCorrespondences(1, i, 2).size());
+        FindNumTransitiveCorrespondences(correspondence_graph, 1, i, 2));
   }
   const auto corrs01 =
       correspondence_graph.FindCorrespondencesBetweenImages(0, 1);
@@ -280,29 +285,18 @@ BOOST_AUTO_TEST_CASE(TestThreeView) {
       correspondence_graph.FindCorrespondences(2, 5).at(0).image_id, 1);
   BOOST_CHECK_EQUAL(
       correspondence_graph.FindCorrespondences(2, 5).at(0).point2D_idx, 5);
-  for (size_t i = 0; i < 10; ++i) {
-    BOOST_CHECK_EQUAL(
-        correspondence_graph.FindCorrespondences(0, i).size(),
-        correspondence_graph.FindTransitiveCorrespondences(0, i, 1).size());
-    BOOST_CHECK_EQUAL(
-        correspondence_graph.FindCorrespondences(1, i).size(),
-        correspondence_graph.FindTransitiveCorrespondences(1, i, 1).size());
-    BOOST_CHECK_EQUAL(
-        correspondence_graph.FindCorrespondences(2, i).size(),
-        correspondence_graph.FindTransitiveCorrespondences(2, i, 1).size());
-  }
   BOOST_CHECK_EQUAL(
-      correspondence_graph.FindTransitiveCorrespondences(0, 0, 2).size(), 2);
+      FindNumTransitiveCorrespondences(correspondence_graph, 0, 0, 2), 2);
   BOOST_CHECK_EQUAL(
-      correspondence_graph.FindTransitiveCorrespondences(1, 0, 2).size(), 2);
+      FindNumTransitiveCorrespondences(correspondence_graph, 1, 0, 2), 2);
   BOOST_CHECK_EQUAL(
-      correspondence_graph.FindTransitiveCorrespondences(2, 0, 2).size(), 2);
+      FindNumTransitiveCorrespondences(correspondence_graph, 2, 0, 2), 2);
   BOOST_CHECK_EQUAL(
-      correspondence_graph.FindTransitiveCorrespondences(0, 0, 3).size(), 2);
+      FindNumTransitiveCorrespondences(correspondence_graph, 0, 0, 3), 2);
   BOOST_CHECK_EQUAL(
-      correspondence_graph.FindTransitiveCorrespondences(1, 0, 3).size(), 2);
+      FindNumTransitiveCorrespondences(correspondence_graph, 1, 0, 3), 2);
   BOOST_CHECK_EQUAL(
-      correspondence_graph.FindTransitiveCorrespondences(2, 0, 3).size(), 2);
+      FindNumTransitiveCorrespondences(correspondence_graph, 2, 0, 3), 2);
   correspondence_graph.Finalize();
   BOOST_CHECK_EQUAL(correspondence_graph.NumObservationsForImage(0), 1);
   BOOST_CHECK_EQUAL(correspondence_graph.NumObservationsForImage(1), 2);
