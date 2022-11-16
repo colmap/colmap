@@ -116,7 +116,11 @@ endif()
 
 set(CUDA_MIN_VERSION "7.0")
 if(CUDA_ENABLED)
-    find_package(CUDA ${CUDA_MIN_VERSION} QUIET)
+    if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
+	find_package(CUDA ${CUDA_MIN_VERSION} QUIET)
+    else()
+	find_package(CUDAToolkit ${CUDA_MIN_VERSION} QUIET)
+    endif()
 endif()
 
 if(GUI_ENABLED)
