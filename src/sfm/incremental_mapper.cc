@@ -365,24 +365,21 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // Search for 2D-3D correspondences
   //////////////////////////////////////////////////////////////////////////////
 
-  const int kCorrTransitivity = 1;
+  const CorrespondenceGraph& correspondence_graph =
+      database_cache_->CorrespondenceGraph();
 
   std::vector<std::pair<point2D_t, point3D_t>> tri_corrs;
   std::vector<Eigen::Vector2d> tri_points2D;
   std::vector<Eigen::Vector3d> tri_points3D;
 
+  std::unordered_set<point3D_t> corr_point3D_ids;
   for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
        ++point2D_idx) {
     const Point2D& point2D = image.Point2D(point2D_idx);
-    const CorrespondenceGraph& correspondence_graph =
-        database_cache_->CorrespondenceGraph();
-    const std::vector<CorrespondenceGraph::Correspondence> corrs =
-        correspondence_graph.FindTransitiveCorrespondences(
-            image_id, point2D_idx, kCorrTransitivity);
 
-    std::unordered_set<point3D_t> point3D_ids;
-
-    for (const auto corr : corrs) {
+    corr_point3D_ids.clear();
+    for (const auto& corr :
+         correspondence_graph.FindCorrespondences(image_id, point2D_idx)) {
       const Image& corr_image = reconstruction_->Image(corr.image_id);
       if (!corr_image.IsRegistered()) {
         continue;
@@ -394,7 +391,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       }
 
       // Avoid duplicate correspondences.
-      if (point3D_ids.count(corr_point2D.Point3DId()) > 0) {
+      if (corr_point3D_ids.count(corr_point2D.Point3DId()) > 0) {
         continue;
       }
 
@@ -412,7 +409,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
           reconstruction_->Point3D(corr_point2D.Point3DId());
 
       tri_corrs.emplace_back(point2D_idx, corr_point2D.Point3DId());
-      point3D_ids.insert(corr_point2D.Point3DId());
+      corr_point3D_ids.insert(corr_point2D.Point3DId());
       tri_points2D.push_back(point2D.XY());
       tri_points3D.push_back(point3D.XYZ());
     }

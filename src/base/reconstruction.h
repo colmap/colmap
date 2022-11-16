@@ -129,14 +129,14 @@ class Reconstruction {
 
   // Add new camera. There is only one camera per image, while multiple images
   // might be taken by the same camera.
-  void AddCamera(const class Camera& camera);
+  void AddCamera(class Camera camera);
 
   // Add new image.
-  void AddImage(const class Image& image);
+  void AddImage(class Image image);
 
   // Add new 3D object, and return its unique ID.
   point3D_t AddPoint3D(
-      const Eigen::Vector3d& xyz, const Track& track,
+      const Eigen::Vector3d& xyz, Track track,
       const Eigen::Vector3ub& color = Eigen::Vector3ub::Zero());
 
   // Add observation to existing 3D point.
