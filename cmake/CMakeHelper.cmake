@@ -189,7 +189,7 @@ macro(COLMAP_ADD_CUDA_TEST TARGET_NAME)
     if(TESTS_ENABLED)
         # ${ARGN} will store the list of source files passed to this function.
         if(CUDAToolkit_FOUND)
-            add_executable()(${TARGET_NAME} ${ARGN})
+            add_executable(${TARGET_NAME} ${ARGN})
         else()
             cuda_add_executable(${TARGET_NAME} ${ARGN})
         endif()
