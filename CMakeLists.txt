@@ -31,7 +31,7 @@
 
 cmake_minimum_required(VERSION 3.0)
 
-project(COLMAP LANGUAGES C CXX)
+project(COLMAP)
 
 set(COLMAP_VERSION "3.8")
 set(COLMAP_VERSION_NUMBER "3800")
@@ -116,11 +116,7 @@ endif()
 
 set(CUDA_MIN_VERSION "7.0")
 if(CUDA_ENABLED)
-    if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
-	    find_package(CUDA ${CUDA_MIN_VERSION} QUIET)
-    else()
-	    find_package(CUDAToolkit ${CUDA_MIN_VERSION} QUIET)
-    endif()
+	find_package(CUDA ${CUDA_MIN_VERSION} QUIET)
 endif()
 
 if(GUI_ENABLED)
@@ -216,12 +212,6 @@ if(ASAN_ENABLED)
     endif()
 endif()
 
-if(CUDAToolkit_FOUND)
-    enable_language(CUDA)
-    set(CUDA_FOUND TRUE)
-    set(CUDA_VERSION_STRING "${CUDAToolkit_VERSION}")
-endif()
-
 if(CUDA_FOUND)
     if(CUDA_ENABLED)
         add_definitions("-DCUDA_ENABLED")
@@ -300,7 +290,11 @@ if(Qt5_FOUND)
     # Qt5 was built with -reduce-relocations.
     if(Qt5_POSITION_INDEPENDENT_CODE)
         set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+        if(CUDA_ENABLED AND NOT IS_MSVC)
+            set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --compiler-options -fPIC")
+        endif()
     endif()
+
     # Enable automatic compilation of Qt resource files.
     set(CMAKE_AUTORCC ON)
 endif()
