@@ -31,7 +31,7 @@
 
 cmake_minimum_required(VERSION 3.0)
 
-project(COLMAP)
+project(COLMAP LANGUAGES C CXX)
 
 set(COLMAP_VERSION "3.8")
 set(COLMAP_VERSION_NUMBER "3800")
@@ -119,6 +119,7 @@ if(CUDA_ENABLED)
     if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
 	    find_package(CUDA ${CUDA_MIN_VERSION} QUIET)
     else()
+        enable_language(CUDA)
 	    find_package(CUDAToolkit ${CUDA_MIN_VERSION} QUIET)
     endif()
 endif()

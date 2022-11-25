@@ -188,7 +188,11 @@ endmacro(COLMAP_ADD_TEST)
 macro(COLMAP_ADD_CUDA_TEST TARGET_NAME)
     if(TESTS_ENABLED)
         # ${ARGN} will store the list of source files passed to this function.
-        cuda_add_executable(${TARGET_NAME} ${ARGN})
+        if(CUDAToolkit_FOUND)
+            add_executable()(${TARGET_NAME} ${ARGN})
+        else()
+            cuda_add_executable(${TARGET_NAME} ${ARGN})
+        endif()
         set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
             ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
         target_link_libraries(${TARGET_NAME} colmap
