@@ -300,11 +300,7 @@ if(Qt5_FOUND)
     # Qt5 was built with -reduce-relocations.
     if(Qt5_POSITION_INDEPENDENT_CODE)
         set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-        if(CUDA_ENABLED AND NOT IS_MSVC)
-            set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --compiler-options -fPIC")
-        endif()
     endif()
-
     # Enable automatic compilation of Qt resource files.
     set(CMAKE_AUTORCC ON)
 endif()
