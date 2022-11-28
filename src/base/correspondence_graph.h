@@ -113,9 +113,10 @@ class CorrespondenceGraph {
   // forth until the transitivity is exhausted or no more correspondences are
   // found. The returned list does not contain duplicates and contains
   // the given observation.
-  std::vector<Correspondence> FindTransitiveCorrespondences(
+  void FindTransitiveCorrespondences(
       const image_t image_id, const point2D_t point2D_idx,
-      const size_t transitivity) const;
+      const size_t transitivity,
+      std::vector<Correspondence>* found_corrs) const;
 
   // Find all correspondences between two images.
   FeatureMatches FindCorrespondencesBetweenImages(

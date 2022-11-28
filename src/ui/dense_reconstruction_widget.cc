@@ -116,6 +116,7 @@ class FusionOptionsTab : public OptionsWidget {
     AddOptionDouble(&options->stereo_fusion->cache_size,
                     "cache_size [gigabytes]", 0,
                     std::numeric_limits<double>::max(), 0.1, 1);
+    AddOptionBool(&options->stereo_fusion->use_cache, "use_cache");
   }
 };
 

@@ -151,28 +151,21 @@ void Reconstruction::TearDown() {
   }
 }
 
-void Reconstruction::AddCamera(const class Camera& camera) {
-  CHECK(!ExistsCamera(camera.CameraId()));
+void Reconstruction::AddCamera(class Camera camera) {
+  const camera_t camera_id = camera.CameraId();
   CHECK(camera.VerifyParams());
-  cameras_.emplace(camera.CameraId(), camera);
+  CHECK(cameras_.emplace(camera_id, std::move(camera)).second);
 }
 
-void Reconstruction::AddImage(const class Image& image) {
-  CHECK(!ExistsImage(image.ImageId()));
-  images_[image.ImageId()] = image;
+void Reconstruction::AddImage(class Image image) {
+  const image_t image_id = image.ImageId();
+  CHECK(images_.emplace(image_id, std::move(image)).second);
 }
 
-point3D_t Reconstruction::AddPoint3D(const Eigen::Vector3d& xyz,
-                                     const Track& track,
+point3D_t Reconstruction::AddPoint3D(const Eigen::Vector3d& xyz, Track track,
                                      const Eigen::Vector3ub& color) {
   const point3D_t point3D_id = ++num_added_points3D_;
   CHECK(!ExistsPoint3D(point3D_id));
-
-  class Point3D& point3D = points3D_[point3D_id];
-
-  point3D.SetXYZ(xyz);
-  point3D.SetTrack(track);
-  point3D.SetColor(color);
 
   for (const auto& track_el : track.Elements()) {
     class Image& image = Image(track_el.image_id);
@@ -187,6 +180,11 @@ point3D_t Reconstruction::AddPoint3D(const Eigen::Vector3d& xyz,
     SetObservationAsTriangulated(track_el.image_id, track_el.point2D_idx,
                                  kIsContinuedPoint3D);
   }
+
+  class Point3D& point3D = points3D_[point3D_id];
+  point3D.SetXYZ(xyz);
+  point3D.SetTrack(std::move(track));
+  point3D.SetColor(color);
 
   return point3D_id;
 }

@@ -41,15 +41,17 @@ namespace colmap {
 
 DatabaseCache::DatabaseCache() {}
 
-void DatabaseCache::AddCamera(const class Camera& camera) {
-  CHECK(!ExistsCamera(camera.CameraId()));
-  cameras_.emplace(camera.CameraId(), camera);
+void DatabaseCache::AddCamera(class Camera camera) {
+  const camera_t camera_id = camera.CameraId();
+  CHECK(!ExistsCamera(camera_id));
+  cameras_.emplace(camera_id, std::move(camera));
 }
 
-void DatabaseCache::AddImage(const class Image& image) {
-  CHECK(!ExistsImage(image.ImageId()));
-  images_.emplace(image.ImageId(), image);
-  correspondence_graph_.AddImage(image.ImageId(), image.NumPoints2D());
+void DatabaseCache::AddImage(class Image image) {
+  const image_t image_id = image.ImageId();
+  CHECK(!ExistsImage(image_id));
+  correspondence_graph_.AddImage(image_id, image.NumPoints2D());
+  images_.emplace(image_id, std::move(image));
 }
 
 void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
@@ -65,10 +67,11 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
   std::cout << "Loading cameras..." << std::flush;
 
   {
-    const std::vector<class Camera> cameras = database.ReadAllCameras();
+    std::vector<class Camera> cameras = database.ReadAllCameras();
     cameras_.reserve(cameras.size());
-    for (const auto& camera : cameras) {
-      cameras_.emplace(camera.CameraId(), camera);
+    for (auto& camera : cameras) {
+      const camera_t camera_id = camera.CameraId();
+      cameras_.emplace(camera_id, std::move(camera));
     }
   }
 
@@ -109,7 +112,8 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
   std::unordered_set<image_t> image_ids;
 
   {
-    const std::vector<class Image> images = database.ReadAllImages();
+    std::vector<class Image> images = database.ReadAllImages();
+    const size_t num_images = images.size();
 
     // Determines for which images data should be loaded.
     if (image_names.empty()) {
@@ -142,19 +146,19 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
     // Load images with correspondences and discard images without
     // correspondences, as those images are useless for SfM.
     images_.reserve(connected_image_ids.size());
-    for (const auto& image : images) {
-      if (image_ids.count(image.ImageId()) > 0 &&
-          connected_image_ids.count(image.ImageId()) > 0) {
-        images_.emplace(image.ImageId(), image);
-        const FeatureKeypoints keypoints =
-            database.ReadKeypoints(image.ImageId());
+    for (auto& image : images) {
+      const image_t image_id = image.ImageId();
+      if (image_ids.count(image_id) > 0 &&
+          connected_image_ids.count(image_id) > 0) {
+        images_.emplace(image_id, std::move(image));
+        const FeatureKeypoints keypoints = database.ReadKeypoints(image_id);
         const std::vector<Eigen::Vector2d> points =
             FeatureKeypointsToPointsVector(keypoints);
-        images_[image.ImageId()].SetPoints2D(points);
+        images_[image_id].SetPoints2D(points);
       }
     }
 
-    std::cout << StringPrintf(" %d in %.3fs (connected %d)", images.size(),
+    std::cout << StringPrintf(" %d in %.3fs (connected %d)", num_images,
                               timer.ElapsedSeconds(),
                               connected_image_ids.size())
               << std::endl;
