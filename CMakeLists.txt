@@ -31,7 +31,7 @@
 
 cmake_minimum_required(VERSION 3.1)
 
-project(COLMAP)
+project(COLMAP LANGUAGES C CXX)
 
 set(COLMAP_VERSION "3.8")
 set(COLMAP_VERSION_NUMBER "3800")
@@ -118,7 +118,11 @@ endif()
 
 set(CUDA_MIN_VERSION "7.0")
 if(CUDA_ENABLED)
-	find_package(CUDA ${CUDA_MIN_VERSION} QUIET)
+    if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
+	    find_package(CUDA ${CUDA_MIN_VERSION} QUIET)
+    else()
+	    find_package(CUDAToolkit ${CUDA_MIN_VERSION} QUIET)
+    endif()
 endif()
 
 if(GUI_ENABLED)
@@ -212,6 +216,12 @@ if(ASAN_ENABLED)
     else()
         message(FATAL_ERROR "Unsupported compiler for ASan mode")
     endif()
+endif()
+
+if(CUDAToolkit_FOUND)
+    enable_language(CUDA)
+    set(CUDA_FOUND TRUE)
+    set(CUDA_VERSION_STRING "${CUDAToolkit_VERSION}")
 endif()
 
 if(CUDA_FOUND)
