@@ -44,7 +44,7 @@ jobs:
             gcc-10 g++-10
           echo '##vso[task.setvariable variable=CC]/usr/bin/gcc-10'
           echo '##vso[task.setvariable variable=CXX]/usr/bin/g++-10'
-          echo '##vso[task.setvariable variable=CUDA_HOST_COMPILER]=/usr/bin/g++-10'
+          echo '##vso[task.setvariable variable=CUDA_HOST_COMPILER]/usr/bin/g++-10'
         displayName: 'Install CUDA'
     - ${{ if ne(parameters.ubuntuVersion, '22.04') }}:
       - script: |
