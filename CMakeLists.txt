@@ -36,7 +36,6 @@ project(COLMAP LANGUAGES C CXX)
 set(COLMAP_VERSION "3.8")
 set(COLMAP_VERSION_NUMBER "3800")
 
-
 set(CMAKE_CXX_STANDARD 17)
 
 ################################################################################
@@ -68,8 +67,8 @@ option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(BOOST_STATIC "Whether to enable static boost library linker flags" ON)
-set(CUDA_ARCHS "Auto" CACHE STRING "List of CUDA architectures for which to \
-generate code, e.g., Auto, All, Maxwell, Pascal, ...")
+set(CUDA_ARCHS "5.0" CACHE STRING "List of CUDA architectures for which to \
+generate code, e.g., 5.0, 6.0, 7.5, ...")
 
 if(TESTS_ENABLED)
     enable_testing()
@@ -219,6 +218,7 @@ if(ASAN_ENABLED)
 endif()
 
 if(CUDAToolkit_FOUND)
+    string(REPLACE "." "" CMAKE_CUDA_ARCHITECTURES "${CUDA_ARCHS}")
     enable_language(CUDA)
     set(CUDA_FOUND TRUE)
     set(CUDA_VERSION_STRING "${CUDAToolkit_VERSION}")
@@ -228,16 +228,22 @@ if(CUDA_FOUND)
     if(CUDA_ENABLED)
         add_definitions("-DCUDA_ENABLED")
 
-        include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/SelectCudaComputeArch.cmake)
-
-        CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS ${CUDA_ARCHS})
-
-        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${CUDA_ARCH_FLAGS}")
-
         # Fix for some combinations of CUDA and GCC (e.g. under Ubuntu 16.04).
         set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -D_FORCE_INLINES")
         # Do not show warnings if the architectures are deprecated.
         set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Wno-deprecated-gpu-targets")
+
+        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Wno-deprecated-declarations")
+
+        if(CUDAToolkit_FOUND)
+            # CMake's builtin CUDA language support uses "CMAKE_CUDA_FLAGS" instead of "CUDA_NVCC_FLAGS".
+            set(CMAKE_CUDA_FLAGS "${CUDA_NVCC_FLAGS}")
+            set(CUDA_ARCH_FLAGS_readable "${CMAKE_CUDA_ARCHITECTURES}")
+        else()
+            include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/SelectCudaComputeArch.cmake)
+            CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS ${CUDA_ARCHS})
+            set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${CUDA_ARCH_FLAGS}")
+        endif()
 
         message(STATUS "Enabling CUDA support (version: ${CUDA_VERSION_STRING},"
                        " archs: ${CUDA_ARCH_FLAGS_readable})")
