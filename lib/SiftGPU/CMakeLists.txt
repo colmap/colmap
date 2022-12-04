@@ -1,7 +1,3 @@
-if(NOT IS_MSVC)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
-endif()
-
 add_definitions("-DSIFTGPU_NO_DEVIL")
 
 set(SIFT_GPU_SOURCE_FILES
