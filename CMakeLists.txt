@@ -226,21 +226,23 @@ if(CUDA_FOUND)
     if(CUDA_ENABLED)
         add_definitions("-DCUDA_ENABLED")
 
-        # Fix for some combinations of CUDA and GCC (e.g. under Ubuntu 16.04).
-        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -D_FORCE_INLINES")
-        # Do not show warnings if the architectures are deprecated.
-        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Wno-deprecated-gpu-targets")
-
-        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Wno-deprecated-declarations")
-
-        if(CUDAToolkit_FOUND)
-            # CMake's builtin CUDA language support uses "CMAKE_CUDA_FLAGS" instead of "CUDA_NVCC_FLAGS".
-            set(CMAKE_CUDA_FLAGS "${CUDA_NVCC_FLAGS}")
-            set(CUDA_ARCH_FLAGS_readable "${CMAKE_CUDA_ARCHITECTURES}")
-        else()
+        if(NOT CUDAToolkit_FOUND)
             include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/SelectCudaComputeArch.cmake)
             CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS ${CUDA_ARCHS})
             set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${CUDA_ARCH_FLAGS}")
+        endif()
+
+        # Fix for some combinations of CUDA and GCC (e.g. under Ubuntu 16.04).
+        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_FORCE_INLINES")
+        # Do not show warnings if the architectures are deprecated.
+        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-gpu-targets")
+
+        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-declarations")
+
+        if(CUDAToolkit_FOUND)
+            set(CUDA_ARCH_FLAGS_readable "${CMAKE_CUDA_ARCHITECTURES}")
+        else()
+            set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${CMAKE_CUDA_FLAGS}")
         endif()
 
         message(STATUS "Enabling CUDA support (version: ${CUDA_VERSION_STRING},"
