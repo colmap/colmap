@@ -110,6 +110,8 @@ find_package(Git)
 
 if(CGAL_ENABLED)
     set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE TRUE)
+    # We do not use CGAL data. This prevents an unnecessary warning by CMake.
+    set(CGAL_DATA_DIR "unused")
     find_package(CGAL QUIET)
 endif()
 
@@ -354,6 +356,11 @@ endif()
 if(Qt5_FOUND)
     list(APPEND COLMAP_INCLUDE_DIRS ${Qt5Core_INCLUDE_DIRS} ${Qt5OpenGL_INCLUDE_DIRS} ${Qt5Widgets_INCLUDE_DIRS})
     list(APPEND COLMAP_EXTERNAL_LIBRARIES ${Qt5Core_LIBRARIES} ${Qt5OpenGL_LIBRARIES} ${Qt5Widgets_LIBRARIES})
+    # Workaround for Qt5 CMake config bug under Ubuntu 20.04: https://gitlab.kitware.com/cmake/cmake/-/issues/16915
+    get_property(core_options TARGET Qt5::Core PROPERTY INTERFACE_COMPILE_OPTIONS)
+    string(REPLACE "-fPIC" "" new_qt5_core_options ${core_options})
+    set_property(TARGET Qt5::Core PROPERTY INTERFACE_COMPILE_OPTIONS ${new_qt5_core_options})
+    set_property(TARGET Qt5::Core PROPERTY INTERFACE_POSITION_INDEPENDENT_CODE "ON")
 endif()
 
 if(CGAL_FOUND)
