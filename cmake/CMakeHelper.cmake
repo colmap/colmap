@@ -145,7 +145,7 @@ macro(COLMAP_ADD_STATIC_CUDA_LIBRARY TARGET_NAME)
         add_library(${TARGET_NAME} STATIC ${ARGN})
         target_link_libraries(${TARGET_NAME} CUDA::cudart CUDA::curand)
     else()
-        cuda_add_library(${TARGET_NAME} ${ARGN})
+        cuda_add_library(${TARGET_NAME} STATIC ${ARGN})
     endif()
     set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
         ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
