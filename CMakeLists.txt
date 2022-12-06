@@ -120,6 +120,17 @@ if(CUDA_ENABLED)
 	find_package(CUDA ${CUDA_MIN_VERSION} QUIET)
     else()
 	find_package(CUDAToolkit ${CUDA_MIN_VERSION} QUIET)
+        if(CUDAToolkit_FOUND)
+            # Set CUDA_FOUND for supporting if statements
+            # written for FindCUDA.
+            set(CUDA_FOUND CUDAToolkit_FOUND)
+            # FindCUDA adds CUDA support by adding CMake functions,
+            # such as cuda_add_library.
+            # With FindCUDAToolkit, recommended way to add CUDA support
+            # is to add CUDA as a language, which makes existing
+            # CMake functions, such as add_library, support CUDA.
+            enable_language(CUDA)
+        endif()
     endif()
 endif()
 
@@ -215,6 +226,7 @@ if(ASAN_ENABLED)
         message(FATAL_ERROR "Unsupported compiler for ASan mode")
     endif()
 endif()
+
 
 if(CUDA_FOUND)
     if(CUDA_ENABLED)
