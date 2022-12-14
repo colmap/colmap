@@ -32,6 +32,8 @@
 #ifndef COLMAP_SRC_SFM_INCREMENTAL_MAPPER_H_
 #define COLMAP_SRC_SFM_INCREMENTAL_MAPPER_H_
 
+#include <ceres/context.h>
+
 #include "base/database.h"
 #include "base/database_cache.h"
 #include "base/reconstruction.h"
@@ -306,6 +308,8 @@ class IncrementalMapper {
   // This image list will be non-empty, if the reconstruction is continued from
   // an existing reconstruction.
   std::unordered_set<image_t> existing_image_ids_;
+
+  std::unique_ptr<ceres::Context> ceres_context_;
 };
 
 }  // namespace colmap

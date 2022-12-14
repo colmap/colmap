@@ -76,7 +76,10 @@ bool BundleAdjustmentOptions::Check() const {
 // BundleAdjustmentConfig
 ////////////////////////////////////////////////////////////////////////////////
 
-BundleAdjustmentConfig::BundleAdjustmentConfig() {}
+BundleAdjustmentConfig::BundleAdjustmentConfig() : ceres_context_(nullptr) {}
+
+BundleAdjustmentConfig::BundleAdjustmentConfig(ceres::Context* ceres_context)
+    : ceres_context_(ceres_context) {}
 
 size_t BundleAdjustmentConfig::NumImages() const { return image_ids_.size(); }
 
@@ -245,6 +248,10 @@ void BundleAdjustmentConfig::RemoveConstantPoint(const point3D_t point3D_id) {
   constant_point3D_ids_.erase(point3D_id);
 }
 
+ceres::Context* BundleAdjustmentConfig::GetCeresContext() const {
+  return ceres_context_;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // BundleAdjuster
 ////////////////////////////////////////////////////////////////////////////////
@@ -259,7 +266,9 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   CHECK_NOTNULL(reconstruction);
   CHECK(!problem_) << "Cannot use the same BundleAdjuster multiple times";
 
-  problem_.reset(new ceres::Problem());
+  ceres::Problem::Options problem_options;
+  problem_options.context = config_.GetCeresContext();
+  problem_.reset(new ceres::Problem(problem_options));
 
   ceres::LossFunction* loss_function = options_.CreateLossFunction();
   SetUp(reconstruction, loss_function);

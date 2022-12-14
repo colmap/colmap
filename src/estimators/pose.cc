@@ -200,7 +200,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                         const std::vector<Eigen::Vector2d>& points2D,
                         const std::vector<Eigen::Vector3d>& points3D,
                         Eigen::Vector4d* qvec, Eigen::Vector3d* tvec,
-                        Camera* camera, Eigen::Matrix6d* rot_tvec_covariance) {
+                        Camera* camera, Eigen::Matrix6d* rot_tvec_covariance,
+                        ceres::Context* ceres_context) {
   CHECK_EQ(inlier_mask.size(), points2D.size());
   CHECK_EQ(points2D.size(), points3D.size());
   options.Check();
@@ -214,7 +215,9 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 
   std::vector<Eigen::Vector3d> points3D_copy = points3D;
 
-  ceres::Problem problem;
+  ceres::Problem::Options problem_options;
+  problem_options.context = ceres_context;
+  ceres::Problem problem(problem_options);
 
   for (size_t i = 0; i < points2D.size(); ++i) {
     // Skip outlier observations
@@ -287,7 +290,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   solver_options.linear_solver_type = ceres::DENSE_QR;
 
   // The overhead of creating threads is too large.
-  solver_options.num_threads = 1;
+  solver_options.num_threads = GetEffectiveNumThreads(options.num_threads);
 #if CERES_VERSION_MAJOR < 2
   solver_options.num_linear_solver_threads = 1;
 #endif  // CERES_VERSION_MAJOR
