@@ -54,6 +54,8 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
   // Ensure trailing slash, so that we can build the correct image name.
   options_.image_path =
       EnsureTrailingSlash(StringReplace(options_.image_path, "\\", "/"));
+  options_.mask_path =
+      EnsureTrailingSlash(StringReplace(options_.mask_path, "\\", "/"));
 
   // Get a list of all files in the image path, sorted by image name.
   if (options_.image_list.empty()) {
@@ -140,7 +142,7 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
   if (mask && !options_.mask_path.empty()) {
     const std::string mask_path =
         JoinPaths(options_.mask_path,
-                  GetRelativePath(options_.image_path, image_path) + ".png");
+                  image->Name() + ".png");
     if (ExistsFile(mask_path) && !mask->Read(mask_path, false)) {
       // NOTE: Maybe introduce a separate error type MASK_ERROR?
       return Status::BITMAP_ERROR;
