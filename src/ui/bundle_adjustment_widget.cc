@@ -91,7 +91,8 @@ void BundleAdjustmentWidget::Run() {
 
   WriteOptions();
 
-  Thread* thread = new BundleAdjustmentController(*options_, reconstruction_);
+  auto thread =
+      std::make_unique<BundleAdjustmentController>(*options_, reconstruction_);
   thread->AddCallback(Thread::FINISHED_CALLBACK,
                       [this]() { render_action_->trigger(); });
 
@@ -99,7 +100,8 @@ void BundleAdjustmentWidget::Run() {
   // to avoid large scale changes in viewer.
   reconstruction_->Normalize();
 
-  thread_control_widget_->StartThread("Bundle adjusting...", true, thread);
+  thread_control_widget_->StartThread("Bundle adjusting...", true,
+                                      std::move(thread));
 }
 
 void BundleAdjustmentWidget::Render() { main_window_->RenderNow(); }

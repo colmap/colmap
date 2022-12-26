@@ -113,9 +113,10 @@ void SIFTExtractionWidget::Run() {
   reader_options.database_path = *options_->database_path;
   reader_options.image_path = *options_->image_path;
 
-  Thread* extractor =
-      new SiftFeatureExtractor(reader_options, *options_->sift_extraction);
-  thread_control_widget_->StartThread("Extracting...", true, extractor);
+  auto extractor = std::make_unique<SiftFeatureExtractor>(
+      reader_options, *options_->sift_extraction);
+  thread_control_widget_->StartThread("Extracting...", true,
+                                      std::move(extractor));
 }
 
 ImportFeaturesWidget::ImportFeaturesWidget(QWidget* parent,
@@ -136,8 +137,10 @@ void ImportFeaturesWidget::Run() {
   reader_options.database_path = *options_->database_path;
   reader_options.image_path = *options_->image_path;
 
-  Thread* importer = new FeatureImporter(reader_options, import_path_);
-  thread_control_widget_->StartThread("Importing...", true, importer);
+  auto importer =
+      std::make_unique<FeatureImporter>(reader_options, import_path_);
+  thread_control_widget_->StartThread("Importing...", true,
+                                      std::move(importer));
 }
 
 FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
@@ -222,7 +225,7 @@ QGroupBox* FeatureExtractionWidget::CreateCameraModelBox() {
   SelectCameraModel(camera_model_cb_->currentIndex());
 
   connect(camera_model_cb_,
-          (void (QComboBox::*)(int)) & QComboBox::currentIndexChanged, this,
+          (void(QComboBox::*)(int)) & QComboBox::currentIndexChanged, this,
           &FeatureExtractionWidget::SelectCameraModel);
   connect(camera_params_exif_rb_, &QRadioButton::clicked, camera_params_text_,
           &QLineEdit::setDisabled);

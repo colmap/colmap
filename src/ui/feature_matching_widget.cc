@@ -158,10 +158,10 @@ ExhaustiveMatchingTab::ExhaustiveMatchingTab(QWidget* parent,
 void ExhaustiveMatchingTab::Run() {
   options_widget_->WriteOptions();
 
-  Thread* matcher = new ExhaustiveFeatureMatcher(*options_->exhaustive_matching,
-                                                 *options_->sift_matching,
-                                                 *options_->database_path);
-  thread_control_widget_->StartThread("Matching...", true, matcher);
+  auto matcher = std::make_unique<ExhaustiveFeatureMatcher>(
+      *options_->exhaustive_matching, *options_->sift_matching,
+      *options_->database_path);
+  thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 
 SequentialMatchingTab::SequentialMatchingTab(QWidget* parent,
@@ -207,10 +207,10 @@ void SequentialMatchingTab::Run() {
     return;
   }
 
-  Thread* matcher = new SequentialFeatureMatcher(*options_->sequential_matching,
-                                                 *options_->sift_matching,
-                                                 *options_->database_path);
-  thread_control_widget_->StartThread("Matching...", true, matcher);
+  auto matcher = std::make_unique<SequentialFeatureMatcher>(
+      *options_->sequential_matching, *options_->sift_matching,
+      *options_->database_path);
+  thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 
 VocabTreeMatchingTab::VocabTreeMatchingTab(QWidget* parent,
@@ -242,10 +242,10 @@ void VocabTreeMatchingTab::Run() {
     return;
   }
 
-  Thread* matcher = new VocabTreeFeatureMatcher(*options_->vocab_tree_matching,
-                                                *options_->sift_matching,
-                                                *options_->database_path);
-  thread_control_widget_->StartThread("Matching...", true, matcher);
+  auto matcher = std::make_unique<VocabTreeFeatureMatcher>(
+      *options_->vocab_tree_matching, *options_->sift_matching,
+      *options_->database_path);
+  thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 
 SpatialMatchingTab::SpatialMatchingTab(QWidget* parent, OptionManager* options)
@@ -264,10 +264,10 @@ SpatialMatchingTab::SpatialMatchingTab(QWidget* parent, OptionManager* options)
 void SpatialMatchingTab::Run() {
   options_widget_->WriteOptions();
 
-  Thread* matcher = new SpatialFeatureMatcher(*options_->spatial_matching,
-                                              *options_->sift_matching,
-                                              *options_->database_path);
-  thread_control_widget_->StartThread("Matching...", true, matcher);
+  auto matcher = std::make_unique<SpatialFeatureMatcher>(
+      *options_->spatial_matching, *options_->sift_matching,
+      *options_->database_path);
+  thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 
 TransitiveMatchingTab::TransitiveMatchingTab(QWidget* parent,
@@ -284,10 +284,10 @@ TransitiveMatchingTab::TransitiveMatchingTab(QWidget* parent,
 void TransitiveMatchingTab::Run() {
   options_widget_->WriteOptions();
 
-  Thread* matcher = new TransitiveFeatureMatcher(*options_->transitive_matching,
-                                                 *options_->sift_matching,
-                                                 *options_->database_path);
-  thread_control_widget_->StartThread("Matching...", true, matcher);
+  auto matcher = std::make_unique<TransitiveFeatureMatcher>(
+      *options_->transitive_matching, *options_->sift_matching,
+      *options_->database_path);
+  thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 
 CustomMatchingTab::CustomMatchingTab(QWidget* parent, OptionManager* options)
@@ -313,11 +313,11 @@ void CustomMatchingTab::Run() {
     return;
   }
 
-  Thread* matcher = nullptr;
+  std::unique_ptr<Thread> matcher;
   if (match_type_cb_->currentIndex() == 0) {
     ImagePairsMatchingOptions matcher_options;
     matcher_options.match_list_path = match_list_path_;
-    matcher = new ImagePairsFeatureMatcher(
+    matcher = std::make_unique<ImagePairsFeatureMatcher>(
         matcher_options, *options_->sift_matching, *options_->database_path);
   } else {
     FeaturePairsMatchingOptions matcher_options;
@@ -328,11 +328,11 @@ void CustomMatchingTab::Run() {
       matcher_options.verify_matches = false;
     }
 
-    matcher = new FeaturePairsFeatureMatcher(
+    matcher = std::make_unique<FeaturePairsFeatureMatcher>(
         matcher_options, *options_->sift_matching, *options_->database_path);
   }
 
-  thread_control_widget_->StartThread("Matching...", true, matcher);
+  thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 
 FeatureMatchingWidget::FeatureMatchingWidget(QWidget* parent,

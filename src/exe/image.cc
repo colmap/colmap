@@ -380,17 +380,17 @@ int RunImageUndistorter(int argc, char** argv) {
 
   std::unique_ptr<Thread> undistorter;
   if (output_type == "COLMAP") {
-    undistorter.reset(new COLMAPUndistorter(
+    undistorter = std::make_unique<COLMAPUndistorter>(
         undistort_camera_options, reconstruction, *options.image_path,
-        output_path, num_patch_match_src_images, copy_type, image_ids));
+        output_path, num_patch_match_src_images, copy_type, image_ids);
   } else if (output_type == "PMVS") {
-    undistorter.reset(new PMVSUndistorter(undistort_camera_options,
-                                          reconstruction, *options.image_path,
-                                          output_path));
+    undistorter = std::make_unique<PMVSUndistorter>(
+        undistort_camera_options, reconstruction, *options.image_path,
+        output_path);
   } else if (output_type == "CMP-MVS") {
-    undistorter.reset(new CMPMVSUndistorter(undistort_camera_options,
-                                            reconstruction, *options.image_path,
-                                            output_path));
+    undistorter = std::make_unique<CMPMVSUndistorter>(
+        undistort_camera_options, reconstruction, *options.image_path,
+        output_path);
   } else {
     std::cerr << "ERROR: Invalid `output_type` - supported values are "
                  "{'COLMAP', 'PMVS', 'CMP-MVS'}."

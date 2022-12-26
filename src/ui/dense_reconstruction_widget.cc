@@ -322,12 +322,13 @@ void DenseReconstructionWidget::Undistort() {
     return;
   }
 
-  COLMAPUndistorter* undistorter =
-      new COLMAPUndistorter(UndistortCameraOptions(), *reconstruction_,
-                            *options_->image_path, workspace_path);
+  auto undistorter = std::make_unique<COLMAPUndistorter>(
+      UndistortCameraOptions(), *reconstruction_, *options_->image_path,
+      workspace_path);
   undistorter->AddCallback(Thread::FINISHED_CALLBACK,
                            [this]() { refresh_workspace_action_->trigger(); });
-  thread_control_widget_->StartThread("Undistorting...", true, undistorter);
+  thread_control_widget_->StartThread("Undistorting...", true,
+                                      std::move(undistorter));
 }
 
 void DenseReconstructionWidget::Stereo() {
@@ -337,11 +338,11 @@ void DenseReconstructionWidget::Stereo() {
   }
 
 #ifdef CUDA_ENABLED
-  mvs::PatchMatchController* processor = new mvs::PatchMatchController(
+  auto processor = std::make_unique<mvs::PatchMatchController>(
       *options_->patch_match_stereo, workspace_path, "COLMAP", "");
   processor->AddCallback(Thread::FINISHED_CALLBACK,
                          [this]() { refresh_workspace_action_->trigger(); });
-  thread_control_widget_->StartThread("Stereo...", true, processor);
+  thread_control_widget_->StartThread("Stereo...", true, std::move(processor));
 #else
   QMessageBox::critical(this, "",
                         tr("Dense stereo reconstruction requires CUDA, which "
@@ -365,14 +366,14 @@ void DenseReconstructionWidget::Fusion() {
                           tr("All images must be processed prior to fusion"));
   }
 
-  mvs::StereoFusion* fuser = new mvs::StereoFusion(
+  auto fuser = std::make_unique<mvs::StereoFusion>(
       *options_->stereo_fusion, workspace_path, "COLMAP", "", input_type);
-  fuser->AddCallback(Thread::FINISHED_CALLBACK, [this, fuser]() {
+  fuser->AddCallback(Thread::FINISHED_CALLBACK, [this, fuser = fuser.get()]() {
     fused_points_ = fuser->GetFusedPoints();
     fused_points_visibility_ = fuser->GetFusedPointsVisibility();
     write_fused_points_action_->trigger();
   });
-  thread_control_widget_->StartThread("Fusion...", true, fuser);
+  thread_control_widget_->StartThread("Fusion...", true, std::move(fuser));
 }
 
 void DenseReconstructionWidget::PoissonMeshing() {

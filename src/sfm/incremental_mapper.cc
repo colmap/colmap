@@ -109,8 +109,8 @@ void IncrementalMapper::BeginReconstruction(Reconstruction* reconstruction) {
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
   reconstruction_->SetUp(&database_cache_->CorrespondenceGraph());
-  triangulator_.reset(new IncrementalTriangulator(
-      &database_cache_->CorrespondenceGraph(), reconstruction));
+  triangulator_ = std::make_unique<IncrementalTriangulator>(
+      &database_cache_->CorrespondenceGraph(), reconstruction);
 
   num_shared_reg_images_ = 0;
   num_reg_images_per_camera_.clear();
