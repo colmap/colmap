@@ -105,16 +105,6 @@ SiftGPUEX::SiftGPUEX()
 	RandomizeColor();
 }
 
-void* SiftGPU::operator new (size_t  size){
-  void * p = malloc(size);
-  if (p == 0)
-  {
-	  const std::bad_alloc ba;
-	  throw ba;
-  }
-  return p;
-}
-
 
 void SiftGPUEX::RandomizeColor()
 {
@@ -1439,15 +1429,6 @@ SiftGPU* CreateNewSiftGPU(int np)
 }
 
 /////////////////////////////////////////////////////
-void* ComboSiftGPU::operator new (size_t  size){
-  void * p = malloc(size);
-  if (p == 0)
-  {
-	  const std::bad_alloc ba;
-	  throw ba;
-  }
-  return p;
-}
 
 ComboSiftGPU* CreateComboSiftGPU()
 {

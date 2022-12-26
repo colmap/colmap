@@ -35,6 +35,8 @@
 #include <QtCore>
 #include <QtWidgets>
 
+#include <memory>
+
 #include "util/threading.h"
 
 namespace colmap {
@@ -44,7 +46,7 @@ class ThreadControlWidget : public QWidget {
   explicit ThreadControlWidget(QWidget* parent);
 
   void StartThread(const QString& progress_text, const bool stoppable,
-                   Thread* thread);
+                   std::unique_ptr<Thread> thread);
   void StartFunction(const QString& progress_text,
                      const std::function<void()>& func);
 

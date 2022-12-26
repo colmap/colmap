@@ -82,25 +82,27 @@ void UndistortionWidget::Undistort() {
   WriteOptions();
 
   if (IsValid()) {
-    Thread* undistorter = nullptr;
+    std::unique_ptr<Thread> undistorter;
 
     if (output_format_->currentIndex() == 0) {
-      undistorter =
-          new COLMAPUndistorter(undistortion_options_, *reconstruction_,
-                                *options_->image_path, output_path_);
+      undistorter = std::make_unique<COLMAPUndistorter>(
+          undistortion_options_, *reconstruction_, *options_->image_path,
+          output_path_);
     } else if (output_format_->currentIndex() == 1) {
-      undistorter = new PMVSUndistorter(undistortion_options_, *reconstruction_,
-                                        *options_->image_path, output_path_);
+      undistorter = std::make_unique<PMVSUndistorter>(
+          undistortion_options_, *reconstruction_, *options_->image_path,
+          output_path_);
     } else if (output_format_->currentIndex() == 2) {
-      undistorter =
-          new CMPMVSUndistorter(undistortion_options_, *reconstruction_,
-                                *options_->image_path, output_path_);
+      undistorter = std::make_unique<CMPMVSUndistorter>(
+          undistortion_options_, *reconstruction_, *options_->image_path,
+          output_path_);
     } else {
       QMessageBox::critical(this, "", tr("Invalid output format"));
       return;
     }
 
-    thread_control_widget_->StartThread("Undistorting...", true, undistorter);
+    thread_control_widget_->StartThread("Undistorting...", true,
+                                        std::move(undistorter));
   } else {
     QMessageBox::critical(this, "", tr("Invalid output path"));
   }

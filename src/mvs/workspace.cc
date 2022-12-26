@@ -38,8 +38,7 @@
 namespace colmap {
 namespace mvs {
 
-Workspace::Workspace(const Options& options)
-    : options_(options) {
+Workspace::Workspace(const Options& options) : options_(options) {
   StringToLower(&options_.input_type);
   model_.Read(options_.workspace_path, options_.workspace_format);
   if (options_.max_image_size > 0) {
@@ -71,21 +70,21 @@ void Workspace::Load(const std::vector<std::string>& image_names) {
     const size_t height = model_.images.at(image_idx).GetHeight();
 
     // Read and rescale bitmap
-    bitmaps_[image_idx].reset(new Bitmap());
+    bitmaps_[image_idx] = std::make_unique<Bitmap>();
     bitmaps_[image_idx]->Read(GetBitmapPath(image_idx), options_.image_as_rgb);
     if (options_.max_image_size > 0) {
       bitmaps_[image_idx]->Rescale((int)width, (int)height);
     }
 
     // Read and rescale depth map
-    depth_maps_[image_idx].reset(new DepthMap());
+    depth_maps_[image_idx] = std::make_unique<DepthMap>();
     depth_maps_[image_idx]->Read(GetDepthMapPath(image_idx));
     if (options_.max_image_size > 0) {
       depth_maps_[image_idx]->Downsize(width, height);
     }
 
     // Read and rescale normal map
-    normal_maps_[image_idx].reset(new NormalMap());
+    normal_maps_[image_idx] = std::make_unique<NormalMap>();
     normal_maps_[image_idx]->Read(GetNormalMapPath(image_idx));
     if (options_.max_image_size > 0) {
       normal_maps_[image_idx]->Downsize(width, height);
@@ -178,7 +177,7 @@ CachedWorkspace::CachedWorkspace(const Options& options)
 const Bitmap& CachedWorkspace::GetBitmap(const int image_idx) {
   auto& cached_image = cache_.GetMutable(image_idx);
   if (!cached_image.bitmap) {
-    cached_image.bitmap.reset(new Bitmap());
+    cached_image.bitmap = std::make_unique<Bitmap>();
     cached_image.bitmap->Read(GetBitmapPath(image_idx), options_.image_as_rgb);
     if (options_.max_image_size > 0) {
       cached_image.bitmap->Rescale(model_.images.at(image_idx).GetWidth(),
@@ -193,7 +192,7 @@ const Bitmap& CachedWorkspace::GetBitmap(const int image_idx) {
 const DepthMap& CachedWorkspace::GetDepthMap(const int image_idx) {
   auto& cached_image = cache_.GetMutable(image_idx);
   if (!cached_image.depth_map) {
-    cached_image.depth_map.reset(new DepthMap());
+    cached_image.depth_map = std::make_unique<DepthMap>();
     cached_image.depth_map->Read(GetDepthMapPath(image_idx));
     if (options_.max_image_size > 0) {
       cached_image.depth_map->Downsize(model_.images.at(image_idx).GetWidth(),
@@ -208,7 +207,7 @@ const DepthMap& CachedWorkspace::GetDepthMap(const int image_idx) {
 const NormalMap& CachedWorkspace::GetNormalMap(const int image_idx) {
   auto& cached_image = cache_.GetMutable(image_idx);
   if (!cached_image.normal_map) {
-    cached_image.normal_map.reset(new NormalMap());
+    cached_image.normal_map = std::make_unique<NormalMap>();
     cached_image.normal_map->Read(GetNormalMapPath(image_idx));
     if (options_.max_image_size > 0) {
       cached_image.normal_map->Downsize(
