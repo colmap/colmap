@@ -53,26 +53,26 @@ namespace config = boost::program_options;
 namespace colmap {
 
 OptionManager::OptionManager(bool add_project_options) {
-  project_path.reset(new std::string());
-  database_path.reset(new std::string());
-  image_path.reset(new std::string());
+  project_path = std::make_shared<std::string>();
+  database_path = std::make_shared<std::string>();
+  image_path = std::make_shared<std::string>();
 
-  image_reader.reset(new ImageReaderOptions());
-  sift_extraction.reset(new SiftExtractionOptions());
-  sift_matching.reset(new SiftMatchingOptions());
-  exhaustive_matching.reset(new ExhaustiveMatchingOptions());
-  sequential_matching.reset(new SequentialMatchingOptions());
-  vocab_tree_matching.reset(new VocabTreeMatchingOptions());
-  spatial_matching.reset(new SpatialMatchingOptions());
-  transitive_matching.reset(new TransitiveMatchingOptions());
-  image_pairs_matching.reset(new ImagePairsMatchingOptions());
-  bundle_adjustment.reset(new BundleAdjustmentOptions());
-  mapper.reset(new IncrementalMapperOptions());
-  patch_match_stereo.reset(new mvs::PatchMatchOptions());
-  stereo_fusion.reset(new mvs::StereoFusionOptions());
-  poisson_meshing.reset(new mvs::PoissonMeshingOptions());
-  delaunay_meshing.reset(new mvs::DelaunayMeshingOptions());
-  render.reset(new RenderOptions());
+  image_reader = std::make_shared<ImageReaderOptions>();
+  sift_extraction = std::make_shared<SiftExtractionOptions>();
+  sift_matching = std::make_shared<SiftMatchingOptions>();
+  exhaustive_matching = std::make_shared<ExhaustiveMatchingOptions>();
+  sequential_matching = std::make_shared<SequentialMatchingOptions>();
+  vocab_tree_matching = std::make_shared<VocabTreeMatchingOptions>();
+  spatial_matching = std::make_shared<SpatialMatchingOptions>();
+  transitive_matching = std::make_shared<TransitiveMatchingOptions>();
+  image_pairs_matching = std::make_shared<ImagePairsMatchingOptions>();
+  bundle_adjustment = std::make_shared<BundleAdjustmentOptions>();
+  mapper = std::make_shared<IncrementalMapperOptions>();
+  patch_match_stereo = std::make_shared<mvs::PatchMatchOptions>();
+  stereo_fusion = std::make_shared<mvs::StereoFusionOptions>();
+  poisson_meshing = std::make_shared<mvs::PoissonMeshingOptions>();
+  delaunay_meshing = std::make_shared<mvs::DelaunayMeshingOptions>();
+  render = std::make_shared<RenderOptions>();
 
   Reset();
 
@@ -747,7 +747,7 @@ void OptionManager::Reset() {
   const bool kResetPaths = true;
   ResetOptions(kResetPaths);
 
-  desc_.reset(new boost::program_options::options_description());
+  desc_ = std::make_shared<boost::program_options::options_description>();
 
   options_bool_.clear();
   options_int_.clear();

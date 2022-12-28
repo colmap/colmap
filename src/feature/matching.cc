@@ -231,27 +231,28 @@ void FeatureMatcherCache::Setup() {
     images_cache_.emplace(image.ImageId(), image);
   }
 
-  keypoints_cache_.reset(new LRUCache<image_t, FeatureKeypointsPtr>(
+  keypoints_cache_ = std::make_unique<LRUCache<image_t, FeatureKeypointsPtr>>(
       cache_size_, [this](const image_t image_id) {
         return std::make_shared<FeatureKeypoints>(
             database_->ReadKeypoints(image_id));
-      }));
+      });
 
-  descriptors_cache_.reset(new LRUCache<image_t, FeatureDescriptorsPtr>(
-      cache_size_, [this](const image_t image_id) {
-        return std::make_shared<FeatureDescriptors>(
-            database_->ReadDescriptors(image_id));
-      }));
+  descriptors_cache_ =
+      std::make_unique<LRUCache<image_t, FeatureDescriptorsPtr>>(
+          cache_size_, [this](const image_t image_id) {
+            return std::make_shared<FeatureDescriptors>(
+                database_->ReadDescriptors(image_id));
+          });
 
-  keypoints_exists_cache_.reset(new LRUCache<image_t, bool>(
+  keypoints_exists_cache_ = std::make_unique<LRUCache<image_t, bool>>(
       images.size(), [this](const image_t image_id) {
         return database_->ExistsKeypoints(image_id);
-      }));
+      });
 
-  descriptors_exists_cache_.reset(new LRUCache<image_t, bool>(
+  descriptors_exists_cache_ = std::make_unique<LRUCache<image_t, bool>>(
       images.size(), [this](const image_t image_id) {
         return database_->ExistsDescriptors(image_id);
-      }));
+      });
 }
 
 const Camera& FeatureMatcherCache::GetCamera(const camera_t camera_id) const {
@@ -395,7 +396,7 @@ SiftGPUFeatureMatcher::SiftGPUFeatureMatcher(const SiftMatchingOptions& options,
   prev_uploaded_image_ids_[1] = kInvalidImageId;
 
 #ifndef CUDA_ENABLED
-  opengl_context_.reset(new OpenGLContextManager());
+  opengl_context_ = std::make_unique<OpenGLContextManager>();
 #endif
 }
 
@@ -515,7 +516,7 @@ GuidedSiftGPUFeatureMatcher::GuidedSiftGPUFeatureMatcher(
   prev_uploaded_image_ids_[1] = kInvalidImageId;
 
 #ifndef CUDA_ENABLED
-  opengl_context_.reset(new OpenGLContextManager());
+  opengl_context_ = std::make_unique<OpenGLContextManager>();
 #endif
 }
 
@@ -678,13 +679,13 @@ SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchingOptions& options,
     matchers_.reserve(gpu_indices.size());
     for (const auto& gpu_index : gpu_indices) {
       gpu_options.gpu_index = std::to_string(gpu_index);
-      matchers_.emplace_back(new SiftGPUFeatureMatcher(
+      matchers_.emplace_back(std::make_unique<SiftGPUFeatureMatcher>(
           gpu_options, cache, &matcher_queue_, &verifier_queue_));
     }
   } else {
     matchers_.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
-      matchers_.emplace_back(new SiftCPUFeatureMatcher(
+      matchers_.emplace_back(std::make_unique<SiftCPUFeatureMatcher>(
           options_, cache, &matcher_queue_, &verifier_queue_));
     }
   }
@@ -692,7 +693,7 @@ SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchingOptions& options,
   verifiers_.reserve(num_threads);
   if (options_.guided_matching) {
     for (int i = 0; i < num_threads; ++i) {
-      verifiers_.emplace_back(new TwoViewGeometryVerifier(
+      verifiers_.emplace_back(std::make_unique<TwoViewGeometryVerifier>(
           options_, cache, &verifier_queue_, &guided_matcher_queue_));
     }
 
@@ -701,19 +702,21 @@ SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchingOptions& options,
       guided_matchers_.reserve(gpu_indices.size());
       for (const auto& gpu_index : gpu_indices) {
         gpu_options.gpu_index = std::to_string(gpu_index);
-        guided_matchers_.emplace_back(new GuidedSiftGPUFeatureMatcher(
-            gpu_options, cache, &guided_matcher_queue_, &output_queue_));
+        guided_matchers_.emplace_back(
+            std::make_unique<GuidedSiftGPUFeatureMatcher>(
+                gpu_options, cache, &guided_matcher_queue_, &output_queue_));
       }
     } else {
       guided_matchers_.reserve(num_threads);
       for (int i = 0; i < num_threads; ++i) {
-        guided_matchers_.emplace_back(new GuidedSiftCPUFeatureMatcher(
-            options_, cache, &guided_matcher_queue_, &output_queue_));
+        guided_matchers_.emplace_back(
+            std::make_unique<GuidedSiftCPUFeatureMatcher>(
+                options_, cache, &guided_matcher_queue_, &output_queue_));
       }
     }
   } else {
     for (int i = 0; i < num_threads; ++i) {
-      verifiers_.emplace_back(new TwoViewGeometryVerifier(
+      verifiers_.emplace_back(std::make_unique<TwoViewGeometryVerifier>(
           options_, cache, &verifier_queue_, &output_queue_));
     }
   }

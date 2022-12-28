@@ -93,7 +93,7 @@ SiftFeatureExtractor::SiftFeatureExtractor(
 
   std::shared_ptr<Bitmap> camera_mask;
   if (!reader_options_.camera_mask_path.empty()) {
-    camera_mask = std::shared_ptr<Bitmap>(new Bitmap());
+    camera_mask = std::make_shared<Bitmap>();
     if (!camera_mask->Read(reader_options_.camera_mask_path,
                            /*as_rgb*/ false)) {
       std::cerr << "  ERROR: Cannot read camera mask file: "
@@ -109,13 +109,14 @@ SiftFeatureExtractor::SiftFeatureExtractor(
   // Make sure that we only have limited number of objects in the queue to avoid
   // excess in memory usage since images and features take lots of memory.
   const int kQueueSize = 1;
-  resizer_queue_.reset(new JobQueue<internal::ImageData>(kQueueSize));
-  extractor_queue_.reset(new JobQueue<internal::ImageData>(kQueueSize));
-  writer_queue_.reset(new JobQueue<internal::ImageData>(kQueueSize));
+  resizer_queue_ = std::make_unique<JobQueue<internal::ImageData>>(kQueueSize);
+  extractor_queue_ =
+      std::make_unique<JobQueue<internal::ImageData>>(kQueueSize);
+  writer_queue_ = std::make_unique<JobQueue<internal::ImageData>>(kQueueSize);
 
   if (sift_options_.max_image_size > 0) {
     for (int i = 0; i < num_threads; ++i) {
-      resizers_.emplace_back(new internal::ImageResizerThread(
+      resizers_.emplace_back(std::make_unique<internal::ImageResizerThread>(
           sift_options_.max_image_size, resizer_queue_.get(),
           extractor_queue_.get()));
     }
@@ -138,9 +139,10 @@ SiftFeatureExtractor::SiftFeatureExtractor(
     auto sift_gpu_options = sift_options_;
     for (const auto& gpu_index : gpu_indices) {
       sift_gpu_options.gpu_index = std::to_string(gpu_index);
-      extractors_.emplace_back(new internal::SiftFeatureExtractorThread(
-          sift_gpu_options, camera_mask, extractor_queue_.get(),
-          writer_queue_.get()));
+      extractors_.emplace_back(
+          std::make_unique<internal::SiftFeatureExtractorThread>(
+              sift_gpu_options, camera_mask, extractor_queue_.get(),
+              writer_queue_.get()));
     }
   } else {
     if (sift_options_.num_threads == -1 &&
@@ -161,14 +163,15 @@ SiftFeatureExtractor::SiftFeatureExtractor(
     auto custom_sift_options = sift_options_;
     custom_sift_options.use_gpu = false;
     for (int i = 0; i < num_threads; ++i) {
-      extractors_.emplace_back(new internal::SiftFeatureExtractorThread(
-          custom_sift_options, camera_mask, extractor_queue_.get(),
-          writer_queue_.get()));
+      extractors_.emplace_back(
+          std::make_unique<internal::SiftFeatureExtractorThread>(
+              custom_sift_options, camera_mask, extractor_queue_.get(),
+              writer_queue_.get()));
     }
   }
 
-  writer_.reset(new internal::FeatureWriterThread(
-      image_reader_.NumImages(), &database_, writer_queue_.get()));
+  writer_ = std::make_unique<internal::FeatureWriterThread>(
+      image_reader_.NumImages(), &database_, writer_queue_.get());
 }
 
 void SiftFeatureExtractor::Run() {
@@ -352,7 +355,7 @@ SiftFeatureExtractorThread::SiftFeatureExtractorThread(
 
 #ifndef CUDA_ENABLED
   if (sift_options_.use_gpu) {
-    opengl_context_.reset(new OpenGLContextManager());
+    opengl_context_ = std::make_unique<OpenGLContextManager>();
   }
 #endif
 }
@@ -365,7 +368,7 @@ void SiftFeatureExtractorThread::Run() {
     opengl_context_->MakeCurrent();
 #endif
 
-    sift_gpu.reset(new SiftGPU);
+    sift_gpu = std::make_unique<SiftGPU>();
     if (!CreateSiftGPUExtractor(sift_options_, sift_gpu.get())) {
       std::cerr << "ERROR: SiftGPU not fully supported." << std::endl;
       SignalInvalidSetup();

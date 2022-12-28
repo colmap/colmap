@@ -610,17 +610,6 @@ int SiftMatchGPU::_VerifyContextGL()
 	return GlobalUtil::_GoodOpenGL;
 }
 
-void* SiftMatchGPU::operator new (size_t  size){
-  void * p = malloc(size);
-  if (p == 0)
-  {
-	  const std::bad_alloc ba;
-	  throw ba;
-  }
-  return p;
-}
-
-
 SiftMatchGPU::SiftMatchGPU(int max_sift)
 {
 	__max_sift = max(max_sift, 1024);

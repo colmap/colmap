@@ -87,24 +87,8 @@ Dependencies from the default Ubuntu repositories::
         libglew-dev \
         qtbase5-dev \
         libqt5opengl5-dev \
-        libcgal-dev
-
-Under Ubuntu 16.04/18.04 the CMake configuration scripts of CGAL are broken and
-you must also install the CGAL Qt5 package::
-
-    sudo apt-get install libcgal-qt5-dev
-
-Install `Ceres Solver <http://ceres-solver.org/>`_::
-
-    sudo apt-get install libatlas-base-dev libsuitesparse-dev
-    git clone https://ceres-solver.googlesource.com/ceres-solver
-    cd ceres-solver
-    git checkout 2.1.0
-    mkdir build
-    cd build
-    cmake .. -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF
-    make -j
-    sudo make install
+        libcgal-dev \
+        libceres-dev
 
 Configure and compile COLMAP::
 
@@ -122,11 +106,30 @@ Run COLMAP::
     colmap -h
     colmap gui
 
+To compile with **CUDA support**, also install Ubuntu's default CUDA package::
+
+    sudo apt-get install -y \
+        nvidia-cuda-toolkit \
+        nvidia-cuda-toolkit-gcc
+
+Or, manually install latest CUDA from NVIDIA's homepage.
+
+Under **Ubuntu 16.04/18.04**, the CMake configuration scripts of CGAL are broken and
+you must also install the CGAL Qt5 package::
+
+    sudo apt-get install libcgal-qt5-dev
+
+Under **Ubuntu 22.04**, there is a problem when compiling with Ubuntu's default CUDA
+package and GCC, and you must compile against GCC 10::
+
+    sudo apt-get install gcc-10 g++-10
+    export CC=/usr/bin/gcc-10
+    export CXX=/usr/bin/g++-10
+    export CUDAHOSTCXX=/usr/bin/g++-10
+    # ... and then run CMake against COLMAP's sources.
 
 Mac
 ---
-
-*Recommended dependencies:* CUDA (at least version 7.X)
 
 Dependencies from `Homebrew <http://brew.sh/>`_::
 
@@ -186,6 +189,9 @@ To compile CUDA for multiple compute architectures, please use::
     .\vcpkg install colmap[cuda-redist]:x64-windows
 
 Please refer to the next section for more details.
+
+**Visual Studio 2022**  has some known compiler bugs that crash when
+compiling COLMAP's source code.
 
 
 VCPKG

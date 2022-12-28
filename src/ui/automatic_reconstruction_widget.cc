@@ -177,14 +177,12 @@ void AutomaticReconstructionWidget::Run() {
   main_window_->RenderClear();
   main_window_->RenderNow();
 
-  AutomaticReconstructionController* controller =
-      new AutomaticReconstructionController(
-          options_, &main_window_->reconstruction_manager_);
-
+  auto controller = std::make_unique<AutomaticReconstructionController>(
+      options_, &main_window_->reconstruction_manager_);
   controller->AddCallback(Thread::FINISHED_CALLBACK,
                           [this]() { render_result_->trigger(); });
-
-  thread_control_widget_->StartThread("Reconstructing...", true, controller);
+  thread_control_widget_->StartThread("Reconstructing...", true,
+                                      std::move(controller));
 }
 
 void AutomaticReconstructionWidget::RenderResult() {
