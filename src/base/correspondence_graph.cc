@@ -160,32 +160,30 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
   }
 }
 
-std::vector<CorrespondenceGraph::Correspondence>
-CorrespondenceGraph::FindTransitiveCorrespondences(
+void CorrespondenceGraph::FindTransitiveCorrespondences(
     const image_t image_id, const point2D_t point2D_idx,
-    const size_t transitivity) const {
-  if (transitivity == 1) {
-    return FindCorrespondences(image_id, point2D_idx);
-  }
+    const size_t transitivity, std::vector<Correspondence>* found_corrs) const {
+  CHECK_NE(transitivity, 1) << "Use more efficient FindCorrespondences()";
 
-  std::vector<Correspondence> found_corrs;
+  found_corrs->clear();
+
   if (!HasCorrespondences(image_id, point2D_idx)) {
-    return found_corrs;
+    return;
   }
 
-  found_corrs.emplace_back(image_id, point2D_idx);
+  found_corrs->emplace_back(image_id, point2D_idx);
 
   std::unordered_map<image_t, std::unordered_set<point2D_t>> image_corrs;
   image_corrs[image_id].insert(point2D_idx);
 
   size_t corr_queue_begin = 0;
-  size_t corr_queue_end = found_corrs.size();
+  size_t corr_queue_end = 1;
 
   for (size_t t = 0; t < transitivity; ++t) {
     // Collect correspondences at transitive level t to all
     // correspondences that were collected at transitive level t - 1.
     for (size_t i = corr_queue_begin; i < corr_queue_end; ++i) {
-      const Correspondence ref_corr = found_corrs[i];
+      const Correspondence ref_corr = (*found_corrs)[i];
 
       const Image& image = images_.at(ref_corr.image_id);
       const std::vector<Correspondence>& ref_corrs =
@@ -194,16 +192,15 @@ CorrespondenceGraph::FindTransitiveCorrespondences(
       for (const Correspondence& corr : ref_corrs) {
         // Check if correspondence already collected, otherwise collect.
         auto& corr_image_corrs = image_corrs[corr.image_id];
-        if (corr_image_corrs.count(corr.point2D_idx) == 0) {
-          corr_image_corrs.insert(corr.point2D_idx);
-          found_corrs.emplace_back(corr.image_id, corr.point2D_idx);
+        if (corr_image_corrs.insert(corr.point2D_idx).second) {
+          found_corrs->emplace_back(corr.image_id, corr.point2D_idx);
         }
       }
     }
 
     // Move on to the next block of correspondences at next transitive level.
     corr_queue_begin = corr_queue_end;
-    corr_queue_end = found_corrs.size();
+    corr_queue_end = found_corrs->size();
 
     // No new correspondences collected in last transitivity level.
     if (corr_queue_begin == corr_queue_end) {
@@ -213,12 +210,10 @@ CorrespondenceGraph::FindTransitiveCorrespondences(
 
   // Remove first element, which is the given observation by swapping it
   // with the last collected correspondence.
-  if (found_corrs.size() > 1) {
-    found_corrs.front() = found_corrs.back();
+  if (found_corrs->size() > 1) {
+    found_corrs->front() = found_corrs->back();
   }
-  found_corrs.pop_back();
-
-  return found_corrs;
+  found_corrs->pop_back();
 }
 
 FeatureMatches CorrespondenceGraph::FindCorrespondencesBetweenImages(

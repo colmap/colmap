@@ -159,7 +159,7 @@ void PatchMatch::Run() {
 
   Check();
 
-  patch_match_cuda_.reset(new PatchMatchCuda(options_, problem_));
+  patch_match_cuda_ = std::make_unique<PatchMatchCuda>(options_, problem_);
   patch_match_cuda_->Run();
 }
 
@@ -199,7 +199,7 @@ void PatchMatchController::Run() {
   ReadProblems();
   ReadGpuIndices();
 
-  thread_pool_.reset(new ThreadPool(gpu_indices_.size()));
+  thread_pool_ = std::make_unique<ThreadPool>(gpu_indices_.size());
 
   // If geometric consistency is enabled, then photometric output must be
   // computed first for all images without filtering.
@@ -246,7 +246,7 @@ void PatchMatchController::ReadWorkspace() {
   workspace_options.workspace_format = workspace_format_;
   workspace_options.input_type = options_.geom_consistency ? "photometric" : "";
 
-  workspace_.reset(new CachedWorkspace(workspace_options));
+  workspace_ = std::make_unique<CachedWorkspace>(workspace_options);
 
   if (workspace_format_lower_case == "pmvs") {
     std::cout << StringPrintf("Importing PMVS workspace (option %s)...",

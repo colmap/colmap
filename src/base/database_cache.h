@@ -77,8 +77,8 @@ class DatabaseCache {
   inline const class CorrespondenceGraph& CorrespondenceGraph() const;
 
   // Manually add data to cache.
-  void AddCamera(const class Camera& camera);
-  void AddImage(const class Image& image);
+  void AddCamera(class Camera camera);
+  void AddImage(class Image image);
 
   // Load cameras, images, features, and matches from database.
   //

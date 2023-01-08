@@ -215,14 +215,6 @@ public:
 	SIFTGPU_EXPORT int GetFeatureCountThreshold();
 	SIFTGPU_EXPORT int GetMaxOrientation();
 	SIFTGPU_EXPORT int GetMaxDimension();
-	///
-public:
-	//overload the new operator because delete operator is virtual
-	//and it is operating on the heap inside the dll (due to the
-	//compiler setting of /MT and /MTd). Without the overloaded operator
-	//deleting a SiftGPU object will cause a heap corruption in the
-	//static link case (but not for the runtime dll loading).
-	SIFTGPU_EXPORT void* operator new (size_t size);
 };
 
 
@@ -356,11 +348,7 @@ public:
 					float ratiomax = 0.8,   //maximum distance ratio
 					float hdistmax = 32,    //threshold for |H * x1 - x2|_2
 					float fdistmax = 16,    //threshold for sampson error of x2'FX1
-					int mutual_best_match = 1); //mutual best or one way
-
-public:
-	//overload the new operator, the same reason as SiftGPU above
-	SIFTGPU_EXPORT void* operator new (size_t size);
+					int mutual_best_match = 1); //mutual best or one wayx
 };
 
 typedef SiftGPU::SiftKeypoint SiftKeypoint;
@@ -373,9 +361,6 @@ SIFTGPU_EXPORT_EXTERN SiftMatchGPU* CreateNewSiftMatchGPU(int max_sift = 4096);
 ////////////////////////////////////////////////////////////////////////////
 class ComboSiftGPU: public SiftGPU, public SiftMatchGPU
 {
-public:
-	///////////////////////////////////////////////
-	SIFTGPU_EXPORT void* operator new (size_t size);
 };
 SIFTGPU_EXPORT_EXTERN ComboSiftGPU* CreateComboSiftGPU();
 

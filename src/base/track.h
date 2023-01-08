@@ -59,7 +59,7 @@ class Track {
   // Access all elements.
   inline const std::vector<TrackElement>& Elements() const;
   inline std::vector<TrackElement>& Elements();
-  inline void SetElements(const std::vector<TrackElement>& elements);
+  inline void SetElements(std::vector<TrackElement> elements);
 
   // Access specific elements.
   inline const TrackElement& Element(const size_t idx) const;
@@ -96,8 +96,8 @@ const std::vector<TrackElement>& Track::Elements() const { return elements_; }
 
 std::vector<TrackElement>& Track::Elements() { return elements_; }
 
-void Track::SetElements(const std::vector<TrackElement>& elements) {
-  elements_ = elements;
+void Track::SetElements(std::vector<TrackElement> elements) {
+  elements_ = std::move(elements);
 }
 
 // Access specific elements.

@@ -29,13 +29,12 @@
 #
 # Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.1)
 
-project(COLMAP)
+project(COLMAP LANGUAGES C CXX)
 
 set(COLMAP_VERSION "3.8")
 set(COLMAP_VERSION_NUMBER "3800")
-
 
 ################################################################################
 # Include CMake dependencies
@@ -66,8 +65,8 @@ option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(BOOST_STATIC "Whether to enable static boost library linker flags" ON)
-set(CUDA_ARCHS "Auto" CACHE STRING "List of CUDA architectures for which to \
-generate code, e.g., Auto, All, Maxwell, Pascal, ...")
+set(CUDA_ARCHS "5.0" CACHE STRING "List of CUDA architectures for which to \
+generate code, e.g., 5.0, 6.0, 7.5, ...")
 
 if(TESTS_ENABLED)
     enable_testing()
@@ -111,12 +110,18 @@ find_package(Git)
 
 if(CGAL_ENABLED)
     set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE TRUE)
+    # We do not use CGAL data. This prevents an unnecessary warning by CMake.
+    set(CGAL_DATA_DIR "unused")
     find_package(CGAL QUIET)
 endif()
 
 set(CUDA_MIN_VERSION "7.0")
 if(CUDA_ENABLED)
-    find_package(CUDA ${CUDA_MIN_VERSION} QUIET)
+    if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
+	    find_package(CUDA ${CUDA_MIN_VERSION} QUIET)
+    else()
+	    find_package(CUDAToolkit ${CUDA_MIN_VERSION} QUIET)
+    endif()
 endif()
 
 if(GUI_ENABLED)
@@ -212,20 +217,32 @@ if(ASAN_ENABLED)
     endif()
 endif()
 
+if(CUDAToolkit_FOUND)
+    string(REPLACE "." "" CMAKE_CUDA_ARCHITECTURES "${CUDA_ARCHS}")
+    enable_language(CUDA)
+    set(CUDA_FOUND TRUE)
+    set(CUDA_VERSION_STRING "${CUDAToolkit_VERSION}")
+endif()
+
 if(CUDA_FOUND)
     if(CUDA_ENABLED)
         add_definitions("-DCUDA_ENABLED")
 
-        include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/SelectCudaComputeArch.cmake)
-
-        CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS ${CUDA_ARCHS})
-
-        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${CUDA_ARCH_FLAGS}")
-
         # Fix for some combinations of CUDA and GCC (e.g. under Ubuntu 16.04).
-        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -D_FORCE_INLINES")
+        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_FORCE_INLINES")
         # Do not show warnings if the architectures are deprecated.
-        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Wno-deprecated-gpu-targets")
+        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-gpu-targets")
+        # Do not show warnings if cuda library functions are deprecated.
+        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-declarations")
+
+        if(CUDAToolkit_FOUND)
+            set(CUDA_ARCH_FLAGS_readable "${CMAKE_CUDA_ARCHITECTURES}")
+        else()
+            set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${CMAKE_CUDA_FLAGS}")
+            include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/SelectCudaComputeArch.cmake)
+            CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS ${CUDA_ARCHS})
+            set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${CUDA_ARCH_FLAGS}")
+        endif()
 
         message(STATUS "Enabling CUDA support (version: ${CUDA_VERSION_STRING},"
                        " archs: ${CUDA_ARCH_FLAGS_readable})")
@@ -290,8 +307,13 @@ if(Qt5_FOUND)
     # Qt5 was built with -reduce-relocations.
     if(Qt5_POSITION_INDEPENDENT_CODE)
         set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-        if(CUDA_ENABLED AND NOT IS_MSVC)
-            set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --compiler-options -fPIC")
+        # Workaround for Qt5 CMake config bug under Ubuntu 20.04: https://gitlab.kitware.com/cmake/cmake/-/issues/16915
+        if(${Qt5_VERSION} VERSION_EQUAL "5.12.8" AND TARGET Qt5::Core)
+            get_property(core_options TARGET Qt5::Core PROPERTY INTERFACE_COMPILE_OPTIONS)
+            string(REPLACE "-fPIC" "" new_qt5_core_options ${core_options})
+            set_property(TARGET Qt5::Core PROPERTY INTERFACE_COMPILE_OPTIONS ${new_qt5_core_options})
+            set_property(TARGET Qt5::Core PROPERTY INTERFACE_POSITION_INDEPENDENT_CODE "ON")
+            set(CMAKE_CXX_COMPILE_OPTIONS_PIE "-fPIC")
         endif()
     endif()
 

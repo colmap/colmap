@@ -51,11 +51,12 @@ ThreadControlWidget::ThreadControlWidget(QWidget* parent)
 }
 
 void ThreadControlWidget::StartThread(const QString& progress_text,
-                                      const bool stoppable, Thread* thread) {
+                                      const bool stoppable,
+                                      std::unique_ptr<Thread> thread) {
   CHECK(!thread_);
   CHECK_NOTNULL(thread);
 
-  thread_.reset(thread);
+  thread_ = std::move(thread);
 
   if (progress_bar_ == nullptr) {
     progress_bar_ = new QProgressDialog(this);
@@ -105,7 +106,7 @@ void ThreadControlWidget::StartFunction(const QString& progress_text,
     const std::function<void()> func_;
   };
 
-  StartThread(progress_text, false, new FunctionThread(func));
+  StartThread(progress_text, false, std::make_unique<FunctionThread>(func));
 }
 
 }  // namespace colmap
