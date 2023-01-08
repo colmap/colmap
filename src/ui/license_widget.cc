@@ -1,4 +1,4 @@
-// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -62,7 +62,7 @@ LicenseWidget::LicenseWidget(QWidget* parent) : QTextEdit(parent) {
 
 QString LicenseWidget::GetCOLMAPLicense() const {
   const QString license =
-      "Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.<br>"
+      "Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.<br>"
       "All rights reserved.<br>"
       "<br>"
       "Redistribution and use in source and binary forms, with or without<br>"
