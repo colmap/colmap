@@ -1123,7 +1123,7 @@ bool CreateSiftGPUMatcher(const SiftMatchingOptions& match_options,
   sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_GLSL);
 #endif  // CUDA_ENABLED
 
-  if (sift_match_gpu->VerifyContextGL() == 0) {
+  if (sift_match_gpu->VerifyContextGL() != SiftGPU::SIFTGPU_FULL_SUPPORTED) {
     return false;
   }
 
