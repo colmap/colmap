@@ -793,14 +793,13 @@ bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
   sift_gpu_args.push_back("-v");
   sift_gpu_args.push_back("0");
 
-  // Fixed maximum image dimension.
-  // Note the max dimension of siftGPU is the maximum dimension of the
-  // first scale in the pyramid(which is the 'first_octave')
-  const double compensation_ratio = options.first_octave < 0 ?
-                              std::pow(2, -options.first_octave) : 1;
+  // Set maximum image dimension.
+  // Note the max dimension of SiftGPU is the maximum dimension of the
+  // first octave in the pyramid (which is the 'first_octave').
+  const double compensation_ratio = std::pow(2, -options.first_octave);
   sift_gpu_args.push_back("-maxd");
-  sift_gpu_args.push_back(
-      std::to_string(options.max_image_size * compensation_ratio));
+  sift_gpu_args.push_back(std::to_string(static_cast<int>(
+      std::ceil(options.max_image_size * compensation_ratio))));
 
   // Keep the highest level features.
   sift_gpu_args.push_back("-tc2");
@@ -860,10 +859,12 @@ bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
   CHECK_NOTNULL(keypoints);
   CHECK_NOTNULL(descriptors);
 
-  const double compensation_ratio = options.first_octave < 0 ?
-                              std::pow(2, -options.first_octave) : 1;
-  CHECK_EQ(options.max_image_size * compensation_ratio,
-           sift_gpu->GetMaxDimension());
+  // Note the max dimension of SiftGPU is the maximum dimension of the
+  // first octave in the pyramid (which is the 'first_octave').
+  const double compensation_ratio = std::pow(2, -options.first_octave);
+  CHECK_EQ(
+      static_cast<int>(std::ceil(options.max_image_size * compensation_ratio)),
+      sift_gpu->GetMaxDimension());
 
   CHECK(!options.estimate_affine_shape);
   CHECK(!options.domain_size_pooling);
@@ -1150,8 +1151,8 @@ bool CreateSiftGPUMatcher(const SiftMatchingOptions& match_options,
 
   sift_match_gpu->gpu_index = gpu_indices[0];
   if (sift_matching_mutexes.count(gpu_indices[0]) == 0) {
-    sift_matching_mutexes.emplace(
-        gpu_indices[0], std::unique_ptr<std::mutex>(new std::mutex()));
+    sift_matching_mutexes.emplace(gpu_indices[0],
+                                  std::make_unique<std::mutex>());
   }
 
   return true;
