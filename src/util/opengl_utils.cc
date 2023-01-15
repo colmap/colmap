@@ -67,23 +67,14 @@ OpenGLContextManager::OpenGLContextManager(int opengl_major_version,
       Qt::BlockingQueuedConnection);
 }
 
-void OpenGLContextManager::MakeCurrent() {
+bool OpenGLContextManager::MakeCurrent() {
   current_thread_ = QThread::currentThread();
   make_current_action_->trigger();
+  if (!surface_.isValid()) {
+    return false;
+  }
   context_.makeCurrent(&surface_);
-  CHECK(context_.isValid()) << "Could not make current valid OpenGL context";
-}
-
-bool OpenGLContextManager::HasOpenGL() {
-#ifdef OPENGL_ENABLED
-  QOffscreenSurface surface;
-  QOpenGLContext context;
-  surface.create();
-  context.create();
-  return surface.isValid() && context.isValid();
-#else   // OPENGL_ENABLED
-  return false;
-#endif  // OPENGL_ENABLED
+  return context_.isValid();
 }
 
 void RunThreadWithOpenGLContext(Thread* thread) {

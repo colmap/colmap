@@ -365,7 +365,7 @@ void SiftFeatureExtractorThread::Run() {
   if (sift_options_.use_gpu) {
 #ifndef CUDA_ENABLED
     CHECK(opengl_context_);
-    opengl_context_->MakeCurrent();
+    CHECK(opengl_context_->MakeCurrent());
 #endif
 
     sift_gpu = std::make_unique<SiftGPU>();
