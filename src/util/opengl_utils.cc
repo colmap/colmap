@@ -70,9 +70,6 @@ OpenGLContextManager::OpenGLContextManager(int opengl_major_version,
 bool OpenGLContextManager::MakeCurrent() {
   current_thread_ = QThread::currentThread();
   make_current_action_->trigger();
-  if (!surface_.isValid()) {
-    return false;
-  }
   context_.makeCurrent(&surface_);
   return context_.isValid();
 }

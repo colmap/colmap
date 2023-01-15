@@ -4,12 +4,6 @@ parameters:
   cudaEnabled: false
   asanEnabled: false
 
-variables:
-  ${{ if eq(parameters.asanEnabled, false) }}:
-    testExclusions: (mvs/gpu_mat_test)
-  ${{ if eq(parameters.asanEnabled, true) }}:
-    testExclusions: (feature/sift_test)|(util/opengl_utils_test)|(mvs/gpu_mat_test)
-
 jobs:
 - job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}_asan_${{ parameters.asanEnabled }}
   displayName: '${{ parameters.displayName }}'
@@ -86,7 +80,7 @@ jobs:
       Xvfb :99 &
       sleep 3
       cd build
-      ctest -E "$(testExclusions)"
+      ctest -E "(mvs/gpu_mat_test)"
       tests_pass=$?
       if [ $tests_pass -ne 0 ]; then
           echo "Tests failed, rerunning with verbose output"
