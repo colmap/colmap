@@ -37,10 +37,6 @@ jobs:
     displayName: 'Configure and build'
 
   - script: |
-      export DISPLAY=":99.0"
-      export QT_QPA_PLATFORM="offscreen"
-      Xvfb :99 &
-      sleep 3
       cd build
       ctest
       tests_pass=$?
