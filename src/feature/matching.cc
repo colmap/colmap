@@ -403,7 +403,7 @@ SiftGPUFeatureMatcher::SiftGPUFeatureMatcher(const SiftMatchingOptions& options,
 void SiftGPUFeatureMatcher::Run() {
 #ifndef CUDA_ENABLED
   CHECK(opengl_context_);
-  opengl_context_->MakeCurrent();
+  CHECK(opengl_context_->MakeCurrent());
 #endif
 
   SiftMatchGPU sift_match_gpu;
@@ -523,7 +523,7 @@ GuidedSiftGPUFeatureMatcher::GuidedSiftGPUFeatureMatcher(
 void GuidedSiftGPUFeatureMatcher::Run() {
 #ifndef CUDA_ENABLED
   CHECK(opengl_context_);
-  opengl_context_->MakeCurrent();
+  CHECK(opengl_context_->MakeCurrent());
 #endif
 
   SiftMatchGPU sift_match_gpu;
