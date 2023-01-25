@@ -71,6 +71,10 @@ if(CUDA_ENABLED)
     # between multiple threads on the same device.
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --default-stream per-thread")
 
+    # Suppress warnings:
+    # ptxas warning : Stack size for entry function X cannot be statically determined.
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-suppress-stack-size-warning")
+
     # Fix for Ubuntu 16.04.
     add_definitions("-D_MWAITXINTRIN_H_INCLUDED")
 
