@@ -65,8 +65,6 @@ option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(BOOST_STATIC "Whether to enable static boost library linker flags" ON)
-set(CUDA_ARCHS "5.0" CACHE STRING "List of CUDA architectures for which to \
-generate code, e.g., 5.0, 6.0, 7.5, ...")
 
 if(TESTS_ENABLED)
     enable_testing()
@@ -77,6 +75,10 @@ if(BOOST_STATIC)
 else()
     add_definitions("-DBOOST_TEST_DYN_LINK")
 endif()
+
+# Build position-independent code, so that shared libraries can link against
+# COLMAP's static libraries.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 ################################################################################
 # Find packages
@@ -117,10 +119,36 @@ endif()
 
 set(CUDA_MIN_VERSION "7.0")
 if(CUDA_ENABLED)
-    if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
-	    find_package(CUDA ${CUDA_MIN_VERSION} QUIET)
+    if(CMAKE_VERSION VERSION_LESS 3.17)
+        find_package(CUDA QUIET)
+        if(CUDA_FOUND)
+            message(STATUS "Found CUDA version ${CUDA_VERSION} installed in "
+                    "${CUDA_TOOLKIT_ROOT_DIR} via legacy CMake (<3.17) module. "
+                    "Using the legacy CMake module means that any installation of "
+                    "COLMAP will require that the CUDA libraries are "
+                    "available under LD_LIBRARY_PATH.")
+            enable_language(CUDA)
+
+            macro(declare_imported_cuda_target module)
+                add_library(CUDA::${module} INTERFACE IMPORTED)
+                target_include_directories(
+                    CUDA::${module} INTERFACE ${CUDA_INCLUDE_DIRS})
+                target_link_libraries(
+                    CUDA::${module} INTERFACE ${CUDA_${module}_LIBRARY} ${ARGN})
+            endmacro()
+
+            declare_imported_cuda_target(cudart ${CUDA_LIBRARIES})
+            declare_imported_cuda_target(curand ${CUDA_LIBRARIES})
+            
+            set(CUDAToolkit_VERSION "${CUDA_VERSION_STRING}")
+            set(CUDAToolkit_BIN_DIR "${CUDA_TOOLKIT_ROOT_DIR}/bin")
+        endif()
     else()
-	    find_package(CUDAToolkit ${CUDA_MIN_VERSION} QUIET)
+        find_package(CUDAToolkit QUIET)
+        if(CUDAToolkit_FOUND)
+            set(CUDA_FOUND ON)
+            enable_language(CUDA)
+        endif()
     endif()
 endif()
 
@@ -217,47 +245,23 @@ if(ASAN_ENABLED)
     endif()
 endif()
 
-if(CUDAToolkit_FOUND)
-    string(REPLACE "." "" CMAKE_CUDA_ARCHITECTURES "${CUDA_ARCHS}")
-    enable_language(CUDA)
-    set(CUDA_FOUND TRUE)
-    set(CUDA_VERSION_STRING "${CUDAToolkit_VERSION}")
-endif()
+if(CUDA_ENABLED AND CUDA_FOUND)
+    add_definitions("-DCUDA_ENABLED")
 
-if(CUDA_FOUND)
-    if(CUDA_ENABLED)
-        add_definitions("-DCUDA_ENABLED")
+    # Fix for some combinations of CUDA and GCC (e.g. under Ubuntu 16.04).
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_FORCE_INLINES")
+    # Do not show warnings if the architectures are deprecated.
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-gpu-targets")
+    # Do not show warnings if cuda library functions are deprecated.
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-declarations")
+    # Explicitly set PIC flags for CUDA targets.
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fPIC")
 
-        # Fix for some combinations of CUDA and GCC (e.g. under Ubuntu 16.04).
-        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_FORCE_INLINES")
-        # Do not show warnings if the architectures are deprecated.
-        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-gpu-targets")
-        # Do not show warnings if cuda library functions are deprecated.
-        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-declarations")
-
-        if(CUDAToolkit_FOUND)
-            set(CUDA_ARCH_FLAGS_readable "${CMAKE_CUDA_ARCHITECTURES}")
-        else()
-            set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${CMAKE_CUDA_FLAGS}")
-            include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/SelectCudaComputeArch.cmake)
-            CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS ${CUDA_ARCHS})
-            set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${CUDA_ARCH_FLAGS}")
-        endif()
-
-        message(STATUS "Enabling CUDA support (version: ${CUDA_VERSION_STRING},"
-                       " archs: ${CUDA_ARCH_FLAGS_readable})")
-    else()
-        set(CUDA_FOUND OFF)
-        message(STATUS "Disabling CUDA support")
-    endif()
+    message(STATUS "Enabling CUDA support (version: ${CUDAToolkit_VERSION}, "
+                    "archs: ${CMAKE_CUDA_ARCHITECTURES})")
 else()
     set(CUDA_ENABLED OFF)
-    if(CUDA_VERSION_STRING)
-        message(STATUS "Disabling CUDA support (found version "
-                "${CUDA_VERSION_STRING} but >= ${CUDA_MIN_VERSION} required)")
-    else()
-        message(STATUS "Disabling CUDA support")
-    endif()
+    message(STATUS "Disabling CUDA support")
 endif()
 
 if(GUI_ENABLED AND Qt5_FOUND)
