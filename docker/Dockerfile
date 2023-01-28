@@ -32,11 +32,11 @@ RUN apt-get -y install \
 ARG CERES_SOLVER_VERSION=2.1.0
 RUN git clone https://github.com/ceres-solver/ceres-solver.git --branch ${CERES_SOLVER_VERSION}
 RUN cd ceres-solver && \
-	mkdir build && \
-	cd build && \
-	cmake .. -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF -GNinja && \
-	ninja && \
-	ninja install && \
+    mkdir build && \
+    cd build && \
+    cmake .. -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF -GNinja && \
+    ninja && \
+    ninja install && \
     cd .. && rm -rf ceres-solver
 
 # Build and install COLMAP.
@@ -49,10 +49,10 @@ RUN cd ceres-solver && \
 RUN git clone https://github.com/colmap/colmap.git #--branch 3.X
 
 RUN cd colmap && \
-	git checkout dev && \
-	mkdir build && \
-	cd build && \
-	cmake .. -GNinja && \
-	ninja && \
-	ninja install && \
+    git checkout dev && \
+    mkdir build && \
+    cd build && \
+    cmake .. -GNinja && \
+    ninja && \
+    ninja install && \
     cd .. && rm -rf colmap
