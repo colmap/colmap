@@ -74,7 +74,7 @@ jobs:
       cmake .. \
         -GNinja \
         -DTESTS_ENABLED=ON \
-        -DCMAKE_CUDA_ARCHITECTURES=native \
+        -DCMAKE_CUDA_ARCHITECTURES=50 \
         -DASAN_ENABLED=${{ parameters.asanEnabled }}
       ninja
     displayName: 'Configure and build'

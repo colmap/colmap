@@ -119,7 +119,7 @@ endif()
 
 set(CUDA_MIN_VERSION "7.0")
 if(CUDA_ENABLED)
-    if (ON) # if(CMAKE_VERSION VERSION_LESS 3.17)
+    if(CMAKE_VERSION VERSION_LESS 3.17)
         find_package(CUDA QUIET)
         if(CUDA_FOUND)
             message(STATUS "Found CUDA version ${CUDA_VERSION} installed in "
