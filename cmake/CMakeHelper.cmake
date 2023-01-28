@@ -166,7 +166,6 @@ macro(COLMAP_ADD_CUDA_TEST TARGET_NAME)
     if(TESTS_ENABLED)
         # ${ARGN} will store the list of source files passed to this function.
         add_executable(${TARGET_NAME} ${ARGN})
-        target_link_libraries(${TARGET_NAME} CUDA::cudart CUDA::curand)
         set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
             ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
         target_link_libraries(${TARGET_NAME} colmap

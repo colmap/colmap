@@ -255,7 +255,9 @@ if(CUDA_ENABLED AND CUDA_FOUND)
     # Do not show warnings if cuda library functions are deprecated.
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-declarations")
     # Explicitly set PIC flags for CUDA targets.
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fPIC")
+    if(NOT IS_MSVC)
+        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fPIC")
+    endif()
 
     message(STATUS "Enabling CUDA support (version: ${CUDAToolkit_VERSION}, "
                     "archs: ${CMAKE_CUDA_ARCHITECTURES})")
@@ -317,7 +319,9 @@ if(Qt5_FOUND)
             string(REPLACE "-fPIC" "" new_qt5_core_options ${core_options})
             set_property(TARGET Qt5::Core PROPERTY INTERFACE_COMPILE_OPTIONS ${new_qt5_core_options})
             set_property(TARGET Qt5::Core PROPERTY INTERFACE_POSITION_INDEPENDENT_CODE "ON")
-            set(CMAKE_CXX_COMPILE_OPTIONS_PIE "-fPIC")
+            if(NOT IS_MSVC)
+                set(CMAKE_CXX_COMPILE_OPTIONS_PIE "-fPIC")
+            endif()
         endif()
     endif()
 
