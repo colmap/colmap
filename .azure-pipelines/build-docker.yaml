@@ -1,0 +1,16 @@
+parameters:
+  displayName: 'Docker'
+
+jobs:
+- job: docker_build
+  displayName: '${{ parameters.displayName }}'
+  pool:
+    vmImage: 'ubuntu-latest'
+  variables:
+    DOCKER_BUILDKIT: 1
+  steps:
+  - task: Docker@2
+    displayName: Build
+    inputs:
+      command: build
+      Dockerfile: docker/Dockerfile
