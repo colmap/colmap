@@ -13,4 +13,5 @@ jobs:
     displayName: Build
     inputs:
       command: build
+      arguments: --build-arg COLMAP_VERSION=$(Build.SourceVersion)
       Dockerfile: docker/Dockerfile
