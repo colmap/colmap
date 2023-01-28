@@ -3,10 +3,11 @@ FROM nvidia/cuda:11.6.0-devel-ubuntu20.04
 # Prevent stop building ubuntu at time zone selection.  
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Prepare and empty machine for building
+# Prepare and empty machine for building.
 RUN apt-get update && apt-get install -y \
     git \
     cmake \
+    ninja-build \
     build-essential \
     libboost-program-options-dev \
     libboost-filesystem-dev \
@@ -24,7 +25,7 @@ RUN apt-get update && apt-get install -y \
     libqt5opengl5-dev \
     libcgal-dev
 
-# Build and install ceres solver
+# Build and install ceres solver.
 RUN apt-get -y install \
     libatlas-base-dev \
     libsuitesparse-dev
@@ -33,23 +34,25 @@ RUN git clone https://github.com/ceres-solver/ceres-solver.git --branch ${CERES_
 RUN cd ceres-solver && \
 	mkdir build && \
 	cd build && \
-	cmake .. -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF && \
-	make -j4 && \
-	make install
+	cmake .. -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF -GNinja && \
+	ninja && \
+	ninja install && \
+    cd .. && rm -rf ceres-solver
 
-# Build and install COLMAP
+# Build and install COLMAP.
 
-# Note: This Dockerfile has been tested using COLMAP pre-release 3.7.
+# Note: This Dockerfile has been tested using a COLMAP pre-release.
 # Later versions of COLMAP (which will be automatically cloned as default) may
 # have problems using the environment described thus far. If you encounter
 # problems and want to install the tested release, then uncomment the branch
-# specification in the line below
-RUN git clone https://github.com/colmap/colmap.git #--branch 3.7
+# specification in the line below.
+RUN git clone https://github.com/colmap/colmap.git #--branch 3.X
 
 RUN cd colmap && \
 	git checkout dev && \
 	mkdir build && \
 	cd build && \
-	cmake .. && \
-	make -j4 && \
-	make install
+	cmake .. -GNinja && \
+	ninja && \
+	ninja install && \
+    cd .. && rm -rf colmap
