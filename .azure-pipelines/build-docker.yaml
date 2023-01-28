@@ -13,5 +13,5 @@ jobs:
     displayName: Build
     inputs:
       command: build
-      arguments: --build-arg COLMAP_VERSION=$(Build.SourceVersion)
+      arguments: --build-arg COLMAP_VERSION=$(Build.SourceVersion),CUDA_ARCHITECTURES=50
       Dockerfile: docker/Dockerfile
