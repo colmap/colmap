@@ -360,7 +360,8 @@ void TwoViewGeometry::EstimateCalibrated(
         DetectWatermark(camera1, matched_points1, camera2, matched_points2,
                         num_inliers, *best_inlier_mask, options)) {
       config = ConfigurationType::WATERMARK;
-    }
+    }    
+    EstimateRelativePose(camera1, points1, camera2, points2);
   }
 }
 
