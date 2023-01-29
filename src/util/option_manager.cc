@@ -322,6 +322,8 @@ void OptionManager::AddMatchingOptions() {
                               &sift_matching->guided_matching);
   AddAndRegisterDefaultOption("SiftMatching.planar_scene",
                               &sift_matching->planar_scene);
+  AddAndRegisterDefaultOption("SiftMatching.compute_relative_pose",
+                              &sift_matching->compute_relative_pose);
 }
 
 void OptionManager::AddExhaustiveMatchingOptions() {

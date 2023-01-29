@@ -361,7 +361,10 @@ void TwoViewGeometry::EstimateCalibrated(
                         num_inliers, *best_inlier_mask, options)) {
       config = ConfigurationType::WATERMARK;
     }
-    EstimateRelativePose(camera1, points1, camera2, points2);
+
+    if (options.compute_relative_pose) {
+      EstimateRelativePose(camera1, points1, camera2, points2);
+    }
   }
 }
 
