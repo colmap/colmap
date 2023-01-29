@@ -246,6 +246,12 @@ if(ASAN_ENABLED)
 endif()
 
 if(CUDA_ENABLED AND CUDA_FOUND)
+    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+        message(
+            FATAL_ERROR "You must set CMAKE_CUDA_ARCHITECTURES to e.g. 'native', 'all-major', '70', etc. "
+            "More information at https://cmake.org/cmake/help/latest/prop_tgt/CUDA_ARCHITECTURES.html")
+    endif()
+
     add_definitions("-DCUDA_ENABLED")
 
     # Fix for some combinations of CUDA and GCC (e.g. under Ubuntu 16.04).
