@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     libboost-system-dev \
     libboost-test-dev \
     libeigen3-dev \
+    libflann-dev \
     libfreeimage-dev \
     libmetis-dev \
     libgoogle-glog-dev \

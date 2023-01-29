@@ -80,6 +80,7 @@ Dependencies from the default Ubuntu repositories::
         libboost-system-dev \
         libboost-test-dev \
         libeigen3-dev \
+        libflann-dev \
         libfreeimage-dev \
         libmetis-dev \
         libgoogle-glog-dev \

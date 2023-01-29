@@ -9,6 +9,7 @@ boost-test
 ceres[lapack,suitesparse]
 cgal
 eigen3
+flann
 freeimage
 metis
 gflags
