@@ -101,6 +101,9 @@ find_package(Eigen3 REQUIRED)
 
 find_package(FreeImage REQUIRED)
 
+find_package(FLANN REQUIRED)
+find_package(LZ4 REQUIRED)
+
 find_package(Metis REQUIRED)
 
 find_package(Glog REQUIRED)
@@ -346,6 +349,8 @@ set(COLMAP_INCLUDE_DIRS
     ${Boost_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
     ${GLOG_INCLUDE_DIRS}
+    ${FLANN_INCLUDE_DIRS}
+    ${LZ4_INCLUDE_DIRS}
     ${FREEIMAGE_INCLUDE_DIRS}
     ${CERES_INCLUDE_DIRS}
     ${METIS_INCLUDE_DIRS}
@@ -362,6 +367,8 @@ set(COLMAP_EXTERNAL_LIBRARIES
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${GLOG_LIBRARIES}
+    ${FLANN_LIBRARIES}
+    ${LZ4_LIBRARIES}
     ${FREEIMAGE_LIBRARIES}
     ${METIS_LIBRARIES}
     ${CERES_LIBRARIES}
@@ -388,7 +395,6 @@ if(UNIX)
 endif()
 
 set(COLMAP_INTERNAL_LIBRARIES
-    flann
     lsd
     pba
     poisson_recon
@@ -413,7 +419,6 @@ add_subdirectory(src)
 # Generate source groups for Visual Studio, XCode, etc.
 ################################################################################
 
-COLMAP_ADD_SOURCE_DIR(lib/FLANN LIB_FLANN_SRCS *.h *.cpp *.hpp *.cu)
 COLMAP_ADD_SOURCE_DIR(lib/LSD LIB_LSD_SRCS *.h *.c)
 COLMAP_ADD_SOURCE_DIR(lib/PBA LIB_PBA_SRCS *.h *.cpp *.cu)
 COLMAP_ADD_SOURCE_DIR(lib/PoissonRecon LIB_POISSON_RECON_SRCS *.h *.cpp *.inl)
@@ -439,7 +444,6 @@ COLMAP_ADD_SOURCE_DIR(src/util UTIL_SRCS *.h *.cc)
 # intellisense can't find any of the included files).
 add_library(
     ${COLMAP_SRC_ROOT_FOLDER}
-    ${LIB_FLANN_SRCS}
     ${LIB_LSD_SRCS}
     ${LIB_PBA_SRCS}
     ${LIB_POISSON_RECON_SRCS}

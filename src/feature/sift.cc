@@ -35,7 +35,7 @@
 #include <fstream>
 #include <memory>
 
-#include "FLANN/flann.hpp"
+#include "flann/flann.hpp"
 #if !defined(GUI_ENABLED) && !defined(CUDA_ENABLED)
 #include "GL/glew.h"
 #endif
