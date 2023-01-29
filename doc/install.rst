@@ -72,6 +72,7 @@ Dependencies from the default Ubuntu repositories::
     sudo apt-get install \
         git \
         cmake \
+        ninja-build \
         build-essential \
         libboost-program-options-dev \
         libboost-filesystem-dev \
@@ -79,7 +80,6 @@ Dependencies from the default Ubuntu repositories::
         libboost-system-dev \
         libboost-test-dev \
         libeigen3-dev \
-        libsuitesparse-dev \
         libfreeimage-dev \
         libmetis-dev \
         libgoogle-glog-dev \
@@ -97,9 +97,9 @@ Configure and compile COLMAP::
     git checkout dev
     mkdir build
     cd build
-    cmake ..
-    make -j
-    sudo make install
+    cmake .. -GNinja
+    ninja
+    sudo ninja install
 
 Run COLMAP::
 
