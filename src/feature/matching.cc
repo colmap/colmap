@@ -612,6 +612,7 @@ TwoViewGeometryVerifier::TwoViewGeometryVerifier(
   two_view_geometry_options_.ransac_options.min_inlier_ratio =
       options_.min_inlier_ratio;
   two_view_geometry_options_.force_H_use = options_.planar_scene;
+  two_view_geometry_options_.compute_relative_pose = options_.compute_relative_pose;
 }
 
 void TwoViewGeometryVerifier::Run() {

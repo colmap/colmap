@@ -164,6 +164,9 @@ struct SiftMatchingOptions {
   // Force Homography use for Two-view Geometry (can help for planar scenes)
   bool planar_scene = false;
 
+  // Whether to estimate the relative pose between the two images and save them to the DB.
+  bool compute_relative_pose = false;
+
   bool Check() const;
 };
 
