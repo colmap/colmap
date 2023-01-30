@@ -26,6 +26,7 @@ jobs:
         libboost-test-dev \
         libeigen3-dev \
         libceres-dev \
+        libflann-dev \
         libfreeimage-dev \
         libmetis-dev \
         libgoogle-glog-dev \
@@ -74,7 +75,7 @@ jobs:
       cmake .. \
         -GNinja \
         -DTESTS_ENABLED=ON \
-        -DCUDA_ARCHS=5.0 \
+        -DCMAKE_CUDA_ARCHITECTURES=50 \
         -DASAN_ENABLED=${{ parameters.asanEnabled }}
       ninja
     displayName: 'Configure and build'

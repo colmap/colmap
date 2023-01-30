@@ -1,4 +1,4 @@
-COLMAP_ADD_STATIC_LIBRARY(lsd
+COLMAP_ADD_LIBRARY(lsd
     lsd.h
     lsd.c
 )

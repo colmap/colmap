@@ -65,8 +65,6 @@ option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(BOOST_STATIC "Whether to enable static boost library linker flags" ON)
-set(CUDA_ARCHS "5.0" CACHE STRING "List of CUDA architectures for which to \
-generate code, e.g., 5.0, 6.0, 7.5, ...")
 
 if(TESTS_ENABLED)
     enable_testing()
@@ -77,6 +75,10 @@ if(BOOST_STATIC)
 else()
     add_definitions("-DBOOST_TEST_DYN_LINK")
 endif()
+
+# Build position-independent code, so that shared libraries can link against
+# COLMAP's static libraries.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 ################################################################################
 # Find packages
@@ -99,6 +101,9 @@ find_package(Eigen3 REQUIRED)
 
 find_package(FreeImage REQUIRED)
 
+find_package(FLANN REQUIRED)
+find_package(LZ4 REQUIRED)
+
 find_package(Metis REQUIRED)
 
 find_package(Glog REQUIRED)
@@ -117,10 +122,36 @@ endif()
 
 set(CUDA_MIN_VERSION "7.0")
 if(CUDA_ENABLED)
-    if(${CMAKE_VERSION} VERSION_LESS "3.17.0")
-	    find_package(CUDA ${CUDA_MIN_VERSION} QUIET)
+    if(CMAKE_VERSION VERSION_LESS 3.17)
+        find_package(CUDA QUIET)
+        if(CUDA_FOUND)
+            message(STATUS "Found CUDA version ${CUDA_VERSION} installed in "
+                    "${CUDA_TOOLKIT_ROOT_DIR} via legacy CMake (<3.17) module. "
+                    "Using the legacy CMake module means that any installation of "
+                    "COLMAP will require that the CUDA libraries are "
+                    "available under LD_LIBRARY_PATH.")
+            enable_language(CUDA)
+
+            macro(declare_imported_cuda_target module)
+                add_library(CUDA::${module} INTERFACE IMPORTED)
+                target_include_directories(
+                    CUDA::${module} INTERFACE ${CUDA_INCLUDE_DIRS})
+                target_link_libraries(
+                    CUDA::${module} INTERFACE ${CUDA_${module}_LIBRARY} ${ARGN})
+            endmacro()
+
+            declare_imported_cuda_target(cudart ${CUDA_LIBRARIES})
+            declare_imported_cuda_target(curand ${CUDA_LIBRARIES})
+            
+            set(CUDAToolkit_VERSION "${CUDA_VERSION_STRING}")
+            set(CUDAToolkit_BIN_DIR "${CUDA_TOOLKIT_ROOT_DIR}/bin")
+        endif()
     else()
-	    find_package(CUDAToolkit ${CUDA_MIN_VERSION} QUIET)
+        find_package(CUDAToolkit QUIET)
+        if(CUDAToolkit_FOUND)
+            set(CUDA_FOUND ON)
+            enable_language(CUDA)
+        endif()
     endif()
 endif()
 
@@ -217,47 +248,31 @@ if(ASAN_ENABLED)
     endif()
 endif()
 
-if(CUDAToolkit_FOUND)
-    string(REPLACE "." "" CMAKE_CUDA_ARCHITECTURES "${CUDA_ARCHS}")
-    enable_language(CUDA)
-    set(CUDA_FOUND TRUE)
-    set(CUDA_VERSION_STRING "${CUDAToolkit_VERSION}")
-endif()
-
-if(CUDA_FOUND)
-    if(CUDA_ENABLED)
-        add_definitions("-DCUDA_ENABLED")
-
-        # Fix for some combinations of CUDA and GCC (e.g. under Ubuntu 16.04).
-        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_FORCE_INLINES")
-        # Do not show warnings if the architectures are deprecated.
-        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-gpu-targets")
-        # Do not show warnings if cuda library functions are deprecated.
-        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-declarations")
-
-        if(CUDAToolkit_FOUND)
-            set(CUDA_ARCH_FLAGS_readable "${CMAKE_CUDA_ARCHITECTURES}")
-        else()
-            set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${CMAKE_CUDA_FLAGS}")
-            include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/SelectCudaComputeArch.cmake)
-            CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS ${CUDA_ARCHS})
-            set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${CUDA_ARCH_FLAGS}")
-        endif()
-
-        message(STATUS "Enabling CUDA support (version: ${CUDA_VERSION_STRING},"
-                       " archs: ${CUDA_ARCH_FLAGS_readable})")
-    else()
-        set(CUDA_FOUND OFF)
-        message(STATUS "Disabling CUDA support")
+if(CUDA_ENABLED AND CUDA_FOUND)
+    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+        message(
+            FATAL_ERROR "You must set CMAKE_CUDA_ARCHITECTURES to e.g. 'native', 'all-major', '70', etc. "
+            "More information at https://cmake.org/cmake/help/latest/prop_tgt/CUDA_ARCHITECTURES.html")
     endif()
+
+    add_definitions("-DCUDA_ENABLED")
+
+    # Fix for some combinations of CUDA and GCC (e.g. under Ubuntu 16.04).
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_FORCE_INLINES")
+    # Do not show warnings if the architectures are deprecated.
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-gpu-targets")
+    # Do not show warnings if cuda library functions are deprecated.
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-declarations")
+    # Explicitly set PIC flags for CUDA targets.
+    if(NOT IS_MSVC)
+        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fPIC")
+    endif()
+
+    message(STATUS "Enabling CUDA support (version: ${CUDAToolkit_VERSION}, "
+                    "archs: ${CMAKE_CUDA_ARCHITECTURES})")
 else()
     set(CUDA_ENABLED OFF)
-    if(CUDA_VERSION_STRING)
-        message(STATUS "Disabling CUDA support (found version "
-                "${CUDA_VERSION_STRING} but >= ${CUDA_MIN_VERSION} required)")
-    else()
-        message(STATUS "Disabling CUDA support")
-    endif()
+    message(STATUS "Disabling CUDA support")
 endif()
 
 if(GUI_ENABLED AND Qt5_FOUND)
@@ -313,7 +328,9 @@ if(Qt5_FOUND)
             string(REPLACE "-fPIC" "" new_qt5_core_options ${core_options})
             set_property(TARGET Qt5::Core PROPERTY INTERFACE_COMPILE_OPTIONS ${new_qt5_core_options})
             set_property(TARGET Qt5::Core PROPERTY INTERFACE_POSITION_INDEPENDENT_CODE "ON")
-            set(CMAKE_CXX_COMPILE_OPTIONS_PIE "-fPIC")
+            if(NOT IS_MSVC)
+                set(CMAKE_CXX_COMPILE_OPTIONS_PIE "-fPIC")
+            endif()
         endif()
     endif()
 
@@ -332,6 +349,8 @@ set(COLMAP_INCLUDE_DIRS
     ${Boost_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
     ${GLOG_INCLUDE_DIRS}
+    ${FLANN_INCLUDE_DIRS}
+    ${LZ4_INCLUDE_DIRS}
     ${FREEIMAGE_INCLUDE_DIRS}
     ${CERES_INCLUDE_DIRS}
     ${METIS_INCLUDE_DIRS}
@@ -348,6 +367,8 @@ set(COLMAP_EXTERNAL_LIBRARIES
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${GLOG_LIBRARIES}
+    ${FLANN_LIBRARIES}
+    ${LZ4_LIBRARIES}
     ${FREEIMAGE_LIBRARIES}
     ${METIS_LIBRARIES}
     ${CERES_LIBRARIES}
@@ -374,7 +395,6 @@ if(UNIX)
 endif()
 
 set(COLMAP_INTERNAL_LIBRARIES
-    flann
     lsd
     pba
     poisson_recon
@@ -399,7 +419,6 @@ add_subdirectory(src)
 # Generate source groups for Visual Studio, XCode, etc.
 ################################################################################
 
-COLMAP_ADD_SOURCE_DIR(lib/FLANN LIB_FLANN_SRCS *.h *.cpp *.hpp *.cu)
 COLMAP_ADD_SOURCE_DIR(lib/LSD LIB_LSD_SRCS *.h *.c)
 COLMAP_ADD_SOURCE_DIR(lib/PBA LIB_PBA_SRCS *.h *.cpp *.cu)
 COLMAP_ADD_SOURCE_DIR(lib/PoissonRecon LIB_POISSON_RECON_SRCS *.h *.cpp *.inl)
@@ -425,7 +444,6 @@ COLMAP_ADD_SOURCE_DIR(src/util UTIL_SRCS *.h *.cc)
 # intellisense can't find any of the included files).
 add_library(
     ${COLMAP_SRC_ROOT_FOLDER}
-    ${LIB_FLANN_SRCS}
     ${LIB_LSD_SRCS}
     ${LIB_PBA_SRCS}
     ${LIB_POISSON_RECON_SRCS}

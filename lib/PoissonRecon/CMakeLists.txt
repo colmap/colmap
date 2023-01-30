@@ -4,7 +4,7 @@ endif()
 
 add_definitions("-DRELEASE")
 
-COLMAP_ADD_STATIC_LIBRARY(poisson_recon
+COLMAP_ADD_LIBRARY(poisson_recon
     Allocator.h
     Array.h
     Array.inl

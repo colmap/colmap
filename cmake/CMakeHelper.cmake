@@ -114,43 +114,20 @@ macro(COLMAP_ADD_LIBRARY TARGET_NAME)
     add_library(${TARGET_NAME} ${ARGN})
     set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
         ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
-    install(TARGETS ${TARGET_NAME} DESTINATION lib/colmap/)
-endmacro(COLMAP_ADD_LIBRARY)
-macro(COLMAP_ADD_STATIC_LIBRARY TARGET_NAME)
-    # ${ARGN} will store the list of source files passed to this function.
-    add_library(${TARGET_NAME} STATIC ${ARGN})
-    set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
-        ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
     install(TARGETS ${TARGET_NAME} DESTINATION lib/colmap)
-endmacro(COLMAP_ADD_STATIC_LIBRARY)
+endmacro(COLMAP_ADD_LIBRARY)
 
 # Replacement for the normal cuda_add_library() command. The syntax remains the
 # same in that the first argument is the target name, and the following
 # arguments are the source files to use when building the target.
 macro(COLMAP_ADD_CUDA_LIBRARY TARGET_NAME)
     # ${ARGN} will store the list of source files passed to this function.
-    if(CUDAToolkit_FOUND)
-        add_library(${TARGET_NAME} ${ARGN})
-        target_link_libraries(${TARGET_NAME} CUDA::cudart CUDA::curand)
-    else()
-        cuda_add_library(${TARGET_NAME} ${ARGN})
-    endif()
+    add_library(${TARGET_NAME} ${ARGN})
+    target_link_libraries(${TARGET_NAME} CUDA::cudart CUDA::curand)
     set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
         ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
     install(TARGETS ${TARGET_NAME} DESTINATION lib/colmap/)
 endmacro(COLMAP_ADD_CUDA_LIBRARY)
-macro(COLMAP_ADD_STATIC_CUDA_LIBRARY TARGET_NAME)
-    # ${ARGN} will store the list of source files passed to this function.
-    if(CUDAToolkit_FOUND)
-        add_library(${TARGET_NAME} STATIC ${ARGN})
-        target_link_libraries(${TARGET_NAME} CUDA::cudart CUDA::curand)
-    else()
-        cuda_add_library(${TARGET_NAME} STATIC ${ARGN})
-    endif()
-    set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
-        ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
-    install(TARGETS ${TARGET_NAME} DESTINATION lib/colmap/)
-endmacro(COLMAP_ADD_STATIC_CUDA_LIBRARY)
 
 # Replacement for the normal add_executable() command. The syntax remains the
 # same in that the first argument is the target name, and the following
@@ -188,12 +165,7 @@ endmacro(COLMAP_ADD_TEST)
 macro(COLMAP_ADD_CUDA_TEST TARGET_NAME)
     if(TESTS_ENABLED)
         # ${ARGN} will store the list of source files passed to this function.
-        if(CUDAToolkit_FOUND)
-            add_executable(${TARGET_NAME} ${ARGN})
-            target_link_libraries(${TARGET_NAME} CUDA::cudart CUDA::curand)
-        else()
-            cuda_add_executable(${TARGET_NAME} ${ARGN})
-        endif()
+        add_executable(${TARGET_NAME} ${ARGN})
         set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
             ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
         target_link_libraries(${TARGET_NAME} colmap
