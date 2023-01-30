@@ -436,6 +436,10 @@ void TwoViewGeometry::EstimateUncalibrated(
                       num_inliers, *best_inlier_mask, options)) {
     config = ConfigurationType::WATERMARK;
   }
+
+  if (options.compute_relative_pose) {
+      EstimateRelativePose(camera1, points1, camera2, points2);
+  }
 }
 
 void TwoViewGeometry::EstimateHomography(
@@ -479,6 +483,10 @@ void TwoViewGeometry::EstimateHomography(
                       H_report.support.num_inliers, H_report.inlier_mask,
                       options)) {
     config = ConfigurationType::WATERMARK;
+  }
+
+  if (options.compute_relative_pose) {
+      EstimateRelativePose(camera1, points1, camera2, points2);
   }
 }
 
