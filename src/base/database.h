@@ -38,7 +38,7 @@
 
 #include <Eigen/Core>
 
-#include "SQLite/sqlite3.h"
+#include "sqlite3.h"
 #include "base/camera.h"
 #include "base/image.h"
 #include "estimators/two_view_geometry.h"

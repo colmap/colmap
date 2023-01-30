@@ -16,3 +16,4 @@ gflags
 glew
 glog
 qt5-base
+sqlite3

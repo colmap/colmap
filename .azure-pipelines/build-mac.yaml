@@ -22,7 +22,8 @@ jobs:
         ceres-solver \
         qt5 \
         glew \
-        cgal
+        cgal \
+        sqlite3
     displayName: 'Install dependencies'
 
   - script: |
