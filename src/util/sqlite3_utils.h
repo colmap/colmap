@@ -36,7 +36,7 @@
 #include <cstdlib>
 #include <string>
 
-#include "sqlite3.h"
+#include <sqlite3.h>
 
 namespace colmap {
 
