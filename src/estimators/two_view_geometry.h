@@ -108,6 +108,9 @@ struct TwoViewGeometry {
     // between both cameras.
     bool force_H_use = false;
 
+    // Whether to compute the relative pose between the two views.
+    bool compute_relative_pose = false;
+
     // Options used to robustly estimate the geometry.
     RANSACOptions ransac_options;
 
