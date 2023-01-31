@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y \
     libmetis-dev \
     libgoogle-glog-dev \
     libgflags-dev \
+    libsqlite3-dev \
     libglew-dev \
     qtbase5-dev \
     libqt5opengl5-dev \
