@@ -32,8 +32,8 @@
 #include <iostream>
 
 #ifdef GUI_ENABLED
-#include <QApplication>
 #include "ui/main_window.h"
+#include <QApplication>
 #else
 // Dummy QApplication class when GUI is disabled
 class QApplication {

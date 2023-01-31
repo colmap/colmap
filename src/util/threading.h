@@ -38,8 +38,8 @@
 #include <future>
 #include <list>
 #include <queue>
-#include <unordered_map>
 #include <thread>
+#include <unordered_map>
 
 #include "util/timer.h"
 

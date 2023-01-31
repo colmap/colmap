@@ -438,7 +438,7 @@ void TwoViewGeometry::EstimateUncalibrated(
   }
 
   if (options.compute_relative_pose) {
-      EstimateRelativePose(camera1, points1, camera2, points2);
+    EstimateRelativePose(camera1, points1, camera2, points2);
   }
 }
 
@@ -486,7 +486,7 @@ void TwoViewGeometry::EstimateHomography(
   }
 
   if (options.compute_relative_pose) {
-      EstimateRelativePose(camera1, points1, camera2, points2);
+    EstimateRelativePose(camera1, points1, camera2, points2);
   }
 }
 

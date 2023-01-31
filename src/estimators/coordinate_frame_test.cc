@@ -32,8 +32,8 @@
 #define TEST_NAME "estimators/coordinate_frame"
 #include "util/testing.h"
 
-#include "estimators/coordinate_frame.h"
 #include "base/gps.h"
+#include "estimators/coordinate_frame.h"
 
 using namespace colmap;
 
@@ -153,5 +153,4 @@ BOOST_AUTO_TEST_CASE(TestAlignToENUPlane) {
                                   .norm();
     BOOST_CHECK_LE(std::abs(dist_orig - dist_tform), 1e-6);
   }
-
 }
