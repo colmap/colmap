@@ -85,6 +85,7 @@ Dependencies from the default Ubuntu repositories::
         libmetis-dev \
         libgoogle-glog-dev \
         libgflags-dev \
+        libsqlite3-dev \
         libglew-dev \
         qtbase5-dev \
         libqt5opengl5-dev \
@@ -113,7 +114,10 @@ To compile with **CUDA support**, also install Ubuntu's default CUDA package::
         nvidia-cuda-toolkit \
         nvidia-cuda-toolkit-gcc
 
-Or, manually install latest CUDA from NVIDIA's homepage.
+Or, manually install latest CUDA from NVIDIA's homepage. During CMake configuration
+specify `CMAKE_CUDA_ARCHITECTURES` as "native", if you want to run COLMAP on your
+current machine only, "all"/"all-major" to be able to distribute to other machines,
+or a specific CUDA architecture like "75", etc.
 
 Under **Ubuntu 16.04/18.04**, the CMake configuration scripts of CGAL are broken and
 you must also install the CGAL Qt5 package::
@@ -140,6 +144,7 @@ Dependencies from `Homebrew <http://brew.sh/>`_::
         boost \
         eigen \
         freeimage \
+        flann \
         glog \
         gflags \
         metis \
@@ -147,7 +152,8 @@ Dependencies from `Homebrew <http://brew.sh/>`_::
         ceres-solver \
         qt5 \
         glew \
-        cgal
+        cgal \
+        sqlite3
 
 Configure and compile COLMAP::
 
@@ -324,6 +330,13 @@ with the source code ``hello_world.cc``::
         return EXIT_SUCCESS;
     }
 
+Then compile and run your code as::
+    
+    mkdir build
+    cd build
+    COLMAP_DIR=${CMAKE_INSTALL_PREFIX}/share/colmap cmake ..
+    make
+    ./hello_world
 
 ----------------
 AddressSanitizer

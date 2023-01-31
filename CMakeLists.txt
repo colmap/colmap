@@ -108,6 +108,8 @@ find_package(Metis REQUIRED)
 
 find_package(Glog REQUIRED)
 
+find_package(SQLite3 REQUIRED)
+
 set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL REQUIRED)
 find_package(Glew REQUIRED)
@@ -355,6 +357,7 @@ set(COLMAP_INCLUDE_DIRS
     ${CERES_INCLUDE_DIRS}
     ${METIS_INCLUDE_DIRS}
     ${GLEW_INCLUDE_DIRS}
+    ${SQLite3_INCLUDE_DIRS}
 )
 
 set(COLMAP_LINK_DIRS
@@ -373,6 +376,7 @@ set(COLMAP_EXTERNAL_LIBRARIES
     ${METIS_LIBRARIES}
     ${CERES_LIBRARIES}
     ${OPENGL_LIBRARIES}
+    ${SQLite3_LIBRARIES}
 )
 
 if(OPENMP_FOUND)
@@ -398,7 +402,6 @@ set(COLMAP_INTERNAL_LIBRARIES
     lsd
     pba
     poisson_recon
-    sqlite3
     sift_gpu
     vlfeat
 )
@@ -423,7 +426,6 @@ COLMAP_ADD_SOURCE_DIR(lib/LSD LIB_LSD_SRCS *.h *.c)
 COLMAP_ADD_SOURCE_DIR(lib/PBA LIB_PBA_SRCS *.h *.cpp *.cu)
 COLMAP_ADD_SOURCE_DIR(lib/PoissonRecon LIB_POISSON_RECON_SRCS *.h *.cpp *.inl)
 COLMAP_ADD_SOURCE_DIR(lib/SiftGPU LIB_SIFT_GPU_SRCS *.h *.cpp *.cu)
-COLMAP_ADD_SOURCE_DIR(lib/SQLite LIB_SQLITE_SRCS *.h *.c)
 COLMAP_ADD_SOURCE_DIR(lib/VLFeat LIB_VLFEAT_SRCS *.h *.c *.tc)
 
 COLMAP_ADD_SOURCE_DIR(src/base BASE_SRCS *.h *.cc)
@@ -448,7 +450,6 @@ add_library(
     ${LIB_PBA_SRCS}
     ${LIB_POISSON_RECON_SRCS}
     ${LIB_SIFT_GPU_SRCS}
-    ${LIB_SQLITE_SRCS}
     ${LIB_VLFEAT_SRCS}
     ${BASE_SRCS}
     ${CONTROLLERS_SRCS}
