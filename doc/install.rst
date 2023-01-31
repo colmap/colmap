@@ -330,6 +330,13 @@ with the source code ``hello_world.cc``::
         return EXIT_SUCCESS;
     }
 
+Then compile and run your code as::
+    
+    mkdir build
+    cd build
+    COLMAP_DIR=${CMAKE_INSTALL_PREFIX}/share/colmap cmake ..
+    make
+    ./hello_world
 
 ----------------
 AddressSanitizer

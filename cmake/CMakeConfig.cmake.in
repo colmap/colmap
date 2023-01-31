@@ -69,6 +69,9 @@ set(GLEW_LIBRARY_DIR_HINTS @GLEW_LIBRARY_DIR_HINTS@)
 set(GLOG_INCLUDE_DIR_HINTS @GLOG_INCLUDE_DIR_HINTS@)
 set(GLOG_LIBRARY_DIR_HINTS @GLOG_LIBRARY_DIR_HINTS@)
 
+set(SQLite3_INCLUDE_DIR_HINTS @SQLite3_INCLUDE_DIR_HINTS@)
+set(SQLite3_LIBRARY_DIR_HINTS @SQLite3_LIBRARY_DIR_HINTS@)
+
 # Find dependency packages.
 
 set(TEMP_CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH})
@@ -95,6 +98,8 @@ if(COLMAP_FIND_QUIETLY)
 
     find_package(Glog QUIET)
 
+    find_package(SQLite3 QUIET)
+
     find_package(OpenGL QUIET)
     find_package(Glew QUIET)
 else()
@@ -117,6 +122,8 @@ else()
     find_package(Metis REQUIRED)
 
     find_package(Glog REQUIRED)
+
+    find_package(SQLite3 REQUIRED)
 
     find_package(OpenGL REQUIRED)
     find_package(Glew REQUIRED)
@@ -150,6 +157,7 @@ set(COLMAP_INCLUDE_DIRS
     ${METIS_INCLUDE_DIRS}
     ${CERES_INCLUDE_DIRS}
     ${GLEW_INCLUDE_DIRS}
+    ${SQLite3_INCLUDE_DIRS}
 )
 
 set(COLMAP_LINK_DIRS
@@ -176,6 +184,7 @@ set(COLMAP_EXTERNAL_LIBRARIES
     ${CERES_LIBRARIES}
     ${OPENGL_LIBRARIES}
     ${GLEW_LIBRARIES}
+    ${SQLite3_LIBRARIES}
 )
 
 if(UNIX)
@@ -241,4 +250,6 @@ unset(GLEW_INCLUDE_DIR_HINTS)
 unset(GLEW_LIBRARY_DIR_HINTS)
 unset(GLOG_INCLUDE_DIR_HINTS)
 unset(GLOG_LIBRARY_DIR_HINTS)
+unset(SQLite3_INCLUDE_DIR_HINTS)
+unset(SQLite3_LIBRARY_DIR_HINTS)
 unset(QT5_CMAKE_CONFIG_DIR_HINTS)
