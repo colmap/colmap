@@ -367,9 +367,9 @@ int RunPointTriangulator(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
-  return RunPointTriangulatorImpl(
-      reconstruction, *options.database_path, *options.image_path, output_path,
-      *options.mapper, clear_points);
+  return RunPointTriangulatorImpl(reconstruction, *options.database_path,
+                                  *options.image_path, output_path,
+                                  *options.mapper, clear_points);
 }
 
 int RunPointTriangulatorImpl(Reconstruction& reconstruction,

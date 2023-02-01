@@ -327,7 +327,7 @@ void GP3PEstimator::Residuals(const std::vector<X_t>& points2D,
         const double reproj_error = dx_0 * dx_0 + dx_1 * dx_1;
         (*residuals)[i] = reproj_error;
       } else {
-         LOG(FATAL) << "Invalid residual type";
+        LOG(FATAL) << "Invalid residual type";
       }
     } else {
       (*residuals)[i] = std::numeric_limits<double>::max();
