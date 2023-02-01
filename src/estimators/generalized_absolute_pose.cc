@@ -1,4 +1,4 @@
-// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -327,7 +327,7 @@ void GP3PEstimator::Residuals(const std::vector<X_t>& points2D,
         const double reproj_error = dx_0 * dx_0 + dx_1 * dx_1;
         (*residuals)[i] = reproj_error;
       } else {
-         LOG(FATAL) << "Invalid residual type";
+        LOG(FATAL) << "Invalid residual type";
       }
     } else {
       (*residuals)[i] = std::numeric_limits<double>::max();

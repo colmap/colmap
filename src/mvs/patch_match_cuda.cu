@@ -1,4 +1,4 @@
-// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -755,10 +755,10 @@ class LikelihoodComputer {
     return zn1 / (zn0 + zn1);
   }
 
-  float cos_min_triangulation_angle_;
-  float inv_incident_angle_sigma_square_;
-  float inv_ncc_sigma_square_;
-  float ncc_norm_factor_;
+  const float cos_min_triangulation_angle_;
+  const float inv_incident_angle_sigma_square_;
+  const float inv_ncc_sigma_square_;
+  const float ncc_norm_factor_;
 };
 
 // Rotate normals by 90deg around z-axis in counter-clockwise direction.

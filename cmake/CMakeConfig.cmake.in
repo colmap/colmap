@@ -1,4 +1,4 @@
-# Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -51,6 +51,12 @@ set(COLMAP_FOUND FALSE)
 
 set(EIGEN3_INCLUDE_DIR_HINTS @EIGEN3_INCLUDE_DIR_HINTS@)
 
+set(FLANN_INCLUDE_DIR_HINTS @FLANN_INCLUDE_DIR_HINTS@)
+set(FLANN_LIBRARY_DIR_HINTS @FLANN_LIBRARY_DIR_HINTS@)
+
+set(LZ4_INCLUDE_DIR_HINTS @LZ4_INCLUDE_DIR_HINTS@)
+set(LZ4_LIBRARY_DIR_HINTS @LZ4_LIBRARY_DIR_HINTS@)
+
 set(FREEIMAGE_INCLUDE_DIR_HINTS @FREEIMAGE_INCLUDE_DIR_HINTS@)
 set(FREEIMAGE_LIBRARY_DIR_HINTS @FREEIMAGE_LIBRARY_DIR_HINTS@)
 
@@ -62,6 +68,9 @@ set(GLEW_LIBRARY_DIR_HINTS @GLEW_LIBRARY_DIR_HINTS@)
 
 set(GLOG_INCLUDE_DIR_HINTS @GLOG_INCLUDE_DIR_HINTS@)
 set(GLOG_LIBRARY_DIR_HINTS @GLOG_LIBRARY_DIR_HINTS@)
+
+set(SQLite3_INCLUDE_DIR_HINTS @SQLite3_INCLUDE_DIR_HINTS@)
+set(SQLite3_LIBRARY_DIR_HINTS @SQLite3_LIBRARY_DIR_HINTS@)
 
 # Find dependency packages.
 
@@ -80,11 +89,16 @@ if(COLMAP_FIND_QUIETLY)
 
     find_package(Eigen3 QUIET)
 
+    find_package(FLANN QUIET)
+    find_package(LZ4 QUIET)
+
     find_package(FreeImage QUIET)
 
     find_package(Metis QUIET)
 
     find_package(Glog QUIET)
+
+    find_package(SQLite3 QUIET)
 
     find_package(OpenGL QUIET)
     find_package(Glew QUIET)
@@ -100,11 +114,16 @@ else()
 
     find_package(Eigen3 REQUIRED)
 
+    find_package(FLANN REQUIRED)
+    find_package(LZ4 REQUIRED)
+
     find_package(FreeImage REQUIRED)
 
     find_package(Metis REQUIRED)
 
     find_package(Glog REQUIRED)
+
+    find_package(SQLite3 REQUIRED)
 
     find_package(OpenGL REQUIRED)
     find_package(Glew REQUIRED)
@@ -132,10 +151,13 @@ set(COLMAP_INCLUDE_DIRS
     ${Boost_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
     ${GLOG_INCLUDE_DIRS}
+    ${FLANN_INCLUDE_DIRS}
+    ${LZ4_INCLUDE_DIRS}
     ${FREEIMAGE_INCLUDE_DIRS}
     ${METIS_INCLUDE_DIRS}
     ${CERES_INCLUDE_DIRS}
     ${GLEW_INCLUDE_DIRS}
+    ${SQLite3_INCLUDE_DIRS}
 )
 
 set(COLMAP_LINK_DIRS
@@ -144,7 +166,6 @@ set(COLMAP_LINK_DIRS
 )
 
 set(COLMAP_INTERNAL_LIBRARIES
-    flann
     lsd
     pba
     poisson_recon
@@ -156,11 +177,14 @@ set(COLMAP_INTERNAL_LIBRARIES
 set(COLMAP_EXTERNAL_LIBRARIES
     ${CMAKE_DL_LIBS}
     ${GLOG_LIBRARIES}
+    ${FLANN_LIBRARIES}
+    ${LZ4_LIBRARIES}
     ${FREEIMAGE_LIBRARIES}
     ${METIS_LIBRARIES}
     ${CERES_LIBRARIES}
     ${OPENGL_LIBRARIES}
     ${GLEW_LIBRARIES}
+    ${SQLite3_LIBRARIES}
 )
 
 if(UNIX)
@@ -214,6 +238,10 @@ set(CMAKE_MODULE_PATH ${TEMP_CMAKE_MODULE_PATH})
 
 unset(COLMAP_INSTALL_PREFIX)
 unset(EIGEN3_INCLUDE_DIR_HINTS)
+unset(FLANN_INCLUDE_DIR_HINTS)
+unset(FLANN_LIBRARY_DIR_HINTS)
+unset(LZ4_INCLUDE_DIR_HINTS)
+unset(LZ4_LIBRARY_DIR_HINTS)
 unset(FREEIMAGE_INCLUDE_DIR_HINTS)
 unset(FREEIMAGE_LIBRARY_DIR_HINTS)
 unset(METIS_INCLUDE_DIR_HINTS)
@@ -222,4 +250,6 @@ unset(GLEW_INCLUDE_DIR_HINTS)
 unset(GLEW_LIBRARY_DIR_HINTS)
 unset(GLOG_INCLUDE_DIR_HINTS)
 unset(GLOG_LIBRARY_DIR_HINTS)
+unset(SQLite3_INCLUDE_DIR_HINTS)
+unset(SQLite3_LIBRARY_DIR_HINTS)
 unset(QT5_CMAKE_CONFIG_DIR_HINTS)

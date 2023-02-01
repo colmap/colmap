@@ -1,4 +1,4 @@
-// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -365,7 +365,7 @@ void SiftFeatureExtractorThread::Run() {
   if (sift_options_.use_gpu) {
 #ifndef CUDA_ENABLED
     CHECK(opengl_context_);
-    opengl_context_->MakeCurrent();
+    CHECK(opengl_context_->MakeCurrent());
 #endif
 
     sift_gpu = std::make_unique<SiftGPU>();

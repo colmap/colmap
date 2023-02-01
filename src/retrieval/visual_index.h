@@ -1,4 +1,4 @@
-// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -35,8 +35,8 @@
 #include <Eigen/Core>
 #include <boost/heap/fibonacci_heap.hpp>
 
-#include "FLANN/flann.hpp"
 #include "feature/types.h"
+#include "flann/flann.hpp"
 #include "retrieval/inverted_file.h"
 #include "retrieval/inverted_index.h"
 #include "retrieval/vote_and_verify.h"

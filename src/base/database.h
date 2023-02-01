@@ -1,4 +1,4 @@
-// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -37,8 +37,8 @@
 #include <vector>
 
 #include <Eigen/Core>
+#include <sqlite3.h>
 
-#include "SQLite/sqlite3.h"
 #include "base/camera.h"
 #include "base/image.h"
 #include "estimators/two_view_geometry.h"

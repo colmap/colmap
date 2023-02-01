@@ -1,4 +1,4 @@
-// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -117,7 +117,7 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
   HideOption(&point3D_colormap_max_q_);
   HideOption(&point3D_colormap_scale_);
   connect(point3D_colormap_cb_,
-          (void (QComboBox::*)(int)) & QComboBox::currentIndexChanged, this,
+          (void(QComboBox::*)(int)) & QComboBox::currentIndexChanged, this,
           &RenderOptionsWidget::SelectPointColormap);
 
   AddSpacer();
@@ -150,7 +150,7 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
 
   HideLayout(image_colormap_name_filter_layout_);
   connect(image_colormap_cb_,
-          (void (QComboBox::*)(int)) & QComboBox::currentIndexChanged, this,
+          (void(QComboBox::*)(int)) & QComboBox::currentIndexChanged, this,
           &RenderOptionsWidget::SelectImageColormap);
 
   AddSpacer();

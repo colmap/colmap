@@ -1,4 +1,4 @@
-// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -322,6 +322,8 @@ void OptionManager::AddMatchingOptions() {
                               &sift_matching->guided_matching);
   AddAndRegisterDefaultOption("SiftMatching.planar_scene",
                               &sift_matching->planar_scene);
+  AddAndRegisterDefaultOption("SiftMatching.compute_relative_pose",
+                              &sift_matching->compute_relative_pose);
 }
 
 void OptionManager::AddExhaustiveMatchingOptions() {

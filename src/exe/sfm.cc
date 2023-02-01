@@ -1,4 +1,4 @@
-// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -367,9 +367,9 @@ int RunPointTriangulator(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
-  return RunPointTriangulatorImpl(
-      reconstruction, *options.database_path, *options.image_path, output_path,
-      *options.mapper, clear_points);
+  return RunPointTriangulatorImpl(reconstruction, *options.database_path,
+                                  *options.image_path, output_path,
+                                  *options.mapper, clear_points);
 }
 
 int RunPointTriangulatorImpl(Reconstruction& reconstruction,

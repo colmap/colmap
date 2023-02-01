@@ -1,4 +1,4 @@
-// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -111,8 +111,8 @@ int RunFeatureExtractor(int argc, char** argv) {
   options.AddImageOptions();
   options.AddDefaultOption("camera_mode", &camera_mode);
   options.AddDefaultOption("image_list_path", &image_list_path);
-  options.AddDefaultOption("descriptor_normalization", &descriptor_normalization,
-                           "{'l1_root', 'l2'}");
+  options.AddDefaultOption("descriptor_normalization",
+                           &descriptor_normalization, "{'l1_root', 'l2'}");
   options.AddExtractionOptions();
   options.Parse(argc, argv);
 
@@ -128,13 +128,12 @@ int RunFeatureExtractor(int argc, char** argv) {
   StringToLower(&descriptor_normalization);
   if (descriptor_normalization == "l1_root") {
     options.sift_extraction->normalization =
-      SiftExtractionOptions::Normalization::L1_ROOT;
+        SiftExtractionOptions::Normalization::L1_ROOT;
   } else if (descriptor_normalization == "l2") {
     options.sift_extraction->normalization =
-      SiftExtractionOptions::Normalization::L2;
+        SiftExtractionOptions::Normalization::L2;
   } else {
-    std::cerr << "ERROR: Invalid `descriptor_normalization`"
-              << std::endl;
+    std::cerr << "ERROR: Invalid `descriptor_normalization`" << std::endl;
     return EXIT_FAILURE;
   }
 

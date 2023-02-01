@@ -1,4 +1,4 @@
-# Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -84,7 +84,7 @@ def parse_args():
                              "Computing Toolkit/CUDA/v8.0")
     parser.add_argument("--cuda_archs", default="Auto",
                         help="List of CUDA architectures for which to generate "
-                             "code, e.g., Auto, All, Maxwell, Pascal, ...")
+                             "code, e.g., all, all-major, native, 50, 75, etc.")
     parser.add_argument("--with_suite_sparse",
                         dest="with_suite_sparse", action="store_true")
     parser.add_argument("--without_suite_sparse",
@@ -440,7 +440,7 @@ def build_colmap(args):
         extra_config_args.append("-DCUDA_ENABLED=OFF")
 
     if args.cuda_archs:
-        extra_config_args.append("-DCUDA_ARCHS={}".format(args.cuda_archs))
+        extra_config_args.append("-DCMAKE_CUDA_ARCHITECTURES={}".format(args.cuda_archs))
 
     if args.with_opengl:
         extra_config_args.append("-DOPENGL_ENABLED=ON")

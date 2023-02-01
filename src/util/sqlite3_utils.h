@@ -1,4 +1,4 @@
-// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -36,7 +36,7 @@
 #include <cstdlib>
 #include <string>
 
-#include "SQLite/sqlite3.h"
+#include <sqlite3.h>
 
 namespace colmap {
 

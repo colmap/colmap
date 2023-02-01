@@ -9,9 +9,11 @@ boost-test
 ceres[lapack,suitesparse]
 cgal
 eigen3
+flann
 freeimage
 metis
 gflags
 glew
 glog
 qt5-base
+sqlite3

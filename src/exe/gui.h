@@ -1,4 +1,4 @@
-// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -32,8 +32,8 @@
 #include <iostream>
 
 #ifdef GUI_ENABLED
-#include <QApplication>
 #include "ui/main_window.h"
+#include <QApplication>
 #else
 // Dummy QApplication class when GUI is disabled
 class QApplication {

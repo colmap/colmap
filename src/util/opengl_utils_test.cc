@@ -1,4 +1,4 @@
-// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -46,15 +46,11 @@ BOOST_AUTO_TEST_CASE(TestOpenGLContextManager) {
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
-  if (!OpenGLContextManager::HasOpenGL()) {
-    return;
-  }
-
   OpenGLContextManager manager;
 
   std::thread thread([&manager]() {
-    manager.MakeCurrent();
-    manager.MakeCurrent();
+    BOOST_CHECK(manager.MakeCurrent());
+    BOOST_CHECK(manager.MakeCurrent());
     qApp->exit();
   });
 
@@ -68,13 +64,9 @@ BOOST_AUTO_TEST_CASE(TestRunThreadWithOpenGLContext) {
   char* argv[] = {app_name};
   QApplication app(argc, argv);
 
-  if (!OpenGLContextManager::HasOpenGL()) {
-    return;
-  }
-
   class TestThread : public Thread {
    private:
-    void Run() { opengl_context_.MakeCurrent(); }
+    void Run() { BOOST_CHECK(opengl_context_.MakeCurrent()); }
     OpenGLContextManager opengl_context_;
   };
 

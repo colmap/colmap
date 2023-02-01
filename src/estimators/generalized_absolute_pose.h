@@ -1,4 +1,4 @@
-// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -89,8 +89,8 @@ class GP3PEstimator {
   // 2D-3D point correspondences and a projection matrix of the generalized
   // camera.
   void Residuals(const std::vector<X_t>& points2D,
-                 const std::vector<Y_t>& points3D,
-                 const M_t& proj_matrix, std::vector<double>* residuals);
+                 const std::vector<Y_t>& points3D, const M_t& proj_matrix,
+                 std::vector<double>* residuals);
 };
 
 }  // namespace colmap

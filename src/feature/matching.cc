@@ -1,4 +1,4 @@
-// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -403,7 +403,7 @@ SiftGPUFeatureMatcher::SiftGPUFeatureMatcher(const SiftMatchingOptions& options,
 void SiftGPUFeatureMatcher::Run() {
 #ifndef CUDA_ENABLED
   CHECK(opengl_context_);
-  opengl_context_->MakeCurrent();
+  CHECK(opengl_context_->MakeCurrent());
 #endif
 
   SiftMatchGPU sift_match_gpu;
@@ -523,7 +523,7 @@ GuidedSiftGPUFeatureMatcher::GuidedSiftGPUFeatureMatcher(
 void GuidedSiftGPUFeatureMatcher::Run() {
 #ifndef CUDA_ENABLED
   CHECK(opengl_context_);
-  opengl_context_->MakeCurrent();
+  CHECK(opengl_context_->MakeCurrent());
 #endif
 
   SiftMatchGPU sift_match_gpu;
@@ -612,6 +612,8 @@ TwoViewGeometryVerifier::TwoViewGeometryVerifier(
   two_view_geometry_options_.ransac_options.min_inlier_ratio =
       options_.min_inlier_ratio;
   two_view_geometry_options_.force_H_use = options_.planar_scene;
+  two_view_geometry_options_.compute_relative_pose =
+      options_.compute_relative_pose;
 }
 
 void TwoViewGeometryVerifier::Run() {

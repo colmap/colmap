@@ -1,4 +1,4 @@
-// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -63,10 +63,7 @@ class OpenGLContextManager : public QObject {
 
   // Make the OpenGL context available by moving it from the thread where it was
   // created to the current thread and making it current.
-  void MakeCurrent();
-
-  // Check whether the machine has OpenGL and we can create the context.
-  static bool HasOpenGL();
+  bool MakeCurrent();
 
  private:
   QOffscreenSurface surface_;
@@ -99,8 +96,7 @@ class OpenGLContextManager {
  public:
   OpenGLContextManager(int opengl_major_version = 2,
                        int opengl_minor_version = 1) {}
-  inline void MakeCurrent() {}
-  inline static bool HasOpenGL() { return false; }
+  inline bool MakeCurrent() { return false; }
 };
 
 inline void RunThreadWithOpenGLContext(Thread* thread) {}

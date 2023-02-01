@@ -1,4 +1,4 @@
-// Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+// Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -107,6 +107,9 @@ struct TwoViewGeometry {
     // In case the user asks for it, only going to estimate a Homography
     // between both cameras.
     bool force_H_use = false;
+
+    // Whether to compute the relative pose between the two views.
+    bool compute_relative_pose = false;
 
     // Options used to robustly estimate the geometry.
     RANSACOptions ransac_options;
