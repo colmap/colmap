@@ -33,8 +33,8 @@ cmake_minimum_required(VERSION 3.1)
 
 project(COLMAP LANGUAGES C CXX)
 
-set(COLMAP_VERSION "3.8")
-set(COLMAP_VERSION_NUMBER "3800")
+set(COLMAP_VERSION "3.9")
+set(COLMAP_VERSION_NUMBER "3900")
 
 ################################################################################
 # Include CMake dependencies
