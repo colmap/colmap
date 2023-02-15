@@ -265,13 +265,19 @@ vanishing point detection in the images. Please, refer to the
 Mask image regions
 ------------------
 
-COLMAP supports masking of keypoints during feature extraction by passing a
-``mask_path`` to a folder with image masks. For a given image, the corresponding
+COLMAP supports masking of keypoints during feature extraction two different ways:
+
+1. Passing ``mask_path`` to a folder with image masks. For a given image, the corresponding
 mask must have the same sub-path below this root as the image has below
 ``image_path``. The filename must be equal, aside from the added extension
 ``.png``. For example, for an image ``image_path/abc/012.jpg``, the mask would
-be ``mask_path/abc/012.jpg.png``. No features will be extracted in regions,
+be ``mask_path/abc/012.jpg.png``.
+
+2. Passing ``camera_mask_path`` to a single mask image. This single mask is applied to all images.
+
+In both cases no features will be extracted in regions,
 where the mask image is black (pixel intensity value 0 in grayscale).
+
 
 
 Register/localize new images into an existing reconstruction
