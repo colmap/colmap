@@ -104,7 +104,7 @@ inline int CuTexImage::BindTextureX(textureReference& texRef1,
   }
 }
 
-void ProgramCU::FinishWorkCUDA() { cudaThreadSynchronize(); }
+void ProgramCU::FinishWorkCUDA() { cudaDeviceSynchronize(); }
 
 int ProgramCU::CheckErrorCUDA(const char* location) {
   cudaError_t e = cudaGetLastError();
