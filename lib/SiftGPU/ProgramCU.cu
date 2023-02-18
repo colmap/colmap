@@ -1195,7 +1195,7 @@ void ProgramCU::ComputeDescriptor(CuTexImage*list, CuTexImage* got, CuTexImage* 
 //////////////////////////////////////////////////////
 void ProgramCU::FinishCUDA()
 {
-	cudaThreadSynchronize();
+	cudaDeviceSynchronize();
 }
 
 int ProgramCU::CheckErrorCUDA(const char* location)

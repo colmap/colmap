@@ -122,9 +122,8 @@ void CuTexImage::CopyFromDevice(const void* buf) {
 void CuTexImage::CopyToHost(void* buf) {
   if (_cuData == NULL) return;
   size_t sz = _imgWidth * _imgHeight * _numChannel * sizeof(float);
-  // cudaThreadSynchronize();
   cudaMemcpy(buf, _cuData, sz, cudaMemcpyDeviceToHost);
-  cudaThreadSynchronize();
+  cudaDeviceSynchronize();
 }
 
 void CuTexImage::SaveToFile(const char* name) {
