@@ -56,8 +56,6 @@
 namespace colmap {
 namespace mvs {
 
-texture<uint8_t, cudaTextureType2D, cudaReadModeNormalizedFloat>
-    ref_image_texture;
 texture<uint8_t, cudaTextureType2DLayered, cudaReadModeNormalizedFloat>
     src_images_texture;
 texture<float, cudaTextureType2DLayered, cudaReadModeElementType>
@@ -332,6 +330,9 @@ struct LocalRefImage {
   const static int kNumColumns = kThreadBlockSize * THREADS_PER_BLOCK;
   const static int kDataSize = kNumRows * kNumColumns;
 
+  __device__ explicit LocalRefImage(const cudaTextureObject_t ref_image_texture)
+      : ref_image_texture_(ref_image_texture) {}
+
   float* data = nullptr;
 
   __device__ inline void Read(const int row) {
@@ -357,7 +358,7 @@ struct LocalRefImage {
 #pragma unroll
         for (int block = 0; block < kThreadBlockSize; ++block) {
           data[local_row * kNumColumns + local_col] =
-              tex2D(ref_image_texture, global_col, global_row);
+              tex2D<uint8_t>(ref_image_texture_, global_col, global_row);
           local_col += THREADS_PER_BLOCK;
           global_col += THREADS_PER_BLOCK;
         }
@@ -382,12 +383,15 @@ struct LocalRefImage {
 #pragma unroll
       for (int block = 0; block < kThreadBlockSize; ++block) {
         data[local_row * kNumColumns + local_col] =
-            tex2D(ref_image_texture, global_col, global_row);
+            tex2D<uint8_t>(ref_image_texture_, global_col, global_row);
         local_col += THREADS_PER_BLOCK;
         global_col += THREADS_PER_BLOCK;
       }
     }
   }
+
+ private:
+  const cudaTextureObject_t ref_image_texture_;
 };
 
 // The return values is 1 - NCC, so the range is [0, 2], the smaller the
@@ -396,9 +400,11 @@ template <int kWindowSize, int kWindowStep>
 struct PhotoConsistencyCostComputer {
   const static int kWindowRadius = kWindowSize / 2;
 
-  __device__ PhotoConsistencyCostComputer(const float sigma_spatial,
-                                          const float sigma_color)
-      : bilateral_weight_computer_(sigma_spatial, sigma_color) {}
+  __device__ PhotoConsistencyCostComputer(
+      const cudaTextureObject_t ref_image_texture, const float sigma_spatial,
+      const float sigma_color)
+      : local_ref_image(ref_image_texture),
+        bilateral_weight_computer_(sigma_spatial, sigma_color) {}
 
   // Maximum photo consistency cost as 1 - min(NCC).
   const float kMaxCost = 2.0f;
@@ -794,6 +800,7 @@ template <int kWindowSize, int kWindowStep>
 __global__ void ComputeInitialCost(GpuMat<float> cost_map,
                                    const GpuMat<float> depth_map,
                                    const GpuMat<float> normal_map,
+                                   const cudaTextureObject_t ref_image_texture,
                                    const GpuMat<float> ref_sum_image,
                                    const GpuMat<float> ref_squared_sum_image,
                                    const float sigma_spatial,
@@ -802,7 +809,8 @@ __global__ void ComputeInitialCost(GpuMat<float> cost_map,
 
   typedef PhotoConsistencyCostComputer<kWindowSize, kWindowStep>
       PhotoConsistencyCostComputerType;
-  PhotoConsistencyCostComputerType pcc_computer(sigma_spatial, sigma_color);
+  PhotoConsistencyCostComputerType pcc_computer(ref_image_texture,
+                                                sigma_spatial, sigma_color);
   pcc_computer.col = col;
 
   __shared__ float local_ref_image_data
@@ -859,7 +867,9 @@ __global__ void SweepFromTopToBottom(
     GpuMat<float> global_workspace, GpuMat<curandState> rand_state_map,
     GpuMat<float> cost_map, GpuMat<float> depth_map, GpuMat<float> normal_map,
     GpuMat<uint8_t> consistency_mask, GpuMat<float> sel_prob_map,
-    const GpuMat<float> prev_sel_prob_map, const GpuMat<float> ref_sum_image,
+    const GpuMat<float> prev_sel_prob_map,
+    const cudaTextureObject_t ref_image_texture,
+    const GpuMat<float> ref_sum_image,
     const GpuMat<float> ref_squared_sum_image, const SweepOptions options) {
   const int col = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -904,8 +914,8 @@ __global__ void SweepFromTopToBottom(
 
   typedef PhotoConsistencyCostComputer<kWindowSize, kWindowStep>
       PhotoConsistencyCostComputerType;
-  PhotoConsistencyCostComputerType pcc_computer(options.sigma_spatial,
-                                                options.sigma_color);
+  PhotoConsistencyCostComputerType pcc_computer(
+      ref_image_texture, options.sigma_spatial, options.sigma_color);
   pcc_computer.col = col;
 
   __shared__ float local_ref_image_data
@@ -1185,25 +1195,6 @@ void PatchMatchCuda::Run() {
   case window_step:                                                   \
     switch (options_.window_radius) {                                 \
       CASE_WINDOW_RADIUS(1, window_step)                              \
-      CASE_WINDOW_RADIUS(2, window_step)                              \
-      CASE_WINDOW_RADIUS(3, window_step)                              \
-      CASE_WINDOW_RADIUS(4, window_step)                              \
-      CASE_WINDOW_RADIUS(5, window_step)                              \
-      CASE_WINDOW_RADIUS(6, window_step)                              \
-      CASE_WINDOW_RADIUS(7, window_step)                              \
-      CASE_WINDOW_RADIUS(8, window_step)                              \
-      CASE_WINDOW_RADIUS(9, window_step)                              \
-      CASE_WINDOW_RADIUS(10, window_step)                             \
-      CASE_WINDOW_RADIUS(11, window_step)                             \
-      CASE_WINDOW_RADIUS(12, window_step)                             \
-      CASE_WINDOW_RADIUS(13, window_step)                             \
-      CASE_WINDOW_RADIUS(14, window_step)                             \
-      CASE_WINDOW_RADIUS(15, window_step)                             \
-      CASE_WINDOW_RADIUS(16, window_step)                             \
-      CASE_WINDOW_RADIUS(17, window_step)                             \
-      CASE_WINDOW_RADIUS(18, window_step)                             \
-      CASE_WINDOW_RADIUS(19, window_step)                             \
-      CASE_WINDOW_RADIUS(20, window_step)                             \
       default: {                                                      \
         std::cerr << "Error: Window size not supported" << std::endl; \
         break;                                                        \
@@ -1213,7 +1204,7 @@ void PatchMatchCuda::Run() {
 
   switch (options_.window_step) {
     CASE_WINDOW_STEP(1)
-    CASE_WINDOW_STEP(2)
+    // CASE_WINDOW_STEP(2)
     default: {
       std::cerr << "Error: Window step not supported" << std::endl;
       break;
@@ -1274,9 +1265,9 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
   ComputeCudaConfig();
   ComputeInitialCost<kWindowSize, kWindowStep>
       <<<sweep_grid_size_, sweep_block_size_>>>(
-          *cost_map_, *depth_map_, *normal_map_, *ref_image_->sum_image,
-          *ref_image_->squared_sum_image, options_.sigma_spatial,
-          options_.sigma_color);
+          *cost_map_, *depth_map_, *normal_map_, ref_image_texture_,
+          *ref_image_->sum_image, *ref_image_->squared_sum_image,
+          options_.sigma_spatial, options_.sigma_color);
   CUDA_SYNC_AND_CHECK();
 
   init_timer.Print("Initialization");
@@ -1318,13 +1309,13 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
 
       const bool last_sweep = iter == options_.num_iterations - 1 && sweep == 3;
 
-#define CALL_SWEEP_FUNC                                                  \
-  SweepFromTopToBottom<kWindowSize, kWindowStep, kGeomConsistencyTerm,   \
-                       kFilterPhotoConsistency, kFilterGeomConsistency>  \
-      <<<sweep_grid_size_, sweep_block_size_>>>(                         \
-          *global_workspace_, *rand_state_map_, *cost_map_, *depth_map_, \
-          *normal_map_, *consistency_mask_, *sel_prob_map_,              \
-          *prev_sel_prob_map_, *ref_image_->sum_image,                   \
+#define CALL_SWEEP_FUNC                                                    \
+  SweepFromTopToBottom<kWindowSize, kWindowStep, kGeomConsistencyTerm,     \
+                       kFilterPhotoConsistency, kFilterGeomConsistency>    \
+      <<<sweep_grid_size_, sweep_block_size_>>>(                           \
+          *global_workspace_, *rand_state_map_, *cost_map_, *depth_map_,   \
+          *normal_map_, *consistency_mask_, *sel_prob_map_,                \
+          *prev_sel_prob_map_, ref_image_texture_, *ref_image_->sum_image, \
           *ref_image_->squared_sum_image, sweep_options);
 
       if (last_sweep) {
@@ -1341,32 +1332,32 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
             const bool kFilterGeomConsistency = true;
             CALL_SWEEP_FUNC
           } else {
-            const bool kFilterPhotoConsistency = false;
-            const bool kFilterGeomConsistency = false;
-            CALL_SWEEP_FUNC
+            // const bool kFilterPhotoConsistency = false;
+            // const bool kFilterGeomConsistency = false;
+            // CALL_SWEEP_FUNC
           }
         } else {
-          const bool kGeomConsistencyTerm = false;
-          if (options_.filter) {
-            const bool kFilterPhotoConsistency = true;
-            const bool kFilterGeomConsistency = false;
-            CALL_SWEEP_FUNC
-          } else {
-            const bool kFilterPhotoConsistency = false;
-            const bool kFilterGeomConsistency = false;
-            CALL_SWEEP_FUNC
-          }
+          // const bool kGeomConsistencyTerm = false;
+          // if (options_.filter) {
+          //   const bool kFilterPhotoConsistency = true;
+          //   const bool kFilterGeomConsistency = false;
+          //   CALL_SWEEP_FUNC
+          // } else {
+          //   const bool kFilterPhotoConsistency = false;
+          //   const bool kFilterGeomConsistency = false;
+          //   CALL_SWEEP_FUNC
+          // }
         }
       } else {
-        const bool kFilterPhotoConsistency = false;
-        const bool kFilterGeomConsistency = false;
-        if (options_.geom_consistency) {
-          const bool kGeomConsistencyTerm = true;
-          CALL_SWEEP_FUNC
-        } else {
-          const bool kGeomConsistencyTerm = false;
-          CALL_SWEEP_FUNC
-        }
+        // const bool kFilterPhotoConsistency = false;
+        // const bool kFilterGeomConsistency = false;
+        // if (options_.geom_consistency) {
+        //   const bool kGeomConsistencyTerm = true;
+        //   CALL_SWEEP_FUNC
+        // } else {
+        //   const bool kGeomConsistencyTerm = false;
+        //   CALL_SWEEP_FUNC
+        // }
       }
 
 #undef CALL_SWEEP_FUNC
@@ -1410,6 +1401,29 @@ void PatchMatchCuda::ComputeCudaConfig() {
   elem_wise_grid_size_.z = 1;
 }
 
+void PatchMatchCuda::BindRefImageTexture() {
+  struct cudaResourceDesc resource_desc;
+  memset(&resource_desc, 0, sizeof(resource_desc));
+  resource_desc.resType = cudaResourceTypePitch2D;
+  resource_desc.res.pitch2D.devPtr = ref_image_->image->GetPtr();
+  resource_desc.res.pitch2D.width = ref_image_->image->GetWidth();
+  resource_desc.res.pitch2D.height = ref_image_->image->GetHeight();
+  resource_desc.res.pitch2D.pitchInBytes = ref_image_->image->GetPitch();
+  resource_desc.res.pitch2D.desc = cudaCreateChannelDesc<uint8_t>();
+
+  struct cudaTextureDesc texture_desc;
+  memset(&texture_desc, 0, sizeof(texture_desc));
+  texture_desc.addressMode[0] = cudaAddressModeBorder;
+  texture_desc.addressMode[1] = cudaAddressModeBorder;
+  texture_desc.addressMode[2] = cudaAddressModeBorder;
+  texture_desc.filterMode = cudaFilterModePoint;
+  texture_desc.normalizedCoords = false;
+
+  cudaTextureObject_t ref_image_texture_ = 0;
+  CUDA_SAFE_CALL(cudaCreateTextureObject(&ref_image_texture_, &resource_desc,
+                                         &texture_desc, nullptr));
+}
+
 void PatchMatchCuda::InitRefImage() {
   const Image& ref_image = problem_.images->at(problem_.ref_image_idx);
 
@@ -1424,18 +1438,7 @@ void PatchMatchCuda::InitRefImage() {
                      options_.window_step, options_.sigma_spatial,
                      options_.sigma_color);
 
-  ref_image_device_.reset(
-      new CudaArrayWrapper<uint8_t>(ref_width_, ref_height_, 1));
-  ref_image_device_->CopyFromGpuMat(*ref_image_->image);
-
-  // Create texture.
-  ref_image_texture.addressMode[0] = cudaAddressModeBorder;
-  ref_image_texture.addressMode[1] = cudaAddressModeBorder;
-  ref_image_texture.addressMode[2] = cudaAddressModeBorder;
-  ref_image_texture.filterMode = cudaFilterModePoint;
-  ref_image_texture.normalized = false;
-  CUDA_SAFE_CALL(
-      cudaBindTextureToArray(ref_image_texture, ref_image_device_->GetPtr()));
+  BindRefImageTexture();
 }
 
 void PatchMatchCuda::InitSourceImages() {
@@ -1727,14 +1730,8 @@ void PatchMatchCuda::Rotate() {
     ref_image_->squared_sum_image->Rotate(
         rotated_ref_image->squared_sum_image.get());
     ref_image_.swap(rotated_ref_image);
+    BindRefImageTexture();
   }
-
-  // Bind rotated reference image to texture.
-  ref_image_device_.reset(new CudaArrayWrapper<uint8_t>(width, height, 1));
-  ref_image_device_->CopyFromGpuMat(*ref_image_->image);
-  CUDA_SAFE_CALL(cudaUnbindTexture(ref_image_texture));
-  CUDA_SAFE_CALL(
-      cudaBindTextureToArray(ref_image_texture, ref_image_device_->GetPtr()));
 
   // Rotate selection probability map.
   prev_sel_prob_map_.reset(

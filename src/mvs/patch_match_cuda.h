@@ -69,6 +69,8 @@ class PatchMatchCuda {
 
   void ComputeCudaConfig();
 
+  void BindRefImageTexture();
+
   void InitRefImage();
   void InitSourceImages();
   void InitTransforms();
@@ -96,7 +98,7 @@ class PatchMatchCuda {
   int rotation_in_half_pi_;
 
   // Reference and source image input data.
-  std::unique_ptr<CudaArrayWrapper<uint8_t>> ref_image_device_;
+  cudaTextureObject_t ref_image_texture_;
   std::unique_ptr<CudaArrayWrapper<uint8_t>> src_images_device_;
   std::unique_ptr<CudaArrayWrapper<float>> src_depth_maps_device_;
 
