@@ -1191,22 +1191,24 @@ void PatchMatchCuda::Run() {
     RunWithWindowSizeAndStep<2 * window_radius + 1, window_step>(); \
     break;
 
-#define CASE_WINDOW_STEP(window_step)                                 \
-  case window_step:                                                   \
-    switch (options_.window_radius) {                                 \
-      CASE_WINDOW_RADIUS(1, window_step)                              \
-      default: {                                                      \
-        std::cerr << "Error: Window size not supported" << std::endl; \
-        break;                                                        \
-      }                                                               \
-    }                                                                 \
+#define CASE_WINDOW_STEP(window_step)                                \
+  case window_step:                                                  \
+    switch (options_.window_radius) {                                \
+      CASE_WINDOW_RADIUS(5, window_step)                             \
+      default: {                                                     \
+        std::cerr << "Error: Window size " << options_.window_radius \
+                  << " not supported" << std::endl;                  \
+        break;                                                       \
+      }                                                              \
+    }                                                                \
     break;
 
   switch (options_.window_step) {
     CASE_WINDOW_STEP(1)
     // CASE_WINDOW_STEP(2)
     default: {
-      std::cerr << "Error: Window step not supported" << std::endl;
+      std::cerr << "Error: Window step " << options_.window_step
+                << " not supported" << std::endl;
       break;
     }
   }
