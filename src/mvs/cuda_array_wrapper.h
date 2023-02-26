@@ -100,9 +100,7 @@ CudaArrayLayeredTexture<T>::CudaArrayLayeredTexture(
 template <typename T>
 CudaArrayLayeredTexture<T>::~CudaArrayLayeredTexture() {
   CUDA_SAFE_CALL(cudaFreeArray(array_));
-  memset(&array_, 0, sizeof(array_));
   CUDA_SAFE_CALL(cudaDestroyTextureObject(texture_));
-  memset(&texture_, 0, sizeof(texture_));
 }
 
 template <typename T>
@@ -131,14 +129,14 @@ void CudaArrayLayeredTexture<T>::CopyFromGpuMat(const GpuMat<T>& mat) {
   CHECK_EQ(mat.GetHeight(), height_);
   CHECK_EQ(mat.GetDepth(), depth_);
 
-  cudaMemcpy3DParms parameters;
-  memset(&parameters, 0, sizeof(parameters));
-  parameters.extent = make_cudaExtent(width_, height_, depth_);
-  parameters.kind = cudaMemcpyDeviceToDevice;
-  parameters.dstArray = array_;
-  parameters.srcPtr =
-      make_cudaPitchedPtr((void*)mat.GetPtr(), mat.GetPitch(), width_, height_);
-  CUDA_SAFE_CALL(cudaMemcpy3D(&parameters));
+  cudaMemcpy3DParms params;
+  memset(&params, 0, sizeof(params));
+  params.extent = make_cudaExtent(width_, height_, depth_);
+  params.kind = cudaMemcpyDeviceToDevice;
+  params.srcPtr = make_cudaPitchedPtr((void*)mat.GetPtr(), mat.GetPitch(),
+                                      mat.GetWidth(), mat.GetHeight());
+  params.dstArray = array_;
+  CUDA_SAFE_CALL(cudaMemcpy3D(&params));
 }
 
 template <typename T>
@@ -239,19 +237,19 @@ void CudaArrayWrapper<T>::CopyToHost(const T* data) {
 template <typename T>
 void CudaArrayWrapper<T>::CopyFromGpuMat(const GpuMat<T>& array) {
   Allocate();
-  cudaMemcpy3DParms parameters = {0};
-  parameters.extent = make_cudaExtent(width_, height_, depth_);
-  parameters.kind = cudaMemcpyDeviceToDevice;
-  parameters.dstArray = array_;
-  parameters.srcPtr = make_cudaPitchedPtr((void*)array.GetPtr(),
-                                          array.GetPitch(), width_, height_);
-  CUDA_SAFE_CALL(cudaMemcpy3D(&parameters));
+  cudaMemcpy3DParms params = {0};
+  params.extent = make_cudaExtent(width_, height_, depth_);
+  params.kind = cudaMemcpyDeviceToDevice;
+  params.dstArray = array_;
+  params.srcPtr = make_cudaPitchedPtr((void*)array.GetPtr(), array.GetPitch(),
+                                      width_, height_);
+  CUDA_SAFE_CALL(cudaMemcpy3D(&params));
 }
 
 template <typename T>
 void CudaArrayWrapper<T>::Allocate() {
   Deallocate();
-  struct cudaExtent extent = make_cudaExtent(width_, height_, depth_);
+  cudaExtent extent = make_cudaExtent(width_, height_, depth_);
   cudaChannelFormatDesc fmt = cudaCreateChannelDesc<T>();
   CUDA_SAFE_CALL(cudaMalloc3DArray(&array_, &fmt, extent, cudaArrayLayered));
 }
