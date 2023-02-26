@@ -46,7 +46,7 @@ namespace mvs {
 template <typename T>
 class CudaArrayLayeredTexture {
  public:
-  CudaArrayLayeredTexture(const cudaTextureDesc texture_desc,
+  CudaArrayLayeredTexture(const cudaTextureDesc& texture_desc,
                           const size_t width, const size_t height,
                           const size_t depth);
   ~CudaArrayLayeredTexture();
@@ -75,8 +75,8 @@ class CudaArrayLayeredTexture {
 
 template <typename T>
 CudaArrayLayeredTexture<T>::CudaArrayLayeredTexture(
-    const cudaTextureDesc texture_desc, const size_t width, const size_t height,
-    const size_t depth)
+    const cudaTextureDesc& texture_desc, const size_t width,
+    const size_t height, const size_t depth)
     : width_(width), height_(height), depth_(depth) {
   CHECK_GT(width_, 0);
   CHECK_GT(height_, 0);
