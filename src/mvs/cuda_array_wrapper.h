@@ -51,8 +51,7 @@ class CudaArrayLayeredTexture {
                           const size_t depth);
   ~CudaArrayLayeredTexture();
 
-  const cudaTextureObject_t& GetObj() const;
-  cudaTextureObject_t& GetObj();
+  cudaTextureObject_t GetObj() const;
 
   size_t GetWidth() const;
   size_t GetHeight() const;
@@ -107,12 +106,7 @@ CudaArrayLayeredTexture<T>::~CudaArrayLayeredTexture() {
 }
 
 template <typename T>
-const cudaTextureObject_t& CudaArrayLayeredTexture<T>::GetObj() const {
-  return texture_;
-}
-
-template <typename T>
-cudaTextureObject_t& CudaArrayLayeredTexture<T>::GetObj() {
+cudaTextureObject_t CudaArrayLayeredTexture<T>::GetObj() const {
   return texture_;
 }
 
