@@ -38,9 +38,150 @@
 
 #include "mvs/gpu_mat.h"
 #include "util/cudacc.h"
+#include "util/logging.h"
 
 namespace colmap {
 namespace mvs {
+
+template <typename T>
+class CudaTexture {
+ public:
+  CudaTexture(const cudaTextureDesc texture_desc, const size_t width,
+              const size_t height, const size_t depth);
+  ~CudaTexture();
+
+  const cudaTextureObject_t& GetObj() const;
+  cudaTextureObject_t& GetObj();
+
+  size_t GetWidth() const;
+  size_t GetHeight() const;
+  size_t GetDepth() const;
+
+  void CopyToDevice(const T* data);
+  void CopyToHost(const T* data);
+  void CopyFromGpuMat(const GpuMat<T>& array);
+
+ private:
+  // Define class as non-copyable and non-movable.
+  CudaTexture(CudaTexture const&) = delete;
+  void operator=(CudaTexture const& obj) = delete;
+  CudaTexture(CudaTexture&&) = delete;
+
+  void Allocate();
+  void Deallocate();
+
+  const cudaTextureDesc texture_desc_;
+  const size_t width_;
+  const size_t height_;
+  const size_t depth_;
+
+  cudaArray_t array_;
+  cudaTextureObject_t texture_;
+};
+
+template <typename T>
+CudaTexture<T>::CudaTexture(const cudaTextureDesc texture_desc,
+                            const size_t width, const size_t height,
+                            const size_t depth)
+    : texture_desc_(texture_desc),
+      width_(width),
+      height_(height),
+      depth_(depth) {
+  memset(&array_, 0, sizeof(array_));
+  memset(&texture_, 0, sizeof(texture_));
+}
+
+template <typename T>
+CudaTexture<T>::~CudaTexture() {
+  Deallocate();
+}
+
+template <typename T>
+const cudaTextureObject_t& CudaTexture<T>::GetObj() const {
+  return texture_;
+}
+
+template <typename T>
+cudaTextureObject_t& CudaTexture<T>::GetObj() {
+  return texture_;
+}
+
+template <typename T>
+size_t CudaTexture<T>::GetWidth() const {
+  return width_;
+}
+
+template <typename T>
+size_t CudaTexture<T>::GetHeight() const {
+  return height_;
+}
+
+template <typename T>
+size_t CudaTexture<T>::GetDepth() const {
+  return depth_;
+}
+
+template <typename T>
+void CudaTexture<T>::CopyToDevice(const T* data) {
+  cudaMemcpy3DParms params = {0};
+  Allocate();
+  params.extent = make_cudaExtent(width_, height_, depth_);
+  params.kind = cudaMemcpyHostToDevice;
+  params.dstArray = array_;
+  params.srcPtr =
+      make_cudaPitchedPtr((void*)data, width_ * sizeof(T), width_, height_);
+  CUDA_SAFE_CALL(cudaMemcpy3D(&params));
+}
+
+template <typename T>
+void CudaTexture<T>::CopyToHost(const T* data) {
+  cudaMemcpy3DParms params = {0};
+  params.extent = make_cudaExtent(width_, height_, depth_);
+  params.kind = cudaMemcpyDeviceToHost;
+  params.dstPtr =
+      make_cudaPitchedPtr((void*)data, width_ * sizeof(T), width_, height_);
+  params.srcArray = array_;
+  CUDA_SAFE_CALL(cudaMemcpy3D(&params));
+}
+
+template <typename T>
+void CudaTexture<T>::CopyFromGpuMat(const GpuMat<T>& array) {
+  CHECK_EQ(array.GetWidth(), width_);
+  CHECK_EQ(array.GetHeight(), height_);
+  CHECK_EQ(array.GetDepth(), height_);
+  Allocate();
+
+  cudaMemcpy3DParms parameters = {0};
+  parameters.extent = make_cudaExtent(width_, height_, depth_);
+  parameters.kind = cudaMemcpyDeviceToDevice;
+  parameters.dstArray = array_;
+  parameters.srcPtr = make_cudaPitchedPtr((void*)array.GetPtr(),
+                                          array.GetPitch(), width_, height_);
+  CUDA_SAFE_CALL(cudaMemcpy3D(&parameters));
+
+  struct cudaResourceDesc resource_desc;
+  memset(&resource_desc, 0, sizeof(resource_desc));
+  resource_desc.resType = cudaResourceTypeArray;
+  resource_desc.res.array.array = array_;
+  CUDA_SAFE_CALL(cudaCreateTextureObject(&texture_, &resource_desc,
+                                         &texture_desc_, nullptr));
+}
+
+template <typename T>
+void CudaTexture<T>::Allocate() {
+  Deallocate();
+  struct cudaExtent extent = make_cudaExtent(width_, height_, depth_);
+  cudaChannelFormatDesc fmt = cudaCreateChannelDesc<T>();
+  CUDA_SAFE_CALL(cudaMalloc3DArray(&array_, &fmt, extent, cudaArrayLayered));
+}
+
+template <typename T>
+void CudaTexture<T>::Deallocate() {
+  CUDA_SAFE_CALL(cudaFreeArray(array_));
+  memset(&array_, 0, sizeof(array_));
+  CUDA_SAFE_CALL(cudaDestroyTextureObject(texture_));
+  memset(&texture_, 0, sizeof(texture_));
+}
 
 template <typename T>
 class CudaArrayWrapper {

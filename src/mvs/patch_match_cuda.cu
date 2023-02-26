@@ -1265,7 +1265,7 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
   ComputeCudaConfig();
   ComputeInitialCost<kWindowSize, kWindowStep>
       <<<sweep_grid_size_, sweep_block_size_>>>(
-          *cost_map_, *depth_map_, *normal_map_, ref_image_texture_,
+          *cost_map_, *depth_map_, *normal_map_, ref_image_texture_->GetObj(),
           *ref_image_->sum_image, *ref_image_->squared_sum_image,
           options_.sigma_spatial, options_.sigma_color);
   CUDA_SYNC_AND_CHECK();
@@ -1309,14 +1309,15 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
 
       const bool last_sweep = iter == options_.num_iterations - 1 && sweep == 3;
 
-#define CALL_SWEEP_FUNC                                                    \
-  SweepFromTopToBottom<kWindowSize, kWindowStep, kGeomConsistencyTerm,     \
-                       kFilterPhotoConsistency, kFilterGeomConsistency>    \
-      <<<sweep_grid_size_, sweep_block_size_>>>(                           \
-          *global_workspace_, *rand_state_map_, *cost_map_, *depth_map_,   \
-          *normal_map_, *consistency_mask_, *sel_prob_map_,                \
-          *prev_sel_prob_map_, ref_image_texture_, *ref_image_->sum_image, \
-          *ref_image_->squared_sum_image, sweep_options);
+#define CALL_SWEEP_FUNC                                                  \
+  SweepFromTopToBottom<kWindowSize, kWindowStep, kGeomConsistencyTerm,   \
+                       kFilterPhotoConsistency, kFilterGeomConsistency>  \
+      <<<sweep_grid_size_, sweep_block_size_>>>(                         \
+          *global_workspace_, *rand_state_map_, *cost_map_, *depth_map_, \
+          *normal_map_, *consistency_mask_, *sel_prob_map_,              \
+          *prev_sel_prob_map_, ref_image_texture_->GetObj(),             \
+          *ref_image_->sum_image, *ref_image_->squared_sum_image,        \
+          sweep_options);
 
       if (last_sweep) {
         if (options_.filter) {
@@ -1402,16 +1403,7 @@ void PatchMatchCuda::ComputeCudaConfig() {
 }
 
 void PatchMatchCuda::BindRefImageTexture() {
-  struct cudaResourceDesc resource_desc;
-  memset(&resource_desc, 0, sizeof(resource_desc));
-  resource_desc.resType = cudaResourceTypePitch2D;
-  resource_desc.res.pitch2D.devPtr = ref_image_->image->GetPtr();
-  resource_desc.res.pitch2D.width = ref_image_->image->GetWidth();
-  resource_desc.res.pitch2D.height = ref_image_->image->GetHeight();
-  resource_desc.res.pitch2D.pitchInBytes = ref_image_->image->GetPitch();
-  resource_desc.res.pitch2D.desc = cudaCreateChannelDesc<uint8_t>();
-
-  struct cudaTextureDesc texture_desc;
+  cudaTextureDesc texture_desc;
   memset(&texture_desc, 0, sizeof(texture_desc));
   texture_desc.addressMode[0] = cudaAddressModeBorder;
   texture_desc.addressMode[1] = cudaAddressModeBorder;
@@ -1419,9 +1411,10 @@ void PatchMatchCuda::BindRefImageTexture() {
   texture_desc.filterMode = cudaFilterModePoint;
   texture_desc.normalizedCoords = false;
 
-  cudaTextureObject_t ref_image_texture_ = 0;
-  CUDA_SAFE_CALL(cudaCreateTextureObject(&ref_image_texture_, &resource_desc,
-                                         &texture_desc, nullptr));
+  ref_image_texture_.reset(
+      new CudaTexture<uint8_t>(texture_desc, ref_image_->image->GetWidth(),
+                               ref_image_->image->GetHeight(), 1));
+  ref_image_texture_->CopyFromGpuMat(*ref_image_->image);
 }
 
 void PatchMatchCuda::InitRefImage() {
@@ -1437,8 +1430,6 @@ void PatchMatchCuda::InitRefImage() {
   ref_image_->Filter(ref_image_array.data(), options_.window_radius,
                      options_.window_step, options_.sigma_spatial,
                      options_.sigma_color);
-
-  BindRefImageTexture();
 }
 
 void PatchMatchCuda::InitSourceImages() {
