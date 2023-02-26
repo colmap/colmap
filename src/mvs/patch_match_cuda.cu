@@ -1329,38 +1329,42 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
           consistency_mask_->FillWithScalar(0);
         }
         if (options_.geom_consistency) {
-          const bool kGeomConsistencyTerm = true;
-          if (options_.filter) {
-            const bool kFilterPhotoConsistency = true;
-            const bool kFilterGeomConsistency = true;
-            CALL_SWEEP_FUNC
-          } else {
-            // const bool kFilterPhotoConsistency = false;
-            // const bool kFilterGeomConsistency = false;
-            // CALL_SWEEP_FUNC
-          }
-        } else {
-          // const bool kGeomConsistencyTerm = false;
+          // const bool kGeomConsistencyTerm = true;
           // if (options_.filter) {
           //   const bool kFilterPhotoConsistency = true;
-          //   const bool kFilterGeomConsistency = false;
+          //   const bool kFilterGeomConsistency = true;
           //   CALL_SWEEP_FUNC
           // } else {
           //   const bool kFilterPhotoConsistency = false;
           //   const bool kFilterGeomConsistency = false;
           //   CALL_SWEEP_FUNC
           // }
+        } else {
+          const bool kGeomConsistencyTerm = false;
+          if (options_.filter) {
+            const bool kFilterPhotoConsistency = true;
+            const bool kFilterGeomConsistency = false;
+            std::cout << "CALL_LAST_SWEEP" << std::endl;
+            CALL_SWEEP_FUNC
+            std::cout << "DONE_LAST_SWEEP" << std::endl;
+          } else {
+            // const bool kFilterPhotoConsistency = false;
+            // const bool kFilterGeomConsistency = false;
+            // CALL_SWEEP_FUNC
+          }
         }
       } else {
-        // const bool kFilterPhotoConsistency = false;
-        // const bool kFilterGeomConsistency = false;
-        // if (options_.geom_consistency) {
-        //   const bool kGeomConsistencyTerm = true;
-        //   CALL_SWEEP_FUNC
-        // } else {
-        //   const bool kGeomConsistencyTerm = false;
-        //   CALL_SWEEP_FUNC
-        // }
+        const bool kFilterPhotoConsistency = false;
+        const bool kFilterGeomConsistency = false;
+        if (options_.geom_consistency) {
+          // const bool kGeomConsistencyTerm = true;
+          // CALL_SWEEP_FUNC
+        } else {
+          std::cout << "CALL_SWEEP" << std::endl;
+          const bool kGeomConsistencyTerm = false;
+          CALL_SWEEP_FUNC
+          std::cout << "DONE_SWEEP" << std::endl;
+        }
       }
 
 #undef CALL_SWEEP_FUNC

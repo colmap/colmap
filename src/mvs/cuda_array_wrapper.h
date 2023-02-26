@@ -92,7 +92,9 @@ CudaTexture<T>::CudaTexture(const cudaTextureDesc texture_desc,
   resource_desc.resType = cudaResourceTypeArray;
   resource_desc.res.array.array = array_;
 
-  
+  memset(&texture_, 0, sizeof(texture_));
+  CUDA_SAFE_CALL(cudaCreateTextureObject(&texture_, &resource_desc,
+                                         &texture_desc, nullptr));
 }
 
 template <typename T>
@@ -134,7 +136,8 @@ void CudaTexture<T>::CopyFromGpuMat(const GpuMat<T>& mat) {
   CHECK_EQ(mat.GetHeight(), height_);
   CHECK_EQ(mat.GetDepth(), depth_);
 
-  cudaMemcpy3DParms parameters = {0};
+  cudaMemcpy3DParms parameters;
+  memset(&parameters, 0, sizeof(parameters));
   parameters.extent = make_cudaExtent(width_, height_, depth_);
   parameters.kind = cudaMemcpyDeviceToDevice;
   parameters.dstArray = array_;
