@@ -358,7 +358,7 @@ struct LocalRefImage {
 #pragma unroll
         for (int block = 0; block < kThreadBlockSize; ++block) {
           data[local_row * kNumColumns + local_col] =
-              tex2D<uint8_t>(ref_image_texture_, global_col, global_row);
+              tex2D<float>(ref_image_texture_, global_col, global_row);
           local_col += THREADS_PER_BLOCK;
           global_col += THREADS_PER_BLOCK;
         }
@@ -383,7 +383,7 @@ struct LocalRefImage {
 #pragma unroll
       for (int block = 0; block < kThreadBlockSize; ++block) {
         data[local_row * kNumColumns + local_col] =
-            tex2D<uint8_t>(ref_image_texture_, global_col, global_row);
+            tex2D<float>(ref_image_texture_, global_col, global_row);
         local_col += THREADS_PER_BLOCK;
         global_col += THREADS_PER_BLOCK;
       }
