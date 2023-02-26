@@ -70,6 +70,8 @@ class CudaArrayLayeredTexture {
   const size_t depth_;
 
   cudaArray_t array_;
+  const cudaTextureDesc texture_desc_;
+  cudaResourceDesc resource_desc_;
   cudaTextureObject_t texture_;
 };
 
@@ -77,24 +79,24 @@ template <typename T>
 CudaArrayLayeredTexture<T>::CudaArrayLayeredTexture(
     const cudaTextureDesc& texture_desc, const size_t width,
     const size_t height, const size_t depth)
-    : width_(width), height_(height), depth_(depth) {
+    : texture_desc_(texture_desc),
+      width_(width),
+      height_(height),
+      depth_(depth) {
   CHECK_GT(width_, 0);
   CHECK_GT(height_, 0);
   CHECK_GT(depth_, 0);
 
-  memset(&array_, 0, sizeof(array_));
   cudaExtent extent = make_cudaExtent(width_, height_, depth_);
   cudaChannelFormatDesc fmt = cudaCreateChannelDesc<T>();
   CUDA_SAFE_CALL(cudaMalloc3DArray(&array_, &fmt, extent, cudaArrayLayered));
 
-  cudaResourceDesc resource_desc;
-  memset(&resource_desc, 0, sizeof(resource_desc));
-  resource_desc.resType = cudaResourceTypeArray;
-  resource_desc.res.array.array = array_;
+  memset(&resource_desc_, 0, sizeof(resource_desc_));
+  resource_desc_.resType = cudaResourceTypeArray;
+  resource_desc_.res.array.array = array_;
 
-  memset(&texture_, 0, sizeof(texture_));
-  CUDA_SAFE_CALL(cudaCreateTextureObject(&texture_, &resource_desc,
-                                         &texture_desc, nullptr));
+  CUDA_SAFE_CALL(cudaCreateTextureObject(&texture_, &resource_desc_,
+                                         &texture_desc_, nullptr));
 }
 
 template <typename T>
