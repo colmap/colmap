@@ -1415,6 +1415,7 @@ void PatchMatchCuda::BindRefImageTexture() {
   texture_desc.addressMode[1] = cudaAddressModeBorder;
   texture_desc.addressMode[2] = cudaAddressModeBorder;
   texture_desc.filterMode = cudaFilterModePoint;
+  texture_desc.readMode = cudaReadModeNormalizedFloat;
   texture_desc.normalizedCoords = false;
 
   ref_image_texture_.reset(new CudaArrayLayeredTexture<uint8_t>(
