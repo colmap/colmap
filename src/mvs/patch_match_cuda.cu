@@ -1418,8 +1418,8 @@ void PatchMatchCuda::BindRefImageTexture() {
   texture_desc.normalizedCoords = false;
 
   ref_image_texture_.reset(
-      new CudaTexture<uint8_t>(texture_desc, ref_image_->image->GetWidth(),
-                               ref_image_->image->GetHeight(), 1));
+      new CudaArrayTexture<uint8_t>(texture_desc, ref_image_->image->GetWidth(),
+                                    ref_image_->image->GetHeight(), 1));
   ref_image_texture_->CopyFromGpuMat(*ref_image_->image);
 }
 

@@ -44,11 +44,11 @@ namespace colmap {
 namespace mvs {
 
 template <typename T>
-class CudaTexture {
+class CudaArrayTexture {
  public:
-  CudaTexture(const cudaTextureDesc texture_desc, const size_t width,
-              const size_t height, const size_t depth);
-  ~CudaTexture();
+  CudaArrayTexture(const cudaTextureDesc texture_desc, const size_t width,
+                   const size_t height, const size_t depth);
+  ~CudaArrayTexture();
 
   const cudaTextureObject_t& GetObj() const;
   cudaTextureObject_t& GetObj();
@@ -61,9 +61,9 @@ class CudaTexture {
 
  private:
   // Define class as non-copyable and non-movable.
-  CudaTexture(CudaTexture const&) = delete;
-  void operator=(CudaTexture const& obj) = delete;
-  CudaTexture(CudaTexture&&) = delete;
+  CudaArrayTexture(CudaArrayTexture const&) = delete;
+  void operator=(CudaArrayTexture const& obj) = delete;
+  CudaArrayTexture(CudaArrayTexture&&) = delete;
 
   const size_t width_;
   const size_t height_;
@@ -74,9 +74,9 @@ class CudaTexture {
 };
 
 template <typename T>
-CudaTexture<T>::CudaTexture(const cudaTextureDesc texture_desc,
-                            const size_t width, const size_t height,
-                            const size_t depth)
+CudaArrayTexture<T>::CudaArrayTexture(const cudaTextureDesc texture_desc,
+                                      const size_t width, const size_t height,
+                                      const size_t depth)
     : width_(width), height_(height), depth_(depth) {
   CHECK_GT(width_, 0);
   CHECK_GT(height_, 0);
@@ -98,7 +98,7 @@ CudaTexture<T>::CudaTexture(const cudaTextureDesc texture_desc,
 }
 
 template <typename T>
-CudaTexture<T>::~CudaTexture() {
+CudaArrayTexture<T>::~CudaArrayTexture() {
   CUDA_SAFE_CALL(cudaFreeArray(array_));
   memset(&array_, 0, sizeof(array_));
   CUDA_SAFE_CALL(cudaDestroyTextureObject(texture_));
@@ -106,32 +106,32 @@ CudaTexture<T>::~CudaTexture() {
 }
 
 template <typename T>
-const cudaTextureObject_t& CudaTexture<T>::GetObj() const {
+const cudaTextureObject_t& CudaArrayTexture<T>::GetObj() const {
   return texture_;
 }
 
 template <typename T>
-cudaTextureObject_t& CudaTexture<T>::GetObj() {
+cudaTextureObject_t& CudaArrayTexture<T>::GetObj() {
   return texture_;
 }
 
 template <typename T>
-size_t CudaTexture<T>::GetWidth() const {
+size_t CudaArrayTexture<T>::GetWidth() const {
   return width_;
 }
 
 template <typename T>
-size_t CudaTexture<T>::GetHeight() const {
+size_t CudaArrayTexture<T>::GetHeight() const {
   return height_;
 }
 
 template <typename T>
-size_t CudaTexture<T>::GetDepth() const {
+size_t CudaArrayTexture<T>::GetDepth() const {
   return depth_;
 }
 
 template <typename T>
-void CudaTexture<T>::CopyFromGpuMat(const GpuMat<T>& mat) {
+void CudaArrayTexture<T>::CopyFromGpuMat(const GpuMat<T>& mat) {
   CHECK_EQ(mat.GetWidth(), width_);
   CHECK_EQ(mat.GetHeight(), height_);
   CHECK_EQ(mat.GetDepth(), depth_);
