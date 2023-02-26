@@ -46,10 +46,8 @@ namespace mvs {
 template <typename T>
 class CudaArrayLayeredTexture {
  public:
-  CudaArrayLayeredTexture(const cudaTextureDesc& texture_desc,
-                          const size_t width, const size_t height,
-                          const size_t depth);
-  ~CudaArrayLayeredTexture();
+  static std::unique_ptr<CudaArrayLayeredTexture<T>> FromGpuMat(
+      const cudaTextureDesc& texture_desc, const GpuMat<T>& mat);
 
   cudaTextureObject_t GetObj() const;
 
@@ -57,7 +55,10 @@ class CudaArrayLayeredTexture {
   size_t GetHeight() const;
   size_t GetDepth() const;
 
-  void CopyFromGpuMat(const GpuMat<T>& mat);
+  CudaArrayLayeredTexture(const cudaTextureDesc& texture_desc,
+                          const size_t width, const size_t height,
+                          const size_t depth);
+  ~CudaArrayLayeredTexture();
 
  private:
   // Define class as non-copyable and non-movable.
@@ -74,6 +75,26 @@ class CudaArrayLayeredTexture {
   cudaResourceDesc resource_desc_;
   cudaTextureObject_t texture_;
 };
+
+template <typename T>
+std::unique_ptr<CudaArrayLayeredTexture<T>>
+CudaArrayLayeredTexture<T>::FromGpuMat(const cudaTextureDesc& texture_desc,
+                                       const GpuMat<T>& mat) {
+  auto array = std::make_unique<CudaArrayLayeredTexture<T>>(
+      texture_desc, mat.GetWidth(), mat.GetHeight(), mat.GetDepth());
+
+  cudaMemcpy3DParms params;
+  memset(&params, 0, sizeof(params));
+  params.extent =
+      make_cudaExtent(mat.GetWidth(), mat.GetHeight(), mat.GetDepth());
+  params.kind = cudaMemcpyDeviceToDevice;
+  params.srcPtr = make_cudaPitchedPtr((void*)mat.GetPtr(), mat.GetPitch(),
+                                      mat.GetWidth(), mat.GetHeight());
+  params.dstArray = array->array_;
+  CUDA_SAFE_CALL(cudaMemcpy3D(&params));
+
+  return array;
+}
 
 template <typename T>
 CudaArrayLayeredTexture<T>::CudaArrayLayeredTexture(
@@ -123,22 +144,6 @@ size_t CudaArrayLayeredTexture<T>::GetHeight() const {
 template <typename T>
 size_t CudaArrayLayeredTexture<T>::GetDepth() const {
   return depth_;
-}
-
-template <typename T>
-void CudaArrayLayeredTexture<T>::CopyFromGpuMat(const GpuMat<T>& mat) {
-  CHECK_EQ(mat.GetWidth(), width_);
-  CHECK_EQ(mat.GetHeight(), height_);
-  CHECK_EQ(mat.GetDepth(), depth_);
-
-  cudaMemcpy3DParms params;
-  memset(&params, 0, sizeof(params));
-  params.extent = make_cudaExtent(width_, height_, depth_);
-  params.kind = cudaMemcpyDeviceToDevice;
-  params.srcPtr = make_cudaPitchedPtr((void*)mat.GetPtr(), mat.GetPitch(),
-                                      mat.GetWidth(), mat.GetHeight());
-  params.dstArray = array_;
-  CUDA_SAFE_CALL(cudaMemcpy3D(&params));
 }
 
 template <typename T>

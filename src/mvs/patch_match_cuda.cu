@@ -1344,9 +1344,7 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
           if (options_.filter) {
             const bool kFilterPhotoConsistency = true;
             const bool kFilterGeomConsistency = false;
-            std::cout << "CALL_LAST_SWEEP" << std::endl;
             CALL_SWEEP_FUNC
-            std::cout << "DONE_LAST_SWEEP" << std::endl;
           } else {
             // const bool kFilterPhotoConsistency = false;
             // const bool kFilterGeomConsistency = false;
@@ -1360,10 +1358,8 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
           // const bool kGeomConsistencyTerm = true;
           // CALL_SWEEP_FUNC
         } else {
-          std::cout << "CALL_SWEEP" << std::endl;
           const bool kGeomConsistencyTerm = false;
           CALL_SWEEP_FUNC
-          std::cout << "DONE_SWEEP" << std::endl;
         }
       }
 
@@ -1417,11 +1413,8 @@ void PatchMatchCuda::BindRefImageTexture() {
   texture_desc.filterMode = cudaFilterModePoint;
   texture_desc.readMode = cudaReadModeNormalizedFloat;
   texture_desc.normalizedCoords = false;
-
-  ref_image_texture_.reset(new CudaArrayLayeredTexture<uint8_t>(
-      texture_desc, ref_image_->image->GetWidth(),
-      ref_image_->image->GetHeight(), 1));
-  ref_image_texture_->CopyFromGpuMat(*ref_image_->image);
+  ref_image_texture_ = CudaArrayLayeredTexture<uint8_t>::FromGpuMat(
+      texture_desc, *ref_image_->image);
 }
 
 void PatchMatchCuda::InitRefImage() {
@@ -1430,7 +1423,7 @@ void PatchMatchCuda::InitRefImage() {
   ref_width_ = ref_image.GetWidth();
   ref_height_ = ref_image.GetHeight();
 
-  // Upload to device.
+  // Upload to device and filter.
   ref_image_.reset(new GpuMatRefImage(ref_width_, ref_height_));
   const std::vector<uint8_t> ref_image_array =
       ref_image.GetBitmap().ConvertToRowMajorArray();
