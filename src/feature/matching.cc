@@ -1041,7 +1041,7 @@ void SequentialFeatureMatcher::RunSequentialMatching(
 
     image_pairs.clear();
     for (int i = 0; i < options_.overlap; ++i) {
-      const size_t image_idx2 = image_idx1 + i;
+      const size_t image_idx2 = image_idx1 + i + 1;
       if (image_idx2 < image_ids.size()) {
         image_pairs.emplace_back(image_id1, image_ids.at(image_idx2));
         if (options_.quadratic_overlap) {
