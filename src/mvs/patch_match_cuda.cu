@@ -1432,6 +1432,8 @@ void PatchMatchCuda::InitRefImage() {
   ref_image_->Filter(ref_image_array.data(), options_.window_radius,
                      options_.window_step, options_.sigma_spatial,
                      options_.sigma_color);
+
+  BindRefImageTexture();
 }
 
 void PatchMatchCuda::InitSourceImages() {

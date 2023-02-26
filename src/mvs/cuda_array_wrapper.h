@@ -83,8 +83,6 @@ CudaTexture<T>::CudaTexture(const cudaTextureDesc texture_desc,
   CHECK_GT(depth_, 0);
 
   memset(&array_, 0, sizeof(array_));
-  memset(&texture_, 0, sizeof(texture_));
-
   cudaExtent extent = make_cudaExtent(width_, height_, depth_);
   cudaChannelFormatDesc fmt = cudaCreateChannelDesc<T>();
   CUDA_SAFE_CALL(cudaMalloc3DArray(&array_, &fmt, extent, cudaArrayLayered));
@@ -93,8 +91,8 @@ CudaTexture<T>::CudaTexture(const cudaTextureDesc texture_desc,
   memset(&resource_desc, 0, sizeof(resource_desc));
   resource_desc.resType = cudaResourceTypeArray;
   resource_desc.res.array.array = array_;
-  CUDA_SAFE_CALL(cudaCreateTextureObject(&texture_, &resource_desc,
-                                         &texture_desc, nullptr));
+
+  
 }
 
 template <typename T>
@@ -134,7 +132,7 @@ template <typename T>
 void CudaTexture<T>::CopyFromGpuMat(const GpuMat<T>& mat) {
   CHECK_EQ(mat.GetWidth(), width_);
   CHECK_EQ(mat.GetHeight(), height_);
-  CHECK_EQ(mat.GetDepth(), height_);
+  CHECK_EQ(mat.GetDepth(), depth_);
 
   cudaMemcpy3DParms parameters = {0};
   parameters.extent = make_cudaExtent(width_, height_, depth_);
