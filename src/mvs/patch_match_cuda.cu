@@ -223,18 +223,17 @@ __device__ inline float PropagateDepth(const float depth1,
 // First, compute triangulation angle between reference and source image for 3D
 // point. Second, compute incident angle between viewing direction of source
 // image and normal direction of 3D point. Both angles are cosine distances.
-__device__ inline void ComputeViewingAngles(const float point[3],
-                                            const float normal[3],
-                                            const int image_idx,
-                                            float* cos_triangulation_angle,
-                                            float* cos_incident_angle) {
+__device__ inline void ComputeViewingAngles(
+    const cudaTextureObject_t poses_texture, const float point[3],
+    const float normal[3], const int image_idx, float* cos_triangulation_angle,
+    float* cos_incident_angle) {
   *cos_triangulation_angle = 0.0f;
   *cos_incident_angle = 0.0f;
 
   // Projection center of source image.
   float C[3];
   for (int i = 0; i < 3; ++i) {
-    C[i] = tex2D(poses_texture, i + 16, image_idx);
+    C[i] = tex2D<float>(poses_texture, i + 16, image_idx);
   }
 
   // Ray from point to camera.
@@ -250,25 +249,25 @@ __device__ inline void ComputeViewingAngles(const float point[3],
   *cos_triangulation_angle = DotProduct3(SX, point) * RX_inv_norm * SX_inv_norm;
 }
 
-__device__ inline void ComposeHomography(const int image_idx, const int row,
-                                         const int col, const float depth,
-                                         const float normal[3], float H[9]) {
+__device__ inline void ComposeHomography(
+    const cudaTextureObject_t poses_texture, const int image_idx, const int row,
+    const int col, const float depth, const float normal[3], float H[9]) {
   // Calibration of source image.
   float K[4];
   for (int i = 0; i < 4; ++i) {
-    K[i] = tex2D(poses_texture, i, image_idx);
+    K[i] = tex2D<float>(poses_texture, i, image_idx);
   }
 
   // Relative rotation between reference and source image.
   float R[9];
   for (int i = 0; i < 9; ++i) {
-    R[i] = tex2D(poses_texture, i + 4, image_idx);
+    R[i] = tex2D<float>(poses_texture, i + 4, image_idx);
   }
 
   // Relative translation between reference and source image.
   float T[3];
   for (int i = 0; i < 3; ++i) {
-    T[i] = tex2D(poses_texture, i + 13, image_idx);
+    T[i] = tex2D<float>(poses_texture, i + 13, image_idx);
   }
 
   // Distance to the plane.
@@ -398,10 +397,12 @@ struct PhotoConsistencyCostComputer {
 
   __device__ PhotoConsistencyCostComputer(
       const cudaTextureObject_t ref_image_texture,
-      const cudaTextureObject_t src_images_texture, const float sigma_spatial,
+      const cudaTextureObject_t src_images_texture,
+      const cudaTextureObject_t poses_texture, const float sigma_spatial,
       const float sigma_color)
       : local_ref_image(ref_image_texture),
         src_images_texture_(src_images_texture),
+        poses_texture_(poses_texture),
         bilateral_weight_computer_(sigma_spatial, sigma_color) {}
 
   // Maximum photo consistency cost as 1 - min(NCC).
@@ -433,7 +434,8 @@ struct PhotoConsistencyCostComputer {
 
   __device__ inline float Compute() const {
     float tform[9];
-    ComposeHomography(src_image_idx, row, col, depth, normal, tform);
+    ComposeHomography(poses_texture_, src_image_idx, row, col, depth, normal,
+                      tform);
 
     float tform_step[8];
     for (int i = 0; i < 8; ++i) {
@@ -533,21 +535,23 @@ struct PhotoConsistencyCostComputer {
 
  private:
   const cudaTextureObject_t src_images_texture_;
+  const cudaTextureObject_t poses_texture_;
   const BilateralWeightComputer bilateral_weight_computer_;
 };
 
 __device__ inline float ComputeGeomConsistencyCost(
+    const cudaTextureObject_t poses_texture,
     const cudaTextureObject_t src_depth_maps_texture, const float row,
     const float col, const float depth, const int image_idx,
     const float max_cost) {
   // Extract projection matrices for source image.
   float P[12];
   for (int i = 0; i < 12; ++i) {
-    P[i] = tex2D(poses_texture, i + 19, image_idx);
+    P[i] = tex2D<float>(poses_texture, i + 19, image_idx);
   }
   float inv_P[12];
   for (int i = 0; i < 12; ++i) {
-    inv_P[i] = tex2D(poses_texture, i + 31, image_idx);
+    inv_P[i] = tex2D<float>(poses_texture, i + 31, image_idx);
   }
 
   // Project point in reference image to world.
@@ -802,6 +806,7 @@ __global__ void ComputeInitialCost(GpuMat<float> cost_map,
                                    const GpuMat<float> ref_sum_image,
                                    const GpuMat<float> ref_squared_sum_image,
                                    const cudaTextureObject_t src_images_texture,
+                                   const cudaTextureObject_t poses_texture,
                                    const float sigma_spatial,
                                    const float sigma_color) {
   const int col = blockDim.x * blockIdx.x + threadIdx.x;
@@ -809,7 +814,8 @@ __global__ void ComputeInitialCost(GpuMat<float> cost_map,
   typedef PhotoConsistencyCostComputer<kWindowSize, kWindowStep>
       PhotoConsistencyCostComputerType;
   PhotoConsistencyCostComputerType pcc_computer(
-      ref_image_texture, src_images_texture, sigma_spatial, sigma_color);
+      ref_image_texture, src_images_texture, poses_texture, sigma_spatial,
+      sigma_color);
   pcc_computer.col = col;
 
   __shared__ float local_ref_image_data
@@ -872,7 +878,7 @@ __global__ void SweepFromTopToBottom(
     const GpuMat<float> ref_squared_sum_image,
     const cudaTextureObject_t src_images_texture,
     const cudaTextureObject_t src_depth_maps_texture,
-    const SweepOptions options) {
+    const cudaTextureObject_t poses_texture, const SweepOptions options) {
   const int col = blockDim.x * blockIdx.x + threadIdx.x;
 
   // Probability for boundary pixels.
@@ -917,8 +923,8 @@ __global__ void SweepFromTopToBottom(
   typedef PhotoConsistencyCostComputer<kWindowSize, kWindowStep>
       PhotoConsistencyCostComputerType;
   PhotoConsistencyCostComputerType pcc_computer(
-      ref_image_texture, src_images_texture, options.sigma_spatial,
-      options.sigma_color);
+      ref_image_texture, src_images_texture, poses_texture,
+      options.sigma_spatial, options.sigma_color);
   pcc_computer.col = col;
 
   __shared__ float local_ref_image_data
@@ -995,16 +1001,17 @@ __global__ void SweepFromTopToBottom(
 
       float cos_triangulation_angle;
       float cos_incident_angle;
-      ComputeViewingAngles(point, curr_param_state.normal, image_idx,
-                           &cos_triangulation_angle, &cos_incident_angle);
+      ComputeViewingAngles(poses_texture, point, curr_param_state.normal,
+                           image_idx, &cos_triangulation_angle,
+                           &cos_incident_angle);
       const float tri_prob =
           likelihood_computer.ComputeTriProb(cos_triangulation_angle);
       const float inc_prob =
           likelihood_computer.ComputeIncProb(cos_incident_angle);
 
       float H[9];
-      ComposeHomography(image_idx, row, col, curr_param_state.depth,
-                        curr_param_state.normal, H);
+      ComposeHomography(poses_texture, image_idx, row, col,
+                        curr_param_state.depth, curr_param_state.normal, H);
       const float res_prob =
           likelihood_computer.ComputeResolutionProb<kWindowSize>(H, row, col);
 
@@ -1050,9 +1057,9 @@ __global__ void SweepFromTopToBottom(
       if (kGeomConsistencyTerm) {
         costs[0] +=
             options.geom_consistency_regularizer *
-            ComputeGeomConsistencyCost(src_depth_maps_texture, row, col,
-                                       depths[0], pcc_computer.src_image_idx,
-                                       options.geom_consistency_max_cost);
+            ComputeGeomConsistencyCost(
+                poses_texture, src_depth_maps_texture, row, col, depths[0],
+                pcc_computer.src_image_idx, options.geom_consistency_max_cost);
       }
 
       for (int i = 1; i < kNumCosts; ++i) {
@@ -1060,11 +1067,11 @@ __global__ void SweepFromTopToBottom(
         pcc_computer.normal = normals[i];
         costs[i] += pcc_computer.Compute();
         if (kGeomConsistencyTerm) {
-          costs[i] +=
-              options.geom_consistency_regularizer *
-              ComputeGeomConsistencyCost(src_depth_maps_texture, row, col,
-                                         depths[i], pcc_computer.src_image_idx,
-                                         options.geom_consistency_max_cost);
+          costs[i] += options.geom_consistency_regularizer *
+                      ComputeGeomConsistencyCost(
+                          poses_texture, src_depth_maps_texture, row, col,
+                          depths[i], pcc_computer.src_image_idx,
+                          options.geom_consistency_max_cost);
         }
       }
     }
@@ -1117,7 +1124,7 @@ __global__ void SweepFromTopToBottom(
       for (int image_idx = 0; image_idx < cost_map.GetDepth(); ++image_idx) {
         float cos_triangulation_angle;
         float cos_incident_angle;
-        ComputeViewingAngles(best_point, best_normal, image_idx,
+        ComputeViewingAngles(poses_texture, best_point, best_normal, image_idx,
                              &cos_triangulation_angle, &cos_incident_angle);
         if (cos_triangulation_angle > cos_min_triangulation_angle ||
             cos_incident_angle <= 0.0f) {
@@ -1130,8 +1137,8 @@ __global__ void SweepFromTopToBottom(
             num_consistent += 1;
           }
         } else if (!kFilterPhotoConsistency) {
-          if (ComputeGeomConsistencyCost(src_depth_maps_texture, row, col,
-                                         best_depth, image_idx,
+          if (ComputeGeomConsistencyCost(poses_texture, src_depth_maps_texture,
+                                         row, col, best_depth, image_idx,
                                          options.geom_consistency_max_cost) <=
               options.filter_geom_consistency_max_cost) {
             consistency_mask.Set(row, col, image_idx, 1);
@@ -1139,8 +1146,8 @@ __global__ void SweepFromTopToBottom(
           }
         } else {
           if (sel_prob_map.Get(row, col, image_idx) >= min_ncc_prob &&
-              ComputeGeomConsistencyCost(src_depth_maps_texture, row, col,
-                                         best_depth, image_idx,
+              ComputeGeomConsistencyCost(poses_texture, src_depth_maps_texture,
+                                         row, col, best_depth, image_idx,
                                          options.geom_consistency_max_cost) <=
                   options.filter_geom_consistency_max_cost) {
             consistency_mask.Set(row, col, image_idx, 1);
@@ -1184,12 +1191,6 @@ PatchMatchCuda::PatchMatchCuda(const PatchMatchOptions& options,
   InitSourceImages();
   InitTransforms();
   InitWorkspaceMemory();
-}
-
-PatchMatchCuda::~PatchMatchCuda() {
-  for (size_t i = 0; i < 4; ++i) {
-    poses_device_[i].reset();
-  }
 }
 
 void PatchMatchCuda::Run() {
@@ -1276,8 +1277,8 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
       <<<sweep_grid_size_, sweep_block_size_>>>(
           *cost_map_, *depth_map_, *normal_map_, ref_image_texture_->GetObj(),
           *ref_image_->sum_image, *ref_image_->squared_sum_image,
-          src_images_texture_->GetObj(), options_.sigma_spatial,
-          options_.sigma_color);
+          src_images_texture_->GetObj(), poses_texture_[0]->GetObj(),
+          options_.sigma_spatial, options_.sigma_color);
   CUDA_SYNC_AND_CHECK();
 
   init_timer.Print("Initialization");
@@ -1328,7 +1329,7 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
           *prev_sel_prob_map_, ref_image_texture_->GetObj(),                \
           *ref_image_->sum_image, *ref_image_->squared_sum_image,           \
           src_images_texture_->GetObj(), src_depth_maps_texture_->GetObj(), \
-          sweep_options);
+          poses_texture_[rotation_in_half_pi_]->GetObj(), sweep_options);
 
       if (last_sweep) {
         if (options_.filter) {
@@ -1579,6 +1580,15 @@ void PatchMatchCuda::InitTransforms() {
   // Matrix for 90deg rotation around Z-axis in counter-clockwise direction.
   const float R_z90[9] = {0, 1, 0, -1, 0, 0, 0, 0, 1};
 
+  cudaTextureDesc texture_desc;
+  memset(&texture_desc, 0, sizeof(texture_desc));
+  texture_desc.addressMode[0] = cudaAddressModeBorder;
+  texture_desc.addressMode[1] = cudaAddressModeBorder;
+  texture_desc.addressMode[2] = cudaAddressModeBorder;
+  texture_desc.filterMode = cudaFilterModePoint;
+  texture_desc.readMode = cudaReadModeElementType;
+  texture_desc.normalizedCoords = false;
+
   for (size_t i = 0; i < 4; ++i) {
     const size_t kNumTformParams = 4 + 9 + 3 + 3 + 12 + 12;
     std::vector<float> poses_host_data(kNumTformParams *
@@ -1617,20 +1627,12 @@ void PatchMatchCuda::InitTransforms() {
       offset += 12;
     }
 
-    poses_device_[i].reset(new CudaArrayWrapper<float>(
-        kNumTformParams, problem_.src_image_idxs.size(), 1));
-    poses_device_[i]->CopyToDevice(poses_host_data.data());
+    poses_texture_[i] = CudaArrayLayeredTexture<float>::FromHostArray(
+        texture_desc, kNumTformParams, problem_.src_image_idxs.size(), 1,
+        poses_host_data.data());
 
     RotatePose(R_z90, rotated_R, rotated_T);
   }
-
-  poses_texture.addressMode[0] = cudaAddressModeBorder;
-  poses_texture.addressMode[1] = cudaAddressModeBorder;
-  poses_texture.addressMode[2] = cudaAddressModeBorder;
-  poses_texture.filterMode = cudaFilterModePoint;
-  poses_texture.normalized = false;
-  CUDA_SAFE_CALL(
-      cudaBindTextureToArray(poses_texture, poses_device_[0]->GetPtr()));
 }
 
 void PatchMatchCuda::InitWorkspaceMemory() {
@@ -1747,11 +1749,6 @@ void PatchMatchCuda::Rotate() {
     cost_map_->Rotate(rotated_cost_map.get());
     cost_map_.swap(rotated_cost_map);
   }
-
-  // Rotate transformations.
-  CUDA_SAFE_CALL(cudaUnbindTexture(poses_texture));
-  CUDA_SAFE_CALL(cudaBindTextureToArray(
-      poses_texture, poses_device_[rotation_in_half_pi_]->GetPtr()));
 
   // Rotate calibration.
   CUDA_SAFE_CALL(cudaMemcpyToSymbol(ref_K, ref_K_host_[rotation_in_half_pi_],

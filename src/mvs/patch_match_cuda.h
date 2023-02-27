@@ -54,7 +54,6 @@ class PatchMatchCuda {
  public:
   PatchMatchCuda(const PatchMatchOptions& options,
                  const PatchMatch::Problem& problem);
-  ~PatchMatchCuda();
 
   void Run();
 
@@ -116,7 +115,7 @@ class PatchMatchCuda {
   // R, T, C, P, P^-1 denote the relative rotation, translation, camera
   // center, projection, and inverse projection from there reference to the
   // i-th source image.
-  std::unique_ptr<CudaArrayWrapper<float>> poses_device_[4];
+  std::unique_ptr<CudaArrayLayeredTexture<float>> poses_texture_[4];
 
   // Calibration matrix for rotated versions of reference image
   // as {K[0, 0], K[0, 2], K[1, 1], K[1, 2]} corresponding to _rotationInHalfPi.
