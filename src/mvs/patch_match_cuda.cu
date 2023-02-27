@@ -56,10 +56,6 @@
 namespace colmap {
 namespace mvs {
 
-texture<uint8_t, cudaTextureType2DLayered, cudaReadModeNormalizedFloat>
-    src_images_texture;
-texture<float, cudaTextureType2DLayered, cudaReadModeElementType>
-    src_depth_maps_texture;
 texture<float, cudaTextureType2D, cudaReadModeElementType> poses_texture;
 
 // Calibration of reference image as {fx, cx, fy, cy}.
@@ -401,9 +397,11 @@ struct PhotoConsistencyCostComputer {
   const static int kWindowRadius = kWindowSize / 2;
 
   __device__ PhotoConsistencyCostComputer(
-      const cudaTextureObject_t ref_image_texture, const float sigma_spatial,
+      const cudaTextureObject_t ref_image_texture,
+      const cudaTextureObject_t src_images_texture, const float sigma_spatial,
       const float sigma_color)
       : local_ref_image(ref_image_texture),
+        src_images_texture_(src_images_texture),
         bilateral_weight_computer_(sigma_spatial, sigma_color) {}
 
   // Maximum photo consistency cost as 1 - min(NCC).
@@ -473,8 +471,8 @@ struct PhotoConsistencyCostComputer {
         const float norm_col_src = inv_z * col_src + 0.5f;
         const float norm_row_src = inv_z * row_src + 0.5f;
         const float ref_color = local_ref_image.data[ref_image_idx];
-        const float src_color = tex2DLayered(src_images_texture, norm_col_src,
-                                             norm_row_src, src_image_idx);
+        const float src_color = tex2DLayered<float>(
+            src_images_texture_, norm_col_src, norm_row_src, src_image_idx);
 
         const float bilateral_weight = bilateral_weight_computer_.Compute(
             row, col, ref_center_color, ref_color);
@@ -534,14 +532,14 @@ struct PhotoConsistencyCostComputer {
   }
 
  private:
+  const cudaTextureObject_t src_images_texture_;
   const BilateralWeightComputer bilateral_weight_computer_;
 };
 
-__device__ inline float ComputeGeomConsistencyCost(const float row,
-                                                   const float col,
-                                                   const float depth,
-                                                   const int image_idx,
-                                                   const float max_cost) {
+__device__ inline float ComputeGeomConsistencyCost(
+    const cudaTextureObject_t src_depth_maps_texture, const float row,
+    const float col, const float depth, const int image_idx,
+    const float max_cost) {
   // Extract projection matrices for source image.
   float P[12];
   for (int i = 0; i < 12; ++i) {
@@ -568,8 +566,8 @@ __device__ inline float ComputeGeomConsistencyCost(const float row,
                        P[6] * forward_point[2] + P[7]);
 
   // Extract depth in source image.
-  const float src_depth = tex2DLayered(src_depth_maps_texture, src_col + 0.5f,
-                                       src_row + 0.5f, image_idx);
+  const float src_depth = tex2DLayered<float>(
+      src_depth_maps_texture, src_col + 0.5f, src_row + 0.5f, image_idx);
 
   // Projection outside of source image.
   if (src_depth == 0.0f) {
@@ -803,14 +801,15 @@ __global__ void ComputeInitialCost(GpuMat<float> cost_map,
                                    const cudaTextureObject_t ref_image_texture,
                                    const GpuMat<float> ref_sum_image,
                                    const GpuMat<float> ref_squared_sum_image,
+                                   const cudaTextureObject_t src_images_texture,
                                    const float sigma_spatial,
                                    const float sigma_color) {
   const int col = blockDim.x * blockIdx.x + threadIdx.x;
 
   typedef PhotoConsistencyCostComputer<kWindowSize, kWindowStep>
       PhotoConsistencyCostComputerType;
-  PhotoConsistencyCostComputerType pcc_computer(ref_image_texture,
-                                                sigma_spatial, sigma_color);
+  PhotoConsistencyCostComputerType pcc_computer(
+      ref_image_texture, src_images_texture, sigma_spatial, sigma_color);
   pcc_computer.col = col;
 
   __shared__ float local_ref_image_data
@@ -870,7 +869,10 @@ __global__ void SweepFromTopToBottom(
     const GpuMat<float> prev_sel_prob_map,
     const cudaTextureObject_t ref_image_texture,
     const GpuMat<float> ref_sum_image,
-    const GpuMat<float> ref_squared_sum_image, const SweepOptions options) {
+    const GpuMat<float> ref_squared_sum_image,
+    const cudaTextureObject_t src_images_texture,
+    const cudaTextureObject_t src_depth_maps_texture,
+    const SweepOptions options) {
   const int col = blockDim.x * blockIdx.x + threadIdx.x;
 
   // Probability for boundary pixels.
@@ -915,7 +917,8 @@ __global__ void SweepFromTopToBottom(
   typedef PhotoConsistencyCostComputer<kWindowSize, kWindowStep>
       PhotoConsistencyCostComputerType;
   PhotoConsistencyCostComputerType pcc_computer(
-      ref_image_texture, options.sigma_spatial, options.sigma_color);
+      ref_image_texture, src_images_texture, options.sigma_spatial,
+      options.sigma_color);
   pcc_computer.col = col;
 
   __shared__ float local_ref_image_data
@@ -1045,10 +1048,11 @@ __global__ void SweepFromTopToBottom(
 
       costs[0] += cost_map.Get(row, col, pcc_computer.src_image_idx);
       if (kGeomConsistencyTerm) {
-        costs[0] += options.geom_consistency_regularizer *
-                    ComputeGeomConsistencyCost(
-                        row, col, depths[0], pcc_computer.src_image_idx,
-                        options.geom_consistency_max_cost);
+        costs[0] +=
+            options.geom_consistency_regularizer *
+            ComputeGeomConsistencyCost(src_depth_maps_texture, row, col,
+                                       depths[0], pcc_computer.src_image_idx,
+                                       options.geom_consistency_max_cost);
       }
 
       for (int i = 1; i < kNumCosts; ++i) {
@@ -1056,10 +1060,11 @@ __global__ void SweepFromTopToBottom(
         pcc_computer.normal = normals[i];
         costs[i] += pcc_computer.Compute();
         if (kGeomConsistencyTerm) {
-          costs[i] += options.geom_consistency_regularizer *
-                      ComputeGeomConsistencyCost(
-                          row, col, depths[i], pcc_computer.src_image_idx,
-                          options.geom_consistency_max_cost);
+          costs[i] +=
+              options.geom_consistency_regularizer *
+              ComputeGeomConsistencyCost(src_depth_maps_texture, row, col,
+                                         depths[i], pcc_computer.src_image_idx,
+                                         options.geom_consistency_max_cost);
         }
       }
     }
@@ -1125,7 +1130,8 @@ __global__ void SweepFromTopToBottom(
             num_consistent += 1;
           }
         } else if (!kFilterPhotoConsistency) {
-          if (ComputeGeomConsistencyCost(row, col, best_depth, image_idx,
+          if (ComputeGeomConsistencyCost(src_depth_maps_texture, row, col,
+                                         best_depth, image_idx,
                                          options.geom_consistency_max_cost) <=
               options.filter_geom_consistency_max_cost) {
             consistency_mask.Set(row, col, image_idx, 1);
@@ -1133,7 +1139,8 @@ __global__ void SweepFromTopToBottom(
           }
         } else {
           if (sel_prob_map.Get(row, col, image_idx) >= min_ncc_prob &&
-              ComputeGeomConsistencyCost(row, col, best_depth, image_idx,
+              ComputeGeomConsistencyCost(src_depth_maps_texture, row, col,
+                                         best_depth, image_idx,
                                          options.geom_consistency_max_cost) <=
                   options.filter_geom_consistency_max_cost) {
             consistency_mask.Set(row, col, image_idx, 1);
@@ -1269,7 +1276,8 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
       <<<sweep_grid_size_, sweep_block_size_>>>(
           *cost_map_, *depth_map_, *normal_map_, ref_image_texture_->GetObj(),
           *ref_image_->sum_image, *ref_image_->squared_sum_image,
-          options_.sigma_spatial, options_.sigma_color);
+          src_images_texture_->GetObj(), options_.sigma_spatial,
+          options_.sigma_color);
   CUDA_SYNC_AND_CHECK();
 
   init_timer.Print("Initialization");
@@ -1311,14 +1319,15 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
 
       const bool last_sweep = iter == options_.num_iterations - 1 && sweep == 3;
 
-#define CALL_SWEEP_FUNC                                                  \
-  SweepFromTopToBottom<kWindowSize, kWindowStep, kGeomConsistencyTerm,   \
-                       kFilterPhotoConsistency, kFilterGeomConsistency>  \
-      <<<sweep_grid_size_, sweep_block_size_>>>(                         \
-          *global_workspace_, *rand_state_map_, *cost_map_, *depth_map_, \
-          *normal_map_, *consistency_mask_, *sel_prob_map_,              \
-          *prev_sel_prob_map_, ref_image_texture_->GetObj(),             \
-          *ref_image_->sum_image, *ref_image_->squared_sum_image,        \
+#define CALL_SWEEP_FUNC                                                     \
+  SweepFromTopToBottom<kWindowSize, kWindowStep, kGeomConsistencyTerm,      \
+                       kFilterPhotoConsistency, kFilterGeomConsistency>     \
+      <<<sweep_grid_size_, sweep_block_size_>>>(                            \
+          *global_workspace_, *rand_state_map_, *cost_map_, *depth_map_,    \
+          *normal_map_, *consistency_mask_, *sel_prob_map_,                 \
+          *prev_sel_prob_map_, ref_image_texture_->GetObj(),                \
+          *ref_image_->sum_image, *ref_image_->squared_sum_image,           \
+          src_images_texture_->GetObj(), src_depth_maps_texture_->GetObj(), \
           sweep_options);
 
       if (last_sweep) {
@@ -1466,19 +1475,18 @@ void PatchMatchCuda::InitSourceImages() {
       }
     }
 
-    // Upload to device.
-    src_images_device_.reset(new CudaArrayWrapper<uint8_t>(
-        max_width, max_height, problem_.src_image_idxs.size()));
-    src_images_device_->CopyToDevice(src_images_host_data.data());
-
     // Create source images texture.
-    src_images_texture.addressMode[0] = cudaAddressModeBorder;
-    src_images_texture.addressMode[1] = cudaAddressModeBorder;
-    src_images_texture.addressMode[2] = cudaAddressModeBorder;
-    src_images_texture.filterMode = cudaFilterModeLinear;
-    src_images_texture.normalized = false;
-    CUDA_SAFE_CALL(cudaBindTextureToArray(src_images_texture,
-                                          src_images_device_->GetPtr()));
+    cudaTextureDesc texture_desc;
+    memset(&texture_desc, 0, sizeof(texture_desc));
+    texture_desc.addressMode[0] = cudaAddressModeBorder;
+    texture_desc.addressMode[1] = cudaAddressModeBorder;
+    texture_desc.addressMode[2] = cudaAddressModeBorder;
+    texture_desc.filterMode = cudaFilterModeLinear;
+    texture_desc.readMode = cudaReadModeNormalizedFloat;
+    texture_desc.normalizedCoords = false;
+    src_images_texture_ = CudaArrayLayeredTexture<uint8_t>::FromHostArray(
+        texture_desc, max_width, max_height, problem_.src_image_idxs.size(),
+        src_images_host_data.data());
   }
 
   // Upload source depth maps to device.
@@ -1500,19 +1508,18 @@ void PatchMatchCuda::InitSourceImages() {
       }
     }
 
-    src_depth_maps_device_.reset(new CudaArrayWrapper<float>(
-        max_width, max_height, problem_.src_image_idxs.size()));
-    src_depth_maps_device_->CopyToDevice(src_depth_maps_host_data.data());
-
     // Create source depth maps texture.
-    src_depth_maps_texture.addressMode[0] = cudaAddressModeBorder;
-    src_depth_maps_texture.addressMode[1] = cudaAddressModeBorder;
-    src_depth_maps_texture.addressMode[2] = cudaAddressModeBorder;
-    // TODO: Check if linear interpolation improves results or not.
-    src_depth_maps_texture.filterMode = cudaFilterModePoint;
-    src_depth_maps_texture.normalized = false;
-    CUDA_SAFE_CALL(cudaBindTextureToArray(src_depth_maps_texture,
-                                          src_depth_maps_device_->GetPtr()));
+    cudaTextureDesc texture_desc;
+    memset(&texture_desc, 0, sizeof(texture_desc));
+    texture_desc.addressMode[0] = cudaAddressModeBorder;
+    texture_desc.addressMode[1] = cudaAddressModeBorder;
+    texture_desc.addressMode[2] = cudaAddressModeBorder;
+    texture_desc.filterMode = cudaFilterModePoint;
+    texture_desc.readMode = cudaReadModeElementType;
+    texture_desc.normalizedCoords = false;
+    src_depth_maps_texture_ = CudaArrayLayeredTexture<float>::FromHostArray(
+        texture_desc, max_width, max_height, problem_.src_image_idxs.size(),
+        src_depth_maps_host_data.data());
   }
 }
 

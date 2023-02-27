@@ -99,8 +99,8 @@ class PatchMatchCuda {
 
   // Reference and source image input data.
   std::unique_ptr<CudaArrayLayeredTexture<uint8_t>> ref_image_texture_;
-  std::unique_ptr<CudaArrayWrapper<uint8_t>> src_images_device_;
-  std::unique_ptr<CudaArrayWrapper<float>> src_depth_maps_device_;
+  std::unique_ptr<CudaArrayLayeredTexture<uint8_t>> src_images_texture_;
+  std::unique_ptr<CudaArrayLayeredTexture<float>> src_depth_maps_texture_;
 
   // Relative poses from rotated versions of reference image to source images
   // corresponding to _rotationInHalfPi:
