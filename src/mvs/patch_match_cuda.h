@@ -38,7 +38,7 @@
 
 #include <cuda_runtime.h>
 
-#include "mvs/cuda_array_wrapper.h"
+#include "mvs/cuda_texture.h"
 #include "mvs/depth_map.h"
 #include "mvs/gpu_mat.h"
 #include "mvs/gpu_mat_prng.h"
