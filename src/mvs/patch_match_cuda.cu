@@ -56,8 +56,6 @@
 namespace colmap {
 namespace mvs {
 
-texture<float, cudaTextureType2D, cudaReadModeElementType> poses_texture;
-
 // Calibration of reference image as {fx, cx, fy, cy}.
 __constant__ float ref_K[4];
 // Calibration of reference image as {1/fx, -cx/fx, 1/fy, -cy/fy}.
@@ -1202,7 +1200,26 @@ void PatchMatchCuda::Run() {
 #define CASE_WINDOW_STEP(window_step)                                \
   case window_step:                                                  \
     switch (options_.window_radius) {                                \
+      CASE_WINDOW_RADIUS(1, window_step)                             \
+      CASE_WINDOW_RADIUS(2, window_step)                             \
+      CASE_WINDOW_RADIUS(3, window_step)                             \
+      CASE_WINDOW_RADIUS(4, window_step)                             \
       CASE_WINDOW_RADIUS(5, window_step)                             \
+      CASE_WINDOW_RADIUS(6, window_step)                             \
+      CASE_WINDOW_RADIUS(7, window_step)                             \
+      CASE_WINDOW_RADIUS(8, window_step)                             \
+      CASE_WINDOW_RADIUS(9, window_step)                             \
+      CASE_WINDOW_RADIUS(10, window_step)                            \
+      CASE_WINDOW_RADIUS(11, window_step)                            \
+      CASE_WINDOW_RADIUS(12, window_step)                            \
+      CASE_WINDOW_RADIUS(13, window_step)                            \
+      CASE_WINDOW_RADIUS(14, window_step)                            \
+      CASE_WINDOW_RADIUS(15, window_step)                            \
+      CASE_WINDOW_RADIUS(16, window_step)                            \
+      CASE_WINDOW_RADIUS(17, window_step)                            \
+      CASE_WINDOW_RADIUS(18, window_step)                            \
+      CASE_WINDOW_RADIUS(19, window_step)                            \
+      CASE_WINDOW_RADIUS(20, window_step)                            \
       default: {                                                     \
         std::cerr << "Error: Window size " << options_.window_radius \
                   << " not supported" << std::endl;                  \
@@ -1213,7 +1230,7 @@ void PatchMatchCuda::Run() {
 
   switch (options_.window_step) {
     CASE_WINDOW_STEP(1)
-    // CASE_WINDOW_STEP(2)
+    CASE_WINDOW_STEP(2)
     default: {
       std::cerr << "Error: Window step " << options_.window_step
                 << " not supported" << std::endl;
@@ -1320,15 +1337,18 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
 
       const bool last_sweep = iter == options_.num_iterations - 1 && sweep == 3;
 
-#define CALL_SWEEP_FUNC                                                     \
-  SweepFromTopToBottom<kWindowSize, kWindowStep, kGeomConsistencyTerm,      \
-                       kFilterPhotoConsistency, kFilterGeomConsistency>     \
-      <<<sweep_grid_size_, sweep_block_size_>>>(                            \
-          *global_workspace_, *rand_state_map_, *cost_map_, *depth_map_,    \
-          *normal_map_, *consistency_mask_, *sel_prob_map_,                 \
-          *prev_sel_prob_map_, ref_image_texture_->GetObj(),                \
-          *ref_image_->sum_image, *ref_image_->squared_sum_image,           \
-          src_images_texture_->GetObj(), src_depth_maps_texture_->GetObj(), \
+#define CALL_SWEEP_FUNC                                                  \
+  SweepFromTopToBottom<kWindowSize, kWindowStep, kGeomConsistencyTerm,   \
+                       kFilterPhotoConsistency, kFilterGeomConsistency>  \
+      <<<sweep_grid_size_, sweep_block_size_>>>(                         \
+          *global_workspace_, *rand_state_map_, *cost_map_, *depth_map_, \
+          *normal_map_, *consistency_mask_, *sel_prob_map_,              \
+          *prev_sel_prob_map_, ref_image_texture_->GetObj(),             \
+          *ref_image_->sum_image, *ref_image_->squared_sum_image,        \
+          src_images_texture_->GetObj(),                                 \
+          src_depth_maps_texture_ == nullptr                             \
+              ? 0                                                        \
+              : src_depth_maps_texture_->GetObj(),                       \
           poses_texture_[rotation_in_half_pi_]->GetObj(), sweep_options);
 
       if (last_sweep) {
@@ -1339,16 +1359,16 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
           consistency_mask_->FillWithScalar(0);
         }
         if (options_.geom_consistency) {
-          // const bool kGeomConsistencyTerm = true;
-          // if (options_.filter) {
-          //   const bool kFilterPhotoConsistency = true;
-          //   const bool kFilterGeomConsistency = true;
-          //   CALL_SWEEP_FUNC
-          // } else {
-          //   const bool kFilterPhotoConsistency = false;
-          //   const bool kFilterGeomConsistency = false;
-          //   CALL_SWEEP_FUNC
-          // }
+          const bool kGeomConsistencyTerm = true;
+          if (options_.filter) {
+            const bool kFilterPhotoConsistency = true;
+            const bool kFilterGeomConsistency = true;
+            CALL_SWEEP_FUNC
+          } else {
+            const bool kFilterPhotoConsistency = false;
+            const bool kFilterGeomConsistency = false;
+            CALL_SWEEP_FUNC
+          }
         } else {
           const bool kGeomConsistencyTerm = false;
           if (options_.filter) {
@@ -1356,17 +1376,17 @@ void PatchMatchCuda::RunWithWindowSizeAndStep() {
             const bool kFilterGeomConsistency = false;
             CALL_SWEEP_FUNC
           } else {
-            // const bool kFilterPhotoConsistency = false;
-            // const bool kFilterGeomConsistency = false;
-            // CALL_SWEEP_FUNC
+            const bool kFilterPhotoConsistency = false;
+            const bool kFilterGeomConsistency = false;
+            CALL_SWEEP_FUNC
           }
         }
       } else {
         const bool kFilterPhotoConsistency = false;
         const bool kFilterGeomConsistency = false;
         if (options_.geom_consistency) {
-          // const bool kGeomConsistencyTerm = true;
-          // CALL_SWEEP_FUNC
+          const bool kGeomConsistencyTerm = true;
+          CALL_SWEEP_FUNC
         } else {
           const bool kGeomConsistencyTerm = false;
           CALL_SWEEP_FUNC
