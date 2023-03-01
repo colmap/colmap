@@ -1683,9 +1683,6 @@ void ProgramCU::MultiplyDescriptorG(CuTexImage* des1, CuTexImage* des2,
 												MatH, hdistmax, MatF, fdistmax);
 }
 
-
-texture<int,  1, cudaReadModeElementType> texDOT;
-
 #define ROWMATCH_BLOCK_WIDTH 32
 #define ROWMATCH_BLOCK_HEIGHT 1
 
@@ -1755,14 +1752,11 @@ void ProgramCU::GetRowMatch(CuTexImage* texDot, CuTexImage* texMatch, float dist
 	int num2 = texDot->GetImgWidth();
 	dim3 grid(1, num1/ROWMATCH_BLOCK_HEIGHT);
 	dim3 block(ROWMATCH_BLOCK_WIDTH, ROWMATCH_BLOCK_HEIGHT);
-	// texDot->BindTexture(texDOT);
 	RowMatch_Kernel<<<grid, block>>>((int*)texDot->_cuData,
 		(int*)texMatch->_cuData, num2, distmax, ratiomax);
 }
 
 #define COLMATCH_BLOCK_WIDTH 32
-
-//texture<int3,  1, cudaReadModeElementType> texCT;
 
 void __global__  ColMatch_Kernel(int3*d_crt, int* d_result, int height, int num2, float distmax, float ratiomax)
 {
