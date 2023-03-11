@@ -98,19 +98,30 @@
 
 
 __device__ __constant__ float d_kernel[KERNEL_MAX_WIDTH];
-texture<float, 1, cudaReadModeElementType> texData;
 texture<unsigned char, 1, cudaReadModeNormalizedFloat> texDataB;
 texture<float2, 2, cudaReadModeElementType> texDataF2;
 texture<float4, 1, cudaReadModeElementType> texDataF4;
 texture<int4, 1, cudaReadModeElementType> texDataI4;
 texture<int4, 1, cudaReadModeElementType> texDataList;
 
+const static cudaTextureDesc texDataDesc = []() {
+  cudaTextureDesc textureDesc;
+  memset(&textureDesc, 0, sizeof(textureDesc));
+  textureDesc.readMode = cudaReadModeElementType;
+  textureDesc.addressMode[0] = cudaAddressModeClamp;
+  textureDesc.addressMode[1] = cudaAddressModeClamp;
+  textureDesc.addressMode[2] = cudaAddressModeClamp;
+  textureDesc.filterMode = cudaFilterModePoint;
+  textureDesc.normalizedCoords = false;
+  return textureDesc;
+}();
+
 //template<int i>	 __device__ float Conv(float *data)		{    return Conv<i-1>(data) + data[i]*d_kernel[i];}
 //template<>		__device__ float Conv<0>(float *data)	{    return data[0] * d_kernel[0];					}
 
 
 //////////////////////////////////////////////////////////////
-template<int FW> __global__ void FilterH( float* d_result, int width)
+template<int FW> __global__ void FilterH(cudaTextureObject_t texData, float* d_result, int width)
 {
 
 	const int HALF_WIDTH = FW >> 1;
@@ -130,7 +141,7 @@ template<int FW> __global__ void FilterH( float* d_result, int width)
 		if(cache_index < CACHE_WIDTH)
 		{
 			int fetch_index = src_index < index_min? index_min : (src_index > index_max ? index_max : src_index);
-			data[cache_index] = tex1Dfetch(texData,fetch_index);
+			data[cache_index] = tex1D<float>(texData,fetch_index);
 			src_index += FILTERH_TILE_WIDTH;
 			cache_index += FILTERH_TILE_WIDTH;
 		}
@@ -149,7 +160,7 @@ template<int FW> __global__ void FilterH( float* d_result, int width)
 
 
 ////////////////////////////////////////////////////////////////////
-template<int  FW>  __global__ void FilterV(float* d_result, int width, int height)
+template<int  FW>  __global__ void FilterV(cudaTextureObject_t texData, float* d_result, int width, int height)
 {
 	const int HALF_WIDTH = FW >> 1;
 	const int CACHE_WIDTH = FW + FILTERV_TILE_HEIGHT - 1;
@@ -188,7 +199,7 @@ template<int  FW>  __global__ void FilterV(float* d_result, int width, int heigh
 			if(cache_col_start < CACHE_WIDTH - i * FILTERV_BLOCK_HEIGHT)
 			{
 				int fetch_index = data_index < col ? col : (data_index > data_index_max? data_index_max : data_index);
-				data[cache_index + i * FILTERV_BLOCK_HEIGHT] = tex1Dfetch(texData,fetch_index);
+				data[cache_index + i * FILTERV_BLOCK_HEIGHT] = tex1D<float>(texData,fetch_index);
 				data_index += IMUL(FILTERV_BLOCK_HEIGHT, width);
 			}
 		}
@@ -218,7 +229,7 @@ template<int  FW>  __global__ void FilterV(float* d_result, int width, int heigh
 }
 
 
-template<int LOG_SCALE> __global__ void UpsampleKernel(float* d_result, int width)
+template<int LOG_SCALE> __global__ void UpsampleKernel(cudaTextureObject_t texData, float* d_result, int width)
 {
 	const int SCALE = (1 << LOG_SCALE), SCALE_MASK = (SCALE - 1);
 	const float INV_SCALE = 1.0f / (float(SCALE));
@@ -232,11 +243,11 @@ template<int LOG_SCALE> __global__ void UpsampleKernel(float* d_result, int widt
 	int helper = blockIdx.y & SCALE_MASK;
 	if (helper)
 	{
-		float v11 = tex1Dfetch(texData, index);
-		float v12 = tex1Dfetch(texData, index + 1);
+		float v11 = tex1D<float>(texData, index);
+		float v12 = tex1D<float>(texData, index + 1);
 		index += width;
-		float v21 = tex1Dfetch(texData, index);
-		float v22 = tex1Dfetch(texData, index + 1);
+		float v21 = tex1D<float>(texData, index);
+		float v22 = tex1D<float>(texData, index + 1);
 		float w1 = INV_SCALE * helper, w2 = 1.0 - w1;
 		float v1 = (v21 * w1  + w2 * v11);
 		float v2 = (v22 * w1  + w2 * v12);
@@ -250,8 +261,8 @@ template<int LOG_SCALE> __global__ void UpsampleKernel(float* d_result, int widt
 		}
 	}else
 	{
-		float v1 = tex1Dfetch(texData, index);
-		float v2 = tex1Dfetch(texData, index + 1);
+		float v1 = tex1D<float>(texData, index);
+		float v2 = tex1D<float>(texData, index + 1);
 		d_result[dst_idx] = v1;
 #pragma unroll
 		for(int i = 1; i < SCALE; ++i)
@@ -268,19 +279,19 @@ template<int LOG_SCALE> __global__ void UpsampleKernel(float* d_result, int widt
 void ProgramCU::SampleImageU(CuTexImage *dst, CuTexImage *src, int log_scale)
 {
 	int width = src->GetImgWidth(), height = src->GetImgHeight();
-	src->BindTexture(texData);
+	CuTexImage::CuTexObj srcTex = src->BindTexture(texDataDesc);
 	dim3 grid((width +  FILTERH_TILE_WIDTH - 1)/ FILTERH_TILE_WIDTH, height << log_scale);
 	dim3 block(FILTERH_TILE_WIDTH);
 	switch(log_scale)
 	{
-	case 1 : 	UpsampleKernel<1> <<< grid, block>>> ((float*) dst->_cuData, width);	break;
-	case 2 : 	UpsampleKernel<2> <<< grid, block>>> ((float*) dst->_cuData, width);	break;
-	case 3 : 	UpsampleKernel<3> <<< grid, block>>> ((float*) dst->_cuData, width);	break;
+	case 1 : 	UpsampleKernel<1> <<< grid, block>>> (srcTex.handle, (float*) dst->_cuData, width);	break;
+	case 2 : 	UpsampleKernel<2> <<< grid, block>>> (srcTex.handle, (float*) dst->_cuData, width);	break;
+	case 3 : 	UpsampleKernel<3> <<< grid, block>>> (srcTex.handle, (float*) dst->_cuData, width);	break;
 	default:	break;
 	}
 }
 
-template<int LOG_SCALE> __global__ void DownsampleKernel(float* d_result, int src_width, int dst_width)
+template<int LOG_SCALE> __global__ void DownsampleKernel(cudaTextureObject_t texData, float* d_result, int src_width, int dst_width)
 {
 	const int dst_col = IMUL(blockIdx.x, FILTERH_TILE_WIDTH) + threadIdx.x;
 	if(dst_col >= dst_width) return;
@@ -289,11 +300,11 @@ template<int LOG_SCALE> __global__ void DownsampleKernel(float* d_result, int sr
 	const int src_row = blockIdx.y << LOG_SCALE;
 	const int src_idx = IMUL(src_row, src_width) + src_col;
 	const int dst_idx = IMUL(dst_width, dst_row) + dst_col;
-	d_result[dst_idx] = tex1Dfetch(texData, src_idx);
+	d_result[dst_idx] = tex1D<float>(texData, src_idx);
 
 }
 
-__global__ void DownsampleKernel(float* d_result, int src_width, int dst_width, const int log_scale)
+__global__ void DownsampleKernel(cudaTextureObject_t texData, float* d_result, int src_width, int dst_width, const int log_scale)
 {
 	const int dst_col = IMUL(blockIdx.x, FILTERH_TILE_WIDTH) + threadIdx.x;
 	if(dst_col >= dst_width) return;
@@ -302,7 +313,7 @@ __global__ void DownsampleKernel(float* d_result, int src_width, int dst_width, 
 	const int src_row = blockIdx.y << log_scale;
 	const int src_idx = IMUL(src_row, src_width) + src_col;
 	const int dst_idx = IMUL(dst_width, dst_row) + dst_col;
-	d_result[dst_idx] = tex1Dfetch(texData, src_idx);
+	d_result[dst_idx] = tex1D<float>(texData, src_idx);
 
 }
 
@@ -310,22 +321,22 @@ void ProgramCU::SampleImageD(CuTexImage *dst, CuTexImage *src, int log_scale)
 {
 	int src_width = src->GetImgWidth(), dst_width = dst->GetImgWidth() ;
 
-	src->BindTexture(texData);
+	CuTexImage::CuTexObj srcTex = src->BindTexture(texDataDesc);
 	dim3 grid((dst_width +  FILTERH_TILE_WIDTH - 1)/ FILTERH_TILE_WIDTH, dst->GetImgHeight());
 	dim3 block(FILTERH_TILE_WIDTH);
 	switch(log_scale)
 	{
-	case 1 : 	DownsampleKernel<1> <<< grid, block>>> ((float*) dst->_cuData, src_width, dst_width);	break;
-	case 2 :	DownsampleKernel<2> <<< grid, block>>> ((float*) dst->_cuData, src_width, dst_width);	break;
-	case 3 : 	DownsampleKernel<3> <<< grid, block>>> ((float*) dst->_cuData, src_width, dst_width);	break;
-	default:	DownsampleKernel    <<< grid, block>>> ((float*) dst->_cuData, src_width, dst_width, log_scale);
+	case 1 : 	DownsampleKernel<1> <<< grid, block>>> (srcTex.handle, (float*) dst->_cuData, src_width, dst_width);	break;
+	case 2 :	DownsampleKernel<2> <<< grid, block>>> (srcTex.handle, (float*) dst->_cuData, src_width, dst_width);	break;
+	case 3 : 	DownsampleKernel<3> <<< grid, block>>> (srcTex.handle, (float*) dst->_cuData, src_width, dst_width);	break;
+	default:	DownsampleKernel    <<< grid, block>>> (srcTex.handle, (float*) dst->_cuData, src_width, dst_width, log_scale);
 	}
 }
 
-__global__ void ChannelReduce_Kernel(float* d_result)
+__global__ void ChannelReduce_Kernel(cudaTextureObject_t texData, float* d_result)
 {
 	int index = IMUL(blockIdx.x, FILTERH_TILE_WIDTH) + threadIdx.x;
-	d_result[index] = tex1Dfetch(texData, index*4);
+	d_result[index] = tex1D<float>(texData, index*4);
 }
 
 __global__ void ChannelReduce_Convert_Kernel(float* d_result)
@@ -347,8 +358,8 @@ void ProgramCU::ReduceToSingleChannel(CuTexImage* dst, CuTexImage* src, int conv
 		ChannelReduce_Convert_Kernel<<<grid, block>>>((float*)dst->_cuData);
 	}else
 	{
-		src->BindTexture(texData);
-		ChannelReduce_Kernel<<<grid, block>>>((float*)dst->_cuData);
+		CuTexImage::CuTexObj srcTex = src->BindTexture(texDataDesc);
+		ChannelReduce_Kernel<<<grid, block>>>(srcTex.handle, (float*)dst->_cuData);
 	}
 }
 
@@ -403,17 +414,17 @@ template<int FW> void ProgramCU::FilterImage(CuTexImage *dst, CuTexImage *src, C
 	int width = src->GetImgWidth(), height = src->GetImgHeight();
 
 	//horizontal filtering
-	src->BindTexture(texData);
+	CuTexImage::CuTexObj srcTex = src->BindTexture(texDataDesc);
 	dim3 gridh((width +  FILTERH_TILE_WIDTH - 1)/ FILTERH_TILE_WIDTH, height);
 	dim3 blockh(FILTERH_TILE_WIDTH);
-	FilterH<FW><<<gridh, blockh>>>((float*)buf->_cuData, width);
+	FilterH<FW><<<gridh, blockh>>>(srcTex.handle, (float*)buf->_cuData, width);
 	CheckErrorCUDA("FilterH");
 
 	///vertical filtering
-	buf->BindTexture(texData);
+	CuTexImage::CuTexObj bufTex = buf->BindTexture(texDataDesc);
 	dim3 gridv((width + FILTERV_TILE_WIDTH - 1)/ FILTERV_TILE_WIDTH,  (height + FILTERV_TILE_HEIGHT - 1)/FILTERV_TILE_HEIGHT);
 	dim3 blockv(FILTERV_TILE_WIDTH, FILTERV_BLOCK_HEIGHT);
-	FilterV<FW><<<gridv, blockv>>>((float*)dst->_cuData, width, height);
+	FilterV<FW><<<gridv, blockv>>>(bufTex.handle, (float*)dst->_cuData, width, height);
 	CheckErrorCUDA("FilterV");
 }
 
@@ -1213,14 +1224,14 @@ int ProgramCU::CheckErrorCUDA(const char* location)
     }
 }
 
-void __global__ ConvertDOG_Kernel(float* d_result, int width, int height)
+void __global__ ConvertDOG_Kernel(cudaTextureObject_t texData, float* d_result, int width, int height)
 {
 	int row = (blockIdx.y << BLOCK_LOG_DIM) + threadIdx.y;
 	int col = (blockIdx.x << BLOCK_LOG_DIM) + threadIdx.x;
 	if(col < width && row < height)
 	{
 		int index = row * width  + col;
-		float v = tex1Dfetch(texData, index);
+		float v = tex1D<float>(texData, index);
 		d_result[index] = (col == 0 || row == 0 || col == width -1 || row == height -1)?
 			0.5 : saturate(0.5+20.0*v);
 	}
@@ -1230,21 +1241,21 @@ void ProgramCU::DisplayConvertDOG(CuTexImage* dog, CuTexImage* out)
 {
 	if(out->_cuData == NULL) return;
 	int width = dog->GetImgWidth(), height = dog ->GetImgHeight();
-	dog->BindTexture(texData);
+	CuTexImage::CuTexObj dogTex = dog->BindTexture(texDataDesc);
 	dim3 grid((width + BLOCK_DIM - 1)/ BLOCK_DIM,  (height + BLOCK_DIM - 1)/BLOCK_DIM);
 	dim3 block(BLOCK_DIM, BLOCK_DIM);
-	ConvertDOG_Kernel<<<grid, block>>>((float*) out->_cuData, width, height);
+	ConvertDOG_Kernel<<<grid, block>>>(dogTex.handle, (float*) out->_cuData, width, height);
 	ProgramCU::CheckErrorCUDA("DisplayConvertDOG");
 }
 
-void __global__ ConvertGRD_Kernel(float* d_result, int width, int height)
+void __global__ ConvertGRD_Kernel(cudaTextureObject_t texData, float* d_result, int width, int height)
 {
 	int row = (blockIdx.y << BLOCK_LOG_DIM) + threadIdx.y;
 	int col = (blockIdx.x << BLOCK_LOG_DIM) + threadIdx.x;
 	if(col < width && row < height)
 	{
 		int index = row * width  + col;
-		float v = tex1Dfetch(texData, index << 1);
+		float v = tex1D<float>(texData, index << 1);
 		d_result[index] = (col == 0 || row == 0 || col == width -1 || row == height -1)?
 				0 : saturate(5 * v);
 
@@ -1256,14 +1267,14 @@ void ProgramCU::DisplayConvertGRD(CuTexImage* got, CuTexImage* out)
 {
 	if(out->_cuData == NULL) return;
 	int width = got->GetImgWidth(), height = got ->GetImgHeight();
-	got->BindTexture(texData);
+	CuTexImage::CuTexObj gotTex = got->BindTexture(texDataDesc);
 	dim3 grid((width + BLOCK_DIM - 1)/ BLOCK_DIM,  (height + BLOCK_DIM - 1)/BLOCK_DIM);
 	dim3 block(BLOCK_DIM, BLOCK_DIM);
-	ConvertGRD_Kernel<<<grid, block>>>((float*) out->_cuData, width, height);
+	ConvertGRD_Kernel<<<grid, block>>>(gotTex.handle, (float*) out->_cuData, width, height);
 	ProgramCU::CheckErrorCUDA("DisplayConvertGRD");
 }
 
-void __global__ ConvertKEY_Kernel(float4* d_result, int width, int height)
+void __global__ ConvertKEY_Kernel(cudaTextureObject_t texData, float4* d_result, int width, int height)
 {
 
 	int row = (blockIdx.y << BLOCK_LOG_DIM) + threadIdx.y;
@@ -1274,7 +1285,7 @@ void __global__ ConvertKEY_Kernel(float4* d_result, int width, int height)
 		float4 keyv = tex1Dfetch(texDataF4, index);
 		int is_key = (keyv.x == 1.0f || keyv.x == -1.0f);
 		int inside = col > 0 && row > 0 && row < height -1 && col < width - 1;
-		float v = inside? saturate(0.5 + 20 * tex1Dfetch(texData, index)) : 0.5;
+		float v = inside? saturate(0.5 + 20 * tex1D<float>(texData, index)) : 0.5;
 		d_result[index] = is_key && inside ?
 			(keyv.x > 0? make_float4(1.0f, 0, 0, 1.0f) : make_float4(0.0f, 1.0f, 0.0f, 1.0f)):
 			make_float4(v, v, v, 1.0f) ;
@@ -1284,11 +1295,11 @@ void ProgramCU::DisplayConvertKEY(CuTexImage* key, CuTexImage* dog, CuTexImage* 
 {
 	if(out->_cuData == NULL) return;
 	int width = key->GetImgWidth(), height = key ->GetImgHeight();
-	dog->BindTexture(texData);
+	CuTexImage::CuTexObj dogTex = dog->BindTexture(texDataDesc);
 	key->BindTexture(texDataF4);
 	dim3 grid((width + BLOCK_DIM - 1)/ BLOCK_DIM,  (height + BLOCK_DIM - 1)/BLOCK_DIM);
 	dim3 block(BLOCK_DIM, BLOCK_DIM);
-	ConvertKEY_Kernel<<<grid, block>>>((float4*) out->_cuData, width, height);
+	ConvertKEY_Kernel<<<grid, block>>>(dogTex.handle, (float4*) out->_cuData, width, height);
 }
 
 

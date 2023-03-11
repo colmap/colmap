@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <stdlib.h>
 #include <math.h>
+#include <cstring>
 using namespace std;
 
 
@@ -39,10 +40,59 @@ using namespace std;
 #include "CuTexImage.h"
 #include "ProgramCU.h"
 
-#if CUDA_VERSION <= 2010 && defined(SIFTGPU_ENABLE_LINEAR_TEX2D)
-#error "Require CUDA 2.2 or higher"
+CuTexImage::CuTexObj::~CuTexObj()
+{
+	cudaDestroyTextureObject(handle);
+}
+
+CuTexImage::CuTexObj CuTexImage::BindTexture(const cudaTextureDesc& textureDesc)
+{
+	CuTexObj texObj;
+
+	cudaResourceDesc resourceDesc;
+	memset(&resourceDesc, 0, sizeof(resourceDesc));
+  resourceDesc.resType = cudaResourceTypeLinear;
+  resourceDesc.res.linear.devPtr = _cuData;
+	resourceDesc.res.linear.desc.f = cudaChannelFormatKindFloat;
+	resourceDesc.res.linear.desc.x = sizeof(float) * 8;
+	resourceDesc.res.linear.desc.y = _numChannel >=2 ? sizeof(float) * 8 : 0;
+	resourceDesc.res.linear.desc.z = _numChannel >=3 ? sizeof(float) * 8 : 0;
+	resourceDesc.res.linear.desc.w = _numChannel >=4 ? sizeof(float) * 8 : 0;
+	resourceDesc.res.linear.sizeInBytes = _numBytes;
+
+	cudaCreateTextureObject(&texObj.handle, &resourceDesc, &textureDesc, nullptr);
+	ProgramCU::CheckErrorCUDA("CuTexImage::BindTexture");
+
+	return texObj;
+}
+
+CuTexImage::CuTexObj CuTexImage::BindTexture2D(const cudaTextureDesc& textureDesc)
+{
+	CuTexObj texObj;
+
+	cudaResourceDesc resourceDesc;
+	memset(&resourceDesc, 0, sizeof(resourceDesc));
+#if defined(SIFTGPU_ENABLE_LINEAR_TEX2D)
+	resourceDesc.resType = cudaResourceTypePitch2D;
+  resourceDesc.res.pitch2D.devPtr = _cuData;
+	resourceDesc.res.pitch2D.width = _imgWidth;
+	resourceDesc.res.pitch2D.height = _imgHeight;
+	resourceDesc.res.pitch2D.pitchInBytes = _imgWidth * _numChannel * sizeof(float);
+	resourceDesc.res.pitch2D.desc.f = cudaChannelFormatKindFloat;
+	resourceDesc.res.pitch2D.desc.x = sizeof(float) * 8;
+	resourceDesc.res.pitch2D.desc.y = _numChannel >=2 ? sizeof(float) * 8 : 0;
+	resourceDesc.res.pitch2D.desc.z = _numChannel >=3 ? sizeof(float) * 8 : 0;
+	resourceDesc.res.pitch2D.desc.w = _numChannel >=4 ? sizeof(float) * 8 : 0;
+#else
+	resourceDesc.resType = cudaResourceTypeArray;
+  resourceDesc.res.array.array = _cuData2D;
 #endif
 
+	cudaCreateTextureObject(&texObj.handle, &resourceDesc, &textureDesc, nullptr);
+	ProgramCU::CheckErrorCUDA("CuTexImage::BindTexture");
+
+	return texObj;
+}
 
 CuTexImage::CuTexImage()
 {

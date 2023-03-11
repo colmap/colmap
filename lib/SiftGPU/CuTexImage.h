@@ -24,9 +24,9 @@
 #ifndef CU_TEX_IMAGE_H
 #define CU_TEX_IMAGE_H
 
+#include <cuda_runtime.h>
+
 class GLTexImage;
-struct cudaArray;
-struct textureReference;
 
 //using texture2D from linear memory
 
@@ -45,11 +45,19 @@ protected:
 	int			_texHeight;
 	GLuint		_fromPBO;
 public:
+	struct CuTexObj
+	{
+		cudaTextureObject_t handle;
+		~CuTexObj();
+	};
+
 	virtual void SetImageSize(int width, int height);
 	virtual bool InitTexture(int width, int height, int nchannel = 1);
 	void InitTexture2D();
 	inline void BindTexture(textureReference& texRef);
+	CuTexObj BindTexture(const cudaTextureDesc& textureDesc);
 	inline void BindTexture2D(textureReference& texRef);
+	CuTexObj BindTexture2D(const cudaTextureDesc& textureDesc);
 	void CopyToTexture2D();
 	void CopyToHost(void* buf);
 	void CopyToHost(void* buf, int stream);
