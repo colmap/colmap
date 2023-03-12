@@ -1531,13 +1531,16 @@ void ProgramCU::MultiplyDescriptor(CuTexImage* des1, CuTexImage* des2, CuTexImag
 												(texCRT? (int3*)texCRT->_cuData : NULL));
 }
 
-texture<float, 1, cudaReadModeElementType> texLoc1;
-texture<float2, 1, cudaReadModeElementType> texLoc2;
-struct Matrix33{float mat[3][3];};
+struct Matrix33
+{
+	float mat[3][3];
+};
 
 
 
-void __global__ MultiplyDescriptorG_Kernel(cudaTextureObject_t texDes1, cudaTextureObject_t texDes2, int* d_result, int num1, int num2, int3* d_temp,
+void __global__ MultiplyDescriptorG_Kernel(cudaTextureObject_t texDes1, cudaTextureObject_t texDes2,
+										   cudaTextureObject_t texLoc1, cudaTextureObject_t texLoc2, 
+										   int* d_result, int num1, int num2, int3* d_temp,
 										   Matrix33 H, float hdistmax, Matrix33 F, float fdistmax)
 {
 	int idx01 = (blockIdx.y  * MULT_BLOCK_DIMY);
@@ -1572,7 +1575,7 @@ void __global__ MultiplyDescriptorG_Kernel(cudaTextureObject_t texDes1, cudaText
 	__syncthreads();
 	if(threadIdx.x < MULT_BLOCK_DIMY * 2)
 	{
-		loc1[threadIdx.x] = tex1Dfetch(texLoc1, 2 * idx01 + threadIdx.x);
+		loc1[threadIdx.x] = tex1Dfetch<float>(texLoc1, 2 * idx01 + threadIdx.x);
 	}
 	__syncthreads();
 	if(idx2 >= num2) return;
@@ -1581,7 +1584,7 @@ void __global__ MultiplyDescriptorG_Kernel(cudaTextureObject_t texDes1, cudaText
 	//geometric verification
 	/////////////////////////////////////////////////////////////////////////////////////////////
 	int good_count = 0;
-	float2 loc2 = tex1Dfetch(texLoc2, idx2);
+	float2 loc2 = tex1Dfetch<float2>(texLoc2, idx2);
 #pragma unroll
 	for(int i = 0; i < MULT_BLOCK_DIMY; ++i)
 	{
@@ -1697,11 +1700,12 @@ void ProgramCU::MultiplyDescriptorG(CuTexImage* des1, CuTexImage* des2,
 	//intermediate results
 	texDot->InitTexture( num2,num1);
 	if(texCRT) texCRT->InitTexture( num2, (num1 + MULT_BLOCK_DIMY - 1)/MULT_BLOCK_DIMY, 3);
-	loc1->BindTexture(texLoc1);
-	loc2->BindTexture(texLoc2);
+	CuTexImage::CuTexObj loc1Tex = loc1->BindTexture(texDataDesc, cudaCreateChannelDesc<float>());
+	CuTexImage::CuTexObj loc2Tex = loc2->BindTexture(texDataDesc, cudaCreateChannelDesc<float2>());
 	CuTexImage::CuTexObj des1Tex = des1->BindTexture(texDataDesc, cudaCreateChannelDesc<uint4>());
 	CuTexImage::CuTexObj des2Tex = des2->BindTexture(texDataDesc, cudaCreateChannelDesc<uint4>());
-	MultiplyDescriptorG_Kernel<<<grid, block>>>(des1Tex.handle, des2Tex.handle, (int*)texDot->_cuData, num1, num2,
+	MultiplyDescriptorG_Kernel<<<grid, block>>>(des1Tex.handle, des2Tex.handle, loc1Tex.handle, loc2Tex.handle,
+												(int*)texDot->_cuData, num1, num2,
 												(texCRT? (int3*)texCRT->_cuData : NULL),
 												MatH, hdistmax, MatF, fdistmax);
 }
