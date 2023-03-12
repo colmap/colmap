@@ -50,15 +50,13 @@ size_t RandomSampler::MaxNumSamples() {
   return std::numeric_limits<size_t>::max();
 }
 
-std::vector<size_t> RandomSampler::Sample() {
+void RandomSampler::Sample(std::vector<size_t>* sampled_idxs) {
   Shuffle(static_cast<uint32_t>(num_samples_), &sample_idxs_);
 
-  std::vector<size_t> sampled_idxs(num_samples_);
+  sampled_idxs->resize(num_samples_);
   for (size_t i = 0; i < num_samples_; ++i) {
-    sampled_idxs[i] = sample_idxs_[i];
+    (*sampled_idxs)[i] = sample_idxs_[i];
   }
-
-  return sampled_idxs;
 }
 
 }  // namespace colmap

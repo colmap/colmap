@@ -69,8 +69,11 @@ size_t ProgressiveSampler::MaxNumSamples() {
   return std::numeric_limits<size_t>::max();
 }
 
-std::vector<size_t> ProgressiveSampler::Sample() {
+void ProgressiveSampler::Sample(std::vector<size_t>* sampled_idxs) {
   t_ += 1;
+
+  sampled_idxs->clear();
+  sampled_idxs->reserve(num_samples_);
 
   // Compute T_n_p_ using recurrent relation in equation 3 (second part).
   if (t_ == T_n_p_ && n_ < total_num_samples_) {
@@ -90,14 +93,12 @@ std::vector<size_t> ProgressiveSampler::Sample() {
   }
 
   // Draw semi-random samples as described in algorithm 1.
-  std::vector<size_t> sampled_idxs;
-  sampled_idxs.reserve(num_samples_);
   for (size_t i = 0; i < num_random_samples; ++i) {
     while (true) {
       const size_t random_idx =
           RandomInteger<uint32_t>(0, max_random_sample_idx);
-      if (!VectorContainsValue(sampled_idxs, random_idx)) {
-        sampled_idxs.push_back(random_idx);
+      if (!VectorContainsValue(*sampled_idxs, random_idx)) {
+        sampled_idxs->push_back(random_idx);
         break;
       }
     }
@@ -105,10 +106,8 @@ std::vector<size_t> ProgressiveSampler::Sample() {
 
   // In progressive sampling mode, the last element is mandatory.
   if (T_n_p_ >= t_) {
-    sampled_idxs.push_back(n_);
+    sampled_idxs->push_back(n_);
   }
-
-  return sampled_idxs;
 }
 
 }  // namespace colmap

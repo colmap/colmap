@@ -70,8 +70,8 @@ FeatureDescriptors LoadRandomDatabaseDescriptors(
     CHECK_LE(max_num_images, images.size());
     RandomSampler random_sampler(max_num_images);
     random_sampler.Initialize(images.size());
-    image_idxs = random_sampler.Sample();
-    for (const auto image_idx : image_idxs) {
+    random_sampler.Sample(&image_idxs);
+    for (const size_t image_idx : image_idxs) {
       const auto& image = images.at(image_idx);
       num_descriptors += database.NumDescriptorsForImage(image.ImageId());
     }
@@ -80,7 +80,7 @@ FeatureDescriptors LoadRandomDatabaseDescriptors(
   descriptors.resize(num_descriptors, 128);
 
   size_t descriptor_row = 0;
-  for (const auto image_idx : image_idxs) {
+  for (const size_t image_idx : image_idxs) {
     const auto& image = images.at(image_idx);
     const FeatureDescriptors image_descriptors =
         database.ReadDescriptors(image.ImageId());

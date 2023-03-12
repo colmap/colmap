@@ -45,7 +45,8 @@ BOOST_AUTO_TEST_CASE(TestLessSamples) {
   BOOST_CHECK_EQUAL(sampler.MaxNumSamples(), 10);
   std::vector<std::unordered_set<size_t>> sample_sets;
   for (size_t i = 0; i < 10; ++i) {
-    const auto samples = sampler.Sample();
+    std::vector<size_t> samples;
+    sampler.Sample(&samples);
     BOOST_CHECK_EQUAL(samples.size(), 2);
     sample_sets.emplace_back(samples.begin(), samples.end());
     BOOST_CHECK_EQUAL(sample_sets.back().size(), 2);
@@ -54,7 +55,8 @@ BOOST_AUTO_TEST_CASE(TestLessSamples) {
                   sample_sets[j].count(samples[1]) == 0);
     }
   }
-  const auto samples = sampler.Sample();
+  std::vector<size_t> samples;
+  sampler.Sample(&samples);
   BOOST_CHECK(sample_sets[0].count(samples[0]) == 1 &&
               sample_sets[0].count(samples[1]) == 1);
 }
@@ -64,7 +66,8 @@ BOOST_AUTO_TEST_CASE(TestEqualSamples) {
   sampler.Initialize(5);
   BOOST_CHECK_EQUAL(sampler.MaxNumSamples(), 1);
   for (size_t i = 0; i < 100; ++i) {
-    const auto samples = sampler.Sample();
+    std::vector<size_t> samples;
+    sampler.Sample(&samples);
     BOOST_CHECK_EQUAL(samples.size(), 5);
     BOOST_CHECK_EQUAL(
         std::unordered_set<size_t>(samples.begin(), samples.end()).size(), 5);
