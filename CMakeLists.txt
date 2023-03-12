@@ -263,8 +263,6 @@ if(CUDA_ENABLED AND CUDA_FOUND)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_FORCE_INLINES")
     # Do not show warnings if the architectures are deprecated.
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-gpu-targets")
-    # Do not show warnings if cuda library functions are deprecated.
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-declarations")
     # Explicitly set PIC flags for CUDA targets.
     if(NOT IS_MSVC)
         set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fPIC")
@@ -400,7 +398,6 @@ endif()
 
 set(COLMAP_INTERNAL_LIBRARIES
     lsd
-    pba
     poisson_recon
     sift_gpu
     vlfeat
@@ -423,7 +420,6 @@ add_subdirectory(src)
 ################################################################################
 
 COLMAP_ADD_SOURCE_DIR(lib/LSD LIB_LSD_SRCS *.h *.c)
-COLMAP_ADD_SOURCE_DIR(lib/PBA LIB_PBA_SRCS *.h *.cpp *.cu)
 COLMAP_ADD_SOURCE_DIR(lib/PoissonRecon LIB_POISSON_RECON_SRCS *.h *.cpp *.inl)
 COLMAP_ADD_SOURCE_DIR(lib/SiftGPU LIB_SIFT_GPU_SRCS *.h *.cpp *.cu)
 COLMAP_ADD_SOURCE_DIR(lib/VLFeat LIB_VLFEAT_SRCS *.h *.c *.tc)
@@ -447,7 +443,6 @@ COLMAP_ADD_SOURCE_DIR(src/util UTIL_SRCS *.h *.cc)
 add_library(
     ${COLMAP_SRC_ROOT_FOLDER}
     ${LIB_LSD_SRCS}
-    ${LIB_PBA_SRCS}
     ${LIB_POISSON_RECON_SRCS}
     ${LIB_SIFT_GPU_SRCS}
     ${LIB_VLFEAT_SRCS}

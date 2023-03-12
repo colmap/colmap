@@ -167,7 +167,6 @@ set(COLMAP_LINK_DIRS
 
 set(COLMAP_INTERNAL_LIBRARIES
     lsd
-    pba
     poisson_recon
     sqlite3
     sift_gpu
