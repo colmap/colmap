@@ -464,24 +464,20 @@ void ProgramCU::FilterImage(CuTexImage *dst, CuTexImage *src, CuTexImage* buf, f
 }
 
 
-texture<float, 1, cudaReadModeElementType> texC;
-texture<float, 1, cudaReadModeElementType> texP;
-texture<float, 1, cudaReadModeElementType> texN;
-
-void __global__ ComputeDOG_Kernel(float* d_dog, float2* d_got, int width, int height)
+void __global__ ComputeDOG_Kernel(cudaTextureObject_t texC, cudaTextureObject_t texP, float* d_dog, float2* d_got, int width, int height)
 {
 	int row = (blockIdx.y << DOG_BLOCK_LOG_DIMY) + threadIdx.y;
 	int col = (blockIdx.x << DOG_BLOCK_LOG_DIMX) + threadIdx.x;
 	if(col < width && row < height)
 	{
 		int index = IMUL(row, width) + col;
-		float vp = tex1Dfetch(texP, index);
-		float v = tex1Dfetch(texC, index);
+		float vp = tex1Dfetch<float>(texP, index);
+		float v = tex1Dfetch<float>(texC, index);
 		d_dog[index] = v - vp;
-		float vxn = tex1Dfetch(texC, index + 1);
-		float vxp = tex1Dfetch(texC, index - 1);
-		float vyp = tex1Dfetch(texC, index - width);
-		float vyn = tex1Dfetch(texC, index + width);
+		float vxn = tex1Dfetch<float>(texC, index + 1);
+		float vxp = tex1Dfetch<float>(texC, index - 1);
+		float vyp = tex1Dfetch<float>(texC, index - width);
+		float vyn = tex1Dfetch<float>(texC, index + width);
 		float dx = vxn - vxp, dy = vyn - vyp;
 		float grd = 0.5f * sqrt(dx * dx  + dy * dy);
 		float rot = (grd == 0.0f? 0.0f : atan2(dy, dx));
@@ -489,15 +485,15 @@ void __global__ ComputeDOG_Kernel(float* d_dog, float2* d_got, int width, int he
 	}
 }
 
-void __global__ ComputeDOG_Kernel(float* d_dog, int width, int height)
+void __global__ ComputeDOG_Kernel(cudaTextureObject_t texC, cudaTextureObject_t texP, float* d_dog, int width, int height)
 {
 	int row = (blockIdx.y << DOG_BLOCK_LOG_DIMY) + threadIdx.y;
 	int col = (blockIdx.x << DOG_BLOCK_LOG_DIMX) + threadIdx.x;
 	if(col < width && row < height)
 	{
 		int index = IMUL(row, width) + col;
-		float vp = tex1Dfetch(texP, index);
-		float v = tex1Dfetch(texC, index);
+		float vp = tex1Dfetch<float>(texP, index);
+		float v = tex1Dfetch<float>(texC, index);
 		d_dog[index] = v - vp;
 	}
 }
@@ -507,19 +503,19 @@ void ProgramCU::ComputeDOG(CuTexImage* gus, CuTexImage* dog, CuTexImage* got)
 	int width = gus->GetImgWidth(), height = gus->GetImgHeight();
 	dim3 grid((width + DOG_BLOCK_DIMX - 1)/ DOG_BLOCK_DIMX,  (height + DOG_BLOCK_DIMY - 1)/DOG_BLOCK_DIMY);
 	dim3 block(DOG_BLOCK_DIMX, DOG_BLOCK_DIMY);
-	gus->BindTexture(texC);
-	(gus -1)->BindTexture(texP);
+	CuTexImage::CuTexObj texCObj = gus->BindTexture(texDataDesc, cudaCreateChannelDesc<float>());
+	CuTexImage::CuTexObj texPObj = (gus-1)->BindTexture(texDataDesc, cudaCreateChannelDesc<float>());
 	if(got->_cuData)
-		ComputeDOG_Kernel<<<grid, block>>>((float*) dog->_cuData, (float2*) got->_cuData, width, height);
+		ComputeDOG_Kernel<<<grid, block>>>(texCObj.handle, texPObj.handle, (float*) dog->_cuData, (float2*) got->_cuData, width, height);
 	else
-		ComputeDOG_Kernel<<<grid, block>>>((float*) dog->_cuData, width, height);
+		ComputeDOG_Kernel<<<grid, block>>>(texCObj.handle, texPObj.handle, (float*) dog->_cuData, width, height);
 }
 
 
 #define READ_CMP_DOG_DATA(datai, tex, idx) \
-		datai[0] = tex1Dfetch(tex, idx - 1);\
-		datai[1] = tex1Dfetch(tex, idx);\
-		datai[2] = tex1Dfetch(tex, idx + 1);\
+		datai[0] = tex1Dfetch<float>(tex, idx - 1);\
+		datai[1] = tex1Dfetch<float>(tex, idx);\
+		datai[2] = tex1Dfetch<float>(tex, idx + 1);\
 		if(v > nmax)\
 		{\
 			   nmax = max(nmax, datai[0]);\
@@ -535,7 +531,7 @@ void ProgramCU::ComputeDOG(CuTexImage* gus, CuTexImage* dog, CuTexImage* got)
 		}
 
 
-void __global__ ComputeKEY_Kernel(float4* d_key, int width, int colmax, int rowmax,
+void __global__ ComputeKEY_Kernel(cudaTextureObject_t texP, cudaTextureObject_t texC, cudaTextureObject_t texN, float4* d_key, int width, int colmax, int rowmax,
 					float dog_threshold0,  float dog_threshold, float edge_threshold, int subpixel_localization)
 {
        float data[3][3], v;
@@ -560,11 +556,11 @@ void __global__ ComputeKEY_Kernel(float4* d_key, int width, int colmax, int rowm
 #endif
        {
 			in_image = 1;
-			data[1][1] = v = tex1Dfetch(texC, idx[1]);
+			data[1][1] = v = tex1Dfetch<float>(texC, idx[1]);
 			if(fabs(v) <= dog_threshold0) goto key_finish;
 
-			data[1][0] = tex1Dfetch(texC, idx[1] - 1);
-			data[1][2] = tex1Dfetch(texC, idx[1] + 1);
+			data[1][0] = tex1Dfetch<float>(texC, idx[1] - 1);
+			data[1][2] = tex1Dfetch<float>(texC, idx[1] + 1);
 			nmax = max(data[1][0], data[1][2]);
 			nmin = min(data[1][0], data[1][2]);
 
@@ -665,11 +661,11 @@ void ProgramCU::ComputeKEY(CuTexImage* dog, CuTexImage* key, float Tdog, float T
 	dim3 grid((width + KEY_BLOCK_DIMX - 1)/ KEY_BLOCK_DIMX,  (height + KEY_BLOCK_DIMY - 1)/KEY_BLOCK_DIMY);
 #endif
 	dim3 block(KEY_BLOCK_DIMX, KEY_BLOCK_DIMY);
-	dogp->BindTexture(texP);
-	dog ->BindTexture(texC);
-	dogn->BindTexture(texN);
+	CuTexImage::CuTexObj texPObj = dogp->BindTexture(texDataDesc, cudaCreateChannelDesc<float>());
+	CuTexImage::CuTexObj texCObj = dog->BindTexture(texDataDesc, cudaCreateChannelDesc<float>());
+	CuTexImage::CuTexObj texNObj = dogn->BindTexture(texDataDesc, cudaCreateChannelDesc<float>());
 	Tedge = (Tedge+1)*(Tedge+1)/Tedge;
-	ComputeKEY_Kernel<<<grid, block>>>((float4*) key->_cuData, width,
+	ComputeKEY_Kernel<<<grid, block>>>(texPObj.handle, texCObj.handle, texNObj.handle, (float4*) key->_cuData, width,
         width -1, height -1, Tdog1, Tdog, Tedge, GlobalUtil::_SubpixelLocalization);
 
 }
