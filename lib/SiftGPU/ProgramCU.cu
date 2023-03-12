@@ -99,8 +99,6 @@
 
 __device__ __constant__ float d_kernel[KERNEL_MAX_WIDTH];
 
-texture<int4, 1, cudaReadModeElementType> texDataList;
-
 const static cudaTextureDesc texDataDesc = []() {
   cudaTextureDesc textureDesc;
   memset(&textureDesc, 0, sizeof(textureDesc));
@@ -751,10 +749,10 @@ void ProgramCU::ReduceHistogram(CuTexImage*hist1, CuTexImage* hist2)
 }
 
 
-void __global__ ListGen_Kernel(cudaTextureObject_t texDataI4, int4* d_list, int list_len, int width)
+void __global__ ListGen_Kernel(cudaTextureObject_t texDataList, cudaTextureObject_t texDataI4, int4* d_list, int list_len, int width)
 {
 	int idx1 = IMUL(blockIdx.x, blockDim.x) + threadIdx.x;
-    int4 pos = tex1Dfetch(texDataList, idx1);
+    int4 pos = tex1Dfetch<int4>(texDataList, idx1);
 	int idx2 = IMUL(pos.y, width) + pos.x;
 	int4 temp = tex1Dfetch<int4>(texDataI4, idx2);
 	int  sum1 = temp.x + temp.y;
@@ -782,16 +780,17 @@ void __global__ ListGen_Kernel(cudaTextureObject_t texDataI4, int4* d_list, int 
 void ProgramCU::GenerateList(CuTexImage* list, CuTexImage* hist)
 {
 	int len = list->GetImgWidth();
-	list->BindTexture(texDataList);
+    CuTexImage::CuTexObj listTex = list->BindTexture(texDataDesc, cudaCreateChannelDesc<int4>());
     CuTexImage::CuTexObj histTex = hist->BindTexture(texDataDesc, cudaCreateChannelDesc<int4>());
 	dim3  grid((len + LISTGEN_BLOCK_DIM -1) /LISTGEN_BLOCK_DIM);
 	dim3  block(LISTGEN_BLOCK_DIM);
-	ListGen_Kernel<<<grid, block>>>(histTex.handle, (int4*) list->_cuData, len,
+	ListGen_Kernel<<<grid, block>>>(listTex.handle, histTex.handle, (int4*) list->_cuData, len,
                                   hist->GetImgWidth());
 }
 
 void __global__ ComputeOrientation_Kernel(cudaTextureObject_t texDataF2,
                                           cudaTextureObject_t texDataF4,
+                                          cudaTextureObject_t texDataList,
                                           float4* d_list,
 										  int list_len,
 										  int width, int height,
@@ -812,7 +811,7 @@ void __global__ ComputeOrientation_Kernel(cudaTextureObject_t texDataF2,
 		key = tex1Dfetch<float4>(texDataF4, idx);
 	}else
 	{
-		int4 ikey = tex1Dfetch(texDataList, idx);
+		int4 ikey = tex1Dfetch<int4>(texDataList, idx);
 		key.x = ikey.x + 0.5f;
 		key.y = ikey.y + 0.5f;
 		key.z = sigma;
@@ -962,12 +961,13 @@ void ProgramCU::ComputeOrientation(CuTexImage* list, CuTexImage* got, CuTexImage
 	if(len <= 0) return;
 	int width = got->GetImgWidth(), height = got->GetImgHeight();
     CuTexImage::CuTexObj texObjF4;
+    CuTexImage::CuTexObj texObjList;
 	if(existing_keypoint)
 	{
         texObjF4 = list->BindTexture(texDataDesc, cudaCreateChannelDesc<float4>());
 	}else
 	{
-		list->BindTexture(texDataList);
+        texObjList = list->BindTexture(texDataDesc, cudaCreateChannelDesc<int4>());
 		if(GlobalUtil::_SubpixelLocalization)
         {
             texObjF4 = key->BindTexture(texDataDesc, cudaCreateChannelDesc<float4>());
@@ -983,6 +983,7 @@ void ProgramCU::ComputeOrientation(CuTexImage* list, CuTexImage* got, CuTexImage
 	ComputeOrientation_Kernel<<<grid, block>>>(
         gotTex.handle,
         texObjF4.handle,
+        texObjList.handle,
         (float4*) list->_cuData,
 		len, width, height, sigma, sigma_step,
 		GlobalUtil::_OrientationGaussianFactor,
