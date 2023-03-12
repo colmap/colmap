@@ -45,7 +45,8 @@ CuTexImage::CuTexObj::~CuTexObj()
 	cudaDestroyTextureObject(handle);
 }
 
-CuTexImage::CuTexObj CuTexImage::BindTexture(const cudaTextureDesc& textureDesc)
+CuTexImage::CuTexObj CuTexImage::BindTexture(const cudaTextureDesc& textureDesc,
+											   										 const cudaChannelFormatDesc& channelFmtDesc)
 {
 	CuTexObj texObj;
 
@@ -53,7 +54,7 @@ CuTexImage::CuTexObj CuTexImage::BindTexture(const cudaTextureDesc& textureDesc)
 	memset(&resourceDesc, 0, sizeof(resourceDesc));
   resourceDesc.resType = cudaResourceTypeLinear;
   resourceDesc.res.linear.devPtr = _cuData;
-	resourceDesc.res.linear.desc = cudaCreateChannelDesc<float>();
+	resourceDesc.res.linear.desc = channelFmtDesc;
 	resourceDesc.res.linear.sizeInBytes = _numBytes;
 
 	cudaCreateTextureObject(&texObj.handle, &resourceDesc, &textureDesc, nullptr);
@@ -62,7 +63,8 @@ CuTexImage::CuTexObj CuTexImage::BindTexture(const cudaTextureDesc& textureDesc)
 	return texObj;
 }
 
-CuTexImage::CuTexObj CuTexImage::BindTexture2D(const cudaTextureDesc& textureDesc)
+CuTexImage::CuTexObj CuTexImage::BindTexture2D(const cudaTextureDesc& textureDesc,
+											   											 const cudaChannelFormatDesc& channelFmtDesc)
 {
 	CuTexObj texObj;
 
@@ -74,7 +76,7 @@ CuTexImage::CuTexObj CuTexImage::BindTexture2D(const cudaTextureDesc& textureDes
 	resourceDesc.res.pitch2D.width = _imgWidth;
 	resourceDesc.res.pitch2D.height = _imgHeight;
 	resourceDesc.res.pitch2D.pitchInBytes = _imgWidth * _numChannel * sizeof(float);
-	resourceDesc.res.pitch2D.desc = _channelFmt2D;
+	resourceDesc.res.pitch2D.desc = channelFmtDesc;
 #else
 	resourceDesc.resType = cudaResourceTypeArray;
   resourceDesc.res.array.array = _cuData2D;

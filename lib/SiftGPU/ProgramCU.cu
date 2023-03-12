@@ -98,7 +98,6 @@
 
 
 __device__ __constant__ float d_kernel[KERNEL_MAX_WIDTH];
-texture<float2, 2, cudaReadModeElementType> texDataF2;
 texture<float4, 1, cudaReadModeElementType> texDataF4;
 texture<int4, 1, cudaReadModeElementType> texDataI4;
 texture<int4, 1, cudaReadModeElementType> texDataList;
@@ -290,7 +289,7 @@ template<int LOG_SCALE> __global__ void UpsampleKernel(cudaTextureObject_t texDa
 void ProgramCU::SampleImageU(CuTexImage *dst, CuTexImage *src, int log_scale)
 {
 	int width = src->GetImgWidth(), height = src->GetImgHeight();
-	CuTexImage::CuTexObj srcTex = src->BindTexture(texDataDesc);
+	CuTexImage::CuTexObj srcTex = src->BindTexture(texDataDesc, cudaCreateChannelDesc<float>());
 	dim3 grid((width +  FILTERH_TILE_WIDTH - 1)/ FILTERH_TILE_WIDTH, height << log_scale);
 	dim3 block(FILTERH_TILE_WIDTH);
 	switch(log_scale)
@@ -332,7 +331,7 @@ void ProgramCU::SampleImageD(CuTexImage *dst, CuTexImage *src, int log_scale)
 {
 	int src_width = src->GetImgWidth(), dst_width = dst->GetImgWidth() ;
 
-	CuTexImage::CuTexObj srcTex = src->BindTexture(texDataDesc);
+	CuTexImage::CuTexObj srcTex = src->BindTexture(texDataDesc, cudaCreateChannelDesc<float>());
 	dim3 grid((dst_width +  FILTERH_TILE_WIDTH - 1)/ FILTERH_TILE_WIDTH, dst->GetImgHeight());
 	dim3 block(FILTERH_TILE_WIDTH);
 	switch(log_scale)
@@ -369,7 +368,7 @@ void ProgramCU::ReduceToSingleChannel(CuTexImage* dst, CuTexImage* src, int conv
 		ChannelReduce_Convert_Kernel<<<grid, block>>>((float*)dst->_cuData);
 	}else
 	{
-		CuTexImage::CuTexObj srcTex = src->BindTexture(texDataDesc);
+		CuTexImage::CuTexObj srcTex = src->BindTexture(texDataDesc, cudaCreateChannelDesc<float>());
 		ChannelReduce_Kernel<<<grid, block>>>(srcTex.handle, (float*)dst->_cuData);
 	}
 }
@@ -385,7 +384,7 @@ void ProgramCU::ConvertByteToFloat(CuTexImage*src, CuTexImage* dst)
 	int width = src->GetImgWidth(), height = dst->GetImgHeight() ;
 	dim3 grid((width * height +  FILTERH_TILE_WIDTH - 1)/ FILTERH_TILE_WIDTH);
 	dim3 block(FILTERH_TILE_WIDTH);
-	CuTexImage::CuTexObj srcTex = src->BindTexture(texDataBDesc);
+	CuTexImage::CuTexObj srcTex = src->BindTexture(texDataBDesc, cudaCreateChannelDesc<float>());
 	ConvertByteToFloat_Kernel<<<grid, block>>>(srcTex.handle, (float*)dst->_cuData);
 }
 
@@ -425,14 +424,14 @@ template<int FW> void ProgramCU::FilterImage(CuTexImage *dst, CuTexImage *src, C
 	int width = src->GetImgWidth(), height = src->GetImgHeight();
 
 	//horizontal filtering
-	CuTexImage::CuTexObj srcTex = src->BindTexture(texDataDesc);
+	CuTexImage::CuTexObj srcTex = src->BindTexture(texDataDesc, cudaCreateChannelDesc<float>());
 	dim3 gridh((width +  FILTERH_TILE_WIDTH - 1)/ FILTERH_TILE_WIDTH, height);
 	dim3 blockh(FILTERH_TILE_WIDTH);
 	FilterH<FW><<<gridh, blockh>>>(srcTex.handle, (float*)buf->_cuData, width);
 	CheckErrorCUDA("FilterH");
 
 	///vertical filtering
-	CuTexImage::CuTexObj bufTex = buf->BindTexture(texDataDesc);
+	CuTexImage::CuTexObj bufTex = buf->BindTexture(texDataDesc, cudaCreateChannelDesc<float>());
 	dim3 gridv((width + FILTERV_TILE_WIDTH - 1)/ FILTERV_TILE_WIDTH,  (height + FILTERV_TILE_HEIGHT - 1)/FILTERV_TILE_HEIGHT);
 	dim3 blockv(FILTERV_TILE_WIDTH, FILTERV_BLOCK_HEIGHT);
 	FilterV<FW><<<gridv, blockv>>>(bufTex.handle, (float*)dst->_cuData, width, height);
@@ -796,7 +795,8 @@ void ProgramCU::GenerateList(CuTexImage* list, CuTexImage* hist)
                                   hist->GetImgWidth());
 }
 
-void __global__ ComputeOrientation_Kernel(float4* d_list,
+void __global__ ComputeOrientation_Kernel(cudaTextureObject_t texDataF2,
+                                          float4* d_list,
 										  int list_len,
 										  int width, int height,
 										  float sigma, float sigma_step,
@@ -857,7 +857,7 @@ void __global__ ComputeOrientation_Kernel(float4* d_list,
 			float dy = y - key.y;
 			float sq_dist  = dx * dx + dy * dy;
 			if(sq_dist >= dist_threshold) continue;
-			float2 got = tex2D(texDataF2, x, y);
+			float2 got = tex2D<float2>(texDataF2, x, y);
 			float weight = got.x * exp(sq_dist * factor);
 			float fidx = floorf(got.y * ten_degree_per_radius);
 			int oidx = fidx;
@@ -973,13 +973,15 @@ void ProgramCU::ComputeOrientation(CuTexImage* list, CuTexImage* got, CuTexImage
 		list->BindTexture(texDataList);
 		if(GlobalUtil::_SubpixelLocalization) key->BindTexture(texDataF4);
 	}
-	got->BindTexture2D(texDataF2);
+	CuTexImage::CuTexObj gotTex = got->BindTexture2D(texDataDesc, cudaCreateChannelDesc<float2>());
 
 	const int block_width = len < ORIENTATION_COMPUTE_PER_BLOCK ? 16 : ORIENTATION_COMPUTE_PER_BLOCK;
 	dim3 grid((len + block_width -1) / block_width);
 	dim3 block(block_width);
 
-	ComputeOrientation_Kernel<<<grid, block>>>((float4*) list->_cuData,
+	ComputeOrientation_Kernel<<<grid, block>>>(
+        gotTex.handle,
+        (float4*) list->_cuData,
 		len, width, height, sigma, sigma_step,
 		GlobalUtil::_OrientationGaussianFactor,
 		GlobalUtil::_OrientationGaussianFactor * GlobalUtil::_OrientationWindowFactor,
@@ -989,7 +991,7 @@ void ProgramCU::ComputeOrientation(CuTexImage* list, CuTexImage* got, CuTexImage
 	ProgramCU::CheckErrorCUDA("ComputeOrientation");
 }
 
-template <bool DYNAMIC_INDEXING> void __global__ ComputeDescriptor_Kernel(float4* d_des, int num,
+template <bool DYNAMIC_INDEXING> void __global__ ComputeDescriptor_Kernel(cudaTextureObject_t texDataF2, float4* d_des, int num,
 											 int width, int height, float window_factor)
 {
 	const float rpi = 4.0/ 3.14159265358979323846;
@@ -1029,7 +1031,7 @@ template <bool DYNAMIC_INDEXING> void __global__ ComputeDescriptor_Kernel(float4
 			float nyn = fabs(ny);
 			if(nxn < 1.0f && nyn < 1.0f)
 			{
-				float2 cc = tex2D(texDataF2, x, y);
+				float2 cc = tex2D<float2>(texDataF2, x, y);
 				float dnx = nx + offsetpt.x;
 				float dny = ny + offsetpt.y;
 				float ww = exp(-0.125f * (dnx * dnx + dny * dny));
@@ -1070,7 +1072,7 @@ template <bool DYNAMIC_INDEXING> void __global__ ComputeDescriptor_Kernel(float4
 }
 
 
-template <bool DYNAMIC_INDEXING> void __global__ ComputeDescriptorRECT_Kernel(float4* d_des, int num,
+template <bool DYNAMIC_INDEXING> void __global__ ComputeDescriptorRECT_Kernel(cudaTextureObject_t texDataF2, float4* d_des, int num,
 											 int width, int height, float window_factor)
 {
 	const float rpi = 4.0/ 3.14159265358979323846;
@@ -1102,7 +1104,7 @@ template <bool DYNAMIC_INDEXING> void __global__ ComputeDescriptorRECT_Kernel(fl
 			float nyn = fabs(ny);
 			if(nxn < 1.0f && nyn < 1.0f)
 			{
-				float2 cc = tex2D(texDataF2, x, y);
+				float2 cc = tex2D<float2>(texDataF2, x, y);
 				float wx = 1.0 - nxn;
 				float wy = 1.0 - nyn;
 				float weight =  wx * wy * cc.x;
@@ -1183,7 +1185,7 @@ void ProgramCU::ComputeDescriptor(CuTexImage*list, CuTexImage* got, CuTexImage* 
 	int height = got->GetImgHeight();
 
     dtex->InitTexture(num * 128, 1, 1);
-	got->BindTexture2D(texDataF2);
+    CuTexImage::CuTexObj gotTex = got->BindTexture2D(texDataDesc, cudaCreateChannelDesc<float2>());
 	list->BindTexture(texDataF4);
 	int block_width = DESCRIPTOR_COMPUTE_BLOCK_SIZE;
 	dim3 grid((num * 16 + block_width -1) / block_width);
@@ -1192,16 +1194,16 @@ void ProgramCU::ComputeDescriptor(CuTexImage*list, CuTexImage* got, CuTexImage* 
     if(rect)
     {
 	    if(GlobalUtil::_UseDynamicIndexing)
-	    	ComputeDescriptorRECT_Kernel<true><<<grid, block>>>((float4*) dtex->_cuData, num, width, height, GlobalUtil::_DescriptorWindowFactor);
+	    	ComputeDescriptorRECT_Kernel<true><<<grid, block>>>(gotTex.handle, (float4*) dtex->_cuData, num, width, height, GlobalUtil::_DescriptorWindowFactor);
 	    else
-	    	ComputeDescriptorRECT_Kernel<false><<<grid, block>>>((float4*) dtex->_cuData, num, width, height, GlobalUtil::_DescriptorWindowFactor);
+	    	ComputeDescriptorRECT_Kernel<false><<<grid, block>>>(gotTex.handle, (float4*) dtex->_cuData, num, width, height, GlobalUtil::_DescriptorWindowFactor);
 
     }else
     {
 	    if(GlobalUtil::_UseDynamicIndexing)
-	    	ComputeDescriptor_Kernel<true><<<grid, block>>>((float4*) dtex->_cuData, num, width, height, GlobalUtil::_DescriptorWindowFactor);
+	    	ComputeDescriptor_Kernel<true><<<grid, block>>>(gotTex.handle, (float4*) dtex->_cuData, num, width, height, GlobalUtil::_DescriptorWindowFactor);
 	    else
-	    	ComputeDescriptor_Kernel<false><<<grid, block>>>((float4*) dtex->_cuData, num, width, height, GlobalUtil::_DescriptorWindowFactor);
+	    	ComputeDescriptor_Kernel<false><<<grid, block>>>(gotTex.handle, (float4*) dtex->_cuData, num, width, height, GlobalUtil::_DescriptorWindowFactor);
     }
 	if(GlobalUtil::_NormalizedSIFT)
 	{
@@ -1252,7 +1254,7 @@ void ProgramCU::DisplayConvertDOG(CuTexImage* dog, CuTexImage* out)
 {
 	if(out->_cuData == NULL) return;
 	int width = dog->GetImgWidth(), height = dog ->GetImgHeight();
-	CuTexImage::CuTexObj dogTex = dog->BindTexture(texDataDesc);
+	CuTexImage::CuTexObj dogTex = dog->BindTexture(texDataDesc, cudaCreateChannelDesc<float>());
 	dim3 grid((width + BLOCK_DIM - 1)/ BLOCK_DIM,  (height + BLOCK_DIM - 1)/BLOCK_DIM);
 	dim3 block(BLOCK_DIM, BLOCK_DIM);
 	ConvertDOG_Kernel<<<grid, block>>>(dogTex.handle, (float*) out->_cuData, width, height);
@@ -1278,7 +1280,7 @@ void ProgramCU::DisplayConvertGRD(CuTexImage* got, CuTexImage* out)
 {
 	if(out->_cuData == NULL) return;
 	int width = got->GetImgWidth(), height = got ->GetImgHeight();
-	CuTexImage::CuTexObj gotTex = got->BindTexture(texDataDesc);
+	CuTexImage::CuTexObj gotTex = got->BindTexture(texDataDesc, cudaCreateChannelDesc<float>());
 	dim3 grid((width + BLOCK_DIM - 1)/ BLOCK_DIM,  (height + BLOCK_DIM - 1)/BLOCK_DIM);
 	dim3 block(BLOCK_DIM, BLOCK_DIM);
 	ConvertGRD_Kernel<<<grid, block>>>(gotTex.handle, (float*) out->_cuData, width, height);
@@ -1306,7 +1308,7 @@ void ProgramCU::DisplayConvertKEY(CuTexImage* key, CuTexImage* dog, CuTexImage* 
 {
 	if(out->_cuData == NULL) return;
 	int width = key->GetImgWidth(), height = key ->GetImgHeight();
-	CuTexImage::CuTexObj dogTex = dog->BindTexture(texDataDesc);
+	CuTexImage::CuTexObj dogTex = dog->BindTexture(texDataDesc, cudaCreateChannelDesc<float>());
 	key->BindTexture(texDataF4);
 	dim3 grid((width + BLOCK_DIM - 1)/ BLOCK_DIM,  (height + BLOCK_DIM - 1)/BLOCK_DIM);
 	dim3 block(BLOCK_DIM, BLOCK_DIM);
