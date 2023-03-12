@@ -111,7 +111,7 @@ endmacro(COLMAP_ADD_CUDA_SOURCES)
 # are the source files to use when building the target.
 macro(COLMAP_ADD_LIBRARY TARGET_NAME)
     # ${ARGN} will store the list of source files passed to this function.
-    add_library(${TARGET_NAME} ${ARGN})
+    add_library(${TARGET_NAME} STATIC ${ARGN})
     set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
         ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
     install(TARGETS ${TARGET_NAME} DESTINATION lib/colmap)
@@ -122,7 +122,7 @@ endmacro(COLMAP_ADD_LIBRARY)
 # arguments are the source files to use when building the target.
 macro(COLMAP_ADD_CUDA_LIBRARY TARGET_NAME)
     # ${ARGN} will store the list of source files passed to this function.
-    add_library(${TARGET_NAME} ${ARGN})
+    add_library(${TARGET_NAME} STATIC ${ARGN})
     target_link_libraries(${TARGET_NAME} CUDA::cudart CUDA::curand)
     set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
         ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})

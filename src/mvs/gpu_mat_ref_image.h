@@ -34,7 +34,7 @@
 
 #include <memory>
 
-#include "mvs/cuda_array_wrapper.h"
+#include "mvs/cuda_texture.h"
 #include "mvs/gpu_mat.h"
 
 namespace colmap {
@@ -64,8 +64,8 @@ class GpuMatRefImage {
   const static size_t kBlockDimX = 16;
   const static size_t kBlockDimY = 12;
 
-  size_t width_;
-  size_t height_;
+  const size_t width_;
+  const size_t height_;
 };
 
 struct BilateralWeightComputer {
