@@ -98,6 +98,7 @@
 
 
 __device__ __constant__ float d_kernel[KERNEL_MAX_WIDTH];
+
 texture<float4, 1, cudaReadModeElementType> texDataF4;
 texture<int4, 1, cudaReadModeElementType> texDataI4;
 texture<int4, 1, cudaReadModeElementType> texDataList;
@@ -125,10 +126,6 @@ const static cudaTextureDesc texDataBDesc = []() {
   textureDesc.normalizedCoords = false;
   return textureDesc;
 }();
-
-//template<int i>	 __device__ float Conv(float *data)		{    return Conv<i-1>(data) + data[i]*d_kernel[i];}
-//template<>		__device__ float Conv<0>(float *data)	{    return data[0] * d_kernel[0];					}
-
 
 //////////////////////////////////////////////////////////////
 template<int FW> __global__ void FilterH(cudaTextureObject_t texData, float* d_result, int width)
