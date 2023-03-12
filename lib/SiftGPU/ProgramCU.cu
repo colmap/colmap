@@ -99,7 +99,6 @@
 
 __device__ __constant__ float d_kernel[KERNEL_MAX_WIDTH];
 
-texture<int4, 1, cudaReadModeElementType> texDataI4;
 texture<int4, 1, cudaReadModeElementType> texDataList;
 
 const static cudaTextureDesc texDataDesc = []() {
@@ -717,7 +716,7 @@ void ProgramCU::InitHistogram(CuTexImage* key, CuTexImage* hist)
 
 
 
-void __global__ ReduceHist_Kernel(int4* d_hist, int ws, int wd, int height)
+void __global__ ReduceHist_Kernel(cudaTextureObject_t texDataI4, int4* d_hist, int ws, int wd, int height)
 {
        int row = IMUL(blockIdx.y, blockDim.y) + threadIdx.y;
        int col = IMUL(blockIdx.x, blockDim.x) + threadIdx.x;
@@ -730,7 +729,7 @@ void __global__ ReduceHist_Kernel(int4* d_hist, int ws, int wd, int height)
 #pragma unroll
 			for(int i = 0; i < 4 && scol < ws; ++i, ++scol)
 			{
-				int4 temp = tex1Dfetch(texDataI4, sidx + i);
+				int4 temp = tex1Dfetch<int4>(texDataI4, sidx + i);
 				v[i] = temp.x + temp.y + temp.z + temp.w;
 			}
 			d_hist[hidx] = make_int4(v[0], v[1], v[2], v[3]);
@@ -743,21 +742,21 @@ void ProgramCU::ReduceHistogram(CuTexImage*hist1, CuTexImage* hist2)
 	int wd = hist2->GetImgWidth(), hd = hist2->GetImgHeight();
 	int temp = (int)floorf(logf(float(wd * 2/ 3)) / logf(2.0f));
 	const int wi = min(7, max(temp , 0));
-	hist1->BindTexture(texDataI4);
+    CuTexImage::CuTexObj hist1Tex = hist1->BindTexture(texDataDesc, cudaCreateChannelDesc<int4>());
 
 	const int BW = 1 << wi, BH =  1 << (7 - wi);
 	dim3 grid((wd  + BW - 1)/ BW,  (hd + BH -1) / BH);
 	dim3 block(BW, BH);
-	ReduceHist_Kernel<<<grid, block>>>((int4*)hist2->_cuData, ws, wd, hd);
+	ReduceHist_Kernel<<<grid, block>>>(hist1Tex.handle, (int4*)hist2->_cuData, ws, wd, hd);
 }
 
 
-void __global__ ListGen_Kernel(int4* d_list, int list_len, int width)
+void __global__ ListGen_Kernel(cudaTextureObject_t texDataI4, int4* d_list, int list_len, int width)
 {
 	int idx1 = IMUL(blockIdx.x, blockDim.x) + threadIdx.x;
     int4 pos = tex1Dfetch(texDataList, idx1);
 	int idx2 = IMUL(pos.y, width) + pos.x;
-	int4 temp = tex1Dfetch(texDataI4, idx2);
+	int4 temp = tex1Dfetch<int4>(texDataI4, idx2);
 	int  sum1 = temp.x + temp.y;
 	int  sum2 = sum1 + temp.z;
 	pos.x <<= 2;
@@ -784,10 +783,10 @@ void ProgramCU::GenerateList(CuTexImage* list, CuTexImage* hist)
 {
 	int len = list->GetImgWidth();
 	list->BindTexture(texDataList);
-	hist->BindTexture(texDataI4);
+    CuTexImage::CuTexObj histTex = hist->BindTexture(texDataDesc, cudaCreateChannelDesc<int4>());
 	dim3  grid((len + LISTGEN_BLOCK_DIM -1) /LISTGEN_BLOCK_DIM);
 	dim3  block(LISTGEN_BLOCK_DIM);
-	ListGen_Kernel<<<grid, block>>>((int4*) list->_cuData, len,
+	ListGen_Kernel<<<grid, block>>>(histTex.handle, (int4*) list->_cuData, len,
                                   hist->GetImgWidth());
 }
 
