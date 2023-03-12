@@ -99,12 +99,6 @@ struct IncrementalMapperOptions {
   // The maximum number of local bundle adjustment iterations.
   int ba_local_max_num_iterations = 25;
 
-  // Whether to use PBA in global bundle adjustment.
-  bool ba_global_use_pba = false;
-
-  // The GPU index for PBA bundle adjustment.
-  int ba_global_pba_gpu_index = -1;
-
   // The growth rates after which to perform global bundle adjustment.
   double ba_global_images_ratio = 1.1;
   double ba_global_points_ratio = 1.1;
@@ -140,7 +134,6 @@ struct IncrementalMapperOptions {
   IncrementalTriangulator::Options Triangulation() const;
   BundleAdjustmentOptions LocalBundleAdjustment() const;
   BundleAdjustmentOptions GlobalBundleAdjustment() const;
-  ParallelBundleAdjuster::Options ParallelGlobalBundleAdjustment() const;
 
   bool Check() const;
 

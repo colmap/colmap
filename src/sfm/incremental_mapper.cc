@@ -713,39 +713,6 @@ bool IncrementalMapper::AdjustGlobalBundle(
   return true;
 }
 
-bool IncrementalMapper::AdjustParallelGlobalBundle(
-    const BundleAdjustmentOptions& ba_options,
-    const ParallelBundleAdjuster::Options& parallel_ba_options) {
-  CHECK_NOTNULL(reconstruction_);
-
-  const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
-
-  CHECK_GE(reg_image_ids.size(), 2)
-      << "At least two images must be registered for global bundle-adjustment";
-
-  // Avoid degeneracies in bundle adjustment.
-  reconstruction_->FilterObservationsWithNegativeDepth();
-
-  // Configure bundle adjustment.
-  BundleAdjustmentConfig ba_config;
-  for (const image_t image_id : reg_image_ids) {
-    ba_config.AddImage(image_id);
-  }
-
-  // Run bundle adjustment.
-  ParallelBundleAdjuster bundle_adjuster(parallel_ba_options, ba_options,
-                                         ba_config);
-  if (!bundle_adjuster.Solve(reconstruction_)) {
-    return false;
-  }
-
-  // Normalize scene for numerical stability and
-  // to avoid large scale changes in viewer.
-  reconstruction_->Normalize();
-
-  return true;
-}
-
 size_t IncrementalMapper::FilterImages(const Options& options) {
   CHECK_NOTNULL(reconstruction_);
   CHECK(options.Check());
