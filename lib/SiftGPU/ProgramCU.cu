@@ -98,7 +98,6 @@
 
 
 __device__ __constant__ float d_kernel[KERNEL_MAX_WIDTH];
-texture<unsigned char, 1, cudaReadModeNormalizedFloat> texDataB;
 texture<float2, 2, cudaReadModeElementType> texDataF2;
 texture<float4, 1, cudaReadModeElementType> texDataF4;
 texture<int4, 1, cudaReadModeElementType> texDataI4;
@@ -108,6 +107,18 @@ const static cudaTextureDesc texDataDesc = []() {
   cudaTextureDesc textureDesc;
   memset(&textureDesc, 0, sizeof(textureDesc));
   textureDesc.readMode = cudaReadModeElementType;
+  textureDesc.addressMode[0] = cudaAddressModeClamp;
+  textureDesc.addressMode[1] = cudaAddressModeClamp;
+  textureDesc.addressMode[2] = cudaAddressModeClamp;
+  textureDesc.filterMode = cudaFilterModePoint;
+  textureDesc.normalizedCoords = false;
+  return textureDesc;
+}();
+
+const static cudaTextureDesc texDataBDesc = []() {
+  cudaTextureDesc textureDesc;
+  memset(&textureDesc, 0, sizeof(textureDesc));
+  textureDesc.readMode = cudaReadModeNormalizedFloat;
   textureDesc.addressMode[0] = cudaAddressModeClamp;
   textureDesc.addressMode[1] = cudaAddressModeClamp;
   textureDesc.addressMode[2] = cudaAddressModeClamp;
@@ -363,10 +374,10 @@ void ProgramCU::ReduceToSingleChannel(CuTexImage* dst, CuTexImage* src, int conv
 	}
 }
 
-__global__ void ConvertByteToFloat_Kernel(float* d_result)
+__global__ void ConvertByteToFloat_Kernel(cudaTextureObject_t texDataB, float* d_result)
 {
 	int index = IMUL(blockIdx.x, FILTERH_TILE_WIDTH) + threadIdx.x;
-	d_result[index] = tex1Dfetch(texDataB, index);
+	d_result[index] = tex1Dfetch<float>(texDataB, index);
 }
 
 void ProgramCU::ConvertByteToFloat(CuTexImage*src, CuTexImage* dst)
@@ -374,8 +385,8 @@ void ProgramCU::ConvertByteToFloat(CuTexImage*src, CuTexImage* dst)
 	int width = src->GetImgWidth(), height = dst->GetImgHeight() ;
 	dim3 grid((width * height +  FILTERH_TILE_WIDTH - 1)/ FILTERH_TILE_WIDTH);
 	dim3 block(FILTERH_TILE_WIDTH);
-	src->BindTexture(texDataB);
-	ConvertByteToFloat_Kernel<<<grid, block>>>((float*)dst->_cuData);
+	CuTexImage::CuTexObj srcTex = src->BindTexture(texDataBDesc);
+	ConvertByteToFloat_Kernel<<<grid, block>>>(srcTex.handle, (float*)dst->_cuData);
 }
 
 void ProgramCU::CreateFilterKernel(float sigma, float* kernel, int& width)
