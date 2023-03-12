@@ -36,7 +36,6 @@ elseif(IS_GNU OR IS_CLANG)
 endif()
 
 add_subdirectory(LSD)
-add_subdirectory(PBA)
 add_subdirectory(PoissonRecon)
 add_subdirectory(SiftGPU)
 add_subdirectory(VLFeat)
