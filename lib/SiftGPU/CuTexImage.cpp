@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <stdlib.h>
 #include <math.h>
+#include <cstring>
 using namespace std;
 
 
@@ -39,10 +40,48 @@ using namespace std;
 #include "CuTexImage.h"
 #include "ProgramCU.h"
 
-#if CUDA_VERSION <= 2010 && defined(SIFTGPU_ENABLE_LINEAR_TEX2D)
-#error "Require CUDA 2.2 or higher"
-#endif
+CuTexImage::CuTexObj::~CuTexObj()
+{
+	cudaDestroyTextureObject(handle);
+}
 
+CuTexImage::CuTexObj CuTexImage::BindTexture(const cudaTextureDesc& textureDesc,
+											   										 const cudaChannelFormatDesc& channelFmtDesc)
+{
+	CuTexObj texObj;
+
+	cudaResourceDesc resourceDesc;
+	memset(&resourceDesc, 0, sizeof(resourceDesc));
+  resourceDesc.resType = cudaResourceTypeLinear;
+  resourceDesc.res.linear.devPtr = _cuData;
+	resourceDesc.res.linear.desc = channelFmtDesc;
+	resourceDesc.res.linear.sizeInBytes = _numBytes;
+
+	cudaCreateTextureObject(&texObj.handle, &resourceDesc, &textureDesc, nullptr);
+	ProgramCU::CheckErrorCUDA("CuTexImage::BindTexture");
+
+	return texObj;
+}
+
+CuTexImage::CuTexObj CuTexImage::BindTexture2D(const cudaTextureDesc& textureDesc,
+											   											 const cudaChannelFormatDesc& channelFmtDesc)
+{
+	CuTexObj texObj;
+
+	cudaResourceDesc resourceDesc;
+	memset(&resourceDesc, 0, sizeof(resourceDesc));
+	resourceDesc.resType = cudaResourceTypePitch2D;
+  resourceDesc.res.pitch2D.devPtr = _cuData;
+	resourceDesc.res.pitch2D.width = _imgWidth;
+	resourceDesc.res.pitch2D.height = _imgHeight;
+	resourceDesc.res.pitch2D.pitchInBytes = _imgWidth * _numChannel * sizeof(float);
+	resourceDesc.res.pitch2D.desc = channelFmtDesc;
+
+	cudaCreateTextureObject(&texObj.handle, &resourceDesc, &textureDesc, nullptr);
+	ProgramCU::CheckErrorCUDA("CuTexImage::BindTexture2D");
+
+	return texObj;
+}
 
 CuTexImage::CuTexImage()
 {
@@ -170,69 +209,6 @@ void CuTexImage::CopyToHost(void * buf, int stream)
 	if(_cuData == NULL) return;
 	cudaMemcpyAsync(buf, _cuData, _imgWidth * _imgHeight * _numChannel * sizeof(float), cudaMemcpyDeviceToHost, (cudaStream_t)stream);
 }
-
-void CuTexImage::InitTexture2D()
-{
-#if !defined(SIFTGPU_ENABLE_LINEAR_TEX2D)
-	if(_cuData2D && (_texWidth < _imgWidth || _texHeight < _imgHeight))
-	{
-		cudaFreeArray(_cuData2D);
-		_cuData2D = NULL;
-	}
-
-	if(_cuData2D == NULL)
-	{
-		_texWidth = max(_texWidth, _imgWidth);
-		_texHeight = max(_texHeight, _imgHeight);
-		cudaChannelFormatDesc desc;
-		desc.f = cudaChannelFormatKindFloat;
-		desc.x = sizeof(float) * 8;
-		desc.y = _numChannel >=2 ? sizeof(float) * 8 : 0;
-		desc.z = _numChannel >=3 ? sizeof(float) * 8 : 0;
-		desc.w = _numChannel >=4 ? sizeof(float) * 8 : 0;
-		const cudaError_t status = cudaMallocArray(&_cuData2D, &desc, _texWidth, _texHeight);
-
-    if (status != cudaSuccess) {
-      _cuData = NULL;
-      _numBytes = 0;
-    }
-
-		ProgramCU::CheckErrorCUDA("CuTexImage::InitTexture2D");
-	}
-#endif
-}
-
-void CuTexImage::CopyToTexture2D()
-{
-#if !defined(SIFTGPU_ENABLE_LINEAR_TEX2D)
-	InitTexture2D();
-
-	if(_cuData2D)
-	{
-		cudaMemcpy2DToArray(_cuData2D, 0, 0, _cuData, _imgWidth* _numChannel* sizeof(float) ,
-		_imgWidth * _numChannel*sizeof(float), _imgHeight,	cudaMemcpyDeviceToDevice);
-		ProgramCU::CheckErrorCUDA("cudaMemcpy2DToArray");
-	}
-#endif
-
-}
-
-int CuTexImage::DebugCopyToTexture2D()
-{
-
-/*	CuTexImage tex;
-	float data1[2][3] = {{1, 2, 5}, {3, 4, 5}}, data2[2][5];
-	tex.InitTexture(3, 2, 1);
-	cudaMemcpy(tex._cuData, data1[0], 6 * sizeof(float), cudaMemcpyHostToDevice);
-	cudaMemcpy(data1, tex._cuData, 4 * sizeof(float) , cudaMemcpyDeviceToHost);
-	tex._texWidth =5;  tex._texHeight = 2;
-	tex.CopyToTexture2D();
-	cudaMemcpyFromArray(data2[0], tex._cuData2D, 0, 0, 10 * sizeof(float), cudaMemcpyDeviceToHost);*/
-
-	return 1;
-}
-
-
 
 void CuTexImage::CopyFromPBO(int width, int height, GLuint pbo)
 {
