@@ -47,17 +47,15 @@ CuTexImage::CuTexObj::~CuTexObj()
 
 CuTexImage::CuTexObj CuTexImage::BindTexture(const cudaTextureDesc& textureDesc)
 {
+	std::cout << "BindTexture" << std::endl;
+
 	CuTexObj texObj;
 
 	cudaResourceDesc resourceDesc;
 	memset(&resourceDesc, 0, sizeof(resourceDesc));
   resourceDesc.resType = cudaResourceTypeLinear;
   resourceDesc.res.linear.devPtr = _cuData;
-	resourceDesc.res.linear.desc.f = cudaChannelFormatKindFloat;
-	resourceDesc.res.linear.desc.x = sizeof(float) * 8;
-	resourceDesc.res.linear.desc.y = _numChannel >=2 ? sizeof(float) * 8 : 0;
-	resourceDesc.res.linear.desc.z = _numChannel >=3 ? sizeof(float) * 8 : 0;
-	resourceDesc.res.linear.desc.w = _numChannel >=4 ? sizeof(float) * 8 : 0;
+	resourceDesc.res.linear.desc = cudaCreateChannelDesc<float>();
 	resourceDesc.res.linear.sizeInBytes = _numBytes;
 
 	cudaCreateTextureObject(&texObj.handle, &resourceDesc, &textureDesc, nullptr);
@@ -68,6 +66,8 @@ CuTexImage::CuTexObj CuTexImage::BindTexture(const cudaTextureDesc& textureDesc)
 
 CuTexImage::CuTexObj CuTexImage::BindTexture2D(const cudaTextureDesc& textureDesc)
 {
+	std::cout << "BindTexture2D" << std::endl;
+
 	CuTexObj texObj;
 
 	cudaResourceDesc resourceDesc;
@@ -78,18 +78,14 @@ CuTexImage::CuTexObj CuTexImage::BindTexture2D(const cudaTextureDesc& textureDes
 	resourceDesc.res.pitch2D.width = _imgWidth;
 	resourceDesc.res.pitch2D.height = _imgHeight;
 	resourceDesc.res.pitch2D.pitchInBytes = _imgWidth * _numChannel * sizeof(float);
-	resourceDesc.res.pitch2D.desc.f = cudaChannelFormatKindFloat;
-	resourceDesc.res.pitch2D.desc.x = sizeof(float) * 8;
-	resourceDesc.res.pitch2D.desc.y = _numChannel >=2 ? sizeof(float) * 8 : 0;
-	resourceDesc.res.pitch2D.desc.z = _numChannel >=3 ? sizeof(float) * 8 : 0;
-	resourceDesc.res.pitch2D.desc.w = _numChannel >=4 ? sizeof(float) * 8 : 0;
+	resourceDesc.res.pitch2D.desc = _channelFmt2D;
 #else
 	resourceDesc.resType = cudaResourceTypeArray;
   resourceDesc.res.array.array = _cuData2D;
 #endif
 
 	cudaCreateTextureObject(&texObj.handle, &resourceDesc, &textureDesc, nullptr);
-	ProgramCU::CheckErrorCUDA("CuTexImage::BindTexture");
+	ProgramCU::CheckErrorCUDA("CuTexImage::BindTexture2D");
 
 	return texObj;
 }
@@ -234,13 +230,12 @@ void CuTexImage::InitTexture2D()
 	{
 		_texWidth = max(_texWidth, _imgWidth);
 		_texHeight = max(_texHeight, _imgHeight);
-		cudaChannelFormatDesc desc;
-		desc.f = cudaChannelFormatKindFloat;
-		desc.x = sizeof(float) * 8;
-		desc.y = _numChannel >=2 ? sizeof(float) * 8 : 0;
-		desc.z = _numChannel >=3 ? sizeof(float) * 8 : 0;
-		desc.w = _numChannel >=4 ? sizeof(float) * 8 : 0;
-		const cudaError_t status = cudaMallocArray(&_cuData2D, &desc, _texWidth, _texHeight);
+		_channelFmt2D.f = cudaChannelFormatKindFloat;
+		_channelFmt2D.x = sizeof(float) * 8;
+		_channelFmt2D.y = _numChannel >=2 ? sizeof(float) * 8 : 0;
+		_channelFmt2D.z = _numChannel >=3 ? sizeof(float) * 8 : 0;
+		_channelFmt2D.w = _numChannel >=4 ? sizeof(float) * 8 : 0;
+		const cudaError_t status = cudaMallocArray(&_cuData2D, &_channelFmt2D, _texWidth, _texHeight);
 
     if (status != cudaSuccess) {
       _cuData = NULL;

@@ -28,8 +28,7 @@
 
 class GLTexImage;
 
-//using texture2D from linear memory
-
+// using texture2D from linear memory
 #define SIFTGPU_ENABLE_LINEAR_TEX2D
 
 class CuTexImage
@@ -37,6 +36,7 @@ class CuTexImage
 protected:
 	void*		_cuData;
 	cudaArray*	_cuData2D;
+	cudaChannelFormatDesc _channelFmt2D;
 	int			_numChannel;
 	size_t			_numBytes;
 	int			_imgWidth;
