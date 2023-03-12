@@ -42,7 +42,7 @@ namespace colmap {
 // Abstract base class for sampling methods.
 class Sampler {
  public:
-  Sampler(){};
+  Sampler() = default;
   explicit Sampler(const size_t num_samples);
 
   // Initialize the sampler, before calling the `Sample` method.
@@ -52,7 +52,7 @@ class Sampler {
   virtual size_t MaxNumSamples() = 0;
 
   // Sample `num_samples` elements from all samples.
-  virtual std::vector<size_t> Sample() = 0;
+  virtual void Sample(std::vector<size_t>* sampled_idxs) = 0;
 
   // Sample elements from `X` into `X_rand`.
   //
@@ -75,9 +75,10 @@ class Sampler {
 
 template <typename X_t>
 void Sampler::SampleX(const X_t& X, X_t* X_rand) {
-  const auto sample_idxs = Sample();
+  thread_local std::vector<size_t> sampled_idxs;
+  Sample(&sampled_idxs);
   for (size_t i = 0; i < X_rand->size(); ++i) {
-    (*X_rand)[i] = X[sample_idxs[i]];
+    (*X_rand)[i] = X[sampled_idxs[i]];
   }
 }
 
@@ -85,10 +86,11 @@ template <typename X_t, typename Y_t>
 void Sampler::SampleXY(const X_t& X, const Y_t& Y, X_t* X_rand, Y_t* Y_rand) {
   CHECK_EQ(X.size(), Y.size());
   CHECK_EQ(X_rand->size(), Y_rand->size());
-  const auto sample_idxs = Sample();
+  thread_local std::vector<size_t> sampled_idxs;
+  Sample(&sampled_idxs);
   for (size_t i = 0; i < X_rand->size(); ++i) {
-    (*X_rand)[i] = X[sample_idxs[i]];
-    (*Y_rand)[i] = Y[sample_idxs[i]];
+    (*X_rand)[i] = X[sampled_idxs[i]];
+    (*Y_rand)[i] = Y[sampled_idxs[i]];
   }
 }
 

@@ -44,7 +44,8 @@ BOOST_AUTO_TEST_CASE(TestLessSamples) {
   BOOST_CHECK_EQUAL(sampler.MaxNumSamples(),
                     std::numeric_limits<size_t>::max());
   for (size_t i = 0; i < 100; ++i) {
-    const auto samples = sampler.Sample();
+    std::vector<size_t> samples;
+    sampler.Sample(&samples);
     BOOST_CHECK_EQUAL(samples.size(), 2);
     BOOST_CHECK_EQUAL(
         std::unordered_set<size_t>(samples.begin(), samples.end()).size(), 2);
@@ -57,7 +58,8 @@ BOOST_AUTO_TEST_CASE(TestEqualSamples) {
   BOOST_CHECK_EQUAL(sampler.MaxNumSamples(),
                     std::numeric_limits<size_t>::max());
   for (size_t i = 0; i < 100; ++i) {
-    const auto samples = sampler.Sample();
+    std::vector<size_t> samples;
+    sampler.Sample(&samples);
     BOOST_CHECK_EQUAL(samples.size(), 5);
     BOOST_CHECK_EQUAL(
         std::unordered_set<size_t>(samples.begin(), samples.end()).size(), 5);
@@ -70,7 +72,8 @@ BOOST_AUTO_TEST_CASE(TestProgressive) {
   sampler.Initialize(50);
   size_t prev_last_sample = 5;
   for (size_t i = 0; i < 100; ++i) {
-    const auto samples = sampler.Sample();
+    std::vector<size_t> samples;
+    sampler.Sample(&samples);
     for (size_t i = 0; i < samples.size() - 1; ++i) {
       BOOST_CHECK_LT(samples[i], samples.back());
       BOOST_CHECK_GE(samples.back(), prev_last_sample);

@@ -52,10 +52,10 @@ size_t CombinationSampler::MaxNumSamples() {
   return NChooseK(total_sample_idxs_.size(), num_samples_);
 }
 
-std::vector<size_t> CombinationSampler::Sample() {
-  std::vector<size_t> sampled_idxs(num_samples_);
+void CombinationSampler::Sample(std::vector<size_t>* sampled_idxs) {
+  sampled_idxs->resize(num_samples_);
   for (size_t i = 0; i < num_samples_; ++i) {
-    sampled_idxs[i] = total_sample_idxs_[i];
+    (*sampled_idxs)[i] = total_sample_idxs_[i];
   }
 
   if (!NextCombination(total_sample_idxs_.begin(),
@@ -65,8 +65,6 @@ std::vector<size_t> CombinationSampler::Sample() {
     // Note that the samples must be in increasing order for `NextCombination`.
     std::iota(total_sample_idxs_.begin(), total_sample_idxs_.end(), 0);
   }
-
-  return sampled_idxs;
 }
 
 }  // namespace colmap
