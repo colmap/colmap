@@ -1362,22 +1362,6 @@ void ProgramCU::DisplayKeyBox(CuTexImage* ftex, CuTexImage* out)
     CuTexImage::CuTexObj ftexTex = ftex->BindTexture(texDataDesc, cudaCreateChannelDesc<float4>());
 	DisplayKeyBox_Kernel<<<grid, block>>>(ftexTex.handle, (float4*) out->_cuData, len * 10);
 }
-///////////////////////////////////////////////////////////////////
-inline void CuTexImage:: BindTexture(textureReference& texRef)
-{
-	 cudaBindTexture(NULL, &texRef, _cuData, &texRef.channelDesc, _numBytes);
-}
-
-inline void CuTexImage::BindTexture2D(textureReference& texRef)
-{
-#if defined(SIFTGPU_ENABLE_LINEAR_TEX2D)
-	cudaBindTexture2D(0, &texRef, _cuData, &texRef.channelDesc, _imgWidth, _imgHeight, _imgWidth* _numChannel* sizeof(float));
-#else
-	cudaChannelFormatDesc desc;
-	cudaGetChannelDesc(&desc, _cuData2D);
-	cudaBindTextureToArray(&texRef, _cuData2D, &desc);
-#endif
-}
 
 int ProgramCU::CheckCudaDevice(int device)
 {

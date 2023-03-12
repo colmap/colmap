@@ -53,10 +53,8 @@ public:
 	virtual void SetImageSize(int width, int height);
 	virtual bool InitTexture(int width, int height, int nchannel = 1);
 	void InitTexture2D();
-	inline void BindTexture(textureReference& texRef);
 	CuTexObj BindTexture(const cudaTextureDesc& textureDesc,
 											 const cudaChannelFormatDesc& channelFmtDesc);
-	inline void BindTexture2D(textureReference& texRef);
 	CuTexObj BindTexture2D(const cudaTextureDesc& textureDesc,
 											   const cudaChannelFormatDesc& channelFmtDesc);
 	void CopyToTexture2D();
