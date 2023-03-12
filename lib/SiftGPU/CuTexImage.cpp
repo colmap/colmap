@@ -47,8 +47,6 @@ CuTexImage::CuTexObj::~CuTexObj()
 
 CuTexImage::CuTexObj CuTexImage::BindTexture(const cudaTextureDesc& textureDesc)
 {
-	std::cout << "BindTexture" << std::endl;
-
 	CuTexObj texObj;
 
 	cudaResourceDesc resourceDesc;
@@ -66,8 +64,6 @@ CuTexImage::CuTexObj CuTexImage::BindTexture(const cudaTextureDesc& textureDesc)
 
 CuTexImage::CuTexObj CuTexImage::BindTexture2D(const cudaTextureDesc& textureDesc)
 {
-	std::cout << "BindTexture2D" << std::endl;
-
 	CuTexObj texObj;
 
 	cudaResourceDesc resourceDesc;

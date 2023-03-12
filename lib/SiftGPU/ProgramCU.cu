@@ -141,7 +141,7 @@ template<int FW> __global__ void FilterH(cudaTextureObject_t texData, float* d_r
 		if(cache_index < CACHE_WIDTH)
 		{
 			int fetch_index = src_index < index_min? index_min : (src_index > index_max ? index_max : src_index);
-			data[cache_index] = tex1D<float>(texData,fetch_index);
+			data[cache_index] = tex1Dfetch<float>(texData,fetch_index);
 			src_index += FILTERH_TILE_WIDTH;
 			cache_index += FILTERH_TILE_WIDTH;
 		}
@@ -199,7 +199,7 @@ template<int  FW>  __global__ void FilterV(cudaTextureObject_t texData, float* d
 			if(cache_col_start < CACHE_WIDTH - i * FILTERV_BLOCK_HEIGHT)
 			{
 				int fetch_index = data_index < col ? col : (data_index > data_index_max? data_index_max : data_index);
-				data[cache_index + i * FILTERV_BLOCK_HEIGHT] = tex1D<float>(texData,fetch_index);
+				data[cache_index + i * FILTERV_BLOCK_HEIGHT] = tex1Dfetch<float>(texData,fetch_index);
 				data_index += IMUL(FILTERV_BLOCK_HEIGHT, width);
 			}
 		}
@@ -243,11 +243,11 @@ template<int LOG_SCALE> __global__ void UpsampleKernel(cudaTextureObject_t texDa
 	int helper = blockIdx.y & SCALE_MASK;
 	if (helper)
 	{
-		float v11 = tex1D<float>(texData, index);
-		float v12 = tex1D<float>(texData, index + 1);
+		float v11 = tex1Dfetch<float>(texData, index);
+		float v12 = tex1Dfetch<float>(texData, index + 1);
 		index += width;
-		float v21 = tex1D<float>(texData, index);
-		float v22 = tex1D<float>(texData, index + 1);
+		float v21 = tex1Dfetch<float>(texData, index);
+		float v22 = tex1Dfetch<float>(texData, index + 1);
 		float w1 = INV_SCALE * helper, w2 = 1.0 - w1;
 		float v1 = (v21 * w1  + w2 * v11);
 		float v2 = (v22 * w1  + w2 * v12);
@@ -261,8 +261,8 @@ template<int LOG_SCALE> __global__ void UpsampleKernel(cudaTextureObject_t texDa
 		}
 	}else
 	{
-		float v1 = tex1D<float>(texData, index);
-		float v2 = tex1D<float>(texData, index + 1);
+		float v1 = tex1Dfetch<float>(texData, index);
+		float v2 = tex1Dfetch<float>(texData, index + 1);
 		d_result[dst_idx] = v1;
 #pragma unroll
 		for(int i = 1; i < SCALE; ++i)
@@ -300,7 +300,7 @@ template<int LOG_SCALE> __global__ void DownsampleKernel(cudaTextureObject_t tex
 	const int src_row = blockIdx.y << LOG_SCALE;
 	const int src_idx = IMUL(src_row, src_width) + src_col;
 	const int dst_idx = IMUL(dst_width, dst_row) + dst_col;
-	d_result[dst_idx] = tex1D<float>(texData, src_idx);
+	d_result[dst_idx] = tex1Dfetch<float>(texData, src_idx);
 
 }
 
@@ -313,7 +313,7 @@ __global__ void DownsampleKernel(cudaTextureObject_t texData, float* d_result, i
 	const int src_row = blockIdx.y << log_scale;
 	const int src_idx = IMUL(src_row, src_width) + src_col;
 	const int dst_idx = IMUL(dst_width, dst_row) + dst_col;
-	d_result[dst_idx] = tex1D<float>(texData, src_idx);
+	d_result[dst_idx] = tex1Dfetch<float>(texData, src_idx);
 
 }
 
@@ -336,7 +336,7 @@ void ProgramCU::SampleImageD(CuTexImage *dst, CuTexImage *src, int log_scale)
 __global__ void ChannelReduce_Kernel(cudaTextureObject_t texData, float* d_result)
 {
 	int index = IMUL(blockIdx.x, FILTERH_TILE_WIDTH) + threadIdx.x;
-	d_result[index] = tex1D<float>(texData, index*4);
+	d_result[index] = tex1Dfetch<float>(texData, index*4);
 }
 
 __global__ void ChannelReduce_Convert_Kernel(float* d_result)
@@ -1231,7 +1231,7 @@ void __global__ ConvertDOG_Kernel(cudaTextureObject_t texData, float* d_result, 
 	if(col < width && row < height)
 	{
 		int index = row * width  + col;
-		float v = tex1D<float>(texData, index);
+		float v = tex1Dfetch<float>(texData, index);
 		d_result[index] = (col == 0 || row == 0 || col == width -1 || row == height -1)?
 			0.5 : saturate(0.5+20.0*v);
 	}
@@ -1255,7 +1255,7 @@ void __global__ ConvertGRD_Kernel(cudaTextureObject_t texData, float* d_result, 
 	if(col < width && row < height)
 	{
 		int index = row * width  + col;
-		float v = tex1D<float>(texData, index << 1);
+		float v = tex1Dfetch<float>(texData, index << 1);
 		d_result[index] = (col == 0 || row == 0 || col == width -1 || row == height -1)?
 				0 : saturate(5 * v);
 
@@ -1285,7 +1285,7 @@ void __global__ ConvertKEY_Kernel(cudaTextureObject_t texData, float4* d_result,
 		float4 keyv = tex1Dfetch(texDataF4, index);
 		int is_key = (keyv.x == 1.0f || keyv.x == -1.0f);
 		int inside = col > 0 && row > 0 && row < height -1 && col < width - 1;
-		float v = inside? saturate(0.5 + 20 * tex1D<float>(texData, index)) : 0.5;
+		float v = inside? saturate(0.5 + 20 * tex1Dfetch<float>(texData, index)) : 0.5;
 		d_result[index] = is_key && inside ?
 			(keyv.x > 0? make_float4(1.0f, 0, 0, 1.0f) : make_float4(0.0f, 1.0f, 0.0f, 1.0f)):
 			make_float4(v, v, v, 1.0f) ;
