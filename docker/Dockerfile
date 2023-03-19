@@ -2,6 +2,7 @@ FROM nvidia/cuda:11.7.0-devel-ubuntu22.04
 
 ARG COLMAP_VERSION=dev
 ARG CUDA_ARCHITECTURES=native
+ENV QT_XCB_GL_INTEGRATION=xcb_egl
 
 # Prevent stop building ubuntu at time zone selection.  
 ENV DEBIAN_FRONTEND=noninteractive
