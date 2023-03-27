@@ -224,7 +224,7 @@ class Database {
 
   // Merge two databases into a single, new database.
   static void Merge(const Database& database1, const Database& database2,
-                    Database* merged_database);
+                    Database* merged_database, const bool panoptic_studio = false);
 
  private:
   friend class DatabaseTransaction;

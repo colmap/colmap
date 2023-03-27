@@ -92,11 +92,13 @@ int RunDatabaseMerger(int argc, char** argv) {
   std::string database_path1;
   std::string database_path2;
   std::string merged_database_path;
+  bool panoptic_studio = false;
 
   OptionManager options;
   options.AddRequiredOption("database_path1", &database_path1);
   options.AddRequiredOption("database_path2", &database_path2);
   options.AddRequiredOption("merged_database_path", &merged_database_path);
+  options.AddDefaultOption("panoptic_studio", &panoptic_studio, "Do feature matches merging as in 'Panoptic Studio' paper, Section 3.4");
   options.Parse(argc, argv);
 
   if (ExistsFile(merged_database_path)) {
@@ -107,7 +109,7 @@ int RunDatabaseMerger(int argc, char** argv) {
   Database database1(database_path1);
   Database database2(database_path2);
   Database merged_database(merged_database_path);
-  Database::Merge(database1, database2, &merged_database);
+  Database::Merge(database1, database2, &merged_database, panoptic_studio);
 
   return EXIT_SUCCESS;
 }
