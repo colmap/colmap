@@ -355,5 +355,229 @@ def example_usage():
         os.remove(args.database_path)
 
 
+def get_keypoints(cursor, image_id):
+    cursor.execute("SELECT * FROM keypoints WHERE image_id = ?;", (image_id,))
+    image_idx, n_rows, n_columns, raw_data = cursor.fetchone()
+    kypnts = np.frombuffer(raw_data, dtype=np.float32).reshape(n_rows, n_columns).copy()
+    kypnts = kypnts[:,0:2]
+    return kypnts
+
+def normalize_points(pts):
+    # Normalize image coordinates to have zero mean and unit variance
+    pts_norm = (pts - np.mean(pts, axis=0)) / np.std(pts, axis=0)
+    return pts_norm
+
+def read_KRT():
+    intrinsics = {}
+    extrinsics = {}
+
+    with open('/home/gaini/capstone/dataset/KRT') as f:
+        lines = f.readlines()
+
+        num = len(lines)
+        i = 0
+        while i < num:
+            camera_id = int(lines[i])
+            a = lines[i+1].split(" ")
+            b = lines[i+2].split(" ")
+
+            aa = a[2]
+            bb = b[2]
+            K = [[0, 0, 0], [0, 0, 0], [0, 0, 1]]
+            K[0][0] = a[0]
+            K[1][1] = b[1]
+            K[0][2] = aa[:-2]
+            K[1][2] = bb[:-2]
+            intrinsics[camera_id] = np.array(K).astype('float64')
+
+
+            extr = np.zeros((3, 4))
+            extr1 = lines[i + 5].split(" ")
+            extr2 = lines[i + 6].split(" ")
+            extr3 = lines[i + 7].split(" ")
+            extr[0] = extr1
+            extr[1] = extr2
+            extr[2] = extr3
+            extrinsics[camera_id] = extr.astype('float64')
+
+            i += 9
+
+    return intrinsics, extrinsics
+
+def compute_fundamental_matrix(pts1, pts2):
+    # Normalize image coordinates
+    pts1_norm = normalize_points(pts1)
+    pts2_norm = normalize_points(pts2)
+
+    # Construct the A matrix
+    A = np.zeros((len(pts1_norm), 9))
+    for i in range(len(pts1_norm)):
+        u1, v1 = pts1_norm[i]
+        u2, v2 = pts2_norm[i]
+        A[i] = [u1*u2, v1*u2, u2, u1*v2, v1*v2, v2, u1, v1, 1]
+
+    # Solve for the null space of A using SVD
+    _, _, Vt = np.linalg.svd(A)
+    f = Vt[-1].reshape(3, 3)
+
+    # Enforce rank 2 constraint on the fundamental matrix
+    Uf, Sf, Vf = np.linalg.svd(f)
+    Sf[-1] = 0
+    Sf = np.diag(Sf)
+    f_rank2 = Uf @ Sf @ Vf
+
+    # Denormalize fundamental matrix
+    T1 = np.array([[1/np.std(pts1[:,0]), 0, -np.mean(pts1[:,0])/np.std(pts1[:,0])],
+                   [0, 1/np.std(pts1[:,1]), -np.mean(pts1[:,1])/np.std(pts1[:,1])],
+                   [0, 0, 1]])
+    T2 = np.array([[1/np.std(pts2[:,0]), 0, -np.mean(pts2[:,0])/np.std(pts2[:,0])],
+                   [0, 1/np.std(pts2[:,1]), -np.mean(pts2[:,1])/np.std(pts2[:,1])],
+                   [0, 0, 1]])
+    f_denorm = T2.T @ f_rank2 @ T1
+
+    return f_denorm
+
+def calc_l2(prediction, groundtruth):
+    R_prediction = []
+    R_groundtruth = []
+    t_prediction = []
+    t_groundtruth = []
+
+    for id in prediction:
+        R_prediction.append(prediction[id][:, :3])
+        R_groundtruth.append(groundtruth[id][:, :3])
+        t_prediction.append(prediction[id][:, 3:])
+        t_groundtruth.append(groundtruth[id][:, 3:])
+
+    R_prediction = np.array(R_prediction)
+    R_groundtruth = np.array(R_groundtruth)
+
+    t_prediction = np.array(t_prediction)
+    t_groundtruth = np.array(t_groundtruth)
+
+    l2_norm_R = np.sum(np.power((R_prediction - R_groundtruth), 2))
+    l2_norm_t = np.sum(np.power((t_prediction - t_groundtruth), 2))
+
+    print("l2 R", l2_norm_R) # l2 R 2.2580556793279634
+    print("l2 t", l2_norm_t) # l2 t 7660005.091985998
+
+    return l2_norm_R, l2_norm_t
+
+def get_matching_points():
+    import os
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--database_path", default="database.db")
+    parser.add_argument("--outdir", default="./calculated_extrinsics.txt")
+    args = parser.parse_args()
+
+    connection = sqlite3.connect(args.database_path)
+    cursor = connection.cursor()
+
+    list_image_ids = []
+    img_ids_to_names_dict = {}
+    cursor.execute(
+        'SELECT image_id, name, cameras.width, cameras.height FROM images LEFT JOIN cameras ON images.camera_id == cameras.camera_id;')
+    for row in cursor:
+        image_idx, name, width, height = row
+        list_image_ids.append(image_idx)
+        img_ids_to_names_dict[image_idx] = name
+
+
+    num_image_ids = len(list_image_ids)
+
+    cursor.execute('SELECT pair_id, rows, cols, data FROM two_view_geometries;')
+    all_matches = {}
+    for row in cursor:
+        pair_id = row[0]
+        rows = row[1]
+        cols = row[2]
+        raw_data = row[3]
+        if (rows < 5):
+            continue
+
+        matches = np.frombuffer(raw_data, dtype=np.uint32).reshape(rows, cols)
+
+        if matches.shape[0] < 5:
+            continue
+
+        all_matches[pair_id] = matches
+    intrinsics, extrinsics = read_KRT()
+
+    extrinsics_matrices = dict()
+
+    for key in all_matches:
+        pair_id = key
+        matches = all_matches[key]
+        id1, id2 = pair_id_to_image_ids(pair_id)
+
+        image_name1 = img_ids_to_names_dict[id1]
+        image_name2 = img_ids_to_names_dict[id2]
+
+        reference_camera1 = image_name1.split('.')[0].split("_")[0] == "400029"
+        reference_camera2 = image_name2.split('.')[0].split("_")[0] == "400029"
+
+        if reference_camera2 or reference_camera1:
+
+            if reference_camera2:
+                id1, id2 = id2, id1
+
+            keys1 = get_keypoints(cursor, id1)
+            keys2 = get_keypoints(cursor, id2)
+
+            match_positions = np.empty([matches.shape[0], 4])
+            for i in range(0, matches.shape[0]):
+                match_positions[i, :] = np.array(
+                    [keys1[matches[i, int(reference_camera2)]][0], keys1[matches[i, int(reference_camera2)]][1],
+                     keys2[matches[i, int(reference_camera1)]][0], keys2[matches[i, int(reference_camera1)]][1]])
+            F = compute_fundamental_matrix(match_positions[:, :2], match_positions[:, 2:4])
+
+            id1 = image_name1.split('.')[0].split("_")[0]
+            id2 = image_name2.split('.')[0].split("_")[0]
+
+
+            E = np.dot(intrinsics[int(id1)].T, np.dot(F, intrinsics[int(id2)]))
+
+            U, s, Vt = np.linalg.svd(E)
+
+            W = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
+            R1 = np.dot(U, np.dot(W, Vt))
+            R2 = np.dot(U, np.dot(W.T, Vt))
+
+            # Choose the rotation matrix that is closest to the identity matrix
+            if np.linalg.det(R1) < 0:
+                R1 = -R1
+            if np.linalg.det(R2) < 0:
+                R2 = -R2
+            if np.linalg.norm(np.eye(3) - R1) < np.linalg.norm(np.eye(3) - R2):
+                R = R1
+            else:
+                R = R2
+
+            # Compute translation vector t
+            t = U[:, 2]
+
+            extrinsic_matrix = np.hstack((R, t.reshape(3, 1)))
+
+            cam = int(image_name1.split('.')[0].split("_")[0])
+            if reference_camera1:
+                cam = int(image_name2.split('.')[0].split("_")[0])
+
+            extrinsics_matrices[cam] = extrinsic_matrix
+
+    cursor.close()
+    connection.close()
+
+    with open(args.outdir, 'w') as f:
+        for id in extrinsics_matrices:
+            f.write(str(id)+'\n')
+            f.write(np.array2string(extrinsics_matrices[id]))
+            f.write('\n')
+
+    calc_l2(extrinsics_matrices, extrinsics)
+
 if __name__ == "__main__":
-    example_usage()
+    # example_usage()
+    # python database.py --database_path /home/gaini/capstone/manual_extr_calculation/database.db --outdir ./predictions.txt
+    get_matching_points()
