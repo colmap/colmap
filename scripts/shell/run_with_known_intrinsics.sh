@@ -12,18 +12,18 @@ while read p; do
   --image_path $DATASET_PATH_IMG/frames/$id \
   --ImageReader.single_camera 1 \
   --ImageReader.camera_model=PINHOLE \
-    --ImageReader.camera_params $params
+  --ImageReader.camera_params $params
 
-  done <intrinsics.txt
+done <intrinsics.txt
 
-  colmap exhaustive_matcher --database_path $DATASET_PATH/database.db
+colmap exhaustive_matcher --database_path $DATASET_PATH/database.db
 
-  mkdir -p $DATASET_PATH/sparse
+mkdir -p $DATASET_PATH/sparse
 
-  colmap mapper \
-  --database_path $DATASET_PATH/database.db \
-  --image_path $DATASET_PATH_IMG/frames \
-  --output_path $DATASET_PATH/sparse \
-  --Mapper.ba_refine_principal_point 0 \
-  --Mapper.ba_refine_focal_length false 0 \
-  --Mapper.ba_refine_extra_params 0
+colmap mapper \
+--database_path $DATASET_PATH/database.db \
+--image_path $DATASET_PATH_IMG/frames \
+--output_path $DATASET_PATH/sparse \
+--Mapper.ba_refine_principal_point 0 \
+--Mapper.ba_refine_focal_length false 0 \
+--Mapper.ba_refine_extra_params 0
