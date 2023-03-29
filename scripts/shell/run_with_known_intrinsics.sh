@@ -12,7 +12,9 @@ while read p; do
   --image_path $DATASET_PATH_IMG/frames/$id \
   --ImageReader.single_camera 1 \
   --ImageReader.camera_model=PINHOLE \
-  --ImageReader.camera_params $params
+    --ImageReader.camera_params $params
+
+  done <intrinsics.txt
 
   colmap exhaustive_matcher --database_path $DATASET_PATH/database.db
 
@@ -25,5 +27,3 @@ while read p; do
   --Mapper.ba_refine_principal_point 0 \
   --Mapper.ba_refine_focal_length false 0 \
   --Mapper.ba_refine_extra_params 0
-
-  done <intrinsics.txt
