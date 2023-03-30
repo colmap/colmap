@@ -49,6 +49,8 @@ MapperGeneralOptionsWidget::MapperGeneralOptionsWidget(QWidget* parent,
   AddOptionDirPath(&options->mapper->snapshot_path, "snapshot_path");
   AddOptionInt(&options->mapper->snapshot_images_freq, "snapshot_images_freq",
                0);
+  AddOptionFilePath(&options->mapper->image_list_path, "image_list_path");
+
 }
 
 MapperTriangulationOptionsWidget::MapperTriangulationOptionsWidget(
