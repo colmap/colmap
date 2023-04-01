@@ -1245,7 +1245,7 @@ void __global__ ConvertDOG_Kernel(cudaTextureObject_t texData, float* d_result, 
 		int index = row * width  + col;
 		float v = tex1Dfetch<float>(texData, index);
 		d_result[index] = (col == 0 || row == 0 || col == width -1 || row == height -1)?
-			0.5 : saturate(0.5+20.0*v);
+			0.5 : __saturatef(0.5+20.0*v);
 	}
 }
 ///
@@ -1269,7 +1269,7 @@ void __global__ ConvertGRD_Kernel(cudaTextureObject_t texData, float* d_result, 
 		int index = row * width  + col;
 		float v = tex1Dfetch<float>(texData, index << 1);
 		d_result[index] = (col == 0 || row == 0 || col == width -1 || row == height -1)?
-				0 : saturate(5 * v);
+				0 : __saturatef(5 * v);
 
 	}
 }
@@ -1297,7 +1297,7 @@ void __global__ ConvertKEY_Kernel(cudaTextureObject_t texData, cudaTextureObject
 		float4 keyv = tex1Dfetch<float4>(texDataF4, index);
 		int is_key = (keyv.x == 1.0f || keyv.x == -1.0f);
 		int inside = col > 0 && row > 0 && row < height -1 && col < width - 1;
-		float v = inside? saturate(0.5 + 20 * tex1Dfetch<float>(texData, index)) : 0.5;
+		float v = inside? __saturatef(0.5 + 20 * tex1Dfetch<float>(texData, index)) : 0.5;
 		d_result[index] = is_key && inside ?
 			(keyv.x > 0? make_float4(1.0f, 0, 0, 1.0f) : make_float4(0.0f, 1.0f, 0.0f, 1.0f)):
 			make_float4(v, v, v, 1.0f) ;

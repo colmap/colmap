@@ -48,7 +48,7 @@ class CombinationSampler : public Sampler {
 
   size_t MaxNumSamples() override;
 
-  std::vector<size_t> Sample() override;
+  void Sample(std::vector<size_t>* sampled_idxs) override;
 
  private:
   const size_t num_samples_;

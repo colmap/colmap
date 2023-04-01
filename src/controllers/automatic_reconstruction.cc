@@ -94,6 +94,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     option_manager_.stereo_fusion->mask_path = options_.mask_path;
   }
   reader_options.single_camera = options_.single_camera;
+  reader_options.single_camera_per_folder = options_.single_camera_per_folder;
   reader_options.camera_model = options_.camera_model;
 
   option_manager_.sift_extraction->use_gpu = options_.use_gpu;
