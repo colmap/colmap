@@ -108,14 +108,19 @@ void Reconstruction::SetUp(const CorrespondenceGraph* correspondence_graph) {
   // If an existing model was loaded from disk and there were already images
   // registered previously, we need to set observations as triangulated.
   for (const auto image_id : reg_image_ids_) {
-    const class Image& image = Image(image_id);
-    for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
-         ++point2D_idx) {
-      if (image.Point2D(point2D_idx).HasPoint3D()) {
-        const bool kIsContinuedPoint3D = false;
-        SetObservationAsTriangulated(image_id, point2D_idx,
-                                     kIsContinuedPoint3D);
+    if (correspondence_graph->ExistsImage(image_id)) {
+      const class Image& image = Image(image_id);
+      for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
+           ++point2D_idx) {
+        if (image.Point2D(point2D_idx).HasPoint3D()) {
+          const bool kIsContinuedPoint3D = false;
+          SetObservationAsTriangulated(image_id, point2D_idx,
+                                       kIsContinuedPoint3D);
+        }
       }
+    }
+    else {
+      std::cout<< "image_id: " << image_id << " (from reconstruction) not found in correspondence graph -> will be ignored" << std::endl;
     }
   }
 }
