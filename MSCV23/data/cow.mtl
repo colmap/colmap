@@ -1,0 +1,9 @@
+newmtl material_1
+map_Kd cow_texture.png
+
+# Test colors
+
+Ka 1.000 1.000 1.000  # white
+Kd 1.000 1.000 1.000  # white
+Ks 0.000 0.000 0.000  # black
+Ns 10.0
