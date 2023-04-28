@@ -17,7 +17,7 @@ import cv2
 from pytorch3d.renderer import look_at_view_transform
 from starter.utils import get_device, get_mesh_renderer
 from pytorch3d.utils.camera_conversions import opencv_from_cameras_projection
-
+from scipy.optimize import minimize
 
 def render_cow2(ratio,
     cow_path="data/cow.obj", image_size=256, device=None,
@@ -103,22 +103,14 @@ def skew(t):
                      [-t[1, 0], t[0, 0], 0]], device=t.device)
 
 # left is identity
-def RightRelativeToLeft(RlTl, RrTr):
+def WorldToRight(RlTl, RrTr):
     Rl, Tl = RlTl
     Rr, Tr = RrTr
-    # pad = torch.tensor([[0, 0, 0, 1]], dtype=torch.double, device=Rl.device)
-    # T1w=torch.concatenate([Rl, Tl], axis=1)
-    # T1w=torch.concatenate([T1w, pad], axis=0)
-    
-    # T2w=torch.concatenate([Rr, Tr], axis=1)
-    # T2w=torch.concatenate([T2w, pad], axis=0)
 
-    #2 to 1
-    # T12 = T1w @ torch.linalg.pinv(T2w)
-    # return T12[:3, :3], T12[:3, 3:4]
-
-    Rnew=Rl@(Rr.T)
-    Tnew=Tl-Rnew@Tr
+    # Rnew=Rl@(Rr.T)
+    # Tnew=Tl-Rnew@Tr
+    Rnew = Rr @ (Rl.T)
+    Tnew = Tr - Rnew @ Tr
     return Rnew, Tnew
 
 def Essential(RT):
@@ -173,9 +165,7 @@ def checkFundamental(pt1, pt2, F):
     pt1s = torch.cat([pt1, ones], axis=0)
     pt2s = torch.cat([pt2, ones], axis=0)
 
-    # WRONG, FIXME: transpose
-    res = torch.sum((F @ pt2s) * pt1s, axis=0)
-    # pdb.set_trace()
+    res = torch.sum((F @ pt1s) * pt2s, axis=0)
     print(torch.mean(torch.abs(res)))
 
 if __name__ == "__main__":
@@ -206,10 +196,8 @@ if __name__ == "__main__":
     F = torch.zeros((4, 5, 3, 3), dtype=torch.double,       device = get_device())
     for i in range(4):
         for j in range(i + 1, 5):
-            RtoL = RightRelativeToLeft(KRTs[i][1:], KRTs[j][1:])
-            E[i, j] = Essential(RtoL)
-            # BUG!!!
-            F[i, j] = Fundamental(E[i, j], KRTs[j][0], KRTs[i][0])
+            WtoR = WorldToRight(KRTs[i][1:], KRTs[j][1:])
+            E[i, j] = Essential(WtoR)
             # F[i, j] = Fundamental(E[i, j], KRTs[i][0], KRTs[j][0])
 
             # compute F from openCV, only assume 2d correspondences are known
@@ -226,43 +214,31 @@ if __name__ == "__main__":
 
             vicv = vi2d.T.cpu().numpy()
             vjcv = vj2d.T.cpu().numpy()
-            # Fcv, mask = cv2.findFundamentalMat(vjcv, vicv, cv2.FM_RANSAC)
-            Fcv, mask = cv2.findFundamentalMat(vjcv, vicv, cv2.FM_LMEDS)
+            # Fcv, mask = cv2.findFundamentalMat(vicv, vjcv, cv2.FM_RANSAC)
+            Fcv, mask = cv2.findFundamentalMat(vicv, vjcv, cv2.FM_LMEDS)
             Fcv = torch.tensor(Fcv, device=get_device(), dtype=torch.double)
-            # print(Fcv, i, j)
-            # print("Ground Truth:", F[i,j]/F[i,j][2,2])
 
             # checkFundamental(vi2d, vj2d, F[i, j])
             # checkFundamental(vi2d, vj2d, Fcv)
             # pdb.set_trace()
-            # scale = F[i,j][2,2]
-            # print(scale)
-            # F[i,j] = torch.tensor(Fcv, device=get_device())*scale
-            F[i,j] = torch.tensor(Fcv, device=get_device())
+            F[i,j] = Fcv.clone().detach()
 
     E = E.cpu().numpy()
     F = F.cpu().numpy()
-    def cost(f, E, F, i, j, id):
-        #BIG!!!
-        K1 = np.array([[1000*f[3*i], 0, 2048*f[3*i+1]], [0, 1050*f[3*i], 1024*f[3*i+2]], [0, 0, 1]])
-        K0 = np.array([[1000*f[3*j], 0, 2048*f[3*j+1]], [0, 1050*f[3*j], 1024*f[3*j+2]], [0, 0, 1]])
+    def cost(f, E, F, i, j):
+        K0 = np.array([[1000*f[3*i], 0, 2048*f[3*i+1]], [0, 1050*f[3*i], 1024*f[3*i+2]], [0, 0, 1]])
+        K1 = np.array([[1000*f[3*j], 0, 2048*f[3*j+1]], [0, 1050*f[3*j], 1024*f[3*j+2]], [0, 0, 1]])
 
         ff = K1.T @ F @ K0
-        def costxx(scale):
-            delta = ff * scale - E 
-            return np.sum(delta ** 2)
-        ret = minimize(costxx, 1.0)
-        delta = ff * ret.x - E 
+        lmd = np.sum(ff * E) / np.sum(ff * ff)
+        delta = ff * lmd - E
         return np.sum(delta ** 2) 
 
     def cost2(f):
         c = 0
-        id = 15
         for i in range(4):
             for j in range(i + 1, 5):
-                c += cost(f, E[i, j], F[i, j], i, j, id)
-                id+=1
-        return c
-    from scipy.optimize import minimize    
+                c += cost(f, E[i, j], F[i, j], i, j)
+        return c    
     ret = minimize(cost2, np.ones(15))
-    print(ret.x[:15].reshape(-1, 3))
+    print(ret.x.reshape(-1, 3))
