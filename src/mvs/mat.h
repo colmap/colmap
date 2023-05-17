@@ -164,9 +164,9 @@ void Mat<T>::Read(const std::string& path) {
   std::streampos pos = text_file.tellg();
   text_file.close();
 
-  CHECK_GT(width_, 0);
-  CHECK_GT(height_, 0);
-  CHECK_GT(depth_, 0);
+  CHECK_GT(width_, 0) << path;
+  CHECK_GT(height_, 0) << path;
+  CHECK_GT(depth_, 0) << path;
   data_.resize(width_ * height_ * depth_);
 
   std::fstream binary_file(path, std::ios::in | std::ios::binary);
