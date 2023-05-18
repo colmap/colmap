@@ -204,7 +204,7 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
   const bool is_rgb_missing =
       (R_index == -1) || (G_index == -1) || (B_index == -1);
 
-  CHECK(X_index != -1 && Y_index != -1 && Z_index)
+  CHECK(X_index != -1 && Y_index != -1 && Z_index != -1)
       << "Invalid PLY file format: x, y, z properties missing";
 
   points.reserve(num_vertices);
