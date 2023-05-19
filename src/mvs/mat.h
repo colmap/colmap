@@ -155,39 +155,28 @@ void Mat<T>::Fill(const T value) {
 
 template <typename T>
 void Mat<T>::Read(const std::string& path) {
-  std::fstream text_file(path, std::ios::in | std::ios::binary);
-  CHECK(text_file.is_open()) << path;
+  std::ifstream file(path, std::ios::binary);
+  CHECK(file.is_open()) << path;
 
   char unused_char;
-  text_file >> width_ >> unused_char >> height_ >> unused_char >> depth_ >>
+  file >> width_ >> unused_char >> height_ >> unused_char >> depth_ >>
       unused_char;
-  std::streampos pos = text_file.tellg();
-  text_file.close();
-
   CHECK_GT(width_, 0) << path;
   CHECK_GT(height_, 0) << path;
   CHECK_GT(depth_, 0) << path;
   data_.resize(width_ * height_ * depth_);
 
-  std::fstream binary_file(path, std::ios::in | std::ios::binary);
-  CHECK(binary_file.is_open()) << path;
-  binary_file.seekg(pos);
-  ReadBinaryLittleEndian<T>(&binary_file, &data_);
-  binary_file.close();
+  ReadBinaryLittleEndian<T>(&file, &data_);
+  file.close();
 }
 
 template <typename T>
 void Mat<T>::Write(const std::string& path) const {
-  std::fstream text_file(path, std::ios::out);
-  CHECK(text_file.is_open()) << path;
-  text_file << width_ << "&" << height_ << "&" << depth_ << "&";
-  text_file.close();
-
-  std::fstream binary_file(path,
-                           std::ios::out | std::ios::binary | std::ios::app);
-  CHECK(binary_file.is_open()) << path;
-  WriteBinaryLittleEndian<T>(&binary_file, data_);
-  binary_file.close();
+  std::ofstream file(path, std::ios::binary);
+  CHECK(file.is_open()) << path;
+  file << width_ << "&" << height_ << "&" << depth_ << "&";
+  WriteBinaryLittleEndian<T>(&file, data_);
+  file.close();
 }
 
 }  // namespace mvs
