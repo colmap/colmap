@@ -875,7 +875,104 @@ void Database::ClearTwoViewGeometries() const {
 }
 
 void Database::Merge(const Database& database1, const Database& database2,
-                     Database* merged_database) {
+                     Database* merged_database, const bool panoptic_studio) {
+  if (panoptic_studio) {
+    // Perform merge of feature points and matches as described in the following paper (Section 3.4)
+    //
+    //    H. Joo, et al.,"Panoptic Studio: A Massively Multiview System for Social Interaction Capture"
+    //    in IEEE Transactions on Pattern Analysis & Machine Intelligence, vol. 41, no. 01, pp. 190-204, 2019.
+    //    doi: 10.1109/TPAMI.2017.2782743
+    //
+    // Note: This code assumes that the cameras and images are registered in the consistent and continuous manner
+    // between the two databases. In particular, it is recommended that the feature extraction step be performed in
+    // serial mode (i.e. num_threads=1) so that the image IDs are ordered consistently among different runs.
+
+    // Copy cameras from database1
+    const std::vector<Camera> cameras1 = database1.ReadAllCameras();
+    const std::vector<Camera> cameras2 = database2.ReadAllCameras();
+    CHECK(cameras1.size() == cameras2.size()) << "Different number of cameras";
+  
+    for (size_t i = 0; i < cameras1.size(); ++i) {
+      const camera_t camera_id = cameras1[i].CameraId();
+  
+      CHECK(camera_id == cameras2[i].CameraId()) << "Inconsistent Camera CameraId: " << i;
+      CHECK(cameras1[i].ModelId() == cameras2[i].ModelId()) << "Inconsistent Camera ModelId: " << i;
+      CHECK(cameras1[i].Width() == cameras2[i].Width()) << "Inconsistent Camera Width: " << i;
+      CHECK(cameras1[i].Height() == cameras2[i].Height()) << "Inconsistent Camera Height: " << i;
+      // CHECK(cameras1[i].Params() == cameras2[i].Params()) << "Inconsistent Camera Params: " << i;
+      CHECK(cameras1[i].HasPriorFocalLength() == cameras2[i].HasPriorFocalLength()) << "Inconsistent Camera PriorFocalLength: " << i;
+  
+      const uint32_t rc = merged_database->WriteCamera(cameras1[i]);
+      CHECK(rc == camera_id) << "CameraId not continuous";
+    }
+  
+    // Copy images from database1
+    const std::vector<Image> images1 = database1.ReadAllImages();
+    const std::vector<Image> images2 = database2.ReadAllImages();
+    CHECK(images1.size() == images2.size()) << "Different number of images";
+  
+    std::unordered_map<image_t, size_t> keypoints_offset;
+  
+    for (size_t i = 0; i < images1.size(); ++i) {
+      const image_t image_id = images1[i].ImageId();
+  
+      CHECK(image_id == images2[i].ImageId()) << "Inconsistent Image ImageId: " << i;
+      CHECK(images1[i].CameraId() == images2[i].CameraId()) << "Inconsistent Image CameraId: " << i;
+      CHECK(images1[i].Name() == images2[i].Name()) << "Inconsistent Image Name: " << i;
+  
+      const uint32_t rc = merged_database->WriteImage(images1[i]);
+      CHECK(rc == image_id) << "ImageId not continuous";
+  
+      FeatureKeypoints keypoints1 = database1.ReadKeypoints(image_id);
+      FeatureDescriptors descriptors1 = database1.ReadDescriptors(image_id);
+      const FeatureKeypoints keypoints2 = database2.ReadKeypoints(image_id);
+      const FeatureDescriptors descriptors2 = database2.ReadDescriptors(image_id);
+  
+      keypoints_offset[image_id] = keypoints1.size();
+  
+      keypoints1.insert( keypoints1.end(), keypoints2.begin(), keypoints2.end() );
+      descriptors1.conservativeResize(descriptors1.rows() + descriptors2.rows(), descriptors1.cols());
+      descriptors1.bottomRows(descriptors2.rows()) = descriptors2;
+  
+      merged_database->WriteKeypoints(image_id, keypoints1);
+      merged_database->WriteDescriptors(image_id, descriptors1);
+    }
+  
+    // Copy the two-view geometries
+    std::vector<image_pair_t> image_pair_ids1;
+    std::vector<image_pair_t> image_pair_ids2;
+    std::vector<TwoViewGeometry> two_view_geometries1;
+    std::vector<TwoViewGeometry> two_view_geometries2;
+    database1.ReadTwoViewGeometries(&image_pair_ids1, &two_view_geometries1);
+    database2.ReadTwoViewGeometries(&image_pair_ids2, &two_view_geometries2);
+  
+    for (size_t i = 0; i < two_view_geometries1.size(); ++i) {
+      for (size_t j = 0; j < two_view_geometries2.size(); ++j) {
+        if (image_pair_ids1[i] == image_pair_ids2[j]) {
+          image_t image_id1, image_id2;
+          Database::PairIdToImagePair(image_pair_ids1[i], &image_id1, &image_id2);
+  
+          for (const FeatureMatch m : two_view_geometries2[j].inlier_matches) {
+            two_view_geometries1[i].inlier_matches.emplace_back(m.point2D_idx1 + keypoints_offset.at(image_id1), m.point2D_idx2 + keypoints_offset.at(image_id2));
+          }
+  
+          const Camera camera1 = database1.ReadCamera(database1.ReadImage(image_id1).CameraId());
+          const Camera camera2 = database1.ReadCamera(database1.ReadImage(image_id2).CameraId());
+          if (camera1.HasPriorFocalLength() && camera2.HasPriorFocalLength()) {
+            two_view_geometries1[i].config = TwoViewGeometry::CALIBRATED;
+          } else {
+            two_view_geometries1[i].config = TwoViewGeometry::UNCALIBRATED;
+          }
+  
+          merged_database->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometries1[i]);
+  
+          break;
+        }
+      }
+    }
+    return;
+  }
+
   // Merge the cameras.
 
   std::unordered_map<camera_t, camera_t> new_camera_ids1;
