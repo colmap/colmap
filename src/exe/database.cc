@@ -31,11 +31,87 @@
 
 #include "exe/database.h"
 
+#include "base/camera_models.h"
 #include "base/database.h"
 #include "util/misc.h"
 #include "util/option_manager.h"
 
 namespace colmap {
+
+// Updates cameras in database using a CSV file formatted as:
+// CAMERA_ID, MODEL_NAME, PARAM_1, PARAM_2, ..., PARAM_N
+//
+// The CAMERA_ID must already exist in the database (no new cameras added), the
+// MODEL_NAME must be one of the valid model names, and the number N of
+// parameters provided must match the number of parameters for the specific
+// model.
+//
+// Example:
+// 1, SIMPLE_RADIAL, 700, 320, 240, 0.005
+// 2, PINHOLE, 700, 680, 320, 240
+// 3, OPENCV, 700, 700, 320, 240, 0.0, 0.0, 0.0, 0.0
+int RunCameraUpdater(int argc, char** argv) {
+  std::string params_path;
+  OptionManager options;
+  options.AddDatabaseOptions();
+  options.AddRequiredOption("params_path", &params_path);
+  options.Parse(argc, argv);
+
+  if (!ExistsFile(params_path)) {
+    std::cout << "WARN: Camera params file not found; skipping update"
+              << std::endl;
+    return EXIT_SUCCESS;
+  }
+
+  PrintHeading1("Updating database cameras from file");
+  const std::vector<std::string> lines = ReadTextFileLines(params_path);
+  {
+    Database database(*options.database_path);
+    DatabaseTransaction transaction(&database);
+    for (std::string line : lines) {
+      const std::vector<std::string> parts = CSVToVector<std::string>(line);
+      if (parts.size() < 5) {
+        std::cout << "WARN: Malformed camera parameters line: " << line
+                  << std::endl;
+        continue;
+      }
+
+      const camera_t camera_id = (camera_t)std::stoi(parts[0]);
+      Camera camera = database.ReadCamera(camera_id);
+      if (camera.CameraId() == kInvalidCameraId) {
+        std::cout << "WARN: Camera id " << camera_id
+                  << " not found in database; skipping line: " << line
+                  << std::endl;
+        continue;
+      }
+
+      const std::string model_name = parts[1];
+      if (!ExistsCameraModelWithName(model_name)) {
+        std::cout << "WARN: Invalid model name " << model_name
+                  << "; skipping line: " << line << std::endl;
+        continue;
+      }
+
+      camera.SetModelIdFromName(model_name);
+      std::vector<double> params;
+      for (int i = 2; i < parts.size(); ++i) {
+        params.push_back(std::stod(parts[i]));
+      }
+      camera.SetParams(params);
+      camera.SetPriorFocalLength(true);
+
+      if (camera.VerifyParams() && !camera.HasBogusParams(0.1, 10.0, 1.0)) {
+        database.UpdateCamera(camera);
+      } else {
+        std::cout << "WARN: Invalid camera parameters in line: " << line
+                  << std::endl;
+      }
+    }
+  }
+
+  PrintHeading2("Cameras updated successfully");
+  return EXIT_SUCCESS;
+}
 
 int RunDatabaseCleaner(int argc, char** argv) {
   std::string type;
