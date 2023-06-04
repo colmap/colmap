@@ -404,38 +404,37 @@ set(COLMAP_INTERNAL_LIBRARIES
 )
 
 include_directories(
-    lib
     src
     ${COLMAP_INCLUDE_DIRS}
 )
 
 link_directories(${COLMAP_LINK_DIRS})
 
-add_subdirectory(lib)
-add_subdirectory(src)
+add_subdirectory(src/lib)
+add_subdirectory(src/colmap)
 
 
 ################################################################################
 # Generate source groups for Visual Studio, XCode, etc.
 ################################################################################
 
-COLMAP_ADD_SOURCE_DIR(lib/LSD LIB_LSD_SRCS *.h *.c)
-COLMAP_ADD_SOURCE_DIR(lib/PoissonRecon LIB_POISSON_RECON_SRCS *.h *.cpp *.inl)
-COLMAP_ADD_SOURCE_DIR(lib/SiftGPU LIB_SIFT_GPU_SRCS *.h *.cpp *.cu)
-COLMAP_ADD_SOURCE_DIR(lib/VLFeat LIB_VLFEAT_SRCS *.h *.c *.tc)
+COLMAP_ADD_SOURCE_DIR(src/lib/LSD LIB_LSD_SRCS *.h *.c)
+COLMAP_ADD_SOURCE_DIR(src/lib/PoissonRecon LIB_POISSON_RECON_SRCS *.h *.cpp *.inl)
+COLMAP_ADD_SOURCE_DIR(src/lib/SiftGPU LIB_SIFT_GPU_SRCS *.h *.cpp *.cu)
+COLMAP_ADD_SOURCE_DIR(src/lib/VLFeat LIB_VLFEAT_SRCS *.h *.c *.tc)
 
-COLMAP_ADD_SOURCE_DIR(src/base BASE_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/controllers CONTROLLERS_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/estimators ESTIMATORS_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/exe EXE_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/feature FEATURE_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/mvs MVS_SRCS *.h *.cc *.cu)
-COLMAP_ADD_SOURCE_DIR(src/optim OPTIM_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/retrieval RETRIEVAL_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/sfm SFM_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/tools TOOLS_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/ui UI_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/util UTIL_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/base BASE_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/controllers CONTROLLERS_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/estimators ESTIMATORS_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/exe EXE_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/feature FEATURE_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/mvs MVS_SRCS *.h *.cc *.cu)
+COLMAP_ADD_SOURCE_DIR(src/colmap/optim OPTIM_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/retrieval RETRIEVAL_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/sfm SFM_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/tools TOOLS_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/ui UI_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/util UTIL_SRCS *.h *.cc)
 
 # Add all of the source files to a regular library target, as using a custom
 # target does not allow us to set its C++ include directories (and thus
@@ -472,11 +471,11 @@ set_target_properties(
 ################################################################################
 
 # Install header files.
-install(DIRECTORY src/
-        DESTINATION include/colmap
+install(DIRECTORY src/colmap
+        DESTINATION include
         FILES_MATCHING PATTERN "*.h")
-install(DIRECTORY lib/
-        DESTINATION include/colmap/lib
+install(DIRECTORY src/lib
+        DESTINATION include/colmap
         FILES_MATCHING REGEX ".*[.]h|.*[.]hpp|.*[.]inl")
 
 # Generate and install CMake configuration.

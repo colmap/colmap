@@ -49,5 +49,5 @@ else()
     set(GIT_COMMIT_DATE "Unknown")
 endif()
 
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/util/version.h.in"
-               "${CMAKE_CURRENT_SOURCE_DIR}/src/util/version.h")
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/colmap/util/version.h.in"
+               "${CMAKE_CURRENT_SOURCE_DIR}/src/colmap/util/version.h")
