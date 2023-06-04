@@ -219,7 +219,7 @@ class DelaunayMeshingInput {
     uint32_t num_visible_images = 0;
   };
 
-  EIGEN_STL_UMAP(camera_t, Camera) cameras;
+  std::unordered_map<camera_t, Camera> cameras;
   std::vector<Image> images;
   std::vector<Point> points;
 

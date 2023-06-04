@@ -575,7 +575,7 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
   std::unordered_map<image_t, image_t> old_to_new_image_ids;
   old_to_new_image_ids.reserve(NumImages());
 
-  EIGEN_STL_UMAP(image_t, class Image) new_images;
+  std::unordered_map<image_t, class Image> new_images;
   new_images.reserve(NumImages());
 
   for (auto& image : images_) {
@@ -1337,7 +1337,7 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
 }
 
 void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
-  EIGEN_STL_UMAP(point3D_t, Eigen::Vector3d) color_sums;
+  std::unordered_map<point3D_t, Eigen::Vector3d> color_sums;
   std::unordered_map<point3D_t, size_t> color_counts;
 
   for (size_t i = 0; i < reg_image_ids_.size(); ++i) {
@@ -1417,7 +1417,7 @@ size_t Reconstruction::FilterPoints3DWithSmallTriangulationAngle(
   const double min_tri_angle_rad = DegToRad(min_tri_angle);
 
   // Cache for image projection centers.
-  EIGEN_STL_UMAP(image_t, Eigen::Vector3d) proj_centers;
+  std::unordered_map<image_t, Eigen::Vector3d> proj_centers;
 
   for (const auto point3D_id : point3D_ids) {
     if (!ExistsPoint3D(point3D_id)) {

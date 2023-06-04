@@ -44,7 +44,6 @@
 #include "mvs/model.h"
 #include "mvs/normal_map.h"
 #include "mvs/workspace.h"
-#include "util/alignment.h"
 #include "util/cache.h"
 #include "util/math.h"
 #include "util/ply.h"

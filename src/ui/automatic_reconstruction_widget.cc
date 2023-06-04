@@ -79,7 +79,8 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
   AddSpacer();
 
   AddOptionBool(&options_.single_camera, "Shared intrinsics");
-  AddOptionBool(&options_.single_camera_per_folder, "Shared intrinsics per sub-folder");
+  AddOptionBool(&options_.single_camera_per_folder,
+                "Shared intrinsics per sub-folder");
   AddOptionBool(&options_.sparse, "Sparse model");
   AddOptionBool(&options_.dense, "Dense model");
 

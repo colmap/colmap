@@ -35,7 +35,6 @@
 #include "base/camera.h"
 #include "feature/types.h"
 #include "optim/ransac.h"
-#include "util/alignment.h"
 #include "util/logging.h"
 
 namespace colmap {
@@ -267,7 +266,5 @@ struct TwoViewGeometry {
 };
 
 }  // namespace colmap
-
-EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(colmap::TwoViewGeometry)
 
 #endif  // COLMAP_SRC_ESTIMATORS_TWO_VIEW_GEOMETRY_H_

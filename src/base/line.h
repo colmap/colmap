@@ -34,7 +34,6 @@
 
 #include <Eigen/Core>
 
-#include "util/alignment.h"
 #include "util/bitmap.h"
 
 namespace colmap {
@@ -59,7 +58,5 @@ std::vector<LineSegmentOrientation> ClassifyLineSegmentOrientations(
     const std::vector<LineSegment>& segments, const double tolerance = 0.25);
 
 }  // namespace colmap
-
-EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(colmap::LineSegment)
 
 #endif  // COLMAP_SRC_BASE_LINE_H_

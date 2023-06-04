@@ -39,7 +39,6 @@
 #include <Eigen/Core>
 
 #include "optim/ransac.h"
-#include "util/alignment.h"
 #include "util/math.h"
 #include "util/types.h"
 
@@ -145,10 +144,5 @@ bool EstimateTriangulation(
     std::vector<char>* inlier_mask, Eigen::Vector3d* xyz);
 
 }  // namespace colmap
-
-EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(
-    colmap::TriangulationEstimator::PointData)
-EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(
-    colmap::TriangulationEstimator::PoseData)
 
 #endif  // COLMAP_SRC_ESTIMATORS_TRIANGULATION_H_

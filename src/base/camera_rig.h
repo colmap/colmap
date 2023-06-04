@@ -38,7 +38,6 @@
 #include "base/camera.h"
 #include "base/pose.h"
 #include "base/reconstruction.h"
-#include "util/alignment.h"
 #include "util/types.h"
 
 namespace colmap {
@@ -118,7 +117,7 @@ class CameraRig {
   };
 
   camera_t ref_camera_id_ = kInvalidCameraId;
-  EIGEN_STL_UMAP(camera_t, RigCamera) rig_cameras_;
+  std::unordered_map<camera_t, RigCamera> rig_cameras_;
   std::vector<std::vector<image_t>> snapshots_;
 };
 

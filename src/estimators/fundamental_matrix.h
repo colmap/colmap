@@ -37,7 +37,6 @@
 #include <Eigen/Core>
 
 #include "estimators/homography_matrix.h"
-#include "util/alignment.h"
 #include "util/types.h"
 
 namespace colmap {

@@ -31,6 +31,8 @@
 
 #include "estimators/absolute_pose.h"
 
+#include <Eigen/Geometry>
+
 #include "base/polynomial.h"
 #include "estimators/utils.h"
 #include "util/logging.h"

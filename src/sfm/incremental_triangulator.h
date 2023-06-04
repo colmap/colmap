@@ -34,7 +34,6 @@
 
 #include "base/database_cache.h"
 #include "base/reconstruction.h"
-#include "util/alignment.h"
 
 namespace colmap {
 
@@ -206,8 +205,5 @@ class IncrementalTriangulator {
 };
 
 }  // namespace colmap
-
-EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(
-    colmap::IncrementalTriangulator::CorrData)
 
 #endif  // COLMAP_SRC_SFM_INCREMENTAL_TRIANGULATOR_H_

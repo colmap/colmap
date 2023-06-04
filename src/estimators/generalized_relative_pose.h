@@ -36,7 +36,6 @@
 
 #include <Eigen/Core>
 
-#include "util/alignment.h"
 #include "util/types.h"
 
 namespace colmap {
@@ -87,7 +86,5 @@ class GR6PEstimator {
 };
 
 }  // namespace colmap
-
-EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(colmap::GR6PEstimator::X_t)
 
 #endif  // COLMAP_SRC_ESTIMATORS_GENERALIZED_RELATIVE_POSE_H_

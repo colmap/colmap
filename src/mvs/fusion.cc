@@ -31,6 +31,8 @@
 
 #include "mvs/fusion.h"
 
+#include <Eigen/Geometry>
+
 #include "util/misc.h"
 
 namespace colmap {

@@ -34,6 +34,8 @@
 #include <array>
 #include <unordered_map>
 
+#include <Eigen/Geometry>
+
 #include "estimators/affine_transform.h"
 #include "optim/ransac.h"
 #include "util/logging.h"

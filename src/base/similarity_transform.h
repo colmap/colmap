@@ -38,7 +38,6 @@
 #include <Eigen/Geometry>
 
 #include "estimators/similarity_transform.h"
-#include "util/alignment.h"
 #include "util/types.h"
 
 namespace colmap {
@@ -113,7 +112,5 @@ bool SimilarityTransform3::Estimate(const std::vector<Eigen::Vector3d>& src,
 }
 
 }  // namespace colmap
-
-EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(colmap::SimilarityTransform3)
 
 #endif  // COLMAP_SRC_BASE_SIMILARITY_TRANSFORM_H_

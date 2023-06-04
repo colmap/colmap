@@ -48,7 +48,6 @@
 #include "base/track.h"
 #include "estimators/similarity_transform.h"
 #include "optim/loransac.h"
-#include "util/alignment.h"
 #include "util/types.h"
 
 namespace colmap {
@@ -96,10 +95,10 @@ class Reconstruction {
                                         const image_t image_id2) const;
 
   // Get reference to all objects.
-  inline const EIGEN_STL_UMAP(camera_t, class Camera) & Cameras() const;
-  inline const EIGEN_STL_UMAP(image_t, class Image) & Images() const;
+  inline const std::unordered_map<camera_t, class Camera>& Cameras() const;
+  inline const std::unordered_map<image_t, class Image>& Images() const;
   inline const std::vector<image_t>& RegImageIds() const;
-  inline const EIGEN_STL_UMAP(point3D_t, class Point3D) & Points3D() const;
+  inline const std::unordered_map<point3D_t, class Point3D>& Points3D() const;
   inline const std::unordered_map<image_pair_t, ImagePairStat>& ImagePairs()
       const;
 
@@ -419,9 +418,9 @@ class Reconstruction {
 
   const CorrespondenceGraph* correspondence_graph_;
 
-  EIGEN_STL_UMAP(camera_t, class Camera) cameras_;
-  EIGEN_STL_UMAP(image_t, class Image) images_;
-  EIGEN_STL_UMAP(point3D_t, class Point3D) points3D_;
+  std::unordered_map<camera_t, class Camera> cameras_;
+  std::unordered_map<image_t, class Image> images_;
+  std::unordered_map<point3D_t, class Point3D> points3D_;
 
   std::unordered_map<image_pair_t, ImagePairStat> image_pair_stats_;
 
@@ -494,11 +493,11 @@ Reconstruction::ImagePairStat& Reconstruction::ImagePair(
   return image_pair_stats_.at(pair_id);
 }
 
-const EIGEN_STL_UMAP(camera_t, Camera) & Reconstruction::Cameras() const {
+const std::unordered_map<camera_t, Camera>& Reconstruction::Cameras() const {
   return cameras_;
 }
 
-const EIGEN_STL_UMAP(image_t, class Image) & Reconstruction::Images() const {
+const std::unordered_map<image_t, class Image>& Reconstruction::Images() const {
   return images_;
 }
 
@@ -506,7 +505,7 @@ const std::vector<image_t>& Reconstruction::RegImageIds() const {
   return reg_image_ids_;
 }
 
-const EIGEN_STL_UMAP(point3D_t, Point3D) & Reconstruction::Points3D() const {
+const std::unordered_map<point3D_t, Point3D>& Reconstruction::Points3D() const {
   return points3D_;
 }
 

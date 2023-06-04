@@ -37,7 +37,6 @@
 #include <Eigen/Core>
 
 #include "base/camera.h"
-#include "util/alignment.h"
 #include "util/math.h"
 #include "util/types.h"
 

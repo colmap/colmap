@@ -40,7 +40,6 @@
 #include "base/camera.h"
 #include "base/point2d.h"
 #include "base/visibility_pyramid.h"
-#include "util/alignment.h"
 #include "util/logging.h"
 #include "util/math.h"
 #include "util/types.h"
@@ -356,7 +355,5 @@ bool Image::IsPoint3DVisible(const point2D_t point2D_idx) const {
 }
 
 }  // namespace colmap
-
-EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(colmap::Image)
 
 #endif  // COLMAP_SRC_BASE_IMAGE_H_

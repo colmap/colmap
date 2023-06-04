@@ -31,6 +31,8 @@
 
 #include "base/warp.h"
 
+#include <Eigen/Geometry>
+
 #include "VLFeat/imopv.h"
 #include "util/logging.h"
 
