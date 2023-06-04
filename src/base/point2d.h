@@ -43,8 +43,6 @@ namespace colmap {
 // corresponding 3D point if it is part of a triangulated track.
 class Point2D {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
   Point2D();
 
   // The coordinate in image space in pixels.

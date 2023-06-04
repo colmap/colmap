@@ -52,8 +52,6 @@ namespace colmap {
 // share a camera with multiple other images, if its intrinsics are the same.
 class Image {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
   Image();
 
   // Setup / tear down the image and necessary internal data structures before

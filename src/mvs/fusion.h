@@ -107,8 +107,6 @@ struct StereoFusionOptions {
 
 class StereoFusion : public Thread {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
   StereoFusion(const StereoFusionOptions& options,
                const std::string& workspace_path,
                const std::string& workspace_format,

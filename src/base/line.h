@@ -40,7 +40,6 @@
 namespace colmap {
 
 struct LineSegment {
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   Eigen::Vector2d start;
   Eigen::Vector2d end;
 };

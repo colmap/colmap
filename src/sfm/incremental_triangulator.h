@@ -148,7 +148,6 @@ class IncrementalTriangulator {
   // relevant data for triangulation, in order to avoid duplicate lookup
   // in the underlying unordered_map's in the Reconstruction
   struct CorrData {
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     image_t image_id;
     point2D_t point2D_idx;
     const Image* image;

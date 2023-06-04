@@ -52,7 +52,6 @@ class MovieGrabberWidget : public QWidget {
   std::vector<Image> views;
 
   struct ViewData {
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     QMatrix4x4 model_view_matrix;
     float point_size = -1.0f;
     float image_size = -1.0f;
