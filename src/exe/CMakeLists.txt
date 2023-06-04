@@ -46,11 +46,6 @@ COLMAP_ADD_EXECUTABLE(colmap_exe
     sfm.cc
     vocab_tree.cc)
 set_target_properties(colmap_exe PROPERTIES OUTPUT_NAME colmap)
-if(IS_MSVC)
-    # Visual Studio chokes with fatal error C1001 when compiling this source file due to nested templating.
-    # Limiting the amount of inlining circumvents this compiler crash.
-    set_source_files_properties(vocab_tree.cc PROPERTIES COMPILE_FLAGS "/Ob0")
-endif()
 
 COLMAP_ADD_SOURCES(
     feature.h feature.cc
