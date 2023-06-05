@@ -92,6 +92,8 @@ BOOST_AUTO_TEST_CASE(TestMedian) {
   BOOST_CHECK_EQUAL(Median<int>({-100, 1, 2, 3, 4}), 2);
   BOOST_CHECK_EQUAL(Median<int>({-1, -2, -3, -4}), -2.5);
   BOOST_CHECK_EQUAL(Median<int>({-1, -2, 3, 4}), 1);
+  // Test integer overflow scenario.
+  BOOST_CHECK_EQUAL(Median<uint8_t>({240, 248, 250, 255}), 249);
 }
 
 BOOST_AUTO_TEST_CASE(TestPercentile) {
