@@ -225,7 +225,7 @@ double Median(const std::vector<T>& elems) {
     const T mid_element1 = ordered_elems[mid_idx];
     const T mid_element2 = *std::max_element(ordered_elems.begin(),
                                              ordered_elems.begin() + mid_idx);
-    return (mid_element1 + mid_element2) / 2.0;
+    return 0.5 * mid_element1 + 0.5 * mid_element2;
   } else {
     return ordered_elems[mid_idx];
   }
