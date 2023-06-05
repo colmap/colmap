@@ -38,7 +38,6 @@
 #include "base/camera.h"
 #include "base/pose.h"
 #include "base/reconstruction.h"
-#include "util/alignment.h"
 #include "util/types.h"
 
 namespace colmap {
@@ -113,13 +112,12 @@ class CameraRig {
 
  private:
   struct RigCamera {
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     Eigen::Vector4d rel_qvec = ComposeIdentityQuaternion();
     Eigen::Vector3d rel_tvec = Eigen::Vector3d(0, 0, 0);
   };
 
   camera_t ref_camera_id_ = kInvalidCameraId;
-  EIGEN_STL_UMAP(camera_t, RigCamera) rig_cameras_;
+  std::unordered_map<camera_t, RigCamera> rig_cameras_;
   std::vector<std::vector<image_t>> snapshots_;
 };
 

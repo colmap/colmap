@@ -32,6 +32,8 @@
 #ifndef COLMAP_SRC_BASE_RECONSTRUCTION_MANAGER_H_
 #define COLMAP_SRC_BASE_RECONSTRUCTION_MANAGER_H_
 
+#include <memory>
+
 #include "base/reconstruction.h"
 
 namespace colmap {

@@ -38,7 +38,6 @@
 #include <Eigen/Geometry>
 
 #include "base/projection.h"
-#include "util/alignment.h"
 #include "util/logging.h"
 #include "util/types.h"
 

@@ -39,7 +39,6 @@
 
 #include "optim/random_sampler.h"
 #include "optim/support_measurement.h"
-#include "util/alignment.h"
 #include "util/logging.h"
 
 namespace colmap {
@@ -80,8 +79,6 @@ template <typename Estimator, typename SupportMeasurer = InlierSupportMeasurer,
 class RANSAC {
  public:
   struct Report {
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
     // Whether the estimation was successful.
     bool success = false;
 

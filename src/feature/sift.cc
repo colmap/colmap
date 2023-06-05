@@ -31,6 +31,8 @@
 
 #include "feature/sift.h"
 
+#include <Eigen/Geometry>
+
 #include <array>
 #include <fstream>
 #include <memory>

@@ -44,7 +44,6 @@
 #include "base/correspondence_graph.h"
 #include "base/database.h"
 #include "base/image.h"
-#include "util/alignment.h"
 #include "util/types.h"
 
 namespace colmap {
@@ -66,8 +65,8 @@ class DatabaseCache {
   inline const class Image& Image(const image_t image_id) const;
 
   // Get all objects.
-  inline const EIGEN_STL_UMAP(camera_t, class Camera) & Cameras() const;
-  inline const EIGEN_STL_UMAP(image_t, class Image) & Images() const;
+  inline const std::unordered_map<camera_t, class Camera>& Cameras() const;
+  inline const std::unordered_map<image_t, class Image>& Images() const;
 
   // Check whether specific object exists.
   inline bool ExistsCamera(const camera_t camera_id) const;
@@ -98,8 +97,8 @@ class DatabaseCache {
  private:
   class CorrespondenceGraph correspondence_graph_;
 
-  EIGEN_STL_UMAP(camera_t, class Camera) cameras_;
-  EIGEN_STL_UMAP(image_t, class Image) images_;
+  std::unordered_map<camera_t, class Camera> cameras_;
+  std::unordered_map<image_t, class Image> images_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -125,11 +124,12 @@ const class Image& DatabaseCache::Image(const image_t image_id) const {
   return images_.at(image_id);
 }
 
-const EIGEN_STL_UMAP(camera_t, class Camera) & DatabaseCache::Cameras() const {
+const std::unordered_map<camera_t, class Camera>& DatabaseCache::Cameras()
+    const {
   return cameras_;
 }
 
-const EIGEN_STL_UMAP(image_t, class Image) & DatabaseCache::Images() const {
+const std::unordered_map<image_t, class Image>& DatabaseCache::Images() const {
   return images_;
 }
 

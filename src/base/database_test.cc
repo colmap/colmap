@@ -34,6 +34,8 @@
 
 #include <thread>
 
+#include <Eigen/Geometry>
+
 #include "base/database.h"
 #include "base/pose.h"
 

@@ -33,6 +33,7 @@
 #define COLMAP_SRC_BASE_SCENE_CLUSTERING_H_
 
 #include <list>
+#include <memory>
 #include <vector>
 
 #include "base/database.h"

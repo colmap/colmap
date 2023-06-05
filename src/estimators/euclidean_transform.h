@@ -33,7 +33,6 @@
 #define COLMAP_SRC_ESTIMATORS_EUCLIDEAN_TRANSFORM_H_
 
 #include "base/similarity_transform.h"
-#include "util/alignment.h"
 
 namespace colmap {
 

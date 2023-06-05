@@ -40,7 +40,6 @@
 #include "base/camera.h"
 #include "base/point2d.h"
 #include "base/visibility_pyramid.h"
-#include "util/alignment.h"
 #include "util/logging.h"
 #include "util/math.h"
 #include "util/types.h"
@@ -52,8 +51,6 @@ namespace colmap {
 // share a camera with multiple other images, if its intrinsics are the same.
 class Image {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
   Image();
 
   // Setup / tear down the image and necessary internal data structures before
@@ -358,7 +355,5 @@ bool Image::IsPoint3DVisible(const point2D_t point2D_idx) const {
 }
 
 }  // namespace colmap
-
-EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(colmap::Image)
 
 #endif  // COLMAP_SRC_BASE_IMAGE_H_

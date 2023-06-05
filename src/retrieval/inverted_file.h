@@ -45,7 +45,6 @@
 #include "retrieval/geometry.h"
 #include "retrieval/inverted_file_entry.h"
 #include "retrieval/utils.h"
-#include "util/alignment.h"
 #include "util/logging.h"
 #include "util/math.h"
 

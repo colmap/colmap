@@ -33,6 +33,8 @@
 
 #include <unordered_set>
 
+#include <Eigen/Geometry>
+
 #include "base/camera.h"
 #include "base/essential_matrix.h"
 #include "base/homography_matrix.h"

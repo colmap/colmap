@@ -38,7 +38,6 @@
 
 #include "base/database.h"
 #include "feature/sift.h"
-#include "util/alignment.h"
 #include "util/cache.h"
 #include "util/opengl_utils.h"
 #include "util/threading.h"
@@ -211,8 +210,8 @@ class FeatureMatcherCache {
   const size_t cache_size_;
   const Database* database_;
   std::mutex database_mutex_;
-  EIGEN_STL_UMAP(camera_t, Camera) cameras_cache_;
-  EIGEN_STL_UMAP(image_t, Image) images_cache_;
+  std::unordered_map<camera_t, Camera> cameras_cache_;
+  std::unordered_map<image_t, Image> images_cache_;
   std::unique_ptr<LRUCache<image_t, FeatureKeypointsPtr>> keypoints_cache_;
   std::unique_ptr<LRUCache<image_t, FeatureDescriptorsPtr>> descriptors_cache_;
   std::unique_ptr<LRUCache<image_t, bool>> keypoints_exists_cache_;

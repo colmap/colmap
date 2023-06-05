@@ -44,7 +44,6 @@
 #include "mvs/model.h"
 #include "mvs/normal_map.h"
 #include "mvs/workspace.h"
-#include "util/alignment.h"
 #include "util/cache.h"
 #include "util/math.h"
 #include "util/ply.h"
@@ -107,8 +106,6 @@ struct StereoFusionOptions {
 
 class StereoFusion : public Thread {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
   StereoFusion(const StereoFusionOptions& options,
                const std::string& workspace_path,
                const std::string& workspace_format,
