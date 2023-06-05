@@ -32,12 +32,6 @@
 #ifndef COLMAP_SRC_MVS_PATCH_MATCH_CUDA_H_
 #define COLMAP_SRC_MVS_PATCH_MATCH_CUDA_H_
 
-#include <iostream>
-#include <memory>
-#include <vector>
-
-#include <cuda_runtime.h>
-
 #include "colmap/mvs/cuda_texture.h"
 #include "colmap/mvs/depth_map.h"
 #include "colmap/mvs/gpu_mat.h"
@@ -46,6 +40,12 @@
 #include "colmap/mvs/image.h"
 #include "colmap/mvs/normal_map.h"
 #include "colmap/mvs/patch_match.h"
+
+#include <iostream>
+#include <memory>
+#include <vector>
+
+#include <cuda_runtime.h>
 
 namespace colmap {
 namespace mvs {

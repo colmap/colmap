@@ -32,13 +32,12 @@
 #ifndef COLMAP_SRC_ESTIMATORS_ESSENTIAL_MATRIX_H_
 #define COLMAP_SRC_ESTIMATORS_ESSENTIAL_MATRIX_H_
 
+#include "colmap/util/types.h"
+
 #include <vector>
 
 #include <Eigen/Core>
-
 #include <ceres/ceres.h>
-
-#include "colmap/util/types.h"
 
 namespace colmap {
 
@@ -80,7 +79,8 @@ class EssentialMatrixFivePointEstimator {
   // @param E          3x3 essential matrix.
   // @param residuals  Output vector of residuals.
   static void Residuals(const std::vector<X_t>& points1,
-                        const std::vector<Y_t>& points2, const M_t& E,
+                        const std::vector<Y_t>& points2,
+                        const M_t& E,
                         std::vector<double>* residuals);
 };
 
@@ -117,7 +117,8 @@ class EssentialMatrixEightPointEstimator {
   // @param E          3x3 essential matrix.
   // @param residuals  Output vector of residuals.
   static void Residuals(const std::vector<X_t>& points1,
-                        const std::vector<Y_t>& points2, const M_t& E,
+                        const std::vector<Y_t>& points2,
+                        const M_t& E,
                         std::vector<double>* residuals);
 };
 

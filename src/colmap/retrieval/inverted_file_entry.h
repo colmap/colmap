@@ -32,10 +32,10 @@
 #ifndef COLMAP_SRC_RETRIEVAL_INVERTED_FILE_ENTRY_H_
 #define COLMAP_SRC_RETRIEVAL_INVERTED_FILE_ENTRY_H_
 
+#include "colmap/retrieval/geometry.h"
+
 #include <bitset>
 #include <fstream>
-
-#include "colmap/retrieval/geometry.h"
 
 namespace colmap {
 namespace retrieval {

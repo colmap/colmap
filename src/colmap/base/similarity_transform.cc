@@ -88,7 +88,8 @@ struct ReconstructionAlignmentEstimator {
   // threshold of 0.3 means that 70% of the points for that image must reproject
   // within the given maximum reprojection error threshold.
   void Residuals(const std::vector<X_t>& images1,
-                 const std::vector<Y_t>& images2, const M_t& alignment12,
+                 const std::vector<Y_t>& images2,
+                 const M_t& alignment12,
                  std::vector<double>* residuals) const {
     CHECK_EQ(images1.size(), images2.size());
     CHECK_NOTNULL(reconstruction1_);
@@ -137,8 +138,8 @@ struct ReconstructionAlignmentEstimator {
         const Eigen::Vector3d xyz12 =
             alignment12 *
             reconstruction1_->Point3D(point2D1.Point3DId()).XYZ().homogeneous();
-        if (CalculateSquaredReprojectionError(point2D2.XY(), xyz12,
-                                              proj_matrix2, camera2) >
+        if (CalculateSquaredReprojectionError(
+                point2D2.XY(), xyz12, proj_matrix2, camera2) >
             max_squared_reproj_error_) {
           continue;
         }
@@ -147,8 +148,8 @@ struct ReconstructionAlignmentEstimator {
         const Eigen::Vector3d xyz21 =
             alignment21 *
             reconstruction2_->Point3D(point2D2.Point3DId()).XYZ().homogeneous();
-        if (CalculateSquaredReprojectionError(point2D1.XY(), xyz21,
-                                              proj_matrix1, camera1) >
+        if (CalculateSquaredReprojectionError(
+                point2D1.XY(), xyz21, proj_matrix1, camera1) >
             max_squared_reproj_error_) {
           continue;
         }
@@ -176,8 +177,8 @@ struct ReconstructionAlignmentEstimator {
 }  // namespace
 
 SimilarityTransform3::SimilarityTransform3()
-    : SimilarityTransform3(1, ComposeIdentityQuaternion(),
-                           Eigen::Vector3d(0, 0, 0)) {}
+    : SimilarityTransform3(
+          1, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0)) {}
 
 SimilarityTransform3::SimilarityTransform3(const Eigen::Matrix3x4d& matrix) {
   transform_.matrix().topLeftCorner<3, 4>() = matrix;
@@ -272,7 +273,8 @@ SimilarityTransform3 SimilarityTransform3::FromFile(const std::string& path) {
 bool ComputeAlignmentBetweenReconstructions(
     const Reconstruction& src_reconstruction,
     const Reconstruction& ref_reconstruction,
-    const double min_inlier_observations, const double max_reproj_error,
+    const double min_inlier_observations,
+    const double max_reproj_error,
     Eigen::Matrix3x4d* alignment) {
   CHECK_GE(min_inlier_observations, 0.0);
   CHECK_LE(min_inlier_observations, 1.0);

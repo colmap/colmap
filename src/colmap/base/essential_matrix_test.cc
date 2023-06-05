@@ -30,13 +30,13 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/essential_matrix"
+#include "colmap/base/essential_matrix.h"
+
+#include "colmap/base/pose.h"
+#include "colmap/base/projection.h"
 #include "colmap/util/testing.h"
 
 #include <Eigen/Geometry>
-
-#include "colmap/base/essential_matrix.h"
-#include "colmap/base/pose.h"
-#include "colmap/base/projection.h"
 
 using namespace colmap;
 
@@ -137,8 +137,8 @@ BOOST_AUTO_TEST_CASE(TestFindOptimalImageObservations) {
     const Eigen::Vector2d point2 = point2_homogeneous.hnormalized();
     Eigen::Vector2d optimal_point1;
     Eigen::Vector2d optimal_point2;
-    FindOptimalImageObservations(E, point1, point2, &optimal_point1,
-                                 &optimal_point2);
+    FindOptimalImageObservations(
+        E, point1, point2, &optimal_point1, &optimal_point2);
     BOOST_CHECK(point1.isApprox(optimal_point1));
     BOOST_CHECK(point2.isApprox(optimal_point2));
   }
@@ -198,8 +198,11 @@ BOOST_AUTO_TEST_CASE(TestRefineEssentialMatrix) {
 
   Eigen::Matrix3d E_refined = E_pertubated;
   ceres::Solver::Options options;
-  RefineEssentialMatrix(options, points1, points2,
-                        std::vector<char>(points1.size(), true), &E_refined);
+  RefineEssentialMatrix(options,
+                        points1,
+                        points2,
+                        std::vector<char>(points1.size(), true),
+                        &E_refined);
 
   BOOST_CHECK_LE((E - E_refined).norm(), (E - E_pertubated).norm());
 }

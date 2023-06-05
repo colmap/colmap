@@ -30,18 +30,18 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/generalized_absolute_pose"
+#include "colmap/estimators/generalized_absolute_pose.h"
+
+#include "colmap/base/pose.h"
+#include "colmap/base/projection.h"
+#include "colmap/base/similarity_transform.h"
+#include "colmap/optim/ransac.h"
+#include "colmap/util/random.h"
 #include "colmap/util/testing.h"
 
 #include <array>
 
 #include <Eigen/Core>
-
-#include "colmap/base/pose.h"
-#include "colmap/base/projection.h"
-#include "colmap/base/similarity_transform.h"
-#include "colmap/estimators/generalized_absolute_pose.h"
-#include "colmap/optim/ransac.h"
-#include "colmap/util/random.h"
 
 using namespace colmap;
 
@@ -69,12 +69,12 @@ BOOST_AUTO_TEST_CASE(Estimate) {
       const int kNumTforms = 3;
 
       const std::array<SimilarityTransform3, kNumTforms> orig_tforms = {{
-          SimilarityTransform3(1, Eigen::Vector4d(1, qx, 0, 0),
-                               Eigen::Vector3d(tx, -0.1, 0)),
-          SimilarityTransform3(1, Eigen::Vector4d(1, qx, 0, 0),
-                               Eigen::Vector3d(tx, 0, 0)),
-          SimilarityTransform3(1, Eigen::Vector4d(1, qx, 0, 0),
-                               Eigen::Vector3d(tx, 0.1, 0)),
+          SimilarityTransform3(
+              1, Eigen::Vector4d(1, qx, 0, 0), Eigen::Vector3d(tx, -0.1, 0)),
+          SimilarityTransform3(
+              1, Eigen::Vector4d(1, qx, 0, 0), Eigen::Vector3d(tx, 0, 0)),
+          SimilarityTransform3(
+              1, Eigen::Vector4d(1, qx, 0, 0), Eigen::Vector3d(tx, 0.1, 0)),
       }};
 
       std::array<Eigen::Matrix3x4d, kNumTforms> rel_tforms;
@@ -84,7 +84,9 @@ BOOST_AUTO_TEST_CASE(Estimate) {
         ComputeRelativePose(orig_tforms[kRefTform].Rotation(),
                             orig_tforms[kRefTform].Translation(),
                             orig_tforms[i].Rotation(),
-                            orig_tforms[i].Translation(), &rel_qvec, &rel_tvec);
+                            orig_tforms[i].Translation(),
+                            &rel_qvec,
+                            &rel_tvec);
         rel_tforms[i] = ComposeProjectionMatrix(rel_qvec, rel_tvec);
       }
 
@@ -119,8 +121,8 @@ BOOST_AUTO_TEST_CASE(Estimate) {
       }
 
       // Test residuals of faulty points.
-      ransac.estimator.Residuals(points2D, points3D_faulty, report.model,
-                                 &residuals);
+      ransac.estimator.Residuals(
+          points2D, points3D_faulty, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
         BOOST_CHECK(residuals[i] > 1e-10);
       }

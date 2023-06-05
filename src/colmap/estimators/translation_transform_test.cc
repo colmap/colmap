@@ -30,13 +30,13 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "estimators/translation_transform"
+#include "colmap/estimators/translation_transform.h"
+
+#include "colmap/optim/ransac.h"
+#include "colmap/util/random.h"
 #include "colmap/util/testing.h"
 
 #include <Eigen/Core>
-
-#include "colmap/estimators/translation_transform.h"
-#include "colmap/optim/ransac.h"
-#include "colmap/util/random.h"
 
 using namespace colmap;
 
@@ -63,8 +63,8 @@ BOOST_AUTO_TEST_CASE(TestEstimate) {
   BOOST_CHECK_CLOSE(translation(1), estimated_translation(1), 1e-6);
 
   std::vector<double> residuals;
-  TranslationTransformEstimator<2>::Residuals(src, dst, estimated_translation,
-                                              &residuals);
+  TranslationTransformEstimator<2>::Residuals(
+      src, dst, estimated_translation, &residuals);
 
   for (size_t i = 0; i < residuals.size(); ++i) {
     BOOST_CHECK(residuals[i] < 1e-6);

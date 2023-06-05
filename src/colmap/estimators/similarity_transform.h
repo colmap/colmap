@@ -32,14 +32,14 @@
 #ifndef COLMAP_SRC_ESTIMATORS_SIMILARITY_TRANSFORM_H_
 #define COLMAP_SRC_ESTIMATORS_SIMILARITY_TRANSFORM_H_
 
+#include "colmap/base/projection.h"
+#include "colmap/util/logging.h"
+#include "colmap/util/types.h"
+
 #include <vector>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-
-#include "colmap/base/projection.h"
-#include "colmap/util/logging.h"
-#include "colmap/util/types.h"
 
 namespace colmap {
 
@@ -87,7 +87,8 @@ class SimilarityTransformEstimator {
   // @param matrix     4x4 homogeneous transformation matrix.
   // @param residuals  Output vector of residuals for each point pair.
   static void Residuals(const std::vector<X_t>& src,
-                        const std::vector<Y_t>& dst, const M_t& matrix,
+                        const std::vector<Y_t>& dst,
+                        const M_t& matrix,
                         std::vector<double>* residuals);
 };
 
@@ -120,7 +121,9 @@ SimilarityTransformEstimator<kDim, kEstimateScale>::Estimate(
 
 template <int kDim, bool kEstimateScale>
 void SimilarityTransformEstimator<kDim, kEstimateScale>::Residuals(
-    const std::vector<X_t>& src, const std::vector<Y_t>& dst, const M_t& matrix,
+    const std::vector<X_t>& src,
+    const std::vector<Y_t>& dst,
+    const M_t& matrix,
     std::vector<double>* residuals) {
   CHECK_EQ(src.size(), dst.size());
 

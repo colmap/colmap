@@ -69,8 +69,10 @@ Eigen::Matrix3d ComputeClosestRotationMatrix(const Eigen::Matrix3d& matrix) {
   return R;
 }
 
-bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& P, Eigen::Matrix3d* K,
-                               Eigen::Matrix3d* R, Eigen::Vector3d* T) {
+bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& P,
+                               Eigen::Matrix3d* K,
+                               Eigen::Matrix3d* R,
+                               Eigen::Vector3d* T) {
   Eigen::Matrix3d RR;
   Eigen::Matrix3d QQ;
   DecomposeMatrixRQ(P.leftCols<3>().eval(), &RR, &QQ);
@@ -153,16 +155,16 @@ double CalculateAngularError(const Eigen::Vector2d& point2D,
                              const Eigen::Vector4d& qvec,
                              const Eigen::Vector3d& tvec,
                              const Camera& camera) {
-  return CalculateNormalizedAngularError(camera.ImageToWorld(point2D), point3D,
-                                         qvec, tvec);
+  return CalculateNormalizedAngularError(
+      camera.ImageToWorld(point2D), point3D, qvec, tvec);
 }
 
 double CalculateAngularError(const Eigen::Vector2d& point2D,
                              const Eigen::Vector3d& point3D,
                              const Eigen::Matrix3x4d& proj_matrix,
                              const Camera& camera) {
-  return CalculateNormalizedAngularError(camera.ImageToWorld(point2D), point3D,
-                                         proj_matrix);
+  return CalculateNormalizedAngularError(
+      camera.ImageToWorld(point2D), point3D, proj_matrix);
 }
 
 double CalculateNormalizedAngularError(const Eigen::Vector2d& point2D,

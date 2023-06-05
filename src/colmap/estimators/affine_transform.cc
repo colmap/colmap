@@ -31,9 +31,9 @@
 
 #include "colmap/estimators/affine_transform.h"
 
-#include <Eigen/SVD>
-
 #include "colmap/util/logging.h"
+
+#include <Eigen/SVD>
 
 namespace colmap {
 

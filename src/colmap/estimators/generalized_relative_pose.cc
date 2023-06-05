@@ -152,9 +152,12 @@ Eigen::Vector3d ComputeRotationBetweenPoints(
   return RotationMatrixToCaley(R);
 }
 
-Eigen::Matrix4d ComposeG(const Eigen::Matrix3d& xxF, const Eigen::Matrix3d& yyF,
-                         const Eigen::Matrix3d& zzF, const Eigen::Matrix3d& xyF,
-                         const Eigen::Matrix3d& yzF, const Eigen::Matrix3d& zxF,
+Eigen::Matrix4d ComposeG(const Eigen::Matrix3d& xxF,
+                         const Eigen::Matrix3d& yyF,
+                         const Eigen::Matrix3d& zzF,
+                         const Eigen::Matrix3d& xyF,
+                         const Eigen::Matrix3d& yzF,
+                         const Eigen::Matrix3d& zxF,
                          const Eigen::Matrix<double, 3, 9>& x1P,
                          const Eigen::Matrix<double, 3, 9>& y1P,
                          const Eigen::Matrix<double, 3, 9>& z1P,
@@ -249,22 +252,38 @@ Eigen::Matrix4d ComposeG(const Eigen::Matrix3d& xxF, const Eigen::Matrix3d& yyF,
   return G;
 }
 
-Eigen::Vector4d ComputeEigenValue(
-    const Eigen::Matrix3d& xxF, const Eigen::Matrix3d& yyF,
-    const Eigen::Matrix3d& zzF, const Eigen::Matrix3d& xyF,
-    const Eigen::Matrix3d& yzF, const Eigen::Matrix3d& zxF,
-    const Eigen::Matrix<double, 3, 9>& x1P,
-    const Eigen::Matrix<double, 3, 9>& y1P,
-    const Eigen::Matrix<double, 3, 9>& z1P,
-    const Eigen::Matrix<double, 3, 9>& x2P,
-    const Eigen::Matrix<double, 3, 9>& y2P,
-    const Eigen::Matrix<double, 3, 9>& z2P,
-    const Eigen::Matrix<double, 9, 9>& m11P,
-    const Eigen::Matrix<double, 9, 9>& m12P,
-    const Eigen::Matrix<double, 9, 9>& m22P, const Eigen::Vector3d& rotation) {
-  const Eigen::Matrix4d G =
-      ComposeG(xxF, yyF, zzF, xyF, yzF, zxF, x1P, y1P, z1P, x2P, y2P, z2P, m11P,
-               m12P, m22P, rotation);
+Eigen::Vector4d ComputeEigenValue(const Eigen::Matrix3d& xxF,
+                                  const Eigen::Matrix3d& yyF,
+                                  const Eigen::Matrix3d& zzF,
+                                  const Eigen::Matrix3d& xyF,
+                                  const Eigen::Matrix3d& yzF,
+                                  const Eigen::Matrix3d& zxF,
+                                  const Eigen::Matrix<double, 3, 9>& x1P,
+                                  const Eigen::Matrix<double, 3, 9>& y1P,
+                                  const Eigen::Matrix<double, 3, 9>& z1P,
+                                  const Eigen::Matrix<double, 3, 9>& x2P,
+                                  const Eigen::Matrix<double, 3, 9>& y2P,
+                                  const Eigen::Matrix<double, 3, 9>& z2P,
+                                  const Eigen::Matrix<double, 9, 9>& m11P,
+                                  const Eigen::Matrix<double, 9, 9>& m12P,
+                                  const Eigen::Matrix<double, 9, 9>& m22P,
+                                  const Eigen::Vector3d& rotation) {
+  const Eigen::Matrix4d G = ComposeG(xxF,
+                                     yyF,
+                                     zzF,
+                                     xyF,
+                                     yzF,
+                                     zxF,
+                                     x1P,
+                                     y1P,
+                                     z1P,
+                                     x2P,
+                                     y2P,
+                                     z2P,
+                                     m11P,
+                                     m12P,
+                                     m22P,
+                                     rotation);
 
   // Compute the roots in closed-form.
   // const double G00_2 = G(0,0) * G(0,0);
@@ -335,9 +354,12 @@ Eigen::Vector4d ComputeEigenValue(
   return roots;
 }
 
-double ComputeCost(const Eigen::Matrix3d& xxF, const Eigen::Matrix3d& yyF,
-                   const Eigen::Matrix3d& zzF, const Eigen::Matrix3d& xyF,
-                   const Eigen::Matrix3d& yzF, const Eigen::Matrix3d& zxF,
+double ComputeCost(const Eigen::Matrix3d& xxF,
+                   const Eigen::Matrix3d& yyF,
+                   const Eigen::Matrix3d& zzF,
+                   const Eigen::Matrix3d& xyF,
+                   const Eigen::Matrix3d& yzF,
+                   const Eigen::Matrix3d& zxF,
                    const Eigen::Matrix<double, 3, 9>& x1P,
                    const Eigen::Matrix<double, 3, 9>& y1P,
                    const Eigen::Matrix<double, 3, 9>& z1P,
@@ -347,13 +369,27 @@ double ComputeCost(const Eigen::Matrix3d& xxF, const Eigen::Matrix3d& yyF,
                    const Eigen::Matrix<double, 9, 9>& m11P,
                    const Eigen::Matrix<double, 9, 9>& m12P,
                    const Eigen::Matrix<double, 9, 9>& m22P,
-                   const Eigen::Vector3d& rotation, const int step) {
+                   const Eigen::Vector3d& rotation,
+                   const int step) {
   CHECK_GE(step, 0);
   CHECK_LE(step, 1);
 
-  const Eigen::Vector4d roots =
-      ComputeEigenValue(xxF, yyF, zzF, xyF, yzF, zxF, x1P, y1P, z1P, x2P, y2P,
-                        z2P, m11P, m12P, m22P, rotation);
+  const Eigen::Vector4d roots = ComputeEigenValue(xxF,
+                                                  yyF,
+                                                  zzF,
+                                                  xyF,
+                                                  yzF,
+                                                  zxF,
+                                                  x1P,
+                                                  y1P,
+                                                  z1P,
+                                                  x2P,
+                                                  y2P,
+                                                  z2P,
+                                                  m11P,
+                                                  m12P,
+                                                  m22P,
+                                                  rotation);
 
   if (step == 0) {
     return roots[2];
@@ -364,28 +400,46 @@ double ComputeCost(const Eigen::Matrix3d& xxF, const Eigen::Matrix3d& yyF,
   return 0;
 }
 
-Eigen::Vector3d ComputeJacobian(
-    const Eigen::Matrix3d& xxF, const Eigen::Matrix3d& yyF,
-    const Eigen::Matrix3d& zzF, const Eigen::Matrix3d& xyF,
-    const Eigen::Matrix3d& yzF, const Eigen::Matrix3d& zxF,
-    const Eigen::Matrix<double, 3, 9>& x1P,
-    const Eigen::Matrix<double, 3, 9>& y1P,
-    const Eigen::Matrix<double, 3, 9>& z1P,
-    const Eigen::Matrix<double, 3, 9>& x2P,
-    const Eigen::Matrix<double, 3, 9>& y2P,
-    const Eigen::Matrix<double, 3, 9>& z2P,
-    const Eigen::Matrix<double, 9, 9>& m11P,
-    const Eigen::Matrix<double, 9, 9>& m12P,
-    const Eigen::Matrix<double, 9, 9>& m22P, const Eigen::Vector3d& rotation,
-    const double current_cost, const int step) {
+Eigen::Vector3d ComputeJacobian(const Eigen::Matrix3d& xxF,
+                                const Eigen::Matrix3d& yyF,
+                                const Eigen::Matrix3d& zzF,
+                                const Eigen::Matrix3d& xyF,
+                                const Eigen::Matrix3d& yzF,
+                                const Eigen::Matrix3d& zxF,
+                                const Eigen::Matrix<double, 3, 9>& x1P,
+                                const Eigen::Matrix<double, 3, 9>& y1P,
+                                const Eigen::Matrix<double, 3, 9>& z1P,
+                                const Eigen::Matrix<double, 3, 9>& x2P,
+                                const Eigen::Matrix<double, 3, 9>& y2P,
+                                const Eigen::Matrix<double, 3, 9>& z2P,
+                                const Eigen::Matrix<double, 9, 9>& m11P,
+                                const Eigen::Matrix<double, 9, 9>& m12P,
+                                const Eigen::Matrix<double, 9, 9>& m22P,
+                                const Eigen::Vector3d& rotation,
+                                const double current_cost,
+                                const int step) {
   Eigen::Vector3d jacobian;
   const double kEpsilon = 0.00000001;
   for (int j = 0; j < 3; j++) {
     Eigen::Vector3d cayley_j = rotation;
     cayley_j[j] += kEpsilon;
-    const double cost_j =
-        ComputeCost(xxF, yyF, zzF, xyF, yzF, zxF, x1P, y1P, z1P, x2P, y2P, z2P,
-                    m11P, m12P, m22P, cayley_j, step);
+    const double cost_j = ComputeCost(xxF,
+                                      yyF,
+                                      zzF,
+                                      xyF,
+                                      yzF,
+                                      zxF,
+                                      x1P,
+                                      y1P,
+                                      z1P,
+                                      x2P,
+                                      y2P,
+                                      z2P,
+                                      m11P,
+                                      m12P,
+                                      m22P,
+                                      cayley_j,
+                                      step);
     jacobian(j) = cost_j - current_cost;
   }
   return jacobian;
@@ -403,10 +457,10 @@ std::vector<GR6PEstimator::M_t> GR6PEstimator::Estimate(
   std::vector<Eigen::Vector6d> plueckers1(points1.size());
   std::vector<Eigen::Vector6d> plueckers2(points1.size());
   for (size_t i = 0; i < points1.size(); ++i) {
-    ComposePlueckerData(points1[i].rel_tform, points1[i].xy, &proj_centers1[i],
-                        &plueckers1[i]);
-    ComposePlueckerData(points2[i].rel_tform, points2[i].xy, &proj_centers2[i],
-                        &plueckers2[i]);
+    ComposePlueckerData(
+        points1[i].rel_tform, points1[i].xy, &proj_centers1[i], &plueckers1[i]);
+    ComposePlueckerData(
+        points2[i].rel_tform, points2[i].xy, &proj_centers2[i], &plueckers2[i]);
   }
 
   Eigen::Matrix3d xxF = Eigen::Matrix3d::Zero();
@@ -506,21 +560,64 @@ std::vector<GR6PEstimator::M_t> GR6PEstimator::Estimate(
 
     double lambda = 0.01;
     int num_iterations = 0;
-    double smallest_eigen_value =
-        ComputeCost(xxF, yyF, zzF, xyF, yzF, zxF, x1P, y1P, z1P, x2P, y2P, z2P,
-                    m11P, m12P, m22P, rotation, 1);
+    double smallest_eigen_value = ComputeCost(xxF,
+                                              yyF,
+                                              zzF,
+                                              xyF,
+                                              yzF,
+                                              zxF,
+                                              x1P,
+                                              y1P,
+                                              z1P,
+                                              x2P,
+                                              y2P,
+                                              z2P,
+                                              m11P,
+                                              m12P,
+                                              m22P,
+                                              rotation,
+                                              1);
 
     for (int iter = 0; iter < kMaxNumIterations; ++iter) {
-      const Eigen::Vector3d jacobian = ComputeJacobian(
-          xxF, yyF, zzF, xyF, yzF, zxF, x1P, y1P, z1P, x2P, y2P, z2P, m11P,
-          m12P, m22P, rotation, smallest_eigen_value, 1);
+      const Eigen::Vector3d jacobian = ComputeJacobian(xxF,
+                                                       yyF,
+                                                       zzF,
+                                                       xyF,
+                                                       yzF,
+                                                       zxF,
+                                                       x1P,
+                                                       y1P,
+                                                       z1P,
+                                                       x2P,
+                                                       y2P,
+                                                       z2P,
+                                                       m11P,
+                                                       m12P,
+                                                       m22P,
+                                                       rotation,
+                                                       smallest_eigen_value,
+                                                       1);
 
       const Eigen::Vector3d normalized_jacobian = jacobian.normalized();
 
       Eigen::Vector3d sampling_point = rotation - lambda * normalized_jacobian;
-      double sampling_eigen_value =
-          ComputeCost(xxF, yyF, zzF, xyF, yzF, zxF, x1P, y1P, z1P, x2P, y2P,
-                      z2P, m11P, m12P, m22P, sampling_point, 1);
+      double sampling_eigen_value = ComputeCost(xxF,
+                                                yyF,
+                                                zzF,
+                                                xyF,
+                                                yzF,
+                                                zxF,
+                                                x1P,
+                                                y1P,
+                                                z1P,
+                                                x2P,
+                                                y2P,
+                                                z2P,
+                                                m11P,
+                                                m12P,
+                                                m22P,
+                                                sampling_point,
+                                                1);
 
       if (num_iterations == 0 || !kDisableIncrements) {
         while (sampling_eigen_value < smallest_eigen_value) {
@@ -530,18 +627,46 @@ std::vector<GR6PEstimator::M_t> GR6PEstimator::Estimate(
           }
           lambda *= kLambdaModifier;
           sampling_point = rotation - lambda * normalized_jacobian;
-          sampling_eigen_value =
-              ComputeCost(xxF, yyF, zzF, xyF, yzF, zxF, x1P, y1P, z1P, x2P, y2P,
-                          z2P, m11P, m12P, m22P, sampling_point, 1);
+          sampling_eigen_value = ComputeCost(xxF,
+                                             yyF,
+                                             zzF,
+                                             xyF,
+                                             yzF,
+                                             zxF,
+                                             x1P,
+                                             y1P,
+                                             z1P,
+                                             x2P,
+                                             y2P,
+                                             z2P,
+                                             m11P,
+                                             m12P,
+                                             m22P,
+                                             sampling_point,
+                                             1);
         }
       }
 
       while (sampling_eigen_value > smallest_eigen_value) {
         lambda /= kLambdaModifier;
         sampling_point = rotation - lambda * normalized_jacobian;
-        sampling_eigen_value =
-            ComputeCost(xxF, yyF, zzF, xyF, yzF, zxF, x1P, y1P, z1P, x2P, y2P,
-                        z2P, m11P, m12P, m22P, sampling_point, 1);
+        sampling_eigen_value = ComputeCost(xxF,
+                                           yyF,
+                                           zzF,
+                                           xyF,
+                                           yzF,
+                                           zxF,
+                                           x1P,
+                                           y1P,
+                                           z1P,
+                                           x2P,
+                                           y2P,
+                                           z2P,
+                                           m11P,
+                                           m12P,
+                                           m22P,
+                                           sampling_point,
+                                           1);
       }
 
       rotation = sampling_point;
@@ -553,9 +678,23 @@ std::vector<GR6PEstimator::M_t> GR6PEstimator::Estimate(
     }
 
     if (rotation.norm() < 0.01) {
-      const double eigen_value2 =
-          ComputeCost(xxF, yyF, zzF, xyF, yzF, zxF, x1P, y1P, z1P, x2P, y2P,
-                      z2P, m11P, m12P, m22P, rotation, 0);
+      const double eigen_value2 = ComputeCost(xxF,
+                                              yyF,
+                                              zzF,
+                                              xyF,
+                                              yzF,
+                                              zxF,
+                                              x1P,
+                                              y1P,
+                                              z1P,
+                                              x2P,
+                                              y2P,
+                                              z2P,
+                                              m11P,
+                                              m12P,
+                                              m22P,
+                                              rotation,
+                                              0);
       if (eigen_value2 > 0.001) {
         num_random_trials += 1;
       } else {
@@ -568,9 +707,22 @@ std::vector<GR6PEstimator::M_t> GR6PEstimator::Estimate(
 
   const Eigen::Matrix3d R = CayleyToRotationMatrix(rotation).transpose();
 
-  const Eigen::Matrix4d G =
-      ComposeG(xxF, yyF, zzF, xyF, yzF, zxF, x1P, y1P, z1P, x2P, y2P, z2P, m11P,
-               m12P, m22P, rotation);
+  const Eigen::Matrix4d G = ComposeG(xxF,
+                                     yyF,
+                                     zzF,
+                                     xyF,
+                                     yzF,
+                                     zxF,
+                                     x1P,
+                                     y1P,
+                                     z1P,
+                                     x2P,
+                                     y2P,
+                                     z2P,
+                                     m11P,
+                                     m12P,
+                                     m22P,
+                                     rotation);
 
   const Eigen::EigenSolver<Eigen::Matrix4d> eigen_solver_G(G, true);
   const Eigen::Matrix4cd V = eigen_solver_G.eigenvectors();

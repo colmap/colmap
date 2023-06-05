@@ -32,11 +32,11 @@
 #ifndef COLMAP_SRC_UI_POINT_VIEWER_WIDGET_H_
 #define COLMAP_SRC_UI_POINT_VIEWER_WIDGET_H_
 
-#include <QtCore>
-#include <QtWidgets>
-
 #include "colmap/base/reconstruction.h"
 #include "colmap/util/option_manager.h"
+
+#include <QtCore>
+#include <QtWidgets>
 
 namespace colmap {
 
@@ -44,7 +44,8 @@ class ModelViewerWidget;
 
 class PointViewerWidget : public QWidget {
  public:
-  PointViewerWidget(QWidget* parent, ModelViewerWidget* model_viewer_widget,
+  PointViewerWidget(QWidget* parent,
+                    ModelViewerWidget* model_viewer_widget,
                     OptionManager* option);
 
   void Show(const point3D_t point3D_id);

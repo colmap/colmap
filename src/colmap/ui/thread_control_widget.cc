@@ -70,8 +70,9 @@ void ThreadControlWidget::StartThread(const QString& progress_text,
     progress_bar_->setMaximum(0);
     progress_bar_->setMinimum(0);
     progress_bar_->setValue(0);
-    connect(progress_bar_, &QProgressDialog::canceled,
-            [this]() { destructor_->trigger(); });
+    connect(progress_bar_, &QProgressDialog::canceled, [this]() {
+      destructor_->trigger();
+    });
   }
 
   // Enable the cancel button if the thread is stoppable.

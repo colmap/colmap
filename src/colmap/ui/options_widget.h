@@ -32,10 +32,9 @@
 #ifndef COLMAP_SRC_UI_OPTIONS_WIDGET_H_
 #define COLMAP_SRC_UI_OPTIONS_WIDGET_H_
 
-#include <unordered_map>
-
 #include <QtCore>
 #include <QtWidgets>
+#include <unordered_map>
 
 namespace colmap {
 
@@ -43,21 +42,28 @@ class OptionsWidget : public QWidget {
  public:
   explicit OptionsWidget(QWidget* parent);
 
-  void AddOptionRow(const std::string& label_text, QWidget* widget,
+  void AddOptionRow(const std::string& label_text,
+                    QWidget* widget,
                     void* option);
   void AddWidgetRow(const std::string& label_text, QWidget* widget);
   void AddLayoutRow(const std::string& label_text, QLayout* layout);
 
-  QSpinBox* AddOptionInt(int* option, const std::string& label_text,
+  QSpinBox* AddOptionInt(int* option,
+                         const std::string& label_text,
                          const int min = 0,
                          const int max = static_cast<int>(1e7));
-  QDoubleSpinBox* AddOptionDouble(double* option, const std::string& label_text,
-                                  const double min = 0, const double max = 1e7,
+  QDoubleSpinBox* AddOptionDouble(double* option,
+                                  const std::string& label_text,
+                                  const double min = 0,
+                                  const double max = 1e7,
                                   const double step = 0.01,
                                   const int decimals = 2);
-  QDoubleSpinBox* AddOptionDoubleLog(
-      double* option, const std::string& label_text, const double min = 0,
-      const double max = 1e7, const double step = 0.01, const int decimals = 2);
+  QDoubleSpinBox* AddOptionDoubleLog(double* option,
+                                     const std::string& label_text,
+                                     const double min = 0,
+                                     const double max = 1e7,
+                                     const double step = 0.01,
+                                     const int decimals = 2);
   QCheckBox* AddOptionBool(bool* option, const std::string& label_text);
   QLineEdit* AddOptionText(std::string* option, const std::string& label_text);
   QLineEdit* AddOptionFilePath(std::string* option,

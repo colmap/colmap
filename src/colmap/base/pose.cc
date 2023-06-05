@@ -31,10 +31,10 @@
 
 #include "colmap/base/pose.h"
 
-#include <Eigen/Eigenvalues>
-
 #include "colmap/base/projection.h"
 #include "colmap/base/triangulation.h"
+
+#include <Eigen/Eigenvalues>
 
 namespace colmap {
 
@@ -45,8 +45,10 @@ Eigen::Matrix3d CrossProductMatrix(const Eigen::Vector3d& vector) {
   return matrix;
 }
 
-void RotationMatrixToEulerAngles(const Eigen::Matrix3d& R, double* rx,
-                                 double* ry, double* rz) {
+void RotationMatrixToEulerAngles(const Eigen::Matrix3d& R,
+                                 double* rx,
+                                 double* ry,
+                                 double* rz) {
   *rx = std::atan2(R(2, 1), R(2, 2));
   *ry = std::asin(-R(2, 0));
   *rz = std::atan2(R(1, 0), R(0, 0));
@@ -56,7 +58,8 @@ void RotationMatrixToEulerAngles(const Eigen::Matrix3d& R, double* rx,
   *rz = IsNaN(*rz) ? 0 : *rz;
 }
 
-Eigen::Matrix3d EulerAnglesToRotationMatrix(const double rx, const double ry,
+Eigen::Matrix3d EulerAnglesToRotationMatrix(const double rx,
+                                            const double ry,
                                             const double rz) {
   const Eigen::Matrix3d Rx =
       Eigen::AngleAxisd(rx, Eigen::Vector3d::UnitX()).toRotationMatrix();
@@ -74,8 +77,10 @@ Eigen::Vector4d RotationMatrixToQuaternion(const Eigen::Matrix3d& rot_mat) {
 
 Eigen::Matrix3d QuaternionToRotationMatrix(const Eigen::Vector4d& qvec) {
   const Eigen::Vector4d normalized_qvec = NormalizeQuaternion(qvec);
-  const Eigen::Quaterniond quat(normalized_qvec(0), normalized_qvec(1),
-                                normalized_qvec(2), normalized_qvec(3));
+  const Eigen::Quaterniond quat(normalized_qvec(0),
+                                normalized_qvec(1),
+                                normalized_qvec(2),
+                                normalized_qvec(3));
   return quat.toRotationMatrix();
 }
 
@@ -98,10 +103,14 @@ Eigen::Vector4d ConcatenateQuaternions(const Eigen::Vector4d& qvec1,
                                        const Eigen::Vector4d& qvec2) {
   const Eigen::Vector4d normalized_qvec1 = NormalizeQuaternion(qvec1);
   const Eigen::Vector4d normalized_qvec2 = NormalizeQuaternion(qvec2);
-  const Eigen::Quaterniond quat1(normalized_qvec1(0), normalized_qvec1(1),
-                                 normalized_qvec1(2), normalized_qvec1(3));
-  const Eigen::Quaterniond quat2(normalized_qvec2(0), normalized_qvec2(1),
-                                 normalized_qvec2(2), normalized_qvec2(3));
+  const Eigen::Quaterniond quat1(normalized_qvec1(0),
+                                 normalized_qvec1(1),
+                                 normalized_qvec1(2),
+                                 normalized_qvec1(3));
+  const Eigen::Quaterniond quat2(normalized_qvec2(0),
+                                 normalized_qvec2(1),
+                                 normalized_qvec2(2),
+                                 normalized_qvec2(3));
   const Eigen::Quaterniond cat_quat = quat2 * quat1;
   return NormalizeQuaternion(
       Eigen::Vector4d(cat_quat.w(), cat_quat.x(), cat_quat.y(), cat_quat.z()));
@@ -110,8 +119,10 @@ Eigen::Vector4d ConcatenateQuaternions(const Eigen::Vector4d& qvec1,
 Eigen::Vector3d QuaternionRotatePoint(const Eigen::Vector4d& qvec,
                                       const Eigen::Vector3d& point) {
   const Eigen::Vector4d normalized_qvec = NormalizeQuaternion(qvec);
-  const Eigen::Quaterniond quat(normalized_qvec(0), normalized_qvec(1),
-                                normalized_qvec(2), normalized_qvec(3));
+  const Eigen::Quaterniond quat(normalized_qvec(0),
+                                normalized_qvec(1),
+                                normalized_qvec(2),
+                                normalized_qvec(3));
   return quat * point;
 }
 
@@ -165,15 +176,18 @@ Eigen::Vector3d ProjectionCenterFromPose(const Eigen::Vector4d& qvec,
                                          const Eigen::Vector3d& tvec) {
   // Inverse rotation as conjugate quaternion.
   const Eigen::Vector4d normalized_qvec = NormalizeQuaternion(qvec);
-  const Eigen::Quaterniond quat(normalized_qvec(0), -normalized_qvec(1),
-                                -normalized_qvec(2), -normalized_qvec(3));
+  const Eigen::Quaterniond quat(normalized_qvec(0),
+                                -normalized_qvec(1),
+                                -normalized_qvec(2),
+                                -normalized_qvec(3));
   return quat * -tvec;
 }
 
 void ComputeRelativePose(const Eigen::Vector4d& qvec1,
                          const Eigen::Vector3d& tvec1,
                          const Eigen::Vector4d& qvec2,
-                         const Eigen::Vector3d& tvec2, Eigen::Vector4d* qvec12,
+                         const Eigen::Vector3d& tvec2,
+                         Eigen::Vector4d* qvec12,
                          Eigen::Vector3d* tvec12) {
   const Eigen::Vector4d inv_qvec1 = InvertQuaternion(qvec1);
   *qvec12 = ConcatenateQuaternions(inv_qvec1, qvec2);
@@ -183,28 +197,38 @@ void ComputeRelativePose(const Eigen::Vector4d& qvec1,
 void ConcatenatePoses(const Eigen::Vector4d& qvec1,
                       const Eigen::Vector3d& tvec1,
                       const Eigen::Vector4d& qvec2,
-                      const Eigen::Vector3d& tvec2, Eigen::Vector4d* qvec12,
+                      const Eigen::Vector3d& tvec2,
+                      Eigen::Vector4d* qvec12,
                       Eigen::Vector3d* tvec12) {
   *qvec12 = ConcatenateQuaternions(qvec1, qvec2);
   *tvec12 = tvec2 + QuaternionRotatePoint(qvec2, tvec1);
 }
 
-void InvertPose(const Eigen::Vector4d& qvec, const Eigen::Vector3d& tvec,
-                Eigen::Vector4d* inv_qvec, Eigen::Vector3d* inv_tvec) {
+void InvertPose(const Eigen::Vector4d& qvec,
+                const Eigen::Vector3d& tvec,
+                Eigen::Vector4d* inv_qvec,
+                Eigen::Vector3d* inv_tvec) {
   *inv_qvec = InvertQuaternion(qvec);
   *inv_tvec = -QuaternionRotatePoint(*inv_qvec, tvec);
 }
 
-void InterpolatePose(const Eigen::Vector4d& qvec1, const Eigen::Vector3d& tvec1,
-                     const Eigen::Vector4d& qvec2, const Eigen::Vector3d& tvec2,
-                     const double t, Eigen::Vector4d* qveci,
+void InterpolatePose(const Eigen::Vector4d& qvec1,
+                     const Eigen::Vector3d& tvec1,
+                     const Eigen::Vector4d& qvec2,
+                     const Eigen::Vector3d& tvec2,
+                     const double t,
+                     Eigen::Vector4d* qveci,
                      Eigen::Vector3d* tveci) {
   const Eigen::Vector4d normalized_qvec1 = NormalizeQuaternion(qvec1);
   const Eigen::Vector4d normalized_qvec2 = NormalizeQuaternion(qvec2);
-  const Eigen::Quaterniond quat1(normalized_qvec1(0), normalized_qvec1(1),
-                                 normalized_qvec1(2), normalized_qvec1(3));
-  const Eigen::Quaterniond quat2(normalized_qvec2(0), normalized_qvec2(1),
-                                 normalized_qvec2(2), normalized_qvec2(3));
+  const Eigen::Quaterniond quat1(normalized_qvec1(0),
+                                 normalized_qvec1(1),
+                                 normalized_qvec1(2),
+                                 normalized_qvec1(3));
+  const Eigen::Quaterniond quat2(normalized_qvec2(0),
+                                 normalized_qvec2(1),
+                                 normalized_qvec2(2),
+                                 normalized_qvec2(3));
   const Eigen::Vector3d tvec12 = tvec2 - tvec1;
 
   const Eigen::Quaterniond quati = quat1.slerp(t, quat2);
@@ -222,7 +246,8 @@ Eigen::Vector3d CalculateBaseline(const Eigen::Vector4d& qvec1,
   return center2 - center1;
 }
 
-bool CheckCheirality(const Eigen::Matrix3d& R, const Eigen::Vector3d& t,
+bool CheckCheirality(const Eigen::Matrix3d& R,
+                     const Eigen::Vector3d& t,
                      const std::vector<Eigen::Vector2d>& points1,
                      const std::vector<Eigen::Vector2d>& points2,
                      std::vector<Eigen::Vector3d>* points3D) {

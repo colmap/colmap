@@ -58,7 +58,9 @@ OpenGLContextManager::OpenGLContextManager(int opengl_major_version,
   CHECK(context_.isValid()) << "Could not create valid OpenGL context";
 
   connect(
-      make_current_action_, &QAction::triggered, this,
+      make_current_action_,
+      &QAction::triggered,
+      this,
       [this]() {
         CHECK_NOTNULL(current_thread_);
         context_.doneCurrent();
@@ -111,7 +113,10 @@ void GLError(const char* file, const int line) {
         error_name = "UNKNOWN_ERROR";
         break;
     }
-    fprintf(stderr, "OpenGL error [%s, line %i]: GL_%s", file, line,
+    fprintf(stderr,
+            "OpenGL error [%s, line %i]: GL_%s",
+            file,
+            line,
             error_name.c_str());
     error_code = glGetError();
   }

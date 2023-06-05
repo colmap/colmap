@@ -30,9 +30,9 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "util/cache"
-#include "colmap/util/testing.h"
-
 #include "colmap/util/cache.h"
+
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 

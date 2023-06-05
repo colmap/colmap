@@ -32,10 +32,10 @@
 #ifndef COLMAP_SRC_UI_COLORMAPS_H_
 #define COLMAP_SRC_UI_COLORMAPS_H_
 
-#include <Eigen/Core>
-
 #include "colmap/base/reconstruction.h"
 #include "colmap/util/types.h"
+
+#include <Eigen/Core>
 
 namespace colmap {
 
@@ -126,7 +126,8 @@ class ImageColormapBase {
                        std::unordered_map<point3D_t, Point3D>& points3D,
                        std::vector<image_t>& reg_image_ids) = 0;
 
-  virtual void ComputeColor(const Image& image, Eigen::Vector4f* plane_color,
+  virtual void ComputeColor(const Image& image,
+                            Eigen::Vector4f* plane_color,
                             Eigen::Vector4f* frame_color) = 0;
 
   const static Eigen::Vector4f kDefaultPlaneColor;
@@ -141,7 +142,8 @@ class ImageColormapUniform : public ImageColormapBase {
                std::unordered_map<point3D_t, Point3D>& points3D,
                std::vector<image_t>& reg_image_ids) override;
 
-  void ComputeColor(const Image& image, Eigen::Vector4f* plane_color,
+  void ComputeColor(const Image& image,
+                    Eigen::Vector4f* plane_color,
                     Eigen::Vector4f* frame_color) override;
 
   Eigen::Vector4f uniform_plane_color = kDefaultPlaneColor;
@@ -160,7 +162,8 @@ class ImageColormapNameFilter : public ImageColormapBase {
                        const Eigen::Vector4f& plane_color,
                        const Eigen::Vector4f& frame_color);
 
-  void ComputeColor(const Image& image, Eigen::Vector4f* plane_color,
+  void ComputeColor(const Image& image,
+                    Eigen::Vector4f* plane_color,
                     Eigen::Vector4f* frame_color) override;
 
  private:

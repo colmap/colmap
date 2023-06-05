@@ -30,10 +30,10 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/undistortion"
-#include "colmap/util/testing.h"
+#include "colmap/base/undistortion.h"
 
 #include "colmap/base/pose.h"
-#include "colmap/base/undistortion.h"
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 
@@ -114,7 +114,10 @@ BOOST_AUTO_TEST_CASE(TestUndistortCameraBlankPixels) {
 
   Bitmap undistorted_image;
   Camera undistorted_camera;
-  UndistortImage(options, distorted_image, distorted_camera, &undistorted_image,
+  UndistortImage(options,
+                 distorted_image,
+                 distorted_camera,
+                 &undistorted_image,
                  &undistorted_camera);
 
   BOOST_CHECK_EQUAL(undistorted_camera.ModelName(), "PINHOLE");
@@ -154,7 +157,10 @@ BOOST_AUTO_TEST_CASE(TestUndistortCameraNoBlankPixels) {
 
   Bitmap undistorted_image;
   Camera undistorted_camera;
-  UndistortImage(options, distorted_image, distorted_camera, &undistorted_image,
+  UndistortImage(options,
+                 distorted_image,
+                 distorted_camera,
+                 &undistorted_image,
                  &undistorted_camera);
 
   BOOST_CHECK_EQUAL(undistorted_camera.ModelName(), "PINHOLE");

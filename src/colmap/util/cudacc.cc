@@ -50,15 +50,18 @@ void CudaTimer::Print(const std::string& message) {
   CUDA_SAFE_CALL(cudaEventRecord(stop_, 0));
   CUDA_SAFE_CALL(cudaEventSynchronize(stop_));
   CUDA_SAFE_CALL(cudaEventElapsedTime(&elapsed_time_, start_, stop_));
-  std::cout << StringPrintf("%s: %.4fs", message.c_str(),
-                            elapsed_time_ / 1000.0f)
+  std::cout << StringPrintf(
+                   "%s: %.4fs", message.c_str(), elapsed_time_ / 1000.0f)
             << std::endl;
 }
 
-void CudaSafeCall(const cudaError_t error, const std::string& file,
+void CudaSafeCall(const cudaError_t error,
+                  const std::string& file,
                   const int line) {
   if (error != cudaSuccess) {
-    std::cerr << StringPrintf("CUDA error at %s:%i - %s", file.c_str(), line,
+    std::cerr << StringPrintf("CUDA error at %s:%i - %s",
+                              file.c_str(),
+                              line,
                               cudaGetErrorString(error))
               << std::endl;
     exit(EXIT_FAILURE);
@@ -68,7 +71,9 @@ void CudaSafeCall(const cudaError_t error, const std::string& file,
 void CudaCheck(const char* file, const int line) {
   const cudaError error = cudaGetLastError();
   while (error != cudaSuccess) {
-    std::cerr << StringPrintf("CUDA error at %s:%i - %s", file, line,
+    std::cerr << StringPrintf("CUDA error at %s:%i - %s",
+                              file,
+                              line,
                               cudaGetErrorString(error))
               << std::endl;
     exit(EXIT_FAILURE);
@@ -79,7 +84,9 @@ void CudaSyncAndCheck(const char* file, const int line) {
   // Synchronizes the default stream which is a nullptr.
   const cudaError error = cudaStreamSynchronize(nullptr);
   if (cudaSuccess != error) {
-    std::cerr << StringPrintf("CUDA error at %s:%i - %s", file, line,
+    std::cerr << StringPrintf("CUDA error at %s:%i - %s",
+                              file,
+                              line,
                               cudaGetErrorString(error))
               << std::endl;
     std::cerr

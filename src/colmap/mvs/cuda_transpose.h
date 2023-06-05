@@ -39,8 +39,12 @@ namespace mvs {
 
 // Transpose the input matrix.
 template <typename T>
-void CudaTranspose(const T* input, T* output, const int width, const int height,
-                   const int pitch_input, const int pitch_output);
+void CudaTranspose(const T* input,
+                   T* output,
+                   const int width,
+                   const int height,
+                   const int pitch_input,
+                   const int pitch_output);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -55,8 +59,10 @@ void CudaTranspose(const T* input, T* output, const int width, const int height,
 namespace internal {
 
 template <typename T>
-__global__ void CudaTransposeKernel(T* output_data, const T* input_data,
-                                    const int width, const int height,
+__global__ void CudaTransposeKernel(T* output_data,
+                                    const T* input_data,
+                                    const int width,
+                                    const int height,
                                     const int input_pitch,
                                     const int output_pitch) {
   int x_index = blockIdx.x * TILE_DIM_TRANSPOSE + threadIdx.x;
@@ -92,8 +98,12 @@ __global__ void CudaTransposeKernel(T* output_data, const T* input_data,
 }  // namespace internal
 
 template <typename T>
-void CudaTranspose(const T* input, T* output, const int width, const int height,
-                   const int pitch_input, const int pitch_output) {
+void CudaTranspose(const T* input,
+                   T* output,
+                   const int width,
+                   const int height,
+                   const int pitch_input,
+                   const int pitch_output) {
   dim3 block_dim(TILE_DIM_TRANSPOSE, BLOCK_ROWS_TRANSPOSE, 1);
   dim3 grid_dim;
   grid_dim.x = (width - 1) / TILE_DIM_TRANSPOSE + 1;

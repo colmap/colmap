@@ -32,6 +32,10 @@
 #ifndef COLMAP_SRC_MVS_MODEL_H_
 #define COLMAP_SRC_MVS_MODEL_H_
 
+#include "colmap/mvs/depth_map.h"
+#include "colmap/mvs/image.h"
+#include "colmap/mvs/normal_map.h"
+
 #include <cstdint>
 #include <fstream>
 #include <map>
@@ -39,10 +43,6 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-
-#include "colmap/mvs/depth_map.h"
-#include "colmap/mvs/image.h"
-#include "colmap/mvs/normal_map.h"
 
 namespace colmap {
 namespace mvs {

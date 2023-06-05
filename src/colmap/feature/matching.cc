@@ -31,15 +31,16 @@
 
 #include "colmap/feature/matching.h"
 
-#include <fstream>
-#include <numeric>
-
-#include "lib/SiftGPU/SiftGPU.h"
 #include "colmap/base/gps.h"
 #include "colmap/feature/utils.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
+
+#include "lib/SiftGPU/SiftGPU.h"
+
+#include <fstream>
+#include <numeric>
 
 namespace colmap {
 namespace {
@@ -48,10 +49,12 @@ void PrintElapsedTime(const Timer& timer) {
   std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
 }
 
-void IndexImagesInVisualIndex(const int num_threads, const int num_checks,
+void IndexImagesInVisualIndex(const int num_threads,
+                              const int num_checks,
                               const int max_num_features,
                               const std::vector<image_t>& image_ids,
-                              Thread* thread, FeatureMatcherCache* cache,
+                              Thread* thread,
+                              FeatureMatcherCache* cache,
                               retrieval::VisualIndex<>* visual_index) {
   retrieval::VisualIndex<>::IndexOptions index_options;
   index_options.num_threads = num_threads;
@@ -83,12 +86,17 @@ void IndexImagesInVisualIndex(const int num_threads, const int num_checks,
   visual_index->Prepare();
 }
 
-void MatchNearestNeighborsInVisualIndex(
-    const int num_threads, const int num_images, const int num_neighbors,
-    const int num_checks, const int num_images_after_verification,
-    const int max_num_features, const std::vector<image_t>& image_ids,
-    Thread* thread, FeatureMatcherCache* cache,
-    retrieval::VisualIndex<>* visual_index, SiftFeatureMatcher* matcher) {
+void MatchNearestNeighborsInVisualIndex(const int num_threads,
+                                        const int num_images,
+                                        const int num_neighbors,
+                                        const int num_checks,
+                                        const int num_images_after_verification,
+                                        const int max_num_features,
+                                        const std::vector<image_t>& image_ids,
+                                        Thread* thread,
+                                        FeatureMatcherCache* cache,
+                                        retrieval::VisualIndex<>* visual_index,
+                                        SiftFeatureMatcher* matcher) {
   struct Retrieval {
     image_t image_id = kInvalidImageId;
     std::vector<retrieval::ImageScore> image_scores;
@@ -115,8 +123,8 @@ void MatchNearestNeighborsInVisualIndex(
 
     Retrieval retrieval;
     retrieval.image_id = image_id;
-    visual_index->Query(query_options, keypoints, descriptors,
-                        &retrieval.image_scores);
+    visual_index->Query(
+        query_options, keypoints, descriptors, &retrieval.image_scores);
 
     CHECK(retrieval_queue.Push(std::move(retrieval)));
   };
@@ -319,7 +327,8 @@ void FeatureMatcherCache::WriteMatches(const image_t image_id1,
 }
 
 void FeatureMatcherCache::WriteTwoViewGeometry(
-    const image_t image_id1, const image_t image_id2,
+    const image_t image_id1,
+    const image_t image_id2,
     const TwoViewGeometry& two_view_geometry) {
   std::unique_lock<std::mutex> lock(database_mutex_);
   database_->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
@@ -375,8 +384,8 @@ void SiftCPUFeatureMatcher::Run() {
 
       const auto descriptors1 = cache_->GetDescriptors(data.image_id1);
       const auto descriptors2 = cache_->GetDescriptors(data.image_id2);
-      MatchSiftFeaturesCPU(options_, *descriptors1, *descriptors2,
-                           &data.matches);
+      MatchSiftFeaturesCPU(
+          options_, *descriptors1, *descriptors2, &data.matches);
 
       CHECK(output_queue_->Push(std::move(data)));
     }
@@ -434,8 +443,11 @@ void SiftGPUFeatureMatcher::Run() {
       GetDescriptorData(0, data.image_id1, &descriptors1_ptr);
       const FeatureDescriptors* descriptors2_ptr;
       GetDescriptorData(1, data.image_id2, &descriptors2_ptr);
-      MatchSiftFeaturesGPU(options_, descriptors1_ptr, descriptors2_ptr,
-                           &sift_match_gpu, &data.matches);
+      MatchSiftFeaturesGPU(options_,
+                           descriptors1_ptr,
+                           descriptors2_ptr,
+                           &sift_match_gpu,
+                           &data.matches);
 
       CHECK(output_queue_->Push(std::move(data)));
     }
@@ -443,7 +455,8 @@ void SiftGPUFeatureMatcher::Run() {
 }
 
 void SiftGPUFeatureMatcher::GetDescriptorData(
-    const int index, const image_t image_id,
+    const int index,
+    const image_t image_id,
     const FeatureDescriptors** descriptors_ptr) {
   CHECK_GE(index, 0);
   CHECK_LE(index, 1);
@@ -457,8 +470,10 @@ void SiftGPUFeatureMatcher::GetDescriptorData(
 }
 
 GuidedSiftCPUFeatureMatcher::GuidedSiftCPUFeatureMatcher(
-    const SiftMatchingOptions& options, FeatureMatcherCache* cache,
-    JobQueue<Input>* input_queue, JobQueue<Output>* output_queue)
+    const SiftMatchingOptions& options,
+    FeatureMatcherCache* cache,
+    JobQueue<Input>* input_queue,
+    JobQueue<Output>* output_queue)
     : FeatureMatcherThread(options, cache),
       input_queue_(input_queue),
       output_queue_(output_queue) {
@@ -495,8 +510,11 @@ void GuidedSiftCPUFeatureMatcher::Run() {
       const auto keypoints2 = cache_->GetKeypoints(data.image_id2);
       const auto descriptors1 = cache_->GetDescriptors(data.image_id1);
       const auto descriptors2 = cache_->GetDescriptors(data.image_id2);
-      MatchGuidedSiftFeaturesCPU(options_, *keypoints1, *keypoints2,
-                                 *descriptors1, *descriptors2,
+      MatchGuidedSiftFeaturesCPU(options_,
+                                 *keypoints1,
+                                 *keypoints2,
+                                 *descriptors1,
+                                 *descriptors2,
                                  &data.two_view_geometry);
 
       CHECK(output_queue_->Push(std::move(data)));
@@ -505,8 +523,10 @@ void GuidedSiftCPUFeatureMatcher::Run() {
 }
 
 GuidedSiftGPUFeatureMatcher::GuidedSiftGPUFeatureMatcher(
-    const SiftMatchingOptions& options, FeatureMatcherCache* cache,
-    JobQueue<Input>* input_queue, JobQueue<Output>* output_queue)
+    const SiftMatchingOptions& options,
+    FeatureMatcherCache* cache,
+    JobQueue<Input>* input_queue,
+    JobQueue<Output>* output_queue)
     : FeatureMatcherThread(options, cache),
       input_queue_(input_queue),
       output_queue_(output_queue) {
@@ -565,9 +585,13 @@ void GuidedSiftGPUFeatureMatcher::Run() {
       const FeatureKeypoints* keypoints2_ptr;
       GetFeatureData(1, data.image_id2, &keypoints2_ptr, &descriptors2_ptr);
 
-      MatchGuidedSiftFeaturesGPU(options_, keypoints1_ptr, keypoints2_ptr,
-                                 descriptors1_ptr, descriptors2_ptr,
-                                 &sift_match_gpu, &data.two_view_geometry);
+      MatchGuidedSiftFeaturesGPU(options_,
+                                 keypoints1_ptr,
+                                 keypoints2_ptr,
+                                 descriptors1_ptr,
+                                 descriptors2_ptr,
+                                 &sift_match_gpu,
+                                 &data.two_view_geometry);
 
       CHECK(output_queue_->Push(std::move(data)));
     }
@@ -575,7 +599,8 @@ void GuidedSiftGPUFeatureMatcher::Run() {
 }
 
 void GuidedSiftGPUFeatureMatcher::GetFeatureData(
-    const int index, const image_t image_id,
+    const int index,
+    const image_t image_id,
     const FeatureKeypoints** keypoints_ptr,
     const FeatureDescriptors** descriptors_ptr) {
   CHECK_GE(index, 0);
@@ -593,8 +618,10 @@ void GuidedSiftGPUFeatureMatcher::GetFeatureData(
 }
 
 TwoViewGeometryVerifier::TwoViewGeometryVerifier(
-    const SiftMatchingOptions& options, FeatureMatcherCache* cache,
-    JobQueue<Input>* input_queue, JobQueue<Output>* output_queue)
+    const SiftMatchingOptions& options,
+    FeatureMatcherCache* cache,
+    JobQueue<Input>* input_queue,
+    JobQueue<Output>* output_queue)
     : options_(options),
       cache_(cache),
       input_queue_(input_queue),
@@ -641,11 +668,17 @@ void TwoViewGeometryVerifier::Run() {
       const auto& points2 = FeatureKeypointsToPointsVector(*keypoints2);
 
       if (options_.multiple_models) {
-        data.two_view_geometry.EstimateMultiple(camera1, points1, camera2,
-                                                points2, data.matches,
+        data.two_view_geometry.EstimateMultiple(camera1,
+                                                points1,
+                                                camera2,
+                                                points2,
+                                                data.matches,
                                                 two_view_geometry_options_);
       } else {
-        data.two_view_geometry.Estimate(camera1, points1, camera2, points2,
+        data.two_view_geometry.Estimate(camera1,
+                                        points1,
+                                        camera2,
+                                        points2,
                                         data.matches,
                                         two_view_geometry_options_);
       }
@@ -881,8 +914,8 @@ void SiftFeatureMatcher::Match(
     }
 
     cache_->WriteMatches(output.image_id1, output.image_id2, output.matches);
-    cache_->WriteTwoViewGeometry(output.image_id1, output.image_id2,
-                                 output.two_view_geometry);
+    cache_->WriteTwoViewGeometry(
+        output.image_id1, output.image_id2, output.two_view_geometry);
   }
 
   CHECK_EQ(output_queue_.Size(), 0);
@@ -890,7 +923,8 @@ void SiftFeatureMatcher::Match(
 
 ExhaustiveFeatureMatcher::ExhaustiveFeatureMatcher(
     const ExhaustiveMatchingOptions& options,
-    const SiftMatchingOptions& match_options, const std::string& database_path)
+    const SiftMatchingOptions& match_options,
+    const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),
@@ -937,8 +971,10 @@ void ExhaustiveFeatureMatcher::Run() {
       timer.Start();
 
       std::cout << StringPrintf("Matching block [%d/%d, %d/%d]",
-                                start_idx1 / block_size + 1, num_blocks,
-                                start_idx2 / block_size + 1, num_blocks)
+                                start_idx1 / block_size + 1,
+                                num_blocks,
+                                start_idx2 / block_size + 1,
+                                num_blocks)
                 << std::flush;
 
       image_pairs.clear();
@@ -966,7 +1002,8 @@ void ExhaustiveFeatureMatcher::Run() {
 
 SequentialFeatureMatcher::SequentialFeatureMatcher(
     const SequentialMatchingOptions& options,
-    const SiftMatchingOptions& match_options, const std::string& database_path)
+    const SiftMatchingOptions& match_options,
+    const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),
@@ -1006,7 +1043,8 @@ std::vector<image_t> SequentialFeatureMatcher::GetOrderedImageIds() const {
     ordered_images.push_back(cache_.GetImage(image_id));
   }
 
-  std::sort(ordered_images.begin(), ordered_images.end(),
+  std::sort(ordered_images.begin(),
+            ordered_images.end(),
             [](const Image& image1, const Image& image2) {
               return image1.Name() < image2.Name();
             });
@@ -1035,8 +1073,8 @@ void SequentialFeatureMatcher::RunSequentialMatching(
     Timer timer;
     timer.Start();
 
-    std::cout << StringPrintf("Matching image [%d/%d]", image_idx1 + 1,
-                              image_ids.size())
+    std::cout << StringPrintf(
+                     "Matching image [%d/%d]", image_idx1 + 1, image_ids.size())
               << std::flush;
 
     image_pairs.clear();
@@ -1072,8 +1110,11 @@ void SequentialFeatureMatcher::RunLoopDetection(
   // Index all images in the visual index.
   IndexImagesInVisualIndex(match_options_.num_threads,
                            options_.loop_detection_num_checks,
-                           options_.loop_detection_max_num_features, image_ids,
-                           this, &cache_, &visual_index);
+                           options_.loop_detection_max_num_features,
+                           image_ids,
+                           this,
+                           &cache_,
+                           &visual_index);
 
   if (IsStopped()) {
     return;
@@ -1087,17 +1128,23 @@ void SequentialFeatureMatcher::RunLoopDetection(
   }
 
   MatchNearestNeighborsInVisualIndex(
-      match_options_.num_threads, options_.loop_detection_num_images,
+      match_options_.num_threads,
+      options_.loop_detection_num_images,
       options_.loop_detection_num_nearest_neighbors,
       options_.loop_detection_num_checks,
       options_.loop_detection_num_images_after_verification,
-      options_.loop_detection_max_num_features, match_image_ids, this, &cache_,
-      &visual_index, &matcher_);
+      options_.loop_detection_max_num_features,
+      match_image_ids,
+      this,
+      &cache_,
+      &visual_index,
+      &matcher_);
 }
 
 VocabTreeFeatureMatcher::VocabTreeFeatureMatcher(
     const VocabTreeMatchingOptions& options,
-    const SiftMatchingOptions& match_options, const std::string& database_path)
+    const SiftMatchingOptions& match_options,
+    const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),
@@ -1153,9 +1200,13 @@ void VocabTreeFeatureMatcher::Run() {
   }
 
   // Index all images in the visual index.
-  IndexImagesInVisualIndex(match_options_.num_threads, options_.num_checks,
-                           options_.max_num_features, all_image_ids, this,
-                           &cache_, &visual_index);
+  IndexImagesInVisualIndex(match_options_.num_threads,
+                           options_.num_checks,
+                           options_.max_num_features,
+                           all_image_ids,
+                           this,
+                           &cache_,
+                           &visual_index);
 
   if (IsStopped()) {
     GetTimer().PrintMinutes();
@@ -1163,18 +1214,25 @@ void VocabTreeFeatureMatcher::Run() {
   }
 
   // Match all images in the visual index.
-  MatchNearestNeighborsInVisualIndex(
-      match_options_.num_threads, options_.num_images,
-      options_.num_nearest_neighbors, options_.num_checks,
-      options_.num_images_after_verification, options_.max_num_features,
-      image_ids, this, &cache_, &visual_index, &matcher_);
+  MatchNearestNeighborsInVisualIndex(match_options_.num_threads,
+                                     options_.num_images,
+                                     options_.num_nearest_neighbors,
+                                     options_.num_checks,
+                                     options_.num_images_after_verification,
+                                     options_.max_num_features,
+                                     image_ids,
+                                     this,
+                                     &cache_,
+                                     &visual_index,
+                                     &matcher_);
 
   GetTimer().PrintMinutes();
 }
 
 SpatialFeatureMatcher::SpatialFeatureMatcher(
     const SpatialMatchingOptions& options,
-    const SiftMatchingOptions& match_options, const std::string& database_path)
+    const SiftMatchingOptions& match_options,
+    const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),
@@ -1266,8 +1324,8 @@ void SpatialFeatureMatcher::Run() {
 
   std::cout << "Building search index..." << std::flush;
 
-  flann::Matrix<float> locations(location_matrix.data(), num_locations,
-                                 location_matrix.cols());
+  flann::Matrix<float> locations(
+      location_matrix.data(), num_locations, location_matrix.cols());
 
   flann::LinearIndexParams index_params;
   flann::LinearIndex<flann::L2<float>> search_index(index_params);
@@ -1359,7 +1417,8 @@ void SpatialFeatureMatcher::Run() {
 
 TransitiveFeatureMatcher::TransitiveFeatureMatcher(
     const TransitiveMatchingOptions& options,
-    const SiftMatchingOptions& match_options, const std::string& database_path)
+    const SiftMatchingOptions& match_options,
+    const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),
@@ -1392,7 +1451,8 @@ void TransitiveFeatureMatcher::Run() {
     Timer timer;
     timer.Start();
 
-    std::cout << StringPrintf("Iteration [%d/%d]", iteration + 1,
+    std::cout << StringPrintf("Iteration [%d/%d]",
+                              iteration + 1,
                               options_.num_iterations)
               << std::endl;
 
@@ -1457,7 +1517,8 @@ void TransitiveFeatureMatcher::Run() {
 
 ImagePairsFeatureMatcher::ImagePairsFeatureMatcher(
     const ImagePairsMatchingOptions& options,
-    const SiftMatchingOptions& match_options, const std::string& database_path)
+    const SiftMatchingOptions& match_options,
+    const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),
@@ -1549,7 +1610,8 @@ void ImagePairsFeatureMatcher::Run() {
     timer.Start();
 
     std::cout << StringPrintf("Matching block [%d/%d]",
-                              i / options_.block_size + 1, num_match_blocks)
+                              i / options_.block_size + 1,
+                              num_match_blocks)
               << std::flush;
 
     const size_t block_end = i + options_.block_size <= image_pairs.size()
@@ -1572,7 +1634,8 @@ void ImagePairsFeatureMatcher::Run() {
 
 FeaturePairsFeatureMatcher::FeaturePairsFeatureMatcher(
     const FeaturePairsMatchingOptions& options,
-    const SiftMatchingOptions& match_options, const std::string& database_path)
+    const SiftMatchingOptions& match_options,
+    const std::string& database_path)
     : options_(options),
       match_options_(match_options),
       database_(database_path),
@@ -1618,8 +1681,8 @@ void FeaturePairsFeatureMatcher::Run() {
       break;
     }
 
-    std::cout << StringPrintf("%s - %s", image_name1.c_str(),
-                              image_name2.c_str())
+    std::cout << StringPrintf(
+                     "%s - %s", image_name1.c_str(), image_name2.c_str())
               << std::endl;
 
     if (image_name_to_image.count(image_name1) == 0) {
@@ -1694,13 +1757,15 @@ void FeaturePairsFeatureMatcher::Run() {
       two_view_geometry_options.ransac_options.min_inlier_ratio =
           match_options_.min_inlier_ratio;
 
-      two_view_geometry.Estimate(
-          camera1, FeatureKeypointsToPointsVector(*keypoints1), camera2,
-          FeatureKeypointsToPointsVector(*keypoints2), matches,
-          two_view_geometry_options);
+      two_view_geometry.Estimate(camera1,
+                                 FeatureKeypointsToPointsVector(*keypoints1),
+                                 camera2,
+                                 FeatureKeypointsToPointsVector(*keypoints2),
+                                 matches,
+                                 two_view_geometry_options);
 
-      database_.WriteTwoViewGeometry(image1.ImageId(), image2.ImageId(),
-                                     two_view_geometry);
+      database_.WriteTwoViewGeometry(
+          image1.ImageId(), image2.ImageId(), two_view_geometry);
     } else {
       TwoViewGeometry two_view_geometry;
 
@@ -1712,8 +1777,8 @@ void FeaturePairsFeatureMatcher::Run() {
 
       two_view_geometry.inlier_matches = matches;
 
-      database_.WriteTwoViewGeometry(image1.ImageId(), image2.ImageId(),
-                                     two_view_geometry);
+      database_.WriteTwoViewGeometry(
+          image1.ImageId(), image2.ImageId(), two_view_geometry);
     }
   }
 

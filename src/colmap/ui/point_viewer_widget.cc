@@ -106,20 +106,24 @@ PointViewerWidget::PointViewerWidget(QWidget* parent,
   zoom_in_button_->setFont(font);
   zoom_in_button_->setFixedWidth(50);
   button_layout->addWidget(zoom_in_button_);
-  connect(zoom_in_button_, &QPushButton::released, this,
+  connect(zoom_in_button_,
+          &QPushButton::released,
+          this,
           &PointViewerWidget::ZoomIn);
 
   zoom_out_button_ = new QPushButton(tr("-"), this);
   zoom_out_button_->setFont(font);
   zoom_out_button_->setFixedWidth(50);
   button_layout->addWidget(zoom_out_button_);
-  connect(zoom_out_button_, &QPushButton::released, this,
+  connect(zoom_out_button_,
+          &QPushButton::released,
+          this,
           &PointViewerWidget::ZoomOut);
 
   delete_button_ = new QPushButton(tr("Delete"), this);
   button_layout->addWidget(delete_button_);
-  connect(delete_button_, &QPushButton::released, this,
-          &PointViewerWidget::Delete);
+  connect(
+      delete_button_, &QPushButton::released, this, &PointViewerWidget::Delete);
 
   grid->addLayout(button_layout, 2, 0, Qt::AlignRight);
 }
@@ -204,10 +208,10 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
     const int kCrossSize = 15;
     const int x = static_cast<int>(std::round(point2D.X()));
     const int y = static_cast<int>(std::round(point2D.Y()));
-    painter.drawLine(x - kCrossSize, y - kCrossSize, x + kCrossSize,
-                     y + kCrossSize);
-    painter.drawLine(x - kCrossSize, y + kCrossSize, x + kCrossSize,
-                     y - kCrossSize);
+    painter.drawLine(
+        x - kCrossSize, y - kCrossSize, x + kCrossSize, y + kCrossSize);
+    painter.drawLine(
+        x - kCrossSize, y + kCrossSize, x + kCrossSize, y - kCrossSize);
 
     pen.setColor(Qt::red);
     painter.setPen(pen);
@@ -300,9 +304,11 @@ void PointViewerWidget::ZoomOut() {
 }
 
 void PointViewerWidget::Delete() {
-  QMessageBox::StandardButton reply = QMessageBox::question(
-      this, "", tr("Do you really want to delete this point?"),
-      QMessageBox::Yes | QMessageBox::No);
+  QMessageBox::StandardButton reply =
+      QMessageBox::question(this,
+                            "",
+                            tr("Do you really want to delete this point?"),
+                            QMessageBox::Yes | QMessageBox::No);
   if (reply == QMessageBox::Yes) {
     if (model_viewer_widget_->reconstruction->ExistsPoint3D(point3D_id_)) {
       model_viewer_widget_->reconstruction->DeletePoint3D(point3D_id_);

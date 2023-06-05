@@ -31,16 +31,20 @@
 
 #include "colmap/base/warp.h"
 
-#include <Eigen/Geometry>
+#include "colmap/util/logging.h"
 
 #include "lib/VLFeat/imopv.h"
-#include "colmap/util/logging.h"
+
+#include <Eigen/Geometry>
 
 namespace colmap {
 namespace {
 
-float GetPixelConstantBorder(const float* data, const int rows, const int cols,
-                             const int row, const int col) {
+float GetPixelConstantBorder(const float* data,
+                             const int rows,
+                             const int cols,
+                             const int row,
+                             const int col) {
   if (row >= 0 && col >= 0 && row < rows && col < cols) {
     return data[row * cols + col];
   } else {
@@ -52,7 +56,8 @@ float GetPixelConstantBorder(const float* data, const int rows, const int cols,
 
 void WarpImageBetweenCameras(const Camera& source_camera,
                              const Camera& target_camera,
-                             const Bitmap& source_image, Bitmap* target_image) {
+                             const Bitmap& source_image,
+                             Bitmap* target_image) {
   CHECK_EQ(source_camera.Width(), source_image.Width());
   CHECK_EQ(source_camera.Height(), source_image.Height());
   CHECK_NOTNULL(target_image);
@@ -82,8 +87,8 @@ void WarpImageBetweenCameras(const Camera& source_camera,
           source_camera.WorldToImage(world_point);
 
       BitmapColor<float> color;
-      if (source_image.InterpolateBilinear(source_point.x() - 0.5,
-                                           source_point.y() - 0.5, &color)) {
+      if (source_image.InterpolateBilinear(
+              source_point.x() - 0.5, source_point.y() - 0.5, &color)) {
         target_image->SetPixel(x, y, color.Cast<uint8_t>());
       } else {
         target_image->SetPixel(x, y, BitmapColor<uint8_t>(0));
@@ -98,7 +103,8 @@ void WarpImageBetweenCameras(const Camera& source_camera,
 }
 
 void WarpImageWithHomography(const Eigen::Matrix3d& H,
-                             const Bitmap& source_image, Bitmap* target_image) {
+                             const Bitmap& source_image,
+                             Bitmap* target_image) {
   CHECK_NOTNULL(target_image);
   CHECK_GT(target_image->Width(), 0);
   CHECK_GT(target_image->Height(), 0);
@@ -113,8 +119,8 @@ void WarpImageWithHomography(const Eigen::Matrix3d& H,
       const Eigen::Vector2d source_pixel = (H * target_pixel).hnormalized();
 
       BitmapColor<float> color;
-      if (source_image.InterpolateBilinear(source_pixel.x() - 0.5,
-                                           source_pixel.y() - 0.5, &color)) {
+      if (source_image.InterpolateBilinear(
+              source_pixel.x() - 0.5, source_pixel.y() - 0.5, &color)) {
         target_image->SetPixel(x, y, color.Cast<uint8_t>());
       } else {
         target_image->SetPixel(x, y, BitmapColor<uint8_t>(0));
@@ -158,8 +164,8 @@ void WarpImageWithHomographyBetweenCameras(const Eigen::Matrix3d& H,
           source_camera.WorldToImage(world_point);
 
       BitmapColor<float> color;
-      if (source_image.InterpolateBilinear(source_point.x() - 0.5,
-                                           source_point.y() - 0.5, &color)) {
+      if (source_image.InterpolateBilinear(
+              source_point.x() - 0.5, source_point.y() - 0.5, &color)) {
         target_image->SetPixel(x, y, color.Cast<uint8_t>());
       } else {
         target_image->SetPixel(x, y, BitmapColor<uint8_t>(0));
@@ -173,8 +179,11 @@ void WarpImageWithHomographyBetweenCameras(const Eigen::Matrix3d& H,
   }
 }
 
-void ResampleImageBilinear(const float* data, const int rows, const int cols,
-                           const int new_rows, const int new_cols,
+void ResampleImageBilinear(const float* data,
+                           const int rows,
+                           const int cols,
+                           const int new_rows,
+                           const int new_cols,
                            float* resampled) {
   CHECK_NOTNULL(data);
   CHECK_NOTNULL(resampled);
@@ -214,8 +223,12 @@ void ResampleImageBilinear(const float* data, const int rows, const int cols,
   }
 }
 
-void SmoothImage(const float* data, const int rows, const int cols,
-                 const float sigma_r, const float sigma_c, float* smoothed) {
+void SmoothImage(const float* data,
+                 const int rows,
+                 const int cols,
+                 const float sigma_r,
+                 const float sigma_c,
+                 float* smoothed) {
   CHECK_NOTNULL(data);
   CHECK_NOTNULL(smoothed);
   CHECK_GT(rows, 0);
@@ -225,8 +238,11 @@ void SmoothImage(const float* data, const int rows, const int cols,
   vl_imsmooth_f(smoothed, cols, data, cols, rows, cols, sigma_c, sigma_r);
 }
 
-void DownsampleImage(const float* data, const int rows, const int cols,
-                     const int new_rows, const int new_cols,
+void DownsampleImage(const float* data,
+                     const int rows,
+                     const int cols,
+                     const int new_rows,
+                     const int new_cols,
                      float* downsampled) {
   CHECK_NOTNULL(data);
   CHECK_NOTNULL(downsampled);
@@ -249,8 +265,8 @@ void DownsampleImage(const float* data, const int rows, const int cols,
   std::vector<float> smoothed(rows * cols);
   SmoothImage(data, rows, cols, sigma_r, sigma_c, smoothed.data());
 
-  ResampleImageBilinear(smoothed.data(), rows, cols, new_rows, new_cols,
-                        downsampled);
+  ResampleImageBilinear(
+      smoothed.data(), rows, cols, new_rows, new_cols, downsampled);
 }
 
 }  // namespace colmap

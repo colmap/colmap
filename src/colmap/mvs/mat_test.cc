@@ -30,9 +30,9 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "mvs/mat_test"
-#include "colmap/util/testing.h"
-
 #include "colmap/mvs/mat.h"
+
+#include "colmap/util/testing.h"
 
 using namespace colmap::mvs;
 

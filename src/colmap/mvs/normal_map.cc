@@ -60,8 +60,12 @@ void NormalMap::Rescale(const float factor) {
   for (size_t d = 0; d < 3; ++d) {
     const size_t offset = d * width_ * height_;
     const size_t new_offset = d * new_width * new_height;
-    DownsampleImage(data_.data() + offset, height_, width_, new_height,
-                    new_width, new_data.data() + new_offset);
+    DownsampleImage(data_.data() + offset,
+                    height_,
+                    width_,
+                    new_height,
+                    new_width,
+                    new_data.data() + new_offset);
   }
 
   data_ = new_data;

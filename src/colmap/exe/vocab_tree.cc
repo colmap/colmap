@@ -31,8 +31,6 @@
 
 #include "colmap/exe/vocab_tree.h"
 
-#include <numeric>
-
 #include "colmap/base/database.h"
 #include "colmap/exe/gui.h"
 #include "colmap/feature/matching.h"
@@ -42,6 +40,8 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 #include "colmap/util/option_manager.h"
+
+#include <numeric>
 
 namespace colmap {
 namespace {
@@ -195,8 +195,8 @@ int RunVocabTreeRetriever(int argc, char** argv) {
     Timer timer;
     timer.Start();
 
-    std::cout << StringPrintf("Indexing image [%d/%d]", i + 1,
-                              database_images.size())
+    std::cout << StringPrintf(
+                     "Indexing image [%d/%d]", i + 1, database_images.size())
               << std::flush;
 
     if (visual_index.ImageIndexed(database_images[i].ImageId())) {
@@ -211,7 +211,9 @@ int RunVocabTreeRetriever(int argc, char** argv) {
     }
 
     visual_index.Add(retrieval::VisualIndex<>::IndexOptions(),
-                     database_images[i].ImageId(), keypoints, descriptors);
+                     database_images[i].ImageId(),
+                     keypoints,
+                     descriptors);
 
     std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
   }
@@ -244,7 +246,8 @@ int RunVocabTreeRetriever(int argc, char** argv) {
     timer.Start();
 
     std::cout << StringPrintf("Querying for image %s [%d/%d]",
-                              query_images[i].Name().c_str(), i + 1,
+                              query_images[i].Name().c_str(),
+                              i + 1,
                               query_images.size())
               << std::flush;
 
@@ -261,7 +264,8 @@ int RunVocabTreeRetriever(int argc, char** argv) {
     for (const auto& image_score : image_scores) {
       const auto& image = *image_id_to_image.at(image_score.image_id);
       std::cout << StringPrintf("  image_id=%d, image_name=%s, score=%f",
-                                image_score.image_id, image.Name().c_str(),
+                                image_score.image_id,
+                                image.Name().c_str(),
                                 image_score.score)
                 << std::endl;
     }

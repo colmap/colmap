@@ -32,6 +32,8 @@
 #ifndef COLMAP_SRC_BASE_GRAPH_CUT_H_
 #define COLMAP_SRC_BASE_GRAPH_CUT_H_
 
+#include "colmap/util/logging.h"
+
 #include <unordered_map>
 #include <vector>
 
@@ -40,21 +42,21 @@
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/one_bit_color_map.hpp>
 
-#include "colmap/util/logging.h"
-
 namespace colmap {
 
 // Compute the min-cut of a undirected graph using the Stoer Wagner algorithm.
 void ComputeMinGraphCutStoerWagner(
     const std::vector<std::pair<int, int>>& edges,
-    const std::vector<int>& weights, int* cut_weight,
+    const std::vector<int>& weights,
+    int* cut_weight,
     std::vector<char>* cut_labels);
 
 // Compute the normalized min-cut of an undirected graph using Metis.
 // Partitions the graph into clusters and returns the cluster labels per vertex.
 std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
     const std::vector<std::pair<int, int>>& edges,
-    const std::vector<int>& weights, const int num_parts);
+    const std::vector<int>& weights,
+    const int num_parts);
 
 // Compute the minimum graph cut of a directed S-T graph using the
 // Boykov-Kolmogorov max-flow min-cut algorithm, as descibed in:
@@ -63,9 +65,9 @@ std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
 template <typename node_t, typename value_t>
 class MinSTGraphCut {
  public:
-  typedef boost::adjacency_list_traits<boost::vecS, boost::vecS,
-                                       boost::directedS>
-      graph_traits_t;
+  typedef boost::
+      adjacency_list_traits<boost::vecS, boost::vecS, boost::directedS>
+          graph_traits_t;
   typedef graph_traits_t::edge_descriptor edge_descriptor_t;
   typedef graph_traits_t::vertices_size_type vertices_size_t;
 
@@ -75,9 +77,9 @@ class MinSTGraphCut {
     edge_descriptor_t reverse;
   };
 
-  typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::directedS,
-                                size_t, Edge>
-      graph_t;
+  typedef boost::
+      adjacency_list<boost::vecS, boost::vecS, boost::directedS, size_t, Edge>
+          graph_t;
 
   MinSTGraphCut(const size_t num_nodes);
 
@@ -86,12 +88,15 @@ class MinSTGraphCut {
   size_t NumEdges() const;
 
   // Add node to the graph.
-  void AddNode(const node_t node_idx, const value_t source_capacity,
+  void AddNode(const node_t node_idx,
+               const value_t source_capacity,
                const value_t sink_capacity);
 
   // Add edge to the graph.
-  void AddEdge(const node_t node_idx1, const node_t node_idx2,
-               const value_t capacity, const value_t reverse_capacity);
+  void AddEdge(const node_t node_idx1,
+               const node_t node_idx2,
+               const value_t capacity,
+               const value_t reverse_capacity);
 
   // Compute the min-cut using the max-flow algorithm. Returns the flow.
   value_t Compute();
@@ -186,10 +191,16 @@ value_t MinSTGraphCut<node_t, value_t>::Compute() {
   std::vector<vertices_size_t> distances(num_vertices);
 
   return boost::boykov_kolmogorov_max_flow(
-      graph_, boost::get(&Edge::capacity, graph_),
-      boost::get(&Edge::residual, graph_), boost::get(&Edge::reverse, graph_),
-      predecessors.data(), colors_.data(), distances.data(),
-      boost::get(boost::vertex_index, graph_), S_node_, T_node_);
+      graph_,
+      boost::get(&Edge::capacity, graph_),
+      boost::get(&Edge::residual, graph_),
+      boost::get(&Edge::reverse, graph_),
+      predecessors.data(),
+      colors_.data(),
+      distances.data(),
+      boost::get(boost::vertex_index, graph_),
+      S_node_,
+      T_node_);
 }
 
 template <typename node_t, typename value_t>

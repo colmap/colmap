@@ -31,11 +31,11 @@
 
 #include "colmap/mvs/consistency_graph.h"
 
-#include <fstream>
-#include <numeric>
-
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
+
+#include <fstream>
+#include <numeric>
 
 namespace colmap {
 namespace mvs {
@@ -44,7 +44,8 @@ const int ConsistencyGraph::kNoConsistentImageIds = -1;
 
 ConsistencyGraph::ConsistencyGraph() {}
 
-ConsistencyGraph::ConsistencyGraph(const size_t width, const size_t height,
+ConsistencyGraph::ConsistencyGraph(const size_t width,
+                                   const size_t height,
                                    const std::vector<int>& data)
     : data_(data) {
   InitializeMap(width, height);
@@ -54,7 +55,8 @@ size_t ConsistencyGraph::GetNumBytes() const {
   return (data_.size() + map_.size()) * sizeof(int);
 }
 
-void ConsistencyGraph::GetImageIdxs(const int row, const int col,
+void ConsistencyGraph::GetImageIdxs(const int row,
+                                    const int col,
                                     int* num_images,
                                     const int** image_idxs) const {
   const int index = map_(row, col);

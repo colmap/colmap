@@ -193,8 +193,12 @@ bool CameraRig::ComputeRelativePoses(const Reconstruction& reconstruction) {
       if (image.CameraId() != ref_camera_id_) {
         Eigen::Vector4d rel_qvec;
         Eigen::Vector3d rel_tvec;
-        ComputeRelativePose(ref_image->Qvec(), ref_image->Tvec(), image.Qvec(),
-                            image.Tvec(), &rel_qvec, &rel_tvec);
+        ComputeRelativePose(ref_image->Qvec(),
+                            ref_image->Tvec(),
+                            image.Qvec(),
+                            image.Tvec(),
+                            &rel_qvec,
+                            &rel_tvec);
 
         rel_qvecs[image.CameraId()].push_back(rel_qvec);
         RelativeTvec(image.CameraId()) += rel_tvec;
@@ -240,8 +244,10 @@ void CameraRig::ComputeAbsolutePose(const size_t snapshot_idx,
     const auto& image = reconstruction.Image(image_id);
     Eigen::Vector4d inv_rel_qvec;
     Eigen::Vector3d inv_rel_tvec;
-    InvertPose(RelativeQvec(image.CameraId()), RelativeTvec(image.CameraId()),
-               &inv_rel_qvec, &inv_rel_tvec);
+    InvertPose(RelativeQvec(image.CameraId()),
+               RelativeTvec(image.CameraId()),
+               &inv_rel_qvec,
+               &inv_rel_tvec);
 
     const Eigen::Vector4d qvec =
         ConcatenateQuaternions(image.Qvec(), inv_rel_qvec);

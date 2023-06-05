@@ -32,10 +32,10 @@
 #ifndef COLMAP_SRC_OPTIM_SAMPLER_H_
 #define COLMAP_SRC_OPTIM_SAMPLER_H_
 
+#include "colmap/util/logging.h"
+
 #include <cstddef>
 #include <vector>
-
-#include "colmap/util/logging.h"
 
 namespace colmap {
 

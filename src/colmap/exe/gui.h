@@ -33,6 +33,7 @@
 
 #ifdef GUI_ENABLED
 #include "colmap/ui/main_window.h"
+
 #include <QApplication>
 #else
 // Dummy QApplication class when GUI is disabled

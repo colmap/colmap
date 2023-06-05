@@ -32,6 +32,8 @@
 #ifndef COLMAP_SRC_MVS_IMAGE_H_
 #define COLMAP_SRC_MVS_IMAGE_H_
 
+#include "colmap/util/bitmap.h"
+
 #include <cstdint>
 #include <fstream>
 #include <set>
@@ -39,16 +41,18 @@
 #include <unordered_map>
 #include <vector>
 
-#include "colmap/util/bitmap.h"
-
 namespace colmap {
 namespace mvs {
 
 class Image {
  public:
   Image();
-  Image(const std::string& path, const size_t width, const size_t height,
-        const float* K, const float* R, const float* T);
+  Image(const std::string& path,
+        const size_t width,
+        const size_t height,
+        const float* K,
+        const float* R,
+        const float* T);
 
   inline size_t GetWidth() const;
   inline size_t GetHeight() const;
@@ -80,15 +84,22 @@ class Image {
   Bitmap bitmap_;
 };
 
-void ComputeRelativePose(const float R1[9], const float T1[3],
-                         const float R2[9], const float T2[3], float R[9],
+void ComputeRelativePose(const float R1[9],
+                         const float T1[3],
+                         const float R2[9],
+                         const float T2[3],
+                         float R[9],
                          float T[3]);
 
-void ComposeProjectionMatrix(const float K[9], const float R[9],
-                             const float T[3], float P[12]);
+void ComposeProjectionMatrix(const float K[9],
+                             const float R[9],
+                             const float T[3],
+                             float P[12]);
 
-void ComposeInverseProjectionMatrix(const float K[9], const float R[9],
-                                    const float T[3], float inv_P[12]);
+void ComposeInverseProjectionMatrix(const float K[9],
+                                    const float R[9],
+                                    const float T[3],
+                                    float inv_P[12]);
 
 void ComputeProjectionCenter(const float R[9], const float T[3], float C[3]);
 

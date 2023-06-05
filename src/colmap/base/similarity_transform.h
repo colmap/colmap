@@ -32,13 +32,13 @@
 #ifndef COLMAP_SRC_BASE_SIMILARITY_TRANSFORM_H_
 #define COLMAP_SRC_BASE_SIMILARITY_TRANSFORM_H_
 
+#include "colmap/estimators/similarity_transform.h"
+#include "colmap/util/types.h"
+
 #include <vector>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-
-#include "colmap/estimators/similarity_transform.h"
-#include "colmap/util/types.h"
 
 namespace colmap {
 
@@ -55,7 +55,8 @@ class SimilarityTransform3 {
   explicit SimilarityTransform3(
       const Eigen::Transform<double, 3, Eigen::Affine>& transform);
 
-  SimilarityTransform3(const double scale, const Eigen::Vector4d& qvec,
+  SimilarityTransform3(const double scale,
+                       const Eigen::Vector4d& qvec,
                        const Eigen::Vector3d& tvec);
 
   void Write(const std::string& path);
@@ -89,7 +90,8 @@ class SimilarityTransform3 {
 bool ComputeAlignmentBetweenReconstructions(
     const Reconstruction& src_reconstruction,
     const Reconstruction& ref_reconstruction,
-    const double min_inlier_observations, const double max_reproj_error,
+    const double min_inlier_observations,
+    const double max_reproj_error,
     Eigen::Matrix3x4d* alignment);
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -31,21 +31,22 @@
 
 #include "colmap/sfm/incremental_mapper.h"
 
-#include <array>
-#include <fstream>
-
 #include "colmap/base/projection.h"
 #include "colmap/base/triangulation.h"
 #include "colmap/estimators/pose.h"
 #include "colmap/util/bitmap.h"
 #include "colmap/util/misc.h"
 
+#include <array>
+#include <fstream>
+
 namespace colmap {
 namespace {
 
 void SortAndAppendNextImages(std::vector<std::pair<image_t, float>> image_ranks,
                              std::vector<image_t>* sorted_images_ids) {
-  std::sort(image_ranks.begin(), image_ranks.end(),
+  std::sort(image_ranks.begin(),
+            image_ranks.end(),
             [](const std::pair<image_t, float>& image1,
                const std::pair<image_t, float>& image2) {
               return image1.second > image2.second;
@@ -485,8 +486,13 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   size_t num_inliers;
   std::vector<char> inlier_mask;
 
-  if (!EstimateAbsolutePose(abs_pose_options, tri_points2D, tri_points3D,
-                            &image.Qvec(), &image.Tvec(), &camera, &num_inliers,
+  if (!EstimateAbsolutePose(abs_pose_options,
+                            tri_points2D,
+                            tri_points3D,
+                            &image.Qvec(),
+                            &image.Tvec(),
+                            &camera,
+                            &num_inliers,
                             &inlier_mask)) {
     return false;
   }
@@ -499,9 +505,13 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // Pose refinement
   //////////////////////////////////////////////////////////////////////////////
 
-  if (!RefineAbsolutePose(abs_pose_refinement_options, inlier_mask,
-                          tri_points2D, tri_points3D, &image.Qvec(),
-                          &image.Tvec(), &camera)) {
+  if (!RefineAbsolutePose(abs_pose_refinement_options,
+                          inlier_mask,
+                          tri_points2D,
+                          tri_points3D,
+                          &image.Qvec(),
+                          &image.Tvec(),
+                          &camera)) {
     return false;
   }
 
@@ -555,8 +565,10 @@ size_t IncrementalMapper::MergeTracks(
 
 IncrementalMapper::LocalBundleAdjustmentReport
 IncrementalMapper::AdjustLocalBundle(
-    const Options& options, const BundleAdjustmentOptions& ba_options,
-    const IncrementalTriangulator::Options& tri_options, const image_t image_id,
+    const Options& options,
+    const BundleAdjustmentOptions& ba_options,
+    const IncrementalTriangulator::Options& tri_options,
+    const image_t image_id,
     const std::unordered_set<point3D_t>& point3D_ids) {
   CHECK_NOTNULL(reconstruction_);
   CHECK(options.Check());
@@ -655,12 +667,14 @@ IncrementalMapper::AdjustLocalBundle(
   std::unordered_set<image_t> filter_image_ids;
   filter_image_ids.insert(image_id);
   filter_image_ids.insert(local_bundle.begin(), local_bundle.end());
-  report.num_filtered_observations = reconstruction_->FilterPoints3DInImages(
-      options.filter_max_reproj_error, options.filter_min_tri_angle,
-      filter_image_ids);
-  report.num_filtered_observations += reconstruction_->FilterPoints3D(
-      options.filter_max_reproj_error, options.filter_min_tri_angle,
-      point3D_ids);
+  report.num_filtered_observations =
+      reconstruction_->FilterPoints3DInImages(options.filter_max_reproj_error,
+                                              options.filter_min_tri_angle,
+                                              filter_image_ids);
+  report.num_filtered_observations +=
+      reconstruction_->FilterPoints3D(options.filter_max_reproj_error,
+                                      options.filter_min_tri_angle,
+                                      point3D_ids);
 
   return report;
 }
@@ -725,9 +739,10 @@ size_t IncrementalMapper::FilterImages(const Options& options) {
     return {};
   }
 
-  const std::vector<image_t> image_ids = reconstruction_->FilterImages(
-      options.min_focal_length_ratio, options.max_focal_length_ratio,
-      options.max_extra_param);
+  const std::vector<image_t> image_ids =
+      reconstruction_->FilterImages(options.min_focal_length_ratio,
+                                    options.max_focal_length_ratio,
+                                    options.max_extra_param);
 
   for (const image_t image_id : image_ids) {
     DeRegisterImageEvent(image_id);
@@ -812,7 +827,8 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
   // Sort images such that images with a prior focal length and more
   // correspondences are preferred, i.e. they appear in the front of the list.
   std::sort(
-      image_infos.begin(), image_infos.end(),
+      image_infos.begin(),
+      image_infos.end(),
       [](const ImageInfo& image_info1, const ImageInfo& image_info2) {
         if (image_info1.prior_focal_length && !image_info2.prior_focal_length) {
           return true;
@@ -883,7 +899,8 @@ std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
   // Sort images such that images with a prior focal length and more
   // correspondences are preferred, i.e. they appear in the front of the list.
   std::sort(
-      image_infos.begin(), image_infos.end(),
+      image_infos.begin(),
+      image_infos.end(),
       [](const ImageInfo& image_info1, const ImageInfo& image_info2) {
         if (image_info1.prior_focal_length && !image_info2.prior_focal_length) {
           return true;
@@ -937,7 +954,8 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
 
   std::vector<std::pair<image_t, size_t>> overlapping_images(
       shared_observations.begin(), shared_observations.end());
-  std::sort(overlapping_images.begin(), overlapping_images.end(),
+  std::sort(overlapping_images.begin(),
+            overlapping_images.end(),
             [](const std::pair<image_t, size_t>& image1,
                const std::pair<image_t, size_t>& image2) {
               return image1.second > image2.second;
@@ -1029,8 +1047,8 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
         // Calculate the triangulation angle at a certain percentile.
         const double kTriangulationAnglePercentile = 75;
         tri_angle = Percentile(
-            CalculateTriangulationAngles(proj_center, overlapping_proj_center,
-                                         shared_points3D),
+            CalculateTriangulationAngles(
+                proj_center, overlapping_proj_center, shared_points3D),
             kTriangulationAnglePercentile);
       }
 
@@ -1143,11 +1161,11 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
   TwoViewGeometry::Options two_view_geometry_options;
   two_view_geometry_options.ransac_options.min_num_trials = 30;
   two_view_geometry_options.ransac_options.max_error = options.init_max_error;
-  two_view_geometry.EstimateCalibrated(camera1, points1, camera2, points2,
-                                       matches, two_view_geometry_options);
+  two_view_geometry.EstimateCalibrated(
+      camera1, points1, camera2, points2, matches, two_view_geometry_options);
 
-  if (!two_view_geometry.EstimateRelativePose(camera1, points1, camera2,
-                                              points2)) {
+  if (!two_view_geometry.EstimateRelativePose(
+          camera1, points1, camera2, points2)) {
     return false;
   }
 

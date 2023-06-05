@@ -30,12 +30,12 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "optim/support_measurement"
+#include "colmap/optim/support_measurement.h"
+
+#include "colmap/util/math.h"
 #include "colmap/util/testing.h"
 
 #include <unordered_set>
-
-#include "colmap/optim/support_measurement.h"
-#include "colmap/util/math.h"
 
 using namespace colmap;
 

@@ -31,11 +31,11 @@
 
 #include "colmap/base/camera.h"
 
-#include <iomanip>
-
 #include "colmap/base/camera_models.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
+
+#include <iomanip>
 
 namespace colmap {
 
@@ -186,9 +186,13 @@ bool Camera::VerifyParams() const {
 bool Camera::HasBogusParams(const double min_focal_length_ratio,
                             const double max_focal_length_ratio,
                             const double max_extra_param) const {
-  return CameraModelHasBogusParams(model_id_, params_, width_, height_,
+  return CameraModelHasBogusParams(model_id_,
+                                   params_,
+                                   width_,
+                                   height_,
                                    min_focal_length_ratio,
-                                   max_focal_length_ratio, max_extra_param);
+                                   max_focal_length_ratio,
+                                   max_extra_param);
 }
 
 bool Camera::IsUndistorted() const {
@@ -200,8 +204,10 @@ bool Camera::IsUndistorted() const {
   return true;
 }
 
-void Camera::InitializeWithId(const int model_id, const double focal_length,
-                              const size_t width, const size_t height) {
+void Camera::InitializeWithId(const int model_id,
+                              const double focal_length,
+                              const size_t width,
+                              const size_t height) {
   CHECK(ExistsCameraModelWithId(model_id));
   model_id_ = model_id;
   width_ = width;
@@ -210,16 +216,21 @@ void Camera::InitializeWithId(const int model_id, const double focal_length,
 }
 
 void Camera::InitializeWithName(const std::string& model_name,
-                                const double focal_length, const size_t width,
+                                const double focal_length,
+                                const size_t width,
                                 const size_t height) {
-  InitializeWithId(CameraModelNameToId(model_name), focal_length, width,
-                   height);
+  InitializeWithId(
+      CameraModelNameToId(model_name), focal_length, width, height);
 }
 
 Eigen::Vector2d Camera::ImageToWorld(const Eigen::Vector2d& image_point) const {
   Eigen::Vector2d world_point;
-  CameraModelImageToWorld(model_id_, params_, image_point(0), image_point(1),
-                          &world_point(0), &world_point(1));
+  CameraModelImageToWorld(model_id_,
+                          params_,
+                          image_point(0),
+                          image_point(1),
+                          &world_point(0),
+                          &world_point(1));
   return world_point;
 }
 
@@ -229,8 +240,12 @@ double Camera::ImageToWorldThreshold(const double threshold) const {
 
 Eigen::Vector2d Camera::WorldToImage(const Eigen::Vector2d& world_point) const {
   Eigen::Vector2d image_point;
-  CameraModelWorldToImage(model_id_, params_, world_point(0), world_point(1),
-                          &image_point(0), &image_point(1));
+  CameraModelWorldToImage(model_id_,
+                          params_,
+                          world_point(0),
+                          world_point(1),
+                          &image_point(0),
+                          &image_point(1));
   return image_point;
 }
 

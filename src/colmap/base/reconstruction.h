@@ -32,13 +32,6 @@
 #ifndef COLMAP_SRC_BASE_RECONSTRUCTION_H_
 #define COLMAP_SRC_BASE_RECONSTRUCTION_H_
 
-#include <tuple>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
-
-#include <Eigen/Core>
-
 #include "colmap/base/camera.h"
 #include "colmap/base/database.h"
 #include "colmap/base/image.h"
@@ -49,6 +42,13 @@
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/util/types.h"
+
+#include <tuple>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
+#include <Eigen/Core>
 
 namespace colmap {
 
@@ -135,7 +135,8 @@ class Reconstruction {
 
   // Add new 3D object, and return its unique ID.
   point3D_t AddPoint3D(
-      const Eigen::Vector3d& xyz, Track track,
+      const Eigen::Vector3d& xyz,
+      Track track,
       const Eigen::Vector3ub& color = Eigen::Vector3ub::Zero());
 
   // Add observation to existing 3D point.
@@ -177,8 +178,10 @@ class Reconstruction {
   // Scales scene such that the minimum and maximum camera centers are at the
   // given `extent`, whereas `p0` and `p1` determine the minimum and
   // maximum percentiles of the camera centers considered.
-  void Normalize(const double extent = 10.0, const double p0 = 0.1,
-                 const double p1 = 0.9, const bool use_images = true);
+  void Normalize(const double extent = 10.0,
+                 const double p0 = 0.1,
+                 const double p1 = 0.9,
+                 const bool use_images = true);
 
   // Compute the centroid of the 3D points
   Eigen::Vector3d ComputeCentroid(const double p0 = 0.1,
@@ -352,7 +355,8 @@ class Reconstruction {
   // supports all camera models with the caveat that it's using the mean focal
   // length which will be inaccurate for camera models with two focal lengths
   // and distortion.
-  bool ExportBundler(const std::string& path, const std::string& list_path,
+  bool ExportBundler(const std::string& path,
+                     const std::string& list_path,
                      bool skip_distortion = false) const;
 
   // Exports 3D points only in PLY format.
@@ -360,7 +364,8 @@ class Reconstruction {
 
   // Exports in VRML format https://en.wikipedia.org/wiki/VRML.
   void ExportVRML(const std::string& images_path,
-                  const std::string& points3D_path, const double image_scale,
+                  const std::string& points3D_path,
+                  const double image_scale,
                   const Eigen::Vector3d& image_rgb) const;
 
   // Extract colors for 3D points of given image. Colors will be extracted
@@ -393,7 +398,8 @@ class Reconstruction {
       const std::unordered_set<point3D_t>& point3D_ids);
 
   std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d>
-  ComputeBoundsAndCentroid(const double p0, const double p1,
+  ComputeBoundsAndCentroid(const double p0,
+                           const double p1,
                            const bool use_images) const;
 
   void ReadCamerasText(const std::string& path);
@@ -413,7 +419,8 @@ class Reconstruction {
   void SetObservationAsTriangulated(const image_t image_id,
                                     const point2D_t point2D_idx,
                                     const bool is_continued_point3D);
-  void ResetTriObservations(const image_t image_id, const point2D_t point2D_idx,
+  void ResetTriObservations(const image_t image_id,
+                            const point2D_t point2D_idx,
                             const bool is_deleted_point3D);
 
   const CorrespondenceGraph* correspondence_graph_;

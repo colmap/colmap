@@ -30,11 +30,11 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "optim/random_sampler"
+#include "colmap/optim/random_sampler.h"
+
 #include "colmap/util/testing.h"
 
 #include <unordered_set>
-
-#include "colmap/optim/random_sampler.h"
 
 using namespace colmap;
 

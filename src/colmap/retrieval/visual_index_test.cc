@@ -30,9 +30,9 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "retrieval/visual_index"
-#include "colmap/util/testing.h"
-
 #include "colmap/retrieval/visual_index.h"
+
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 using namespace colmap::retrieval;

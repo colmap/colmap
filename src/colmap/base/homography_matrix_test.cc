@@ -30,13 +30,13 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/homography_matrix"
+#include "colmap/base/homography_matrix.h"
+
 #include "colmap/util/testing.h"
 
 #include <cmath>
 
 #include <Eigen/Geometry>
-
-#include "colmap/base/homography_matrix.h"
 
 using namespace colmap;
 
@@ -64,10 +64,10 @@ BOOST_AUTO_TEST_CASE(TestDecomposeHomographyMatrix) {
   R_ref << 0.43307983549125, 0.545749113549648, -0.717356090899523,
       -0.85630229674426, 0.497582023798831, -0.138414255706431,
       0.281404038139784, 0.67421809131173, 0.682818960388909;
-  const Eigen::Vector3d t_ref(1.826751712278038, 1.264718492450820,
-                              0.195080809998819);
-  const Eigen::Vector3d n_ref(-0.244875830334816, -0.480857890778889,
-                              -0.841909446789566);
+  const Eigen::Vector3d t_ref(
+      1.826751712278038, 1.264718492450820, 0.195080809998819);
+  const Eigen::Vector3d n_ref(
+      -0.244875830334816, -0.480857890778889, -0.841909446789566);
 
   bool ref_solution_exists = false;
   for (size_t i = 0; i < 4; ++i) {

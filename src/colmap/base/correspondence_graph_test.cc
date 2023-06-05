@@ -30,9 +30,9 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/correspondence_graph"
-#include "colmap/util/testing.h"
-
 #include "colmap/base/correspondence_graph.h"
+
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 
@@ -41,8 +41,8 @@ int FindNumTransitiveCorrespondences(const CorrespondenceGraph& graph,
                                      const point2D_t point2D_idx,
                                      const size_t transitivity) {
   std::vector<CorrespondenceGraph::Correspondence> corrs;
-  graph.FindTransitiveCorrespondences(image_id, point2D_idx, transitivity,
-                                      &corrs);
+  graph.FindTransitiveCorrespondences(
+      image_id, point2D_idx, transitivity, &corrs);
   return corrs.size();
 }
 

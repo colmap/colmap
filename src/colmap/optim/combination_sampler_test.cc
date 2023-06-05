@@ -30,12 +30,12 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "optim/combination_sampler"
+#include "colmap/optim/combination_sampler.h"
+
+#include "colmap/util/math.h"
 #include "colmap/util/testing.h"
 
 #include <unordered_set>
-
-#include "colmap/optim/combination_sampler.h"
-#include "colmap/util/math.h"
 
 using namespace colmap;
 

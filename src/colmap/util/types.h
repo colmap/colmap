@@ -32,7 +32,6 @@
 #ifndef COLMAP_SRC_UTIL_TYPES_H_
 #define COLMAP_SRC_UTIL_TYPES_H_
 
-
 #ifdef _MSC_VER
 #if _MSC_VER >= 1600
 #include <cstdint>

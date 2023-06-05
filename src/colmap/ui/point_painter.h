@@ -44,8 +44,13 @@ class PointPainter {
 
   struct Data {
     Data() : x(0), y(0), z(0), r(0), g(0), b(0), a(0) {}
-    Data(const float x_, const float y_, const float z_, const float r_,
-         const float g_, const float b_, const float a_)
+    Data(const float x_,
+         const float y_,
+         const float z_,
+         const float r_,
+         const float g_,
+         const float b_,
+         const float a_)
         : x(x_), y(y_), z(z_), r(r_), g(g_), b(b_), a(a_) {}
 
     float x, y, z;

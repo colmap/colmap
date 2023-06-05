@@ -86,7 +86,8 @@ void ReconstructionManager::Write(const std::string& path,
   for (size_t i = 0; i < reconstructions_.size(); ++i) {
     recon_sizes[i] = std::make_pair(i, reconstructions_[i]->NumPoints3D());
   }
-  std::sort(recon_sizes.begin(), recon_sizes.end(),
+  std::sort(recon_sizes.begin(),
+            recon_sizes.end(),
             [](const std::pair<size_t, size_t>& first,
                const std::pair<size_t, size_t>& second) {
               return first.second > second.second;

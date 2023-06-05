@@ -32,11 +32,11 @@
 #ifndef COLMAP_SRC_MVS_DEPTH_MAP_H_
 #define COLMAP_SRC_MVS_DEPTH_MAP_H_
 
-#include <string>
-#include <vector>
-
 #include "colmap/mvs/mat.h"
 #include "colmap/util/bitmap.h"
+
+#include <string>
+#include <vector>
 
 namespace colmap {
 namespace mvs {
@@ -44,7 +44,9 @@ namespace mvs {
 class DepthMap : public Mat<float> {
  public:
   DepthMap();
-  DepthMap(const size_t width, const size_t height, const float depth_min,
+  DepthMap(const size_t width,
+           const size_t height,
+           const float depth_min,
            const float depth_max);
   DepthMap(const Mat<float>& mat, const float depth_min, const float depth_max);
 

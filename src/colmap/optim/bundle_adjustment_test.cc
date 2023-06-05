@@ -30,13 +30,13 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "optim/bundle_adjustment"
-#include "colmap/util/testing.h"
+#include "colmap/optim/bundle_adjustment.h"
 
 #include "colmap/base/camera_models.h"
 #include "colmap/base/correspondence_graph.h"
 #include "colmap/base/projection.h"
-#include "colmap/optim/bundle_adjustment.h"
 #include "colmap/util/random.h"
+#include "colmap/util/testing.h"
 
 #define CheckVariableCamera(camera, orig_camera)          \
   {                                                       \
@@ -108,7 +108,8 @@
 
 using namespace colmap;
 
-void GeneratePointCloud(const size_t num_points, const Eigen::Vector3d& min,
+void GeneratePointCloud(const size_t num_points,
+                        const Eigen::Vector3d& min,
                         const Eigen::Vector3d& max,
                         Reconstruction* reconstruction) {
   for (size_t i = 0; i < num_points; ++i) {
@@ -120,13 +121,16 @@ void GeneratePointCloud(const size_t num_points, const Eigen::Vector3d& min,
   }
 }
 
-void GenerateReconstruction(const size_t num_images, const size_t num_points,
+void GenerateReconstruction(const size_t num_images,
+                            const size_t num_points,
                             Reconstruction* reconstruction,
                             CorrespondenceGraph* correspondence_graph) {
   SetPRNGSeed(0);
 
-  GeneratePointCloud(num_points, Eigen::Vector3d(-1, -1, -1),
-                     Eigen::Vector3d(1, 1, 1), reconstruction);
+  GeneratePointCloud(num_points,
+                     Eigen::Vector3d(-1, -1, -1),
+                     Eigen::Vector3d(1, 1, 1),
+                     reconstruction);
 
   const double kFocalLengthFactor = 1.2;
   const size_t kImageSize = 1000;
@@ -137,7 +141,8 @@ void GenerateReconstruction(const size_t num_images, const size_t num_points,
 
     Camera camera;
     camera.InitializeWithId(SimpleRadialCameraModel::model_id,
-                            kFocalLengthFactor * kImageSize, kImageSize,
+                            kFocalLengthFactor * kImageSize,
+                            kImageSize,
                             kImageSize);
     camera.SetCameraId(camera_id);
     reconstruction->AddCamera(camera);
@@ -656,10 +661,10 @@ BOOST_AUTO_TEST_CASE(TestRigTwoView) {
 
   std::vector<CameraRig> camera_rigs;
   camera_rigs.emplace_back();
-  camera_rigs[0].AddCamera(0, ComposeIdentityQuaternion(),
-                           Eigen::Vector3d(0, 0, 0));
-  camera_rigs[0].AddCamera(1, ComposeIdentityQuaternion(),
-                           Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddCamera(
+      0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddCamera(
+      1, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
   camera_rigs[0].AddSnapshot({0, 1});
   camera_rigs[0].SetRefCameraId(0);
   const auto orig_camera_rigs = camera_rigs;
@@ -710,10 +715,10 @@ BOOST_AUTO_TEST_CASE(TestRigFourView) {
 
   std::vector<CameraRig> camera_rigs;
   camera_rigs.emplace_back();
-  camera_rigs[0].AddCamera(0, ComposeIdentityQuaternion(),
-                           Eigen::Vector3d(0, 0, 0));
-  camera_rigs[0].AddCamera(1, ComposeIdentityQuaternion(),
-                           Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddCamera(
+      0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddCamera(
+      1, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
   camera_rigs[0].AddSnapshot({0, 1});
   camera_rigs[0].AddSnapshot({2, 3});
   camera_rigs[0].SetRefCameraId(0);
@@ -765,10 +770,10 @@ BOOST_AUTO_TEST_CASE(TestConstantRigFourView) {
 
   std::vector<CameraRig> camera_rigs;
   camera_rigs.emplace_back();
-  camera_rigs[0].AddCamera(0, ComposeIdentityQuaternion(),
-                           Eigen::Vector3d(0, 0, 0));
-  camera_rigs[0].AddCamera(1, ComposeIdentityQuaternion(),
-                           Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddCamera(
+      0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddCamera(
+      1, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
   camera_rigs[0].AddSnapshot({0, 1});
   camera_rigs[0].AddSnapshot({2, 3});
   camera_rigs[0].SetRefCameraId(0);
@@ -820,10 +825,10 @@ BOOST_AUTO_TEST_CASE(TestRigFourViewPartial) {
 
   std::vector<CameraRig> camera_rigs;
   camera_rigs.emplace_back();
-  camera_rigs[0].AddCamera(0, ComposeIdentityQuaternion(),
-                           Eigen::Vector3d(0, 0, 0));
-  camera_rigs[0].AddCamera(1, ComposeIdentityQuaternion(),
-                           Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddCamera(
+      0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddCamera(
+      1, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
   camera_rigs[0].AddSnapshot({0, 1});
   camera_rigs[0].AddSnapshot({2});
   camera_rigs[0].SetRefCameraId(0);

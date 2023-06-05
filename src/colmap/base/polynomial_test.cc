@@ -30,9 +30,9 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/polynomial"
-#include "colmap/util/testing.h"
-
 #include "colmap/base/polynomial.h"
+
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 
@@ -57,7 +57,8 @@ BOOST_AUTO_TEST_CASE(TestEvaluatePolynomial) {
                     1 - 3 + 3 - 5 + 10);
   BOOST_CHECK_CLOSE(
       EvaluatePolynomial((Eigen::VectorXd(4) << 1, -3, 3, -5).finished(), 2.0),
-      1 * 2 * 2 * 2 - 3 * 2 * 2 + 3 * 2 - 5, 1e-6);
+      1 * 2 * 2 * 2 - 3 * 2 * 2 + 3 * 2 - 5,
+      1e-6);
 }
 
 BOOST_AUTO_TEST_CASE(TestFindLinearPolynomialRoots) {
@@ -69,11 +70,13 @@ BOOST_AUTO_TEST_CASE(TestFindLinearPolynomialRoots) {
   BOOST_CHECK_CLOSE(EvaluatePolynomial(Eigen::Vector2d(3, -2),
                                        std::complex<double>(real(0), imag(0)))
                         .real(),
-                    0.0, 1e-6);
+                    0.0,
+                    1e-6);
   BOOST_CHECK_CLOSE(EvaluatePolynomial(Eigen::Vector2d(3, -2),
                                        std::complex<double>(real(0), imag(0)))
                         .imag(),
-                    0.0, 1e-6);
+                    0.0,
+                    1e-6);
 
   BOOST_CHECK(!FindLinearPolynomialRoots(Eigen::Vector2d(0, 1), &real, &imag));
 }
@@ -87,17 +90,19 @@ BOOST_AUTO_TEST_CASE(TestFindQuadraticPolynomialRootsReal) {
   BOOST_CHECK_EQUAL(imag, Eigen::Vector2d(0, 0));
   BOOST_CHECK_CLOSE(
       EvaluatePolynomial(coeffs, std::complex<double>(real(0), imag(0))).real(),
-      0.0, 1e-6);
+      0.0,
+      1e-6);
   BOOST_CHECK_CLOSE(
       EvaluatePolynomial(coeffs, std::complex<double>(real(1), imag(1))).imag(),
-      0.0, 1e-6);
+      0.0,
+      1e-6);
 }
 
 BOOST_AUTO_TEST_CASE(TestFindQuadraticPolynomialRootsComplex) {
   Eigen::VectorXd real;
   Eigen::VectorXd imag;
-  const Eigen::Vector3d coeffs(0.276025076998578, 0.679702676853675,
-                               0.655098003973841);
+  const Eigen::Vector3d coeffs(
+      0.276025076998578, 0.679702676853675, 0.655098003973841);
   BOOST_CHECK(FindQuadraticPolynomialRoots(coeffs, &real, &imag));
   BOOST_CHECK(real.isApprox(
       Eigen::Vector2d(-1.231233560813707, -1.231233560813707), 1e-6));
@@ -105,10 +110,12 @@ BOOST_AUTO_TEST_CASE(TestFindQuadraticPolynomialRootsComplex) {
       Eigen::Vector2d(0.925954520440279, -0.925954520440279), 1e-6));
   BOOST_CHECK_CLOSE(
       EvaluatePolynomial(coeffs, std::complex<double>(real(0), imag(0))).real(),
-      0.0, 1e-6);
+      0.0,
+      1e-6);
   BOOST_CHECK_CLOSE(
       EvaluatePolynomial(coeffs, std::complex<double>(real(1), imag(1))).imag(),
-      0.0, 1e-6);
+      0.0,
+      1e-6);
 }
 
 BOOST_AUTO_TEST_CASE(TestFindPolynomialRootsDurandKerner) {
@@ -127,16 +134,22 @@ BOOST_AUTO_TEST_CASE(TestFindPolynomialRootsDurandKerner) {
 }
 
 BOOST_AUTO_TEST_CASE(TestFindPolynomialRootsDurandKernerLinearQuadratic) {
-  CHECK_EQUAL_RESULT(FindPolynomialRootsDurandKerner, Eigen::Vector2d(1, 2),
-                     FindLinearPolynomialRoots, Eigen::Vector2d(1, 2));
+  CHECK_EQUAL_RESULT(FindPolynomialRootsDurandKerner,
+                     Eigen::Vector2d(1, 2),
+                     FindLinearPolynomialRoots,
+                     Eigen::Vector2d(1, 2));
   CHECK_EQUAL_RESULT(FindPolynomialRootsDurandKerner,
                      (Eigen::VectorXd(4) << 0, 0, 1, 2).finished(),
-                     FindLinearPolynomialRoots, Eigen::Vector2d(1, 2));
-  CHECK_EQUAL_RESULT(FindPolynomialRootsDurandKerner, Eigen::Vector3d(1, 2, 3),
-                     FindQuadraticPolynomialRoots, Eigen::Vector3d(1, 2, 3));
+                     FindLinearPolynomialRoots,
+                     Eigen::Vector2d(1, 2));
+  CHECK_EQUAL_RESULT(FindPolynomialRootsDurandKerner,
+                     Eigen::Vector3d(1, 2, 3),
+                     FindQuadraticPolynomialRoots,
+                     Eigen::Vector3d(1, 2, 3));
   CHECK_EQUAL_RESULT(FindPolynomialRootsDurandKerner,
                      (Eigen::VectorXd(5) << 0, 0, 1, 2, 3).finished(),
-                     FindQuadraticPolynomialRoots, Eigen::Vector3d(1, 2, 3));
+                     FindQuadraticPolynomialRoots,
+                     Eigen::Vector3d(1, 2, 3));
 }
 
 BOOST_AUTO_TEST_CASE(TestFindPolynomialRootsCompanionMatrix) {
@@ -155,17 +168,22 @@ BOOST_AUTO_TEST_CASE(TestFindPolynomialRootsCompanionMatrix) {
 }
 
 BOOST_AUTO_TEST_CASE(TestFindPolynomialRootsCompanionMatrixLinearQuadratic) {
-  CHECK_EQUAL_RESULT(FindPolynomialRootsCompanionMatrix, Eigen::Vector2d(1, 2),
-                     FindLinearPolynomialRoots, Eigen::Vector2d(1, 2));
+  CHECK_EQUAL_RESULT(FindPolynomialRootsCompanionMatrix,
+                     Eigen::Vector2d(1, 2),
+                     FindLinearPolynomialRoots,
+                     Eigen::Vector2d(1, 2));
   CHECK_EQUAL_RESULT(FindPolynomialRootsCompanionMatrix,
                      (Eigen::VectorXd(4) << 0, 0, 1, 2).finished(),
-                     FindLinearPolynomialRoots, Eigen::Vector2d(1, 2));
+                     FindLinearPolynomialRoots,
+                     Eigen::Vector2d(1, 2));
   CHECK_EQUAL_RESULT(FindPolynomialRootsCompanionMatrix,
-                     Eigen::Vector3d(1, 2, 3), FindQuadraticPolynomialRoots,
+                     Eigen::Vector3d(1, 2, 3),
+                     FindQuadraticPolynomialRoots,
                      Eigen::Vector3d(1, 2, 3));
   CHECK_EQUAL_RESULT(FindPolynomialRootsCompanionMatrix,
                      (Eigen::VectorXd(5) << 0, 0, 1, 2, 3).finished(),
-                     FindQuadraticPolynomialRoots, Eigen::Vector3d(1, 2, 3));
+                     FindQuadraticPolynomialRoots,
+                     Eigen::Vector3d(1, 2, 3));
 }
 
 BOOST_AUTO_TEST_CASE(TestFindPolynomialRootsCompanionMatrixZeroSolution) {

@@ -30,14 +30,14 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/similarity_transform"
-#include "colmap/util/testing.h"
-
-#include <Eigen/Core>
-
-#include "colmap/base/pose.h"
 #include "colmap/base/similarity_transform.h"
 
+#include "colmap/base/pose.h"
+#include "colmap/util/testing.h"
+
 #include <fstream>
+
+#include <Eigen/Core>
 
 using namespace colmap;
 
@@ -75,8 +75,8 @@ BOOST_AUTO_TEST_CASE(TestInitialization) {
 }
 
 void TestEstimationWithNumCoords(const size_t num_coords) {
-  const SimilarityTransform3 orig_tform(2, Eigen::Vector4d(0.1, 0.3, 0.2, 0.4),
-                                        Eigen::Vector3d(100, 10, 0.5));
+  const SimilarityTransform3 orig_tform(
+      2, Eigen::Vector4d(0.1, 0.3, 0.2, 0.4), Eigen::Vector3d(100, 10, 0.5));
 
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> dst;

@@ -174,7 +174,8 @@ struct SiftMatchingOptions {
 // Extract SIFT features for the given image on the CPU. Only extract
 // descriptors if the given input is not NULL.
 bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
-                            const Bitmap& bitmap, FeatureKeypoints* keypoints,
+                            const Bitmap& bitmap,
+                            FeatureKeypoints* keypoints,
                             FeatureDescriptors* descriptors);
 bool ExtractCovariantSiftFeaturesCPU(const SiftExtractionOptions& options,
                                      const Bitmap& bitmap,
@@ -192,7 +193,8 @@ bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
 // Extract SIFT features for the given image on the GPU.
 // SiftGPU must already be initialized using `CreateSiftGPU`.
 bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
-                            const Bitmap& bitmap, SiftGPU* sift_gpu,
+                            const Bitmap& bitmap,
+                            SiftGPU* sift_gpu,
                             FeatureKeypoints* keypoints,
                             FeatureDescriptors* descriptors);
 

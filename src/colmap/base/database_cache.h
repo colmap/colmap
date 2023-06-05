@@ -32,19 +32,19 @@
 #ifndef COLMAP_SRC_BASE_DATABASE_CACHE_H_
 #define COLMAP_SRC_BASE_DATABASE_CACHE_H_
 
-#include <string>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
-
-#include <Eigen/Core>
-
 #include "colmap/base/camera.h"
 #include "colmap/base/camera_models.h"
 #include "colmap/base/correspondence_graph.h"
 #include "colmap/base/database.h"
 #include "colmap/base/image.h"
 #include "colmap/util/types.h"
+
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
+#include <Eigen/Core>
 
 namespace colmap {
 
@@ -87,7 +87,8 @@ class DatabaseCache {
   // @param ignore_watermarks     Whether to ignore watermark image pairs.
   // @param image_names           Whether to use only load the data for a subset
   //                              of the images. All images are used if empty.
-  void Load(const Database& database, const size_t min_num_matches,
+  void Load(const Database& database,
+            const size_t min_num_matches,
             const bool ignore_watermarks,
             const std::unordered_set<std::string>& image_names);
 

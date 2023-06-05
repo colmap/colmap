@@ -44,9 +44,9 @@
 #define NOMINMAX
 #include <Windows.h>
 #endif
-#include <FreeImage.h>
-
 #include "colmap/util/string.h"
+
+#include <FreeImage.h>
 
 namespace colmap {
 
@@ -138,9 +138,11 @@ class Bitmap {
   void Fill(const BitmapColor<uint8_t>& color);
 
   // Interpolate color at given floating point position.
-  bool InterpolateNearestNeighbor(const double x, const double y,
+  bool InterpolateNearestNeighbor(const double x,
+                                  const double y,
                                   BitmapColor<uint8_t>* color) const;
-  bool InterpolateBilinear(const double x, const double y,
+  bool InterpolateBilinear(const double x,
+                           const double y,
                            BitmapColor<float>* color) const;
 
   // Extract EXIF information from bitmap. Returns false if no EXIF information
@@ -164,7 +166,8 @@ class Bitmap {
   void Smooth(const float sigma_x, const float sigma_y);
 
   // Rescale image to the new dimensions.
-  void Rescale(const int new_width, const int new_height,
+  void Rescale(const int new_width,
+               const int new_height,
                const FREE_IMAGE_FILTER filter = FILTER_BILINEAR);
 
   // Clone the image to a new bitmap object.
@@ -176,7 +179,8 @@ class Bitmap {
   void CloneMetadata(Bitmap* target) const;
 
   // Read specific EXIF tag.
-  bool ReadExifTag(const FREE_IMAGE_MDMODEL model, const std::string& tag_name,
+  bool ReadExifTag(const FREE_IMAGE_MDMODEL model,
+                   const std::string& tag_name,
                    std::string* result) const;
 
  private:
@@ -203,8 +207,11 @@ class JetColormap {
   static float Blue(const float gray);
 
  private:
-  static float Interpolate(const float val, const float y0, const float x0,
-                           const float y1, const float x1);
+  static float Interpolate(const float val,
+                           const float y0,
+                           const float x0,
+                           const float y1,
+                           const float x1);
   static float Base(const float val);
 };
 
@@ -255,7 +262,8 @@ bool BitmapColor<T>::operator!=(const BitmapColor<T>& rhs) const {
 
 template <typename T>
 std::ostream& operator<<(std::ostream& output, const BitmapColor<T>& color) {
-  output << StringPrintf("RGB(%f, %f, %f)", static_cast<double>(color.r),
+  output << StringPrintf("RGB(%f, %f, %f)",
+                         static_cast<double>(color.r),
                          static_cast<double>(color.g),
                          static_cast<double>(color.b));
   return output;

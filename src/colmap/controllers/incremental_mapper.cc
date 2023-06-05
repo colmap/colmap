@@ -37,7 +37,8 @@ namespace colmap {
 namespace {
 
 size_t TriangulateImage(const IncrementalMapperOptions& options,
-                        const Image& image, IncrementalMapper* mapper) {
+                        const Image& image,
+                        IncrementalMapper* mapper) {
   std::cout << "  => Continued observations: " << image.NumPoints3D()
             << std::endl;
   const size_t num_tris =
@@ -71,9 +72,12 @@ void IterativeLocalRefinement(const IncrementalMapperOptions& options,
                               IncrementalMapper* mapper) {
   auto ba_options = options.LocalBundleAdjustment();
   for (int i = 0; i < options.ba_local_max_refinements; ++i) {
-    const auto report = mapper->AdjustLocalBundle(
-        options.Mapper(), ba_options, options.Triangulation(), image_id,
-        mapper->GetModifiedPoints3D());
+    const auto report =
+        mapper->AdjustLocalBundle(options.Mapper(),
+                                  ba_options,
+                                  options.Triangulation(),
+                                  image_id,
+                                  mapper->GetModifiedPoints3D());
     std::cout << "  => Merged observations: " << report.num_merged_observations
               << std::endl;
     std::cout << "  => Completed observations: "
@@ -127,7 +131,8 @@ void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
   FilterImages(options, mapper);
 }
 
-void ExtractColors(const std::string& image_path, const image_t image_id,
+void ExtractColors(const std::string& image_path,
+                   const image_t image_id,
                    Reconstruction* reconstruction) {
   if (!reconstruction->ExtractColorsForImage(image_id, image_path)) {
     std::cout << StringPrintf("WARNING: Could not read image %s at path %s.",
@@ -282,7 +287,8 @@ bool IncrementalMapperOptions::Check() const {
 }
 
 IncrementalMapperController::IncrementalMapperController(
-    const IncrementalMapperOptions* options, const std::string& image_path,
+    const IncrementalMapperOptions* options,
+    const std::string& image_path,
     const std::string& database_path,
     ReconstructionManager* reconstruction_manager)
     : options_(options),
@@ -344,8 +350,8 @@ bool IncrementalMapperController::LoadDatabase() {
   Timer timer;
   timer.Start();
   const size_t min_num_matches = static_cast<size_t>(options_->min_num_matches);
-  database_cache_.Load(database, min_num_matches, options_->ignore_watermarks,
-                       image_names);
+  database_cache_.Load(
+      database, min_num_matches, options_->ignore_watermarks, image_names);
   std::cout << std::endl;
   timer.PrintMinutes();
 
@@ -421,7 +427,8 @@ void IncrementalMapperController::Reconstruct(
             !reconstruction.ExistsImage(image_id2)) {
           std::cout << StringPrintf(
                            "  => Initial image pair #%d and #%d do not exist.",
-                           image_id1, image_id2)
+                           image_id1,
+                           image_id2)
                     << std::endl;
           mapper.EndReconstruction(kDiscardReconstruction);
           reconstruction_manager_->Delete(reconstruction_idx);
@@ -429,8 +436,8 @@ void IncrementalMapperController::Reconstruct(
         }
       }
 
-      PrintHeading1(StringPrintf("Initializing with image pair #%d and #%d",
-                                 image_id1, image_id2));
+      PrintHeading1(StringPrintf(
+          "Initializing with image pair #%d and #%d", image_id1, image_id2));
       const bool reg_init_success = mapper.RegisterInitialImagePair(
           init_mapper_options, image_id1, image_id2);
       if (!reg_init_success) {
@@ -499,7 +506,8 @@ void IncrementalMapperController::Reconstruct(
         const image_t next_image_id = next_images[reg_trial];
         const Image& next_image = reconstruction.Image(next_image_id);
 
-        PrintHeading1(StringPrintf("Registering image #%d (%d)", next_image_id,
+        PrintHeading1(StringPrintf("Registering image #%d (%d)",
+                                   next_image_id,
                                    reconstruction.NumRegImages() + 1));
 
         std::cout << StringPrintf("  => Image sees %d / %d points",

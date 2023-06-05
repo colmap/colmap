@@ -105,12 +105,17 @@ AutomaticReconstructionWidget::AutomaticReconstructionWidget(
 
   QPushButton* run_button = new QPushButton(tr("Run"), this);
   grid_layout_->addWidget(run_button, grid_layout_->rowCount(), 1);
-  connect(run_button, &QPushButton::released, this,
+  connect(run_button,
+          &QPushButton::released,
+          this,
           &AutomaticReconstructionWidget::Run);
 
   render_result_ = new QAction(this);
-  connect(render_result_, &QAction::triggered, this,
-          &AutomaticReconstructionWidget::RenderResult, Qt::QueuedConnection);
+  connect(render_result_,
+          &QAction::triggered,
+          this,
+          &AutomaticReconstructionWidget::RenderResult,
+          Qt::QueuedConnection);
 }
 
 void AutomaticReconstructionWidget::Run() {
@@ -183,8 +188,8 @@ void AutomaticReconstructionWidget::Run() {
       options_, &main_window_->reconstruction_manager_);
   controller->AddCallback(Thread::FINISHED_CALLBACK,
                           [this]() { render_result_->trigger(); });
-  thread_control_widget_->StartThread("Reconstructing...", true,
-                                      std::move(controller));
+  thread_control_widget_->StartThread(
+      "Reconstructing...", true, std::move(controller));
 }
 
 void AutomaticReconstructionWidget::RenderResult() {
@@ -196,7 +201,8 @@ void AutomaticReconstructionWidget::RenderResult() {
 
   if (options_.sparse) {
     QMessageBox::information(
-        this, "",
+        this,
+        "",
         tr("Imported the reconstructed sparse models for visualization. The "
            "models were also exported to the <i>sparse</i> sub-folder in the "
            "workspace."));
@@ -204,7 +210,8 @@ void AutomaticReconstructionWidget::RenderResult() {
 
   if (options_.dense) {
     QMessageBox::information(
-        this, "",
+        this,
+        "",
         tr("To visualize the reconstructed dense point cloud, navigate to the "
            "<i>dense</i> sub-folder in your workspace with <i>File > Import "
            "model from...</i>. To visualize the meshed model, you must use an "

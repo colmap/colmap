@@ -91,8 +91,11 @@ size_t IncrementalTriangulator::TriangulateImage(const Options& options,
   for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
        ++point2D_idx) {
     const size_t num_triangulated =
-        Find(options, image_id, point2D_idx,
-             static_cast<size_t>(options.max_transitivity), &corrs_data);
+        Find(options,
+             image_id,
+             point2D_idx,
+             static_cast<size_t>(options.max_transitivity),
+             &corrs_data);
     if (corrs_data.empty()) {
       continue;
     }
@@ -170,8 +173,11 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
     }
 
     const size_t num_triangulated =
-        Find(options, image_id, point2D_idx,
-             static_cast<size_t>(options.max_transitivity), &corrs_data);
+        Find(options,
+             image_id,
+             point2D_idx,
+             static_cast<size_t>(options.max_transitivity),
+             &corrs_data);
     if (num_triangulated || corrs_data.empty()) {
       continue;
     }
@@ -205,8 +211,8 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
     // Estimate triangulation.
     Eigen::Vector3d xyz;
     std::vector<char> inlier_mask;
-    if (!EstimateTriangulation(tri_options, point_data, pose_data, &inlier_mask,
-                               &xyz)) {
+    if (!EstimateTriangulation(
+            tri_options, point_data, pose_data, &inlier_mask, &xyz)) {
       continue;
     }
 
@@ -524,8 +530,8 @@ size_t IncrementalTriangulator::Create(
   // Estimate triangulation.
   Eigen::Vector3d xyz;
   std::vector<char> inlier_mask;
-  if (!EstimateTriangulation(tri_options, point_data, pose_data, &inlier_mask,
-                             &xyz)) {
+  if (!EstimateTriangulation(
+          tri_options, point_data, pose_data, &inlier_mask, &xyz)) {
     return 0;
   }
 
@@ -554,7 +560,8 @@ size_t IncrementalTriangulator::Create(
 }
 
 size_t IncrementalTriangulator::Continue(
-    const Options& options, const CorrData& ref_corr_data,
+    const Options& options,
+    const CorrData& ref_corr_data,
     const std::vector<CorrData>& corrs_data) {
   // No need to continue, if the reference observation is triangulated.
   if (ref_corr_data.point2D->HasPoint3D()) {
@@ -573,9 +580,12 @@ size_t IncrementalTriangulator::Continue(
     const Point3D& point3D =
         reconstruction_->Point3D(corr_data.point2D->Point3DId());
 
-    const double angle_error = CalculateAngularError(
-        ref_corr_data.point2D->XY(), point3D.XYZ(), ref_corr_data.image->Qvec(),
-        ref_corr_data.image->Tvec(), *ref_corr_data.camera);
+    const double angle_error =
+        CalculateAngularError(ref_corr_data.point2D->XY(),
+                              point3D.XYZ(),
+                              ref_corr_data.image->Qvec(),
+                              ref_corr_data.image->Tvec(),
+                              *ref_corr_data.camera);
     if (angle_error < best_angle_error) {
       best_angle_error = angle_error;
       best_idx = idx;
@@ -649,9 +659,12 @@ size_t IncrementalTriangulator::Merge(const Options& options,
               reconstruction_->Camera(test_image.CameraId());
           const Point2D& test_point2D =
               test_image.Point2D(test_track_el.point2D_idx);
-          if (CalculateSquaredReprojectionError(
-                  test_point2D.XY(), merged_xyz, test_image.Qvec(),
-                  test_image.Tvec(), test_camera) > max_squared_reproj_error) {
+          if (CalculateSquaredReprojectionError(test_point2D.XY(),
+                                                merged_xyz,
+                                                test_image.Qvec(),
+                                                test_image.Tvec(),
+                                                test_camera) >
+              max_squared_reproj_error) {
             merge_success = false;
             break;
           }
@@ -732,9 +745,12 @@ size_t IncrementalTriangulator::Complete(const Options& options,
           continue;
         }
 
-        if (CalculateSquaredReprojectionError(
-                point2D.XY(), point3D.XYZ(), image.Qvec(), image.Tvec(),
-                camera) > max_squared_reproj_error) {
+        if (CalculateSquaredReprojectionError(point2D.XY(),
+                                              point3D.XYZ(),
+                                              image.Qvec(),
+                                              image.Tvec(),
+                                              camera) >
+            max_squared_reproj_error) {
           continue;
         }
 
@@ -760,9 +776,10 @@ bool IncrementalTriangulator::HasCameraBogusParams(const Options& options,
                                                    const Camera& camera) {
   const auto it = camera_has_bogus_params_.find(camera.CameraId());
   if (it == camera_has_bogus_params_.end()) {
-    const bool has_bogus_params = camera.HasBogusParams(
-        options.min_focal_length_ratio, options.max_focal_length_ratio,
-        options.max_extra_param);
+    const bool has_bogus_params =
+        camera.HasBogusParams(options.min_focal_length_ratio,
+                              options.max_focal_length_ratio,
+                              options.max_extra_param);
     camera_has_bogus_params_.emplace(camera.CameraId(), has_bogus_params);
     return has_bogus_params;
   } else {

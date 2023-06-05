@@ -31,18 +31,19 @@
 
 #include "colmap/base/homography_matrix.h"
 
-#include <array>
-
-#include <Eigen/Dense>
-
 #include "colmap/base/pose.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/math.h"
 
+#include <array>
+
+#include <Eigen/Dense>
+
 namespace colmap {
 namespace {
 
-double ComputeOppositeOfMinor(const Eigen::Matrix3d& matrix, const size_t row,
+double ComputeOppositeOfMinor(const Eigen::Matrix3d& matrix,
+                              const size_t row,
                               const size_t col) {
   const size_t col1 = col == 0 ? 1 : 0;
   const size_t col2 = col == 2 ? 1 : 2;
@@ -188,7 +189,8 @@ void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
                               const Eigen::Matrix3d& K2,
                               const std::vector<Eigen::Vector2d>& points1,
                               const std::vector<Eigen::Vector2d>& points2,
-                              Eigen::Matrix3d* R, Eigen::Vector3d* t,
+                              Eigen::Matrix3d* R,
+                              Eigen::Vector3d* t,
                               Eigen::Vector3d* n,
                               std::vector<Eigen::Vector3d>* points3D) {
   CHECK_EQ(points1.size(), points2.size());

@@ -31,8 +31,6 @@
 
 #include "colmap/base/reconstruction.h"
 
-#include <fstream>
-
 #include "colmap/base/database_cache.h"
 #include "colmap/base/gps.h"
 #include "colmap/base/pose.h"
@@ -41,6 +39,8 @@
 #include "colmap/util/bitmap.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/ply.h"
+
+#include <fstream>
 
 namespace colmap {
 
@@ -113,8 +113,8 @@ void Reconstruction::SetUp(const CorrespondenceGraph* correspondence_graph) {
          ++point2D_idx) {
       if (image.Point2D(point2D_idx).HasPoint3D()) {
         const bool kIsContinuedPoint3D = false;
-        SetObservationAsTriangulated(image_id, point2D_idx,
-                                     kIsContinuedPoint3D);
+        SetObservationAsTriangulated(
+            image_id, point2D_idx, kIsContinuedPoint3D);
       }
     }
   }
@@ -162,7 +162,8 @@ void Reconstruction::AddImage(class Image image) {
   CHECK(images_.emplace(image_id, std::move(image)).second);
 }
 
-point3D_t Reconstruction::AddPoint3D(const Eigen::Vector3d& xyz, Track track,
+point3D_t Reconstruction::AddPoint3D(const Eigen::Vector3d& xyz,
+                                     Track track,
                                      const Eigen::Vector3ub& color) {
   const point3D_t point3D_id = ++num_added_points3D_;
   CHECK(!ExistsPoint3D(point3D_id));
@@ -177,8 +178,8 @@ point3D_t Reconstruction::AddPoint3D(const Eigen::Vector3d& xyz, Track track,
   const bool kIsContinuedPoint3D = false;
 
   for (const auto& track_el : track.Elements()) {
-    SetObservationAsTriangulated(track_el.image_id, track_el.point2D_idx,
-                                 kIsContinuedPoint3D);
+    SetObservationAsTriangulated(
+        track_el.image_id, track_el.point2D_idx, kIsContinuedPoint3D);
   }
 
   class Point3D& point3D = points3D_[point3D_id];
@@ -201,8 +202,8 @@ void Reconstruction::AddObservation(const point3D_t point3D_id,
   point3D.Track().AddElement(track_el);
 
   const bool kIsContinuedPoint3D = true;
-  SetObservationAsTriangulated(track_el.image_id, track_el.point2D_idx,
-                               kIsContinuedPoint3D);
+  SetObservationAsTriangulated(
+      track_el.image_id, track_el.point2D_idx, kIsContinuedPoint3D);
 }
 
 point3D_t Reconstruction::MergePoints3D(const point3D_t point3D_id1,
@@ -242,8 +243,8 @@ void Reconstruction::DeletePoint3D(const point3D_t point3D_id) {
   const bool kIsDeletedPoint3D = true;
 
   for (const auto& track_el : track.Elements()) {
-    ResetTriObservations(track_el.image_id, track_el.point2D_idx,
-                         kIsDeletedPoint3D);
+    ResetTriObservations(
+        track_el.image_id, track_el.point2D_idx, kIsDeletedPoint3D);
   }
 
   for (const auto& track_el : track.Elements()) {
@@ -318,8 +319,10 @@ void Reconstruction::DeRegisterImage(const image_t image_id) {
       reg_image_ids_.end());
 }
 
-void Reconstruction::Normalize(const double extent, const double p0,
-                               const double p1, const bool use_images) {
+void Reconstruction::Normalize(const double extent,
+                               const double p0,
+                               const double p1,
+                               const bool use_images) {
   CHECK_GT(extent, 0);
 
   if ((use_images && reg_image_ids_.size() < 2) ||
@@ -339,8 +342,8 @@ void Reconstruction::Normalize(const double extent, const double p0,
     scale = extent / old_extent;
   }
 
-  SimilarityTransform3 tform(scale, ComposeIdentityQuaternion(),
-                             -scale * std::get<2>(bound));
+  SimilarityTransform3 tform(
+      scale, ComposeIdentityQuaternion(), -scale * std::get<2>(bound));
   Transform(tform);
 }
 
@@ -356,7 +359,8 @@ std::pair<Eigen::Vector3d, Eigen::Vector3d> Reconstruction::ComputeBoundingBox(
 }
 
 std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d>
-Reconstruction::ComputeBoundsAndCentroid(const double p0, const double p1,
+Reconstruction::ComputeBoundsAndCentroid(const double p0,
+                                         const double p1,
                                          const bool use_images) const {
   CHECK_GE(p0, 0);
   CHECK_LE(p0, 1);
@@ -367,7 +371,8 @@ Reconstruction::ComputeBoundsAndCentroid(const double p0, const double p1,
   const size_t num_elements =
       use_images ? reg_image_ids_.size() : points3D_.size();
   if (num_elements == 0) {
-    return std::make_tuple(Eigen::Vector3d(0, 0, 0), Eigen::Vector3d(0, 0, 0),
+    return std::make_tuple(Eigen::Vector3d(0, 0, 0),
+                           Eigen::Vector3d(0, 0, 0),
                            Eigen::Vector3d(0, 0, 0));
   }
 
@@ -463,9 +468,11 @@ bool Reconstruction::Merge(const Reconstruction& reconstruction,
   const double kMinInlierObservations = 0.3;
 
   Eigen::Matrix3x4d alignment;
-  if (!ComputeAlignmentBetweenReconstructions(reconstruction, *this,
+  if (!ComputeAlignmentBetweenReconstructions(reconstruction,
+                                              *this,
                                               kMinInlierObservations,
-                                              max_reproj_error, &alignment)) {
+                                              max_reproj_error,
+                                              &alignment)) {
     return false;
   }
 
@@ -605,7 +612,8 @@ void Reconstruction::TranscribeImageIdsToDatabase(const Database& database) {
 }
 
 size_t Reconstruction::FilterPoints3D(
-    const double max_reproj_error, const double min_tri_angle,
+    const double max_reproj_error,
+    const double min_tri_angle,
     const std::unordered_set<point3D_t>& point3D_ids) {
   size_t num_filtered = 0;
   num_filtered +=
@@ -616,7 +624,8 @@ size_t Reconstruction::FilterPoints3D(
 }
 
 size_t Reconstruction::FilterPoints3DInImages(
-    const double max_reproj_error, const double min_tri_angle,
+    const double max_reproj_error,
+    const double min_tri_angle,
     const std::unordered_set<image_t>& image_ids) {
   std::unordered_set<point3D_t> point3D_ids;
   for (const image_t image_id : image_ids) {
@@ -665,7 +674,8 @@ size_t Reconstruction::FilterObservationsWithNegativeDepth() {
 }
 
 std::vector<image_t> Reconstruction::FilterImages(
-    const double min_focal_length_ratio, const double max_focal_length_ratio,
+    const double min_focal_length_ratio,
+    const double max_focal_length_ratio,
     const double max_extra_param) {
   std::vector<image_t> filtered_image_ids;
   for (const image_t image_id : RegImageIds()) {
@@ -674,7 +684,8 @@ std::vector<image_t> Reconstruction::FilterImages(
     if (image.NumPoints3D() == 0) {
       filtered_image_ids.push_back(image_id);
     } else if (camera.HasBogusParams(min_focal_length_ratio,
-                                     max_focal_length_ratio, max_extra_param)) {
+                                     max_focal_length_ratio,
+                                     max_extra_param)) {
       filtered_image_ids.push_back(image_id);
     }
   }
@@ -796,7 +807,8 @@ void Reconstruction::ImportPLY(const std::string& path) {
   points3D_.reserve(ply_points.size());
 
   for (const auto& ply_point : ply_points) {
-    AddPoint3D(Eigen::Vector3d(ply_point.x, ply_point.y, ply_point.z), Track(),
+    AddPoint3D(Eigen::Vector3d(ply_point.x, ply_point.y, ply_point.z),
+               Track(),
                Eigen::Vector3ub(ply_point.r, ply_point.g, ply_point.b));
   }
 }
@@ -805,7 +817,8 @@ void Reconstruction::ImportPLY(const std::vector<PlyPoint>& ply_points) {
   points3D_.clear();
   points3D_.reserve(ply_points.size());
   for (const auto& ply_point : ply_points) {
-    AddPoint3D(Eigen::Vector3d(ply_point.x, ply_point.y, ply_point.z), Track(),
+    AddPoint3D(Eigen::Vector3d(ply_point.x, ply_point.y, ply_point.z),
+               Track(),
                Eigen::Vector3ub(ply_point.r, ply_point.g, ply_point.b));
   }
 }
@@ -1323,8 +1336,8 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
       if (point3D.Color() == kBlackColor) {
         BitmapColor<float> color;
         // COLMAP assumes that the upper left pixel center is (0.5, 0.5).
-        if (bitmap.InterpolateBilinear(point2D.X() - 0.5, point2D.Y() - 0.5,
-                                       &color)) {
+        if (bitmap.InterpolateBilinear(
+                point2D.X() - 0.5, point2D.Y() - 0.5, &color)) {
           const BitmapColor<uint8_t> color_ub = color.Cast<uint8_t>();
           point3D.SetColor(
               Eigen::Vector3ub(color_ub.r, color_ub.g, color_ub.b));
@@ -1347,7 +1360,8 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
     Bitmap bitmap;
     if (!bitmap.Read(image_path)) {
       std::cout << StringPrintf("Could not read image %s at path %s.",
-                                image.Name().c_str(), image_path.c_str())
+                                image.Name().c_str(),
+                                image_path.c_str())
                 << std::endl;
       continue;
     }
@@ -1356,8 +1370,8 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
       if (point2D.HasPoint3D()) {
         BitmapColor<float> color;
         // COLMAP assumes that the upper left pixel center is (0.5, 0.5).
-        if (bitmap.InterpolateBilinear(point2D.X() - 0.5, point2D.Y() - 0.5,
-                                       &color)) {
+        if (bitmap.InterpolateBilinear(
+                point2D.X() - 0.5, point2D.Y() - 0.5, &color)) {
           if (color_sums.count(point2D.Point3DId())) {
             Eigen::Vector3d& color_sum = color_sums[point2D.Point3DId()];
             color_sum(0) += color.r;
@@ -2076,7 +2090,8 @@ void Reconstruction::WritePoints3DBinary(const std::string& path) const {
 }
 
 void Reconstruction::SetObservationAsTriangulated(
-    const image_t image_id, const point2D_t point2D_idx,
+    const image_t image_id,
+    const point2D_t point2D_idx,
     const bool is_continued_point3D) {
   if (correspondence_graph_ == nullptr) {
     return;

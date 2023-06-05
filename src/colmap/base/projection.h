@@ -32,13 +32,13 @@
 #ifndef COLMAP_SRC_BASE_PROJECTION_H_
 #define COLMAP_SRC_BASE_PROJECTION_H_
 
+#include "colmap/base/camera.h"
+
 #include <limits>
 #include <vector>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-
-#include "colmap/base/camera.h"
 
 namespace colmap {
 
@@ -85,7 +85,8 @@ Eigen::Matrix3d ComputeClosestRotationMatrix(const Eigen::Matrix3d& matrix);
 // translation vector. Returns false if decomposition fails. This implementation
 // is inspired by the OpenCV implementation with some additional checks.
 bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& proj_matrix,
-                               Eigen::Matrix3d* K, Eigen::Matrix3d* R,
+                               Eigen::Matrix3d* K,
+                               Eigen::Matrix3d* R,
                                Eigen::Vector3d* T);
 
 // Project 3D point to image.
@@ -121,7 +122,8 @@ double CalculateSquaredReprojectionError(const Eigen::Vector2d& point2D,
 double CalculateAngularError(const Eigen::Vector2d& point2D,
                              const Eigen::Vector3d& point3D,
                              const Eigen::Vector4d& qvec,
-                             const Eigen::Vector3d& tvec, const Camera& camera);
+                             const Eigen::Vector3d& tvec,
+                             const Camera& camera);
 double CalculateAngularError(const Eigen::Vector2d& point2D,
                              const Eigen::Vector3d& point3D,
                              const Eigen::Matrix3x4d& proj_matrix,

@@ -43,7 +43,8 @@ namespace colmap {
 std::string StringPrintf(const char* format, ...);
 
 // Replace all occurrences of `old_str` with `new_str` in the given string.
-std::string StringReplace(const std::string& str, const std::string& old_str,
+std::string StringReplace(const std::string& str,
+                          const std::string& old_str,
                           const std::string& new_str);
 
 // Get substring of string after search key

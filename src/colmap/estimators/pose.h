@@ -32,18 +32,17 @@
 #ifndef COLMAP_SRC_ESTIMATORS_POSE_H_
 #define COLMAP_SRC_ESTIMATORS_POSE_H_
 
-#include <vector>
-
-#include <Eigen/Core>
-
-#include <ceres/ceres.h>
-
 #include "colmap/base/camera.h"
 #include "colmap/base/camera_models.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/types.h"
+
+#include <vector>
+
+#include <Eigen/Core>
+#include <ceres/ceres.h>
 
 namespace colmap {
 
@@ -124,8 +123,10 @@ struct AbsolutePoseRefinementOptions {
 bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                           const std::vector<Eigen::Vector2d>& points2D,
                           const std::vector<Eigen::Vector3d>& points3D,
-                          Eigen::Vector4d* qvec, Eigen::Vector3d* tvec,
-                          Camera* camera, size_t* num_inliers,
+                          Eigen::Vector4d* qvec,
+                          Eigen::Vector3d* tvec,
+                          Camera* camera,
+                          size_t* num_inliers,
                           std::vector<char>* inlier_mask);
 
 // Estimate relative from 2D-2D correspondences.
@@ -145,7 +146,8 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
 size_t EstimateRelativePose(const RANSACOptions& ransac_options,
                             const std::vector<Eigen::Vector2d>& points1,
                             const std::vector<Eigen::Vector2d>& points2,
-                            Eigen::Vector4d* qvec, Eigen::Vector3d* tvec);
+                            Eigen::Vector4d* qvec,
+                            Eigen::Vector3d* tvec);
 
 // Refine absolute pose (optionally focal length) from 2D-3D correspondences.
 //
@@ -167,7 +169,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                         const std::vector<char>& inlier_mask,
                         const std::vector<Eigen::Vector2d>& points2D,
                         const std::vector<Eigen::Vector3d>& points3D,
-                        Eigen::Vector4d* qvec, Eigen::Vector3d* tvec,
+                        Eigen::Vector4d* qvec,
+                        Eigen::Vector3d* tvec,
                         Camera* camera,
                         Eigen::Matrix6d* rot_tvec_covariance = nullptr);
 
@@ -194,7 +197,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 bool RefineRelativePose(const ceres::Solver::Options& options,
                         const std::vector<Eigen::Vector2d>& points1,
                         const std::vector<Eigen::Vector2d>& points2,
-                        Eigen::Vector4d* qvec, Eigen::Vector3d* tvec);
+                        Eigen::Vector4d* qvec,
+                        Eigen::Vector3d* tvec);
 
 // Refine generalized absolute pose (optionally focal lengths)
 // from 2D-3D correspondences.
@@ -224,8 +228,10 @@ bool RefineGeneralizedAbsolutePose(
     const std::vector<Eigen::Vector3d>& points3D,
     const std::vector<size_t>& camera_idxs,
     const std::vector<Eigen::Vector4d>& rig_qvecs,
-    const std::vector<Eigen::Vector3d>& rig_tvecs, Eigen::Vector4d* qvec,
-    Eigen::Vector3d* tvec, std::vector<Camera>* cameras,
+    const std::vector<Eigen::Vector3d>& rig_tvecs,
+    Eigen::Vector4d* qvec,
+    Eigen::Vector3d* tvec,
+    std::vector<Camera>* cameras,
     Eigen::Matrix6d* rot_tvec_covariance = nullptr);
 
 }  // namespace colmap

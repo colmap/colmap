@@ -31,9 +31,9 @@
 
 #include "colmap/mvs/workspace.h"
 
-#include <numeric>
-
 #include "colmap/util/threading.h"
+
+#include <numeric>
 
 namespace colmap {
 namespace mvs {
@@ -55,8 +55,8 @@ Workspace::Workspace(const Options& options) : options_(options) {
 
 std::string Workspace::GetFileName(const int image_idx) const {
   const auto& image_name = model_.GetImageName(image_idx);
-  return StringPrintf("%s.%s.bin", image_name.c_str(),
-                      options_.input_type.c_str());
+  return StringPrintf(
+      "%s.%s.bin", image_name.c_str(), options_.input_type.c_str());
 }
 
 void Workspace::Load(const std::vector<std::string>& image_names) {

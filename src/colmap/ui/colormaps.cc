@@ -74,8 +74,10 @@ void PointColormapPhotometric::Prepare(
 
 Eigen::Vector4f PointColormapPhotometric::ComputeColor(
     const point3D_t point3D_id, const Point3D& point3D) {
-  return Eigen::Vector4f(point3D.Color(0) / 255.0f, point3D.Color(1) / 255.0f,
-                         point3D.Color(2) / 255.0f, 1.0f);
+  return Eigen::Vector4f(point3D.Color(0) / 255.0f,
+                         point3D.Color(1) / 255.0f,
+                         point3D.Color(2) / 255.0f,
+                         1.0f);
 }
 
 void PointColormapError::Prepare(
@@ -96,8 +98,10 @@ void PointColormapError::Prepare(
 Eigen::Vector4f PointColormapError::ComputeColor(const point3D_t point3D_id,
                                                  const Point3D& point3D) {
   const float gray = AdjustScale(static_cast<float>(point3D.Error()));
-  return Eigen::Vector4f(JetColormap::Red(gray), JetColormap::Green(gray),
-                         JetColormap::Blue(gray), 1.0f);
+  return Eigen::Vector4f(JetColormap::Red(gray),
+                         JetColormap::Green(gray),
+                         JetColormap::Blue(gray),
+                         1.0f);
 }
 
 void PointColormapTrackLen::Prepare(
@@ -118,8 +122,10 @@ void PointColormapTrackLen::Prepare(
 Eigen::Vector4f PointColormapTrackLen::ComputeColor(const point3D_t point3D_id,
                                                     const Point3D& point3D) {
   const float gray = AdjustScale(point3D.Track().Length());
-  return Eigen::Vector4f(JetColormap::Red(gray), JetColormap::Green(gray),
-                         JetColormap::Blue(gray), 1.0f);
+  return Eigen::Vector4f(JetColormap::Red(gray),
+                         JetColormap::Green(gray),
+                         JetColormap::Blue(gray),
+                         1.0f);
 }
 
 void PointColormapGroundResolution::Prepare(
@@ -199,14 +205,16 @@ void PointColormapGroundResolution::Prepare(
 Eigen::Vector4f PointColormapGroundResolution::ComputeColor(
     const point3D_t point3D_id, const Point3D& point3D) {
   const float gray = AdjustScale(resolutions_[point3D_id]);
-  return Eigen::Vector4f(JetColormap::Red(gray), JetColormap::Green(gray),
-                         JetColormap::Blue(gray), 1.0f);
+  return Eigen::Vector4f(JetColormap::Red(gray),
+                         JetColormap::Green(gray),
+                         JetColormap::Blue(gray),
+                         1.0f);
 }
 
-const Eigen::Vector4f ImageColormapBase::kDefaultPlaneColor = {1.0f, 0.1f, 0.0f,
-                                                               0.6f};
-const Eigen::Vector4f ImageColormapBase::kDefaultFrameColor = {0.8f, 0.1f, 0.0f,
-                                                               1.0f};
+const Eigen::Vector4f ImageColormapBase::kDefaultPlaneColor = {
+    1.0f, 0.1f, 0.0f, 0.6f};
+const Eigen::Vector4f ImageColormapBase::kDefaultFrameColor = {
+    0.8f, 0.1f, 0.0f, 1.0f};
 
 ImageColormapBase::ImageColormapBase() {}
 
@@ -230,7 +238,8 @@ void ImageColormapNameFilter::Prepare(
     std::vector<image_t>& reg_image_ids) {}
 
 void ImageColormapNameFilter::AddColorForWord(
-    const std::string& word, const Eigen::Vector4f& plane_color,
+    const std::string& word,
+    const Eigen::Vector4f& plane_color,
     const Eigen::Vector4f& frame_color) {
   image_name_colors_.emplace_back(word,
                                   std::make_pair(plane_color, frame_color));

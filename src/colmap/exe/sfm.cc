@@ -31,9 +31,6 @@
 
 #include "colmap/exe/sfm.h"
 
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
-
 #include "colmap/base/reconstruction.h"
 #include "colmap/controllers/automatic_reconstruction.h"
 #include "colmap/controllers/bundle_adjustment.h"
@@ -42,6 +39,9 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 #include "colmap/util/option_manager.h"
+
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
 
 namespace colmap {
 
@@ -58,8 +58,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
   options.AddDefaultOption("mask_path", &reconstruction_options.mask_path);
   options.AddDefaultOption("vocab_tree_path",
                            &reconstruction_options.vocab_tree_path);
-  options.AddDefaultOption("data_type", &data_type,
-                           "{individual, video, internet}");
+  options.AddDefaultOption(
+      "data_type", &data_type, "{individual, video, internet}");
   options.AddDefaultOption("quality", &quality, "{low, medium, high, extreme}");
   options.AddDefaultOption("camera_model",
                            &reconstruction_options.camera_model);
@@ -216,7 +216,8 @@ int RunMapper(int argc, char** argv) {
     reconstruction_manager.Read(input_path);
   }
 
-  IncrementalMapperController mapper(options.mapper.get(), *options.image_path,
+  IncrementalMapperController mapper(options.mapper.get(),
+                                     *options.image_path,
                                      *options.database_path,
                                      &reconstruction_manager);
 
@@ -283,9 +284,10 @@ int RunHierarchicalMapper(int argc, char** argv) {
 
   ReconstructionManager reconstruction_manager;
 
-  HierarchicalMapperController hierarchical_mapper(
-      hierarchical_options, clustering_options, *options.mapper,
-      &reconstruction_manager);
+  HierarchicalMapperController hierarchical_mapper(hierarchical_options,
+                                                   clustering_options,
+                                                   *options.mapper,
+                                                   &reconstruction_manager);
   hierarchical_mapper.Start();
   hierarchical_mapper.Wait();
 
@@ -347,7 +349,8 @@ int RunPointTriangulator(int argc, char** argv) {
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption(
-      "clear_points", &clear_points,
+      "clear_points",
+      &clear_points,
       "Whether to clear all existing points and observations");
   options.AddMapperOptions();
   options.Parse(argc, argv);
@@ -367,9 +370,12 @@ int RunPointTriangulator(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
-  return RunPointTriangulatorImpl(reconstruction, *options.database_path,
-                                  *options.image_path, output_path,
-                                  *options.mapper, clear_points);
+  return RunPointTriangulatorImpl(reconstruction,
+                                  *options.database_path,
+                                  *options.image_path,
+                                  output_path,
+                                  *options.mapper,
+                                  clear_points);
 }
 
 int RunPointTriangulatorImpl(Reconstruction& reconstruction,
@@ -390,7 +396,8 @@ int RunPointTriangulatorImpl(Reconstruction& reconstruction,
 
     const size_t min_num_matches =
         static_cast<size_t>(mapper_options.min_num_matches);
-    database_cache.Load(database, min_num_matches,
+    database_cache.Load(database,
+                        min_num_matches,
                         mapper_options.ignore_watermarks,
                         mapper_options.image_names);
 
@@ -685,8 +692,8 @@ int RunRigBundleAdjuster(int argc, char** argv) {
 
   PrintHeading1("Camera rig configuration");
 
-  auto camera_rigs = ReadCameraRigConfig(rig_config_path, reconstruction,
-                                         estimate_rig_relative_poses);
+  auto camera_rigs = ReadCameraRigConfig(
+      rig_config_path, reconstruction, estimate_rig_relative_poses);
 
   BundleAdjustmentConfig config;
   for (size_t i = 0; i < camera_rigs.size(); ++i) {

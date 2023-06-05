@@ -84,10 +84,12 @@ int RunImageDeleter(int argc, char** argv) {
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption(
-      "image_ids_path", &image_ids_path,
+      "image_ids_path",
+      &image_ids_path,
       "Path to text file containing one image_id to delete per line");
   options.AddDefaultOption(
-      "image_names_path", &image_names_path,
+      "image_names_path",
+      &image_names_path,
       "Path to text file containing one image name to delete per line");
   options.Parse(argc, argv);
 
@@ -108,7 +110,8 @@ int RunImageDeleter(int argc, char** argv) {
         std::cout
             << StringPrintf(
                    "Deleting image_id=%d, image_name=%s from reconstruction",
-                   image.ImageId(), image.Name().c_str())
+                   image.ImageId(),
+                   image.Name().c_str())
             << std::endl;
         reconstruction.DeRegisterImage(image_id);
       } else {
@@ -134,7 +137,8 @@ int RunImageDeleter(int argc, char** argv) {
         std::cout
             << StringPrintf(
                    "Deleting image_id=%d, image_name=%s from reconstruction",
-                   image->ImageId(), image->Name().c_str())
+                   image->ImageId(),
+                   image->Name().c_str())
             << std::endl;
         reconstruction.DeRegisterImage(image->ImageId());
       } else {
@@ -174,8 +178,8 @@ int RunImageFilterer(int argc, char** argv) {
 
   const size_t num_reg_images = reconstruction.NumRegImages();
 
-  reconstruction.FilterImages(min_focal_length_ratio, max_focal_length_ratio,
-                              max_extra_param);
+  reconstruction.FilterImages(
+      min_focal_length_ratio, max_focal_length_ratio, max_extra_param);
 
   std::vector<image_t> filtered_image_ids;
   for (const auto& image : reconstruction.Images()) {
@@ -193,7 +197,8 @@ int RunImageFilterer(int argc, char** argv) {
       num_reg_images - reconstruction.NumRegImages();
 
   std::cout << StringPrintf("Filtered %d images from a total of %d images",
-                            num_filtered_images, num_reg_images)
+                            num_filtered_images,
+                            num_reg_images)
             << std::endl;
 
   reconstruction.Write(output_path);
@@ -227,8 +232,10 @@ int RunImageRectifier(int argc, char** argv) {
   const auto stereo_pairs =
       ReadStereoImagePairs(stereo_pairs_list, reconstruction);
 
-  StereoImageRectifier rectifier(undistort_camera_options, reconstruction,
-                                 *options.image_path, output_path,
+  StereoImageRectifier rectifier(undistort_camera_options,
+                                 reconstruction,
+                                 *options.image_path,
+                                 output_path,
                                  stereo_pairs);
   rectifier.Start();
   rectifier.Wait();
@@ -267,7 +274,8 @@ int RunImageRegistrator(int argc, char** argv) {
     timer.Start();
     const size_t min_num_matches =
         static_cast<size_t>(options.mapper->min_num_matches);
-    database_cache.Load(database, min_num_matches,
+    database_cache.Load(database,
+                        min_num_matches,
                         options.mapper->ignore_watermarks,
                         options.mapper->image_names);
     std::cout << std::endl;
@@ -322,11 +330,11 @@ int RunImageUndistorter(int argc, char** argv) {
   options.AddImageOptions();
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("output_type", &output_type,
-                           "{COLMAP, PMVS, CMP-MVS}");
+  options.AddDefaultOption(
+      "output_type", &output_type, "{COLMAP, PMVS, CMP-MVS}");
   options.AddDefaultOption("image_list_path", &image_list_path);
-  options.AddDefaultOption("copy_policy", &copy_policy,
-                           "{copy, soft-link, hard-link}");
+  options.AddDefaultOption(
+      "copy_policy", &copy_policy, "{copy, soft-link, hard-link}");
   options.AddDefaultOption("num_patch_match_src_images",
                            &num_patch_match_src_images);
   options.AddDefaultOption("blank_pixels",
@@ -380,17 +388,24 @@ int RunImageUndistorter(int argc, char** argv) {
 
   std::unique_ptr<Thread> undistorter;
   if (output_type == "COLMAP") {
-    undistorter = std::make_unique<COLMAPUndistorter>(
-        undistort_camera_options, reconstruction, *options.image_path,
-        output_path, num_patch_match_src_images, copy_type, image_ids);
+    undistorter =
+        std::make_unique<COLMAPUndistorter>(undistort_camera_options,
+                                            reconstruction,
+                                            *options.image_path,
+                                            output_path,
+                                            num_patch_match_src_images,
+                                            copy_type,
+                                            image_ids);
   } else if (output_type == "PMVS") {
-    undistorter = std::make_unique<PMVSUndistorter>(
-        undistort_camera_options, reconstruction, *options.image_path,
-        output_path);
+    undistorter = std::make_unique<PMVSUndistorter>(undistort_camera_options,
+                                                    reconstruction,
+                                                    *options.image_path,
+                                                    output_path);
   } else if (output_type == "CMP-MVS") {
-    undistorter = std::make_unique<CMPMVSUndistorter>(
-        undistort_camera_options, reconstruction, *options.image_path,
-        output_path);
+    undistorter = std::make_unique<CMPMVSUndistorter>(undistort_camera_options,
+                                                      reconstruction,
+                                                      *options.image_path,
+                                                      output_path);
   } else {
     std::cerr << "ERROR: Invalid `output_type` - supported values are "
                  "{'COLMAP', 'PMVS', 'CMP-MVS'}."
@@ -484,7 +499,8 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
 
   std::unique_ptr<Thread> undistorter;
   undistorter.reset(new PureImageUndistorter(undistort_camera_options,
-                                             *options.image_path, output_path,
+                                             *options.image_path,
+                                             output_path,
                                              image_names_and_cameras));
 
   undistorter->Start();

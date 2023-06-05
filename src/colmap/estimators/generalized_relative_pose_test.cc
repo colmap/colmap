@@ -30,16 +30,16 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/generalized_relative_pose"
-#include "colmap/util/testing.h"
-
-#include <array>
+#include "colmap/estimators/generalized_relative_pose.h"
 
 #include "colmap/base/pose.h"
 #include "colmap/base/projection.h"
 #include "colmap/base/similarity_transform.h"
-#include "colmap/estimators/generalized_relative_pose.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/util/random.h"
+#include "colmap/util/testing.h"
+
+#include <array>
 
 using namespace colmap;
 
@@ -61,11 +61,13 @@ BOOST_AUTO_TEST_CASE(Estimate) {
       const int kNumTforms = 3;
 
       const std::array<SimilarityTransform3, kNumTforms> orig_tforms = {{
-          SimilarityTransform3(1, Eigen::Vector4d(1, qx, 0, 0),
-                               Eigen::Vector3d(tx, 0.1, 0)),
-          SimilarityTransform3(1, Eigen::Vector4d(1, qx + 0.05, 0, 0),
+          SimilarityTransform3(
+              1, Eigen::Vector4d(1, qx, 0, 0), Eigen::Vector3d(tx, 0.1, 0)),
+          SimilarityTransform3(1,
+                               Eigen::Vector4d(1, qx + 0.05, 0, 0),
                                Eigen::Vector3d(tx, 0.2, 0)),
-          SimilarityTransform3(1, Eigen::Vector4d(1, qx + 0.1, 0, 0),
+          SimilarityTransform3(1,
+                               Eigen::Vector4d(1, qx + 0.1, 0, 0),
                                Eigen::Vector3d(tx, 0.3, 0)),
       }};
 
@@ -76,7 +78,9 @@ BOOST_AUTO_TEST_CASE(Estimate) {
         ComputeRelativePose(orig_tforms[kRefTform].Rotation(),
                             orig_tforms[kRefTform].Translation(),
                             orig_tforms[i].Rotation(),
-                            orig_tforms[i].Translation(), &rel_qvec, &rel_tvec);
+                            orig_tforms[i].Translation(),
+                            &rel_qvec,
+                            &rel_tvec);
         rel_tforms[i] = ComposeProjectionMatrix(rel_qvec, rel_tvec);
       }
 

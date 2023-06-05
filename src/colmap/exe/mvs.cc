@@ -53,7 +53,8 @@ int RunDelaunayMesher(int argc, char** argv) {
 
   OptionManager options;
   options.AddRequiredOption(
-      "input_path", &input_path,
+      "input_path",
+      &input_path,
       "Path to either the dense workspace folder or the sparse reconstruction");
   options.AddDefaultOption("input_type", &input_type, "{dense, sparse}");
   options.AddRequiredOption("output_path", &output_path);
@@ -62,11 +63,11 @@ int RunDelaunayMesher(int argc, char** argv) {
 
   StringToLower(&input_type);
   if (input_type == "sparse") {
-    mvs::SparseDelaunayMeshing(*options.delaunay_meshing, input_path,
-                               output_path);
+    mvs::SparseDelaunayMeshing(
+        *options.delaunay_meshing, input_path, output_path);
   } else if (input_type == "dense") {
-    mvs::DenseDelaunayMeshing(*options.delaunay_meshing, input_path,
-                              output_path);
+    mvs::DenseDelaunayMeshing(
+        *options.delaunay_meshing, input_path, output_path);
   } else {
     std::cout << "ERROR: Invalid input type - "
                  "supported values are 'sparse' and 'dense'."
@@ -92,10 +93,11 @@ int RunPatchMatchStereo(int argc, char** argv) {
 
   OptionManager options;
   options.AddRequiredOption(
-      "workspace_path", &workspace_path,
+      "workspace_path",
+      &workspace_path,
       "Path to the folder containing the undistorted images");
-  options.AddDefaultOption("workspace_format", &workspace_format,
-                           "{COLMAP, PMVS}");
+  options.AddDefaultOption(
+      "workspace_format", &workspace_format, "{COLMAP, PMVS}");
   options.AddDefaultOption("pmvs_option_name", &pmvs_option_name);
   options.AddDefaultOption("config_path", &config_path);
   options.AddPatchMatchStereoOptions();
@@ -110,8 +112,10 @@ int RunPatchMatchStereo(int argc, char** argv) {
   }
 
   mvs::PatchMatchController controller(*options.patch_match_stereo,
-                                       workspace_path, workspace_format,
-                                       pmvs_option_name, config_path);
+                                       workspace_path,
+                                       workspace_format,
+                                       pmvs_option_name,
+                                       config_path);
 
   controller.Start();
   controller.Wait();
@@ -146,11 +150,11 @@ int RunStereoFuser(int argc, char** argv) {
 
   OptionManager options;
   options.AddRequiredOption("workspace_path", &workspace_path);
-  options.AddDefaultOption("workspace_format", &workspace_format,
-                           "{COLMAP, PMVS}");
+  options.AddDefaultOption(
+      "workspace_format", &workspace_format, "{COLMAP, PMVS}");
   options.AddDefaultOption("pmvs_option_name", &pmvs_option_name);
-  options.AddDefaultOption("input_type", &input_type,
-                           "{photometric, geometric}");
+  options.AddDefaultOption(
+      "input_type", &input_type, "{photometric, geometric}");
   options.AddDefaultOption("output_type", &output_type, "{BIN, TXT, PLY}");
   options.AddRequiredOption("output_path", &output_path);
   options.AddDefaultOption("bbox_path", &bbox_path);
@@ -186,8 +190,11 @@ int RunStereoFuser(int argc, char** argv) {
     }
   }
 
-  mvs::StereoFusion fuser(*options.stereo_fusion, workspace_path,
-                          workspace_format, pmvs_option_name, input_type);
+  mvs::StereoFusion fuser(*options.stereo_fusion,
+                          workspace_path,
+                          workspace_format,
+                          pmvs_option_name,
+                          input_type);
 
   fuser.Start();
   fuser.Wait();

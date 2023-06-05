@@ -104,7 +104,8 @@ struct ImageData {
 
 class ImageResizerThread : public Thread {
  public:
-  ImageResizerThread(const int max_image_size, JobQueue<ImageData>* input_queue,
+  ImageResizerThread(const int max_image_size,
+                     JobQueue<ImageData>* input_queue,
                      JobQueue<ImageData>* output_queue);
 
  private:
@@ -137,7 +138,8 @@ class SiftFeatureExtractorThread : public Thread {
 
 class FeatureWriterThread : public Thread {
  public:
-  FeatureWriterThread(const size_t num_images, Database* database,
+  FeatureWriterThread(const size_t num_images,
+                      Database* database,
                       JobQueue<ImageData>* input_queue);
 
  private:

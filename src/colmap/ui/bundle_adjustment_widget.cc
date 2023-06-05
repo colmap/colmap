@@ -53,13 +53,19 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
 
   AddOptionDoubleLog(
       &options->bundle_adjustment->solver_options.function_tolerance,
-      "function_tolerance [10eX]", -1000, 1000);
+      "function_tolerance [10eX]",
+      -1000,
+      1000);
   AddOptionDoubleLog(
       &options->bundle_adjustment->solver_options.gradient_tolerance,
-      "gradient_tolerance [10eX]", -1000, 1000);
+      "gradient_tolerance [10eX]",
+      -1000,
+      1000);
   AddOptionDoubleLog(
       &options->bundle_adjustment->solver_options.parameter_tolerance,
-      "parameter_tolerance [10eX]", -1000, 1000);
+      "parameter_tolerance [10eX]",
+      -1000,
+      1000);
 
   AddOptionBool(&options->bundle_adjustment->refine_focal_length,
                 "refine_focal_length");
@@ -72,12 +78,15 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
 
   QPushButton* run_button = new QPushButton(tr("Run"), this);
   grid_layout_->addWidget(run_button, grid_layout_->rowCount(), 1);
-  connect(run_button, &QPushButton::released, this,
-          &BundleAdjustmentWidget::Run);
+  connect(
+      run_button, &QPushButton::released, this, &BundleAdjustmentWidget::Run);
 
   render_action_ = new QAction(this);
-  connect(render_action_, &QAction::triggered, this,
-          &BundleAdjustmentWidget::Render, Qt::QueuedConnection);
+  connect(render_action_,
+          &QAction::triggered,
+          this,
+          &BundleAdjustmentWidget::Render,
+          Qt::QueuedConnection);
 }
 
 void BundleAdjustmentWidget::Show(Reconstruction* reconstruction) {
@@ -100,8 +109,8 @@ void BundleAdjustmentWidget::Run() {
   // to avoid large scale changes in viewer.
   reconstruction_->Normalize();
 
-  thread_control_widget_->StartThread("Bundle adjusting...", true,
-                                      std::move(thread));
+  thread_control_widget_->StartThread(
+      "Bundle adjusting...", true, std::move(thread));
 }
 
 void BundleAdjustmentWidget::Render() { main_window_->RenderNow(); }

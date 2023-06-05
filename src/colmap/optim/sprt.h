@@ -66,8 +66,10 @@ class SPRT {
 
   void Update(const Options& options);
 
-  bool Evaluate(const std::vector<double>& residuals, const double max_residual,
-                size_t* num_inliers, size_t* num_eval_samples);
+  bool Evaluate(const std::vector<double>& residuals,
+                const double max_residual,
+                size_t* num_inliers,
+                size_t* num_eval_samples);
 
  private:
   void UpdateDecisionThreshold();

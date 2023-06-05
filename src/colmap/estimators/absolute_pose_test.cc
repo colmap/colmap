@@ -30,16 +30,16 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/absolute_pose"
-#include "colmap/util/testing.h"
-
-#include <Eigen/Core>
+#include "colmap/estimators/absolute_pose.h"
 
 #include "colmap/base/pose.h"
 #include "colmap/base/similarity_transform.h"
-#include "colmap/estimators/absolute_pose.h"
 #include "colmap/estimators/essential_matrix.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/random.h"
+#include "colmap/util/testing.h"
+
+#include <Eigen/Core>
 
 using namespace colmap;
 
@@ -63,8 +63,8 @@ BOOST_AUTO_TEST_CASE(TestP3P) {
 
   for (double qx = 0; qx < 1; qx += 0.2) {
     for (double tx = 0; tx < 1; tx += 0.1) {
-      const SimilarityTransform3 orig_tform(1, Eigen::Vector4d(1, qx, 0, 0),
-                                            Eigen::Vector3d(tx, 0, 0));
+      const SimilarityTransform3 orig_tform(
+          1, Eigen::Vector4d(1, qx, 0, 0), Eigen::Vector3d(tx, 0, 0));
 
       // Project points to camera coordinate system.
       std::vector<Eigen::Vector2d> points2D;
@@ -94,8 +94,8 @@ BOOST_AUTO_TEST_CASE(TestP3P) {
       }
 
       // Test residuals of faulty points.
-      P3PEstimator::Residuals(points2D, points3D_faulty, report.model,
-                              &residuals);
+      P3PEstimator::Residuals(
+          points2D, points3D_faulty, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
         BOOST_CHECK(residuals[i] > 0.1);
       }
@@ -123,8 +123,8 @@ BOOST_AUTO_TEST_CASE(TestEPNP) {
 
   for (double qx = 0; qx < 1; qx += 0.2) {
     for (double tx = 0; tx < 1; tx += 0.1) {
-      const SimilarityTransform3 orig_tform(1, Eigen::Vector4d(1, qx, 0, 0),
-                                            Eigen::Vector3d(tx, 0, 0));
+      const SimilarityTransform3 orig_tform(
+          1, Eigen::Vector4d(1, qx, 0, 0), Eigen::Vector3d(tx, 0, 0));
 
       // Project points to camera coordinate system.
       std::vector<Eigen::Vector2d> points2D;
@@ -154,8 +154,8 @@ BOOST_AUTO_TEST_CASE(TestEPNP) {
       }
 
       // Test residuals of faulty points.
-      EPNPEstimator::Residuals(points2D, points3D_faulty, report.model,
-                               &residuals);
+      EPNPEstimator::Residuals(
+          points2D, points3D_faulty, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
         BOOST_CHECK(residuals[i] > 0.1);
       }
@@ -179,30 +179,30 @@ BOOST_AUTO_TEST_CASE(TestEPNP_BrokenSolveSignCase) {
   points2D.emplace_back(-5.4597596412987237e-01, 9.1431935871671977e-02);
 
   std::vector<Eigen::Vector3d> points3D;
-  points3D.emplace_back(4.4276865308679305e+00, -1.3384364366019632e+00,
-                        -3.5997423085253892e+00);
-  points3D.emplace_back(2.7278555252512309e+00, -3.8152996187231392e-01,
-                        -2.6558518399902824e+00);
-  points3D.emplace_back(4.8548566083054894e+00, -1.4756197433631739e+00,
-                        -6.8274946022490501e-01);
-  points3D.emplace_back(3.1523013527998449e+00, -1.3377020437938025e+00,
-                        -1.6443269301929087e+00);
-  points3D.emplace_back(3.8551679771512073e+00, -1.0557700545885551e+00,
-                        -1.1695994508851486e+00);
-  points3D.emplace_back(5.9571373150353812e+00, -2.6120646101684555e+00,
-                        -1.0841441206050342e+00);
-  points3D.emplace_back(6.3287088499358894e+00, -1.1761274755817175e+00,
-                        -2.5951879774151583e+00);
-  points3D.emplace_back(2.3005305990121250e+00, -1.4019796626800123e+00,
-                        -4.4485464455072321e-01);
-  points3D.emplace_back(5.9816859934587354e+00, -1.4211814511691452e+00,
-                        -2.0285923889293449e+00);
-  points3D.emplace_back(5.2543344690665457e+00, -2.3389255564264144e+00,
-                        4.3708173185524052e-01);
-  points3D.emplace_back(3.2181599245991688e+00, -2.8906671988445098e+00,
-                        2.6825718150064348e-01);
-  points3D.emplace_back(4.4592895306946758e+00, -9.1235241641579902e-03,
-                        -1.6555237117970871e+00);
+  points3D.emplace_back(
+      4.4276865308679305e+00, -1.3384364366019632e+00, -3.5997423085253892e+00);
+  points3D.emplace_back(
+      2.7278555252512309e+00, -3.8152996187231392e-01, -2.6558518399902824e+00);
+  points3D.emplace_back(
+      4.8548566083054894e+00, -1.4756197433631739e+00, -6.8274946022490501e-01);
+  points3D.emplace_back(
+      3.1523013527998449e+00, -1.3377020437938025e+00, -1.6443269301929087e+00);
+  points3D.emplace_back(
+      3.8551679771512073e+00, -1.0557700545885551e+00, -1.1695994508851486e+00);
+  points3D.emplace_back(
+      5.9571373150353812e+00, -2.6120646101684555e+00, -1.0841441206050342e+00);
+  points3D.emplace_back(
+      6.3287088499358894e+00, -1.1761274755817175e+00, -2.5951879774151583e+00);
+  points3D.emplace_back(
+      2.3005305990121250e+00, -1.4019796626800123e+00, -4.4485464455072321e-01);
+  points3D.emplace_back(
+      5.9816859934587354e+00, -1.4211814511691452e+00, -2.0285923889293449e+00);
+  points3D.emplace_back(
+      5.2543344690665457e+00, -2.3389255564264144e+00, 4.3708173185524052e-01);
+  points3D.emplace_back(
+      3.2181599245991688e+00, -2.8906671988445098e+00, 2.6825718150064348e-01);
+  points3D.emplace_back(
+      4.4592895306946758e+00, -9.1235241641579902e-03, -1.6555237117970871e+00);
 
   const std::vector<EPNPEstimator::M_t> output =
       EPNPEstimator::Estimate(points2D, points3D);

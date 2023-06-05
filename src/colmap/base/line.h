@@ -32,9 +32,9 @@
 #ifndef COLMAP_SRC_BASE_LINE_H_
 #define COLMAP_SRC_BASE_LINE_H_
 
-#include <Eigen/Core>
-
 #include "colmap/util/bitmap.h"
+
+#include <Eigen/Core>
 
 namespace colmap {
 

@@ -31,12 +31,12 @@
 
 #include "colmap/util/ply.h"
 
+#include "colmap/util/logging.h"
+#include "colmap/util/misc.h"
+
 #include <fstream>
 
 #include <Eigen/Core>
-
-#include "colmap/util/logging.h"
-#include "colmap/util/misc.h"
 
 namespace colmap {
 
@@ -322,7 +322,8 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
 
 void WriteTextPlyPoints(const std::string& path,
                         const std::vector<PlyPoint>& points,
-                        const bool write_normal, const bool write_rgb) {
+                        const bool write_normal,
+                        const bool write_rgb) {
   std::ofstream file(path);
   CHECK(file.is_open()) << path;
 
@@ -368,7 +369,8 @@ void WriteTextPlyPoints(const std::string& path,
 
 void WriteBinaryPlyPoints(const std::string& path,
                           const std::vector<PlyPoint>& points,
-                          const bool write_normal, const bool write_rgb) {
+                          const bool write_normal,
+                          const bool write_rgb) {
   std::fstream text_file(path, std::ios::out);
   CHECK(text_file.is_open()) << path;
 
@@ -439,7 +441,9 @@ void WriteTextPlyMesh(const std::string& path, const PlyMesh& mesh) {
   }
 
   for (const auto& face : mesh.faces) {
-    file << StringPrintf("3 %d %d %d", face.vertex_idx1, face.vertex_idx2,
+    file << StringPrintf("3 %d %d %d",
+                         face.vertex_idx1,
+                         face.vertex_idx2,
                          face.vertex_idx3)
          << std::endl;
   }

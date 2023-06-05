@@ -32,13 +32,13 @@
 #ifndef COLMAP_SRC_BASE_TRIANGULATION_H_
 #define COLMAP_SRC_BASE_TRIANGULATION_H_
 
-#include <vector>
-
-#include <Eigen/Core>
-
 #include "colmap/base/camera.h"
 #include "colmap/util/math.h"
 #include "colmap/util/types.h"
+
+#include <vector>
+
+#include <Eigen/Core>
 
 namespace colmap {
 
@@ -109,7 +109,8 @@ double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,
                                    const Eigen::Vector3d& proj_center2,
                                    const Eigen::Vector3d& point3D);
 std::vector<double> CalculateTriangulationAngles(
-    const Eigen::Vector3d& proj_center1, const Eigen::Vector3d& proj_center2,
+    const Eigen::Vector3d& proj_center1,
+    const Eigen::Vector3d& proj_center2,
     const std::vector<Eigen::Vector3d>& points3D);
 
 }  // namespace colmap

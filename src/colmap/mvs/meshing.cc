@@ -40,8 +40,6 @@
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #endif  // CGAL_ENABLED
 
-#include "lib/PoissonRecon/PoissonRecon.h"
-#include "lib/PoissonRecon/SurfaceTrimmer.h"
 #include "colmap/base/graph_cut.h"
 #include "colmap/base/reconstruction.h"
 #include "colmap/util/endian.h"
@@ -52,6 +50,9 @@
 #include "colmap/util/random.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
+
+#include "lib/PoissonRecon/PoissonRecon.h"
+#include "lib/PoissonRecon/SurfaceTrimmer.h"
 
 #ifdef CGAL_ENABLED
 
@@ -308,9 +309,9 @@ class DelaunayMeshingInput {
   Delaunay CreateDelaunayTriangulation() const {
     std::vector<Delaunay::Point> delaunay_points(points.size());
     for (size_t i = 0; i < points.size(); ++i) {
-      delaunay_points[i] =
-          Delaunay::Point(points[i].position.x(), points[i].position.y(),
-                          points[i].position.z());
+      delaunay_points[i] = Delaunay::Point(points[i].position.x(),
+                                           points[i].position.y(),
+                                           points[i].position.z());
     }
     return Delaunay(delaunay_points.begin(), delaunay_points.end());
   }
@@ -417,7 +418,8 @@ class DelaunayMeshingInput {
     }
 
     std::cout << StringPrintf("Triangulation has %d using %d points.",
-                              triangulation.number_of_vertices(), points.size())
+                              triangulation.number_of_vertices(),
+                              points.size())
               << std::endl;
 
     return triangulation;
@@ -435,7 +437,8 @@ struct DelaunayMeshingEdgeWeightComputer {
     edge_lengths.reserve(triangulation.number_of_finite_edges());
 
     for (auto it = triangulation.finite_edges_begin();
-         it != triangulation.finite_edges_end(); ++it) {
+         it != triangulation.finite_edges_end();
+         ++it) {
       edge_lengths.push_back((it->first->vertex(it->second)->point() -
                               it->first->vertex(it->third)->point())
                                  .squared_length());
@@ -509,8 +512,8 @@ struct DelaunayTriangulationRayCaster {
         for (const auto& hull_facet : hull_facets_) {
           // Check if the ray origin is infront of the facet.
           const K::Triangle_3 triangle = triangulation_.triangle(hull_facet);
-          if (CGAL::orientation(triangle[0], triangle[1], triangle[2],
-                                ray_segment.start()) ==
+          if (CGAL::orientation(
+                  triangle[0], triangle[1], triangle[2], ray_segment.start()) ==
               K::Orientation::NEGATIVE) {
             continue;
           }
@@ -548,8 +551,8 @@ struct DelaunayTriangulationRayCaster {
         for (int i = 0; i < 4; ++i) {
           // Check if the ray origin is infront of the facet.
           const K::Triangle_3 triangle = triangulation_.triangle(next_cell, i);
-          if (CGAL::orientation(triangle[0], triangle[1], triangle[2],
-                                ray_segment.start()) ==
+          if (CGAL::orientation(
+                  triangle[0], triangle[1], triangle[2], ray_segment.start()) ==
               K::Orientation::NEGATIVE) {
             continue;
           }
@@ -588,7 +591,8 @@ struct DelaunayTriangulationRayCaster {
   // Find all finite facets of infinite cells.
   void FindHullFacets() {
     for (auto it = triangulation_.all_cells_begin();
-         it != triangulation_.all_cells_end(); ++it) {
+         it != triangulation_.all_cells_end();
+         ++it) {
       if (triangulation_.is_infinite(it)) {
         for (int i = 0; i < 4; ++i) {
           if (!triangulation_.is_infinite(it, i)) {
@@ -654,20 +658,23 @@ void WriteDelaunayTriangulationPly(const std::string& path,
   std::unordered_map<const Delaunay::Vertex_handle, size_t> vertex_indices;
   vertex_indices.reserve(triangulation.number_of_vertices());
   for (auto it = triangulation.finite_vertices_begin();
-       it != triangulation.finite_vertices_end(); ++it) {
+       it != triangulation.finite_vertices_end();
+       ++it) {
     vertex_indices.emplace(it, vertex_indices.size());
     file << it->point().x() << " " << it->point().y() << " " << it->point().z()
          << std::endl;
   }
 
   for (auto it = triangulation.finite_edges_begin();
-       it != triangulation.finite_edges_end(); ++it) {
+       it != triangulation.finite_edges_end();
+       ++it) {
     file << vertex_indices.at(it->first->vertex(it->second)) << " "
          << vertex_indices.at(it->first->vertex(it->third)) << std::endl;
   }
 
   for (auto it = triangulation.finite_facets_begin();
-       it != triangulation.finite_facets_end(); ++it) {
+       it != triangulation.finite_facets_end();
+       ++it) {
     file << "3 "
          << vertex_indices.at(it->first->vertex(
                 triangulation.vertex_triple_index(it->second, 0)))
@@ -721,7 +728,8 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
   CellGraphData cell_graph_data;
   cell_graph_data.reserve(triangulation.number_of_cells());
   for (auto it = triangulation.all_cells_begin();
-       it != triangulation.all_cells_end(); ++it) {
+       it != triangulation.all_cells_end();
+       ++it) {
     cell_graph_data.emplace(it, DelaunayCellData(cell_graph_data.size()));
   }
 
@@ -838,7 +846,8 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
     Timer timer;
     timer.Start();
 
-    std::cout << StringPrintf("Integrating image [%d/%d]", i + 1,
+    std::cout << StringPrintf("Integrating image [%d/%d]",
+                              i + 1,
                               input_data.images.size())
               << std::flush;
 
@@ -876,7 +885,8 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
   // Iterate all cells in the triangulation.
   for (auto& cell_data : cell_graph_data) {
-    graph_cut.AddNode(cell_data.second.index, cell_data.second.source_weight,
+    graph_cut.AddNode(cell_data.second.index,
+                      cell_data.second.source_weight,
                       cell_data.second.sink_weight);
 
     // Iterate all facets of the current cell to accumulate edge weight.
@@ -908,8 +918,10 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
           mirror_cell_data.edge_weights[mirror_facet.second] +
           edge_shape_weight;
 
-      graph_cut.AddEdge(cell_data.second.index, mirror_cell_data.index,
-                        forward_edge_weight, backward_edge_weight);
+      graph_cut.AddEdge(cell_data.second.index,
+                        mirror_cell_data.index,
+                        forward_edge_weight,
+                        backward_edge_weight);
     }
   }
 
@@ -925,7 +937,8 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
   std::vector<float> surface_facet_side_lengths;
 
   for (auto it = triangulation.finite_facets_begin();
-       it != triangulation.finite_facets_end(); ++it) {
+       it != triangulation.finite_facets_end();
+       ++it) {
     const auto& cell_data = cell_graph_data.at(it->first);
     const auto& mirror_cell_data =
         cell_graph_data.at(it->first->neighbor(it->second));
@@ -973,8 +986,8 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
   surface_vertex_indices.reserve(surface_vertices.size());
   mesh.vertices.reserve(surface_vertices.size());
   for (const auto& vertex : surface_vertices) {
-    mesh.vertices.emplace_back(vertex->point().x(), vertex->point().y(),
-                               vertex->point().z());
+    mesh.vertices.emplace_back(
+        vertex->point().x(), vertex->point().y(), vertex->point().z());
     surface_vertex_indices.emplace(vertex, surface_vertex_indices.size());
   }
 

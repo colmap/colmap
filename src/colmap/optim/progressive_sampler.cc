@@ -31,10 +31,10 @@
 
 #include "colmap/optim/progressive_sampler.h"
 
-#include <numeric>
-
 #include "colmap/util/misc.h"
 #include "colmap/util/random.h"
+
+#include <numeric>
 
 namespace colmap {
 

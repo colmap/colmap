@@ -30,12 +30,12 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "estimators/homography_matrix"
+#include "colmap/estimators/homography_matrix.h"
+
 #include "colmap/util/testing.h"
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-
-#include "colmap/estimators/homography_matrix.h"
 
 using namespace colmap;
 

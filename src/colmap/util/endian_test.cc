@@ -30,10 +30,10 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "util/endian"
-#include "colmap/util/testing.h"
-
 #include "colmap/util/endian.h"
+
 #include "colmap/util/random.h"
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 

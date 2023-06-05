@@ -30,11 +30,11 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/cost_functions"
-#include "colmap/util/testing.h"
+#include "colmap/base/cost_functions.h"
 
 #include "colmap/base/camera_models.h"
-#include "colmap/base/cost_functions.h"
 #include "colmap/base/pose.h"
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 
@@ -109,8 +109,8 @@ BOOST_AUTO_TEST_CASE(TestRigBundleAdjustmentCostFunction) {
   double point3D[3] = {0, 0, 1};
   double camera_params[3] = {1, 0, 0};
   double residuals[2];
-  const double* parameters[6] = {rig_qvec, rig_tvec, rel_qvec,
-                                 rel_tvec, point3D,  camera_params};
+  const double* parameters[6] = {
+      rig_qvec, rig_tvec, rel_qvec, rel_tvec, point3D, camera_params};
   BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
   BOOST_CHECK_EQUAL(residuals[0], 0);
   BOOST_CHECK_EQUAL(residuals[1], 0);

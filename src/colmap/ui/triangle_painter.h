@@ -32,10 +32,10 @@
 #ifndef COLMAP_SRC_UI_TRIANGLE_PAINTER_H_
 #define COLMAP_SRC_UI_TRIANGLE_PAINTER_H_
 
+#include "colmap/ui/point_painter.h"
+
 #include <QtCore>
 #include <QtOpenGL>
-
-#include "colmap/ui/point_painter.h"
 
 namespace colmap {
 
@@ -46,7 +46,8 @@ class TrianglePainter {
 
   struct Data {
     Data() {}
-    Data(const PointPainter::Data& p1, const PointPainter::Data& p2,
+    Data(const PointPainter::Data& p1,
+         const PointPainter::Data& p2,
          const PointPainter::Data& p3)
         : point1(p1), point2(p2), point3(p3) {}
 

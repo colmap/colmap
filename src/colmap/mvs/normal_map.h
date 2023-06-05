@@ -32,11 +32,11 @@
 #ifndef COLMAP_SRC_MVS_NORMAL_MAP_H_
 #define COLMAP_SRC_MVS_NORMAL_MAP_H_
 
-#include <string>
-#include <vector>
-
 #include "colmap/mvs/mat.h"
 #include "colmap/util/bitmap.h"
+
+#include <string>
+#include <vector>
 
 namespace colmap {
 namespace mvs {

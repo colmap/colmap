@@ -32,13 +32,13 @@
 #ifndef COLMAP_SRC_BASE_POINT3D_H_
 #define COLMAP_SRC_BASE_POINT3D_H_
 
-#include <vector>
-
-#include <Eigen/Core>
-
 #include "colmap/base/track.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
+
+#include <vector>
+
+#include <Eigen/Core>
 
 namespace colmap {
 

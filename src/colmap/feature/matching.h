@@ -32,16 +32,16 @@
 #ifndef COLMAP_SRC_FEATURE_MATCHING_H_
 #define COLMAP_SRC_FEATURE_MATCHING_H_
 
-#include <array>
-#include <string>
-#include <vector>
-
 #include "colmap/base/database.h"
 #include "colmap/feature/sift.h"
 #include "colmap/util/cache.h"
 #include "colmap/util/opengl_utils.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
+
+#include <array>
+#include <string>
+#include <vector>
 
 namespace colmap {
 
@@ -198,9 +198,11 @@ class FeatureMatcherCache {
   bool ExistsMatches(const image_t image_id1, const image_t image_id2);
   bool ExistsInlierMatches(const image_t image_id1, const image_t image_id2);
 
-  void WriteMatches(const image_t image_id1, const image_t image_id2,
+  void WriteMatches(const image_t image_id1,
+                    const image_t image_id2,
                     const FeatureMatches& matches);
-  void WriteTwoViewGeometry(const image_t image_id1, const image_t image_id2,
+  void WriteTwoViewGeometry(const image_t image_id1,
+                            const image_t image_id2,
                             const TwoViewGeometry& two_view_geometry);
 
   void DeleteMatches(const image_t image_id1, const image_t image_id2);
@@ -260,7 +262,8 @@ class SiftGPUFeatureMatcher : public FeatureMatcherThread {
  protected:
   void Run() override;
 
-  void GetDescriptorData(const int index, const image_t image_id,
+  void GetDescriptorData(const int index,
+                         const image_t image_id,
                          const FeatureDescriptors** descriptors_ptr);
 
   JobQueue<Input>* input_queue_;
@@ -303,7 +306,8 @@ class GuidedSiftGPUFeatureMatcher : public FeatureMatcherThread {
  private:
   void Run() override;
 
-  void GetFeatureData(const int index, const image_t image_id,
+  void GetFeatureData(const int index,
+                      const image_t image_id,
                       const FeatureKeypoints** keypoints_ptr,
                       const FeatureDescriptors** descriptors_ptr);
 
@@ -345,7 +349,8 @@ class TwoViewGeometryVerifier : public Thread {
 // database should be in an active transaction while calling `Match`.
 class SiftFeatureMatcher {
  public:
-  SiftFeatureMatcher(const SiftMatchingOptions& options, Database* database,
+  SiftFeatureMatcher(const SiftMatchingOptions& options,
+                     Database* database,
                      FeatureMatcherCache* cache);
 
   ~SiftFeatureMatcher();

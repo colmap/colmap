@@ -55,12 +55,14 @@ T EvaluatePolynomial(const Eigen::VectorXd& coeffs, const T& x);
 // Find the root of polynomials of the form: a * x + b = 0.
 // The real and/or imaginary variable may be NULL if the output is not needed.
 bool FindLinearPolynomialRoots(const Eigen::VectorXd& coeffs,
-                               Eigen::VectorXd* real, Eigen::VectorXd* imag);
+                               Eigen::VectorXd* real,
+                               Eigen::VectorXd* imag);
 
 // Find the roots of polynomials of the form: a * x^2 + b * x + c = 0.
 // The real and/or imaginary variable may be NULL if the output is not needed.
 bool FindQuadraticPolynomialRoots(const Eigen::VectorXd& coeffs,
-                                  Eigen::VectorXd* real, Eigen::VectorXd* imag);
+                                  Eigen::VectorXd* real,
+                                  Eigen::VectorXd* imag);
 
 // Find the roots of a polynomial using the Durand-Kerner method, based on:
 //

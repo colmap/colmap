@@ -32,11 +32,11 @@
 #ifndef COLMAP_SRC_ESTIMATORS_UTILS_H_
 #define COLMAP_SRC_ESTIMATORS_UTILS_H_
 
+#include "colmap/util/types.h"
+
 #include <vector>
 
 #include <Eigen/Core>
-
-#include "colmap/util/types.h"
 
 namespace colmap {
 
@@ -84,7 +84,8 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
 void ComputeSquaredReprojectionError(
     const std::vector<Eigen::Vector2d>& points2D,
     const std::vector<Eigen::Vector3d>& points3D,
-    const Eigen::Matrix3x4d& proj_matrix, std::vector<double>* residuals);
+    const Eigen::Matrix3x4d& proj_matrix,
+    std::vector<double>* residuals);
 
 }  // namespace colmap
 

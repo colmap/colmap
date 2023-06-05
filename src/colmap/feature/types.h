@@ -32,23 +32,30 @@
 #ifndef COLMAP_SRC_FEATURE_TYPES_H_
 #define COLMAP_SRC_FEATURE_TYPES_H_
 
+#include "colmap/util/types.h"
+
 #include <vector>
 
 #include <Eigen/Core>
-
-#include "colmap/util/types.h"
 
 namespace colmap {
 
 struct FeatureKeypoint {
   FeatureKeypoint();
   FeatureKeypoint(const float x, const float y);
-  FeatureKeypoint(const float x, const float y, const float scale,
+  FeatureKeypoint(const float x,
+                  const float y,
+                  const float scale,
                   const float orientation);
-  FeatureKeypoint(const float x, const float y, const float a11,
-                  const float a12, const float a21, const float a22);
+  FeatureKeypoint(const float x,
+                  const float y,
+                  const float a11,
+                  const float a12,
+                  const float a21,
+                  const float a22);
 
-  static FeatureKeypoint FromParameters(const float x, const float y,
+  static FeatureKeypoint FromParameters(const float x,
+                                        const float y,
                                         const float scale_x,
                                         const float scale_y,
                                         const float orientation,

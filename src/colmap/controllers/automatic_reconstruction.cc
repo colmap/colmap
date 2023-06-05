@@ -108,7 +108,8 @@ AutomaticReconstructionController::AutomaticReconstructionController(
       reader_options, *option_manager_.sift_extraction);
 
   exhaustive_matcher_ = std::make_unique<ExhaustiveFeatureMatcher>(
-      *option_manager_.exhaustive_matching, *option_manager_.sift_matching,
+      *option_manager_.exhaustive_matching,
+      *option_manager_.sift_matching,
       *option_manager_.database_path);
 
   if (!options_.vocab_tree_path.empty()) {
@@ -118,14 +119,16 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   }
 
   sequential_matcher_ = std::make_unique<SequentialFeatureMatcher>(
-      *option_manager_.sequential_matching, *option_manager_.sift_matching,
+      *option_manager_.sequential_matching,
+      *option_manager_.sift_matching,
       *option_manager_.database_path);
 
   if (!options_.vocab_tree_path.empty()) {
     option_manager_.vocab_tree_matching->vocab_tree_path =
         options_.vocab_tree_path;
     vocab_tree_matcher_ = std::make_unique<VocabTreeFeatureMatcher>(
-        *option_manager_.vocab_tree_matching, *option_manager_.sift_matching,
+        *option_manager_.vocab_tree_matching,
+        *option_manager_.sift_matching,
         *option_manager_.database_path);
   }
 }
@@ -218,9 +221,10 @@ void AutomaticReconstructionController::RunSparseMapper() {
     }
   }
 
-  IncrementalMapperController mapper(
-      option_manager_.mapper.get(), *option_manager_.image_path,
-      *option_manager_.database_path, reconstruction_manager_);
+  IncrementalMapperController mapper(option_manager_.mapper.get(),
+                                     *option_manager_.image_path,
+                                     *option_manager_.database_path,
+                                     reconstruction_manager_);
   active_thread_ = &mapper;
   mapper.Start();
   mapper.Wait();
@@ -263,7 +267,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
           option_manager_.patch_match_stereo->max_image_size;
       COLMAPUndistorter undistorter(undistortion_options,
                                     reconstruction_manager_->Get(i),
-                                    *option_manager_.image_path, dense_path);
+                                    *option_manager_.image_path,
+                                    dense_path);
       active_thread_ = &undistorter;
       undistorter.Start();
       undistorter.Wait();
@@ -305,7 +310,10 @@ void AutomaticReconstructionController::RunDenseMapper() {
       fusion_options.min_num_pixels =
           std::min(num_reg_images + 1, fusion_options.min_num_pixels);
       mvs::StereoFusion fuser(
-          fusion_options, dense_path, "COLMAP", "",
+          fusion_options,
+          dense_path,
+          "COLMAP",
+          "",
           options_.quality == Quality::HIGH ? "geometric" : "photometric");
       active_thread_ = &fuser;
       fuser.Start();
@@ -326,12 +334,12 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     if (!ExistsFile(meshing_path)) {
       if (options_.mesher == Mesher::POISSON) {
-        mvs::PoissonMeshing(*option_manager_.poisson_meshing, fused_path,
-                            meshing_path);
+        mvs::PoissonMeshing(
+            *option_manager_.poisson_meshing, fused_path, meshing_path);
       } else if (options_.mesher == Mesher::DELAUNAY) {
 #ifdef CGAL_ENABLED
-        mvs::DenseDelaunayMeshing(*option_manager_.delaunay_meshing, dense_path,
-                                  meshing_path);
+        mvs::DenseDelaunayMeshing(
+            *option_manager_.delaunay_meshing, dense_path, meshing_path);
 #else  // CGAL_ENABLED
         std::cout << std::endl
                   << "WARNING: Skipping Delaunay meshing because CGAL is "

@@ -30,14 +30,14 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/database"
+#include "colmap/base/database.h"
+
+#include "colmap/base/pose.h"
 #include "colmap/util/testing.h"
 
 #include <thread>
 
 #include <Eigen/Geometry>
-
-#include "colmap/base/database.h"
-#include "colmap/base/pose.h"
 
 using namespace colmap;
 
@@ -373,8 +373,10 @@ BOOST_AUTO_TEST_CASE(TestTwoViewGeometry) {
 
   Eigen::Vector4d read_inv_qvec_inv;
   Eigen::Vector3d read_inv_tvec_inv;
-  InvertPose(two_view_geometry_read_inv.qvec, two_view_geometry_read_inv.tvec,
-             &read_inv_qvec_inv, &read_inv_tvec_inv);
+  InvertPose(two_view_geometry_read_inv.qvec,
+             two_view_geometry_read_inv.tvec,
+             &read_inv_qvec_inv,
+             &read_inv_tvec_inv);
   BOOST_CHECK_EQUAL(read_inv_qvec_inv, two_view_geometry_read.qvec);
   BOOST_CHECK(read_inv_tvec_inv.isApprox(two_view_geometry_read.tvec));
 

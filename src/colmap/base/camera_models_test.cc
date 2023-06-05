@@ -30,14 +30,15 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/camera_models"
-#include "colmap/util/testing.h"
-
 #include "colmap/base/camera_models.h"
+
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 
 template <typename CameraModel>
-void TestWorldToImageToWorld(const std::vector<double> params, const double u0,
+void TestWorldToImageToWorld(const std::vector<double> params,
+                             const double u0,
                              const double v0) {
   double u, v, x, y, xx, yy;
   CameraModel::WorldToImage(params.data(), u0, v0, &x, &y);
@@ -50,7 +51,8 @@ void TestWorldToImageToWorld(const std::vector<double> params, const double u0,
 }
 
 template <typename CameraModel>
-void TestImageToWorldToImage(const std::vector<double> params, const double x0,
+void TestImageToWorldToImage(const std::vector<double> params,
+                             const double x0,
                              const double y0) {
   double u, v, x, y, uu, vv;
   CameraModel::ImageToWorld(params.data(), x0, y0, &u, &v);
@@ -81,23 +83,23 @@ void TestModel(const std::vector<double>& params) {
   BOOST_CHECK_EQUAL(CameraModelNumParams(CameraModel::model_id),
                     CameraModel::num_params);
 
-  BOOST_CHECK(!CameraModelHasBogusParams(CameraModel::model_id, default_params,
-                                         100, 100, 0.1, 2.0, 1.0));
-  BOOST_CHECK(CameraModelHasBogusParams(CameraModel::model_id, default_params,
-                                        100, 100, 0.1, 0.5, 1.0));
-  BOOST_CHECK(CameraModelHasBogusParams(CameraModel::model_id, default_params,
-                                        100, 100, 1.5, 2.0, 1.0));
+  BOOST_CHECK(!CameraModelHasBogusParams(
+      CameraModel::model_id, default_params, 100, 100, 0.1, 2.0, 1.0));
+  BOOST_CHECK(CameraModelHasBogusParams(
+      CameraModel::model_id, default_params, 100, 100, 0.1, 0.5, 1.0));
+  BOOST_CHECK(CameraModelHasBogusParams(
+      CameraModel::model_id, default_params, 100, 100, 1.5, 2.0, 1.0));
   if (CameraModel::extra_params_idxs.size() > 0) {
-    BOOST_CHECK(CameraModelHasBogusParams(CameraModel::model_id, default_params,
-                                          100, 100, 0.1, 2.0, -0.1));
+    BOOST_CHECK(CameraModelHasBogusParams(
+        CameraModel::model_id, default_params, 100, 100, 0.1, 2.0, -0.1));
   }
 
   BOOST_CHECK_EQUAL(
       CameraModelImageToWorldThreshold(CameraModel::model_id, params, 0), 0);
   BOOST_CHECK_GT(
       CameraModelImageToWorldThreshold(CameraModel::model_id, params, 1), 0);
-  BOOST_CHECK_EQUAL(CameraModelImageToWorldThreshold(CameraModel::model_id,
-                                                     default_params, 1),
+  BOOST_CHECK_EQUAL(CameraModelImageToWorldThreshold(
+                        CameraModel::model_id, default_params, 1),
                     1.0 / 100.0);
 
   BOOST_CHECK(ExistsCameraModelWithName(CameraModel::model_name));
@@ -126,8 +128,8 @@ void TestModel(const std::vector<double>& params) {
   }
 
   const auto pp_idxs = CameraModel::principal_point_idxs;
-  TestImageToWorldToImage<CameraModel>(params, params[pp_idxs.at(0)],
-                                       params[pp_idxs.at(1)]);
+  TestImageToWorldToImage<CameraModel>(
+      params, params[pp_idxs.at(0)], params[pp_idxs.at(1)]);
 }
 
 BOOST_AUTO_TEST_CASE(TestSimplePinhole) {
@@ -159,21 +161,30 @@ BOOST_AUTO_TEST_CASE(TestRadial) {
 }
 
 BOOST_AUTO_TEST_CASE(TestOpenCV) {
-  std::vector<double> params = {651.123, 655.123, 386.123, 511.123,
-                                -0.471,  0.223,   -0.001,  0.001};
+  std::vector<double> params = {
+      651.123, 655.123, 386.123, 511.123, -0.471, 0.223, -0.001, 0.001};
   TestModel<OpenCVCameraModel>(params);
 }
 
 BOOST_AUTO_TEST_CASE(TestOpenCVFisheye) {
-  std::vector<double> params = {651.123, 655.123, 386.123, 511.123,
-                                -0.471,  0.223,   -0.001,  0.001};
+  std::vector<double> params = {
+      651.123, 655.123, 386.123, 511.123, -0.471, 0.223, -0.001, 0.001};
   TestModel<OpenCVFisheyeCameraModel>(params);
 }
 
 BOOST_AUTO_TEST_CASE(TestFullOpenCV) {
-  std::vector<double> params = {651.123, 655.123, 386.123, 511.123,
-                                -0.471,  0.223,   -0.001,  0.001,
-                                0.001,   0.02,    -0.02,   0.001};
+  std::vector<double> params = {651.123,
+                                655.123,
+                                386.123,
+                                511.123,
+                                -0.471,
+                                0.223,
+                                -0.001,
+                                0.001,
+                                0.001,
+                                0.02,
+                                -0.02,
+                                0.001};
   TestModel<FullOpenCVCameraModel>(params);
 }
 
@@ -211,8 +222,17 @@ BOOST_AUTO_TEST_CASE(TestRadialFisheye) {
 }
 
 BOOST_AUTO_TEST_CASE(TestThinPrismFisheye) {
-  std::vector<double> params = {651.123, 655.123, 386.123, 511.123,
-                                -0.471,  0.223,   -0.001,  0.001,
-                                0.001,   0.02,    -0.02,   0.001};
+  std::vector<double> params = {651.123,
+                                655.123,
+                                386.123,
+                                511.123,
+                                -0.471,
+                                0.223,
+                                -0.001,
+                                0.001,
+                                0.001,
+                                0.02,
+                                -0.02,
+                                0.001};
   TestModel<ThinPrismFisheyeCameraModel>(params);
 }

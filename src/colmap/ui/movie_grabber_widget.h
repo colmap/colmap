@@ -32,13 +32,12 @@
 #ifndef COLMAP_SRC_UI_MOVIE_GRABBER_WIDGET_H_
 #define COLMAP_SRC_UI_MOVIE_GRABBER_WIDGET_H_
 
-#include <unordered_map>
+#include "colmap/base/reconstruction.h"
 
 #include <QtCore>
 #include <QtGui>
 #include <QtWidgets>
-
-#include "colmap/base/reconstruction.h"
+#include <unordered_map>
 
 namespace colmap {
 

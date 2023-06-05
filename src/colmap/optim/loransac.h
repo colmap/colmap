@@ -32,22 +32,23 @@
 #ifndef COLMAP_SRC_OPTIM_LORANSAC_H_
 #define COLMAP_SRC_OPTIM_LORANSAC_H_
 
-#include <cfloat>
-#include <random>
-#include <stdexcept>
-#include <vector>
-
 #include "colmap/optim/random_sampler.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/optim/support_measurement.h"
 #include "colmap/util/logging.h"
+
+#include <cfloat>
+#include <random>
+#include <stdexcept>
+#include <vector>
 
 namespace colmap {
 
 // Implementation of LO-RANSAC (Locally Optimized RANSAC).
 //
 // "Locally Optimized RANSAC" Ondrej Chum, Jiri Matas, Josef Kittler, DAGM 2003.
-template <typename Estimator, typename LocalEstimator,
+template <typename Estimator,
+          typename LocalEstimator,
           typename SupportMeasurer = InlierSupportMeasurer,
           typename Sampler = RandomSampler>
 class LORANSAC : public RANSAC<Estimator, SupportMeasurer, Sampler> {
@@ -79,13 +80,17 @@ class LORANSAC : public RANSAC<Estimator, SupportMeasurer, Sampler> {
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-template <typename Estimator, typename LocalEstimator, typename SupportMeasurer,
+template <typename Estimator,
+          typename LocalEstimator,
+          typename SupportMeasurer,
           typename Sampler>
 LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::LORANSAC(
     const RANSACOptions& options)
     : RANSAC<Estimator, SupportMeasurer, Sampler>(options) {}
 
-template <typename Estimator, typename LocalEstimator, typename SupportMeasurer,
+template <typename Estimator,
+          typename LocalEstimator,
+          typename SupportMeasurer,
           typename Sampler>
 typename LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Report
 LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
@@ -158,7 +163,8 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
           // Recursive local optimization to expand inlier set.
           const size_t kMaxNumLocalTrials = 10;
           for (size_t local_num_trials = 0;
-               local_num_trials < kMaxNumLocalTrials; ++local_num_trials) {
+               local_num_trials < kMaxNumLocalTrials;
+               ++local_num_trials) {
             X_inlier.clear();
             Y_inlier.clear();
             X_inlier.reserve(num_samples);
@@ -205,7 +211,9 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
 
         dyn_max_num_trials =
             RANSAC<Estimator, SupportMeasurer, Sampler>::ComputeNumTrials(
-                best_support.num_inliers, num_samples, options_.confidence,
+                best_support.num_inliers,
+                num_samples,
+                options_.confidence,
                 options_.dyn_num_trials_multiplier);
       }
 

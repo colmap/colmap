@@ -32,11 +32,11 @@
 #ifndef COLMAP_SRC_UI_FEATURE_MATCHING_WIDGET_H_
 #define COLMAP_SRC_UI_FEATURE_MATCHING_WIDGET_H_
 
-#include <QtCore>
-#include <QtWidgets>
-
 #include "colmap/util/misc.h"
 #include "colmap/util/option_manager.h"
+
+#include <QtCore>
+#include <QtWidgets>
 
 namespace colmap {
 

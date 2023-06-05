@@ -30,12 +30,12 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "optim/least_absolute_deviations"
+#include "colmap/optim/least_absolute_deviations.h"
+
+#include "colmap/util/random.h"
 #include "colmap/util/testing.h"
 
 #include <Eigen/Dense>
-
-#include "colmap/optim/least_absolute_deviations.h"
-#include "colmap/util/random.h"
 
 using namespace colmap;
 

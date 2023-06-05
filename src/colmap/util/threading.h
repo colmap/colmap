@@ -32,6 +32,8 @@
 #ifndef COLMAP_SRC_UTIL_THREADING_
 #define COLMAP_SRC_UTIL_THREADING_
 
+#include "colmap/util/timer.h"
+
 #include <atomic>
 #include <climits>
 #include <functional>
@@ -40,8 +42,6 @@
 #include <queue>
 #include <thread>
 #include <unordered_map>
-
-#include "colmap/util/timer.h"
 
 namespace colmap {
 

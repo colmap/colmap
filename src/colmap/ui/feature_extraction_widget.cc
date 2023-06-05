@@ -85,8 +85,12 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
   AddOptionInt(&options->sift_extraction->num_octaves, "num_octaves");
   AddOptionInt(&options->sift_extraction->octave_resolution,
                "octave_resolution");
-  AddOptionDouble(&options->sift_extraction->peak_threshold, "peak_threshold",
-                  0.0, 1e7, 0.00001, 5);
+  AddOptionDouble(&options->sift_extraction->peak_threshold,
+                  "peak_threshold",
+                  0.0,
+                  1e7,
+                  0.00001,
+                  5);
   AddOptionDouble(&options->sift_extraction->edge_threshold, "edge_threshold");
   AddOptionBool(&options->sift_extraction->estimate_affine_shape,
                 "estimate_affine_shape");
@@ -95,10 +99,18 @@ SIFTExtractionWidget::SIFTExtractionWidget(QWidget* parent,
   AddOptionBool(&options->sift_extraction->upright, "upright");
   AddOptionBool(&options->sift_extraction->domain_size_pooling,
                 "domain_size_pooling");
-  AddOptionDouble(&options->sift_extraction->dsp_min_scale, "dsp_min_scale",
-                  0.0, 1e7, 0.00001, 5);
-  AddOptionDouble(&options->sift_extraction->dsp_max_scale, "dsp_max_scale",
-                  0.0, 1e7, 0.00001, 5);
+  AddOptionDouble(&options->sift_extraction->dsp_min_scale,
+                  "dsp_min_scale",
+                  0.0,
+                  1e7,
+                  0.00001,
+                  5);
+  AddOptionDouble(&options->sift_extraction->dsp_max_scale,
+                  "dsp_max_scale",
+                  0.0,
+                  1e7,
+                  0.00001,
+                  5);
   AddOptionInt(&options->sift_extraction->dsp_num_scales, "dsp_num_scales", 1);
 
   AddOptionInt(&options->sift_extraction->num_threads, "num_threads", -1);
@@ -115,8 +127,8 @@ void SIFTExtractionWidget::Run() {
 
   auto extractor = std::make_unique<SiftFeatureExtractor>(
       reader_options, *options_->sift_extraction);
-  thread_control_widget_->StartThread("Extracting...", true,
-                                      std::move(extractor));
+  thread_control_widget_->StartThread(
+      "Extracting...", true, std::move(extractor));
 }
 
 ImportFeaturesWidget::ImportFeaturesWidget(QWidget* parent,
@@ -139,8 +151,8 @@ void ImportFeaturesWidget::Run() {
 
   auto importer =
       std::make_unique<FeatureImporter>(reader_options, import_path_);
-  thread_control_widget_->StartThread("Importing...", true,
-                                      std::move(importer));
+  thread_control_widget_->StartThread(
+      "Importing...", true, std::move(importer));
 }
 
 FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
@@ -170,7 +182,9 @@ FeatureExtractionWidget::FeatureExtractionWidget(QWidget* parent,
   grid->addWidget(tab_widget_);
 
   QPushButton* extract_button = new QPushButton(tr("Extract"), this);
-  connect(extract_button, &QPushButton::released, this,
+  connect(extract_button,
+          &QPushButton::released,
+          this,
           &FeatureExtractionWidget::Extract);
   grid->addWidget(extract_button, grid->rowCount(), 0);
 }
@@ -225,11 +239,16 @@ QGroupBox* FeatureExtractionWidget::CreateCameraModelBox() {
   SelectCameraModel(camera_model_cb_->currentIndex());
 
   connect(camera_model_cb_,
-          (void(QComboBox::*)(int)) & QComboBox::currentIndexChanged, this,
+          (void(QComboBox::*)(int)) & QComboBox::currentIndexChanged,
+          this,
           &FeatureExtractionWidget::SelectCameraModel);
-  connect(camera_params_exif_rb_, &QRadioButton::clicked, camera_params_text_,
+  connect(camera_params_exif_rb_,
+          &QRadioButton::clicked,
+          camera_params_text_,
           &QLineEdit::setDisabled);
-  connect(camera_params_custom_rb_, &QRadioButton::clicked, camera_params_text_,
+  connect(camera_params_custom_rb_,
+          &QRadioButton::clicked,
+          camera_params_text_,
           &QLineEdit::setEnabled);
 
   return box;

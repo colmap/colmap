@@ -32,10 +32,10 @@
 #ifndef COLMAP_SRC_UI_LINE_PAINTER_H_
 #define COLMAP_SRC_UI_LINE_PAINTER_H_
 
+#include "colmap/ui/point_painter.h"
+
 #include <QtCore>
 #include <QtOpenGL>
-
-#include "colmap/ui/point_painter.h"
 
 namespace colmap {
 
@@ -55,7 +55,9 @@ class LinePainter {
 
   void Setup();
   void Upload(const std::vector<LinePainter::Data>& data);
-  void Render(const QMatrix4x4& pmv_matrix, const int width, const int height,
+  void Render(const QMatrix4x4& pmv_matrix,
+              const int width,
+              const int height,
               const float line_width);
 
  private:

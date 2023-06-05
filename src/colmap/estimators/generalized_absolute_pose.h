@@ -32,11 +32,11 @@
 #ifndef COLMAP_SRC_ESTIMATORS_GENERALIZED_ABSOLUTE_POSE_H_
 #define COLMAP_SRC_ESTIMATORS_GENERALIZED_ABSOLUTE_POSE_H_
 
+#include "colmap/util/types.h"
+
 #include <vector>
 
 #include <Eigen/Core>
-
-#include "colmap/util/types.h"
 
 namespace colmap {
 
@@ -87,7 +87,8 @@ class GP3PEstimator {
   // 2D-3D point correspondences and a projection matrix of the generalized
   // camera.
   void Residuals(const std::vector<X_t>& points2D,
-                 const std::vector<Y_t>& points3D, const M_t& proj_matrix,
+                 const std::vector<Y_t>& points3D,
+                 const M_t& proj_matrix,
                  std::vector<double>* residuals);
 };
 

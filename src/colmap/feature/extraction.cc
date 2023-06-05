@@ -31,17 +31,19 @@
 
 #include "colmap/feature/extraction.h"
 
-#include <numeric>
-
-#include "lib/SiftGPU/SiftGPU.h"
 #include "colmap/feature/sift.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
 
+#include "lib/SiftGPU/SiftGPU.h"
+
+#include <numeric>
+
 namespace colmap {
 namespace {
 
-void ScaleKeypoints(const Bitmap& bitmap, const Camera& camera,
+void ScaleKeypoints(const Bitmap& bitmap,
+                    const Camera& camera,
                     FeatureKeypoints* keypoints) {
   if (static_cast<size_t>(bitmap.Width()) != camera.Width() ||
       static_cast<size_t>(bitmap.Height()) != camera.Height()) {
@@ -53,13 +55,15 @@ void ScaleKeypoints(const Bitmap& bitmap, const Camera& camera,
   }
 }
 
-void MaskKeypoints(const Bitmap& mask, FeatureKeypoints* keypoints,
+void MaskKeypoints(const Bitmap& mask,
+                   FeatureKeypoints* keypoints,
                    FeatureDescriptors* descriptors) {
   size_t out_index = 0;
   BitmapColor<uint8_t> color;
   for (size_t i = 0; i < keypoints->size(); ++i) {
     if (!mask.GetPixel(static_cast<int>(keypoints->at(i).x),
-                       static_cast<int>(keypoints->at(i).y), &color) ||
+                       static_cast<int>(keypoints->at(i).y),
+                       &color) ||
         color.r == 0) {
       // Delete this keypoint by not copying it to the output.
     } else {
@@ -117,7 +121,8 @@ SiftFeatureExtractor::SiftFeatureExtractor(
   if (sift_options_.max_image_size > 0) {
     for (int i = 0; i < num_threads; ++i) {
       resizers_.emplace_back(std::make_unique<internal::ImageResizerThread>(
-          sift_options_.max_image_size, resizer_queue_.get(),
+          sift_options_.max_image_size,
+          resizer_queue_.get(),
           extractor_queue_.get()));
     }
   }
@@ -141,7 +146,9 @@ SiftFeatureExtractor::SiftFeatureExtractor(
       sift_gpu_options.gpu_index = std::to_string(gpu_index);
       extractors_.emplace_back(
           std::make_unique<internal::SiftFeatureExtractorThread>(
-              sift_gpu_options, camera_mask, extractor_queue_.get(),
+              sift_gpu_options,
+              camera_mask,
+              extractor_queue_.get(),
               writer_queue_.get()));
     }
   } else {
@@ -165,7 +172,9 @@ SiftFeatureExtractor::SiftFeatureExtractor(
     for (int i = 0; i < num_threads; ++i) {
       extractors_.emplace_back(
           std::make_unique<internal::SiftFeatureExtractorThread>(
-              custom_sift_options, camera_mask, extractor_queue_.get(),
+              custom_sift_options,
+              camera_mask,
+              extractor_queue_.get(),
               writer_queue_.get()));
     }
   }
@@ -203,9 +212,10 @@ void SiftFeatureExtractor::Run() {
     }
 
     internal::ImageData image_data;
-    image_data.status =
-        image_reader_.Next(&image_data.camera, &image_data.image,
-                           &image_data.bitmap, &image_data.mask);
+    image_data.status = image_reader_.Next(&image_data.camera,
+                                           &image_data.image,
+                                           &image_data.bitmap,
+                                           &image_data.mask);
 
     if (image_data.status != ImageReader::Status::SUCCESS) {
       image_data.bitmap.Deallocate();
@@ -346,7 +356,8 @@ void ImageResizerThread::Run() {
 SiftFeatureExtractorThread::SiftFeatureExtractorThread(
     const SiftExtractionOptions& sift_options,
     const std::shared_ptr<Bitmap>& camera_mask,
-    JobQueue<ImageData>* input_queue, JobQueue<ImageData>* output_queue)
+    JobQueue<ImageData>* input_queue,
+    JobQueue<ImageData>* output_queue)
     : sift_options_(sift_options),
       camera_mask_(camera_mask),
       input_queue_(input_queue),
@@ -391,27 +402,32 @@ void SiftFeatureExtractorThread::Run() {
         bool success = false;
         if (sift_options_.estimate_affine_shape ||
             sift_options_.domain_size_pooling) {
-          success = ExtractCovariantSiftFeaturesCPU(
-              sift_options_, image_data.bitmap, &image_data.keypoints,
-              &image_data.descriptors);
+          success = ExtractCovariantSiftFeaturesCPU(sift_options_,
+                                                    image_data.bitmap,
+                                                    &image_data.keypoints,
+                                                    &image_data.descriptors);
         } else if (sift_options_.use_gpu) {
-          success = ExtractSiftFeaturesGPU(
-              sift_options_, image_data.bitmap, sift_gpu.get(),
-              &image_data.keypoints, &image_data.descriptors);
+          success = ExtractSiftFeaturesGPU(sift_options_,
+                                           image_data.bitmap,
+                                           sift_gpu.get(),
+                                           &image_data.keypoints,
+                                           &image_data.descriptors);
         } else {
-          success = ExtractSiftFeaturesCPU(sift_options_, image_data.bitmap,
+          success = ExtractSiftFeaturesCPU(sift_options_,
+                                           image_data.bitmap,
                                            &image_data.keypoints,
                                            &image_data.descriptors);
         }
         if (success) {
-          ScaleKeypoints(image_data.bitmap, image_data.camera,
-                         &image_data.keypoints);
+          ScaleKeypoints(
+              image_data.bitmap, image_data.camera, &image_data.keypoints);
           if (camera_mask_) {
-            MaskKeypoints(*camera_mask_, &image_data.keypoints,
-                          &image_data.descriptors);
+            MaskKeypoints(
+                *camera_mask_, &image_data.keypoints, &image_data.descriptors);
           }
           if (image_data.mask.Data()) {
-            MaskKeypoints(image_data.mask, &image_data.keypoints,
+            MaskKeypoints(image_data.mask,
+                          &image_data.keypoints,
                           &image_data.descriptors);
           }
         } else {
@@ -446,8 +462,8 @@ void FeatureWriterThread::Run() {
 
       image_index += 1;
 
-      std::cout << StringPrintf("Processed file [%d/%d]", image_index,
-                                num_images_)
+      std::cout << StringPrintf(
+                       "Processed file [%d/%d]", image_index, num_images_)
                 << std::endl;
 
       std::cout << StringPrintf("  Name:            %s",

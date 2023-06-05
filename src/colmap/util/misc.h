@@ -32,16 +32,16 @@
 #ifndef COLMAP_SRC_UTIL_MISC_H_
 #define COLMAP_SRC_UTIL_MISC_H_
 
+#include "colmap/util/endian.h"
+#include "colmap/util/logging.h"
+#include "colmap/util/string.h"
+
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
 
 #include <boost/filesystem.hpp>
-
-#include "colmap/util/endian.h"
-#include "colmap/util/logging.h"
-#include "colmap/util/string.h"
 
 namespace colmap {
 
@@ -60,11 +60,13 @@ bool HasFileExtension(const std::string& file_name, const std::string& ext);
 
 // Split the path into its root and extension, for example,
 // "dir/file.jpg" into "dir/file" and ".jpg".
-void SplitFileExtension(const std::string& path, std::string* root,
+void SplitFileExtension(const std::string& path,
+                        std::string* root,
                         std::string* ext);
 
 // Copy or link file from source to destination path
-void FileCopy(const std::string& src_path, const std::string& dst_path,
+void FileCopy(const std::string& src_path,
+              const std::string& dst_path,
               CopyType type = CopyType::COPY);
 
 // Check if the path points to an existing directory.

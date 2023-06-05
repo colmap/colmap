@@ -112,7 +112,8 @@ int RunFeatureExtractor(int argc, char** argv) {
   options.AddDefaultOption("camera_mode", &camera_mode);
   options.AddDefaultOption("image_list_path", &image_list_path);
   options.AddDefaultOption("descriptor_normalization",
-                           &descriptor_normalization, "{'l1_root', 'l2'}");
+                           &descriptor_normalization,
+                           "{'l1_root', 'l2'}");
   options.AddExtractionOptions();
   options.Parse(argc, argv);
 
@@ -253,8 +254,8 @@ int RunMatchesImporter(int argc, char** argv) {
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddRequiredOption("match_list_path", &match_list_path);
-  options.AddDefaultOption("match_type", &match_type,
-                           "{'pairs', 'raw', 'inliers'}");
+  options.AddDefaultOption(
+      "match_type", &match_type, "{'pairs', 'raw', 'inliers'}");
   options.AddMatchingOptions();
   options.Parse(argc, argv);
 

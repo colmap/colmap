@@ -76,14 +76,16 @@ ImageViewerWidget::ImageViewerWidget(QWidget* parent) : QWidget(parent) {
   zoom_in_button->setFont(font);
   zoom_in_button->setFixedWidth(50);
   button_layout_->addWidget(zoom_in_button);
-  connect(zoom_in_button, &QPushButton::released, this,
-          &ImageViewerWidget::ZoomIn);
+  connect(
+      zoom_in_button, &QPushButton::released, this, &ImageViewerWidget::ZoomIn);
 
   QPushButton* zoom_out_button = new QPushButton("-", this);
   zoom_out_button->setFont(font);
   zoom_out_button->setFixedWidth(50);
   button_layout_->addWidget(zoom_out_button);
-  connect(zoom_out_button, &QPushButton::released, this,
+  connect(zoom_out_button,
+          &QPushButton::released,
+          this,
           &ImageViewerWidget::ZoomOut);
 
   QPushButton* save_button = new QPushButton("Save image", this);
@@ -138,7 +140,9 @@ void ImageViewerWidget::ZoomOut() {
 void ImageViewerWidget::Save() {
   QString filter("PNG (*.png)");
   const QString save_path =
-      QFileDialog::getSaveFileName(this, tr("Select destination..."), "",
+      QFileDialog::getSaveFileName(this,
+                                   tr("Select destination..."),
+                                   "",
                                    "PNG (*.png);;JPEG (*.jpg);;BMP (*.bmp)",
                                    &filter)
           .toUtf8()
@@ -160,12 +164,15 @@ FeatureImageViewerWidget::FeatureImageViewerWidget(
   switch_button_ = new QPushButton(tr(("Hide " + switch_text_).c_str()), this);
   switch_button_->setFont(font());
   button_layout_->addWidget(switch_button_);
-  connect(switch_button_, &QPushButton::released, this,
+  connect(switch_button_,
+          &QPushButton::released,
+          this,
           &FeatureImageViewerWidget::ShowOrHide);
 }
 
 void FeatureImageViewerWidget::ReadAndShowWithKeypoints(
-    const std::string& path, const FeatureKeypoints& keypoints,
+    const std::string& path,
+    const FeatureKeypoints& keypoints,
     const std::vector<char>& tri_mask) {
   Bitmap bitmap;
   if (!bitmap.Read(path, true)) {
@@ -203,8 +210,10 @@ void FeatureImageViewerWidget::ReadAndShowWithKeypoints(
 }
 
 void FeatureImageViewerWidget::ReadAndShowWithMatches(
-    const std::string& path1, const std::string& path2,
-    const FeatureKeypoints& keypoints1, const FeatureKeypoints& keypoints2,
+    const std::string& path1,
+    const std::string& path2,
+    const FeatureKeypoints& keypoints1,
+    const FeatureKeypoints& keypoints2,
     const FeatureMatches& matches) {
   Bitmap bitmap1;
   Bitmap bitmap2;
@@ -240,7 +249,8 @@ void FeatureImageViewerWidget::ShowOrHide() {
 }
 
 DatabaseImageViewerWidget::DatabaseImageViewerWidget(
-    QWidget* parent, ModelViewerWidget* model_viewer_widget,
+    QWidget* parent,
+    ModelViewerWidget* model_viewer_widget,
     OptionManager* options)
     : FeatureImageViewerWidget(parent, "keypoints"),
       model_viewer_widget_(model_viewer_widget),
@@ -315,8 +325,8 @@ DatabaseImageViewerWidget::DatabaseImageViewerWidget(
   table_widget_->setItem(table_row, 1, num_points3D_item_);
   table_row += 1;
 
-  table_widget_->setItem(table_row, 0,
-                         new QTableWidgetItem("num_observations"));
+  table_widget_->setItem(
+      table_row, 0, new QTableWidgetItem("num_observations"));
   num_obs_item_ = new QTableWidgetItem();
   table_widget_->setItem(table_row, 1, num_obs_item_);
   table_row += 1;
@@ -331,7 +341,9 @@ DatabaseImageViewerWidget::DatabaseImageViewerWidget(
   delete_button_ = new QPushButton(tr("Delete"), this);
   delete_button_->setFont(font);
   button_layout_->addWidget(delete_button_);
-  connect(delete_button_, &QPushButton::released, this,
+  connect(delete_button_,
+          &QPushButton::released,
+          this,
           &DatabaseImageViewerWidget::DeleteImage);
 }
 
@@ -393,9 +405,11 @@ void DatabaseImageViewerWidget::ResizeTable() {
 }
 
 void DatabaseImageViewerWidget::DeleteImage() {
-  QMessageBox::StandardButton reply = QMessageBox::question(
-      this, "", tr("Do you really want to delete this image?"),
-      QMessageBox::Yes | QMessageBox::No);
+  QMessageBox::StandardButton reply =
+      QMessageBox::question(this,
+                            "",
+                            tr("Do you really want to delete this image?"),
+                            QMessageBox::Yes | QMessageBox::No);
   if (reply == QMessageBox::Yes) {
     if (model_viewer_widget_->reconstruction->ExistsImage(image_id_)) {
       model_viewer_widget_->reconstruction->DeRegisterImage(image_id_);

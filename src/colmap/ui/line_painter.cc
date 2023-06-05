@@ -83,13 +83,13 @@ void LinePainter::Upload(const std::vector<LinePainter::Data>& data) {
 
   // in_position
   shader_program_.enableAttributeArray("a_pos");
-  shader_program_.setAttributeBuffer("a_pos", GL_FLOAT, 0, 3,
-                                     sizeof(PointPainter::Data));
+  shader_program_.setAttributeBuffer(
+      "a_pos", GL_FLOAT, 0, 3, sizeof(PointPainter::Data));
 
   // in_color
   shader_program_.enableAttributeArray("a_color");
-  shader_program_.setAttributeBuffer("a_color", GL_FLOAT, 3 * sizeof(GLfloat),
-                                     4, sizeof(PointPainter::Data));
+  shader_program_.setAttributeBuffer(
+      "a_color", GL_FLOAT, 3 * sizeof(GLfloat), 4, sizeof(PointPainter::Data));
 
   // Make sure they are not changed from the outside
   vbo_.release();
@@ -100,8 +100,10 @@ void LinePainter::Upload(const std::vector<LinePainter::Data>& data) {
 #endif
 }
 
-void LinePainter::Render(const QMatrix4x4& pmv_matrix, const int width,
-                         const int height, const float line_width) {
+void LinePainter::Render(const QMatrix4x4& pmv_matrix,
+                         const int width,
+                         const int height,
+                         const float line_width) {
   if (num_geoms_ == 0) {
     return;
   }

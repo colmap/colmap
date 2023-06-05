@@ -31,10 +31,10 @@
 
 #include "colmap/base/scene_clustering.h"
 
-#include <set>
-
 #include "colmap/base/graph_cut.h"
 #include "colmap/util/random.h"
+
+#include <set>
 
 namespace colmap {
 
@@ -64,8 +64,8 @@ void SceneClustering::Partition(
   }
 
   root_cluster_ = std::make_unique<Cluster>();
-  root_cluster_->image_ids.insert(root_cluster_->image_ids.end(),
-                                  image_ids.begin(), image_ids.end());
+  root_cluster_->image_ids.insert(
+      root_cluster_->image_ids.end(), image_ids.begin(), image_ids.end());
   if (options_.is_hierarchical) {
     PartitionHierarchicalCluster(edges, num_inliers, root_cluster_.get());
   } else {
@@ -75,7 +75,8 @@ void SceneClustering::Partition(
 
 void SceneClustering::PartitionHierarchicalCluster(
     const std::vector<std::pair<int, int>>& edges,
-    const std::vector<int>& weights, Cluster* cluster) {
+    const std::vector<int>& weights,
+    Cluster* cluster) {
   CHECK_EQ(edges.size(), weights.size());
 
   // If the cluster is small enough, we return from the recursive clustering.
@@ -130,8 +131,8 @@ void SceneClustering::PartitionHierarchicalCluster(
       continue;
     }
 
-    PartitionHierarchicalCluster(child_edges[i], child_weights[i],
-                                 &cluster->child_clusters[i]);
+    PartitionHierarchicalCluster(
+        child_edges[i], child_weights[i], &cluster->child_clusters[i]);
   }
 
   // Remove empty clusters.
@@ -155,7 +156,8 @@ void SceneClustering::PartitionHierarchicalCluster(
     for (int i = 0; i < options_.branching; ++i) {
       // Sort the overlapping edges by the number of inlier matches, such
       // that we add overlapping images with many common observations.
-      std::sort(overlapping_edges[i].begin(), overlapping_edges[i].end(),
+      std::sort(overlapping_edges[i].begin(),
+                overlapping_edges[i].end(),
                 [](const std::pair<std::pair<int, int>, int>& edge1,
                    const std::pair<std::pair<int, int>, int>& edge2) {
                   return edge1.second > edge2.second;
@@ -231,7 +233,8 @@ void SceneClustering::PartitionFlatCluster(
 
   // Sort related images by decreasing weights
   for (auto& image : related_images) {
-    std::sort(image.second.begin(), image.second.end(),
+    std::sort(image.second.begin(),
+              image.second.end(),
               [](const std::pair<int, int>& first,
                  const std::pair<int, int>& second) {
                 return first.second > second.second;
@@ -268,8 +271,8 @@ void SceneClustering::PartitionFlatCluster(
       }
     }
     orig_image_ids.clear();
-    orig_image_ids.insert(orig_image_ids.end(), cluster_images.begin(),
-                          cluster_images.end());
+    orig_image_ids.insert(
+        orig_image_ids.end(), cluster_images.begin(), cluster_images.end());
   }
 }
 

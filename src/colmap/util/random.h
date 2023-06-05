@@ -32,12 +32,12 @@
 #ifndef COLMAP_SRC_UTIL_RANDOM_H_
 #define COLMAP_SRC_UTIL_RANDOM_H_
 
+#include "colmap/util/logging.h"
+
 #include <chrono>
 #include <memory>
 #include <random>
 #include <thread>
-
-#include "colmap/util/logging.h"
 
 namespace colmap {
 

@@ -43,7 +43,8 @@ void SPRT::Update(const Options& options) {
 }
 
 bool SPRT::Evaluate(const std::vector<double>& residuals,
-                    const double max_residual, size_t* num_inliers,
+                    const double max_residual,
+                    size_t* num_inliers,
                     size_t* num_eval_samples) {
   *num_inliers = 0;
 

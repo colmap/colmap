@@ -32,17 +32,17 @@
 #ifndef COLMAP_SRC_BASE_IMAGE_H_
 #define COLMAP_SRC_BASE_IMAGE_H_
 
-#include <string>
-#include <vector>
-
-#include <Eigen/Core>
-
 #include "colmap/base/camera.h"
 #include "colmap/base/point2d.h"
 #include "colmap/base/visibility_pyramid.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/math.h"
 #include "colmap/util/types.h"
+
+#include <string>
+#include <vector>
+
+#include <Eigen/Core>
 
 namespace colmap {
 

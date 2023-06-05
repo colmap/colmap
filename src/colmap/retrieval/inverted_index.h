@@ -32,6 +32,9 @@
 #ifndef COLMAP_SRC_RETRIEVAL_INVERTED_INDEX_H_
 #define COLMAP_SRC_RETRIEVAL_INVERTED_INDEX_H_
 
+#include "colmap/retrieval/inverted_file.h"
+#include "colmap/util/random.h"
+
 #include <algorithm>
 #include <bitset>
 #include <cstdint>
@@ -42,9 +45,6 @@
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
-
-#include "colmap/retrieval/inverted_file.h"
-#include "colmap/util/random.h"
 
 namespace colmap {
 namespace retrieval {
@@ -84,24 +84,29 @@ class InvertedIndex {
                                const Eigen::VectorXi& word_ids);
 
   // Add single entry to the index.
-  void AddEntry(const int image_id, const int word_id,
+  void AddEntry(const int image_id,
+                const int word_id,
                 typename DescType::Index feature_idx,
-                const DescType& descriptor, const GeomType& geometry);
+                const DescType& descriptor,
+                const GeomType& geometry);
 
   // Clear all index entries.
   void ClearEntries();
 
   // Query the inverted file and return a list of sorted images.
-  void Query(const DescType& descriptors, const Eigen::MatrixXi& word_ids,
+  void Query(const DescType& descriptors,
+             const Eigen::MatrixXi& word_ids,
              std::vector<ImageScore>* image_scores) const;
 
   void ConvertToBinaryDescriptor(
-      const int word_id, const DescType& descriptor,
+      const int word_id,
+      const DescType& descriptor,
       std::bitset<kEmbeddingDim>* binary_descriptor) const;
 
   float GetIDFWeight(const int word_id) const;
 
-  void FindMatches(const int word_id, const std::unordered_set<int>& image_ids,
+  void FindMatches(const int word_id,
+                   const std::unordered_set<int>& image_ids,
                    std::vector<const EntryType*>* matches) const;
 
   // Compute the self-similarity for the image.
@@ -171,8 +176,8 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Finalize() {
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-void InvertedIndex<kDescType, kDescDim,
-                   kEmbeddingDim>::GenerateHammingEmbeddingProjection() {
+void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::
+    GenerateHammingEmbeddingProjection() {
   Eigen::MatrixXf random_matrix(kDescDim, kDescDim);
   for (Eigen::MatrixXf::Index i = 0; i < random_matrix.size(); ++i) {
     random_matrix(i) = RandomGaussian(0.0f, 1.0f);
@@ -218,13 +223,16 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::ComputeHammingEmbedding(
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::AddEntry(
-    const int image_id, const int word_id, typename DescType::Index feature_idx,
-    const DescType& descriptor, const GeomType& geometry) {
+    const int image_id,
+    const int word_id,
+    typename DescType::Index feature_idx,
+    const DescType& descriptor,
+    const GeomType& geometry) {
   CHECK_EQ(descriptor.size(), kDescDim);
   const ProjDescType proj_desc =
       proj_matrix_ * descriptor.transpose().template cast<float>();
-  inverted_files_.at(word_id).AddEntry(image_id, feature_idx, proj_desc,
-                                       geometry);
+  inverted_files_.at(word_id).AddEntry(
+      image_id, feature_idx, proj_desc, geometry);
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
@@ -236,7 +244,8 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::ClearEntries() {
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
-    const DescType& descriptors, const Eigen::MatrixXi& word_ids,
+    const DescType& descriptors,
+    const Eigen::MatrixXi& word_ids,
     std::vector<ImageScore>* image_scores) const {
   CHECK_EQ(descriptors.cols(), kDescDim);
 
@@ -289,7 +298,8 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::
     ConvertToBinaryDescriptor(
-        const int word_id, const DescType& descriptor,
+        const int word_id,
+        const DescType& descriptor,
         std::bitset<kEmbeddingDim>* binary_descriptor) const {
   const ProjDescType proj_desc =
       proj_matrix_ * descriptor.transpose().template cast<float>();
@@ -305,7 +315,8 @@ float InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::GetIDFWeight(
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::FindMatches(
-    const int word_id, const std::unordered_set<int>& image_ids,
+    const int word_id,
+    const std::unordered_set<int>& image_ids,
     std::vector<const EntryType*>* matches) const {
   matches->clear();
   const auto& entries = inverted_files_.at(word_id).GetEntries();
@@ -413,8 +424,8 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::Write(
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
-void InvertedIndex<kDescType, kDescDim,
-                   kEmbeddingDim>::ComputeWeightsAndNormalizationConstants() {
+void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::
+    ComputeWeightsAndNormalizationConstants() {
   std::unordered_set<int> image_ids;
   GetImageIds(&image_ids);
 

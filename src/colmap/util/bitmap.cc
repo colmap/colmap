@@ -31,14 +31,15 @@
 
 #include "colmap/util/bitmap.h"
 
-#include <regex>
-#include <unordered_map>
-
-#include "lib/VLFeat/imopv.h"
 #include "colmap/base/camera_database.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/math.h"
 #include "colmap/util/misc.h"
+
+#include "lib/VLFeat/imopv.h"
+
+#include <regex>
+#include <unordered_map>
 
 namespace colmap {
 namespace {
@@ -128,9 +129,14 @@ std::vector<uint8_t> Bitmap::ConvertToRawBits() const {
   const unsigned int bpp = BitsPerPixel();
   const bool kTopDown = true;
   std::vector<uint8_t> raw_bits(scan_width * height_, 0);
-  FreeImage_ConvertToRawBits(raw_bits.data(), data_.get(), scan_width, bpp,
-                             FI_RGBA_RED_MASK, FI_RGBA_GREEN_MASK,
-                             FI_RGBA_BLUE_MASK, kTopDown);
+  FreeImage_ConvertToRawBits(raw_bits.data(),
+                             data_.get(),
+                             scan_width,
+                             bpp,
+                             FI_RGBA_RED_MASK,
+                             FI_RGBA_GREEN_MASK,
+                             FI_RGBA_BLUE_MASK,
+                             kTopDown);
   return raw_bits;
 }
 
@@ -165,7 +171,8 @@ std::vector<uint8_t> Bitmap::ConvertToColMajorArray() const {
   return array;
 }
 
-bool Bitmap::GetPixel(const int x, const int y,
+bool Bitmap::GetPixel(const int x,
+                      const int y,
                       BitmapColor<uint8_t>* color) const {
   if (x < 0 || x >= width_ || y < 0 || y >= height_) {
     return false;
@@ -186,7 +193,8 @@ bool Bitmap::GetPixel(const int x, const int y,
   return false;
 }
 
-bool Bitmap::SetPixel(const int x, const int y,
+bool Bitmap::SetPixel(const int x,
+                      const int y,
                       const BitmapColor<uint8_t>& color) {
   if (x < 0 || x >= width_ || y < 0 || y >= height_) {
     return false;
@@ -228,14 +236,16 @@ void Bitmap::Fill(const BitmapColor<uint8_t>& color) {
   }
 }
 
-bool Bitmap::InterpolateNearestNeighbor(const double x, const double y,
+bool Bitmap::InterpolateNearestNeighbor(const double x,
+                                        const double y,
                                         BitmapColor<uint8_t>* color) const {
   const int xx = static_cast<int>(std::round(x));
   const int yy = static_cast<int>(std::round(y));
   return GetPixel(xx, yy, color);
 }
 
-bool Bitmap::InterpolateBilinear(const double x, const double y,
+bool Bitmap::InterpolateBilinear(const double x,
+                                 const double y,
                                  BitmapColor<float>* color) const {
   // FreeImage's coordinate system origin is in the lower left of the image.
   const double inv_y = height_ - 1 - y;
@@ -331,8 +341,8 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
   //////////////////////////////////////////////////////////////////////////////
 
   std::string focal_length_35mm_str;
-  if (ReadExifTag(FIMD_EXIF_EXIF, "FocalLengthIn35mmFilm",
-                  &focal_length_35mm_str)) {
+  if (ReadExifTag(
+          FIMD_EXIF_EXIF, "FocalLengthIn35mmFilm", &focal_length_35mm_str)) {
     const std::regex regex(".*?([0-9.]+).*?mm.*?");
     std::cmatch result;
     if (std::regex_search(focal_length_35mm_str.c_str(), result, regex)) {
@@ -374,8 +384,8 @@ bool Bitmap::ExifFocalLength(double* focal_length) const {
       std::string res_unit_str;
       if (ReadExifTag(FIMD_EXIF_EXIF, "PixelXDimension", &pixel_x_dim_str) &&
           ReadExifTag(FIMD_EXIF_EXIF, "FocalPlaneXResolution", &x_res_str) &&
-          ReadExifTag(FIMD_EXIF_EXIF, "FocalPlaneResolutionUnit",
-                      &res_unit_str)) {
+          ReadExifTag(
+              FIMD_EXIF_EXIF, "FocalPlaneResolutionUnit", &res_unit_str)) {
         regex = std::regex(".*?([0-9.]+).*?");
         if (std::regex_search(pixel_x_dim_str.c_str(), result, regex)) {
           const double pixel_x_dim = std::stold(result[1]);
@@ -510,7 +520,8 @@ bool Bitmap::Read(const std::string& path, const bool as_rgb) {
   return true;
 }
 
-bool Bitmap::Write(const std::string& path, const FREE_IMAGE_FORMAT format,
+bool Bitmap::Write(const std::string& path,
+                   const FREE_IMAGE_FORMAT format,
                    const int flags) const {
   FREE_IMAGE_FORMAT save_format;
   if (format == FIF_UNKNOWN) {
@@ -553,8 +564,14 @@ void Bitmap::Smooth(const float sigma_x, const float sigma_y) {
       }
     }
 
-    vl_imsmooth_f(array_smoothed.data(), width_, array.data(), width_, height_,
-                  width_, sigma_x, sigma_y);
+    vl_imsmooth_f(array_smoothed.data(),
+                  width_,
+                  array.data(),
+                  width_,
+                  height_,
+                  width_,
+                  sigma_x,
+                  sigma_y);
 
     i = 0;
     for (int y = 0; y < height_; ++y) {
@@ -568,7 +585,8 @@ void Bitmap::Smooth(const float sigma_x, const float sigma_y) {
   }
 }
 
-void Bitmap::Rescale(const int new_width, const int new_height,
+void Bitmap::Rescale(const int new_width,
+                     const int new_height,
                      const FREE_IMAGE_FILTER filter) {
   SetPtr(FreeImage_Rescale(data_.get(), new_width, new_height, filter));
 }
@@ -663,8 +681,11 @@ float JetColormap::Base(const float val) {
   }
 }
 
-float JetColormap::Interpolate(const float val, const float y0, const float x0,
-                               const float y1, const float x1) {
+float JetColormap::Interpolate(const float val,
+                               const float y0,
+                               const float x0,
+                               const float y1,
+                               const float x1) {
   return (val - x0) * (y1 - y0) / (x1 - x0) + y0;
 }
 

@@ -29,11 +29,11 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include <clocale>
-
 #include "colmap/ui/main_window.h"
 
 #include "colmap/util/version.h"
+
+#include <clocale>
 
 namespace colmap {
 
@@ -74,7 +74,8 @@ void MainWindow::closeEvent(QCloseEvent* event) {
     // Project was created, but not yet saved
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(
-        this, "",
+        this,
+        "",
         tr("You have not saved your project. Do you want to save it?"),
         QMessageBox::Yes | QMessageBox::No);
     if (reply == QMessageBox::Yes) {
@@ -83,7 +84,9 @@ void MainWindow::closeEvent(QCloseEvent* event) {
   }
 
   QMessageBox::StandardButton reply;
-  reply = QMessageBox::question(this, "", tr("Do you really want to quit?"),
+  reply = QMessageBox::question(this,
+                                "",
+                                tr("Do you really want to quit?"),
                                 QMessageBox::Yes | QMessageBox::No);
   if (reply == QMessageBox::No) {
     event->ignore();
@@ -139,30 +142,38 @@ void MainWindow::CreateActions() {
   action_project_new_ =
       new QAction(QIcon(":/media/project-new.png"), tr("New project"), this);
   action_project_new_->setShortcuts(QKeySequence::New);
-  connect(action_project_new_, &QAction::triggered, this,
-          &MainWindow::ProjectNew);
+  connect(
+      action_project_new_, &QAction::triggered, this, &MainWindow::ProjectNew);
 
   action_project_open_ =
       new QAction(QIcon(":/media/project-open.png"), tr("Open project"), this);
   action_project_open_->setShortcuts(QKeySequence::Open);
-  connect(action_project_open_, &QAction::triggered, this,
+  connect(action_project_open_,
+          &QAction::triggered,
+          this,
           &MainWindow::ProjectOpen);
 
   action_project_edit_ =
       new QAction(QIcon(":/media/project-edit.png"), tr("Edit project"), this);
-  connect(action_project_edit_, &QAction::triggered, this,
+  connect(action_project_edit_,
+          &QAction::triggered,
+          this,
           &MainWindow::ProjectEdit);
 
   action_project_save_ =
       new QAction(QIcon(":/media/project-save.png"), tr("Save project"), this);
   action_project_save_->setShortcuts(QKeySequence::Save);
-  connect(action_project_save_, &QAction::triggered, this,
+  connect(action_project_save_,
+          &QAction::triggered,
+          this,
           &MainWindow::ProjectSave);
 
-  action_project_save_as_ = new QAction(QIcon(":/media/project-save-as.png"),
-                                        tr("Save project as..."), this);
+  action_project_save_as_ = new QAction(
+      QIcon(":/media/project-save-as.png"), tr("Save project as..."), this);
   action_project_save_as_->setShortcuts(QKeySequence::SaveAs);
-  connect(action_project_save_as_, &QAction::triggered, this,
+  connect(action_project_save_as_,
+          &QAction::triggered,
+          this,
           &MainWindow::ProjectSaveAs);
 
   action_import_ =
@@ -170,10 +181,10 @@ void MainWindow::CreateActions() {
   connect(action_import_, &QAction::triggered, this, &MainWindow::Import);
   blocking_actions_.push_back(action_import_);
 
-  action_import_from_ = new QAction(QIcon(":/media/import-from.png"),
-                                    tr("Import model from..."), this);
-  connect(action_import_from_, &QAction::triggered, this,
-          &MainWindow::ImportFrom);
+  action_import_from_ = new QAction(
+      QIcon(":/media/import-from.png"), tr("Import model from..."), this);
+  connect(
+      action_import_from_, &QAction::triggered, this, &MainWindow::ImportFrom);
   blocking_actions_.push_back(action_import_from_);
 
   action_export_ =
@@ -181,20 +192,22 @@ void MainWindow::CreateActions() {
   connect(action_export_, &QAction::triggered, this, &MainWindow::Export);
   blocking_actions_.push_back(action_export_);
 
-  action_export_all_ = new QAction(QIcon(":/media/export-all.png"),
-                                   tr("Export all models"), this);
-  connect(action_export_all_, &QAction::triggered, this,
-          &MainWindow::ExportAll);
+  action_export_all_ = new QAction(
+      QIcon(":/media/export-all.png"), tr("Export all models"), this);
+  connect(
+      action_export_all_, &QAction::triggered, this, &MainWindow::ExportAll);
   blocking_actions_.push_back(action_export_all_);
 
-  action_export_as_ = new QAction(QIcon(":/media/export-as.png"),
-                                  tr("Export model as..."), this);
+  action_export_as_ = new QAction(
+      QIcon(":/media/export-as.png"), tr("Export model as..."), this);
   connect(action_export_as_, &QAction::triggered, this, &MainWindow::ExportAs);
   blocking_actions_.push_back(action_export_as_);
 
-  action_export_as_text_ = new QAction(QIcon(":/media/export-as-text.png"),
-                                       tr("Export model as text"), this);
-  connect(action_export_as_text_, &QAction::triggered, this,
+  action_export_as_text_ = new QAction(
+      QIcon(":/media/export-as-text.png"), tr("Export model as text"), this);
+  connect(action_export_as_text_,
+          &QAction::triggered,
+          this,
           &MainWindow::ExportAsText);
   blocking_actions_.push_back(action_export_as_text_);
 
@@ -207,20 +220,27 @@ void MainWindow::CreateActions() {
 
   action_feature_extraction_ = new QAction(
       QIcon(":/media/feature-extraction.png"), tr("Feature extraction"), this);
-  connect(action_feature_extraction_, &QAction::triggered, this,
+  connect(action_feature_extraction_,
+          &QAction::triggered,
+          this,
           &MainWindow::FeatureExtraction);
   blocking_actions_.push_back(action_feature_extraction_);
 
-  action_feature_matching_ = new QAction(QIcon(":/media/feature-matching.png"),
-                                         tr("Feature matching"), this);
-  connect(action_feature_matching_, &QAction::triggered, this,
+  action_feature_matching_ = new QAction(
+      QIcon(":/media/feature-matching.png"), tr("Feature matching"), this);
+  connect(action_feature_matching_,
+          &QAction::triggered,
+          this,
           &MainWindow::FeatureMatching);
   blocking_actions_.push_back(action_feature_matching_);
 
   action_database_management_ =
       new QAction(QIcon(":/media/database-management.png"),
-                  tr("Database management"), this);
-  connect(action_database_management_, &QAction::triggered, this,
+                  tr("Database management"),
+                  this);
+  connect(action_database_management_,
+          &QAction::triggered,
+          this,
           &MainWindow::DatabaseManagement);
   blocking_actions_.push_back(action_database_management_);
 
@@ -230,88 +250,121 @@ void MainWindow::CreateActions() {
 
   action_automatic_reconstruction_ =
       new QAction(QIcon(":/media/automatic-reconstruction.png"),
-                  tr("Automatic reconstruction"), this);
-  connect(action_automatic_reconstruction_, &QAction::triggered, this,
+                  tr("Automatic reconstruction"),
+                  this);
+  connect(action_automatic_reconstruction_,
+          &QAction::triggered,
+          this,
           &MainWindow::AutomaticReconstruction);
 
   action_reconstruction_start_ =
       new QAction(QIcon(":/media/reconstruction-start.png"),
-                  tr("Start reconstruction"), this);
-  connect(action_reconstruction_start_, &QAction::triggered, this,
+                  tr("Start reconstruction"),
+                  this);
+  connect(action_reconstruction_start_,
+          &QAction::triggered,
+          this,
           &MainWindow::ReconstructionStart);
   blocking_actions_.push_back(action_reconstruction_start_);
 
   action_reconstruction_step_ =
       new QAction(QIcon(":/media/reconstruction-step.png"),
-                  tr("Reconstruct next image"), this);
-  connect(action_reconstruction_step_, &QAction::triggered, this,
+                  tr("Reconstruct next image"),
+                  this);
+  connect(action_reconstruction_step_,
+          &QAction::triggered,
+          this,
           &MainWindow::ReconstructionStep);
   blocking_actions_.push_back(action_reconstruction_step_);
 
   action_reconstruction_pause_ =
       new QAction(QIcon(":/media/reconstruction-pause.png"),
-                  tr("Pause reconstruction"), this);
-  connect(action_reconstruction_pause_, &QAction::triggered, this,
+                  tr("Pause reconstruction"),
+                  this);
+  connect(action_reconstruction_pause_,
+          &QAction::triggered,
+          this,
           &MainWindow::ReconstructionPause);
   action_reconstruction_pause_->setEnabled(false);
   blocking_actions_.push_back(action_reconstruction_pause_);
 
   action_reconstruction_reset_ =
       new QAction(QIcon(":/media/reconstruction-reset.png"),
-                  tr("Reset reconstruction"), this);
-  connect(action_reconstruction_reset_, &QAction::triggered, this,
+                  tr("Reset reconstruction"),
+                  this);
+  connect(action_reconstruction_reset_,
+          &QAction::triggered,
+          this,
           &MainWindow::ReconstructionOverwrite);
 
   action_reconstruction_normalize_ =
       new QAction(QIcon(":/media/reconstruction-normalize.png"),
-                  tr("Normalize reconstruction"), this);
-  connect(action_reconstruction_normalize_, &QAction::triggered, this,
+                  tr("Normalize reconstruction"),
+                  this);
+  connect(action_reconstruction_normalize_,
+          &QAction::triggered,
+          this,
           &MainWindow::ReconstructionNormalize);
   blocking_actions_.push_back(action_reconstruction_normalize_);
 
   action_reconstruction_options_ =
       new QAction(QIcon(":/media/reconstruction-options.png"),
-                  tr("Reconstruction options"), this);
-  connect(action_reconstruction_options_, &QAction::triggered, this,
+                  tr("Reconstruction options"),
+                  this);
+  connect(action_reconstruction_options_,
+          &QAction::triggered,
+          this,
           &MainWindow::ReconstructionOptions);
   blocking_actions_.push_back(action_reconstruction_options_);
 
   action_bundle_adjustment_ = new QAction(
       QIcon(":/media/bundle-adjustment.png"), tr("Bundle adjustment"), this);
-  connect(action_bundle_adjustment_, &QAction::triggered, this,
+  connect(action_bundle_adjustment_,
+          &QAction::triggered,
+          this,
           &MainWindow::BundleAdjustment);
   action_bundle_adjustment_->setEnabled(false);
   blocking_actions_.push_back(action_bundle_adjustment_);
 
   action_dense_reconstruction_ =
       new QAction(QIcon(":/media/dense-reconstruction.png"),
-                  tr("Dense reconstruction"), this);
-  connect(action_dense_reconstruction_, &QAction::triggered, this,
+                  tr("Dense reconstruction"),
+                  this);
+  connect(action_dense_reconstruction_,
+          &QAction::triggered,
+          this,
           &MainWindow::DenseReconstruction);
 
   //////////////////////////////////////////////////////////////////////////////
   // Render actions
   //////////////////////////////////////////////////////////////////////////////
 
-  action_render_toggle_ = new QAction(QIcon(":/media/render-enabled.png"),
-                                      tr("Disable rendering"), this);
-  connect(action_render_toggle_, &QAction::triggered, this,
+  action_render_toggle_ = new QAction(
+      QIcon(":/media/render-enabled.png"), tr("Disable rendering"), this);
+  connect(action_render_toggle_,
+          &QAction::triggered,
+          this,
           &MainWindow::RenderToggle);
 
   action_render_reset_view_ = new QAction(
       QIcon(":/media/render-reset-view.png"), tr("Reset view"), this);
-  connect(action_render_reset_view_, &QAction::triggered, model_viewer_widget_,
+  connect(action_render_reset_view_,
+          &QAction::triggered,
+          model_viewer_widget_,
           &ModelViewerWidget::ResetView);
 
-  action_render_options_ = new QAction(QIcon(":/media/render-options.png"),
-                                       tr("Render options"), this);
-  connect(action_render_options_, &QAction::triggered, this,
+  action_render_options_ = new QAction(
+      QIcon(":/media/render-options.png"), tr("Render options"), this);
+  connect(action_render_options_,
+          &QAction::triggered,
+          this,
           &MainWindow::RenderOptions);
 
   connect(
       reconstruction_manager_widget_,
       static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged),
-      this, &MainWindow::SelectReconstructionIdx);
+      this,
+      &MainWindow::SelectReconstructionIdx);
 
   //////////////////////////////////////////////////////////////////////////////
   // Extras actions
@@ -319,13 +372,18 @@ void MainWindow::CreateActions() {
 
   action_reconstruction_stats_ =
       new QAction(QIcon(":/media/reconstruction-stats.png"),
-                  tr("Show model statistics"), this);
-  connect(action_reconstruction_stats_, &QAction::triggered, this,
+                  tr("Show model statistics"),
+                  this);
+  connect(action_reconstruction_stats_,
+          &QAction::triggered,
+          this,
           &MainWindow::ReconstructionStats);
 
-  action_match_matrix_ = new QAction(QIcon(":/media/match-matrix.png"),
-                                     tr("Show match matrix"), this);
-  connect(action_match_matrix_, &QAction::triggered, this,
+  action_match_matrix_ = new QAction(
+      QIcon(":/media/match-matrix.png"), tr("Show match matrix"), this);
+  connect(action_match_matrix_,
+          &QAction::triggered,
+          this,
           &MainWindow::MatchMatrix);
 
   action_log_show_ =
@@ -334,30 +392,38 @@ void MainWindow::CreateActions() {
 
   action_grab_image_ =
       new QAction(QIcon(":/media/grab-image.png"), tr("Grab image"), this);
-  connect(action_grab_image_, &QAction::triggered, this,
-          &MainWindow::GrabImage);
+  connect(
+      action_grab_image_, &QAction::triggered, this, &MainWindow::GrabImage);
 
   action_grab_movie_ =
       new QAction(QIcon(":/media/grab-movie.png"), tr("Grab movie"), this);
-  connect(action_grab_movie_, &QAction::triggered, model_viewer_widget_,
+  connect(action_grab_movie_,
+          &QAction::triggered,
+          model_viewer_widget_,
           &ModelViewerWidget::GrabMovie);
 
   action_undistort_ =
       new QAction(QIcon(":/media/undistort.png"), tr("Undistortion"), this);
-  connect(action_undistort_, &QAction::triggered, this,
+  connect(action_undistort_,
+          &QAction::triggered,
+          this,
           &MainWindow::UndistortImages);
   blocking_actions_.push_back(action_undistort_);
 
   action_extract_colors_ = new QAction(tr("Extract colors"), this);
-  connect(action_extract_colors_, &QAction::triggered, this,
+  connect(action_extract_colors_,
+          &QAction::triggered,
+          this,
           &MainWindow::ExtractColors);
 
   action_set_options_ = new QAction(tr("Set options for ..."), this);
-  connect(action_set_options_, &QAction::triggered, this,
-          &MainWindow::SetOptions);
+  connect(
+      action_set_options_, &QAction::triggered, this, &MainWindow::SetOptions);
 
   action_reset_options_ = new QAction(tr("Set default options"), this);
-  connect(action_reset_options_, &QAction::triggered, this,
+  connect(action_reset_options_,
+          &QAction::triggered,
+          this,
           &MainWindow::ResetOptions);
 
   //////////////////////////////////////////////////////////////////////////////
@@ -365,29 +431,40 @@ void MainWindow::CreateActions() {
   //////////////////////////////////////////////////////////////////////////////
 
   action_render_ = new QAction(tr("Render"), this);
-  connect(action_render_, &QAction::triggered, this, &MainWindow::Render,
+  connect(action_render_,
+          &QAction::triggered,
+          this,
+          &MainWindow::Render,
           Qt::BlockingQueuedConnection);
 
   action_render_now_ = new QAction(tr("Render now"), this);
   render_options_widget_->action_render_now = action_render_now_;
-  connect(action_render_now_, &QAction::triggered, this, &MainWindow::RenderNow,
+  connect(action_render_now_,
+          &QAction::triggered,
+          this,
+          &MainWindow::RenderNow,
           Qt::BlockingQueuedConnection);
 
   action_reconstruction_finish_ =
       new QAction(tr("Finish reconstruction"), this);
-  connect(action_reconstruction_finish_, &QAction::triggered, this,
-          &MainWindow::ReconstructionFinish, Qt::BlockingQueuedConnection);
+  connect(action_reconstruction_finish_,
+          &QAction::triggered,
+          this,
+          &MainWindow::ReconstructionFinish,
+          Qt::BlockingQueuedConnection);
 
   action_about_ = new QAction(tr("About"), this);
   connect(action_about_, &QAction::triggered, this, &MainWindow::About);
   action_documentation_ = new QAction(tr("Documentation"), this);
-  connect(action_documentation_, &QAction::triggered, this,
+  connect(action_documentation_,
+          &QAction::triggered,
+          this,
           &MainWindow::Documentation);
   action_support_ = new QAction(tr("Support"), this);
   connect(action_support_, &QAction::triggered, this, &MainWindow::Support);
   action_license_ = new QAction(tr("License"), this);
-  connect(action_license_, &QAction::triggered, license_widget_,
-          &QTextEdit::show);
+  connect(
+      action_license_, &QAction::triggered, license_widget_, &QTextEdit::show);
 }
 
 void MainWindow::CreateMenus() {
@@ -531,9 +608,11 @@ void MainWindow::CreateControllers() {
     mapper_controller_->Wait();
   }
 
-  mapper_controller_.reset(new IncrementalMapperController(
-      options_.mapper.get(), *options_.image_path, *options_.database_path,
-      &reconstruction_manager_));
+  mapper_controller_.reset(
+      new IncrementalMapperController(options_.mapper.get(),
+                                      *options_.image_path,
+                                      *options_.database_path,
+                                      &reconstruction_manager_));
   mapper_controller_->AddCallback(
       IncrementalMapperController::INITIAL_IMAGE_PAIR_REG_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {
@@ -578,8 +657,8 @@ bool MainWindow::ProjectOpen() {
   }
 
   const std::string project_path =
-      QFileDialog::getOpenFileName(this, tr("Select project file"), "",
-                                   tr("Project file (*.ini)"))
+      QFileDialog::getOpenFileName(
+          this, tr("Select project file"), "", tr("Project file (*.ini)"))
           .toUtf8()
           .constData();
   // If selection not canceled
@@ -606,8 +685,8 @@ void MainWindow::ProjectEdit() {
 void MainWindow::ProjectSave() {
   if (!ExistsFile(*options_.project_path)) {
     std::string project_path =
-        QFileDialog::getSaveFileName(this, tr("Select project file"), "",
-                                     tr("Project file (*.ini)"))
+        QFileDialog::getSaveFileName(
+            this, tr("Select project file"), "", tr("Project file (*.ini)"))
             .toUtf8()
             .constData();
     // If selection not canceled
@@ -628,8 +707,8 @@ void MainWindow::ProjectSave() {
 
 void MainWindow::ProjectSaveAs() {
   const std::string new_project_path =
-      QFileDialog::getSaveFileName(this, tr("Select project file"), "",
-                                   tr("Project file (*.ini)"))
+      QFileDialog::getSaveFileName(
+          this, tr("Select project file"), "", tr("Project file (*.ini)"))
           .toUtf8()
           .constData();
   if (new_project_path != "") {
@@ -642,8 +721,8 @@ void MainWindow::ProjectSaveAs() {
 
 void MainWindow::Import() {
   const std::string import_path =
-      QFileDialog::getExistingDirectory(this, tr("Select source..."), "",
-                                        QFileDialog::ShowDirsOnly)
+      QFileDialog::getExistingDirectory(
+          this, tr("Select source..."), "", QFileDialog::ShowDirsOnly)
           .toUtf8()
           .constData();
 
@@ -664,7 +743,8 @@ void MainWindow::Import() {
        !ExistsFile(points3D_bin_path)) &&
       (!ExistsFile(cameras_txt_path) || !ExistsFile(images_txt_path) ||
        !ExistsFile(points3D_txt_path))) {
-    QMessageBox::critical(this, "",
+    QMessageBox::critical(this,
+                          "",
                           tr("cameras, images, and points3D files do not exist "
                              "in chosen directory."));
     return;
@@ -679,7 +759,8 @@ void MainWindow::Import() {
     options_.ReRead(project_path);
   } else {
     QMessageBox::StandardButton reply = QMessageBox::question(
-        this, "",
+        this,
+        "",
         tr("Directory does not contain a <i>project.ini</i>. To "
            "resume the reconstruction, you need to specify a valid "
            "database and image path. Do you want to select the paths "
@@ -720,8 +801,8 @@ void MainWindow::ImportFrom() {
   }
 
   if (!HasFileExtension(import_path, ".ply")) {
-    QMessageBox::critical(this, "",
-                          tr("Invalid file format (supported formats: PLY)"));
+    QMessageBox::critical(
+        this, "", tr("Invalid file format (supported formats: PLY)"));
     return;
   }
 
@@ -741,8 +822,8 @@ void MainWindow::Export() {
   }
 
   const std::string export_path =
-      QFileDialog::getExistingDirectory(this, tr("Select destination..."), "",
-                                        QFileDialog::ShowDirsOnly)
+      QFileDialog::getExistingDirectory(
+          this, tr("Select destination..."), "", QFileDialog::ShowDirsOnly)
           .toUtf8()
           .constData();
 
@@ -763,11 +844,14 @@ void MainWindow::Export() {
   if (ExistsFile(cameras_path) || ExistsFile(images_path) ||
       ExistsFile(points3D_path)) {
     QMessageBox::StandardButton reply = QMessageBox::question(
-        this, "",
+        this,
+        "",
         StringPrintf(
             "The files <i>%s</i>, <i>%s</i>, or <i>%s</i> already "
             "exist in the selected destination. Do you want to overwrite them?",
-            cameras_name.c_str(), images_name.c_str(), points3D_name.c_str())
+            cameras_name.c_str(),
+            images_name.c_str(),
+            points3D_name.c_str())
             .c_str(),
         QMessageBox::Yes | QMessageBox::No);
     if (reply == QMessageBox::No) {
@@ -790,8 +874,8 @@ void MainWindow::ExportAll() {
   }
 
   const std::string export_path =
-      QFileDialog::getExistingDirectory(this, tr("Select destination..."), "",
-                                        QFileDialog::ShowDirsOnly)
+      QFileDialog::getExistingDirectory(
+          this, tr("Select destination..."), "", QFileDialog::ShowDirsOnly)
           .toUtf8()
           .constData();
 
@@ -813,8 +897,11 @@ void MainWindow::ExportAs() {
   QString filter("NVM (*.nvm)");
   const std::string export_path =
       QFileDialog::getSaveFileName(
-          this, tr("Select destination..."), "",
-          "NVM (*.nvm);;Bundler (*.out);;PLY (*.ply);;VRML (*.wrl)", &filter)
+          this,
+          tr("Select destination..."),
+          "",
+          "NVM (*.nvm);;Bundler (*.out);;PLY (*.ply);;VRML (*.wrl)",
+          &filter)
           .toUtf8()
           .constData();
 
@@ -837,7 +924,8 @@ void MainWindow::ExportAs() {
           const auto base_path =
               export_path.substr(0, export_path.find_last_of("."));
           reconstruction.ExportVRML(base_path + ".images.wrl",
-                                    base_path + ".points3D.wrl", 1,
+                                    base_path + ".points3D.wrl",
+                                    1,
                                     Eigen::Vector3d(1, 0, 0));
         }
       });
@@ -849,8 +937,8 @@ void MainWindow::ExportAsText() {
   }
 
   const std::string export_path =
-      QFileDialog::getExistingDirectory(this, tr("Select destination..."), "",
-                                        QFileDialog::ShowDirsOnly)
+      QFileDialog::getExistingDirectory(
+          this, tr("Select destination..."), "", QFileDialog::ShowDirsOnly)
           .toUtf8()
           .constData();
 
@@ -871,11 +959,14 @@ void MainWindow::ExportAsText() {
   if (ExistsFile(cameras_path) || ExistsFile(images_path) ||
       ExistsFile(points3D_path)) {
     QMessageBox::StandardButton reply = QMessageBox::question(
-        this, "",
+        this,
+        "",
         StringPrintf(
             "The files <i>%s</i>, <i>%s</i>, or <i>%s</i> already "
             "exist in the selected destination. Do you want to overwrite them?",
-            cameras_name.c_str(), images_name.c_str(), points3D_name.c_str())
+            cameras_name.c_str(),
+            images_name.c_str(),
+            points3D_name.c_str())
             .c_str(),
         QMessageBox::Yes | QMessageBox::No);
     if (reply == QMessageBox::No) {
@@ -931,8 +1022,8 @@ void MainWindow::ReconstructionStart() {
   }
 
   if (mapper_controller_->IsFinished() && HasSelectedReconstruction()) {
-    QMessageBox::critical(this, "",
-                          tr("Reset reconstruction before starting."));
+    QMessageBox::critical(
+        this, "", tr("Reset reconstruction before starting."));
     return;
   }
 
@@ -954,8 +1045,8 @@ void MainWindow::ReconstructionStart() {
 
 void MainWindow::ReconstructionStep() {
   if (mapper_controller_->IsFinished() && HasSelectedReconstruction()) {
-    QMessageBox::critical(this, "",
-                          tr("Reset reconstruction before starting."));
+    QMessageBox::critical(
+        this, "", tr("Reset reconstruction before starting."));
     return;
   }
 
@@ -1018,7 +1109,8 @@ bool MainWindow::ReconstructionOverwrite() {
   }
 
   QMessageBox::StandardButton reply = QMessageBox::question(
-      this, "",
+      this,
+      "",
       tr("Do you really want to overwrite the existing reconstruction?"),
       QMessageBox::Yes | QMessageBox::No);
   if (reply == QMessageBox::No) {
@@ -1138,8 +1230,8 @@ bool MainWindow::IsSelectedReconstructionValid() {
 }
 
 void MainWindow::GrabImage() {
-  QString file_name = QFileDialog::getSaveFileName(this, tr("Save image"), "",
-                                                   tr("Images (*.png *.jpg)"));
+  QString file_name = QFileDialog::getSaveFileName(
+      this, tr("Save image"), "", tr("Images (*.png *.jpg)"));
   if (file_name != "") {
     if (!HasFileExtension(file_name.toUtf8().constData(), ".png") &&
         !HasFileExtension(file_name.toUtf8().constData(), ".jpg")) {
@@ -1246,12 +1338,14 @@ void MainWindow::ResetOptions() {
 
 void MainWindow::About() {
   QMessageBox::about(
-      this, tr("About"),
+      this,
+      tr("About"),
       QString().asprintf("<span style='font-weight:normal'><b>%s</b><br />"
                          "<small>(%s)</small><br /><br />"
                          "<b>Author:</b> Johannes L. Schönberger<br /><br />"
                          "<b>Email:</b> jsch-at-demuc-dot-de</span>",
-                         GetVersionInfo().c_str(), GetBuildInfo().c_str()));
+                         GetVersionInfo().c_str(),
+                         GetBuildInfo().c_str()));
 }
 
 void MainWindow::Documentation() {
@@ -1289,7 +1383,8 @@ void MainWindow::UpdateTimer() {
 }
 
 void MainWindow::ShowInvalidProjectError() {
-  QMessageBox::critical(this, "",
+  QMessageBox::critical(this,
+                        "",
                         tr("You must create a valid project using: <i>File > "
                            "New project</i> or <i>File > Edit project</i>"));
 }

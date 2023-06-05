@@ -72,7 +72,8 @@ struct VanishingPointEstimator {
 
     // Check if vanishing point is at infinity.
     if (vanishing_point[2] == 0) {
-      std::fill(residuals->begin(), residuals->end(),
+      std::fill(residuals->begin(),
+                residuals->end(),
                 std::numeric_limits<double>::max());
       return;
     }
@@ -155,7 +156,8 @@ Eigen::Vector3d EstimateGravityVectorFromImageOrientation(
 
 Eigen::Matrix3d EstimateManhattanWorldFrame(
     const ManhattanWorldFrameEstimationOptions& options,
-    const Reconstruction& reconstruction, const std::string& image_path) {
+    const Reconstruction& reconstruction,
+    const std::string& image_path) {
   std::vector<Eigen::Vector3d> rightward_axes;
   std::vector<Eigen::Vector3d> downward_axes;
   for (size_t i = 0; i < reconstruction.NumRegImages(); ++i) {
@@ -164,7 +166,8 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
     const auto& camera = reconstruction.Camera(image.CameraId());
 
     PrintHeading1(StringPrintf("Processing image %s (%d / %d)",
-                               image.Name().c_str(), i + 1,
+                               image.Name().c_str(),
+                               i + 1,
                                reconstruction.NumRegImages()));
 
     std::cout << "Reading image..." << std::endl;
@@ -179,7 +182,10 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
 
     Bitmap undistorted_bitmap;
     Camera undistorted_camera;
-    UndistortImage(undistortion_options, bitmap, camera, &undistorted_bitmap,
+    UndistortImage(undistortion_options,
+                   bitmap,
+                   camera,
+                   &undistorted_bitmap,
                    &undistorted_camera);
 
     std::cout << "Detecting lines...";
@@ -212,7 +218,8 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
     }
 
     std::cout << StringPrintf(" (%d horizontal, %d vertical)",
-                              horizontal_lines.size(), vertical_lines.size())
+                              horizontal_lines.size(),
+                              vertical_lines.size())
               << std::endl;
 
     std::cout << "Estimating vanishing points...";
@@ -313,8 +320,8 @@ void AlignToPrincipalPlane(Reconstruction* recon, SimilarityTransform3* tform) {
   rot_mat << basis.col(0), basis.col(1), basis.col(0).cross(basis.col(1));
   rot_mat.transposeInPlace();
 
-  *tform = SimilarityTransform3(1.0, RotationMatrixToQuaternion(rot_mat),
-                                -rot_mat * centroid);
+  *tform = SimilarityTransform3(
+      1.0, RotationMatrixToQuaternion(rot_mat), -rot_mat * centroid);
 
   // if camera plane ends up below ground then flip basis vectors and create new
   // transform
@@ -323,14 +330,15 @@ void AlignToPrincipalPlane(Reconstruction* recon, SimilarityTransform3* tform) {
   if (test_img.ProjectionCenter().z() < 0.0) {
     rot_mat << basis.col(0), -basis.col(1), basis.col(0).cross(-basis.col(1));
     rot_mat.transposeInPlace();
-    *tform = SimilarityTransform3(1.0, RotationMatrixToQuaternion(rot_mat),
-                                  -rot_mat * centroid);
+    *tform = SimilarityTransform3(
+        1.0, RotationMatrixToQuaternion(rot_mat), -rot_mat * centroid);
   }
 
   recon->Transform(*tform);
 }
 
-void AlignToENUPlane(Reconstruction* recon, SimilarityTransform3* tform,
+void AlignToENUPlane(Reconstruction* recon,
+                     SimilarityTransform3* tform,
                      bool unscaled) {
   const Eigen::Vector3d centroid = recon->ComputeCentroid(0.0, 1.0);
   GPSTransform gps_tform;
@@ -348,7 +356,8 @@ void AlignToENUPlane(Reconstruction* recon, SimilarityTransform3* tform,
       cos_lat, cos_lon * cos_lat, sin_lon * cos_lat, sin_lat;
 
   const double scale = unscaled ? 1.0 / tform->Scale() : 1.0;
-  *tform = SimilarityTransform3(scale, RotationMatrixToQuaternion(rot_mat),
+  *tform = SimilarityTransform3(scale,
+                                RotationMatrixToQuaternion(rot_mat),
                                 -(scale * rot_mat) * centroid);
   recon->Transform(*tform);
 }

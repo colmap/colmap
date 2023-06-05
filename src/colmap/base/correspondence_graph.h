@@ -32,11 +32,11 @@
 #ifndef COLMAP_SRC_BASE_CORRESPONDENCE_GRAPH_H_
 #define COLMAP_SRC_BASE_CORRESPONDENCE_GRAPH_H_
 
-#include <unordered_map>
-#include <vector>
-
 #include "colmap/base/database.h"
 #include "colmap/util/types.h"
+
+#include <unordered_map>
+#include <vector>
 
 namespace colmap {
 
@@ -98,7 +98,8 @@ class CorrespondenceGraph {
   // correspondences where the point indices are out of bounds or duplicate
   // correspondences between the same image points. Whenever either of the two
   // cases occur this function prints a warning to the standard output.
-  void AddCorrespondences(const image_t image_id1, const image_t image_id2,
+  void AddCorrespondences(const image_t image_id1,
+                          const image_t image_id2,
                           const FeatureMatches& matches);
 
   // Find the correspondence of an image observation to all other images.
@@ -114,7 +115,8 @@ class CorrespondenceGraph {
   // found. The returned list does not contain duplicates and contains
   // the given observation.
   void FindTransitiveCorrespondences(
-      const image_t image_id, const point2D_t point2D_idx,
+      const image_t image_id,
+      const point2D_t point2D_idx,
       const size_t transitivity,
       std::vector<Correspondence>* found_corrs) const;
 

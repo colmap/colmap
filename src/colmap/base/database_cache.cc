@@ -31,11 +31,11 @@
 
 #include "colmap/base/database_cache.h"
 
-#include <unordered_set>
-
 #include "colmap/feature/utils.h"
 #include "colmap/util/string.h"
 #include "colmap/util/timer.h"
+
+#include <unordered_set>
 
 namespace colmap {
 
@@ -54,7 +54,8 @@ void DatabaseCache::AddImage(class Image image) {
   images_.emplace(image_id, std::move(image));
 }
 
-void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
+void DatabaseCache::Load(const Database& database,
+                         const size_t min_num_matches,
                          const bool ignore_watermarks,
                          const std::unordered_set<std::string>& image_names) {
   //////////////////////////////////////////////////////////////////////////////
@@ -75,8 +76,8 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
     }
   }
 
-  std::cout << StringPrintf(" %d in %.3fs", cameras_.size(),
-                            timer.ElapsedSeconds())
+  std::cout << StringPrintf(
+                   " %d in %.3fs", cameras_.size(), timer.ElapsedSeconds())
             << std::endl;
 
   //////////////////////////////////////////////////////////////////////////////
@@ -90,7 +91,8 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
   std::vector<TwoViewGeometry> two_view_geometries;
   database.ReadTwoViewGeometries(&image_pair_ids, &two_view_geometries);
 
-  std::cout << StringPrintf(" %d in %.3fs", image_pair_ids.size(),
+  std::cout << StringPrintf(" %d in %.3fs",
+                            image_pair_ids.size(),
                             timer.ElapsedSeconds())
             << std::endl;
 
@@ -158,7 +160,8 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
       }
     }
 
-    std::cout << StringPrintf(" %d in %.3fs (connected %d)", num_images,
+    std::cout << StringPrintf(" %d in %.3fs (connected %d)",
+                              num_images,
                               timer.ElapsedSeconds(),
                               connected_image_ids.size())
               << std::endl;
@@ -202,7 +205,8 @@ void DatabaseCache::Load(const Database& database, const size_t min_num_matches,
         correspondence_graph_.NumCorrespondencesForImage(image.first));
   }
 
-  std::cout << StringPrintf(" in %.3fs (ignored %d)", timer.ElapsedSeconds(),
+  std::cout << StringPrintf(" in %.3fs (ignored %d)",
+                            timer.ElapsedSeconds(),
                             num_ignored_image_pairs)
             << std::endl;
 }

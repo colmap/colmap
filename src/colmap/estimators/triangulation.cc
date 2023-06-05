@@ -31,8 +31,6 @@
 
 #include "colmap/estimators/triangulation.h"
 
-#include <Eigen/Geometry>
-
 #include "colmap/base/projection.h"
 #include "colmap/base/triangulation.h"
 #include "colmap/estimators/essential_matrix.h"
@@ -40,6 +38,8 @@
 #include "colmap/optim/loransac.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/math.h"
+
+#include <Eigen/Geometry>
 
 namespace colmap {
 
@@ -61,9 +61,10 @@ std::vector<TriangulationEstimator::M_t> TriangulationEstimator::Estimate(
   if (point_data.size() == 2) {
     // Two-view triangulation.
 
-    const M_t xyz = TriangulatePoint(
-        pose_data[0].proj_matrix, pose_data[1].proj_matrix,
-        point_data[0].point_normalized, point_data[1].point_normalized);
+    const M_t xyz = TriangulatePoint(pose_data[0].proj_matrix,
+                                     pose_data[1].proj_matrix,
+                                     point_data[0].point_normalized,
+                                     point_data[1].point_normalized);
 
     if (HasPointPositiveDepth(pose_data[0].proj_matrix, xyz) &&
         HasPointPositiveDepth(pose_data[1].proj_matrix, xyz) &&
@@ -118,9 +119,11 @@ void TriangulationEstimator::Residuals(const std::vector<X_t>& point_data,
 
   for (size_t i = 0; i < point_data.size(); ++i) {
     if (residual_type_ == ResidualType::REPROJECTION_ERROR) {
-      (*residuals)[i] = CalculateSquaredReprojectionError(
-          point_data[i].point, xyz, pose_data[i].proj_matrix,
-          *pose_data[i].camera);
+      (*residuals)[i] =
+          CalculateSquaredReprojectionError(point_data[i].point,
+                                            xyz,
+                                            pose_data[i].proj_matrix,
+                                            *pose_data[i].camera);
     } else if (residual_type_ == ResidualType::ANGULAR_ERROR) {
       const double angular_error = CalculateNormalizedAngularError(
           point_data[i].point_normalized, xyz, pose_data[i].proj_matrix);
@@ -133,7 +136,8 @@ bool EstimateTriangulation(
     const EstimateTriangulationOptions& options,
     const std::vector<TriangulationEstimator::PointData>& point_data,
     const std::vector<TriangulationEstimator::PoseData>& pose_data,
-    std::vector<char>* inlier_mask, Eigen::Vector3d* xyz) {
+    std::vector<char>* inlier_mask,
+    Eigen::Vector3d* xyz) {
   CHECK_NOTNULL(inlier_mask);
   CHECK_NOTNULL(xyz);
   CHECK_GE(point_data.size(), 2);
@@ -141,8 +145,10 @@ bool EstimateTriangulation(
   options.Check();
 
   // Robustly estimate track using LORANSAC.
-  LORANSAC<TriangulationEstimator, TriangulationEstimator,
-           InlierSupportMeasurer, CombinationSampler>
+  LORANSAC<TriangulationEstimator,
+           TriangulationEstimator,
+           InlierSupportMeasurer,
+           CombinationSampler>
       ransac(options.ransac_options);
   ransac.estimator.SetMinTriAngle(options.min_tri_angle);
   ransac.estimator.SetResidualType(options.residual_type);
