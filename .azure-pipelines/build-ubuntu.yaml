@@ -64,7 +64,7 @@ jobs:
 
   - ${{ if eq(parameters.asanEnabled, true) }}:
     - script: |
-        sudo apt-get install -y clang-10
+        sudo apt-get install -y clang-15
         echo '##vso[task.setvariable variable=CC]/usr/bin/clang'
         echo '##vso[task.setvariable variable=CXX]/usr/bin/clang++'
       displayName: 'Install Clang'
