@@ -34,7 +34,6 @@
 
 #include <Eigen/Core>
 
-#include "colmap/util/alignment.h"
 #include "colmap/util/types.h"
 
 namespace colmap {
@@ -43,8 +42,6 @@ namespace colmap {
 // corresponding 3D point if it is part of a triangulated track.
 class Point2D {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
   Point2D();
 
   // The coordinate in image space in pixels.
@@ -92,7 +89,5 @@ void Point2D::SetPoint3DId(const point3D_t point3D_id) {
 }
 
 }  // namespace colmap
-
-EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(colmap::Point2D)
 
 #endif  // COLMAP_SRC_BASE_POINT2D_H_

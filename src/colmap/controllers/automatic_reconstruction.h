@@ -68,7 +68,8 @@ class AutomaticReconstructionController : public Thread {
     // Whether to use shared intrinsics or not.
     bool single_camera = false;
 
-    // Whether to use shared intrinsics or not for all images in the same sub-folder.
+    // Whether to use shared intrinsics or not for all images in the same
+    // sub-folder.
     bool single_camera_per_folder = false;
 
     // Which camera model to use for images.

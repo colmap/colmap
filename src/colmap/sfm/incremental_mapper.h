@@ -37,7 +37,6 @@
 #include "colmap/base/reconstruction.h"
 #include "colmap/optim/bundle_adjustment.h"
 #include "colmap/sfm/incremental_triangulator.h"
-#include "colmap/util/alignment.h"
 
 namespace colmap {
 

@@ -52,7 +52,6 @@ class MovieGrabberWidget : public QWidget {
   std::vector<Image> views;
 
   struct ViewData {
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     QMatrix4x4 model_view_matrix;
     float point_size = -1.0f;
     float image_size = -1.0f;
@@ -89,12 +88,9 @@ class MovieGrabberWidget : public QWidget {
   QCheckBox* smooth_cb_;
   QDoubleSpinBox* smoothness_sb_;
 
-  EIGEN_STL_UMAP(const QTableWidgetItem*, ViewData) view_data_;
+  std::unordered_map<const QTableWidgetItem*, ViewData> view_data_;
 };
 
 }  // namespace colmap
-
-EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(
-    colmap::MovieGrabberWidget::ViewData)
 
 #endif  // COLMAP_SRC_UI_MOVIE_GRABBER_WIDGET_H_

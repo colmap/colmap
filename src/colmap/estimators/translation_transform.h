@@ -37,7 +37,6 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
-#include "colmap/util/alignment.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 

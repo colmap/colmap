@@ -40,7 +40,6 @@
 #include "colmap/optim/random_sampler.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/optim/support_measurement.h"
-#include "colmap/util/alignment.h"
 #include "colmap/util/logging.h"
 
 namespace colmap {

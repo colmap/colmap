@@ -38,7 +38,6 @@
 #include <Eigen/Geometry>
 
 #include "colmap/estimators/similarity_transform.h"
-#include "colmap/util/alignment.h"
 #include "colmap/util/types.h"
 
 namespace colmap {
@@ -49,8 +48,6 @@ class Reconstruction;
 // 3D similarity transformation with 7 degrees of freedom.
 class SimilarityTransform3 {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
   SimilarityTransform3();
 
   explicit SimilarityTransform3(const Eigen::Matrix3x4d& matrix);
@@ -115,7 +112,5 @@ bool SimilarityTransform3::Estimate(const std::vector<Eigen::Vector3d>& src,
 }
 
 }  // namespace colmap
-
-EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(colmap::SimilarityTransform3)
 
 #endif  // COLMAP_SRC_BASE_SIMILARITY_TRANSFORM_H_

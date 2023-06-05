@@ -34,7 +34,6 @@
 
 #include "colmap/base/database_cache.h"
 #include "colmap/base/reconstruction.h"
-#include "colmap/util/alignment.h"
 
 namespace colmap {
 
@@ -148,7 +147,6 @@ class IncrementalTriangulator {
   // relevant data for triangulation, in order to avoid duplicate lookup
   // in the underlying unordered_map's in the Reconstruction
   struct CorrData {
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     image_t image_id;
     point2D_t point2D_idx;
     const Image* image;
@@ -207,8 +205,5 @@ class IncrementalTriangulator {
 };
 
 }  // namespace colmap
-
-EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(
-    colmap::IncrementalTriangulator::CorrData)
 
 #endif  // COLMAP_SRC_SFM_INCREMENTAL_TRIANGULATOR_H_

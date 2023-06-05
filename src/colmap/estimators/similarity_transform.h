@@ -38,7 +38,6 @@
 #include <Eigen/Geometry>
 
 #include "colmap/base/projection.h"
-#include "colmap/util/alignment.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 

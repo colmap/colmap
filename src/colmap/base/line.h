@@ -34,13 +34,11 @@
 
 #include <Eigen/Core>
 
-#include "colmap/util/alignment.h"
 #include "colmap/util/bitmap.h"
 
 namespace colmap {
 
 struct LineSegment {
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   Eigen::Vector2d start;
   Eigen::Vector2d end;
 };
@@ -60,7 +58,5 @@ std::vector<LineSegmentOrientation> ClassifyLineSegmentOrientations(
     const std::vector<LineSegment>& segments, const double tolerance = 0.25);
 
 }  // namespace colmap
-
-EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(colmap::LineSegment)
 
 #endif  // COLMAP_SRC_BASE_LINE_H_

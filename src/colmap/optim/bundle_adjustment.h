@@ -41,7 +41,6 @@
 
 #include "colmap/base/camera_rig.h"
 #include "colmap/base/reconstruction.h"
-#include "colmap/util/alignment.h"
 
 namespace colmap {
 

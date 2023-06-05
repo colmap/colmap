@@ -45,8 +45,6 @@ namespace colmap {
 // 3D point class that holds information about triangulated 2D points.
 class Point3D {
  public:
-  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
   Point3D();
 
   // The point coordinate in world space.
@@ -134,7 +132,5 @@ class Track& Point3D::Track() {
 void Point3D::SetTrack(class Track track) { track_ = std::move(track); }
 
 }  // namespace colmap
-
-EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(colmap::Point3D)
 
 #endif  // COLMAP_SRC_BASE_POINT3D_H_

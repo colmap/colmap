@@ -46,6 +46,8 @@
 #include "lib/VLFeat/covdet.h"
 #include "lib/VLFeat/sift.h"
 
+#include <Eigen/Geometry>
+
 #include <array>
 #include <fstream>
 #include <memory>

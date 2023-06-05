@@ -172,7 +172,7 @@ bool CameraRig::ComputeRelativePoses(const Reconstruction& reconstruction) {
     rig_camera.second.rel_tvec = Eigen::Vector3d::Zero();
   }
 
-  EIGEN_STL_UMAP(camera_t, std::vector<Eigen::Vector4d>) rel_qvecs;
+  std::unordered_map<camera_t, std::vector<Eigen::Vector4d>> rel_qvecs;
 
   for (const auto& snapshot : snapshots_) {
     // Find the image of the reference camera in the current snapshot.

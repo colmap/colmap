@@ -36,7 +36,6 @@
 
 #include <Eigen/Core>
 
-#include "colmap/util/alignment.h"
 #include "colmap/util/types.h"
 
 namespace colmap {
@@ -58,7 +57,6 @@ class GR6PEstimator {
   // the relative pose of the specific camera in the generalized camera and its
   // image observation.
   struct X_t {
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     // The relative transformation from the generalized camera to the camera
     // frame of the observation.
     Eigen::Matrix3x4d rel_tform;
@@ -88,7 +86,5 @@ class GR6PEstimator {
 };
 
 }  // namespace colmap
-
-EIGEN_DEFINE_STL_VECTOR_SPECIALIZATION_CUSTOM(colmap::GR6PEstimator::X_t)
 
 #endif  // COLMAP_SRC_ESTIMATORS_GENERALIZED_RELATIVE_POSE_H_

@@ -33,7 +33,6 @@
 #define COLMAP_SRC_BASE_UNDISTORTION_H_
 
 #include "colmap/base/reconstruction.h"
-#include "colmap/util/alignment.h"
 #include "colmap/util/bitmap.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"

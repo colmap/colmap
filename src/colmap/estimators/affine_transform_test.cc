@@ -34,6 +34,8 @@
 
 #include "colmap/estimators/affine_transform.h"
 
+#include <Eigen/Geometry>
+
 using namespace colmap;
 
 BOOST_AUTO_TEST_CASE(TestAffineTransform) {
