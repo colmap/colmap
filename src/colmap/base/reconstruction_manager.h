@@ -34,6 +34,8 @@
 
 #include "colmap/base/reconstruction.h"
 
+#include <memory>
+
 namespace colmap {
 
 class OptionManager;

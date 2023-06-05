@@ -33,6 +33,8 @@
 
 #include "colmap/util/misc.h"
 
+#include <Eigen/Geometry>
+
 namespace colmap {
 namespace mvs {
 namespace internal {

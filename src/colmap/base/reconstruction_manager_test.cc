@@ -34,6 +34,8 @@
 
 #include "colmap/base/reconstruction_manager.h"
 
+#include <Eigen/Geometry>
+
 using namespace colmap;
 
 BOOST_AUTO_TEST_CASE(TestEmpty) {

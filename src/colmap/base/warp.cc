@@ -31,6 +31,8 @@
 
 #include "colmap/base/warp.h"
 
+#include <Eigen/Geometry>
+
 #include "lib/VLFeat/imopv.h"
 #include "colmap/util/logging.h"
 

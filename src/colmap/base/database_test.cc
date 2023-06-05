@@ -34,6 +34,8 @@
 
 #include <thread>
 
+#include <Eigen/Geometry>
+
 #include "colmap/base/database.h"
 #include "colmap/base/pose.h"
 

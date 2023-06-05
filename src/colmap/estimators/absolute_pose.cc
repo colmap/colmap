@@ -35,6 +35,8 @@
 #include "colmap/estimators/utils.h"
 #include "colmap/util/logging.h"
 
+#include <Eigen/Geometry>
+
 namespace colmap {
 namespace {
 
