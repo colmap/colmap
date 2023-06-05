@@ -159,8 +159,10 @@ class IncrementalTriangulator {
   void ClearCaches();
 
   // Find (transitive) correspondences to other images.
-  size_t Find(const Options& options, const image_t image_id,
-              const point2D_t point2D_idx, const size_t transitivity,
+  size_t Find(const Options& options,
+              const image_t image_id,
+              const point2D_t point2D_idx,
+              const size_t transitivity,
               std::vector<CorrData>* corrs_data);
 
   // Try to create a new 3D point from the given correspondences.
@@ -168,7 +170,8 @@ class IncrementalTriangulator {
                 const std::vector<CorrData>& corrs_data);
 
   // Try to continue the 3D point with the given correspondences.
-  size_t Continue(const Options& options, const CorrData& ref_corr_data,
+  size_t Continue(const Options& options,
+                  const CorrData& ref_corr_data,
                   const std::vector<CorrData>& corrs_data);
 
   // Try to merge 3D point with any of its corresponding 3D points.

@@ -63,7 +63,8 @@ struct PlyMeshVertex {
 
 struct PlyMeshFace {
   PlyMeshFace() : vertex_idx1(0), vertex_idx2(0), vertex_idx3(0) {}
-  PlyMeshFace(const size_t vertex_idx1, const size_t vertex_idx2,
+  PlyMeshFace(const size_t vertex_idx1,
+              const size_t vertex_idx2,
               const size_t vertex_idx3)
       : vertex_idx1(vertex_idx1),
         vertex_idx2(vertex_idx2),

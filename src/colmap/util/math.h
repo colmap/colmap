@@ -32,6 +32,8 @@
 #ifndef COLMAP_SRC_UTIL_MATH_H_
 #define COLMAP_SRC_UTIL_MATH_H_
 
+#include "colmap/util/logging.h"
+
 #include <algorithm>
 #include <cmath>
 #include <complex>
@@ -39,8 +41,6 @@
 #include <list>
 #include <stdexcept>
 #include <vector>
-
-#include "colmap/util/logging.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846264338327950288
@@ -138,7 +138,9 @@ T Percentile(const std::vector<T>& elems, const double p);
 namespace internal {
 
 template <class Iterator>
-bool NextCombination(Iterator first1, Iterator last1, Iterator first2,
+bool NextCombination(Iterator first1,
+                     Iterator last1,
+                     Iterator first2,
                      Iterator last2) {
   if ((first1 == last1) || (first2 == last2)) {
     return false;
@@ -215,7 +217,8 @@ double Median(const std::vector<T>& elems) {
   const size_t mid_idx = elems.size() / 2;
 
   std::vector<T> ordered_elems = elems;
-  std::nth_element(ordered_elems.begin(), ordered_elems.begin() + mid_idx,
+  std::nth_element(ordered_elems.begin(),
+                   ordered_elems.begin() + mid_idx,
                    ordered_elems.end());
 
   if (elems.size() % 2 == 0) {
@@ -240,7 +243,8 @@ T Percentile(const std::vector<T>& elems, const double p) {
 
   std::vector<T> ordered_elems = elems;
   std::nth_element(ordered_elems.begin(),
-                   ordered_elems.begin() + percentile_idx, ordered_elems.end());
+                   ordered_elems.begin() + percentile_idx,
+                   ordered_elems.end());
 
   return ordered_elems.at(percentile_idx);
 }

@@ -48,13 +48,17 @@ const char* __GetConstFileBaseName(const char* file) {
   return base ? (base + 1) : file;
 }
 
-bool __CheckOptionImpl(const char* file, const int line, const bool result,
+bool __CheckOptionImpl(const char* file,
+                       const int line,
+                       const bool result,
                        const char* expr_str) {
   if (result) {
     return true;
   } else {
     std::cerr << StringPrintf("[%s:%d] Check failed: %s",
-                              __GetConstFileBaseName(file), line, expr_str)
+                              __GetConstFileBaseName(file),
+                              line,
+                              expr_str)
               << std::endl;
     return false;
   }

@@ -32,9 +32,9 @@
 #ifndef COLMAP_SRC_UI_RECONSTRUCTION_MANAGER_WIDGET_H_
 #define COLMAP_SRC_UI_RECONSTRUCTION_MANAGER_WIDGET_H_
 
-#include <QtWidgets>
-
 #include "colmap/base/reconstruction_manager.h"
+
+#include <QtWidgets>
 
 namespace colmap {
 

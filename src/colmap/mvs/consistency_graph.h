@@ -32,12 +32,12 @@
 #ifndef COLMAP_SRC_MVS_CONSISTENCY_GRAPH_H_
 #define COLMAP_SRC_MVS_CONSISTENCY_GRAPH_H_
 
+#include "colmap/util/types.h"
+
 #include <string>
 #include <vector>
 
 #include <Eigen/Core>
-
-#include "colmap/util/types.h"
 
 namespace colmap {
 namespace mvs {
@@ -54,12 +54,15 @@ namespace mvs {
 class ConsistencyGraph {
  public:
   ConsistencyGraph();
-  ConsistencyGraph(const size_t width, const size_t height,
+  ConsistencyGraph(const size_t width,
+                   const size_t height,
                    const std::vector<int>& data);
 
   size_t GetNumBytes() const;
 
-  void GetImageIdxs(const int row, const int col, int* num_images,
+  void GetImageIdxs(const int row,
+                    const int col,
+                    int* num_images,
                     const int** image_idxs) const;
 
   void Read(const std::string& path);

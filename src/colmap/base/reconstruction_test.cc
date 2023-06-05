@@ -30,13 +30,13 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/reconstruction"
-#include "colmap/util/testing.h"
+#include "colmap/base/reconstruction.h"
 
 #include "colmap/base/camera_models.h"
 #include "colmap/base/correspondence_graph.h"
 #include "colmap/base/pose.h"
-#include "colmap/base/reconstruction.h"
 #include "colmap/base/similarity_transform.h"
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 
@@ -372,8 +372,8 @@ BOOST_AUTO_TEST_CASE(TestTransform) {
       reconstruction.AddPoint3D(Eigen::Vector3d(1, 1, 1), Track());
   reconstruction.AddObservation(point3D_id, TrackElement(1, 1));
   reconstruction.AddObservation(point3D_id, TrackElement(2, 1));
-  reconstruction.Transform(SimilarityTransform3(2, ComposeIdentityQuaternion(),
-                                                Eigen::Vector3d(0, 1, 2)));
+  reconstruction.Transform(SimilarityTransform3(
+      2, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 1, 2)));
   BOOST_CHECK_EQUAL(reconstruction.Image(1).ProjectionCenter(),
                     Eigen::Vector3d(0, 1, 2));
   BOOST_CHECK_EQUAL(reconstruction.Point3D(point3D_id).XYZ(),
@@ -400,37 +400,37 @@ BOOST_AUTO_TEST_CASE(TestFilterPoints3D) {
   BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 1);
   reconstruction.FilterPoints3D(0.0, 0.0, std::unordered_set<point3D_t>{});
   BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 1);
-  reconstruction.FilterPoints3D(0.0, 0.0,
-                                std::unordered_set<point3D_t>{point3D_id1 + 1});
+  reconstruction.FilterPoints3D(
+      0.0, 0.0, std::unordered_set<point3D_t>{point3D_id1 + 1});
   BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 1);
-  reconstruction.FilterPoints3D(0.0, 0.0,
-                                std::unordered_set<point3D_t>{point3D_id1});
+  reconstruction.FilterPoints3D(
+      0.0, 0.0, std::unordered_set<point3D_t>{point3D_id1});
   BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 0);
   const point3D_t point3D_id2 =
       reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
   reconstruction.AddObservation(point3D_id2, TrackElement(1, 0));
-  reconstruction.FilterPoints3D(0.0, 0.0,
-                                std::unordered_set<point3D_t>{point3D_id2});
+  reconstruction.FilterPoints3D(
+      0.0, 0.0, std::unordered_set<point3D_t>{point3D_id2});
   BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 0);
   const point3D_t point3D_id3 =
       reconstruction.AddPoint3D(Eigen::Vector3d(-0.5, -0.5, 1), Track());
   reconstruction.AddObservation(point3D_id3, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id3, TrackElement(2, 0));
-  reconstruction.FilterPoints3D(0.0, 0.0,
-                                std::unordered_set<point3D_t>{point3D_id3});
+  reconstruction.FilterPoints3D(
+      0.0, 0.0, std::unordered_set<point3D_t>{point3D_id3});
   BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 1);
-  reconstruction.FilterPoints3D(0.0, 1e-3,
-                                std::unordered_set<point3D_t>{point3D_id3});
+  reconstruction.FilterPoints3D(
+      0.0, 1e-3, std::unordered_set<point3D_t>{point3D_id3});
   BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 0);
   const point3D_t point3D_id4 =
       reconstruction.AddPoint3D(Eigen::Vector3d(-0.6, -0.5, 1), Track());
   reconstruction.AddObservation(point3D_id4, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id4, TrackElement(2, 0));
-  reconstruction.FilterPoints3D(0.1, 0.0,
-                                std::unordered_set<point3D_t>{point3D_id4});
+  reconstruction.FilterPoints3D(
+      0.1, 0.0, std::unordered_set<point3D_t>{point3D_id4});
   BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 1);
-  reconstruction.FilterPoints3D(0.09, 0.0,
-                                std::unordered_set<point3D_t>{point3D_id4});
+  reconstruction.FilterPoints3D(
+      0.09, 0.0, std::unordered_set<point3D_t>{point3D_id4});
   BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 0);
 }
 
@@ -441,38 +441,38 @@ BOOST_AUTO_TEST_CASE(TestFilterPoints3DInImages) {
   const point3D_t point3D_id1 =
       reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
   BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 1);
-  reconstruction.FilterPoints3DInImages(0.0, 0.0,
-                                        std::unordered_set<image_t>{});
+  reconstruction.FilterPoints3DInImages(
+      0.0, 0.0, std::unordered_set<image_t>{});
   BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 1);
-  reconstruction.FilterPoints3DInImages(0.0, 0.0,
-                                        std::unordered_set<image_t>{1});
+  reconstruction.FilterPoints3DInImages(
+      0.0, 0.0, std::unordered_set<image_t>{1});
   BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 1);
   reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
-  reconstruction.FilterPoints3DInImages(0.0, 0.0,
-                                        std::unordered_set<image_t>{2});
+  reconstruction.FilterPoints3DInImages(
+      0.0, 0.0, std::unordered_set<image_t>{2});
   BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 1);
-  reconstruction.FilterPoints3DInImages(0.0, 0.0,
-                                        std::unordered_set<image_t>{1});
+  reconstruction.FilterPoints3DInImages(
+      0.0, 0.0, std::unordered_set<image_t>{1});
   BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 0);
   const point3D_t point3D_id3 =
       reconstruction.AddPoint3D(Eigen::Vector3d(-0.5, -0.5, 1), Track());
   reconstruction.AddObservation(point3D_id3, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id3, TrackElement(2, 0));
-  reconstruction.FilterPoints3DInImages(0.0, 0.0,
-                                        std::unordered_set<image_t>{1});
+  reconstruction.FilterPoints3DInImages(
+      0.0, 0.0, std::unordered_set<image_t>{1});
   BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 1);
-  reconstruction.FilterPoints3DInImages(0.0, 1e-3,
-                                        std::unordered_set<image_t>{1});
+  reconstruction.FilterPoints3DInImages(
+      0.0, 1e-3, std::unordered_set<image_t>{1});
   BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 0);
   const point3D_t point3D_id4 =
       reconstruction.AddPoint3D(Eigen::Vector3d(-0.6, -0.5, 1), Track());
   reconstruction.AddObservation(point3D_id4, TrackElement(1, 0));
   reconstruction.AddObservation(point3D_id4, TrackElement(2, 0));
-  reconstruction.FilterPoints3DInImages(0.1, 0.0,
-                                        std::unordered_set<image_t>{1});
+  reconstruction.FilterPoints3DInImages(
+      0.1, 0.0, std::unordered_set<image_t>{1});
   BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 1);
-  reconstruction.FilterPoints3DInImages(0.09, 0.0,
-                                        std::unordered_set<image_t>{1});
+  reconstruction.FilterPoints3DInImages(
+      0.09, 0.0, std::unordered_set<image_t>{1});
   BOOST_CHECK_EQUAL(reconstruction.NumPoints3D(), 0);
 }
 

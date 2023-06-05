@@ -47,8 +47,8 @@ MapperGeneralOptionsWidget::MapperGeneralOptionsWidget(QWidget* parent,
   AddOptionInt(&options->mapper->min_num_matches, "min_num_matches");
   AddOptionBool(&options->mapper->ignore_watermarks, "ignore_watermarks");
   AddOptionDirPath(&options->mapper->snapshot_path, "snapshot_path");
-  AddOptionInt(&options->mapper->snapshot_images_freq, "snapshot_images_freq",
-               0);
+  AddOptionInt(
+      &options->mapper->snapshot_images_freq, "snapshot_images_freq", 0);
 }
 
 MapperTriangulationOptionsWidget::MapperTriangulationOptionsWidget(
@@ -70,8 +70,8 @@ MapperTriangulationOptionsWidget::MapperTriangulationOptionsWidget(
                   "complete_max_reproj_error [px]");
   AddOptionInt(&options->mapper->triangulation.complete_max_transitivity,
                "complete_max_transitivity");
-  AddOptionDouble(&options->mapper->triangulation.min_angle, "min_angle [deg]",
-                  0, 180);
+  AddOptionDouble(
+      &options->mapper->triangulation.min_angle, "min_angle [deg]", 0, 180);
   AddOptionBool(&options->mapper->triangulation.ignore_two_view_tracks,
                 "ignore_two_view_tracks");
 }
@@ -101,8 +101,8 @@ MapperInitializationOptionsWidget::MapperInitializationOptionsWidget(
                   "init_max_forward_motion");
   AddOptionDouble(&options->mapper->mapper.init_min_tri_angle,
                   "init_min_tri_angle [deg]");
-  AddOptionInt(&options->mapper->mapper.init_max_reg_trials,
-               "init_max_reg_trials", 1);
+  AddOptionInt(
+      &options->mapper->mapper.init_max_reg_trials, "init_max_reg_trials", 1);
 }
 
 MapperBundleAdjustmentOptionsWidget::MapperBundleAdjustmentOptionsWidget(
@@ -122,10 +122,14 @@ MapperBundleAdjustmentOptionsWidget::MapperBundleAdjustmentOptionsWidget(
   AddOptionInt(&options->mapper->ba_local_num_images, "num_images");
   AddOptionInt(&options->mapper->ba_local_max_num_iterations,
                "max_num_iterations");
-  AddOptionInt(&options->mapper->ba_local_max_refinements, "max_refinements",
-               1);
+  AddOptionInt(
+      &options->mapper->ba_local_max_refinements, "max_refinements", 1);
   AddOptionDouble(&options->mapper->ba_local_max_refinement_change,
-                  "max_refinement_change", 0, 1, 1e-6, 6);
+                  "max_refinement_change",
+                  0,
+                  1,
+                  1e-6,
+                  6);
 
   AddSpacer();
 
@@ -136,10 +140,14 @@ MapperBundleAdjustmentOptionsWidget::MapperBundleAdjustmentOptionsWidget(
   AddOptionInt(&options->mapper->ba_global_points_freq, "points_freq");
   AddOptionInt(&options->mapper->ba_global_max_num_iterations,
                "max_num_iterations");
-  AddOptionInt(&options->mapper->ba_global_max_refinements, "max_refinements",
-               1);
+  AddOptionInt(
+      &options->mapper->ba_global_max_refinements, "max_refinements", 1);
   AddOptionDouble(&options->mapper->ba_global_max_refinement_change,
-                  "max_refinement_change", 0, 1, 1e-6, 6);
+                  "max_refinement_change",
+                  0,
+                  1,
+                  1e-6,
+                  6);
 }
 
 MapperFilteringOptionsWidget::MapperFilteringOptionsWidget(

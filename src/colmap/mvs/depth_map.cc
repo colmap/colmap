@@ -39,13 +39,16 @@ namespace mvs {
 
 DepthMap::DepthMap() : DepthMap(0, 0, -1.0f, -1.0f) {}
 
-DepthMap::DepthMap(const size_t width, const size_t height,
-                   const float depth_min, const float depth_max)
+DepthMap::DepthMap(const size_t width,
+                   const size_t height,
+                   const float depth_min,
+                   const float depth_max)
     : Mat<float>(width, height, 1),
       depth_min_(depth_min),
       depth_max_(depth_max) {}
 
-DepthMap::DepthMap(const Mat<float>& mat, const float depth_min,
+DepthMap::DepthMap(const Mat<float>& mat,
+                   const float depth_min,
                    const float depth_max)
     : Mat<float>(mat.GetWidth(), mat.GetHeight(), mat.GetDepth()),
       depth_min_(depth_min),
@@ -62,8 +65,8 @@ void DepthMap::Rescale(const float factor) {
   const size_t new_width = std::round(width_ * factor);
   const size_t new_height = std::round(height_ * factor);
   std::vector<float> new_data(new_width * new_height);
-  DownsampleImage(data_.data(), height_, width_, new_height, new_width,
-                  new_data.data());
+  DownsampleImage(
+      data_.data(), height_, width_, new_height, new_width, new_data.data());
 
   data_ = new_data;
   width_ = new_width;

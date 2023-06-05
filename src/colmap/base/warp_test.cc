@@ -30,15 +30,17 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/warp"
-#include "colmap/util/testing.h"
-
 #include "colmap/base/warp.h"
+
 #include "colmap/util/random.h"
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 namespace {
 
-void GenerateRandomBitmap(const int width, const int height, const bool as_rgb,
+void GenerateRandomBitmap(const int width,
+                          const int height,
+                          const bool as_rgb,
                           Bitmap* bitmap) {
   bitmap->Allocate(width, height, as_rgb);
   for (int x = 0; x < width; ++x) {
@@ -95,14 +97,14 @@ BOOST_AUTO_TEST_CASE(TestIdenticalCameras) {
   Bitmap source_image_gray;
   GenerateRandomBitmap(100, 100, false, &source_image_gray);
   Bitmap target_image_gray;
-  WarpImageBetweenCameras(source_camera, target_camera, source_image_gray,
-                          &target_image_gray);
+  WarpImageBetweenCameras(
+      source_camera, target_camera, source_image_gray, &target_image_gray);
   CheckBitmapsEqual(source_image_gray, target_image_gray);
   Bitmap source_image_rgb;
   GenerateRandomBitmap(100, 100, true, &source_image_rgb);
   Bitmap target_image_rgb;
-  WarpImageBetweenCameras(source_camera, target_camera, source_image_rgb,
-                          &target_image_rgb);
+  WarpImageBetweenCameras(
+      source_camera, target_camera, source_image_rgb, &target_image_rgb);
   CheckBitmapsEqual(source_image_rgb, target_image_rgb);
 }
 
@@ -114,8 +116,8 @@ BOOST_AUTO_TEST_CASE(TestShiftedCameras) {
   Bitmap source_image_gray;
   GenerateRandomBitmap(100, 100, true, &source_image_gray);
   Bitmap target_image_gray;
-  WarpImageBetweenCameras(source_camera, target_camera, source_image_gray,
-                          &target_image_gray);
+  WarpImageBetweenCameras(
+      source_camera, target_camera, source_image_gray, &target_image_gray);
   for (int x = 0; x < target_image_gray.Width(); ++x) {
     for (int y = 0; y < target_image_gray.Height(); ++y) {
       BitmapColor<uint8_t> color;
@@ -138,16 +140,16 @@ BOOST_AUTO_TEST_CASE(TestWarpImageWithHomographyIdentity) {
   GenerateRandomBitmap(100, 100, false, &source_image_gray);
   Bitmap target_image_gray;
   target_image_gray.Allocate(100, 100, false);
-  WarpImageWithHomography(Eigen::Matrix3d::Identity(), source_image_gray,
-                          &target_image_gray);
+  WarpImageWithHomography(
+      Eigen::Matrix3d::Identity(), source_image_gray, &target_image_gray);
   CheckBitmapsEqual(source_image_gray, target_image_gray);
 
   Bitmap source_image_rgb;
   GenerateRandomBitmap(100, 100, true, &source_image_rgb);
   Bitmap target_image_rgb;
   target_image_rgb.Allocate(100, 100, true);
-  WarpImageWithHomography(Eigen::Matrix3d::Identity(), source_image_rgb,
-                          &target_image_rgb);
+  WarpImageWithHomography(
+      Eigen::Matrix3d::Identity(), source_image_rgb, &target_image_rgb);
   CheckBitmapsEqual(source_image_rgb, target_image_rgb);
 }
 
@@ -180,8 +182,10 @@ BOOST_AUTO_TEST_CASE(TestWarpImageWithHomographyBetweenCamerasIdentity) {
   Bitmap target_image_gray;
   target_image_gray.Allocate(100, 100, false);
   WarpImageWithHomographyBetweenCameras(Eigen::Matrix3d::Identity(),
-                                        source_camera, target_camera,
-                                        source_image_gray, &target_image_gray);
+                                        source_camera,
+                                        target_camera,
+                                        source_image_gray,
+                                        &target_image_gray);
   CheckBitmapsEqual(source_image_gray, target_image_gray);
 
   Bitmap source_image_rgb;
@@ -189,8 +193,10 @@ BOOST_AUTO_TEST_CASE(TestWarpImageWithHomographyBetweenCamerasIdentity) {
   Bitmap target_image_rgb;
   target_image_rgb.Allocate(100, 100, true);
   WarpImageWithHomographyBetweenCameras(Eigen::Matrix3d::Identity(),
-                                        source_camera, target_camera,
-                                        source_image_rgb, &target_image_rgb);
+                                        source_camera,
+                                        target_camera,
+                                        source_image_rgb,
+                                        &target_image_rgb);
   CheckBitmapsEqual(source_image_rgb, target_image_rgb);
 }
 
@@ -206,16 +212,16 @@ BOOST_AUTO_TEST_CASE(TestWarpImageWithHomographyBetweenCamerasTransposed) {
   GenerateRandomBitmap(100, 100, false, &source_image_gray);
   Bitmap target_image_gray;
   target_image_gray.Allocate(100, 100, false);
-  WarpImageWithHomographyBetweenCameras(H, source_camera, target_camera,
-                                        source_image_gray, &target_image_gray);
+  WarpImageWithHomographyBetweenCameras(
+      H, source_camera, target_camera, source_image_gray, &target_image_gray);
   CheckBitmapsTransposed(source_image_gray, target_image_gray);
 
   Bitmap source_image_rgb;
   GenerateRandomBitmap(100, 100, true, &source_image_rgb);
   Bitmap target_image_rgb;
   target_image_rgb.Allocate(100, 100, true);
-  WarpImageWithHomographyBetweenCameras(H, source_camera, target_camera,
-                                        source_image_rgb, &target_image_rgb);
+  WarpImageWithHomographyBetweenCameras(
+      H, source_camera, target_camera, source_image_rgb, &target_image_rgb);
   CheckBitmapsTransposed(source_image_rgb, target_image_rgb);
 }
 

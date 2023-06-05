@@ -232,16 +232,20 @@ bool CameraModelVerifyParams(const int model_id,
 
 bool CameraModelHasBogusParams(const int model_id,
                                const std::vector<double>& params,
-                               const size_t width, const size_t height,
+                               const size_t width,
+                               const size_t height,
                                const double min_focal_length_ratio,
                                const double max_focal_length_ratio,
                                const double max_extra_param) {
   switch (model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                                         \
-  case CameraModel::kModelId:                                                  \
-    return CameraModel::HasBogusParams(                                        \
-        params, width, height, min_focal_length_ratio, max_focal_length_ratio, \
-        max_extra_param);                                                      \
+#define CAMERA_MODEL_CASE(CameraModel)                         \
+  case CameraModel::kModelId:                                  \
+    return CameraModel::HasBogusParams(params,                 \
+                                       width,                  \
+                                       height,                 \
+                                       min_focal_length_ratio, \
+                                       max_focal_length_ratio, \
+                                       max_extra_param);       \
     break;
 
     CAMERA_MODEL_SWITCH_CASES

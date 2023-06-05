@@ -32,14 +32,14 @@
 #ifndef COLMAP_SRC_UI_IMAGE_VIEWER_WIDGET_H_
 #define COLMAP_SRC_UI_IMAGE_VIEWER_WIDGET_H_
 
-#include <QtCore>
-#include <QtWidgets>
-
 #include "colmap/base/database.h"
 #include "colmap/base/projection.h"
 #include "colmap/base/reconstruction.h"
 #include "colmap/ui/qt_utils.h"
 #include "colmap/util/option_manager.h"
+
+#include <QtCore>
+#include <QtWidgets>
 
 namespace colmap {
 

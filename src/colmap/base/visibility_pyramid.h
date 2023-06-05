@@ -36,7 +36,6 @@
 
 #include <Eigen/Core>
 
-
 namespace colmap {
 
 // A class that captures the distribution of points in a 2D grid.
@@ -53,7 +52,8 @@ namespace colmap {
 class VisibilityPyramid {
  public:
   VisibilityPyramid();
-  VisibilityPyramid(const size_t num_levels, const size_t width,
+  VisibilityPyramid(const size_t num_levels,
+                    const size_t width,
                     const size_t height);
 
   void SetPoint(const double x, const double y);
@@ -67,7 +67,9 @@ class VisibilityPyramid {
   inline size_t MaxScore() const;
 
  private:
-  void CellForPoint(const double x, const double y, size_t* cx,
+  void CellForPoint(const double x,
+                    const double y,
+                    size_t* cx,
                     size_t* cy) const;
 
   // Range of the input points.

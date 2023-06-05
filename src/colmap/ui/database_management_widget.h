@@ -32,15 +32,14 @@
 #ifndef COLMAP_SRC_UI_DATABASE_MANAGEMENT_WIDGET_H_
 #define COLMAP_SRC_UI_DATABASE_MANAGEMENT_WIDGET_H_
 
-#include <unordered_map>
-
-#include <QtCore>
-#include <QtWidgets>
-
 #include "colmap/base/database.h"
 #include "colmap/ui/image_viewer_widget.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/option_manager.h"
+
+#include <QtCore>
+#include <QtWidgets>
+#include <unordered_map>
 
 namespace colmap {
 
@@ -82,7 +81,8 @@ class MatchesTab : public TwoViewInfoTab {
 
 class TwoViewGeometriesTab : public TwoViewInfoTab {
  public:
-  TwoViewGeometriesTab(QWidget* parent, OptionManager* options,
+  TwoViewGeometriesTab(QWidget* parent,
+                       OptionManager* options,
                        Database* database);
 
   void Reload(const std::vector<Image>& images, const image_t image_id);
@@ -90,7 +90,8 @@ class TwoViewGeometriesTab : public TwoViewInfoTab {
 
 class OverlappingImagesWidget : public QWidget {
  public:
-  OverlappingImagesWidget(QWidget* parent, OptionManager* options,
+  OverlappingImagesWidget(QWidget* parent,
+                          OptionManager* options,
                           Database* database);
 
   void ShowMatches(const std::vector<Image>& images, const image_t image_id);
@@ -133,7 +134,9 @@ class CameraTab : public QWidget {
 
 class ImageTab : public QWidget {
  public:
-  ImageTab(QWidget* parent, CameraTab* camera_tab, OptionManager* options,
+  ImageTab(QWidget* parent,
+           CameraTab* camera_tab,
+           OptionManager* options,
            Database* database);
 
   void Reload();

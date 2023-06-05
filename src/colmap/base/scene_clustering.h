@@ -32,12 +32,12 @@
 #ifndef COLMAP_SRC_BASE_SCENE_CLUSTERING_H_
 #define COLMAP_SRC_BASE_SCENE_CLUSTERING_H_
 
+#include "colmap/base/database.h"
+#include "colmap/util/types.h"
+
 #include <list>
 #include <memory>
 #include <vector>
-
-#include "colmap/base/database.h"
-#include "colmap/util/types.h"
 
 namespace colmap {
 
@@ -87,7 +87,8 @@ class SceneClustering {
  private:
   void PartitionHierarchicalCluster(
       const std::vector<std::pair<int, int>>& edges,
-      const std::vector<int>& weights, Cluster* cluster);
+      const std::vector<int>& weights,
+      Cluster* cluster);
 
   void PartitionFlatCluster(const std::vector<std::pair<int, int>>& edges,
                             const std::vector<int>& weights);

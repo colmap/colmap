@@ -101,7 +101,8 @@ void Image::ResetPoint3DForPoint2D(const point2D_t point2D_idx) {
 }
 
 bool Image::HasPoint3D(const point3D_t point3D_id) const {
-  return std::find_if(points2D_.begin(), points2D_.end(),
+  return std::find_if(points2D_.begin(),
+                      points2D_.end(),
                       [point3D_id](const class Point2D& point2D) {
                         return point2D.Point3DId() == point3D_id;
                       }) != points2D_.end();

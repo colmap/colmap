@@ -33,14 +33,13 @@
 #define COLMAP_SRC_ESTIMATORS_TRIANGULATION_H_
 
 #include "colmap/base/camera.h"
+#include "colmap/optim/ransac.h"
+#include "colmap/util/math.h"
+#include "colmap/util/types.h"
 
 #include <vector>
 
 #include <Eigen/Core>
-
-#include "colmap/optim/ransac.h"
-#include "colmap/util/math.h"
-#include "colmap/util/types.h"
 
 namespace colmap {
 
@@ -71,7 +70,8 @@ class TriangulationEstimator {
   struct PoseData {
     PoseData() : camera(nullptr) {}
     PoseData(const Eigen::Matrix3x4d& proj_matrix_,
-             const Eigen::Vector3d& pose_, const Camera* camera_)
+             const Eigen::Vector3d& pose_,
+             const Camera* camera_)
         : proj_matrix(proj_matrix_), proj_center(pose_), camera(camera_) {}
     // The projection matrix for the image of the observation.
     Eigen::Matrix3x4d proj_matrix;
@@ -109,7 +109,8 @@ class TriangulationEstimator {
   //
   // @return                  Residual for each observation.
   void Residuals(const std::vector<X_t>& point_data,
-                 const std::vector<Y_t>& pose_data, const M_t& xyz,
+                 const std::vector<Y_t>& pose_data,
+                 const M_t& xyz,
                  std::vector<double>* residuals) const;
 
  private:
@@ -141,7 +142,8 @@ bool EstimateTriangulation(
     const EstimateTriangulationOptions& options,
     const std::vector<TriangulationEstimator::PointData>& point_data,
     const std::vector<TriangulationEstimator::PoseData>& pose_data,
-    std::vector<char>* inlier_mask, Eigen::Vector3d* xyz);
+    std::vector<char>* inlier_mask,
+    Eigen::Vector3d* xyz);
 
 }  // namespace colmap
 

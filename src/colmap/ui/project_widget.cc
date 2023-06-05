@@ -43,10 +43,14 @@ ProjectWidget::ProjectWidget(QWidget* parent, OptionManager* options)
 
   // Database path.
   QPushButton* databse_path_new = new QPushButton(tr("New"), this);
-  connect(databse_path_new, &QPushButton::released, this,
+  connect(databse_path_new,
+          &QPushButton::released,
+          this,
           &ProjectWidget::SelectNewDatabasePath);
   QPushButton* databse_path_open = new QPushButton(tr("Open"), this);
-  connect(databse_path_open, &QPushButton::released, this,
+  connect(databse_path_open,
+          &QPushButton::released,
+          this,
           &ProjectWidget::SelectExistingDatabasePath);
   database_path_text_ = new QLineEdit(this);
   database_path_text_->setText(
@@ -54,7 +58,9 @@ ProjectWidget::ProjectWidget(QWidget* parent, OptionManager* options)
 
   // Image path.
   QPushButton* image_path_select = new QPushButton(tr("Select"), this);
-  connect(image_path_select, &QPushButton::released, this,
+  connect(image_path_select,
+          &QPushButton::released,
+          this,
           &ProjectWidget::SelectImagePath);
   image_path_text_ = new QLineEdit(this);
   image_path_text_->setText(QString::fromStdString(*options_->image_path));
@@ -118,9 +124,11 @@ void ProjectWidget::Save() {
 }
 
 void ProjectWidget::SelectNewDatabasePath() {
-  QString database_path = QFileDialog::getSaveFileName(
-      this, tr("Select database file"), DefaultDirectory(),
-      tr("SQLite3 database (*.db)"));
+  QString database_path =
+      QFileDialog::getSaveFileName(this,
+                                   tr("Select database file"),
+                                   DefaultDirectory(),
+                                   tr("SQLite3 database (*.db)"));
   if (database_path != "") {
     if (!HasFileExtension(database_path.toUtf8().constData(), ".db")) {
       database_path += ".db";
@@ -130,18 +138,22 @@ void ProjectWidget::SelectNewDatabasePath() {
 }
 
 void ProjectWidget::SelectExistingDatabasePath() {
-  const auto database_path = QFileDialog::getOpenFileName(
-      this, tr("Select database file"), DefaultDirectory(),
-      tr("SQLite3 database (*.db)"));
+  const auto database_path =
+      QFileDialog::getOpenFileName(this,
+                                   tr("Select database file"),
+                                   DefaultDirectory(),
+                                   tr("SQLite3 database (*.db)"));
   if (database_path != "") {
     database_path_text_->setText(database_path);
   }
 }
 
 void ProjectWidget::SelectImagePath() {
-  const auto image_path = QFileDialog::getExistingDirectory(
-      this, tr("Select image path..."), DefaultDirectory(),
-      QFileDialog::ShowDirsOnly);
+  const auto image_path =
+      QFileDialog::getExistingDirectory(this,
+                                        tr("Select image path..."),
+                                        DefaultDirectory(),
+                                        QFileDialog::ShowDirsOnly);
   if (image_path != "") {
     image_path_text_->setText(image_path);
   }

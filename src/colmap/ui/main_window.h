@@ -32,10 +32,6 @@
 #ifndef COLMAP_SRC_UI_MAIN_WINDOW_H_
 #define COLMAP_SRC_UI_MAIN_WINDOW_H_
 
-#include <QtCore>
-#include <QtGui>
-#include <QtWidgets>
-
 #include "colmap/base/reconstruction.h"
 #include "colmap/controllers/incremental_mapper.h"
 #include "colmap/ui/automatic_reconstruction_widget.h"
@@ -55,6 +51,10 @@
 #include "colmap/ui/render_options_widget.h"
 #include "colmap/ui/undistortion_widget.h"
 #include "colmap/util/bitmap.h"
+
+#include <QtCore>
+#include <QtGui>
+#include <QtWidgets>
 
 namespace colmap {
 

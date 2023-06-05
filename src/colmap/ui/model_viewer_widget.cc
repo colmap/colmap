@@ -68,8 +68,10 @@ inline Eigen::Vector4f IndexToRGB(const size_t index) {
   return color;
 }
 
-void BuildImageModel(const Image& image, const Camera& camera,
-                     const float image_size, const Eigen::Vector4f& plane_color,
+void BuildImageModel(const Image& image,
+                     const Camera& camera,
+                     const float image_size,
+                     const Eigen::Vector4f& plane_color,
                      const Eigen::Vector4f& frame_color,
                      std::vector<TrianglePainter::Data>* triangle_data,
                      std::vector<LinePainter::Data>* line_data) {
@@ -105,73 +107,173 @@ void BuildImageModel(const Image& image, const Camera& camera,
 
   // Image plane as two triangles.
   if (triangle_data != nullptr) {
-    triangle_data->emplace_back(
-        PointPainter::Data(tl(0), tl(1), tl(2), plane_color(0), plane_color(1),
-                           plane_color(2), plane_color(3)),
-        PointPainter::Data(tr(0), tr(1), tr(2), plane_color(0), plane_color(1),
-                           plane_color(2), plane_color(3)),
-        PointPainter::Data(bl(0), bl(1), bl(2), plane_color(0), plane_color(1),
-                           plane_color(2), plane_color(3)));
+    triangle_data->emplace_back(PointPainter::Data(tl(0),
+                                                   tl(1),
+                                                   tl(2),
+                                                   plane_color(0),
+                                                   plane_color(1),
+                                                   plane_color(2),
+                                                   plane_color(3)),
+                                PointPainter::Data(tr(0),
+                                                   tr(1),
+                                                   tr(2),
+                                                   plane_color(0),
+                                                   plane_color(1),
+                                                   plane_color(2),
+                                                   plane_color(3)),
+                                PointPainter::Data(bl(0),
+                                                   bl(1),
+                                                   bl(2),
+                                                   plane_color(0),
+                                                   plane_color(1),
+                                                   plane_color(2),
+                                                   plane_color(3)));
 
-    triangle_data->emplace_back(
-        PointPainter::Data(bl(0), bl(1), bl(2), plane_color(0), plane_color(1),
-                           plane_color(2), plane_color(3)),
-        PointPainter::Data(tr(0), tr(1), tr(2), plane_color(0), plane_color(1),
-                           plane_color(2), plane_color(3)),
-        PointPainter::Data(br(0), br(1), br(2), plane_color(0), plane_color(1),
-                           plane_color(2), plane_color(3)));
+    triangle_data->emplace_back(PointPainter::Data(bl(0),
+                                                   bl(1),
+                                                   bl(2),
+                                                   plane_color(0),
+                                                   plane_color(1),
+                                                   plane_color(2),
+                                                   plane_color(3)),
+                                PointPainter::Data(tr(0),
+                                                   tr(1),
+                                                   tr(2),
+                                                   plane_color(0),
+                                                   plane_color(1),
+                                                   plane_color(2),
+                                                   plane_color(3)),
+                                PointPainter::Data(br(0),
+                                                   br(1),
+                                                   br(2),
+                                                   plane_color(0),
+                                                   plane_color(1),
+                                                   plane_color(2),
+                                                   plane_color(3)));
   }
 
   if (line_data != nullptr) {
     // Frame around image plane and connecting lines to projection center.
 
-    line_data->emplace_back(
-        PointPainter::Data(pc(0), pc(1), pc(2), frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)),
-        PointPainter::Data(tl(0), tl(1), tl(2), frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)));
+    line_data->emplace_back(PointPainter::Data(pc(0),
+                                               pc(1),
+                                               pc(2),
+                                               frame_color(0),
+                                               frame_color(1),
+                                               frame_color(2),
+                                               frame_color(3)),
+                            PointPainter::Data(tl(0),
+                                               tl(1),
+                                               tl(2),
+                                               frame_color(0),
+                                               frame_color(1),
+                                               frame_color(2),
+                                               frame_color(3)));
 
-    line_data->emplace_back(
-        PointPainter::Data(pc(0), pc(1), pc(2), frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)),
-        PointPainter::Data(tr(0), tr(1), tr(2), frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)));
+    line_data->emplace_back(PointPainter::Data(pc(0),
+                                               pc(1),
+                                               pc(2),
+                                               frame_color(0),
+                                               frame_color(1),
+                                               frame_color(2),
+                                               frame_color(3)),
+                            PointPainter::Data(tr(0),
+                                               tr(1),
+                                               tr(2),
+                                               frame_color(0),
+                                               frame_color(1),
+                                               frame_color(2),
+                                               frame_color(3)));
 
-    line_data->emplace_back(
-        PointPainter::Data(pc(0), pc(1), pc(2), frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)),
-        PointPainter::Data(br(0), br(1), br(2), frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)));
+    line_data->emplace_back(PointPainter::Data(pc(0),
+                                               pc(1),
+                                               pc(2),
+                                               frame_color(0),
+                                               frame_color(1),
+                                               frame_color(2),
+                                               frame_color(3)),
+                            PointPainter::Data(br(0),
+                                               br(1),
+                                               br(2),
+                                               frame_color(0),
+                                               frame_color(1),
+                                               frame_color(2),
+                                               frame_color(3)));
 
-    line_data->emplace_back(
-        PointPainter::Data(pc(0), pc(1), pc(2), frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)),
-        PointPainter::Data(bl(0), bl(1), bl(2), frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)));
+    line_data->emplace_back(PointPainter::Data(pc(0),
+                                               pc(1),
+                                               pc(2),
+                                               frame_color(0),
+                                               frame_color(1),
+                                               frame_color(2),
+                                               frame_color(3)),
+                            PointPainter::Data(bl(0),
+                                               bl(1),
+                                               bl(2),
+                                               frame_color(0),
+                                               frame_color(1),
+                                               frame_color(2),
+                                               frame_color(3)));
 
-    line_data->emplace_back(
-        PointPainter::Data(tl(0), tl(1), tl(2), frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)),
-        PointPainter::Data(tr(0), tr(1), tr(2), frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)));
+    line_data->emplace_back(PointPainter::Data(tl(0),
+                                               tl(1),
+                                               tl(2),
+                                               frame_color(0),
+                                               frame_color(1),
+                                               frame_color(2),
+                                               frame_color(3)),
+                            PointPainter::Data(tr(0),
+                                               tr(1),
+                                               tr(2),
+                                               frame_color(0),
+                                               frame_color(1),
+                                               frame_color(2),
+                                               frame_color(3)));
 
-    line_data->emplace_back(
-        PointPainter::Data(tr(0), tr(1), tr(2), frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)),
-        PointPainter::Data(br(0), br(1), br(2), frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)));
+    line_data->emplace_back(PointPainter::Data(tr(0),
+                                               tr(1),
+                                               tr(2),
+                                               frame_color(0),
+                                               frame_color(1),
+                                               frame_color(2),
+                                               frame_color(3)),
+                            PointPainter::Data(br(0),
+                                               br(1),
+                                               br(2),
+                                               frame_color(0),
+                                               frame_color(1),
+                                               frame_color(2),
+                                               frame_color(3)));
 
-    line_data->emplace_back(
-        PointPainter::Data(br(0), br(1), br(2), frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)),
-        PointPainter::Data(bl(0), bl(1), bl(2), frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)));
+    line_data->emplace_back(PointPainter::Data(br(0),
+                                               br(1),
+                                               br(2),
+                                               frame_color(0),
+                                               frame_color(1),
+                                               frame_color(2),
+                                               frame_color(3)),
+                            PointPainter::Data(bl(0),
+                                               bl(1),
+                                               bl(2),
+                                               frame_color(0),
+                                               frame_color(1),
+                                               frame_color(2),
+                                               frame_color(3)));
 
-    line_data->emplace_back(
-        PointPainter::Data(bl(0), bl(1), bl(2), frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)),
-        PointPainter::Data(tl(0), tl(1), tl(2), frame_color(0), frame_color(1),
-                           frame_color(2), frame_color(3)));
+    line_data->emplace_back(PointPainter::Data(bl(0),
+                                               bl(1),
+                                               bl(2),
+                                               frame_color(0),
+                                               frame_color(1),
+                                               frame_color(2),
+                                               frame_color(3)),
+                            PointPainter::Data(tl(0),
+                                               tl(1),
+                                               tl(2),
+                                               frame_color(0),
+                                               frame_color(1),
+                                               frame_color(2),
+                                               frame_color(3)));
   }
 }
 
@@ -224,8 +326,8 @@ void ModelViewerWidget::initializeGL() {
 }
 
 void ModelViewerWidget::paintGL() {
-  glClearColor(background_color_[0], background_color_[1], background_color_[2],
-               1.0f);
+  glClearColor(
+      background_color_[0], background_color_[1], background_color_[2], 1.0f);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   const QMatrix4x4 pmv_matrix = projection_matrix_ * model_view_matrix_;
@@ -235,8 +337,8 @@ void ModelViewerWidget::paintGL() {
   const Eigen::Vector4f rot_center =
       QMatrixToEigen(model_view_matrix_).inverse() *
       Eigen::Vector4f(0, 0, -focus_distance_, 1);
-  model_view_center_matrix.translate(rot_center(0), rot_center(1),
-                                     rot_center(2));
+  model_view_center_matrix.translate(
+      rot_center(0), rot_center(1), rot_center(2));
 
   // Coordinate system
   if (coordinate_grid_enabled_) {
@@ -281,9 +383,10 @@ void ModelViewerWidget::ReloadReconstruction() {
     images[image_id] = reconstruction->Image(image_id);
   }
 
-  statusbar_status_label->setText(QString().asprintf(
-      "%d Images - %d Points", static_cast<int>(reg_image_ids.size()),
-      static_cast<int>(points3D.size())));
+  statusbar_status_label->setText(
+      QString().asprintf("%d Images - %d Points",
+                         static_cast<int>(reg_image_ids.size()),
+                         static_cast<int>(points3D.size())));
 
   Upload();
 }
@@ -367,8 +470,10 @@ void ModelViewerWidget::ChangePointSize(const float delta) {
   update();
 }
 
-void ModelViewerWidget::RotateView(const float x, const float y,
-                                   const float prev_x, const float prev_y) {
+void ModelViewerWidget::RotateView(const float x,
+                                   const float y,
+                                   const float prev_x,
+                                   const float prev_y) {
   if (x - prev_x == 0 && y - prev_y == 0) {
     return;
   }
@@ -397,14 +502,16 @@ void ModelViewerWidget::RotateView(const float x, const float y,
     // First shift to rotation center, then rotate and shift back.
     model_view_matrix_.translate(rot_center(0), rot_center(1), rot_center(2));
     model_view_matrix_.rotate(RadToDeg(angle), axis(0), axis(1), axis(2));
-    model_view_matrix_.translate(-rot_center(0), -rot_center(1),
-                                 -rot_center(2));
+    model_view_matrix_.translate(
+        -rot_center(0), -rot_center(1), -rot_center(2));
     update();
   }
 }
 
-void ModelViewerWidget::TranslateView(const float x, const float y,
-                                      const float prev_x, const float prev_y) {
+void ModelViewerWidget::TranslateView(const float x,
+                                      const float y,
+                                      const float prev_x,
+                                      const float prev_y) {
   if (x - prev_x == 0 && y - prev_y == 0) {
     return;
   }
@@ -479,8 +586,16 @@ void ModelViewerWidget::SelectObject(const int x, const int y) {
 
   glBindFramebuffer(GL_READ_FRAMEBUFFER, defaultFramebufferObject());
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo.handle());
-  glBlitFramebuffer(scaled_x, scaled_y, scaled_x + 1, scaled_y + 1, 0, 0, 1, 1,
-                    GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+  glBlitFramebuffer(scaled_x,
+                    scaled_y,
+                    scaled_x + 1,
+                    scaled_y + 1,
+                    0,
+                    0,
+                    1,
+                    1,
+                    GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
+                    GL_NEAREST);
 
   fbo.bind();
   std::array<uint8_t, 3> color;
@@ -545,13 +660,25 @@ QImage ModelViewerWidget::GrabImage() {
 
   glBindFramebuffer(GL_READ_FRAMEBUFFER, defaultFramebufferObject());
   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo.handle());
-  glBlitFramebuffer(0, 0, scaled_width, scaled_height, 0, 0, scaled_width,
-                    scaled_height, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
+  glBlitFramebuffer(0,
+                    0,
+                    scaled_width,
+                    scaled_height,
+                    0,
+                    0,
+                    scaled_width,
+                    scaled_height,
+                    GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT,
                     GL_NEAREST);
 
   fbo.bind();
   QImage image(scaled_width, scaled_height, QImage::Format_RGB888);
-  glReadPixels(0, 0, scaled_width, scaled_height, GL_RGB, GL_UNSIGNED_BYTE,
+  glReadPixels(0,
+               0,
+               scaled_width,
+               scaled_height,
+               GL_RGB,
+               GL_UNSIGNED_BYTE,
                image.bits());
   fbo.release();
 
@@ -583,7 +710,8 @@ void ModelViewerWidget::SetImageSize(const float image_size) {
   UploadImageData();
 }
 
-void ModelViewerWidget::SetBackgroundColor(const float r, const float g,
+void ModelViewerWidget::SetBackgroundColor(const float r,
+                                           const float g,
                                            const float b) {
   background_color_[0] = r;
   background_color_[1] = g;
@@ -616,10 +744,14 @@ void ModelViewerWidget::mouseMoveEvent(QMouseEvent* event) {
     if (event->buttons() & Qt::RightButton ||
         (event->buttons() & Qt::LeftButton &&
          event->modifiers() & Qt::ControlModifier)) {
-      TranslateView(event->pos().x(), event->pos().y(), prev_mouse_pos_.x(),
+      TranslateView(event->pos().x(),
+                    event->pos().y(),
+                    prev_mouse_pos_.x(),
                     prev_mouse_pos_.y());
     } else if (event->buttons() & Qt::LeftButton) {
-      RotateView(event->pos().x(), event->pos().y(), prev_mouse_pos_.x(),
+      RotateView(event->pos().x(),
+                 event->pos().y(),
+                 prev_mouse_pos_.x(),
                  prev_mouse_pos_.y());
     }
   }
@@ -693,26 +825,50 @@ void ModelViewerWidget::UploadCoordinateGridData() {
   // View center grid.
   std::vector<LinePainter::Data> grid_data(3);
 
-  grid_data[0].point1 =
-      PointPainter::Data(-20 * scale, 0, 0, kGridColor(0), kGridColor(1),
-                         kGridColor(2), kGridColor(3));
-  grid_data[0].point2 =
-      PointPainter::Data(20 * scale, 0, 0, kGridColor(0), kGridColor(1),
-                         kGridColor(2), kGridColor(3));
+  grid_data[0].point1 = PointPainter::Data(-20 * scale,
+                                           0,
+                                           0,
+                                           kGridColor(0),
+                                           kGridColor(1),
+                                           kGridColor(2),
+                                           kGridColor(3));
+  grid_data[0].point2 = PointPainter::Data(20 * scale,
+                                           0,
+                                           0,
+                                           kGridColor(0),
+                                           kGridColor(1),
+                                           kGridColor(2),
+                                           kGridColor(3));
 
-  grid_data[1].point1 =
-      PointPainter::Data(0, -20 * scale, 0, kGridColor(0), kGridColor(1),
-                         kGridColor(2), kGridColor(3));
-  grid_data[1].point2 =
-      PointPainter::Data(0, 20 * scale, 0, kGridColor(0), kGridColor(1),
-                         kGridColor(2), kGridColor(3));
+  grid_data[1].point1 = PointPainter::Data(0,
+                                           -20 * scale,
+                                           0,
+                                           kGridColor(0),
+                                           kGridColor(1),
+                                           kGridColor(2),
+                                           kGridColor(3));
+  grid_data[1].point2 = PointPainter::Data(0,
+                                           20 * scale,
+                                           0,
+                                           kGridColor(0),
+                                           kGridColor(1),
+                                           kGridColor(2),
+                                           kGridColor(3));
 
-  grid_data[2].point1 =
-      PointPainter::Data(0, 0, -20 * scale, kGridColor(0), kGridColor(1),
-                         kGridColor(2), kGridColor(3));
-  grid_data[2].point2 =
-      PointPainter::Data(0, 0, 20 * scale, kGridColor(0), kGridColor(1),
-                         kGridColor(2), kGridColor(3));
+  grid_data[2].point1 = PointPainter::Data(0,
+                                           0,
+                                           -20 * scale,
+                                           kGridColor(0),
+                                           kGridColor(1),
+                                           kGridColor(2),
+                                           kGridColor(3));
+  grid_data[2].point2 = PointPainter::Data(0,
+                                           0,
+                                           20 * scale,
+                                           kGridColor(0),
+                                           kGridColor(1),
+                                           kGridColor(2),
+                                           kGridColor(3));
 
   coordinate_grid_painter_.Upload(grid_data);
 
@@ -721,21 +877,33 @@ void ModelViewerWidget::UploadCoordinateGridData() {
 
   axes_data[0].point1 = PointPainter::Data(
       0, 0, 0, kXAxisColor(0), kXAxisColor(1), kXAxisColor(2), kXAxisColor(3));
-  axes_data[0].point2 =
-      PointPainter::Data(50 * scale, 0, 0, kXAxisColor(0), kXAxisColor(1),
-                         kXAxisColor(2), kXAxisColor(3));
+  axes_data[0].point2 = PointPainter::Data(50 * scale,
+                                           0,
+                                           0,
+                                           kXAxisColor(0),
+                                           kXAxisColor(1),
+                                           kXAxisColor(2),
+                                           kXAxisColor(3));
 
   axes_data[1].point1 = PointPainter::Data(
       0, 0, 0, kYAxisColor(0), kYAxisColor(1), kYAxisColor(2), kYAxisColor(3));
-  axes_data[1].point2 =
-      PointPainter::Data(0, 50 * scale, 0, kYAxisColor(0), kYAxisColor(1),
-                         kYAxisColor(2), kYAxisColor(3));
+  axes_data[1].point2 = PointPainter::Data(0,
+                                           50 * scale,
+                                           0,
+                                           kYAxisColor(0),
+                                           kYAxisColor(1),
+                                           kYAxisColor(2),
+                                           kYAxisColor(3));
 
   axes_data[2].point1 = PointPainter::Data(
       0, 0, 0, kZAxisColor(0), kZAxisColor(1), kZAxisColor(2), kZAxisColor(3));
-  axes_data[2].point2 =
-      PointPainter::Data(0, 0, 50 * scale, kZAxisColor(0), kZAxisColor(1),
-                         kZAxisColor(2), kZAxisColor(3));
+  axes_data[2].point2 = PointPainter::Data(0,
+                                           0,
+                                           50 * scale,
+                                           kZAxisColor(0),
+                                           kZAxisColor(1),
+                                           kZAxisColor(2),
+                                           kZAxisColor(3));
 
   coordinate_axes_painter_.Upload(axes_data);
 }
@@ -836,20 +1004,26 @@ void ModelViewerWidget::UploadPointConnectionData() {
 
   // 3D point position.
   LinePainter::Data line;
-  line.point1 = PointPainter::Data(
-      static_cast<float>(point3D.XYZ(0)), static_cast<float>(point3D.XYZ(1)),
-      static_cast<float>(point3D.XYZ(2)), kSelectedPointColor(0),
-      kSelectedPointColor(1), kSelectedPointColor(2), 0.8f);
+  line.point1 = PointPainter::Data(static_cast<float>(point3D.XYZ(0)),
+                                   static_cast<float>(point3D.XYZ(1)),
+                                   static_cast<float>(point3D.XYZ(2)),
+                                   kSelectedPointColor(0),
+                                   kSelectedPointColor(1),
+                                   kSelectedPointColor(2),
+                                   0.8f);
 
   // All images in which 3D point is observed.
   for (const auto& track_el : point3D.Track().Elements()) {
     const Image& conn_image = images[track_el.image_id];
     const Eigen::Vector3f conn_proj_center =
         conn_image.ProjectionCenter().cast<float>();
-    line.point2 = PointPainter::Data(
-        conn_proj_center(0), conn_proj_center(1), conn_proj_center(2),
-        kSelectedPointColor(0), kSelectedPointColor(1), kSelectedPointColor(2),
-        0.8f);
+    line.point2 = PointPainter::Data(conn_proj_center(0),
+                                     conn_proj_center(1),
+                                     conn_proj_center(2),
+                                     kSelectedPointColor(0),
+                                     kSelectedPointColor(1),
+                                     kSelectedPointColor(2),
+                                     0.8f);
     line_data.push_back(line);
   }
 
@@ -887,8 +1061,13 @@ void ModelViewerWidget::UploadImageData(const bool selection_mode) {
 
     // Lines are not colored with the indexed color in selection mode, so do not
     // show them, so they do not block the selection process
-    BuildImageModel(image, camera, image_size_, plane_color, frame_color,
-                    &triangle_data, selection_mode ? nullptr : &line_data);
+    BuildImageModel(image,
+                    camera,
+                    image_size_,
+                    plane_color,
+                    frame_color,
+                    &triangle_data,
+                    selection_mode ? nullptr : &line_data);
   }
 
   image_line_painter_.Upload(line_data);
@@ -931,20 +1110,26 @@ void ModelViewerWidget::UploadImageConnectionData() {
 
     // Selected image in the center.
     LinePainter::Data line;
-    line.point1 = PointPainter::Data(
-        proj_center(0), proj_center(1), proj_center(2),
-        kSelectedImageFrameColor(0), kSelectedImageFrameColor(1),
-        kSelectedImageFrameColor(2), 0.8f);
+    line.point1 = PointPainter::Data(proj_center(0),
+                                     proj_center(1),
+                                     proj_center(2),
+                                     kSelectedImageFrameColor(0),
+                                     kSelectedImageFrameColor(1),
+                                     kSelectedImageFrameColor(2),
+                                     0.8f);
 
     // All connected images to the selected image.
     for (const image_t conn_image_id : conn_image_ids) {
       const Image& conn_image = images[conn_image_id];
       const Eigen::Vector3f conn_proj_center =
           conn_image.ProjectionCenter().cast<float>();
-      line.point2 = PointPainter::Data(
-          conn_proj_center(0), conn_proj_center(1), conn_proj_center(2),
-          kSelectedImageFrameColor(0), kSelectedImageFrameColor(1),
-          kSelectedImageFrameColor(2), 0.8f);
+      line.point2 = PointPainter::Data(conn_proj_center(0),
+                                       conn_proj_center(1),
+                                       conn_proj_center(2),
+                                       kSelectedImageFrameColor(0),
+                                       kSelectedImageFrameColor(1),
+                                       kSelectedImageFrameColor(2),
+                                       0.8f);
       line_data.push_back(line);
     }
   }
@@ -973,14 +1158,20 @@ void ModelViewerWidget::UploadMovieGrabberData() {
       const Eigen::Vector3f curr_proj_center =
           image.ProjectionCenter().cast<float>();
       LinePainter::Data path;
-      path.point1 = PointPainter::Data(
-          prev_proj_center(0), prev_proj_center(1), prev_proj_center(2),
-          kSelectedImagePlaneColor(0), kSelectedImagePlaneColor(1),
-          kSelectedImagePlaneColor(2), kSelectedImagePlaneColor(3));
-      path.point2 = PointPainter::Data(
-          curr_proj_center(0), curr_proj_center(1), curr_proj_center(2),
-          kSelectedImagePlaneColor(0), kSelectedImagePlaneColor(1),
-          kSelectedImagePlaneColor(2), kSelectedImagePlaneColor(3));
+      path.point1 = PointPainter::Data(prev_proj_center(0),
+                                       prev_proj_center(1),
+                                       prev_proj_center(2),
+                                       kSelectedImagePlaneColor(0),
+                                       kSelectedImagePlaneColor(1),
+                                       kSelectedImagePlaneColor(2),
+                                       kSelectedImagePlaneColor(3));
+      path.point2 = PointPainter::Data(curr_proj_center(0),
+                                       curr_proj_center(1),
+                                       curr_proj_center(2),
+                                       kSelectedImagePlaneColor(0),
+                                       kSelectedImagePlaneColor(1),
+                                       kSelectedImagePlaneColor(2),
+                                       kSelectedImagePlaneColor(3));
       path_data.push_back(path);
       prev_proj_center = curr_proj_center;
     }
@@ -991,8 +1182,10 @@ void ModelViewerWidget::UploadMovieGrabberData() {
     const float focal_length =
         -2.0f * std::tan(DegToRad(kFieldOfView) / 2.0f) * kDefaultImageWdith;
     Camera camera;
-    camera.InitializeWithId(SimplePinholeCameraModel::model_id, focal_length,
-                            kDefaultImageWdith, kDefaultImageHeight);
+    camera.InitializeWithId(SimplePinholeCameraModel::model_id,
+                            focal_length,
+                            kDefaultImageWdith,
+                            kDefaultImageHeight);
 
     // Build all camera models
     for (size_t i = 0; i < movie_grabber_widget_->views.size(); ++i) {
@@ -1007,8 +1200,13 @@ void ModelViewerWidget::UploadMovieGrabberData() {
         frame_color = kMovieGrabberImageFrameColor;
       }
 
-      BuildImageModel(image, camera, image_size_, plane_color, frame_color,
-                      &triangle_data, &line_data);
+      BuildImageModel(image,
+                      camera,
+                      image_size_,
+                      plane_color,
+                      frame_color,
+                      &triangle_data,
+                      &line_data);
     }
   }
 
@@ -1021,13 +1219,17 @@ void ModelViewerWidget::ComposeProjectionMatrix() {
   projection_matrix_.setToIdentity();
   if (options_->render->projection_type ==
       RenderOptions::ProjectionType::PERSPECTIVE) {
-    projection_matrix_.perspective(kFieldOfView, AspectRatio(), near_plane_,
-                                   kFarPlane);
+    projection_matrix_.perspective(
+        kFieldOfView, AspectRatio(), near_plane_, kFarPlane);
   } else if (options_->render->projection_type ==
              RenderOptions::ProjectionType::ORTHOGRAPHIC) {
     const float extent = OrthographicWindowExtent();
-    projection_matrix_.ortho(-AspectRatio() * extent, AspectRatio() * extent,
-                             -extent, extent, near_plane_, kFarPlane);
+    projection_matrix_.ortho(-AspectRatio() * extent,
+                             AspectRatio() * extent,
+                             -extent,
+                             extent,
+                             near_plane_,
+                             kFarPlane);
   }
 }
 

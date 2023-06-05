@@ -100,7 +100,8 @@ bool HierarchicalMapperController::Options::Check() const {
 }
 
 HierarchicalMapperController::HierarchicalMapperController(
-    const Options& options, const SceneClustering::Options& clustering_options,
+    const Options& options,
+    const SceneClustering::Options& clustering_options,
     const IncrementalMapperOptions& mapper_options,
     ReconstructionManager* reconstruction_manager)
     : options_(options),
@@ -138,7 +139,8 @@ void HierarchicalMapperController::Run() {
   size_t total_num_images = 0;
   for (size_t i = 0; i < leaf_clusters.size(); ++i) {
     total_num_images += leaf_clusters[i]->image_ids.size();
-    std::cout << StringPrintf("  Cluster %d with %d images", i + 1,
+    std::cout << StringPrintf("  Cluster %d with %d images",
+                              i + 1,
                               leaf_clusters[i]->image_ids.size())
               << std::endl;
   }
@@ -183,7 +185,8 @@ void HierarchicalMapperController::Run() {
       custom_options.image_names.insert(image_id_to_name.at(image_id));
     }
 
-    IncrementalMapperController mapper(&custom_options, options_.image_path,
+    IncrementalMapperController mapper(&custom_options,
+                                       options_.image_path,
                                        options_.database_path,
                                        reconstruction_manager);
     mapper.Start();
@@ -191,7 +194,8 @@ void HierarchicalMapperController::Run() {
   };
 
   // Start reconstructing the bigger clusters first for resource usage.
-  std::sort(leaf_clusters.begin(), leaf_clusters.end(),
+  std::sort(leaf_clusters.begin(),
+            leaf_clusters.end(),
             [](const SceneClustering::Cluster* cluster1,
                const SceneClustering::Cluster* cluster2) {
               return cluster1->image_ids.size() > cluster2->image_ids.size();
@@ -205,8 +209,8 @@ void HierarchicalMapperController::Run() {
 
   ThreadPool thread_pool(num_eff_workers);
   for (const auto& cluster : leaf_clusters) {
-    thread_pool.AddTask(ReconstructCluster, *cluster,
-                        &reconstruction_managers[cluster]);
+    thread_pool.AddTask(
+        ReconstructCluster, *cluster, &reconstruction_managers[cluster]);
   }
   thread_pool.Wait();
 

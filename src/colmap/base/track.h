@@ -32,10 +32,10 @@
 #ifndef COLMAP_SRC_BASE_TRACK_H_
 #define COLMAP_SRC_BASE_TRACK_H_
 
-#include <vector>
-
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
+
+#include <vector>
 
 namespace colmap {
 

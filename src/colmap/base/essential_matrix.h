@@ -32,13 +32,12 @@
 #ifndef COLMAP_SRC_BASE_ESSENTIAL_MATRIX_H_
 #define COLMAP_SRC_BASE_ESSENTIAL_MATRIX_H_
 
+#include "colmap/util/types.h"
+
 #include <vector>
 
 #include <Eigen/Core>
-
 #include <ceres/ceres.h>
-
-#include "colmap/util/types.h"
 
 namespace colmap {
 
@@ -52,8 +51,10 @@ namespace colmap {
 // @param R1         First possible 3x3 rotation matrix.
 // @param R2         Second possible 3x3 rotation matrix.
 // @param t          3x1 possible translation vector (also -t possible).
-void DecomposeEssentialMatrix(const Eigen::Matrix3d& E, Eigen::Matrix3d* R1,
-                              Eigen::Matrix3d* R2, Eigen::Vector3d* t);
+void DecomposeEssentialMatrix(const Eigen::Matrix3d& E,
+                              Eigen::Matrix3d* R1,
+                              Eigen::Matrix3d* R2,
+                              Eigen::Vector3d* t);
 
 // Recover the most probable pose from the given essential matrix.
 //
@@ -71,7 +72,8 @@ void DecomposeEssentialMatrix(const Eigen::Matrix3d& E, Eigen::Matrix3d* R1,
 void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
                              const std::vector<Eigen::Vector2d>& points1,
                              const std::vector<Eigen::Vector2d>& points2,
-                             Eigen::Matrix3d* R, Eigen::Vector3d* t,
+                             Eigen::Matrix3d* R,
+                             Eigen::Vector3d* t,
                              std::vector<Eigen::Vector3d>* points3D);
 
 // Compose essential matrix from relative camera poses.

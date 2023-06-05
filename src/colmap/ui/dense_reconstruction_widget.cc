@@ -53,15 +53,15 @@ class StereoOptionsTab : public OptionsWidget {
       options->patch_match_stereo->max_image_size = 2000;
     }
 
-    AddOptionInt(&options->patch_match_stereo->max_image_size, "max_image_size",
-                 -1);
+    AddOptionInt(
+        &options->patch_match_stereo->max_image_size, "max_image_size", -1);
     AddOptionText(&options->patch_match_stereo->gpu_index, "gpu_index");
     AddOptionDouble(&options->patch_match_stereo->depth_min, "depth_min", -1);
     AddOptionDouble(&options->patch_match_stereo->depth_max, "depth_max", -1);
     AddOptionInt(&options->patch_match_stereo->window_radius, "window_radius");
     AddOptionInt(&options->patch_match_stereo->window_step, "window_step");
-    AddOptionDouble(&options->patch_match_stereo->sigma_spatial,
-                    "sigma_spatial", -1);
+    AddOptionDouble(
+        &options->patch_match_stereo->sigma_spatial, "sigma_spatial", -1);
     AddOptionDouble(&options->patch_match_stereo->sigma_color, "sigma_color");
     AddOptionInt(&options->patch_match_stereo->num_samples, "num_samples");
     AddOptionDouble(&options->patch_match_stereo->ncc_sigma, "ncc_sigma");
@@ -89,8 +89,11 @@ class StereoOptionsTab : public OptionsWidget {
         &options->patch_match_stereo->filter_geom_consistency_max_cost,
         "filter_geom_consistency_max_cost");
     AddOptionDouble(&options->patch_match_stereo->cache_size,
-                    "cache_size [gigabytes]", 0,
-                    std::numeric_limits<double>::max(), 0.1, 1);
+                    "cache_size [gigabytes]",
+                    0,
+                    std::numeric_limits<double>::max(),
+                    0.1,
+                    1);
     AddOptionBool(&options->patch_match_stereo->write_consistency_graph,
                   "write_consistency_graph");
   }
@@ -103,19 +106,26 @@ class FusionOptionsTab : public OptionsWidget {
     AddOptionInt(&options->stereo_fusion->max_image_size, "max_image_size", -1);
     AddOptionInt(&options->stereo_fusion->min_num_pixels, "min_num_pixels", 0);
     AddOptionInt(&options->stereo_fusion->max_num_pixels, "max_num_pixels", 0);
-    AddOptionInt(&options->stereo_fusion->max_traversal_depth,
-                 "max_traversal_depth", 1);
-    AddOptionDouble(&options->stereo_fusion->max_reproj_error,
-                    "max_reproj_error", 0);
-    AddOptionDouble(&options->stereo_fusion->max_depth_error, "max_depth_error",
-                    0, 1, 0.0001, 4);
-    AddOptionDouble(&options->stereo_fusion->max_normal_error,
-                    "max_normal_error", 0, 180);
-    AddOptionInt(&options->stereo_fusion->check_num_images, "check_num_images",
-                 1);
+    AddOptionInt(
+        &options->stereo_fusion->max_traversal_depth, "max_traversal_depth", 1);
+    AddOptionDouble(
+        &options->stereo_fusion->max_reproj_error, "max_reproj_error", 0);
+    AddOptionDouble(&options->stereo_fusion->max_depth_error,
+                    "max_depth_error",
+                    0,
+                    1,
+                    0.0001,
+                    4);
+    AddOptionDouble(
+        &options->stereo_fusion->max_normal_error, "max_normal_error", 0, 180);
+    AddOptionInt(
+        &options->stereo_fusion->check_num_images, "check_num_images", 1);
     AddOptionDouble(&options->stereo_fusion->cache_size,
-                    "cache_size [gigabytes]", 0,
-                    std::numeric_limits<double>::max(), 0.1, 1);
+                    "cache_size [gigabytes]",
+                    0,
+                    std::numeric_limits<double>::max(),
+                    0.1,
+                    1);
     AddOptionBool(&options->stereo_fusion->use_cache, "use_cache");
   }
 };
@@ -132,18 +142,22 @@ class MeshingOptionsTab : public OptionsWidget {
     AddOptionInt(&options->poisson_meshing->num_threads, "num_threads", -1);
 
     AddSection("Delaunay Meshing");
-    AddOptionDouble(&options->delaunay_meshing->max_proj_dist, "max_proj_dist",
-                    0);
-    AddOptionDouble(&options->delaunay_meshing->max_depth_dist,
-                    "max_depth_dist", 0);
+    AddOptionDouble(
+        &options->delaunay_meshing->max_proj_dist, "max_proj_dist", 0);
+    AddOptionDouble(
+        &options->delaunay_meshing->max_depth_dist, "max_depth_dist", 0);
     AddOptionDouble(&options->delaunay_meshing->distance_sigma_factor,
-                    "distance_sigma_factor", 0);
+                    "distance_sigma_factor",
+                    0);
     AddOptionDouble(&options->delaunay_meshing->quality_regularization,
-                    "quality_regularization", 0);
+                    "quality_regularization",
+                    0);
     AddOptionDouble(&options->delaunay_meshing->max_side_length_factor,
-                    "max_side_length_factor", 0);
+                    "max_side_length_factor",
+                    0);
     AddOptionDouble(&options->delaunay_meshing->max_side_length_percentile,
-                    "max_side_length_percentile", 0);
+                    "max_side_length_percentile",
+                    0);
     AddOptionInt(&options->delaunay_meshing->num_threads, "num_threads", -1);
   }
 };
@@ -213,32 +227,44 @@ DenseReconstructionWidget::DenseReconstructionWidget(MainWindow* main_window,
   QGridLayout* grid = new QGridLayout(this);
 
   undistortion_button_ = new QPushButton(tr("Undistortion"), this);
-  connect(undistortion_button_, &QPushButton::released, this,
+  connect(undistortion_button_,
+          &QPushButton::released,
+          this,
           &DenseReconstructionWidget::Undistort);
   grid->addWidget(undistortion_button_, 0, 0, Qt::AlignLeft);
 
   stereo_button_ = new QPushButton(tr("Stereo"), this);
-  connect(stereo_button_, &QPushButton::released, this,
+  connect(stereo_button_,
+          &QPushButton::released,
+          this,
           &DenseReconstructionWidget::Stereo);
   grid->addWidget(stereo_button_, 0, 1, Qt::AlignLeft);
 
   fusion_button_ = new QPushButton(tr("Fusion"), this);
-  connect(fusion_button_, &QPushButton::released, this,
+  connect(fusion_button_,
+          &QPushButton::released,
+          this,
           &DenseReconstructionWidget::Fusion);
   grid->addWidget(fusion_button_, 0, 2, Qt::AlignLeft);
 
   poisson_meshing_button_ = new QPushButton(tr("Poisson"), this);
-  connect(poisson_meshing_button_, &QPushButton::released, this,
+  connect(poisson_meshing_button_,
+          &QPushButton::released,
+          this,
           &DenseReconstructionWidget::PoissonMeshing);
   grid->addWidget(poisson_meshing_button_, 0, 3, Qt::AlignLeft);
 
   delaunay_meshing_button_ = new QPushButton(tr("Delaunay"), this);
-  connect(delaunay_meshing_button_, &QPushButton::released, this,
+  connect(delaunay_meshing_button_,
+          &QPushButton::released,
+          this,
           &DenseReconstructionWidget::DelaunayMeshing);
   grid->addWidget(delaunay_meshing_button_, 0, 4, Qt::AlignLeft);
 
   QPushButton* options_button = new QPushButton(tr("Options"), this);
-  connect(options_button, &QPushButton::released, options_widget_,
+  connect(options_button,
+          &QPushButton::released,
+          options_widget_,
           &OptionsWidget::show);
   grid->addWidget(options_button, 0, 5, Qt::AlignLeft);
 
@@ -247,16 +273,24 @@ DenseReconstructionWidget::DenseReconstructionWidget(MainWindow* main_window,
 
   workspace_path_text_ = new QLineEdit(this);
   grid->addWidget(workspace_path_text_, 0, 7, Qt::AlignRight);
-  connect(workspace_path_text_, &QLineEdit::textChanged, this,
-          &DenseReconstructionWidget::RefreshWorkspace, Qt::QueuedConnection);
+  connect(workspace_path_text_,
+          &QLineEdit::textChanged,
+          this,
+          &DenseReconstructionWidget::RefreshWorkspace,
+          Qt::QueuedConnection);
 
   QPushButton* refresh_path_button = new QPushButton(tr("Refresh"), this);
-  connect(refresh_path_button, &QPushButton::released, this,
-          &DenseReconstructionWidget::RefreshWorkspace, Qt::QueuedConnection);
+  connect(refresh_path_button,
+          &QPushButton::released,
+          this,
+          &DenseReconstructionWidget::RefreshWorkspace,
+          Qt::QueuedConnection);
   grid->addWidget(refresh_path_button, 0, 8, Qt::AlignRight);
 
   QPushButton* workspace_path_button = new QPushButton(tr("Select"), this);
-  connect(workspace_path_button, &QPushButton::released, this,
+  connect(workspace_path_button,
+          &QPushButton::released,
+          this,
           &DenseReconstructionWidget::SelectWorkspacePath,
           Qt::QueuedConnection);
   grid->addWidget(workspace_path_button, 0, 9, Qt::AlignRight);
@@ -286,15 +320,21 @@ DenseReconstructionWidget::DenseReconstructionWidget(MainWindow* main_window,
   image_viewer_widget_->setWindowModality(Qt::ApplicationModal);
 
   refresh_workspace_action_ = new QAction(this);
-  connect(refresh_workspace_action_, &QAction::triggered, this,
+  connect(refresh_workspace_action_,
+          &QAction::triggered,
+          this,
           &DenseReconstructionWidget::RefreshWorkspace);
 
   write_fused_points_action_ = new QAction(this);
-  connect(write_fused_points_action_, &QAction::triggered, this,
+  connect(write_fused_points_action_,
+          &QAction::triggered,
+          this,
           &DenseReconstructionWidget::WriteFusedPoints);
 
   show_meshing_info_action_ = new QAction(this);
-  connect(show_meshing_info_action_, &QAction::triggered, this,
+  connect(show_meshing_info_action_,
+          &QAction::triggered,
+          this,
           &DenseReconstructionWidget::ShowMeshingInfo);
 
   RefreshWorkspace();
@@ -317,18 +357,20 @@ void DenseReconstructionWidget::Undistort() {
   }
 
   if (reconstruction_ == nullptr || reconstruction_->NumRegImages() < 2) {
-    QMessageBox::critical(this, "",
-                          tr("No reconstruction selected in main window"));
+    QMessageBox::critical(
+        this, "", tr("No reconstruction selected in main window"));
     return;
   }
 
-  auto undistorter = std::make_unique<COLMAPUndistorter>(
-      UndistortCameraOptions(), *reconstruction_, *options_->image_path,
-      workspace_path);
+  auto undistorter =
+      std::make_unique<COLMAPUndistorter>(UndistortCameraOptions(),
+                                          *reconstruction_,
+                                          *options_->image_path,
+                                          workspace_path);
   undistorter->AddCallback(Thread::FINISHED_CALLBACK,
                            [this]() { refresh_workspace_action_->trigger(); });
-  thread_control_widget_->StartThread("Undistorting...", true,
-                                      std::move(undistorter));
+  thread_control_widget_->StartThread(
+      "Undistorting...", true, std::move(undistorter));
 }
 
 void DenseReconstructionWidget::Stereo() {
@@ -344,7 +386,8 @@ void DenseReconstructionWidget::Stereo() {
                          [this]() { refresh_workspace_action_->trigger(); });
   thread_control_widget_->StartThread("Stereo...", true, std::move(processor));
 #else
-  QMessageBox::critical(this, "",
+  QMessageBox::critical(this,
+                        "",
                         tr("Dense stereo reconstruction requires CUDA, which "
                            "is not available on your system."));
 #endif
@@ -362,8 +405,8 @@ void DenseReconstructionWidget::Fusion() {
   } else if (photometric_done_) {
     input_type = "photometric";
   } else {
-    QMessageBox::critical(this, "",
-                          tr("All images must be processed prior to fusion"));
+    QMessageBox::critical(
+        this, "", tr("All images must be processed prior to fusion"));
   }
 
   auto fuser = std::make_unique<mvs::StereoFusion>(
@@ -405,13 +448,15 @@ void DenseReconstructionWidget::DelaunayMeshing() {
     thread_control_widget_->StartFunction(
         "Delaunay Meshing...", [this, workspace_path]() {
           mvs::DenseDelaunayMeshing(
-              *options_->delaunay_meshing, workspace_path,
+              *options_->delaunay_meshing,
+              workspace_path,
               JoinPaths(workspace_path, kDelaunayMeshedFileName));
           show_meshing_info_action_->trigger();
         });
   }
 #else
-  QMessageBox::critical(this, "",
+  QMessageBox::critical(this,
+                        "",
                         tr("Delaunay meshing requires CGAL, which "
                            "is not available on your system."));
 #endif
@@ -425,9 +470,11 @@ void DenseReconstructionWidget::SelectWorkspacePath() {
     workspace_path = workspace_path_text_->text().toUtf8().constData();
   }
 
-  workspace_path_text_->setText(QFileDialog::getExistingDirectory(
-      this, tr("Select workspace path..."),
-      QString::fromStdString(workspace_path), QFileDialog::ShowDirsOnly));
+  workspace_path_text_->setText(
+      QFileDialog::getExistingDirectory(this,
+                                        tr("Select workspace path..."),
+                                        QString::fromStdString(workspace_path),
+                                        QFileDialog::ShowDirsOnly));
 
   RefreshWorkspace();
 }
@@ -493,12 +540,12 @@ void DenseReconstructionWidget::RefreshWorkspace() {
     table_widget_->setItem(i, 0, image_name_item);
 
     QPushButton* image_button = new QPushButton("Image");
-    connect(image_button, &QPushButton::released,
-            [this, image_name, image_path]() {
-              image_viewer_widget_->setWindowTitle(
-                  QString("Image for %1").arg(image_name.c_str()));
-              image_viewer_widget_->ReadAndShow(image_path);
-            });
+    connect(
+        image_button, &QPushButton::released, [this, image_name, image_path]() {
+          image_viewer_widget_->setWindowTitle(
+              QString("Image for %1").arg(image_name.c_str()));
+          image_viewer_widget_->ReadAndShow(image_path);
+        });
     table_widget_->setCellWidget(i, 1, image_button);
 
     table_widget_->setCellWidget(
@@ -522,7 +569,8 @@ void DenseReconstructionWidget::RefreshWorkspace() {
 
 void DenseReconstructionWidget::WriteFusedPoints() {
   const int reply = QMessageBox::question(
-      this, "",
+      this,
+      "",
       tr("Do you want to visualize the point cloud? Otherwise, to visualize "
          "the reconstructed dense point cloud later, navigate to the "
          "<i>dense</i> sub-folder in your workspace with <i>File > Import "
@@ -536,8 +584,8 @@ void DenseReconstructionWidget::WriteFusedPoints() {
 
     for (const auto& point : fused_points_) {
       const Eigen::Vector3d xyz(point.x, point.y, point.z);
-      reconstruction.AddPoint3D(xyz, Track(),
-                                Eigen::Vector3ub(point.r, point.g, point.b));
+      reconstruction.AddPoint3D(
+          xyz, Track(), Eigen::Vector3ub(point.r, point.g, point.b));
     }
 
     options_->render->min_track_len = 0;
@@ -555,21 +603,24 @@ void DenseReconstructionWidget::WriteFusedPoints() {
     return;
   }
 
-  thread_control_widget_->StartFunction("Exporting...", [this,
-                                                         workspace_path]() {
-    const std::string output_path = JoinPaths(workspace_path, kFusedFileName);
-    WriteBinaryPlyPoints(output_path, fused_points_);
-    mvs::WritePointsVisibility(output_path + ".vis", fused_points_visibility_);
-    fused_points_ = {};
-    fused_points_visibility_ = {};
-    poisson_meshing_button_->setEnabled(true);
-    delaunay_meshing_button_->setEnabled(true);
-  });
+  thread_control_widget_->StartFunction(
+      "Exporting...", [this, workspace_path]() {
+        const std::string output_path =
+            JoinPaths(workspace_path, kFusedFileName);
+        WriteBinaryPlyPoints(output_path, fused_points_);
+        mvs::WritePointsVisibility(output_path + ".vis",
+                                   fused_points_visibility_);
+        fused_points_ = {};
+        fused_points_visibility_ = {};
+        poisson_meshing_button_->setEnabled(true);
+        delaunay_meshing_button_->setEnabled(true);
+      });
 }
 
 void DenseReconstructionWidget::ShowMeshingInfo() {
   QMessageBox::information(
-      this, "",
+      this,
+      "",
       tr("To visualize the meshed model, you must use an external viewer such "
          "as Meshlab. The model is located in the workspace folder."));
 }
@@ -598,7 +649,8 @@ QWidget* DenseReconstructionWidget::GenerateTableButtonWidget(
 
   QPushButton* depth_map_button = new QPushButton("Depth map", button_widget);
   if (ExistsFile(depth_map_path)) {
-    connect(depth_map_button, &QPushButton::released,
+    connect(depth_map_button,
+            &QPushButton::released,
             [this, image_name, depth_map_path]() {
               mvs::DepthMap depth_map;
               depth_map.Read(depth_map_path);
@@ -618,7 +670,8 @@ QWidget* DenseReconstructionWidget::GenerateTableButtonWidget(
 
   QPushButton* normal_map_button = new QPushButton("Normal map", button_widget);
   if (ExistsFile(normal_map_path)) {
-    connect(normal_map_button, &QPushButton::released,
+    connect(normal_map_button,
+            &QPushButton::released,
             [this, image_name, normal_map_path]() {
               mvs::NormalMap normal_map;
               normal_map.Read(normal_map_path);

@@ -242,10 +242,10 @@ void StereoFusion::Run() {
     K(1, 1) *= bitmap_scales_.at(image_idx).second;
     K(1, 2) *= bitmap_scales_.at(image_idx).second;
 
-    ComposeProjectionMatrix(K.data(), image.GetR(), image.GetT(),
-                            P_.at(image_idx).data());
-    ComposeInverseProjectionMatrix(K.data(), image.GetR(), image.GetT(),
-                                   inv_P_.at(image_idx).data());
+    ComposeProjectionMatrix(
+        K.data(), image.GetR(), image.GetT(), P_.at(image_idx).data());
+    ComposeInverseProjectionMatrix(
+        K.data(), image.GetR(), image.GetT(), inv_P_.at(image_idx).data());
     inv_R_.at(image_idx) =
         Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(
             image.GetR())
@@ -260,8 +260,10 @@ void StereoFusion::Run() {
   // are too close to each other which may lead to duplicated work, since nearby
   // pixels are likely to get fused into the same point.
   const int kRowStride = 10;
-  auto ProcessImageRows = [&, this](const int row_start, const int height,
-                                    const int width, const int image_idx,
+  auto ProcessImageRows = [&, this](const int row_start,
+                                    const int height,
+                                    const int width,
+                                    const int image_idx,
                                     const Mat<char>& fused_pixel_mask) {
     const int row_end = std::min(height, row_start + kRowStride);
     for (int row = row_start; row < row_end; ++row) {
@@ -278,8 +280,8 @@ void StereoFusion::Run() {
   size_t num_fused_images = 0;
   size_t total_fused_points = 0;
   for (int image_idx = 0; image_idx >= 0;
-       image_idx = internal::FindNextImage(overlapping_images_, used_images_,
-                                           fused_images_, image_idx)) {
+       image_idx = internal::FindNextImage(
+           overlapping_images_, used_images_, fused_images_, image_idx)) {
     if (IsStopped()) {
       break;
     }
@@ -288,7 +290,8 @@ void StereoFusion::Run() {
     timer.Start();
 
     std::cout << StringPrintf("Fusing image [%d/%d] with index %d",
-                              num_fused_images + 1, model.images.size(),
+                              num_fused_images + 1,
+                              model.images.size(),
                               image_idx)
               << std::flush;
 
@@ -297,7 +300,11 @@ void StereoFusion::Run() {
     const auto& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
 
     for (int row_start = 0; row_start < height; row_start += kRowStride) {
-      thread_pool.AddTask(ProcessImageRows, row_start, height, width, image_idx,
+      thread_pool.AddTask(ProcessImageRows,
+                          row_start,
+                          height,
+                          width,
+                          image_idx,
                           fused_pixel_mask);
     }
     thread_pool.Wait();
@@ -309,7 +316,8 @@ void StereoFusion::Run() {
     for (const auto& task_fused_points : task_fused_points_) {
       total_fused_points += task_fused_points.size();
     }
-    std::cout << StringPrintf(" in %.3fs (%d points)", timer.ElapsedSeconds(),
+    std::cout << StringPrintf(" in %.3fs (%d points)",
+                              timer.ElapsedSeconds(),
                               total_fused_points)
               << std::endl;
   }
@@ -341,7 +349,8 @@ void StereoFusion::Run() {
   GetTimer().PrintMinutes();
 }
 
-void StereoFusion::InitFusedPixelMask(int image_idx, size_t width,
+void StereoFusion::InitFusedPixelMask(int image_idx,
+                                      size_t width,
                                       size_t height) {
   Bitmap mask;
   Mat<char>& fused_pixel_mask = fused_pixel_masks_.at(image_idx);
@@ -364,7 +373,9 @@ void StereoFusion::InitFusedPixelMask(int image_idx, size_t width,
   }
 }
 
-void StereoFusion::Fuse(const int thread_id, const int image_idx, const int row,
+void StereoFusion::Fuse(const int thread_id,
+                        const int image_idx,
+                        const int row,
                         const int col) {
   // Next points to fuse.
   std::vector<FusionData> fusion_queue;
@@ -513,8 +524,8 @@ void StereoFusion::Fuse(const int thread_id, const int image_idx, const int row,
           next_row >= depth_map_size.second) {
         continue;
       }
-      fusion_queue.emplace_back(next_image_idx, next_row, next_col,
-                                traversal_depth + 1);
+      fusion_queue.emplace_back(
+          next_image_idx, next_row, next_col, traversal_depth + 1);
     }
   }
 

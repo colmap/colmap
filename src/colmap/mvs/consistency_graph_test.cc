@@ -30,9 +30,9 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "mvs/consistency_graph_test"
-#include "colmap/util/testing.h"
-
 #include "colmap/mvs/consistency_graph.h"
+
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 using namespace colmap::mvs;

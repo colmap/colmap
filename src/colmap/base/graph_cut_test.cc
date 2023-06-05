@@ -30,18 +30,31 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/graph_cut"
-#include "colmap/util/testing.h"
-
 #include "colmap/base/graph_cut.h"
+
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 
 BOOST_AUTO_TEST_CASE(TestComputeMinGraphCutStoerWagner) {
-  const std::vector<std::pair<int, int>> edges = {
-      {3, 4}, {3, 6}, {3, 5}, {0, 4}, {0, 1}, {0, 6}, {0, 7}, {0, 5},
-      {0, 2}, {4, 1}, {1, 6}, {1, 5}, {6, 7}, {7, 5}, {5, 2}, {3, 4}};
-  const std::vector<int> weights = {0, 3, 1, 3,  1, 2, 6, 1,
-                                    8, 1, 1, 80, 2, 1, 1, 4};
+  const std::vector<std::pair<int, int>> edges = {{3, 4},
+                                                  {3, 6},
+                                                  {3, 5},
+                                                  {0, 4},
+                                                  {0, 1},
+                                                  {0, 6},
+                                                  {0, 7},
+                                                  {0, 5},
+                                                  {0, 2},
+                                                  {4, 1},
+                                                  {1, 6},
+                                                  {1, 5},
+                                                  {6, 7},
+                                                  {7, 5},
+                                                  {5, 2},
+                                                  {3, 4}};
+  const std::vector<int> weights = {
+      0, 3, 1, 3, 1, 2, 6, 1, 8, 1, 1, 80, 2, 1, 1, 4};
   int cut_weight;
   std::vector<char> cut_labels;
   ComputeMinGraphCutStoerWagner(edges, weights, &cut_weight, &cut_labels);
@@ -54,11 +67,25 @@ BOOST_AUTO_TEST_CASE(TestComputeMinGraphCutStoerWagner) {
 }
 
 BOOST_AUTO_TEST_CASE(TestComputeMinGraphCutStoerWagnerDuplicateEdge) {
-  const std::vector<std::pair<int, int>> edges = {
-      {3, 4}, {3, 6}, {3, 5}, {0, 4}, {0, 1}, {0, 6}, {0, 7}, {0, 5}, {0, 2},
-      {4, 1}, {1, 6}, {1, 5}, {6, 7}, {7, 5}, {5, 2}, {3, 4}, {3, 4}};
-  const std::vector<int> weights = {0, 3, 1,  3, 1, 2, 6, 1, 8,
-                                    1, 1, 80, 2, 1, 1, 4, 4};
+  const std::vector<std::pair<int, int>> edges = {{3, 4},
+                                                  {3, 6},
+                                                  {3, 5},
+                                                  {0, 4},
+                                                  {0, 1},
+                                                  {0, 6},
+                                                  {0, 7},
+                                                  {0, 5},
+                                                  {0, 2},
+                                                  {4, 1},
+                                                  {1, 6},
+                                                  {1, 5},
+                                                  {6, 7},
+                                                  {7, 5},
+                                                  {5, 2},
+                                                  {3, 4},
+                                                  {3, 4}};
+  const std::vector<int> weights = {
+      0, 3, 1, 3, 1, 2, 6, 1, 8, 1, 1, 80, 2, 1, 1, 4, 4};
   int cut_weight;
   std::vector<char> cut_labels;
   ComputeMinGraphCutStoerWagner(edges, weights, &cut_weight, &cut_labels);
@@ -71,9 +98,20 @@ BOOST_AUTO_TEST_CASE(TestComputeMinGraphCutStoerWagnerDuplicateEdge) {
 }
 
 BOOST_AUTO_TEST_CASE(TestComputeMinGraphCutStoerWagnerMissingVertex) {
-  const std::vector<std::pair<int, int>> edges = {
-      {3, 4}, {3, 6}, {3, 5}, {0, 1}, {0, 6}, {0, 7}, {0, 5},
-      {0, 2}, {4, 1}, {1, 6}, {1, 5}, {6, 7}, {7, 5}, {5, 2}};
+  const std::vector<std::pair<int, int>> edges = {{3, 4},
+                                                  {3, 6},
+                                                  {3, 5},
+                                                  {0, 1},
+                                                  {0, 6},
+                                                  {0, 7},
+                                                  {0, 5},
+                                                  {0, 2},
+                                                  {4, 1},
+                                                  {1, 6},
+                                                  {1, 5},
+                                                  {6, 7},
+                                                  {7, 5},
+                                                  {5, 2}};
   const std::vector<int> weights = {0, 3, 1, 3, 1, 2, 6, 1, 8, 1, 1, 80, 2, 1};
   int cut_weight;
   std::vector<char> cut_labels;
@@ -101,11 +139,24 @@ BOOST_AUTO_TEST_CASE(TestComputeMinGraphCutStoerWagnerDisconnected) {
 }
 
 BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCut) {
-  const std::vector<std::pair<int, int>> edges = {
-      {3, 4}, {3, 6}, {3, 5}, {0, 4}, {0, 1}, {0, 6}, {0, 7}, {0, 5},
-      {0, 2}, {4, 1}, {1, 6}, {1, 5}, {6, 7}, {7, 5}, {5, 2}, {3, 4}};
-  const std::vector<int> weights = {0, 3, 1, 3,  1, 2, 6, 1,
-                                    8, 1, 1, 80, 2, 1, 1, 4};
+  const std::vector<std::pair<int, int>> edges = {{3, 4},
+                                                  {3, 6},
+                                                  {3, 5},
+                                                  {0, 4},
+                                                  {0, 1},
+                                                  {0, 6},
+                                                  {0, 7},
+                                                  {0, 5},
+                                                  {0, 2},
+                                                  {4, 1},
+                                                  {1, 6},
+                                                  {1, 5},
+                                                  {6, 7},
+                                                  {7, 5},
+                                                  {5, 2},
+                                                  {3, 4}};
+  const std::vector<int> weights = {
+      0, 3, 1, 3, 1, 2, 6, 1, 8, 1, 1, 80, 2, 1, 1, 4};
   const auto cut_labels = ComputeNormalizedMinGraphCut(edges, weights, 2);
   BOOST_CHECK_EQUAL(cut_labels.size(), 8);
   size_t num_labels[2] = {0};
@@ -119,11 +170,25 @@ BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCut) {
 }
 
 BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCutDuplicateEdge) {
-  const std::vector<std::pair<int, int>> edges = {
-      {3, 4}, {3, 6}, {3, 5}, {0, 4}, {0, 1}, {0, 6}, {0, 7}, {0, 5}, {0, 2},
-      {4, 1}, {1, 6}, {1, 5}, {6, 7}, {7, 5}, {5, 2}, {3, 4}, {3, 4}};
-  const std::vector<int> weights = {0, 3, 1,  3, 1, 2, 6, 1, 8,
-                                    1, 1, 80, 2, 1, 1, 4, 4};
+  const std::vector<std::pair<int, int>> edges = {{3, 4},
+                                                  {3, 6},
+                                                  {3, 5},
+                                                  {0, 4},
+                                                  {0, 1},
+                                                  {0, 6},
+                                                  {0, 7},
+                                                  {0, 5},
+                                                  {0, 2},
+                                                  {4, 1},
+                                                  {1, 6},
+                                                  {1, 5},
+                                                  {6, 7},
+                                                  {7, 5},
+                                                  {5, 2},
+                                                  {3, 4},
+                                                  {3, 4}};
+  const std::vector<int> weights = {
+      0, 3, 1, 3, 1, 2, 6, 1, 8, 1, 1, 80, 2, 1, 1, 4, 4};
   const auto cut_labels = ComputeNormalizedMinGraphCut(edges, weights, 2);
   BOOST_CHECK_EQUAL(cut_labels.size(), 8);
   size_t num_labels[2] = {0};
@@ -137,9 +202,20 @@ BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCutDuplicateEdge) {
 }
 
 BOOST_AUTO_TEST_CASE(TestComputeNormalizedMinGraphCutMissingVertex) {
-  const std::vector<std::pair<int, int>> edges = {
-      {3, 4}, {3, 6}, {3, 5}, {0, 1}, {0, 6}, {0, 7}, {0, 5},
-      {0, 2}, {4, 1}, {1, 6}, {1, 5}, {6, 7}, {7, 5}, {5, 2}};
+  const std::vector<std::pair<int, int>> edges = {{3, 4},
+                                                  {3, 6},
+                                                  {3, 5},
+                                                  {0, 1},
+                                                  {0, 6},
+                                                  {0, 7},
+                                                  {0, 5},
+                                                  {0, 2},
+                                                  {4, 1},
+                                                  {1, 6},
+                                                  {1, 5},
+                                                  {6, 7},
+                                                  {7, 5},
+                                                  {5, 2}};
   const std::vector<int> weights = {0, 3, 1, 3, 1, 2, 6, 1, 8, 1, 1, 80, 2, 1};
   const auto cut_labels = ComputeNormalizedMinGraphCut(edges, weights, 2);
   BOOST_CHECK_EQUAL(cut_labels.size(), 8);

@@ -32,13 +32,12 @@
 #ifndef COLMAP_SRC_UI_LOG_WIDGET_H_
 #define COLMAP_SRC_UI_LOG_WIDGET_H_
 
-#include <fstream>
-#include <iostream>
+#include "colmap/util/option_manager.h"
 
 #include <QtGui>
 #include <QtWidgets>
-
-#include "colmap/util/option_manager.h"
+#include <fstream>
+#include <iostream>
 
 namespace colmap {
 
@@ -47,7 +46,8 @@ class StandardOutputRedirector : public std::basic_streambuf<Elem, Tr> {
   typedef void (*cb_func_ptr)(const Elem*, std::streamsize count, void* data);
 
  public:
-  StandardOutputRedirector(std::ostream& stream, cb_func_ptr cb_func,
+  StandardOutputRedirector(std::ostream& stream,
+                           cb_func_ptr cb_func,
                            void* data)
       : stream_(stream), cb_func_(cb_func), data_(data) {
     buf_ = stream_.rdbuf(this);
@@ -83,7 +83,8 @@ class LogWidget : public QWidget {
   void Clear();
 
  private:
-  static void Update(const char* text, std::streamsize count,
+  static void Update(const char* text,
+                     std::streamsize count,
                      void* text_box_ptr);
 
   void SaveLog();

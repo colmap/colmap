@@ -31,16 +31,16 @@
 
 #include "colmap/estimators/essential_matrix.h"
 
+#include "colmap/base/polynomial.h"
+#include "colmap/estimators/utils.h"
+#include "colmap/util/logging.h"
+#include "colmap/util/math.h"
+
 #include <complex>
 
 #include <Eigen/Geometry>
 #include <Eigen/LU>
 #include <Eigen/SVD>
-
-#include "colmap/base/polynomial.h"
-#include "colmap/estimators/utils.h"
-#include "colmap/util/logging.h"
-#include "colmap/util/math.h"
 
 namespace colmap {
 
@@ -151,8 +151,10 @@ EssentialMatrixFivePointEstimator::Estimate(const std::vector<X_t>& points1,
 }
 
 void EssentialMatrixFivePointEstimator::Residuals(
-    const std::vector<X_t>& points1, const std::vector<Y_t>& points2,
-    const M_t& E, std::vector<double>* residuals) {
+    const std::vector<X_t>& points1,
+    const std::vector<Y_t>& points2,
+    const M_t& E,
+    std::vector<double>* residuals) {
   ComputeSquaredSampsonError(points1, points2, E, residuals);
 }
 
@@ -205,8 +207,10 @@ EssentialMatrixEightPointEstimator::Estimate(const std::vector<X_t>& points1,
 }
 
 void EssentialMatrixEightPointEstimator::Residuals(
-    const std::vector<X_t>& points1, const std::vector<Y_t>& points2,
-    const M_t& E, std::vector<double>* residuals) {
+    const std::vector<X_t>& points1,
+    const std::vector<Y_t>& points2,
+    const M_t& E,
+    std::vector<double>* residuals) {
   ComputeSquaredSampsonError(points1, points2, E, residuals);
 }
 

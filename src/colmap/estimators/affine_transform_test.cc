@@ -30,9 +30,9 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "estimators/affine_transform"
-#include "colmap/util/testing.h"
-
 #include "colmap/estimators/affine_transform.h"
+
+#include "colmap/util/testing.h"
 
 #include <Eigen/Geometry>
 

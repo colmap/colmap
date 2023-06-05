@@ -55,10 +55,14 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
 
   QHBoxLayout* point_size_layout = new QHBoxLayout();
   QPushButton* decrease_point_size = new QPushButton("-", this);
-  connect(decrease_point_size, &QPushButton::released, this,
+  connect(decrease_point_size,
+          &QPushButton::released,
+          this,
           &RenderOptionsWidget::DecreasePointSize);
   QPushButton* increase_point_size = new QPushButton("+", this);
-  connect(increase_point_size, &QPushButton::released, this,
+  connect(increase_point_size,
+          &QPushButton::released,
+          this,
           &RenderOptionsWidget::IncreasePointSize);
   point_size_layout->addWidget(decrease_point_size);
   point_size_layout->addWidget(increase_point_size);
@@ -66,10 +70,14 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
 
   QHBoxLayout* camera_size_layout = new QHBoxLayout();
   QPushButton* decrease_camera_size = new QPushButton("-", this);
-  connect(decrease_camera_size, &QPushButton::released, this,
+  connect(decrease_camera_size,
+          &QPushButton::released,
+          this,
           &RenderOptionsWidget::DecreaseCameraSize);
   QPushButton* increase_camera_size = new QPushButton("+", this);
-  connect(increase_camera_size, &QPushButton::released, this,
+  connect(increase_camera_size,
+          &QPushButton::released,
+          this,
           &RenderOptionsWidget::IncreaseCameraSize);
   camera_size_layout->addWidget(decrease_camera_size);
   camera_size_layout->addWidget(increase_camera_size);
@@ -86,10 +94,11 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
 
   QPushButton* select_background_color =
       new QPushButton(tr("Select color"), this);
-  grid_layout_->addWidget(select_background_color, grid_layout_->rowCount() - 1,
-                          1);
-  connect(select_background_color, &QPushButton::released, this,
-          [&]() { SelectColor("Background color", &background_color_); });
+  grid_layout_->addWidget(
+      select_background_color, grid_layout_->rowCount() - 1, 1);
+  connect(select_background_color, &QPushButton::released, this, [&]() {
+    SelectColor("Background color", &background_color_);
+  });
   AddWidgetRow("Background", select_background_color);
 
   AddSpacer();
@@ -106,10 +115,10 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
   point3D_colormap_cb_->addItem("Ground-Resolution");
   AddWidgetRow("Point colormap", point3D_colormap_cb_);
 
-  AddOptionDouble(&point3D_colormap_min_q_, "Point colormap minq", 0, 1, 0.001,
-                  3);
-  AddOptionDouble(&point3D_colormap_max_q_, "Point colormap maxq", 0, 1, 0.001,
-                  3);
+  AddOptionDouble(
+      &point3D_colormap_min_q_, "Point colormap minq", 0, 1, 0.001, 3);
+  AddOptionDouble(
+      &point3D_colormap_max_q_, "Point colormap maxq", 0, 1, 0.001, 3);
   AddOptionDouble(&point3D_colormap_scale_, "Point colormap scale", -1e7, 1e7);
 
   // Show the above items only for other colormaps than the photometric one.
@@ -117,7 +126,8 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
   HideOption(&point3D_colormap_max_q_);
   HideOption(&point3D_colormap_scale_);
   connect(point3D_colormap_cb_,
-          (void(QComboBox::*)(int)) & QComboBox::currentIndexChanged, this,
+          (void(QComboBox::*)(int)) & QComboBox::currentIndexChanged,
+          this,
           &RenderOptionsWidget::SelectPointColormap);
 
   AddSpacer();
@@ -128,21 +138,27 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
   AddWidgetRow("Image colormap", image_colormap_cb_);
 
   select_image_plane_color_ = new QPushButton(tr("Select color"), this);
-  connect(select_image_plane_color_, &QPushButton::released, this,
-          [&]() { SelectColor("Image plane color", &image_plane_color_); });
+  connect(select_image_plane_color_, &QPushButton::released, this, [&]() {
+    SelectColor("Image plane color", &image_plane_color_);
+  });
   AddWidgetRow("Image plane", select_image_plane_color_);
 
   select_image_frame_color_ = new QPushButton(tr("Select color"), this);
-  connect(select_image_frame_color_, &QPushButton::released, this,
-          [&]() { SelectColor("Image frame color", &image_frame_color_); });
+  connect(select_image_frame_color_, &QPushButton::released, this, [&]() {
+    SelectColor("Image frame color", &image_frame_color_);
+  });
   AddWidgetRow("Image frame", select_image_frame_color_);
 
   image_colormap_name_filter_layout_ = new QHBoxLayout();
   QPushButton* image_colormap_add_word = new QPushButton("Add", this);
-  connect(image_colormap_add_word, &QPushButton::released, this,
+  connect(image_colormap_add_word,
+          &QPushButton::released,
+          this,
           &RenderOptionsWidget::ImageColormapNameFilterAddWord);
   QPushButton* image_colormap_clear_words = new QPushButton("Clear", this);
-  connect(image_colormap_clear_words, &QPushButton::released, this,
+  connect(image_colormap_clear_words,
+          &QPushButton::released,
+          this,
           &RenderOptionsWidget::ImageColormapNameFilterClearWords);
   image_colormap_name_filter_layout_->addWidget(image_colormap_add_word);
   image_colormap_name_filter_layout_->addWidget(image_colormap_clear_words);
@@ -150,7 +166,8 @@ RenderOptionsWidget::RenderOptionsWidget(QWidget* parent,
 
   HideLayout(image_colormap_name_filter_layout_);
   connect(image_colormap_cb_,
-          (void(QComboBox::*)(int)) & QComboBox::currentIndexChanged, this,
+          (void(QComboBox::*)(int)) & QComboBox::currentIndexChanged,
+          this,
           &RenderOptionsWidget::SelectImageColormap);
 
   AddSpacer();
@@ -261,9 +278,10 @@ void RenderOptionsWidget::ApplyBackgroundColor() {
 
 void RenderOptionsWidget::SelectColor(const std::string& title,
                                       Eigen::Vector4f* color) {
-  const QColor initial_color(
-      static_cast<int>(255 * (*color)(0)), static_cast<int>(255 * (*color)(1)),
-      static_cast<int>(255 * (*color)(2)), static_cast<int>(255 * (*color)(3)));
+  const QColor initial_color(static_cast<int>(255 * (*color)(0)),
+                             static_cast<int>(255 * (*color)(1)),
+                             static_cast<int>(255 * (*color)(2)),
+                             static_cast<int>(255 * (*color)(3)));
   const QColor selected_color =
       QColorDialog::getColor(initial_color, this, title.c_str());
   (*color)(0) = selected_color.red() / 255.0;
@@ -330,8 +348,8 @@ void RenderOptionsWidget::ImageColormapNameFilterAddWord() {
   Eigen::Vector4f frame_color(ImageColormapBase::kDefaultFrameColor);
   SelectColor("Image frame color", &frame_color);
 
-  image_colormap_name_filter_.AddColorForWord(word.toUtf8().constData(),
-                                              plane_color, frame_color);
+  image_colormap_name_filter_.AddColorForWord(
+      word.toUtf8().constData(), plane_color, frame_color);
 }
 
 void RenderOptionsWidget::ImageColormapNameFilterClearWords() {

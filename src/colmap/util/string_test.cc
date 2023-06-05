@@ -30,9 +30,9 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "util/string"
-#include "colmap/util/testing.h"
-
 #include "colmap/util/string.h"
+
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 
@@ -188,9 +188,11 @@ BOOST_AUTO_TEST_CASE(TestStringToLower) {
   TEST_STRING_INPLACE(StringToLower, "A ", "a ");
   TEST_STRING_INPLACE(StringToLower, " A ", " a ");
   TEST_STRING_INPLACE(StringToLower, "AA  ", "aa  ");
-  TEST_STRING_INPLACE(StringToLower, "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+  TEST_STRING_INPLACE(StringToLower,
+                      "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
                       "abcdefghijklmnopqrstuvwxyz");
-  TEST_STRING_INPLACE(StringToLower, "0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+  TEST_STRING_INPLACE(StringToLower,
+                      "0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ",
                       "0123456789 abcdefghijklmnopqrstuvwxyz");
 }
 
@@ -207,9 +209,11 @@ BOOST_AUTO_TEST_CASE(TestStringToUpper) {
   TEST_STRING_INPLACE(StringToUpper, "a ", "A ");
   TEST_STRING_INPLACE(StringToUpper, " a ", " A ");
   TEST_STRING_INPLACE(StringToUpper, "aa  ", "AA  ");
-  TEST_STRING_INPLACE(StringToUpper, "abcdefghijklmnopqrstuvwxyz",
+  TEST_STRING_INPLACE(StringToUpper,
+                      "abcdefghijklmnopqrstuvwxyz",
                       "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-  TEST_STRING_INPLACE(StringToUpper, "0123456789 abcdefghijklmnopqrstuvwxyz",
+  TEST_STRING_INPLACE(StringToUpper,
+                      "0123456789 abcdefghijklmnopqrstuvwxyz",
                       "0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ");
 }
 

@@ -63,7 +63,9 @@ std::vector<LineSegment> DetectLineSegments(const Bitmap& bitmap,
 
   int num_segments;
   std::unique_ptr<double, RawDeleter> segments_data(
-      lsd(&num_segments, bitmap_data_double.data(), bitmap.Width(),
+      lsd(&num_segments,
+          bitmap_data_double.data(),
+          bitmap.Width(),
           bitmap.Height()));
 
   std::vector<LineSegment> segments;

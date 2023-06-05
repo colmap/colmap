@@ -32,11 +32,11 @@
 #ifndef COLMAP_SRC_BASE_HOMOGRAPHY_MATRIX_UTILS_H_
 #define COLMAP_SRC_BASE_HOMOGRAPHY_MATRIX_UTILS_H_
 
+#include "colmap/util/types.h"
+
 #include <vector>
 
 #include <Eigen/Core>
-
-#include "colmap/util/types.h"
 
 namespace colmap {
 
@@ -84,7 +84,8 @@ void PoseFromHomographyMatrix(const Eigen::Matrix3d& H,
                               const Eigen::Matrix3d& K2,
                               const std::vector<Eigen::Vector2d>& points1,
                               const std::vector<Eigen::Vector2d>& points2,
-                              Eigen::Matrix3d* R, Eigen::Vector3d* t,
+                              Eigen::Matrix3d* R,
+                              Eigen::Vector3d* t,
                               Eigen::Vector3d* n,
                               std::vector<Eigen::Vector3d>* points3D);
 

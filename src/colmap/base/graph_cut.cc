@@ -128,14 +128,18 @@ class MetisGraph {
 
 void ComputeMinGraphCutStoerWagner(
     const std::vector<std::pair<int, int>>& edges,
-    const std::vector<int>& weights, int* cut_weight,
+    const std::vector<int>& weights,
+    int* cut_weight,
     std::vector<char>* cut_labels) {
   CHECK_EQ(edges.size(), weights.size());
   CHECK_GE(edges.size(), 2);
 
   typedef boost::property<boost::edge_weight_t, int> edge_weight_t;
-  typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::undirectedS,
-                                boost::no_property, edge_weight_t>
+  typedef boost::adjacency_list<boost::vecS,
+                                boost::vecS,
+                                boost::undirectedS,
+                                boost::no_property,
+                                edge_weight_t>
       undirected_graph_t;
 
   int max_vertex_index = 0;
@@ -146,14 +150,18 @@ void ComputeMinGraphCutStoerWagner(
     max_vertex_index = std::max(max_vertex_index, edge.second);
   }
 
-  const undirected_graph_t graph(edges.begin(), edges.end(), weights.begin(),
-                                 max_vertex_index + 1, edges.size());
+  const undirected_graph_t graph(edges.begin(),
+                                 edges.end(),
+                                 weights.begin(),
+                                 max_vertex_index + 1,
+                                 edges.size());
 
   const auto parities = boost::make_one_bit_color_map(
       boost::num_vertices(graph), boost::get(boost::vertex_index, graph));
 
   *cut_weight =
-      boost::stoer_wagner_min_cut(graph, boost::get(boost::edge_weight, graph),
+      boost::stoer_wagner_min_cut(graph,
+                                  boost::get(boost::edge_weight, graph),
                                   boost::parity_map(parities));
 
   cut_labels->resize(boost::num_vertices(graph));
@@ -164,7 +172,8 @@ void ComputeMinGraphCutStoerWagner(
 
 std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
     const std::vector<std::pair<int, int>>& edges,
-    const std::vector<int>& weights, const int num_parts) {
+    const std::vector<int>& weights,
+    const int num_parts) {
   CHECK(!edges.empty());
   CHECK_EQ(edges.size(), weights.size());
   CHECK_GT(num_parts, 0);
@@ -179,13 +188,19 @@ std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
   METIS_SetDefaultOptions(metisOptions);
 
   std::vector<idx_t> cut_labels(graph.nvtxs, -1);
-  const int metisResult = METIS_PartGraphKway(
-      &graph.nvtxs,
-      /*ncon=*/&ncon, graph.xadj, graph.adjncy,
-      /*vwgt=*/nullptr,
-      /*vsize=*/nullptr, graph.adjwgt, &nparts,
-      /*tpwgts=*/nullptr,
-      /*ubvec=*/nullptr, metisOptions, &edgecut, cut_labels.data());
+  const int metisResult = METIS_PartGraphKway(&graph.nvtxs,
+                                              /*ncon=*/&ncon,
+                                              graph.xadj,
+                                              graph.adjncy,
+                                              /*vwgt=*/nullptr,
+                                              /*vsize=*/nullptr,
+                                              graph.adjwgt,
+                                              &nparts,
+                                              /*tpwgts=*/nullptr,
+                                              /*ubvec=*/nullptr,
+                                              metisOptions,
+                                              &edgecut,
+                                              cut_labels.data());
 
   if (metisResult == METIS_ERROR_INPUT) {
     LOG(FATAL) << "INTERNAL: Metis input error";

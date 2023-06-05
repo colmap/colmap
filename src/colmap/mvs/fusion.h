@@ -32,12 +32,6 @@
 #ifndef COLMAP_SRC_MVS_FUSION_H_
 #define COLMAP_SRC_MVS_FUSION_H_
 
-#include <cfloat>
-#include <unordered_set>
-#include <vector>
-
-#include <Eigen/Core>
-
 #include "colmap/mvs/depth_map.h"
 #include "colmap/mvs/image.h"
 #include "colmap/mvs/mat.h"
@@ -48,6 +42,12 @@
 #include "colmap/util/math.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/threading.h"
+
+#include <cfloat>
+#include <unordered_set>
+#include <vector>
+
+#include <Eigen/Core>
 
 namespace colmap {
 namespace mvs {
@@ -118,7 +118,9 @@ class StereoFusion : public Thread {
  private:
   void Run();
   void InitFusedPixelMask(int image_idx, size_t width, size_t height);
-  void Fuse(const int thread_id, const int image_idx, const int row,
+  void Fuse(const int thread_id,
+            const int image_idx,
+            const int row,
             const int col);
 
   const StereoFusionOptions options_;

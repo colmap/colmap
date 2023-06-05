@@ -50,7 +50,8 @@ int ShowHelp(
   std::cout << StringPrintf(
                    "%s -- Structure-from-Motion and Multi-View Stereo\n"
                    "              (%s)",
-                   GetVersionInfo().c_str(), GetBuildInfo().c_str())
+                   GetVersionInfo().c_str(),
+                   GetBuildInfo().c_str())
             << std::endl
             << std::endl;
 

@@ -47,7 +47,8 @@ void MatchMatrixWidget::Show() {
 
   // Sort the images according to their name.
   std::vector<Image> images = database.ReadAllImages();
-  std::sort(images.begin(), images.end(),
+  std::sort(images.begin(),
+            images.end(),
             [](const Image& image1, const Image& image2) {
               return image1.Name() < image2.Name();
             });

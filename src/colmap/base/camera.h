@@ -32,9 +32,9 @@
 #ifndef COLMAP_SRC_BASE_CAMERA_H_
 #define COLMAP_SRC_BASE_CAMERA_H_
 
-#include <vector>
-
 #include "colmap/util/types.h"
+
+#include <vector>
 
 namespace colmap {
 
@@ -124,10 +124,13 @@ class Camera {
 
   // Initialize parameters for given camera model and focal length, and set
   // the principal point to be the image center.
-  void InitializeWithId(const int model_id, const double focal_length,
-                        const size_t width, const size_t height);
+  void InitializeWithId(const int model_id,
+                        const double focal_length,
+                        const size_t width,
+                        const size_t height);
   void InitializeWithName(const std::string& model_name,
-                          const double focal_length, const size_t width,
+                          const double focal_length,
+                          const size_t width,
                           const size_t height);
 
   // Project point in image plane to world / infinity.

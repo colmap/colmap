@@ -30,10 +30,10 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/camera"
-#include "colmap/util/testing.h"
-
 #include "colmap/base/camera.h"
+
 #include "colmap/base/camera_models.h"
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 
@@ -185,11 +185,15 @@ BOOST_AUTO_TEST_CASE(TestParamsFromString) {
   camera.SetModelId(SimplePinholeCameraModel::model_id);
   BOOST_CHECK(camera.SetParamsFromString("1.000000, 0.500000, 0.500000"));
   const std::vector<double> params{1.0, 0.5, 0.5};
-  BOOST_CHECK_EQUAL_COLLECTIONS(camera.Params().begin(), camera.Params().end(),
-                                params.begin(), params.end());
+  BOOST_CHECK_EQUAL_COLLECTIONS(camera.Params().begin(),
+                                camera.Params().end(),
+                                params.begin(),
+                                params.end());
   BOOST_CHECK(!camera.SetParamsFromString("1.000000, 0.500000"));
-  BOOST_CHECK_EQUAL_COLLECTIONS(camera.Params().begin(), camera.Params().end(),
-                                params.begin(), params.end());
+  BOOST_CHECK_EQUAL_COLLECTIONS(camera.Params().begin(),
+                                camera.Params().end(),
+                                params.begin(),
+                                params.end());
 }
 
 BOOST_AUTO_TEST_CASE(TestVerifyParams) {

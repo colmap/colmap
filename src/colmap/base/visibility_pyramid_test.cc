@@ -30,9 +30,9 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/visibility_pyramid"
-#include "colmap/util/testing.h"
-
 #include "colmap/base/visibility_pyramid.h"
+
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 

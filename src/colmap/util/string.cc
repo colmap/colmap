@@ -137,7 +137,8 @@ std::string StringPrintf(const char* format, ...) {
   return result;
 }
 
-std::string StringReplace(const std::string& str, const std::string& old_str,
+std::string StringReplace(const std::string& str,
+                          const std::string& old_str,
                           const std::string& new_str) {
   if (old_str.empty()) {
     return str;

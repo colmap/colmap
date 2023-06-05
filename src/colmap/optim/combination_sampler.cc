@@ -31,10 +31,10 @@
 
 #include "colmap/optim/combination_sampler.h"
 
-#include <numeric>
-
 #include "colmap/util/math.h"
 #include "colmap/util/random.h"
+
+#include <numeric>
 
 namespace colmap {
 

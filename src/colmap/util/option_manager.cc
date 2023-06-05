@@ -31,9 +31,6 @@
 
 #include "colmap/util/option_manager.h"
 
-#include <boost/filesystem/operations.hpp>
-#include <boost/property_tree/ini_parser.hpp>
-
 #include "colmap/base/image_reader.h"
 #include "colmap/controllers/incremental_mapper.h"
 #include "colmap/feature/extraction.h"
@@ -47,6 +44,9 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/random.h"
 #include "colmap/util/version.h"
+
+#include <boost/filesystem/operations.hpp>
+#include <boost/property_tree/ini_parser.hpp>
 
 namespace config = boost::program_options;
 
@@ -843,7 +843,8 @@ void OptionManager::Parse(const int argc, char** argv) {
     config::store(config::parse_command_line(argc, argv, *desc_), vmap);
 
     if (vmap.count("help")) {
-      std::cout << StringPrintf("%s (%s)", GetVersionInfo().c_str(),
+      std::cout << StringPrintf("%s (%s)",
+                                GetVersionInfo().c_str(),
                                 GetBuildInfo().c_str())
                 << std::endl
                 << std::endl;

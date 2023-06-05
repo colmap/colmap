@@ -97,11 +97,11 @@ Eigen::Vector3d TriangulateOptimalPoint(const Eigen::Matrix3x4d& proj_matrix1,
 
   Eigen::Vector2d optimal_point1;
   Eigen::Vector2d optimal_point2;
-  FindOptimalImageObservations(E, point1, point2, &optimal_point1,
-                               &optimal_point2);
+  FindOptimalImageObservations(
+      E, point1, point2, &optimal_point1, &optimal_point2);
 
-  return TriangulatePoint(proj_matrix1, proj_matrix2, optimal_point1,
-                          optimal_point2);
+  return TriangulatePoint(
+      proj_matrix1, proj_matrix2, optimal_point1, optimal_point2);
 }
 
 std::vector<Eigen::Vector3d> TriangulateOptimalPoints(
@@ -145,7 +145,8 @@ double CalculateTriangulationAngle(const Eigen::Vector3d& proj_center1,
 }
 
 std::vector<double> CalculateTriangulationAngles(
-    const Eigen::Vector3d& proj_center1, const Eigen::Vector3d& proj_center2,
+    const Eigen::Vector3d& proj_center1,
+    const Eigen::Vector3d& proj_center2,
     const std::vector<Eigen::Vector3d>& points3D) {
   // Baseline length between camera centers.
   const double baseline_length_squared =

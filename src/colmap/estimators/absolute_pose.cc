@@ -501,7 +501,8 @@ void EPNPEstimator::RunGaussNewton(const Eigen::Matrix<double, 6, 10>& L6x10,
 
 double EPNPEstimator::ComputeRT(const Eigen::Matrix<double, 12, 12>& Ut,
                                 const Eigen::Vector4d& betas,
-                                Eigen::Matrix3d* R, Eigen::Vector3d* t) {
+                                Eigen::Matrix3d* R,
+                                Eigen::Vector3d* t) {
   ComputeCcs(betas, Ut);
   ComputePcs();
 
@@ -599,8 +600,8 @@ double EPNPEstimator::ComputeTotalReprojectionError(const Eigen::Matrix3d& R,
   proj_matrix.rightCols<1>() = t;
 
   std::vector<double> residuals;
-  ComputeSquaredReprojectionError(*points2D_, *points3D_, proj_matrix,
-                                  &residuals);
+  ComputeSquaredReprojectionError(
+      *points2D_, *points3D_, proj_matrix, &residuals);
 
   double reproj_error = 0.0;
   for (const double residual : residuals) {

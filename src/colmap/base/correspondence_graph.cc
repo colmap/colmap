@@ -31,10 +31,10 @@
 
 #include "colmap/base/correspondence_graph.h"
 
-#include <unordered_set>
-
 #include "colmap/base/pose.h"
 #include "colmap/util/string.h"
+
+#include <unordered_set>
 
 namespace colmap {
 
@@ -113,12 +113,14 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
       auto& corrs2 = image2.corrs[match.point2D_idx2];
 
       const bool duplicate1 =
-          std::find_if(corrs1.begin(), corrs1.end(),
+          std::find_if(corrs1.begin(),
+                       corrs1.end(),
                        [image_id2](const Correspondence& corr) {
                          return corr.image_id == image_id2;
                        }) != corrs1.end();
       const bool duplicate2 =
-          std::find_if(corrs2.begin(), corrs2.end(),
+          std::find_if(corrs2.begin(),
+                       corrs2.end(),
                        [image_id1](const Correspondence& corr) {
                          return corr.image_id == image_id1;
                        }) != corrs2.end();
@@ -131,7 +133,9 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
                          "WARNING: Duplicate correspondence between "
                          "point2D_idx=%d in image_id=%d and point2D_idx=%d in "
                          "image_id=%d",
-                         match.point2D_idx1, image_id1, match.point2D_idx2,
+                         match.point2D_idx1,
+                         image_id1,
+                         match.point2D_idx2,
                          image_id2)
                   << std::endl;
       } else {
@@ -146,14 +150,16 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
         std::cout
             << StringPrintf(
                    "WARNING: point2D_idx=%d in image_id=%d does not exist",
-                   match.point2D_idx1, image_id1)
+                   match.point2D_idx1,
+                   image_id1)
             << std::endl;
       }
       if (!valid_idx2) {
         std::cout
             << StringPrintf(
                    "WARNING: point2D_idx=%d in image_id=%d does not exist",
-                   match.point2D_idx2, image_id2)
+                   match.point2D_idx2,
+                   image_id2)
             << std::endl;
       }
     }
@@ -161,8 +167,10 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
 }
 
 void CorrespondenceGraph::FindTransitiveCorrespondences(
-    const image_t image_id, const point2D_t point2D_idx,
-    const size_t transitivity, std::vector<Correspondence>* found_corrs) const {
+    const image_t image_id,
+    const point2D_t point2D_idx,
+    const size_t transitivity,
+    std::vector<Correspondence>* found_corrs) const {
   CHECK_NE(transitivity, 1) << "Use more efficient FindCorrespondences()";
 
   found_corrs->clear();

@@ -31,12 +31,12 @@
 
 #include "colmap/base/undistortion.h"
 
-#include <fstream>
-
 #include "colmap/base/camera_models.h"
 #include "colmap/base/pose.h"
 #include "colmap/base/warp.h"
 #include "colmap/util/misc.h"
+
+#include <fstream>
 
 namespace colmap {
 namespace {
@@ -54,8 +54,10 @@ void WriteMatrix(const Eigen::MatrixBase<Derived>& matrix,
 }
 
 // Write projection matrix P = K * [R t] to file and prepend given header.
-void WriteProjectionMatrix(const std::string& path, const Camera& camera,
-                           const Image& image, const std::string& header) {
+void WriteProjectionMatrix(const std::string& path,
+                           const Camera& camera,
+                           const Image& image,
+                           const std::string& header) {
   CHECK_EQ(camera.ModelId(), PinholeCameraModel::model_id);
 
   std::ofstream file(path, std::ios::trunc);
@@ -81,7 +83,8 @@ void WriteCOLMAPCommands(const bool geometric,
                          const std::string& workspace_format,
                          const std::string& pmvs_option_name,
                          const std::string& output_prefix,
-                         const std::string& indent, std::ofstream* file) {
+                         const std::string& indent,
+                         std::ofstream* file) {
   if (geometric) {
     *file << indent << "$COLMAP_EXE_PATH/colmap patch_match_stereo \\"
           << std::endl;
@@ -205,8 +208,8 @@ void COLMAPUndistorter::Run() {
       break;
     }
 
-    std::cout << StringPrintf("Undistorting image [%d/%d]", i + 1,
-                              futures.size())
+    std::cout << StringPrintf(
+                     "Undistorting image [%d/%d]", i + 1, futures.size())
               << std::endl;
 
     if (futures[i].get()) {
@@ -263,7 +266,10 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
     return false;
   }
 
-  UndistortImage(options_, distorted_bitmap, camera, &undistorted_bitmap,
+  UndistortImage(options_,
+                 distorted_bitmap,
+                 camera,
+                 &undistorted_bitmap,
                  &undistorted_camera);
   return undistorted_bitmap.Write(output_image_path);
 }
@@ -288,9 +294,9 @@ void COLMAPUndistorter::WriteFusionConfig() const {
 }
 
 void COLMAPUndistorter::WriteScript(const bool geometric) const {
-  const std::string path =
-      JoinPaths(output_path_, geometric ? "run-colmap-geometric.sh"
-                                        : "run-colmap-photometric.sh");
+  const std::string path = JoinPaths(
+      output_path_,
+      geometric ? "run-colmap-geometric.sh" : "run-colmap-photometric.sh");
   std::ofstream file(path, std::ios::trunc);
   CHECK(file.is_open()) << path;
 
@@ -334,8 +340,8 @@ void PMVSUndistorter::Run() {
       break;
     }
 
-    std::cout << StringPrintf("Undistorting image [%d/%d]", i + 1,
-                              futures.size())
+    std::cout << StringPrintf(
+                     "Undistorting image [%d/%d]", i + 1, futures.size())
               << std::endl;
 
     futures[i].get();
@@ -386,7 +392,10 @@ bool PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
 
   Bitmap undistorted_bitmap;
   Camera undistorted_camera;
-  UndistortImage(options_, distorted_bitmap, camera, &undistorted_bitmap,
+  UndistortImage(options_,
+                 distorted_bitmap,
+                 camera,
+                 &undistorted_bitmap,
                  &undistorted_camera);
 
   WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image, "CONTOUR");
@@ -463,22 +472,23 @@ void PMVSUndistorter::WriteCMVSPMVSScript() const {
 }
 
 void PMVSUndistorter::WriteCOLMAPScript(const bool geometric) const {
-  const std::string path =
-      JoinPaths(output_path_, geometric ? "run-colmap-geometric.sh"
-                                        : "run-colmap-photometric.sh");
+  const std::string path = JoinPaths(
+      output_path_,
+      geometric ? "run-colmap-geometric.sh" : "run-colmap-photometric.sh");
   std::ofstream file(path, std::ios::trunc);
   CHECK(file.is_open()) << path;
 
   file << "# You must set $COLMAP_EXE_PATH to " << std::endl
        << "# the directory containing the COLMAP executables." << std::endl;
-  WriteCOLMAPCommands(geometric, "pmvs", "PMVS", "option-all", "option-all-",
-                      "", &file);
+  WriteCOLMAPCommands(
+      geometric, "pmvs", "PMVS", "option-all", "option-all-", "", &file);
 }
 
 void PMVSUndistorter::WriteCMVSCOLMAPScript(const bool geometric) const {
   const std::string path =
-      JoinPaths(output_path_, geometric ? "run-cmvs-colmap-geometric.sh"
-                                        : "run-cmvs-colmap-photometric.sh");
+      JoinPaths(output_path_,
+                geometric ? "run-cmvs-colmap-geometric.sh"
+                          : "run-cmvs-colmap-photometric.sh");
   std::ofstream file(path, std::ios::trunc);
   CHECK(file.is_open()) << path;
 
@@ -497,8 +507,13 @@ void PMVSUndistorter::WriteCMVSCOLMAPScript(const bool geometric) const {
   file << "        continue" << std::endl;
   file << "    fi" << std::endl;
   file << "    rm -rf \"$workspace_path/stereo\"" << std::endl;
-  WriteCOLMAPCommands(geometric, "pmvs", "PMVS", "$option_name",
-                      "$option_name-", "    ", &file);
+  WriteCOLMAPCommands(geometric,
+                      "pmvs",
+                      "PMVS",
+                      "$option_name",
+                      "$option_name-",
+                      "    ",
+                      &file);
   file << "done" << std::endl;
 }
 
@@ -556,8 +571,8 @@ void CMPMVSUndistorter::Run() {
       break;
     }
 
-    std::cout << StringPrintf("Undistorting image [%d/%d]", i + 1,
-                              futures.size())
+    std::cout << StringPrintf(
+                     "Undistorting image [%d/%d]", i + 1, futures.size())
               << std::endl;
 
     futures[i].get();
@@ -586,7 +601,10 @@ bool CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
 
   Bitmap undistorted_bitmap;
   Camera undistorted_camera;
-  UndistortImage(options_, distorted_bitmap, camera, &undistorted_bitmap,
+  UndistortImage(options_,
+                 distorted_bitmap,
+                 camera,
+                 &undistorted_bitmap,
                  &undistorted_camera);
 
   WriteProjectionMatrix(proj_matrix_path, undistorted_camera, image, "CONTOUR");
@@ -594,7 +612,8 @@ bool CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
 }
 
 PureImageUndistorter::PureImageUndistorter(
-    const UndistortCameraOptions& options, const std::string& image_path,
+    const UndistortCameraOptions& options,
+    const std::string& image_path,
     const std::string& output_path,
     const std::vector<std::pair<std::string, Camera>>& image_names_and_cameras)
     : options_(options),
@@ -621,8 +640,8 @@ void PureImageUndistorter::Run() {
       break;
     }
 
-    std::cout << StringPrintf("Undistorting image [%d/%d]", i + 1,
-                              futures.size())
+    std::cout << StringPrintf(
+                     "Undistorting image [%d/%d]", i + 1, futures.size())
               << std::endl;
 
     futures[i].get();
@@ -647,15 +666,20 @@ bool PureImageUndistorter::Undistort(const size_t image_idx) const {
 
   Bitmap undistorted_bitmap;
   Camera undistorted_camera;
-  UndistortImage(options_, distorted_bitmap, camera, &undistorted_bitmap,
+  UndistortImage(options_,
+                 distorted_bitmap,
+                 camera,
+                 &undistorted_bitmap,
                  &undistorted_camera);
 
   return undistorted_bitmap.Write(output_image_path);
 }
 
 StereoImageRectifier::StereoImageRectifier(
-    const UndistortCameraOptions& options, const Reconstruction& reconstruction,
-    const std::string& image_path, const std::string& output_path,
+    const UndistortCameraOptions& options,
+    const Reconstruction& reconstruction,
+    const std::string& image_path,
+    const std::string& output_path,
     const std::vector<std::pair<image_t, image_t>>& stereo_pairs)
     : options_(options),
       image_path_(image_path),
@@ -670,7 +694,8 @@ void StereoImageRectifier::Run() {
   std::vector<std::future<void>> futures;
   futures.reserve(stereo_pairs_.size());
   for (const auto& stereo_pair : stereo_pairs_) {
-    futures.push_back(thread_pool.AddTask(&StereoImageRectifier::Rectify, this,
+    futures.push_back(thread_pool.AddTask(&StereoImageRectifier::Rectify,
+                                          this,
                                           stereo_pair.first,
                                           stereo_pair.second));
   }
@@ -680,8 +705,8 @@ void StereoImageRectifier::Run() {
       break;
     }
 
-    std::cout << StringPrintf("Rectifying image pair [%d/%d]", i + 1,
-                              futures.size())
+    std::cout << StringPrintf(
+                     "Rectifying image pair [%d/%d]", i + 1, futures.size())
               << std::endl;
 
     futures[i].get();
@@ -728,17 +753,24 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
 
   Eigen::Vector4d qvec;
   Eigen::Vector3d tvec;
-  ComputeRelativePose(image1.Qvec(), image1.Tvec(), image2.Qvec(),
-                      image2.Tvec(), &qvec, &tvec);
+  ComputeRelativePose(
+      image1.Qvec(), image1.Tvec(), image2.Qvec(), image2.Tvec(), &qvec, &tvec);
 
   Bitmap undistorted_bitmap1;
   Bitmap undistorted_bitmap2;
   Camera undistorted_camera;
   Eigen::Matrix4d Q;
-  RectifyAndUndistortStereoImages(
-      options_, distorted_bitmap1, distorted_bitmap2, camera1, camera2, qvec,
-      tvec, &undistorted_bitmap1, &undistorted_bitmap2, &undistorted_camera,
-      &Q);
+  RectifyAndUndistortStereoImages(options_,
+                                  distorted_bitmap1,
+                                  distorted_bitmap2,
+                                  camera1,
+                                  camera2,
+                                  qvec,
+                                  tvec,
+                                  &undistorted_bitmap1,
+                                  &undistorted_bitmap2,
+                                  &undistorted_camera,
+                                  &Q);
 
   undistorted_bitmap1.Write(output_image1_path);
   undistorted_bitmap2.Write(output_image2_path);
@@ -936,7 +968,8 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
 
 void UndistortImage(const UndistortCameraOptions& options,
                     const Bitmap& distorted_bitmap,
-                    const Camera& distorted_camera, Bitmap* undistorted_bitmap,
+                    const Camera& distorted_camera,
+                    Bitmap* undistorted_bitmap,
                     Camera* undistorted_camera) {
   CHECK_EQ(distorted_camera.Width(), distorted_bitmap.Width());
   CHECK_EQ(distorted_camera.Height(), distorted_bitmap.Height());
@@ -947,8 +980,10 @@ void UndistortImage(const UndistortCameraOptions& options,
                                distorted_bitmap.IsRGB());
   distorted_bitmap.CloneMetadata(undistorted_bitmap);
 
-  WarpImageBetweenCameras(distorted_camera, *undistorted_camera,
-                          distorted_bitmap, undistorted_bitmap);
+  WarpImageBetweenCameras(distorted_camera,
+                          *undistorted_camera,
+                          distorted_bitmap,
+                          undistorted_bitmap);
 }
 
 void UndistortReconstruction(const UndistortCameraOptions& options,
@@ -975,10 +1010,13 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
   }
 }
 
-void RectifyStereoCameras(const Camera& camera1, const Camera& camera2,
+void RectifyStereoCameras(const Camera& camera1,
+                          const Camera& camera2,
                           const Eigen::Vector4d& qvec,
-                          const Eigen::Vector3d& tvec, Eigen::Matrix3d* H1,
-                          Eigen::Matrix3d* H2, Eigen::Matrix4d* Q) {
+                          const Eigen::Vector3d& tvec,
+                          Eigen::Matrix3d* H1,
+                          Eigen::Matrix3d* H2,
+                          Eigen::Matrix4d* Q) {
   CHECK(camera1.ModelId() == SimplePinholeCameraModel::model_id ||
         camera1.ModelId() == PinholeCameraModel::model_id);
   CHECK(camera2.ModelId() == SimplePinholeCameraModel::model_id ||
@@ -1037,13 +1075,17 @@ void RectifyStereoCameras(const Camera& camera1, const Camera& camera2,
   (*Q)(3, 3) = 0;
 }
 
-void RectifyAndUndistortStereoImages(
-    const UndistortCameraOptions& options, const Bitmap& distorted_image1,
-    const Bitmap& distorted_image2, const Camera& distorted_camera1,
-    const Camera& distorted_camera2, const Eigen::Vector4d& qvec,
-    const Eigen::Vector3d& tvec, Bitmap* undistorted_image1,
-    Bitmap* undistorted_image2, Camera* undistorted_camera,
-    Eigen::Matrix4d* Q) {
+void RectifyAndUndistortStereoImages(const UndistortCameraOptions& options,
+                                     const Bitmap& distorted_image1,
+                                     const Bitmap& distorted_image2,
+                                     const Camera& distorted_camera1,
+                                     const Camera& distorted_camera2,
+                                     const Eigen::Vector4d& qvec,
+                                     const Eigen::Vector3d& tvec,
+                                     Bitmap* undistorted_image1,
+                                     Bitmap* undistorted_image2,
+                                     Camera* undistorted_camera,
+                                     Eigen::Matrix4d* Q) {
   CHECK_EQ(distorted_camera1.Width(), distorted_image1.Width());
   CHECK_EQ(distorted_camera1.Height(), distorted_image1.Height());
   CHECK_EQ(distorted_camera2.Width(), distorted_image2.Width());
@@ -1062,14 +1104,18 @@ void RectifyAndUndistortStereoImages(
 
   Eigen::Matrix3d H1;
   Eigen::Matrix3d H2;
-  RectifyStereoCameras(*undistorted_camera, *undistorted_camera, qvec, tvec,
-                       &H1, &H2, Q);
+  RectifyStereoCameras(
+      *undistorted_camera, *undistorted_camera, qvec, tvec, &H1, &H2, Q);
 
-  WarpImageWithHomographyBetweenCameras(H1.inverse(), distorted_camera1,
-                                        *undistorted_camera, distorted_image1,
+  WarpImageWithHomographyBetweenCameras(H1.inverse(),
+                                        distorted_camera1,
+                                        *undistorted_camera,
+                                        distorted_image1,
                                         undistorted_image1);
-  WarpImageWithHomographyBetweenCameras(H2.inverse(), distorted_camera2,
-                                        *undistorted_camera, distorted_image2,
+  WarpImageWithHomographyBetweenCameras(H2.inverse(),
+                                        distorted_camera2,
+                                        *undistorted_camera,
+                                        distorted_image2,
                                         undistorted_image2);
 }
 

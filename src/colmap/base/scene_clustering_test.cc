@@ -30,12 +30,12 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/scene_clustering"
+#include "colmap/base/scene_clustering.h"
+
+#include "colmap/base/database.h"
 #include "colmap/util/testing.h"
 
 #include <set>
-
-#include "colmap/base/database.h"
-#include "colmap/base/scene_clustering.h"
 
 using namespace colmap;
 

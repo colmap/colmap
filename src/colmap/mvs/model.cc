@@ -73,8 +73,12 @@ void Model::ReadFromCOLMAP(const std::string& path,
         QuaternionToRotationMatrix(image.Qvec()).cast<float>();
     const Eigen::Vector3f T = image.Tvec().cast<float>();
 
-    images.emplace_back(image_path, camera.Width(), camera.Height(), K.data(),
-                        R.data(), T.data());
+    images.emplace_back(image_path,
+                        camera.Width(),
+                        camera.Height(),
+                        K.data(),
+                        R.data(),
+                        T.data());
     image_id_to_idx.emplace(image_id, i);
     image_names_.push_back(image.Name());
     image_name_to_idx_.emplace(image.Name(), i);
@@ -152,7 +156,8 @@ std::vector<std::vector<int>> Model::GetMaxOverlappingImages(
                           return image1.second > image2.second;
                         });
     } else {
-      std::sort(ordered_images.begin(), ordered_images.end(),
+      std::sort(ordered_images.begin(),
+                ordered_images.end(),
                 [](const std::pair<int, int> image1,
                    const std::pair<int, int> image2) {
                   return image1.second > image2.second;
@@ -251,7 +256,8 @@ std::vector<std::map<int, float>> Model::ComputeTriangulationAngles(
         const int image_idx2 = point.track[j];
         if (image_idx1 != image_idx2) {
           const float angle = CalculateTriangulationAngle(
-              proj_centers.at(image_idx1), proj_centers.at(image_idx2),
+              proj_centers.at(image_idx1),
+              proj_centers.at(image_idx2),
               Eigen::Vector3d(point.x, point.y, point.z));
           all_triangulation_angles.at(image_idx1)[image_idx2].push_back(angle);
           all_triangulation_angles.at(image_idx2)[image_idx1].push_back(angle);
@@ -399,8 +405,12 @@ bool Model::ReadFromRawPMVS(const std::string& path) {
     const Eigen::Matrix<float, 3, 3, Eigen::RowMajor> R_float = R.cast<float>();
     const Eigen::Vector3f T_float = T.cast<float>();
 
-    images.emplace_back(image_path, bitmap.Width(), bitmap.Height(),
-                        K_float.data(), R_float.data(), T_float.data());
+    images.emplace_back(image_path,
+                        bitmap.Width(),
+                        bitmap.Height(),
+                        K_float.data(),
+                        R_float.data(),
+                        T_float.data());
     image_names_.push_back(image_name);
     image_name_to_idx_.emplace(image_name, image_idx);
   }

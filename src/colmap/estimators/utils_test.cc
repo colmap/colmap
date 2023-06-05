@@ -30,10 +30,10 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "estimators/utils"
-#include "colmap/util/testing.h"
+#include "colmap/estimators/utils.h"
 
 #include "colmap/base/essential_matrix.h"
-#include "colmap/estimators/utils.h"
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 

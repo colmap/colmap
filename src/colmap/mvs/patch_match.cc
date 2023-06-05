@@ -31,14 +31,14 @@
 
 #include "colmap/mvs/patch_match.h"
 
-#include <numeric>
-#include <unordered_set>
-
 #include "colmap/mvs/consistency_graph.h"
 #include "colmap/mvs/patch_match_cuda.h"
 #include "colmap/mvs/workspace.h"
 #include "colmap/util/math.h"
 #include "colmap/util/misc.h"
+
+#include <numeric>
+#include <unordered_set>
 
 #define PrintOption(option) std::cout << #option ": " << option << std::endl
 
@@ -177,7 +177,8 @@ Mat<float> PatchMatch::GetSelProbMap() const {
 
 ConsistencyGraph PatchMatch::GetConsistencyGraph() const {
   const auto& ref_image = problem_.images->at(problem_.ref_image_idx);
-  return ConsistencyGraph(ref_image.GetWidth(), ref_image.GetHeight(),
+  return ConsistencyGraph(ref_image.GetWidth(),
+                          ref_image.GetHeight(),
                           patch_match_cuda_->GetConsistentImageIdxs());
 }
 
@@ -210,16 +211,18 @@ void PatchMatchController::Run() {
 
     for (size_t problem_idx = 0; problem_idx < problems_.size();
          ++problem_idx) {
-      thread_pool_->AddTask(&PatchMatchController::ProcessProblem, this,
-                            photometric_options, problem_idx);
+      thread_pool_->AddTask(&PatchMatchController::ProcessProblem,
+                            this,
+                            photometric_options,
+                            problem_idx);
     }
 
     thread_pool_->Wait();
   }
 
   for (size_t problem_idx = 0; problem_idx < problems_.size(); ++problem_idx) {
-    thread_pool_->AddTask(&PatchMatchController::ProcessProblem, this, options_,
-                          problem_idx);
+    thread_pool_->AddTask(
+        &PatchMatchController::ProcessProblem, this, options_, problem_idx);
   }
 
   thread_pool_->Wait();
@@ -266,10 +269,10 @@ void PatchMatchController::ReadProblems() {
   const auto& model = workspace_->GetModel();
 
   const std::string config_path =
-      config_path_.empty()
-          ? JoinPaths(workspace_path_, workspace_->GetOptions().stereo_folder,
-                      "patch-match.cfg")
-          : config_path_;
+      config_path_.empty() ? JoinPaths(workspace_path_,
+                                       workspace_->GetOptions().stereo_folder,
+                                       "patch-match.cfg")
+                           : config_path_;
   std::vector<std::string> config = ReadTextFileLines(config_path);
 
   std::vector<std::map<int, int>> shared_num_points;
@@ -438,8 +441,10 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
     return;
   }
 
-  PrintHeading1(StringPrintf("Processing view %d / %d for %s", problem_idx + 1,
-                             problems_.size(), image_name.c_str()));
+  PrintHeading1(StringPrintf("Processing view %d / %d for %s",
+                             problem_idx + 1,
+                             problems_.size(),
+                             image_name.c_str()));
 
   auto patch_match_options = options;
 
@@ -500,14 +505,16 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
           std::cout << StringPrintf(
                            "WARN: Skipping source image %d: %s for missing "
                            "image or depth/normal map",
-                           image_idx, model.GetImageName(image_idx).c_str())
+                           image_idx,
+                           model.GetImageName(image_idx).c_str())
                     << std::endl;
           continue;
         } else {
           std::cout
               << StringPrintf(
                      "ERROR: Missing image or map dependency for image %d: %s",
-                     image_idx, model.GetImageName(image_idx).c_str())
+                     image_idx,
+                     model.GetImageName(image_idx).c_str())
               << std::endl;
         }
       }
@@ -531,7 +538,8 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
   patch_match.Run();
 
   std::cout << std::endl
-            << StringPrintf("Writing %s output for %s", output_type.c_str(),
+            << StringPrintf("Writing %s output for %s",
+                            output_type.c_str(),
                             image_name.c_str())
             << std::endl;
 

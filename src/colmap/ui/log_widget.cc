@@ -119,7 +119,8 @@ void LogWidget::Clear() {
   text_box_->clear();
 }
 
-void LogWidget::Update(const char* text, std::streamsize count,
+void LogWidget::Update(const char* text,
+                       std::streamsize count,
                        void* log_widget_ptr) {
   std::string text_str;
   for (std::streamsize i = 0; i < count; ++i) {
@@ -136,8 +137,8 @@ void LogWidget::Update(const char* text, std::streamsize count,
 
 void LogWidget::SaveLog() {
   const std::string log_path =
-      QFileDialog::getSaveFileName(this, tr("Select path to log file"), "",
-                                   tr("Log (*.log)"))
+      QFileDialog::getSaveFileName(
+          this, tr("Select path to log file"), "", tr("Log (*.log)"))
           .toUtf8()
           .constData();
 

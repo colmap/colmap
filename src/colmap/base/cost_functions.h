@@ -33,7 +33,6 @@
 #define COLMAP_SRC_BASE_COST_FUNCTIONS_H_
 
 #include <Eigen/Core>
-
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
 
@@ -49,14 +48,20 @@ class BundleAdjustmentCostFunction {
 
   static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
     return (new ceres::AutoDiffCostFunction<
-            BundleAdjustmentCostFunction<CameraModel>, 2, 4, 3, 3,
+            BundleAdjustmentCostFunction<CameraModel>,
+            2,
+            4,
+            3,
+            3,
             CameraModel::kNumParams>(
         new BundleAdjustmentCostFunction(point2D)));
   }
 
   template <typename T>
-  bool operator()(const T* const qvec, const T* const tvec,
-                  const T* const point3D, const T* const camera_params,
+  bool operator()(const T* const qvec,
+                  const T* const tvec,
+                  const T* const point3D,
+                  const T* const camera_params,
                   T* residuals) const {
     // Rotate and translate.
     T projection[3];
@@ -70,8 +75,11 @@ class BundleAdjustmentCostFunction {
     projection[1] /= projection[2];
 
     // Distort and transform to pixel space.
-    CameraModel::WorldToImage(camera_params, projection[0], projection[1],
-                              &residuals[0], &residuals[1]);
+    CameraModel::WorldToImage(camera_params,
+                              projection[0],
+                              projection[1],
+                              &residuals[0],
+                              &residuals[1]);
 
     // Re-projection error.
     residuals[0] -= T(observed_x_);
@@ -107,13 +115,16 @@ class BundleAdjustmentConstantPoseCostFunction {
                                      const Eigen::Vector3d& tvec,
                                      const Eigen::Vector2d& point2D) {
     return (new ceres::AutoDiffCostFunction<
-            BundleAdjustmentConstantPoseCostFunction<CameraModel>, 2, 3,
+            BundleAdjustmentConstantPoseCostFunction<CameraModel>,
+            2,
+            3,
             CameraModel::kNumParams>(
         new BundleAdjustmentConstantPoseCostFunction(qvec, tvec, point2D)));
   }
 
   template <typename T>
-  bool operator()(const T* const point3D, const T* const camera_params,
+  bool operator()(const T* const point3D,
+                  const T* const camera_params,
                   T* residuals) const {
     const T qvec[4] = {T(qw_), T(qx_), T(qy_), T(qz_)};
 
@@ -129,8 +140,11 @@ class BundleAdjustmentConstantPoseCostFunction {
     projection[1] /= projection[2];
 
     // Distort and transform to pixel space.
-    CameraModel::WorldToImage(camera_params, projection[0], projection[1],
-                              &residuals[0], &residuals[1]);
+    CameraModel::WorldToImage(camera_params,
+                              projection[0],
+                              projection[1],
+                              &residuals[0],
+                              &residuals[1]);
 
     // Re-projection error.
     residuals[0] -= T(observed_x_);
@@ -165,15 +179,24 @@ class RigBundleAdjustmentCostFunction {
 
   static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
     return (new ceres::AutoDiffCostFunction<
-            RigBundleAdjustmentCostFunction<CameraModel>, 2, 4, 3, 4, 3, 3,
+            RigBundleAdjustmentCostFunction<CameraModel>,
+            2,
+            4,
+            3,
+            4,
+            3,
+            3,
             CameraModel::kNumParams>(
         new RigBundleAdjustmentCostFunction(point2D)));
   }
 
   template <typename T>
-  bool operator()(const T* const rig_qvec, const T* const rig_tvec,
-                  const T* const rel_qvec, const T* const rel_tvec,
-                  const T* const point3D, const T* const camera_params,
+  bool operator()(const T* const rig_qvec,
+                  const T* const rig_tvec,
+                  const T* const rel_qvec,
+                  const T* const rel_tvec,
+                  const T* const point3D,
+                  const T* const camera_params,
                   T* residuals) const {
     // Concatenate rotations.
     T qvec[4];
@@ -198,8 +221,11 @@ class RigBundleAdjustmentCostFunction {
     projection[1] /= projection[2];
 
     // Distort and transform to pixel space.
-    CameraModel::WorldToImage(camera_params, projection[0], projection[1],
-                              &residuals[0], &residuals[1]);
+    CameraModel::WorldToImage(camera_params,
+                              projection[0],
+                              projection[1],
+                              &residuals[0],
+                              &residuals[1]);
 
     // Re-projection error.
     residuals[0] -= T(observed_x_);
@@ -232,7 +258,8 @@ class RelativePoseCostFunction {
   }
 
   template <typename T>
-  bool operator()(const T* const qvec, const T* const tvec,
+  bool operator()(const T* const qvec,
+                  const T* const tvec,
                   T* residuals) const {
     Eigen::Matrix<T, 3, 3, Eigen::RowMajor> R;
     ceres::QuaternionToRotation(qvec, R.data());
@@ -275,8 +302,10 @@ inline void SetQuaternionManifold(ceres::Problem* problem, double* qvec) {
 #endif
 }
 
-inline void SetSubsetManifold(int size, const std::vector<int>& constant_params,
-                              ceres::Problem* problem, double* params) {
+inline void SetSubsetManifold(int size,
+                              const std::vector<int>& constant_params,
+                              ceres::Problem* problem,
+                              double* params) {
 #if CERES_VERSION_MAJOR >= 2 && CERES_VERSION_MINOR >= 1
   problem->SetManifold(params,
                        new ceres::SubsetManifold(size, constant_params));

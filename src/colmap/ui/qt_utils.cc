@@ -83,7 +83,8 @@ QPixmap ShowImagesSideBySide(const QPixmap& image1, const QPixmap& image2) {
   return image;
 }
 
-void DrawKeypoints(QPixmap* pixmap, const FeatureKeypoints& points,
+void DrawKeypoints(QPixmap* pixmap,
+                   const FeatureKeypoints& points,
                    const QColor& color) {
   if (pixmap->isNull()) {
     return;
@@ -106,7 +107,8 @@ void DrawKeypoints(QPixmap* pixmap, const FeatureKeypoints& points,
   }
 }
 
-QPixmap DrawMatches(const QPixmap& image1, const QPixmap& image2,
+QPixmap DrawMatches(const QPixmap& image1,
+                    const QPixmap& image2,
                     const FeatureKeypoints& points1,
                     const FeatureKeypoints& points2,
                     const FeatureMatches& matches,
@@ -131,8 +133,8 @@ QPixmap DrawMatches(const QPixmap& image1, const QPixmap& image2,
     painter.drawEllipse(point.x - radius2, point.y - radius2, radius, radius);
   }
   for (const auto& point : points2) {
-    painter.drawEllipse(image1.width() + point.x - radius2, point.y - radius2,
-                        radius, radius);
+    painter.drawEllipse(
+        image1.width() + point.x - radius2, point.y - radius2, radius, radius);
   }
 
   // Draw matches

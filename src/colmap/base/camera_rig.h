@@ -32,13 +32,13 @@
 #ifndef COLMAP_SRC_BASE_CAMERA_RIG_H_
 #define COLMAP_SRC_BASE_CAMERA_RIG_H_
 
-#include <unordered_map>
-#include <vector>
-
 #include "colmap/base/camera.h"
 #include "colmap/base/pose.h"
 #include "colmap/base/reconstruction.h"
 #include "colmap/util/types.h"
+
+#include <unordered_map>
+#include <vector>
 
 namespace colmap {
 
@@ -72,7 +72,8 @@ class CameraRig {
   // Add a new camera to the rig. The relative pose may contain dummy values and
   // can then be computed automatically from a given reconstruction using the
   // method `ComputeRelativePoses`.
-  void AddCamera(const camera_t camera_id, const Eigen::Vector4d& rel_qvec,
+  void AddCamera(const camera_t camera_id,
+                 const Eigen::Vector4d& rel_qvec,
                  const Eigen::Vector3d& rel_tvec);
 
   // Add the images of a single snapshot to rig. A snapshot consists of the

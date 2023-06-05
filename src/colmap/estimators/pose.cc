@@ -79,8 +79,10 @@ void EstimateAbsolutePoseKernel(const Camera& camera,
 bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                           const std::vector<Eigen::Vector2d>& points2D,
                           const std::vector<Eigen::Vector3d>& points3D,
-                          Eigen::Vector4d* qvec, Eigen::Vector3d* tvec,
-                          Camera* camera, size_t* num_inliers,
+                          Eigen::Vector4d* qvec,
+                          Eigen::Vector3d* tvec,
+                          Camera* camera,
+                          size_t* num_inliers,
                           std::vector<char>* inlier_mask) {
   options.Check();
 
@@ -112,9 +114,13 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
       options.num_threads, static_cast<int>(focal_length_factors.size())));
 
   for (size_t i = 0; i < focal_length_factors.size(); ++i) {
-    futures[i] = thread_pool.AddTask(
-        EstimateAbsolutePoseKernel, *camera, focal_length_factors[i], points2D,
-        points3D, options.ransac_options, &reports[i]);
+    futures[i] = thread_pool.AddTask(EstimateAbsolutePoseKernel,
+                                     *camera,
+                                     focal_length_factors[i],
+                                     points2D,
+                                     points3D,
+                                     options.ransac_options,
+                                     &reports[i]);
   }
 
   double focal_length_factor = 0;
@@ -160,7 +166,8 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
 size_t EstimateRelativePose(const RANSACOptions& ransac_options,
                             const std::vector<Eigen::Vector2d>& points1,
                             const std::vector<Eigen::Vector2d>& points2,
-                            Eigen::Vector4d* qvec, Eigen::Vector3d* tvec) {
+                            Eigen::Vector4d* qvec,
+                            Eigen::Vector3d* tvec) {
   RANSAC<EssentialMatrixFivePointEstimator> ransac(ransac_options);
   const auto report = ransac.Estimate(points1, points2);
 
@@ -183,8 +190,8 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
   Eigen::Matrix3d R;
 
   std::vector<Eigen::Vector3d> points3D;
-  PoseFromEssentialMatrix(report.model, inliers1, inliers2, &R, tvec,
-                          &points3D);
+  PoseFromEssentialMatrix(
+      report.model, inliers1, inliers2, &R, tvec, &points3D);
 
   *qvec = RotationMatrixToQuaternion(R);
 
@@ -199,8 +206,10 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                         const std::vector<char>& inlier_mask,
                         const std::vector<Eigen::Vector2d>& points2D,
                         const std::vector<Eigen::Vector3d>& points3D,
-                        Eigen::Vector4d* qvec, Eigen::Vector3d* tvec,
-                        Camera* camera, Eigen::Matrix6d* rot_tvec_covariance) {
+                        Eigen::Vector4d* qvec,
+                        Eigen::Vector3d* tvec,
+                        Camera* camera,
+                        Eigen::Matrix6d* rot_tvec_covariance) {
   CHECK_EQ(inlier_mask.size(), points2D.size());
   CHECK_EQ(points2D.size(), points3D.size());
   options.Check();
@@ -236,8 +245,12 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 #undef CAMERA_MODEL_CASE
     }
 
-    problem.AddResidualBlock(cost_function, loss_function, qvec_data, tvec_data,
-                             points3D_copy[i].data(), camera_params_data);
+    problem.AddResidualBlock(cost_function,
+                             loss_function,
+                             qvec_data,
+                             tvec_data,
+                             points3D_copy[i].data(),
+                             camera_params_data);
     problem.SetParameterBlockConstant(points3D_copy[i].data());
   }
 
@@ -276,7 +289,9 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
         problem.SetParameterBlockConstant(camera->ParamsData());
       } else {
         SetSubsetManifold(static_cast<int>(camera->NumParams()),
-                          camera_params_const, &problem, camera->ParamsData());
+                          camera_params_const,
+                          &problem,
+                          camera->ParamsData());
       }
     }
   }
@@ -324,7 +339,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 bool RefineRelativePose(const ceres::Solver::Options& options,
                         const std::vector<Eigen::Vector2d>& points1,
                         const std::vector<Eigen::Vector2d>& points2,
-                        Eigen::Vector4d* qvec, Eigen::Vector3d* tvec) {
+                        Eigen::Vector4d* qvec,
+                        Eigen::Vector3d* tvec) {
   CHECK_EQ(points1.size(), points2.size());
 
   // CostFunction assumes unit quaternions.
@@ -338,8 +354,8 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
   for (size_t i = 0; i < points1.size(); ++i) {
     ceres::CostFunction* cost_function =
         RelativePoseCostFunction::Create(points1[i], points2[i]);
-    problem.AddResidualBlock(cost_function, loss_function, qvec->data(),
-                             tvec->data());
+    problem.AddResidualBlock(
+        cost_function, loss_function, qvec->data(), tvec->data());
   }
 
   SetQuaternionManifold(&problem, qvec->data());
@@ -358,8 +374,10 @@ bool RefineGeneralizedAbsolutePose(
     const std::vector<Eigen::Vector3d>& points3D,
     const std::vector<size_t>& camera_idxs,
     const std::vector<Eigen::Vector4d>& rig_qvecs,
-    const std::vector<Eigen::Vector3d>& rig_tvecs, Eigen::Vector4d* qvec,
-    Eigen::Vector3d* tvec, std::vector<Camera>* cameras,
+    const std::vector<Eigen::Vector3d>& rig_tvecs,
+    Eigen::Vector4d* qvec,
+    Eigen::Vector3d* tvec,
+    std::vector<Camera>* cameras,
     Eigen::Matrix6d* rot_tvec_covariance) {
   CHECK_EQ(points2D.size(), inlier_mask.size());
   CHECK_EQ(points2D.size(), points3D.size());
@@ -409,10 +427,14 @@ bool RefineGeneralizedAbsolutePose(
 #undef CAMERA_MODEL_CASE
     }
 
-    problem.AddResidualBlock(
-        cost_function, loss_function, qvec_data, tvec_data,
-        rig_qvecs_copy[camera_idx].data(), rig_tvecs_copy[camera_idx].data(),
-        points3D_copy[i].data(), cameras_params_data[camera_idx]);
+    problem.AddResidualBlock(cost_function,
+                             loss_function,
+                             qvec_data,
+                             tvec_data,
+                             rig_qvecs_copy[camera_idx].data(),
+                             rig_tvecs_copy[camera_idx].data(),
+                             points3D_copy[i].data(),
+                             cameras_params_data[camera_idx]);
     problem.SetParameterBlockConstant(points3D_copy[i].data());
   }
 
@@ -459,7 +481,9 @@ bool RefineGeneralizedAbsolutePose(
           problem.SetParameterBlockConstant(camera.ParamsData());
         } else {
           SetSubsetManifold(static_cast<int>(camera.NumParams()),
-                            camera_params_const, &problem, camera.ParamsData());
+                            camera_params_const,
+                            &problem,
+                            camera.ParamsData());
         }
       }
     }

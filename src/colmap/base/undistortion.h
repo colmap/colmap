@@ -67,8 +67,10 @@ class COLMAPUndistorter : public Thread {
  public:
   COLMAPUndistorter(
       const UndistortCameraOptions& options,
-      const Reconstruction& reconstruction, const std::string& image_path,
-      const std::string& output_path, const int num_related_images = 20,
+      const Reconstruction& reconstruction,
+      const std::string& image_path,
+      const std::string& output_path,
+      const int num_related_images = 20,
       const CopyType copy_type = CopyType::COPY,
       const std::vector<image_t>& image_ids = std::vector<image_t>());
 
@@ -161,7 +163,8 @@ class StereoImageRectifier : public Thread {
  public:
   StereoImageRectifier(
       const UndistortCameraOptions& options,
-      const Reconstruction& reconstruction, const std::string& image_path,
+      const Reconstruction& reconstruction,
+      const std::string& image_path,
       const std::string& output_path,
       const std::vector<std::pair<image_t, image_t>>& stereo_pairs);
 
@@ -202,7 +205,8 @@ Camera UndistortCamera(const UndistortCameraOptions& options,
 // on the undistortion conventions.
 void UndistortImage(const UndistortCameraOptions& options,
                     const Bitmap& distorted_image,
-                    const Camera& distorted_camera, Bitmap* undistorted_image,
+                    const Camera& distorted_camera,
+                    Bitmap* undistorted_image,
                     Camera* undistorted_camera);
 
 // Undistort all cameras in the reconstruction and accordingly all
@@ -215,18 +219,26 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
 // other image. The matrix Q transforms disparity values to world coordinates
 // as [x, y, disparity, 1] * Q = [X, Y, Z, 1] * w. Note that this function
 // assumes that the two cameras are already undistorted.
-void RectifyStereoCameras(const Camera& camera1, const Camera& camera2,
+void RectifyStereoCameras(const Camera& camera1,
+                          const Camera& camera2,
                           const Eigen::Vector4d& qvec,
-                          const Eigen::Vector3d& tvec, Eigen::Matrix3d* H1,
-                          Eigen::Matrix3d* H2, Eigen::Matrix4d* Q);
+                          const Eigen::Vector3d& tvec,
+                          Eigen::Matrix3d* H1,
+                          Eigen::Matrix3d* H2,
+                          Eigen::Matrix4d* Q);
 
 // Rectify and undistort the stereo image pair using the given geometry.
-void RectifyAndUndistortStereoImages(
-    const UndistortCameraOptions& options, const Bitmap& distorted_image1,
-    const Bitmap& distorted_image2, const Camera& distorted_camera1,
-    const Camera& distorted_camera2, const Eigen::Vector4d& qvec,
-    const Eigen::Vector3d& tvec, Bitmap* undistorted_image1,
-    Bitmap* undistorted_image2, Camera* undistorted_camera, Eigen::Matrix4d* Q);
+void RectifyAndUndistortStereoImages(const UndistortCameraOptions& options,
+                                     const Bitmap& distorted_image1,
+                                     const Bitmap& distorted_image2,
+                                     const Camera& distorted_camera1,
+                                     const Camera& distorted_camera2,
+                                     const Eigen::Vector4d& qvec,
+                                     const Eigen::Vector3d& tvec,
+                                     Bitmap* undistorted_image1,
+                                     Bitmap* undistorted_image2,
+                                     Camera* undistorted_camera,
+                                     Eigen::Matrix4d* Q);
 
 }  // namespace colmap
 

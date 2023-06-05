@@ -32,13 +32,13 @@
 #ifndef COLMAP_SRC_BASE_SIMILARITY_TRANSFORM_H_
 #define COLMAP_SRC_BASE_SIMILARITY_TRANSFORM_H_
 
+#include "colmap/util/logging.h"
+#include "colmap/util/types.h"
+
 #include <vector>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
-
-#include "colmap/util/logging.h"
-#include "colmap/util/types.h"
 
 namespace colmap {
 
@@ -69,7 +69,8 @@ class TranslationTransformEstimator {
   // @param translation  Translation vector.
   // @param residuals    Output vector of residuals for each point pair.
   static void Residuals(const std::vector<X_t>& points1,
-                        const std::vector<Y_t>& points2, const M_t& translation,
+                        const std::vector<Y_t>& points2,
+                        const M_t& translation,
                         std::vector<double>* residuals);
 };
 
@@ -102,8 +103,10 @@ TranslationTransformEstimator<kDim>::Estimate(const std::vector<X_t>& points1,
 
 template <int kDim>
 void TranslationTransformEstimator<kDim>::Residuals(
-    const std::vector<X_t>& points1, const std::vector<Y_t>& points2,
-    const M_t& translation, std::vector<double>* residuals) {
+    const std::vector<X_t>& points1,
+    const std::vector<Y_t>& points2,
+    const M_t& translation,
+    std::vector<double>* residuals) {
   CHECK_EQ(points1.size(), points2.size());
 
   residuals->resize(points1.size());

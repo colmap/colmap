@@ -31,18 +31,22 @@
 
 #include "colmap/mvs/image.h"
 
-#include <Eigen/Core>
-
 #include "colmap/base/projection.h"
 #include "colmap/util/logging.h"
+
+#include <Eigen/Core>
 
 namespace colmap {
 namespace mvs {
 
 Image::Image() {}
 
-Image::Image(const std::string& path, const size_t width, const size_t height,
-             const float* K, const float* R, const float* T)
+Image::Image(const std::string& path,
+             const size_t width,
+             const size_t height,
+             const float* K,
+             const float* R,
+             const float* T)
     : path_(path), width_(width), height_(height) {
   memcpy(K_, K, 9 * sizeof(float));
   memcpy(R_, R, 9 * sizeof(float));
@@ -89,8 +93,11 @@ void Image::Downsize(const size_t max_width, const size_t max_height) {
   Rescale(std::min(factor_x, factor_y));
 }
 
-void ComputeRelativePose(const float R1[9], const float T1[3],
-                         const float R2[9], const float T2[3], float R[9],
+void ComputeRelativePose(const float R1[9],
+                         const float T1[3],
+                         const float R2[9],
+                         const float T2[3],
+                         float R[9],
                          float T[3]) {
   const Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> R1_m(R1);
   const Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>> R2_m(R2);
@@ -103,8 +110,10 @@ void ComputeRelativePose(const float R1[9], const float T1[3],
   T_m = T2_m - R_m * T1_m;
 }
 
-void ComposeProjectionMatrix(const float K[9], const float R[9],
-                             const float T[3], float P[12]) {
+void ComposeProjectionMatrix(const float K[9],
+                             const float R[9],
+                             const float T[3],
+                             float P[12]) {
   Eigen::Map<Eigen::Matrix<float, 3, 4, Eigen::RowMajor>> P_m(P);
   P_m.leftCols<3>() =
       Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(R);
@@ -112,8 +121,10 @@ void ComposeProjectionMatrix(const float K[9], const float R[9],
   P_m = Eigen::Map<const Eigen::Matrix<float, 3, 3, Eigen::RowMajor>>(K) * P_m;
 }
 
-void ComposeInverseProjectionMatrix(const float K[9], const float R[9],
-                                    const float T[3], float inv_P[12]) {
+void ComposeInverseProjectionMatrix(const float K[9],
+                                    const float R[9],
+                                    const float T[3],
+                                    float inv_P[12]) {
   Eigen::Matrix<float, 4, 4, Eigen::RowMajor> P;
   ComposeProjectionMatrix(K, R, T, P.data());
   P.row(3) = Eigen::Vector4f(0, 0, 0, 1);

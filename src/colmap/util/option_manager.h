@@ -32,11 +32,11 @@
 #ifndef COLMAP_SRC_UTIL_OPTION_MANAGER_H_
 #define COLMAP_SRC_UTIL_OPTION_MANAGER_H_
 
+#include "colmap/util/logging.h"
+
 #include <memory>
 
 #include <boost/program_options.hpp>
-
-#include "colmap/util/logging.h"
 
 namespace colmap {
 
@@ -101,10 +101,12 @@ class OptionManager {
   void AddRenderOptions();
 
   template <typename T>
-  void AddRequiredOption(const std::string& name, T* option,
+  void AddRequiredOption(const std::string& name,
+                         T* option,
                          const std::string& help_text = "");
   template <typename T>
-  void AddDefaultOption(const std::string& name, T* option,
+  void AddDefaultOption(const std::string& name,
+                        T* option,
                         const std::string& help_text = "");
 
   void Reset();
@@ -144,10 +146,12 @@ class OptionManager {
 
  private:
   template <typename T>
-  void AddAndRegisterRequiredOption(const std::string& name, T* option,
+  void AddAndRegisterRequiredOption(const std::string& name,
+                                    T* option,
                                     const std::string& help_text = "");
   template <typename T>
-  void AddAndRegisterDefaultOption(const std::string& name, T* option,
+  void AddAndRegisterDefaultOption(const std::string& name,
+                                   T* option,
                                    const std::string& help_text = "");
 
   template <typename T>
@@ -186,7 +190,8 @@ class OptionManager {
 ////////////////////////////////////////////////////////////////////////////////
 
 template <typename T>
-void OptionManager::AddRequiredOption(const std::string& name, T* option,
+void OptionManager::AddRequiredOption(const std::string& name,
+                                      T* option,
                                       const std::string& help_text) {
   desc_->add_options()(name.c_str(),
                        boost::program_options::value<T>(option)->required(),
@@ -194,7 +199,8 @@ void OptionManager::AddRequiredOption(const std::string& name, T* option,
 }
 
 template <typename T>
-void OptionManager::AddDefaultOption(const std::string& name, T* option,
+void OptionManager::AddDefaultOption(const std::string& name,
+                                     T* option,
                                      const std::string& help_text) {
   desc_->add_options()(
       name.c_str(),

@@ -32,14 +32,14 @@
 #ifndef COLMAP_SRC_UI_DENSE_RECONSTRUCTION_WIDGET_H_
 #define COLMAP_SRC_UI_DENSE_RECONSTRUCTION_WIDGET_H_
 
-#include <QtCore>
-#include <QtWidgets>
-
 #include "colmap/mvs/fusion.h"
 #include "colmap/ui/image_viewer_widget.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/thread_control_widget.h"
 #include "colmap/util/option_manager.h"
+
+#include <QtCore>
+#include <QtWidgets>
 
 namespace colmap {
 

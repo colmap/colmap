@@ -32,14 +32,14 @@
 #ifndef COLMAP_SRC_OPTIM_RANSAC_H_
 #define COLMAP_SRC_OPTIM_RANSAC_H_
 
+#include "colmap/optim/random_sampler.h"
+#include "colmap/optim/support_measurement.h"
+#include "colmap/util/logging.h"
+
 #include <cfloat>
 #include <random>
 #include <stdexcept>
 #include <vector>
-
-#include "colmap/optim/random_sampler.h"
-#include "colmap/optim/support_measurement.h"
-#include "colmap/util/logging.h"
 
 namespace colmap {
 
@@ -74,7 +74,8 @@ struct RANSACOptions {
   }
 };
 
-template <typename Estimator, typename SupportMeasurer = InlierSupportMeasurer,
+template <typename Estimator,
+          typename SupportMeasurer = InlierSupportMeasurer,
           typename Sampler = RandomSampler>
 class RANSAC {
  public:
@@ -146,15 +147,19 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::RANSAC(
   // Determine max_num_trials based on assumed `min_inlier_ratio`.
   const size_t kNumSamples = 100000;
   const size_t dyn_max_num_trials = ComputeNumTrials(
-      static_cast<size_t>(options_.min_inlier_ratio * kNumSamples), kNumSamples,
-      options_.confidence, options_.dyn_num_trials_multiplier);
+      static_cast<size_t>(options_.min_inlier_ratio * kNumSamples),
+      kNumSamples,
+      options_.confidence,
+      options_.dyn_num_trials_multiplier);
   options_.max_num_trials =
       std::min<size_t>(options_.max_num_trials, dyn_max_num_trials);
 }
 
 template <typename Estimator, typename SupportMeasurer, typename Sampler>
 size_t RANSAC<Estimator, SupportMeasurer, Sampler>::ComputeNumTrials(
-    const size_t num_inliers, const size_t num_samples, const double confidence,
+    const size_t num_inliers,
+    const size_t num_samples,
+    const double confidence,
     const double num_trials_multiplier) {
   const double inlier_ratio = num_inliers / static_cast<double>(num_samples);
 
@@ -236,9 +241,11 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
         best_support = support;
         best_model = sample_model;
 
-        dyn_max_num_trials = ComputeNumTrials(
-            best_support.num_inliers, num_samples, options_.confidence,
-            options_.dyn_num_trials_multiplier);
+        dyn_max_num_trials =
+            ComputeNumTrials(best_support.num_inliers,
+                             num_samples,
+                             options_.confidence,
+                             options_.dyn_num_trials_multiplier);
       }
 
       if (report.num_trials >= dyn_max_num_trials &&

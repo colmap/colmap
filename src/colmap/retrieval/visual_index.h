@@ -32,17 +32,17 @@
 #ifndef COLMAP_SRC_RETRIEVAL_VISUAL_INDEX_H_
 #define COLMAP_SRC_RETRIEVAL_VISUAL_INDEX_H_
 
-#include <Eigen/Core>
-#include <boost/heap/fibonacci_heap.hpp>
-
 #include "colmap/feature/types.h"
-#include "flann/flann.hpp"
 #include "colmap/retrieval/inverted_file.h"
 #include "colmap/retrieval/inverted_index.h"
 #include "colmap/retrieval/vote_and_verify.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/math.h"
+
+#include "flann/flann.hpp"
+#include <Eigen/Core>
+#include <boost/heap/fibonacci_heap.hpp>
 
 namespace colmap {
 namespace retrieval {
@@ -55,7 +55,8 @@ namespace retrieval {
 //
 //    Arandjelovic, Zisserman: Scalable descriptor
 //    distinctiveness for location recognition. ACCV 2014.
-template <typename kDescType = uint8_t, int kDescDim = 128,
+template <typename kDescType = uint8_t,
+          int kDescDim = 128,
           int kEmbeddingDim = 64>
 class VisualIndex {
  public:
@@ -122,18 +123,22 @@ class VisualIndex {
   size_t NumVisualWords() const;
 
   // Add image to the visual index.
-  void Add(const IndexOptions& options, const int image_id,
-           const GeomType& geometries, const DescType& descriptors);
+  void Add(const IndexOptions& options,
+           const int image_id,
+           const GeomType& geometries,
+           const DescType& descriptors);
 
   // Check if an image has been indexed.
   bool ImageIndexed(const int image_id) const;
 
   // Query for most similar images in the visual index.
-  void Query(const QueryOptions& options, const DescType& descriptors,
+  void Query(const QueryOptions& options,
+             const DescType& descriptors,
              std::vector<ImageScore>* image_scores) const;
 
   // Query for most similar images in the visual index.
-  void Query(const QueryOptions& options, const GeomType& geometries,
+  void Query(const QueryOptions& options,
+             const GeomType& geometries,
              const DescType& descriptors,
              std::vector<ImageScore>* image_scores) const;
 
@@ -162,7 +167,8 @@ class VisualIndex {
 
   // Find the nearest neighbor visual words for the given descriptors.
   Eigen::MatrixXi FindWordIds(const DescType& descriptors,
-                              const int num_neighbors, const int num_checks,
+                              const int num_neighbors,
+                              const int num_checks,
                               const int num_threads) const;
 
   // The search structure on the quantized descriptor space.
@@ -203,7 +209,9 @@ size_t VisualIndex<kDescType, kDescDim, kEmbeddingDim>::NumVisualWords() const {
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Add(
-    const IndexOptions& options, const int image_id, const GeomType& geometries,
+    const IndexOptions& options,
+    const int image_id,
+    const GeomType& geometries,
     const DescType& descriptors) {
   CHECK_EQ(geometries.size(), descriptors.rows());
 
@@ -220,9 +228,10 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Add(
     return;
   }
 
-  const Eigen::MatrixXi word_ids =
-      FindWordIds(descriptors, options.num_neighbors, options.num_checks,
-                  options.num_threads);
+  const Eigen::MatrixXi word_ids = FindWordIds(descriptors,
+                                               options.num_neighbors,
+                                               options.num_checks,
+                                               options.num_threads);
 
   for (typename DescType::Index i = 0; i < descriptors.rows(); ++i) {
     const auto& descriptor = descriptors.row(i);
@@ -250,7 +259,8 @@ bool VisualIndex<kDescType, kDescDim, kEmbeddingDim>::ImageIndexed(
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
-    const QueryOptions& options, const DescType& descriptors,
+    const QueryOptions& options,
+    const DescType& descriptors,
     std::vector<ImageScore>* image_scores) const {
   const GeomType geometries;
   Query(options, geometries, descriptors, image_scores);
@@ -258,8 +268,10 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
-    const QueryOptions& options, const GeomType& geometries,
-    const DescType& descriptors, std::vector<ImageScore>* image_scores) const {
+    const QueryOptions& options,
+    const GeomType& geometries,
+    const DescType& descriptors,
+    std::vector<ImageScore>* image_scores) const {
   Eigen::MatrixXi word_ids;
   QueryAndFindWordIds(options, descriptors, image_scores, &word_ids);
 
@@ -309,15 +321,16 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
     // For each db feature, keep track of the lowest distance (if db features
     // are mapped to more than one visual word).
     std::unordered_map<
-        int, std::unordered_map<int, std::pair<float, const EntryType*>>>
+        int,
+        std::unordered_map<int, std::pair<float, const EntryType*>>>
         image_matches;
 
     for (int j = 0; j < word_ids.cols(); ++j) {
       const int word_id = word_ids(i, j);
 
       if (word_id != InvertedIndexType::kInvalidWordId) {
-        inverted_index_.ConvertToBinaryDescriptor(word_id, descriptor,
-                                                  &query_entries[i].descriptor);
+        inverted_index_.ConvertToBinaryDescriptor(
+            word_id, descriptor, &query_entries[i].descriptor);
 
         const auto idf_weight = inverted_index_.GetIDFWeight(word_id);
         const auto squared_idf_weight = idf_weight * idf_weight;
@@ -386,18 +399,24 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
         db_heap_handles;
 
     for (auto& match_data : query_matches) {
-      std::sort(match_data.second.begin(), match_data.second.end(),
-                std::greater<std::pair<
-                    float, std::pair<const EntryType*, const EntryType*>>>());
+      std::sort(
+          match_data.second.begin(),
+          match_data.second.end(),
+          std::greater<
+              std::pair<float,
+                        std::pair<const EntryType*, const EntryType*>>>());
 
       query_heap_handles[match_data.first] = query_heap.push(std::make_pair(
           -static_cast<int>(match_data.second.size()), match_data.first));
     }
 
     for (auto& match_data : db_matches) {
-      std::sort(match_data.second.begin(), match_data.second.end(),
-                std::greater<std::pair<
-                    float, std::pair<const EntryType*, const EntryType*>>>());
+      std::sort(
+          match_data.second.begin(),
+          match_data.second.end(),
+          std::greater<
+              std::pair<float,
+                        std::pair<const EntryType*, const EntryType*>>>());
 
       db_heap_handles[match_data.first] = db_heap.push(std::make_pair(
           -static_cast<int>(match_data.second.size()), match_data.first));
@@ -494,8 +513,10 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
   if (num_images == image_scores->size()) {
     std::sort(image_scores->begin(), image_scores->end(), SortFunc);
   } else {
-    std::partial_sort(image_scores->begin(), image_scores->begin() + num_images,
-                      image_scores->end(), SortFunc);
+    std::partial_sort(image_scores->begin(),
+                      image_scores->begin() + num_images,
+                      image_scores->end(),
+                      SortFunc);
     image_scores->resize(num_images);
   }
 }
@@ -628,7 +649,8 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Quantize(
   CHECK_GE(descriptors.rows(), options.num_visual_words);
 
   const flann::Matrix<kDescType> descriptor_matrix(
-      const_cast<kDescType*>(descriptors.data()), descriptors.rows(),
+      const_cast<kDescType*>(descriptors.data()),
+      descriptors.rows(),
       descriptors.cols());
 
   std::vector<typename flann::L2<kDescType>::ResultType> centers_data(
@@ -659,14 +681,16 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Quantize(
     delete[] visual_words_.ptr();
   }
 
-  visual_words_ = flann::Matrix<kDescType>(visual_words_data, num_centers,
-                                           descriptors.cols());
+  visual_words_ = flann::Matrix<kDescType>(
+      visual_words_data, num_centers, descriptors.cols());
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::QueryAndFindWordIds(
-    const QueryOptions& options, const DescType& descriptors,
-    std::vector<ImageScore>* image_scores, Eigen::MatrixXi* word_ids) const {
+    const QueryOptions& options,
+    const DescType& descriptors,
+    std::vector<ImageScore>* image_scores,
+    Eigen::MatrixXi* word_ids) const {
   CHECK(prepared_);
 
   if (descriptors.rows() == 0) {
@@ -674,8 +698,10 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::QueryAndFindWordIds(
     return;
   }
 
-  *word_ids = FindWordIds(descriptors, options.num_neighbors,
-                          options.num_checks, options.num_threads);
+  *word_ids = FindWordIds(descriptors,
+                          options.num_neighbors,
+                          options.num_checks,
+                          options.num_threads);
   inverted_index_.Query(descriptors, *word_ids, image_scores);
 
   auto SortFunc = [](const ImageScore& score1, const ImageScore& score2) {
@@ -690,15 +716,19 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::QueryAndFindWordIds(
   if (num_images == image_scores->size()) {
     std::sort(image_scores->begin(), image_scores->end(), SortFunc);
   } else {
-    std::partial_sort(image_scores->begin(), image_scores->begin() + num_images,
-                      image_scores->end(), SortFunc);
+    std::partial_sort(image_scores->begin(),
+                      image_scores->begin() + num_images,
+                      image_scores->end(),
+                      SortFunc);
     image_scores->resize(num_images);
   }
 }
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 Eigen::MatrixXi VisualIndex<kDescType, kDescDim, kEmbeddingDim>::FindWordIds(
-    const DescType& descriptors, const int num_neighbors, const int num_checks,
+    const DescType& descriptors,
+    const int num_neighbors,
+    const int num_checks,
     const int num_threads) const {
   static_assert(DescType::IsRowMajor, "Descriptors must be row-major");
 
@@ -708,17 +738,20 @@ Eigen::MatrixXi VisualIndex<kDescType, kDescDim, kEmbeddingDim>::FindWordIds(
   Eigen::Matrix<size_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
       word_ids(descriptors.rows(), num_neighbors);
   word_ids.setConstant(InvertedIndexType::kInvalidWordId);
-  flann::Matrix<size_t> indices(word_ids.data(), descriptors.rows(),
-                                num_neighbors);
+  flann::Matrix<size_t> indices(
+      word_ids.data(), descriptors.rows(), num_neighbors);
 
-  Eigen::Matrix<typename flann::L2<kDescType>::ResultType, Eigen::Dynamic,
-                Eigen::Dynamic, Eigen::RowMajor>
+  Eigen::Matrix<typename flann::L2<kDescType>::ResultType,
+                Eigen::Dynamic,
+                Eigen::Dynamic,
+                Eigen::RowMajor>
       distance_matrix(descriptors.rows(), num_neighbors);
   flann::Matrix<typename flann::L2<kDescType>::ResultType> distances(
       distance_matrix.data(), descriptors.rows(), num_neighbors);
 
   const flann::Matrix<kDescType> query(
-      const_cast<kDescType*>(descriptors.data()), descriptors.rows(),
+      const_cast<kDescType*>(descriptors.data()),
+      descriptors.rows(),
       descriptors.cols());
 
   flann::SearchParams search_params(num_checks);
@@ -731,8 +764,8 @@ Eigen::MatrixXi VisualIndex<kDescType, kDescDim, kEmbeddingDim>::FindWordIds(
     search_params.cores = 1;
   }
 
-  visual_word_index_.knnSearch(query, indices, distances, num_neighbors,
-                               search_params);
+  visual_word_index_.knnSearch(
+      query, indices, distances, num_neighbors, search_params);
 
   return word_ids.cast<int>();
 }

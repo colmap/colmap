@@ -30,12 +30,12 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/triangulation"
+#include "colmap/base/triangulation.h"
+
+#include "colmap/base/similarity_transform.h"
 #include "colmap/util/testing.h"
 
 #include <Eigen/Core>
-
-#include "colmap/base/similarity_transform.h"
-#include "colmap/base/triangulation.h"
 
 using namespace colmap;
 
@@ -52,8 +52,8 @@ BOOST_AUTO_TEST_CASE(TestTriangulatePoint) {
 
   for (double qz = 0; qz < 1; qz += 0.2) {
     for (double tx = 0; tx < 10; tx += 2) {
-      SimilarityTransform3 tform(1, Eigen::Vector4d(0.2, 0.3, 0.4, qz),
-                                 Eigen::Vector3d(tx, 2, 3));
+      SimilarityTransform3 tform(
+          1, Eigen::Vector4d(0.2, 0.3, 0.4, qz), Eigen::Vector3d(tx, 2, 3));
 
       Eigen::Matrix3x4d proj_matrix2 = tform.Matrix().topLeftCorner<3, 4>();
 
@@ -83,11 +83,14 @@ BOOST_AUTO_TEST_CASE(TestCalculateTriangulationAngle) {
 
   BOOST_CHECK_CLOSE(
       CalculateTriangulationAngle(tvec1, tvec2, Eigen::Vector3d(0, 0, 100)),
-      0.009999666687, 1e-8);
+      0.009999666687,
+      1e-8);
   BOOST_CHECK_CLOSE(
       CalculateTriangulationAngle(tvec1, tvec2, Eigen::Vector3d(0, 0, 50)),
-      0.019997333973, 1e-8);
+      0.019997333973,
+      1e-8);
   BOOST_CHECK_CLOSE(CalculateTriangulationAngles(
                         tvec1, tvec2, {Eigen::Vector3d(0, 0, 50)})[0],
-                    0.019997333973, 1e-8);
+                    0.019997333973,
+                    1e-8);
 }

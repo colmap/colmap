@@ -30,17 +30,17 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "estimators/essential_matrix"
-#include "colmap/util/testing.h"
-
-#include <Eigen/Core>
+#include "colmap/base/essential_matrix.h"
 
 #include "colmap/base/camera_models.h"
-#include "colmap/base/essential_matrix.h"
 #include "colmap/base/pose.h"
 #include "colmap/base/projection.h"
 #include "colmap/estimators/essential_matrix.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/random.h"
+#include "colmap/util/testing.h"
+
+#include <Eigen/Core>
 
 using namespace colmap;
 
@@ -77,8 +77,8 @@ BOOST_AUTO_TEST_CASE(TestFivePoint) {
   const auto report = ransac.Estimate(points1, points2);
 
   std::vector<double> residuals;
-  EssentialMatrixFivePointEstimator::Residuals(points1, points2, report.model,
-                                               &residuals);
+  EssentialMatrixFivePointEstimator::Residuals(
+      points1, points2, report.model, &residuals);
 
   for (size_t i = 0; i < 10; ++i) {
     BOOST_CHECK_LE(residuals[i], options.max_error * options.max_error);
@@ -89,15 +89,40 @@ BOOST_AUTO_TEST_CASE(TestFivePoint) {
 }
 
 BOOST_AUTO_TEST_CASE(TestEightPoint) {
-  const double points1_raw[] = {1.839035, 1.924743, 0.543582,  0.375221,
-                                0.473240, 0.142522, 0.964910,  0.598376,
-                                0.102388, 0.140092, 15.994343, 9.622164,
-                                0.285901, 0.430055, 0.091150,  0.254594};
+  const double points1_raw[] = {1.839035,
+                                1.924743,
+                                0.543582,
+                                0.375221,
+                                0.473240,
+                                0.142522,
+                                0.964910,
+                                0.598376,
+                                0.102388,
+                                0.140092,
+                                15.994343,
+                                9.622164,
+                                0.285901,
+                                0.430055,
+                                0.091150,
+                                0.254594};
 
   const double points2_raw[] = {
-      1.002114, 1.129644, 1.521742, 1.846002, 1.084332, 0.275134,
-      0.293328, 0.588992, 0.839509, 0.087290, 1.779735, 1.116857,
-      0.878616, 0.602447, 0.642616, 1.028681,
+      1.002114,
+      1.129644,
+      1.521742,
+      1.846002,
+      1.084332,
+      0.275134,
+      0.293328,
+      0.588992,
+      0.839509,
+      0.087290,
+      1.779735,
+      1.116857,
+      0.878616,
+      0.602447,
+      0.642616,
+      1.028681,
   };
 
   const size_t kNumPoints = 8;

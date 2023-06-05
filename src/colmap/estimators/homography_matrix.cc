@@ -31,13 +31,13 @@
 
 #include "colmap/estimators/homography_matrix.h"
 
-#include <Eigen/Geometry>
-#include <Eigen/LU>
-#include <Eigen/SVD>
-
 #include "colmap/base/projection.h"
 #include "colmap/estimators/utils.h"
 #include "colmap/util/logging.h"
+
+#include <Eigen/Geometry>
+#include <Eigen/LU>
+#include <Eigen/SVD>
 
 namespace colmap {
 

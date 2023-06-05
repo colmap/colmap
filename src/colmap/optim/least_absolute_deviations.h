@@ -32,10 +32,10 @@
 #ifndef COLMAP_SRC_OPTIM_LEAST_ABSOLUTE_DEVIATIONS_H_
 #define COLMAP_SRC_OPTIM_LEAST_ABSOLUTE_DEVIATIONS_H_
 
+#include "colmap/util/logging.h"
+
 #include <Eigen/Core>
 #include <Eigen/SparseCore>
-
-#include "colmap/util/logging.h"
 
 namespace colmap {
 
@@ -65,7 +65,8 @@ struct LeastAbsoluteDeviationsOptions {
 // at https://web.stanford.edu/~boyd/papers/admm/least_abs_deviations/lad.html
 bool SolveLeastAbsoluteDeviations(const LeastAbsoluteDeviationsOptions& options,
                                   const Eigen::SparseMatrix<double>& A,
-                                  const Eigen::VectorXd& b, Eigen::VectorXd* x);
+                                  const Eigen::VectorXd& b,
+                                  Eigen::VectorXd* x);
 
 }  // namespace colmap
 

@@ -31,14 +31,14 @@
 
 #include "colmap/util/cuda.h"
 
+#include "colmap/util/cudacc.h"
+#include "colmap/util/logging.h"
+
 #include <algorithm>
 #include <iostream>
 #include <vector>
 
 #include <cuda_runtime.h>
-
-#include "colmap/util/cudacc.h"
-#include "colmap/util/logging.h"
 
 namespace colmap {
 namespace {

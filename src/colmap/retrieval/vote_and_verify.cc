@@ -31,15 +31,15 @@
 
 #include "colmap/retrieval/vote_and_verify.h"
 
-#include <array>
-#include <unordered_map>
-
-#include <Eigen/Geometry>
-
 #include "colmap/estimators/affine_transform.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/math.h"
+
+#include <array>
+#include <unordered_map>
+
+#include <Eigen/Geometry>
 
 namespace colmap {
 namespace retrieval {
@@ -130,7 +130,8 @@ float ComputeTransferError(const FeatureGeometry& feature1,
 // Compute inlier matches that satisfy the transfer, scale thresholds.
 void ComputeInliers(const TwoWayTransform& tform,
                     const std::vector<FeatureGeometryMatch>& matches,
-                    const float max_transfer_error, const float max_scale_error,
+                    const float max_transfer_error,
+                    const float max_scale_error,
                     std::vector<std::pair<int, int>>* inlier_idxs) {
   CHECK_GT(max_transfer_error, 0);
   CHECK_GT(max_scale_error, 0);
@@ -154,7 +155,8 @@ void ComputeInliers(const TwoWayTransform& tform,
 size_t ComputeEffectiveInlierCount(
     const TwoWayTransform& tform,
     const std::vector<FeatureGeometryMatch>& matches,
-    const float max_transfer_error, const float max_scale_error,
+    const float max_transfer_error,
+    const float max_scale_error,
     const int num_bins) {
   CHECK_GT(max_transfer_error, 0);
   CHECK_GT(max_scale_error, 0);
@@ -328,7 +330,8 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
       static_cast<size_t>(options.num_transformations), bin_scores.size());
 
   std::partial_sort(bin_scores.begin(),
-                    bin_scores.begin() + num_transformations, bin_scores.end(),
+                    bin_scores.begin() + num_transformations,
+                    bin_scores.end(),
                     [](const std::pair<int, float>& score1,
                        const std::pair<int, float>& score2) {
                       return score1.second > score2.second;
@@ -349,8 +352,11 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
   for (size_t i = 0; i < num_transformations && i < max_num_trials; ++i) {
     const auto& bin = bins[0].at(bin_scores.at(i).first);
     const auto tform = TwoWayTransform(bin.GetTransformation());
-    ComputeInliers(tform, matches, options.max_transfer_error,
-                   options.max_scale_error, &inlier_idxs);
+    ComputeInliers(tform,
+                   matches,
+                   options.max_transfer_error,
+                   options.max_scale_error,
+                   &inlier_idxs);
 
     if (inlier_idxs.size() < best_num_inliers ||
         inlier_idxs.size() < AffineTransformEstimator::kMinNumSamples) {
@@ -390,8 +396,11 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     local_tform.A21 = inv_A.leftCols<2>().cast<float>();
     local_tform.t21 = inv_A.rightCols<1>().cast<float>();
 
-    ComputeInliers(local_tform, matches, options.max_transfer_error,
-                   options.max_scale_error, &inlier_idxs);
+    ComputeInliers(local_tform,
+                   matches,
+                   options.max_transfer_error,
+                   options.max_scale_error,
+                   &inlier_idxs);
 
     if (inlier_idxs.size() > best_num_inliers) {
       best_num_inliers = inlier_idxs.size();
@@ -403,7 +412,9 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     }
 
     max_num_trials = RANSAC<AffineTransformEstimator>::ComputeNumTrials(
-        best_num_inliers, matches.size(), options.confidence,
+        best_num_inliers,
+        matches.size(),
+        options.confidence,
         /* num_trials_multiplier = */ 3.0);
   }
 
@@ -412,9 +423,11 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
   }
 
   const size_t kNumBins = 64;
-  return ComputeEffectiveInlierCount(best_tform, matches,
+  return ComputeEffectiveInlierCount(best_tform,
+                                     matches,
                                      options.max_transfer_error,
-                                     options.max_scale_error, kNumBins);
+                                     options.max_scale_error,
+                                     kNumBins);
 }
 
 }  // namespace retrieval

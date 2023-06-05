@@ -30,16 +30,16 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "optim/ransac"
-#include "colmap/util/testing.h"
-
-#include <Eigen/Core>
-#include <Eigen/Geometry>
+#include "colmap/optim/ransac.h"
 
 #include "colmap/base/pose.h"
 #include "colmap/base/similarity_transform.h"
 #include "colmap/estimators/similarity_transform.h"
-#include "colmap/optim/ransac.h"
 #include "colmap/util/random.h"
+#include "colmap/util/testing.h"
+
+#include <Eigen/Core>
+#include <Eigen/Geometry>
 
 using namespace colmap;
 
@@ -93,8 +93,8 @@ BOOST_AUTO_TEST_CASE(TestSimilarityTransform) {
   const size_t num_outliers = 400;
 
   // Create some arbitrary transformation.
-  const SimilarityTransform3 orig_tform(2, ComposeIdentityQuaternion(),
-                                        Eigen::Vector3d(100, 10, 10));
+  const SimilarityTransform3 orig_tform(
+      2, ComposeIdentityQuaternion(), Eigen::Vector3d(100, 10, 10));
 
   // Generate exact data.
   std::vector<Eigen::Vector3d> src;

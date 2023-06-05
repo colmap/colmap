@@ -32,11 +32,13 @@
 #ifndef COLMAP_SRC_UTIL_CACHE_H_
 #define COLMAP_SRC_UTIL_CACHE_H_
 
+#include "colmap/util/logging.h"
+
+#include <functional>
 #include <iostream>
+#include <limits>
 #include <list>
 #include <unordered_map>
-
-#include "colmap/util/logging.h"
 
 namespace colmap {
 

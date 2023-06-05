@@ -31,18 +31,19 @@
 
 #include "colmap/estimators/generalized_absolute_pose.h"
 
-#include <array>
-
 #include "colmap/base/polynomial.h"
 #include "colmap/base/projection.h"
 #include "colmap/estimators/generalized_absolute_pose_coeffs.h"
 #include "colmap/util/logging.h"
 
+#include <array>
+
 namespace colmap {
 namespace {
 
 // Check whether the rays are close to parallel.
-bool CheckParallelRays(const Eigen::Vector3d& ray1, const Eigen::Vector3d& ray2,
+bool CheckParallelRays(const Eigen::Vector3d& ray1,
+                       const Eigen::Vector3d& ray2,
                        const Eigen::Vector3d& ray3) {
   const double kParallelThreshold = 1e-5;
   return ray1.cross(ray2).isApproxToConstant(0, kParallelThreshold) &&
@@ -50,7 +51,8 @@ bool CheckParallelRays(const Eigen::Vector3d& ray1, const Eigen::Vector3d& ray2,
 }
 
 // Check whether the points are close to collinear.
-bool CheckCollinearPoints(const Eigen::Vector3d& X1, const Eigen::Vector3d& X2,
+bool CheckCollinearPoints(const Eigen::Vector3d& X1,
+                          const Eigen::Vector3d& X2,
                           const Eigen::Vector3d& X3) {
   const double kMinNonCollinearity = 1e-5;
   const Eigen::Vector3d X12 = X2 - X1;
@@ -144,7 +146,8 @@ void ComputeLambdaValues(const Eigen::Matrix<double, 3, 6>::ConstRowXpr& k,
   double roots[2];
   const int num_solutions =
       SolveQuadratic(k(1) * lambda_j + k(2),
-                     lambda_j * (k(3) * lambda_j + k(4)) + k(5), roots);
+                     lambda_j * (k(3) * lambda_j + k(4)) + k(5),
+                     roots);
   for (int i = 0; i < num_solutions; ++i) {
     if (roots[i] > 0) {
       lambdas_i->push_back(roots[i]);
@@ -223,7 +226,8 @@ std::vector<GP3PEstimator::M_t> GP3PEstimator::Estimate(
     plueckers[i] = ComposePlueckerLine(points2D[i].rel_tform, points2D[i].xy);
   }
 
-  if (CheckParallelRays(plueckers[0].head<3>(), plueckers[1].head<3>(),
+  if (CheckParallelRays(plueckers[0].head<3>(),
+                        plueckers[1].head<3>(),
                         plueckers[2].head<3>())) {
     return std::vector<GP3PEstimator::M_t>({});
   }

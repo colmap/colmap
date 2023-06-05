@@ -390,8 +390,10 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 #undef CAMERA_MODEL_CASE
       }
 
-      problem_->AddResidualBlock(cost_function, loss_function,
-                                 point3D.XYZ().data(), camera_params_data);
+      problem_->AddResidualBlock(cost_function,
+                                 loss_function,
+                                 point3D.XYZ().data(),
+                                 camera_params_data);
     } else {
       switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                   \
@@ -405,8 +407,11 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
 #undef CAMERA_MODEL_CASE
       }
 
-      problem_->AddResidualBlock(cost_function, loss_function, qvec_data,
-                                 tvec_data, point3D.XYZ().data(),
+      problem_->AddResidualBlock(cost_function,
+                                 loss_function,
+                                 qvec_data,
+                                 tvec_data,
+                                 point3D.XYZ().data(),
                                  camera_params_data);
     }
   }
@@ -472,8 +477,10 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
 
 #undef CAMERA_MODEL_CASE
     }
-    problem_->AddResidualBlock(cost_function, loss_function,
-                               point3D.XYZ().data(), camera.ParamsData());
+    problem_->AddResidualBlock(cost_function,
+                               loss_function,
+                               point3D.XYZ().data(),
+                               camera.ParamsData());
   }
 }
 
@@ -492,23 +499,24 @@ void BundleAdjuster::ParameterizeCameras(Reconstruction* reconstruction) {
 
       if (!options_.refine_focal_length) {
         const std::vector<size_t>& params_idxs = camera.FocalLengthIdxs();
-        const_camera_params.insert(const_camera_params.end(),
-                                   params_idxs.begin(), params_idxs.end());
+        const_camera_params.insert(
+            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
       }
       if (!options_.refine_principal_point) {
         const std::vector<size_t>& params_idxs = camera.PrincipalPointIdxs();
-        const_camera_params.insert(const_camera_params.end(),
-                                   params_idxs.begin(), params_idxs.end());
+        const_camera_params.insert(
+            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
       }
       if (!options_.refine_extra_params) {
         const std::vector<size_t>& params_idxs = camera.ExtraParamsIdxs();
-        const_camera_params.insert(const_camera_params.end(),
-                                   params_idxs.begin(), params_idxs.end());
+        const_camera_params.insert(
+            const_camera_params.end(), params_idxs.begin(), params_idxs.end());
       }
 
       if (const_camera_params.size() > 0) {
         SetSubsetManifold(static_cast<int>(camera.NumParams()),
-                          const_camera_params, problem_.get(),
+                          const_camera_params,
+                          problem_.get(),
                           camera.ParamsData());
       }
     }
@@ -644,7 +652,8 @@ void RigBundleAdjuster::TearDown(Reconstruction* reconstruction,
     ConcatenatePoses(*image_id_to_rig_qvec_.at(image_id),
                      *image_id_to_rig_tvec_.at(image_id),
                      camera_rig.RelativeQvec(image.CameraId()),
-                     camera_rig.RelativeTvec(image.CameraId()), &image.Qvec(),
+                     camera_rig.RelativeTvec(image.CameraId()),
+                     &image.Qvec(),
                      &image.Tvec());
   }
 }
@@ -689,7 +698,8 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
                      *image_id_to_rig_tvec_.at(image_id),
                      camera_rig->RelativeQvec(image.CameraId()),
                      camera_rig->RelativeTvec(image.CameraId()),
-                     &rig_concat_qvec, &rig_concat_tvec);
+                     &rig_concat_qvec,
+                     &rig_concat_tvec);
     rig_proj_matrix = ComposeProjectionMatrix(rig_concat_qvec, rig_concat_tvec);
   } else {
     // CostFunction assumes unit quaternions.
@@ -715,9 +725,9 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
     assert(point3D.Track().Length() > 1);
 
     if (camera_rig != nullptr &&
-        CalculateSquaredReprojectionError(point2D.XY(), point3D.XYZ(),
-                                          rig_proj_matrix,
-                                          camera) > max_squared_reproj_error) {
+        CalculateSquaredReprojectionError(
+            point2D.XY(), point3D.XYZ(), rig_proj_matrix, camera) >
+            max_squared_reproj_error) {
       continue;
     }
 
@@ -741,8 +751,10 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
 #undef CAMERA_MODEL_CASE
         }
 
-        problem_->AddResidualBlock(cost_function, loss_function,
-                                   point3D.XYZ().data(), camera_params_data);
+        problem_->AddResidualBlock(cost_function,
+                                   loss_function,
+                                   point3D.XYZ().data(),
+                                   camera_params_data);
       } else {
         switch (camera.ModelId()) {
 #define CAMERA_MODEL_CASE(CameraModel)                                   \
@@ -756,8 +768,11 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
 #undef CAMERA_MODEL_CASE
         }
 
-        problem_->AddResidualBlock(cost_function, loss_function, qvec_data,
-                                   tvec_data, point3D.XYZ().data(),
+        problem_->AddResidualBlock(cost_function,
+                                   loss_function,
+                                   qvec_data,
+                                   tvec_data,
+                                   point3D.XYZ().data(),
                                    camera_params_data);
       }
     } else {
@@ -773,9 +788,14 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
 
 #undef CAMERA_MODEL_CASE
       }
-      problem_->AddResidualBlock(cost_function, loss_function, rig_qvec_data,
-                                 rig_tvec_data, qvec_data, tvec_data,
-                                 point3D.XYZ().data(), camera_params_data);
+      problem_->AddResidualBlock(cost_function,
+                                 loss_function,
+                                 rig_qvec_data,
+                                 rig_tvec_data,
+                                 qvec_data,
+                                 tvec_data,
+                                 point3D.XYZ().data(),
+                                 camera_params_data);
     }
   }
 
@@ -839,13 +859,15 @@ void RigBundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
     ceres::CostFunction* cost_function = nullptr;
 
     switch (camera.ModelId()) {
-#define CAMERA_MODEL_CASE(CameraModel)                                     \
-  case CameraModel::kModelId:                                              \
-    cost_function =                                                        \
-        BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create(     \
-            image.Qvec(), image.Tvec(), point2D.XY());                     \
-    problem_->AddResidualBlock(cost_function, loss_function,               \
-                               point3D.XYZ().data(), camera.ParamsData()); \
+#define CAMERA_MODEL_CASE(CameraModel)                                 \
+  case CameraModel::kModelId:                                          \
+    cost_function =                                                    \
+        BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create( \
+            image.Qvec(), image.Tvec(), point2D.XY());                 \
+    problem_->AddResidualBlock(cost_function,                          \
+                               loss_function,                          \
+                               point3D.XYZ().data(),                   \
+                               camera.ParamsData());                   \
     break;
 
       CAMERA_MODEL_SWITCH_CASES
@@ -869,7 +891,8 @@ void RigBundleAdjuster::ComputeCameraRigPoses(
     rig_tvecs.resize(camera_rig.NumSnapshots());
     for (size_t snapshot_idx = 0; snapshot_idx < camera_rig.NumSnapshots();
          ++snapshot_idx) {
-      camera_rig.ComputeAbsolutePose(snapshot_idx, reconstruction,
+      camera_rig.ComputeAbsolutePose(snapshot_idx,
+                                     reconstruction,
                                      &rig_qvecs[snapshot_idx],
                                      &rig_tvecs[snapshot_idx]);
       for (const auto image_id : camera_rig.Snapshots()[snapshot_idx]) {

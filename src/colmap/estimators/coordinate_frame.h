@@ -32,9 +32,9 @@
 #ifndef COLMAP_SRC_ESTIMATORS_COORDINATE_AXES_H_
 #define COLMAP_SRC_ESTIMATORS_COORDINATE_AXES_H_
 
-#include <Eigen/Core>
-
 #include "colmap/base/reconstruction.h"
+
+#include <Eigen/Core>
 
 namespace colmap {
 
@@ -68,7 +68,8 @@ Eigen::Vector3d EstimateGravityVectorFromImageOrientation(
 // rightward, downward, forward.
 Eigen::Matrix3d EstimateManhattanWorldFrame(
     const ManhattanWorldFrameEstimationOptions& options,
-    const Reconstruction& reconstruction, const std::string& image_path);
+    const Reconstruction& reconstruction,
+    const std::string& image_path);
 
 // Aligns the reconstruction to the plane defined by running PCA on the 3D
 // points. The model centroid is at the origin of the new coordinate system
@@ -80,7 +81,8 @@ void AlignToPrincipalPlane(Reconstruction* recon, SimilarityTransform3* tform);
 // reconstruction such that the x-y plane aligns with the ENU tangent plane at
 // the point cloud centroid and translates the origin to the centroid.
 // If unscaled == true, then the original scale of the model remains unchanged.
-void AlignToENUPlane(Reconstruction* recon, SimilarityTransform3* tform,
+void AlignToENUPlane(Reconstruction* recon,
+                     SimilarityTransform3* tform,
                      bool unscaled);
 
 }  // namespace colmap

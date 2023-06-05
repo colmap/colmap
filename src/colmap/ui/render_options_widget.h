@@ -32,18 +32,19 @@
 #ifndef COLMAP_SRC_UI_RENDER_OPTIONS_WIDGET_H_
 #define COLMAP_SRC_UI_RENDER_OPTIONS_WIDGET_H_
 
-#include <QtCore>
-#include <QtWidgets>
-
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/ui/model_viewer_widget.h"
 #include "colmap/ui/options_widget.h"
+
+#include <QtCore>
+#include <QtWidgets>
 
 namespace colmap {
 
 class RenderOptionsWidget : public OptionsWidget {
  public:
-  RenderOptionsWidget(QWidget* parent, OptionManager* options,
+  RenderOptionsWidget(QWidget* parent,
+                      OptionManager* options,
                       ModelViewerWidget* model_viewer_widget);
 
   size_t counter;

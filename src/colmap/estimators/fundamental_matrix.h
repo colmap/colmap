@@ -32,12 +32,12 @@
 #ifndef COLMAP_SRC_ESTIMATORS_FUNDAMENTAL_MATRIX_H_
 #define COLMAP_SRC_ESTIMATORS_FUNDAMENTAL_MATRIX_H_
 
+#include "colmap/estimators/homography_matrix.h"
+#include "colmap/util/types.h"
+
 #include <vector>
 
 #include <Eigen/Core>
-
-#include "colmap/estimators/homography_matrix.h"
-#include "colmap/util/types.h"
 
 namespace colmap {
 
@@ -80,7 +80,8 @@ class FundamentalMatrixSevenPointEstimator {
   // @param F          3x3 fundamental matrix.
   // @param residuals  Output vector of residuals.
   static void Residuals(const std::vector<X_t>& points1,
-                        const std::vector<Y_t>& points2, const M_t& F,
+                        const std::vector<Y_t>& points2,
+                        const M_t& F,
                         std::vector<double>* residuals);
 };
 
@@ -119,7 +120,8 @@ class FundamentalMatrixEightPointEstimator {
   // @param F          3x3 fundamental matrix.
   // @param residuals  Output vector of residuals.
   static void Residuals(const std::vector<X_t>& points1,
-                        const std::vector<Y_t>& points2, const M_t& F,
+                        const std::vector<Y_t>& points2,
+                        const M_t& F,
                         std::vector<double>* residuals);
 };
 

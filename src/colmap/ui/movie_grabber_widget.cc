@@ -51,13 +51,15 @@ MovieGrabberWidget::MovieGrabberWidget(QWidget* parent,
   grid->addWidget(add_button_, 0, 0);
 
   delete_button_ = new QPushButton(tr("Delete"), this);
-  connect(delete_button_, &QPushButton::released, this,
+  connect(delete_button_,
+          &QPushButton::released,
+          this,
           &MovieGrabberWidget::Delete);
   grid->addWidget(delete_button_, 0, 1);
 
   clear_button_ = new QPushButton(tr("Clear"), this);
-  connect(clear_button_, &QPushButton::released, this,
-          &MovieGrabberWidget::Clear);
+  connect(
+      clear_button_, &QPushButton::released, this, &MovieGrabberWidget::Clear);
   grid->addWidget(clear_button_, 0, 2);
 
   table_ = new QTableWidget(this);
@@ -72,10 +74,14 @@ MovieGrabberWidget::MovieGrabberWidget(QWidget* parent,
   table_->verticalHeader()->setDefaultSectionSize(18);
   table_->setSelectionMode(QAbstractItemView::SingleSelection);
   table_->setSelectionBehavior(QAbstractItemView::SelectRows);
-  connect(table_, &QTableWidget::itemChanged, this,
+  connect(table_,
+          &QTableWidget::itemChanged,
+          this,
           &MovieGrabberWidget::TimeChanged);
-  connect(table_->selectionModel(), &QItemSelectionModel::selectionChanged,
-          this, &MovieGrabberWidget::SelectionChanged);
+  connect(table_->selectionModel(),
+          &QItemSelectionModel::selectionChanged,
+          this,
+          &MovieGrabberWidget::SelectionChanged);
   grid->addWidget(table_, 1, 0, 1, 3);
 
   grid->addWidget(new QLabel(tr("Frame rate"), this), 2, 1);
@@ -100,7 +106,9 @@ MovieGrabberWidget::MovieGrabberWidget(QWidget* parent,
   grid->addWidget(smoothness_sb_, 4, 2);
 
   assemble_button_ = new QPushButton(tr("Assemble movie"), this);
-  connect(assemble_button_, &QPushButton::released, this,
+  connect(assemble_button_,
+          &QPushButton::released,
+          this,
           &MovieGrabberWidget::Assemble);
   grid->addWidget(assemble_button_, 5, 1, 1, 2);
 }
@@ -154,15 +162,15 @@ void MovieGrabberWidget::Clear() {
 
 void MovieGrabberWidget::Assemble() {
   if (table_->rowCount() < 2) {
-    QMessageBox::critical(this, tr("Error"),
-                          tr("You must add at least two control views."));
+    QMessageBox::critical(
+        this, tr("Error"), tr("You must add at least two control views."));
     return;
   }
 
   if (model_viewer_widget_->GetProjectionType() !=
       RenderOptions::ProjectionType::PERSPECTIVE) {
-    QMessageBox::critical(this, tr("Error"),
-                          tr("You must use perspective projection."));
+    QMessageBox::critical(
+        this, tr("Error"), tr("You must use perspective projection."));
     return;
   }
 
@@ -238,8 +246,13 @@ void MovieGrabberWidget::Assemble() {
       // Compute current model-view matrix.
       Eigen::Vector4d interp_qvec;
       Eigen::Vector3d interp_tvec;
-      InterpolatePose(prev_qvec, prev_tvec, curr_qvec, curr_tvec, tt,
-                      &interp_qvec, &interp_tvec);
+      InterpolatePose(prev_qvec,
+                      prev_tvec,
+                      curr_qvec,
+                      curr_tvec,
+                      tt,
+                      &interp_qvec,
+                      &interp_tvec);
 
       Eigen::Matrix4d frame_model_view_matrix = Eigen::Matrix4d::Identity();
       frame_model_view_matrix.topLeftCorner<3, 4>() = InvertProjectionMatrix(

@@ -32,9 +32,9 @@
 #ifndef COLMAP_SRC_BASE_POINT2D_H_
 #define COLMAP_SRC_BASE_POINT2D_H_
 
-#include <Eigen/Core>
-
 #include "colmap/util/types.h"
+
+#include <Eigen/Core>
 
 namespace colmap {
 

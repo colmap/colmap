@@ -47,7 +47,8 @@ OptionsWidget::OptionsWidget(QWidget* parent) : QWidget(parent) {
   setLayout(grid_layout_);
 }
 
-void OptionsWidget::AddOptionRow(const std::string& label_text, QWidget* widget,
+void OptionsWidget::AddOptionRow(const std::string& label_text,
+                                 QWidget* widget,
                                  void* option) {
   QLabel* label = new QLabel(tr(label_text.c_str()), this);
   label->setFont(font());
@@ -92,7 +93,8 @@ void OptionsWidget::AddLayoutRow(const std::string& label_text,
 
 QSpinBox* OptionsWidget::AddOptionInt(int* option,
                                       const std::string& label_text,
-                                      const int min, const int max) {
+                                      const int min,
+                                      const int max) {
   QSpinBox* spinbox = new QSpinBox(this);
   spinbox->setMinimum(min);
   spinbox->setMaximum(max);
@@ -104,9 +106,12 @@ QSpinBox* OptionsWidget::AddOptionInt(int* option,
   return spinbox;
 }
 
-QDoubleSpinBox* OptionsWidget::AddOptionDouble(
-    double* option, const std::string& label_text, const double min,
-    const double max, const double step, const int decimals) {
+QDoubleSpinBox* OptionsWidget::AddOptionDouble(double* option,
+                                               const std::string& label_text,
+                                               const double min,
+                                               const double max,
+                                               const double step,
+                                               const int decimals) {
   QDoubleSpinBox* spinbox = new QDoubleSpinBox(this);
   spinbox->setMinimum(min);
   spinbox->setMaximum(max);
@@ -120,9 +125,12 @@ QDoubleSpinBox* OptionsWidget::AddOptionDouble(
   return spinbox;
 }
 
-QDoubleSpinBox* OptionsWidget::AddOptionDoubleLog(
-    double* option, const std::string& label_text, const double min,
-    const double max, const double step, const int decimals) {
+QDoubleSpinBox* OptionsWidget::AddOptionDoubleLog(double* option,
+                                                  const std::string& label_text,
+                                                  const double min,
+                                                  const double max,
+                                                  const double step,
+                                                  const int decimals) {
   QDoubleSpinBox* spinbox = new QDoubleSpinBox(this);
   spinbox->setMinimum(min);
   spinbox->setMaximum(max);
@@ -209,8 +217,8 @@ void OptionsWidget::AddSection(const std::string& title) {
   QLabel* label = new QLabel(tr(title.c_str()), this);
   label->setFont(font());
   label->setContentsMargins(0, 0, 0, 5);
-  grid_layout_->addWidget(label, grid_layout_->rowCount(), 0, 1, 2,
-                          Qt::AlignHCenter);
+  grid_layout_->addWidget(
+      label, grid_layout_->rowCount(), 0, 1, 2, Qt::AlignHCenter);
 }
 
 void OptionsWidget::ReadOptions() {

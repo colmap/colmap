@@ -32,6 +32,12 @@
 #ifndef COLMAP_SRC_RETRIEVAL_INVERTED_FILE_H_
 #define COLMAP_SRC_RETRIEVAL_INVERTED_FILE_H_
 
+#include "colmap/retrieval/geometry.h"
+#include "colmap/retrieval/inverted_file_entry.h"
+#include "colmap/retrieval/utils.h"
+#include "colmap/util/logging.h"
+#include "colmap/util/math.h"
+
 #include <algorithm>
 #include <bitset>
 #include <cstdint>
@@ -41,12 +47,6 @@
 #include <vector>
 
 #include <Eigen/Core>
-
-#include "colmap/retrieval/geometry.h"
-#include "colmap/retrieval/inverted_file_entry.h"
-#include "colmap/retrieval/utils.h"
-#include "colmap/util/logging.h"
-#include "colmap/util/math.h"
 
 namespace colmap {
 namespace retrieval {
@@ -91,8 +91,10 @@ class InvertedFile {
   // information stored in an inverted file entry. In particular, this function
   // generates the binary descriptor for the inverted file entry and then stores
   // the entry in the inverted file.
-  void AddEntry(const int image_id, typename DescType::Index feature_idx,
-                const DescType& descriptor, const GeomType& geometry);
+  void AddEntry(const int image_id,
+                typename DescType::Index feature_idx,
+                const DescType& descriptor,
+                const GeomType& geometry);
 
   // Sorts the inverted file entries in ascending order of image ids. This is
   // required for efficient scoring and must be called before ScoreFeature.
@@ -222,7 +224,8 @@ void InvertedFile<kEmbeddingDim>::AddEntry(const int image_id,
 
 template <int kEmbeddingDim>
 void InvertedFile<kEmbeddingDim>::SortEntries() {
-  std::sort(entries_.begin(), entries_.end(),
+  std::sort(entries_.begin(),
+            entries_.end(),
             [](const EntryType& entry1, const EntryType& entry2) {
               return entry1.image_id < entry2.image_id;
             });

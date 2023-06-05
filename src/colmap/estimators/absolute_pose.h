@@ -32,12 +32,12 @@
 #ifndef COLMAP_SRC_ESTIMATORS_ABSOLUTE_POSE_H_
 #define COLMAP_SRC_ESTIMATORS_ABSOLUTE_POSE_H_
 
+#include "colmap/util/types.h"
+
 #include <array>
 #include <vector>
 
 #include <Eigen/Core>
-
-#include "colmap/util/types.h"
 
 namespace colmap {
 
@@ -79,7 +79,8 @@ class P3PEstimator {
   // @param residuals    Output vector of residuals.
   static void Residuals(const std::vector<X_t>& points2D,
                         const std::vector<Y_t>& points3D,
-                        const M_t& proj_matrix, std::vector<double>* residuals);
+                        const M_t& proj_matrix,
+                        std::vector<double>* residuals);
 };
 
 // EPNP solver for the PNP (Perspective-N-Point) problem. The solver needs a
@@ -124,7 +125,8 @@ class EPNPEstimator {
   // @param residuals    Output vector of residuals.
   static void Residuals(const std::vector<X_t>& points2D,
                         const std::vector<Y_t>& points3D,
-                        const M_t& proj_matrix, std::vector<double>* residuals);
+                        const M_t& proj_matrix,
+                        std::vector<double>* residuals);
 
  private:
   bool ComputePose(const std::vector<Eigen::Vector2d>& points2D,
@@ -154,7 +156,8 @@ class EPNPEstimator {
                       Eigen::Vector4d* betas);
 
   double ComputeRT(const Eigen::Matrix<double, 12, 12>& Ut,
-                   const Eigen::Vector4d& betas, Eigen::Matrix3d* R,
+                   const Eigen::Vector4d& betas,
+                   Eigen::Matrix3d* R,
                    Eigen::Vector3d* t);
 
   void ComputeCcs(const Eigen::Vector4d& betas,

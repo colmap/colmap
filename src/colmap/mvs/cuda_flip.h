@@ -39,8 +39,11 @@ namespace mvs {
 
 // Flip the input matrix horizontally.
 template <typename T>
-void CudaFlipHorizontal(const T* input, T* output, const int width,
-                        const int height, const int pitch_input,
+void CudaFlipHorizontal(const T* input,
+                        T* output,
+                        const int width,
+                        const int height,
+                        const int pitch_input,
                         const int pitch_output);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -56,8 +59,10 @@ void CudaFlipHorizontal(const T* input, T* output, const int width,
 namespace internal {
 
 template <typename T>
-__global__ void CudaFlipHorizontalKernel(T* output_data, const T* input_data,
-                                         const int width, const int height,
+__global__ void CudaFlipHorizontalKernel(T* output_data,
+                                         const T* input_data,
+                                         const int width,
+                                         const int height,
                                          const int input_pitch,
                                          const int output_pitch) {
   int x_index = blockIdx.x * TILE_DIM_FLIP + threadIdx.x;
@@ -90,8 +95,11 @@ __global__ void CudaFlipHorizontalKernel(T* output_data, const T* input_data,
 }  // namespace internal
 
 template <typename T>
-void CudaFlipHorizontal(const T* input, T* output, const int width,
-                        const int height, const int pitch_input,
+void CudaFlipHorizontal(const T* input,
+                        T* output,
+                        const int width,
+                        const int height,
+                        const int pitch_input,
                         const int pitch_output) {
   dim3 block_dim(TILE_DIM_FLIP, BLOCK_ROWS_FLIP, 1);
   dim3 grid_dim;

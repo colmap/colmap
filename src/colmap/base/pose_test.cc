@@ -30,13 +30,13 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/pose"
+#include "colmap/base/pose.h"
+
+#include "colmap/base/projection.h"
+#include "colmap/util/math.h"
 #include "colmap/util/testing.h"
 
 #include <Eigen/Core>
-
-#include "colmap/base/pose.h"
-#include "colmap/base/projection.h"
-#include "colmap/util/math.h"
 
 using namespace colmap;
 
@@ -54,8 +54,8 @@ BOOST_AUTO_TEST_CASE(TestEulerAnglesX) {
   const double rz = 0;
   double rxx, ryy, rzz;
 
-  RotationMatrixToEulerAngles(EulerAnglesToRotationMatrix(rx, ry, rz), &rxx,
-                              &ryy, &rzz);
+  RotationMatrixToEulerAngles(
+      EulerAnglesToRotationMatrix(rx, ry, rz), &rxx, &ryy, &rzz);
 
   BOOST_CHECK_CLOSE(rx, rxx, 1e-6);
   BOOST_CHECK_CLOSE(ry, ryy, 1e-6);
@@ -68,8 +68,8 @@ BOOST_AUTO_TEST_CASE(TestEulerAnglesY) {
   const double rz = 0;
   double rxx, ryy, rzz;
 
-  RotationMatrixToEulerAngles(EulerAnglesToRotationMatrix(rx, ry, rz), &rxx,
-                              &ryy, &rzz);
+  RotationMatrixToEulerAngles(
+      EulerAnglesToRotationMatrix(rx, ry, rz), &rxx, &ryy, &rzz);
 
   BOOST_CHECK_CLOSE(rx, rxx, 1e-6);
   BOOST_CHECK_CLOSE(ry, ryy, 1e-6);
@@ -82,8 +82,8 @@ BOOST_AUTO_TEST_CASE(TestEulerAnglesZ) {
   const double rz = 0.3;
   double rxx, ryy, rzz;
 
-  RotationMatrixToEulerAngles(EulerAnglesToRotationMatrix(rx, ry, rz), &rxx,
-                              &ryy, &rzz);
+  RotationMatrixToEulerAngles(
+      EulerAnglesToRotationMatrix(rx, ry, rz), &rxx, &ryy, &rzz);
 
   BOOST_CHECK_CLOSE(rx, rxx, 1e-6);
   BOOST_CHECK_CLOSE(ry, ryy, 1e-6);
@@ -96,8 +96,8 @@ BOOST_AUTO_TEST_CASE(TestEulerAnglesXYZ) {
   const double rz = 0.3;
   double rxx, ryy, rzz;
 
-  RotationMatrixToEulerAngles(EulerAnglesToRotationMatrix(rx, ry, rz), &rxx,
-                              &ryy, &rzz);
+  RotationMatrixToEulerAngles(
+      EulerAnglesToRotationMatrix(rx, ry, rz), &rxx, &ryy, &rzz);
 
   BOOST_CHECK_CLOSE(rx, rxx, 1e-6);
   BOOST_CHECK_CLOSE(ry, ryy, 1e-6);
@@ -273,39 +273,57 @@ BOOST_AUTO_TEST_CASE(TestComputeRelativePose) {
   Eigen::Vector4d qvec12;
   Eigen::Vector3d tvec12;
 
-  ComputeRelativePose(ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0),
-                      ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0),
-                      &qvec12, &tvec12);
+  ComputeRelativePose(ComposeIdentityQuaternion(),
+                      Eigen::Vector3d(0, 0, 0),
+                      ComposeIdentityQuaternion(),
+                      Eigen::Vector3d(0, 0, 0),
+                      &qvec12,
+                      &tvec12);
   BOOST_CHECK_EQUAL(qvec12, ComposeIdentityQuaternion());
   BOOST_CHECK_EQUAL(tvec12, Eigen::Vector3d(0, 0, 0));
 
-  ComputeRelativePose(ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0),
-                      ComposeIdentityQuaternion(), Eigen::Vector3d(1, 0, 0),
-                      &qvec12, &tvec12);
+  ComputeRelativePose(ComposeIdentityQuaternion(),
+                      Eigen::Vector3d(0, 0, 0),
+                      ComposeIdentityQuaternion(),
+                      Eigen::Vector3d(1, 0, 0),
+                      &qvec12,
+                      &tvec12);
   BOOST_CHECK_EQUAL(qvec12, ComposeIdentityQuaternion());
   BOOST_CHECK_EQUAL(tvec12, Eigen::Vector3d(1, 0, 0));
 
-  ComputeRelativePose(ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0),
-                      Eigen::Vector4d(1, 1, 0, 0), Eigen::Vector3d(0, 0, 0),
-                      &qvec12, &tvec12);
+  ComputeRelativePose(ComposeIdentityQuaternion(),
+                      Eigen::Vector3d(0, 0, 0),
+                      Eigen::Vector4d(1, 1, 0, 0),
+                      Eigen::Vector3d(0, 0, 0),
+                      &qvec12,
+                      &tvec12);
   BOOST_CHECK(qvec12.isApprox(Eigen::Vector4d(0.707107, 0.707107, 0, 0), 1e-6));
   BOOST_CHECK_EQUAL(tvec12, Eigen::Vector3d(0, 0, 0));
 
-  ComputeRelativePose(ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0),
-                      Eigen::Vector4d(1, 1, 0, 0), Eigen::Vector3d(1, 0, 0),
-                      &qvec12, &tvec12);
+  ComputeRelativePose(ComposeIdentityQuaternion(),
+                      Eigen::Vector3d(0, 0, 0),
+                      Eigen::Vector4d(1, 1, 0, 0),
+                      Eigen::Vector3d(1, 0, 0),
+                      &qvec12,
+                      &tvec12);
   BOOST_CHECK(qvec12.isApprox(Eigen::Vector4d(0.707107, 0.707107, 0, 0), 1e-6));
   BOOST_CHECK_EQUAL(tvec12, Eigen::Vector3d(1, 0, 0));
 
-  ComputeRelativePose(Eigen::Vector4d(1, 1, 0, 0), Eigen::Vector3d(0, 0, 0),
-                      Eigen::Vector4d(1, 1, 0, 0), Eigen::Vector3d(1, 0, 0),
-                      &qvec12, &tvec12);
+  ComputeRelativePose(Eigen::Vector4d(1, 1, 0, 0),
+                      Eigen::Vector3d(0, 0, 0),
+                      Eigen::Vector4d(1, 1, 0, 0),
+                      Eigen::Vector3d(1, 0, 0),
+                      &qvec12,
+                      &tvec12);
   BOOST_CHECK(qvec12.isApprox(ComposeIdentityQuaternion()));
   BOOST_CHECK_EQUAL(tvec12, Eigen::Vector3d(1, 0, 0));
 
-  ComputeRelativePose(ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 1),
-                      Eigen::Vector4d(1, 1, 0, 0), Eigen::Vector3d(0, 0, 0),
-                      &qvec12, &tvec12);
+  ComputeRelativePose(ComposeIdentityQuaternion(),
+                      Eigen::Vector3d(0, 0, 1),
+                      Eigen::Vector4d(1, 1, 0, 0),
+                      Eigen::Vector3d(0, 0, 0),
+                      &qvec12,
+                      &tvec12);
   BOOST_CHECK(qvec12.isApprox(Eigen::Vector4d(0.707107, 0.707107, 0, 0), 1e-6));
   BOOST_CHECK(tvec12.isApprox(Eigen::Vector3d(0, 1, 0)));
 }
@@ -314,31 +332,47 @@ BOOST_AUTO_TEST_CASE(TestConcatenatePoses) {
   Eigen::Vector4d qvec12;
   Eigen::Vector3d tvec12;
 
-  ConcatenatePoses(ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0),
-                   ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0),
-                   &qvec12, &tvec12);
+  ConcatenatePoses(ComposeIdentityQuaternion(),
+                   Eigen::Vector3d(0, 0, 0),
+                   ComposeIdentityQuaternion(),
+                   Eigen::Vector3d(0, 0, 0),
+                   &qvec12,
+                   &tvec12);
   BOOST_CHECK_EQUAL(qvec12, ComposeIdentityQuaternion());
   BOOST_CHECK_EQUAL(tvec12, Eigen::Vector3d(0, 0, 0));
 
-  ConcatenatePoses(ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0),
-                   ComposeIdentityQuaternion(), Eigen::Vector3d(0, 1, 2),
-                   &qvec12, &tvec12);
+  ConcatenatePoses(ComposeIdentityQuaternion(),
+                   Eigen::Vector3d(0, 0, 0),
+                   ComposeIdentityQuaternion(),
+                   Eigen::Vector3d(0, 1, 2),
+                   &qvec12,
+                   &tvec12);
   BOOST_CHECK_EQUAL(qvec12, ComposeIdentityQuaternion());
   BOOST_CHECK_EQUAL(tvec12, Eigen::Vector3d(0, 1, 2));
 
-  ConcatenatePoses(ComposeIdentityQuaternion(), Eigen::Vector3d(0, 1, 2),
-                   ComposeIdentityQuaternion(), Eigen::Vector3d(3, 4, 5),
-                   &qvec12, &tvec12);
+  ConcatenatePoses(ComposeIdentityQuaternion(),
+                   Eigen::Vector3d(0, 1, 2),
+                   ComposeIdentityQuaternion(),
+                   Eigen::Vector3d(3, 4, 5),
+                   &qvec12,
+                   &tvec12);
   BOOST_CHECK_EQUAL(qvec12, ComposeIdentityQuaternion());
   BOOST_CHECK_EQUAL(tvec12, Eigen::Vector3d(3, 5, 7));
 
   Eigen::Vector4d rel_qvec12;
   Eigen::Vector3d rel_tvec12;
-  ComputeRelativePose(Eigen::Vector4d(1, 1, 0, 0), Eigen::Vector3d(0, 1, 2),
-                      Eigen::Vector4d(1, 3, 0, 0), Eigen::Vector3d(3, 4, 5),
-                      &rel_qvec12, &rel_tvec12);
-  ConcatenatePoses(Eigen::Vector4d(1, 1, 0, 0), Eigen::Vector3d(0, 1, 2),
-                   rel_qvec12, rel_tvec12, &qvec12, &tvec12);
+  ComputeRelativePose(Eigen::Vector4d(1, 1, 0, 0),
+                      Eigen::Vector3d(0, 1, 2),
+                      Eigen::Vector4d(1, 3, 0, 0),
+                      Eigen::Vector3d(3, 4, 5),
+                      &rel_qvec12,
+                      &rel_tvec12);
+  ConcatenatePoses(Eigen::Vector4d(1, 1, 0, 0),
+                   Eigen::Vector3d(0, 1, 2),
+                   rel_qvec12,
+                   rel_tvec12,
+                   &qvec12,
+                   &tvec12);
   BOOST_CHECK(
       qvec12.isApprox(NormalizeQuaternion(Eigen::Vector4d(1, 3, 0, 0))));
   BOOST_CHECK(tvec12.isApprox(Eigen::Vector3d(3, 4, 5)));
@@ -347,11 +381,15 @@ BOOST_AUTO_TEST_CASE(TestConcatenatePoses) {
 BOOST_AUTO_TEST_CASE(TestInvertPose) {
   Eigen::Vector4d inv_qvec;
   Eigen::Vector3d inv_tvec;
-  InvertPose(ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0), &inv_qvec,
+  InvertPose(ComposeIdentityQuaternion(),
+             Eigen::Vector3d(0, 0, 0),
+             &inv_qvec,
              &inv_tvec);
   BOOST_CHECK_EQUAL(inv_qvec, ComposeIdentityQuaternion());
   BOOST_CHECK_EQUAL(inv_tvec, Eigen::Vector3d(0, 0, 0));
-  InvertPose(Eigen::Vector4d(0, 1, 2, 3), Eigen::Vector3d(0, 1, 2), &inv_qvec,
+  InvertPose(Eigen::Vector4d(0, 1, 2, 3),
+             Eigen::Vector3d(0, 1, 2),
+             &inv_qvec,
              &inv_tvec);
   Eigen::Vector4d inv_inv_qvec;
   Eigen::Vector3d inv_inv_tvec;

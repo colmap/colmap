@@ -48,8 +48,8 @@ ComputeEqualPartsBounds(const Reconstruction& reconstruction,
   std::vector<std::pair<Eigen::Vector3d, Eigen::Vector3d>> bounds;
   const auto bbox = reconstruction.ComputeBoundingBox();
   const Eigen::Vector3d extent = bbox.second - bbox.first;
-  const Eigen::Vector3d offset(extent(0) / split(0), extent(1) / split(1),
-                               extent(2) / split(2));
+  const Eigen::Vector3d offset(
+      extent(0) / split(0), extent(1) / split(1), extent(2) / split(2));
 
   for (int k = 0; k < split(2); ++k) {
     for (int j = 0; j < split(1); ++j) {
@@ -112,7 +112,8 @@ void WriteBoundingBox(const std::string& reconstruction_path,
 }
 
 std::vector<Eigen::Vector3d> ConvertCameraLocations(
-    const bool ref_is_gps, const std::string& alignment_type,
+    const bool ref_is_gps,
+    const std::string& alignment_type,
     const std::vector<Eigen::Vector3d>& ref_locations) {
   if (ref_is_gps) {
     const GPSTransform gps_transform(GPSTransform::WGS84);
@@ -123,8 +124,8 @@ std::vector<Eigen::Vector3d> ConvertCameraLocations(
     } else {
       std::cout << "\nConverting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to ENU.\n";
-      return gps_transform.EllToENU(ref_locations, ref_locations[0](0),
-                                    ref_locations[0](1));
+      return gps_transform.EllToENU(
+          ref_locations, ref_locations[0](0), ref_locations[0](1));
     }
   } else {
     std::cout << "\nCartesian Alignment Coordinates extracted (MUST NOT BE "
@@ -284,7 +285,8 @@ int RunModelAligner(int argc, char** argv) {
   options.AddDefaultOption("merge_image_and_ref_origins", &merge_origins);
   options.AddDefaultOption("transform_path", &transform_path);
   options.AddDefaultOption(
-      "alignment_type", &alignment_type,
+      "alignment_type",
+      &alignment_type,
       "{plane, ecef, enu, enu-plane, enu-plane-unscaled, custom}");
   options.AddDefaultOption("min_common_images", &min_common_images);
   options.AddDefaultOption("estimate_scale", &estimate_scale);
@@ -321,11 +323,17 @@ int RunModelAligner(int argc, char** argv) {
   std::vector<std::string> ref_image_names;
   std::vector<Eigen::Vector3d> ref_locations;
   if (!ref_images_path.empty() && database_path.empty()) {
-    ReadFileCameraLocations(ref_images_path, ref_is_gps, alignment_type,
-                            &ref_image_names, &ref_locations);
+    ReadFileCameraLocations(ref_images_path,
+                            ref_is_gps,
+                            alignment_type,
+                            &ref_image_names,
+                            &ref_locations);
   } else if (!database_path.empty() && ref_images_path.empty()) {
-    ReadDatabaseCameraLocations(database_path, ref_is_gps, alignment_type,
-                                &ref_image_names, &ref_locations);
+    ReadDatabaseCameraLocations(database_path,
+                                ref_is_gps,
+                                alignment_type,
+                                &ref_image_names,
+                                &ref_locations);
   } else if (alignment_type != "plane") {
     std::cerr << "ERROR: Use location file or database, not both" << std::endl;
     return EXIT_FAILURE;
@@ -354,18 +362,22 @@ int RunModelAligner(int argc, char** argv) {
 
     if (estimate_scale) {
       if (robust_alignment) {
-        alignment_success = reconstruction.AlignRobust(
-            ref_image_names, ref_locations, min_common_images, ransac_options,
-            &tform);
+        alignment_success = reconstruction.AlignRobust(ref_image_names,
+                                                       ref_locations,
+                                                       min_common_images,
+                                                       ransac_options,
+                                                       &tform);
       } else {
-        alignment_success = reconstruction.Align(ref_image_names, ref_locations,
-                                                 min_common_images, &tform);
+        alignment_success = reconstruction.Align(
+            ref_image_names, ref_locations, min_common_images, &tform);
       }
     } else {
       if (robust_alignment) {
-        alignment_success = reconstruction.AlignRobust<false>(
-            ref_image_names, ref_locations, min_common_images, ransac_options,
-            &tform);
+        alignment_success = reconstruction.AlignRobust<false>(ref_image_names,
+                                                              ref_locations,
+                                                              min_common_images,
+                                                              ransac_options,
+                                                              &tform);
       } else {
         alignment_success = reconstruction.Align<false>(
             ref_image_names, ref_locations, min_common_images, &tform);
@@ -382,13 +394,14 @@ int RunModelAligner(int argc, char** argv) {
       }
     }
     std::cout << StringPrintf("=> Alignment error: %f (mean), %f (median)",
-                              Mean(errors), Median(errors))
+                              Mean(errors),
+                              Median(errors))
               << std::endl;
 
     if (alignment_success && StringStartsWith(alignment_type, "enu-plane")) {
       PrintHeading2("Aligning ECEF aligned reconstruction to ENU plane");
-      AlignToENUPlane(&reconstruction, &tform,
-                      alignment_type == "enu-plane-unscaled");
+      AlignToENUPlane(
+          &reconstruction, &tform, alignment_type == "enu-plane-unscaled");
     }
   }
 
@@ -412,8 +425,8 @@ int RunModelAligner(int argc, char** argv) {
         reconstruction.Transform(origin_align);
 
         // Update the Sim3 transformation in case it is stored next
-        tform = SimilarityTransform3(tform.Scale(), tform.Rotation(),
-                                     tform.Translation() + trans_align);
+        tform = SimilarityTransform3(
+            tform.Scale(), tform.Rotation(), tform.Translation() + trans_align);
 
         break;
       }
@@ -512,9 +525,11 @@ int RunModelComparer(int argc, char** argv) {
             << std::endl;
 
   Eigen::Matrix3x4d alignment;
-  if (!ComputeAlignmentBetweenReconstructions(reconstruction2, reconstruction1,
+  if (!ComputeAlignmentBetweenReconstructions(reconstruction2,
+                                              reconstruction1,
                                               min_inlier_observations,
-                                              max_reproj_error, &alignment)) {
+                                              max_reproj_error,
+                                              &alignment)) {
     std::cout << "=> Reconstruction alignment failed" << std::endl;
     return EXIT_FAILURE;
   }
@@ -534,11 +549,15 @@ int RunModelComparer(int argc, char** argv) {
     tform.TransformPose(&image2.Qvec(), &image2.Tvec());
 
     const Eigen::Vector4d normalized_qvec1 = NormalizeQuaternion(image1.Qvec());
-    const Eigen::Quaterniond quat1(normalized_qvec1(0), normalized_qvec1(1),
-                                   normalized_qvec1(2), normalized_qvec1(3));
+    const Eigen::Quaterniond quat1(normalized_qvec1(0),
+                                   normalized_qvec1(1),
+                                   normalized_qvec1(2),
+                                   normalized_qvec1(3));
     const Eigen::Vector4d normalized_qvec2 = NormalizeQuaternion(image2.Qvec());
-    const Eigen::Quaterniond quat2(normalized_qvec2(0), normalized_qvec2(1),
-                                   normalized_qvec2(2), normalized_qvec2(3));
+    const Eigen::Quaterniond quat2(normalized_qvec2(0),
+                                   normalized_qvec2(1),
+                                   normalized_qvec2(2),
+                                   normalized_qvec2(3));
 
     rotation_errors[i] = RadToDeg(quat1.angularDistance(quat2));
     translation_errors[i] = (image1.Tvec() - image2.Tvec()).norm();
@@ -547,18 +566,18 @@ int RunModelComparer(int argc, char** argv) {
   }
 
   if (output_path.empty()) {
-    PrintComparisonSummary(std::cout, rotation_errors, translation_errors,
-                           proj_center_errors);
+    PrintComparisonSummary(
+        std::cout, rotation_errors, translation_errors, proj_center_errors);
   } else {
     const std::string errors_path = JoinPaths(output_path, "errors.csv");
-    WriteComparisonErrorsCSV(errors_path, rotation_errors, translation_errors,
-                             proj_center_errors);
+    WriteComparisonErrorsCSV(
+        errors_path, rotation_errors, translation_errors, proj_center_errors);
     const std::string summary_path =
         JoinPaths(output_path, "errors_summary.txt");
     std::ofstream file(summary_path, std::ios::trunc);
     CHECK(file.is_open()) << summary_path;
-    PrintComparisonSummary(file, rotation_errors, translation_errors,
-                           proj_center_errors);
+    PrintComparisonSummary(
+        file, rotation_errors, translation_errors, proj_center_errors);
   }
 
   return EXIT_SUCCESS;
@@ -573,7 +592,8 @@ int RunModelConverter(int argc, char** argv) {
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddRequiredOption("output_type", &output_type,
+  options.AddRequiredOption("output_type",
+                            &output_type,
                             "{BIN, TXT, NVM, Bundler, VRML, PLY, R3D, CAM}");
   options.AddDefaultOption("skip_distortion", &skip_distortion);
   options.Parse(argc, argv);
@@ -590,7 +610,8 @@ int RunModelConverter(int argc, char** argv) {
     reconstruction.ExportNVM(output_path, skip_distortion);
   } else if (output_type == "bundler") {
     reconstruction.ExportBundler(output_path + ".bundle.out",
-                                 output_path + ".list.txt", skip_distortion);
+                                 output_path + ".list.txt",
+                                 skip_distortion);
   } else if (output_type == "r3d") {
     reconstruction.ExportRecon3D(output_path, skip_distortion);
   } else if (output_type == "cam") {
@@ -600,7 +621,8 @@ int RunModelConverter(int argc, char** argv) {
   } else if (output_type == "vrml") {
     const auto base_path = output_path.substr(0, output_path.find_last_of("."));
     reconstruction.ExportVRML(base_path + ".images.wrl",
-                              base_path + ".points3D.wrl", 1,
+                              base_path + ".points3D.wrl",
+                              1,
                               Eigen::Vector3d(1, 0, 0));
   } else {
     std::cerr << "ERROR: Invalid `output_type`" << std::endl;
@@ -658,16 +680,20 @@ int RunModelCropper(int argc, char** argv) {
       tform = SimilarityTransform3::FromFile(gps_transform_path).Inverse();
     }
     bounding_box.first =
-        is_gps ? TransformLatLonAltToModelCoords(tform, boundary_elements[0],
+        is_gps ? TransformLatLonAltToModelCoords(tform,
+                                                 boundary_elements[0],
                                                  boundary_elements[1],
                                                  boundary_elements[2])
-               : Eigen::Vector3d(boundary_elements[0], boundary_elements[1],
+               : Eigen::Vector3d(boundary_elements[0],
+                                 boundary_elements[1],
                                  boundary_elements[2]);
     bounding_box.second =
-        is_gps ? TransformLatLonAltToModelCoords(tform, boundary_elements[3],
+        is_gps ? TransformLatLonAltToModelCoords(tform,
+                                                 boundary_elements[3],
                                                  boundary_elements[4],
                                                  boundary_elements[5])
-               : Eigen::Vector3d(boundary_elements[3], boundary_elements[4],
+               : Eigen::Vector3d(boundary_elements[3],
+                                 boundary_elements[4],
                                  boundary_elements[5]);
   } else {
     bounding_box = reconstruction.ComputeBoundingBox(boundary_elements[0],
@@ -740,8 +766,8 @@ int RunModelOrientationAligner(int argc, char** argv) {
   options.AddImageOptions();
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("method", &method,
-                           "{MANHATTAN-WORLD, IMAGE-ORIENTATION}");
+  options.AddDefaultOption(
+      "method", &method, "{MANHATTAN-WORLD, IMAGE-ORIENTATION}");
   options.AddDefaultOption("max_image_size",
                            &frame_estimation_options.max_image_size);
   options.Parse(argc, argv);
@@ -814,8 +840,8 @@ int RunModelSplitter(int argc, char** argv) {
   OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddRequiredOption("split_type", &split_type,
-                            "{tiles, extent, parts}");
+  options.AddRequiredOption(
+      "split_type", &split_type, "{tiles, extent, parts}");
   options.AddRequiredOption("split_params", &split_params);
   options.AddDefaultOption("gps_transform_path", &gps_transform_path);
   options.AddDefaultOption("num_threads", &num_threads);
@@ -951,7 +977,9 @@ int RunModelSplitter(int argc, char** argv) {
       std::cout << StringPrintf(
                        "Writing reconstruction %s with %d images, %d points, "
                        "and %.2f%% area coverage",
-                       name.c_str(), tile_recon.NumRegImages(), tile_num_points,
+                       name.c_str(),
+                       tile_recon.NumRegImages(),
+                       tile_num_points,
                        100.0 * area_ratio)
                 << std::endl;
       const std::string reconstruction_path = JoinPaths(output_path, name);
@@ -964,7 +992,9 @@ int RunModelSplitter(int argc, char** argv) {
       std::cout << StringPrintf(
                        "Skipping reconstruction %s with %d images, %d points, "
                        "and %.2f%% area coverage",
-                       name.c_str(), tile_recon.NumRegImages(), tile_num_points,
+                       name.c_str(),
+                       tile_recon.NumRegImages(),
+                       tile_num_points,
                        100.0 * area_ratio)
                 << std::endl;
     }

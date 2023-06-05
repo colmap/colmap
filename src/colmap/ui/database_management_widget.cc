@@ -35,7 +35,8 @@
 
 namespace colmap {
 
-TwoViewInfoTab::TwoViewInfoTab(QWidget* parent, OptionManager* options,
+TwoViewInfoTab::TwoViewInfoTab(QWidget* parent,
+                               OptionManager* options,
                                Database* database)
     : QWidget(parent),
       options_(options),
@@ -56,8 +57,8 @@ void TwoViewInfoTab::InitializeTable(const QStringList& table_header) {
   grid->addWidget(info_label_, 0, 0);
 
   QPushButton* show_button = new QPushButton(tr("Show matches"), this);
-  connect(show_button, &QPushButton::released, this,
-          &TwoViewInfoTab::ShowMatches);
+  connect(
+      show_button, &QPushButton::released, this, &TwoViewInfoTab::ShowMatches);
   grid->addWidget(show_button, 0, 1, Qt::AlignRight);
 
   table_widget_ = new QTableWidget(this);
@@ -100,8 +101,8 @@ void TwoViewInfoTab::ShowMatches() {
   matches_viewer_widget_->setWindowTitle(QString::fromStdString(
       "Matches for image pair " + std::to_string(image_->ImageId()) + " - " +
       std::to_string(selection.first->ImageId())));
-  matches_viewer_widget_->ReadAndShowWithMatches(path1, path2, keypoints1,
-                                                 keypoints2, selection.second);
+  matches_viewer_widget_->ReadAndShowWithMatches(
+      path1, path2, keypoints1, keypoints2, selection.second);
 }
 
 void TwoViewInfoTab::FillTable() {
@@ -109,7 +110,8 @@ void TwoViewInfoTab::FillTable() {
   sorted_matches_idxs_.resize(matches_.size());
   std::iota(sorted_matches_idxs_.begin(), sorted_matches_idxs_.end(), 0);
 
-  std::sort(sorted_matches_idxs_.begin(), sorted_matches_idxs_.end(),
+  std::sort(sorted_matches_idxs_.begin(),
+            sorted_matches_idxs_.end(),
             [&](const size_t idx1, const size_t idx2) {
               return matches_[idx1].second.size() >
                      matches_[idx2].second.size();
@@ -144,7 +146,8 @@ void TwoViewInfoTab::FillTable() {
   table_widget_->resizeColumnsToContents();
 }
 
-MatchesTab::MatchesTab(QWidget* parent, OptionManager* options,
+MatchesTab::MatchesTab(QWidget* parent,
+                       OptionManager* options,
                        Database* database)
     : TwoViewInfoTab(parent, options, database) {
   QStringList table_header;
@@ -237,7 +240,9 @@ OverlappingImagesWidget::OverlappingImagesWidget(QWidget* parent,
   grid->addWidget(tab_widget_, 0, 0);
 
   QPushButton* close_button = new QPushButton(tr("Close"), this);
-  connect(close_button, &QPushButton::released, this,
+  connect(close_button,
+          &QPushButton::released,
+          this,
           &OverlappingImagesWidget::close);
   grid->addWidget(close_button, 1, 0, Qt::AlignRight);
 }
@@ -292,8 +297,8 @@ CameraTab::CameraTab(QWidget* parent, Database* database)
   table_widget_->verticalHeader()->setVisible(false);
   table_widget_->verticalHeader()->setDefaultSectionSize(20);
 
-  connect(table_widget_, &QTableWidget::itemChanged, this,
-          &CameraTab::itemChanged);
+  connect(
+      table_widget_, &QTableWidget::itemChanged, this, &CameraTab::itemChanged);
 
   grid->addWidget(table_widget_, 1, 0, 1, 3);
 
@@ -313,7 +318,8 @@ void CameraTab::Reload() {
   table_widget_->clearContents();
   table_widget_->setRowCount(cameras_.size());
 
-  std::sort(cameras_.begin(), cameras_.end(),
+  std::sort(cameras_.begin(),
+            cameras_.end(),
             [](const Camera& camera1, const Camera& camera2) {
               return camera1.CameraId() < camera2.CameraId();
             });
@@ -335,11 +341,13 @@ void CameraTab::Reload() {
     table_widget_->setItem(
         i, 3, new QTableWidgetItem(QString::number(camera.Height())));
 
-    table_widget_->setItem(i, 4,
+    table_widget_->setItem(i,
+                           4,
                            new QTableWidgetItem(QString::fromStdString(
                                VectorToCSV(camera.Params()))));
     table_widget_->setItem(
-        i, 5,
+        i,
+        5,
         new QTableWidgetItem(QString::number(camera.HasPriorFocalLength())));
   }
   table_widget_->resizeColumnsToContents();
@@ -405,7 +413,9 @@ void CameraTab::Add() {
   const size_t kDefaultWidth = 1;
   const size_t kDefaultHeight = 1;
   camera.InitializeWithName(camera_model.toUtf8().constData(),
-                            kDefaultFocalLength, kDefaultWidth, kDefaultHeight);
+                            kDefaultFocalLength,
+                            kDefaultWidth,
+                            kDefaultHeight);
   database_->WriteCamera(camera);
 
   // Reload all cameras
@@ -443,7 +453,8 @@ void CameraTab::SetModel() {
     std::cout << index.row() << std::endl;
     auto& camera = cameras_.at(index.row());
     camera.InitializeWithName(camera_model.toUtf8().constData(),
-                              camera.MeanFocalLength(), camera.Width(),
+                              camera.MeanFocalLength(),
+                              camera.Width(),
                               camera.Height());
     database_->UpdateCamera(camera);
   }
@@ -453,8 +464,10 @@ void CameraTab::SetModel() {
   Reload();
 }
 
-ImageTab::ImageTab(QWidget* parent, CameraTab* camera_tab,
-                   OptionManager* options, Database* database)
+ImageTab::ImageTab(QWidget* parent,
+                   CameraTab* camera_tab,
+                   OptionManager* options,
+                   Database* database)
     : QWidget(parent),
       camera_tab_(camera_tab),
       options_(options),
@@ -465,23 +478,27 @@ ImageTab::ImageTab(QWidget* parent, CameraTab* camera_tab,
   grid->addWidget(info_label_, 0, 0);
 
   QPushButton* set_camera_button = new QPushButton(tr("Set camera"), this);
-  connect(set_camera_button, &QPushButton::released, this,
-          &ImageTab::SetCamera);
+  connect(
+      set_camera_button, &QPushButton::released, this, &ImageTab::SetCamera);
   grid->addWidget(set_camera_button, 0, 1, Qt::AlignRight);
 
   QPushButton* split_camera_button = new QPushButton(tr("Split camera"), this);
-  connect(split_camera_button, &QPushButton::released, this,
+  connect(split_camera_button,
+          &QPushButton::released,
+          this,
           &ImageTab::SplitCamera);
   grid->addWidget(split_camera_button, 0, 2, Qt::AlignRight);
 
   QPushButton* show_image_button = new QPushButton(tr("Show image"), this);
-  connect(show_image_button, &QPushButton::released, this,
-          &ImageTab::ShowImage);
+  connect(
+      show_image_button, &QPushButton::released, this, &ImageTab::ShowImage);
   grid->addWidget(show_image_button, 0, 3, Qt::AlignRight);
 
   QPushButton* overlapping_images_button =
       new QPushButton(tr("Overlapping images"), this);
-  connect(overlapping_images_button, &QPushButton::released, this,
+  connect(overlapping_images_button,
+          &QPushButton::released,
+          this,
           &ImageTab::ShowMatches);
   grid->addWidget(overlapping_images_button, 0, 4, Qt::AlignRight);
 
@@ -507,8 +524,8 @@ ImageTab::ImageTab(QWidget* parent, CameraTab* camera_tab,
   table_widget_->verticalHeader()->setVisible(false);
   table_widget_->verticalHeader()->setDefaultSectionSize(20);
 
-  connect(table_widget_, &QTableWidget::itemChanged, this,
-          &ImageTab::itemChanged);
+  connect(
+      table_widget_, &QTableWidget::itemChanged, this, &ImageTab::itemChanged);
 
   grid->addWidget(table_widget_, 1, 0, 1, 5);
 
@@ -685,8 +702,8 @@ void ImageTab::SetCamera() {
   table_widget_->blockSignals(true);
 
   for (QModelIndex& index : select->selectedRows()) {
-    table_widget_->setItem(index.row(), 2,
-                           new QTableWidgetItem(QString::number(camera_id)));
+    table_widget_->setItem(
+        index.row(), 2, new QTableWidgetItem(QString::number(camera_id)));
     auto& image = images_[index.row()];
     image.SetCameraId(camera_id);
     database_->UpdateImage(image);
@@ -725,7 +742,8 @@ void ImageTab::SplitCamera() {
     image.SetCameraId(database_->WriteCamera(camera));
     database_->UpdateImage(image);
     table_widget_->setItem(
-        index.row(), 2,
+        index.row(),
+        2,
         new QTableWidgetItem(QString::number(image.CameraId())));
   }
 
@@ -755,13 +773,17 @@ DatabaseManagementWidget::DatabaseManagementWidget(QWidget* parent,
 
   QPushButton* clear_matches_button =
       new QPushButton(tr("Clear Matches"), this);
-  connect(clear_matches_button, &QPushButton::released, this,
+  connect(clear_matches_button,
+          &QPushButton::released,
+          this,
           &DatabaseManagementWidget::ClearMatches);
   grid->addWidget(clear_matches_button, 1, 0, Qt::AlignLeft);
 
   QPushButton* clear_two_view_geometries_button =
       new QPushButton(tr("Clear two-view geometries"), this);
-  connect(clear_two_view_geometries_button, &QPushButton::released, this,
+  connect(clear_two_view_geometries_button,
+          &QPushButton::released,
+          this,
           &DatabaseManagementWidget::ClearTwoViewGeometries);
   grid->addWidget(clear_two_view_geometries_button, 1, 1, Qt::AlignLeft);
 
@@ -787,9 +809,11 @@ void DatabaseManagementWidget::hideEvent(QHideEvent*) {
 }
 
 void DatabaseManagementWidget::ClearMatches() {
-  QMessageBox::StandardButton reply = QMessageBox::question(
-      this, "", tr("Do you really want to clear all matches?"),
-      QMessageBox::Yes | QMessageBox::No);
+  QMessageBox::StandardButton reply =
+      QMessageBox::question(this,
+                            "",
+                            tr("Do you really want to clear all matches?"),
+                            QMessageBox::Yes | QMessageBox::No);
   if (reply == QMessageBox::No) {
     return;
   }
@@ -798,7 +822,9 @@ void DatabaseManagementWidget::ClearMatches() {
 
 void DatabaseManagementWidget::ClearTwoViewGeometries() {
   QMessageBox::StandardButton reply = QMessageBox::question(
-      this, "", tr("Do you really want to clear all two-view geometries?"),
+      this,
+      "",
+      tr("Do you really want to clear all two-view geometries?"),
       QMessageBox::Yes | QMessageBox::No);
   if (reply == QMessageBox::No) {
     return;

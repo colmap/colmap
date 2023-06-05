@@ -31,10 +31,10 @@
 
 #include "colmap/controllers/bundle_adjustment.h"
 
-#include <ceres/ceres.h>
-
 #include "colmap/optim/bundle_adjustment.h"
 #include "colmap/util/misc.h"
+
+#include <ceres/ceres.h>
 
 namespace colmap {
 namespace {

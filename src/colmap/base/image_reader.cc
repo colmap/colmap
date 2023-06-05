@@ -85,8 +85,10 @@ ImageReader::ImageReader(const ImageReaderOptions& options, Database* database)
   }
 }
 
-ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
-                                      Bitmap* bitmap, Bitmap* mask) {
+ImageReader::Status ImageReader::Next(Camera* camera,
+                                      Image* image,
+                                      Bitmap* bitmap,
+                                      Bitmap* mask) {
   CHECK_NOTNULL(camera);
   CHECK_NOTNULL(image);
   CHECK_NOTNULL(bitmap);
@@ -220,8 +222,10 @@ ImageReader::Status ImageReader::Next(Camera* camera, Image* image,
           prev_camera_.SetPriorFocalLength(false);
         }
 
-        prev_camera_.InitializeWithId(prev_camera_.ModelId(), focal_length,
-                                      bitmap->Width(), bitmap->Height());
+        prev_camera_.InitializeWithId(prev_camera_.ModelId(),
+                                      focal_length,
+                                      bitmap->Width(),
+                                      bitmap->Height());
       }
 
       prev_camera_.SetWidth(static_cast<size_t>(bitmap->Width()));

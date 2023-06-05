@@ -34,11 +34,10 @@
 #endif  // __CUDACC__
 
 #define TEST_NAME "mvs/gpu_mat_test"
-#include "colmap/util/testing.h"
-
 #include "colmap/mvs/gpu_mat.h"
 #include "colmap/mvs/gpu_mat_prng.h"
 #include "colmap/util/math.h"
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 using namespace colmap::mvs;
@@ -60,7 +59,8 @@ BOOST_AUTO_TEST_CASE(TestFillWithVector) {
 }
 
 template <typename T>
-void TestTransposeImage(const size_t width, const size_t height,
+void TestTransposeImage(const size_t width,
+                        const size_t height,
                         const size_t depth) {
   GpuMat<T> array(width, height, depth);
 
@@ -105,7 +105,8 @@ BOOST_AUTO_TEST_CASE(TestTranspose) {
 }
 
 template <typename T>
-void TestFlipHorizontalImage(const size_t width, const size_t height,
+void TestFlipHorizontalImage(const size_t width,
+                             const size_t height,
                              const size_t depth) {
   GpuMat<T> array(width, height, depth);
 
@@ -150,7 +151,8 @@ BOOST_AUTO_TEST_CASE(TestFlipHorizontal) {
 }
 
 template <typename T>
-void TestRotateImage(const size_t width, const size_t height,
+void TestRotateImage(const size_t width,
+                     const size_t height,
                      const size_t depth) {
   GpuMat<T> array(width, height, depth);
 

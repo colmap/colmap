@@ -32,11 +32,11 @@
 #ifndef COLMAP_SRC_BASE_POSE_H_
 #define COLMAP_SRC_BASE_POSE_H_
 
+#include "colmap/util/types.h"
+
 #include <vector>
 
 #include <Eigen/Core>
-
-#include "colmap/util/types.h"
 
 namespace colmap {
 
@@ -50,8 +50,10 @@ Eigen::Matrix3d CrossProductMatrix(const Eigen::Vector3d& vector);
 //
 // @param R              3x3 rotation matrix.
 // @param rx, ry, rz     Euler angles in radians.
-void RotationMatrixToEulerAngles(const Eigen::Matrix3d& R, double* rx,
-                                 double* ry, double* rz);
+void RotationMatrixToEulerAngles(const Eigen::Matrix3d& R,
+                                 double* rx,
+                                 double* ry,
+                                 double* rz);
 
 // Convert Euler angles to 3D rotation matrix.
 //
@@ -61,7 +63,8 @@ void RotationMatrixToEulerAngles(const Eigen::Matrix3d& R, double* rx,
 // @param rx, ry, rz     Euler angles in radians.
 //
 // @return               3x3 rotation matrix.
-Eigen::Matrix3d EulerAnglesToRotationMatrix(const double rx, const double ry,
+Eigen::Matrix3d EulerAnglesToRotationMatrix(const double rx,
+                                            const double ry,
                                             const double rz);
 
 // Convert 3D rotation matrix to Quaternion representation.
@@ -154,7 +157,8 @@ Eigen::Vector3d ProjectionCenterFromPose(const Eigen::Vector4d& qvec,
 void ComputeRelativePose(const Eigen::Vector4d& qvec1,
                          const Eigen::Vector3d& tvec1,
                          const Eigen::Vector4d& qvec2,
-                         const Eigen::Vector3d& tvec2, Eigen::Vector4d* qvec12,
+                         const Eigen::Vector3d& tvec2,
+                         Eigen::Vector4d* qvec12,
                          Eigen::Vector3d* tvec12);
 
 // Concatenate the transformations of the two poses.
@@ -165,14 +169,17 @@ void ComputeRelativePose(const Eigen::Vector4d& qvec1,
 void ConcatenatePoses(const Eigen::Vector4d& qvec1,
                       const Eigen::Vector3d& tvec1,
                       const Eigen::Vector4d& qvec2,
-                      const Eigen::Vector3d& tvec2, Eigen::Vector4d* qvec12,
+                      const Eigen::Vector3d& tvec2,
+                      Eigen::Vector4d* qvec12,
                       Eigen::Vector3d* tvec12);
 
 // Invert transformation of the pose.
 // @param qvec, tvec          Input camera pose.
 // @param inv_qvec, inv_tvec  Inverse camera pose.
-void InvertPose(const Eigen::Vector4d& qvec, const Eigen::Vector3d& tvec,
-                Eigen::Vector4d* inv_qvec, Eigen::Vector3d* inv_tvec);
+void InvertPose(const Eigen::Vector4d& qvec,
+                const Eigen::Vector3d& tvec,
+                Eigen::Vector4d* inv_qvec,
+                Eigen::Vector3d* inv_tvec);
 
 // Linearly interpolate camera pose.
 //
@@ -180,9 +187,12 @@ void InvertPose(const Eigen::Vector4d& qvec, const Eigen::Vector3d& tvec,
 // @param qvec2, tvec2      Camera pose at t1 = 1.
 // @param t                 Interpolation time.
 // @param qveci, tveci      Camera pose at time t.
-void InterpolatePose(const Eigen::Vector4d& qvec1, const Eigen::Vector3d& tvec1,
-                     const Eigen::Vector4d& qvec2, const Eigen::Vector3d& tvec2,
-                     const double t, Eigen::Vector4d* qveci,
+void InterpolatePose(const Eigen::Vector4d& qvec1,
+                     const Eigen::Vector3d& tvec1,
+                     const Eigen::Vector4d& qvec2,
+                     const Eigen::Vector3d& tvec2,
+                     const double t,
+                     Eigen::Vector4d* qveci,
                      Eigen::Vector3d* tveci);
 
 // Calculate baseline vector from first to second pose.
@@ -211,7 +221,8 @@ Eigen::Vector3d CalculateBaseline(const Eigen::Vector4d& qvec1,
 // @param points1      First set of corresponding points.
 // @param points2      Second set of corresponding points.
 // @param points3D     Points that lie in front of both cameras.
-bool CheckCheirality(const Eigen::Matrix3d& R, const Eigen::Vector3d& t,
+bool CheckCheirality(const Eigen::Matrix3d& R,
+                     const Eigen::Vector3d& t,
                      const std::vector<Eigen::Vector2d>& points1,
                      const std::vector<Eigen::Vector2d>& points2,
                      std::vector<Eigen::Vector3d>* points3D);

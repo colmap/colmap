@@ -32,14 +32,6 @@
 #ifndef COLMAP_SRC_MVS_GPU_MAT_H_
 #define COLMAP_SRC_MVS_GPU_MAT_H_
 
-#include <fstream>
-#include <iterator>
-#include <memory>
-#include <string>
-
-#include <cuda_runtime.h>
-#include <curand_kernel.h>
-
 #include "colmap/mvs/cuda_flip.h"
 #include "colmap/mvs/cuda_rotate.h"
 #include "colmap/mvs/cuda_transpose.h"
@@ -47,6 +39,14 @@
 #include "colmap/util/cuda.h"
 #include "colmap/util/cudacc.h"
 #include "colmap/util/endian.h"
+
+#include <fstream>
+#include <iterator>
+#include <memory>
+#include <string>
+
+#include <cuda_runtime.h>
+#include <curand_kernel.h>
 
 namespace colmap {
 namespace mvs {
@@ -65,7 +65,8 @@ class GpuMat {
   __host__ __device__ size_t GetHeight() const;
   __host__ __device__ size_t GetDepth() const;
 
-  __device__ T Get(const size_t row, const size_t col,
+  __device__ T Get(const size_t row,
+                   const size_t col,
                    const size_t slice = 0) const;
   __device__ void GetSlice(const size_t row, const size_t col, T* values) const;
 
@@ -73,13 +74,16 @@ class GpuMat {
   __device__ T& GetRef(const size_t row, const size_t col, const size_t slice);
 
   __device__ void Set(const size_t row, const size_t col, const T value);
-  __device__ void Set(const size_t row, const size_t col, const size_t slice,
+  __device__ void Set(const size_t row,
+                      const size_t col,
+                      const size_t slice,
                       const T value);
   __device__ void SetSlice(const size_t row, const size_t col, const T* values);
 
   void FillWithScalar(const T value);
   void FillWithVector(const T* values);
-  void FillWithRandomNumbers(const T min_value, const T max_value,
+  void FillWithRandomNumbers(const T min_value,
+                             const T max_value,
                              GpuMat<curandState> random_state);
 
   void CopyToDevice(const T* data, const size_t pitch);
@@ -174,8 +178,8 @@ GpuMat<T>::GpuMat(const size_t width, const size_t height, const size_t depth)
       width_(width),
       height_(height),
       depth_(depth) {
-  CUDA_SAFE_CALL(cudaMallocPitch((void**)&array_ptr_, &pitch_,
-                                 width_ * sizeof(T), height_ * depth_));
+  CUDA_SAFE_CALL(cudaMallocPitch(
+      (void**)&array_ptr_, &pitch_, width_ * sizeof(T), height_ * depth_));
 
   array_ = std::shared_ptr<T>(array_ptr_, cudaFree);
 
@@ -223,13 +227,15 @@ __host__ __device__ size_t GpuMat<T>::GetDepth() const {
 }
 
 template <typename T>
-__device__ T GpuMat<T>::Get(const size_t row, const size_t col,
+__device__ T GpuMat<T>::Get(const size_t row,
+                            const size_t col,
                             const size_t slice) const {
   return *((T*)((char*)array_ptr_ + pitch_ * (slice * height_ + row)) + col);
 }
 
 template <typename T>
-__device__ void GpuMat<T>::GetSlice(const size_t row, const size_t col,
+__device__ void GpuMat<T>::GetSlice(const size_t row,
+                                    const size_t col,
                                     T* values) const {
   for (size_t slice = 0; slice < depth_; ++slice) {
     values[slice] = Get(row, col, slice);
@@ -242,25 +248,30 @@ __device__ T& GpuMat<T>::GetRef(const size_t row, const size_t col) {
 }
 
 template <typename T>
-__device__ T& GpuMat<T>::GetRef(const size_t row, const size_t col,
+__device__ T& GpuMat<T>::GetRef(const size_t row,
+                                const size_t col,
                                 const size_t slice) {
   return *((T*)((char*)array_ptr_ + pitch_ * (slice * height_ + row)) + col);
 }
 
 template <typename T>
-__device__ void GpuMat<T>::Set(const size_t row, const size_t col,
+__device__ void GpuMat<T>::Set(const size_t row,
+                               const size_t col,
                                const T value) {
   Set(row, col, 0, value);
 }
 
 template <typename T>
-__device__ void GpuMat<T>::Set(const size_t row, const size_t col,
-                               const size_t slice, const T value) {
+__device__ void GpuMat<T>::Set(const size_t row,
+                               const size_t col,
+                               const size_t slice,
+                               const T value) {
   *((T*)((char*)array_ptr_ + pitch_ * (slice * height_ + row)) + col) = value;
 }
 
 template <typename T>
-__device__ void GpuMat<T>::SetSlice(const size_t row, const size_t col,
+__device__ void GpuMat<T>::SetSlice(const size_t row,
+                                    const size_t col,
                                     const T* values) {
   for (size_t slice = 0; slice < depth_; ++slice) {
     Set(row, col, slice, values[slice]);
@@ -277,8 +288,8 @@ template <typename T>
 void GpuMat<T>::FillWithVector(const T* values) {
   T* values_device;
   CUDA_SAFE_CALL(cudaMalloc((void**)&values_device, depth_ * sizeof(T)));
-  CUDA_SAFE_CALL(cudaMemcpy(values_device, values, depth_ * sizeof(T),
-                            cudaMemcpyHostToDevice));
+  CUDA_SAFE_CALL(cudaMemcpy(
+      values_device, values, depth_ * sizeof(T), cudaMemcpyHostToDevice));
   internal::FillWithVectorKernel<T>
       <<<gridSize_, blockSize_>>>(values_device, *this);
   CUDA_SYNC_AND_CHECK();
@@ -286,7 +297,8 @@ void GpuMat<T>::FillWithVector(const T* values) {
 }
 
 template <typename T>
-void GpuMat<T>::FillWithRandomNumbers(const T min_value, const T max_value,
+void GpuMat<T>::FillWithRandomNumbers(const T min_value,
+                                      const T max_value,
                                       const GpuMat<curandState> random_state) {
   internal::FillWithRandomNumbersKernel<T>
       <<<gridSize_, blockSize_>>>(*this, random_state, min_value, max_value);
@@ -295,16 +307,24 @@ void GpuMat<T>::FillWithRandomNumbers(const T min_value, const T max_value,
 
 template <typename T>
 void GpuMat<T>::CopyToDevice(const T* data, const size_t pitch) {
-  CUDA_SAFE_CALL(cudaMemcpy2D((void*)array_ptr_, (size_t)pitch_, (void*)data,
-                              pitch, width_ * sizeof(T), height_ * depth_,
+  CUDA_SAFE_CALL(cudaMemcpy2D((void*)array_ptr_,
+                              (size_t)pitch_,
+                              (void*)data,
+                              pitch,
+                              width_ * sizeof(T),
+                              height_ * depth_,
                               cudaMemcpyHostToDevice));
 }
 
 template <typename T>
 void GpuMat<T>::CopyToHost(T* data, const size_t pitch) const {
-  CUDA_SAFE_CALL(cudaMemcpy2D((void*)data, pitch, (void*)array_ptr_,
-                              (size_t)pitch_, width_ * sizeof(T),
-                              height_ * depth_, cudaMemcpyDeviceToHost));
+  CUDA_SAFE_CALL(cudaMemcpy2D((void*)data,
+                              pitch,
+                              (void*)array_ptr_,
+                              (size_t)pitch_,
+                              width_ * sizeof(T),
+                              height_ * depth_,
+                              cudaMemcpyDeviceToHost));
 }
 
 template <typename T>
@@ -320,7 +340,10 @@ void GpuMat<T>::Transpose(GpuMat<T>* output) {
     CudaTranspose(array_ptr_ + slice * pitch_ / sizeof(T) * GetHeight(),
                   output->GetPtr() +
                       slice * output->pitch_ / sizeof(T) * output->GetHeight(),
-                  width_, height_, pitch_, output->pitch_);
+                  width_,
+                  height_,
+                  pitch_,
+                  output->pitch_);
   }
   CUDA_SYNC_AND_CHECK();
 }
@@ -331,7 +354,10 @@ void GpuMat<T>::FlipHorizontal(GpuMat<T>* output) {
     CudaFlipHorizontal(array_ptr_ + slice * pitch_ / sizeof(T) * GetHeight(),
                        output->GetPtr() + slice * output->pitch_ / sizeof(T) *
                                               output->GetHeight(),
-                       width_, height_, pitch_, output->pitch_);
+                       width_,
+                       height_,
+                       pitch_,
+                       output->pitch_);
   }
   CUDA_SYNC_AND_CHECK();
 }
@@ -342,7 +368,10 @@ void GpuMat<T>::Rotate(GpuMat<T>* output) {
     CudaRotate((T*)((char*)array_ptr_ + slice * pitch_ * GetHeight()),
                (T*)((char*)output->GetPtr() +
                     slice * output->pitch_ * output->GetHeight()),
-               width_, height_, pitch_, output->pitch_);
+               width_,
+               height_,
+               pitch_,
+               output->pitch_);
   }
   CUDA_SYNC_AND_CHECK();
   // This is equivalent to the following code:
@@ -393,10 +422,14 @@ void GpuMat<T>::Write(const std::string& path) {
 template <typename T>
 void GpuMat<T>::Write(const std::string& path, const size_t slice) {
   std::vector<T> dest(width_ * height_);
-  CUDA_SAFE_CALL(cudaMemcpy2D(
-      (void*)dest.data(), width_ * sizeof(T),
-      (void*)(array_ptr_ + slice * height_ * pitch_ / sizeof(T)), pitch_,
-      width_ * sizeof(T), height_, cudaMemcpyDeviceToHost));
+  CUDA_SAFE_CALL(
+      cudaMemcpy2D((void*)dest.data(),
+                   width_ * sizeof(T),
+                   (void*)(array_ptr_ + slice * height_ * pitch_ / sizeof(T)),
+                   pitch_,
+                   width_ * sizeof(T),
+                   height_,
+                   cudaMemcpyDeviceToHost));
 
   std::fstream text_file(path, std::ios::out);
   text_file << width_ << "&" << height_ << "&" << 1 << "&";

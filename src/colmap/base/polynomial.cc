@@ -31,9 +31,9 @@
 
 #include "colmap/base/polynomial.h"
 
-#include <Eigen/Eigenvalues>
-
 #include "colmap/util/logging.h"
+
+#include <Eigen/Eigenvalues>
 
 namespace colmap {
 namespace {
@@ -63,7 +63,8 @@ Eigen::VectorXd RemoveTrailingZeros(const Eigen::VectorXd& coeffs) {
 }  // namespace
 
 bool FindLinearPolynomialRoots(const Eigen::VectorXd& coeffs,
-                               Eigen::VectorXd* real, Eigen::VectorXd* imag) {
+                               Eigen::VectorXd* real,
+                               Eigen::VectorXd* imag) {
   CHECK_EQ(coeffs.size(), 2);
 
   if (coeffs(0) == 0) {

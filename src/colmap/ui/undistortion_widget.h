@@ -32,15 +32,15 @@
 #ifndef COLMAP_SRC_UI_UNDISTORTION_WIDGET_H_
 #define COLMAP_SRC_UI_UNDISTORTION_WIDGET_H_
 
-#include <QtCore>
-#include <QtWidgets>
-
 #include "colmap/base/reconstruction.h"
 #include "colmap/base/undistortion.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/thread_control_widget.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/option_manager.h"
+
+#include <QtCore>
+#include <QtWidgets>
 
 namespace colmap {
 

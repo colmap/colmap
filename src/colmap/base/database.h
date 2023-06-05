@@ -32,18 +32,18 @@
 #ifndef COLMAP_SRC_BASE_DATABASE_H_
 #define COLMAP_SRC_BASE_DATABASE_H_
 
+#include "colmap/base/camera.h"
+#include "colmap/base/image.h"
+#include "colmap/estimators/two_view_geometry.h"
+#include "colmap/feature/types.h"
+#include "colmap/util/types.h"
+
 #include <mutex>
 #include <unordered_map>
 #include <vector>
 
 #include <Eigen/Core>
 #include <sqlite3.h>
-
-#include "colmap/base/camera.h"
-#include "colmap/base/image.h"
-#include "colmap/estimators/two_view_geometry.h"
-#include "colmap/feature/types.h"
-#include "colmap/util/types.h"
 
 namespace colmap {
 
@@ -128,7 +128,8 @@ class Database {
                                                const image_t image_id2);
 
   inline static void PairIdToImagePair(const image_pair_t pair_id,
-                                       image_t* image_id1, image_t* image_id2);
+                                       image_t* image_id1,
+                                       image_t* image_id2);
 
   // Return true if image pairs should be swapped. Used to enforce a specific
   // image order to generate unique image pair identifiers independent of the
@@ -181,9 +182,11 @@ class Database {
                       const FeatureKeypoints& keypoints) const;
   void WriteDescriptors(const image_t image_id,
                         const FeatureDescriptors& descriptors) const;
-  void WriteMatches(const image_t image_id1, const image_t image_id2,
+  void WriteMatches(const image_t image_id1,
+                    const image_t image_id2,
                     const FeatureMatches& matches) const;
-  void WriteTwoViewGeometry(const image_t image_id1, const image_t image_id2,
+  void WriteTwoViewGeometry(const image_t image_id1,
+                            const image_t image_id2,
                             const TwoViewGeometry& two_view_geometry) const;
 
   // Update an existing camera in the database. The user is responsible for
@@ -223,7 +226,8 @@ class Database {
   void ClearTwoViewGeometries() const;
 
   // Merge two databases into a single, new database.
-  static void Merge(const Database& database1, const Database& database2,
+  static void Merge(const Database& database1,
+                    const Database& database2,
                     Database* merged_database);
 
  private:
@@ -372,7 +376,8 @@ image_pair_t Database::ImagePairToPairId(const image_t image_id1,
   }
 }
 
-void Database::PairIdToImagePair(const image_pair_t pair_id, image_t* image_id1,
+void Database::PairIdToImagePair(const image_pair_t pair_id,
+                                 image_t* image_id1,
                                  image_t* image_id2) {
   *image_id2 = static_cast<image_t>(pair_id % kMaxNumImages);
   *image_id1 = static_cast<image_t>((pair_id - *image_id2) / kMaxNumImages);

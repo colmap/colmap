@@ -32,11 +32,11 @@
 #ifndef COLMAP_SRC_BASE_IMAGE_READER_H_
 #define COLMAP_SRC_BASE_IMAGE_READER_H_
 
-#include <unordered_set>
-
 #include "colmap/base/database.h"
 #include "colmap/util/bitmap.h"
 #include "colmap/util/threading.h"
+
+#include <unordered_set>
 
 namespace colmap {
 

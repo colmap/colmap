@@ -32,11 +32,11 @@
 #ifndef COLMAP_SRC_BASE_GPS_H_
 #define COLMAP_SRC_BASE_GPS_H_
 
+#include "colmap/util/types.h"
+
 #include <vector>
 
 #include <Eigen/Core>
-
-#include "colmap/util/types.h"
 
 namespace colmap {
 
@@ -65,11 +65,13 @@ class GPSTransform {
                                         const double lon0) const;
 
   std::vector<Eigen::Vector3d> ENUToEll(const std::vector<Eigen::Vector3d>& enu,
-                                        const double lat0, const double lon0,
+                                        const double lat0,
+                                        const double lon0,
                                         const double alt0) const;
 
   std::vector<Eigen::Vector3d> ENUToXYZ(const std::vector<Eigen::Vector3d>& enu,
-                                        const double lat0, const double lon0,
+                                        const double lat0,
+                                        const double lon0,
                                         const double alt0) const;
 
  private:

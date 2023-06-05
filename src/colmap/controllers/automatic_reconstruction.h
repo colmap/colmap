@@ -32,11 +32,11 @@
 #ifndef COLMAP_SRC_CONTROLLERS_AUTOMATIC_RECONSTRUCTION_H_
 #define COLMAP_SRC_CONTROLLERS_AUTOMATIC_RECONSTRUCTION_H_
 
-#include <string>
-
 #include "colmap/base/reconstruction_manager.h"
 #include "colmap/util/option_manager.h"
 #include "colmap/util/threading.h"
+
+#include <string>
 
 namespace colmap {
 

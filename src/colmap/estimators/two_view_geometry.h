@@ -150,7 +150,8 @@ struct TwoViewGeometry {
                 const std::vector<Eigen::Vector2d>& points1,
                 const Camera& camera2,
                 const std::vector<Eigen::Vector2d>& points2,
-                const FeatureMatches& matches, const Options& options);
+                const FeatureMatches& matches,
+                const Options& options);
 
   // Recursively estimate multiple configurations by removing the previous set
   // of inliers from the matches until not enough inliers are found. Inlier
@@ -172,7 +173,8 @@ struct TwoViewGeometry {
                         const std::vector<Eigen::Vector2d>& points1,
                         const Camera& camera2,
                         const std::vector<Eigen::Vector2d>& points2,
-                        const FeatureMatches& matches, const Options& options);
+                        const FeatureMatches& matches,
+                        const Options& options);
 
   // Estimate two-view geometry and its relative pose from a calibrated or an
   // uncalibrated image pair.

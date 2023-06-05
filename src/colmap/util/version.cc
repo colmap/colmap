@@ -43,8 +43,10 @@ std::string GetBuildInfo() {
 #else
   const std::string cuda_info = "without CUDA";
 #endif
-  return StringPrintf("Commit %s on %s %s", COLMAP_COMMIT_ID.c_str(),
-                      COLMAP_COMMIT_DATE.c_str(), cuda_info.c_str());
+  return StringPrintf("Commit %s on %s %s",
+                      COLMAP_COMMIT_ID.c_str(),
+                      COLMAP_COMMIT_DATE.c_str(),
+                      cuda_info.c_str());
 }
 
 }  // namespace colmap

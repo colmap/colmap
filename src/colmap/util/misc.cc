@@ -61,7 +61,8 @@ bool HasFileExtension(const std::string& file_name, const std::string& ext) {
   return false;
 }
 
-void SplitFileExtension(const std::string& path, std::string* root,
+void SplitFileExtension(const std::string& path,
+                        std::string* root,
                         std::string* ext) {
   const auto parts = StringSplit(path, ".");
   CHECK_GT(parts.size(), 0);
@@ -82,7 +83,8 @@ void SplitFileExtension(const std::string& path, std::string* root,
   }
 }
 
-void FileCopy(const std::string& src_path, const std::string& dst_path,
+void FileCopy(const std::string& src_path,
+              const std::string& dst_path,
               CopyType type) {
   switch (type) {
     case CopyType::COPY:
@@ -137,7 +139,8 @@ std::string GetParentDir(const std::string& path) {
 std::vector<std::string> GetFileList(const std::string& path) {
   std::vector<std::string> file_list;
   for (auto it = boost::filesystem::directory_iterator(path);
-       it != boost::filesystem::directory_iterator(); ++it) {
+       it != boost::filesystem::directory_iterator();
+       ++it) {
     if (boost::filesystem::is_regular_file(*it)) {
       const boost::filesystem::path file_path = *it;
       file_list.push_back(file_path.string());
@@ -149,7 +152,8 @@ std::vector<std::string> GetFileList(const std::string& path) {
 std::vector<std::string> GetRecursiveFileList(const std::string& path) {
   std::vector<std::string> file_list;
   for (auto it = boost::filesystem::recursive_directory_iterator(path);
-       it != boost::filesystem::recursive_directory_iterator(); ++it) {
+       it != boost::filesystem::recursive_directory_iterator();
+       ++it) {
     if (boost::filesystem::is_regular_file(*it)) {
       const boost::filesystem::path file_path = *it;
       file_list.push_back(file_path.string());
@@ -161,7 +165,8 @@ std::vector<std::string> GetRecursiveFileList(const std::string& path) {
 std::vector<std::string> GetDirList(const std::string& path) {
   std::vector<std::string> dir_list;
   for (auto it = boost::filesystem::directory_iterator(path);
-       it != boost::filesystem::directory_iterator(); ++it) {
+       it != boost::filesystem::directory_iterator();
+       ++it) {
     if (boost::filesystem::is_directory(*it)) {
       const boost::filesystem::path dir_path = *it;
       dir_list.push_back(dir_path.string());
@@ -173,7 +178,8 @@ std::vector<std::string> GetDirList(const std::string& path) {
 std::vector<std::string> GetRecursiveDirList(const std::string& path) {
   std::vector<std::string> dir_list;
   for (auto it = boost::filesystem::recursive_directory_iterator(path);
-       it != boost::filesystem::recursive_directory_iterator(); ++it) {
+       it != boost::filesystem::recursive_directory_iterator();
+       ++it) {
     if (boost::filesystem::is_directory(*it)) {
       const boost::filesystem::path dir_path = *it;
       dir_list.push_back(dir_path.string());

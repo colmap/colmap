@@ -30,9 +30,9 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/point2d"
-#include "colmap/util/testing.h"
-
 #include "colmap/base/point2d.h"
+
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 

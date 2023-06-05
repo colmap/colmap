@@ -30,10 +30,10 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "estimators/coordinate_frame"
-#include "colmap/util/testing.h"
+#include "colmap/estimators/coordinate_frame.h"
 
 #include "colmap/base/gps.h"
-#include "colmap/estimators/coordinate_frame.h"
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 
@@ -47,8 +47,8 @@ BOOST_AUTO_TEST_CASE(TestEstimateManhattanWorldFrame) {
   Reconstruction reconstruction;
   std::string image_path;
   BOOST_CHECK_EQUAL(
-      EstimateManhattanWorldFrame(ManhattanWorldFrameEstimationOptions(),
-                                  reconstruction, image_path),
+      EstimateManhattanWorldFrame(
+          ManhattanWorldFrameEstimationOptions(), reconstruction, image_path),
       Eigen::Matrix3d::Zero());
 }
 
@@ -116,9 +116,10 @@ BOOST_AUTO_TEST_CASE(TestAlignToENUPlane) {
   // Create reconstruction with 4 points with known LLA coordinates. After the
   // ENU transform all 4 points should land approximately on the X-Y plane.
   GPSTransform gps;
-  auto points = gps.EllToXYZ(
-      {Eigen::Vector3d(50, 10.1, 100), Eigen::Vector3d(50.1, 10, 100),
-       Eigen::Vector3d(50.1, 10.1, 100), Eigen::Vector3d(50, 10, 100)});
+  auto points = gps.EllToXYZ({Eigen::Vector3d(50, 10.1, 100),
+                              Eigen::Vector3d(50.1, 10, 100),
+                              Eigen::Vector3d(50.1, 10.1, 100),
+                              Eigen::Vector3d(50, 10, 100)});
   SimilarityTransform3 tform;
   Reconstruction reconstruction;
   std::vector<point3D_t> point_ids;

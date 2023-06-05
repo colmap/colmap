@@ -122,7 +122,8 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::EllToENU(
-    const std::vector<Eigen::Vector3d>& ell, const double lat0,
+    const std::vector<Eigen::Vector3d>& ell,
+    const double lat0,
     const double lon0) const {
   // Convert GPS (lat / lon / alt) to ECEF
   std::vector<Eigen::Vector3d> xyz = EllToXYZ(ell);
@@ -131,7 +132,8 @@ std::vector<Eigen::Vector3d> GPSTransform::EllToENU(
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::XYZToENU(
-    const std::vector<Eigen::Vector3d>& xyz, const double lat0,
+    const std::vector<Eigen::Vector3d>& xyz,
+    const double lat0,
     const double lon0) const {
   std::vector<Eigen::Vector3d> enu(xyz.size());
 
@@ -157,14 +159,18 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToENU(
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::ENUToEll(
-    const std::vector<Eigen::Vector3d>& enu, const double lat0,
-    const double lon0, const double alt0) const {
+    const std::vector<Eigen::Vector3d>& enu,
+    const double lat0,
+    const double lon0,
+    const double alt0) const {
   return XYZToEll(ENUToXYZ(enu, lat0, lon0, alt0));
 }
 
 std::vector<Eigen::Vector3d> GPSTransform::ENUToXYZ(
-    const std::vector<Eigen::Vector3d>& enu, const double lat0,
-    const double lon0, const double alt0) const {
+    const std::vector<Eigen::Vector3d>& enu,
+    const double lat0,
+    const double lon0,
+    const double alt0) const {
   std::vector<Eigen::Vector3d> xyz(enu.size());
 
   // ECEF ref (origin)

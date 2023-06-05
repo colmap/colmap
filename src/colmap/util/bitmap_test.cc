@@ -30,9 +30,9 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "util/bitmap"
-#include "colmap/util/testing.h"
-
 #include "colmap/util/bitmap.h"
+
+#include "colmap/util/testing.h"
 
 using namespace colmap;
 
@@ -293,8 +293,8 @@ BOOST_AUTO_TEST_CASE(TestSmoothRGB) {
   bitmap.Allocate(50, 50, true);
   for (int x = 0; x < 50; ++x) {
     for (int y = 0; y < 50; ++y) {
-      bitmap.SetPixel(x, y,
-                      BitmapColor<uint8_t>(y * 50 + x, y * 50 + x, y * 50 + x));
+      bitmap.SetPixel(
+          x, y, BitmapColor<uint8_t>(y * 50 + x, y * 50 + x, y * 50 + x));
     }
   }
   bitmap.Smooth(1, 1);
@@ -316,8 +316,8 @@ BOOST_AUTO_TEST_CASE(TestSmoothGrey) {
   bitmap.Allocate(50, 50, false);
   for (int x = 0; x < 50; ++x) {
     for (int y = 0; y < 50; ++y) {
-      bitmap.SetPixel(x, y,
-                      BitmapColor<uint8_t>(y * 50 + x, y * 50 + x, y * 50 + x));
+      bitmap.SetPixel(
+          x, y, BitmapColor<uint8_t>(y * 50 + x, y * 50 + x, y * 50 + x));
     }
   }
   bitmap.Smooth(1, 1);

@@ -32,15 +32,14 @@
 #ifndef COLMAP_SRC_OPTIM_BUNDLE_ADJUSTMENT_H_
 #define COLMAP_SRC_OPTIM_BUNDLE_ADJUSTMENT_H_
 
+#include "colmap/base/camera_rig.h"
+#include "colmap/base/reconstruction.h"
+
 #include <memory>
 #include <unordered_set>
 
 #include <Eigen/Core>
-
 #include <ceres/ceres.h>
-
-#include "colmap/base/camera_rig.h"
-#include "colmap/base/reconstruction.h"
 
 namespace colmap {
 
@@ -181,7 +180,8 @@ class BundleAdjuster {
              ceres::LossFunction* loss_function);
   void TearDown(Reconstruction* reconstruction);
 
-  void AddImageToProblem(const image_t image_id, Reconstruction* reconstruction,
+  void AddImageToProblem(const image_t image_id,
+                         Reconstruction* reconstruction,
                          ceres::LossFunction* loss_function);
 
   void AddPointToProblem(const point3D_t point3D_id,
@@ -228,7 +228,8 @@ class RigBundleAdjuster : public BundleAdjuster {
   void TearDown(Reconstruction* reconstruction,
                 const std::vector<CameraRig>& camera_rigs);
 
-  void AddImageToProblem(const image_t image_id, Reconstruction* reconstruction,
+  void AddImageToProblem(const image_t image_id,
+                         Reconstruction* reconstruction,
                          std::vector<CameraRig>* camera_rigs,
                          ceres::LossFunction* loss_function);
 

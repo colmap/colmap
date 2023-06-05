@@ -157,7 +157,8 @@ class IncrementalMapper {
   // Find initial image pair to seed the incremental reconstruction. The image
   // pairs should be passed to `RegisterInitialImagePair`. This function
   // automatically ignores image pairs that failed to register previously.
-  bool FindInitialImagePair(const Options& options, image_t* image_id1,
+  bool FindInitialImagePair(const Options& options,
+                            image_t* image_id1,
                             image_t* image_id2);
 
   // Find best next image to register in the incremental reconstruction. The
@@ -166,7 +167,8 @@ class IncrementalMapper {
   std::vector<image_t> FindNextImages(const Options& options);
 
   // Attempt to seed the reconstruction from an image pair.
-  bool RegisterInitialImagePair(const Options& options, const image_t image_id1,
+  bool RegisterInitialImagePair(const Options& options,
+                                const image_t image_id1,
                                 const image_t image_id2);
 
   // Attempt to register image to the existing model. This requires that
@@ -201,9 +203,11 @@ class IncrementalMapper {
   // connected to the reference image, their observing images are set as
   // constant in the adjustment.
   LocalBundleAdjustmentReport AdjustLocalBundle(
-      const Options& options, const BundleAdjustmentOptions& ba_options,
+      const Options& options,
+      const BundleAdjustmentOptions& ba_options,
       const IncrementalTriangulator::Options& tri_options,
-      const image_t image_id, const std::unordered_set<point3D_t>& point3D_ids);
+      const image_t image_id,
+      const std::unordered_set<point3D_t>& point3D_ids);
 
   // Global bundle adjustment using Ceres Solver.
   bool AdjustGlobalBundle(const Options& options,

@@ -32,12 +32,12 @@
 #ifndef COLMAP_SRC_MVS_MAT_H_
 #define COLMAP_SRC_MVS_MAT_H_
 
+#include "colmap/util/endian.h"
+#include "colmap/util/logging.h"
+
 #include <fstream>
 #include <string>
 #include <vector>
-
-#include "colmap/util/endian.h"
-#include "colmap/util/logging.h"
 
 namespace colmap {
 namespace mvs {
@@ -62,7 +62,9 @@ class Mat {
   const std::vector<T>& GetData() const;
 
   void Set(const size_t row, const size_t col, const T value);
-  void Set(const size_t row, const size_t col, const size_t slice,
+  void Set(const size_t row,
+           const size_t col,
+           const size_t slice,
            const T value);
 
   void Fill(const T value);
@@ -143,7 +145,9 @@ void Mat<T>::Set(const size_t row, const size_t col, const T value) {
 }
 
 template <typename T>
-void Mat<T>::Set(const size_t row, const size_t col, const size_t slice,
+void Mat<T>::Set(const size_t row,
+                 const size_t col,
+                 const size_t slice,
                  const T value) {
   data_.at(slice * width_ * height_ + row * width_ + col) = value;
 }

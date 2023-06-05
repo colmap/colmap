@@ -63,7 +63,9 @@ UndistortionWidget::UndistortionWidget(QWidget* parent,
   AddSpacer();
 
   QPushButton* undistort_button = new QPushButton(tr("Undistort"), this);
-  connect(undistort_button, &QPushButton::released, this,
+  connect(undistort_button,
+          &QPushButton::released,
+          this,
           &UndistortionWidget::Undistort);
   grid_layout_->addWidget(undistort_button, grid_layout_->rowCount(), 1);
 }
@@ -85,24 +87,27 @@ void UndistortionWidget::Undistort() {
     std::unique_ptr<Thread> undistorter;
 
     if (output_format_->currentIndex() == 0) {
-      undistorter = std::make_unique<COLMAPUndistorter>(
-          undistortion_options_, *reconstruction_, *options_->image_path,
-          output_path_);
+      undistorter = std::make_unique<COLMAPUndistorter>(undistortion_options_,
+                                                        *reconstruction_,
+                                                        *options_->image_path,
+                                                        output_path_);
     } else if (output_format_->currentIndex() == 1) {
-      undistorter = std::make_unique<PMVSUndistorter>(
-          undistortion_options_, *reconstruction_, *options_->image_path,
-          output_path_);
+      undistorter = std::make_unique<PMVSUndistorter>(undistortion_options_,
+                                                      *reconstruction_,
+                                                      *options_->image_path,
+                                                      output_path_);
     } else if (output_format_->currentIndex() == 2) {
-      undistorter = std::make_unique<CMPMVSUndistorter>(
-          undistortion_options_, *reconstruction_, *options_->image_path,
-          output_path_);
+      undistorter = std::make_unique<CMPMVSUndistorter>(undistortion_options_,
+                                                        *reconstruction_,
+                                                        *options_->image_path,
+                                                        output_path_);
     } else {
       QMessageBox::critical(this, "", tr("Invalid output format"));
       return;
     }
 
-    thread_control_widget_->StartThread("Undistorting...", true,
-                                        std::move(undistorter));
+    thread_control_widget_->StartThread(
+        "Undistorting...", true, std::move(undistorter));
   } else {
     QMessageBox::critical(this, "", tr("Invalid output path"));
   }

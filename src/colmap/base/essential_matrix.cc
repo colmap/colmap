@@ -31,15 +31,17 @@
 
 #include "colmap/base/essential_matrix.h"
 
-#include <array>
-
 #include "colmap/base/pose.h"
 #include "colmap/estimators/pose.h"
 
+#include <array>
+
 namespace colmap {
 
-void DecomposeEssentialMatrix(const Eigen::Matrix3d& E, Eigen::Matrix3d* R1,
-                              Eigen::Matrix3d* R2, Eigen::Vector3d* t) {
+void DecomposeEssentialMatrix(const Eigen::Matrix3d& E,
+                              Eigen::Matrix3d* R1,
+                              Eigen::Matrix3d* R2,
+                              Eigen::Vector3d* t) {
   Eigen::JacobiSVD<Eigen::Matrix3d> svd(
       E, Eigen::ComputeFullU | Eigen::ComputeFullV);
   Eigen::Matrix3d U = svd.matrixU();
@@ -63,7 +65,8 @@ void DecomposeEssentialMatrix(const Eigen::Matrix3d& E, Eigen::Matrix3d* R1,
 void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
                              const std::vector<Eigen::Vector2d>& points1,
                              const std::vector<Eigen::Vector2d>& points2,
-                             Eigen::Matrix3d* R, Eigen::Vector3d* t,
+                             Eigen::Matrix3d* R,
+                             Eigen::Vector3d* t,
                              std::vector<Eigen::Vector3d>* points3D) {
   CHECK_EQ(points1.size(), points2.size());
 
@@ -190,8 +193,8 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
   Eigen::Matrix3d R;
   Eigen::Vector3d tvec;
   std::vector<Eigen::Vector3d> points3D;
-  PoseFromEssentialMatrix(*E, inlier_points1, inlier_points2, &R, &tvec,
-                          &points3D);
+  PoseFromEssentialMatrix(
+      *E, inlier_points1, inlier_points2, &R, &tvec, &points3D);
 
   Eigen::Vector4d qvec = RotationMatrixToQuaternion(R);
 

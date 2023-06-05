@@ -32,9 +32,9 @@
 #ifndef COLMAP_SRC_BASE_CAMERA_DATABASE_H_
 #define COLMAP_SRC_BASE_CAMERA_DATABASE_H_
 
-#include <string>
-
 #include "colmap/util/camera_specs.h"
+
+#include <string>
 
 namespace colmap {
 
@@ -46,7 +46,8 @@ class CameraDatabase {
 
   size_t NumEntries() const { return specs_.size(); }
 
-  bool QuerySensorWidth(const std::string& make, const std::string& model,
+  bool QuerySensorWidth(const std::string& make,
+                        const std::string& model,
                         double* sensor_width);
 
  private:

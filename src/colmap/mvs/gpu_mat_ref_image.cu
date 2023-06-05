@@ -30,19 +30,20 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #include "colmap/mvs/gpu_mat_ref_image.h"
+#include "colmap/util/cudacc.h"
 
 #include <iostream>
-
-#include "colmap/util/cudacc.h"
 
 namespace colmap {
 namespace mvs {
 namespace {
 
 __global__ void FilterKernel(const cudaTextureObject_t image_texture,
-                             GpuMat<uint8_t> image, GpuMat<float> sum_image,
+                             GpuMat<uint8_t> image,
+                             GpuMat<float> sum_image,
                              GpuMat<float> squared_sum_image,
-                             const int window_radius, const int window_step,
+                             const int window_radius,
+                             const int window_step,
                              const float sigma_spatial,
                              const float sigma_color) {
   const size_t row = blockDim.y * blockIdx.y + threadIdx.y;
@@ -92,7 +93,8 @@ GpuMatRefImage::GpuMatRefImage(const size_t width, const size_t height)
 
 void GpuMatRefImage::Filter(const uint8_t* image_data,
                             const size_t window_radius,
-                            const size_t window_step, const float sigma_spatial,
+                            const size_t window_step,
+                            const float sigma_spatial,
                             const float sigma_color) {
   cudaTextureDesc texture_desc;
   memset(&texture_desc, 0, sizeof(texture_desc));
@@ -109,9 +111,14 @@ void GpuMatRefImage::Filter(const uint8_t* image_data,
   const dim3 grid_size((width_ - 1) / block_size.x + 1,
                        (height_ - 1) / block_size.y + 1);
 
-  FilterKernel<<<grid_size, block_size>>>(
-      image_texture->GetObj(), *image, *sum_image, *squared_sum_image,
-      window_radius, window_step, sigma_spatial, sigma_color);
+  FilterKernel<<<grid_size, block_size>>>(image_texture->GetObj(),
+                                          *image,
+                                          *sum_image,
+                                          *squared_sum_image,
+                                          window_radius,
+                                          window_step,
+                                          sigma_spatial,
+                                          sigma_color);
   CUDA_SYNC_AND_CHECK();
 }
 

@@ -30,12 +30,12 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "util/random"
+#include "colmap/util/random.h"
+
+#include "colmap/util/math.h"
 #include "colmap/util/testing.h"
 
 #include <numeric>
-
-#include "colmap/util/math.h"
-#include "colmap/util/random.h"
 
 using namespace colmap;
 
@@ -63,8 +63,8 @@ BOOST_AUTO_TEST_CASE(TestRepeatability) {
   for (size_t i = 0; i < 100; ++i) {
     numbers3.push_back(RandomInteger(0, 10000));
   }
-  BOOST_CHECK_EQUAL_COLLECTIONS(numbers1.begin(), numbers1.end(),
-                                numbers3.begin(), numbers3.end());
+  BOOST_CHECK_EQUAL_COLLECTIONS(
+      numbers1.begin(), numbers1.end(), numbers3.begin(), numbers3.end());
   bool all_equal = true;
   for (size_t i = 0; i < numbers1.size(); ++i) {
     if (numbers1[i] != numbers2[i]) {
@@ -110,7 +110,8 @@ BOOST_AUTO_TEST_CASE(TestShuffleNone) {
   numbers = {1, 2, 3, 4, 5};
   std::vector<int> shuffled_numbers = numbers;
   Shuffle(0, &shuffled_numbers);
-  BOOST_CHECK_EQUAL_COLLECTIONS(numbers.begin(), numbers.end(),
+  BOOST_CHECK_EQUAL_COLLECTIONS(numbers.begin(),
+                                numbers.end(),
                                 shuffled_numbers.begin(),
                                 shuffled_numbers.end());
 }

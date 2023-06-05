@@ -32,14 +32,14 @@
 #ifndef COLMAP_SRC_UI_QT_UTILS_H_
 #define COLMAP_SRC_UI_QT_UTILS_H_
 
-#include <Eigen/Core>
+#include "colmap/feature/types.h"
+#include "colmap/util/bitmap.h"
+#include "colmap/util/types.h"
 
 #include <QtCore>
 #include <QtOpenGL>
 
-#include "colmap/feature/types.h"
-#include "colmap/util/bitmap.h"
-#include "colmap/util/types.h"
+#include <Eigen/Core>
 
 namespace colmap {
 
@@ -49,12 +49,14 @@ QMatrix4x4 EigenToQMatrix(const Eigen::Matrix4f& matrix);
 
 QImage BitmapToQImageRGB(const Bitmap& bitmap);
 
-void DrawKeypoints(QPixmap* image, const FeatureKeypoints& points,
+void DrawKeypoints(QPixmap* image,
+                   const FeatureKeypoints& points,
                    const QColor& color = Qt::red);
 
 QPixmap ShowImagesSideBySide(const QPixmap& image1, const QPixmap& image2);
 
-QPixmap DrawMatches(const QPixmap& image1, const QPixmap& image2,
+QPixmap DrawMatches(const QPixmap& image1,
+                    const QPixmap& image2,
                     const FeatureKeypoints& points1,
                     const FeatureKeypoints& points2,
                     const FeatureMatches& matches,
