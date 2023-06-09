@@ -135,6 +135,9 @@ struct IncrementalMapperOptions {
 
   bool Check() const;
 
+  IncrementalMapper::Options mapper;
+  IncrementalTriangulator::Options triangulation;
+
  private:
   friend class OptionManager;
   friend class MapperGeneralOptionsWidget;
@@ -144,8 +147,6 @@ struct IncrementalMapperOptions {
   friend class MapperBundleAdjustmentOptionsWidget;
   friend class MapperFilteringOptionsWidget;
   friend class ReconstructionOptionsWidget;
-  IncrementalMapper::Options mapper;
-  IncrementalTriangulator::Options triangulation;
 };
 
 // Class that controls the incremental mapping procedure by iteratively
