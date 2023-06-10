@@ -58,8 +58,8 @@ jobs:
         sudo apt-get install -y \
           nvidia-cuda-toolkit \
           nvidia-cuda-toolkit-gcc
-        export CC=/usr/bin/cuda-gcc
-        export CXX=/usr/bin/cuda-g++
+        echo "CC=/usr/bin/cuda-gcc" >> $GITHUB_ENV
+        echo "CXX=/usr/bin/cuda-g++" >> $GITHUB_ENV
       if: ${{ matrix.cuda && matrix.os == 'ubuntu-20.04' }}
       name: Install CUDA
 
@@ -68,16 +68,17 @@ jobs:
           nvidia-cuda-toolkit \
           nvidia-cuda-toolkit-gcc \
           gcc-10 g++-10
-        export CC=/usr/bin/gcc-10
-        export CXX=/usr/bin/g++-10
-        export CUDAHOSTCXX=/usr/bin/g++-10
+        echo "CC=/usr/bin/gcc-10" >> $GITHUB_ENV
+        echo "CXX=/usr/bin/g++-10" >> $GITHUB_ENV
+        echo "CUDAHOSTCXX=/usr/bin/g++-10" >> $GITHUB_ENV
       if: ${{ matrix.cuda && matrix.os == 'ubuntu-22.04' }}
       name: Install CUDA
 
     - run: |
         sudo apt-get install -y clang-15
-        export CC=/usr/bin/clang-15
-        export CXX=/usr/bin/clang++-15
+        echo "CC=/usr/bin/clang-15" >> $GITHUB_ENV
+        echo "CXX=/usr/bin/clang++-15" >> $GITHUB_ENV
+        
       if: ${{ matrix.asan }}
       name: Install Clang
 
@@ -96,11 +97,11 @@ jobs:
         ninja
       name: Configure and build
       
-    - run: export CTEST_EXCLUSIONS="(mvs/gpu_mat_test)"
+    - run: echo "CTEST_EXCLUSIONS="(mvs/gpu_mat_test)"" >> $GITHUB_ENV
       if: ${{ !matrix.asan }}
       name: Configure tests
       
-    - run: export CTEST_EXCLUSIONS="(feature/sift_test)|(util/opengl_utils_test)|(mvs/gpu_mat_test)"
+    - run: echo "CTEST_EXCLUSIONS="(feature/sift_test)|(util/opengl_utils_test)|(mvs/gpu_mat_test)"" >> $GITHUB_ENV
       if: ${{ matrix.asan }}
       name: Configure tests
 
