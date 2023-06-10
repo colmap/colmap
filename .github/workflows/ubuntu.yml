@@ -58,7 +58,7 @@ jobs:
           nvidia-cuda-toolkit-gcc
         export CC=/usr/bin/cuda-gcc
         export CXX=/usr/bin/cuda-g++
-      if: ${{ matix.cuda && matrix.os == "ubuntu-20.04" }}
+      if: ${{ matrix.cuda && matrix.os == "ubuntu-20.04" }}
       name: 'Install CUDA'
 
     - run: |
