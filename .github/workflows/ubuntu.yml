@@ -17,6 +17,9 @@ jobs:
           - os: ubuntu-20.04
             cuda: true
             asan: true
+          - os: ubuntu-20.04
+            cuda: false
+            asan: true
           - os: ubuntu-22.04
             asan: true
             cuda: true
