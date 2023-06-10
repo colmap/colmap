@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ "dev" ]
 
+env:
+  CTEST_EXCLUSIONS: (mvs/gpu_mat_test)
+
 jobs:
   build:
     strategy:
@@ -23,9 +26,9 @@ jobs:
           - os: ubuntu-22.04
             asan: true
             cuda: true
-    
+
     runs-on: ${{ matrix.os }}
-    
+
     steps:
     - run: |
         sudo apt-get update && sudo apt-get install -y \
@@ -53,7 +56,7 @@ jobs:
           libunwind-dev \
           xvfb
       name: Install dependencies
-      
+
     - run: |
         sudo apt-get install -y \
           nvidia-cuda-toolkit \
@@ -78,7 +81,7 @@ jobs:
         sudo apt-get install -y clang-15
         echo "CC=/usr/bin/clang-15" >> $GITHUB_ENV
         echo "CXX=/usr/bin/clang++-15" >> $GITHUB_ENV
-        
+        echo 'CTEST_EXCLUSIONS="(feature/sift_test)|(util/opengl_utils_test)|(mvs/gpu_mat_test)"' >> $GITHUB_ENV
       if: ${{ matrix.asan }}
       name: Install Clang
 
@@ -96,14 +99,6 @@ jobs:
           -DASAN_ENABLED=${{ matrix.asan }}
         ninja
       name: Configure and build
-      
-    - run: echo "CTEST_EXCLUSIONS="(mvs/gpu_mat_test)"" >> $GITHUB_ENV
-      if: ${{ !matrix.asan }}
-      name: Configure tests
-      
-    - run: echo "CTEST_EXCLUSIONS="(feature/sift_test)|(util/opengl_utils_test)|(mvs/gpu_mat_test)"" >> $GITHUB_ENV
-      if: ${{ matrix.asan }}
-      name: Configure tests
 
     - run: |
         export DISPLAY=":99.0"
