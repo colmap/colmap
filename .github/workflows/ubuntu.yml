@@ -12,11 +12,10 @@ jobs:
       matrix:
         os: [ubuntu-22.04, ubuntu-20.04]
         cuda: [true, false]
-        asan: [true false]
+        asan: [true, false]
         exclude:
           - os: ubuntu-20.04
             cuda: true
-          - os: ubuntu-20.04
             asan: true
           - os: ubuntu-22.04
             asan: true
