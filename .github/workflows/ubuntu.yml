@@ -1,4 +1,4 @@
-name: 'Ubuntu'
+name: Ubuntu
 
 on:
   push:
@@ -49,7 +49,7 @@ jobs:
           libgl1-mesa-dri \
           libunwind-dev \
           xvfb
-      name: 'Install dependencies'
+      name: Install dependencies
       
     - run: |
         sudo apt-get install -y \
@@ -58,7 +58,7 @@ jobs:
         export CC=/usr/bin/cuda-gcc
         export CXX=/usr/bin/cuda-g++
       if: ${{ matrix.cuda && matrix.os == 'ubuntu-20.04' }}
-      name: 'Install CUDA'
+      name: Install CUDA
 
     - run: |
         sudo apt-get install -y \
@@ -69,14 +69,17 @@ jobs:
         export CXX=/usr/bin/g++-10
         export CUDAHOSTCXX=/usr/bin/g++-10
       if: ${{ matrix.cuda && matrix.os == 'ubuntu-22.04' }}
-      name: 'Install CUDA'
+      name: Install CUDA
 
     - run: |
         sudo apt-get install -y clang-15
         export CC=/usr/bin/clang-15
         export CXX=/usr/bin/clang++-15
       if: ${{ matrix.asan }}
-      name: 'Install Clang'
+      name: Install Clang
+
+    - name: Checkout
+      uses: actions/checkout@v3
 
     - run: |
         cmake --version
@@ -88,13 +91,15 @@ jobs:
           -DCMAKE_CUDA_ARCHITECTURES=50 \
           -DASAN_ENABLED=${{ matrix.asan }}
         ninja
-      name: 'Configure and build'
+      name: Configure and build
       
     - run: export CTEST_EXCLUSIONS="(mvs/gpu_mat_test)"
       if: ${{ !matrix.asan }}
+      name: Configure tests
       
     - run: export CTEST_EXCLUSIONS="(feature/sift_test)|(util/opengl_utils_test)|(mvs/gpu_mat_test)"
       if: ${{ matrix.asan }}
+      name: Configure tests
 
     - run: |
         export DISPLAY=":99.0"
@@ -109,4 +114,4 @@ jobs:
             ctest --rerun-failed --output-on-failure
         fi
         exit $tests_pass
-      name: 'Run tests'
+      name: Run tests
