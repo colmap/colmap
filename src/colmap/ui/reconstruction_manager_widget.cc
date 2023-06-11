@@ -65,7 +65,12 @@ void ReconstructionManagerWidget::Update() {
         static_cast<int>(reconstruction_manager_->Get(i).NumRegImages()),
         static_cast<int>(reconstruction_manager_->Get(i).NumPoints3D()));
     QFontMetrics font_metrics(view()->font());
-    max_width = std::max(max_width, font_metrics.width(item));
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+    const auto width = font_metrics.horizontalAdvance(item);
+#else
+    const auto width = font_metrics.width(item);
+#endif
+    max_width = std::max(max_width, width);
     addItem(item);
   }
 
