@@ -73,7 +73,7 @@ FundamentalMatrixSevenPointEstimator::Estimate(
 
   // 9 unknowns with 7 equations, so we have 2D null space.
   Eigen::JacobiSVD<Eigen::Matrix<double, 7, 9>> svd(A, Eigen::ComputeFullV);
-  const Eigen::Matrix<double, 9, 9> f = svd.matrixV();
+  const Eigen::Matrix<double, 9, 9>& f = svd.matrixV();
   Eigen::Matrix<double, 1, 9> f1 = f.col(7);
   Eigen::Matrix<double, 1, 9> f2 = f.col(8);
 
@@ -189,9 +189,7 @@ FundamentalMatrixEightPointEstimator::Estimate(
                             singular_values.asDiagonal() *
                             fmatrix_svd.matrixV().transpose();
 
-  const std::vector<M_t> models = {points2_norm_matrix.transpose() * F *
-                                   points1_norm_matrix};
-  return models;
+  return {points2_norm_matrix.transpose() * F * points1_norm_matrix};
 }
 
 void FundamentalMatrixEightPointEstimator::Residuals(

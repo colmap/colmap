@@ -45,8 +45,8 @@ class ReconstructionManager {
   ReconstructionManager();
 
   // Move constructor and assignment.
-  ReconstructionManager(ReconstructionManager&& other);
-  ReconstructionManager& operator=(ReconstructionManager&& other);
+  ReconstructionManager(ReconstructionManager&& other) noexcept;
+  ReconstructionManager& operator=(ReconstructionManager&& other) noexcept;
 
   // The number of reconstructions managed.
   size_t Size() const;

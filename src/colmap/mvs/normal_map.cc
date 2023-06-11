@@ -108,7 +108,7 @@ Bitmap NormalMap::ToBitmap() const {
 
   for (size_t y = 0; y < height_; ++y) {
     for (size_t x = 0; x < width_; ++x) {
-      float normal[3];
+      float normal[3] = {0};
       GetSlice(y, x, normal);
       if (normal[0] != 0 || normal[1] != 0 || normal[2] != 0) {
         const BitmapColor<float> color(127.5f * (-normal[0] + 1),

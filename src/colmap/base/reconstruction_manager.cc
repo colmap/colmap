@@ -38,13 +38,14 @@ namespace colmap {
 
 ReconstructionManager::ReconstructionManager() {}
 
-ReconstructionManager::ReconstructionManager(ReconstructionManager&& other)
+ReconstructionManager::ReconstructionManager(
+    ReconstructionManager&& other) noexcept
     : ReconstructionManager() {
   reconstructions_ = std::move(other.reconstructions_);
 }
 
 ReconstructionManager& ReconstructionManager::operator=(
-    ReconstructionManager&& other) {
+    ReconstructionManager&& other) noexcept {
   if (this != &other) {
     reconstructions_ = std::move(other.reconstructions_);
   }

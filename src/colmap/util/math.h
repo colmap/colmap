@@ -302,7 +302,7 @@ bool NextCombination(Iterator first, Iterator middle, Iterator last) {
 
 template <typename T>
 T Sigmoid(const T x, const T alpha) {
-  return T(1) / (T(1) + exp(-x * alpha));
+  return T(1) / (T(1) + std::exp(-x * alpha));
 }
 
 template <typename T>

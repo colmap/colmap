@@ -922,7 +922,7 @@ void MainWindow::ExportAs() {
           reconstruction.ExportPLY(export_path);
         } else if (filter == "VRML (*.wrl)") {
           const auto base_path =
-              export_path.substr(0, export_path.find_last_of("."));
+              export_path.substr(0, export_path.find_last_of('.'));
           reconstruction.ExportVRML(base_path + ".images.wrl",
                                     base_path + ".points3D.wrl",
                                     1,

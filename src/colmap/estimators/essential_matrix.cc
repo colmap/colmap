@@ -202,8 +202,7 @@ EssentialMatrixEightPointEstimator::Estimate(const std::vector<X_t>& points1,
   const Eigen::Matrix3d E = E_raw_svd.matrixU() * singular_values.asDiagonal() *
                             E_raw_svd.matrixV().transpose();
 
-  const std::vector<M_t> models = {E};
-  return models;
+  return {E};
 }
 
 void EssentialMatrixEightPointEstimator::Residuals(

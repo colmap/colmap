@@ -259,10 +259,13 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   CHECK_NOTNULL(reconstruction);
   CHECK(!problem_) << "Cannot use the same BundleAdjuster multiple times";
 
-  problem_ = std::make_unique<ceres::Problem>();
+  ceres::Problem::Options problem_options;
+  problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
+  problem_ = std::make_unique<ceres::Problem>(problem_options);
 
-  ceres::LossFunction* loss_function = options_.CreateLossFunction();
-  SetUp(reconstruction, loss_function);
+  const auto loss_function =
+      std::unique_ptr<ceres::LossFunction>(options_.CreateLossFunction());
+  SetUp(reconstruction, loss_function.get());
 
   if (problem_->NumResiduals() == 0) {
     return false;
@@ -573,8 +576,13 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
 
   problem_ = std::make_unique<ceres::Problem>();
 
-  ceres::LossFunction* loss_function = options_.CreateLossFunction();
-  SetUp(reconstruction, camera_rigs, loss_function);
+  ceres::Problem::Options problem_options;
+  problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
+  problem_ = std::make_unique<ceres::Problem>(problem_options);
+
+  const auto loss_function =
+      std::unique_ptr<ceres::LossFunction>(options_.CreateLossFunction());
+  SetUp(reconstruction, camera_rigs, loss_function.get());
 
   if (problem_->NumResiduals() == 0) {
     return false;

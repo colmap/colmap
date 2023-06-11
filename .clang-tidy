@@ -1,0 +1,5 @@
+Checks: >
+  performance-*,
+WarningsAsErrors: '*'
+FormatStyle: 'file'
+User: 'user'

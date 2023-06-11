@@ -480,7 +480,7 @@ void DenseReconstructionWidget::SelectWorkspacePath() {
 }
 
 std::string DenseReconstructionWidget::GetWorkspacePath() {
-  const std::string workspace_path =
+  std::string workspace_path =
       workspace_path_text_->text().toUtf8().constData();
   if (ExistsDir(workspace_path)) {
     return workspace_path;

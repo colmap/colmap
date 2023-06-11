@@ -194,6 +194,13 @@ else()
     set(IS_DEBUG OFF)
 endif()
 
+if("${CMAKE_BUILD_TYPE}" STREQUAL "ClangTidy")
+    find_program(CLANG_TIDY_EXE NAMES clang-tidy)
+    if(NOT CLANG_TIDY_EXE)
+        message(FATAL_ERROR "Could not find the clang-tidy executable, please set CLANG_TIDY_EXE")
+    endif()
+endif()
+
 if(IS_MSVC)
     # Some fixes for the Glog library.
     add_definitions("-DGLOG_NO_ABBREVIATED_SEVERITIES")
@@ -289,7 +296,7 @@ else()
     message(STATUS "Disabling OpenGL support")
 endif()
 
-if(CCACHE_ENABLED)
+if(CCACHE_ENABLED AND NOT "${CMAKE_BUILD_TYPE}" STREQUAL "ClangTidy")
     find_program(CCACHE ccache)
     if(CCACHE)
         message(STATUS "Enabling ccache support")
@@ -441,10 +448,6 @@ COLMAP_ADD_SOURCE_DIR(src/colmap/util UTIL_SRCS *.h *.cc)
 # intellisense can't find any of the included files).
 add_library(
     ${COLMAP_SRC_ROOT_FOLDER}
-    ${LIB_LSD_SRCS}
-    ${LIB_POISSON_RECON_SRCS}
-    ${LIB_SIFT_GPU_SRCS}
-    ${LIB_VLFEAT_SRCS}
     ${BASE_SRCS}
     ${CONTROLLERS_SRCS}
     ${ESTIMATORS_SRCS}
