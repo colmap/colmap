@@ -55,7 +55,9 @@ BOOST_AUTO_TEST_CASE(Estimate) {
                           RandomReal<double>(-10, 10));
   }
 
+  // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
   for (double qx = 0; qx < 0.4; qx += 0.1) {
+    // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
     for (double tx = 0; tx < 0.5; tx += 0.1) {
       const int kRefTform = 1;
       const int kNumTforms = 3;

@@ -119,8 +119,8 @@ class CachedWorkspace : public Workspace {
   class CachedImage {
    public:
     CachedImage() {}
-    CachedImage(CachedImage&& other);
-    CachedImage& operator=(CachedImage&& other);
+    CachedImage(CachedImage&& other) noexcept;
+    CachedImage& operator=(CachedImage&& other) noexcept;
     inline size_t NumBytes() const { return num_bytes; }
     size_t num_bytes = 0;
     std::unique_ptr<Bitmap> bitmap;

@@ -151,7 +151,7 @@ bool Workspace::HasNormalMap(const int image_idx) const {
   return ExistsFile(GetNormalMapPath(image_idx));
 }
 
-CachedWorkspace::CachedImage::CachedImage(CachedImage&& other) {
+CachedWorkspace::CachedImage::CachedImage(CachedImage&& other) noexcept {
   num_bytes = other.num_bytes;
   bitmap = std::move(other.bitmap);
   depth_map = std::move(other.depth_map);
@@ -159,7 +159,7 @@ CachedWorkspace::CachedImage::CachedImage(CachedImage&& other) {
 }
 
 CachedWorkspace::CachedImage& CachedWorkspace::CachedImage::operator=(
-    CachedImage&& other) {
+    CachedImage&& other) noexcept {
   if (this != &other) {
     num_bytes = other.num_bytes;
     bitmap = std::move(other.bitmap);

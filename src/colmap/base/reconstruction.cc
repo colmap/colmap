@@ -920,7 +920,7 @@ bool Reconstruction::ExportCam(const std::string& path,
     const class Camera& camera = Camera(image.CameraId());
 
     SplitFileExtension(image.Name(), &name, &ext);
-    name = JoinPaths(path, name + ".cam");
+    name = JoinPaths(path, name.append(".cam"));
     std::ofstream file(name, std::ios::trunc);
 
     CHECK(file.is_open()) << name;

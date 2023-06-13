@@ -80,7 +80,7 @@ class Bitmap {
   // Copy constructor.
   Bitmap(const Bitmap& other);
   // Move constructor.
-  Bitmap(Bitmap&& other);
+  Bitmap(Bitmap&& other) noexcept;
 
   // Create bitmap object from existing FreeImage bitmap object. Note that
   // this class takes ownership of the object.
@@ -89,7 +89,7 @@ class Bitmap {
   // Copy assignment.
   Bitmap& operator=(const Bitmap& other);
   // Move assignment.
-  Bitmap& operator=(Bitmap&& other);
+  Bitmap& operator=(Bitmap&& other) noexcept;
 
   // Allocate bitmap by overwriting the existing data.
   bool Allocate(const int width, const int height, const bool as_rgb);

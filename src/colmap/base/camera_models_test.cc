@@ -115,14 +115,16 @@ void TestModel(const std::vector<double>& params) {
       CameraModelIdToName(CameraModelNameToId(CameraModel::model_name)),
       CameraModel::model_name);
 
+  // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
   for (double u = -0.5; u <= 0.5; u += 0.1) {
+    // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
     for (double v = -0.5; v <= 0.5; v += 0.1) {
       TestWorldToImageToWorld<CameraModel>(params, u, v);
     }
   }
 
-  for (double x = 0; x <= 800; x += 50) {
-    for (double y = 0; y <= 800; y += 50) {
+  for (int x = 0; x <= 800; x += 50) {
+    for (int y = 0; y <= 800; y += 50) {
       TestImageToWorldToImage<CameraModel>(params, x, y);
     }
   }

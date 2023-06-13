@@ -63,7 +63,9 @@ BOOST_AUTO_TEST_CASE(Estimate) {
     points3D_faulty[i](0) = 20;
   }
 
+  // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
   for (double qx = 0; qx < 1; qx += 0.2) {
+    // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
     for (double tx = 0; tx < 1; tx += 0.1) {
       const int kRefTform = 1;
       const int kNumTforms = 3;

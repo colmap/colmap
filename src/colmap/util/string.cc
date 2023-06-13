@@ -167,6 +167,7 @@ std::string StringGetAfter(const std::string& str, const std::string& key) {
 std::vector<std::string> StringSplit(const std::string& str,
                                      const std::string& delim) {
   std::vector<std::string> elems;
+  // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
   boost::split(elems, str, boost::is_any_of(delim), boost::token_compress_on);
   return elems;
 }
