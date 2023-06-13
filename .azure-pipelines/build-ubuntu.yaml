@@ -3,6 +3,7 @@ parameters:
   ubuntuVersion: '20.04'
   cudaEnabled: false
   asanEnabled: false
+  cmakeBuildType: Release
 
 jobs:
 - job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}_asan_${{ parameters.asanEnabled }}
@@ -69,12 +70,20 @@ jobs:
         echo '##vso[task.setvariable variable=CXX]/usr/bin/clang++-15'
       displayName: 'Install Clang'
 
+  - ${{ if eq(parameters.cmakeBuildType, "CLangTidy") }}:
+    - script: |
+        sudo apt-get install -y clang-15 clang-tidy-15
+        echo '##vso[task.setvariable variable=CC]/usr/bin/clang-15'
+        echo '##vso[task.setvariable variable=CXX]/usr/bin/clang++-15'
+      displayName: 'Install Clang'
+
   - script: |
       cmake --version
       mkdir build
       cd build
       cmake .. \
         -GNinja \
+        -DCMAKE_BUILD_TYPE=${{ parameters.cmakeBuildType }} \
         -DTESTS_ENABLED=ON \
         -DCMAKE_CUDA_ARCHITECTURES=50 \
         -DASAN_ENABLED=${{ parameters.asanEnabled }}

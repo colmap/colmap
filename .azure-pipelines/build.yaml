@@ -32,6 +32,11 @@ jobs:
       displayName: 'Ubuntu 22.04 (ASan)'
       ubuntuVersion: 22.04
       asanEnabled: true
+  - template: build-ubuntu.yaml
+    parameters:
+      displayName: 'Ubuntu 22.04 (ClangTidy)'
+      ubuntuVersion: 22.04
+      cmakeBuildType: ClangTidy
   - template: build-mac.yaml
     parameters:
       displayName: 'Mac 11'
