@@ -448,6 +448,10 @@ COLMAP_ADD_SOURCE_DIR(src/colmap/util UTIL_SRCS *.h *.cc)
 # intellisense can't find any of the included files).
 add_library(
     ${COLMAP_SRC_ROOT_FOLDER}
+    ${LIB_LSD_SRCS}
+    ${LIB_POISSON_RECON_SRCS}
+    ${LIB_SIFT_GPU_SRCS}
+    ${LIB_VLFEAT_SRCS}
     ${BASE_SRCS}
     ${CONTROLLERS_SRCS}
     ${ESTIMATORS_SRCS}
