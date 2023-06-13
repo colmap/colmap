@@ -41,10 +41,10 @@
 using namespace colmap::retrieval;
 
 BOOST_AUTO_TEST_CASE(TestIdentity) {
-  for (float x = 0; x < 3; ++x) {
-    for (float y = 0; y < 3; ++y) {
-      for (float scale = 1; scale < 5; ++scale) {
-        for (float orientation = 0; orientation < 3; ++orientation) {
+  for (int x = 0; x < 3; ++x) {
+    for (int y = 0; y < 3; ++y) {
+      for (int scale = 1; scale < 5; ++scale) {
+        for (int orientation = 0; orientation < 3; ++orientation) {
           FeatureGeometry feature1;
           feature1.x = x;
           feature1.y = y;
@@ -72,8 +72,8 @@ BOOST_AUTO_TEST_CASE(TestIdentity) {
 }
 
 BOOST_AUTO_TEST_CASE(TestTranslation) {
-  for (float x = 0; x < 3; ++x) {
-    for (float y = 0; y < 3; ++y) {
+  for (int x = 0; x < 3; ++x) {
+    for (int y = 0; y < 3; ++y) {
       FeatureGeometry feature1;
       feature1.scale = 1;
       FeatureGeometry feature2;
@@ -97,7 +97,7 @@ BOOST_AUTO_TEST_CASE(TestTranslation) {
 }
 
 BOOST_AUTO_TEST_CASE(TestScale) {
-  for (float scale = 1; scale < 5; ++scale) {
+  for (int scale = 1; scale < 5; ++scale) {
     FeatureGeometry feature1;
     feature1.scale = 1;
     FeatureGeometry feature2;
@@ -117,7 +117,7 @@ BOOST_AUTO_TEST_CASE(TestScale) {
 }
 
 BOOST_AUTO_TEST_CASE(TestOrientation) {
-  for (float orientation = 0; orientation < 3; ++orientation) {
+  for (int orientation = 0; orientation < 3; ++orientation) {
     FeatureGeometry feature1;
     feature1.scale = 1;
     feature1.orientation = 0;

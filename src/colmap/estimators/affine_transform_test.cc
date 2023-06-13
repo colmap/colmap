@@ -39,9 +39,9 @@
 using namespace colmap;
 
 BOOST_AUTO_TEST_CASE(TestAffineTransform) {
-  for (double x = 0; x < 1; x += 0.1) {
+  for (int x = 0; x < 10; ++x) {
     Eigen::Matrix<double, 2, 3> A;
-    A << x, 0.2, 0.3, 30, 0.2, 0.1;
+    A << x / 10.0, 0.2, 0.3, 30, 0.2, 0.1;
 
     std::vector<Eigen::Vector2d> src;
     src.emplace_back(x, 0);

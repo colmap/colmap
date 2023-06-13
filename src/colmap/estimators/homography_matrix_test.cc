@@ -40,7 +40,7 @@
 using namespace colmap;
 
 BOOST_AUTO_TEST_CASE(TestEstimate) {
-  for (double x = 0; x < 10; ++x) {
+  for (int x = 0; x < 10; ++x) {
     Eigen::Matrix3d H0;
     H0 << x, 0.2, 0.3, 30, 0.2, 0.1, 0.3, 20, 1;
 

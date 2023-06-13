@@ -486,15 +486,12 @@ BOOST_AUTO_TEST_CASE(TestDefaultCallback) {
 
 BOOST_AUTO_TEST_CASE(TestThreadPoolNoArgNoReturn) {
   std::function<void(void)> Func = []() {
-    int num = 0;
-    for (int i = 0; i < 100; ++i) {
-      num += i;
-    }
+    std::this_thread::sleep_for(std::chrono::microseconds(1));
   };
 
   ThreadPool pool(4);
   std::vector<std::future<void>> futures;
-
+  futures.reserve(100);
   for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func));
   }
@@ -513,7 +510,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolArgNoReturn) {
 
   ThreadPool pool(4);
   std::vector<std::future<void>> futures;
-
+  futures.reserve(100);
   for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func, i));
   }
@@ -528,7 +525,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolNoArgReturn) {
 
   ThreadPool pool(4);
   std::vector<std::future<int>> futures;
-
+  futures.reserve(100);
   for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func));
   }
@@ -548,7 +545,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolArgReturn) {
 
   ThreadPool pool(4);
   std::vector<std::future<int>> futures;
-
+  futures.reserve(100);
   for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func, i));
   }
@@ -568,7 +565,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolStop) {
 
   ThreadPool pool(4);
   std::vector<std::future<int>> futures;
-
+  futures.reserve(100);
   for (int i = 0; i < 100; ++i) {
     futures.push_back(pool.AddTask(Func, i));
   }

@@ -105,25 +105,31 @@ void TestVocabTreeType() {
 }
 
 BOOST_AUTO_TEST_CASE(TestVocabTree_uint8_t_128_64) {
+  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   TestVocabTreeType<uint8_t, 128, 64>();
 }
 
 BOOST_AUTO_TEST_CASE(TestVocabTree_uint8_t_64_64) {
+  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   TestVocabTreeType<uint8_t, 64, 64>();
 }
 
 BOOST_AUTO_TEST_CASE(TestVocabTree_uint8_t_32_16) {
+  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   TestVocabTreeType<uint8_t, 32, 16>();
 }
 
 BOOST_AUTO_TEST_CASE(TestVocabTree_int_32_16) {
+  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   TestVocabTreeType<int, 32, 16>();
 }
 
 BOOST_AUTO_TEST_CASE(TestVocabTree_float_32_16) {
+  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   TestVocabTreeType<float, 32, 16>();
 }
 
 BOOST_AUTO_TEST_CASE(TestVocabTree_double_32_16) {
+  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   TestVocabTreeType<double, 32, 16>();
 }
