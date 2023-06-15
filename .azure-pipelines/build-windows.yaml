@@ -12,14 +12,7 @@ jobs:
     VCPKG_BINARY_SOURCES: 'clear;nuget,https://pkgs.dev.azure.com/colmap/colmap/_packaging/vcpkg/nuget/v3/index.json,readwrite'
   steps:
   - task: NuGetAuthenticate@0
-    displayName: 'NuGet Authenticate'
-
-  - task: run-vcpkg@0
-    displayName: 'Run vcpkg'
-    inputs:
-      vcpkgArguments: '@$(Build.SourcesDirectory)/.azure-pipelines/build-windows-vcpkg.txt'
-      vcpkgGitCommitId: $(vcpkgGitCommitId)
-      vcpkgGitURL: https://github.com/microsoft/vcpkg
+    displayName: NuGet Authenticate
 
   - pwsh: |
       curl -L -o `
@@ -28,18 +21,29 @@ jobs:
       Expand-Archive -LiteralPath $(Build.BinariesDirectory)/ninja.zip -DestinationPath $(Build.BinariesDirectory)
     displayName: Prepare build
 
-  - task: run-cmake@0
-    displayName: 'Configure and build'
-    inputs:
-      cmakeListsOrSettingsJson: 'CMakeListsTxtAdvanced'
-      cmakeListsTxtPath: '$(Build.SourcesDirectory)/CMakeLists.txt'
-      cmakeBuildType: 'Release'
-      cmakeGenerator: 'Ninja'
-      cmakeAppendedArgs: -GNinja -DCMAKE_MAKE_PROGRAM=$(Build.BinariesDirectory)/ninja.exe -DCMAKE_BUILD_TYPE=Release -DTESTS_ENABLED=ON
-      useVcpkgToolchainFile: true
+  - pwsh: |
+      git clone https://github.com/microsoft/vcpkg
+      cd vcpkg
+      git checkout --force $(vcpkgGitCommitId)
+      .\bootstrap-vcpkg.bat
+      .\vcpkg.exe install --recurse @$(Build.SourcesDirectory)/.azure-pipelines/build-windows-vcpkg.txt --clean-after-build
+    workingDirectory: $(Build.BinariesDirectory)
+    displayName: Setup vcpkg
 
   - pwsh: |
-      $env:PATH = "$(Build.BinariesDirectory)/vcpkg/installed/x64-windows/release/bin/;$env:Path"
+      .\$(Build.BinariesDirectory)\vcpkg\vcpkg.exe env --bin --include --tools --python --triplet x64-windows set
+      mkdir build
+      cd build
+      cmake .. `
+        -GNinja `
+        -DCMAKE_MAKE_PROGRAM=$(Build.BinariesDirectory)/ninja.exe `
+        -DCMAKE_BUILD_TYPE=Release `
+        -DTESTS_ENABLED=ON
+    workingDirectory: $(Build.SourcesDirectory)
+    displayName: Configure and build
+
+  - pwsh: |
+      .\$(Build.BinariesDirectory)\vcpkg\vcpkg.exe env --bin --include --tools --python --triplet x64-windows set
       ctest -E "(feature/sift_test)|(util/opengl_utils_test)|(mvs/gpu_mat_test)"
       $tests_pass=$LastExitCode
       if ($tests_pass -ne 0) {
@@ -47,14 +51,5 @@ jobs:
           ctest --rerun-failed --output-on-failure
       }
       exit $tests_pass
-    workingDirectory: $(Build.ArtifactStagingDirectory)
+    workingDirectory: $(Build.SourcesDirectory)/build
     displayName: 'Run tests'
-
-  - pwsh: |
-      # Deleting a directory that breaks the caching of vcpkg.
-      # Could potentially be disabled again in future vcpkg versions.
-      $path = "$(Build.BinariesDirectory)/vcpkg/installed/x64-windows/tools/meson/test cases"
-      if (Test-Path $path) {
-        Remove-Item -Recurse -Force $path
-      }
-    displayName: 'Cleanup environment'
