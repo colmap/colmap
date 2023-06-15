@@ -31,7 +31,7 @@ jobs:
     displayName: Setup vcpkg
 
   - pwsh: |
-      .\$(Build.BinariesDirectory)\vcpkg\vcpkg.exe env --bin --include --tools --python --triplet x64-windows set
+      $(Build.BinariesDirectory)\vcpkg\vcpkg.exe env --bin --include --tools --python --triplet x64-windows set
       mkdir build
       cd build
       cmake .. `
@@ -43,7 +43,7 @@ jobs:
     displayName: Configure and build
 
   - pwsh: |
-      .\$(Build.BinariesDirectory)\vcpkg\vcpkg.exe env --bin --include --tools --python --triplet x64-windows set
+      $(Build.BinariesDirectory)\vcpkg\vcpkg.exe env --bin --include --tools --python --triplet x64-windows set
       ctest -E "(feature/sift_test)|(util/opengl_utils_test)|(mvs/gpu_mat_test)"
       $tests_pass=$LastExitCode
       if ($tests_pass -ne 0) {
