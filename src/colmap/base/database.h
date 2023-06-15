@@ -75,7 +75,7 @@ class Database {
   // `image_id1` and `image_id2` does not matter.
   bool ExistsCamera(const camera_t camera_id) const;
   bool ExistsImage(const image_t image_id) const;
-  bool ExistsImageWithName(std::string name) const;
+  bool ExistsImageWithName(const std::string& name) const;
   bool ExistsKeypoints(const image_t image_id) const;
   bool ExistsDescriptors(const image_t image_id) const;
   bool ExistsMatches(const image_t image_id1, const image_t image_id2) const;

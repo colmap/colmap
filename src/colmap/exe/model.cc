@@ -619,7 +619,7 @@ int RunModelConverter(int argc, char** argv) {
   } else if (output_type == "ply") {
     reconstruction.ExportPLY(output_path);
   } else if (output_type == "vrml") {
-    const auto base_path = output_path.substr(0, output_path.find_last_of("."));
+    const auto base_path = output_path.substr(0, output_path.find_last_of('.'));
     reconstruction.ExportVRML(base_path + ".images.wrl",
                               base_path + ".points3D.wrl",
                               1,

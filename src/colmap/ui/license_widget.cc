@@ -57,7 +57,7 @@ LicenseWidget::LicenseWidget(QWidget* parent) : QTextEdit(parent) {
 }
 
 QString LicenseWidget::GetCOLMAPLicense() const {
-  const QString license =
+  QString license =
       "Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.<br>"
       "All rights reserved.<br>"
       "<br>"
@@ -106,7 +106,7 @@ QString LicenseWidget::GetCOLMAPLicense() const {
 }
 
 QString LicenseWidget::GetLSDLicense() const {
-  const QString license =
+  QString license =
       "LSD - Line Segment Detector on digital images<br>"
       "<br>"
       "This code is part of the following publication and was subject<br>"
@@ -136,7 +136,7 @@ QString LicenseWidget::GetLSDLicense() const {
 }
 
 QString LicenseWidget::GetPoissonReconLicense() const {
-  const QString license =
+  QString license =
       "The MIT License (MIT)<br>"
       "<br>"
       "Copyright (c) 2015 mkazhdan<br>"
@@ -164,7 +164,7 @@ QString LicenseWidget::GetPoissonReconLicense() const {
 }
 
 QString LicenseWidget::GetSiftGPULicense() const {
-  const QString license =
+  QString license =
       "Copyright (c) 2007 University of North Carolina at Chapel Hill<br>"
       "All Rights Reserved<br>"
       "<br>"
@@ -181,7 +181,7 @@ QString LicenseWidget::GetSiftGPULicense() const {
 }
 
 QString LicenseWidget::GetSQLiteLicense() const {
-  const QString license =
+  QString license =
       "The author disclaims copyright to this source code. In place of<br>"
       "a legal notice, here is a blessing:<br>"
       "May you do good and not evil.<br>"
@@ -191,7 +191,7 @@ QString LicenseWidget::GetSQLiteLicense() const {
 }
 
 QString LicenseWidget::GetVLFeatLicense() const {
-  const QString license =
+  QString license =
       "Copyright (C) 2007-11, Andrea Vedaldi and Brian Fulkerson<br>"
       "Copyright (C) 2012-13, The VLFeat Team<br>"
       "All rights reserved.<br>"

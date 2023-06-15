@@ -262,7 +262,7 @@ class JobQueue {
  public:
   class Job {
    public:
-    Job() : valid_(false) {}
+    Job() : data_{}, valid_(false) {}
     explicit Job(T data) : data_(std::move(data)), valid_(true) {}
 
     // Check whether the data is valid.

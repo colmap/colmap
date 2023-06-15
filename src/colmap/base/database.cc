@@ -318,7 +318,7 @@ bool Database::ExistsImage(const image_t image_id) const {
   return ExistsRowId(sql_stmt_exists_image_id_, image_id);
 }
 
-bool Database::ExistsImageWithName(std::string name) const {
+bool Database::ExistsImageWithName(const std::string& name) const {
   return ExistsRowString(sql_stmt_exists_image_name_, name);
 }
 
@@ -470,9 +470,8 @@ FeatureDescriptors Database::ReadDescriptors(const image_t image_id) const {
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_read_descriptors_, 1, image_id));
 
   const int rc = SQLITE3_CALL(sqlite3_step(sql_stmt_read_descriptors_));
-  const FeatureDescriptors descriptors =
-      ReadDynamicMatrixBlob<FeatureDescriptors>(
-          sql_stmt_read_descriptors_, rc, 0);
+  FeatureDescriptors descriptors = ReadDynamicMatrixBlob<FeatureDescriptors>(
+      sql_stmt_read_descriptors_, rc, 0);
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_descriptors_));
 

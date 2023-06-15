@@ -272,7 +272,7 @@ void EPNPEstimator::ChooseControlPoints() {
   const Eigen::Matrix3d PW0tPW0 = PW0.transpose() * PW0;
   Eigen::JacobiSVD<Eigen::Matrix3d> svd(
       PW0tPW0, Eigen::ComputeFullV | Eigen::ComputeFullU);
-  const Eigen::Vector3d D = svd.singularValues();
+  const Eigen::Vector3d& D = svd.singularValues();
   const Eigen::Matrix3d Ut = svd.matrixU().transpose();
 
   for (int i = 1; i < 4; ++i) {
@@ -387,8 +387,7 @@ void EPNPEstimator::FindBetasApprox1(const Eigen::Matrix<double, 6, 10>& L6x10,
 
   Eigen::JacobiSVD<Eigen::Matrix<double, 6, 4>> svd(
       L_6x4, Eigen::ComputeFullV | Eigen::ComputeFullU);
-  Eigen::Matrix<double, 6, 1> Rho_temp = rho;
-  const Eigen::Matrix<double, 4, 1> b4 = svd.solve(Rho_temp);
+  const Eigen::Matrix<double, 4, 1> b4 = svd.solve(rho);
 
   if (b4[0] < 0) {
     (*betas)[0] = std::sqrt(-b4[0]);
@@ -419,8 +418,7 @@ void EPNPEstimator::FindBetasApprox2(const Eigen::Matrix<double, 6, 10>& L6x10,
 
   Eigen::JacobiSVD<Eigen::Matrix<double, 6, 3>> svd(
       L_6x3, Eigen::ComputeFullV | Eigen::ComputeFullU);
-  Eigen::Matrix<double, 6, 1> Rho_temp = rho;
-  const Eigen::Matrix<double, 3, 1> b3 = svd.solve(Rho_temp);
+  const Eigen::Matrix<double, 3, 1> b3 = svd.solve(rho);
 
   if (b3[0] < 0) {
     (*betas)[0] = std::sqrt(-b3[0]);
@@ -446,8 +444,7 @@ void EPNPEstimator::FindBetasApprox3(const Eigen::Matrix<double, 6, 10>& L6x10,
                                      Eigen::Vector4d* betas) {
   Eigen::JacobiSVD<Eigen::Matrix<double, 6, 5>> svd(
       L6x10.leftCols<5>(), Eigen::ComputeFullV | Eigen::ComputeFullU);
-  Eigen::Matrix<double, 6, 1> Rho_temp = rho;
-  const Eigen::Matrix<double, 5, 1> b5 = svd.solve(Rho_temp);
+  const Eigen::Matrix<double, 5, 1> b5 = svd.solve(rho);
 
   if (b5[0] < 0) {
     (*betas)[0] = std::sqrt(-b5[0]);
@@ -571,8 +568,8 @@ void EPNPEstimator::EstimateRT(Eigen::Matrix3d* R, Eigen::Vector3d* t) {
 
   Eigen::JacobiSVD<Eigen::Matrix3d> svd(
       abt, Eigen::ComputeFullV | Eigen::ComputeFullU);
-  const Eigen::Matrix3d abt_U = svd.matrixU();
-  const Eigen::Matrix3d abt_V = svd.matrixV();
+  const Eigen::Matrix3d& abt_U = svd.matrixU();
+  const Eigen::Matrix3d& abt_V = svd.matrixV();
 
   for (int i = 0; i < 3; ++i) {
     for (int j = 0; j < 3; ++j) {

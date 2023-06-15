@@ -66,7 +66,7 @@ Bitmap::Bitmap(const Bitmap& other) : Bitmap() {
   }
 }
 
-Bitmap::Bitmap(Bitmap&& other) : Bitmap() {
+Bitmap::Bitmap(Bitmap&& other) noexcept : Bitmap() {
   data_ = std::move(other.data_);
   width_ = other.width_;
   height_ = other.height_;
@@ -82,7 +82,7 @@ Bitmap& Bitmap::operator=(const Bitmap& other) {
   return *this;
 }
 
-Bitmap& Bitmap::operator=(Bitmap&& other) {
+Bitmap& Bitmap::operator=(Bitmap&& other) noexcept {
   if (this != &other) {
     data_ = std::move(other.data_);
     width_ = other.width_;

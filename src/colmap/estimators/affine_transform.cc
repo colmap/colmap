@@ -68,8 +68,7 @@ std::vector<AffineTransformEstimator::M_t> AffineTransformEstimator::Estimate(
 
   Eigen::Map<const Eigen::Matrix<double, 3, 2>> A_t(nullspace.data());
 
-  const std::vector<M_t> models = {A_t.transpose()};
-  return models;
+  return {A_t.transpose()};
 }
 
 void AffineTransformEstimator::Residuals(const std::vector<X_t>& points1,

@@ -137,8 +137,8 @@ Eigen::Vector3d ComputeRotationBetweenPoints(
 
   const Eigen::JacobiSVD<Eigen::Matrix3d> svd(
       Hcross, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  const Eigen::Matrix3d V = svd.matrixV();
-  const Eigen::Matrix3d U = svd.matrixU();
+  const Eigen::Matrix3d& V = svd.matrixV();
+  const Eigen::Matrix3d& U = svd.matrixU();
 
   Eigen::Matrix3d R = V * U.transpose();
   if (R.determinant() < 0) {

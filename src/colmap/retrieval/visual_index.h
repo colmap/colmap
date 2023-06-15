@@ -662,6 +662,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Quantize(
   index_params["branching"] = options.branching;
   index_params["iterations"] = options.num_iterations;
   index_params["centers_init"] = flann::FLANN_CENTERS_KMEANSPP;
+  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   const int num_centers = flann::hierarchicalClustering<flann::L2<kDescType>>(
       descriptor_matrix, centers, index_params);
 

@@ -133,15 +133,17 @@ int RunVocabTreeBuilder(int argc, char** argv) {
   options.AddDefaultOption("max_num_images", &max_num_images);
   options.Parse(argc, argv);
 
-  retrieval::VisualIndex<> visual_index;
-
   std::cout << "Loading descriptors..." << std::endl;
   const auto descriptors =
       LoadRandomDatabaseDescriptors(*options.database_path, max_num_images);
   std::cout << "  => Loaded a total of " << descriptors.rows() << " descriptors"
             << std::endl;
+  CHECK_GT(descriptors.size(), 0);
+
+  retrieval::VisualIndex<> visual_index;
 
   std::cout << "Building index for visual words..." << std::endl;
+  // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   visual_index.Build(build_options, descriptors);
   std::cout << " => Quantized descriptor space using "
             << visual_index.NumVisualWords() << " visual words" << std::endl;

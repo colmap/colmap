@@ -156,13 +156,13 @@ void ComputeMinGraphCutStoerWagner(
                                  max_vertex_index + 1,
                                  edges.size());
 
+  const auto edge_weight = boost::get(boost::edge_weight, graph);
   const auto parities = boost::make_one_bit_color_map(
       boost::num_vertices(graph), boost::get(boost::vertex_index, graph));
+  const auto parity_map = boost::parity_map(parities);
 
-  *cut_weight =
-      boost::stoer_wagner_min_cut(graph,
-                                  boost::get(boost::edge_weight, graph),
-                                  boost::parity_map(parities));
+  // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDelete)
+  *cut_weight = boost::stoer_wagner_min_cut(graph, edge_weight, parity_map);
 
   cut_labels->resize(boost::num_vertices(graph));
   for (size_t i = 0; i < boost::num_vertices(graph); ++i) {

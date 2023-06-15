@@ -334,6 +334,7 @@ DatabaseImageViewerWidget::DatabaseImageViewerWidget(
   table_widget_->setItem(table_row, 0, new QTableWidgetItem("name"));
   name_item_ = new QTableWidgetItem();
   table_widget_->setItem(table_row, 1, name_item_);
+  // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
   table_row += 1;
 
   grid_layout_->addWidget(table_widget_, 0, 0);

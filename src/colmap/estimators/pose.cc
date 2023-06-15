@@ -94,9 +94,11 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
     const double fstep = 1.0 / options.num_focal_length_samples;
     const double fscale =
         options.max_focal_length_ratio - options.min_focal_length_ratio;
-    for (double f = 0; f <= 1.0; f += fstep) {
+    double focal = 0.;
+    for (size_t i = 0; i <= options.num_focal_length_samples;
+         ++i, focal += fstep) {
       focal_length_factors.push_back(options.min_focal_length_ratio +
-                                     fscale * f * f);
+                                     fscale * focal * focal);
     }
   } else {
     focal_length_factors.reserve(1);
@@ -214,8 +216,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   CHECK_EQ(points2D.size(), points3D.size());
   options.Check();
 
-  ceres::LossFunction* loss_function =
-      new ceres::CauchyLoss(options.loss_function_scale);
+  const auto loss_function =
+      std::make_unique<ceres::CauchyLoss>(options.loss_function_scale);
 
   double* camera_params_data = camera->ParamsData();
   double* qvec_data = qvec->data();
@@ -223,7 +225,9 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 
   std::vector<Eigen::Vector3d> points3D_copy = points3D;
 
-  ceres::Problem problem;
+  ceres::Problem::Options problem_options;
+  problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
+  ceres::Problem problem(problem_options);
 
   for (size_t i = 0; i < points2D.size(); ++i) {
     // Skip outlier observations
@@ -246,7 +250,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     }
 
     problem.AddResidualBlock(cost_function,
-                             loss_function,
+                             loss_function.get(),
                              qvec_data,
                              tvec_data,
                              points3D_copy[i].data(),
@@ -389,8 +393,8 @@ bool RefineGeneralizedAbsolutePose(
            cameras->size());
   options.Check();
 
-  ceres::LossFunction* loss_function =
-      new ceres::CauchyLoss(options.loss_function_scale);
+  const auto loss_function =
+      std::make_unique<ceres::CauchyLoss>(options.loss_function_scale);
 
   std::vector<double*> cameras_params_data;
   for (size_t i = 0; i < cameras->size(); i++) {
@@ -404,7 +408,9 @@ bool RefineGeneralizedAbsolutePose(
   std::vector<Eigen::Vector4d> rig_qvecs_copy = rig_qvecs;
   std::vector<Eigen::Vector3d> rig_tvecs_copy = rig_tvecs;
 
-  ceres::Problem problem;
+  ceres::Problem::Options problem_options;
+  problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
+  ceres::Problem problem(problem_options);
 
   for (size_t i = 0; i < points2D.size(); ++i) {
     // Skip outlier observations
@@ -428,7 +434,7 @@ bool RefineGeneralizedAbsolutePose(
     }
 
     problem.AddResidualBlock(cost_function,
-                             loss_function,
+                             loss_function.get(),
                              qvec_data,
                              tvec_data,
                              rig_qvecs_copy[camera_idx].data(),
