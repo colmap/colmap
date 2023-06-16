@@ -41,6 +41,7 @@ jobs:
         -DTESTS_ENABLED=ON `
         -DCMAKE_TOOLCHAIN_FILE=$(Build.BinariesDirectory)\vcpkg\scripts\buildsystems\vcpkg.cmake `
         -DVCPKG_TARGET_TRIPLET=x64-windows
+      $(Build.BinariesDirectory)\ninja.exe
     workingDirectory: $(Build.SourcesDirectory)
     displayName: Configure and build
 
