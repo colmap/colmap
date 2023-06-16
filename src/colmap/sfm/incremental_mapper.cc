@@ -1037,7 +1037,7 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
       if (tri_angle < 0.0) {
         // Collect the commonly observed 3D points.
         shared_points3D.clear();
-        for (const Point2D& point2D : image.Points2D()) {
+        for (const Point2D& point2D : overlapping_image.Points2D()) {
           if (point2D.HasPoint3D() && point3D_ids.count(point2D.Point3DId())) {
             shared_points3D.push_back(
                 reconstruction_->Point3D(point2D.Point3DId()).XYZ());
