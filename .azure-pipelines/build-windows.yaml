@@ -36,9 +36,11 @@ jobs:
       cd build
       cmake .. `
         -GNinja `
-        -DCMAKE_MAKE_PROGRAM=$(Build.BinariesDirectory)/ninja.exe `
+        -DCMAKE_MAKE_PROGRAM=$(Build.BinariesDirectory)\ninja.exe `
         -DCMAKE_BUILD_TYPE=Release `
-        -DTESTS_ENABLED=ON
+        -DTESTS_ENABLED=ON `
+        -DCMAKE_TOOLCHAIN_FILE=$(Build.BinariesDirectory)\vcpkg\scripts\buildsystems\vcpkg.cmake `
+        -DVCPKG_TARGET_TRIPLET=x64-windows
     workingDirectory: $(Build.SourcesDirectory)
     displayName: Configure and build
 
