@@ -54,7 +54,7 @@ inline int SQLite3CallHelper(const int result_code,
               filename.c_str(),
               line_number,
               sqlite3_errstr(result_code));
-      exit(EXIT_FAILURE);
+      throw std::runtime_error("SQLite error");
   }
 }
 
