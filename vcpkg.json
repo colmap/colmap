@@ -1,0 +1,23 @@
+{
+    "name": "colmap",
+    "version-string": "3.9",
+    "dependencies": [
+        "boost-filesystem",
+        "boost-graph",
+        "boost-program-options",
+        "boost-regex",
+        "boost-system",
+        "boost-test",
+        "ceres[lapack,suitesparse]",
+        "cgal",
+        "eigen3",
+        "flann",
+        "freeimage",
+        "gflags",
+        "glew",
+        "glog",
+        "metis",
+        "qt5-base",
+        "sqlite3"
+    ]
+}
