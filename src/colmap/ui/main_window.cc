@@ -41,7 +41,9 @@ MainWindow::MainWindow(const OptionManager& options)
     : options_(options),
       thread_control_widget_(new ThreadControlWidget(this)),
       window_closed_(false) {
+  // NOLINTNEXTLINE(concurrency-mt-unsafe)
   std::setlocale(LC_NUMERIC, "C");
+
   resize(1024, 600);
   UpdateWindowTitle();
 

@@ -855,12 +855,14 @@ void OptionManager::Parse(const int argc, char** argv) {
           << std::endl
           << std::endl;
       std::cout << *desc_ << std::endl;
+      // NOLINTNEXTLINE(concurrency-mt-unsafe)
       exit(EXIT_SUCCESS);
     }
 
     if (vmap.count("project_path")) {
       *project_path = vmap["project_path"].as<std::string>();
       if (!Read(*project_path)) {
+        // NOLINTNEXTLINE(concurrency-mt-unsafe)
         exit(EXIT_FAILURE);
       }
     } else {
@@ -869,15 +871,18 @@ void OptionManager::Parse(const int argc, char** argv) {
   } catch (std::exception& exc) {
     std::cerr << "ERROR: Failed to parse options - " << exc.what() << "."
               << std::endl;
+    // NOLINTNEXTLINE(concurrency-mt-unsafe)
     exit(EXIT_FAILURE);
   } catch (...) {
     std::cerr << "ERROR: Failed to parse options for unknown reason."
               << std::endl;
+    // NOLINTNEXTLINE(concurrency-mt-unsafe)
     exit(EXIT_FAILURE);
   }
 
   if (!Check()) {
     std::cerr << "ERROR: Invalid options provided." << std::endl;
+    // NOLINTNEXTLINE(concurrency-mt-unsafe)
     exit(EXIT_FAILURE);
   }
 }
