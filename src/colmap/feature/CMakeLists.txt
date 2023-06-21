@@ -42,3 +42,14 @@ COLMAP_ADD_SOURCES(
 COLMAP_ADD_TEST(feature_utils_test utils_test.cc)
 COLMAP_ADD_TEST(sift_test sift_test.cc)
 COLMAP_ADD_TEST(types_test types_test.cc)
+
+set(MKL_INCLUDE_DIR "/usr/include")
+set(MKL_LIBRARIES "/usr/lib/x86_64-linux-gnu/libmkl_core.so")
+find_package(Torch REQUIRED)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+
+add_library(torch_feature torch.cc)
+target_link_libraries(torch_feature "${TORCH_LIBRARIES}" colmap)
+
+add_executable(torch_test torch_test.cc)
+target_link_libraries(torch_test torch_feature)

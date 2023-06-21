@@ -32,6 +32,7 @@
 #include "colmap/feature/extraction.h"
 
 #include "colmap/feature/sift.h"
+#include "colmap/feature/torch.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
 
@@ -407,16 +408,32 @@ void SiftFeatureExtractorThread::Run() {
                                                     &image_data.keypoints,
                                                     &image_data.descriptors);
         } else if (sift_options_.use_gpu) {
-          success = ExtractSiftFeaturesGPU(sift_options_,
-                                           image_data.bitmap,
-                                           sift_gpu.get(),
-                                           &image_data.keypoints,
-                                           &image_data.descriptors);
+          // success = ExtractSiftFeaturesGPU(sift_options_,
+          //                                  image_data.bitmap,
+          //                                  sift_gpu.get(),
+          //                                  &image_data.keypoints,
+          //                                  &image_data.descriptors);
+          TorchFeatureOptions options;
+          options.torch_model_path =
+              "/home/joschonb/dev/colmap/build/hardnet8.pt";
+          options.sift_options = sift_options_;
+          success = ExtractCovariantFeatures(options,
+                                             image_data.bitmap,
+                                             &image_data.keypoints,
+                                             &image_data.descriptors);
         } else {
-          success = ExtractSiftFeaturesCPU(sift_options_,
-                                           image_data.bitmap,
-                                           &image_data.keypoints,
-                                           &image_data.descriptors);
+          // success = ExtractSiftFeaturesCPU(sift_options_,
+          //                                  image_data.bitmap,
+          //                                  &image_data.keypoints,
+          //                                  &image_data.descriptors);
+          TorchFeatureOptions options;
+          options.torch_model_path =
+              "/home/joschonb/dev/colmap/build/hardnet8.pt";
+          options.sift_options = sift_options_;
+          success = ExtractCovariantFeatures(options,
+                                             image_data.bitmap,
+                                             &image_data.keypoints,
+                                             &image_data.descriptors);
         }
         if (success) {
           ScaleKeypoints(

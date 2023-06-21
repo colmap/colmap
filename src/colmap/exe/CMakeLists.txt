@@ -46,6 +46,7 @@ COLMAP_ADD_EXECUTABLE(colmap_exe
     sfm.cc
     vocab_tree.cc)
 set_target_properties(colmap_exe PROPERTIES OUTPUT_NAME colmap)
+target_link_libraries(colmap_exe torch_feature)
 
 COLMAP_ADD_SOURCES(
     feature.h feature.cc
