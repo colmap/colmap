@@ -42,8 +42,7 @@ jobs:
         libcgal-qt5-dev \
         libgl1-mesa-dri \
         libunwind-dev \
-        xvfb \
-        ccache
+        xvfb
     displayName: Install dependencies
   
   - ${{ if eq(parameters.cudaEnabled, true) }}:
@@ -83,9 +82,18 @@ jobs:
   - task: Cache@2
     inputs:
       key: ccache | "$(Agent.OS)" | displayName
-      path: $(CCACHE_DIR)
       restoreKeys: ccache | "$(Agent.OS)" | displayName
+      path: $(CCACHE_DIR)
     displayName: Restore ccache
+
+  - script: |
+      wget https://github.com/ccache/ccache/releases/download/v4.8.2/ccache-4.8.2-linux-x86_64.tar.xz
+      echo "0b33f39766fe9db67f40418aed6a5b3d7b2f4f7fab025a8213264b77a2d0e1b1  ccache-4.8.2-linux-x86_64.tar.xz" | sha256sum --check
+      tar xfv ccache-4.8.2-linux-x86_64.tar.xz
+      mv ./ccache-4.8.2-linux-x86_64/ccache "$(CCACHE_DIR)/bin"
+      echo "##vso[task.prependpath]$(CCACHE_DIR)/bin"
+    displayName: Install CCache
+    condition: ne(variables.CCACHE_RESTORED, 'true')
 
   - script: |
       cmake --version

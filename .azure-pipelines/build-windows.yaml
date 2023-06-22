@@ -36,8 +36,8 @@ jobs:
   - task: Cache@2
     inputs:
       key: ccache | "$(Agent.OS)" | displayName
-      path: $(CCACHE_DIR)
       restoreKeys: ccache | "$(Agent.OS)" | displayName
+      path: $(CCACHE_DIR)
       cacheHitVar: CCACHE_RESTORED
     displayName: Restore ccache
 
