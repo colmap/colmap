@@ -10,6 +10,9 @@ jobs:
   variables:
     vcpkgGitCommitId: 662dbb50e63af15baa2909b7eac5b1b87e86a0aa
     VCPKG_BINARY_SOURCES: 'clear;nuget,https://pkgs.dev.azure.com/colmap/colmap/_packaging/vcpkg/nuget/v3/index.json,readwrite'
+    CCACHE_PATH: $(Build.BinariesDirectory)/ccache
+    CCACHE_DIR: $(Pipeline.Workspace)/ccache
+    CCACHE_BASEDIR: $(Build.SourcesDirectory)
   steps:
   - task: NuGetAuthenticate@0
     displayName: NuGet Authenticate
@@ -30,6 +33,18 @@ jobs:
       .\vcpkg.exe install --recurse @$(Build.SourcesDirectory)/.azure-pipelines/build-windows-vcpkg.txt --clean-after-build
     workingDirectory: $(Build.BinariesDirectory)
     displayName: Setup vcpkg
+
+  - pwsh: |
+        $(Build.SourcesDirectory)\install-ccache.ps1 -Destination "$(CCACHE_PATH)"
+        echo "##vso[task.prependpath]$(CCACHE_PATH)"
+      displayName: Install CCache
+
+  - task: Cache@2
+    inputs:
+      key: ccache | "$(Agent.OS)"
+      path: $(CCACHE_DIR)
+      restoreKeys: ccache | "$(Agent.OS)"
+    displayName: Restore ccache
 
   - pwsh: |
       $(Build.SourcesDirectory)\scripts\shell\enter_vs_dev_shell.ps1
@@ -58,3 +73,9 @@ jobs:
       exit $tests_pass
     workingDirectory: $(Build.SourcesDirectory)/build
     displayName: Run tests
+
+  - pwsh: |
+      ccache --show-stats
+      ccache --evict-older-than 1d
+      ccache --show-stats
+    displayName: Cleanup ccache
