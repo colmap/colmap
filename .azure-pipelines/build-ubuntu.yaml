@@ -86,7 +86,7 @@ jobs:
       restoreKeys: ccache | "$(Agent.OS)"
     displayName: Cache ccache
 
-    - script: |
+  - script: |
       cmake --version
       mkdir build
       cd build
