@@ -1,12 +1,14 @@
 parameters:
-  displayName: 'Mac 10.15'
+  displayName: Mac 10.15
   macVersion: '10.15'
   
 jobs:
 - job: mac_build_${{ replace(parameters.macVersion, '.', '') }}
-  displayName: '${{ parameters.displayName }}'
+  displayName: ${{ parameters.displayName }}
   pool:
     vmImage: 'macOS-${{ parameters.macVersion }}'
+  variables:
+    CCACHE_DIR: $(Pipeline.Workspace)/ccache
   steps:
   - script: |
       brew install \
@@ -23,8 +25,16 @@ jobs:
         qt5 \
         glew \
         cgal \
-        sqlite3
-    displayName: 'Install dependencies'
+        sqlite3 \
+        ccache
+    displayName: Install dependencies
+
+  - task: Cache@2
+    inputs:
+      key: ccache | "$(Agent.OS)"
+      path: $(CCACHE_DIR)
+      restoreKeys: ccache | "$(Agent.OS)"
+    displayName: Restore ccache
 
   - script: |
       export PATH="/usr/local/opt/qt@5/bin:$PATH"
@@ -36,7 +46,7 @@ jobs:
         -DTESTS_ENABLED=ON \
         -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
       ninja
-    displayName: 'Configure and build'
+    displayName: Configure and build
 
   - script: |
       cd build
@@ -47,4 +57,10 @@ jobs:
           ctest --rerun-failed --output-on-failure
       fi
       exit $tests_pass
-    displayName: 'Run tests'
+    displayName: Run tests
+
+  - script: |
+      ccache --show-stats
+      ccache --evict-older-than 1d
+      ccache --show-stats
+    displayName: Cleanup ccache

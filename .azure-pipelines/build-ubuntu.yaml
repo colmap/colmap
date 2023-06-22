@@ -84,7 +84,7 @@ jobs:
       key: ccache | "$(Agent.OS)"
       path: $(CCACHE_DIR)
       restoreKeys: ccache | "$(Agent.OS)"
-    displayName: Cache ccache
+    displayName: Restore ccache
 
   - script: |
       cmake --version
@@ -118,4 +118,4 @@ jobs:
       ccache --show-stats
       ccache --evict-older-than 1d
       ccache --show-stats
-    displayName: "Cleanup ccache and show stats"
+    displayName: Cleanup ccache
