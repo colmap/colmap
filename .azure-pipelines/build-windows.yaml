@@ -35,9 +35,9 @@ jobs:
     displayName: Setup vcpkg
 
   - pwsh: |
-        $(Build.SourcesDirectory)\install-ccache.ps1 -Destination "$(CCACHE_PATH)"
-        echo "##vso[task.prependpath]$(CCACHE_PATH)"
-      displayName: Install CCache
+      $(Build.SourcesDirectory)\install-ccache.ps1 -Destination "$(CCACHE_PATH)"
+      echo "##vso[task.prependpath]$(CCACHE_PATH)"
+    displayName: Install CCache
 
   - task: Cache@2
     inputs:
