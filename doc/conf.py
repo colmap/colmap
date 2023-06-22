@@ -46,14 +46,14 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'COLMAP'
-copyright = u'2022, Johannes L. Schoenberger'
+copyright = u'2023, Johannes L. Schoenberger'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
 # The short X.Y version.
-version = '3.8'
+version = '3.9-dev'
 # The full version, including alpha/beta/rc tags.
 release = version
 

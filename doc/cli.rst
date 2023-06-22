@@ -194,7 +194,7 @@ available as ``colmap [command]``:
 - ``gui``: The graphical user interface, see
   :ref:`Graphical User Interface <gui>` for more information.
 
-- ``automatic_reconstruction``: Automatically reconstruct sparse and dense model
+- ``automatic_reconstructor``: Automatically reconstruct sparse and dense model
   for a set of input images.
 
 - ``project_generator``: Generate project files at different quality settings.

@@ -384,11 +384,7 @@ available controls. COLMAP attempts to reconstruct multiple models if not all
 images are registered into the same model. The different models can be selected
 from the drop-down menu in the toolbar. If the different models have common
 registered images, you can use the ``model_converter`` executable to merge them
-into a single reconstruction (see :ref:`FAQ <faq-merge-models>` for details). If
-all your images use the `SIMPLE_RADIAL` camera model (default) without shared
-intrinsics, you can use PBA [wu11]_ instead of Ceres Solver [ceres]_ for fast
-bundle adjustment, which can be activated in the reconstruction options under
-the bundle adjustment section (`use_pba=true`).
+into a single reconstruction (see :ref:`FAQ <faq-merge-models>` for details).
 
 Ideally, the reconstruction works fine and all images are registered. If this is
 not the case, it is recommended to:

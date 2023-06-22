@@ -1,0 +1,23 @@
+parameters:
+  displayName: 'Docker'
+
+jobs:
+- job: docker_build
+  displayName: '${{ parameters.displayName }}'
+  pool:
+    vmImage: 'ubuntu-latest'
+  variables:
+    DOCKER_BUILDKIT: 1
+  steps:
+  - bash: |
+      git_commit_id=$(git rev-parse HEAD~1)
+      echo "Extracted commit hash: $git_commit_id"
+      echo "##vso[task.setvariable variable=git_commit_id]$git_commit_id"
+    displayName: "Extract git commit hash"
+
+  - task: Docker@2
+    displayName: Build
+    inputs:
+      command: build
+      arguments: --build-arg COLMAP_VERSION=$(git_commit_id) --build-arg CUDA_ARCHITECTURES=50
+      Dockerfile: docker/Dockerfile

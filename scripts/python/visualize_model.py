@@ -1,4 +1,4 @@
-# Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -89,7 +89,7 @@ class Model:
                 fx = fy = cam.params[0]
                 cx = cam.params[1]
                 cy = cam.params[2]
-            elif cam.model in ("PINHOLE", "OPENCV", "OPENCV_FISHEYE"):
+            elif cam.model in ("PINHOLE", "OPENCV", "OPENCV_FISHEYE", "FULL_OPENCV"):
                 fx = cam.params[0]
                 fy = cam.params[1]
                 cx = cam.params[2]

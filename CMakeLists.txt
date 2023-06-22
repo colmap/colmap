@@ -1,4 +1,4 @@
-# Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+# Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,13 +29,12 @@
 #
 # Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.1)
 
-project(COLMAP)
+project(COLMAP LANGUAGES C CXX)
 
-set(COLMAP_VERSION "3.8")
-set(COLMAP_VERSION_NUMBER "3800")
-
+set(COLMAP_VERSION "3.9")
+set(COLMAP_VERSION_NUMBER "3900")
 
 ################################################################################
 # Include CMake dependencies
@@ -66,8 +65,6 @@ option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
 option(BOOST_STATIC "Whether to enable static boost library linker flags" ON)
-set(CUDA_ARCHS "Auto" CACHE STRING "List of CUDA architectures for which to \
-generate code, e.g., Auto, All, Maxwell, Pascal, ...")
 
 if(TESTS_ENABLED)
     enable_testing()
@@ -78,6 +75,10 @@ if(BOOST_STATIC)
 else()
     add_definitions("-DBOOST_TEST_DYN_LINK")
 endif()
+
+# Build position-independent code, so that shared libraries can link against
+# COLMAP's static libraries.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 ################################################################################
 # Find packages
@@ -100,9 +101,14 @@ find_package(Eigen3 REQUIRED)
 
 find_package(FreeImage REQUIRED)
 
+find_package(FLANN REQUIRED)
+find_package(LZ4 REQUIRED)
+
 find_package(Metis REQUIRED)
 
 find_package(Glog REQUIRED)
+
+find_package(SQLite3 REQUIRED)
 
 set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL REQUIRED)
@@ -111,12 +117,44 @@ find_package(Git)
 
 if(CGAL_ENABLED)
     set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE TRUE)
+    # We do not use CGAL data. This prevents an unnecessary warning by CMake.
+    set(CGAL_DATA_DIR "unused")
     find_package(CGAL QUIET)
 endif()
 
 set(CUDA_MIN_VERSION "7.0")
 if(CUDA_ENABLED)
-    find_package(CUDA ${CUDA_MIN_VERSION} QUIET)
+    if(CMAKE_VERSION VERSION_LESS 3.17)
+        find_package(CUDA QUIET)
+        if(CUDA_FOUND)
+            message(STATUS "Found CUDA version ${CUDA_VERSION} installed in "
+                    "${CUDA_TOOLKIT_ROOT_DIR} via legacy CMake (<3.17) module. "
+                    "Using the legacy CMake module means that any installation of "
+                    "COLMAP will require that the CUDA libraries are "
+                    "available under LD_LIBRARY_PATH.")
+            enable_language(CUDA)
+
+            macro(declare_imported_cuda_target module)
+                add_library(CUDA::${module} INTERFACE IMPORTED)
+                target_include_directories(
+                    CUDA::${module} INTERFACE ${CUDA_INCLUDE_DIRS})
+                target_link_libraries(
+                    CUDA::${module} INTERFACE ${CUDA_${module}_LIBRARY} ${ARGN})
+            endmacro()
+
+            declare_imported_cuda_target(cudart ${CUDA_LIBRARIES})
+            declare_imported_cuda_target(curand ${CUDA_LIBRARIES})
+            
+            set(CUDAToolkit_VERSION "${CUDA_VERSION_STRING}")
+            set(CUDAToolkit_BIN_DIR "${CUDA_TOOLKIT_ROOT_DIR}/bin")
+        endif()
+    else()
+        find_package(CUDAToolkit QUIET)
+        if(CUDAToolkit_FOUND)
+            set(CUDA_FOUND ON)
+            enable_language(CUDA)
+        endif()
+    endif()
 endif()
 
 if(GUI_ENABLED)
@@ -154,6 +192,13 @@ else()
     message(STATUS "Build type not specified, using Release")
     set(CMAKE_BUILD_TYPE Release)
     set(IS_DEBUG OFF)
+endif()
+
+if("${CMAKE_BUILD_TYPE}" STREQUAL "ClangTidy")
+    find_program(CLANG_TIDY_EXE NAMES clang-tidy)
+    if(NOT CLANG_TIDY_EXE)
+        message(FATAL_ERROR "Could not find the clang-tidy executable, please set CLANG_TIDY_EXE")
+    endif()
 endif()
 
 if(IS_MSVC)
@@ -212,35 +257,29 @@ if(ASAN_ENABLED)
     endif()
 endif()
 
-if(CUDA_FOUND)
-    if(CUDA_ENABLED)
-        add_definitions("-DCUDA_ENABLED")
-
-        include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/SelectCudaComputeArch.cmake)
-
-        CUDA_SELECT_NVCC_ARCH_FLAGS(CUDA_ARCH_FLAGS ${CUDA_ARCHS})
-
-        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} ${CUDA_ARCH_FLAGS}")
-
-        # Fix for some combinations of CUDA and GCC (e.g. under Ubuntu 16.04).
-        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -D_FORCE_INLINES")
-        # Do not show warnings if the architectures are deprecated.
-        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -Wno-deprecated-gpu-targets")
-
-        message(STATUS "Enabling CUDA support (version: ${CUDA_VERSION_STRING},"
-                       " archs: ${CUDA_ARCH_FLAGS_readable})")
-    else()
-        set(CUDA_FOUND OFF)
-        message(STATUS "Disabling CUDA support")
+if(CUDA_ENABLED AND CUDA_FOUND)
+    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+        message(
+            FATAL_ERROR "You must set CMAKE_CUDA_ARCHITECTURES to e.g. 'native', 'all-major', '70', etc. "
+            "More information at https://cmake.org/cmake/help/latest/prop_tgt/CUDA_ARCHITECTURES.html")
     endif()
+
+    add_definitions("-DCUDA_ENABLED")
+
+    # Fix for some combinations of CUDA and GCC (e.g. under Ubuntu 16.04).
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_FORCE_INLINES")
+    # Do not show warnings if the architectures are deprecated.
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-gpu-targets")
+    # Explicitly set PIC flags for CUDA targets.
+    if(NOT IS_MSVC)
+        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fPIC")
+    endif()
+
+    message(STATUS "Enabling CUDA support (version: ${CUDAToolkit_VERSION}, "
+                    "archs: ${CMAKE_CUDA_ARCHITECTURES})")
 else()
     set(CUDA_ENABLED OFF)
-    if(CUDA_VERSION_STRING)
-        message(STATUS "Disabling CUDA support (found version "
-                "${CUDA_VERSION_STRING} but >= ${CUDA_MIN_VERSION} required)")
-    else()
-        message(STATUS "Disabling CUDA support")
-    endif()
+    message(STATUS "Disabling CUDA support")
 endif()
 
 if(GUI_ENABLED AND Qt5_FOUND)
@@ -257,7 +296,7 @@ else()
     message(STATUS "Disabling OpenGL support")
 endif()
 
-if(CCACHE_ENABLED)
+if(CCACHE_ENABLED AND NOT "${CMAKE_BUILD_TYPE}" STREQUAL "ClangTidy")
     find_program(CCACHE ccache)
     if(CCACHE)
         message(STATUS "Enabling ccache support")
@@ -290,8 +329,15 @@ if(Qt5_FOUND)
     # Qt5 was built with -reduce-relocations.
     if(Qt5_POSITION_INDEPENDENT_CODE)
         set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-        if(CUDA_ENABLED AND NOT IS_MSVC)
-            set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --compiler-options -fPIC")
+        # Workaround for Qt5 CMake config bug under Ubuntu 20.04: https://gitlab.kitware.com/cmake/cmake/-/issues/16915
+        if(${Qt5_VERSION} VERSION_EQUAL "5.12.8" AND TARGET Qt5::Core)
+            get_property(core_options TARGET Qt5::Core PROPERTY INTERFACE_COMPILE_OPTIONS)
+            string(REPLACE "-fPIC" "" new_qt5_core_options ${core_options})
+            set_property(TARGET Qt5::Core PROPERTY INTERFACE_COMPILE_OPTIONS ${new_qt5_core_options})
+            set_property(TARGET Qt5::Core PROPERTY INTERFACE_POSITION_INDEPENDENT_CODE "ON")
+            if(NOT IS_MSVC)
+                set(CMAKE_CXX_COMPILE_OPTIONS_PIE "-fPIC")
+            endif()
         endif()
     endif()
 
@@ -310,10 +356,13 @@ set(COLMAP_INCLUDE_DIRS
     ${Boost_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
     ${GLOG_INCLUDE_DIRS}
+    ${FLANN_INCLUDE_DIRS}
+    ${LZ4_INCLUDE_DIRS}
     ${FREEIMAGE_INCLUDE_DIRS}
     ${CERES_INCLUDE_DIRS}
     ${METIS_INCLUDE_DIRS}
     ${GLEW_INCLUDE_DIRS}
+    ${SQLite3_INCLUDE_DIRS}
 )
 
 set(COLMAP_LINK_DIRS
@@ -326,10 +375,13 @@ set(COLMAP_EXTERNAL_LIBRARIES
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${GLOG_LIBRARIES}
+    ${FLANN_LIBRARIES}
+    ${LZ4_LIBRARIES}
     ${FREEIMAGE_LIBRARIES}
     ${METIS_LIBRARIES}
     ${CERES_LIBRARIES}
     ${OPENGL_LIBRARIES}
+    ${SQLite3_LIBRARIES}
 )
 
 if(OPENMP_FOUND)
@@ -352,63 +404,53 @@ if(UNIX)
 endif()
 
 set(COLMAP_INTERNAL_LIBRARIES
-    flann
     lsd
-    pba
     poisson_recon
-    sqlite3
     sift_gpu
     vlfeat
 )
 
 include_directories(
-    lib
     src
     ${COLMAP_INCLUDE_DIRS}
 )
 
 link_directories(${COLMAP_LINK_DIRS})
 
-add_subdirectory(lib)
-add_subdirectory(src)
+add_subdirectory(src/lib)
+add_subdirectory(src/colmap)
 
 
 ################################################################################
 # Generate source groups for Visual Studio, XCode, etc.
 ################################################################################
 
-COLMAP_ADD_SOURCE_DIR(lib/FLANN LIB_FLANN_SRCS *.h *.cpp *.hpp *.cu)
-COLMAP_ADD_SOURCE_DIR(lib/LSD LIB_LSD_SRCS *.h *.c)
-COLMAP_ADD_SOURCE_DIR(lib/PBA LIB_PBA_SRCS *.h *.cpp *.cu)
-COLMAP_ADD_SOURCE_DIR(lib/PoissonRecon LIB_POISSON_RECON_SRCS *.h *.cpp *.inl)
-COLMAP_ADD_SOURCE_DIR(lib/SiftGPU LIB_SIFT_GPU_SRCS *.h *.cpp *.cu)
-COLMAP_ADD_SOURCE_DIR(lib/SQLite LIB_SQLITE_SRCS *.h *.c)
-COLMAP_ADD_SOURCE_DIR(lib/VLFeat LIB_VLFEAT_SRCS *.h *.c *.tc)
+COLMAP_ADD_SOURCE_DIR(src/lib/LSD LIB_LSD_SRCS *.h *.c)
+COLMAP_ADD_SOURCE_DIR(src/lib/PoissonRecon LIB_POISSON_RECON_SRCS *.h *.cpp *.inl)
+COLMAP_ADD_SOURCE_DIR(src/lib/SiftGPU LIB_SIFT_GPU_SRCS *.h *.cpp *.cu)
+COLMAP_ADD_SOURCE_DIR(src/lib/VLFeat LIB_VLFEAT_SRCS *.h *.c *.tc)
 
-COLMAP_ADD_SOURCE_DIR(src/base BASE_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/controllers CONTROLLERS_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/estimators ESTIMATORS_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/exe EXE_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/feature FEATURE_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/mvs MVS_SRCS *.h *.cc *.cu)
-COLMAP_ADD_SOURCE_DIR(src/optim OPTIM_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/retrieval RETRIEVAL_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/sfm SFM_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/tools TOOLS_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/ui UI_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/util UTIL_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/base BASE_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/controllers CONTROLLERS_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/estimators ESTIMATORS_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/exe EXE_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/feature FEATURE_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/mvs MVS_SRCS *.h *.cc *.cu)
+COLMAP_ADD_SOURCE_DIR(src/colmap/optim OPTIM_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/retrieval RETRIEVAL_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/sfm SFM_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/tools TOOLS_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/ui UI_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/util UTIL_SRCS *.h *.cc)
 
 # Add all of the source files to a regular library target, as using a custom
 # target does not allow us to set its C++ include directories (and thus
 # intellisense can't find any of the included files).
 add_library(
     ${COLMAP_SRC_ROOT_FOLDER}
-    ${LIB_FLANN_SRCS}
     ${LIB_LSD_SRCS}
-    ${LIB_PBA_SRCS}
     ${LIB_POISSON_RECON_SRCS}
     ${LIB_SIFT_GPU_SRCS}
-    ${LIB_SQLITE_SRCS}
     ${LIB_VLFEAT_SRCS}
     ${BASE_SRCS}
     ${CONTROLLERS_SRCS}
@@ -436,11 +478,11 @@ set_target_properties(
 ################################################################################
 
 # Install header files.
-install(DIRECTORY src/
-        DESTINATION include/colmap
+install(DIRECTORY src/colmap
+        DESTINATION include
         FILES_MATCHING PATTERN "*.h")
-install(DIRECTORY lib/
-        DESTINATION include/colmap/lib
+install(DIRECTORY src/lib
+        DESTINATION include/colmap
         FILES_MATCHING REGEX ".*[.]h|.*[.]hpp|.*[.]inl")
 
 # Generate and install CMake configuration.

@@ -1,15 +1,20 @@
 parameters:
-  displayName: 'Ubuntu 18.04'
-  ubuntuVersion: '18.04'
+  displayName: 'Ubuntu 20.04'
+  ubuntuVersion: '20.04'
   cudaEnabled: false
   asanEnabled: false
-  e2eTestsEnabled: false
+  cmakeBuildType: Release
 
 jobs:
-- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}_asan_${{ parameters.asanEnabled }}_e2e_${{ parameters.e2eTestsEnabled }}
+- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}_asan_${{ parameters.asanEnabled }}_${{ parameters.cmakeBuildType }}_e2e_${{ parameters.e2eTestsEnabled }}
   displayName: '${{ parameters.displayName }}'
   pool:
     vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
+  variables:
+    ${{ if eq(parameters.asanEnabled, false) }}:
+      ctestExclusions: "(mvs/gpu_mat_test)"
+    ${{ if eq(parameters.asanEnabled, true) }}:
+      ctestExclusions: "(feature/sift_test)|(util/opengl_utils_test)|(mvs/gpu_mat_test)"
   steps:
   - script: |
       sudo apt-get update && sudo apt-get install -y \
@@ -22,34 +27,55 @@ jobs:
         libboost-test-dev \
         libeigen3-dev \
         libceres-dev \
+        libflann-dev \
         libfreeimage-dev \
         libmetis-dev \
         libgoogle-glog-dev \
         libgflags-dev \
+        libsqlite3-dev \
         libglew-dev \
         qtbase5-dev \
         libqt5opengl5-dev \
         libcgal-dev \
         libcgal-qt5-dev \
         libgl1-mesa-dri \
+        libunwind-dev \
         xvfb \
         zip
     displayName: 'Install dependencies'
   
   - ${{ if eq(parameters.cudaEnabled, true) }}:
-    - script: |
-        sudo apt-get install -y \
-          nvidia-cuda-toolkit \
-          nvidia-cuda-toolkit-gcc
-        echo '##vso[task.setvariable variable=CC]/usr/bin/cuda-gcc'
-        echo '##vso[task.setvariable variable=CXX]/usr/bin/cuda-g++'
-      displayName: 'Install CUDA'
+    - ${{ if eq(parameters.ubuntuVersion, '22.04') }}:
+      - script: |
+          sudo apt-get install -y \
+            nvidia-cuda-toolkit \
+            nvidia-cuda-toolkit-gcc \
+            gcc-10 g++-10
+          echo '##vso[task.setvariable variable=CC]/usr/bin/gcc-10'
+          echo '##vso[task.setvariable variable=CXX]/usr/bin/g++-10'
+          echo '##vso[task.setvariable variable=CUDAHOSTCXX]/usr/bin/g++-10'
+        displayName: 'Install CUDA'
+    - ${{ if ne(parameters.ubuntuVersion, '22.04') }}:
+      - script: |
+          sudo apt-get install -y \
+            nvidia-cuda-toolkit \
+            nvidia-cuda-toolkit-gcc
+          echo '##vso[task.setvariable variable=CC]/usr/bin/cuda-gcc'
+          echo '##vso[task.setvariable variable=CXX]/usr/bin/cuda-g++'
+        displayName: 'Install CUDA'
 
   - ${{ if eq(parameters.asanEnabled, true) }}:
     - script: |
-        sudo apt-get install -y clang-10
-        echo '##vso[task.setvariable variable=CC]/usr/bin/clang'
-        echo '##vso[task.setvariable variable=CXX]/usr/bin/clang++'
+        sudo apt-get install -y clang-15
+        echo '##vso[task.setvariable variable=CC]/usr/bin/clang-15'
+        echo '##vso[task.setvariable variable=CXX]/usr/bin/clang++-15'
+      displayName: 'Install Clang'
+
+  - ${{ if eq(parameters.cmakeBuildType, 'ClangTidy') }}:
+    - script: |
+        sudo apt-get install -y clang-15 clang-tidy-15
+        echo '##vso[task.setvariable variable=CC]/usr/bin/clang-15'
+        echo '##vso[task.setvariable variable=CXX]/usr/bin/clang++-15'
       displayName: 'Install Clang'
 
   - script: |
@@ -58,8 +84,9 @@ jobs:
       cd build
       cmake .. \
         -GNinja \
+        -DCMAKE_BUILD_TYPE=${{ parameters.cmakeBuildType }} \
         -DTESTS_ENABLED=ON \
-        -DCUDA_ARCHS=6.0 \
+        -DCMAKE_CUDA_ARCHITECTURES=50 \
         -DASAN_ENABLED=${{ parameters.asanEnabled }}
       ninja
     displayName: 'Configure and build'
@@ -70,7 +97,7 @@ jobs:
       Xvfb :99 &
       sleep 3
       cd build
-      ctest -E "(feature/sift_test)|(util/opengl_utils_test)|(mvs/gpu_mat_test)"
+      ctest -E "$(ctestExclusions)"
       tests_pass=$?
       if [ $tests_pass -ne 0 ]; then
           echo "Tests failed, rerunning with verbose output"
@@ -101,4 +128,4 @@ jobs:
             --max_translation_error 0.5 \
             --max_proj_center_error 0.5 \
             --expected_num_images 6
-      displayName: 'Run E2E tests'
+      displayName: Run E2E tests

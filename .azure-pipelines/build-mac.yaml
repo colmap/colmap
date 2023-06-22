@@ -14,6 +14,7 @@ jobs:
         ninja \
         boost \
         eigen \
+        flann \
         freeimage \
         metis \
         glog \
@@ -21,7 +22,8 @@ jobs:
         ceres-solver \
         qt5 \
         glew \
-        cgal
+        cgal \
+        sqlite3
     displayName: 'Install dependencies'
 
   - script: |

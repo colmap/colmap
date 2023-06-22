@@ -72,6 +72,7 @@ Dependencies from the default Ubuntu repositories::
     sudo apt-get install \
         git \
         cmake \
+        ninja-build \
         build-essential \
         libboost-program-options-dev \
         libboost-filesystem-dev \
@@ -79,32 +80,17 @@ Dependencies from the default Ubuntu repositories::
         libboost-system-dev \
         libboost-test-dev \
         libeigen3-dev \
-        libsuitesparse-dev \
+        libflann-dev \
         libfreeimage-dev \
         libmetis-dev \
         libgoogle-glog-dev \
         libgflags-dev \
+        libsqlite3-dev \
         libglew-dev \
         qtbase5-dev \
         libqt5opengl5-dev \
-        libcgal-dev
-
-Under Ubuntu 16.04/18.04 the CMake configuration scripts of CGAL are broken and
-you must also install the CGAL Qt5 package::
-
-    sudo apt-get install libcgal-qt5-dev
-
-Install `Ceres Solver <http://ceres-solver.org/>`_::
-
-    sudo apt-get install libatlas-base-dev libsuitesparse-dev
-    git clone https://ceres-solver.googlesource.com/ceres-solver
-    cd ceres-solver
-    git checkout $(git describe --tags) # Checkout the latest release
-    mkdir build
-    cd build
-    cmake .. -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF
-    make -j
-    sudo make install
+        libcgal-dev \
+        libceres-dev
 
 Configure and compile COLMAP::
 
@@ -113,20 +99,42 @@ Configure and compile COLMAP::
     git checkout dev
     mkdir build
     cd build
-    cmake ..
-    make -j
-    sudo make install
+    cmake .. -GNinja
+    ninja
+    sudo ninja install
 
 Run COLMAP::
 
     colmap -h
     colmap gui
 
+To compile with **CUDA support**, also install Ubuntu's default CUDA package::
+
+    sudo apt-get install -y \
+        nvidia-cuda-toolkit \
+        nvidia-cuda-toolkit-gcc
+
+Or, manually install latest CUDA from NVIDIA's homepage. During CMake configuration
+specify `CMAKE_CUDA_ARCHITECTURES` as "native", if you want to run COLMAP on your
+current machine only, "all"/"all-major" to be able to distribute to other machines,
+or a specific CUDA architecture like "75", etc.
+
+Under **Ubuntu 16.04/18.04**, the CMake configuration scripts of CGAL are broken and
+you must also install the CGAL Qt5 package::
+
+    sudo apt-get install libcgal-qt5-dev
+
+Under **Ubuntu 22.04**, there is a problem when compiling with Ubuntu's default CUDA
+package and GCC, and you must compile against GCC 10::
+
+    sudo apt-get install gcc-10 g++-10
+    export CC=/usr/bin/gcc-10
+    export CXX=/usr/bin/g++-10
+    export CUDAHOSTCXX=/usr/bin/g++-10
+    # ... and then run CMake against COLMAP's sources.
 
 Mac
 ---
-
-*Recommended dependencies:* CUDA (at least version 7.X)
 
 Dependencies from `Homebrew <http://brew.sh/>`_::
 
@@ -136,6 +144,7 @@ Dependencies from `Homebrew <http://brew.sh/>`_::
         boost \
         eigen \
         freeimage \
+        flann \
         glog \
         gflags \
         metis \
@@ -143,7 +152,8 @@ Dependencies from `Homebrew <http://brew.sh/>`_::
         ceres-solver \
         qt5 \
         glew \
-        cgal
+        cgal \
+        sqlite3
 
 Configure and compile COLMAP::
 
@@ -152,15 +162,15 @@ Configure and compile COLMAP::
     git checkout dev
     mkdir build
     cd build
-    cmake .. -DQt5_DIR=/usr/local/opt/qt/lib/cmake/Qt5
+    cmake .. -DQt5_DIR=/opt/homebrew/opt/qt@5/lib/cmake/Qt5
     make
     sudo make install
 
 If you have Qt 6 installed on your system as well, you might have to temporarily
-link your Qt 5 installation while configuring CMake:
+link your Qt 5 installation while configuring CMake::
 
     brew link qt5
-    ... cmake configuration
+    cmake configuration (from previous code block)
     brew unlink qt5
 
 Run COLMAP::
@@ -186,6 +196,9 @@ To compile CUDA for multiple compute architectures, please use::
     .\vcpkg install colmap[cuda-redist]:x64-windows
 
 Please refer to the next section for more details.
+
+**Visual Studio 2022**  has some known compiler bugs that crash when
+compiling COLMAP's source code.
 
 
 VCPKG
@@ -317,6 +330,13 @@ with the source code ``hello_world.cc``::
         return EXIT_SUCCESS;
     }
 
+Then compile and run your code as::
+    
+    mkdir build
+    cd build
+    COLMAP_DIR=${CMAKE_INSTALL_PREFIX}/share/colmap cmake ..
+    make
+    ./hello_world
 
 ----------------
 AddressSanitizer

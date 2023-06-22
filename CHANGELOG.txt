@@ -1,3 +1,69 @@
+COLMAP 3.8 (01/31/2023)
+-----------------------
+* Updating geo-registration doc. by @ferreram in https://github.com/colmap/colmap/pull/1410
+* Adding user-specified option for reconstructing purely planar scene. … by @ferreram in https://github.com/colmap/colmap/pull/1408
+* Only apply sqlite vacuum command when elements are deleted from the database. by @ferreram in https://github.com/colmap/colmap/pull/1414
+* Replace Graclus with Metis dependency by @ahojnnes in https://github.com/colmap/colmap/pull/1422
+* Update ceres download URL in build script by @whuaegeanse in https://github.com/colmap/colmap/pull/1430
+* Fix type errors when building colmap with build.py in windows by @whuaegeanse in https://github.com/colmap/colmap/pull/1440
+* Fix bug in the computation of the statistics Global/Local BA by @whuaegeanse in https://github.com/colmap/colmap/pull/1449
+* Add RefineGeneralizedAbsolutePose and covariance estimation by @Skydes in https://github.com/colmap/colmap/pull/1464
+* Update docker image definition by @ahojnnes in https://github.com/colmap/colmap/pull/1478
+* Upgrade deprecated ceres parameterizations to manifolds by @ahojnnes in https://github.com/colmap/colmap/pull/1477
+* Use masks for stereo fusion on automatic reconstruction by @ibrarmalik in https://github.com/colmap/colmap/pull/1488
+* fix random seed set failed from external interface by @WZG3661 in https://github.com/colmap/colmap/pull/1498
+* Replace deprecated Eigen nonZeros() call for most recent Eigen versions. by @nackjaylor in https://github.com/colmap/colmap/pull/1494
+* Fix ceres-solver folder name by @f-fl0 in https://github.com/colmap/colmap/pull/1501
+* Improved convergence criterion for XYZ to ELL conversion by @ahojnnes in https://github.com/colmap/colmap/pull/1505
+* Fix bug in the function SetPtr of Bitmap by @whuaegeanse in https://github.com/colmap/colmap/pull/1525
+* Avoid the calling of copy constructor/assignment by @whuaegeanse in https://github.com/colmap/colmap/pull/1524
+* Avoid calling copy constructors of  FeatureKeypoints and FeatureDescriptors by @whuaegeanse in https://github.com/colmap/colmap/pull/1540
+* Initialize freeimage if statically linked by @ahojnnes in https://github.com/colmap/colmap/pull/1549
+* Avoid hard crash if Jacobian matrix is rank deficient by @mihaidusmanu in https://github.com/colmap/colmap/pull/1557
+* visualize_model.py: added FULL_OPENCV model by @soeroesg in https://github.com/colmap/colmap/pull/1552
+* Update vcpkg version to fix CI pipeline by @ahojnnes in https://github.com/colmap/colmap/pull/1568
+* Replace deprecated Mac OS 10.15 with Mac OS 12 build in CI by @ahojnnes in https://github.com/colmap/colmap/pull/1569
+* Fix inconsistent between the actual executed image reader option and the saved project.ini file by @XuChengHUST in https://github.com/colmap/colmap/pull/1564
+* checkout the expected version of ceres solver by @scott-vsi in https://github.com/colmap/colmap/pull/1576
+* use default qt5 brew install directory #1573 by @catapulta in https://github.com/colmap/colmap/pull/1574
+* Fix image undistortion with nested image folders by @ahojnnes in https://github.com/colmap/colmap/pull/1606
+* Fix source file permissions by @ahojnnes in https://github.com/colmap/colmap/pull/1607
+* Fixed the collection of arguments in colmap.bat by @tdegraaff in https://github.com/colmap/colmap/pull/1121
+* Add OpenMP to COLMAP_EXTERNAL_LIBRARIES if enabled by @logchan in https://github.com/colmap/colmap/pull/1632
+* Fix output tile reconstructions are the same as the input reconstruction in `RunModelSplitter` (#1513) by @Serenitysmk in https://github.com/colmap/colmap/pull/1531
+* add `libmetis-dev` to solve `METIS_INCLUDE_DIRS`. by @FavorMylikes in https://github.com/colmap/colmap/pull/1672
+* Update install.rst by @tomer-grin in https://github.com/colmap/colmap/pull/1671
+* Update freeimage links. by @Yulv-git in https://github.com/colmap/colmap/pull/1675
+* fix small typo by @skal65535 in https://github.com/colmap/colmap/pull/1668
+* Update build.py with new glew link by @aghand0ur in https://github.com/colmap/colmap/pull/1658
+* Add use_cache in fusion options GUI by @hrflr in https://github.com/colmap/colmap/pull/1655
+* Add CI pipeline for Ubuntu 22.04 by @ahojnnes in https://github.com/colmap/colmap/pull/1688
+* Avoid unnecessary copies of data by @ahojnnes in https://github.com/colmap/colmap/pull/1691
+* Reduce memory allocations in correspondence graph search by @ahojnnes in https://github.com/colmap/colmap/pull/1692
+* Use FindCUDAToolkit when available. by @hanseuljun in https://github.com/colmap/colmap/pull/1693
+* Fixed a crash due to inconsistent undistortion by @SomeAlphabetGuy in https://github.com/colmap/colmap/pull/1698
+* Add CUDA Ubuntu 22.04 CI build by @ahojnnes in https://github.com/colmap/colmap/pull/1705
+* Delete the redundancy install of libmetis-dev by @thomas-graphopti in https://github.com/colmap/colmap/pull/1721
+* Fix broken loading of image masks on macOS by @buesma in https://github.com/colmap/colmap/pull/1639
+* Update install instructions with latest hints and known issues by @ahojnnes in https://github.com/colmap/colmap/pull/1736
+* Modernize smart pointer initialization, fix alloc/dealloc mismatch by @ahojnnes in https://github.com/colmap/colmap/pull/1737
+* Fix typo in cli.rst by @ojhernandez in https://github.com/colmap/colmap/pull/1747
+* Fix inconsistent image resizing between CPU/GPU implementations of SIFT by @Yzhbuaa in https://github.com/colmap/colmap/pull/1642
+* Reduce number of SIFT test features to make tests run under WSL by @ahojnnes in https://github.com/colmap/colmap/pull/1748
+* Tag documentation version with dev by @ahojnnes in https://github.com/colmap/colmap/pull/1749
+* Update copyright to 2023 by @ahojnnes in https://github.com/colmap/colmap/pull/1750
+* Fix max image dimension for positive first_octave by @ahojnnes in https://github.com/colmap/colmap/pull/1751
+* Fix SIFT GPU match creation by @ahojnnes in https://github.com/colmap/colmap/pull/1757
+* Fix SIFT tests for OpenGL by @ahojnnes in https://github.com/colmap/colmap/pull/1762
+* Suppress CUDA stack size warning for ptxas by @ahojnnes in https://github.com/colmap/colmap/pull/1770
+* Simplify CUDA CMake configuration by @ahojnnes in https://github.com/colmap/colmap/pull/1776
+* Fixes for CUDA compilation by @ahojnnes in https://github.com/colmap/colmap/pull/1777
+* Improvements to dockerfile and build pipeline by @ahojnnes in https://github.com/colmap/colmap/pull/1778
+* Explicitly require CMAKE_CUDA_ARCHITECTURES to be defined by @ahojnnes in https://github.com/colmap/colmap/pull/1781
+* Depend on system installed FLANN by @ahojnnes in https://github.com/colmap/colmap/pull/1782
+* Option to store relative pose between two cameras in database by @yanxke in https://github.com/colmap/colmap/pull/1774
+* Depend on system installed SQLite3 by @ahojnnes in https://github.com/colmap/colmap/pull/1783
+
 COLMAP 3.7 (01/26/2022)
 -----------------------
 * Allow to save fused point cloud in colmap format when using command line by @boitumeloruf in https://github.com/colmap/colmap/pull/799
