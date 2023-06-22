@@ -126,6 +126,7 @@ jobs:
     displayName: Run tests
 
   - script: |
+      set -x
       ccache --show-stats
       ccache --evict-older-than 1d
       ccache --show-stats
