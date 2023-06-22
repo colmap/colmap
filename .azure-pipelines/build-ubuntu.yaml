@@ -12,6 +12,7 @@ jobs:
     vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
   variables:
     CCACHE_DIR: $(Pipeline.Workspace)/ccache
+    CCACHE_BASEDIR: $(Build.SourcesDirectory)
     ${{ if eq(parameters.asanEnabled, false) }}:
       ctestExclusions: "(mvs/gpu_mat_test)"
     ${{ if eq(parameters.asanEnabled, true) }}:
@@ -81,9 +82,9 @@ jobs:
 
   - task: Cache@2
     inputs:
-      key: ccache | "$(Agent.OS)"
+      key: ccache | "$(Agent.OS)" | displayName
       path: $(CCACHE_DIR)
-      restoreKeys: ccache | "$(Agent.OS)"
+      restoreKeys: ccache | "$(Agent.OS)" | displayName
     displayName: Restore ccache
 
   - script: |
