@@ -26,7 +26,7 @@ jobs:
   - pwsh: |
       git clone https://github.com/microsoft/vcpkg
       cd vcpkg
-      git checkout --force $(vcpkgGitCommitId)
+      git reset --hard $(vcpkgGitCommitId)
       ./bootstrap-vcpkg.bat
       $(Build.SourcesDirectory)/scripts/shell/enter_vs_dev_shell.ps1
       ./vcpkg.exe install --recurse @$(Build.SourcesDirectory)/.azure-pipelines/build-windows-vcpkg.txt --clean-after-build
