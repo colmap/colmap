@@ -1,5 +1,5 @@
 parameters:
-  displayName: 'Ubuntu 20.04'
+  displayName: Ubuntu 20.04
   ubuntuVersion: '20.04'
   cudaEnabled: false
   asanEnabled: false
@@ -8,10 +8,13 @@ parameters:
 
 jobs:
 - job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}_asan_${{ parameters.asanEnabled }}_${{ parameters.cmakeBuildType }}_e2e_${{ parameters.e2eTestsEnabled }}
-  displayName: '${{ parameters.displayName }}'
+  displayName: ${{ parameters.displayName }}
   pool:
     vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
   variables:
+    CCACHE_DIR: $(Pipeline.Workspace)/ccache
+    CCACHE_BASEDIR: $(Build.SourcesDirectory)
+    CCACHE_VERSION: 1
     ${{ if eq(parameters.asanEnabled, false) }}:
       ctestExclusions: "(mvs/gpu_mat_test)"
     ${{ if eq(parameters.asanEnabled, true) }}:
@@ -41,9 +44,8 @@ jobs:
         libcgal-qt5-dev \
         libgl1-mesa-dri \
         libunwind-dev \
-        xvfb \
-        zip
-    displayName: 'Install dependencies'
+        xvfb
+    displayName: Install dependencies
   
   - ${{ if eq(parameters.cudaEnabled, true) }}:
     - ${{ if eq(parameters.ubuntuVersion, '22.04') }}:
@@ -55,7 +57,7 @@ jobs:
           echo '##vso[task.setvariable variable=CC]/usr/bin/gcc-10'
           echo '##vso[task.setvariable variable=CXX]/usr/bin/g++-10'
           echo '##vso[task.setvariable variable=CUDAHOSTCXX]/usr/bin/g++-10'
-        displayName: 'Install CUDA'
+        displayName: Install CUDA
     - ${{ if ne(parameters.ubuntuVersion, '22.04') }}:
       - script: |
           sudo apt-get install -y \
@@ -63,21 +65,39 @@ jobs:
             nvidia-cuda-toolkit-gcc
           echo '##vso[task.setvariable variable=CC]/usr/bin/cuda-gcc'
           echo '##vso[task.setvariable variable=CXX]/usr/bin/cuda-g++'
-        displayName: 'Install CUDA'
+        displayName: Install CUDA
 
   - ${{ if eq(parameters.asanEnabled, true) }}:
     - script: |
         sudo apt-get install -y clang-15
         echo '##vso[task.setvariable variable=CC]/usr/bin/clang-15'
         echo '##vso[task.setvariable variable=CXX]/usr/bin/clang++-15'
-      displayName: 'Install Clang'
+      displayName: Install Clang
 
   - ${{ if eq(parameters.cmakeBuildType, 'ClangTidy') }}:
     - script: |
         sudo apt-get install -y clang-15 clang-tidy-15
         echo '##vso[task.setvariable variable=CC]/usr/bin/clang-15'
         echo '##vso[task.setvariable variable=CXX]/usr/bin/clang++-15'
-      displayName: 'Install Clang'
+      displayName: Install Clang
+
+  - task: Cache@2
+    inputs:
+      key: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
+      restoreKeys: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
+      path: $(CCACHE_DIR)
+    displayName: Restore ccache
+
+  - script: |
+      set -x
+      wget https://github.com/ccache/ccache/releases/download/v4.8.2/ccache-4.8.2-linux-x86_64.tar.xz
+      echo "0b33f39766fe9db67f40418aed6a5b3d7b2f4f7fab025a8213264b77a2d0e1b1  ccache-4.8.2-linux-x86_64.tar.xz" | sha256sum --check
+      tar xfv ccache-4.8.2-linux-x86_64.tar.xz
+      mkdir -p "$(CCACHE_DIR)/bin"
+      mv ./ccache-4.8.2-linux-x86_64/ccache "$(CCACHE_DIR)/bin"
+      echo "##vso[task.prependpath]$(CCACHE_DIR)/bin"
+    displayName: Install CCache
+    condition: ne(variables.CCACHE_RESTORED, 'true')
 
   - script: |
       cmake --version
@@ -90,22 +110,23 @@ jobs:
         -DCMAKE_CUDA_ARCHITECTURES=50 \
         -DASAN_ENABLED=${{ parameters.asanEnabled }}
       ninja
-    displayName: 'Configure and build'
+    displayName: Configure and build
 
-  - script: |
-      export DISPLAY=":99.0"
-      export QT_QPA_PLATFORM="offscreen"
-      Xvfb :99 &
-      sleep 3
-      cd build
-      ctest -E "$(ctestExclusions)"
-      tests_pass=$?
-      if [ $tests_pass -ne 0 ]; then
-          echo "Tests failed, rerunning with verbose output"
-          ctest --rerun-failed --output-on-failure
-      fi
-      exit $tests_pass
-    displayName: Run unit tests
+  - ${{ if ne(parameters.cmakeBuildType, 'ClangTidy') }}:
+    - script: |
+        export DISPLAY=":99.0"
+        export QT_QPA_PLATFORM="offscreen"
+        Xvfb :99 &
+        sleep 3
+        cd build
+        ctest -E "$(ctestExclusions)"
+        tests_pass=$?
+        if [ $tests_pass -ne 0 ]; then
+            echo "Tests failed, rerunning with verbose output"
+            ctest --rerun-failed --output-on-failure
+        fi
+        exit $tests_pass
+      displayName: Run tests
 
   - ${{ if eq(parameters.e2eTestsEnabled, true) }}:
     - script: |
@@ -128,3 +149,10 @@ jobs:
             --max_proj_center_error 0.5 \
             --expected_num_images 6
       displayName: Run E2E tests
+
+  - script: |
+      set -x
+      ccache --show-stats
+      ccache --evict-older-than 1d
+      ccache --show-stats
+    displayName: Cleanup ccache

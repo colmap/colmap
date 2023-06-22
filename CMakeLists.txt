@@ -296,7 +296,7 @@ else()
     message(STATUS "Disabling OpenGL support")
 endif()
 
-if(CCACHE_ENABLED AND NOT "${CMAKE_BUILD_TYPE}" STREQUAL "ClangTidy")
+if(CCACHE_ENABLED)
     find_program(CCACHE ccache)
     if(CCACHE)
         message(STATUS "Enabling ccache support")
