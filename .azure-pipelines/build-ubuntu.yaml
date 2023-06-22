@@ -81,7 +81,7 @@ jobs:
 
   - task: Cache@2
     inputs:
-      key: ccache | "$(Agent.OS)" | displayName
+      key: ccache_v1 | "$(Agent.OS)" | displayName
       restoreKeys: ccache | "$(Agent.OS)" | displayName
       path: $(CCACHE_DIR)
     displayName: Restore ccache
