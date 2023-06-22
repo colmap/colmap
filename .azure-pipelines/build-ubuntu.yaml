@@ -1,5 +1,5 @@
 parameters:
-  displayName: 'Ubuntu 20.04'
+  displayName: Ubuntu 20.04
   ubuntuVersion: '20.04'
   cudaEnabled: false
   asanEnabled: false
@@ -7,10 +7,11 @@ parameters:
 
 jobs:
 - job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}_asan_${{ parameters.asanEnabled }}_${{ parameters.cmakeBuildType }}
-  displayName: '${{ parameters.displayName }}'
+  displayName: ${{ parameters.displayName }}
   pool:
     vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
   variables:
+    CCACHE_DIR: $(Pipeline.Workspace)/ccache
     ${{ if eq(parameters.asanEnabled, false) }}:
       ctestExclusions: "(mvs/gpu_mat_test)"
     ${{ if eq(parameters.asanEnabled, true) }}:
@@ -40,8 +41,9 @@ jobs:
         libcgal-qt5-dev \
         libgl1-mesa-dri \
         libunwind-dev \
-        xvfb
-    displayName: 'Install dependencies'
+        xvfb \
+        ccache
+    displayName: Install dependencies
   
   - ${{ if eq(parameters.cudaEnabled, true) }}:
     - ${{ if eq(parameters.ubuntuVersion, '22.04') }}:
@@ -53,7 +55,7 @@ jobs:
           echo '##vso[task.setvariable variable=CC]/usr/bin/gcc-10'
           echo '##vso[task.setvariable variable=CXX]/usr/bin/g++-10'
           echo '##vso[task.setvariable variable=CUDAHOSTCXX]/usr/bin/g++-10'
-        displayName: 'Install CUDA'
+        displayName: Install CUDA
     - ${{ if ne(parameters.ubuntuVersion, '22.04') }}:
       - script: |
           sudo apt-get install -y \
@@ -61,23 +63,30 @@ jobs:
             nvidia-cuda-toolkit-gcc
           echo '##vso[task.setvariable variable=CC]/usr/bin/cuda-gcc'
           echo '##vso[task.setvariable variable=CXX]/usr/bin/cuda-g++'
-        displayName: 'Install CUDA'
+        displayName: Install CUDA
 
   - ${{ if eq(parameters.asanEnabled, true) }}:
     - script: |
         sudo apt-get install -y clang-15
         echo '##vso[task.setvariable variable=CC]/usr/bin/clang-15'
         echo '##vso[task.setvariable variable=CXX]/usr/bin/clang++-15'
-      displayName: 'Install Clang'
+      displayName: Install Clang
 
   - ${{ if eq(parameters.cmakeBuildType, 'ClangTidy') }}:
     - script: |
         sudo apt-get install -y clang-15 clang-tidy-15
         echo '##vso[task.setvariable variable=CC]/usr/bin/clang-15'
         echo '##vso[task.setvariable variable=CXX]/usr/bin/clang++-15'
-      displayName: 'Install Clang'
+      displayName: Install Clang
 
-  - script: |
+  - task: Cache@2
+    inputs:
+      key: ccache | "$(Agent.OS)"
+      path: $(CCACHE_DIR)
+      restoreKeys: ccache | "$(Agent.OS)"
+    displayName: Cache ccache
+
+    - script: |
       cmake --version
       mkdir build
       cd build
@@ -88,7 +97,7 @@ jobs:
         -DCMAKE_CUDA_ARCHITECTURES=50 \
         -DASAN_ENABLED=${{ parameters.asanEnabled }}
       ninja
-    displayName: 'Configure and build'
+    displayName: Configure and build
 
   - script: |
       export DISPLAY=":99.0"
@@ -103,4 +112,10 @@ jobs:
           ctest --rerun-failed --output-on-failure
       fi
       exit $tests_pass
-    displayName: 'Run tests'
+    displayName: Run tests
+
+  - script: |
+      ccache --show-stats
+      ccache --evict-older-than 1d
+      ccache --show-stats
+    displayName: "Cleanup ccache and show stats"
