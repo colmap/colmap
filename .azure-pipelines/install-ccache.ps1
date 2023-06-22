@@ -18,7 +18,10 @@ try {
     $zipFilePath = Join-Path "$env:TEMP" "$folder.zip"
     Invoke-WebRequest -Uri $url -UseBasicParsing -OutFile "$zipFilePath" -MaximumRetryCount 3
 
-    Confirm-FileHash $zipFilePath $expectedSha256
+    $hash = Get-FileHash $zipFilePath -Algorithm "sha256"
+    if ($hash.Hash -ne $expectedSha256) {
+        throw "File $Path hash $hash.Hash did not match expected hash $expectedHash"
+    }
 
     Write-Host "Unzip CCache"
     Expand-Archive -Path "$zipFilePath" -DestinationPath "$env:TEMP"
