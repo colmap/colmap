@@ -77,7 +77,7 @@ jobs:
             --input_path1 south-building-test/sparse/0 `
             --input_path2 south-building-test/expected-sparse/0 `
             --output_path .
-        python ./scripts/python/expect_model_comparer_errors.py `
+        python ../scripts/python/expect_model_comparer_errors.py `
             --errors_csv_path errors.csv `
             --max_rotation_error 0.5 `
             --max_translation_error 0.5 `
