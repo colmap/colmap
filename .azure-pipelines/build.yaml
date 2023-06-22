@@ -14,7 +14,6 @@ jobs:
     parameters:
       displayName: 'Ubuntu 20.04'
       ubuntuVersion: 20.04
-      e2eTestsEnabled: true
   - template: build-ubuntu.yaml
     parameters:
       displayName: 'Ubuntu 20.04 (CUDA)'
@@ -24,6 +23,7 @@ jobs:
     parameters:
       displayName: 'Ubuntu 22.04'
       ubuntuVersion: 22.04
+      e2eTestsEnabled: true
   - template: build-ubuntu.yaml
     parameters:
       displayName: 'Ubuntu 22.04 (CUDA)'

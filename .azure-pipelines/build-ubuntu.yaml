@@ -3,6 +3,7 @@ parameters:
   ubuntuVersion: '20.04'
   cudaEnabled: false
   asanEnabled: false
+  e2eTestsEnabled: false
   cmakeBuildType: Release
 
 jobs:
