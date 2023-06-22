@@ -83,5 +83,5 @@ jobs:
             --max_translation_error 0.5 `
             --max_proj_center_error 0.5 `
             --expected_num_images 6
-      workingDirectory: $(Build.ArtifactStagingDirectory)
+      workingDirectory: $(Build.SourcesDirectory)/build
       displayName: Run E2E tests
