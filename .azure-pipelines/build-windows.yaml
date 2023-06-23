@@ -103,7 +103,7 @@ jobs:
       displayName: Run E2E tests
 
   - pwsh: |
-      ccache --show-stats
-      ccache --evict-older-than 1d
-      ccache --show-stats
+      $(CCACHE_DIR)/bin/ccache --show-stats
+      $(CCACHE_DIR)/bin/ccache --evict-older-than 1d
+      $(CCACHE_DIR)/bin/ccache --show-stats
     displayName: Cleanup ccache
