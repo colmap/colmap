@@ -68,7 +68,7 @@ def main():
     dataset_archive_path = os.path.join(workspace_path, "dataset.7z")
     download_file(f"https://www.eth3d.net/data/{args.dataset_name}_dslr_undistorted.7z", dataset_archive_path)
 
-    # subprocess.check_call(["7zz", "x", "dataset.7z"], cwd=workspace_path)
+    subprocess.check_call(["7zz", "x", "dataset.7z"], cwd=workspace_path)
 
     subprocess.check_call([
         os.path.realpath(args.colmap_path),
