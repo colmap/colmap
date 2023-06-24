@@ -85,9 +85,8 @@ jobs:
   - task: Cache@2
     inputs:
       key: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
-      restoreKeys: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
       path: $(CCACHE_DIR)
-    displayName: Restore ccache
+    displayName: Restore CCache
 
   - script: |
       set -x

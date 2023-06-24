@@ -10,6 +10,7 @@ jobs:
   variables:
     CCACHE_DIR: $(Pipeline.Workspace)/ccache
     CCACHE_BASEDIR: $(Build.SourcesDirectory)
+    CCACHE_VERSION: 1
   steps:
   - script: |
       brew install \
@@ -33,9 +34,8 @@ jobs:
   - task: Cache@2
     inputs:
       key: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
-      restoreKeys: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
       path: $(CCACHE_DIR)
-    displayName: Restore ccache
+    displayName: Restore CCache
 
   - script: |
       export PATH="/usr/local/opt/qt@5/bin:$PATH"

@@ -369,8 +369,6 @@ bool IncrementalMapperController::LoadDatabase() {
 
 void IncrementalMapperController::Reconstruct(
     const IncrementalMapper::Options& init_mapper_options) {
-  const bool kDiscardReconstruction = true;
-
   //////////////////////////////////////////////////////////////////////////////
   // Main loop
   //////////////////////////////////////////////////////////////////////////////
@@ -418,7 +416,7 @@ void IncrementalMapperController::Reconstruct(
             init_mapper_options, &image_id1, &image_id2);
         if (!find_init_success) {
           std::cout << "  => No good initial image pair found." << std::endl;
-          mapper.EndReconstruction(kDiscardReconstruction);
+          mapper.EndReconstruction(/*discard=*/true);
           reconstruction_manager_->Delete(reconstruction_idx);
           break;
         }
@@ -430,7 +428,7 @@ void IncrementalMapperController::Reconstruct(
                            image_id1,
                            image_id2)
                     << std::endl;
-          mapper.EndReconstruction(kDiscardReconstruction);
+          mapper.EndReconstruction(/*discard=*/true);
           reconstruction_manager_->Delete(reconstruction_idx);
           return;
         }
@@ -447,7 +445,7 @@ void IncrementalMapperController::Reconstruct(
                   << std::endl
                   << "     - manually select an initial image pair"
                   << std::endl;
-        mapper.EndReconstruction(kDiscardReconstruction);
+        mapper.EndReconstruction(/*discard=*/true);
         reconstruction_manager_->Delete(reconstruction_idx);
         break;
       }
@@ -459,7 +457,7 @@ void IncrementalMapperController::Reconstruct(
       // Initial image pair failed to register.
       if (reconstruction.NumRegImages() == 0 ||
           reconstruction.NumPoints3D() == 0) {
-        mapper.EndReconstruction(kDiscardReconstruction);
+        mapper.EndReconstruction(/*discard=*/true);
         reconstruction_manager_->Delete(reconstruction_idx);
         // If both initial images are manually specified, there is no need for
         // further initialization trials.
@@ -584,8 +582,7 @@ void IncrementalMapperController::Reconstruct(
     }
 
     if (IsStopped()) {
-      const bool kDiscardReconstruction = false;
-      mapper.EndReconstruction(kDiscardReconstruction);
+      mapper.EndReconstruction(/*discard=*/false);
       break;
     }
 
@@ -604,11 +601,10 @@ void IncrementalMapperController::Reconstruct(
     if ((options_->multiple_models &&
          reconstruction.NumRegImages() < min_model_size) ||
         reconstruction.NumRegImages() == 0) {
-      mapper.EndReconstruction(kDiscardReconstruction);
+      mapper.EndReconstruction(/*discard=*/true);
       reconstruction_manager_->Delete(reconstruction_idx);
     } else {
-      const bool kDiscardReconstruction = false;
-      mapper.EndReconstruction(kDiscardReconstruction);
+      mapper.EndReconstruction(/*discard=*/false);
     }
 
     Callback(LAST_IMAGE_REG_CALLBACK);
