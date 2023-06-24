@@ -44,8 +44,7 @@ jobs:
         libcgal-qt5-dev \
         libgl1-mesa-dri \
         libunwind-dev \
-        xvfb \
-        7zip
+        xvfb
     displayName: Install dependencies
   
   - ${{ if eq(parameters.cudaEnabled, true) }}:
@@ -130,6 +129,7 @@ jobs:
 
   - ${{ if eq(parameters.e2eTestsEnabled, true) }}:
     - script: |
+        sudo apt install 7zip
         mkdir eth3d_benchmark
         python ./scripts/python/benchmark_eth3d.py \
             --workspace_path ./eth3d_benchmark \
