@@ -35,7 +35,7 @@ jobs:
     inputs:
       key: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
       path: $(CCACHE_DIR)
-    displayName: Restore ccache
+    displayName: Restore CCache
 
   - script: |
       export PATH="/usr/local/opt/qt@5/bin:$PATH"

@@ -39,13 +39,16 @@ jobs:
       key: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
       path: $(CCACHE_DIR)
       cacheHitVar: CCACHE_RESTORED
-    displayName: Restore ccache
+    displayName: Restore CCache
 
   - pwsh: |
       $(Build.SourcesDirectory)/.azure-pipelines/install-ccache.ps1 -Destination "$(CCACHE_DIR)/bin"
-      echo "##vso[task.prependpath]$(CCACHE_DIR)/bin"
     displayName: Install CCache
     condition: ne(variables.CCACHE_RESTORED, 'true')
+
+  - pwsh: |
+      echo "##vso[task.prependpath]$(CCACHE_DIR)/bin"
+    displayName: Setup CCache
 
   - pwsh: |
       $(Build.SourcesDirectory)/scripts/shell/enter_vs_dev_shell.ps1
@@ -76,7 +79,7 @@ jobs:
     displayName: Run tests
 
   - pwsh: |
-      $(CCACHE_DIR)/bin/ccache --show-stats
-      $(CCACHE_DIR)/bin/ccache --evict-older-than 1d
-      $(CCACHE_DIR)/bin/ccache --show-stats
+      ccache --show-stats
+      ccache --evict-older-than 1d
+      ccache --show-stats
     displayName: Cleanup ccache
