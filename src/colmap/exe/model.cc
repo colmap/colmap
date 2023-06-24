@@ -485,15 +485,21 @@ int RunModelComparer(int argc, char** argv) {
   std::string input_path1;
   std::string input_path2;
   std::string output_path;
+  std::string alignment_error = "reprojection";
   double min_inlier_observations = 0.3;
   double max_reproj_error = 8.0;
+  double max_proj_center_error = 0.1;
 
   OptionManager options;
   options.AddRequiredOption("input_path1", &input_path1);
   options.AddRequiredOption("input_path2", &input_path2);
   options.AddDefaultOption("output_path", &output_path);
+  options.AddDefaultOption("alignment_error",
+                           &alignment_error,
+                           "One of {'reprojection', 'proj_center'}");
   options.AddDefaultOption("min_inlier_observations", &min_inlier_observations);
   options.AddDefaultOption("max_reproj_error", &max_reproj_error);
+  options.AddDefaultOption("max_proj_center_error", &max_proj_center_error);
   options.Parse(argc, argv);
 
   if (!output_path.empty() && !ExistsDir(output_path)) {
@@ -525,11 +531,23 @@ int RunModelComparer(int argc, char** argv) {
             << std::endl;
 
   Eigen::Matrix3x4d alignment;
-  if (!ComputeAlignmentBetweenReconstructions(reconstruction2,
-                                              reconstruction1,
-                                              min_inlier_observations,
-                                              max_reproj_error,
-                                              &alignment)) {
+  bool success = false;
+  if (alignment_error == "reprojection") {
+    success = ComputeAlignmentBetweenReconstructions(
+        reconstruction1,
+        reconstruction2,
+        /*min_inlier_observations=*/min_inlier_observations,
+        /*max_reproj_error=*/max_reproj_error,
+        &alignment);
+  } else if (alignment_error == "proj_center") {
+    success = ComputeAlignmentBetweenReconstructions(
+        reconstruction1, reconstruction2, /*max_error=*/0.01, &alignment);
+  } else {
+    std::cout << "ERROR: Invalid alignment_error specified." << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  if (!success) {
     std::cout << "=> Reconstruction alignment failed" << std::endl;
     return EXIT_FAILURE;
   }
@@ -547,9 +565,9 @@ int RunModelComparer(int argc, char** argv) {
       num_images, std::numeric_limits<double>::infinity());
   for (size_t i = 0; i < num_images; ++i) {
     const image_t image_id = common_image_ids[i];
-    const Image& image1 = reconstruction1.Image(image_id);
-    Image& image2 = reconstruction2.Image(image_id);
-    tform.TransformPose(&image2.Qvec(), &image2.Tvec());
+    Image& image1 = reconstruction1.Image(image_id);
+    tform.TransformPose(&image1.Qvec(), &image1.Tvec());
+    const Image& image2 = reconstruction2.Image(image_id);
 
     const Eigen::Vector4d normalized_qvec1 = NormalizeQuaternion(image1.Qvec());
     const Eigen::Quaterniond quat1(normalized_qvec1(0),

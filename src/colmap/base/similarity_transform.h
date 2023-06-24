@@ -94,6 +94,12 @@ bool ComputeAlignmentBetweenReconstructions(
     const double max_reproj_error,
     Eigen::Matrix3x4d* alignment);
 
+bool ComputeAlignmentBetweenReconstructions(
+    const Reconstruction& src_reconstruction,
+    const Reconstruction& ref_reconstruction,
+    const double max_error,
+    Eigen::Matrix3x4d* alignment);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////

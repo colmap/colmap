@@ -105,7 +105,6 @@ struct ReconstructionAlignmentEstimator {
       const auto& image2 = *images2[i];
 
       CHECK_EQ(image1.ImageId(), image2.ImageId());
-      CHECK_EQ(image1.CameraId(), image2.CameraId());
 
       const auto& camera1 = reconstruction1_->Camera(image1.CameraId());
       const auto& camera2 = reconstruction2_->Camera(image2.CameraId());
@@ -312,6 +311,34 @@ bool ComputeAlignmentBetweenReconstructions(
   }
 
   return report.success;
+}
+
+bool ComputeAlignmentBetweenReconstructions(
+    const Reconstruction& src_reconstruction,
+    const Reconstruction& ref_reconstruction,
+    const double max_error,
+    Eigen::Matrix3x4d* alignment) {
+  CHECK_GT(max_error, 0);
+
+  std::vector<std::string> ref_image_names;
+  std::vector<Eigen::Vector3d> ref_proj_centers;
+  for (const auto& image : ref_reconstruction.Images()) {
+    ref_image_names.push_back(image.second.Name());
+    ref_proj_centers.push_back(image.second.ProjectionCenter());
+  }
+
+  SimilarityTransform3 tform;
+  Reconstruction aligned_src_reconstruction = src_reconstruction;
+  if (!aligned_src_reconstruction.AlignRobust(ref_image_names,
+                                              ref_proj_centers,
+                                              /*min_num_images=*/3,
+                                              {.max_error = max_error},
+                                              &tform)) {
+    return false;
+  }
+
+  *alignment = tform.Matrix().topRows<3>();
+  return true;
 }
 
 }  // namespace colmap
