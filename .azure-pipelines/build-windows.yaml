@@ -12,6 +12,7 @@ jobs:
     VCPKG_BINARY_SOURCES: 'clear;nuget,https://pkgs.dev.azure.com/colmap/colmap/_packaging/vcpkg/nuget/v3/index.json,readwrite'
     CCACHE_DIR: $(Pipeline.Workspace)/ccache
     CCACHE_BASEDIR: $(Build.SourcesDirectory)
+    CCACHE_VERSION: 1
   steps:
   - task: NuGetAuthenticate@0
     displayName: NuGet Authenticate
@@ -36,7 +37,6 @@ jobs:
   - task: Cache@2
     inputs:
       key: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
-      restoreKeys: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
       path: $(CCACHE_DIR)
       cacheHitVar: CCACHE_RESTORED
     displayName: Restore ccache
@@ -76,7 +76,7 @@ jobs:
     displayName: Run tests
 
   - pwsh: |
-      ccache --show-stats
-      ccache --evict-older-than 1d
-      ccache --show-stats
+      $(CCACHE_DIR)/bin/ccache --show-stats
+      $(CCACHE_DIR)/bin/ccache --evict-older-than 1d
+      $(CCACHE_DIR)/bin/ccache --show-stats
     displayName: Cleanup ccache
