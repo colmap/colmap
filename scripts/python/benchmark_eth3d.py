@@ -54,9 +54,9 @@ def parse_args():
     parser.add_argument("--use_gpu", type=bool, default=True)
     parser.add_argument("--num_threads", type=int, default=-1)
     parser.add_argument("--quality", default="medium")
-    parser.add_argument("--max_rotation_error", default=1.0)
-    parser.add_argument("--max_translation_error", default=0.1)
-    parser.add_argument("--max_proj_center_error", default=0.1)
+    parser.add_argument("--max_rotation_error", type=float, default=1.0)
+    parser.add_argument("--max_translation_error", type=float, default=0.1)
+    parser.add_argument("--max_proj_center_error", type=float, default=0.1)
     parser.add_argument("--expected_num_images", type=int, required=True)
     return parser.parse_args()
 
