@@ -77,7 +77,8 @@ def main():
         "--workspace_path", workspace_path,
         "--use_gpu", "1" if args.use_gpu else "0",
         "--num_threads", str(args.num_threads),
-        "--quality", "low"],
+        "--quality", "low",
+        "--camera_model", "pinhole"],
         cwd=workspace_path)
     
     subprocess.check_call([

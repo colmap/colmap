@@ -329,10 +329,12 @@ bool ComputeAlignmentBetweenReconstructions(
 
   SimilarityTransform3 tform;
   Reconstruction aligned_src_reconstruction = src_reconstruction;
+  RANSACOptions ransac_options;
+  ransac_options.max_error = max_error;
   if (!aligned_src_reconstruction.AlignRobust(ref_image_names,
                                               ref_proj_centers,
                                               /*min_num_images=*/3,
-                                              {.max_error = max_error},
+                                              ransac_options,
                                               &tform)) {
     return false;
   }
