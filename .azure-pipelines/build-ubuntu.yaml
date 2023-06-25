@@ -138,9 +138,8 @@ jobs:
         python ./scripts/python/benchmark_eth3d.py \
             --workspace_path ./eth3d_benchmark \
             --colmap_path ./build/src/colmap/exe/colmap \
-            --dataset_name terrace \
+            --dataset_names terrace,door \
             --use_gpu false \
-            --expected_num_images 23 \
             --max_translation_error 0.1 \
             --max_proj_center_error 0.1 \
             --max_rotation_error 1.0
