@@ -23,19 +23,18 @@ def check_small_errors_or_exit(args, errors_csv_path):
             line = line.strip()
             if len(line) == 0 or line.startswith("#"):
                 continue
-            rotation_error, translation_error, proj_center_error = \
-                map(float, line.split(","))
+            rotation_error, translation_error, proj_center_error = map(
+                float, line.split(",")
+            )
             num_images += 1
             if rotation_error > args.max_rotation_error:
                 print("Exceeded rotation error threshold:", rotation_error)
                 error = True
             if translation_error > args.max_translation_error:
-                print("Exceeded translation error threshold:",
-                      translation_error)
+                print("Exceeded translation error threshold:", translation_error)
                 error = True
             if proj_center_error > args.max_proj_center_error:
-                print("Exceeded projection center error threshold:",
-                      proj_center_error)
+                print("Exceeded projection center error threshold:", proj_center_error)
                 error = True
 
     if args.expected_num_images >= 0 and num_images != args.expected_num_images:
@@ -66,12 +65,21 @@ def main():
 
     workspace_path = os.path.realpath(args.workspace_path)
     dataset_archive_path = os.path.join(workspace_path, "dataset.7z")
-    download_file(f"https://www.eth3d.net/data/{args.dataset_name}_dslr_undistorted.7z", dataset_archive_path)
+    download_file(
+        f"https://www.eth3d.net/data/{args.dataset_name}_dslr_undistorted.7z",
+        dataset_archive_path,
+    )
 
     subprocess.check_call(["7zz", "x", "dataset.7z"], cwd=workspace_path)
 
     # Find undistorted parameters of first camera and initialize all images with it.
-    with open(f"{args.dataset_name}/dslr_calibration_undistorted/cameras.txt") as fid:
+    with open(
+        os.path.join(
+            workspace_path,
+            f"{args.dataset_name}/dslr_calibration_undistorted/cameras.txt",
+        ),
+        "r",
+    ) as fid:
         for line in fid:
             if not line.startswith("#"):
                 first_camera_data = line.split()
@@ -82,29 +90,47 @@ def main():
                 break
 
     # Run automatic reconstruction pipeline.
-    subprocess.check_call([
-        os.path.realpath(args.colmap_path),
-        "automatic_reconstructor",
-        "--image_path", f"{args.dataset_name}/images/",
-        "--workspace_path", workspace_path,
-        "--use_gpu", "1" if args.use_gpu else "0",
-        "--num_threads", str(args.num_threads),
-        "--quality", "low",
-        "--camera_model", "PINHOLE",
-        "--camera_params", ",".join(camera_params)],
-        cwd=workspace_path)
-    
+    subprocess.check_call(
+        [
+            os.path.realpath(args.colmap_path),
+            "automatic_reconstructor",
+            "--image_path",
+            f"{args.dataset_name}/images/",
+            "--workspace_path",
+            workspace_path,
+            "--use_gpu",
+            "1" if args.use_gpu else "0",
+            "--num_threads",
+            str(args.num_threads),
+            "--quality",
+            "low",
+            "--camera_model",
+            "PINHOLE",
+            "--camera_params",
+            ",".join(camera_params),
+        ],
+        cwd=workspace_path,
+    )
+
     # Compare reconstructed model to GT model.
-    subprocess.check_call([
-        os.path.realpath(args.colmap_path),
-        "model_comparer",
-        "--input_path1", "sparse/0",
-        "--input_path2", f"{args.dataset_name}/dslr_calibration_undistorted/",
-        "--output_path", ".",
-        "--alignment_error", "proj_center",
-        "--max_proj_center_error", str(args.max_proj_center_error)],
-        cwd=workspace_path)
-    
+    subprocess.check_call(
+        [
+            os.path.realpath(args.colmap_path),
+            "model_comparer",
+            "--input_path1",
+            "sparse/0",
+            "--input_path2",
+            f"{args.dataset_name}/dslr_calibration_undistorted/",
+            "--output_path",
+            ".",
+            "--alignment_error",
+            "proj_center",
+            "--max_proj_center_error",
+            str(args.max_proj_center_error),
+        ],
+        cwd=workspace_path,
+    )
+
     # Ensure discrepancy between reconstructed model and GT is small.
     check_small_errors_or_exit(args, os.path.join(workspace_path, "errors.csv"))
 
