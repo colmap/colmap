@@ -70,6 +70,18 @@ def main():
 
     subprocess.check_call(["7zz", "x", "dataset.7z"], cwd=workspace_path)
 
+    # Find undistorted parameters of first camera and initialize all images with it.
+    with open(f"{args.dataset_name}/dslr_calibration_undistorted/cameras.txt") as fid:
+        for line in fid:
+            if not line.startswith("#"):
+                first_camera_data = line.split()
+                camera_model = first_camera_data[1]
+                assert camera_model == "PINHOLE"
+                camera_params = first_camera_data[4:]
+                assert len(camera_params) == 4
+                break
+
+    # Run automatic reconstruction pipeline.
     subprocess.check_call([
         os.path.realpath(args.colmap_path),
         "automatic_reconstructor",
@@ -78,9 +90,11 @@ def main():
         "--use_gpu", "1" if args.use_gpu else "0",
         "--num_threads", str(args.num_threads),
         "--quality", "low",
-        "--camera_model", "PINHOLE"],
+        "--camera_model", "PINHOLE",
+        "--camera_params", ",".join(camera_params)],
         cwd=workspace_path)
     
+    # Compare reconstructed model to GT model.
     subprocess.check_call([
         os.path.realpath(args.colmap_path),
         "model_comparer",
@@ -91,6 +105,7 @@ def main():
         "--max_proj_center_error", str(args.max_proj_center_error)],
         cwd=workspace_path)
     
+    # Ensure discrepancy between reconstructed model and GT is small.
     check_small_errors_or_exit(args, os.path.join(workspace_path, "errors.csv"))
 
 

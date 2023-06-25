@@ -141,8 +141,8 @@ jobs:
             --dataset_name terrace \
             --use_gpu false \
             --expected_num_images 23 \
-            --max_translation_error 0.15 \
-            --max_proj_center_error 0.15 \
+            --max_translation_error 0.1 \
+            --max_proj_center_error 0.1 \
             --max_rotation_error 1.0
       displayName: Run E2E tests
 

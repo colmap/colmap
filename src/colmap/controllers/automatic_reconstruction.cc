@@ -96,6 +96,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   reader_options.single_camera = options_.single_camera;
   reader_options.single_camera_per_folder = options_.single_camera_per_folder;
   reader_options.camera_model = options_.camera_model;
+  reader_options.camera_params = options_.camera_params;
 
   option_manager_.sift_extraction->use_gpu = options_.use_gpu;
   option_manager_.sift_matching->use_gpu = options_.use_gpu;
