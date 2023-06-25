@@ -448,9 +448,11 @@ int RunModelAligner(int argc, char** argv) {
 
 int RunModelAnalyzer(int argc, char** argv) {
   std::string path;
+  bool verbose = false;
 
   OptionManager options;
   options.AddRequiredOption("path", &path);
+  options.AddDefaultOption("verbose", &verbose);
   options.Parse(argc, argv);
 
   Reconstruction reconstruction;
@@ -478,6 +480,26 @@ int RunModelAnalyzer(int argc, char** argv) {
                             reconstruction.ComputeMeanReprojectionError())
             << std::endl;
 
+  // verbose information
+  if (verbose) {
+    PrintHeading2("Cameras");
+    for (const auto& camera : reconstruction.Cameras()) {
+      std::cout << StringPrintf(" - Camera id: %d, Model Name: %s, Params: %s",
+                                camera.first,
+                                camera.second.ModelName().c_str(),
+                                camera.second.ParamsToString().c_str())
+                << std::endl;
+    }
+
+    PrintHeading2("Images");
+    for (const auto& image_id : reconstruction.RegImageIds()) {
+      std::cout << StringPrintf(" - Registerd Image Id: %d, Name: %s",
+                                image_id,
+                                reconstruction.Image(image_id).Name().c_str())
+                << std::endl;
+    }
+  }
+  
   return EXIT_SUCCESS;
 }
 
