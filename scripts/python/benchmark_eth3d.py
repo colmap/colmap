@@ -64,13 +64,13 @@ def main():
     args = parse_args()
 
     workspace_path = os.path.realpath(args.workspace_path)
-    dataset_archive_path = os.path.join(workspace_path, "dataset.7z")
+    dataset_archive_path = os.path.join(workspace_path, f"{args.dataset_name}.7z")
     download_file(
         f"https://www.eth3d.net/data/{args.dataset_name}_dslr_undistorted.7z",
         dataset_archive_path,
     )
 
-    subprocess.check_call(["7zz", "x", "dataset.7z"], cwd=workspace_path)
+    subprocess.check_call(["7zz", "x", f"{args.dataset_name}.7z"], cwd=workspace_path)
 
     # Find undistorted parameters of first camera and initialize all images with it.
     with open(
