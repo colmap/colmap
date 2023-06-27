@@ -5,7 +5,6 @@ jobs:
   - template: build-windows.yaml
     parameters:
       visualStudioVersion: 2019
-      e2eTestsEnabled: true
   # Temporarily disabled, because of issue of compiling Eigen with VS2022.
   # - template: build-windows.yaml
   #   parameters:

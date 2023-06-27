@@ -541,7 +541,10 @@ int RunModelComparer(int argc, char** argv) {
         &alignment);
   } else if (alignment_error == "proj_center") {
     success = ComputeAlignmentBetweenReconstructions(
-        reconstruction1, reconstruction2, /*max_error=*/0.01, &alignment);
+        reconstruction1,
+        reconstruction2,
+        /*max_error=*/max_proj_center_error,
+        &alignment);
   } else {
     std::cout << "ERROR: Invalid alignment_error specified." << std::endl;
     return EXIT_FAILURE;
