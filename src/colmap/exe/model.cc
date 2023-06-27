@@ -588,10 +588,10 @@ int RunModelComparer(int argc, char** argv) {
         (image1.ProjectionCenter() - image2.ProjectionCenter()).norm();
   }
 
-  if (output_path.empty()) {
-    PrintComparisonSummary(
-        std::cout, rotation_errors, translation_errors, proj_center_errors);
-  } else {
+  PrintComparisonSummary(
+      std::cout, rotation_errors, translation_errors, proj_center_errors);
+
+  if (!output_path.empty()) {
     const std::string errors_path = JoinPaths(output_path, "errors.csv");
     WriteComparisonErrorsCSV(
         errors_path, rotation_errors, translation_errors, proj_center_errors);
