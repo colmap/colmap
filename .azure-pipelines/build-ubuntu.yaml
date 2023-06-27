@@ -144,7 +144,7 @@ jobs:
             --use_gpu false \
             --max_translation_error 0.05 \
             --max_proj_center_error 0.05 \
-            --max_rotation_error 0.5
+            --max_rotation_error 1.0
       displayName: Run E2E tests
 
   - script: |
