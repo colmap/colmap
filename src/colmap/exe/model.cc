@@ -494,9 +494,8 @@ int RunModelComparer(int argc, char** argv) {
   options.AddRequiredOption("input_path1", &input_path1);
   options.AddRequiredOption("input_path2", &input_path2);
   options.AddDefaultOption("output_path", &output_path);
-  options.AddDefaultOption("alignment_error",
-                           &alignment_error,
-                           "One of {'reprojection', 'proj_center'}");
+  options.AddDefaultOption(
+      "alignment_error", &alignment_error, "{reprojection, proj_center}");
   options.AddDefaultOption("min_inlier_observations", &min_inlier_observations);
   options.AddDefaultOption("max_reproj_error", &max_reproj_error);
   options.AddDefaultOption("max_proj_center_error", &max_proj_center_error);
