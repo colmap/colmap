@@ -323,8 +323,10 @@ bool ComputeAlignmentBetweenReconstructions(
   std::vector<std::string> ref_image_names;
   std::vector<Eigen::Vector3d> ref_proj_centers;
   for (const auto& image : ref_reconstruction.Images()) {
-    ref_image_names.push_back(image.second.Name());
-    ref_proj_centers.push_back(image.second.ProjectionCenter());
+    if (image.second.IsRegistered()) {
+      ref_image_names.push_back(image.second.Name());
+      ref_proj_centers.push_back(image.second.ProjectionCenter());
+    }
   }
 
   SimilarityTransform3 tform;
