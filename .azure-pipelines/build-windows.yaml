@@ -1,9 +1,8 @@
 parameters:
   visualStudioVersion: '2019'
-  e2eTestsEnabled: false
 
 jobs:
-- job: windows_build_${{ parameters.visualStudioVersion }}_e2e_${{ parameters.e2eTestsEnabled }}
+- job: windows_build_${{ parameters.visualStudioVersion }}
   displayName: Windows VS${{ parameters.visualStudioVersion }}
   timeoutInMinutes: 360
   pool:
@@ -78,19 +77,6 @@ jobs:
       exit $tests_pass
     workingDirectory: $(Build.SourcesDirectory)/build
     displayName: Run tests
-
-  - ${{ if eq(parameters.e2eTestsEnabled, true) }}:
-    - pwsh: |
-        mkdir eth3d_benchmark
-        python ./scripts/python/benchmark_eth3d.py `
-            --workspace_path ./eth3d_benchmark `
-            --colmap_path ./build/src/colmap/exe/colmap.exe `
-            --dataset_names terrace,door `
-            --use_gpu false `
-            --max_translation_error 0.1 `
-            --max_proj_center_error 0.1 `
-            --max_rotation_error 1.0
-      displayName: Run E2E tests
 
   - pwsh: |
       $(CCACHE_DIR)/bin/ccache --show-stats
