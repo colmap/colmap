@@ -316,9 +316,9 @@ bool ComputeAlignmentBetweenReconstructions(
 bool ComputeAlignmentBetweenReconstructions(
     const Reconstruction& src_reconstruction,
     const Reconstruction& ref_reconstruction,
-    const double max_error,
+    const double max_proj_center_error,
     Eigen::Matrix3x4d* alignment) {
-  CHECK_GT(max_error, 0);
+  CHECK_GT(max_proj_center_error, 0);
 
   std::vector<std::string> ref_image_names;
   std::vector<Eigen::Vector3d> ref_proj_centers;
@@ -332,7 +332,7 @@ bool ComputeAlignmentBetweenReconstructions(
   SimilarityTransform3 tform;
   Reconstruction aligned_src_reconstruction = src_reconstruction;
   RANSACOptions ransac_options;
-  ransac_options.max_error = max_error;
+  ransac_options.max_error = max_proj_center_error;
   if (!aligned_src_reconstruction.AlignRobust(ref_image_names,
                                               ref_proj_centers,
                                               /*min_num_images=*/3,

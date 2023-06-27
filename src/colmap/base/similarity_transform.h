@@ -94,10 +94,14 @@ bool ComputeAlignmentBetweenReconstructions(
     const double max_reproj_error,
     Eigen::Matrix3x4d* alignment);
 
+// Robustly compute alignment between reconstructions by finding images that
+// are registered in both reconstructions. The alignment is then estimated
+// robustly inside RANSAC from corresponding projection centers and by
+// minimizing the Euclidean distance between them in world space.
 bool ComputeAlignmentBetweenReconstructions(
     const Reconstruction& src_reconstruction,
     const Reconstruction& ref_reconstruction,
-    const double max_error,
+    const double max_proj_center_error,
     Eigen::Matrix3x4d* alignment);
 
 ////////////////////////////////////////////////////////////////////////////////
