@@ -75,6 +75,9 @@ class AutomaticReconstructionController : public Thread {
     // Which camera model to use for images.
     std::string camera_model = "SIMPLE_RADIAL";
 
+    // Initial camera params for all images.
+    std::string camera_params;
+
     // Whether to perform sparse mapping.
     bool sparse = true;
 
