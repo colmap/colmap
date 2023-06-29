@@ -3,10 +3,11 @@ parameters:
   ubuntuVersion: '20.04'
   cudaEnabled: false
   asanEnabled: false
+  e2eTestsEnabled: false
   cmakeBuildType: Release
 
 jobs:
-- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}_asan_${{ parameters.asanEnabled }}_${{ parameters.cmakeBuildType }}
+- job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}_asan_${{ parameters.asanEnabled }}_${{ parameters.cmakeBuildType }}_e2e_${{ parameters.e2eTestsEnabled }}
   displayName: ${{ parameters.displayName }}
   pool:
     vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
@@ -125,6 +126,26 @@ jobs:
         fi
         exit $tests_pass
       displayName: Run tests
+
+  - ${{ if eq(parameters.e2eTestsEnabled, true) }}:
+    - script: |
+        export DISPLAY=":99.0"
+        export QT_QPA_PLATFORM="offscreen"
+        Xvfb :99 &
+        sleep 3
+        sudo apt install 7zip
+        mkdir eth3d_benchmark
+        # Error thresholds in degrees and meters,
+        # as the ETH3D groundtruth has metric scale.
+        python ./scripts/python/benchmark_eth3d.py \
+            --workspace_path ./eth3d_benchmark \
+            --colmap_path ./build/src/colmap/exe/colmap \
+            --dataset_names terrace,door \
+            --use_gpu false \
+            --max_translation_error 0.05 \
+            --max_proj_center_error 0.05 \
+            --max_rotation_error 1.0
+      displayName: Run E2E tests
 
   - script: |
       set -x
