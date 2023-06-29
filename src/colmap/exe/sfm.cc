@@ -643,6 +643,7 @@ std::vector<CameraRig> ReadCameraRigConfig(const std::string& rig_config_path,
         const auto& image = reconstruction.Image(image_id);
         if (image.CameraId() == camera_rig.RefCameraId()) {
           has_ref_camera = true;
+          break;
         }
       }
 
