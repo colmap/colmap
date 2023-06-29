@@ -36,6 +36,7 @@
 #include "colmap/util/version.h"
 
 #include <fstream>
+#include <memory>
 
 namespace colmap {
 namespace {
