@@ -181,6 +181,7 @@ bool CameraRig::ComputeRelativePoses(const Reconstruction& reconstruction) {
       const auto& image = reconstruction.Image(image_id);
       if (image.CameraId() == ref_camera_id_) {
         ref_image = &image;
+        break;
       }
     }
 
