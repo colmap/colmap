@@ -484,7 +484,7 @@ int RunModelAnalyzer(int argc, char** argv) {
   if (verbose) {
     PrintHeading2("Cameras");
     for (const auto& camera : reconstruction.Cameras()) {
-      std::cout << StringPrintf(" - Camera id: %d, Model Name: %s, Params: %s",
+      std::cout << StringPrintf(" - Camera Id: %d, Model Name: %s, Params: %s",
                                 camera.first,
                                 camera.second.ModelName().c_str(),
                                 camera.second.ParamsToString().c_str())
@@ -493,7 +493,7 @@ int RunModelAnalyzer(int argc, char** argv) {
 
     PrintHeading2("Images");
     for (const auto& image_id : reconstruction.RegImageIds()) {
-      std::cout << StringPrintf(" - Registerd Image Id: %d, Name: %s",
+      std::cout << StringPrintf(" - Registered Image Id: %d, Name: %s",
                                 image_id,
                                 reconstruction.Image(image_id).Name().c_str())
                 << std::endl;
