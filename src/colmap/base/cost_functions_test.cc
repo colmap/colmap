@@ -32,8 +32,8 @@
 #define TEST_NAME "base/cost_functions"
 #include "colmap/base/cost_functions.h"
 
-#include "colmap/camera/models.h"
 #include "colmap/base/pose.h"
+#include "colmap/camera/models.h"
 #include "colmap/util/testing.h"
 
 using namespace colmap;

@@ -31,8 +31,8 @@
 
 #include "colmap/image/undistortion.h"
 
-#include "colmap/camera/models.h"
 #include "colmap/base/pose.h"
+#include "colmap/camera/models.h"
 #include "colmap/image/warp.h"
 #include "colmap/util/misc.h"
 

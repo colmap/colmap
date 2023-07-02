@@ -33,10 +33,10 @@
 #define COLMAP_SRC_BASE_DATABASE_CACHE_H_
 
 #include "colmap/base/camera.h"
-#include "colmap/camera/models.h"
 #include "colmap/base/correspondence_graph.h"
 #include "colmap/base/database.h"
 #include "colmap/base/image.h"
+#include "colmap/camera/models.h"
 #include "colmap/util/types.h"
 
 #include <string>
