@@ -33,7 +33,7 @@ set(FOLDER_NAME "base")
 
 COLMAP_ADD_SOURCES(
     bitmap.h bitmap.cc
-    image_reader.h image_reader.cc
+    reader.h reader.cc
     line.h line.cc
     undistortion.h undistortion.cc
     warp.h warp.cc
