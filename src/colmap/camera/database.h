@@ -32,7 +32,7 @@
 #ifndef COLMAP_SRC_BASE_CAMERA_DATABASE_H_
 #define COLMAP_SRC_BASE_CAMERA_DATABASE_H_
 
-#include "colmap/util/camera_specs.h"
+#include "colmap/camera/specs.h"
 
 #include <string>
 

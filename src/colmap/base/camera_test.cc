@@ -32,7 +32,7 @@
 #define TEST_NAME "base/camera"
 #include "colmap/base/camera.h"
 
-#include "colmap/base/camera_models.h"
+#include "colmap/camera/models.h"
 #include "colmap/util/testing.h"
 
 using namespace colmap;

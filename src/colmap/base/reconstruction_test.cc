@@ -32,7 +32,7 @@
 #define TEST_NAME "base/reconstruction"
 #include "colmap/base/reconstruction.h"
 
-#include "colmap/base/camera_models.h"
+#include "colmap/camera/models.h"
 #include "colmap/base/correspondence_graph.h"
 #include "colmap/base/pose.h"
 #include "colmap/base/similarity_transform.h"

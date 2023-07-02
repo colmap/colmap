@@ -32,7 +32,7 @@
 #define TEST_NAME "base/projection"
 #include "colmap/base/projection.h"
 
-#include "colmap/base/camera_models.h"
+#include "colmap/camera/models.h"
 #include "colmap/base/pose.h"
 #include "colmap/util/math.h"
 #include "colmap/util/testing.h"

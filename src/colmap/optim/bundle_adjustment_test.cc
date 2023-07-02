@@ -32,7 +32,7 @@
 #define TEST_NAME "optim/bundle_adjustment"
 #include "colmap/optim/bundle_adjustment.h"
 
-#include "colmap/base/camera_models.h"
+#include "colmap/camera/models.h"
 #include "colmap/base/correspondence_graph.h"
 #include "colmap/base/projection.h"
 #include "colmap/util/random.h"

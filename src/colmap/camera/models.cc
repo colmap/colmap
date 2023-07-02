@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/base/camera_models.h"
+#include "colmap/camera/models.h"
 
 #include <unordered_map>
 

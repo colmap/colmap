@@ -29,8 +29,8 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_CAMERA_SPECS_H_
-#define COLMAP_SRC_UTIL_CAMERA_SPECS_H_
+#ifndef COLMAP_SRC_CAMERA_SPECS_H_
+#define COLMAP_SRC_CAMERA_SPECS_H_
 
 #include <string>
 #include <unordered_map>
@@ -46,4 +46,4 @@ camera_specs_t InitializeCameraSpecs();
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_UTIL_CAMERA_SPECS_H_
+#endif  // COLMAP_SRC_CAMERA_SPECS_H_

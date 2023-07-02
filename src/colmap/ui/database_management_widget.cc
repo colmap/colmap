@@ -31,7 +31,7 @@
 
 #include "colmap/ui/database_management_widget.h"
 
-#include "colmap/base/camera_models.h"
+#include "colmap/camera/models.h"
 
 namespace colmap {
 

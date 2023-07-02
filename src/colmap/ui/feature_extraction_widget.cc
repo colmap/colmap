@@ -31,7 +31,7 @@
 
 #include "colmap/ui/feature_extraction_widget.h"
 
-#include "colmap/base/camera_models.h"
+#include "colmap/camera/models.h"
 #include "colmap/feature/extraction.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/qt_utils.h"

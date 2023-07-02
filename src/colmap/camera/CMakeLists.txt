@@ -29,17 +29,13 @@
 #
 # Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-set(FOLDER_NAME "image")
+set(FOLDER_NAME "camera")
 
 COLMAP_ADD_SOURCES(
-    bitmap.h bitmap.cc
-    reader.h reader.cc
-    line.h line.cc
-    undistortion.h undistortion.cc
-    warp.h warp.cc
+    database.h database.cc
+    models.h models.cc
+    specs.h specs.cc
 )
 
-COLMAP_ADD_TEST(bitmap_test bitmap_test.cc)
-COLMAP_ADD_TEST(line_test line_test.cc)
-COLMAP_ADD_TEST(undistortion_test undistortion_test.cc)
-COLMAP_ADD_TEST(warp_test warp_test.cc)
+COLMAP_ADD_TEST(database_test database_test.cc)
+COLMAP_ADD_TEST(models_test models_test.cc)

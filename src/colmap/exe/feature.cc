@@ -31,7 +31,7 @@
 
 #include "colmap/exe/feature.h"
 
-#include "colmap/base/camera_models.h"
+#include "colmap/camera/models.h"
 #include "colmap/exe/gui.h"
 #include "colmap/feature/extraction.h"
 #include "colmap/feature/matching.h"
