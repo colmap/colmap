@@ -31,7 +31,7 @@
 
 #include "colmap/ui/dense_reconstruction_widget.h"
 
-#include "colmap/base/undistortion.h"
+#include "colmap/image/undistortion.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"

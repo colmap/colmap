@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/base/line.h"
+#include "colmap/image/line.h"
 
 #include "colmap/util/logging.h"
 

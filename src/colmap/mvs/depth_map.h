@@ -32,8 +32,8 @@
 #ifndef COLMAP_SRC_MVS_DEPTH_MAP_H_
 #define COLMAP_SRC_MVS_DEPTH_MAP_H_
 
+#include "colmap/image/bitmap.h"
 #include "colmap/mvs/mat.h"
-#include "colmap/util/bitmap.h"
 
 #include <string>
 #include <vector>

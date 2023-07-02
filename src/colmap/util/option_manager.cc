@@ -31,11 +31,11 @@
 
 #include "colmap/util/option_manager.h"
 
-#include "colmap/base/image_reader.h"
 #include "colmap/controllers/incremental_mapper.h"
 #include "colmap/feature/extraction.h"
 #include "colmap/feature/matching.h"
 #include "colmap/feature/sift.h"
+#include "colmap/image/reader.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"

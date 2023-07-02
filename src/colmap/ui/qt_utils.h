@@ -33,7 +33,7 @@
 #define COLMAP_SRC_UI_QT_UTILS_H_
 
 #include "colmap/feature/types.h"
-#include "colmap/util/bitmap.h"
+#include "colmap/image/bitmap.h"
 #include "colmap/util/types.h"
 
 #include <QtCore>

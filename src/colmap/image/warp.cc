@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/base/warp.h"
+#include "colmap/image/warp.h"
 
 #include "colmap/util/logging.h"
 

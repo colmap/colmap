@@ -30,7 +30,7 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/line"
-#include "colmap/base/line.h"
+#include "colmap/image/line.h"
 
 #include "colmap/util/testing.h"
 

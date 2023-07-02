@@ -44,8 +44,6 @@ COLMAP_ADD_SOURCES(
     graph_cut.h graph_cut.cc
     homography_matrix.h homography_matrix.cc
     image.h image.cc
-    image_reader.h image_reader.cc
-    line.h line.cc
     point2d.h point2d.cc
     point3d.h point3d.cc
     polynomial.h polynomial.cc
@@ -57,9 +55,7 @@ COLMAP_ADD_SOURCES(
     similarity_transform.h similarity_transform.cc
     track.h track.cc
     triangulation.h triangulation.cc
-    undistortion.h undistortion.cc
     visibility_pyramid.h visibility_pyramid.cc
-    warp.h warp.cc
 )
 
 COLMAP_ADD_TEST(camera_database_test camera_database_test.cc)
@@ -75,7 +71,6 @@ COLMAP_ADD_TEST(gps_test gps_test.cc)
 COLMAP_ADD_TEST(graph_cut_test graph_cut_test.cc)
 COLMAP_ADD_TEST(homography_matrix_utils_test homography_matrix_test.cc)
 COLMAP_ADD_TEST(image_test image_test.cc)
-COLMAP_ADD_TEST(line_test line_test.cc)
 COLMAP_ADD_TEST(point2d_test point2d_test.cc)
 COLMAP_ADD_TEST(point3d_test point3d_test.cc)
 COLMAP_ADD_TEST(polynomial_test polynomial_test.cc)
@@ -87,6 +82,4 @@ COLMAP_ADD_TEST(scene_clustering_test scene_clustering_test.cc)
 COLMAP_ADD_TEST(similarity_transform_test similarity_transform_test.cc)
 COLMAP_ADD_TEST(track_test track_test.cc)
 COLMAP_ADD_TEST(triangulation_test triangulation_test.cc)
-COLMAP_ADD_TEST(undistortion_test undistortion_test.cc)
 COLMAP_ADD_TEST(visibility_pyramid_test visibility_pyramid_test.cc)
-COLMAP_ADD_TEST(warp_test warp_test.cc)

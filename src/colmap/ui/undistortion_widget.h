@@ -33,7 +33,7 @@
 #define COLMAP_SRC_UI_UNDISTORTION_WIDGET_H_
 
 #include "colmap/base/reconstruction.h"
-#include "colmap/base/undistortion.h"
+#include "colmap/image/undistortion.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/thread_control_widget.h"
 #include "colmap/util/misc.h"

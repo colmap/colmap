@@ -29,11 +29,11 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_BASE_UNDISTORTION_H_
-#define COLMAP_SRC_BASE_UNDISTORTION_H_
+#ifndef COLMAP_SRC_IMAGE_UNDISTORTION_H_
+#define COLMAP_SRC_IMAGE_UNDISTORTION_H_
 
 #include "colmap/base/reconstruction.h"
-#include "colmap/util/bitmap.h"
+#include "colmap/image/bitmap.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
@@ -242,4 +242,4 @@ void RectifyAndUndistortStereoImages(const UndistortCameraOptions& options,
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_BASE_UNDISTORTION_H_
+#endif  // COLMAP_SRC_IMAGE_UNDISTORTION_H_
