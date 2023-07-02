@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/base/image_reader.h"
+#include "colmap/image/reader.h"
 
 #include "colmap/base/camera_models.h"
 #include "colmap/util/misc.h"

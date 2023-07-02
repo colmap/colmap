@@ -32,7 +32,7 @@
 #ifndef COLMAP_SRC_EXE_FEATURE_H_
 #define COLMAP_SRC_EXE_FEATURE_H_
 
-#include "colmap/base/image_reader.h"
+#include "colmap/image/reader.h"
 
 namespace colmap {
 

@@ -499,7 +499,7 @@ int RunModelAnalyzer(int argc, char** argv) {
                 << std::endl;
     }
   }
-  
+
   return EXIT_SUCCESS;
 }
 

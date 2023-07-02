@@ -30,7 +30,7 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/warp"
-#include "colmap/base/warp.h"
+#include "colmap/image/warp.h"
 
 #include "colmap/util/random.h"
 #include "colmap/util/testing.h"

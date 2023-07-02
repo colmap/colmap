@@ -32,10 +32,10 @@
 #include "colmap/exe/feature.h"
 
 #include "colmap/base/camera_models.h"
-#include "colmap/base/image_reader.h"
 #include "colmap/exe/gui.h"
 #include "colmap/feature/extraction.h"
 #include "colmap/feature/matching.h"
+#include "colmap/image/reader.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 #include "colmap/util/option_manager.h"

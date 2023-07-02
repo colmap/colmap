@@ -31,10 +31,10 @@
 
 #include "colmap/controllers/automatic_reconstruction.h"
 
-#include "colmap/base/undistortion.h"
 #include "colmap/controllers/incremental_mapper.h"
 #include "colmap/feature/extraction.h"
 #include "colmap/feature/matching.h"
+#include "colmap/image/undistortion.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"

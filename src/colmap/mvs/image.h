@@ -32,7 +32,7 @@
 #ifndef COLMAP_SRC_MVS_IMAGE_H_
 #define COLMAP_SRC_MVS_IMAGE_H_
 
-#include "colmap/util/bitmap.h"
+#include "colmap/image/bitmap.h"
 
 #include <cstdint>
 #include <fstream>

@@ -34,7 +34,7 @@
 
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/types.h"
-#include "colmap/util/bitmap.h"
+#include "colmap/image/bitmap.h"
 
 class SiftGPU;
 class SiftMatchGPU;

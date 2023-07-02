@@ -29,11 +29,11 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/base/undistortion.h"
+#include "colmap/image/undistortion.h"
 
 #include "colmap/base/camera_models.h"
 #include "colmap/base/pose.h"
-#include "colmap/base/warp.h"
+#include "colmap/image/warp.h"
 #include "colmap/util/misc.h"
 
 #include <fstream>

@@ -32,8 +32,8 @@
 #include "colmap/exe/image.h"
 
 #include "colmap/base/reconstruction.h"
-#include "colmap/base/undistortion.h"
 #include "colmap/controllers/incremental_mapper.h"
+#include "colmap/image/undistortion.h"
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/option_manager.h"

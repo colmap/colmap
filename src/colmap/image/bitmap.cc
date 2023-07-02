@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/util/bitmap.h"
+#include "colmap/image/bitmap.h"
 
 #include "colmap/base/camera_database.h"
 #include "colmap/util/logging.h"

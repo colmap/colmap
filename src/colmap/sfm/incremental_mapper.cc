@@ -34,7 +34,7 @@
 #include "colmap/base/projection.h"
 #include "colmap/base/triangulation.h"
 #include "colmap/estimators/pose.h"
-#include "colmap/util/bitmap.h"
+#include "colmap/image/bitmap.h"
 #include "colmap/util/misc.h"
 
 #include <array>
