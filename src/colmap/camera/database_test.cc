@@ -29,21 +29,30 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_CAMERA_SPECS_H_
-#define COLMAP_SRC_UTIL_CAMERA_SPECS_H_
+#define TEST_NAME "base/camera_database"
+#include "colmap/camera/database.h"
+#include "colmap/util/testing.h"
 
-#include <string>
-#include <unordered_map>
-#include <vector>
+using namespace colmap;
 
-namespace colmap {
+BOOST_AUTO_TEST_CASE(TestInitialization) {
+  CameraDatabase database;
+  camera_specs_t specs = InitializeCameraSpecs();
+  BOOST_CHECK_EQUAL(database.NumEntries(), specs.size());
+}
 
-// { make1 : ({ model1 : sensor-width in mm }, ...), ... }
-typedef std::vector<std::pair<std::string, float>> camera_make_specs_t;
-typedef std::unordered_map<std::string, camera_make_specs_t> camera_specs_t;
+BOOST_AUTO_TEST_CASE(TestExactMatch) {
+  CameraDatabase database;
+  double sensor_width;
+  BOOST_CHECK(
+      database.QuerySensorWidth("canon", "digitalixus100is", &sensor_width));
+  BOOST_CHECK_EQUAL(sensor_width, 6.1600f);
+}
 
-camera_specs_t InitializeCameraSpecs();
-
-}  // namespace colmap
-
-#endif  // COLMAP_SRC_UTIL_CAMERA_SPECS_H_
+BOOST_AUTO_TEST_CASE(TestAmbiguousMatch) {
+  CameraDatabase database;
+  double sensor_width;
+  BOOST_CHECK(
+      !database.QuerySensorWidth("canon", "digitalixus", &sensor_width));
+  BOOST_CHECK_EQUAL(sensor_width, 6.1600f);
+}

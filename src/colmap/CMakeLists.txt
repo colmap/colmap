@@ -48,6 +48,7 @@ elseif(IS_GNU OR IS_CLANG)
 endif()
 
 add_subdirectory(base)
+add_subdirectory(camera)
 add_subdirectory(controllers)
 add_subdirectory(estimators)
 add_subdirectory(exe)

@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/base/camera_database.h"
-
+#include "colmap/camera/database.h"
 #include "colmap/util/string.h"
 
 namespace colmap {

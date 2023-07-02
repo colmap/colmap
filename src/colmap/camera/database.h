@@ -29,31 +29,31 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "base/camera_database"
-#include "colmap/base/camera_database.h"
+#ifndef COLMAP_SRC_BASE_CAMERA_DATABASE_H_
+#define COLMAP_SRC_BASE_CAMERA_DATABASE_H_
 
-#include "colmap/util/testing.h"
+#include "colmap/camera/specs.h"
 
-using namespace colmap;
+#include <string>
 
-BOOST_AUTO_TEST_CASE(TestInitialization) {
-  CameraDatabase database;
-  camera_specs_t specs = InitializeCameraSpecs();
-  BOOST_CHECK_EQUAL(database.NumEntries(), specs.size());
-}
+namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestExactMatch) {
-  CameraDatabase database;
-  double sensor_width;
-  BOOST_CHECK(
-      database.QuerySensorWidth("canon", "digitalixus100is", &sensor_width));
-  BOOST_CHECK_EQUAL(sensor_width, 6.1600f);
-}
+// Database that contains sensor widths for many cameras, which is useful
+// to automatically extract the focal length if EXIF information is incomplete.
+class CameraDatabase {
+ public:
+  CameraDatabase();
 
-BOOST_AUTO_TEST_CASE(TestAmbiguousMatch) {
-  CameraDatabase database;
-  double sensor_width;
-  BOOST_CHECK(
-      !database.QuerySensorWidth("canon", "digitalixus", &sensor_width));
-  BOOST_CHECK_EQUAL(sensor_width, 6.1600f);
-}
+  size_t NumEntries() const { return specs_.size(); }
+
+  bool QuerySensorWidth(const std::string& make,
+                        const std::string& model,
+                        double* sensor_width);
+
+ private:
+  static const camera_specs_t specs_;
+};
+
+}  // namespace colmap
+
+#endif  // COLMAP_SRC_BASE_CAMERA_DATABASE_H_

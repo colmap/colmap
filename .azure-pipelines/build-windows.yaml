@@ -68,7 +68,7 @@ jobs:
 
   - pwsh: |
       $(Build.BinariesDirectory)/vcpkg/vcpkg.exe integrate install
-      ctest -E "(feature/sift_test)|(util/opengl_utils_test)|(mvs/gpu_mat_test)"
+      ctest -E "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
       $tests_pass=$LastExitCode
       if ($tests_pass -ne 0) {
           echo "`n`n`nTests failed, rerunning with verbose output"

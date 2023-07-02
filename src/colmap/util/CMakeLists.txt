@@ -33,7 +33,6 @@ set(FOLDER_NAME "util")
 
 COLMAP_ADD_SOURCES(
     cache.h
-    camera_specs.h camera_specs.cc
     logging.h logging.cc
     math.h math.cc
     matrix.h

@@ -31,7 +31,7 @@
 
 #include "colmap/base/camera.h"
 
-#include "colmap/base/camera_models.h"
+#include "colmap/camera/models.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 

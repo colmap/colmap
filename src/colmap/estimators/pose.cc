@@ -31,10 +31,10 @@
 
 #include "colmap/estimators/pose.h"
 
-#include "colmap/base/camera_models.h"
 #include "colmap/base/cost_functions.h"
 #include "colmap/base/essential_matrix.h"
 #include "colmap/base/pose.h"
+#include "colmap/camera/models.h"
 #include "colmap/estimators/absolute_pose.h"
 #include "colmap/estimators/essential_matrix.h"
 #include "colmap/optim/bundle_adjustment.h"

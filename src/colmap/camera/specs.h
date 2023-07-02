@@ -29,31 +29,21 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_BASE_CAMERA_DATABASE_H_
-#define COLMAP_SRC_BASE_CAMERA_DATABASE_H_
-
-#include "colmap/util/camera_specs.h"
+#ifndef COLMAP_SRC_CAMERA_SPECS_H_
+#define COLMAP_SRC_CAMERA_SPECS_H_
 
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace colmap {
 
-// Database that contains sensor widths for many cameras, which is useful
-// to automatically extract the focal length if EXIF information is incomplete.
-class CameraDatabase {
- public:
-  CameraDatabase();
+// { make1 : ({ model1 : sensor-width in mm }, ...), ... }
+typedef std::vector<std::pair<std::string, float>> camera_make_specs_t;
+typedef std::unordered_map<std::string, camera_make_specs_t> camera_specs_t;
 
-  size_t NumEntries() const { return specs_.size(); }
-
-  bool QuerySensorWidth(const std::string& make,
-                        const std::string& model,
-                        double* sensor_width);
-
- private:
-  static const camera_specs_t specs_;
-};
+camera_specs_t InitializeCameraSpecs();
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_BASE_CAMERA_DATABASE_H_
+#endif  // COLMAP_SRC_CAMERA_SPECS_H_
