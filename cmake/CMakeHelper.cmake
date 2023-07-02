@@ -155,9 +155,10 @@ macro(COLMAP_ADD_EXECUTABLE TARGET_NAME)
 endmacro(COLMAP_ADD_EXECUTABLE)
 
 # Wrapper for test executables.
-macro(COLMAP_ADD_TEST TARGET_NAME)
+macro(COLMAP_ADD_TEST TEST_NAME)
     if(TESTS_ENABLED)
         # ${ARGN} will store the list of source files passed to this function.
+        set(TARGET_NAME "colmap_${FOLDER_NAME}_${TEST_NAME}")
         add_executable(${TARGET_NAME} ${ARGN})
         set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
             ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
