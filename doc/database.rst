@@ -18,7 +18,7 @@ The database contains the following tables:
 - two_view_geometries
 
 To initialize an empty SQLite database file with the required schema, you can
-either create a new project in the GUI or execute `src/exe/database_create.cc`.
+either create a new project in the GUI or execute `src/colmap/exe/database_create.cc`.
 
 Cameras and Images
 ------------------
