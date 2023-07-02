@@ -30,7 +30,7 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "base/camera_database"
-#include "colmap/base/camera_database.h"
+#include "colmap/camera/database.h"
 #include "colmap/util/testing.h"
 
 using namespace colmap;
