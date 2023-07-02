@@ -19,18 +19,24 @@ jobs:
       cudaEnabled: true
   - template: build-ubuntu.yaml
     parameters:
-      displayName: 'Ubuntu 20.04 (ASan)'
-      ubuntuVersion: 20.04
-      asanEnabled: true
-  - template: build-ubuntu.yaml
-    parameters:
       displayName: 'Ubuntu 22.04'
       ubuntuVersion: 22.04
+      e2eTestsEnabled: true
   - template: build-ubuntu.yaml
     parameters:
       displayName: 'Ubuntu 22.04 (CUDA)'
       ubuntuVersion: 22.04
       cudaEnabled: true
+  - template: build-ubuntu.yaml
+    parameters:
+      displayName: 'Ubuntu 22.04 (ASan)'
+      ubuntuVersion: 22.04
+      asanEnabled: true
+  - template: build-ubuntu.yaml
+    parameters:
+      displayName: 'Ubuntu 22.04 (ClangTidy)'
+      ubuntuVersion: 22.04
+      cmakeBuildType: ClangTidy
   - template: build-mac.yaml
     parameters:
       displayName: 'Mac 11'

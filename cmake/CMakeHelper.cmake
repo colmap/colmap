@@ -114,6 +114,9 @@ macro(COLMAP_ADD_LIBRARY TARGET_NAME)
     add_library(${TARGET_NAME} STATIC ${ARGN})
     set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
         ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
+    if(CLANG_TIDY_EXE)
+        set_target_properties(${TARGET_NAME} PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
+    endif()
     install(TARGETS ${TARGET_NAME} DESTINATION lib/colmap)
 endmacro(COLMAP_ADD_LIBRARY)
 
@@ -126,6 +129,9 @@ macro(COLMAP_ADD_CUDA_LIBRARY TARGET_NAME)
     target_link_libraries(${TARGET_NAME} CUDA::cudart CUDA::curand)
     set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
         ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
+    if(CLANG_TIDY_EXE)
+        set_target_properties(${TARGET_NAME} PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
+    endif()
     install(TARGETS ${TARGET_NAME} DESTINATION lib/colmap/)
 endmacro(COLMAP_ADD_CUDA_LIBRARY)
 
@@ -143,6 +149,9 @@ macro(COLMAP_ADD_EXECUTABLE TARGET_NAME)
     else()
         install(TARGETS ${TARGET_NAME} DESTINATION bin/)
     endif()
+    if(CLANG_TIDY_EXE)
+        set_target_properties(${TARGET_NAME} PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
+    endif()
 endmacro(COLMAP_ADD_EXECUTABLE)
 
 # Wrapper for test executables.
@@ -152,6 +161,9 @@ macro(COLMAP_ADD_TEST TARGET_NAME)
         add_executable(${TARGET_NAME} ${ARGN})
         set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
             ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
+        if(CLANG_TIDY_EXE)
+            set_target_properties(${TARGET_NAME} PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
+        endif()
         target_link_libraries(${TARGET_NAME} colmap
                               ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
         add_test("${FOLDER_NAME}/${TARGET_NAME}" ${TARGET_NAME})
@@ -168,6 +180,9 @@ macro(COLMAP_ADD_CUDA_TEST TARGET_NAME)
         add_executable(${TARGET_NAME} ${ARGN})
         set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
             ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
+        if(CLANG_TIDY_EXE)
+            set_target_properties(${TARGET_NAME} PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
+        endif()
         target_link_libraries(${TARGET_NAME} colmap
                               ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
         add_test("${FOLDER_NAME}/${TARGET_NAME}" ${TARGET_NAME})

@@ -1,0 +1,6 @@
+Checks: >
+  performance-*,
+  concurrency-*,
+WarningsAsErrors: '*'
+FormatStyle: 'file'
+User: 'user'
