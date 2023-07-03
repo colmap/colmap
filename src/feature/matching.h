@@ -86,6 +86,7 @@ struct SequentialMatchingOptions {
 
   // Path to the vocabulary tree.
   std::string vocab_tree_path = "";
+  std::string output_index_path = "";
 
   bool Check() const;
 };

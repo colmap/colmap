@@ -57,7 +57,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeHelper.cmake NO_POLICY_SCOPE)
 option(SIMD_ENABLED "Whether to enable SIMD optimizations" ON)
 option(OPENMP_ENABLED "Whether to enable OpenMP parallelization" ON)
 option(IPO_ENABLED "Whether to enable interprocedural optimization" ON)
-option(CUDA_ENABLED "Whether to enable CUDA, if available" ON)
+option(CUDA_ENABLED "Whether to enable CUDA, if available" OFF)
 option(GUI_ENABLED "Whether to enable the graphical UI" ON)
 option(OPENGL_ENABLED "Whether to enable OpenGL, if available" ON)
 option(TESTS_ENABLED "Whether to build test binaries" OFF)
@@ -87,6 +87,9 @@ if(OPENMP_ENABLED)
     find_package(OpenMP QUIET)
 endif()
 
+set(Eigen3_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/Eigen340/share/eigen3/cmake)
+set(Ceres_DIR ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/Ceres210/Linux/lib/cmake/Ceres)
+
 find_package(Ceres REQUIRED)
 
 find_package(Boost REQUIRED COMPONENTS
@@ -95,7 +98,6 @@ find_package(Boost REQUIRED COMPONENTS
              graph
              system
              unit_test_framework)
-
 find_package(Eigen3 REQUIRED)
 
 find_package(FreeImage REQUIRED)

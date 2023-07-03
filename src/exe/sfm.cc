@@ -33,6 +33,7 @@
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <fstream>
 
 #include "base/reconstruction.h"
 #include "controllers/automatic_reconstruction.h"
@@ -335,41 +336,209 @@ int RunPointFiltering(int argc, char** argv) {
 
   return EXIT_SUCCESS;
 }
+int CreateInput(const std::string& image_list_path,
+                const std::string& camera_file_path,
+                const std::string& save_path) {
+  std::vector<std::string> names;
+  std::vector<Eigen::Vector3d> positions;
+  std::vector<Eigen::Quaterniond> rotations;
+  int width, height;
+  double fx, fy, cx, cy;
+  double k1, k2, p1, p2;
+  // read image_list_path
+  {
+    std::ifstream in_file(image_list_path);
+    if (!in_file.is_open()) {
+      std::cerr << "ERROR:" << image_list_path << "cant open." << std::endl;
+      return EXIT_FAILURE;
+    }
+    while (!in_file.eof()) {
+      //        if(cnt++ > 50) break;
+      std::string line;
+      std::getline(in_file, line);
+      std::stringstream ss;
+      ss << line;
+      if (line.length() < 10) {
+        continue;
+      }
+
+      double data[8];
+      std::string file_name;
+      ss >> file_name;
+
+      for (size_t i = 1; i < 8; i++) {
+        ss >> data[i];
+      }
+      std::istringstream iss(file_name);
+      iss >> data[0];
+      Eigen::Vector3d position(data[1], data[2], data[3]);
+      Eigen::Quaterniond rotation(data[7], data[4], data[5], data[6]);
+      rotation = rotation.toRotationMatrix().inverse();
+      position = -1 * rotation.toRotationMatrix() * position;
+      names.push_back(file_name + ".png");
+      positions.push_back(position);
+      rotations.push_back(rotation);
+    }
+    in_file.close();
+  }
+  // read camera_file_path
+  {
+    std::ifstream in_file(camera_file_path);
+    if (!in_file.is_open()) {
+      std::cerr << "ERROR:" << camera_file_path << "cant open." << std::endl;
+      return EXIT_FAILURE;
+    }
+
+    while (!in_file.eof()) {
+      //        if(cnt++ > 50) break;
+      std::string line;
+      std::getline(in_file, line);
+      std::stringstream ss;
+      ss << line;
+      if (line.find("Camera.width") != std::string::npos) {
+        auto n = line.find(":");
+        width = std::stoi(line.substr(n + 1, line.length() - n - 1));
+      }
+      if (line.find("Camera.height") != std::string::npos) {
+        auto n = line.find(":");
+        height = std::stoi(line.substr(n + 1, line.length() - n - 1));
+      }
+      if (line.find("Camera1.fx") != std::string::npos) {
+        auto n = line.find(":");
+        fx = std::stod(line.substr(n + 1, line.length() - n - 1));
+      }
+      if (line.find("Camera1.fy") != std::string::npos) {
+        auto n = line.find(":");
+        fy = std::stod(line.substr(n + 1, line.length() - n - 1));
+      }
+      if (line.find("Camera1.cx") != std::string::npos) {
+        auto n = line.find(":");
+        cx = std::stod(line.substr(n + 1, line.length() - n - 1));
+      }
+      if (line.find("Camera1.cy") != std::string::npos) {
+        auto n = line.find(":");
+        cy = std::stod(line.substr(n + 1, line.length() - n - 1));
+      }
+      if (line.find("Camera1.k1") != std::string::npos) {
+        auto n = line.find(":");
+        k1 = std::stod(line.substr(n + 1, line.length() - n - 1));
+      }
+      if (line.find("Camera1.k2") != std::string::npos) {
+        auto n = line.find(":");
+        k2 = std::stod(line.substr(n + 1, line.length() - n - 1));
+      }
+      if (line.find("Camera1.p1") != std::string::npos) {
+        auto n = line.find(":");
+        p1 = std::stod(line.substr(n + 1, line.length() - n - 1));
+      }
+      if (line.find("Camera1.p2") != std::string::npos) {
+        auto n = line.find(":");
+        p2 = std::stod(line.substr(n + 1, line.length() - n - 1));
+      }
+    }
+    in_file.close();
+  }
+  // images
+  {
+    std::ofstream out_file;
+    out_file.open(save_path + "/images.txt");
+    if (!out_file.is_open()) {
+      std::cerr << "ERROR: images.txt cant open." << std::endl;
+      return EXIT_FAILURE;
+    }
+    for (size_t i = 0; i < names.size(); i++) {
+      Eigen::Vector3d position = positions[i];
+      Eigen::Quaterniond rotation = rotations[i];
+
+      int id = i + 1;
+      out_file << id << " " << rotation.w() << " " << rotation.x() << " "
+               << rotation.y() << " " << rotation.z() << " " << position.x()
+               << " " << position.y() << " " << position.z() << " " << id << " "
+               << names[i] << "\n";
+      out_file << "\n";
+    }
+
+    out_file.close();
+  }
+  // cameras
+  {
+    std::ofstream out_file;
+    out_file.open(save_path + "/cameras.txt");
+    if (!out_file.is_open()) {
+      std::cerr << "ERROR: cameras.txt cant open." << std::endl;
+      return EXIT_FAILURE;
+    }
+    for (size_t i = 0; i < names.size(); i++) {
+      Eigen::Vector3d position = positions[i];
+      Eigen::Quaterniond rotation = rotations[i];
+
+      int id = i + 1;
+      out_file << id << " OPENCV " << width << " " << height << " " << fx << " "
+               << fy << " " << cx << " " << cy << " " << k1 << " " << k2 << " "
+               << p1 << " " << p2 << "\n";
+    }
+
+    out_file.close();
+  }
+  // points3D
+  {
+    std::ofstream out_file;
+    out_file.open(save_path + "/points3D.txt");
+    out_file.close();
+  }
+  return EXIT_SUCCESS;
+}
 
 int RunPointTriangulator(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
-  bool clear_points = false;
+  std::string image_list_path;
+  std::string camera_file_path;
 
+  bool clear_points = false;
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddImageOptions();
-  options.AddRequiredOption("input_path", &input_path);
+  // options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
+  options.AddRequiredOption("image_list_path", &image_list_path);
+  options.AddRequiredOption("camera_file_path", &camera_file_path);
   options.AddDefaultOption(
       "clear_points", &clear_points,
       "Whether to clear all existing points and observations");
   options.AddMapperOptions();
   options.Parse(argc, argv);
 
-  if (!ExistsDir(input_path)) {
-    std::cerr << "ERROR: `input_path` is not a directory" << std::endl;
+  if (!ExistsFile(camera_file_path)) {
+    std::cerr << "ERROR: `camera_file_path` is not a file" << std::endl;
     return EXIT_FAILURE;
   }
-
+  if (!ExistsFile(image_list_path)) {
+    std::cerr << "ERROR: `image_list_path` is not a file" << std::endl;
+    return EXIT_FAILURE;
+  }
   if (!ExistsDir(output_path)) {
     std::cerr << "ERROR: `output_path` is not a directory" << std::endl;
     return EXIT_FAILURE;
   }
-
+  input_path = output_path + "/created";
+  CreateDirIfNotExists(input_path);
+  if (EXIT_SUCCESS !=
+      CreateInput(image_list_path, camera_file_path, input_path)) {
+    return EXIT_FAILURE;
+  }
+  if (!ExistsDir(input_path)) {
+    std::cerr << "ERROR: `input_path` is not a directory" << std::endl;
+    return EXIT_FAILURE;
+  }
   PrintHeading1("Loading model");
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
-  return RunPointTriangulatorImpl(
-      reconstruction, *options.database_path, *options.image_path, output_path,
-      *options.mapper, clear_points);
+  return RunPointTriangulatorImpl(reconstruction, *options.database_path,
+                                  *options.image_path, output_path,
+                                  *options.mapper, clear_points);
 }
 
 int RunPointTriangulatorImpl(Reconstruction& reconstruction,
@@ -382,11 +551,10 @@ int RunPointTriangulatorImpl(Reconstruction& reconstruction,
 
   DatabaseCache database_cache;
 
+  Database database(database_path);
   {
     Timer timer;
     timer.Start();
-
-    Database database(database_path);
 
     const size_t min_num_matches =
         static_cast<size_t>(mapper_options.min_num_matches);
@@ -492,6 +660,33 @@ int RunPointTriangulatorImpl(Reconstruction& reconstruction,
 
   reconstruction.Write(output_path);
 
+  std::ofstream file("p3d.txt");
+  auto p3ds = reconstruction.Points3D();
+  file << p3ds.size() << "\n";
+  for (const auto& point3D : p3ds) {
+    Eigen::Vector3d xyz = point3D.second.XYZ();
+    file << point3D.first << " " << xyz.x() << " " << xyz.y() << " " << xyz.z()
+         << " " << point3D.second.Error() << "\n";
+    int num = point3D.second.Track().Length();
+    file << num << "\n";
+
+    for (const auto& track_el : point3D.second.Track().Elements()) {
+      const auto& image = reconstruction.Image(track_el.image_id);
+      file << track_el.image_id << " " << image.Name() << " "
+           << track_el.point2D_idx << " ";
+
+      FeatureKeypoint FK =
+          database.ReadKeypoints(track_el.image_id)[track_el.point2D_idx];
+      auto FD = database.ReadDescriptors(track_el.image_id);
+      file << FK.x << " " << FK.y << " " << FK.ComputeScale() << " "
+           << FK.ComputeOrientation();
+      for (size_t j = 0; j < 128; j++) {
+        file << " " << (int)FD(track_el.point2D_idx, j);
+      }
+      file << "\n";
+    }
+  }
+  file.close();
   return EXIT_SUCCESS;
 }
 

@@ -1069,7 +1069,33 @@ void SequentialFeatureMatcher::RunLoopDetection(
                            options_.loop_detection_num_checks,
                            options_.loop_detection_max_num_features, image_ids,
                            this, &cache_, &visual_index);
-
+  if (!options_.output_index_path.empty()) {
+    visual_index.Write(options_.output_index_path);
+    //  std::ofstream file(options_.output_index_path+".sft", std::ios::binary);
+    std::ofstream file(options_.output_index_path + ".sft");
+    for (size_t i = 0; i < image_ids.size(); ++i) {
+      std::string name = cache_.GetImage(image_ids[i]).Name();
+      int id = image_ids[i];
+      std::cout << StringPrintf("Indexing image [%d/%s]", id, name.c_str())
+                << std::flush;
+      auto keypoints = cache_.GetKeypoints(image_ids[i]);
+      auto descriptors = cache_.GetDescriptors(image_ids[i]);
+      std::cout << keypoints.size() << " "
+                << " " << descriptors.rows() << " " << descriptors.cols()
+                << "\n";
+      file << id << " " << name.c_str() << "\n";
+      file << keypoints.size() << " 128\n";
+      for (size_t i = 0; i < keypoints.size(); i++) {
+        file << i << " " << keypoints[i].x << " " << keypoints[i].y << " "
+             << keypoints[i].ComputeScale() << " "
+             << keypoints[i].ComputeOrientation();
+        for (size_t j = 0; j < 128; j++) {
+          file << " " << (int)descriptors(i, j);
+        }
+        file << "\n";
+      }
+    }
+  }
   if (IsStopped()) {
     return;
   }

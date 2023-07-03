@@ -179,6 +179,8 @@ class OptionManager {
   bool added_poisson_meshing_options_;
   bool added_delaunay_meshing_options_;
   bool added_render_options_;
+  bool FLAGS_logtostderr;
+  int FLAGS_v;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

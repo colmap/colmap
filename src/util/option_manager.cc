@@ -365,6 +365,8 @@ void OptionManager::AddSequentialMatchingOptions() {
       &sequential_matching->loop_detection_max_num_features);
   AddAndRegisterDefaultOption("SequentialMatching.vocab_tree_path",
                               &sequential_matching->vocab_tree_path);
+  AddAndRegisterDefaultOption("SequentialMatching.output_index_path",
+                              &sequential_matching->output_index_path);
 }
 
 void OptionManager::AddVocabTreeMatchingOptions() {
@@ -708,7 +710,7 @@ void OptionManager::AddDelaunayMeshingOptions() {
   AddAndRegisterDefaultOption("DelaunayMeshing.max_depth_dist",
                               &delaunay_meshing->max_depth_dist);
   AddAndRegisterDefaultOption("DelaunayMeshing.visibility_sigma",
-                              &delaunay_meshing->visibility_sigma);    
+                              &delaunay_meshing->visibility_sigma);
   AddAndRegisterDefaultOption("DelaunayMeshing.distance_sigma_factor",
                               &delaunay_meshing->distance_sigma_factor);
   AddAndRegisterDefaultOption("DelaunayMeshing.quality_regularization",

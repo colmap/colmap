@@ -317,7 +317,10 @@ std::vector<std::string> ReadTextFileLines(const std::string& path) {
     if (line.empty()) {
       continue;
     }
-
+    auto n = line.find(" ");
+    if (std::string::npos != n) {
+      line = line.substr(0, n) + ".png";
+    }
     lines.push_back(line);
   }
 
