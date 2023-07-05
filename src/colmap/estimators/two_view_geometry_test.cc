@@ -35,7 +35,7 @@
 #include "colmap/base/pose.h"
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestDefault) {
   TwoViewGeometry two_view_geometry;
@@ -82,4 +82,6 @@ BOOST_AUTO_TEST_CASE(TestInvert) {
   BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
   BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[1].point2D_idx1, 2);
   BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[1].point2D_idx2, 3);
+}
+
 }

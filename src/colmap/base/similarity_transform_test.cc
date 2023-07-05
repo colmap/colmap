@@ -39,7 +39,7 @@
 
 #include <Eigen/Core>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestDefaultInitialization) {
   const SimilarityTransform3 tform;
@@ -115,4 +115,6 @@ BOOST_AUTO_TEST_CASE(TestFromFile) {
                  1e-6);
   BOOST_CHECK_LE(
       (tform.Rotation() - Eigen::Vector4d(-0.5, 0.5, 0.5, 0.5)).norm(), 1e-6);
+}
+
 }

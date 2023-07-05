@@ -37,7 +37,7 @@
 #include <QApplication>
 #include <thread>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestOpenGLContextManager) {
   char app_name[] = "Test";
@@ -71,4 +71,6 @@ BOOST_AUTO_TEST_CASE(TestRunThreadWithOpenGLContext) {
 
   TestThread thread;
   RunThreadWithOpenGLContext(&thread);
+}
+
 }

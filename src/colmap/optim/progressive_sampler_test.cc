@@ -36,7 +36,7 @@
 
 #include <unordered_set>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestLessSamples) {
   ProgressiveSampler sampler(2);
@@ -80,4 +80,6 @@ BOOST_AUTO_TEST_CASE(TestProgressive) {
       prev_last_sample = samples.back();
     }
   }
+}
+
 }

@@ -38,7 +38,7 @@
 
 #include <Eigen/Geometry>
 
-using namespace colmap;
+namespace colmap {
 
 // Note that the test case values are obtained from OpenCV.
 BOOST_AUTO_TEST_CASE(TestDecomposeHomographyMatrix) {
@@ -173,4 +173,6 @@ BOOST_AUTO_TEST_CASE(TestHomographyMatrixFromPosePlanarScene) {
   Eigen::Matrix3d H_ref;
   H_ref << 2, 0, 0, 0, 1, 0, 0, 0, 1;
   BOOST_CHECK_EQUAL(H, H_ref);
+}
+
 }

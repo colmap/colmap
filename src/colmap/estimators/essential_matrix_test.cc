@@ -42,7 +42,7 @@
 
 #include <Eigen/Core>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestFivePoint) {
   const double points1_raw[] = {
@@ -153,4 +153,6 @@ BOOST_AUTO_TEST_CASE(TestEightPoint) {
   Eigen::Vector3d s = svd.singularValues();
   BOOST_CHECK(std::abs(s(0) - s(1)) < 1e-5);
   BOOST_CHECK(std::abs(s(2)) < 1e-5);
+}
+
 }

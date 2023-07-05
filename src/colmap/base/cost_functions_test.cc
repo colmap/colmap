@@ -36,7 +36,7 @@
 #include "colmap/camera/models.h"
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestBundleAdjustmentCostFunction) {
   std::unique_ptr<ceres::CostFunction> cost_function(
@@ -151,4 +151,6 @@ BOOST_AUTO_TEST_CASE(TestRelativePoseCostFunction) {
                                                        Eigen::Vector2d(1, 1)));
   BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
   BOOST_CHECK_EQUAL(residuals[0], 0.5);
+}
+
 }

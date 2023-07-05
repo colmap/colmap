@@ -41,7 +41,7 @@
 
 #include <Eigen/Core>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestP3P) {
   SetPRNGSeed(0);
@@ -221,4 +221,6 @@ BOOST_AUTO_TEST_CASE(TestEPNP_BrokenSolveSignCase) {
   }
 
   BOOST_CHECK(reproj < 0.2);
+}
+
 }

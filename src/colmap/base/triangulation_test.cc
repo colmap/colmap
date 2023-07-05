@@ -37,7 +37,7 @@
 
 #include <Eigen/Core>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestTriangulatePoint) {
   std::vector<Eigen::Vector3d> points3D(6);
@@ -94,4 +94,6 @@ BOOST_AUTO_TEST_CASE(TestCalculateTriangulationAngle) {
                         tvec1, tvec2, {Eigen::Vector3d(0, 0, 50)})[0],
                     0.019997333973,
                     1e-8);
+}
+
 }

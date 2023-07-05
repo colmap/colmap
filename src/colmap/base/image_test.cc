@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestDefault) {
   Image image;
@@ -366,4 +366,6 @@ BOOST_AUTO_TEST_CASE(TestProjectionCenter) {
 BOOST_AUTO_TEST_CASE(TestViewingDirection) {
   Image image;
   BOOST_CHECK(image.ViewingDirection().isApprox(Eigen::Vector3d(0, 0, 1)));
+}
+
 }

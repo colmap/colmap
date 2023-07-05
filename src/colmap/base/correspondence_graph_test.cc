@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 int FindNumTransitiveCorrespondences(const CorrespondenceGraph& graph,
                                      const image_t image_id,
@@ -364,4 +364,6 @@ BOOST_AUTO_TEST_CASE(TestDuplicate) {
   const image_pair_t pair_id = Database::ImagePairToPairId(0, 1);
   BOOST_CHECK_EQUAL(
       correspondence_graph.NumCorrespondencesBetweenImages().at(pair_id), 3);
+}
+
 }

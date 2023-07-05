@@ -37,7 +37,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestEstimate) {
   for (int x = 0; x < 10; ++x) {
@@ -67,4 +67,6 @@ BOOST_AUTO_TEST_CASE(TestEstimate) {
       BOOST_CHECK(residuals[i] < 1e-6);
     }
   }
+}
+
 }

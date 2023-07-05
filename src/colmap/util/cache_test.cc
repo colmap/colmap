@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestLRUCacheEmpty) {
   LRUCache<int, int> cache(5, [](const int key) { return key; });
@@ -169,7 +169,7 @@ BOOST_AUTO_TEST_CASE(TestLRUCacheClear) {
 }
 
 struct SizedElem {
-  SizedElem(const size_t num_bytes_) : num_bytes(num_bytes_) {}
+  explicit SizedElem(const size_t num_bytes_) : num_bytes(num_bytes_) {}
   size_t NumBytes() const { return num_bytes; }
   size_t num_bytes;
 };
@@ -271,4 +271,6 @@ BOOST_AUTO_TEST_CASE(TestMemoryConstrainedLRUCacheUpdateNumBytes) {
   BOOST_CHECK_EQUAL(cache.NumBytes(), 0);
   BOOST_CHECK_EQUAL(cache.Get(2).NumBytes(), 2);
   BOOST_CHECK_EQUAL(cache.NumBytes(), 2);
+}
+
 }

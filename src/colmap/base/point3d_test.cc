@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestDefault) {
   Point3D point3D;
@@ -111,4 +111,6 @@ BOOST_AUTO_TEST_CASE(TestTrack) {
   BOOST_CHECK_EQUAL(point3D.Track().Length(), 2);
   track.AddElement(0, 3);
   BOOST_CHECK_EQUAL(point3D.Track().Length(), 2);
+}
+
 }

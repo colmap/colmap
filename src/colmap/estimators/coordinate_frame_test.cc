@@ -35,7 +35,7 @@
 #include "colmap/base/gps.h"
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestEstimateGravityVectorFromImageOrientation) {
   Reconstruction reconstruction;
@@ -154,4 +154,6 @@ BOOST_AUTO_TEST_CASE(TestAlignToENUPlane) {
                                   .norm();
     BOOST_CHECK_LE(std::abs(dist_orig - dist_tform), 1e-6);
   }
+}
+
 }

@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestTrackElement) {
   TrackElement track_el;
@@ -134,4 +134,6 @@ BOOST_AUTO_TEST_CASE(TestCompress) {
   BOOST_CHECK_EQUAL(track.Elements().capacity(), 4);
   track.Compress();
   BOOST_CHECK_EQUAL(track.Elements().capacity(), 2);
+}
+
 }

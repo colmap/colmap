@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 #define CHECK_EQUAL_RESULT(find_func1, coeffs1, find_func2, coeffs2) \
   {                                                                  \
@@ -199,4 +199,6 @@ BOOST_AUTO_TEST_CASE(TestFindPolynomialRootsCompanionMatrixZeroSolution) {
   Eigen::VectorXd ref_imag(4);
   ref_imag << 0, 0.651148, -0.651148, 0;
   BOOST_CHECK(imag.isApprox(ref_imag, 1e-6));
+}
+
 }

@@ -37,7 +37,7 @@
 
 #include <unordered_set>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestLessSamples) {
   CombinationSampler sampler(2);
@@ -72,4 +72,6 @@ BOOST_AUTO_TEST_CASE(TestEqualSamples) {
     BOOST_CHECK_EQUAL(
         std::unordered_set<size_t>(samples.begin(), samples.end()).size(), 5);
   }
+}
+
 }

@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestDetectLineSegments) {
   Bitmap bitmap;
@@ -78,4 +78,6 @@ BOOST_AUTO_TEST_CASE(TestClassifyLineSegmentOrientations) {
   BOOST_CHECK(orientations[3] == LineSegmentOrientation::HORIZONTAL);
   BOOST_CHECK(orientations[4] == LineSegmentOrientation::UNDEFINED);
   BOOST_CHECK(orientations[5] == LineSegmentOrientation::UNDEFINED);
+}
+
 }

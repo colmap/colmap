@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestBitmapColorEmpty) {
   BitmapColor<uint8_t> color;
@@ -384,4 +384,6 @@ BOOST_AUTO_TEST_CASE(TestCloneAsGrey) {
   BOOST_CHECK_EQUAL(cloned_bitmap.Height(), 100);
   BOOST_CHECK_EQUAL(cloned_bitmap.Channels(), 1);
   BOOST_CHECK_NE(bitmap.Data(), cloned_bitmap.Data());
+}
+
 }

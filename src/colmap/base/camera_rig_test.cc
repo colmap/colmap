@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestEmpty) {
   CameraRig camera_rig;
@@ -328,4 +328,6 @@ BOOST_AUTO_TEST_CASE(TestComputeAbsolutePose) {
   camera_rig.ComputeAbsolutePose(0, reconstruction, &abs_qvec, &abs_tvec);
   BOOST_CHECK_EQUAL(abs_qvec, ComposeIdentityQuaternion());
   BOOST_CHECK_EQUAL(abs_tvec, Eigen::Vector3d(0, -1, -2));
+}
+
 }

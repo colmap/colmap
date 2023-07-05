@@ -35,7 +35,7 @@
 #include "colmap/util/random.h"
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 namespace {
 
 void GenerateRandomBitmap(const int width,
@@ -272,4 +272,6 @@ BOOST_AUTO_TEST_CASE(TestDownsampleImage) {
   BOOST_CHECK_CLOSE(downsampled[1], 4.66086388, 1e-3);
   BOOST_CHECK_CLOSE(downsampled[2], 10.3391361, 1e-3);
   BOOST_CHECK_CLOSE(downsampled[3], 12.2318935, 1e-3);
+}
+
 }

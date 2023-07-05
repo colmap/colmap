@@ -17,8 +17,15 @@ jobs:
     CCACHE_VERSION: 1
     ${{ if eq(parameters.asanEnabled, false) }}:
       ctestExclusions: "(mvs/colmap_mvs_gpu_mat_test)"
+      numAllowedNinjaErrors: 1
     ${{ if eq(parameters.asanEnabled, true) }}:
       ctestExclusions: "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
+    ${{ if eq(parameters.cmakeBuildType, 'ClangTidy') }}:
+      # Do not abort compilation in ClangTidy mode, so we see issues
+      # for all targets logged out to the console.
+      numAllowedNinjaErrors: 1000
+    ${{ if ne(parameters.cmakeBuildType, 'ClangTidy') }}:
+      numAllowedNinjaErrors: 1
   steps:
   - script: |
       sudo apt-get update && sudo apt-get install -y \
@@ -108,7 +115,7 @@ jobs:
         -DTESTS_ENABLED=ON \
         -DCMAKE_CUDA_ARCHITECTURES=50 \
         -DASAN_ENABLED=${{ parameters.asanEnabled }}
-      ninja
+      ninja -k $(numAllowedNinjaErrors)
     displayName: Configure and build
 
   - ${{ if ne(parameters.cmakeBuildType, 'ClangTidy') }}:

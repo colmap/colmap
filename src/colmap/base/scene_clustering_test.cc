@@ -37,7 +37,7 @@
 
 #include <set>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestEmpty) {
   const std::vector<std::pair<image_t, image_t>> image_pairs;
@@ -159,4 +159,6 @@ BOOST_AUTO_TEST_CASE(TestThreeFlatClustersTwoOverlap) {
   BOOST_CHECK(image_ids2.count(3));
   BOOST_CHECK(image_ids2.count(4));
   BOOST_CHECK(image_ids2.count(5));
+}
+
 }

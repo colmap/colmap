@@ -34,7 +34,8 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap::mvs;
+namespace colmap {
+namespace mvs {
 
 BOOST_AUTO_TEST_CASE(TestEmpty) {
   Mat<int> mat;
@@ -94,4 +95,7 @@ BOOST_AUTO_TEST_CASE(TestFill) {
   mat.Set(1, 0, 0, 10);
   mat.Set(1, 0, 1, 10);
   mat.Set(1, 0, 2, 10);
+}
+
+}
 }

@@ -106,7 +106,7 @@
 #define CheckConstantPoint(point, orig_point) \
   { BOOST_CHECK_EQUAL(point.XYZ(), orig_point.XYZ()); }
 
-using namespace colmap;
+namespace colmap {
 
 void GeneratePointCloud(const size_t num_points,
                         const Eigen::Vector3d& min,
@@ -863,4 +863,6 @@ BOOST_AUTO_TEST_CASE(TestRigFourViewPartial) {
     CheckVariablePoint(point3D.second,
                        orig_reconstruction.Point3D(point3D.first));
   }
+}
+
 }

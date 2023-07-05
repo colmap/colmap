@@ -43,7 +43,7 @@
 
 #include <Eigen/Core>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(Estimate) {
   SetPRNGSeed(0);
@@ -130,4 +130,6 @@ BOOST_AUTO_TEST_CASE(Estimate) {
       }
     }
   }
+}
+
 }

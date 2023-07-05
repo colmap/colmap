@@ -41,7 +41,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestReport) {
   LORANSAC<SimilarityTransformEstimator<3>,
@@ -104,4 +104,6 @@ BOOST_AUTO_TEST_CASE(TestSimilarityTransform) {
   const double matrix_diff =
       (orig_tform.Matrix().topLeftCorner<3, 4>() - report.model).norm();
   BOOST_CHECK(std::abs(matrix_diff) < 1e-6);
+}
+
 }

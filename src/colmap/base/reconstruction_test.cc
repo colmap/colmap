@@ -38,7 +38,7 @@
 #include "colmap/camera/models.h"
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 void GenerateReconstruction(const image_t num_images,
                             Reconstruction* reconstruction,
@@ -610,4 +610,6 @@ BOOST_AUTO_TEST_CASE(TestComputeMeanReprojectionError) {
   BOOST_CHECK_EQUAL(reconstruction.ComputeMeanReprojectionError(), 1);
   reconstruction.Point3D(point3D_id1).SetError(2.0);
   BOOST_CHECK_EQUAL(reconstruction.ComputeMeanReprojectionError(), 2.0);
+}
+
 }

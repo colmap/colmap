@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestEmpty) {
   DatabaseCache cache;
@@ -83,4 +83,6 @@ BOOST_AUTO_TEST_CASE(TestAddImage) {
       0);
   BOOST_CHECK_EQUAL(
       cache.CorrespondenceGraph().NumObservationsForImage(image.ImageId()), 0);
+}
+
 }

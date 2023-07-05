@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestFeatureKeypointsToPointsVector) {
   FeatureKeypoints keypoints(2);
@@ -114,4 +114,6 @@ BOOST_AUTO_TEST_CASE(TestExtractTopScaleFeatures) {
   BOOST_CHECK_EQUAL(top_keypoints5.size(), 5);
   BOOST_CHECK_EQUAL(top_descriptors6.rows(), 5);
   BOOST_CHECK_EQUAL(top_descriptors6, descriptors);
+}
+
 }
