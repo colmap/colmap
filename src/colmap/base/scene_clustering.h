@@ -73,7 +73,7 @@ class SceneClustering {
     std::vector<Cluster> child_clusters;
   };
 
-  SceneClustering(const Options& options);
+  explicit SceneClustering(const Options& options);
 
   void Partition(const std::vector<std::pair<image_t, image_t>>& image_pairs,
                  const std::vector<int>& num_inliers);

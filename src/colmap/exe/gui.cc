@@ -43,9 +43,7 @@ int RunGraphicalUserInterface(int argc, char** argv) {
             << std::endl;
   return EXIT_FAILURE;
 #else
-  using namespace colmap;
-
-  OptionManager options;
+  colmap::OptionManager options;
 
   std::string import_path;
 
@@ -62,7 +60,7 @@ int RunGraphicalUserInterface(int argc, char** argv) {
 
   QApplication app(argc, argv);
 
-  MainWindow main_window(options);
+  colmap::MainWindow main_window(options);
   main_window.show();
 
   if (!import_path.empty()) {

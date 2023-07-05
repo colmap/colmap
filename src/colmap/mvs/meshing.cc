@@ -490,7 +490,7 @@ struct DelaunayTriangulationRayCaster {
     double target_distance_squared = 0.0;
   };
 
-  DelaunayTriangulationRayCaster(const Delaunay& triangulation)
+  explicit DelaunayTriangulationRayCaster(const Delaunay& triangulation)
       : triangulation_(triangulation) {
     FindHullFacets();
   }
@@ -690,7 +690,7 @@ void WriteDelaunayTriangulationPly(const std::string& path,
 
 struct DelaunayCellData {
   DelaunayCellData() : DelaunayCellData(-1) {}
-  DelaunayCellData(const int index)
+  explicit DelaunayCellData(const int index)
       : index(index),
         source_weight(0),
         sink_weight(0),

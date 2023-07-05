@@ -54,7 +54,7 @@ namespace colmap {
 template <typename T>
 struct BitmapColor {
   BitmapColor();
-  BitmapColor(const T gray);
+  explicit BitmapColor(const T gray);
   BitmapColor(const T r, const T g, const T b);
 
   template <typename D>
