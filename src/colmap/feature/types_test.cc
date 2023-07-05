@@ -250,4 +250,4 @@ BOOST_AUTO_TEST_CASE(TestFeatureMatchHashing) {
   BOOST_CHECK_EQUAL(set.count(std::make_pair(2, 1)), 1);
 }
 
-}
+}  // namespace colmap

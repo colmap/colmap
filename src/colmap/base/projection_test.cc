@@ -221,4 +221,4 @@ BOOST_AUTO_TEST_CASE(TestHasPointPositiveDepth) {
   BOOST_CHECK(!check4);
 }
 
-}
+}  // namespace colmap

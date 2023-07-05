@@ -277,4 +277,4 @@ BOOST_AUTO_TEST_CASE(TestMinSTGraphCut3) {
   BOOST_CHECK(graph.IsConnectedToSink(2));
 }
 
-}
+}  // namespace colmap

@@ -97,5 +97,5 @@ BOOST_AUTO_TEST_CASE(TestFill) {
   mat.Set(1, 0, 2, 10);
 }
 
-}
-}
+}  // namespace mvs
+}  // namespace colmap

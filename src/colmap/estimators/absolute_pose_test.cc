@@ -223,4 +223,4 @@ BOOST_AUTO_TEST_CASE(TestEPNP_BrokenSolveSignCase) {
   BOOST_CHECK(reproj < 0.2);
 }
 
-}
+}  // namespace colmap

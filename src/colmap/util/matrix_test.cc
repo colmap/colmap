@@ -68,4 +68,4 @@ BOOST_AUTO_TEST_CASE(TestDecomposeMatrixRQ) {
   }
 }
 
-}
+}  // namespace colmap

@@ -85,4 +85,4 @@ BOOST_AUTO_TEST_CASE(TestAddImage) {
       cache.CorrespondenceGraph().NumObservationsForImage(image.ImageId()), 0);
 }
 
-}
+}  // namespace colmap

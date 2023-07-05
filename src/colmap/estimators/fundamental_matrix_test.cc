@@ -151,4 +151,4 @@ BOOST_AUTO_TEST_CASE(TestEightPoint) {
   BOOST_CHECK(std::abs(F(2, 2) - 0.0221019) < 1e-5);
 }
 
-}
+}  // namespace colmap

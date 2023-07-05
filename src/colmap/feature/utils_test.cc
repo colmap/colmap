@@ -116,4 +116,4 @@ BOOST_AUTO_TEST_CASE(TestExtractTopScaleFeatures) {
   BOOST_CHECK_EQUAL(top_descriptors6, descriptors);
 }
 
-}
+}  // namespace colmap

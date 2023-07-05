@@ -254,4 +254,4 @@ BOOST_AUTO_TEST_CASE(TestRectifyStereoCameras) {
   BOOST_CHECK(Q.isApprox(Q_ref, 1e-5));
 }
 
-}
+}  // namespace colmap

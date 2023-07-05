@@ -82,4 +82,4 @@ BOOST_AUTO_TEST_CASE(TestComputeSquaredSampsonError) {
   BOOST_CHECK_EQUAL(residuals[2], 2);
 }
 
-}
+}  // namespace colmap

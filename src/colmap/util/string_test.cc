@@ -227,4 +227,4 @@ BOOST_AUTO_TEST_CASE(TestStringContains) {
   BOOST_CHECK(!StringContains("ab", "c"));
 }
 
-}
+}  // namespace colmap

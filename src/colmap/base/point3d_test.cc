@@ -113,4 +113,4 @@ BOOST_AUTO_TEST_CASE(TestTrack) {
   BOOST_CHECK_EQUAL(point3D.Track().Length(), 2);
 }
 
-}
+}  // namespace colmap

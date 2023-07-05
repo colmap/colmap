@@ -366,4 +366,4 @@ BOOST_AUTO_TEST_CASE(TestDuplicate) {
       correspondence_graph.NumCorrespondencesBetweenImages().at(pair_id), 3);
 }
 
-}
+}  // namespace colmap

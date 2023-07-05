@@ -382,4 +382,4 @@ BOOST_AUTO_TEST_CASE(TestRescale) {
   BOOST_CHECK_EQUAL(camera.PrincipalPointY(), 2);
 }
 
-}
+}  // namespace colmap

@@ -71,4 +71,4 @@ BOOST_AUTO_TEST_CASE(TestPoint3DId) {
   BOOST_CHECK_EQUAL(point2D.HasPoint3D(), false);
 }
 
-}
+}  // namespace colmap

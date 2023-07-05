@@ -897,4 +897,4 @@ BOOST_AUTO_TEST_CASE(TestGetEffectiveNumThreads) {
   BOOST_CHECK_EQUAL(GetEffectiveNumThreads(3), 3);
 }
 
-}
+}  // namespace colmap

@@ -84,4 +84,4 @@ BOOST_AUTO_TEST_CASE(TestInvert) {
   BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[1].point2D_idx2, 3);
 }
 
-}
+}  // namespace colmap

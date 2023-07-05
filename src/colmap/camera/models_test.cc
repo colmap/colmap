@@ -239,4 +239,4 @@ BOOST_AUTO_TEST_CASE(TestThinPrismFisheye) {
   TestModel<ThinPrismFisheyeCameraModel>(params);
 }
 
-}
+}  // namespace colmap

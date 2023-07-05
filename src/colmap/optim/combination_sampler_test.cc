@@ -74,4 +74,4 @@ BOOST_AUTO_TEST_CASE(TestEqualSamples) {
   }
 }
 
-}
+}  // namespace colmap

@@ -865,4 +865,4 @@ BOOST_AUTO_TEST_CASE(TestRigFourViewPartial) {
   }
 }
 
-}
+}  // namespace colmap

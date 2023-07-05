@@ -95,5 +95,5 @@ BOOST_AUTO_TEST_CASE(TestToBitmap) {
   BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(128, 0, 0));
 }
 
-}
-}
+}  // namespace mvs
+}  // namespace colmap

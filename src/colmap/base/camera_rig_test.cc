@@ -330,4 +330,4 @@ BOOST_AUTO_TEST_CASE(TestComputeAbsolutePose) {
   BOOST_CHECK_EQUAL(abs_tvec, Eigen::Vector3d(0, -1, -2));
 }
 
-}
+}  // namespace colmap

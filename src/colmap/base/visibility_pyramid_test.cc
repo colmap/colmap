@@ -90,4 +90,4 @@ BOOST_AUTO_TEST_CASE(TestScore) {
   }
 }
 
-}
+}  // namespace colmap

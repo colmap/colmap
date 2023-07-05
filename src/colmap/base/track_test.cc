@@ -136,4 +136,4 @@ BOOST_AUTO_TEST_CASE(TestCompress) {
   BOOST_CHECK_EQUAL(track.Elements().capacity(), 2);
 }
 
-}
+}  // namespace colmap

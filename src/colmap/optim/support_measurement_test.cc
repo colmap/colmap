@@ -91,4 +91,4 @@ BOOST_AUTO_TEST_CASE(TestMEstimatorSupportMeasurer) {
   BOOST_CHECK(measurer.Compare(support2, support1));
 }
 
-}
+}  // namespace colmap

@@ -161,4 +161,4 @@ BOOST_AUTO_TEST_CASE(TestThreeFlatClustersTwoOverlap) {
   BOOST_CHECK(image_ids2.count(5));
 }
 
-}
+}  // namespace colmap

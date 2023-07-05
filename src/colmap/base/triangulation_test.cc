@@ -96,4 +96,4 @@ BOOST_AUTO_TEST_CASE(TestCalculateTriangulationAngle) {
                     1e-8);
 }
 
-}
+}  // namespace colmap

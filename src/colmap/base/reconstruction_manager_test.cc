@@ -82,4 +82,4 @@ BOOST_AUTO_TEST_CASE(TestClear) {
   BOOST_CHECK_EQUAL(reconstruction_manager.Size(), 0);
 }
 
-}
+}  // namespace colmap

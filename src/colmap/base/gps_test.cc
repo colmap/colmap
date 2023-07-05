@@ -292,4 +292,4 @@ BOOST_AUTO_TEST_CASE(TestENUToXYZ) {
   }
 }
 
-}
+}  // namespace colmap

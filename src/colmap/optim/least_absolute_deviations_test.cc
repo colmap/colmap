@@ -102,4 +102,4 @@ BOOST_AUTO_TEST_CASE(TestUnderDetermined) {
   BOOST_CHECK(!SolveLeastAbsoluteDeviations(options, A, b, &x));
 }
 
-}
+}  // namespace colmap

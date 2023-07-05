@@ -850,4 +850,4 @@ BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesGPU) {
   RunThreadWithOpenGLContext(&thread);
 }
 
-}
+}  // namespace colmap

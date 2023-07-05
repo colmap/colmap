@@ -80,4 +80,4 @@ BOOST_AUTO_TEST_CASE(TestClassifyLineSegmentOrientations) {
   BOOST_CHECK(orientations[5] == LineSegmentOrientation::UNDEFINED);
 }
 
-}
+}  // namespace colmap

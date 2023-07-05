@@ -132,4 +132,4 @@ BOOST_AUTO_TEST_CASE(Estimate) {
   }
 }
 
-}
+}  // namespace colmap

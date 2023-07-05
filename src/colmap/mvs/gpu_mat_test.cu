@@ -205,5 +205,5 @@ BOOST_AUTO_TEST_CASE(TestRotate) {
   }
 }
 
-}
-}
+}  // namespace mvs
+}  // namespace colmap

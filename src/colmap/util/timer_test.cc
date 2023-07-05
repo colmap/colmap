@@ -70,4 +70,4 @@ BOOST_AUTO_TEST_CASE(TestPause) {
   BOOST_CHECK_EQUAL(timer.ElapsedMicroSeconds(), 0);
 }
 
-}
+}  // namespace colmap

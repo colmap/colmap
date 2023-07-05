@@ -73,4 +73,4 @@ BOOST_AUTO_TEST_CASE(TestRunThreadWithOpenGLContext) {
   RunThreadWithOpenGLContext(&thread);
 }
 
-}
+}  // namespace colmap

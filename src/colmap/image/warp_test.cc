@@ -274,4 +274,4 @@ BOOST_AUTO_TEST_CASE(TestDownsampleImage) {
   BOOST_CHECK_CLOSE(downsampled[3], 12.2318935, 1e-3);
 }
 
-}
+}  // namespace colmap

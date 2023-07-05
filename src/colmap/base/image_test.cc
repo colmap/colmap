@@ -368,4 +368,4 @@ BOOST_AUTO_TEST_CASE(TestViewingDirection) {
   BOOST_CHECK(image.ViewingDirection().isApprox(Eigen::Vector3d(0, 0, 1)));
 }
 
-}
+}  // namespace colmap

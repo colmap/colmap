@@ -106,4 +106,4 @@ BOOST_AUTO_TEST_CASE(TestSimilarityTransform) {
   BOOST_CHECK(std::abs(matrix_diff) < 1e-6);
 }
 
-}
+}  // namespace colmap

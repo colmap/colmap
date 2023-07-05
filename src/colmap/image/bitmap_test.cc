@@ -386,4 +386,4 @@ BOOST_AUTO_TEST_CASE(TestCloneAsGrey) {
   BOOST_CHECK_NE(bitmap.Data(), cloned_bitmap.Data());
 }
 
-}
+}  // namespace colmap

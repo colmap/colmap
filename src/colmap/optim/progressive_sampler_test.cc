@@ -82,4 +82,4 @@ BOOST_AUTO_TEST_CASE(TestProgressive) {
   }
 }
 
-}
+}  // namespace colmap

@@ -226,4 +226,4 @@ BOOST_AUTO_TEST_CASE(TestTruncateCast) {
   BOOST_CHECK_EQUAL((TruncateCast<int, uint16_t>(65536)), 65535);
 }
 
-}
+}  // namespace colmap

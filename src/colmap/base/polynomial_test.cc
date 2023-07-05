@@ -201,4 +201,4 @@ BOOST_AUTO_TEST_CASE(TestFindPolynomialRootsCompanionMatrixZeroSolution) {
   BOOST_CHECK(imag.isApprox(ref_imag, 1e-6));
 }
 
-}
+}  // namespace colmap

@@ -612,4 +612,4 @@ BOOST_AUTO_TEST_CASE(TestComputeMeanReprojectionError) {
   BOOST_CHECK_EQUAL(reconstruction.ComputeMeanReprojectionError(), 2.0);
 }
 
-}
+}  // namespace colmap

@@ -117,4 +117,4 @@ BOOST_AUTO_TEST_CASE(TestFromFile) {
       (tform.Rotation() - Eigen::Vector4d(-0.5, 0.5, 0.5, 0.5)).norm(), 1e-6);
 }
 
-}
+}  // namespace colmap

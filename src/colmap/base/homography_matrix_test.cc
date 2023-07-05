@@ -175,4 +175,4 @@ BOOST_AUTO_TEST_CASE(TestHomographyMatrixFromPosePlanarScene) {
   BOOST_CHECK_EQUAL(H, H_ref);
 }
 
-}
+}  // namespace colmap

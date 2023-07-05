@@ -194,4 +194,4 @@ BOOST_AUTO_TEST_CASE(TestReadWriteBinaryLittleEndian) {
   TestFloatReadWriteBinaryLittleEndian<double>();
 }
 
-}
+}  // namespace colmap

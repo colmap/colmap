@@ -461,4 +461,4 @@ BOOST_AUTO_TEST_CASE(TestCheckCheirality) {
   BOOST_CHECK_EQUAL(points3D.size(), 0);
 }
 
-}
+}  // namespace colmap

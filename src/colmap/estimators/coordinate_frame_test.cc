@@ -156,4 +156,4 @@ BOOST_AUTO_TEST_CASE(TestAlignToENUPlane) {
   }
 }
 
-}
+}  // namespace colmap

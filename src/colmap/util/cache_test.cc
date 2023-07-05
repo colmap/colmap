@@ -273,4 +273,4 @@ BOOST_AUTO_TEST_CASE(TestMemoryConstrainedLRUCacheUpdateNumBytes) {
   BOOST_CHECK_EQUAL(cache.NumBytes(), 2);
 }
 
-}
+}  // namespace colmap

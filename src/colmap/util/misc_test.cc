@@ -222,4 +222,4 @@ BOOST_AUTO_TEST_CASE(TestRemoveCommandLineArgument) {
   BOOST_CHECK_EQUAL(argc, 0);
 }
 
-}
+}  // namespace colmap

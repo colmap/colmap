@@ -207,4 +207,4 @@ BOOST_AUTO_TEST_CASE(TestRefineEssentialMatrix) {
   BOOST_CHECK_LE((E - E_refined).norm(), (E - E_pertubated).norm());
 }
 
-}
+}  // namespace colmap

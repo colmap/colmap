@@ -76,5 +76,5 @@ BOOST_AUTO_TEST_CASE(TestReadWrite) {
   }
 }
 
-}
-}
+}  // namespace retrieval
+}  // namespace colmap

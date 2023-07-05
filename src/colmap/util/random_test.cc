@@ -131,4 +131,4 @@ BOOST_AUTO_TEST_CASE(TestShuffleAll) {
   BOOST_CHECK_GT(num_shuffled, 0);
 }
 
-}
+}  // namespace colmap

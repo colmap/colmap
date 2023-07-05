@@ -502,4 +502,4 @@ BOOST_AUTO_TEST_CASE(TestMerge) {
   BOOST_CHECK_EQUAL(merged_database.NumMatches(), 0);
 }
 
-}
+}  // namespace colmap

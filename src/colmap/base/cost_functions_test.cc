@@ -153,4 +153,4 @@ BOOST_AUTO_TEST_CASE(TestRelativePoseCostFunction) {
   BOOST_CHECK_EQUAL(residuals[0], 0.5);
 }
 
-}
+}  // namespace colmap
