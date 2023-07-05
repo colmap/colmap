@@ -44,6 +44,7 @@ class Sampler {
  public:
   Sampler() = default;
   explicit Sampler(const size_t num_samples);
+  virtual ~Sampler() = default;
 
   // Initialize the sampler, before calling the `Sample` method.
   virtual void Initialize(const size_t total_num_samples) = 0;
