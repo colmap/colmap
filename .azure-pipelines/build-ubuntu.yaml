@@ -17,7 +17,6 @@ jobs:
     CCACHE_VERSION: 1
     ${{ if eq(parameters.asanEnabled, false) }}:
       ctestExclusions: "(mvs/colmap_mvs_gpu_mat_test)"
-      numAllowedNinjaErrors: 1
     ${{ if eq(parameters.asanEnabled, true) }}:
       ctestExclusions: "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
     ${{ if eq(parameters.cmakeBuildType, 'ClangTidy') }}:
