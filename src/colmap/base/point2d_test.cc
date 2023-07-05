@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestDefault) {
   Point2D point2D;
@@ -70,3 +70,5 @@ BOOST_AUTO_TEST_CASE(TestPoint3DId) {
   BOOST_CHECK_EQUAL(point2D.Point3DId(), kInvalidPoint3DId);
   BOOST_CHECK_EQUAL(point2D.HasPoint3D(), false);
 }
+
+}  // namespace colmap

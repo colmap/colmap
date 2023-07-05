@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestDefault) {
   VisibilityPyramid pyramid;
@@ -89,3 +89,5 @@ BOOST_AUTO_TEST_CASE(TestScore) {
         2 * scores.sum() + 2 * scores.tail(scores.size() - 1).sum());
   }
 }
+
+}  // namespace colmap

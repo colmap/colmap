@@ -39,8 +39,8 @@
 #include "colmap/util/math.h"
 #include "colmap/util/testing.h"
 
-using namespace colmap;
-using namespace colmap::mvs;
+namespace colmap {
+namespace mvs {
 
 BOOST_AUTO_TEST_CASE(TestFillWithVector) {
   GpuMat<float> array(100, 100, 2);
@@ -204,3 +204,6 @@ BOOST_AUTO_TEST_CASE(TestRotate) {
     }
   }
 }
+
+}  // namespace mvs
+}  // namespace colmap

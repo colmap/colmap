@@ -62,7 +62,7 @@ struct DelaunayMeshingOptions;
 
 class OptionManager {
  public:
-  OptionManager(bool add_project_options = true);
+  explicit OptionManager(bool add_project_options = true);
 
   // Create "optimal" set of options for different reconstruction scenarios.
   // Note that the existing options are modified, so if your parameters are

@@ -34,8 +34,8 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
-using namespace colmap::mvs;
+namespace colmap {
+namespace mvs {
 
 BOOST_AUTO_TEST_CASE(TestEmpty) {
   NormalMap normal_map;
@@ -95,3 +95,6 @@ BOOST_AUTO_TEST_CASE(TestToBitmap) {
   BOOST_CHECK(bitmap.GetPixel(1, 1, &color));
   BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(37, 37, 0));
 }
+
+}  // namespace mvs
+}  // namespace colmap

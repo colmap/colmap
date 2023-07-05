@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestDefault) {
   Timer timer;
@@ -69,3 +69,5 @@ BOOST_AUTO_TEST_CASE(TestPause) {
   timer.Reset();
   BOOST_CHECK_EQUAL(timer.ElapsedMicroSeconds(), 0);
 }
+
+}  // namespace colmap

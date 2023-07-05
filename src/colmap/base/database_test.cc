@@ -39,7 +39,7 @@
 
 #include <Eigen/Geometry>
 
-using namespace colmap;
+namespace colmap {
 
 const static std::string kMemoryDatabasePath = ":memory:";
 
@@ -501,3 +501,5 @@ BOOST_AUTO_TEST_CASE(TestMerge) {
   BOOST_CHECK_EQUAL(merged_database.NumDescriptors(), 0);
   BOOST_CHECK_EQUAL(merged_database.NumMatches(), 0);
 }
+
+}  // namespace colmap

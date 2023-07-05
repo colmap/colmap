@@ -58,8 +58,8 @@ namespace colmap {
 // in it. The context can then be made current in any other thread.
 class OpenGLContextManager : public QObject {
  public:
-  OpenGLContextManager(int opengl_major_version = 2,
-                       int opengl_minor_version = 1);
+  explicit OpenGLContextManager(int opengl_major_version = 2,
+                                int opengl_minor_version = 1);
 
   // Make the OpenGL context available by moving it from the thread where it was
   // created to the current thread and making it current.
@@ -94,8 +94,8 @@ void GLError(const char* file, const int line);
 // Dummy implementation when GUI support is disabled
 class OpenGLContextManager {
  public:
-  OpenGLContextManager(int opengl_major_version = 2,
-                       int opengl_minor_version = 1) {}
+  explicit OpenGLContextManager(int opengl_major_version = 2,
+                                int opengl_minor_version = 1) {}
   inline bool MakeCurrent() { return false; }
 };
 

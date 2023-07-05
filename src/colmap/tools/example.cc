@@ -33,21 +33,19 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/option_manager.h"
 
-using namespace colmap;
-
 // Simple example that reads and writes a reconstruction.
 int main(int argc, char** argv) {
-  InitializeGlog(argv);
+  colmap::InitializeGlog(argv);
 
   std::string input_path;
   std::string output_path;
 
-  OptionManager options;
+  colmap::OptionManager options;
   options.AddRequiredOption("input_path", &input_path);
   options.AddRequiredOption("output_path", &output_path);
   options.Parse(argc, argv);
 
-  Reconstruction reconstruction;
+  colmap::Reconstruction reconstruction;
   reconstruction.Read(input_path);
   reconstruction.Write(output_path);
 

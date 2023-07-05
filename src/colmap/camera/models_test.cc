@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 template <typename CameraModel>
 void TestWorldToImageToWorld(const std::vector<double> params,
@@ -238,3 +238,5 @@ BOOST_AUTO_TEST_CASE(TestThinPrismFisheye) {
                                 0.001};
   TestModel<ThinPrismFisheyeCameraModel>(params);
 }
+
+}  // namespace colmap

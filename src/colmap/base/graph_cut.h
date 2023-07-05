@@ -81,7 +81,7 @@ class MinSTGraphCut {
       adjacency_list<boost::vecS, boost::vecS, boost::directedS, size_t, Edge>
           graph_t;
 
-  MinSTGraphCut(const size_t num_nodes);
+  explicit MinSTGraphCut(const size_t num_nodes);
 
   // Count the number of nodes and edges in the graph.
   size_t NumNodes() const;

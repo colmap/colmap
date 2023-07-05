@@ -39,7 +39,7 @@
 
 #include <Eigen/Core>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestComposeProjectionMatrix) {
   const Eigen::Matrix3d R = EulerAnglesToRotationMatrix(0, 1, 2);
@@ -220,3 +220,5 @@ BOOST_AUTO_TEST_CASE(TestHasPointPositiveDepth) {
       HasPointPositiveDepth(proj_matrix, Eigen::Vector3d(0, 0, -1));
   BOOST_CHECK(!check4);
 }
+
+}  // namespace colmap

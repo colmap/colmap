@@ -42,7 +42,7 @@ class MainWindow;
 
 class AutomaticReconstructionWidget : public OptionsWidget {
  public:
-  AutomaticReconstructionWidget(MainWindow* main_window);
+  explicit AutomaticReconstructionWidget(MainWindow* main_window);
 
   void Run();
 

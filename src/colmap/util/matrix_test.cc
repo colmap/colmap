@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestIsNaN) {
   BOOST_CHECK(!IsNaN(Eigen::Vector3f::Zero()));
@@ -67,3 +67,5 @@ BOOST_AUTO_TEST_CASE(TestDecomposeMatrixRQ) {
     BOOST_CHECK(A.isApprox(R * Q, 1e-6));
   }
 }
+
+}  // namespace colmap

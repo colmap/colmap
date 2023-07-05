@@ -38,7 +38,7 @@
 
 #include <Eigen/Core>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestCrossProductMatrix) {
   BOOST_CHECK_EQUAL(CrossProductMatrix(Eigen::Vector3d(0, 0, 0)),
@@ -460,3 +460,5 @@ BOOST_AUTO_TEST_CASE(TestCheckCheirality) {
   BOOST_CHECK(!CheckCheirality(R, t, points1, points2, &points3D));
   BOOST_CHECK_EQUAL(points3D.size(), 0);
 }
+
+}  // namespace colmap

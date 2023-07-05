@@ -34,7 +34,8 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap::retrieval;
+namespace colmap {
+namespace retrieval {
 
 BOOST_AUTO_TEST_CASE(TestEmpty) {
   InvertedFileEntry<10> entry;
@@ -74,3 +75,6 @@ BOOST_AUTO_TEST_CASE(TestReadWrite) {
     BOOST_CHECK_EQUAL(entry.descriptor[i], read_entry.descriptor[i]);
   }
 }
+
+}  // namespace retrieval
+}  // namespace colmap

@@ -37,7 +37,7 @@
 
 #include <unordered_set>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestInlierSupportMeasuremer) {
   InlierSupportMeasurer::Support support1;
@@ -90,3 +90,5 @@ BOOST_AUTO_TEST_CASE(TestMEstimatorSupportMeasurer) {
   BOOST_CHECK(!measurer.Compare(support1, support2));
   BOOST_CHECK(measurer.Compare(support2, support1));
 }
+
+}  // namespace colmap

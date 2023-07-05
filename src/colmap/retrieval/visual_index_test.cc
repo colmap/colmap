@@ -34,8 +34,8 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
-using namespace colmap::retrieval;
+namespace colmap {
+namespace retrieval {
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void TestVocabTreeType() {
@@ -133,3 +133,6 @@ BOOST_AUTO_TEST_CASE(TestVocabTree_double_32_16) {
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   TestVocabTreeType<double, 32, 16>();
 }
+
+}  // namespace retrieval
+}  // namespace colmap

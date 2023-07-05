@@ -35,7 +35,7 @@
 #include "colmap/base/essential_matrix.h"
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestCenterAndNormalizeImagePoints) {
   std::vector<Eigen::Vector2d> points;
@@ -81,3 +81,5 @@ BOOST_AUTO_TEST_CASE(TestComputeSquaredSampsonError) {
   BOOST_CHECK_EQUAL(residuals[1], 0.5);
   BOOST_CHECK_EQUAL(residuals[2], 2);
 }
+
+}  // namespace colmap

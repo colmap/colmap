@@ -1,6 +1,9 @@
 Checks: >
   performance-*,
   concurrency-*,
+  cppcoreguidelines-virtual-class-destructor,
+  google-explicit-constructor,
+  google-build-using-namespace,
 WarningsAsErrors: '*'
 FormatStyle: 'file'
 User: 'user'

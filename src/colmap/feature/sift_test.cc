@@ -46,7 +46,7 @@
 
 #include "lib/SiftGPU/SiftGPU.h"
 
-using namespace colmap;
+namespace colmap {
 
 void CreateImageWithSquare(const int size, Bitmap* bitmap) {
   bitmap->Allocate(size, size, false);
@@ -849,3 +849,5 @@ BOOST_AUTO_TEST_CASE(TestMatchGuidedSiftFeaturesGPU) {
   TestThread thread;
   RunThreadWithOpenGLContext(&thread);
 }
+
+}  // namespace colmap

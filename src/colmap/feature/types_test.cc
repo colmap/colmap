@@ -37,7 +37,7 @@
 
 #include <unordered_set>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestFeatureKeypoints) {
   FeatureKeypoint keypoint;
@@ -249,3 +249,5 @@ BOOST_AUTO_TEST_CASE(TestFeatureMatchHashing) {
   BOOST_CHECK_EQUAL(set.count(std::make_pair(1, 2)), 1);
   BOOST_CHECK_EQUAL(set.count(std::make_pair(2, 1)), 1);
 }
+
+}  // namespace colmap

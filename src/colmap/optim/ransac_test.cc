@@ -41,7 +41,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestOptions) {
   RANSACOptions options;
@@ -136,3 +136,5 @@ BOOST_AUTO_TEST_CASE(TestSimilarityTransform) {
       (orig_tform.Matrix().topLeftCorner<3, 4>() - report.model).norm();
   BOOST_CHECK(std::abs(matrix_diff) < 1e-6);
 }
+
+}  // namespace colmap

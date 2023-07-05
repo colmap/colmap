@@ -35,7 +35,7 @@
 #include "colmap/camera/models.h"
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestEmpty) {
   Camera camera;
@@ -381,3 +381,5 @@ BOOST_AUTO_TEST_CASE(TestRescale) {
   BOOST_CHECK_EQUAL(camera.PrincipalPointX(), 2);
   BOOST_CHECK_EQUAL(camera.PrincipalPointY(), 2);
 }
+
+}  // namespace colmap

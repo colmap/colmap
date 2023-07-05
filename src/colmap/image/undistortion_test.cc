@@ -35,7 +35,7 @@
 #include "colmap/base/pose.h"
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestUndistortCamera) {
   UndistortCameraOptions options;
@@ -253,3 +253,5 @@ BOOST_AUTO_TEST_CASE(TestRectifyStereoCameras) {
   Q_ref << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -2.67261, -0.5, -0.5, 1, 0;
   BOOST_CHECK(Q.isApprox(Q_ref, 1e-5));
 }
+
+}  // namespace colmap

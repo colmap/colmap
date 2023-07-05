@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestComputeMinGraphCutStoerWagner) {
   const std::vector<std::pair<int, int>> edges = {{3, 4},
@@ -276,3 +276,5 @@ BOOST_AUTO_TEST_CASE(TestMinSTGraphCut3) {
   BOOST_CHECK(graph.IsConnectedToSink(1));
   BOOST_CHECK(graph.IsConnectedToSink(2));
 }
+
+}  // namespace colmap

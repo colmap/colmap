@@ -65,7 +65,7 @@ class Workspace {
     std::string stereo_folder = "stereo";
   };
 
-  Workspace(const Options& options);
+  explicit Workspace(const Options& options);
   virtual ~Workspace() = default;
 
   // Do nothing when we use a cache. Data is loaded as needed.
@@ -105,7 +105,7 @@ class Workspace {
 
 class CachedWorkspace : public Workspace {
  public:
-  CachedWorkspace(const Options& options);
+  explicit CachedWorkspace(const Options& options);
 
   void Load(const std::vector<std::string>& image_names) override {}
 

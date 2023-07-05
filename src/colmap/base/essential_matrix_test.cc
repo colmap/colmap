@@ -38,7 +38,7 @@
 
 #include <Eigen/Geometry>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestDecomposeEssentialMatrix) {
   const Eigen::Matrix3d R = EulerAnglesToRotationMatrix(0, 1, 1);
@@ -206,3 +206,5 @@ BOOST_AUTO_TEST_CASE(TestRefineEssentialMatrix) {
 
   BOOST_CHECK_LE((E - E_refined).norm(), (E - E_pertubated).norm());
 }
+
+}  // namespace colmap

@@ -37,7 +37,7 @@
 
 #include <Eigen/Dense>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestOverDetermined) {
   Eigen::SparseMatrix<double> A(4, 3);
@@ -101,3 +101,5 @@ BOOST_AUTO_TEST_CASE(TestUnderDetermined) {
   LeastAbsoluteDeviationsOptions options;
   BOOST_CHECK(!SolveLeastAbsoluteDeviations(options, A, b, &x));
 }
+
+}  // namespace colmap

@@ -38,7 +38,8 @@
 #include <Eigen/Dense>
 #include <boost/test/unit_test.hpp>
 
-using namespace colmap::retrieval;
+namespace colmap {
+namespace retrieval {
 
 BOOST_AUTO_TEST_CASE(TestIdentity) {
   for (int x = 0; x < 3; ++x) {
@@ -135,3 +136,6 @@ BOOST_AUTO_TEST_CASE(TestOrientation) {
     BOOST_CHECK_CLOSE(tform.ty, 0, 1e-6);
   }
 }
+
+}  // namespace retrieval
+}  // namespace colmap

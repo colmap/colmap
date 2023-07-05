@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestEnsureTrailingSlash) {
   BOOST_CHECK_EQUAL(EnsureTrailingSlash(""), "/");
@@ -221,3 +221,5 @@ BOOST_AUTO_TEST_CASE(TestRemoveCommandLineArgument) {
   RemoveCommandLineArgument("abc", &argc, argv.data());
   BOOST_CHECK_EQUAL(argc, 0);
 }
+
+}  // namespace colmap

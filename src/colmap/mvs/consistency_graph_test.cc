@@ -34,8 +34,8 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
-using namespace colmap::mvs;
+namespace colmap {
+namespace mvs {
 
 BOOST_AUTO_TEST_CASE(TestEmpty) {
   const std::vector<int> data;
@@ -97,3 +97,6 @@ BOOST_AUTO_TEST_CASE(TestFull) {
   BOOST_CHECK_EQUAL(image_idxs[0], 100);
   BOOST_CHECK_EQUAL(consistency_graph.GetNumBytes(), 48);
 }
+
+}  // namespace mvs
+}  // namespace colmap

@@ -35,7 +35,7 @@
 #include "colmap/util/random.h"
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestReverseBytes) {
   for (size_t i = 0; i < 256; ++i) {
@@ -193,3 +193,5 @@ BOOST_AUTO_TEST_CASE(TestReadWriteBinaryLittleEndian) {
   TestFloatReadWriteBinaryLittleEndian<float>();
   TestFloatReadWriteBinaryLittleEndian<double>();
 }
+
+}  // namespace colmap

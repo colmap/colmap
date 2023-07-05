@@ -31,9 +31,10 @@
 
 #define TEST_NAME "base/camera_database"
 #include "colmap/camera/database.h"
+
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestInitialization) {
   CameraDatabase database;
@@ -56,3 +57,5 @@ BOOST_AUTO_TEST_CASE(TestAmbiguousMatch) {
       !database.QuerySensorWidth("canon", "digitalixus", &sensor_width));
   BOOST_CHECK_EQUAL(sensor_width, 6.1600f);
 }
+
+}  // namespace colmap

@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestSevenPoint) {
   const double points1_raw[] = {0.4964,
@@ -150,3 +150,5 @@ BOOST_AUTO_TEST_CASE(TestEightPoint) {
   BOOST_CHECK(std::abs(F(2, 1) - -0.429478) < 1e-5);
   BOOST_CHECK(std::abs(F(2, 2) - 0.0221019) < 1e-5);
 }
+
+}  // namespace colmap

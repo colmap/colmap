@@ -35,7 +35,7 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 namespace {
 
@@ -896,3 +896,5 @@ BOOST_AUTO_TEST_CASE(TestGetEffectiveNumThreads) {
   BOOST_CHECK_EQUAL(GetEffectiveNumThreads(2), 2);
   BOOST_CHECK_EQUAL(GetEffectiveNumThreads(3), 3);
 }
+
+}  // namespace colmap

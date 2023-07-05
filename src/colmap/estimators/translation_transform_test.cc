@@ -38,7 +38,7 @@
 
 #include <Eigen/Core>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestEstimate) {
   SetPRNGSeed(0);
@@ -70,3 +70,5 @@ BOOST_AUTO_TEST_CASE(TestEstimate) {
     BOOST_CHECK(residuals[i] < 1e-6);
   }
 }
+
+}  // namespace colmap

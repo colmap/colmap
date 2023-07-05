@@ -52,7 +52,7 @@ struct TwoWayTransform {
         t12(Eigen::Vector2f::Zero()),
         A21(Eigen::Matrix2f::Zero()),
         t21(Eigen::Vector2f::Zero()) {}
-  TwoWayTransform(const FeatureGeometryTransform& tform) {
+  explicit TwoWayTransform(const FeatureGeometryTransform& tform) {
     const float sin_angle = std::sin(tform.angle);
     const float cos_angle = std::cos(tform.angle);
 

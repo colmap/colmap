@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestSignOfNumber) {
   BOOST_CHECK_EQUAL(SignOfNumber(0), 0);
@@ -225,3 +225,5 @@ BOOST_AUTO_TEST_CASE(TestTruncateCast) {
   BOOST_CHECK_EQUAL((TruncateCast<int, uint16_t>(-1)), 0);
   BOOST_CHECK_EQUAL((TruncateCast<int, uint16_t>(65536)), 65535);
 }
+
+}  // namespace colmap

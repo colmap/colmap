@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 #define TEST_STRING_INPLACE(Func, str, ref_str) \
   {                                             \
@@ -226,3 +226,5 @@ BOOST_AUTO_TEST_CASE(TestStringContains) {
   BOOST_CHECK(!StringContains("", "a"));
   BOOST_CHECK(!StringContains("ab", "c"));
 }
+
+}  // namespace colmap

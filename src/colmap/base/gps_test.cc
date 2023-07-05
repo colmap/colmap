@@ -34,7 +34,7 @@
 
 #include "colmap/util/testing.h"
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestEllToXYZGRS80) {
   std::vector<Eigen::Vector3d> ell;
@@ -291,3 +291,5 @@ BOOST_AUTO_TEST_CASE(TestENUToXYZ) {
     BOOST_CHECK(xyz[i].isApprox(ref_xyz[i], 1e-8));
   }
 }
+
+}  // namespace colmap

@@ -36,7 +36,7 @@
 
 #include <Eigen/Geometry>
 
-using namespace colmap;
+namespace colmap {
 
 BOOST_AUTO_TEST_CASE(TestEmpty) {
   ReconstructionManager reconstruction_manager;
@@ -81,3 +81,5 @@ BOOST_AUTO_TEST_CASE(TestClear) {
   reconstruction_manager.Clear();
   BOOST_CHECK_EQUAL(reconstruction_manager.Size(), 0);
 }
+
+}  // namespace colmap

@@ -45,13 +45,11 @@ typedef std::function<int(int, char**)> command_func_t;
 
 int ShowHelp(
     const std::vector<std::pair<std::string, command_func_t>>& commands) {
-  using namespace colmap;
-
-  std::cout << StringPrintf(
+  std::cout << colmap::StringPrintf(
                    "%s -- Structure-from-Motion and Multi-View Stereo\n"
                    "              (%s)",
-                   GetVersionInfo().c_str(),
-                   GetBuildInfo().c_str())
+                   colmap::GetVersionInfo().c_str(),
+                   colmap::GetBuildInfo().c_str())
             << std::endl
             << std::endl;
 
@@ -92,58 +90,57 @@ int ShowHelp(
 }  // namespace
 
 int main(int argc, char** argv) {
-  using namespace colmap;
-
-  InitializeGlog(argv);
+  colmap::InitializeGlog(argv);
 #ifdef GUI_ENABLED
   Q_INIT_RESOURCE(resources);
 #endif
 
   std::vector<std::pair<std::string, command_func_t>> commands;
-  commands.emplace_back("gui", &RunGraphicalUserInterface);
-  commands.emplace_back("automatic_reconstructor", &RunAutomaticReconstructor);
-  commands.emplace_back("bundle_adjuster", &RunBundleAdjuster);
-  commands.emplace_back("color_extractor", &RunColorExtractor);
-  commands.emplace_back("database_cleaner", &RunDatabaseCleaner);
-  commands.emplace_back("database_creator", &RunDatabaseCreator);
-  commands.emplace_back("database_merger", &RunDatabaseMerger);
-  commands.emplace_back("delaunay_mesher", &RunDelaunayMesher);
-  commands.emplace_back("exhaustive_matcher", &RunExhaustiveMatcher);
-  commands.emplace_back("feature_extractor", &RunFeatureExtractor);
-  commands.emplace_back("feature_importer", &RunFeatureImporter);
-  commands.emplace_back("hierarchical_mapper", &RunHierarchicalMapper);
-  commands.emplace_back("image_deleter", &RunImageDeleter);
-  commands.emplace_back("image_filterer", &RunImageFilterer);
-  commands.emplace_back("image_rectifier", &RunImageRectifier);
-  commands.emplace_back("image_registrator", &RunImageRegistrator);
-  commands.emplace_back("image_undistorter", &RunImageUndistorter);
+  commands.emplace_back("gui", &colmap::RunGraphicalUserInterface);
+  commands.emplace_back("automatic_reconstructor",
+                        &colmap::RunAutomaticReconstructor);
+  commands.emplace_back("bundle_adjuster", &colmap::RunBundleAdjuster);
+  commands.emplace_back("color_extractor", &colmap::RunColorExtractor);
+  commands.emplace_back("database_cleaner", &colmap::RunDatabaseCleaner);
+  commands.emplace_back("database_creator", &colmap::RunDatabaseCreator);
+  commands.emplace_back("database_merger", &colmap::RunDatabaseMerger);
+  commands.emplace_back("delaunay_mesher", &colmap::RunDelaunayMesher);
+  commands.emplace_back("exhaustive_matcher", &colmap::RunExhaustiveMatcher);
+  commands.emplace_back("feature_extractor", &colmap::RunFeatureExtractor);
+  commands.emplace_back("feature_importer", &colmap::RunFeatureImporter);
+  commands.emplace_back("hierarchical_mapper", &colmap::RunHierarchicalMapper);
+  commands.emplace_back("image_deleter", &colmap::RunImageDeleter);
+  commands.emplace_back("image_filterer", &colmap::RunImageFilterer);
+  commands.emplace_back("image_rectifier", &colmap::RunImageRectifier);
+  commands.emplace_back("image_registrator", &colmap::RunImageRegistrator);
+  commands.emplace_back("image_undistorter", &colmap::RunImageUndistorter);
   commands.emplace_back("image_undistorter_standalone",
-                        &RunImageUndistorterStandalone);
-  commands.emplace_back("mapper", &RunMapper);
-  commands.emplace_back("matches_importer", &RunMatchesImporter);
-  commands.emplace_back("model_aligner", &RunModelAligner);
-  commands.emplace_back("model_analyzer", &RunModelAnalyzer);
-  commands.emplace_back("model_comparer", &RunModelComparer);
-  commands.emplace_back("model_converter", &RunModelConverter);
-  commands.emplace_back("model_cropper", &RunModelCropper);
-  commands.emplace_back("model_merger", &RunModelMerger);
+                        &colmap::RunImageUndistorterStandalone);
+  commands.emplace_back("mapper", &colmap::RunMapper);
+  commands.emplace_back("matches_importer", &colmap::RunMatchesImporter);
+  commands.emplace_back("model_aligner", &colmap::RunModelAligner);
+  commands.emplace_back("model_analyzer", &colmap::RunModelAnalyzer);
+  commands.emplace_back("model_comparer", &colmap::RunModelComparer);
+  commands.emplace_back("model_converter", &colmap::RunModelConverter);
+  commands.emplace_back("model_cropper", &colmap::RunModelCropper);
+  commands.emplace_back("model_merger", &colmap::RunModelMerger);
   commands.emplace_back("model_orientation_aligner",
-                        &RunModelOrientationAligner);
-  commands.emplace_back("model_splitter", &RunModelSplitter);
-  commands.emplace_back("model_transformer", &RunModelTransformer);
-  commands.emplace_back("patch_match_stereo", &RunPatchMatchStereo);
-  commands.emplace_back("point_filtering", &RunPointFiltering);
-  commands.emplace_back("point_triangulator", &RunPointTriangulator);
-  commands.emplace_back("poisson_mesher", &RunPoissonMesher);
-  commands.emplace_back("project_generator", &RunProjectGenerator);
-  commands.emplace_back("rig_bundle_adjuster", &RunRigBundleAdjuster);
-  commands.emplace_back("sequential_matcher", &RunSequentialMatcher);
-  commands.emplace_back("spatial_matcher", &RunSpatialMatcher);
-  commands.emplace_back("stereo_fusion", &RunStereoFuser);
-  commands.emplace_back("transitive_matcher", &RunTransitiveMatcher);
-  commands.emplace_back("vocab_tree_builder", &RunVocabTreeBuilder);
-  commands.emplace_back("vocab_tree_matcher", &RunVocabTreeMatcher);
-  commands.emplace_back("vocab_tree_retriever", &RunVocabTreeRetriever);
+                        &colmap::RunModelOrientationAligner);
+  commands.emplace_back("model_splitter", &colmap::RunModelSplitter);
+  commands.emplace_back("model_transformer", &colmap::RunModelTransformer);
+  commands.emplace_back("patch_match_stereo", &colmap::RunPatchMatchStereo);
+  commands.emplace_back("point_filtering", &colmap::RunPointFiltering);
+  commands.emplace_back("point_triangulator", &colmap::RunPointTriangulator);
+  commands.emplace_back("poisson_mesher", &colmap::RunPoissonMesher);
+  commands.emplace_back("project_generator", &colmap::RunProjectGenerator);
+  commands.emplace_back("rig_bundle_adjuster", &colmap::RunRigBundleAdjuster);
+  commands.emplace_back("sequential_matcher", &colmap::RunSequentialMatcher);
+  commands.emplace_back("spatial_matcher", &colmap::RunSpatialMatcher);
+  commands.emplace_back("stereo_fusion", &colmap::RunStereoFuser);
+  commands.emplace_back("transitive_matcher", &colmap::RunTransitiveMatcher);
+  commands.emplace_back("vocab_tree_builder", &colmap::RunVocabTreeBuilder);
+  commands.emplace_back("vocab_tree_matcher", &colmap::RunVocabTreeMatcher);
+  commands.emplace_back("vocab_tree_retriever", &colmap::RunVocabTreeRetriever);
 
   if (argc == 1) {
     return ShowHelp(commands);
@@ -161,7 +158,7 @@ int main(int argc, char** argv) {
       }
     }
     if (matched_command_func == nullptr) {
-      std::cerr << StringPrintf(
+      std::cerr << colmap::StringPrintf(
                        "ERROR: Command `%s` not recognized. To list the "
                        "available commands, run `colmap help`.",
                        command.c_str())
