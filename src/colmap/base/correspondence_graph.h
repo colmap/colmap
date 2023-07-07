@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_BASE_CORRESPONDENCE_GRAPH_H_
-#define COLMAP_SRC_BASE_CORRESPONDENCE_GRAPH_H_
+#pragma once
 
 #include "colmap/base/database.h"
 #include "colmap/util/types.h"
@@ -204,5 +203,3 @@ bool CorrespondenceGraph::HasCorrespondences(
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_BASE_CORRESPONDENCE_GRAPH_H_

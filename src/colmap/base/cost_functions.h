@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_BASE_COST_FUNCTIONS_H_
-#define COLMAP_SRC_BASE_COST_FUNCTIONS_H_
+#pragma once
 
 #include <Eigen/Core>
 #include <ceres/ceres.h>
@@ -329,5 +328,3 @@ inline void SetSphereManifold(ceres::Problem* problem, double* params) {
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_BASE_COST_FUNCTIONS_H_

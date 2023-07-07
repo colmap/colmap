@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_BASE_RECONSTRUCTION_MANAGER_H_
-#define COLMAP_SRC_BASE_RECONSTRUCTION_MANAGER_H_
+#pragma once
 
 #include "colmap/base/reconstruction.h"
 
@@ -79,5 +78,3 @@ class ReconstructionManager {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_BASE_RECONSTRUCTION_MANAGER_H_

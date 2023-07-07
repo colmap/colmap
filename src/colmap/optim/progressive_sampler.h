@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_OPTIM_PROGRESSIVE_SAMPLER_H_
-#define COLMAP_SRC_OPTIM_PROGRESSIVE_SAMPLER_H_
+#pragma once
 
 #include "colmap/optim/sampler.h"
 
@@ -69,5 +68,3 @@ class ProgressiveSampler : public Sampler {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_OPTIM_PROGRESSIVE_SAMPLER_H_

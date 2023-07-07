@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_MVS_IMAGE_H_
-#define COLMAP_SRC_MVS_IMAGE_H_
+#pragma once
 
 #include "colmap/image/bitmap.h"
 
@@ -131,5 +130,3 @@ const float* Image::GetViewingDirection() const { return &R_[6]; }
 
 }  // namespace mvs
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_MVS_IMAGE_H_

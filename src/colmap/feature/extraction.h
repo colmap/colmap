@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_FEATURE_EXTRACTION_H_
-#define COLMAP_SRC_FEATURE_EXTRACTION_H_
+#pragma once
 
 #include "colmap/base/database.h"
 #include "colmap/feature/sift.h"
@@ -153,5 +152,3 @@ class FeatureWriterThread : public Thread {
 }  // namespace internal
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_FEATURE_EXTRACTION_H_

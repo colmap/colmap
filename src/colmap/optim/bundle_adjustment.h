@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_OPTIM_BUNDLE_ADJUSTMENT_H_
-#define COLMAP_SRC_OPTIM_BUNDLE_ADJUSTMENT_H_
+#pragma once
 
 #include "colmap/base/camera_rig.h"
 #include "colmap/base/reconstruction.h"
@@ -263,5 +262,3 @@ class RigBundleAdjuster : public BundleAdjuster {
 void PrintSolverSummary(const ceres::Solver::Summary& summary);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_OPTIM_BUNDLE_ADJUSTMENT_H_

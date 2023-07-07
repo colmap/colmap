@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_BASE_GRAPH_CUT_H_
-#define COLMAP_SRC_BASE_GRAPH_CUT_H_
+#pragma once
 
 #include "colmap/util/logging.h"
 
@@ -216,5 +215,3 @@ bool MinSTGraphCut<node_t, value_t>::IsConnectedToSink(
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_BASE_GRAPH_CUT_H_

@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_BASE_DATABASE_H_
-#define COLMAP_SRC_BASE_DATABASE_H_
+#pragma once
 
 #include "colmap/base/camera.h"
 #include "colmap/base/image.h"
@@ -395,5 +394,3 @@ bool Database::SwapImagePair(const image_t image_id1, const image_t image_id2) {
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_BASE_DATABASE_H_

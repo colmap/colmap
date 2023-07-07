@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_RECONSTRUCTION_STATS_WIDGET_H_
-#define COLMAP_SRC_UI_RECONSTRUCTION_STATS_WIDGET_H_
+#pragma once
 
 #include "colmap/base/reconstruction.h"
 
@@ -51,5 +50,3 @@ class ReconstructionStatsWidget : public QWidget {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_RECONSTRUCTION_STATS_WIDGET_H_

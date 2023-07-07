@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_BASE_DATABASE_CACHE_H_
-#define COLMAP_SRC_BASE_DATABASE_CACHE_H_
+#pragma once
 
 #include "colmap/base/camera.h"
 #include "colmap/base/correspondence_graph.h"
@@ -148,5 +147,3 @@ inline const class CorrespondenceGraph& DatabaseCache::CorrespondenceGraph()
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_BASE_DATABASE_CACHE_H_

@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_GEOMETRY_ESSENTIAL_MATRIX_H_
-#define COLMAP_SRC_GEOMETRY_ESSENTIAL_MATRIX_H_
+#pragma once
 
 #include "colmap/util/types.h"
 
@@ -157,5 +156,3 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
                            Eigen::Matrix3d* E);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_GEOMETRY_ESSENTIAL_MATRIX_H_

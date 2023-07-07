@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_IMAGE_LINE_H_
-#define COLMAP_SRC_IMAGE_LINE_H_
+#pragma once
 
 #include "colmap/image/bitmap.h"
 
@@ -58,5 +57,3 @@ std::vector<LineSegmentOrientation> ClassifyLineSegmentOrientations(
     const std::vector<LineSegment>& segments, const double tolerance = 0.25);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_IMAGE_LINE_H_

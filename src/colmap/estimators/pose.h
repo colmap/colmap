@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_ESTIMATORS_POSE_H_
-#define COLMAP_SRC_ESTIMATORS_POSE_H_
+#pragma once
 
 #include "colmap/base/camera.h"
 #include "colmap/camera/models.h"
@@ -235,5 +234,3 @@ bool RefineGeneralizedAbsolutePose(
     Eigen::Matrix6d* rot_tvec_covariance = nullptr);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_ESTIMATORS_POSE_H_

@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_IMAGE_BITMAP_H_
-#define COLMAP_SRC_IMAGE_BITMAP_H_
+#pragma once
 
 #include <algorithm>
 #include <cmath>
@@ -289,5 +288,3 @@ bool Bitmap::IsRGB() const { return channels_ == 3; }
 bool Bitmap::IsGrey() const { return channels_ == 1; }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_IMAGE_BITMAP_H_

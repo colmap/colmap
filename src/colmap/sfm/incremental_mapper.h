@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_SFM_INCREMENTAL_MAPPER_H_
-#define COLMAP_SRC_SFM_INCREMENTAL_MAPPER_H_
+#pragma once
 
 #include "colmap/base/database.h"
 #include "colmap/base/database_cache.h"
@@ -309,5 +308,3 @@ class IncrementalMapper {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_SFM_INCREMENTAL_MAPPER_H_

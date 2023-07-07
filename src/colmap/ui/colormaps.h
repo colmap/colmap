@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_COLORMAPS_H_
-#define COLMAP_SRC_UI_COLORMAPS_H_
+#pragma once
 
 #include "colmap/base/reconstruction.h"
 #include "colmap/util/types.h"
@@ -174,5 +173,3 @@ class ImageColormapNameFilter : public ImageColormapBase {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_COLORMAPS_H_

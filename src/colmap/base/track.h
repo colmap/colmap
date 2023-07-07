@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_BASE_TRACK_H_
-#define COLMAP_SRC_BASE_TRACK_H_
+#pragma once
 
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
@@ -135,5 +134,3 @@ void Track::Reserve(const size_t num_elements) {
 void Track::Compress() { elements_.shrink_to_fit(); }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_BASE_TRACK_H_

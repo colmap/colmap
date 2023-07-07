@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_OPTION_MANAGER_H_
-#define COLMAP_SRC_UTIL_OPTION_MANAGER_H_
+#pragma once
 
 #include "colmap/util/logging.h"
 
@@ -246,5 +245,3 @@ void OptionManager::RegisterOption(const std::string& name, const T* option) {
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UTIL_OPTION_MANAGER_H_

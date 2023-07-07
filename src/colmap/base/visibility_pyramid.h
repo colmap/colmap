@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_BASE_VISIBILITY_PYRAMID_H_
-#define COLMAP_SRC_BASE_VISIBILITY_PYRAMID_H_
+#pragma once
 
 #include <vector>
 
@@ -101,5 +100,3 @@ size_t VisibilityPyramid::Score() const { return score_; }
 size_t VisibilityPyramid::MaxScore() const { return max_score_; }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_BASE_VISIBILITY_PYRAMID_H_

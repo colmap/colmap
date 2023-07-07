@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_CUDACC_H_
-#define COLMAP_SRC_UTIL_CUDACC_H_
+#pragma once
 
 #include <string>
 
@@ -63,5 +62,3 @@ void CudaCheck(const char* file, const int line);
 void CudaSyncAndCheck(const char* file, const int line);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UTIL_CUDACC_H_

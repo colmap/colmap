@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_MATCH_MATRIX_WIDGET_H_
-#define COLMAP_SRC_UI_MATCH_MATRIX_WIDGET_H_
+#pragma once
 
 #include "colmap/ui/image_viewer_widget.h"
 #include "colmap/util/option_manager.h"
@@ -49,5 +48,3 @@ class MatchMatrixWidget : public ImageViewerWidget {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_MATCH_MATRIX_WIDGET_H_

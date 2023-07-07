@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_MVS_MAT_H_
-#define COLMAP_SRC_MVS_MAT_H_
+#pragma once
 
 #include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
@@ -185,5 +184,3 @@ void Mat<T>::Write(const std::string& path) const {
 
 }  // namespace mvs
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_MVS_MAT_H_

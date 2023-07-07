@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_RETRIEVAL_INVERTED_FILE_H_
-#define COLMAP_SRC_RETRIEVAL_INVERTED_FILE_H_
+#pragma once
 
 #include "colmap/retrieval/geometry.h"
 #include "colmap/retrieval/inverted_file_entry.h"
@@ -415,5 +414,3 @@ void InvertedFile<kEmbeddingDim>::Write(std::ofstream* ofs) const {
 
 }  // namespace retrieval
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_RETRIEVAL_INVERTED_FILE_H_

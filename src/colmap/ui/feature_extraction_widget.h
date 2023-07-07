@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_FEATURE_EXTRACTION_WIDGET_H_
-#define COLMAP_SRC_UI_FEATURE_EXTRACTION_WIDGET_H_
+#pragma once
 
 #include "colmap/util/misc.h"
 #include "colmap/util/option_manager.h"
@@ -74,5 +73,3 @@ class FeatureExtractionWidget : public QWidget {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_FEATURE_EXTRACTION_WIDGET_H_

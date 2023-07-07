@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_ESTIMATORS_TWO_VIEW_GEOMETRY_H_
-#define COLMAP_SRC_ESTIMATORS_TWO_VIEW_GEOMETRY_H_
+#pragma once
 
 #include "colmap/base/camera.h"
 #include "colmap/feature/types.h"
@@ -268,5 +267,3 @@ struct TwoViewGeometry {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_ESTIMATORS_TWO_VIEW_GEOMETRY_H_

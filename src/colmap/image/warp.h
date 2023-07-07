@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_IMAGE_WARP_H_
-#define COLMAP_SRC_IMAGE_WARP_H_
+#pragma once
 
 #include "colmap/base/camera.h"
 #include "colmap/image/bitmap.h"
@@ -87,5 +86,3 @@ void DownsampleImage(const float* data,
                      float* downsampled);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_IMAGE_WARP_H_

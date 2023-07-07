@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_MVS_WORKSPACE_H_
-#define COLMAP_SRC_MVS_WORKSPACE_H_
+#pragma once
 
 #include "colmap/image/bitmap.h"
 #include "colmap/mvs/consistency_graph.h"
@@ -141,5 +140,3 @@ void ImportPMVSWorkspace(const Workspace& workspace,
 
 }  // namespace mvs
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_MVS_WORKSPACE_H_

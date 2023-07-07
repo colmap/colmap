@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_MVS_GPU_MAT_REF_IMAGE_H_
-#define COLMAP_SRC_MVS_GPU_MAT_REF_IMAGE_H_
+#pragma once
 
 #include "colmap/mvs/cuda_texture.h"
 #include "colmap/mvs/gpu_mat.h"
@@ -94,5 +93,3 @@ struct BilateralWeightComputer {
 
 }  // namespace mvs
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_MVS_GPU_MAT_REF_IMAGE_H_

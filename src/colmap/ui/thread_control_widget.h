@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_THREAD_CONTROL_WIDGET_WIDGET_H_
-#define COLMAP_SRC_UI_THREAD_CONTROL_WIDGET_WIDGET_H_
+#pragma once
 
 #include "colmap/util/threading.h"
 
@@ -57,5 +56,3 @@ class ThreadControlWidget : public QWidget {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_THREAD_CONTROL_WIDGET_WIDGET_H_

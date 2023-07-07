@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_STRING_H_
-#define COLMAP_SRC_UTIL_STRING_H_
+#pragma once
 
 #include <string>
 #include <vector>
@@ -70,5 +69,3 @@ void StringToUpper(std::string* str);
 bool StringContains(const std::string& str, const std::string& sub_str);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UTIL_STRING_H_

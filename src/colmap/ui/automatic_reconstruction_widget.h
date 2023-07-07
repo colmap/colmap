@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_AUTOMATIC_RECONSTRUCTION_WIDGET_H_
-#define COLMAP_SRC_UI_AUTOMATIC_RECONSTRUCTION_WIDGET_H_
+#pragma once
 
 #include "colmap/controllers/automatic_reconstruction.h"
 #include "colmap/ui/options_widget.h"
@@ -59,5 +58,3 @@ class AutomaticReconstructionWidget : public OptionsWidget {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_AUTOMATIC_RECONSTRUCTION_WIDGET_H_

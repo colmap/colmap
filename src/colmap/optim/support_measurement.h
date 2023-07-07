@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_OPTIM_SUPPORT_MEASUREMENT_H_
-#define COLMAP_SRC_OPTIM_SUPPORT_MEASUREMENT_H_
+#pragma once
 
 #include <cstddef>
 #include <limits>
@@ -78,5 +77,3 @@ struct MEstimatorSupportMeasurer {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_OPTIM_SUPPORT_MEASUREMENT_H_

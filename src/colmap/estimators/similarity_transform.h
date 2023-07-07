@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_ESTIMATORS_SIMILARITY_TRANSFORM_H_
-#define COLMAP_SRC_ESTIMATORS_SIMILARITY_TRANSFORM_H_
+#pragma once
 
 #include "colmap/geometry/projection.h"
 #include "colmap/util/logging.h"
@@ -136,5 +135,3 @@ void SimilarityTransformEstimator<kDim, kEstimateScale>::Residuals(
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_ESTIMATORS_SIMILARITY_TRANSFORM_H_

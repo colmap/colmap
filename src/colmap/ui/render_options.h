@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_RENDER_OPTIONS_H_
-#define COLMAP_SRC_UI_RENDER_OPTIONS_H_
+#pragma once
 
 #include <iostream>
 
@@ -65,5 +64,3 @@ struct RenderOptions {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_RENDER_OPTIONS_H_

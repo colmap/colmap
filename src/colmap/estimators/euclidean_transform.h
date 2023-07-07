@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_ESTIMATORS_EUCLIDEAN_TRANSFORM_H_
-#define COLMAP_SRC_ESTIMATORS_EUCLIDEAN_TRANSFORM_H_
+#pragma once
 
 #include "colmap/geometry/similarity_transform.h"
 
@@ -51,5 +50,3 @@ template <int kDim>
 using EuclideanTransformEstimator = SimilarityTransformEstimator<kDim, false>;
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_ESTIMATORS_EUCLIDEAN_TRANSFORM_H_

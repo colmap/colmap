@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_ESTIMATORS_GENERALIZED_RELATIVE_POSE_H_
-#define COLMAP_SRC_ESTIMATORS_GENERALIZED_RELATIVE_POSE_H_
+#pragma once
 
 #include "colmap/util/types.h"
 
@@ -87,5 +86,3 @@ class GR6PEstimator {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_ESTIMATORS_GENERALIZED_RELATIVE_POSE_H_

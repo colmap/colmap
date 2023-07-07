@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_MISC_H_
-#define COLMAP_SRC_UTIL_MISC_H_
+#pragma once
 
 #include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
@@ -197,5 +196,3 @@ void WriteBinaryBlob(const std::string& path, const std::vector<T>& data) {
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UTIL_MISC_H_

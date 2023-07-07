@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_OPTIM_RANSAC_H_
-#define COLMAP_SRC_OPTIM_RANSAC_H_
+#pragma once
 
 #include "colmap/optim/random_sampler.h"
 #include "colmap/optim/support_measurement.h"
@@ -282,5 +281,3 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_OPTIM_RANSAC_H_

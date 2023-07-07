@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_RETRIEVAL_INVERTED_INDEX_H_
-#define COLMAP_SRC_RETRIEVAL_INVERTED_INDEX_H_
+#pragma once
 
 #include "colmap/retrieval/inverted_file.h"
 #include "colmap/util/random.h"
@@ -452,5 +451,3 @@ void InvertedIndex<kDescType, kDescDim, kEmbeddingDim>::
 
 }  // namespace retrieval
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_RETRIEVAL_INVERTED_INDEX_H_
