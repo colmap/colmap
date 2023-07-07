@@ -32,10 +32,10 @@
 #define TEST_NAME "estimators/essential_matrix"
 #include "colmap/geometry/essential_matrix.h"
 
-#include "colmap/geometry/pose.h"
-#include "colmap/geometry/projection.h"
 #include "colmap/camera/models.h"
 #include "colmap/estimators/essential_matrix.h"
+#include "colmap/geometry/pose.h"
+#include "colmap/geometry/projection.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/random.h"
 #include "colmap/util/testing.h"

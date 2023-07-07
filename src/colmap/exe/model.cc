@@ -32,9 +32,9 @@
 #include "colmap/exe/model.h"
 
 #include "colmap/base/gps.h"
+#include "colmap/estimators/coordinate_frame.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/similarity_transform.h"
-#include "colmap/estimators/coordinate_frame.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/option_manager.h"
 #include "colmap/util/threading.h"

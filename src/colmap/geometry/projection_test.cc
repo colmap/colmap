@@ -32,8 +32,8 @@
 #define TEST_NAME "geometry/projection"
 #include "colmap/geometry/projection.h"
 
-#include "colmap/geometry/pose.h"
 #include "colmap/camera/models.h"
+#include "colmap/geometry/pose.h"
 #include "colmap/util/math.h"
 #include "colmap/util/testing.h"
 

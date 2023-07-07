@@ -32,11 +32,11 @@
 #include "colmap/estimators/pose.h"
 
 #include "colmap/base/cost_functions.h"
-#include "colmap/geometry/essential_matrix.h"
-#include "colmap/geometry/pose.h"
 #include "colmap/camera/models.h"
 #include "colmap/estimators/absolute_pose.h"
 #include "colmap/estimators/essential_matrix.h"
+#include "colmap/geometry/essential_matrix.h"
+#include "colmap/geometry/pose.h"
 #include "colmap/optim/bundle_adjustment.h"
 #include "colmap/util/matrix.h"
 #include "colmap/util/misc.h"

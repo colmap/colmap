@@ -32,8 +32,8 @@
 #include "colmap/estimators/coordinate_frame.h"
 
 #include "colmap/base/gps.h"
-#include "colmap/geometry/pose.h"
 #include "colmap/estimators/utils.h"
+#include "colmap/geometry/pose.h"
 #include "colmap/image/line.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/optim/ransac.h"

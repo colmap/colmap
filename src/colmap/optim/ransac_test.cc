@@ -32,9 +32,9 @@
 #define TEST_NAME "optim/ransac"
 #include "colmap/optim/ransac.h"
 
+#include "colmap/estimators/similarity_transform.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/similarity_transform.h"
-#include "colmap/estimators/similarity_transform.h"
 #include "colmap/util/random.h"
 #include "colmap/util/testing.h"
 

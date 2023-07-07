@@ -56,7 +56,8 @@ BOOST_AUTO_TEST_CASE(TestTriangulatePoint) {
       SimilarityTransform3 tform(
           1, Eigen::Vector4d(0.2, 0.3, 0.4, qz), Eigen::Vector3d(tx, 2, 3));
 
-      const Eigen::Matrix3x4d proj_matrix2 = tform.Matrix().topLeftCorner<3, 4>();
+      const Eigen::Matrix3x4d proj_matrix2 =
+          tform.Matrix().topLeftCorner<3, 4>();
 
       for (size_t i = 0; i < points3D.size(); ++i) {
         const Eigen::Vector3d& point3D = points3D[i];

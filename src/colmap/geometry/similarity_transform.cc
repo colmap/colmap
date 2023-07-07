@@ -31,10 +31,10 @@
 
 #include "colmap/geometry/similarity_transform.h"
 
-#include "colmap/geometry/pose.h"
-#include "colmap/geometry/projection.h"
 #include "colmap/base/reconstruction.h"
 #include "colmap/estimators/similarity_transform.h"
+#include "colmap/geometry/pose.h"
+#include "colmap/geometry/projection.h"
 #include "colmap/optim/loransac.h"
 
 #include <fstream>

@@ -31,8 +31,8 @@
 
 #include "colmap/sfm/incremental_triangulator.h"
 
-#include "colmap/geometry/projection.h"
 #include "colmap/estimators/triangulation.h"
+#include "colmap/geometry/projection.h"
 #include "colmap/util/misc.h"
 
 namespace colmap {
