@@ -33,8 +33,8 @@
 #define COLMAP_SRC_BASE_CAMERA_RIG_H_
 
 #include "colmap/base/camera.h"
-#include "colmap/base/pose.h"
 #include "colmap/base/reconstruction.h"
+#include "colmap/geometry/pose.h"
 #include "colmap/util/types.h"
 
 #include <unordered_map>

@@ -32,9 +32,9 @@
 #define TEST_NAME "base/generalized_relative_pose"
 #include "colmap/estimators/generalized_relative_pose.h"
 
-#include "colmap/base/pose.h"
-#include "colmap/base/projection.h"
-#include "colmap/base/similarity_transform.h"
+#include "colmap/geometry/pose.h"
+#include "colmap/geometry/projection.h"
+#include "colmap/geometry/similarity_transform.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/util/random.h"
 #include "colmap/util/testing.h"

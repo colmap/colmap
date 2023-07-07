@@ -32,7 +32,7 @@
 #define TEST_NAME "base/database"
 #include "colmap/base/database.h"
 
-#include "colmap/base/pose.h"
+#include "colmap/geometry/pose.h"
 #include "colmap/util/testing.h"
 
 #include <thread>

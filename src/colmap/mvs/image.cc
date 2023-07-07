@@ -31,7 +31,7 @@
 
 #include "colmap/mvs/image.h"
 
-#include "colmap/base/projection.h"
+#include "colmap/geometry/projection.h"
 #include "colmap/util/logging.h"
 
 #include <Eigen/Core>

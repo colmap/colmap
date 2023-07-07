@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/base/gps.h"
+#include "colmap/geometry/gps.h"
 
 #include "colmap/util/math.h"
 

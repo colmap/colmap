@@ -31,8 +31,8 @@
 
 #include "colmap/feature/matching.h"
 
-#include "colmap/base/gps.h"
 #include "colmap/feature/utils.h"
+#include "colmap/geometry/gps.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"

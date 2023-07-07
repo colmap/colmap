@@ -32,7 +32,7 @@
 #define TEST_NAME "estimators/coordinate_frame"
 #include "colmap/estimators/coordinate_frame.h"
 
-#include "colmap/base/gps.h"
+#include "colmap/geometry/gps.h"
 #include "colmap/util/testing.h"
 
 namespace colmap {

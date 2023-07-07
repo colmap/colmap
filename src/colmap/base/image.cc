@@ -31,8 +31,8 @@
 
 #include "colmap/base/image.h"
 
-#include "colmap/base/pose.h"
-#include "colmap/base/projection.h"
+#include "colmap/geometry/pose.h"
+#include "colmap/geometry/projection.h"
 
 namespace colmap {
 namespace {

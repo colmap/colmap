@@ -29,8 +29,8 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_BASE_GPS_H_
-#define COLMAP_SRC_BASE_GPS_H_
+#ifndef COLMAP_SRC_GEOMETRY_GPS_H_
+#define COLMAP_SRC_GEOMETRY_GPS_H_
 
 #include "colmap/util/types.h"
 
@@ -87,4 +87,4 @@ class GPSTransform {
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_BASE_GPS_H_
+#endif  // COLMAP_SRC_GEOMETRY_GPS_H_

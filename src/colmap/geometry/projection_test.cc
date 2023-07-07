@@ -29,11 +29,11 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "base/projection"
-#include "colmap/base/projection.h"
+#define TEST_NAME "geometry/projection"
+#include "colmap/geometry/projection.h"
 
-#include "colmap/base/pose.h"
 #include "colmap/camera/models.h"
+#include "colmap/geometry/pose.h"
 #include "colmap/util/math.h"
 #include "colmap/util/testing.h"
 

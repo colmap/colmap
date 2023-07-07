@@ -29,10 +29,10 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "base/pose"
-#include "colmap/base/pose.h"
+#define TEST_NAME "geometry/pose"
+#include "colmap/geometry/pose.h"
 
-#include "colmap/base/projection.h"
+#include "colmap/geometry/projection.h"
 #include "colmap/util/math.h"
 #include "colmap/util/testing.h"
 

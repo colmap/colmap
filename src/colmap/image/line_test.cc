@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "base/line"
+#define TEST_NAME "image/line"
 #include "colmap/image/line.h"
 
 #include "colmap/util/testing.h"

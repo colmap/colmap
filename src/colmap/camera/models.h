@@ -29,8 +29,8 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_BASE_CAMERA_MODELS_H_
-#define COLMAP_SRC_BASE_CAMERA_MODELS_H_
+#ifndef COLMAP_SRC_CAMERA_CAMERA_MODELS_H_
+#define COLMAP_SRC_CAMERA_CAMERA_MODELS_H_
 
 #include <cfloat>
 #include <string>
@@ -1551,4 +1551,4 @@ double CameraModelImageToWorldThreshold(const int model_id,
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_BASE_CAMERA_MODELS_H_
+#endif  // COLMAP_SRC_CAMERA_CAMERA_MODELS_H_

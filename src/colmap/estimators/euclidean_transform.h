@@ -32,7 +32,7 @@
 #ifndef COLMAP_SRC_ESTIMATORS_EUCLIDEAN_TRANSFORM_H_
 #define COLMAP_SRC_ESTIMATORS_EUCLIDEAN_TRANSFORM_H_
 
-#include "colmap/base/similarity_transform.h"
+#include "colmap/geometry/similarity_transform.h"
 
 namespace colmap {
 

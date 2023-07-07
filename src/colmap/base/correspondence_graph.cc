@@ -31,7 +31,7 @@
 
 #include "colmap/base/correspondence_graph.h"
 
-#include "colmap/base/pose.h"
+#include "colmap/geometry/pose.h"
 #include "colmap/util/string.h"
 
 #include <unordered_set>

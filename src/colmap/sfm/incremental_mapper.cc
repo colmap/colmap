@@ -31,9 +31,9 @@
 
 #include "colmap/sfm/incremental_mapper.h"
 
-#include "colmap/base/projection.h"
-#include "colmap/base/triangulation.h"
 #include "colmap/estimators/pose.h"
+#include "colmap/geometry/projection.h"
+#include "colmap/geometry/triangulation.h"
 #include "colmap/image/bitmap.h"
 #include "colmap/util/misc.h"
 
