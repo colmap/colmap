@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_OPTIM_SAMPLER_H_
-#define COLMAP_SRC_OPTIM_SAMPLER_H_
+#pragma once
 
 #include "colmap/util/logging.h"
 
@@ -96,5 +95,3 @@ void Sampler::SampleXY(const X_t& X, const Y_t& Y, X_t* X_rand, Y_t* Y_rand) {
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_OPTIM_SAMPLER_H_

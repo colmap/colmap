@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_VERSION_H_
-#define COLMAP_SRC_UTIL_VERSION_H_
+#pragma once
 
 #include "misc.h"
 
@@ -47,4 +46,3 @@ std::string GetBuildInfo();
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_UTIL_VERSION_H_

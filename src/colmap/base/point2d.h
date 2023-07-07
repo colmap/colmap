@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_BASE_POINT2D_H_
-#define COLMAP_SRC_BASE_POINT2D_H_
+#pragma once
 
 #include "colmap/util/types.h"
 
@@ -89,5 +88,3 @@ void Point2D::SetPoint3DId(const point3D_t point3D_id) {
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_BASE_POINT2D_H_

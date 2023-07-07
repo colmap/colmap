@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_ESTIMATORS_GENERALIZED_ABSOLUTE_POSE_COEFFS_H_
-#define COLMAP_SRC_ESTIMATORS_GENERALIZED_ABSOLUTE_POSE_COEFFS_H_
+#pragma once
 
 #include <Eigen/Core>
 
@@ -40,5 +39,3 @@ Eigen::Matrix<double, 9, 1> ComputeDepthsSylvesterCoeffs(
     const Eigen::Matrix<double, 3, 6>& K);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_ESTIMATORS_GENERALIZED_ABSOLUTE_POSE_COEFFS_H_

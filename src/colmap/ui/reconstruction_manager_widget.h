@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_RECONSTRUCTION_MANAGER_WIDGET_H_
-#define COLMAP_SRC_UI_RECONSTRUCTION_MANAGER_WIDGET_H_
+#pragma once
 
 #include "colmap/base/reconstruction_manager.h"
 
@@ -55,5 +54,3 @@ class ReconstructionManagerWidget : public QComboBox {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_RECONSTRUCTION_MANAGER_WIDGET_H_

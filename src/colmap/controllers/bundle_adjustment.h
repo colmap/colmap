@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_CONTROLLERS_BUNDLE_ADJUSTMENT_H_
-#define COLMAP_SRC_CONTROLLERS_BUNDLE_ADJUSTMENT_H_
+#pragma once
 
 #include "colmap/base/reconstruction.h"
 #include "colmap/util/option_manager.h"
@@ -52,5 +51,3 @@ class BundleAdjustmentController : public Thread {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_CONTROLLERS_BUNDLE_ADJUSTMENT_H_

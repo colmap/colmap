@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_OPENGL_UTILS_H_
-#define COLMAP_SRC_OPENGL_UTILS_H_
+#pragma once
 
 #ifdef GUI_ENABLED
 #include <QAction>
@@ -106,5 +105,3 @@ inline void GLError(const char* file, const int line) {}
 #endif
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_OPENGL_UTILS_H_

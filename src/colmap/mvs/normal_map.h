@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_MVS_NORMAL_MAP_H_
-#define COLMAP_SRC_MVS_NORMAL_MAP_H_
+#pragma once
 
 #include "colmap/image/bitmap.h"
 #include "colmap/mvs/mat.h"
@@ -56,5 +55,3 @@ class NormalMap : public Mat<float> {
 
 }  // namespace mvs
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_MVS_NORMAL_MAP_H_

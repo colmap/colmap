@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_BASE_POINT3D_H_
-#define COLMAP_SRC_BASE_POINT3D_H_
+#pragma once
 
 #include "colmap/base/track.h"
 #include "colmap/util/logging.h"
@@ -132,5 +131,3 @@ class Track& Point3D::Track() {
 void Point3D::SetTrack(class Track track) { track_ = std::move(track); }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_BASE_POINT3D_H_

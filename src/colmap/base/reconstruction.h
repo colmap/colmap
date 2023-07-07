@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_BASE_RECONSTRUCTION_H_
-#define COLMAP_SRC_BASE_RECONSTRUCTION_H_
+#pragma once
 
 #include "colmap/base/camera.h"
 #include "colmap/base/database.h"
@@ -653,5 +652,3 @@ bool Reconstruction::AlignRobust(const std::vector<std::string>& image_names,
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_BASE_RECONSTRUCTION_H_

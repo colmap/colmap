@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_TESTING_H_
-#define COLMAP_SRC_UTIL_TESTING_H_
+#pragma once
 
 #include <iostream>
 
@@ -43,5 +42,3 @@
 #define BOOST_TEST_MODULE TEST_NAME
 
 #include <boost/test/unit_test.hpp>
-
-#endif  // COLMAP_SRC_UTIL_TESTING_H_

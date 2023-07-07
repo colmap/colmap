@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_RANDOM_H_
-#define COLMAP_SRC_UTIL_RANDOM_H_
+#pragma once
 
 #include "colmap/util/logging.h"
 
@@ -128,5 +127,3 @@ void Shuffle(const uint32_t num_to_shuffle, std::vector<T>* elems) {
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UTIL_RANDOM_H_

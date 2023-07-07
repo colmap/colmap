@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_FEATURE_SIFT_H_
-#define COLMAP_SRC_FEATURE_SIFT_H_
+#pragma once
 
 #include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/types.h"
@@ -263,5 +262,3 @@ void MatchGuidedSiftFeaturesGPU(const SiftMatchingOptions& match_options,
                                 TwoViewGeometry* two_view_geometry);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_FEATURE_SIFT_H_

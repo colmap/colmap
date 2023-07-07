@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_EXE_SFM_H_
-#define COLMAP_SRC_EXE_SFM_H_
+#pragma once
 
 #include "colmap/base/reconstruction.h"
 #include "colmap/controllers/incremental_mapper.h"
@@ -54,5 +53,3 @@ int RunPointTriangulator(int argc, char** argv);
 int RunRigBundleAdjuster(int argc, char** argv);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_EXE_SFM_H_

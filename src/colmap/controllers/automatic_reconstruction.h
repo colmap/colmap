@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_CONTROLLERS_AUTOMATIC_RECONSTRUCTION_H_
-#define COLMAP_SRC_CONTROLLERS_AUTOMATIC_RECONSTRUCTION_H_
+#pragma once
 
 #include "colmap/base/reconstruction_manager.h"
 #include "colmap/util/option_manager.h"
@@ -126,5 +125,3 @@ class AutomaticReconstructionController : public Thread {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_CONTROLLERS_AUTOMATIC_RECONSTRUCTION_H_

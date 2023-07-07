@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_GEOMETRY_TRIANGULATION_H_
-#define COLMAP_SRC_GEOMETRY_TRIANGULATION_H_
+#pragma once
 
 #include "colmap/base/camera.h"
 #include "colmap/util/math.h"
@@ -114,5 +113,3 @@ std::vector<double> CalculateTriangulationAngles(
     const std::vector<Eigen::Vector3d>& points3D);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_GEOMETRY_TRIANGULATION_H_

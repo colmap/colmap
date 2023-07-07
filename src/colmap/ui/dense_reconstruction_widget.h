@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_DENSE_RECONSTRUCTION_WIDGET_H_
-#define COLMAP_SRC_UI_DENSE_RECONSTRUCTION_WIDGET_H_
+#pragma once
 
 #include "colmap/mvs/fusion.h"
 #include "colmap/ui/image_viewer_widget.h"
@@ -104,5 +103,3 @@ class DenseReconstructionWidget : public QWidget {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_DENSE_RECONSTRUCTION_WIDGET_H_

@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_RETRIEVAL_VISUAL_INDEX_H_
-#define COLMAP_SRC_RETRIEVAL_VISUAL_INDEX_H_
+#pragma once
 
 #include "colmap/feature/types.h"
 #include "colmap/retrieval/inverted_file.h"
@@ -773,5 +772,3 @@ Eigen::MatrixXi VisualIndex<kDescType, kDescDim, kEmbeddingDim>::FindWordIds(
 
 }  // namespace retrieval
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_RETRIEVAL_VISUAL_INDEX_H_

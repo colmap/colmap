@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_ESTIMATORS_UTILS_H_
-#define COLMAP_SRC_ESTIMATORS_UTILS_H_
+#pragma once
 
 #include "colmap/util/types.h"
 
@@ -88,5 +87,3 @@ void ComputeSquaredReprojectionError(
     std::vector<double>* residuals);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_ESTIMATORS_UTILS_H_

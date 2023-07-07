@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_FEATURE_UTILS_H_
-#define COLMAP_SRC_FEATURE_UTILS_H_
+#pragma once
 
 #include "colmap/feature/types.h"
 
@@ -63,5 +62,3 @@ void ExtractTopScaleFeatures(FeatureKeypoints* keypoints,
                              const size_t num_features);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_FEATURE_UTILS_H_

@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_BASE_CAMERA_H_
-#define COLMAP_SRC_BASE_CAMERA_H_
+#pragma once
 
 #include "colmap/util/types.h"
 
@@ -210,5 +209,3 @@ double* Camera::ParamsData() { return params_.data(); }
 void Camera::SetParams(const std::vector<double>& params) { params_ = params; }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_BASE_CAMERA_H_

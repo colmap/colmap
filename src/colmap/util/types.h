@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_TYPES_H_
-#define COLMAP_SRC_UTIL_TYPES_H_
+#pragma once
 
 #ifdef _MSC_VER
 #if _MSC_VER >= 1600
@@ -116,5 +115,3 @@ struct hash<std::pair<uint32_t, uint32_t>> {
 };
 
 }  // namespace std
-
-#endif  // COLMAP_SRC_UTIL_TYPES_H_

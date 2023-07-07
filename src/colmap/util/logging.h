@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_LOGGING_H_
-#define COLMAP_SRC_UTIL_LOGGING_H_
+#pragma once
 
 #include "colmap/util/string.h"
 
@@ -106,5 +105,3 @@ bool __CheckOptionOpImpl(const char* file,
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UTIL_LOGGING_H_

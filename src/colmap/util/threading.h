@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_THREADING_
-#define COLMAP_SRC_UTIL_THREADING_
+#pragma once
 
 #include "colmap/util/timer.h"
 
@@ -417,5 +416,3 @@ void JobQueue<T>::Clear() {
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UTIL_THREADING_

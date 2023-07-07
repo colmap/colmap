@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_ESTIMATORS_COORDINATE_AXES_H_
-#define COLMAP_SRC_ESTIMATORS_COORDINATE_AXES_H_
+#pragma once
 
 #include "colmap/base/reconstruction.h"
 
@@ -86,5 +85,3 @@ void AlignToENUPlane(Reconstruction* recon,
                      bool unscaled);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_ESTIMATORS_COORDINATE_AXES_H_

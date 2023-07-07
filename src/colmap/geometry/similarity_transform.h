@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_GEOMETRY_SIMILARITY_TRANSFORM_H_
-#define COLMAP_SRC_GEOMETRY_SIMILARITY_TRANSFORM_H_
+#pragma once
 
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/util/types.h"
@@ -124,5 +123,3 @@ bool SimilarityTransform3::Estimate(const std::vector<Eigen::Vector3d>& src,
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_GEOMETRY_SIMILARITY_TRANSFORM_H_

@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_MVS_MODEL_H_
-#define COLMAP_SRC_MVS_MODEL_H_
+#pragma once
 
 #include "colmap/mvs/depth_map.h"
 #include "colmap/mvs/image.h"
@@ -106,5 +105,3 @@ struct Model {
 
 }  // namespace mvs
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_MVS_MODEL_H_

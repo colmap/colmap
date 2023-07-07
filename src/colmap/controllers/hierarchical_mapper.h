@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_CONTROLLERS_HIERARCHICAL_MAPPER_H_
-#define COLMAP_SRC_CONTROLLERS_HIERARCHICAL_MAPPER_H_
+#pragma once
 
 #include "colmap/base/reconstruction_manager.h"
 #include "colmap/base/scene_clustering.h"
@@ -78,5 +77,3 @@ class HierarchicalMapperController : public Thread {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_CONTROLLERS_HIERARCHICAL_MAPPER_H_

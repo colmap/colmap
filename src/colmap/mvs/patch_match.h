@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_MVS_PATCH_MATCH_H_
-#define COLMAP_SRC_MVS_PATCH_MATCH_H_
+#pragma once
 
 #include "colmap/mvs/depth_map.h"
 #include "colmap/mvs/image.h"
@@ -282,5 +281,3 @@ class PatchMatchController : public Thread {
 
 }  // namespace mvs
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_MVS_PATCH_MATCH_H_

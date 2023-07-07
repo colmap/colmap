@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_QT_UTILS_H_
-#define COLMAP_SRC_UI_QT_UTILS_H_
+#pragma once
 
 #include "colmap/feature/types.h"
 #include "colmap/image/bitmap.h"
@@ -63,5 +62,3 @@ QPixmap DrawMatches(const QPixmap& image1,
                     const QColor& keypoints_color = Qt::red);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_QT_UTILS_H_

@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_CAMERA_SPECS_H_
-#define COLMAP_SRC_CAMERA_SPECS_H_
+#pragma once
 
 #include <string>
 #include <unordered_map>
@@ -45,5 +44,3 @@ typedef std::unordered_map<std::string, camera_make_specs_t> camera_specs_t;
 camera_specs_t InitializeCameraSpecs();
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_CAMERA_SPECS_H_

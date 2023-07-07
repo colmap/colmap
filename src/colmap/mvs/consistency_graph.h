@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_MVS_CONSISTENCY_GRAPH_H_
-#define COLMAP_SRC_MVS_CONSISTENCY_GRAPH_H_
+#pragma once
 
 #include "colmap/util/types.h"
 
@@ -78,5 +77,3 @@ class ConsistencyGraph {
 
 }  // namespace mvs
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_MVS_CONSISTENCY_GRAPH_H_
