@@ -29,9 +29,9 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/base/projection.h"
+#include "colmap/geometry/projection.h"
 
-#include "colmap/base/pose.h"
+#include "colmap/geometry/pose.h"
 #include "colmap/util/matrix.h"
 
 namespace colmap {

@@ -33,7 +33,7 @@
 #include "colmap/optim/bundle_adjustment.h"
 
 #include "colmap/base/correspondence_graph.h"
-#include "colmap/base/projection.h"
+#include "colmap/geometry/projection.h"
 #include "colmap/camera/models.h"
 #include "colmap/util/random.h"
 #include "colmap/util/testing.h"

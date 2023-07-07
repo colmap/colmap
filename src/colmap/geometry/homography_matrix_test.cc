@@ -29,8 +29,8 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "base/homography_matrix"
-#include "colmap/base/homography_matrix.h"
+#define TEST_NAME "geometry/homography_matrix"
+#include "colmap/geometry/homography_matrix.h"
 
 #include "colmap/util/testing.h"
 

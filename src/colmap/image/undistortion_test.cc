@@ -29,10 +29,10 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "base/undistortion"
+#define TEST_NAME "image/undistortion"
 #include "colmap/image/undistortion.h"
 
-#include "colmap/base/pose.h"
+#include "colmap/geometry/pose.h"
 #include "colmap/util/testing.h"
 
 namespace colmap {

@@ -29,8 +29,8 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_BASE_CAMERA_DATABASE_H_
-#define COLMAP_SRC_BASE_CAMERA_DATABASE_H_
+#ifndef COLMAP_SRC_CAMERA_CAMERA_DATABASE_H_
+#define COLMAP_SRC_CAMERA_CAMERA_DATABASE_H_
 
 #include "colmap/camera/specs.h"
 
@@ -56,4 +56,4 @@ class CameraDatabase {
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_BASE_CAMERA_DATABASE_H_
+#endif  // COLMAP_SRC_CAMERA_CAMERA_DATABASE_H_

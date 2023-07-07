@@ -38,7 +38,7 @@
 #endif
 
 #include "colmap/base/cost_functions.h"
-#include "colmap/base/projection.h"
+#include "colmap/geometry/projection.h"
 #include "colmap/camera/models.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"

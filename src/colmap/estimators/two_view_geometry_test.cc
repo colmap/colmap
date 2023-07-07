@@ -32,7 +32,7 @@
 #define TEST_NAME "estimators/two_view_geometry"
 #include "colmap/estimators/two_view_geometry.h"
 
-#include "colmap/base/pose.h"
+#include "colmap/geometry/pose.h"
 #include "colmap/util/testing.h"
 
 namespace colmap {

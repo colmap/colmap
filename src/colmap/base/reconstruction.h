@@ -37,7 +37,7 @@
 #include "colmap/base/image.h"
 #include "colmap/base/point2d.h"
 #include "colmap/base/point3d.h"
-#include "colmap/base/similarity_transform.h"
+#include "colmap/geometry/similarity_transform.h"
 #include "colmap/base/track.h"
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/optim/loransac.h"

@@ -29,10 +29,10 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "base/similarity_transform"
-#include "colmap/base/similarity_transform.h"
+#define TEST_NAME "geometry/similarity_transform"
+#include "colmap/geometry/similarity_transform.h"
 
-#include "colmap/base/pose.h"
+#include "colmap/geometry/pose.h"
 #include "colmap/util/testing.h"
 
 #include <fstream>

@@ -29,10 +29,10 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/base/similarity_transform.h"
+#include "colmap/geometry/similarity_transform.h"
 
-#include "colmap/base/pose.h"
-#include "colmap/base/projection.h"
+#include "colmap/geometry/pose.h"
+#include "colmap/geometry/projection.h"
 #include "colmap/base/reconstruction.h"
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/optim/loransac.h"

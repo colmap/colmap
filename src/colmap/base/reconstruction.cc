@@ -33,9 +33,9 @@
 
 #include "colmap/base/database_cache.h"
 #include "colmap/base/gps.h"
-#include "colmap/base/pose.h"
-#include "colmap/base/projection.h"
-#include "colmap/base/triangulation.h"
+#include "colmap/geometry/pose.h"
+#include "colmap/geometry/projection.h"
+#include "colmap/geometry/triangulation.h"
 #include "colmap/image/bitmap.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/ply.h"

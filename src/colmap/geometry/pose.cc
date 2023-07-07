@@ -29,10 +29,10 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/base/pose.h"
+#include "colmap/geometry/pose.h"
 
-#include "colmap/base/projection.h"
-#include "colmap/base/triangulation.h"
+#include "colmap/geometry/projection.h"
+#include "colmap/geometry/triangulation.h"
 
 #include <Eigen/Eigenvalues>
 

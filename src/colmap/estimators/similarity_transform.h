@@ -32,7 +32,7 @@
 #ifndef COLMAP_SRC_ESTIMATORS_SIMILARITY_TRANSFORM_H_
 #define COLMAP_SRC_ESTIMATORS_SIMILARITY_TRANSFORM_H_
 
-#include "colmap/base/projection.h"
+#include "colmap/geometry/projection.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 

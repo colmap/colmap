@@ -29,8 +29,8 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_BASE_PROJECTION_H_
-#define COLMAP_SRC_BASE_PROJECTION_H_
+#ifndef COLMAP_SRC_GEOMETRY_PROJECTION_H_
+#define COLMAP_SRC_GEOMETRY_PROJECTION_H_
 
 #include "colmap/base/camera.h"
 
@@ -166,4 +166,4 @@ bool HasPointPositiveDepth(const Eigen::Matrix3x4d& proj_matrix,
 
 }  // namespace colmap
 
-#endif  // COLMAP_SRC_BASE_PROJECTION_H_
+#endif  // COLMAP_SRC_GEOMETRY_PROJECTION_H_

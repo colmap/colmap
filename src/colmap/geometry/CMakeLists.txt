@@ -29,39 +29,22 @@
 #
 # Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-set(FOLDER_NAME "base")
+set(FOLDER_NAME "geometry")
 
 COLMAP_ADD_SOURCES(
-    camera.h camera.cc
-    camera_rig.h camera_rig.cc
-    correspondence_graph.h correspondence_graph.cc
-    database.h database.cc
-    database_cache.h database_cache.cc
-    graph_cut.h graph_cut.cc
-    image.h image.cc
-    point2d.h point2d.cc
-    point3d.h point3d.cc
-    polynomial.h polynomial.cc
-    reconstruction.h reconstruction.cc
-    reconstruction_manager.h reconstruction_manager.cc
-    scene_clustering.h scene_clustering.cc
-    track.h track.cc
-    visibility_pyramid.h visibility_pyramid.cc
+    essential_matrix.h essential_matrix.cc
+    gps.h gps.cc
+    homography_matrix.h homography_matrix.cc
+    pose.h pose.cc
+    projection.h projection.cc
+    similarity_transform.h similarity_transform.cc
+    triangulation.h triangulation.cc
 )
 
-COLMAP_ADD_TEST(camera_rig_test camera_rig_test.cc)
-COLMAP_ADD_TEST(camera_test camera_test.cc)
-COLMAP_ADD_TEST(correspondence_graph_test correspondence_graph_test.cc)
-COLMAP_ADD_TEST(cost_functions_test cost_functions_test.cc)
-COLMAP_ADD_TEST(database_cache_test database_cache_test.cc)
-COLMAP_ADD_TEST(database_test database_test.cc)
-COLMAP_ADD_TEST(graph_cut_test graph_cut_test.cc)
-COLMAP_ADD_TEST(image_test image_test.cc)
-COLMAP_ADD_TEST(point2d_test point2d_test.cc)
-COLMAP_ADD_TEST(point3d_test point3d_test.cc)
-COLMAP_ADD_TEST(polynomial_test polynomial_test.cc)
-COLMAP_ADD_TEST(reconstruction_test reconstruction_test.cc)
-COLMAP_ADD_TEST(reconstruction_manager_test reconstruction_manager_test.cc)
-COLMAP_ADD_TEST(scene_clustering_test scene_clustering_test.cc)
-COLMAP_ADD_TEST(track_test track_test.cc)
-COLMAP_ADD_TEST(visibility_pyramid_test visibility_pyramid_test.cc)
+COLMAP_ADD_TEST(essential_matrix_utils_test essential_matrix_test.cc)
+COLMAP_ADD_TEST(gps_test gps_test.cc)
+COLMAP_ADD_TEST(homography_matrix_utils_test homography_matrix_test.cc)
+COLMAP_ADD_TEST(pose_test pose_test.cc)
+COLMAP_ADD_TEST(projection_test projection_test.cc)
+COLMAP_ADD_TEST(similarity_transform_test similarity_transform_test.cc)
+COLMAP_ADD_TEST(triangulation_test triangulation_test.cc)

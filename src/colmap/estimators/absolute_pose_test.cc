@@ -32,8 +32,8 @@
 #define TEST_NAME "base/absolute_pose"
 #include "colmap/estimators/absolute_pose.h"
 
-#include "colmap/base/pose.h"
-#include "colmap/base/similarity_transform.h"
+#include "colmap/geometry/pose.h"
+#include "colmap/geometry/similarity_transform.h"
 #include "colmap/estimators/essential_matrix.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/random.h"

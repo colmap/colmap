@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "base/warp"
+#define TEST_NAME "image/warp"
 #include "colmap/image/warp.h"
 
 #include "colmap/util/random.h"

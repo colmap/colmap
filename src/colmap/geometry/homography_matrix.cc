@@ -29,9 +29,9 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/base/homography_matrix.h"
+#include "colmap/geometry/homography_matrix.h"
 
-#include "colmap/base/pose.h"
+#include "colmap/geometry/pose.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/math.h"
 
