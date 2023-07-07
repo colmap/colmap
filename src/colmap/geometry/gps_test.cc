@@ -30,7 +30,7 @@
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
 #define TEST_NAME "geometry/gps"
-#include "colmap/base/gps.h"
+#include "colmap/geometry/gps.h"
 
 #include "colmap/util/testing.h"
 

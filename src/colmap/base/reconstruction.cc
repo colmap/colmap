@@ -32,7 +32,7 @@
 #include "colmap/base/reconstruction.h"
 
 #include "colmap/base/database_cache.h"
-#include "colmap/base/gps.h"
+#include "colmap/geometry/gps.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/projection.h"
 #include "colmap/geometry/triangulation.h"
