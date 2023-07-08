@@ -51,6 +51,10 @@ namespace colmap {
 template <typename T>
 int SignOfNumber(T val);
 
+// Clamp the given value to a low and maximum value.
+template <typename T>
+inline T Clamp(const T& value, const T& low, const T& high);
+
 // Convert angle in degree to radians.
 inline float DegToRad(float deg);
 inline double DegToRad(double deg);
@@ -167,6 +171,11 @@ bool NextCombination(Iterator first1,
 template <typename T>
 int SignOfNumber(const T val) {
   return (T(0) < val) - (val < T(0));
+}
+
+template <typename T>
+T Clamp(const T& value, const T& low, const T& high) {
+  return std::max(low, std::min(value, high));
 }
 
 float DegToRad(const float deg) {

@@ -45,6 +45,16 @@ BOOST_AUTO_TEST_CASE(TestSignOfNumber) {
   BOOST_CHECK_EQUAL(SignOfNumber(-std::numeric_limits<float>::infinity()), -1);
 }
 
+BOOST_AUTO_TEST_CASE(TestClamp) {
+  BOOST_CHECK_EQUAL(Clamp(0, -1, 1), 0);
+  BOOST_CHECK_EQUAL(Clamp(0, 0, 1), 0);
+  BOOST_CHECK_EQUAL(Clamp(0, -1, 0), 0);
+  BOOST_CHECK_EQUAL(Clamp(0, -1, 1), 0);
+  BOOST_CHECK_EQUAL(Clamp(0, 1, 2), 1);
+  BOOST_CHECK_EQUAL(Clamp(0, -2, -1), -1);
+  BOOST_CHECK_EQUAL(Clamp(0, 0, 0), 0);
+}
+
 BOOST_AUTO_TEST_CASE(TestDegToRad) {
   BOOST_CHECK_EQUAL(DegToRad(0.0f), 0.0f);
   BOOST_CHECK_EQUAL(DegToRad(0.0), 0.0);
