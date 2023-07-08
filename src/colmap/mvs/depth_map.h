@@ -43,21 +43,18 @@ namespace mvs {
 class DepthMap : public Mat<float> {
  public:
   DepthMap();
-  DepthMap(const size_t width,
-           const size_t height,
-           const float depth_min,
-           const float depth_max);
-  DepthMap(const Mat<float>& mat, const float depth_min, const float depth_max);
+  DepthMap(size_t width, size_t height, float depth_min, float depth_max);
+  DepthMap(const Mat<float>& mat, float depth_min, float depth_max);
 
   inline float GetDepthMin() const;
   inline float GetDepthMax() const;
 
-  inline float Get(const size_t row, const size_t col) const;
+  inline float Get(size_t row, size_t col) const;
 
-  void Rescale(const float factor);
-  void Downsize(const size_t max_width, const size_t max_height);
+  void Rescale(float factor);
+  void Downsize(size_t max_width, size_t max_height);
 
-  Bitmap ToBitmap(const float min_percentile, const float max_percentile) const;
+  Bitmap ToBitmap(float min_percentile, float max_percentile) const;
 
  private:
   float depth_min_ = -1.0f;

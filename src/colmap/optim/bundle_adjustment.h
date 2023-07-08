@@ -113,45 +113,45 @@ class BundleAdjustmentConfig {
   size_t NumResiduals(const Reconstruction& reconstruction) const;
 
   // Add / remove images from the configuration.
-  void AddImage(const image_t image_id);
-  bool HasImage(const image_t image_id) const;
-  void RemoveImage(const image_t image_id);
+  void AddImage(image_t image_id);
+  bool HasImage(image_t image_id) const;
+  void RemoveImage(image_t image_id);
 
   // Set cameras of added images as constant or variable. By default all
   // cameras of added images are variable. Note that the corresponding images
   // have to be added prior to calling these methods.
-  void SetConstantCamera(const camera_t camera_id);
-  void SetVariableCamera(const camera_t camera_id);
-  bool IsConstantCamera(const camera_t camera_id) const;
+  void SetConstantCamera(camera_t camera_id);
+  void SetVariableCamera(camera_t camera_id);
+  bool IsConstantCamera(camera_t camera_id) const;
 
   // Set the pose of added images as constant. The pose is defined as the
   // rotational and translational part of the projection matrix.
-  void SetConstantPose(const image_t image_id);
-  void SetVariablePose(const image_t image_id);
-  bool HasConstantPose(const image_t image_id) const;
+  void SetConstantPose(image_t image_id);
+  void SetVariablePose(image_t image_id);
+  bool HasConstantPose(image_t image_id) const;
 
   // Set the translational part of the pose, hence the constant pose
   // indices may be in [0, 1, 2] and must be unique. Note that the
   // corresponding images have to be added prior to calling these methods.
-  void SetConstantTvec(const image_t image_id, const std::vector<int>& idxs);
-  void RemoveConstantTvec(const image_t image_id);
-  bool HasConstantTvec(const image_t image_id) const;
+  void SetConstantTvec(image_t image_id, const std::vector<int>& idxs);
+  void RemoveConstantTvec(image_t image_id);
+  bool HasConstantTvec(image_t image_id) const;
 
   // Add / remove points from the configuration. Note that points can either
   // be variable or constant but not both at the same time.
-  void AddVariablePoint(const point3D_t point3D_id);
-  void AddConstantPoint(const point3D_t point3D_id);
-  bool HasPoint(const point3D_t point3D_id) const;
-  bool HasVariablePoint(const point3D_t point3D_id) const;
-  bool HasConstantPoint(const point3D_t point3D_id) const;
-  void RemoveVariablePoint(const point3D_t point3D_id);
-  void RemoveConstantPoint(const point3D_t point3D_id);
+  void AddVariablePoint(point3D_t point3D_id);
+  void AddConstantPoint(point3D_t point3D_id);
+  bool HasPoint(point3D_t point3D_id) const;
+  bool HasVariablePoint(point3D_t point3D_id) const;
+  bool HasConstantPoint(point3D_t point3D_id) const;
+  void RemoveVariablePoint(point3D_t point3D_id);
+  void RemoveConstantPoint(point3D_t point3D_id);
 
   // Access configuration data.
   const std::unordered_set<image_t>& Images() const;
   const std::unordered_set<point3D_t>& VariablePoints() const;
   const std::unordered_set<point3D_t>& ConstantPoints() const;
-  const std::vector<int>& ConstantTvec(const image_t image_id) const;
+  const std::vector<int>& ConstantTvec(image_t image_id) const;
 
  private:
   std::unordered_set<camera_t> constant_camera_ids_;
@@ -179,11 +179,11 @@ class BundleAdjuster {
              ceres::LossFunction* loss_function);
   void TearDown(Reconstruction* reconstruction);
 
-  void AddImageToProblem(const image_t image_id,
+  void AddImageToProblem(image_t image_id,
                          Reconstruction* reconstruction,
                          ceres::LossFunction* loss_function);
 
-  void AddPointToProblem(const point3D_t point3D_id,
+  void AddPointToProblem(point3D_t point3D_id,
                          Reconstruction* reconstruction,
                          ceres::LossFunction* loss_function);
 
@@ -227,12 +227,12 @@ class RigBundleAdjuster : public BundleAdjuster {
   void TearDown(Reconstruction* reconstruction,
                 const std::vector<CameraRig>& camera_rigs);
 
-  void AddImageToProblem(const image_t image_id,
+  void AddImageToProblem(image_t image_id,
                          Reconstruction* reconstruction,
                          std::vector<CameraRig>* camera_rigs,
                          ceres::LossFunction* loss_function);
 
-  void AddPointToProblem(const point3D_t point3D_id,
+  void AddPointToProblem(point3D_t point3D_id,
                          Reconstruction* reconstruction,
                          ceres::LossFunction* loss_function);
 

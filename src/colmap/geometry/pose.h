@@ -62,9 +62,7 @@ void RotationMatrixToEulerAngles(const Eigen::Matrix3d& R,
 // @param rx, ry, rz     Euler angles in radians.
 //
 // @return               3x3 rotation matrix.
-Eigen::Matrix3d EulerAnglesToRotationMatrix(const double rx,
-                                            const double ry,
-                                            const double rz);
+Eigen::Matrix3d EulerAnglesToRotationMatrix(double rx, double ry, double rz);
 
 // Convert 3D rotation matrix to Quaternion representation.
 //
@@ -190,7 +188,7 @@ void InterpolatePose(const Eigen::Vector4d& qvec1,
                      const Eigen::Vector3d& tvec1,
                      const Eigen::Vector4d& qvec2,
                      const Eigen::Vector3d& tvec2,
-                     const double t,
+                     double t,
                      Eigen::Vector4d* qveci,
                      Eigen::Vector3d* tveci);
 

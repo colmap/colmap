@@ -180,32 +180,32 @@ using FeatureDescriptorsPtr = std::shared_ptr<FeatureDescriptors>;
 // Cache for feature matching to minimize database access during matching.
 class FeatureMatcherCache {
  public:
-  FeatureMatcherCache(const size_t cache_size, const Database* database);
+  FeatureMatcherCache(size_t cache_size, const Database* database);
 
   void Setup();
 
-  const Camera& GetCamera(const camera_t camera_id) const;
-  const Image& GetImage(const image_t image_id) const;
-  FeatureKeypointsPtr GetKeypoints(const image_t image_id);
-  FeatureDescriptorsPtr GetDescriptors(const image_t image_id);
-  FeatureMatches GetMatches(const image_t image_id1, const image_t image_id2);
+  const Camera& GetCamera(camera_t camera_id) const;
+  const Image& GetImage(image_t image_id) const;
+  FeatureKeypointsPtr GetKeypoints(image_t image_id);
+  FeatureDescriptorsPtr GetDescriptors(image_t image_id);
+  FeatureMatches GetMatches(image_t image_id1, image_t image_id2);
   std::vector<image_t> GetImageIds() const;
 
-  bool ExistsKeypoints(const image_t image_id);
-  bool ExistsDescriptors(const image_t image_id);
+  bool ExistsKeypoints(image_t image_id);
+  bool ExistsDescriptors(image_t image_id);
 
-  bool ExistsMatches(const image_t image_id1, const image_t image_id2);
-  bool ExistsInlierMatches(const image_t image_id1, const image_t image_id2);
+  bool ExistsMatches(image_t image_id1, image_t image_id2);
+  bool ExistsInlierMatches(image_t image_id1, image_t image_id2);
 
-  void WriteMatches(const image_t image_id1,
-                    const image_t image_id2,
+  void WriteMatches(image_t image_id1,
+                    image_t image_id2,
                     const FeatureMatches& matches);
-  void WriteTwoViewGeometry(const image_t image_id1,
-                            const image_t image_id2,
+  void WriteTwoViewGeometry(image_t image_id1,
+                            image_t image_id2,
                             const TwoViewGeometry& two_view_geometry);
 
-  void DeleteMatches(const image_t image_id1, const image_t image_id2);
-  void DeleteInlierMatches(const image_t image_id1, const image_t image_id2);
+  void DeleteMatches(image_t image_id1, image_t image_id2);
+  void DeleteInlierMatches(image_t image_id1, image_t image_id2);
 
  private:
   const size_t cache_size_;
@@ -224,7 +224,7 @@ class FeatureMatcherThread : public Thread {
   FeatureMatcherThread(const SiftMatchingOptions& options,
                        FeatureMatcherCache* cache);
 
-  void SetMaxNumMatches(const int max_num_matches);
+  void SetMaxNumMatches(int max_num_matches);
 
  protected:
   SiftMatchingOptions options_;
@@ -261,8 +261,8 @@ class SiftGPUFeatureMatcher : public FeatureMatcherThread {
  protected:
   void Run() override;
 
-  void GetDescriptorData(const int index,
-                         const image_t image_id,
+  void GetDescriptorData(int index,
+                         image_t image_id,
                          const FeatureDescriptors** descriptors_ptr);
 
   JobQueue<Input>* input_queue_;
@@ -305,8 +305,8 @@ class GuidedSiftGPUFeatureMatcher : public FeatureMatcherThread {
  private:
   void Run() override;
 
-  void GetFeatureData(const int index,
-                      const image_t image_id,
+  void GetFeatureData(int index,
+                      image_t image_id,
                       const FeatureKeypoints** keypoints_ptr,
                       const FeatureDescriptors** descriptors_ptr);
 

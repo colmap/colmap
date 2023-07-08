@@ -85,12 +85,12 @@ std::vector<PlyPoint> ReadPly(const std::string& path);
 // Write PLY point cloud to text or binary file.
 void WriteTextPlyPoints(const std::string& path,
                         const std::vector<PlyPoint>& points,
-                        const bool write_normal = true,
-                        const bool write_rgb = true);
+                        bool write_normal = true,
+                        bool write_rgb = true);
 void WriteBinaryPlyPoints(const std::string& path,
                           const std::vector<PlyPoint>& points,
-                          const bool write_normal = true,
-                          const bool write_rgb = true);
+                          bool write_normal = true,
+                          bool write_rgb = true);
 
 // Write PLY mesh to text or binary file.
 void WriteTextPlyMesh(const std::string& path, const PlyMesh& mesh);

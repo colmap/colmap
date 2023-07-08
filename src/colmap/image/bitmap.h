@@ -53,8 +53,8 @@ namespace colmap {
 template <typename T>
 struct BitmapColor {
   BitmapColor();
-  explicit BitmapColor(const T gray);
-  BitmapColor(const T r, const T g, const T b);
+  explicit BitmapColor(T gray);
+  BitmapColor(T r, T g, T b);
 
   template <typename D>
   BitmapColor<D> Cast() const;
@@ -91,7 +91,7 @@ class Bitmap {
   Bitmap& operator=(Bitmap&& other) noexcept;
 
   // Allocate bitmap by overwriting the existing data.
-  bool Allocate(const int width, const int height, const bool as_rgb);
+  bool Allocate(int width, int height, bool as_rgb);
 
   // Deallocate the bitmap by releasing the existing data.
   void Deallocate();
@@ -126,23 +126,21 @@ class Bitmap {
 
   // Manipulate individual pixels. For grayscale images, only the red element
   // of the RGB color is used.
-  bool GetPixel(const int x, const int y, BitmapColor<uint8_t>* color) const;
-  bool SetPixel(const int x, const int y, const BitmapColor<uint8_t>& color);
+  bool GetPixel(int x, int y, BitmapColor<uint8_t>* color) const;
+  bool SetPixel(int x, int y, const BitmapColor<uint8_t>& color);
 
   // Get pointer to y-th scanline, where the 0-th scanline is at the top.
-  const uint8_t* GetScanline(const int y) const;
+  const uint8_t* GetScanline(int y) const;
 
   // Fill entire bitmap with uniform color. For grayscale images, the first
   // element of the vector is used.
   void Fill(const BitmapColor<uint8_t>& color);
 
   // Interpolate color at given floating point position.
-  bool InterpolateNearestNeighbor(const double x,
-                                  const double y,
+  bool InterpolateNearestNeighbor(double x,
+                                  double y,
                                   BitmapColor<uint8_t>* color) const;
-  bool InterpolateBilinear(const double x,
-                           const double y,
-                           BitmapColor<float>* color) const;
+  bool InterpolateBilinear(double x, double y, BitmapColor<float>* color) const;
 
   // Extract EXIF information from bitmap. Returns false if no EXIF information
   // is embedded in the bitmap.
@@ -153,21 +151,21 @@ class Bitmap {
   bool ExifAltitude(double* altitude) const;
 
   // Read bitmap at given path and convert to grey- or colorscale.
-  bool Read(const std::string& path, const bool as_rgb = true);
+  bool Read(const std::string& path, bool as_rgb = true);
 
   // Write image to file. Flags can be used to set e.g. the JPEG quality.
   // Consult the FreeImage documentation for all available flags.
   bool Write(const std::string& path,
-             const FREE_IMAGE_FORMAT format = FIF_UNKNOWN,
-             const int flags = 0) const;
+             FREE_IMAGE_FORMAT format = FIF_UNKNOWN,
+             int flags = 0) const;
 
   // Smooth the image using a Gaussian kernel.
-  void Smooth(const float sigma_x, const float sigma_y);
+  void Smooth(float sigma_x, float sigma_y);
 
   // Rescale image to the new dimensions.
-  void Rescale(const int new_width,
-               const int new_height,
-               const FREE_IMAGE_FILTER filter = FILTER_BILINEAR);
+  void Rescale(int new_width,
+               int new_height,
+               FREE_IMAGE_FILTER filter = FILTER_BILINEAR);
 
   // Clone the image to a new bitmap object.
   Bitmap Clone() const;
@@ -178,7 +176,7 @@ class Bitmap {
   void CloneMetadata(Bitmap* target) const;
 
   // Read specific EXIF tag.
-  bool ReadExifTag(const FREE_IMAGE_MDMODEL model,
+  bool ReadExifTag(FREE_IMAGE_MDMODEL model,
                    const std::string& tag_name,
                    std::string* result) const;
 
@@ -201,17 +199,13 @@ class Bitmap {
 // and are converted to RGB values in the same range.
 class JetColormap {
  public:
-  static float Red(const float gray);
-  static float Green(const float gray);
-  static float Blue(const float gray);
+  static float Red(float gray);
+  static float Green(float gray);
+  static float Blue(float gray);
 
  private:
-  static float Interpolate(const float val,
-                           const float y0,
-                           const float x0,
-                           const float y1,
-                           const float x1);
-  static float Base(const float val);
+  static float Interpolate(float val, float y0, float x0, float y1, float x1);
+  static float Base(float val);
 };
 
 ////////////////////////////////////////////////////////////////////////////////

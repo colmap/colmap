@@ -54,7 +54,7 @@ class SimilarityTransform3 {
   explicit SimilarityTransform3(
       const Eigen::Transform<double, 3, Eigen::Affine>& transform);
 
-  SimilarityTransform3(const double scale,
+  SimilarityTransform3(double scale,
                        const Eigen::Vector4d& qvec,
                        const Eigen::Vector3d& tvec);
 
@@ -89,8 +89,8 @@ class SimilarityTransform3 {
 bool ComputeAlignmentBetweenReconstructions(
     const Reconstruction& src_reconstruction,
     const Reconstruction& ref_reconstruction,
-    const double min_inlier_observations,
-    const double max_reproj_error,
+    double min_inlier_observations,
+    double max_reproj_error,
     Eigen::Matrix3x4d* alignment);
 
 // Robustly compute alignment between reconstructions by finding images that
@@ -100,7 +100,7 @@ bool ComputeAlignmentBetweenReconstructions(
 bool ComputeAlignmentBetweenReconstructions(
     const Reconstruction& src_reconstruction,
     const Reconstruction& ref_reconstruction,
-    const double max_proj_center_error,
+    double max_proj_center_error,
     Eigen::Matrix3x4d* alignment);
 
 ////////////////////////////////////////////////////////////////////////////////

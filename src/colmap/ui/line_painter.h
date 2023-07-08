@@ -55,9 +55,9 @@ class LinePainter {
   void Setup();
   void Upload(const std::vector<LinePainter::Data>& data);
   void Render(const QMatrix4x4& pmv_matrix,
-              const int width,
-              const int height,
-              const float line_width);
+              int width,
+              int height,
+              float line_width);
 
  private:
   QOpenGLShaderProgram shader_program_;

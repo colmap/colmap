@@ -90,7 +90,7 @@ class InvertedFile {
   // information stored in an inverted file entry. In particular, this function
   // generates the binary descriptor for the inverted file entry and then stores
   // the entry in the inverted file.
-  void AddEntry(const int image_id,
+  void AddEntry(int image_id,
                 typename DescType::Index feature_idx,
                 const DescType& descriptor,
                 const GeomType& geometry);
@@ -111,7 +111,7 @@ class InvertedFile {
       std::bitset<kEmbeddingDim>* binary_descriptor) const;
 
   // Compute the idf-weight for this inverted file.
-  void ComputeIDFWeight(const int num_total_images);
+  void ComputeIDFWeight(int num_total_images);
 
   // Return the idf-weight of this inverted file.
   float IDFWeight() const;

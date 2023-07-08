@@ -54,7 +54,7 @@ class Point2D {
   // observe a 3D point, the identifier is `kInvalidPoint3Did`.
   inline point3D_t Point3DId() const;
   inline bool HasPoint3D() const;
-  inline void SetPoint3DId(const point3D_t point3D_id);
+  inline void SetPoint3DId(point3D_t point3D_id);
 
  private:
   // The image coordinates in pixels, starting at upper left corner with 0.

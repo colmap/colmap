@@ -88,40 +88,34 @@ class ModelViewerWidget : public QOpenGLWidget,
   void EnableCoordinateGrid();
   void DisableCoordinateGrid();
 
-  void ChangeFocusDistance(const float delta);
-  void ChangeNearPlane(const float delta);
-  void ChangePointSize(const float delta);
-  void ChangeCameraSize(const float delta);
+  void ChangeFocusDistance(float delta);
+  void ChangeNearPlane(float delta);
+  void ChangePointSize(float delta);
+  void ChangeCameraSize(float delta);
 
-  void RotateView(const float x,
-                  const float y,
-                  const float prev_x,
-                  const float prev_y);
-  void TranslateView(const float x,
-                     const float y,
-                     const float prev_x,
-                     const float prev_y);
+  void RotateView(float x, float y, float prev_x, float prev_y);
+  void TranslateView(float x, float y, float prev_x, float prev_y);
 
   void ResetView();
 
   QMatrix4x4 ModelViewMatrix() const;
   void SetModelViewMatrix(const QMatrix4x4& matrix);
 
-  void SelectObject(const int x, const int y);
-  void SelectMoviewGrabberView(const size_t view_idx);
+  void SelectObject(int x, int y);
+  void SelectMoviewGrabberView(size_t view_idx);
 
   QImage GrabImage();
   void GrabMovie();
 
-  void ShowPointInfo(const point3D_t point3D_id);
-  void ShowImageInfo(const image_t image_id);
+  void ShowPointInfo(point3D_t point3D_id);
+  void ShowImageInfo(image_t image_id);
 
   float PointSize() const;
   float ImageSize() const;
-  void SetPointSize(const float point_size);
-  void SetImageSize(const float image_size);
+  void SetPointSize(float point_size);
+  void SetImageSize(float image_size);
 
-  void SetBackgroundColor(const float r, const float g, const float b);
+  void SetBackgroundColor(float r, float g, float b);
 
   // Copy of current scene data that is displayed
   Reconstruction* reconstruction = nullptr;
@@ -148,9 +142,9 @@ class ModelViewerWidget : public QOpenGLWidget,
 
   void Upload();
   void UploadCoordinateGridData();
-  void UploadPointData(const bool selection_mode = false);
+  void UploadPointData(bool selection_mode = false);
   void UploadPointConnectionData();
-  void UploadImageData(const bool selection_mode = false);
+  void UploadImageData(bool selection_mode = false);
   void UploadImageConnectionData();
   void UploadMovieGrabberData();
 
@@ -160,7 +154,7 @@ class ModelViewerWidget : public QOpenGLWidget,
   float AspectRatio() const;
   float OrthographicWindowExtent() const;
 
-  Eigen::Vector3f PositionToArcballVector(const float x, const float y) const;
+  Eigen::Vector3f PositionToArcballVector(float x, float y) const;
 
   OptionManager* options_;
 
