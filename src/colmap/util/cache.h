@@ -217,7 +217,7 @@ size_t MemoryConstrainedLRUCache<key_t, value_t>::MaxNumBytes() const {
 
 template <typename key_t, typename value_t>
 void MemoryConstrainedLRUCache<key_t, value_t>::Set(const key_t& key,
-                                                    value_t&& value) {
+                                                    value_t value) {
   const size_t num_bytes = value.NumBytes();
   auto it = elems_map_.find(key);
   elems_list_.push_front(key_value_pair_t(key, std::move(value)));

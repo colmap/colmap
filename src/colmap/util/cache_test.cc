@@ -105,7 +105,7 @@ BOOST_AUTO_TEST_CASE(TestLRUCacheSet) {
   LRUCache<int, int> cache(5, [](const int key) { return -1; });
   BOOST_CHECK_EQUAL(cache.NumElems(), 0);
   for (int i = 0; i < 5; ++i) {
-    cache.Set(i, int(i));
+    cache.Set(i, i);
     BOOST_CHECK_EQUAL(cache.NumElems(), i + 1);
     BOOST_CHECK(cache.Exists(i));
   }
