@@ -47,7 +47,7 @@ class PointViewerWidget : public QWidget {
                     ModelViewerWidget* model_viewer_widget,
                     OptionManager* option);
 
-  void Show(const point3D_t point3D_id);
+  void Show(point3D_t point3D_id);
 
  private:
   void closeEvent(QCloseEvent* event);

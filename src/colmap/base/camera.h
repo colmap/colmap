@@ -47,39 +47,39 @@ class Camera {
 
   // Access the unique identifier of the camera.
   inline camera_t CameraId() const;
-  inline void SetCameraId(const camera_t camera_id);
+  inline void SetCameraId(camera_t camera_id);
 
   // Access the camera model.
   inline int ModelId() const;
   std::string ModelName() const;
-  void SetModelId(const int model_id);
+  void SetModelId(int model_id);
   void SetModelIdFromName(const std::string& model_name);
 
   // Access dimensions of the camera sensor.
   inline size_t Width() const;
   inline size_t Height() const;
-  inline void SetWidth(const size_t width);
-  inline void SetHeight(const size_t height);
+  inline void SetWidth(size_t width);
+  inline void SetHeight(size_t height);
 
   // Access focal length parameters.
   double MeanFocalLength() const;
   double FocalLength() const;
   double FocalLengthX() const;
   double FocalLengthY() const;
-  void SetFocalLength(const double focal_length);
-  void SetFocalLengthX(const double focal_length_x);
-  void SetFocalLengthY(const double focal_length_y);
+  void SetFocalLength(double focal_length);
+  void SetFocalLengthX(double focal_length_x);
+  void SetFocalLengthY(double focal_length_y);
 
   // Check if camera has prior focal length.
   inline bool HasPriorFocalLength() const;
-  inline void SetPriorFocalLength(const bool prior);
+  inline void SetPriorFocalLength(bool prior);
 
   // Access principal point parameters. Only works if there are two
   // principal point parameters.
   double PrincipalPointX() const;
   double PrincipalPointY() const;
-  void SetPrincipalPointX(const double ppx);
-  void SetPrincipalPointY(const double ppy);
+  void SetPrincipalPointX(double ppx);
+  void SetPrincipalPointY(double ppy);
 
   // Get the indices of the parameter groups in the parameter vector.
   const std::vector<size_t>& FocalLengthIdxs() const;
@@ -97,8 +97,8 @@ class Camera {
   inline size_t NumParams() const;
   inline const std::vector<double>& Params() const;
   inline std::vector<double>& Params();
-  inline double Params(const size_t idx) const;
-  inline double& Params(const size_t idx);
+  inline double Params(size_t idx) const;
+  inline double& Params(size_t idx);
   inline const double* ParamsData() const;
   inline double* ParamsData();
   inline void SetParams(const std::vector<double>& params);
@@ -117,34 +117,34 @@ class Camera {
   bool IsUndistorted() const;
 
   // Check whether camera has bogus parameters.
-  bool HasBogusParams(const double min_focal_length_ratio,
-                      const double max_focal_length_ratio,
-                      const double max_extra_param) const;
+  bool HasBogusParams(double min_focal_length_ratio,
+                      double max_focal_length_ratio,
+                      double max_extra_param) const;
 
   // Initialize parameters for given camera model and focal length, and set
   // the principal point to be the image center.
-  void InitializeWithId(const int model_id,
-                        const double focal_length,
-                        const size_t width,
-                        const size_t height);
+  void InitializeWithId(int model_id,
+                        double focal_length,
+                        size_t width,
+                        size_t height);
   void InitializeWithName(const std::string& model_name,
-                          const double focal_length,
-                          const size_t width,
-                          const size_t height);
+                          double focal_length,
+                          size_t width,
+                          size_t height);
 
   // Project point in image plane to world / infinity.
   Eigen::Vector2d ImageToWorld(const Eigen::Vector2d& image_point) const;
 
   // Convert pixel threshold in image plane to world space.
-  double ImageToWorldThreshold(const double threshold) const;
+  double ImageToWorldThreshold(double threshold) const;
 
   // Project point from world / infinity to image plane.
   Eigen::Vector2d WorldToImage(const Eigen::Vector2d& world_point) const;
 
   // Rescale camera dimensions and accordingly the focal length and
   // and the principal point.
-  void Rescale(const double scale);
-  void Rescale(const size_t width, const size_t height);
+  void Rescale(double scale);
+  void Rescale(size_t width, size_t height);
 
  private:
   // The unique identifier of the camera. If the identifier is not specified

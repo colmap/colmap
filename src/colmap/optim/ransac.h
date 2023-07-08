@@ -109,10 +109,10 @@ class RANSAC {
   //							    number of trials.
   //
   // @return               The required number of iterations.
-  static size_t ComputeNumTrials(const size_t num_inliers,
-                                 const size_t num_samples,
-                                 const double confidence,
-                                 const double num_trials_multiplier);
+  static size_t ComputeNumTrials(size_t num_inliers,
+                                 size_t num_samples,
+                                 double confidence,
+                                 double num_trials_multiplier);
 
   // Robustly estimate model with RANSAC (RANdom SAmple Consensus).
   //

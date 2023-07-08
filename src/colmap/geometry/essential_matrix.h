@@ -126,7 +126,7 @@ void FindOptimalImageObservations(const Eigen::Matrix3d& E,
 //
 // @return            Epipole in homogeneous coordinates.
 Eigen::Vector3d EpipoleFromEssentialMatrix(const Eigen::Matrix3d& E,
-                                           const bool left_image);
+                                           bool left_image);
 
 // Invert the essential matrix, i.e. if the essential matrix E describes the
 // transformation from camera A to B, the inverted essential matrix E' describes

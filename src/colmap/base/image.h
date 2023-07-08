@@ -59,7 +59,7 @@ class Image {
 
   // Access the unique identifier of the image.
   inline image_t ImageId() const;
-  inline void SetImageId(const image_t image_id);
+  inline void SetImageId(image_t image_id);
 
   // Access the name of the image.
   inline const std::string& Name() const;
@@ -69,13 +69,13 @@ class Image {
   // Access the unique identifier of the camera. Note that multiple images
   // might share the same camera.
   inline camera_t CameraId() const;
-  inline void SetCameraId(const camera_t camera_id);
+  inline void SetCameraId(camera_t camera_id);
   // Check whether identifier of camera has been set.
   inline bool HasCamera() const;
 
   // Check if image is registered.
   inline bool IsRegistered() const;
-  inline void SetRegistered(const bool registered);
+  inline void SetRegistered(bool registered);
 
   // Get the number of image points.
   inline point2D_t NumPoints2D() const;
@@ -87,11 +87,11 @@ class Image {
   // Get the number of observations, i.e. the number of image points that
   // have at least one correspondence to another image.
   inline point2D_t NumObservations() const;
-  inline void SetNumObservations(const point2D_t num_observations);
+  inline void SetNumObservations(point2D_t num_observations);
 
   // Get the number of correspondences for all image points.
   inline point2D_t NumCorrespondences() const;
-  inline void SetNumCorrespondences(const point2D_t num_observations);
+  inline void SetNumCorrespondences(point2D_t num_observations);
 
   // Get the number of observations that see a triangulated point, i.e. the
   // number of image points that have at least one correspondence to a
@@ -109,15 +109,15 @@ class Image {
   // pose which is defined as the transformation from world to image space.
   inline const Eigen::Vector4d& Qvec() const;
   inline Eigen::Vector4d& Qvec();
-  inline double Qvec(const size_t idx) const;
-  inline double& Qvec(const size_t idx);
+  inline double Qvec(size_t idx) const;
+  inline double& Qvec(size_t idx);
   inline void SetQvec(const Eigen::Vector4d& qvec);
 
   // Quaternion prior, e.g. given by EXIF gyroscope tag.
   inline const Eigen::Vector4d& QvecPrior() const;
   inline Eigen::Vector4d& QvecPrior();
-  inline double QvecPrior(const size_t idx) const;
-  inline double& QvecPrior(const size_t idx);
+  inline double QvecPrior(size_t idx) const;
+  inline double& QvecPrior(size_t idx);
   inline bool HasQvecPrior() const;
   inline void SetQvecPrior(const Eigen::Vector4d& qvec);
 
@@ -125,50 +125,49 @@ class Image {
   // pose which is defined as the transformation from world to image space.
   inline const Eigen::Vector3d& Tvec() const;
   inline Eigen::Vector3d& Tvec();
-  inline double Tvec(const size_t idx) const;
-  inline double& Tvec(const size_t idx);
+  inline double Tvec(size_t idx) const;
+  inline double& Tvec(size_t idx);
   inline void SetTvec(const Eigen::Vector3d& tvec);
 
   // Translation prior, e.g. given by EXIF GPS tag.
   inline const Eigen::Vector3d& TvecPrior() const;
   inline Eigen::Vector3d& TvecPrior();
-  inline double TvecPrior(const size_t idx) const;
-  inline double& TvecPrior(const size_t idx);
+  inline double TvecPrior(size_t idx) const;
+  inline double& TvecPrior(size_t idx);
   inline bool HasTvecPrior() const;
   inline void SetTvecPrior(const Eigen::Vector3d& tvec);
 
   // Access the coordinates of image points.
-  inline const class Point2D& Point2D(const point2D_t point2D_idx) const;
-  inline class Point2D& Point2D(const point2D_t point2D_idx);
+  inline const class Point2D& Point2D(point2D_t point2D_idx) const;
+  inline class Point2D& Point2D(point2D_t point2D_idx);
   inline const std::vector<class Point2D>& Points2D() const;
   void SetPoints2D(const std::vector<Eigen::Vector2d>& points);
   void SetPoints2D(const std::vector<class Point2D>& points);
 
   // Set the point as triangulated, i.e. it is part of a 3D point track.
-  void SetPoint3DForPoint2D(const point2D_t point2D_idx,
-                            const point3D_t point3D_id);
+  void SetPoint3DForPoint2D(point2D_t point2D_idx, point3D_t point3D_id);
 
   // Set the point as not triangulated, i.e. it is not part of a 3D point track.
-  void ResetPoint3DForPoint2D(const point2D_t point2D_idx);
+  void ResetPoint3DForPoint2D(point2D_t point2D_idx);
 
   // Check whether an image point has a correspondence to an image point in
   // another image that has a 3D point.
-  inline bool IsPoint3DVisible(const point2D_t point2D_idx) const;
+  inline bool IsPoint3DVisible(point2D_t point2D_idx) const;
 
   // Check whether one of the image points is part of the 3D point track.
-  bool HasPoint3D(const point3D_t point3D_id) const;
+  bool HasPoint3D(point3D_t point3D_id) const;
 
   // Indicate that another image has a point that is triangulated and has
   // a correspondence to this image point. Note that this must only be called
   // after calling `SetUp`.
-  void IncrementCorrespondenceHasPoint3D(const point2D_t point2D_idx);
+  void IncrementCorrespondenceHasPoint3D(point2D_t point2D_idx);
 
   // Indicate that another image has a point that is not triangulated any more
   // and has a correspondence to this image point. This assumes that
   // `IncrementCorrespondenceHasPoint3D` was called for the same image point
   // and correspondence before. Note that this must only be called
   // after calling `SetUp`.
-  void DecrementCorrespondenceHasPoint3D(const point2D_t point2D_idx);
+  void DecrementCorrespondenceHasPoint3D(point2D_t point2D_idx);
 
   // Normalize the quaternion vector.
   void NormalizeQvec();

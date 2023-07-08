@@ -53,14 +53,12 @@ namespace mvs {
 class ConsistencyGraph {
  public:
   ConsistencyGraph();
-  ConsistencyGraph(const size_t width,
-                   const size_t height,
-                   const std::vector<int>& data);
+  ConsistencyGraph(size_t width, size_t height, const std::vector<int>& data);
 
   size_t GetNumBytes() const;
 
-  void GetImageIdxs(const int row,
-                    const int col,
+  void GetImageIdxs(int row,
+                    int col,
                     int* num_images,
                     const int** image_idxs) const;
 
@@ -68,7 +66,7 @@ class ConsistencyGraph {
   void Write(const std::string& path) const;
 
  private:
-  void InitializeMap(const size_t width, const size_t height);
+  void InitializeMap(size_t width, size_t height);
 
   const static int kNoConsistentImageIds;
   std::vector<int> data_;

@@ -181,8 +181,8 @@ public:
 	//set SiftGPU to brief display mode, which is faster
 	inline void SetVerboseBrief(){SetVerbose(2);};
 	//parse SiftGPU parameters
-	SIFTGPU_EXPORT virtual void ParseParam(const int argc, const char **argv);
-	//run SIFT on a new image given filename
+        SIFTGPU_EXPORT virtual void ParseParam(int argc, const char** argv);
+        //run SIFT on a new image given filename
 	SIFTGPU_EXPORT virtual int  RunSIFT(const char * imgpath);
 	//run SIFT on an image in the image list given the file index
 	SIFTGPU_EXPORT virtual int	RunSIFT(int index);

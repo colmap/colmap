@@ -49,11 +49,11 @@ class PointColormapBase {
                        std::unordered_map<point3D_t, Point3D>& points3D,
                        std::vector<image_t>& reg_image_ids) = 0;
 
-  virtual Eigen::Vector4f ComputeColor(const point3D_t point3D_id,
+  virtual Eigen::Vector4f ComputeColor(point3D_t point3D_id,
                                        const Point3D& point3D) = 0;
 
   void UpdateScale(std::vector<float>* values);
-  float AdjustScale(const float gray);
+  float AdjustScale(float gray);
 
   float scale;
   float min;
@@ -71,7 +71,7 @@ class PointColormapPhotometric : public PointColormapBase {
                std::unordered_map<point3D_t, Point3D>& points3D,
                std::vector<image_t>& reg_image_ids) override;
 
-  Eigen::Vector4f ComputeColor(const point3D_t point3D_id,
+  Eigen::Vector4f ComputeColor(point3D_t point3D_id,
                                const Point3D& point3D) override;
 };
 
@@ -83,7 +83,7 @@ class PointColormapError : public PointColormapBase {
                std::unordered_map<point3D_t, Point3D>& points3D,
                std::vector<image_t>& reg_image_ids) override;
 
-  Eigen::Vector4f ComputeColor(const point3D_t point3D_id,
+  Eigen::Vector4f ComputeColor(point3D_t point3D_id,
                                const Point3D& point3D) override;
 };
 
@@ -95,7 +95,7 @@ class PointColormapTrackLen : public PointColormapBase {
                std::unordered_map<point3D_t, Point3D>& points3D,
                std::vector<image_t>& reg_image_ids) override;
 
-  Eigen::Vector4f ComputeColor(const point3D_t point3D_id,
+  Eigen::Vector4f ComputeColor(point3D_t point3D_id,
                                const Point3D& point3D) override;
 };
 
@@ -107,7 +107,7 @@ class PointColormapGroundResolution : public PointColormapBase {
                std::unordered_map<point3D_t, Point3D>& points3D,
                std::vector<image_t>& reg_image_ids) override;
 
-  Eigen::Vector4f ComputeColor(const point3D_t point3D_id,
+  Eigen::Vector4f ComputeColor(point3D_t point3D_id,
                                const Point3D& point3D) override;
 
  private:

@@ -123,12 +123,12 @@ class VisualIndex {
 
   // Add image to the visual index.
   void Add(const IndexOptions& options,
-           const int image_id,
+           int image_id,
            const GeomType& geometries,
            const DescType& descriptors);
 
   // Check if an image has been indexed.
-  bool ImageIndexed(const int image_id) const;
+  bool ImageIndexed(int image_id) const;
 
   // Query for most similar images in the visual index.
   void Query(const QueryOptions& options,
@@ -166,9 +166,9 @@ class VisualIndex {
 
   // Find the nearest neighbor visual words for the given descriptors.
   Eigen::MatrixXi FindWordIds(const DescType& descriptors,
-                              const int num_neighbors,
-                              const int num_checks,
-                              const int num_threads) const;
+                              int num_neighbors,
+                              int num_checks,
+                              int num_threads) const;
 
   // The search structure on the quantized descriptor space.
   flann::AutotunedIndex<flann::L2<kDescType>> visual_word_index_;

@@ -49,15 +49,15 @@ namespace colmap {
 
 // Return 1 if number is positive, -1 if negative, and 0 if the number is 0.
 template <typename T>
-int SignOfNumber(const T val);
+int SignOfNumber(T val);
 
 // Convert angle in degree to radians.
-inline float DegToRad(const float deg);
-inline double DegToRad(const double deg);
+inline float DegToRad(float deg);
+inline double DegToRad(double deg);
 
 // Convert angle in radians to degree.
-inline float RadToDeg(const float rad);
-inline double RadToDeg(const double rad);
+inline float RadToDeg(float rad);
+inline double RadToDeg(double rad);
 
 // Determine median value in vector. Returns NaN for empty vectors.
 template <typename T>
@@ -92,7 +92,7 @@ bool NextCombination(Iterator first, Iterator middle, Iterator last);
 
 // Sigmoid function.
 template <typename T>
-T Sigmoid(const T x, const T alpha = 1);
+T Sigmoid(T x, T alpha = 1);
 
 // Scale values according to sigmoid transform.
 //
@@ -104,19 +104,19 @@ T Sigmoid(const T x, const T alpha = 1);
 //
 // @return         The scaled value in the range [0, 1].
 template <typename T>
-T ScaleSigmoid(T x, const T alpha = 1, const T x0 = 10);
+T ScaleSigmoid(T x, T alpha = 1, T x0 = 10);
 
 // Binomial coefficient or all combinations, defined as n! / ((n - k)! k!).
-size_t NChooseK(const size_t n, const size_t k);
+size_t NChooseK(size_t n, size_t k);
 
 // Cast value from one type to another and truncate instead of overflow, if the
 // input value is out of range of the output data type.
 template <typename T1, typename T2>
-T2 TruncateCast(const T1 value);
+T2 TruncateCast(T1 value);
 
 // Compute the n-th percentile in the given sequence.
 template <typename T>
-T Percentile(const std::vector<T>& elems, const double p);
+T Percentile(const std::vector<T>& elems, double p);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation

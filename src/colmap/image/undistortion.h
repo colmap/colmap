@@ -69,17 +69,17 @@ class COLMAPUndistorter : public Thread {
       const Reconstruction& reconstruction,
       const std::string& image_path,
       const std::string& output_path,
-      const int num_related_images = 20,
-      const CopyType copy_type = CopyType::COPY,
+      int num_related_images = 20,
+      CopyType copy_type = CopyType::COPY,
       const std::vector<image_t>& image_ids = std::vector<image_t>());
 
  private:
   void Run();
 
-  bool Undistort(const image_t image_id) const;
+  bool Undistort(image_t image_id) const;
   void WritePatchMatchConfig() const;
   void WriteFusionConfig() const;
-  void WriteScript(const bool geometric) const;
+  void WriteScript(bool geometric) const;
 
   UndistortCameraOptions options_;
   const std::string image_path_;
@@ -102,13 +102,13 @@ class PMVSUndistorter : public Thread {
  private:
   void Run();
 
-  bool Undistort(const size_t reg_image_idx) const;
+  bool Undistort(size_t reg_image_idx) const;
   void WriteVisibilityData() const;
   void WriteOptionFile() const;
   void WritePMVSScript() const;
   void WriteCMVSPMVSScript() const;
-  void WriteCOLMAPScript(const bool geometric) const;
-  void WriteCMVSCOLMAPScript(const bool geometric) const;
+  void WriteCOLMAPScript(bool geometric) const;
+  void WriteCMVSCOLMAPScript(bool geometric) const;
 
   UndistortCameraOptions options_;
   std::string image_path_;
@@ -127,7 +127,7 @@ class CMPMVSUndistorter : public Thread {
  private:
   void Run();
 
-  bool Undistort(const size_t reg_image_idx) const;
+  bool Undistort(size_t reg_image_idx) const;
 
   UndistortCameraOptions options_;
   std::string image_path_;
@@ -149,7 +149,7 @@ class PureImageUndistorter : public Thread {
  private:
   void Run();
 
-  bool Undistort(const size_t reg_image_idx) const;
+  bool Undistort(size_t reg_image_idx) const;
 
   UndistortCameraOptions options_;
   std::string image_path_;
@@ -170,7 +170,7 @@ class StereoImageRectifier : public Thread {
  private:
   void Run();
 
-  void Rectify(const image_t image_id1, const image_t image_id2) const;
+  void Rectify(image_t image_id1, image_t image_id2) const;
 
   UndistortCameraOptions options_;
   std::string image_path_;

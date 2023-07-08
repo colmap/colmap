@@ -86,7 +86,7 @@ class OpenGLContextManager : public QObject {
 void RunThreadWithOpenGLContext(Thread* thread);
 
 // Get the OpenGL errors and print them to stderr.
-void GLError(const char* file, const int line);
+void GLError(const char* file, int line);
 
 #else
 

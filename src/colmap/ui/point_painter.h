@@ -58,7 +58,7 @@ class PointPainter {
 
   void Setup();
   void Upload(const std::vector<PointPainter::Data>& data);
-  void Render(const QMatrix4x4& pmv_matrix, const float point_size);
+  void Render(const QMatrix4x4& pmv_matrix, float point_size);
 
  private:
   QOpenGLShaderProgram shader_program_;

@@ -109,11 +109,11 @@ class OptionManager {
                         const std::string& help_text = "");
 
   void Reset();
-  void ResetOptions(const bool reset_paths);
+  void ResetOptions(bool reset_paths);
 
   bool Check();
 
-  void Parse(const int argc, char** argv);
+  void Parse(int argc, char** argv);
   bool Read(const std::string& path);
   bool ReRead(const std::string& path);
   void Write(const std::string& path) const;
