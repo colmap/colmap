@@ -12,6 +12,8 @@ Checks: >
   google-explicit-constructor,
   google-build-using-namespace,
   readability-avoid-const-params-in-decls,
+  clang-analyzer-core*,
+  clang-analyzer-cplusplus*,
 WarningsAsErrors: '*'
 FormatStyle: 'file'
 User: 'user'
