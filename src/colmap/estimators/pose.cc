@@ -158,7 +158,7 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
   *qvec = RotationMatrixToQuaternion(proj_matrix.leftCols<3>());
   *tvec = proj_matrix.rightCols<1>();
 
-  if (IsNaN(*qvec) || IsNaN(*tvec)) {
+  if (qvec->array().isNaN().any() || tvec->array().isNaN().any()) {
     return false;
   }
 
@@ -197,7 +197,7 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
 
   *qvec = RotationMatrixToQuaternion(R);
 
-  if (IsNaN(*qvec) || IsNaN(*tvec)) {
+  if (qvec->array().isNaN().any() || tvec->array().isNaN().any()) {
     return 0;
   }
 

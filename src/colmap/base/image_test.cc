@@ -53,16 +53,11 @@ BOOST_AUTO_TEST_CASE(TestDefault) {
   BOOST_CHECK_EQUAL(image.Qvec(1), 0.0);
   BOOST_CHECK_EQUAL(image.Qvec(2), 0.0);
   BOOST_CHECK_EQUAL(image.Qvec(3), 0.0);
-  BOOST_CHECK(IsNaN(image.QvecPrior(0)));
-  BOOST_CHECK(IsNaN(image.QvecPrior(1)));
-  BOOST_CHECK(IsNaN(image.QvecPrior(2)));
-  BOOST_CHECK(IsNaN(image.QvecPrior(3)));
+  BOOST_CHECK(image.QvecPrior().array().isNaN().all());
   BOOST_CHECK_EQUAL(image.Tvec(0), 0.0);
   BOOST_CHECK_EQUAL(image.Tvec(1), 0.0);
   BOOST_CHECK_EQUAL(image.Tvec(2), 0.0);
-  BOOST_CHECK(IsNaN(image.TvecPrior(0)));
-  BOOST_CHECK(IsNaN(image.TvecPrior(1)));
-  BOOST_CHECK(IsNaN(image.TvecPrior(2)));
+  BOOST_CHECK(image.TvecPrior().array().isNaN().all());
   BOOST_CHECK_EQUAL(image.HasQvecPrior(), false);
   BOOST_CHECK_EQUAL(image.HasTvecPrior(), false);
   BOOST_CHECK_EQUAL(image.Points2D().size(), 0);
@@ -222,10 +217,7 @@ BOOST_AUTO_TEST_CASE(TestQvec) {
 
 BOOST_AUTO_TEST_CASE(TestQvecPrior) {
   Image image;
-  BOOST_CHECK(IsNaN(image.QvecPrior(0)));
-  BOOST_CHECK(IsNaN(image.QvecPrior(1)));
-  BOOST_CHECK(IsNaN(image.QvecPrior(2)));
-  BOOST_CHECK(IsNaN(image.QvecPrior(3)));
+  BOOST_CHECK(image.QvecPrior().array().isNaN().all());
   BOOST_CHECK_EQUAL(image.HasQvecPrior(), false);
   image.QvecPrior(0) = 2.0;
   BOOST_CHECK_EQUAL(image.HasQvecPrior(), false);
@@ -260,9 +252,7 @@ BOOST_AUTO_TEST_CASE(TestTvec) {
 
 BOOST_AUTO_TEST_CASE(TestTvecPrior) {
   Image image;
-  BOOST_CHECK(IsNaN(image.TvecPrior(0)));
-  BOOST_CHECK(IsNaN(image.TvecPrior(1)));
-  BOOST_CHECK(IsNaN(image.TvecPrior(2)));
+  BOOST_CHECK(image.TvecPrior().array().isNaN().all());
   BOOST_CHECK_EQUAL(image.HasTvecPrior(), false);
   image.TvecPrior(0) = 2.0;
   BOOST_CHECK_EQUAL(image.HasTvecPrior(), false);
