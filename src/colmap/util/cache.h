@@ -63,7 +63,7 @@ class LRUCache {
 
   // Manually set the value of an element. Note that the ownership of the value
   // is moved to the cache, which invalidates the object on the caller side.
-  virtual void Set(const key_t& key, value_t&& value);
+  virtual void Set(const key_t& key, value_t value);
 
   // Pop least recently used element from cache.
   virtual void Pop();
