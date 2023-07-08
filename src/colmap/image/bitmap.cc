@@ -321,9 +321,8 @@ bool Bitmap::ExifCameraModel(std::string* camera_model) const {
     *camera_model = "";
     return false;
   }
-  if (ReadExifTag(FIMD_EXIF_EXIF, "FocalLengthIn35mmFilm", &focal_length)) {
-    *camera_model += (focal_length + "-");
-  } else if (ReadExifTag(FIMD_EXIF_EXIF, "FocalLength", &focal_length)) {
+  if (ReadExifTag(FIMD_EXIF_EXIF, "FocalLengthIn35mmFilm", &focal_length) ||
+      ReadExifTag(FIMD_EXIF_EXIF, "FocalLength", &focal_length)) {
     *camera_model += (focal_length + "-");
   } else {
     *camera_model = "";
@@ -668,6 +667,7 @@ float JetColormap::Green(const float gray) { return Base(gray); }
 float JetColormap::Blue(const float gray) { return Base(gray + 0.25f); }
 
 float JetColormap::Base(const float val) {
+  // NOLINTNEXTLINE(bugprone-branch-clone)
   if (val <= 0.125f) {
     return 0.0f;
   } else if (val <= 0.375f) {

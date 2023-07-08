@@ -1,6 +1,13 @@
 Checks: >
   performance-*,
   concurrency-*,
+  bugprone-*,
+  -bugprone-narrowing-conversions,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -bugprone-unchecked-optional-access,
+  -bugprone-exception-escape,
+  -bugprone-reserved-identifier,
   cppcoreguidelines-virtual-class-destructor,
   google-explicit-constructor,
   google-build-using-namespace,

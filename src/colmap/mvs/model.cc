@@ -99,9 +99,7 @@ void Model::ReadFromCOLMAP(const std::string& path,
 }
 
 void Model::ReadFromPMVS(const std::string& path) {
-  if (ReadFromBundlerPMVS(path)) {
-    return;
-  } else if (ReadFromRawPMVS(path)) {
+  if (ReadFromBundlerPMVS(path) || ReadFromRawPMVS(path)) {
     return;
   } else {
     LOG(FATAL) << "Invalid PMVS format";
