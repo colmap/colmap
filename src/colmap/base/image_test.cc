@@ -53,11 +53,11 @@ BOOST_AUTO_TEST_CASE(TestDefault) {
   BOOST_CHECK_EQUAL(image.Qvec(1), 0.0);
   BOOST_CHECK_EQUAL(image.Qvec(2), 0.0);
   BOOST_CHECK_EQUAL(image.Qvec(3), 0.0);
-  BOOST_CHECK(image.QvecPrior().array().isFinite().all());
+  BOOST_CHECK(image.QvecPrior().array().isNaN().all());
   BOOST_CHECK_EQUAL(image.Tvec(0), 0.0);
   BOOST_CHECK_EQUAL(image.Tvec(1), 0.0);
   BOOST_CHECK_EQUAL(image.Tvec(2), 0.0);
-  BOOST_CHECK(image.TvecPrior().array().isFinite().all());
+  BOOST_CHECK(image.TvecPrior().array().isNaN().all());
   BOOST_CHECK_EQUAL(image.HasQvecPrior(), false);
   BOOST_CHECK_EQUAL(image.HasTvecPrior(), false);
   BOOST_CHECK_EQUAL(image.Points2D().size(), 0);
