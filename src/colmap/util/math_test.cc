@@ -45,32 +45,6 @@ BOOST_AUTO_TEST_CASE(TestSignOfNumber) {
   BOOST_CHECK_EQUAL(SignOfNumber(-std::numeric_limits<float>::infinity()), -1);
 }
 
-BOOST_AUTO_TEST_CASE(TestIsNaN) {
-  BOOST_CHECK(!IsNaN(0.0f));
-  BOOST_CHECK(!IsNaN(0.0));
-  BOOST_CHECK(IsNaN(std::numeric_limits<float>::quiet_NaN()));
-  BOOST_CHECK(IsNaN(std::numeric_limits<double>::quiet_NaN()));
-}
-
-BOOST_AUTO_TEST_CASE(TestIsInf) {
-  BOOST_CHECK(!IsInf(0.0f));
-  BOOST_CHECK(!IsInf(0.0));
-  BOOST_CHECK(IsInf(std::numeric_limits<float>::infinity()));
-  BOOST_CHECK(IsInf(std::numeric_limits<double>::infinity()));
-  BOOST_CHECK(IsInf(-std::numeric_limits<float>::infinity()));
-  BOOST_CHECK(IsInf(-std::numeric_limits<double>::infinity()));
-}
-
-BOOST_AUTO_TEST_CASE(TestClip) {
-  BOOST_CHECK_EQUAL(Clip(0, -1, 1), 0);
-  BOOST_CHECK_EQUAL(Clip(0, 0, 1), 0);
-  BOOST_CHECK_EQUAL(Clip(0, -1, 0), 0);
-  BOOST_CHECK_EQUAL(Clip(0, -1, 1), 0);
-  BOOST_CHECK_EQUAL(Clip(0, 1, 2), 1);
-  BOOST_CHECK_EQUAL(Clip(0, -2, -1), -1);
-  BOOST_CHECK_EQUAL(Clip(0, 0, 0), 0);
-}
-
 BOOST_AUTO_TEST_CASE(TestDegToRad) {
   BOOST_CHECK_EQUAL(DegToRad(0.0f), 0.0f);
   BOOST_CHECK_EQUAL(DegToRad(0.0), 0.0);

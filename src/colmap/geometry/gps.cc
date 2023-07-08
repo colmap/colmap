@@ -95,7 +95,7 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
 
     // Latitude
     double lat = atan2(z, radius_xy);
-    double alt;
+    double alt = 0.0;
 
     for (size_t j = 0; j < 100; ++j) {
       const double sin_lat0 = sin(lat);

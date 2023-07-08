@@ -197,7 +197,7 @@ BOOST_AUTO_TEST_CASE(TestComputeScale) {
   BOOST_CHECK_EQUAL(camera_rig.ComputeScale(reconstruction), 2.0);
 
   reconstruction.Image(1).SetTvec(Eigen::Vector3d(0, 0, 0));
-  BOOST_CHECK(IsNaN(camera_rig.ComputeScale(reconstruction)));
+  BOOST_CHECK(std::isnan(camera_rig.ComputeScale(reconstruction)));
 }
 
 BOOST_AUTO_TEST_CASE(TestComputeRelativePoses) {

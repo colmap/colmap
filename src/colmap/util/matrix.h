@@ -37,14 +37,6 @@
 
 namespace colmap {
 
-// Check if the given floating point array contains a NaN value.
-template <typename Derived>
-inline bool IsNaN(const Eigen::MatrixBase<Derived>& x);
-
-// Check if the given floating point array contains infinity.
-template <typename Derived>
-inline bool IsInf(const Eigen::MatrixBase<Derived>& x);
-
 // Perform RQ decomposition on matrix. The RQ decomposition transforms a matrix
 // A into the product of an upper triangular matrix R (also known as
 // right-triangular) and an orthogonal matrix Q.
@@ -54,16 +46,6 @@ void DecomposeMatrixRQ(const MatrixType& A, MatrixType* R, MatrixType* Q);
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
-
-template <typename Derived>
-bool IsNaN(const Eigen::MatrixBase<Derived>& x) {
-  return !(x.array() == x.array()).all();
-}
-
-template <typename Derived>
-bool IsInf(const Eigen::MatrixBase<Derived>& x) {
-  return !((x - x).array() == (x - x).array()).all();
-}
 
 template <typename MatrixType>
 void DecomposeMatrixRQ(const MatrixType& A, MatrixType* R, MatrixType* Q) {

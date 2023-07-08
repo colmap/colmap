@@ -53,9 +53,9 @@ void RotationMatrixToEulerAngles(const Eigen::Matrix3d& R,
   *ry = std::asin(-R(2, 0));
   *rz = std::atan2(R(1, 0), R(0, 0));
 
-  *rx = IsNaN(*rx) ? 0 : *rx;
-  *ry = IsNaN(*ry) ? 0 : *ry;
-  *rz = IsNaN(*rz) ? 0 : *rz;
+  *rx = std::isnan(*rx) ? 0 : *rx;
+  *ry = std::isnan(*ry) ? 0 : *ry;
+  *rz = std::isnan(*rz) ? 0 : *rz;
 }
 
 Eigen::Matrix3d EulerAnglesToRotationMatrix(const double rx,
