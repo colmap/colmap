@@ -54,19 +54,19 @@ void SetPRNGSeed(unsigned seed = kDefaultPRNGSeed);
 //
 // This implementation is unbiased and thread-safe in contrast to `rand()`.
 template <typename T>
-T RandomInteger(const T min, const T max);
+T RandomInteger(T min, T max);
 
 // Generate uniformly distributed random real number.
 //
 // This implementation is unbiased and thread-safe in contrast to `rand()`.
 template <typename T>
-T RandomReal(const T min, const T max);
+T RandomReal(T min, T max);
 
 // Generate Gaussian distributed random real number.
 //
 // This implementation is unbiased and thread-safe in contrast to `rand()`.
 template <typename T>
-T RandomGaussian(const T mean, const T stddev);
+T RandomGaussian(T mean, T stddev);
 
 // Fisher-Yates shuffling.
 //
@@ -78,7 +78,7 @@ T RandomGaussian(const T mean, const T stddev);
 // @param num_to_shuffle   Optional parameter, specifying the number of first
 //                         N elements in the vector to shuffle.
 template <typename T>
-void Shuffle(const uint32_t num_to_shuffle, std::vector<T>* elems);
+void Shuffle(uint32_t num_to_shuffle, std::vector<T>* elems);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation

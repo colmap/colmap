@@ -50,10 +50,10 @@ enum class LineSegmentOrientation {
 
 // Detect line segments in the given bitmap image.
 std::vector<LineSegment> DetectLineSegments(const Bitmap& bitmap,
-                                            const double min_length = 3);
+                                            double min_length = 3);
 
 // Classify line segments into horizontal/vertical.
 std::vector<LineSegmentOrientation> ClassifyLineSegmentOrientations(
-    const std::vector<LineSegment>& segments, const double tolerance = 0.25);
+    const std::vector<LineSegment>& segments, double tolerance = 0.25);
 
 }  // namespace colmap

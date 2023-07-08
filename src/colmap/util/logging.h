@@ -75,8 +75,8 @@ void InitializeGlog(char** argv);
 const char* __GetConstFileBaseName(const char* file);
 
 bool __CheckOptionImpl(const char* file,
-                       const int line,
-                       const bool result,
+                       int line,
+                       bool result,
                        const char* expr_str);
 
 template <typename T1, typename T2>

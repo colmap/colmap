@@ -47,7 +47,7 @@ class ReconstructionManagerWidget : public QComboBox {
   void Update();
 
   size_t SelectedReconstructionIdx() const;
-  void SelectReconstruction(const size_t idx);
+  void SelectReconstruction(size_t idx);
 
  private:
   const ReconstructionManager* reconstruction_manager_;

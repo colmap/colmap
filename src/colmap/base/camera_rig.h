@@ -56,11 +56,11 @@ class CameraRig {
   size_t NumSnapshots() const;
 
   // Check whether the given camera is part of the rig.
-  bool HasCamera(const camera_t camera_id) const;
+  bool HasCamera(camera_t camera_id) const;
 
   // Access the reference camera.
   camera_t RefCameraId() const;
-  void SetRefCameraId(const camera_t camera_id);
+  void SetRefCameraId(camera_t camera_id);
 
   // Get the identifiers of the cameras in the rig.
   std::vector<camera_t> GetCameraIds() const;
@@ -71,7 +71,7 @@ class CameraRig {
   // Add a new camera to the rig. The relative pose may contain dummy values and
   // can then be computed automatically from a given reconstruction using the
   // method `ComputeRelativePoses`.
-  void AddCamera(const camera_t camera_id,
+  void AddCamera(camera_t camera_id,
                  const Eigen::Vector4d& rel_qvec,
                  const Eigen::Vector3d& rel_tvec);
 
@@ -85,10 +85,10 @@ class CameraRig {
   void Check(const Reconstruction& reconstruction) const;
 
   // Get the relative poses of the cameras in the rig.
-  Eigen::Vector4d& RelativeQvec(const camera_t camera_id);
-  const Eigen::Vector4d& RelativeQvec(const camera_t camera_id) const;
-  Eigen::Vector3d& RelativeTvec(const camera_t camera_id);
-  const Eigen::Vector3d& RelativeTvec(const camera_t camera_id) const;
+  Eigen::Vector4d& RelativeQvec(camera_t camera_id);
+  const Eigen::Vector4d& RelativeQvec(camera_t camera_id) const;
+  Eigen::Vector3d& RelativeTvec(camera_t camera_id);
+  const Eigen::Vector3d& RelativeTvec(camera_t camera_id) const;
 
   // Compute the scaling factor from the reconstruction to the camera rig
   // dimensions by averaging over the distances between the projection centers.
@@ -105,7 +105,7 @@ class CameraRig {
   // Compute the absolute camera pose of the rig. The absolute camera pose of
   // the rig is computed as the average of all relative camera poses in the rig
   // and their corresponding image poses in the reconstruction.
-  void ComputeAbsolutePose(const size_t snapshot_idx,
+  void ComputeAbsolutePose(size_t snapshot_idx,
                            const Reconstruction& reconstruction,
                            Eigen::Vector4d* abs_qvec,
                            Eigen::Vector3d* abs_tvec) const;

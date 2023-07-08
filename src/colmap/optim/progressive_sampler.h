@@ -46,9 +46,9 @@ namespace colmap {
 // front of the list.
 class ProgressiveSampler : public Sampler {
  public:
-  explicit ProgressiveSampler(const size_t num_samples);
+  explicit ProgressiveSampler(size_t num_samples);
 
-  void Initialize(const size_t total_num_samples) override;
+  void Initialize(size_t total_num_samples) override;
 
   size_t MaxNumSamples() override;
 

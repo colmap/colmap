@@ -65,18 +65,18 @@ class CorrespondenceGraph {
   inline size_t NumImagePairs() const;
 
   // Check whether image exists.
-  inline bool ExistsImage(const image_t image_id) const;
+  inline bool ExistsImage(image_t image_id) const;
 
   // Get the number of observations in an image. An observation is an image
   // point that has at least one correspondence.
-  inline point2D_t NumObservationsForImage(const image_t image_id) const;
+  inline point2D_t NumObservationsForImage(image_t image_id) const;
 
   // Get the number of correspondences per image.
-  inline point2D_t NumCorrespondencesForImage(const image_t image_id) const;
+  inline point2D_t NumCorrespondencesForImage(image_t image_id) const;
 
   // Get the number of correspondences between a pair of images.
-  inline point2D_t NumCorrespondencesBetweenImages(
-      const image_t image_id1, const image_t image_id2) const;
+  inline point2D_t NumCorrespondencesBetweenImages(image_t image_id1,
+                                                   image_t image_id2) const;
 
   // Get the number of correspondences between all images.
   std::unordered_map<image_pair_t, point2D_t> NumCorrespondencesBetweenImages()
@@ -91,19 +91,19 @@ class CorrespondenceGraph {
   void Finalize();
 
   // Add new image to the correspondence graph.
-  void AddImage(const image_t image_id, const size_t num_points2D);
+  void AddImage(image_t image_id, size_t num_points2D);
 
   // Add correspondences between images. This function ignores invalid
   // correspondences where the point indices are out of bounds or duplicate
   // correspondences between the same image points. Whenever either of the two
   // cases occur this function prints a warning to the standard output.
-  void AddCorrespondences(const image_t image_id1,
-                          const image_t image_id2,
+  void AddCorrespondences(image_t image_id1,
+                          image_t image_id2,
                           const FeatureMatches& matches);
 
   // Find the correspondence of an image observation to all other images.
   inline const std::vector<Correspondence>& FindCorrespondences(
-      const image_t image_id, const point2D_t point2D_idx) const;
+      image_t image_id, point2D_t point2D_idx) const;
 
   // Find correspondences to the given observation.
   //
@@ -114,24 +114,22 @@ class CorrespondenceGraph {
   // found. The returned list does not contain duplicates and contains
   // the given observation.
   void FindTransitiveCorrespondences(
-      const image_t image_id,
-      const point2D_t point2D_idx,
-      const size_t transitivity,
+      image_t image_id,
+      point2D_t point2D_idx,
+      size_t transitivity,
       std::vector<Correspondence>* found_corrs) const;
 
   // Find all correspondences between two images.
-  FeatureMatches FindCorrespondencesBetweenImages(
-      const image_t image_id1, const image_t image_id2) const;
+  FeatureMatches FindCorrespondencesBetweenImages(image_t image_id1,
+                                                  image_t image_id2) const;
 
   // Check whether the image point has correspondences.
-  inline bool HasCorrespondences(const image_t image_id,
-                                 const point2D_t point2D_idx) const;
+  inline bool HasCorrespondences(image_t image_id, point2D_t point2D_idx) const;
 
   // Check whether the given observation is part of a two-view track, i.e.
   // it only has one correspondence and that correspondence has the given
   // observation as its only correspondence.
-  bool IsTwoViewObservation(const image_t image_id,
-                            const point2D_t point2D_idx) const;
+  bool IsTwoViewObservation(image_t image_id, point2D_t point2D_idx) const;
 
  private:
   struct Image {

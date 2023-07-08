@@ -64,13 +64,13 @@ struct Model {
 
   // Get the image index for the given image name.
   int GetImageIdx(const std::string& name) const;
-  std::string GetImageName(const int image_idx) const;
+  std::string GetImageName(int image_idx) const;
 
   // For each image, determine the maximally overlapping images, sorted based on
   // the number of shared points subject to a minimum robust average
   // triangulation angle of the points.
   std::vector<std::vector<int>> GetMaxOverlappingImages(
-      const size_t num_images, const double min_triangulation_angle) const;
+      size_t num_images, double min_triangulation_angle) const;
 
   // Get the overlapping images defined in the vis.dat file.
   const std::vector<std::vector<int>>& GetMaxOverlappingImagesFromPMVS() const;
@@ -83,7 +83,7 @@ struct Model {
 
   // Compute the median triangulation angles between all overlapping images.
   std::vector<std::map<int, float>> ComputeTriangulationAngles(
-      const float percentile = 50) const;
+      float percentile = 50) const;
 
   // Note that in case the data is read from a COLMAP reconstruction, the index
   // of an image or point does not correspond to its original identifier in the

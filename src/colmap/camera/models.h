@@ -79,37 +79,36 @@ namespace colmap {
 static const int kInvalidCameraModelId = -1;
 
 #ifndef CAMERA_MODEL_DEFINITIONS
-#define CAMERA_MODEL_DEFINITIONS(                                              \
-    model_id_value, model_name_value, num_params_value)                        \
-  static const int kModelId = model_id_value;                                  \
-  static const size_t kNumParams = num_params_value;                           \
-  static const int model_id;                                                   \
-  static const std::string model_name;                                         \
-  static const size_t num_params;                                              \
-  static const std::string params_info;                                        \
-  static const std::vector<size_t> focal_length_idxs;                          \
-  static const std::vector<size_t> principal_point_idxs;                       \
-  static const std::vector<size_t> extra_params_idxs;                          \
-                                                                               \
-  static inline int InitializeModelId() { return model_id_value; };            \
-  static inline std::string InitializeModelName() {                            \
-    return model_name_value;                                                   \
-  };                                                                           \
-  static inline size_t InitializeNumParams() { return num_params_value; };     \
-  static inline std::string InitializeParamsInfo();                            \
-  static inline std::vector<size_t> InitializeFocalLengthIdxs();               \
-  static inline std::vector<size_t> InitializePrincipalPointIdxs();            \
-  static inline std::vector<size_t> InitializeExtraParamsIdxs();               \
-  static inline std::vector<double> InitializeParams(                          \
-      const double focal_length, const size_t width, const size_t height);     \
-                                                                               \
-  template <typename T>                                                        \
-  static void WorldToImage(const T* params, const T u, const T v, T* x, T* y); \
-  template <typename T>                                                        \
-  static void ImageToWorld(const T* params, const T x, const T y, T* u, T* v); \
-  template <typename T>                                                        \
-  static void Distortion(                                                      \
-      const T* extra_params, const T u, const T v, T* du, T* dv);
+#define CAMERA_MODEL_DEFINITIONS(                                          \
+    model_id_value, model_name_value, num_params_value)                    \
+  static const int kModelId = model_id_value;                              \
+  static const size_t kNumParams = num_params_value;                       \
+  static const int model_id;                                               \
+  static const std::string model_name;                                     \
+  static const size_t num_params;                                          \
+  static const std::string params_info;                                    \
+  static const std::vector<size_t> focal_length_idxs;                      \
+  static const std::vector<size_t> principal_point_idxs;                   \
+  static const std::vector<size_t> extra_params_idxs;                      \
+                                                                           \
+  static inline int InitializeModelId() { return model_id_value; };        \
+  static inline std::string InitializeModelName() {                        \
+    return model_name_value;                                               \
+  };                                                                       \
+  static inline size_t InitializeNumParams() { return num_params_value; }; \
+  static inline std::string InitializeParamsInfo();                        \
+  static inline std::vector<size_t> InitializeFocalLengthIdxs();           \
+  static inline std::vector<size_t> InitializePrincipalPointIdxs();        \
+  static inline std::vector<size_t> InitializeExtraParamsIdxs();           \
+  static inline std::vector<double> InitializeParams(                      \
+      double focal_length, size_t width, size_t height);                   \
+                                                                           \
+  template <typename T>                                                    \
+  static void WorldToImage(const T* params, T u, T v, T* x, T* y);         \
+  template <typename T>                                                    \
+  static void ImageToWorld(const T* params, T x, T y, T* u, T* v);         \
+  template <typename T>                                                    \
+  static void Distortion(const T* extra_params, T u, T v, T* du, T* dv);
 #endif
 
 #ifndef CAMERA_MODEL_CASES
@@ -145,30 +144,30 @@ template <typename CameraModel>
 struct BaseCameraModel {
   template <typename T>
   static inline bool HasBogusParams(const std::vector<T>& params,
-                                    const size_t width,
-                                    const size_t height,
-                                    const T min_focal_length_ratio,
-                                    const T max_focal_length_ratio,
-                                    const T max_extra_param);
+                                    size_t width,
+                                    size_t height,
+                                    T min_focal_length_ratio,
+                                    T max_focal_length_ratio,
+                                    T max_extra_param);
 
   template <typename T>
   static inline bool HasBogusFocalLength(const std::vector<T>& params,
-                                         const size_t width,
-                                         const size_t height,
-                                         const T min_focal_length_ratio,
-                                         const T max_focal_length_ratio);
+                                         size_t width,
+                                         size_t height,
+                                         T min_focal_length_ratio,
+                                         T max_focal_length_ratio);
 
   template <typename T>
   static inline bool HasBogusPrincipalPoint(const std::vector<T>& params,
-                                            const size_t width,
-                                            const size_t height);
+                                            size_t width,
+                                            size_t height);
 
   template <typename T>
   static inline bool HasBogusExtraParams(const std::vector<T>& params,
-                                         const T max_extra_param);
+                                         T max_extra_param);
 
   template <typename T>
-  static inline T ImageToWorldThreshold(const T* params, const T threshold);
+  static inline T ImageToWorldThreshold(const T* params, T threshold);
 
   template <typename T>
   static inline void IterativeUndistortion(const T* params, T* u, T* v);
@@ -297,8 +296,7 @@ struct FOVCameraModel : public BaseCameraModel<FOVCameraModel> {
   CAMERA_MODEL_DEFINITIONS(7, "FOV", 5)
 
   template <typename T>
-  static void Undistortion(
-      const T* extra_params, const T u, const T v, T* du, T* dv);
+  static void Undistortion(const T* extra_params, T u, T v, T* du, T* dv);
 };
 
 // Simple camera model with one focal length and one radial distortion
@@ -350,7 +348,7 @@ struct ThinPrismFisheyeCameraModel
 
 // Check whether camera model with given name or identifier exists.
 bool ExistsCameraModelWithName(const std::string& model_name);
-bool ExistsCameraModelWithId(const int model_id);
+bool ExistsCameraModelWithId(int model_id);
 
 // Convert camera name to unique camera model identifier.
 //
@@ -364,7 +362,7 @@ int CameraModelNameToId(const std::string& model_name);
 // @param model_id     Unique identifier of camera model.
 //
 // @return             Unique name of camera model.
-std::string CameraModelIdToName(const int model_id);
+std::string CameraModelIdToName(int model_id);
 
 // Initialize camera parameters using given image properties.
 //
@@ -375,33 +373,32 @@ std::string CameraModelIdToName(const int model_id);
 // @param focal_length  Focal length, equal for all focal length parameters.
 // @param width         Sensor width of the camera.
 // @param height        Sensor height of the camera.
-std::vector<double> CameraModelInitializeParams(const int model_id,
-                                                const double focal_length,
-                                                const size_t width,
-                                                const size_t height);
+std::vector<double> CameraModelInitializeParams(int model_id,
+                                                double focal_length,
+                                                size_t width,
+                                                size_t height);
 
 // Get human-readable information about the parameter vector order.
 //
 // @param model_id     Unique identifier of camera model.
-std::string CameraModelParamsInfo(const int model_id);
+std::string CameraModelParamsInfo(int model_id);
 
 // Get the indices of the parameter groups in the parameter vector.
 //
 // @param model_id     Unique identifier of camera model.
-const std::vector<size_t>& CameraModelFocalLengthIdxs(const int model_id);
-const std::vector<size_t>& CameraModelPrincipalPointIdxs(const int model_id);
-const std::vector<size_t>& CameraModelExtraParamsIdxs(const int model_id);
+const std::vector<size_t>& CameraModelFocalLengthIdxs(int model_id);
+const std::vector<size_t>& CameraModelPrincipalPointIdxs(int model_id);
+const std::vector<size_t>& CameraModelExtraParamsIdxs(int model_id);
 
 // Get the total number of parameters of a camera model.
-size_t CameraModelNumParams(const int model_id);
+size_t CameraModelNumParams(int model_id);
 
 // Check whether parameters are valid, i.e. the parameter vector has
 // the correct dimensions that match the specified camera model.
 //
 // @param model_id      Unique identifier of camera model.
 // @param params        Array of camera parameters.
-bool CameraModelVerifyParams(const int model_id,
-                             const std::vector<double>& params);
+bool CameraModelVerifyParams(int model_id, const std::vector<double>& params);
 
 // Check whether camera has bogus parameters.
 //
@@ -414,13 +411,13 @@ bool CameraModelVerifyParams(const int model_id,
 // @param min_focal_length_ratio  Maximum ratio of focal length over
 //                                maximum sensor dimension.
 // @param max_extra_param         Maximum magnitude of each extra parameter.
-bool CameraModelHasBogusParams(const int model_id,
+bool CameraModelHasBogusParams(int model_id,
                                const std::vector<double>& params,
-                               const size_t width,
-                               const size_t height,
-                               const double min_focal_length_ratio,
-                               const double max_focal_length_ratio,
-                               const double max_extra_param);
+                               size_t width,
+                               size_t height,
+                               double min_focal_length_ratio,
+                               double max_focal_length_ratio,
+                               double max_extra_param);
 
 // Transform world coordinates in camera coordinate system to image coordinates.
 //
@@ -431,10 +428,10 @@ bool CameraModelHasBogusParams(const int model_id,
 // @param params       Array of camera parameters.
 // @param u, v         Coordinates in camera system as (u, v, 1).
 // @param x, y         Output image coordinates in pixels.
-inline void CameraModelWorldToImage(const int model_id,
+inline void CameraModelWorldToImage(int model_id,
                                     const std::vector<double>& params,
-                                    const double u,
-                                    const double v,
+                                    double u,
+                                    double v,
                                     double* x,
                                     double* y);
 
@@ -446,10 +443,10 @@ inline void CameraModelWorldToImage(const int model_id,
 // @param params        Array of camera parameters.
 // @param x, y          Image coordinates in pixels.
 // @param v, u          Output Coordinates in camera system as (u, v, 1).
-inline void CameraModelImageToWorld(const int model_id,
+inline void CameraModelImageToWorld(int model_id,
                                     const std::vector<double>& params,
-                                    const double x,
-                                    const double y,
+                                    double x,
+                                    double y,
                                     double* u,
                                     double* v);
 
@@ -462,9 +459,7 @@ inline void CameraModelImageToWorld(const int model_id,
 //
 // @ return             World space threshold.
 inline double CameraModelImageToWorldThreshold(
-    const int model_id,
-    const std::vector<double>& params,
-    const double threshold);
+    int model_id, const std::vector<double>& params, double threshold);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -482,23 +477,13 @@ bool BaseCameraModel<CameraModel>::HasBogusParams(
     const T min_focal_length_ratio,
     const T max_focal_length_ratio,
     const T max_extra_param) {
-  if (HasBogusPrincipalPoint(params, width, height)) {
-    return true;
-  }
-
-  if (HasBogusFocalLength(params,
-                          width,
-                          height,
-                          min_focal_length_ratio,
-                          max_focal_length_ratio)) {
-    return true;
-  }
-
-  if (HasBogusExtraParams(params, max_extra_param)) {
-    return true;
-  }
-
-  return false;
+  return HasBogusPrincipalPoint(params, width, height) ||
+         HasBogusFocalLength(params,
+                             width,
+                             height,
+                             min_focal_length_ratio,
+                             max_focal_length_ratio) ||
+         HasBogusExtraParams(params, max_extra_param);
 }
 
 template <typename CameraModel>
@@ -509,10 +494,9 @@ bool BaseCameraModel<CameraModel>::HasBogusFocalLength(
     const size_t height,
     const T min_focal_length_ratio,
     const T max_focal_length_ratio) {
-  const size_t max_size = std::max(width, height);
-
+  const T inv_max_size = 1.0 / std::max(width, height);
   for (const auto& idx : CameraModel::focal_length_idxs) {
-    const T focal_length_ratio = params[idx] / max_size;
+    const T focal_length_ratio = params[idx] * inv_max_size;
     if (focal_length_ratio < min_focal_length_ratio ||
         focal_length_ratio > max_focal_length_ratio) {
       return true;

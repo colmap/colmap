@@ -41,9 +41,9 @@ namespace colmap {
 // that the input data is shuffled in advance.
 class CombinationSampler : public Sampler {
  public:
-  explicit CombinationSampler(const size_t num_samples);
+  explicit CombinationSampler(size_t num_samples);
 
-  void Initialize(const size_t total_num_samples) override;
+  void Initialize(size_t total_num_samples) override;
 
   size_t MaxNumSamples() override;
 

@@ -113,7 +113,7 @@ void PrintHeading2(const std::string& heading);
 
 // Check if vector contains elements.
 template <typename T>
-bool VectorContainsValue(const std::vector<T>& vector, const T value);
+bool VectorContainsValue(const std::vector<T>& vector, T value);
 
 template <typename T>
 bool VectorContainsDuplicateValues(const std::vector<T>& vector);

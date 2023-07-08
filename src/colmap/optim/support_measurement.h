@@ -50,8 +50,7 @@ struct InlierSupportMeasurer {
   };
 
   // Compute the support of the residuals.
-  Support Evaluate(const std::vector<double>& residuals,
-                   const double max_residual);
+  Support Evaluate(const std::vector<double>& residuals, double max_residual);
 
   // Compare the two supports and return the better support.
   bool Compare(const Support& support1, const Support& support2);
@@ -69,8 +68,7 @@ struct MEstimatorSupportMeasurer {
   };
 
   // Compute the support of the residuals.
-  Support Evaluate(const std::vector<double>& residuals,
-                   const double max_residual);
+  Support Evaluate(const std::vector<double>& residuals, double max_residual);
 
   // Compare the two supports and return the better support.
   bool Compare(const Support& support1, const Support& support2);

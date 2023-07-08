@@ -97,12 +97,12 @@ class IncrementalTriangulator {
   //
   // Note that the given image must be registered and its pose must be set
   // in the associated reconstruction.
-  size_t TriangulateImage(const Options& options, const image_t image_id);
+  size_t TriangulateImage(const Options& options, image_t image_id);
 
   // Complete triangulations for image. Tries to create new tracks for not
   // yet triangulated observations and tries to complete existing tracks.
   // Returns the number of completed observations.
-  size_t CompleteImage(const Options& options, const image_t image_id);
+  size_t CompleteImage(const Options& options, image_t image_id);
 
   // Complete tracks for specific 3D points.
   //
@@ -134,7 +134,7 @@ class IncrementalTriangulator {
   size_t Retriangulate(const Options& options);
 
   // Indicate that a 3D point has been modified.
-  void AddModifiedPoint3D(const point3D_t point3D_id);
+  void AddModifiedPoint3D(point3D_t point3D_id);
 
   // Get changed 3D points, since the last call to `ClearModifiedPoints3D`.
   const std::unordered_set<point3D_t>& GetModifiedPoints3D();
@@ -159,9 +159,9 @@ class IncrementalTriangulator {
 
   // Find (transitive) correspondences to other images.
   size_t Find(const Options& options,
-              const image_t image_id,
-              const point2D_t point2D_idx,
-              const size_t transitivity,
+              image_t image_id,
+              point2D_t point2D_idx,
+              size_t transitivity,
               std::vector<CorrData>* corrs_data);
 
   // Try to create a new 3D point from the given correspondences.
@@ -174,10 +174,10 @@ class IncrementalTriangulator {
                   const std::vector<CorrData>& corrs_data);
 
   // Try to merge 3D point with any of its corresponding 3D points.
-  size_t Merge(const Options& options, const point3D_t point3D_id);
+  size_t Merge(const Options& options, point3D_t point3D_id);
 
   // Try to transitively complete the track of a 3D point.
-  size_t Complete(const Options& options, const point3D_t point3D_id);
+  size_t Complete(const Options& options, point3D_t point3D_id);
 
   // Check if camera has bogus parameters and cache the result.
   bool HasCameraBogusParams(const Options& options, const Camera& camera);

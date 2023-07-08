@@ -45,7 +45,7 @@ class GPSTransform {
  public:
   enum ELLIPSOID { GRS80, WGS84 };
 
-  explicit GPSTransform(const int ellipsoid = GRS80);
+  explicit GPSTransform(int ellipsoid = GRS80);
 
   std::vector<Eigen::Vector3d> EllToXYZ(
       const std::vector<Eigen::Vector3d>& ell) const;
@@ -56,22 +56,22 @@ class GPSTransform {
   // Convert GPS (lat / lon / alt) to ENU coords. with lat0 and lon0
   // defining the origin of the ENU frame
   std::vector<Eigen::Vector3d> EllToENU(const std::vector<Eigen::Vector3d>& ell,
-                                        const double lat0,
-                                        const double lon0) const;
+                                        double lat0,
+                                        double lon0) const;
 
   std::vector<Eigen::Vector3d> XYZToENU(const std::vector<Eigen::Vector3d>& xyz,
-                                        const double lat0,
-                                        const double lon0) const;
+                                        double lat0,
+                                        double lon0) const;
 
   std::vector<Eigen::Vector3d> ENUToEll(const std::vector<Eigen::Vector3d>& enu,
-                                        const double lat0,
-                                        const double lon0,
-                                        const double alt0) const;
+                                        double lat0,
+                                        double lon0,
+                                        double alt0) const;
 
   std::vector<Eigen::Vector3d> ENUToXYZ(const std::vector<Eigen::Vector3d>& enu,
-                                        const double lat0,
-                                        const double lon0,
-                                        const double alt0) const;
+                                        double lat0,
+                                        double lon0,
+                                        double alt0) const;
 
  private:
   // Semimajor axis.

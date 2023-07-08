@@ -63,26 +63,26 @@ void WarpImageWithHomographyBetweenCameras(const Eigen::Matrix3d& H,
 
 // Resample row-major image using bilinear interpolation.
 void ResampleImageBilinear(const float* data,
-                           const int rows,
-                           const int cols,
-                           const int new_rows,
-                           const int new_cols,
+                           int rows,
+                           int cols,
+                           int new_rows,
+                           int new_cols,
                            float* resampled);
 
 // Smooth row-major image using a Gaussian filter kernel.
 void SmoothImage(const float* data,
-                 const int rows,
-                 const int cols,
-                 const float sigma_r,
-                 const float sigma_c,
+                 int rows,
+                 int cols,
+                 float sigma_r,
+                 float sigma_c,
                  float* smoothed);
 
 // Downsample row-major image by first smoothing and then resampling.
 void DownsampleImage(const float* data,
-                     const int rows,
-                     const int cols,
-                     const int new_rows,
-                     const int new_cols,
+                     int rows,
+                     int cols,
+                     int new_rows,
+                     int new_cols,
                      float* downsampled);
 
 }  // namespace colmap

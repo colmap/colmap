@@ -68,7 +68,7 @@ class InvertedIndex {
   int NumVisualWords() const;
 
   // Initializes the inverted index with num_words empty inverted files.
-  void Initialize(const int num_words);
+  void Initialize(int num_words);
 
   // Finalizes the inverted index by sorting each inverted file such that all
   // entries are in ascending order of image ids.
@@ -83,8 +83,8 @@ class InvertedIndex {
                                const Eigen::VectorXi& word_ids);
 
   // Add single entry to the index.
-  void AddEntry(const int image_id,
-                const int word_id,
+  void AddEntry(int image_id,
+                int word_id,
                 typename DescType::Index feature_idx,
                 const DescType& descriptor,
                 const GeomType& geometry);
@@ -98,13 +98,13 @@ class InvertedIndex {
              std::vector<ImageScore>* image_scores) const;
 
   void ConvertToBinaryDescriptor(
-      const int word_id,
+      int word_id,
       const DescType& descriptor,
       std::bitset<kEmbeddingDim>* binary_descriptor) const;
 
-  float GetIDFWeight(const int word_id) const;
+  float GetIDFWeight(int word_id) const;
 
-  void FindMatches(const int word_id,
+  void FindMatches(int word_id,
                    const std::unordered_set<int>& image_ids,
                    std::vector<const EntryType*>* matches) const;
 

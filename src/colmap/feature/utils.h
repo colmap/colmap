@@ -59,6 +59,6 @@ FeatureDescriptors FeatureDescriptorsToUnsignedByte(
 // Extract the descriptors corresponding to the largest-scale features.
 void ExtractTopScaleFeatures(FeatureKeypoints* keypoints,
                              FeatureDescriptors* descriptors,
-                             const size_t num_features);
+                             size_t num_features);
 
 }  // namespace colmap
