@@ -49,8 +49,8 @@ class Point3D {
   // The point coordinate in world space.
   inline const Eigen::Vector3d& XYZ() const;
   inline Eigen::Vector3d& XYZ();
-  inline double XYZ(const size_t idx) const;
-  inline double& XYZ(const size_t idx);
+  inline double XYZ(size_t idx) const;
+  inline double& XYZ(size_t idx);
   inline double X() const;
   inline double Y() const;
   inline double Z() const;
@@ -59,14 +59,14 @@ class Point3D {
   // The RGB color of the point.
   inline const Eigen::Vector3ub& Color() const;
   inline Eigen::Vector3ub& Color();
-  inline uint8_t Color(const size_t idx) const;
-  inline uint8_t& Color(const size_t idx);
+  inline uint8_t Color(size_t idx) const;
+  inline uint8_t& Color(size_t idx);
   inline void SetColor(const Eigen::Vector3ub& color);
 
   // The mean reprojection error in image space.
   inline double Error() const;
   inline bool HasError() const;
-  inline void SetError(const double error);
+  inline void SetError(double error);
 
   inline const class Track& Track() const;
   inline class Track& Track();

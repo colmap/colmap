@@ -115,7 +115,7 @@ class MainWindow : public QMainWindow {
   void RenderSelectedReconstruction();
   void RenderClear();
 
-  void SelectReconstructionIdx(const size_t);
+  void SelectReconstructionIdx(size_t);
   size_t SelectedReconstructionIdx();
   bool HasSelectedReconstruction();
   bool IsSelectedReconstructionValid();

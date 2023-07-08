@@ -55,7 +55,7 @@ void ComputeMinGraphCutStoerWagner(
 std::unordered_map<int, int> ComputeNormalizedMinGraphCut(
     const std::vector<std::pair<int, int>>& edges,
     const std::vector<int>& weights,
-    const int num_parts);
+    int num_parts);
 
 // Compute the minimum graph cut of a directed S-T graph using the
 // Boykov-Kolmogorov max-flow min-cut algorithm, as descibed in:
@@ -80,29 +80,27 @@ class MinSTGraphCut {
       adjacency_list<boost::vecS, boost::vecS, boost::directedS, size_t, Edge>
           graph_t;
 
-  explicit MinSTGraphCut(const size_t num_nodes);
+  explicit MinSTGraphCut(size_t num_nodes);
 
   // Count the number of nodes and edges in the graph.
   size_t NumNodes() const;
   size_t NumEdges() const;
 
   // Add node to the graph.
-  void AddNode(const node_t node_idx,
-               const value_t source_capacity,
-               const value_t sink_capacity);
+  void AddNode(node_t node_idx, value_t source_capacity, value_t sink_capacity);
 
   // Add edge to the graph.
-  void AddEdge(const node_t node_idx1,
-               const node_t node_idx2,
-               const value_t capacity,
-               const value_t reverse_capacity);
+  void AddEdge(node_t node_idx1,
+               node_t node_idx2,
+               value_t capacity,
+               value_t reverse_capacity);
 
   // Compute the min-cut using the max-flow algorithm. Returns the flow.
   value_t Compute();
 
   // Check whether node is connected to source or sink after computing the cut.
-  bool IsConnectedToSource(const node_t node_idx) const;
-  bool IsConnectedToSink(const node_t node_idx) const;
+  bool IsConnectedToSource(node_t node_idx) const;
+  bool IsConnectedToSink(node_t node_idx) const;
 
  private:
   const node_t S_node_;

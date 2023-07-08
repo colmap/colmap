@@ -109,7 +109,7 @@ class DatabaseImageViewerWidget : public FeatureImageViewerWidget {
                             ModelViewerWidget* model_viewer_widget,
                             OptionManager* options);
 
-  void ShowImageWithId(const image_t image_id);
+  void ShowImageWithId(image_t image_id);
 
  private:
   void ResizeTable();

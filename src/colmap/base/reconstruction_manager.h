@@ -51,14 +51,14 @@ class ReconstructionManager {
   size_t Size() const;
 
   // Get a reference to a specific reconstruction.
-  const Reconstruction& Get(const size_t idx) const;
-  Reconstruction& Get(const size_t idx);
+  const Reconstruction& Get(size_t idx) const;
+  Reconstruction& Get(size_t idx);
 
   // Add a new empty reconstruction and return its index.
   size_t Add();
 
   // Delete a specific reconstruction.
-  void Delete(const size_t idx);
+  void Delete(size_t idx);
 
   // Delete all reconstructions.
   void Clear();

@@ -61,8 +61,7 @@ class LRUCache {
   const value_t& Get(const key_t& key);
   value_t& GetMutable(const key_t& key);
 
-  // Manually set the value of an element. Note that the ownership of the value
-  // is moved to the cache, which invalidates the object on the caller side.
+  // Manually set the value of an element.
   virtual void Set(const key_t& key, value_t value);
 
   // Pop least recently used element from cache.

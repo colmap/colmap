@@ -11,6 +11,7 @@ Checks: >
   cppcoreguidelines-virtual-class-destructor,
   google-explicit-constructor,
   google-build-using-namespace,
+  readability-avoid-const-params-in-decls,
 WarningsAsErrors: '*'
 FormatStyle: 'file'
 User: 'user'

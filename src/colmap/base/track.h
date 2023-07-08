@@ -41,7 +41,7 @@ namespace colmap {
 // Track class stores all observations of a 3D point.
 struct TrackElement {
   TrackElement();
-  TrackElement(const image_t image_id, const point2D_t point2D_idx);
+  TrackElement(image_t image_id, point2D_t point2D_idx);
   // The image in which the track element is observed.
   image_t image_id;
   // The point in the image that the track element is observed.
@@ -61,22 +61,22 @@ class Track {
   inline void SetElements(std::vector<TrackElement> elements);
 
   // Access specific elements.
-  inline const TrackElement& Element(const size_t idx) const;
-  inline TrackElement& Element(const size_t idx);
-  inline void SetElement(const size_t idx, const TrackElement& element);
+  inline const TrackElement& Element(size_t idx) const;
+  inline TrackElement& Element(size_t idx);
+  inline void SetElement(size_t idx, const TrackElement& element);
 
   // Append new elements.
   inline void AddElement(const TrackElement& element);
-  inline void AddElement(const image_t image_id, const point2D_t point2D_idx);
+  inline void AddElement(image_t image_id, point2D_t point2D_idx);
   inline void AddElements(const std::vector<TrackElement>& elements);
 
   // Delete existing element.
-  inline void DeleteElement(const size_t idx);
-  void DeleteElement(const image_t image_id, const point2D_t point2D_idx);
+  inline void DeleteElement(size_t idx);
+  void DeleteElement(image_t image_id, point2D_t point2D_idx);
 
   // Requests that the track capacity be at least enough to contain the
   // specified number of elements.
-  inline void Reserve(const size_t num_elements);
+  inline void Reserve(size_t num_elements);
 
   // Shrink the capacity of track vector to fit its size to save memory.
   inline void Compress();

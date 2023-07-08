@@ -61,8 +61,8 @@ class RenderOptionsWidget : public OptionsWidget {
   void ApplyBackgroundColor();
 
   void SelectColor(const std::string& title, Eigen::Vector4f* color);
-  void SelectPointColormap(const int idx);
-  void SelectImageColormap(const int idx);
+  void SelectPointColormap(int idx);
+  void SelectImageColormap(int idx);
 
   void IncreasePointSize();
   void DecreasePointSize();

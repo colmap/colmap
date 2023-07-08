@@ -74,7 +74,7 @@ class StandardOutputRedirector : public std::basic_streambuf<Elem, Tr> {
 
 class LogWidget : public QWidget {
  public:
-  explicit LogWidget(QWidget* parent, const int max_num_blocks = 100000);
+  explicit LogWidget(QWidget* parent, int max_num_blocks = 100000);
   ~LogWidget();
 
   void Append(const std::string& text);

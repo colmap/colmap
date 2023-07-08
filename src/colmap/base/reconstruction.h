@@ -78,20 +78,19 @@ class Reconstruction {
   inline size_t NumImagePairs() const;
 
   // Get const objects.
-  inline const class Camera& Camera(const camera_t camera_id) const;
-  inline const class Image& Image(const image_t image_id) const;
-  inline const class Point3D& Point3D(const point3D_t point3D_id) const;
-  inline const ImagePairStat& ImagePair(const image_pair_t pair_id) const;
-  inline ImagePairStat& ImagePair(const image_t image_id1,
-                                  const image_t image_id2);
+  inline const class Camera& Camera(camera_t camera_id) const;
+  inline const class Image& Image(image_t image_id) const;
+  inline const class Point3D& Point3D(point3D_t point3D_id) const;
+  inline const ImagePairStat& ImagePair(image_pair_t pair_id) const;
+  inline ImagePairStat& ImagePair(image_t image_id1, image_t image_id2);
 
   // Get mutable objects.
-  inline class Camera& Camera(const camera_t camera_id);
-  inline class Image& Image(const image_t image_id);
-  inline class Point3D& Point3D(const point3D_t point3D_id);
-  inline ImagePairStat& ImagePair(const image_pair_t pair_id);
-  inline const ImagePairStat& ImagePair(const image_t image_id1,
-                                        const image_t image_id2) const;
+  inline class Camera& Camera(camera_t camera_id);
+  inline class Image& Image(image_t image_id);
+  inline class Point3D& Point3D(point3D_t point3D_id);
+  inline ImagePairStat& ImagePair(image_pair_t pair_id);
+  inline const ImagePairStat& ImagePair(image_t image_id1,
+                                        image_t image_id2) const;
 
   // Get reference to all objects.
   inline const std::unordered_map<camera_t, class Camera>& Cameras() const;
@@ -105,10 +104,10 @@ class Reconstruction {
   std::unordered_set<point3D_t> Point3DIds() const;
 
   // Check whether specific object exists.
-  inline bool ExistsCamera(const camera_t camera_id) const;
-  inline bool ExistsImage(const image_t image_id) const;
-  inline bool ExistsPoint3D(const point3D_t point3D_id) const;
-  inline bool ExistsImagePair(const image_pair_t pair_id) const;
+  inline bool ExistsCamera(camera_t camera_id) const;
+  inline bool ExistsImage(image_t image_id) const;
+  inline bool ExistsPoint3D(point3D_t point3D_id) const;
+  inline bool ExistsImagePair(image_pair_t pair_id) const;
 
   // Load data from given `DatabaseCache`.
   void Load(const DatabaseCache& database_cache);
@@ -139,33 +138,32 @@ class Reconstruction {
       const Eigen::Vector3ub& color = Eigen::Vector3ub::Zero());
 
   // Add observation to existing 3D point.
-  void AddObservation(const point3D_t point3D_id, const TrackElement& track_el);
+  void AddObservation(point3D_t point3D_id, const TrackElement& track_el);
 
   // Merge two 3D points and return new identifier of new 3D point.
   // The location of the merged 3D point is a weighted average of the two
   // original 3D point's locations according to their track lengths.
-  point3D_t MergePoints3D(const point3D_t point3D_id1,
-                          const point3D_t point3D_id2);
+  point3D_t MergePoints3D(point3D_t point3D_id1, point3D_t point3D_id2);
 
   // Delete a 3D point, and all its references in the observed images.
-  void DeletePoint3D(const point3D_t point3D_id);
+  void DeletePoint3D(point3D_t point3D_id);
 
   // Delete one observation from an image and the corresponding 3D point.
   // Note that this deletes the entire 3D point, if the track has two elements
   // prior to calling this method.
-  void DeleteObservation(const image_t image_id, const point2D_t point2D_idx);
+  void DeleteObservation(image_t image_id, point2D_t point2D_idx);
 
   // Delete all 2D points of all images and all 3D points.
   void DeleteAllPoints2DAndPoints3D();
 
   // Register an existing image.
-  void RegisterImage(const image_t image_id);
+  void RegisterImage(image_t image_id);
 
   // De-register an existing image, and all its references.
-  void DeRegisterImage(const image_t image_id);
+  void DeRegisterImage(image_t image_id);
 
   // Check if image is registered.
-  inline bool IsImageRegistered(const image_t image_id) const;
+  inline bool IsImageRegistered(image_t image_id) const;
 
   // Normalize scene by scaling and translation to avoid degenerate
   // visualization after bundle adjustment and to improve numerical
@@ -177,18 +175,17 @@ class Reconstruction {
   // Scales scene such that the minimum and maximum camera centers are at the
   // given `extent`, whereas `p0` and `p1` determine the minimum and
   // maximum percentiles of the camera centers considered.
-  void Normalize(const double extent = 10.0,
-                 const double p0 = 0.1,
-                 const double p1 = 0.9,
-                 const bool use_images = true);
+  void Normalize(double extent = 10.0,
+                 double p0 = 0.1,
+                 double p1 = 0.9,
+                 bool use_images = true);
 
   // Compute the centroid of the 3D points
-  Eigen::Vector3d ComputeCentroid(const double p0 = 0.1,
-                                  const double p1 = 0.9) const;
+  Eigen::Vector3d ComputeCentroid(double p0 = 0.1, double p1 = 0.9) const;
 
   // Compute the bounding box corners of the 3D points
   std::pair<Eigen::Vector3d, Eigen::Vector3d> ComputeBoundingBox(
-      const double p0 = 0.0, const double p1 = 1.0) const;
+      double p0 = 0.0, double p1 = 1.0) const;
 
   // Apply the 3D similarity transformation to all images and points.
   void Transform(const SimilarityTransform3& tform);
@@ -205,8 +202,7 @@ class Reconstruction {
   // merging the two clouds and their tracks. The coordinate frames of the two
   // reconstructions are aligned using the projection centers of common
   // registered images. Return true if the two reconstructions could be merged.
-  bool Merge(const Reconstruction& reconstruction,
-             const double max_reproj_error);
+  bool Merge(const Reconstruction& reconstruction, double max_reproj_error);
 
   // Align the given reconstruction with a set of pre-defined camera positions.
   // Assuming that locations[i] gives the 3D coordinates of the center
@@ -214,14 +210,14 @@ class Reconstruction {
   template <bool kEstimateScale = true>
   bool Align(const std::vector<std::string>& image_names,
              const std::vector<Eigen::Vector3d>& locations,
-             const int min_common_images,
+             int min_common_images,
              SimilarityTransform3* tform = nullptr);
 
   // Robust alignment using RANSAC.
   template <bool kEstimateScale = true>
   bool AlignRobust(const std::vector<std::string>& image_names,
                    const std::vector<Eigen::Vector3d>& locations,
-                   const int min_common_images,
+                   int min_common_images,
                    const RANSACOptions& ransac_options,
                    SimilarityTransform3* tform = nullptr);
 
@@ -244,14 +240,13 @@ class Reconstruction {
   // @param point3D_ids         The points to be filtered.
   //
   // @return                    The number of filtered observations.
-  size_t FilterPoints3D(const double max_reproj_error,
-                        const double min_tri_angle,
+  size_t FilterPoints3D(double max_reproj_error,
+                        double min_tri_angle,
                         const std::unordered_set<point3D_t>& point3D_ids);
-  size_t FilterPoints3DInImages(const double max_reproj_error,
-                                const double min_tri_angle,
+  size_t FilterPoints3DInImages(double max_reproj_error,
+                                double min_tri_angle,
                                 const std::unordered_set<image_t>& image_ids);
-  size_t FilterAllPoints3D(const double max_reproj_error,
-                           const double min_tri_angle);
+  size_t FilterAllPoints3D(double max_reproj_error, double min_tri_angle);
 
   // Filter observations that have negative depth.
   //
@@ -261,9 +256,9 @@ class Reconstruction {
   // Filter images without observations or bogus camera parameters.
   //
   // @return    The identifiers of the filtered images.
-  std::vector<image_t> FilterImages(const double min_focal_length_ratio,
-                                    const double max_focal_length_ratio,
-                                    const double max_extra_param);
+  std::vector<image_t> FilterImages(double min_focal_length_ratio,
+                                    double max_focal_length_ratio,
+                                    double max_extra_param);
 
   // Compute statistics for scene.
   size_t ComputeNumObservations() const;
@@ -364,7 +359,7 @@ class Reconstruction {
   // Exports in VRML format https://en.wikipedia.org/wiki/VRML.
   void ExportVRML(const std::string& images_path,
                   const std::string& points3D_path,
-                  const double image_scale,
+                  double image_scale,
                   const Eigen::Vector3d& image_rgb) const;
 
   // Extract colors for 3D points of given image. Colors will be extracted
@@ -376,7 +371,7 @@ class Reconstruction {
   //                      root path and the name of the image.
   //
   // @return              True if image could be read at given path.
-  bool ExtractColorsForImage(const image_t image_id, const std::string& path);
+  bool ExtractColorsForImage(image_t image_id, const std::string& path);
 
   // Extract colors for all 3D points by computing the mean color of all images.
   //
@@ -390,16 +385,13 @@ class Reconstruction {
 
  private:
   size_t FilterPoints3DWithSmallTriangulationAngle(
-      const double min_tri_angle,
-      const std::unordered_set<point3D_t>& point3D_ids);
+      double min_tri_angle, const std::unordered_set<point3D_t>& point3D_ids);
   size_t FilterPoints3DWithLargeReprojectionError(
-      const double max_reproj_error,
+      double max_reproj_error,
       const std::unordered_set<point3D_t>& point3D_ids);
 
   std::tuple<Eigen::Vector3d, Eigen::Vector3d, Eigen::Vector3d>
-  ComputeBoundsAndCentroid(const double p0,
-                           const double p1,
-                           const bool use_images) const;
+  ComputeBoundsAndCentroid(double p0, double p1, bool use_images) const;
 
   void ReadCamerasText(const std::string& path);
   void ReadImagesText(const std::string& path);
@@ -415,12 +407,12 @@ class Reconstruction {
   void WriteImagesBinary(const std::string& path) const;
   void WritePoints3DBinary(const std::string& path) const;
 
-  void SetObservationAsTriangulated(const image_t image_id,
-                                    const point2D_t point2D_idx,
-                                    const bool is_continued_point3D);
-  void ResetTriObservations(const image_t image_id,
-                            const point2D_t point2D_idx,
-                            const bool is_deleted_point3D);
+  void SetObservationAsTriangulated(image_t image_id,
+                                    point2D_t point2D_idx,
+                                    bool is_continued_point3D);
+  void ResetTriObservations(image_t image_id,
+                            point2D_t point2D_idx,
+                            bool is_deleted_point3D);
 
   const CorrespondenceGraph* correspondence_graph_;
 

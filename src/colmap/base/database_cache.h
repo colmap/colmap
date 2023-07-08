@@ -58,18 +58,18 @@ class DatabaseCache {
   inline size_t NumImages() const;
 
   // Get specific objects.
-  inline class Camera& Camera(const camera_t camera_id);
-  inline const class Camera& Camera(const camera_t camera_id) const;
-  inline class Image& Image(const image_t image_id);
-  inline const class Image& Image(const image_t image_id) const;
+  inline class Camera& Camera(camera_t camera_id);
+  inline const class Camera& Camera(camera_t camera_id) const;
+  inline class Image& Image(image_t image_id);
+  inline const class Image& Image(image_t image_id) const;
 
   // Get all objects.
   inline const std::unordered_map<camera_t, class Camera>& Cameras() const;
   inline const std::unordered_map<image_t, class Image>& Images() const;
 
   // Check whether specific object exists.
-  inline bool ExistsCamera(const camera_t camera_id) const;
-  inline bool ExistsImage(const image_t image_id) const;
+  inline bool ExistsCamera(camera_t camera_id) const;
+  inline bool ExistsImage(image_t image_id) const;
 
   // Get reference to correspondence graph.
   inline const class CorrespondenceGraph& CorrespondenceGraph() const;
@@ -87,8 +87,8 @@ class DatabaseCache {
   // @param image_names           Whether to use only load the data for a subset
   //                              of the images. All images are used if empty.
   void Load(const Database& database,
-            const size_t min_num_matches,
-            const bool ignore_watermarks,
+            size_t min_num_matches,
+            bool ignore_watermarks,
             const std::unordered_set<std::string>& image_names);
 
   // Find specific image by name. Note that this uses linear search.

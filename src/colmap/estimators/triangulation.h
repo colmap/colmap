@@ -85,8 +85,8 @@ class TriangulationEstimator {
   typedef Eigen::Vector3d M_t;
 
   // Specify settings for triangulation estimator.
-  void SetMinTriAngle(const double min_tri_angle);
-  void SetResidualType(const ResidualType residual_type);
+  void SetMinTriAngle(double min_tri_angle);
+  void SetResidualType(ResidualType residual_type);
 
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 2;

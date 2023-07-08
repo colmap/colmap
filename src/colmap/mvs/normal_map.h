@@ -44,11 +44,11 @@ namespace mvs {
 class NormalMap : public Mat<float> {
  public:
   NormalMap();
-  NormalMap(const size_t width, const size_t height);
+  NormalMap(size_t width, size_t height);
   explicit NormalMap(const Mat<float>& mat);
 
-  void Rescale(const float factor);
-  void Downsize(const size_t max_width, const size_t max_height);
+  void Rescale(float factor);
+  void Downsize(size_t max_width, size_t max_height);
 
   Bitmap ToBitmap() const;
 };

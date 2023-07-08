@@ -74,22 +74,22 @@ class Workspace {
 
   inline const Model& GetModel() const { return model_; }
 
-  virtual const Bitmap& GetBitmap(const int image_idx);
-  virtual const DepthMap& GetDepthMap(const int image_idx);
-  virtual const NormalMap& GetNormalMap(const int image_idx);
+  virtual const Bitmap& GetBitmap(int image_idx);
+  virtual const DepthMap& GetDepthMap(int image_idx);
+  virtual const NormalMap& GetNormalMap(int image_idx);
 
   // Get paths to bitmap, depth map, normal map and consistency graph.
-  std::string GetBitmapPath(const int image_idx) const;
-  std::string GetDepthMapPath(const int image_idx) const;
-  std::string GetNormalMapPath(const int image_idx) const;
+  std::string GetBitmapPath(int image_idx) const;
+  std::string GetDepthMapPath(int image_idx) const;
+  std::string GetNormalMapPath(int image_idx) const;
 
   // Return whether bitmap, depth map, normal map, and consistency graph exist.
-  bool HasBitmap(const int image_idx) const;
-  bool HasDepthMap(const int image_idx) const;
-  bool HasNormalMap(const int image_idx) const;
+  bool HasBitmap(int image_idx) const;
+  bool HasDepthMap(int image_idx) const;
+  bool HasNormalMap(int image_idx) const;
 
  protected:
-  std::string GetFileName(const int image_idx) const;
+  std::string GetFileName(int image_idx) const;
 
   Options options_;
   Model model_;
@@ -110,9 +110,9 @@ class CachedWorkspace : public Workspace {
 
   inline void ClearCache() { cache_.Clear(); }
 
-  const Bitmap& GetBitmap(const int image_idx) override;
-  const DepthMap& GetDepthMap(const int image_idx) override;
-  const NormalMap& GetNormalMap(const int image_idx) override;
+  const Bitmap& GetBitmap(int image_idx) override;
+  const DepthMap& GetDepthMap(int image_idx) override;
+  const NormalMap& GetNormalMap(int image_idx) override;
 
  private:
   class CachedImage {

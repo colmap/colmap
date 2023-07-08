@@ -260,8 +260,7 @@ class PatchMatchController : public Thread {
   void ReadWorkspace();
   void ReadProblems();
   void ReadGpuIndices();
-  void ProcessProblem(const PatchMatchOptions& options,
-                      const size_t problem_idx);
+  void ProcessProblem(const PatchMatchOptions& options, size_t problem_idx);
 
   const PatchMatchOptions options_;
   const std::string workspace_path_;

@@ -103,6 +103,6 @@ Eigen::Matrix3d HomographyMatrixFromPose(const Eigen::Matrix3d& K1,
                                          const Eigen::Matrix3d& R,
                                          const Eigen::Vector3d& t,
                                          const Eigen::Vector3d& n,
-                                         const double d);
+                                         double d);
 
 }  // namespace colmap
