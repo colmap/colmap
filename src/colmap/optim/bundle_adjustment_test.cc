@@ -38,73 +38,73 @@
 #include "colmap/util/random.h"
 #include "colmap/util/testing.h"
 
-#define CheckVariableCamera(camera, orig_camera)          \
-  {                                                       \
-    const size_t focal_length_idx =                       \
-        SimpleRadialCameraModel::focal_length_idxs[0];    \
-    const size_t extra_param_idx =                        \
-        SimpleRadialCameraModel::extra_params_idxs[0];    \
-    BOOST_CHECK_NE(camera.Params(focal_length_idx),       \
-                   orig_camera.Params(focal_length_idx)); \
-    BOOST_CHECK_NE(camera.Params(extra_param_idx),        \
-                   orig_camera.Params(extra_param_idx));  \
+#define CheckVariableCamera(camera, orig_camera)            \
+  {                                                         \
+    const size_t focal_length_idx =                         \
+        SimpleRadialCameraModel::focal_length_idxs[0];      \
+    const size_t extra_param_idx =                          \
+        SimpleRadialCameraModel::extra_params_idxs[0];      \
+    BOOST_CHECK_NE((camera).Params(focal_length_idx),       \
+                   (orig_camera).Params(focal_length_idx)); \
+    BOOST_CHECK_NE((camera).Params(extra_param_idx),        \
+                   (orig_camera).Params(extra_param_idx));  \
   }
 
-#define CheckConstantCamera(camera, orig_camera)             \
-  {                                                          \
-    const size_t focal_length_idx =                          \
-        SimpleRadialCameraModel::focal_length_idxs[0];       \
-    const size_t extra_param_idx =                           \
-        SimpleRadialCameraModel::extra_params_idxs[0];       \
-    BOOST_CHECK_EQUAL(camera.Params(focal_length_idx),       \
-                      orig_camera.Params(focal_length_idx)); \
-    BOOST_CHECK_EQUAL(camera.Params(extra_param_idx),        \
-                      orig_camera.Params(extra_param_idx));  \
+#define CheckConstantCamera(camera, orig_camera)               \
+  {                                                            \
+    const size_t focal_length_idx =                            \
+        SimpleRadialCameraModel::focal_length_idxs[0];         \
+    const size_t extra_param_idx =                             \
+        SimpleRadialCameraModel::extra_params_idxs[0];         \
+    BOOST_CHECK_EQUAL((camera).Params(focal_length_idx),       \
+                      (orig_camera).Params(focal_length_idx)); \
+    BOOST_CHECK_EQUAL((camera).Params(extra_param_idx),        \
+                      (orig_camera).Params(extra_param_idx));  \
   }
 
-#define CheckVariableImage(image, orig_image)        \
-  {                                                  \
-    BOOST_CHECK_NE(image.Qvec(), orig_image.Qvec()); \
-    BOOST_CHECK_NE(image.Tvec(), orig_image.Tvec()); \
+#define CheckVariableImage(image, orig_image)            \
+  {                                                      \
+    BOOST_CHECK_NE((image).Qvec(), (orig_image).Qvec()); \
+    BOOST_CHECK_NE((image).Tvec(), (orig_image).Tvec()); \
   }
 
-#define CheckConstantImage(image, orig_image)           \
-  {                                                     \
-    BOOST_CHECK_EQUAL(image.Qvec(), orig_image.Qvec()); \
-    BOOST_CHECK_EQUAL(image.Tvec(), orig_image.Tvec()); \
+#define CheckConstantImage(image, orig_image)               \
+  {                                                         \
+    BOOST_CHECK_EQUAL((image).Qvec(), (orig_image).Qvec()); \
+    BOOST_CHECK_EQUAL((image).Tvec(), (orig_image).Tvec()); \
   }
 
-#define CheckConstantXImage(image, orig_image)            \
-  {                                                       \
-    CheckVariableImage(image, orig_image);                \
-    BOOST_CHECK_EQUAL(image.Tvec(0), orig_image.Tvec(0)); \
+#define CheckConstantXImage(image, orig_image)                \
+  {                                                           \
+    CheckVariableImage(image, orig_image);                    \
+    BOOST_CHECK_EQUAL((image).Tvec(0), (orig_image).Tvec(0)); \
   }
 
 #define CheckConstantCameraRig(camera_rig, orig_camera_rig, camera_id) \
   {                                                                    \
-    BOOST_CHECK_EQUAL(camera_rig.RelativeQvec(camera_id),              \
-                      orig_camera_rig.RelativeQvec(camera_id));        \
-    BOOST_CHECK_EQUAL(camera_rig.RelativeTvec(camera_id),              \
-                      orig_camera_rig.RelativeTvec(camera_id));        \
+    BOOST_CHECK_EQUAL((camera_rig).RelativeQvec(camera_id),            \
+                      (orig_camera_rig).RelativeQvec(camera_id));      \
+    BOOST_CHECK_EQUAL((camera_rig).RelativeTvec(camera_id),            \
+                      (orig_camera_rig).RelativeTvec(camera_id));      \
   }
 
 #define CheckVariableCameraRig(camera_rig, orig_camera_rig, camera_id) \
   {                                                                    \
-    if (camera_rig.RefCameraId() == camera_id) {                       \
+    if ((camera_rig).RefCameraId() == (camera_id)) {                   \
       CheckConstantCameraRig(camera_rig, orig_camera_rig, camera_id);  \
     } else {                                                           \
-      BOOST_CHECK_NE(camera_rig.RelativeQvec(camera_id),               \
-                     orig_camera_rig.RelativeQvec(camera_id));         \
-      BOOST_CHECK_NE(camera_rig.RelativeTvec(camera_id),               \
-                     orig_camera_rig.RelativeTvec(camera_id));         \
+      BOOST_CHECK_NE((camera_rig).RelativeQvec(camera_id),             \
+                     (orig_camera_rig).RelativeQvec(camera_id));       \
+      BOOST_CHECK_NE((camera_rig).RelativeTvec(camera_id),             \
+                     (orig_camera_rig).RelativeTvec(camera_id));       \
     }                                                                  \
   }
 
 #define CheckVariablePoint(point, orig_point) \
-  { BOOST_CHECK_NE(point.XYZ(), orig_point.XYZ()); }
+  { BOOST_CHECK_NE((point).XYZ(), (orig_point).XYZ()); }
 
 #define CheckConstantPoint(point, orig_point) \
-  { BOOST_CHECK_EQUAL(point.XYZ(), orig_point.XYZ()); }
+  { BOOST_CHECK_EQUAL((point).XYZ(), (orig_point).XYZ()); }
 
 namespace colmap {
 

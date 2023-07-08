@@ -680,12 +680,10 @@ std::vector<image_t> Reconstruction::FilterImages(
   std::vector<image_t> filtered_image_ids;
   for (const image_t image_id : RegImageIds()) {
     const class Image& image = Image(image_id);
-    const class Camera& camera = Camera(image.CameraId());
-    if (image.NumPoints3D() == 0) {
-      filtered_image_ids.push_back(image_id);
-    } else if (camera.HasBogusParams(min_focal_length_ratio,
-                                     max_focal_length_ratio,
-                                     max_extra_param)) {
+    if (image.NumPoints3D() == 0 || Camera(image.CameraId())
+                                        .HasBogusParams(min_focal_length_ratio,
+                                                        max_focal_length_ratio,
+                                                        max_extra_param)) {
       filtered_image_ids.push_back(image_id);
     }
   }

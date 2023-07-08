@@ -335,7 +335,7 @@ bool ComputeAlignmentBetweenReconstructions(
   ransac_options.max_error = max_proj_center_error;
   if (!aligned_src_reconstruction.AlignRobust(ref_image_names,
                                               ref_proj_centers,
-                                              /*min_num_images=*/3,
+                                              /*min_common_images=*/3,
                                               ransac_options,
                                               &tform)) {
     return false;
