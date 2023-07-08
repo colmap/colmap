@@ -34,8 +34,6 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/math.h"
 
-#include <algorithm>
-
 namespace colmap {
 
 VisibilityPyramid::VisibilityPyramid() : VisibilityPyramid(0, 0, 0) {}

@@ -217,10 +217,7 @@ BOOST_AUTO_TEST_CASE(TestQvec) {
 
 BOOST_AUTO_TEST_CASE(TestQvecPrior) {
   Image image;
-  BOOST_CHECK(std::isnan(image.QvecPrior(0)));
-  BOOST_CHECK(std::isnan(image.QvecPrior(1)));
-  BOOST_CHECK(std::isnan(image.QvecPrior(2)));
-  BOOST_CHECK(std::isnan(image.QvecPrior(3)));
+  BOOST_CHECK(image.QvecPrior().array().isNaN().all());
   BOOST_CHECK_EQUAL(image.HasQvecPrior(), false);
   image.QvecPrior(0) = 2.0;
   BOOST_CHECK_EQUAL(image.HasQvecPrior(), false);
@@ -255,9 +252,7 @@ BOOST_AUTO_TEST_CASE(TestTvec) {
 
 BOOST_AUTO_TEST_CASE(TestTvecPrior) {
   Image image;
-  BOOST_CHECK(std::isnan(image.TvecPrior(0)));
-  BOOST_CHECK(std::isnan(image.TvecPrior(1)));
-  BOOST_CHECK(std::isnan(image.TvecPrior(2)));
+  BOOST_CHECK(image.TvecPrior().array().isNaN().all());
   BOOST_CHECK_EQUAL(image.HasTvecPrior(), false);
   image.TvecPrior(0) = 2.0;
   BOOST_CHECK_EQUAL(image.HasTvecPrior(), false);
