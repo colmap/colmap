@@ -34,7 +34,6 @@
 #include "colmap/base/database.h"
 #include "colmap/util/types.h"
 
-#include <list>
 #include <memory>
 #include <vector>
 
