@@ -40,7 +40,7 @@ int CountNumTransitiveCorrespondences(const CorrespondenceGraph& graph,
                                       const point2D_t point2D_idx,
                                       const size_t transitivity) {
   std::vector<CorrespondenceGraph::Correspondence> corrs;
-  graph.FindTransitiveCorrespondences(
+  graph.ExtractTransitiveCorrespondences(
       image_id, point2D_idx, transitivity, &corrs);
   return corrs.size();
 }
@@ -74,60 +74,74 @@ TEST(CorrespondenceGraph, TwoView) {
   EXPECT_EQ(correspondence_graph.NumCorrespondencesBetweenImages().size(), 1);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesBetweenImages().at(pair_id),
             4);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(0, 0).size(), 1);
+
+  std::vector<CorrespondenceGraph::Correspondence> corrs;
+
+  correspondence_graph.ExtractCorrespondences(0, 0, &corrs);
+  EXPECT_EQ(corrs.size(), 1);
   EXPECT_TRUE(correspondence_graph.HasCorrespondences(0, 0));
   EXPECT_TRUE(correspondence_graph.IsTwoViewObservation(0, 0));
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(0, 0).at(0).image_id, 1);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(0, 0).at(0).point2D_idx,
-            0);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 0).size(), 1);
+  EXPECT_EQ(corrs.at(0).image_id, 1);
+  EXPECT_EQ(corrs.at(0).point2D_idx, 0);
+
+  correspondence_graph.ExtractCorrespondences(1, 0, &corrs);
+  EXPECT_EQ(corrs.size(), 1);
   EXPECT_TRUE(correspondence_graph.HasCorrespondences(1, 0));
   EXPECT_TRUE(correspondence_graph.IsTwoViewObservation(1, 0));
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 0).at(0).image_id, 0);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 0).at(0).point2D_idx,
-            0);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(0, 1).size(), 1);
+  EXPECT_EQ(corrs.at(0).image_id, 0);
+  EXPECT_EQ(corrs.at(0).point2D_idx, 0);
+
+  correspondence_graph.ExtractCorrespondences(0, 1, &corrs);
+  EXPECT_EQ(corrs.size(), 1);
   EXPECT_TRUE(correspondence_graph.HasCorrespondences(0, 1));
   EXPECT_TRUE(correspondence_graph.IsTwoViewObservation(0, 1));
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(0, 1).at(0).image_id, 1);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(0, 1).at(0).point2D_idx,
-            2);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 2).size(), 1);
+  EXPECT_EQ(corrs.at(0).image_id, 1);
+  EXPECT_EQ(corrs.at(0).point2D_idx, 2);
+
+  correspondence_graph.ExtractCorrespondences(1, 2, &corrs);
+  EXPECT_EQ(corrs.size(), 1);
   EXPECT_TRUE(correspondence_graph.HasCorrespondences(1, 2));
   EXPECT_TRUE(correspondence_graph.IsTwoViewObservation(1, 2));
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 2).at(0).image_id, 0);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 2).at(0).point2D_idx,
-            1);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(0, 4).size(), 1);
-  EXPECT_TRUE(correspondence_graph.HasCorrespondences(0, 3));
+  EXPECT_EQ(corrs.at(0).image_id, 0);
+  EXPECT_EQ(corrs.at(0).point2D_idx, 1);
+
+  correspondence_graph.ExtractCorrespondences(0, 4, &corrs);
+  EXPECT_EQ(corrs.size(), 1);
+  EXPECT_TRUE(correspondence_graph.HasCorrespondences(0, 4));
   EXPECT_TRUE(correspondence_graph.IsTwoViewObservation(0, 4));
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(0, 3).at(0).image_id, 1);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(0, 3).at(0).point2D_idx,
-            7);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(0, 4).at(0).image_id, 1);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(0, 4).at(0).point2D_idx,
-            8);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 7).size(), 1);
+  EXPECT_EQ(corrs.at(0).image_id, 1);
+  EXPECT_EQ(corrs.at(0).point2D_idx, 8);
+
+  correspondence_graph.ExtractCorrespondences(0, 3, &corrs);
+  EXPECT_EQ(corrs.size(), 1);
+  EXPECT_TRUE(correspondence_graph.HasCorrespondences(0, 3));
+  EXPECT_EQ(corrs.at(0).image_id, 1);
+  EXPECT_EQ(corrs.at(0).point2D_idx, 7);
+
+  correspondence_graph.ExtractCorrespondences(1, 7, &corrs);
+  EXPECT_EQ(corrs.size(), 1);
   EXPECT_TRUE(correspondence_graph.HasCorrespondences(1, 7));
   EXPECT_TRUE(correspondence_graph.IsTwoViewObservation(1, 7));
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 7).at(0).image_id, 0);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 7).at(0).point2D_idx,
-            3);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 8).size(), 1);
+  EXPECT_EQ(corrs.at(0).image_id, 0);
+  EXPECT_EQ(corrs.at(0).point2D_idx, 3);
+
+  correspondence_graph.ExtractCorrespondences(1, 8, &corrs);
+  EXPECT_EQ(corrs.size(), 1);
   EXPECT_TRUE(correspondence_graph.HasCorrespondences(1, 8));
   EXPECT_TRUE(correspondence_graph.IsTwoViewObservation(1, 8));
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 8).at(0).image_id, 0);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 8).at(0).point2D_idx,
-            4);
-  std::vector<CorrespondenceGraph::Correspondence> corrs;
+  EXPECT_EQ(corrs.at(0).image_id, 0);
+  EXPECT_EQ(corrs.at(0).point2D_idx, 4);
+
   for (size_t i = 0; i < 10; ++i) {
     EXPECT_EQ(CountNumTransitiveCorrespondences(correspondence_graph, 0, i, 0),
               0);
-    EXPECT_EQ(correspondence_graph.FindCorrespondences(0, i).size(),
+    correspondence_graph.ExtractCorrespondences(0, i, &corrs);
+    EXPECT_EQ(corrs.size(),
               CountNumTransitiveCorrespondences(correspondence_graph, 0, i, 2));
     EXPECT_EQ(CountNumTransitiveCorrespondences(correspondence_graph, 1, i, 0),
               0);
-    EXPECT_EQ(correspondence_graph.FindCorrespondences(1, i).size(),
+    correspondence_graph.ExtractCorrespondences(1, i, &corrs);
+    EXPECT_EQ(corrs.size(),
               CountNumTransitiveCorrespondences(correspondence_graph, 1, i, 2));
   }
   const auto corrs01 =
@@ -176,35 +190,39 @@ TEST(CorrespondenceGraph, ThreeView) {
       correspondence_graph.NumCorrespondencesBetweenImages().at(pair_id02), 1);
   EXPECT_EQ(
       correspondence_graph.NumCorrespondencesBetweenImages().at(pair_id12), 2);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(0, 0).size(), 2);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(0, 0).at(0).image_id, 1);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(0, 0).at(0).point2D_idx,
-            0);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(0, 0).at(1).image_id, 2);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(0, 0).at(1).point2D_idx,
-            0);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 0).size(), 2);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 0).at(0).image_id, 0);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 0).at(0).point2D_idx,
-            0);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 0).at(1).image_id, 2);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 0).at(1).point2D_idx,
-            0);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(2, 0).size(), 2);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(2, 0).at(0).image_id, 0);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(2, 0).at(0).point2D_idx,
-            0);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(2, 0).at(1).image_id, 1);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(2, 0).at(1).point2D_idx,
-            0);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 5).size(), 1);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 5).at(0).image_id, 2);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(1, 5).at(0).point2D_idx,
-            5);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(2, 5).size(), 1);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(2, 5).at(0).image_id, 1);
-  EXPECT_EQ(correspondence_graph.FindCorrespondences(2, 5).at(0).point2D_idx,
-            5);
+
+  std::vector<CorrespondenceGraph::Correspondence> corrs;
+  correspondence_graph.ExtractCorrespondences(0, 0, &corrs);
+  EXPECT_EQ(corrs.size(), 2);
+  EXPECT_EQ(corrs.at(0).image_id, 1);
+  EXPECT_EQ(corrs.at(0).point2D_idx, 0);
+  EXPECT_EQ(corrs.at(1).image_id, 2);
+  EXPECT_EQ(corrs.at(1).point2D_idx, 0);
+
+  correspondence_graph.ExtractCorrespondences(1, 0, &corrs);
+  EXPECT_EQ(corrs.size(), 2);
+  EXPECT_EQ(corrs.at(0).image_id, 0);
+  EXPECT_EQ(corrs.at(0).point2D_idx, 0);
+  EXPECT_EQ(corrs.at(1).image_id, 2);
+  EXPECT_EQ(corrs.at(1).point2D_idx, 0);
+
+  correspondence_graph.ExtractCorrespondences(2, 0, &corrs);
+  EXPECT_EQ(corrs.size(), 2);
+  EXPECT_EQ(corrs.at(0).image_id, 0);
+  EXPECT_EQ(corrs.at(0).point2D_idx, 0);
+  EXPECT_EQ(corrs.at(1).image_id, 1);
+  EXPECT_EQ(corrs.at(1).point2D_idx, 0);
+
+  correspondence_graph.ExtractCorrespondences(1, 5, &corrs);
+  EXPECT_EQ(corrs.size(), 1);
+  EXPECT_EQ(corrs.at(0).image_id, 2);
+  EXPECT_EQ(corrs.at(0).point2D_idx, 5);
+
+  correspondence_graph.ExtractCorrespondences(2, 5, &corrs);
+  EXPECT_EQ(corrs.size(), 1);
+  EXPECT_EQ(corrs.at(0).image_id, 1);
+  EXPECT_EQ(corrs.at(0).point2D_idx, 5);
+
   EXPECT_EQ(CountNumTransitiveCorrespondences(correspondence_graph, 0, 0, 2),
             2);
   EXPECT_EQ(CountNumTransitiveCorrespondences(correspondence_graph, 1, 0, 2),

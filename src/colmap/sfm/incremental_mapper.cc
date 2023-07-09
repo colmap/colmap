@@ -379,14 +379,15 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
     const Point2D& point2D = image.Point2D(point2D_idx);
 
     corr_point3D_ids.clear();
-    for (const auto& corr :
-         correspondence_graph.FindCorrespondences(image_id, point2D_idx)) {
-      const Image& corr_image = reconstruction_->Image(corr.image_id);
+    const auto corr_range =
+        correspondence_graph.FindCorrespondences(image_id, point2D_idx);
+    for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+      const Image& corr_image = reconstruction_->Image(corr->image_id);
       if (!corr_image.IsRegistered()) {
         continue;
       }
 
-      const Point2D& corr_point2D = corr_image.Point2D(corr.point2D_idx);
+      const Point2D& corr_point2D = corr_image.Point2D(corr->point2D_idx);
       if (!corr_point2D.HasPoint3D()) {
         continue;
       }
@@ -862,11 +863,12 @@ std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
   std::unordered_map<image_t, point2D_t> num_correspondences;
   for (point2D_t point2D_idx = 0; point2D_idx < image1.NumPoints2D();
        ++point2D_idx) {
-    for (const auto& corr :
-         correspondence_graph.FindCorrespondences(image_id1, point2D_idx)) {
-      if (num_registrations_.count(corr.image_id) == 0 ||
-          num_registrations_.at(corr.image_id) == 0) {
-        num_correspondences[corr.image_id] += 1;
+    const auto corr_range =
+        correspondence_graph.FindCorrespondences(image_id1, point2D_idx);
+    for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+      if (num_registrations_.count(corr->image_id) == 0 ||
+          num_registrations_.at(corr->image_id) == 0) {
+        num_correspondences[corr->image_id] += 1;
       }
     }
   }
