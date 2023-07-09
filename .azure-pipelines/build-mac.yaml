@@ -33,7 +33,8 @@ jobs:
 
   - task: Cache@2
     inputs:
-      key: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
+      key: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}" | "$(Build.BuildNumber)"
+      restoreKeys: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
       path: $(CCACHE_DIR)
     displayName: Restore CCache
 
