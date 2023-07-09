@@ -449,7 +449,7 @@ TEST(CheckCheirality, Nominal) {
 
   points2[0][0] = -0.2;
   points2[1][0] = -0.2;
-  EXPECT_TRUE(!CheckCheirality(R, t, points1, points2, &points3D));
+  EXPECT_FALSE(CheckCheirality(R, t, points1, points2, &points3D));
   EXPECT_EQ(points3D.size(), 0);
 }
 

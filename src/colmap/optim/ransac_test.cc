@@ -123,7 +123,7 @@ TEST(RANSAC, SimilarityTransform) {
   EXPECT_EQ(report.support.num_inliers, num_samples - num_outliers);
   for (size_t i = 0; i < num_samples; ++i) {
     if (i < num_outliers) {
-      EXPECT_TRUE(!report.inlier_mask[i]);
+      EXPECT_FALSE(report.inlier_mask[i]);
     } else {
       EXPECT_TRUE(report.inlier_mask[i]);
     }

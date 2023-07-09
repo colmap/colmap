@@ -77,7 +77,7 @@ TEST(FindLinearPolynomialRoots, Nominal) {
               0.0,
               1e-6);
 
-  EXPECT_TRUE(!FindLinearPolynomialRoots(Eigen::Vector2d(0, 1), &real, &imag));
+  EXPECT_FALSE(FindLinearPolynomialRoots(Eigen::Vector2d(0, 1), &real, &imag));
 }
 
 TEST(FindQuadraticPolynomialRootsReal, Nominal) {

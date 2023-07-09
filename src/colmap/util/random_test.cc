@@ -80,7 +80,7 @@ TEST(Repeatability, Nominal) {
       all_equal = false;
     }
   }
-  EXPECT_TRUE(!all_equal);
+  EXPECT_FALSE(all_equal);
 }
 
 TEST(RandomInteger, Nominal) {

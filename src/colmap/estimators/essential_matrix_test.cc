@@ -83,8 +83,8 @@ TEST(EssentialMatrix, FivePoint) {
     EXPECT_LE(residuals[i], options.max_error * options.max_error);
   }
 
-  EXPECT_TRUE(!report.inlier_mask[10]);
-  EXPECT_TRUE(!report.inlier_mask[11]);
+  EXPECT_FALSE(report.inlier_mask[10]);
+  EXPECT_FALSE(report.inlier_mask[11]);
 }
 
 TEST(EssentialMatrix, EightPoint) {

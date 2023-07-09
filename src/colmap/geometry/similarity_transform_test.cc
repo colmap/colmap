@@ -92,7 +92,7 @@ void TestEstimationWithNumCoords(const size_t num_coords) {
   EXPECT_TRUE((orig_tform.Matrix() - est_tform.Matrix()).norm() < 1e-6);
 
   std::vector<Eigen::Vector3d> invalid_src_dst(3, Eigen::Vector3d::Zero());
-  EXPECT_TRUE(!est_tform.Estimate(invalid_src_dst, invalid_src_dst));
+  EXPECT_FALSE(est_tform.Estimate(invalid_src_dst, invalid_src_dst));
 }
 
 TEST(SimilarityTransform, Estimation) {

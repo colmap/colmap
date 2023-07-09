@@ -52,18 +52,18 @@ TEST(LRUCache, Get) {
 
   EXPECT_EQ(cache.Get(5), 5);
   EXPECT_EQ(cache.NumElems(), 5);
-  EXPECT_TRUE(!cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(0));
   EXPECT_TRUE(cache.Exists(5));
 
   EXPECT_EQ(cache.Get(5), 5);
   EXPECT_EQ(cache.NumElems(), 5);
-  EXPECT_TRUE(!cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(0));
   EXPECT_TRUE(cache.Exists(5));
 
   EXPECT_EQ(cache.Get(6), 6);
   EXPECT_EQ(cache.NumElems(), 5);
-  EXPECT_TRUE(!cache.Exists(0));
-  EXPECT_TRUE(!cache.Exists(1));
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(1));
   EXPECT_TRUE(cache.Exists(6));
 }
 
@@ -78,25 +78,25 @@ TEST(LRUCache, GetMutable) {
 
   EXPECT_EQ(cache.GetMutable(5), 5);
   EXPECT_EQ(cache.NumElems(), 5);
-  EXPECT_TRUE(!cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(0));
   EXPECT_TRUE(cache.Exists(5));
 
   EXPECT_EQ(cache.GetMutable(5), 5);
   EXPECT_EQ(cache.NumElems(), 5);
-  EXPECT_TRUE(!cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(0));
   EXPECT_TRUE(cache.Exists(5));
 
   EXPECT_EQ(cache.GetMutable(6), 6);
   EXPECT_EQ(cache.NumElems(), 5);
-  EXPECT_TRUE(!cache.Exists(0));
-  EXPECT_TRUE(!cache.Exists(1));
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(1));
   EXPECT_TRUE(cache.Exists(6));
 
   cache.GetMutable(6) = 66;
   EXPECT_EQ(cache.GetMutable(6), 66);
   EXPECT_EQ(cache.NumElems(), 5);
-  EXPECT_TRUE(!cache.Exists(0));
-  EXPECT_TRUE(!cache.Exists(1));
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(1));
   EXPECT_TRUE(cache.Exists(6));
 }
 
@@ -111,13 +111,13 @@ TEST(LRUCache, Set) {
 
   EXPECT_EQ(cache.Get(5), -1);
   EXPECT_EQ(cache.NumElems(), 5);
-  EXPECT_TRUE(!cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(0));
   EXPECT_TRUE(cache.Exists(5));
 
   EXPECT_EQ(cache.Get(6), -1);
   EXPECT_EQ(cache.NumElems(), 5);
-  EXPECT_TRUE(!cache.Exists(0));
-  EXPECT_TRUE(!cache.Exists(1));
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(1));
   EXPECT_TRUE(cache.Exists(6));
 }
 
@@ -132,7 +132,7 @@ TEST(LRUCache, Pop) {
 
   EXPECT_EQ(cache.Get(5), 5);
   EXPECT_EQ(cache.NumElems(), 5);
-  EXPECT_TRUE(!cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(0));
   EXPECT_TRUE(cache.Exists(5));
 
   cache.Pop();
@@ -194,26 +194,26 @@ TEST(MemoryConstrainedLRUCache, Get) {
   EXPECT_EQ(cache.Get(5).NumBytes(), 5);
   EXPECT_EQ(cache.NumElems(), 2);
   EXPECT_EQ(cache.NumBytes(), 9);
-  EXPECT_TRUE(!cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(0));
   EXPECT_TRUE(cache.Exists(5));
 
   EXPECT_EQ(cache.Get(5).NumBytes(), 5);
   EXPECT_EQ(cache.NumElems(), 2);
   EXPECT_EQ(cache.NumBytes(), 9);
-  EXPECT_TRUE(!cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(0));
   EXPECT_TRUE(cache.Exists(5));
 
   EXPECT_EQ(cache.Get(6).NumBytes(), 6);
   EXPECT_EQ(cache.NumElems(), 1);
   EXPECT_EQ(cache.NumBytes(), 6);
-  EXPECT_TRUE(!cache.Exists(0));
-  EXPECT_TRUE(!cache.Exists(1));
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(1));
   EXPECT_TRUE(cache.Exists(6));
 
   EXPECT_EQ(cache.Get(1).NumBytes(), 1);
   EXPECT_EQ(cache.NumElems(), 2);
   EXPECT_EQ(cache.NumBytes(), 7);
-  EXPECT_TRUE(!cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(0));
   EXPECT_TRUE(cache.Exists(1));
   EXPECT_TRUE(cache.Exists(6));
 }

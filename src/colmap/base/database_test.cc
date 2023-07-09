@@ -110,10 +110,10 @@ TEST(Database, ImagePairToPairId) {
 }
 
 TEST(Database, SwapImagePair) {
-  EXPECT_TRUE(!Database::SwapImagePair(0, 0));
-  EXPECT_TRUE(!Database::SwapImagePair(0, 1));
+  EXPECT_FALSE(Database::SwapImagePair(0, 0));
+  EXPECT_FALSE(Database::SwapImagePair(0, 1));
   EXPECT_TRUE(Database::SwapImagePair(1, 0));
-  EXPECT_TRUE(!Database::SwapImagePair(1, 1));
+  EXPECT_FALSE(Database::SwapImagePair(1, 1));
 }
 
 TEST(Database, Camera) {
@@ -476,8 +476,8 @@ TEST(Database, Merge) {
   EXPECT_EQ(merged_database.ReadDescriptors(3).size(), descriptors3.size());
   EXPECT_EQ(merged_database.ReadDescriptors(4).size(), descriptors4.size());
   EXPECT_TRUE(merged_database.ExistsMatches(1, 2));
-  EXPECT_TRUE(!merged_database.ExistsMatches(2, 3));
-  EXPECT_TRUE(!merged_database.ExistsMatches(2, 4));
+  EXPECT_FALSE(merged_database.ExistsMatches(2, 3));
+  EXPECT_FALSE(merged_database.ExistsMatches(2, 4));
   EXPECT_TRUE(merged_database.ExistsMatches(3, 4));
   merged_database.ClearAllTables();
   EXPECT_EQ(merged_database.NumCameras(), 0);

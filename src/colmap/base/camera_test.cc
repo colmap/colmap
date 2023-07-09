@@ -186,7 +186,7 @@ TEST(Camera, ParamsFromString) {
   EXPECT_TRUE(camera.SetParamsFromString("1.000000, 0.500000, 0.500000"));
   const std::vector<double> params{1.0, 0.5, 0.5};
   EXPECT_EQ(camera.Params(), params);
-  EXPECT_TRUE(!camera.SetParamsFromString("1.000000, 0.500000"));
+  EXPECT_FALSE(camera.SetParamsFromString("1.000000, 0.500000"));
   EXPECT_EQ(camera.Params(), params);
 }
 
@@ -206,20 +206,20 @@ TEST(Camera, IsUndistorted) {
   camera.InitializeWithId(SimpleRadialCameraModel::model_id, 1.0, 1, 1);
   EXPECT_TRUE(camera.IsUndistorted());
   camera.SetParams({1.0, 0.5, 0.5, 0.005});
-  EXPECT_TRUE(!camera.IsUndistorted());
+  EXPECT_FALSE(camera.IsUndistorted());
   camera.InitializeWithId(RadialCameraModel::model_id, 1.0, 1, 1);
   EXPECT_TRUE(camera.IsUndistorted());
   camera.SetParams({1.0, 0.5, 0.5, 0.0, 0.005});
-  EXPECT_TRUE(!camera.IsUndistorted());
+  EXPECT_FALSE(camera.IsUndistorted());
   camera.InitializeWithId(OpenCVCameraModel::model_id, 1.0, 1, 1);
   EXPECT_TRUE(camera.IsUndistorted());
   camera.SetParams({1.0, 1.0, 0.5, 0.5, 0.0, 0.0, 0.0, 0.001});
-  EXPECT_TRUE(!camera.IsUndistorted());
+  EXPECT_FALSE(camera.IsUndistorted());
   camera.InitializeWithId(FullOpenCVCameraModel::model_id, 1.0, 1, 1);
   EXPECT_TRUE(camera.IsUndistorted());
   camera.SetParams(
       {1.0, 1.0, 0.5, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.001});
-  EXPECT_TRUE(!camera.IsUndistorted());
+  EXPECT_FALSE(camera.IsUndistorted());
 }
 
 TEST(Camera, HasBogusParams) {

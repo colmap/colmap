@@ -140,19 +140,19 @@ TEST(JoinPaths, Nominal) {
 
 TEST(VectorContainsValue, Nominal) {
   EXPECT_TRUE(VectorContainsValue<int>({1, 2, 3}, 1));
-  EXPECT_TRUE(!VectorContainsValue<int>({2, 3}, 1));
+  EXPECT_FALSE(VectorContainsValue<int>({2, 3}, 1));
 }
 
 TEST(VectorContainsDuplicateValues, Nominal) {
-  EXPECT_TRUE(!VectorContainsDuplicateValues<int>({}));
-  EXPECT_TRUE(!VectorContainsDuplicateValues<int>({1}));
-  EXPECT_TRUE(!VectorContainsDuplicateValues<int>({1, 2}));
-  EXPECT_TRUE(!VectorContainsDuplicateValues<int>({1, 2, 3}));
+  EXPECT_FALSE(VectorContainsDuplicateValues<int>({}));
+  EXPECT_FALSE(VectorContainsDuplicateValues<int>({1}));
+  EXPECT_FALSE(VectorContainsDuplicateValues<int>({1, 2}));
+  EXPECT_FALSE(VectorContainsDuplicateValues<int>({1, 2, 3}));
   EXPECT_TRUE(VectorContainsDuplicateValues<int>({1, 1, 2, 3}));
   EXPECT_TRUE(VectorContainsDuplicateValues<int>({1, 1, 2, 2, 3}));
   EXPECT_TRUE(VectorContainsDuplicateValues<int>({1, 2, 3, 3}));
-  EXPECT_TRUE(!VectorContainsDuplicateValues<std::string>({"a"}));
-  EXPECT_TRUE(!VectorContainsDuplicateValues<std::string>({"a", "b"}));
+  EXPECT_FALSE(VectorContainsDuplicateValues<std::string>({"a"}));
+  EXPECT_FALSE(VectorContainsDuplicateValues<std::string>({"a", "b"}));
   EXPECT_TRUE(VectorContainsDuplicateValues<std::string>({"a", "a"}));
 }
 

@@ -128,13 +128,13 @@ TEST(AnyLessThan, Nominal) {
   EXPECT_TRUE(AnyLessThan<int>({1, 2, 3, 4}, 4));
   EXPECT_TRUE(AnyLessThan<int>({1, 2, 3, 4}, 3));
   EXPECT_TRUE(AnyLessThan<int>({1, 2, 3, 4}, 2));
-  EXPECT_TRUE(!AnyLessThan<int>({1, 2, 3, 4}, 1));
-  EXPECT_TRUE(!AnyLessThan<int>({1, 2, 3, 4}, 0));
+  EXPECT_FALSE(AnyLessThan<int>({1, 2, 3, 4}, 1));
+  EXPECT_FALSE(AnyLessThan<int>({1, 2, 3, 4}, 0));
 }
 
 TEST(AnyGreaterThan, Nominal) {
-  EXPECT_TRUE(!AnyGreaterThan<int>({1, 2, 3, 4}, 5));
-  EXPECT_TRUE(!AnyGreaterThan<int>({1, 2, 3, 4}, 4));
+  EXPECT_FALSE(AnyGreaterThan<int>({1, 2, 3, 4}, 5));
+  EXPECT_FALSE(AnyGreaterThan<int>({1, 2, 3, 4}, 4));
   EXPECT_TRUE(AnyGreaterThan<int>({1, 2, 3, 4}, 3));
   EXPECT_TRUE(AnyGreaterThan<int>({1, 2, 3, 4}, 2));
   EXPECT_TRUE(AnyGreaterThan<int>({1, 2, 3, 4}, 1));
@@ -143,13 +143,13 @@ TEST(AnyGreaterThan, Nominal) {
 
 TEST(NextCombination, Nominal) {
   std::vector<int> list{0};
-  EXPECT_TRUE(!NextCombination(list.begin(), list.begin() + 1, list.end()));
+  EXPECT_FALSE(NextCombination(list.begin(), list.begin() + 1, list.end()));
   list = {0, 1};
-  EXPECT_TRUE(!NextCombination(list.begin(), list.begin() + 2, list.end()));
+  EXPECT_FALSE(NextCombination(list.begin(), list.begin() + 2, list.end()));
   EXPECT_EQ(list[0], 0);
   EXPECT_TRUE(NextCombination(list.begin(), list.begin() + 1, list.end()));
   EXPECT_EQ(list[0], 1);
-  EXPECT_TRUE(!NextCombination(list.begin(), list.begin() + 1, list.end()));
+  EXPECT_FALSE(NextCombination(list.begin(), list.begin() + 1, list.end()));
   EXPECT_EQ(list[0], 0);
   list = {0, 1, 2};
   EXPECT_EQ(list[0], 0);
@@ -163,7 +163,7 @@ TEST(NextCombination, Nominal) {
   EXPECT_EQ(list[0], 1);
   EXPECT_EQ(list[1], 2);
   EXPECT_EQ(list[2], 0);
-  EXPECT_TRUE(!NextCombination(list.begin(), list.begin() + 2, list.end()));
+  EXPECT_FALSE(NextCombination(list.begin(), list.begin() + 2, list.end()));
   EXPECT_EQ(list[0], 0);
   EXPECT_EQ(list[1], 1);
   EXPECT_EQ(list[2], 2);

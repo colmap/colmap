@@ -135,7 +135,7 @@ TEST(Reconstruction, AddObservation) {
       reconstruction.AddPoint3D(Eigen::Vector3d::Random(), track);
   EXPECT_EQ(reconstruction.Image(1).NumPoints3D(), 1);
   EXPECT_TRUE(reconstruction.Image(1).Point2D(0).HasPoint3D());
-  EXPECT_TRUE(!reconstruction.Image(1).Point2D(1).HasPoint3D());
+  EXPECT_FALSE(reconstruction.Image(1).Point2D(1).HasPoint3D());
   EXPECT_EQ(reconstruction.Point3D(point3D_id).Track().Length(), 1);
   reconstruction.AddObservation(point3D_id, TrackElement(1, 1));
   EXPECT_EQ(reconstruction.Image(1).NumPoints3D(), 2);
@@ -162,8 +162,8 @@ TEST(Reconstruction, MergePoints3D) {
       Eigen::Matrix<uint8_t, 3, 1>(20, 20, 20);
   const point3D_t merged_point3D_id =
       reconstruction.MergePoints3D(point3D_id1, point3D_id2);
-  EXPECT_TRUE(!reconstruction.ExistsPoint3D(point3D_id1));
-  EXPECT_TRUE(!reconstruction.ExistsPoint3D(point3D_id2));
+  EXPECT_FALSE(reconstruction.ExistsPoint3D(point3D_id1));
+  EXPECT_FALSE(reconstruction.ExistsPoint3D(point3D_id2));
   EXPECT_TRUE(reconstruction.ExistsPoint3D(merged_point3D_id));
   EXPECT_EQ(reconstruction.Image(1).Point2D(0).Point3DId(), merged_point3D_id);
   EXPECT_EQ(reconstruction.Image(1).Point2D(1).Point3DId(), merged_point3D_id);
@@ -184,7 +184,7 @@ TEST(Reconstruction, DeletePoint3D) {
       reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
   reconstruction.AddObservation(point3D_id, TrackElement(1, 0));
   reconstruction.DeletePoint3D(point3D_id);
-  EXPECT_TRUE(!reconstruction.ExistsPoint3D(point3D_id));
+  EXPECT_FALSE(reconstruction.ExistsPoint3D(point3D_id));
   EXPECT_EQ(reconstruction.Image(1).NumPoints3D(), 0);
 }
 
@@ -199,11 +199,11 @@ TEST(Reconstruction, DeleteObservation) {
   reconstruction.AddObservation(point3D_id, TrackElement(1, 2));
   reconstruction.DeleteObservation(1, 0);
   EXPECT_EQ(reconstruction.Point3D(point3D_id).Track().Length(), 2);
-  EXPECT_TRUE(!reconstruction.Image(point3D_id).Point2D(0).HasPoint3D());
+  EXPECT_FALSE(reconstruction.Image(point3D_id).Point2D(0).HasPoint3D());
   reconstruction.DeleteObservation(1, 1);
-  EXPECT_TRUE(!reconstruction.ExistsPoint3D(point3D_id));
-  EXPECT_TRUE(!reconstruction.Image(point3D_id).Point2D(1).HasPoint3D());
-  EXPECT_TRUE(!reconstruction.Image(point3D_id).Point2D(2).HasPoint3D());
+  EXPECT_FALSE(reconstruction.ExistsPoint3D(point3D_id));
+  EXPECT_FALSE(reconstruction.Image(point3D_id).Point2D(1).HasPoint3D());
+  EXPECT_FALSE(reconstruction.Image(point3D_id).Point2D(2).HasPoint3D());
 }
 
 TEST(Reconstruction, RegisterImage) {
@@ -220,7 +220,7 @@ TEST(Reconstruction, RegisterImage) {
   reconstruction.DeRegisterImage(1);
   EXPECT_EQ(reconstruction.NumRegImages(), 0);
   EXPECT_EQ(reconstruction.Image(1).IsRegistered(), false);
-  EXPECT_TRUE(!reconstruction.IsImageRegistered(1));
+  EXPECT_FALSE(reconstruction.IsImageRegistered(1));
 }
 
 TEST(Reconstruction, Normalize) {
@@ -357,7 +357,7 @@ TEST(Reconstruction, Crop) {
   EXPECT_EQ(recon2.NumPoints3D(), 3);
   EXPECT_TRUE(recon2.IsImageRegistered(1));
   EXPECT_TRUE(recon2.IsImageRegistered(2));
-  EXPECT_TRUE(!recon2.IsImageRegistered(3));
+  EXPECT_FALSE(recon2.IsImageRegistered(3));
 }
 
 TEST(Reconstruction, Transform) {

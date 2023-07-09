@@ -122,9 +122,9 @@ TEST(StringSplit, Nominal) {
 }
 
 TEST(StringStartsWith, Nominal) {
-  EXPECT_TRUE(!StringStartsWith("", ""));
-  EXPECT_TRUE(!StringStartsWith("a", ""));
-  EXPECT_TRUE(!StringStartsWith("", "a"));
+  EXPECT_FALSE(StringStartsWith("", ""));
+  EXPECT_FALSE(StringStartsWith("a", ""));
+  EXPECT_FALSE(StringStartsWith("", "a"));
   EXPECT_TRUE(StringStartsWith("a", "a"));
   EXPECT_TRUE(StringStartsWith("aa", "a"));
   EXPECT_TRUE(StringStartsWith("aa", "aa"));
@@ -222,8 +222,8 @@ TEST(StringContains, Nominal) {
   EXPECT_TRUE(StringContains("a", "a"));
   EXPECT_TRUE(StringContains("ab", "a"));
   EXPECT_TRUE(StringContains("ab", "ab"));
-  EXPECT_TRUE(!StringContains("", "a"));
-  EXPECT_TRUE(!StringContains("ab", "c"));
+  EXPECT_FALSE(StringContains("", "a"));
+  EXPECT_FALSE(StringContains("ab", "c"));
 }
 
 }  // namespace colmap

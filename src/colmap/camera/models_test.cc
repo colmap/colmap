@@ -82,7 +82,7 @@ void TestModel(const std::vector<double>& params) {
   EXPECT_EQ(CameraModelNumParams(CameraModel::model_id),
             CameraModel::num_params);
 
-  EXPECT_TRUE(!CameraModelHasBogusParams(
+  EXPECT_FALSE(CameraModelHasBogusParams(
       CameraModel::model_id, default_params, 100, 100, 0.1, 2.0, 1.0));
   EXPECT_TRUE(CameraModelHasBogusParams(
       CameraModel::model_id, default_params, 100, 100, 0.1, 0.5, 1.0));
@@ -102,10 +102,10 @@ void TestModel(const std::vector<double>& params) {
             1.0 / 100.0);
 
   EXPECT_TRUE(ExistsCameraModelWithName(CameraModel::model_name));
-  EXPECT_TRUE(!ExistsCameraModelWithName(CameraModel::model_name + "FOO"));
+  EXPECT_FALSE(ExistsCameraModelWithName(CameraModel::model_name + "FOO"));
 
   EXPECT_TRUE(ExistsCameraModelWithId(CameraModel::model_id));
-  EXPECT_TRUE(!ExistsCameraModelWithId(CameraModel::model_id + 123456789));
+  EXPECT_FALSE(ExistsCameraModelWithId(CameraModel::model_id + 123456789));
 
   EXPECT_EQ(CameraModelNameToId(CameraModelIdToName(CameraModel::model_id)),
             CameraModel::model_id);

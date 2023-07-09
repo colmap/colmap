@@ -204,10 +204,10 @@ TEST(HasPointPositiveDepth, Nominal) {
   // In the image plane
   const bool check1 =
       HasPointPositiveDepth(proj_matrix, Eigen::Vector3d(0, 0, 0));
-  EXPECT_TRUE(!check1);
+  EXPECT_FALSE(check1);
   const bool check2 =
       HasPointPositiveDepth(proj_matrix, Eigen::Vector3d(0, 2, 0));
-  EXPECT_TRUE(!check2);
+  EXPECT_FALSE(check2);
 
   // Infront of camera
   const bool check3 =
@@ -217,7 +217,7 @@ TEST(HasPointPositiveDepth, Nominal) {
   // Behind camera
   const bool check4 =
       HasPointPositiveDepth(proj_matrix, Eigen::Vector3d(0, 0, -1));
-  EXPECT_TRUE(!check4);
+  EXPECT_FALSE(check4);
 }
 
 }  // namespace colmap

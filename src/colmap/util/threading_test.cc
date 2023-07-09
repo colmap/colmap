@@ -88,27 +88,27 @@ TEST(Thread, Wait) {
   };
 
   TestThread thread;
-  EXPECT_TRUE(!thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
-  EXPECT_TRUE(!thread.IsRunning());
-  EXPECT_TRUE(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.Start();
 
   thread.startBarrier.Wait();
   EXPECT_TRUE(thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
   EXPECT_TRUE(thread.IsRunning());
-  EXPECT_TRUE(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.endBarrier.Wait();
   thread.Wait();
   EXPECT_TRUE(thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
-  EXPECT_TRUE(!thread.IsRunning());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
   EXPECT_TRUE(thread.IsFinished());
 }
 
@@ -132,20 +132,20 @@ TEST(Thread, Pause) {
   };
 
   TestThread thread;
-  EXPECT_TRUE(!thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
-  EXPECT_TRUE(!thread.IsRunning());
-  EXPECT_TRUE(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.Start();
 
   thread.startBarrier.Wait();
   EXPECT_TRUE(thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
   EXPECT_TRUE(thread.IsRunning());
-  EXPECT_TRUE(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.pauseBarrier.Wait();
   thread.Pause();
@@ -154,25 +154,25 @@ TEST(Thread, Pause) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
   EXPECT_TRUE(thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
+  EXPECT_FALSE(thread.IsStopped());
   EXPECT_TRUE(thread.IsPaused());
-  EXPECT_TRUE(!thread.IsRunning());
-  EXPECT_TRUE(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.Resume();
   thread.resumedBarrier.Wait();
   EXPECT_TRUE(thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
   EXPECT_TRUE(thread.IsRunning());
-  EXPECT_TRUE(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.endBarrier.Wait();
   thread.Wait();
   EXPECT_TRUE(thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
-  EXPECT_TRUE(!thread.IsRunning());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
   EXPECT_TRUE(thread.IsFinished());
 }
 
@@ -206,20 +206,20 @@ TEST(Thread, PauseStop) {
   };
 
   TestThread thread;
-  EXPECT_TRUE(!thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
-  EXPECT_TRUE(!thread.IsRunning());
-  EXPECT_TRUE(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.Start();
 
   thread.startBarrier.Wait();
   EXPECT_TRUE(thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
   EXPECT_TRUE(thread.IsRunning());
-  EXPECT_TRUE(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.pauseBarrier.Wait();
   thread.Pause();
@@ -228,18 +228,18 @@ TEST(Thread, PauseStop) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
   EXPECT_TRUE(thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
+  EXPECT_FALSE(thread.IsStopped());
   EXPECT_TRUE(thread.IsPaused());
-  EXPECT_TRUE(!thread.IsRunning());
-  EXPECT_TRUE(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.Resume();
   thread.resumedBarrier.Wait();
   EXPECT_TRUE(thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
   EXPECT_TRUE(thread.IsRunning());
-  EXPECT_TRUE(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.stopBarrier.Wait();
   thread.Stop();
@@ -247,16 +247,16 @@ TEST(Thread, PauseStop) {
   thread.stoppedBarrier.Wait();
   EXPECT_TRUE(thread.IsStarted());
   EXPECT_TRUE(thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
+  EXPECT_FALSE(thread.IsPaused());
   EXPECT_TRUE(thread.IsRunning());
-  EXPECT_TRUE(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.endBarrier.Wait();
   thread.Wait();
   EXPECT_TRUE(thread.IsStarted());
   EXPECT_TRUE(thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
-  EXPECT_TRUE(!thread.IsRunning());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
   EXPECT_TRUE(thread.IsFinished());
 }
 
@@ -273,28 +273,28 @@ TEST(Thread, Restart) {
   };
 
   TestThread thread;
-  EXPECT_TRUE(!thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
-  EXPECT_TRUE(!thread.IsRunning());
-  EXPECT_TRUE(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   for (size_t i = 0; i < 2; ++i) {
     thread.Start();
 
     thread.startBarrier.Wait();
     EXPECT_TRUE(thread.IsStarted());
-    EXPECT_TRUE(!thread.IsStopped());
-    EXPECT_TRUE(!thread.IsPaused());
+    EXPECT_FALSE(thread.IsStopped());
+    EXPECT_FALSE(thread.IsPaused());
     EXPECT_TRUE(thread.IsRunning());
-    EXPECT_TRUE(!thread.IsFinished());
+    EXPECT_FALSE(thread.IsFinished());
 
     thread.endBarrier.Wait();
     thread.Wait();
     EXPECT_TRUE(thread.IsStarted());
-    EXPECT_TRUE(!thread.IsStopped());
-    EXPECT_TRUE(!thread.IsPaused());
-    EXPECT_TRUE(!thread.IsRunning());
+    EXPECT_FALSE(thread.IsStopped());
+    EXPECT_FALSE(thread.IsPaused());
+    EXPECT_FALSE(thread.IsRunning());
     EXPECT_TRUE(thread.IsFinished());
   }
 }
@@ -315,20 +315,20 @@ TEST(Thread, ValidSetup) {
   };
 
   TestThread thread;
-  EXPECT_TRUE(!thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
-  EXPECT_TRUE(!thread.IsRunning());
-  EXPECT_TRUE(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.Start();
 
   thread.startBarrier.Wait();
   EXPECT_TRUE(thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
   EXPECT_TRUE(thread.IsRunning());
-  EXPECT_TRUE(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.signalBarrier.Wait();
   EXPECT_TRUE(thread.CheckValidSetup());
@@ -336,9 +336,9 @@ TEST(Thread, ValidSetup) {
   thread.endBarrier.Wait();
   thread.Wait();
   EXPECT_TRUE(thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
-  EXPECT_TRUE(!thread.IsRunning());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
   EXPECT_TRUE(thread.IsFinished());
 }
 
@@ -358,30 +358,30 @@ TEST(Thread, InvalidSetup) {
   };
 
   TestThread thread;
-  EXPECT_TRUE(!thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
-  EXPECT_TRUE(!thread.IsRunning());
-  EXPECT_TRUE(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.Start();
 
   thread.startBarrier.Wait();
   EXPECT_TRUE(thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
   EXPECT_TRUE(thread.IsRunning());
-  EXPECT_TRUE(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.signalBarrier.Wait();
-  EXPECT_TRUE(!thread.CheckValidSetup());
+  EXPECT_FALSE(thread.CheckValidSetup());
 
   thread.endBarrier.Wait();
   thread.Wait();
   EXPECT_TRUE(thread.IsStarted());
-  EXPECT_TRUE(!thread.IsStopped());
-  EXPECT_TRUE(!thread.IsPaused());
-  EXPECT_TRUE(!thread.IsRunning());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
   EXPECT_TRUE(thread.IsFinished());
 }
 
@@ -425,8 +425,8 @@ TEST(Thread, Callback) {
   thread.Start();
   thread.Wait();
   EXPECT_TRUE(called_back1);
-  EXPECT_TRUE(!called_back2);
-  EXPECT_TRUE(!called_back3);
+  EXPECT_FALSE(called_back2);
+  EXPECT_FALSE(called_back3);
 
   called_back1 = false;
   called_back2 = false;
@@ -435,7 +435,7 @@ TEST(Thread, Callback) {
   thread.Wait();
   EXPECT_TRUE(called_back1);
   EXPECT_TRUE(called_back2);
-  EXPECT_TRUE(!called_back3);
+  EXPECT_FALSE(called_back3);
 
   called_back1 = false;
   called_back2 = false;
@@ -477,7 +477,7 @@ TEST(Thread, DefaultCallback) {
   thread.Start();
   thread.startBarrier.Wait();
   EXPECT_TRUE(called_back1);
-  EXPECT_TRUE(!called_back2);
+  EXPECT_FALSE(called_back2);
   thread.endBarrier.Wait();
   thread.Wait();
   EXPECT_TRUE(called_back1);
@@ -847,8 +847,8 @@ TEST(JobQueue, StopProducer) {
   job_queue.Stop();
   producer_thread.join();
 
-  EXPECT_TRUE(!job_queue.Push(0));
-  EXPECT_TRUE(!job_queue.Pop().IsValid());
+  EXPECT_FALSE(job_queue.Push(0));
+  EXPECT_FALSE(job_queue.Pop().IsValid());
 }
 
 TEST(JobQueue, StopConsumer) {
@@ -874,8 +874,8 @@ TEST(JobQueue, StopConsumer) {
   job_queue.Stop();
   consumer_thread.join();
 
-  EXPECT_TRUE(!job_queue.Push(0));
-  EXPECT_TRUE(!job_queue.Pop().IsValid());
+  EXPECT_FALSE(job_queue.Push(0));
+  EXPECT_FALSE(job_queue.Pop().IsValid());
 }
 
 TEST(JobQueue, Clear) {

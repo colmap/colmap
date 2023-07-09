@@ -66,10 +66,10 @@ TEST(CorrespondenceGraph, TwoView) {
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 0);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesBetweenImages(0, 1), 0);
   for (size_t i = 0; i < 10; ++i) {
-    EXPECT_TRUE(!correspondence_graph.HasCorrespondences(0, i));
-    EXPECT_TRUE(!correspondence_graph.HasCorrespondences(1, i));
-    EXPECT_TRUE(!correspondence_graph.IsTwoViewObservation(0, i));
-    EXPECT_TRUE(!correspondence_graph.IsTwoViewObservation(1, i));
+    EXPECT_FALSE(correspondence_graph.HasCorrespondences(0, i));
+    EXPECT_FALSE(correspondence_graph.HasCorrespondences(1, i));
+    EXPECT_FALSE(correspondence_graph.IsTwoViewObservation(0, i));
+    EXPECT_FALSE(correspondence_graph.IsTwoViewObservation(1, i));
   }
   FeatureMatches matches(4);
   matches[0].point2D_idx1 = 0;
@@ -182,12 +182,12 @@ TEST(CorrespondenceGraph, ThreeView) {
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(1), 0);
   EXPECT_EQ(correspondence_graph.NumCorrespondencesForImage(2), 0);
   for (size_t i = 0; i < 10; ++i) {
-    EXPECT_TRUE(!correspondence_graph.HasCorrespondences(0, i));
-    EXPECT_TRUE(!correspondence_graph.HasCorrespondences(1, i));
-    EXPECT_TRUE(!correspondence_graph.HasCorrespondences(2, i));
-    EXPECT_TRUE(!correspondence_graph.IsTwoViewObservation(0, i));
-    EXPECT_TRUE(!correspondence_graph.IsTwoViewObservation(1, i));
-    EXPECT_TRUE(!correspondence_graph.IsTwoViewObservation(2, i));
+    EXPECT_FALSE(correspondence_graph.HasCorrespondences(0, i));
+    EXPECT_FALSE(correspondence_graph.HasCorrespondences(1, i));
+    EXPECT_FALSE(correspondence_graph.HasCorrespondences(2, i));
+    EXPECT_FALSE(correspondence_graph.IsTwoViewObservation(0, i));
+    EXPECT_FALSE(correspondence_graph.IsTwoViewObservation(1, i));
+    EXPECT_FALSE(correspondence_graph.IsTwoViewObservation(2, i));
   }
   FeatureMatches matches01(1);
   matches01[0].point2D_idx1 = 0;

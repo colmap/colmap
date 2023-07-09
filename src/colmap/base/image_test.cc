@@ -277,19 +277,19 @@ TEST(Image, Points2D) {
 TEST(Image, Point3D) {
   Image image;
   image.SetPoints2D(std::vector<Eigen::Vector2d>(2));
-  EXPECT_TRUE(!image.Point2D(0).HasPoint3D());
-  EXPECT_TRUE(!image.Point2D(1).HasPoint3D());
+  EXPECT_FALSE(image.Point2D(0).HasPoint3D());
+  EXPECT_FALSE(image.Point2D(1).HasPoint3D());
   EXPECT_EQ(image.NumPoints3D(), 0);
   image.SetPoint3DForPoint2D(0, 0);
   EXPECT_TRUE(image.Point2D(0).HasPoint3D());
-  EXPECT_TRUE(!image.Point2D(1).HasPoint3D());
+  EXPECT_FALSE(image.Point2D(1).HasPoint3D());
   EXPECT_EQ(image.NumPoints3D(), 1);
   EXPECT_TRUE(image.HasPoint3D(0));
   image.SetPoint3DForPoint2D(0, 1);
   EXPECT_TRUE(image.Point2D(0).HasPoint3D());
-  EXPECT_TRUE(!image.Point2D(1).HasPoint3D());
+  EXPECT_FALSE(image.Point2D(1).HasPoint3D());
   EXPECT_EQ(image.NumPoints3D(), 1);
-  EXPECT_TRUE(!image.HasPoint3D(0));
+  EXPECT_FALSE(image.HasPoint3D(0));
   EXPECT_TRUE(image.HasPoint3D(1));
   image.SetPoint3DForPoint2D(1, 0);
   EXPECT_TRUE(image.Point2D(0).HasPoint3D());
@@ -298,23 +298,23 @@ TEST(Image, Point3D) {
   EXPECT_TRUE(image.HasPoint3D(0));
   EXPECT_TRUE(image.HasPoint3D(1));
   image.ResetPoint3DForPoint2D(0);
-  EXPECT_TRUE(!image.Point2D(0).HasPoint3D());
+  EXPECT_FALSE(image.Point2D(0).HasPoint3D());
   EXPECT_TRUE(image.Point2D(1).HasPoint3D());
   EXPECT_EQ(image.NumPoints3D(), 1);
   EXPECT_TRUE(image.HasPoint3D(0));
-  EXPECT_TRUE(!image.HasPoint3D(1));
+  EXPECT_FALSE(image.HasPoint3D(1));
   image.ResetPoint3DForPoint2D(1);
-  EXPECT_TRUE(!image.Point2D(0).HasPoint3D());
-  EXPECT_TRUE(!image.Point2D(1).HasPoint3D());
+  EXPECT_FALSE(image.Point2D(0).HasPoint3D());
+  EXPECT_FALSE(image.Point2D(1).HasPoint3D());
   EXPECT_EQ(image.NumPoints3D(), 0);
-  EXPECT_TRUE(!image.HasPoint3D(0));
-  EXPECT_TRUE(!image.HasPoint3D(1));
+  EXPECT_FALSE(image.HasPoint3D(0));
+  EXPECT_FALSE(image.HasPoint3D(1));
   image.ResetPoint3DForPoint2D(0);
-  EXPECT_TRUE(!image.Point2D(0).HasPoint3D());
-  EXPECT_TRUE(!image.Point2D(1).HasPoint3D());
+  EXPECT_FALSE(image.Point2D(0).HasPoint3D());
+  EXPECT_FALSE(image.Point2D(1).HasPoint3D());
   EXPECT_EQ(image.NumPoints3D(), 0);
-  EXPECT_TRUE(!image.HasPoint3D(0));
-  EXPECT_TRUE(!image.HasPoint3D(1));
+  EXPECT_FALSE(image.HasPoint3D(0));
+  EXPECT_FALSE(image.HasPoint3D(1));
 }
 
 TEST(Image, NormalizeQvec) {

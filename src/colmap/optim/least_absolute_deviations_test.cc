@@ -98,7 +98,7 @@ TEST(SolveLeastAbsoluteDeviations, UnderDetermined) {
   Eigen::VectorXd b(A.rows());
   Eigen::VectorXd x = Eigen::VectorXd::Zero(A.cols());
   LeastAbsoluteDeviationsOptions options;
-  EXPECT_TRUE(!SolveLeastAbsoluteDeviations(options, A, b, &x));
+  EXPECT_FALSE(SolveLeastAbsoluteDeviations(options, A, b, &x));
 }
 
 }  // namespace colmap
