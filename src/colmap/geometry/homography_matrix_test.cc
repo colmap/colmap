@@ -29,19 +29,17 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "geometry/homography_matrix"
 #include "colmap/geometry/homography_matrix.h"
-
-#include "colmap/util/testing.h"
 
 #include <cmath>
 
 #include <Eigen/Geometry>
+#include <gtest/gtest.h>
 
 namespace colmap {
 
 // Note that the test case values are obtained from OpenCV.
-BOOST_AUTO_TEST_CASE(TestDecomposeHomographyMatrix) {
+TEST(DecomposeHomographyMatrix, Nominal) {
   Eigen::Matrix3d H;
   H << 2.649157564634028, 4.583875997496426, 70.694447785121326,
       -1.072756858861583, 3.533262150437228, 1513.656999614321649,
@@ -56,9 +54,9 @@ BOOST_AUTO_TEST_CASE(TestDecomposeHomographyMatrix) {
   std::vector<Eigen::Vector3d> n;
   DecomposeHomographyMatrix(H, K, K, &R, &t, &n);
 
-  BOOST_CHECK_EQUAL(R.size(), 4);
-  BOOST_CHECK_EQUAL(t.size(), 4);
-  BOOST_CHECK_EQUAL(n.size(), 4);
+  EXPECT_EQ(R.size(), 4);
+  EXPECT_EQ(t.size(), 4);
+  EXPECT_EQ(n.size(), 4);
 
   Eigen::Matrix3d R_ref;
   R_ref << 0.43307983549125, 0.545749113549648, -0.717356090899523,
@@ -77,10 +75,10 @@ BOOST_AUTO_TEST_CASE(TestDecomposeHomographyMatrix) {
       ref_solution_exists = true;
     }
   }
-  BOOST_CHECK(ref_solution_exists);
+  EXPECT_TRUE(ref_solution_exists);
 }
 
-BOOST_AUTO_TEST_CASE(TestDecomposeHomographyMatrixRandom) {
+TEST(DecomposeHomographyMatrix, Random) {
   const int numIters = 100;
 
   const double epsilon = 1e-6;
@@ -99,9 +97,9 @@ BOOST_AUTO_TEST_CASE(TestDecomposeHomographyMatrixRandom) {
     std::vector<Eigen::Vector3d> n;
     DecomposeHomographyMatrix(H, id3, id3, &R, &t, &n);
 
-    BOOST_CHECK_EQUAL(R.size(), 4);
-    BOOST_CHECK_EQUAL(t.size(), 4);
-    BOOST_CHECK_EQUAL(n.size(), 4);
+    EXPECT_EQ(R.size(), 4);
+    EXPECT_EQ(t.size(), 4);
+    EXPECT_EQ(n.size(), 4);
 
     // Test that each candidate rotation is a rotation
     for (const Eigen::Matrix3d& candidate_R : R) {
@@ -109,15 +107,15 @@ BOOST_AUTO_TEST_CASE(TestDecomposeHomographyMatrixRandom) {
           candidate_R.transpose() * candidate_R - id3;
 
       // Check that candidate_R is an orthognal matrix
-      BOOST_CHECK_LT(orthog_error.lpNorm<Eigen::Infinity>(), epsilon);
+      EXPECT_LT(orthog_error.lpNorm<Eigen::Infinity>(), epsilon);
 
       // Check determinant is 1
-      BOOST_CHECK_CLOSE(candidate_R.determinant(), 1.0, epsilon);
+      EXPECT_NEAR(candidate_R.determinant(), 1.0, epsilon);
     }
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestPoseFromHomographyMatrix) {
+TEST(PoseFromHomographyMatrix, Nominal) {
   const Eigen::Matrix3d K1 = Eigen::Matrix3d::Identity();
   const Eigen::Matrix3d K2 = Eigen::Matrix3d::Identity();
   const Eigen::Matrix3d R_ref = Eigen::Matrix3d::Identity();
@@ -145,13 +143,13 @@ BOOST_AUTO_TEST_CASE(TestPoseFromHomographyMatrix) {
   std::vector<Eigen::Vector3d> points3D;
   PoseFromHomographyMatrix(H, K1, K2, points1, points2, &R, &t, &n, &points3D);
 
-  BOOST_CHECK_EQUAL(R, R_ref);
-  BOOST_CHECK_EQUAL(t, t_ref);
-  BOOST_CHECK_EQUAL(n, n_ref);
-  BOOST_CHECK_EQUAL(points3D.size(), points1.size());
+  EXPECT_EQ(R, R_ref);
+  EXPECT_EQ(t, t_ref);
+  EXPECT_EQ(n, n_ref);
+  EXPECT_EQ(points3D.size(), points1.size());
 }
 
-BOOST_AUTO_TEST_CASE(TestHomographyMatrixFromPosePureRotation) {
+TEST(HomographyMatrixFromPose, PureRotation) {
   const Eigen::Matrix3d K1 = Eigen::Matrix3d::Identity();
   const Eigen::Matrix3d K2 = Eigen::Matrix3d::Identity();
   const Eigen::Matrix3d R = Eigen::Matrix3d::Identity();
@@ -159,10 +157,10 @@ BOOST_AUTO_TEST_CASE(TestHomographyMatrixFromPosePureRotation) {
   const Eigen::Vector3d n(-1, 0, 0);
   const double d = 1;
   const Eigen::Matrix3d H = HomographyMatrixFromPose(K1, K2, R, t, n, d);
-  BOOST_CHECK_EQUAL(H, Eigen::Matrix3d::Identity());
+  EXPECT_EQ(H, Eigen::Matrix3d::Identity());
 }
 
-BOOST_AUTO_TEST_CASE(TestHomographyMatrixFromPosePlanarScene) {
+TEST(HomographyMatrixFromPose, PlanarScene) {
   const Eigen::Matrix3d K1 = Eigen::Matrix3d::Identity();
   const Eigen::Matrix3d K2 = Eigen::Matrix3d::Identity();
   const Eigen::Matrix3d R = Eigen::Matrix3d::Identity();
@@ -172,7 +170,7 @@ BOOST_AUTO_TEST_CASE(TestHomographyMatrixFromPosePlanarScene) {
   const Eigen::Matrix3d H = HomographyMatrixFromPose(K1, K2, R, t, n, d);
   Eigen::Matrix3d H_ref;
   H_ref << 2, 0, 0, 0, 1, 0, 0, 0, 1;
-  BOOST_CHECK_EQUAL(H, H_ref);
+  EXPECT_EQ(H, H_ref);
 }
 
 }  // namespace colmap

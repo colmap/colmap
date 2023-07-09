@@ -49,8 +49,6 @@ set(COLMAP_FOUND FALSE)
 
 # Set hints for finding dependency packages.
 
-set(EIGEN3_INCLUDE_DIR_HINTS @EIGEN3_INCLUDE_DIR_HINTS@)
-
 set(FLANN_INCLUDE_DIR_HINTS @FLANN_INCLUDE_DIR_HINTS@)
 set(FLANN_LIBRARY_DIR_HINTS @FLANN_LIBRARY_DIR_HINTS@)
 
@@ -66,12 +64,6 @@ set(METIS_LIBRARY_DIR_HINTS @METIS_LIBRARY_DIR_HINTS@)
 set(GLEW_INCLUDE_DIR_HINTS @GLEW_INCLUDE_DIR_HINTS@)
 set(GLEW_LIBRARY_DIR_HINTS @GLEW_LIBRARY_DIR_HINTS@)
 
-set(GLOG_INCLUDE_DIR_HINTS @GLOG_INCLUDE_DIR_HINTS@)
-set(GLOG_LIBRARY_DIR_HINTS @GLOG_LIBRARY_DIR_HINTS@)
-
-set(SQLite3_INCLUDE_DIR_HINTS @SQLite3_INCLUDE_DIR_HINTS@)
-set(SQLite3_LIBRARY_DIR_HINTS @SQLite3_LIBRARY_DIR_HINTS@)
-
 # Find dependency packages.
 
 set(TEMP_CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH})
@@ -81,11 +73,11 @@ if(COLMAP_FIND_QUIETLY)
     find_package(Ceres QUIET)
 
     find_package(Boost COMPONENTS
-                program_options
-                filesystem
-                system
-                unit_test_framework
-                QUIET)
+                 program_options
+                 filesystem
+                 system
+                 unit_test_framework
+                 QUIET)
 
     find_package(Eigen3 QUIET)
 
@@ -106,11 +98,11 @@ else()
     find_package(Ceres REQUIRED)
 
     find_package(Boost COMPONENTS
-                program_options
-                filesystem
-                system
-                unit_test_framework
-                REQUIRED)
+                 program_options
+                 filesystem
+                 system
+                 unit_test_framework
+                 REQUIRED)
 
     find_package(Eigen3 REQUIRED)
 
@@ -148,16 +140,12 @@ set(COLMAP_INCLUDE_DIRS
     ${COLMAP_INSTALL_PREFIX}/include/
     ${COLMAP_INSTALL_PREFIX}/include/colmap
     ${COLMAP_INSTALL_PREFIX}/include/colmap/lib
-    ${Boost_INCLUDE_DIRS}
-    ${EIGEN3_INCLUDE_DIRS}
-    ${GLOG_INCLUDE_DIRS}
     ${FLANN_INCLUDE_DIRS}
     ${LZ4_INCLUDE_DIRS}
     ${FREEIMAGE_INCLUDE_DIRS}
     ${METIS_INCLUDE_DIRS}
     ${CERES_INCLUDE_DIRS}
     ${GLEW_INCLUDE_DIRS}
-    ${SQLite3_INCLUDE_DIRS}
 )
 
 set(COLMAP_LINK_DIRS
@@ -175,7 +163,6 @@ set(COLMAP_INTERNAL_LIBRARIES
 
 set(COLMAP_EXTERNAL_LIBRARIES
     ${CMAKE_DL_LIBS}
-    ${GLOG_LIBRARIES}
     ${FLANN_LIBRARIES}
     ${LZ4_LIBRARIES}
     ${FREEIMAGE_LIBRARIES}
@@ -183,7 +170,13 @@ set(COLMAP_EXTERNAL_LIBRARIES
     ${CERES_LIBRARIES}
     ${OPENGL_LIBRARIES}
     ${GLEW_LIBRARIES}
-    ${SQLite3_LIBRARIES}
+    Boost::program_options
+    Boost::filesystem
+    Boost::graph
+    Boost::system
+    Eigen3::Eigen
+    glog::glog
+    SQLite::SQLite3
 )
 
 if(UNIX)
@@ -236,7 +229,6 @@ set(COLMAP_LIBRARIES
 set(CMAKE_MODULE_PATH ${TEMP_CMAKE_MODULE_PATH})
 
 unset(COLMAP_INSTALL_PREFIX)
-unset(EIGEN3_INCLUDE_DIR_HINTS)
 unset(FLANN_INCLUDE_DIR_HINTS)
 unset(FLANN_LIBRARY_DIR_HINTS)
 unset(LZ4_INCLUDE_DIR_HINTS)
@@ -247,8 +239,4 @@ unset(METIS_INCLUDE_DIR_HINTS)
 unset(METIS_LIBRARY_DIR_HINTS)
 unset(GLEW_INCLUDE_DIR_HINTS)
 unset(GLEW_LIBRARY_DIR_HINTS)
-unset(GLOG_INCLUDE_DIR_HINTS)
-unset(GLOG_LIBRARY_DIR_HINTS)
-unset(SQLite3_INCLUDE_DIR_HINTS)
-unset(SQLite3_LIBRARY_DIR_HINTS)
 unset(QT5_CMAKE_CONFIG_DIR_HINTS)

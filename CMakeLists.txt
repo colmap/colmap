@@ -67,16 +67,9 @@ option(ASAN_ENABLED "Whether to enable AddressSanitizer flags" OFF)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
-option(BOOST_STATIC "Whether to enable static boost library linker flags" OFF)
 
 if(TESTS_ENABLED)
     enable_testing()
-endif()
-
-if(BOOST_STATIC)
-    set(Boost_USE_STATIC_LIBS ON)
-else()
-    add_definitions("-DBOOST_TEST_DYN_LINK")
 endif()
 
 # Build position-independent code, so that shared libraries can link against
@@ -87,18 +80,13 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # Find packages
 ################################################################################
 
-if(OPENMP_ENABLED)
-    find_package(OpenMP QUIET)
-endif()
-
 find_package(Ceres REQUIRED)
 
 find_package(Boost REQUIRED COMPONENTS
              program_options
              filesystem
              graph
-             system
-             unit_test_framework)
+             system)
 
 find_package(Eigen3 REQUIRED)
 
@@ -117,6 +105,14 @@ set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL REQUIRED)
 find_package(Glew REQUIRED)
 find_package(Git)
+
+if(TESTS_ENABLED)
+    find_package(GTest REQUIRED)
+endif()
+
+if(OPENMP_ENABLED)
+    find_package(OpenMP QUIET)
+endif()
 
 if(CGAL_ENABLED)
     set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE TRUE)

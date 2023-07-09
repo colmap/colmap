@@ -29,16 +29,16 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "base/cost_functions"
 #include "colmap/base/cost_functions.h"
 
 #include "colmap/camera/models.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/util/testing.h"
+
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestBundleAdjustmentCostFunction) {
+TEST(BundleAdjustment, AbsolutePose) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       BundleAdjustmentCostFunction<SimplePinholeCameraModel>::Create(
           Eigen::Vector2d::Zero()));
@@ -48,27 +48,27 @@ BOOST_AUTO_TEST_CASE(TestBundleAdjustmentCostFunction) {
   double camera_params[3] = {1, 0, 0};
   double residuals[2];
   const double* parameters[4] = {qvec, tvec, point3D, camera_params};
-  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
-  BOOST_CHECK_EQUAL(residuals[0], 0);
-  BOOST_CHECK_EQUAL(residuals[1], 0);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
 
   point3D[1] = 1;
-  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
-  BOOST_CHECK_EQUAL(residuals[0], 0);
-  BOOST_CHECK_EQUAL(residuals[1], 1);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 1);
 
   camera_params[0] = 2;
-  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
-  BOOST_CHECK_EQUAL(residuals[0], 0);
-  BOOST_CHECK_EQUAL(residuals[1], 2);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 2);
 
   point3D[0] = -1;
-  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
-  BOOST_CHECK_EQUAL(residuals[0], -2);
-  BOOST_CHECK_EQUAL(residuals[1], 2);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], -2);
+  EXPECT_EQ(residuals[1], 2);
 }
 
-BOOST_AUTO_TEST_CASE(TestBundleAdjustmentConstantPoseCostFunction) {
+TEST(BundleAdjustment, ConstantAbsolutePose) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       BundleAdjustmentConstantPoseCostFunction<
           SimplePinholeCameraModel>::Create(ComposeIdentityQuaternion(),
@@ -78,27 +78,27 @@ BOOST_AUTO_TEST_CASE(TestBundleAdjustmentConstantPoseCostFunction) {
   double camera_params[3] = {1, 0, 0};
   double residuals[2];
   const double* parameters[2] = {point3D, camera_params};
-  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
-  BOOST_CHECK_EQUAL(residuals[0], 0);
-  BOOST_CHECK_EQUAL(residuals[1], 0);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
 
   point3D[1] = 1;
-  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
-  BOOST_CHECK_EQUAL(residuals[0], 0);
-  BOOST_CHECK_EQUAL(residuals[1], 1);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 1);
 
   camera_params[0] = 2;
-  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
-  BOOST_CHECK_EQUAL(residuals[0], 0);
-  BOOST_CHECK_EQUAL(residuals[1], 2);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 2);
 
   point3D[0] = -1;
-  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
-  BOOST_CHECK_EQUAL(residuals[0], -2);
-  BOOST_CHECK_EQUAL(residuals[1], 2);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], -2);
+  EXPECT_EQ(residuals[1], 2);
 }
 
-BOOST_AUTO_TEST_CASE(TestRigBundleAdjustmentCostFunction) {
+TEST(BundleAdjustment, Rig) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       RigBundleAdjustmentCostFunction<SimplePinholeCameraModel>::Create(
           Eigen::Vector2d::Zero()));
@@ -111,27 +111,27 @@ BOOST_AUTO_TEST_CASE(TestRigBundleAdjustmentCostFunction) {
   double residuals[2];
   const double* parameters[6] = {
       rig_qvec, rig_tvec, rel_qvec, rel_tvec, point3D, camera_params};
-  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
-  BOOST_CHECK_EQUAL(residuals[0], 0);
-  BOOST_CHECK_EQUAL(residuals[1], 0);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0);
 
   point3D[1] = 1;
-  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
-  BOOST_CHECK_EQUAL(residuals[0], 0);
-  BOOST_CHECK_EQUAL(residuals[1], 1);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 1);
 
   camera_params[0] = 2;
-  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
-  BOOST_CHECK_EQUAL(residuals[0], 0);
-  BOOST_CHECK_EQUAL(residuals[1], 2);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 2);
 
   point3D[0] = -1;
-  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
-  BOOST_CHECK_EQUAL(residuals[0], -2);
-  BOOST_CHECK_EQUAL(residuals[1], 2);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], -2);
+  EXPECT_EQ(residuals[1], 2);
 }
 
-BOOST_AUTO_TEST_CASE(TestRelativePoseCostFunction) {
+TEST(BundleAdjustment, RelativePose) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       RelativePoseCostFunction::Create(Eigen::Vector2d(0, 0),
                                        Eigen::Vector2d(0, 0)));
@@ -139,18 +139,18 @@ BOOST_AUTO_TEST_CASE(TestRelativePoseCostFunction) {
   double tvec[3] = {0, 1, 0};
   double residuals[1];
   const double* parameters[2] = {qvec, tvec};
-  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
-  BOOST_CHECK_EQUAL(residuals[0], 0);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0);
 
   cost_function.reset(RelativePoseCostFunction::Create(Eigen::Vector2d(0, 0),
                                                        Eigen::Vector2d(1, 0)));
-  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
-  BOOST_CHECK_EQUAL(residuals[0], 0.5);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0.5);
 
   cost_function.reset(RelativePoseCostFunction::Create(Eigen::Vector2d(0, 0),
                                                        Eigen::Vector2d(1, 1)));
-  BOOST_CHECK(cost_function->Evaluate(parameters, residuals, nullptr));
-  BOOST_CHECK_EQUAL(residuals[0], 0.5);
+  EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+  EXPECT_EQ(residuals[0], 0.5);
 }
 
 }  // namespace colmap

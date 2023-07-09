@@ -29,26 +29,26 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "estimators/two_view_geometry"
 #include "colmap/estimators/two_view_geometry.h"
 
 #include "colmap/geometry/pose.h"
-#include "colmap/util/testing.h"
+
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestDefault) {
+TEST(TwoViewGeometry, Default) {
   TwoViewGeometry two_view_geometry;
-  BOOST_CHECK_EQUAL(two_view_geometry.config, TwoViewGeometry::UNDEFINED);
-  BOOST_CHECK_EQUAL(two_view_geometry.F, Eigen::Matrix3d::Zero());
-  BOOST_CHECK_EQUAL(two_view_geometry.E, Eigen::Matrix3d::Zero());
-  BOOST_CHECK_EQUAL(two_view_geometry.H, Eigen::Matrix3d::Zero());
-  BOOST_CHECK_EQUAL(two_view_geometry.qvec, Eigen::Vector4d::Zero());
-  BOOST_CHECK_EQUAL(two_view_geometry.tvec, Eigen::Vector3d::Zero());
-  BOOST_CHECK(two_view_geometry.inlier_matches.empty());
+  EXPECT_EQ(two_view_geometry.config, TwoViewGeometry::UNDEFINED);
+  EXPECT_EQ(two_view_geometry.F, Eigen::Matrix3d::Zero());
+  EXPECT_EQ(two_view_geometry.E, Eigen::Matrix3d::Zero());
+  EXPECT_EQ(two_view_geometry.H, Eigen::Matrix3d::Zero());
+  EXPECT_EQ(two_view_geometry.qvec, Eigen::Vector4d::Zero());
+  EXPECT_EQ(two_view_geometry.tvec, Eigen::Vector3d::Zero());
+  EXPECT_TRUE(two_view_geometry.inlier_matches.empty());
 }
 
-BOOST_AUTO_TEST_CASE(TestInvert) {
+TEST(TwoViewGeometry, Invert) {
   TwoViewGeometry two_view_geometry;
   two_view_geometry.config = TwoViewGeometry::CALIBRATED;
   two_view_geometry.F = two_view_geometry.E = two_view_geometry.H =
@@ -60,28 +60,28 @@ BOOST_AUTO_TEST_CASE(TestInvert) {
   two_view_geometry.inlier_matches[1] = FeatureMatch(2, 3);
 
   two_view_geometry.Invert();
-  BOOST_CHECK_EQUAL(two_view_geometry.config, TwoViewGeometry::CALIBRATED);
-  BOOST_CHECK(two_view_geometry.F.isApprox(Eigen::Matrix3d::Identity()));
-  BOOST_CHECK(two_view_geometry.E.isApprox(Eigen::Matrix3d::Identity()));
-  BOOST_CHECK(two_view_geometry.H.isApprox(Eigen::Matrix3d::Identity()));
-  BOOST_CHECK(two_view_geometry.qvec.isApprox(ComposeIdentityQuaternion()));
-  BOOST_CHECK(two_view_geometry.tvec.isApprox(Eigen::Vector3d(-0, -1, -2)));
-  BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[0].point2D_idx1, 1);
-  BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[0].point2D_idx2, 0);
-  BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[1].point2D_idx1, 3);
-  BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[1].point2D_idx2, 2);
+  EXPECT_EQ(two_view_geometry.config, TwoViewGeometry::CALIBRATED);
+  EXPECT_TRUE(two_view_geometry.F.isApprox(Eigen::Matrix3d::Identity()));
+  EXPECT_TRUE(two_view_geometry.E.isApprox(Eigen::Matrix3d::Identity()));
+  EXPECT_TRUE(two_view_geometry.H.isApprox(Eigen::Matrix3d::Identity()));
+  EXPECT_TRUE(two_view_geometry.qvec.isApprox(ComposeIdentityQuaternion()));
+  EXPECT_TRUE(two_view_geometry.tvec.isApprox(Eigen::Vector3d(-0, -1, -2)));
+  EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 1);
+  EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 0);
+  EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 3);
+  EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 2);
 
   two_view_geometry.Invert();
-  BOOST_CHECK_EQUAL(two_view_geometry.config, TwoViewGeometry::CALIBRATED);
-  BOOST_CHECK(two_view_geometry.F.isApprox(Eigen::Matrix3d::Identity()));
-  BOOST_CHECK(two_view_geometry.E.isApprox(Eigen::Matrix3d::Identity()));
-  BOOST_CHECK(two_view_geometry.H.isApprox(Eigen::Matrix3d::Identity()));
-  BOOST_CHECK(two_view_geometry.qvec.isApprox(ComposeIdentityQuaternion()));
-  BOOST_CHECK(two_view_geometry.tvec.isApprox(Eigen::Vector3d(0, 1, 2)));
-  BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
-  BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
-  BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[1].point2D_idx1, 2);
-  BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[1].point2D_idx2, 3);
+  EXPECT_EQ(two_view_geometry.config, TwoViewGeometry::CALIBRATED);
+  EXPECT_TRUE(two_view_geometry.F.isApprox(Eigen::Matrix3d::Identity()));
+  EXPECT_TRUE(two_view_geometry.E.isApprox(Eigen::Matrix3d::Identity()));
+  EXPECT_TRUE(two_view_geometry.H.isApprox(Eigen::Matrix3d::Identity()));
+  EXPECT_TRUE(two_view_geometry.qvec.isApprox(ComposeIdentityQuaternion()));
+  EXPECT_TRUE(two_view_geometry.tvec.isApprox(Eigen::Vector3d(0, 1, 2)));
+  EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
+  EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
+  EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 2);
+  EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 3);
 }
 
 }  // namespace colmap

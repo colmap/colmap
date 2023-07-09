@@ -29,7 +29,6 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "estimators/essential_matrix"
 #include "colmap/geometry/essential_matrix.h"
 
 #include "colmap/camera/models.h"
@@ -38,13 +37,13 @@
 #include "colmap/geometry/projection.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/random.h"
-#include "colmap/util/testing.h"
 
 #include <Eigen/Core>
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestFivePoint) {
+TEST(EssentialMatrix, FivePoint) {
   const double points1_raw[] = {
       0.4964, 1.0577, 0.3650,  -0.0919, -0.5412, 0.0159, -0.5239, 0.9467,
       0.3467, 0.5301, 0.2797,  0.0012,  -0.1986, 0.0460, -0.1622, 0.5347,
@@ -81,14 +80,14 @@ BOOST_AUTO_TEST_CASE(TestFivePoint) {
       points1, points2, report.model, &residuals);
 
   for (size_t i = 0; i < 10; ++i) {
-    BOOST_CHECK_LE(residuals[i], options.max_error * options.max_error);
+    EXPECT_LE(residuals[i], options.max_error * options.max_error);
   }
 
-  BOOST_CHECK(!report.inlier_mask[10]);
-  BOOST_CHECK(!report.inlier_mask[11]);
+  EXPECT_FALSE(report.inlier_mask[10]);
+  EXPECT_FALSE(report.inlier_mask[11]);
 }
 
-BOOST_AUTO_TEST_CASE(TestEightPoint) {
+TEST(EssentialMatrix, EightPoint) {
   const double points1_raw[] = {1.839035,
                                 1.924743,
                                 0.543582,
@@ -137,22 +136,22 @@ BOOST_AUTO_TEST_CASE(TestEightPoint) {
   const auto E = estimator.Estimate(points1, points2)[0];
 
   // Reference values.
-  BOOST_CHECK(std::abs(E(0, 0) - -0.0368602) < 1e-5);
-  BOOST_CHECK(std::abs(E(0, 1) - 0.265019) < 1e-5);
-  BOOST_CHECK(std::abs(E(0, 2) - -0.0625948) < 1e-5);
-  BOOST_CHECK(std::abs(E(1, 0) - -0.299679) < 1e-5);
-  BOOST_CHECK(std::abs(E(1, 1) - -0.110667) < 1e-5);
-  BOOST_CHECK(std::abs(E(1, 2) - 0.147114) < 1e-5);
-  BOOST_CHECK(std::abs(E(2, 0) - 0.169381) < 1e-5);
-  BOOST_CHECK(std::abs(E(2, 1) - -0.21072) < 1e-5);
-  BOOST_CHECK(std::abs(E(2, 2) - -0.00401306) < 1e-5);
+  EXPECT_TRUE(std::abs(E(0, 0) - -0.0368602) < 1e-5);
+  EXPECT_TRUE(std::abs(E(0, 1) - 0.265019) < 1e-5);
+  EXPECT_TRUE(std::abs(E(0, 2) - -0.0625948) < 1e-5);
+  EXPECT_TRUE(std::abs(E(1, 0) - -0.299679) < 1e-5);
+  EXPECT_TRUE(std::abs(E(1, 1) - -0.110667) < 1e-5);
+  EXPECT_TRUE(std::abs(E(1, 2) - 0.147114) < 1e-5);
+  EXPECT_TRUE(std::abs(E(2, 0) - 0.169381) < 1e-5);
+  EXPECT_TRUE(std::abs(E(2, 1) - -0.21072) < 1e-5);
+  EXPECT_TRUE(std::abs(E(2, 2) - -0.00401306) < 1e-5);
 
   // Check that the internal constraint is satisfied (two singular values equal
   // and one zero).
   Eigen::JacobiSVD<Eigen::Matrix3d> svd(E);
   Eigen::Vector3d s = svd.singularValues();
-  BOOST_CHECK(std::abs(s(0) - s(1)) < 1e-5);
-  BOOST_CHECK(std::abs(s(2)) < 1e-5);
+  EXPECT_TRUE(std::abs(s(0) - s(1)) < 1e-5);
+  EXPECT_TRUE(std::abs(s(2)) < 1e-5);
 }
 
 }  // namespace colmap

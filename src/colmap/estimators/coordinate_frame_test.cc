@@ -29,30 +29,30 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "estimators/coordinate_frame"
 #include "colmap/estimators/coordinate_frame.h"
 
 #include "colmap/geometry/gps.h"
-#include "colmap/util/testing.h"
+
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestEstimateGravityVectorFromImageOrientation) {
+TEST(CoordinateFrame, EstimateGravityVectorFromImageOrientation) {
   Reconstruction reconstruction;
-  BOOST_CHECK_EQUAL(EstimateGravityVectorFromImageOrientation(reconstruction),
-                    Eigen::Vector3d::Zero());
+  EXPECT_EQ(EstimateGravityVectorFromImageOrientation(reconstruction),
+            Eigen::Vector3d::Zero());
 }
 
-BOOST_AUTO_TEST_CASE(TestEstimateManhattanWorldFrame) {
+TEST(CoordinateFrame, EstimateManhattanWorldFrame) {
   Reconstruction reconstruction;
   std::string image_path;
-  BOOST_CHECK_EQUAL(
+  EXPECT_EQ(
       EstimateManhattanWorldFrame(
           ManhattanWorldFrameEstimationOptions(), reconstruction, image_path),
       Eigen::Matrix3d::Zero());
 }
 
-BOOST_AUTO_TEST_CASE(TestAlignToPrincipalPlane) {
+TEST(CoordinateFrame, AlignToPrincipalPlane) {
   // Start with reconstruction containing points on the Y-Z plane and cameras
   // "above" the plane on the positive X axis. After alignment the points should
   // be on the X-Y plane and the cameras "above" the plane on the positive Z
@@ -80,27 +80,27 @@ BOOST_AUTO_TEST_CASE(TestAlignToPrincipalPlane) {
   const bool inverted = tform.Rotation()(2) < 0;
 
   // Verify that points lie on the correct locations of the X-Y plane
-  BOOST_CHECK_LE((reconstruction.Point3D(p1).XYZ() -
-                  Eigen::Vector3d(inverted ? 1.0 : -1.0, 0.0, 0.0))
-                     .norm(),
-                 1e-6);
-  BOOST_CHECK_LE((reconstruction.Point3D(p2).XYZ() -
-                  Eigen::Vector3d(inverted ? -1.0 : 1.0, 0.0, 0.0))
-                     .norm(),
-                 1e-6);
-  BOOST_CHECK_LE((reconstruction.Point3D(p3).XYZ() -
-                  Eigen::Vector3d(0.0, inverted ? 1.0 : -1.0, 0.0))
-                     .norm(),
-                 1e-6);
-  BOOST_CHECK_LE((reconstruction.Point3D(p4).XYZ() -
-                  Eigen::Vector3d(0.0, inverted ? -1.0 : 1.0, 0.0))
-                     .norm(),
-                 1e-6);
+  EXPECT_LE((reconstruction.Point3D(p1).XYZ() -
+             Eigen::Vector3d(inverted ? 1.0 : -1.0, 0.0, 0.0))
+                .norm(),
+            1e-6);
+  EXPECT_LE((reconstruction.Point3D(p2).XYZ() -
+             Eigen::Vector3d(inverted ? -1.0 : 1.0, 0.0, 0.0))
+                .norm(),
+            1e-6);
+  EXPECT_LE((reconstruction.Point3D(p3).XYZ() -
+             Eigen::Vector3d(0.0, inverted ? 1.0 : -1.0, 0.0))
+                .norm(),
+            1e-6);
+  EXPECT_LE((reconstruction.Point3D(p4).XYZ() -
+             Eigen::Vector3d(0.0, inverted ? -1.0 : 1.0, 0.0))
+                .norm(),
+            1e-6);
   // Verify that projection center is at (0, 0, 1)
-  BOOST_CHECK_LE((reconstruction.Image(1).ProjectionCenter() -
-                  Eigen::Vector3d(0.0, 0.0, 1.0))
-                     .norm(),
-                 1e-6);
+  EXPECT_LE((reconstruction.Image(1).ProjectionCenter() -
+             Eigen::Vector3d(0.0, 0.0, 1.0))
+                .norm(),
+            1e-6);
   // Verify that transform matrix does shuffling of axes
   Eigen::Matrix4d mat;
   if (inverted) {
@@ -109,10 +109,10 @@ BOOST_AUTO_TEST_CASE(TestAlignToPrincipalPlane) {
     mat << 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1;
   }
   std::cout << tform.Matrix() << std::endl;
-  BOOST_CHECK_LE((tform.Matrix() - mat).norm(), 1e-6);
+  EXPECT_LE((tform.Matrix() - mat).norm(), 1e-6);
 }
 
-BOOST_AUTO_TEST_CASE(TestAlignToENUPlane) {
+TEST(CoordinateFrame, AlignToENUPlane) {
   // Create reconstruction with 4 points with known LLA coordinates. After the
   // ENU transform all 4 points should land approximately on the X-Y plane.
   GPSTransform gps;
@@ -129,22 +129,22 @@ BOOST_AUTO_TEST_CASE(TestAlignToENUPlane) {
   }
   AlignToENUPlane(&reconstruction, &tform, false);
   // Verify final locations of points
-  BOOST_CHECK_LE((reconstruction.Point3D(point_ids[0]).XYZ() -
-                  Eigen::Vector3d(3584.8565215, -5561.5336506, 0.0742643))
-                     .norm(),
-                 1e-6);
-  BOOST_CHECK_LE((reconstruction.Point3D(point_ids[1]).XYZ() -
-                  Eigen::Vector3d(-3577.3888622, 5561.6397107, 0.0783761))
-                     .norm(),
-                 1e-6);
-  BOOST_CHECK_LE((reconstruction.Point3D(point_ids[2]).XYZ() -
-                  Eigen::Vector3d(3577.4152111, 5561.6397283, 0.0783613))
-                     .norm(),
-                 1e-6);
-  BOOST_CHECK_LE((reconstruction.Point3D(point_ids[3]).XYZ() -
-                  Eigen::Vector3d(-3584.8301178, -5561.5336683, 0.0742791))
-                     .norm(),
-                 1e-6);
+  EXPECT_LE((reconstruction.Point3D(point_ids[0]).XYZ() -
+             Eigen::Vector3d(3584.8565215, -5561.5336506, 0.0742643))
+                .norm(),
+            1e-6);
+  EXPECT_LE((reconstruction.Point3D(point_ids[1]).XYZ() -
+             Eigen::Vector3d(-3577.3888622, 5561.6397107, 0.0783761))
+                .norm(),
+            1e-6);
+  EXPECT_LE((reconstruction.Point3D(point_ids[2]).XYZ() -
+             Eigen::Vector3d(3577.4152111, 5561.6397283, 0.0783613))
+                .norm(),
+            1e-6);
+  EXPECT_LE((reconstruction.Point3D(point_ids[3]).XYZ() -
+             Eigen::Vector3d(-3584.8301178, -5561.5336683, 0.0742791))
+                .norm(),
+            1e-6);
 
   // Verify that straight line distance between points is preserved
   for (size_t i = 1; i < points.size(); ++i) {
@@ -152,7 +152,7 @@ BOOST_AUTO_TEST_CASE(TestAlignToENUPlane) {
     const double dist_tform = (reconstruction.Point3D(point_ids[i]).XYZ() -
                                reconstruction.Point3D(point_ids[i - 1]).XYZ())
                                   .norm();
-    BOOST_CHECK_LE(std::abs(dist_orig - dist_tform), 1e-6);
+    EXPECT_LE(std::abs(dist_orig - dist_tform), 1e-6);
   }
 }
 

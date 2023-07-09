@@ -29,63 +29,63 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "optim/bundle_adjustment"
 #include "colmap/optim/bundle_adjustment.h"
 
 #include "colmap/base/correspondence_graph.h"
 #include "colmap/camera/models.h"
 #include "colmap/geometry/projection.h"
 #include "colmap/util/random.h"
-#include "colmap/util/testing.h"
 
-#define CheckVariableCamera(camera, orig_camera)            \
-  {                                                         \
-    const size_t focal_length_idx =                         \
-        SimpleRadialCameraModel::focal_length_idxs[0];      \
-    const size_t extra_param_idx =                          \
-        SimpleRadialCameraModel::extra_params_idxs[0];      \
-    BOOST_CHECK_NE((camera).Params(focal_length_idx),       \
-                   (orig_camera).Params(focal_length_idx)); \
-    BOOST_CHECK_NE((camera).Params(extra_param_idx),        \
-                   (orig_camera).Params(extra_param_idx));  \
+#include <gtest/gtest.h>
+
+#define CheckVariableCamera(camera, orig_camera)       \
+  {                                                    \
+    const size_t focal_length_idx =                    \
+        SimpleRadialCameraModel::focal_length_idxs[0]; \
+    const size_t extra_param_idx =                     \
+        SimpleRadialCameraModel::extra_params_idxs[0]; \
+    EXPECT_NE((camera).Params(focal_length_idx),       \
+              (orig_camera).Params(focal_length_idx)); \
+    EXPECT_NE((camera).Params(extra_param_idx),        \
+              (orig_camera).Params(extra_param_idx));  \
   }
 
-#define CheckConstantCamera(camera, orig_camera)               \
-  {                                                            \
-    const size_t focal_length_idx =                            \
-        SimpleRadialCameraModel::focal_length_idxs[0];         \
-    const size_t extra_param_idx =                             \
-        SimpleRadialCameraModel::extra_params_idxs[0];         \
-    BOOST_CHECK_EQUAL((camera).Params(focal_length_idx),       \
-                      (orig_camera).Params(focal_length_idx)); \
-    BOOST_CHECK_EQUAL((camera).Params(extra_param_idx),        \
-                      (orig_camera).Params(extra_param_idx));  \
+#define CheckConstantCamera(camera, orig_camera)       \
+  {                                                    \
+    const size_t focal_length_idx =                    \
+        SimpleRadialCameraModel::focal_length_idxs[0]; \
+    const size_t extra_param_idx =                     \
+        SimpleRadialCameraModel::extra_params_idxs[0]; \
+    EXPECT_EQ((camera).Params(focal_length_idx),       \
+              (orig_camera).Params(focal_length_idx)); \
+    EXPECT_EQ((camera).Params(extra_param_idx),        \
+              (orig_camera).Params(extra_param_idx));  \
   }
 
-#define CheckVariableImage(image, orig_image)            \
-  {                                                      \
-    BOOST_CHECK_NE((image).Qvec(), (orig_image).Qvec()); \
-    BOOST_CHECK_NE((image).Tvec(), (orig_image).Tvec()); \
+#define CheckVariableImage(image, orig_image)       \
+  {                                                 \
+    EXPECT_NE((image).Qvec(), (orig_image).Qvec()); \
+    EXPECT_NE((image).Tvec(), (orig_image).Tvec()); \
   }
 
-#define CheckConstantImage(image, orig_image)               \
-  {                                                         \
-    BOOST_CHECK_EQUAL((image).Qvec(), (orig_image).Qvec()); \
-    BOOST_CHECK_EQUAL((image).Tvec(), (orig_image).Tvec()); \
+#define CheckConstantImage(image, orig_image)       \
+  {                                                 \
+    EXPECT_EQ((image).Qvec(), (orig_image).Qvec()); \
+    EXPECT_EQ((image).Tvec(), (orig_image).Tvec()); \
   }
 
-#define CheckConstantXImage(image, orig_image)                \
-  {                                                           \
-    CheckVariableImage(image, orig_image);                    \
-    BOOST_CHECK_EQUAL((image).Tvec(0), (orig_image).Tvec(0)); \
+#define CheckConstantXImage(image, orig_image)        \
+  {                                                   \
+    CheckVariableImage(image, orig_image);            \
+    EXPECT_EQ((image).Tvec(0), (orig_image).Tvec(0)); \
   }
 
 #define CheckConstantCameraRig(camera_rig, orig_camera_rig, camera_id) \
   {                                                                    \
-    BOOST_CHECK_EQUAL((camera_rig).RelativeQvec(camera_id),            \
-                      (orig_camera_rig).RelativeQvec(camera_id));      \
-    BOOST_CHECK_EQUAL((camera_rig).RelativeTvec(camera_id),            \
-                      (orig_camera_rig).RelativeTvec(camera_id));      \
+    EXPECT_EQ((camera_rig).RelativeQvec(camera_id),                    \
+              (orig_camera_rig).RelativeQvec(camera_id));              \
+    EXPECT_EQ((camera_rig).RelativeTvec(camera_id),                    \
+              (orig_camera_rig).RelativeTvec(camera_id));              \
   }
 
 #define CheckVariableCameraRig(camera_rig, orig_camera_rig, camera_id) \
@@ -93,18 +93,18 @@
     if ((camera_rig).RefCameraId() == (camera_id)) {                   \
       CheckConstantCameraRig(camera_rig, orig_camera_rig, camera_id);  \
     } else {                                                           \
-      BOOST_CHECK_NE((camera_rig).RelativeQvec(camera_id),             \
-                     (orig_camera_rig).RelativeQvec(camera_id));       \
-      BOOST_CHECK_NE((camera_rig).RelativeTvec(camera_id),             \
-                     (orig_camera_rig).RelativeTvec(camera_id));       \
+      EXPECT_NE((camera_rig).RelativeQvec(camera_id),                  \
+                (orig_camera_rig).RelativeQvec(camera_id));            \
+      EXPECT_NE((camera_rig).RelativeTvec(camera_id),                  \
+                (orig_camera_rig).RelativeTvec(camera_id));            \
     }                                                                  \
   }
 
 #define CheckVariablePoint(point, orig_point) \
-  { BOOST_CHECK_NE((point).XYZ(), (orig_point).XYZ()); }
+  { EXPECT_NE((point).XYZ(), (orig_point).XYZ()); }
 
 #define CheckConstantPoint(point, orig_point) \
-  { BOOST_CHECK_EQUAL((point).XYZ(), (orig_point).XYZ()); }
+  { EXPECT_EQ((point).XYZ(), (orig_point).XYZ()); }
 
 namespace colmap {
 
@@ -161,7 +161,7 @@ void GenerateReconstruction(const size_t num_images,
 
     std::vector<Eigen::Vector2d> points2D;
     for (const auto& point3D : reconstruction->Points3D()) {
-      BOOST_CHECK(HasPointPositiveDepth(proj_matrix, point3D.second.XYZ()));
+      EXPECT_TRUE(HasPointPositiveDepth(proj_matrix, point3D.second.XYZ()));
       // Get exact projection of 3D point.
       Eigen::Vector2d point2D =
           ProjectPointToImage(point3D.second.XYZ(), proj_matrix, camera);
@@ -188,7 +188,7 @@ void GenerateReconstruction(const size_t num_images,
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestConfigNumObservations) {
+TEST(BundleAdjustment, ConfigNumObservations) {
   Reconstruction reconstruction;
   CorrespondenceGraph correspondence_graph;
   GenerateReconstruction(4, 100, &reconstruction, &correspondence_graph);
@@ -197,22 +197,22 @@ BOOST_AUTO_TEST_CASE(TestConfigNumObservations) {
 
   config.AddImage(0);
   config.AddImage(1);
-  BOOST_CHECK_EQUAL(config.NumResiduals(reconstruction), 400);
+  EXPECT_EQ(config.NumResiduals(reconstruction), 400);
 
   config.AddVariablePoint(1);
-  BOOST_CHECK_EQUAL(config.NumResiduals(reconstruction), 404);
+  EXPECT_EQ(config.NumResiduals(reconstruction), 404);
 
   config.AddConstantPoint(2);
-  BOOST_CHECK_EQUAL(config.NumResiduals(reconstruction), 408);
+  EXPECT_EQ(config.NumResiduals(reconstruction), 408);
 
   config.AddImage(2);
-  BOOST_CHECK_EQUAL(config.NumResiduals(reconstruction), 604);
+  EXPECT_EQ(config.NumResiduals(reconstruction), 604);
 
   config.AddImage(3);
-  BOOST_CHECK_EQUAL(config.NumResiduals(reconstruction), 800);
+  EXPECT_EQ(config.NumResiduals(reconstruction), 800);
 }
 
-BOOST_AUTO_TEST_CASE(TestTwoView) {
+TEST(BundleAdjustment, TwoView) {
   Reconstruction reconstruction;
   CorrespondenceGraph correspondence_graph;
   GenerateReconstruction(2, 100, &reconstruction, &correspondence_graph);
@@ -226,16 +226,16 @@ BOOST_AUTO_TEST_CASE(TestTwoView) {
 
   BundleAdjustmentOptions options;
   BundleAdjuster bundle_adjuster(options, config);
-  BOOST_REQUIRE(bundle_adjuster.Solve(&reconstruction));
+  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction));
 
   const auto summary = bundle_adjuster.Summary();
 
   // 100 points, 2 images, 2 residuals per point per image
-  BOOST_CHECK_EQUAL(summary.num_residuals_reduced, 400);
+  EXPECT_EQ(summary.num_residuals_reduced, 400);
   // 100 x 3 point parameters
   // + 5 image parameters (pose of second image)
   // + 2 x 2 camera parameters
-  BOOST_CHECK_EQUAL(summary.num_effective_parameters_reduced, 309);
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 309);
 
   CheckVariableCamera(reconstruction.Camera(0), orig_reconstruction.Camera(0));
   CheckConstantImage(reconstruction.Image(0), orig_reconstruction.Image(0));
@@ -249,7 +249,7 @@ BOOST_AUTO_TEST_CASE(TestTwoView) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestTwoViewConstantCamera) {
+TEST(BundleAdjustment, TwoViewConstantCamera) {
   Reconstruction reconstruction;
   CorrespondenceGraph correspondence_graph;
   GenerateReconstruction(2, 100, &reconstruction, &correspondence_graph);
@@ -264,15 +264,15 @@ BOOST_AUTO_TEST_CASE(TestTwoViewConstantCamera) {
 
   BundleAdjustmentOptions options;
   BundleAdjuster bundle_adjuster(options, config);
-  BOOST_REQUIRE(bundle_adjuster.Solve(&reconstruction));
+  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction));
 
   const auto summary = bundle_adjuster.Summary();
 
   // 100 points, 2 images, 2 residuals per point per image
-  BOOST_CHECK_EQUAL(summary.num_residuals_reduced, 400);
+  EXPECT_EQ(summary.num_residuals_reduced, 400);
   // 100 x 3 point parameters
   // + 2 camera parameters
-  BOOST_CHECK_EQUAL(summary.num_effective_parameters_reduced, 302);
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 302);
 
   CheckConstantCamera(reconstruction.Camera(0), orig_reconstruction.Camera(0));
   CheckConstantImage(reconstruction.Image(0), orig_reconstruction.Image(0));
@@ -286,7 +286,7 @@ BOOST_AUTO_TEST_CASE(TestTwoViewConstantCamera) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestPartiallyContainedTracks) {
+TEST(BundleAdjustment, PartiallyContainedTracks) {
   Reconstruction reconstruction;
   CorrespondenceGraph correspondence_graph;
   GenerateReconstruction(3, 100, &reconstruction, &correspondence_graph);
@@ -304,15 +304,15 @@ BOOST_AUTO_TEST_CASE(TestPartiallyContainedTracks) {
 
   BundleAdjustmentOptions options;
   BundleAdjuster bundle_adjuster(options, config);
-  BOOST_REQUIRE(bundle_adjuster.Solve(&reconstruction));
+  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction));
 
   const auto summary = bundle_adjuster.Summary();
 
   // 100 points, 2 images, 2 residuals per point per image
-  BOOST_CHECK_EQUAL(summary.num_residuals_reduced, 400);
+  EXPECT_EQ(summary.num_residuals_reduced, 400);
   // 1 x 3 point parameters
   // 2 x 2 camera parameters
-  BOOST_CHECK_EQUAL(summary.num_effective_parameters_reduced, 7);
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 7);
 
   CheckVariableCamera(reconstruction.Camera(0), orig_reconstruction.Camera(0));
   CheckConstantImage(reconstruction.Image(0), orig_reconstruction.Image(0));
@@ -334,7 +334,7 @@ BOOST_AUTO_TEST_CASE(TestPartiallyContainedTracks) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestPartiallyContainedTracksForceToOptimizePoint) {
+TEST(BundleAdjustment, PartiallyContainedTracksForceToOptimizePoint) {
   Reconstruction reconstruction;
   CorrespondenceGraph correspondence_graph;
   GenerateReconstruction(3, 100, &reconstruction, &correspondence_graph);
@@ -358,7 +358,7 @@ BOOST_AUTO_TEST_CASE(TestPartiallyContainedTracksForceToOptimizePoint) {
 
   BundleAdjustmentOptions options;
   BundleAdjuster bundle_adjuster(options, config);
-  BOOST_REQUIRE(bundle_adjuster.Solve(&reconstruction));
+  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction));
 
   const auto summary = bundle_adjuster.Summary();
 
@@ -366,10 +366,10 @@ BOOST_AUTO_TEST_CASE(TestPartiallyContainedTracksForceToOptimizePoint) {
   // + 2 residuals in 3rd image for added variable 3D point
   // (added constant point does not add residuals since the image/camera
   // is also constant).
-  BOOST_CHECK_EQUAL(summary.num_residuals_reduced, 402);
+  EXPECT_EQ(summary.num_residuals_reduced, 402);
   // 2 x 3 point parameters
   // 2 x 2 camera parameters
-  BOOST_CHECK_EQUAL(summary.num_effective_parameters_reduced, 10);
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 10);
 
   CheckVariableCamera(reconstruction.Camera(0), orig_reconstruction.Camera(0));
   CheckConstantImage(reconstruction.Image(0), orig_reconstruction.Image(0));
@@ -392,7 +392,7 @@ BOOST_AUTO_TEST_CASE(TestPartiallyContainedTracksForceToOptimizePoint) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestConstantPoints) {
+TEST(BundleAdjustment, ConstantPoints) {
   Reconstruction reconstruction;
   CorrespondenceGraph correspondence_graph;
   GenerateReconstruction(2, 100, &reconstruction, &correspondence_graph);
@@ -411,15 +411,15 @@ BOOST_AUTO_TEST_CASE(TestConstantPoints) {
 
   BundleAdjustmentOptions options;
   BundleAdjuster bundle_adjuster(options, config);
-  BOOST_REQUIRE(bundle_adjuster.Solve(&reconstruction));
+  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction));
 
   const auto summary = bundle_adjuster.Summary();
 
   // 100 points, 2 images, 2 residuals per point per image
-  BOOST_CHECK_EQUAL(summary.num_residuals_reduced, 400);
+  EXPECT_EQ(summary.num_residuals_reduced, 400);
   // 98 x 3 point parameters
   // + 2 x 2 camera parameters
-  BOOST_CHECK_EQUAL(summary.num_effective_parameters_reduced, 298);
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 298);
 
   CheckVariableCamera(reconstruction.Camera(0), orig_reconstruction.Camera(0));
   CheckConstantImage(reconstruction.Image(0), orig_reconstruction.Image(0));
@@ -439,7 +439,7 @@ BOOST_AUTO_TEST_CASE(TestConstantPoints) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestVariableImage) {
+TEST(BundleAdjustment, VariableImage) {
   Reconstruction reconstruction;
   CorrespondenceGraph correspondence_graph;
   GenerateReconstruction(3, 100, &reconstruction, &correspondence_graph);
@@ -454,17 +454,17 @@ BOOST_AUTO_TEST_CASE(TestVariableImage) {
 
   BundleAdjustmentOptions options;
   BundleAdjuster bundle_adjuster(options, config);
-  BOOST_REQUIRE(bundle_adjuster.Solve(&reconstruction));
+  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction));
 
   const auto summary = bundle_adjuster.Summary();
 
   // 100 points, 3 images, 2 residuals per point per image
-  BOOST_CHECK_EQUAL(summary.num_residuals_reduced, 600);
+  EXPECT_EQ(summary.num_residuals_reduced, 600);
   // 100 x 3 point parameters
   // + 5 image parameters (pose of second image)
   // + 6 image parameters (pose of third image)
   // + 3 x 2 camera parameters
-  BOOST_CHECK_EQUAL(summary.num_effective_parameters_reduced, 317);
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 317);
 
   CheckVariableCamera(reconstruction.Camera(0), orig_reconstruction.Camera(0));
   CheckConstantImage(reconstruction.Image(0), orig_reconstruction.Image(0));
@@ -481,7 +481,7 @@ BOOST_AUTO_TEST_CASE(TestVariableImage) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestConstantFocalLength) {
+TEST(BundleAdjustment, ConstantFocalLength) {
   Reconstruction reconstruction;
   CorrespondenceGraph correspondence_graph;
   GenerateReconstruction(2, 100, &reconstruction, &correspondence_graph);
@@ -496,16 +496,16 @@ BOOST_AUTO_TEST_CASE(TestConstantFocalLength) {
   BundleAdjustmentOptions options;
   options.refine_focal_length = false;
   BundleAdjuster bundle_adjuster(options, config);
-  BOOST_REQUIRE(bundle_adjuster.Solve(&reconstruction));
+  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction));
 
   const auto summary = bundle_adjuster.Summary();
 
   // 100 points, 3 images, 2 residuals per point per image
-  BOOST_CHECK_EQUAL(summary.num_residuals_reduced, 400);
+  EXPECT_EQ(summary.num_residuals_reduced, 400);
   // 100 x 3 point parameters
   // + 5 image parameters (pose of second image)
   // + 2 camera parameters
-  BOOST_CHECK_EQUAL(summary.num_effective_parameters_reduced, 307);
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 307);
 
   CheckConstantImage(reconstruction.Image(0), orig_reconstruction.Image(0));
   CheckConstantXImage(reconstruction.Image(1), orig_reconstruction.Image(1));
@@ -515,16 +515,16 @@ BOOST_AUTO_TEST_CASE(TestConstantFocalLength) {
 
   const auto& camera0 = reconstruction.Camera(0);
   const auto& orig_camera0 = orig_reconstruction.Camera(0);
-  BOOST_CHECK(camera0.Params(focal_length_idx) ==
+  EXPECT_TRUE(camera0.Params(focal_length_idx) ==
               orig_camera0.Params(focal_length_idx));
-  BOOST_CHECK(camera0.Params(extra_param_idx) !=
+  EXPECT_TRUE(camera0.Params(extra_param_idx) !=
               orig_camera0.Params(extra_param_idx));
 
   const auto& camera1 = reconstruction.Camera(1);
   const auto& orig_camera1 = orig_reconstruction.Camera(1);
-  BOOST_CHECK(camera1.Params(focal_length_idx) ==
+  EXPECT_TRUE(camera1.Params(focal_length_idx) ==
               orig_camera1.Params(focal_length_idx));
-  BOOST_CHECK(camera1.Params(extra_param_idx) !=
+  EXPECT_TRUE(camera1.Params(extra_param_idx) !=
               orig_camera1.Params(extra_param_idx));
 
   for (const auto& point3D : reconstruction.Points3D()) {
@@ -533,7 +533,7 @@ BOOST_AUTO_TEST_CASE(TestConstantFocalLength) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestVariablePrincipalPoint) {
+TEST(BundleAdjustment, VariablePrincipalPoint) {
   Reconstruction reconstruction;
   CorrespondenceGraph correspondence_graph;
   GenerateReconstruction(2, 100, &reconstruction, &correspondence_graph);
@@ -548,16 +548,16 @@ BOOST_AUTO_TEST_CASE(TestVariablePrincipalPoint) {
   BundleAdjustmentOptions options;
   options.refine_principal_point = true;
   BundleAdjuster bundle_adjuster(options, config);
-  BOOST_REQUIRE(bundle_adjuster.Solve(&reconstruction));
+  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction));
 
   const auto summary = bundle_adjuster.Summary();
 
   // 100 points, 3 images, 2 residuals per point per image
-  BOOST_CHECK_EQUAL(summary.num_residuals_reduced, 400);
+  EXPECT_EQ(summary.num_residuals_reduced, 400);
   // 100 x 3 point parameters
   // + 5 image parameters (pose of second image)
   // + 8 camera parameters
-  BOOST_CHECK_EQUAL(summary.num_effective_parameters_reduced, 313);
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 313);
 
   CheckConstantImage(reconstruction.Image(0), orig_reconstruction.Image(0));
   CheckConstantXImage(reconstruction.Image(1), orig_reconstruction.Image(1));
@@ -571,24 +571,24 @@ BOOST_AUTO_TEST_CASE(TestVariablePrincipalPoint) {
 
   const auto& camera0 = reconstruction.Camera(0);
   const auto& orig_camera0 = orig_reconstruction.Camera(0);
-  BOOST_CHECK(camera0.Params(focal_length_idx) !=
+  EXPECT_TRUE(camera0.Params(focal_length_idx) !=
               orig_camera0.Params(focal_length_idx));
-  BOOST_CHECK(camera0.Params(principal_point_idx_x) !=
+  EXPECT_TRUE(camera0.Params(principal_point_idx_x) !=
               orig_camera0.Params(principal_point_idx_x));
-  BOOST_CHECK(camera0.Params(principal_point_idx_y) !=
+  EXPECT_TRUE(camera0.Params(principal_point_idx_y) !=
               orig_camera0.Params(principal_point_idx_y));
-  BOOST_CHECK(camera0.Params(extra_param_idx) !=
+  EXPECT_TRUE(camera0.Params(extra_param_idx) !=
               orig_camera0.Params(extra_param_idx));
 
   const auto& camera1 = reconstruction.Camera(1);
   const auto& orig_camera1 = orig_reconstruction.Camera(1);
-  BOOST_CHECK(camera1.Params(focal_length_idx) !=
+  EXPECT_TRUE(camera1.Params(focal_length_idx) !=
               orig_camera1.Params(focal_length_idx));
-  BOOST_CHECK(camera1.Params(principal_point_idx_x) !=
+  EXPECT_TRUE(camera1.Params(principal_point_idx_x) !=
               orig_camera1.Params(principal_point_idx_x));
-  BOOST_CHECK(camera1.Params(principal_point_idx_y) !=
+  EXPECT_TRUE(camera1.Params(principal_point_idx_y) !=
               orig_camera1.Params(principal_point_idx_y));
-  BOOST_CHECK(camera1.Params(extra_param_idx) !=
+  EXPECT_TRUE(camera1.Params(extra_param_idx) !=
               orig_camera1.Params(extra_param_idx));
 
   for (const auto& point3D : reconstruction.Points3D()) {
@@ -597,7 +597,7 @@ BOOST_AUTO_TEST_CASE(TestVariablePrincipalPoint) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestConstantExtraParam) {
+TEST(BundleAdjustment, ConstantExtraParam) {
   Reconstruction reconstruction;
   CorrespondenceGraph correspondence_graph;
   GenerateReconstruction(2, 100, &reconstruction, &correspondence_graph);
@@ -612,16 +612,16 @@ BOOST_AUTO_TEST_CASE(TestConstantExtraParam) {
   BundleAdjustmentOptions options;
   options.refine_extra_params = false;
   BundleAdjuster bundle_adjuster(options, config);
-  BOOST_REQUIRE(bundle_adjuster.Solve(&reconstruction));
+  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction));
 
   const auto summary = bundle_adjuster.Summary();
 
   // 100 points, 3 images, 2 residuals per point per image
-  BOOST_CHECK_EQUAL(summary.num_residuals_reduced, 400);
+  EXPECT_EQ(summary.num_residuals_reduced, 400);
   // 100 x 3 point parameters
   // + 5 image parameters (pose of second image)
   // + 2 camera parameters
-  BOOST_CHECK_EQUAL(summary.num_effective_parameters_reduced, 307);
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 307);
 
   CheckConstantImage(reconstruction.Image(0), orig_reconstruction.Image(0));
   CheckConstantXImage(reconstruction.Image(1), orig_reconstruction.Image(1));
@@ -631,16 +631,16 @@ BOOST_AUTO_TEST_CASE(TestConstantExtraParam) {
 
   const auto& camera0 = reconstruction.Camera(0);
   const auto& orig_camera0 = orig_reconstruction.Camera(0);
-  BOOST_CHECK(camera0.Params(focal_length_idx) !=
+  EXPECT_TRUE(camera0.Params(focal_length_idx) !=
               orig_camera0.Params(focal_length_idx));
-  BOOST_CHECK(camera0.Params(extra_param_idx) ==
+  EXPECT_TRUE(camera0.Params(extra_param_idx) ==
               orig_camera0.Params(extra_param_idx));
 
   const auto& camera1 = reconstruction.Camera(1);
   const auto& orig_camera1 = orig_reconstruction.Camera(1);
-  BOOST_CHECK(camera1.Params(focal_length_idx) !=
+  EXPECT_TRUE(camera1.Params(focal_length_idx) !=
               orig_camera1.Params(focal_length_idx));
-  BOOST_CHECK(camera1.Params(extra_param_idx) ==
+  EXPECT_TRUE(camera1.Params(extra_param_idx) ==
               orig_camera1.Params(extra_param_idx));
 
   for (const auto& point3D : reconstruction.Points3D()) {
@@ -649,7 +649,7 @@ BOOST_AUTO_TEST_CASE(TestConstantExtraParam) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestRigTwoView) {
+TEST(BundleAdjustment, RigTwoView) {
   Reconstruction reconstruction;
   CorrespondenceGraph correspondence_graph;
   GenerateReconstruction(2, 100, &reconstruction, &correspondence_graph);
@@ -672,17 +672,17 @@ BOOST_AUTO_TEST_CASE(TestRigTwoView) {
   BundleAdjustmentOptions options;
   RigBundleAdjuster::Options rig_options;
   RigBundleAdjuster bundle_adjuster(options, rig_options, config);
-  BOOST_REQUIRE(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
+  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
 
   const auto summary = bundle_adjuster.Summary();
 
   // 100 points, 2 images, 2 residuals per point per image
-  BOOST_CHECK_EQUAL(summary.num_residuals_reduced, 400);
+  EXPECT_EQ(summary.num_residuals_reduced, 400);
   // 100 x 3 point parameters
   // + 6 pose parameters for camera rig
   // + 1 x 6 relative pose parameters for camera rig
   // + 2 x 2 camera parameters
-  BOOST_CHECK_EQUAL(summary.num_effective_parameters_reduced, 316);
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 316);
 
   CheckVariableCamera(reconstruction.Camera(0), orig_reconstruction.Camera(0));
   CheckVariableImage(reconstruction.Image(0), orig_reconstruction.Image(0));
@@ -699,7 +699,7 @@ BOOST_AUTO_TEST_CASE(TestRigTwoView) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestRigFourView) {
+TEST(BundleAdjustment, RigFourView) {
   Reconstruction reconstruction;
   CorrespondenceGraph correspondence_graph;
   GenerateReconstruction(4, 100, &reconstruction, &correspondence_graph);
@@ -727,17 +727,17 @@ BOOST_AUTO_TEST_CASE(TestRigFourView) {
   BundleAdjustmentOptions options;
   RigBundleAdjuster::Options rig_options;
   RigBundleAdjuster bundle_adjuster(options, rig_options, config);
-  BOOST_REQUIRE(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
+  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
 
   const auto summary = bundle_adjuster.Summary();
 
   // 100 points, 2 images, 2 residuals per point per image
-  BOOST_CHECK_EQUAL(summary.num_residuals_reduced, 800);
+  EXPECT_EQ(summary.num_residuals_reduced, 800);
   // 100 x 3 point parameters
   // + 2 x 6 pose parameters for camera rig
   // + 1 x 6 relative pose parameters for camera rig
   // + 2 x 2 camera parameters
-  BOOST_CHECK_EQUAL(summary.num_effective_parameters_reduced, 322);
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 322);
 
   CheckVariableCamera(reconstruction.Camera(0), orig_reconstruction.Camera(0));
   CheckVariableImage(reconstruction.Image(0), orig_reconstruction.Image(0));
@@ -754,7 +754,7 @@ BOOST_AUTO_TEST_CASE(TestRigFourView) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestConstantRigFourView) {
+TEST(BundleAdjustment, ConstantRigFourView) {
   Reconstruction reconstruction;
   CorrespondenceGraph correspondence_graph;
   GenerateReconstruction(4, 100, &reconstruction, &correspondence_graph);
@@ -783,16 +783,16 @@ BOOST_AUTO_TEST_CASE(TestConstantRigFourView) {
   RigBundleAdjuster::Options rig_options;
   rig_options.refine_relative_poses = false;
   RigBundleAdjuster bundle_adjuster(options, rig_options, config);
-  BOOST_REQUIRE(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
+  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
 
   const auto summary = bundle_adjuster.Summary();
 
   // 100 points, 2 images, 2 residuals per point per image
-  BOOST_CHECK_EQUAL(summary.num_residuals_reduced, 800);
+  EXPECT_EQ(summary.num_residuals_reduced, 800);
   // 100 x 3 point parameters
   // + 2 x 6 pose parameters for camera rig
   // + 2 x 2 camera parameters
-  BOOST_CHECK_EQUAL(summary.num_effective_parameters_reduced, 316);
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 316);
 
   CheckVariableCamera(reconstruction.Camera(0), orig_reconstruction.Camera(0));
   CheckVariableImage(reconstruction.Image(0), orig_reconstruction.Image(0));
@@ -809,7 +809,7 @@ BOOST_AUTO_TEST_CASE(TestConstantRigFourView) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestRigFourViewPartial) {
+TEST(BundleAdjustment, RigFourViewPartial) {
   Reconstruction reconstruction;
   CorrespondenceGraph correspondence_graph;
   GenerateReconstruction(4, 100, &reconstruction, &correspondence_graph);
@@ -837,18 +837,18 @@ BOOST_AUTO_TEST_CASE(TestRigFourViewPartial) {
   BundleAdjustmentOptions options;
   RigBundleAdjuster::Options rig_options;
   RigBundleAdjuster bundle_adjuster(options, rig_options, config);
-  BOOST_REQUIRE(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
+  ASSERT_TRUE(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
 
   const auto summary = bundle_adjuster.Summary();
 
   // 100 points, 2 images, 2 residuals per point per image
-  BOOST_CHECK_EQUAL(summary.num_residuals_reduced, 800);
+  EXPECT_EQ(summary.num_residuals_reduced, 800);
   // 100 x 3 point parameters
   // + 2 x 6 pose parameters for camera rig
   // + 1 x 6 relative pose parameters for camera rig
   // + 1 x 6 pose parameters for individual image
   // + 2 x 2 camera parameters
-  BOOST_CHECK_EQUAL(summary.num_effective_parameters_reduced, 328);
+  EXPECT_EQ(summary.num_effective_parameters_reduced, 328);
 
   CheckVariableCamera(reconstruction.Camera(0), orig_reconstruction.Camera(0));
   CheckVariableImage(reconstruction.Image(0), orig_reconstruction.Image(0));
