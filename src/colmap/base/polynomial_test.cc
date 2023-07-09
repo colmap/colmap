@@ -29,10 +29,9 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "base/polynomial"
 #include "colmap/base/polynomial.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
 namespace colmap {
 
@@ -44,96 +43,96 @@ namespace colmap {
     Eigen::VectorXd real2;                                           \
     Eigen::VectorXd imag2;                                           \
     const bool success2 = find_func2(coeffs2, &real2, &imag2);       \
-    BOOST_CHECK_EQUAL(success1, success2);                           \
+    EXPECT_EQ(success1, success2);                                   \
     if (success1) {                                                  \
-      BOOST_CHECK_EQUAL(real1, real2);                               \
-      BOOST_CHECK_EQUAL(imag1, imag2);                               \
+      EXPECT_EQ(real1, real2);                                       \
+      EXPECT_EQ(imag1, imag2);                                       \
     }                                                                \
   }
 
-BOOST_AUTO_TEST_CASE(TestEvaluatePolynomial) {
-  BOOST_CHECK_EQUAL(EvaluatePolynomial(
-                        (Eigen::VectorXd(5) << 1, -3, 3, -5, 10).finished(), 1),
-                    1 - 3 + 3 - 5 + 10);
-  BOOST_CHECK_CLOSE(
+TEST(EvaluatePolynomial, Nominal) {
+  EXPECT_EQ(EvaluatePolynomial(
+                (Eigen::VectorXd(5) << 1, -3, 3, -5, 10).finished(), 1),
+            1 - 3 + 3 - 5 + 10);
+  EXPECT_NEAR(
       EvaluatePolynomial((Eigen::VectorXd(4) << 1, -3, 3, -5).finished(), 2.0),
       1 * 2 * 2 * 2 - 3 * 2 * 2 + 3 * 2 - 5,
       1e-6);
 }
 
-BOOST_AUTO_TEST_CASE(TestFindLinearPolynomialRoots) {
+TEST(FindLinearPolynomialRoots, Nominal) {
   Eigen::VectorXd real;
   Eigen::VectorXd imag;
-  BOOST_CHECK(FindLinearPolynomialRoots(Eigen::Vector2d(3, -2), &real, &imag));
-  BOOST_CHECK_EQUAL(real(0), 2.0 / 3.0);
-  BOOST_CHECK_EQUAL(imag(0), 0);
-  BOOST_CHECK_CLOSE(EvaluatePolynomial(Eigen::Vector2d(3, -2),
-                                       std::complex<double>(real(0), imag(0)))
-                        .real(),
-                    0.0,
-                    1e-6);
-  BOOST_CHECK_CLOSE(EvaluatePolynomial(Eigen::Vector2d(3, -2),
-                                       std::complex<double>(real(0), imag(0)))
-                        .imag(),
-                    0.0,
-                    1e-6);
+  EXPECT_TRUE(FindLinearPolynomialRoots(Eigen::Vector2d(3, -2), &real, &imag));
+  EXPECT_EQ(real(0), 2.0 / 3.0);
+  EXPECT_EQ(imag(0), 0);
+  EXPECT_NEAR(EvaluatePolynomial(Eigen::Vector2d(3, -2),
+                                 std::complex<double>(real(0), imag(0)))
+                  .real(),
+              0.0,
+              1e-6);
+  EXPECT_NEAR(EvaluatePolynomial(Eigen::Vector2d(3, -2),
+                                 std::complex<double>(real(0), imag(0)))
+                  .imag(),
+              0.0,
+              1e-6);
 
-  BOOST_CHECK(!FindLinearPolynomialRoots(Eigen::Vector2d(0, 1), &real, &imag));
+  EXPECT_FALSE(FindLinearPolynomialRoots(Eigen::Vector2d(0, 1), &real, &imag));
 }
 
-BOOST_AUTO_TEST_CASE(TestFindQuadraticPolynomialRootsReal) {
+TEST(FindQuadraticPolynomialRootsReal, Nominal) {
   Eigen::VectorXd real;
   Eigen::VectorXd imag;
   Eigen::Vector3d coeffs(3, -2, -4);
-  BOOST_CHECK(FindQuadraticPolynomialRoots(coeffs, &real, &imag));
-  BOOST_CHECK(real.isApprox(Eigen::Vector2d(-0.868517092, 1.535183758), 1e-6));
-  BOOST_CHECK_EQUAL(imag, Eigen::Vector2d(0, 0));
-  BOOST_CHECK_CLOSE(
+  EXPECT_TRUE(FindQuadraticPolynomialRoots(coeffs, &real, &imag));
+  EXPECT_TRUE(real.isApprox(Eigen::Vector2d(-0.868517092, 1.535183758), 1e-6));
+  EXPECT_EQ(imag, Eigen::Vector2d(0, 0));
+  EXPECT_NEAR(
       EvaluatePolynomial(coeffs, std::complex<double>(real(0), imag(0))).real(),
       0.0,
       1e-6);
-  BOOST_CHECK_CLOSE(
+  EXPECT_NEAR(
       EvaluatePolynomial(coeffs, std::complex<double>(real(1), imag(1))).imag(),
       0.0,
       1e-6);
 }
 
-BOOST_AUTO_TEST_CASE(TestFindQuadraticPolynomialRootsComplex) {
+TEST(FindQuadraticPolynomialRootsComplex, Nominal) {
   Eigen::VectorXd real;
   Eigen::VectorXd imag;
   const Eigen::Vector3d coeffs(
       0.276025076998578, 0.679702676853675, 0.655098003973841);
-  BOOST_CHECK(FindQuadraticPolynomialRoots(coeffs, &real, &imag));
-  BOOST_CHECK(real.isApprox(
+  EXPECT_TRUE(FindQuadraticPolynomialRoots(coeffs, &real, &imag));
+  EXPECT_TRUE(real.isApprox(
       Eigen::Vector2d(-1.231233560813707, -1.231233560813707), 1e-6));
-  BOOST_CHECK(imag.isApprox(
+  EXPECT_TRUE(imag.isApprox(
       Eigen::Vector2d(0.925954520440279, -0.925954520440279), 1e-6));
-  BOOST_CHECK_CLOSE(
+  EXPECT_NEAR(
       EvaluatePolynomial(coeffs, std::complex<double>(real(0), imag(0))).real(),
       0.0,
       1e-6);
-  BOOST_CHECK_CLOSE(
+  EXPECT_NEAR(
       EvaluatePolynomial(coeffs, std::complex<double>(real(1), imag(1))).imag(),
       0.0,
       1e-6);
 }
 
-BOOST_AUTO_TEST_CASE(TestFindPolynomialRootsDurandKerner) {
+TEST(FindPolynomialRootsDurandKerner, Nominal) {
   Eigen::VectorXd real;
   Eigen::VectorXd imag;
   Eigen::VectorXd coeffs(5);
   coeffs << 10, -5, 3, -3, 1;
-  BOOST_CHECK(FindPolynomialRootsDurandKerner(coeffs, &real, &imag));
+  EXPECT_TRUE(FindPolynomialRootsDurandKerner(coeffs, &real, &imag));
   // Reference values generated with OpenCV/Matlab.
   Eigen::VectorXd ref_real(4);
   ref_real << -0.201826, -0.201826, 0.451826, 0.451826;
-  BOOST_CHECK(real.isApprox(ref_real, 1e-6));
+  EXPECT_TRUE(real.isApprox(ref_real, 1e-6));
   Eigen::VectorXd ref_imag(4);
   ref_imag << -0.627696, 0.627696, 0.160867, -0.160867;
-  BOOST_CHECK(imag.isApprox(ref_imag, 1e-6));
+  EXPECT_TRUE(imag.isApprox(ref_imag, 1e-6));
 }
 
-BOOST_AUTO_TEST_CASE(TestFindPolynomialRootsDurandKernerLinearQuadratic) {
+TEST(FindPolynomialRootsDurandKernerLinearQuadratic, Nominal) {
   CHECK_EQUAL_RESULT(FindPolynomialRootsDurandKerner,
                      Eigen::Vector2d(1, 2),
                      FindLinearPolynomialRoots,
@@ -152,22 +151,22 @@ BOOST_AUTO_TEST_CASE(TestFindPolynomialRootsDurandKernerLinearQuadratic) {
                      Eigen::Vector3d(1, 2, 3));
 }
 
-BOOST_AUTO_TEST_CASE(TestFindPolynomialRootsCompanionMatrix) {
+TEST(FindPolynomialRootsCompanionMatrix, Nominal) {
   Eigen::VectorXd real;
   Eigen::VectorXd imag;
   Eigen::VectorXd coeffs(5);
   coeffs << 10, -5, 3, -3, 1;
-  BOOST_CHECK(FindPolynomialRootsCompanionMatrix(coeffs, &real, &imag));
+  EXPECT_TRUE(FindPolynomialRootsCompanionMatrix(coeffs, &real, &imag));
   // Reference values generated with OpenCV/Matlab.
   Eigen::VectorXd ref_real(4);
   ref_real << -0.201826, -0.201826, 0.451826, 0.451826;
-  BOOST_CHECK(real.isApprox(ref_real, 1e-6));
+  EXPECT_TRUE(real.isApprox(ref_real, 1e-6));
   Eigen::VectorXd ref_imag(4);
   ref_imag << 0.627696, -0.627696, 0.160867, -0.160867;
-  BOOST_CHECK(imag.isApprox(ref_imag, 1e-6));
+  EXPECT_TRUE(imag.isApprox(ref_imag, 1e-6));
 }
 
-BOOST_AUTO_TEST_CASE(TestFindPolynomialRootsCompanionMatrixLinearQuadratic) {
+TEST(FindPolynomialRootsCompanionMatrixLinearQuadratic, Nominal) {
   CHECK_EQUAL_RESULT(FindPolynomialRootsCompanionMatrix,
                      Eigen::Vector2d(1, 2),
                      FindLinearPolynomialRoots,
@@ -186,19 +185,19 @@ BOOST_AUTO_TEST_CASE(TestFindPolynomialRootsCompanionMatrixLinearQuadratic) {
                      Eigen::Vector3d(1, 2, 3));
 }
 
-BOOST_AUTO_TEST_CASE(TestFindPolynomialRootsCompanionMatrixZeroSolution) {
+TEST(FindPolynomialRootsCompanionMatrixZeroSolution, Nominal) {
   Eigen::VectorXd real;
   Eigen::VectorXd imag;
   Eigen::VectorXd coeffs(5);
   coeffs << 10, -5, 3, -3, 0;
-  BOOST_CHECK(FindPolynomialRootsCompanionMatrix(coeffs, &real, &imag));
+  EXPECT_TRUE(FindPolynomialRootsCompanionMatrix(coeffs, &real, &imag));
   // Reference values generated with Matlab.
   Eigen::VectorXd ref_real(4);
   ref_real << 0.692438, -0.0962191, -0.0962191, 0;
-  BOOST_CHECK(real.isApprox(ref_real, 1e-6));
+  EXPECT_TRUE(real.isApprox(ref_real, 1e-6));
   Eigen::VectorXd ref_imag(4);
   ref_imag << 0, 0.651148, -0.651148, 0;
-  BOOST_CHECK(imag.isApprox(ref_imag, 1e-6));
+  EXPECT_TRUE(imag.isApprox(ref_imag, 1e-6));
 }
 
 }  // namespace colmap

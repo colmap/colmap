@@ -29,59 +29,56 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "base/database_cache"
 #include "colmap/base/database_cache.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestEmpty) {
+TEST(DatabaseCache, Empty) {
   DatabaseCache cache;
-  BOOST_CHECK_EQUAL(cache.NumCameras(), 0);
-  BOOST_CHECK_EQUAL(cache.NumImages(), 0);
+  EXPECT_EQ(cache.NumCameras(), 0);
+  EXPECT_EQ(cache.NumImages(), 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestAddCamera) {
+TEST(DatabaseCache, AddCamera) {
   DatabaseCache cache;
   Camera camera;
   camera.SetCameraId(1);
   camera.InitializeWithId(SimplePinholeCameraModel::model_id, 1, 1, 1);
   cache.AddCamera(camera);
-  BOOST_CHECK_EQUAL(cache.NumCameras(), 1);
-  BOOST_CHECK_EQUAL(cache.NumImages(), 0);
-  BOOST_CHECK(cache.ExistsCamera(camera.CameraId()));
-  BOOST_CHECK_EQUAL(cache.Camera(camera.CameraId()).ModelId(),
-                    camera.ModelId());
+  EXPECT_EQ(cache.NumCameras(), 1);
+  EXPECT_EQ(cache.NumImages(), 0);
+  EXPECT_TRUE(cache.ExistsCamera(camera.CameraId()));
+  EXPECT_EQ(cache.Camera(camera.CameraId()).ModelId(), camera.ModelId());
 }
 
-BOOST_AUTO_TEST_CASE(TestDegenerateCamera) {
+TEST(DatabaseCache, DegenerateCamera) {
   DatabaseCache cache;
   Camera camera;
   camera.InitializeWithId(SimplePinholeCameraModel::model_id, 1, 1, 1);
   cache.AddCamera(camera);
-  BOOST_CHECK_EQUAL(cache.NumCameras(), 1);
-  BOOST_CHECK_EQUAL(cache.NumImages(), 0);
-  BOOST_CHECK(cache.ExistsCamera(camera.CameraId()));
-  BOOST_CHECK_EQUAL(cache.Camera(camera.CameraId()).MeanFocalLength(), 1);
+  EXPECT_EQ(cache.NumCameras(), 1);
+  EXPECT_EQ(cache.NumImages(), 0);
+  EXPECT_TRUE(cache.ExistsCamera(camera.CameraId()));
+  EXPECT_EQ(cache.Camera(camera.CameraId()).MeanFocalLength(), 1);
 }
 
-BOOST_AUTO_TEST_CASE(TestAddImage) {
+TEST(DatabaseCache, AddImage) {
   DatabaseCache cache;
   Image image;
   image.SetImageId(1);
   image.SetPoints2D(std::vector<Eigen::Vector2d>(10));
   cache.AddImage(image);
-  BOOST_CHECK_EQUAL(cache.NumCameras(), 0);
-  BOOST_CHECK_EQUAL(cache.NumImages(), 1);
-  BOOST_CHECK(cache.ExistsImage(image.ImageId()));
-  BOOST_CHECK_EQUAL(cache.Image(image.ImageId()).NumPoints2D(),
-                    image.NumPoints2D());
-  BOOST_CHECK(cache.CorrespondenceGraph().ExistsImage(image.ImageId()));
-  BOOST_CHECK_EQUAL(
+  EXPECT_EQ(cache.NumCameras(), 0);
+  EXPECT_EQ(cache.NumImages(), 1);
+  EXPECT_TRUE(cache.ExistsImage(image.ImageId()));
+  EXPECT_EQ(cache.Image(image.ImageId()).NumPoints2D(), image.NumPoints2D());
+  EXPECT_TRUE(cache.CorrespondenceGraph().ExistsImage(image.ImageId()));
+  EXPECT_EQ(
       cache.CorrespondenceGraph().NumCorrespondencesForImage(image.ImageId()),
       0);
-  BOOST_CHECK_EQUAL(
+  EXPECT_EQ(
       cache.CorrespondenceGraph().NumObservationsForImage(image.ImageId()), 0);
 }
 

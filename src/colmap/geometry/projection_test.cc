@@ -29,19 +29,18 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "geometry/projection"
 #include "colmap/geometry/projection.h"
 
 #include "colmap/camera/models.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/util/math.h"
-#include "colmap/util/testing.h"
 
 #include <Eigen/Core>
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestComposeProjectionMatrix) {
+TEST(ComposeProjectionMatrix, Nominal) {
   const Eigen::Matrix3d R = EulerAnglesToRotationMatrix(0, 1, 2);
   const Eigen::Vector4d qvec = RotationMatrixToQuaternion(R);
   const Eigen::Vector3d tvec = Eigen::Vector3d::Random();
@@ -49,14 +48,14 @@ BOOST_AUTO_TEST_CASE(TestComposeProjectionMatrix) {
   const auto proj_matrix1 = ComposeProjectionMatrix(qvec, tvec);
   const auto proj_matrix2 = ComposeProjectionMatrix(R, tvec);
 
-  BOOST_CHECK((proj_matrix1 - proj_matrix2).norm() < 1e-6);
-  BOOST_CHECK((proj_matrix1.leftCols<3>() - R).norm() < 1e-6);
-  BOOST_CHECK_CLOSE((proj_matrix1.rightCols<1>() - tvec).norm(), 0, 1e-6);
-  BOOST_CHECK_CLOSE((proj_matrix2.leftCols<3>() - R).norm(), 0, 1e-6);
-  BOOST_CHECK_CLOSE((proj_matrix2.rightCols<1>() - tvec).norm(), 0, 1e-6);
+  EXPECT_TRUE((proj_matrix1 - proj_matrix2).norm() < 1e-6);
+  EXPECT_TRUE((proj_matrix1.leftCols<3>() - R).norm() < 1e-6);
+  EXPECT_NEAR((proj_matrix1.rightCols<1>() - tvec).norm(), 0, 1e-6);
+  EXPECT_NEAR((proj_matrix2.leftCols<3>() - R).norm(), 0, 1e-6);
+  EXPECT_NEAR((proj_matrix2.rightCols<1>() - tvec).norm(), 0, 1e-6);
 }
 
-BOOST_AUTO_TEST_CASE(TestInvertProjectionMatrix) {
+TEST(InvertProjectionMatrix, Nominal) {
   const Eigen::Matrix3d R = EulerAnglesToRotationMatrix(0, 1, 2);
   const Eigen::Vector3d tvec = Eigen::Vector3d::Random();
 
@@ -64,16 +63,16 @@ BOOST_AUTO_TEST_CASE(TestInvertProjectionMatrix) {
   const auto inv_proj_matrix = InvertProjectionMatrix(proj_matrix);
   const auto inv_inv_proj_matrix = InvertProjectionMatrix(inv_proj_matrix);
 
-  BOOST_CHECK((proj_matrix - inv_inv_proj_matrix).norm() < 1e-6);
+  EXPECT_TRUE((proj_matrix - inv_inv_proj_matrix).norm() < 1e-6);
 }
 
-BOOST_AUTO_TEST_CASE(TestComputeClosestRotationMatrix) {
+TEST(ComputeClosestRotationMatrix, Nominal) {
   const Eigen::Matrix3d A = Eigen::Matrix3d::Identity();
-  BOOST_CHECK_LT((ComputeClosestRotationMatrix(A) - A).norm(), 1e-6);
-  BOOST_CHECK_LT((ComputeClosestRotationMatrix(2 * A) - A).norm(), 1e-6);
+  EXPECT_LT((ComputeClosestRotationMatrix(A) - A).norm(), 1e-6);
+  EXPECT_LT((ComputeClosestRotationMatrix(2 * A) - A).norm(), 1e-6);
 }
 
-BOOST_AUTO_TEST_CASE(TestDecomposeProjectionMatrix) {
+TEST(DecomposeProjectionMatrix, Nominal) {
   for (int i = 1; i < 100; ++i) {
     Eigen::Matrix3d ref_K = i * Eigen::Matrix3d::Identity();
     ref_K(0, 2) = i;
@@ -86,13 +85,13 @@ BOOST_AUTO_TEST_CASE(TestDecomposeProjectionMatrix) {
     Eigen::Matrix3d R;
     Eigen::Vector3d T;
     DecomposeProjectionMatrix(ref_P, &K, &R, &T);
-    BOOST_CHECK(ref_K.isApprox(K, 1e-6));
-    BOOST_CHECK(ref_R.isApprox(R, 1e-6));
-    BOOST_CHECK(ref_T.isApprox(T, 1e-6));
+    EXPECT_TRUE(ref_K.isApprox(K, 1e-6));
+    EXPECT_TRUE(ref_R.isApprox(R, 1e-6));
+    EXPECT_TRUE(ref_T.isApprox(T, 1e-6));
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestCalculateSquaredReprojectionError) {
+TEST(CalculateSquaredReprojectionError, Nominal) {
   const Eigen::Vector4d qvec = ComposeIdentityQuaternion();
   const Eigen::Vector3d tvec = Eigen::Vector3d::Zero();
 
@@ -107,23 +106,23 @@ BOOST_AUTO_TEST_CASE(TestCalculateSquaredReprojectionError) {
 
   const double error1 =
       CalculateSquaredReprojectionError(point2D, point3D, qvec, tvec, camera);
-  BOOST_CHECK_EQUAL(error1, 0);
+  EXPECT_EQ(error1, 0);
 
   const double error2 =
       CalculateSquaredReprojectionError(point2D, point3D, proj_matrix, camera);
-  BOOST_CHECK_GE(error2, 0);
-  BOOST_CHECK_LT(error2, 1e-6);
+  EXPECT_GE(error2, 0);
+  EXPECT_LT(error2, 1e-6);
 
   const double error3 = CalculateSquaredReprojectionError(
       point2D.array() + 1, point3D, qvec, tvec, camera);
-  BOOST_CHECK_CLOSE(error3, 2, 1e-6);
+  EXPECT_NEAR(error3, 2, 1e-6);
 
   const double error4 = CalculateSquaredReprojectionError(
       point2D.array() + 1, point3D, proj_matrix, camera);
-  BOOST_CHECK_CLOSE(error4, 2, 1e-6);
+  EXPECT_NEAR(error4, 2, 1e-6);
 }
 
-BOOST_AUTO_TEST_CASE(TestCalculateAngularError) {
+TEST(CalculateAngularError, Nominal) {
   const Eigen::Vector4d qvec = ComposeIdentityQuaternion();
   const Eigen::Vector3d tvec = Eigen::Vector3d(0, 0, 0);
 
@@ -134,70 +133,70 @@ BOOST_AUTO_TEST_CASE(TestCalculateAngularError) {
 
   const double error1 = CalculateAngularError(
       Eigen::Vector2d(0, 0), Eigen::Vector3d(0, 0, 1), proj_matrix, camera);
-  BOOST_CHECK_CLOSE(error1, 0, 1e-6);
+  EXPECT_NEAR(error1, 0, 1e-6);
 
   const double error2 = CalculateAngularError(
       Eigen::Vector2d(0, 0), Eigen::Vector3d(0, 1, 1), proj_matrix, camera);
-  BOOST_CHECK_CLOSE(error2, M_PI / 4, 1e-6);
+  EXPECT_NEAR(error2, M_PI / 4, 1e-6);
 
   const double error3 = CalculateAngularError(
       Eigen::Vector2d(0, 0), Eigen::Vector3d(0, 5, 5), proj_matrix, camera);
-  BOOST_CHECK_CLOSE(error3, M_PI / 4, 1e-6);
+  EXPECT_NEAR(error3, M_PI / 4, 1e-6);
 
   const double error4 = CalculateAngularError(
       Eigen::Vector2d(1, 0), Eigen::Vector3d(0, 0, 1), proj_matrix, camera);
-  BOOST_CHECK_CLOSE(error4, M_PI / 4, 1e-6);
+  EXPECT_NEAR(error4, M_PI / 4, 1e-6);
 
   const double error5 = CalculateAngularError(
       Eigen::Vector2d(2, 0), Eigen::Vector3d(0, 0, 1), proj_matrix, camera);
-  BOOST_CHECK_CLOSE(error5, 1.10714872, 1e-6);
+  EXPECT_NEAR(error5, 1.10714872, 1e-6);
 
   const double error6 = CalculateAngularError(
       Eigen::Vector2d(2, 0), Eigen::Vector3d(1, 0, 1), proj_matrix, camera);
-  BOOST_CHECK_CLOSE(error6, 1.10714872 - M_PI / 4, 1e-6);
+  EXPECT_NEAR(error6, 1.10714872 - M_PI / 4, 1e-6);
 
   const double error7 = CalculateAngularError(
       Eigen::Vector2d(2, 0), Eigen::Vector3d(5, 0, 5), proj_matrix, camera);
-  BOOST_CHECK_CLOSE(error7, 1.10714872 - M_PI / 4, 1e-6);
+  EXPECT_NEAR(error7, 1.10714872 - M_PI / 4, 1e-6);
 
   const double error8 = CalculateAngularError(
       Eigen::Vector2d(1, 0), Eigen::Vector3d(-1, 0, 1), proj_matrix, camera);
-  BOOST_CHECK_CLOSE(error8, M_PI / 2, 1e-6);
+  EXPECT_NEAR(error8, M_PI / 2, 1e-6);
 
   const double error9 = CalculateAngularError(
       Eigen::Vector2d(1, 0), Eigen::Vector3d(-1, 0, 0), proj_matrix, camera);
-  BOOST_CHECK_CLOSE(error9, M_PI * 3 / 4, 1e-6);
+  EXPECT_NEAR(error9, M_PI * 3 / 4, 1e-6);
 
   const double error10 = CalculateAngularError(
       Eigen::Vector2d(1, 0), Eigen::Vector3d(-1, 0, -1), proj_matrix, camera);
-  BOOST_CHECK_CLOSE(error10, M_PI, 1e-6);
+  EXPECT_NEAR(error10, M_PI, 1e-6);
 
   const double error11 = CalculateAngularError(
       Eigen::Vector2d(1, 0), Eigen::Vector3d(0, 0, -1), proj_matrix, camera);
-  BOOST_CHECK_CLOSE(error11, M_PI * 3 / 4, 1e-6);
+  EXPECT_NEAR(error11, M_PI * 3 / 4, 1e-6);
 }
 
-BOOST_AUTO_TEST_CASE(TestCalculateDepth) {
+TEST(CalculateDepth, Nominal) {
   const Eigen::Vector4d qvec(1, 0, 0, 0);
   const Eigen::Vector3d tvec(0, 0, 0);
   const auto proj_matrix = ComposeProjectionMatrix(qvec, tvec);
 
   // In the image plane
   const double depth1 = CalculateDepth(proj_matrix, Eigen::Vector3d(0, 0, 0));
-  BOOST_CHECK_CLOSE(depth1, 0, 1e-10);
+  EXPECT_NEAR(depth1, 0, 1e-10);
   const double depth2 = CalculateDepth(proj_matrix, Eigen::Vector3d(0, 2, 0));
-  BOOST_CHECK_CLOSE(depth2, 0, 1e-10);
+  EXPECT_NEAR(depth2, 0, 1e-10);
 
   // Infront of camera
   const double depth3 = CalculateDepth(proj_matrix, Eigen::Vector3d(0, 0, 1));
-  BOOST_CHECK_CLOSE(depth3, 1, 1e-10);
+  EXPECT_NEAR(depth3, 1, 1e-10);
 
   // Behind camera
   const double depth4 = CalculateDepth(proj_matrix, Eigen::Vector3d(0, 0, -1));
-  BOOST_CHECK_CLOSE(depth4, -1, 1e-10);
+  EXPECT_NEAR(depth4, -1, 1e-10);
 }
 
-BOOST_AUTO_TEST_CASE(TestHasPointPositiveDepth) {
+TEST(HasPointPositiveDepth, Nominal) {
   const Eigen::Vector4d qvec(1, 0, 0, 0);
   const Eigen::Vector3d tvec(0, 0, 0);
   const auto proj_matrix = ComposeProjectionMatrix(qvec, tvec);
@@ -205,20 +204,20 @@ BOOST_AUTO_TEST_CASE(TestHasPointPositiveDepth) {
   // In the image plane
   const bool check1 =
       HasPointPositiveDepth(proj_matrix, Eigen::Vector3d(0, 0, 0));
-  BOOST_CHECK(!check1);
+  EXPECT_FALSE(check1);
   const bool check2 =
       HasPointPositiveDepth(proj_matrix, Eigen::Vector3d(0, 2, 0));
-  BOOST_CHECK(!check2);
+  EXPECT_FALSE(check2);
 
   // Infront of camera
   const bool check3 =
       HasPointPositiveDepth(proj_matrix, Eigen::Vector3d(0, 0, 1));
-  BOOST_CHECK(check3);
+  EXPECT_TRUE(check3);
 
   // Behind camera
   const bool check4 =
       HasPointPositiveDepth(proj_matrix, Eigen::Vector3d(0, 0, -1));
-  BOOST_CHECK(!check4);
+  EXPECT_FALSE(check4);
 }
 
 }  // namespace colmap

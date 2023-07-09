@@ -17,13 +17,12 @@ RUN apt-get update && apt-get install -y \
     libboost-filesystem-dev \
     libboost-graph-dev \
     libboost-system-dev \
-    libboost-test-dev \
     libeigen3-dev \
     libflann-dev \
     libfreeimage-dev \
     libmetis-dev \
     libgoogle-glog-dev \
-    libgflags-dev \
+    libgtest-dev \
     libsqlite3-dev \
     libglew-dev \
     qtbase5-dev \

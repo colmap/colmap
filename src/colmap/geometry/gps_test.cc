@@ -29,14 +29,13 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "geometry/gps"
 #include "colmap/geometry/gps.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestEllToXYZGRS80) {
+TEST(GPS, EllToXYZGRS80) {
   std::vector<Eigen::Vector3d> ell;
   ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
                    11 + 34. / 60 + 10.51777 / 3600,
@@ -55,11 +54,11 @@ BOOST_AUTO_TEST_CASE(TestEllToXYZGRS80) {
   const auto xyz = gps_tform.EllToXYZ(ell);
 
   for (size_t i = 0; i < ell.size(); ++i) {
-    BOOST_CHECK(xyz[i].isApprox(ref_xyz[i], 1e-8));
+    EXPECT_TRUE(xyz[i].isApprox(ref_xyz[i], 1e-8));
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestEllToXYZWGS84) {
+TEST(GPS, EllToXYZWGS84) {
   std::vector<Eigen::Vector3d> ell;
   ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
                    11 + 34. / 60 + 10.51777 / 3600,
@@ -78,11 +77,11 @@ BOOST_AUTO_TEST_CASE(TestEllToXYZWGS84) {
   const auto xyz = gps_tform.EllToXYZ(ell);
 
   for (size_t i = 0; i < ell.size(); ++i) {
-    BOOST_CHECK(xyz[i].isApprox(ref_xyz[i], 1e-8));
+    EXPECT_TRUE(xyz[i].isApprox(ref_xyz[i], 1e-8));
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestXYZToEll_GRS80) {
+TEST(GPS, XYZToEll_GRS80) {
   std::vector<Eigen::Vector3d> xyz;
   xyz.emplace_back(
       4.1772397090808507e6, 0.85515377993121441e6, 4.7282674046563692e6);
@@ -101,11 +100,11 @@ BOOST_AUTO_TEST_CASE(TestXYZToEll_GRS80) {
   const auto ell = gps_tform.XYZToEll(xyz);
 
   for (size_t i = 0; i < xyz.size(); ++i) {
-    BOOST_CHECK(ell[i].isApprox(ref_ell[i], 1e-5));
+    EXPECT_TRUE(ell[i].isApprox(ref_ell[i], 1e-5));
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestXYZToEll_WGS84) {
+TEST(GPS, XYZToEll_WGS84) {
   std::vector<Eigen::Vector3d> xyz;
   xyz.emplace_back(
       4.177239709042750e6, 0.855153779923415e6, 4.728267404769168e6);
@@ -124,11 +123,11 @@ BOOST_AUTO_TEST_CASE(TestXYZToEll_WGS84) {
   const auto ell = gps_tform.XYZToEll(xyz);
 
   for (size_t i = 0; i < xyz.size(); ++i) {
-    BOOST_CHECK(ell[i].isApprox(ref_ell[i], 1e-5));
+    EXPECT_TRUE(ell[i].isApprox(ref_ell[i], 1e-5));
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestXYZToEllToXYZ_GRS80) {
+TEST(GPS, XYZToEllToXYZ_GRS80) {
   std::vector<Eigen::Vector3d> xyz;
   xyz.emplace_back(
       4.177239709080851e6, 0.855153779931214e6, 4.728267404656370e6);
@@ -141,11 +140,11 @@ BOOST_AUTO_TEST_CASE(TestXYZToEllToXYZ_GRS80) {
   const auto xyz2 = gps_tform.EllToXYZ(ell);
 
   for (size_t i = 0; i < xyz.size(); ++i) {
-    BOOST_CHECK(xyz[i].isApprox(xyz2[i], 1e-5));
+    EXPECT_TRUE(xyz[i].isApprox(xyz2[i], 1e-5));
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestXYZToEllToXYZ_WGS84) {
+TEST(GPS, XYZToEllToXYZ_WGS84) {
   std::vector<Eigen::Vector3d> xyz;
   xyz.emplace_back(
       4.177239709080851e6, 0.855153779931214e6, 4.728267404656370e6);
@@ -158,11 +157,11 @@ BOOST_AUTO_TEST_CASE(TestXYZToEllToXYZ_WGS84) {
   const auto xyz2 = gps_tform.EllToXYZ(ell);
 
   for (size_t i = 0; i < xyz.size(); ++i) {
-    BOOST_CHECK(xyz[i].isApprox(xyz2[i], 1e-5));
+    EXPECT_TRUE(xyz[i].isApprox(xyz2[i], 1e-5));
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestEllToENUWGS84) {
+TEST(GPS, EllToENUWGS84) {
   std::vector<Eigen::Vector3d> ell;
   ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
                    11 + 34. / 60 + 10.51777 / 3600,
@@ -188,11 +187,11 @@ BOOST_AUTO_TEST_CASE(TestEllToENUWGS84) {
   const auto enu = gps_tform.EllToENU(ell, ori_ell(0), ori_ell(1));
 
   for (size_t i = 0; i < ell.size(); ++i) {
-    BOOST_CHECK(enu[i].isApprox(ref_enu[i], 1e-8));
+    EXPECT_TRUE(enu[i].isApprox(ref_enu[i], 1e-8));
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestXYZToENU) {
+TEST(GPS, XYZToENU) {
   std::vector<Eigen::Vector3d> ell;
   ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
                    11 + 34. / 60 + 10.51777 / 3600,
@@ -220,11 +219,11 @@ BOOST_AUTO_TEST_CASE(TestXYZToENU) {
   const auto enu = gps_tform.XYZToENU(xyz, ori_ell(0), ori_ell(1));
 
   for (size_t i = 0; i < ell.size(); ++i) {
-    BOOST_CHECK(enu[i].isApprox(ref_enu[i], 1e-8));
+    EXPECT_TRUE(enu[i].isApprox(ref_enu[i], 1e-8));
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestENUToEllWGS84) {
+TEST(GPS, ENUToEllWGS84) {
   std::vector<Eigen::Vector3d> ref_ell;
   ref_ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
                        11 + 34. / 60 + 10.51777 / 3600,
@@ -256,11 +255,11 @@ BOOST_AUTO_TEST_CASE(TestENUToEllWGS84) {
   const auto ell = gps_tform.ENUToEll(enu, lat0, lon0, alt0);
 
   for (size_t i = 0; i < ell.size(); ++i) {
-    BOOST_CHECK(ell[i].isApprox(ref_ell[i], 1e-5));
+    EXPECT_TRUE(ell[i].isApprox(ref_ell[i], 1e-5));
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestENUToXYZ) {
+TEST(GPS, ENUToXYZ) {
   std::vector<Eigen::Vector3d> ell;
   ell.emplace_back(48 + 8. / 60 + 51.70361 / 3600,
                    11 + 34. / 60 + 10.51777 / 3600,
@@ -288,7 +287,7 @@ BOOST_AUTO_TEST_CASE(TestENUToXYZ) {
   const auto xyz = gps_tform.ENUToXYZ(enu, lat0, lon0, alt0);
 
   for (size_t i = 0; i < ell.size(); ++i) {
-    BOOST_CHECK(xyz[i].isApprox(ref_xyz[i], 1e-8));
+    EXPECT_TRUE(xyz[i].isApprox(ref_xyz[i], 1e-8));
   }
 }
 

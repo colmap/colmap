@@ -5,7 +5,6 @@ boost-graph
 boost-program-options
 boost-regex
 boost-system
-boost-test
 ceres[lapack,suitesparse]
 cgal
 eigen3
@@ -15,5 +14,6 @@ metis
 gflags
 glew
 glog
+gtest
 qt5-base
 sqlite3

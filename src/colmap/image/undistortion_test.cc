@@ -29,61 +29,61 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "image/undistortion"
 #include "colmap/image/undistortion.h"
 
 #include "colmap/geometry/pose.h"
-#include "colmap/util/testing.h"
+
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestUndistortCamera) {
+TEST(UndistortCamera, Nominal) {
   UndistortCameraOptions options;
   Camera distorted_camera;
   Camera undistorted_camera;
 
   distorted_camera.InitializeWithName("SIMPLE_PINHOLE", 1, 1, 1);
   undistorted_camera = UndistortCamera(options, distorted_camera);
-  BOOST_CHECK_EQUAL(undistorted_camera.ModelName(), "PINHOLE");
-  BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthX(), 1);
-  BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthY(), 1);
-  BOOST_CHECK_EQUAL(undistorted_camera.Width(), 1);
-  BOOST_CHECK_EQUAL(undistorted_camera.Height(), 1);
+  EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
+  EXPECT_EQ(undistorted_camera.FocalLengthX(), 1);
+  EXPECT_EQ(undistorted_camera.FocalLengthY(), 1);
+  EXPECT_EQ(undistorted_camera.Width(), 1);
+  EXPECT_EQ(undistorted_camera.Height(), 1);
 
   distorted_camera.InitializeWithName("SIMPLE_RADIAL", 1, 1, 1);
   undistorted_camera = UndistortCamera(options, distorted_camera);
-  BOOST_CHECK_EQUAL(undistorted_camera.ModelName(), "PINHOLE");
-  BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthX(), 1);
-  BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthY(), 1);
-  BOOST_CHECK_EQUAL(undistorted_camera.Width(), 1);
-  BOOST_CHECK_EQUAL(undistorted_camera.Height(), 1);
+  EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
+  EXPECT_EQ(undistorted_camera.FocalLengthX(), 1);
+  EXPECT_EQ(undistorted_camera.FocalLengthY(), 1);
+  EXPECT_EQ(undistorted_camera.Width(), 1);
+  EXPECT_EQ(undistorted_camera.Height(), 1);
 
   distorted_camera.InitializeWithName("SIMPLE_RADIAL", 100, 100, 100);
   distorted_camera.Params(3) = 0.5;
   undistorted_camera = UndistortCamera(options, distorted_camera);
-  BOOST_CHECK_EQUAL(undistorted_camera.ModelName(), "PINHOLE");
-  BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthX(), 100);
-  BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthY(), 100);
-  BOOST_CHECK_EQUAL(undistorted_camera.PrincipalPointX(), 84.0 / 2.0);
-  BOOST_CHECK_EQUAL(undistorted_camera.PrincipalPointY(), 84.0 / 2.0);
-  BOOST_CHECK_EQUAL(undistorted_camera.Width(), 84);
-  BOOST_CHECK_EQUAL(undistorted_camera.Height(), 84);
+  EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
+  EXPECT_EQ(undistorted_camera.FocalLengthX(), 100);
+  EXPECT_EQ(undistorted_camera.FocalLengthY(), 100);
+  EXPECT_EQ(undistorted_camera.PrincipalPointX(), 84.0 / 2.0);
+  EXPECT_EQ(undistorted_camera.PrincipalPointY(), 84.0 / 2.0);
+  EXPECT_EQ(undistorted_camera.Width(), 84);
+  EXPECT_EQ(undistorted_camera.Height(), 84);
 
   options.blank_pixels = 1;
   undistorted_camera = UndistortCamera(options, distorted_camera);
-  BOOST_CHECK_EQUAL(undistorted_camera.ModelName(), "PINHOLE");
-  BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthX(), 100);
-  BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthY(), 100);
-  BOOST_CHECK_EQUAL(undistorted_camera.Width(), 90);
-  BOOST_CHECK_EQUAL(undistorted_camera.Height(), 90);
+  EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
+  EXPECT_EQ(undistorted_camera.FocalLengthX(), 100);
+  EXPECT_EQ(undistorted_camera.FocalLengthY(), 100);
+  EXPECT_EQ(undistorted_camera.Width(), 90);
+  EXPECT_EQ(undistorted_camera.Height(), 90);
 
   options.max_scale = 0.75;
   undistorted_camera = UndistortCamera(options, distorted_camera);
-  BOOST_CHECK_EQUAL(undistorted_camera.ModelName(), "PINHOLE");
-  BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthX(), 100);
-  BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthY(), 100);
-  BOOST_CHECK_EQUAL(undistorted_camera.Width(), 75);
-  BOOST_CHECK_EQUAL(undistorted_camera.Height(), 75);
+  EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
+  EXPECT_EQ(undistorted_camera.FocalLengthX(), 100);
+  EXPECT_EQ(undistorted_camera.FocalLengthY(), 100);
+  EXPECT_EQ(undistorted_camera.Width(), 75);
+  EXPECT_EQ(undistorted_camera.Height(), 75);
 
   options.max_scale = 1.0;
   options.roi_min_x = 0.1;
@@ -91,16 +91,16 @@ BOOST_AUTO_TEST_CASE(TestUndistortCamera) {
   options.roi_max_x = 0.9;
   options.roi_max_y = 0.8;
   undistorted_camera = UndistortCamera(options, distorted_camera);
-  BOOST_CHECK_EQUAL(undistorted_camera.ModelName(), "PINHOLE");
-  BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthX(), 100);
-  BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthY(), 100);
-  BOOST_CHECK_EQUAL(undistorted_camera.Width(), 80);
-  BOOST_CHECK_EQUAL(undistorted_camera.Height(), 60);
-  BOOST_CHECK_EQUAL(undistorted_camera.PrincipalPointX(), 40);
-  BOOST_CHECK_EQUAL(undistorted_camera.PrincipalPointY(), 30);
+  EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
+  EXPECT_EQ(undistorted_camera.FocalLengthX(), 100);
+  EXPECT_EQ(undistorted_camera.FocalLengthY(), 100);
+  EXPECT_EQ(undistorted_camera.Width(), 80);
+  EXPECT_EQ(undistorted_camera.Height(), 60);
+  EXPECT_EQ(undistorted_camera.PrincipalPointX(), 40);
+  EXPECT_EQ(undistorted_camera.PrincipalPointY(), 30);
 }
 
-BOOST_AUTO_TEST_CASE(TestUndistortCameraBlankPixels) {
+TEST(UndistortCamera, BlankPixels) {
   UndistortCameraOptions options;
   options.blank_pixels = 1;
 
@@ -120,30 +120,30 @@ BOOST_AUTO_TEST_CASE(TestUndistortCameraBlankPixels) {
                  &undistorted_image,
                  &undistorted_camera);
 
-  BOOST_CHECK_EQUAL(undistorted_camera.ModelName(), "PINHOLE");
-  BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthX(), 100);
-  BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthY(), 100);
-  BOOST_CHECK_EQUAL(undistorted_camera.PrincipalPointX(), 90.0 / 2.0);
-  BOOST_CHECK_EQUAL(undistorted_camera.PrincipalPointY(), 90.0 / 2.0);
-  BOOST_CHECK_EQUAL(undistorted_camera.Width(), 90);
-  BOOST_CHECK_EQUAL(undistorted_camera.Height(), 90);
+  EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
+  EXPECT_EQ(undistorted_camera.FocalLengthX(), 100);
+  EXPECT_EQ(undistorted_camera.FocalLengthY(), 100);
+  EXPECT_EQ(undistorted_camera.PrincipalPointX(), 90.0 / 2.0);
+  EXPECT_EQ(undistorted_camera.PrincipalPointY(), 90.0 / 2.0);
+  EXPECT_EQ(undistorted_camera.Width(), 90);
+  EXPECT_EQ(undistorted_camera.Height(), 90);
 
   // Make sure that there is no blank pixel.
   size_t num_blank_pixels = 0;
   for (int y = 0; y < undistorted_image.Height(); ++y) {
     for (int x = 0; x < undistorted_image.Width(); ++x) {
       BitmapColor<uint8_t> color;
-      BOOST_CHECK(undistorted_image.GetPixel(x, y, &color));
+      EXPECT_TRUE(undistorted_image.GetPixel(x, y, &color));
       if (color == BitmapColor<uint8_t>(0)) {
         num_blank_pixels += 1;
       }
     }
   }
 
-  BOOST_CHECK_GT(num_blank_pixels, 0);
+  EXPECT_GT(num_blank_pixels, 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestUndistortCameraNoBlankPixels) {
+TEST(UndistortCamera, NoBlankPixels) {
   UndistortCameraOptions options;
   options.blank_pixels = 0;
 
@@ -163,27 +163,27 @@ BOOST_AUTO_TEST_CASE(TestUndistortCameraNoBlankPixels) {
                  &undistorted_image,
                  &undistorted_camera);
 
-  BOOST_CHECK_EQUAL(undistorted_camera.ModelName(), "PINHOLE");
-  BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthX(), 100);
-  BOOST_CHECK_EQUAL(undistorted_camera.FocalLengthY(), 100);
-  BOOST_CHECK_EQUAL(undistorted_camera.PrincipalPointX(), 84.0 / 2.0);
-  BOOST_CHECK_EQUAL(undistorted_camera.PrincipalPointY(), 84.0 / 2.0);
-  BOOST_CHECK_EQUAL(undistorted_camera.Width(), 84);
-  BOOST_CHECK_EQUAL(undistorted_camera.Height(), 84);
+  EXPECT_EQ(undistorted_camera.ModelName(), "PINHOLE");
+  EXPECT_EQ(undistorted_camera.FocalLengthX(), 100);
+  EXPECT_EQ(undistorted_camera.FocalLengthY(), 100);
+  EXPECT_EQ(undistorted_camera.PrincipalPointX(), 84.0 / 2.0);
+  EXPECT_EQ(undistorted_camera.PrincipalPointY(), 84.0 / 2.0);
+  EXPECT_EQ(undistorted_camera.Width(), 84);
+  EXPECT_EQ(undistorted_camera.Height(), 84);
 
   // Make sure that there is no blank pixel.
   for (int y = 0; y < undistorted_image.Height(); ++y) {
     for (int x = 0; x < undistorted_image.Width(); ++x) {
       BitmapColor<uint8_t> color;
-      BOOST_CHECK(undistorted_image.GetPixel(x, y, &color));
-      BOOST_CHECK_NE(color.r, 0);
-      BOOST_CHECK_EQUAL(color.g, 0);
-      BOOST_CHECK_EQUAL(color.b, 0);
+      EXPECT_TRUE(undistorted_image.GetPixel(x, y, &color));
+      EXPECT_NE(color.r, 0);
+      EXPECT_EQ(color.g, 0);
+      EXPECT_EQ(color.b, 0);
     }
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestUndistortReconstruction) {
+TEST(UndistortReconstruction, Nominal) {
   const size_t kNumImages = 10;
   const size_t kNumPoints2D = 10;
 
@@ -209,17 +209,17 @@ BOOST_AUTO_TEST_CASE(TestUndistortReconstruction) {
   UndistortCameraOptions options;
   UndistortReconstruction(options, &reconstruction);
   for (const auto& camera : reconstruction.Cameras()) {
-    BOOST_CHECK_EQUAL(camera.second.ModelName(), "PINHOLE");
+    EXPECT_EQ(camera.second.ModelName(), "PINHOLE");
   }
 
   for (const auto& image : reconstruction.Images()) {
     for (const auto& point2D : image.second.Points2D()) {
-      BOOST_CHECK_NE(point2D.XY(), Eigen::Vector2d::Ones());
+      EXPECT_NE(point2D.XY(), Eigen::Vector2d::Ones());
     }
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestRectifyStereoCameras) {
+TEST(RectifyStereoCameras, Nominal) {
   Camera camera1;
   camera1.SetCameraId(1);
   camera1.InitializeWithName("PINHOLE", 1, 1, 1);
@@ -242,16 +242,16 @@ BOOST_AUTO_TEST_CASE(TestRectifyStereoCameras) {
   Eigen::Matrix3d H1_ref;
   H1_ref << -0.202759, -0.815848, -0.897034, 0.416329, 0.733069, -0.199657,
       0.910839, -0.175408, 0.942638;
-  BOOST_CHECK(H1.isApprox(H1_ref.transpose(), 1e-5));
+  EXPECT_TRUE(H1.isApprox(H1_ref.transpose(), 1e-5));
 
   Eigen::Matrix3d H2_ref;
   H2_ref << -0.082173, -1.01288, -0.698868, 0.301854, 0.472844, -0.465336,
       0.963533, 0.292411, 1.12528;
-  BOOST_CHECK(H2.isApprox(H2_ref.transpose(), 1e-5));
+  EXPECT_TRUE(H2.isApprox(H2_ref.transpose(), 1e-5));
 
   Eigen::Matrix4d Q_ref;
   Q_ref << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -2.67261, -0.5, -0.5, 1, 0;
-  BOOST_CHECK(Q.isApprox(Q_ref, 1e-5));
+  EXPECT_TRUE(Q.isApprox(Q_ref, 1e-5));
 }
 
 }  // namespace colmap

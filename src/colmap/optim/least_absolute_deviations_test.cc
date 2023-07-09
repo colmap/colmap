@@ -29,17 +29,16 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "optim/least_absolute_deviations"
 #include "colmap/optim/least_absolute_deviations.h"
 
 #include "colmap/util/random.h"
-#include "colmap/util/testing.h"
 
 #include <Eigen/Dense>
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestOverDetermined) {
+TEST(SolveLeastAbsoluteDeviations, OverDetermined) {
   Eigen::SparseMatrix<double> A(4, 3);
   for (int i = 0; i < A.rows(); ++i) {
     for (int j = 0; j < A.cols(); ++j) {
@@ -56,17 +55,17 @@ BOOST_AUTO_TEST_CASE(TestOverDetermined) {
   Eigen::VectorXd x = Eigen::VectorXd::Zero(A.cols());
 
   LeastAbsoluteDeviationsOptions options;
-  BOOST_CHECK(SolveLeastAbsoluteDeviations(options, A, b, &x));
+  EXPECT_TRUE(SolveLeastAbsoluteDeviations(options, A, b, &x));
 
   // Reference solution obtained with Boyd's Matlab implementation.
   const Eigen::Vector3d x_ref(0, 0, 1 / 3.0);
-  BOOST_CHECK(x.isApprox(x_ref));
+  EXPECT_TRUE(x.isApprox(x_ref));
 
   const Eigen::VectorXd residual = A * x - b;
-  BOOST_CHECK_LE(residual.norm(), 1e-6);
+  EXPECT_LE(residual.norm(), 1e-6);
 }
 
-BOOST_AUTO_TEST_CASE(TestWellDetermined) {
+TEST(SolveLeastAbsoluteDeviations, WellDetermined) {
   Eigen::SparseMatrix<double> A(3, 3);
   for (int i = 0; i < A.rows(); ++i) {
     for (int j = 0; j < A.cols(); ++j) {
@@ -83,23 +82,23 @@ BOOST_AUTO_TEST_CASE(TestWellDetermined) {
   Eigen::VectorXd x = Eigen::VectorXd::Zero(A.cols());
 
   LeastAbsoluteDeviationsOptions options;
-  BOOST_CHECK(SolveLeastAbsoluteDeviations(options, A, b, &x));
+  EXPECT_TRUE(SolveLeastAbsoluteDeviations(options, A, b, &x));
 
   // Reference solution obtained with Boyd's Matlab implementation.
   const Eigen::Vector3d x_ref(0, 0, 1 / 3.0);
-  BOOST_CHECK(x.isApprox(x_ref));
+  EXPECT_TRUE(x.isApprox(x_ref));
 
   const Eigen::VectorXd residual = A * x - b;
-  BOOST_CHECK_LE(residual.norm(), 1e-6);
+  EXPECT_LE(residual.norm(), 1e-6);
 }
 
-BOOST_AUTO_TEST_CASE(TestUnderDetermined) {
+TEST(SolveLeastAbsoluteDeviations, UnderDetermined) {
   // In this case, the system is rank-deficient and not positive semi-definite.
   Eigen::SparseMatrix<double> A(2, 3);
   Eigen::VectorXd b(A.rows());
   Eigen::VectorXd x = Eigen::VectorXd::Zero(A.cols());
   LeastAbsoluteDeviationsOptions options;
-  BOOST_CHECK(!SolveLeastAbsoluteDeviations(options, A, b, &x));
+  EXPECT_FALSE(SolveLeastAbsoluteDeviations(options, A, b, &x));
 }
 
 }  // namespace colmap
