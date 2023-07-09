@@ -145,7 +145,7 @@ Dependencies from `Homebrew <http://brew.sh/>`_::
         freeimage \
         flann \
         glog \
-        gtest \
+        googletest \
         metis \
         suite-sparse \
         ceres-solver \
