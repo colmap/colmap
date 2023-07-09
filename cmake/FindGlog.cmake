@@ -50,7 +50,7 @@ unset(GLOG_FOUND)
 unset(GLOG_INCLUDE_DIRS)
 unset(GLOG_LIBRARIES)
 
-find_package(glog QUIET)
+find_package(glog CONFIG QUIET)
 if(glog_FOUND)
     set(GLOG_FOUND)
 else()
