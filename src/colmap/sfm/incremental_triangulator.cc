@@ -431,14 +431,14 @@ size_t IncrementalTriangulator::Find(const Options& options,
                                      std::vector<CorrData>* corrs_data) {
   const std::vector<CorrespondenceGraph::Correspondence>* found_corrs_ptr =
       nullptr;
-  if (transitivity == 1) {
-    found_corrs_ptr =
-        &correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
-  } else {
+  // if (transitivity == 1) {
+    // found_corrs_ptr =
+        // &correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
+  // } else {
     correspondence_graph_->FindTransitiveCorrespondences(
         image_id, point2D_idx, transitivity, &found_corrs_);
     found_corrs_ptr = &found_corrs_;
-  }
+  // }
 
   corrs_data->clear();
   corrs_data->reserve(found_corrs_ptr->size());

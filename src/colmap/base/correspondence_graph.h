@@ -56,7 +56,7 @@ class CorrespondenceGraph {
     point2D_t point2D_idx;
   };
 
-  CorrespondenceGraph();
+  CorrespondenceGraph() = default;
 
   // Number of added images.
   inline size_t NumImages() const;
@@ -102,8 +102,8 @@ class CorrespondenceGraph {
                           const FeatureMatches& matches);
 
   // Find the correspondence of an image observation to all other images.
-  inline const std::vector<Correspondence>& FindCorrespondences(
-      image_t image_id, point2D_t point2D_idx) const;
+  std::vector<Correspondence> FindCorrespondences(image_t image_id,
+                                                  point2D_t point2D_idx) const;
 
   // Find correspondences to the given observation.
   //
@@ -142,6 +142,8 @@ class CorrespondenceGraph {
 
     // Correspondences to other images per image point.
     std::vector<std::vector<Correspondence>> corrs;
+    std::vector<Correspondence> flat_corrs;
+    std::vector<std::pair<int, int>> flat_corr_ranges;
   };
 
   struct ImagePair {
@@ -149,6 +151,7 @@ class CorrespondenceGraph {
     point2D_t num_correspondences = 0;
   };
 
+  bool finalized_ = false;
   std::unordered_map<image_t, Image> images_;
   std::unordered_map<image_pair_t, ImagePair> image_pairs_;
 };
@@ -187,12 +190,6 @@ point2D_t CorrespondenceGraph::NumCorrespondencesBetweenImages(
   } else {
     return static_cast<point2D_t>(it->second.num_correspondences);
   }
-}
-
-const std::vector<CorrespondenceGraph::Correspondence>&
-CorrespondenceGraph::FindCorrespondences(const image_t image_id,
-                                         const point2D_t point2D_idx) const {
-  return images_.at(image_id).corrs.at(point2D_idx);
 }
 
 bool CorrespondenceGraph::HasCorrespondences(

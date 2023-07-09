@@ -38,8 +38,6 @@
 
 namespace colmap {
 
-CorrespondenceGraph::CorrespondenceGraph() {}
-
 std::unordered_map<image_pair_t, point2D_t>
 CorrespondenceGraph::NumCorrespondencesBetweenImages() const {
   std::unordered_map<image_pair_t, point2D_t> num_corrs_between_images;
@@ -52,19 +50,46 @@ CorrespondenceGraph::NumCorrespondencesBetweenImages() const {
 }
 
 void CorrespondenceGraph::Finalize() {
+  CHECK(!finalized_);
+  finalized_ = true;
+  // Flatten all correspondences, remove images without observations.
   for (auto it = images_.begin(); it != images_.end();) {
+    // Count number of correspondences and observations.
     it->second.num_observations = 0;
+    size_t num_total_corrs = 0;
     for (auto& corr : it->second.corrs) {
-      corr.shrink_to_fit();
-      if (corr.size() > 0) {
+      num_total_corrs += corr.size();
+      if (!corr.empty()) {
         it->second.num_observations += 1;
       }
     }
+
+    std::cout << "NUM_OBS " << it->second.num_observations << " " << num_total_corrs << "\n";
+
+    // Erase image without observations.
     if (it->second.num_observations == 0) {
       images_.erase(it++);
-    } else {
-      ++it;
+      continue;
     }
+
+    // Compress correspondences to flattened vector.
+    const size_t num_points2D = it->second.corrs.size();
+    it->second.flat_corrs.reserve(num_total_corrs);
+    it->second.flat_corr_ranges.resize(num_points2D);
+    for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
+      auto& range = it->second.flat_corr_ranges[point2D_idx];
+      range.first = it->second.flat_corrs.size();
+      std::vector<Correspondence>& corrs = it->second.corrs[point2D_idx];
+      it->second.flat_corrs.insert(
+          it->second.flat_corrs.end(), corrs.begin(), corrs.begin());
+      range.second = it->second.flat_corrs.size();
+    }
+
+    // Deallocate original data.
+    it->second.corrs.clear();
+    it->second.corrs.shrink_to_fit();
+
+    ++it;
   }
 }
 
@@ -164,6 +189,19 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
       }
     }
   }
+}
+
+std::vector<CorrespondenceGraph::Correspondence>
+CorrespondenceGraph::FindCorrespondences(const image_t image_id,
+                                         const point2D_t point2D_idx) const {
+  std::vector<Correspondence> found_corrs;
+  const auto& image = images_.at(image_id);
+  const auto corr_range = image.flat_corr_ranges.at(point2D_idx);
+  for (int corr_idx = corr_range.first; corr_idx < corr_range.second;
+       ++corr_idx) {
+    found_corrs.push_back(image.flat_corrs[corr_idx]);
+  }
+  return found_corrs;
 }
 
 void CorrespondenceGraph::FindTransitiveCorrespondences(

@@ -85,8 +85,7 @@ BOOST_AUTO_TEST_CASE(TestTwoView) {
   matches[3].point2D_idx1 = 4;
   matches[3].point2D_idx2 = 8;
   correspondence_graph.AddCorrespondences(0, 1, matches);
-  BOOST_CHECK_EQUAL(correspondence_graph.NumObservationsForImage(0), 0);
-  BOOST_CHECK_EQUAL(correspondence_graph.NumObservationsForImage(1), 0);
+  correspondence_graph.Finalize();
   BOOST_CHECK_EQUAL(correspondence_graph.NumCorrespondencesForImage(0), 4);
   BOOST_CHECK_EQUAL(correspondence_graph.NumCorrespondencesForImage(1), 4);
   const image_pair_t pair_id = Database::ImagePairToPairId(0, 1);
@@ -172,7 +171,6 @@ BOOST_AUTO_TEST_CASE(TestTwoView) {
     BOOST_CHECK_EQUAL(matches[i].point2D_idx1, corrs01[i].point2D_idx1);
     BOOST_CHECK_EQUAL(matches[i].point2D_idx2, corrs01[i].point2D_idx2);
   }
-  correspondence_graph.Finalize();
   BOOST_CHECK_EQUAL(correspondence_graph.NumObservationsForImage(0), 4);
   BOOST_CHECK_EQUAL(correspondence_graph.NumObservationsForImage(1), 4);
   BOOST_CHECK_EQUAL(correspondence_graph.NumCorrespondencesForImage(0), 4);
