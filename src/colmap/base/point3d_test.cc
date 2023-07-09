@@ -29,88 +29,87 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "base/point3d"
 #include "colmap/base/point3d.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestDefault) {
+TEST(Point3D, Default) {
   Point3D point3D;
-  BOOST_CHECK_EQUAL(point3D.X(), 0);
-  BOOST_CHECK_EQUAL(point3D.Y(), 0);
-  BOOST_CHECK_EQUAL(point3D.Z(), 0);
-  BOOST_CHECK_EQUAL(point3D.XYZ()[0], point3D.X());
-  BOOST_CHECK_EQUAL(point3D.XYZ()[1], point3D.Y());
-  BOOST_CHECK_EQUAL(point3D.XYZ()[2], point3D.Z());
-  BOOST_CHECK_EQUAL(point3D.Color()[0], 0);
-  BOOST_CHECK_EQUAL(point3D.Color()[1], 0);
-  BOOST_CHECK_EQUAL(point3D.Color()[2], 0);
-  BOOST_CHECK_EQUAL(point3D.Error(), -1.0);
-  BOOST_CHECK_EQUAL(point3D.HasError(), false);
-  BOOST_CHECK_EQUAL(point3D.Track().Length(), 0);
+  EXPECT_EQ(point3D.X(), 0);
+  EXPECT_EQ(point3D.Y(), 0);
+  EXPECT_EQ(point3D.Z(), 0);
+  EXPECT_EQ(point3D.XYZ()[0], point3D.X());
+  EXPECT_EQ(point3D.XYZ()[1], point3D.Y());
+  EXPECT_EQ(point3D.XYZ()[2], point3D.Z());
+  EXPECT_EQ(point3D.Color()[0], 0);
+  EXPECT_EQ(point3D.Color()[1], 0);
+  EXPECT_EQ(point3D.Color()[2], 0);
+  EXPECT_EQ(point3D.Error(), -1.0);
+  EXPECT_FALSE(point3D.HasError());
+  EXPECT_EQ(point3D.Track().Length(), 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestXYZ) {
+TEST(Point3D, XYZ) {
   Point3D point3D;
-  BOOST_CHECK_EQUAL(point3D.X(), 0);
-  BOOST_CHECK_EQUAL(point3D.Y(), 0);
-  BOOST_CHECK_EQUAL(point3D.Z(), 0);
-  BOOST_CHECK_EQUAL(point3D.XYZ()[0], point3D.X());
-  BOOST_CHECK_EQUAL(point3D.XYZ()[1], point3D.Y());
-  BOOST_CHECK_EQUAL(point3D.XYZ()[2], point3D.Z());
+  EXPECT_EQ(point3D.X(), 0);
+  EXPECT_EQ(point3D.Y(), 0);
+  EXPECT_EQ(point3D.Z(), 0);
+  EXPECT_EQ(point3D.XYZ()[0], point3D.X());
+  EXPECT_EQ(point3D.XYZ()[1], point3D.Y());
+  EXPECT_EQ(point3D.XYZ()[2], point3D.Z());
   point3D.SetXYZ(Eigen::Vector3d(0.1, 0.2, 0.3));
-  BOOST_CHECK_EQUAL(point3D.X(), 0.1);
-  BOOST_CHECK_EQUAL(point3D.Y(), 0.2);
-  BOOST_CHECK_EQUAL(point3D.Z(), 0.3);
-  BOOST_CHECK_EQUAL(point3D.XYZ()[0], point3D.X());
-  BOOST_CHECK_EQUAL(point3D.XYZ()[1], point3D.Y());
-  BOOST_CHECK_EQUAL(point3D.XYZ()[2], point3D.Z());
+  EXPECT_EQ(point3D.X(), 0.1);
+  EXPECT_EQ(point3D.Y(), 0.2);
+  EXPECT_EQ(point3D.Z(), 0.3);
+  EXPECT_EQ(point3D.XYZ()[0], point3D.X());
+  EXPECT_EQ(point3D.XYZ()[1], point3D.Y());
+  EXPECT_EQ(point3D.XYZ()[2], point3D.Z());
   point3D.XYZ() = Eigen::Vector3d(0.2, 0.3, 0.4);
-  BOOST_CHECK_EQUAL(point3D.X(), 0.2);
-  BOOST_CHECK_EQUAL(point3D.Y(), 0.3);
-  BOOST_CHECK_EQUAL(point3D.Z(), 0.4);
-  BOOST_CHECK_EQUAL(point3D.XYZ()[0], point3D.X());
-  BOOST_CHECK_EQUAL(point3D.XYZ()[1], point3D.Y());
-  BOOST_CHECK_EQUAL(point3D.XYZ()[2], point3D.Z());
+  EXPECT_EQ(point3D.X(), 0.2);
+  EXPECT_EQ(point3D.Y(), 0.3);
+  EXPECT_EQ(point3D.Z(), 0.4);
+  EXPECT_EQ(point3D.XYZ()[0], point3D.X());
+  EXPECT_EQ(point3D.XYZ()[1], point3D.Y());
+  EXPECT_EQ(point3D.XYZ()[2], point3D.Z());
 }
 
-BOOST_AUTO_TEST_CASE(TestRGB) {
+TEST(Point3D, RGB) {
   Point3D point3D;
-  BOOST_CHECK_EQUAL(point3D.Color()[0], 0);
-  BOOST_CHECK_EQUAL(point3D.Color()[1], 0);
-  BOOST_CHECK_EQUAL(point3D.Color()[2], 0);
+  EXPECT_EQ(point3D.Color()[0], 0);
+  EXPECT_EQ(point3D.Color()[1], 0);
+  EXPECT_EQ(point3D.Color()[2], 0);
   point3D.SetColor(Eigen::Vector3ub(1, 2, 3));
-  BOOST_CHECK_EQUAL(point3D.Color()[0], 1);
-  BOOST_CHECK_EQUAL(point3D.Color()[1], 2);
-  BOOST_CHECK_EQUAL(point3D.Color()[2], 3);
+  EXPECT_EQ(point3D.Color()[0], 1);
+  EXPECT_EQ(point3D.Color()[1], 2);
+  EXPECT_EQ(point3D.Color()[2], 3);
 }
 
-BOOST_AUTO_TEST_CASE(TestError) {
+TEST(Point3D, Error) {
   Point3D point3D;
-  BOOST_CHECK_EQUAL(point3D.Error(), -1.0);
-  BOOST_CHECK_EQUAL(point3D.HasError(), false);
+  EXPECT_EQ(point3D.Error(), -1.0);
+  EXPECT_FALSE(point3D.HasError());
   point3D.SetError(1.0);
-  BOOST_CHECK_EQUAL(point3D.Error(), 1.0);
-  BOOST_CHECK_EQUAL(point3D.HasError(), true);
+  EXPECT_EQ(point3D.Error(), 1.0);
+  EXPECT_TRUE(point3D.HasError());
   point3D.SetError(-1.0);
-  BOOST_CHECK_EQUAL(point3D.Error(), -1.0);
-  BOOST_CHECK_EQUAL(point3D.HasError(), false);
+  EXPECT_EQ(point3D.Error(), -1.0);
+  EXPECT_FALSE(point3D.HasError());
 }
 
-BOOST_AUTO_TEST_CASE(TestTrack) {
+TEST(Point3D, Track) {
   Point3D point3D;
-  BOOST_CHECK_EQUAL(point3D.Track().Length(), 0);
+  EXPECT_EQ(point3D.Track().Length(), 0);
   point3D.SetTrack(Track());
-  BOOST_CHECK_EQUAL(point3D.Track().Length(), 0);
+  EXPECT_EQ(point3D.Track().Length(), 0);
   Track track;
   track.AddElement(0, 1);
   track.AddElement(0, 2);
   point3D.SetTrack(track);
-  BOOST_CHECK_EQUAL(point3D.Track().Length(), 2);
+  EXPECT_EQ(point3D.Track().Length(), 2);
   track.AddElement(0, 3);
-  BOOST_CHECK_EQUAL(point3D.Track().Length(), 2);
+  EXPECT_EQ(point3D.Track().Length(), 2);
 }
 
 }  // namespace colmap

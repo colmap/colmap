@@ -45,7 +45,6 @@ COLMAP_ADD_SOURCES(
     string.h string.cc
     threading.h threading.cc
     timer.h timer.cc
-    testing.h
     types.h
     version.h version.cc
 )

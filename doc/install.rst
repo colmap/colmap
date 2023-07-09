@@ -78,13 +78,12 @@ Dependencies from the default Ubuntu repositories::
         libboost-filesystem-dev \
         libboost-graph-dev \
         libboost-system-dev \
-        libboost-test-dev \
         libeigen3-dev \
         libflann-dev \
         libfreeimage-dev \
         libmetis-dev \
         libgoogle-glog-dev \
-        libgflags-dev \
+        libgtest-dev \
         libsqlite3-dev \
         libglew-dev \
         qtbase5-dev \
@@ -146,7 +145,7 @@ Dependencies from `Homebrew <http://brew.sh/>`_::
         freeimage \
         flann \
         glog \
-        gflags \
+        googletest \
         metis \
         suite-sparse \
         ceres-solver \

@@ -33,16 +33,16 @@
 #define BOOST_PP_VARIADICS 0
 #endif  // __CUDACC__
 
-#define TEST_NAME "mvs/gpu_mat_test"
 #include "colmap/mvs/gpu_mat.h"
 #include "colmap/mvs/gpu_mat_prng.h"
 #include "colmap/util/math.h"
-#include "colmap/util/testing.h"
+
+#include <gtest/gtest.h>
 
 namespace colmap {
 namespace mvs {
 
-BOOST_AUTO_TEST_CASE(TestFillWithVector) {
+TEST(GpuMat, FillWithVector) {
   GpuMat<float> array(100, 100, 2);
   const std::vector<float> vector = {1.0f, 2.0f};
   array.FillWithVector(vector.data());
@@ -52,8 +52,8 @@ BOOST_AUTO_TEST_CASE(TestFillWithVector) {
 
   for (size_t r = 0; r < 100; ++r) {
     for (size_t c = 0; c < 100; ++c) {
-      BOOST_CHECK_EQUAL(array_host[0 * 100 * 100 + r * 100 + c], 1.0f);
-      BOOST_CHECK_EQUAL(array_host[1 * 100 * 100 + r * 100 + c], 2.0f);
+      EXPECT_EQ(array_host[0 * 100 * 100 + r * 100 + c], 1.0f);
+      EXPECT_EQ(array_host[1 * 100 * 100 + r * 100 + c], 2.0f);
     }
   }
 }
@@ -79,15 +79,14 @@ void TestTransposeImage(const size_t width,
   for (size_t r = 0; r < height; ++r) {
     for (size_t c = 0; c < width; ++c) {
       for (size_t d = 0; d < depth; ++d) {
-        BOOST_CHECK_EQUAL(
-            array_host[d * width * height + r * width + c],
-            array_transposed_host[d * width * height + c * height + r]);
+        EXPECT_EQ(array_host[d * width * height + r * width + c],
+                  array_transposed_host[d * width * height + c * height + r]);
       }
     }
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestTranspose) {
+TEST(GpuMat, Transpose) {
   for (size_t w = 1; w <= 5; ++w) {
     for (size_t h = 1; h <= 5; ++h) {
       for (size_t d = 1; d <= 3; ++d) {
@@ -125,7 +124,7 @@ void TestFlipHorizontalImage(const size_t width,
   for (size_t r = 0; r < height; ++r) {
     for (size_t c = 0; c < width; ++c) {
       for (size_t d = 0; d < depth; ++d) {
-        BOOST_CHECK_EQUAL(
+        EXPECT_EQ(
             array_host[d * width * height + r * width + c],
             array_flipped_host[d * width * height + r * width + width - 1 - c]);
       }
@@ -133,7 +132,7 @@ void TestFlipHorizontalImage(const size_t width,
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestFlipHorizontal) {
+TEST(GpuMat, FlipHorizontal) {
   for (size_t w = 1; w <= 5; ++w) {
     for (size_t h = 1; h <= 5; ++h) {
       for (size_t d = 1; d <= 3; ++d) {
@@ -180,7 +179,7 @@ void TestRotateImage(const size_t width,
         const size_t rotr =
             std::round(std::sin(angle) * (c - arrayCenterH) +
                        std::cos(angle) * (r - arrayCenterV) + arrayCenterH);
-        BOOST_CHECK_EQUAL(
+        EXPECT_EQ(
             array_host[d * width * height + r * width + c],
             array_rotated_host[d * width * height + rotr * height + rotc]);
       }
@@ -188,7 +187,7 @@ void TestRotateImage(const size_t width,
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestRotate) {
+TEST(GpuMat, Rotate) {
   for (size_t w = 1; w <= 5; ++w) {
     for (size_t h = 1; h <= 5; ++h) {
       for (size_t d = 1; d <= 3; ++d) {

@@ -29,14 +29,13 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "image/line"
 #include "colmap/image/line.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestDetectLineSegments) {
+TEST(DetectLineSegments, Nominal) {
   Bitmap bitmap;
   bitmap.Allocate(100, 100, false);
   for (size_t i = 0; i < 100; ++i) {
@@ -45,19 +44,19 @@ BOOST_AUTO_TEST_CASE(TestDetectLineSegments) {
 
   const auto line_segments = DetectLineSegments(bitmap, 0);
 
-  BOOST_CHECK_EQUAL(line_segments.size(), 2);
+  EXPECT_EQ(line_segments.size(), 2);
 
   const Eigen::Vector2d ref_start(0, 0);
   const Eigen::Vector2d ref_end(100, 100);
-  BOOST_CHECK_LT((line_segments[0].start - ref_start).norm(), 5);
-  BOOST_CHECK_LT((line_segments[0].end - ref_end).norm(), 5);
-  BOOST_CHECK_LT((line_segments[1].start - ref_end).norm(), 5);
-  BOOST_CHECK_LT((line_segments[1].end - ref_start).norm(), 5);
+  EXPECT_LT((line_segments[0].start - ref_start).norm(), 5);
+  EXPECT_LT((line_segments[0].end - ref_end).norm(), 5);
+  EXPECT_LT((line_segments[1].start - ref_end).norm(), 5);
+  EXPECT_LT((line_segments[1].end - ref_start).norm(), 5);
 
-  BOOST_CHECK_EQUAL(DetectLineSegments(bitmap, 150).size(), 0);
+  EXPECT_EQ(DetectLineSegments(bitmap, 150).size(), 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestClassifyLineSegmentOrientations) {
+TEST(ClassifyLineSegmentOrientations, Nominal) {
   Bitmap bitmap;
   bitmap.Allocate(100, 100, false);
   for (size_t i = 60; i < 100; ++i) {
@@ -67,17 +66,17 @@ BOOST_AUTO_TEST_CASE(TestClassifyLineSegmentOrientations) {
   }
 
   const auto line_segments = DetectLineSegments(bitmap, 0);
-  BOOST_CHECK_EQUAL(line_segments.size(), 6);
+  EXPECT_EQ(line_segments.size(), 6);
 
   const auto orientations = ClassifyLineSegmentOrientations(line_segments);
-  BOOST_CHECK_EQUAL(orientations.size(), 6);
+  EXPECT_EQ(orientations.size(), 6);
 
-  BOOST_CHECK(orientations[0] == LineSegmentOrientation::VERTICAL);
-  BOOST_CHECK(orientations[1] == LineSegmentOrientation::VERTICAL);
-  BOOST_CHECK(orientations[2] == LineSegmentOrientation::HORIZONTAL);
-  BOOST_CHECK(orientations[3] == LineSegmentOrientation::HORIZONTAL);
-  BOOST_CHECK(orientations[4] == LineSegmentOrientation::UNDEFINED);
-  BOOST_CHECK(orientations[5] == LineSegmentOrientation::UNDEFINED);
+  EXPECT_TRUE(orientations[0] == LineSegmentOrientation::VERTICAL);
+  EXPECT_TRUE(orientations[1] == LineSegmentOrientation::VERTICAL);
+  EXPECT_TRUE(orientations[2] == LineSegmentOrientation::HORIZONTAL);
+  EXPECT_TRUE(orientations[3] == LineSegmentOrientation::HORIZONTAL);
+  EXPECT_TRUE(orientations[4] == LineSegmentOrientation::UNDEFINED);
+  EXPECT_TRUE(orientations[5] == LineSegmentOrientation::UNDEFINED);
 }
 
 }  // namespace colmap

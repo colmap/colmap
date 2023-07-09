@@ -22,7 +22,7 @@ jobs:
         freeimage \
         metis \
         glog \
-        gflags \
+        googletest \
         ceres-solver \
         qt5 \
         glew \

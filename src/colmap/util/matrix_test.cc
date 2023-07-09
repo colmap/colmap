@@ -29,24 +29,23 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "util/matrix"
 #include "colmap/util/matrix.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestDecomposeMatrixRQ) {
+TEST(DecomposeMatrixRQ, Nominal) {
   for (int i = 0; i < 10; ++i) {
     const Eigen::Matrix4d A = Eigen::Matrix4d::Random();
 
     Eigen::Matrix4d R, Q;
     DecomposeMatrixRQ(A, &R, &Q);
 
-    BOOST_CHECK(R.bottomRows(4).isUpperTriangular());
-    BOOST_CHECK(Q.isUnitary());
-    BOOST_CHECK_CLOSE(Q.determinant(), 1.0, 1e-6);
-    BOOST_CHECK(A.isApprox(R * Q, 1e-6));
+    EXPECT_TRUE(R.bottomRows(4).isUpperTriangular());
+    EXPECT_TRUE(Q.isUnitary());
+    EXPECT_NEAR(Q.determinant(), 1.0, 1e-6);
+    EXPECT_TRUE(A.isApprox(R * Q, 1e-6));
   }
 }
 
