@@ -356,7 +356,6 @@ endif()
 include(GenerateVersionDefinitions)
 
 set(COLMAP_INCLUDE_DIRS
-    ${Boost_INCLUDE_DIRS}
     ${FLANN_INCLUDE_DIRS}
     ${LZ4_INCLUDE_DIRS}
     ${FREEIMAGE_INCLUDE_DIRS}
@@ -371,15 +370,16 @@ set(COLMAP_LINK_DIRS
 
 set(COLMAP_EXTERNAL_LIBRARIES
     ${CMAKE_DL_LIBS}
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_PROGRAM_OPTIONS_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
     ${FLANN_LIBRARIES}
     ${LZ4_LIBRARIES}
     ${FREEIMAGE_LIBRARIES}
     ${METIS_LIBRARIES}
     ${CERES_LIBRARIES}
     ${OPENGL_LIBRARIES}
+    Boost::program_options
+    Boost::filesystem
+    Boost::graph
+    Boost::system
     Eigen3::Eigen
     glog::glog
     SQLite::SQLite3
