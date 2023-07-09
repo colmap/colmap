@@ -310,7 +310,7 @@ inline double Image::QvecPrior(const size_t idx) const {
 
 inline double& Image::QvecPrior(const size_t idx) { return qvec_prior_(idx); }
 
-inline bool Image::HasQvecPrior() const { return !IsNaN(qvec_prior_.sum()); }
+inline bool Image::HasQvecPrior() const { return qvec_prior_.array().isFinite().all(); }
 
 void Image::SetQvecPrior(const Eigen::Vector4d& qvec) { qvec_prior_ = qvec; }
 
@@ -334,7 +334,7 @@ inline double Image::TvecPrior(const size_t idx) const {
 
 inline double& Image::TvecPrior(const size_t idx) { return tvec_prior_(idx); }
 
-inline bool Image::HasTvecPrior() const { return !IsNaN(tvec_prior_.sum()); }
+inline bool Image::HasTvecPrior() const { return tvec_prior_.array().isFinite().all(); }
 
 void Image::SetTvecPrior(const Eigen::Vector3d& tvec) { tvec_prior_ = tvec; }
 

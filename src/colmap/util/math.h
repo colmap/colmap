@@ -51,17 +51,9 @@ namespace colmap {
 template <typename T>
 int SignOfNumber(T val);
 
-// Check if the given floating point number is a not-a-number (NaN) value.
-inline bool IsNaN(float x);
-inline bool IsNaN(double x);
-
-// Check if the given floating point number is a infinity.
-inline bool IsInf(float x);
-inline bool IsInf(double x);
-
-// Clip the given value to a low and maximum value.
+// Clamp the given value to a low and maximum value.
 template <typename T>
-inline T Clip(const T& value, const T& low, const T& high);
+inline T Clamp(const T& value, const T& low, const T& high);
 
 // Convert angle in degree to radians.
 inline float DegToRad(float deg);
@@ -181,14 +173,8 @@ int SignOfNumber(const T val) {
   return (T(0) < val) - (val < T(0));
 }
 
-bool IsNaN(const float x) { return x != x; }
-bool IsNaN(const double x) { return x != x; }
-
-bool IsInf(const float x) { return !IsNaN(x) && IsNaN(x - x); }
-bool IsInf(const double x) { return !IsNaN(x) && IsNaN(x - x); }
-
 template <typename T>
-T Clip(const T& value, const T& low, const T& high) {
+T Clamp(const T& value, const T& low, const T& high) {
   return std::max(low, std::min(value, high));
 }
 

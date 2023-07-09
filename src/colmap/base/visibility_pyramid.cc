@@ -102,12 +102,8 @@ void VisibilityPyramid::CellForPoint(const double x,
   CHECK_GT(width_, 0);
   CHECK_GT(height_, 0);
   const int max_dim = 1 << pyramid_.size();
-  *cx = Clip<size_t>(static_cast<size_t>(max_dim * x / width_),
-                     0,
-                     static_cast<size_t>(max_dim - 1));
-  *cy = Clip<size_t>(static_cast<size_t>(max_dim * y / height_),
-                     0,
-                     static_cast<size_t>(max_dim - 1));
+  *cx = Clamp<size_t>(max_dim * x / width_, 0, max_dim - 1);
+  *cy = Clamp<size_t>(max_dim * y / height_, 0, max_dim - 1);
 }
 
 }  // namespace colmap
