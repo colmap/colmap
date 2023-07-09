@@ -29,87 +29,86 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "base/camera_rig"
 #include "colmap/base/camera_rig.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestEmpty) {
+TEST(CameraRig, Empty) {
   CameraRig camera_rig;
-  BOOST_CHECK_EQUAL(camera_rig.NumCameras(), 0);
-  BOOST_CHECK_EQUAL(camera_rig.NumSnapshots(), 0);
-  BOOST_CHECK_EQUAL(camera_rig.GetCameraIds().size(), 0);
-  BOOST_CHECK_EQUAL(camera_rig.HasCamera(0), false);
+  EXPECT_EQ(camera_rig.NumCameras(), 0);
+  EXPECT_EQ(camera_rig.NumSnapshots(), 0);
+  EXPECT_EQ(camera_rig.GetCameraIds().size(), 0);
+  EXPECT_EQ(camera_rig.HasCamera(0), false);
 }
 
-BOOST_AUTO_TEST_CASE(TestAddCamera) {
+TEST(CameraRig, AddCamera) {
   CameraRig camera_rig;
-  BOOST_CHECK_EQUAL(camera_rig.NumCameras(), 0);
-  BOOST_CHECK_EQUAL(camera_rig.NumSnapshots(), 0);
-  BOOST_CHECK_EQUAL(camera_rig.GetCameraIds().size(), 0);
-  BOOST_CHECK_EQUAL(camera_rig.HasCamera(0), false);
+  EXPECT_EQ(camera_rig.NumCameras(), 0);
+  EXPECT_EQ(camera_rig.NumSnapshots(), 0);
+  EXPECT_EQ(camera_rig.GetCameraIds().size(), 0);
+  EXPECT_EQ(camera_rig.HasCamera(0), false);
 
   camera_rig.AddCamera(
       0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 1, 2));
-  BOOST_CHECK_EQUAL(camera_rig.NumCameras(), 1);
-  BOOST_CHECK_EQUAL(camera_rig.NumSnapshots(), 0);
-  BOOST_CHECK_EQUAL(camera_rig.GetCameraIds().size(), 1);
-  BOOST_CHECK_EQUAL(camera_rig.GetCameraIds()[0], 0);
-  BOOST_CHECK_EQUAL(camera_rig.HasCamera(0), true);
-  BOOST_CHECK_EQUAL(camera_rig.RelativeQvec(0), ComposeIdentityQuaternion());
-  BOOST_CHECK_EQUAL(camera_rig.RelativeTvec(0), Eigen::Vector3d(0, 1, 2));
+  EXPECT_EQ(camera_rig.NumCameras(), 1);
+  EXPECT_EQ(camera_rig.NumSnapshots(), 0);
+  EXPECT_EQ(camera_rig.GetCameraIds().size(), 1);
+  EXPECT_EQ(camera_rig.GetCameraIds()[0], 0);
+  EXPECT_EQ(camera_rig.HasCamera(0), true);
+  EXPECT_EQ(camera_rig.RelativeQvec(0), ComposeIdentityQuaternion());
+  EXPECT_EQ(camera_rig.RelativeTvec(0), Eigen::Vector3d(0, 1, 2));
 
   camera_rig.AddCamera(
       1, ComposeIdentityQuaternion(), Eigen::Vector3d(3, 4, 5));
-  BOOST_CHECK_EQUAL(camera_rig.NumCameras(), 2);
-  BOOST_CHECK_EQUAL(camera_rig.NumSnapshots(), 0);
-  BOOST_CHECK_EQUAL(camera_rig.GetCameraIds().size(), 2);
-  BOOST_CHECK_EQUAL(camera_rig.HasCamera(0), true);
-  BOOST_CHECK_EQUAL(camera_rig.HasCamera(1), true);
-  BOOST_CHECK_EQUAL(camera_rig.RelativeQvec(1), ComposeIdentityQuaternion());
-  BOOST_CHECK_EQUAL(camera_rig.RelativeTvec(1), Eigen::Vector3d(3, 4, 5));
+  EXPECT_EQ(camera_rig.NumCameras(), 2);
+  EXPECT_EQ(camera_rig.NumSnapshots(), 0);
+  EXPECT_EQ(camera_rig.GetCameraIds().size(), 2);
+  EXPECT_EQ(camera_rig.HasCamera(0), true);
+  EXPECT_EQ(camera_rig.HasCamera(1), true);
+  EXPECT_EQ(camera_rig.RelativeQvec(1), ComposeIdentityQuaternion());
+  EXPECT_EQ(camera_rig.RelativeTvec(1), Eigen::Vector3d(3, 4, 5));
 }
 
-BOOST_AUTO_TEST_CASE(TestAddSnapshot) {
+TEST(CameraRig, AddSnapshot) {
   CameraRig camera_rig;
-  BOOST_CHECK_EQUAL(camera_rig.NumCameras(), 0);
-  BOOST_CHECK_EQUAL(camera_rig.NumSnapshots(), 0);
-  BOOST_CHECK_EQUAL(camera_rig.GetCameraIds().size(), 0);
-  BOOST_CHECK_EQUAL(camera_rig.Snapshots().size(), 0);
+  EXPECT_EQ(camera_rig.NumCameras(), 0);
+  EXPECT_EQ(camera_rig.NumSnapshots(), 0);
+  EXPECT_EQ(camera_rig.GetCameraIds().size(), 0);
+  EXPECT_EQ(camera_rig.Snapshots().size(), 0);
 
   camera_rig.AddCamera(
       0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 1, 2));
   camera_rig.AddCamera(
       1, ComposeIdentityQuaternion(), Eigen::Vector3d(3, 4, 5));
-  BOOST_CHECK_EQUAL(camera_rig.NumCameras(), 2);
-  BOOST_CHECK_EQUAL(camera_rig.NumSnapshots(), 0);
-  BOOST_CHECK_EQUAL(camera_rig.Snapshots().size(), 0);
+  EXPECT_EQ(camera_rig.NumCameras(), 2);
+  EXPECT_EQ(camera_rig.NumSnapshots(), 0);
+  EXPECT_EQ(camera_rig.Snapshots().size(), 0);
 
   const std::vector<image_t> image_ids1 = {0, 1};
   camera_rig.AddSnapshot(image_ids1);
-  BOOST_CHECK_EQUAL(camera_rig.NumCameras(), 2);
-  BOOST_CHECK_EQUAL(camera_rig.NumSnapshots(), 1);
-  BOOST_CHECK_EQUAL(camera_rig.Snapshots().size(), 1);
-  BOOST_CHECK_EQUAL(camera_rig.Snapshots()[0].size(), 2);
-  BOOST_CHECK_EQUAL(camera_rig.Snapshots()[0][0], 0);
-  BOOST_CHECK_EQUAL(camera_rig.Snapshots()[0][1], 1);
+  EXPECT_EQ(camera_rig.NumCameras(), 2);
+  EXPECT_EQ(camera_rig.NumSnapshots(), 1);
+  EXPECT_EQ(camera_rig.Snapshots().size(), 1);
+  EXPECT_EQ(camera_rig.Snapshots()[0].size(), 2);
+  EXPECT_EQ(camera_rig.Snapshots()[0][0], 0);
+  EXPECT_EQ(camera_rig.Snapshots()[0][1], 1);
 
   const std::vector<image_t> image_ids2 = {2, 3};
   camera_rig.AddSnapshot(image_ids2);
-  BOOST_CHECK_EQUAL(camera_rig.NumCameras(), 2);
-  BOOST_CHECK_EQUAL(camera_rig.NumSnapshots(), 2);
-  BOOST_CHECK_EQUAL(camera_rig.Snapshots().size(), 2);
-  BOOST_CHECK_EQUAL(camera_rig.Snapshots()[0].size(), 2);
-  BOOST_CHECK_EQUAL(camera_rig.Snapshots()[0][0], 0);
-  BOOST_CHECK_EQUAL(camera_rig.Snapshots()[0][1], 1);
-  BOOST_CHECK_EQUAL(camera_rig.Snapshots()[1].size(), 2);
-  BOOST_CHECK_EQUAL(camera_rig.Snapshots()[1][0], 2);
-  BOOST_CHECK_EQUAL(camera_rig.Snapshots()[1][1], 3);
+  EXPECT_EQ(camera_rig.NumCameras(), 2);
+  EXPECT_EQ(camera_rig.NumSnapshots(), 2);
+  EXPECT_EQ(camera_rig.Snapshots().size(), 2);
+  EXPECT_EQ(camera_rig.Snapshots()[0].size(), 2);
+  EXPECT_EQ(camera_rig.Snapshots()[0][0], 0);
+  EXPECT_EQ(camera_rig.Snapshots()[0][1], 1);
+  EXPECT_EQ(camera_rig.Snapshots()[1].size(), 2);
+  EXPECT_EQ(camera_rig.Snapshots()[1][0], 2);
+  EXPECT_EQ(camera_rig.Snapshots()[1][1], 3);
 }
 
-BOOST_AUTO_TEST_CASE(TestCheck) {
+TEST(CameraRig, Check) {
   CameraRig camera_rig;
   camera_rig.AddCamera(
       0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 1, 2));
@@ -156,7 +155,7 @@ BOOST_AUTO_TEST_CASE(TestCheck) {
   camera_rig.Check(reconstruction);
 }
 
-BOOST_AUTO_TEST_CASE(TestComputeScale) {
+TEST(CameraRig, ComputeScale) {
   CameraRig camera_rig;
   camera_rig.AddCamera(
       0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
@@ -194,13 +193,13 @@ BOOST_AUTO_TEST_CASE(TestComputeScale) {
   camera_rig.SetRefCameraId(0);
   camera_rig.Check(reconstruction);
 
-  BOOST_CHECK_EQUAL(camera_rig.ComputeScale(reconstruction), 2.0);
+  EXPECT_EQ(camera_rig.ComputeScale(reconstruction), 2.0);
 
   reconstruction.Image(1).SetTvec(Eigen::Vector3d(0, 0, 0));
-  BOOST_CHECK(std::isnan(camera_rig.ComputeScale(reconstruction)));
+  EXPECT_TRUE(std::isnan(camera_rig.ComputeScale(reconstruction)));
 }
 
-BOOST_AUTO_TEST_CASE(TestComputeRelativePoses) {
+TEST(CameraRig, ComputeRelativePoses) {
   CameraRig camera_rig;
   camera_rig.AddCamera(
       0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
@@ -238,10 +237,10 @@ BOOST_AUTO_TEST_CASE(TestComputeRelativePoses) {
   camera_rig.SetRefCameraId(0);
   camera_rig.Check(reconstruction);
   camera_rig.ComputeRelativePoses(reconstruction);
-  BOOST_CHECK_EQUAL(camera_rig.RelativeQvec(0), ComposeIdentityQuaternion());
-  BOOST_CHECK_EQUAL(camera_rig.RelativeTvec(0), Eigen::Vector3d(0, 0, 0));
-  BOOST_CHECK_EQUAL(camera_rig.RelativeQvec(1), ComposeIdentityQuaternion());
-  BOOST_CHECK_EQUAL(camera_rig.RelativeTvec(1), Eigen::Vector3d(1, 2, 3));
+  EXPECT_EQ(camera_rig.RelativeQvec(0), ComposeIdentityQuaternion());
+  EXPECT_EQ(camera_rig.RelativeTvec(0), Eigen::Vector3d(0, 0, 0));
+  EXPECT_EQ(camera_rig.RelativeQvec(1), ComposeIdentityQuaternion());
+  EXPECT_EQ(camera_rig.RelativeTvec(1), Eigen::Vector3d(1, 2, 3));
 
   const std::vector<image_t> image_ids2 = {2, 3};
   camera_rig.AddSnapshot(image_ids2);
@@ -262,10 +261,10 @@ BOOST_AUTO_TEST_CASE(TestComputeRelativePoses) {
 
   camera_rig.Check(reconstruction);
   camera_rig.ComputeRelativePoses(reconstruction);
-  BOOST_CHECK_EQUAL(camera_rig.RelativeQvec(0), ComposeIdentityQuaternion());
-  BOOST_CHECK_EQUAL(camera_rig.RelativeTvec(0), Eigen::Vector3d(0, 0, 0));
-  BOOST_CHECK_EQUAL(camera_rig.RelativeQvec(1), ComposeIdentityQuaternion());
-  BOOST_CHECK_EQUAL(camera_rig.RelativeTvec(1), Eigen::Vector3d(1.5, 3, 4.5));
+  EXPECT_EQ(camera_rig.RelativeQvec(0), ComposeIdentityQuaternion());
+  EXPECT_EQ(camera_rig.RelativeTvec(0), Eigen::Vector3d(0, 0, 0));
+  EXPECT_EQ(camera_rig.RelativeQvec(1), ComposeIdentityQuaternion());
+  EXPECT_EQ(camera_rig.RelativeTvec(1), Eigen::Vector3d(1.5, 3, 4.5));
 
   const std::vector<image_t> image_ids3 = {4};
   camera_rig.AddSnapshot(image_ids3);
@@ -279,13 +278,13 @@ BOOST_AUTO_TEST_CASE(TestComputeRelativePoses) {
 
   camera_rig.Check(reconstruction);
   camera_rig.ComputeRelativePoses(reconstruction);
-  BOOST_CHECK_EQUAL(camera_rig.RelativeQvec(0), ComposeIdentityQuaternion());
-  BOOST_CHECK_EQUAL(camera_rig.RelativeTvec(0), Eigen::Vector3d(0, 0, 0));
-  BOOST_CHECK_EQUAL(camera_rig.RelativeQvec(1), ComposeIdentityQuaternion());
-  BOOST_CHECK_EQUAL(camera_rig.RelativeTvec(1), Eigen::Vector3d(1.5, 3, 4.5));
+  EXPECT_EQ(camera_rig.RelativeQvec(0), ComposeIdentityQuaternion());
+  EXPECT_EQ(camera_rig.RelativeTvec(0), Eigen::Vector3d(0, 0, 0));
+  EXPECT_EQ(camera_rig.RelativeQvec(1), ComposeIdentityQuaternion());
+  EXPECT_EQ(camera_rig.RelativeTvec(1), Eigen::Vector3d(1.5, 3, 4.5));
 }
 
-BOOST_AUTO_TEST_CASE(TestComputeAbsolutePose) {
+TEST(CameraRig, ComputeAbsolutePose) {
   CameraRig camera_rig;
   camera_rig.AddCamera(
       0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 1, 2));
@@ -326,8 +325,8 @@ BOOST_AUTO_TEST_CASE(TestComputeAbsolutePose) {
   Eigen::Vector4d abs_qvec;
   Eigen::Vector3d abs_tvec;
   camera_rig.ComputeAbsolutePose(0, reconstruction, &abs_qvec, &abs_tvec);
-  BOOST_CHECK_EQUAL(abs_qvec, ComposeIdentityQuaternion());
-  BOOST_CHECK_EQUAL(abs_tvec, Eigen::Vector3d(0, -1, -2));
+  EXPECT_EQ(abs_qvec, ComposeIdentityQuaternion());
+  EXPECT_EQ(abs_tvec, Eigen::Vector3d(0, -1, -2));
 }
 
 }  // namespace colmap

@@ -29,7 +29,6 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "base/generalized_relative_pose"
 #include "colmap/estimators/generalized_relative_pose.h"
 
 #include "colmap/geometry/pose.h"
@@ -37,13 +36,14 @@
 #include "colmap/geometry/similarity_transform.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/util/random.h"
-#include "colmap/util/testing.h"
 
 #include <array>
 
+#include <gtest/gtest.h>
+
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(Estimate) {
+TEST(GeneralizedRelativePose, Estimate) {
   SetPRNGSeed(0);
 
   const size_t kNumPoints = 100;
@@ -113,17 +113,17 @@ BOOST_AUTO_TEST_CASE(Estimate) {
       LORANSAC<GR6PEstimator, GR6PEstimator> ransac(options);
       const auto report = ransac.Estimate(points1, points2);
 
-      BOOST_CHECK_EQUAL(report.success, true);
+      EXPECT_EQ(report.success, true);
 
       const double matrix_diff =
           (orig_tforms[kRefTform].Matrix().topLeftCorner<3, 4>() - report.model)
               .norm();
-      BOOST_CHECK_LE(matrix_diff, 1e-2);
+      EXPECT_LE(matrix_diff, 1e-2);
 
       std::vector<double> residuals;
       GR6PEstimator::Residuals(points1, points2, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
-        BOOST_CHECK_LE(residuals[i], options.max_error);
+        EXPECT_LE(residuals[i], options.max_error);
       }
     }
   }

@@ -29,22 +29,21 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "base/visibility_pyramid"
 #include "colmap/base/visibility_pyramid.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestDefault) {
+TEST(VisibilityPyramid, Default) {
   VisibilityPyramid pyramid;
-  BOOST_CHECK_EQUAL(pyramid.NumLevels(), 0);
-  BOOST_CHECK_EQUAL(pyramid.Width(), 0);
-  BOOST_CHECK_EQUAL(pyramid.Height(), 0);
-  BOOST_CHECK_EQUAL(pyramid.Score(), 0);
+  EXPECT_EQ(pyramid.NumLevels(), 0);
+  EXPECT_EQ(pyramid.Width(), 0);
+  EXPECT_EQ(pyramid.Height(), 0);
+  EXPECT_EQ(pyramid.Score(), 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestScore) {
+TEST(VisibilityPyramid, Score) {
   for (int num_levels = 1; num_levels < 8; ++num_levels) {
     Eigen::VectorXi scores(num_levels);
     size_t max_score = 0;
@@ -54,39 +53,38 @@ BOOST_AUTO_TEST_CASE(TestScore) {
     }
 
     VisibilityPyramid pyramid(static_cast<size_t>(num_levels), 4, 4);
-    BOOST_CHECK_EQUAL(pyramid.NumLevels(), num_levels);
-    BOOST_CHECK_EQUAL(pyramid.Width(), 4);
-    BOOST_CHECK_EQUAL(pyramid.Height(), 4);
-    BOOST_CHECK_EQUAL(pyramid.Score(), 0);
-    BOOST_CHECK_EQUAL(pyramid.MaxScore(), max_score);
+    EXPECT_EQ(pyramid.NumLevels(), num_levels);
+    EXPECT_EQ(pyramid.Width(), 4);
+    EXPECT_EQ(pyramid.Height(), 4);
+    EXPECT_EQ(pyramid.Score(), 0);
+    EXPECT_EQ(pyramid.MaxScore(), max_score);
 
-    BOOST_CHECK_EQUAL(pyramid.Score(), 0);
+    EXPECT_EQ(pyramid.Score(), 0);
     pyramid.SetPoint(0, 0);
-    BOOST_CHECK_EQUAL(pyramid.Score(), scores.sum());
+    EXPECT_EQ(pyramid.Score(), scores.sum());
     pyramid.SetPoint(0, 0);
-    BOOST_CHECK_EQUAL(pyramid.Score(), scores.sum());
+    EXPECT_EQ(pyramid.Score(), scores.sum());
     pyramid.SetPoint(0, 1);
-    BOOST_CHECK_EQUAL(pyramid.Score(),
-                      scores.sum() + scores.tail(scores.size() - 1).sum());
+    EXPECT_EQ(pyramid.Score(),
+              scores.sum() + scores.tail(scores.size() - 1).sum());
     pyramid.SetPoint(0, 1);
     pyramid.SetPoint(0, 1);
     pyramid.SetPoint(1, 0);
-    BOOST_CHECK_EQUAL(pyramid.Score(),
-                      scores.sum() + 2 * scores.tail(scores.size() - 1).sum());
+    EXPECT_EQ(pyramid.Score(),
+              scores.sum() + 2 * scores.tail(scores.size() - 1).sum());
     pyramid.SetPoint(1, 0);
     pyramid.SetPoint(1, 1);
-    BOOST_CHECK_EQUAL(pyramid.Score(),
-                      scores.sum() + 3 * scores.tail(scores.size() - 1).sum());
+    EXPECT_EQ(pyramid.Score(),
+              scores.sum() + 3 * scores.tail(scores.size() - 1).sum());
     pyramid.ResetPoint(0, 0);
-    BOOST_CHECK_EQUAL(pyramid.Score(),
-                      scores.sum() + 3 * scores.tail(scores.size() - 1).sum());
+    EXPECT_EQ(pyramid.Score(),
+              scores.sum() + 3 * scores.tail(scores.size() - 1).sum());
     pyramid.ResetPoint(0, 0);
-    BOOST_CHECK_EQUAL(pyramid.Score(),
-                      scores.sum() + 2 * scores.tail(scores.size() - 1).sum());
+    EXPECT_EQ(pyramid.Score(),
+              scores.sum() + 2 * scores.tail(scores.size() - 1).sum());
     pyramid.SetPoint(0, 2);
-    BOOST_CHECK_EQUAL(
-        pyramid.Score(),
-        2 * scores.sum() + 2 * scores.tail(scores.size() - 1).sum());
+    EXPECT_EQ(pyramid.Score(),
+              2 * scores.sum() + 2 * scores.tail(scores.size() - 1).sum());
   }
 }
 

@@ -29,17 +29,16 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "util/opengl_utils"
 #include "colmap/util/opengl_utils.h"
-
-#include "colmap/util/testing.h"
 
 #include <QApplication>
 #include <thread>
 
+#include <gtest/gtest.h>
+
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestOpenGLContextManager) {
+TEST(OpenGLContextManager, Nominal) {
   char app_name[] = "Test";
   int argc = 1;
   char* argv[] = {app_name};
@@ -48,8 +47,8 @@ BOOST_AUTO_TEST_CASE(TestOpenGLContextManager) {
   OpenGLContextManager manager;
 
   std::thread thread([&manager]() {
-    BOOST_CHECK(manager.MakeCurrent());
-    BOOST_CHECK(manager.MakeCurrent());
+    EXPECT_TRUE(manager.MakeCurrent());
+    EXPECT_TRUE(manager.MakeCurrent());
     qApp->exit();
   });
 
@@ -57,7 +56,7 @@ BOOST_AUTO_TEST_CASE(TestOpenGLContextManager) {
   thread.join();
 }
 
-BOOST_AUTO_TEST_CASE(TestRunThreadWithOpenGLContext) {
+TEST(RunThreadWithOpenGLContext, Nominal) {
   char app_name[] = "Test";
   int argc = 1;
   char* argv[] = {app_name};
@@ -65,7 +64,7 @@ BOOST_AUTO_TEST_CASE(TestRunThreadWithOpenGLContext) {
 
   class TestThread : public Thread {
    private:
-    void Run() { BOOST_CHECK(opengl_context_.MakeCurrent()); }
+    void Run() { EXPECT_TRUE(opengl_context_.MakeCurrent()); }
     OpenGLContextManager opengl_context_;
   };
 

@@ -29,7 +29,6 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "base/absolute_pose"
 #include "colmap/estimators/absolute_pose.h"
 
 #include "colmap/estimators/essential_matrix.h"
@@ -37,13 +36,13 @@
 #include "colmap/geometry/similarity_transform.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/random.h"
-#include "colmap/util/testing.h"
 
 #include <Eigen/Core>
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestP3P) {
+TEST(AbsolutePose, P3P) {
   SetPRNGSeed(0);
 
   std::vector<Eigen::Vector3d> points3D;
@@ -81,31 +80,31 @@ BOOST_AUTO_TEST_CASE(TestP3P) {
       RANSAC<P3PEstimator> ransac(options);
       const auto report = ransac.Estimate(points2D, points3D);
 
-      BOOST_CHECK_EQUAL(report.success, true);
+      EXPECT_EQ(report.success, true);
 
       // Test if correct transformation has been determined.
       const double matrix_diff =
           (orig_tform.Matrix().topLeftCorner<3, 4>() - report.model).norm();
-      BOOST_CHECK(matrix_diff < 1e-2);
+      EXPECT_TRUE(matrix_diff < 1e-2);
 
       // Test residuals of exact points.
       std::vector<double> residuals;
       P3PEstimator::Residuals(points2D, points3D, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
-        BOOST_CHECK(residuals[i] < 1e-3);
+        EXPECT_TRUE(residuals[i] < 1e-3);
       }
 
       // Test residuals of faulty points.
       P3PEstimator::Residuals(
           points2D, points3D_faulty, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
-        BOOST_CHECK(residuals[i] > 0.1);
+        EXPECT_TRUE(residuals[i] > 0.1);
       }
     }
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestEPNP) {
+TEST(AbsolutePose, EPNP) {
   SetPRNGSeed(0);
 
   std::vector<Eigen::Vector3d> points3D;
@@ -143,31 +142,31 @@ BOOST_AUTO_TEST_CASE(TestEPNP) {
       RANSAC<EPNPEstimator> ransac(options);
       const auto report = ransac.Estimate(points2D, points3D);
 
-      BOOST_CHECK_EQUAL(report.success, true);
+      EXPECT_EQ(report.success, true);
 
       // Test if correct transformation has been determined.
       const double matrix_diff =
           (orig_tform.Matrix().topLeftCorner<3, 4>() - report.model).norm();
-      BOOST_CHECK(matrix_diff < 1e-3);
+      EXPECT_TRUE(matrix_diff < 1e-3);
 
       // Test residuals of exact points.
       std::vector<double> residuals;
       EPNPEstimator::Residuals(points2D, points3D, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
-        BOOST_CHECK(residuals[i] < 1e-3);
+        EXPECT_TRUE(residuals[i] < 1e-3);
       }
 
       // Test residuals of faulty points.
       EPNPEstimator::Residuals(
           points2D, points3D_faulty, report.model, &residuals);
       for (size_t i = 0; i < residuals.size(); ++i) {
-        BOOST_CHECK(residuals[i] > 0.1);
+        EXPECT_TRUE(residuals[i] > 0.1);
       }
     }
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestEPNP_BrokenSolveSignCase) {
+TEST(AbsolutePose, EPNP_BrokenSolveSignCase) {
   std::vector<Eigen::Vector2d> points2D;
   points2D.emplace_back(-2.6783007931074532e-01, 5.3457197430746251e-01);
   points2D.emplace_back(-4.2629907287470264e-01, 7.5623350319519789e-01);
@@ -211,7 +210,7 @@ BOOST_AUTO_TEST_CASE(TestEPNP_BrokenSolveSignCase) {
   const std::vector<EPNPEstimator::M_t> output =
       EPNPEstimator::Estimate(points2D, points3D);
 
-  BOOST_CHECK_EQUAL(output.size(), 1);
+  EXPECT_EQ(output.size(), 1);
 
   double reproj = 0.0;
   for (size_t i = 0; i < points3D.size(); ++i) {
@@ -220,7 +219,7 @@ BOOST_AUTO_TEST_CASE(TestEPNP_BrokenSolveSignCase) {
             .norm();
   }
 
-  BOOST_CHECK(reproj < 0.2);
+  EXPECT_TRUE(reproj < 0.2);
 }
 
 }  // namespace colmap

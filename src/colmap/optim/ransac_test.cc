@@ -29,64 +29,62 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "optim/ransac"
 #include "colmap/optim/ransac.h"
 
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/similarity_transform.h"
 #include "colmap/util/random.h"
-#include "colmap/util/testing.h"
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestOptions) {
+TEST(RANSAC, Options) {
   RANSACOptions options;
-  BOOST_CHECK_EQUAL(options.max_error, 0);
-  BOOST_CHECK_EQUAL(options.min_inlier_ratio, 0.1);
-  BOOST_CHECK_EQUAL(options.confidence, 0.99);
-  BOOST_CHECK_EQUAL(options.min_num_trials, 0);
-  BOOST_CHECK_EQUAL(options.max_num_trials, std::numeric_limits<size_t>::max());
+  EXPECT_EQ(options.max_error, 0);
+  EXPECT_EQ(options.min_inlier_ratio, 0.1);
+  EXPECT_EQ(options.confidence, 0.99);
+  EXPECT_EQ(options.min_num_trials, 0);
+  EXPECT_EQ(options.max_num_trials, std::numeric_limits<size_t>::max());
 }
 
-BOOST_AUTO_TEST_CASE(TestReport) {
+TEST(RANSAC, Report) {
   RANSAC<SimilarityTransformEstimator<3>>::Report report;
-  BOOST_CHECK_EQUAL(report.success, false);
-  BOOST_CHECK_EQUAL(report.num_trials, 0);
-  BOOST_CHECK_EQUAL(report.support.num_inliers, 0);
-  BOOST_CHECK_EQUAL(report.support.residual_sum,
-                    std::numeric_limits<double>::max());
-  BOOST_CHECK_EQUAL(report.inlier_mask.size(), 0);
+  EXPECT_EQ(report.success, false);
+  EXPECT_EQ(report.num_trials, 0);
+  EXPECT_EQ(report.support.num_inliers, 0);
+  EXPECT_EQ(report.support.residual_sum, std::numeric_limits<double>::max());
+  EXPECT_EQ(report.inlier_mask.size(), 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestNumTrials) {
-  BOOST_CHECK_EQUAL(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
-                        1, 100, 0.99, 1.0),
-                    4605168);
-  BOOST_CHECK_EQUAL(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
-                        10, 100, 0.99, 1.0),
-                    4603);
-  BOOST_CHECK_EQUAL(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
-                        10, 100, 0.999, 1.0),
-                    6905);
-  BOOST_CHECK_EQUAL(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
-                        10, 100, 0.999, 2.0),
-                    13809);
-  BOOST_CHECK_EQUAL(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
-                        100, 100, 0.99, 1.0),
-                    1);
-  BOOST_CHECK_EQUAL(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
-                        100, 100, 0.999, 1.0),
-                    1);
-  BOOST_CHECK_EQUAL(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
-                        100, 100, 0, 1.0),
-                    1);
+TEST(RANSAC, NumTrials) {
+  EXPECT_EQ(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
+                1, 100, 0.99, 1.0),
+            4605168);
+  EXPECT_EQ(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
+                10, 100, 0.99, 1.0),
+            4603);
+  EXPECT_EQ(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
+                10, 100, 0.999, 1.0),
+            6905);
+  EXPECT_EQ(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
+                10, 100, 0.999, 2.0),
+            13809);
+  EXPECT_EQ(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
+                100, 100, 0.99, 1.0),
+            1);
+  EXPECT_EQ(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
+                100, 100, 0.999, 1.0),
+            1);
+  EXPECT_EQ(RANSAC<SimilarityTransformEstimator<3>>::ComputeNumTrials(
+                100, 100, 0, 1.0),
+            1);
 }
 
-BOOST_AUTO_TEST_CASE(TestSimilarityTransform) {
+TEST(RANSAC, SimilarityTransform) {
   SetPRNGSeed(0);
 
   const size_t num_samples = 1000;
@@ -118,23 +116,23 @@ BOOST_AUTO_TEST_CASE(TestSimilarityTransform) {
   RANSAC<SimilarityTransformEstimator<3>> ransac(options);
   const auto report = ransac.Estimate(src, dst);
 
-  BOOST_CHECK_EQUAL(report.success, true);
-  BOOST_CHECK_GT(report.num_trials, 0);
+  EXPECT_EQ(report.success, true);
+  EXPECT_GT(report.num_trials, 0);
 
   // Make sure outliers were detected correctly.
-  BOOST_CHECK_EQUAL(report.support.num_inliers, num_samples - num_outliers);
+  EXPECT_EQ(report.support.num_inliers, num_samples - num_outliers);
   for (size_t i = 0; i < num_samples; ++i) {
     if (i < num_outliers) {
-      BOOST_CHECK(!report.inlier_mask[i]);
+      EXPECT_TRUE(!report.inlier_mask[i]);
     } else {
-      BOOST_CHECK(report.inlier_mask[i]);
+      EXPECT_TRUE(report.inlier_mask[i]);
     }
   }
 
   // Make sure original transformation is estimated correctly.
   const double matrix_diff =
       (orig_tform.Matrix().topLeftCorner<3, 4>() - report.model).norm();
-  BOOST_CHECK(std::abs(matrix_diff) < 1e-6);
+  EXPECT_TRUE(std::abs(matrix_diff) < 1e-6);
 }
 
 }  // namespace colmap

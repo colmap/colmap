@@ -29,185 +29,184 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "util/math"
 #include "colmap/util/math.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestSignOfNumber) {
-  BOOST_CHECK_EQUAL(SignOfNumber(0), 0);
-  BOOST_CHECK_EQUAL(SignOfNumber(-0.1), -1);
-  BOOST_CHECK_EQUAL(SignOfNumber(0.1), 1);
-  BOOST_CHECK_EQUAL(SignOfNumber(std::numeric_limits<float>::quiet_NaN()), 0);
-  BOOST_CHECK_EQUAL(SignOfNumber(std::numeric_limits<float>::infinity()), 1);
-  BOOST_CHECK_EQUAL(SignOfNumber(-std::numeric_limits<float>::infinity()), -1);
+TEST(SignOfNumber, Nominal) {
+  EXPECT_EQ(SignOfNumber(0), 0);
+  EXPECT_EQ(SignOfNumber(-0.1), -1);
+  EXPECT_EQ(SignOfNumber(0.1), 1);
+  EXPECT_EQ(SignOfNumber(std::numeric_limits<float>::quiet_NaN()), 0);
+  EXPECT_EQ(SignOfNumber(std::numeric_limits<float>::infinity()), 1);
+  EXPECT_EQ(SignOfNumber(-std::numeric_limits<float>::infinity()), -1);
 }
 
-BOOST_AUTO_TEST_CASE(TestClamp) {
-  BOOST_CHECK_EQUAL(Clamp(0, -1, 1), 0);
-  BOOST_CHECK_EQUAL(Clamp(0, 0, 1), 0);
-  BOOST_CHECK_EQUAL(Clamp(0, -1, 0), 0);
-  BOOST_CHECK_EQUAL(Clamp(0, -1, 1), 0);
-  BOOST_CHECK_EQUAL(Clamp(0, 1, 2), 1);
-  BOOST_CHECK_EQUAL(Clamp(0, -2, -1), -1);
-  BOOST_CHECK_EQUAL(Clamp(0, 0, 0), 0);
+TEST(Clamp, Nominal) {
+  EXPECT_EQ(Clamp(0, -1, 1), 0);
+  EXPECT_EQ(Clamp(0, 0, 1), 0);
+  EXPECT_EQ(Clamp(0, -1, 0), 0);
+  EXPECT_EQ(Clamp(0, -1, 1), 0);
+  EXPECT_EQ(Clamp(0, 1, 2), 1);
+  EXPECT_EQ(Clamp(0, -2, -1), -1);
+  EXPECT_EQ(Clamp(0, 0, 0), 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestDegToRad) {
-  BOOST_CHECK_EQUAL(DegToRad(0.0f), 0.0f);
-  BOOST_CHECK_EQUAL(DegToRad(0.0), 0.0);
-  BOOST_CHECK_LT(std::abs(DegToRad(180.0f) - M_PI), 1e-6f);
-  BOOST_CHECK_LT(std::abs(DegToRad(180.0) - M_PI), 1e-6);
+TEST(DegToRad, Nominal) {
+  EXPECT_EQ(DegToRad(0.0f), 0.0f);
+  EXPECT_EQ(DegToRad(0.0), 0.0);
+  EXPECT_LT(std::abs(DegToRad(180.0f) - M_PI), 1e-6f);
+  EXPECT_LT(std::abs(DegToRad(180.0) - M_PI), 1e-6);
 }
 
-BOOST_AUTO_TEST_CASE(TestRadToDeg) {
-  BOOST_CHECK_EQUAL(RadToDeg(0.0f), 0.0f);
-  BOOST_CHECK_EQUAL(RadToDeg(0.0), 0.0);
-  BOOST_CHECK_LT(std::abs(RadToDeg(M_PI) - 180.0f), 1e-6f);
-  BOOST_CHECK_LT(std::abs(RadToDeg(M_PI) - 180.0), 1e-6);
+TEST(RadToDeg, Nominal) {
+  EXPECT_EQ(RadToDeg(0.0f), 0.0f);
+  EXPECT_EQ(RadToDeg(0.0), 0.0);
+  EXPECT_LT(std::abs(RadToDeg(M_PI) - 180.0f), 1e-6f);
+  EXPECT_LT(std::abs(RadToDeg(M_PI) - 180.0), 1e-6);
 }
 
-BOOST_AUTO_TEST_CASE(TestMedian) {
-  BOOST_CHECK_EQUAL(Median<int>({1, 2, 3, 4}), 2.5);
-  BOOST_CHECK_EQUAL(Median<int>({1, 2, 3, 100}), 2.5);
-  BOOST_CHECK_EQUAL(Median<int>({1, 2, 3, 4, 100}), 3);
-  BOOST_CHECK_EQUAL(Median<int>({-100, 1, 2, 3, 4}), 2);
-  BOOST_CHECK_EQUAL(Median<int>({-1, -2, -3, -4}), -2.5);
-  BOOST_CHECK_EQUAL(Median<int>({-1, -2, 3, 4}), 1);
+TEST(Median, Nominal) {
+  EXPECT_EQ(Median<int>({1, 2, 3, 4}), 2.5);
+  EXPECT_EQ(Median<int>({1, 2, 3, 100}), 2.5);
+  EXPECT_EQ(Median<int>({1, 2, 3, 4, 100}), 3);
+  EXPECT_EQ(Median<int>({-100, 1, 2, 3, 4}), 2);
+  EXPECT_EQ(Median<int>({-1, -2, -3, -4}), -2.5);
+  EXPECT_EQ(Median<int>({-1, -2, 3, 4}), 1);
   // Test integer overflow scenario.
-  BOOST_CHECK_EQUAL(Median<int8_t>({100, 115, 119, 127}), 117);
+  EXPECT_EQ(Median<int8_t>({100, 115, 119, 127}), 117);
 }
 
-BOOST_AUTO_TEST_CASE(TestPercentile) {
-  BOOST_CHECK_EQUAL(Percentile<int>({0}, 0), 0);
-  BOOST_CHECK_EQUAL(Percentile<int>({0}, 50), 0);
-  BOOST_CHECK_EQUAL(Percentile<int>({0}, 100), 0);
-  BOOST_CHECK_EQUAL(Percentile<int>({0, 1}, 0), 0);
-  BOOST_CHECK_EQUAL(Percentile<int>({0, 1}, 50), 1);
-  BOOST_CHECK_EQUAL(Percentile<int>({0, 1}, 100), 1);
-  BOOST_CHECK_EQUAL(Percentile<int>({0, 1, 2}, 0), 0);
-  BOOST_CHECK_EQUAL(Percentile<int>({0, 1, 2}, 50), 1);
-  BOOST_CHECK_EQUAL(Percentile<int>({0, 1, 2}, 100), 2);
-  BOOST_CHECK_EQUAL(Percentile<int>({0, 1, 1, 2}, 0), 0);
-  BOOST_CHECK_EQUAL(Percentile<int>({0, 1, 1, 2}, 33), 1);
-  BOOST_CHECK_EQUAL(Percentile<int>({0, 1, 1, 2}, 50), 1);
-  BOOST_CHECK_EQUAL(Percentile<int>({0, 1, 1, 2}, 66), 1);
-  BOOST_CHECK_EQUAL(Percentile<int>({0, 1, 1, 2}, 100), 2);
+TEST(Percentile, Nominal) {
+  EXPECT_EQ(Percentile<int>({0}, 0), 0);
+  EXPECT_EQ(Percentile<int>({0}, 50), 0);
+  EXPECT_EQ(Percentile<int>({0}, 100), 0);
+  EXPECT_EQ(Percentile<int>({0, 1}, 0), 0);
+  EXPECT_EQ(Percentile<int>({0, 1}, 50), 1);
+  EXPECT_EQ(Percentile<int>({0, 1}, 100), 1);
+  EXPECT_EQ(Percentile<int>({0, 1, 2}, 0), 0);
+  EXPECT_EQ(Percentile<int>({0, 1, 2}, 50), 1);
+  EXPECT_EQ(Percentile<int>({0, 1, 2}, 100), 2);
+  EXPECT_EQ(Percentile<int>({0, 1, 1, 2}, 0), 0);
+  EXPECT_EQ(Percentile<int>({0, 1, 1, 2}, 33), 1);
+  EXPECT_EQ(Percentile<int>({0, 1, 1, 2}, 50), 1);
+  EXPECT_EQ(Percentile<int>({0, 1, 1, 2}, 66), 1);
+  EXPECT_EQ(Percentile<int>({0, 1, 1, 2}, 100), 2);
 }
 
-BOOST_AUTO_TEST_CASE(TestMean) {
-  BOOST_CHECK_EQUAL(Mean<int>({1, 2, 3, 4}), 2.5);
-  BOOST_CHECK_EQUAL(Mean<int>({1, 2, 3, 100}), 26.5);
-  BOOST_CHECK_EQUAL(Mean<int>({1, 2, 3, 4, 100}), 22);
-  BOOST_CHECK_EQUAL(Mean<int>({-100, 1, 2, 3, 4}), -18);
-  BOOST_CHECK_EQUAL(Mean<int>({-1, -2, -3, -4}), -2.5);
-  BOOST_CHECK_EQUAL(Mean<int>({-1, -2, 3, 4}), 1);
+TEST(Mean, Nominal) {
+  EXPECT_EQ(Mean<int>({1, 2, 3, 4}), 2.5);
+  EXPECT_EQ(Mean<int>({1, 2, 3, 100}), 26.5);
+  EXPECT_EQ(Mean<int>({1, 2, 3, 4, 100}), 22);
+  EXPECT_EQ(Mean<int>({-100, 1, 2, 3, 4}), -18);
+  EXPECT_EQ(Mean<int>({-1, -2, -3, -4}), -2.5);
+  EXPECT_EQ(Mean<int>({-1, -2, 3, 4}), 1);
 }
 
-BOOST_AUTO_TEST_CASE(TestVariance) {
-  BOOST_CHECK_LE(std::abs(Variance<int>({1, 2, 3, 4}) - 1.66666666), 1e-6);
-  BOOST_CHECK_LE(std::abs(Variance<int>({1, 2, 3, 100}) - 2401.66666666), 1e-6);
-  BOOST_CHECK_LE(std::abs(Variance<int>({1, 2, 3, 4, 100}) - 1902.5), 1e-6);
-  BOOST_CHECK_LE(std::abs(Variance<int>({-100, 1, 2, 3, 4}) - 2102.5), 1e-6);
-  BOOST_CHECK_LE(std::abs(Variance<int>({-1, -2, -3, -4}) - 1.66666666), 1e-6);
-  BOOST_CHECK_LE(std::abs(Variance<int>({-1, -2, 3, 4}) - 8.66666666), 1e-6);
+TEST(Variance, Nominal) {
+  EXPECT_LE(std::abs(Variance<int>({1, 2, 3, 4}) - 1.66666666), 1e-6);
+  EXPECT_LE(std::abs(Variance<int>({1, 2, 3, 100}) - 2401.66666666), 1e-6);
+  EXPECT_LE(std::abs(Variance<int>({1, 2, 3, 4, 100}) - 1902.5), 1e-6);
+  EXPECT_LE(std::abs(Variance<int>({-100, 1, 2, 3, 4}) - 2102.5), 1e-6);
+  EXPECT_LE(std::abs(Variance<int>({-1, -2, -3, -4}) - 1.66666666), 1e-6);
+  EXPECT_LE(std::abs(Variance<int>({-1, -2, 3, 4}) - 8.66666666), 1e-6);
 }
 
-BOOST_AUTO_TEST_CASE(TestStdDev) {
-  BOOST_CHECK_LE(std::abs(std::sqrt(Variance<int>({1, 2, 3, 4})) -
-                          StdDev<int>({1, 2, 3, 4})),
-                 1e-6);
-  BOOST_CHECK_LE(std::abs(std::sqrt(Variance<int>({1, 2, 3, 100})) -
-                          StdDev<int>({1, 2, 3, 100})),
-                 1e-6);
+TEST(StdDev, Nominal) {
+  EXPECT_LE(std::abs(std::sqrt(Variance<int>({1, 2, 3, 4})) -
+                     StdDev<int>({1, 2, 3, 4})),
+            1e-6);
+  EXPECT_LE(std::abs(std::sqrt(Variance<int>({1, 2, 3, 100})) -
+                     StdDev<int>({1, 2, 3, 100})),
+            1e-6);
 }
 
-BOOST_AUTO_TEST_CASE(TestAnyLessThan) {
-  BOOST_CHECK(AnyLessThan<int>({1, 2, 3, 4}, 5));
-  BOOST_CHECK(AnyLessThan<int>({1, 2, 3, 4}, 4));
-  BOOST_CHECK(AnyLessThan<int>({1, 2, 3, 4}, 3));
-  BOOST_CHECK(AnyLessThan<int>({1, 2, 3, 4}, 2));
-  BOOST_CHECK(!AnyLessThan<int>({1, 2, 3, 4}, 1));
-  BOOST_CHECK(!AnyLessThan<int>({1, 2, 3, 4}, 0));
+TEST(AnyLessThan, Nominal) {
+  EXPECT_TRUE(AnyLessThan<int>({1, 2, 3, 4}, 5));
+  EXPECT_TRUE(AnyLessThan<int>({1, 2, 3, 4}, 4));
+  EXPECT_TRUE(AnyLessThan<int>({1, 2, 3, 4}, 3));
+  EXPECT_TRUE(AnyLessThan<int>({1, 2, 3, 4}, 2));
+  EXPECT_TRUE(!AnyLessThan<int>({1, 2, 3, 4}, 1));
+  EXPECT_TRUE(!AnyLessThan<int>({1, 2, 3, 4}, 0));
 }
 
-BOOST_AUTO_TEST_CASE(TestAnyGreaterThan) {
-  BOOST_CHECK(!AnyGreaterThan<int>({1, 2, 3, 4}, 5));
-  BOOST_CHECK(!AnyGreaterThan<int>({1, 2, 3, 4}, 4));
-  BOOST_CHECK(AnyGreaterThan<int>({1, 2, 3, 4}, 3));
-  BOOST_CHECK(AnyGreaterThan<int>({1, 2, 3, 4}, 2));
-  BOOST_CHECK(AnyGreaterThan<int>({1, 2, 3, 4}, 1));
-  BOOST_CHECK(AnyGreaterThan<int>({1, 2, 3, 4}, 0));
+TEST(AnyGreaterThan, Nominal) {
+  EXPECT_TRUE(!AnyGreaterThan<int>({1, 2, 3, 4}, 5));
+  EXPECT_TRUE(!AnyGreaterThan<int>({1, 2, 3, 4}, 4));
+  EXPECT_TRUE(AnyGreaterThan<int>({1, 2, 3, 4}, 3));
+  EXPECT_TRUE(AnyGreaterThan<int>({1, 2, 3, 4}, 2));
+  EXPECT_TRUE(AnyGreaterThan<int>({1, 2, 3, 4}, 1));
+  EXPECT_TRUE(AnyGreaterThan<int>({1, 2, 3, 4}, 0));
 }
 
-BOOST_AUTO_TEST_CASE(TestNextCombination) {
+TEST(NextCombination, Nominal) {
   std::vector<int> list{0};
-  BOOST_CHECK(!NextCombination(list.begin(), list.begin() + 1, list.end()));
+  EXPECT_TRUE(!NextCombination(list.begin(), list.begin() + 1, list.end()));
   list = {0, 1};
-  BOOST_CHECK(!NextCombination(list.begin(), list.begin() + 2, list.end()));
-  BOOST_CHECK_EQUAL(list[0], 0);
-  BOOST_CHECK(NextCombination(list.begin(), list.begin() + 1, list.end()));
-  BOOST_CHECK_EQUAL(list[0], 1);
-  BOOST_CHECK(!NextCombination(list.begin(), list.begin() + 1, list.end()));
-  BOOST_CHECK_EQUAL(list[0], 0);
+  EXPECT_TRUE(!NextCombination(list.begin(), list.begin() + 2, list.end()));
+  EXPECT_EQ(list[0], 0);
+  EXPECT_TRUE(NextCombination(list.begin(), list.begin() + 1, list.end()));
+  EXPECT_EQ(list[0], 1);
+  EXPECT_TRUE(!NextCombination(list.begin(), list.begin() + 1, list.end()));
+  EXPECT_EQ(list[0], 0);
   list = {0, 1, 2};
-  BOOST_CHECK_EQUAL(list[0], 0);
-  BOOST_CHECK_EQUAL(list[1], 1);
-  BOOST_CHECK_EQUAL(list[2], 2);
-  BOOST_CHECK(NextCombination(list.begin(), list.begin() + 2, list.end()));
-  BOOST_CHECK_EQUAL(list[0], 0);
-  BOOST_CHECK_EQUAL(list[1], 2);
-  BOOST_CHECK_EQUAL(list[2], 1);
-  BOOST_CHECK(NextCombination(list.begin(), list.begin() + 2, list.end()));
-  BOOST_CHECK_EQUAL(list[0], 1);
-  BOOST_CHECK_EQUAL(list[1], 2);
-  BOOST_CHECK_EQUAL(list[2], 0);
-  BOOST_CHECK(!NextCombination(list.begin(), list.begin() + 2, list.end()));
-  BOOST_CHECK_EQUAL(list[0], 0);
-  BOOST_CHECK_EQUAL(list[1], 1);
-  BOOST_CHECK_EQUAL(list[2], 2);
+  EXPECT_EQ(list[0], 0);
+  EXPECT_EQ(list[1], 1);
+  EXPECT_EQ(list[2], 2);
+  EXPECT_TRUE(NextCombination(list.begin(), list.begin() + 2, list.end()));
+  EXPECT_EQ(list[0], 0);
+  EXPECT_EQ(list[1], 2);
+  EXPECT_EQ(list[2], 1);
+  EXPECT_TRUE(NextCombination(list.begin(), list.begin() + 2, list.end()));
+  EXPECT_EQ(list[0], 1);
+  EXPECT_EQ(list[1], 2);
+  EXPECT_EQ(list[2], 0);
+  EXPECT_TRUE(!NextCombination(list.begin(), list.begin() + 2, list.end()));
+  EXPECT_EQ(list[0], 0);
+  EXPECT_EQ(list[1], 1);
+  EXPECT_EQ(list[2], 2);
 }
 
-BOOST_AUTO_TEST_CASE(TestSigmoid) {
-  BOOST_CHECK_EQUAL(Sigmoid(0.0), 0.5);
-  BOOST_CHECK_CLOSE(Sigmoid(100.0), 1.0, 1e-10);
-  BOOST_CHECK_SMALL(Sigmoid(-100.0), 1e-10);
+TEST(Sigmoid, Nominal) {
+  EXPECT_EQ(Sigmoid(0.0), 0.5);
+  EXPECT_NEAR(Sigmoid(100.0), 1.0, 1e-10);
+  EXPECT_NEAR(Sigmoid(-100.0), 0, 1e-10);
 }
 
-BOOST_AUTO_TEST_CASE(TestScaleSigmoid) {
-  BOOST_CHECK_CLOSE(ScaleSigmoid(0.5), 0.5, 1e-10);
-  BOOST_CHECK_CLOSE(ScaleSigmoid(1.0), 1.0, 1e-10);
-  BOOST_CHECK_SMALL(ScaleSigmoid(-1.0), 1e-4);
+TEST(ScaleSigmoid, Nominal) {
+  EXPECT_NEAR(ScaleSigmoid(0.5), 0.5, 1e-10);
+  EXPECT_NEAR(ScaleSigmoid(1.0), 1.0, 1e-10);
+  EXPECT_NEAR(ScaleSigmoid(-1.0), 0, 1e-4);
 }
 
-BOOST_AUTO_TEST_CASE(TestNChooseK) {
-  BOOST_CHECK_EQUAL(NChooseK(1, 0), 1);
-  BOOST_CHECK_EQUAL(NChooseK(2, 0), 1);
-  BOOST_CHECK_EQUAL(NChooseK(3, 0), 1);
+TEST(NChooseK, Nominal) {
+  EXPECT_EQ(NChooseK(1, 0), 1);
+  EXPECT_EQ(NChooseK(2, 0), 1);
+  EXPECT_EQ(NChooseK(3, 0), 1);
 
-  BOOST_CHECK_EQUAL(NChooseK(1, 1), 1);
-  BOOST_CHECK_EQUAL(NChooseK(2, 1), 2);
-  BOOST_CHECK_EQUAL(NChooseK(3, 1), 3);
+  EXPECT_EQ(NChooseK(1, 1), 1);
+  EXPECT_EQ(NChooseK(2, 1), 2);
+  EXPECT_EQ(NChooseK(3, 1), 3);
 
-  BOOST_CHECK_EQUAL(NChooseK(2, 2), 1);
-  BOOST_CHECK_EQUAL(NChooseK(2, 3), 0);
+  EXPECT_EQ(NChooseK(2, 2), 1);
+  EXPECT_EQ(NChooseK(2, 3), 0);
 
-  BOOST_CHECK_EQUAL(NChooseK(3, 2), 3);
-  BOOST_CHECK_EQUAL(NChooseK(4, 2), 6);
-  BOOST_CHECK_EQUAL(NChooseK(5, 2), 10);
+  EXPECT_EQ(NChooseK(3, 2), 3);
+  EXPECT_EQ(NChooseK(4, 2), 6);
+  EXPECT_EQ(NChooseK(5, 2), 10);
 
-  BOOST_CHECK_EQUAL(NChooseK(500, 3), 20708500);
+  EXPECT_EQ(NChooseK(500, 3), 20708500);
 }
 
-BOOST_AUTO_TEST_CASE(TestTruncateCast) {
-  BOOST_CHECK_EQUAL((TruncateCast<int, int8_t>(-129)), -128);
-  BOOST_CHECK_EQUAL((TruncateCast<int, int8_t>(128)), 127);
-  BOOST_CHECK_EQUAL((TruncateCast<int, uint8_t>(-1)), 0);
-  BOOST_CHECK_EQUAL((TruncateCast<int, uint8_t>(256)), 255);
-  BOOST_CHECK_EQUAL((TruncateCast<int, uint16_t>(-1)), 0);
-  BOOST_CHECK_EQUAL((TruncateCast<int, uint16_t>(65536)), 65535);
+TEST(TruncateCast, Nominal) {
+  EXPECT_EQ((TruncateCast<int, int8_t>(-129)), -128);
+  EXPECT_EQ((TruncateCast<int, int8_t>(128)), 127);
+  EXPECT_EQ((TruncateCast<int, uint8_t>(-1)), 0);
+  EXPECT_EQ((TruncateCast<int, uint8_t>(256)), 255);
+  EXPECT_EQ((TruncateCast<int, uint16_t>(-1)), 0);
+  EXPECT_EQ((TruncateCast<int, uint16_t>(65536)), 65535);
 }
 
 }  // namespace colmap

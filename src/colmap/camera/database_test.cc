@@ -29,33 +29,32 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "camera/camera_database"
 #include "colmap/camera/database.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestInitialization) {
+TEST(CameraDatabase, Initialization) {
   CameraDatabase database;
   camera_specs_t specs = InitializeCameraSpecs();
-  BOOST_CHECK_EQUAL(database.NumEntries(), specs.size());
+  EXPECT_EQ(database.NumEntries(), specs.size());
 }
 
-BOOST_AUTO_TEST_CASE(TestExactMatch) {
+TEST(CameraDatabase, ExactMatch) {
   CameraDatabase database;
   double sensor_width;
-  BOOST_CHECK(
+  EXPECT_TRUE(
       database.QuerySensorWidth("canon", "digitalixus100is", &sensor_width));
-  BOOST_CHECK_EQUAL(sensor_width, 6.1600f);
+  EXPECT_EQ(sensor_width, 6.1600f);
 }
 
-BOOST_AUTO_TEST_CASE(TestAmbiguousMatch) {
+TEST(CameraDatabase, AmbiguousMatch) {
   CameraDatabase database;
   double sensor_width;
-  BOOST_CHECK(
+  EXPECT_TRUE(
       !database.QuerySensorWidth("canon", "digitalixus", &sensor_width));
-  BOOST_CHECK_EQUAL(sensor_width, 6.1600f);
+  EXPECT_EQ(sensor_width, 6.1600f);
 }
 
 }  // namespace colmap

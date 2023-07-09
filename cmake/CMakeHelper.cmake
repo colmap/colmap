@@ -115,7 +115,8 @@ macro(COLMAP_ADD_LIBRARY TARGET_NAME)
     set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
         ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
     if(CLANG_TIDY_EXE)
-        set_target_properties(${TARGET_NAME} PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
+        set_target_properties(${TARGET_NAME}
+            PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
     endif()
     install(TARGETS ${TARGET_NAME} DESTINATION lib/colmap)
 endmacro(COLMAP_ADD_LIBRARY)
@@ -130,7 +131,8 @@ macro(COLMAP_ADD_CUDA_LIBRARY TARGET_NAME)
     set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
         ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
     if(CLANG_TIDY_EXE)
-        set_target_properties(${TARGET_NAME} PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
+        set_target_properties(${TARGET_NAME}
+            PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
     endif()
     install(TARGETS ${TARGET_NAME} DESTINATION lib/colmap/)
 endmacro(COLMAP_ADD_CUDA_LIBRARY)
@@ -150,7 +152,8 @@ macro(COLMAP_ADD_EXECUTABLE TARGET_NAME)
         install(TARGETS ${TARGET_NAME} DESTINATION bin/)
     endif()
     if(CLANG_TIDY_EXE)
-        set_target_properties(${TARGET_NAME} PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
+        set_target_properties(${TARGET_NAME}
+            PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
     endif()
 endmacro(COLMAP_ADD_EXECUTABLE)
 
@@ -163,9 +166,13 @@ macro(COLMAP_ADD_TEST TEST_NAME)
         set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
             ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
         if(CLANG_TIDY_EXE)
-            set_target_properties(${TARGET_NAME} PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
+            set_target_properties(${TARGET_NAME}
+                PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
         endif()
-        target_link_libraries(${TARGET_NAME} colmap Boost::unit_test_framework)
+        target_link_libraries(${TARGET_NAME}
+            colmap
+            GTest::gtest
+            GTest::gtest_main)
         add_test("${FOLDER_NAME}/${TARGET_NAME}" ${TARGET_NAME})
         if(IS_MSVC)
             install(TARGETS ${TARGET_NAME} DESTINATION bin/)
@@ -182,9 +189,13 @@ macro(COLMAP_ADD_CUDA_TEST TEST_NAME)
         set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
             ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
         if(CLANG_TIDY_EXE)
-            set_target_properties(${TARGET_NAME} PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
+            set_target_properties(${TARGET_NAME}
+                PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
         endif()
-        target_link_libraries(${TARGET_NAME} colmap Boost::unit_test_framework)
+        target_link_libraries(${TARGET_NAME}
+            colmap
+            GTest::gtest
+            GTest::gtest_main)
         add_test("${FOLDER_NAME}/${TARGET_NAME}" ${TARGET_NAME})
         if(IS_MSVC)
             install(TARGETS ${TARGET_NAME} DESTINATION bin/)

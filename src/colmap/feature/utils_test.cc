@@ -29,58 +29,57 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "feature/utils"
 #include "colmap/feature/utils.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestFeatureKeypointsToPointsVector) {
+TEST(FeatureKeypointsToPointsVector, Nominal) {
   FeatureKeypoints keypoints(2);
   keypoints[1].x = 0.1;
   keypoints[1].y = 0.2;
   const std::vector<Eigen::Vector2d> points =
       FeatureKeypointsToPointsVector(keypoints);
-  BOOST_CHECK_EQUAL(points[0], Eigen::Vector2d(0, 0));
-  BOOST_CHECK_EQUAL(points[1].cast<float>(), Eigen::Vector2f(0.1, 0.2));
+  EXPECT_EQ(points[0], Eigen::Vector2d(0, 0));
+  EXPECT_EQ(points[1].cast<float>(), Eigen::Vector2f(0.1, 0.2));
 }
 
-BOOST_AUTO_TEST_CASE(TestL2NormalizeFeatureDescriptors) {
+TEST(L2NormalizeFeatureDescriptors, Nominal) {
   Eigen::MatrixXf descriptors = Eigen::MatrixXf::Random(100, 128);
   descriptors.array() += 1.0f;
   const Eigen::MatrixXf descriptors_normalized =
       L2NormalizeFeatureDescriptors(descriptors);
   for (Eigen::MatrixXf::Index r = 0; r < descriptors.rows(); ++r) {
-    BOOST_CHECK(std::abs(descriptors_normalized.row(r).norm() - 1.0f) < 1e-6);
+    EXPECT_TRUE(std::abs(descriptors_normalized.row(r).norm() - 1.0f) < 1e-6);
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestL1RootNormalizeFeatureDescriptors) {
+TEST(L1RootNormalizeFeatureDescriptors, Nominal) {
   Eigen::MatrixXf descriptors = Eigen::MatrixXf::Random(100, 128);
   descriptors.array() += 1.0f;
   const Eigen::MatrixXf descriptors_normalized =
       L1RootNormalizeFeatureDescriptors(descriptors);
   for (Eigen::MatrixXf::Index r = 0; r < descriptors.rows(); ++r) {
-    BOOST_CHECK(std::abs(descriptors_normalized.row(r).norm() - 1.0f) < 1e-6);
+    EXPECT_TRUE(std::abs(descriptors_normalized.row(r).norm() - 1.0f) < 1e-6);
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestFeatureDescriptorsToUnsignedByte) {
+TEST(FeatureDescriptorsToUnsignedByte, Nominal) {
   Eigen::MatrixXf descriptors = Eigen::MatrixXf::Random(100, 128);
   descriptors.array() += 1.0f;
   const FeatureDescriptors descriptors_uint8 =
       FeatureDescriptorsToUnsignedByte(descriptors);
   for (Eigen::MatrixXf::Index r = 0; r < descriptors.rows(); ++r) {
     for (Eigen::MatrixXf::Index c = 0; c < descriptors.cols(); ++c) {
-      BOOST_CHECK_EQUAL(static_cast<uint8_t>(std::min(
-                            255.0f, std::round(512.0f * descriptors(r, c)))),
-                        descriptors_uint8(r, c));
+      EXPECT_EQ(static_cast<uint8_t>(
+                    std::min(255.0f, std::round(512.0f * descriptors(r, c)))),
+                descriptors_uint8(r, c));
     }
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestExtractTopScaleFeatures) {
+TEST(ExtractTopScaleFeatures, Nominal) {
   FeatureKeypoints keypoints(5);
   keypoints[0].Rescale(3);
   keypoints[1].Rescale(4);
@@ -92,28 +91,26 @@ BOOST_AUTO_TEST_CASE(TestExtractTopScaleFeatures) {
   auto top_keypoints2 = keypoints;
   auto top_descriptors2 = descriptors;
   ExtractTopScaleFeatures(&top_keypoints2, &top_descriptors2, 2);
-  BOOST_CHECK_EQUAL(top_keypoints2.size(), 2);
-  BOOST_CHECK_EQUAL(top_keypoints2[0].ComputeScale(),
-                    keypoints[3].ComputeScale());
-  BOOST_CHECK_EQUAL(top_keypoints2[1].ComputeScale(),
-                    keypoints[1].ComputeScale());
-  BOOST_CHECK_EQUAL(top_descriptors2.rows(), 2);
-  BOOST_CHECK_EQUAL(top_descriptors2.row(0), descriptors.row(3));
-  BOOST_CHECK_EQUAL(top_descriptors2.row(1), descriptors.row(1));
+  EXPECT_EQ(top_keypoints2.size(), 2);
+  EXPECT_EQ(top_keypoints2[0].ComputeScale(), keypoints[3].ComputeScale());
+  EXPECT_EQ(top_keypoints2[1].ComputeScale(), keypoints[1].ComputeScale());
+  EXPECT_EQ(top_descriptors2.rows(), 2);
+  EXPECT_EQ(top_descriptors2.row(0), descriptors.row(3));
+  EXPECT_EQ(top_descriptors2.row(1), descriptors.row(1));
 
   auto top_keypoints5 = keypoints;
   auto top_descriptors5 = descriptors;
   ExtractTopScaleFeatures(&top_keypoints5, &top_descriptors5, 5);
-  BOOST_CHECK_EQUAL(top_keypoints5.size(), 5);
-  BOOST_CHECK_EQUAL(top_descriptors5.rows(), 5);
-  BOOST_CHECK_EQUAL(top_descriptors5, descriptors);
+  EXPECT_EQ(top_keypoints5.size(), 5);
+  EXPECT_EQ(top_descriptors5.rows(), 5);
+  EXPECT_EQ(top_descriptors5, descriptors);
 
   auto top_keypoints6 = keypoints;
   auto top_descriptors6 = descriptors;
   ExtractTopScaleFeatures(&top_keypoints6, &top_descriptors6, 6);
-  BOOST_CHECK_EQUAL(top_keypoints5.size(), 5);
-  BOOST_CHECK_EQUAL(top_descriptors6.rows(), 5);
-  BOOST_CHECK_EQUAL(top_descriptors6, descriptors);
+  EXPECT_EQ(top_keypoints5.size(), 5);
+  EXPECT_EQ(top_descriptors6.rows(), 5);
+  EXPECT_EQ(top_descriptors6, descriptors);
 }
 
 }  // namespace colmap

@@ -29,35 +29,34 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "base/database"
 #include "colmap/base/database.h"
 
 #include "colmap/geometry/pose.h"
-#include "colmap/util/testing.h"
 
 #include <thread>
 
 #include <Eigen/Geometry>
+#include <gtest/gtest.h>
 
 namespace colmap {
 
 const static std::string kMemoryDatabasePath = ":memory:";
 
-BOOST_AUTO_TEST_CASE(TestOpenCloseConstructorDestructor) {
+TEST(Database, OpenCloseConstructorDestructor) {
   Database database(kMemoryDatabasePath);
 }
 
-BOOST_AUTO_TEST_CASE(TestOpenClose) {
+TEST(Database, OpenClose) {
   Database database(kMemoryDatabasePath);
   database.Close();
 }
 
-BOOST_AUTO_TEST_CASE(TestTransaction) {
+TEST(Database, Transaction) {
   Database database(kMemoryDatabasePath);
   DatabaseTransaction database_transaction(&database);
 }
 
-BOOST_AUTO_TEST_CASE(TestTransactionMultiThreaded) {
+TEST(Database, TransactionMultiThreaded) {
   Database database(kMemoryDatabasePath);
 
   std::thread thread1([&database]() {
@@ -74,26 +73,25 @@ BOOST_AUTO_TEST_CASE(TestTransactionMultiThreaded) {
   thread2.join();
 }
 
-BOOST_AUTO_TEST_CASE(TestEmpty) {
+TEST(Database, Empty) {
   Database database(kMemoryDatabasePath);
-  BOOST_CHECK_EQUAL(database.NumCameras(), 0);
-  BOOST_CHECK_EQUAL(database.NumImages(), 0);
-  BOOST_CHECK_EQUAL(database.NumKeypoints(), 0);
-  BOOST_CHECK_EQUAL(database.MaxNumKeypoints(), 0);
-  BOOST_CHECK_EQUAL(database.NumDescriptors(), 0);
-  BOOST_CHECK_EQUAL(database.MaxNumDescriptors(), 0);
-  BOOST_CHECK_EQUAL(database.NumMatches(), 0);
-  BOOST_CHECK_EQUAL(database.NumMatchedImagePairs(), 0);
-  BOOST_CHECK_EQUAL(database.NumVerifiedImagePairs(), 0);
+  EXPECT_EQ(database.NumCameras(), 0);
+  EXPECT_EQ(database.NumImages(), 0);
+  EXPECT_EQ(database.NumKeypoints(), 0);
+  EXPECT_EQ(database.MaxNumKeypoints(), 0);
+  EXPECT_EQ(database.NumDescriptors(), 0);
+  EXPECT_EQ(database.MaxNumDescriptors(), 0);
+  EXPECT_EQ(database.NumMatches(), 0);
+  EXPECT_EQ(database.NumMatchedImagePairs(), 0);
+  EXPECT_EQ(database.NumVerifiedImagePairs(), 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestImagePairToPairId) {
-  BOOST_CHECK_EQUAL(Database::ImagePairToPairId(0, 0), 0);
-  BOOST_CHECK_EQUAL(Database::ImagePairToPairId(0, 1), 1);
-  BOOST_CHECK_EQUAL(Database::ImagePairToPairId(0, 2), 2);
-  BOOST_CHECK_EQUAL(Database::ImagePairToPairId(0, 3), 3);
-  BOOST_CHECK_EQUAL(Database::ImagePairToPairId(1, 2),
-                    Database::kMaxNumImages + 2);
+TEST(Database, ImagePairToPairId) {
+  EXPECT_EQ(Database::ImagePairToPairId(0, 0), 0);
+  EXPECT_EQ(Database::ImagePairToPairId(0, 1), 1);
+  EXPECT_EQ(Database::ImagePairToPairId(0, 2), 2);
+  EXPECT_EQ(Database::ImagePairToPairId(0, 3), 3);
+  EXPECT_EQ(Database::ImagePairToPairId(1, 2), Database::kMaxNumImages + 2);
   for (image_t i = 0; i < 20; ++i) {
     for (image_t j = 0; j < 20; ++j) {
       const image_pair_t pair_id = Database::ImagePairToPairId(i, j);
@@ -101,124 +99,118 @@ BOOST_AUTO_TEST_CASE(TestImagePairToPairId) {
       image_t image_id2;
       Database::PairIdToImagePair(pair_id, &image_id1, &image_id2);
       if (i < j) {
-        BOOST_CHECK_EQUAL(i, image_id1);
-        BOOST_CHECK_EQUAL(j, image_id2);
+        EXPECT_EQ(i, image_id1);
+        EXPECT_EQ(j, image_id2);
       } else {
-        BOOST_CHECK_EQUAL(i, image_id2);
-        BOOST_CHECK_EQUAL(j, image_id1);
+        EXPECT_EQ(i, image_id2);
+        EXPECT_EQ(j, image_id1);
       }
     }
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestSwapImagePair) {
-  BOOST_CHECK(!Database::SwapImagePair(0, 0));
-  BOOST_CHECK(!Database::SwapImagePair(0, 1));
-  BOOST_CHECK(Database::SwapImagePair(1, 0));
-  BOOST_CHECK(!Database::SwapImagePair(1, 1));
+TEST(Database, SwapImagePair) {
+  EXPECT_TRUE(!Database::SwapImagePair(0, 0));
+  EXPECT_TRUE(!Database::SwapImagePair(0, 1));
+  EXPECT_TRUE(Database::SwapImagePair(1, 0));
+  EXPECT_TRUE(!Database::SwapImagePair(1, 1));
 }
 
-BOOST_AUTO_TEST_CASE(TestCamera) {
+TEST(Database, Camera) {
   Database database(kMemoryDatabasePath);
-  BOOST_CHECK_EQUAL(database.NumCameras(), 0);
+  EXPECT_EQ(database.NumCameras(), 0);
   Camera camera;
   camera.InitializeWithName("SIMPLE_PINHOLE", 1.0, 1, 1);
   camera.SetCameraId(database.WriteCamera(camera));
-  BOOST_CHECK_EQUAL(database.NumCameras(), 1);
-  BOOST_CHECK_EQUAL(database.ExistsCamera(camera.CameraId()), true);
-  BOOST_CHECK_EQUAL(database.ReadCamera(camera.CameraId()).CameraId(),
-                    camera.CameraId());
-  BOOST_CHECK_EQUAL(database.ReadCamera(camera.CameraId()).ModelId(),
-                    camera.ModelId());
-  BOOST_CHECK_EQUAL(database.ReadCamera(camera.CameraId()).FocalLength(),
-                    camera.FocalLength());
-  BOOST_CHECK_EQUAL(database.ReadCamera(camera.CameraId()).PrincipalPointX(),
-                    camera.PrincipalPointX());
-  BOOST_CHECK_EQUAL(database.ReadCamera(camera.CameraId()).PrincipalPointY(),
-                    camera.PrincipalPointY());
+  EXPECT_EQ(database.NumCameras(), 1);
+  EXPECT_EQ(database.ExistsCamera(camera.CameraId()), true);
+  EXPECT_EQ(database.ReadCamera(camera.CameraId()).CameraId(),
+            camera.CameraId());
+  EXPECT_EQ(database.ReadCamera(camera.CameraId()).ModelId(), camera.ModelId());
+  EXPECT_EQ(database.ReadCamera(camera.CameraId()).FocalLength(),
+            camera.FocalLength());
+  EXPECT_EQ(database.ReadCamera(camera.CameraId()).PrincipalPointX(),
+            camera.PrincipalPointX());
+  EXPECT_EQ(database.ReadCamera(camera.CameraId()).PrincipalPointY(),
+            camera.PrincipalPointY());
   camera.SetFocalLength(2.0);
   database.UpdateCamera(camera);
-  BOOST_CHECK_EQUAL(database.ReadCamera(camera.CameraId()).FocalLength(),
-                    camera.FocalLength());
+  EXPECT_EQ(database.ReadCamera(camera.CameraId()).FocalLength(),
+            camera.FocalLength());
   Camera camera2 = camera;
   camera2.SetCameraId(camera.CameraId() + 1);
   database.WriteCamera(camera2, true);
-  BOOST_CHECK_EQUAL(database.NumCameras(), 2);
-  BOOST_CHECK_EQUAL(database.ExistsCamera(camera.CameraId()), true);
-  BOOST_CHECK_EQUAL(database.ExistsCamera(camera2.CameraId()), true);
-  BOOST_CHECK_EQUAL(database.ReadAllCameras().size(), 2);
-  BOOST_CHECK_EQUAL(database.ReadAllCameras()[0].CameraId(), camera.CameraId());
-  BOOST_CHECK_EQUAL(database.ReadAllCameras()[1].CameraId(),
-                    camera2.CameraId());
+  EXPECT_EQ(database.NumCameras(), 2);
+  EXPECT_EQ(database.ExistsCamera(camera.CameraId()), true);
+  EXPECT_EQ(database.ExistsCamera(camera2.CameraId()), true);
+  EXPECT_EQ(database.ReadAllCameras().size(), 2);
+  EXPECT_EQ(database.ReadAllCameras()[0].CameraId(), camera.CameraId());
+  EXPECT_EQ(database.ReadAllCameras()[1].CameraId(), camera2.CameraId());
   database.ClearCameras();
-  BOOST_CHECK_EQUAL(database.NumCameras(), 0);
+  EXPECT_EQ(database.NumCameras(), 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestImage) {
+TEST(Database, Image) {
   Database database(kMemoryDatabasePath);
   Camera camera;
   camera.InitializeWithName("SIMPLE_PINHOLE", 1.0, 1, 1);
   camera.SetCameraId(database.WriteCamera(camera));
-  BOOST_CHECK_EQUAL(database.NumImages(), 0);
+  EXPECT_EQ(database.NumImages(), 0);
   Image image;
   image.SetName("test");
   image.SetCameraId(camera.CameraId());
   image.SetQvecPrior(Eigen::Vector4d(0.1, 0.2, 0.3, 0.4));
   image.SetTvecPrior(Eigen::Vector3d(0.1, 0.2, 0.3));
   image.SetImageId(database.WriteImage(image));
-  BOOST_CHECK_EQUAL(database.NumImages(), 1);
-  BOOST_CHECK_EQUAL(database.ExistsImage(image.ImageId()), true);
-  BOOST_CHECK_EQUAL(database.ReadImage(image.ImageId()).ImageId(),
-                    image.ImageId());
-  BOOST_CHECK_EQUAL(database.ReadImage(image.ImageId()).CameraId(),
-                    image.CameraId());
-  BOOST_CHECK_EQUAL(database.ReadImage(image.ImageId()).QvecPrior(0),
-                    image.QvecPrior(0));
-  BOOST_CHECK_EQUAL(database.ReadImage(image.ImageId()).QvecPrior(1),
-                    image.QvecPrior(1));
-  BOOST_CHECK_EQUAL(database.ReadImage(image.ImageId()).QvecPrior(2),
-                    image.QvecPrior(2));
-  BOOST_CHECK_EQUAL(database.ReadImage(image.ImageId()).QvecPrior(3),
-                    image.QvecPrior(3));
-  BOOST_CHECK_EQUAL(database.ReadImage(image.ImageId()).TvecPrior(0),
-                    image.TvecPrior(0));
-  BOOST_CHECK_EQUAL(database.ReadImage(image.ImageId()).TvecPrior(1),
-                    image.TvecPrior(1));
-  BOOST_CHECK_EQUAL(database.ReadImage(image.ImageId()).TvecPrior(2),
-                    image.TvecPrior(2));
+  EXPECT_EQ(database.NumImages(), 1);
+  EXPECT_EQ(database.ExistsImage(image.ImageId()), true);
+  EXPECT_EQ(database.ReadImage(image.ImageId()).ImageId(), image.ImageId());
+  EXPECT_EQ(database.ReadImage(image.ImageId()).CameraId(), image.CameraId());
+  EXPECT_EQ(database.ReadImage(image.ImageId()).QvecPrior(0),
+            image.QvecPrior(0));
+  EXPECT_EQ(database.ReadImage(image.ImageId()).QvecPrior(1),
+            image.QvecPrior(1));
+  EXPECT_EQ(database.ReadImage(image.ImageId()).QvecPrior(2),
+            image.QvecPrior(2));
+  EXPECT_EQ(database.ReadImage(image.ImageId()).QvecPrior(3),
+            image.QvecPrior(3));
+  EXPECT_EQ(database.ReadImage(image.ImageId()).TvecPrior(0),
+            image.TvecPrior(0));
+  EXPECT_EQ(database.ReadImage(image.ImageId()).TvecPrior(1),
+            image.TvecPrior(1));
+  EXPECT_EQ(database.ReadImage(image.ImageId()).TvecPrior(2),
+            image.TvecPrior(2));
   image.TvecPrior(0) += 2;
   database.UpdateImage(image);
-  BOOST_CHECK_EQUAL(database.ReadImage(image.ImageId()).ImageId(),
-                    image.ImageId());
-  BOOST_CHECK_EQUAL(database.ReadImage(image.ImageId()).CameraId(),
-                    image.CameraId());
-  BOOST_CHECK_EQUAL(database.ReadImage(image.ImageId()).QvecPrior(0),
-                    image.QvecPrior(0));
-  BOOST_CHECK_EQUAL(database.ReadImage(image.ImageId()).QvecPrior(1),
-                    image.QvecPrior(1));
-  BOOST_CHECK_EQUAL(database.ReadImage(image.ImageId()).QvecPrior(2),
-                    image.QvecPrior(2));
-  BOOST_CHECK_EQUAL(database.ReadImage(image.ImageId()).QvecPrior(3),
-                    image.QvecPrior(3));
-  BOOST_CHECK_EQUAL(database.ReadImage(image.ImageId()).TvecPrior(0),
-                    image.TvecPrior(0));
-  BOOST_CHECK_EQUAL(database.ReadImage(image.ImageId()).TvecPrior(1),
-                    image.TvecPrior(1));
-  BOOST_CHECK_EQUAL(database.ReadImage(image.ImageId()).TvecPrior(2),
-                    image.TvecPrior(2));
+  EXPECT_EQ(database.ReadImage(image.ImageId()).ImageId(), image.ImageId());
+  EXPECT_EQ(database.ReadImage(image.ImageId()).CameraId(), image.CameraId());
+  EXPECT_EQ(database.ReadImage(image.ImageId()).QvecPrior(0),
+            image.QvecPrior(0));
+  EXPECT_EQ(database.ReadImage(image.ImageId()).QvecPrior(1),
+            image.QvecPrior(1));
+  EXPECT_EQ(database.ReadImage(image.ImageId()).QvecPrior(2),
+            image.QvecPrior(2));
+  EXPECT_EQ(database.ReadImage(image.ImageId()).QvecPrior(3),
+            image.QvecPrior(3));
+  EXPECT_EQ(database.ReadImage(image.ImageId()).TvecPrior(0),
+            image.TvecPrior(0));
+  EXPECT_EQ(database.ReadImage(image.ImageId()).TvecPrior(1),
+            image.TvecPrior(1));
+  EXPECT_EQ(database.ReadImage(image.ImageId()).TvecPrior(2),
+            image.TvecPrior(2));
   Image image2 = image;
   image2.SetName("test2");
   image2.SetImageId(image.ImageId() + 1);
   database.WriteImage(image2, true);
-  BOOST_CHECK_EQUAL(database.NumImages(), 2);
-  BOOST_CHECK_EQUAL(database.ExistsImage(image.ImageId()), true);
-  BOOST_CHECK_EQUAL(database.ExistsImage(image2.ImageId()), true);
-  BOOST_CHECK_EQUAL(database.ReadAllImages().size(), 2);
+  EXPECT_EQ(database.NumImages(), 2);
+  EXPECT_EQ(database.ExistsImage(image.ImageId()), true);
+  EXPECT_EQ(database.ExistsImage(image2.ImageId()), true);
+  EXPECT_EQ(database.ReadAllImages().size(), 2);
   database.ClearImages();
-  BOOST_CHECK_EQUAL(database.NumImages(), 0);
+  EXPECT_EQ(database.NumImages(), 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestKeypoints) {
+TEST(Database, Keypoints) {
   Database database(kMemoryDatabasePath);
   Camera camera;
   camera.SetCameraId(database.WriteCamera(camera));
@@ -226,38 +218,38 @@ BOOST_AUTO_TEST_CASE(TestKeypoints) {
   image.SetName("test");
   image.SetCameraId(camera.CameraId());
   image.SetImageId(database.WriteImage(image));
-  BOOST_CHECK_EQUAL(database.NumKeypoints(), 0);
-  BOOST_CHECK_EQUAL(database.NumKeypointsForImage(image.ImageId()), 0);
+  EXPECT_EQ(database.NumKeypoints(), 0);
+  EXPECT_EQ(database.NumKeypointsForImage(image.ImageId()), 0);
   const FeatureKeypoints keypoints = FeatureKeypoints(10);
   database.WriteKeypoints(image.ImageId(), keypoints);
   const FeatureKeypoints keypoints_read =
       database.ReadKeypoints(image.ImageId());
-  BOOST_CHECK_EQUAL(keypoints.size(), keypoints_read.size());
+  EXPECT_EQ(keypoints.size(), keypoints_read.size());
   for (size_t i = 0; i < keypoints.size(); ++i) {
-    BOOST_CHECK_EQUAL(keypoints[i].x, keypoints_read[i].x);
-    BOOST_CHECK_EQUAL(keypoints[i].y, keypoints_read[i].y);
-    BOOST_CHECK_EQUAL(keypoints[i].a11, keypoints_read[i].a11);
-    BOOST_CHECK_EQUAL(keypoints[i].a12, keypoints_read[i].a12);
-    BOOST_CHECK_EQUAL(keypoints[i].a21, keypoints_read[i].a21);
-    BOOST_CHECK_EQUAL(keypoints[i].a22, keypoints_read[i].a22);
+    EXPECT_EQ(keypoints[i].x, keypoints_read[i].x);
+    EXPECT_EQ(keypoints[i].y, keypoints_read[i].y);
+    EXPECT_EQ(keypoints[i].a11, keypoints_read[i].a11);
+    EXPECT_EQ(keypoints[i].a12, keypoints_read[i].a12);
+    EXPECT_EQ(keypoints[i].a21, keypoints_read[i].a21);
+    EXPECT_EQ(keypoints[i].a22, keypoints_read[i].a22);
   }
-  BOOST_CHECK_EQUAL(database.NumKeypoints(), 10);
-  BOOST_CHECK_EQUAL(database.MaxNumKeypoints(), 10);
-  BOOST_CHECK_EQUAL(database.NumKeypointsForImage(image.ImageId()), 10);
+  EXPECT_EQ(database.NumKeypoints(), 10);
+  EXPECT_EQ(database.MaxNumKeypoints(), 10);
+  EXPECT_EQ(database.NumKeypointsForImage(image.ImageId()), 10);
   const FeatureKeypoints keypoints2 = FeatureKeypoints(20);
   image.SetName("test2");
   image.SetImageId(database.WriteImage(image));
   database.WriteKeypoints(image.ImageId(), keypoints2);
-  BOOST_CHECK_EQUAL(database.NumKeypoints(), 30);
-  BOOST_CHECK_EQUAL(database.MaxNumKeypoints(), 20);
-  BOOST_CHECK_EQUAL(database.NumKeypointsForImage(image.ImageId()), 20);
+  EXPECT_EQ(database.NumKeypoints(), 30);
+  EXPECT_EQ(database.MaxNumKeypoints(), 20);
+  EXPECT_EQ(database.NumKeypointsForImage(image.ImageId()), 20);
   database.ClearKeypoints();
-  BOOST_CHECK_EQUAL(database.NumKeypoints(), 0);
-  BOOST_CHECK_EQUAL(database.MaxNumKeypoints(), 0);
-  BOOST_CHECK_EQUAL(database.NumKeypointsForImage(image.ImageId()), 0);
+  EXPECT_EQ(database.NumKeypoints(), 0);
+  EXPECT_EQ(database.MaxNumKeypoints(), 0);
+  EXPECT_EQ(database.NumKeypointsForImage(image.ImageId()), 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestDescriptors) {
+TEST(Database, Descriptors) {
   Database database(kMemoryDatabasePath);
   Camera camera;
   camera.SetCameraId(database.WriteCamera(camera));
@@ -265,36 +257,36 @@ BOOST_AUTO_TEST_CASE(TestDescriptors) {
   image.SetName("test");
   image.SetCameraId(camera.CameraId());
   image.SetImageId(database.WriteImage(image));
-  BOOST_CHECK_EQUAL(database.NumDescriptors(), 0);
-  BOOST_CHECK_EQUAL(database.NumDescriptorsForImage(image.ImageId()), 0);
+  EXPECT_EQ(database.NumDescriptors(), 0);
+  EXPECT_EQ(database.NumDescriptorsForImage(image.ImageId()), 0);
   const FeatureDescriptors descriptors = FeatureDescriptors::Random(10, 128);
   database.WriteDescriptors(image.ImageId(), descriptors);
   const FeatureDescriptors descriptors_read =
       database.ReadDescriptors(image.ImageId());
-  BOOST_CHECK_EQUAL(descriptors.rows(), descriptors_read.rows());
-  BOOST_CHECK_EQUAL(descriptors.cols(), descriptors_read.cols());
+  EXPECT_EQ(descriptors.rows(), descriptors_read.rows());
+  EXPECT_EQ(descriptors.cols(), descriptors_read.cols());
   for (FeatureDescriptors::Index r = 0; r < descriptors.rows(); ++r) {
     for (FeatureDescriptors::Index c = 0; c < descriptors.cols(); ++c) {
-      BOOST_CHECK_EQUAL(descriptors(r, c), descriptors_read(r, c));
+      EXPECT_EQ(descriptors(r, c), descriptors_read(r, c));
     }
   }
-  BOOST_CHECK_EQUAL(database.NumDescriptors(), 10);
-  BOOST_CHECK_EQUAL(database.MaxNumDescriptors(), 10);
-  BOOST_CHECK_EQUAL(database.NumDescriptorsForImage(image.ImageId()), 10);
+  EXPECT_EQ(database.NumDescriptors(), 10);
+  EXPECT_EQ(database.MaxNumDescriptors(), 10);
+  EXPECT_EQ(database.NumDescriptorsForImage(image.ImageId()), 10);
   const FeatureDescriptors descriptors2 = FeatureDescriptors(20, 128);
   image.SetName("test2");
   image.SetImageId(database.WriteImage(image));
   database.WriteDescriptors(image.ImageId(), descriptors2);
-  BOOST_CHECK_EQUAL(database.NumDescriptors(), 30);
-  BOOST_CHECK_EQUAL(database.MaxNumDescriptors(), 20);
-  BOOST_CHECK_EQUAL(database.NumDescriptorsForImage(image.ImageId()), 20);
+  EXPECT_EQ(database.NumDescriptors(), 30);
+  EXPECT_EQ(database.MaxNumDescriptors(), 20);
+  EXPECT_EQ(database.NumDescriptorsForImage(image.ImageId()), 20);
   database.ClearDescriptors();
-  BOOST_CHECK_EQUAL(database.NumDescriptors(), 0);
-  BOOST_CHECK_EQUAL(database.MaxNumDescriptors(), 0);
-  BOOST_CHECK_EQUAL(database.NumDescriptorsForImage(image.ImageId()), 0);
+  EXPECT_EQ(database.NumDescriptors(), 0);
+  EXPECT_EQ(database.MaxNumDescriptors(), 0);
+  EXPECT_EQ(database.NumDescriptorsForImage(image.ImageId()), 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestMatches) {
+TEST(Database, Matches) {
   Database database(kMemoryDatabasePath);
   const image_t image_id1 = 1;
   const image_t image_id2 = 2;
@@ -302,24 +294,24 @@ BOOST_AUTO_TEST_CASE(TestMatches) {
   database.WriteMatches(image_id1, image_id2, matches);
   const FeatureMatches matches_read =
       database.ReadMatches(image_id1, image_id2);
-  BOOST_CHECK_EQUAL(matches.size(), matches_read.size());
+  EXPECT_EQ(matches.size(), matches_read.size());
   for (size_t i = 0; i < matches.size(); ++i) {
-    BOOST_CHECK_EQUAL(matches[i].point2D_idx1, matches_read[i].point2D_idx1);
-    BOOST_CHECK_EQUAL(matches[i].point2D_idx2, matches_read[i].point2D_idx2);
+    EXPECT_EQ(matches[i].point2D_idx1, matches_read[i].point2D_idx1);
+    EXPECT_EQ(matches[i].point2D_idx2, matches_read[i].point2D_idx2);
   }
-  BOOST_CHECK_EQUAL(database.ReadAllMatches().size(), 1);
-  BOOST_CHECK_EQUAL(database.ReadAllMatches()[0].first,
-                    Database::ImagePairToPairId(image_id1, image_id2));
-  BOOST_CHECK_EQUAL(database.NumMatches(), 1000);
+  EXPECT_EQ(database.ReadAllMatches().size(), 1);
+  EXPECT_EQ(database.ReadAllMatches()[0].first,
+            Database::ImagePairToPairId(image_id1, image_id2));
+  EXPECT_EQ(database.NumMatches(), 1000);
   database.DeleteMatches(image_id1, image_id2);
-  BOOST_CHECK_EQUAL(database.NumMatches(), 0);
+  EXPECT_EQ(database.NumMatches(), 0);
   database.WriteMatches(image_id1, image_id2, matches);
-  BOOST_CHECK_EQUAL(database.NumMatches(), 1000);
+  EXPECT_EQ(database.NumMatches(), 1000);
   database.ClearMatches();
-  BOOST_CHECK_EQUAL(database.NumMatches(), 0);
+  EXPECT_EQ(database.NumMatches(), 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestTwoViewGeometry) {
+TEST(Database, TwoViewGeometry) {
   Database database(kMemoryDatabasePath);
   const image_t image_id1 = 1;
   const image_t image_id2 = 2;
@@ -335,40 +327,37 @@ BOOST_AUTO_TEST_CASE(TestTwoViewGeometry) {
   database.WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
   const TwoViewGeometry two_view_geometry_read =
       database.ReadTwoViewGeometry(image_id1, image_id2);
-  BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(),
-                    two_view_geometry_read.inlier_matches.size());
+  EXPECT_EQ(two_view_geometry.inlier_matches.size(),
+            two_view_geometry_read.inlier_matches.size());
   for (size_t i = 0; i < two_view_geometry_read.inlier_matches.size(); ++i) {
-    BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[i].point2D_idx1,
-                      two_view_geometry_read.inlier_matches[i].point2D_idx1);
-    BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches[i].point2D_idx2,
-                      two_view_geometry_read.inlier_matches[i].point2D_idx2);
+    EXPECT_EQ(two_view_geometry.inlier_matches[i].point2D_idx1,
+              two_view_geometry_read.inlier_matches[i].point2D_idx1);
+    EXPECT_EQ(two_view_geometry.inlier_matches[i].point2D_idx2,
+              two_view_geometry_read.inlier_matches[i].point2D_idx2);
   }
 
-  BOOST_CHECK_EQUAL(two_view_geometry.config, two_view_geometry_read.config);
-  BOOST_CHECK_EQUAL(two_view_geometry.F, two_view_geometry_read.F);
-  BOOST_CHECK_EQUAL(two_view_geometry.E, two_view_geometry_read.E);
-  BOOST_CHECK_EQUAL(two_view_geometry.H, two_view_geometry_read.H);
-  BOOST_CHECK_EQUAL(two_view_geometry.qvec, two_view_geometry_read.qvec);
-  BOOST_CHECK_EQUAL(two_view_geometry.tvec, two_view_geometry_read.tvec);
+  EXPECT_EQ(two_view_geometry.config, two_view_geometry_read.config);
+  EXPECT_EQ(two_view_geometry.F, two_view_geometry_read.F);
+  EXPECT_EQ(two_view_geometry.E, two_view_geometry_read.E);
+  EXPECT_EQ(two_view_geometry.H, two_view_geometry_read.H);
+  EXPECT_EQ(two_view_geometry.qvec, two_view_geometry_read.qvec);
+  EXPECT_EQ(two_view_geometry.tvec, two_view_geometry_read.tvec);
 
   const TwoViewGeometry two_view_geometry_read_inv =
       database.ReadTwoViewGeometry(image_id2, image_id1);
-  BOOST_CHECK_EQUAL(two_view_geometry_read_inv.inlier_matches.size(),
-                    two_view_geometry_read.inlier_matches.size());
+  EXPECT_EQ(two_view_geometry_read_inv.inlier_matches.size(),
+            two_view_geometry_read.inlier_matches.size());
   for (size_t i = 0; i < two_view_geometry_read.inlier_matches.size(); ++i) {
-    BOOST_CHECK_EQUAL(two_view_geometry_read_inv.inlier_matches[i].point2D_idx2,
-                      two_view_geometry_read.inlier_matches[i].point2D_idx1);
-    BOOST_CHECK_EQUAL(two_view_geometry_read_inv.inlier_matches[i].point2D_idx1,
-                      two_view_geometry_read.inlier_matches[i].point2D_idx2);
+    EXPECT_EQ(two_view_geometry_read_inv.inlier_matches[i].point2D_idx2,
+              two_view_geometry_read.inlier_matches[i].point2D_idx1);
+    EXPECT_EQ(two_view_geometry_read_inv.inlier_matches[i].point2D_idx1,
+              two_view_geometry_read.inlier_matches[i].point2D_idx2);
   }
 
-  BOOST_CHECK_EQUAL(two_view_geometry_read_inv.config,
-                    two_view_geometry_read.config);
-  BOOST_CHECK_EQUAL(two_view_geometry_read_inv.F.transpose(),
-                    two_view_geometry_read.F);
-  BOOST_CHECK_EQUAL(two_view_geometry_read_inv.E.transpose(),
-                    two_view_geometry_read.E);
-  BOOST_CHECK(two_view_geometry_read_inv.H.inverse().eval().isApprox(
+  EXPECT_EQ(two_view_geometry_read_inv.config, two_view_geometry_read.config);
+  EXPECT_EQ(two_view_geometry_read_inv.F.transpose(), two_view_geometry_read.F);
+  EXPECT_EQ(two_view_geometry_read_inv.E.transpose(), two_view_geometry_read.E);
+  EXPECT_TRUE(two_view_geometry_read_inv.H.inverse().eval().isApprox(
       two_view_geometry_read.H));
 
   Eigen::Vector4d read_inv_qvec_inv;
@@ -377,42 +366,42 @@ BOOST_AUTO_TEST_CASE(TestTwoViewGeometry) {
              two_view_geometry_read_inv.tvec,
              &read_inv_qvec_inv,
              &read_inv_tvec_inv);
-  BOOST_CHECK_EQUAL(read_inv_qvec_inv, two_view_geometry_read.qvec);
-  BOOST_CHECK(read_inv_tvec_inv.isApprox(two_view_geometry_read.tvec));
+  EXPECT_EQ(read_inv_qvec_inv, two_view_geometry_read.qvec);
+  EXPECT_TRUE(read_inv_tvec_inv.isApprox(two_view_geometry_read.tvec));
 
   std::vector<image_pair_t> image_pair_ids;
   std::vector<TwoViewGeometry> two_view_geometries;
   database.ReadTwoViewGeometries(&image_pair_ids, &two_view_geometries);
-  BOOST_CHECK_EQUAL(image_pair_ids.size(), 1);
-  BOOST_CHECK_EQUAL(two_view_geometries.size(), 1);
-  BOOST_CHECK_EQUAL(image_pair_ids[0],
-                    Database::ImagePairToPairId(image_id1, image_id2));
-  BOOST_CHECK_EQUAL(two_view_geometry.config, two_view_geometries[0].config);
-  BOOST_CHECK_EQUAL(two_view_geometry.F, two_view_geometries[0].F);
-  BOOST_CHECK_EQUAL(two_view_geometry.E, two_view_geometries[0].E);
-  BOOST_CHECK_EQUAL(two_view_geometry.H, two_view_geometries[0].H);
-  BOOST_CHECK_EQUAL(two_view_geometry.qvec, two_view_geometries[0].qvec);
-  BOOST_CHECK_EQUAL(two_view_geometry.tvec, two_view_geometries[0].tvec);
-  BOOST_CHECK_EQUAL(two_view_geometry.inlier_matches.size(),
-                    two_view_geometries[0].inlier_matches.size());
+  EXPECT_EQ(image_pair_ids.size(), 1);
+  EXPECT_EQ(two_view_geometries.size(), 1);
+  EXPECT_EQ(image_pair_ids[0],
+            Database::ImagePairToPairId(image_id1, image_id2));
+  EXPECT_EQ(two_view_geometry.config, two_view_geometries[0].config);
+  EXPECT_EQ(two_view_geometry.F, two_view_geometries[0].F);
+  EXPECT_EQ(two_view_geometry.E, two_view_geometries[0].E);
+  EXPECT_EQ(two_view_geometry.H, two_view_geometries[0].H);
+  EXPECT_EQ(two_view_geometry.qvec, two_view_geometries[0].qvec);
+  EXPECT_EQ(two_view_geometry.tvec, two_view_geometries[0].tvec);
+  EXPECT_EQ(two_view_geometry.inlier_matches.size(),
+            two_view_geometries[0].inlier_matches.size());
   std::vector<std::pair<image_t, image_t>> image_pairs;
   std::vector<int> num_inliers;
   database.ReadTwoViewGeometryNumInliers(&image_pairs, &num_inliers);
-  BOOST_CHECK_EQUAL(image_pairs.size(), 1);
-  BOOST_CHECK_EQUAL(num_inliers.size(), 1);
-  BOOST_CHECK_EQUAL(image_pairs[0].first, image_id1);
-  BOOST_CHECK_EQUAL(image_pairs[0].second, image_id2);
-  BOOST_CHECK_EQUAL(num_inliers[0], two_view_geometry.inlier_matches.size());
-  BOOST_CHECK_EQUAL(database.NumInlierMatches(), 1000);
+  EXPECT_EQ(image_pairs.size(), 1);
+  EXPECT_EQ(num_inliers.size(), 1);
+  EXPECT_EQ(image_pairs[0].first, image_id1);
+  EXPECT_EQ(image_pairs[0].second, image_id2);
+  EXPECT_EQ(num_inliers[0], two_view_geometry.inlier_matches.size());
+  EXPECT_EQ(database.NumInlierMatches(), 1000);
   database.DeleteInlierMatches(image_id1, image_id2);
-  BOOST_CHECK_EQUAL(database.NumInlierMatches(), 0);
+  EXPECT_EQ(database.NumInlierMatches(), 0);
   database.WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
-  BOOST_CHECK_EQUAL(database.NumInlierMatches(), 1000);
+  EXPECT_EQ(database.NumInlierMatches(), 1000);
   database.ClearTwoViewGeometries();
-  BOOST_CHECK_EQUAL(database.NumInlierMatches(), 0);
+  EXPECT_EQ(database.NumInlierMatches(), 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestMerge) {
+TEST(Database, Merge) {
   Database database1(kMemoryDatabasePath);
   Database database2(kMemoryDatabasePath);
 
@@ -464,42 +453,38 @@ BOOST_AUTO_TEST_CASE(TestMerge) {
 
   Database merged_database(kMemoryDatabasePath);
   Database::Merge(database1, database2, &merged_database);
-  BOOST_CHECK_EQUAL(merged_database.NumCameras(), 2);
-  BOOST_CHECK_EQUAL(merged_database.NumImages(), 4);
-  BOOST_CHECK_EQUAL(merged_database.NumKeypoints(), 100);
-  BOOST_CHECK_EQUAL(merged_database.NumDescriptors(), 100);
-  BOOST_CHECK_EQUAL(merged_database.NumMatches(), 20);
-  BOOST_CHECK_EQUAL(merged_database.NumInlierMatches(), 0);
-  BOOST_CHECK_EQUAL(merged_database.ReadAllImages()[0].CameraId(), 1);
-  BOOST_CHECK_EQUAL(merged_database.ReadAllImages()[1].CameraId(), 1);
-  BOOST_CHECK_EQUAL(merged_database.ReadAllImages()[2].CameraId(), 2);
-  BOOST_CHECK_EQUAL(merged_database.ReadAllImages()[3].CameraId(), 2);
-  BOOST_CHECK_EQUAL(merged_database.ReadKeypoints(1).size(), 10);
-  BOOST_CHECK_EQUAL(merged_database.ReadKeypoints(2).size(), 20);
-  BOOST_CHECK_EQUAL(merged_database.ReadKeypoints(3).size(), 30);
-  BOOST_CHECK_EQUAL(merged_database.ReadKeypoints(4).size(), 40);
-  BOOST_CHECK_EQUAL(merged_database.ReadKeypoints(1)[0].x, 100);
-  BOOST_CHECK_EQUAL(merged_database.ReadKeypoints(2)[0].x, 200);
-  BOOST_CHECK_EQUAL(merged_database.ReadKeypoints(3)[0].x, 300);
-  BOOST_CHECK_EQUAL(merged_database.ReadKeypoints(4)[0].x, 400);
-  BOOST_CHECK_EQUAL(merged_database.ReadDescriptors(1).size(),
-                    descriptors1.size());
-  BOOST_CHECK_EQUAL(merged_database.ReadDescriptors(2).size(),
-                    descriptors2.size());
-  BOOST_CHECK_EQUAL(merged_database.ReadDescriptors(3).size(),
-                    descriptors3.size());
-  BOOST_CHECK_EQUAL(merged_database.ReadDescriptors(4).size(),
-                    descriptors4.size());
-  BOOST_CHECK(merged_database.ExistsMatches(1, 2));
-  BOOST_CHECK(!merged_database.ExistsMatches(2, 3));
-  BOOST_CHECK(!merged_database.ExistsMatches(2, 4));
-  BOOST_CHECK(merged_database.ExistsMatches(3, 4));
+  EXPECT_EQ(merged_database.NumCameras(), 2);
+  EXPECT_EQ(merged_database.NumImages(), 4);
+  EXPECT_EQ(merged_database.NumKeypoints(), 100);
+  EXPECT_EQ(merged_database.NumDescriptors(), 100);
+  EXPECT_EQ(merged_database.NumMatches(), 20);
+  EXPECT_EQ(merged_database.NumInlierMatches(), 0);
+  EXPECT_EQ(merged_database.ReadAllImages()[0].CameraId(), 1);
+  EXPECT_EQ(merged_database.ReadAllImages()[1].CameraId(), 1);
+  EXPECT_EQ(merged_database.ReadAllImages()[2].CameraId(), 2);
+  EXPECT_EQ(merged_database.ReadAllImages()[3].CameraId(), 2);
+  EXPECT_EQ(merged_database.ReadKeypoints(1).size(), 10);
+  EXPECT_EQ(merged_database.ReadKeypoints(2).size(), 20);
+  EXPECT_EQ(merged_database.ReadKeypoints(3).size(), 30);
+  EXPECT_EQ(merged_database.ReadKeypoints(4).size(), 40);
+  EXPECT_EQ(merged_database.ReadKeypoints(1)[0].x, 100);
+  EXPECT_EQ(merged_database.ReadKeypoints(2)[0].x, 200);
+  EXPECT_EQ(merged_database.ReadKeypoints(3)[0].x, 300);
+  EXPECT_EQ(merged_database.ReadKeypoints(4)[0].x, 400);
+  EXPECT_EQ(merged_database.ReadDescriptors(1).size(), descriptors1.size());
+  EXPECT_EQ(merged_database.ReadDescriptors(2).size(), descriptors2.size());
+  EXPECT_EQ(merged_database.ReadDescriptors(3).size(), descriptors3.size());
+  EXPECT_EQ(merged_database.ReadDescriptors(4).size(), descriptors4.size());
+  EXPECT_TRUE(merged_database.ExistsMatches(1, 2));
+  EXPECT_TRUE(!merged_database.ExistsMatches(2, 3));
+  EXPECT_TRUE(!merged_database.ExistsMatches(2, 4));
+  EXPECT_TRUE(merged_database.ExistsMatches(3, 4));
   merged_database.ClearAllTables();
-  BOOST_CHECK_EQUAL(merged_database.NumCameras(), 0);
-  BOOST_CHECK_EQUAL(merged_database.NumImages(), 0);
-  BOOST_CHECK_EQUAL(merged_database.NumKeypoints(), 0);
-  BOOST_CHECK_EQUAL(merged_database.NumDescriptors(), 0);
-  BOOST_CHECK_EQUAL(merged_database.NumMatches(), 0);
+  EXPECT_EQ(merged_database.NumCameras(), 0);
+  EXPECT_EQ(merged_database.NumImages(), 0);
+  EXPECT_EQ(merged_database.NumKeypoints(), 0);
+  EXPECT_EQ(merged_database.NumDescriptors(), 0);
+  EXPECT_EQ(merged_database.NumMatches(), 0);
 }
 
 }  // namespace colmap
