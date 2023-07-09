@@ -64,8 +64,8 @@ TEST(Bitmap, Empty) {
   EXPECT_EQ(bitmap.Width(), 0);
   EXPECT_EQ(bitmap.Height(), 0);
   EXPECT_EQ(bitmap.Channels(), 0);
-  EXPECT_EQ(bitmap.IsRGB(), false);
-  EXPECT_EQ(bitmap.IsGrey(), false);
+  EXPECT_FALSE(bitmap.IsRGB());
+  EXPECT_FALSE(bitmap.IsGrey());
 }
 
 TEST(Bitmap, AllocateRGB) {
@@ -74,8 +74,8 @@ TEST(Bitmap, AllocateRGB) {
   EXPECT_EQ(bitmap.Width(), 100);
   EXPECT_EQ(bitmap.Height(), 100);
   EXPECT_EQ(bitmap.Channels(), 3);
-  EXPECT_EQ(bitmap.IsRGB(), true);
-  EXPECT_EQ(bitmap.IsGrey(), false);
+  EXPECT_TRUE(bitmap.IsRGB());
+  EXPECT_FALSE(bitmap.IsGrey());
 }
 
 TEST(Bitmap, AllocateGrey) {
@@ -84,8 +84,8 @@ TEST(Bitmap, AllocateGrey) {
   EXPECT_EQ(bitmap.Width(), 100);
   EXPECT_EQ(bitmap.Height(), 100);
   EXPECT_EQ(bitmap.Channels(), 1);
-  EXPECT_EQ(bitmap.IsRGB(), false);
-  EXPECT_EQ(bitmap.IsGrey(), true);
+  EXPECT_FALSE(bitmap.IsRGB());
+  EXPECT_TRUE(bitmap.IsGrey());
 }
 
 TEST(Bitmap, Deallocate) {
@@ -96,8 +96,8 @@ TEST(Bitmap, Deallocate) {
   EXPECT_EQ(bitmap.Height(), 0);
   EXPECT_EQ(bitmap.Channels(), 0);
   EXPECT_EQ(bitmap.NumBytes(), 0);
-  EXPECT_EQ(bitmap.IsRGB(), false);
-  EXPECT_EQ(bitmap.IsGrey(), false);
+  EXPECT_FALSE(bitmap.IsRGB());
+  EXPECT_FALSE(bitmap.IsGrey());
 }
 
 TEST(Bitmap, BitsPerPixel) {

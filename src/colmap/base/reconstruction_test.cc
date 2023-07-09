@@ -99,7 +99,7 @@ TEST(Reconstruction, AddImage) {
   reconstruction.AddImage(image);
   EXPECT_TRUE(reconstruction.ExistsImage(1));
   EXPECT_EQ(reconstruction.Image(1).ImageId(), 1);
-  EXPECT_EQ(reconstruction.Image(1).IsRegistered(), false);
+  EXPECT_FALSE(reconstruction.Image(1).IsRegistered());
   EXPECT_EQ(reconstruction.Images().count(1), 1);
   EXPECT_EQ(reconstruction.Images().size(), 1);
   EXPECT_EQ(reconstruction.NumCameras(), 0);
@@ -211,15 +211,15 @@ TEST(Reconstruction, RegisterImage) {
   CorrespondenceGraph correspondence_graph;
   GenerateReconstruction(1, &reconstruction, &correspondence_graph);
   EXPECT_EQ(reconstruction.NumRegImages(), 1);
-  EXPECT_EQ(reconstruction.Image(1).IsRegistered(), true);
+  EXPECT_TRUE(reconstruction.Image(1).IsRegistered());
   EXPECT_TRUE(reconstruction.IsImageRegistered(1));
   reconstruction.RegisterImage(1);
   EXPECT_EQ(reconstruction.NumRegImages(), 1);
-  EXPECT_EQ(reconstruction.Image(1).IsRegistered(), true);
+  EXPECT_TRUE(reconstruction.Image(1).IsRegistered());
   EXPECT_TRUE(reconstruction.IsImageRegistered(1));
   reconstruction.DeRegisterImage(1);
   EXPECT_EQ(reconstruction.NumRegImages(), 0);
-  EXPECT_EQ(reconstruction.Image(1).IsRegistered(), false);
+  EXPECT_FALSE(reconstruction.Image(1).IsRegistered());
   EXPECT_FALSE(reconstruction.IsImageRegistered(1));
 }
 

@@ -83,7 +83,7 @@ TEST(NormalMap, ToBitmap) {
   const Bitmap bitmap = normal_map.ToBitmap();
   EXPECT_EQ(bitmap.Width(), normal_map.GetWidth());
   EXPECT_EQ(bitmap.Height(), normal_map.GetHeight());
-  EXPECT_EQ(bitmap.IsRGB(), true);
+  EXPECT_TRUE(bitmap.IsRGB());
   BitmapColor<uint8_t> color;
   EXPECT_TRUE(bitmap.GetPixel(0, 0, &color));
   EXPECT_EQ(color, BitmapColor<uint8_t>(128, 128, 0));

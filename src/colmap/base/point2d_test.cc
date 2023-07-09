@@ -42,7 +42,7 @@ TEST(Point2D, Default) {
   EXPECT_EQ(point2D.XY()[0], point2D.X());
   EXPECT_EQ(point2D.XY()[1], point2D.Y());
   EXPECT_EQ(point2D.Point3DId(), kInvalidPoint3DId);
-  EXPECT_EQ(point2D.HasPoint3D(), false);
+  EXPECT_FALSE(point2D.HasPoint3D());
 }
 
 TEST(Point2D, XY) {
@@ -61,13 +61,13 @@ TEST(Point2D, XY) {
 TEST(Point2D, Point3DId) {
   Point2D point2D;
   EXPECT_EQ(point2D.Point3DId(), kInvalidPoint3DId);
-  EXPECT_EQ(point2D.HasPoint3D(), false);
+  EXPECT_FALSE(point2D.HasPoint3D());
   point2D.SetPoint3DId(1);
   EXPECT_EQ(point2D.Point3DId(), 1);
-  EXPECT_EQ(point2D.HasPoint3D(), true);
+  EXPECT_TRUE(point2D.HasPoint3D());
   point2D.SetPoint3DId(kInvalidPoint3DId);
   EXPECT_EQ(point2D.Point3DId(), kInvalidPoint3DId);
-  EXPECT_EQ(point2D.HasPoint3D(), false);
+  EXPECT_FALSE(point2D.HasPoint3D());
 }
 
 }  // namespace colmap

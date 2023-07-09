@@ -40,7 +40,7 @@ TEST(CameraRig, Empty) {
   EXPECT_EQ(camera_rig.NumCameras(), 0);
   EXPECT_EQ(camera_rig.NumSnapshots(), 0);
   EXPECT_EQ(camera_rig.GetCameraIds().size(), 0);
-  EXPECT_EQ(camera_rig.HasCamera(0), false);
+  EXPECT_FALSE(camera_rig.HasCamera(0));
 }
 
 TEST(CameraRig, AddCamera) {
@@ -48,7 +48,7 @@ TEST(CameraRig, AddCamera) {
   EXPECT_EQ(camera_rig.NumCameras(), 0);
   EXPECT_EQ(camera_rig.NumSnapshots(), 0);
   EXPECT_EQ(camera_rig.GetCameraIds().size(), 0);
-  EXPECT_EQ(camera_rig.HasCamera(0), false);
+  EXPECT_FALSE(camera_rig.HasCamera(0));
 
   camera_rig.AddCamera(
       0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 1, 2));
@@ -56,7 +56,7 @@ TEST(CameraRig, AddCamera) {
   EXPECT_EQ(camera_rig.NumSnapshots(), 0);
   EXPECT_EQ(camera_rig.GetCameraIds().size(), 1);
   EXPECT_EQ(camera_rig.GetCameraIds()[0], 0);
-  EXPECT_EQ(camera_rig.HasCamera(0), true);
+  EXPECT_TRUE(camera_rig.HasCamera(0));
   EXPECT_EQ(camera_rig.RelativeQvec(0), ComposeIdentityQuaternion());
   EXPECT_EQ(camera_rig.RelativeTvec(0), Eigen::Vector3d(0, 1, 2));
 
@@ -65,8 +65,8 @@ TEST(CameraRig, AddCamera) {
   EXPECT_EQ(camera_rig.NumCameras(), 2);
   EXPECT_EQ(camera_rig.NumSnapshots(), 0);
   EXPECT_EQ(camera_rig.GetCameraIds().size(), 2);
-  EXPECT_EQ(camera_rig.HasCamera(0), true);
-  EXPECT_EQ(camera_rig.HasCamera(1), true);
+  EXPECT_TRUE(camera_rig.HasCamera(0));
+  EXPECT_TRUE(camera_rig.HasCamera(1));
   EXPECT_EQ(camera_rig.RelativeQvec(1), ComposeIdentityQuaternion());
   EXPECT_EQ(camera_rig.RelativeTvec(1), Eigen::Vector3d(3, 4, 5));
 }

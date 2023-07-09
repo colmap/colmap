@@ -47,7 +47,7 @@ TEST(Point3D, Default) {
   EXPECT_EQ(point3D.Color()[1], 0);
   EXPECT_EQ(point3D.Color()[2], 0);
   EXPECT_EQ(point3D.Error(), -1.0);
-  EXPECT_EQ(point3D.HasError(), false);
+  EXPECT_FALSE(point3D.HasError());
   EXPECT_EQ(point3D.Track().Length(), 0);
 }
 
@@ -89,13 +89,13 @@ TEST(Point3D, RGB) {
 TEST(Point3D, Error) {
   Point3D point3D;
   EXPECT_EQ(point3D.Error(), -1.0);
-  EXPECT_EQ(point3D.HasError(), false);
+  EXPECT_FALSE(point3D.HasError());
   point3D.SetError(1.0);
   EXPECT_EQ(point3D.Error(), 1.0);
-  EXPECT_EQ(point3D.HasError(), true);
+  EXPECT_TRUE(point3D.HasError());
   point3D.SetError(-1.0);
   EXPECT_EQ(point3D.Error(), -1.0);
-  EXPECT_EQ(point3D.HasError(), false);
+  EXPECT_FALSE(point3D.HasError());
 }
 
 TEST(Point3D, Track) {

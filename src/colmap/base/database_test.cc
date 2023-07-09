@@ -123,7 +123,7 @@ TEST(Database, Camera) {
   camera.InitializeWithName("SIMPLE_PINHOLE", 1.0, 1, 1);
   camera.SetCameraId(database.WriteCamera(camera));
   EXPECT_EQ(database.NumCameras(), 1);
-  EXPECT_EQ(database.ExistsCamera(camera.CameraId()), true);
+  EXPECT_TRUE(database.ExistsCamera(camera.CameraId()));
   EXPECT_EQ(database.ReadCamera(camera.CameraId()).CameraId(),
             camera.CameraId());
   EXPECT_EQ(database.ReadCamera(camera.CameraId()).ModelId(), camera.ModelId());
@@ -141,8 +141,8 @@ TEST(Database, Camera) {
   camera2.SetCameraId(camera.CameraId() + 1);
   database.WriteCamera(camera2, true);
   EXPECT_EQ(database.NumCameras(), 2);
-  EXPECT_EQ(database.ExistsCamera(camera.CameraId()), true);
-  EXPECT_EQ(database.ExistsCamera(camera2.CameraId()), true);
+  EXPECT_TRUE(database.ExistsCamera(camera.CameraId()));
+  EXPECT_TRUE(database.ExistsCamera(camera2.CameraId()));
   EXPECT_EQ(database.ReadAllCameras().size(), 2);
   EXPECT_EQ(database.ReadAllCameras()[0].CameraId(), camera.CameraId());
   EXPECT_EQ(database.ReadAllCameras()[1].CameraId(), camera2.CameraId());
@@ -163,7 +163,7 @@ TEST(Database, Image) {
   image.SetTvecPrior(Eigen::Vector3d(0.1, 0.2, 0.3));
   image.SetImageId(database.WriteImage(image));
   EXPECT_EQ(database.NumImages(), 1);
-  EXPECT_EQ(database.ExistsImage(image.ImageId()), true);
+  EXPECT_TRUE(database.ExistsImage(image.ImageId()));
   EXPECT_EQ(database.ReadImage(image.ImageId()).ImageId(), image.ImageId());
   EXPECT_EQ(database.ReadImage(image.ImageId()).CameraId(), image.CameraId());
   EXPECT_EQ(database.ReadImage(image.ImageId()).QvecPrior(0),
@@ -203,8 +203,8 @@ TEST(Database, Image) {
   image2.SetImageId(image.ImageId() + 1);
   database.WriteImage(image2, true);
   EXPECT_EQ(database.NumImages(), 2);
-  EXPECT_EQ(database.ExistsImage(image.ImageId()), true);
-  EXPECT_EQ(database.ExistsImage(image2.ImageId()), true);
+  EXPECT_TRUE(database.ExistsImage(image.ImageId()));
+  EXPECT_TRUE(database.ExistsImage(image2.ImageId()));
   EXPECT_EQ(database.ReadAllImages().size(), 2);
   database.ClearImages();
   EXPECT_EQ(database.NumImages(), 0);

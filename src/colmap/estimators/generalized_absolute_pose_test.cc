@@ -106,7 +106,7 @@ TEST(GeneralizedAbsolutePose, Estimate) {
       RANSAC<GP3PEstimator> ransac(options);
       const auto report = ransac.Estimate(points2D, points3D);
 
-      EXPECT_EQ(report.success, true);
+      EXPECT_TRUE(report.success);
 
       // Test if correct transformation has been determined.
       const double matrix_diff =

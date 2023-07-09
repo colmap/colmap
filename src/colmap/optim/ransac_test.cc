@@ -53,7 +53,7 @@ TEST(RANSAC, Options) {
 
 TEST(RANSAC, Report) {
   RANSAC<SimilarityTransformEstimator<3>>::Report report;
-  EXPECT_EQ(report.success, false);
+  EXPECT_FALSE(report.success);
   EXPECT_EQ(report.num_trials, 0);
   EXPECT_EQ(report.support.num_inliers, 0);
   EXPECT_EQ(report.support.residual_sum, std::numeric_limits<double>::max());
@@ -116,7 +116,7 @@ TEST(RANSAC, SimilarityTransform) {
   RANSAC<SimilarityTransformEstimator<3>> ransac(options);
   const auto report = ransac.Estimate(src, dst);
 
-  EXPECT_EQ(report.success, true);
+  EXPECT_TRUE(report.success);
   EXPECT_GT(report.num_trials, 0);
 
   // Make sure outliers were detected correctly.

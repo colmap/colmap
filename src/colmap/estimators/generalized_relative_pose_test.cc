@@ -113,7 +113,7 @@ TEST(GeneralizedRelativePose, Estimate) {
       LORANSAC<GR6PEstimator, GR6PEstimator> ransac(options);
       const auto report = ransac.Estimate(points1, points2);
 
-      EXPECT_EQ(report.success, true);
+      EXPECT_TRUE(report.success);
 
       const double matrix_diff =
           (orig_tforms[kRefTform].Matrix().topLeftCorner<3, 4>() - report.model)

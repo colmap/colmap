@@ -40,8 +40,8 @@ TEST(Image, Default) {
   EXPECT_EQ(image.ImageId(), kInvalidImageId);
   EXPECT_EQ(image.Name(), "");
   EXPECT_EQ(image.CameraId(), kInvalidCameraId);
-  EXPECT_EQ(image.HasCamera(), false);
-  EXPECT_EQ(image.IsRegistered(), false);
+  EXPECT_FALSE(image.HasCamera());
+  EXPECT_FALSE(image.IsRegistered());
   EXPECT_EQ(image.NumPoints2D(), 0);
   EXPECT_EQ(image.NumPoints3D(), 0);
   EXPECT_EQ(image.NumObservations(), 0);
@@ -57,8 +57,8 @@ TEST(Image, Default) {
   EXPECT_EQ(image.Tvec(1), 0.0);
   EXPECT_EQ(image.Tvec(2), 0.0);
   EXPECT_TRUE(image.TvecPrior().array().isNaN().all());
-  EXPECT_EQ(image.HasQvecPrior(), false);
-  EXPECT_EQ(image.HasTvecPrior(), false);
+  EXPECT_FALSE(image.HasQvecPrior());
+  EXPECT_FALSE(image.HasTvecPrior());
   EXPECT_EQ(image.Points2D().size(), 0);
 }
 
@@ -87,11 +87,11 @@ TEST(Image, CameraId) {
 
 TEST(Image, Registered) {
   Image image;
-  EXPECT_EQ(image.IsRegistered(), false);
+  EXPECT_FALSE(image.IsRegistered());
   image.SetRegistered(true);
-  EXPECT_EQ(image.IsRegistered(), true);
+  EXPECT_TRUE(image.IsRegistered());
   image.SetRegistered(false);
-  EXPECT_EQ(image.IsRegistered(), false);
+  EXPECT_FALSE(image.IsRegistered());
 }
 
 TEST(Image, NumPoints2D) {
@@ -212,15 +212,15 @@ TEST(Image, Qvec) {
 TEST(Image, QvecPrior) {
   Image image;
   EXPECT_TRUE(image.QvecPrior().array().isNaN().all());
-  EXPECT_EQ(image.HasQvecPrior(), false);
+  EXPECT_FALSE(image.HasQvecPrior());
   image.QvecPrior(0) = 2.0;
-  EXPECT_EQ(image.HasQvecPrior(), false);
+  EXPECT_FALSE(image.HasQvecPrior());
   image.QvecPrior(1) = 2.0;
-  EXPECT_EQ(image.HasQvecPrior(), false);
+  EXPECT_FALSE(image.HasQvecPrior());
   image.QvecPrior(2) = 2.0;
-  EXPECT_EQ(image.HasQvecPrior(), false);
+  EXPECT_FALSE(image.HasQvecPrior());
   image.QvecPrior(3) = 2.0;
-  EXPECT_EQ(image.HasQvecPrior(), true);
+  EXPECT_TRUE(image.HasQvecPrior());
   EXPECT_EQ(image.QvecPrior(0), 2.0);
   EXPECT_EQ(image.QvecPrior(1), 2.0);
   EXPECT_EQ(image.QvecPrior(2), 2.0);
@@ -247,13 +247,13 @@ TEST(Image, Tvec) {
 TEST(Image, TvecPrior) {
   Image image;
   EXPECT_TRUE(image.TvecPrior().array().isNaN().all());
-  EXPECT_EQ(image.HasTvecPrior(), false);
+  EXPECT_FALSE(image.HasTvecPrior());
   image.TvecPrior(0) = 2.0;
-  EXPECT_EQ(image.HasTvecPrior(), false);
+  EXPECT_FALSE(image.HasTvecPrior());
   image.TvecPrior(1) = 2.0;
-  EXPECT_EQ(image.HasTvecPrior(), false);
+  EXPECT_FALSE(image.HasTvecPrior());
   image.TvecPrior(2) = 2.0;
-  EXPECT_EQ(image.HasTvecPrior(), true);
+  EXPECT_TRUE(image.HasTvecPrior());
   EXPECT_EQ(image.TvecPrior(0), 2.0);
   EXPECT_EQ(image.TvecPrior(1), 2.0);
   EXPECT_EQ(image.TvecPrior(2), 2.0);

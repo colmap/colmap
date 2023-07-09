@@ -82,7 +82,7 @@ TEST(DepthMap, ToBitmap) {
   const Bitmap bitmap = depth_map.ToBitmap(0, 100);
   EXPECT_EQ(bitmap.Width(), depth_map.GetWidth());
   EXPECT_EQ(bitmap.Height(), depth_map.GetHeight());
-  EXPECT_EQ(bitmap.IsRGB(), true);
+  EXPECT_TRUE(bitmap.IsRGB());
   BitmapColor<uint8_t> color;
   EXPECT_TRUE(bitmap.GetPixel(0, 0, &color));
   EXPECT_EQ(color, BitmapColor<uint8_t>(0, 0, 128));

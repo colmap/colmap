@@ -44,12 +44,12 @@ TEST(EnsureTrailingSlash, Nominal) {
 }
 
 TEST(HasFileExtension, Nominal) {
-  EXPECT_EQ(HasFileExtension("", ".jpg"), false);
-  EXPECT_EQ(HasFileExtension("testjpg", ".jpg"), false);
-  EXPECT_EQ(HasFileExtension("test.jpg", ".jpg"), true);
-  EXPECT_EQ(HasFileExtension("test.jpg", ".Jpg"), true);
-  EXPECT_EQ(HasFileExtension("test.jpg", ".JPG"), true);
-  EXPECT_EQ(HasFileExtension("test.", "."), true);
+  EXPECT_FALSE(HasFileExtension("", ".jpg"));
+  EXPECT_FALSE(HasFileExtension("testjpg", ".jpg"));
+  EXPECT_TRUE(HasFileExtension("test.jpg", ".jpg"));
+  EXPECT_TRUE(HasFileExtension("test.jpg", ".Jpg"));
+  EXPECT_TRUE(HasFileExtension("test.jpg", ".JPG"));
+  EXPECT_TRUE(HasFileExtension("test.", "."));
 }
 
 TEST(SplitFileExtension, Nominal) {

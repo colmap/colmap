@@ -80,7 +80,7 @@ TEST(AbsolutePose, P3P) {
       RANSAC<P3PEstimator> ransac(options);
       const auto report = ransac.Estimate(points2D, points3D);
 
-      EXPECT_EQ(report.success, true);
+      EXPECT_TRUE(report.success);
 
       // Test if correct transformation has been determined.
       const double matrix_diff =
@@ -142,7 +142,7 @@ TEST(AbsolutePose, EPNP) {
       RANSAC<EPNPEstimator> ransac(options);
       const auto report = ransac.Estimate(points2D, points3D);
 
-      EXPECT_EQ(report.success, true);
+      EXPECT_TRUE(report.success);
 
       // Test if correct transformation has been determined.
       const double matrix_diff =

@@ -44,7 +44,7 @@ TEST(Camera, Empty) {
   EXPECT_EQ(camera.ModelName(), "");
   EXPECT_EQ(camera.Width(), 0);
   EXPECT_EQ(camera.Height(), 0);
-  EXPECT_EQ(camera.HasPriorFocalLength(), false);
+  EXPECT_FALSE(camera.HasPriorFocalLength());
   EXPECT_THROW(camera.FocalLengthIdxs(), std::domain_error);
   EXPECT_THROW(camera.ParamsInfo(), std::domain_error);
   EXPECT_EQ(camera.ParamsToString(), "");
@@ -107,11 +107,11 @@ TEST(Camera, FocalLength) {
 
 TEST(Camera, PriorFocalLength) {
   Camera camera;
-  EXPECT_EQ(camera.HasPriorFocalLength(), false);
+  EXPECT_FALSE(camera.HasPriorFocalLength());
   camera.SetPriorFocalLength(true);
-  EXPECT_EQ(camera.HasPriorFocalLength(), true);
+  EXPECT_TRUE(camera.HasPriorFocalLength());
   camera.SetPriorFocalLength(false);
-  EXPECT_EQ(camera.HasPriorFocalLength(), false);
+  EXPECT_FALSE(camera.HasPriorFocalLength());
 }
 
 TEST(Camera, PrincipalPoint) {
@@ -194,9 +194,9 @@ TEST(Camera, VerifyParams) {
   Camera camera;
   EXPECT_THROW(camera.VerifyParams(), std::domain_error);
   camera.InitializeWithId(SimplePinholeCameraModel::model_id, 1.0, 1, 1);
-  EXPECT_EQ(camera.VerifyParams(), true);
+  EXPECT_TRUE(camera.VerifyParams());
   camera.Params().resize(2);
-  EXPECT_EQ(camera.VerifyParams(), false);
+  EXPECT_FALSE(camera.VerifyParams());
 }
 
 TEST(Camera, IsUndistorted) {
@@ -226,18 +226,18 @@ TEST(Camera, HasBogusParams) {
   Camera camera;
   EXPECT_THROW(camera.HasBogusParams(0.0, 0.0, 0.0), std::domain_error);
   camera.InitializeWithId(SimplePinholeCameraModel::model_id, 1.0, 1, 1);
-  EXPECT_EQ(camera.HasBogusParams(0.1, 1.1, 1.0), false);
-  EXPECT_EQ(camera.HasBogusParams(0.1, 1.1, 0.0), false);
-  EXPECT_EQ(camera.HasBogusParams(0.1, 0.99, 1.0), true);
-  EXPECT_EQ(camera.HasBogusParams(1.01, 1.1, 1.0), true);
+  EXPECT_FALSE(camera.HasBogusParams(0.1, 1.1, 1.0));
+  EXPECT_FALSE(camera.HasBogusParams(0.1, 1.1, 0.0));
+  EXPECT_TRUE(camera.HasBogusParams(0.1, 0.99, 1.0));
+  EXPECT_TRUE(camera.HasBogusParams(1.01, 1.1, 1.0));
   camera.InitializeWithId(SimpleRadialCameraModel::model_id, 1.0, 1, 1);
-  EXPECT_EQ(camera.HasBogusParams(0.1, 1.1, 1.0), false);
+  EXPECT_FALSE(camera.HasBogusParams(0.1, 1.1, 1.0));
   camera.Params(3) = 1.01;
-  EXPECT_EQ(camera.HasBogusParams(0.1, 1.1, 1.0), true);
+  EXPECT_TRUE(camera.HasBogusParams(0.1, 1.1, 1.0));
   camera.Params(3) = -0.5;
-  EXPECT_EQ(camera.HasBogusParams(0.1, 1.1, 1.0), false);
+  EXPECT_FALSE(camera.HasBogusParams(0.1, 1.1, 1.0));
   camera.Params(3) = -1.01;
-  EXPECT_EQ(camera.HasBogusParams(0.1, 1.1, 1.0), true);
+  EXPECT_TRUE(camera.HasBogusParams(0.1, 1.1, 1.0));
 }
 
 TEST(Camera, InitializeWithId) {
@@ -249,7 +249,7 @@ TEST(Camera, InitializeWithId) {
   EXPECT_EQ(camera.ModelName(), "SIMPLE_PINHOLE");
   EXPECT_EQ(camera.Width(), 1);
   EXPECT_EQ(camera.Height(), 1);
-  EXPECT_EQ(camera.HasPriorFocalLength(), false);
+  EXPECT_FALSE(camera.HasPriorFocalLength());
   EXPECT_EQ(camera.FocalLengthIdxs().size(), 1);
   EXPECT_EQ(camera.PrincipalPointIdxs().size(), 2);
   EXPECT_EQ(camera.ExtraParamsIdxs().size(), 0);
@@ -258,9 +258,9 @@ TEST(Camera, InitializeWithId) {
   EXPECT_EQ(camera.FocalLength(), 1.0);
   EXPECT_EQ(camera.PrincipalPointX(), 0.5);
   EXPECT_EQ(camera.PrincipalPointY(), 0.5);
-  EXPECT_EQ(camera.VerifyParams(), true);
-  EXPECT_EQ(camera.HasBogusParams(0.1, 2.0, 1.0), false);
-  EXPECT_EQ(camera.HasBogusParams(0.1, 0.5, 1.0), true);
+  EXPECT_TRUE(camera.VerifyParams());
+  EXPECT_FALSE(camera.HasBogusParams(0.1, 2.0, 1.0));
+  EXPECT_TRUE(camera.HasBogusParams(0.1, 0.5, 1.0));
   EXPECT_EQ(camera.NumParams(),
             static_cast<int>(SimplePinholeCameraModel::num_params));
   EXPECT_EQ(camera.Params().size(),
@@ -276,7 +276,7 @@ TEST(Camera, InitializeWithName) {
   EXPECT_EQ(camera.ModelName(), "SIMPLE_PINHOLE");
   EXPECT_EQ(camera.Width(), 1);
   EXPECT_EQ(camera.Height(), 1);
-  EXPECT_EQ(camera.HasPriorFocalLength(), false);
+  EXPECT_FALSE(camera.HasPriorFocalLength());
   EXPECT_EQ(camera.FocalLengthIdxs().size(), 1);
   EXPECT_EQ(camera.PrincipalPointIdxs().size(), 2);
   EXPECT_EQ(camera.ExtraParamsIdxs().size(), 0);
@@ -285,9 +285,9 @@ TEST(Camera, InitializeWithName) {
   EXPECT_EQ(camera.FocalLength(), 1.0);
   EXPECT_EQ(camera.PrincipalPointX(), 0.5);
   EXPECT_EQ(camera.PrincipalPointY(), 0.5);
-  EXPECT_EQ(camera.VerifyParams(), true);
-  EXPECT_EQ(camera.HasBogusParams(0.1, 2.0, 1.0), false);
-  EXPECT_EQ(camera.HasBogusParams(0.1, 0.5, 1.0), true);
+  EXPECT_TRUE(camera.VerifyParams());
+  EXPECT_FALSE(camera.HasBogusParams(0.1, 2.0, 1.0));
+  EXPECT_TRUE(camera.HasBogusParams(0.1, 0.5, 1.0));
   EXPECT_EQ(camera.NumParams(),
             static_cast<int>(SimplePinholeCameraModel::num_params));
   EXPECT_EQ(camera.Params().size(),
