@@ -67,7 +67,7 @@ option(ASAN_ENABLED "Whether to enable AddressSanitizer flags" OFF)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
-option(BOOST_STATIC "Whether to enable static boost library linker flags" ON)
+option(BOOST_STATIC "Whether to enable static boost library linker flags" OFF)
 
 if(TESTS_ENABLED)
     enable_testing()
@@ -356,16 +356,12 @@ endif()
 include(GenerateVersionDefinitions)
 
 set(COLMAP_INCLUDE_DIRS
-    ${Boost_INCLUDE_DIRS}
-    ${EIGEN3_INCLUDE_DIRS}
-    ${GLOG_INCLUDE_DIRS}
     ${FLANN_INCLUDE_DIRS}
     ${LZ4_INCLUDE_DIRS}
     ${FREEIMAGE_INCLUDE_DIRS}
     ${CERES_INCLUDE_DIRS}
     ${METIS_INCLUDE_DIRS}
     ${GLEW_INCLUDE_DIRS}
-    ${SQLite3_INCLUDE_DIRS}
 )
 
 set(COLMAP_LINK_DIRS
@@ -374,17 +370,19 @@ set(COLMAP_LINK_DIRS
 
 set(COLMAP_EXTERNAL_LIBRARIES
     ${CMAKE_DL_LIBS}
-    ${Boost_FILESYSTEM_LIBRARY}
-    ${Boost_PROGRAM_OPTIONS_LIBRARY}
-    ${Boost_SYSTEM_LIBRARY}
-    ${GLOG_LIBRARIES}
     ${FLANN_LIBRARIES}
     ${LZ4_LIBRARIES}
     ${FREEIMAGE_LIBRARIES}
     ${METIS_LIBRARIES}
     ${CERES_LIBRARIES}
     ${OPENGL_LIBRARIES}
-    ${SQLite3_LIBRARIES}
+    Boost::program_options
+    Boost::filesystem
+    Boost::graph
+    Boost::system
+    Eigen3::Eigen
+    glog::glog
+    SQLite::SQLite3
 )
 
 if(OPENMP_FOUND)
