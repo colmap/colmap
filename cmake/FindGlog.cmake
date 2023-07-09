@@ -50,10 +50,13 @@ unset(GLOG_FOUND)
 unset(GLOG_INCLUDE_DIRS)
 unset(GLOG_LIBRARIES)
 
-find_package(glog CONFIG QUIET)
+find_package(glog QUIET)
 if(glog_FOUND)
     set(GLOG_FOUND)
 else()
+    # Older versions of glog don't come with a find_package config.
+    # Fall back to custom logic to find the library and remap to imported target.
+
     include(FindPackageHandleStandardArgs)
 
     list(APPEND GLOG_CHECK_INCLUDE_DIRS
