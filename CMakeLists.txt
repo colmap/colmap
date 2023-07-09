@@ -67,7 +67,7 @@ option(ASAN_ENABLED "Whether to enable AddressSanitizer flags" OFF)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
-option(BOOST_STATIC "Whether to enable static boost library linker flags" ON)
+option(BOOST_STATIC "Whether to enable static boost library linker flags" OFF)
 
 if(TESTS_ENABLED)
     enable_testing()
@@ -109,7 +109,7 @@ find_package(LZ4 REQUIRED)
 
 find_package(Metis REQUIRED)
 
-find_package(glog REQUIRED)
+find_package(Glog REQUIRED)
 
 find_package(SQLite3 REQUIRED)
 
