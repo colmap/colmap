@@ -156,10 +156,10 @@ class CorrespondenceGraph {
     std::vector<std::vector<Correspondence>> corrs;
     // Flattened correspondences after Finalize().
     std::vector<Correspondence> flat_corrs;
-    // For each point, determines the beginning of the correspondences.
-    // The end of point i is determined by the beginning of the next point.
-    // The length of this vector is num_points2D + 1, where the last element
-    // is equivalent to the size of flat_corrs.
+    // For each point, determines the beginning of the correspondences in the
+    // flat_corrs vector. The end of point i is determined by the beginning of
+    // the next point. The length of this vector is num_points2D + 1, where the
+    // last element is equivalent to the size of flat_corrs.
     std::vector<point2D_t> flat_corr_begs;
   };
 
