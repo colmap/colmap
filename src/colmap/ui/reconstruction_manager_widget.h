@@ -42,7 +42,8 @@ class ReconstructionManagerWidget : public QComboBox {
   const static size_t kNewestReconstructionIdx;
 
   ReconstructionManagerWidget(
-      QWidget* parent, const ReconstructionManager* reconstruction_manager);
+      QWidget* parent,
+      std::shared_ptr<const ReconstructionManager> reconstruction_manager);
 
   void Update();
 
@@ -50,7 +51,7 @@ class ReconstructionManagerWidget : public QComboBox {
   void SelectReconstruction(size_t idx);
 
  private:
-  const ReconstructionManager* reconstruction_manager_;
+  const std::shared_ptr<const ReconstructionManager> reconstruction_manager_;
 };
 
 }  // namespace colmap

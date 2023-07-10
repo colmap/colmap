@@ -61,8 +61,6 @@ void GenerateReconstruction(const image_t num_images,
     reconstruction->RegisterImage(image_id);
     correspondence_graph->AddImage(image_id, kNumPoints2D);
   }
-
-  reconstruction->SetUp(correspondence_graph);
 }
 
 TEST(Reconstruction, Empty) {

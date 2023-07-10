@@ -39,6 +39,7 @@ namespace colmap {
 
 MainWindow::MainWindow(const OptionManager& options)
     : options_(options),
+      reconstruction_manager_(std::make_shared<ReconstructionManager>()),
       thread_control_widget_(new ThreadControlWidget(this)),
       window_closed_(false) {
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
@@ -60,7 +61,7 @@ MainWindow::MainWindow(const OptionManager& options)
 }
 
 void MainWindow::ImportReconstruction(const std::string& path) {
-  const size_t idx = reconstruction_manager_.Read(path);
+  const size_t idx = reconstruction_manager_->Read(path);
   reconstruction_manager_widget_->Update();
   reconstruction_manager_widget_->SelectReconstruction(idx);
   RenderNow();
@@ -126,7 +127,7 @@ void MainWindow::CreateWidgets() {
   log_widget_ = new LogWidget(this);
   undistortion_widget_ = new UndistortionWidget(this, &options_);
   reconstruction_manager_widget_ =
-      new ReconstructionManagerWidget(this, &reconstruction_manager_);
+      new ReconstructionManagerWidget(this, reconstruction_manager_);
   reconstruction_stats_widget_ = new ReconstructionStatsWidget(this);
   match_matrix_widget_ = new MatchMatrixWidget(this, &options_);
   license_widget_ = new LicenseWidget(this);
@@ -614,7 +615,7 @@ void MainWindow::CreateControllers() {
       new IncrementalMapperController(options_.mapper.get(),
                                       *options_.image_path,
                                       *options_.database_path,
-                                      &reconstruction_manager_));
+                                      reconstruction_manager_));
   mapper_controller_->AddCallback(
       IncrementalMapperController::INITIAL_IMAGE_PAIR_REG_CALLBACK, [this]() {
         if (!mapper_controller_->IsStopped()) {
@@ -639,7 +640,7 @@ void MainWindow::CreateControllers() {
           action_render_now_->trigger();
           action_reconstruction_finish_->trigger();
         }
-        if (reconstruction_manager_.Size() == 0) {
+        if (reconstruction_manager_->Size() == 0) {
           action_reconstruction_reset_->trigger();
         }
       });
@@ -775,7 +776,7 @@ void MainWindow::Import() {
 
   thread_control_widget_->StartFunction(
       "Importing...", [this, import_path, edit_project]() {
-        const size_t idx = reconstruction_manager_.Read(import_path);
+        const size_t idx = reconstruction_manager_->Read(import_path);
         reconstruction_manager_widget_->Update();
         reconstruction_manager_widget_->SelectReconstruction(idx);
         action_bundle_adjustment_->setEnabled(true);
@@ -809,8 +810,8 @@ void MainWindow::ImportFrom() {
   }
 
   thread_control_widget_->StartFunction("Importing...", [this, import_path]() {
-    const size_t reconstruction_idx = reconstruction_manager_.Add();
-    reconstruction_manager_.Get(reconstruction_idx).ImportPLY(import_path);
+    const size_t reconstruction_idx = reconstruction_manager_->Add();
+    reconstruction_manager_->Get(reconstruction_idx)->ImportPLY(import_path);
     options_.render->min_track_len = 0;
     reconstruction_manager_widget_->Update();
     reconstruction_manager_widget_->SelectReconstruction(reconstruction_idx);
@@ -863,9 +864,8 @@ void MainWindow::Export() {
 
   thread_control_widget_->StartFunction(
       "Exporting...", [this, export_path, project_path]() {
-        const auto& reconstruction =
-            reconstruction_manager_.Get(SelectedReconstructionIdx());
-        reconstruction.WriteBinary(export_path);
+        reconstruction_manager_->Get(SelectedReconstructionIdx())
+            ->WriteBinary(export_path);
         options_.Write(project_path);
       });
 }
@@ -887,7 +887,7 @@ void MainWindow::ExportAll() {
   }
 
   thread_control_widget_->StartFunction("Exporting...", [this, export_path]() {
-    reconstruction_manager_.Write(export_path, &options_);
+    reconstruction_manager_->Write(export_path, &options_);
   });
 }
 
@@ -915,7 +915,7 @@ void MainWindow::ExportAs() {
   thread_control_widget_->StartFunction(
       "Exporting...", [this, export_path, filter]() {
         const Reconstruction& reconstruction =
-            reconstruction_manager_.Get(SelectedReconstructionIdx());
+            *reconstruction_manager_->Get(SelectedReconstructionIdx());
         if (filter == "NVM (*.nvm)") {
           reconstruction.ExportNVM(export_path);
         } else if (filter == "Bundler (*.out)") {
@@ -978,9 +978,8 @@ void MainWindow::ExportAsText() {
 
   thread_control_widget_->StartFunction(
       "Exporting...", [this, export_path, project_path]() {
-        const auto& reconstruction =
-            reconstruction_manager_.Get(SelectedReconstructionIdx());
-        reconstruction.WriteText(export_path);
+        reconstruction_manager_->Get(SelectedReconstructionIdx())
+            ->WriteText(export_path);
         options_.Write(project_path);
       });
 }
@@ -1082,7 +1081,7 @@ void MainWindow::ReconstructionFinish() {
 void MainWindow::ReconstructionReset() {
   CreateControllers();
 
-  reconstruction_manager_.Clear();
+  reconstruction_manager_->Clear();
   reconstruction_manager_widget_->Update();
 
   timer_.Reset();
@@ -1100,12 +1099,12 @@ void MainWindow::ReconstructionNormalize() {
     return;
   }
   action_reconstruction_step_->setEnabled(false);
-  reconstruction_manager_.Get(SelectedReconstructionIdx()).Normalize();
+  reconstruction_manager_->Get(SelectedReconstructionIdx())->Normalize();
   action_reconstruction_step_->setEnabled(true);
 }
 
 bool MainWindow::ReconstructionOverwrite() {
-  if (reconstruction_manager_.Size() == 0) {
+  if (reconstruction_manager_->Size() == 0) {
     ReconstructionReset();
     return true;
   }
@@ -1129,29 +1128,29 @@ void MainWindow::BundleAdjustment() {
   }
 
   bundle_adjustment_widget_->Show(
-      &reconstruction_manager_.Get(SelectedReconstructionIdx()));
+      reconstruction_manager_->Get(SelectedReconstructionIdx()));
 }
 
 void MainWindow::DenseReconstruction() {
   if (HasSelectedReconstruction()) {
     dense_reconstruction_widget_->Show(
-        &reconstruction_manager_.Get(SelectedReconstructionIdx()));
+        reconstruction_manager_->Get(SelectedReconstructionIdx()));
   } else {
     dense_reconstruction_widget_->Show(nullptr);
   }
 }
 
 void MainWindow::Render() {
-  if (reconstruction_manager_.Size() == 0) {
+  if (reconstruction_manager_->Size() == 0) {
     return;
   }
 
-  const Reconstruction& reconstruction =
-      reconstruction_manager_.Get(SelectedReconstructionIdx());
-
   int refresh_rate;
   if (options_.render->adapt_refresh_rate) {
-    refresh_rate = static_cast<int>(reconstruction.NumRegImages() / 50 + 1);
+    const auto num_reg_images =
+        reconstruction_manager_->Get(SelectedReconstructionIdx())
+            ->NumRegImages();
+    refresh_rate = static_cast<int>(num_reg_images / 50 + 1);
   } else {
     refresh_rate = options_.render->refresh_rate;
   }
@@ -1173,14 +1172,14 @@ void MainWindow::RenderNow() {
 }
 
 void MainWindow::RenderSelectedReconstruction() {
-  if (reconstruction_manager_.Size() == 0) {
+  if (reconstruction_manager_->Size() == 0) {
     RenderClear();
     return;
   }
 
   const size_t reconstruction_idx = SelectedReconstructionIdx();
   model_viewer_widget_->reconstruction =
-      &reconstruction_manager_.Get(reconstruction_idx);
+      reconstruction_manager_->Get(reconstruction_idx);
   model_viewer_widget_->ReloadReconstruction();
 }
 
@@ -1204,8 +1203,8 @@ size_t MainWindow::SelectedReconstructionIdx() {
       reconstruction_manager_widget_->SelectedReconstructionIdx();
   if (reconstruction_idx ==
       ReconstructionManagerWidget::kNewestReconstructionIdx) {
-    if (reconstruction_manager_.Size() > 0) {
-      reconstruction_idx = reconstruction_manager_.Size() - 1;
+    if (reconstruction_manager_->Size() > 0) {
+      reconstruction_idx = reconstruction_manager_->Size() - 1;
     }
   }
   return reconstruction_idx;
@@ -1216,7 +1215,7 @@ bool MainWindow::HasSelectedReconstruction() {
       reconstruction_manager_widget_->SelectedReconstructionIdx();
   if (reconstruction_idx ==
       ReconstructionManagerWidget::kNewestReconstructionIdx) {
-    if (reconstruction_manager_.Size() == 0) {
+    if (reconstruction_manager_->Size() == 0) {
       return false;
     }
   }
@@ -1249,7 +1248,7 @@ void MainWindow::UndistortImages() {
     return;
   }
   undistortion_widget_->Show(
-      reconstruction_manager_.Get(SelectedReconstructionIdx()));
+      reconstruction_manager_->Get(SelectedReconstructionIdx()));
 }
 
 void MainWindow::ReconstructionStats() {
@@ -1259,7 +1258,7 @@ void MainWindow::ReconstructionStats() {
   reconstruction_stats_widget_->show();
   reconstruction_stats_widget_->raise();
   reconstruction_stats_widget_->Show(
-      reconstruction_manager_.Get(SelectedReconstructionIdx()));
+      *reconstruction_manager_->Get(SelectedReconstructionIdx()));
 }
 
 void MainWindow::MatchMatrix() { match_matrix_widget_->Show(); }
@@ -1277,9 +1276,8 @@ void MainWindow::ExtractColors() {
   }
 
   thread_control_widget_->StartFunction("Extracting colors...", [this]() {
-    auto& reconstruction =
-        reconstruction_manager_.Get(SelectedReconstructionIdx());
-    reconstruction.ExtractColorsForAllImages(*options_.image_path);
+    reconstruction_manager_->Get(SelectedReconstructionIdx())
+        ->ExtractColorsForAllImages(*options_.image_path);
   });
 }
 

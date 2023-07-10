@@ -118,7 +118,7 @@ class ModelViewerWidget : public QOpenGLWidget,
   void SetBackgroundColor(float r, float g, float b);
 
   // Copy of current scene data that is displayed
-  Reconstruction* reconstruction = nullptr;
+  std::shared_ptr<Reconstruction> reconstruction;
   std::unordered_map<camera_t, Camera> cameras;
   std::unordered_map<image_t, Image> images;
   std::unordered_map<point3D_t, Point3D> points3D;

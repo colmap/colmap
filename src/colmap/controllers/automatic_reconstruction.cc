@@ -44,9 +44,10 @@
 namespace colmap {
 
 AutomaticReconstructionController::AutomaticReconstructionController(
-    const Options& options, ReconstructionManager* reconstruction_manager)
+    const Options& options,
+    std::shared_ptr<ReconstructionManager> reconstruction_manager)
     : options_(options),
-      reconstruction_manager_(reconstruction_manager),
+      reconstruction_manager_(std::move(reconstruction_manager)),
       active_thread_(nullptr) {
   CHECK(ExistsDir(options_.workspace_path));
   CHECK(ExistsDir(options_.image_path));
@@ -267,7 +268,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
       undistortion_options.max_image_size =
           option_manager_.patch_match_stereo->max_image_size;
       COLMAPUndistorter undistorter(undistortion_options,
-                                    reconstruction_manager_->Get(i),
+                                    *reconstruction_manager_->Get(i),
                                     *option_manager_.image_path,
                                     dense_path);
       active_thread_ = &undistorter;
@@ -307,7 +308,8 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     if (!ExistsFile(fused_path)) {
       auto fusion_options = *option_manager_.stereo_fusion;
-      const int num_reg_images = reconstruction_manager_->Get(i).NumRegImages();
+      const int num_reg_images =
+          reconstruction_manager_->Get(i)->NumRegImages();
       fusion_options.min_num_pixels =
           std::min(num_reg_images + 1, fusion_options.min_num_pixels);
       mvs::StereoFusion fuser(

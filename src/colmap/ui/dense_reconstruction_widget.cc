@@ -344,8 +344,9 @@ void DenseReconstructionWidget::showEvent(QShowEvent* event) {
   RefreshWorkspace();
 }
 
-void DenseReconstructionWidget::Show(Reconstruction* reconstruction) {
-  reconstruction_ = reconstruction;
+void DenseReconstructionWidget::Show(
+    std::shared_ptr<const Reconstruction> reconstruction) {
+  reconstruction_ = std::move(reconstruction);
   show();
   raise();
 }
@@ -578,14 +579,14 @@ void DenseReconstructionWidget::WriteFusedPoints() {
       QMessageBox::Yes | QMessageBox::No);
   if (reply == QMessageBox::Yes) {
     const size_t reconstruction_idx =
-        main_window_->reconstruction_manager_.Add();
-    auto& reconstruction =
-        main_window_->reconstruction_manager_.Get(reconstruction_idx);
+        main_window_->reconstruction_manager_->Add();
+    std::shared_ptr<Reconstruction>& reconstruction =
+        main_window_->reconstruction_manager_->Get(reconstruction_idx);
 
-    for (const auto& point : fused_points_) {
-      const Eigen::Vector3d xyz(point.x, point.y, point.z);
-      reconstruction.AddPoint3D(
-          xyz, Track(), Eigen::Vector3ub(point.r, point.g, point.b));
+    for (const PlyPoint& point : fused_points_) {
+      reconstruction->AddPoint3D(Eigen::Vector3d(point.x, point.y, point.z),
+                                 Track(),
+                                 Eigen::Vector3ub(point.r, point.g, point.b));
     }
 
     options_->render->min_track_len = 0;

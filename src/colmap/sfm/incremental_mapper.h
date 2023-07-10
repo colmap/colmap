@@ -141,12 +141,13 @@ class IncrementalMapper {
 
   // Create incremental mapper. The database cache must live for the entire
   // life-time of the incremental mapper.
-  explicit IncrementalMapper(const DatabaseCache* database_cache);
+  explicit IncrementalMapper(
+      std::shared_ptr<const DatabaseCache> database_cache);
 
   // Prepare the mapper for a new reconstruction, which might have existing
   // registered images (in which case `RegisterNextImage` must be called) or
   // which is empty (in which case `RegisterInitialImagePair` must be called).
-  void BeginReconstruction(Reconstruction* reconstruction);
+  void BeginReconstruction(std::shared_ptr<Reconstruction> reconstruction);
 
   // Cleanup the mapper after the current reconstruction is done. If the
   // model is discarded, the number of total and shared registered images will
@@ -260,10 +261,10 @@ class IncrementalMapper {
                                       image_t image_id2);
 
   // Class that holds all necessary data from database in memory.
-  const DatabaseCache* database_cache_;
+  const std::shared_ptr<const DatabaseCache> database_cache_;
 
   // Class that holds data of the reconstruction.
-  Reconstruction* reconstruction_;
+  std::shared_ptr<Reconstruction> reconstruction_;
 
   // Class that is responsible for incremental triangulation.
   std::unique_ptr<IncrementalTriangulator> triangulator_;

@@ -40,24 +40,22 @@
 
 namespace colmap {
 
-const static std::string kMemoryDatabasePath = ":memory:";
-
 TEST(Database, OpenCloseConstructorDestructor) {
-  Database database(kMemoryDatabasePath);
+  Database database(Database::kInMemoryDatabasePath);
 }
 
 TEST(Database, OpenClose) {
-  Database database(kMemoryDatabasePath);
+  Database database(Database::kInMemoryDatabasePath);
   database.Close();
 }
 
 TEST(Database, Transaction) {
-  Database database(kMemoryDatabasePath);
+  Database database(Database::kInMemoryDatabasePath);
   DatabaseTransaction database_transaction(&database);
 }
 
 TEST(Database, TransactionMultiThreaded) {
-  Database database(kMemoryDatabasePath);
+  Database database(Database::kInMemoryDatabasePath);
 
   std::thread thread1([&database]() {
     DatabaseTransaction database_transaction(&database);
@@ -74,7 +72,7 @@ TEST(Database, TransactionMultiThreaded) {
 }
 
 TEST(Database, Empty) {
-  Database database(kMemoryDatabasePath);
+  Database database(Database::kInMemoryDatabasePath);
   EXPECT_EQ(database.NumCameras(), 0);
   EXPECT_EQ(database.NumImages(), 0);
   EXPECT_EQ(database.NumKeypoints(), 0);
@@ -117,7 +115,7 @@ TEST(Database, SwapImagePair) {
 }
 
 TEST(Database, Camera) {
-  Database database(kMemoryDatabasePath);
+  Database database(Database::kInMemoryDatabasePath);
   EXPECT_EQ(database.NumCameras(), 0);
   Camera camera;
   camera.InitializeWithName("SIMPLE_PINHOLE", 1.0, 1, 1);
@@ -151,7 +149,7 @@ TEST(Database, Camera) {
 }
 
 TEST(Database, Image) {
-  Database database(kMemoryDatabasePath);
+  Database database(Database::kInMemoryDatabasePath);
   Camera camera;
   camera.InitializeWithName("SIMPLE_PINHOLE", 1.0, 1, 1);
   camera.SetCameraId(database.WriteCamera(camera));
@@ -211,7 +209,7 @@ TEST(Database, Image) {
 }
 
 TEST(Database, Keypoints) {
-  Database database(kMemoryDatabasePath);
+  Database database(Database::kInMemoryDatabasePath);
   Camera camera;
   camera.SetCameraId(database.WriteCamera(camera));
   Image image;
@@ -250,7 +248,7 @@ TEST(Database, Keypoints) {
 }
 
 TEST(Database, Descriptors) {
-  Database database(kMemoryDatabasePath);
+  Database database(Database::kInMemoryDatabasePath);
   Camera camera;
   camera.SetCameraId(database.WriteCamera(camera));
   Image image;
@@ -287,7 +285,7 @@ TEST(Database, Descriptors) {
 }
 
 TEST(Database, Matches) {
-  Database database(kMemoryDatabasePath);
+  Database database(Database::kInMemoryDatabasePath);
   const image_t image_id1 = 1;
   const image_t image_id2 = 2;
   const FeatureMatches matches = FeatureMatches(1000);
@@ -312,7 +310,7 @@ TEST(Database, Matches) {
 }
 
 TEST(Database, TwoViewGeometry) {
-  Database database(kMemoryDatabasePath);
+  Database database(Database::kInMemoryDatabasePath);
   const image_t image_id1 = 1;
   const image_t image_id2 = 2;
   TwoViewGeometry two_view_geometry;
@@ -402,8 +400,8 @@ TEST(Database, TwoViewGeometry) {
 }
 
 TEST(Database, Merge) {
-  Database database1(kMemoryDatabasePath);
-  Database database2(kMemoryDatabasePath);
+  Database database1(Database::kInMemoryDatabasePath);
+  Database database2(Database::kInMemoryDatabasePath);
 
   Camera camera;
   camera.InitializeWithName("SIMPLE_PINHOLE", 1.0, 1, 1);
@@ -451,7 +449,7 @@ TEST(Database, Merge) {
   database1.WriteTwoViewGeometry(image_id1, image_id2, TwoViewGeometry());
   database2.WriteTwoViewGeometry(image_id3, image_id4, TwoViewGeometry());
 
-  Database merged_database(kMemoryDatabasePath);
+  Database merged_database(Database::kInMemoryDatabasePath);
   Database::Merge(database1, database2, &merged_database);
   EXPECT_EQ(merged_database.NumCameras(), 2);
   EXPECT_EQ(merged_database.NumImages(), 4);

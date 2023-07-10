@@ -36,7 +36,7 @@
 
 namespace colmap {
 
-int RunPointTriangulatorImpl(Reconstruction& reconstruction,
+int RunPointTriangulatorImpl(std::shared_ptr<Reconstruction> reconstruction,
                              const std::string& database_path,
                              const std::string& image_path,
                              const std::string& output_path,

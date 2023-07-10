@@ -174,8 +174,6 @@ void GenerateReconstruction(const size_t num_images,
     reconstruction->Image(image_id).SetPoints2D(points2D);
   }
 
-  reconstruction->SetUp(correspondence_graph);
-
   for (size_t i = 0; i < num_images; ++i) {
     const image_t image_id = static_cast<image_t>(i);
     TrackElement track_el;

@@ -61,6 +61,9 @@ class Database {
   // another type than `size_t`.
   const static size_t kMaxNumImages;
 
+  // Can be used to construct temporary in-memory database.
+  const static std::string kInMemoryDatabasePath;
+
   Database();
   explicit Database(const std::string& path);
   ~Database();

@@ -41,13 +41,13 @@ namespace colmap {
 class BundleAdjustmentController : public Thread {
  public:
   BundleAdjustmentController(const OptionManager& options,
-                             Reconstruction* reconstruction);
+                             std::shared_ptr<Reconstruction> reconstruction);
 
  private:
   void Run();
 
   const OptionManager options_;
-  Reconstruction* reconstruction_;
+  std::shared_ptr<Reconstruction> reconstruction_;
 };
 
 }  // namespace colmap

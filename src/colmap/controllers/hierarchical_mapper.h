@@ -36,6 +36,8 @@
 #include "colmap/controllers/incremental_mapper.h"
 #include "colmap/util/threading.h"
 
+#include <memory>
+
 namespace colmap {
 
 // Hierarchical mapping first hierarchically partitions the scene into multiple
@@ -65,7 +67,7 @@ class HierarchicalMapperController : public Thread {
       const Options& options,
       const SceneClustering::Options& clustering_options,
       const IncrementalMapperOptions& mapper_options,
-      ReconstructionManager* reconstruction_manager);
+      std::shared_ptr<ReconstructionManager> reconstruction_manager);
 
  private:
   void Run() override;
@@ -73,7 +75,7 @@ class HierarchicalMapperController : public Thread {
   const Options options_;
   const SceneClustering::Options clustering_options_;
   const IncrementalMapperOptions mapper_options_;
-  ReconstructionManager* reconstruction_manager_;
+  std::shared_ptr<ReconstructionManager> reconstruction_manager_;
 };
 
 }  // namespace colmap
