@@ -2113,11 +2113,11 @@ void Reconstruction::SetObservationAsTriangulated(
         (is_continued_point3D || image_id < corr->image_id)) {
       const image_pair_t pair_id =
           Database::ImagePairToPairId(image_id, corr->image_id);
-      image_pair_stats_[pair_id].num_tri_corrs += 1;
-      CHECK_LE(image_pair_stats_[pair_id].num_tri_corrs,
-               image_pair_stats_[pair_id].num_total_corrs)
-          << "The correspondence graph graph must not contain duplicate "
-             "matches";
+      auto& stats = image_pair_stats_[pair_id];
+      stats.num_tri_corrs += 1;
+      CHECK_LE(stats.num_tri_corrs, stats.num_total_corrs)
+          << "The correspondence graph must not contain duplicate matches: "
+          << corr->image_id << " " << corr->point2D_idx;
     }
   }
 }

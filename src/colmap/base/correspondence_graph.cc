@@ -195,6 +195,7 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
 CorrespondenceGraph::CorrespondenceRange
 CorrespondenceGraph::FindCorrespondences(const image_t image_id,
                                          const point2D_t point2D_idx) const {
+  CHECK(finalized_);
   const point2D_t next_point2D_idx = point2D_idx + 1;
   const Image& image = images_.at(image_id);
   const Correspondence* beg =
