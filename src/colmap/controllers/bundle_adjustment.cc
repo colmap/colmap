@@ -63,8 +63,9 @@ class BundleAdjustmentIterationCallback : public ceres::IterationCallback {
 }  // namespace
 
 BundleAdjustmentController::BundleAdjustmentController(
-    const OptionManager& options, Reconstruction* reconstruction)
-    : options_(options), reconstruction_(reconstruction) {}
+    const OptionManager& options,
+    std::shared_ptr<Reconstruction> reconstruction)
+    : options_(options), reconstruction_(std::move(reconstruction)) {}
 
 void BundleAdjustmentController::Run() {
   CHECK_NOTNULL(reconstruction_);
@@ -97,7 +98,7 @@ void BundleAdjustmentController::Run() {
 
   // Run bundle adjustment.
   BundleAdjuster bundle_adjuster(ba_options, ba_config);
-  bundle_adjuster.Solve(reconstruction_);
+  bundle_adjuster.Solve(reconstruction_.get());
 
   GetTimer().PrintMinutes();
 }

@@ -53,10 +53,10 @@ bool IncrementalTriangulator::Options::Check() const {
 }
 
 IncrementalTriangulator::IncrementalTriangulator(
-    const CorrespondenceGraph* correspondence_graph,
-    Reconstruction* reconstruction)
-    : correspondence_graph_(correspondence_graph),
-      reconstruction_(reconstruction) {}
+    std::shared_ptr<const CorrespondenceGraph> correspondence_graph,
+    std::shared_ptr<Reconstruction> reconstruction)
+    : correspondence_graph_(std::move(correspondence_graph)),
+      reconstruction_(std::move(reconstruction)) {}
 
 size_t IncrementalTriangulator::TriangulateImage(const Options& options,
                                                  const image_t image_id) {

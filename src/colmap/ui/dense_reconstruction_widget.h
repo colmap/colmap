@@ -53,7 +53,7 @@ class DenseReconstructionWidget : public QWidget {
  public:
   DenseReconstructionWidget(MainWindow* main_window, OptionManager* options);
 
-  void Show(Reconstruction* reconstruction);
+  void Show(std::shared_ptr<const Reconstruction> reconstruction);
 
  private:
   void showEvent(QShowEvent* event);
@@ -76,7 +76,7 @@ class DenseReconstructionWidget : public QWidget {
 
   MainWindow* main_window_;
   OptionManager* options_;
-  Reconstruction* reconstruction_;
+  std::shared_ptr<const Reconstruction> reconstruction_;
   ThreadControlWidget* thread_control_widget_;
   DenseReconstructionOptionsWidget* options_widget_;
   ImageViewerWidget* image_viewer_widget_;

@@ -90,20 +90,21 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
   }
 
   // Add image pairs.
-  for (const auto& image_pair :
-       database_cache.CorrespondenceGraph().NumCorrespondencesBetweenImages()) {
+  for (const auto& image_pair : database_cache.CorrespondenceGraph()
+                                    ->NumCorrespondencesBetweenImages()) {
     ImagePairStat image_pair_stat;
     image_pair_stat.num_total_corrs = image_pair.second;
     image_pair_stats_.emplace(image_pair.first, image_pair_stat);
   }
 }
 
-void Reconstruction::SetUp(const CorrespondenceGraph* correspondence_graph) {
-  CHECK_NOTNULL(correspondence_graph);
+void Reconstruction::SetUp(
+    std::shared_ptr<const CorrespondenceGraph> correspondence_graph) {
+  correspondence_graph_ = std::move(CHECK_NOTNULL(correspondence_graph));
+
   for (auto& image : images_) {
     image.second.SetUp(Camera(image.second.CameraId()));
   }
-  correspondence_graph_ = correspondence_graph;
 
   // If an existing model was loaded from disk and there were already images
   // registered previously, we need to set observations as triangulated.

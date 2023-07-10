@@ -54,6 +54,7 @@
 #include <QtCore>
 #include <QtGui>
 #include <QtWidgets>
+#include <memory>
 
 namespace colmap {
 
@@ -145,7 +146,7 @@ class MainWindow : public QMainWindow {
 
   OptionManager options_;
 
-  ReconstructionManager reconstruction_manager_;
+  std::shared_ptr<ReconstructionManager> reconstruction_manager_;
   std::unique_ptr<IncrementalMapperController> mapper_controller_;
 
   Timer timer_;

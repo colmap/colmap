@@ -48,9 +48,9 @@ TEST(ReconstructionManager, AddGet) {
     const size_t idx = reconstruction_manager.Add();
     EXPECT_EQ(reconstruction_manager.Size(), i + 1);
     EXPECT_EQ(idx, i);
-    EXPECT_EQ(reconstruction_manager.Get(idx).NumCameras(), 0);
-    EXPECT_EQ(reconstruction_manager.Get(idx).NumImages(), 0);
-    EXPECT_EQ(reconstruction_manager.Get(idx).NumPoints3D(), 0);
+    EXPECT_EQ(reconstruction_manager.Get(idx)->NumCameras(), 0);
+    EXPECT_EQ(reconstruction_manager.Get(idx)->NumImages(), 0);
+    EXPECT_EQ(reconstruction_manager.Get(idx)->NumPoints3D(), 0);
   }
 }
 

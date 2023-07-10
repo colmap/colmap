@@ -34,6 +34,8 @@
 #include "colmap/base/database_cache.h"
 #include "colmap/base/reconstruction.h"
 
+#include <memory>
+
 namespace colmap {
 
 // Class that triangulates points during the incremental reconstruction.
@@ -87,8 +89,9 @@ class IncrementalTriangulator {
 
   // Create new incremental triangulator. Note that both the correspondence
   // graph and the reconstruction objects must live as long as the triangulator.
-  IncrementalTriangulator(const CorrespondenceGraph* correspondence_graph,
-                          Reconstruction* reconstruction);
+  IncrementalTriangulator(
+      std::shared_ptr<const CorrespondenceGraph> correspondence_graph,
+      std::shared_ptr<Reconstruction> reconstruction);
 
   // Triangulate observations of image.
   //
@@ -184,10 +187,10 @@ class IncrementalTriangulator {
 
   // Database cache for the reconstruction. Used to retrieve correspondence
   // information for triangulation.
-  const CorrespondenceGraph* correspondence_graph_;
+  const std::shared_ptr<const CorrespondenceGraph> correspondence_graph_;
 
   // Reconstruction of the model. Modified when triangulating new points.
-  Reconstruction* reconstruction_;
+  std::shared_ptr<Reconstruction> reconstruction_;
 
   // Cache for cameras with bogus parameters.
   std::unordered_map<camera_t, bool> camera_has_bogus_params_;

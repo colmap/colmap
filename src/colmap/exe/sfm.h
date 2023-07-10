@@ -36,12 +36,13 @@
 
 namespace colmap {
 
-int RunPointTriangulatorImpl(Reconstruction& reconstruction,
-                             const std::string& database_path,
-                             const std::string& image_path,
-                             const std::string& output_path,
-                             const IncrementalMapperOptions& mapper_options,
-                             bool clear_points);
+int RunPointTriangulatorImpl(
+    const std::shared_ptr<Reconstruction>& reconstruction,
+    const std::string& database_path,
+    const std::string& image_path,
+    const std::string& output_path,
+    const IncrementalMapperOptions& mapper_options,
+    bool clear_points);
 
 int RunAutomaticReconstructor(int argc, char** argv);
 int RunBundleAdjuster(int argc, char** argv);

@@ -39,25 +39,13 @@
 
 namespace colmap {
 
-DatabaseCache::DatabaseCache() {}
+std::shared_ptr<DatabaseCache> DatabaseCache::Create(
+    const Database& database,
+    const size_t min_num_matches,
+    const bool ignore_watermarks,
+    const std::unordered_set<std::string>& image_names) {
+  auto cache = std::make_shared<DatabaseCache>();
 
-void DatabaseCache::AddCamera(class Camera camera) {
-  const camera_t camera_id = camera.CameraId();
-  CHECK(!ExistsCamera(camera_id));
-  cameras_.emplace(camera_id, std::move(camera));
-}
-
-void DatabaseCache::AddImage(class Image image) {
-  const image_t image_id = image.ImageId();
-  CHECK(!ExistsImage(image_id));
-  correspondence_graph_.AddImage(image_id, image.NumPoints2D());
-  images_.emplace(image_id, std::move(image));
-}
-
-void DatabaseCache::Load(const Database& database,
-                         const size_t min_num_matches,
-                         const bool ignore_watermarks,
-                         const std::unordered_set<std::string>& image_names) {
   //////////////////////////////////////////////////////////////////////////////
   // Load cameras
   //////////////////////////////////////////////////////////////////////////////
@@ -69,15 +57,16 @@ void DatabaseCache::Load(const Database& database,
 
   {
     std::vector<class Camera> cameras = database.ReadAllCameras();
-    cameras_.reserve(cameras.size());
+    cache->cameras_.reserve(cameras.size());
     for (auto& camera : cameras) {
       const camera_t camera_id = camera.CameraId();
-      cameras_.emplace(camera_id, std::move(camera));
+      cache->cameras_.emplace(camera_id, std::move(camera));
     }
   }
 
-  std::cout << StringPrintf(
-                   " %d in %.3fs", cameras_.size(), timer.ElapsedSeconds())
+  std::cout << StringPrintf(" %d in %.3fs",
+                            cache->cameras_.size(),
+                            timer.ElapsedSeconds())
             << std::endl;
 
   //////////////////////////////////////////////////////////////////////////////
@@ -147,16 +136,14 @@ void DatabaseCache::Load(const Database& database,
 
     // Load images with correspondences and discard images without
     // correspondences, as those images are useless for SfM.
-    images_.reserve(connected_image_ids.size());
+    cache->images_.reserve(connected_image_ids.size());
     for (auto& image : images) {
       const image_t image_id = image.ImageId();
       if (image_ids.count(image_id) > 0 &&
           connected_image_ids.count(image_id) > 0) {
-        images_.emplace(image_id, std::move(image));
-        const FeatureKeypoints keypoints = database.ReadKeypoints(image_id);
-        const std::vector<Eigen::Vector2d> points =
-            FeatureKeypointsToPointsVector(keypoints);
-        images_[image_id].SetPoints2D(points);
+        image.SetPoints2D(
+            FeatureKeypointsToPointsVector(database.ReadKeypoints(image_id)));
+        cache->images_.emplace(image_id, std::move(image));
       }
     }
 
@@ -174,8 +161,11 @@ void DatabaseCache::Load(const Database& database,
   timer.Restart();
   std::cout << "Building correspondence graph..." << std::flush;
 
-  for (const auto& image : images_) {
-    correspondence_graph_.AddImage(image.first, image.second.NumPoints2D());
+  cache->correspondence_graph_ = std::make_shared<class CorrespondenceGraph>();
+
+  for (const auto& image : cache->images_) {
+    cache->correspondence_graph_->AddImage(image.first,
+                                           image.second.NumPoints2D());
   }
 
   size_t num_ignored_image_pairs = 0;
@@ -185,7 +175,7 @@ void DatabaseCache::Load(const Database& database,
       image_t image_id2;
       Database::PairIdToImagePair(image_pair_ids[i], &image_id1, &image_id2);
       if (image_ids.count(image_id1) > 0 && image_ids.count(image_id2) > 0) {
-        correspondence_graph_.AddCorrespondences(
+        cache->correspondence_graph_->AddCorrespondences(
             image_id1, image_id2, two_view_geometries[i].inlier_matches);
       } else {
         num_ignored_image_pairs += 1;
@@ -195,20 +185,22 @@ void DatabaseCache::Load(const Database& database,
     }
   }
 
-  correspondence_graph_.Finalize();
+  cache->correspondence_graph_->Finalize();
 
   // Set number of observations and correspondences per image.
-  for (auto& image : images_) {
+  for (auto& image : cache->images_) {
     image.second.SetNumObservations(
-        correspondence_graph_.NumObservationsForImage(image.first));
+        cache->correspondence_graph_->NumObservationsForImage(image.first));
     image.second.SetNumCorrespondences(
-        correspondence_graph_.NumCorrespondencesForImage(image.first));
+        cache->correspondence_graph_->NumCorrespondencesForImage(image.first));
   }
 
   std::cout << StringPrintf(" in %.3fs (ignored %d)",
                             timer.ElapsedSeconds(),
                             num_ignored_image_pairs)
             << std::endl;
+
+  return cache;
 }
 
 const class Image* DatabaseCache::FindImageWithName(
