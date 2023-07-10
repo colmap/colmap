@@ -41,8 +41,7 @@
 namespace colmap {
 
 void GenerateReconstruction(const image_t num_images,
-                            Reconstruction* reconstruction,
-                            CorrespondenceGraph* correspondence_graph) {
+                            Reconstruction* reconstruction) {
   const size_t kNumPoints2D = 10;
 
   Camera camera;
@@ -53,13 +52,12 @@ void GenerateReconstruction(const image_t num_images,
   for (image_t image_id = 1; image_id <= num_images; ++image_id) {
     Image image;
     image.SetImageId(image_id);
-    image.SetCameraId(1);
+    image.SetCameraId(camera.CameraId());
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Zero()));
     reconstruction->AddImage(image);
     reconstruction->RegisterImage(image_id);
-    correspondence_graph->AddImage(image_id, kNumPoints2D);
   }
 }
 
@@ -125,27 +123,28 @@ TEST(Reconstruction, AddPoint3D) {
 
 TEST(Reconstruction, AddObservation) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(1, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(3, &reconstruction);
   Track track;
   track.AddElement(1, 0);
+  track.AddElement(2, 1);
   const point3D_t point3D_id =
       reconstruction.AddPoint3D(Eigen::Vector3d::Random(), track);
   EXPECT_EQ(reconstruction.Image(1).NumPoints3D(), 1);
   EXPECT_TRUE(reconstruction.Image(1).Point2D(0).HasPoint3D());
   EXPECT_FALSE(reconstruction.Image(1).Point2D(1).HasPoint3D());
-  EXPECT_EQ(reconstruction.Point3D(point3D_id).Track().Length(), 1);
-  reconstruction.AddObservation(point3D_id, TrackElement(1, 1));
-  EXPECT_EQ(reconstruction.Image(1).NumPoints3D(), 2);
-  EXPECT_TRUE(reconstruction.Image(1).Point2D(0).HasPoint3D());
-  EXPECT_TRUE(reconstruction.Image(1).Point2D(1).HasPoint3D());
+  EXPECT_EQ(reconstruction.Image(2).NumPoints3D(), 1);
+  EXPECT_FALSE(reconstruction.Image(2).Point2D(0).HasPoint3D());
+  EXPECT_TRUE(reconstruction.Image(2).Point2D(1).HasPoint3D());
   EXPECT_EQ(reconstruction.Point3D(point3D_id).Track().Length(), 2);
+  reconstruction.AddObservation(point3D_id, TrackElement(3, 2));
+  EXPECT_EQ(reconstruction.Image(3).NumPoints3D(), 1);
+  EXPECT_TRUE(reconstruction.Image(3).Point2D(2).HasPoint3D());
+  EXPECT_EQ(reconstruction.Point3D(point3D_id).Track().Length(), 3);
 }
 
 TEST(Reconstruction, MergePoints3D) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(2, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(2, &reconstruction);
   const point3D_t point3D_id1 =
       reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 0), Track());
   reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
@@ -176,8 +175,7 @@ TEST(Reconstruction, MergePoints3D) {
 
 TEST(Reconstruction, DeletePoint3D) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(1, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(1, &reconstruction);
   const point3D_t point3D_id =
       reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
   reconstruction.AddObservation(point3D_id, TrackElement(1, 0));
@@ -188,8 +186,7 @@ TEST(Reconstruction, DeletePoint3D) {
 
 TEST(Reconstruction, DeleteObservation) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(2, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(2, &reconstruction);
   const point3D_t point3D_id =
       reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 0), Track());
   reconstruction.AddObservation(point3D_id, TrackElement(1, 0));
@@ -206,8 +203,7 @@ TEST(Reconstruction, DeleteObservation) {
 
 TEST(Reconstruction, RegisterImage) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(1, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(1, &reconstruction);
   EXPECT_EQ(reconstruction.NumRegImages(), 1);
   EXPECT_TRUE(reconstruction.Image(1).IsRegistered());
   EXPECT_TRUE(reconstruction.IsImageRegistered(1));
@@ -223,8 +219,7 @@ TEST(Reconstruction, RegisterImage) {
 
 TEST(Reconstruction, Normalize) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(3, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(3, &reconstruction);
   reconstruction.Image(1).Tvec(2) = -10.0;
   reconstruction.Image(2).Tvec(2) = 0.0;
   reconstruction.Image(3).Tvec(2) = 10.0;
@@ -314,8 +309,7 @@ TEST(Reconstruction, ComputeBoundsAndCentroid) {
 
 TEST(Reconstruction, Crop) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(3, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(3, &reconstruction);
   point3D_t point_id =
       reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 0.0, 0.0), Track());
   reconstruction.AddObservation(point_id, TrackElement(1, 1));
@@ -360,8 +354,7 @@ TEST(Reconstruction, Crop) {
 
 TEST(Reconstruction, Transform) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(3, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(3, &reconstruction);
   const point3D_t point3D_id =
       reconstruction.AddPoint3D(Eigen::Vector3d(1, 1, 1), Track());
   reconstruction.AddObservation(point3D_id, TrackElement(1, 1));
@@ -375,8 +368,7 @@ TEST(Reconstruction, Transform) {
 
 TEST(Reconstruction, FindImageWithName) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(2, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(2, &reconstruction);
   EXPECT_EQ(reconstruction.FindImageWithName("image1"),
             &reconstruction.Image(1));
   EXPECT_EQ(reconstruction.FindImageWithName("image2"),
@@ -386,8 +378,7 @@ TEST(Reconstruction, FindImageWithName) {
 
 TEST(Reconstruction, FilterPoints3D) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(2, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(2, &reconstruction);
   const point3D_t point3D_id1 =
       reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
@@ -429,8 +420,7 @@ TEST(Reconstruction, FilterPoints3D) {
 
 TEST(Reconstruction, FilterPoints3DInImages) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(2, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(2, &reconstruction);
   const point3D_t point3D_id1 =
       reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
@@ -471,8 +461,7 @@ TEST(Reconstruction, FilterPoints3DInImages) {
 
 TEST(Reconstruction, FilterAllPoints) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(2, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(2, &reconstruction);
   reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
   reconstruction.FilterAllPoints3D(0.0, 0.0);
@@ -502,8 +491,7 @@ TEST(Reconstruction, FilterAllPoints) {
 
 TEST(Reconstruction, FilterObservationsWithNegativeDepth) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(2, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(2, &reconstruction);
   const point3D_t point3D_id1 =
       reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 1), Track());
   EXPECT_EQ(reconstruction.NumPoints3D(), 1);
@@ -526,8 +514,7 @@ TEST(Reconstruction, FilterObservationsWithNegativeDepth) {
 
 TEST(Reconstruction, FilterImages) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(4, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(4, &reconstruction);
   const point3D_t point3D_id1 =
       reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
   reconstruction.AddObservation(point3D_id1, TrackElement(1, 0));
@@ -544,8 +531,7 @@ TEST(Reconstruction, FilterImages) {
 
 TEST(Reconstruction, ComputeNumObservations) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(2, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(2, &reconstruction);
   const point3D_t point3D_id1 =
       reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
   EXPECT_EQ(reconstruction.ComputeNumObservations(), 0);
@@ -559,8 +545,7 @@ TEST(Reconstruction, ComputeNumObservations) {
 
 TEST(Reconstruction, ComputeMeanTrackLength) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(2, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(2, &reconstruction);
   EXPECT_EQ(reconstruction.ComputeMeanTrackLength(), 0);
   const point3D_t point3D_id1 =
       reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
@@ -575,8 +560,7 @@ TEST(Reconstruction, ComputeMeanTrackLength) {
 
 TEST(Reconstruction, ComputeMeanObservationsPerRegImage) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(2, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(2, &reconstruction);
   EXPECT_EQ(reconstruction.ComputeMeanObservationsPerRegImage(), 0);
   const point3D_t point3D_id1 =
       reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());
@@ -591,8 +575,7 @@ TEST(Reconstruction, ComputeMeanObservationsPerRegImage) {
 
 TEST(Reconstruction, ComputeMeanReprojectionError) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(2, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(2, &reconstruction);
   EXPECT_EQ(reconstruction.ComputeMeanReprojectionError(), 0);
   const point3D_t point3D_id1 =
       reconstruction.AddPoint3D(Eigen::Vector3d::Random(), Track());

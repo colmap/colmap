@@ -123,8 +123,7 @@ void GeneratePointCloud(const size_t num_points,
 
 void GenerateReconstruction(const size_t num_images,
                             const size_t num_points,
-                            Reconstruction* reconstruction,
-                            CorrespondenceGraph* correspondence_graph) {
+                            Reconstruction* reconstruction) {
   SetPRNGSeed(0);
 
   GeneratePointCloud(num_points,
@@ -170,7 +169,6 @@ void GenerateReconstruction(const size_t num_images,
       points2D.push_back(point2D);
     }
 
-    correspondence_graph->AddImage(image_id, num_points);
     reconstruction->Image(image_id).SetPoints2D(points2D);
   }
 
@@ -188,8 +186,7 @@ void GenerateReconstruction(const size_t num_images,
 
 TEST(BundleAdjustment, ConfigNumObservations) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(4, 100, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(4, 100, &reconstruction);
 
   BundleAdjustmentConfig config;
 
@@ -212,8 +209,7 @@ TEST(BundleAdjustment, ConfigNumObservations) {
 
 TEST(BundleAdjustment, TwoView) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(2, 100, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(2, 100, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -249,8 +245,7 @@ TEST(BundleAdjustment, TwoView) {
 
 TEST(BundleAdjustment, TwoViewConstantCamera) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(2, 100, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(2, 100, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -286,8 +281,7 @@ TEST(BundleAdjustment, TwoViewConstantCamera) {
 
 TEST(BundleAdjustment, PartiallyContainedTracks) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(3, 100, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(3, 100, &reconstruction);
   const auto variable_point3D_id =
       reconstruction.Image(2).Point2D(0).Point3DId();
   reconstruction.DeleteObservation(2, 0);
@@ -334,8 +328,7 @@ TEST(BundleAdjustment, PartiallyContainedTracks) {
 
 TEST(BundleAdjustment, PartiallyContainedTracksForceToOptimizePoint) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(3, 100, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(3, 100, &reconstruction);
   const point3D_t variable_point3D_id =
       reconstruction.Image(2).Point2D(0).Point3DId();
   const point3D_t add_variable_point3D_id =
@@ -392,8 +385,7 @@ TEST(BundleAdjustment, PartiallyContainedTracksForceToOptimizePoint) {
 
 TEST(BundleAdjustment, ConstantPoints) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(2, 100, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(2, 100, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   const point3D_t constant_point3D_id1 = 1;
@@ -439,8 +431,7 @@ TEST(BundleAdjustment, ConstantPoints) {
 
 TEST(BundleAdjustment, VariableImage) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(3, 100, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(3, 100, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -481,8 +472,7 @@ TEST(BundleAdjustment, VariableImage) {
 
 TEST(BundleAdjustment, ConstantFocalLength) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(2, 100, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(2, 100, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -533,8 +523,7 @@ TEST(BundleAdjustment, ConstantFocalLength) {
 
 TEST(BundleAdjustment, VariablePrincipalPoint) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(2, 100, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(2, 100, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -597,8 +586,7 @@ TEST(BundleAdjustment, VariablePrincipalPoint) {
 
 TEST(BundleAdjustment, ConstantExtraParam) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(2, 100, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(2, 100, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -649,8 +637,7 @@ TEST(BundleAdjustment, ConstantExtraParam) {
 
 TEST(BundleAdjustment, RigTwoView) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(2, 100, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(2, 100, &reconstruction);
   const auto orig_reconstruction = reconstruction;
 
   BundleAdjustmentConfig config;
@@ -699,8 +686,7 @@ TEST(BundleAdjustment, RigTwoView) {
 
 TEST(BundleAdjustment, RigFourView) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(4, 100, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(4, 100, &reconstruction);
   reconstruction.Image(2).SetCameraId(0);
   reconstruction.Image(3).SetCameraId(1);
   const auto orig_reconstruction = reconstruction;
@@ -754,8 +740,7 @@ TEST(BundleAdjustment, RigFourView) {
 
 TEST(BundleAdjustment, ConstantRigFourView) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(4, 100, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(4, 100, &reconstruction);
   reconstruction.Image(2).SetCameraId(0);
   reconstruction.Image(3).SetCameraId(1);
   const auto orig_reconstruction = reconstruction;
@@ -809,8 +794,7 @@ TEST(BundleAdjustment, ConstantRigFourView) {
 
 TEST(BundleAdjustment, RigFourViewPartial) {
   Reconstruction reconstruction;
-  CorrespondenceGraph correspondence_graph;
-  GenerateReconstruction(4, 100, &reconstruction, &correspondence_graph);
+  GenerateReconstruction(4, 100, &reconstruction);
   reconstruction.Image(2).SetCameraId(0);
   reconstruction.Image(3).SetCameraId(1);
   const auto orig_reconstruction = reconstruction;
