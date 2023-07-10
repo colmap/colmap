@@ -76,6 +76,7 @@ if(COLMAP_FIND_QUIETLY)
                  program_options
                  filesystem
                  system
+                 graph
                  unit_test_framework
                  QUIET)
 
@@ -101,6 +102,7 @@ else()
                  program_options
                  filesystem
                  system
+                 graph
                  unit_test_framework
                  REQUIRED)
 
@@ -184,6 +186,7 @@ if(UNIX)
         ${Boost_FILESYSTEM_LIBRARY}
         ${Boost_PROGRAM_OPTIONS_LIBRARY}
         ${Boost_SYSTEM_LIBRARY}
+        ${Boost_GRAPH_LIBRARY}
         pthread)
 endif()
 
