@@ -107,7 +107,7 @@ IncrementalMapper::IncrementalMapper(
       prev_init_image_pair_id_(kInvalidImagePairId) {}
 
 void IncrementalMapper::BeginReconstruction(
-    std::shared_ptr<Reconstruction> reconstruction) {
+    const std::shared_ptr<Reconstruction>& reconstruction) {
   CHECK(reconstruction_ == nullptr);
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);

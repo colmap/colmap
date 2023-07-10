@@ -147,7 +147,8 @@ class IncrementalMapper {
   // Prepare the mapper for a new reconstruction, which might have existing
   // registered images (in which case `RegisterNextImage` must be called) or
   // which is empty (in which case `RegisterInitialImagePair` must be called).
-  void BeginReconstruction(std::shared_ptr<Reconstruction> reconstruction);
+  void BeginReconstruction(
+      const std::shared_ptr<Reconstruction>& reconstruction);
 
   // Cleanup the mapper after the current reconstruction is done. If the
   // model is discarded, the number of total and shared registered images will

@@ -190,7 +190,7 @@ void HierarchicalMapperController::Run() {
         IncrementalMapperController mapper(std::move(custom_mapper_options),
                                            options_.image_path,
                                            options_.database_path,
-                                           reconstruction_manager);
+                                           std::move(reconstruction_manager));
         mapper.Start();
         mapper.Wait();
       };
