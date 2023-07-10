@@ -27,7 +27,7 @@ try {
     Expand-Archive -Path "$zipFilePath" -DestinationPath "$env:TEMP"
 
     Write-Host "Move CCache"
-    Move-Item "$env:TEMP/$folder/ccache.exe" "$Destination"
+    Move-Item -Force "$env:TEMP/$folder/ccache.exe" "$Destination"
     Remove-Item "$zipFilePath"
     Remove-Item -Recurse "$env:TEMP/$folder"
 }
