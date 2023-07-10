@@ -53,6 +53,7 @@ CorrespondenceGraph::NumCorrespondencesBetweenImages() const {
 void CorrespondenceGraph::Finalize() {
   CHECK(!finalized_);
   finalized_ = true;
+
   // Flatten all correspondences, remove images without observations.
   for (auto it = images_.begin(); it != images_.end();) {
     // Count number of correspondences and observations.
@@ -212,8 +213,8 @@ void CorrespondenceGraph::ExtractCorrespondences(
   const auto range = FindCorrespondences(image_id, point2D_idx);
   corrs->clear();
   corrs->reserve(range.end - range.beg);
-  for (auto* corr_ptr = range.beg; corr_ptr < range.end; ++corr_ptr) {
-    corrs->push_back(*corr_ptr);
+  for (const Correspondence* corr = range.beg; corr < range.end; ++corr) {
+    corrs->push_back(*corr);
   }
 }
 
@@ -248,14 +249,13 @@ void CorrespondenceGraph::ExtractTransitiveCorrespondences(
       const Correspondence ref_corr = (*corrs)[i];
       const CorrespondenceRange ref_corr_range =
           FindCorrespondences(ref_corr.image_id, ref_corr.point2D_idx);
-
-      for (const Correspondence* corr_ptr = ref_corr_range.beg;
-           corr_ptr < ref_corr_range.end;
-           ++corr_ptr) {
+      for (const Correspondence* corr = ref_corr_range.beg;
+           corr < ref_corr_range.end;
+           ++corr) {
         // Check if correspondence already collected, otherwise collect.
-        auto& corr_image_corrs = image_corrs[corr_ptr->image_id];
-        if (corr_image_corrs.insert(corr_ptr->point2D_idx).second) {
-          corrs->emplace_back(corr_ptr->image_id, corr_ptr->point2D_idx);
+        auto& corr_image_corrs = image_corrs[corr->image_id];
+        if (corr_image_corrs.insert(corr->point2D_idx).second) {
+          corrs->emplace_back(corr->image_id, corr->point2D_idx);
         }
       }
     }
@@ -295,10 +295,9 @@ FeatureMatches CorrespondenceGraph::FindCorrespondencesBetweenImages(
        ++point2D_idx1) {
     const CorrespondenceRange range =
         FindCorrespondences(image_id1, point2D_idx1);
-    for (const Correspondence* corr_ptr = range.beg; corr_ptr < range.end;
-         ++corr_ptr) {
-      if (corr_ptr->image_id == image_id2) {
-        corrs.emplace_back(point2D_idx1, corr_ptr->point2D_idx);
+    for (const Correspondence* corr = range.beg; corr < range.end; ++corr) {
+      if (corr->image_id == image_id2) {
+        corrs.emplace_back(point2D_idx1, corr->point2D_idx);
       }
     }
   }
