@@ -429,23 +429,15 @@ size_t IncrementalTriangulator::Find(const Options& options,
                                      const point2D_t point2D_idx,
                                      const size_t transitivity,
                                      std::vector<CorrData>* corrs_data) {
-  const std::vector<CorrespondenceGraph::Correspondence>* found_corrs_ptr =
-      nullptr;
-  if (transitivity == 1) {
-    found_corrs_ptr =
-        &correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
-  } else {
-    correspondence_graph_->FindTransitiveCorrespondences(
-        image_id, point2D_idx, transitivity, &found_corrs_);
-    found_corrs_ptr = &found_corrs_;
-  }
+  correspondence_graph_->ExtractTransitiveCorrespondences(
+      image_id, point2D_idx, transitivity, &found_corrs_);
 
   corrs_data->clear();
-  corrs_data->reserve(found_corrs_ptr->size());
+  corrs_data->reserve(found_corrs_.size());
 
   size_t num_triangulated = 0;
 
-  for (const auto& corr : *found_corrs_ptr) {
+  for (const auto& corr : found_corrs_) {
     const Image& corr_image = reconstruction_->Image(corr.image_id);
     if (!corr_image.IsRegistered()) {
       continue;
@@ -618,17 +610,15 @@ size_t IncrementalTriangulator::Merge(const Options& options,
   const auto& point3D = reconstruction_->Point3D(point3D_id);
 
   for (const auto& track_el : point3D.Track().Elements()) {
-    const std::vector<CorrespondenceGraph::Correspondence>& corrs =
-        correspondence_graph_->FindCorrespondences(track_el.image_id,
-                                                   track_el.point2D_idx);
-
-    for (const auto corr : corrs) {
-      const auto& image = reconstruction_->Image(corr.image_id);
+    const auto corr_range = correspondence_graph_->FindCorrespondences(
+        track_el.image_id, track_el.point2D_idx);
+    for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+      const auto& image = reconstruction_->Image(corr->image_id);
       if (!image.IsRegistered()) {
         continue;
       }
 
-      const Point2D& corr_point2D = image.Point2D(corr.point2D_idx);
+      const Point2D& corr_point2D = image.Point2D(corr->point2D_idx);
       if (!corr_point2D.HasPoint3D() ||
           corr_point2D.Point3DId() == point3D_id ||
           merge_trials_[point3D_id].count(corr_point2D.Point3DId()) > 0) {
@@ -686,7 +676,8 @@ size_t IncrementalTriangulator::Merge(const Options& options,
         modified_point3D_ids_.erase(corr_point2D.Point3DId());
         modified_point3D_ids_.insert(merged_point3D_id);
 
-        // Merge merged 3D point and return, as the original points are deleted.
+        // Merge merged 3D point and return, as the original points are
+        // deleted.
         const size_t num_merged_recursive = Merge(options, merged_point3D_id);
         if (num_merged_recursive > 0) {
           return num_merged_recursive;
@@ -721,21 +712,19 @@ size_t IncrementalTriangulator::Complete(const Options& options,
       break;
     }
 
-    const auto prev_queue = queue;
+    const std::vector<TrackElement> prev_queue = queue;
     queue.clear();
 
-    for (const TrackElement queue_elem : prev_queue) {
-      const std::vector<CorrespondenceGraph::Correspondence>& corrs =
-          correspondence_graph_->FindCorrespondences(queue_elem.image_id,
-                                                     queue_elem.point2D_idx);
-
-      for (const auto corr : corrs) {
-        const Image& image = reconstruction_->Image(corr.image_id);
+    for (const TrackElement& queue_elem : prev_queue) {
+      const auto corr_range = correspondence_graph_->FindCorrespondences(
+          queue_elem.image_id, queue_elem.point2D_idx);
+      for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+        const Image& image = reconstruction_->Image(corr->image_id);
         if (!image.IsRegistered()) {
           continue;
         }
 
-        const Point2D& point2D = image.Point2D(corr.point2D_idx);
+        const Point2D& point2D = image.Point2D(corr->point2D_idx);
         if (point2D.HasPoint3D()) {
           continue;
         }
@@ -755,13 +744,13 @@ size_t IncrementalTriangulator::Complete(const Options& options,
         }
 
         // Success, add observation to point track.
-        const TrackElement track_el(corr.image_id, corr.point2D_idx);
+        const TrackElement track_el(corr->image_id, corr->point2D_idx);
         reconstruction_->AddObservation(point3D_id, track_el);
         modified_point3D_ids_.insert(point3D_id);
 
         // Recursively complete track for this new correspondence.
         if (transitivity < max_transitivity - 1) {
-          queue.emplace_back(corr.image_id, corr.point2D_idx);
+          queue.emplace_back(corr->image_id, corr->point2D_idx);
         }
 
         num_completed += 1;
