@@ -580,9 +580,8 @@ void DenseReconstructionWidget::WriteFusedPoints() {
   if (reply == QMessageBox::Yes) {
     const size_t reconstruction_idx =
         main_window_->reconstruction_manager_->Add();
-    std::shared_ptr<Reconstruction>& reconstruction =
+    std::shared_ptr<Reconstruction> reconstruction =
         main_window_->reconstruction_manager_->Get(reconstruction_idx);
-
     for (const PlyPoint& point : fused_points_) {
       reconstruction->AddPoint3D(Eigen::Vector3d(point.x, point.y, point.z),
                                  Track(),

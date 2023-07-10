@@ -914,21 +914,21 @@ void MainWindow::ExportAs() {
 
   thread_control_widget_->StartFunction(
       "Exporting...", [this, export_path, filter]() {
-        const Reconstruction& reconstruction =
-            *reconstruction_manager_->Get(SelectedReconstructionIdx());
+        const std::shared_ptr<Reconstruction> reconstruction =
+            reconstruction_manager_->Get(SelectedReconstructionIdx());
         if (filter == "NVM (*.nvm)") {
-          reconstruction.ExportNVM(export_path);
+          reconstruction->ExportNVM(export_path);
         } else if (filter == "Bundler (*.out)") {
-          reconstruction.ExportBundler(export_path, export_path + ".list.txt");
+          reconstruction->ExportBundler(export_path, export_path + ".list.txt");
         } else if (filter == "PLY (*.ply)") {
-          reconstruction.ExportPLY(export_path);
+          reconstruction->ExportPLY(export_path);
         } else if (filter == "VRML (*.wrl)") {
           const auto base_path =
               export_path.substr(0, export_path.find_last_of('.'));
-          reconstruction.ExportVRML(base_path + ".images.wrl",
-                                    base_path + ".points3D.wrl",
-                                    1,
-                                    Eigen::Vector3d(1, 0, 0));
+          reconstruction->ExportVRML(base_path + ".images.wrl",
+                                     base_path + ".points3D.wrl",
+                                     1,
+                                     Eigen::Vector3d(1, 0, 0));
         }
       });
 }
