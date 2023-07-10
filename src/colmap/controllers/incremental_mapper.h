@@ -160,7 +160,7 @@ class IncrementalMapperController : public Thread {
   };
 
   IncrementalMapperController(
-      const IncrementalMapperOptions* options,
+      std::shared_ptr<const IncrementalMapperOptions> options,
       const std::string& image_path,
       const std::string& database_path,
       std::shared_ptr<ReconstructionManager> reconstruction_manager);
@@ -170,7 +170,7 @@ class IncrementalMapperController : public Thread {
   bool LoadDatabase();
   void Reconstruct(const IncrementalMapper::Options& init_mapper_options);
 
-  const IncrementalMapperOptions* options_;
+  const std::shared_ptr<const IncrementalMapperOptions> options_;
   const std::string image_path_;
   const std::string database_path_;
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;

@@ -102,16 +102,16 @@ bool HierarchicalMapperController::Options::Check() const {
 HierarchicalMapperController::HierarchicalMapperController(
     const Options& options,
     const SceneClustering::Options& clustering_options,
-    const IncrementalMapperOptions& mapper_options,
+    std::shared_ptr<const IncrementalMapperOptions> mapper_options,
     std::shared_ptr<ReconstructionManager> reconstruction_manager)
     : options_(options),
       clustering_options_(clustering_options),
-      mapper_options_(mapper_options),
+      mapper_options_(std::move(mapper_options)),
       reconstruction_manager_(std::move(reconstruction_manager)) {
   CHECK(options_.Check());
   CHECK(clustering_options_.Check());
-  CHECK(mapper_options_.Check());
   CHECK_EQ(clustering_options_.branching, 2);
+  CHECK(mapper_options_->Check());
 }
 
 void HierarchicalMapperController::Run() {
@@ -174,18 +174,20 @@ void HierarchicalMapperController::Run() {
           return;
         }
 
-        IncrementalMapperOptions custom_options = mapper_options_;
-        custom_options.max_model_overlap = 3;
-        custom_options.init_num_trials = options_.init_num_trials;
-        if (custom_options.num_threads < 0) {
-          custom_options.num_threads = num_threads_per_worker;
+        auto custom_mapper_options =
+            std::make_shared<IncrementalMapperOptions>(*mapper_options_);
+        custom_mapper_options->max_model_overlap = 3;
+        custom_mapper_options->init_num_trials = options_.init_num_trials;
+        if (custom_mapper_options->num_threads < 0) {
+          custom_mapper_options->num_threads = num_threads_per_worker;
         }
 
         for (const auto image_id : cluster.image_ids) {
-          custom_options.image_names.insert(image_id_to_name.at(image_id));
+          custom_mapper_options->image_names.insert(
+              image_id_to_name.at(image_id));
         }
 
-        IncrementalMapperController mapper(&custom_options,
+        IncrementalMapperController mapper(std::move(custom_mapper_options),
                                            options_.image_path,
                                            options_.database_path,
                                            reconstruction_manager);

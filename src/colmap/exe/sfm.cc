@@ -218,7 +218,7 @@ int RunMapper(int argc, char** argv) {
     reconstruction_manager->Read(input_path);
   }
 
-  IncrementalMapperController mapper(options.mapper.get(),
+  IncrementalMapperController mapper(options.mapper,
                                      *options.image_path,
                                      *options.database_path,
                                      reconstruction_manager);
@@ -287,7 +287,7 @@ int RunHierarchicalMapper(int argc, char** argv) {
 
   HierarchicalMapperController hierarchical_mapper(hierarchical_options,
                                                    clustering_options,
-                                                   *options.mapper,
+                                                   options.mapper,
                                                    reconstruction_manager);
   hierarchical_mapper.Start();
   hierarchical_mapper.Wait();

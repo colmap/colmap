@@ -287,11 +287,11 @@ bool IncrementalMapperOptions::Check() const {
 }
 
 IncrementalMapperController::IncrementalMapperController(
-    const IncrementalMapperOptions* options,
+    std::shared_ptr<const IncrementalMapperOptions> options,
     const std::string& image_path,
     const std::string& database_path,
     std::shared_ptr<ReconstructionManager> reconstruction_manager)
-    : options_(options),
+    : options_(std::move(options)),
       image_path_(image_path),
       database_path_(database_path),
       reconstruction_manager_(std::move(reconstruction_manager)) {
