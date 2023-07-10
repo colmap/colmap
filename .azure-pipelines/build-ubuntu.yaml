@@ -91,6 +91,7 @@ jobs:
       key: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}" | "$(Build.BuildNumber)"
       restoreKeys: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
       path: $(CCACHE_DIR)
+      cacheHitVar: CCACHE_RESTORED
     displayName: Restore CCache
 
   - script: |
