@@ -57,7 +57,7 @@ std::shared_ptr<const Reconstruction> ReconstructionManager::Get(
   return reconstructions_.at(idx);
 }
 
-std::shared_ptr<Reconstruction>& ReconstructionManager::Get(const size_t idx) {
+std::shared_ptr<Reconstruction> ReconstructionManager::Get(const size_t idx) {
   return reconstructions_.at(idx);
 }
 
