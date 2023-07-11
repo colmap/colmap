@@ -331,7 +331,7 @@ if(Qt5_FOUND)
         # Workaround for Qt5 CMake config bug under Ubuntu 20.04: https://gitlab.kitware.com/cmake/cmake/-/issues/16915
         if(TARGET Qt5::Core)
             get_property(core_options TARGET Qt5::Core PROPERTY INTERFACE_COMPILE_OPTIONS)
-            string(REPLACE "-fPIC" "" new_qt5_core_options ${core_options})
+            string(REPLACE "-fPIC" "" new_qt5_core_options "${core_options}")
             set_property(TARGET Qt5::Core PROPERTY INTERFACE_COMPILE_OPTIONS ${new_qt5_core_options})
             set_property(TARGET Qt5::Core PROPERTY INTERFACE_POSITION_INDEPENDENT_CODE "ON")
             if(NOT IS_MSVC)
