@@ -47,7 +47,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   CHECK_GT(options.num_images, 0);
   CHECK_LE(options.num_cameras, options.num_images);
   CHECK_GE(options.num_points3D, 0);
+  CHECK_GE(options.num_points2D_without_point3D, 0);
   CHECK_GE(options.point2D_stddev, 0);
+  CHECK_GE(options.num_outlier_matches_per_pair, 0);
 
   SetPRNGSeed();
 
@@ -87,23 +89,34 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     const Camera& camera = reconstruction->Camera(image.CameraId());
     const Eigen::Matrix3x4d proj_matrix = image.ProjectionMatrix();
 
-    // Project all 3D points to the image.
     std::vector<Point2D> points2D;
-    points2D.reserve(options.num_points3D);
-    for (const auto& point3D : reconstruction->Points3D()) {
+    points2D.reserve(options.num_points3D +
+                     options.num_points2D_without_point3D);
+
+    // Create 3D point observations by project all 3D points to the image.
+    for (auto& point3D : reconstruction->Points3D()) {
       Point2D point2D;
       point2D.SetXY(
           ProjectPointToImage(point3D.second.XYZ(), proj_matrix, camera));
       if (options.point2D_stddev > 0) {
-        point2D.XY() +=
-            Eigen::Vector2d(RandomGaussian<double>(0, options.point2D_stddev),
-                            RandomGaussian<double>(0, options.point2D_stddev));
+        const Eigen::Vector2d noise(
+            RandomGaussian<double>(0, options.point2D_stddev),
+            RandomGaussian<double>(0, options.point2D_stddev));
+        point2D.XY() += noise;
       }
       if (point2D.X() >= 0 && point2D.Y() >= 0 &&
           point2D.X() <= camera.Width() && point2D.Y() <= camera.Height()) {
         point2D.SetPoint3DId(point3D.first);
         points2D.push_back(point2D);
       }
+    }
+
+    // Create uniform random points without 3D points.
+    for (int i = 0; i < options.num_points2D_without_point3D; ++i) {
+      Point2D point2D;
+      point2D.SetXY(Eigen::Vector2d(RandomReal<double>(0, camera.Width()),
+                                    RandomReal<double>(0, camera.Height())));
+      points2D.push_back(point2D);
     }
 
     // Shuffle 2D points, so each image has another order of observed 3D points.
@@ -117,6 +130,15 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
     const image_t image_id = database->WriteImage(image);
     database->WriteKeypoints(image_id, keypoints);
+
+    for (point2D_t point2D_idx = 0; point2D_idx < points2D.size();
+         ++point2D_idx) {
+      const auto& point2D = points2D[point2D_idx];
+      if (point2D.HasPoint3D()) {
+        auto& point3D = reconstruction->Point3D(point2D.Point3DId());
+        point3D.Track().AddElement(image_id, point2D_idx);
+      }
+    }
 
     image.SetImageId(image_id);
     image.SetPoints2D(points2D);
@@ -140,6 +162,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;
            ++point2D_idx1) {
         const auto& point2D1 = image1.Point2D(point2D_idx1);
+        if (!point2D1.HasPoint3D()) {
+          continue;
+        }
         for (point2D_t point2D_idx2 = 0; point2D_idx2 < num_points2D2;
              ++point2D_idx2) {
           const auto& point2D2 = image2.Point2D(point2D_idx2);
@@ -149,6 +174,13 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
             break;
           }
         }
+      }
+
+      for (int i = 0; i < options.num_outlier_matches_per_pair; ++i) {
+        FeatureMatch outlier_match;
+        outlier_match.point2D_idx1 = RandomInteger<int>(0, num_points2D1 - 1);
+        outlier_match.point2D_idx2 = RandomInteger<int>(0, num_points2D2 - 1);
+        two_view_geometry.inlier_matches.push_back(outlier_match);
       }
 
       database->WriteTwoViewGeometry(

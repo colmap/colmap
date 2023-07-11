@@ -32,39 +32,82 @@
 #include "colmap/base/synthetic.h"
 
 #include "colmap/controllers/incremental_mapper.h"
+#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 
 TEST(SynthesizeDataset, Nominal) {
-  Database database("database.db");
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  Database database(database_path);
   Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   SynthesizeDataset(options, &reconstruction, &database);
 
+  EXPECT_EQ(database.NumCameras(), options.num_cameras);
+  EXPECT_EQ(reconstruction.NumCameras(), options.num_cameras);
   for (const auto& camera : reconstruction.Cameras()) {
     EXPECT_EQ(camera.second.ParamsToString(),
               database.ReadCamera(camera.first).ParamsToString());
   }
 
+  EXPECT_EQ(database.NumImages(), options.num_images);
+  EXPECT_EQ(reconstruction.NumImages(), options.num_images);
+  EXPECT_EQ(reconstruction.NumRegImages(), options.num_images);
   for (const auto& image : reconstruction.Images()) {
     EXPECT_EQ(image.second.Name(), database.ReadImage(image.first).Name());
     EXPECT_EQ(image.second.NumPoints2D(),
               database.ReadKeypoints(image.first).size());
+    EXPECT_EQ(image.second.NumPoints2D(),
+              options.num_points3D + options.num_points2D_without_point3D);
+    EXPECT_EQ(image.second.NumPoints3D(), options.num_points3D);
   }
 
-  EXPECT_GT(database.NumInlierMatches(), 0);
+  const int num_image_pairs = options.num_images * (options.num_images - 1) / 2;
+  EXPECT_EQ(database.NumVerifiedImagePairs(), num_image_pairs);
+  EXPECT_EQ(database.NumInlierMatches(),
+            num_image_pairs * options.num_points3D);
 
-  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  IncrementalMapperController mapper(
-      std::make_shared<IncrementalMapperOptions>(),
-      /*image_path=*/"",
-      "database.db",
-      reconstruction_manager);
+  reconstruction.UpdatePoint3DErrors();
+  EXPECT_NEAR(reconstruction.ComputeMeanReprojectionError(), 0, 1e-6);
+  EXPECT_NEAR(reconstruction.ComputeCentroid(0, 1).norm(), 0, 0.2);
+  EXPECT_NEAR(reconstruction.ComputeMeanTrackLength(), options.num_images, 0.1);
+  EXPECT_EQ(reconstruction.ComputeNumObservations(),
+            options.num_images * options.num_points3D);
+}
 
-  mapper.Start();
-  mapper.Wait();
+TEST(SynthesizeDataset, WithNoise) {
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  Database database(database_path);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.point2D_stddev = 2.0;
+  SynthesizeDataset(options, &reconstruction, &database);
+
+  reconstruction.UpdatePoint3DErrors();
+  EXPECT_NEAR(reconstruction.ComputeMeanReprojectionError(),
+              options.point2D_stddev,
+              0.5 * options.point2D_stddev);
+  EXPECT_NEAR(reconstruction.ComputeMeanTrackLength(), options.num_images, 0.1);
+}
+
+TEST(SynthesizeDataset, WithOutlierMatches) {
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  Database database(database_path);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.num_outlier_matches_per_pair = 5;
+  SynthesizeDataset(options, &reconstruction, &database);
+
+  const int num_image_pairs = options.num_images * (options.num_images - 1) / 2;
+  EXPECT_EQ(database.NumVerifiedImagePairs(), num_image_pairs);
+  EXPECT_EQ(database.NumInlierMatches(),
+            num_image_pairs *
+                (options.num_points3D + options.num_outlier_matches_per_pair));
 }
 
 }  // namespace colmap

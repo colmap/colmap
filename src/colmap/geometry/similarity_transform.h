@@ -88,10 +88,10 @@ class SimilarityTransform3 {
 // in a common image must reproject within the given threshold.
 bool ComputeAlignmentBetweenReconstructions(
     const Reconstruction& src_reconstruction,
-    const Reconstruction& ref_reconstruction,
+    const Reconstruction& tgt_reconstruction,
     double min_inlier_observations,
     double max_reproj_error,
-    Eigen::Matrix3x4d* alignment);
+    SimilarityTransform3* tgtFromSrc);
 
 // Robustly compute alignment between reconstructions by finding images that
 // are registered in both reconstructions. The alignment is then estimated
@@ -99,9 +99,21 @@ bool ComputeAlignmentBetweenReconstructions(
 // minimizing the Euclidean distance between them in world space.
 bool ComputeAlignmentBetweenReconstructions(
     const Reconstruction& src_reconstruction,
-    const Reconstruction& ref_reconstruction,
+    const Reconstruction& tgt_reconstruction,
     double max_proj_center_error,
-    Eigen::Matrix3x4d* alignment);
+    SimilarityTransform3* tgtFromSrc);
+
+// Compute image alignment errors in the target coordinate frame.
+struct ImageAlignmentError {
+  image_t image_id = kInvalidImageId;
+  double rotation_error_deg = -1;
+  double proj_center_error = -1;
+};
+
+std::vector<ImageAlignmentError> ComputeImageAlignmentError(
+    const Reconstruction& src_reconstruction,
+    const Reconstruction& tgt_reconstruction,
+    const SimilarityTransform3& tgtFromSrc);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation

@@ -29,32 +29,39 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#pragma once
+#include "colmap/util/testing.h"
 
-#include "colmap/base/database.h"
-#include "colmap/base/reconstruction.h"
-#include "colmap/camera/models.h"
-#include "colmap/util/types.h"
+#include <mutex>
+#include <set>
+
+#include <boost/filesystem.hpp>
+#include <glog/logging.h>
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-struct SyntheticDatasetOptions {
-  int num_cameras = 2;
-  int num_images = 10;
-  int num_points3D = 100;
+std::string CreateTestDir() {
+  const testing::TestInfo* test_info =
+      CHECK_NOTNULL(testing::UnitTest::GetInstance()->current_test_info());
+  std::ostringstream test_name_stream;
+  test_name_stream << test_info->test_suite_name() << "." << test_info->name();
+  const std::string test_name = test_name_stream.str();
 
-  int camera_width = 1024;
-  int camera_height = 768;
-  int camera_model_id = SimpleRadialCameraModel::model_id;
-  std::vector<double> camera_params = {1280, 512, 384, 0.05};
+  const boost::filesystem::path test_dir =
+      boost::filesystem::path("colmap_test_tmp_test_data") / test_name;
+  static std::mutex mutex;
+  std::lock_guard<std::mutex> lock(mutex);
+  static std::set<std::string> existing_test_names;
+  if (existing_test_names.count(test_name) == 0) {
+    if (boost::filesystem::is_directory(test_dir)) {
+      // Cleanup dir from previous test runs.
+      boost::filesystem::remove_all(test_dir);
+    }
+    boost::filesystem::create_directories(test_dir);
+  }
+  existing_test_names.insert(test_name);
 
-  int num_points2D_without_point3D = 10;
-  double point2D_stddev = 0.0;
-  int num_outlier_matches_per_pair = 0;
-};
-
-void SynthesizeDataset(const SyntheticDatasetOptions& options,
-                       Reconstruction* reconstruction,
-                       Database* database);
+  return test_dir.string();
+}
 
 }  // namespace colmap

@@ -43,6 +43,7 @@ COLMAP_ADD_SOURCES(
     random.h random.cc
     sqlite3_utils.h
     string.h string.cc
+    testing.h testing.cc
     threading.h threading.cc
     timer.h timer.cc
     types.h

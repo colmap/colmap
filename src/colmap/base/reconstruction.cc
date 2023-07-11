@@ -468,7 +468,7 @@ bool Reconstruction::Merge(const Reconstruction& reconstruction,
                            const double max_reproj_error) {
   const double kMinInlierObservations = 0.3;
 
-  Eigen::Matrix3x4d alignment;
+  SimilarityTransform3 alignment;
   if (!ComputeAlignmentBetweenReconstructions(reconstruction,
                                               *this,
                                               kMinInlierObservations,
@@ -476,8 +476,6 @@ bool Reconstruction::Merge(const Reconstruction& reconstruction,
                                               &alignment)) {
     return false;
   }
-
-  const SimilarityTransform3 tform(alignment);
 
   // Find common and missing images in the two reconstructions.
 
@@ -505,7 +503,7 @@ bool Reconstruction::Merge(const Reconstruction& reconstruction,
       AddCamera(reconstruction.Camera(reg_image.CameraId()));
     }
     auto& image = Image(image_id);
-    tform.TransformPose(&image.Qvec(), &image.Tvec());
+    alignment.TransformPose(&image.Qvec(), &image.Tvec());
   }
 
   // Merge the two point clouds using the following two rules:
@@ -542,7 +540,7 @@ bool Reconstruction::Merge(const Reconstruction& reconstruction,
         old_point3D_ids.size() == 1;
     if (create_new_point || merge_new_and_old_point) {
       Eigen::Vector3d xyz = point3D.second.XYZ();
-      tform.TransformPoint(&xyz);
+      alignment.TransformPoint(&xyz);
       const auto point3D_id =
           AddPoint3D(xyz, new_track, point3D.second.Color());
       if (old_point3D_ids.size() == 1) {
@@ -737,6 +735,27 @@ double Reconstruction::ComputeMeanReprojectionError() const {
     return 0.0;
   } else {
     return error_sum / num_valid_errors;
+  }
+}
+
+void Reconstruction::UpdatePoint3DErrors() {
+  for (auto& point3D : points3D_) {
+    if (point3D.second.Track().Length() == 0) {
+      continue;
+    }
+    double error_sum = 0;
+    for (const auto& track_el : point3D.second.Track().Elements()) {
+      const auto& image = Image(track_el.image_id);
+      const auto& point2D = image.Point2D(track_el.point2D_idx);
+      const auto& camera = Camera(image.CameraId());
+      error_sum +=
+          std::sqrt(CalculateSquaredReprojectionError(point2D.XY(),
+                                                      point3D.second.XYZ(),
+                                                      image.Qvec(),
+                                                      image.Tvec(),
+                                                      camera));
+    }
+    point3D.second.SetError(error_sum / point3D.second.Track().Length());
   }
 }
 

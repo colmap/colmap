@@ -31,30 +31,10 @@
 
 #pragma once
 
-#include "colmap/base/database.h"
-#include "colmap/base/reconstruction.h"
-#include "colmap/camera/models.h"
-#include "colmap/util/types.h"
+#include <string>
 
 namespace colmap {
 
-struct SyntheticDatasetOptions {
-  int num_cameras = 2;
-  int num_images = 10;
-  int num_points3D = 100;
-
-  int camera_width = 1024;
-  int camera_height = 768;
-  int camera_model_id = SimpleRadialCameraModel::model_id;
-  std::vector<double> camera_params = {1280, 512, 384, 0.05};
-
-  int num_points2D_without_point3D = 10;
-  double point2D_stddev = 0.0;
-  int num_outlier_matches_per_pair = 0;
-};
-
-void SynthesizeDataset(const SyntheticDatasetOptions& options,
-                       Reconstruction* reconstruction,
-                       Database* database);
+std::string CreateTestDir();
 
 }  // namespace colmap
