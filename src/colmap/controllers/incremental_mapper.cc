@@ -287,14 +287,14 @@ bool IncrementalMapperOptions::Check() const {
 }
 
 IncrementalMapperController::IncrementalMapperController(
-    const IncrementalMapperOptions* options,
+    std::shared_ptr<const IncrementalMapperOptions> options,
     const std::string& image_path,
     const std::string& database_path,
-    ReconstructionManager* reconstruction_manager)
-    : options_(options),
+    std::shared_ptr<ReconstructionManager> reconstruction_manager)
+    : options_(std::move(options)),
       image_path_(image_path),
       database_path_(database_path),
-      reconstruction_manager_(reconstruction_manager) {
+      reconstruction_manager_(std::move(reconstruction_manager)) {
   CHECK(options_->Check());
   RegisterCallback(INITIAL_IMAGE_PAIR_REG_CALLBACK);
   RegisterCallback(NEXT_IMAGE_REG_CALLBACK);
@@ -339,9 +339,9 @@ bool IncrementalMapperController::LoadDatabase() {
   // manually specifying images for the reconstrunstruction procedure.
   std::unordered_set<std::string> image_names = options_->image_names;
   if (reconstruction_manager_->Size() == 1 && !options_->image_names.empty()) {
-    const Reconstruction& reconstruction = reconstruction_manager_->Get(0);
-    for (const image_t image_id : reconstruction.RegImageIds()) {
-      const auto& image = reconstruction.Image(image_id);
+    const auto& reconstruction = reconstruction_manager_->Get(0);
+    for (const image_t image_id : reconstruction->RegImageIds()) {
+      const auto& image = reconstruction->Image(image_id);
       image_names.insert(image.Name());
     }
   }
@@ -350,14 +350,14 @@ bool IncrementalMapperController::LoadDatabase() {
   Timer timer;
   timer.Start();
   const size_t min_num_matches = static_cast<size_t>(options_->min_num_matches);
-  database_cache_.Load(
+  database_cache_ = DatabaseCache::Create(
       database, min_num_matches, options_->ignore_watermarks, image_names);
   std::cout << std::endl;
   timer.PrintMinutes();
 
   std::cout << std::endl;
 
-  if (database_cache_.NumImages() == 0) {
+  if (database_cache_->NumImages() == 0) {
     std::cout << "WARNING: No images with matches found in the database."
               << std::endl
               << std::endl;
@@ -373,7 +373,7 @@ void IncrementalMapperController::Reconstruct(
   // Main loop
   //////////////////////////////////////////////////////////////////////////////
 
-  IncrementalMapper mapper(&database_cache_);
+  IncrementalMapper mapper(database_cache_);
 
   // Is there a sub-model before we start the reconstruction? I.e. the user
   // has imported an existing reconstruction.
@@ -396,16 +396,16 @@ void IncrementalMapperController::Reconstruct(
       reconstruction_idx = 0;
     }
 
-    Reconstruction& reconstruction =
+    std::shared_ptr<Reconstruction> reconstruction =
         reconstruction_manager_->Get(reconstruction_idx);
 
-    mapper.BeginReconstruction(&reconstruction);
+    mapper.BeginReconstruction(reconstruction);
 
     ////////////////////////////////////////////////////////////////////////////
     // Register initial pair
     ////////////////////////////////////////////////////////////////////////////
 
-    if (reconstruction.NumRegImages() == 0) {
+    if (reconstruction->NumRegImages() == 0) {
       image_t image_id1 = static_cast<image_t>(options_->init_image_id1);
       image_t image_id2 = static_cast<image_t>(options_->init_image_id2);
 
@@ -421,8 +421,8 @@ void IncrementalMapperController::Reconstruct(
           break;
         }
       } else {
-        if (!reconstruction.ExistsImage(image_id1) ||
-            !reconstruction.ExistsImage(image_id2)) {
+        if (!reconstruction->ExistsImage(image_id1) ||
+            !reconstruction->ExistsImage(image_id2)) {
           std::cout << StringPrintf(
                            "  => Initial image pair #%d and #%d do not exist.",
                            image_id1,
@@ -455,8 +455,8 @@ void IncrementalMapperController::Reconstruct(
       FilterImages(*options_, &mapper);
 
       // Initial image pair failed to register.
-      if (reconstruction.NumRegImages() == 0 ||
-          reconstruction.NumPoints3D() == 0) {
+      if (reconstruction->NumRegImages() == 0 ||
+          reconstruction->NumPoints3D() == 0) {
         mapper.EndReconstruction(/*discard=*/true);
         reconstruction_manager_->Delete(reconstruction_idx);
         // If both initial images are manually specified, there is no need for
@@ -469,7 +469,7 @@ void IncrementalMapperController::Reconstruct(
       }
 
       if (options_->extract_colors) {
-        ExtractColors(image_path_, image_id1, &reconstruction);
+        ExtractColors(image_path_, image_id1, reconstruction.get());
       }
     }
 
@@ -479,9 +479,9 @@ void IncrementalMapperController::Reconstruct(
     // Incremental mapping
     ////////////////////////////////////////////////////////////////////////////
 
-    size_t snapshot_prev_num_reg_images = reconstruction.NumRegImages();
-    size_t ba_prev_num_reg_images = reconstruction.NumRegImages();
-    size_t ba_prev_num_points = reconstruction.NumPoints3D();
+    size_t snapshot_prev_num_reg_images = reconstruction->NumRegImages();
+    size_t ba_prev_num_reg_images = reconstruction->NumRegImages();
+    size_t ba_prev_num_points = reconstruction->NumPoints3D();
 
     bool reg_next_success = true;
     bool prev_reg_next_success = true;
@@ -502,11 +502,11 @@ void IncrementalMapperController::Reconstruct(
 
       for (size_t reg_trial = 0; reg_trial < next_images.size(); ++reg_trial) {
         const image_t next_image_id = next_images[reg_trial];
-        const Image& next_image = reconstruction.Image(next_image_id);
+        const Image& next_image = reconstruction->Image(next_image_id);
 
         PrintHeading1(StringPrintf("Registering image #%d (%d)",
                                    next_image_id,
-                                   reconstruction.NumRegImages() + 1));
+                                   reconstruction->NumRegImages() + 1));
 
         std::cout << StringPrintf("  => Image sees %d / %d points",
                                   next_image.NumVisiblePoints3D(),
@@ -520,29 +520,29 @@ void IncrementalMapperController::Reconstruct(
           TriangulateImage(*options_, next_image, &mapper);
           IterativeLocalRefinement(*options_, next_image_id, &mapper);
 
-          if (reconstruction.NumRegImages() >=
+          if (reconstruction->NumRegImages() >=
                   options_->ba_global_images_ratio * ba_prev_num_reg_images ||
-              reconstruction.NumRegImages() >=
+              reconstruction->NumRegImages() >=
                   options_->ba_global_images_freq + ba_prev_num_reg_images ||
-              reconstruction.NumPoints3D() >=
+              reconstruction->NumPoints3D() >=
                   options_->ba_global_points_ratio * ba_prev_num_points ||
-              reconstruction.NumPoints3D() >=
+              reconstruction->NumPoints3D() >=
                   options_->ba_global_points_freq + ba_prev_num_points) {
             IterativeGlobalRefinement(*options_, &mapper);
-            ba_prev_num_points = reconstruction.NumPoints3D();
-            ba_prev_num_reg_images = reconstruction.NumRegImages();
+            ba_prev_num_points = reconstruction->NumPoints3D();
+            ba_prev_num_reg_images = reconstruction->NumRegImages();
           }
 
           if (options_->extract_colors) {
-            ExtractColors(image_path_, next_image_id, &reconstruction);
+            ExtractColors(image_path_, next_image_id, reconstruction.get());
           }
 
           if (options_->snapshot_images_freq > 0 &&
-              reconstruction.NumRegImages() >=
+              reconstruction->NumRegImages() >=
                   options_->snapshot_images_freq +
                       snapshot_prev_num_reg_images) {
-            snapshot_prev_num_reg_images = reconstruction.NumRegImages();
-            WriteSnapshot(reconstruction, options_->snapshot_path);
+            snapshot_prev_num_reg_images = reconstruction->NumRegImages();
+            WriteSnapshot(*reconstruction, options_->snapshot_path);
           }
 
           Callback(NEXT_IMAGE_REG_CALLBACK);
@@ -556,7 +556,7 @@ void IncrementalMapperController::Reconstruct(
           // abort and try different initial pair.
           const size_t kMinNumInitialRegTrials = 30;
           if (reg_trial >= kMinNumInitialRegTrials &&
-              reconstruction.NumRegImages() <
+              reconstruction->NumRegImages() <
                   static_cast<size_t>(options_->min_model_size)) {
             break;
           }
@@ -587,20 +587,20 @@ void IncrementalMapperController::Reconstruct(
     }
 
     // Only run final global BA, if last incremental BA was not global.
-    if (reconstruction.NumRegImages() >= 2 &&
-        reconstruction.NumRegImages() != ba_prev_num_reg_images &&
-        reconstruction.NumPoints3D() != ba_prev_num_points) {
+    if (reconstruction->NumRegImages() >= 2 &&
+        reconstruction->NumRegImages() != ba_prev_num_reg_images &&
+        reconstruction->NumPoints3D() != ba_prev_num_points) {
       IterativeGlobalRefinement(*options_, &mapper);
     }
 
     // If the total number of images is small then do not enforce the minimum
     // model size so that we can reconstruct small image collections.
     const size_t min_model_size =
-        std::min(database_cache_.NumImages(),
+        std::min(database_cache_->NumImages(),
                  static_cast<size_t>(options_->min_model_size));
     if ((options_->multiple_models &&
-         reconstruction.NumRegImages() < min_model_size) ||
-        reconstruction.NumRegImages() == 0) {
+         reconstruction->NumRegImages() < min_model_size) ||
+        reconstruction->NumRegImages() == 0) {
       mapper.EndReconstruction(/*discard=*/true);
       reconstruction_manager_->Delete(reconstruction_idx);
     } else {
@@ -612,7 +612,7 @@ void IncrementalMapperController::Reconstruct(
     const size_t max_num_models = static_cast<size_t>(options_->max_num_models);
     if (initial_reconstruction_given || !options_->multiple_models ||
         reconstruction_manager_->Size() >= max_num_models ||
-        mapper.NumTotalRegImages() >= database_cache_.NumImages() - 1) {
+        mapper.NumTotalRegImages() >= database_cache_->NumImages() - 1) {
       break;
     }
   }

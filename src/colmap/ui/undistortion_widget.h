@@ -47,14 +47,14 @@ class UndistortionWidget : public OptionsWidget {
  public:
   UndistortionWidget(QWidget* parent, const OptionManager* options);
 
-  void Show(const Reconstruction& reconstruction);
+  void Show(std::shared_ptr<const Reconstruction> reconstruction);
   bool IsValid() const;
 
  private:
   void Undistort();
 
   const OptionManager* options_;
-  const Reconstruction* reconstruction_;
+  std::shared_ptr<const Reconstruction> reconstruction_;
 
   ThreadControlWidget* thread_control_widget_;
 

@@ -117,16 +117,16 @@ int RunAutomaticReconstructor(int argc, char** argv) {
     LOG(FATAL) << "Invalid mesher provided";
   }
 
-  ReconstructionManager reconstruction_manager;
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
   if (reconstruction_options.use_gpu && kUseOpenGL) {
     QApplication app(argc, argv);
     AutomaticReconstructionController controller(reconstruction_options,
-                                                 &reconstruction_manager);
+                                                 reconstruction_manager);
     RunThreadWithOpenGLContext(&controller);
   } else {
     AutomaticReconstructionController controller(reconstruction_options,
-                                                 &reconstruction_manager);
+                                                 reconstruction_manager);
     controller.Start();
     controller.Wait();
   }
@@ -154,14 +154,14 @@ int RunBundleAdjuster(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  Reconstruction reconstruction;
-  reconstruction.Read(input_path);
+  auto reconstruction = std::make_shared<Reconstruction>();
+  reconstruction->Read(input_path);
 
-  BundleAdjustmentController ba_controller(options, &reconstruction);
+  BundleAdjustmentController ba_controller(options, reconstruction);
   ba_controller.Start();
   ba_controller.Wait();
 
-  reconstruction.Write(output_path);
+  reconstruction->Write(output_path);
 
   return EXIT_SUCCESS;
 }
@@ -209,19 +209,19 @@ int RunMapper(int argc, char** argv) {
         std::unordered_set<std::string>(image_names.begin(), image_names.end());
   }
 
-  ReconstructionManager reconstruction_manager;
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   if (input_path != "") {
     if (!ExistsDir(input_path)) {
       std::cerr << "ERROR: `input_path` is not a directory." << std::endl;
       return EXIT_FAILURE;
     }
-    reconstruction_manager.Read(input_path);
+    reconstruction_manager->Read(input_path);
   }
 
-  IncrementalMapperController mapper(options.mapper.get(),
+  IncrementalMapperController mapper(options.mapper,
                                      *options.image_path,
                                      *options.database_path,
-                                     &reconstruction_manager);
+                                     reconstruction_manager);
 
   // In case a new reconstruction is started, write results of individual sub-
   // models to as their reconstruction finishes instead of writing all results
@@ -232,15 +232,14 @@ int RunMapper(int argc, char** argv) {
         IncrementalMapperController::LAST_IMAGE_REG_CALLBACK, [&]() {
           // If the number of reconstructions has not changed, the last model
           // was discarded for some reason.
-          if (reconstruction_manager.Size() > prev_num_reconstructions) {
+          if (reconstruction_manager->Size() > prev_num_reconstructions) {
             const std::string reconstruction_path = JoinPaths(
                 output_path, std::to_string(prev_num_reconstructions));
-            const auto& reconstruction =
-                reconstruction_manager.Get(prev_num_reconstructions);
             CreateDirIfNotExists(reconstruction_path);
-            reconstruction.Write(reconstruction_path);
+            reconstruction_manager->Get(prev_num_reconstructions)
+                ->Write(reconstruction_path);
             options.Write(JoinPaths(reconstruction_path, "project.ini"));
-            prev_num_reconstructions = reconstruction_manager.Size();
+            prev_num_reconstructions = reconstruction_manager->Size();
           }
         });
   }
@@ -248,15 +247,15 @@ int RunMapper(int argc, char** argv) {
   mapper.Start();
   mapper.Wait();
 
-  if (reconstruction_manager.Size() == 0) {
+  if (reconstruction_manager->Size() == 0) {
     std::cerr << "ERROR: failed to create sparse model" << std::endl;
     return EXIT_FAILURE;
   }
 
   // In case the reconstruction is continued from an existing reconstruction, do
   // not create sub-folders but directly write the results.
-  if (input_path != "" && reconstruction_manager.Size() > 0) {
-    reconstruction_manager.Get(0).Write(output_path);
+  if (input_path != "" && reconstruction_manager->Size() > 0) {
+    reconstruction_manager->Get(0)->Write(output_path);
   }
 
   return EXIT_SUCCESS;
@@ -284,21 +283,21 @@ int RunHierarchicalMapper(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  ReconstructionManager reconstruction_manager;
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
   HierarchicalMapperController hierarchical_mapper(hierarchical_options,
                                                    clustering_options,
-                                                   *options.mapper,
-                                                   &reconstruction_manager);
+                                                   options.mapper,
+                                                   reconstruction_manager);
   hierarchical_mapper.Start();
   hierarchical_mapper.Wait();
 
-  if (reconstruction_manager.Size() == 0) {
+  if (reconstruction_manager->Size() == 0) {
     std::cerr << "ERROR: failed to create sparse model" << std::endl;
     return EXIT_FAILURE;
   }
 
-  reconstruction_manager.Write(output_path, &options);
+  reconstruction_manager->Write(output_path, &options);
 
   return EXIT_SUCCESS;
 }
@@ -369,8 +368,8 @@ int RunPointTriangulator(int argc, char** argv) {
 
   PrintHeading1("Loading model");
 
-  Reconstruction reconstruction;
-  reconstruction.Read(input_path);
+  auto reconstruction = std::make_shared<Reconstruction>();
+  reconstruction->Read(input_path);
 
   return RunPointTriangulatorImpl(reconstruction,
                                   *options.database_path,
@@ -380,32 +379,31 @@ int RunPointTriangulator(int argc, char** argv) {
                                   clear_points);
 }
 
-int RunPointTriangulatorImpl(Reconstruction& reconstruction,
-                             const std::string& database_path,
-                             const std::string& image_path,
-                             const std::string& output_path,
-                             const IncrementalMapperOptions& mapper_options,
-                             const bool clear_points) {
+int RunPointTriangulatorImpl(
+    const std::shared_ptr<Reconstruction>& reconstruction,
+    const std::string& database_path,
+    const std::string& image_path,
+    const std::string& output_path,
+    const IncrementalMapperOptions& mapper_options,
+    const bool clear_points) {
   PrintHeading1("Loading database");
 
-  DatabaseCache database_cache;
+  std::shared_ptr<DatabaseCache> database_cache;
 
   {
     Timer timer;
     timer.Start();
-
-    Database database(database_path);
-
+    const Database database(database_path);
     const size_t min_num_matches =
         static_cast<size_t>(mapper_options.min_num_matches);
-    database_cache.Load(database,
-                        min_num_matches,
-                        mapper_options.ignore_watermarks,
-                        mapper_options.image_names);
+    database_cache = DatabaseCache::Create(database,
+                                           min_num_matches,
+                                           mapper_options.ignore_watermarks,
+                                           mapper_options.image_names);
 
     if (clear_points) {
-      reconstruction.DeleteAllPoints2DAndPoints3D();
-      reconstruction.TranscribeImageIdsToDatabase(database);
+      reconstruction->DeleteAllPoints2DAndPoints3D();
+      reconstruction->TranscribeImageIdsToDatabase(database);
     }
 
     std::cout << std::endl;
@@ -414,11 +412,11 @@ int RunPointTriangulatorImpl(Reconstruction& reconstruction,
 
   std::cout << std::endl;
 
-  CHECK_GE(reconstruction.NumRegImages(), 2)
+  CHECK_GE(reconstruction->NumRegImages(), 2)
       << "Need at least two images for triangulation";
 
-  IncrementalMapper mapper(&database_cache);
-  mapper.BeginReconstruction(&reconstruction);
+  IncrementalMapper mapper(database_cache);
+  mapper.BeginReconstruction(reconstruction);
 
   //////////////////////////////////////////////////////////////////////////////
   // Triangulation
@@ -426,12 +424,11 @@ int RunPointTriangulatorImpl(Reconstruction& reconstruction,
 
   const auto tri_options = mapper_options.Triangulation();
 
-  const auto& reg_image_ids = reconstruction.RegImageIds();
+  const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
 
   for (size_t i = 0; i < reg_image_ids.size(); ++i) {
     const image_t image_id = reg_image_ids[i];
-
-    const auto& image = reconstruction.Image(image_id);
+    const auto& image = reconstruction->Image(image_id);
 
     PrintHeading1(StringPrintf("Triangulating image #%d (%d)", image_id, i));
 
@@ -467,19 +464,19 @@ int RunPointTriangulatorImpl(Reconstruction& reconstruction,
 
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
-  for (const image_t image_id : reconstruction.RegImageIds()) {
+  for (const image_t image_id : reg_image_ids) {
     ba_config.AddImage(image_id);
   }
 
   for (int i = 0; i < mapper_options.ba_global_max_refinements; ++i) {
     // Avoid degeneracies in bundle adjustment.
-    reconstruction.FilterObservationsWithNegativeDepth();
+    reconstruction->FilterObservationsWithNegativeDepth();
 
-    const size_t num_observations = reconstruction.ComputeNumObservations();
+    const size_t num_observations = reconstruction->ComputeNumObservations();
 
     PrintHeading1("Bundle adjustment");
     BundleAdjuster bundle_adjuster(ba_options, ba_config);
-    CHECK(bundle_adjuster.Solve(&reconstruction));
+    CHECK(bundle_adjuster.Solve(reconstruction.get()));
 
     size_t num_changed_observations = 0;
     num_changed_observations += CompleteAndMergeTracks(mapper_options, &mapper);
@@ -494,12 +491,11 @@ int RunPointTriangulatorImpl(Reconstruction& reconstruction,
   }
 
   PrintHeading1("Extracting colors");
-  reconstruction.ExtractColorsForAllImages(image_path);
+  reconstruction->ExtractColorsForAllImages(image_path);
 
-  const bool kDiscardReconstruction = false;
-  mapper.EndReconstruction(kDiscardReconstruction);
+  mapper.EndReconstruction(/*discard=*/false);
 
-  reconstruction.Write(output_path);
+  reconstruction->Write(output_path);
 
   return EXIT_SUCCESS;
 }

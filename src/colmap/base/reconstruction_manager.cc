@@ -36,8 +36,6 @@
 
 namespace colmap {
 
-ReconstructionManager::ReconstructionManager() {}
-
 ReconstructionManager::ReconstructionManager(
     ReconstructionManager&& other) noexcept
     : ReconstructionManager() {
@@ -54,17 +52,18 @@ ReconstructionManager& ReconstructionManager::operator=(
 
 size_t ReconstructionManager::Size() const { return reconstructions_.size(); }
 
-const Reconstruction& ReconstructionManager::Get(const size_t idx) const {
-  return *reconstructions_.at(idx);
+std::shared_ptr<const Reconstruction> ReconstructionManager::Get(
+    const size_t idx) const {
+  return reconstructions_.at(idx);
 }
 
-Reconstruction& ReconstructionManager::Get(const size_t idx) {
-  return *reconstructions_.at(idx);
+std::shared_ptr<Reconstruction> ReconstructionManager::Get(const size_t idx) {
+  return reconstructions_.at(idx);
 }
 
 size_t ReconstructionManager::Add() {
   const size_t idx = Size();
-  reconstructions_.emplace_back(new Reconstruction());
+  reconstructions_.push_back(std::make_shared<Reconstruction>());
   return idx;
 }
 

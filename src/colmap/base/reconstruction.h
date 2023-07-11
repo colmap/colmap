@@ -42,6 +42,7 @@
 #include "colmap/optim/loransac.h"
 #include "colmap/util/types.h"
 
+#include <memory>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
@@ -114,7 +115,7 @@ class Reconstruction {
 
   // Setup all relevant data structures before reconstruction. Note the
   // correspondence graph object must live until `TearDown` is called.
-  void SetUp(const CorrespondenceGraph* correspondence_graph);
+  void SetUp(std::shared_ptr<const CorrespondenceGraph> correspondence_graph);
 
   // Finalize the Reconstruction after the reconstruction has finished.
   //
@@ -414,7 +415,7 @@ class Reconstruction {
                             point2D_t point2D_idx,
                             bool is_deleted_point3D);
 
-  const CorrespondenceGraph* correspondence_graph_;
+  std::shared_ptr<const CorrespondenceGraph> correspondence_graph_;
 
   std::unordered_map<camera_t, class Camera> cameras_;
   std::unordered_map<image_t, class Image> images_;

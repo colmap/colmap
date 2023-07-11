@@ -90,20 +90,21 @@ void Reconstruction::Load(const DatabaseCache& database_cache) {
   }
 
   // Add image pairs.
-  for (const auto& image_pair :
-       database_cache.CorrespondenceGraph().NumCorrespondencesBetweenImages()) {
+  for (const auto& image_pair : database_cache.CorrespondenceGraph()
+                                    ->NumCorrespondencesBetweenImages()) {
     ImagePairStat image_pair_stat;
     image_pair_stat.num_total_corrs = image_pair.second;
     image_pair_stats_.emplace(image_pair.first, image_pair_stat);
   }
 }
 
-void Reconstruction::SetUp(const CorrespondenceGraph* correspondence_graph) {
-  CHECK_NOTNULL(correspondence_graph);
+void Reconstruction::SetUp(
+    std::shared_ptr<const CorrespondenceGraph> correspondence_graph) {
+  correspondence_graph_ = std::move(CHECK_NOTNULL(correspondence_graph));
+
   for (auto& image : images_) {
     image.second.SetUp(Camera(image.second.CameraId()));
   }
-  correspondence_graph_ = correspondence_graph;
 
   // If an existing model was loaded from disk and there were already images
   // registered previously, we need to set observations as triangulated.
@@ -2096,28 +2097,28 @@ void Reconstruction::SetObservationAsTriangulated(
   }
 
   const class Image& image = Image(image_id);
-  const Point2D& point2D = image.Point2D(point2D_idx);
-  const std::vector<CorrespondenceGraph::Correspondence>& corrs =
-      correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
-
   CHECK(image.IsRegistered());
+
+  const Point2D& point2D = image.Point2D(point2D_idx);
   CHECK(point2D.HasPoint3D());
 
-  for (const auto& corr : corrs) {
-    class Image& corr_image = Image(corr.image_id);
-    const Point2D& corr_point2D = corr_image.Point2D(corr.point2D_idx);
-    corr_image.IncrementCorrespondenceHasPoint3D(corr.point2D_idx);
+  const auto corr_range =
+      correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
+  for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+    class Image& corr_image = Image(corr->image_id);
+    const Point2D& corr_point2D = corr_image.Point2D(corr->point2D_idx);
+    corr_image.IncrementCorrespondenceHasPoint3D(corr->point2D_idx);
     // Update number of shared 3D points between image pairs and make sure to
     // only count the correspondences once (not twice forward and backward).
     if (point2D.Point3DId() == corr_point2D.Point3DId() &&
-        (is_continued_point3D || image_id < corr.image_id)) {
+        (is_continued_point3D || image_id < corr->image_id)) {
       const image_pair_t pair_id =
-          Database::ImagePairToPairId(image_id, corr.image_id);
-      image_pair_stats_[pair_id].num_tri_corrs += 1;
-      CHECK_LE(image_pair_stats_[pair_id].num_tri_corrs,
-               image_pair_stats_[pair_id].num_total_corrs)
-          << "The correspondence graph graph must not contain duplicate "
-             "matches";
+          Database::ImagePairToPairId(image_id, corr->image_id);
+      auto& stats = image_pair_stats_[pair_id];
+      stats.num_tri_corrs += 1;
+      CHECK_LE(stats.num_tri_corrs, stats.num_total_corrs)
+          << "The correspondence graph must not contain duplicate matches: "
+          << corr->image_id << " " << corr->point2D_idx;
     }
   }
 }
@@ -2130,23 +2131,22 @@ void Reconstruction::ResetTriObservations(const image_t image_id,
   }
 
   const class Image& image = Image(image_id);
-  const Point2D& point2D = image.Point2D(point2D_idx);
-  const std::vector<CorrespondenceGraph::Correspondence>& corrs =
-      correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
-
   CHECK(image.IsRegistered());
+  const Point2D& point2D = image.Point2D(point2D_idx);
   CHECK(point2D.HasPoint3D());
 
-  for (const auto& corr : corrs) {
-    class Image& corr_image = Image(corr.image_id);
-    const Point2D& corr_point2D = corr_image.Point2D(corr.point2D_idx);
-    corr_image.DecrementCorrespondenceHasPoint3D(corr.point2D_idx);
+  const auto corr_range =
+      correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
+  for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+    class Image& corr_image = Image(corr->image_id);
+    const Point2D& corr_point2D = corr_image.Point2D(corr->point2D_idx);
+    corr_image.DecrementCorrespondenceHasPoint3D(corr->point2D_idx);
     // Update number of shared 3D points between image pairs and make sure to
     // only count the correspondences once (not twice forward and backward).
     if (point2D.Point3DId() == corr_point2D.Point3DId() &&
-        (!is_deleted_point3D || image_id < corr.image_id)) {
+        (!is_deleted_point3D || image_id < corr->image_id)) {
       const image_pair_t pair_id =
-          Database::ImagePairToPairId(image_id, corr.image_id);
+          Database::ImagePairToPairId(image_id, corr->image_id);
       image_pair_stats_[pair_id].num_tri_corrs -= 1;
       CHECK_GE(image_pair_stats_[pair_id].num_tri_corrs, 0)
           << "The scene graph graph must not contain duplicate matches";

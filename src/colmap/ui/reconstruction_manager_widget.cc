@@ -37,8 +37,10 @@ const size_t ReconstructionManagerWidget::kNewestReconstructionIdx =
     std::numeric_limits<size_t>::max();
 
 ReconstructionManagerWidget::ReconstructionManagerWidget(
-    QWidget* parent, const ReconstructionManager* reconstruction_manager)
-    : QComboBox(parent), reconstruction_manager_(reconstruction_manager) {
+    QWidget* parent,
+    std::shared_ptr<const ReconstructionManager> reconstruction_manager)
+    : QComboBox(parent),
+      reconstruction_manager_(std::move(reconstruction_manager)) {
   QFont font;
   font.setPointSize(10);
   setFont(font);
@@ -62,8 +64,8 @@ void ReconstructionManagerWidget::Update() {
     const QString item = QString().asprintf(
         "Model %d (%d images, %d points)",
         static_cast<int>(i + 1),
-        static_cast<int>(reconstruction_manager_->Get(i).NumRegImages()),
-        static_cast<int>(reconstruction_manager_->Get(i).NumPoints3D()));
+        static_cast<int>(reconstruction_manager_->Get(i)->NumRegImages()),
+        static_cast<int>(reconstruction_manager_->Get(i)->NumPoints3D()));
     QFontMetrics font_metrics(view()->font());
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
     const auto width = font_metrics.horizontalAdvance(item);

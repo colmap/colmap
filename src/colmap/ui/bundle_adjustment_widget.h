@@ -47,7 +47,7 @@ class BundleAdjustmentWidget : public OptionsWidget {
  public:
   BundleAdjustmentWidget(MainWindow* main_window, OptionManager* options);
 
-  void Show(Reconstruction* reconstruction);
+  void Show(std::shared_ptr<Reconstruction> reconstruction);
 
  private:
   void Run();
@@ -55,7 +55,7 @@ class BundleAdjustmentWidget : public OptionsWidget {
 
   MainWindow* main_window_;
   OptionManager* options_;
-  Reconstruction* reconstruction_;
+  std::shared_ptr<Reconstruction> reconstruction_;
   ThreadControlWidget* thread_control_widget_;
   QAction* render_action_;
 };

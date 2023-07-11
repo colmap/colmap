@@ -266,39 +266,38 @@ int RunImageRegistrator(int argc, char** argv) {
 
   PrintHeading1("Loading database");
 
-  DatabaseCache database_cache;
+  std::shared_ptr<DatabaseCache> database_cache;
 
   {
-    Database database(*options.database_path);
     Timer timer;
     timer.Start();
     const size_t min_num_matches =
         static_cast<size_t>(options.mapper->min_num_matches);
-    database_cache.Load(database,
-                        min_num_matches,
-                        options.mapper->ignore_watermarks,
-                        options.mapper->image_names);
+    database_cache = DatabaseCache::Create(Database(*options.database_path),
+                                           min_num_matches,
+                                           options.mapper->ignore_watermarks,
+                                           options.mapper->image_names);
     std::cout << std::endl;
     timer.PrintMinutes();
   }
 
   std::cout << std::endl;
 
-  Reconstruction reconstruction;
-  reconstruction.Read(input_path);
+  auto reconstruction = std::make_shared<Reconstruction>();
+  reconstruction->Read(input_path);
 
-  IncrementalMapper mapper(&database_cache);
-  mapper.BeginReconstruction(&reconstruction);
+  IncrementalMapper mapper(database_cache);
+  mapper.BeginReconstruction(reconstruction);
 
   const auto mapper_options = options.mapper->Mapper();
 
-  for (const auto& image : reconstruction.Images()) {
+  for (const auto& image : reconstruction->Images()) {
     if (image.second.IsRegistered()) {
       continue;
     }
 
     PrintHeading1("Registering image #" + std::to_string(image.first) + " (" +
-                  std::to_string(reconstruction.NumRegImages() + 1) + ")");
+                  std::to_string(reconstruction->NumRegImages() + 1) + ")");
 
     std::cout << "  => Image sees " << image.second.NumVisiblePoints3D()
               << " / " << image.second.NumObservations() << " points"
@@ -307,10 +306,9 @@ int RunImageRegistrator(int argc, char** argv) {
     mapper.RegisterNextImage(mapper_options, image.first);
   }
 
-  const bool kDiscardReconstruction = false;
-  mapper.EndReconstruction(kDiscardReconstruction);
+  mapper.EndReconstruction(/*discard=*/false);
 
-  reconstruction.Write(output_path);
+  reconstruction->Write(output_path);
 
   return EXIT_SUCCESS;
 }
