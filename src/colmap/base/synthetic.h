@@ -50,7 +50,6 @@ struct SyntheticDatasetOptions {
 
   int num_points2D_without_point3D = 10;
   double point2D_stddev = 0.0;
-  int num_outlier_matches_per_pair = 0;
 };
 
 void SynthesizeDataset(const SyntheticDatasetOptions& options,

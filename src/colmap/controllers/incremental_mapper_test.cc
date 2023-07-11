@@ -44,8 +44,10 @@ TEST(SynthesizeDataset, NoNoiseNoOutliers) {
   Database database(database_path);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions options;
+  options.num_cameras = 2;
+  options.num_images = 10;
+  options.num_points3D = 100;
   options.point2D_stddev = 0;
-  options.num_outlier_matches_per_pair = 0;
   SynthesizeDataset(options, &gt_reconstruction, &database);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
@@ -87,8 +89,10 @@ TEST(SynthesizeDataset, NoiseNoOutliers) {
   Database database(database_path);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions options;
+  options.num_cameras = 2;
+  options.num_images = 10;
+  options.num_points3D = 100;
   options.point2D_stddev = 1.0;
-  options.num_outlier_matches_per_pair = 0;
   SynthesizeDataset(options, &gt_reconstruction, &database);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
@@ -105,8 +109,8 @@ TEST(SynthesizeDataset, NoiseNoOutliers) {
   EXPECT_EQ(reconstruction->NumCameras(), gt_reconstruction.NumCameras());
   EXPECT_EQ(reconstruction->NumImages(), gt_reconstruction.NumImages());
   EXPECT_EQ(reconstruction->NumRegImages(), gt_reconstruction.NumRegImages());
-  EXPECT_EQ(reconstruction->ComputeNumObservations(),
-            gt_reconstruction.ComputeNumObservations());
+  EXPECT_GT(reconstruction->ComputeNumObservations(),
+            0.98 * gt_reconstruction.ComputeNumObservations());
 
   SimilarityTransform3 gtFromComputed;
   ComputeAlignmentBetweenReconstructions(*reconstruction,

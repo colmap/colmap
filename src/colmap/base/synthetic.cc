@@ -49,7 +49,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   CHECK_GE(options.num_points3D, 0);
   CHECK_GE(options.num_points2D_without_point3D, 0);
   CHECK_GE(options.point2D_stddev, 0);
-  CHECK_GE(options.num_outlier_matches_per_pair, 0);
 
   SetPRNGSeed();
 
@@ -174,13 +173,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
             break;
           }
         }
-      }
-
-      for (int i = 0; i < options.num_outlier_matches_per_pair; ++i) {
-        FeatureMatch outlier_match;
-        outlier_match.point2D_idx1 = RandomInteger<int>(0, num_points2D1 - 1);
-        outlier_match.point2D_idx2 = RandomInteger<int>(0, num_points2D2 - 1);
-        two_view_geometry.inlier_matches.push_back(outlier_match);
       }
 
       database->WriteTwoViewGeometry(

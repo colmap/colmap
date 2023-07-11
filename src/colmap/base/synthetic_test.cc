@@ -94,20 +94,4 @@ TEST(SynthesizeDataset, WithNoise) {
   EXPECT_NEAR(reconstruction.ComputeMeanTrackLength(), options.num_images, 0.1);
 }
 
-TEST(SynthesizeDataset, WithOutlierMatches) {
-  const std::string database_path = CreateTestDir() + "/database.db";
-
-  Database database(database_path);
-  Reconstruction reconstruction;
-  SyntheticDatasetOptions options;
-  options.num_outlier_matches_per_pair = 5;
-  SynthesizeDataset(options, &reconstruction, &database);
-
-  const int num_image_pairs = options.num_images * (options.num_images - 1) / 2;
-  EXPECT_EQ(database.NumVerifiedImagePairs(), num_image_pairs);
-  EXPECT_EQ(database.NumInlierMatches(),
-            num_image_pairs *
-                (options.num_points3D + options.num_outlier_matches_per_pair));
-}
-
 }  // namespace colmap
