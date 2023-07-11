@@ -70,8 +70,9 @@ UndistortionWidget::UndistortionWidget(QWidget* parent,
   grid_layout_->addWidget(undistort_button, grid_layout_->rowCount(), 1);
 }
 
-void UndistortionWidget::Show(const Reconstruction& reconstruction) {
-  reconstruction_ = &reconstruction;
+void UndistortionWidget::Show(
+    std::shared_ptr<const Reconstruction> reconstruction) {
+  reconstruction_ = std::move(reconstruction);
   show();
   raise();
 }

@@ -159,21 +159,22 @@ class IncrementalMapperController : public Thread {
     LAST_IMAGE_REG_CALLBACK,
   };
 
-  IncrementalMapperController(const IncrementalMapperOptions* options,
-                              const std::string& image_path,
-                              const std::string& database_path,
-                              ReconstructionManager* reconstruction_manager);
+  IncrementalMapperController(
+      std::shared_ptr<const IncrementalMapperOptions> options,
+      const std::string& image_path,
+      const std::string& database_path,
+      std::shared_ptr<ReconstructionManager> reconstruction_manager);
 
  private:
   void Run();
   bool LoadDatabase();
   void Reconstruct(const IncrementalMapper::Options& init_mapper_options);
 
-  const IncrementalMapperOptions* options_;
+  const std::shared_ptr<const IncrementalMapperOptions> options_;
   const std::string image_path_;
   const std::string database_path_;
-  ReconstructionManager* reconstruction_manager_;
-  DatabaseCache database_cache_;
+  std::shared_ptr<ReconstructionManager> reconstruction_manager_;
+  std::shared_ptr<DatabaseCache> database_cache_;
 };
 
 // Globally filter points and images in mapper.

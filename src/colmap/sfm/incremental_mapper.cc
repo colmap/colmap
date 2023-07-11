@@ -97,21 +97,23 @@ bool IncrementalMapper::Options::Check() const {
   return true;
 }
 
-IncrementalMapper::IncrementalMapper(const DatabaseCache* database_cache)
-    : database_cache_(database_cache),
+IncrementalMapper::IncrementalMapper(
+    std::shared_ptr<const DatabaseCache> database_cache)
+    : database_cache_(std::move(database_cache)),
       reconstruction_(nullptr),
       triangulator_(nullptr),
       num_total_reg_images_(0),
       num_shared_reg_images_(0),
       prev_init_image_pair_id_(kInvalidImagePairId) {}
 
-void IncrementalMapper::BeginReconstruction(Reconstruction* reconstruction) {
+void IncrementalMapper::BeginReconstruction(
+    const std::shared_ptr<Reconstruction>& reconstruction) {
   CHECK(reconstruction_ == nullptr);
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
-  reconstruction_->SetUp(&database_cache_->CorrespondenceGraph());
+  reconstruction_->SetUp(database_cache_->CorrespondenceGraph());
   triangulator_ = std::make_unique<IncrementalTriangulator>(
-      &database_cache_->CorrespondenceGraph(), reconstruction);
+      database_cache_->CorrespondenceGraph(), reconstruction);
 
   num_shared_reg_images_ = 0;
   num_reg_images_per_camera_.clear();
@@ -306,11 +308,9 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
   RegisterImageEvent(image_id1);
   RegisterImageEvent(image_id2);
 
-  const CorrespondenceGraph& correspondence_graph =
-      database_cache_->CorrespondenceGraph();
   const FeatureMatches& corrs =
-      correspondence_graph.FindCorrespondencesBetweenImages(image_id1,
-                                                            image_id2);
+      database_cache_->CorrespondenceGraph()->FindCorrespondencesBetweenImages(
+          image_id1, image_id2);
 
   const double min_tri_angle_rad = DegToRad(options.init_min_tri_angle);
 
@@ -366,12 +366,12 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
   // Search for 2D-3D correspondences
   //////////////////////////////////////////////////////////////////////////////
 
-  const CorrespondenceGraph& correspondence_graph =
-      database_cache_->CorrespondenceGraph();
-
   std::vector<std::pair<point2D_t, point3D_t>> tri_corrs;
   std::vector<Eigen::Vector2d> tri_points2D;
   std::vector<Eigen::Vector3d> tri_points3D;
+
+  const std::shared_ptr<const CorrespondenceGraph> correspondence_graph =
+      database_cache_->CorrespondenceGraph();
 
   std::unordered_set<point3D_t> corr_point3D_ids;
   for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
@@ -379,14 +379,15 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
     const Point2D& point2D = image.Point2D(point2D_idx);
 
     corr_point3D_ids.clear();
-    for (const auto& corr :
-         correspondence_graph.FindCorrespondences(image_id, point2D_idx)) {
-      const Image& corr_image = reconstruction_->Image(corr.image_id);
+    const auto corr_range =
+        correspondence_graph->FindCorrespondences(image_id, point2D_idx);
+    for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+      const Image& corr_image = reconstruction_->Image(corr->image_id);
       if (!corr_image.IsRegistered()) {
         continue;
       }
 
-      const Point2D& corr_point2D = corr_image.Point2D(corr.point2D_idx);
+      const Point2D& corr_point2D = corr_image.Point2D(corr->point2D_idx);
       if (!corr_point2D.HasPoint3D()) {
         continue;
       }
@@ -642,7 +643,7 @@ IncrementalMapper::AdjustLocalBundle(
 
     // Adjust the local bundle.
     BundleAdjuster bundle_adjuster(ba_options, ba_config);
-    bundle_adjuster.Solve(reconstruction_);
+    bundle_adjuster.Solve(reconstruction_.get());
 
     report.num_adjusted_observations =
         bundle_adjuster.Summary().num_residuals / 2;
@@ -716,7 +717,7 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   // Run bundle adjustment.
   BundleAdjuster bundle_adjuster(ba_options, ba_config);
-  if (!bundle_adjuster.Solve(reconstruction_)) {
+  if (!bundle_adjuster.Solve(reconstruction_.get())) {
     return false;
   }
 
@@ -853,20 +854,20 @@ std::vector<image_t> IncrementalMapper::FindFirstInitialImage(
 
 std::vector<image_t> IncrementalMapper::FindSecondInitialImage(
     const Options& options, const image_t image_id1) const {
-  const CorrespondenceGraph& correspondence_graph =
+  const std::shared_ptr<const CorrespondenceGraph> correspondence_graph =
       database_cache_->CorrespondenceGraph();
-
   // Collect images that are connected to the first seed image and have
   // not been registered before in other reconstructions.
   const class Image& image1 = reconstruction_->Image(image_id1);
   std::unordered_map<image_t, point2D_t> num_correspondences;
   for (point2D_t point2D_idx = 0; point2D_idx < image1.NumPoints2D();
        ++point2D_idx) {
-    for (const auto& corr :
-         correspondence_graph.FindCorrespondences(image_id1, point2D_idx)) {
-      if (num_registrations_.count(corr.image_id) == 0 ||
-          num_registrations_.at(corr.image_id) == 0) {
-        num_correspondences[corr.image_id] += 1;
+    const auto corr_range =
+        correspondence_graph->FindCorrespondences(image_id1, point2D_idx);
+    for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+      if (num_registrations_.count(corr->image_id) == 0 ||
+          num_registrations_.at(corr->image_id) == 0) {
+        num_correspondences[corr->image_id] += 1;
       }
     }
   }
@@ -1139,11 +1140,9 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
   const Image& image2 = database_cache_->Image(image_id2);
   const Camera& camera2 = database_cache_->Camera(image2.CameraId());
 
-  const CorrespondenceGraph& correspondence_graph =
-      database_cache_->CorrespondenceGraph();
   const FeatureMatches matches =
-      correspondence_graph.FindCorrespondencesBetweenImages(image_id1,
-                                                            image_id2);
+      database_cache_->CorrespondenceGraph()->FindCorrespondencesBetweenImages(
+          image_id1, image_id2);
 
   std::vector<Eigen::Vector2d> points1;
   points1.reserve(image1.NumPoints2D());

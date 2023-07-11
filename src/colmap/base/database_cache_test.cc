@@ -41,45 +41,54 @@ TEST(DatabaseCache, Empty) {
   EXPECT_EQ(cache.NumImages(), 0);
 }
 
-TEST(DatabaseCache, AddCamera) {
-  DatabaseCache cache;
-  Camera camera;
-  camera.SetCameraId(1);
-  camera.InitializeWithId(SimplePinholeCameraModel::model_id, 1, 1, 1);
-  cache.AddCamera(camera);
-  EXPECT_EQ(cache.NumCameras(), 1);
-  EXPECT_EQ(cache.NumImages(), 0);
-  EXPECT_TRUE(cache.ExistsCamera(camera.CameraId()));
-  EXPECT_EQ(cache.Camera(camera.CameraId()).ModelId(), camera.ModelId());
-}
-
-TEST(DatabaseCache, DegenerateCamera) {
-  DatabaseCache cache;
+TEST(DatabaseCache, Nominal) {
+  Database database(Database::kInMemoryDatabasePath);
   Camera camera;
   camera.InitializeWithId(SimplePinholeCameraModel::model_id, 1, 1, 1);
-  cache.AddCamera(camera);
-  EXPECT_EQ(cache.NumCameras(), 1);
-  EXPECT_EQ(cache.NumImages(), 0);
-  EXPECT_TRUE(cache.ExistsCamera(camera.CameraId()));
-  EXPECT_EQ(cache.Camera(camera.CameraId()).MeanFocalLength(), 1);
-}
-
-TEST(DatabaseCache, AddImage) {
-  DatabaseCache cache;
-  Image image;
-  image.SetImageId(1);
-  image.SetPoints2D(std::vector<Eigen::Vector2d>(10));
-  cache.AddImage(image);
-  EXPECT_EQ(cache.NumCameras(), 0);
-  EXPECT_EQ(cache.NumImages(), 1);
-  EXPECT_TRUE(cache.ExistsImage(image.ImageId()));
-  EXPECT_EQ(cache.Image(image.ImageId()).NumPoints2D(), image.NumPoints2D());
-  EXPECT_TRUE(cache.CorrespondenceGraph().ExistsImage(image.ImageId()));
-  EXPECT_EQ(
-      cache.CorrespondenceGraph().NumCorrespondencesForImage(image.ImageId()),
-      0);
-  EXPECT_EQ(
-      cache.CorrespondenceGraph().NumObservationsForImage(image.ImageId()), 0);
+  const camera_t camera_id = database.WriteCamera(camera);
+  Image image1;
+  image1.SetName("image1");
+  image1.SetCameraId(camera_id);
+  Image image2;
+  image2.SetName("image2");
+  image2.SetCameraId(camera_id);
+  const image_t image_id1 = database.WriteImage(image1);
+  const image_t image_id2 = database.WriteImage(image2);
+  database.WriteKeypoints(image_id1, FeatureKeypoints(10));
+  database.WriteKeypoints(image_id2, FeatureKeypoints(5));
+  TwoViewGeometry two_view_geometry;
+  two_view_geometry.inlier_matches = {{0, 1}};
+  two_view_geometry.config =
+      TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
+  two_view_geometry.F = Eigen::Matrix3d::Random();
+  two_view_geometry.E = Eigen::Matrix3d::Random();
+  two_view_geometry.H = Eigen::Matrix3d::Random();
+  two_view_geometry.qvec = Eigen::Vector4d::Random();
+  two_view_geometry.tvec = Eigen::Vector3d::Random();
+  database.WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
+  auto cache = DatabaseCache::Create(database,
+                                     /*min_num_matches=*/0,
+                                     /*ignore_watermarks=*/false,
+                                     /*image_names=*/{});
+  EXPECT_EQ(cache->NumCameras(), 1);
+  EXPECT_EQ(cache->NumImages(), 2);
+  EXPECT_TRUE(cache->ExistsCamera(camera_id));
+  EXPECT_EQ(cache->Camera(camera_id).ModelId(), camera.ModelId());
+  EXPECT_TRUE(cache->ExistsImage(image_id1));
+  EXPECT_TRUE(cache->ExistsImage(image_id2));
+  EXPECT_EQ(cache->Image(image_id1).NumPoints2D(), 10);
+  EXPECT_EQ(cache->Image(image_id2).NumPoints2D(), 5);
+  const auto correspondence_graph = cache->CorrespondenceGraph();
+  EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(image_id1));
+  EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(image_id1),
+            1);
+  EXPECT_EQ(cache->CorrespondenceGraph()->NumObservationsForImage(image_id1),
+            1);
+  EXPECT_TRUE(cache->CorrespondenceGraph()->ExistsImage(image_id2));
+  EXPECT_EQ(cache->CorrespondenceGraph()->NumCorrespondencesForImage(image_id2),
+            1);
+  EXPECT_EQ(cache->CorrespondenceGraph()->NumObservationsForImage(image_id2),
+            1);
 }
 
 }  // namespace colmap
