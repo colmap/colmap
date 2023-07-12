@@ -588,4 +588,21 @@ TEST(Reconstruction, ComputeMeanReprojectionError) {
   EXPECT_EQ(reconstruction.ComputeMeanReprojectionError(), 2.0);
 }
 
+TEST(Reconstruction, UpdatePoint3DErrors) {
+  Reconstruction reconstruction;
+  GenerateReconstruction(2, &reconstruction);
+  EXPECT_EQ(reconstruction.ComputeMeanReprojectionError(), 0);
+  Track track;
+  track.AddElement(1, 0);
+  reconstruction.Image(1).Point2D(0).SetXY(Eigen::Vector2d(0.5, 0.5));
+  const point3D_t point3D_id =
+      reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 1), track);
+  EXPECT_EQ(reconstruction.Point3D(point3D_id).Error(), -1);
+  reconstruction.UpdatePoint3DErrors();
+  EXPECT_EQ(reconstruction.Point3D(point3D_id).Error(), 0);
+  reconstruction.Point3D(point3D_id).SetXYZ(Eigen::Vector3d(0, 1, 1));
+  reconstruction.UpdatePoint3DErrors();
+  EXPECT_EQ(reconstruction.Point3D(point3D_id).Error(), 1);
+}
+
 }  // namespace colmap
