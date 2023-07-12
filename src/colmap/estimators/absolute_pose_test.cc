@@ -33,7 +33,7 @@
 
 #include "colmap/estimators/essential_matrix.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/geometry/similarity_transform.h"
+#include "colmap/geometry/sim3.h"
 #include "colmap/math/random.h"
 #include "colmap/optim/ransac.h"
 
@@ -64,7 +64,7 @@ TEST(AbsolutePose, P3P) {
   for (double qx = 0; qx < 1; qx += 0.2) {
     // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
     for (double tx = 0; tx < 1; tx += 0.1) {
-      const SimilarityTransform3 orig_tform(
+      const Sim3d orig_tform(
           1, Eigen::Vector4d(1, qx, 0, 0), Eigen::Vector3d(tx, 0, 0));
 
       // Project points to camera coordinate system.
@@ -124,7 +124,7 @@ TEST(AbsolutePose, EPNP) {
   for (double qx = 0; qx < 1; qx += 0.2) {
     // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
     for (double tx = 0; tx < 1; tx += 0.1) {
-      const SimilarityTransform3 orig_tform(
+      const Sim3d orig_tform(
           1, Eigen::Vector4d(1, qx, 0, 0), Eigen::Vector3d(tx, 0, 0));
 
       // Project points to camera coordinate system.

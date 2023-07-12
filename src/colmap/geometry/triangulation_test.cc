@@ -31,7 +31,7 @@
 
 #include "colmap/geometry/triangulation.h"
 
-#include "colmap/geometry/similarity_transform.h"
+#include "colmap/geometry/sim3.h"
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>
@@ -52,7 +52,7 @@ TEST(TriangulatePoint, Nominal) {
   for (int z = 0; z < 5; ++z) {
     const double qz = z / 5.0;
     for (int tx = 0; tx < 10; tx += 2) {
-      SimilarityTransform3 tform(
+      Sim3d tform(
           1, Eigen::Vector4d(0.2, 0.3, 0.4, qz), Eigen::Vector3d(tx, 2, 3));
 
       const Eigen::Matrix3x4d proj_matrix2 =

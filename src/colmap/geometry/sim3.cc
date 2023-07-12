@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/geometry/similarity_transform.h"
+#include "colmap/geometry/sim3.h"
 
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/geometry/pose.h"
@@ -39,42 +39,42 @@
 
 namespace colmap {
 
-SimilarityTransform3::SimilarityTransform3()
+Sim3d::Sim3d()
     : matrix_(Eigen::Matrix3x4d::Identity()) {}
 
-SimilarityTransform3::SimilarityTransform3(const Eigen::Matrix3x4d& matrix)
+Sim3d::Sim3d(const Eigen::Matrix3x4d& matrix)
     : matrix_(matrix) {}
 
-SimilarityTransform3::SimilarityTransform3(const double scale,
+Sim3d::Sim3d(const double scale,
                                            const Eigen::Vector4d& qvec,
                                            const Eigen::Vector3d& tvec) {
   matrix_ = ComposeProjectionMatrix(qvec, tvec);
   matrix_.leftCols<3>() *= scale;
 }
 
-SimilarityTransform3 SimilarityTransform3::Inverse() const {
+Sim3d Sim3d::Inverse() const {
   const double scale = Scale();
   Eigen::Matrix3x4d inverse;
   inverse.leftCols<3>() = matrix_.leftCols<3>().transpose() / (scale * scale);
   inverse.col(3) = inverse.leftCols<3>() * -matrix_.col(3);
-  return SimilarityTransform3(inverse);
+  return Sim3d(inverse);
 }
 
-const Eigen::Matrix3x4d& SimilarityTransform3::Matrix() const {
+const Eigen::Matrix3x4d& Sim3d::Matrix() const {
   return matrix_;
 }
 
-double SimilarityTransform3::Scale() const { return matrix_.col(0).norm(); }
+double Sim3d::Scale() const { return matrix_.col(0).norm(); }
 
-Eigen::Vector4d SimilarityTransform3::Rotation() const {
+Eigen::Vector4d Sim3d::Rotation() const {
   return RotationMatrixToQuaternion(matrix_.leftCols<3>() / Scale());
 }
 
-Eigen::Vector3d SimilarityTransform3::Translation() const {
+Eigen::Vector3d Sim3d::Translation() const {
   return matrix_.col(3);
 }
 
-bool SimilarityTransform3::Estimate(const std::vector<Eigen::Vector3d>& src,
+bool Sim3d::Estimate(const std::vector<Eigen::Vector3d>& src,
                                     const std::vector<Eigen::Vector3d>& tgt) {
   const auto results =
       SimilarityTransformEstimator<3, true>().Estimate(src, tgt);
@@ -86,7 +86,7 @@ bool SimilarityTransform3::Estimate(const std::vector<Eigen::Vector3d>& src,
   return true;
 }
 
-void SimilarityTransform3::TransformPose(Eigen::Vector4d* qvec,
+void Sim3d::TransformPose(Eigen::Vector4d* qvec,
                                          Eigen::Vector3d* tvec) const {
   Eigen::Matrix4d inverse;
   inverse.topRows<3>() = Inverse().Matrix();
@@ -99,7 +99,7 @@ void SimilarityTransform3::TransformPose(Eigen::Vector4d* qvec,
   *tvec = transformed.col(3) / transformed_scale;
 }
 
-void SimilarityTransform3::ToFile(const std::string& path) const {
+void Sim3d::ToFile(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc);
   CHECK(file.good()) << path;
   // Ensure that we don't loose any precision by storing in text.
@@ -107,7 +107,7 @@ void SimilarityTransform3::ToFile(const std::string& path) const {
   file << matrix_ << std::endl;
 }
 
-SimilarityTransform3 SimilarityTransform3::FromFile(const std::string& path) {
+Sim3d Sim3d::FromFile(const std::string& path) {
   std::ifstream file(path);
   CHECK(file.good()) << path;
 
@@ -118,7 +118,7 @@ SimilarityTransform3 SimilarityTransform3::FromFile(const std::string& path) {
     }
   }
 
-  return SimilarityTransform3(matrix);
+  return Sim3d(matrix);
 }
 
 }  // namespace colmap

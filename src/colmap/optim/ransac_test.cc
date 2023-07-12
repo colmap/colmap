@@ -33,7 +33,7 @@
 
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/geometry/similarity_transform.h"
+#include "colmap/geometry/sim3.h"
 #include "colmap/math/random.h"
 
 #include <Eigen/Core>
@@ -91,7 +91,7 @@ TEST(RANSAC, SimilarityTransform) {
   const size_t num_outliers = 400;
 
   // Create some arbitrary transformation.
-  const SimilarityTransform3 orig_tform(
+  const Sim3d orig_tform(
       2, ComposeIdentityQuaternion(), Eigen::Vector3d(100, 10, 10));
 
   // Generate exact data.

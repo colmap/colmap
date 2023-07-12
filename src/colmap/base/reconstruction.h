@@ -37,7 +37,7 @@
 #include "colmap/base/point2d.h"
 #include "colmap/base/point3d.h"
 #include "colmap/base/track.h"
-#include "colmap/geometry/similarity_transform.h"
+#include "colmap/geometry/sim3.h"
 #include "colmap/util/types.h"
 
 #include <memory>
@@ -187,7 +187,7 @@ class Reconstruction {
       double p0 = 0.0, double p1 = 1.0) const;
 
   // Apply the 3D similarity transformation to all images and points.
-  void Transform(const SimilarityTransform3& tform);
+  void Transform(const Sim3d& tform);
 
   // Creates a cropped reconstruction using the input bounds as corner points
   // of the bounding box containing the included 3D points of the new

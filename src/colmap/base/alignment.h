@@ -32,7 +32,7 @@
 #pragma once
 
 #include "colmap/base/reconstruction.h"
-#include "colmap/geometry/similarity_transform.h"
+#include "colmap/geometry/sim3.h"
 
 namespace colmap {
 
@@ -42,7 +42,7 @@ bool AlignReconstructionToLocations(
     const std::vector<Eigen::Vector3d>& locations,
     int min_common_images,
     const RANSACOptions& ransac_options,
-    SimilarityTransform3* tform);
+    Sim3d* tform);
 
 // Robustly compute alignment between reconstructions by finding images that
 // are registered in both reconstructions. The alignment is then estimated
@@ -54,7 +54,7 @@ bool AlignReconstructions(const Reconstruction& src_reconstruction,
                           const Reconstruction& tgt_reconstruction,
                           double min_inlier_observations,
                           double max_reproj_error,
-                          SimilarityTransform3* tgtFromSrc);
+                          Sim3d* tgtFromSrc);
 
 // Robustly compute alignment between reconstructions by finding images that
 // are registered in both reconstructions. The alignment is then estimated
@@ -63,7 +63,7 @@ bool AlignReconstructions(const Reconstruction& src_reconstruction,
 bool AlignReconstructions(const Reconstruction& src_reconstruction,
                           const Reconstruction& tgt_reconstruction,
                           double max_proj_center_error,
-                          SimilarityTransform3* tgtFromSrc);
+                          Sim3d* tgtFromSrc);
 
 // Compute image alignment errors in the target coordinate frame.
 struct ImageAlignmentError {
@@ -74,7 +74,7 @@ struct ImageAlignmentError {
 std::vector<ImageAlignmentError> ComputeImageAlignmentError(
     const Reconstruction& src_reconstruction,
     const Reconstruction& tgt_reconstruction,
-    const SimilarityTransform3& tgtFromSrc);
+    const Sim3d& tgtFromSrc);
 
 // Aligns the source to the target reconstruction and merges cameras, images,
 // points3D into the target using the alignment. Returns false on failure.

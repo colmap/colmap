@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/geometry/similarity_transform.h"
+#include "colmap/geometry/sim3.h"
 
 #include "colmap/geometry/pose.h"
 #include "colmap/util/testing.h"
@@ -41,29 +41,29 @@
 
 namespace colmap {
 
-SimilarityTransform3 TestSimilarityTransform3() {
-  return SimilarityTransform3(1.23,
+Sim3d TestSim3d() {
+  return Sim3d(1.23,
                               NormalizeQuaternion(Eigen::Vector4d(1, 2, 3, 4)),
                               Eigen::Vector3d(1, 2, 3));
 }
 
-TEST(SimilarityTransform3, Default) {
-  const SimilarityTransform3 tform;
+TEST(Sim3d, Default) {
+  const Sim3d tform;
   EXPECT_EQ(tform.Scale(), 1);
   EXPECT_EQ(tform.Rotation(), ComposeIdentityQuaternion());
   EXPECT_EQ(tform.Translation(), Eigen::Vector3d::Zero());
 }
 
-TEST(SimilarityTransform3, Initialization) {
-  const SimilarityTransform3 tform = TestSimilarityTransform3();
-  const SimilarityTransform3 tform2(tform.Matrix());
+TEST(Sim3d, Initialization) {
+  const Sim3d tform = TestSim3d();
+  const Sim3d tform2(tform.Matrix());
   EXPECT_EQ(tform.Scale(), tform2.Scale());
   EXPECT_EQ(tform.Rotation(), tform2.Rotation());
   EXPECT_EQ(tform.Translation(), tform2.Translation());
 }
 
 void TestEstimationWithNumCoords(const size_t num_coords) {
-  const SimilarityTransform3 original = TestSimilarityTransform3();
+  const Sim3d original = TestSim3d();
 
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> dst;
@@ -72,26 +72,26 @@ void TestEstimationWithNumCoords(const size_t num_coords) {
     dst.push_back(original * src.back());
   }
 
-  SimilarityTransform3 estimated;
+  Sim3d estimated;
   EXPECT_TRUE(estimated.Estimate(src, dst));
   EXPECT_TRUE((original.Matrix() - estimated.Matrix()).norm() < 1e-6);
 }
 
-TEST(SimilarityTransform3, EstimateMinimal) { TestEstimationWithNumCoords(3); }
+TEST(Sim3d, EstimateMinimal) { TestEstimationWithNumCoords(3); }
 
-TEST(SimilarityTransform3, EstimateOverDetermined) {
+TEST(Sim3d, EstimateOverDetermined) {
   TestEstimationWithNumCoords(100);
 }
 
-TEST(SimilarityTransform3, EstimateDegenerate) {
+TEST(Sim3d, EstimateDegenerate) {
   std::vector<Eigen::Vector3d> invalid_src_dst(3, Eigen::Vector3d::Zero());
   EXPECT_FALSE(
-      SimilarityTransform3().Estimate(invalid_src_dst, invalid_src_dst));
+      Sim3d().Estimate(invalid_src_dst, invalid_src_dst));
 }
 
-TEST(SimilarityTransform3, Inverse) {
-  const SimilarityTransform3 bFromA = TestSimilarityTransform3();
-  const SimilarityTransform3 aFromB = bFromA.Inverse();
+TEST(Sim3d, Inverse) {
+  const Sim3d bFromA = TestSim3d();
+  const Sim3d aFromB = bFromA.Inverse();
   for (int i = 0; i < 100; ++i) {
     const Eigen::Vector3d x_in_a = Eigen::Vector3d::Random();
     const Eigen::Vector3d x_in_b = bFromA * x_in_a;
@@ -99,11 +99,11 @@ TEST(SimilarityTransform3, Inverse) {
   }
 }
 
-TEST(SimilarityTransform3, ToFromFile) {
+TEST(Sim3d, ToFromFile) {
   const std::string path = CreateTestDir() + "/file.txt";
-  const SimilarityTransform3 written = TestSimilarityTransform3();
+  const Sim3d written = TestSim3d();
   written.ToFile(path);
-  const SimilarityTransform3 read = SimilarityTransform3::FromFile(path);
+  const Sim3d read = Sim3d::FromFile(path);
   EXPECT_EQ(written.Scale(), read.Scale());
   EXPECT_EQ(written.Rotation(), read.Rotation());
   EXPECT_EQ(written.Translation(), read.Translation());

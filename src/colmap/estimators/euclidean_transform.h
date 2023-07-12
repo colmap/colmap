@@ -31,7 +31,7 @@
 
 #pragma once
 
-#include "colmap/geometry/similarity_transform.h"
+#include "colmap/geometry/sim3.h"
 
 namespace colmap {
 
