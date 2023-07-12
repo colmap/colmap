@@ -96,7 +96,7 @@ void ProgressiveSampler::Sample(std::vector<size_t>* sampled_idxs) {
   for (size_t i = 0; i < num_random_samples; ++i) {
     while (true) {
       const size_t random_idx =
-          RandomInteger<uint32_t>(0, max_random_sample_idx);
+          RandomUniformInteger<uint32_t>(0, max_random_sample_idx);
       if (!VectorContainsValue(*sampled_idxs, random_idx)) {
         sampled_idxs->push_back(random_idx);
         break;

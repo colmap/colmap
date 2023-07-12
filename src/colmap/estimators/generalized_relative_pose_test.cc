@@ -50,9 +50,9 @@ TEST(GeneralizedRelativePose, Estimate) {
 
   std::vector<Eigen::Vector3d> points3D;
   for (size_t i = 0; i < kNumPoints; ++i) {
-    points3D.emplace_back(RandomReal<double>(-10, 10),
-                          RandomReal<double>(-10, 10),
-                          RandomReal<double>(-10, 10));
+    points3D.emplace_back(RandomUniformReal<double>(-10, 10),
+                          RandomUniformReal<double>(-10, 10),
+                          RandomUniformReal<double>(-10, 10));
   }
 
   // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)

@@ -114,8 +114,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     // Synthesize uniform random 2D points without 3D points.
     for (int i = 0; i < options.num_points2D_without_point3D; ++i) {
       Point2D point2D;
-      point2D.SetXY(Eigen::Vector2d(RandomReal<double>(0, camera.Width()),
-                                    RandomReal<double>(0, camera.Height())));
+      point2D.SetXY(
+          Eigen::Vector2d(RandomUniformReal<double>(0, camera.Width()),
+                          RandomUniformReal<double>(0, camera.Height())));
       points2D.push_back(point2D);
     }
 

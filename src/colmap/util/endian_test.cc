@@ -96,16 +96,16 @@ TEST(IsLittleBigEndian, Nominal) { EXPECT_NE(IsLittleEndian(), IsBigEndian()); }
 
 template <typename T>
 void TestIntNativeToLitteBigEndian() {
-  const T x = RandomInteger<T>(std::numeric_limits<T>::lowest(),
-                               std::numeric_limits<T>::max());
+  const T x = RandomUniformInteger<T>(std::numeric_limits<T>::lowest(),
+                                      std::numeric_limits<T>::max());
   EXPECT_EQ(LittleEndianToNative<T>(NativeToLittleEndian<T>(x)), x);
   EXPECT_EQ(BigEndianToNative<T>(NativeToBigEndian<T>(x)), x);
 }
 
 template <typename T>
 void TestRealNativeToLitteBigEndian() {
-  const T x = RandomReal<T>(std::numeric_limits<T>::lowest(),
-                            std::numeric_limits<T>::max());
+  const T x = RandomUniformReal<T>(std::numeric_limits<T>::lowest(),
+                                   std::numeric_limits<T>::max());
   EXPECT_EQ(LittleEndianToNative<T>(NativeToLittleEndian<T>(x)), x);
   EXPECT_EQ(BigEndianToNative<T>(NativeToBigEndian<T>(x)), x);
   EXPECT_EQ(NativeToLittleEndian<T>(LittleEndianToNative<T>(x)), x);
@@ -132,8 +132,8 @@ TEST(NativeToLitteBigEndian, Nominal) {
 template <typename T>
 void TestIntReadWriteBinaryLittleEndian() {
   std::stringstream file;
-  const T orig_value = RandomInteger<T>(std::numeric_limits<T>::lowest(),
-                                        std::numeric_limits<T>::max());
+  const T orig_value = RandomUniformInteger<T>(std::numeric_limits<T>::lowest(),
+                                               std::numeric_limits<T>::max());
   WriteBinaryLittleEndian<T>(&file, orig_value);
   const T read_value = ReadBinaryLittleEndian<T>(&file);
   EXPECT_EQ(orig_value, read_value);
@@ -141,8 +141,8 @@ void TestIntReadWriteBinaryLittleEndian() {
   std::stringstream file_vector;
   std::vector<T> orig_vector(100);
   std::generate(orig_vector.begin(), orig_vector.end(), []() {
-    return RandomInteger<T>(std::numeric_limits<T>::lowest(),
-                            std::numeric_limits<T>::max());
+    return RandomUniformInteger<T>(std::numeric_limits<T>::lowest(),
+                                   std::numeric_limits<T>::max());
   });
   WriteBinaryLittleEndian<T>(&file_vector, orig_vector);
   std::vector<T> read_vector(orig_vector.size());
@@ -155,8 +155,8 @@ void TestIntReadWriteBinaryLittleEndian() {
 template <typename T>
 void TestFloatReadWriteBinaryLittleEndian() {
   std::stringstream file;
-  const T orig_value = RandomReal<T>(std::numeric_limits<T>::lowest(),
-                                     std::numeric_limits<T>::max());
+  const T orig_value = RandomUniformReal<T>(std::numeric_limits<T>::lowest(),
+                                            std::numeric_limits<T>::max());
   WriteBinaryLittleEndian<T>(&file, orig_value);
   const T read_value = ReadBinaryLittleEndian<T>(&file);
   EXPECT_EQ(orig_value, read_value);
@@ -164,8 +164,8 @@ void TestFloatReadWriteBinaryLittleEndian() {
   std::stringstream file_vector;
   std::vector<T> orig_vector(100);
   std::generate(orig_vector.begin(), orig_vector.end(), []() {
-    return RandomReal<T>(std::numeric_limits<T>::lowest(),
-                         std::numeric_limits<T>::max());
+    return RandomUniformReal<T>(std::numeric_limits<T>::lowest(),
+                                std::numeric_limits<T>::max());
   });
   WriteBinaryLittleEndian<T>(&file_vector, orig_vector);
   std::vector<T> read_vector(orig_vector.size());

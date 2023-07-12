@@ -114,9 +114,9 @@ void GeneratePointCloud(const size_t num_points,
                         Reconstruction* reconstruction) {
   for (size_t i = 0; i < num_points; ++i) {
     Eigen::Vector3d xyz;
-    xyz.x() = RandomReal(min.x(), max.x());
-    xyz.y() = RandomReal(min.y(), max.y());
-    xyz.z() = RandomReal(min.z(), max.z());
+    xyz.x() = RandomUniformReal(min.x(), max.x());
+    xyz.y() = RandomUniformReal(min.y(), max.y());
+    xyz.z() = RandomUniformReal(min.z(), max.z());
     reconstruction->AddPoint3D(xyz, Track());
   }
 }
@@ -151,8 +151,8 @@ void GenerateReconstruction(const size_t num_images,
     image.SetCameraId(camera_id);
     image.SetName(std::to_string(i));
     image.Qvec() = ComposeIdentityQuaternion();
-    image.Tvec() =
-        Eigen::Vector3d(RandomReal(-1.0, 1.0), RandomReal(-1.0, 1.0), 10);
+    image.Tvec() = Eigen::Vector3d(
+        RandomUniformReal(-1.0, 1.0), RandomUniformReal(-1.0, 1.0), 10);
     image.SetRegistered(true);
     reconstruction->AddImage(image);
 
@@ -165,7 +165,8 @@ void GenerateReconstruction(const size_t num_images,
       Eigen::Vector2d point2D =
           ProjectPointToImage(point3D.second.XYZ(), proj_matrix, camera);
       // Add some uniform noise.
-      point2D += Eigen::Vector2d(RandomReal(-2.0, 2.0), RandomReal(-2.0, 2.0));
+      point2D += Eigen::Vector2d(RandomUniformReal(-2.0, 2.0),
+                                 RandomUniformReal(-2.0, 2.0));
       points2D.push_back(point2D);
     }
 

@@ -54,13 +54,13 @@ void SetPRNGSeed(unsigned seed = kDefaultPRNGSeed);
 //
 // This implementation is unbiased and thread-safe in contrast to `rand()`.
 template <typename T>
-T RandomInteger(T min, T max);
+T RandomUniformInteger(T min, T max);
 
 // Generate uniformly distributed random real number.
 //
 // This implementation is unbiased and thread-safe in contrast to `rand()`.
 template <typename T>
-T RandomReal(T min, T max);
+T RandomUniformReal(T min, T max);
 
 // Generate Gaussian distributed random real number.
 //
@@ -85,7 +85,7 @@ void Shuffle(uint32_t num_to_shuffle, std::vector<T>* elems);
 ////////////////////////////////////////////////////////////////////////////////
 
 template <typename T>
-T RandomInteger(const T min, const T max) {
+T RandomUniformInteger(const T min, const T max) {
   if (PRNG == nullptr) {
     SetPRNGSeed();
   }
@@ -96,7 +96,7 @@ T RandomInteger(const T min, const T max) {
 }
 
 template <typename T>
-T RandomReal(const T min, const T max) {
+T RandomUniformReal(const T min, const T max) {
   if (PRNG == nullptr) {
     SetPRNGSeed();
   }
@@ -121,7 +121,7 @@ void Shuffle(const uint32_t num_to_shuffle, std::vector<T>* elems) {
   CHECK_LE(num_to_shuffle, elems->size());
   const uint32_t last_idx = static_cast<uint32_t>(elems->size() - 1);
   for (uint32_t i = 0; i < num_to_shuffle; ++i) {
-    const auto j = RandomInteger<uint32_t>(i, last_idx);
+    const auto j = RandomUniformInteger<uint32_t>(i, last_idx);
     std::swap((*elems)[i], (*elems)[j]);
   }
 }
