@@ -38,62 +38,43 @@
 
 namespace colmap {
 
-TEST(SynthesizeDataset, WithoutNoise) {
-  const std::string database_path = CreateTestDir() + "/database.db";
-
-  Database database(database_path);
-  Reconstruction gt_reconstruction;
-  SyntheticDatasetOptions options;
-  options.num_cameras = 2;
-  options.num_images = 10;
-  options.num_points3D = 100;
-  options.point2D_stddev = 0;
-  SynthesizeDataset(options, &gt_reconstruction, &database);
-
-  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  IncrementalMapperController mapper(
-      std::make_shared<IncrementalMapperOptions>(),
-      /*image_path=*/"",
-      database_path,
-      reconstruction_manager);
-  mapper.Start();
-  mapper.Wait();
-
-  ASSERT_EQ(reconstruction_manager->Size(), 1);
-  const auto& reconstruction = reconstruction_manager->Get(0);
-  EXPECT_EQ(reconstruction->NumCameras(), gt_reconstruction.NumCameras());
-  EXPECT_EQ(reconstruction->NumImages(), gt_reconstruction.NumImages());
-  EXPECT_EQ(reconstruction->NumRegImages(), gt_reconstruction.NumRegImages());
-  EXPECT_NEAR(reconstruction->ComputeMeanReprojectionError(), 0, 1e-3);
-  EXPECT_EQ(reconstruction->ComputeNumObservations(),
-            gt_reconstruction.ComputeNumObservations());
+void ExpectEqualReconstructions(const Reconstruction& gt,
+                                const Reconstruction& computed,
+                                const double max_rotation_error_deg,
+                                const double max_proj_center_error,
+                                const double num_obs_tolerance) {
+  EXPECT_EQ(computed.NumCameras(), gt.NumCameras());
+  EXPECT_EQ(computed.NumImages(), gt.NumImages());
+  EXPECT_EQ(computed.NumRegImages(), gt.NumRegImages());
+  EXPECT_GE(computed.ComputeNumObservations(),
+            (1 - num_obs_tolerance) * gt.ComputeNumObservations());
 
   SimilarityTransform3 gtFromComputed;
-  ComputeAlignmentBetweenReconstructions(*reconstruction,
-                                         gt_reconstruction,
+  ComputeAlignmentBetweenReconstructions(computed,
+                                         gt,
                                          /*max_proj_center_error=*/0.1,
                                          &gtFromComputed);
 
-  const std::vector<ImageAlignmentError> errors = ComputeImageAlignmentError(
-      *reconstruction, gt_reconstruction, gtFromComputed);
-  EXPECT_EQ(errors.size(), gt_reconstruction.NumImages());
+  const std::vector<ImageAlignmentError> errors =
+      ComputeImageAlignmentError(computed, gt, gtFromComputed);
+  EXPECT_EQ(errors.size(), gt.NumImages());
   for (const auto& error : errors) {
-    EXPECT_LT(error.rotation_error_deg, 1e-2);
-    EXPECT_LT(error.proj_center_error, 1e-4);
+    EXPECT_LT(error.rotation_error_deg, max_rotation_error_deg);
+    EXPECT_LT(error.proj_center_error, max_proj_center_error);
   }
 }
 
-TEST(SynthesizeDataset, WithNoise) {
+TEST(IncrementalMapperController, WithoutNoise) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
   Database database(database_path);
   Reconstruction gt_reconstruction;
-  SyntheticDatasetOptions options;
-  options.num_cameras = 2;
-  options.num_images = 10;
-  options.num_points3D = 100;
-  options.point2D_stddev = 0.5;
-  SynthesizeDataset(options, &gt_reconstruction, &database);
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_cameras = 2;
+  synthetic_dataset_options.num_images = 10;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.point2D_stddev = 0;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   IncrementalMapperController mapper(
@@ -105,26 +86,78 @@ TEST(SynthesizeDataset, WithNoise) {
   mapper.Wait();
 
   ASSERT_EQ(reconstruction_manager->Size(), 1);
-  const auto& reconstruction = reconstruction_manager->Get(0);
-  EXPECT_EQ(reconstruction->NumCameras(), gt_reconstruction.NumCameras());
-  EXPECT_EQ(reconstruction->NumImages(), gt_reconstruction.NumImages());
-  EXPECT_EQ(reconstruction->NumRegImages(), gt_reconstruction.NumRegImages());
-  EXPECT_GE(reconstruction->ComputeNumObservations(),
-            0.98 * gt_reconstruction.ComputeNumObservations());
+  ExpectEqualReconstructions(gt_reconstruction,
+                             *reconstruction_manager->Get(0),
+                             /*max_rotation_error_deg=*/1e-2,
+                             /*max_proj_center_error=*/1e-4,
+                             /*num_obs_tolerance=*/0);
+}
 
-  SimilarityTransform3 gtFromComputed;
-  ComputeAlignmentBetweenReconstructions(*reconstruction,
-                                         gt_reconstruction,
-                                         /*max_proj_center_error=*/0.1,
-                                         &gtFromComputed);
+TEST(IncrementalMapperController, WithNoise) {
+  const std::string database_path = CreateTestDir() + "/database.db";
 
-  const std::vector<ImageAlignmentError> errors = ComputeImageAlignmentError(
-      *reconstruction, gt_reconstruction, gtFromComputed);
-  EXPECT_EQ(errors.size(), gt_reconstruction.NumImages());
-  for (const auto& error : errors) {
-    EXPECT_LT(error.rotation_error_deg, 1e-1);
-    EXPECT_LT(error.proj_center_error, 1e-2);
-  }
+  Database database(database_path);
+  Reconstruction gt_reconstruction;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_cameras = 2;
+  synthetic_dataset_options.num_images = 10;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.point2D_stddev = 0.5;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  IncrementalMapperController mapper(
+      std::make_shared<IncrementalMapperOptions>(),
+      /*image_path=*/"",
+      database_path,
+      reconstruction_manager);
+  mapper.Start();
+  mapper.Wait();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 1);
+  ExpectEqualReconstructions(gt_reconstruction,
+                             *reconstruction_manager->Get(0),
+                             /*max_rotation_error_deg=*/1e-1,
+                             /*max_proj_center_error=*/1e-2,
+                             /*num_obs_tolerance=*/0.02);
+}
+
+TEST(IncrementalMapperController, MultiReconstruction) {
+  const std::string database_path = CreateTestDir() + "/database.db";
+
+  Database database(database_path);
+  Reconstruction gt_reconstruction1;
+  Reconstruction gt_reconstruction2;
+  SyntheticDatasetOptions synthetic_dataset_options;
+  synthetic_dataset_options.num_cameras = 1;
+  synthetic_dataset_options.num_images = 5;
+  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.point2D_stddev = 0;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction1, &database);
+  synthetic_dataset_options.num_images = 4;
+  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction2, &database);
+
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  auto mapper_options = std::make_shared<IncrementalMapperOptions>();
+  mapper_options->min_model_size = 4;
+  IncrementalMapperController mapper(mapper_options,
+                                     /*image_path=*/"",
+                                     database_path,
+                                     reconstruction_manager);
+  mapper.Start();
+  mapper.Wait();
+
+  ASSERT_EQ(reconstruction_manager->Size(), 2);
+  ExpectEqualReconstructions(gt_reconstruction1,
+                             *reconstruction_manager->Get(0),
+                             /*max_rotation_error_deg=*/1e-2,
+                             /*max_proj_center_error=*/1e-4,
+                             /*num_obs_tolerance=*/0);
+  ExpectEqualReconstructions(gt_reconstruction2,
+                             *reconstruction_manager->Get(1),
+                             /*max_rotation_error_deg=*/1e-2,
+                             /*max_proj_center_error=*/1e-4,
+                             /*num_obs_tolerance=*/0);
 }
 
 }  // namespace colmap

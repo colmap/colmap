@@ -50,8 +50,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   CHECK_GE(options.num_points2D_without_point3D, 0);
   CHECK_GE(options.point2D_stddev, 0);
 
-  SetPRNGSeed();
-
+  // Synthesize cameras.
   std::vector<camera_t> camera_ids(options.num_cameras);
   for (int camera_idx = 0; camera_idx < options.num_cameras; ++camera_idx) {
     Camera camera;
@@ -65,15 +64,17 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     reconstruction->AddCamera(std::move(camera));
   }
 
+  // Synthesize 3D points on unit sphere centered at origin.
   for (int point3D_idx = 0; point3D_idx < options.num_points3D; ++point3D_idx) {
-    // Generate 3D points on unit sphere centered at origin.
     reconstruction->AddPoint3D(Eigen::Vector3d::Random().normalized(),
                                /*track=*/{});
   }
 
+  // Synthesize images.
+  const int existing_num_images = database->NumImages();
   for (int image_idx = 0; image_idx < options.num_images; ++image_idx) {
     Image image;
-    image.SetName("image" + std::to_string(image_idx));
+    image.SetName("image" + std::to_string(existing_num_images + image_idx));
     image.SetCameraId(camera_ids[image_idx % options.num_cameras]);
     // Synthesize image poses with projection centers on sphere with radious 5
     // centered at origin.
@@ -110,7 +111,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       }
     }
 
-    // Create uniform random points without 3D points.
+    // Synthesize uniform random 2D points without 3D points.
     for (int i = 0; i < options.num_points2D_without_point3D; ++i) {
       Point2D point2D;
       point2D.SetXY(Eigen::Vector2d(RandomReal<double>(0, camera.Width()),
@@ -121,6 +122,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     // Shuffle 2D points, so each image has another order of observed 3D points.
     std::shuffle(points2D.begin(), points2D.end(), *PRNG);
 
+    // Create keypoints to add to database.
     FeatureKeypoints keypoints;
     keypoints.reserve(points2D.size());
     for (const auto& point2D : points2D) {

@@ -57,7 +57,8 @@ struct IncrementalMapperOptions {
   int max_model_overlap = 20;
 
   // The minimum number of registered images of a sub-model, otherwise the
-  // sub-model is discarded.
+  // sub-model is discarded. Note that the first sub-model is always kept
+  // independent of size.
   int min_model_size = 10;
 
   // The image identifiers used to initialize the reconstruction. Note that

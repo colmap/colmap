@@ -93,4 +93,26 @@ TEST(SynthesizeDataset, WithNoise) {
   EXPECT_NEAR(reconstruction.ComputeMeanTrackLength(), options.num_images, 0.1);
 }
 
+TEST(SynthesizeDataset, MultiReconstruction) {
+  Database database(Database::kInMemoryDatabasePath);
+  Reconstruction reconstruction1;
+  Reconstruction reconstruction2;
+  SyntheticDatasetOptions options;
+  SynthesizeDataset(options, &reconstruction1, &database);
+  SynthesizeDataset(options, &reconstruction2, &database);
+
+  EXPECT_EQ(database.NumCameras(), 2 * options.num_cameras);
+  EXPECT_EQ(reconstruction1.NumCameras(), options.num_cameras);
+  EXPECT_EQ(reconstruction1.NumCameras(), options.num_cameras);
+  EXPECT_EQ(database.NumImages(), 2 * options.num_images);
+  EXPECT_EQ(reconstruction1.NumImages(), options.num_images);
+  EXPECT_EQ(reconstruction2.NumImages(), options.num_images);
+  EXPECT_EQ(reconstruction1.NumRegImages(), options.num_images);
+  EXPECT_EQ(reconstruction2.NumRegImages(), options.num_images);
+  const int num_image_pairs = options.num_images * (options.num_images - 1) / 2;
+  EXPECT_EQ(database.NumVerifiedImagePairs(), 2 * num_image_pairs);
+  EXPECT_EQ(database.NumInlierMatches(),
+            2 * num_image_pairs * options.num_points3D);
+}
+
 }  // namespace colmap
