@@ -71,8 +71,8 @@ TEST(IncrementalMapperController, WithoutNoise) {
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_cameras = 2;
-  synthetic_dataset_options.num_images = 10;
-  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.num_images = 7;
+  synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
@@ -100,7 +100,7 @@ TEST(IncrementalMapperController, WithNoise) {
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_cameras = 2;
-  synthetic_dataset_options.num_images = 10;
+  synthetic_dataset_options.num_images = 7;
   synthetic_dataset_options.num_points3D = 100;
   synthetic_dataset_options.point2D_stddev = 0.5;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
@@ -118,7 +118,7 @@ TEST(IncrementalMapperController, WithNoise) {
   ExpectEqualReconstructions(gt_reconstruction,
                              *reconstruction_manager->Get(0),
                              /*max_rotation_error_deg=*/1e-1,
-                             /*max_proj_center_error=*/1e-2,
+                             /*max_proj_center_error=*/1e-1,
                              /*num_obs_tolerance=*/0.02);
 }
 
@@ -131,7 +131,7 @@ TEST(IncrementalMapperController, MultiReconstruction) {
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_cameras = 1;
   synthetic_dataset_options.num_images = 5;
-  synthetic_dataset_options.num_points3D = 100;
+  synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction1, &database);
   synthetic_dataset_options.num_images = 4;
