@@ -40,7 +40,7 @@ bool AlignReconstructionToLocations(
     const Reconstruction& reconstruction,
     const std::vector<std::string>& image_names,
     const std::vector<Eigen::Vector3d>& locations,
-    const int min_common_images,
+    int min_common_images,
     const RANSACOptions& ransac_options,
     SimilarityTransform3* tform);
 
