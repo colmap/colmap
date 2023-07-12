@@ -34,8 +34,8 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/projection.h"
 #include "colmap/geometry/similarity_transform.h"
+#include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"
-#include "colmap/util/random.h"
 
 #include <array>
 

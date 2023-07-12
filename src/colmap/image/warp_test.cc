@@ -31,7 +31,7 @@
 
 #include "colmap/image/warp.h"
 
-#include "colmap/util/random.h"
+#include "colmap/math/random.h"
 
 #include <gtest/gtest.h>
 

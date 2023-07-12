@@ -31,8 +31,8 @@
 
 #include "colmap/optim/combination_sampler.h"
 
-#include "colmap/util/math.h"
-#include "colmap/util/random.h"
+#include "colmap/math/math.h"
+#include "colmap/math/random.h"
 
 #include <numeric>
 

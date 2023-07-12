@@ -41,9 +41,9 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/projection.h"
 #include "colmap/geometry/triangulation.h"
+#include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/optim/ransac.h"
-#include "colmap/util/random.h"
 
 #include <unordered_set>
 

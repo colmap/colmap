@@ -32,7 +32,7 @@
 #pragma once
 
 #include "colmap/base/camera.h"
-#include "colmap/util/math.h"
+#include "colmap/math/math.h"
 #include "colmap/util/types.h"
 
 #include <vector>

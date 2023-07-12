@@ -31,8 +31,8 @@
 
 #include "colmap/base/scene_clustering.h"
 
-#include "colmap/base/graph_cut.h"
-#include "colmap/util/random.h"
+#include "colmap/math/graph_cut.h"
+#include "colmap/math/random.h"
 
 #include <set>
 

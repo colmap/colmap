@@ -31,7 +31,7 @@
 
 #include "colmap/optim/least_absolute_deviations.h"
 
-#include "colmap/util/random.h"
+#include "colmap/math/random.h"
 
 #include <Eigen/Dense>
 #include <gtest/gtest.h>

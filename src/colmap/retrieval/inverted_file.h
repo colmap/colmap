@@ -31,11 +31,11 @@
 
 #pragma once
 
+#include "colmap/math/math.h"
 #include "colmap/retrieval/geometry.h"
 #include "colmap/retrieval/inverted_file_entry.h"
 #include "colmap/retrieval/utils.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/math.h"
 
 #include <algorithm>
 #include <bitset>

@@ -62,8 +62,8 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/projection.h"
 #include "colmap/geometry/triangulation.h"
+#include "colmap/math/random.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/random.h"
 
 namespace colmap {
 namespace {

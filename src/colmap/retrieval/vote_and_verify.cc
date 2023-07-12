@@ -32,9 +32,9 @@
 #include "colmap/retrieval/vote_and_verify.h"
 
 #include "colmap/estimators/affine_transform.h"
+#include "colmap/math/math.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/math.h"
 
 #include <array>
 #include <unordered_map>
