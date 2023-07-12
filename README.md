@@ -125,3 +125,4 @@ affect the resulting COLMAP license.
     POSSIBILITY OF SUCH DAMAGE.
 
     Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
+# RelocationWithColmap
