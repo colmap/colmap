@@ -41,18 +41,12 @@ class OptionManager;
 
 class ReconstructionManager {
  public:
-  ReconstructionManager() = default;
-
-  // Move constructor and assignment.
-  ReconstructionManager(ReconstructionManager&& other) noexcept;
-  ReconstructionManager& operator=(ReconstructionManager&& other) noexcept;
-
   // The number of reconstructions managed.
   size_t Size() const;
 
   // Get a reference to a specific reconstruction.
   std::shared_ptr<const Reconstruction> Get(size_t idx) const;
-  std::shared_ptr<Reconstruction> Get(size_t idx);
+  std::shared_ptr<Reconstruction>& Get(size_t idx);
 
   // Add a new empty reconstruction and return its index.
   size_t Add();
@@ -72,8 +66,6 @@ class ReconstructionManager {
   void Write(const std::string& path, const OptionManager* options) const;
 
  private:
-  NON_COPYABLE(ReconstructionManager)
-
   std::vector<std::shared_ptr<Reconstruction>> reconstructions_;
 };
 
