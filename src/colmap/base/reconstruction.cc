@@ -741,6 +741,7 @@ double Reconstruction::ComputeMeanReprojectionError() const {
 void Reconstruction::UpdatePoint3DErrors() {
   for (auto& point3D : points3D_) {
     if (point3D.second.Track().Length() == 0) {
+      point3D.second.SetError(0);
       continue;
     }
     double error_sum = 0;
