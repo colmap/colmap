@@ -94,11 +94,10 @@ TEST(GeneralizedAbsolutePose, Estimate) {
       // Project points to camera coordinate system.
       std::vector<GP3PEstimator::X_t> points2D;
       for (size_t i = 0; i < points3D.size(); ++i) {
-        Eigen::Vector3d point3D_camera = points3D[i];
-        orig_tforms[i % kNumTforms].TransformPoint(&point3D_camera);
         points2D.emplace_back();
         points2D.back().rel_tform = rel_tforms[i % kNumTforms];
-        points2D.back().xy = point3D_camera.hnormalized();
+        points2D.back().xy =
+            (orig_tforms[i % kNumTforms] * points3D[i]).hnormalized();
       }
 
       RANSACOptions options;

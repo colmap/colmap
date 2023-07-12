@@ -53,12 +53,12 @@ struct ReconstructionAlignmentEstimator {
     max_squared_reproj_error_ = max_reproj_error * max_reproj_error;
   }
 
-  void SetReconstructions(const Reconstruction* reconstruction1,
-                          const Reconstruction* reconstruction2) {
-    CHECK_NOTNULL(reconstruction1);
-    CHECK_NOTNULL(reconstruction2);
-    reconstruction1_ = reconstruction1;
-    reconstruction2_ = reconstruction2;
+  void SetReconstructions(const Reconstruction* src_reconstruction,
+                          const Reconstruction* tgt_reconstruction) {
+    CHECK_NOTNULL(src_reconstruction);
+    CHECK_NOTNULL(tgt_reconstruction);
+    src_reconstruction_ = src_reconstruction;
+    tgt_reconstruction_ = tgt_reconstruction;
   }
 
   // Estimate 3D similarity transform from corresponding projection centers.
@@ -76,10 +76,12 @@ struct ReconstructionAlignmentEstimator {
       proj_centers2[i] = tgt_images[i]->ProjectionCenter();
     }
 
-    SimilarityTransform3 tform12;
-    tform12.Estimate(proj_centers1, proj_centers2);
+    SimilarityTransform3 tgtFromSrc;
+    if (tgtFromSrc.Estimate(proj_centers1, proj_centers2)) {
+      return {tgtFromSrc.Matrix()};
+    }
 
-    return {tform12.Matrix().topRows<3>()};
+    return {};
   }
 
   // For each image, determine the ratio of 3D points that correctly project
@@ -92,63 +94,69 @@ struct ReconstructionAlignmentEstimator {
                  const M_t& tgtFromSrc,
                  std::vector<double>* residuals) const {
     CHECK_EQ(src_images.size(), tgt_images.size());
-    CHECK_NOTNULL(reconstruction1_);
-    CHECK_NOTNULL(reconstruction2_);
+    CHECK_NOTNULL(src_reconstruction_);
+    CHECK_NOTNULL(tgt_reconstruction_);
 
     const Eigen::Matrix3x4d srcFromTgt =
-        SimilarityTransform3(tgtFromSrc).Inverse().Matrix().topRows<3>();
+        SimilarityTransform3(tgtFromSrc).Inverse().Matrix();
 
     residuals->resize(src_images.size());
 
     for (size_t i = 0; i < src_images.size(); ++i) {
-      const auto& image1 = *src_images[i];
-      const auto& image2 = *tgt_images[i];
+      const auto& src_image = *src_images[i];
+      const auto& tgt_image = *tgt_images[i];
 
-      CHECK_EQ(image1.ImageId(), image2.ImageId());
+      CHECK_EQ(src_image.ImageId(), tgt_image.ImageId());
 
-      const auto& camera1 = reconstruction1_->Camera(image1.CameraId());
-      const auto& camera2 = reconstruction2_->Camera(image2.CameraId());
+      const auto& src_camera =
+          src_reconstruction_->Camera(src_image.CameraId());
+      const auto& tgt_camera =
+          tgt_reconstruction_->Camera(tgt_image.CameraId());
 
-      const Eigen::Matrix3x4d proj_matrix1 = image1.ProjectionMatrix();
-      const Eigen::Matrix3x4d proj_matrix2 = image2.ProjectionMatrix();
+      const Eigen::Matrix3x4d tgt_proj_matrix = src_image.ProjectionMatrix();
+      const Eigen::Matrix3x4d src_proj_matrix = tgt_image.ProjectionMatrix();
 
-      CHECK_EQ(image1.NumPoints2D(), image2.NumPoints2D());
+      CHECK_EQ(src_image.NumPoints2D(), tgt_image.NumPoints2D());
 
       size_t num_inliers = 0;
       size_t num_common_points = 0;
 
-      for (point2D_t point2D_idx = 0; point2D_idx < image1.NumPoints2D();
+      for (point2D_t point2D_idx = 0; point2D_idx < src_image.NumPoints2D();
            ++point2D_idx) {
         // Check if both images have a 3D point.
 
-        const auto& point2D1 = image1.Point2D(point2D_idx);
-        if (!point2D1.HasPoint3D()) {
+        const auto& src_point2D = src_image.Point2D(point2D_idx);
+        if (!src_point2D.HasPoint3D()) {
           continue;
         }
 
-        const auto& point2D2 = image2.Point2D(point2D_idx);
-        if (!point2D2.HasPoint3D()) {
+        const auto& tgt_point2D = tgt_image.Point2D(point2D_idx);
+        if (!tgt_point2D.HasPoint3D()) {
           continue;
         }
 
         num_common_points += 1;
 
-        // Reproject 3D point in image 1 to image 2.
-        const Eigen::Vector3d xyz12 =
-            tgtFromSrc *
-            reconstruction1_->Point3D(point2D1.Point3DId()).XYZ().homogeneous();
-        if (CalculateSquaredReprojectionError(
-                point2D2.XY(), xyz12, proj_matrix2, camera2) >
+        const Eigen::Vector3d src_point_in_tgt =
+            tgtFromSrc * src_reconstruction_->Point3D(src_point2D.Point3DId())
+                             .XYZ()
+                             .homogeneous();
+        if (CalculateSquaredReprojectionError(tgt_point2D.XY(),
+                                              src_point_in_tgt,
+                                              src_proj_matrix,
+                                              tgt_camera) >
             max_squared_reproj_error_) {
           continue;
         }
 
-        // Reproject 3D point in image 2 to image 1.
-        const Eigen::Vector3d xyz21 =
-            srcFromTgt *
-            reconstruction2_->Point3D(point2D2.Point3DId()).XYZ().homogeneous();
-        if (CalculateSquaredReprojectionError(
-                point2D1.XY(), xyz21, proj_matrix1, camera1) >
+        const Eigen::Vector3d tgt_point_in_src =
+            srcFromTgt * tgt_reconstruction_->Point3D(tgt_point2D.Point3DId())
+                             .XYZ()
+                             .homogeneous();
+        if (CalculateSquaredReprojectionError(src_point2D.XY(),
+                                              tgt_point_in_src,
+                                              tgt_proj_matrix,
+                                              src_camera) >
             max_squared_reproj_error_) {
           continue;
         }
@@ -169,104 +177,92 @@ struct ReconstructionAlignmentEstimator {
 
  private:
   double max_squared_reproj_error_ = 0.0;
-  const Reconstruction* reconstruction1_ = nullptr;
-  const Reconstruction* reconstruction2_ = nullptr;
+  const Reconstruction* src_reconstruction_ = nullptr;
+  const Reconstruction* tgt_reconstruction_ = nullptr;
 };
 
 }  // namespace
 
 SimilarityTransform3::SimilarityTransform3()
-    : SimilarityTransform3(
-          1, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0)) {}
+    : matrix_(Eigen::Matrix3x4d::Identity()) {}
 
-SimilarityTransform3::SimilarityTransform3(const Eigen::Matrix3x4d& matrix) {
-  transform_.matrix().topLeftCorner<3, 4>() = matrix;
-}
-
-SimilarityTransform3::SimilarityTransform3(
-    const Eigen::Transform<double, 3, Eigen::Affine>& transform)
-    : transform_(transform) {}
+SimilarityTransform3::SimilarityTransform3(const Eigen::Matrix3x4d& matrix)
+    : matrix_(matrix) {}
 
 SimilarityTransform3::SimilarityTransform3(const double scale,
                                            const Eigen::Vector4d& qvec,
                                            const Eigen::Vector3d& tvec) {
-  Eigen::Matrix4d matrix = Eigen::MatrixXd::Identity(4, 4);
-  matrix.topLeftCorner<3, 4>() = ComposeProjectionMatrix(qvec, tvec);
-  matrix.block<3, 3>(0, 0) *= scale;
-  transform_.matrix() = matrix;
-}
-
-void SimilarityTransform3::Write(const std::string& path) {
-  std::ofstream file(path, std::ios::trunc);
-  CHECK(file.is_open()) << path;
-  // Ensure that we don't loose any precision by storing in text.
-  file.precision(17);
-  file << transform_.matrix() << std::endl;
+  matrix_ = ComposeProjectionMatrix(qvec, tvec);
+  matrix_.leftCols<3>() *= scale;
 }
 
 SimilarityTransform3 SimilarityTransform3::Inverse() const {
-  return SimilarityTransform3(transform_.inverse());
+  const double scale = Scale();
+  Eigen::Matrix3x4d inverse;
+  inverse.leftCols<3>() = matrix_.leftCols<3>().transpose() / (scale * scale);
+  inverse.col(3) = inverse.leftCols<3>() * -matrix_.col(3);
+  return SimilarityTransform3(inverse);
 }
 
-void SimilarityTransform3::TransformPoint(Eigen::Vector3d* xyz) const {
-  *xyz = transform_ * *xyz;
+const Eigen::Matrix3x4d& SimilarityTransform3::Matrix() const {
+  return matrix_;
+}
+
+double SimilarityTransform3::Scale() const { return matrix_.col(0).norm(); }
+
+Eigen::Vector4d SimilarityTransform3::Rotation() const {
+  return RotationMatrixToQuaternion(matrix_.leftCols<3>() / Scale());
+}
+
+Eigen::Vector3d SimilarityTransform3::Translation() const {
+  return matrix_.col(3);
+}
+
+bool SimilarityTransform3::Estimate(const std::vector<Eigen::Vector3d>& src,
+                                    const std::vector<Eigen::Vector3d>& tgt) {
+  const auto results =
+      SimilarityTransformEstimator<3, true>().Estimate(src, tgt);
+  if (results.empty()) {
+    return false;
+  }
+  CHECK_EQ(results.size(), 1);
+  matrix_ = results[0];
+  return true;
 }
 
 void SimilarityTransform3::TransformPose(Eigen::Vector4d* qvec,
                                          Eigen::Vector3d* tvec) const {
-  // Projection matrix P1 projects 3D object points to image plane and thus to
-  // 2D image points in the source coordinate system:
-  //    x' = P1 * X1
-  // 3D object points can be transformed to the destination system by applying
-  // the similarity transformation S:
-  //    X2 = S * X1
-  // To obtain the projection matrix P2 that transforms the object point in the
-  // destination system to the 2D image points, which do not change:
-  //    x' = P2 * X2 = P2 * S * X1 = P1 * S^-1 * S * X1 = P1 * I * X1
-  // and thus:
-  //    P2' = P1 * S^-1
-  // Finally, undo the inverse scaling of the rotation matrix:
-  //    P2 = s * P2'
-
-  Eigen::Matrix4d src_matrix = Eigen::MatrixXd::Identity(4, 4);
-  src_matrix.topLeftCorner<3, 4>() = ComposeProjectionMatrix(*qvec, *tvec);
-  Eigen::Matrix4d dst_matrix =
-      src_matrix.matrix() * transform_.inverse().matrix();
-  dst_matrix *= Scale();
-
-  *qvec = RotationMatrixToQuaternion(dst_matrix.block<3, 3>(0, 0));
-  *tvec = dst_matrix.block<3, 1>(0, 3);
+  Eigen::Matrix4d inverse;
+  inverse.topRows<3>() = Inverse().Matrix();
+  inverse.row(3) = Eigen::Vector4d(0, 0, 0, 1);
+  const Eigen::Matrix3x4d transformed =
+      ComposeProjectionMatrix(*qvec, *tvec) * inverse;
+  const double transformed_scale = transformed.col(0).norm();
+  *qvec =
+      RotationMatrixToQuaternion(transformed.leftCols<3>() / transformed_scale);
+  *tvec = transformed.col(3) / transformed_scale;
 }
 
-Eigen::Matrix4d SimilarityTransform3::Matrix() const {
-  return transform_.matrix();
-}
-
-double SimilarityTransform3::Scale() const {
-  return Matrix().block<1, 3>(0, 0).norm();
-}
-
-Eigen::Vector4d SimilarityTransform3::Rotation() const {
-  return RotationMatrixToQuaternion(Matrix().block<3, 3>(0, 0) / Scale());
-}
-
-Eigen::Vector3d SimilarityTransform3::Translation() const {
-  return Matrix().block<3, 1>(0, 3);
+void SimilarityTransform3::ToFile(const std::string& path) const {
+  std::ofstream file(path, std::ios::trunc);
+  CHECK(file.good()) << path;
+  // Ensure that we don't loose any precision by storing in text.
+  file.precision(17);
+  file << matrix_ << std::endl;
 }
 
 SimilarityTransform3 SimilarityTransform3::FromFile(const std::string& path) {
   std::ifstream file(path);
-  CHECK(file.is_open()) << path;
+  CHECK(file.good()) << path;
 
-  Eigen::Matrix4d matrix = Eigen::MatrixXd::Identity(4, 4);
+  Eigen::Matrix3x4d matrix;
   for (int i = 0; i < matrix.rows(); ++i) {
     for (int j = 0; j < matrix.cols(); ++j) {
       file >> matrix(i, j);
     }
   }
-  SimilarityTransform3 tform;
-  tform.transform_.matrix() = matrix;
-  return tform;
+
+  return SimilarityTransform3(matrix);
 }
 
 bool ComputeAlignmentBetweenReconstructions(

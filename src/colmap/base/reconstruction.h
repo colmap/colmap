@@ -37,9 +37,7 @@
 #include "colmap/base/point2d.h"
 #include "colmap/base/point3d.h"
 #include "colmap/base/track.h"
-#include "colmap/estimators/similarity_transform.h"
 #include "colmap/geometry/similarity_transform.h"
-#include "colmap/optim/loransac.h"
 #include "colmap/util/types.h"
 
 #include <memory>
@@ -208,14 +206,12 @@ class Reconstruction {
   // Align the given reconstruction with a set of pre-defined camera positions.
   // Assuming that locations[i] gives the 3D coordinates of the center
   // of projection of the image with name image_names[i].
-  template <bool kEstimateScale = true>
   bool Align(const std::vector<std::string>& image_names,
              const std::vector<Eigen::Vector3d>& locations,
              int min_common_images,
              SimilarityTransform3* tform = nullptr);
 
   // Robust alignment using RANSAC.
-  template <bool kEstimateScale = true>
   bool AlignRobust(const std::vector<std::string>& image_names,
                    const std::vector<Eigen::Vector3d>& locations,
                    int min_common_images,
@@ -534,117 +530,6 @@ bool Reconstruction::ExistsImagePair(const image_pair_t pair_id) const {
 
 bool Reconstruction::IsImageRegistered(const image_t image_id) const {
   return Image(image_id).IsRegistered();
-}
-
-template <bool kEstimateScale>
-bool Reconstruction::Align(const std::vector<std::string>& image_names,
-                           const std::vector<Eigen::Vector3d>& locations,
-                           const int min_common_images,
-                           SimilarityTransform3* tform) {
-  CHECK_GE(min_common_images, 3);
-  CHECK_EQ(image_names.size(), locations.size());
-
-  // Find out which images are contained in the reconstruction and get the
-  // positions of their camera centers.
-  std::unordered_set<image_t> common_image_ids;
-  std::vector<Eigen::Vector3d> src;
-  std::vector<Eigen::Vector3d> dst;
-  for (size_t i = 0; i < image_names.size(); ++i) {
-    const class Image* image = FindImageWithName(image_names[i]);
-    if (image == nullptr) {
-      continue;
-    }
-
-    if (!IsImageRegistered(image->ImageId())) {
-      continue;
-    }
-
-    // Ignore duplicate images.
-    if (common_image_ids.count(image->ImageId()) > 0) {
-      continue;
-    }
-
-    common_image_ids.insert(image->ImageId());
-    src.push_back(image->ProjectionCenter());
-    dst.push_back(locations[i]);
-  }
-
-  // Only compute the alignment if there are enough correspondences.
-  if (common_image_ids.size() < static_cast<size_t>(min_common_images)) {
-    return false;
-  }
-
-  SimilarityTransform3 transform;
-  if (!transform.Estimate<kEstimateScale>(src, dst)) {
-    return false;
-  }
-
-  Transform(transform);
-
-  if (tform != nullptr) {
-    *tform = transform;
-  }
-
-  return true;
-}
-
-template <bool kEstimateScale>
-bool Reconstruction::AlignRobust(const std::vector<std::string>& image_names,
-                                 const std::vector<Eigen::Vector3d>& locations,
-                                 const int min_common_images,
-                                 const RANSACOptions& ransac_options,
-                                 SimilarityTransform3* tform) {
-  CHECK_GE(min_common_images, 3);
-  CHECK_EQ(image_names.size(), locations.size());
-
-  // Find out which images are contained in the reconstruction and get the
-  // positions of their camera centers.
-  std::unordered_set<image_t> common_image_ids;
-  std::vector<Eigen::Vector3d> src;
-  std::vector<Eigen::Vector3d> dst;
-  for (size_t i = 0; i < image_names.size(); ++i) {
-    const class Image* image = FindImageWithName(image_names[i]);
-    if (image == nullptr) {
-      continue;
-    }
-
-    if (!IsImageRegistered(image->ImageId())) {
-      continue;
-    }
-
-    // Ignore duplicate images.
-    if (common_image_ids.count(image->ImageId()) > 0) {
-      continue;
-    }
-
-    common_image_ids.insert(image->ImageId());
-    src.push_back(image->ProjectionCenter());
-    dst.push_back(locations[i]);
-  }
-
-  // Only compute the alignment if there are enough correspondences.
-  if (common_image_ids.size() < static_cast<size_t>(min_common_images)) {
-    return false;
-  }
-
-  LORANSAC<SimilarityTransformEstimator<3, kEstimateScale>,
-           SimilarityTransformEstimator<3, kEstimateScale>>
-      ransac(ransac_options);
-
-  const auto report = ransac.Estimate(src, dst);
-
-  if (report.support.num_inliers < static_cast<size_t>(min_common_images)) {
-    return false;
-  }
-
-  SimilarityTransform3 transform = SimilarityTransform3(report.model);
-  Transform(transform);
-
-  if (tform != nullptr) {
-    *tform = transform;
-  }
-
-  return true;
 }
 
 }  // namespace colmap

@@ -99,8 +99,7 @@ TEST(RANSAC, SimilarityTransform) {
   std::vector<Eigen::Vector3d> dst;
   for (size_t i = 0; i < num_samples; ++i) {
     src.emplace_back(i, std::sqrt(i) + 2, std::sqrt(2 * i + 2));
-    dst.push_back(src.back());
-    orig_tform.TransformPoint(&dst.back());
+    dst.push_back(orig_tform * src.back());
   }
 
   // Add some faulty data.

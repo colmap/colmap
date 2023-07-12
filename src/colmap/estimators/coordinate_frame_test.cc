@@ -102,11 +102,11 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
                 .norm(),
             1e-6);
   // Verify that transform matrix does shuffling of axes
-  Eigen::Matrix4d mat;
+  Eigen::Matrix3x4d mat;
   if (inverted) {
-    mat << 0, -1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0, 0, 0, 1;
+    mat << 0, -1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0;
   } else {
-    mat << 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1;
+    mat << 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0;
   }
   std::cout << tform.Matrix() << std::endl;
   EXPECT_LE((tform.Matrix() - mat).norm(), 1e-6);
