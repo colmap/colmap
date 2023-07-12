@@ -45,6 +45,7 @@ COLMAP_ADD_SOURCES(
     reconstruction.h reconstruction.cc
     reconstruction_manager.h reconstruction_manager.cc
     scene_clustering.h scene_clustering.cc
+    synthetic.h synthetic.cc
     track.h track.cc
     visibility_pyramid.h visibility_pyramid.cc
 )
@@ -63,5 +64,6 @@ COLMAP_ADD_TEST(polynomial_test polynomial_test.cc)
 COLMAP_ADD_TEST(reconstruction_test reconstruction_test.cc)
 COLMAP_ADD_TEST(reconstruction_manager_test reconstruction_manager_test.cc)
 COLMAP_ADD_TEST(scene_clustering_test scene_clustering_test.cc)
+COLMAP_ADD_TEST(synthetic_test synthetic_test.cc)
 COLMAP_ADD_TEST(track_test track_test.cc)
 COLMAP_ADD_TEST(visibility_pyramid_test visibility_pyramid_test.cc)

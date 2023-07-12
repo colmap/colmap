@@ -272,9 +272,23 @@ TEST(Image, Points2D) {
   EXPECT_EQ(image.Points2D().size(), 10);
   EXPECT_EQ(image.Point2D(0).X(), 1.0);
   EXPECT_EQ(image.Point2D(0).Y(), 2.0);
+  EXPECT_EQ(image.NumPoints3D(), 0);
 }
 
-TEST(Image, Point3D) {
+TEST(Image, Points2DWith3D) {
+  Image image;
+  EXPECT_EQ(image.Points2D().size(), 0);
+  std::vector<Point2D> points2D(10);
+  points2D[0].XY() = Eigen::Vector2d(1.0, 2.0);
+  points2D[0].SetPoint3DId(1);
+  image.SetPoints2D(points2D);
+  EXPECT_EQ(image.Points2D().size(), 10);
+  EXPECT_EQ(image.Point2D(0).X(), 1.0);
+  EXPECT_EQ(image.Point2D(0).Y(), 2.0);
+  EXPECT_EQ(image.NumPoints3D(), 1);
+}
+
+TEST(Image, Points3D) {
   Image image;
   image.SetPoints2D(std::vector<Eigen::Vector2d>(2));
   EXPECT_FALSE(image.Point2D(0).HasPoint3D());

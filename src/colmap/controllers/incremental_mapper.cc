@@ -593,12 +593,17 @@ void IncrementalMapperController::Reconstruct(
       IterativeGlobalRefinement(*options_, &mapper);
     }
 
+    // Remember the total number of registered images before potentially
+    // discarding it below due to small size, so we can out of the main loop,
+    // if all images were registered.
+    const size_t total_num_reg_images = mapper.NumTotalRegImages();
+
     // If the total number of images is small then do not enforce the minimum
     // model size so that we can reconstruct small image collections.
-    const size_t min_model_size =
-        std::min(database_cache_->NumImages(),
-                 static_cast<size_t>(options_->min_model_size));
-    if ((options_->multiple_models &&
+    // Always keep the first reconstruction, independent of size.
+    const size_t min_model_size = std::min<size_t>(
+        0.8 * database_cache_->NumImages(), options_->min_model_size);
+    if ((options_->multiple_models && reconstruction_manager_->Size() > 1 &&
          reconstruction->NumRegImages() < min_model_size) ||
         reconstruction->NumRegImages() == 0) {
       mapper.EndReconstruction(/*discard=*/true);
@@ -609,10 +614,10 @@ void IncrementalMapperController::Reconstruct(
 
     Callback(LAST_IMAGE_REG_CALLBACK);
 
-    const size_t max_num_models = static_cast<size_t>(options_->max_num_models);
     if (initial_reconstruction_given || !options_->multiple_models ||
-        reconstruction_manager_->Size() >= max_num_models ||
-        mapper.NumTotalRegImages() >= database_cache_->NumImages() - 1) {
+        reconstruction_manager_->Size() >=
+            static_cast<size_t>(options_->max_num_models) ||
+        total_num_reg_images >= database_cache_->NumImages() - 1) {
       break;
     }
   }

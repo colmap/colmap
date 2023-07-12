@@ -149,9 +149,8 @@ jobs:
             --colmap_path ./build/src/colmap/exe/colmap \
             --dataset_names boulders,terrace,door \
             --use_gpu false \
-            --max_translation_error 0.05 \
-            --max_proj_center_error 0.05 \
-            --max_rotation_error 1.0
+            --max_rotation_error 1.0 \
+            --max_proj_center_error 0.05
       displayName: Run E2E tests
 
   - script: |

@@ -80,6 +80,12 @@ void Image::SetPoints2D(const std::vector<class Point2D>& points) {
   CHECK(points2D_.empty());
   points2D_ = points;
   num_correspondences_have_point3D_.resize(points.size(), 0);
+  num_points3D_ = 0;
+  for (const auto& point2D : points2D_) {
+    if (point2D.HasPoint3D()) {
+      num_points3D_ += 1;
+    }
+  }
 }
 
 void Image::SetPoint3DForPoint2D(const point2D_t point2D_idx,
