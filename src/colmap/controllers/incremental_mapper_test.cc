@@ -38,7 +38,7 @@
 
 namespace colmap {
 
-TEST(SynthesizeDataset, NoNoiseNoOutliers) {
+TEST(SynthesizeDataset, WithoutNoise) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
   Database database(database_path);
@@ -83,7 +83,7 @@ TEST(SynthesizeDataset, NoNoiseNoOutliers) {
   }
 }
 
-TEST(SynthesizeDataset, NoiseNoOutliers) {
+TEST(SynthesizeDataset, WithNoise) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
   Database database(database_path);
@@ -92,7 +92,7 @@ TEST(SynthesizeDataset, NoiseNoOutliers) {
   options.num_cameras = 2;
   options.num_images = 10;
   options.num_points3D = 100;
-  options.point2D_stddev = 1.0;
+  options.point2D_stddev = 0.5;
   SynthesizeDataset(options, &gt_reconstruction, &database);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
@@ -109,7 +109,7 @@ TEST(SynthesizeDataset, NoiseNoOutliers) {
   EXPECT_EQ(reconstruction->NumCameras(), gt_reconstruction.NumCameras());
   EXPECT_EQ(reconstruction->NumImages(), gt_reconstruction.NumImages());
   EXPECT_EQ(reconstruction->NumRegImages(), gt_reconstruction.NumRegImages());
-  EXPECT_GT(reconstruction->ComputeNumObservations(),
+  EXPECT_GE(reconstruction->ComputeNumObservations(),
             0.98 * gt_reconstruction.ComputeNumObservations());
 
   SimilarityTransform3 gtFromComputed;

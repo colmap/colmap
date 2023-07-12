@@ -70,7 +70,6 @@ TEST(SynthesizeDataset, Nominal) {
   EXPECT_EQ(database.NumInlierMatches(),
             num_image_pairs * options.num_points3D);
 
-  reconstruction.UpdatePoint3DErrors();
   EXPECT_NEAR(reconstruction.ComputeMeanReprojectionError(), 0, 1e-6);
   EXPECT_NEAR(reconstruction.ComputeCentroid(0, 1).norm(), 0, 0.2);
   EXPECT_NEAR(reconstruction.ComputeMeanTrackLength(), options.num_images, 0.1);
@@ -87,7 +86,6 @@ TEST(SynthesizeDataset, WithNoise) {
   options.point2D_stddev = 2.0;
   SynthesizeDataset(options, &reconstruction, &database);
 
-  reconstruction.UpdatePoint3DErrors();
   EXPECT_NEAR(reconstruction.ComputeMeanReprojectionError(),
               options.point2D_stddev,
               0.5 * options.point2D_stddev);

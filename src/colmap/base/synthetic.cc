@@ -179,6 +179,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
           image1.ImageId(), image2.ImageId(), two_view_geometry);
     }
   }
+
+  reconstruction->UpdatePoint3DErrors();
 }
 
 }  // namespace colmap
