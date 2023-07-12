@@ -247,7 +247,7 @@ FeatureDescriptors CreateRandomFeatureDescriptors(const size_t num_features) {
   Eigen::MatrixXf descriptors(num_features, 128);
   for (size_t i = 0; i < num_features; ++i) {
     for (size_t j = 0; j < 128; ++j) {
-      descriptors(i, j) = std::pow(RandomReal(0.0f, 1.0f), 2);
+      descriptors(i, j) = std::pow(RandomUniformReal(0.0f, 1.0f), 2);
     }
   }
   return FeatureDescriptorsToUnsignedByte(

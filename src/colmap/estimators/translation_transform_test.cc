@@ -44,11 +44,12 @@ TEST(TranslationTransform, Estimate) {
 
   std::vector<Eigen::Vector2d> src;
   for (size_t i = 0; i < 100; ++i) {
-    src.emplace_back(RandomReal(-1000.0, 1000.0), RandomReal(-1000.0, 1000.0));
+    src.emplace_back(RandomUniformReal(-1000.0, 1000.0),
+                     RandomUniformReal(-1000.0, 1000.0));
   }
 
-  Eigen::Vector2d translation(RandomReal(-1000.0, 1000.0),
-                              RandomReal(-1000.0, 1000.0));
+  Eigen::Vector2d translation(RandomUniformReal(-1000.0, 1000.0),
+                              RandomUniformReal(-1000.0, 1000.0));
 
   std::vector<Eigen::Vector2d> dst;
   for (size_t i = 0; i < src.size(); ++i) {

@@ -104,9 +104,9 @@ TEST(RANSAC, SimilarityTransform) {
 
   // Add some faulty data.
   for (size_t i = 0; i < num_outliers; ++i) {
-    dst[i] = Eigen::Vector3d(RandomReal(-3000.0, -2000.0),
-                             RandomReal(-4000.0, -3000.0),
-                             RandomReal(-5000.0, -4000.0));
+    dst[i] = Eigen::Vector3d(RandomUniformReal(-3000.0, -2000.0),
+                             RandomUniformReal(-4000.0, -3000.0),
+                             RandomUniformReal(-5000.0, -4000.0));
   }
 
   // Robustly estimate transformation using RANSAC.

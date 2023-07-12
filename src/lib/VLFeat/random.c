@@ -34,7 +34,7 @@ default random generator by
 
 @code
 VlRand * rand = vl_get_rand() ;
-vl_int32 signedRandomInteger = vl_rand_int31(rand) ;
+vl_int32 signedRandomUniformInteger = vl_rand_int31(rand) ;
 @code
 
 Note that there is one such generator per thread (see

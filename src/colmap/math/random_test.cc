@@ -61,17 +61,17 @@ TEST(Repeatability, Nominal) {
   SetPRNGSeed(0);
   std::vector<int> numbers1;
   for (size_t i = 0; i < 100; ++i) {
-    numbers1.push_back(RandomInteger(0, 10000));
+    numbers1.push_back(RandomUniformInteger(0, 10000));
   }
   SetPRNGSeed(1);
   std::vector<int> numbers2;
   for (size_t i = 0; i < 100; ++i) {
-    numbers2.push_back(RandomInteger(0, 10000));
+    numbers2.push_back(RandomUniformInteger(0, 10000));
   }
   SetPRNGSeed(0);
   std::vector<int> numbers3;
   for (size_t i = 0; i < 100; ++i) {
-    numbers3.push_back(RandomInteger(0, 10000));
+    numbers3.push_back(RandomUniformInteger(0, 10000));
   }
   EXPECT_EQ(numbers1, numbers3);
   bool all_equal = true;
@@ -83,19 +83,19 @@ TEST(Repeatability, Nominal) {
   EXPECT_FALSE(all_equal);
 }
 
-TEST(RandomInteger, Nominal) {
+TEST(RandomUniformInteger, Nominal) {
   SetPRNGSeed();
   for (size_t i = 0; i < 1000; ++i) {
-    EXPECT_GE(RandomInteger(-100, 100), -100);
-    EXPECT_LE(RandomInteger(-100, 100), 100);
+    EXPECT_GE(RandomUniformInteger(-100, 100), -100);
+    EXPECT_LE(RandomUniformInteger(-100, 100), 100);
   }
 }
 
-TEST(RandomReal, Nominal) {
+TEST(RandomUniformReal, Nominal) {
   SetPRNGSeed();
   for (size_t i = 0; i < 1000; ++i) {
-    EXPECT_GE(RandomReal(-100.0, 100.0), -100.0);
-    EXPECT_LE(RandomReal(-100.0, 100.0), 100.0);
+    EXPECT_GE(RandomUniformReal(-100.0, 100.0), -100.0);
+    EXPECT_LE(RandomUniformReal(-100.0, 100.0), 100.0);
   }
 }
 
