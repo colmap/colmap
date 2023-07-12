@@ -49,12 +49,13 @@ std::string CreateTestDir() {
 
   const boost::filesystem::path test_dir =
       boost::filesystem::path("colmap_test_tmp_test_data") / test_name;
+
+  // Create directory once. Cleanup artifacts from previous test runs.
   static std::mutex mutex;
   std::lock_guard<std::mutex> lock(mutex);
   static std::set<std::string> existing_test_names;
   if (existing_test_names.count(test_name) == 0) {
     if (boost::filesystem::is_directory(test_dir)) {
-      // Cleanup dir from previous test runs.
       boost::filesystem::remove_all(test_dir);
     }
     boost::filesystem::create_directories(test_dir);

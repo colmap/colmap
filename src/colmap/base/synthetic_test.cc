@@ -32,16 +32,13 @@
 #include "colmap/base/synthetic.h"
 
 #include "colmap/controllers/incremental_mapper.h"
-#include "colmap/util/testing.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
 
 TEST(SynthesizeDataset, Nominal) {
-  const std::string database_path = CreateTestDir() + "/database.db";
-
-  Database database(database_path);
+  Database database(Database::kInMemoryDatabasePath);
   Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   SynthesizeDataset(options, &reconstruction, &database);
@@ -75,12 +72,16 @@ TEST(SynthesizeDataset, Nominal) {
   EXPECT_NEAR(reconstruction.ComputeMeanTrackLength(), options.num_images, 0.1);
   EXPECT_EQ(reconstruction.ComputeNumObservations(),
             options.num_images * options.num_points3D);
+
+  // All observations should be perfect and have sufficient triangulation angle.
+  // No points or observations should be filtered.
+  EXPECT_EQ(reconstruction.FilterAllPoints3D(/*max_reproj_error=*/1e-3,
+                                             /*min_tri_angle=*/1),
+            0);
 }
 
 TEST(SynthesizeDataset, WithNoise) {
-  const std::string database_path = CreateTestDir() + "/database.db";
-
-  Database database(database_path);
+  Database database(Database::kInMemoryDatabasePath);
   Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   options.point2D_stddev = 2.0;
