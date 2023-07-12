@@ -34,7 +34,7 @@
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/similarity_transform.h"
-#include "colmap/util/random.h"
+#include "colmap/math/random.h"
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>

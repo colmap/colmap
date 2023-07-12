@@ -31,7 +31,7 @@
 
 #include "colmap/optim/random_sampler.h"
 
-#include "colmap/util/random.h"
+#include "colmap/math/random.h"
 
 #include <numeric>
 

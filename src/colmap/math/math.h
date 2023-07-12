@@ -79,14 +79,6 @@ double Variance(const std::vector<T>& elems);
 template <typename T>
 double StdDev(const std::vector<T>& elems);
 
-// Check if any of the values in the vector is less than the given threshold.
-template <typename T>
-bool AnyLessThan(std::vector<T> elems, T threshold);
-
-// Check if any of the values in the vector is greater than the given threshold.
-template <typename T>
-bool AnyGreaterThan(std::vector<T> elems, T threshold);
-
 // Generate N-choose-K combinations.
 //
 // Note that elements in range [first, last) must be in sorted order,
@@ -258,26 +250,6 @@ double Variance(const std::vector<T>& elems) {
 template <typename T>
 double StdDev(const std::vector<T>& elems) {
   return std::sqrt(Variance(elems));
-}
-
-template <typename T>
-bool AnyLessThan(std::vector<T> elems, T threshold) {
-  for (const auto& el : elems) {
-    if (el < threshold) {
-      return true;
-    }
-  }
-  return false;
-}
-
-template <typename T>
-bool AnyGreaterThan(std::vector<T> elems, T threshold) {
-  for (const auto& el : elems) {
-    if (el > threshold) {
-      return true;
-    }
-  }
-  return false;
 }
 
 template <class Iterator>

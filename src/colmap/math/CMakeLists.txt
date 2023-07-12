@@ -29,37 +29,18 @@
 #
 # Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-set(FOLDER_NAME "base")
+set(FOLDER_NAME "math")
 
 COLMAP_ADD_SOURCES(
-    camera.h camera.cc
-    camera_rig.h camera_rig.cc
-    correspondence_graph.h correspondence_graph.cc
-    database.h database.cc
-    database_cache.h database_cache.cc
-    image.h image.cc
-    point2d.h point2d.cc
-    point3d.h point3d.cc
-    reconstruction.h reconstruction.cc
-    reconstruction_manager.h reconstruction_manager.cc
-    scene_clustering.h scene_clustering.cc
-    synthetic.h synthetic.cc
-    track.h track.cc
-    visibility_pyramid.h visibility_pyramid.cc
+    graph_cut.h graph_cut.cc
+    math.h math.cc
+    matrix.h
+    polynomial.h polynomial.cc
+    random.h random.cc
 )
 
-COLMAP_ADD_TEST(camera_rig_test camera_rig_test.cc)
-COLMAP_ADD_TEST(camera_test camera_test.cc)
-COLMAP_ADD_TEST(correspondence_graph_test correspondence_graph_test.cc)
-COLMAP_ADD_TEST(cost_functions_test cost_functions_test.cc)
-COLMAP_ADD_TEST(database_cache_test database_cache_test.cc)
-COLMAP_ADD_TEST(database_test database_test.cc)
-COLMAP_ADD_TEST(image_test image_test.cc)
-COLMAP_ADD_TEST(point2d_test point2d_test.cc)
-COLMAP_ADD_TEST(point3d_test point3d_test.cc)
-COLMAP_ADD_TEST(reconstruction_test reconstruction_test.cc)
-COLMAP_ADD_TEST(reconstruction_manager_test reconstruction_manager_test.cc)
-COLMAP_ADD_TEST(scene_clustering_test scene_clustering_test.cc)
-COLMAP_ADD_TEST(synthetic_test synthetic_test.cc)
-COLMAP_ADD_TEST(track_test track_test.cc)
-COLMAP_ADD_TEST(visibility_pyramid_test visibility_pyramid_test.cc)
+COLMAP_ADD_TEST(graph_cut_test graph_cut_test.cc)
+COLMAP_ADD_TEST(math_test math_test.cc)
+COLMAP_ADD_TEST(matrix_test matrix_test.cc)
+COLMAP_ADD_TEST(polynomial_test polynomial_test.cc)
+COLMAP_ADD_TEST(random_test random_test.cc)

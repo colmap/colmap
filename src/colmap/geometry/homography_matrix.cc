@@ -32,8 +32,8 @@
 #include "colmap/geometry/homography_matrix.h"
 
 #include "colmap/geometry/pose.h"
+#include "colmap/math/math.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/math.h"
 
 #include <array>
 

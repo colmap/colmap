@@ -29,16 +29,24 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/util/math.h"
+#include "colmap/math/matrix.h"
+
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-size_t NChooseK(const size_t n, const size_t k) {
-  if (k == 0) {
-    return 1;
-  }
+TEST(DecomposeMatrixRQ, Nominal) {
+  for (int i = 0; i < 10; ++i) {
+    const Eigen::Matrix4d A = Eigen::Matrix4d::Random();
 
-  return (n * NChooseK(n - 1, k - 1)) / k;
+    Eigen::Matrix4d R, Q;
+    DecomposeMatrixRQ(A, &R, &Q);
+
+    EXPECT_TRUE(R.bottomRows(4).isUpperTriangular());
+    EXPECT_TRUE(Q.isUnitary());
+    EXPECT_NEAR(Q.determinant(), 1.0, 1e-6);
+    EXPECT_TRUE(A.isApprox(R * Q, 1e-6));
+  }
 }
 
 }  // namespace colmap

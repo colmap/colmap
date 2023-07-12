@@ -31,7 +31,7 @@
 
 #include "colmap/geometry/gps.h"
 
-#include "colmap/util/math.h"
+#include "colmap/math/math.h"
 
 namespace colmap {
 

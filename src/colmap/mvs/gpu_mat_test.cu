@@ -33,9 +33,9 @@
 #define BOOST_PP_VARIADICS 0
 #endif  // __CUDACC__
 
+#include "colmap/math/math.h"
 #include "colmap/mvs/gpu_mat.h"
 #include "colmap/mvs/gpu_mat_prng.h"
-#include "colmap/util/math.h"
 
 #include <gtest/gtest.h>
 

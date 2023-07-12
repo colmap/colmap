@@ -31,8 +31,8 @@
 
 #include "colmap/base/visibility_pyramid.h"
 
+#include "colmap/math/math.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/math.h"
 
 namespace colmap {
 

@@ -31,10 +31,10 @@
 
 #include "colmap/mvs/patch_match.h"
 
+#include "colmap/math/math.h"
 #include "colmap/mvs/consistency_graph.h"
 #include "colmap/mvs/patch_match_cuda.h"
 #include "colmap/mvs/workspace.h"
-#include "colmap/util/math.h"
 #include "colmap/util/misc.h"
 
 #include <numeric>

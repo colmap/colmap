@@ -31,8 +31,8 @@
 
 #include "colmap/optim/progressive_sampler.h"
 
+#include "colmap/math/random.h"
 #include "colmap/util/misc.h"
-#include "colmap/util/random.h"
 
 #include <numeric>
 

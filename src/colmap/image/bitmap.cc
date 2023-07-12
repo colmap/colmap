@@ -32,8 +32,8 @@
 #include "colmap/image/bitmap.h"
 
 #include "colmap/camera/database.h"
+#include "colmap/math/math.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/math.h"
 #include "colmap/util/misc.h"
 
 #include "lib/VLFeat/imopv.h"
