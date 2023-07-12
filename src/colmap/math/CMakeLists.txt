@@ -39,7 +39,7 @@ COLMAP_ADD_SOURCES(
     random.h random.cc
 )
 
-COLMAP_ADD_TEST(graph_cut_test camera_rig_test.cc)
+COLMAP_ADD_TEST(graph_cut_test graph_cut_test.cc)
 COLMAP_ADD_TEST(math_test math_test.cc)
 COLMAP_ADD_TEST(matrix_test matrix_test.cc)
 COLMAP_ADD_TEST(polynomial_test polynomial_test.cc)
