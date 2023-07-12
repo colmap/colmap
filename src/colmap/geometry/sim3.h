@@ -49,9 +49,7 @@ class Sim3d {
 
   // Construct from existing transform.
   explicit Sim3d(const Eigen::Matrix3x4d& matrix);
-  Sim3d(double scale,
-                       const Eigen::Vector4d& qvec,
-                       const Eigen::Vector3d& tvec);
+  Sim3d(double scale, const Eigen::Vector4d& qvec, const Eigen::Vector3d& tvec);
 
   Sim3d Inverse() const;
 
@@ -86,8 +84,7 @@ class Sim3d {
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Eigen::Vector3d Sim3d::operator*(
-    const Eigen::Vector3d& x) const {
+Eigen::Vector3d Sim3d::operator*(const Eigen::Vector3d& x) const {
   return matrix_ * x.homogeneous();
 }
 

@@ -79,8 +79,6 @@ void AlignToPrincipalPlane(Reconstruction* recon, Sim3d* tform);
 // reconstruction such that the x-y plane aligns with the ENU tangent plane at
 // the point cloud centroid and translates the origin to the centroid.
 // If unscaled == true, then the original scale of the model remains unchanged.
-void AlignToENUPlane(Reconstruction* recon,
-                     Sim3d* tform,
-                     bool unscaled);
+void AlignToENUPlane(Reconstruction* recon, Sim3d* tform, bool unscaled);
 
 }  // namespace colmap

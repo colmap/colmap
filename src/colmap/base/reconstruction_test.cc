@@ -359,8 +359,8 @@ TEST(Reconstruction, Transform) {
       reconstruction.AddPoint3D(Eigen::Vector3d(1, 1, 1), Track());
   reconstruction.AddObservation(point3D_id, TrackElement(1, 1));
   reconstruction.AddObservation(point3D_id, TrackElement(2, 1));
-  reconstruction.Transform(Sim3d(
-      2, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 1, 2)));
+  reconstruction.Transform(
+      Sim3d(2, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 1, 2)));
   EXPECT_EQ(reconstruction.Image(1).ProjectionCenter(),
             Eigen::Vector3d(0, 1, 2));
   EXPECT_EQ(reconstruction.Point3D(point3D_id).XYZ(), Eigen::Vector3d(2, 3, 4));

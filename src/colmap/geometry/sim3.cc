@@ -39,15 +39,13 @@
 
 namespace colmap {
 
-Sim3d::Sim3d()
-    : matrix_(Eigen::Matrix3x4d::Identity()) {}
+Sim3d::Sim3d() : matrix_(Eigen::Matrix3x4d::Identity()) {}
 
-Sim3d::Sim3d(const Eigen::Matrix3x4d& matrix)
-    : matrix_(matrix) {}
+Sim3d::Sim3d(const Eigen::Matrix3x4d& matrix) : matrix_(matrix) {}
 
 Sim3d::Sim3d(const double scale,
-                                           const Eigen::Vector4d& qvec,
-                                           const Eigen::Vector3d& tvec) {
+             const Eigen::Vector4d& qvec,
+             const Eigen::Vector3d& tvec) {
   matrix_ = ComposeProjectionMatrix(qvec, tvec);
   matrix_.leftCols<3>() *= scale;
 }
@@ -60,9 +58,7 @@ Sim3d Sim3d::Inverse() const {
   return Sim3d(inverse);
 }
 
-const Eigen::Matrix3x4d& Sim3d::Matrix() const {
-  return matrix_;
-}
+const Eigen::Matrix3x4d& Sim3d::Matrix() const { return matrix_; }
 
 double Sim3d::Scale() const { return matrix_.col(0).norm(); }
 
@@ -70,12 +66,10 @@ Eigen::Vector4d Sim3d::Rotation() const {
   return RotationMatrixToQuaternion(matrix_.leftCols<3>() / Scale());
 }
 
-Eigen::Vector3d Sim3d::Translation() const {
-  return matrix_.col(3);
-}
+Eigen::Vector3d Sim3d::Translation() const { return matrix_.col(3); }
 
 bool Sim3d::Estimate(const std::vector<Eigen::Vector3d>& src,
-                                    const std::vector<Eigen::Vector3d>& tgt) {
+                     const std::vector<Eigen::Vector3d>& tgt) {
   const auto results =
       SimilarityTransformEstimator<3, true>().Estimate(src, tgt);
   if (results.empty()) {
@@ -86,8 +80,7 @@ bool Sim3d::Estimate(const std::vector<Eigen::Vector3d>& src,
   return true;
 }
 
-void Sim3d::TransformPose(Eigen::Vector4d* qvec,
-                                         Eigen::Vector3d* tvec) const {
+void Sim3d::TransformPose(Eigen::Vector4d* qvec, Eigen::Vector3d* tvec) const {
   Eigen::Matrix4d inverse;
   inverse.topRows<3>() = Inverse().Matrix();
   inverse.row(3) = Eigen::Vector4d(0, 0, 0, 1);

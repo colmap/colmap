@@ -65,8 +65,10 @@ ComputeEqualPartsBounds(const Reconstruction& reconstruction,
   return bounds;
 }
 
-Eigen::Vector3d TransformLatLonAltToModelCoords(
-    const Sim3d& tform, double lat, double lon, double alt) {
+Eigen::Vector3d TransformLatLonAltToModelCoords(const Sim3d& tform,
+                                                double lat,
+                                                double lon,
+                                                double alt) {
   // Since this is intended for use in ENU aligned models we want to define the
   // altitude along the ENU frame z axis and not the Earth's radius. Thus, we
   // set the altitude to 0 when converting from LLA to ECEF and then we use the
@@ -392,8 +394,7 @@ int RunModelAligner(int argc, char** argv) {
         const Eigen::Vector3d trans_align =
             first_img_position - first_image->ProjectionCenter();
 
-        const Sim3d origin_align(
-            1.0, ComposeIdentityQuaternion(), trans_align);
+        const Sim3d origin_align(1.0, ComposeIdentityQuaternion(), trans_align);
 
         std::cout << "\n Aligning Reconstruction's origin with Ref origin : "
                   << first_img_position.transpose() << "\n";
@@ -803,8 +804,8 @@ int RunModelOrientationAligner(int argc, char** argv) {
   std::cout << "Using the rotation matrix:" << std::endl;
   std::cout << tform << std::endl;
 
-  reconstruction.Transform(Sim3d(
-      1, RotationMatrixToQuaternion(tform), Eigen::Vector3d(0, 0, 0)));
+  reconstruction.Transform(
+      Sim3d(1, RotationMatrixToQuaternion(tform), Eigen::Vector3d(0, 0, 0)));
 
   std::cout << "Writing aligned reconstruction..." << std::endl;
   reconstruction.Write(output_path);

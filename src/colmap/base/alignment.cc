@@ -94,8 +94,7 @@ struct ReconstructionAlignmentEstimator {
     CHECK_NOTNULL(src_reconstruction_);
     CHECK_NOTNULL(tgt_reconstruction_);
 
-    const Eigen::Matrix3x4d srcFromTgt =
-        Sim3d(tgtFromSrc).Inverse().Matrix();
+    const Eigen::Matrix3x4d srcFromTgt = Sim3d(tgtFromSrc).Inverse().Matrix();
 
     residuals->resize(src_images.size());
 

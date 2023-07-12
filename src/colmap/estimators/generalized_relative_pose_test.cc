@@ -63,14 +63,13 @@ TEST(GeneralizedRelativePose, Estimate) {
       const int kNumTforms = 3;
 
       const std::array<Sim3d, kNumTforms> orig_tforms = {{
-          Sim3d(
-              1, Eigen::Vector4d(1, qx, 0, 0), Eigen::Vector3d(tx, 0.1, 0)),
+          Sim3d(1, Eigen::Vector4d(1, qx, 0, 0), Eigen::Vector3d(tx, 0.1, 0)),
           Sim3d(1,
-                               Eigen::Vector4d(1, qx + 0.05, 0, 0),
-                               Eigen::Vector3d(tx, 0.2, 0)),
+                Eigen::Vector4d(1, qx + 0.05, 0, 0),
+                Eigen::Vector3d(tx, 0.2, 0)),
           Sim3d(1,
-                               Eigen::Vector4d(1, qx + 0.1, 0, 0),
-                               Eigen::Vector3d(tx, 0.3, 0)),
+                Eigen::Vector4d(1, qx + 0.1, 0, 0),
+                Eigen::Vector3d(tx, 0.3, 0)),
       }};
 
       std::array<Eigen::Matrix3x4d, kNumTforms> rel_tforms;

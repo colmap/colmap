@@ -345,8 +345,7 @@ void Reconstruction::Normalize(const double extent,
     scale = extent / old_extent;
   }
 
-  Sim3d tform(
-      scale, ComposeIdentityQuaternion(), -scale * std::get<2>(bound));
+  Sim3d tform(scale, ComposeIdentityQuaternion(), -scale * std::get<2>(bound));
   Transform(tform);
 }
 

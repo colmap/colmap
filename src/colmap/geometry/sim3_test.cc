@@ -43,8 +43,8 @@ namespace colmap {
 
 Sim3d TestSim3d() {
   return Sim3d(1.23,
-                              NormalizeQuaternion(Eigen::Vector4d(1, 2, 3, 4)),
-                              Eigen::Vector3d(1, 2, 3));
+               NormalizeQuaternion(Eigen::Vector4d(1, 2, 3, 4)),
+               Eigen::Vector3d(1, 2, 3));
 }
 
 TEST(Sim3d, Default) {
@@ -79,14 +79,11 @@ void TestEstimationWithNumCoords(const size_t num_coords) {
 
 TEST(Sim3d, EstimateMinimal) { TestEstimationWithNumCoords(3); }
 
-TEST(Sim3d, EstimateOverDetermined) {
-  TestEstimationWithNumCoords(100);
-}
+TEST(Sim3d, EstimateOverDetermined) { TestEstimationWithNumCoords(100); }
 
 TEST(Sim3d, EstimateDegenerate) {
   std::vector<Eigen::Vector3d> invalid_src_dst(3, Eigen::Vector3d::Zero());
-  EXPECT_FALSE(
-      Sim3d().Estimate(invalid_src_dst, invalid_src_dst));
+  EXPECT_FALSE(Sim3d().Estimate(invalid_src_dst, invalid_src_dst));
 }
 
 TEST(Sim3d, Inverse) {
