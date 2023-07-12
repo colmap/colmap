@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/incremental_mapper.h"
 
+#include "colmap/base/alignment.h"
 #include "colmap/base/synthetic.h"
 #include "colmap/util/testing.h"
 
@@ -50,10 +51,10 @@ void ExpectEqualReconstructions(const Reconstruction& gt,
             (1 - num_obs_tolerance) * gt.ComputeNumObservations());
 
   SimilarityTransform3 gtFromComputed;
-  ComputeAlignmentBetweenReconstructions(computed,
-                                         gt,
-                                         /*max_proj_center_error=*/0.1,
-                                         &gtFromComputed);
+  AlignReconstructions(computed,
+                       gt,
+                       /*max_proj_center_error=*/0.1,
+                       &gtFromComputed);
 
   const std::vector<ImageAlignmentError> errors =
       ComputeImageAlignmentError(computed, gt, gtFromComputed);

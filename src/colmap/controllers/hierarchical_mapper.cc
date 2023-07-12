@@ -31,6 +31,7 @@
 
 #include "colmap/controllers/hierarchical_mapper.h"
 
+#include "colmap/base/alignment.h"
 #include "colmap/base/scene_clustering.h"
 #include "colmap/util/misc.h"
 
@@ -60,7 +61,9 @@ void MergeClusters(const SceneClustering::Cluster& cluster,
     for (size_t i = 0; i < reconstructions.size(); ++i) {
       for (size_t j = 0; j < i; ++j) {
         const double kMaxReprojError = 8.0;
-        if (reconstructions[i]->Merge(*reconstructions[j], kMaxReprojError)) {
+        if (MergeReconstructions(kMaxReprojError,
+                                 *reconstructions[j],
+                                 reconstructions[i].get())) {
           reconstructions.erase(reconstructions.begin() + j);
           merge_success = true;
           break;

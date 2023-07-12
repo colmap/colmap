@@ -31,10 +31,10 @@
 
 #include "colmap/exe/model.h"
 
+#include "colmap/base/alignment.h"
 #include "colmap/estimators/coordinate_frame.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/geometry/similarity_transform.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/option_manager.h"
 #include "colmap/util/threading.h"
@@ -269,7 +269,6 @@ int RunModelAligner(int argc, char** argv) {
   std::string transform_path;
   std::string alignment_type = "custom";
   int min_common_images = 3;
-  bool robust_alignment = true;
   RANSACOptions ransac_options;
 
   OptionManager options;
@@ -285,9 +284,7 @@ int RunModelAligner(int argc, char** argv) {
       &alignment_type,
       "{plane, ecef, enu, enu-plane, enu-plane-unscaled, custom}");
   options.AddDefaultOption("min_common_images", &min_common_images);
-  options.AddDefaultOption("robust_alignment", &robust_alignment);
-  options.AddDefaultOption("robust_alignment_max_error",
-                           &ransac_options.max_error);
+  options.AddDefaultOption("alignment_max_error", &ransac_options.max_error);
   options.Parse(argc, argv);
 
   StringToLower(&alignment_type);
@@ -301,7 +298,7 @@ int RunModelAligner(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  if (robust_alignment && ransac_options.max_error <= 0) {
+  if (ransac_options.max_error <= 0) {
     std::cout << "ERROR: You must provide a maximum alignment error > 0"
               << std::endl;
     return EXIT_FAILURE;
@@ -355,16 +352,13 @@ int RunModelAligner(int argc, char** argv) {
                               ref_image_names.size())
               << std::endl;
 
-    if (robust_alignment) {
-      alignment_success = reconstruction.AlignRobust(ref_image_names,
-                                                     ref_locations,
-                                                     min_common_images,
-                                                     ransac_options,
-                                                     &tform);
-    } else {
-      alignment_success = reconstruction.Align(
-          ref_image_names, ref_locations, min_common_images, &tform);
-    }
+    const bool alignment_success =
+        AlignReconstructionToLocations(reconstruction,
+                                       ref_image_names,
+                                       ref_locations,
+                                       min_common_images,
+                                       ransac_options,
+                                       &tform);
 
     std::vector<double> errors;
     errors.reserve(ref_image_names.size());
@@ -406,7 +400,7 @@ int RunModelAligner(int argc, char** argv) {
 
         reconstruction.Transform(origin_align);
 
-        // Update the Sim3 transformation in case it is stored next
+        // Update the Sim3 transformation in case it is stored next.
         tform = SimilarityTransform3(
             tform.Scale(), tform.Rotation(), tform.Translation() + trans_align);
 
@@ -536,18 +530,18 @@ int RunModelComparer(int argc, char** argv) {
   SimilarityTransform3 tgt_from_src;
   bool success = false;
   if (alignment_error == "reprojection") {
-    success = ComputeAlignmentBetweenReconstructions(
+    success = AlignReconstructions(
         reconstruction1,
         reconstruction2,
         /*min_inlier_observations=*/min_inlier_observations,
         /*max_reproj_error=*/max_reproj_error,
         &tgt_from_src);
   } else if (alignment_error == "proj_center") {
-    success = ComputeAlignmentBetweenReconstructions(
-        reconstruction1,
-        reconstruction2,
-        /*max_proj_center_error=*/max_proj_center_error,
-        &tgt_from_src);
+    success =
+        AlignReconstructions(reconstruction1,
+                             reconstruction2,
+                             /*max_proj_center_error=*/max_proj_center_error,
+                             &tgt_from_src);
   } else {
     std::cout << "ERROR: Invalid alignment_error specified." << std::endl;
     return EXIT_FAILURE;
@@ -735,18 +729,19 @@ int RunModelMerger(int argc, char** argv) {
             << std::endl;
 
   PrintHeading2("Merging reconstructions");
-  if (reconstruction1.Merge(reconstruction2, max_reproj_error)) {
+  if (MergeReconstructions(
+          max_reproj_error, reconstruction1, &reconstruction2)) {
     std::cout << "=> Merge succeeded" << std::endl;
     PrintHeading2("Merged reconstruction");
-    std::cout << StringPrintf("Images: %d", reconstruction1.NumRegImages())
+    std::cout << StringPrintf("Images: %d", reconstruction2.NumRegImages())
               << std::endl;
-    std::cout << StringPrintf("Points: %d", reconstruction1.NumPoints3D())
+    std::cout << StringPrintf("Points: %d", reconstruction2.NumPoints3D())
               << std::endl;
   } else {
     std::cout << "=> Merge failed" << std::endl;
   }
 
-  reconstruction1.Write(output_path);
+  reconstruction2.Write(output_path);
 
   return EXIT_SUCCESS;
 }

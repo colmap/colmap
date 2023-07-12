@@ -40,8 +40,6 @@
 
 namespace colmap {
 
-class Reconstruction;
-
 // 3D similarity transform with 7 degrees of freedom.
 // Transforms point x from a to b as: x_in_b = scale * R * x_in_a + t.
 class SimilarityTransform3 {
@@ -83,41 +81,6 @@ class SimilarityTransform3 {
  private:
   Eigen::Matrix3x4d matrix_;
 };
-
-// Robustly compute alignment between reconstructions by finding images that
-// are registered in both reconstructions. The alignment is then estimated
-// robustly inside RANSAC from corresponding projection centers. An alignment
-// is verified by reprojecting common 3D point observations.
-// The min_inlier_observations threshold determines how many observations
-// in a common image must reproject within the given threshold.
-bool ComputeAlignmentBetweenReconstructions(
-    const Reconstruction& src_reconstruction,
-    const Reconstruction& tgt_reconstruction,
-    double min_inlier_observations,
-    double max_reproj_error,
-    SimilarityTransform3* tgtFromSrc);
-
-// Robustly compute alignment between reconstructions by finding images that
-// are registered in both reconstructions. The alignment is then estimated
-// robustly inside RANSAC from corresponding projection centers and by
-// minimizing the Euclidean distance between them in world space.
-bool ComputeAlignmentBetweenReconstructions(
-    const Reconstruction& src_reconstruction,
-    const Reconstruction& tgt_reconstruction,
-    double max_proj_center_error,
-    SimilarityTransform3* tgtFromSrc);
-
-// Compute image alignment errors in the target coordinate frame.
-struct ImageAlignmentError {
-  image_t image_id = kInvalidImageId;
-  double rotation_error_deg = -1;
-  double proj_center_error = -1;
-};
-
-std::vector<ImageAlignmentError> ComputeImageAlignmentError(
-    const Reconstruction& src_reconstruction,
-    const Reconstruction& tgt_reconstruction,
-    const SimilarityTransform3& tgtFromSrc);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
