@@ -72,9 +72,9 @@ Eigen::Vector3d TransformLatLonAltToModelCoords(
   // set the altitude to 0 when converting from LLA to ECEF and then we use the
   // altitude at the end, after scaling, to set it as the z coordinate in the
   // ENU frame.
-  Eigen::Vector3d xyz = GPSTransform(GPSTransform::WGS84)
-                            .EllToXYZ({Eigen::Vector3d(lat, lon, 0.0)})[0];
-  tform.TransformPoint(&xyz);
+  Eigen::Vector3d xyz =
+      tform * GPSTransform(GPSTransform::WGS84)
+                  .EllToXYZ({Eigen::Vector3d(lat, lon, 0.0)})[0];
   xyz(2) = tform.Scale() * alt;
   return xyz;
 }
@@ -270,7 +270,6 @@ int RunModelAligner(int argc, char** argv) {
   std::string alignment_type = "custom";
   int min_common_images = 3;
   bool robust_alignment = true;
-  bool estimate_scale = true;
   RANSACOptions ransac_options;
 
   OptionManager options;
@@ -286,7 +285,6 @@ int RunModelAligner(int argc, char** argv) {
       &alignment_type,
       "{plane, ecef, enu, enu-plane, enu-plane-unscaled, custom}");
   options.AddDefaultOption("min_common_images", &min_common_images);
-  options.AddDefaultOption("estimate_scale", &estimate_scale);
   options.AddDefaultOption("robust_alignment", &robust_alignment);
   options.AddDefaultOption("robust_alignment_max_error",
                            &ransac_options.max_error);
@@ -357,28 +355,15 @@ int RunModelAligner(int argc, char** argv) {
                               ref_image_names.size())
               << std::endl;
 
-    if (estimate_scale) {
-      if (robust_alignment) {
-        alignment_success = reconstruction.AlignRobust(ref_image_names,
-                                                       ref_locations,
-                                                       min_common_images,
-                                                       ransac_options,
-                                                       &tform);
-      } else {
-        alignment_success = reconstruction.Align(
-            ref_image_names, ref_locations, min_common_images, &tform);
-      }
+    if (robust_alignment) {
+      alignment_success = reconstruction.AlignRobust(ref_image_names,
+                                                     ref_locations,
+                                                     min_common_images,
+                                                     ransac_options,
+                                                     &tform);
     } else {
-      if (robust_alignment) {
-        alignment_success = reconstruction.AlignRobust<false>(ref_image_names,
-                                                              ref_locations,
-                                                              min_common_images,
-                                                              ransac_options,
-                                                              &tform);
-      } else {
-        alignment_success = reconstruction.Align<false>(
-            ref_image_names, ref_locations, min_common_images, &tform);
-      }
+      alignment_success = reconstruction.Align(
+          ref_image_names, ref_locations, min_common_images, &tform);
     }
 
     std::vector<double> errors;
@@ -434,7 +419,7 @@ int RunModelAligner(int argc, char** argv) {
     std::cout << "=> Alignment succeeded" << std::endl;
     reconstruction.Write(output_path);
     if (!transform_path.empty()) {
-      tform.Write(transform_path);
+      tform.ToFile(transform_path);
     }
     return EXIT_SUCCESS;
   } else {

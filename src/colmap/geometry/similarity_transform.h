@@ -31,7 +31,6 @@
 
 #pragma once
 
-#include "colmap/estimators/similarity_transform.h"
 #include "colmap/util/types.h"
 
 #include <vector>
@@ -41,43 +40,48 @@
 
 namespace colmap {
 
-struct RANSACOptions;
 class Reconstruction;
 
-// 3D similarity transformation with 7 degrees of freedom.
+// 3D similarity transform with 7 degrees of freedom.
+// Transforms point x from a to b as: x_in_b = scale * R * x_in_a + t.
 class SimilarityTransform3 {
  public:
+  // Default construct identity transform.
   SimilarityTransform3();
 
+  // Construct from existing transform.
   explicit SimilarityTransform3(const Eigen::Matrix3x4d& matrix);
-
-  explicit SimilarityTransform3(
-      const Eigen::Transform<double, 3, Eigen::Affine>& transform);
-
   SimilarityTransform3(double scale,
                        const Eigen::Vector4d& qvec,
                        const Eigen::Vector3d& tvec);
 
-  void Write(const std::string& path);
-
-  template <bool kEstimateScale = true>
-  bool Estimate(const std::vector<Eigen::Vector3d>& src,
-                const std::vector<Eigen::Vector3d>& dst);
-
   SimilarityTransform3 Inverse() const;
 
-  void TransformPoint(Eigen::Vector3d* xyz) const;
-  void TransformPose(Eigen::Vector4d* qvec, Eigen::Vector3d* tvec) const;
+  // Matrix that transforms points as x_in_b = matrix * x_in_a.homogeneous().
+  const Eigen::Matrix3x4d& Matrix() const;
 
-  Eigen::Matrix4d Matrix() const;
+  // Transformation parameters.
   double Scale() const;
   Eigen::Vector4d Rotation() const;
   Eigen::Vector3d Translation() const;
 
+  // Estimate tgtFromSrc transform. Return true if successful.
+  bool Estimate(const std::vector<Eigen::Vector3d>& src,
+                const std::vector<Eigen::Vector3d>& tgt);
+
+  // Apply transform to point.
+  inline Eigen::Vector3d operator*(const Eigen::Vector3d& x) const;
+
+  // Transform world for camFromWorld pose.
+  // TODO(jsch): Rename and refactor with future RigidTransform class.
+  void TransformPose(Eigen::Vector4d* qvec, Eigen::Vector3d* tvec) const;
+
+  // Read from or write to text file without loss of precision.
+  void ToFile(const std::string& path) const;
   static SimilarityTransform3 FromFile(const std::string& path);
 
  private:
-  Eigen::Transform<double, 3, Eigen::Affine> transform_;
+  Eigen::Matrix3x4d matrix_;
 };
 
 // Robustly compute alignment between reconstructions by finding images that
@@ -119,19 +123,9 @@ std::vector<ImageAlignmentError> ComputeImageAlignmentError(
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-template <bool kEstimateScale>
-bool SimilarityTransform3::Estimate(const std::vector<Eigen::Vector3d>& src,
-                                    const std::vector<Eigen::Vector3d>& dst) {
-  const auto results =
-      SimilarityTransformEstimator<3, kEstimateScale>().Estimate(src, dst);
-  if (results.empty()) {
-    return false;
-  }
-
-  CHECK_EQ(results.size(), 1);
-  transform_.matrix().topLeftCorner<3, 4>() = results[0];
-
-  return true;
+Eigen::Vector3d SimilarityTransform3::operator*(
+    const Eigen::Vector3d& x) const {
+  return matrix_ * x.homogeneous();
 }
 
 }  // namespace colmap

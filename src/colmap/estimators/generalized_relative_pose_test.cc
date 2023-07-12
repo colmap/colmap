@@ -92,9 +92,8 @@ TEST(GeneralizedRelativePose, Estimate) {
       for (size_t i = 0; i < points3D.size(); ++i) {
         const Eigen::Vector3d point3D_camera1 =
             rel_tforms[i % kNumTforms] * points3D[i].homogeneous();
-        Eigen::Vector3d point3D_camera2 = points3D[i];
-        orig_tforms[(i + 1) % kNumTforms].TransformPoint(&point3D_camera2);
-
+        const Eigen::Vector3d point3D_camera2 =
+            orig_tforms[(i + 1) % kNumTforms] * points3D[i];
         if (point3D_camera1.z() < 0 || point3D_camera2.z() < 0) {
           continue;
         }

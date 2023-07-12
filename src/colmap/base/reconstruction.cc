@@ -32,11 +32,13 @@
 #include "colmap/base/reconstruction.h"
 
 #include "colmap/base/database_cache.h"
+#include "colmap/estimators/similarity_transform.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/projection.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/image/bitmap.h"
+#include "colmap/optim/loransac.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/ply.h"
 
@@ -432,7 +434,7 @@ void Reconstruction::Transform(const SimilarityTransform3& tform) {
     tform.TransformPose(&image.second.Qvec(), &image.second.Tvec());
   }
   for (auto& point3D : points3D_) {
-    tform.TransformPoint(&point3D.second.XYZ());
+    point3D.second.XYZ() = tform * point3D.second.XYZ();
   }
 }
 
@@ -539,8 +541,7 @@ bool Reconstruction::Merge(const Reconstruction& reconstruction,
         (new_track.Length() + old_track.Length()) >= 2 &&
         old_point3D_ids.size() == 1;
     if (create_new_point || merge_new_and_old_point) {
-      Eigen::Vector3d xyz = point3D.second.XYZ();
-      alignment.TransformPoint(&xyz);
+      const Eigen::Vector3d xyz = alignment * point3D.second.XYZ();
       const auto point3D_id =
           AddPoint3D(xyz, new_track, point3D.second.Color());
       if (old_point3D_ids.size() == 1) {
@@ -1265,13 +1266,11 @@ void Reconstruction::ExportVRML(const std::string& images_path,
     images_file << " coord Coordinate {\n";
     images_file << " point [\n";
 
-    Eigen::Transform<double, 3, Eigen::Affine> transform;
-    transform.matrix().topLeftCorner<3, 4>() =
-        image.second.InverseProjectionMatrix();
-
     // Move camera base model to camera pose.
+    const Eigen::Matrix3x4d worldFromCam =
+        image.second.InverseProjectionMatrix();
     for (size_t i = 0; i < points.size(); i++) {
-      const Eigen::Vector3d point = transform * points[i];
+      const Eigen::Vector3d point = worldFromCam * points[i].homogeneous();
       images_file << point(0) << " " << point(1) << " " << point(2) << "\n";
     }
 
@@ -2172,6 +2171,115 @@ void Reconstruction::ResetTriObservations(const image_t image_id,
           << "The scene graph graph must not contain duplicate matches";
     }
   }
+}
+
+bool Reconstruction::Align(const std::vector<std::string>& image_names,
+                           const std::vector<Eigen::Vector3d>& locations,
+                           const int min_common_images,
+                           SimilarityTransform3* tform) {
+  CHECK_GE(min_common_images, 3);
+  CHECK_EQ(image_names.size(), locations.size());
+
+  // Find out which images are contained in the reconstruction and get the
+  // positions of their camera centers.
+  std::unordered_set<image_t> common_image_ids;
+  std::vector<Eigen::Vector3d> src;
+  std::vector<Eigen::Vector3d> dst;
+  for (size_t i = 0; i < image_names.size(); ++i) {
+    const class Image* image = FindImageWithName(image_names[i]);
+    if (image == nullptr) {
+      continue;
+    }
+
+    if (!IsImageRegistered(image->ImageId())) {
+      continue;
+    }
+
+    // Ignore duplicate images.
+    if (common_image_ids.count(image->ImageId()) > 0) {
+      continue;
+    }
+
+    common_image_ids.insert(image->ImageId());
+    src.push_back(image->ProjectionCenter());
+    dst.push_back(locations[i]);
+  }
+
+  // Only compute the alignment if there are enough correspondences.
+  if (common_image_ids.size() < static_cast<size_t>(min_common_images)) {
+    return false;
+  }
+
+  SimilarityTransform3 transform;
+  if (!transform.Estimate(src, dst)) {
+    return false;
+  }
+
+  Transform(transform);
+
+  if (tform != nullptr) {
+    *tform = transform;
+  }
+
+  return true;
+}
+
+bool Reconstruction::AlignRobust(const std::vector<std::string>& image_names,
+                                 const std::vector<Eigen::Vector3d>& locations,
+                                 const int min_common_images,
+                                 const RANSACOptions& ransac_options,
+                                 SimilarityTransform3* tform) {
+  CHECK_GE(min_common_images, 3);
+  CHECK_EQ(image_names.size(), locations.size());
+
+  // Find out which images are contained in the reconstruction and get the
+  // positions of their camera centers.
+  std::unordered_set<image_t> common_image_ids;
+  std::vector<Eigen::Vector3d> src;
+  std::vector<Eigen::Vector3d> dst;
+  for (size_t i = 0; i < image_names.size(); ++i) {
+    const class Image* image = FindImageWithName(image_names[i]);
+    if (image == nullptr) {
+      continue;
+    }
+
+    if (!IsImageRegistered(image->ImageId())) {
+      continue;
+    }
+
+    // Ignore duplicate images.
+    if (common_image_ids.count(image->ImageId()) > 0) {
+      continue;
+    }
+
+    common_image_ids.insert(image->ImageId());
+    src.push_back(image->ProjectionCenter());
+    dst.push_back(locations[i]);
+  }
+
+  // Only compute the alignment if there are enough correspondences.
+  if (common_image_ids.size() < static_cast<size_t>(min_common_images)) {
+    return false;
+  }
+
+  LORANSAC<SimilarityTransformEstimator<3, true>,
+           SimilarityTransformEstimator<3, true>>
+      ransac(ransac_options);
+
+  const auto report = ransac.Estimate(src, dst);
+
+  if (report.support.num_inliers < static_cast<size_t>(min_common_images)) {
+    return false;
+  }
+
+  SimilarityTransform3 transform = SimilarityTransform3(report.model);
+  Transform(transform);
+
+  if (tform != nullptr) {
+    *tform = transform;
+  }
+
+  return true;
 }
 
 }  // namespace colmap
