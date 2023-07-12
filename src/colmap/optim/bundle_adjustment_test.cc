@@ -34,7 +34,7 @@
 #include "colmap/base/correspondence_graph.h"
 #include "colmap/camera/models.h"
 #include "colmap/geometry/projection.h"
-#include "colmap/util/random.h"
+#include "colmap/math/random.h"
 
 #include <gtest/gtest.h>
 

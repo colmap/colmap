@@ -31,8 +31,8 @@
 
 #include "colmap/estimators/fundamental_matrix.h"
 
-#include "colmap/base/polynomial.h"
 #include "colmap/estimators/utils.h"
+#include "colmap/math/polynomial.h"
 #include "colmap/util/logging.h"
 
 #include <cfloat>

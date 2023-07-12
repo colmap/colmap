@@ -31,8 +31,8 @@
 
 #pragma once
 
+#include "colmap/math/random.h"
 #include "colmap/retrieval/inverted_file.h"
-#include "colmap/util/random.h"
 
 #include <algorithm>
 #include <bitset>

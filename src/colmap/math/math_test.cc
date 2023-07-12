@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/util/math.h"
+#include "colmap/math/math.h"
 
 #include <gtest/gtest.h>
 
@@ -121,24 +121,6 @@ TEST(StdDev, Nominal) {
   EXPECT_LE(std::abs(std::sqrt(Variance<int>({1, 2, 3, 100})) -
                      StdDev<int>({1, 2, 3, 100})),
             1e-6);
-}
-
-TEST(AnyLessThan, Nominal) {
-  EXPECT_TRUE(AnyLessThan<int>({1, 2, 3, 4}, 5));
-  EXPECT_TRUE(AnyLessThan<int>({1, 2, 3, 4}, 4));
-  EXPECT_TRUE(AnyLessThan<int>({1, 2, 3, 4}, 3));
-  EXPECT_TRUE(AnyLessThan<int>({1, 2, 3, 4}, 2));
-  EXPECT_FALSE(AnyLessThan<int>({1, 2, 3, 4}, 1));
-  EXPECT_FALSE(AnyLessThan<int>({1, 2, 3, 4}, 0));
-}
-
-TEST(AnyGreaterThan, Nominal) {
-  EXPECT_FALSE(AnyGreaterThan<int>({1, 2, 3, 4}, 5));
-  EXPECT_FALSE(AnyGreaterThan<int>({1, 2, 3, 4}, 4));
-  EXPECT_TRUE(AnyGreaterThan<int>({1, 2, 3, 4}, 3));
-  EXPECT_TRUE(AnyGreaterThan<int>({1, 2, 3, 4}, 2));
-  EXPECT_TRUE(AnyGreaterThan<int>({1, 2, 3, 4}, 1));
-  EXPECT_TRUE(AnyGreaterThan<int>({1, 2, 3, 4}, 0));
 }
 
 TEST(NextCombination, Nominal) {

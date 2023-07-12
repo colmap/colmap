@@ -35,8 +35,8 @@
 #include "colmap/estimators/essential_matrix.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/projection.h"
+#include "colmap/math/random.h"
 #include "colmap/optim/ransac.h"
-#include "colmap/util/random.h"
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>

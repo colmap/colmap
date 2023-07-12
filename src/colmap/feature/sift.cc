@@ -36,9 +36,9 @@
 #endif
 
 #include "colmap/feature/utils.h"
+#include "colmap/math/math.h"
 #include "colmap/util/cuda.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/math.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 

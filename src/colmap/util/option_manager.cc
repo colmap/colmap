@@ -36,13 +36,13 @@
 #include "colmap/feature/matching.h"
 #include "colmap/feature/sift.h"
 #include "colmap/image/reader.h"
+#include "colmap/math/random.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
 #include "colmap/optim/bundle_adjustment.h"
 #include "colmap/ui/render_options.h"
 #include "colmap/util/misc.h"
-#include "colmap/util/random.h"
 #include "colmap/util/version.h"
 
 #include <boost/filesystem/operations.hpp>

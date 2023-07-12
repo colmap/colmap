@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/base/graph_cut.h"
+#include "colmap/math/graph_cut.h"
 
 #include <gtest/gtest.h>
 

@@ -29,22 +29,16 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/util/random.h"
-
-#include <mutex>
+#include "colmap/math/math.h"
 
 namespace colmap {
 
-thread_local std::unique_ptr<std::mt19937> PRNG;
+size_t NChooseK(const size_t n, const size_t k) {
+  if (k == 0) {
+    return 1;
+  }
 
-int kDefaultPRNGSeed = 0;
-
-void SetPRNGSeed(unsigned seed) {
-  PRNG = std::make_unique<std::mt19937>(seed);
-  // srand is not thread-safe.
-  static std::mutex mutex;
-  std::unique_lock<std::mutex> lock(mutex);
-  srand(seed);
+  return (n * NChooseK(n - 1, k - 1)) / k;
 }
 
 }  // namespace colmap

@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/base/polynomial.h"
+#include "colmap/math/polynomial.h"
 
 #include <gtest/gtest.h>
 

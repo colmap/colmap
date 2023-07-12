@@ -29,24 +29,22 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/util/matrix.h"
+#include "colmap/math/random.h"
 
-#include <gtest/gtest.h>
+#include <mutex>
 
 namespace colmap {
 
-TEST(DecomposeMatrixRQ, Nominal) {
-  for (int i = 0; i < 10; ++i) {
-    const Eigen::Matrix4d A = Eigen::Matrix4d::Random();
+thread_local std::unique_ptr<std::mt19937> PRNG;
 
-    Eigen::Matrix4d R, Q;
-    DecomposeMatrixRQ(A, &R, &Q);
+int kDefaultPRNGSeed = 0;
 
-    EXPECT_TRUE(R.bottomRows(4).isUpperTriangular());
-    EXPECT_TRUE(Q.isUnitary());
-    EXPECT_NEAR(Q.determinant(), 1.0, 1e-6);
-    EXPECT_TRUE(A.isApprox(R * Q, 1e-6));
-  }
+void SetPRNGSeed(unsigned seed) {
+  PRNG = std::make_unique<std::mt19937>(seed);
+  // srand is not thread-safe.
+  static std::mutex mutex;
+  std::unique_lock<std::mutex> lock(mutex);
+  srand(seed);
 }
 
 }  // namespace colmap

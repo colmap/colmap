@@ -31,9 +31,9 @@
 
 #include "colmap/estimators/generalized_absolute_pose.h"
 
-#include "colmap/base/polynomial.h"
 #include "colmap/estimators/generalized_absolute_pose_coeffs.h"
 #include "colmap/geometry/projection.h"
+#include "colmap/math/polynomial.h"
 #include "colmap/util/logging.h"
 
 #include <array>

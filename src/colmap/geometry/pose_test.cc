@@ -32,7 +32,7 @@
 #include "colmap/geometry/pose.h"
 
 #include "colmap/geometry/projection.h"
-#include "colmap/util/math.h"
+#include "colmap/math/math.h"
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>
