@@ -43,7 +43,7 @@ Rigid3d TestRigid3d() {
 
 TEST(Rigid3d, Default) {
   const Rigid3d tform;
-  EXPECT_EQ(tform.rotation, Eigen::Quaterniond::Identity());
+  EXPECT_EQ(tform.rotation.coeffs(), Eigen::Quaterniond::Identity().coeffs());
   EXPECT_EQ(tform.translation, Eigen::Vector3d::Zero());
 }
 
