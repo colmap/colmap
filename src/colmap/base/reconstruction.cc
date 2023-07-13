@@ -345,8 +345,7 @@ void Reconstruction::Normalize(const double extent,
     scale = extent / old_extent;
   }
 
-  SimilarityTransform3 tform(
-      scale, ComposeIdentityQuaternion(), -scale * std::get<2>(bound));
+  Sim3d tform(scale, ComposeIdentityQuaternion(), -scale * std::get<2>(bound));
   Transform(tform);
 }
 
@@ -429,7 +428,7 @@ Reconstruction::ComputeBoundsAndCentroid(const double p0,
   return std::make_tuple(bbox_min, bbox_max, mean_coord);
 }
 
-void Reconstruction::Transform(const SimilarityTransform3& tform) {
+void Reconstruction::Transform(const Sim3d& tform) {
   for (auto& image : images_) {
     tform.TransformPose(&image.second.Qvec(), &image.second.Tvec());
   }

@@ -57,7 +57,7 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
   // "above" the plane on the positive X axis. After alignment the points should
   // be on the X-Y plane and the cameras "above" the plane on the positive Z
   // axis.
-  SimilarityTransform3 tform;
+  Sim3d tform;
   Reconstruction reconstruction;
   // Setup image with projection center at (1, 0, 0)
   Image image;
@@ -120,7 +120,7 @@ TEST(CoordinateFrame, AlignToENUPlane) {
                               Eigen::Vector3d(50.1, 10, 100),
                               Eigen::Vector3d(50.1, 10.1, 100),
                               Eigen::Vector3d(50, 10, 100)});
-  SimilarityTransform3 tform;
+  Sim3d tform;
   Reconstruction reconstruction;
   std::vector<point3D_t> point_ids;
   for (size_t i = 0; i < points.size(); ++i) {

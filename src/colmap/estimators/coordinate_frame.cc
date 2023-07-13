@@ -306,7 +306,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
   return frame;
 }
 
-void AlignToPrincipalPlane(Reconstruction* recon, SimilarityTransform3* tform) {
+void AlignToPrincipalPlane(Reconstruction* recon, Sim3d* tform) {
   // Perform SVD on the 3D points to estimate the ground plane basis
   const Eigen::Vector3d centroid = recon->ComputeCentroid(0.0, 1.0);
   Eigen::MatrixXd points(3, recon->NumPoints3D());
@@ -320,8 +320,7 @@ void AlignToPrincipalPlane(Reconstruction* recon, SimilarityTransform3* tform) {
   rot_mat << basis.col(0), basis.col(1), basis.col(0).cross(basis.col(1));
   rot_mat.transposeInPlace();
 
-  *tform = SimilarityTransform3(
-      1.0, RotationMatrixToQuaternion(rot_mat), -rot_mat * centroid);
+  *tform = Sim3d(1.0, RotationMatrixToQuaternion(rot_mat), -rot_mat * centroid);
 
   // if camera plane ends up below ground then flip basis vectors and create new
   // transform
@@ -330,16 +329,14 @@ void AlignToPrincipalPlane(Reconstruction* recon, SimilarityTransform3* tform) {
   if (test_img.ProjectionCenter().z() < 0.0) {
     rot_mat << basis.col(0), -basis.col(1), basis.col(0).cross(-basis.col(1));
     rot_mat.transposeInPlace();
-    *tform = SimilarityTransform3(
-        1.0, RotationMatrixToQuaternion(rot_mat), -rot_mat * centroid);
+    *tform =
+        Sim3d(1.0, RotationMatrixToQuaternion(rot_mat), -rot_mat * centroid);
   }
 
   recon->Transform(*tform);
 }
 
-void AlignToENUPlane(Reconstruction* recon,
-                     SimilarityTransform3* tform,
-                     bool unscaled) {
+void AlignToENUPlane(Reconstruction* recon, Sim3d* tform, bool unscaled) {
   const Eigen::Vector3d centroid = recon->ComputeCentroid(0.0, 1.0);
   GPSTransform gps_tform;
   const Eigen::Vector3d ell_centroid = gps_tform.XYZToEll({centroid}).at(0);
@@ -356,9 +353,9 @@ void AlignToENUPlane(Reconstruction* recon,
       cos_lat, cos_lon * cos_lat, sin_lon * cos_lat, sin_lat;
 
   const double scale = unscaled ? 1.0 / tform->Scale() : 1.0;
-  *tform = SimilarityTransform3(scale,
-                                RotationMatrixToQuaternion(rot_mat),
-                                -(scale * rot_mat) * centroid);
+  *tform = Sim3d(scale,
+                 RotationMatrixToQuaternion(rot_mat),
+                 -(scale * rot_mat) * centroid);
   recon->Transform(*tform);
 }
 

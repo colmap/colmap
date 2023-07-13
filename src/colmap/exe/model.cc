@@ -65,8 +65,10 @@ ComputeEqualPartsBounds(const Reconstruction& reconstruction,
   return bounds;
 }
 
-Eigen::Vector3d TransformLatLonAltToModelCoords(
-    const SimilarityTransform3& tform, double lat, double lon, double alt) {
+Eigen::Vector3d TransformLatLonAltToModelCoords(const Sim3d& tform,
+                                                double lat,
+                                                double lon,
+                                                double alt) {
   // Since this is intended for use in ENU aligned models we want to define the
   // altitude along the ENU frame z axis and not the Earth's radius. Thus, we
   // set the altitude to 0 when converting from LLA to ECEF and then we use the
@@ -340,7 +342,7 @@ int RunModelAligner(int argc, char** argv) {
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
-  SimilarityTransform3 tform;
+  Sim3d tform;
   bool alignment_success = true;
 
   if (alignment_type == "plane") {
@@ -392,8 +394,7 @@ int RunModelAligner(int argc, char** argv) {
         const Eigen::Vector3d trans_align =
             first_img_position - first_image->ProjectionCenter();
 
-        const SimilarityTransform3 origin_align(
-            1.0, ComposeIdentityQuaternion(), trans_align);
+        const Sim3d origin_align(1.0, ComposeIdentityQuaternion(), trans_align);
 
         std::cout << "\n Aligning Reconstruction's origin with Ref origin : "
                   << first_img_position.transpose() << "\n";
@@ -401,7 +402,7 @@ int RunModelAligner(int argc, char** argv) {
         reconstruction.Transform(origin_align);
 
         // Update the Sim3 transformation in case it is stored next.
-        tform = SimilarityTransform3(
+        tform = Sim3d(
             tform.Scale(), tform.Rotation(), tform.Translation() + trans_align);
 
         break;
@@ -527,7 +528,7 @@ int RunModelComparer(int argc, char** argv) {
   std::cout << StringPrintf("Common images: %d", common_image_ids.size())
             << std::endl;
 
-  SimilarityTransform3 tgt_from_src;
+  Sim3d tgt_from_src;
   bool success = false;
   if (alignment_error == "reprojection") {
     success = AlignReconstructions(
@@ -663,11 +664,11 @@ int RunModelCropper(int argc, char** argv) {
   PrintHeading2("Calculating boundary coordinates");
   std::pair<Eigen::Vector3d, Eigen::Vector3d> bounding_box;
   if (boundary_elements.size() == 6) {
-    SimilarityTransform3 tform;
+    Sim3d tform;
     if (!gps_transform_path.empty()) {
       PrintHeading2("Reading model to ECEF transform");
       is_gps = true;
-      tform = SimilarityTransform3::FromFile(gps_transform_path).Inverse();
+      tform = Sim3d::FromFile(gps_transform_path).Inverse();
     }
     bounding_box.first =
         is_gps ? TransformLatLonAltToModelCoords(tform,
@@ -803,8 +804,8 @@ int RunModelOrientationAligner(int argc, char** argv) {
   std::cout << "Using the rotation matrix:" << std::endl;
   std::cout << tform << std::endl;
 
-  reconstruction.Transform(SimilarityTransform3(
-      1, RotationMatrixToQuaternion(tform), Eigen::Vector3d(0, 0, 0)));
+  reconstruction.Transform(
+      Sim3d(1, RotationMatrixToQuaternion(tform), Eigen::Vector3d(0, 0, 0)));
 
   std::cout << "Writing aligned reconstruction..." << std::endl;
   reconstruction.Write(output_path);
@@ -864,11 +865,11 @@ int RunModelSplitter(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
 
-  SimilarityTransform3 tform;
+  Sim3d tform;
   if (!gps_transform_path.empty()) {
     PrintHeading2("Reading model to ECEF transform");
     is_gps = true;
-    tform = SimilarityTransform3::FromFile(gps_transform_path).Inverse();
+    tform = Sim3d::FromFile(gps_transform_path).Inverse();
   }
   const double scale = tform.Scale();
 
@@ -1030,7 +1031,7 @@ int RunModelTransformer(int argc, char** argv) {
   }
 
   std::cout << "Reading transform input: " << transform_path << std::endl;
-  SimilarityTransform3 tform = SimilarityTransform3::FromFile(transform_path);
+  Sim3d tform = Sim3d::FromFile(transform_path);
   if (is_inverse) {
     tform = tform.Inverse();
   }

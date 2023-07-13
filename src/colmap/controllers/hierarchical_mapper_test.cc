@@ -50,7 +50,7 @@ void ExpectEqualReconstructions(const Reconstruction& gt,
   EXPECT_GE(computed.ComputeNumObservations(),
             (1 - num_obs_tolerance) * gt.ComputeNumObservations());
 
-  SimilarityTransform3 gtFromComputed;
+  Sim3d gtFromComputed;
   AlignReconstructions(computed,
                        gt,
                        /*max_proj_center_error=*/0.1,

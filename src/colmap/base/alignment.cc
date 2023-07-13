@@ -73,7 +73,7 @@ struct ReconstructionAlignmentEstimator {
       proj_centers2[i] = tgt_images[i]->ProjectionCenter();
     }
 
-    SimilarityTransform3 tgtFromSrc;
+    Sim3d tgtFromSrc;
     if (tgtFromSrc.Estimate(proj_centers1, proj_centers2)) {
       return {tgtFromSrc.Matrix()};
     }
@@ -94,8 +94,7 @@ struct ReconstructionAlignmentEstimator {
     CHECK_NOTNULL(src_reconstruction_);
     CHECK_NOTNULL(tgt_reconstruction_);
 
-    const Eigen::Matrix3x4d srcFromTgt =
-        SimilarityTransform3(tgtFromSrc).Inverse().Matrix();
+    const Eigen::Matrix3x4d srcFromTgt = Sim3d(tgtFromSrc).Inverse().Matrix();
 
     residuals->resize(src_images.size());
 
@@ -186,7 +185,7 @@ bool AlignReconstructionToLocations(
     const std::vector<Eigen::Vector3d>& locations,
     const int min_common_images,
     const RANSACOptions& ransac_options,
-    SimilarityTransform3* tform) {
+    Sim3d* tform) {
   CHECK_GE(min_common_images, 3);
   CHECK_EQ(image_names.size(), locations.size());
 
@@ -231,7 +230,7 @@ bool AlignReconstructionToLocations(
   }
 
   if (tform != nullptr) {
-    *tform = SimilarityTransform3(report.model);
+    *tform = Sim3d(report.model);
   }
 
   return true;
@@ -241,7 +240,7 @@ bool AlignReconstructions(const Reconstruction& src_reconstruction,
                           const Reconstruction& tgt_reconstruction,
                           const double min_inlier_observations,
                           const double max_reproj_error,
-                          SimilarityTransform3* tgtFromSrc) {
+                          Sim3d* tgtFromSrc) {
   CHECK_GE(min_inlier_observations, 0.0);
   CHECK_LE(min_inlier_observations, 1.0);
 
@@ -274,7 +273,7 @@ bool AlignReconstructions(const Reconstruction& src_reconstruction,
   const auto report = ransac.Estimate(src_images, tgt_images);
 
   if (report.success) {
-    *tgtFromSrc = SimilarityTransform3(report.model);
+    *tgtFromSrc = Sim3d(report.model);
   }
 
   return report.success;
@@ -283,7 +282,7 @@ bool AlignReconstructions(const Reconstruction& src_reconstruction,
 bool AlignReconstructions(const Reconstruction& src_reconstruction,
                           const Reconstruction& tgt_reconstruction,
                           const double max_proj_center_error,
-                          SimilarityTransform3* tgtFromSrc) {
+                          Sim3d* tgtFromSrc) {
   CHECK_GT(max_proj_center_error, 0);
 
   std::vector<std::string> ref_image_names;
@@ -295,7 +294,7 @@ bool AlignReconstructions(const Reconstruction& src_reconstruction,
     }
   }
 
-  SimilarityTransform3 tform;
+  Sim3d tform;
   RANSACOptions ransac_options;
   ransac_options.max_error = max_proj_center_error;
   return AlignReconstructionToLocations(src_reconstruction,
@@ -309,7 +308,7 @@ bool AlignReconstructions(const Reconstruction& src_reconstruction,
 std::vector<ImageAlignmentError> ComputeImageAlignmentError(
     const Reconstruction& src_reconstruction,
     const Reconstruction& tgt_reconstruction,
-    const SimilarityTransform3& tgtFromSrc) {
+    const Sim3d& tgtFromSrc) {
   const std::vector<image_t> common_image_ids =
       src_reconstruction.FindCommonRegImageIds(tgt_reconstruction);
   const int num_common_images = common_image_ids.size();
@@ -349,7 +348,7 @@ std::vector<ImageAlignmentError> ComputeImageAlignmentError(
 bool MergeReconstructions(const double max_reproj_error,
                           const Reconstruction& src_reconstruction,
                           Reconstruction* tgt_reconstruction) {
-  SimilarityTransform3 tgtFromSrc;
+  Sim3d tgtFromSrc;
   if (!AlignReconstructions(src_reconstruction,
                             *tgt_reconstruction,
                             /*min_inlier_observations=*/0.3,

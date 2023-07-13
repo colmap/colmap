@@ -33,7 +33,7 @@
 
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/projection.h"
-#include "colmap/geometry/similarity_transform.h"
+#include "colmap/geometry/sim3.h"
 #include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"
 
@@ -62,15 +62,14 @@ TEST(GeneralizedRelativePose, Estimate) {
       const int kRefTform = 1;
       const int kNumTforms = 3;
 
-      const std::array<SimilarityTransform3, kNumTforms> orig_tforms = {{
-          SimilarityTransform3(
-              1, Eigen::Vector4d(1, qx, 0, 0), Eigen::Vector3d(tx, 0.1, 0)),
-          SimilarityTransform3(1,
-                               Eigen::Vector4d(1, qx + 0.05, 0, 0),
-                               Eigen::Vector3d(tx, 0.2, 0)),
-          SimilarityTransform3(1,
-                               Eigen::Vector4d(1, qx + 0.1, 0, 0),
-                               Eigen::Vector3d(tx, 0.3, 0)),
+      const std::array<Sim3d, kNumTforms> orig_tforms = {{
+          Sim3d(1, Eigen::Vector4d(1, qx, 0, 0), Eigen::Vector3d(tx, 0.1, 0)),
+          Sim3d(1,
+                Eigen::Vector4d(1, qx + 0.05, 0, 0),
+                Eigen::Vector3d(tx, 0.2, 0)),
+          Sim3d(1,
+                Eigen::Vector4d(1, qx + 0.1, 0, 0),
+                Eigen::Vector3d(tx, 0.3, 0)),
       }};
 
       std::array<Eigen::Matrix3x4d, kNumTforms> rel_tforms;

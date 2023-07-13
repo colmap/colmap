@@ -42,18 +42,16 @@ namespace colmap {
 
 // 3D similarity transform with 7 degrees of freedom.
 // Transforms point x from a to b as: x_in_b = scale * R * x_in_a + t.
-class SimilarityTransform3 {
+class Sim3d {
  public:
   // Default construct identity transform.
-  SimilarityTransform3();
+  Sim3d();
 
   // Construct from existing transform.
-  explicit SimilarityTransform3(const Eigen::Matrix3x4d& matrix);
-  SimilarityTransform3(double scale,
-                       const Eigen::Vector4d& qvec,
-                       const Eigen::Vector3d& tvec);
+  explicit Sim3d(const Eigen::Matrix3x4d& matrix);
+  Sim3d(double scale, const Eigen::Vector4d& qvec, const Eigen::Vector3d& tvec);
 
-  SimilarityTransform3 Inverse() const;
+  Sim3d Inverse() const;
 
   // Matrix that transforms points as x_in_b = matrix * x_in_a.homogeneous().
   const Eigen::Matrix3x4d& Matrix() const;
@@ -76,7 +74,7 @@ class SimilarityTransform3 {
 
   // Read from or write to text file without loss of precision.
   void ToFile(const std::string& path) const;
-  static SimilarityTransform3 FromFile(const std::string& path);
+  static Sim3d FromFile(const std::string& path);
 
  private:
   Eigen::Matrix3x4d matrix_;
@@ -86,8 +84,7 @@ class SimilarityTransform3 {
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
 
-Eigen::Vector3d SimilarityTransform3::operator*(
-    const Eigen::Vector3d& x) const {
+Eigen::Vector3d Sim3d::operator*(const Eigen::Vector3d& x) const {
   return matrix_ * x.homogeneous();
 }
 
