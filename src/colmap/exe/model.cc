@@ -66,9 +66,9 @@ ComputeEqualPartsBounds(const Reconstruction& reconstruction,
 }
 
 Eigen::Vector3d TransformLatLonAltToModelCoords(const Sim3d& tform,
-                                                double lat,
-                                                double lon,
-                                                double alt) {
+                                                const double lat,
+                                                const double lon,
+                                                const double alt) {
   // Since this is intended for use in ENU aligned models we want to define the
   // altitude along the ENU frame z axis and not the Earth's radius. Thus, we
   // set the altitude to 0 when converting from LLA to ECEF and then we use the
@@ -77,7 +77,7 @@ Eigen::Vector3d TransformLatLonAltToModelCoords(const Sim3d& tform,
   Eigen::Vector3d xyz =
       tform * GPSTransform(GPSTransform::WGS84)
                   .EllToXYZ({Eigen::Vector3d(lat, lon, 0.0)})[0];
-  xyz(2) = tform.Scale() * alt;
+  xyz(2) = tform.scale * alt;
   return xyz;
 }
 
@@ -390,20 +390,19 @@ int RunModelAligner(int argc, char** argv) {
 
       if (first_image != nullptr) {
         const Eigen::Vector3d& first_img_position = ref_locations[i];
-
         const Eigen::Vector3d trans_align =
             first_img_position - first_image->ProjectionCenter();
+        const Sim3d origin_align(
+            1.0, Eigen::Quaterniond::Identity(), trans_align);
 
-        const Sim3d origin_align(1.0, ComposeIdentityQuaternion(), trans_align);
-
-        std::cout << "\n Aligning Reconstruction's origin with Ref origin : "
+        std::cout << "\n Aligning reconstruction's origin with ref origin: "
                   << first_img_position.transpose() << "\n";
 
         reconstruction.Transform(origin_align);
 
         // Update the Sim3 transformation in case it is stored next.
-        tform = Sim3d(
-            tform.Scale(), tform.Rotation(), tform.Translation() + trans_align);
+        tform =
+            Sim3d(tform.scale, tform.rotation, tform.translation + trans_align);
 
         break;
       }
@@ -805,7 +804,7 @@ int RunModelOrientationAligner(int argc, char** argv) {
   std::cout << tform << std::endl;
 
   reconstruction.Transform(
-      Sim3d(1, RotationMatrixToQuaternion(tform), Eigen::Vector3d(0, 0, 0)));
+      Sim3d(1, Eigen::Quaterniond(tform), Eigen::Vector3d(0, 0, 0)));
 
   std::cout << "Writing aligned reconstruction..." << std::endl;
   reconstruction.Write(output_path);
@@ -871,7 +870,6 @@ int RunModelSplitter(int argc, char** argv) {
     is_gps = true;
     tform = Sim3d::FromFile(gps_transform_path).Inverse();
   }
-  const double scale = tform.Scale();
 
   // Create the necessary number of reconstructions based on the split method
   // and get the bounding boxes for each sub-reconstruction
@@ -906,7 +904,7 @@ int RunModelSplitter(int argc, char** argv) {
                            std::numeric_limits<double>::max(),
                            std::numeric_limits<double>::max());
     for (size_t i = 0; i < parts.size(); ++i) {
-      extent(i) = parts[i] * scale;
+      extent(i) = parts[i] * tform.scale;
     }
 
     const auto bbox = reconstruction.ComputeBoundingBox();

@@ -57,6 +57,16 @@ TEST(Rigid3d, Inverse) {
   }
 }
 
+TEST(Rigid3d, Matrix) {
+  const Rigid3d bFromA = TestRigid3d();
+  const Eigen::Matrix3x4d bFromAMatrix = bFromA.Matrix();
+  for (int i = 0; i < 100; ++i) {
+    const Eigen::Vector3d x_in_a = Eigen::Vector3d::Random();
+    EXPECT_LT((bFromA * x_in_a - bFromAMatrix * x_in_a.homogeneous()).norm(),
+              1e-6);
+  }
+}
+
 TEST(Rigid3d, ApplyNoRotation) {
   const Rigid3d bFromA(Eigen::Quaterniond::Identity(),
                        Eigen::Vector3d(1, 2, 3));

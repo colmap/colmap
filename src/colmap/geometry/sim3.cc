@@ -39,35 +39,6 @@
 
 namespace colmap {
 
-Sim3d::Sim3d() : matrix_(Eigen::Matrix3x4d::Identity()) {}
-
-Sim3d::Sim3d(const Eigen::Matrix3x4d& matrix) : matrix_(matrix) {}
-
-Sim3d::Sim3d(const double scale,
-             const Eigen::Vector4d& qvec,
-             const Eigen::Vector3d& tvec) {
-  matrix_ = ComposeProjectionMatrix(qvec, tvec);
-  matrix_.leftCols<3>() *= scale;
-}
-
-Sim3d Sim3d::Inverse() const {
-  const double scale = Scale();
-  Eigen::Matrix3x4d inverse;
-  inverse.leftCols<3>() = matrix_.leftCols<3>().transpose() / (scale * scale);
-  inverse.col(3) = inverse.leftCols<3>() * -matrix_.col(3);
-  return Sim3d(inverse);
-}
-
-const Eigen::Matrix3x4d& Sim3d::Matrix() const { return matrix_; }
-
-double Sim3d::Scale() const { return matrix_.col(0).norm(); }
-
-Eigen::Vector4d Sim3d::Rotation() const {
-  return RotationMatrixToQuaternion(matrix_.leftCols<3>() / Scale());
-}
-
-Eigen::Vector3d Sim3d::Translation() const { return matrix_.col(3); }
-
 bool Sim3d::Estimate(const std::vector<Eigen::Vector3d>& src,
                      const std::vector<Eigen::Vector3d>& tgt) {
   const auto results =
@@ -76,7 +47,9 @@ bool Sim3d::Estimate(const std::vector<Eigen::Vector3d>& src,
     return false;
   }
   CHECK_EQ(results.size(), 1);
-  matrix_ = results[0];
+  scale = results[0].col(0).norm();
+  rotation = Eigen::Quaterniond(results[0].leftCols<3>() / scale).normalized();
+  translation = results[0].rightCols<1>();
   return true;
 }
 
@@ -97,21 +70,24 @@ void Sim3d::ToFile(const std::string& path) const {
   CHECK(file.good()) << path;
   // Ensure that we don't loose any precision by storing in text.
   file.precision(17);
-  file << matrix_ << std::endl;
+  file << scale << " " << rotation.w() << " " << rotation.x() << " "
+       << rotation.y() << " " << rotation.z() << " " << translation.x() << " "
+       << translation.y() << " " << translation.z() << std::endl;
 }
 
 Sim3d Sim3d::FromFile(const std::string& path) {
   std::ifstream file(path);
   CHECK(file.good()) << path;
-
-  Eigen::Matrix3x4d matrix;
-  for (int i = 0; i < matrix.rows(); ++i) {
-    for (int j = 0; j < matrix.cols(); ++j) {
-      file >> matrix(i, j);
-    }
-  }
-
-  return Sim3d(matrix);
+  Sim3d t;
+  file >> t.scale;
+  file >> t.rotation.w();
+  file >> t.rotation.x();
+  file >> t.rotation.y();
+  file >> t.rotation.z();
+  file >> t.translation(0);
+  file >> t.translation(1);
+  file >> t.translation(2);
+  return t;
 }
 
 }  // namespace colmap

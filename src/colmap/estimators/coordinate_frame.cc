@@ -320,7 +320,7 @@ void AlignToPrincipalPlane(Reconstruction* recon, Sim3d* tform) {
   rot_mat << basis.col(0), basis.col(1), basis.col(0).cross(basis.col(1));
   rot_mat.transposeInPlace();
 
-  *tform = Sim3d(1.0, RotationMatrixToQuaternion(rot_mat), -rot_mat * centroid);
+  *tform = Sim3d(1.0, Eigen::Quaterniond(rot_mat), -rot_mat * centroid);
 
   // if camera plane ends up below ground then flip basis vectors and create new
   // transform
@@ -329,8 +329,7 @@ void AlignToPrincipalPlane(Reconstruction* recon, Sim3d* tform) {
   if (test_img.ProjectionCenter().z() < 0.0) {
     rot_mat << basis.col(0), -basis.col(1), basis.col(0).cross(-basis.col(1));
     rot_mat.transposeInPlace();
-    *tform =
-        Sim3d(1.0, RotationMatrixToQuaternion(rot_mat), -rot_mat * centroid);
+    *tform = Sim3d(1.0, Eigen::Quaterniond(rot_mat), -rot_mat * centroid);
   }
 
   recon->Transform(*tform);
@@ -352,10 +351,9 @@ void AlignToENUPlane(Reconstruction* recon, Sim3d* tform, bool unscaled) {
   rot_mat << -sin_lon, cos_lon, 0, -cos_lon * sin_lat, -sin_lon * sin_lat,
       cos_lat, cos_lon * cos_lat, sin_lon * cos_lat, sin_lat;
 
-  const double scale = unscaled ? 1.0 / tform->Scale() : 1.0;
-  *tform = Sim3d(scale,
-                 RotationMatrixToQuaternion(rot_mat),
-                 -(scale * rot_mat) * centroid);
+  const double scale = unscaled ? 1.0 / tform->scale : 1.0;
+  *tform =
+      Sim3d(scale, Eigen::Quaterniond(rot_mat), -(scale * rot_mat) * centroid);
   recon->Transform(*tform);
 }
 

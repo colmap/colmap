@@ -42,31 +42,35 @@ namespace colmap {
 
 // 3D similarity transform with 7 degrees of freedom.
 // Transforms point x from a to b as: x_in_b = scale * R * x_in_a + t.
-class Sim3d {
- public:
-  // Default construct identity transform.
-  Sim3d();
+struct Sim3d {
+  double scale = 1;
+  Eigen::Quaterniond rotation = Eigen::Quaterniond::Identity();
+  Eigen::Vector3d translation = Eigen::Vector3d::Zero();
 
-  // Construct from existing transform.
-  explicit Sim3d(const Eigen::Matrix3x4d& matrix);
-  Sim3d(double scale, const Eigen::Vector4d& qvec, const Eigen::Vector3d& tvec);
+  Sim3d() = default;
+  Sim3d(double scale,
+        const Eigen::Quaterniond& rotation,
+        const Eigen::Vector3d& translation)
+      : scale(scale), rotation(rotation), translation(translation) {}
 
-  Sim3d Inverse() const;
+  inline Sim3d Inverse() const {
+    Sim3d inverse;
+    inverse.scale = 1 / scale;
+    inverse.rotation = rotation.inverse();
+    inverse.translation = (inverse.rotation * translation) / -scale;
+    return inverse;
+  }
 
-  // Matrix that transforms points as x_in_b = matrix * x_in_a.homogeneous().
-  const Eigen::Matrix3x4d& Matrix() const;
-
-  // Transformation parameters.
-  double Scale() const;
-  Eigen::Vector4d Rotation() const;
-  Eigen::Vector3d Translation() const;
+  inline Eigen::Matrix3x4d Matrix() const {
+    Eigen::Matrix3x4d matrix;
+    matrix.leftCols<3>() = scale * rotation.toRotationMatrix();
+    matrix.col(3) = translation;
+    return matrix;
+  }
 
   // Estimate tgtFromSrc transform. Return true if successful.
   bool Estimate(const std::vector<Eigen::Vector3d>& src,
                 const std::vector<Eigen::Vector3d>& tgt);
-
-  // Apply transform to point.
-  inline Eigen::Vector3d operator*(const Eigen::Vector3d& x) const;
 
   // Transform world for camFromWorld pose.
   // TODO(jsch): Rename and refactor with future RigidTransform class.
@@ -75,17 +79,23 @@ class Sim3d {
   // Read from or write to text file without loss of precision.
   void ToFile(const std::string& path) const;
   static Sim3d FromFile(const std::string& path);
-
- private:
-  Eigen::Matrix3x4d matrix_;
 };
 
-////////////////////////////////////////////////////////////////////////////////
-// Implementation
-////////////////////////////////////////////////////////////////////////////////
+// Apply transform to point such that one can write expressions like:
+//      x_in_b = bFromA * x_in_a
+inline Eigen::Vector3d operator*(const Sim3d& t, const Eigen::Vector3d& x) {
+  return t.scale * (t.rotation * x) + t.translation;
+}
 
-Eigen::Vector3d Sim3d::operator*(const Eigen::Vector3d& x) const {
-  return matrix_ * x.homogeneous();
+// Concatenate transforms such one can write expressions like:
+//      dFromA = dFromC * cFromB * bFromA
+inline Sim3d operator*(const Sim3d& cFromB, const Sim3d& bFromA) {
+  Sim3d cFromA;
+  cFromA.scale = cFromB.scale * bFromA.scale;
+  cFromA.rotation = (cFromB.rotation * bFromA.rotation).normalized();
+  cFromA.translation = cFromB.translation +
+                       (cFromB.scale * (cFromB.rotation * bFromA.translation));
+  return cFromA;
 }
 
 }  // namespace colmap
