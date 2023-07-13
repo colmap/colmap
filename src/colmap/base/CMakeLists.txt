@@ -32,6 +32,7 @@
 set(FOLDER_NAME "base")
 
 COLMAP_ADD_SOURCES(
+    alignment.h alignment.cc
     camera.h camera.cc
     camera_rig.h camera_rig.cc
     correspondence_graph.h correspondence_graph.cc
