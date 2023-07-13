@@ -59,11 +59,20 @@ void MergeClusters(const SceneClustering::Cluster& cluster,
   while (reconstructions.size() > 1) {
     bool merge_success = false;
     for (size_t i = 0; i < reconstructions.size(); ++i) {
+      const int num_reg_images_i = reconstructions[i]->NumRegImages();
       for (size_t j = 0; j < i; ++j) {
         const double kMaxReprojError = 8.0;
+        const int num_reg_images_j = reconstructions[j]->NumRegImages();
         if (MergeReconstructions(kMaxReprojError,
                                  *reconstructions[j],
                                  reconstructions[i].get())) {
+          std::cout
+              << StringPrintf(
+                     " => Merged clusters with %d and %d images into %d images",
+                     num_reg_images_i,
+                     num_reg_images_j,
+                     reconstructions[i]->NumRegImages())
+              << std::endl;
           reconstructions.erase(reconstructions.begin() + j);
           merge_success = true;
           break;
@@ -82,10 +91,9 @@ void MergeClusters(const SceneClustering::Cluster& cluster,
 
   // Insert a new reconstruction manager for merged cluster.
   auto& reconstruction_manager = (*reconstruction_managers)[&cluster];
+  reconstruction_manager = std::make_shared<ReconstructionManager>();
   for (const auto& reconstruction : reconstructions) {
-    reconstruction_manager->Add();
-    reconstruction_manager->Get(reconstruction_manager->Size() - 1) =
-        reconstruction;
+    reconstruction_manager->Get(reconstruction_manager->Add()) = reconstruction;
   }
 
   // Delete all merged child cluster reconstruction managers.
@@ -99,43 +107,39 @@ void MergeClusters(const SceneClustering::Cluster& cluster,
 bool HierarchicalMapperController::Options::Check() const {
   CHECK_OPTION_GT(init_num_trials, -1);
   CHECK_OPTION_GE(num_workers, -1);
+  clustering_options.Check();
+  CHECK_EQ(clustering_options.branching, 2);
+  incremental_options.Check();
   return true;
 }
 
 HierarchicalMapperController::HierarchicalMapperController(
     const Options& options,
-    const SceneClustering::Options& clustering_options,
-    std::shared_ptr<const IncrementalMapperOptions> mapper_options,
     std::shared_ptr<ReconstructionManager> reconstruction_manager)
     : options_(options),
-      clustering_options_(clustering_options),
-      mapper_options_(std::move(mapper_options)),
       reconstruction_manager_(std::move(reconstruction_manager)) {
   CHECK(options_.Check());
-  CHECK(clustering_options_.Check());
-  CHECK_EQ(clustering_options_.branching, 2);
-  CHECK(mapper_options_->Check());
 }
 
 void HierarchicalMapperController::Run() {
-  PrintHeading1("Partitioning the scene");
+  PrintHeading1("Partitioning scene");
 
   //////////////////////////////////////////////////////////////////////////////
-  // Cluster scene
+  // Cluster scene graph
   //////////////////////////////////////////////////////////////////////////////
 
-  std::unordered_map<image_t, std::string> image_id_to_name;
-
-  Database database(options_.database_path);
+  const Database database(options_.database_path);
 
   std::cout << "Reading images..." << std::endl;
   const auto images = database.ReadAllImages();
+  std::unordered_map<image_t, std::string> image_id_to_name;
+  image_id_to_name.reserve(images.size());
   for (const auto& image : images) {
     image_id_to_name.emplace(image.ImageId(), image.Name());
   }
 
   SceneClustering scene_clustering =
-      SceneClustering::Create(clustering_options_, database);
+      SceneClustering::Create(options_.clustering_options, database);
 
   auto leaf_clusters = scene_clustering.GetLeafClusters();
 
@@ -177,20 +181,20 @@ void HierarchicalMapperController::Run() {
           return;
         }
 
-        auto custom_mapper_options =
-            std::make_shared<IncrementalMapperOptions>(*mapper_options_);
-        custom_mapper_options->max_model_overlap = 3;
-        custom_mapper_options->init_num_trials = options_.init_num_trials;
-        if (custom_mapper_options->num_threads < 0) {
-          custom_mapper_options->num_threads = num_threads_per_worker;
+        auto incremental_options = std::make_shared<IncrementalMapperOptions>(
+            options_.incremental_options);
+        incremental_options->max_model_overlap = 3;
+        incremental_options->init_num_trials = options_.init_num_trials;
+        if (incremental_options->num_threads < 0) {
+          incremental_options->num_threads = num_threads_per_worker;
         }
 
         for (const auto image_id : cluster.image_ids) {
-          custom_mapper_options->image_names.insert(
+          incremental_options->image_names.insert(
               image_id_to_name.at(image_id));
         }
 
-        IncrementalMapperController mapper(std::move(custom_mapper_options),
+        IncrementalMapperController mapper(std::move(incremental_options),
                                            options_.image_path,
                                            options_.database_path,
                                            std::move(reconstruction_manager));
@@ -198,7 +202,7 @@ void HierarchicalMapperController::Run() {
         mapper.Wait();
       };
 
-  // Start reconstructing the bigger clusters first for resource usage.
+  // Start reconstructing the bigger clusters first for better resource usage.
   std::sort(leaf_clusters.begin(),
             leaf_clusters.end(),
             [](const SceneClustering::Cluster* cluster1,
@@ -206,8 +210,8 @@ void HierarchicalMapperController::Run() {
               return cluster1->image_ids.size() > cluster2->image_ids.size();
             });
 
-  // Start the reconstruction workers.
-
+  // Start the reconstruction workers. Use a separate reconstruction manager per
+  // thread to avoid race conditions.
   std::unordered_map<const SceneClustering::Cluster*,
                      std::shared_ptr<ReconstructionManager>>
       reconstruction_managers;
@@ -215,6 +219,8 @@ void HierarchicalMapperController::Run() {
 
   ThreadPool thread_pool(num_eff_workers);
   for (const auto& cluster : leaf_clusters) {
+    reconstruction_managers[cluster] =
+        std::make_shared<ReconstructionManager>();
     thread_pool.AddTask(
         ReconstructCluster, *cluster, reconstruction_managers[cluster]);
   }
@@ -229,7 +235,8 @@ void HierarchicalMapperController::Run() {
   MergeClusters(*scene_clustering.GetRootCluster(), &reconstruction_managers);
 
   CHECK_EQ(reconstruction_managers.size(), 1);
-  reconstruction_manager_ = std::move(reconstruction_managers.begin()->second);
+  CHECK_GT(reconstruction_managers.begin()->second->Get(0)->NumRegImages(), 0);
+  *reconstruction_manager_ = *reconstruction_managers.begin()->second;
 
   std::cout << std::endl;
   GetTimer().PrintMinutes();

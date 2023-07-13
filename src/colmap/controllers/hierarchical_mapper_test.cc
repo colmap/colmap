@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/hierarchical_mapper.h"
 
 #include "colmap/base/alignment.h"
 #include "colmap/base/synthetic.h"
@@ -50,7 +50,7 @@ void ExpectEqualReconstructions(const Reconstruction& gt,
   EXPECT_GE(computed.ComputeNumObservations(),
             (1 - num_obs_tolerance) * gt.ComputeNumObservations());
 
-  Sim3d gtFromComputed;
+  SimilarityTransform3 gtFromComputed;
   AlignReconstructions(computed,
                        gt,
                        /*max_proj_center_error=*/0.1,
@@ -65,24 +65,24 @@ void ExpectEqualReconstructions(const Reconstruction& gt,
   }
 }
 
-TEST(IncrementalMapperController, WithoutNoise) {
+TEST(HierarchicalMapperController, WithoutNoise) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
   Database database(database_path);
   Reconstruction gt_reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_cameras = 2;
-  synthetic_dataset_options.num_images = 7;
+  synthetic_dataset_options.num_images = 20;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  IncrementalMapperController mapper(
-      std::make_shared<IncrementalMapperOptions>(),
-      /*image_path=*/"",
-      database_path,
-      reconstruction_manager);
+  HierarchicalMapperController::Options mapper_options;
+  mapper_options.database_path = database_path;
+  mapper_options.clustering_options.leaf_max_num_images = 5;
+  mapper_options.clustering_options.image_overlap = 3;
+  HierarchicalMapperController mapper(mapper_options, reconstruction_manager);
   mapper.Start();
   mapper.Wait();
 
@@ -92,35 +92,6 @@ TEST(IncrementalMapperController, WithoutNoise) {
                              /*max_rotation_error_deg=*/1e-2,
                              /*max_proj_center_error=*/1e-4,
                              /*num_obs_tolerance=*/0);
-}
-
-TEST(IncrementalMapperController, WithNoise) {
-  const std::string database_path = CreateTestDir() + "/database.db";
-
-  Database database(database_path);
-  Reconstruction gt_reconstruction;
-  SyntheticDatasetOptions synthetic_dataset_options;
-  synthetic_dataset_options.num_cameras = 2;
-  synthetic_dataset_options.num_images = 7;
-  synthetic_dataset_options.num_points3D = 100;
-  synthetic_dataset_options.point2D_stddev = 0.5;
-  SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction, &database);
-
-  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  IncrementalMapperController mapper(
-      std::make_shared<IncrementalMapperOptions>(),
-      /*image_path=*/"",
-      database_path,
-      reconstruction_manager);
-  mapper.Start();
-  mapper.Wait();
-
-  ASSERT_EQ(reconstruction_manager->Size(), 1);
-  ExpectEqualReconstructions(gt_reconstruction,
-                             *reconstruction_manager->Get(0),
-                             /*max_rotation_error_deg=*/1e-1,
-                             /*max_proj_center_error=*/1e-1,
-                             /*num_obs_tolerance=*/0.02);
 }
 
 TEST(IncrementalMapperController, MultiReconstruction) {
@@ -139,12 +110,11 @@ TEST(IncrementalMapperController, MultiReconstruction) {
   SynthesizeDataset(synthetic_dataset_options, &gt_reconstruction2, &database);
 
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-  auto mapper_options = std::make_shared<IncrementalMapperOptions>();
-  mapper_options->min_model_size = 4;
-  IncrementalMapperController mapper(mapper_options,
-                                     /*image_path=*/"",
-                                     database_path,
-                                     reconstruction_manager);
+  HierarchicalMapperController::Options mapper_options;
+  mapper_options.database_path = database_path;
+  mapper_options.clustering_options.leaf_max_num_images = 5;
+  mapper_options.clustering_options.image_overlap = 3;
+  HierarchicalMapperController mapper(mapper_options, reconstruction_manager);
   mapper.Start();
   mapper.Wait();
 

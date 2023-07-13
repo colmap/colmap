@@ -38,4 +38,5 @@ COLMAP_ADD_SOURCES(
     incremental_mapper.h incremental_mapper.cc
 )
 
+COLMAP_ADD_TEST(hierarchical_mapper_test hierarchical_mapper_test.cc)
 COLMAP_ADD_TEST(incremental_mapper_test incremental_mapper_test.cc)
