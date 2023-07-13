@@ -262,19 +262,19 @@ int RunMapper(int argc, char** argv) {
 }
 
 int RunHierarchicalMapper(int argc, char** argv) {
-  HierarchicalMapperController::Options hierarchical_options;
-  SceneClustering::Options clustering_options;
+  HierarchicalMapperController::Options mapper_options;
   std::string output_path;
 
   OptionManager options;
-  options.AddRequiredOption("database_path",
-                            &hierarchical_options.database_path);
-  options.AddRequiredOption("image_path", &hierarchical_options.image_path);
+  options.AddRequiredOption("database_path", &mapper_options.database_path);
+  options.AddRequiredOption("image_path", &mapper_options.image_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("num_workers", &hierarchical_options.num_workers);
-  options.AddDefaultOption("image_overlap", &clustering_options.image_overlap);
-  options.AddDefaultOption("leaf_max_num_images",
-                           &clustering_options.leaf_max_num_images);
+  options.AddDefaultOption("num_workers", &mapper_options.num_workers);
+  options.AddDefaultOption("image_overlap",
+                           &mapper_options.clustering_options.image_overlap);
+  options.AddDefaultOption(
+      "leaf_max_num_images",
+      &mapper_options.clustering_options.leaf_max_num_images);
   options.AddMapperOptions();
   options.Parse(argc, argv);
 
@@ -283,11 +283,9 @@ int RunHierarchicalMapper(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
+  mapper_options.incremental_options = *options.mapper;
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
-
-  HierarchicalMapperController hierarchical_mapper(hierarchical_options,
-                                                   clustering_options,
-                                                   options.mapper,
+  HierarchicalMapperController hierarchical_mapper(mapper_options,
                                                    reconstruction_manager);
   hierarchical_mapper.Start();
   hierarchical_mapper.Wait();

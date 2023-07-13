@@ -36,20 +36,6 @@
 
 namespace colmap {
 
-ReconstructionManager::ReconstructionManager(
-    ReconstructionManager&& other) noexcept
-    : ReconstructionManager() {
-  reconstructions_ = std::move(other.reconstructions_);
-}
-
-ReconstructionManager& ReconstructionManager::operator=(
-    ReconstructionManager&& other) noexcept {
-  if (this != &other) {
-    reconstructions_ = std::move(other.reconstructions_);
-  }
-  return *this;
-}
-
 size_t ReconstructionManager::Size() const { return reconstructions_.size(); }
 
 std::shared_ptr<const Reconstruction> ReconstructionManager::Get(
@@ -57,7 +43,7 @@ std::shared_ptr<const Reconstruction> ReconstructionManager::Get(
   return reconstructions_.at(idx);
 }
 
-std::shared_ptr<Reconstruction> ReconstructionManager::Get(const size_t idx) {
+std::shared_ptr<Reconstruction>& ReconstructionManager::Get(const size_t idx) {
   return reconstructions_.at(idx);
 }
 
