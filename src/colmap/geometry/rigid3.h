@@ -55,12 +55,14 @@ struct Rigid3d {
   }
 };
 
-// Apply transform to point.
+// Apply transform to point such that one can write expressions like:
+//      x_in_b = bFromA * x_in_a
 inline Eigen::Vector3d operator*(const Rigid3d& t, const Eigen::Vector3d& x) {
   return t.rotation * x + t.translation;
 }
 
-// Concatenate transforms.
+// Concatenate transforms such one can write expressions like:
+//      x_in_d = dFromC * cFromB * bFromA * x_in_a
 inline Rigid3d operator*(const Rigid3d& cFromB, const Rigid3d& bFromA) {
   Rigid3d cFromA;
   cFromA.rotation = (cFromB.rotation * bFromA.rotation).normalized();
