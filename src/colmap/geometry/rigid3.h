@@ -62,7 +62,7 @@ inline Eigen::Vector3d operator*(const Rigid3d& t, const Eigen::Vector3d& x) {
 }
 
 // Concatenate transforms such one can write expressions like:
-//      x_in_d = dFromC * cFromB * bFromA * x_in_a
+//      dFromA = dFromC * cFromB * bFromA
 inline Rigid3d operator*(const Rigid3d& cFromB, const Rigid3d& bFromA) {
   Rigid3d cFromA;
   cFromA.rotation = (cFromB.rotation * bFromA.rotation).normalized();
