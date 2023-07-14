@@ -43,7 +43,7 @@
 namespace colmap {
 
 TEST(AbsolutePose, P3P) {
-  std::vector<Eigen::Vector3d> points3D = {
+  const std::vector<Eigen::Vector3d> points3D = {
       Eigen::Vector3d(1, 1, 1),
       Eigen::Vector3d(0, 1, 1),
       Eigen::Vector3d(3, 1.0, 4),
@@ -99,7 +99,7 @@ TEST(AbsolutePose, P3P) {
 }
 
 TEST(AbsolutePose, EPNP) {
-  std::vector<Eigen::Vector3d> points3D = {
+  const std::vector<Eigen::Vector3d> points3D = {
       Eigen::Vector3d(1, 1, 1),
       Eigen::Vector3d(0, 1, 1),
       Eigen::Vector3d(3, 1.0, 4),

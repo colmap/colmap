@@ -155,7 +155,7 @@ TEST(Sim3d, ToFromFile) {
   written.ToFile(path);
   const Sim3d read = Sim3d::FromFile(path);
   EXPECT_EQ(written.scale, read.scale);
-  EXPECT_EQ(written.rotation, read.rotation);
+  EXPECT_EQ(written.rotation.coeffs(), read.rotation.coeffs());
   EXPECT_EQ(written.translation, read.translation);
 }
 
