@@ -59,20 +59,20 @@ TEST(LORANSAC, SimilarityTransform) {
   const size_t num_outliers = 400;
 
   // Create some arbitrary transformation.
-  const Sim3d orig_tform(
-      2, ComposeIdentityQuaternion(), Eigen::Vector3d(100, 10, 10));
+  const Sim3d expectedTgtFromSrc(
+      2, Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d(100, 10, 10));
 
   // Generate exact data
   std::vector<Eigen::Vector3d> src;
-  std::vector<Eigen::Vector3d> dst;
+  std::vector<Eigen::Vector3d> tgt;
   for (size_t i = 0; i < num_samples; ++i) {
     src.emplace_back(i, std::sqrt(i) + 2, std::sqrt(2 * i + 2));
-    dst.push_back(orig_tform * src.back());
+    tgt.push_back(expectedTgtFromSrc * src.back());
   }
 
   // Add some faulty data.
   for (size_t i = 0; i < num_outliers; ++i) {
-    dst[i] = Eigen::Vector3d(RandomUniformReal(-3000.0, -2000.0),
+    tgt[i] = Eigen::Vector3d(RandomUniformReal(-3000.0, -2000.0),
                              RandomUniformReal(-4000.0, -3000.0),
                              RandomUniformReal(-5000.0, -4000.0));
   }
@@ -82,7 +82,7 @@ TEST(LORANSAC, SimilarityTransform) {
   options.max_error = 10;
   LORANSAC<SimilarityTransformEstimator<3>, SimilarityTransformEstimator<3>>
       ransac(options);
-  const auto report = ransac.Estimate(src, dst);
+  const auto report = ransac.Estimate(src, tgt);
 
   EXPECT_TRUE(report.success);
   EXPECT_GT(report.num_trials, 0);
@@ -99,8 +99,8 @@ TEST(LORANSAC, SimilarityTransform) {
 
   // Make sure original transformation is estimated correctly.
   const double matrix_diff =
-      (orig_tform.Matrix().topLeftCorner<3, 4>() - report.model).norm();
-  EXPECT_TRUE(std::abs(matrix_diff) < 1e-6);
+      (expectedTgtFromSrc.Matrix() - report.model).norm();
+  EXPECT_LT(matrix_diff, 1e-6);
 }
 
 }  // namespace colmap

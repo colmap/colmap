@@ -31,6 +31,8 @@
 
 #pragma once
 
+#include "colmap/util/types.h"
+
 #include <Eigen/Geometry>
 
 namespace colmap {
@@ -52,6 +54,13 @@ struct Rigid3d {
     inverse.rotation = rotation.inverse();
     inverse.translation = inverse.rotation * -translation;
     return inverse;
+  }
+
+  inline Eigen::Matrix3x4d Matrix() const {
+    Eigen::Matrix3x4d matrix;
+    matrix.leftCols<3>() = rotation.toRotationMatrix();
+    matrix.col(3) = translation;
+    return matrix;
   }
 };
 

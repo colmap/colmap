@@ -53,6 +53,7 @@ class GP3PEstimator {
   struct X_t {
     // The relative transformation from the generalized camera to the camera
     // frame of the observation.
+    // TODO(coord-convention)
     Eigen::Matrix3x4d rel_tform;
     // The 2D image feature observation.
     Eigen::Vector2d xy;

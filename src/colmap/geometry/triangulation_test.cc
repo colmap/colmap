@@ -31,7 +31,7 @@
 
 #include "colmap/geometry/triangulation.h"
 
-#include "colmap/geometry/sim3.h"
+#include "colmap/geometry/rigid3.h"
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>
@@ -39,38 +39,32 @@
 namespace colmap {
 
 TEST(TriangulatePoint, Nominal) {
-  std::vector<Eigen::Vector3d> points3D(6);
-  points3D[0] = Eigen::Vector3d(0, 0.1, 0.1);
-  points3D[1] = Eigen::Vector3d(0, 1, 3);
-  points3D[2] = Eigen::Vector3d(0, 1, 2);
-  points3D[3] = Eigen::Vector3d(0.01, 0.2, 3);
-  points3D[4] = Eigen::Vector3d(-1, 0.1, 1);
-  points3D[5] = Eigen::Vector3d(0.1, 0.1, 0.2);
+  const std::vector<Eigen::Vector3d> points3D = {
+      Eigen::Vector3d(0, 0.1, 0.1),
+      Eigen::Vector3d(0, 1, 3),
+      Eigen::Vector3d(0, 1, 2),
+      Eigen::Vector3d(0.01, 0.2, 3),
+      Eigen::Vector3d(-1, 0.1, 1),
+      Eigen::Vector3d(0.1, 0.1, 0.2),
+  };
 
-  Eigen::Matrix3x4d proj_matrix1 = Eigen::MatrixXd::Identity(3, 4);
+  const Rigid3d camFromWorld1;
 
   for (int z = 0; z < 5; ++z) {
     const double qz = z / 5.0;
     for (int tx = 0; tx < 10; tx += 2) {
-      Sim3d tform(
-          1, Eigen::Vector4d(0.2, 0.3, 0.4, qz), Eigen::Vector3d(tx, 2, 3));
-
-      const Eigen::Matrix3x4d proj_matrix2 =
-          tform.Matrix().topLeftCorner<3, 4>();
-
+      const Rigid3d camFromWorld2(Eigen::Quaterniond(0.2, 0.3, 0.4, qz),
+                                  Eigen::Vector3d(tx, 2, 3));
       for (size_t i = 0; i < points3D.size(); ++i) {
         const Eigen::Vector3d& point3D = points3D[i];
-        const Eigen::Vector4d point3D1(point3D(0), point3D(1), point3D(2), 1);
-        Eigen::Vector3d point2D1 = proj_matrix1 * point3D1;
-        Eigen::Vector3d point2D2 = proj_matrix2 * point3D1;
-        point2D1 /= point2D1(2);
-        point2D2 /= point2D2(2);
+        const Eigen::Vector3d point2D1 = camFromWorld1 * point3D;
+        const Eigen::Vector3d point2D2 = camFromWorld2 * point3D;
 
-        const Eigen::Vector2d point2D1_N(point2D1(0), point2D1(1));
-        const Eigen::Vector2d point2D2_N(point2D2(0), point2D2(1));
-
-        const Eigen::Vector3d tri_point3D = TriangulatePoint(
-            proj_matrix1, proj_matrix2, point2D1_N, point2D2_N);
+        const Eigen::Vector3d tri_point3D =
+            TriangulatePoint(camFromWorld1.Matrix(),
+                             camFromWorld2.Matrix(),
+                             point2D1.hnormalized(),
+                             point2D2.hnormalized());
 
         EXPECT_TRUE((point3D - tri_point3D).norm() < 1e-10);
       }

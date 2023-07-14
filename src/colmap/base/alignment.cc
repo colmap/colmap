@@ -44,7 +44,7 @@ struct ReconstructionAlignmentEstimator {
 
   typedef const Image* X_t;
   typedef const Image* Y_t;
-  typedef Eigen::Matrix3x4d M_t;
+  typedef Sim3d M_t;
 
   void SetMaxReprojError(const double max_reproj_error) {
     max_squared_reproj_error_ = max_reproj_error * max_reproj_error;
@@ -75,7 +75,7 @@ struct ReconstructionAlignmentEstimator {
 
     Sim3d tgtFromSrc;
     if (tgtFromSrc.Estimate(proj_centers1, proj_centers2)) {
-      return {tgtFromSrc.Matrix()};
+      return {tgtFromSrc};
     }
 
     return {};
@@ -94,7 +94,7 @@ struct ReconstructionAlignmentEstimator {
     CHECK_NOTNULL(src_reconstruction_);
     CHECK_NOTNULL(tgt_reconstruction_);
 
-    const Eigen::Matrix3x4d srcFromTgt = Sim3d(tgtFromSrc).Inverse().Matrix();
+    const Sim3d srcFromTgt = tgtFromSrc.Inverse();
 
     residuals->resize(src_images.size());
 
@@ -134,9 +134,8 @@ struct ReconstructionAlignmentEstimator {
         num_common_points += 1;
 
         const Eigen::Vector3d src_point_in_tgt =
-            tgtFromSrc * src_reconstruction_->Point3D(src_point2D.Point3DId())
-                             .XYZ()
-                             .homogeneous();
+            tgtFromSrc *
+            src_reconstruction_->Point3D(src_point2D.Point3DId()).XYZ();
         if (CalculateSquaredReprojectionError(tgt_point2D.XY(),
                                               src_point_in_tgt,
                                               src_proj_matrix,
@@ -146,9 +145,8 @@ struct ReconstructionAlignmentEstimator {
         }
 
         const Eigen::Vector3d tgt_point_in_src =
-            srcFromTgt * tgt_reconstruction_->Point3D(tgt_point2D.Point3DId())
-                             .XYZ()
-                             .homogeneous();
+            srcFromTgt *
+            tgt_reconstruction_->Point3D(tgt_point2D.Point3DId()).XYZ();
         if (CalculateSquaredReprojectionError(src_point2D.XY(),
                                               tgt_point_in_src,
                                               tgt_proj_matrix,
@@ -180,38 +178,39 @@ struct ReconstructionAlignmentEstimator {
 }  // namespace
 
 bool AlignReconstructionToLocations(
-    const Reconstruction& reconstruction,
-    const std::vector<std::string>& image_names,
-    const std::vector<Eigen::Vector3d>& locations,
+    const Reconstruction& src_reconstruction,
+    const std::vector<std::string>& tgt_image_names,
+    const std::vector<Eigen::Vector3d>& tgt_image_locations,
     const int min_common_images,
     const RANSACOptions& ransac_options,
-    Sim3d* tform) {
+    Sim3d* tgtFromSrc) {
   CHECK_GE(min_common_images, 3);
-  CHECK_EQ(image_names.size(), locations.size());
+  CHECK_EQ(tgt_image_names.size(), tgt_image_locations.size());
 
   // Find out which images are contained in the reconstruction and get the
   // positions of their camera centers.
   std::unordered_set<image_t> common_image_ids;
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> dst;
-  for (size_t i = 0; i < image_names.size(); ++i) {
-    const class Image* image = reconstruction.FindImageWithName(image_names[i]);
-    if (image == nullptr) {
+  for (size_t i = 0; i < tgt_image_names.size(); ++i) {
+    const class Image* src_image =
+        src_reconstruction.FindImageWithName(tgt_image_names[i]);
+    if (src_image == nullptr) {
       continue;
     }
 
-    if (!reconstruction.IsImageRegistered(image->ImageId())) {
+    if (!src_reconstruction.IsImageRegistered(src_image->ImageId())) {
       continue;
     }
 
     // Ignore duplicate images.
-    if (common_image_ids.count(image->ImageId()) > 0) {
+    if (common_image_ids.count(src_image->ImageId()) > 0) {
       continue;
     }
 
-    common_image_ids.insert(image->ImageId());
-    src.push_back(image->ProjectionCenter());
-    dst.push_back(locations[i]);
+    common_image_ids.insert(src_image->ImageId());
+    src.push_back(src_image->ProjectionCenter());
+    dst.push_back(tgt_image_locations[i]);
   }
 
   // Only compute the alignment if there are enough correspondences.
@@ -229,8 +228,10 @@ bool AlignReconstructionToLocations(
     return false;
   }
 
-  if (tform != nullptr) {
-    *tform = Sim3d(report.model);
+  if (tgtFromSrc != nullptr) {
+    tgtFromSrc->scale = report.model.col(0).norm();
+    tgtFromSrc->rotation = report.model.leftCols<3>() / tgtFromSrc->scale;
+    tgtFromSrc->translation = report.model.col(3);
   }
 
   return true;
@@ -273,7 +274,7 @@ bool AlignReconstructions(const Reconstruction& src_reconstruction,
   const auto report = ransac.Estimate(src_images, tgt_images);
 
   if (report.success) {
-    *tgtFromSrc = Sim3d(report.model);
+    *tgtFromSrc = report.model;
   }
 
   return report.success;

@@ -33,8 +33,7 @@
 
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/projection.h"
-#include "colmap/geometry/sim3.h"
-#include "colmap/math/random.h"
+#include "colmap/geometry/rigid3.h"
 #include "colmap/optim/ransac.h"
 
 #include <array>
@@ -45,8 +44,6 @@
 namespace colmap {
 
 TEST(GeneralizedAbsolutePose, Estimate) {
-  SetPRNGSeed(0);
-
   std::vector<Eigen::Vector3d> points3D;
   points3D.emplace_back(1, 1, 1);
   points3D.emplace_back(0, 1, 1);
@@ -69,23 +66,20 @@ TEST(GeneralizedAbsolutePose, Estimate) {
       const int kRefTform = 1;
       const int kNumTforms = 3;
 
-      const std::array<Sim3d, kNumTforms> orig_tforms = {{
-          Sim3d(1, Eigen::Vector4d(1, qx, 0, 0), Eigen::Vector3d(tx, -0.1, 0)),
-          Sim3d(1, Eigen::Vector4d(1, qx, 0, 0), Eigen::Vector3d(tx, 0, 0)),
-          Sim3d(1, Eigen::Vector4d(1, qx, 0, 0), Eigen::Vector3d(tx, 0.1, 0)),
+      const std::array<Rigid3d, kNumTforms> expectedCamFromWorlds = {{
+          Rigid3d(Eigen::Quaterniond(1, qx, 0, 0).normalized(),
+                  Eigen::Vector3d(tx, -0.1, 0)),
+          Rigid3d(Eigen::Quaterniond(1, qx, 0, 0).normalized(),
+                  Eigen::Vector3d(tx, 0, 0)),
+          Rigid3d(Eigen::Quaterniond(1, qx, 0, 0).normalized(),
+                  Eigen::Vector3d(tx, 0.1, 0)),
       }};
 
       std::array<Eigen::Matrix3x4d, kNumTforms> rel_tforms;
       for (size_t i = 0; i < kNumTforms; ++i) {
-        Eigen::Vector4d rel_qvec;
-        Eigen::Vector3d rel_tvec;
-        ComputeRelativePose(orig_tforms[kRefTform].Rotation(),
-                            orig_tforms[kRefTform].Translation(),
-                            orig_tforms[i].Rotation(),
-                            orig_tforms[i].Translation(),
-                            &rel_qvec,
-                            &rel_tvec);
-        rel_tforms[i] = ComposeProjectionMatrix(rel_qvec, rel_tvec);
+        const Rigid3d iFromRef = expectedCamFromWorlds[i] *
+                                 expectedCamFromWorlds[kRefTform].Inverse();
+        rel_tforms[i] = iFromRef.Matrix();
       }
 
       // Project points to camera coordinate system.
@@ -94,7 +88,7 @@ TEST(GeneralizedAbsolutePose, Estimate) {
         points2D.emplace_back();
         points2D.back().rel_tform = rel_tforms[i % kNumTforms];
         points2D.back().xy =
-            (orig_tforms[i % kNumTforms] * points3D[i]).hnormalized();
+            (expectedCamFromWorlds[i % kNumTforms] * points3D[i]).hnormalized();
       }
 
       RANSACOptions options;
@@ -103,12 +97,9 @@ TEST(GeneralizedAbsolutePose, Estimate) {
       const auto report = ransac.Estimate(points2D, points3D);
 
       EXPECT_TRUE(report.success);
-
-      // Test if correct transformation has been determined.
-      const double matrix_diff =
-          (orig_tforms[kRefTform].Matrix().topLeftCorner<3, 4>() - report.model)
-              .norm();
-      EXPECT_TRUE(matrix_diff < 1e-2);
+      EXPECT_LT(
+          (expectedCamFromWorlds[kRefTform].Matrix() - report.model).norm(),
+          1e-2);
 
       // Test residuals of exact points.
       std::vector<double> residuals;

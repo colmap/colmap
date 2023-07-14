@@ -32,6 +32,7 @@
 #include "colmap/estimators/coordinate_frame.h"
 
 #include "colmap/geometry/gps.h"
+#include "colmap/geometry/projection.h"
 
 #include <gtest/gtest.h>
 
@@ -66,18 +67,18 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
   image.Tvec() = Eigen::Vector3d(-1.0, 0.0, 0.0);
   reconstruction.AddImage(image);
   // Setup 4 points on the Y-Z plane
-  point3D_t p1 =
+  const point3D_t p1 =
       reconstruction.AddPoint3D(Eigen::Vector3d(0.0, -1.0, 0.0), Track());
-  point3D_t p2 =
+  const point3D_t p2 =
       reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 1.0, 0.0), Track());
-  point3D_t p3 =
+  const point3D_t p3 =
       reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 0.0, -1.0), Track());
-  point3D_t p4 =
+  const point3D_t p4 =
       reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 0.0, 1.0), Track());
   AlignToPrincipalPlane(&reconstruction, &tform);
   // Note that the final X and Y axes may be inverted after alignment, so we
   // need to account for both cases when checking for correctness
-  const bool inverted = tform.Rotation()(2) < 0;
+  const bool inverted = tform.rotation.y() < 0;
 
   // Verify that points lie on the correct locations of the X-Y plane
   EXPECT_LE((reconstruction.Point3D(p1).XYZ() -
@@ -102,14 +103,13 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
                 .norm(),
             1e-6);
   // Verify that transform matrix does shuffling of axes
-  Eigen::Matrix3x4d mat;
+  Eigen::Matrix3x4d expected;
   if (inverted) {
-    mat << 0, -1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0;
+    expected << 0, -1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0;
   } else {
-    mat << 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0;
+    expected << 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0;
   }
-  std::cout << tform.Matrix() << std::endl;
-  EXPECT_LE((tform.Matrix() - mat).norm(), 1e-6);
+  EXPECT_LT((tform.Matrix() - expected).norm(), 1e-6);
 }
 
 TEST(CoordinateFrame, AlignToENUPlane) {

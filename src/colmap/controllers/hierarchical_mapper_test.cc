@@ -94,7 +94,7 @@ TEST(HierarchicalMapperController, WithoutNoise) {
                              /*num_obs_tolerance=*/0);
 }
 
-TEST(IncrementalMapperController, MultiReconstruction) {
+TEST(HierarchicalMapperController, MultiReconstruction) {
   const std::string database_path = CreateTestDir() + "/database.db";
 
   Database database(database_path);
