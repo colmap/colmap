@@ -37,6 +37,7 @@ COLMAP_ADD_SOURCES(
     homography_matrix.h homography_matrix.cc
     pose.h pose.cc
     projection.h projection.cc
+    rigid3.h
     sim3.h sim3.cc
     triangulation.h triangulation.cc
 )
@@ -46,5 +47,6 @@ COLMAP_ADD_TEST(gps_test gps_test.cc)
 COLMAP_ADD_TEST(homography_matrix_utils_test homography_matrix_test.cc)
 COLMAP_ADD_TEST(pose_test pose_test.cc)
 COLMAP_ADD_TEST(projection_test projection_test.cc)
+COLMAP_ADD_TEST(rigid3_test rigid3_test.cc)
 COLMAP_ADD_TEST(sim3_test sim3_test.cc)
 COLMAP_ADD_TEST(triangulation_test triangulation_test.cc)
