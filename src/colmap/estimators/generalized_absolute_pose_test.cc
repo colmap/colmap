@@ -66,7 +66,7 @@ TEST(GeneralizedAbsolutePose, Estimate) {
       const int kRefTform = 1;
       const int kNumTforms = 3;
 
-      const std::array<Rigid3d, kNumTforms> expectedCamFromWorlds = {{
+      const std::array<Rigid3d, kNumTforms> expected_cam_from_world = {{
           Rigid3d(Eigen::Quaterniond(1, qx, 0, 0).normalized(),
                   Eigen::Vector3d(tx, -0.1, 0)),
           Rigid3d(Eigen::Quaterniond(1, qx, 0, 0).normalized(),
@@ -77,8 +77,8 @@ TEST(GeneralizedAbsolutePose, Estimate) {
 
       std::array<Eigen::Matrix3x4d, kNumTforms> rel_tforms;
       for (size_t i = 0; i < kNumTforms; ++i) {
-        const Rigid3d iFromRef = expectedCamFromWorlds[i] *
-                                 expectedCamFromWorlds[kRefTform].Inverse();
+        const Rigid3d iFromRef = expected_cam_from_world[i] *
+                                 expected_cam_from_world[kRefTform].Inverse();
         rel_tforms[i] = iFromRef.Matrix();
       }
 
@@ -88,7 +88,8 @@ TEST(GeneralizedAbsolutePose, Estimate) {
         points2D.emplace_back();
         points2D.back().rel_tform = rel_tforms[i % kNumTforms];
         points2D.back().xy =
-            (expectedCamFromWorlds[i % kNumTforms] * points3D[i]).hnormalized();
+            (expected_cam_from_world[i % kNumTforms] * points3D[i])
+                .hnormalized();
       }
 
       RANSACOptions options;
@@ -98,7 +99,7 @@ TEST(GeneralizedAbsolutePose, Estimate) {
 
       EXPECT_TRUE(report.success);
       EXPECT_LT(
-          (expectedCamFromWorlds[kRefTform].Matrix() - report.model).norm(),
+          (expected_cam_from_world[kRefTform].Matrix() - report.model).norm(),
           1e-2);
 
       // Test residuals of exact points.

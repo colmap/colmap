@@ -69,13 +69,14 @@ void WriteProjectionMatrix(const std::string& path,
   calib_matrix(0, 2) = camera.PrincipalPointX();
   calib_matrix(1, 2) = camera.PrincipalPointY();
 
-  const Eigen::Matrix3x4d proj_matrix = calib_matrix * image.ProjectionMatrix();
+  const Eigen::Matrix3x4d img_from_world =
+      calib_matrix * image.CamFromWorld().Matrix();
 
   if (!header.empty()) {
     file << header << std::endl;
   }
 
-  WriteMatrix(proj_matrix, &file);
+  WriteMatrix(img_from_world, &file);
 }
 
 void WriteCOLMAPCommands(const bool geometric,
@@ -751,10 +752,8 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
     return;
   }
 
-  Eigen::Vector4d qvec;
-  Eigen::Vector3d tvec;
-  ComputeRelativePose(
-      image1.Qvec(), image1.Tvec(), image2.Qvec(), image2.Tvec(), &qvec, &tvec);
+  const Rigid3d cam2_from_cam1 =
+      image2.CamFromWorld() * image1.CamFromWorld().Inverse();
 
   Bitmap undistorted_bitmap1;
   Bitmap undistorted_bitmap2;
@@ -765,8 +764,7 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
                                   distorted_bitmap2,
                                   camera1,
                                   camera2,
-                                  qvec,
-                                  tvec,
+                                  cam2_from_cam1,
                                   &undistorted_bitmap1,
                                   &undistorted_bitmap2,
                                   &undistorted_camera,
@@ -1012,8 +1010,7 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
 
 void RectifyStereoCameras(const Camera& camera1,
                           const Camera& camera2,
-                          const Eigen::Vector4d& qvec,
-                          const Eigen::Vector3d& tvec,
+                          const Rigid3d& cam2_from_cam1,
                           Eigen::Matrix3d* H1,
                           Eigen::Matrix3d* H2,
                           Eigen::Matrix4d* Q) {
@@ -1023,15 +1020,14 @@ void RectifyStereoCameras(const Camera& camera1,
         camera2.ModelId() == PinholeCameraModel::model_id);
 
   // Compute the average rotation between the first and the second camera.
-  Eigen::AngleAxisd rvec(
-      Eigen::Quaterniond(qvec(0), qvec(1), qvec(2), qvec(3)));
-  rvec.angle() *= -0.5;
+  Eigen::AngleAxisd half_cam2_from_cam1(cam2_from_cam1.rotation);
+  half_cam2_from_cam1.angle() *= -0.5;
 
-  Eigen::Matrix3d R2 = rvec.toRotationMatrix();
+  Eigen::Matrix3d R2 = half_cam2_from_cam1.toRotationMatrix();
   Eigen::Matrix3d R1 = R2.transpose();
 
   // Determine the translation, such that it coincides with the X-axis.
-  Eigen::Vector3d t = R2 * tvec;
+  Eigen::Vector3d t = R2 * cam2_from_cam1.translation;
 
   Eigen::Vector3d x_unit_vector(1, 0, 0);
   if (t.transpose() * x_unit_vector < 0) {
@@ -1080,8 +1076,7 @@ void RectifyAndUndistortStereoImages(const UndistortCameraOptions& options,
                                      const Bitmap& distorted_image2,
                                      const Camera& distorted_camera1,
                                      const Camera& distorted_camera2,
-                                     const Eigen::Vector4d& qvec,
-                                     const Eigen::Vector3d& tvec,
+                                     const Rigid3d& cam2_from_cam1,
                                      Bitmap* undistorted_image1,
                                      Bitmap* undistorted_image2,
                                      Camera* undistorted_camera,
@@ -1105,7 +1100,7 @@ void RectifyAndUndistortStereoImages(const UndistortCameraOptions& options,
   Eigen::Matrix3d H1;
   Eigen::Matrix3d H2;
   RectifyStereoCameras(
-      *undistorted_camera, *undistorted_camera, qvec, tvec, &H1, &H2, Q);
+      *undistorted_camera, *undistorted_camera, cam2_from_cam1, &H1, &H2, Q);
 
   WarpImageWithHomographyBetweenCameras(H1.inverse(),
                                         distorted_camera1,

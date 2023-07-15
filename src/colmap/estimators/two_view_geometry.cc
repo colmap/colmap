@@ -103,9 +103,7 @@ void TwoViewGeometry::Invert() {
   E.transposeInPlace();
   H = H.inverse().eval();
 
-  const Eigen::Vector4d orig_qvec = qvec;
-  const Eigen::Vector3d orig_tvec = tvec;
-  InvertPose(orig_qvec, orig_tvec, &qvec, &tvec);
+  cam2_from_cam1 = cam2_from_cam1.Inverse();
 
   for (auto& match : inlier_matches) {
     std::swap(match.point2D_idx1, match.point2D_idx2);
@@ -194,7 +192,7 @@ bool TwoViewGeometry::EstimateRelativePose(
     inlier_points2_normalized.push_back(camera2.ImageToWorld(points2[idx2]));
   }
 
-  Eigen::Matrix3d R;
+  Eigen::Matrix3d cam2_from_cam1_rot_mat;
   std::vector<Eigen::Vector3d> points3D;
 
   if (config == CALIBRATED || config == UNCALIBRATED) {
@@ -205,36 +203,38 @@ bool TwoViewGeometry::EstimateRelativePose(
     PoseFromEssentialMatrix(E,
                             inlier_points1_normalized,
                             inlier_points2_normalized,
-                            &R,
-                            &tvec,
+                            &cam2_from_cam1_rot_mat,
+                            &cam2_from_cam1.translation,
                             &points3D);
   } else if (config == PLANAR || config == PANORAMIC ||
              config == PLANAR_OR_PANORAMIC) {
-    Eigen::Vector3d n;
+    Eigen::Vector3d normal;
     PoseFromHomographyMatrix(H,
                              camera1.CalibrationMatrix(),
                              camera2.CalibrationMatrix(),
                              inlier_points1_normalized,
                              inlier_points2_normalized,
-                             &R,
-                             &tvec,
-                             &n,
+                             &cam2_from_cam1_rot_mat,
+                             &cam2_from_cam1.translation,
+                             &normal,
                              &points3D);
   } else {
     return false;
   }
 
-  qvec = RotationMatrixToQuaternion(R);
+  cam2_from_cam1.rotation = Eigen::Quaterniond(cam2_from_cam1_rot_mat);
 
   if (points3D.empty()) {
     tri_angle = 0;
   } else {
     tri_angle = Median(CalculateTriangulationAngles(
-        Eigen::Vector3d::Zero(), -R.transpose() * tvec, points3D));
+        Eigen::Vector3d::Zero(),
+        -cam2_from_cam1_rot_mat.transpose() * cam2_from_cam1.translation,
+        points3D));
   }
 
   if (config == PLANAR_OR_PANORAMIC) {
-    if (tvec.norm() == 0) {
+    if (cam2_from_cam1.translation.norm() == 0) {
       config = PANORAMIC;
       tri_angle = 0;
     } else {

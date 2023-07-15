@@ -42,7 +42,7 @@ TEST(BundleAdjustment, AbsolutePose) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       BundleAdjustmentCostFunction<SimplePinholeCameraModel>::Create(
           Eigen::Vector2d::Zero()));
-  double qvec[4] = {1, 0, 0, 0};
+  double qvec[4] = {0, 0, 0, 1};
   double tvec[3] = {0, 0, 0};
   double point3D[3] = {0, 0, 1};
   double camera_params[3] = {1, 0, 0};
@@ -71,8 +71,7 @@ TEST(BundleAdjustment, AbsolutePose) {
 TEST(BundleAdjustment, ConstantAbsolutePose) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       BundleAdjustmentConstantPoseCostFunction<
-          SimplePinholeCameraModel>::Create(ComposeIdentityQuaternion(),
-                                            Eigen::Vector3d::Zero(),
+          SimplePinholeCameraModel>::Create(Rigid3d(),
                                             Eigen::Vector2d::Zero()));
   double point3D[3] = {0, 0, 1};
   double camera_params[3] = {1, 0, 0};
@@ -102,9 +101,9 @@ TEST(BundleAdjustment, Rig) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       RigBundleAdjustmentCostFunction<SimplePinholeCameraModel>::Create(
           Eigen::Vector2d::Zero()));
-  double rig_qvec[4] = {1, 0, 0, 0};
+  double rig_qvec[4] = {0, 0, 0, 1};
   double rig_tvec[3] = {0, 0, -1};
-  double rel_qvec[4] = {1, 0, 0, 0};
+  double rel_qvec[4] = {0, 0, 0, 1};
   double rel_tvec[3] = {0, 0, 1};
   double point3D[3] = {0, 0, 1};
   double camera_params[3] = {1, 0, 0};

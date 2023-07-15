@@ -31,6 +31,8 @@
 
 #pragma once
 
+#include "colmap/geometry/rigid3.h"
+#include "colmap/geometry/sim3.h"
 #include "colmap/util/types.h"
 
 #include <vector>
@@ -223,6 +225,9 @@ bool CheckCheirality(const Eigen::Matrix3d& R,
                      const std::vector<Eigen::Vector2d>& points1,
                      const std::vector<Eigen::Vector2d>& points2,
                      std::vector<Eigen::Vector3d>* points3D);
+
+Rigid3d TransformCameraWorld(const Sim3d& new_from_old_world,
+                             const Rigid3d& cam_from_world);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation

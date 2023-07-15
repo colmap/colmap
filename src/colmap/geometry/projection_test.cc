@@ -92,131 +92,156 @@ TEST(DecomposeProjectionMatrix, Nominal) {
 }
 
 TEST(CalculateSquaredReprojectionError, Nominal) {
-  const Eigen::Vector4d qvec = ComposeIdentityQuaternion();
-  const Eigen::Vector3d tvec = Eigen::Vector3d::Zero();
-
-  const auto proj_matrix = ComposeProjectionMatrix(qvec, tvec);
+  const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
+                               Eigen::Vector3d::Zero());
+  const Eigen::Matrix3x4d cam_from_world_matrix = cam_from_world.Matrix();
 
   const Eigen::Vector3d point3D = Eigen::Vector3d::Random().cwiseAbs();
-  const Eigen::Vector3d point2D_h = proj_matrix * point3D.homogeneous();
+  const Eigen::Vector3d point2D_h =
+      cam_from_world_matrix * point3D.homogeneous();
   const Eigen::Vector2d point2D = point2D_h.hnormalized();
 
   Camera camera;
   camera.InitializeWithId(SimplePinholeCameraModel::model_id, 1, 0, 0);
 
-  const double error1 =
-      CalculateSquaredReprojectionError(point2D, point3D, qvec, tvec, camera);
-  EXPECT_EQ(error1, 0);
+  EXPECT_EQ(CalculateSquaredReprojectionError(
+                point2D, point3D, cam_from_world, camera),
+            0);
+  EXPECT_EQ(CalculateSquaredReprojectionError(
+                point2D, point3D, cam_from_world_matrix, camera),
+            0);
 
-  const double error2 =
-      CalculateSquaredReprojectionError(point2D, point3D, proj_matrix, camera);
-  EXPECT_GE(error2, 0);
-  EXPECT_LT(error2, 1e-6);
-
-  const double error3 = CalculateSquaredReprojectionError(
-      point2D.array() + 1, point3D, qvec, tvec, camera);
-  EXPECT_NEAR(error3, 2, 1e-6);
-
-  const double error4 = CalculateSquaredReprojectionError(
-      point2D.array() + 1, point3D, proj_matrix, camera);
-  EXPECT_NEAR(error4, 2, 1e-6);
+  EXPECT_NEAR(CalculateSquaredReprojectionError(
+                  point2D.array() + 1, point3D, cam_from_world, camera),
+              2,
+              1e-6);
+  EXPECT_NEAR(CalculateSquaredReprojectionError(
+                  point2D.array() + 1, point3D, cam_from_world_matrix, camera),
+              2,
+              1e-6);
 }
 
 TEST(CalculateAngularError, Nominal) {
-  const Eigen::Vector4d qvec = ComposeIdentityQuaternion();
-  const Eigen::Vector3d tvec = Eigen::Vector3d(0, 0, 0);
+  const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
+                               Eigen::Vector3d::Zero());
+  const Eigen::Matrix3x4d cam_from_world_matrix = cam_from_world.Matrix();
 
-  const auto proj_matrix = ComposeProjectionMatrix(qvec, tvec);
   Camera camera;
   camera.SetModelId(SimplePinholeCameraModel::model_id);
   camera.Params() = {1, 0, 0};
 
-  const double error1 = CalculateAngularError(
-      Eigen::Vector2d(0, 0), Eigen::Vector3d(0, 0, 1), proj_matrix, camera);
+  const double error1 = CalculateAngularError(Eigen::Vector2d(0, 0),
+                                              Eigen::Vector3d(0, 0, 1),
+                                              cam_from_world_matrix,
+                                              camera);
   EXPECT_NEAR(error1, 0, 1e-6);
 
-  const double error2 = CalculateAngularError(
-      Eigen::Vector2d(0, 0), Eigen::Vector3d(0, 1, 1), proj_matrix, camera);
+  const double error2 = CalculateAngularError(Eigen::Vector2d(0, 0),
+                                              Eigen::Vector3d(0, 1, 1),
+                                              cam_from_world_matrix,
+                                              camera);
   EXPECT_NEAR(error2, M_PI / 4, 1e-6);
 
-  const double error3 = CalculateAngularError(
-      Eigen::Vector2d(0, 0), Eigen::Vector3d(0, 5, 5), proj_matrix, camera);
+  const double error3 = CalculateAngularError(Eigen::Vector2d(0, 0),
+                                              Eigen::Vector3d(0, 5, 5),
+                                              cam_from_world_matrix,
+                                              camera);
   EXPECT_NEAR(error3, M_PI / 4, 1e-6);
 
-  const double error4 = CalculateAngularError(
-      Eigen::Vector2d(1, 0), Eigen::Vector3d(0, 0, 1), proj_matrix, camera);
+  const double error4 = CalculateAngularError(Eigen::Vector2d(1, 0),
+                                              Eigen::Vector3d(0, 0, 1),
+                                              cam_from_world_matrix,
+                                              camera);
   EXPECT_NEAR(error4, M_PI / 4, 1e-6);
 
-  const double error5 = CalculateAngularError(
-      Eigen::Vector2d(2, 0), Eigen::Vector3d(0, 0, 1), proj_matrix, camera);
+  const double error5 = CalculateAngularError(Eigen::Vector2d(2, 0),
+                                              Eigen::Vector3d(0, 0, 1),
+                                              cam_from_world_matrix,
+                                              camera);
   EXPECT_NEAR(error5, 1.10714872, 1e-6);
 
-  const double error6 = CalculateAngularError(
-      Eigen::Vector2d(2, 0), Eigen::Vector3d(1, 0, 1), proj_matrix, camera);
+  const double error6 = CalculateAngularError(Eigen::Vector2d(2, 0),
+                                              Eigen::Vector3d(1, 0, 1),
+                                              cam_from_world_matrix,
+                                              camera);
   EXPECT_NEAR(error6, 1.10714872 - M_PI / 4, 1e-6);
 
-  const double error7 = CalculateAngularError(
-      Eigen::Vector2d(2, 0), Eigen::Vector3d(5, 0, 5), proj_matrix, camera);
+  const double error7 = CalculateAngularError(Eigen::Vector2d(2, 0),
+                                              Eigen::Vector3d(5, 0, 5),
+                                              cam_from_world_matrix,
+                                              camera);
   EXPECT_NEAR(error7, 1.10714872 - M_PI / 4, 1e-6);
 
-  const double error8 = CalculateAngularError(
-      Eigen::Vector2d(1, 0), Eigen::Vector3d(-1, 0, 1), proj_matrix, camera);
+  const double error8 = CalculateAngularError(Eigen::Vector2d(1, 0),
+                                              Eigen::Vector3d(-1, 0, 1),
+                                              cam_from_world_matrix,
+                                              camera);
   EXPECT_NEAR(error8, M_PI / 2, 1e-6);
 
-  const double error9 = CalculateAngularError(
-      Eigen::Vector2d(1, 0), Eigen::Vector3d(-1, 0, 0), proj_matrix, camera);
+  const double error9 = CalculateAngularError(Eigen::Vector2d(1, 0),
+                                              Eigen::Vector3d(-1, 0, 0),
+                                              cam_from_world_matrix,
+                                              camera);
   EXPECT_NEAR(error9, M_PI * 3 / 4, 1e-6);
 
-  const double error10 = CalculateAngularError(
-      Eigen::Vector2d(1, 0), Eigen::Vector3d(-1, 0, -1), proj_matrix, camera);
+  const double error10 = CalculateAngularError(Eigen::Vector2d(1, 0),
+                                               Eigen::Vector3d(-1, 0, -1),
+                                               cam_from_world_matrix,
+                                               camera);
   EXPECT_NEAR(error10, M_PI, 1e-6);
 
-  const double error11 = CalculateAngularError(
-      Eigen::Vector2d(1, 0), Eigen::Vector3d(0, 0, -1), proj_matrix, camera);
+  const double error11 = CalculateAngularError(Eigen::Vector2d(1, 0),
+                                               Eigen::Vector3d(0, 0, -1),
+                                               cam_from_world_matrix,
+                                               camera);
   EXPECT_NEAR(error11, M_PI * 3 / 4, 1e-6);
 }
 
 TEST(CalculateDepth, Nominal) {
-  const Eigen::Vector4d qvec(1, 0, 0, 0);
-  const Eigen::Vector3d tvec(0, 0, 0);
-  const auto proj_matrix = ComposeProjectionMatrix(qvec, tvec);
+  const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
+                               Eigen::Vector3d::Zero());
+  const Eigen::Matrix3x4d cam_from_world_matrix = cam_from_world.Matrix();
 
   // In the image plane
-  const double depth1 = CalculateDepth(proj_matrix, Eigen::Vector3d(0, 0, 0));
+  const double depth1 =
+      CalculateDepth(cam_from_world_matrix, Eigen::Vector3d(0, 0, 0));
   EXPECT_NEAR(depth1, 0, 1e-10);
-  const double depth2 = CalculateDepth(proj_matrix, Eigen::Vector3d(0, 2, 0));
+  const double depth2 =
+      CalculateDepth(cam_from_world_matrix, Eigen::Vector3d(0, 2, 0));
   EXPECT_NEAR(depth2, 0, 1e-10);
 
   // Infront of camera
-  const double depth3 = CalculateDepth(proj_matrix, Eigen::Vector3d(0, 0, 1));
+  const double depth3 =
+      CalculateDepth(cam_from_world_matrix, Eigen::Vector3d(0, 0, 1));
   EXPECT_NEAR(depth3, 1, 1e-10);
 
   // Behind camera
-  const double depth4 = CalculateDepth(proj_matrix, Eigen::Vector3d(0, 0, -1));
+  const double depth4 =
+      CalculateDepth(cam_from_world_matrix, Eigen::Vector3d(0, 0, -1));
   EXPECT_NEAR(depth4, -1, 1e-10);
 }
 
 TEST(HasPointPositiveDepth, Nominal) {
-  const Eigen::Vector4d qvec(1, 0, 0, 0);
-  const Eigen::Vector3d tvec(0, 0, 0);
-  const auto proj_matrix = ComposeProjectionMatrix(qvec, tvec);
+  const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
+                               Eigen::Vector3d::Zero());
+  const Eigen::Matrix3x4d cam_from_world_matrix = cam_from_world.Matrix();
 
   // In the image plane
   const bool check1 =
-      HasPointPositiveDepth(proj_matrix, Eigen::Vector3d(0, 0, 0));
+      HasPointPositiveDepth(cam_from_world_matrix, Eigen::Vector3d(0, 0, 0));
   EXPECT_FALSE(check1);
   const bool check2 =
-      HasPointPositiveDepth(proj_matrix, Eigen::Vector3d(0, 2, 0));
+      HasPointPositiveDepth(cam_from_world_matrix, Eigen::Vector3d(0, 2, 0));
   EXPECT_FALSE(check2);
 
   // Infront of camera
   const bool check3 =
-      HasPointPositiveDepth(proj_matrix, Eigen::Vector3d(0, 0, 1));
+      HasPointPositiveDepth(cam_from_world_matrix, Eigen::Vector3d(0, 0, 1));
   EXPECT_TRUE(check3);
 
   // Behind camera
   const bool check4 =
-      HasPointPositiveDepth(proj_matrix, Eigen::Vector3d(0, 0, -1));
+      HasPointPositiveDepth(cam_from_world_matrix, Eigen::Vector3d(0, 0, -1));
   EXPECT_FALSE(check4);
 }
 

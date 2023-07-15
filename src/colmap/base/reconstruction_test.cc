@@ -220,31 +220,34 @@ TEST(Reconstruction, RegisterImage) {
 TEST(Reconstruction, Normalize) {
   Reconstruction reconstruction;
   GenerateReconstruction(3, &reconstruction);
-  reconstruction.Image(1).Tvec(2) = -10.0;
-  reconstruction.Image(2).Tvec(2) = 0.0;
-  reconstruction.Image(3).Tvec(2) = 10.0;
+  reconstruction.Image(1).CamFromWorld().translation.z() = -10.0;
+  reconstruction.Image(2).CamFromWorld().translation.z() = 0.0;
+  reconstruction.Image(3).CamFromWorld().translation.z() = 10.0;
   reconstruction.DeRegisterImage(1);
   reconstruction.DeRegisterImage(2);
   reconstruction.DeRegisterImage(3);
   reconstruction.Normalize();
-  EXPECT_LT(std::abs(reconstruction.Image(1).Tvec(2) + 10), 1e-6);
-  EXPECT_LT(std::abs(reconstruction.Image(2).Tvec(2)), 1e-6);
-  EXPECT_LT(std::abs(reconstruction.Image(3).Tvec(2) - 10), 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(1).CamFromWorld().translation.z(), -10, 1e-6);
+  EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
+  EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 10, 1e-6);
   reconstruction.RegisterImage(1);
   reconstruction.RegisterImage(2);
   reconstruction.RegisterImage(3);
   reconstruction.Normalize();
-  EXPECT_LT(std::abs(reconstruction.Image(1).Tvec(2) + 5), 1e-6);
-  EXPECT_LT(std::abs(reconstruction.Image(2).Tvec(2)), 1e-6);
-  EXPECT_LT(std::abs(reconstruction.Image(3).Tvec(2) - 5), 1e-6);
+  EXPECT_NEAR(reconstruction.Image(1).CamFromWorld().translation.z(), -5, 1e-6);
+  EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
+  EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 5, 1e-6);
   reconstruction.Normalize(5);
-  EXPECT_LT(std::abs(reconstruction.Image(1).Tvec(2) + 2.5), 1e-6);
-  EXPECT_LT(std::abs(reconstruction.Image(2).Tvec(2)), 1e-6);
-  EXPECT_LT(std::abs(reconstruction.Image(3).Tvec(2) - 2.5), 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(1).CamFromWorld().translation.z(), -2.5, 1e-6);
+  EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(3).CamFromWorld().translation.z(), 2.5, 1e-6);
   reconstruction.Normalize(10, 0.0, 1.0);
-  EXPECT_LT(std::abs(reconstruction.Image(1).Tvec(2) + 5), 1e-6);
-  EXPECT_LT(std::abs(reconstruction.Image(2).Tvec(2)), 1e-6);
-  EXPECT_LT(std::abs(reconstruction.Image(3).Tvec(2) - 5), 1e-6);
+  EXPECT_NEAR(reconstruction.Image(1).CamFromWorld().translation.z(), -5, 1e-6);
+  EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
+  EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 5, 1e-6);
   reconstruction.Normalize(20);
   Image image;
   image.SetImageId(4);
@@ -259,19 +262,23 @@ TEST(Reconstruction, Normalize) {
   image.SetImageId(7);
   reconstruction.AddImage(image);
   reconstruction.RegisterImage(7);
-  reconstruction.Image(4).Tvec(2) = -7.5;
-  reconstruction.Image(5).Tvec(2) = -5.0;
-  reconstruction.Image(6).Tvec(2) = 5.0;
-  reconstruction.Image(7).Tvec(2) = 7.5;
+  reconstruction.Image(4).CamFromWorld().translation.z() = -7.5;
+  reconstruction.Image(5).CamFromWorld().translation.z() = -5.0;
+  reconstruction.Image(6).CamFromWorld().translation.z() = 5.0;
+  reconstruction.Image(7).CamFromWorld().translation.z() = 7.5;
   reconstruction.RegisterImage(7);
   reconstruction.Normalize(10, 0.0, 1.0);
-  EXPECT_LT(std::abs(reconstruction.Image(1).Tvec(2) + 5), 1e-6);
-  EXPECT_LT(std::abs(reconstruction.Image(2).Tvec(2)), 1e-6);
-  EXPECT_LT(std::abs(reconstruction.Image(3).Tvec(2) - 5), 1e-6);
-  EXPECT_LT(std::abs(reconstruction.Image(4).Tvec(2) + 3.75), 1e-6);
-  EXPECT_LT(std::abs(reconstruction.Image(5).Tvec(2) + 2.5), 1e-6);
-  EXPECT_LT(std::abs(reconstruction.Image(6).Tvec(2) - 2.5), 1e-6);
-  EXPECT_LT(std::abs(reconstruction.Image(7).Tvec(2) - 3.75), 1e-6);
+  EXPECT_NEAR(reconstruction.Image(1).CamFromWorld().translation.z(), -5, 1e-6);
+  EXPECT_NEAR(reconstruction.Image(2).CamFromWorld().translation.z(), 0, 1e-6);
+  EXPECT_NEAR(reconstruction.Image(3).CamFromWorld().translation.z(), 5, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(4).CamFromWorld().translation.z(), -3.75, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(5).CamFromWorld().translation.z(), -2.5, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(6).CamFromWorld().translation.z(), 2.5, 1e-6);
+  EXPECT_NEAR(
+      reconstruction.Image(7).CamFromWorld().translation.z(), 3.75, 1e-6);
 }
 
 TEST(Reconstruction, ComputeBoundsAndCentroid) {

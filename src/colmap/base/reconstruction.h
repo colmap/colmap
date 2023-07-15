@@ -187,7 +187,7 @@ class Reconstruction {
       double p0 = 0.0, double p1 = 1.0) const;
 
   // Apply the 3D similarity transformation to all images and points.
-  void Transform(const Sim3d& tform);
+  void Transform(const Sim3d& new_from_old_world);
 
   // Creates a cropped reconstruction using the input bounds as corner points
   // of the bounding box containing the included 3D points of the new

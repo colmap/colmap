@@ -72,7 +72,7 @@ struct Sim3d {
   bool Estimate(const std::vector<Eigen::Vector3d>& src,
                 const std::vector<Eigen::Vector3d>& tgt);
 
-  // Transform world for camFromWorld pose.
+  // Transform world for cam_from_world pose.
   // TODO(jsch): Rename and refactor with future RigidTransform class.
   void TransformPose(Eigen::Vector4d* qvec, Eigen::Vector3d* tvec) const;
 

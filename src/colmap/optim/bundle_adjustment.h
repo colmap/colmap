@@ -102,9 +102,9 @@ class BundleAdjustmentConfig {
 
   size_t NumImages() const;
   size_t NumPoints() const;
-  size_t NumConstantCameras() const;
-  size_t NumConstantPoses() const;
-  size_t NumConstantTvecs() const;
+  size_t NumConstantCamIntrinsics() const;
+  size_t NumConstantCamPoses() const;
+  size_t NumConstantCamPositions() const;
   size_t NumVariablePoints() const;
   size_t NumConstantPoints() const;
 
@@ -120,22 +120,22 @@ class BundleAdjustmentConfig {
   // Set cameras of added images as constant or variable. By default all
   // cameras of added images are variable. Note that the corresponding images
   // have to be added prior to calling these methods.
-  void SetConstantCamera(camera_t camera_id);
-  void SetVariableCamera(camera_t camera_id);
-  bool IsConstantCamera(camera_t camera_id) const;
+  void SetConstantCamIntrinsics(camera_t camera_id);
+  void SetVariableCamIntrinsics(camera_t camera_id);
+  bool HasConstantCamIntrinsics(camera_t camera_id) const;
 
   // Set the pose of added images as constant. The pose is defined as the
   // rotational and translational part of the projection matrix.
-  void SetConstantPose(image_t image_id);
-  void SetVariablePose(image_t image_id);
-  bool HasConstantPose(image_t image_id) const;
+  void SetConstantCamPose(image_t image_id);
+  void SetVariableCamPose(image_t image_id);
+  bool HasConstantCamPose(image_t image_id) const;
 
   // Set the translational part of the pose, hence the constant pose
   // indices may be in [0, 1, 2] and must be unique. Note that the
   // corresponding images have to be added prior to calling these methods.
-  void SetConstantTvec(image_t image_id, const std::vector<int>& idxs);
-  void RemoveConstantTvec(image_t image_id);
-  bool HasConstantTvec(image_t image_id) const;
+  void SetConstantCamPosition(image_t image_id, const std::vector<int>& idxs);
+  void RemoveConstantCamPosition(image_t image_id);
+  bool HasConstantCamPosition(image_t image_id) const;
 
   // Add / remove points from the configuration. Note that points can either
   // be variable or constant but not both at the same time.
@@ -151,15 +151,15 @@ class BundleAdjustmentConfig {
   const std::unordered_set<image_t>& Images() const;
   const std::unordered_set<point3D_t>& VariablePoints() const;
   const std::unordered_set<point3D_t>& ConstantPoints() const;
-  const std::vector<int>& ConstantTvec(image_t image_id) const;
+  const std::vector<int>& ConstantCamPosition(image_t image_id) const;
 
  private:
-  std::unordered_set<camera_t> constant_camera_ids_;
+  std::unordered_set<camera_t> constant_intrinsics_;
   std::unordered_set<image_t> image_ids_;
   std::unordered_set<point3D_t> variable_point3D_ids_;
   std::unordered_set<point3D_t> constant_point3D_ids_;
-  std::unordered_set<image_t> constant_poses_;
-  std::unordered_map<image_t, std::vector<int>> constant_tvecs_;
+  std::unordered_set<image_t> constant_cam_poses_;
+  std::unordered_map<image_t, std::vector<int>> constant_cam_positions_;
 };
 
 // Bundle adjustment based on Ceres-Solver. Enables most flexible configurations

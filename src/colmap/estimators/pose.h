@@ -33,6 +33,7 @@
 
 #include "colmap/base/camera.h"
 #include "colmap/camera/models.h"
+#include "colmap/geometry/rigid3.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
@@ -122,8 +123,7 @@ struct AbsolutePoseRefinementOptions {
 bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                           const std::vector<Eigen::Vector2d>& points2D,
                           const std::vector<Eigen::Vector3d>& points3D,
-                          Eigen::Vector4d* qvec,
-                          Eigen::Vector3d* tvec,
+                          Rigid3d* cam_from_world,
                           Camera* camera,
                           size_t* num_inliers,
                           std::vector<char>* inlier_mask);
@@ -145,8 +145,7 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
 size_t EstimateRelativePose(const RANSACOptions& ransac_options,
                             const std::vector<Eigen::Vector2d>& points1,
                             const std::vector<Eigen::Vector2d>& points2,
-                            Eigen::Vector4d* qvec,
-                            Eigen::Vector3d* tvec);
+                            Rigid3d* cam_from_world);
 
 // Refine absolute pose (optionally focal length) from 2D-3D correspondences.
 //
@@ -159,7 +158,7 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
 // @param tvec                 Estimated translation component.
 // @param camera               Camera for which to estimate pose. Modified
 //                             in-place to store the estimated focal length.
-// @param rot_tvec_covariance  Estimated 6x6 covariance matrix of
+// @param cam_from_world_cov   Estimated 6x6 covariance matrix of
 //                             the rotation (as axis-angle, in tangent space)
 //                             and translation terms (optional).
 //
@@ -168,10 +167,9 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                         const std::vector<char>& inlier_mask,
                         const std::vector<Eigen::Vector2d>& points2D,
                         const std::vector<Eigen::Vector3d>& points3D,
-                        Eigen::Vector4d* qvec,
-                        Eigen::Vector3d* tvec,
+                        Rigid3d* cam_from_world,
                         Camera* camera,
-                        Eigen::Matrix6d* rot_tvec_covariance = nullptr);
+                        Eigen::Matrix6d* cam_from_world_cov = nullptr);
 
 // Refine relative pose of two cameras.
 //
@@ -196,8 +194,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 bool RefineRelativePose(const ceres::Solver::Options& options,
                         const std::vector<Eigen::Vector2d>& points1,
                         const std::vector<Eigen::Vector2d>& points2,
-                        Eigen::Vector4d* qvec,
-                        Eigen::Vector3d* tvec);
+                        Rigid3d* cam_from_world);
 
 // Refine generalized absolute pose (optionally focal lengths)
 // from 2D-3D correspondences.

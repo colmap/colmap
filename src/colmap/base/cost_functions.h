@@ -31,14 +31,21 @@
 
 #pragma once
 
+#include "colmap/geometry/rigid3.h"
+
 #include <Eigen/Core>
 #include <ceres/ceres.h>
 #include <ceres/rotation.h>
 
 namespace colmap {
 
+template <typename T>
+using EigenVector3Map = Eigen::Map<const Eigen::Matrix<T, 3, 1>>;
+template <typename T>
+using EigenQuaternionMap = Eigen::Map<const Eigen::Quaternion<T>>;
+
 // Standard bundle adjustment cost function for variable
-// camera pose and calibration and point parameters.
+// camera pose, calibration, and point parameters.
 template <typename CameraModel>
 class BundleAdjustmentCostFunction {
  public:
@@ -57,33 +64,24 @@ class BundleAdjustmentCostFunction {
   }
 
   template <typename T>
-  bool operator()(const T* const qvec,
-                  const T* const tvec,
+  bool operator()(const T* const cam_from_world_rotation,
+                  const T* const cam_from_world_translation,
                   const T* const point3D,
                   const T* const camera_params,
                   T* residuals) const {
-    // Rotate and translate.
-    T projection[3];
-    ceres::UnitQuaternionRotatePoint(qvec, point3D, projection);
-    projection[0] += tvec[0];
-    projection[1] += tvec[1];
-    projection[2] += tvec[2];
-
-    // Project to image plane.
-    projection[0] /= projection[2];
-    projection[1] /= projection[2];
-
-    // Distort and transform to pixel space.
+    Eigen::Matrix<T, 3, 1> point3D_in_cam =
+        EigenQuaternionMap<T>(cam_from_world_rotation) *
+            EigenVector3Map<T>(point3D) +
+        EigenVector3Map<T>(cam_from_world_translation);
+    point3D_in_cam[0] /= point3D_in_cam[2];
+    point3D_in_cam[1] /= point3D_in_cam[2];
     CameraModel::WorldToImage(camera_params,
-                              projection[0],
-                              projection[1],
+                              point3D_in_cam[0],
+                              point3D_in_cam[1],
                               &residuals[0],
                               &residuals[1]);
-
-    // Re-projection error.
     residuals[0] -= T(observed_x_);
     residuals[1] -= T(observed_y_);
-
     return true;
   }
 
@@ -97,69 +95,43 @@ class BundleAdjustmentCostFunction {
 template <typename CameraModel>
 class BundleAdjustmentConstantPoseCostFunction {
  public:
-  BundleAdjustmentConstantPoseCostFunction(const Eigen::Vector4d& qvec,
-                                           const Eigen::Vector3d& tvec,
+  BundleAdjustmentConstantPoseCostFunction(const Rigid3d& cam_from_world,
                                            const Eigen::Vector2d& point2D)
-      : qw_(qvec(0)),
-        qx_(qvec(1)),
-        qy_(qvec(2)),
-        qz_(qvec(3)),
-        tx_(tvec(0)),
-        ty_(tvec(1)),
-        tz_(tvec(2)),
+      : cam_from_world_(cam_from_world),
         observed_x_(point2D(0)),
         observed_y_(point2D(1)) {}
 
-  static ceres::CostFunction* Create(const Eigen::Vector4d& qvec,
-                                     const Eigen::Vector3d& tvec,
+  static ceres::CostFunction* Create(const Rigid3d& cam_from_world,
                                      const Eigen::Vector2d& point2D) {
     return (new ceres::AutoDiffCostFunction<
             BundleAdjustmentConstantPoseCostFunction<CameraModel>,
             2,
             3,
             CameraModel::kNumParams>(
-        new BundleAdjustmentConstantPoseCostFunction(qvec, tvec, point2D)));
+        new BundleAdjustmentConstantPoseCostFunction(cam_from_world, point2D)));
   }
 
   template <typename T>
   bool operator()(const T* const point3D,
                   const T* const camera_params,
                   T* residuals) const {
-    const T qvec[4] = {T(qw_), T(qx_), T(qy_), T(qz_)};
-
-    // Rotate and translate.
-    T projection[3];
-    ceres::UnitQuaternionRotatePoint(qvec, point3D, projection);
-    projection[0] += T(tx_);
-    projection[1] += T(ty_);
-    projection[2] += T(tz_);
-
-    // Project to image plane.
-    projection[0] /= projection[2];
-    projection[1] /= projection[2];
-
-    // Distort and transform to pixel space.
+    Eigen::Matrix<T, 3, 1> point3D_in_cam =
+        cam_from_world_.rotation.cast<T>() * EigenVector3Map<T>(point3D) +
+        cam_from_world_.translation.cast<T>();
+    point3D_in_cam[0] /= point3D_in_cam[2];
+    point3D_in_cam[1] /= point3D_in_cam[2];
     CameraModel::WorldToImage(camera_params,
-                              projection[0],
-                              projection[1],
+                              point3D_in_cam[0],
+                              point3D_in_cam[1],
                               &residuals[0],
                               &residuals[1]);
-
-    // Re-projection error.
     residuals[0] -= T(observed_x_);
     residuals[1] -= T(observed_y_);
-
     return true;
   }
 
  private:
-  const double qw_;
-  const double qx_;
-  const double qy_;
-  const double qz_;
-  const double tx_;
-  const double ty_;
-  const double tz_;
+  const Rigid3d cam_from_world_;
   const double observed_x_;
   const double observed_y_;
 };
@@ -190,46 +162,28 @@ class RigBundleAdjustmentCostFunction {
   }
 
   template <typename T>
-  bool operator()(const T* const rig_qvec,
-                  const T* const rig_tvec,
-                  const T* const rel_qvec,
-                  const T* const rel_tvec,
+  bool operator()(const T* const cam_from_rig_rotation,
+                  const T* const cam_from_rig_translation,
+                  const T* const rig_from_world_rotation,
+                  const T* const rig_from_world_translation,
                   const T* const point3D,
                   const T* const camera_params,
                   T* residuals) const {
-    // Concatenate rotations.
-    T qvec[4];
-    ceres::QuaternionProduct(rel_qvec, rig_qvec, qvec);
-
-    // Concatenate translations.
-    T tvec[3];
-    ceres::UnitQuaternionRotatePoint(rel_qvec, rig_tvec, tvec);
-    tvec[0] += rel_tvec[0];
-    tvec[1] += rel_tvec[1];
-    tvec[2] += rel_tvec[2];
-
-    // Rotate and translate.
-    T projection[3];
-    ceres::UnitQuaternionRotatePoint(qvec, point3D, projection);
-    projection[0] += tvec[0];
-    projection[1] += tvec[1];
-    projection[2] += tvec[2];
-
-    // Project to image plane.
-    projection[0] /= projection[2];
-    projection[1] /= projection[2];
-
-    // Distort and transform to pixel space.
+    Eigen::Matrix<T, 3, 1> point3D_in_cam =
+        EigenQuaternionMap<T>(cam_from_rig_rotation) *
+            (EigenQuaternionMap<T>(rig_from_world_rotation) *
+                 EigenVector3Map<T>(point3D) +
+             EigenVector3Map<T>(rig_from_world_translation)) +
+        EigenVector3Map<T>(cam_from_rig_translation);
+    point3D_in_cam[0] /= point3D_in_cam[2];
+    point3D_in_cam[1] /= point3D_in_cam[2];
     CameraModel::WorldToImage(camera_params,
-                              projection[0],
-                              projection[1],
+                              point3D_in_cam[0],
+                              point3D_in_cam[1],
                               &residuals[0],
                               &residuals[1]);
-
-    // Re-projection error.
     residuals[0] -= T(observed_x_);
     residuals[1] -= T(observed_y_);
-
     return true;
   }
 
@@ -257,16 +211,17 @@ class RelativePoseCostFunction {
   }
 
   template <typename T>
-  bool operator()(const T* const qvec,
-                  const T* const tvec,
+  bool operator()(const T* const cam2_from_cam1_rotation,
+                  const T* const cam2_from_cam1_translation,
                   T* residuals) const {
-    Eigen::Matrix<T, 3, 3, Eigen::RowMajor> R;
-    ceres::QuaternionToRotation(qvec, R.data());
+    const Eigen::Matrix<T, 3, 3> R =
+        EigenQuaternionMap<T>(cam2_from_cam1_rotation).toRotationMatrix();
 
     // Matrix representation of the cross product t x R.
     Eigen::Matrix<T, 3, 3> t_x;
-    t_x << T(0), -tvec[2], tvec[1], tvec[2], T(0), -tvec[0], -tvec[1], tvec[0],
-        T(0);
+    t_x << T(0), -cam2_from_cam1_translation[2], cam2_from_cam1_translation[1],
+        cam2_from_cam1_translation[2], T(0), -cam2_from_cam1_translation[0],
+        -cam2_from_cam1_translation[1], cam2_from_cam1_translation[0], T(0);
 
     // Essential matrix.
     const Eigen::Matrix<T, 3, 3> E = t_x * R;
@@ -296,9 +251,10 @@ class RelativePoseCostFunction {
 inline void SetQuaternionManifold(ceres::Problem* problem, double* qvec) {
 #if CERES_VERSION_MAJOR >= 3 || \
     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
-  problem->SetManifold(qvec, new ceres::QuaternionManifold);
+  problem->SetManifold(qvec, new ceres::EigenQuaternionManifold);
 #else
-  problem->SetParameterization(qvec, new ceres::QuaternionParameterization);
+  problem->SetParameterization(qvec,
+                               new ceres::EigenQuaternionParameterization);
 #endif
 }
 

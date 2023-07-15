@@ -32,6 +32,7 @@
 #pragma once
 
 #include "colmap/base/camera.h"
+#include "colmap/geometry/rigid3.h"
 
 #include <limits>
 #include <vector>
@@ -91,12 +92,12 @@ bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& proj_matrix,
 // Project 3D point to image.
 //
 // @param points3D         3D world point as 3x1 vector.
-// @param proj_matrix      3x4 projection matrix.
+// @param cam_from_world   3x4 projection matrix.
 // @param camera           Camera used to project to image plane.
 //
 // @return                 Projected image point.
 Eigen::Vector2d ProjectPointToImage(const Eigen::Vector3d& point3D,
-                                    const Eigen::Matrix3x4d& proj_matrix,
+                                    const Eigen::Matrix3x4d& cam_from_world,
                                     const Camera& camera);
 
 // Calculate the reprojection error.
@@ -106,13 +107,13 @@ Eigen::Vector2d ProjectPointToImage(const Eigen::Vector3d& point3D,
 // 3D point is behind the camera, then this function returns DBL_MAX.
 double CalculateSquaredReprojectionError(const Eigen::Vector2d& point2D,
                                          const Eigen::Vector3d& point3D,
-                                         const Eigen::Vector4d& qvec,
-                                         const Eigen::Vector3d& tvec,
+                                         const Rigid3d& cam_from_world,
                                          const Camera& camera);
-double CalculateSquaredReprojectionError(const Eigen::Vector2d& point2D,
-                                         const Eigen::Vector3d& point3D,
-                                         const Eigen::Matrix3x4d& proj_matrix,
-                                         const Camera& camera);
+double CalculateSquaredReprojectionError(
+    const Eigen::Vector2d& point2D,
+    const Eigen::Vector3d& point3D,
+    const Eigen::Matrix3x4d& cam_from_world,
+    const Camera& camera);
 
 // Calculate the angular error.
 //
@@ -120,12 +121,11 @@ double CalculateSquaredReprojectionError(const Eigen::Vector2d& point2D,
 // actual viewing ray from the camera center to the 3D point.
 double CalculateAngularError(const Eigen::Vector2d& point2D,
                              const Eigen::Vector3d& point3D,
-                             const Eigen::Vector4d& qvec,
-                             const Eigen::Vector3d& tvec,
+                             const Rigid3d& cam_from_world,
                              const Camera& camera);
 double CalculateAngularError(const Eigen::Vector2d& point2D,
                              const Eigen::Vector3d& point3D,
-                             const Eigen::Matrix3x4d& proj_matrix,
+                             const Eigen::Matrix3x4d& cam_from_world,
                              const Camera& camera);
 
 // Calculate angulate error using normalized image points.
@@ -134,11 +134,10 @@ double CalculateAngularError(const Eigen::Vector2d& point2D,
 // actual viewing ray from the camera center to the 3D point.
 double CalculateNormalizedAngularError(const Eigen::Vector2d& point2D,
                                        const Eigen::Vector3d& point3D,
-                                       const Eigen::Vector4d& qvec,
-                                       const Eigen::Vector3d& tvec);
+                                       const Rigid3d& cam_from_world);
 double CalculateNormalizedAngularError(const Eigen::Vector2d& point2D,
                                        const Eigen::Vector3d& point3D,
-                                       const Eigen::Matrix3x4d& proj_matrix);
+                                       const Eigen::Matrix3x4d& cam_from_world);
 
 // Calculate depth of 3D point with respect to camera.
 //
@@ -146,21 +145,21 @@ double CalculateNormalizedAngularError(const Eigen::Vector2d& point2D,
 // camera and is positive if the 3D point is in front and negative if
 // behind of the camera.
 //
-// @param proj_matrix     3x4 projection matrix.
+// @param cam_from_world  3x4 projection matrix.
 // @param point3D         3D point as 3x1 vector.
 //
 // @return                Depth of 3D point.
-double CalculateDepth(const Eigen::Matrix3x4d& proj_matrix,
+double CalculateDepth(const Eigen::Matrix3x4d& cam_from_world,
                       const Eigen::Vector3d& point3D);
 
 // Check if 3D point passes cheirality constraint,
 // i.e. it lies in front of the camera and not in the image plane.
 //
-// @param proj_matrix     3x4 projection matrix.
+// @param cam_from_world  3x4 projection matrix.
 // @param point3D         3D point as 3x1 vector.
 //
 // @return                True if point lies in front of camera.
-bool HasPointPositiveDepth(const Eigen::Matrix3x4d& proj_matrix,
+bool HasPointPositiveDepth(const Eigen::Matrix3x4d& cam_from_world,
                            const Eigen::Vector3d& point3D);
 
 }  // namespace colmap

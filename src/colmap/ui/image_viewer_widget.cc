@@ -362,13 +362,15 @@ void DatabaseImageViewerWidget::ShowImageWithId(const image_t image_id) {
   camera_id_item_->setText(QString::number(image.CameraId()));
   camera_model_item_->setText(QString::fromStdString(camera.ModelName()));
   camera_params_item_->setText(QString::fromStdString(camera.ParamsToString()));
-  qvec_item_->setText(QString::number(image.Qvec(0)) + ", " +
-                      QString::number(image.Qvec(1)) + ", " +
-                      QString::number(image.Qvec(2)) + ", " +
-                      QString::number(image.Qvec(3)));
-  tvec_item_->setText(QString::number(image.Tvec(0)) + ", " +
-                      QString::number(image.Tvec(1)) + ", " +
-                      QString::number(image.Tvec(2)));
+  qvec_item_->setText(
+      QString::number(image.CamFromWorld().rotation.w()) + ", " +
+      QString::number(image.CamFromWorld().rotation.x()) + ", " +
+      QString::number(image.CamFromWorld().rotation.y()) + ", " +
+      QString::number(image.CamFromWorld().rotation.z()));
+  tvec_item_->setText(
+      QString::number(image.CamFromWorld().translation.x()) + ", " +
+      QString::number(image.CamFromWorld().translation.y()) + ", " +
+      QString::number(image.CamFromWorld().translation.z()));
   dimensions_item_->setText(QString::number(camera.Width()) + "x" +
                             QString::number(camera.Height()));
   num_points2D_item_->setText(QString::number(image.NumPoints2D()));

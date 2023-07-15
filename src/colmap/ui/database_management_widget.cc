@@ -561,20 +561,34 @@ void ImageTab::Reload() {
         i, 1, new QTableWidgetItem(QString::fromStdString(image.Name())));
     table_widget_->setItem(
         i, 2, new QTableWidgetItem(QString::number(image.CameraId())));
-    table_widget_->setItem(
-        i, 3, new QTableWidgetItem(QString::number(image.QvecPrior(0))));
-    table_widget_->setItem(
-        i, 4, new QTableWidgetItem(QString::number(image.QvecPrior(1))));
-    table_widget_->setItem(
-        i, 5, new QTableWidgetItem(QString::number(image.QvecPrior(2))));
-    table_widget_->setItem(
-        i, 6, new QTableWidgetItem(QString::number(image.QvecPrior(3))));
-    table_widget_->setItem(
-        i, 7, new QTableWidgetItem(QString::number(image.TvecPrior(0))));
-    table_widget_->setItem(
-        i, 8, new QTableWidgetItem(QString::number(image.TvecPrior(1))));
-    table_widget_->setItem(
-        i, 9, new QTableWidgetItem(QString::number(image.TvecPrior(2))));
+    table_widget_->setItem(i,
+                           3,
+                           new QTableWidgetItem(QString::number(
+                               image.CamFromWorldPrior().rotation.w())));
+    table_widget_->setItem(i,
+                           4,
+                           new QTableWidgetItem(QString::number(
+                               image.CamFromWorldPrior().rotation.x())));
+    table_widget_->setItem(i,
+                           5,
+                           new QTableWidgetItem(QString::number(
+                               image.CamFromWorldPrior().rotation.y())));
+    table_widget_->setItem(i,
+                           6,
+                           new QTableWidgetItem(QString::number(
+                               image.CamFromWorldPrior().rotation.z())));
+    table_widget_->setItem(i,
+                           7,
+                           new QTableWidgetItem(QString::number(
+                               image.CamFromWorldPrior().translation.x())));
+    table_widget_->setItem(i,
+                           8,
+                           new QTableWidgetItem(QString::number(
+                               image.CamFromWorldPrior().translation.y())));
+    table_widget_->setItem(i,
+                           9,
+                           new QTableWidgetItem(QString::number(
+                               image.CamFromWorldPrior().translation.z())));
   }
   table_widget_->resizeColumnsToContents();
 
@@ -607,25 +621,32 @@ void ImageTab::itemChanged(QTableWidgetItem* item) {
       }
       break;
     case 3:
-      image.QvecPrior(0) = item->data(Qt::DisplayRole).toReal();
+      image.CamFromWorldPrior().rotation.w() =
+          item->data(Qt::DisplayRole).toReal();
       break;
     case 4:
-      image.QvecPrior(1) = item->data(Qt::DisplayRole).toReal();
+      image.CamFromWorldPrior().rotation.x() =
+          item->data(Qt::DisplayRole).toReal();
       break;
     case 5:
-      image.QvecPrior(2) = item->data(Qt::DisplayRole).toReal();
+      image.CamFromWorldPrior().rotation.y() =
+          item->data(Qt::DisplayRole).toReal();
       break;
     case 6:
-      image.QvecPrior(3) = item->data(Qt::DisplayRole).toReal();
+      image.CamFromWorldPrior().rotation.z() =
+          item->data(Qt::DisplayRole).toReal();
       break;
     case 7:
-      image.TvecPrior(0) = item->data(Qt::DisplayRole).toReal();
+      image.CamFromWorldPrior().translation.x() =
+          item->data(Qt::DisplayRole).toReal();
       break;
     case 8:
-      image.TvecPrior(1) = item->data(Qt::DisplayRole).toReal();
+      image.CamFromWorldPrior().translation.y() =
+          item->data(Qt::DisplayRole).toReal();
       break;
     case 9:
-      image.TvecPrior(2) = item->data(Qt::DisplayRole).toReal();
+      image.CamFromWorldPrior().translation.z() =
+          item->data(Qt::DisplayRole).toReal();
       break;
     default:
       break;
