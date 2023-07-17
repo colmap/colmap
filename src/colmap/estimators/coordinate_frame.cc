@@ -326,6 +326,16 @@ void AlignToPrincipalPlane(Reconstruction* reconstruction, Sim3d* tform) {
 
   *tform = Sim3d(1.0, Eigen::Quaterniond(rot_mat), -rot_mat * centroid);
 
+  // If camera plane ends up below ground then flip basis vectors.
+  const Rigid3d cam0_from_aligned_world = TransformCameraWorld(
+      *tform,
+      reconstruction->Image(reconstruction->RegImageIds()[0]).CamFromWorld());
+  if (cam0_from_aligned_world.Inverse().translation.z() < 0.0) {
+    rot_mat << basis.col(0), -basis.col(1), basis.col(0).cross(-basis.col(1));
+    rot_mat.transposeInPlace();
+    *tform = Sim3d(1.0, Eigen::Quaterniond(rot_mat), -rot_mat * centroid);
+  }
+
   reconstruction->Transform(*tform);
 }
 

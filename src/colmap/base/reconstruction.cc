@@ -162,7 +162,11 @@ void Reconstruction::AddCamera(class Camera camera) {
 
 void Reconstruction::AddImage(class Image image) {
   const image_t image_id = image.ImageId();
+  const bool is_registered = image.IsRegistered();
   CHECK(images_.emplace(image_id, std::move(image)).second);
+  if (is_registered) {
+    reg_image_ids_.push_back(image_id);
+  }
 }
 
 point3D_t Reconstruction::AddPoint3D(const Eigen::Vector3d& xyz,
