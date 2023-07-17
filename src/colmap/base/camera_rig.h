@@ -86,11 +86,11 @@ class CameraRig {
   const Rigid3d& CamFromRig(camera_t camera_id) const;
   Rigid3d& CamFromRig(camera_t camera_id);
 
-  // Compute the scaling factor from the reconstruction to the camera rig
-  // dimensions by averaging over the distances between the projection centers.
-  // Note that this assumes that there is at least one camera pair in the rig
-  // with non-zero baseline, otherwise the function returns NaN.
-  double ComputeScale(const Reconstruction& reconstruction) const;
+  // Compute the scaling factor from the world scale of the reconstruction to
+  // the camera rig scale by averaging over the distances between the projection
+  // centers. Note that this assumes that there is at least one camera pair in
+  // the rig with non-zero baseline, otherwise the function returns NaN.
+  double ComputeRigFromWorldScale(const Reconstruction& reconstruction) const;
 
   // Compute the camera rig poses from the reconstruction by averaging
   // the relative poses over all snapshots. The pose of the reference camera

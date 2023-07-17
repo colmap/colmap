@@ -113,47 +113,45 @@ Rigid3d& CameraRig::CamFromRig(const camera_t camera_id) {
   return cams_from_rigs_.at(camera_id);
 }
 
-double CameraRig::ComputeScale(const Reconstruction& reconstruction) const {
-  // TODO
+double CameraRig::ComputeRigFromWorldScale(
+    const Reconstruction& reconstruction) const {
+  CHECK_GT(NumSnapshots(), 0);
+  const size_t num_cameras = NumCameras();
+  CHECK_GT(num_cameras, 0);
 
-  return 0;
+  double rig_from_world_scale = 0;
+  size_t num_dists = 0;
+  std::vector<Eigen::Vector3d> proj_centers_in_rig(num_cameras);
+  std::vector<Eigen::Vector3d> proj_centers_in_world(num_cameras);
+  for (const auto& snapshot : snapshots_) {
+    for (size_t i = 0; i < num_cameras; ++i) {
+      const auto& image = reconstruction.Image(snapshot[i]);
+      proj_centers_in_rig[i] =
+          CamFromRig(image.CameraId()).Inverse().translation;
+      proj_centers_in_world[i] = image.ProjectionCenter();
+    }
 
-  // CHECK_GT(NumSnapshots(), 0);
-  // CHECK_GT(NumCameras(), 0);
-  // double scaling_factor = 0;
-  // size_t num_dists = 0;
-  // std::vector<Eigen::Vector3d> rel_proj_centers(NumCameras());
-  // std::vector<Eigen::Vector3d> abs_proj_centers(NumCameras());
-  // for (const auto& snapshot : snapshots_) {
-  //   // Compute the projection relative and absolute projection centers.
-  //   for (size_t i = 0; i < NumCameras(); ++i) {
-  //     const auto& image = reconstruction.Image(snapshot[i]);
-  //     rel_proj_centers[i] = ProjectionCenterFromPose(
-  //         RelativeQvec(image.CameraId()), RelativeTvec(image.CameraId()));
-  //     abs_proj_centers[i] = image.ProjectionCenter();
-  //   }
+    // Accumulate the relative scale for all pairs of camera distances.
+    for (size_t i = 0; i < num_cameras; ++i) {
+      for (size_t j = 0; j < i; ++j) {
+        const double rig_dist =
+            (proj_centers_in_rig[i] - proj_centers_in_rig[j]).norm();
+        const double world_dist =
+            (proj_centers_in_world[i] - proj_centers_in_world[j]).norm();
+        const double kMinDist = 1e-6;
+        if (rig_dist > kMinDist && world_dist > kMinDist) {
+          rig_from_world_scale += rig_dist / world_dist;
+          num_dists += 1;
+        }
+      }
+    }
+  }
 
-  //   // Accumulate the scaling factor for all pairs of camera distances.
-  //   for (size_t i = 0; i < NumCameras(); ++i) {
-  //     for (size_t j = 0; j < i; ++j) {
-  //       const double rel_dist =
-  //           (rel_proj_centers[i] - rel_proj_centers[j]).norm();
-  //       const double abs_dist =
-  //           (abs_proj_centers[i] - abs_proj_centers[j]).norm();
-  //       const double kMinDist = 1e-6;
-  //       if (rel_dist > kMinDist && abs_dist > kMinDist) {
-  //         scaling_factor += rel_dist / abs_dist;
-  //         num_dists += 1;
-  //       }
-  //     }
-  //   }
-  // }
+  if (num_dists == 0) {
+    return std::numeric_limits<double>::quiet_NaN();
+  }
 
-  // if (num_dists == 0) {
-  //   return std::numeric_limits<double>::quiet_NaN();
-  // }
-
-  // return scaling_factor / num_dists;
+  return rig_from_world_scale / num_dists;
 }
 
 bool CameraRig::ComputeCamsFromRigs(const Reconstruction& reconstruction) {

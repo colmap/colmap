@@ -159,10 +159,10 @@ TEST(CameraRig, Check) {
   camera_rig.Check(reconstruction);
 }
 
-TEST(CameraRig, ComputeScale) {
+TEST(CameraRig, ComputeRigFromWorldScale) {
   CameraRig camera_rig;
   camera_rig.AddCamera(
-      0, Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(0, 1, 2)));
+      0, Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(0, 0, 0)));
   camera_rig.AddCamera(
       1, Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(2, 4, 6)));
   const std::vector<image_t> image_ids1 = {0, 1};
@@ -194,10 +194,10 @@ TEST(CameraRig, ComputeScale) {
   camera_rig.SetRefCameraId(0);
   camera_rig.Check(reconstruction);
 
-  EXPECT_EQ(camera_rig.ComputeScale(reconstruction), 2.0);
+  EXPECT_EQ(camera_rig.ComputeRigFromWorldScale(reconstruction), 2.0);
 
   reconstruction.Image(1).CamFromWorld().translation = Eigen::Vector3d(0, 0, 0);
-  EXPECT_TRUE(std::isnan(camera_rig.ComputeScale(reconstruction)));
+  EXPECT_TRUE(std::isnan(camera_rig.ComputeRigFromWorldScale(reconstruction)));
 }
 
 TEST(CameraRig, ComputeCamsFromRigs) {
