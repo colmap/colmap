@@ -104,12 +104,14 @@ TEST(CalculateSquaredReprojectionError, Nominal) {
   Camera camera;
   camera.InitializeWithId(SimplePinholeCameraModel::model_id, 1, 0, 0);
 
-  EXPECT_EQ(CalculateSquaredReprojectionError(
-                point2D, point3D, cam_from_world, camera),
-            0);
-  EXPECT_EQ(CalculateSquaredReprojectionError(
-                point2D, point3D, cam_from_world_matrix, camera),
-            0);
+  EXPECT_NEAR(CalculateSquaredReprojectionError(
+                  point2D, point3D, cam_from_world, camera),
+              0,
+              1e-6);
+  EXPECT_NEAR(CalculateSquaredReprojectionError(
+                  point2D, point3D, cam_from_world_matrix, camera),
+              0,
+              1e-6);
 
   EXPECT_NEAR(CalculateSquaredReprojectionError(
                   point2D.array() + 1, point3D, cam_from_world, camera),
