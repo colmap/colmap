@@ -222,6 +222,7 @@ Rigid3d CameraRig::ComputeRigFromWorld(
   const auto& snapshot = snapshots_.at(snapshot_idx);
 
   std::vector<Eigen::Quaterniond> rig_from_world_rotations;
+  rig_from_world_rotations.reserve(snapshot.size());
   Eigen::Vector3d rig_from_world_translations = Eigen::Vector3d::Zero();
   for (const auto image_id : snapshot) {
     const auto& image = reconstruction.Image(image_id);

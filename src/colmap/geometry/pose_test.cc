@@ -185,38 +185,39 @@ TEST(QuaternionRotatePoint, Nominal) {
 }
 
 TEST(AverageQuaternions, Nominal) {
-  std::vector<Eigen::Vector4d> qvecs;
+  std::vector<Eigen::Quaterniond> quats;
   std::vector<double> weights;
 
-  qvecs = {{ComposeIdentityQuaternion()}};
+  quats = {{Eigen::Quaterniond::Identity()}};
   weights = {1.0};
-  EXPECT_EQ(AverageQuaternions(qvecs, weights), ComposeIdentityQuaternion());
+  EXPECT_EQ(AverageQuaternions(quats, weights), Eigen::Quaterniond::Identity());
 
-  qvecs = {ComposeIdentityQuaternion()};
+  quats = {Eigen::Quaterniond::Identity()};
   weights = {2.0};
-  EXPECT_EQ(AverageQuaternions(qvecs, weights), ComposeIdentityQuaternion());
+  EXPECT_EQ(AverageQuaternions(quats, weights), Eigen::Quaterniond::Identity());
 
-  qvecs = {ComposeIdentityQuaternion(), ComposeIdentityQuaternion()};
+  quats = {Eigen::Quaterniond::Identity(), Eigen::Quaterniond::Identity()};
   weights = {1.0, 1.0};
-  EXPECT_EQ(AverageQuaternions(qvecs, weights), ComposeIdentityQuaternion());
+  EXPECT_EQ(AverageQuaternions(quats, weights), Eigen::Quaterniond::Identity());
 
-  qvecs = {ComposeIdentityQuaternion(), ComposeIdentityQuaternion()};
+  quats = {Eigen::Quaterniond::Identity(), Eigen::Quaterniond::Identity()};
   weights = {1.0, 2.0};
-  EXPECT_EQ(AverageQuaternions(qvecs, weights), ComposeIdentityQuaternion());
+  EXPECT_EQ(AverageQuaternions(quats, weights), Eigen::Quaterniond::Identity());
 
-  qvecs = {ComposeIdentityQuaternion(), Eigen::Vector4d(2, 0, 0, 0)};
+  quats = {Eigen::Quaterniond::Identity(), Eigen::Quaterniond(2, 0, 0, 0)};
   weights = {1.0, 2.0};
-  EXPECT_EQ(AverageQuaternions(qvecs, weights), ComposeIdentityQuaternion());
+  EXPECT_EQ(AverageQuaternions(quats, weights), Eigen::Quaterniond::Identity());
 
-  qvecs = {ComposeIdentityQuaternion(), Eigen::Vector4d(1, 1, 0, 0)};
+  quats = {Eigen::Quaterniond::Identity(), Eigen::Quaterniond(1, 1, 0, 0)};
   weights = {1.0, 1.0};
-  EXPECT_TRUE(AverageQuaternions(qvecs, weights)
-                  .isApprox(Eigen::Vector4d(0.92388, 0.382683, 0, 0), 1e-6));
+  EXPECT_TRUE(AverageQuaternions(quats, weights)
+                  .isApprox(Eigen::Quaterniond(0.92388, 0.382683, 0, 0), 1e-6));
 
-  qvecs = {ComposeIdentityQuaternion(), Eigen::Vector4d(1, 1, 0, 0)};
+  quats = {Eigen::Quaterniond::Identity(), Eigen::Quaterniond(1, 1, 0, 0)};
   weights = {1.0, 2.0};
-  EXPECT_TRUE(AverageQuaternions(qvecs, weights)
-                  .isApprox(Eigen::Vector4d(0.850651, 0.525731, 0, 0), 1e-6));
+  EXPECT_TRUE(
+      AverageQuaternions(quats, weights)
+          .isApprox(Eigen::Quaterniond(0.850651, 0.525731, 0, 0), 1e-6));
 }
 
 TEST(RotationFromUnitVectors, Nominal) {

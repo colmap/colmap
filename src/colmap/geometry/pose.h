@@ -125,8 +125,6 @@ Eigen::Vector3d QuaternionRotatePoint(const Eigen::Vector4d& qvec,
 // @param weights       Non-negative weights.
 //
 // @return              The average Quaternion.
-Eigen::Vector4d AverageQuaternions(const std::vector<Eigen::Vector4d>& qvecs,
-                                   const std::vector<double>& weights);
 Eigen::Quaterniond AverageQuaternions(
     const std::vector<Eigen::Quaterniond>& quats,
     const std::vector<double>& weights);
