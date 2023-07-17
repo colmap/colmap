@@ -118,6 +118,7 @@ class Image {
   inline const class Point2D& Point2D(point2D_t point2D_idx) const;
   inline class Point2D& Point2D(point2D_t point2D_idx);
   inline const std::vector<class Point2D>& Points2D() const;
+  inline std::vector<class Point2D>& Points2D();
   void SetPoints2D(const std::vector<Eigen::Vector2d>& points);
   void SetPoints2D(const std::vector<class Point2D>& points);
 
@@ -272,6 +273,8 @@ class Point2D& Image::Point2D(const point2D_t point2D_idx) {
 }
 
 const std::vector<class Point2D>& Image::Points2D() const { return points2D_; }
+
+std::vector<class Point2D>& Image::Points2D() { return points2D_; }
 
 bool Image::IsPoint3DVisible(const point2D_t point2D_idx) const {
   return num_correspondences_have_point3D_.at(point2D_idx) > 0;

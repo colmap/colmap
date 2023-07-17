@@ -310,8 +310,8 @@ void Reconstruction::RegisterImage(const image_t image_id) {
 void Reconstruction::DeRegisterImage(const image_t image_id) {
   class Image& image = Image(image_id);
 
-  for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
-       ++point2D_idx) {
+  const auto num_points2D = image.NumPoints2D();
+  for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
     if (image.Point2D(point2D_idx).HasPoint3D()) {
       DeleteObservation(image_id, point2D_idx);
     }
@@ -443,30 +443,33 @@ void Reconstruction::Transform(const Sim3d& new_from_old_world) {
 
 Reconstruction Reconstruction::Crop(
     const std::pair<Eigen::Vector3d, Eigen::Vector3d>& bbox) const {
-  // add all cameras and images. Only the registered images will be used.
-  Reconstruction reconstruction;
-  for (const auto& camera_el : cameras_) {
-    reconstruction.AddCamera(camera_el.second);
+  Reconstruction cropped_reconstruction;
+  for (const auto& camera : cameras_) {
+    cropped_reconstruction.AddCamera(camera.second);
   }
-  for (const auto& image_el : images_) {
-    reconstruction.AddImage(image_el.second);
-    auto& image = reconstruction.Image(image_el.first);
-    image.SetRegistered(false);
-    for (point2D_t pid = 0; pid < image.NumPoints2D(); ++pid) {
-      image.ResetPoint3DForPoint2D(pid);
+  for (const auto& image : images_) {
+    auto new_image = image.second;
+    new_image.SetRegistered(false);
+    for (auto& point2D : new_image.Points2D()) {
+      point2D.SetPoint3DId(kInvalidPoint3DId);
     }
+    cropped_reconstruction.AddImage(std::move(new_image));
   }
-  for (const auto& point_el : points3D_) {
-    const auto& point = point_el.second;
-    if ((point.XYZ().array() >= bbox.first.array()).all() &&
-        (point.XYZ().array() <= bbox.second.array()).all()) {
-      for (const auto& track_el : point.Track().Elements()) {
-        reconstruction.RegisterImage(track_el.image_id);
+  std::unordered_set<image_t> registered_image_ids;
+  for (const auto& point3D : points3D_) {
+    if ((point3D.second.XYZ().array() >= bbox.first.array()).all() &&
+        (point3D.second.XYZ().array() <= bbox.second.array()).all()) {
+      for (const auto& track_el : point3D.second.Track().Elements()) {
+        if (registered_image_ids.count(track_el.image_id) == 0) {
+          cropped_reconstruction.RegisterImage(track_el.image_id);
+          registered_image_ids.insert(track_el.image_id);
+        }
       }
-      reconstruction.AddPoint3D(point.XYZ(), point.Track(), point.Color());
+      cropped_reconstruction.AddPoint3D(
+          point3D.second.XYZ(), point3D.second.Track(), point3D.second.Color());
     }
   }
-  return reconstruction;
+  return cropped_reconstruction;
 }
 
 const class Image* Reconstruction::FindImageWithName(

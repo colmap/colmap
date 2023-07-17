@@ -56,8 +56,8 @@ void GenerateReconstruction(const image_t num_images,
     image.SetName("image" + std::to_string(image_id));
     image.SetPoints2D(
         std::vector<Eigen::Vector2d>(kNumPoints2D, Eigen::Vector2d::Zero()));
-    reconstruction->AddImage(image);
-    reconstruction->RegisterImage(image_id);
+    image.SetRegistered(true);
+    reconstruction->AddImage(std::move(image));
   }
 }
 
@@ -337,14 +337,14 @@ TEST(Reconstruction, Crop) {
 
   std::pair<Eigen::Vector3d, Eigen::Vector3d> bbox;
 
-  // Test emtpy reconstruction after cropping
+  // Test emtpy reconstruction after cropping.
   bbox.first = Eigen::Vector3d(-1, -1, -1);
   bbox.second = Eigen::Vector3d(-0.5, -0.5, -0.5);
-  Reconstruction recon1 = reconstruction.Crop(bbox);
-  EXPECT_EQ(recon1.NumCameras(), 1);
-  EXPECT_EQ(recon1.NumImages(), 3);
-  EXPECT_EQ(recon1.NumRegImages(), 0);
-  EXPECT_EQ(recon1.NumPoints3D(), 0);
+  Reconstruction cropped1 = reconstruction.Crop(bbox);
+  EXPECT_EQ(cropped1.NumCameras(), 1);
+  EXPECT_EQ(cropped1.NumImages(), 3);
+  EXPECT_EQ(cropped1.NumRegImages(), 0);
+  EXPECT_EQ(cropped1.NumPoints3D(), 0);
 
   // Test reconstruction with contents after cropping
   bbox.first = Eigen::Vector3d(0.0, 0.0, 0.0);
