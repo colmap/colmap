@@ -99,7 +99,7 @@ TEST(LORANSAC, SimilarityTransform) {
 
   // Make sure original transformation is estimated correctly.
   const double matrix_diff =
-      (expectedTgtFromSrc.Matrix() - report.model).norm();
+      (expectedTgtFromSrc.ToMatrix() - report.model).norm();
   EXPECT_LT(matrix_diff, 1e-6);
 }
 

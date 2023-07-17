@@ -61,8 +61,8 @@ TEST(TriangulatePoint, Nominal) {
         const Eigen::Vector3d point2D2 = camFromWorld2 * point3D;
 
         const Eigen::Vector3d tri_point3D =
-            TriangulatePoint(camFromWorld1.Matrix(),
-                             camFromWorld2.Matrix(),
+            TriangulatePoint(camFromWorld1.ToMatrix(),
+                             camFromWorld2.ToMatrix(),
                              point2D1.hnormalized(),
                              point2D2.hnormalized());
 

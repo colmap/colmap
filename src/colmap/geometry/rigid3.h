@@ -49,14 +49,7 @@ struct Rigid3d {
           const Eigen::Vector3d& translation)
       : rotation(rotation), translation(translation) {}
 
-  inline Rigid3d Inverse() const {
-    Rigid3d inverse;
-    inverse.rotation = rotation.inverse();
-    inverse.translation = inverse.rotation * -translation;
-    return inverse;
-  }
-
-  inline Eigen::Matrix3x4d Matrix() const {
+  inline Eigen::Matrix3x4d ToMatrix() const {
     Eigen::Matrix3x4d matrix;
     matrix.leftCols<3>() = rotation.toRotationMatrix();
     matrix.col(3) = translation;
@@ -65,19 +58,33 @@ struct Rigid3d {
 };
 
 // Apply transform to point such that one can write expressions like:
-//      x_in_b = bFromA * x_in_a
+//      x_in_b = b_from_a * x_in_a
 inline Eigen::Vector3d operator*(const Rigid3d& t, const Eigen::Vector3d& x) {
   return t.rotation * x + t.translation;
 }
 
+// Return inverse transform.
+inline Rigid3d Inverse(const Rigid3d& b_from_a) {
+  Rigid3d a_from_b;
+  a_from_b.rotation = b_from_a.rotation.inverse();
+  a_from_b.translation = a_from_b.rotation * -b_from_a.translation;
+  return a_from_b;
+}
+
 // Concatenate transforms such one can write expressions like:
-//      dFromA = dFromC * cFromB * bFromA
-inline Rigid3d operator*(const Rigid3d& cFromB, const Rigid3d& bFromA) {
+//      d_from_a = d_from_c * c_from_b * b_from_a
+inline Rigid3d Compose(const Rigid3d& c_from_b, const Rigid3d& b_from_a) {
   Rigid3d cFromA;
-  cFromA.rotation = (cFromB.rotation * bFromA.rotation).normalized();
+  cFromA.rotation = (c_from_b.rotation * b_from_a.rotation).normalized();
   cFromA.translation =
-      cFromB.translation + (cFromB.rotation * bFromA.translation);
+      c_from_b.translation + (c_from_b.rotation * b_from_a.translation);
   return cFromA;
+}
+template <typename... T>
+inline Rigid3d Compose(const Rigid3d& d_from_c,
+                       const Rigid3d& c_from_b,
+                       T... b_from_a) {
+  return Compose(d_from_c, Compose(c_from_b, b_from_a...));
 }
 
 }  // namespace colmap

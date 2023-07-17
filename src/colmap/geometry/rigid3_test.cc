@@ -48,61 +48,61 @@ TEST(Rigid3d, Default) {
 }
 
 TEST(Rigid3d, Inverse) {
-  const Rigid3d bFromA = TestRigid3d();
-  const Rigid3d aFromB = bFromA.Inverse();
+  const Rigid3d b_from_a = TestRigid3d();
+  const Rigid3d a_from_b = Inverse(b_from_a);
   for (int i = 0; i < 100; ++i) {
     const Eigen::Vector3d x_in_a = Eigen::Vector3d::Random();
-    const Eigen::Vector3d x_in_b = bFromA * x_in_a;
-    EXPECT_LT((aFromB * x_in_b - x_in_a).norm(), 1e-6);
+    const Eigen::Vector3d x_in_b = b_from_a * x_in_a;
+    EXPECT_LT((a_from_b * x_in_b - x_in_a).norm(), 1e-6);
   }
 }
 
 TEST(Rigid3d, Matrix) {
-  const Rigid3d bFromA = TestRigid3d();
-  const Eigen::Matrix3x4d bFromAMatrix = bFromA.Matrix();
+  const Rigid3d b_from_a = TestRigid3d();
+  const Eigen::Matrix3x4d b_from_a_mat = b_from_a.ToMatrix();
   for (int i = 0; i < 100; ++i) {
     const Eigen::Vector3d x_in_a = Eigen::Vector3d::Random();
-    EXPECT_LT((bFromA * x_in_a - bFromAMatrix * x_in_a.homogeneous()).norm(),
+    EXPECT_LT((b_from_a * x_in_a - b_from_a_mat * x_in_a.homogeneous()).norm(),
               1e-6);
   }
 }
 
 TEST(Rigid3d, ApplyNoRotation) {
-  const Rigid3d bFromA(Eigen::Quaterniond::Identity(),
-                       Eigen::Vector3d(1, 2, 3));
+  const Rigid3d b_from_a(Eigen::Quaterniond::Identity(),
+                         Eigen::Vector3d(1, 2, 3));
   EXPECT_LT(
-      (bFromA * Eigen::Vector3d(1, 2, 3) - Eigen::Vector3d(2, 4, 6)).norm(),
+      (b_from_a * Eigen::Vector3d(1, 2, 3) - Eigen::Vector3d(2, 4, 6)).norm(),
       1e-6);
 }
 
 TEST(Rigid3d, ApplyNoTranslation) {
-  const Rigid3d bFromA(Eigen::Quaterniond(Eigen::AngleAxisd(
-                           EIGEN_PI / 2, Eigen::Vector3d::UnitX())),
-                       Eigen::Vector3d::Zero());
+  const Rigid3d b_from_a(Eigen::Quaterniond(Eigen::AngleAxisd(
+                             EIGEN_PI / 2, Eigen::Vector3d::UnitX())),
+                         Eigen::Vector3d::Zero());
   EXPECT_LT(
-      (bFromA * Eigen::Vector3d(1, 2, 3) - Eigen::Vector3d(1, -3, 2)).norm(),
+      (b_from_a * Eigen::Vector3d(1, 2, 3) - Eigen::Vector3d(1, -3, 2)).norm(),
       1e-6);
 }
 
 TEST(Rigid3d, ApplyRotationTranslation) {
-  const Rigid3d bFromA(Eigen::Quaterniond(Eigen::AngleAxisd(
-                           EIGEN_PI / 2, Eigen::Vector3d::UnitX())),
-                       Eigen::Vector3d(1, 2, 3));
+  const Rigid3d b_from_a(Eigen::Quaterniond(Eigen::AngleAxisd(
+                             EIGEN_PI / 2, Eigen::Vector3d::UnitX())),
+                         Eigen::Vector3d(1, 2, 3));
   EXPECT_LT(
-      (bFromA * Eigen::Vector3d(1, 2, 3) - Eigen::Vector3d(2, -1, 5)).norm(),
+      (b_from_a * Eigen::Vector3d(1, 2, 3) - Eigen::Vector3d(2, -1, 5)).norm(),
       1e-6);
 }
 
-TEST(Rigid3d, Concatenate) {
-  const Rigid3d bFromA = TestRigid3d();
-  const Rigid3d cFromB = TestRigid3d();
-  const Rigid3d dFromC = TestRigid3d();
-  const Rigid3d dFromA = dFromC * cFromB * bFromA;
+TEST(Rigid3d, Compose) {
+  const Rigid3d b_from_a = TestRigid3d();
+  const Rigid3d c_from_b = TestRigid3d();
+  const Rigid3d d_from_c = TestRigid3d();
+  const Rigid3d d_from_a = Compose(d_from_c, c_from_b, b_from_a);
   const Eigen::Vector3d x_in_a = Eigen::Vector3d::Random();
-  const Eigen::Vector3d x_in_b = bFromA * x_in_a;
-  const Eigen::Vector3d x_in_c = cFromB * x_in_b;
-  const Eigen::Vector3d x_in_d = dFromC * x_in_c;
-  EXPECT_LT((dFromA * x_in_a - x_in_d).norm(), 1e-6);
+  const Eigen::Vector3d x_in_b = b_from_a * x_in_a;
+  const Eigen::Vector3d x_in_c = c_from_b * x_in_b;
+  const Eigen::Vector3d x_in_d = d_from_c * x_in_c;
+  EXPECT_LT((d_from_a * x_in_a - x_in_d).norm(), 1e-6);
 }
 
 }  // namespace colmap

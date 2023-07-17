@@ -53,15 +53,7 @@ struct Sim3d {
         const Eigen::Vector3d& translation)
       : scale(scale), rotation(rotation), translation(translation) {}
 
-  inline Sim3d Inverse() const {
-    Sim3d inverse;
-    inverse.scale = 1 / scale;
-    inverse.rotation = rotation.inverse();
-    inverse.translation = (inverse.rotation * translation) / -scale;
-    return inverse;
-  }
-
-  inline Eigen::Matrix3x4d Matrix() const {
+  inline Eigen::Matrix3x4d ToMatrix() const {
     Eigen::Matrix3x4d matrix;
     matrix.leftCols<3>() = scale * rotation.toRotationMatrix();
     matrix.col(3) = translation;
@@ -82,20 +74,37 @@ struct Sim3d {
 };
 
 // Apply transform to point such that one can write expressions like:
-//      x_in_b = bFromA * x_in_a
+//      x_in_b = b_from_a * x_in_a
 inline Eigen::Vector3d operator*(const Sim3d& t, const Eigen::Vector3d& x) {
   return t.scale * (t.rotation * x) + t.translation;
 }
 
+// Return inverse transform.
+inline Sim3d Inverse(const Sim3d& b_from_a) {
+  Sim3d a_from_b;
+  a_from_b.scale = 1 / b_from_a.scale;
+  a_from_b.rotation = b_from_a.rotation.inverse();
+  a_from_b.translation =
+      (a_from_b.rotation * b_from_a.translation) / -b_from_a.scale;
+  return a_from_b;
+}
+
 // Concatenate transforms such one can write expressions like:
-//      dFromA = dFromC * cFromB * bFromA
-inline Sim3d operator*(const Sim3d& cFromB, const Sim3d& bFromA) {
+//      d_from_a = Compose(d_from_c, c_from_b, b_from_a)
+inline Sim3d Compose(const Sim3d& c_from_b, const Sim3d& b_from_a) {
   Sim3d cFromA;
-  cFromA.scale = cFromB.scale * bFromA.scale;
-  cFromA.rotation = (cFromB.rotation * bFromA.rotation).normalized();
-  cFromA.translation = cFromB.translation +
-                       (cFromB.scale * (cFromB.rotation * bFromA.translation));
+  cFromA.scale = c_from_b.scale * b_from_a.scale;
+  cFromA.rotation = (c_from_b.rotation * b_from_a.rotation).normalized();
+  cFromA.translation =
+      c_from_b.translation +
+      (c_from_b.scale * (c_from_b.rotation * b_from_a.translation));
   return cFromA;
+}
+template <typename... T>
+inline Sim3d Compose(const Sim3d& d_from_c,
+                     const Sim3d& c_from_b,
+                     T... b_from_a) {
+  return Compose(d_from_c, Compose(c_from_b, b_from_a...));
 }
 
 }  // namespace colmap

@@ -68,9 +68,9 @@ TEST(GeneralizedRelativePose, Estimate) {
 
       std::array<Eigen::Matrix3x4d, kNumTforms> rel_tforms;
       for (size_t i = 0; i < kNumTforms; ++i) {
-        const Rigid3d iFromRef =
-            testCamFromWorlds[i] * testCamFromWorlds[kRefTform].Inverse();
-        rel_tforms[i] = iFromRef.Matrix();
+        const Rigid3d iFromRef = Compose(testCamFromWorlds[i] *
+                                         Inverse(testCamFromWorlds[kRefTform]));
+        rel_tforms[i] = iFromRef.ToMatrix();
       }
 
       // Project points to cameras.
@@ -100,7 +100,7 @@ TEST(GeneralizedRelativePose, Estimate) {
       const auto report = ransac.Estimate(points1, points2);
 
       EXPECT_TRUE(report.success);
-      EXPECT_LT((testCamFromWorlds[kRefTform].Matrix() - report.model).norm(),
+      EXPECT_LT((testCamFromWorlds[kRefTform].ToMatrix() - report.model).norm(),
                 1e-2);
 
       std::vector<double> residuals;
