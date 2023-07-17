@@ -153,6 +153,37 @@ Eigen::Vector4d AverageQuaternions(const std::vector<Eigen::Vector4d>& qvecs,
   return eigenvectors.col(3);
 }
 
+Eigen::Quaterniond AverageQuaternions(
+    const std::vector<Eigen::Quaterniond>& quats,
+    const std::vector<double>& weights) {
+  CHECK_EQ(quats.size(), weights.size());
+  CHECK_GT(quats.size(), 0);
+
+  if (quats.size() == 1) {
+    return quats[0];
+  }
+
+  Eigen::Matrix4d A = Eigen::Matrix4d::Zero();
+  double weight_sum = 0;
+
+  for (size_t i = 0; i < quats.size(); ++i) {
+    CHECK_GT(weights[i], 0);
+    const Eigen::Vector4d qvec = quats[i].normalized().coeffs();
+    A += weights[i] * qvec * qvec.transpose();
+    weight_sum += weights[i];
+  }
+
+  A.array() /= weight_sum;
+
+  const Eigen::Matrix4d eigenvectors =
+      Eigen::SelfAdjointEigenSolver<Eigen::Matrix4d>(A).eigenvectors();
+
+  const Eigen::Vector4d average_qvec = eigenvectors.col(3);
+
+  return Eigen::Quaterniond(
+      average_qvec(3), average_qvec(0), average_qvec(1), average_qvec(2));
+}
+
 Eigen::Matrix3d RotationFromUnitVectors(const Eigen::Vector3d& vector1,
                                         const Eigen::Vector3d& vector2) {
   const Eigen::Vector3d v1 = vector1.normalized();

@@ -127,6 +127,9 @@ Eigen::Vector3d QuaternionRotatePoint(const Eigen::Vector4d& qvec,
 // @return              The average Quaternion.
 Eigen::Vector4d AverageQuaternions(const std::vector<Eigen::Vector4d>& qvecs,
                                    const std::vector<double>& weights);
+Eigen::Quaterniond AverageQuaternions(
+    const std::vector<Eigen::Quaterniond>& quats,
+    const std::vector<double>& weights);
 
 // Compose rotation matrix that rotates unit vector 1 to unit vector 2.
 // Note that when vector 1 points into the opposite direction of vector 2,
