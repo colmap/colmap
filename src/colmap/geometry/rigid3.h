@@ -67,6 +67,17 @@ inline Rigid3d Inverse(const Rigid3d& b_from_a) {
 
 // Apply transform to point such that one can write expressions like:
 //      x_in_b = b_from_a * x_in_a
+//
+// Be careful when including multiple transformations in the same expression, as
+// the multiply operator in C++ is evaluated left-to-right.
+// For example, the following expression:
+//      x_in_c = d_from_c * c_from_b * b_from_a * x_in_a
+// will be executed in the following order:
+//      x_in_c = ((d_from_c * c_from_b) * b_from_a) * x_in_a
+// This will first concatenate all transforms and then apply it to the point.
+// While you may want to instead write and execute it as:
+//      x_in_c = d_from_c * (c_from_b * (b_from_a * x_in_a))
+// which will apply the transformations as a chain on the point.
 inline Eigen::Vector3d operator*(const Rigid3d& t, const Eigen::Vector3d& x) {
   return t.rotation * x + t.translation;
 }

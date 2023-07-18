@@ -73,12 +73,6 @@ struct Sim3d {
   static Sim3d FromFile(const std::string& path);
 };
 
-// Apply transform to point such that one can write expressions like:
-//      x_in_b = b_from_a * x_in_a
-inline Eigen::Vector3d operator*(const Sim3d& t, const Eigen::Vector3d& x) {
-  return t.scale * (t.rotation * x) + t.translation;
-}
-
 // Return inverse transform.
 inline Sim3d Inverse(const Sim3d& b_from_a) {
   Sim3d a_from_b;
@@ -87,6 +81,23 @@ inline Sim3d Inverse(const Sim3d& b_from_a) {
   a_from_b.translation =
       (a_from_b.rotation * b_from_a.translation) / -b_from_a.scale;
   return a_from_b;
+}
+
+// Apply transform to point such that one can write expressions like:
+//      x_in_b = b_from_a * x_in_a
+//
+// Be careful when including multiple transformations in the same expression, as
+// the multiply operator in C++ is evaluated left-to-right.
+// For example, the following expression:
+//      x_in_c = d_from_c * c_from_b * b_from_a * x_in_a
+// will be executed in the following order:
+//      x_in_c = ((d_from_c * c_from_b) * b_from_a) * x_in_a
+// This will first concatenate all transforms and then apply it to the point.
+// While you may want to instead write and execute it as:
+//      x_in_c = d_from_c * (c_from_b * (b_from_a * x_in_a))
+// which will apply the transformations as a chain on the point.
+inline Eigen::Vector3d operator*(const Sim3d& t, const Eigen::Vector3d& x) {
+  return t.scale * (t.rotation * x) + t.translation;
 }
 
 // Concatenate transforms such one can write expressions like:
