@@ -68,9 +68,9 @@ TEST(GeneralizedRelativePose, Estimate) {
 
       std::array<Eigen::Matrix3x4d, kNumTforms> rel_tforms;
       for (size_t i = 0; i < kNumTforms; ++i) {
-        const Rigid3d iFromRef = Compose(testCamFromWorlds[i] *
-                                         Inverse(testCamFromWorlds[kRefTform]));
-        rel_tforms[i] = iFromRef.ToMatrix();
+        const Rigid3d cam_i_from_ref_cam =
+            testCamFromWorlds[i] * Inverse(testCamFromWorlds[kRefTform]);
+        rel_tforms[i] = cam_i_from_ref_cam.ToMatrix();
       }
 
       // Project points to cameras.

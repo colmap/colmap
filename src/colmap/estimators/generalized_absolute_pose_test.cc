@@ -77,10 +77,10 @@ TEST(GeneralizedAbsolutePose, Estimate) {
 
       std::array<Eigen::Matrix3x4d, kNumTforms> rel_tforms;
       for (size_t i = 0; i < kNumTforms; ++i) {
-        const Rigid3d iFromRef =
-            Compose(expected_cam_from_worlds[i] *
-                    Inverse(expected_cam_from_worlds[kRefTform]));
-        rel_tforms[i] = iFromRef.ToMatrix();
+        const Rigid3d cam_i_from_ref_cam =
+            expected_cam_from_worlds[i] *
+            Inverse(expected_cam_from_worlds[kRefTform]);
+        rel_tforms[i] = cam_i_from_ref_cam.ToMatrix();
       }
 
       // Project points to camera coordinate system.

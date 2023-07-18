@@ -90,8 +90,8 @@ inline Sim3d Inverse(const Sim3d& b_from_a) {
 }
 
 // Concatenate transforms such one can write expressions like:
-//      d_from_a = Compose(d_from_c, c_from_b, b_from_a)
-inline Sim3d Compose(const Sim3d& c_from_b, const Sim3d& b_from_a) {
+//      d_from_a = d_from_c * c_from_b * b_from_a
+inline Sim3d operator*(const Sim3d& c_from_b, const Sim3d& b_from_a) {
   Sim3d cFromA;
   cFromA.scale = c_from_b.scale * b_from_a.scale;
   cFromA.rotation = (c_from_b.rotation * b_from_a.rotation).normalized();
@@ -99,12 +99,6 @@ inline Sim3d Compose(const Sim3d& c_from_b, const Sim3d& b_from_a) {
       c_from_b.translation +
       (c_from_b.scale * (c_from_b.rotation * b_from_a.translation));
   return cFromA;
-}
-template <typename... T>
-inline Sim3d Compose(const Sim3d& d_from_c,
-                     const Sim3d& c_from_b,
-                     T... b_from_a) {
-  return Compose(d_from_c, Compose(c_from_b, b_from_a...));
 }
 
 }  // namespace colmap

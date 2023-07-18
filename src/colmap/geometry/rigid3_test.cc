@@ -93,11 +93,22 @@ TEST(Rigid3d, ApplyRotationTranslation) {
       1e-6);
 }
 
+TEST(Rigid3d, ApplyChain) {
+  const Rigid3d b_from_a = TestRigid3d();
+  const Rigid3d c_from_b = TestRigid3d();
+  const Rigid3d d_from_c = TestRigid3d();
+  const Eigen::Vector3d x_in_a = Eigen::Vector3d::Random();
+  const Eigen::Vector3d x_in_b = b_from_a * x_in_a;
+  const Eigen::Vector3d x_in_c = c_from_b * x_in_b;
+  const Eigen::Vector3d x_in_d = d_from_c * x_in_c;
+  EXPECT_EQ((d_from_c * (c_from_b * (b_from_a * x_in_a))), x_in_d);
+}
+
 TEST(Rigid3d, Compose) {
   const Rigid3d b_from_a = TestRigid3d();
   const Rigid3d c_from_b = TestRigid3d();
   const Rigid3d d_from_c = TestRigid3d();
-  const Rigid3d d_from_a = Compose(d_from_c, c_from_b, b_from_a);
+  const Rigid3d d_from_a = d_from_c * c_from_b * b_from_a;
   const Eigen::Vector3d x_in_a = Eigen::Vector3d::Random();
   const Eigen::Vector3d x_in_b = b_from_a * x_in_a;
   const Eigen::Vector3d x_in_c = c_from_b * x_in_b;
