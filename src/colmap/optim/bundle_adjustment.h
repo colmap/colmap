@@ -104,7 +104,7 @@ class BundleAdjustmentConfig {
   size_t NumPoints() const;
   size_t NumConstantCamIntrinsics() const;
   size_t NumConstantCamPoses() const;
-  size_t NumConstantCamPositions() const;
+  size_t NumConstantCamPositionss() const;
   size_t NumVariablePoints() const;
   size_t NumConstantPoints() const;
 
@@ -133,9 +133,9 @@ class BundleAdjustmentConfig {
   // Set the translational part of the pose, hence the constant pose
   // indices may be in [0, 1, 2] and must be unique. Note that the
   // corresponding images have to be added prior to calling these methods.
-  void SetConstantCamPosition(image_t image_id, const std::vector<int>& idxs);
-  void RemoveConstantCamPosition(image_t image_id);
-  bool HasConstantCamPosition(image_t image_id) const;
+  void SetConstantCamPositions(image_t image_id, const std::vector<int>& idxs);
+  void RemoveConstantCamPositions(image_t image_id);
+  bool HasConstantCamPositions(image_t image_id) const;
 
   // Add / remove points from the configuration. Note that points can either
   // be variable or constant but not both at the same time.
@@ -151,7 +151,7 @@ class BundleAdjustmentConfig {
   const std::unordered_set<image_t>& Images() const;
   const std::unordered_set<point3D_t>& VariablePoints() const;
   const std::unordered_set<point3D_t>& ConstantPoints() const;
-  const std::vector<int>& ConstantCamPosition(image_t image_id) const;
+  const std::vector<int>& ConstantCamPositions(image_t image_id) const;
 
  private:
   std::unordered_set<camera_t> constant_intrinsics_;
@@ -247,16 +247,14 @@ class RigBundleAdjuster : public BundleAdjuster {
   std::unordered_map<image_t, CameraRig*> image_id_to_camera_rig_;
 
   // Mapping from images to the absolute camera rig poses.
-  std::unordered_map<image_t, Eigen::Vector4d*> image_id_to_rig_qvec_;
-  std::unordered_map<image_t, Eigen::Vector3d*> image_id_to_rig_tvec_;
+  std::unordered_map<image_t, Rigid3d*> image_id_to_rig_from_world_;
 
-  // For each camera rig, the absolute camera rig poses.
-  std::vector<std::vector<Eigen::Vector4d>> camera_rig_qvecs_;
-  std::vector<std::vector<Eigen::Vector3d>> camera_rig_tvecs_;
+  // For each camera rig, the absolute camera rig poses for all snapshots.
+  std::vector<std::vector<Rigid3d>> rigs_from_world_;
 
   // The Quaternions added to the problem, used to set the local
   // parameterization once after setting up the problem.
-  std::unordered_set<double*> parameterized_qvec_data_;
+  std::unordered_set<double*> parameterized_quats_;
 };
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary);

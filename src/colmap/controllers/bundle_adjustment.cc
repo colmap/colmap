@@ -94,7 +94,7 @@ void BundleAdjustmentController::Run() {
     ba_config.AddImage(image_id);
   }
   ba_config.SetConstantCamPose(reg_image_ids[0]);
-  ba_config.SetConstantCamPosition(reg_image_ids[1], {0});
+  ba_config.SetConstantCamPositions(reg_image_ids[1], {0});
 
   // Run bundle adjustment.
   BundleAdjuster bundle_adjuster(ba_options, ba_config);

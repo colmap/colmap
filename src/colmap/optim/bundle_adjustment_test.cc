@@ -225,7 +225,7 @@ TEST(BundleAdjustment, TwoView) {
   config.AddImage(0);
   config.AddImage(1);
   config.SetConstantCamPose(0);
-  config.SetConstantCamPosition(1, {0});
+  config.SetConstantCamPositions(1, {0});
 
   BundleAdjustmentOptions options;
   BundleAdjuster bundle_adjuster(options, config);
@@ -448,7 +448,7 @@ TEST(BundleAdjustment, VariableImage) {
   config.AddImage(1);
   config.AddImage(2);
   config.SetConstantCamPose(0);
-  config.SetConstantCamPosition(1, {0});
+  config.SetConstantCamPositions(1, {0});
 
   BundleAdjustmentOptions options;
   BundleAdjuster bundle_adjuster(options, config);
@@ -488,7 +488,7 @@ TEST(BundleAdjustment, ConstantFocalLength) {
   config.AddImage(0);
   config.AddImage(1);
   config.SetConstantCamPose(0);
-  config.SetConstantCamPosition(1, {0});
+  config.SetConstantCamPositions(1, {0});
 
   BundleAdjustmentOptions options;
   options.refine_focal_length = false;
@@ -539,7 +539,7 @@ TEST(BundleAdjustment, VariablePrincipalPoint) {
   config.AddImage(0);
   config.AddImage(1);
   config.SetConstantCamPose(0);
-  config.SetConstantCamPosition(1, {0});
+  config.SetConstantCamPositions(1, {0});
 
   BundleAdjustmentOptions options;
   options.refine_principal_point = true;
@@ -602,7 +602,7 @@ TEST(BundleAdjustment, ConstantExtraParam) {
   config.AddImage(0);
   config.AddImage(1);
   config.SetConstantCamPose(0);
-  config.SetConstantCamPosition(1, {0});
+  config.SetConstantCamPositions(1, {0});
 
   BundleAdjustmentOptions options;
   options.refine_extra_params = false;
