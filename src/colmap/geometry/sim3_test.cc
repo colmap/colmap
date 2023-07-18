@@ -56,88 +56,101 @@ TEST(Sim3d, Default) {
 }
 
 TEST(Sim3d, Inverse) {
-  const Sim3d bFromA = TestSim3d();
-  const Sim3d aFromB = bFromA.Inverse();
+  const Sim3d b_from_a = TestSim3d();
+  const Sim3d a_from_b = Inverse(b_from_a);
   for (int i = 0; i < 100; ++i) {
     const Eigen::Vector3d x_in_a = Eigen::Vector3d::Random();
-    const Eigen::Vector3d x_in_b = bFromA * x_in_a;
-    EXPECT_LT((aFromB * x_in_b - x_in_a).norm(), 1e-6);
+    const Eigen::Vector3d x_in_b = b_from_a * x_in_a;
+    EXPECT_LT((a_from_b * x_in_b - x_in_a).norm(), 1e-6);
   }
 }
 
 TEST(Sim3d, Matrix) {
-  const Sim3d bFromA = TestSim3d();
-  const Eigen::Matrix3x4d bFromAMatrix = bFromA.Matrix();
+  const Sim3d b_from_a = TestSim3d();
+  const Eigen::Matrix3x4d b_from_a_mat = b_from_a.ToMatrix();
   for (int i = 0; i < 100; ++i) {
     const Eigen::Vector3d x_in_a = Eigen::Vector3d::Random();
-    EXPECT_LT((bFromA * x_in_a - bFromAMatrix * x_in_a.homogeneous()).norm(),
+    EXPECT_LT((b_from_a * x_in_a - b_from_a_mat * x_in_a.homogeneous()).norm(),
               1e-6);
   }
 }
 
 TEST(Sim3d, ApplyScaleOnly) {
-  const Sim3d bFromA(
+  const Sim3d b_from_a(
       2, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
   EXPECT_LT(
-      (bFromA * Eigen::Vector3d(1, 2, 3) - Eigen::Vector3d(2, 4, 6)).norm(),
+      (b_from_a * Eigen::Vector3d(1, 2, 3) - Eigen::Vector3d(2, 4, 6)).norm(),
       1e-6);
 }
 
 TEST(Sim3d, ApplyTranslationOnly) {
-  const Sim3d bFromA(
+  const Sim3d b_from_a(
       1, Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 2, 3));
   EXPECT_LT(
-      (bFromA * Eigen::Vector3d(1, 2, 3) - Eigen::Vector3d(2, 4, 6)).norm(),
+      (b_from_a * Eigen::Vector3d(1, 2, 3) - Eigen::Vector3d(2, 4, 6)).norm(),
       1e-6);
 }
 
 TEST(Sim3d, ApplyRotationOnly) {
-  const Sim3d bFromA(1,
-                     Eigen::Quaterniond(Eigen::AngleAxisd(
-                         EIGEN_PI / 2, Eigen::Vector3d::UnitX())),
-                     Eigen::Vector3d::Zero());
+  const Sim3d b_from_a(1,
+                       Eigen::Quaterniond(Eigen::AngleAxisd(
+                           EIGEN_PI / 2, Eigen::Vector3d::UnitX())),
+                       Eigen::Vector3d::Zero());
   EXPECT_LT(
-      (bFromA * Eigen::Vector3d(1, 2, 3) - Eigen::Vector3d(1, -3, 2)).norm(),
+      (b_from_a * Eigen::Vector3d(1, 2, 3) - Eigen::Vector3d(1, -3, 2)).norm(),
       1e-6);
 }
 
 TEST(Sim3d, ApplyScaleRotationTranslation) {
-  const Sim3d bFromA(2,
-                     Eigen::Quaterniond(Eigen::AngleAxisd(
-                         EIGEN_PI / 2, Eigen::Vector3d::UnitX())),
-                     Eigen::Vector3d(1, 2, 3));
+  const Sim3d b_from_a(2,
+                       Eigen::Quaterniond(Eigen::AngleAxisd(
+                           EIGEN_PI / 2, Eigen::Vector3d::UnitX())),
+                       Eigen::Vector3d(1, 2, 3));
   EXPECT_LT(
-      (bFromA * Eigen::Vector3d(1, 2, 3) - Eigen::Vector3d(3, -4, 7)).norm(),
+      (b_from_a * Eigen::Vector3d(1, 2, 3) - Eigen::Vector3d(3, -4, 7)).norm(),
       1e-6);
 }
 
-TEST(Sim3d, Concatenate) {
-  const Sim3d bFromA = TestSim3d();
-  const Sim3d cFromB = TestSim3d();
-  const Sim3d dFromC = TestSim3d();
-  const Sim3d dFromA = dFromC * cFromB * bFromA;
+TEST(Rigid3d, ApplyChain) {
+  const Sim3d b_from_a = TestSim3d();
+  const Sim3d c_from_b = TestSim3d();
+  const Sim3d d_from_c = TestSim3d();
   const Eigen::Vector3d x_in_a = Eigen::Vector3d::Random();
-  const Eigen::Vector3d x_in_b = bFromA * x_in_a;
-  const Eigen::Vector3d x_in_c = cFromB * x_in_b;
-  const Eigen::Vector3d x_in_d = dFromC * x_in_c;
-  EXPECT_LT((dFromA * x_in_a - x_in_d).norm(), 1e-6);
+  const Eigen::Vector3d x_in_b = b_from_a * x_in_a;
+  const Eigen::Vector3d x_in_c = c_from_b * x_in_b;
+  const Eigen::Vector3d x_in_d = d_from_c * x_in_c;
+  EXPECT_EQ((d_from_c * (c_from_b * (b_from_a * x_in_a))), x_in_d);
+}
+
+TEST(Sim3d, Compose) {
+  const Sim3d b_from_a = TestSim3d();
+  const Sim3d c_from_b = TestSim3d();
+  const Sim3d d_from_c = TestSim3d();
+  const Sim3d d_from_a = d_from_c * c_from_b * b_from_a;
+  const Eigen::Vector3d x_in_a = Eigen::Vector3d::Random();
+  const Eigen::Vector3d x_in_b = b_from_a * x_in_a;
+  const Eigen::Vector3d x_in_c = c_from_b * x_in_b;
+  const Eigen::Vector3d x_in_d = d_from_c * x_in_c;
+  EXPECT_LT((d_from_a * x_in_a - x_in_d).norm(), 1e-6);
 }
 
 void TestEstimationWithNumCoords(const size_t num_coords) {
-  const Sim3d original = TestSim3d();
+  const Sim3d gt_tgt_from_src = TestSim3d();
 
   std::vector<Eigen::Vector3d> src;
   std::vector<Eigen::Vector3d> dst;
   for (size_t i = 0; i < num_coords; ++i) {
     src.emplace_back(i, i + 2, i * i);
-    dst.push_back(original * src.back());
+    dst.push_back(gt_tgt_from_src * src.back());
   }
 
-  Sim3d estimated;
-  EXPECT_TRUE(estimated.Estimate(src, dst));
-  EXPECT_NEAR(original.scale, estimated.scale, 1e-6);
-  EXPECT_LT(original.rotation.angularDistance(estimated.rotation), 1e-6);
-  EXPECT_LT((original.translation - estimated.translation).norm(), 1e-6);
+  Sim3d tgt_from_src;
+  EXPECT_TRUE(tgt_from_src.Estimate(src, dst));
+  EXPECT_NEAR(gt_tgt_from_src.scale, tgt_from_src.scale, 1e-6);
+  EXPECT_LT(gt_tgt_from_src.rotation.angularDistance(tgt_from_src.rotation),
+            1e-6);
+  EXPECT_LT((gt_tgt_from_src.translation - tgt_from_src.translation).norm(),
+            1e-6);
 }
 
 TEST(Sim3d, EstimateMinimal) { TestEstimationWithNumCoords(3); }

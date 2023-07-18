@@ -110,7 +110,7 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
   } else {
     expected << 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0;
   }
-  EXPECT_LT((tform.Matrix() - expected).norm(), 1e-6);
+  EXPECT_LT((tform.ToMatrix() - expected).norm(), 1e-6);
 }
 
 TEST(CoordinateFrame, AlignToENUPlane) {

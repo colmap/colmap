@@ -80,7 +80,8 @@ TEST(AbsolutePose, P3P) {
       const auto report = ransac.Estimate(points2D, points3D);
 
       EXPECT_TRUE(report.success);
-      EXPECT_LT((expected_cam_from_world.Matrix() - report.model).norm(), 1e-2);
+      EXPECT_LT((expected_cam_from_world.ToMatrix() - report.model).norm(),
+                1e-2);
 
       // Test residuals of exact points.
       std::vector<double> residuals;
@@ -137,7 +138,8 @@ TEST(AbsolutePose, EPNP) {
       const auto report = ransac.Estimate(points2D, points3D);
 
       EXPECT_TRUE(report.success);
-      EXPECT_LT((expected_cam_from_world.Matrix() - report.model).norm(), 1e-4);
+      EXPECT_LT((expected_cam_from_world.ToMatrix() - report.model).norm(),
+                1e-4);
 
       // Test residuals of exact points.
       std::vector<double> residuals;
