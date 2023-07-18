@@ -553,7 +553,7 @@ int RunModelComparer(int argc, char** argv) {
   }
 
   std::cout << "Computed alignment transform:" << std::endl
-            << tgt_from_src.Matrix() << std::endl;
+            << tgt_from_src.ToMatrix() << std::endl;
 
   const std::vector<ImageAlignmentError> errors = ComputeImageAlignmentError(
       reconstruction1, reconstruction2, tgt_from_src);
@@ -667,7 +667,7 @@ int RunModelCropper(int argc, char** argv) {
     if (!gps_transform_path.empty()) {
       PrintHeading2("Reading model to ECEF transform");
       is_gps = true;
-      tform = Sim3d::FromFile(gps_transform_path).Inverse();
+      tform = Inverse(Sim3d::FromFile(gps_transform_path));
     }
     bounding_box.first =
         is_gps ? TransformLatLonAltToModelCoords(tform,
@@ -868,7 +868,7 @@ int RunModelSplitter(int argc, char** argv) {
   if (!gps_transform_path.empty()) {
     PrintHeading2("Reading model to ECEF transform");
     is_gps = true;
-    tform = Sim3d::FromFile(gps_transform_path).Inverse();
+    tform = Inverse(Sim3d::FromFile(gps_transform_path));
   }
 
   // Create the necessary number of reconstructions based on the split method
@@ -1031,7 +1031,7 @@ int RunModelTransformer(int argc, char** argv) {
   std::cout << "Reading transform input: " << transform_path << std::endl;
   Sim3d tform = Sim3d::FromFile(transform_path);
   if (is_inverse) {
-    tform = tform.Inverse();
+    tform = Inverse(tform);
   }
 
   std::cout << "Applying transform to recon with " << recon.NumPoints3D()
