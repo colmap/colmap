@@ -70,7 +70,7 @@ void WriteProjectionMatrix(const std::string& path,
   calib_matrix(1, 2) = camera.PrincipalPointY();
 
   const Eigen::Matrix3x4d img_from_world =
-      calib_matrix * image.CamFromWorld().Matrix();
+      calib_matrix * image.CamFromWorld().ToMatrix();
 
   if (!header.empty()) {
     file << header << std::endl;
@@ -753,7 +753,7 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
   }
 
   const Rigid3d cam2_from_cam1 =
-      image2.CamFromWorld() * image1.CamFromWorld().Inverse();
+      image2.CamFromWorld() * Inverse(image1.CamFromWorld());
 
   Bitmap undistorted_bitmap1;
   Bitmap undistorted_bitmap2;

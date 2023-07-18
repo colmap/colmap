@@ -574,7 +574,7 @@ size_t Reconstruction::FilterObservationsWithNegativeDepth() {
   size_t num_filtered = 0;
   for (const auto image_id : reg_image_ids_) {
     const class Image& image = Image(image_id);
-    const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().Matrix();
+    const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().ToMatrix();
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
       const Point2D& point2D = image.Point2D(point2D_idx);
@@ -1180,7 +1180,7 @@ void Reconstruction::ExportVRML(const std::string& images_path,
 
     // Move camera base model to camera pose.
     const Eigen::Matrix3x4d world_from_cam =
-        image.second.CamFromWorld().Inverse().Matrix();
+        Inverse(image.second.CamFromWorld()).ToMatrix();
     for (size_t i = 0; i < points.size(); i++) {
       const Eigen::Vector3d point = world_from_cam * points[i].homogeneous();
       images_file << point(0) << " " << point(1) << " " << point(2) << "\n";

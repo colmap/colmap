@@ -184,7 +184,7 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
     const Camera& camera = model_viewer_widget_->cameras[image.CameraId()];
     const Point2D& point2D = image.Point2D(track_el.first.point2D_idx);
     const Eigen::Vector2d proj_point2D = ProjectPointToImage(
-        point3D.XYZ(), image.CamFromWorld().Matrix(), camera);
+        point3D.XYZ(), image.CamFromWorld().ToMatrix(), camera);
     const double reproj_error = (point2D.XY() - proj_point2D).norm();
 
     Bitmap bitmap;

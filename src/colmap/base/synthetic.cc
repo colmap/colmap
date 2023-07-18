@@ -87,7 +87,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         image.CamFromWorld().rotation * -proj_center;
 
     const Camera& camera = reconstruction->Camera(image.CameraId());
-    const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().Matrix();
+    const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().ToMatrix();
 
     std::vector<Point2D> points2D;
     points2D.reserve(options.num_points3D +
@@ -159,7 +159,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
       TwoViewGeometry two_view_geometry;
       two_view_geometry.config = TwoViewGeometry::CALIBRATED;
       two_view_geometry.E = EssentialMatrixFromAbsolutePoses(
-          image1.CamFromWorld().Matrix(), image2.CamFromWorld().Matrix());
+          image1.CamFromWorld().ToMatrix(), image2.CamFromWorld().ToMatrix());
 
       for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;
            ++point2D_idx1) {

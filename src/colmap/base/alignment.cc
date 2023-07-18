@@ -110,9 +110,9 @@ struct ReconstructionAlignmentEstimator {
           tgt_reconstruction_->Camera(tgt_image.CameraId());
 
       const Eigen::Matrix3x4d src_cam_from_world =
-          src_image.CamFromWorld().Matrix();
+          src_image.CamFromWorld().ToMatrix();
       const Eigen::Matrix3x4d tgt_cam_from_world =
-          tgt_image.CamFromWorld().Matrix();
+          tgt_image.CamFromWorld().ToMatrix();
 
       CHECK_EQ(src_image.NumPoints2D(), tgt_image.NumPoints2D());
 
@@ -318,12 +318,10 @@ std::vector<ImageAlignmentError> ComputeImageAlignmentError(
   std::vector<ImageAlignmentError> errors;
   errors.reserve(num_common_images);
   for (const image_t image_id : common_image_ids) {
-    const Rigid3d tgt_world_from_src_cam =
-        TransformCameraWorld(tgt_from_src,
-                             src_reconstruction.Image(image_id).CamFromWorld())
-            .Inverse();
+    const Rigid3d tgt_world_from_src_cam = Inverse(TransformCameraWorld(
+        tgt_from_src, src_reconstruction.Image(image_id).CamFromWorld()));
     const Rigid3d tgt_world_from_tgt_cam =
-        tgt_reconstruction.Image(image_id).CamFromWorld().Inverse();
+        Inverse(tgt_reconstruction.Image(image_id).CamFromWorld());
 
     ImageAlignmentError error;
     error.image_id = image_id;

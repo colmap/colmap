@@ -250,7 +250,7 @@ class DelaunayMeshingInput {
       const auto& image = reconstruction.Image(image_id);
       DelaunayMeshingInput::Image input_image;
       input_image.camera_id = image.CameraId();
-      input_image.proj_matrix = image.CamFromWorld().Matrix().cast<float>();
+      input_image.proj_matrix = image.CamFromWorld().ToMatrix().cast<float>();
       input_image.proj_center = image.ProjectionCenter().cast<float>();
       input_image.point_idxs.reserve(image.NumPoints3D());
       for (const auto& point2D : image.Points2D()) {
@@ -275,7 +275,7 @@ class DelaunayMeshingInput {
         const auto& image = reconstruction.Image(image_id);
         DelaunayMeshingInput::Image input_image;
         input_image.camera_id = image.CameraId();
-        input_image.proj_matrix = image.CamFromWorld().Matrix().cast<float>();
+        input_image.proj_matrix = image.CamFromWorld().ToMatrix().cast<float>();
         input_image.proj_center = image.ProjectionCenter().cast<float>();
         images.push_back(input_image);
       }

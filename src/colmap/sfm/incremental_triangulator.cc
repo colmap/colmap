@@ -196,7 +196,7 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
       point_data[i].point = corr_data.point2D->XY();
       point_data[i].point_normalized =
           corr_data.camera->ImageToWorld(point_data[i].point);
-      pose_data[i].proj_matrix = corr_data.image->CamFromWorld().Matrix();
+      pose_data[i].proj_matrix = corr_data.image->CamFromWorld().ToMatrix();
       pose_data[i].proj_center = corr_data.image->ProjectionCenter();
       pose_data[i].camera = corr_data.camera;
     }
@@ -497,7 +497,7 @@ size_t IncrementalTriangulator::Create(
     point_data[i].point = corr_data.point2D->XY();
     point_data[i].point_normalized =
         corr_data.camera->ImageToWorld(point_data[i].point);
-    pose_data[i].proj_matrix = corr_data.image->CamFromWorld().Matrix();
+    pose_data[i].proj_matrix = corr_data.image->CamFromWorld().ToMatrix();
     pose_data[i].proj_center = corr_data.image->ProjectionCenter();
     pose_data[i].camera = corr_data.camera;
   }

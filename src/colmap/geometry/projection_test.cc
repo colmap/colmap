@@ -94,7 +94,7 @@ TEST(DecomposeProjectionMatrix, Nominal) {
 TEST(CalculateSquaredReprojectionError, Nominal) {
   const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
                                Eigen::Vector3d::Zero());
-  const Eigen::Matrix3x4d cam_from_world_matrix = cam_from_world.Matrix();
+  const Eigen::Matrix3x4d cam_from_world_matrix = cam_from_world.ToMatrix();
 
   const Eigen::Vector3d point3D = Eigen::Vector3d::Random().cwiseAbs();
   const Eigen::Vector3d point2D_h =
@@ -126,7 +126,7 @@ TEST(CalculateSquaredReprojectionError, Nominal) {
 TEST(CalculateAngularError, Nominal) {
   const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
                                Eigen::Vector3d::Zero());
-  const Eigen::Matrix3x4d cam_from_world_matrix = cam_from_world.Matrix();
+  const Eigen::Matrix3x4d cam_from_world_matrix = cam_from_world.ToMatrix();
 
   Camera camera;
   camera.SetModelId(SimplePinholeCameraModel::model_id);
@@ -202,7 +202,7 @@ TEST(CalculateAngularError, Nominal) {
 TEST(CalculateDepth, Nominal) {
   const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
                                Eigen::Vector3d::Zero());
-  const Eigen::Matrix3x4d cam_from_world_matrix = cam_from_world.Matrix();
+  const Eigen::Matrix3x4d cam_from_world_matrix = cam_from_world.ToMatrix();
 
   // In the image plane
   const double depth1 =
@@ -226,7 +226,7 @@ TEST(CalculateDepth, Nominal) {
 TEST(HasPointPositiveDepth, Nominal) {
   const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
                                Eigen::Vector3d::Zero());
-  const Eigen::Matrix3x4d cam_from_world_matrix = cam_from_world.Matrix();
+  const Eigen::Matrix3x4d cam_from_world_matrix = cam_from_world.ToMatrix();
 
   // In the image plane
   const bool check1 =

@@ -342,9 +342,9 @@ TEST(Database, TwoViewGeometry) {
   EXPECT_TRUE(two_view_geometry_read_inv.H.inverse().eval().isApprox(
       two_view_geometry_read.H));
   EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1.rotation.isApprox(
-      two_view_geometry_read.cam2_from_cam1.Inverse().rotation));
+      Inverse(two_view_geometry_read.cam2_from_cam1).rotation));
   EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1.translation.isApprox(
-      two_view_geometry_read.cam2_from_cam1.Inverse().translation));
+      Inverse(two_view_geometry_read.cam2_from_cam1).translation));
 
   std::vector<image_pair_t> image_pair_ids;
   std::vector<TwoViewGeometry> two_view_geometries;

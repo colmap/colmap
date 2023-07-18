@@ -292,8 +292,8 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
   image1.CamFromWorld() = Rigid3d();
   image2.CamFromWorld() = prev_init_two_view_geometry_.cam2_from_cam1;
 
-  const Eigen::Matrix3x4d cam_from_world1 = image1.CamFromWorld().Matrix();
-  const Eigen::Matrix3x4d cam_from_world2 = image2.CamFromWorld().Matrix();
+  const Eigen::Matrix3x4d cam_from_world1 = image1.CamFromWorld().ToMatrix();
+  const Eigen::Matrix3x4d cam_from_world2 = image2.CamFromWorld().ToMatrix();
   const Eigen::Vector3d proj_center1 = image1.ProjectionCenter();
   const Eigen::Vector3d proj_center2 = image2.ProjectionCenter();
 

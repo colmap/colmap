@@ -163,7 +163,7 @@ void GenerateReconstruction(const size_t num_images,
     reconstruction->AddImage(image);
 
     const Eigen::Matrix3x4d cam_from_world_matrix =
-        image.CamFromWorld().Matrix();
+        image.CamFromWorld().ToMatrix();
 
     std::vector<Eigen::Vector2d> points2D;
     for (const auto& point3D : reconstruction->Points3D()) {

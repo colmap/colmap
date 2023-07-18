@@ -127,7 +127,7 @@ double CameraRig::ComputeRigFromWorldScale(
     for (size_t i = 0; i < num_cameras; ++i) {
       const auto& image = reconstruction.Image(snapshot[i]);
       proj_centers_in_rig[i] =
-          CamFromRig(image.CameraId()).Inverse().translation;
+          Inverse(CamFromRig(image.CameraId())).translation;
       proj_centers_in_world[i] = image.ProjectionCenter();
     }
 
@@ -176,7 +176,7 @@ bool CameraRig::ComputeCamsFromRigs(const Reconstruction& reconstruction) {
     }
 
     const Rigid3d world_from_ref_cam =
-        CHECK_NOTNULL(ref_image)->CamFromWorld().Inverse();
+        Inverse(CHECK_NOTNULL(ref_image)->CamFromWorld());
 
     // Compute the relative poses from all cameras in the current snapshot to
     // the reference camera.
@@ -227,7 +227,7 @@ Rigid3d CameraRig::ComputeRigFromWorld(
   for (const auto image_id : snapshot) {
     const auto& image = reconstruction.Image(image_id);
     const Rigid3d rig_from_world =
-        CamFromRig(image.CameraId()).Inverse() * image.CamFromWorld();
+        Inverse(CamFromRig(image.CameraId())) * image.CamFromWorld();
     rig_from_world_rotations.push_back(rig_from_world.rotation);
     rig_from_world_translations += rig_from_world.translation;
   }
