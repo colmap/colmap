@@ -216,29 +216,13 @@ void InvertPose(const Eigen::Vector4d& qvec,
   *inv_tvec = -QuaternionRotatePoint(*inv_qvec, tvec);
 }
 
-void InterpolatePose(const Eigen::Vector4d& qvec1,
-                     const Eigen::Vector3d& tvec1,
-                     const Eigen::Vector4d& qvec2,
-                     const Eigen::Vector3d& tvec2,
-                     const double t,
-                     Eigen::Vector4d* qveci,
-                     Eigen::Vector3d* tveci) {
-  const Eigen::Vector4d normalized_qvec1 = NormalizeQuaternion(qvec1);
-  const Eigen::Vector4d normalized_qvec2 = NormalizeQuaternion(qvec2);
-  const Eigen::Quaterniond quat1(normalized_qvec1(0),
-                                 normalized_qvec1(1),
-                                 normalized_qvec1(2),
-                                 normalized_qvec1(3));
-  const Eigen::Quaterniond quat2(normalized_qvec2(0),
-                                 normalized_qvec2(1),
-                                 normalized_qvec2(2),
-                                 normalized_qvec2(3));
-  const Eigen::Vector3d tvec12 = tvec2 - tvec1;
-
-  const Eigen::Quaterniond quati = quat1.slerp(t, quat2);
-
-  *qveci = Eigen::Vector4d(quati.w(), quati.x(), quati.y(), quati.z());
-  *tveci = tvec1 + tvec12 * t;
+Rigid3d InterpolatePose(const Rigid3d& cam_from_world1,
+                        const Rigid3d& cam_from_world2,
+                        double t) {
+  const Eigen::Vector3d translation12 =
+      cam_from_world2.translation - cam_from_world1.translation;
+  return Rigid3d(cam_from_world1.rotation.slerp(t, cam_from_world2.rotation),
+                 cam_from_world1.translation + translation12 * t);
 }
 
 Eigen::Vector3d CalculateBaseline(const Eigen::Vector4d& qvec1,

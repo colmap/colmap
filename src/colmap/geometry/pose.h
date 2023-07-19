@@ -182,18 +182,9 @@ void InvertPose(const Eigen::Vector4d& qvec,
                 Eigen::Vector3d* inv_tvec);
 
 // Linearly interpolate camera pose.
-//
-// @param qvec1, tvec1      Camera pose at t0 = 0.
-// @param qvec2, tvec2      Camera pose at t1 = 1.
-// @param t                 Interpolation time.
-// @param qveci, tveci      Camera pose at time t.
-void InterpolatePose(const Eigen::Vector4d& qvec1,
-                     const Eigen::Vector3d& tvec1,
-                     const Eigen::Vector4d& qvec2,
-                     const Eigen::Vector3d& tvec2,
-                     double t,
-                     Eigen::Vector4d* qveci,
-                     Eigen::Vector3d* tveci);
+Rigid3d InterpolatePose(const Rigid3d& cam_from_world1,
+                        const Rigid3d& cam_from_world2,
+                        double t);
 
 // Calculate baseline vector from first to second pose.
 //

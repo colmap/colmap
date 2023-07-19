@@ -392,22 +392,25 @@ TEST(InvertPose, Nominal) {
 }
 
 TEST(InterpolatePose, Nominal) {
-  const Eigen::Vector4d qvec1 = Eigen::Vector4d::Random().normalized();
-  const Eigen::Vector3d tvec1 = Eigen::Vector3d::Random();
-  const Eigen::Vector4d qvec2 = Eigen::Vector4d::Random().normalized();
-  const Eigen::Vector3d tvec2 = Eigen::Vector3d::Random();
+  const Rigid3d cam_from_world1(Eigen::Quaterniond::UnitRandom(),
+                                Eigen::Vector3d::Random());
+  const Rigid3d cam_from_world2(Eigen::Quaterniond::UnitRandom(),
+                                Eigen::Vector3d::Random());
 
-  Eigen::Vector4d qveci;
-  Eigen::Vector3d tveci;
+  const Rigid3d interp_cam_from_world1 =
+      InterpolatePose(cam_from_world1, cam_from_world2, 0);
+  EXPECT_TRUE(
+      interp_cam_from_world1.translation.isApprox(cam_from_world1.translation));
 
-  InterpolatePose(qvec1, tvec1, qvec2, tvec2, 0, &qveci, &tveci);
-  EXPECT_TRUE(tvec1.isApprox(tveci));
+  const Rigid3d interp_cam_from_world2 =
+      InterpolatePose(cam_from_world1, cam_from_world2, 1);
+  EXPECT_TRUE(
+      interp_cam_from_world2.translation.isApprox(cam_from_world2.translation));
 
-  InterpolatePose(qvec1, tvec1, qvec2, tvec2, 1, &qveci, &tveci);
-  EXPECT_TRUE(tvec2.isApprox(tveci));
-
-  InterpolatePose(qvec1, tvec1, qvec2, tvec2, 0.5, &qveci, &tveci);
-  EXPECT_TRUE(((tvec1 + tvec2) / 2).isApprox(tveci));
+  const Rigid3d interp_cam_from_world3 =
+      InterpolatePose(cam_from_world1, cam_from_world2, 0.5);
+  EXPECT_TRUE(interp_cam_from_world3.translation.isApprox(
+      (cam_from_world1.translation + cam_from_world2.translation) / 2));
 }
 
 TEST(CalculateBaseline, Nominal) {
