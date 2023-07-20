@@ -111,9 +111,7 @@ struct AbsolutePoseRefinementOptions {
 // @param options              Absolute pose estimation options.
 // @param points2D             Corresponding 2D points.
 // @param points3D             Corresponding 3D points.
-// @param qvec                 Estimated rotation component as
-//                             unit Quaternion coefficients (w, x, y, z).
-// @param tvec                 Estimated translation component.
+// @param cam_from_world       Estimated absolute camera pose.
 // @param camera               Camera for which to estimate pose. Modified
 //                             in-place to store the estimated focal length.
 // @param num_inliers          Number of inliers in RANSAC.
@@ -137,15 +135,13 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
 // @param ransac_options       RANSAC options.
 // @param points1              Corresponding 2D points.
 // @param points2              Corresponding 2D points.
-// @param qvec                 Estimated rotation component as
-//                             unit Quaternion coefficients (w, x, y, z).
-// @param tvec                 Estimated translation component.
+// @param cam2_from_cam1       Estimated pose between cameras.
 //
 // @return                     Number of RANSAC inliers.
 size_t EstimateRelativePose(const RANSACOptions& ransac_options,
                             const std::vector<Eigen::Vector2d>& points1,
                             const std::vector<Eigen::Vector2d>& points2,
-                            Rigid3d* cam_from_world);
+                            Rigid3d* cam2_from_cam1);
 
 // Refine absolute pose (optionally focal length) from 2D-3D correspondences.
 //
@@ -153,9 +149,7 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
 // @param inlier_mask          Inlier mask for 2D-3D correspondences.
 // @param points2D             Corresponding 2D points.
 // @param points3D             Corresponding 3D points.
-// @param qvec                 Estimated rotation component as
-//                             unit Quaternion coefficients (w, x, y, z).
-// @param tvec                 Estimated translation component.
+// @param cam_from_world       Refined absolute camera pose.
 // @param camera               Camera for which to estimate pose. Modified
 //                             in-place to store the estimated focal length.
 // @param cam_from_world_cov   Estimated 6x6 covariance matrix of
@@ -187,8 +181,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 // @param options          Solver options.
 // @param points1          First set of corresponding points.
 // @param points2          Second set of corresponding points.
-// @param qvec             Unit Quaternion rotation coefficients (w, x, y, z).
-// @param tvec             3x1 translation vector.
+// @param cam_from_world   Refined pose between cameras.
 //
 // @return                 Flag indicating if solution is usable.
 bool RefineRelativePose(const ceres::Solver::Options& options,

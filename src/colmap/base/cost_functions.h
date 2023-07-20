@@ -248,12 +248,12 @@ class RelativePoseCostFunction {
   const double y2_;
 };
 
-inline void SetQuaternionManifold(ceres::Problem* problem, double* qvec) {
+inline void SetQuaternionManifold(ceres::Problem* problem, double* quat_xyzw) {
 #if CERES_VERSION_MAJOR >= 3 || \
     (CERES_VERSION_MAJOR == 2 && CERES_VERSION_MINOR >= 1)
-  problem->SetManifold(qvec, new ceres::EigenQuaternionManifold);
+  problem->SetManifold(quat_xyzw, new ceres::EigenQuaternionManifold);
 #else
-  problem->SetParameterization(qvec,
+  problem->SetParameterization(quat_xyzw,
                                new ceres::EigenQuaternionParameterization);
 #endif
 }
