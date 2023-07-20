@@ -68,12 +68,10 @@ class CameraRig {
   // Get the snapshots of the camera rig.
   const std::vector<std::vector<image_t>>& Snapshots() const;
 
-  // Add a new camera to the rig. The relative pose may contain dummy values and
-  // can then be computed automatically from a given reconstruction using the
-  // method `ComputeRelativePoses`.
-  void AddCamera(camera_t camera_id,
-                 const Eigen::Vector4d& rel_qvec,
-                 const Eigen::Vector3d& rel_tvec);
+  // Add a new camera to the rig. The relative pose may contain invalid values
+  // and can then be computed automatically from a given reconstruction using
+  // the method `ComputeCamsFromRigs`.
+  void AddCamera(camera_t camera_id, const Rigid3d& cam_from_rig);
 
   // Add the images of a single snapshot to rig. A snapshot consists of the
   // captured images of all cameras of the rig. All images of a snapshot share
@@ -85,39 +83,30 @@ class CameraRig {
   void Check(const Reconstruction& reconstruction) const;
 
   // Get the relative poses of the cameras in the rig.
-  Eigen::Vector4d& RelativeQvec(camera_t camera_id);
-  const Eigen::Vector4d& RelativeQvec(camera_t camera_id) const;
-  Eigen::Vector3d& RelativeTvec(camera_t camera_id);
-  const Eigen::Vector3d& RelativeTvec(camera_t camera_id) const;
+  const Rigid3d& CamFromRig(camera_t camera_id) const;
+  Rigid3d& CamFromRig(camera_t camera_id);
 
-  // Compute the scaling factor from the reconstruction to the camera rig
-  // dimensions by averaging over the distances between the projection centers.
-  // Note that this assumes that there is at least one camera pair in the rig
-  // with non-zero baseline, otherwise the function returns NaN.
-  double ComputeScale(const Reconstruction& reconstruction) const;
+  // Compute the scaling factor from the world scale of the reconstruction to
+  // the camera rig scale by averaging over the distances between the projection
+  // centers. Note that this assumes that there is at least one camera pair in
+  // the rig with non-zero baseline, otherwise the function returns NaN.
+  double ComputeRigFromWorldScale(const Reconstruction& reconstruction) const;
 
-  // Compute the relative poses in the rig from the reconstruction by averaging
+  // Compute the camera rig poses from the reconstruction by averaging
   // the relative poses over all snapshots. The pose of the reference camera
-  // will be the identity transformation. This assumes that the camera rig has
+  // will have the identity transformation. This assumes that the camera rig has
   // snapshots that are registered in the reconstruction.
-  bool ComputeRelativePoses(const Reconstruction& reconstruction);
+  bool ComputeCamsFromRigs(const Reconstruction& reconstruction);
 
-  // Compute the absolute camera pose of the rig. The absolute camera pose of
-  // the rig is computed as the average of all relative camera poses in the rig
-  // and their corresponding image poses in the reconstruction.
-  void ComputeAbsolutePose(size_t snapshot_idx,
-                           const Reconstruction& reconstruction,
-                           Eigen::Vector4d* abs_qvec,
-                           Eigen::Vector3d* abs_tvec) const;
+  // Compute the pose of the camera rig. The rig pose is computed as the average
+  // of all relative camera poses in the rig and their corresponding image poses
+  // in the reconstruction.
+  Rigid3d ComputeRigFromWorld(size_t snapshot_idx,
+                              const Reconstruction& reconstruction) const;
 
  private:
-  struct RigCamera {
-    Eigen::Vector4d rel_qvec = ComposeIdentityQuaternion();
-    Eigen::Vector3d rel_tvec = Eigen::Vector3d(0, 0, 0);
-  };
-
   camera_t ref_camera_id_ = kInvalidCameraId;
-  std::unordered_map<camera_t, RigCamera> rig_cameras_;
+  std::unordered_map<camera_t, Rigid3d> cams_from_rigs_;
   std::vector<std::vector<image_t>> snapshots_;
 };
 

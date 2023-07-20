@@ -33,6 +33,7 @@
 
 #include "colmap/base/camera.h"
 #include "colmap/feature/types.h"
+#include "colmap/geometry/rigid3.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/util/logging.h"
 
@@ -129,8 +130,6 @@ struct TwoViewGeometry {
         E(Eigen::Matrix3d::Zero()),
         F(Eigen::Matrix3d::Zero()),
         H(Eigen::Matrix3d::Zero()),
-        qvec(Eigen::Vector4d::Zero()),
-        tvec(Eigen::Vector3d::Zero()),
         tri_angle(0) {}
 
   // Invert the two-view geometry in-place.
@@ -256,8 +255,7 @@ struct TwoViewGeometry {
   Eigen::Matrix3d H;
 
   // Relative pose.
-  Eigen::Vector4d qvec;
-  Eigen::Vector3d tvec;
+  Rigid3d cam2_from_cam1;
 
   // Inlier matches of the configuration.
   FeatureMatches inlier_matches;

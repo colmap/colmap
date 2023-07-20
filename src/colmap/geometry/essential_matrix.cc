@@ -90,24 +90,9 @@ void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
   }
 }
 
-Eigen::Matrix3d EssentialMatrixFromPose(const Eigen::Matrix3d& R,
-                                        const Eigen::Vector3d& t) {
-  return CrossProductMatrix(t.normalized()) * R;
-}
-
-Eigen::Matrix3d EssentialMatrixFromAbsolutePoses(
-    const Eigen::Matrix3x4d& proj_matrix1,
-    const Eigen::Matrix3x4d& proj_matrix2) {
-  const Eigen::Matrix3d R1 = proj_matrix1.leftCols<3>();
-  const Eigen::Matrix3d R2 = proj_matrix2.leftCols<3>();
-  const Eigen::Vector3d t1 = proj_matrix1.rightCols<1>();
-  const Eigen::Vector3d t2 = proj_matrix2.rightCols<1>();
-
-  // Relative transformation between to cameras.
-  const Eigen::Matrix3d R = R2 * R1.transpose();
-  const Eigen::Vector3d t = t2 - R * t1;
-
-  return EssentialMatrixFromPose(R, t);
+Eigen::Matrix3d EssentialMatrixFromPose(const Rigid3d& cam2_from_cam1) {
+  return CrossProductMatrix(cam2_from_cam1.translation.normalized()) *
+         cam2_from_cam1.rotation.toRotationMatrix();
 }
 
 void FindOptimalImageObservations(const Eigen::Matrix3d& E,
@@ -190,13 +175,16 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
 
   // Extract relative pose from essential matrix.
 
-  Eigen::Matrix3d R;
-  Eigen::Vector3d tvec;
+  Rigid3d cam2_from_cam1;
+  Eigen::Matrix3d cam2_from_cam1_rot_mat;
   std::vector<Eigen::Vector3d> points3D;
-  PoseFromEssentialMatrix(
-      *E, inlier_points1, inlier_points2, &R, &tvec, &points3D);
-
-  Eigen::Vector4d qvec = RotationMatrixToQuaternion(R);
+  PoseFromEssentialMatrix(*E,
+                          inlier_points1,
+                          inlier_points2,
+                          &cam2_from_cam1_rot_mat,
+                          &cam2_from_cam1.translation,
+                          &points3D);
+  cam2_from_cam1.rotation = Eigen::Quaterniond(cam2_from_cam1_rot_mat);
 
   if (points3D.size() == 0) {
     return false;
@@ -205,16 +193,14 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
   // Refine essential matrix, use all points so that refinement is able to
   // consider points as inliers that were originally outliers.
 
-  const bool refinement_success =
-      RefineRelativePose(options, inlier_points1, inlier_points2, &qvec, &tvec);
+  const bool refinement_success = RefineRelativePose(
+      options, inlier_points1, inlier_points2, &cam2_from_cam1);
 
   if (!refinement_success) {
     return false;
   }
 
-  // Compose refined essential matrix.
-  const Eigen::Matrix3d rot_mat = QuaternionToRotationMatrix(qvec);
-  *E = EssentialMatrixFromPose(rot_mat, tvec);
+  *E = EssentialMatrixFromPose(cam2_from_cam1);
 
   return true;
 }

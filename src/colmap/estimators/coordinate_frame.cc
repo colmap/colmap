@@ -149,7 +149,8 @@ Eigen::Vector3d EstimateGravityVectorFromImageOrientation(
   downward_axes.reserve(reconstruction.NumRegImages());
   for (const auto image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
-    downward_axes.push_back(image.RotationMatrix().row(1));
+    downward_axes.push_back(
+        image.CamFromWorld().rotation.toRotationMatrix().row(1));
   }
   return FindBestConsensusAxis(downward_axes, max_axis_distance);
 }
@@ -241,34 +242,36 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
 
     const Eigen::Matrix3d inv_calib_matrix =
         undistorted_camera.CalibrationMatrix().inverse();
-    const Eigen::Vector4d inv_qvec = InvertQuaternion(image.Qvec());
+    const Eigen::Quaterniond world_from_cam_rotation =
+        image.CamFromWorld().rotation.inverse();
 
     if (horizontal_report.success) {
-      const Eigen::Vector3d horizontal_camera_axis =
+      Eigen::Vector3d horizontal_axis_in_world =
+          world_from_cam_rotation *
           (inv_calib_matrix * horizontal_report.model).normalized();
-      Eigen::Vector3d horizontal_axis =
-          QuaternionRotatePoint(inv_qvec, horizontal_camera_axis).normalized();
       // Make sure all axes point into the same direction.
       if (rightward_axes.size() > 0 &&
-          rightward_axes[0].dot(horizontal_axis) < 0) {
-        horizontal_axis = -horizontal_axis;
+          rightward_axes[0].dot(horizontal_axis_in_world) < 0) {
+        horizontal_axis_in_world = -horizontal_axis_in_world;
       }
-      rightward_axes.push_back(horizontal_axis);
-      std::cout << "  Horizontal: " << horizontal_axis.transpose() << std::endl;
+      rightward_axes.push_back(horizontal_axis_in_world);
+      std::cout << "  Horizontal: " << horizontal_axis_in_world.transpose()
+                << std::endl;
     }
 
     if (vertical_report.success) {
-      const Eigen::Vector3d vertical_camera_axis =
+      const Eigen::Vector3d vertical_axis_in_cam =
           (inv_calib_matrix * vertical_report.model).normalized();
-      Eigen::Vector3d vertical_axis =
-          QuaternionRotatePoint(inv_qvec, vertical_camera_axis).normalized();
+      Eigen::Vector3d vertical_axis_in_world =
+          (world_from_cam_rotation * vertical_axis_in_cam).normalized();
       // Make sure axis points downwards in the image, assuming that the image
       // was taken in upright orientation.
-      if (vertical_camera_axis.dot(Eigen::Vector3d(0, 1, 0)) < 0) {
-        vertical_axis = -vertical_axis;
+      if (vertical_axis_in_world.dot(Eigen::Vector3d(0, 1, 0)) < 0) {
+        vertical_axis_in_world = -vertical_axis_in_world;
       }
-      downward_axes.push_back(vertical_axis);
-      std::cout << "  Vertical: " << vertical_axis.transpose() << std::endl;
+      downward_axes.push_back(vertical_axis_in_world);
+      std::cout << "  Vertical: " << vertical_axis_in_world.transpose()
+                << std::endl;
     }
   }
 
@@ -306,37 +309,40 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
   return frame;
 }
 
-void AlignToPrincipalPlane(Reconstruction* recon, Sim3d* tform) {
+void AlignToPrincipalPlane(Reconstruction* reconstruction, Sim3d* tform) {
   // Perform SVD on the 3D points to estimate the ground plane basis
-  const Eigen::Vector3d centroid = recon->ComputeCentroid(0.0, 1.0);
-  Eigen::MatrixXd points(3, recon->NumPoints3D());
+  const Eigen::Vector3d centroid = reconstruction->ComputeCentroid(0.0, 1.0);
+  Eigen::MatrixXd normalized_points3D(3, reconstruction->NumPoints3D());
   int pidx = 0;
-  for (const auto& point : recon->Points3D()) {
-    points.col(pidx++) = point.second.XYZ() - centroid;
+  for (const auto& point : reconstruction->Points3D()) {
+    normalized_points3D.col(pidx++) = point.second.XYZ() - centroid;
   }
   const Eigen::Matrix3d basis =
-      points.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).matrixU();
+      normalized_points3D.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV)
+          .matrixU();
   Eigen::Matrix3d rot_mat;
   rot_mat << basis.col(0), basis.col(1), basis.col(0).cross(basis.col(1));
   rot_mat.transposeInPlace();
 
   *tform = Sim3d(1.0, Eigen::Quaterniond(rot_mat), -rot_mat * centroid);
 
-  // if camera plane ends up below ground then flip basis vectors and create new
-  // transform
-  Image test_img = recon->Images().begin()->second;
-  tform->TransformPose(&test_img.Qvec(), &test_img.Tvec());
-  if (test_img.ProjectionCenter().z() < 0.0) {
+  // If camera plane ends up below ground then flip basis vectors.
+  const Rigid3d cam0_from_aligned_world = TransformCameraWorld(
+      *tform,
+      reconstruction->Image(reconstruction->RegImageIds()[0]).CamFromWorld());
+  if (Inverse(cam0_from_aligned_world).translation.z() < 0.0) {
     rot_mat << basis.col(0), -basis.col(1), basis.col(0).cross(-basis.col(1));
     rot_mat.transposeInPlace();
     *tform = Sim3d(1.0, Eigen::Quaterniond(rot_mat), -rot_mat * centroid);
   }
 
-  recon->Transform(*tform);
+  reconstruction->Transform(*tform);
 }
 
-void AlignToENUPlane(Reconstruction* recon, Sim3d* tform, bool unscaled) {
-  const Eigen::Vector3d centroid = recon->ComputeCentroid(0.0, 1.0);
+void AlignToENUPlane(Reconstruction* reconstruction,
+                     Sim3d* tform,
+                     bool unscaled) {
+  const Eigen::Vector3d centroid = reconstruction->ComputeCentroid(0.0, 1.0);
   GPSTransform gps_tform;
   const Eigen::Vector3d ell_centroid = gps_tform.XYZToEll({centroid}).at(0);
 
@@ -353,8 +359,8 @@ void AlignToENUPlane(Reconstruction* recon, Sim3d* tform, bool unscaled) {
 
   const double scale = unscaled ? 1.0 / tform->scale : 1.0;
   *tform =
-      Sim3d(scale, Eigen::Quaterniond(rot_mat), -(scale * rot_mat) * centroid);
-  recon->Transform(*tform);
+      Sim3d(scale, Eigen::Quaterniond(rot_mat), -scale * rot_mat * centroid);
+  reconstruction->Transform(*tform);
 }
 
 }  // namespace colmap

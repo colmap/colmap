@@ -31,6 +31,7 @@
 
 #pragma once
 
+#include "colmap/geometry/rigid3.h"
 #include "colmap/util/types.h"
 
 #include <vector>
@@ -49,20 +50,16 @@ namespace colmap {
 class GP3PEstimator {
  public:
   // The generalized image observations, which is composed of the relative pose
-  // of the specific camera in the generalized camera and its image observation.
+  // of a camera in the generalized camera and a ray in the camera frame.
   struct X_t {
-    // The relative transformation from the generalized camera to the camera
-    // frame of the observation.
-    // TODO(coord-convention)
-    Eigen::Matrix3x4d rel_tform;
-    // The 2D image feature observation.
-    Eigen::Vector2d xy;
+    Rigid3d cam_from_rig;
+    Eigen::Vector3d ray_in_cam;
   };
 
   // The observed 3D feature points in the world frame.
   typedef Eigen::Vector3d Y_t;
-  // The transformation from the world to the generalized camera frame.
-  typedef Eigen::Matrix3x4d M_t;
+  // The estimated rig_from_world pose of the generalized camera.
+  typedef Rigid3d M_t;
 
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 3;
@@ -84,11 +81,10 @@ class GP3PEstimator {
                                    const std::vector<Y_t>& points3D);
 
   // Calculate the squared cosine distance error between the rays given a set of
-  // 2D-3D point correspondences and a projection matrix of the generalized
-  // camera.
+  // 2D-3D point correspondences and the rig pose of the generalized camera.
   void Residuals(const std::vector<X_t>& points2D,
                  const std::vector<Y_t>& points3D,
-                 const M_t& proj_matrix,
+                 const M_t& rig_from_world,
                  std::vector<double>* residuals);
 };
 

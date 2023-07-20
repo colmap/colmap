@@ -42,12 +42,15 @@ TEST(BundleAdjustment, AbsolutePose) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       BundleAdjustmentCostFunction<SimplePinholeCameraModel>::Create(
           Eigen::Vector2d::Zero()));
-  double qvec[4] = {1, 0, 0, 0};
-  double tvec[3] = {0, 0, 0};
+  double cam_from_world_rotation[4] = {0, 0, 0, 1};
+  double cam_from_world_translation[3] = {0, 0, 0};
   double point3D[3] = {0, 0, 1};
   double camera_params[3] = {1, 0, 0};
   double residuals[2];
-  const double* parameters[4] = {qvec, tvec, point3D, camera_params};
+  const double* parameters[4] = {cam_from_world_rotation,
+                                 cam_from_world_translation,
+                                 point3D,
+                                 camera_params};
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0);
   EXPECT_EQ(residuals[1], 0);
@@ -71,8 +74,7 @@ TEST(BundleAdjustment, AbsolutePose) {
 TEST(BundleAdjustment, ConstantAbsolutePose) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       BundleAdjustmentConstantPoseCostFunction<
-          SimplePinholeCameraModel>::Create(ComposeIdentityQuaternion(),
-                                            Eigen::Vector3d::Zero(),
+          SimplePinholeCameraModel>::Create(Rigid3d(),
                                             Eigen::Vector2d::Zero()));
   double point3D[3] = {0, 0, 1};
   double camera_params[3] = {1, 0, 0};
@@ -102,15 +104,19 @@ TEST(BundleAdjustment, Rig) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       RigBundleAdjustmentCostFunction<SimplePinholeCameraModel>::Create(
           Eigen::Vector2d::Zero()));
-  double rig_qvec[4] = {1, 0, 0, 0};
-  double rig_tvec[3] = {0, 0, -1};
-  double rel_qvec[4] = {1, 0, 0, 0};
-  double rel_tvec[3] = {0, 0, 1};
+  double cam_from_rig_rotation[4] = {0, 0, 0, 1};
+  double cam_from_rig_translation[3] = {0, 0, -1};
+  double rig_from_world_rotation[4] = {0, 0, 0, 1};
+  double rig_from_world_translation[3] = {0, 0, 1};
   double point3D[3] = {0, 0, 1};
   double camera_params[3] = {1, 0, 0};
   double residuals[2];
-  const double* parameters[6] = {
-      rig_qvec, rig_tvec, rel_qvec, rel_tvec, point3D, camera_params};
+  const double* parameters[6] = {cam_from_rig_rotation,
+                                 cam_from_rig_translation,
+                                 rig_from_world_rotation,
+                                 rig_from_world_translation,
+                                 point3D,
+                                 camera_params};
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0);
   EXPECT_EQ(residuals[1], 0);
@@ -135,10 +141,11 @@ TEST(BundleAdjustment, RelativePose) {
   std::unique_ptr<ceres::CostFunction> cost_function(
       RelativePoseCostFunction::Create(Eigen::Vector2d(0, 0),
                                        Eigen::Vector2d(0, 0)));
-  double qvec[4] = {1, 0, 0, 0};
-  double tvec[3] = {0, 1, 0};
+  double cam_from_world_rotation[4] = {1, 0, 0, 0};
+  double cam_from_world_translation[3] = {0, 1, 0};
   double residuals[1];
-  const double* parameters[2] = {qvec, tvec};
+  const double* parameters[2] = {cam_from_world_rotation,
+                                 cam_from_world_translation};
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0);
 

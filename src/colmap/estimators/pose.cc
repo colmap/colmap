@@ -79,8 +79,7 @@ void EstimateAbsolutePoseKernel(const Camera& camera,
 bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                           const std::vector<Eigen::Vector2d>& points2D,
                           const std::vector<Eigen::Vector3d>& points3D,
-                          Eigen::Vector4d* qvec,
-                          Eigen::Vector3d* tvec,
+                          Rigid3d* cam_from_world,
                           Camera* camera,
                           size_t* num_inliers,
                           std::vector<char>* inlier_mask) {
@@ -126,7 +125,7 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
   }
 
   double focal_length_factor = 0;
-  Eigen::Matrix3x4d proj_matrix;
+  Eigen::Matrix3x4d cam_from_world_matrix;
   *num_inliers = 0;
   inlier_mask->clear();
 
@@ -136,7 +135,7 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
     const auto report = reports[i];
     if (report.success && report.support.num_inliers > *num_inliers) {
       *num_inliers = report.support.num_inliers;
-      proj_matrix = report.model;
+      cam_from_world_matrix = report.model;
       *inlier_mask = report.inlier_mask;
       focal_length_factor = focal_length_factors[i];
     }
@@ -154,11 +153,12 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
     }
   }
 
-  // Extract pose parameters.
-  *qvec = RotationMatrixToQuaternion(proj_matrix.leftCols<3>());
-  *tvec = proj_matrix.rightCols<1>();
+  *cam_from_world =
+      Rigid3d(Eigen::Quaterniond(cam_from_world_matrix.leftCols<3>()),
+              cam_from_world_matrix.col(3));
 
-  if (qvec->array().isNaN().any() || tvec->array().isNaN().any()) {
+  if (cam_from_world->rotation.coeffs().array().isNaN().any() ||
+      cam_from_world->translation.array().isNaN().any()) {
     return false;
   }
 
@@ -168,8 +168,7 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
 size_t EstimateRelativePose(const RANSACOptions& ransac_options,
                             const std::vector<Eigen::Vector2d>& points1,
                             const std::vector<Eigen::Vector2d>& points2,
-                            Eigen::Vector4d* qvec,
-                            Eigen::Vector3d* tvec) {
+                            Rigid3d* cam2_from_cam1) {
   RANSAC<EssentialMatrixFivePointEstimator> ransac(ransac_options);
   const auto report = ransac.Estimate(points1, points2);
 
@@ -189,15 +188,19 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
     }
   }
 
-  Eigen::Matrix3d R;
-
+  Eigen::Matrix3d cam2_from_cam1_rot_mat;
   std::vector<Eigen::Vector3d> points3D;
-  PoseFromEssentialMatrix(
-      report.model, inliers1, inliers2, &R, tvec, &points3D);
+  PoseFromEssentialMatrix(report.model,
+                          inliers1,
+                          inliers2,
+                          &cam2_from_cam1_rot_mat,
+                          &cam2_from_cam1->translation,
+                          &points3D);
 
-  *qvec = RotationMatrixToQuaternion(R);
+  cam2_from_cam1->rotation = Eigen::Quaterniond(cam2_from_cam1_rot_mat);
 
-  if (qvec->array().isNaN().any() || tvec->array().isNaN().any()) {
+  if (cam2_from_cam1->rotation.coeffs().array().isNaN().any() ||
+      cam2_from_cam1->translation.array().isNaN().any()) {
     return 0;
   }
 
@@ -208,10 +211,9 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                         const std::vector<char>& inlier_mask,
                         const std::vector<Eigen::Vector2d>& points2D,
                         const std::vector<Eigen::Vector3d>& points3D,
-                        Eigen::Vector4d* qvec,
-                        Eigen::Vector3d* tvec,
+                        Rigid3d* cam_from_world,
                         Camera* camera,
-                        Eigen::Matrix6d* rot_tvec_covariance) {
+                        Eigen::Matrix6d* cam_from_world_cov) {
   CHECK_EQ(inlier_mask.size(), points2D.size());
   CHECK_EQ(points2D.size(), points3D.size());
   options.Check();
@@ -219,9 +221,9 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   const auto loss_function =
       std::make_unique<ceres::CauchyLoss>(options.loss_function_scale);
 
-  double* camera_params_data = camera->ParamsData();
-  double* qvec_data = qvec->data();
-  double* tvec_data = tvec->data();
+  double* camera_params = camera->ParamsData();
+  double* rig_from_world_rotation = cam_from_world->rotation.coeffs().data();
+  double* rig_from_world_translation = cam_from_world->translation.data();
 
   std::vector<Eigen::Vector3d> points3D_copy = points3D;
 
@@ -251,15 +253,15 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 
     problem.AddResidualBlock(cost_function,
                              loss_function.get(),
-                             qvec_data,
-                             tvec_data,
+                             rig_from_world_rotation,
+                             rig_from_world_translation,
                              points3D_copy[i].data(),
-                             camera_params_data);
+                             camera_params);
     problem.SetParameterBlockConstant(points3D_copy[i].data());
   }
 
   if (problem.NumResiduals() > 0) {
-    SetQuaternionManifold(&problem, qvec_data);
+    SetQuaternionManifold(&problem, rig_from_world_rotation);
 
     // Camera parameterization.
     if (!options.refine_focal_length && !options.refine_extra_params) {
@@ -323,10 +325,11 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     PrintSolverSummary(summary);
   }
 
-  if (problem.NumResiduals() > 0 && rot_tvec_covariance != nullptr) {
+  if (problem.NumResiduals() > 0 && cam_from_world_cov != nullptr) {
     ceres::Covariance::Options options;
     ceres::Covariance covariance(options);
-    std::vector<const double*> parameter_blocks = {qvec_data, tvec_data};
+    std::vector<const double*> parameter_blocks = {rig_from_world_rotation,
+                                                   rig_from_world_translation};
     if (!covariance.Compute(parameter_blocks, &problem)) {
       return false;
     }
@@ -334,7 +337,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     // quaternion, which corresponds to the 3-DoF axis-angle local
     // parameterization.
     covariance.GetCovarianceMatrixInTangentSpace(parameter_blocks,
-                                                 rot_tvec_covariance->data());
+                                                 cam_from_world_cov->data());
   }
 
   return summary.IsSolutionUsable();
@@ -343,12 +346,14 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 bool RefineRelativePose(const ceres::Solver::Options& options,
                         const std::vector<Eigen::Vector2d>& points1,
                         const std::vector<Eigen::Vector2d>& points2,
-                        Eigen::Vector4d* qvec,
-                        Eigen::Vector3d* tvec) {
+                        Rigid3d* cam2_from_cam1) {
   CHECK_EQ(points1.size(), points2.size());
 
   // CostFunction assumes unit quaternions.
-  *qvec = NormalizeQuaternion(*qvec);
+  cam2_from_cam1->rotation.normalize();
+
+  double* cam2_from_cam1_rotation = cam2_from_cam1->rotation.coeffs().data();
+  double* cam2_from_cam1_translation = cam2_from_cam1->translation.data();
 
   const double kMaxL2Error = 1.0;
   ceres::LossFunction* loss_function = new ceres::CauchyLoss(kMaxL2Error);
@@ -358,12 +363,14 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
   for (size_t i = 0; i < points1.size(); ++i) {
     ceres::CostFunction* cost_function =
         RelativePoseCostFunction::Create(points1[i], points2[i]);
-    problem.AddResidualBlock(
-        cost_function, loss_function, qvec->data(), tvec->data());
+    problem.AddResidualBlock(cost_function,
+                             loss_function,
+                             cam2_from_cam1_rotation,
+                             cam2_from_cam1_translation);
   }
 
-  SetQuaternionManifold(&problem, qvec->data());
-  SetSphereManifold<3>(&problem, tvec->data());
+  SetQuaternionManifold(&problem, cam2_from_cam1_rotation);
+  SetSphereManifold<3>(&problem, cam2_from_cam1_translation);
 
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
@@ -371,23 +378,19 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
   return summary.IsSolutionUsable();
 }
 
-bool RefineGeneralizedAbsolutePose(
-    const AbsolutePoseRefinementOptions& options,
-    const std::vector<char>& inlier_mask,
-    const std::vector<Eigen::Vector2d>& points2D,
-    const std::vector<Eigen::Vector3d>& points3D,
-    const std::vector<size_t>& camera_idxs,
-    const std::vector<Eigen::Vector4d>& rig_qvecs,
-    const std::vector<Eigen::Vector3d>& rig_tvecs,
-    Eigen::Vector4d* qvec,
-    Eigen::Vector3d* tvec,
-    std::vector<Camera>* cameras,
-    Eigen::Matrix6d* rot_tvec_covariance) {
+bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
+                                   const std::vector<char>& inlier_mask,
+                                   const std::vector<Eigen::Vector2d>& points2D,
+                                   const std::vector<Eigen::Vector3d>& points3D,
+                                   const std::vector<size_t>& camera_idxs,
+                                   const std::vector<Rigid3d>& cams_from_rig,
+                                   Rigid3d* rig_from_world,
+                                   std::vector<Camera>* cameras,
+                                   Eigen::Matrix6d* rig_from_world_cov) {
   CHECK_EQ(points2D.size(), inlier_mask.size());
   CHECK_EQ(points2D.size(), points3D.size());
   CHECK_EQ(points2D.size(), camera_idxs.size());
-  CHECK_EQ(rig_qvecs.size(), rig_tvecs.size());
-  CHECK_EQ(rig_qvecs.size(), cameras->size());
+  CHECK_EQ(cams_from_rig.size(), cameras->size());
   CHECK_GE(*std::min_element(camera_idxs.begin(), camera_idxs.end()), 0);
   CHECK_LT(*std::max_element(camera_idxs.begin(), camera_idxs.end()),
            cameras->size());
@@ -401,12 +404,11 @@ bool RefineGeneralizedAbsolutePose(
     cameras_params_data.push_back(cameras->at(i).ParamsData());
   }
   std::vector<size_t> camera_counts(cameras->size(), 0);
-  double* qvec_data = qvec->data();
-  double* tvec_data = tvec->data();
+  double* rig_from_world_rotation = rig_from_world->rotation.coeffs().data();
+  double* rig_from_world_translation = rig_from_world->translation.data();
 
   std::vector<Eigen::Vector3d> points3D_copy = points3D;
-  std::vector<Eigen::Vector4d> rig_qvecs_copy = rig_qvecs;
-  std::vector<Eigen::Vector3d> rig_tvecs_copy = rig_tvecs;
+  std::vector<Rigid3d> cams_from_rig_copy = cams_from_rig;
 
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
@@ -433,19 +435,20 @@ bool RefineGeneralizedAbsolutePose(
 #undef CAMERA_MODEL_CASE
     }
 
-    problem.AddResidualBlock(cost_function,
-                             loss_function.get(),
-                             qvec_data,
-                             tvec_data,
-                             rig_qvecs_copy[camera_idx].data(),
-                             rig_tvecs_copy[camera_idx].data(),
-                             points3D_copy[i].data(),
-                             cameras_params_data[camera_idx]);
+    problem.AddResidualBlock(
+        cost_function,
+        loss_function.get(),
+        rig_from_world_rotation,
+        rig_from_world_translation,
+        cams_from_rig_copy[camera_idx].rotation.coeffs().data(),
+        cams_from_rig_copy[camera_idx].translation.data(),
+        points3D_copy[i].data(),
+        cameras_params_data[camera_idx]);
     problem.SetParameterBlockConstant(points3D_copy[i].data());
   }
 
   if (problem.NumResiduals() > 0) {
-    SetQuaternionManifold(&problem, qvec_data);
+    SetQuaternionManifold(&problem, rig_from_world_rotation);
 
     // Camera parameterization.
     for (size_t i = 0; i < cameras->size(); i++) {
@@ -453,8 +456,10 @@ bool RefineGeneralizedAbsolutePose(
       Camera& camera = cameras->at(i);
 
       // We don't optimize the rig parameters (it's likely under-constrained)
-      problem.SetParameterBlockConstant(rig_qvecs_copy[i].data());
-      problem.SetParameterBlockConstant(rig_tvecs_copy[i].data());
+      problem.SetParameterBlockConstant(
+          cams_from_rig_copy[i].rotation.coeffs().data());
+      problem.SetParameterBlockConstant(
+          cams_from_rig_copy[i].translation.data());
 
       if (!options.refine_focal_length && !options.refine_extra_params) {
         problem.SetParameterBlockConstant(camera.ParamsData());
@@ -518,15 +523,16 @@ bool RefineGeneralizedAbsolutePose(
     PrintSolverSummary(summary);
   }
 
-  if (problem.NumResiduals() > 0 && rot_tvec_covariance != nullptr) {
+  if (problem.NumResiduals() > 0 && rig_from_world_cov != nullptr) {
     ceres::Covariance::Options options;
     ceres::Covariance covariance(options);
-    std::vector<const double*> parameter_blocks = {qvec_data, tvec_data};
+    std::vector<const double*> parameter_blocks = {rig_from_world_rotation,
+                                                   rig_from_world_translation};
     if (!covariance.Compute(parameter_blocks, &problem)) {
       return false;
     }
     covariance.GetCovarianceMatrixInTangentSpace(parameter_blocks,
-                                                 rot_tvec_covariance->data());
+                                                 rig_from_world_cov->data());
   }
 
   return summary.IsSolutionUsable();

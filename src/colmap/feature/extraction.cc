@@ -510,12 +510,14 @@ void FeatureWriterThread::Run() {
       } else {
         std::cout << std::endl;
       }
-      if (image_data.image.HasTvecPrior()) {
+      const Eigen::Vector3d& translation_prior =
+          image_data.image.CamFromWorldPrior().translation;
+      if (translation_prior.array().isFinite().any()) {
         std::cout << StringPrintf(
                          "  GPS:             LAT=%.3f, LON=%.3f, ALT=%.3f",
-                         image_data.image.TvecPrior(0),
-                         image_data.image.TvecPrior(1),
-                         image_data.image.TvecPrior(2))
+                         translation_prior.x(),
+                         translation_prior.y(),
+                         translation_prior.z())
                   << std::endl;
       }
       std::cout << StringPrintf("  Features:        %d",

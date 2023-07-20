@@ -162,7 +162,11 @@ void Reconstruction::AddCamera(class Camera camera) {
 
 void Reconstruction::AddImage(class Image image) {
   const image_t image_id = image.ImageId();
+  const bool is_registered = image.IsRegistered();
   CHECK(images_.emplace(image_id, std::move(image)).second);
+  if (is_registered) {
+    reg_image_ids_.push_back(image_id);
+  }
 }
 
 point3D_t Reconstruction::AddPoint3D(const Eigen::Vector3d& xyz,
@@ -289,11 +293,9 @@ void Reconstruction::DeleteAllPoints2DAndPoints3D() {
     new_image.SetCameraId(image.second.CameraId());
     new_image.SetRegistered(image.second.IsRegistered());
     new_image.SetNumCorrespondences(image.second.NumCorrespondences());
-    new_image.SetQvec(image.second.Qvec());
-    new_image.SetQvecPrior(image.second.QvecPrior());
-    new_image.SetTvec(image.second.Tvec());
-    new_image.SetTvecPrior(image.second.TvecPrior());
-    image.second = new_image;
+    new_image.CamFromWorld() = image.second.CamFromWorld();
+    new_image.CamFromWorldPrior() = image.second.CamFromWorldPrior();
+    image.second = std::move(new_image);
   }
 }
 
@@ -308,8 +310,8 @@ void Reconstruction::RegisterImage(const image_t image_id) {
 void Reconstruction::DeRegisterImage(const image_t image_id) {
   class Image& image = Image(image_id);
 
-  for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
-       ++point2D_idx) {
+  const auto num_points2D = image.NumPoints2D();
+  for (point2D_t point2D_idx = 0; point2D_idx < num_points2D; ++point2D_idx) {
     if (image.Point2D(point2D_idx).HasPoint3D()) {
       DeleteObservation(image_id, point2D_idx);
     }
@@ -429,41 +431,45 @@ Reconstruction::ComputeBoundsAndCentroid(const double p0,
   return std::make_tuple(bbox_min, bbox_max, mean_coord);
 }
 
-void Reconstruction::Transform(const Sim3d& tform) {
+void Reconstruction::Transform(const Sim3d& new_from_old_world) {
   for (auto& image : images_) {
-    tform.TransformPose(&image.second.Qvec(), &image.second.Tvec());
+    image.second.CamFromWorld() =
+        TransformCameraWorld(new_from_old_world, image.second.CamFromWorld());
   }
   for (auto& point3D : points3D_) {
-    point3D.second.XYZ() = tform * point3D.second.XYZ();
+    point3D.second.XYZ() = new_from_old_world * point3D.second.XYZ();
   }
 }
 
 Reconstruction Reconstruction::Crop(
     const std::pair<Eigen::Vector3d, Eigen::Vector3d>& bbox) const {
-  // add all cameras and images. Only the registered images will be used.
-  Reconstruction reconstruction;
-  for (const auto& camera_el : cameras_) {
-    reconstruction.AddCamera(camera_el.second);
+  Reconstruction cropped_reconstruction;
+  for (const auto& camera : cameras_) {
+    cropped_reconstruction.AddCamera(camera.second);
   }
-  for (const auto& image_el : images_) {
-    reconstruction.AddImage(image_el.second);
-    auto& image = reconstruction.Image(image_el.first);
-    image.SetRegistered(false);
-    for (point2D_t pid = 0; pid < image.NumPoints2D(); ++pid) {
-      image.ResetPoint3DForPoint2D(pid);
+  for (const auto& image : images_) {
+    auto new_image = image.second;
+    new_image.SetRegistered(false);
+    for (auto& point2D : new_image.Points2D()) {
+      point2D.SetPoint3DId(kInvalidPoint3DId);
     }
+    cropped_reconstruction.AddImage(std::move(new_image));
   }
-  for (const auto& point_el : points3D_) {
-    const auto& point = point_el.second;
-    if ((point.XYZ().array() >= bbox.first.array()).all() &&
-        (point.XYZ().array() <= bbox.second.array()).all()) {
-      for (const auto& track_el : point.Track().Elements()) {
-        reconstruction.RegisterImage(track_el.image_id);
+  std::unordered_set<image_t> registered_image_ids;
+  for (const auto& point3D : points3D_) {
+    if ((point3D.second.XYZ().array() >= bbox.first.array()).all() &&
+        (point3D.second.XYZ().array() <= bbox.second.array()).all()) {
+      for (const auto& track_el : point3D.second.Track().Elements()) {
+        if (registered_image_ids.count(track_el.image_id) == 0) {
+          cropped_reconstruction.RegisterImage(track_el.image_id);
+          registered_image_ids.insert(track_el.image_id);
+        }
       }
-      reconstruction.AddPoint3D(point.XYZ(), point.Track(), point.Color());
+      cropped_reconstruction.AddPoint3D(
+          point3D.second.XYZ(), point3D.second.Track(), point3D.second.Color());
     }
   }
-  return reconstruction;
+  return cropped_reconstruction;
 }
 
 const class Image* Reconstruction::FindImageWithName(
@@ -568,13 +574,13 @@ size_t Reconstruction::FilterObservationsWithNegativeDepth() {
   size_t num_filtered = 0;
   for (const auto image_id : reg_image_ids_) {
     const class Image& image = Image(image_id);
-    const Eigen::Matrix3x4d proj_matrix = image.ProjectionMatrix();
+    const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().ToMatrix();
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
       const Point2D& point2D = image.Point2D(point2D_idx);
       if (point2D.HasPoint3D()) {
         const class Point3D& point3D = Point3D(point2D.Point3DId());
-        if (!HasPointPositiveDepth(proj_matrix, point3D.XYZ())) {
+        if (!HasPointPositiveDepth(cam_from_world, point3D.XYZ())) {
           DeleteObservation(image_id, point2D_idx);
           num_filtered += 1;
         }
@@ -661,12 +667,8 @@ void Reconstruction::UpdatePoint3DErrors() {
       const auto& image = Image(track_el.image_id);
       const auto& point2D = image.Point2D(track_el.point2D_idx);
       const auto& camera = Camera(image.CameraId());
-      error_sum +=
-          std::sqrt(CalculateSquaredReprojectionError(point2D.XY(),
-                                                      point3D.second.XYZ(),
-                                                      image.Qvec(),
-                                                      image.Tvec(),
-                                                      camera));
+      error_sum += std::sqrt(CalculateSquaredReprojectionError(
+          point2D.XY(), point3D.second.XYZ(), image.CamFromWorld(), camera));
     }
     point3D.second.SetError(error_sum / point3D.second.Track().Length());
   }
@@ -791,13 +793,13 @@ bool Reconstruction::ExportNVM(const std::string& path,
 
     file << image.Name() << " ";
     file << camera.MeanFocalLength() << " ";
-    file << image.Qvec(0) << " ";
-    file << image.Qvec(1) << " ";
-    file << image.Qvec(2) << " ";
-    file << image.Qvec(3) << " ";
-    file << proj_center(0) << " ";
-    file << proj_center(1) << " ";
-    file << proj_center(2) << " ";
+    file << image.CamFromWorld().rotation.w() << " ";
+    file << image.CamFromWorld().rotation.x() << " ";
+    file << image.CamFromWorld().rotation.y() << " ";
+    file << image.CamFromWorld().rotation.z() << " ";
+    file << proj_center.x() << " ";
+    file << proj_center.y() << " ";
+    file << proj_center.z() << " ";
     file << k << " ";
     file << 0 << std::endl;
 
@@ -901,11 +903,12 @@ bool Reconstruction::ExportCam(const std::string& path,
       focal_length = fx / camera.Width();
     }
 
-    const Eigen::Matrix3d rot_mat = image.RotationMatrix();
-    file << image.Tvec(0) << " " << image.Tvec(1) << " " << image.Tvec(2) << " "
-         << rot_mat(0, 0) << " " << rot_mat(0, 1) << " " << rot_mat(0, 2) << " "
-         << rot_mat(1, 0) << " " << rot_mat(1, 1) << " " << rot_mat(1, 2) << " "
-         << rot_mat(2, 0) << " " << rot_mat(2, 1) << " " << rot_mat(2, 2)
+    const Eigen::Matrix3d R = image.CamFromWorld().rotation.toRotationMatrix();
+    file << image.CamFromWorld().translation.x() << " "
+         << image.CamFromWorld().translation.y() << " "
+         << image.CamFromWorld().translation.z() << " " << R(0, 0) << " "
+         << R(0, 1) << " " << R(0, 2) << " " << R(1, 0) << " " << R(1, 1) << " "
+         << R(1, 2) << " " << R(2, 0) << " " << R(2, 1) << " " << R(2, 2)
          << std::endl;
     file << focal_length << " " << k1 << " " << k2 << " " << fy / fx << " "
          << camera.PrincipalPointX() / camera.Width() << " "
@@ -970,10 +973,8 @@ bool Reconstruction::ExportRecon3D(const std::string& path,
         1.0 / (double)std::max(camera.Width(), camera.Height());
     synth_file << scale * camera.MeanFocalLength() << " " << k1 << " " << k2
                << std::endl;
-    synth_file << QuaternionToRotationMatrix(NormalizeQuaternion(image.Qvec()))
-               << std::endl;
-    synth_file << image.Tvec(0) << " " << image.Tvec(1) << " " << image.Tvec(2)
-               << std::endl;
+    synth_file << image.CamFromWorld().rotation.toRotationMatrix() << std::endl;
+    synth_file << image.CamFromWorld().translation.transpose() << std::endl;
 
     image_id_to_idx_[image_id] = image_idx;
     image_list_file << image.Name() << std::endl
@@ -1072,14 +1073,14 @@ bool Reconstruction::ExportBundler(const std::string& path,
 
     file << camera.MeanFocalLength() << " " << k1 << " " << k2 << std::endl;
 
-    const Eigen::Matrix3d R = image.RotationMatrix();
+    const Eigen::Matrix3d R = image.CamFromWorld().rotation.toRotationMatrix();
     file << R(0, 0) << " " << R(0, 1) << " " << R(0, 2) << std::endl;
     file << -R(1, 0) << " " << -R(1, 1) << " " << -R(1, 2) << std::endl;
     file << -R(2, 0) << " " << -R(2, 1) << " " << -R(2, 2) << std::endl;
 
-    file << image.Tvec(0) << " ";
-    file << -image.Tvec(1) << " ";
-    file << -image.Tvec(2) << std::endl;
+    file << image.CamFromWorld().translation.x() << " ";
+    file << -image.CamFromWorld().translation.y() << " ";
+    file << -image.CamFromWorld().translation.z() << std::endl;
 
     list_file << image.Name() << std::endl;
 
@@ -1178,10 +1179,10 @@ void Reconstruction::ExportVRML(const std::string& images_path,
     images_file << " point [\n";
 
     // Move camera base model to camera pose.
-    const Eigen::Matrix3x4d worldFromCam =
-        image.second.InverseProjectionMatrix();
+    const Eigen::Matrix3x4d world_from_cam =
+        Inverse(image.second.CamFromWorld()).ToMatrix();
     for (size_t i = 0; i < points.size(); i++) {
-      const Eigen::Vector3d point = worldFromCam * points[i].homogeneous();
+      const Eigen::Vector3d point = world_from_cam * points[i].homogeneous();
       images_file << point(0) << " " << point(1) << " " << point(2) << "\n";
     }
 
@@ -1442,7 +1443,7 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
       const class Camera& camera = Camera(image.CameraId());
       const Point2D& point2D = image.Point2D(track_el.point2D_idx);
       const double squared_reproj_error = CalculateSquaredReprojectionError(
-          point2D.XY(), point3D.XYZ(), image.Qvec(), image.Tvec(), camera);
+          point2D.XY(), point3D.XYZ(), image.CamFromWorld(), camera);
       if (squared_reproj_error > max_squared_reproj_error) {
         track_els_to_delete.push_back(track_el);
       } else {
@@ -1542,30 +1543,30 @@ void Reconstruction::ReadImagesText(const std::string& path) {
     image.SetRegistered(true);
     reg_image_ids_.push_back(image_id);
 
-    // QVEC (qw, qx, qy, qz)
-    std::getline(line_stream1, item, ' ');
-    image.Qvec(0) = std::stold(item);
+    Rigid3d& cam_from_world = image.CamFromWorld();
 
     std::getline(line_stream1, item, ' ');
-    image.Qvec(1) = std::stold(item);
+    cam_from_world.rotation.w() = std::stold(item);
 
     std::getline(line_stream1, item, ' ');
-    image.Qvec(2) = std::stold(item);
+    cam_from_world.rotation.x() = std::stold(item);
 
     std::getline(line_stream1, item, ' ');
-    image.Qvec(3) = std::stold(item);
-
-    image.NormalizeQvec();
-
-    // TVEC
-    std::getline(line_stream1, item, ' ');
-    image.Tvec(0) = std::stold(item);
+    cam_from_world.rotation.y() = std::stold(item);
 
     std::getline(line_stream1, item, ' ');
-    image.Tvec(1) = std::stold(item);
+    cam_from_world.rotation.z() = std::stold(item);
+
+    cam_from_world.rotation.normalize();
 
     std::getline(line_stream1, item, ' ');
-    image.Tvec(2) = std::stold(item);
+    cam_from_world.translation.x() = std::stold(item);
+
+    std::getline(line_stream1, item, ' ');
+    cam_from_world.translation.y() = std::stold(item);
+
+    std::getline(line_stream1, item, ' ');
+    cam_from_world.translation.z() = std::stold(item);
 
     // CAMERA_ID
     std::getline(line_stream1, item, ' ');
@@ -1723,15 +1724,15 @@ void Reconstruction::ReadImagesBinary(const std::string& path) {
 
     image.SetImageId(ReadBinaryLittleEndian<image_t>(&file));
 
-    image.Qvec(0) = ReadBinaryLittleEndian<double>(&file);
-    image.Qvec(1) = ReadBinaryLittleEndian<double>(&file);
-    image.Qvec(2) = ReadBinaryLittleEndian<double>(&file);
-    image.Qvec(3) = ReadBinaryLittleEndian<double>(&file);
-    image.NormalizeQvec();
-
-    image.Tvec(0) = ReadBinaryLittleEndian<double>(&file);
-    image.Tvec(1) = ReadBinaryLittleEndian<double>(&file);
-    image.Tvec(2) = ReadBinaryLittleEndian<double>(&file);
+    Rigid3d& cam_from_world = image.CamFromWorld();
+    cam_from_world.rotation.w() = ReadBinaryLittleEndian<double>(&file);
+    cam_from_world.rotation.x() = ReadBinaryLittleEndian<double>(&file);
+    cam_from_world.rotation.y() = ReadBinaryLittleEndian<double>(&file);
+    cam_from_world.rotation.z() = ReadBinaryLittleEndian<double>(&file);
+    cam_from_world.rotation.normalize();
+    cam_from_world.translation.x() = ReadBinaryLittleEndian<double>(&file);
+    cam_from_world.translation.y() = ReadBinaryLittleEndian<double>(&file);
+    cam_from_world.translation.z() = ReadBinaryLittleEndian<double>(&file);
 
     image.SetCameraId(ReadBinaryLittleEndian<camera_t>(&file));
 
@@ -1863,18 +1864,14 @@ void Reconstruction::WriteImagesText(const std::string& path) const {
 
     line << image.first << " ";
 
-    // QVEC (qw, qx, qy, qz)
-    const Eigen::Vector4d normalized_qvec =
-        NormalizeQuaternion(image.second.Qvec());
-    line << normalized_qvec(0) << " ";
-    line << normalized_qvec(1) << " ";
-    line << normalized_qvec(2) << " ";
-    line << normalized_qvec(3) << " ";
-
-    // TVEC
-    line << image.second.Tvec(0) << " ";
-    line << image.second.Tvec(1) << " ";
-    line << image.second.Tvec(2) << " ";
+    const Rigid3d& cam_from_world = image.second.CamFromWorld();
+    line << cam_from_world.rotation.w() << " ";
+    line << cam_from_world.rotation.x() << " ";
+    line << cam_from_world.rotation.y() << " ";
+    line << cam_from_world.rotation.z() << " ";
+    line << cam_from_world.translation.x() << " ";
+    line << cam_from_world.translation.y() << " ";
+    line << cam_from_world.translation.z() << " ";
 
     line << image.second.CameraId() << " ";
 
@@ -1969,16 +1966,14 @@ void Reconstruction::WriteImagesBinary(const std::string& path) const {
 
     WriteBinaryLittleEndian<image_t>(&file, image.first);
 
-    const Eigen::Vector4d normalized_qvec =
-        NormalizeQuaternion(image.second.Qvec());
-    WriteBinaryLittleEndian<double>(&file, normalized_qvec(0));
-    WriteBinaryLittleEndian<double>(&file, normalized_qvec(1));
-    WriteBinaryLittleEndian<double>(&file, normalized_qvec(2));
-    WriteBinaryLittleEndian<double>(&file, normalized_qvec(3));
-
-    WriteBinaryLittleEndian<double>(&file, image.second.Tvec(0));
-    WriteBinaryLittleEndian<double>(&file, image.second.Tvec(1));
-    WriteBinaryLittleEndian<double>(&file, image.second.Tvec(2));
+    const Rigid3d& cam_from_world = image.second.CamFromWorld();
+    WriteBinaryLittleEndian<double>(&file, cam_from_world.rotation.w());
+    WriteBinaryLittleEndian<double>(&file, cam_from_world.rotation.x());
+    WriteBinaryLittleEndian<double>(&file, cam_from_world.rotation.y());
+    WriteBinaryLittleEndian<double>(&file, cam_from_world.rotation.z());
+    WriteBinaryLittleEndian<double>(&file, cam_from_world.translation.x());
+    WriteBinaryLittleEndian<double>(&file, cam_from_world.translation.y());
+    WriteBinaryLittleEndian<double>(&file, cam_from_world.translation.z());
 
     WriteBinaryLittleEndian<camera_t>(&file, image.second.CameraId());
 

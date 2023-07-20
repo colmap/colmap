@@ -513,37 +513,36 @@ namespace {
 //       {
 //           "camera_id": 1,
 //           "image_prefix": "left1_image"
-//           "rel_tvec": [0, 0, 0],
-//           "rel_qvec": [1, 0, 0, 0]
+//           "cam_from_rig_rotation": [1, 0, 0, 0],
+//           "cam_from_rig_translation": [0, 0, 0]
 //       },
 //       {
 //           "camera_id": 2,
 //           "image_prefix": "left2_image"
-//           "rel_tvec": [0, 0, 0],
-//           "rel_qvec": [0, 1, 0, 0]
+//           "cam_from_rig_rotation": [1, 0, 0, 0],
+//           "cam_from_rig_translation": [0, 0, 1]
 //       },
 //       {
 //           "camera_id": 3,
 //           "image_prefix": "right1_image"
-//           "rel_tvec": [0, 0, 0],
-//           "rel_qvec": [0, 0, 1, 0]
+//           "cam_from_rig_rotation": [1, 0, 0, 0],
+//           "cam_from_rig_translation": [0, 0, 2]
 //       },
 //       {
 //           "camera_id": 4,
 //           "image_prefix": "right2_image"
-//           "rel_tvec": [0, 0, 0],
-//           "rel_qvec": [0, 0, 0, 1]
+//           "cam_from_rig_rotation": [1, 0, 0, 0],
+//           "cam_from_rig_translation": [0, 0, 3]
 //       }
 //     ]
 //   }
 // ]
 //
 // The "camera_id" and "image_prefix" fields are required, whereas the
-// "rel_tvec" and "rel_qvec" fields optionally specify the relative
-// extrinsics of the camera rig in the form of a translation vector and a
-// rotation quaternion. The relative extrinsics rel_qvec and rel_tvec transform
-// coordinates from rig to camera coordinate space. If the relative extrinsics
-// are not provided then they are automatically inferred from the
+// "cam_from_rig_rotation" and "cam_from_rig_translation" fields optionally
+// specify the relative extrinsics of the camera rig in the form of a
+// translation vector and a rotation quaternion (w, x, y, z). If the relative
+// extrinsics are not provided then they are automatically inferred from the
 // reconstruction.
 //
 // This file specifies the configuration for a single camera rig and that you
@@ -593,28 +592,37 @@ std::vector<CameraRig> ReadCameraRigConfig(const std::string& rig_config_path,
     for (const auto& camera : rig_config.second.get_child("cameras")) {
       const int camera_id = camera.second.get<int>("camera_id");
       image_prefixes.push_back(camera.second.get<std::string>("image_prefix"));
-      Eigen::Vector3d rel_tvec;
-      Eigen::Vector4d rel_qvec;
-      int index = 0;
-      auto rel_tvec_node = camera.second.get_child_optional("rel_tvec");
-      if (rel_tvec_node) {
-        for (const auto& node : rel_tvec_node.get()) {
-          rel_tvec[index++] = node.second.get_value<double>();
+
+      Rigid3d cam_from_rig;
+
+      auto cam_from_rig_rotation_node =
+          camera.second.get_child_optional("cam_from_rig_rotation");
+      if (cam_from_rig_rotation_node) {
+        int index = 0;
+        Eigen::Vector4d cam_from_rig_wxyz;
+        for (const auto& node : cam_from_rig_rotation_node.get()) {
+          cam_from_rig_wxyz[index++] = node.second.get_value<double>();
         }
+        cam_from_rig.rotation = Eigen::Quaterniond(cam_from_rig_wxyz(0),
+                                                   cam_from_rig_wxyz(1),
+                                                   cam_from_rig_wxyz(2),
+                                                   cam_from_rig_wxyz(3));
       } else {
         estimate_rig_relative_poses = true;
       }
-      index = 0;
-      auto rel_qvec_node = camera.second.get_child_optional("rel_qvec");
-      if (rel_qvec_node) {
-        for (const auto& node : rel_qvec_node.get()) {
-          rel_qvec[index++] = node.second.get_value<double>();
+
+      auto cam_from_rig_translation_node =
+          camera.second.get_child_optional("cam_from_rig_translation");
+      if (cam_from_rig_translation_node) {
+        int index = 0;
+        for (const auto& node : cam_from_rig_translation_node.get()) {
+          cam_from_rig.translation(index++) = node.second.get_value<double>();
         }
       } else {
         estimate_rig_relative_poses = true;
       }
 
-      camera_rig.AddCamera(camera_id, rel_qvec, rel_tvec);
+      camera_rig.AddCamera(camera_id, cam_from_rig);
     }
 
     camera_rig.SetRefCameraId(rig_config.second.get<int>("ref_camera_id"));
@@ -649,7 +657,7 @@ std::vector<CameraRig> ReadCameraRigConfig(const std::string& rig_config_path,
     camera_rig.Check(reconstruction);
     if (estimate_rig_relative_poses) {
       PrintHeading2("Estimating relative rig poses");
-      if (!camera_rig.ComputeRelativePoses(reconstruction)) {
+      if (!camera_rig.ComputeCamsFromRigs(reconstruction)) {
         std::cout << "WARN: Failed to estimate rig poses from reconstruction; "
                      "cannot use rig BA"
                   << std::endl;

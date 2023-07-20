@@ -157,45 +157,27 @@ TEST(Database, Image) {
   Image image;
   image.SetName("test");
   image.SetCameraId(camera.CameraId());
-  image.SetQvecPrior(Eigen::Vector4d(0.1, 0.2, 0.3, 0.4));
-  image.SetTvecPrior(Eigen::Vector3d(0.1, 0.2, 0.3));
+  image.CamFromWorldPrior() = Rigid3d(Eigen::Quaterniond(0.1, 0.2, 0.3, 0.4),
+                                      Eigen::Vector3d(0.1, 0.2, 0.3));
   image.SetImageId(database.WriteImage(image));
   EXPECT_EQ(database.NumImages(), 1);
   EXPECT_TRUE(database.ExistsImage(image.ImageId()));
-  EXPECT_EQ(database.ReadImage(image.ImageId()).ImageId(), image.ImageId());
-  EXPECT_EQ(database.ReadImage(image.ImageId()).CameraId(), image.CameraId());
-  EXPECT_EQ(database.ReadImage(image.ImageId()).QvecPrior(0),
-            image.QvecPrior(0));
-  EXPECT_EQ(database.ReadImage(image.ImageId()).QvecPrior(1),
-            image.QvecPrior(1));
-  EXPECT_EQ(database.ReadImage(image.ImageId()).QvecPrior(2),
-            image.QvecPrior(2));
-  EXPECT_EQ(database.ReadImage(image.ImageId()).QvecPrior(3),
-            image.QvecPrior(3));
-  EXPECT_EQ(database.ReadImage(image.ImageId()).TvecPrior(0),
-            image.TvecPrior(0));
-  EXPECT_EQ(database.ReadImage(image.ImageId()).TvecPrior(1),
-            image.TvecPrior(1));
-  EXPECT_EQ(database.ReadImage(image.ImageId()).TvecPrior(2),
-            image.TvecPrior(2));
-  image.TvecPrior(0) += 2;
+  auto read_image = database.ReadImage(image.ImageId());
+  EXPECT_EQ(read_image.ImageId(), image.ImageId());
+  EXPECT_EQ(read_image.CameraId(), image.CameraId());
+  EXPECT_EQ(read_image.CamFromWorldPrior().rotation.coeffs(),
+            image.CamFromWorldPrior().rotation.coeffs());
+  EXPECT_EQ(read_image.CamFromWorldPrior().translation,
+            image.CamFromWorldPrior().translation);
+  image.CamFromWorldPrior().translation.x() += 2;
   database.UpdateImage(image);
-  EXPECT_EQ(database.ReadImage(image.ImageId()).ImageId(), image.ImageId());
-  EXPECT_EQ(database.ReadImage(image.ImageId()).CameraId(), image.CameraId());
-  EXPECT_EQ(database.ReadImage(image.ImageId()).QvecPrior(0),
-            image.QvecPrior(0));
-  EXPECT_EQ(database.ReadImage(image.ImageId()).QvecPrior(1),
-            image.QvecPrior(1));
-  EXPECT_EQ(database.ReadImage(image.ImageId()).QvecPrior(2),
-            image.QvecPrior(2));
-  EXPECT_EQ(database.ReadImage(image.ImageId()).QvecPrior(3),
-            image.QvecPrior(3));
-  EXPECT_EQ(database.ReadImage(image.ImageId()).TvecPrior(0),
-            image.TvecPrior(0));
-  EXPECT_EQ(database.ReadImage(image.ImageId()).TvecPrior(1),
-            image.TvecPrior(1));
-  EXPECT_EQ(database.ReadImage(image.ImageId()).TvecPrior(2),
-            image.TvecPrior(2));
+  read_image = database.ReadImage(image.ImageId());
+  EXPECT_EQ(read_image.ImageId(), image.ImageId());
+  EXPECT_EQ(read_image.CameraId(), image.CameraId());
+  EXPECT_EQ(read_image.CamFromWorldPrior().rotation.coeffs(),
+            image.CamFromWorldPrior().rotation.coeffs());
+  EXPECT_EQ(read_image.CamFromWorldPrior().translation,
+            image.CamFromWorldPrior().translation);
   Image image2 = image;
   image2.SetName("test2");
   image2.SetImageId(image.ImageId() + 1);
@@ -320,8 +302,8 @@ TEST(Database, TwoViewGeometry) {
   two_view_geometry.F = Eigen::Matrix3d::Random();
   two_view_geometry.E = Eigen::Matrix3d::Random();
   two_view_geometry.H = Eigen::Matrix3d::Random();
-  two_view_geometry.qvec = Eigen::Vector4d::Random();
-  two_view_geometry.tvec = Eigen::Vector3d::Random();
+  two_view_geometry.cam2_from_cam1 =
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
   database.WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
   const TwoViewGeometry two_view_geometry_read =
       database.ReadTwoViewGeometry(image_id1, image_id2);
@@ -338,8 +320,10 @@ TEST(Database, TwoViewGeometry) {
   EXPECT_EQ(two_view_geometry.F, two_view_geometry_read.F);
   EXPECT_EQ(two_view_geometry.E, two_view_geometry_read.E);
   EXPECT_EQ(two_view_geometry.H, two_view_geometry_read.H);
-  EXPECT_EQ(two_view_geometry.qvec, two_view_geometry_read.qvec);
-  EXPECT_EQ(two_view_geometry.tvec, two_view_geometry_read.tvec);
+  EXPECT_EQ(two_view_geometry.cam2_from_cam1.rotation.coeffs(),
+            two_view_geometry_read.cam2_from_cam1.rotation.coeffs());
+  EXPECT_EQ(two_view_geometry.cam2_from_cam1.translation,
+            two_view_geometry_read.cam2_from_cam1.translation);
 
   const TwoViewGeometry two_view_geometry_read_inv =
       database.ReadTwoViewGeometry(image_id2, image_id1);
@@ -357,15 +341,10 @@ TEST(Database, TwoViewGeometry) {
   EXPECT_EQ(two_view_geometry_read_inv.E.transpose(), two_view_geometry_read.E);
   EXPECT_TRUE(two_view_geometry_read_inv.H.inverse().eval().isApprox(
       two_view_geometry_read.H));
-
-  Eigen::Vector4d read_inv_qvec_inv;
-  Eigen::Vector3d read_inv_tvec_inv;
-  InvertPose(two_view_geometry_read_inv.qvec,
-             two_view_geometry_read_inv.tvec,
-             &read_inv_qvec_inv,
-             &read_inv_tvec_inv);
-  EXPECT_EQ(read_inv_qvec_inv, two_view_geometry_read.qvec);
-  EXPECT_TRUE(read_inv_tvec_inv.isApprox(two_view_geometry_read.tvec));
+  EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1.rotation.isApprox(
+      Inverse(two_view_geometry_read.cam2_from_cam1).rotation));
+  EXPECT_TRUE(two_view_geometry_read_inv.cam2_from_cam1.translation.isApprox(
+      Inverse(two_view_geometry_read.cam2_from_cam1).translation));
 
   std::vector<image_pair_t> image_pair_ids;
   std::vector<TwoViewGeometry> two_view_geometries;
@@ -378,8 +357,10 @@ TEST(Database, TwoViewGeometry) {
   EXPECT_EQ(two_view_geometry.F, two_view_geometries[0].F);
   EXPECT_EQ(two_view_geometry.E, two_view_geometries[0].E);
   EXPECT_EQ(two_view_geometry.H, two_view_geometries[0].H);
-  EXPECT_EQ(two_view_geometry.qvec, two_view_geometries[0].qvec);
-  EXPECT_EQ(two_view_geometry.tvec, two_view_geometries[0].tvec);
+  EXPECT_EQ(two_view_geometry.cam2_from_cam1.rotation.coeffs(),
+            two_view_geometries[0].cam2_from_cam1.rotation.coeffs());
+  EXPECT_EQ(two_view_geometry.cam2_from_cam1.translation,
+            two_view_geometries[0].cam2_from_cam1.translation);
   EXPECT_EQ(two_view_geometry.inlier_matches.size(),
             two_view_geometries[0].inlier_matches.size());
   std::vector<std::pair<image_t, image_t>> image_pairs;
@@ -410,8 +391,8 @@ TEST(Database, Merge) {
 
   Image image;
   image.SetCameraId(camera.CameraId());
-  image.SetQvecPrior(Eigen::Vector4d(0.1, 0.2, 0.3, 0.4));
-  image.SetTvecPrior(Eigen::Vector3d(0.1, 0.2, 0.3));
+  image.CamFromWorldPrior() = Rigid3d(Eigen::Quaterniond(0.1, 0.2, 0.3, 0.4),
+                                      Eigen::Vector3d(0.1, 0.2, 0.3));
 
   image.SetName("test1");
   const image_t image_id1 = database1.WriteImage(image);

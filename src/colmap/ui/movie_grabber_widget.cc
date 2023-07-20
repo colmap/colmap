@@ -203,11 +203,9 @@ void MovieGrabberWidget::Assemble() {
   const Eigen::Matrix4d prev_model_view_matrix =
       QMatrixToEigen(view_data_[table_->item(0, 0)].model_view_matrix)
           .cast<double>();
-  const Eigen::Matrix3x4d prev_view_model_matrix =
-      InvertProjectionMatrix(prev_model_view_matrix.topLeftCorner<3, 4>());
-  Eigen::Vector4d prev_qvec =
-      RotationMatrixToQuaternion(prev_view_model_matrix.block<3, 3>(0, 0));
-  Eigen::Vector3d prev_tvec = prev_view_model_matrix.block<3, 1>(0, 3);
+  Rigid3d prev_view_model = Inverse(
+      Rigid3d(Eigen::Quaterniond(prev_model_view_matrix.topLeftCorner<3, 3>()),
+              prev_model_view_matrix.topRightCorner<3, 1>()));
 
   for (int row = 1; row < table_->rowCount(); ++row) {
     const auto logical_idx = table_->verticalHeader()->logicalIndex(row);
@@ -220,11 +218,9 @@ void MovieGrabberWidget::Assemble() {
     // Data of next view.
     const Eigen::Matrix4d curr_model_view_matrix =
         QMatrixToEigen(view_data.model_view_matrix).cast<double>();
-    const Eigen::Matrix3x4d curr_view_model_matrix =
-        InvertProjectionMatrix(curr_model_view_matrix.topLeftCorner<3, 4>());
-    const Eigen::Vector4d curr_qvec =
-        RotationMatrixToQuaternion(curr_view_model_matrix.block<3, 3>(0, 0));
-    const Eigen::Vector3d curr_tvec = curr_view_model_matrix.block<3, 1>(0, 3);
+    const Rigid3d curr_view_model = Inverse(Rigid3d(
+        Eigen::Quaterniond(curr_model_view_matrix.topLeftCorner<3, 3>()),
+        curr_model_view_matrix.topRightCorner<3, 1>()));
 
     // Time difference between previous and current view.
     const float dt = std::abs(table_item->text().toFloat() -
@@ -243,20 +239,12 @@ void MovieGrabberWidget::Assemble() {
         tt = ScaleSigmoid(tt, static_cast<float>(smoothness_sb_->value()));
       }
 
-      // Compute current model-view matrix.
-      Eigen::Vector4d interp_qvec;
-      Eigen::Vector3d interp_tvec;
-      InterpolatePose(prev_qvec,
-                      prev_tvec,
-                      curr_qvec,
-                      curr_tvec,
-                      tt,
-                      &interp_qvec,
-                      &interp_tvec);
+      const Rigid3d interp_view_model =
+          InterpolateCameraPoses(prev_view_model, curr_view_model, tt);
 
       Eigen::Matrix4d frame_model_view_matrix = Eigen::Matrix4d::Identity();
-      frame_model_view_matrix.topLeftCorner<3, 4>() = InvertProjectionMatrix(
-          ComposeProjectionMatrix(interp_qvec, interp_tvec));
+      frame_model_view_matrix.topLeftCorner<3, 4>() =
+          Inverse(interp_view_model).ToMatrix();
 
       model_viewer_widget_->SetModelViewMatrix(
           EigenToQMatrix(frame_model_view_matrix.cast<float>()));
@@ -273,8 +261,7 @@ void MovieGrabberWidget::Assemble() {
       frame_number += 1;
     }
 
-    prev_qvec = curr_qvec;
-    prev_tvec = curr_tvec;
+    prev_view_model = curr_view_model;
   }
 
   views = views_cached;
@@ -307,9 +294,9 @@ void MovieGrabberWidget::UpdateViews() {
     const Eigen::Matrix4d model_view_matrix =
         QMatrixToEigen(view_data_.at(item).model_view_matrix).cast<double>();
     Image image;
-    image.Qvec() =
-        RotationMatrixToQuaternion(model_view_matrix.block<3, 3>(0, 0));
-    image.Tvec() = model_view_matrix.block<3, 1>(0, 3);
+    image.CamFromWorld() =
+        Rigid3d(Eigen::Quaterniond(model_view_matrix.topLeftCorner<3, 3>()),
+                model_view_matrix.topRightCorner<3, 1>());
     views.push_back(image);
   }
 }

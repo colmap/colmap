@@ -87,7 +87,7 @@ void BuildImageModel(const Image& image,
   const float focal_length = 2.0f * image_extent / camera_extent_world;
 
   const Eigen::Matrix<float, 3, 4> inv_proj_matrix =
-      image.InverseProjectionMatrix().cast<float>();
+      Inverse(image.CamFromWorld()).ToMatrix().cast<float>();
 
   // Projection center, top-left, top-right, bottom-right, bottom-left corners.
 

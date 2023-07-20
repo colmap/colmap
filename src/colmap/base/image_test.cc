@@ -48,17 +48,12 @@ TEST(Image, Default) {
   EXPECT_EQ(image.NumCorrespondences(), 0);
   EXPECT_EQ(image.NumVisiblePoints3D(), 0);
   EXPECT_EQ(image.Point3DVisibilityScore(), 0);
-  EXPECT_EQ(image.Qvec(0), 1.0);
-  EXPECT_EQ(image.Qvec(1), 0.0);
-  EXPECT_EQ(image.Qvec(2), 0.0);
-  EXPECT_EQ(image.Qvec(3), 0.0);
-  EXPECT_TRUE(image.QvecPrior().array().isNaN().all());
-  EXPECT_EQ(image.Tvec(0), 0.0);
-  EXPECT_EQ(image.Tvec(1), 0.0);
-  EXPECT_EQ(image.Tvec(2), 0.0);
-  EXPECT_TRUE(image.TvecPrior().array().isNaN().all());
-  EXPECT_FALSE(image.HasQvecPrior());
-  EXPECT_FALSE(image.HasTvecPrior());
+  EXPECT_EQ(image.CamFromWorld().rotation.coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
+  EXPECT_EQ(image.CamFromWorld().translation, Eigen::Vector3d::Zero());
+  EXPECT_TRUE(
+      image.CamFromWorldPrior().rotation.coeffs().array().isNaN().all());
+  EXPECT_TRUE(image.CamFromWorldPrior().translation.array().isNaN().all());
   EXPECT_EQ(image.Points2D().size(), 0);
 }
 
@@ -195,74 +190,6 @@ TEST(Image, Point3DVisibilityScore) {
             2 * scores.sum() + 2 * scores.bottomRows(scores.size() - 1).sum());
 }
 
-TEST(Image, Qvec) {
-  Image image;
-  EXPECT_EQ(image.Qvec(0), 1.0);
-  EXPECT_EQ(image.Qvec(1), 0.0);
-  EXPECT_EQ(image.Qvec(2), 0.0);
-  EXPECT_EQ(image.Qvec(3), 0.0);
-  image.Qvec(0) = 2.0;
-  EXPECT_EQ(image.Qvec(0), 2.0);
-  image.SetQvec(Eigen::Vector4d(3.0, 0.0, 0.0, 0.0));
-  EXPECT_EQ(image.Qvec(0), 3.0);
-  image.Qvec() = Eigen::Vector4d(4.0, 0.0, 0.0, 0.0);
-  EXPECT_EQ(image.Qvec(0), 4.0);
-}
-
-TEST(Image, QvecPrior) {
-  Image image;
-  EXPECT_TRUE(image.QvecPrior().array().isNaN().all());
-  EXPECT_FALSE(image.HasQvecPrior());
-  image.QvecPrior(0) = 2.0;
-  EXPECT_FALSE(image.HasQvecPrior());
-  image.QvecPrior(1) = 2.0;
-  EXPECT_FALSE(image.HasQvecPrior());
-  image.QvecPrior(2) = 2.0;
-  EXPECT_FALSE(image.HasQvecPrior());
-  image.QvecPrior(3) = 2.0;
-  EXPECT_TRUE(image.HasQvecPrior());
-  EXPECT_EQ(image.QvecPrior(0), 2.0);
-  EXPECT_EQ(image.QvecPrior(1), 2.0);
-  EXPECT_EQ(image.QvecPrior(2), 2.0);
-  EXPECT_EQ(image.QvecPrior(3), 2.0);
-  image.SetQvecPrior(Eigen::Vector4d(3.0, 0.0, 0.0, 0.0));
-  EXPECT_EQ(image.QvecPrior(0), 3.0);
-  image.QvecPrior() = Eigen::Vector4d(4.0, 0.0, 0.0, 0.0);
-  EXPECT_EQ(image.QvecPrior(0), 4.0);
-}
-
-TEST(Image, Tvec) {
-  Image image;
-  EXPECT_EQ(image.Tvec(0), 0.0);
-  EXPECT_EQ(image.Tvec(1), 0.0);
-  EXPECT_EQ(image.Tvec(2), 0.0);
-  image.Tvec(0) = 2.0;
-  EXPECT_EQ(image.Tvec(0), 2.0);
-  image.SetTvec(Eigen::Vector3d(3.0, 0.0, 0.0));
-  EXPECT_EQ(image.Tvec(0), 3.0);
-  image.Tvec() = Eigen::Vector3d(4.0, 0.0, 0.0);
-  EXPECT_EQ(image.Tvec(0), 4.0);
-}
-
-TEST(Image, TvecPrior) {
-  Image image;
-  EXPECT_TRUE(image.TvecPrior().array().isNaN().all());
-  EXPECT_FALSE(image.HasTvecPrior());
-  image.TvecPrior(0) = 2.0;
-  EXPECT_FALSE(image.HasTvecPrior());
-  image.TvecPrior(1) = 2.0;
-  EXPECT_FALSE(image.HasTvecPrior());
-  image.TvecPrior(2) = 2.0;
-  EXPECT_TRUE(image.HasTvecPrior());
-  EXPECT_EQ(image.TvecPrior(0), 2.0);
-  EXPECT_EQ(image.TvecPrior(1), 2.0);
-  EXPECT_EQ(image.TvecPrior(2), 2.0);
-  image.SetTvecPrior(Eigen::Vector3d(3.0, 0.0, 0.0));
-  EXPECT_EQ(image.TvecPrior(0), 3.0);
-  image.TvecPrior() = Eigen::Vector3d(4.0, 0.0, 0.0);
-  EXPECT_EQ(image.TvecPrior(0), 4.0);
-}
-
 TEST(Image, Points2D) {
   Image image;
   EXPECT_EQ(image.Points2D().size(), 0);
@@ -331,39 +258,14 @@ TEST(Image, Points3D) {
   EXPECT_FALSE(image.HasPoint3D(1));
 }
 
-TEST(Image, NormalizeQvec) {
-  Image image;
-  EXPECT_LT(std::abs(image.Qvec().norm() - 1.0), 1e-10);
-  image.Qvec(0) = 2.0;
-  EXPECT_LT(std::abs(image.Qvec().norm() - 2.0), 1e-10);
-  image.NormalizeQvec();
-  EXPECT_LT(std::abs(image.Qvec().norm() - 1.0), 1e-10);
-}
-
-TEST(Image, ProjectionMatrix) {
-  Image image;
-  EXPECT_TRUE(image.ProjectionMatrix().isApprox(Eigen::Matrix3x4d::Identity()));
-}
-
-TEST(Image, InverseProjectionMatrix) {
-  Image image;
-  EXPECT_TRUE(
-      image.InverseProjectionMatrix().isApprox(Eigen::Matrix3x4d::Identity()));
-}
-
-TEST(Image, RotationMatrix) {
-  Image image;
-  EXPECT_TRUE(image.RotationMatrix().isApprox(Eigen::Matrix3d::Identity()));
-}
-
 TEST(Image, ProjectionCenter) {
   Image image;
-  EXPECT_TRUE(image.ProjectionCenter().isApprox(Eigen::Vector3d::Zero()));
+  EXPECT_EQ(image.ProjectionCenter(), Eigen::Vector3d::Zero());
 }
 
 TEST(Image, ViewingDirection) {
   Image image;
-  EXPECT_TRUE(image.ViewingDirection().isApprox(Eigen::Vector3d(0, 0, 1)));
+  EXPECT_EQ(image.ViewingDirection(), Eigen::Vector3d(0, 0, 1));
 }
 
 }  // namespace colmap

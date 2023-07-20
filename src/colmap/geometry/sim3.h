@@ -64,10 +64,6 @@ struct Sim3d {
   bool Estimate(const std::vector<Eigen::Vector3d>& src,
                 const std::vector<Eigen::Vector3d>& tgt);
 
-  // Transform world for camFromWorld pose.
-  // TODO(jsch): Rename and refactor with future RigidTransform class.
-  void TransformPose(Eigen::Vector4d* qvec, Eigen::Vector3d* tvec) const;
-
   // Read from or write to text file without loss of precision.
   void ToFile(const std::string& path) const;
   static Sim3d FromFile(const std::string& path);

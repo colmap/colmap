@@ -31,8 +31,9 @@
 
 #include "colmap/base/synthetic.h"
 
-#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/util/testing.h"
 
+#include <boost/filesystem.hpp>
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -42,6 +43,11 @@ TEST(SynthesizeDataset, Nominal) {
   Reconstruction reconstruction;
   SyntheticDatasetOptions options;
   SynthesizeDataset(options, &reconstruction, &database);
+
+  const std::string test_dir = CreateTestDir();
+  const std::string sparse_path = test_dir + "/sparse";
+  boost::filesystem::create_directories(sparse_path);
+  reconstruction.Write(sparse_path);
 
   EXPECT_EQ(database.NumCameras(), options.num_cameras);
   EXPECT_EQ(reconstruction.NumCameras(), options.num_cameras);

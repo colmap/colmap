@@ -50,25 +50,29 @@ TEST(CameraRig, AddCamera) {
   EXPECT_EQ(camera_rig.GetCameraIds().size(), 0);
   EXPECT_FALSE(camera_rig.HasCamera(0));
 
-  camera_rig.AddCamera(
-      0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 1, 2));
+  const Rigid3d cam_from_rig1(Eigen::Quaterniond::Identity(),
+                              Eigen::Vector3d(0, 1, 2));
+  camera_rig.AddCamera(0, cam_from_rig1);
   EXPECT_EQ(camera_rig.NumCameras(), 1);
   EXPECT_EQ(camera_rig.NumSnapshots(), 0);
   EXPECT_EQ(camera_rig.GetCameraIds().size(), 1);
   EXPECT_EQ(camera_rig.GetCameraIds()[0], 0);
   EXPECT_TRUE(camera_rig.HasCamera(0));
-  EXPECT_EQ(camera_rig.RelativeQvec(0), ComposeIdentityQuaternion());
-  EXPECT_EQ(camera_rig.RelativeTvec(0), Eigen::Vector3d(0, 1, 2));
+  EXPECT_EQ(camera_rig.CamFromRig(0).rotation.coeffs(),
+            cam_from_rig1.rotation.coeffs());
+  EXPECT_EQ(camera_rig.CamFromRig(0).translation, cam_from_rig1.translation);
 
-  camera_rig.AddCamera(
-      1, ComposeIdentityQuaternion(), Eigen::Vector3d(3, 4, 5));
+  const Rigid3d cam_from_rig2(Eigen::Quaterniond::Identity(),
+                              Eigen::Vector3d(0, 1, 2));
+  camera_rig.AddCamera(1, cam_from_rig2);
   EXPECT_EQ(camera_rig.NumCameras(), 2);
   EXPECT_EQ(camera_rig.NumSnapshots(), 0);
   EXPECT_EQ(camera_rig.GetCameraIds().size(), 2);
   EXPECT_TRUE(camera_rig.HasCamera(0));
   EXPECT_TRUE(camera_rig.HasCamera(1));
-  EXPECT_EQ(camera_rig.RelativeQvec(1), ComposeIdentityQuaternion());
-  EXPECT_EQ(camera_rig.RelativeTvec(1), Eigen::Vector3d(3, 4, 5));
+  EXPECT_EQ(camera_rig.CamFromRig(1).rotation.coeffs(),
+            cam_from_rig2.rotation.coeffs());
+  EXPECT_EQ(camera_rig.CamFromRig(1).translation, cam_from_rig2.translation);
 }
 
 TEST(CameraRig, AddSnapshot) {
@@ -79,9 +83,9 @@ TEST(CameraRig, AddSnapshot) {
   EXPECT_EQ(camera_rig.Snapshots().size(), 0);
 
   camera_rig.AddCamera(
-      0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 1, 2));
+      0, Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(0, 1, 2)));
   camera_rig.AddCamera(
-      1, ComposeIdentityQuaternion(), Eigen::Vector3d(3, 4, 5));
+      1, Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(3, 4, 5)));
   EXPECT_EQ(camera_rig.NumCameras(), 2);
   EXPECT_EQ(camera_rig.NumSnapshots(), 0);
   EXPECT_EQ(camera_rig.Snapshots().size(), 0);
@@ -111,9 +115,9 @@ TEST(CameraRig, AddSnapshot) {
 TEST(CameraRig, Check) {
   CameraRig camera_rig;
   camera_rig.AddCamera(
-      0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 1, 2));
+      0, Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(0, 1, 2)));
   camera_rig.AddCamera(
-      1, ComposeIdentityQuaternion(), Eigen::Vector3d(3, 4, 5));
+      1, Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(3, 4, 5)));
   const std::vector<image_t> image_ids1 = {0, 1};
   camera_rig.AddSnapshot(image_ids1);
   const std::vector<image_t> image_ids2 = {2, 3};
@@ -155,12 +159,12 @@ TEST(CameraRig, Check) {
   camera_rig.Check(reconstruction);
 }
 
-TEST(CameraRig, ComputeScale) {
+TEST(CameraRig, ComputeRigFromWorldScale) {
   CameraRig camera_rig;
   camera_rig.AddCamera(
-      0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
+      0, Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(0, 0, 0)));
   camera_rig.AddCamera(
-      1, ComposeIdentityQuaternion(), Eigen::Vector3d(2, 4, 6));
+      1, Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(2, 4, 6)));
   const std::vector<image_t> image_ids1 = {0, 1};
   camera_rig.AddSnapshot(image_ids1);
 
@@ -179,32 +183,29 @@ TEST(CameraRig, ComputeScale) {
   Image image1;
   image1.SetImageId(0);
   image1.SetCameraId(camera1.CameraId());
-  image1.SetQvec(ComposeIdentityQuaternion());
-  image1.SetTvec(Eigen::Vector3d(0, 0, 0));
   reconstruction.AddImage(image1);
 
   Image image2;
   image2.SetImageId(1);
   image2.SetCameraId(camera2.CameraId());
-  image2.SetQvec(ComposeIdentityQuaternion());
-  image2.SetTvec(Eigen::Vector3d(1, 2, 3));
+  image2.CamFromWorld().translation = Eigen::Vector3d(1, 2, 3);
   reconstruction.AddImage(image2);
 
   camera_rig.SetRefCameraId(0);
   camera_rig.Check(reconstruction);
 
-  EXPECT_EQ(camera_rig.ComputeScale(reconstruction), 2.0);
+  EXPECT_EQ(camera_rig.ComputeRigFromWorldScale(reconstruction), 2.0);
 
-  reconstruction.Image(1).SetTvec(Eigen::Vector3d(0, 0, 0));
-  EXPECT_TRUE(std::isnan(camera_rig.ComputeScale(reconstruction)));
+  reconstruction.Image(1).CamFromWorld().translation = Eigen::Vector3d(0, 0, 0);
+  EXPECT_TRUE(std::isnan(camera_rig.ComputeRigFromWorldScale(reconstruction)));
 }
 
-TEST(CameraRig, ComputeRelativePoses) {
+TEST(CameraRig, ComputeCamsFromRigs) {
   CameraRig camera_rig;
   camera_rig.AddCamera(
-      0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
+      0, Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(0, 0, 0)));
   camera_rig.AddCamera(
-      1, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
+      1, Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(0, 0, 0)));
   const std::vector<image_t> image_ids1 = {0, 1};
   camera_rig.AddSnapshot(image_ids1);
 
@@ -223,24 +224,23 @@ TEST(CameraRig, ComputeRelativePoses) {
   Image image1;
   image1.SetImageId(0);
   image1.SetCameraId(camera1.CameraId());
-  image1.SetQvec(ComposeIdentityQuaternion());
-  image1.SetTvec(Eigen::Vector3d(0, 0, 0));
   reconstruction.AddImage(image1);
 
   Image image2;
   image2.SetImageId(1);
   image2.SetCameraId(camera2.CameraId());
-  image2.SetQvec(ComposeIdentityQuaternion());
-  image2.SetTvec(Eigen::Vector3d(1, 2, 3));
+  image2.CamFromWorld().translation = Eigen::Vector3d(1, 2, 3);
   reconstruction.AddImage(image2);
 
   camera_rig.SetRefCameraId(0);
   camera_rig.Check(reconstruction);
-  camera_rig.ComputeRelativePoses(reconstruction);
-  EXPECT_EQ(camera_rig.RelativeQvec(0), ComposeIdentityQuaternion());
-  EXPECT_EQ(camera_rig.RelativeTvec(0), Eigen::Vector3d(0, 0, 0));
-  EXPECT_EQ(camera_rig.RelativeQvec(1), ComposeIdentityQuaternion());
-  EXPECT_EQ(camera_rig.RelativeTvec(1), Eigen::Vector3d(1, 2, 3));
+  camera_rig.ComputeCamsFromRigs(reconstruction);
+  EXPECT_EQ(camera_rig.CamFromRig(0).rotation.coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
+  EXPECT_EQ(camera_rig.CamFromRig(0).translation, Eigen::Vector3d(0, 0, 0));
+  EXPECT_EQ(camera_rig.CamFromRig(1).rotation.coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
+  EXPECT_EQ(camera_rig.CamFromRig(1).translation, Eigen::Vector3d(1, 2, 3));
 
   const std::vector<image_t> image_ids2 = {2, 3};
   camera_rig.AddSnapshot(image_ids2);
@@ -248,23 +248,22 @@ TEST(CameraRig, ComputeRelativePoses) {
   Image image3;
   image3.SetImageId(2);
   image3.SetCameraId(camera1.CameraId());
-  image3.SetQvec(ComposeIdentityQuaternion());
-  image3.SetTvec(Eigen::Vector3d(0, 0, 0));
   reconstruction.AddImage(image3);
 
   Image image4;
   image4.SetImageId(3);
   image4.SetCameraId(camera2.CameraId());
-  image4.SetQvec(ComposeIdentityQuaternion());
-  image4.SetTvec(Eigen::Vector3d(2, 4, 6));
+  image4.CamFromWorld().translation = Eigen::Vector3d(2, 4, 6);
   reconstruction.AddImage(image4);
 
   camera_rig.Check(reconstruction);
-  camera_rig.ComputeRelativePoses(reconstruction);
-  EXPECT_EQ(camera_rig.RelativeQvec(0), ComposeIdentityQuaternion());
-  EXPECT_EQ(camera_rig.RelativeTvec(0), Eigen::Vector3d(0, 0, 0));
-  EXPECT_EQ(camera_rig.RelativeQvec(1), ComposeIdentityQuaternion());
-  EXPECT_EQ(camera_rig.RelativeTvec(1), Eigen::Vector3d(1.5, 3, 4.5));
+  camera_rig.ComputeCamsFromRigs(reconstruction);
+  EXPECT_EQ(camera_rig.CamFromRig(0).rotation.coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
+  EXPECT_EQ(camera_rig.CamFromRig(0).translation, Eigen::Vector3d(0, 0, 0));
+  EXPECT_EQ(camera_rig.CamFromRig(1).rotation.coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
+  EXPECT_EQ(camera_rig.CamFromRig(1).translation, Eigen::Vector3d(1.5, 3, 4.5));
 
   const std::vector<image_t> image_ids3 = {4};
   camera_rig.AddSnapshot(image_ids3);
@@ -272,24 +271,24 @@ TEST(CameraRig, ComputeRelativePoses) {
   Image image5;
   image5.SetImageId(4);
   image5.SetCameraId(camera1.CameraId());
-  image5.SetQvec(ComposeIdentityQuaternion());
-  image5.SetTvec(Eigen::Vector3d(0, 0, 0));
   reconstruction.AddImage(image5);
 
   camera_rig.Check(reconstruction);
-  camera_rig.ComputeRelativePoses(reconstruction);
-  EXPECT_EQ(camera_rig.RelativeQvec(0), ComposeIdentityQuaternion());
-  EXPECT_EQ(camera_rig.RelativeTvec(0), Eigen::Vector3d(0, 0, 0));
-  EXPECT_EQ(camera_rig.RelativeQvec(1), ComposeIdentityQuaternion());
-  EXPECT_EQ(camera_rig.RelativeTvec(1), Eigen::Vector3d(1.5, 3, 4.5));
+  camera_rig.ComputeCamsFromRigs(reconstruction);
+  EXPECT_EQ(camera_rig.CamFromRig(0).rotation.coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
+  EXPECT_EQ(camera_rig.CamFromRig(0).translation, Eigen::Vector3d(0, 0, 0));
+  EXPECT_EQ(camera_rig.CamFromRig(1).rotation.coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
+  EXPECT_EQ(camera_rig.CamFromRig(1).translation, Eigen::Vector3d(1.5, 3, 4.5));
 }
 
-TEST(CameraRig, ComputeAbsolutePose) {
+TEST(CameraRig, ComputeRigFromWorld) {
   CameraRig camera_rig;
   camera_rig.AddCamera(
-      0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 1, 2));
+      0, Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(0, 1, 2)));
   camera_rig.AddCamera(
-      1, ComposeIdentityQuaternion(), Eigen::Vector3d(3, 4, 5));
+      1, Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(3, 4, 5)));
   const std::vector<image_t> image_ids1 = {0, 1};
   camera_rig.AddSnapshot(image_ids1);
 
@@ -308,25 +307,22 @@ TEST(CameraRig, ComputeAbsolutePose) {
   Image image1;
   image1.SetImageId(0);
   image1.SetCameraId(camera1.CameraId());
-  image1.SetQvec(ComposeIdentityQuaternion());
-  image1.SetTvec(Eigen::Vector3d(0, 0, 0));
   reconstruction.AddImage(image1);
 
   Image image2;
   image2.SetImageId(1);
   image2.SetCameraId(camera2.CameraId());
-  image2.SetQvec(ComposeIdentityQuaternion());
-  image2.SetTvec(Eigen::Vector3d(3, 3, 3));
+  image2.CamFromWorld().translation = Eigen::Vector3d(3, 3, 3);
   reconstruction.AddImage(image2);
 
   camera_rig.SetRefCameraId(0);
   camera_rig.Check(reconstruction);
 
-  Eigen::Vector4d abs_qvec;
-  Eigen::Vector3d abs_tvec;
-  camera_rig.ComputeAbsolutePose(0, reconstruction, &abs_qvec, &abs_tvec);
-  EXPECT_EQ(abs_qvec, ComposeIdentityQuaternion());
-  EXPECT_EQ(abs_tvec, Eigen::Vector3d(0, -1, -2));
+  const Rigid3d rig_from_world =
+      camera_rig.ComputeRigFromWorld(0, reconstruction);
+  EXPECT_EQ(rig_from_world.rotation.coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
+  EXPECT_EQ(rig_from_world.translation, Eigen::Vector3d(0, -1, -2));
 }
 
 }  // namespace colmap

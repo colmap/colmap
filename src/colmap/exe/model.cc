@@ -162,9 +162,9 @@ void ReadDatabaseCameraLocations(const std::string& database_path,
                                  std::vector<Eigen::Vector3d>* ref_locations) {
   Database database(database_path);
   for (const auto& image : database.ReadAllImages()) {
-    if (image.HasTvecPrior()) {
+    if (image.CamFromWorldPrior().translation.array().isFinite().all()) {
       ref_image_names->push_back(image.Name());
-      ref_locations->push_back(image.TvecPrior());
+      ref_locations->push_back(image.CamFromWorldPrior().translation);
     }
   }
 
@@ -527,7 +527,7 @@ int RunModelComparer(int argc, char** argv) {
   std::cout << StringPrintf("Common images: %d", common_image_ids.size())
             << std::endl;
 
-  Sim3d tgt_from_src;
+  Sim3d new_from_old_world;
   bool success = false;
   if (alignment_error == "reprojection") {
     success = AlignReconstructions(
@@ -535,13 +535,13 @@ int RunModelComparer(int argc, char** argv) {
         reconstruction2,
         /*min_inlier_observations=*/min_inlier_observations,
         /*max_reproj_error=*/max_reproj_error,
-        &tgt_from_src);
+        &new_from_old_world);
   } else if (alignment_error == "proj_center") {
     success =
         AlignReconstructions(reconstruction1,
                              reconstruction2,
                              /*max_proj_center_error=*/max_proj_center_error,
-                             &tgt_from_src);
+                             &new_from_old_world);
   } else {
     std::cout << "ERROR: Invalid alignment_error specified." << std::endl;
     return EXIT_FAILURE;
@@ -553,10 +553,10 @@ int RunModelComparer(int argc, char** argv) {
   }
 
   std::cout << "Computed alignment transform:" << std::endl
-            << tgt_from_src.ToMatrix() << std::endl;
+            << new_from_old_world.ToMatrix() << std::endl;
 
   const std::vector<ImageAlignmentError> errors = ComputeImageAlignmentError(
-      reconstruction1, reconstruction2, tgt_from_src);
+      reconstruction1, reconstruction2, new_from_old_world);
 
   PrintHeading2("Image alignment error summary");
   PrintComparisonSummary(std::cout, errors);
@@ -776,7 +776,7 @@ int RunModelOrientationAligner(int argc, char** argv) {
 
   PrintHeading1("Aligning Reconstruction");
 
-  Eigen::Matrix3d tform;
+  Sim3d new_from_old_world;
 
   if (method == "manhattan-world") {
     const Eigen::Matrix3d frame = EstimateManhattanWorldFrame(
@@ -784,27 +784,29 @@ int RunModelOrientationAligner(int argc, char** argv) {
 
     if (frame.col(0).lpNorm<1>() == 0) {
       std::cout << "Only aligning vertical axis" << std::endl;
-      tform = RotationFromUnitVectors(frame.col(1), Eigen::Vector3d(0, 1, 0));
+      new_from_old_world.rotation = Eigen::Quaterniond::FromTwoVectors(
+          frame.col(1), Eigen::Vector3d(0, 1, 0));
     } else if (frame.col(1).lpNorm<1>() == 0) {
-      tform = RotationFromUnitVectors(frame.col(0), Eigen::Vector3d(1, 0, 0));
+      new_from_old_world.rotation = Eigen::Quaterniond::FromTwoVectors(
+          frame.col(0), Eigen::Vector3d(1, 0, 0));
       std::cout << "Only aligning horizontal axis" << std::endl;
     } else {
-      tform = frame.transpose();
+      new_from_old_world.rotation = Eigen::Quaterniond(frame.transpose());
       std::cout << "Aligning horizontal and vertical axes" << std::endl;
     }
   } else if (method == "image-orientation") {
     const Eigen::Vector3d gravity_axis =
         EstimateGravityVectorFromImageOrientation(reconstruction);
-    tform = RotationFromUnitVectors(gravity_axis, Eigen::Vector3d(0, 1, 0));
+    new_from_old_world.rotation = Eigen::Quaterniond::FromTwoVectors(
+        gravity_axis, Eigen::Vector3d(0, 1, 0));
   } else {
     LOG(FATAL) << "Alignment method not supported";
   }
 
   std::cout << "Using the rotation matrix:" << std::endl;
-  std::cout << tform << std::endl;
+  std::cout << new_from_old_world.rotation.toRotationMatrix() << std::endl;
 
-  reconstruction.Transform(
-      Sim3d(1, Eigen::Quaterniond(tform), Eigen::Vector3d(0, 0, 0)));
+  reconstruction.Transform(new_from_old_world);
 
   std::cout << "Writing aligned reconstruction..." << std::endl;
   reconstruction.Write(output_path);

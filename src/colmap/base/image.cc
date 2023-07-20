@@ -37,7 +37,7 @@
 namespace colmap {
 namespace {
 
-static const double kNaN = std::numeric_limits<double>::quiet_NaN();
+static constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 
 }  // namespace
 
@@ -52,10 +52,8 @@ Image::Image()
       num_observations_(0),
       num_correspondences_(0),
       num_visible_points3D_(0),
-      qvec_(1.0, 0.0, 0.0, 0.0),
-      tvec_(0.0, 0.0, 0.0),
-      qvec_prior_(kNaN, kNaN, kNaN, kNaN),
-      tvec_prior_(kNaN, kNaN, kNaN) {}
+      cam_from_world_prior_(Eigen::Quaterniond(kNaN, kNaN, kNaN, kNaN),
+                            Eigen::Vector3d(kNaN, kNaN, kNaN)) {}
 
 void Image::SetUp(const class Camera& camera) {
   CHECK_EQ(camera_id_, camera.CameraId());
@@ -140,26 +138,12 @@ void Image::DecrementCorrespondenceHasPoint3D(const point2D_t point2D_idx) {
   assert(num_visible_points3D_ <= num_observations_);
 }
 
-void Image::NormalizeQvec() { qvec_ = NormalizeQuaternion(qvec_); }
-
-Eigen::Matrix3x4d Image::ProjectionMatrix() const {
-  return ComposeProjectionMatrix(qvec_, tvec_);
-}
-
-Eigen::Matrix3x4d Image::InverseProjectionMatrix() const {
-  return InvertProjectionMatrix(ComposeProjectionMatrix(qvec_, tvec_));
-}
-
-Eigen::Matrix3d Image::RotationMatrix() const {
-  return QuaternionToRotationMatrix(qvec_);
-}
-
 Eigen::Vector3d Image::ProjectionCenter() const {
-  return ProjectionCenterFromPose(qvec_, tvec_);
+  return cam_from_world_.rotation.inverse() * -cam_from_world_.translation;
 }
 
 Eigen::Vector3d Image::ViewingDirection() const {
-  return RotationMatrix().row(2);
+  return cam_from_world_.rotation.toRotationMatrix().row(2);
 }
 
 }  // namespace colmap

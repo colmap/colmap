@@ -236,19 +236,21 @@ Image ReadImageRow(sqlite3_stmt* sql_stmt) {
       reinterpret_cast<const char*>(sqlite3_column_text(sql_stmt, 1))));
   image.SetCameraId(static_cast<camera_t>(sqlite3_column_int64(sql_stmt, 2)));
 
-  // NaNs are automatically converted to NULLs in SQLite.
-  for (size_t i = 0; i < 4; ++i) {
-    if (sqlite3_column_type(sql_stmt, i + 3) != SQLITE_NULL) {
-      image.QvecPrior(i) = sqlite3_column_double(sql_stmt, i + 3);
+  auto ExtractDoubleColumnOrNaN = [sql_stmt](size_t column) {
+    // NaNs are automatically converted to NULLs in SQLite.
+    if (sqlite3_column_type(sql_stmt, column) != SQLITE_NULL) {
+      return sqlite3_column_double(sql_stmt, column);
     }
-  }
+    return std::numeric_limits<double>::quiet_NaN();
+  };
 
-  // NaNs are automatically converted to NULLs in SQLite.
-  for (size_t i = 0; i < 3; ++i) {
-    if (sqlite3_column_type(sql_stmt, i + 7) != SQLITE_NULL) {
-      image.TvecPrior(i) = sqlite3_column_double(sql_stmt, i + 7);
-    }
-  }
+  image.CamFromWorldPrior().rotation.w() = ExtractDoubleColumnOrNaN(3);
+  image.CamFromWorldPrior().rotation.x() = ExtractDoubleColumnOrNaN(4);
+  image.CamFromWorldPrior().rotation.y() = ExtractDoubleColumnOrNaN(5);
+  image.CamFromWorldPrior().rotation.z() = ExtractDoubleColumnOrNaN(6);
+  image.CamFromWorldPrior().translation.x() = ExtractDoubleColumnOrNaN(7);
+  image.CamFromWorldPrior().translation.y() = ExtractDoubleColumnOrNaN(8);
+  image.CamFromWorldPrior().translation.z() = ExtractDoubleColumnOrNaN(9);
 
   return image;
 }
@@ -540,10 +542,13 @@ TwoViewGeometry Database::ReadTwoViewGeometry(const image_t image_id1,
       sql_stmt_read_two_view_geometry_, rc, 5);
   two_view_geometry.H = ReadStaticMatrixBlob<Eigen::Matrix3d>(
       sql_stmt_read_two_view_geometry_, rc, 6);
-  two_view_geometry.qvec = ReadStaticMatrixBlob<Eigen::Vector4d>(
+  const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
       sql_stmt_read_two_view_geometry_, rc, 7);
-  two_view_geometry.tvec = ReadStaticMatrixBlob<Eigen::Vector3d>(
-      sql_stmt_read_two_view_geometry_, rc, 8);
+  two_view_geometry.cam2_from_cam1.rotation = Eigen::Quaterniond(
+      quat_wxyz(0), quat_wxyz(1), quat_wxyz(2), quat_wxyz(3));
+  two_view_geometry.cam2_from_cam1.translation =
+      ReadStaticMatrixBlob<Eigen::Vector3d>(
+          sql_stmt_read_two_view_geometry_, rc, 8);
 
   SQLITE3_CALL(sqlite3_reset(sql_stmt_read_two_view_geometry_));
 
@@ -584,10 +589,13 @@ void Database::ReadTwoViewGeometries(
         sql_stmt_read_two_view_geometries_, rc, 6);
     two_view_geometry.H = ReadStaticMatrixBlob<Eigen::Matrix3d>(
         sql_stmt_read_two_view_geometries_, rc, 7);
-    two_view_geometry.qvec = ReadStaticMatrixBlob<Eigen::Vector4d>(
+    const Eigen::Vector4d quat_wxyz = ReadStaticMatrixBlob<Eigen::Vector4d>(
         sql_stmt_read_two_view_geometries_, rc, 8);
-    two_view_geometry.tvec = ReadStaticMatrixBlob<Eigen::Vector3d>(
-        sql_stmt_read_two_view_geometries_, rc, 9);
+    two_view_geometry.cam2_from_cam1.rotation = Eigen::Quaterniond(
+        quat_wxyz(0), quat_wxyz(1), quat_wxyz(2), quat_wxyz(3));
+    two_view_geometry.cam2_from_cam1.translation =
+        ReadStaticMatrixBlob<Eigen::Vector3d>(
+            sql_stmt_read_two_view_geometries_, rc, 9);
 
     two_view_geometry.F.transposeInPlace();
     two_view_geometry.E.transposeInPlace();
@@ -672,16 +680,22 @@ image_t Database::WriteImage(const Image& image,
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_add_image_, 3, image.CameraId()));
 
   // NaNs are automatically converted to NULLs in SQLite.
-  SQLITE3_CALL(sqlite3_bind_double(sql_stmt_add_image_, 4, image.QvecPrior(0)));
-  SQLITE3_CALL(sqlite3_bind_double(sql_stmt_add_image_, 5, image.QvecPrior(1)));
-  SQLITE3_CALL(sqlite3_bind_double(sql_stmt_add_image_, 6, image.QvecPrior(2)));
-  SQLITE3_CALL(sqlite3_bind_double(sql_stmt_add_image_, 7, image.QvecPrior(3)));
+  SQLITE3_CALL(sqlite3_bind_double(
+      sql_stmt_add_image_, 4, image.CamFromWorldPrior().rotation.w()));
+  SQLITE3_CALL(sqlite3_bind_double(
+      sql_stmt_add_image_, 5, image.CamFromWorldPrior().rotation.x()));
+  SQLITE3_CALL(sqlite3_bind_double(
+      sql_stmt_add_image_, 6, image.CamFromWorldPrior().rotation.y()));
+  SQLITE3_CALL(sqlite3_bind_double(
+      sql_stmt_add_image_, 7, image.CamFromWorldPrior().rotation.z()));
 
   // NaNs are automatically converted to NULLs in SQLite.
-  SQLITE3_CALL(sqlite3_bind_double(sql_stmt_add_image_, 8, image.TvecPrior(0)));
-  SQLITE3_CALL(sqlite3_bind_double(sql_stmt_add_image_, 9, image.TvecPrior(1)));
-  SQLITE3_CALL(
-      sqlite3_bind_double(sql_stmt_add_image_, 10, image.TvecPrior(2)));
+  SQLITE3_CALL(sqlite3_bind_double(
+      sql_stmt_add_image_, 8, image.CamFromWorldPrior().translation.x()));
+  SQLITE3_CALL(sqlite3_bind_double(
+      sql_stmt_add_image_, 9, image.CamFromWorldPrior().translation.y()));
+  SQLITE3_CALL(sqlite3_bind_double(
+      sql_stmt_add_image_, 10, image.CamFromWorldPrior().translation.z()));
 
   SQLITE3_CALL(sqlite3_step(sql_stmt_add_image_));
   SQLITE3_CALL(sqlite3_reset(sql_stmt_add_image_));
@@ -760,15 +774,20 @@ void Database::WriteTwoViewGeometry(
   const Eigen::Matrix3d Ft = two_view_geometry_ptr->F.transpose();
   const Eigen::Matrix3d Et = two_view_geometry_ptr->E.transpose();
   const Eigen::Matrix3d Ht = two_view_geometry_ptr->H.transpose();
-  const Eigen::Vector4d& qvec = two_view_geometry_ptr->qvec;
-  const Eigen::Vector3d& tvec = two_view_geometry_ptr->tvec;
+  const Eigen::Vector4d quat_wxyz(
+      two_view_geometry_ptr->cam2_from_cam1.rotation.w(),
+      two_view_geometry_ptr->cam2_from_cam1.rotation.x(),
+      two_view_geometry_ptr->cam2_from_cam1.rotation.y(),
+      two_view_geometry_ptr->cam2_from_cam1.rotation.z());
 
   if (two_view_geometry_ptr->inlier_matches.size() > 0) {
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ft, 6);
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Et, 7);
     WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, Ht, 8);
-    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, qvec, 9);
-    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, tvec, 10);
+    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_, quat_wxyz, 9);
+    WriteStaticMatrixBlob(sql_stmt_write_two_view_geometry_,
+                          two_view_geometry_ptr->cam2_from_cam1.translation,
+                          10);
   } else {
     WriteStaticMatrixBlob(
         sql_stmt_write_two_view_geometry_, Eigen::MatrixXd(0, 0), 6);
@@ -818,20 +837,20 @@ void Database::UpdateImage(const Image& image) const {
                                  static_cast<int>(image.Name().size()),
                                  SQLITE_STATIC));
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_image_, 2, image.CameraId()));
-  SQLITE3_CALL(
-      sqlite3_bind_double(sql_stmt_update_image_, 3, image.QvecPrior(0)));
-  SQLITE3_CALL(
-      sqlite3_bind_double(sql_stmt_update_image_, 4, image.QvecPrior(1)));
-  SQLITE3_CALL(
-      sqlite3_bind_double(sql_stmt_update_image_, 5, image.QvecPrior(2)));
-  SQLITE3_CALL(
-      sqlite3_bind_double(sql_stmt_update_image_, 6, image.QvecPrior(3)));
-  SQLITE3_CALL(
-      sqlite3_bind_double(sql_stmt_update_image_, 7, image.TvecPrior(0)));
-  SQLITE3_CALL(
-      sqlite3_bind_double(sql_stmt_update_image_, 8, image.TvecPrior(1)));
-  SQLITE3_CALL(
-      sqlite3_bind_double(sql_stmt_update_image_, 9, image.TvecPrior(2)));
+  SQLITE3_CALL(sqlite3_bind_double(
+      sql_stmt_update_image_, 3, image.CamFromWorldPrior().rotation.w()));
+  SQLITE3_CALL(sqlite3_bind_double(
+      sql_stmt_update_image_, 4, image.CamFromWorldPrior().rotation.x()));
+  SQLITE3_CALL(sqlite3_bind_double(
+      sql_stmt_update_image_, 5, image.CamFromWorldPrior().rotation.y()));
+  SQLITE3_CALL(sqlite3_bind_double(
+      sql_stmt_update_image_, 6, image.CamFromWorldPrior().rotation.z()));
+  SQLITE3_CALL(sqlite3_bind_double(
+      sql_stmt_update_image_, 7, image.CamFromWorldPrior().translation.x()));
+  SQLITE3_CALL(sqlite3_bind_double(
+      sql_stmt_update_image_, 8, image.CamFromWorldPrior().translation.y()));
+  SQLITE3_CALL(sqlite3_bind_double(
+      sql_stmt_update_image_, 9, image.CamFromWorldPrior().translation.z()));
 
   SQLITE3_CALL(sqlite3_bind_int64(sql_stmt_update_image_, 10, image.ImageId()));
 

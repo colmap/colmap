@@ -34,6 +34,7 @@
 #include "colmap/base/camera.h"
 #include "colmap/base/point2d.h"
 #include "colmap/base/visibility_pyramid.h"
+#include "colmap/geometry/rigid3.h"
 #include "colmap/math/math.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
@@ -105,42 +106,19 @@ class Image {
   // uniform distribution of observations results in more robust registration.
   inline size_t Point3DVisibilityScore() const;
 
-  // Access quaternion vector as (qw, qx, qy, qz) specifying the rotation of the
-  // pose which is defined as the transformation from world to image space.
-  inline const Eigen::Vector4d& Qvec() const;
-  inline Eigen::Vector4d& Qvec();
-  inline double Qvec(size_t idx) const;
-  inline double& Qvec(size_t idx);
-  inline void SetQvec(const Eigen::Vector4d& qvec);
+  // World to camera pose.
+  inline const Rigid3d& CamFromWorld() const;
+  inline Rigid3d& CamFromWorld();
 
-  // Quaternion prior, e.g. given by EXIF gyroscope tag.
-  inline const Eigen::Vector4d& QvecPrior() const;
-  inline Eigen::Vector4d& QvecPrior();
-  inline double QvecPrior(size_t idx) const;
-  inline double& QvecPrior(size_t idx);
-  inline bool HasQvecPrior() const;
-  inline void SetQvecPrior(const Eigen::Vector4d& qvec);
-
-  // Access translation vector as (tx, ty, tz) specifying the translation of the
-  // pose which is defined as the transformation from world to image space.
-  inline const Eigen::Vector3d& Tvec() const;
-  inline Eigen::Vector3d& Tvec();
-  inline double Tvec(size_t idx) const;
-  inline double& Tvec(size_t idx);
-  inline void SetTvec(const Eigen::Vector3d& tvec);
-
-  // Translation prior, e.g. given by EXIF GPS tag.
-  inline const Eigen::Vector3d& TvecPrior() const;
-  inline Eigen::Vector3d& TvecPrior();
-  inline double TvecPrior(size_t idx) const;
-  inline double& TvecPrior(size_t idx);
-  inline bool HasTvecPrior() const;
-  inline void SetTvecPrior(const Eigen::Vector3d& tvec);
+  // World to camera pose prior, e.g. given by EXIF gyroscope tag.
+  inline const Rigid3d& CamFromWorldPrior() const;
+  inline Rigid3d& CamFromWorldPrior();
 
   // Access the coordinates of image points.
   inline const class Point2D& Point2D(point2D_t point2D_idx) const;
   inline class Point2D& Point2D(point2D_t point2D_idx);
   inline const std::vector<class Point2D>& Points2D() const;
+  inline std::vector<class Point2D>& Points2D();
   void SetPoints2D(const std::vector<Eigen::Vector2d>& points);
   void SetPoints2D(const std::vector<class Point2D>& points);
 
@@ -168,18 +146,6 @@ class Image {
   // and correspondence before. Note that this must only be called
   // after calling `SetUp`.
   void DecrementCorrespondenceHasPoint3D(point2D_t point2D_idx);
-
-  // Normalize the quaternion vector.
-  void NormalizeQvec();
-
-  // Compose the projection matrix from world to image space.
-  Eigen::Matrix3x4d ProjectionMatrix() const;
-
-  // Compose the inverse projection matrix from image to world space
-  Eigen::Matrix3x4d InverseProjectionMatrix() const;
-
-  // Compose rotation matrix from quaternion vector.
-  Eigen::Matrix3d RotationMatrix() const;
 
   // Extract the projection center in world space.
   Eigen::Vector3d ProjectionCenter() const;
@@ -220,13 +186,11 @@ class Image {
   // where `num_tris > 0`.
   point2D_t num_visible_points3D_;
 
-  // The pose of the image, defined as the transformation from world to image.
-  Eigen::Vector4d qvec_;
-  Eigen::Vector3d tvec_;
+  // The pose of the image, defined as the transformation from world to camera.
+  Rigid3d cam_from_world_;
 
   // The pose prior of the image, e.g. extracted from EXIF tags.
-  Eigen::Vector4d qvec_prior_;
-  Eigen::Vector3d tvec_prior_;
+  Rigid3d cam_from_world_prior_;
 
   // All image points, including points that are not part of a 3D point track.
   std::vector<class Point2D> points2D_;
@@ -290,57 +254,15 @@ size_t Image::Point3DVisibilityScore() const {
   return point3D_visibility_pyramid_.Score();
 }
 
-const Eigen::Vector4d& Image::Qvec() const { return qvec_; }
+const Rigid3d& Image::CamFromWorld() const { return cam_from_world_; }
 
-Eigen::Vector4d& Image::Qvec() { return qvec_; }
+Rigid3d& Image::CamFromWorld() { return cam_from_world_; }
 
-inline double Image::Qvec(const size_t idx) const { return qvec_(idx); }
-
-inline double& Image::Qvec(const size_t idx) { return qvec_(idx); }
-
-void Image::SetQvec(const Eigen::Vector4d& qvec) { qvec_ = qvec; }
-
-const Eigen::Vector4d& Image::QvecPrior() const { return qvec_prior_; }
-
-Eigen::Vector4d& Image::QvecPrior() { return qvec_prior_; }
-
-inline double Image::QvecPrior(const size_t idx) const {
-  return qvec_prior_(idx);
+const Rigid3d& Image::CamFromWorldPrior() const {
+  return cam_from_world_prior_;
 }
 
-inline double& Image::QvecPrior(const size_t idx) { return qvec_prior_(idx); }
-
-inline bool Image::HasQvecPrior() const {
-  return qvec_prior_.array().isFinite().all();
-}
-
-void Image::SetQvecPrior(const Eigen::Vector4d& qvec) { qvec_prior_ = qvec; }
-
-const Eigen::Vector3d& Image::Tvec() const { return tvec_; }
-
-Eigen::Vector3d& Image::Tvec() { return tvec_; }
-
-inline double Image::Tvec(const size_t idx) const { return tvec_(idx); }
-
-inline double& Image::Tvec(const size_t idx) { return tvec_(idx); }
-
-void Image::SetTvec(const Eigen::Vector3d& tvec) { tvec_ = tvec; }
-
-const Eigen::Vector3d& Image::TvecPrior() const { return tvec_prior_; }
-
-Eigen::Vector3d& Image::TvecPrior() { return tvec_prior_; }
-
-inline double Image::TvecPrior(const size_t idx) const {
-  return tvec_prior_(idx);
-}
-
-inline double& Image::TvecPrior(const size_t idx) { return tvec_prior_(idx); }
-
-inline bool Image::HasTvecPrior() const {
-  return tvec_prior_.array().isFinite().all();
-}
-
-void Image::SetTvecPrior(const Eigen::Vector3d& tvec) { tvec_prior_ = tvec; }
+Rigid3d& Image::CamFromWorldPrior() { return cam_from_world_prior_; }
 
 const class Point2D& Image::Point2D(const point2D_t point2D_idx) const {
   return points2D_.at(point2D_idx);
@@ -351,6 +273,8 @@ class Point2D& Image::Point2D(const point2D_t point2D_idx) {
 }
 
 const std::vector<class Point2D>& Image::Points2D() const { return points2D_; }
+
+std::vector<class Point2D>& Image::Points2D() { return points2D_; }
 
 bool Image::IsPoint3DVisible(const point2D_t point2D_idx) const {
   return num_correspondences_have_point3D_.at(point2D_idx) > 0;

@@ -61,15 +61,12 @@ bool CheckCollinearPoints(const Eigen::Vector3d& X1,
   return non_collinearity_measure < kMinNonCollinearity;
 }
 
-Eigen::Vector6d ComposePlueckerLine(const Eigen::Matrix3x4d& rel_tform,
-                                    const Eigen::Vector2d& point2D) {
-  const Eigen::Matrix3x4d inv_proj_matrix = InvertProjectionMatrix(rel_tform);
-  const Eigen::Vector3d bearing =
-      inv_proj_matrix.leftCols<3>() * point2D.homogeneous();
-  const Eigen::Vector3d proj_center = inv_proj_matrix.rightCols<1>();
-  const Eigen::Vector3d bearing_normalized = bearing.normalized();
+Eigen::Vector6d ComposePlueckerLine(const Rigid3d& rig_from_cam,
+                                    const Eigen::Vector3d& ray_in_cam) {
+  const Eigen::Vector3d ray_in_rig =
+      (rig_from_cam.rotation * ray_in_cam).normalized();
   Eigen::Vector6d pluecker;
-  pluecker << bearing_normalized, proj_center.cross(bearing_normalized);
+  pluecker << ray_in_rig, rig_from_cam.translation.cross(ray_in_rig);
   return pluecker;
 }
 
@@ -217,19 +214,20 @@ std::vector<GP3PEstimator::M_t> GP3PEstimator::Estimate(
   CHECK_EQ(points3D.size(), 3);
 
   if (CheckCollinearPoints(points3D[0], points3D[1], points3D[2])) {
-    return std::vector<GP3PEstimator::M_t>({});
+    return {};
   }
 
   // Transform 2D points into compact Pluecker line representation.
   std::vector<Eigen::Vector6d> plueckers(3);
   for (size_t i = 0; i < 3; ++i) {
-    plueckers[i] = ComposePlueckerLine(points2D[i].rel_tform, points2D[i].xy);
+    plueckers[i] = ComposePlueckerLine(Inverse(points2D[i].cam_from_rig),
+                                       points2D[i].ray_in_cam);
   }
 
   if (CheckParallelRays(plueckers[0].head<3>(),
                         plueckers[1].head<3>(),
                         plueckers[2].head<3>())) {
-    return std::vector<GP3PEstimator::M_t>({});
+    return {};
   }
 
   // Compute the coefficients k1, k2, k3 using Eq. 4.
@@ -239,7 +237,7 @@ std::vector<GP3PEstimator::M_t> GP3PEstimator::Estimate(
   // Compute the depths along the Pluecker lines of the observations.
   const std::vector<Eigen::Vector3d> depths = ComputeDepthsSylvester(K);
   if (depths.empty()) {
-    return std::vector<GP3PEstimator::M_t>({});
+    return {};
   }
 
   // For all valid depth values, compute the transformation between points in
@@ -247,22 +245,24 @@ std::vector<GP3PEstimator::M_t> GP3PEstimator::Estimate(
   // algorithm proposed in the paper, since Umeyama's method is numerically more
   // stable and this part is not a bottleneck.
 
-  Eigen::Matrix3d points3D_world;
+  Eigen::Matrix3d points3D_in_world;
   for (size_t i = 0; i < 3; ++i) {
-    points3D_world.col(i) = points3D[i];
+    points3D_in_world.col(i) = points3D[i];
   }
 
   std::vector<M_t> models(depths.size());
   for (size_t i = 0; i < depths.size(); ++i) {
-    Eigen::Matrix3d points3D_camera;
+    Eigen::Matrix3d points3D_in_rig;
     for (size_t j = 0; j < 3; ++j) {
-      points3D_camera.col(j) =
+      points3D_in_rig.col(j) =
           PointFromPlueckerLineAndDepth(plueckers[j], depths[i][j]);
     }
 
-    const Eigen::Matrix4d transform =
-        Eigen::umeyama(points3D_world, points3D_camera, false);
-    models[i] = transform.topLeftCorner<3, 4>();
+    const Eigen::Matrix4d rig_from_world =
+        Eigen::umeyama(points3D_in_world, points3D_in_rig, false);
+    models[i] =
+        Rigid3d(Eigen::Quaterniond(rig_from_world.topLeftCorner<3, 3>()),
+                rig_from_world.topRightCorner<3, 1>());
   }
 
   return models;
@@ -270,66 +270,23 @@ std::vector<GP3PEstimator::M_t> GP3PEstimator::Estimate(
 
 void GP3PEstimator::Residuals(const std::vector<X_t>& points2D,
                               const std::vector<Y_t>& points3D,
-                              const M_t& proj_matrix,
+                              const M_t& rig_from_world,
                               std::vector<double>* residuals) {
   CHECK_EQ(points2D.size(), points3D.size());
-
   residuals->resize(points2D.size(), 0);
-
-  // Note that this code might not be as nice as Eigen expressions,
-  // but it is significantly faster in various tests.
-
-  const double P_00 = proj_matrix(0, 0);
-  const double P_01 = proj_matrix(0, 1);
-  const double P_02 = proj_matrix(0, 2);
-  const double P_03 = proj_matrix(0, 3);
-  const double P_10 = proj_matrix(1, 0);
-  const double P_11 = proj_matrix(1, 1);
-  const double P_12 = proj_matrix(1, 2);
-  const double P_13 = proj_matrix(1, 3);
-  const double P_20 = proj_matrix(2, 0);
-  const double P_21 = proj_matrix(2, 1);
-  const double P_22 = proj_matrix(2, 2);
-  const double P_23 = proj_matrix(2, 3);
-
   for (size_t i = 0; i < points2D.size(); ++i) {
-    const Eigen::Matrix3x4d& rel_tform = points2D[i].rel_tform;
-    const double X_0 = points3D[i](0);
-    const double X_1 = points3D[i](1);
-    const double X_2 = points3D[i](2);
-
-    // Project 3D point from world to generalized camera.
-    const double pgx_0 = P_00 * X_0 + P_01 * X_1 + P_02 * X_2 + P_03;
-    const double pgx_1 = P_10 * X_0 + P_11 * X_1 + P_12 * X_2 + P_13;
-    const double pgx_2 = P_20 * X_0 + P_21 * X_1 + P_22 * X_2 + P_23;
-
-    // Projection 3D point from generalized camera to camera of the observation.
-    const double pcx_2 = rel_tform(2, 0) * pgx_0 + rel_tform(2, 1) * pgx_1 +
-                         rel_tform(2, 2) * pgx_2 + rel_tform(2, 3);
-
+    const Eigen::Vector3d point3D_in_cam =
+        points2D[i].cam_from_rig * (rig_from_world * points3D[i]);
     // Check if 3D point is in front of camera.
-    if (pcx_2 > std::numeric_limits<double>::epsilon()) {
-      const double pcx_0 = rel_tform(0, 0) * pgx_0 + rel_tform(0, 1) * pgx_1 +
-                           rel_tform(0, 2) * pgx_2 + rel_tform(0, 3);
-      const double pcx_1 = rel_tform(1, 0) * pgx_0 + rel_tform(1, 1) * pgx_1 +
-                           rel_tform(1, 2) * pgx_2 + rel_tform(1, 3);
-      const double inv_pcx_norm =
-          1 / std::sqrt(pcx_0 * pcx_0 + pcx_1 * pcx_1 + pcx_2 * pcx_2);
-
-      const double x_0 = points2D[i].xy(0);
-      const double x_1 = points2D[i].xy(1);
-
+    if (point3D_in_cam.z() > std::numeric_limits<double>::epsilon()) {
       if (residual_type == ResidualType::CosineDistance) {
-        const double inv_x_norm = 1 / std::sqrt(x_0 * x_0 + x_1 * x_1 + 1);
         const double cosine_dist =
-            1 - inv_pcx_norm * inv_x_norm * (pcx_0 * x_0 + pcx_1 * x_1 + pcx_2);
+            1 - point3D_in_cam.normalized().dot(points2D[i].ray_in_cam);
         (*residuals)[i] = cosine_dist * cosine_dist;
       } else if (residual_type == ResidualType::ReprojectionError) {
-        const double inv_pcx_2 = 1.0 / pcx_2;
-        const double dx_0 = x_0 - pcx_0 * inv_pcx_2;
-        const double dx_1 = x_1 - pcx_1 * inv_pcx_2;
-        const double reproj_error = dx_0 * dx_0 + dx_1 * dx_1;
-        (*residuals)[i] = reproj_error;
+        (*residuals)[i] = (point3D_in_cam.hnormalized() -
+                           points2D[i].ray_in_cam.hnormalized())
+                              .squaredNorm();
       } else {
         LOG(FATAL) << "Invalid residual type";
       }

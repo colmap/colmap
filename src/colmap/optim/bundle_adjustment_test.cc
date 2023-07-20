@@ -62,42 +62,47 @@
               (orig_camera).Params(extra_param_idx));  \
   }
 
-#define CheckVariableImage(image, orig_image)       \
-  {                                                 \
-    EXPECT_NE((image).Qvec(), (orig_image).Qvec()); \
-    EXPECT_NE((image).Tvec(), (orig_image).Tvec()); \
+#define CheckVariableImage(image, orig_image)                 \
+  {                                                           \
+    EXPECT_NE((image).CamFromWorld().rotation.coeffs(),       \
+              (orig_image).CamFromWorld().rotation.coeffs()); \
+    EXPECT_NE((image).CamFromWorld().translation,             \
+              (orig_image).CamFromWorld().translation);       \
   }
 
-#define CheckConstantImage(image, orig_image)       \
-  {                                                 \
-    EXPECT_EQ((image).Qvec(), (orig_image).Qvec()); \
-    EXPECT_EQ((image).Tvec(), (orig_image).Tvec()); \
+#define CheckConstantImage(image, orig_image)                 \
+  {                                                           \
+    EXPECT_EQ((image).CamFromWorld().rotation.coeffs(),       \
+              (orig_image).CamFromWorld().rotation.coeffs()); \
+    EXPECT_EQ((image).CamFromWorld().translation,             \
+              (orig_image).CamFromWorld().translation);       \
   }
 
-#define CheckConstantXImage(image, orig_image)        \
-  {                                                   \
-    CheckVariableImage(image, orig_image);            \
-    EXPECT_EQ((image).Tvec(0), (orig_image).Tvec(0)); \
+#define CheckConstantXImage(image, orig_image)              \
+  {                                                         \
+    CheckVariableImage(image, orig_image);                  \
+    EXPECT_EQ((image).CamFromWorld().translation.x(),       \
+              (orig_image).CamFromWorld().translation.x()); \
   }
 
-#define CheckConstantCameraRig(camera_rig, orig_camera_rig, camera_id) \
-  {                                                                    \
-    EXPECT_EQ((camera_rig).RelativeQvec(camera_id),                    \
-              (orig_camera_rig).RelativeQvec(camera_id));              \
-    EXPECT_EQ((camera_rig).RelativeTvec(camera_id),                    \
-              (orig_camera_rig).RelativeTvec(camera_id));              \
+#define CheckConstantCameraRig(camera_rig, orig_camera_rig, camera_id)    \
+  {                                                                       \
+    EXPECT_EQ((camera_rig).CamFromRig(camera_id).rotation.coeffs(),       \
+              (orig_camera_rig).CamFromRig(camera_id).rotation.coeffs()); \
+    EXPECT_EQ((camera_rig).CamFromRig(camera_id).translation,             \
+              (orig_camera_rig).CamFromRig(camera_id).translation);       \
   }
 
-#define CheckVariableCameraRig(camera_rig, orig_camera_rig, camera_id) \
-  {                                                                    \
-    if ((camera_rig).RefCameraId() == (camera_id)) {                   \
-      CheckConstantCameraRig(camera_rig, orig_camera_rig, camera_id);  \
-    } else {                                                           \
-      EXPECT_NE((camera_rig).RelativeQvec(camera_id),                  \
-                (orig_camera_rig).RelativeQvec(camera_id));            \
-      EXPECT_NE((camera_rig).RelativeTvec(camera_id),                  \
-                (orig_camera_rig).RelativeTvec(camera_id));            \
-    }                                                                  \
+#define CheckVariableCameraRig(camera_rig, orig_camera_rig, camera_id)      \
+  {                                                                         \
+    if ((camera_rig).RefCameraId() == (camera_id)) {                        \
+      CheckConstantCameraRig(camera_rig, orig_camera_rig, camera_id);       \
+    } else {                                                                \
+      EXPECT_NE((camera_rig).CamFromRig(camera_id).rotation.coeffs(),       \
+                (orig_camera_rig).CamFromRig(camera_id).rotation.coeffs()); \
+      EXPECT_NE((camera_rig).CamFromRig(camera_id).translation,             \
+                (orig_camera_rig).CamFromRig(camera_id).translation);       \
+    }                                                                       \
   }
 
 #define CheckVariablePoint(point, orig_point) \
@@ -150,20 +155,23 @@ void GenerateReconstruction(const size_t num_images,
     image.SetImageId(image_id);
     image.SetCameraId(camera_id);
     image.SetName(std::to_string(i));
-    image.Qvec() = ComposeIdentityQuaternion();
-    image.Tvec() = Eigen::Vector3d(
-        RandomUniformReal(-1.0, 1.0), RandomUniformReal(-1.0, 1.0), 10);
+    image.CamFromWorld() = Rigid3d(
+        Eigen::Quaterniond::Identity(),
+        Eigen::Vector3d(
+            RandomUniformReal(-1.0, 1.0), RandomUniformReal(-1.0, 1.0), 10));
     image.SetRegistered(true);
     reconstruction->AddImage(image);
 
-    const Eigen::Matrix3x4d proj_matrix = image.ProjectionMatrix();
+    const Eigen::Matrix3x4d cam_from_world_matrix =
+        image.CamFromWorld().ToMatrix();
 
     std::vector<Eigen::Vector2d> points2D;
     for (const auto& point3D : reconstruction->Points3D()) {
-      EXPECT_TRUE(HasPointPositiveDepth(proj_matrix, point3D.second.XYZ()));
+      EXPECT_TRUE(
+          HasPointPositiveDepth(cam_from_world_matrix, point3D.second.XYZ()));
       // Get exact projection of 3D point.
-      Eigen::Vector2d point2D =
-          ProjectPointToImage(point3D.second.XYZ(), proj_matrix, camera);
+      Eigen::Vector2d point2D = ProjectPointToImage(
+          point3D.second.XYZ(), cam_from_world_matrix, camera);
       // Add some uniform noise.
       point2D += Eigen::Vector2d(RandomUniformReal(-2.0, 2.0),
                                  RandomUniformReal(-2.0, 2.0));
@@ -216,8 +224,8 @@ TEST(BundleAdjustment, TwoView) {
   BundleAdjustmentConfig config;
   config.AddImage(0);
   config.AddImage(1);
-  config.SetConstantPose(0);
-  config.SetConstantTvec(1, {0});
+  config.SetConstantCamPose(0);
+  config.SetConstantCamPositions(1, {0});
 
   BundleAdjustmentOptions options;
   BundleAdjuster bundle_adjuster(options, config);
@@ -252,9 +260,9 @@ TEST(BundleAdjustment, TwoViewConstantCamera) {
   BundleAdjustmentConfig config;
   config.AddImage(0);
   config.AddImage(1);
-  config.SetConstantPose(0);
-  config.SetConstantPose(1);
-  config.SetConstantCamera(0);
+  config.SetConstantCamPose(0);
+  config.SetConstantCamPose(1);
+  config.SetConstantCamIntrinsics(0);
 
   BundleAdjustmentOptions options;
   BundleAdjuster bundle_adjuster(options, config);
@@ -292,8 +300,8 @@ TEST(BundleAdjustment, PartiallyContainedTracks) {
   BundleAdjustmentConfig config;
   config.AddImage(0);
   config.AddImage(1);
-  config.SetConstantPose(0);
-  config.SetConstantPose(1);
+  config.SetConstantCamPose(0);
+  config.SetConstantCamPose(1);
 
   BundleAdjustmentOptions options;
   BundleAdjuster bundle_adjuster(options, config);
@@ -343,8 +351,8 @@ TEST(BundleAdjustment, PartiallyContainedTracksForceToOptimizePoint) {
   BundleAdjustmentConfig config;
   config.AddImage(0);
   config.AddImage(1);
-  config.SetConstantPose(0);
-  config.SetConstantPose(1);
+  config.SetConstantCamPose(0);
+  config.SetConstantCamPose(1);
   config.AddVariablePoint(add_variable_point3D_id);
   config.AddConstantPoint(add_constant_point3D_id);
 
@@ -395,8 +403,8 @@ TEST(BundleAdjustment, ConstantPoints) {
   BundleAdjustmentConfig config;
   config.AddImage(0);
   config.AddImage(1);
-  config.SetConstantPose(0);
-  config.SetConstantPose(1);
+  config.SetConstantCamPose(0);
+  config.SetConstantCamPose(1);
   config.AddConstantPoint(constant_point3D_id1);
   config.AddConstantPoint(constant_point3D_id2);
 
@@ -439,8 +447,8 @@ TEST(BundleAdjustment, VariableImage) {
   config.AddImage(0);
   config.AddImage(1);
   config.AddImage(2);
-  config.SetConstantPose(0);
-  config.SetConstantTvec(1, {0});
+  config.SetConstantCamPose(0);
+  config.SetConstantCamPositions(1, {0});
 
   BundleAdjustmentOptions options;
   BundleAdjuster bundle_adjuster(options, config);
@@ -479,8 +487,8 @@ TEST(BundleAdjustment, ConstantFocalLength) {
   BundleAdjustmentConfig config;
   config.AddImage(0);
   config.AddImage(1);
-  config.SetConstantPose(0);
-  config.SetConstantTvec(1, {0});
+  config.SetConstantCamPose(0);
+  config.SetConstantCamPositions(1, {0});
 
   BundleAdjustmentOptions options;
   options.refine_focal_length = false;
@@ -530,8 +538,8 @@ TEST(BundleAdjustment, VariablePrincipalPoint) {
   BundleAdjustmentConfig config;
   config.AddImage(0);
   config.AddImage(1);
-  config.SetConstantPose(0);
-  config.SetConstantTvec(1, {0});
+  config.SetConstantCamPose(0);
+  config.SetConstantCamPositions(1, {0});
 
   BundleAdjustmentOptions options;
   options.refine_principal_point = true;
@@ -593,8 +601,8 @@ TEST(BundleAdjustment, ConstantExtraParam) {
   BundleAdjustmentConfig config;
   config.AddImage(0);
   config.AddImage(1);
-  config.SetConstantPose(0);
-  config.SetConstantTvec(1, {0});
+  config.SetConstantCamPose(0);
+  config.SetConstantCamPositions(1, {0});
 
   BundleAdjustmentOptions options;
   options.refine_extra_params = false;
@@ -647,10 +655,8 @@ TEST(BundleAdjustment, RigTwoView) {
 
   std::vector<CameraRig> camera_rigs;
   camera_rigs.emplace_back();
-  camera_rigs[0].AddCamera(
-      0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
-  camera_rigs[0].AddCamera(
-      1, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddCamera(0, Rigid3d());
+  camera_rigs[0].AddCamera(1, Rigid3d());
   camera_rigs[0].AddSnapshot({0, 1});
   camera_rigs[0].SetRefCameraId(0);
   const auto orig_camera_rigs = camera_rigs;
@@ -700,10 +706,8 @@ TEST(BundleAdjustment, RigFourView) {
 
   std::vector<CameraRig> camera_rigs;
   camera_rigs.emplace_back();
-  camera_rigs[0].AddCamera(
-      0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
-  camera_rigs[0].AddCamera(
-      1, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddCamera(0, Rigid3d());
+  camera_rigs[0].AddCamera(1, Rigid3d());
   camera_rigs[0].AddSnapshot({0, 1});
   camera_rigs[0].AddSnapshot({2, 3});
   camera_rigs[0].SetRefCameraId(0);
@@ -754,10 +758,8 @@ TEST(BundleAdjustment, ConstantRigFourView) {
 
   std::vector<CameraRig> camera_rigs;
   camera_rigs.emplace_back();
-  camera_rigs[0].AddCamera(
-      0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
-  camera_rigs[0].AddCamera(
-      1, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddCamera(0, Rigid3d());
+  camera_rigs[0].AddCamera(1, Rigid3d());
   camera_rigs[0].AddSnapshot({0, 1});
   camera_rigs[0].AddSnapshot({2, 3});
   camera_rigs[0].SetRefCameraId(0);
@@ -808,10 +810,8 @@ TEST(BundleAdjustment, RigFourViewPartial) {
 
   std::vector<CameraRig> camera_rigs;
   camera_rigs.emplace_back();
-  camera_rigs[0].AddCamera(
-      0, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
-  camera_rigs[0].AddCamera(
-      1, ComposeIdentityQuaternion(), Eigen::Vector3d(0, 0, 0));
+  camera_rigs[0].AddCamera(0, Rigid3d());
+  camera_rigs[0].AddCamera(1, Rigid3d());
   camera_rigs[0].AddSnapshot({0, 1});
   camera_rigs[0].AddSnapshot({2});
   camera_rigs[0].SetRefCameraId(0);

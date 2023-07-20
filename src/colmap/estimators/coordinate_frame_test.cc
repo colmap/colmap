@@ -63,18 +63,19 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
   // Setup image with projection center at (1, 0, 0)
   Image image;
   image.SetImageId(1);
-  image.Qvec() = Eigen::Vector4d(1.0, 0.0, 0.0, 0.0);
-  image.Tvec() = Eigen::Vector3d(-1.0, 0.0, 0.0);
+  image.SetRegistered(true);
+  image.CamFromWorld() =
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-1, 0, 0));
   reconstruction.AddImage(image);
   // Setup 4 points on the Y-Z plane
   const point3D_t p1 =
-      reconstruction.AddPoint3D(Eigen::Vector3d(0.0, -1.0, 0.0), Track());
+      reconstruction.AddPoint3D(Eigen::Vector3d(0, -1, 0), Track());
   const point3D_t p2 =
-      reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 1.0, 0.0), Track());
+      reconstruction.AddPoint3D(Eigen::Vector3d(0, 1, 0), Track());
   const point3D_t p3 =
-      reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 0.0, -1.0), Track());
+      reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, -1), Track());
   const point3D_t p4 =
-      reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 0.0, 1.0), Track());
+      reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 1), Track());
   AlignToPrincipalPlane(&reconstruction, &tform);
   // Note that the final X and Y axes may be inverted after alignment, so we
   // need to account for both cases when checking for correctness
@@ -82,26 +83,26 @@ TEST(CoordinateFrame, AlignToPrincipalPlane) {
 
   // Verify that points lie on the correct locations of the X-Y plane
   EXPECT_LE((reconstruction.Point3D(p1).XYZ() -
-             Eigen::Vector3d(inverted ? 1.0 : -1.0, 0.0, 0.0))
+             Eigen::Vector3d(inverted ? 1 : -1, 0, 0))
                 .norm(),
             1e-6);
   EXPECT_LE((reconstruction.Point3D(p2).XYZ() -
-             Eigen::Vector3d(inverted ? -1.0 : 1.0, 0.0, 0.0))
+             Eigen::Vector3d(inverted ? -1 : 1, 0, 0))
                 .norm(),
             1e-6);
   EXPECT_LE((reconstruction.Point3D(p3).XYZ() -
-             Eigen::Vector3d(0.0, inverted ? 1.0 : -1.0, 0.0))
+             Eigen::Vector3d(0, inverted ? 1 : -1, 0))
                 .norm(),
             1e-6);
   EXPECT_LE((reconstruction.Point3D(p4).XYZ() -
-             Eigen::Vector3d(0.0, inverted ? -1.0 : 1.0, 0.0))
+             Eigen::Vector3d(0, inverted ? -1 : 1, 0))
                 .norm(),
             1e-6);
   // Verify that projection center is at (0, 0, 1)
-  EXPECT_LE((reconstruction.Image(1).ProjectionCenter() -
-             Eigen::Vector3d(0.0, 0.0, 1.0))
-                .norm(),
-            1e-6);
+  EXPECT_LE(
+      (reconstruction.Image(1).ProjectionCenter() - Eigen::Vector3d(0, 0, 1))
+          .norm(),
+      1e-6);
   // Verify that transform matrix does shuffling of axes
   Eigen::Matrix3x4d expected;
   if (inverted) {

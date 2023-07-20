@@ -63,8 +63,8 @@ TEST(DatabaseCache, Nominal) {
   two_view_geometry.F = Eigen::Matrix3d::Random();
   two_view_geometry.E = Eigen::Matrix3d::Random();
   two_view_geometry.H = Eigen::Matrix3d::Random();
-  two_view_geometry.qvec = Eigen::Vector4d::Random();
-  two_view_geometry.tvec = Eigen::Vector3d::Random();
+  two_view_geometry.cam2_from_cam1 =
+      Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
   database.WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
   auto cache = DatabaseCache::Create(database,
                                      /*min_num_matches=*/0,

@@ -43,8 +43,10 @@ TEST(TwoViewGeometry, Default) {
   EXPECT_EQ(two_view_geometry.F, Eigen::Matrix3d::Zero());
   EXPECT_EQ(two_view_geometry.E, Eigen::Matrix3d::Zero());
   EXPECT_EQ(two_view_geometry.H, Eigen::Matrix3d::Zero());
-  EXPECT_EQ(two_view_geometry.qvec, Eigen::Vector4d::Zero());
-  EXPECT_EQ(two_view_geometry.tvec, Eigen::Vector3d::Zero());
+  EXPECT_EQ(two_view_geometry.cam2_from_cam1.rotation.coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
+  EXPECT_EQ(two_view_geometry.cam2_from_cam1.translation,
+            Eigen::Vector3d::Zero());
   EXPECT_TRUE(two_view_geometry.inlier_matches.empty());
 }
 
@@ -53,8 +55,8 @@ TEST(TwoViewGeometry, Invert) {
   two_view_geometry.config = TwoViewGeometry::CALIBRATED;
   two_view_geometry.F = two_view_geometry.E = two_view_geometry.H =
       Eigen::Matrix3d::Identity();
-  two_view_geometry.qvec = ComposeIdentityQuaternion();
-  two_view_geometry.tvec = Eigen::Vector3d(0, 1, 2);
+  two_view_geometry.cam2_from_cam1 =
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(0, 1, 2));
   two_view_geometry.inlier_matches.resize(2);
   two_view_geometry.inlier_matches[0] = FeatureMatch(0, 1);
   two_view_geometry.inlier_matches[1] = FeatureMatch(2, 3);
@@ -64,8 +66,10 @@ TEST(TwoViewGeometry, Invert) {
   EXPECT_TRUE(two_view_geometry.F.isApprox(Eigen::Matrix3d::Identity()));
   EXPECT_TRUE(two_view_geometry.E.isApprox(Eigen::Matrix3d::Identity()));
   EXPECT_TRUE(two_view_geometry.H.isApprox(Eigen::Matrix3d::Identity()));
-  EXPECT_TRUE(two_view_geometry.qvec.isApprox(ComposeIdentityQuaternion()));
-  EXPECT_TRUE(two_view_geometry.tvec.isApprox(Eigen::Vector3d(-0, -1, -2)));
+  EXPECT_TRUE(two_view_geometry.cam2_from_cam1.rotation.isApprox(
+      Eigen::Quaterniond::Identity()));
+  EXPECT_TRUE(two_view_geometry.cam2_from_cam1.translation.isApprox(
+      Eigen::Vector3d(-0, -1, -2)));
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 1);
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 0);
   EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 3);
@@ -76,8 +80,10 @@ TEST(TwoViewGeometry, Invert) {
   EXPECT_TRUE(two_view_geometry.F.isApprox(Eigen::Matrix3d::Identity()));
   EXPECT_TRUE(two_view_geometry.E.isApprox(Eigen::Matrix3d::Identity()));
   EXPECT_TRUE(two_view_geometry.H.isApprox(Eigen::Matrix3d::Identity()));
-  EXPECT_TRUE(two_view_geometry.qvec.isApprox(ComposeIdentityQuaternion()));
-  EXPECT_TRUE(two_view_geometry.tvec.isApprox(Eigen::Vector3d(0, 1, 2)));
+  EXPECT_TRUE(two_view_geometry.cam2_from_cam1.rotation.isApprox(
+      Eigen::Quaterniond::Identity()));
+  EXPECT_TRUE(two_view_geometry.cam2_from_cam1.translation.isApprox(
+      Eigen::Vector3d(0, 1, 2)));
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
   EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 2);

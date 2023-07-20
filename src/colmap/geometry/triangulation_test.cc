@@ -48,21 +48,21 @@ TEST(TriangulatePoint, Nominal) {
       Eigen::Vector3d(0.1, 0.1, 0.2),
   };
 
-  const Rigid3d camFromWorld1;
+  const Rigid3d cam_from_world1;
 
   for (int z = 0; z < 5; ++z) {
     const double qz = z / 5.0;
     for (int tx = 0; tx < 10; tx += 2) {
-      const Rigid3d camFromWorld2(Eigen::Quaterniond(0.2, 0.3, 0.4, qz),
-                                  Eigen::Vector3d(tx, 2, 3));
+      const Rigid3d cam_from_world2(Eigen::Quaterniond(0.2, 0.3, 0.4, qz),
+                                    Eigen::Vector3d(tx, 2, 3));
       for (size_t i = 0; i < points3D.size(); ++i) {
         const Eigen::Vector3d& point3D = points3D[i];
-        const Eigen::Vector3d point2D1 = camFromWorld1 * point3D;
-        const Eigen::Vector3d point2D2 = camFromWorld2 * point3D;
+        const Eigen::Vector3d point2D1 = cam_from_world1 * point3D;
+        const Eigen::Vector3d point2D2 = cam_from_world2 * point3D;
 
         const Eigen::Vector3d tri_point3D =
-            TriangulatePoint(camFromWorld1.ToMatrix(),
-                             camFromWorld2.ToMatrix(),
+            TriangulatePoint(cam_from_world1.ToMatrix(),
+                             cam_from_world2.ToMatrix(),
                              point2D1.hnormalized(),
                              point2D2.hnormalized());
 

@@ -247,10 +247,11 @@ ImageReader::Status ImageReader::Next(Camera* camera,
     // Extract GPS data.
     //////////////////////////////////////////////////////////////////////////////
 
-    if (!bitmap->ExifLatitude(&image->TvecPrior(0)) ||
-        !bitmap->ExifLongitude(&image->TvecPrior(1)) ||
-        !bitmap->ExifAltitude(&image->TvecPrior(2))) {
-      image->TvecPrior().setConstant(std::numeric_limits<double>::quiet_NaN());
+    Eigen::Vector3d& translation_prior = image->CamFromWorldPrior().translation;
+    if (!bitmap->ExifLatitude(&translation_prior.x()) ||
+        !bitmap->ExifLongitude(&translation_prior.y()) ||
+        !bitmap->ExifAltitude(&translation_prior.z())) {
+      translation_prior.setConstant(std::numeric_limits<double>::quiet_NaN());
     }
   }
 

@@ -103,326 +103,67 @@ TEST(EulerAngles, XYZ) {
   EXPECT_NEAR(rz, rzz, 1e-6);
 }
 
-TEST(QuaternionToRotationMatrix, Nominal) {
-  const double rx = 0;
-  const double ry = 0;
-  const double rz = 0.3;
-  const Eigen::Matrix3d rot_mat0 = EulerAnglesToRotationMatrix(rx, ry, rz);
-  const Eigen::Matrix3d rot_mat1 =
-      QuaternionToRotationMatrix(RotationMatrixToQuaternion(rot_mat0));
-  EXPECT_TRUE(rot_mat0.isApprox(rot_mat1));
-}
-
-TEST(ComposeIdentityQuaternion, Nominal) {
-  EXPECT_EQ(ComposeIdentityQuaternion(), Eigen::Vector4d(1, 0, 0, 0));
-}
-
-TEST(NormalizeQuaternion, Nominal) {
-  EXPECT_EQ(NormalizeQuaternion(ComposeIdentityQuaternion()),
-            ComposeIdentityQuaternion());
-  EXPECT_EQ(NormalizeQuaternion(Eigen::Vector4d(2, 0, 0, 0)),
-            ComposeIdentityQuaternion());
-  EXPECT_EQ(NormalizeQuaternion(Eigen::Vector4d(0.5, 0, 0, 0)),
-            ComposeIdentityQuaternion());
-  EXPECT_EQ(NormalizeQuaternion(Eigen::Vector4d(0, 0, 0, 0)),
-            ComposeIdentityQuaternion());
-  EXPECT_TRUE(
-      NormalizeQuaternion(Eigen::Vector4d(1, 1, 0, 0))
-          .isApprox(Eigen::Vector4d(std::sqrt(2) / 2, std::sqrt(2) / 2, 0, 0)));
-  EXPECT_TRUE(
-      NormalizeQuaternion(Eigen::Vector4d(0.5, 0.5, 0, 0))
-          .isApprox(Eigen::Vector4d(std::sqrt(2) / 2, std::sqrt(2) / 2, 0, 0)));
-}
-
-TEST(InvertQuaternion, Nominal) {
-  EXPECT_EQ(InvertQuaternion(ComposeIdentityQuaternion()),
-            Eigen::Vector4d(1, -0, -0, -0));
-  EXPECT_EQ(InvertQuaternion(Eigen::Vector4d(2, 0, 0, 0)),
-            Eigen::Vector4d(2, -0, -0, -0));
-  EXPECT_EQ(
-      InvertQuaternion(InvertQuaternion(Eigen::Vector4d(0.1, 0.2, 0.3, 0.4))),
-      Eigen::Vector4d(0.1, 0.2, 0.3, 0.4));
-}
-
-TEST(ConcatenateQuaternions, Nominal) {
-  EXPECT_EQ(ConcatenateQuaternions(ComposeIdentityQuaternion(),
-                                   ComposeIdentityQuaternion()),
-            ComposeIdentityQuaternion());
-  EXPECT_EQ(ConcatenateQuaternions(Eigen::Vector4d(2, 0, 0, 0),
-                                   ComposeIdentityQuaternion()),
-            ComposeIdentityQuaternion());
-  EXPECT_EQ(ConcatenateQuaternions(ComposeIdentityQuaternion(),
-                                   Eigen::Vector4d(2, 0, 0, 0)),
-            ComposeIdentityQuaternion());
-  EXPECT_TRUE(ConcatenateQuaternions(
-                  Eigen::Vector4d(0.1, 0.2, 0.3, 0.4),
-                  InvertQuaternion(Eigen::Vector4d(0.1, 0.2, 0.3, 0.4)))
-                  .isApprox(ComposeIdentityQuaternion()));
-  EXPECT_TRUE(ConcatenateQuaternions(
-                  InvertQuaternion(Eigen::Vector4d(0.1, 0.2, 0.3, 0.4)),
-                  Eigen::Vector4d(0.1, 0.2, 0.3, 0.4))
-                  .isApprox(ComposeIdentityQuaternion()));
-}
-
-TEST(QuaternionRotatePoint, Nominal) {
-  EXPECT_EQ(QuaternionRotatePoint(ComposeIdentityQuaternion(),
-                                  Eigen::Vector3d(0, 0, 0)),
-            Eigen::Vector3d(0, 0, 0));
-  EXPECT_EQ(QuaternionRotatePoint(Eigen::Vector4d(0.1, 0, 0, 0),
-                                  Eigen::Vector3d(0, 0, 0)),
-            Eigen::Vector3d(0, 0, 0));
-  EXPECT_EQ(QuaternionRotatePoint(ComposeIdentityQuaternion(),
-                                  Eigen::Vector3d(1, 1, 0)),
-            Eigen::Vector3d(1, 1, 0));
-  EXPECT_EQ(QuaternionRotatePoint(Eigen::Vector4d(0.1, 0, 0, 0),
-                                  Eigen::Vector3d(1, 1, 0)),
-            Eigen::Vector3d(1, 1, 0));
-  EXPECT_TRUE(
-      QuaternionRotatePoint(
-          RotationMatrixToQuaternion(EulerAnglesToRotationMatrix(M_PI, 0, 0)),
-          Eigen::Vector3d(1, 1, 0))
-          .isApprox(Eigen::Vector3d(1, -1, 0)));
-}
-
 TEST(AverageQuaternions, Nominal) {
-  std::vector<Eigen::Vector4d> qvecs;
+  std::vector<Eigen::Quaterniond> quats;
   std::vector<double> weights;
 
-  qvecs = {{ComposeIdentityQuaternion()}};
+  quats = {{Eigen::Quaterniond::Identity()}};
   weights = {1.0};
-  EXPECT_EQ(AverageQuaternions(qvecs, weights), ComposeIdentityQuaternion());
+  EXPECT_EQ(AverageQuaternions(quats, weights).coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
 
-  qvecs = {ComposeIdentityQuaternion()};
+  quats = {Eigen::Quaterniond::Identity()};
   weights = {2.0};
-  EXPECT_EQ(AverageQuaternions(qvecs, weights), ComposeIdentityQuaternion());
+  EXPECT_EQ(AverageQuaternions(quats, weights).coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
 
-  qvecs = {ComposeIdentityQuaternion(), ComposeIdentityQuaternion()};
+  quats = {Eigen::Quaterniond::Identity(), Eigen::Quaterniond::Identity()};
   weights = {1.0, 1.0};
-  EXPECT_EQ(AverageQuaternions(qvecs, weights), ComposeIdentityQuaternion());
+  EXPECT_EQ(AverageQuaternions(quats, weights).coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
 
-  qvecs = {ComposeIdentityQuaternion(), ComposeIdentityQuaternion()};
+  quats = {Eigen::Quaterniond::Identity(), Eigen::Quaterniond::Identity()};
   weights = {1.0, 2.0};
-  EXPECT_EQ(AverageQuaternions(qvecs, weights), ComposeIdentityQuaternion());
+  EXPECT_EQ(AverageQuaternions(quats, weights).coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
 
-  qvecs = {ComposeIdentityQuaternion(), Eigen::Vector4d(2, 0, 0, 0)};
+  quats = {Eigen::Quaterniond::Identity(), Eigen::Quaterniond(2, 0, 0, 0)};
   weights = {1.0, 2.0};
-  EXPECT_EQ(AverageQuaternions(qvecs, weights), ComposeIdentityQuaternion());
+  EXPECT_EQ(AverageQuaternions(quats, weights).coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
 
-  qvecs = {ComposeIdentityQuaternion(), Eigen::Vector4d(1, 1, 0, 0)};
+  quats = {Eigen::Quaterniond::Identity(), Eigen::Quaterniond(1, 1, 0, 0)};
   weights = {1.0, 1.0};
-  EXPECT_TRUE(AverageQuaternions(qvecs, weights)
-                  .isApprox(Eigen::Vector4d(0.92388, 0.382683, 0, 0), 1e-6));
+  EXPECT_TRUE(AverageQuaternions(quats, weights)
+                  .isApprox(Eigen::Quaterniond(0.92388, 0.382683, 0, 0), 1e-6));
 
-  qvecs = {ComposeIdentityQuaternion(), Eigen::Vector4d(1, 1, 0, 0)};
+  quats = {Eigen::Quaterniond::Identity(), Eigen::Quaterniond(1, 1, 0, 0)};
   weights = {1.0, 2.0};
-  EXPECT_TRUE(AverageQuaternions(qvecs, weights)
-                  .isApprox(Eigen::Vector4d(0.850651, 0.525731, 0, 0), 1e-6));
-}
-
-TEST(RotationFromUnitVectors, Nominal) {
-  EXPECT_EQ(RotationFromUnitVectors(Eigen::Vector3d(0, 0, 1),
-                                    Eigen::Vector3d(0, 0, 1)),
-            Eigen::Matrix3d::Identity());
-  EXPECT_EQ(RotationFromUnitVectors(Eigen::Vector3d(0, 0, 2),
-                                    Eigen::Vector3d(0, 0, 2)),
-            Eigen::Matrix3d::Identity());
-
-  Eigen::Matrix3d ref_matrix1;
-  ref_matrix1 << 1, 0, 0, 0, 0, 1, 0, -1, 0;
-  EXPECT_EQ(RotationFromUnitVectors(Eigen::Vector3d(0, 0, 1),
-                                    Eigen::Vector3d(0, 1, 0)),
-            ref_matrix1);
-  EXPECT_EQ(ref_matrix1 * Eigen::Vector3d(0, 0, 1), Eigen::Vector3d(0, 1, 0));
-  EXPECT_EQ(RotationFromUnitVectors(Eigen::Vector3d(0, 0, 2),
-                                    Eigen::Vector3d(0, 2, 0)),
-            ref_matrix1);
-  EXPECT_EQ(ref_matrix1 * Eigen::Vector3d(0, 0, 2), Eigen::Vector3d(0, 2, 0));
-
-  EXPECT_EQ(RotationFromUnitVectors(Eigen::Vector3d(0, 0, 1),
-                                    Eigen::Vector3d(0, 0, -1)),
-            Eigen::Matrix3d::Identity());
-}
-
-TEST(PoseFromProjectionMatrix, Nominal) {
-  const Eigen::Vector4d qvec = Eigen::Vector4d::Random().normalized();
-  const Eigen::Vector3d tvec(3, 4, 5);
-  const Eigen::Matrix3x4d proj_matrix = ComposeProjectionMatrix(qvec, tvec);
-  const Eigen::Matrix3x4d inv_proj_matrix = InvertProjectionMatrix(proj_matrix);
-  const Eigen::Vector3d pose = ProjectionCenterFromMatrix(proj_matrix);
-  EXPECT_NEAR((inv_proj_matrix.rightCols<1>() - pose).norm(), 0, 1e-6);
-}
-
-TEST(PoseFromProjectionParameters, Nominal) {
-  const Eigen::Vector4d qvec = Eigen::Vector4d::Random().normalized();
-  const Eigen::Vector3d tvec(3, 4, 5);
-  const Eigen::Matrix3x4d proj_matrix = ComposeProjectionMatrix(qvec, tvec);
-  const Eigen::Matrix3x4d inv_proj_matrix = InvertProjectionMatrix(proj_matrix);
-  const Eigen::Vector3d pose = ProjectionCenterFromPose(qvec, tvec);
-  EXPECT_TRUE((inv_proj_matrix.rightCols<1>() - pose).norm() < 1e-6);
-}
-
-TEST(ComputeRelativePose, Nominal) {
-  Eigen::Vector4d qvec12;
-  Eigen::Vector3d tvec12;
-
-  ComputeRelativePose(ComposeIdentityQuaternion(),
-                      Eigen::Vector3d(0, 0, 0),
-                      ComposeIdentityQuaternion(),
-                      Eigen::Vector3d(0, 0, 0),
-                      &qvec12,
-                      &tvec12);
-  EXPECT_EQ(qvec12, ComposeIdentityQuaternion());
-  EXPECT_EQ(tvec12, Eigen::Vector3d(0, 0, 0));
-
-  ComputeRelativePose(ComposeIdentityQuaternion(),
-                      Eigen::Vector3d(0, 0, 0),
-                      ComposeIdentityQuaternion(),
-                      Eigen::Vector3d(1, 0, 0),
-                      &qvec12,
-                      &tvec12);
-  EXPECT_EQ(qvec12, ComposeIdentityQuaternion());
-  EXPECT_EQ(tvec12, Eigen::Vector3d(1, 0, 0));
-
-  ComputeRelativePose(ComposeIdentityQuaternion(),
-                      Eigen::Vector3d(0, 0, 0),
-                      Eigen::Vector4d(1, 1, 0, 0),
-                      Eigen::Vector3d(0, 0, 0),
-                      &qvec12,
-                      &tvec12);
-  EXPECT_TRUE(qvec12.isApprox(Eigen::Vector4d(0.707107, 0.707107, 0, 0), 1e-6));
-  EXPECT_EQ(tvec12, Eigen::Vector3d(0, 0, 0));
-
-  ComputeRelativePose(ComposeIdentityQuaternion(),
-                      Eigen::Vector3d(0, 0, 0),
-                      Eigen::Vector4d(1, 1, 0, 0),
-                      Eigen::Vector3d(1, 0, 0),
-                      &qvec12,
-                      &tvec12);
-  EXPECT_TRUE(qvec12.isApprox(Eigen::Vector4d(0.707107, 0.707107, 0, 0), 1e-6));
-  EXPECT_EQ(tvec12, Eigen::Vector3d(1, 0, 0));
-
-  ComputeRelativePose(Eigen::Vector4d(1, 1, 0, 0),
-                      Eigen::Vector3d(0, 0, 0),
-                      Eigen::Vector4d(1, 1, 0, 0),
-                      Eigen::Vector3d(1, 0, 0),
-                      &qvec12,
-                      &tvec12);
-  EXPECT_TRUE(qvec12.isApprox(ComposeIdentityQuaternion()));
-  EXPECT_EQ(tvec12, Eigen::Vector3d(1, 0, 0));
-
-  ComputeRelativePose(ComposeIdentityQuaternion(),
-                      Eigen::Vector3d(0, 0, 1),
-                      Eigen::Vector4d(1, 1, 0, 0),
-                      Eigen::Vector3d(0, 0, 0),
-                      &qvec12,
-                      &tvec12);
-  EXPECT_TRUE(qvec12.isApprox(Eigen::Vector4d(0.707107, 0.707107, 0, 0), 1e-6));
-  EXPECT_TRUE(tvec12.isApprox(Eigen::Vector3d(0, 1, 0)));
-}
-
-TEST(ConcatenatePoses, Nominal) {
-  Eigen::Vector4d qvec12;
-  Eigen::Vector3d tvec12;
-
-  ConcatenatePoses(ComposeIdentityQuaternion(),
-                   Eigen::Vector3d(0, 0, 0),
-                   ComposeIdentityQuaternion(),
-                   Eigen::Vector3d(0, 0, 0),
-                   &qvec12,
-                   &tvec12);
-  EXPECT_EQ(qvec12, ComposeIdentityQuaternion());
-  EXPECT_EQ(tvec12, Eigen::Vector3d(0, 0, 0));
-
-  ConcatenatePoses(ComposeIdentityQuaternion(),
-                   Eigen::Vector3d(0, 0, 0),
-                   ComposeIdentityQuaternion(),
-                   Eigen::Vector3d(0, 1, 2),
-                   &qvec12,
-                   &tvec12);
-  EXPECT_EQ(qvec12, ComposeIdentityQuaternion());
-  EXPECT_EQ(tvec12, Eigen::Vector3d(0, 1, 2));
-
-  ConcatenatePoses(ComposeIdentityQuaternion(),
-                   Eigen::Vector3d(0, 1, 2),
-                   ComposeIdentityQuaternion(),
-                   Eigen::Vector3d(3, 4, 5),
-                   &qvec12,
-                   &tvec12);
-  EXPECT_EQ(qvec12, ComposeIdentityQuaternion());
-  EXPECT_EQ(tvec12, Eigen::Vector3d(3, 5, 7));
-
-  Eigen::Vector4d rel_qvec12;
-  Eigen::Vector3d rel_tvec12;
-  ComputeRelativePose(Eigen::Vector4d(1, 1, 0, 0),
-                      Eigen::Vector3d(0, 1, 2),
-                      Eigen::Vector4d(1, 3, 0, 0),
-                      Eigen::Vector3d(3, 4, 5),
-                      &rel_qvec12,
-                      &rel_tvec12);
-  ConcatenatePoses(Eigen::Vector4d(1, 1, 0, 0),
-                   Eigen::Vector3d(0, 1, 2),
-                   rel_qvec12,
-                   rel_tvec12,
-                   &qvec12,
-                   &tvec12);
   EXPECT_TRUE(
-      qvec12.isApprox(NormalizeQuaternion(Eigen::Vector4d(1, 3, 0, 0))));
-  EXPECT_TRUE(tvec12.isApprox(Eigen::Vector3d(3, 4, 5)));
+      AverageQuaternions(quats, weights)
+          .isApprox(Eigen::Quaterniond(0.850651, 0.525731, 0, 0), 1e-6));
 }
 
-TEST(InvertPose, Nominal) {
-  Eigen::Vector4d inv_qvec;
-  Eigen::Vector3d inv_tvec;
-  InvertPose(ComposeIdentityQuaternion(),
-             Eigen::Vector3d(0, 0, 0),
-             &inv_qvec,
-             &inv_tvec);
-  EXPECT_EQ(inv_qvec, ComposeIdentityQuaternion());
-  EXPECT_EQ(inv_tvec, Eigen::Vector3d(0, 0, 0));
-  InvertPose(Eigen::Vector4d(0, 1, 2, 3),
-             Eigen::Vector3d(0, 1, 2),
-             &inv_qvec,
-             &inv_tvec);
-  Eigen::Vector4d inv_inv_qvec;
-  Eigen::Vector3d inv_inv_tvec;
-  InvertPose(inv_qvec, inv_tvec, &inv_inv_qvec, &inv_inv_tvec);
-  EXPECT_EQ(inv_inv_qvec, Eigen::Vector4d(0, 1, 2, 3));
-  EXPECT_TRUE(inv_inv_tvec.isApprox(Eigen::Vector3d(0, 1, 2)));
-}
+TEST(InterpolateCameraPoses, Nominal) {
+  const Rigid3d cam_from_world1(Eigen::Quaterniond::UnitRandom(),
+                                Eigen::Vector3d::Random());
+  const Rigid3d cam_from_world2(Eigen::Quaterniond::UnitRandom(),
+                                Eigen::Vector3d::Random());
 
-TEST(InterpolatePose, Nominal) {
-  const Eigen::Vector4d qvec1 = Eigen::Vector4d::Random().normalized();
-  const Eigen::Vector3d tvec1 = Eigen::Vector3d::Random();
-  const Eigen::Vector4d qvec2 = Eigen::Vector4d::Random().normalized();
-  const Eigen::Vector3d tvec2 = Eigen::Vector3d::Random();
+  const Rigid3d interp_cam_from_world1 =
+      InterpolateCameraPoses(cam_from_world1, cam_from_world2, 0);
+  EXPECT_TRUE(
+      interp_cam_from_world1.translation.isApprox(cam_from_world1.translation));
 
-  Eigen::Vector4d qveci;
-  Eigen::Vector3d tveci;
+  const Rigid3d interp_cam_from_world2 =
+      InterpolateCameraPoses(cam_from_world1, cam_from_world2, 1);
+  EXPECT_TRUE(
+      interp_cam_from_world2.translation.isApprox(cam_from_world2.translation));
 
-  InterpolatePose(qvec1, tvec1, qvec2, tvec2, 0, &qveci, &tveci);
-  EXPECT_TRUE(tvec1.isApprox(tveci));
-
-  InterpolatePose(qvec1, tvec1, qvec2, tvec2, 1, &qveci, &tveci);
-  EXPECT_TRUE(tvec2.isApprox(tveci));
-
-  InterpolatePose(qvec1, tvec1, qvec2, tvec2, 0.5, &qveci, &tveci);
-  EXPECT_TRUE(((tvec1 + tvec2) / 2).isApprox(tveci));
-}
-
-TEST(CalculateBaseline, Nominal) {
-  Eigen::Vector4d qvec1(1, 0, 0, 0);
-  Eigen::Vector4d qvec2(1, 0, 0, 0);
-
-  Eigen::Vector3d tvec1(0, 0, 0);
-  Eigen::Vector3d tvec2(0, 0, 1);
-
-  const double baseline1 = CalculateBaseline(qvec1, tvec1, qvec2, tvec2).norm();
-  EXPECT_NEAR(baseline1, 1, 1e-10);
-
-  tvec2(2) = 2;
-
-  const double baseline2 = CalculateBaseline(qvec1, tvec1, qvec2, tvec2).norm();
-  EXPECT_NEAR(baseline2, 2, 1e-10);
+  const Rigid3d interp_cam_from_world3 =
+      InterpolateCameraPoses(cam_from_world1, cam_from_world2, 0.5);
+  EXPECT_TRUE(interp_cam_from_world3.translation.isApprox(
+      (cam_from_world1.translation + cam_from_world2.translation) / 2));
 }
 
 TEST(CheckCheirality, Nominal) {

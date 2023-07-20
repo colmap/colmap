@@ -37,12 +37,12 @@ namespace colmap {
 
 CameraRig::CameraRig() {}
 
-size_t CameraRig::NumCameras() const { return rig_cameras_.size(); }
+size_t CameraRig::NumCameras() const { return cams_from_rigs_.size(); }
 
 size_t CameraRig::NumSnapshots() const { return snapshots_.size(); }
 
 bool CameraRig::HasCamera(const camera_t camera_id) const {
-  return rig_cameras_.count(camera_id);
+  return cams_from_rigs_.count(camera_id);
 }
 
 camera_t CameraRig::RefCameraId() const { return ref_camera_id_; }
@@ -54,8 +54,8 @@ void CameraRig::SetRefCameraId(const camera_t camera_id) {
 
 std::vector<camera_t> CameraRig::GetCameraIds() const {
   std::vector<camera_t> rig_camera_ids;
-  rig_camera_ids.reserve(NumCameras());
-  for (const auto& rig_camera : rig_cameras_) {
+  rig_camera_ids.reserve(cams_from_rigs_.size());
+  for (const auto& rig_camera : cams_from_rigs_) {
     rig_camera_ids.push_back(rig_camera.first);
   }
   return rig_camera_ids;
@@ -66,14 +66,10 @@ const std::vector<std::vector<image_t>>& CameraRig::Snapshots() const {
 }
 
 void CameraRig::AddCamera(const camera_t camera_id,
-                          const Eigen::Vector4d& rel_qvec,
-                          const Eigen::Vector3d& rel_tvec) {
+                          const Rigid3d& cam_from_rig) {
   CHECK(!HasCamera(camera_id));
   CHECK_EQ(NumSnapshots(), 0);
-  RigCamera rig_camera;
-  rig_camera.rel_qvec = rel_qvec;
-  rig_camera.rel_tvec = rel_tvec;
-  rig_cameras_.emplace(camera_id, rig_camera);
+  cams_from_rigs_.emplace(camera_id, cam_from_rig);
 }
 
 void CameraRig::AddSnapshot(const std::vector<image_t>& image_ids) {
@@ -86,7 +82,7 @@ void CameraRig::AddSnapshot(const std::vector<image_t>& image_ids) {
 void CameraRig::Check(const Reconstruction& reconstruction) const {
   CHECK(HasCamera(ref_camera_id_));
 
-  for (const auto& rig_camera : rig_cameras_) {
+  for (const auto& rig_camera : cams_from_rigs_) {
     CHECK(reconstruction.ExistsCamera(rig_camera.first));
   }
 
@@ -109,48 +105,42 @@ void CameraRig::Check(const Reconstruction& reconstruction) const {
   }
 }
 
-Eigen::Vector4d& CameraRig::RelativeQvec(const camera_t camera_id) {
-  return rig_cameras_.at(camera_id).rel_qvec;
+const Rigid3d& CameraRig::CamFromRig(const camera_t camera_id) const {
+  return cams_from_rigs_.at(camera_id);
 }
 
-const Eigen::Vector4d& CameraRig::RelativeQvec(const camera_t camera_id) const {
-  return rig_cameras_.at(camera_id).rel_qvec;
+Rigid3d& CameraRig::CamFromRig(const camera_t camera_id) {
+  return cams_from_rigs_.at(camera_id);
 }
 
-Eigen::Vector3d& CameraRig::RelativeTvec(const camera_t camera_id) {
-  return rig_cameras_.at(camera_id).rel_tvec;
-}
-
-const Eigen::Vector3d& CameraRig::RelativeTvec(const camera_t camera_id) const {
-  return rig_cameras_.at(camera_id).rel_tvec;
-}
-
-double CameraRig::ComputeScale(const Reconstruction& reconstruction) const {
+double CameraRig::ComputeRigFromWorldScale(
+    const Reconstruction& reconstruction) const {
   CHECK_GT(NumSnapshots(), 0);
-  CHECK_GT(NumCameras(), 0);
-  double scaling_factor = 0;
+  const size_t num_cameras = NumCameras();
+  CHECK_GT(num_cameras, 0);
+
+  double rig_from_world_scale = 0;
   size_t num_dists = 0;
-  std::vector<Eigen::Vector3d> rel_proj_centers(NumCameras());
-  std::vector<Eigen::Vector3d> abs_proj_centers(NumCameras());
+  std::vector<Eigen::Vector3d> proj_centers_in_rig(num_cameras);
+  std::vector<Eigen::Vector3d> proj_centers_in_world(num_cameras);
   for (const auto& snapshot : snapshots_) {
-    // Compute the projection relative and absolute projection centers.
-    for (size_t i = 0; i < NumCameras(); ++i) {
+    for (size_t i = 0; i < num_cameras; ++i) {
       const auto& image = reconstruction.Image(snapshot[i]);
-      rel_proj_centers[i] = ProjectionCenterFromPose(
-          RelativeQvec(image.CameraId()), RelativeTvec(image.CameraId()));
-      abs_proj_centers[i] = image.ProjectionCenter();
+      proj_centers_in_rig[i] =
+          Inverse(CamFromRig(image.CameraId())).translation;
+      proj_centers_in_world[i] = image.ProjectionCenter();
     }
 
-    // Accumulate the scaling factor for all pairs of camera distances.
-    for (size_t i = 0; i < NumCameras(); ++i) {
+    // Accumulate the relative scale for all pairs of camera distances.
+    for (size_t i = 0; i < num_cameras; ++i) {
       for (size_t j = 0; j < i; ++j) {
-        const double rel_dist =
-            (rel_proj_centers[i] - rel_proj_centers[j]).norm();
-        const double abs_dist =
-            (abs_proj_centers[i] - abs_proj_centers[j]).norm();
+        const double rig_dist =
+            (proj_centers_in_rig[i] - proj_centers_in_rig[j]).norm();
+        const double world_dist =
+            (proj_centers_in_world[i] - proj_centers_in_world[j]).norm();
         const double kMinDist = 1e-6;
-        if (rel_dist > kMinDist && abs_dist > kMinDist) {
-          scaling_factor += rel_dist / abs_dist;
+        if (rig_dist > kMinDist && world_dist > kMinDist) {
+          rig_from_world_scale += rig_dist / world_dist;
           num_dists += 1;
         }
       }
@@ -161,19 +151,19 @@ double CameraRig::ComputeScale(const Reconstruction& reconstruction) const {
     return std::numeric_limits<double>::quiet_NaN();
   }
 
-  return scaling_factor / num_dists;
+  return rig_from_world_scale / num_dists;
 }
 
-bool CameraRig::ComputeRelativePoses(const Reconstruction& reconstruction) {
+bool CameraRig::ComputeCamsFromRigs(const Reconstruction& reconstruction) {
   CHECK_GT(NumSnapshots(), 0);
   CHECK_NE(ref_camera_id_, kInvalidCameraId);
 
-  for (auto& rig_camera : rig_cameras_) {
-    rig_camera.second.rel_tvec = Eigen::Vector3d::Zero();
+  for (auto& cam_from_rig : cams_from_rigs_) {
+    cam_from_rig.second.translation = Eigen::Vector3d::Zero();
   }
 
-  std::unordered_map<camera_t, std::vector<Eigen::Vector4d>> rel_qvecs;
-
+  std::unordered_map<camera_t, std::vector<Eigen::Quaterniond>>
+      cam_from_ref_cam_rotations;
   for (const auto& snapshot : snapshots_) {
     // Find the image of the reference camera in the current snapshot.
     const Image* ref_image = nullptr;
@@ -185,83 +175,66 @@ bool CameraRig::ComputeRelativePoses(const Reconstruction& reconstruction) {
       }
     }
 
-    CHECK_NOTNULL(ref_image);
+    const Rigid3d world_from_ref_cam =
+        Inverse(CHECK_NOTNULL(ref_image)->CamFromWorld());
 
     // Compute the relative poses from all cameras in the current snapshot to
     // the reference camera.
     for (const auto image_id : snapshot) {
       const auto& image = reconstruction.Image(image_id);
       if (image.CameraId() != ref_camera_id_) {
-        Eigen::Vector4d rel_qvec;
-        Eigen::Vector3d rel_tvec;
-        ComputeRelativePose(ref_image->Qvec(),
-                            ref_image->Tvec(),
-                            image.Qvec(),
-                            image.Tvec(),
-                            &rel_qvec,
-                            &rel_tvec);
-
-        rel_qvecs[image.CameraId()].push_back(rel_qvec);
-        RelativeTvec(image.CameraId()) += rel_tvec;
+        const Rigid3d cam_from_ref_cam =
+            image.CamFromWorld() * world_from_ref_cam;
+        cam_from_ref_cam_rotations[image.CameraId()].push_back(
+            cam_from_ref_cam.rotation);
+        CamFromRig(image.CameraId()).translation +=
+            cam_from_ref_cam.translation;
       }
     }
   }
 
-  RelativeQvec(ref_camera_id_) = ComposeIdentityQuaternion();
-  RelativeTvec(ref_camera_id_) = Eigen::Vector3d(0, 0, 0);
+  cams_from_rigs_.at(ref_camera_id_) = Rigid3d();
 
   // Compute the average relative poses.
-  for (auto& rig_camera : rig_cameras_) {
-    if (rig_camera.first != ref_camera_id_) {
-      if (rel_qvecs.count(rig_camera.first) == 0) {
+  for (auto& cam_from_rig : cams_from_rigs_) {
+    if (cam_from_rig.first != ref_camera_id_) {
+      if (cam_from_ref_cam_rotations.count(cam_from_rig.first) == 0) {
         std::cout << "Need at least one snapshot with an image of camera "
-                  << rig_camera.first << " and the reference camera "
+                  << cam_from_rig.first << " and the reference camera "
                   << ref_camera_id_
                   << " to compute its relative pose in the camera rig"
                   << std::endl;
         return false;
       }
-      const std::vector<Eigen::Vector4d>& camera_rel_qvecs =
-          rel_qvecs.at(rig_camera.first);
-      const std::vector<double> rel_qvec_weights(camera_rel_qvecs.size(), 1.0);
-      rig_camera.second.rel_qvec =
-          AverageQuaternions(camera_rel_qvecs, rel_qvec_weights);
-      rig_camera.second.rel_tvec /= camera_rel_qvecs.size();
+      const std::vector<Eigen::Quaterniond>& cam_from_rig_rotations =
+          cam_from_ref_cam_rotations.at(cam_from_rig.first);
+      const std::vector<double> weights(cam_from_rig_rotations.size(), 1.0);
+      cam_from_rig.second.rotation =
+          AverageQuaternions(cam_from_rig_rotations, weights);
+      cam_from_rig.second.translation /= cam_from_rig_rotations.size();
     }
   }
   return true;
 }
 
-void CameraRig::ComputeAbsolutePose(const size_t snapshot_idx,
-                                    const Reconstruction& reconstruction,
-                                    Eigen::Vector4d* abs_qvec,
-                                    Eigen::Vector3d* abs_tvec) const {
+Rigid3d CameraRig::ComputeRigFromWorld(
+    const size_t snapshot_idx, const Reconstruction& reconstruction) const {
   const auto& snapshot = snapshots_.at(snapshot_idx);
 
-  std::vector<Eigen::Vector4d> abs_qvecs;
-  *abs_tvec = Eigen::Vector3d::Zero();
-
+  std::vector<Eigen::Quaterniond> rig_from_world_rotations;
+  rig_from_world_rotations.reserve(snapshot.size());
+  Eigen::Vector3d rig_from_world_translations = Eigen::Vector3d::Zero();
   for (const auto image_id : snapshot) {
     const auto& image = reconstruction.Image(image_id);
-    Eigen::Vector4d inv_rel_qvec;
-    Eigen::Vector3d inv_rel_tvec;
-    InvertPose(RelativeQvec(image.CameraId()),
-               RelativeTvec(image.CameraId()),
-               &inv_rel_qvec,
-               &inv_rel_tvec);
-
-    const Eigen::Vector4d qvec =
-        ConcatenateQuaternions(image.Qvec(), inv_rel_qvec);
-    const Eigen::Vector3d tvec = QuaternionRotatePoint(
-        inv_rel_qvec, image.Tvec() - RelativeTvec(image.CameraId()));
-
-    abs_qvecs.push_back(qvec);
-    *abs_tvec += tvec;
+    const Rigid3d rig_from_world =
+        Inverse(CamFromRig(image.CameraId())) * image.CamFromWorld();
+    rig_from_world_rotations.push_back(rig_from_world.rotation);
+    rig_from_world_translations += rig_from_world.translation;
   }
 
-  const std::vector<double> abs_qvec_weights(snapshot.size(), 1);
-  *abs_qvec = AverageQuaternions(abs_qvecs, abs_qvec_weights);
-  *abs_tvec /= snapshot.size();
+  const std::vector<double> rotation_weights(snapshot.size(), 1);
+  return Rigid3d(AverageQuaternions(rig_from_world_rotations, rotation_weights),
+                 rig_from_world_translations /= snapshot.size());
 }
 
 }  // namespace colmap

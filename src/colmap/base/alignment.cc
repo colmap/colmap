@@ -109,8 +109,10 @@ struct ReconstructionAlignmentEstimator {
       const auto& tgt_camera =
           tgt_reconstruction_->Camera(tgt_image.CameraId());
 
-      const Eigen::Matrix3x4d tgt_proj_matrix = src_image.ProjectionMatrix();
-      const Eigen::Matrix3x4d src_proj_matrix = tgt_image.ProjectionMatrix();
+      const Eigen::Matrix3x4d src_cam_from_world =
+          src_image.CamFromWorld().ToMatrix();
+      const Eigen::Matrix3x4d tgt_cam_from_world =
+          tgt_image.CamFromWorld().ToMatrix();
 
       CHECK_EQ(src_image.NumPoints2D(), tgt_image.NumPoints2D());
 
@@ -138,7 +140,7 @@ struct ReconstructionAlignmentEstimator {
             src_reconstruction_->Point3D(src_point2D.Point3DId()).XYZ();
         if (CalculateSquaredReprojectionError(tgt_point2D.XY(),
                                               src_point_in_tgt,
-                                              src_proj_matrix,
+                                              tgt_cam_from_world,
                                               tgt_camera) >
             max_squared_reproj_error_) {
           continue;
@@ -149,7 +151,7 @@ struct ReconstructionAlignmentEstimator {
             tgt_reconstruction_->Point3D(tgt_point2D.Point3DId()).XYZ();
         if (CalculateSquaredReprojectionError(src_point2D.XY(),
                                               tgt_point_in_src,
-                                              tgt_proj_matrix,
+                                              src_cam_from_world,
                                               src_camera) >
             max_squared_reproj_error_) {
           continue;
@@ -316,30 +318,18 @@ std::vector<ImageAlignmentError> ComputeImageAlignmentError(
   std::vector<ImageAlignmentError> errors;
   errors.reserve(num_common_images);
   for (const image_t image_id : common_image_ids) {
-    const Image& src_image = src_reconstruction.Image(image_id);
-    const Image& tgt_image = tgt_reconstruction.Image(image_id);
-
-    Eigen::Vector4d src_qvec = src_image.Qvec();
-    Eigen::Vector3d src_tvec = src_image.Tvec();
-    tgt_from_src.TransformPose(&src_qvec, &src_tvec);
-
-    const Eigen::Vector4d normalized_qvec1 = NormalizeQuaternion(src_qvec);
-    const Eigen::Quaterniond src_quat(normalized_qvec1(0),
-                                      normalized_qvec1(1),
-                                      normalized_qvec1(2),
-                                      normalized_qvec1(3));
-    const Eigen::Vector4d normalized_qvec2 =
-        NormalizeQuaternion(tgt_image.Qvec());
-    const Eigen::Quaterniond tgt_quat(normalized_qvec2(0),
-                                      normalized_qvec2(1),
-                                      normalized_qvec2(2),
-                                      normalized_qvec2(3));
+    const Rigid3d tgt_world_from_src_cam = Inverse(TransformCameraWorld(
+        tgt_from_src, src_reconstruction.Image(image_id).CamFromWorld()));
+    const Rigid3d tgt_world_from_tgt_cam =
+        Inverse(tgt_reconstruction.Image(image_id).CamFromWorld());
 
     ImageAlignmentError error;
     error.image_id = image_id;
-    error.rotation_error_deg = RadToDeg(src_quat.angularDistance(tgt_quat));
-    error.proj_center_error = (ProjectionCenterFromPose(src_qvec, src_tvec) -
-                               tgt_image.ProjectionCenter())
+    error.rotation_error_deg =
+        RadToDeg(tgt_world_from_src_cam.rotation.angularDistance(
+            tgt_world_from_tgt_cam.rotation));
+    error.proj_center_error = (tgt_world_from_src_cam.translation -
+                               tgt_world_from_tgt_cam.translation)
                                   .norm();
     errors.push_back(error);
   }
@@ -375,14 +365,14 @@ bool MergeReconstructions(const double max_reproj_error,
   for (const auto image_id : missing_image_ids) {
     auto src_image = src_reconstruction.Image(image_id);
     src_image.SetRegistered(false);
+    src_image.CamFromWorld() =
+        TransformCameraWorld(tgt_from_src, src_image.CamFromWorld());
     tgt_reconstruction->AddImage(src_image);
     tgt_reconstruction->RegisterImage(image_id);
     if (!tgt_reconstruction->ExistsCamera(src_image.CameraId())) {
       tgt_reconstruction->AddCamera(
           src_reconstruction.Camera(src_image.CameraId()));
     }
-    auto& tgt_image = tgt_reconstruction->Image(image_id);
-    tgt_from_src.TransformPose(&tgt_image.Qvec(), &tgt_image.Tvec());
   }
 
   // Merge the two point clouds using the following two rules:

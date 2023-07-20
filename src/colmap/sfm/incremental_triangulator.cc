@@ -196,7 +196,7 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
       point_data[i].point = corr_data.point2D->XY();
       point_data[i].point_normalized =
           corr_data.camera->ImageToWorld(point_data[i].point);
-      pose_data[i].proj_matrix = corr_data.image->ProjectionMatrix();
+      pose_data[i].proj_matrix = corr_data.image->CamFromWorld().ToMatrix();
       pose_data[i].proj_center = corr_data.image->ProjectionCenter();
       pose_data[i].camera = corr_data.camera;
     }
@@ -497,7 +497,7 @@ size_t IncrementalTriangulator::Create(
     point_data[i].point = corr_data.point2D->XY();
     point_data[i].point_normalized =
         corr_data.camera->ImageToWorld(point_data[i].point);
-    pose_data[i].proj_matrix = corr_data.image->ProjectionMatrix();
+    pose_data[i].proj_matrix = corr_data.image->CamFromWorld().ToMatrix();
     pose_data[i].proj_center = corr_data.image->ProjectionCenter();
     pose_data[i].camera = corr_data.camera;
   }
@@ -575,8 +575,7 @@ size_t IncrementalTriangulator::Continue(
     const double angle_error =
         CalculateAngularError(ref_corr_data.point2D->XY(),
                               point3D.XYZ(),
-                              ref_corr_data.image->Qvec(),
-                              ref_corr_data.image->Tvec(),
+                              ref_corr_data.image->CamFromWorld(),
                               *ref_corr_data.camera);
     if (angle_error < best_angle_error) {
       best_angle_error = angle_error;
@@ -651,8 +650,7 @@ size_t IncrementalTriangulator::Merge(const Options& options,
               test_image.Point2D(test_track_el.point2D_idx);
           if (CalculateSquaredReprojectionError(test_point2D.XY(),
                                                 merged_xyz,
-                                                test_image.Qvec(),
-                                                test_image.Tvec(),
+                                                test_image.CamFromWorld(),
                                                 test_camera) >
               max_squared_reproj_error) {
             merge_success = false;
@@ -734,11 +732,8 @@ size_t IncrementalTriangulator::Complete(const Options& options,
           continue;
         }
 
-        if (CalculateSquaredReprojectionError(point2D.XY(),
-                                              point3D.XYZ(),
-                                              image.Qvec(),
-                                              image.Tvec(),
-                                              camera) >
+        if (CalculateSquaredReprojectionError(
+                point2D.XY(), point3D.XYZ(), image.CamFromWorld(), camera) >
             max_squared_reproj_error) {
           continue;
         }

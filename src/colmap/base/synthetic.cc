@@ -81,14 +81,13 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     // centered at origin.
     const Eigen::Vector3d view_dir = -Eigen::Vector3d::Random().normalized();
     const Eigen::Vector3d proj_center = -5 * view_dir;
-    const Eigen::Vector4d qvec = RotationMatrixToQuaternion(
-        RotationFromUnitVectors(view_dir, Eigen::Vector3d(0, 0, 1)));
-    const Eigen::Vector3d tvec = -QuaternionRotatePoint(qvec, proj_center);
-    image.SetQvec(qvec);
-    image.SetTvec(tvec);
+    image.CamFromWorld().rotation =
+        Eigen::Quaterniond::FromTwoVectors(view_dir, Eigen::Vector3d(0, 0, 1));
+    image.CamFromWorld().translation =
+        image.CamFromWorld().rotation * -proj_center;
 
     const Camera& camera = reconstruction->Camera(image.CameraId());
-    const Eigen::Matrix3x4d proj_matrix = image.ProjectionMatrix();
+    const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().ToMatrix();
 
     std::vector<Point2D> points2D;
     points2D.reserve(options.num_points3D +
@@ -98,7 +97,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     for (auto& point3D : reconstruction->Points3D()) {
       Point2D point2D;
       point2D.SetXY(
-          ProjectPointToImage(point3D.second.XYZ(), proj_matrix, camera));
+          ProjectPointToImage(point3D.second.XYZ(), cam_from_world, camera));
       if (options.point2D_stddev > 0) {
         const Eigen::Vector2d noise(
             RandomGaussian<double>(0, options.point2D_stddev),
@@ -159,8 +158,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
       TwoViewGeometry two_view_geometry;
       two_view_geometry.config = TwoViewGeometry::CALIBRATED;
-      two_view_geometry.E = EssentialMatrixFromAbsolutePoses(
-          image1.ProjectionMatrix(), image2.ProjectionMatrix());
+      const Rigid3d cam2_from_cam1 =
+          image2.CamFromWorld() * Inverse(image1.CamFromWorld());
+      two_view_geometry.E = EssentialMatrixFromPose(cam2_from_cam1);
 
       for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;
            ++point2D_idx1) {

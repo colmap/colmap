@@ -53,18 +53,6 @@ bool Sim3d::Estimate(const std::vector<Eigen::Vector3d>& src,
   return true;
 }
 
-void Sim3d::TransformPose(Eigen::Vector4d* qvec, Eigen::Vector3d* tvec) const {
-  Eigen::Matrix4d inverse;
-  inverse.topRows<3>() = Inverse(*this).ToMatrix();
-  inverse.row(3) = Eigen::Vector4d(0, 0, 0, 1);
-  const Eigen::Matrix3x4d transformed =
-      ComposeProjectionMatrix(*qvec, *tvec) * inverse;
-  const double transformed_scale = transformed.col(0).norm();
-  *qvec =
-      RotationMatrixToQuaternion(transformed.leftCols<3>() / transformed_scale);
-  *tvec = transformed.col(3) / transformed_scale;
-}
-
 void Sim3d::ToFile(const std::string& path) const {
   std::ofstream file(path, std::ios::trunc);
   CHECK(file.good()) << path;

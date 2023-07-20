@@ -32,6 +32,7 @@
 #pragma once
 
 #include "colmap/base/reconstruction.h"
+#include "colmap/geometry/rigid3.h"
 #include "colmap/image/bitmap.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
@@ -220,8 +221,7 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
 // assumes that the two cameras are already undistorted.
 void RectifyStereoCameras(const Camera& camera1,
                           const Camera& camera2,
-                          const Eigen::Vector4d& qvec,
-                          const Eigen::Vector3d& tvec,
+                          const Rigid3d& cam2_from_cam1,
                           Eigen::Matrix3d* H1,
                           Eigen::Matrix3d* H2,
                           Eigen::Matrix4d* Q);
@@ -232,8 +232,7 @@ void RectifyAndUndistortStereoImages(const UndistortCameraOptions& options,
                                      const Bitmap& distorted_image2,
                                      const Camera& distorted_camera1,
                                      const Camera& distorted_camera2,
-                                     const Eigen::Vector4d& qvec,
-                                     const Eigen::Vector3d& tvec,
+                                     const Rigid3d& cam2_from_cam1,
                                      Bitmap* undistorted_image1,
                                      Bitmap* undistorted_image2,
                                      Camera* undistorted_camera,

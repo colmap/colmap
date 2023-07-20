@@ -63,14 +63,15 @@ TEST(AbsolutePose, P3P) {
   for (double qx = 0; qx < 1; qx += 0.2) {
     // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
     for (double tx = 0; tx < 1; tx += 0.1) {
-      const Rigid3d expectedCamFromWorld(
+      const Rigid3d expected_cam_from_world(
           Eigen::Quaterniond(1, qx, 0, 0).normalized(),
           Eigen::Vector3d(tx, 0, 0));
 
       // Project points to camera coordinate system.
       std::vector<Eigen::Vector2d> points2D;
       for (size_t i = 0; i < points3D.size(); ++i) {
-        points2D.push_back((expectedCamFromWorld * points3D[i]).hnormalized());
+        points2D.push_back(
+            (expected_cam_from_world * points3D[i]).hnormalized());
       }
 
       RANSACOptions options;
@@ -79,7 +80,8 @@ TEST(AbsolutePose, P3P) {
       const auto report = ransac.Estimate(points2D, points3D);
 
       EXPECT_TRUE(report.success);
-      EXPECT_LT((expectedCamFromWorld.ToMatrix() - report.model).norm(), 1e-2);
+      EXPECT_LT((expected_cam_from_world.ToMatrix() - report.model).norm(),
+                1e-2);
 
       // Test residuals of exact points.
       std::vector<double> residuals;
@@ -119,14 +121,15 @@ TEST(AbsolutePose, EPNP) {
   for (double qx = 0; qx < 1; qx += 0.2) {
     // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
     for (double tx = 0; tx < 1; tx += 0.1) {
-      const Rigid3d expectedCamFromWorld(
+      const Rigid3d expected_cam_from_world(
           Eigen::Quaterniond(1, qx, 0, 0).normalized(),
           Eigen::Vector3d(tx, 0, 0));
 
       // Project points to camera coordinate system.
       std::vector<Eigen::Vector2d> points2D;
       for (size_t i = 0; i < points3D.size(); ++i) {
-        points2D.push_back((expectedCamFromWorld * points3D[i]).hnormalized());
+        points2D.push_back(
+            (expected_cam_from_world * points3D[i]).hnormalized());
       }
 
       RANSACOptions options;
@@ -135,7 +138,8 @@ TEST(AbsolutePose, EPNP) {
       const auto report = ransac.Estimate(points2D, points3D);
 
       EXPECT_TRUE(report.success);
-      EXPECT_LT((expectedCamFromWorld.ToMatrix() - report.model).norm(), 1e-4);
+      EXPECT_LT((expected_cam_from_world.ToMatrix() - report.model).norm(),
+                1e-4);
 
       // Test residuals of exact points.
       std::vector<double> residuals;

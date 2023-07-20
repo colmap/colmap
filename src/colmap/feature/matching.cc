@@ -1276,20 +1276,22 @@ void SpatialFeatureMatcher::Run() {
   for (size_t i = 0; i < image_ids.size(); ++i) {
     const auto image_id = image_ids[i];
     const auto& image = cache_.GetImage(image_id);
+    const Eigen::Vector3d& translation_prior =
+        image.CamFromWorldPrior().translation;
 
-    if ((image.TvecPrior(0) == 0 && image.TvecPrior(1) == 0 &&
+    if ((translation_prior(0) == 0 && translation_prior(1) == 0 &&
          options_.ignore_z) ||
-        (image.TvecPrior(0) == 0 && image.TvecPrior(1) == 0 &&
-         image.TvecPrior(2) == 0 && !options_.ignore_z)) {
+        (translation_prior(0) == 0 && translation_prior(1) == 0 &&
+         translation_prior(2) == 0 && !options_.ignore_z)) {
       continue;
     }
 
     location_idxs.push_back(i);
 
     if (options_.is_gps) {
-      ells[0](0) = image.TvecPrior(0);
-      ells[0](1) = image.TvecPrior(1);
-      ells[0](2) = options_.ignore_z ? 0 : image.TvecPrior(2);
+      ells[0](0) = translation_prior(0);
+      ells[0](1) = translation_prior(1);
+      ells[0](2) = options_.ignore_z ? 0 : translation_prior(2);
 
       const auto xyzs = gps_transform.EllToXYZ(ells);
 
@@ -1298,11 +1300,11 @@ void SpatialFeatureMatcher::Run() {
       location_matrix(num_locations, 2) = static_cast<float>(xyzs[0](2));
     } else {
       location_matrix(num_locations, 0) =
-          static_cast<float>(image.TvecPrior(0));
+          static_cast<float>(translation_prior(0));
       location_matrix(num_locations, 1) =
-          static_cast<float>(image.TvecPrior(1));
+          static_cast<float>(translation_prior(1));
       location_matrix(num_locations, 2) =
-          static_cast<float>(options_.ignore_z ? 0 : image.TvecPrior(2));
+          static_cast<float>(options_.ignore_z ? 0 : translation_prior(2));
     }
 
     num_locations += 1;
