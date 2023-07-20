@@ -224,14 +224,7 @@ void Camera::InitializeWithName(const std::string& model_name,
 }
 
 Eigen::Vector2d Camera::ImgToCam(const Eigen::Vector2d& image_point) const {
-  Eigen::Vector2d world_point;
-  CameraModelImgToCam(model_id_,
-                      params_,
-                      image_point(0),
-                      image_point(1),
-                      &world_point(0),
-                      &world_point(1));
-  return world_point;
+  return CameraModelImgToCam(model_id_, params_, image_point).hnormalized();
 }
 
 double Camera::ImgToCamThreshold(const double threshold) const {
@@ -239,14 +232,7 @@ double Camera::ImgToCamThreshold(const double threshold) const {
 }
 
 Eigen::Vector2d Camera::CamToImg(const Eigen::Vector2d& cam_point) const {
-  Eigen::Vector2d image_point;
-  CameraModelCamToImg(model_id_,
-                      params_,
-                      cam_point(0),
-                      cam_point(1),
-                      &image_point(0),
-                      &image_point(1));
-  return image_point;
+  return CameraModelCamToImg(model_id_, params_, cam_point.homogeneous());
 }
 
 void Camera::Rescale(const double scale) {
