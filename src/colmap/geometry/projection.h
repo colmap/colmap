@@ -42,48 +42,12 @@
 
 namespace colmap {
 
-// Compose projection matrix from rotation and translation components.
-//
-// The projection matrix transforms 3D world to image points.
-//
-// @param qvec           Unit Quaternion rotation coefficients (w, x, y, z).
-// @param tvec           3x1 translation vector.
-//
-// @return               3x4 projection matrix.
-Eigen::Matrix3x4d ComposeProjectionMatrix(const Eigen::Vector4d& qvec,
-                                          const Eigen::Vector3d& tvec);
-
-// Compose projection matrix from rotation matrix and translation components).
-//
-// The projection matrix transforms 3D world to image points.
-//
-// @param R              3x3 rotation matrix.
-// @param t              3x1 translation vector.
-//
-// @return               3x4 projection matrix.
-Eigen::Matrix3x4d ComposeProjectionMatrix(const Eigen::Matrix3d& R,
-                                          const Eigen::Vector3d& T);
-
-// Invert projection matrix, defined as:
-//
-//    P = [R | t] with R \in SO(3) and t \in R^3
-//
-// and the inverse projection matrix as:
-//
-//    P' = [R^T | -R^T t]
-//
-// @param proj_matrix    3x4 projection matrix.
-//
-// @return               3x4 inverse projection matrix.
-Eigen::Matrix3x4d InvertProjectionMatrix(const Eigen::Matrix3x4d& proj_matrix);
-
 // Compute the closes rotation matrix with the closest Frobenius norm by setting
 // the singular values of the given matrix to 1.
 Eigen::Matrix3d ComputeClosestRotationMatrix(const Eigen::Matrix3d& matrix);
 
 // Decompose projection matrix into intrinsic camera matrix, rotation matrix and
-// translation vector. Returns false if decomposition fails. This implementation
-// is inspired by the OpenCV implementation with some additional checks.
+// translation vector. Returns false if decomposition fails.
 bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& proj_matrix,
                                Eigen::Matrix3d* K,
                                Eigen::Matrix3d* R,

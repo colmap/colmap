@@ -40,32 +40,6 @@
 
 namespace colmap {
 
-TEST(ComposeProjectionMatrix, Nominal) {
-  const Eigen::Matrix3d R = EulerAnglesToRotationMatrix(0, 1, 2);
-  const Eigen::Vector4d qvec = RotationMatrixToQuaternion(R);
-  const Eigen::Vector3d tvec = Eigen::Vector3d::Random();
-
-  const auto proj_matrix1 = ComposeProjectionMatrix(qvec, tvec);
-  const auto proj_matrix2 = ComposeProjectionMatrix(R, tvec);
-
-  EXPECT_TRUE((proj_matrix1 - proj_matrix2).norm() < 1e-6);
-  EXPECT_TRUE((proj_matrix1.leftCols<3>() - R).norm() < 1e-6);
-  EXPECT_NEAR((proj_matrix1.rightCols<1>() - tvec).norm(), 0, 1e-6);
-  EXPECT_NEAR((proj_matrix2.leftCols<3>() - R).norm(), 0, 1e-6);
-  EXPECT_NEAR((proj_matrix2.rightCols<1>() - tvec).norm(), 0, 1e-6);
-}
-
-TEST(InvertProjectionMatrix, Nominal) {
-  const Eigen::Matrix3d R = EulerAnglesToRotationMatrix(0, 1, 2);
-  const Eigen::Vector3d tvec = Eigen::Vector3d::Random();
-
-  const auto proj_matrix = ComposeProjectionMatrix(R, tvec);
-  const auto inv_proj_matrix = InvertProjectionMatrix(proj_matrix);
-  const auto inv_inv_proj_matrix = InvertProjectionMatrix(inv_proj_matrix);
-
-  EXPECT_TRUE((proj_matrix - inv_inv_proj_matrix).norm() < 1e-6);
-}
-
 TEST(ComputeClosestRotationMatrix, Nominal) {
   const Eigen::Matrix3d A = Eigen::Matrix3d::Identity();
   EXPECT_LT((ComputeClosestRotationMatrix(A) - A).norm(), 1e-6);
@@ -77,28 +51,26 @@ TEST(DecomposeProjectionMatrix, Nominal) {
     Eigen::Matrix3d ref_K = i * Eigen::Matrix3d::Identity();
     ref_K(0, 2) = i;
     ref_K(1, 2) = 2 * i;
-    const Eigen::Matrix3d ref_R = EulerAnglesToRotationMatrix(i, 2 * i, 3 * i);
-    const Eigen::Vector3d ref_T = Eigen::Vector3d::Random();
-    const Eigen::Matrix3x4d ref_P =
-        ref_K * ComposeProjectionMatrix(ref_R, ref_T);
+    const Rigid3d cam_from_world(Eigen::Quaterniond::UnitRandom(),
+                                 Eigen::Vector3d::Random());
+    const Eigen::Matrix3x4d P = ref_K * cam_from_world.ToMatrix();
     Eigen::Matrix3d K;
     Eigen::Matrix3d R;
     Eigen::Vector3d T;
-    DecomposeProjectionMatrix(ref_P, &K, &R, &T);
+    DecomposeProjectionMatrix(P, &K, &R, &T);
     EXPECT_TRUE(ref_K.isApprox(K, 1e-6));
-    EXPECT_TRUE(ref_R.isApprox(R, 1e-6));
-    EXPECT_TRUE(ref_T.isApprox(T, 1e-6));
+    EXPECT_TRUE(cam_from_world.rotation.toRotationMatrix().isApprox(R, 1e-6));
+    EXPECT_TRUE(cam_from_world.translation.isApprox(T, 1e-6));
   }
 }
 
 TEST(CalculateSquaredReprojectionError, Nominal) {
   const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
                                Eigen::Vector3d::Zero());
-  const Eigen::Matrix3x4d cam_from_world_matrix = cam_from_world.ToMatrix();
+  const Eigen::Matrix3x4d cam_from_world_mat = cam_from_world.ToMatrix();
 
   const Eigen::Vector3d point3D = Eigen::Vector3d::Random().cwiseAbs();
-  const Eigen::Vector3d point2D_h =
-      cam_from_world_matrix * point3D.homogeneous();
+  const Eigen::Vector3d point2D_h = cam_from_world_mat * point3D.homogeneous();
   const Eigen::Vector2d point2D = point2D_h.hnormalized();
 
   Camera camera;
@@ -109,7 +81,7 @@ TEST(CalculateSquaredReprojectionError, Nominal) {
               0,
               1e-6);
   EXPECT_NEAR(CalculateSquaredReprojectionError(
-                  point2D, point3D, cam_from_world_matrix, camera),
+                  point2D, point3D, cam_from_world_mat, camera),
               0,
               1e-6);
 
@@ -118,7 +90,7 @@ TEST(CalculateSquaredReprojectionError, Nominal) {
               2,
               1e-6);
   EXPECT_NEAR(CalculateSquaredReprojectionError(
-                  point2D.array() + 1, point3D, cam_from_world_matrix, camera),
+                  point2D.array() + 1, point3D, cam_from_world_mat, camera),
               2,
               1e-6);
 }
@@ -126,7 +98,7 @@ TEST(CalculateSquaredReprojectionError, Nominal) {
 TEST(CalculateAngularError, Nominal) {
   const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
                                Eigen::Vector3d::Zero());
-  const Eigen::Matrix3x4d cam_from_world_matrix = cam_from_world.ToMatrix();
+  const Eigen::Matrix3x4d cam_from_world_mat = cam_from_world.ToMatrix();
 
   Camera camera;
   camera.SetModelId(SimplePinholeCameraModel::model_id);
@@ -134,67 +106,67 @@ TEST(CalculateAngularError, Nominal) {
 
   const double error1 = CalculateAngularError(Eigen::Vector2d(0, 0),
                                               Eigen::Vector3d(0, 0, 1),
-                                              cam_from_world_matrix,
+                                              cam_from_world_mat,
                                               camera);
   EXPECT_NEAR(error1, 0, 1e-6);
 
   const double error2 = CalculateAngularError(Eigen::Vector2d(0, 0),
                                               Eigen::Vector3d(0, 1, 1),
-                                              cam_from_world_matrix,
+                                              cam_from_world_mat,
                                               camera);
   EXPECT_NEAR(error2, M_PI / 4, 1e-6);
 
   const double error3 = CalculateAngularError(Eigen::Vector2d(0, 0),
                                               Eigen::Vector3d(0, 5, 5),
-                                              cam_from_world_matrix,
+                                              cam_from_world_mat,
                                               camera);
   EXPECT_NEAR(error3, M_PI / 4, 1e-6);
 
   const double error4 = CalculateAngularError(Eigen::Vector2d(1, 0),
                                               Eigen::Vector3d(0, 0, 1),
-                                              cam_from_world_matrix,
+                                              cam_from_world_mat,
                                               camera);
   EXPECT_NEAR(error4, M_PI / 4, 1e-6);
 
   const double error5 = CalculateAngularError(Eigen::Vector2d(2, 0),
                                               Eigen::Vector3d(0, 0, 1),
-                                              cam_from_world_matrix,
+                                              cam_from_world_mat,
                                               camera);
   EXPECT_NEAR(error5, 1.10714872, 1e-6);
 
   const double error6 = CalculateAngularError(Eigen::Vector2d(2, 0),
                                               Eigen::Vector3d(1, 0, 1),
-                                              cam_from_world_matrix,
+                                              cam_from_world_mat,
                                               camera);
   EXPECT_NEAR(error6, 1.10714872 - M_PI / 4, 1e-6);
 
   const double error7 = CalculateAngularError(Eigen::Vector2d(2, 0),
                                               Eigen::Vector3d(5, 0, 5),
-                                              cam_from_world_matrix,
+                                              cam_from_world_mat,
                                               camera);
   EXPECT_NEAR(error7, 1.10714872 - M_PI / 4, 1e-6);
 
   const double error8 = CalculateAngularError(Eigen::Vector2d(1, 0),
                                               Eigen::Vector3d(-1, 0, 1),
-                                              cam_from_world_matrix,
+                                              cam_from_world_mat,
                                               camera);
   EXPECT_NEAR(error8, M_PI / 2, 1e-6);
 
   const double error9 = CalculateAngularError(Eigen::Vector2d(1, 0),
                                               Eigen::Vector3d(-1, 0, 0),
-                                              cam_from_world_matrix,
+                                              cam_from_world_mat,
                                               camera);
   EXPECT_NEAR(error9, M_PI * 3 / 4, 1e-6);
 
   const double error10 = CalculateAngularError(Eigen::Vector2d(1, 0),
                                                Eigen::Vector3d(-1, 0, -1),
-                                               cam_from_world_matrix,
+                                               cam_from_world_mat,
                                                camera);
   EXPECT_NEAR(error10, M_PI, 1e-6);
 
   const double error11 = CalculateAngularError(Eigen::Vector2d(1, 0),
                                                Eigen::Vector3d(0, 0, -1),
-                                               cam_from_world_matrix,
+                                               cam_from_world_mat,
                                                camera);
   EXPECT_NEAR(error11, M_PI * 3 / 4, 1e-6);
 }
@@ -202,48 +174,48 @@ TEST(CalculateAngularError, Nominal) {
 TEST(CalculateDepth, Nominal) {
   const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
                                Eigen::Vector3d::Zero());
-  const Eigen::Matrix3x4d cam_from_world_matrix = cam_from_world.ToMatrix();
+  const Eigen::Matrix3x4d cam_from_world_mat = cam_from_world.ToMatrix();
 
   // In the image plane
   const double depth1 =
-      CalculateDepth(cam_from_world_matrix, Eigen::Vector3d(0, 0, 0));
+      CalculateDepth(cam_from_world_mat, Eigen::Vector3d(0, 0, 0));
   EXPECT_NEAR(depth1, 0, 1e-10);
   const double depth2 =
-      CalculateDepth(cam_from_world_matrix, Eigen::Vector3d(0, 2, 0));
+      CalculateDepth(cam_from_world_mat, Eigen::Vector3d(0, 2, 0));
   EXPECT_NEAR(depth2, 0, 1e-10);
 
   // Infront of camera
   const double depth3 =
-      CalculateDepth(cam_from_world_matrix, Eigen::Vector3d(0, 0, 1));
+      CalculateDepth(cam_from_world_mat, Eigen::Vector3d(0, 0, 1));
   EXPECT_NEAR(depth3, 1, 1e-10);
 
   // Behind camera
   const double depth4 =
-      CalculateDepth(cam_from_world_matrix, Eigen::Vector3d(0, 0, -1));
+      CalculateDepth(cam_from_world_mat, Eigen::Vector3d(0, 0, -1));
   EXPECT_NEAR(depth4, -1, 1e-10);
 }
 
 TEST(HasPointPositiveDepth, Nominal) {
   const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
                                Eigen::Vector3d::Zero());
-  const Eigen::Matrix3x4d cam_from_world_matrix = cam_from_world.ToMatrix();
+  const Eigen::Matrix3x4d cam_from_world_mat = cam_from_world.ToMatrix();
 
   // In the image plane
   const bool check1 =
-      HasPointPositiveDepth(cam_from_world_matrix, Eigen::Vector3d(0, 0, 0));
+      HasPointPositiveDepth(cam_from_world_mat, Eigen::Vector3d(0, 0, 0));
   EXPECT_FALSE(check1);
   const bool check2 =
-      HasPointPositiveDepth(cam_from_world_matrix, Eigen::Vector3d(0, 2, 0));
+      HasPointPositiveDepth(cam_from_world_mat, Eigen::Vector3d(0, 2, 0));
   EXPECT_FALSE(check2);
 
   // Infront of camera
   const bool check3 =
-      HasPointPositiveDepth(cam_from_world_matrix, Eigen::Vector3d(0, 0, 1));
+      HasPointPositiveDepth(cam_from_world_mat, Eigen::Vector3d(0, 0, 1));
   EXPECT_TRUE(check3);
 
   // Behind camera
   const bool check4 =
-      HasPointPositiveDepth(cam_from_world_matrix, Eigen::Vector3d(0, 0, -1));
+      HasPointPositiveDepth(cam_from_world_mat, Eigen::Vector3d(0, 0, -1));
   EXPECT_FALSE(check4);
 }
 

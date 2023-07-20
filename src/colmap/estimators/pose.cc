@@ -168,8 +168,7 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
 size_t EstimateRelativePose(const RANSACOptions& ransac_options,
                             const std::vector<Eigen::Vector2d>& points1,
                             const std::vector<Eigen::Vector2d>& points2,
-                            Eigen::Vector4d* qvec,
-                            Eigen::Vector3d* tvec) {
+                            Rigid3d* cam2_from_cam1) {
   RANSAC<EssentialMatrixFivePointEstimator> ransac(ransac_options);
   const auto report = ransac.Estimate(points1, points2);
 
@@ -189,15 +188,19 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
     }
   }
 
-  Eigen::Matrix3d R;
-
+  Eigen::Matrix3d cam2_from_cam1_rot_mat;
   std::vector<Eigen::Vector3d> points3D;
-  PoseFromEssentialMatrix(
-      report.model, inliers1, inliers2, &R, tvec, &points3D);
+  PoseFromEssentialMatrix(report.model,
+                          inliers1,
+                          inliers2,
+                          &cam2_from_cam1_rot_mat,
+                          &cam2_from_cam1->translation,
+                          &points3D);
 
-  *qvec = RotationMatrixToQuaternion(R);
+  cam2_from_cam1->rotation = Eigen::Quaterniond(cam2_from_cam1_rot_mat);
 
-  if (qvec->array().isNaN().any() || tvec->array().isNaN().any()) {
+  if (cam2_from_cam1->rotation.coeffs().array().isNaN().any() ||
+      cam2_from_cam1->translation.array().isNaN().any()) {
     return 0;
   }
 

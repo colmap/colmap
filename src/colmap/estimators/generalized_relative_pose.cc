@@ -68,16 +68,14 @@
 namespace colmap {
 namespace {
 
-void ComposePlueckerData(const Eigen::Matrix3x4d& rel_tform,
-                         const Eigen::Vector2d& point2D,
+void ComposePlueckerData(const Rigid3d& rig_from_cam,
+                         const Eigen::Vector3d& ray_in_cam,
                          Eigen::Vector3d* proj_center,
                          Eigen::Vector6d* pluecker) {
-  const Eigen::Matrix3x4d inv_proj_matrix = InvertProjectionMatrix(rel_tform);
-  const Eigen::Vector3d bearing =
-      inv_proj_matrix.leftCols<3>() * point2D.homogeneous();
-  const Eigen::Vector3d bearing_normalized = bearing.normalized();
-  *proj_center = inv_proj_matrix.rightCols<1>();
-  *pluecker << bearing_normalized, proj_center->cross(bearing_normalized);
+  const Eigen::Vector3d ray_in_rig =
+      (rig_from_cam.rotation * ray_in_cam).normalized();
+  *proj_center = rig_from_cam.translation;
+  *pluecker << ray_in_rig, rig_from_cam.translation.cross(ray_in_rig);
 }
 
 Eigen::Matrix3d CayleyToRotationMatrix(const Eigen::Vector3d& cayley) {
@@ -457,10 +455,14 @@ std::vector<GR6PEstimator::M_t> GR6PEstimator::Estimate(
   std::vector<Eigen::Vector6d> plueckers1(points1.size());
   std::vector<Eigen::Vector6d> plueckers2(points1.size());
   for (size_t i = 0; i < points1.size(); ++i) {
-    ComposePlueckerData(
-        points1[i].rel_tform, points1[i].xy, &proj_centers1[i], &plueckers1[i]);
-    ComposePlueckerData(
-        points2[i].rel_tform, points2[i].xy, &proj_centers2[i], &plueckers2[i]);
+    ComposePlueckerData(Inverse(points1[i].cam_from_rig),
+                        points1[i].ray_in_cam,
+                        &proj_centers1[i],
+                        &plueckers1[i]);
+    ComposePlueckerData(Inverse(points2[i].cam_from_rig),
+                        points2[i].ray_in_cam,
+                        &proj_centers2[i],
+                        &plueckers2[i]);
   }
 
   Eigen::Matrix3d xxF = Eigen::Matrix3d::Zero();
@@ -733,8 +735,8 @@ std::vector<GR6PEstimator::M_t> GR6PEstimator::Estimate(
 
   std::vector<M_t> models(4);
   for (int i = 0; i < 4; ++i) {
-    models[i].leftCols<3>() = R;
-    models[i].rightCols<1>() = -R * VV.col(i);
+    models[i].rotation = Eigen::Quaterniond(R);
+    models[i].translation = -R * VV.col(i);
   }
 
   return models;
@@ -742,28 +744,20 @@ std::vector<GR6PEstimator::M_t> GR6PEstimator::Estimate(
 
 void GR6PEstimator::Residuals(const std::vector<X_t>& points1,
                               const std::vector<Y_t>& points2,
-                              const M_t& proj_matrix,
+                              const M_t& rig2_from_rig1,
                               std::vector<double>* residuals) {
   CHECK_EQ(points1.size(), points2.size());
-
   residuals->resize(points1.size(), 0);
-
-  Eigen::Matrix4d proj_matrix_homogeneous;
-  proj_matrix_homogeneous.topRows<3>() = proj_matrix;
-  proj_matrix_homogeneous.bottomRows<1>() = Eigen::Vector4d(0, 0, 0, 1);
-
   for (size_t i = 0; i < points1.size(); ++i) {
-    const Eigen::Matrix3x4d& proj_matrix1 = points1[i].rel_tform;
-    const Eigen::Matrix3x4d& proj_matrix2 =
-        points2[i].rel_tform * proj_matrix_homogeneous;
-    const Eigen::Matrix3d R12 =
-        proj_matrix2.leftCols<3>() * proj_matrix1.leftCols<3>().transpose();
-    const Eigen::Vector3d t12 =
-        proj_matrix2.rightCols<1>() - R12 * proj_matrix1.rightCols<1>();
-    const Eigen::Matrix3d E = EssentialMatrixFromPose(R12, t12);
-    const Eigen::Vector3d Ex1 = E * points1[i].xy.homogeneous();
-    const Eigen::Vector3d Etx2 = E.transpose() * points2[i].xy.homogeneous();
-    const double x2tEx1 = points2[i].xy.homogeneous().transpose() * Ex1;
+    const Rigid3d cam2_from_cam1 = points2[i].cam_from_rig * rig2_from_rig1 *
+                                   Inverse(points1[i].cam_from_rig);
+    const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
+    const Eigen::Vector3d Ex1 =
+        E * points1[i].ray_in_cam.hnormalized().homogeneous();
+    const Eigen::Vector3d x2 =
+        points2[i].ray_in_cam.hnormalized().homogeneous();
+    const Eigen::Vector3d Etx2 = E.transpose() * x2;
+    const double x2tEx1 = x2.transpose() * Ex1;
     (*residuals)[i] = x2tEx1 * x2tEx1 /
                       (Ex1(0) * Ex1(0) + Ex1(1) * Ex1(1) + Etx2(0) * Etx2(0) +
                        Etx2(1) * Etx2(1));

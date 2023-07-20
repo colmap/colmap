@@ -31,6 +31,7 @@
 
 #pragma once
 
+#include "colmap/geometry/rigid3.h"
 #include "colmap/util/types.h"
 
 #include <vector>
@@ -84,18 +85,7 @@ void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
 // @param t             3x1 translation vector.
 //
 // @return              3x3 essential matrix.
-Eigen::Matrix3d EssentialMatrixFromPose(const Eigen::Matrix3d& R,
-                                        const Eigen::Vector3d& t);
-
-// Compose essential matrix from two absolute camera poses.
-//
-// @param proj_matrix1     3x4 projection matrix.
-// @param proj_matrix2     3x4 projection matrix.
-//
-// @return                 3x3 essential matrix.
-Eigen::Matrix3d EssentialMatrixFromAbsolutePoses(
-    const Eigen::Matrix3x4d& proj_matrix1,
-    const Eigen::Matrix3x4d& proj_matrix2);
+Eigen::Matrix3d EssentialMatrixFromPose(const Rigid3d& cam2_from_cam1);
 
 // Find optimal image points, such that:
 //

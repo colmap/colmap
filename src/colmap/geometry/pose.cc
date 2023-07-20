@@ -70,62 +70,6 @@ Eigen::Matrix3d EulerAnglesToRotationMatrix(const double rx,
   return Rz * Ry * Rx;
 }
 
-Eigen::Vector4d RotationMatrixToQuaternion(const Eigen::Matrix3d& rot_mat) {
-  const Eigen::Quaterniond quat(rot_mat);
-  return Eigen::Vector4d(quat.w(), quat.x(), quat.y(), quat.z());
-}
-
-Eigen::Matrix3d QuaternionToRotationMatrix(const Eigen::Vector4d& qvec) {
-  const Eigen::Vector4d normalized_qvec = NormalizeQuaternion(qvec);
-  const Eigen::Quaterniond quat(normalized_qvec(0),
-                                normalized_qvec(1),
-                                normalized_qvec(2),
-                                normalized_qvec(3));
-  return quat.toRotationMatrix();
-}
-
-Eigen::Vector4d NormalizeQuaternion(const Eigen::Vector4d& qvec) {
-  const double norm = qvec.norm();
-  if (norm == 0) {
-    // We do not just use (1, 0, 0, 0) because that is a constant and when used
-    // for automatic differentiation that would lead to a zero derivative.
-    return Eigen::Vector4d(1.0, qvec(1), qvec(2), qvec(3));
-  } else {
-    return qvec / norm;
-  }
-}
-
-Eigen::Vector4d InvertQuaternion(const Eigen::Vector4d& qvec) {
-  return Eigen::Vector4d(qvec(0), -qvec(1), -qvec(2), -qvec(3));
-}
-
-Eigen::Vector4d ConcatenateQuaternions(const Eigen::Vector4d& qvec1,
-                                       const Eigen::Vector4d& qvec2) {
-  const Eigen::Vector4d normalized_qvec1 = NormalizeQuaternion(qvec1);
-  const Eigen::Vector4d normalized_qvec2 = NormalizeQuaternion(qvec2);
-  const Eigen::Quaterniond quat1(normalized_qvec1(0),
-                                 normalized_qvec1(1),
-                                 normalized_qvec1(2),
-                                 normalized_qvec1(3));
-  const Eigen::Quaterniond quat2(normalized_qvec2(0),
-                                 normalized_qvec2(1),
-                                 normalized_qvec2(2),
-                                 normalized_qvec2(3));
-  const Eigen::Quaterniond cat_quat = quat2 * quat1;
-  return NormalizeQuaternion(
-      Eigen::Vector4d(cat_quat.w(), cat_quat.x(), cat_quat.y(), cat_quat.z()));
-}
-
-Eigen::Vector3d QuaternionRotatePoint(const Eigen::Vector4d& qvec,
-                                      const Eigen::Vector3d& point) {
-  const Eigen::Vector4d normalized_qvec = NormalizeQuaternion(qvec);
-  const Eigen::Quaterniond quat(normalized_qvec(0),
-                                normalized_qvec(1),
-                                normalized_qvec(2),
-                                normalized_qvec(3));
-  return quat * point;
-}
-
 Eigen::Quaterniond AverageQuaternions(
     const std::vector<Eigen::Quaterniond>& quats,
     const std::vector<double>& weights) {
@@ -157,81 +101,13 @@ Eigen::Quaterniond AverageQuaternions(
       average_qvec(3), average_qvec(0), average_qvec(1), average_qvec(2));
 }
 
-Eigen::Matrix3d RotationFromUnitVectors(const Eigen::Vector3d& vector1,
-                                        const Eigen::Vector3d& vector2) {
-  const Eigen::Vector3d v1 = vector1.normalized();
-  const Eigen::Vector3d v2 = vector2.normalized();
-  const Eigen::Vector3d v = v1.cross(v2);
-  const Eigen::Matrix3d v_x = CrossProductMatrix(v);
-  const double c = v1.dot(v2);
-  if (c == -1) {
-    return Eigen::Matrix3d::Identity();
-  } else {
-    return Eigen::Matrix3d::Identity() + v_x + 1 / (1 + c) * (v_x * v_x);
-  }
-}
-
-Eigen::Vector3d ProjectionCenterFromMatrix(
-    const Eigen::Matrix3x4d& proj_matrix) {
-  return -proj_matrix.leftCols<3>().transpose() * proj_matrix.rightCols<1>();
-}
-
-Eigen::Vector3d ProjectionCenterFromPose(const Eigen::Vector4d& qvec,
-                                         const Eigen::Vector3d& tvec) {
-  // Inverse rotation as conjugate quaternion.
-  const Eigen::Vector4d normalized_qvec = NormalizeQuaternion(qvec);
-  const Eigen::Quaterniond quat(normalized_qvec(0),
-                                -normalized_qvec(1),
-                                -normalized_qvec(2),
-                                -normalized_qvec(3));
-  return quat * -tvec;
-}
-
-void ComputeRelativePose(const Eigen::Vector4d& qvec1,
-                         const Eigen::Vector3d& tvec1,
-                         const Eigen::Vector4d& qvec2,
-                         const Eigen::Vector3d& tvec2,
-                         Eigen::Vector4d* qvec12,
-                         Eigen::Vector3d* tvec12) {
-  const Eigen::Vector4d inv_qvec1 = InvertQuaternion(qvec1);
-  *qvec12 = ConcatenateQuaternions(inv_qvec1, qvec2);
-  *tvec12 = tvec2 - QuaternionRotatePoint(*qvec12, tvec1);
-}
-
-void ConcatenatePoses(const Eigen::Vector4d& qvec1,
-                      const Eigen::Vector3d& tvec1,
-                      const Eigen::Vector4d& qvec2,
-                      const Eigen::Vector3d& tvec2,
-                      Eigen::Vector4d* qvec12,
-                      Eigen::Vector3d* tvec12) {
-  *qvec12 = ConcatenateQuaternions(qvec1, qvec2);
-  *tvec12 = tvec2 + QuaternionRotatePoint(qvec2, tvec1);
-}
-
-void InvertPose(const Eigen::Vector4d& qvec,
-                const Eigen::Vector3d& tvec,
-                Eigen::Vector4d* inv_qvec,
-                Eigen::Vector3d* inv_tvec) {
-  *inv_qvec = InvertQuaternion(qvec);
-  *inv_tvec = -QuaternionRotatePoint(*inv_qvec, tvec);
-}
-
-Rigid3d InterpolatePose(const Rigid3d& cam_from_world1,
-                        const Rigid3d& cam_from_world2,
-                        double t) {
+Rigid3d InterpolateCameraPoses(const Rigid3d& cam_from_world1,
+                               const Rigid3d& cam_from_world2,
+                               double t) {
   const Eigen::Vector3d translation12 =
       cam_from_world2.translation - cam_from_world1.translation;
   return Rigid3d(cam_from_world1.rotation.slerp(t, cam_from_world2.rotation),
                  cam_from_world1.translation + translation12 * t);
-}
-
-Eigen::Vector3d CalculateBaseline(const Eigen::Vector4d& qvec1,
-                                  const Eigen::Vector3d& tvec1,
-                                  const Eigen::Vector4d& qvec2,
-                                  const Eigen::Vector3d& tvec2) {
-  const Eigen::Vector3d center1 = ProjectionCenterFromPose(qvec1, tvec1);
-  const Eigen::Vector3d center2 = ProjectionCenterFromPose(qvec2, tvec2);
-  return center2 - center1;
 }
 
 bool CheckCheirality(const Eigen::Matrix3d& R,
@@ -241,7 +117,9 @@ bool CheckCheirality(const Eigen::Matrix3d& R,
                      std::vector<Eigen::Vector3d>* points3D) {
   CHECK_EQ(points1.size(), points2.size());
   const Eigen::Matrix3x4d proj_matrix1 = Eigen::Matrix3x4d::Identity();
-  const Eigen::Matrix3x4d proj_matrix2 = ComposeProjectionMatrix(R, t);
+  Eigen::Matrix3x4d proj_matrix2;
+  proj_matrix2.leftCols<3>() = R;
+  proj_matrix2.col(3) = t;
   const double kMinDepth = std::numeric_limits<double>::epsilon();
   const double max_depth = 1000.0f * (R.transpose() * t).norm();
   points3D->clear();

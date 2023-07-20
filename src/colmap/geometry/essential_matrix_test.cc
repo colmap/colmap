@@ -40,48 +40,38 @@
 namespace colmap {
 
 TEST(DecomposeEssentialMatrix, Nominal) {
-  const Eigen::Matrix3d R = EulerAnglesToRotationMatrix(0, 1, 1);
-  const Eigen::Vector3d t = Eigen::Vector3d(0.5, 1, 1).normalized();
-  const Eigen::Matrix3d E = EssentialMatrixFromPose(R, t);
+  const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
+                               Eigen::Vector3d(0.5, 1, 1).normalized());
+  const Eigen::Matrix3d cam2_from_cam1_rot_mat =
+      cam2_from_cam1.rotation.toRotationMatrix();
+  const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
 
   Eigen::Matrix3d R1;
   Eigen::Matrix3d R2;
-  Eigen::Vector3d tt;
-  DecomposeEssentialMatrix(E, &R1, &R2, &tt);
+  Eigen::Vector3d t;
+  DecomposeEssentialMatrix(E, &R1, &R2, &t);
 
-  EXPECT_TRUE((R1 - R).norm() < 1e-10 || (R2 - R).norm() < 1e-10);
-  EXPECT_TRUE((tt - t).norm() < 1e-10 || (tt + t).norm() < 1e-10);
+  EXPECT_TRUE((R1 - cam2_from_cam1_rot_mat).norm() < 1e-10 ||
+              (R2 - cam2_from_cam1_rot_mat).norm() < 1e-10);
+  EXPECT_TRUE((t - cam2_from_cam1.translation).norm() < 1e-10 ||
+              (t + cam2_from_cam1.translation).norm() < 1e-10);
 }
 
 TEST(EssentialMatrixFromPose, Nominal) {
-  EXPECT_EQ(EssentialMatrixFromPose(EulerAnglesToRotationMatrix(0, 0, 0),
-                                    Eigen::Vector3d(0, 0, 1)),
+  EXPECT_EQ(EssentialMatrixFromPose(Rigid3d(Eigen::Quaterniond::Identity(),
+                                            Eigen::Vector3d(0, 0, 1))),
             (Eigen::MatrixXd(3, 3) << 0, -1, 0, 1, 0, 0, 0, 0, 0).finished());
-  EXPECT_EQ(EssentialMatrixFromPose(EulerAnglesToRotationMatrix(0, 0, 0),
-                                    Eigen::Vector3d(0, 0, 2)),
+  EXPECT_EQ(EssentialMatrixFromPose(Rigid3d(Eigen::Quaterniond::Identity(),
+                                            Eigen::Vector3d(0, 0, 2))),
             (Eigen::MatrixXd(3, 3) << 0, -1, 0, 1, 0, 0, 0, 0, 0).finished());
-}
-
-TEST(EssentialMatrixFromPoses, Nominal) {
-  const Eigen::Matrix3d R1 = EulerAnglesToRotationMatrix(0, 0, 0);
-  const Eigen::Matrix3d R2 = EulerAnglesToRotationMatrix(0, 1, 2);
-  const Eigen::Vector3d t1(0, 0, 0);
-  const Eigen::Vector3d t2 = Eigen::Vector3d(0.5, 1, 1).normalized();
-
-  const Eigen::Matrix3d E1 = EssentialMatrixFromPose(R2, t2);
-  const Eigen::Matrix3d E2 = EssentialMatrixFromAbsolutePoses(
-      ComposeProjectionMatrix(R1, t1), ComposeProjectionMatrix(R2, t2));
-
-  EXPECT_NEAR((E1 - E2).norm(), 0, 1e-6);
 }
 
 TEST(PoseFromEssentialMatrix, Nominal) {
-  const Eigen::Matrix3d R = EulerAnglesToRotationMatrix(0, 0, 0);
-  const Eigen::Vector3d t = Eigen::Vector3d(1, 0, 0).normalized();
-  const Eigen::Matrix3d E = EssentialMatrixFromPose(R, t);
-
-  const Eigen::Matrix3x4d proj_matrix1 = Eigen::Matrix3x4d::Identity();
-  const Eigen::Matrix3x4d proj_matrix2 = ComposeProjectionMatrix(R, t);
+  const Rigid3d cam1_from_world;
+  const Rigid3d cam2_from_world(Eigen::Quaterniond::Identity(),
+                                Eigen::Vector3d(1, 0, 0).normalized());
+  const Rigid3d cam2_from_cam1 = cam2_from_world * Inverse(cam1_from_world);
+  const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
 
   std::vector<Eigen::Vector3d> points3D(4);
   points3D[0] = Eigen::Vector3d(0, 0, 1);
@@ -92,31 +82,28 @@ TEST(PoseFromEssentialMatrix, Nominal) {
   std::vector<Eigen::Vector2d> points1(4);
   std::vector<Eigen::Vector2d> points2(4);
   for (size_t i = 0; i < points3D.size(); ++i) {
-    const Eigen::Vector3d point1 = proj_matrix1 * points3D[i].homogeneous();
-    points1[i] = point1.hnormalized();
-    const Eigen::Vector3d point2 = proj_matrix2 * points3D[i].homogeneous();
-    points2[i] = point2.hnormalized();
+    points1[i] = (cam1_from_world * points3D[i]).hnormalized();
+    points2[i] = (cam2_from_world * points3D[i]).hnormalized();
   }
 
   points3D.clear();
 
-  Eigen::Matrix3d RR;
-  Eigen::Vector3d tt;
-  PoseFromEssentialMatrix(E, points1, points2, &RR, &tt, &points3D);
+  Eigen::Matrix3d R;
+  Eigen::Vector3d t;
+  PoseFromEssentialMatrix(E, points1, points2, &R, &t, &points3D);
 
   EXPECT_EQ(points3D.size(), 4);
 
-  EXPECT_TRUE(RR.isApprox(R));
-  EXPECT_TRUE(tt.isApprox(t));
+  EXPECT_TRUE(R.isApprox(cam2_from_cam1.rotation.toRotationMatrix()));
+  EXPECT_TRUE(t.isApprox(cam2_from_cam1.translation));
 }
 
 TEST(FindOptimalImageObservations, Nominal) {
-  const Eigen::Matrix3d R = EulerAnglesToRotationMatrix(0, 0, 0);
-  const Eigen::Vector3d t = Eigen::Vector3d(1, 0, 0).normalized();
-  const Eigen::Matrix3d E = EssentialMatrixFromPose(R, t);
-
-  const Eigen::Matrix3x4d proj_matrix1 = Eigen::Matrix3x4d::Identity();
-  const Eigen::Matrix3x4d proj_matrix2 = ComposeProjectionMatrix(R, t);
+  const Rigid3d cam1_from_world;
+  const Rigid3d cam2_from_world(Eigen::Quaterniond::Identity(),
+                                Eigen::Vector3d(1, 0, 0).normalized());
+  const Eigen::Matrix3d E =
+      EssentialMatrixFromPose(cam2_from_world * Inverse(cam1_from_world));
 
   std::vector<Eigen::Vector3d> points3D(4);
   points3D[0] = Eigen::Vector3d(0, 0, 1);
@@ -126,12 +113,10 @@ TEST(FindOptimalImageObservations, Nominal) {
 
   // Test if perfect projection is equivalent to optimal image observations.
   for (size_t i = 0; i < points3D.size(); ++i) {
-    const Eigen::Vector3d point1_homogeneous =
-        proj_matrix1 * points3D[i].homogeneous();
-    const Eigen::Vector2d point1 = point1_homogeneous.hnormalized();
-    const Eigen::Vector3d point2_homogeneous =
-        proj_matrix2 * points3D[i].homogeneous();
-    const Eigen::Vector2d point2 = point2_homogeneous.hnormalized();
+    const Eigen::Vector2d point1 =
+        (cam1_from_world * points3D[i]).hnormalized();
+    const Eigen::Vector2d point2 =
+        (cam2_from_world * points3D[i]).hnormalized();
     Eigen::Vector2d optimal_point1;
     Eigen::Vector2d optimal_point2;
     FindOptimalImageObservations(
@@ -142,9 +127,9 @@ TEST(FindOptimalImageObservations, Nominal) {
 }
 
 TEST(EpipoleFromEssentialMatrix, Nominal) {
-  const Eigen::Matrix3d R = EulerAnglesToRotationMatrix(0, 0, 0);
-  const Eigen::Vector3d t = Eigen::Vector3d(0, 0, -1).normalized();
-  const Eigen::Matrix3d E = EssentialMatrixFromPose(R, t);
+  const Rigid3d cam2_from_cam1(Eigen::Quaterniond::Identity(),
+                               Eigen::Vector3d(0, 0, -1).normalized());
+  const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
 
   const Eigen::Vector3d left_epipole = EpipoleFromEssentialMatrix(E, true);
   const Eigen::Vector3d right_epipole = EpipoleFromEssentialMatrix(E, false);
@@ -154,9 +139,10 @@ TEST(EpipoleFromEssentialMatrix, Nominal) {
 
 TEST(InvertEssentialMatrix, Nominal) {
   for (size_t i = 1; i < 10; ++i) {
-    const Eigen::Matrix3d R = EulerAnglesToRotationMatrix(0, 0.1, 0);
-    const Eigen::Vector3d t = Eigen::Vector3d(0, 0, i).normalized();
-    const Eigen::Matrix3d E = EssentialMatrixFromPose(R, t);
+    const Rigid3d cam2_from_cam1(
+        Eigen::Quaterniond(EulerAnglesToRotationMatrix(0, 0.1, 0)),
+        Eigen::Vector3d(0, 0, i).normalized());
+    const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
     const Eigen::Matrix3d inv_inv_E =
         InvertEssentialMatrix(InvertEssentialMatrix(E));
     EXPECT_TRUE(E.isApprox(inv_inv_E));
@@ -164,12 +150,11 @@ TEST(InvertEssentialMatrix, Nominal) {
 }
 
 TEST(RefineEssentialMatrix, Nominal) {
-  const Eigen::Matrix3d R = EulerAnglesToRotationMatrix(0, 0, 0);
-  const Eigen::Vector3d t = Eigen::Vector3d(1, 0, 0).normalized();
-  const Eigen::Matrix3d E = EssentialMatrixFromPose(R, t);
-
-  const Eigen::Matrix3x4d proj_matrix1 = Eigen::Matrix3x4d::Identity();
-  const Eigen::Matrix3x4d proj_matrix2 = ComposeProjectionMatrix(R, t);
+  const Rigid3d cam1_from_world;
+  const Rigid3d cam2_from_world(Eigen::Quaterniond::Identity(),
+                                Eigen::Vector3d(1, 0, 0).normalized());
+  const Eigen::Matrix3d E =
+      EssentialMatrixFromPose(cam2_from_world * Inverse(cam1_from_world));
 
   std::vector<Eigen::Vector3d> points3D(150);
   for (size_t i = 0; i < points3D.size() / 3; ++i) {
@@ -181,17 +166,15 @@ TEST(RefineEssentialMatrix, Nominal) {
   std::vector<Eigen::Vector2d> points1(points3D.size());
   std::vector<Eigen::Vector2d> points2(points3D.size());
   for (size_t i = 0; i < points3D.size(); ++i) {
-    const Eigen::Vector3d point1 = proj_matrix1 * points3D[i].homogeneous();
-    points1[i] = point1.hnormalized();
-    const Eigen::Vector3d point2 = proj_matrix2 * points3D[i].homogeneous();
-    points2[i] = point2.hnormalized();
+    points1[i] = (cam1_from_world * points3D[i]).hnormalized();
+    points2[i] = (cam2_from_world * points3D[i]).hnormalized();
   }
 
-  const Eigen::Matrix3d R_pertubated = EulerAnglesToRotationMatrix(0, 0, 0);
-  const Eigen::Vector3d t_pertubated =
-      Eigen::Vector3d(1.02, 0.02, 0.02).normalized();
+  const Rigid3d cam2_from_world_perturbed(
+      Eigen::Quaterniond::Identity(),
+      Eigen::Vector3d(1.02, 0.02, 0.01).normalized());
   const Eigen::Matrix3d E_pertubated =
-      EssentialMatrixFromPose(R_pertubated, t_pertubated);
+      EssentialMatrixFromPose(cam2_from_world * Inverse(cam1_from_world));
 
   Eigen::Matrix3d E_refined = E_pertubated;
   ceres::Solver::Options options;

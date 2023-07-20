@@ -240,7 +240,7 @@ void MovieGrabberWidget::Assemble() {
       }
 
       const Rigid3d interp_view_model =
-          InterpolatePose(prev_view_model, curr_view_model, tt);
+          InterpolateCameraPoses(prev_view_model, curr_view_model, tt);
 
       Eigen::Matrix4d frame_model_view_matrix = Eigen::Matrix4d::Identity();
       frame_model_view_matrix.topLeftCorner<3, 4>() =

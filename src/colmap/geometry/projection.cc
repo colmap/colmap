@@ -36,29 +36,6 @@
 
 namespace colmap {
 
-Eigen::Matrix3x4d ComposeProjectionMatrix(const Eigen::Vector4d& qvec,
-                                          const Eigen::Vector3d& tvec) {
-  Eigen::Matrix3x4d proj_matrix;
-  proj_matrix.leftCols<3>() = QuaternionToRotationMatrix(qvec);
-  proj_matrix.rightCols<1>() = tvec;
-  return proj_matrix;
-}
-
-Eigen::Matrix3x4d ComposeProjectionMatrix(const Eigen::Matrix3d& R,
-                                          const Eigen::Vector3d& T) {
-  Eigen::Matrix3x4d proj_matrix;
-  proj_matrix.leftCols<3>() = R;
-  proj_matrix.rightCols<1>() = T;
-  return proj_matrix;
-}
-
-Eigen::Matrix3x4d InvertProjectionMatrix(const Eigen::Matrix3x4d& proj_matrix) {
-  Eigen::Matrix3x4d inv_proj_matrix;
-  inv_proj_matrix.leftCols<3>() = proj_matrix.leftCols<3>().transpose();
-  inv_proj_matrix.rightCols<1>() = ProjectionCenterFromMatrix(proj_matrix);
-  return inv_proj_matrix;
-}
-
 Eigen::Matrix3d ComputeClosestRotationMatrix(const Eigen::Matrix3d& matrix) {
   const Eigen::JacobiSVD<Eigen::Matrix3d> svd(
       matrix, Eigen::ComputeFullU | Eigen::ComputeFullV);

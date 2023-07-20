@@ -47,32 +47,32 @@ namespace colmap {
 //   R. Hartley and A. Zisserman, Multiple View Geometry in Computer Vision,
 //   Cambridge Univ. Press, 2003.
 //
-// @param proj_matrix1   Projection matrix of the first image as 3x4 matrix.
-// @param proj_matrix2   Projection matrix of the second image as 3x4 matrix.
+// @param cam_from_world1   Projection matrix of the first image as 3x4 matrix.
+// @param cam_from_world2   Projection matrix of the second image as 3x4 matrix.
 // @param point1         Corresponding 2D point in first image.
 // @param point2         Corresponding 2D point in second image.
 //
 // @return               Triangulated 3D point.
-Eigen::Vector3d TriangulatePoint(const Eigen::Matrix3x4d& proj_matrix1,
-                                 const Eigen::Matrix3x4d& proj_matrix2,
+Eigen::Vector3d TriangulatePoint(const Eigen::Matrix3x4d& cam_from_world1,
+                                 const Eigen::Matrix3x4d& cam_from_world2,
                                  const Eigen::Vector2d& point1,
                                  const Eigen::Vector2d& point2);
 
 // Triangulate multiple 3D points from multiple image correspondences.
 std::vector<Eigen::Vector3d> TriangulatePoints(
-    const Eigen::Matrix3x4d& proj_matrix1,
-    const Eigen::Matrix3x4d& proj_matrix2,
+    const Eigen::Matrix3x4d& cam_from_world1,
+    const Eigen::Matrix3x4d& cam_from_world2,
     const std::vector<Eigen::Vector2d>& points1,
     const std::vector<Eigen::Vector2d>& points2);
 
 // Triangulate point from multiple views minimizing the L2 error.
 //
-// @param proj_matrices       Projection matrices of multi-view observations.
+// @param cams_from_world       Projection matrices of multi-view observations.
 // @param points              Image observations of multi-view observations.
 //
 // @return                    Estimated 3D point.
 Eigen::Vector3d TriangulateMultiViewPoint(
-    const std::vector<Eigen::Matrix3x4d>& proj_matrices,
+    const std::vector<Eigen::Matrix3x4d>& cams_from_world,
     const std::vector<Eigen::Vector2d>& points);
 
 // Triangulate optimal 3D point from corresponding image point observations by
@@ -85,21 +85,22 @@ Eigen::Vector3d TriangulateMultiViewPoint(
 //   P. Lindstrom, "Triangulation Made Easy," IEEE Computer Vision and Pattern
 //   Recognition 2010, pp. 1554-1561, June 2010.
 //
-// @param proj_matrix1   Projection matrix of the first image as 3x4 matrix.
-// @param proj_matrix2   Projection matrix of the second image as 3x4 matrix.
+// @param cam_from_world1   Projection matrix of the first image as 3x4 matrix.
+// @param cam_from_world2   Projection matrix of the second image as 3x4 matrix.
 // @param point1         Corresponding 2D point in first image.
 // @param point2         Corresponding 2D point in second image.
 //
 // @return               Triangulated optimal 3D point.
-Eigen::Vector3d TriangulateOptimalPoint(const Eigen::Matrix3x4d& proj_matrix1,
-                                        const Eigen::Matrix3x4d& proj_matrix2,
-                                        const Eigen::Vector2d& point1,
-                                        const Eigen::Vector2d& point2);
+Eigen::Vector3d TriangulateOptimalPoint(
+    const Eigen::Matrix3x4d& cam_from_world1,
+    const Eigen::Matrix3x4d& cam_from_world2,
+    const Eigen::Vector2d& point1,
+    const Eigen::Vector2d& point2);
 
 // Triangulate multiple optimal 3D points from multiple image correspondences.
 std::vector<Eigen::Vector3d> TriangulateOptimalPoints(
-    const Eigen::Matrix3x4d& proj_matrix1,
-    const Eigen::Matrix3x4d& proj_matrix2,
+    const Eigen::Matrix3x4d& cam_from_world1,
+    const Eigen::Matrix3x4d& cam_from_world2,
     const std::vector<Eigen::Vector2d>& points1,
     const std::vector<Eigen::Vector2d>& points2);
 

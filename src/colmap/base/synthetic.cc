@@ -158,8 +158,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
       TwoViewGeometry two_view_geometry;
       two_view_geometry.config = TwoViewGeometry::CALIBRATED;
-      two_view_geometry.E = EssentialMatrixFromAbsolutePoses(
-          image1.CamFromWorld().ToMatrix(), image2.CamFromWorld().ToMatrix());
+      const Rigid3d cam2_from_cam1 =
+          image2.CamFromWorld() * Inverse(image1.CamFromWorld());
+      two_view_geometry.E = EssentialMatrixFromPose(cam2_from_cam1);
 
       for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;
            ++point2D_idx1) {

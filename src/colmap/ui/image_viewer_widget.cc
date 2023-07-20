@@ -299,13 +299,13 @@ DatabaseImageViewerWidget::DatabaseImageViewerWidget(
   table_row += 1;
 
   table_widget_->setItem(table_row, 0, new QTableWidgetItem("qw, qx, qy, qz"));
-  qvec_item_ = new QTableWidgetItem();
-  table_widget_->setItem(table_row, 1, qvec_item_);
+  rotation_item_ = new QTableWidgetItem();
+  table_widget_->setItem(table_row, 1, rotation_item_);
   table_row += 1;
 
   table_widget_->setItem(table_row, 0, new QTableWidgetItem("tx, ty, tz"));
-  tvec_item_ = new QTableWidgetItem();
-  table_widget_->setItem(table_row, 1, tvec_item_);
+  translation_item_ = new QTableWidgetItem();
+  table_widget_->setItem(table_row, 1, translation_item_);
   table_row += 1;
 
   table_widget_->setItem(table_row, 0, new QTableWidgetItem("dims"));
@@ -362,12 +362,12 @@ void DatabaseImageViewerWidget::ShowImageWithId(const image_t image_id) {
   camera_id_item_->setText(QString::number(image.CameraId()));
   camera_model_item_->setText(QString::fromStdString(camera.ModelName()));
   camera_params_item_->setText(QString::fromStdString(camera.ParamsToString()));
-  qvec_item_->setText(
+  rotation_item_->setText(
       QString::number(image.CamFromWorld().rotation.w()) + ", " +
       QString::number(image.CamFromWorld().rotation.x()) + ", " +
       QString::number(image.CamFromWorld().rotation.y()) + ", " +
       QString::number(image.CamFromWorld().rotation.z()));
-  tvec_item_->setText(
+  translation_item_->setText(
       QString::number(image.CamFromWorld().translation.x()) + ", " +
       QString::number(image.CamFromWorld().translation.y()) + ", " +
       QString::number(image.CamFromWorld().translation.z()));

@@ -31,6 +31,7 @@
 
 #pragma once
 
+#include "colmap/geometry/rigid3.h"
 #include "colmap/util/types.h"
 
 #include <vector>
@@ -53,20 +54,17 @@ namespace colmap {
 class GR6PEstimator {
  public:
   // The generalized image observations of the left camera, which is composed of
-  // the relative pose of the specific camera in the generalized camera and its
-  // image observation.
+  // the relative pose of a camera in the generalized camera and a ray in the
+  // camera frame.
   struct X_t {
-    // The relative transformation from the generalized camera to the camera
-    // frame of the observation.
-    Eigen::Matrix3x4d rel_tform;
-    // The 2D image feature observation.
-    Eigen::Vector2d xy;
+    Rigid3d cam_from_rig;
+    Eigen::Vector3d ray_in_cam;
   };
 
-  // The normalized image feature points in the left camera.
+  // The normalized image feature points in the right camera.
   typedef X_t Y_t;
-  // The relative transformation between the two generalized cameras.
-  typedef Eigen::Matrix3x4d M_t;
+  // The estimated rig2_from_rig1 relative pose between the generalized cameras.
+  typedef Rigid3d M_t;
 
   // The minimum number of samples needed to estimate a model. Note that in
   // theory the minimum required number of samples is 6 but Laurent Kneip showed
@@ -81,7 +79,7 @@ class GR6PEstimator {
   // Calculate the squared Sampson error between corresponding points.
   static void Residuals(const std::vector<X_t>& points1,
                         const std::vector<Y_t>& points2,
-                        const M_t& proj_matrix,
+                        const M_t& rig2_from_rig1,
                         std::vector<double>* residuals);
 };
 

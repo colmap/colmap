@@ -70,8 +70,8 @@ TEST(ComputeSquaredSampsonError, Nominal) {
   points2.emplace_back(2, 1);
   points2.emplace_back(2, 2);
 
-  const Eigen::Matrix3d E = EssentialMatrixFromPose(Eigen::Matrix3d::Identity(),
-                                                    Eigen::Vector3d(1, 0, 0));
+  const Eigen::Matrix3d E = EssentialMatrixFromPose(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0)));
 
   std::vector<double> residuals;
   ComputeSquaredSampsonError(points1, points2, E, &residuals);
