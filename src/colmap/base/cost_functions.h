@@ -129,7 +129,7 @@ class BundleAdjustmentConstantPoseCostFunction {
   }
 
  private:
-  const Rigid3d cam_from_world_;
+  const Rigid3d& cam_from_world_;
   const double observed_x_;
   const double observed_y_;
 };
