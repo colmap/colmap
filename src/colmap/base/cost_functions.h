@@ -73,11 +73,10 @@ class BundleAdjustmentCostFunction {
         EigenQuaternionMap<T>(cam_from_world_rotation) *
             EigenVector3Map<T>(point3D) +
         EigenVector3Map<T>(cam_from_world_translation);
-    point3D_in_cam[0] /= point3D_in_cam[2];
-    point3D_in_cam[1] /= point3D_in_cam[2];
     CameraModel::CamToImg(camera_params,
                           point3D_in_cam[0],
                           point3D_in_cam[1],
+                          point3D_in_cam[2],
                           &residuals[0],
                           &residuals[1]);
     residuals[0] -= T(observed_x_);
@@ -118,11 +117,10 @@ class BundleAdjustmentConstantPoseCostFunction {
     Eigen::Matrix<T, 3, 1> point3D_in_cam =
         cam_from_world_.rotation.cast<T>() * EigenVector3Map<T>(point3D) +
         cam_from_world_.translation.cast<T>();
-    point3D_in_cam[0] /= point3D_in_cam[2];
-    point3D_in_cam[1] /= point3D_in_cam[2];
     CameraModel::CamToImg(camera_params,
                           point3D_in_cam[0],
                           point3D_in_cam[1],
+                          point3D_in_cam[2],
                           &residuals[0],
                           &residuals[1]);
     residuals[0] -= T(observed_x_);
@@ -175,11 +173,10 @@ class RigBundleAdjustmentCostFunction {
                  EigenVector3Map<T>(point3D) +
              EigenVector3Map<T>(rig_from_world_translation)) +
         EigenVector3Map<T>(cam_from_rig_translation);
-    point3D_in_cam[0] /= point3D_in_cam[2];
-    point3D_in_cam[1] /= point3D_in_cam[2];
     CameraModel::CamToImg(camera_params,
                           point3D_in_cam[0],
                           point3D_in_cam[1],
+                          point3D_in_cam[2],
                           &residuals[0],
                           &residuals[1]);
     residuals[0] -= T(observed_x_);
