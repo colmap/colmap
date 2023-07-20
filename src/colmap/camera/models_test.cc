@@ -136,70 +136,55 @@ void TestModel(const std::vector<double>& params) {
 }
 
 TEST(SimplePinhole, Nominal) {
-  std::vector<double> params = {655.123, 386.123, 511.123};
-  TestModel<SimplePinholeCameraModel>(params);
+  TestModel<SimplePinholeCameraModel>({655.123, 386.123, 511.123});
 }
 
 TEST(Pinhole, Nominal) {
-  std::vector<double> params = {651.123, 655.123, 386.123, 511.123};
-  TestModel<PinholeCameraModel>(params);
+  TestModel<PinholeCameraModel>({651.123, 655.123, 386.123, 511.123});
 }
 
 TEST(SimpleRadial, Nominal) {
-  std::vector<double> params = {651.123, 386.123, 511.123, 0};
-  TestModel<SimpleRadialCameraModel>(params);
-  params[3] = 0.1;
-  TestModel<SimpleRadialCameraModel>(params);
+  TestModel<SimpleRadialCameraModel>({651.123, 386.123, 511.123, 0});
+  TestModel<SimpleRadialCameraModel>({651.123, 386.123, 511.123, 0.1});
 }
 
 TEST(Radial, Nominal) {
-  std::vector<double> params = {651.123, 386.123, 511.123, 0, 0};
-  TestModel<RadialCameraModel>(params);
-  params[3] = 0.1;
-  TestModel<RadialCameraModel>(params);
-  params[3] = 0.05;
-  TestModel<RadialCameraModel>(params);
-  params[4] = 0.03;
-  TestModel<RadialCameraModel>(params);
+  TestModel<RadialCameraModel>({651.123, 386.123, 511.123, 0, 0});
+  TestModel<RadialCameraModel>({651.123, 386.123, 511.123, 0.1, 0});
+  TestModel<RadialCameraModel>({651.123, 386.123, 511.12, 0, 0.05});
+  TestModel<RadialCameraModel>({651.123, 386.123, 511.123, 0.05, 0.03});
 }
 
 TEST(OpenCV, Nominal) {
-  std::vector<double> params = {
-      651.123, 655.123, 386.123, 511.123, -0.471, 0.223, -0.001, 0.001};
-  TestModel<OpenCVCameraModel>(params);
+  TestModel<OpenCVCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, -0.471, 0.223, -0.001, 0.001});
 }
 
 TEST(OpenCVFisheye, Nominal) {
-  std::vector<double> params = {
-      651.123, 655.123, 386.123, 511.123, -0.471, 0.223, -0.001, 0.001};
-  TestModel<OpenCVFisheyeCameraModel>(params);
+  TestModel<OpenCVFisheyeCameraModel>(
+      {651.123, 655.123, 386.123, 511.123, -0.471, 0.223, -0.001, 0.001});
 }
 
 TEST(FullOpenCV, Nominal) {
-  std::vector<double> params = {651.123,
-                                655.123,
-                                386.123,
-                                511.123,
-                                -0.471,
-                                0.223,
-                                -0.001,
-                                0.001,
-                                0.001,
-                                0.02,
-                                -0.02,
-                                0.001};
-  TestModel<FullOpenCVCameraModel>(params);
+  TestModel<FullOpenCVCameraModel>({651.123,
+                                    655.123,
+                                    386.123,
+                                    511.123,
+                                    -0.471,
+                                    0.223,
+                                    -0.001,
+                                    0.001,
+                                    0.001,
+                                    0.02,
+                                    -0.02,
+                                    0.001});
 }
 
 TEST(FOV, Nominal) {
-  std::vector<double> params = {651.123, 655.123, 386.123, 511.123, 0.9};
-  TestModel<FOVCameraModel>(params);
-  params[4] = 0;
-  TestModel<FOVCameraModel>(params);
-  params[4] = 1e-6;
-  TestModel<FOVCameraModel>(params);
-  params[4] = 1e-2;
-  TestModel<FOVCameraModel>(params);
+  TestModel<FOVCameraModel>({651.123, 655.123, 386.123, 511.123, 0});
+  TestModel<FOVCameraModel>({651.123, 655.123, 386.123, 511.123, 0.9});
+  TestModel<FOVCameraModel>({651.123, 655.123, 386.123, 511.123, 1e-6});
+  TestModel<FOVCameraModel>({651.123, 655.123, 386.123, 511.123, 1e-2});
   EXPECT_EQ(CameraModelInitializeParams(FOVCameraModel::model_id, 100, 100, 100)
                 .back(),
             1e-2);
@@ -207,36 +192,30 @@ TEST(FOV, Nominal) {
 
 TEST(SimpleRadialFisheye, Nominal) {
   std::vector<double> params = {651.123, 386.123, 511.123, 0};
-  TestModel<SimpleRadialFisheyeCameraModel>(params);
-  params[3] = 0.1;
-  TestModel<SimpleRadialFisheyeCameraModel>(params);
+  TestModel<SimpleRadialFisheyeCameraModel>({651.123, 386.123, 511.123, 0});
+  TestModel<SimpleRadialFisheyeCameraModel>({651.123, 386.123, 511.123, 0.1});
 }
 
 TEST(RadialFisheye, Nominal) {
-  std::vector<double> params = {651.123, 386.123, 511.123, 0, 0};
-  TestModel<RadialFisheyeCameraModel>(params);
-  params[3] = 0.1;
-  TestModel<RadialFisheyeCameraModel>(params);
-  params[3] = 0.05;
-  TestModel<RadialFisheyeCameraModel>(params);
-  params[4] = 0.03;
-  TestModel<RadialFisheyeCameraModel>(params);
+  TestModel<RadialFisheyeCameraModel>({651.123, 386.123, 511.123, 0, 0});
+  TestModel<RadialFisheyeCameraModel>({651.123, 386.123, 511.123, 0, 0.1});
+  TestModel<RadialFisheyeCameraModel>({651.123, 386.123, 511.123, 0, 0.05});
+  TestModel<RadialFisheyeCameraModel>({651.123, 386.123, 511.123, 0, 0.03});
 }
 
 TEST(ThinPrismFisheye, Nominal) {
-  std::vector<double> params = {651.123,
-                                655.123,
-                                386.123,
-                                511.123,
-                                -0.471,
-                                0.223,
-                                -0.001,
-                                0.001,
-                                0.001,
-                                0.02,
-                                -0.02,
-                                0.001};
-  TestModel<ThinPrismFisheyeCameraModel>(params);
+  TestModel<ThinPrismFisheyeCameraModel>({651.123,
+                                          655.123,
+                                          386.123,
+                                          511.123,
+                                          -0.471,
+                                          0.223,
+                                          -0.001,
+                                          0.001,
+                                          0.001,
+                                          0.02,
+                                          -0.02,
+                                          0.001});
 }
 
 }  // namespace colmap
