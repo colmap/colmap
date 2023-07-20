@@ -109,23 +109,28 @@ TEST(AverageQuaternions, Nominal) {
 
   quats = {{Eigen::Quaterniond::Identity()}};
   weights = {1.0};
-  EXPECT_EQ(AverageQuaternions(quats, weights), Eigen::Quaterniond::Identity());
+  EXPECT_EQ(AverageQuaternions(quats, weights).coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
 
   quats = {Eigen::Quaterniond::Identity()};
   weights = {2.0};
-  EXPECT_EQ(AverageQuaternions(quats, weights), Eigen::Quaterniond::Identity());
+  EXPECT_EQ(AverageQuaternions(quats, weights).coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
 
   quats = {Eigen::Quaterniond::Identity(), Eigen::Quaterniond::Identity()};
   weights = {1.0, 1.0};
-  EXPECT_EQ(AverageQuaternions(quats, weights), Eigen::Quaterniond::Identity());
+  EXPECT_EQ(AverageQuaternions(quats, weights).coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
 
   quats = {Eigen::Quaterniond::Identity(), Eigen::Quaterniond::Identity()};
   weights = {1.0, 2.0};
-  EXPECT_EQ(AverageQuaternions(quats, weights), Eigen::Quaterniond::Identity());
+  EXPECT_EQ(AverageQuaternions(quats, weights).coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
 
   quats = {Eigen::Quaterniond::Identity(), Eigen::Quaterniond(2, 0, 0, 0)};
   weights = {1.0, 2.0};
-  EXPECT_EQ(AverageQuaternions(quats, weights), Eigen::Quaterniond::Identity());
+  EXPECT_EQ(AverageQuaternions(quats, weights).coeffs(),
+            Eigen::Quaterniond::Identity().coeffs());
 
   quats = {Eigen::Quaterniond::Identity(), Eigen::Quaterniond(1, 1, 0, 0)};
   weights = {1.0, 1.0};

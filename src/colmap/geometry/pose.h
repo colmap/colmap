@@ -71,7 +71,7 @@ Eigen::Matrix3d EulerAnglesToRotationMatrix(double rx, double ry, double rz);
 //    Markley, F. Landis, et al. "Averaging quaternions."
 //    Journal of Guidance, Control, and Dynamics 30.4 (2007): 1193-1197.
 //
-// @param qvecs         The Quaternions to be averaged.
+// @param quats         The Quaternions to be averaged.
 // @param weights       Non-negative weights.
 //
 // @return              The average Quaternion.
@@ -81,8 +81,8 @@ Eigen::Quaterniond AverageQuaternions(
 
 // Linearly interpolate camera pose.
 Rigid3d InterpolateCameraPoses(const Rigid3d& cam_from_world1,
-                        const Rigid3d& cam_from_world2,
-                        double t);
+                               const Rigid3d& cam_from_world2,
+                               double t);
 
 // Perform cheirality constraint test, i.e., determine which of the triangulated
 // correspondences lie in front of of both cameras. The first camera has the
