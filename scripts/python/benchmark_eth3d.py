@@ -5,14 +5,18 @@ import urllib.request
 import subprocess
 
 
-def download_file(url, file_path):
+def download_file(url, file_path, max_retries=3):
     if os.path.exists(file_path):
         return
     print(f"Downloading {url} to {file_path}")
-    try:
-        urllib.request.urlretrieve(url, file_path)
-    except Exception as exc:
-        print(f"Failed to download {url} to {file_path} due to {exc}")
+    for retry in range(max_retries):
+        try:
+            urllib.request.urlretrieve(url, file_path)
+            return
+        except Exception as exc:
+            print(
+                f"Failed to download {url} (trial={retry+1}) to {file_path} due to {exc}"
+            )
 
 
 def check_small_errors_or_exit(
@@ -28,9 +32,7 @@ def check_small_errors_or_exit(
             line = line.strip()
             if len(line) == 0 or line.startswith("#"):
                 continue
-            rotation_error, proj_center_error = map(
-                float, line.split(",")
-            )
+            rotation_error, proj_center_error = map(float, line.split(","))
             num_images += 1
             if rotation_error > max_rotation_error:
                 print("Exceeded rotation error threshold:", rotation_error)
