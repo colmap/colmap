@@ -133,13 +133,13 @@ class Camera {
                           size_t height);
 
   // Project point in image plane to world / infinity.
-  Eigen::Vector2d ImageToWorld(const Eigen::Vector2d& image_point) const;
+  Eigen::Vector2d ImgToCam(const Eigen::Vector2d& image_point) const;
 
-  // Convert pixel threshold in image plane to world space.
-  double ImageToWorldThreshold(double threshold) const;
+  // Convert pixel threshold in image plane to camera frame.
+  double ImgToCamThreshold(double threshold) const;
 
-  // Project point from world / infinity to image plane.
-  Eigen::Vector2d WorldToImage(const Eigen::Vector2d& world_point) const;
+  // Project point from camera frame to image plane.
+  Eigen::Vector2d CamToImg(const Eigen::Vector2d& cam_point) const;
 
   // Rescale camera dimensions and accordingly the focal length and
   // and the principal point.

@@ -223,29 +223,29 @@ void Camera::InitializeWithName(const std::string& model_name,
       CameraModelNameToId(model_name), focal_length, width, height);
 }
 
-Eigen::Vector2d Camera::ImageToWorld(const Eigen::Vector2d& image_point) const {
+Eigen::Vector2d Camera::ImgToCam(const Eigen::Vector2d& image_point) const {
   Eigen::Vector2d world_point;
-  CameraModelImageToWorld(model_id_,
-                          params_,
-                          image_point(0),
-                          image_point(1),
-                          &world_point(0),
-                          &world_point(1));
+  CameraModelImgToCam(model_id_,
+                      params_,
+                      image_point(0),
+                      image_point(1),
+                      &world_point(0),
+                      &world_point(1));
   return world_point;
 }
 
-double Camera::ImageToWorldThreshold(const double threshold) const {
-  return CameraModelImageToWorldThreshold(model_id_, params_, threshold);
+double Camera::ImgToCamThreshold(const double threshold) const {
+  return CameraModelImgToCamThreshold(model_id_, params_, threshold);
 }
 
-Eigen::Vector2d Camera::WorldToImage(const Eigen::Vector2d& world_point) const {
+Eigen::Vector2d Camera::CamToImg(const Eigen::Vector2d& cam_point) const {
   Eigen::Vector2d image_point;
-  CameraModelWorldToImage(model_id_,
-                          params_,
-                          world_point(0),
-                          world_point(1),
-                          &image_point(0),
-                          &image_point(1));
+  CameraModelCamToImg(model_id_,
+                      params_,
+                      cam_point(0),
+                      cam_point(1),
+                      &image_point(0),
+                      &image_point(1));
   return image_point;
 }
 

@@ -75,11 +75,11 @@ class BundleAdjustmentCostFunction {
         EigenVector3Map<T>(cam_from_world_translation);
     point3D_in_cam[0] /= point3D_in_cam[2];
     point3D_in_cam[1] /= point3D_in_cam[2];
-    CameraModel::WorldToImage(camera_params,
-                              point3D_in_cam[0],
-                              point3D_in_cam[1],
-                              &residuals[0],
-                              &residuals[1]);
+    CameraModel::CamToImg(camera_params,
+                          point3D_in_cam[0],
+                          point3D_in_cam[1],
+                          &residuals[0],
+                          &residuals[1]);
     residuals[0] -= T(observed_x_);
     residuals[1] -= T(observed_y_);
     return true;
@@ -120,11 +120,11 @@ class BundleAdjustmentConstantPoseCostFunction {
         cam_from_world_.translation.cast<T>();
     point3D_in_cam[0] /= point3D_in_cam[2];
     point3D_in_cam[1] /= point3D_in_cam[2];
-    CameraModel::WorldToImage(camera_params,
-                              point3D_in_cam[0],
-                              point3D_in_cam[1],
-                              &residuals[0],
-                              &residuals[1]);
+    CameraModel::CamToImg(camera_params,
+                          point3D_in_cam[0],
+                          point3D_in_cam[1],
+                          &residuals[0],
+                          &residuals[1]);
     residuals[0] -= T(observed_x_);
     residuals[1] -= T(observed_y_);
     return true;
@@ -177,11 +177,11 @@ class RigBundleAdjustmentCostFunction {
         EigenVector3Map<T>(cam_from_rig_translation);
     point3D_in_cam[0] /= point3D_in_cam[2];
     point3D_in_cam[1] /= point3D_in_cam[2];
-    CameraModel::WorldToImage(camera_params,
-                              point3D_in_cam[0],
-                              point3D_in_cam[1],
-                              &residuals[0],
-                              &residuals[1]);
+    CameraModel::CamToImg(camera_params,
+                          point3D_in_cam[0],
+                          point3D_in_cam[1],
+                          &residuals[0],
+                          &residuals[1]);
     residuals[0] -= T(observed_x_);
     residuals[1] -= T(observed_y_);
     return true;
