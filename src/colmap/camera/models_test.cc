@@ -36,7 +36,7 @@
 namespace colmap {
 
 template <typename CameraModel>
-void TestCamToImgToCam(const std::vector<double> params,
+void TestCamToImgToCam(const std::vector<double>& params,
                        const double u0,
                        const double v0,
                        const double w0) {
@@ -52,7 +52,7 @@ void TestCamToImgToCam(const std::vector<double> params,
 }
 
 template <typename CameraModel>
-void TestImgToCamToImg(const std::vector<double> params,
+void TestImgToCamToImg(const std::vector<double>& params,
                        const double x0,
                        const double y0) {
   double u, v, w, x, y;
