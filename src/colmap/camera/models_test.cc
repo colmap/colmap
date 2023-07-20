@@ -36,29 +36,29 @@
 namespace colmap {
 
 template <typename CameraModel>
-void TestWorldToImageToWorld(const std::vector<double> params,
-                             const double u0,
-                             const double v0) {
+void TestCamToImgToWorld(const std::vector<double> params,
+                         const double u0,
+                         const double v0) {
   double u, v, x, y, xx, yy;
-  CameraModel::WorldToImage(params.data(), u0, v0, &x, &y);
-  CameraModelWorldToImage(CameraModel::model_id, params, u0, v0, &xx, &yy);
+  CameraModel::CamToImg(params.data(), u0, v0, &x, &y);
+  CameraModelCamToImg(CameraModel::model_id, params, u0, v0, &xx, &yy);
   EXPECT_EQ(x, xx);
   EXPECT_EQ(y, yy);
-  CameraModel::ImageToWorld(params.data(), x, y, &u, &v);
+  CameraModel::ImgToCam(params.data(), x, y, &u, &v);
   EXPECT_LT(std::abs(u - u0), 1e-6);
   EXPECT_LT(std::abs(v - v0), 1e-6);
 }
 
 template <typename CameraModel>
-void TestImageToWorldToImage(const std::vector<double> params,
-                             const double x0,
-                             const double y0) {
+void TestImageToCamToImg(const std::vector<double> params,
+                         const double x0,
+                         const double y0) {
   double u, v, x, y, uu, vv;
-  CameraModel::ImageToWorld(params.data(), x0, y0, &u, &v);
-  CameraModelImageToWorld(CameraModel::model_id, params, x0, y0, &uu, &vv);
+  CameraModel::ImgToCam(params.data(), x0, y0, &u, &v);
+  CameraModelImgToCam(CameraModel::model_id, params, x0, y0, &uu, &vv);
   EXPECT_EQ(u, uu);
   EXPECT_EQ(v, vv);
-  CameraModel::WorldToImage(params.data(), u, v, &x, &y);
+  CameraModel::CamToImg(params.data(), u, v, &x, &y);
   EXPECT_LT(std::abs(x - x0), 1e-6);
   EXPECT_LT(std::abs(y - y0), 1e-6);
 }
@@ -93,13 +93,11 @@ void TestModel(const std::vector<double>& params) {
         CameraModel::model_id, default_params, 100, 100, 0.1, 2.0, -0.1));
   }
 
-  EXPECT_EQ(CameraModelImageToWorldThreshold(CameraModel::model_id, params, 0),
-            0);
-  EXPECT_GT(CameraModelImageToWorldThreshold(CameraModel::model_id, params, 1),
-            0);
-  EXPECT_EQ(CameraModelImageToWorldThreshold(
-                CameraModel::model_id, default_params, 1),
-            1.0 / 100.0);
+  EXPECT_EQ(CameraModelImgToCamThreshold(CameraModel::model_id, params, 0), 0);
+  EXPECT_GT(CameraModelImgToCamThreshold(CameraModel::model_id, params, 1), 0);
+  EXPECT_EQ(
+      CameraModelImgToCamThreshold(CameraModel::model_id, default_params, 1),
+      1.0 / 100.0);
 
   EXPECT_TRUE(ExistsCameraModelWithName(CameraModel::model_name));
   EXPECT_FALSE(ExistsCameraModelWithName(CameraModel::model_name + "FOO"));
@@ -116,18 +114,18 @@ void TestModel(const std::vector<double>& params) {
   for (double u = -0.5; u <= 0.5; u += 0.1) {
     // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
     for (double v = -0.5; v <= 0.5; v += 0.1) {
-      TestWorldToImageToWorld<CameraModel>(params, u, v);
+      TestCamToImgToWorld<CameraModel>(params, u, v);
     }
   }
 
   for (int x = 0; x <= 800; x += 50) {
     for (int y = 0; y <= 800; y += 50) {
-      TestImageToWorldToImage<CameraModel>(params, x, y);
+      TestImageToCamToImg<CameraModel>(params, x, y);
     }
   }
 
   const auto pp_idxs = CameraModel::principal_point_idxs;
-  TestImageToWorldToImage<CameraModel>(
+  TestImageToCamToImg<CameraModel>(
       params, params[pp_idxs.at(0)], params[pp_idxs.at(1)]);
 }
 

@@ -83,8 +83,8 @@ bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& P,
 Eigen::Vector2d ProjectPointToImage(const Eigen::Vector3d& point3D,
                                     const Eigen::Matrix3x4d& cam_from_world,
                                     const Camera& camera) {
-  const Eigen::Vector3d world_point = cam_from_world * point3D.homogeneous();
-  return camera.WorldToImage(world_point.hnormalized());
+  return camera.CamToImg(
+      (cam_from_world * point3D.homogeneous()).hnormalized());
 }
 
 double CalculateSquaredReprojectionError(const Eigen::Vector2d& point2D,
@@ -99,7 +99,7 @@ double CalculateSquaredReprojectionError(const Eigen::Vector2d& point2D,
   }
 
   const Eigen::Vector2d proj_point2D =
-      camera.WorldToImage(point3D_in_cam.hnormalized());
+      camera.CamToImg(point3D_in_cam.hnormalized());
   return (proj_point2D - point2D).squaredNorm();
 }
 
@@ -119,7 +119,7 @@ double CalculateSquaredReprojectionError(
   const double proj_y = cam_from_world.row(1).dot(point3D.homogeneous());
   const double inv_proj_z = 1.0 / proj_z;
 
-  const Eigen::Vector2d proj_point2D = camera.WorldToImage(
+  const Eigen::Vector2d proj_point2D = camera.CamToImg(
       Eigen::Vector2d(inv_proj_z * proj_x, inv_proj_z * proj_y));
 
   return (proj_point2D - point2D).squaredNorm();
@@ -130,7 +130,7 @@ double CalculateAngularError(const Eigen::Vector2d& point2D,
                              const Rigid3d& cam_from_world,
                              const Camera& camera) {
   return CalculateNormalizedAngularError(
-      camera.ImageToWorld(point2D), point3D, cam_from_world);
+      camera.ImgToCam(point2D), point3D, cam_from_world);
 }
 
 double CalculateAngularError(const Eigen::Vector2d& point2D,
@@ -138,7 +138,7 @@ double CalculateAngularError(const Eigen::Vector2d& point2D,
                              const Eigen::Matrix3x4d& cam_from_world,
                              const Camera& camera) {
   return CalculateNormalizedAngularError(
-      camera.ImageToWorld(point2D), point3D, cam_from_world);
+      camera.ImgToCam(point2D), point3D, cam_from_world);
 }
 
 double CalculateNormalizedAngularError(const Eigen::Vector2d& point2D,

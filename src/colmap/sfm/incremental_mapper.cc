@@ -320,12 +320,12 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
   track.Element(0).image_id = image_id1;
   track.Element(1).image_id = image_id2;
   for (const auto& corr : corrs) {
-    const Eigen::Vector2d point1_N =
-        camera1.ImageToWorld(image1.Point2D(corr.point2D_idx1).XY());
-    const Eigen::Vector2d point2_N =
-        camera2.ImageToWorld(image2.Point2D(corr.point2D_idx2).XY());
+    const Eigen::Vector2d point2D1 =
+        camera1.ImgToCam(image1.Point2D(corr.point2D_idx1).XY());
+    const Eigen::Vector2d point2D2 =
+        camera2.ImgToCam(image2.Point2D(corr.point2D_idx2).XY());
     const Eigen::Vector3d& xyz =
-        TriangulatePoint(cam_from_world1, cam_from_world2, point1_N, point2_N);
+        TriangulatePoint(cam_from_world1, cam_from_world2, point2D1, point2D2);
     const double tri_angle =
         CalculateTriangulationAngle(proj_center1, proj_center2, xyz);
     if (tri_angle >= min_tri_angle_rad &&

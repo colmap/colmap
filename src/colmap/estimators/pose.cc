@@ -61,17 +61,16 @@ void EstimateAbsolutePoseKernel(const Camera& camera,
   }
 
   // Normalize image coordinates with current camera hypothesis.
-  std::vector<Eigen::Vector2d> points2D_N(points2D.size());
+  std::vector<Eigen::Vector2d> points2D_in_cam(points2D.size());
   for (size_t i = 0; i < points2D.size(); ++i) {
-    points2D_N[i] = scaled_camera.ImageToWorld(points2D[i]);
+    points2D_in_cam[i] = scaled_camera.ImgToCam(points2D[i]);
   }
 
   // Estimate pose for given focal length.
   auto custom_options = options;
-  custom_options.max_error =
-      scaled_camera.ImageToWorldThreshold(options.max_error);
+  custom_options.max_error = scaled_camera.ImgToCamThreshold(options.max_error);
   AbsolutePoseRANSAC ransac(custom_options);
-  *report = ransac.Estimate(points2D_N, points3D);
+  *report = ransac.Estimate(points2D_in_cam, points3D);
 }
 
 }  // namespace
