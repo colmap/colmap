@@ -72,9 +72,10 @@ TEST(BundleAdjustment, AbsolutePose) {
 }
 
 TEST(BundleAdjustment, ConstantAbsolutePose) {
+  Rigid3d cam_from_world;
   std::unique_ptr<ceres::CostFunction> cost_function(
       BundleAdjustmentConstantPoseCostFunction<
-          SimplePinholeCameraModel>::Create(Rigid3d(),
+          SimplePinholeCameraModel>::Create(cam_from_world,
                                             Eigen::Vector2d::Zero()));
   double point3D[3] = {0, 0, 1};
   double camera_params[3] = {1, 0, 0};
