@@ -87,7 +87,6 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         image.CamFromWorld().rotation * -proj_center;
 
     const Camera& camera = reconstruction->Camera(image.CameraId());
-    const Eigen::Matrix3x4d cam_from_world = image.CamFromWorld().ToMatrix();
 
     std::vector<Point2D> points2D;
     points2D.reserve(options.num_points3D +
@@ -96,8 +95,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     // Create 3D point observations by project all 3D points to the image.
     for (auto& point3D : reconstruction->Points3D()) {
       Point2D point2D;
-      point2D.SetXY(
-          ProjectPointToImage(point3D.second.XYZ(), cam_from_world, camera));
+      point2D.SetXY(camera.ImgFromCam(
+          (image.CamFromWorld() * point3D.second.XYZ()).hnormalized()));
       if (options.point2D_stddev > 0) {
         const Eigen::Vector2d noise(
             RandomGaussian<double>(0, options.point2D_stddev),
