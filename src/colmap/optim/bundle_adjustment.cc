@@ -379,9 +379,9 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
     }
 
     num_observations += 1;
-    point3D_num_observations_[point2D.Point3DId()] += 1;
+    point3D_num_observations_[point2D.point3D_id] += 1;
 
-    Point3D& point3D = reconstruction->Point3D(point2D.Point3DId());
+    Point3D& point3D = reconstruction->Point3D(point2D.point3D_id);
     assert(point3D.Track().Length() > 1);
 
     ceres::CostFunction* cost_function = nullptr;
@@ -392,7 +392,7 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
   case CameraModel::kModelId:                                          \
     cost_function =                                                    \
         BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create( \
-            image.CamFromWorld(), point2D.XY());                       \
+            image.CamFromWorld(), point2D.xy);                         \
     break;
 
         CAMERA_MODEL_SWITCH_CASES
@@ -404,10 +404,10 @@ void BundleAdjuster::AddImageToProblem(const image_t image_id,
           cost_function, loss_function, point3D.XYZ().data(), camera_params);
     } else {
       switch (camera.ModelId()) {
-#define CAMERA_MODEL_CASE(CameraModel)                                   \
-  case CameraModel::kModelId:                                            \
-    cost_function =                                                      \
-        BundleAdjustmentCostFunction<CameraModel>::Create(point2D.XY()); \
+#define CAMERA_MODEL_CASE(CameraModel)                                 \
+  case CameraModel::kModelId:                                          \
+    cost_function =                                                    \
+        BundleAdjustmentCostFunction<CameraModel>::Create(point2D.xy); \
     break;
 
         CAMERA_MODEL_SWITCH_CASES
@@ -484,7 +484,7 @@ void BundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
   case CameraModel::kModelId:                                          \
     cost_function =                                                    \
         BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create( \
-            image.CamFromWorld(), point2D.XY());                       \
+            image.CamFromWorld(), point2D.xy);                         \
     break;
 
       CAMERA_MODEL_SWITCH_CASES
@@ -727,18 +727,18 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
       continue;
     }
 
-    Point3D& point3D = reconstruction->Point3D(point2D.Point3DId());
+    Point3D& point3D = reconstruction->Point3D(point2D.point3D_id);
     assert(point3D.Track().Length() > 1);
 
     if (camera_rig != nullptr &&
         CalculateSquaredReprojectionError(
-            point2D.XY(), point3D.XYZ(), cam_from_world_mat, camera) >
+            point2D.xy, point3D.XYZ(), cam_from_world_mat, camera) >
             max_squared_reproj_error) {
       continue;
     }
 
     num_observations += 1;
-    point3D_num_observations_[point2D.Point3DId()] += 1;
+    point3D_num_observations_[point2D.point3D_id] += 1;
 
     ceres::CostFunction* cost_function = nullptr;
 
@@ -749,7 +749,7 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
   case CameraModel::kModelId:                                          \
     cost_function =                                                    \
         BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create( \
-            image.CamFromWorld(), point2D.XY());                       \
+            image.CamFromWorld(), point2D.xy);                         \
     break;
 
           CAMERA_MODEL_SWITCH_CASES
@@ -761,10 +761,10 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
             cost_function, loss_function, point3D.XYZ().data(), camera_params);
       } else {
         switch (camera.ModelId()) {
-#define CAMERA_MODEL_CASE(CameraModel)                                   \
-  case CameraModel::kModelId:                                            \
-    cost_function =                                                      \
-        BundleAdjustmentCostFunction<CameraModel>::Create(point2D.XY()); \
+#define CAMERA_MODEL_CASE(CameraModel)                                 \
+  case CameraModel::kModelId:                                          \
+    cost_function =                                                    \
+        BundleAdjustmentCostFunction<CameraModel>::Create(point2D.xy); \
     break;
 
           CAMERA_MODEL_SWITCH_CASES
@@ -781,11 +781,11 @@ void RigBundleAdjuster::AddImageToProblem(const image_t image_id,
       }
     } else {
       switch (camera.ModelId()) {
-#define CAMERA_MODEL_CASE(CameraModel)                                      \
-  case CameraModel::kModelId:                                               \
-    cost_function =                                                         \
-        RigBundleAdjustmentCostFunction<CameraModel>::Create(point2D.XY()); \
-                                                                            \
+#define CAMERA_MODEL_CASE(CameraModel)                                    \
+  case CameraModel::kModelId:                                             \
+    cost_function =                                                       \
+        RigBundleAdjustmentCostFunction<CameraModel>::Create(point2D.xy); \
+                                                                          \
     break;
 
         CAMERA_MODEL_SWITCH_CASES
@@ -868,7 +868,7 @@ void RigBundleAdjuster::AddPointToProblem(const point3D_t point3D_id,
   case CameraModel::kModelId:                                          \
     cost_function =                                                    \
         BundleAdjustmentConstantPoseCostFunction<CameraModel>::Create( \
-            image.CamFromWorld(), point2D.XY());                       \
+            image.CamFromWorld(), point2D.xy);                         \
     problem_->AddResidualBlock(cost_function,                          \
                                loss_function,                          \
                                point3D.XYZ().data(),                   \

@@ -388,8 +388,8 @@ void DatabaseImageViewerWidget::ShowImageWithId(const image_t image_id) {
 
   FeatureKeypoints keypoints(image.NumPoints2D());
   for (point2D_t i = 0; i < image.NumPoints2D(); ++i) {
-    keypoints[i].x = static_cast<float>(image.Point2D(i).X());
-    keypoints[i].y = static_cast<float>(image.Point2D(i).Y());
+    keypoints[i].x = static_cast<float>(image.Point2D(i).xy(0));
+    keypoints[i].y = static_cast<float>(image.Point2D(i).xy(1));
   }
 
   const std::string path = JoinPaths(*options_->image_path, image.Name());

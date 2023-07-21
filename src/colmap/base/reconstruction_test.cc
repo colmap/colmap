@@ -162,10 +162,10 @@ TEST(Reconstruction, MergePoints3D) {
   EXPECT_FALSE(reconstruction.ExistsPoint3D(point3D_id1));
   EXPECT_FALSE(reconstruction.ExistsPoint3D(point3D_id2));
   EXPECT_TRUE(reconstruction.ExistsPoint3D(merged_point3D_id));
-  EXPECT_EQ(reconstruction.Image(1).Point2D(0).Point3DId(), merged_point3D_id);
-  EXPECT_EQ(reconstruction.Image(1).Point2D(1).Point3DId(), merged_point3D_id);
-  EXPECT_EQ(reconstruction.Image(2).Point2D(0).Point3DId(), merged_point3D_id);
-  EXPECT_EQ(reconstruction.Image(2).Point2D(1).Point3DId(), merged_point3D_id);
+  EXPECT_EQ(reconstruction.Image(1).Point2D(0).point3D_id, merged_point3D_id);
+  EXPECT_EQ(reconstruction.Image(1).Point2D(1).point3D_id, merged_point3D_id);
+  EXPECT_EQ(reconstruction.Image(2).Point2D(0).point3D_id, merged_point3D_id);
+  EXPECT_EQ(reconstruction.Image(2).Point2D(1).point3D_id, merged_point3D_id);
   EXPECT_TRUE(reconstruction.Point3D(merged_point3D_id)
                   .XYZ()
                   .isApprox(Eigen::Vector3d(0.5, 0.5, 0.5)));
@@ -601,7 +601,7 @@ TEST(Reconstruction, UpdatePoint3DErrors) {
   EXPECT_EQ(reconstruction.ComputeMeanReprojectionError(), 0);
   Track track;
   track.AddElement(1, 0);
-  reconstruction.Image(1).Point2D(0).SetXY(Eigen::Vector2d(0.5, 0.5));
+  reconstruction.Image(1).Point2D(0).xy = Eigen::Vector2d(0.5, 0.5);
   const point3D_t point3D_id =
       reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 1), track);
   EXPECT_EQ(reconstruction.Point3D(point3D_id).Error(), -1);

@@ -214,7 +214,7 @@ TEST(UndistortReconstruction, Nominal) {
 
   for (const auto& image : reconstruction.Images()) {
     for (const auto& point2D : image.second.Points2D()) {
-      EXPECT_NE(point2D.XY(), Eigen::Vector2d::Ones());
+      EXPECT_NE(point2D.xy, Eigen::Vector2d::Ones());
     }
   }
 }

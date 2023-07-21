@@ -421,7 +421,7 @@ void PMVSUndistorter::WriteVisibilityData() const {
          ++point2D_idx) {
       const Point2D& point2D = image.Point2D(point2D_idx);
       if (point2D.HasPoint3D()) {
-        const Point3D& point3D = reconstruction_.Point3D(point2D.Point3DId());
+        const Point3D& point3D = reconstruction_.Point3D(point2D.point3D_id);
         for (const TrackElement& track_el : point3D.Track().Elements()) {
           if (track_el.image_id != image_id) {
             visible_image_ids.insert(track_el.image_id);
@@ -1002,8 +1002,8 @@ void UndistortReconstruction(const UndistortCameraOptions& options,
     for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
          ++point2D_idx) {
       auto& point2D = image.Point2D(point2D_idx);
-      point2D.SetXY(undistorted_camera.ImgFromCam(
-          distorted_camera.CamFromImg(point2D.XY())));
+      point2D.xy = undistorted_camera.ImgFromCam(
+          distorted_camera.CamFromImg(point2D.xy));
     }
   }
 }

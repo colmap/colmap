@@ -256,7 +256,7 @@ class DelaunayMeshingInput {
       for (const auto& point2D : image.Points2D()) {
         if (point2D.HasPoint3D()) {
           input_image.point_idxs.push_back(
-              point_id_to_idx.at(point2D.Point3DId()));
+              point_id_to_idx.at(point2D.point3D_id));
         }
       }
       images.push_back(input_image);

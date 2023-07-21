@@ -95,17 +95,17 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     // Create 3D point observations by project all 3D points to the image.
     for (auto& point3D : reconstruction->Points3D()) {
       Point2D point2D;
-      point2D.SetXY(camera.ImgFromCam(
-          (image.CamFromWorld() * point3D.second.XYZ()).hnormalized()));
+      point2D.xy = camera.ImgFromCam(
+          (image.CamFromWorld() * point3D.second.XYZ()).hnormalized());
       if (options.point2D_stddev > 0) {
         const Eigen::Vector2d noise(
             RandomGaussian<double>(0, options.point2D_stddev),
             RandomGaussian<double>(0, options.point2D_stddev));
-        point2D.XY() += noise;
+        point2D.xy += noise;
       }
-      if (point2D.X() >= 0 && point2D.Y() >= 0 &&
-          point2D.X() <= camera.Width() && point2D.Y() <= camera.Height()) {
-        point2D.SetPoint3DId(point3D.first);
+      if (point2D.xy(0) >= 0 && point2D.xy(1) >= 0 &&
+          point2D.xy(0) <= camera.Width() && point2D.xy(1) <= camera.Height()) {
+        point2D.point3D_id = point3D.first;
         points2D.push_back(point2D);
       }
     }
@@ -113,9 +113,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     // Synthesize uniform random 2D points without 3D points.
     for (int i = 0; i < options.num_points2D_without_point3D; ++i) {
       Point2D point2D;
-      point2D.SetXY(
+      point2D.xy =
           Eigen::Vector2d(RandomUniformReal<double>(0, camera.Width()),
-                          RandomUniformReal<double>(0, camera.Height())));
+                          RandomUniformReal<double>(0, camera.Height()));
       points2D.push_back(point2D);
     }
 
@@ -126,7 +126,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     FeatureKeypoints keypoints;
     keypoints.reserve(points2D.size());
     for (const auto& point2D : points2D) {
-      keypoints.emplace_back(point2D.X(), point2D.Y());
+      keypoints.emplace_back(point2D.xy(0), point2D.xy(1));
     }
 
     const image_t image_id = database->WriteImage(image);
@@ -136,7 +136,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
          ++point2D_idx) {
       const auto& point2D = points2D[point2D_idx];
       if (point2D.HasPoint3D()) {
-        auto& point3D = reconstruction->Point3D(point2D.Point3DId());
+        auto& point3D = reconstruction->Point3D(point2D.point3D_id);
         point3D.Track().AddElement(image_id, point2D_idx);
       }
     }
@@ -170,7 +170,7 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
         for (point2D_t point2D_idx2 = 0; point2D_idx2 < num_points2D2;
              ++point2D_idx2) {
           const auto& point2D2 = image2.Point2D(point2D_idx2);
-          if (point2D1.Point3DId() == point2D2.Point3DId()) {
+          if (point2D1.point3D_id == point2D2.point3D_id) {
             two_view_geometry.inlier_matches.emplace_back(point2D_idx1,
                                                           point2D_idx2);
             break;

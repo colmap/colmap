@@ -39,7 +39,7 @@ COLMAP_ADD_SOURCES(
     database.h database.cc
     database_cache.h database_cache.cc
     image.h image.cc
-    point2d.h point2d.cc
+    point2d.h
     point3d.h point3d.cc
     reconstruction.h reconstruction.cc
     reconstruction_manager.h reconstruction_manager.cc

@@ -70,7 +70,7 @@ void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
   points2D_.resize(points.size());
   num_correspondences_have_point3D_.resize(points.size(), 0);
   for (point2D_t point2D_idx = 0; point2D_idx < points.size(); ++point2D_idx) {
-    points2D_[point2D_idx].SetXY(points[point2D_idx]);
+    points2D_[point2D_idx].xy = points[point2D_idx];
   }
 }
 
@@ -93,13 +93,13 @@ void Image::SetPoint3DForPoint2D(const point2D_t point2D_idx,
   if (!point2D.HasPoint3D()) {
     num_points3D_ += 1;
   }
-  point2D.SetPoint3DId(point3D_id);
+  point2D.point3D_id = point3D_id;
 }
 
 void Image::ResetPoint3DForPoint2D(const point2D_t point2D_idx) {
   class Point2D& point2D = points2D_.at(point2D_idx);
   if (point2D.HasPoint3D()) {
-    point2D.SetPoint3DId(kInvalidPoint3DId);
+    point2D.point3D_id = kInvalidPoint3DId;
     num_points3D_ -= 1;
   }
 }
@@ -108,7 +108,7 @@ bool Image::HasPoint3D(const point3D_t point3D_id) const {
   return std::find_if(points2D_.begin(),
                       points2D_.end(),
                       [point3D_id](const class Point2D& point2D) {
-                        return point2D.Point3DId() == point3D_id;
+                        return point2D.point3D_id == point3D_id;
                       }) != points2D_.end();
 }
 
@@ -120,7 +120,7 @@ void Image::IncrementCorrespondenceHasPoint3D(const point2D_t point2D_idx) {
     num_visible_points3D_ += 1;
   }
 
-  point3D_visibility_pyramid_.SetPoint(point2D.X(), point2D.Y());
+  point3D_visibility_pyramid_.SetPoint(point2D.xy(0), point2D.xy(1));
 
   assert(num_visible_points3D_ <= num_observations_);
 }
@@ -133,7 +133,7 @@ void Image::DecrementCorrespondenceHasPoint3D(const point2D_t point2D_idx) {
     num_visible_points3D_ -= 1;
   }
 
-  point3D_visibility_pyramid_.ResetPoint(point2D.X(), point2D.Y());
+  point3D_visibility_pyramid_.ResetPoint(point2D.xy(0), point2D.xy(1));
 
   assert(num_visible_points3D_ <= num_observations_);
 }
