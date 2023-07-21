@@ -5,6 +5,7 @@ src/colmap/util/version.h
 # Custom directories
 .idea/
 .vscode
+.vs
 .DS_Store
 build*/
 install-debug/
