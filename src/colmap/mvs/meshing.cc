@@ -394,10 +394,10 @@ class DelaunayMeshingInput {
 
           // Check reprojection error between the two points.
           const Eigen::Vector2f point_proj =
-              camera.CamToImg(point_local.hnormalized().cast<double>())
+              camera.ImgFromCam(point_local.hnormalized().cast<double>())
                   .cast<float>();
           const Eigen::Vector2f cell_point_proj =
-              camera.CamToImg(cell_point_local.hnormalized().cast<double>())
+              camera.ImgFromCam(cell_point_local.hnormalized().cast<double>())
                   .cast<float>();
           const float squared_proj_dist =
               (point_proj - cell_point_proj).squaredNorm();

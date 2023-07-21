@@ -185,9 +185,9 @@ bool TwoViewGeometry::EstimateRelativePose(
   inlier_points2_normalized.reserve(inlier_matches.size());
   for (const auto& match : inlier_matches) {
     inlier_points1_normalized.push_back(
-        camera1.ImgToCam(points1[match.point2D_idx1]));
+        camera1.CamFromImg(points1[match.point2D_idx1]));
     inlier_points2_normalized.push_back(
-        camera2.ImgToCam(points2[match.point2D_idx2]));
+        camera2.CamFromImg(points2[match.point2D_idx2]));
   }
 
   Eigen::Matrix3d cam2_from_cam1_rot_mat;
@@ -267,16 +267,16 @@ void TwoViewGeometry::EstimateCalibrated(
     const point2D_t idx2 = matches[i].point2D_idx2;
     matched_points1[i] = points1[idx1];
     matched_points2[i] = points2[idx2];
-    matched_points1_normalized[i] = camera1.ImgToCam(points1[idx1]);
-    matched_points2_normalized[i] = camera2.ImgToCam(points2[idx2]);
+    matched_points1_normalized[i] = camera1.CamFromImg(points1[idx1]);
+    matched_points2_normalized[i] = camera2.CamFromImg(points2[idx2]);
   }
 
   // Estimate epipolar models.
 
   auto E_ransac_options = options.ransac_options;
   E_ransac_options.max_error =
-      (camera1.ImgToCamThreshold(options.ransac_options.max_error) +
-       camera2.ImgToCamThreshold(options.ransac_options.max_error)) /
+      (camera1.CamFromImgThreshold(options.ransac_options.max_error) +
+       camera2.CamFromImgThreshold(options.ransac_options.max_error)) /
       2;
 
   LORANSAC<EssentialMatrixFivePointEstimator, EssentialMatrixFivePointEstimator>

@@ -36,33 +36,33 @@
 namespace colmap {
 
 template <typename CameraModel>
-void TestCamToImgToCam(const std::vector<double>& params,
-                       const double u0,
-                       const double v0,
-                       const double w0) {
+void TestCamToCamFromImg(const std::vector<double>& params,
+                         const double u0,
+                         const double v0,
+                         const double w0) {
   double u, v, w, x, y;
-  CameraModel::CamToImg(params.data(), u0, v0, w0, &x, &y);
-  const Eigen::Vector2d xy = CameraModelCamToImg(
+  CameraModel::ImgFromCam(params.data(), u0, v0, w0, &x, &y);
+  const Eigen::Vector2d xy = CameraModelImgFromCam(
       CameraModel::model_id, params, Eigen::Vector3d(u0, v0, w0));
   EXPECT_EQ(x, xy.x());
   EXPECT_EQ(y, xy.y());
-  CameraModel::ImgToCam(params.data(), x, y, &u, &v, &w);
+  CameraModel::CamFromImg(params.data(), x, y, &u, &v, &w);
   EXPECT_NEAR(u, u0 / w0, 1e-6);
   EXPECT_NEAR(v, v0 / w0, 1e-6);
 }
 
 template <typename CameraModel>
-void TestImgToCamToImg(const std::vector<double>& params,
-                       const double x0,
-                       const double y0) {
+void TestCamFromImgToImg(const std::vector<double>& params,
+                         const double x0,
+                         const double y0) {
   double u, v, w, x, y;
-  CameraModel::ImgToCam(params.data(), x0, y0, &u, &v, &w);
-  const Eigen::Vector3d uvw = CameraModelImgToCam(
+  CameraModel::CamFromImg(params.data(), x0, y0, &u, &v, &w);
+  const Eigen::Vector3d uvw = CameraModelCamFromImg(
       CameraModel::model_id, params, Eigen::Vector2d(x0, y0));
   EXPECT_EQ(u, uvw.x());
   EXPECT_EQ(v, uvw.y());
   EXPECT_EQ(w, uvw.z());
-  CameraModel::CamToImg(params.data(), u, v, w, &x, &y);
+  CameraModel::ImgFromCam(params.data(), u, v, w, &x, &y);
   EXPECT_NEAR(x, x0, 1e-6);
   EXPECT_NEAR(y, y0, 1e-6);
 }
@@ -97,10 +97,12 @@ void TestModel(const std::vector<double>& params) {
         CameraModel::model_id, default_params, 100, 100, 0.1, 2.0, -0.1));
   }
 
-  EXPECT_EQ(CameraModelImgToCamThreshold(CameraModel::model_id, params, 0), 0);
-  EXPECT_GT(CameraModelImgToCamThreshold(CameraModel::model_id, params, 1), 0);
+  EXPECT_EQ(CameraModelCamFromImgThreshold(CameraModel::model_id, params, 0),
+            0);
+  EXPECT_GT(CameraModelCamFromImgThreshold(CameraModel::model_id, params, 1),
+            0);
   EXPECT_EQ(
-      CameraModelImgToCamThreshold(CameraModel::model_id, default_params, 1),
+      CameraModelCamFromImgThreshold(CameraModel::model_id, default_params, 1),
       1.0 / 100.0);
 
   EXPECT_TRUE(ExistsCameraModelWithName(CameraModel::model_name));
@@ -119,19 +121,19 @@ void TestModel(const std::vector<double>& params) {
     // NOLINTNEXTLINE(clang-analyzer-security.FloatLoopCounter)
     for (double v = -0.5; v <= 0.5; v += 0.1) {
       for (double w : {1, 2}) {
-        TestCamToImgToCam<CameraModel>(params, u, v, w);
+        TestCamToCamFromImg<CameraModel>(params, u, v, w);
       }
     }
   }
 
   for (int x = 0; x <= 800; x += 50) {
     for (int y = 0; y <= 800; y += 50) {
-      TestImgToCamToImg<CameraModel>(params, x, y);
+      TestCamFromImgToImg<CameraModel>(params, x, y);
     }
   }
 
   const auto pp_idxs = CameraModel::principal_point_idxs;
-  TestImgToCamToImg<CameraModel>(
+  TestCamFromImgToImg<CameraModel>(
       params, params[pp_idxs.at(0)], params[pp_idxs.at(1)]);
 }
 

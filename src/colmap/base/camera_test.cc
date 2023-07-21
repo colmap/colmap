@@ -294,37 +294,37 @@ TEST(Camera, InitializeWithName) {
             static_cast<int>(SimplePinholeCameraModel::num_params));
 }
 
-TEST(Camera, ImgToCam) {
+TEST(Camera, CamFromImg) {
   Camera camera;
-  EXPECT_THROW(camera.ImgToCam(Eigen::Vector2d::Zero()), std::domain_error);
+  EXPECT_THROW(camera.CamFromImg(Eigen::Vector2d::Zero()), std::domain_error);
   camera.InitializeWithName("SIMPLE_PINHOLE", 1.0, 1, 1);
-  EXPECT_EQ(camera.ImgToCam(Eigen::Vector2d(0.0, 0.0))(0), -0.5);
-  EXPECT_EQ(camera.ImgToCam(Eigen::Vector2d(0.0, 0.0))(1), -0.5);
-  EXPECT_EQ(camera.ImgToCam(Eigen::Vector2d(0.5, 0.5))(0), 0.0);
-  EXPECT_EQ(camera.ImgToCam(Eigen::Vector2d(0.5, 0.5))(1), 0.0);
+  EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.0, 0.0))(0), -0.5);
+  EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.0, 0.0))(1), -0.5);
+  EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.5, 0.5))(0), 0.0);
+  EXPECT_EQ(camera.CamFromImg(Eigen::Vector2d(0.5, 0.5))(1), 0.0);
 }
 
-TEST(Camera, ImgToCamThreshold) {
+TEST(Camera, CamFromImgThreshold) {
   Camera camera;
-  EXPECT_THROW(camera.ImgToCamThreshold(0), std::domain_error);
+  EXPECT_THROW(camera.CamFromImgThreshold(0), std::domain_error);
   camera.InitializeWithName("SIMPLE_PINHOLE", 1.0, 1, 1);
-  EXPECT_EQ(camera.ImgToCamThreshold(0), 0);
-  EXPECT_EQ(camera.ImgToCamThreshold(1), 1);
+  EXPECT_EQ(camera.CamFromImgThreshold(0), 0);
+  EXPECT_EQ(camera.CamFromImgThreshold(1), 1);
   camera.SetFocalLength(2.0);
-  EXPECT_EQ(camera.ImgToCamThreshold(1), 0.5);
+  EXPECT_EQ(camera.CamFromImgThreshold(1), 0.5);
   camera.InitializeWithName("PINHOLE", 1.0, 1, 1);
   camera.SetFocalLengthY(3.0);
-  EXPECT_EQ(camera.ImgToCamThreshold(1), 0.5);
+  EXPECT_EQ(camera.CamFromImgThreshold(1), 0.5);
 }
 
-TEST(Camera, CamToImg) {
+TEST(Camera, ImgFromCam) {
   Camera camera;
-  EXPECT_THROW(camera.CamToImg(Eigen::Vector2d::Zero()), std::domain_error);
+  EXPECT_THROW(camera.ImgFromCam(Eigen::Vector2d::Zero()), std::domain_error);
   camera.InitializeWithName("SIMPLE_PINHOLE", 1.0, 1, 1);
-  EXPECT_EQ(camera.CamToImg(Eigen::Vector2d(0.0, 0.0))(0), 0.5);
-  EXPECT_EQ(camera.CamToImg(Eigen::Vector2d(0.0, 0.0))(1), 0.5);
-  EXPECT_EQ(camera.CamToImg(Eigen::Vector2d(-0.5, -0.5))(0), 0.0);
-  EXPECT_EQ(camera.CamToImg(Eigen::Vector2d(-0.5, -0.5))(1), 0.0);
+  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(0.0, 0.0))(0), 0.5);
+  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(0.0, 0.0))(1), 0.5);
+  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(-0.5, -0.5))(0), 0.0);
+  EXPECT_EQ(camera.ImgFromCam(Eigen::Vector2d(-0.5, -0.5))(1), 0.0);
 }
 
 TEST(Camera, Rescale) {

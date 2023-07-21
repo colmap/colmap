@@ -59,13 +59,13 @@ namespace colmap {
 //
 // A camera model must have the following methods:
 //
-//  - `CamToImg`: transform normalized camera coordinates to image
-//    coordinates (the inverse of `ImgToCam`). Assumes that the camera
+//  - `ImgFromCam`: transform normalized camera coordinates to image
+//    coordinates (the inverse of `CamFromImg`). Assumes that the camera
 //    coordinates are given as (u, v, 1).
-//  - `ImgToCam`: transform image coordinates to normalized camera
-//    coordinates (the inverse of `CamToImg`). Produces camera coordinates
+//  - `CamFromImg`: transform image coordinates to normalized camera
+//    coordinates (the inverse of `ImgFromCam`). Produces camera coordinates
 //    as (u, v, 1).
-//  - `ImgToCamThreshold`: transform a threshold given in pixels to
+//  - `CamFromImgThreshold`: transform a threshold given in pixels to
 //    normalized units (e.g. useful for reprojection error thresholds).
 //
 // Whenever you specify the camera parameters in a list, they must appear
@@ -104,9 +104,9 @@ static const int kInvalidCameraModelId = -1;
       double focal_length, size_t width, size_t height);                   \
                                                                            \
   template <typename T>                                                    \
-  static void CamToImg(const T* params, T u, T v, T w, T* x, T* y);        \
+  static void ImgFromCam(const T* params, T u, T v, T w, T* x, T* y);      \
   template <typename T>                                                    \
-  static void ImgToCam(const T* params, T x, T y, T* u, T* v, T* w);       \
+  static void CamFromImg(const T* params, T x, T y, T* u, T* v, T* w);     \
   template <typename T>                                                    \
   static void Distortion(const T* extra_params, T u, T v, T* du, T* dv);
 #endif
@@ -167,7 +167,7 @@ struct BaseCameraModel {
                                          T max_extra_param);
 
   template <typename T>
-  static inline T ImgToCamThreshold(const T* params, T threshold);
+  static inline T CamFromImgThreshold(const T* params, T threshold);
 
   template <typename T>
   static inline void IterativeUndistortion(const T* params, T* u, T* v);
@@ -421,29 +421,29 @@ bool CameraModelHasBogusParams(int model_id,
 
 // Transform camera to image coordinates.
 //
-// This is the inverse of `CameraModelImgToCam`.
+// This is the inverse of `CameraModelCamFromImg`.
 //
 // @param model_id     Unique model_id of camera model as defined in
 //                     `CAMERA_MODEL_NAME_TO_CODE`.
 // @param params       Array of camera parameters.
 // @param u, v         Coordinates in camera system as (u, v, 1).
 // @param x, y         Output image coordinates in pixels.
-inline Eigen::Vector2d CameraModelCamToImg(int model_id,
-                                           const std::vector<double>& params,
-                                           const Eigen::Vector3d& uvw);
+inline Eigen::Vector2d CameraModelImgFromCam(int model_id,
+                                             const std::vector<double>& params,
+                                             const Eigen::Vector3d& uvw);
 
 // Transform image to camera coordinates.
 //
-// This is the inverse of `CameraModelCamToImg`.
+// This is the inverse of `CameraModelImgFromCam`.
 //
 // @param model_id      Unique identifier of camera model.
 // @param params        Array of camera parameters.
 // @param xy            Image coordinates in pixels.
 //
 // @return              Output Coordinates in camera system as (u, v, w=1).
-inline Eigen::Vector3d CameraModelImgToCam(int model_id,
-                                           const std::vector<double>& params,
-                                           const Eigen::Vector2d& xy);
+inline Eigen::Vector3d CameraModelCamFromImg(int model_id,
+                                             const std::vector<double>& params,
+                                             const Eigen::Vector2d& xy);
 
 // Convert pixel threshold in image plane to camera space by dividing
 // the threshold through the mean focal length.
@@ -453,9 +453,9 @@ inline Eigen::Vector3d CameraModelImgToCam(int model_id,
 // @param threshold     Image space threshold in pixels.
 //
 // @return              Camera space threshold.
-inline double CameraModelImgToCamThreshold(int model_id,
-                                           const std::vector<double>& params,
-                                           double threshold);
+inline double CameraModelCamFromImgThreshold(int model_id,
+                                             const std::vector<double>& params,
+                                             double threshold);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -526,8 +526,8 @@ bool BaseCameraModel<CameraModel>::HasBogusExtraParams(
 
 template <typename CameraModel>
 template <typename T>
-T BaseCameraModel<CameraModel>::ImgToCamThreshold(const T* params,
-                                                  const T threshold) {
+T BaseCameraModel<CameraModel>::CamFromImgThreshold(const T* params,
+                                                    const T threshold) {
   T mean_focal_length = 0;
   for (const auto& idx : CameraModel::focal_length_idxs) {
     mean_focal_length += params[idx];
@@ -607,7 +607,7 @@ std::vector<double> SimplePinholeCameraModel::InitializeParams(
 }
 
 template <typename T>
-void SimplePinholeCameraModel::CamToImg(
+void SimplePinholeCameraModel::ImgFromCam(
     const T* params, T u, T v, T w, T* x, T* y) {
   const T f = params[0];
   const T c1 = params[1];
@@ -621,7 +621,7 @@ void SimplePinholeCameraModel::CamToImg(
 }
 
 template <typename T>
-void SimplePinholeCameraModel::ImgToCam(
+void SimplePinholeCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
   const T f = params[0];
   const T c1 = params[1];
@@ -657,7 +657,8 @@ std::vector<double> PinholeCameraModel::InitializeParams(
 }
 
 template <typename T>
-void PinholeCameraModel::CamToImg(const T* params, T u, T v, T w, T* x, T* y) {
+void PinholeCameraModel::ImgFromCam(
+    const T* params, T u, T v, T w, T* x, T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
@@ -671,7 +672,7 @@ void PinholeCameraModel::CamToImg(const T* params, T u, T v, T w, T* x, T* y) {
 }
 
 template <typename T>
-void PinholeCameraModel::ImgToCam(
+void PinholeCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
   const T f1 = params[0];
   const T f2 = params[1];
@@ -708,7 +709,7 @@ std::vector<double> SimpleRadialCameraModel::InitializeParams(
 }
 
 template <typename T>
-void SimpleRadialCameraModel::CamToImg(
+void SimpleRadialCameraModel::ImgFromCam(
     const T* params, T u, T v, T w, T* x, T* y) {
   const T f = params[0];
   const T c1 = params[1];
@@ -729,7 +730,7 @@ void SimpleRadialCameraModel::CamToImg(
 }
 
 template <typename T>
-void SimpleRadialCameraModel::ImgToCam(
+void SimpleRadialCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
   const T f = params[0];
   const T c1 = params[1];
@@ -781,7 +782,7 @@ std::vector<double> RadialCameraModel::InitializeParams(
 }
 
 template <typename T>
-void RadialCameraModel::CamToImg(const T* params, T u, T v, T w, T* x, T* y) {
+void RadialCameraModel::ImgFromCam(const T* params, T u, T v, T w, T* x, T* y) {
   const T f = params[0];
   const T c1 = params[1];
   const T c2 = params[2];
@@ -801,7 +802,7 @@ void RadialCameraModel::CamToImg(const T* params, T u, T v, T w, T* x, T* y) {
 }
 
 template <typename T>
-void RadialCameraModel::ImgToCam(
+void RadialCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
   const T f = params[0];
   const T c1 = params[1];
@@ -854,7 +855,7 @@ std::vector<double> OpenCVCameraModel::InitializeParams(
 }
 
 template <typename T>
-void OpenCVCameraModel::CamToImg(const T* params, T u, T v, T w, T* x, T* y) {
+void OpenCVCameraModel::ImgFromCam(const T* params, T u, T v, T w, T* x, T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
@@ -875,7 +876,7 @@ void OpenCVCameraModel::CamToImg(const T* params, T u, T v, T w, T* x, T* y) {
 }
 
 template <typename T>
-void OpenCVCameraModel::ImgToCam(
+void OpenCVCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
   const T f1 = params[0];
   const T f2 = params[1];
@@ -932,7 +933,7 @@ std::vector<double> OpenCVFisheyeCameraModel::InitializeParams(
 }
 
 template <typename T>
-void OpenCVFisheyeCameraModel::CamToImg(
+void OpenCVFisheyeCameraModel::ImgFromCam(
     const T* params, T u, T v, T w, T* x, T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
@@ -954,7 +955,7 @@ void OpenCVFisheyeCameraModel::CamToImg(
 }
 
 template <typename T>
-void OpenCVFisheyeCameraModel::ImgToCam(
+void OpenCVFisheyeCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
   const T f1 = params[0];
   const T f2 = params[1];
@@ -1031,7 +1032,7 @@ std::vector<double> FullOpenCVCameraModel::InitializeParams(
 }
 
 template <typename T>
-void FullOpenCVCameraModel::CamToImg(
+void FullOpenCVCameraModel::ImgFromCam(
     const T* params, T u, T v, T w, T* x, T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
@@ -1053,7 +1054,7 @@ void FullOpenCVCameraModel::CamToImg(
 }
 
 template <typename T>
-void FullOpenCVCameraModel::ImgToCam(
+void FullOpenCVCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
   const T f1 = params[0];
   const T f2 = params[1];
@@ -1116,7 +1117,7 @@ std::vector<double> FOVCameraModel::InitializeParams(const double focal_length,
 }
 
 template <typename T>
-void FOVCameraModel::CamToImg(const T* params, T u, T v, T w, T* x, T* y) {
+void FOVCameraModel::ImgFromCam(const T* params, T u, T v, T w, T* x, T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
   const T c1 = params[2];
@@ -1134,7 +1135,7 @@ void FOVCameraModel::CamToImg(const T* params, T u, T v, T w, T* x, T* y) {
 }
 
 template <typename T>
-void FOVCameraModel::ImgToCam(
+void FOVCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
   const T f1 = params[0];
   const T f2 = params[1];
@@ -1254,7 +1255,7 @@ std::vector<double> SimpleRadialFisheyeCameraModel::InitializeParams(
 }
 
 template <typename T>
-void SimpleRadialFisheyeCameraModel::CamToImg(
+void SimpleRadialFisheyeCameraModel::ImgFromCam(
     const T* params, T u, T v, T w, T* x, T* y) {
   const T f = params[0];
   const T c1 = params[1];
@@ -1275,7 +1276,7 @@ void SimpleRadialFisheyeCameraModel::CamToImg(
 }
 
 template <typename T>
-void SimpleRadialFisheyeCameraModel::ImgToCam(
+void SimpleRadialFisheyeCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
   const T f = params[0];
   const T c1 = params[1];
@@ -1333,7 +1334,7 @@ std::vector<double> RadialFisheyeCameraModel::InitializeParams(
 }
 
 template <typename T>
-void RadialFisheyeCameraModel::CamToImg(
+void RadialFisheyeCameraModel::ImgFromCam(
     const T* params, T u, T v, T w, T* x, T* y) {
   const T f = params[0];
   const T c1 = params[1];
@@ -1354,7 +1355,7 @@ void RadialFisheyeCameraModel::CamToImg(
 }
 
 template <typename T>
-void RadialFisheyeCameraModel::ImgToCam(
+void RadialFisheyeCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
   const T f = params[0];
   const T c1 = params[1];
@@ -1426,7 +1427,7 @@ std::vector<double> ThinPrismFisheyeCameraModel::InitializeParams(
 }
 
 template <typename T>
-void ThinPrismFisheyeCameraModel::CamToImg(
+void ThinPrismFisheyeCameraModel::ImgFromCam(
     const T* params, T u, T v, T w, T* x, T* y) {
   const T f1 = params[0];
   const T f2 = params[1];
@@ -1460,7 +1461,7 @@ void ThinPrismFisheyeCameraModel::CamToImg(
 }
 
 template <typename T>
-void ThinPrismFisheyeCameraModel::ImgToCam(
+void ThinPrismFisheyeCameraModel::CamFromImg(
     const T* params, const T x, const T y, T* u, T* v, T* w) {
   const T f1 = params[0];
   const T f2 = params[1];
@@ -1509,14 +1510,14 @@ void ThinPrismFisheyeCameraModel::Distortion(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-Eigen::Vector2d CameraModelCamToImg(const int model_id,
-                                    const std::vector<double>& params,
-                                    const Eigen::Vector3d& uvw) {
+Eigen::Vector2d CameraModelImgFromCam(const int model_id,
+                                      const std::vector<double>& params,
+                                      const Eigen::Vector3d& uvw) {
   Eigen::Vector2d xy;
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                               \
   case CameraModel::kModelId:                                        \
-    CameraModel::CamToImg(                                           \
+    CameraModel::ImgFromCam(                                         \
         params.data(), uvw.x(), uvw.y(), uvw.z(), &xy.x(), &xy.y()); \
     break;
 
@@ -1527,14 +1528,14 @@ Eigen::Vector2d CameraModelCamToImg(const int model_id,
   return xy;
 }
 
-Eigen::Vector3d CameraModelImgToCam(const int model_id,
-                                    const std::vector<double>& params,
-                                    const Eigen::Vector2d& xy) {
+Eigen::Vector3d CameraModelCamFromImg(const int model_id,
+                                      const std::vector<double>& params,
+                                      const Eigen::Vector2d& xy) {
   Eigen::Vector3d uvw;
   switch (model_id) {
 #define CAMERA_MODEL_CASE(CameraModel)                                \
   case CameraModel::kModelId:                                         \
-    CameraModel::ImgToCam(                                            \
+    CameraModel::CamFromImg(                                          \
         params.data(), xy.x(), xy.y(), &uvw.x(), &uvw.y(), &uvw.z()); \
     break;
 
@@ -1545,13 +1546,13 @@ Eigen::Vector3d CameraModelImgToCam(const int model_id,
   return uvw;
 }
 
-double CameraModelImgToCamThreshold(const int model_id,
-                                    const std::vector<double>& params,
-                                    const double threshold) {
+double CameraModelCamFromImgThreshold(const int model_id,
+                                      const std::vector<double>& params,
+                                      const double threshold) {
   switch (model_id) {
-#define CAMERA_MODEL_CASE(CameraModel)                               \
-  case CameraModel::kModelId:                                        \
-    return CameraModel::ImgToCamThreshold(params.data(), threshold); \
+#define CAMERA_MODEL_CASE(CameraModel)                                 \
+  case CameraModel::kModelId:                                          \
+    return CameraModel::CamFromImgThreshold(params.data(), threshold); \
     break;
 
     CAMERA_MODEL_SWITCH_CASES

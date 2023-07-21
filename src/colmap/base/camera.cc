@@ -223,16 +223,16 @@ void Camera::InitializeWithName(const std::string& model_name,
       CameraModelNameToId(model_name), focal_length, width, height);
 }
 
-Eigen::Vector2d Camera::ImgToCam(const Eigen::Vector2d& image_point) const {
-  return CameraModelImgToCam(model_id_, params_, image_point).hnormalized();
+Eigen::Vector2d Camera::CamFromImg(const Eigen::Vector2d& image_point) const {
+  return CameraModelCamFromImg(model_id_, params_, image_point).hnormalized();
 }
 
-double Camera::ImgToCamThreshold(const double threshold) const {
-  return CameraModelImgToCamThreshold(model_id_, params_, threshold);
+double Camera::CamFromImgThreshold(const double threshold) const {
+  return CameraModelCamFromImgThreshold(model_id_, params_, threshold);
 }
 
-Eigen::Vector2d Camera::CamToImg(const Eigen::Vector2d& cam_point) const {
-  return CameraModelCamToImg(model_id_, params_, cam_point.homogeneous());
+Eigen::Vector2d Camera::ImgFromCam(const Eigen::Vector2d& cam_point) const {
+  return CameraModelImgFromCam(model_id_, params_, cam_point.homogeneous());
 }
 
 void Camera::Rescale(const double scale) {
