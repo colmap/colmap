@@ -51,12 +51,12 @@ namespace colmap {
 // Normalize the image points, such that the mean distance from the points
 // to the coordinate system is sqrt(2).
 //
-// @param points          Image coordinates.
-// @param normed_points   Transformed image coordinates.
-// @param matrix          3x3 transformation matrix.
+// @param points            Image coordinates.
+// @param normed_points     Transformed image coordinates.
+// @param normed_from_orig  3x3 transformation matrix.
 void CenterAndNormalizeImagePoints(const std::vector<Eigen::Vector2d>& points,
                                    std::vector<Eigen::Vector2d>* normed_points,
-                                   Eigen::Matrix3d* matrix);
+                                   Eigen::Matrix3d* normed_from_orig);
 
 // Calculate the residuals of a set of corresponding points and a given
 // fundamental or essential matrix.
@@ -83,7 +83,7 @@ void ComputeSquaredSampsonError(const std::vector<Eigen::Vector2d>& points1,
 void ComputeSquaredReprojectionError(
     const std::vector<Eigen::Vector2d>& points2D,
     const std::vector<Eigen::Vector3d>& points3D,
-    const Eigen::Matrix3x4d& proj_matrix,
+    const Eigen::Matrix3x4d& cam_from_world,
     std::vector<double>* residuals);
 
 }  // namespace colmap
