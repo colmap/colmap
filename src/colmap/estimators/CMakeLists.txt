@@ -36,6 +36,7 @@ COLMAP_ADD_SOURCES(
     affine_transform.h affine_transform.cc
     bundle_adjustment.h bundle_adjustment.cc
     coordinate_frame.h coordinate_frame.cc
+    cost_functions.h
     essential_matrix.h essential_matrix.cc
     euclidean_transform.h
     fundamental_matrix.h fundamental_matrix.cc
@@ -55,6 +56,7 @@ COLMAP_ADD_TEST(absolute_pose_test absolute_pose_test.cc)
 COLMAP_ADD_TEST(affine_transform_test affine_transform_test.cc)
 COLMAP_ADD_TEST(bundle_adjustment_test bundle_adjustment_test.cc)
 COLMAP_ADD_TEST(coordinate_frame_test coordinate_frame_test.cc)
+COLMAP_ADD_TEST(cost_functions_test cost_functions_test.cc)
 COLMAP_ADD_TEST(essential_matrix_test essential_matrix_test.cc)
 COLMAP_ADD_TEST(estimators_utils_test utils_test.cc)
 COLMAP_ADD_TEST(fundamental_matrix_test fundamental_matrix_test.cc)

@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/geometry/cost_functions.h"
+#include "colmap/estimators/cost_functions.h"
 
 #include "colmap/camera/models.h"
 #include "colmap/geometry/pose.h"
