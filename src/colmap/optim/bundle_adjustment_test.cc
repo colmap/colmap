@@ -170,8 +170,8 @@ void GenerateReconstruction(const size_t num_images,
       EXPECT_TRUE(
           HasPointPositiveDepth(cam_from_world_matrix, point3D.second.XYZ()));
       // Get exact projection of 3D point.
-      Eigen::Vector2d point2D = ProjectPointToImage(
-          point3D.second.XYZ(), cam_from_world_matrix, camera);
+      Eigen::Vector2d point2D = camera.ImgFromCam(
+          (image.CamFromWorld() * point3D.second.XYZ()).hnormalized());
       // Add some uniform noise.
       point2D += Eigen::Vector2d(RandomUniformReal(-2.0, 2.0),
                                  RandomUniformReal(-2.0, 2.0));

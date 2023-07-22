@@ -53,17 +53,6 @@ bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& proj_matrix,
                                Eigen::Matrix3d* R,
                                Eigen::Vector3d* T);
 
-// Project 3D point to image.
-//
-// @param points3D         3D world point as 3x1 vector.
-// @param cam_from_world   3x4 projection matrix.
-// @param camera           Camera used to project to image plane.
-//
-// @return                 Projected image point.
-Eigen::Vector2d ProjectPointToImage(const Eigen::Vector3d& point3D,
-                                    const Eigen::Matrix3x4d& cam_from_world,
-                                    const Camera& camera);
-
 // Calculate the reprojection error.
 //
 // The reprojection error is the Euclidean distance between the observation

@@ -80,13 +80,6 @@ bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& P,
   return true;
 }
 
-Eigen::Vector2d ProjectPointToImage(const Eigen::Vector3d& point3D,
-                                    const Eigen::Matrix3x4d& cam_from_world,
-                                    const Camera& camera) {
-  return camera.ImgFromCam(
-      (cam_from_world * point3D.homogeneous()).hnormalized());
-}
-
 double CalculateSquaredReprojectionError(const Eigen::Vector2d& point2D,
                                          const Eigen::Vector3d& point3D,
                                          const Rigid3d& cam_from_world,
@@ -98,9 +91,8 @@ double CalculateSquaredReprojectionError(const Eigen::Vector2d& point2D,
     return std::numeric_limits<double>::max();
   }
 
-  const Eigen::Vector2d proj_point2D =
-      camera.ImgFromCam(point3D_in_cam.hnormalized());
-  return (proj_point2D - point2D).squaredNorm();
+  return (camera.ImgFromCam(point3D_in_cam.hnormalized()) - point2D)
+      .squaredNorm();
 }
 
 double CalculateSquaredReprojectionError(
