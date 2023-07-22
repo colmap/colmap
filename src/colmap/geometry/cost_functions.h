@@ -53,14 +53,14 @@ class ReprojErrorCostFunction {
       : observed_x_(point2D(0)), observed_y_(point2D(1)) {}
 
   static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
-    return (new ceres::AutoDiffCostFunction<
-            ReprojErrorCostFunction<CameraModel>,
-            2,
-            4,
-            3,
-            3,
-            CameraModel::kNumParams>(
-        new ReprojErrorCostFunction(point2D)));
+    return (
+        new ceres::AutoDiffCostFunction<ReprojErrorCostFunction<CameraModel>,
+                                        2,
+                                        4,
+                                        3,
+                                        3,
+                                        CameraModel::kNumParams>(
+            new ReprojErrorCostFunction(point2D)));
   }
 
   template <typename T>
@@ -95,7 +95,7 @@ template <typename CameraModel>
 class ReprojErrorConstantPoseCostFunction {
  public:
   ReprojErrorConstantPoseCostFunction(const Rigid3d& cam_from_world,
-                                           const Eigen::Vector2d& point2D)
+                                      const Eigen::Vector2d& point2D)
       : cam_from_world_(cam_from_world),
         observed_x_(point2D(0)),
         observed_y_(point2D(1)) {}
@@ -147,16 +147,16 @@ class RigReprojErrorCostFunction {
       : observed_x_(point2D(0)), observed_y_(point2D(1)) {}
 
   static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
-    return (new ceres::AutoDiffCostFunction<
-            RigReprojErrorCostFunction<CameraModel>,
-            2,
-            4,
-            3,
-            4,
-            3,
-            3,
-            CameraModel::kNumParams>(
-        new RigReprojErrorCostFunction(point2D)));
+    return (
+        new ceres::AutoDiffCostFunction<RigReprojErrorCostFunction<CameraModel>,
+                                        2,
+                                        4,
+                                        3,
+                                        4,
+                                        3,
+                                        3,
+                                        CameraModel::kNumParams>(
+            new RigReprojErrorCostFunction(point2D)));
   }
 
   template <typename T>
