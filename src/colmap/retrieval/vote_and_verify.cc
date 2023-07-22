@@ -386,7 +386,7 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
         best_num_inliers,
         num_matches,
         options.confidence,
-        /* num_trials_multiplier = */ 1.0);
+        /*num_trials_multiplier=*/1.0);
   }
 
   //////////////////////////////////////////////////////////////////////////////
