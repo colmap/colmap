@@ -74,7 +74,7 @@ void Image::SetPoints2D(const std::vector<Eigen::Vector2d>& points) {
   }
 }
 
-void Image::SetPoints2D(const std::vector<class Point2D>& points) {
+void Image::SetPoints2D(const std::vector<struct Point2D>& points) {
   CHECK(points2D_.empty());
   points2D_ = points;
   num_correspondences_have_point3D_.resize(points.size(), 0);
@@ -89,7 +89,7 @@ void Image::SetPoints2D(const std::vector<class Point2D>& points) {
 void Image::SetPoint3DForPoint2D(const point2D_t point2D_idx,
                                  const point3D_t point3D_id) {
   CHECK_NE(point3D_id, kInvalidPoint3DId);
-  class Point2D& point2D = points2D_.at(point2D_idx);
+  struct Point2D& point2D = points2D_.at(point2D_idx);
   if (!point2D.HasPoint3D()) {
     num_points3D_ += 1;
   }
@@ -97,7 +97,7 @@ void Image::SetPoint3DForPoint2D(const point2D_t point2D_idx,
 }
 
 void Image::ResetPoint3DForPoint2D(const point2D_t point2D_idx) {
-  class Point2D& point2D = points2D_.at(point2D_idx);
+  struct Point2D& point2D = points2D_.at(point2D_idx);
   if (point2D.HasPoint3D()) {
     point2D.point3D_id = kInvalidPoint3DId;
     num_points3D_ -= 1;
@@ -107,13 +107,13 @@ void Image::ResetPoint3DForPoint2D(const point2D_t point2D_idx) {
 bool Image::HasPoint3D(const point3D_t point3D_id) const {
   return std::find_if(points2D_.begin(),
                       points2D_.end(),
-                      [point3D_id](const class Point2D& point2D) {
+                      [point3D_id](const struct Point2D& point2D) {
                         return point2D.point3D_id == point3D_id;
                       }) != points2D_.end();
 }
 
 void Image::IncrementCorrespondenceHasPoint3D(const point2D_t point2D_idx) {
-  const class Point2D& point2D = points2D_.at(point2D_idx);
+  const struct Point2D& point2D = points2D_.at(point2D_idx);
 
   num_correspondences_have_point3D_[point2D_idx] += 1;
   if (num_correspondences_have_point3D_[point2D_idx] == 1) {
@@ -126,7 +126,7 @@ void Image::IncrementCorrespondenceHasPoint3D(const point2D_t point2D_idx) {
 }
 
 void Image::DecrementCorrespondenceHasPoint3D(const point2D_t point2D_idx) {
-  const class Point2D& point2D = points2D_.at(point2D_idx);
+  const struct Point2D& point2D = points2D_.at(point2D_idx);
 
   num_correspondences_have_point3D_[point2D_idx] -= 1;
   if (num_correspondences_have_point3D_[point2D_idx] == 0) {
