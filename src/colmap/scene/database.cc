@@ -1413,7 +1413,7 @@ void Database::UpdateSchema() const {
   // Update user version number.
   std::unique_lock<std::mutex> lock(update_schema_mutex_);
   const std::string update_user_version_sql =
-      StringPrintf("PRAGMA user_version = %d;", COLMAP_VERSION_NUMBER);
+      StringPrintf("PRAGMA user_version = %d;", GetVersionNumber());
   SQLITE3_EXEC(database_, update_user_version_sql.c_str(), nullptr);
 }
 

@@ -1,6 +1,6 @@
 # Custom files
 LocalConfig.cmake
-src/colmap/util/version.h
+src/colmap/util/version.cc
 
 # Custom directories
 .idea/
