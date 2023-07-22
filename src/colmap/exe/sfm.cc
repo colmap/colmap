@@ -34,11 +34,11 @@
 #include "colmap/controllers/automatic_reconstruction.h"
 #include "colmap/controllers/bundle_adjustment.h"
 #include "colmap/controllers/hierarchical_mapper.h"
+#include "colmap/controllers/option_manager.h"
 #include "colmap/exe/gui.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
-#include "colmap/util/option_manager.h"
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -295,7 +295,8 @@ int RunHierarchicalMapper(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  reconstruction_manager->Write(output_path, &options);
+  reconstruction_manager->Write(output_path);
+  options.Write(JoinPaths(output_path, "project.ini"));
 
   return EXIT_SUCCESS;
 }

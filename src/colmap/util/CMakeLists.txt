@@ -36,7 +36,6 @@ COLMAP_ADD_SOURCES(
     logging.h logging.cc
     misc.h misc.cc
     opengl_utils.h opengl_utils.cc
-    option_manager.h option_manager.cc
     ply.h ply.cc
     sqlite3_utils.h
     string.h string.cc

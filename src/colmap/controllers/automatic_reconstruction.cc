@@ -32,6 +32,7 @@
 #include "colmap/controllers/automatic_reconstruction.h"
 
 #include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/option_manager.h"
 #include "colmap/feature/extraction.h"
 #include "colmap/feature/matching.h"
 #include "colmap/image/undistortion.h"
@@ -39,7 +40,6 @@
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
 #include "colmap/util/misc.h"
-#include "colmap/util/option_manager.h"
 
 namespace colmap {
 
@@ -233,7 +233,8 @@ void AutomaticReconstructionController::RunSparseMapper() {
   active_thread_ = nullptr;
 
   CreateDirIfNotExists(sparse_path);
-  reconstruction_manager_->Write(sparse_path, &option_manager_);
+  reconstruction_manager_->Write(sparse_path);
+  option_manager_.Write(JoinPaths(sparse_path, "project.ini"));
 }
 
 void AutomaticReconstructionController::RunDenseMapper() {

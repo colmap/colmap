@@ -31,6 +31,7 @@
 
 #pragma once
 
+#include "colmap/controllers/option_manager.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/ui/colormaps.h"
@@ -41,7 +42,6 @@
 #include "colmap/ui/point_viewer_widget.h"
 #include "colmap/ui/render_options.h"
 #include "colmap/ui/triangle_painter.h"
-#include "colmap/util/option_manager.h"
 
 #include <QOpenGLFunctions_3_2_Core>
 #include <QtCore>

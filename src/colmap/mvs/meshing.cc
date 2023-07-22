@@ -46,7 +46,6 @@
 #include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
-#include "colmap/util/option_manager.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"

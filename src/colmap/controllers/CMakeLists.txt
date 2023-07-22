@@ -36,6 +36,7 @@ COLMAP_ADD_SOURCES(
     bundle_adjustment.h bundle_adjustment.cc
     hierarchical_mapper.h hierarchical_mapper.cc
     incremental_mapper.h incremental_mapper.cc
+    option_manager.h option_manager.cc
 )
 
 COLMAP_ADD_TEST(hierarchical_mapper_test hierarchical_mapper_test.cc)

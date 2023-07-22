@@ -887,7 +887,8 @@ void MainWindow::ExportAll() {
   }
 
   thread_control_widget_->StartFunction("Exporting...", [this, export_path]() {
-    reconstruction_manager_->Write(export_path, &options_);
+    reconstruction_manager_->Write(export_path);
+    options_.Write(JoinPaths(export_path, "project.ini"));
   });
 }
 
