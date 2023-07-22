@@ -268,7 +268,7 @@ void Reconstruction::DeleteObservation(const image_t image_id,
   // `Reconstruction::ResetTriObservations`
 
   class Image& image = Image(image_id);
-  const point3D_t point3D_id = image.Point2D(point2D_idx).Point3DId();
+  const point3D_t point3D_id = image.Point2D(point2D_idx).point3D_id;
   class Point3D& point3D = Point3D(point3D_id);
 
   if (point3D.Track().Length() <= 2) {
@@ -451,7 +451,7 @@ Reconstruction Reconstruction::Crop(
     auto new_image = image.second;
     new_image.SetRegistered(false);
     for (auto& point2D : new_image.Points2D()) {
-      point2D.SetPoint3DId(kInvalidPoint3DId);
+      point2D.point3D_id = kInvalidPoint3DId;
     }
     cropped_reconstruction.AddImage(std::move(new_image));
   }
@@ -549,7 +549,7 @@ size_t Reconstruction::FilterPoints3DInImages(
     const class Image& image = Image(image_id);
     for (const Point2D& point2D : image.Points2D()) {
       if (point2D.HasPoint3D()) {
-        point3D_ids.insert(point2D.Point3DId());
+        point3D_ids.insert(point2D.point3D_id);
       }
     }
   }
@@ -579,7 +579,7 @@ size_t Reconstruction::FilterObservationsWithNegativeDepth() {
          ++point2D_idx) {
       const Point2D& point2D = image.Point2D(point2D_idx);
       if (point2D.HasPoint3D()) {
-        const class Point3D& point3D = Point3D(point2D.Point3DId());
+        const class Point3D& point3D = Point3D(point2D.point3D_id);
         if (!HasPointPositiveDepth(cam_from_world, point3D.XYZ())) {
           DeleteObservation(image_id, point2D_idx);
           num_filtered += 1;
@@ -668,7 +668,7 @@ void Reconstruction::UpdatePoint3DErrors() {
       const auto& point2D = image.Point2D(track_el.point2D_idx);
       const auto& camera = Camera(image.CameraId());
       error_sum += std::sqrt(CalculateSquaredReprojectionError(
-          point2D.XY(), point3D.second.XYZ(), image.CamFromWorld(), camera));
+          point2D.xy, point3D.second.XYZ(), image.CamFromWorld(), camera));
     }
     point3D.second.SetError(error_sum / point3D.second.Track().Length());
   }
@@ -828,8 +828,8 @@ bool Reconstruction::ExportNVM(const std::string& path,
         const Point2D& point2D = image.Point2D(track_el.point2D_idx);
         line << image_id_to_idx_[track_el.image_id] << " ";
         line << track_el.point2D_idx << " ";
-        line << point2D.X() << " ";
-        line << point2D.Y() << " ";
+        line << point2D.xy(0) << " ";
+        line << point2D.xy(1) << " ";
         image_ids.insert(track_el.image_id);
       }
     }
@@ -1012,8 +1012,8 @@ bool Reconstruction::ExportRecon3D(const std::string& path,
         line << track_el.point2D_idx << " ";
         // Use a scale of -1.0 to mark as invalid as it is not needed currently
         line << "-1.0 ";
-        line << (point2D.X() - camera.PrincipalPointX()) * scale << " ";
-        line << (point2D.Y() - camera.PrincipalPointY()) * scale << " ";
+        line << (point2D.xy(0) - camera.PrincipalPointX()) * scale << " ";
+        line << (point2D.xy(1) - camera.PrincipalPointY()) * scale << " ";
         image_ids.insert(track_el.image_id);
       }
     }
@@ -1115,8 +1115,8 @@ bool Reconstruction::ExportBundler(const std::string& path,
 
       line << image_id_to_idx_.at(track_el.image_id) << " ";
       line << track_el.point2D_idx << " ";
-      line << point2D.X() - camera.PrincipalPointX() << " ";
-      line << camera.PrincipalPointY() - point2D.Y() << " ";
+      line << point2D.xy(0) - camera.PrincipalPointX() << " ";
+      line << camera.PrincipalPointY() - point2D.xy(1) << " ";
     }
 
     std::string line_string = line.str();
@@ -1262,12 +1262,12 @@ bool Reconstruction::ExtractColorsForImage(const image_t image_id,
   const Eigen::Vector3ub kBlackColor(0, 0, 0);
   for (const Point2D& point2D : image.Points2D()) {
     if (point2D.HasPoint3D()) {
-      class Point3D& point3D = Point3D(point2D.Point3DId());
+      class Point3D& point3D = Point3D(point2D.point3D_id);
       if (point3D.Color() == kBlackColor) {
         BitmapColor<float> color;
         // COLMAP assumes that the upper left pixel center is (0.5, 0.5).
         if (bitmap.InterpolateBilinear(
-                point2D.X() - 0.5, point2D.Y() - 0.5, &color)) {
+                point2D.xy(0) - 0.5, point2D.xy(1) - 0.5, &color)) {
           const BitmapColor<uint8_t> color_ub = color.Cast<uint8_t>();
           point3D.SetColor(
               Eigen::Vector3ub(color_ub.r, color_ub.g, color_ub.b));
@@ -1301,17 +1301,17 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
         BitmapColor<float> color;
         // COLMAP assumes that the upper left pixel center is (0.5, 0.5).
         if (bitmap.InterpolateBilinear(
-                point2D.X() - 0.5, point2D.Y() - 0.5, &color)) {
-          if (color_sums.count(point2D.Point3DId())) {
-            Eigen::Vector3d& color_sum = color_sums[point2D.Point3DId()];
+                point2D.xy(0) - 0.5, point2D.xy(1) - 0.5, &color)) {
+          if (color_sums.count(point2D.point3D_id)) {
+            Eigen::Vector3d& color_sum = color_sums[point2D.point3D_id];
             color_sum(0) += color.r;
             color_sum(1) += color.g;
             color_sum(2) += color.b;
-            color_counts[point2D.Point3DId()] += 1;
+            color_counts[point2D.point3D_id] += 1;
           } else {
-            color_sums.emplace(point2D.Point3DId(),
+            color_sums.emplace(point2D.point3D_id,
                                Eigen::Vector3d(color.r, color.g, color.b));
-            color_counts.emplace(point2D.Point3DId(), 1);
+            color_counts.emplace(point2D.point3D_id, 1);
           }
         }
       }
@@ -1443,7 +1443,7 @@ size_t Reconstruction::FilterPoints3DWithLargeReprojectionError(
       const class Camera& camera = Camera(image.CameraId());
       const Point2D& point2D = image.Point2D(track_el.point2D_idx);
       const double squared_reproj_error = CalculateSquaredReprojectionError(
-          point2D.XY(), point3D.XYZ(), image.CamFromWorld(), camera);
+          point2D.xy, point3D.XYZ(), image.CamFromWorld(), camera);
       if (squared_reproj_error > max_squared_reproj_error) {
         track_els_to_delete.push_back(track_el);
       } else {
@@ -1883,10 +1883,10 @@ void Reconstruction::WriteImagesText(const std::string& path) const {
     line.clear();
 
     for (const Point2D& point2D : image.second.Points2D()) {
-      line << point2D.X() << " ";
-      line << point2D.Y() << " ";
+      line << point2D.xy(0) << " ";
+      line << point2D.xy(1) << " ";
       if (point2D.HasPoint3D()) {
-        line << point2D.Point3DId() << " ";
+        line << point2D.point3D_id << " ";
       } else {
         line << -1 << " ";
       }
@@ -1982,9 +1982,9 @@ void Reconstruction::WriteImagesBinary(const std::string& path) const {
 
     WriteBinaryLittleEndian<uint64_t>(&file, image.second.NumPoints2D());
     for (const Point2D& point2D : image.second.Points2D()) {
-      WriteBinaryLittleEndian<double>(&file, point2D.X());
-      WriteBinaryLittleEndian<double>(&file, point2D.Y());
-      WriteBinaryLittleEndian<point3D_t>(&file, point2D.Point3DId());
+      WriteBinaryLittleEndian<double>(&file, point2D.xy(0));
+      WriteBinaryLittleEndian<double>(&file, point2D.xy(1));
+      WriteBinaryLittleEndian<point3D_t>(&file, point2D.point3D_id);
     }
   }
 }
@@ -2035,7 +2035,7 @@ void Reconstruction::SetObservationAsTriangulated(
     corr_image.IncrementCorrespondenceHasPoint3D(corr->point2D_idx);
     // Update number of shared 3D points between image pairs and make sure to
     // only count the correspondences once (not twice forward and backward).
-    if (point2D.Point3DId() == corr_point2D.Point3DId() &&
+    if (point2D.point3D_id == corr_point2D.point3D_id &&
         (is_continued_point3D || image_id < corr->image_id)) {
       const image_pair_t pair_id =
           Database::ImagePairToPairId(image_id, corr->image_id);
@@ -2068,7 +2068,7 @@ void Reconstruction::ResetTriObservations(const image_t image_id,
     corr_image.DecrementCorrespondenceHasPoint3D(corr->point2D_idx);
     // Update number of shared 3D points between image pairs and make sure to
     // only count the correspondences once (not twice forward and backward).
-    if (point2D.Point3DId() == corr_point2D.Point3DId() &&
+    if (point2D.point3D_id == corr_point2D.point3D_id &&
         (!is_deleted_point3D || image_id < corr->image_id)) {
       const image_pair_t pair_id =
           Database::ImagePairToPairId(image_id, corr->image_id);

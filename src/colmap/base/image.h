@@ -115,12 +115,12 @@ class Image {
   inline Rigid3d& CamFromWorldPrior();
 
   // Access the coordinates of image points.
-  inline const class Point2D& Point2D(point2D_t point2D_idx) const;
-  inline class Point2D& Point2D(point2D_t point2D_idx);
-  inline const std::vector<class Point2D>& Points2D() const;
-  inline std::vector<class Point2D>& Points2D();
+  inline const struct Point2D& Point2D(point2D_t point2D_idx) const;
+  inline struct Point2D& Point2D(point2D_t point2D_idx);
+  inline const std::vector<struct Point2D>& Points2D() const;
+  inline std::vector<struct Point2D>& Points2D();
   void SetPoints2D(const std::vector<Eigen::Vector2d>& points);
-  void SetPoints2D(const std::vector<class Point2D>& points);
+  void SetPoints2D(const std::vector<struct Point2D>& points);
 
   // Set the point as triangulated, i.e. it is part of a 3D point track.
   void SetPoint3DForPoint2D(point2D_t point2D_idx, point3D_t point3D_id);
@@ -193,7 +193,7 @@ class Image {
   Rigid3d cam_from_world_prior_;
 
   // All image points, including points that are not part of a 3D point track.
-  std::vector<class Point2D> points2D_;
+  std::vector<struct Point2D> points2D_;
 
   // Per image point, the number of correspondences that have a 3D point.
   std::vector<point2D_t> num_correspondences_have_point3D_;
@@ -264,17 +264,17 @@ const Rigid3d& Image::CamFromWorldPrior() const {
 
 Rigid3d& Image::CamFromWorldPrior() { return cam_from_world_prior_; }
 
-const class Point2D& Image::Point2D(const point2D_t point2D_idx) const {
+const struct Point2D& Image::Point2D(const point2D_t point2D_idx) const {
   return points2D_.at(point2D_idx);
 }
 
-class Point2D& Image::Point2D(const point2D_t point2D_idx) {
+struct Point2D& Image::Point2D(const point2D_t point2D_idx) {
   return points2D_.at(point2D_idx);
 }
 
-const std::vector<class Point2D>& Image::Points2D() const { return points2D_; }
+const std::vector<struct Point2D>& Image::Points2D() const { return points2D_; }
 
-std::vector<class Point2D>& Image::Points2D() { return points2D_; }
+std::vector<struct Point2D>& Image::Points2D() { return points2D_; }
 
 bool Image::IsPoint3DVisible(const point2D_t point2D_idx) const {
   return num_correspondences_have_point3D_.at(point2D_idx) > 0;

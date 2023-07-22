@@ -321,9 +321,9 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
   track.Element(1).image_id = image_id2;
   for (const auto& corr : corrs) {
     const Eigen::Vector2d point2D1 =
-        camera1.CamFromImg(image1.Point2D(corr.point2D_idx1).XY());
+        camera1.CamFromImg(image1.Point2D(corr.point2D_idx1).xy);
     const Eigen::Vector2d point2D2 =
-        camera2.CamFromImg(image2.Point2D(corr.point2D_idx2).XY());
+        camera2.CamFromImg(image2.Point2D(corr.point2D_idx2).xy);
     const Eigen::Vector3d& xyz =
         TriangulatePoint(cam_from_world1, cam_from_world2, point2D1, point2D2);
     const double tri_angle =
@@ -391,7 +391,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       }
 
       // Avoid duplicate correspondences.
-      if (corr_point3D_ids.count(corr_point2D.Point3DId()) > 0) {
+      if (corr_point3D_ids.count(corr_point2D.point3D_id) > 0) {
         continue;
       }
 
@@ -406,11 +406,11 @@ bool IncrementalMapper::RegisterNextImage(const Options& options,
       }
 
       const Point3D& point3D =
-          reconstruction_->Point3D(corr_point2D.Point3DId());
+          reconstruction_->Point3D(corr_point2D.point3D_id);
 
-      tri_corrs.emplace_back(point2D_idx, corr_point2D.Point3DId());
-      corr_point3D_ids.insert(corr_point2D.Point3DId());
-      tri_points2D.push_back(point2D.XY());
+      tri_corrs.emplace_back(point2D_idx, corr_point2D.point3D_id);
+      corr_point3D_ids.insert(corr_point2D.point3D_id);
+      tri_points2D.push_back(point2D.xy);
       tri_points3D.push_back(point3D.XYZ());
     }
   }
@@ -937,8 +937,8 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
 
   for (const Point2D& point2D : image.Points2D()) {
     if (point2D.HasPoint3D()) {
-      point3D_ids.insert(point2D.Point3DId());
-      const Point3D& point3D = reconstruction_->Point3D(point2D.Point3DId());
+      point3D_ids.insert(point2D.point3D_id);
+      const Point3D& point3D = reconstruction_->Point3D(point2D.point3D_id);
       for (const TrackElement& track_el : point3D.Track().Elements()) {
         if (track_el.image_id != image_id) {
           shared_observations[track_el.image_id] += 1;
@@ -1035,9 +1035,9 @@ std::vector<image_t> IncrementalMapper::FindLocalBundle(
         // Collect the commonly observed 3D points.
         shared_points3D.clear();
         for (const Point2D& point2D : overlapping_image.Points2D()) {
-          if (point2D.HasPoint3D() && point3D_ids.count(point2D.Point3DId())) {
+          if (point2D.HasPoint3D() && point3D_ids.count(point2D.point3D_id)) {
             shared_points3D.push_back(
-                reconstruction_->Point3D(point2D.Point3DId()).XYZ());
+                reconstruction_->Point3D(point2D.point3D_id).XYZ());
           }
         }
 
@@ -1143,13 +1143,13 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
   std::vector<Eigen::Vector2d> points1;
   points1.reserve(image1.NumPoints2D());
   for (const auto& point : image1.Points2D()) {
-    points1.push_back(point.XY());
+    points1.push_back(point.xy);
   }
 
   std::vector<Eigen::Vector2d> points2;
   points2.reserve(image2.NumPoints2D());
   for (const auto& point : image2.Points2D()) {
-    points2.push_back(point.XY());
+    points2.push_back(point.xy);
   }
 
   TwoViewGeometry two_view_geometry;

@@ -163,7 +163,7 @@ void PointColormapGroundResolution::Prepare(
       const Eigen::Vector2f& pp = principal_points[image.CameraId()];
 
       const Eigen::Vector2f xy =
-          image.Point2D(track_el.point2D_idx).XY().cast<float>() - pp;
+          image.Point2D(track_el.point2D_idx).xy.cast<float>() - pp;
 
       // Distance from principal point to observation on image plane.
       const float pixel_radius1 = xy.norm();

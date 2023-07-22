@@ -137,8 +137,8 @@ struct ReconstructionAlignmentEstimator {
 
         const Eigen::Vector3d src_point_in_tgt =
             tgt_from_src *
-            src_reconstruction_->Point3D(src_point2D.Point3DId()).XYZ();
-        if (CalculateSquaredReprojectionError(tgt_point2D.XY(),
+            src_reconstruction_->Point3D(src_point2D.point3D_id).XYZ();
+        if (CalculateSquaredReprojectionError(tgt_point2D.xy,
                                               src_point_in_tgt,
                                               tgt_cam_from_world,
                                               tgt_camera) >
@@ -148,8 +148,8 @@ struct ReconstructionAlignmentEstimator {
 
         const Eigen::Vector3d tgt_point_in_src =
             srcFromTgt *
-            tgt_reconstruction_->Point3D(tgt_point2D.Point3DId()).XYZ();
-        if (CalculateSquaredReprojectionError(src_point2D.XY(),
+            tgt_reconstruction_->Point3D(tgt_point2D.point3D_id).XYZ();
+        if (CalculateSquaredReprojectionError(src_point2D.xy,
                                               tgt_point_in_src,
                                               src_cam_from_world,
                                               src_camera) >
@@ -393,7 +393,7 @@ bool MergeReconstructions(const double max_reproj_error,
                                   .Point2D(track_el.point2D_idx);
         if (point2D.HasPoint3D()) {
           old_track.AddElement(track_el);
-          old_point3D_ids.insert(point2D.Point3DId());
+          old_point3D_ids.insert(point2D.point3D_id);
         } else {
           new_track.AddElement(track_el);
         }

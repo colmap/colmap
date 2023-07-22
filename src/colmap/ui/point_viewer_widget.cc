@@ -185,7 +185,7 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
     const Point2D& point2D = image.Point2D(track_el.first.point2D_idx);
     const Eigen::Vector2d proj_point2D =
         camera.ImgFromCam((image.CamFromWorld() * point3D.XYZ()).hnormalized());
-    const double reproj_error = (point2D.XY() - proj_point2D).norm();
+    const double reproj_error = (point2D.xy - proj_point2D).norm();
 
     Bitmap bitmap;
     const std::string path = JoinPaths(*options_->image_path, image.Name());
@@ -206,8 +206,8 @@ void PointViewerWidget::Show(const point3D_t point3D_id) {
     painter.setPen(pen);
 
     const int kCrossSize = 15;
-    const int x = static_cast<int>(std::round(point2D.X()));
-    const int y = static_cast<int>(std::round(point2D.Y()));
+    const int x = static_cast<int>(std::round(point2D.xy(0)));
+    const int y = static_cast<int>(std::round(point2D.xy(1)));
     painter.drawLine(
         x - kCrossSize, y - kCrossSize, x + kCrossSize, y + kCrossSize);
     painter.drawLine(
