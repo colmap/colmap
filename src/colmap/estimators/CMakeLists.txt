@@ -34,6 +34,7 @@ set(FOLDER_NAME "estimators")
 COLMAP_ADD_SOURCES(
     absolute_pose.h absolute_pose.cc
     affine_transform.h affine_transform.cc
+    bundle_adjustment.h bundle_adjustment.cc
     coordinate_frame.h coordinate_frame.cc
     essential_matrix.h essential_matrix.cc
     euclidean_transform.h
@@ -52,6 +53,7 @@ COLMAP_ADD_SOURCES(
 
 COLMAP_ADD_TEST(absolute_pose_test absolute_pose_test.cc)
 COLMAP_ADD_TEST(affine_transform_test affine_transform_test.cc)
+COLMAP_ADD_TEST(bundle_adjustment_test bundle_adjustment_test.cc)
 COLMAP_ADD_TEST(coordinate_frame_test coordinate_frame_test.cc)
 COLMAP_ADD_TEST(essential_matrix_test essential_matrix_test.cc)
 COLMAP_ADD_TEST(estimators_utils_test utils_test.cc)

@@ -34,7 +34,7 @@
 #include "colmap/base/database.h"
 #include "colmap/base/database_cache.h"
 #include "colmap/base/reconstruction.h"
-#include "colmap/optim/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/sfm/incremental_triangulator.h"
 
 namespace colmap {

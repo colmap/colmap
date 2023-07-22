@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/optim/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment.h"
 
 #include <iomanip>
 
