@@ -31,7 +31,7 @@
 
 #include "colmap/exe/sfm.h"
 
-#include "colmap/base/reconstruction.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/controllers/automatic_reconstruction.h"
 #include "colmap/controllers/bundle_adjustment.h"
 #include "colmap/controllers/hierarchical_mapper.h"

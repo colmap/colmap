@@ -31,7 +31,7 @@
 
 #include "colmap/estimators/two_view_geometry.h"
 
-#include "colmap/base/camera.h"
+#include "colmap/scene/camera.h"
 #include "colmap/estimators/essential_matrix.h"
 #include "colmap/estimators/fundamental_matrix.h"
 #include "colmap/estimators/homography_matrix.h"

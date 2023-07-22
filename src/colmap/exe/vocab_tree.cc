@@ -31,7 +31,7 @@
 
 #include "colmap/exe/vocab_tree.h"
 
-#include "colmap/base/database.h"
+#include "colmap/scene/database.h"
 #include "colmap/exe/gui.h"
 #include "colmap/feature/matching.h"
 #include "colmap/feature/sift.h"

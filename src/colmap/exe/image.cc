@@ -31,7 +31,7 @@
 
 #include "colmap/exe/image.h"
 
-#include "colmap/base/reconstruction.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/controllers/incremental_mapper.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/sfm/incremental_mapper.h"

@@ -31,7 +31,7 @@
 
 #pragma once
 
-#include "colmap/base/reconstruction.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/controllers/incremental_mapper.h"
 #include "colmap/image/bitmap.h"
 #include "colmap/ui/automatic_reconstruction_widget.h"

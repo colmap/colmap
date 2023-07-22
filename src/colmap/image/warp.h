@@ -31,7 +31,7 @@
 
 #pragma once
 
-#include "colmap/base/camera.h"
+#include "colmap/scene/camera.h"
 #include "colmap/image/bitmap.h"
 
 namespace colmap {
