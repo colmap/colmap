@@ -31,9 +31,9 @@
 
 #pragma once
 
+#include "colmap/camera/models.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/camera/models.h"
 #include "colmap/util/types.h"
 
 namespace colmap {

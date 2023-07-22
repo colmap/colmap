@@ -31,7 +31,6 @@
 
 #include "colmap/scene/reconstruction.h"
 
-#include "colmap/scene/database_cache.h"
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/geometry/pose.h"
@@ -39,6 +38,7 @@
 #include "colmap/geometry/triangulation.h"
 #include "colmap/image/bitmap.h"
 #include "colmap/optim/loransac.h"
+#include "colmap/scene/database_cache.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/ply.h"
 

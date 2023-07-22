@@ -31,8 +31,8 @@
 
 #pragma once
 
-#include "colmap/scene/reconstruction.h"
 #include "colmap/geometry/sim3.h"
+#include "colmap/scene/reconstruction.h"
 
 namespace colmap {
 

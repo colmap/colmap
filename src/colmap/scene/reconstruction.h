@@ -31,13 +31,13 @@
 
 #pragma once
 
+#include "colmap/geometry/sim3.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/database.h"
 #include "colmap/scene/image.h"
 #include "colmap/scene/point2d.h"
 #include "colmap/scene/point3d.h"
 #include "colmap/scene/track.h"
-#include "colmap/geometry/sim3.h"
 #include "colmap/util/types.h"
 
 #include <memory>

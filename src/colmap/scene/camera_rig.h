@@ -31,9 +31,9 @@
 
 #pragma once
 
+#include "colmap/geometry/pose.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/reconstruction.h"
-#include "colmap/geometry/pose.h"
 #include "colmap/util/types.h"
 
 #include <unordered_map>

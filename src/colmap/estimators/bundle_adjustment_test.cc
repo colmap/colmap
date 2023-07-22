@@ -31,10 +31,10 @@
 
 #include "colmap/estimators/bundle_adjustment.h"
 
-#include "colmap/scene/correspondence_graph.h"
 #include "colmap/camera/models.h"
 #include "colmap/geometry/projection.h"
 #include "colmap/math/random.h"
+#include "colmap/scene/correspondence_graph.h"
 
 #include <gtest/gtest.h>
 
