@@ -185,6 +185,7 @@ if(CGAL_FOUND)
         target_link_libraries(
             CGAL INTERFACE ${CGAL_LIBRARY} ${GMP_LIBRARIES})
     endif()
+    list(APPEND COLMAP_LINK_DIRS ${CGAL_LIBRARIES_DIR})
 endif()
 
 add_library(OpenGL INTERFACE IMPORTED)
@@ -371,79 +372,9 @@ endif()
 # Generate source file with version definitions.
 include(GenerateVersionDefinitions)
 
-set(COLMAP_INCLUDE_DIRS
-    ${LZ4_INCLUDE_DIRS}
-    ${FREEIMAGE_INCLUDE_DIRS}
-    ${METIS_INCLUDE_DIRS}
-    ${GLEW_INCLUDE_DIRS}
-)
+list(APPEND COLMAP_LINK_DIRS ${Boost_LIBRARY_DIRS})
 
-set(COLMAP_LINK_DIRS
-    ${Boost_LIBRARY_DIRS}
-)
-
-set(COLMAP_EXTERNAL_LIBRARIES
-    ${CMAKE_DL_LIBS}
-    ${LZ4_LIBRARIES}
-    ${FREEIMAGE_LIBRARIES}
-    ${METIS_LIBRARIES}
-    ${OPENGL_LIBRARIES}
-    Boost::program_options
-    Boost::filesystem
-    Boost::graph
-    Boost::system
-    Ceres::ceres
-    Eigen3::Eigen
-    glog::glog
-    SQLite::SQLite3
-)
-
-if(OPENMP_FOUND)
-    list(APPEND COLMAP_EXTERNAL_LIBRARIES ${OpenMP_libomp_LIBRARY})
-endif()
-
-if(Qt5_FOUND)
-    list(APPEND COLMAP_INCLUDE_DIRS ${Qt5Core_INCLUDE_DIRS} ${Qt5OpenGL_INCLUDE_DIRS} ${Qt5Widgets_INCLUDE_DIRS})
-    list(APPEND COLMAP_EXTERNAL_LIBRARIES ${Qt5Core_LIBRARIES} ${Qt5OpenGL_LIBRARIES} ${Qt5Widgets_LIBRARIES})
-endif()
-
-if(CGAL_FOUND)
-
-    list(APPEND COLMAP_INCLUDE_DIRS ${CGAL_INCLUDE_DIRS} ${GMP_INCLUDE_DIR})
-    list(APPEND COLMAP_EXTERNAL_LIBRARIES ${CGAL_LIBRARY} ${GMP_LIBRARIES})
-    list(APPEND COLMAP_LINK_DIRS ${CGAL_LIBRARIES_DIR})
-endif()
-
-if(UNIX)
-    list(APPEND COLMAP_EXTERNAL_LIBRARIES pthread)
-endif()
-
-set(COLMAP_INTERNAL_LIBRARIES
-    colmap_util
-    colmap_math
-    colmap_camera
-    colmap_image
-    colmap_feature
-    colmap_geometry
-    colmap_scene
-    colmap_estimators
-    colmap_optim
-    colmap_mvs
-    colmap_retrieval
-    colmap_sfm
-    colmap_controllers
-    colmap_ui
-    lsd
-    poisson_recon
-    sift_gpu
-    vlfeat
-)
-
-include_directories(
-    src
-    ${COLMAP_INCLUDE_DIRS}
-)
-
+include_directories(src)
 link_directories(${COLMAP_LINK_DIRS})
 
 add_subdirectory(src/lib)

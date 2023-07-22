@@ -58,7 +58,9 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME sift_test
     SRCS sift_test.cc
-    DEPS colmap_feature
+    DEPS
+        colmap_feature
+        Qt5::Widgets
 )
 COLMAP_ADD_TEST(
     NAME types_test
