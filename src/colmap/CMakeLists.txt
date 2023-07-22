@@ -66,7 +66,9 @@ if (GUI_ENABLED)
     add_subdirectory(ui)
 endif()
 
-COLMAP_ADD_LIBRARY(colmap ${COLMAP_SOURCES})
+# COLMAP_ADD_LIBRARY(
+#     NAME colmap
+#     SRCS colmap_lib.cc)
 
 if(CUDA_ENABLED)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --use_fast_math")
@@ -87,12 +89,17 @@ if(CUDA_ENABLED)
         add_definitions("-DWIN32_LEAN_AND_MEAN")
     endif()
 
-    COLMAP_ADD_CUDA_LIBRARY(colmap_cuda ${COLMAP_CUDA_SOURCES})
-    target_link_libraries(colmap_cuda colmap)
-
-    target_link_libraries(colmap
-        colmap_cuda ${COLMAP_INTERNAL_LIBRARIES} ${COLMAP_EXTERNAL_LIBRARIES})
+    # COLMAP_ADD_LIBRARY(
+    #     NAME colmap_cuda
+    #     SRCS ${COLMAP_CUDA_SOURCES}
+    #     PRIVATE_DEPS
+    #         CUDA::cudart
+    #         CUDA::curand
+    #         colmap
+    # )
+    # target_link_libraries(colmap
+    #     colmap_cuda ${COLMAP_INTERNAL_LIBRARIES} ${COLMAP_EXTERNAL_LIBRARIES})
 else()
-    target_link_libraries(colmap
-        ${COLMAP_INTERNAL_LIBRARIES} ${COLMAP_EXTERNAL_LIBRARIES})
+    # target_link_libraries(colmap
+    #     ${COLMAP_INTERNAL_LIBRARIES} ${COLMAP_EXTERNAL_LIBRARIES})
 endif()

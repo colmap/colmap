@@ -35,19 +35,44 @@ if(IS_MSVC)
     add_compile_options("/bigobj")
 endif()
 
-COLMAP_ADD_EXECUTABLE(colmap_exe
-    colmap.cc
-    database.cc
-    feature.cc
-    gui.cc
-    image.cc
-    model.cc
-    mvs.cc
-    sfm.cc
-    vocab_tree.cc)
+COLMAP_ADD_LIBRARY(
+    NAME colmap_exe_helpers
+    SRCS
+        feature.h feature.cc
+        sfm.h sfm.cc
+    PUBLIC_DEPS
+        colmap_controllers
+        colmap_image
+        colmap_feature
+)
+
+COLMAP_ADD_EXECUTABLE(
+    NAME colmap_exe
+    SRCS
+        colmap.cc
+        database.cc
+        feature.cc
+        gui.cc
+        image.cc
+        model.cc
+        mvs.cc
+        sfm.cc
+        vocab_tree.cc
+    DEPS
+        colmap_util
+        colmap_math
+        colmap_camera
+        colmap_image
+        colmap_feature
+        colmap_geometry
+        colmap_scene
+        colmap_estimators
+        colmap_optim
+        colmap_mvs
+        colmap_retrieval
+        colmap_sfm
+        colmap_controllers
+        colmap_ui
+        colmap_exe_helpers)
 set_target_properties(colmap_exe PROPERTIES OUTPUT_NAME colmap)
 
-COLMAP_ADD_SOURCES(
-    feature.h feature.cc
-    sfm.h sfm.cc
-)

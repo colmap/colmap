@@ -102,3 +102,9 @@ endif()
 if(NOT METIS_FOUND AND METIS_FIND_REQUIRED)
     message(FATAL_ERROR "Could not find Metis")
 endif()
+
+add_library(metis INTERFACE IMPORTED)
+target_include_directories(
+    metis INTERFACE ${METIS_INCLUDE_DIRS})
+target_link_libraries(
+    metis INTERFACE ${METIS_LIBRARIES})

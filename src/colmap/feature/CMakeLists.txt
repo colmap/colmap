@@ -31,14 +31,37 @@
 
 set(FOLDER_NAME "feature")
 
-COLMAP_ADD_SOURCES(
-    extraction.h extraction.cc
-    matching.h matching.cc
-    sift.h sift.cc
-    types.h types.cc
-    utils.h utils.cc
+COLMAP_ADD_LIBRARY(
+    NAME colmap_feature
+    SRCS
+        extraction.h extraction.cc
+        matching.h matching.cc
+        sift.h sift.cc
+        types.h types.cc
+        utils.h utils.cc
+    PUBLIC_DEPS
+        Eigen3::Eigen
+    PRIVATE_DEPS
+        colmap_util
+        colmap_image
+        flann
+        lz4
+        sift_gpu
+        vlfeat
 )
 
-COLMAP_ADD_TEST(feature_utils_test utils_test.cc)
-COLMAP_ADD_TEST(sift_test sift_test.cc)
-COLMAP_ADD_TEST(types_test types_test.cc)
+COLMAP_ADD_TEST(
+    NAME feature_utils_test
+    SRCS utils_test.cc
+    DEPS colmap_feature
+)
+COLMAP_ADD_TEST(
+    NAME sift_test
+    SRCS sift_test.cc
+    DEPS colmap_feature
+)
+COLMAP_ADD_TEST(
+    NAME types_test
+    SRCS types_test.cc
+    DEPS colmap_feature
+)

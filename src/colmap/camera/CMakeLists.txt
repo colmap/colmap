@@ -31,11 +31,26 @@
 
 set(FOLDER_NAME "camera")
 
-COLMAP_ADD_SOURCES(
-    database.h database.cc
-    models.h models.cc
-    specs.h specs.cc
+COLMAP_ADD_LIBRARY(
+    NAME colmap_camera
+    SRCS
+        database.h database.cc
+        models.h models.cc
+        specs.h specs.cc
+    PUBLIC_DEPS
+        Eigen3::Eigen
+        Ceres::ceres
+    PRIVATE_DEPS
+        colmap_util
 )
 
-COLMAP_ADD_TEST(database_test database_test.cc)
-COLMAP_ADD_TEST(models_test models_test.cc)
+COLMAP_ADD_TEST( 
+    NAME database_test
+    SRCS database_test.cc
+    DEPS colmap_camera
+)
+COLMAP_ADD_TEST( 
+    NAME models_test
+    SRCS models_test.cc
+    DEPS colmap_camera
+)

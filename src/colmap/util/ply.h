@@ -31,10 +31,10 @@
 
 #pragma once
 
+#include "colmap/util/types.h"
+
 #include <string>
 #include <vector>
-
-#include "types.h"
 
 namespace colmap {
 

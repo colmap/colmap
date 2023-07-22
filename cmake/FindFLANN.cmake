@@ -91,3 +91,9 @@ else()
         message(FATAL_ERROR "Could not find FLANN")
     endif()
 endif()
+
+add_library(flann INTERFACE IMPORTED)
+target_include_directories(
+    flann INTERFACE ${FLANN_INCLUDE_DIRS})
+target_link_libraries(
+    flann INTERFACE ${FLANN_LIBRARIES})

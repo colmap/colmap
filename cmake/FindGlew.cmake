@@ -88,3 +88,9 @@ else()
         message(FATAL_ERROR "Could not find Glew")
     endif()
 endif()
+
+add_library(glew INTERFACE IMPORTED)
+target_include_directories(
+    glew INTERFACE ${GLEW_INCLUDE_DIRS})
+target_link_libraries(
+    glew INTERFACE ${GLEW_LIBRARIES})

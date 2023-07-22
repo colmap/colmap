@@ -178,6 +178,26 @@ if(CGAL_FOUND)
     message(STATUS "Found CGAL")
     message(STATUS "  Includes : ${CGAL_INCLUDE_DIRS}")
     message(STATUS "  Libraries : ${CGAL_LIBRARY}")
+    if(NOT TARGET CGAL)
+        add_library(CGAL INTERFACE IMPORTED)
+        target_include_directories(
+            CGAL INTERFACE ${CGAL_INCLUDE_DIRS} ${GMP_INCLUDE_DIR})
+        target_link_libraries(
+            CGAL INTERFACE ${CGAL_LIBRARY} ${GMP_LIBRARIES})
+    endif()
+endif()
+
+add_library(OpenGL INTERFACE IMPORTED)
+target_link_libraries(
+    OpenGL INTERFACE ${OPENGL_LIBRARIES})
+
+# For backwards compatibility with older Ceres versions, define the interface.
+if(NOT TARGET Ceres::ceres)
+    add_library(Ceres::ceres INTERFACE IMPORTED)
+    target_include_directories(
+        Ceres::ceres INTERFACE ${CERES_INCLUDE_DIRS})
+    target_link_libraries(
+        Ceres::ceres INTERFACE ${CERES_LIBRARIES})
 endif()
 
 
@@ -352,10 +372,8 @@ endif()
 include(GenerateVersionDefinitions)
 
 set(COLMAP_INCLUDE_DIRS
-    ${FLANN_INCLUDE_DIRS}
     ${LZ4_INCLUDE_DIRS}
     ${FREEIMAGE_INCLUDE_DIRS}
-    ${CERES_INCLUDE_DIRS}
     ${METIS_INCLUDE_DIRS}
     ${GLEW_INCLUDE_DIRS}
 )
@@ -366,16 +384,15 @@ set(COLMAP_LINK_DIRS
 
 set(COLMAP_EXTERNAL_LIBRARIES
     ${CMAKE_DL_LIBS}
-    ${FLANN_LIBRARIES}
     ${LZ4_LIBRARIES}
     ${FREEIMAGE_LIBRARIES}
     ${METIS_LIBRARIES}
-    ${CERES_LIBRARIES}
     ${OPENGL_LIBRARIES}
     Boost::program_options
     Boost::filesystem
     Boost::graph
     Boost::system
+    Ceres::ceres
     Eigen3::Eigen
     glog::glog
     SQLite::SQLite3
@@ -391,6 +408,7 @@ if(Qt5_FOUND)
 endif()
 
 if(CGAL_FOUND)
+
     list(APPEND COLMAP_INCLUDE_DIRS ${CGAL_INCLUDE_DIRS} ${GMP_INCLUDE_DIR})
     list(APPEND COLMAP_EXTERNAL_LIBRARIES ${CGAL_LIBRARY} ${GMP_LIBRARIES})
     list(APPEND COLMAP_LINK_DIRS ${CGAL_LIBRARIES_DIR})
@@ -401,6 +419,20 @@ if(UNIX)
 endif()
 
 set(COLMAP_INTERNAL_LIBRARIES
+    colmap_util
+    colmap_math
+    colmap_camera
+    colmap_image
+    colmap_feature
+    colmap_geometry
+    colmap_scene
+    colmap_estimators
+    colmap_optim
+    colmap_mvs
+    colmap_retrieval
+    colmap_sfm
+    colmap_controllers
+    colmap_ui
     lsd
     poisson_recon
     sift_gpu

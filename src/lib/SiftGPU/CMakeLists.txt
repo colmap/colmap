@@ -37,14 +37,22 @@ if(CUDA_ENABLED)
         SiftMatchCU.h
     )
 
-    COLMAP_ADD_CUDA_LIBRARY(sift_gpu ${SIFT_GPU_SOURCE_FILES})
+    COLMAP_ADD_CUDA_LIBRARY(
+        NAME sift_gpu
+        SRCS ${SIFT_GPU_SOURCE_FILES}
+        PRIVATE_DEPS
+            CUDA::cudart
+            CUDA::curand
+    )
 else()
-    COLMAP_ADD_LIBRARY(sift_gpu ${SIFT_GPU_SOURCE_FILES})
+    COLMAP_ADD_LIBRARY(
+        NAME sift_gpu
+        SRCS ${SIFT_GPU_SOURCE_FILES}
+    )
 endif()
 
 target_link_libraries(sift_gpu
     ${SIFT_GPU_LIBRARIES}
-    ${GLEW_LIBRARIES}
-    ${OPENGL_gl_LIBRARY}
-    ${OPENGL_glu_LIBRARY}
+    OpenGL
+    glew
 )

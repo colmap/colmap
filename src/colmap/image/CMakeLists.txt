@@ -31,15 +31,40 @@
 
 set(FOLDER_NAME "image")
 
-COLMAP_ADD_SOURCES(
-    bitmap.h bitmap.cc
-    reader.h reader.cc
-    line.h line.cc
-    undistortion.h undistortion.cc
-    warp.h warp.cc
+COLMAP_ADD_LIBRARY(
+    NAME colmap_image
+    SRCS
+        bitmap.h bitmap.cc
+        reader.h reader.cc
+        line.h line.cc
+        undistortion.h undistortion.cc
+        warp.h warp.cc
+    PUBLIC_DEPS
+        colmap_scene
+        Eigen3::Eigen
+        freeimage
+    PRIVATE_DEPS
+        lsd
+        vlfeat
 )
 
-COLMAP_ADD_TEST(bitmap_test bitmap_test.cc)
-COLMAP_ADD_TEST(line_test line_test.cc)
-COLMAP_ADD_TEST(undistortion_test undistortion_test.cc)
-COLMAP_ADD_TEST(warp_test warp_test.cc)
+COLMAP_ADD_TEST(
+    NAME bitmap_test
+    SRCS bitmap_test.cc
+    DEPS colmap_image
+)
+COLMAP_ADD_TEST(
+    NAME line_test
+    SRCS line_test.cc
+    DEPS colmap_image
+)
+COLMAP_ADD_TEST(
+    NAME undistortion_test
+    SRCS undistortion_test.cc
+    DEPS colmap_image
+)
+COLMAP_ADD_TEST(
+    NAME warp_test
+    SRCS warp_test.cc
+    DEPS colmap_image
+)

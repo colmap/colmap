@@ -39,9 +39,9 @@
 #include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
 
-#include "flann/flann.hpp"
 #include <Eigen/Core>
 #include <boost/heap/fibonacci_heap.hpp>
+#include <flann/flann.hpp>
 
 namespace colmap {
 namespace retrieval {
