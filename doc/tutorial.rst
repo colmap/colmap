@@ -172,7 +172,7 @@ single, self-contained SQLite database file (see :doc:`database`).
 
 The first step is to start the graphical user interface of COLMAP by running the
 pre-built binaries (Windows: `COLMAP.bat`, Mac: `COLMAP.app`) or by executing
-``./src/exe/colmap gui`` from the CMake build folder. Next, create a new project
+``./src/colmap/exe/colmap gui`` from the CMake build folder. Next, create a new project
 by choosing ``File > New project``. In this dialog, you must select where to
 store the database and the folder that contains the input images. For
 convenience, you can save the entire project settings to a configuration file by
@@ -384,11 +384,7 @@ available controls. COLMAP attempts to reconstruct multiple models if not all
 images are registered into the same model. The different models can be selected
 from the drop-down menu in the toolbar. If the different models have common
 registered images, you can use the ``model_converter`` executable to merge them
-into a single reconstruction (see :ref:`FAQ <faq-merge-models>` for details). If
-all your images use the `SIMPLE_RADIAL` camera model (default) without shared
-intrinsics, you can use PBA [wu11]_ instead of Ceres Solver [ceres]_ for fast
-bundle adjustment, which can be activated in the reconstruction options under
-the bundle adjustment section (`use_pba=true`).
+into a single reconstruction (see :ref:`FAQ <faq-merge-models>` for details).
 
 Ideally, the reconstruction works fine and all images are registered. If this is
 not the case, it is recommended to:

@@ -1,6 +1,6 @@
 @echo off
 
-rem Copyright (c) 2022, ETH Zurich and UNC Chapel Hill.
+rem Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
 rem All rights reserved.
 rem
 rem Redistribution and use in source and binary forms, with or without
@@ -36,16 +36,7 @@ set SCRIPT_PATH=%~dp0
 set PATH=%SCRIPT_PATH%\lib;%PATH%
 set QT_PLUGIN_PATH=%SCRIPT_PATH%\lib;%QT_PLUGIN_PATH%
 
-set COMMAND=%1
-set ARGUMENTS=
-shift
-:extract_argument_loop
-if "%1"=="" goto after_extract_argument_loop
-set ARGUMENTS=%ARGUMENTS% %1
-shift
-goto extract_argument_loop
-:after_extract_argument_loop
+set ARGUMENTS=%*
+if "%ARGUMENTS%"=="" set ARGUMENTS=gui
 
-if "%COMMAND%"=="" set COMMAND=gui
-
-"%SCRIPT_PATH%\bin\colmap" %COMMAND% %ARGUMENTS%
+"%SCRIPT_PATH%\bin\colmap" %ARGUMENTS%

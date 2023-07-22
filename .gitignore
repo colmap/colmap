@@ -1,10 +1,11 @@
 # Custom files
 LocalConfig.cmake
-src/util/version.h
+src/colmap/util/version.h
 
 # Custom directories
 .idea/
 .vscode
+.vs
 .DS_Store
 build*/
 install-debug/

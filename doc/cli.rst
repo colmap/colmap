@@ -7,7 +7,7 @@ The command-line interface provides access to all of COLMAP's functionality for
 automated scripting. Each core functionality is implemented as a command to the
 ``colmap`` executable. Run ``colmap -h`` to list the available commands (or
 ``COLMAP.bat -h`` under Windows). Note that if you run COLMAP from the CMake
-build folder, the executable is located at ``./src/exe/colmap``. To start the
+build folder, the executable is located at ``./src/colmap/exe/colmap``. To start the
 graphical user interface, run ``colmap gui``.
 
 Example
@@ -194,7 +194,7 @@ available as ``colmap [command]``:
 - ``gui``: The graphical user interface, see
   :ref:`Graphical User Interface <gui>` for more information.
 
-- ``automatic_reconstruction``: Automatically reconstruct sparse and dense model
+- ``automatic_reconstructor``: Automatically reconstruct sparse and dense model
   for a set of input images.
 
 - ``project_generator``: Generate project files at different quality settings.
