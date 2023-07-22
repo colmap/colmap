@@ -390,14 +390,18 @@ COLMAP_ADD_SOURCE_DIR(src/lib/PoissonRecon LIB_POISSON_RECON_SRCS *.h *.cpp *.in
 COLMAP_ADD_SOURCE_DIR(src/lib/SiftGPU LIB_SIFT_GPU_SRCS *.h *.cpp *.cu)
 COLMAP_ADD_SOURCE_DIR(src/lib/VLFeat LIB_VLFEAT_SRCS *.h *.c *.tc)
 
+COLMAP_ADD_SOURCE_DIR(src/colmap/camera CAMERA_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/controllers CONTROLLERS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/estimators ESTIMATORS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/exe EXE_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/feature FEATURE_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/geometry GEOMETRY_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/image IMAGE_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/math MATH_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/mvs MVS_SRCS *.h *.cc *.cu)
 COLMAP_ADD_SOURCE_DIR(src/colmap/optim OPTIM_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/retrieval RETRIEVAL_SRCS *.h *.cc)
-COLMAP_ADD_SOURCE_DIR(src/colmap/scene BASE_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/scene SCENE_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/sfm SFM_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/tools TOOLS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/ui UI_SRCS *.h *.cc)
@@ -412,14 +416,18 @@ add_library(
     ${LIB_POISSON_RECON_SRCS}
     ${LIB_SIFT_GPU_SRCS}
     ${LIB_VLFEAT_SRCS}
-    ${BASE_SRCS}
+    ${CAMERA_SRCS}
     ${CONTROLLERS_SRCS}
     ${ESTIMATORS_SRCS}
     ${EXE_SRCS}
     ${FEATURE_SRCS}
+    ${GEOMETRY_SRCS}
+    ${IMAGE_SRCS}
+    ${MATH_SRCS}
     ${MVS_SRCS}
     ${OPTIM_SRCS}
     ${RETRIEVAL_SRCS}
+    ${SCENE_SRCS}
     ${SFM_SRCS}
     ${TOOLS_SRCS}
     ${UI_SRCS}

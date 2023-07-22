@@ -72,40 +72,6 @@ macro(COLMAP_ADD_SOURCE_DIR SRC_DIR SRC_VAR)
     unset(GROUP_NAME)
 endmacro(COLMAP_ADD_SOURCE_DIR)
 
-# Macro to add source files to COLMAP library.
-macro(COLMAP_ADD_SOURCES)
-    set(SOURCE_FILES "")
-    foreach(SOURCE_FILE ${ARGN})
-        if(SOURCE_FILE MATCHES "^/.*")
-            list(APPEND SOURCE_FILES ${SOURCE_FILE})
-        else()
-            list(APPEND SOURCE_FILES
-                 "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE_FILE}")
-        endif()
-    endforeach()
-    set(COLMAP_SOURCES ${COLMAP_SOURCES} ${SOURCE_FILES} PARENT_SCOPE)
-endmacro(COLMAP_ADD_SOURCES)
-
-# Macro to add CUDA source files to COLMAP library.
-macro(COLMAP_ADD_CUDA_SOURCES)
-    set(SOURCE_FILES "")
-    foreach(SOURCE_FILE ${ARGN})
-        if(SOURCE_FILE MATCHES "^/.*")
-            # Absolute path.
-            list(APPEND SOURCE_FILES ${SOURCE_FILE})
-        else()
-            # Relative path.
-            list(APPEND SOURCE_FILES
-                 "${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE_FILE}")
-        endif()
-    endforeach()
-
-    set(COLMAP_CUDA_SOURCES
-        ${COLMAP_CUDA_SOURCES}
-        ${SOURCE_FILES}
-        PARENT_SCOPE)
-endmacro(COLMAP_ADD_CUDA_SOURCES)
-
 # Replacement for the normal add_library() command. The syntax remains the same
 # in that the first argument is the target name, and the following arguments
 # are the source files to use when building the target.
@@ -131,10 +97,10 @@ endmacro(COLMAP_ADD_LIBRARY)
 # same in that the first argument is the target name, and the following
 # arguments are the source files to use when building the target.
 macro(COLMAP_ADD_EXECUTABLE)
-set(options)
-set(oneValueArgs)
-set(multiValueArgs NAME SRCS DEPS)
-cmake_parse_arguments(COLMAP_ADD_EXECUTABLE "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+    set(options)
+    set(oneValueArgs)
+    set(multiValueArgs NAME SRCS DEPS)
+    cmake_parse_arguments(COLMAP_ADD_EXECUTABLE "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     add_executable(${COLMAP_ADD_EXECUTABLE_NAME} ${COLMAP_ADD_EXECUTABLE_SRCS})
     set_target_properties(${COLMAP_ADD_EXECUTABLE_NAME} PROPERTIES FOLDER
         ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
@@ -176,25 +142,3 @@ macro(COLMAP_ADD_TEST)
         endif()
     endif()
 endmacro(COLMAP_ADD_TEST)
-
-# Wrapper for CUDA test executables.
-macro(COLMAP_ADD_CUDA_TEST TEST_NAME)
-    if(TESTS_ENABLED)
-        set(TARGET_NAME "colmap_${FOLDER_NAME}_${TEST_NAME}")
-        add_executable(${TARGET_NAME} ${ARGN})
-        set_target_properties(${TARGET_NAME} PROPERTIES FOLDER
-            ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
-        if(CLANG_TIDY_EXE)
-            set_target_properties(${TARGET_NAME}
-                PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
-        endif()
-        target_link_libraries(${TARGET_NAME}
-            colmap
-            GTest::gtest
-            GTest::gtest_main)
-        add_test("${FOLDER_NAME}/${TARGET_NAME}" ${TARGET_NAME})
-        if(IS_MSVC)
-            install(TARGETS ${TARGET_NAME} DESTINATION bin/)
-        endif()
-    endif()
-endmacro(COLMAP_ADD_CUDA_TEST)
