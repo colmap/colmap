@@ -1101,7 +1101,7 @@ void ModelViewerWidget::UploadImageConnectionData() {
 
     for (const Point2D& point2D : image.Points2D()) {
       if (point2D.HasPoint3D()) {
-        const Point3D& point3D = points3D[point2D.Point3DId()];
+        const Point3D& point3D = points3D[point2D.point3D_id];
         for (const auto& track_elem : point3D.Track().Elements()) {
           conn_image_ids.insert(track_elem.image_id);
         }

@@ -37,36 +37,20 @@ namespace colmap {
 
 TEST(Point2D, Default) {
   Point2D point2D;
-  EXPECT_EQ(point2D.X(), 0);
-  EXPECT_EQ(point2D.Y(), 0);
-  EXPECT_EQ(point2D.XY()[0], point2D.X());
-  EXPECT_EQ(point2D.XY()[1], point2D.Y());
-  EXPECT_EQ(point2D.Point3DId(), kInvalidPoint3DId);
+  EXPECT_EQ(point2D.xy, Eigen::Vector2d::Zero());
+  EXPECT_EQ(point2D.point3D_id, kInvalidPoint3DId);
   EXPECT_FALSE(point2D.HasPoint3D());
-}
-
-TEST(Point2D, XY) {
-  Point2D point2D;
-  EXPECT_EQ(point2D.X(), 0);
-  EXPECT_EQ(point2D.Y(), 0);
-  EXPECT_EQ(point2D.XY()[0], point2D.X());
-  EXPECT_EQ(point2D.XY()[1], point2D.Y());
-  point2D.SetXY(Eigen::Vector2d(0.1, 0.2));
-  EXPECT_EQ(point2D.X(), 0.1);
-  EXPECT_EQ(point2D.Y(), 0.2);
-  EXPECT_EQ(point2D.XY()[0], point2D.X());
-  EXPECT_EQ(point2D.XY()[1], point2D.Y());
 }
 
 TEST(Point2D, Point3DId) {
   Point2D point2D;
-  EXPECT_EQ(point2D.Point3DId(), kInvalidPoint3DId);
+  EXPECT_EQ(point2D.point3D_id, kInvalidPoint3DId);
   EXPECT_FALSE(point2D.HasPoint3D());
-  point2D.SetPoint3DId(1);
-  EXPECT_EQ(point2D.Point3DId(), 1);
+  point2D.point3D_id = 1;
+  EXPECT_EQ(point2D.point3D_id, 1);
   EXPECT_TRUE(point2D.HasPoint3D());
-  point2D.SetPoint3DId(kInvalidPoint3DId);
-  EXPECT_EQ(point2D.Point3DId(), kInvalidPoint3DId);
+  point2D.point3D_id = kInvalidPoint3DId;
+  EXPECT_EQ(point2D.point3D_id, kInvalidPoint3DId);
   EXPECT_FALSE(point2D.HasPoint3D());
 }
 
