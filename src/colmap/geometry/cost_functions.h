@@ -47,20 +47,20 @@ using EigenQuaternionMap = Eigen::Map<const Eigen::Quaternion<T>>;
 // Standard bundle adjustment cost function for variable
 // camera pose, calibration, and point parameters.
 template <typename CameraModel>
-class BundleAdjustmentCostFunction {
+class ReprojErrorCostFunction {
  public:
-  explicit BundleAdjustmentCostFunction(const Eigen::Vector2d& point2D)
+  explicit ReprojErrorCostFunction(const Eigen::Vector2d& point2D)
       : observed_x_(point2D(0)), observed_y_(point2D(1)) {}
 
   static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
     return (new ceres::AutoDiffCostFunction<
-            BundleAdjustmentCostFunction<CameraModel>,
+            ReprojErrorCostFunction<CameraModel>,
             2,
             4,
             3,
             3,
             CameraModel::kNumParams>(
-        new BundleAdjustmentCostFunction(point2D)));
+        new ReprojErrorCostFunction(point2D)));
   }
 
   template <typename T>
@@ -92,9 +92,9 @@ class BundleAdjustmentCostFunction {
 // Bundle adjustment cost function for variable
 // camera calibration and point parameters, and fixed camera pose.
 template <typename CameraModel>
-class BundleAdjustmentConstantPoseCostFunction {
+class ReprojErrorConstantPoseCostFunction {
  public:
-  BundleAdjustmentConstantPoseCostFunction(const Rigid3d& cam_from_world,
+  ReprojErrorConstantPoseCostFunction(const Rigid3d& cam_from_world,
                                            const Eigen::Vector2d& point2D)
       : cam_from_world_(cam_from_world),
         observed_x_(point2D(0)),
@@ -103,11 +103,11 @@ class BundleAdjustmentConstantPoseCostFunction {
   static ceres::CostFunction* Create(const Rigid3d& cam_from_world,
                                      const Eigen::Vector2d& point2D) {
     return (new ceres::AutoDiffCostFunction<
-            BundleAdjustmentConstantPoseCostFunction<CameraModel>,
+            ReprojErrorConstantPoseCostFunction<CameraModel>,
             2,
             3,
             CameraModel::kNumParams>(
-        new BundleAdjustmentConstantPoseCostFunction(cam_from_world, point2D)));
+        new ReprojErrorConstantPoseCostFunction(cam_from_world, point2D)));
   }
 
   template <typename T>
@@ -141,14 +141,14 @@ class BundleAdjustmentConstantPoseCostFunction {
 // the local system of the camera rig and then into the local system of the
 // camera within the rig.
 template <typename CameraModel>
-class RigBundleAdjustmentCostFunction {
+class RigReprojErrorCostFunction {
  public:
-  explicit RigBundleAdjustmentCostFunction(const Eigen::Vector2d& point2D)
+  explicit RigReprojErrorCostFunction(const Eigen::Vector2d& point2D)
       : observed_x_(point2D(0)), observed_y_(point2D(1)) {}
 
   static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
     return (new ceres::AutoDiffCostFunction<
-            RigBundleAdjustmentCostFunction<CameraModel>,
+            RigReprojErrorCostFunction<CameraModel>,
             2,
             4,
             3,
@@ -156,7 +156,7 @@ class RigBundleAdjustmentCostFunction {
             3,
             3,
             CameraModel::kNumParams>(
-        new RigBundleAdjustmentCostFunction(point2D)));
+        new RigReprojErrorCostFunction(point2D)));
   }
 
   template <typename T>
@@ -196,15 +196,15 @@ class RigBundleAdjustmentCostFunction {
 // pose of the second camera is parameterized by a 3D rotation and a
 // 3D translation with unit norm. `tvec` is therefore over-parameterized as is
 // and should be down-projected using `SphereManifold`.
-class RelativePoseCostFunction {
+class SampsonErrorCostFunction {
  public:
-  RelativePoseCostFunction(const Eigen::Vector2d& x1, const Eigen::Vector2d& x2)
+  SampsonErrorCostFunction(const Eigen::Vector2d& x1, const Eigen::Vector2d& x2)
       : x1_(x1(0)), y1_(x1(1)), x2_(x2(0)), y2_(x2(1)) {}
 
   static ceres::CostFunction* Create(const Eigen::Vector2d& x1,
                                      const Eigen::Vector2d& x2) {
-    return (new ceres::AutoDiffCostFunction<RelativePoseCostFunction, 1, 4, 3>(
-        new RelativePoseCostFunction(x1, x2)));
+    return (new ceres::AutoDiffCostFunction<SampsonErrorCostFunction, 1, 4, 3>(
+        new SampsonErrorCostFunction(x1, x2)));
   }
 
   template <typename T>
