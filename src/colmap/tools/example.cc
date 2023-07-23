@@ -29,9 +29,9 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
+#include "colmap/controllers/option_manager.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/option_manager.h"
 
 // Simple example that reads and writes a reconstruction.
 int main(int argc, char** argv) {

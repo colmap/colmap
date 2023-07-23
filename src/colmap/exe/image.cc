@@ -32,11 +32,11 @@
 #include "colmap/exe/image.h"
 
 #include "colmap/controllers/incremental_mapper.h"
+#include "colmap/controllers/option_manager.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/util/misc.h"
-#include "colmap/util/option_manager.h"
 
 namespace colmap {
 namespace {

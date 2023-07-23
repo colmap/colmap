@@ -31,8 +31,8 @@
 
 #pragma once
 
+#include "colmap/controllers/option_manager.h"
 #include "colmap/ui/options_widget.h"
-#include "colmap/util/option_manager.h"
 
 #include <QtCore>
 #include <QtWidgets>

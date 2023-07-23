@@ -31,8 +31,8 @@
 
 #include "colmap/exe/gui.h"
 
+#include "colmap/controllers/option_manager.h"
 #include "colmap/util/opengl_utils.h"
-#include "colmap/util/option_manager.h"
 
 namespace colmap {
 
