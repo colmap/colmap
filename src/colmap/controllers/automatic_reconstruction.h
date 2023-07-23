@@ -31,7 +31,7 @@
 
 #pragma once
 
-#include "colmap/base/reconstruction_manager.h"
+#include "colmap/scene/reconstruction_manager.h"
 #include "colmap/util/option_manager.h"
 #include "colmap/util/threading.h"
 

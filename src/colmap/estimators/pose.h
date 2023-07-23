@@ -31,10 +31,10 @@
 
 #pragma once
 
-#include "colmap/base/camera.h"
 #include "colmap/camera/models.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/loransac.h"
+#include "colmap/scene/camera.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/types.h"

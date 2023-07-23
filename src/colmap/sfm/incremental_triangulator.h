@@ -31,8 +31,8 @@
 
 #pragma once
 
-#include "colmap/base/database_cache.h"
-#include "colmap/base/reconstruction.h"
+#include "colmap/scene/database_cache.h"
+#include "colmap/scene/reconstruction.h"
 
 #include <memory>
 

@@ -31,10 +31,10 @@
 
 #include "colmap/exe/model.h"
 
-#include "colmap/base/alignment.h"
 #include "colmap/estimators/coordinate_frame.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/geometry/pose.h"
+#include "colmap/scene/alignment.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/option_manager.h"
 #include "colmap/util/threading.h"

@@ -31,8 +31,8 @@
 
 #pragma once
 
-#include "colmap/base/reconstruction.h"
 #include "colmap/controllers/incremental_mapper.h"
+#include "colmap/scene/reconstruction.h"
 
 namespace colmap {
 

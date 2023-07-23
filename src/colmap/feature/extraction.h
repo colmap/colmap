@@ -31,9 +31,9 @@
 
 #pragma once
 
-#include "colmap/base/database.h"
 #include "colmap/feature/sift.h"
 #include "colmap/image/reader.h"
+#include "colmap/scene/database.h"
 #include "colmap/util/opengl_utils.h"
 #include "colmap/util/threading.h"
 

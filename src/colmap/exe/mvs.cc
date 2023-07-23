@@ -31,10 +31,10 @@
 
 #include "colmap/exe/mvs.h"
 
-#include "colmap/base/reconstruction.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/option_manager.h"
 

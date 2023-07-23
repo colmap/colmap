@@ -31,7 +31,7 @@
 
 #pragma once
 
-#include "colmap/base/reconstruction.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/util/option_manager.h"
 
 #include <QtCore>

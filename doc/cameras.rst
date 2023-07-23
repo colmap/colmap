@@ -44,4 +44,4 @@ fix the intrinsic parameters during the reconstruction
 
 Please, refer to the camera models header file for information on the parameters
 of the different camera models:
-https://github.com/colmap/colmap/blob/master/src/base/camera_models.h
+https://github.com/colmap/colmap/blob/master/src/colmap/camera/models.h
