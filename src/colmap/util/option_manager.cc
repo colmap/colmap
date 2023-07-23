@@ -32,6 +32,7 @@
 #include "colmap/util/option_manager.h"
 
 #include "colmap/controllers/incremental_mapper.h"
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/feature/extraction.h"
 #include "colmap/feature/matching.h"
 #include "colmap/feature/sift.h"
@@ -40,7 +41,6 @@
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
-#include "colmap/optim/bundle_adjustment.h"
 #include "colmap/ui/render_options.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/version.h"
