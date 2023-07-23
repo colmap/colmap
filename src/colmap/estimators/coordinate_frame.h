@@ -31,7 +31,7 @@
 
 #pragma once
 
-#include "colmap/base/reconstruction.h"
+#include "colmap/scene/reconstruction.h"
 
 #include <Eigen/Core>
 

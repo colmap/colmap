@@ -31,9 +31,9 @@
 
 #pragma once
 
-#include "colmap/base/camera.h"
 #include "colmap/math/math.h"
 #include "colmap/optim/ransac.h"
+#include "colmap/scene/camera.h"
 #include "colmap/util/types.h"
 
 #include <vector>

@@ -31,7 +31,6 @@
 
 #include "colmap/estimators/two_view_geometry.h"
 
-#include "colmap/base/camera.h"
 #include "colmap/estimators/essential_matrix.h"
 #include "colmap/estimators/fundamental_matrix.h"
 #include "colmap/estimators/homography_matrix.h"
@@ -44,6 +43,7 @@
 #include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/optim/ransac.h"
+#include "colmap/scene/camera.h"
 
 #include <unordered_set>
 

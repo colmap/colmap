@@ -31,8 +31,8 @@
 
 #pragma once
 
-#include "colmap/base/database.h"
-#include "colmap/base/reconstruction.h"
+#include "colmap/scene/database.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/ui/colormaps.h"
 #include "colmap/ui/image_viewer_widget.h"
 #include "colmap/ui/line_painter.h"

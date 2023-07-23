@@ -31,11 +31,11 @@
 
 #include "colmap/exe/sfm.h"
 
-#include "colmap/base/reconstruction.h"
 #include "colmap/controllers/automatic_reconstruction.h"
 #include "colmap/controllers/bundle_adjustment.h"
 #include "colmap/controllers/hierarchical_mapper.h"
 #include "colmap/exe/gui.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 #include "colmap/util/option_manager.h"

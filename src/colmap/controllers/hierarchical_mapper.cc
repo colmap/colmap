@@ -31,8 +31,8 @@
 
 #include "colmap/controllers/hierarchical_mapper.h"
 
-#include "colmap/base/alignment.h"
-#include "colmap/base/scene_clustering.h"
+#include "colmap/scene/alignment.h"
+#include "colmap/scene/scene_clustering.h"
 #include "colmap/util/misc.h"
 
 namespace colmap {

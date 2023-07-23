@@ -31,8 +31,8 @@
 
 #pragma once
 
-#include "colmap/base/camera.h"
 #include "colmap/geometry/rigid3.h"
+#include "colmap/scene/camera.h"
 
 #include <limits>
 #include <vector>

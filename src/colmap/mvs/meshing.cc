@@ -40,9 +40,9 @@
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #endif  // CGAL_ENABLED
 
-#include "colmap/base/reconstruction.h"
 #include "colmap/math/graph_cut.h"
 #include "colmap/math/random.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"

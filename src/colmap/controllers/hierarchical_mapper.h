@@ -31,9 +31,9 @@
 
 #pragma once
 
-#include "colmap/base/reconstruction_manager.h"
-#include "colmap/base/scene_clustering.h"
 #include "colmap/controllers/incremental_mapper.h"
+#include "colmap/scene/reconstruction_manager.h"
+#include "colmap/scene/scene_clustering.h"
 #include "colmap/util/threading.h"
 
 #include <memory>

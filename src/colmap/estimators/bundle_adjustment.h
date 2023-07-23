@@ -31,8 +31,8 @@
 
 #pragma once
 
-#include "colmap/base/camera_rig.h"
-#include "colmap/base/reconstruction.h"
+#include "colmap/scene/camera_rig.h"
+#include "colmap/scene/reconstruction.h"
 
 #include <memory>
 #include <unordered_set>

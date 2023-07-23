@@ -5,7 +5,7 @@ Database Format
 
 COLMAP stores all extracted information in a single SQLite database file. The
 database can be accessed with the database management toolkit in the COLMAP GUI,
-the provided C++ database API (see ``src/base/database.h``), or with a scripting
+the provided C++ database API (see ``src/colmap/scene/database.h``), or with a scripting
 language of your choice (see ``scripts/python/database.py``).
 
 The database contains the following tables:
@@ -29,7 +29,7 @@ intrinsic parameters (focal length, principal point, distortion, etc.), while
 every image has separate extrinsic parameters (orientation and location).
 
 The intrinsic parameters of cameras are stored as contiguous binary blobs in
-`float64`, ordered as specified in ``src/base/camera_models.h``. COLMAP only
+`float64`, ordered as specified in ``src/colmap/camera/models.h``. COLMAP only
 uses cameras that are referenced by images, all other cameras are ignored.
 
 The ``name`` column in the images table is the unique relative path in the image

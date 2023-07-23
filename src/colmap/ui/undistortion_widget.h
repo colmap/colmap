@@ -31,8 +31,8 @@
 
 #pragma once
 
-#include "colmap/base/reconstruction.h"
 #include "colmap/image/undistortion.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/thread_control_widget.h"
 #include "colmap/util/misc.h"
