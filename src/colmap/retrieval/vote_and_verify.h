@@ -37,8 +37,11 @@ namespace colmap {
 namespace retrieval {
 
 struct VoteAndVerifyOptions {
+  // Number of levels in the multi-resolution histogram.
+  int num_levels = 3;
+
   // Number of top transformations to generate.
-  int num_transformations = 30;
+  int num_transformations = 10;
 
   // Number of voting bins in the translation dimension.
   int num_trans_bins = 64;
@@ -61,6 +64,13 @@ struct VoteAndVerifyOptions {
   // Thresholds for considering a match an inlier.
   double max_transfer_error = 100.0 * 100.0;
   double max_scale_error = 2.0;
+
+  // Whether to enable local optimization of top transformations.
+  bool local_optimization = true;
+
+  // Whether to enable effective inlier counting for best transformation.
+  bool eff_inlier_count = true;
+  int num_eff_inlier_bins = 32;
 };
 
 // Compute effective inlier count using Vote-and-Verify by estimating an affine

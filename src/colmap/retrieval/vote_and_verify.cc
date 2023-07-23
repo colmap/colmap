@@ -75,6 +75,8 @@ struct TwoWayTransform {
 // transformation. Keeps track of the mean transformation described by the bin.
 class VotingBin {
  public:
+  void SetCoord(const Eigen::Vector4i& coord) { coord_ = coord; }
+
   void Vote(const FeatureGeometryTransform& tform) {
     num_votes_ += 1;
     sum_tform_.scale += tform.scale;
@@ -83,11 +85,12 @@ class VotingBin {
     sum_tform_.ty += tform.ty;
   }
 
-  // Get the number of votes.
-  size_t GetNumVotes() const { return num_votes_; }
+  inline const Eigen::Vector4i& GetCoord() const { return coord_; }
+
+  inline int GetNumVotes() const { return num_votes_; }
 
   // Compute the mean transformation of the voting bin.
-  FeatureGeometryTransform GetTransformation() const {
+  FeatureGeometryTransform GetMeanTransformation() const {
     const float inv_num_votes = 1.0f / static_cast<float>(num_votes_);
     FeatureGeometryTransform tform = sum_tform_;
     tform.scale *= inv_num_votes;
@@ -98,7 +101,8 @@ class VotingBin {
   }
 
  private:
-  size_t num_votes_ = 0;
+  Eigen::Vector4i coord_;
+  int num_votes_ = 0;
   FeatureGeometryTransform sum_tform_;
 };
 
@@ -130,22 +134,30 @@ float ComputeTransferError(const FeatureGeometry& feature1,
 // Compute inlier matches that satisfy the transfer, scale thresholds.
 void ComputeInliers(const TwoWayTransform& tform,
                     const std::vector<FeatureGeometryMatch>& matches,
-                    const float max_transfer_error,
-                    const float max_scale_error,
-                    std::vector<std::pair<int, int>>* inlier_idxs) {
+                    float max_transfer_error,
+                    float max_scale_error,
+                    size_t best_num_inliers,
+                    std::vector<int>* inlier_idxs) {
   CHECK_GT(max_transfer_error, 0);
   CHECK_GT(max_scale_error, 0);
 
+  const size_t num_matches = matches.size();
+  const size_t max_num_outliers = num_matches - best_num_inliers;
+
   inlier_idxs->clear();
-  for (size_t i = 0; i < matches.size(); ++i) {
+  inlier_idxs->reserve(num_matches);
+  size_t num_outliers = 0;
+  for (size_t i = 0; i < num_matches; ++i) {
     const auto& match = matches[i];
-    for (size_t j = 0; j < match.geometries2.size(); ++j) {
-      const auto& geometry2 = match.geometries2[j];
-      if (ComputeScaleError(match.geometry1, geometry2, tform) <=
-              max_scale_error &&
-          ComputeTransferError(match.geometry1, geometry2, tform) <=
-              max_transfer_error) {
-        inlier_idxs->emplace_back(i, j);
+    if (ComputeScaleError(match.geometry1, match.geometry2, tform) <=
+            max_scale_error &&
+        ComputeTransferError(match.geometry1, match.geometry2, tform) <=
+            max_transfer_error) {
+      inlier_idxs->emplace_back(i);
+    } else {
+      num_outliers += 1;
+      if (num_outliers > max_num_outliers) {
+        break;
       }
     }
   }
@@ -171,18 +183,15 @@ size_t ComputeEffectiveInlierCount(
   float max_y = 0;
 
   for (const auto& match : matches) {
-    for (const auto& geometry2 : match.geometries2) {
-      if (ComputeScaleError(match.geometry1, geometry2, tform) <=
-              max_scale_error &&
-          ComputeTransferError(match.geometry1, geometry2, tform) <=
-              max_transfer_error) {
-        inlier_coords.emplace_back(match.geometry1.x, match.geometry1.y);
-        min_x = std::min(min_x, match.geometry1.x);
-        min_y = std::min(min_y, match.geometry1.y);
-        max_x = std::max(max_x, match.geometry1.x);
-        max_y = std::max(max_y, match.geometry1.y);
-        break;
-      }
+    if (ComputeScaleError(match.geometry1, match.geometry2, tform) <=
+            max_scale_error &&
+        ComputeTransferError(match.geometry1, match.geometry2, tform) <=
+            max_transfer_error) {
+      inlier_coords.emplace_back(match.geometry1.x, match.geometry1.y);
+      min_x = std::min(min_x, match.geometry1.x);
+      min_y = std::min(min_y, match.geometry1.y);
+      max_x = std::max(max_x, match.geometry1.x);
+      max_y = std::max(max_y, match.geometry1.y);
     }
   }
 
@@ -211,6 +220,7 @@ size_t ComputeEffectiveInlierCount(
 
 int VoteAndVerify(const VoteAndVerifyOptions& options,
                   const std::vector<FeatureGeometryMatch>& matches) {
+  CHECK_GT(options.num_levels, 0);
   CHECK_GT(options.num_transformations, 0);
   CHECK_GT(options.num_trans_bins, 0);
   CHECK_EQ(options.num_trans_bins % 2, 0);
@@ -222,8 +232,10 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
   CHECK_GT(options.min_num_votes, 0);
   CHECK_GE(options.confidence, 0);
   CHECK_LE(options.confidence, 1);
+  CHECK_GT(options.num_eff_inlier_bins, 0);
 
-  if (matches.size() < AffineTransformEstimator::kMinNumSamples) {
+  const size_t num_matches = matches.size();
+  if (num_matches < AffineTransformEstimator::kMinNumSamples) {
     return 0;
   }
 
@@ -239,55 +251,54 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
   // Fill the multi-resolution voting histogram.
   //////////////////////////////////////////////////////////////////////////////
 
-  const int kNumLevels = 6;
-  std::array<std::unordered_map<size_t, VotingBin>, kNumLevels> bins;
-  std::unordered_map<size_t, Eigen::Vector4i> coords;
+  std::vector<std::unordered_map<size_t, VotingBin>> bins(options.num_levels);
+  for (auto& levelBins : bins) {
+    levelBins.reserve(num_matches);
+  }
 
   for (const auto& match : matches) {
-    for (const auto& geometry2 : match.geometries2) {
-      const auto T =
-          FeatureGeometry::TransformFromMatch(match.geometry1, geometry2);
+    const auto T =
+        FeatureGeometry::TransformFromMatch(match.geometry1, match.geometry2);
 
-      if (std::abs(T.tx) > max_trans || std::abs(T.ty) > max_trans) {
-        continue;
+    if (std::abs(T.tx) > max_trans || std::abs(T.ty) > max_trans) {
+      continue;
+    }
+
+    const float log_scale = std::log2(T.scale);
+    if (std::abs(log_scale) > max_log_scale) {
+      continue;
+    }
+
+    const float x = (T.tx + max_trans) * trans_norm;
+    const float y = (T.ty + max_trans) * trans_norm;
+    const float s = (log_scale + max_log_scale) * scale_norm;
+    const float a = (T.angle + M_PI) * angle_norm;
+
+    int n_x = std::min(static_cast<int>(x * options.num_trans_bins),
+                       static_cast<int>(options.num_trans_bins - 1));
+    int n_y = std::min(static_cast<int>(y * options.num_trans_bins),
+                       static_cast<int>(options.num_trans_bins - 1));
+    int n_s = std::min(static_cast<int>(s * options.num_scale_bins),
+                       static_cast<int>(options.num_scale_bins - 1));
+    int n_a = std::min(static_cast<int>(a * options.num_angle_bins),
+                       static_cast<int>(options.num_angle_bins - 1));
+
+    for (int level = 0; level < options.num_levels; ++level) {
+      const size_t index =
+          n_a + options.num_angle_bins *
+                    (n_s + options.num_scale_bins *
+                               (n_x + options.num_trans_bins * n_y));
+
+      if (level == 0) {
+        bins[level][index].SetCoord(Eigen::Vector4i(n_a, n_s, n_x, n_y));
       }
 
-      const float log_scale = std::log2(T.scale);
-      if (std::abs(log_scale) > max_log_scale) {
-        continue;
-      }
+      bins[level][index].Vote(T);
 
-      const float x = (T.tx + max_trans) * trans_norm;
-      const float y = (T.ty + max_trans) * trans_norm;
-      const float s = (log_scale + max_log_scale) * scale_norm;
-      const float a = (T.angle + M_PI) * angle_norm;
-
-      int n_x = std::min(static_cast<int>(x * options.num_trans_bins),
-                         static_cast<int>(options.num_trans_bins - 1));
-      int n_y = std::min(static_cast<int>(y * options.num_trans_bins),
-                         static_cast<int>(options.num_trans_bins - 1));
-      int n_s = std::min(static_cast<int>(s * options.num_scale_bins),
-                         static_cast<int>(options.num_scale_bins - 1));
-      int n_a = std::min(static_cast<int>(a * options.num_angle_bins),
-                         static_cast<int>(options.num_angle_bins - 1));
-
-      for (int level = 0; level < kNumLevels; ++level) {
-        const uint64_t index =
-            n_a + options.num_angle_bins *
-                      (n_s + options.num_scale_bins *
-                                 (n_x + options.num_trans_bins * n_y));
-
-        if (level == 0) {
-          coords[index] = Eigen::Vector4i(n_a, n_s, n_x, n_y);
-        }
-
-        bins[level][index].Vote(T);
-
-        n_x >>= 1;
-        n_y >>= 1;
-        n_s >>= 1;
-        n_a >>= 1;
-      }
+      n_x >>= 1;
+      n_y >>= 1;
+      n_s >>= 1;
+      n_a >>= 1;
     }
   }
 
@@ -296,17 +307,17 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
   //////////////////////////////////////////////////////////////////////////////
 
   std::vector<std::pair<int, float>> bin_scores;
+  bin_scores.reserve(bins[0].size());
   for (const auto& bin : bins[0]) {
-    if (bin.second.GetNumVotes() >=
-        static_cast<size_t>(options.min_num_votes)) {
-      const auto coord = coords.at(bin.first);
+    if (bin.second.GetNumVotes() >= options.min_num_votes) {
+      const Eigen::Vector4i& coord = bin.second.GetCoord();
       int n_a = coord(0);
       int n_s = coord(1);
       int n_x = coord(2);
       int n_y = coord(3);
       float score = bin.second.GetNumVotes();
       float level_weight = 0.5f;
-      for (int level = 1; level < kNumLevels; ++level) {
+      for (int level = 1; level < options.num_levels; ++level) {
         n_x >>= 1;
         n_y >>= 1;
         n_s >>= 1;
@@ -342,20 +353,18 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
   //////////////////////////////////////////////////////////////////////////////
 
   size_t max_num_trials = std::numeric_limits<size_t>::max();
-  size_t best_num_inliers = 0;
   TwoWayTransform best_tform;
-
-  std::vector<std::pair<int, int>> inlier_idxs;
-  std::vector<Eigen::Vector2d> inlier_points1;
-  std::vector<Eigen::Vector2d> inlier_points2;
-
+  std::vector<int> inlier_idxs;
+  size_t best_num_inliers = 0;
+  std::vector<int> best_inlier_idxs;
   for (size_t i = 0; i < num_transformations && i < max_num_trials; ++i) {
-    const auto& bin = bins[0].at(bin_scores.at(i).first);
-    const auto tform = TwoWayTransform(bin.GetTransformation());
+    const VotingBin& bin = bins[0].at(bin_scores[i].first);
+    const TwoWayTransform tform(bin.GetMeanTransformation());
     ComputeInliers(tform,
                    matches,
                    options.max_transfer_error,
                    options.max_scale_error,
+                   best_num_inliers,
                    &inlier_idxs);
 
     if (inlier_idxs.size() < best_num_inliers ||
@@ -364,27 +373,42 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
     }
 
     best_num_inliers = inlier_idxs.size();
+    if (options.local_optimization) {
+      best_inlier_idxs = inlier_idxs;
+    }
     best_tform = tform;
 
-    if (best_num_inliers == matches.size()) {
+    if (best_num_inliers == num_matches) {
       break;
     }
 
+    max_num_trials = RANSAC<AffineTransformEstimator>::ComputeNumTrials(
+        best_num_inliers,
+        num_matches,
+        options.confidence,
+        /*num_trials_multiplier=*/1.0);
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  // Local optimization of best transformation.
+  //////////////////////////////////////////////////////////////////////////////
+
+  if (options.local_optimization && best_num_inliers > 0) {
     // Collect matching inlier points.
-    inlier_points1.resize(inlier_idxs.size());
-    inlier_points2.resize(inlier_idxs.size());
-    for (size_t j = 0; j < inlier_idxs.size(); ++j) {
-      const auto& inlier_idx = inlier_idxs[j];
-      const auto& match = matches.at(inlier_idx.first);
-      const auto& geometry1 = match.geometry1;
-      const auto& geometry2 = match.geometries2.at(inlier_idx.second);
-      inlier_points1[j] = Eigen::Vector2d(geometry1.x, geometry1.y);
-      inlier_points2[j] = Eigen::Vector2d(geometry2.x, geometry2.y);
+    const size_t num_inliers = best_inlier_idxs.size();
+    std::vector<Eigen::Vector2d> best_inlier_points1(num_inliers);
+    std::vector<Eigen::Vector2d> best_inlier_points2(num_inliers);
+    for (size_t i = 0; i < num_inliers; ++i) {
+      const auto& match = matches.at(best_inlier_idxs[i]);
+      best_inlier_points1[i] =
+          Eigen::Vector2d(match.geometry1.x, match.geometry1.y);
+      best_inlier_points2[i] =
+          Eigen::Vector2d(match.geometry2.x, match.geometry2.y);
     }
 
     // Local optimization on matching inlier points.
-    const Eigen::Matrix<double, 2, 3> A =
-        AffineTransformEstimator::Estimate(inlier_points1, inlier_points2)[0];
+    const Eigen::Matrix<double, 2, 3> A = AffineTransformEstimator::Estimate(
+        best_inlier_points1, best_inlier_points2)[0];
     Eigen::Matrix3d A_homogeneous = Eigen::Matrix3d::Identity();
     A_homogeneous.topRows<2>() = A;
     const Eigen::Matrix<double, 2, 3> inv_A =
@@ -400,34 +424,28 @@ int VoteAndVerify(const VoteAndVerifyOptions& options,
                    matches,
                    options.max_transfer_error,
                    options.max_scale_error,
+                   best_num_inliers,
                    &inlier_idxs);
 
     if (inlier_idxs.size() > best_num_inliers) {
       best_num_inliers = inlier_idxs.size();
       best_tform = local_tform;
-
-      if (best_num_inliers == matches.size()) {
-        break;
-      }
     }
-
-    max_num_trials = RANSAC<AffineTransformEstimator>::ComputeNumTrials(
-        best_num_inliers,
-        matches.size(),
-        options.confidence,
-        /* num_trials_multiplier = */ 3.0);
   }
 
-  if (best_num_inliers == 0) {
-    return 0;
+  //////////////////////////////////////////////////////////////////////////////
+  // Effective inlier counting.
+  //////////////////////////////////////////////////////////////////////////////
+
+  if (options.eff_inlier_count && best_num_inliers > 0) {
+    best_num_inliers = ComputeEffectiveInlierCount(best_tform,
+                                                   matches,
+                                                   options.max_transfer_error,
+                                                   options.max_scale_error,
+                                                   options.num_eff_inlier_bins);
   }
 
-  const size_t kNumBins = 64;
-  return ComputeEffectiveInlierCount(best_tform,
-                                     matches,
-                                     options.max_transfer_error,
-                                     options.max_scale_error,
-                                     kNumBins);
+  return best_num_inliers;
 }
 
 }  // namespace retrieval

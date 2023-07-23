@@ -462,7 +462,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
               match_found = true;
               FeatureGeometryMatch match;
               match.geometry1 = entry2.second.first->geometry;
-              match.geometries2.push_back(entry2.second.second->geometry);
+              match.geometry2 = entry2.second.second->geometry;
               matches.push_back(match);
 
               handles2.erase(idx2);

@@ -68,7 +68,7 @@ struct FeatureGeometry {
 // 1-to-M feature geometry match.
 struct FeatureGeometryMatch {
   FeatureGeometry geometry1;
-  std::vector<FeatureGeometry> geometries2;
+  FeatureGeometry geometry2;
 };
 
 }  // namespace retrieval
