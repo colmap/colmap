@@ -32,6 +32,7 @@
 set(FOLDER_NAME "geometry")
 
 COLMAP_ADD_SOURCES(
+    cost_functions.h
     essential_matrix.h essential_matrix.cc
     gps.h gps.cc
     homography_matrix.h homography_matrix.cc
@@ -42,6 +43,7 @@ COLMAP_ADD_SOURCES(
     triangulation.h triangulation.cc
 )
 
+COLMAP_ADD_TEST(cost_functions_test cost_functions_test.cc)
 COLMAP_ADD_TEST(essential_matrix_utils_test essential_matrix_test.cc)
 COLMAP_ADD_TEST(gps_test gps_test.cc)
 COLMAP_ADD_TEST(homography_matrix_utils_test homography_matrix_test.cc)

@@ -31,10 +31,10 @@
 
 #include "colmap/estimators/pose.h"
 
-#include "colmap/base/cost_functions.h"
 #include "colmap/camera/models.h"
 #include "colmap/estimators/absolute_pose.h"
 #include "colmap/estimators/essential_matrix.h"
+#include "colmap/geometry/cost_functions.h"
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/math/matrix.h"
@@ -240,10 +240,9 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     ceres::CostFunction* cost_function = nullptr;
 
     switch (camera->ModelId()) {
-#define CAMERA_MODEL_CASE(CameraModel)                                  \
-  case CameraModel::kModelId:                                           \
-    cost_function =                                                     \
-        BundleAdjustmentCostFunction<CameraModel>::Create(points2D[i]); \
+#define CAMERA_MODEL_CASE(CameraModel)                                         \
+  case CameraModel::kModelId:                                                  \
+    cost_function = ReprojErrorCostFunction<CameraModel>::Create(points2D[i]); \
     break;
 
       CAMERA_MODEL_SWITCH_CASES
@@ -362,7 +361,7 @@ bool RefineRelativePose(const ceres::Solver::Options& options,
 
   for (size_t i = 0; i < points1.size(); ++i) {
     ceres::CostFunction* cost_function =
-        RelativePoseCostFunction::Create(points1[i], points2[i]);
+        SampsonErrorCostFunction::Create(points1[i], points2[i]);
     problem.AddResidualBlock(cost_function,
                              loss_function,
                              cam2_from_cam1_rotation,
@@ -424,10 +423,10 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
 
     ceres::CostFunction* cost_function = nullptr;
     switch (cameras->at(camera_idx).ModelId()) {
-#define CAMERA_MODEL_CASE(CameraModel)                                     \
-  case CameraModel::kModelId:                                              \
-    cost_function =                                                        \
-        RigBundleAdjustmentCostFunction<CameraModel>::Create(points2D[i]); \
+#define CAMERA_MODEL_CASE(CameraModel)                                \
+  case CameraModel::kModelId:                                         \
+    cost_function =                                                   \
+        RigReprojErrorCostFunction<CameraModel>::Create(points2D[i]); \
     break;
 
       CAMERA_MODEL_SWITCH_CASES

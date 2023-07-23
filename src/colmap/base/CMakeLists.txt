@@ -52,7 +52,6 @@ COLMAP_ADD_SOURCES(
 COLMAP_ADD_TEST(camera_rig_test camera_rig_test.cc)
 COLMAP_ADD_TEST(camera_test camera_test.cc)
 COLMAP_ADD_TEST(correspondence_graph_test correspondence_graph_test.cc)
-COLMAP_ADD_TEST(cost_functions_test cost_functions_test.cc)
 COLMAP_ADD_TEST(database_cache_test database_cache_test.cc)
 COLMAP_ADD_TEST(database_test database_test.cc)
 COLMAP_ADD_TEST(image_test image_test.cc)

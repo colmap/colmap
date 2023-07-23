@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/base/cost_functions.h"
+#include "colmap/geometry/cost_functions.h"
 
 #include "colmap/camera/models.h"
 #include "colmap/geometry/pose.h"
@@ -40,7 +40,7 @@ namespace colmap {
 
 TEST(BundleAdjustment, AbsolutePose) {
   std::unique_ptr<ceres::CostFunction> cost_function(
-      BundleAdjustmentCostFunction<SimplePinholeCameraModel>::Create(
+      ReprojErrorCostFunction<SimplePinholeCameraModel>::Create(
           Eigen::Vector2d::Zero()));
   double cam_from_world_rotation[4] = {0, 0, 0, 1};
   double cam_from_world_translation[3] = {0, 0, 0};
@@ -74,9 +74,8 @@ TEST(BundleAdjustment, AbsolutePose) {
 TEST(BundleAdjustment, ConstantAbsolutePose) {
   Rigid3d cam_from_world;
   std::unique_ptr<ceres::CostFunction> cost_function(
-      BundleAdjustmentConstantPoseCostFunction<
-          SimplePinholeCameraModel>::Create(cam_from_world,
-                                            Eigen::Vector2d::Zero()));
+      ReprojErrorConstantPoseCostFunction<SimplePinholeCameraModel>::Create(
+          cam_from_world, Eigen::Vector2d::Zero()));
   double point3D[3] = {0, 0, 1};
   double camera_params[3] = {1, 0, 0};
   double residuals[2];
@@ -103,7 +102,7 @@ TEST(BundleAdjustment, ConstantAbsolutePose) {
 
 TEST(BundleAdjustment, Rig) {
   std::unique_ptr<ceres::CostFunction> cost_function(
-      RigBundleAdjustmentCostFunction<SimplePinholeCameraModel>::Create(
+      RigReprojErrorCostFunction<SimplePinholeCameraModel>::Create(
           Eigen::Vector2d::Zero()));
   double cam_from_rig_rotation[4] = {0, 0, 0, 1};
   double cam_from_rig_translation[3] = {0, 0, -1};
@@ -140,7 +139,7 @@ TEST(BundleAdjustment, Rig) {
 
 TEST(BundleAdjustment, RelativePose) {
   std::unique_ptr<ceres::CostFunction> cost_function(
-      RelativePoseCostFunction::Create(Eigen::Vector2d(0, 0),
+      SampsonErrorCostFunction::Create(Eigen::Vector2d(0, 0),
                                        Eigen::Vector2d(0, 0)));
   double cam_from_world_rotation[4] = {1, 0, 0, 0};
   double cam_from_world_translation[3] = {0, 1, 0};
@@ -150,12 +149,12 @@ TEST(BundleAdjustment, RelativePose) {
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0);
 
-  cost_function.reset(RelativePoseCostFunction::Create(Eigen::Vector2d(0, 0),
+  cost_function.reset(SampsonErrorCostFunction::Create(Eigen::Vector2d(0, 0),
                                                        Eigen::Vector2d(1, 0)));
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0.5);
 
-  cost_function.reset(RelativePoseCostFunction::Create(Eigen::Vector2d(0, 0),
+  cost_function.reset(SampsonErrorCostFunction::Create(Eigen::Vector2d(0, 0),
                                                        Eigen::Vector2d(1, 1)));
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], 0.5);
