@@ -31,18 +31,14 @@
 
 #pragma once
 
-#include "misc.h"
+#include <string>
 
 namespace colmap {
 
-const static std::string COLMAP_VERSION = "${COLMAP_VERSION}";
-const static int COLMAP_VERSION_NUMBER = ${COLMAP_VERSION_NUMBER};
-const static std::string COLMAP_COMMIT_ID = "${GIT_COMMIT_ID}";
-const static std::string COLMAP_COMMIT_DATE = "${GIT_COMMIT_DATE}";
+int GetVersionNumber();
 
 std::string GetVersionInfo();
 
 std::string GetBuildInfo();
 
 }  // namespace colmap
-
