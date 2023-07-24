@@ -73,7 +73,7 @@ COLMAP_ADD_TEST(
 )
 
 if(CUDA_ENABLED)
-    COLMAP_ADD__LIBRARY(
+    COLMAP_ADD_LIBRARY(
         NAME colmap_mvs_cuda
         SRCS
             gpu_mat_prng.h gpu_mat_prng.cu

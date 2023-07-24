@@ -14,8 +14,8 @@ COLMAP_ADD_LIBRARY(
         SiftMatch.h SiftMatch.cpp
         SiftPyramid.h SiftPyramid.cpp
     PRIVATE_LINK_LIBS
-        OpenGL
-        glew
+        OpenGL::GL
+        GLEW::GLEW
 )
 
 if(CUDA_ENABLED)
