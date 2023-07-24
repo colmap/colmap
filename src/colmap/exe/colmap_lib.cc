@@ -29,36 +29,4 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/util/version.h"
-
-#include "colmap/util/misc.h"
-
-namespace colmap {
-namespace {
-
-const std::string COLMAP_VERSION = "${COLMAP_VERSION}";
-const int COLMAP_VERSION_NUMBER = ${COLMAP_VERSION_NUMBER};
-const std::string COLMAP_COMMIT_ID = "${GIT_COMMIT_ID}";
-const std::string COLMAP_COMMIT_DATE = "${GIT_COMMIT_DATE}";
-
-}  // namespace
-
-int GetVersionNumber() { return COLMAP_VERSION_NUMBER; }
-
-std::string GetVersionInfo() {
-  return StringPrintf("COLMAP %s", COLMAP_VERSION.c_str());
-}
-
-std::string GetBuildInfo() {
-#if defined(COLMAP_CUDA_ENABLED)
-  const std::string cuda_info = "with CUDA";
-#else
-  const std::string cuda_info = "without CUDA";
-#endif
-  return StringPrintf("Commit %s on %s %s",
-                      COLMAP_COMMIT_ID.c_str(),
-                      COLMAP_COMMIT_DATE.c_str(),
-                      cuda_info.c_str());
-}
-
-}  // namespace colmap
+// Empty source file to create single library for all colmap modules.

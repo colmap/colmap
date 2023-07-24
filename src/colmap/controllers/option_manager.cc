@@ -832,7 +832,7 @@ bool OptionManager::Check() {
   if (poisson_meshing) success = success && poisson_meshing->Check();
   if (delaunay_meshing) success = success && delaunay_meshing->Check();
 
-#ifdef GUI_ENABLED
+#if defined(COLMAP_GUI_ENABLED)
   if (render) success = success && render->Check();
 #endif
 

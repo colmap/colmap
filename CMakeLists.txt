@@ -51,6 +51,9 @@ include(CheckCXXCompilerFlag)
 # the CMake policies in this file
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeHelper.cmake NO_POLICY_SCOPE)
 
+# Build position-independent code, so that shared libraries can link against
+# COLMAP's static libraries.
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 ################################################################################
 # Options
@@ -67,147 +70,18 @@ option(ASAN_ENABLED "Whether to enable AddressSanitizer flags" OFF)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
+option(LIBRARY_ENABLED "Whether to build and install COLMAP as a shared/static library" OFF)
 
 if(TESTS_ENABLED)
     enable_testing()
 endif()
 
-# Build position-independent code, so that shared libraries can link against
-# COLMAP's static libraries.
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
 ################################################################################
-# Find packages
+# Dependency configuration
 ################################################################################
 
-find_package(Ceres REQUIRED)
-
-find_package(Boost REQUIRED COMPONENTS
-             program_options
-             filesystem
-             graph
-             system)
-
-find_package(Eigen3 REQUIRED)
-
-find_package(FreeImage REQUIRED)
-
-find_package(FLANN REQUIRED)
-find_package(LZ4 REQUIRED)
-
-find_package(Metis REQUIRED)
-
-find_package(Glog REQUIRED)
-
-find_package(SQLite3 REQUIRED)
-
-set(OpenGL_GL_PREFERENCE GLVND)
-find_package(OpenGL REQUIRED)
-find_package(Glew REQUIRED)
-find_package(Git)
-
-if(TESTS_ENABLED)
-    find_package(GTest REQUIRED)
-endif()
-
-if(OPENMP_ENABLED)
-    find_package(OpenMP QUIET)
-endif()
-
-if(CGAL_ENABLED)
-    set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE TRUE)
-    # We do not use CGAL data. This prevents an unnecessary warning by CMake.
-    set(CGAL_DATA_DIR "unused")
-    find_package(CGAL QUIET)
-endif()
-
-set(CUDA_MIN_VERSION "7.0")
-if(CUDA_ENABLED)
-    if(CMAKE_VERSION VERSION_LESS 3.17)
-        find_package(CUDA QUIET)
-        if(CUDA_FOUND)
-            message(STATUS "Found CUDA version ${CUDA_VERSION} installed in "
-                    "${CUDA_TOOLKIT_ROOT_DIR} via legacy CMake (<3.17) module. "
-                    "Using the legacy CMake module means that any installation of "
-                    "COLMAP will require that the CUDA libraries are "
-                    "available under LD_LIBRARY_PATH.")
-            enable_language(CUDA)
-
-            macro(declare_imported_cuda_target module)
-                add_library(CUDA::${module} INTERFACE IMPORTED)
-                target_include_directories(
-                    CUDA::${module} INTERFACE ${CUDA_INCLUDE_DIRS})
-                target_link_libraries(
-                    CUDA::${module} INTERFACE ${CUDA_${module}_LIBRARY} ${ARGN})
-            endmacro()
-
-            declare_imported_cuda_target(cudart ${CUDA_LIBRARIES})
-            declare_imported_cuda_target(curand ${CUDA_LIBRARIES})
-            
-            set(CUDAToolkit_VERSION "${CUDA_VERSION_STRING}")
-            set(CUDAToolkit_BIN_DIR "${CUDA_TOOLKIT_ROOT_DIR}/bin")
-        endif()
-    else()
-        find_package(CUDAToolkit QUIET)
-        if(CUDAToolkit_FOUND)
-            set(CUDA_FOUND ON)
-            enable_language(CUDA)
-        endif()
-    endif()
-endif()
-
-if(GUI_ENABLED)
-    find_package(Qt5 5.4 COMPONENTS Core OpenGL Widgets)
-    if(Qt5_FOUND)
-        message(STATUS "Found Qt")
-        message(STATUS "  Module : ${Qt5Core_DIR}")
-        message(STATUS "  Module : ${Qt5OpenGL_DIR}")
-        message(STATUS "  Module : ${Qt5Widgets_DIR}")
-    else()
-        set(GUI_ENABLED OFF)
-    endif()
-endif()
-
-if(OPENGL_ENABLED AND NOT GUI_ENABLED)
-    message(STATUS "Disabling GUI will also disable OpenGL")
-    set(OPENGL_ENABLED OFF)
-endif()
-
-if(NOT TARGET GLEW::GLEW)
-    # vcpkg's glew CMake config defines an imported interface target.
-    # Only define it here, if it doesn't already exist.
-    add_library(GLEW::GLEW INTERFACE IMPORTED)
-    target_include_directories(
-        GLEW::GLEW INTERFACE ${GLEW_INCLUDE_DIRS})
-    target_link_libraries(
-        GLEW::GLEW INTERFACE ${GLEW_LIBRARIES})
-endif()
-
-if(CGAL_FOUND)
-    list(APPEND CGAL_LIBRARY ${CGAL_LIBRARIES})
-    message(STATUS "Found CGAL")
-    message(STATUS "  Includes : ${CGAL_INCLUDE_DIRS}")
-    message(STATUS "  Libraries : ${CGAL_LIBRARY}")
-    if(NOT TARGET CGAL)
-        # Older CGAL versions don't come with an imported interface target.
-        add_library(CGAL INTERFACE IMPORTED)
-        target_include_directories(
-            CGAL INTERFACE ${CGAL_INCLUDE_DIRS} ${GMP_INCLUDE_DIR})
-        target_link_libraries(
-            CGAL INTERFACE ${CGAL_LIBRARY} ${GMP_LIBRARIES})
-    endif()
-    list(APPEND COLMAP_LINK_DIRS ${CGAL_LIBRARIES_DIR})
-endif()
-
-if(NOT TARGET Ceres::ceres)
-    # Older Ceres versions don't come with an imported interface target.
-    add_library(Ceres::ceres INTERFACE IMPORTED)
-    target_include_directories(
-        Ceres::ceres INTERFACE ${CERES_INCLUDE_DIRS})
-    target_link_libraries(
-        Ceres::ceres INTERFACE ${CERES_LIBRARIES})
-endif()
-
+set(COLMAP_FIND_QUIETLY FALSE)
+include(cmake/FindCOLMAPDependencies.cmake)
 
 ################################################################################
 # Compiler specific configuration
@@ -258,15 +132,6 @@ else()
     message(STATUS "Disabling SIMD support")
 endif()
 
-if(OPENMP_ENABLED AND OPENMP_FOUND)
-    message(STATUS "Enabling OpenMP support")
-    add_definitions("-DOPENMP_ENABLED")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-else()
-    message(STATUS "Disabling OpenMP support")
-endif()
-
 if(IPO_ENABLED AND NOT IS_DEBUG AND NOT IS_GNU)
     message(STATUS "Enabling interprocedural optimization")
     set_property(DIRECTORY PROPERTY INTERPROCEDURAL_OPTIMIZATION 1)
@@ -282,45 +147,6 @@ if(ASAN_ENABLED)
     else()
         message(FATAL_ERROR "Unsupported compiler for ASan mode")
     endif()
-endif()
-
-if(CUDA_ENABLED AND CUDA_FOUND)
-    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-        message(
-            FATAL_ERROR "You must set CMAKE_CUDA_ARCHITECTURES to e.g. 'native', 'all-major', '70', etc. "
-            "More information at https://cmake.org/cmake/help/latest/prop_tgt/CUDA_ARCHITECTURES.html")
-    endif()
-
-    add_definitions("-DCUDA_ENABLED")
-
-    # Fix for some combinations of CUDA and GCC (e.g. under Ubuntu 16.04).
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -D_FORCE_INLINES")
-    # Do not show warnings if the architectures are deprecated.
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Wno-deprecated-gpu-targets")
-    # Explicitly set PIC flags for CUDA targets.
-    if(NOT IS_MSVC)
-        set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --compiler-options -fPIC")
-    endif()
-
-    message(STATUS "Enabling CUDA support (version: ${CUDAToolkit_VERSION}, "
-                    "archs: ${CMAKE_CUDA_ARCHITECTURES})")
-else()
-    set(CUDA_ENABLED OFF)
-    message(STATUS "Disabling CUDA support")
-endif()
-
-if(GUI_ENABLED AND Qt5_FOUND)
-    add_definitions("-DGUI_ENABLED")
-    message(STATUS "Enabling GUI support")
-else()
-    message(STATUS "Disabling GUI support")
-endif()
-
-if(OPENGL_ENABLED)
-    add_definitions("-DOPENGL_ENABLED")
-    message(STATUS "Enabling OpenGL support")
-else()
-    message(STATUS "Disabling OpenGL support")
 endif()
 
 if(CCACHE_ENABLED)
@@ -344,34 +170,6 @@ else()
     message(STATUS "Disabling profiling support")
 endif()
 
-if(CGAL_FOUND AND CGAL_ENABLED)
-    message(STATUS "Enabling CGAL support")
-    add_definitions("-DCGAL_ENABLED")
-else()
-    message(STATUS "Disabling CGAL support")
-    set(CGAL_ENABLED OFF)
-endif()
-
-if(Qt5_FOUND)
-    # Qt5 was built with -reduce-relocations.
-    if(Qt5_POSITION_INDEPENDENT_CODE)
-        set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-        # Workaround for Qt5 CMake config bug under Ubuntu 20.04: https://gitlab.kitware.com/cmake/cmake/-/issues/16915
-        if(TARGET Qt5::Core)
-            get_property(core_options TARGET Qt5::Core PROPERTY INTERFACE_COMPILE_OPTIONS)
-            string(REPLACE "-fPIC" "" new_qt5_core_options "${core_options}")
-            set_property(TARGET Qt5::Core PROPERTY INTERFACE_COMPILE_OPTIONS ${new_qt5_core_options})
-            set_property(TARGET Qt5::Core PROPERTY INTERFACE_POSITION_INDEPENDENT_CODE "ON")
-            if(NOT IS_MSVC)
-                set(CMAKE_CXX_COMPILE_OPTIONS_PIE "-fPIC")
-            endif()
-        endif()
-    endif()
-
-    # Enable automatic compilation of Qt resource files.
-    set(CMAKE_AUTORCC ON)
-endif()
-
 ################################################################################
 # Add sources
 ################################################################################
@@ -379,10 +177,25 @@ endif()
 # Generate source file with version definitions.
 include(GenerateVersionDefinitions)
 
-list(APPEND COLMAP_LINK_DIRS ${Boost_LIBRARY_DIRS})
-
 include_directories(src)
 link_directories(${COLMAP_LINK_DIRS})
+
+set(COLMAP_LIBS
+    colmap_util
+    colmap_math
+    colmap_camera
+    colmap_image
+    colmap_feature
+    colmap_geometry
+    colmap_scene
+    colmap_estimators
+    colmap_optim
+    colmap_mvs
+    colmap_retrieval
+    colmap_sfm
+    colmap_controllers
+    colmap_ui
+)
 
 add_subdirectory(src/lib)
 add_subdirectory(src/colmap)
@@ -452,29 +265,6 @@ set_target_properties(
 # Install and uninstall scripts
 ################################################################################
 
-# Install header files.
-install(DIRECTORY src/colmap
-        DESTINATION include
-        FILES_MATCHING PATTERN "*.h")
-install(DIRECTORY src/lib
-        DESTINATION include/colmap
-        FILES_MATCHING REGEX ".*[.]h|.*[.]hpp|.*[.]inl")
-
-# Generate and install CMake configuration.
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeConfig.cmake.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/COLMAPConfig.cmake" @ONLY)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/COLMAPConfig.cmake"
-        DESTINATION "share/colmap")
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeConfigVersion.cmake.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/COLMAPConfigVersion.cmake" @ONLY)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/COLMAPConfigVersion.cmake"
-        DESTINATION "share/colmap")
-
-# Install find_package scripts for dependencies.
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/cmake
-        DESTINATION share/colmap
-        FILES_MATCHING PATTERN "Find*.cmake")
-
 # Install batch scripts under Windows.
 if(IS_MSVC)
     install(FILES "scripts/shell/COLMAP.bat" "scripts/shell/RUN_TESTS.bat"
@@ -494,3 +284,60 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeUninstall.cmake.in"
                IMMEDIATE @ONLY)
 add_custom_target(uninstall COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake)
 set_target_properties(uninstall PROPERTIES FOLDER ${CMAKE_TARGETS_ROOT_FOLDER})
+
+
+if(LIBRARY_ENABLED)
+    add_library(colmap INTERFACE)
+    target_link_libraries(colmap INTERFACE ${COLMAP_LIBS})
+    set(INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include")
+    target_include_directories(
+        colmap INTERFACE $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>)
+
+    install(
+        TARGETS
+            colmap
+            ${COLMAP_LIBS}
+            colmap_lsd
+            colmap_poisson_recon
+            colmap_vlfeat
+            colmap_sift_gpu
+        EXPORT colmap-targets
+        LIBRARY DESTINATION lib/)
+
+    # Generate config and version.
+    include(CMakePackageConfigHelpers)
+    set(PACKAGE_CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/colmap-config.cmake")
+    set(INSTALL_CONFIG_DIR "share/colmap")
+    configure_package_config_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/colmap-config.cmake.in ${PACKAGE_CONFIG_FILE}
+        INSTALL_DESTINATION ${INSTALL_CONFIG_DIR})
+    install(FILES ${PACKAGE_CONFIG_FILE} DESTINATION ${INSTALL_CONFIG_DIR})
+
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/colmap-config-version.cmake.in"
+                   "${CMAKE_CURRENT_BINARY_DIR}/colmap-config-version.cmake" @ONLY)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/colmap-config-version.cmake"
+            DESTINATION "share/colmap")
+
+    # Install targets.
+    install(
+        EXPORT colmap-targets
+        FILE colmap-targets.cmake
+        NAMESPACE colmap::
+        DESTINATION ${INSTALL_CONFIG_DIR})
+
+    # Install header files.
+    install(
+        DIRECTORY src/colmap
+        DESTINATION include
+        FILES_MATCHING PATTERN "*.h")
+    install(
+        DIRECTORY src/lib
+        DESTINATION include/colmap
+        FILES_MATCHING REGEX ".*[.]h|.*[.]hpp|.*[.]inl")
+
+    # Install find_package scripts for dependencies.
+    install(
+        DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/cmake
+        DESTINATION share/colmap
+        FILES_MATCHING PATTERN "Find*.cmake")
+endif()

@@ -284,7 +284,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     // Patch match stereo.
 
-#ifdef CUDA_ENABLED
+#if defined(COLMAP_CUDA_ENABLED)
     {
       mvs::PatchMatchController patch_match_controller(
           *option_manager_.patch_match_stereo, dense_path, "COLMAP", "");
@@ -341,7 +341,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
         mvs::PoissonMeshing(
             *option_manager_.poisson_meshing, fused_path, meshing_path);
       } else if (options_.mesher == Mesher::DELAUNAY) {
-#ifdef CGAL_ENABLED
+#if defined(COLMAP_CGAL_ENABLED)
         mvs::DenseDelaunayMeshing(
             *option_manager_.delaunay_meshing, dense_path, meshing_path);
 #else  // CGAL_ENABLED

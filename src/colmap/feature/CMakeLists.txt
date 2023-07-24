@@ -44,10 +44,10 @@ COLMAP_ADD_LIBRARY(
     PRIVATE_LINK_LIBS
         colmap_util
         colmap_image
+        colmap_sift_gpu
+        colmap_vlfeat
         flann
         lz4
-        sift_gpu
-        vlfeat
 )
 
 COLMAP_ADD_TEST(

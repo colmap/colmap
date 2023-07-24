@@ -281,36 +281,33 @@ To see the full list of command-line options, pass the ``--help`` argument.
 Library
 -------
 
-If you want to include and link COLMAP against your own library, the easiest
-way is to use CMake as a build configuration tool. COLMAP automatically installs
-all headers to ``${CMAKE_INSTALL_PREFIX}/include/colmap``, all libraries to
+If you want to include and link COLMAP against your own library, the easiest way
+is to use CMake as a build configuration tool. By setting `-DLIBRARY_ENABLED`
+when configuring the COLMAP build and then running `ninja/make install`, COLMAP
+automatically installs all headers to
+``${CMAKE_INSTALL_PREFIX}/include/colmap``, all libraries to
 ``${CMAKE_INSTALL_PREFIX}/lib/colmap``, and the CMake configuration to
 ``${CMAKE_INSTALL_PREFIX}/share/colmap``.
 
 For example, compiling your own source code against COLMAP is as simple as
 using the following ``CMakeLists.txt``::
 
-    cmake_minimum_required(VERSION 2.8.11)
+    cmake_minimum_required(VERSION 3.10)
 
     project(TestProject)
 
-    find_package(COLMAP REQUIRED)
-    # or to require a specific version: find_package(COLMAP 3.4 REQUIRED)
-
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-
-    include_directories(${COLMAP_INCLUDE_DIRS})
-    link_directories(${COLMAP_LINK_DIRS})
+    find_package(colmap REQUIRED)
+    # or to require a specific version: find_package(colmap 3.4 REQUIRED)
 
     add_executable(hello_world hello_world.cc)
-    target_link_libraries(hello_world ${COLMAP_LIBRARIES})
+    target_link_libraries(hello_world colmap::colmap)
 
 with the source code ``hello_world.cc``::
 
     #include <cstdlib>
     #include <iostream>
 
-    #include <colmap/util/option_manager.h>
+    #include <colmap/controllers/option_manager.h>
     #include <colmap/util/string.h>
 
     int main(int argc, char** argv) {
@@ -333,8 +330,8 @@ Then compile and run your code as::
     
     mkdir build
     cd build
-    COLMAP_DIR=${CMAKE_INSTALL_PREFIX}/share/colmap cmake ..
-    make
+    cmake .. -GNinja -Dcolmap_DIR=${CMAKE_INSTALL_PREFIX}/share/colmap
+    ninja
     ./hello_world
 
 ----------------

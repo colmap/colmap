@@ -404,13 +404,13 @@ SiftGPUFeatureMatcher::SiftGPUFeatureMatcher(const SiftMatchingOptions& options,
   prev_uploaded_image_ids_[0] = kInvalidImageId;
   prev_uploaded_image_ids_[1] = kInvalidImageId;
 
-#ifndef CUDA_ENABLED
+#if !defined(COLMAP_CUDA_ENABLED)
   opengl_context_ = std::make_unique<OpenGLContextManager>();
 #endif
 }
 
 void SiftGPUFeatureMatcher::Run() {
-#ifndef CUDA_ENABLED
+#if !defined(COLMAP_CUDA_ENABLED)
   CHECK(opengl_context_);
   CHECK(opengl_context_->MakeCurrent());
 #endif
@@ -535,13 +535,13 @@ GuidedSiftGPUFeatureMatcher::GuidedSiftGPUFeatureMatcher(
   prev_uploaded_image_ids_[0] = kInvalidImageId;
   prev_uploaded_image_ids_[1] = kInvalidImageId;
 
-#ifndef CUDA_ENABLED
+#if !defined(COLMAP_CUDA_ENABLED)
   opengl_context_ = std::make_unique<OpenGLContextManager>();
 #endif
 }
 
 void GuidedSiftGPUFeatureMatcher::Run() {
-#ifndef CUDA_ENABLED
+#if !defined(COLMAP_CUDA_ENABLED)
   CHECK(opengl_context_);
   CHECK(opengl_context_->MakeCurrent());
 #endif
@@ -700,7 +700,7 @@ SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchingOptions& options,
   std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
   CHECK_GT(gpu_indices.size(), 0);
 
-#ifdef CUDA_ENABLED
+#if defined(COLMAP_CUDA_ENABLED)
   if (options_.use_gpu && gpu_indices.size() == 1 && gpu_indices[0] == -1) {
     const int num_cuda_devices = GetNumCudaDevices();
     CHECK_GT(num_cuda_devices, 0);

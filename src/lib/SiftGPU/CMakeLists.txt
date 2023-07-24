@@ -1,7 +1,7 @@
 add_definitions("-DSIFTGPU_NO_DEVIL")
 
 COLMAP_ADD_LIBRARY(
-    NAME sift_gpu
+    NAME colmap_sift_gpu
     SRCS
         FrameBufferObject.h FrameBufferObject.cpp
         GlobalUtil.h GlobalUtil.cpp
@@ -22,7 +22,7 @@ if(CUDA_ENABLED)
     add_definitions("-DCUDA_SIFTGPU_ENABLED")
 
     COLMAP_ADD_LIBRARY(
-        NAME sift_gpu_cuda
+        NAME colmap_sift_gpu_cuda
         SRCS
             CuTexImage.h CuTexImage.cpp
             ProgramCU.cu
@@ -34,5 +34,5 @@ if(CUDA_ENABLED)
             CUDA::curand
     )
 
-    target_link_libraries(sift_gpu PRIVATE sift_gpu_cuda)
+    target_link_libraries(colmap_sift_gpu PRIVATE colmap_sift_gpu_cuda)
 endif()

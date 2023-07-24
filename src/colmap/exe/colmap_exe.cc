@@ -91,7 +91,7 @@ int ShowHelp(
 
 int main(int argc, char** argv) {
   colmap::InitializeGlog(argv);
-#ifdef GUI_ENABLED
+#if defined(COLMAP_GUI_ENABLED)
   Q_INIT_RESOURCE(resources);
 #endif
 

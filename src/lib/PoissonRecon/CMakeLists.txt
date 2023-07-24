@@ -5,7 +5,7 @@ endif()
 add_definitions("-DRELEASE")
 
 COLMAP_ADD_LIBRARY(
-    NAME poisson_recon
+    NAME colmap_poisson_recon
     SRCS
         Allocator.h
         Array.h
@@ -46,4 +46,6 @@ COLMAP_ADD_LIBRARY(
         SparseMatrix.h
         SparseMatrix.inl
         SurfaceTrimmer.h SurfaceTrimmer.cpp
+    PUBLIC_LINK_LIBS
+        OpenMP::OpenMP_CXX
 )

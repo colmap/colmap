@@ -31,7 +31,7 @@
 
 #include "colmap/feature/sift.h"
 
-#if !defined(GUI_ENABLED) && !defined(CUDA_ENABLED)
+#if !defined(COLMAP_GUI_ENABLED) && !defined(COLMAP_CUDA_ENABLED)
 #include <GL/glew.h>
 #endif
 
@@ -803,7 +803,7 @@ bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
 
   sift_gpu_args.push_back("./sift_gpu");
 
-#ifdef CUDA_ENABLED
+#if defined(COLMAP_CUDA_ENABLED)
   // Use CUDA version by default if darkness adaptivity is disabled.
   if (!options.darkness_adaptivity && gpu_indices[0] < 0) {
     gpu_indices[0] = 0;
@@ -1162,7 +1162,7 @@ bool CreateSiftGPUMatcher(const SiftMatchingOptions& match_options,
 
   *sift_match_gpu = SiftMatchGPU(match_options.max_num_matches);
 
-#ifdef CUDA_ENABLED
+#if defined(COLMAP_CUDA_ENABLED)
   if (gpu_indices[0] >= 0) {
     sift_match_gpu->SetLanguage(SiftMatchGPU::SIFTMATCH_CUDA_DEVICE0 +
                                 gpu_indices[0]);
@@ -1187,7 +1187,7 @@ bool CreateSiftGPUMatcher(const SiftMatchingOptions& match_options,
     return false;
   }
 
-#ifndef CUDA_ENABLED
+#if !defined(COLMAP_CUDA_ENABLED)
   if (sift_match_gpu->GetMaxSift() < match_options.max_num_matches) {
     std::cout << StringPrintf(
                      "WARNING: OpenGL version of SiftGPU only supports a "

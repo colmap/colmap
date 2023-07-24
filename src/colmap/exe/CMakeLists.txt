@@ -49,7 +49,7 @@ COLMAP_ADD_LIBRARY(
 COLMAP_ADD_EXECUTABLE(
     NAME colmap_exe
     SRCS
-        colmap.cc
+        colmap_exe.cc
         database.cc
         feature.cc
         gui.cc
@@ -59,20 +59,6 @@ COLMAP_ADD_EXECUTABLE(
         sfm.cc
         vocab_tree.cc
     LINK_LIBS
-        colmap_util
-        colmap_math
-        colmap_camera
-        colmap_image
-        colmap_feature
-        colmap_geometry
-        colmap_scene
-        colmap_estimators
-        colmap_optim
-        colmap_mvs
-        colmap_retrieval
-        colmap_sfm
-        colmap_controllers
-        colmap_ui
+        ${COLMAP_LIBS}
         colmap_exe_helpers)
 set_target_properties(colmap_exe PROPERTIES OUTPUT_NAME colmap)
-

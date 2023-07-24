@@ -44,8 +44,8 @@ COLMAP_ADD_LIBRARY(
         Eigen3::Eigen
         freeimage
     PRIVATE_LINK_LIBS
-        lsd
-        vlfeat
+        colmap_lsd
+        colmap_vlfeat
 )
 
 COLMAP_ADD_TEST(

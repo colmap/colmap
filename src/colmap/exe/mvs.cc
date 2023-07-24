@@ -41,7 +41,7 @@
 namespace colmap {
 
 int RunDelaunayMesher(int argc, char** argv) {
-#ifndef CGAL_ENABLED
+#if !defined(COLMAP_CGAL_ENABLED)
   std::cerr << "ERROR: Delaunay meshing requires CGAL, which is not "
                "available on your system."
             << std::endl;
@@ -80,7 +80,7 @@ int RunDelaunayMesher(int argc, char** argv) {
 }
 
 int RunPatchMatchStereo(int argc, char** argv) {
-#ifndef CUDA_ENABLED
+#if !defined(COLMAP_CUDA_ENABLED)
   std::cerr << "ERROR: Dense stereo reconstruction requires CUDA, which is not "
                "available on your system."
             << std::endl;

@@ -33,7 +33,7 @@
 
 #include <iomanip>
 
-#ifdef OPENMP_ENABLED
+#if defined(COLMAP_OPENMP_ENABLED)
 #include <omp.h>
 #endif
 

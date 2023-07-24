@@ -380,7 +380,7 @@ void DenseReconstructionWidget::Stereo() {
     return;
   }
 
-#ifdef CUDA_ENABLED
+#if defined(COLMAP_CUDA_ENABLED)
   auto processor = std::make_unique<mvs::PatchMatchController>(
       *options_->patch_match_stereo, workspace_path, "COLMAP", "");
   processor->AddCallback(Thread::FINISHED_CALLBACK,
@@ -439,7 +439,7 @@ void DenseReconstructionWidget::PoissonMeshing() {
 }
 
 void DenseReconstructionWidget::DelaunayMeshing() {
-#ifdef CGAL_ENABLED
+#if defined(COLMAP_CGAL_ENABLED)
   const std::string workspace_path = GetWorkspacePath();
   if (workspace_path.empty()) {
     return;
