@@ -33,11 +33,13 @@ cmake_minimum_required(VERSION 3.10)
 
 project(COLMAP LANGUAGES C CXX)
 
+set(COLMAP_VERSION "3.9")
+set(COLMAP_VERSION_NUMBER "3900")
+
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(COLMAP_VERSION "3.9")
-set(COLMAP_VERSION_NUMBER "3900")
+set_property(GLOBAL PROPERTY GLOBAL_DEPENDS_NO_CYCLES ON)
 
 ################################################################################
 # Include CMake dependencies

@@ -54,8 +54,6 @@ COLMAP_ADD_LIBRARY(
         Qt5::Core
         Qt5::OpenGL
         SQLite::SQLite3
-    PRIVATE_LINK_LIBS
-        colmap_math
 )
 
 if(CUDA_ENABLED)
