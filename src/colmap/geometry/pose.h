@@ -41,6 +41,17 @@
 
 namespace colmap {
 
+// Compute the closes rotation matrix with the closest Frobenius norm by setting
+// the singular values of the given matrix to 1.
+Eigen::Matrix3d ComputeClosestRotationMatrix(const Eigen::Matrix3d& matrix);
+
+// Decompose projection matrix into intrinsic camera matrix, rotation matrix and
+// translation vector. Returns false if decomposition fails.
+bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& proj_matrix,
+                               Eigen::Matrix3d* K,
+                               Eigen::Matrix3d* R,
+                               Eigen::Vector3d* T);
+
 // Compose the skew symmetric cross product matrix from a vector.
 Eigen::Matrix3d CrossProductMatrix(const Eigen::Vector3d& vector);
 

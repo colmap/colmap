@@ -32,7 +32,7 @@
 #include "colmap/scene/image.h"
 
 #include "colmap/geometry/pose.h"
-#include "colmap/geometry/projection.h"
+#include "colmap/scene/projection.h"
 
 namespace colmap {
 namespace {

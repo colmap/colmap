@@ -43,6 +43,7 @@ COLMAP_ADD_LIBRARY(
         image.h image.cc
         point2d.h
         point3d.h point3d.cc
+        projection.h projection.cc
         reconstruction.h reconstruction.cc
         reconstruction_manager.h reconstruction_manager.cc
         scene_clustering.h scene_clustering.cc
@@ -54,7 +55,6 @@ COLMAP_ADD_LIBRARY(
         colmap_image
         colmap_feature
         colmap_geometry
-        colmap_estimators
         Eigen3::Eigen
         SQLite::SQLite3
 )
@@ -97,6 +97,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME point3d_test
     SRCS point3d_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME projection_test
+    SRCS projection_test.cc
     LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(

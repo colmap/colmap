@@ -38,7 +38,6 @@ COLMAP_ADD_LIBRARY(
         gps.h gps.cc
         homography_matrix.h homography_matrix.cc
         pose.h pose.cc
-        projection.h projection.cc
         rigid3.h
         sim3.h sim3.cc
         triangulation.h triangulation.cc
@@ -47,7 +46,6 @@ COLMAP_ADD_LIBRARY(
         colmap_math
         Eigen3::Eigen
     PRIVATE_LINK_LIBS
-        colmap_scene
         colmap_optim
 )
 
@@ -69,11 +67,6 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME pose_test
     SRCS pose_test.cc
-    LINK_LIBS colmap_geometry
-)
-COLMAP_ADD_TEST(
-    NAME projection_test
-    SRCS projection_test.cc
     LINK_LIBS colmap_geometry
 )
 COLMAP_ADD_TEST(

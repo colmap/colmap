@@ -31,10 +31,9 @@
 
 #include "colmap/scene/reconstruction.h"
 
-#include "colmap/estimators/similarity_transform.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/geometry/projection.h"
+#include "colmap/scene/projection.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/image/bitmap.h"
 #include "colmap/optim/loransac.h"

@@ -33,7 +33,7 @@
 
 #include "colmap/camera/models.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/geometry/projection.h"
+#include "colmap/scene/projection.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/misc.h"

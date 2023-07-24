@@ -33,7 +33,7 @@
 
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/geometry/projection.h"
+#include "colmap/scene/projection.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/random.h"
 #include "colmap/util/logging.h"

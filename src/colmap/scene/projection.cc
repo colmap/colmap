@@ -29,90 +29,93 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#pragma once
+#include "colmap/scene/projection.h"
 
-#include "colmap/geometry/rigid3.h"
-#include "colmap/scene/camera.h"
-
-#include <limits>
-#include <vector>
-
-#include <Eigen/Core>
-#include <Eigen/Geometry>
+#include "colmap/geometry/pose.h"
+#include "colmap/math/matrix.h"
 
 namespace colmap {
 
-// Compute the closes rotation matrix with the closest Frobenius norm by setting
-// the singular values of the given matrix to 1.
-Eigen::Matrix3d ComputeClosestRotationMatrix(const Eigen::Matrix3d& matrix);
-
-// Decompose projection matrix into intrinsic camera matrix, rotation matrix and
-// translation vector. Returns false if decomposition fails.
-bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& proj_matrix,
-                               Eigen::Matrix3d* K,
-                               Eigen::Matrix3d* R,
-                               Eigen::Vector3d* T);
-
-// Calculate the reprojection error.
-//
-// The reprojection error is the Euclidean distance between the observation
-// in the image and the projection of the 3D point into the image. If the
-// 3D point is behind the camera, then this function returns DBL_MAX.
 double CalculateSquaredReprojectionError(const Eigen::Vector2d& point2D,
                                          const Eigen::Vector3d& point3D,
                                          const Rigid3d& cam_from_world,
-                                         const Camera& camera);
+                                         const Camera& camera) {
+  const Eigen::Vector3d point3D_in_cam = cam_from_world * point3D;
+
+  // Check that point is infront of camera.
+  if (point3D_in_cam.z() < std::numeric_limits<double>::epsilon()) {
+    return std::numeric_limits<double>::max();
+  }
+
+  return (camera.ImgFromCam(point3D_in_cam.hnormalized()) - point2D)
+      .squaredNorm();
+}
+
 double CalculateSquaredReprojectionError(
     const Eigen::Vector2d& point2D,
     const Eigen::Vector3d& point3D,
     const Eigen::Matrix3x4d& cam_from_world,
-    const Camera& camera);
+    const Camera& camera) {
+  const double proj_z = cam_from_world.row(2).dot(point3D.homogeneous());
 
-// Calculate the angular error.
-//
-// The angular error is the angle between the observed viewing ray and the
-// actual viewing ray from the camera center to the 3D point.
+  // Check that point is infront of camera.
+  if (proj_z < std::numeric_limits<double>::epsilon()) {
+    return std::numeric_limits<double>::max();
+  }
+
+  const double proj_x = cam_from_world.row(0).dot(point3D.homogeneous());
+  const double proj_y = cam_from_world.row(1).dot(point3D.homogeneous());
+  const double inv_proj_z = 1.0 / proj_z;
+
+  const Eigen::Vector2d proj_point2D = camera.ImgFromCam(
+      Eigen::Vector2d(inv_proj_z * proj_x, inv_proj_z * proj_y));
+
+  return (proj_point2D - point2D).squaredNorm();
+}
+
 double CalculateAngularError(const Eigen::Vector2d& point2D,
                              const Eigen::Vector3d& point3D,
                              const Rigid3d& cam_from_world,
-                             const Camera& camera);
+                             const Camera& camera) {
+  return CalculateNormalizedAngularError(
+      camera.CamFromImg(point2D), point3D, cam_from_world);
+}
+
 double CalculateAngularError(const Eigen::Vector2d& point2D,
                              const Eigen::Vector3d& point3D,
                              const Eigen::Matrix3x4d& cam_from_world,
-                             const Camera& camera);
+                             const Camera& camera) {
+  return CalculateNormalizedAngularError(
+      camera.CamFromImg(point2D), point3D, cam_from_world);
+}
 
-// Calculate angulate error using normalized image points.
-//
-// The angular error is the angle between the observed viewing ray and the
-// actual viewing ray from the camera center to the 3D point.
 double CalculateNormalizedAngularError(const Eigen::Vector2d& point2D,
                                        const Eigen::Vector3d& point3D,
-                                       const Rigid3d& cam_from_world);
-double CalculateNormalizedAngularError(const Eigen::Vector2d& point2D,
-                                       const Eigen::Vector3d& point3D,
-                                       const Eigen::Matrix3x4d& cam_from_world);
+                                       const Rigid3d& cam_from_world) {
+  const Eigen::Vector3d ray1 = point2D.homogeneous();
+  const Eigen::Vector3d ray2 = cam_from_world * point3D;
+  return std::acos(ray1.normalized().transpose() * ray2.normalized());
+}
 
-// Calculate depth of 3D point with respect to camera.
-//
-// The depth is defined as the Euclidean distance of a 3D point from the
-// camera and is positive if the 3D point is in front and negative if
-// behind of the camera.
-//
-// @param cam_from_world  3x4 projection matrix.
-// @param point3D         3D point as 3x1 vector.
-//
-// @return                Depth of 3D point.
+double CalculateNormalizedAngularError(
+    const Eigen::Vector2d& point2D,
+    const Eigen::Vector3d& point3D,
+    const Eigen::Matrix3x4d& cam_from_world) {
+  const Eigen::Vector3d ray1 = point2D.homogeneous();
+  const Eigen::Vector3d ray2 = cam_from_world * point3D.homogeneous();
+  return std::acos(ray1.normalized().transpose() * ray2.normalized());
+}
+
 double CalculateDepth(const Eigen::Matrix3x4d& cam_from_world,
-                      const Eigen::Vector3d& point3D);
+                      const Eigen::Vector3d& point3D) {
+  const double proj_z = cam_from_world.row(2).dot(point3D.homogeneous());
+  return proj_z * cam_from_world.col(2).norm();
+}
 
-// Check if 3D point passes cheirality constraint,
-// i.e. it lies in front of the camera and not in the image plane.
-//
-// @param cam_from_world  3x4 projection matrix.
-// @param point3D         3D point as 3x1 vector.
-//
-// @return                True if point lies in front of camera.
 bool HasPointPositiveDepth(const Eigen::Matrix3x4d& cam_from_world,
-                           const Eigen::Vector3d& point3D);
+                           const Eigen::Vector3d& point3D) {
+  return cam_from_world.row(2).dot(point3D.homogeneous()) >=
+         std::numeric_limits<double>::epsilon();
+}
 
 }  // namespace colmap

@@ -32,7 +32,7 @@
 #include "colmap/ui/movie_grabber_widget.h"
 
 #include "colmap/geometry/pose.h"
-#include "colmap/geometry/projection.h"
+#include "colmap/scene/projection.h"
 #include "colmap/ui/model_viewer_widget.h"
 
 namespace colmap {
