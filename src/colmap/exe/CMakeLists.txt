@@ -35,21 +35,12 @@ if(IS_MSVC)
     add_compile_options("/bigobj")
 endif()
 
-COLMAP_ADD_LIBRARY(
-    NAME colmap_exe_helpers
-    SRCS
-        feature.h feature.cc
-        sfm.h sfm.cc
-    PUBLIC_LINK_LIBS
-        colmap_controllers
-        colmap_image
-        colmap_feature
-)
-
 COLMAP_ADD_EXECUTABLE(
     NAME colmap_exe
     SRCS
-        colmap_exe.cc
+        feature.h feature.cc
+        sfm.h sfm.cc
+        colmap.cc
         database.cc
         feature.cc
         gui.cc
@@ -59,6 +50,5 @@ COLMAP_ADD_EXECUTABLE(
         sfm.cc
         vocab_tree.cc
     LINK_LIBS
-        ${COLMAP_LIBS}
-        colmap_exe_helpers)
+        ${COLMAP_LIBS})
 set_target_properties(colmap_exe PROPERTIES OUTPUT_NAME colmap)
