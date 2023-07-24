@@ -103,8 +103,12 @@ if(NOT METIS_FOUND AND METIS_FIND_REQUIRED)
     message(FATAL_ERROR "Could not find Metis")
 endif()
 
-add_library(metis INTERFACE IMPORTED)
-target_include_directories(
-    metis INTERFACE ${METIS_INCLUDE_DIRS})
-target_link_libraries(
-    metis INTERFACE ${METIS_LIBRARIES})
+if(NOT TARGET metis)
+    # vcpkg's metis CMake config defines an imported interface target.
+    # Only define it here, if it doesn't already exist.
+    add_library(metis INTERFACE IMPORTED)
+    target_include_directories(
+        metis INTERFACE ${METIS_INCLUDE_DIRS})
+    target_link_libraries(
+        metis INTERFACE ${METIS_LIBRARIES})
+endif()

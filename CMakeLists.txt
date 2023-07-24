@@ -173,12 +173,19 @@ if(OPENGL_ENABLED AND NOT GUI_ENABLED)
     set(OPENGL_ENABLED OFF)
 endif()
 
+if(OPENGL_ENABLED)
+    add_library(OpenGL INTERFACE IMPORTED)
+    target_link_libraries(
+        OpenGL INTERFACE ${OPENGL_LIBRARIES})
+endif()
+
 if(CGAL_FOUND)
     list(APPEND CGAL_LIBRARY ${CGAL_LIBRARIES})
     message(STATUS "Found CGAL")
     message(STATUS "  Includes : ${CGAL_INCLUDE_DIRS}")
     message(STATUS "  Libraries : ${CGAL_LIBRARY}")
     if(NOT TARGET CGAL)
+        # Older CGAL versions don't come with an imported interface target.
         add_library(CGAL INTERFACE IMPORTED)
         target_include_directories(
             CGAL INTERFACE ${CGAL_INCLUDE_DIRS} ${GMP_INCLUDE_DIR})
@@ -188,12 +195,8 @@ if(CGAL_FOUND)
     list(APPEND COLMAP_LINK_DIRS ${CGAL_LIBRARIES_DIR})
 endif()
 
-add_library(OpenGL INTERFACE IMPORTED)
-target_link_libraries(
-    OpenGL INTERFACE ${OPENGL_LIBRARIES})
-
-# For backwards compatibility with older Ceres versions, define the interface.
 if(NOT TARGET Ceres::ceres)
+    # Older Ceres versions don't come with an imported interface target.
     add_library(Ceres::ceres INTERFACE IMPORTED)
     target_include_directories(
         Ceres::ceres INTERFACE ${CERES_INCLUDE_DIRS})
