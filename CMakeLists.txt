@@ -29,7 +29,7 @@
 #
 # Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.10)
 
 project(COLMAP LANGUAGES C CXX)
 
@@ -173,10 +173,12 @@ if(OPENGL_ENABLED AND NOT GUI_ENABLED)
     set(OPENGL_ENABLED OFF)
 endif()
 
-if(OPENGL_ENABLED)
-    add_library(OpenGL INTERFACE IMPORTED)
+if(NOT TARGET GLEW::GLEW)
+    add_library(GLEW::GLEW INTERFACE IMPORTED)
+    target_include_directories(
+        GLEW::GLEW INTERFACE ${GLEW_INCLUDE_DIRS})
     target_link_libraries(
-        OpenGL INTERFACE ${OPENGL_LIBRARIES})
+        GLEW::GLEW INTERFACE ${GLEW_LIBRARIES})
 endif()
 
 if(CGAL_FOUND)
