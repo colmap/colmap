@@ -32,9 +32,9 @@
 #include "colmap/sfm/incremental_mapper.h"
 
 #include "colmap/estimators/pose.h"
-#include "colmap/scene/projection.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/image/bitmap.h"
+#include "colmap/scene/projection.h"
 #include "colmap/util/misc.h"
 
 #include <array>

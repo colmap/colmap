@@ -31,8 +31,8 @@
 
 #include "colmap/geometry/pose.h"
 
-#include "colmap/scene/projection.h"
 #include "colmap/geometry/triangulation.h"
+#include "colmap/scene/projection.h"
 
 #include <Eigen/Eigenvalues>
 

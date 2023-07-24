@@ -38,12 +38,12 @@
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/homography_matrix.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/scene/projection.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/random.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
+#include "colmap/scene/projection.h"
 
 #include <unordered_set>
 

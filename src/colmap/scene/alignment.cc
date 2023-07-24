@@ -33,8 +33,8 @@
 
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/scene/projection.h"
 #include "colmap/optim/loransac.h"
+#include "colmap/scene/projection.h"
 
 namespace colmap {
 namespace {
