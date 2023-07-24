@@ -52,7 +52,7 @@ COLMAP_ADD_LIBRARY(
         triangulation.h triangulation.cc
         two_view_geometry.h two_view_geometry.cc
         utils.h utils.cc
-    PUBLIC_DEPS
+    PUBLIC_LINK_LIBS
         colmap_util
         colmap_math
         colmap_feature
@@ -64,70 +64,70 @@ COLMAP_ADD_LIBRARY(
 COLMAP_ADD_TEST(
     NAME absolute_pose_test
     SRCS absolute_pose_test.cc
-    DEPS colmap_estimators
+    LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
     NAME affine_transform_test
     SRCS affine_transform_test.cc
-    DEPS colmap_estimators
+    LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
     NAME bundle_adjustment_test
     SRCS bundle_adjustment_test.cc
-    DEPS colmap_estimators
+    LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
     NAME coordinate_frame_test
     SRCS coordinate_frame_test.cc
-    DEPS colmap_estimators
+    LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
     NAME cost_functions_test
     SRCS cost_functions_test.cc
-    DEPS colmap_estimators
+    LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
     NAME essential_matrix_test
     SRCS essential_matrix_test.cc
-    DEPS colmap_estimators
+    LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
     NAME estimators_utils_test
     SRCS utils_test.cc
-    DEPS colmap_estimators
+    LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
     NAME fundamental_matrix_test
     SRCS fundamental_matrix_test.cc
-    DEPS colmap_estimators
+    LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
     NAME generalized_absolute_pose_test
     SRCS generalized_absolute_pose_test.cc
-    DEPS colmap_estimators
+    LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
     NAME generalized_relative_pose_test
     SRCS generalized_relative_pose_test.cc
-    DEPS colmap_estimators
+    LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
     NAME homography_matrix_test
     SRCS homography_matrix_test.cc
-    DEPS colmap_estimators
+    LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
     NAME pose_test
     SRCS pose_test.cc
-    DEPS colmap_estimators
+    LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
     NAME translation_transform_test
     SRCS translation_transform_test.cc
-    DEPS colmap_estimators
+    LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
     NAME two_view_geometry_test
     SRCS two_view_geometry_test.cc
-    DEPS colmap_estimators
+    LINK_LIBS colmap_estimators
 )

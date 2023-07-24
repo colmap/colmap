@@ -42,11 +42,11 @@ COLMAP_ADD_LIBRARY(
         rigid3.h
         sim3.h sim3.cc
         triangulation.h triangulation.cc
-    PUBLIC_DEPS
+    PUBLIC_LINK_LIBS
         colmap_util
         colmap_math
         Eigen3::Eigen
-    PRIVATE_DEPS
+    PRIVATE_LINK_LIBS
         colmap_scene
         colmap_optim
 )
@@ -54,40 +54,40 @@ COLMAP_ADD_LIBRARY(
 COLMAP_ADD_TEST(
     NAME essential_matrix_utils_test
     SRCS essential_matrix_test.cc
-    DEPS colmap_geometry
+    LINK_LIBS colmap_geometry
 )
 COLMAP_ADD_TEST(
     NAME gps_test
     SRCS gps_test.cc
-    DEPS colmap_geometry
+    LINK_LIBS colmap_geometry
 )
 COLMAP_ADD_TEST(
     NAME homography_matrix_utils_test
     SRCS homography_matrix_test.cc
-    DEPS colmap_geometry
+    LINK_LIBS colmap_geometry
 )
 COLMAP_ADD_TEST(
     NAME pose_test
     SRCS pose_test.cc
-    DEPS colmap_geometry
+    LINK_LIBS colmap_geometry
 )
 COLMAP_ADD_TEST(
     NAME projection_test
     SRCS projection_test.cc
-    DEPS colmap_geometry
+    LINK_LIBS colmap_geometry
 )
 COLMAP_ADD_TEST(
     NAME rigid3_test
     SRCS rigid3_test.cc
-    DEPS colmap_geometry
+    LINK_LIBS colmap_geometry
 )
 COLMAP_ADD_TEST(
     NAME sim3_test
     SRCS sim3_test.cc
-    DEPS colmap_geometry
+    LINK_LIBS colmap_geometry
 )
 COLMAP_ADD_TEST(
     NAME triangulation_test
     SRCS triangulation_test.cc
-    DEPS colmap_geometry
+    LINK_LIBS colmap_geometry
 )

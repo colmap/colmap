@@ -39,11 +39,11 @@ COLMAP_ADD_LIBRARY(
         line.h line.cc
         undistortion.h undistortion.cc
         warp.h warp.cc
-    PUBLIC_DEPS
+    PUBLIC_LINK_LIBS
         colmap_scene
         Eigen3::Eigen
         freeimage
-    PRIVATE_DEPS
+    PRIVATE_LINK_LIBS
         lsd
         vlfeat
 )
@@ -51,20 +51,20 @@ COLMAP_ADD_LIBRARY(
 COLMAP_ADD_TEST(
     NAME bitmap_test
     SRCS bitmap_test.cc
-    DEPS colmap_image
+    LINK_LIBS colmap_image
 )
 COLMAP_ADD_TEST(
     NAME line_test
     SRCS line_test.cc
-    DEPS colmap_image
+    LINK_LIBS colmap_image
 )
 COLMAP_ADD_TEST(
     NAME undistortion_test
     SRCS undistortion_test.cc
-    DEPS colmap_image
+    LINK_LIBS colmap_image
 )
 COLMAP_ADD_TEST(
     NAME warp_test
     SRCS warp_test.cc
-    DEPS colmap_image
+    LINK_LIBS colmap_image
 )

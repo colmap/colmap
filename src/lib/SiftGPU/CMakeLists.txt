@@ -40,7 +40,7 @@ if(CUDA_ENABLED)
     COLMAP_ADD_CUDA_LIBRARY(
         NAME sift_gpu
         SRCS ${SIFT_GPU_SOURCE_FILES}
-        PRIVATE_DEPS
+        PRIVATE_LINK_LIBS
             CUDA::cudart
             CUDA::curand
     )

@@ -39,36 +39,36 @@ COLMAP_ADD_LIBRARY(
         matrix.h
         polynomial.h polynomial.cc
         random.h random.cc
-    PUBLIC_DEPS
+    PUBLIC_LINK_LIBS
         colmap_util
         Boost::graph
         Eigen3::Eigen
-    PRIVATE_DEPS
+    PRIVATE_LINK_LIBS
         metis
 )
 
 COLMAP_ADD_TEST(
     NAME graph_cut_test
     SRCS graph_cut_test.cc
-    DEPS colmap_math
+    LINK_LIBS colmap_math
 )
 COLMAP_ADD_TEST(
     NAME math_test
     SRCS math_test.cc
-    DEPS colmap_math
+    LINK_LIBS colmap_math
 )
 COLMAP_ADD_TEST(
     NAME matrix_test
     SRCS matrix_test.cc
-    DEPS colmap_math
+    LINK_LIBS colmap_math
 )
 COLMAP_ADD_TEST(
     NAME polynomial_test
     SRCS polynomial_test.cc
-    DEPS colmap_math
+    LINK_LIBS colmap_math
 )
 COLMAP_ADD_TEST(
     NAME random_test
     SRCS random_test.cc
-    DEPS colmap_math
+    LINK_LIBS colmap_math
 )

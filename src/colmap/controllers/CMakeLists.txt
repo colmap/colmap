@@ -39,11 +39,11 @@ COLMAP_ADD_LIBRARY(
         hierarchical_mapper.h hierarchical_mapper.cc
         incremental_mapper.h incremental_mapper.cc
         option_manager.h option_manager.cc
-    PUBLIC_DEPS
+    PUBLIC_LINK_LIBS
         colmap_scene
         colmap_util
         Eigen3::Eigen
-    PRIVATE_DEPS
+    PRIVATE_LINK_LIBS
         colmap_math
         colmap_estimators
         colmap_feature
@@ -57,10 +57,10 @@ COLMAP_ADD_LIBRARY(
 COLMAP_ADD_TEST(
     NAME hierarchical_mapper_test
     SRCS hierarchical_mapper_test.cc
-    DEPS colmap_controllers
+    LINK_LIBS colmap_controllers
 )
 COLMAP_ADD_TEST(
     NAME incremental_mapper_test
     SRCS incremental_mapper_test.cc
-    DEPS colmap_controllers
+    LINK_LIBS colmap_controllers
 )

@@ -41,12 +41,12 @@ COLMAP_ADD_LIBRARY(
         utils.h
         visual_index.h
         vote_and_verify.h vote_and_verify.cc
-    PUBLIC_DEPS
+    PUBLIC_LINK_LIBS
         Boost::graph
         Eigen3::Eigen
         flann
         lz4
-    PRIVATE_DEPS
+    PRIVATE_LINK_LIBS
         colmap_math
         colmap_estimators
 )
@@ -54,20 +54,20 @@ COLMAP_ADD_LIBRARY(
 COLMAP_ADD_TEST(
     NAME geometry_test
     SRCS geometry_test.cc
-    DEPS colmap_retrieval
+    LINK_LIBS colmap_retrieval
 )
 COLMAP_ADD_TEST(
     NAME inverted_file_entry_test
     SRCS inverted_file_entry_test.cc
-    DEPS colmap_retrieval
+    LINK_LIBS colmap_retrieval
 )
 COLMAP_ADD_TEST(
     NAME visual_index_test
     SRCS visual_index_test.cc
-    DEPS colmap_retrieval
+    LINK_LIBS colmap_retrieval
 )
 COLMAP_ADD_TEST(
     NAME vote_and_verify_test
     SRCS vote_and_verify_test.cc
-    DEPS colmap_retrieval
+    LINK_LIBS colmap_retrieval
 )

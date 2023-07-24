@@ -36,10 +36,10 @@ COLMAP_ADD_LIBRARY(
     SRCS
         incremental_mapper.h incremental_mapper.cc
         incremental_triangulator.h incremental_triangulator.cc
-    PUBLIC_DEPS
+    PUBLIC_LINK_LIBS
         colmap_scene
         colmap_estimators
-    PRIVATE_DEPS
+    PRIVATE_LINK_LIBS
         colmap_geometry
         colmap_image
 )

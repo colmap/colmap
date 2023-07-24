@@ -63,7 +63,7 @@ COLMAP_ADD_LIBRARY(
         triangle_painter.h triangle_painter.cc
         undistortion_widget.h undistortion_widget.cc
         resources.qrc
-    PUBLIC_DEPS
+    PUBLIC_LINK_LIBS
         colmap_util
         colmap_image
         colmap_scene

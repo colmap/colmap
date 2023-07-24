@@ -39,9 +39,9 @@ COLMAP_ADD_LIBRARY(
         sift.h sift.cc
         types.h types.cc
         utils.h utils.cc
-    PUBLIC_DEPS
+    PUBLIC_LINK_LIBS
         Eigen3::Eigen
-    PRIVATE_DEPS
+    PRIVATE_LINK_LIBS
         colmap_util
         colmap_image
         flann
@@ -53,17 +53,17 @@ COLMAP_ADD_LIBRARY(
 COLMAP_ADD_TEST(
     NAME feature_utils_test
     SRCS utils_test.cc
-    DEPS colmap_feature
+    LINK_LIBS colmap_feature
 )
 COLMAP_ADD_TEST(
     NAME sift_test
     SRCS sift_test.cc
-    DEPS
+    LINK_LIBS
         colmap_feature
         Qt5::Widgets
 )
 COLMAP_ADD_TEST(
     NAME types_test
     SRCS types_test.cc
-    DEPS colmap_feature
+    LINK_LIBS colmap_feature
 )

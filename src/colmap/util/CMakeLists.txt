@@ -46,7 +46,7 @@ COLMAP_ADD_LIBRARY(
         timer.h timer.cc
         types.h
         version.h version.cc
-    PUBLIC_DEPS
+    PUBLIC_LINK_LIBS
         Boost::filesystem
         Eigen3::Eigen
         glog::glog
@@ -54,7 +54,7 @@ COLMAP_ADD_LIBRARY(
         Qt5::Core
         Qt5::OpenGL
         SQLite::SQLite3
-    PRIVATE_DEPS
+    PRIVATE_LINK_LIBS
         colmap_math
 )
 
@@ -64,46 +64,46 @@ if(CUDA_ENABLED)
         SRCS
             cuda.h cuda.cc
             cudacc.h cudacc.cc
-        PUBLIC_DEPS
+        PUBLIC_LINK_LIBS
             Cuda::cudart
     )
-    target_link_libraries(colmap_util PUBLIC_DEPS colmap_util_cuda)
+    target_link_libraries(colmap_util PUBLIC_LINK_LIBS colmap_util_cuda)
 endif()
 
 COLMAP_ADD_TEST(
     NAME cache_test
     SRCS cache_test.cc
-    DEPS colmap_util
+    LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
     NAME endian_test
     SRCS endian_test.cc
-    DEPS colmap_util
+    LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
     NAME misc_test
     SRCS misc_test.cc
-    DEPS colmap_util
+    LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
     NAME string_test
     SRCS string_test.cc
-    DEPS colmap_util
+    LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
     NAME threading_test
     SRCS threading_test.cc
-    DEPS colmap_util
+    LINK_LIBS colmap_util
 )
 COLMAP_ADD_TEST(
     NAME timer_test
     SRCS timer_test.cc
-    DEPS colmap_util
+    LINK_LIBS colmap_util
 )
 if(GUI_ENABLED)
     COLMAP_ADD_TEST(
         NAME opengl_utils_test
         SRCS opengl_utils_test.cc
-        DEPS colmap_util
+        LINK_LIBS colmap_util
     )
 endif()

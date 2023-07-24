@@ -37,20 +37,20 @@ COLMAP_ADD_LIBRARY(
         database.h database.cc
         models.h models.cc
         specs.h specs.cc
-    PUBLIC_DEPS
+    PUBLIC_LINK_LIBS
         Eigen3::Eigen
         Ceres::ceres
-    PRIVATE_DEPS
+    PRIVATE_LINK_LIBS
         colmap_util
 )
 
 COLMAP_ADD_TEST( 
     NAME database_test
     SRCS database_test.cc
-    DEPS colmap_camera
+    LINK_LIBS colmap_camera
 )
 COLMAP_ADD_TEST( 
     NAME models_test
     SRCS models_test.cc
-    DEPS colmap_camera
+    LINK_LIBS colmap_camera
 )

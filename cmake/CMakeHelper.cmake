@@ -78,7 +78,7 @@ endmacro(COLMAP_ADD_SOURCE_DIR)
 macro(COLMAP_ADD_LIBRARY)
     set(options)
     set(oneValueArgs)
-    set(multiValueArgs NAME SRCS PRIVATE_DEPS PUBLIC_DEPS)
+    set(multiValueArgs NAME SRCS PRIVATE_LINK_LIBS PUBLIC_LINK_LIBS)
     cmake_parse_arguments(COLMAP_ADD_LIBRARY "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     add_library(${COLMAP_ADD_LIBRARY_NAME} STATIC ${COLMAP_ADD_LIBRARY_SRCS})
     set_target_properties(${COLMAP_ADD_LIBRARY_NAME} PROPERTIES FOLDER
@@ -88,8 +88,8 @@ macro(COLMAP_ADD_LIBRARY)
             PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
     endif()
     target_link_libraries(${COLMAP_ADD_LIBRARY_NAME}
-        PRIVATE ${COLMAP_ADD_LIBRARY_PRIVATE_DEPS}
-        PUBLIC ${COLMAP_ADD_LIBRARY_PUBLIC_DEPS})
+        PRIVATE ${COLMAP_ADD_LIBRARY_PRIVATE_LINK_LIBS}
+        PUBLIC ${COLMAP_ADD_LIBRARY_PUBLIC_LINK_LIBS})
     install(TARGETS ${COLMAP_ADD_LIBRARY_NAME} DESTINATION lib/colmap)
 endmacro(COLMAP_ADD_LIBRARY)
 
@@ -99,12 +99,12 @@ endmacro(COLMAP_ADD_LIBRARY)
 macro(COLMAP_ADD_EXECUTABLE)
     set(options)
     set(oneValueArgs)
-    set(multiValueArgs NAME SRCS DEPS)
+    set(multiValueArgs NAME SRCS LINK_LIBS)
     cmake_parse_arguments(COLMAP_ADD_EXECUTABLE "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     add_executable(${COLMAP_ADD_EXECUTABLE_NAME} ${COLMAP_ADD_EXECUTABLE_SRCS})
     set_target_properties(${COLMAP_ADD_EXECUTABLE_NAME} PROPERTIES FOLDER
         ${COLMAP_TARGETS_ROOT_FOLDER}/${FOLDER_NAME})
-    target_link_libraries(${COLMAP_ADD_EXECUTABLE_NAME} ${COLMAP_ADD_EXECUTABLE_DEPS})
+    target_link_libraries(${COLMAP_ADD_EXECUTABLE_NAME} ${COLMAP_ADD_EXECUTABLE_LINK_LIBS})
     if(VCPKG_BUILD)
         install(TARGETS ${COLMAP_ADD_EXECUTABLE_NAME} DESTINATION tools/)
     else()
@@ -120,7 +120,7 @@ endmacro(COLMAP_ADD_EXECUTABLE)
 macro(COLMAP_ADD_TEST)
     set(options)
     set(oneValueArgs)
-    set(multiValueArgs NAME SRCS DEPS)
+    set(multiValueArgs NAME SRCS LINK_LIBS)
     cmake_parse_arguments(COLMAP_ADD_TEST "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     if(TESTS_ENABLED)
         # ${ARGN} will store the list of link libraries.
@@ -133,7 +133,7 @@ macro(COLMAP_ADD_TEST)
                 PROPERTIES CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-header-filter=.*")
         endif()
         target_link_libraries(${COLMAP_ADD_TEST_NAME}
-            ${COLMAP_ADD_TEST_DEPS}
+            ${COLMAP_ADD_TEST_LINK_LIBS}
             GTest::gtest
             GTest::gtest_main)
         add_test("${FOLDER_NAME}/${COLMAP_ADD_TEST_NAME}" ${COLMAP_ADD_TEST_NAME})

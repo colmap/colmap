@@ -49,7 +49,7 @@ COLMAP_ADD_LIBRARY(
         synthetic.h synthetic.cc
         track.h track.cc
         visibility_pyramid.h visibility_pyramid.cc
-    PUBLIC_DEPS
+    PUBLIC_LINK_LIBS
         colmap_camera
         colmap_image
         colmap_feature
@@ -62,70 +62,70 @@ COLMAP_ADD_LIBRARY(
 COLMAP_ADD_TEST(
     NAME camera_rig_test
     SRCS camera_rig_test.cc
-    DEPS colmap_scene
+    LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(
     NAME camera_test
     SRCS camera_test.cc
-    DEPS colmap_scene
+    LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(
     NAME correspondence_graph_test
     SRCS correspondence_graph_test.cc
-    DEPS colmap_scene
+    LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(
     NAME database_cache_test
     SRCS database_cache_test.cc
-    DEPS colmap_scene
+    LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(
     NAME database_test
     SRCS database_test.cc
-    DEPS colmap_scene
+    LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(
     NAME image_test
     SRCS image_test.cc
-    DEPS colmap_scene
+    LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(
     NAME point2d_test
     SRCS point2d_test.cc
-    DEPS colmap_scene
+    LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(
     NAME point3d_test
     SRCS point3d_test.cc
-    DEPS colmap_scene
+    LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(
     NAME reconstruction_test
     SRCS reconstruction_test.cc
-    DEPS colmap_scene
+    LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(
     NAME reconstruction_manager_test
     SRCS reconstruction_manager_test.cc
-    DEPS colmap_scene
+    LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(
     NAME scene_clustering_test
     SRCS scene_clustering_test.cc
-    DEPS colmap_scene
+    LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(
     NAME synthetic_test
     SRCS synthetic_test.cc
-    DEPS colmap_scene
+    LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(
     NAME track_test
     SRCS track_test.cc
-    DEPS colmap_scene
+    LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(
     NAME visibility_pyramid_test
     SRCS visibility_pyramid_test.cc
-    DEPS colmap_scene
+    LINK_LIBS colmap_scene
 )

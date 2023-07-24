@@ -92,7 +92,7 @@ if(CUDA_ENABLED)
     # COLMAP_ADD_LIBRARY(
     #     NAME colmap_cuda
     #     SRCS ${COLMAP_CUDA_SOURCES}
-    #     PRIVATE_DEPS
+    #     PRIVATE_LINK_LIBS
     #         CUDA::cudart
     #         CUDA::curand
     #         colmap

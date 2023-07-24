@@ -40,7 +40,7 @@ COLMAP_ADD_LIBRARY(
     SRCS
         feature.h feature.cc
         sfm.h sfm.cc
-    PUBLIC_DEPS
+    PUBLIC_LINK_LIBS
         colmap_controllers
         colmap_image
         colmap_feature
@@ -58,7 +58,7 @@ COLMAP_ADD_EXECUTABLE(
         mvs.cc
         sfm.cc
         vocab_tree.cc
-    DEPS
+    LINK_LIBS
         colmap_util
         colmap_math
         colmap_camera

@@ -40,7 +40,7 @@ COLMAP_ADD_LIBRARY(
         random_sampler.h random_sampler.cc
         sprt.h sprt.cc
         support_measurement.h support_measurement.cc
-    PUBLIC_DEPS
+    PUBLIC_LINK_LIBS
         colmap_math
         Eigen3::Eigen
 )
@@ -48,35 +48,35 @@ COLMAP_ADD_LIBRARY(
 COLMAP_ADD_TEST(
     NAME combination_sampler_test
     SRCS combination_sampler_test.cc
-    DEPS colmap_optim
+    LINK_LIBS colmap_optim
 )
 COLMAP_ADD_TEST(
     NAME least_absolute_deviations_test
     SRCS least_absolute_deviations_test.cc
-    DEPS colmap_optim
+    LINK_LIBS colmap_optim
 )
 COLMAP_ADD_TEST(
     NAME loransac_test
     SRCS loransac_test.cc
-    DEPS colmap_optim
+    LINK_LIBS colmap_optim
 )
 COLMAP_ADD_TEST(
     NAME progressive_sampler_test
     SRCS progressive_sampler_test.cc
-    DEPS colmap_optim
+    LINK_LIBS colmap_optim
 )
 COLMAP_ADD_TEST(
     NAME random_sampler_test
     SRCS random_sampler_test.cc
-    DEPS colmap_optim
+    LINK_LIBS colmap_optim
 )
 COLMAP_ADD_TEST(
     NAME ransac_test
     SRCS ransac_test.cc
-    DEPS colmap_optim
+    LINK_LIBS colmap_optim
 )
 COLMAP_ADD_TEST(
     NAME support_measurement_test
     SRCS support_measurement_test.cc
-    DEPS colmap_optim
+    LINK_LIBS colmap_optim
 )

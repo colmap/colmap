@@ -42,10 +42,10 @@ COLMAP_ADD_LIBRARY(
         model.h model.cc
         normal_map.h normal_map.cc
         workspace.h workspace.cc
-    PUBLIC_DEPS
+    PUBLIC_LINK_LIBS
         colmap_util
         colmap_scene
-    PRIVATE_DEPS
+    PRIVATE_LINK_LIBS
         poisson_recon
         Eigen3::Eigen
         CGAL
@@ -54,22 +54,22 @@ COLMAP_ADD_LIBRARY(
 COLMAP_ADD_TEST(
     NAME consistency_graph_test
     SRCS consistency_graph_test.cc
-    DEPS colmap_mvs
+    LINK_LIBS colmap_mvs
 )
 COLMAP_ADD_TEST(
     NAME depth_map_test
     SRCS depth_map_test.cc
-    DEPS colmap_mvs
+    LINK_LIBS colmap_mvs
 )
 COLMAP_ADD_TEST(
     NAME mat_test
     SRCS mat_test.cc
-    DEPS colmap_mvs
+    LINK_LIBS colmap_mvs
 )
 COLMAP_ADD_TEST(
     NAME normal_map_test
     SRCS normal_map_test.cc
-    DEPS colmap_mvs
+    LINK_LIBS colmap_mvs
 )
 
 if(CUDA_ENABLED)
@@ -80,7 +80,7 @@ if(CUDA_ENABLED)
             gpu_mat_ref_image.h gpu_mat_ref_image.cu
             patch_match.h patch_match.cc
             patch_match_cuda.h patch_match_cuda.cu
-        PUBLIC_DEPS
+        PUBLIC_LINK_LIBS
             colmap_mvs
             Cuda::cudart
             Cuda::curand
@@ -90,6 +90,6 @@ if(CUDA_ENABLED)
     COLMAP_ADD_TEST(
         NAME gpu_mat_test
         SRCS gpu_mat_test.cu
-        DEPS colmap_mvs
+        LINK_LIBS colmap_mvs
     )
 endif()
