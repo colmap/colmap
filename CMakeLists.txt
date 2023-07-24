@@ -174,6 +174,8 @@ if(OPENGL_ENABLED AND NOT GUI_ENABLED)
 endif()
 
 if(NOT TARGET GLEW::GLEW)
+    # vcpkg's glew CMake config defines an imported interface target.
+    # Only define it here, if it doesn't already exist.
     add_library(GLEW::GLEW INTERFACE IMPORTED)
     target_include_directories(
         GLEW::GLEW INTERFACE ${GLEW_INCLUDE_DIRS})
