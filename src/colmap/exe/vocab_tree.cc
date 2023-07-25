@@ -32,7 +32,7 @@
 #include "colmap/exe/vocab_tree.h"
 
 #include "colmap/controllers/option_manager.h"
-#include "colmap/feature/matching.h"
+#include "colmap/controllers/feature_matching.h"
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
 #include "colmap/retrieval/visual_index.h"

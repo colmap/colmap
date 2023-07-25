@@ -31,7 +31,7 @@
 
 #include "colmap/mvs/model.h"
 
-#include "colmap/camera/models.h"
+#include "colmap/sensor/models.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/scene/projection.h"

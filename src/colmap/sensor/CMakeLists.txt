@@ -29,28 +29,36 @@
 #
 # Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-set(FOLDER_NAME "camera")
+set(FOLDER_NAME "sensor")
 
 COLMAP_ADD_LIBRARY(
-    NAME colmap_camera
+    NAME colmap_sensor
     SRCS
+        bitmap.h bitmap.cc
         database.h database.cc
         models.h models.cc
         specs.h specs.cc
     PUBLIC_LINK_LIBS
-        Eigen3::Eigen
         Ceres::ceres
+        Eigen3::Eigen
+        freeimage
     PRIVATE_LINK_LIBS
         colmap_util
+        colmap_vlfeat
 )
 
+COLMAP_ADD_TEST(
+    NAME bitmap_test
+    SRCS bitmap_test.cc
+    LINK_LIBS colmap_sensor
+)
 COLMAP_ADD_TEST( 
     NAME database_test
     SRCS database_test.cc
-    LINK_LIBS colmap_camera
+    LINK_LIBS colmap_sensor
 )
 COLMAP_ADD_TEST( 
     NAME models_test
     SRCS models_test.cc
-    LINK_LIBS colmap_camera
+    LINK_LIBS colmap_sensor
 )

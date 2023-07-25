@@ -33,8 +33,8 @@
 
 #include "colmap/controllers/incremental_mapper.h"
 #include "colmap/controllers/option_manager.h"
-#include "colmap/feature/extraction.h"
-#include "colmap/feature/matching.h"
+#include "colmap/controllers/feature_extraction.h"
+#include "colmap/controllers/feature_matching.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"

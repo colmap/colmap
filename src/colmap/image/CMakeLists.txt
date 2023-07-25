@@ -34,25 +34,18 @@ set(FOLDER_NAME "image")
 COLMAP_ADD_LIBRARY(
     NAME colmap_image
     SRCS
-        bitmap.h bitmap.cc
-        reader.h reader.cc
         line.h line.cc
         undistortion.h undistortion.cc
         warp.h warp.cc
     PUBLIC_LINK_LIBS
-        colmap_scene
         Eigen3::Eigen
-        freeimage
     PRIVATE_LINK_LIBS
+        colmap_util
+        colmap_sensor
+        colmap_scene
         colmap_lsd
-        colmap_vlfeat
 )
 
-COLMAP_ADD_TEST(
-    NAME bitmap_test
-    SRCS bitmap_test.cc
-    LINK_LIBS colmap_image
-)
 COLMAP_ADD_TEST(
     NAME line_test
     SRCS line_test.cc

@@ -31,7 +31,7 @@
 
 #include "colmap/estimators/pose.h"
 
-#include "colmap/camera/models.h"
+#include "colmap/sensor/models.h"
 #include "colmap/estimators/absolute_pose.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/cost_functions.h"

@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/feature/extraction.h"
+#include "colmap/controllers/feature_extraction.h"
 
 #include "colmap/feature/sift.h"
 #include "colmap/util/cuda.h"

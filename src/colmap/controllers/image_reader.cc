@@ -29,9 +29,9 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/image/reader.h"
+#include "colmap/controllers/image_reader.h"
 
-#include "colmap/camera/models.h"
+#include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"
 
 namespace colmap {

@@ -29,32 +29,18 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/camera/database.h"
-
-#include <gtest/gtest.h>
+#include "colmap/scene/two_view_geometry.h"
 
 namespace colmap {
 
-TEST(CameraDatabase, Initialization) {
-  CameraDatabase database;
-  camera_specs_t specs = InitializeCameraSpecs();
-  EXPECT_EQ(database.NumEntries(), specs.size());
-}
-
-TEST(CameraDatabase, ExactMatch) {
-  CameraDatabase database;
-  double sensor_width;
-  EXPECT_TRUE(
-      database.QuerySensorWidth("canon", "digitalixus100is", &sensor_width));
-  EXPECT_EQ(sensor_width, 6.1600f);
-}
-
-TEST(CameraDatabase, AmbiguousMatch) {
-  CameraDatabase database;
-  double sensor_width;
-  EXPECT_TRUE(
-      !database.QuerySensorWidth("canon", "digitalixus", &sensor_width));
-  EXPECT_EQ(sensor_width, 6.1600f);
+void TwoViewGeometry::Invert() {
+  F.transposeInPlace();
+  E.transposeInPlace();
+  H = H.inverse().eval();
+  cam2_from_cam1 = Inverse(cam2_from_cam1);
+  for (auto& match : inlier_matches) {
+    std::swap(match.point2D_idx1, match.point2D_idx2);
+  }
 }
 
 }  // namespace colmap

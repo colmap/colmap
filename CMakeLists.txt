@@ -102,6 +102,8 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "ClangTidy")
     if(NOT CLANG_TIDY_EXE)
         message(FATAL_ERROR "Could not find the clang-tidy executable, please set CLANG_TIDY_EXE")
     endif()
+else()
+    unset(CLANG_TIDY_EXE)
 endif()
 
 if(IS_MSVC)
@@ -185,7 +187,7 @@ link_directories(${COLMAP_LINK_DIRS})
 set(COLMAP_LIBS
     colmap_util
     colmap_math
-    colmap_camera
+    colmap_sensor
     colmap_image
     colmap_feature
     colmap_geometry
@@ -212,7 +214,6 @@ COLMAP_ADD_SOURCE_DIR(src/lib/PoissonRecon LIB_POISSON_RECON_SRCS *.h *.cpp *.in
 COLMAP_ADD_SOURCE_DIR(src/lib/SiftGPU LIB_SIFT_GPU_SRCS *.h *.cpp *.cu)
 COLMAP_ADD_SOURCE_DIR(src/lib/VLFeat LIB_VLFEAT_SRCS *.h *.c *.tc)
 
-COLMAP_ADD_SOURCE_DIR(src/colmap/camera CAMERA_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/controllers CONTROLLERS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/estimators ESTIMATORS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/exe EXE_SRCS *.h *.cc)
@@ -224,6 +225,7 @@ COLMAP_ADD_SOURCE_DIR(src/colmap/mvs MVS_SRCS *.h *.cc *.cu)
 COLMAP_ADD_SOURCE_DIR(src/colmap/optim OPTIM_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/retrieval RETRIEVAL_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/scene SCENE_SRCS *.h *.cc)
+COLMAP_ADD_SOURCE_DIR(src/colmap/sensor SENSOR_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/sfm SFM_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/tools TOOLS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/ui UI_SRCS *.h *.cc)
@@ -238,7 +240,6 @@ add_library(
     ${LIB_POISSON_RECON_SRCS}
     ${LIB_SIFT_GPU_SRCS}
     ${LIB_VLFEAT_SRCS}
-    ${CAMERA_SRCS}
     ${CONTROLLERS_SRCS}
     ${ESTIMATORS_SRCS}
     ${EXE_SRCS}
@@ -250,6 +251,7 @@ add_library(
     ${OPTIM_SRCS}
     ${RETRIEVAL_SRCS}
     ${SCENE_SRCS}
+    ${SENSOR_SRCS}
     ${SFM_SRCS}
     ${TOOLS_SRCS}
     ${UI_SRCS}

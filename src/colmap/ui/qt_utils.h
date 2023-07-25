@@ -32,7 +32,7 @@
 #pragma once
 
 #include "colmap/feature/types.h"
-#include "colmap/image/bitmap.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/util/types.h"
 
 #include <QtCore>

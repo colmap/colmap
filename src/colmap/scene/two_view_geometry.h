@@ -31,26 +31,56 @@
 
 #pragma once
 
-#include "colmap/camera/specs.h"
-
-#include <string>
+#include "colmap/feature/types.h"
+#include "colmap/geometry/rigid3.h"
 
 namespace colmap {
 
-// Database that contains sensor widths for many cameras, which is useful
-// to automatically extract the focal length if EXIF information is incomplete.
-class CameraDatabase {
- public:
-  CameraDatabase();
+// Two-view geometry.
+struct TwoViewGeometry {
+  // The configuration of the two-view geometry.
+  enum ConfigurationType {
+    UNDEFINED = 0,
+    // Degenerate configuration (e.g., no overlap or not enough inliers).
+    DEGENERATE = 1,
+    // Essential matrix.
+    CALIBRATED = 2,
+    // Fundamental matrix.
+    UNCALIBRATED = 3,
+    // Homography, planar scene with baseline.
+    PLANAR = 4,
+    // Homography, pure rotation without baseline.
+    PANORAMIC = 5,
+    // Homography, planar or panoramic.
+    PLANAR_OR_PANORAMIC = 6,
+    // Watermark, pure 2D translation in image borders.
+    WATERMARK = 7,
+    // Multi-model configuration, i.e. the inlier matches result from multiple
+    // individual, non-degenerate configurations.
+    MULTIPLE = 8,
+  };
 
-  size_t NumEntries() const { return specs_.size(); }
+  // One of `ConfigurationType`.
+  int config = ConfigurationType::UNDEFINED;
 
-  bool QuerySensorWidth(const std::string& make,
-                        const std::string& model,
-                        double* sensor_width);
+  // Essential matrix.
+  Eigen::Matrix3d E = Eigen::Matrix3d::Zero();
+  // Fundamental matrix.
+  Eigen::Matrix3d F = Eigen::Matrix3d::Zero();
+  // Homography matrix.
+  Eigen::Matrix3d H = Eigen::Matrix3d::Zero();
 
- private:
-  static const camera_specs_t specs_;
+  // Relative pose.
+  Rigid3d cam2_from_cam1;
+
+  // Inlier matches of the configuration.
+  FeatureMatches inlier_matches;
+
+  // Median triangulation angle.
+  double tri_angle = -1;
+
+  // Invert the geometry to match swapped cameras.
+  void Invert();
 };
 
 }  // namespace colmap

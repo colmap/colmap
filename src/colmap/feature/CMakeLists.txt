@@ -34,8 +34,6 @@ set(FOLDER_NAME "feature")
 COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
-        extraction.h extraction.cc
-        matching.h matching.cc
         sift.h sift.cc
         types.h types.cc
         utils.h utils.cc
@@ -43,7 +41,8 @@ COLMAP_ADD_LIBRARY(
         Eigen3::Eigen
     PRIVATE_LINK_LIBS
         colmap_util
-        colmap_image
+        colmap_math
+        colmap_sensor
         colmap_sift_gpu
         colmap_vlfeat
         flann

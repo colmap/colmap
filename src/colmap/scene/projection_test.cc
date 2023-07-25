@@ -31,7 +31,7 @@
 
 #include "colmap/scene/projection.h"
 
-#include "colmap/camera/models.h"
+#include "colmap/sensor/models.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/math/math.h"
 
@@ -145,30 +145,6 @@ TEST(CalculateAngularError, Nominal) {
                                                cam_from_world_mat,
                                                camera);
   EXPECT_NEAR(error11, M_PI * 3 / 4, 1e-6);
-}
-
-TEST(CalculateDepth, Nominal) {
-  const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
-                               Eigen::Vector3d::Zero());
-  const Eigen::Matrix3x4d cam_from_world_mat = cam_from_world.ToMatrix();
-
-  // In the image plane
-  const double depth1 =
-      CalculateDepth(cam_from_world_mat, Eigen::Vector3d(0, 0, 0));
-  EXPECT_NEAR(depth1, 0, 1e-10);
-  const double depth2 =
-      CalculateDepth(cam_from_world_mat, Eigen::Vector3d(0, 2, 0));
-  EXPECT_NEAR(depth2, 0, 1e-10);
-
-  // Infront of camera
-  const double depth3 =
-      CalculateDepth(cam_from_world_mat, Eigen::Vector3d(0, 0, 1));
-  EXPECT_NEAR(depth3, 1, 1e-10);
-
-  // Behind camera
-  const double depth4 =
-      CalculateDepth(cam_from_world_mat, Eigen::Vector3d(0, 0, -1));
-  EXPECT_NEAR(depth4, -1, 1e-10);
 }
 
 TEST(HasPointPositiveDepth, Nominal) {

@@ -32,7 +32,7 @@
 #include "colmap/geometry/pose.h"
 
 #include "colmap/geometry/triangulation.h"
-#include "colmap/scene/projection.h"
+#include "colmap/math/matrix.h"
 
 #include <Eigen/Eigenvalues>
 
@@ -153,6 +153,16 @@ Rigid3d InterpolateCameraPoses(const Rigid3d& cam_from_world1,
   return Rigid3d(cam_from_world1.rotation.slerp(t, cam_from_world2.rotation),
                  cam_from_world1.translation + translation12 * t);
 }
+
+namespace {
+
+double CalculateDepth(const Eigen::Matrix3x4d& cam_from_world,
+                      const Eigen::Vector3d& point3D) {
+  const double proj_z = cam_from_world.row(2).dot(point3D.homogeneous());
+  return proj_z * cam_from_world.col(2).norm();
+}
+
+}  // namespace
 
 bool CheckCheirality(const Eigen::Matrix3d& R,
                      const Eigen::Vector3d& t,

@@ -36,6 +36,7 @@ COLMAP_ADD_LIBRARY(
     SRCS
         absolute_pose.h absolute_pose.cc
         affine_transform.h affine_transform.cc
+        alignment.h alignment.cc
         bundle_adjustment.h bundle_adjustment.cc
         coordinate_frame.h coordinate_frame.cc
         cost_functions.h
@@ -57,6 +58,9 @@ COLMAP_ADD_LIBRARY(
         colmap_math
         colmap_feature
         colmap_geometry
+        colmap_sensor
+        colmap_image
+        colmap_scene
         Eigen3::Eigen
         Ceres::ceres
 )
@@ -124,10 +128,5 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME translation_transform_test
     SRCS translation_transform_test.cc
-    LINK_LIBS colmap_estimators
-)
-COLMAP_ADD_TEST(
-    NAME two_view_geometry_test
-    SRCS two_view_geometry_test.cc
     LINK_LIBS colmap_estimators
 )

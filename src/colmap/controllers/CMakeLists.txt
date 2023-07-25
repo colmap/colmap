@@ -37,6 +37,9 @@ COLMAP_ADD_LIBRARY(
         automatic_reconstruction.h automatic_reconstruction.cc
         bundle_adjustment.h bundle_adjustment.cc
         hierarchical_mapper.h hierarchical_mapper.cc
+        feature_extraction.h feature_extraction.cc
+        feature_matching.h feature_matching.cc
+        image_reader.h image_reader.cc
         incremental_mapper.h incremental_mapper.cc
         option_manager.h option_manager.cc
     PUBLIC_LINK_LIBS

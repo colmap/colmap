@@ -31,7 +31,7 @@
 
 #pragma once
 
-#include "colmap/image/bitmap.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/mvs/consistency_graph.h"
 #include "colmap/mvs/depth_map.h"
 #include "colmap/mvs/model.h"

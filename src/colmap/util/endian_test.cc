@@ -154,7 +154,7 @@ void TestIntReadWriteBinaryLittleEndian() {
 
     std::stringstream file_vector;
     std::vector<T> orig_vector(100);
-    std::generate(orig_vector.begin(), orig_vector.end(), [&distribution]() {
+    std::generate(orig_vector.begin(), orig_vector.end(), [&]() {
       return distribution(prng);
     });
     WriteBinaryLittleEndian<T>(&file_vector, orig_vector);
@@ -181,7 +181,7 @@ void TestFloatReadWriteBinaryLittleEndian() {
 
     std::stringstream file_vector;
     std::vector<T> orig_vector(100);
-    std::generate(orig_vector.begin(), orig_vector.end(), [&distribution]() {
+    std::generate(orig_vector.begin(), orig_vector.end(), [&]() {
       return distribution(prng);
     });
     WriteBinaryLittleEndian<T>(&file_vector, orig_vector);

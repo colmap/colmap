@@ -81,19 +81,6 @@ double CalculateNormalizedAngularError(const Eigen::Vector2d& point2D,
                                        const Eigen::Vector3d& point3D,
                                        const Eigen::Matrix3x4d& cam_from_world);
 
-// Calculate depth of 3D point with respect to camera.
-//
-// The depth is defined as the Euclidean distance of a 3D point from the
-// camera and is positive if the 3D point is in front and negative if
-// behind of the camera.
-//
-// @param cam_from_world  3x4 projection matrix.
-// @param point3D         3D point as 3x1 vector.
-//
-// @return                Depth of 3D point.
-double CalculateDepth(const Eigen::Matrix3x4d& cam_from_world,
-                      const Eigen::Vector3d& point3D);
-
 // Check if 3D point passes cheirality constraint,
 // i.e. it lies in front of the camera and not in the image plane.
 //

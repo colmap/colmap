@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/image/bitmap.h"
+#include "colmap/sensor/bitmap.h"
 
 #include <gtest/gtest.h>
 

@@ -31,7 +31,7 @@
 
 #include "colmap/scene/camera.h"
 
-#include "colmap/camera/models.h"
+#include "colmap/sensor/models.h"
 
 #include <gtest/gtest.h>
 

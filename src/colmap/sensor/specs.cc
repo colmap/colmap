@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/camera/specs.h"
+#include "colmap/sensor/specs.h"
 
 namespace colmap {
 

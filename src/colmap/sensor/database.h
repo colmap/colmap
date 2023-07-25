@@ -31,47 +31,26 @@
 
 #pragma once
 
-#include "colmap/sensor/bitmap.h"
-#include "colmap/mvs/mat.h"
+#include "colmap/sensor/specs.h"
 
 #include <string>
-#include <vector>
 
 namespace colmap {
-namespace mvs {
 
-class DepthMap : public Mat<float> {
+// Database that contains sensor widths for many cameras, which is useful
+// to automatically extract the focal length if EXIF information is incomplete.
+class CameraDatabase {
  public:
-  DepthMap();
-  DepthMap(size_t width, size_t height, float depth_min, float depth_max);
-  DepthMap(const Mat<float>& mat, float depth_min, float depth_max);
+  CameraDatabase() = default;
 
-  inline float GetDepthMin() const;
-  inline float GetDepthMax() const;
+  size_t NumEntries() const { return specs_.size(); }
 
-  inline float Get(size_t row, size_t col) const;
-
-  void Rescale(float factor);
-  void Downsize(size_t max_width, size_t max_height);
-
-  Bitmap ToBitmap(float min_percentile, float max_percentile) const;
+  bool QuerySensorWidth(const std::string& make,
+                        const std::string& model,
+                        double* sensor_width);
 
  private:
-  float depth_min_ = -1.0f;
-  float depth_max_ = -1.0f;
+  static const camera_specs_t specs_;
 };
 
-////////////////////////////////////////////////////////////////////////////////
-// Implementation
-////////////////////////////////////////////////////////////////////////////////
-
-float DepthMap::GetDepthMin() const { return depth_min_; }
-
-float DepthMap::GetDepthMax() const { return depth_max_; }
-
-float DepthMap::Get(const size_t row, const size_t col) const {
-  return data_.at(row * width_ + col);
-}
-
-}  // namespace mvs
 }  // namespace colmap

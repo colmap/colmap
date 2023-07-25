@@ -34,7 +34,6 @@ set(FOLDER_NAME "scene")
 COLMAP_ADD_LIBRARY(
     NAME colmap_scene
     SRCS
-        alignment.h alignment.cc
         camera.h camera.cc
         camera_rig.h camera_rig.cc
         correspondence_graph.h correspondence_graph.cc
@@ -49,10 +48,10 @@ COLMAP_ADD_LIBRARY(
         scene_clustering.h scene_clustering.cc
         synthetic.h synthetic.cc
         track.h track.cc
+        two_view_geometry.h two_view_geometry.cc
         visibility_pyramid.h visibility_pyramid.cc
     PUBLIC_LINK_LIBS
-        colmap_camera
-        colmap_image
+        colmap_sensor
         colmap_feature
         colmap_geometry
         Eigen3::Eigen
@@ -127,6 +126,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME track_test
     SRCS track_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME two_view_geometry_test
+    SRCS two_view_geometry_test.cc
     LINK_LIBS colmap_scene
 )
 COLMAP_ADD_TEST(

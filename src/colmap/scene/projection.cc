@@ -106,12 +106,6 @@ double CalculateNormalizedAngularError(
   return std::acos(ray1.normalized().transpose() * ray2.normalized());
 }
 
-double CalculateDepth(const Eigen::Matrix3x4d& cam_from_world,
-                      const Eigen::Vector3d& point3D) {
-  const double proj_z = cam_from_world.row(2).dot(point3D.homogeneous());
-  return proj_z * cam_from_world.col(2).norm();
-}
-
 bool HasPointPositiveDepth(const Eigen::Matrix3x4d& cam_from_world,
                            const Eigen::Vector3d& point3D) {
   return cam_from_world.row(2).dot(point3D.homogeneous()) >=

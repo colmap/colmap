@@ -335,7 +335,7 @@ class TwoViewGeometryVerifier : public Thread {
   void Run() override;
 
   const SiftMatchingOptions options_;
-  TwoViewGeometry::Options two_view_geometry_options_;
+  TwoViewGeometryOptions two_view_geometry_options_;
   FeatureMatcherCache* cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;

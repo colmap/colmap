@@ -37,7 +37,7 @@
 #include <omp.h>
 #endif
 
-#include "colmap/camera/models.h"
+#include "colmap/sensor/models.h"
 #include "colmap/estimators/cost_functions.h"
 #include "colmap/scene/projection.h"
 #include "colmap/util/misc.h"

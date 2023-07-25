@@ -31,7 +31,7 @@
 
 #pragma once
 
-#include "colmap/camera/models.h"
+#include "colmap/sensor/models.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/scene/camera.h"
