@@ -83,8 +83,8 @@ if(CUDA_ENABLED)
             patch_match.h patch_match.cc
             patch_match_cuda.h patch_match_cuda.cu
         PUBLIC_LINK_LIBS
-            Cuda::cudart
-            Cuda::curand
+            CUDA::cudart
+            CUDA::curand
     )
     target_link_libraries(colmap_mvs PRIVATE colmap_mvs_cuda)
 

@@ -63,7 +63,7 @@ if(CUDA_ENABLED)
             cuda.h cuda.cc
             cudacc.h cudacc.cc
         PUBLIC_LINK_LIBS
-            Cuda::cudart
+            CUDA::cudart
     )
     target_link_libraries(colmap_util PUBLIC colmap_util_cuda)
 endif()
