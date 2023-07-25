@@ -74,14 +74,14 @@ jobs:
 
   - ${{ if eq(parameters.asanEnabled, true) }}:
     - script: |
-        sudo apt-get install -y clang-15
+        sudo apt-get install -y clang-15 libomp-15-dev
         echo '##vso[task.setvariable variable=CC]/usr/bin/clang-15'
         echo '##vso[task.setvariable variable=CXX]/usr/bin/clang++-15'
       displayName: Install Clang
 
   - ${{ if eq(parameters.cmakeBuildType, 'ClangTidy') }}:
     - script: |
-        sudo apt-get install -y clang-15 clang-tidy-15
+        sudo apt-get install -y clang-15 clang-tidy-15 libomp-15-dev
         echo '##vso[task.setvariable variable=CC]/usr/bin/clang-15'
         echo '##vso[task.setvariable variable=CXX]/usr/bin/clang++-15'
       displayName: Install Clang
