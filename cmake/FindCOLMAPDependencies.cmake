@@ -54,7 +54,7 @@ if(TESTS_ENABLED)
 endif()
 
 if(OPENMP_ENABLED)
-    find_package(OpenMP ${COLMAP_FIND_TYPE})
+    find_package(OpenMP QUIET)
 endif()
 
 if(OPENMP_ENABLED AND OPENMP_FOUND)

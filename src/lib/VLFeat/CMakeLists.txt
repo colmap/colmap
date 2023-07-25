@@ -110,6 +110,7 @@ endif()
 COLMAP_ADD_LIBRARY(
     NAME colmap_vlfeat
     SRCS ${VLFEAT_SOURCE_FILES}
-    PUBLIC_LINK_LIBS
-        OpenMP::OpenMP_C
 )
+if(OPENMP_FOUND)
+    target_link_libraries(colmap_vlfeat PRIVATE OpenMP::OpenMP_C)
+endif()
