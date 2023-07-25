@@ -50,7 +50,7 @@ COLMAP_ADD_LIBRARY(
         Boost::filesystem
         Eigen3::Eigen
         glog::glog
-        OpenGL
+        OpenGL::GL
         Qt5::Core
         Qt5::OpenGL
         SQLite::SQLite3
