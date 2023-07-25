@@ -330,7 +330,8 @@ Then compile and run your code as::
     
     mkdir build
     cd build
-    cmake .. -GNinja -Dcolmap_DIR=${CMAKE_INSTALL_PREFIX}/share/colmap
+    export colmap_DIR=${CMAKE_INSTALL_PREFIX}/share/colmap
+    cmake .. -GNinja
     ninja
     ./hello_world
 

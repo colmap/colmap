@@ -72,7 +72,6 @@ option(ASAN_ENABLED "Whether to enable AddressSanitizer flags" OFF)
 option(PROFILING_ENABLED "Whether to enable google-perftools linker flags" OFF)
 option(CCACHE_ENABLED "Whether to enable compiler caching, if available" ON)
 option(CGAL_ENABLED "Whether to enable the CGAL library" ON)
-option(LIBRARY_ENABLED "Whether to build and install COLMAP as a shared/static library" OFF)
 
 if(TESTS_ENABLED)
     enable_testing()
@@ -192,8 +191,8 @@ set(COLMAP_LIBS
     colmap_feature
     colmap_geometry
     colmap_scene
-    colmap_estimators
     colmap_optim
+    colmap_estimators
     colmap_mvs
     colmap_retrieval
     colmap_sfm
@@ -289,59 +288,56 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeUninstall.cmake.in"
 add_custom_target(uninstall COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake)
 set_target_properties(uninstall PROPERTIES FOLDER ${CMAKE_TARGETS_ROOT_FOLDER})
 
+add_library(colmap INTERFACE)
+target_link_libraries(colmap INTERFACE ${COLMAP_LIBS})
+set(INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include")
+target_include_directories(
+    colmap INTERFACE $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>)
 
-if(LIBRARY_ENABLED)
-    add_library(colmap INTERFACE)
-    target_link_libraries(colmap INTERFACE ${COLMAP_LIBS})
-    set(INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include")
-    target_include_directories(
-        colmap INTERFACE $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>)
+install(
+    TARGETS
+        colmap
+        ${COLMAP_LIBS}
+        colmap_lsd
+        colmap_poisson_recon
+        colmap_vlfeat
+        colmap_sift_gpu
+    EXPORT colmap-targets
+    LIBRARY DESTINATION lib/)
 
-    install(
-        TARGETS
-            colmap
-            ${COLMAP_LIBS}
-            colmap_lsd
-            colmap_poisson_recon
-            colmap_vlfeat
-            colmap_sift_gpu
-        EXPORT colmap-targets
-        LIBRARY DESTINATION lib/)
+# Generate config and version.
+include(CMakePackageConfigHelpers)
+set(PACKAGE_CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/colmap-config.cmake")
+set(INSTALL_CONFIG_DIR "share/colmap")
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/colmap-config.cmake.in ${PACKAGE_CONFIG_FILE}
+    INSTALL_DESTINATION ${INSTALL_CONFIG_DIR})
+install(FILES ${PACKAGE_CONFIG_FILE} DESTINATION ${INSTALL_CONFIG_DIR})
 
-    # Generate config and version.
-    include(CMakePackageConfigHelpers)
-    set(PACKAGE_CONFIG_FILE "${CMAKE_CURRENT_BINARY_DIR}/colmap-config.cmake")
-    set(INSTALL_CONFIG_DIR "share/colmap")
-    configure_package_config_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/colmap-config.cmake.in ${PACKAGE_CONFIG_FILE}
-        INSTALL_DESTINATION ${INSTALL_CONFIG_DIR})
-    install(FILES ${PACKAGE_CONFIG_FILE} DESTINATION ${INSTALL_CONFIG_DIR})
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/colmap-config-version.cmake.in"
+                "${CMAKE_CURRENT_BINARY_DIR}/colmap-config-version.cmake" @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/colmap-config-version.cmake"
+        DESTINATION "share/colmap")
 
-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/colmap-config-version.cmake.in"
-                   "${CMAKE_CURRENT_BINARY_DIR}/colmap-config-version.cmake" @ONLY)
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/colmap-config-version.cmake"
-            DESTINATION "share/colmap")
+# Install targets.
+install(
+    EXPORT colmap-targets
+    FILE colmap-targets.cmake
+    NAMESPACE colmap::
+    DESTINATION ${INSTALL_CONFIG_DIR})
 
-    # Install targets.
-    install(
-        EXPORT colmap-targets
-        FILE colmap-targets.cmake
-        NAMESPACE colmap::
-        DESTINATION ${INSTALL_CONFIG_DIR})
+# Install header files.
+install(
+    DIRECTORY src/colmap
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.h")
+install(
+    DIRECTORY src/lib
+    DESTINATION include/colmap
+    FILES_MATCHING REGEX ".*[.]h|.*[.]hpp|.*[.]inl")
 
-    # Install header files.
-    install(
-        DIRECTORY src/colmap
-        DESTINATION include
-        FILES_MATCHING PATTERN "*.h")
-    install(
-        DIRECTORY src/lib
-        DESTINATION include/colmap
-        FILES_MATCHING REGEX ".*[.]h|.*[.]hpp|.*[.]inl")
-
-    # Install find_package scripts for dependencies.
-    install(
-        DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/cmake
-        DESTINATION share/colmap
-        FILES_MATCHING PATTERN "Find*.cmake")
-endif()
+# Install find_package scripts for dependencies.
+install(
+    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/cmake
+    DESTINATION share/colmap
+    FILES_MATCHING PATTERN "Find*.cmake")

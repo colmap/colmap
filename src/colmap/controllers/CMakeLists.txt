@@ -47,12 +47,13 @@ COLMAP_ADD_LIBRARY(
         colmap_util
         Eigen3::Eigen
     PRIVATE_LINK_LIBS
-        colmap_math
         colmap_estimators
         colmap_feature
         colmap_image
-        colmap_sfm
+        colmap_math
         colmap_mvs
+        colmap_retrieval
+        colmap_sfm
         Ceres::ceres
         Boost::program_options
 )
