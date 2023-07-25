@@ -31,12 +31,12 @@
 
 #include "colmap/controllers/option_manager.h"
 
-#include "colmap/controllers/incremental_mapper.h"
-#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/controllers/feature_extraction.h"
 #include "colmap/controllers/feature_matching.h"
-#include "colmap/feature/sift.h"
 #include "colmap/controllers/image_reader.h"
+#include "colmap/controllers/incremental_mapper.h"
+#include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/feature/sift.h"
 #include "colmap/math/random.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"

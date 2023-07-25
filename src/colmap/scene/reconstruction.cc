@@ -34,10 +34,10 @@
 #include "colmap/geometry/gps.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/triangulation.h"
-#include "colmap/sensor/bitmap.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/scene/database_cache.h"
 #include "colmap/scene/projection.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/ply.h"
 

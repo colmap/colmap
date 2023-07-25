@@ -31,12 +31,12 @@
 
 #include "colmap/exe/feature.h"
 
-#include "colmap/sensor/models.h"
-#include "colmap/controllers/option_manager.h"
-#include "colmap/exe/gui.h"
 #include "colmap/controllers/feature_extraction.h"
 #include "colmap/controllers/feature_matching.h"
 #include "colmap/controllers/image_reader.h"
+#include "colmap/controllers/option_manager.h"
+#include "colmap/exe/gui.h"
+#include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 

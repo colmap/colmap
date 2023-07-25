@@ -31,7 +31,6 @@
 
 #include "colmap/estimators/pose.h"
 
-#include "colmap/sensor/models.h"
 #include "colmap/estimators/absolute_pose.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/cost_functions.h"
@@ -39,6 +38,7 @@
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/math/matrix.h"
+#include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
