@@ -282,10 +282,9 @@ Library
 -------
 
 If you want to include and link COLMAP against your own library, the easiest way
-is to use CMake as a build configuration tool. By setting `-DLIBRARY_ENABLED`
-when configuring the COLMAP build and then running `ninja/make install`, COLMAP
-automatically installs all headers to
-``${CMAKE_INSTALL_PREFIX}/include/colmap``, all libraries to
+is to use CMake as a build configuration tool. After configuring the COLMAP
+build and running `ninja/make install`, COLMAP automatically installs all
+headers to ``${CMAKE_INSTALL_PREFIX}/include/colmap``, all libraries to
 ``${CMAKE_INSTALL_PREFIX}/lib/colmap``, and the CMake configuration to
 ``${CMAKE_INSTALL_PREFIX}/share/colmap``.
 
