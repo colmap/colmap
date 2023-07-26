@@ -130,7 +130,7 @@ jobs:
       colmap_DIR=$(Build.SourcesDirectory)/build/install/share/colmap cmake .. -GNinja
       ninja
       ./hello_world --message "world"
-    displayName: Install and build sample project
+    displayName: Install colmap and build sample
 
   - ${{ if ne(parameters.cmakeBuildType, 'ClangTidy') }}:
     - script: |
