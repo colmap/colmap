@@ -83,7 +83,7 @@ if(CUDA_ENABLED)
             patch_match.h patch_match.cc
             patch_match_cuda.h patch_match_cuda.cu
         PUBLIC_LINK_LIBS
-            colmap_util
+            colmap_util_cuda
             CUDA::cudart
             CUDA::curand
     )
@@ -92,8 +92,6 @@ if(CUDA_ENABLED)
     COLMAP_ADD_TEST(
         NAME gpu_mat_test
         SRCS gpu_mat_test.cu
-        LINK_LIBS
-            colmap_mvs
-            colmap_mvs_cuda
+        LINK_LIBS colmap_mvs
     )
 endif()
