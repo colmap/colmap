@@ -113,7 +113,7 @@ jobs:
       cmake .. \
         -GNinja \
         -DCMAKE_BUILD_TYPE=${{ parameters.cmakeBuildType }} \
-        -DCMAKE_INSTALL_PREFIX=./install
+        -DCMAKE_INSTALL_PREFIX=./install \
         -DTESTS_ENABLED=ON \
         -DCMAKE_CUDA_ARCHITECTURES=50 \
         -DASAN_ENABLED=${{ parameters.asanEnabled }}
