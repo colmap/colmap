@@ -31,7 +31,7 @@
 
 #pragma once
 
-#ifdef GUI_ENABLED
+#if defined(COLMAP_GUI_ENABLED)
 #include <QAction>
 #include <QApplication>
 #include <QOffscreenSurface>
@@ -50,7 +50,7 @@ namespace colmap {
 #define glDebugLog()
 #endif
 
-#ifdef GUI_ENABLED
+#if defined(COLMAP_GUI_ENABLED)
 
 // This class manages a thread-safe OpenGL context. Note that this class must be
 // instantiated in the main Qt thread, since an OpenGL context must be created

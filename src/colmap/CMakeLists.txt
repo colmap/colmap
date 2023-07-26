@@ -32,6 +32,8 @@
 if(IS_MSVC)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W3")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W3")
+    # Avoid pulling in too many header files through <windows.h>
+    add_definitions("-DWIN32_LEAN_AND_MEAN")
 elseif(IS_GNU OR IS_CLANG)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
@@ -47,27 +49,6 @@ elseif(IS_GNU OR IS_CLANG)
     endif()
 endif()
 
-add_subdirectory(camera)
-add_subdirectory(controllers)
-add_subdirectory(estimators)
-add_subdirectory(exe)
-add_subdirectory(feature)
-add_subdirectory(geometry)
-add_subdirectory(image)
-add_subdirectory(math)
-add_subdirectory(mvs)
-add_subdirectory(optim)
-add_subdirectory(retrieval)
-add_subdirectory(scene)
-add_subdirectory(sfm)
-add_subdirectory(tools)
-add_subdirectory(util)
-if (GUI_ENABLED)
-    add_subdirectory(ui)
-endif()
-
-COLMAP_ADD_LIBRARY(colmap ${COLMAP_SOURCES})
-
 if(CUDA_ENABLED)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --use_fast_math")
 
@@ -81,18 +62,23 @@ if(CUDA_ENABLED)
 
     # Fix for Ubuntu 16.04.
     add_definitions("-D_MWAITXINTRIN_H_INCLUDED")
+endif()
 
-    if(MSVC)
-        # Avoid pulling in too many header files through <windows.h>
-        add_definitions("-DWIN32_LEAN_AND_MEAN")
-    endif()
-
-    COLMAP_ADD_CUDA_LIBRARY(colmap_cuda ${COLMAP_CUDA_SOURCES})
-    target_link_libraries(colmap_cuda colmap)
-
-    target_link_libraries(colmap
-        colmap_cuda ${COLMAP_INTERNAL_LIBRARIES} ${COLMAP_EXTERNAL_LIBRARIES})
-else()
-    target_link_libraries(colmap
-        ${COLMAP_INTERNAL_LIBRARIES} ${COLMAP_EXTERNAL_LIBRARIES})
+add_subdirectory(controllers)
+add_subdirectory(estimators)
+add_subdirectory(exe)
+add_subdirectory(feature)
+add_subdirectory(geometry)
+add_subdirectory(image)
+add_subdirectory(math)
+add_subdirectory(mvs)
+add_subdirectory(optim)
+add_subdirectory(retrieval)
+add_subdirectory(scene)
+add_subdirectory(sensor)
+add_subdirectory(sfm)
+add_subdirectory(tools)
+add_subdirectory(util)
+if (GUI_ENABLED)
+    add_subdirectory(ui)
 endif()

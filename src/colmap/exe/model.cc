@@ -32,10 +32,11 @@
 #include "colmap/exe/model.h"
 
 #include "colmap/controllers/option_manager.h"
+#include "colmap/estimators/alignment.h"
 #include "colmap/estimators/coordinate_frame.h"
 #include "colmap/geometry/gps.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/scene/alignment.h"
+#include "colmap/optim/ransac.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 

@@ -32,8 +32,8 @@
 #pragma once
 
 #include "colmap/geometry/rigid3.h"
-#include "colmap/image/bitmap.h"
 #include "colmap/scene/reconstruction.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 

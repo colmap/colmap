@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/feature/extraction.h"
+#include "colmap/controllers/feature_extraction.h"
 
 #include "colmap/feature/sift.h"
 #include "colmap/util/cuda.h"
@@ -132,7 +132,7 @@ SiftFeatureExtractor::SiftFeatureExtractor(
     std::vector<int> gpu_indices = CSVToVector<int>(sift_options_.gpu_index);
     CHECK_GT(gpu_indices.size(), 0);
 
-#ifdef CUDA_ENABLED
+#if defined(COLMAP_CUDA_ENABLED)
     if (gpu_indices.size() == 1 && gpu_indices[0] == -1) {
       const int num_cuda_devices = GetNumCudaDevices();
       CHECK_GT(num_cuda_devices, 0);
@@ -364,7 +364,7 @@ SiftFeatureExtractorThread::SiftFeatureExtractorThread(
       output_queue_(output_queue) {
   CHECK(sift_options_.Check());
 
-#ifndef CUDA_ENABLED
+#if !defined(COLMAP_CUDA_ENABLED)
   if (sift_options_.use_gpu) {
     opengl_context_ = std::make_unique<OpenGLContextManager>();
   }
@@ -374,7 +374,7 @@ SiftFeatureExtractorThread::SiftFeatureExtractorThread(
 void SiftFeatureExtractorThread::Run() {
   std::unique_ptr<SiftGPU> sift_gpu;
   if (sift_options_.use_gpu) {
-#ifndef CUDA_ENABLED
+#if !defined(COLMAP_CUDA_ENABLED)
     CHECK(opengl_context_);
     CHECK(opengl_context_->MakeCurrent());
 #endif

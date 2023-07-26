@@ -31,10 +31,10 @@
 
 #include "colmap/scene/reconstruction.h"
 
-#include "colmap/camera/models.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/sim3.h"
 #include "colmap/scene/correspondence_graph.h"
+#include "colmap/sensor/models.h"
 
 #include <gtest/gtest.h>
 

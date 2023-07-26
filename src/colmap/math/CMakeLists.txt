@@ -31,16 +31,44 @@
 
 set(FOLDER_NAME "math")
 
-COLMAP_ADD_SOURCES(
-    graph_cut.h graph_cut.cc
-    math.h math.cc
-    matrix.h
-    polynomial.h polynomial.cc
-    random.h random.cc
+COLMAP_ADD_LIBRARY(
+    NAME colmap_math
+    SRCS
+        graph_cut.h graph_cut.cc
+        math.h math.cc
+        matrix.h
+        polynomial.h polynomial.cc
+        random.h random.cc
+    PUBLIC_LINK_LIBS
+        colmap_util
+        Boost::graph
+        Eigen3::Eigen
+    PRIVATE_LINK_LIBS
+        metis
 )
 
-COLMAP_ADD_TEST(graph_cut_test graph_cut_test.cc)
-COLMAP_ADD_TEST(math_test math_test.cc)
-COLMAP_ADD_TEST(matrix_test matrix_test.cc)
-COLMAP_ADD_TEST(polynomial_test polynomial_test.cc)
-COLMAP_ADD_TEST(random_test random_test.cc)
+COLMAP_ADD_TEST(
+    NAME graph_cut_test
+    SRCS graph_cut_test.cc
+    LINK_LIBS colmap_math
+)
+COLMAP_ADD_TEST(
+    NAME math_test
+    SRCS math_test.cc
+    LINK_LIBS colmap_math
+)
+COLMAP_ADD_TEST(
+    NAME matrix_test
+    SRCS matrix_test.cc
+    LINK_LIBS colmap_math
+)
+COLMAP_ADD_TEST(
+    NAME polynomial_test
+    SRCS polynomial_test.cc
+    LINK_LIBS colmap_math
+)
+COLMAP_ADD_TEST(
+    NAME random_test
+    SRCS random_test.cc
+    LINK_LIBS colmap_math
+)

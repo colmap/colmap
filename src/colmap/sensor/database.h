@@ -31,7 +31,7 @@
 
 #pragma once
 
-#include "colmap/camera/specs.h"
+#include "colmap/sensor/specs.h"
 
 #include <string>
 
@@ -41,7 +41,7 @@ namespace colmap {
 // to automatically extract the focal length if EXIF information is incomplete.
 class CameraDatabase {
  public:
-  CameraDatabase();
+  CameraDatabase() = default;
 
   size_t NumEntries() const { return specs_.size(); }
 

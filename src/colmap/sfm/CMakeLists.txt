@@ -31,7 +31,15 @@
 
 set(FOLDER_NAME "sfm")
 
-COLMAP_ADD_SOURCES(
-    incremental_mapper.h incremental_mapper.cc
-    incremental_triangulator.h incremental_triangulator.cc
+COLMAP_ADD_LIBRARY(
+    NAME colmap_sfm
+    SRCS
+        incremental_mapper.h incremental_mapper.cc
+        incremental_triangulator.h incremental_triangulator.cc
+    PUBLIC_LINK_LIBS
+        colmap_scene
+        colmap_estimators
+    PRIVATE_LINK_LIBS
+        colmap_geometry
+        colmap_image
 )

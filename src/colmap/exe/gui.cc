@@ -37,7 +37,7 @@
 namespace colmap {
 
 int RunGraphicalUserInterface(int argc, char** argv) {
-#ifndef GUI_ENABLED
+#if !defined(COLMAP_GUI_ENABLED)
   std::cerr << "ERROR: Cannot start colmap GUI; colmap was built without GUI "
                "support or QT dependency is missing."
             << std::endl;

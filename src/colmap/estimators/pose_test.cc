@@ -29,36 +29,51 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/util/version.h"
+#include "colmap/estimators/pose.h"
 
-#include "colmap/util/misc.h"
+#include "colmap/geometry/essential_matrix.h"
+#include "colmap/geometry/rigid3.h"
+
+#include <gtest/gtest.h>
 
 namespace colmap {
-namespace {
 
-const std::string COLMAP_VERSION = "3.9";
-const int COLMAP_VERSION_NUMBER = 3900;
-const std::string COLMAP_COMMIT_ID = "93af740";
-const std::string COLMAP_COMMIT_DATE = "2023-07-23";
+TEST(RefineEssentialMatrix, Nominal) {
+  const Rigid3d cam1_from_world;
+  const Rigid3d cam2_from_world(Eigen::Quaterniond::Identity(),
+                                Eigen::Vector3d(1, 0, 0).normalized());
+  const Eigen::Matrix3d E =
+      EssentialMatrixFromPose(cam2_from_world * Inverse(cam1_from_world));
 
-}  // namespace
+  std::vector<Eigen::Vector3d> points3D(150);
+  for (size_t i = 0; i < points3D.size() / 3; ++i) {
+    points3D[3 * i + 0] = Eigen::Vector3d(i * 0.01, 0, 1);
+    points3D[3 * i + 1] = Eigen::Vector3d(0, i * 0.01, 1);
+    points3D[3 * i + 2] = Eigen::Vector3d(i * 0.01, i * 0.01, 1);
+  }
 
-int GetVersionNumber() { return COLMAP_VERSION_NUMBER; }
+  std::vector<Eigen::Vector2d> points1(points3D.size());
+  std::vector<Eigen::Vector2d> points2(points3D.size());
+  for (size_t i = 0; i < points3D.size(); ++i) {
+    points1[i] = (cam1_from_world * points3D[i]).hnormalized();
+    points2[i] = (cam2_from_world * points3D[i]).hnormalized();
+  }
 
-std::string GetVersionInfo() {
-  return StringPrintf("COLMAP %s", COLMAP_VERSION.c_str());
-}
+  const Rigid3d cam2_from_world_perturbed(
+      Eigen::Quaterniond::Identity(),
+      Eigen::Vector3d(1.02, 0.02, 0.01).normalized());
+  const Eigen::Matrix3d E_pertubated =
+      EssentialMatrixFromPose(cam2_from_world * Inverse(cam1_from_world));
 
-std::string GetBuildInfo() {
-#ifdef CUDA_ENABLED
-  const std::string cuda_info = "with CUDA";
-#else
-  const std::string cuda_info = "without CUDA";
-#endif
-  return StringPrintf("Commit %s on %s %s",
-                      COLMAP_COMMIT_ID.c_str(),
-                      COLMAP_COMMIT_DATE.c_str(),
-                      cuda_info.c_str());
+  Eigen::Matrix3d E_refined = E_pertubated;
+  ceres::Solver::Options options;
+  RefineEssentialMatrix(options,
+                        points1,
+                        points2,
+                        std::vector<char>(points1.size(), true),
+                        &E_refined);
+
+  EXPECT_LE((E - E_refined).norm(), (E - E_pertubated).norm());
 }
 
 }  // namespace colmap

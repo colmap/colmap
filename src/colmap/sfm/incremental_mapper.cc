@@ -32,9 +32,10 @@
 #include "colmap/sfm/incremental_mapper.h"
 
 #include "colmap/estimators/pose.h"
-#include "colmap/geometry/projection.h"
+#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/geometry/triangulation.h"
-#include "colmap/image/bitmap.h"
+#include "colmap/scene/projection.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/util/misc.h"
 
 #include <array>
@@ -1152,15 +1153,14 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
     points2.push_back(point.xy);
   }
 
-  TwoViewGeometry two_view_geometry;
-  TwoViewGeometry::Options two_view_geometry_options;
+  TwoViewGeometryOptions two_view_geometry_options;
   two_view_geometry_options.ransac_options.min_num_trials = 30;
   two_view_geometry_options.ransac_options.max_error = options.init_max_error;
-  two_view_geometry.EstimateCalibrated(
+  TwoViewGeometry two_view_geometry = EstimateCalibratedTwoViewGeometry(
       camera1, points1, camera2, points2, matches, two_view_geometry_options);
 
-  if (!two_view_geometry.EstimateRelativePose(
-          camera1, points1, camera2, points2)) {
+  if (!EstimateTwoViewGeometryPose(
+          camera1, points1, camera2, points2, &two_view_geometry)) {
     return false;
   }
 

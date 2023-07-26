@@ -31,7 +31,7 @@
 
 #include <gtest/gtest.h>
 
-#ifdef GUI_ENABLED
+#if defined(COLMAP_GUI_ENABLED)
 #include <QApplication>
 #else
 #include "colmap/exe/gui.h"
@@ -286,7 +286,7 @@ TEST(CreateSiftGPUMatcherOpenGL, Nominal) {
 }
 
 TEST(CreateSiftGPUMatcherCUDA, Nominal) {
-#ifdef CUDA_ENABLED
+#if defined(COLMAP_CUDA_ENABLED)
   SiftMatchGPU sift_match_gpu;
   SiftMatchingOptions create_options;
   create_options.gpu_index = "0";

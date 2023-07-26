@@ -31,29 +31,67 @@
 
 set(FOLDER_NAME "mvs")
 
-COLMAP_ADD_SOURCES(
-    consistency_graph.h consistency_graph.cc
-    depth_map.h depth_map.cc
-    fusion.h fusion.cc
-    image.h image.cc
-    meshing.h meshing.cc
-    model.h model.cc
-    normal_map.h normal_map.cc
-    workspace.h workspace.cc
+COLMAP_ADD_LIBRARY(
+    NAME colmap_mvs
+    SRCS
+        consistency_graph.h consistency_graph.cc
+        depth_map.h depth_map.cc
+        fusion.h fusion.cc
+        image.h image.cc
+        meshing.h meshing.cc
+        model.h model.cc
+        normal_map.h normal_map.cc
+        workspace.h workspace.cc
+    PUBLIC_LINK_LIBS
+        colmap_util
+        colmap_scene
+    PRIVATE_LINK_LIBS
+        colmap_sensor
+        colmap_image
+        colmap_poisson_recon
+        Eigen3::Eigen
+        CGAL
 )
 
-COLMAP_ADD_TEST(consistency_graph_test consistency_graph_test.cc)
-COLMAP_ADD_TEST(depth_map_test depth_map_test.cc)
-COLMAP_ADD_TEST(mat_test mat_test.cc)
-COLMAP_ADD_TEST(normal_map_test normal_map_test.cc)
+COLMAP_ADD_TEST(
+    NAME consistency_graph_test
+    SRCS consistency_graph_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
+    NAME depth_map_test
+    SRCS depth_map_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
+    NAME mat_test
+    SRCS mat_test.cc
+    LINK_LIBS colmap_mvs
+)
+COLMAP_ADD_TEST(
+    NAME normal_map_test
+    SRCS normal_map_test.cc
+    LINK_LIBS colmap_mvs
+)
 
 if(CUDA_ENABLED)
-    COLMAP_ADD_CUDA_SOURCES(
-        gpu_mat_prng.h gpu_mat_prng.cu
-        gpu_mat_ref_image.h gpu_mat_ref_image.cu
-        patch_match.h patch_match.cc
-        patch_match_cuda.h patch_match_cuda.cu
+    COLMAP_ADD_LIBRARY(
+        NAME colmap_mvs_cuda
+        SRCS
+            gpu_mat_prng.h gpu_mat_prng.cu
+            gpu_mat_ref_image.h gpu_mat_ref_image.cu
+            patch_match.h patch_match.cc
+            patch_match_cuda.h patch_match_cuda.cu
+        PUBLIC_LINK_LIBS
+            colmap_mvs
+            colmap_util_cuda
+            CUDA::cudart
+            CUDA::curand
     )
 
-    COLMAP_ADD_CUDA_TEST(gpu_mat_test gpu_mat_test.cu)
+    COLMAP_ADD_TEST(
+        NAME gpu_mat_test
+        SRCS gpu_mat_test.cu
+        LINK_LIBS colmap_mvs_cuda
+    )
 endif()

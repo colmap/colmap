@@ -31,13 +31,37 @@
 
 #include "colmap/geometry/pose.h"
 
-#include "colmap/geometry/projection.h"
 #include "colmap/math/math.h"
+#include "colmap/scene/projection.h"
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>
 
 namespace colmap {
+
+TEST(ComputeClosestRotationMatrix, Nominal) {
+  const Eigen::Matrix3d A = Eigen::Matrix3d::Identity();
+  EXPECT_LT((ComputeClosestRotationMatrix(A) - A).norm(), 1e-6);
+  EXPECT_LT((ComputeClosestRotationMatrix(2 * A) - A).norm(), 1e-6);
+}
+
+TEST(DecomposeProjectionMatrix, Nominal) {
+  for (int i = 1; i < 100; ++i) {
+    Eigen::Matrix3d ref_K = i * Eigen::Matrix3d::Identity();
+    ref_K(0, 2) = i;
+    ref_K(1, 2) = 2 * i;
+    const Rigid3d cam_from_world(Eigen::Quaterniond::UnitRandom(),
+                                 Eigen::Vector3d::Random());
+    const Eigen::Matrix3x4d P = ref_K * cam_from_world.ToMatrix();
+    Eigen::Matrix3d K;
+    Eigen::Matrix3d R;
+    Eigen::Vector3d T;
+    DecomposeProjectionMatrix(P, &K, &R, &T);
+    EXPECT_TRUE(ref_K.isApprox(K, 1e-6));
+    EXPECT_TRUE(cam_from_world.rotation.toRotationMatrix().isApprox(R, 1e-6));
+    EXPECT_TRUE(cam_from_world.translation.isApprox(T, 1e-6));
+  }
+}
 
 TEST(CrossProductMatrix, Nominal) {
   EXPECT_EQ(CrossProductMatrix(Eigen::Vector3d(0, 0, 0)),

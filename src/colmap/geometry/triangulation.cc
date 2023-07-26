@@ -34,6 +34,8 @@
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/pose.h"
 
+#include <Eigen/Dense>
+
 namespace colmap {
 
 Eigen::Vector3d TriangulatePoint(const Eigen::Matrix3x4d& cam1_from_world,

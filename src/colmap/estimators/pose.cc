@@ -31,7 +31,6 @@
 
 #include "colmap/estimators/pose.h"
 
-#include "colmap/camera/models.h"
 #include "colmap/estimators/absolute_pose.h"
 #include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/estimators/cost_functions.h"
@@ -39,6 +38,7 @@
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/pose.h"
 #include "colmap/math/matrix.h"
+#include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 
@@ -535,6 +535,67 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
   }
 
   return summary.IsSolutionUsable();
+}
+
+bool RefineEssentialMatrix(const ceres::Solver::Options& options,
+                           const std::vector<Eigen::Vector2d>& points1,
+                           const std::vector<Eigen::Vector2d>& points2,
+                           const std::vector<char>& inlier_mask,
+                           Eigen::Matrix3d* E) {
+  CHECK_EQ(points1.size(), points2.size());
+  CHECK_EQ(points1.size(), inlier_mask.size());
+
+  // Extract inlier points for decomposing the essential matrix into
+  // rotation and translation components.
+
+  size_t num_inliers = 0;
+  for (const auto inlier : inlier_mask) {
+    if (inlier) {
+      num_inliers += 1;
+    }
+  }
+
+  std::vector<Eigen::Vector2d> inlier_points1(num_inliers);
+  std::vector<Eigen::Vector2d> inlier_points2(num_inliers);
+  size_t j = 0;
+  for (size_t i = 0; i < inlier_mask.size(); ++i) {
+    if (inlier_mask[i]) {
+      inlier_points1[j] = points1[i];
+      inlier_points2[j] = points2[i];
+      j += 1;
+    }
+  }
+
+  // Extract relative pose from essential matrix.
+
+  Rigid3d cam2_from_cam1;
+  Eigen::Matrix3d cam2_from_cam1_rot_mat;
+  std::vector<Eigen::Vector3d> points3D;
+  PoseFromEssentialMatrix(*E,
+                          inlier_points1,
+                          inlier_points2,
+                          &cam2_from_cam1_rot_mat,
+                          &cam2_from_cam1.translation,
+                          &points3D);
+  cam2_from_cam1.rotation = Eigen::Quaterniond(cam2_from_cam1_rot_mat);
+
+  if (points3D.size() == 0) {
+    return false;
+  }
+
+  // Refine essential matrix, use all points so that refinement is able to
+  // consider points as inliers that were originally outliers.
+
+  const bool refinement_success = RefineRelativePose(
+      options, inlier_points1, inlier_points2, &cam2_from_cam1);
+
+  if (!refinement_success) {
+    return false;
+  }
+
+  *E = EssentialMatrixFromPose(cam2_from_cam1);
+
+  return true;
 }
 
 }  // namespace colmap

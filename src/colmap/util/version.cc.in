@@ -50,7 +50,7 @@ std::string GetVersionInfo() {
 }
 
 std::string GetBuildInfo() {
-#ifdef CUDA_ENABLED
+#if defined(COLMAP_CUDA_ENABLED)
   const std::string cuda_info = "with CUDA";
 #else
   const std::string cuda_info = "without CUDA";

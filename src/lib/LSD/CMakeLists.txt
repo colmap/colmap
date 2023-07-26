@@ -1,4 +1,5 @@
-COLMAP_ADD_LIBRARY(lsd
-    lsd.h
-    lsd.c
+COLMAP_ADD_LIBRARY(
+    NAME colmap_lsd
+    SRCS
+        lsd.h lsd.c
 )

@@ -29,32 +29,58 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/camera/database.h"
+#pragma once
 
-#include <gtest/gtest.h>
+#include "colmap/feature/types.h"
+#include "colmap/geometry/rigid3.h"
 
 namespace colmap {
 
-TEST(CameraDatabase, Initialization) {
-  CameraDatabase database;
-  camera_specs_t specs = InitializeCameraSpecs();
-  EXPECT_EQ(database.NumEntries(), specs.size());
-}
+// Two-view geometry.
+struct TwoViewGeometry {
+  // The configuration of the two-view geometry.
+  enum ConfigurationType {
+    UNDEFINED = 0,
+    // Degenerate configuration (e.g., no overlap or not enough inliers).
+    DEGENERATE = 1,
+    // Essential matrix.
+    CALIBRATED = 2,
+    // Fundamental matrix.
+    UNCALIBRATED = 3,
+    // Homography, planar scene with baseline.
+    PLANAR = 4,
+    // Homography, pure rotation without baseline.
+    PANORAMIC = 5,
+    // Homography, planar or panoramic.
+    PLANAR_OR_PANORAMIC = 6,
+    // Watermark, pure 2D translation in image borders.
+    WATERMARK = 7,
+    // Multi-model configuration, i.e. the inlier matches result from multiple
+    // individual, non-degenerate configurations.
+    MULTIPLE = 8,
+  };
 
-TEST(CameraDatabase, ExactMatch) {
-  CameraDatabase database;
-  double sensor_width;
-  EXPECT_TRUE(
-      database.QuerySensorWidth("canon", "digitalixus100is", &sensor_width));
-  EXPECT_EQ(sensor_width, 6.1600f);
-}
+  // One of `ConfigurationType`.
+  int config = ConfigurationType::UNDEFINED;
 
-TEST(CameraDatabase, AmbiguousMatch) {
-  CameraDatabase database;
-  double sensor_width;
-  EXPECT_TRUE(
-      !database.QuerySensorWidth("canon", "digitalixus", &sensor_width));
-  EXPECT_EQ(sensor_width, 6.1600f);
-}
+  // Essential matrix.
+  Eigen::Matrix3d E = Eigen::Matrix3d::Zero();
+  // Fundamental matrix.
+  Eigen::Matrix3d F = Eigen::Matrix3d::Zero();
+  // Homography matrix.
+  Eigen::Matrix3d H = Eigen::Matrix3d::Zero();
+
+  // Relative pose.
+  Rigid3d cam2_from_cam1;
+
+  // Inlier matches of the configuration.
+  FeatureMatches inlier_matches;
+
+  // Median triangulation angle.
+  double tri_angle = -1;
+
+  // Invert the geometry to match swapped cameras.
+  void Invert();
+};
 
 }  // namespace colmap

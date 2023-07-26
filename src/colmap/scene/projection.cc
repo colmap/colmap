@@ -29,56 +29,12 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/geometry/projection.h"
+#include "colmap/scene/projection.h"
 
 #include "colmap/geometry/pose.h"
 #include "colmap/math/matrix.h"
 
 namespace colmap {
-
-Eigen::Matrix3d ComputeClosestRotationMatrix(const Eigen::Matrix3d& matrix) {
-  const Eigen::JacobiSVD<Eigen::Matrix3d> svd(
-      matrix, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  Eigen::Matrix3d R = svd.matrixU() * (svd.matrixV().transpose());
-  if (R.determinant() < 0.0) {
-    R *= -1.0;
-  }
-  return R;
-}
-
-bool DecomposeProjectionMatrix(const Eigen::Matrix3x4d& P,
-                               Eigen::Matrix3d* K,
-                               Eigen::Matrix3d* R,
-                               Eigen::Vector3d* T) {
-  Eigen::Matrix3d RR;
-  Eigen::Matrix3d QQ;
-  DecomposeMatrixRQ(P.leftCols<3>().eval(), &RR, &QQ);
-
-  *R = ComputeClosestRotationMatrix(QQ);
-
-  const double det_K = RR.determinant();
-  if (det_K == 0) {
-    return false;
-  } else if (det_K > 0) {
-    *K = RR;
-  } else {
-    *K = -RR;
-  }
-
-  for (int i = 0; i < 3; ++i) {
-    if ((*K)(i, i) < 0.0) {
-      K->col(i) = -K->col(i);
-      R->row(i) = -R->row(i);
-    }
-  }
-
-  *T = K->triangularView<Eigen::Upper>().solve(P.col(3));
-  if (det_K < 0) {
-    *T = -(*T);
-  }
-
-  return true;
-}
 
 double CalculateSquaredReprojectionError(const Eigen::Vector2d& point2D,
                                          const Eigen::Vector3d& point3D,
@@ -148,12 +104,6 @@ double CalculateNormalizedAngularError(
   const Eigen::Vector3d ray1 = point2D.homogeneous();
   const Eigen::Vector3d ray2 = cam_from_world * point3D.homogeneous();
   return std::acos(ray1.normalized().transpose() * ray2.normalized());
-}
-
-double CalculateDepth(const Eigen::Matrix3x4d& cam_from_world,
-                      const Eigen::Vector3d& point3D) {
-  const double proj_z = cam_from_world.row(2).dot(point3D.homogeneous());
-  return proj_z * cam_from_world.col(2).norm();
 }
 
 bool HasPointPositiveDepth(const Eigen::Matrix3x4d& cam_from_world,

@@ -32,11 +32,11 @@
 #include "colmap/estimators/triangulation.h"
 
 #include "colmap/estimators/essential_matrix.h"
-#include "colmap/geometry/projection.h"
 #include "colmap/geometry/triangulation.h"
 #include "colmap/math/math.h"
 #include "colmap/optim/combination_sampler.h"
 #include "colmap/optim/loransac.h"
+#include "colmap/scene/projection.h"
 #include "colmap/util/logging.h"
 
 #include <Eigen/Geometry>

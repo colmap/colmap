@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/estimators/two_view_geometry.h"
+#include "colmap/scene/two_view_geometry.h"
 
 #include "colmap/geometry/pose.h"
 

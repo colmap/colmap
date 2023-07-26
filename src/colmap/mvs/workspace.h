@@ -31,11 +31,11 @@
 
 #pragma once
 
-#include "colmap/image/bitmap.h"
 #include "colmap/mvs/consistency_graph.h"
 #include "colmap/mvs/depth_map.h"
 #include "colmap/mvs/model.h"
 #include "colmap/mvs/normal_map.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/util/cache.h"
 #include "colmap/util/misc.h"
 

@@ -31,8 +31,8 @@
 
 #pragma once
 
-#include "colmap/image/bitmap.h"
 #include "colmap/mvs/mat.h"
+#include "colmap/sensor/bitmap.h"
 
 #include <string>
 #include <vector>

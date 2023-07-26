@@ -29,13 +29,56 @@
 #
 # Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-set(FOLDER_NAME "camera")
+# Find package config for COLMAP library.
+#
+# The following variables are set by this config:
+#
+#   COLMAP_FOUND: TRUE if COLMAP is found.
+#   COLMAP_VERSION: COLMAP version.
+#
+# The colmap::colmap imported interface target is defined.
 
-COLMAP_ADD_SOURCES(
-    database.h database.cc
-    models.h models.cc
-    specs.h specs.cc
-)
+@PACKAGE_INIT@
 
-COLMAP_ADD_TEST(database_test database_test.cc)
-COLMAP_ADD_TEST(models_test models_test.cc)
+set(COLMAP_FOUND FALSE)
+
+# Set hints for finding dependency packages.
+
+set(FLANN_INCLUDE_DIR_HINTS @FLANN_INCLUDE_DIR_HINTS@)
+set(FLANN_LIBRARY_DIR_HINTS @FLANN_LIBRARY_DIR_HINTS@)
+
+set(LZ4_INCLUDE_DIR_HINTS @LZ4_INCLUDE_DIR_HINTS@)
+set(LZ4_LIBRARY_DIR_HINTS @LZ4_LIBRARY_DIR_HINTS@)
+
+set(FREEIMAGE_INCLUDE_DIR_HINTS @FREEIMAGE_INCLUDE_DIR_HINTS@)
+set(FREEIMAGE_LIBRARY_DIR_HINTS @FREEIMAGE_LIBRARY_DIR_HINTS@)
+
+set(METIS_INCLUDE_DIR_HINTS @METIS_INCLUDE_DIR_HINTS@)
+set(METIS_LIBRARY_DIR_HINTS @METIS_LIBRARY_DIR_HINTS@)
+
+set(GLEW_INCLUDE_DIR_HINTS @GLEW_INCLUDE_DIR_HINTS@)
+set(GLEW_LIBRARY_DIR_HINTS @GLEW_LIBRARY_DIR_HINTS@)
+
+# Find dependency packages.
+
+set(TEMP_CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH})
+set(CMAKE_MODULE_PATH ${PACKAGE_PREFIX_DIR}/share/colmap/cmake)
+
+# Set the exported variables.
+
+set(COLMAP_FOUND TRUE)
+
+set(COLMAP_VERSION @COLMAP_VERSION@)
+
+set(OPENMP_ENABLED @OPENMP_ENABLED@)
+
+set(CUDA_ENABLED @CUDA_ENABLED@)
+set(CUDA_MIN_VERSION @CUDA_MIN_VERSION@)
+
+set(GUI_ENABLED @GUI_ENABLED@)
+
+set(CGAL_ENABLED @CGAL_ENABLED@)
+
+include(${PACKAGE_PREFIX_DIR}/share/colmap/colmap-targets.cmake)
+include(${PACKAGE_PREFIX_DIR}/share/colmap/cmake/FindCOLMAPDependencies.cmake)
+check_required_components(colmap)

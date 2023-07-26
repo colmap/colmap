@@ -35,13 +35,13 @@
 #include "colmap/mvs/image.h"
 #include "colmap/mvs/model.h"
 #include "colmap/mvs/normal_map.h"
+#ifndef __CUDACC__
+#include "colmap/util/threading.h"
+#endif
 
 #include <iostream>
 #include <memory>
 #include <vector>
-#ifndef __CUDACC__
-#include "colmap/util/threading.h"
-#endif
 
 namespace colmap {
 namespace mvs {

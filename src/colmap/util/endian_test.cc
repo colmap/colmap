@@ -31,7 +31,7 @@
 
 #include "colmap/util/endian.h"
 
-#include "colmap/math/random.h"
+#include <random>
 
 #include <gtest/gtest.h>
 
@@ -96,20 +96,30 @@ TEST(IsLittleBigEndian, Nominal) { EXPECT_NE(IsLittleEndian(), IsBigEndian()); }
 
 template <typename T>
 void TestIntNativeToLitteBigEndian() {
-  const T x = RandomUniformInteger<T>(std::numeric_limits<T>::lowest(),
-                                      std::numeric_limits<T>::max());
-  EXPECT_EQ(LittleEndianToNative<T>(NativeToLittleEndian<T>(x)), x);
-  EXPECT_EQ(BigEndianToNative<T>(NativeToBigEndian<T>(x)), x);
+  std::default_random_engine prng;
+  std::uniform_int_distribution<T> distribution(
+      std::numeric_limits<T>::lowest(), std::numeric_limits<T>::max());
+  constexpr int kNumTrials = 100;
+  for (int i = 0; i < kNumTrials; ++i) {
+    const T x = distribution(prng);
+    EXPECT_EQ(LittleEndianToNative<T>(NativeToLittleEndian<T>(x)), x);
+    EXPECT_EQ(BigEndianToNative<T>(NativeToBigEndian<T>(x)), x);
+  }
 }
 
 template <typename T>
 void TestRealNativeToLitteBigEndian() {
-  const T x = RandomUniformReal<T>(std::numeric_limits<T>::lowest(),
-                                   std::numeric_limits<T>::max());
-  EXPECT_EQ(LittleEndianToNative<T>(NativeToLittleEndian<T>(x)), x);
-  EXPECT_EQ(BigEndianToNative<T>(NativeToBigEndian<T>(x)), x);
-  EXPECT_EQ(NativeToLittleEndian<T>(LittleEndianToNative<T>(x)), x);
-  EXPECT_EQ(NativeToBigEndian<T>(BigEndianToNative<T>(x)), x);
+  std::default_random_engine prng;
+  std::uniform_real_distribution<T> distribution(
+      std::numeric_limits<T>::lowest(), std::numeric_limits<T>::max());
+  constexpr int kNumTrials = 100;
+  for (int i = 0; i < kNumTrials; ++i) {
+    const T x = distribution(prng);
+    EXPECT_EQ(LittleEndianToNative<T>(NativeToLittleEndian<T>(x)), x);
+    EXPECT_EQ(BigEndianToNative<T>(NativeToBigEndian<T>(x)), x);
+    EXPECT_EQ(NativeToLittleEndian<T>(LittleEndianToNative<T>(x)), x);
+    EXPECT_EQ(NativeToBigEndian<T>(BigEndianToNative<T>(x)), x);
+  }
 }
 
 TEST(NativeToLitteBigEndian, Nominal) {
@@ -131,47 +141,55 @@ TEST(NativeToLitteBigEndian, Nominal) {
 
 template <typename T>
 void TestIntReadWriteBinaryLittleEndian() {
-  std::stringstream file;
-  const T orig_value = RandomUniformInteger<T>(std::numeric_limits<T>::lowest(),
-                                               std::numeric_limits<T>::max());
-  WriteBinaryLittleEndian<T>(&file, orig_value);
-  const T read_value = ReadBinaryLittleEndian<T>(&file);
-  EXPECT_EQ(orig_value, read_value);
+  std::default_random_engine prng;
+  std::uniform_int_distribution<T> distribution(
+      std::numeric_limits<T>::lowest(), std::numeric_limits<T>::max());
+  constexpr int kNumTrials = 100;
+  for (int i = 0; i < kNumTrials; ++i) {
+    std::stringstream file;
+    const T orig_value = distribution(prng);
+    WriteBinaryLittleEndian<T>(&file, orig_value);
+    const T read_value = ReadBinaryLittleEndian<T>(&file);
+    EXPECT_EQ(orig_value, read_value);
 
-  std::stringstream file_vector;
-  std::vector<T> orig_vector(100);
-  std::generate(orig_vector.begin(), orig_vector.end(), []() {
-    return RandomUniformInteger<T>(std::numeric_limits<T>::lowest(),
-                                   std::numeric_limits<T>::max());
-  });
-  WriteBinaryLittleEndian<T>(&file_vector, orig_vector);
-  std::vector<T> read_vector(orig_vector.size());
-  ReadBinaryLittleEndian<T>(&file_vector, &read_vector);
-  for (size_t i = 0; i < orig_vector.size(); ++i) {
-    EXPECT_EQ(orig_vector[i], read_vector[i]);
+    std::stringstream file_vector;
+    std::vector<T> orig_vector(100);
+    std::generate(orig_vector.begin(), orig_vector.end(), [&]() {
+      return distribution(prng);
+    });
+    WriteBinaryLittleEndian<T>(&file_vector, orig_vector);
+    std::vector<T> read_vector(orig_vector.size());
+    ReadBinaryLittleEndian<T>(&file_vector, &read_vector);
+    for (size_t i = 0; i < orig_vector.size(); ++i) {
+      EXPECT_EQ(orig_vector[i], read_vector[i]);
+    }
   }
 }
 
 template <typename T>
 void TestFloatReadWriteBinaryLittleEndian() {
-  std::stringstream file;
-  const T orig_value = RandomUniformReal<T>(std::numeric_limits<T>::lowest(),
-                                            std::numeric_limits<T>::max());
-  WriteBinaryLittleEndian<T>(&file, orig_value);
-  const T read_value = ReadBinaryLittleEndian<T>(&file);
-  EXPECT_EQ(orig_value, read_value);
+  std::default_random_engine prng;
+  std::uniform_real_distribution<T> distribution(
+      std::numeric_limits<T>::lowest(), std::numeric_limits<T>::max());
+  constexpr int kNumTrials = 100;
+  for (int i = 0; i < kNumTrials; ++i) {
+    std::stringstream file;
+    const T orig_value = distribution(prng);
+    WriteBinaryLittleEndian<T>(&file, orig_value);
+    const T read_value = ReadBinaryLittleEndian<T>(&file);
+    EXPECT_EQ(orig_value, read_value);
 
-  std::stringstream file_vector;
-  std::vector<T> orig_vector(100);
-  std::generate(orig_vector.begin(), orig_vector.end(), []() {
-    return RandomUniformReal<T>(std::numeric_limits<T>::lowest(),
-                                std::numeric_limits<T>::max());
-  });
-  WriteBinaryLittleEndian<T>(&file_vector, orig_vector);
-  std::vector<T> read_vector(orig_vector.size());
-  ReadBinaryLittleEndian<T>(&file_vector, &read_vector);
-  for (size_t i = 0; i < orig_vector.size(); ++i) {
-    EXPECT_EQ(orig_vector[i], read_vector[i]);
+    std::stringstream file_vector;
+    std::vector<T> orig_vector(100);
+    std::generate(orig_vector.begin(), orig_vector.end(), [&]() {
+      return distribution(prng);
+    });
+    WriteBinaryLittleEndian<T>(&file_vector, orig_vector);
+    std::vector<T> read_vector(orig_vector.size());
+    ReadBinaryLittleEndian<T>(&file_vector, &read_vector);
+    for (size_t i = 0; i < orig_vector.size(); ++i) {
+      EXPECT_EQ(orig_vector[i], read_vector[i]);
+    }
   }
 }
 

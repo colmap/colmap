@@ -31,7 +31,7 @@
 
 #pragma once
 
-#include "colmap/image/reader.h"
+#include "colmap/controllers/image_reader.h"
 
 namespace colmap {
 

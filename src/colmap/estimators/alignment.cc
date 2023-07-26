@@ -29,12 +29,12 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/scene/alignment.h"
+#include "colmap/estimators/alignment.h"
 
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/geometry/projection.h"
 #include "colmap/optim/loransac.h"
+#include "colmap/scene/projection.h"
 
 namespace colmap {
 namespace {

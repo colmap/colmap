@@ -1,50 +1,38 @@
 add_definitions("-DSIFTGPU_NO_DEVIL")
 
-set(SIFT_GPU_SOURCE_FILES
-    FrameBufferObject.cpp
-    FrameBufferObject.h
-    GlobalUtil.cpp
-    GlobalUtil.h
-    GLTexImage.cpp
-    GLTexImage.h
-    ProgramGLSL.cpp
-    ProgramGLSL.h
-    ProgramGPU.h
-    PyramidGL.cpp
-    PyramidGL.h
-    ShaderMan.cpp
-    ShaderMan.h
-    SiftGPU.cpp
-    SiftGPU.h
-    SiftMatch.cpp
-    SiftMatch.h
-    SiftPyramid.cpp
-    SiftPyramid.h
+COLMAP_ADD_LIBRARY(
+    NAME colmap_sift_gpu
+    SRCS
+        FrameBufferObject.h FrameBufferObject.cpp
+        GlobalUtil.h GlobalUtil.cpp
+        GLTexImage.h GLTexImage.cpp
+        ProgramGLSL.h ProgramGLSL.cpp
+        ProgramGPU.h
+        PyramidGL.h PyramidGL.cpp
+        ShaderMan.h ShaderMan.cpp
+        SiftGPU.h SiftGPU.cpp
+        SiftMatch.h SiftMatch.cpp
+        SiftPyramid.h SiftPyramid.cpp
+    PRIVATE_LINK_LIBS
+        OpenGL::GL
+        GLEW::GLEW
 )
 
 if(CUDA_ENABLED)
     add_definitions("-DCUDA_SIFTGPU_ENABLED")
 
-    set(SIFT_GPU_SOURCE_FILES
-        ${SIFT_GPU_SOURCE_FILES}
-        CuTexImage.cpp
-        CuTexImage.h
-        ProgramCU.cu
-        ProgramCU.h
-        PyramidCU.cpp
-        PyramidCU.h
-        SiftMatchCU.cpp
-        SiftMatchCU.h
+    COLMAP_ADD_LIBRARY(
+        NAME colmap_sift_gpu_cuda
+        SRCS
+            CuTexImage.h CuTexImage.cpp
+            ProgramCU.cu
+            ProgramCU.h
+            PyramidCU.h PyramidCU.cpp
+            SiftMatchCU.h SiftMatchCU.cpp
+        PRIVATE_LINK_LIBS
+            CUDA::cudart
+            CUDA::curand
     )
 
-    COLMAP_ADD_CUDA_LIBRARY(sift_gpu ${SIFT_GPU_SOURCE_FILES})
-else()
-    COLMAP_ADD_LIBRARY(sift_gpu ${SIFT_GPU_SOURCE_FILES})
+    target_link_libraries(colmap_sift_gpu PRIVATE colmap_sift_gpu_cuda)
 endif()
-
-target_link_libraries(sift_gpu
-    ${SIFT_GPU_LIBRARIES}
-    ${GLEW_LIBRARIES}
-    ${OPENGL_gl_LIBRARY}
-    ${OPENGL_glu_LIBRARY}
-)

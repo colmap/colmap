@@ -31,20 +31,52 @@
 
 set(FOLDER_NAME "optim")
 
-COLMAP_ADD_SOURCES(
-    combination_sampler.h combination_sampler.cc
-    least_absolute_deviations.h least_absolute_deviations.cc
-    progressive_sampler.h progressive_sampler.cc
-    random_sampler.h random_sampler.cc
-    sprt.h sprt.cc
-    support_measurement.h support_measurement.cc
+COLMAP_ADD_LIBRARY(
+    NAME colmap_optim
+    SRCS
+        combination_sampler.h combination_sampler.cc
+        least_absolute_deviations.h least_absolute_deviations.cc
+        progressive_sampler.h progressive_sampler.cc
+        random_sampler.h random_sampler.cc
+        sprt.h sprt.cc
+        support_measurement.h support_measurement.cc
+    PUBLIC_LINK_LIBS
+        colmap_math
+        Eigen3::Eigen
 )
 
-COLMAP_ADD_TEST(combination_sampler_test combination_sampler_test.cc)
-COLMAP_ADD_TEST(least_absolute_deviations_test
-                least_absolute_deviations_test.cc)
-COLMAP_ADD_TEST(loransac_test loransac_test.cc)
-COLMAP_ADD_TEST(progressive_sampler_test progressive_sampler_test.cc)
-COLMAP_ADD_TEST(random_sampler_test random_sampler_test.cc)
-COLMAP_ADD_TEST(ransac_test ransac_test.cc)
-COLMAP_ADD_TEST(support_measurement_test support_measurement_test.cc)
+COLMAP_ADD_TEST(
+    NAME combination_sampler_test
+    SRCS combination_sampler_test.cc
+    LINK_LIBS colmap_optim
+)
+COLMAP_ADD_TEST(
+    NAME least_absolute_deviations_test
+    SRCS least_absolute_deviations_test.cc
+    LINK_LIBS colmap_optim
+)
+COLMAP_ADD_TEST(
+    NAME loransac_test
+    SRCS loransac_test.cc
+    LINK_LIBS colmap_optim
+)
+COLMAP_ADD_TEST(
+    NAME progressive_sampler_test
+    SRCS progressive_sampler_test.cc
+    LINK_LIBS colmap_optim
+)
+COLMAP_ADD_TEST(
+    NAME random_sampler_test
+    SRCS random_sampler_test.cc
+    LINK_LIBS colmap_optim
+)
+COLMAP_ADD_TEST(
+    NAME ransac_test
+    SRCS ransac_test.cc
+    LINK_LIBS colmap_optim
+)
+COLMAP_ADD_TEST(
+    NAME support_measurement_test
+    SRCS support_measurement_test.cc
+    LINK_LIBS colmap_optim
+)

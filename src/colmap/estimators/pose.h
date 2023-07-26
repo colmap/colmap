@@ -31,10 +31,10 @@
 
 #pragma once
 
-#include "colmap/camera/models.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/loransac.h"
 #include "colmap/scene/camera.h"
+#include "colmap/sensor/models.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/types.h"
@@ -216,5 +216,23 @@ bool RefineGeneralizedAbsolutePose(
     Rigid3d* rig_from_world,
     std::vector<Camera>* cameras,
     Eigen::Matrix6d* rig_from_world_cov = nullptr);
+
+// Refine essential matrix.
+//
+// Decomposes the essential matrix into rotation and translation components
+// and refines the relative pose using the function `RefineRelativePose`.
+//
+// @param E                3x3 essential matrix.
+// @param points1          First set of corresponding points.
+// @param points2          Second set of corresponding points.
+// @param inlier_mask      Inlier mask for corresponding points.
+// @param options          Solver options.
+//
+// @return                 Flag indicating if solution is usable.
+bool RefineEssentialMatrix(const ceres::Solver::Options& options,
+                           const std::vector<Eigen::Vector2d>& points1,
+                           const std::vector<Eigen::Vector2d>& points2,
+                           const std::vector<char>& inlier_mask,
+                           Eigen::Matrix3d* E);
 
 }  // namespace colmap

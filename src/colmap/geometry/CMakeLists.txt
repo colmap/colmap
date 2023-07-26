@@ -31,22 +31,56 @@
 
 set(FOLDER_NAME "geometry")
 
-COLMAP_ADD_SOURCES(
-    essential_matrix.h essential_matrix.cc
-    gps.h gps.cc
-    homography_matrix.h homography_matrix.cc
-    pose.h pose.cc
-    projection.h projection.cc
-    rigid3.h
-    sim3.h sim3.cc
-    triangulation.h triangulation.cc
+COLMAP_ADD_LIBRARY(
+    NAME colmap_geometry
+    SRCS
+        essential_matrix.h essential_matrix.cc
+        gps.h gps.cc
+        homography_matrix.h homography_matrix.cc
+        pose.h pose.cc
+        rigid3.h
+        sim3.h sim3.cc
+        triangulation.h triangulation.cc
+    PUBLIC_LINK_LIBS
+        colmap_util
+        colmap_math
+        Eigen3::Eigen
+    PRIVATE_LINK_LIBS
+        colmap_optim
 )
 
-COLMAP_ADD_TEST(essential_matrix_utils_test essential_matrix_test.cc)
-COLMAP_ADD_TEST(gps_test gps_test.cc)
-COLMAP_ADD_TEST(homography_matrix_utils_test homography_matrix_test.cc)
-COLMAP_ADD_TEST(pose_test pose_test.cc)
-COLMAP_ADD_TEST(projection_test projection_test.cc)
-COLMAP_ADD_TEST(rigid3_test rigid3_test.cc)
-COLMAP_ADD_TEST(sim3_test sim3_test.cc)
-COLMAP_ADD_TEST(triangulation_test triangulation_test.cc)
+COLMAP_ADD_TEST(
+    NAME essential_matrix_utils_test
+    SRCS essential_matrix_test.cc
+    LINK_LIBS colmap_geometry
+)
+COLMAP_ADD_TEST(
+    NAME gps_test
+    SRCS gps_test.cc
+    LINK_LIBS colmap_geometry
+)
+COLMAP_ADD_TEST(
+    NAME homography_matrix_utils_test
+    SRCS homography_matrix_test.cc
+    LINK_LIBS colmap_geometry
+)
+COLMAP_ADD_TEST(
+    NAME pose_test
+    SRCS pose_test.cc
+    LINK_LIBS colmap_geometry
+)
+COLMAP_ADD_TEST(
+    NAME rigid3_test
+    SRCS rigid3_test.cc
+    LINK_LIBS colmap_geometry
+)
+COLMAP_ADD_TEST(
+    NAME sim3_test
+    SRCS sim3_test.cc
+    LINK_LIBS colmap_geometry
+)
+COLMAP_ADD_TEST(
+    NAME triangulation_test
+    SRCS triangulation_test.cc
+    LINK_LIBS colmap_geometry
+)

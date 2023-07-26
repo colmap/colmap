@@ -31,8 +31,8 @@
 
 #pragma once
 
-#include "colmap/image/bitmap.h"
 #include "colmap/scene/database.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/util/threading.h"
 
 #include <unordered_set>

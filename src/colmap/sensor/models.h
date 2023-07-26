@@ -37,7 +37,7 @@
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
-#include <ceres/ceres.h>
+#include <ceres/jet.h>
 
 namespace colmap {
 

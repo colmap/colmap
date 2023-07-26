@@ -35,7 +35,7 @@
 #include <unordered_map>
 #include <vector>
 
-#ifdef CGAL_ENABLED
+#if defined(COLMAP_CGAL_ENABLED)
 #include <CGAL/Delaunay_triangulation_3.h>
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #endif  // CGAL_ENABLED
@@ -53,7 +53,7 @@
 #include "lib/PoissonRecon/PoissonRecon.h"
 #include "lib/PoissonRecon/SurfaceTrimmer.h"
 
-#ifdef CGAL_ENABLED
+#if defined(COLMAP_CGAL_ENABLED)
 
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef CGAL::Delaunay_triangulation_3<K, CGAL::Fast_location> Delaunay;
@@ -146,7 +146,7 @@ bool PoissonMeshing(const PoissonMeshingOptions& options,
     args.push_back(std::to_string(options.color));
   }
 
-#ifdef OPENMP_ENABLED
+#if defined(COLMAP_OPENMP_ENABLED)
   if (options.num_threads > 0) {
     args.push_back("--threads");
     args.push_back(std::to_string(options.num_threads));
@@ -195,7 +195,7 @@ bool PoissonMeshing(const PoissonMeshingOptions& options,
                         const_cast<char**>(args_cstr.data())) == EXIT_SUCCESS;
 }
 
-#ifdef CGAL_ENABLED
+#if defined(COLMAP_CGAL_ENABLED)
 
 K::Point_3 EigenToCGAL(const Eigen::Vector3f& point) {
   return K::Point_3(point.x(), point.y(), point.z());

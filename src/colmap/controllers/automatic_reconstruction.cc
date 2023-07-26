@@ -31,10 +31,10 @@
 
 #include "colmap/controllers/automatic_reconstruction.h"
 
+#include "colmap/controllers/feature_extraction.h"
+#include "colmap/controllers/feature_matching.h"
 #include "colmap/controllers/incremental_mapper.h"
 #include "colmap/controllers/option_manager.h"
-#include "colmap/feature/extraction.h"
-#include "colmap/feature/matching.h"
 #include "colmap/image/undistortion.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
@@ -284,7 +284,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
 
     // Patch match stereo.
 
-#ifdef CUDA_ENABLED
+#if defined(COLMAP_CUDA_ENABLED)
     {
       mvs::PatchMatchController patch_match_controller(
           *option_manager_.patch_match_stereo, dense_path, "COLMAP", "");
@@ -341,7 +341,7 @@ void AutomaticReconstructionController::RunDenseMapper() {
         mvs::PoissonMeshing(
             *option_manager_.poisson_meshing, fused_path, meshing_path);
       } else if (options_.mesher == Mesher::DELAUNAY) {
-#ifdef CGAL_ENABLED
+#if defined(COLMAP_CGAL_ENABLED)
         mvs::DenseDelaunayMeshing(
             *option_manager_.delaunay_meshing, dense_path, meshing_path);
 #else  // CGAL_ENABLED

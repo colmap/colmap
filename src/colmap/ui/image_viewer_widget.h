@@ -32,8 +32,8 @@
 #pragma once
 
 #include "colmap/controllers/option_manager.h"
-#include "colmap/geometry/projection.h"
 #include "colmap/scene/database.h"
+#include "colmap/scene/projection.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/ui/qt_utils.h"
 

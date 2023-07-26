@@ -31,34 +31,77 @@
 
 set(FOLDER_NAME "util")
 
-COLMAP_ADD_SOURCES(
-    cache.h
-    logging.h logging.cc
-    misc.h misc.cc
-    opengl_utils.h opengl_utils.cc
-    ply.h ply.cc
-    sqlite3_utils.h
-    string.h string.cc
-    testing.h testing.cc
-    threading.h threading.cc
-    timer.h timer.cc
-    types.h
-    version.h version.cc
+COLMAP_ADD_LIBRARY(
+    NAME colmap_util
+    SRCS
+        cache.h
+        logging.h logging.cc
+        misc.h misc.cc
+        opengl_utils.h opengl_utils.cc
+        ply.h ply.cc
+        sqlite3_utils.h
+        string.h string.cc
+        testing.h testing.cc
+        threading.h threading.cc
+        timer.h timer.cc
+        types.h
+        version.h version.cc
+    PUBLIC_LINK_LIBS
+        Boost::filesystem
+        Eigen3::Eigen
+        glog::glog
+        OpenGL::GL
+        Qt5::Core
+        Qt5::OpenGL
+        SQLite::SQLite3
 )
 
 if(CUDA_ENABLED)
-    COLMAP_ADD_CUDA_SOURCES(
-        cuda.h cuda.cc
-        cudacc.h cudacc.cc
+    COLMAP_ADD_LIBRARY(
+        NAME colmap_util_cuda
+        SRCS
+            cuda.h cuda.cc
+            cudacc.h cudacc.cc
+        PUBLIC_LINK_LIBS
+            colmap_util
+            CUDA::cudart
     )
 endif()
 
-COLMAP_ADD_TEST(cache_test cache_test.cc)
-COLMAP_ADD_TEST(endian_test endian_test.cc)
-COLMAP_ADD_TEST(misc_test misc_test.cc)
-COLMAP_ADD_TEST(string_test string_test.cc)
-COLMAP_ADD_TEST(threading_test threading_test.cc)
-COLMAP_ADD_TEST(timer_test timer_test.cc)
+COLMAP_ADD_TEST(
+    NAME cache_test
+    SRCS cache_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
+    NAME endian_test
+    SRCS endian_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
+    NAME misc_test
+    SRCS misc_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
+    NAME string_test
+    SRCS string_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
+    NAME threading_test
+    SRCS threading_test.cc
+    LINK_LIBS colmap_util
+)
+COLMAP_ADD_TEST(
+    NAME timer_test
+    SRCS timer_test.cc
+    LINK_LIBS colmap_util
+)
 if(GUI_ENABLED)
-    COLMAP_ADD_TEST(opengl_utils_test opengl_utils_test.cc)
+    COLMAP_ADD_TEST(
+        NAME opengl_utils_test
+        SRCS opengl_utils_test.cc
+        LINK_LIBS colmap_util
+    )
 endif()

@@ -31,37 +31,102 @@
 
 set(FOLDER_NAME "estimators")
 
-COLMAP_ADD_SOURCES(
-    absolute_pose.h absolute_pose.cc
-    affine_transform.h affine_transform.cc
-    bundle_adjustment.h bundle_adjustment.cc
-    coordinate_frame.h coordinate_frame.cc
-    cost_functions.h
-    essential_matrix.h essential_matrix.cc
-    euclidean_transform.h
-    fundamental_matrix.h fundamental_matrix.cc
-    generalized_absolute_pose.h generalized_absolute_pose.cc
-    generalized_absolute_pose_coeffs.h generalized_absolute_pose_coeffs.cc
-    generalized_relative_pose.h generalized_relative_pose.cc
-    homography_matrix.h homography_matrix.cc
-    pose.h pose.cc
-    similarity_transform.h
-    translation_transform.h
-    triangulation.h triangulation.cc
-    two_view_geometry.h two_view_geometry.cc
-    utils.h utils.cc
+COLMAP_ADD_LIBRARY(
+    NAME colmap_estimators
+    SRCS
+        absolute_pose.h absolute_pose.cc
+        affine_transform.h affine_transform.cc
+        alignment.h alignment.cc
+        bundle_adjustment.h bundle_adjustment.cc
+        coordinate_frame.h coordinate_frame.cc
+        cost_functions.h
+        essential_matrix.h essential_matrix.cc
+        euclidean_transform.h
+        fundamental_matrix.h fundamental_matrix.cc
+        generalized_absolute_pose.h generalized_absolute_pose.cc
+        generalized_absolute_pose_coeffs.h generalized_absolute_pose_coeffs.cc
+        generalized_relative_pose.h generalized_relative_pose.cc
+        homography_matrix.h homography_matrix.cc
+        pose.h pose.cc
+        similarity_transform.h
+        translation_transform.h
+        triangulation.h triangulation.cc
+        two_view_geometry.h two_view_geometry.cc
+        utils.h utils.cc
+    PUBLIC_LINK_LIBS
+        colmap_util
+        colmap_math
+        colmap_feature
+        colmap_geometry
+        colmap_sensor
+        colmap_image
+        colmap_scene
+        Eigen3::Eigen
+        Ceres::ceres
 )
 
-COLMAP_ADD_TEST(absolute_pose_test absolute_pose_test.cc)
-COLMAP_ADD_TEST(affine_transform_test affine_transform_test.cc)
-COLMAP_ADD_TEST(bundle_adjustment_test bundle_adjustment_test.cc)
-COLMAP_ADD_TEST(coordinate_frame_test coordinate_frame_test.cc)
-COLMAP_ADD_TEST(cost_functions_test cost_functions_test.cc)
-COLMAP_ADD_TEST(essential_matrix_test essential_matrix_test.cc)
-COLMAP_ADD_TEST(estimators_utils_test utils_test.cc)
-COLMAP_ADD_TEST(fundamental_matrix_test fundamental_matrix_test.cc)
-COLMAP_ADD_TEST(generalized_absolute_pose_test generalized_absolute_pose_test.cc)
-COLMAP_ADD_TEST(generalized_relative_pose_test generalized_relative_pose_test.cc)
-COLMAP_ADD_TEST(homography_matrix_test homography_matrix_test.cc)
-COLMAP_ADD_TEST(translation_transform_test translation_transform_test.cc)
-COLMAP_ADD_TEST(two_view_geometry_test two_view_geometry_test.cc)
+COLMAP_ADD_TEST(
+    NAME absolute_pose_test
+    SRCS absolute_pose_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME affine_transform_test
+    SRCS affine_transform_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME bundle_adjustment_test
+    SRCS bundle_adjustment_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME coordinate_frame_test
+    SRCS coordinate_frame_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME cost_functions_test
+    SRCS cost_functions_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME essential_matrix_test
+    SRCS essential_matrix_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME estimators_utils_test
+    SRCS utils_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME fundamental_matrix_test
+    SRCS fundamental_matrix_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME generalized_absolute_pose_test
+    SRCS generalized_absolute_pose_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME generalized_relative_pose_test
+    SRCS generalized_relative_pose_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME homography_matrix_test
+    SRCS homography_matrix_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME pose_test
+    SRCS pose_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME translation_transform_test
+    SRCS translation_transform_test.cc
+    LINK_LIBS colmap_estimators
+)

@@ -31,7 +31,7 @@
 
 #pragma once
 
-#include "colmap/image/bitmap.h"
+#include "colmap/sensor/bitmap.h"
 
 #include <cstdint>
 #include <fstream>

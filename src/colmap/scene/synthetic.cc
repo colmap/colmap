@@ -33,8 +33,8 @@
 
 #include "colmap/geometry/essential_matrix.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/geometry/projection.h"
 #include "colmap/math/random.h"
+#include "colmap/scene/projection.h"
 
 #include <Eigen/Geometry>
 

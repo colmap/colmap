@@ -32,7 +32,7 @@
 #include "colmap/geometry/essential_matrix.h"
 
 #include "colmap/geometry/pose.h"
-#include "colmap/geometry/projection.h"
+#include "colmap/scene/projection.h"
 
 #include <Eigen/Geometry>
 #include <gtest/gtest.h>
@@ -147,44 +147,6 @@ TEST(InvertEssentialMatrix, Nominal) {
         InvertEssentialMatrix(InvertEssentialMatrix(E));
     EXPECT_TRUE(E.isApprox(inv_inv_E));
   }
-}
-
-TEST(RefineEssentialMatrix, Nominal) {
-  const Rigid3d cam1_from_world;
-  const Rigid3d cam2_from_world(Eigen::Quaterniond::Identity(),
-                                Eigen::Vector3d(1, 0, 0).normalized());
-  const Eigen::Matrix3d E =
-      EssentialMatrixFromPose(cam2_from_world * Inverse(cam1_from_world));
-
-  std::vector<Eigen::Vector3d> points3D(150);
-  for (size_t i = 0; i < points3D.size() / 3; ++i) {
-    points3D[3 * i + 0] = Eigen::Vector3d(i * 0.01, 0, 1);
-    points3D[3 * i + 1] = Eigen::Vector3d(0, i * 0.01, 1);
-    points3D[3 * i + 2] = Eigen::Vector3d(i * 0.01, i * 0.01, 1);
-  }
-
-  std::vector<Eigen::Vector2d> points1(points3D.size());
-  std::vector<Eigen::Vector2d> points2(points3D.size());
-  for (size_t i = 0; i < points3D.size(); ++i) {
-    points1[i] = (cam1_from_world * points3D[i]).hnormalized();
-    points2[i] = (cam2_from_world * points3D[i]).hnormalized();
-  }
-
-  const Rigid3d cam2_from_world_perturbed(
-      Eigen::Quaterniond::Identity(),
-      Eigen::Vector3d(1.02, 0.02, 0.01).normalized());
-  const Eigen::Matrix3d E_pertubated =
-      EssentialMatrixFromPose(cam2_from_world * Inverse(cam1_from_world));
-
-  Eigen::Matrix3d E_refined = E_pertubated;
-  ceres::Solver::Options options;
-  RefineEssentialMatrix(options,
-                        points1,
-                        points2,
-                        std::vector<char>(points1.size(), true),
-                        &E_refined);
-
-  EXPECT_LE((E - E_refined).norm(), (E - E_pertubated).norm());
 }
 
 }  // namespace colmap

@@ -29,31 +29,32 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#pragma once
+#include "colmap/sensor/database.h"
 
-#include "colmap/scene/database.h"
-#include "colmap/scene/reconstruction.h"
-#include "colmap/sensor/models.h"
-#include "colmap/util/types.h"
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-struct SyntheticDatasetOptions {
-  int num_cameras = 2;
-  int num_images = 10;
-  int num_points3D = 100;
+TEST(CameraDatabase, Initialization) {
+  CameraDatabase database;
+  camera_specs_t specs = InitializeCameraSpecs();
+  EXPECT_EQ(database.NumEntries(), specs.size());
+}
 
-  int camera_width = 1024;
-  int camera_height = 768;
-  int camera_model_id = SimpleRadialCameraModel::model_id;
-  std::vector<double> camera_params = {1280, 512, 384, 0.05};
+TEST(CameraDatabase, ExactMatch) {
+  CameraDatabase database;
+  double sensor_width;
+  EXPECT_TRUE(
+      database.QuerySensorWidth("canon", "digitalixus100is", &sensor_width));
+  EXPECT_EQ(sensor_width, 6.1600f);
+}
 
-  int num_points2D_without_point3D = 10;
-  double point2D_stddev = 0.0;
-};
-
-void SynthesizeDataset(const SyntheticDatasetOptions& options,
-                       Reconstruction* reconstruction,
-                       Database* database);
+TEST(CameraDatabase, AmbiguousMatch) {
+  CameraDatabase database;
+  double sensor_width;
+  EXPECT_TRUE(
+      !database.QuerySensorWidth("canon", "digitalixus", &sensor_width));
+  EXPECT_EQ(sensor_width, 6.1600f);
+}
 
 }  // namespace colmap

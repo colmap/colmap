@@ -37,7 +37,6 @@
 #include <vector>
 
 #include <Eigen/Core>
-#include <ceres/ceres.h>
 
 namespace colmap {
 
@@ -126,23 +125,5 @@ Eigen::Vector3d EpipoleFromEssentialMatrix(const Eigen::Matrix3d& E,
 //
 // @return       Inverted essential matrix.
 Eigen::Matrix3d InvertEssentialMatrix(const Eigen::Matrix3d& matrix);
-
-// Refine essential matrix.
-//
-// Decomposes the essential matrix into rotation and translation components
-// and refines the relative pose using the function `RefineRelativePose`.
-//
-// @param E                3x3 essential matrix.
-// @param points1          First set of corresponding points.
-// @param points2          Second set of corresponding points.
-// @param inlier_mask      Inlier mask for corresponding points.
-// @param options          Solver options.
-//
-// @return                 Flag indicating if solution is usable.
-bool RefineEssentialMatrix(const ceres::Solver::Options& options,
-                           const std::vector<Eigen::Vector2d>& points1,
-                           const std::vector<Eigen::Vector2d>& points2,
-                           const std::vector<char>& inlier_mask,
-                           Eigen::Matrix3d* E);
 
 }  // namespace colmap

@@ -31,7 +31,7 @@
 
 #include "colmap/controllers/incremental_mapper.h"
 
-#include "colmap/scene/alignment.h"
+#include "colmap/estimators/alignment.h"
 #include "colmap/scene/synthetic.h"
 #include "colmap/util/testing.h"
 

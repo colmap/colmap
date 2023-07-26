@@ -91,3 +91,9 @@ else()
         message(FATAL_ERROR "Could not find FreeImage")
     endif()
 endif()
+
+add_library(freeimage INTERFACE IMPORTED)
+target_include_directories(
+    freeimage INTERFACE ${FREEIMAGE_INCLUDE_DIRS})
+target_link_libraries(
+    freeimage INTERFACE ${FREEIMAGE_LIBRARIES})

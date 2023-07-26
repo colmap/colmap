@@ -32,9 +32,9 @@
 #include "colmap/estimators/generalized_absolute_pose.h"
 
 #include "colmap/geometry/pose.h"
-#include "colmap/geometry/projection.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/ransac.h"
+#include "colmap/scene/projection.h"
 
 #include <array>
 

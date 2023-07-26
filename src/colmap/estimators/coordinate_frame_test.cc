@@ -32,7 +32,7 @@
 #include "colmap/estimators/coordinate_frame.h"
 
 #include "colmap/geometry/gps.h"
-#include "colmap/geometry/projection.h"
+#include "colmap/scene/projection.h"
 
 #include <gtest/gtest.h>
 

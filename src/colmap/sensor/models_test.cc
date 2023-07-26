@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/camera/models.h"
+#include "colmap/sensor/models.h"
 
 #include <gtest/gtest.h>
 

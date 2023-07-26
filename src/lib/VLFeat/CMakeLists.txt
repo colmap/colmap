@@ -107,4 +107,10 @@ if(NOT OPENMP_ENABLED OR NOT OPENMP_FOUND)
     add_definitions("-DVL_DISABLE_OPENMP")
 endif()
 
-COLMAP_ADD_LIBRARY(vlfeat ${VLFEAT_SOURCE_FILES})
+COLMAP_ADD_LIBRARY(
+    NAME colmap_vlfeat
+    SRCS ${VLFEAT_SOURCE_FILES}
+)
+if(OPENMP_FOUND)
+    target_link_libraries(colmap_vlfeat PRIVATE OpenMP::OpenMP_C)
+endif()

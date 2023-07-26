@@ -29,37 +29,112 @@
 #
 # Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-set(FOLDER_NAME "base")
+set(FOLDER_NAME "scene")
 
-COLMAP_ADD_SOURCES(
-    alignment.h alignment.cc
-    camera.h camera.cc
-    camera_rig.h camera_rig.cc
-    correspondence_graph.h correspondence_graph.cc
-    database.h database.cc
-    database_cache.h database_cache.cc
-    image.h image.cc
-    point2d.h
-    point3d.h point3d.cc
-    reconstruction.h reconstruction.cc
-    reconstruction_manager.h reconstruction_manager.cc
-    scene_clustering.h scene_clustering.cc
-    synthetic.h synthetic.cc
-    track.h track.cc
-    visibility_pyramid.h visibility_pyramid.cc
+COLMAP_ADD_LIBRARY(
+    NAME colmap_scene
+    SRCS
+        camera.h camera.cc
+        camera_rig.h camera_rig.cc
+        correspondence_graph.h correspondence_graph.cc
+        database.h database.cc
+        database_cache.h database_cache.cc
+        image.h image.cc
+        point2d.h
+        point3d.h point3d.cc
+        projection.h projection.cc
+        reconstruction.h reconstruction.cc
+        reconstruction_manager.h reconstruction_manager.cc
+        scene_clustering.h scene_clustering.cc
+        synthetic.h synthetic.cc
+        track.h track.cc
+        two_view_geometry.h two_view_geometry.cc
+        visibility_pyramid.h visibility_pyramid.cc
+    PUBLIC_LINK_LIBS
+        colmap_sensor
+        colmap_feature
+        colmap_geometry
+        Eigen3::Eigen
+        SQLite::SQLite3
 )
 
-COLMAP_ADD_TEST(camera_rig_test camera_rig_test.cc)
-COLMAP_ADD_TEST(camera_test camera_test.cc)
-COLMAP_ADD_TEST(correspondence_graph_test correspondence_graph_test.cc)
-COLMAP_ADD_TEST(database_cache_test database_cache_test.cc)
-COLMAP_ADD_TEST(database_test database_test.cc)
-COLMAP_ADD_TEST(image_test image_test.cc)
-COLMAP_ADD_TEST(point2d_test point2d_test.cc)
-COLMAP_ADD_TEST(point3d_test point3d_test.cc)
-COLMAP_ADD_TEST(reconstruction_test reconstruction_test.cc)
-COLMAP_ADD_TEST(reconstruction_manager_test reconstruction_manager_test.cc)
-COLMAP_ADD_TEST(scene_clustering_test scene_clustering_test.cc)
-COLMAP_ADD_TEST(synthetic_test synthetic_test.cc)
-COLMAP_ADD_TEST(track_test track_test.cc)
-COLMAP_ADD_TEST(visibility_pyramid_test visibility_pyramid_test.cc)
+COLMAP_ADD_TEST(
+    NAME camera_rig_test
+    SRCS camera_rig_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME camera_test
+    SRCS camera_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME correspondence_graph_test
+    SRCS correspondence_graph_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME database_cache_test
+    SRCS database_cache_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME database_test
+    SRCS database_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME image_test
+    SRCS image_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME point2d_test
+    SRCS point2d_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME point3d_test
+    SRCS point3d_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME projection_test
+    SRCS projection_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME reconstruction_test
+    SRCS reconstruction_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME reconstruction_manager_test
+    SRCS reconstruction_manager_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME scene_clustering_test
+    SRCS scene_clustering_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME synthetic_test
+    SRCS synthetic_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME track_test
+    SRCS track_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME two_view_geometry_test
+    SRCS two_view_geometry_test.cc
+    LINK_LIBS colmap_scene
+)
+COLMAP_ADD_TEST(
+    NAME visibility_pyramid_test
+    SRCS visibility_pyramid_test.cc
+    LINK_LIBS colmap_scene
+)

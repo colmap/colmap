@@ -31,7 +31,7 @@
 
 #include "colmap/ui/qt_utils.h"
 
-#include "colmap/camera/models.h"
+#include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"
 
 namespace colmap {

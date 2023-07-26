@@ -31,17 +31,43 @@
 
 set(FOLDER_NAME "retrieval")
 
-COLMAP_ADD_SOURCES(
-    geometry.h geometry.cc
-    inverted_file.h
-    inverted_file_entry.h
-    inverted_index.h
-    utils.h
-    visual_index.h
-    vote_and_verify.h vote_and_verify.cc
+COLMAP_ADD_LIBRARY(
+    NAME colmap_retrieval
+    SRCS
+        geometry.h geometry.cc
+        inverted_file.h
+        inverted_file_entry.h
+        inverted_index.h
+        utils.h
+        visual_index.h
+        vote_and_verify.h vote_and_verify.cc
+    PUBLIC_LINK_LIBS
+        Boost::graph
+        Eigen3::Eigen
+        flann
+        lz4
+    PRIVATE_LINK_LIBS
+        colmap_math
+        colmap_estimators
 )
 
-COLMAP_ADD_TEST(geometry_test geometry_test.cc)
-COLMAP_ADD_TEST(inverted_file_entry_test inverted_file_entry_test.cc)
-COLMAP_ADD_TEST(visual_index_test visual_index_test.cc)
-COLMAP_ADD_TEST(vote_and_verify_test vote_and_verify_test.cc)
+COLMAP_ADD_TEST(
+    NAME geometry_test
+    SRCS geometry_test.cc
+    LINK_LIBS colmap_retrieval
+)
+COLMAP_ADD_TEST(
+    NAME inverted_file_entry_test
+    SRCS inverted_file_entry_test.cc
+    LINK_LIBS colmap_retrieval
+)
+COLMAP_ADD_TEST(
+    NAME visual_index_test
+    SRCS visual_index_test.cc
+    LINK_LIBS colmap_retrieval
+)
+COLMAP_ADD_TEST(
+    NAME vote_and_verify_test
+    SRCS vote_and_verify_test.cc
+    LINK_LIBS colmap_retrieval
+)

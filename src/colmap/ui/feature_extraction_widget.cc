@@ -31,8 +31,8 @@
 
 #include "colmap/ui/feature_extraction_widget.h"
 
-#include "colmap/camera/models.h"
-#include "colmap/feature/extraction.h"
+#include "colmap/controllers/feature_extraction.h"
+#include "colmap/sensor/models.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/qt_utils.h"
 #include "colmap/ui/thread_control_widget.h"

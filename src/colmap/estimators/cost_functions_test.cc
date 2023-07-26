@@ -31,8 +31,8 @@
 
 #include "colmap/estimators/cost_functions.h"
 
-#include "colmap/camera/models.h"
 #include "colmap/geometry/pose.h"
+#include "colmap/sensor/models.h"
 
 #include <gtest/gtest.h>
 

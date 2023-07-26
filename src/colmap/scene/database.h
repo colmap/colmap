@@ -31,10 +31,10 @@
 
 #pragma once
 
-#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/types.h"
 #include "colmap/scene/camera.h"
 #include "colmap/scene/image.h"
+#include "colmap/scene/two_view_geometry.h"
 #include "colmap/util/types.h"
 
 #include <mutex>

@@ -33,13 +33,9 @@
 
 #include <iomanip>
 
-#ifdef OPENMP_ENABLED
-#include <omp.h>
-#endif
-
-#include "colmap/camera/models.h"
 #include "colmap/estimators/cost_functions.h"
-#include "colmap/geometry/projection.h"
+#include "colmap/scene/projection.h"
+#include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"

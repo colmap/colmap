@@ -29,7 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#include "colmap/feature/matching.h"
+#include "colmap/controllers/feature_matching.h"
 
 #include "colmap/feature/utils.h"
 #include "colmap/geometry/gps.h"
@@ -404,13 +404,13 @@ SiftGPUFeatureMatcher::SiftGPUFeatureMatcher(const SiftMatchingOptions& options,
   prev_uploaded_image_ids_[0] = kInvalidImageId;
   prev_uploaded_image_ids_[1] = kInvalidImageId;
 
-#ifndef CUDA_ENABLED
+#if !defined(COLMAP_CUDA_ENABLED)
   opengl_context_ = std::make_unique<OpenGLContextManager>();
 #endif
 }
 
 void SiftGPUFeatureMatcher::Run() {
-#ifndef CUDA_ENABLED
+#if !defined(COLMAP_CUDA_ENABLED)
   CHECK(opengl_context_);
   CHECK(opengl_context_->MakeCurrent());
 #endif
@@ -535,13 +535,13 @@ GuidedSiftGPUFeatureMatcher::GuidedSiftGPUFeatureMatcher(
   prev_uploaded_image_ids_[0] = kInvalidImageId;
   prev_uploaded_image_ids_[1] = kInvalidImageId;
 
-#ifndef CUDA_ENABLED
+#if !defined(COLMAP_CUDA_ENABLED)
   opengl_context_ = std::make_unique<OpenGLContextManager>();
 #endif
 }
 
 void GuidedSiftGPUFeatureMatcher::Run() {
-#ifndef CUDA_ENABLED
+#if !defined(COLMAP_CUDA_ENABLED)
   CHECK(opengl_context_);
   CHECK(opengl_context_->MakeCurrent());
 #endif
@@ -668,19 +668,21 @@ void TwoViewGeometryVerifier::Run() {
       const auto& points2 = FeatureKeypointsToPointsVector(*keypoints2);
 
       if (options_.multiple_models) {
-        data.two_view_geometry.EstimateMultiple(camera1,
-                                                points1,
-                                                camera2,
-                                                points2,
-                                                data.matches,
-                                                two_view_geometry_options_);
+        data.two_view_geometry =
+            EstimateMultipleTwoViewGeometries(camera1,
+                                              points1,
+                                              camera2,
+                                              points2,
+                                              data.matches,
+                                              two_view_geometry_options_);
       } else {
-        data.two_view_geometry.Estimate(camera1,
-                                        points1,
-                                        camera2,
-                                        points2,
-                                        data.matches,
-                                        two_view_geometry_options_);
+        data.two_view_geometry =
+            EstimateTwoViewGeometry(camera1,
+                                    points1,
+                                    camera2,
+                                    points2,
+                                    data.matches,
+                                    two_view_geometry_options_);
       }
 
       CHECK(output_queue_->Push(std::move(data)));
@@ -700,7 +702,7 @@ SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchingOptions& options,
   std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
   CHECK_GT(gpu_indices.size(), 0);
 
-#ifdef CUDA_ENABLED
+#if defined(COLMAP_CUDA_ENABLED)
   if (options_.use_gpu && gpu_indices.size() == 1 && gpu_indices[0] == -1) {
     const int num_cuda_devices = GetNumCudaDevices();
     CHECK_GT(num_cuda_devices, 0);
@@ -1744,8 +1746,7 @@ void FeaturePairsFeatureMatcher::Run() {
       const auto keypoints1 = cache_.GetKeypoints(image1.ImageId());
       const auto keypoints2 = cache_.GetKeypoints(image2.ImageId());
 
-      TwoViewGeometry two_view_geometry;
-      TwoViewGeometry::Options two_view_geometry_options;
+      TwoViewGeometryOptions two_view_geometry_options;
       two_view_geometry_options.min_num_inliers =
           static_cast<size_t>(match_options_.min_num_inliers);
       two_view_geometry_options.ransac_options.max_error =
@@ -1759,12 +1760,13 @@ void FeaturePairsFeatureMatcher::Run() {
       two_view_geometry_options.ransac_options.min_inlier_ratio =
           match_options_.min_inlier_ratio;
 
-      two_view_geometry.Estimate(camera1,
-                                 FeatureKeypointsToPointsVector(*keypoints1),
-                                 camera2,
-                                 FeatureKeypointsToPointsVector(*keypoints2),
-                                 matches,
-                                 two_view_geometry_options);
+      TwoViewGeometry two_view_geometry =
+          EstimateTwoViewGeometry(camera1,
+                                  FeatureKeypointsToPointsVector(*keypoints1),
+                                  camera2,
+                                  FeatureKeypointsToPointsVector(*keypoints2),
+                                  matches,
+                                  two_view_geometry_options);
 
       database_.WriteTwoViewGeometry(
           image1.ImageId(), image2.ImageId(), two_view_geometry);

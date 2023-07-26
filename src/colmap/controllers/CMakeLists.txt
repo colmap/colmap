@@ -31,13 +31,40 @@
 
 set(FOLDER_NAME "controllers")
 
-COLMAP_ADD_SOURCES(
-    automatic_reconstruction.h automatic_reconstruction.cc
-    bundle_adjustment.h bundle_adjustment.cc
-    hierarchical_mapper.h hierarchical_mapper.cc
-    incremental_mapper.h incremental_mapper.cc
-    option_manager.h option_manager.cc
+COLMAP_ADD_LIBRARY(
+    NAME colmap_controllers
+    SRCS
+        automatic_reconstruction.h automatic_reconstruction.cc
+        bundle_adjustment.h bundle_adjustment.cc
+        hierarchical_mapper.h hierarchical_mapper.cc
+        feature_extraction.h feature_extraction.cc
+        feature_matching.h feature_matching.cc
+        image_reader.h image_reader.cc
+        incremental_mapper.h incremental_mapper.cc
+        option_manager.h option_manager.cc
+    PUBLIC_LINK_LIBS
+        colmap_scene
+        colmap_util
+        Eigen3::Eigen
+    PRIVATE_LINK_LIBS
+        colmap_estimators
+        colmap_feature
+        colmap_image
+        colmap_math
+        colmap_mvs
+        colmap_retrieval
+        colmap_sfm
+        Ceres::ceres
+        Boost::program_options
 )
 
-COLMAP_ADD_TEST(hierarchical_mapper_test hierarchical_mapper_test.cc)
-COLMAP_ADD_TEST(incremental_mapper_test incremental_mapper_test.cc)
+COLMAP_ADD_TEST(
+    NAME hierarchical_mapper_test
+    SRCS hierarchical_mapper_test.cc
+    LINK_LIBS colmap_controllers
+)
+COLMAP_ADD_TEST(
+    NAME incremental_mapper_test
+    SRCS incremental_mapper_test.cc
+    LINK_LIBS colmap_controllers
+)

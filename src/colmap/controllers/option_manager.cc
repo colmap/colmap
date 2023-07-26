@@ -31,12 +31,12 @@
 
 #include "colmap/controllers/option_manager.h"
 
+#include "colmap/controllers/feature_extraction.h"
+#include "colmap/controllers/feature_matching.h"
+#include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_mapper.h"
 #include "colmap/estimators/bundle_adjustment.h"
-#include "colmap/feature/extraction.h"
-#include "colmap/feature/matching.h"
 #include "colmap/feature/sift.h"
-#include "colmap/image/reader.h"
 #include "colmap/math/random.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
@@ -832,7 +832,7 @@ bool OptionManager::Check() {
   if (poisson_meshing) success = success && poisson_meshing->Check();
   if (delaunay_meshing) success = success && delaunay_meshing->Check();
 
-#ifdef GUI_ENABLED
+#if defined(COLMAP_GUI_ENABLED)
   if (render) success = success && render->Check();
 #endif
 
