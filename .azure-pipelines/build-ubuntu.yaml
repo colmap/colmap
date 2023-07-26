@@ -127,7 +127,9 @@ jobs:
       cd ../doc/sample-project
       mkdir build
       cd build
-      colmap_DIR=$(Build.SourcesDirectory)/build/install/share/colmap cmake .. -GNinja
+      colmap_DIR=$(Build.SourcesDirectory)/build/install/share/colmap cmake .. \
+        -GNinja \
+        -DCMAKE_CUDA_ARCHITECTURES=50
       ninja
       ./hello_world --message "world"
     displayName: Install colmap and build sample
