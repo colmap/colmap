@@ -33,10 +33,6 @@
 
 #include <iomanip>
 
-#if defined(COLMAP_OPENMP_ENABLED)
-#include <omp.h>
-#endif
-
 #include "colmap/estimators/cost_functions.h"
 #include "colmap/scene/projection.h"
 #include "colmap/sensor/models.h"

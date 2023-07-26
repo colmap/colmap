@@ -35,6 +35,13 @@ if(IS_MSVC)
     add_compile_options("/bigobj")
 endif()
 
+if(CUDA_ENABLED)
+    set(OPTIONAL_CUDA_LIBS
+        colmap_util_cuda
+        colmap_mvs_cuda
+    )
+endif()
+
 COLMAP_ADD_EXECUTABLE(
     NAME colmap_exe
     SRCS
@@ -55,5 +62,6 @@ COLMAP_ADD_EXECUTABLE(
         colmap_sfm
         colmap_ui
         colmap_util
+        ${OPTIONAL_CUDA_LIBS}
 )
 set_target_properties(colmap_exe PROPERTIES OUTPUT_NAME colmap)
