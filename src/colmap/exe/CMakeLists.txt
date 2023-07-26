@@ -50,5 +50,10 @@ COLMAP_ADD_EXECUTABLE(
         sfm.cc
         vocab_tree.cc
     LINK_LIBS
-        ${COLMAP_LIBS})
+        colmap_controllers
+        colmap_scene
+        colmap_sfm
+        colmap_ui
+        colmap_util
+)
 set_target_properties(colmap_exe PROPERTIES OUTPUT_NAME colmap)

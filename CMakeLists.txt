@@ -184,23 +184,6 @@ include(GenerateVersionDefinitions)
 include_directories(src)
 link_directories(${COLMAP_LINK_DIRS})
 
-set(COLMAP_LIBS
-    colmap_util
-    colmap_math
-    colmap_sensor
-    colmap_image
-    colmap_feature
-    colmap_geometry
-    colmap_scene
-    colmap_optim
-    colmap_estimators
-    colmap_mvs
-    colmap_retrieval
-    colmap_sfm
-    colmap_controllers
-    colmap_ui
-)
-
 add_subdirectory(src/lib)
 add_subdirectory(src/colmap)
 
@@ -289,20 +272,45 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeUninstall.cmake.in"
 add_custom_target(uninstall COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/CMakeUninstall.cmake)
 set_target_properties(uninstall PROPERTIES FOLDER ${CMAKE_TARGETS_ROOT_FOLDER})
 
+set(COLMAP_EXPORT_LIBS
+    # Internal.
+    colmap_controllers
+    colmap_estimators
+    colmap_feature
+    colmap_geometry
+    colmap_image
+    colmap_math
+    colmap_mvs
+    colmap_optim
+    colmap_retrieval
+    colmap_scene
+    colmap_sensor
+    colmap_sfm
+    colmap_ui
+    colmap_util
+    # Third-party.
+    colmap_lsd
+    colmap_poisson_recon
+    colmap_vlfeat
+    colmap_sift_gpu
+)
+if(CUDA_ENABLED)
+    list(APPEND COLMAP_EXPORT_LIBS
+         colmap_util_cuda
+         colmap_mvs_cuda
+         colmap_sift_gpu_cuda
+    )
+endif()
+
+# Add unified interface library target to export.
 add_library(colmap INTERFACE)
-target_link_libraries(colmap INTERFACE ${COLMAP_LIBS})
+target_link_libraries(colmap INTERFACE ${COLMAP_EXPORT_LIBS})
 set(INSTALL_INCLUDE_DIR "${CMAKE_INSTALL_PREFIX}/include")
 target_include_directories(
     colmap INTERFACE $<INSTALL_INTERFACE:${INSTALL_INCLUDE_DIR}>)
 
 install(
-    TARGETS
-        colmap
-        ${COLMAP_LIBS}
-        colmap_lsd
-        colmap_poisson_recon
-        colmap_vlfeat
-        colmap_sift_gpu
+    TARGETS colmap ${COLMAP_EXPORT_LIBS}
     EXPORT colmap-targets
     LIBRARY DESTINATION lib/)
 
