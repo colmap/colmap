@@ -38,8 +38,6 @@
 #include "colmap/scene/two_view_geometry.h"
 #include "colmap/util/logging.h"
 
-#include <optional>
-
 namespace colmap {
 
 // Estimation options.
