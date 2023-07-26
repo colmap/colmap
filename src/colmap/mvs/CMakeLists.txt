@@ -92,6 +92,8 @@ if(CUDA_ENABLED)
     COLMAP_ADD_TEST(
         NAME gpu_mat_test
         SRCS gpu_mat_test.cu
-        LINK_LIBS colmap_mvs
+        LINK_LIBS
+            colmap_mvs
+            colmap_mvs_cuda
     )
 endif()

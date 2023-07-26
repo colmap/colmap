@@ -32,6 +32,8 @@
 if(IS_MSVC)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W3")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W3")
+    # Avoid pulling in too many header files through <windows.h>
+    add_definitions("-DWIN32_LEAN_AND_MEAN")
 elseif(IS_GNU OR IS_CLANG)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
@@ -45,6 +47,21 @@ elseif(IS_GNU OR IS_CLANG)
     else()
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
     endif()
+endif()
+
+if(CUDA_ENABLED)
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --use_fast_math")
+
+    # Use a separate stream per thread to allow for concurrent kernel execution
+    # between multiple threads on the same device.
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --default-stream per-thread")
+
+    # Suppress warnings:
+    # ptxas warning : Stack size for entry function X cannot be statically determined.
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-suppress-stack-size-warning")
+
+    # Fix for Ubuntu 16.04.
+    add_definitions("-D_MWAITXINTRIN_H_INCLUDED")
 endif()
 
 add_subdirectory(controllers)
@@ -64,42 +81,4 @@ add_subdirectory(tools)
 add_subdirectory(util)
 if (GUI_ENABLED)
     add_subdirectory(ui)
-endif()
-
-# COLMAP_ADD_LIBRARY(
-#     NAME colmap
-#     SRCS colmap_lib.cc)
-
-if(CUDA_ENABLED)
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --use_fast_math")
-
-    # Use a separate stream per thread to allow for concurrent kernel execution
-    # between multiple threads on the same device.
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --default-stream per-thread")
-
-    # Suppress warnings:
-    # ptxas warning : Stack size for entry function X cannot be statically determined.
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-suppress-stack-size-warning")
-
-    # Fix for Ubuntu 16.04.
-    add_definitions("-D_MWAITXINTRIN_H_INCLUDED")
-
-    if(MSVC)
-        # Avoid pulling in too many header files through <windows.h>
-        add_definitions("-DWIN32_LEAN_AND_MEAN")
-    endif()
-
-    # COLMAP_ADD_LIBRARY(
-    #     NAME colmap_cuda
-    #     SRCS ${COLMAP_CUDA_SOURCES}
-    #     PRIVATE_LINK_LIBS
-    #         CUDA::cudart
-    #         CUDA::curand
-    #         colmap
-    # )
-    # target_link_libraries(colmap
-    #     colmap_cuda ${COLMAP_INTERNAL_LIBRARIES} ${COLMAP_EXTERNAL_LIBRARIES})
-else()
-    # target_link_libraries(colmap
-    #     ${COLMAP_INTERNAL_LIBRARIES} ${COLMAP_EXTERNAL_LIBRARIES})
 endif()
