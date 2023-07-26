@@ -312,15 +312,12 @@ with the source code ``hello_world.cc``::
     int main(int argc, char** argv) {
         colmap::InitializeGlog(argv);
 
-        std::string input_path;
-        std::string output_path;
-
+        std::string message;
         colmap::OptionManager options;
-        options.AddRequiredOption("input_path", &input_path);
-        options.AddRequiredOption("output_path", &output_path);
+        options.AddRequiredOption("message", &message);
         options.Parse(argc, argv);
 
-        std::cout << colmap::StringPrintf("Hello %s!", "COLMAP") << std::endl;
+        std::cout << colmap::StringPrintf("Hello %s!", message.c_str()) << std::endl;
 
         return EXIT_SUCCESS;
     }
@@ -332,7 +329,7 @@ Then compile and run your code as::
     export colmap_DIR=${CMAKE_INSTALL_PREFIX}/share/colmap
     cmake .. -GNinja
     ninja
-    ./hello_world
+    ./hello_world --message "world"
 
 The sources of this example are stored under ``doc/sample-project``.
 
