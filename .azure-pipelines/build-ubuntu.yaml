@@ -106,17 +106,31 @@ jobs:
     condition: ne(variables.CCACHE_RESTORED, 'true')
 
   - script: |
+      set -x
       cmake --version
       mkdir build
       cd build
       cmake .. \
         -GNinja \
         -DCMAKE_BUILD_TYPE=${{ parameters.cmakeBuildType }} \
+        -DCMAKE_INSTALL_PREFIX=./install
         -DTESTS_ENABLED=ON \
         -DCMAKE_CUDA_ARCHITECTURES=50 \
         -DASAN_ENABLED=${{ parameters.asanEnabled }}
       ninja -k $(numAllowedNinjaErrors)
-    displayName: Configure and build
+    displayName: Configure and build colmap
+
+  - script: |
+      set -x
+      cd build
+      ninja install
+      cd ../doc/sample-project
+      mkdir build
+      cd build
+      colmap_DIR=$(Build.SourcesDirectory)/build/install/share/colmap cmake .. -GNinja
+      ninja
+      ./hello_world
+    displayName: Install and build sample project
 
   - ${{ if ne(parameters.cmakeBuildType, 'ClangTidy') }}:
     - script: |

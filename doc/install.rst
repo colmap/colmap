@@ -293,7 +293,7 @@ using the following ``CMakeLists.txt``::
 
     cmake_minimum_required(VERSION 3.10)
 
-    project(TestProject)
+    project(SampleProject)
 
     find_package(colmap REQUIRED)
     # or to require a specific version: find_package(colmap 3.4 REQUIRED)
@@ -333,6 +333,8 @@ Then compile and run your code as::
     cmake .. -GNinja
     ninja
     ./hello_world
+
+The sources of this example are stored under ``doc/sample-project``.
 
 ----------------
 AddressSanitizer
