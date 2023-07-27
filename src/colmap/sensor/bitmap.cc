@@ -36,7 +36,7 @@
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
 
-#include "lib/VLFeat/imopv.h"
+#include "thirdparty/VLFeat/imopv.h"
 
 #include <regex>
 #include <unordered_map>

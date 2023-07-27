@@ -50,8 +50,8 @@
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
 
-#include "lib/PoissonRecon/PoissonRecon.h"
-#include "lib/PoissonRecon/SurfaceTrimmer.h"
+#include "thirdparty/PoissonRecon/PoissonRecon.h"
+#include "thirdparty/PoissonRecon/SurfaceTrimmer.h"
 
 #if defined(COLMAP_CGAL_ENABLED)
 

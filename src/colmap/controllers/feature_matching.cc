@@ -37,7 +37,7 @@
 #include "colmap/util/cuda.h"
 #include "colmap/util/misc.h"
 
-#include "lib/SiftGPU/SiftGPU.h"
+#include "thirdparty/SiftGPU/SiftGPU.h"
 
 #include <fstream>
 #include <numeric>

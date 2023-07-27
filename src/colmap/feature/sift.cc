@@ -42,9 +42,9 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 
-#include "lib/SiftGPU/SiftGPU.h"
-#include "lib/VLFeat/covdet.h"
-#include "lib/VLFeat/sift.h"
+#include "thirdparty/SiftGPU/SiftGPU.h"
+#include "thirdparty/VLFeat/covdet.h"
+#include "thirdparty/VLFeat/sift.h"
 
 #include <array>
 #include <fstream>

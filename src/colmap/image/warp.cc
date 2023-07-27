@@ -33,7 +33,7 @@
 
 #include "colmap/util/logging.h"
 
-#include "lib/VLFeat/imopv.h"
+#include "thirdparty/VLFeat/imopv.h"
 
 #include <Eigen/Geometry>
 
