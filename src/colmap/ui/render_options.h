@@ -31,9 +31,9 @@
 
 #pragma once
 
-#include <iostream>
-
 #include "colmap/util/logging.h"
+
+#include <iostream>
 
 namespace colmap {
 
