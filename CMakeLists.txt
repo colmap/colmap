@@ -340,7 +340,7 @@ install(
     DESTINATION include
     FILES_MATCHING PATTERN "*.h")
 install(
-    DIRECTORY src/lib
+    DIRECTORY src/thirdparty
     DESTINATION include/colmap
     FILES_MATCHING REGEX ".*[.]h|.*[.]hpp|.*[.]inl")
 
