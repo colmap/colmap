@@ -99,6 +99,10 @@ if(CUDA_ENABLED)
                     "Using the legacy CMake module means that any installation of "
                     "COLMAP will require that the CUDA libraries are "
                     "available under LD_LIBRARY_PATH.")
+            message(STATUS "Found CUDA ")
+            message(STATUS "  Includes : ${CUDA_INCLUDE_DIRS}")
+            message(STATUS "  Libraries : ${CUDA_LIBRARIES}")
+
             enable_language(CUDA)
 
             macro(declare_imported_cuda_target module)

@@ -297,7 +297,6 @@ if(CUDA_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          colmap_util_cuda
          colmap_mvs_cuda
-         colmap_sift_gpu_cuda
     )
 endif()
 
