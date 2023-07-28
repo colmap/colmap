@@ -34,7 +34,7 @@
 #include "colmap/util/logging.h"
 
 extern "C" {
-#include "lib/LSD/lsd.h"
+#include "thirdparty/LSD/lsd.h"
 }
 
 namespace colmap {

@@ -184,18 +184,12 @@ include(GenerateVersionDefinitions)
 include_directories(src)
 link_directories(${COLMAP_LINK_DIRS})
 
-add_subdirectory(src/lib)
 add_subdirectory(src/colmap)
-
+add_subdirectory(src/thirdparty)
 
 ################################################################################
 # Generate source groups for Visual Studio, XCode, etc.
 ################################################################################
-
-COLMAP_ADD_SOURCE_DIR(src/lib/LSD LIB_LSD_SRCS *.h *.c)
-COLMAP_ADD_SOURCE_DIR(src/lib/PoissonRecon LIB_POISSON_RECON_SRCS *.h *.cpp *.inl)
-COLMAP_ADD_SOURCE_DIR(src/lib/SiftGPU LIB_SIFT_GPU_SRCS *.h *.cpp *.cu)
-COLMAP_ADD_SOURCE_DIR(src/lib/VLFeat LIB_VLFEAT_SRCS *.h *.c *.tc)
 
 COLMAP_ADD_SOURCE_DIR(src/colmap/controllers CONTROLLERS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/estimators ESTIMATORS_SRCS *.h *.cc)
@@ -214,15 +208,16 @@ COLMAP_ADD_SOURCE_DIR(src/colmap/tools TOOLS_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/ui UI_SRCS *.h *.cc)
 COLMAP_ADD_SOURCE_DIR(src/colmap/util UTIL_SRCS *.h *.cc)
 
+COLMAP_ADD_SOURCE_DIR(src/thirdparty/LSD THIRDPARTY_LSD_SRCS *.h *.c)
+COLMAP_ADD_SOURCE_DIR(src/thirdparty/PoissonRecon THIRDPARTY_POISSON_RECON_SRCS *.h *.cpp *.inl)
+COLMAP_ADD_SOURCE_DIR(src/thirdparty/SiftGPU THIRDPARTY_SIFT_GPU_SRCS *.h *.cpp *.cu)
+COLMAP_ADD_SOURCE_DIR(src/thirdparty/VLFeat THIRDPARTY_VLFEAT_SRCS *.h *.c *.tc)
+
 # Add all of the source files to a regular library target, as using a custom
 # target does not allow us to set its C++ include directories (and thus
 # intellisense can't find any of the included files).
 add_library(
     ${COLMAP_SRC_ROOT_FOLDER}
-    ${LIB_LSD_SRCS}
-    ${LIB_POISSON_RECON_SRCS}
-    ${LIB_SIFT_GPU_SRCS}
-    ${LIB_VLFEAT_SRCS}
     ${CONTROLLERS_SRCS}
     ${ESTIMATORS_SRCS}
     ${EXE_SRCS}
@@ -239,6 +234,10 @@ add_library(
     ${TOOLS_SRCS}
     ${UI_SRCS}
     ${UTIL_SRCS}
+    ${THIRDPARTY_LSD_SRCS}
+    ${THIRDPARTY_POISSON_RECON_SRCS}
+    ${THIRDPARTY_SIFT_GPU_SRCS}
+    ${THIRDPARTY_VLFEAT_SRCS}
 )
 
 # Prevent the library from being compiled automatically.
@@ -311,7 +310,7 @@ target_include_directories(
 install(
     TARGETS colmap ${COLMAP_EXPORT_LIBS}
     EXPORT colmap-targets
-    LIBRARY DESTINATION lib/)
+    LIBRARY DESTINATION thirdparty/)
 
 # Generate config and version.
 include(CMakePackageConfigHelpers)
@@ -340,7 +339,7 @@ install(
     DESTINATION include
     FILES_MATCHING PATTERN "*.h")
 install(
-    DIRECTORY src/lib
+    DIRECTORY src/thirdparty
     DESTINATION include/colmap
     FILES_MATCHING REGEX ".*[.]h|.*[.]hpp|.*[.]inl")
 

@@ -6,7 +6,7 @@ IncludeBlocks: Regroup
 IncludeCategories:
   - Regex:    '^"colmap'
     Priority: 1
-  - Regex:    '^"lib'
+  - Regex:    '^"thirdparty'
     Priority: 2
   - Regex:    '^<[[:alnum:]_]+>'
     Priority: 3

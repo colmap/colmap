@@ -91,9 +91,9 @@ License
 -------
 
 The COLMAP library is licensed under the new BSD license. Note that this text
-refers only to the license for COLMAP itself, independent of its dependencies,
-which are separately licensed. Building COLMAP with these dependencies may
-affect the resulting COLMAP license.
+refers only to the license for COLMAP itself, independent of its thirdparty
+dependencies, which are separately licensed. Building COLMAP with these
+dependencies may affect the resulting COLMAP license.
 
     Copyright (c) 2023, ETH Zurich and UNC Chapel Hill.
     All rights reserved.
