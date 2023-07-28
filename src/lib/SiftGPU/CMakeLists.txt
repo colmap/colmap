@@ -1,5 +1,21 @@
 add_definitions("-DSIFTGPU_NO_DEVIL")
 
+set(OPTIONAL_CUDA_SRCS)
+set(OPTIONAL_CUDA_LINK_LIBS)
+if(CUDA_ENABLED)
+    add_definitions("-DCUDA_SIFTGPU_ENABLED")
+    set(OPTIONAL_CUDA_SRCS
+        CuTexImage.h CuTexImage.cpp
+        ProgramCU.cu
+        ProgramCU.h
+        PyramidCU.h PyramidCU.cpp
+        SiftMatchCU.h SiftMatchCU.cpp)
+    set(OPTIONAL_CUDA_LINK_LIBS
+        CUDA::cudart
+        CUDA::curand
+    )
+endif()
+
 COLMAP_ADD_LIBRARY(
     NAME colmap_sift_gpu
     SRCS
@@ -13,26 +29,9 @@ COLMAP_ADD_LIBRARY(
         SiftGPU.h SiftGPU.cpp
         SiftMatch.h SiftMatch.cpp
         SiftPyramid.h SiftPyramid.cpp
+        ${OPTIONAL_CUDA_SRCS}
     PRIVATE_LINK_LIBS
         OpenGL::GL
         GLEW::GLEW
+        ${OPTIONAL_CUDA_LINK_LIBS}
 )
-
-if(CUDA_ENABLED)
-    add_definitions("-DCUDA_SIFTGPU_ENABLED")
-
-    COLMAP_ADD_LIBRARY(
-        NAME colmap_sift_gpu_cuda
-        SRCS
-            CuTexImage.h CuTexImage.cpp
-            ProgramCU.cu
-            ProgramCU.h
-            PyramidCU.h PyramidCU.cpp
-            SiftMatchCU.h SiftMatchCU.cpp
-        PRIVATE_LINK_LIBS
-            CUDA::cudart
-            CUDA::curand
-    )
-
-    target_link_libraries(colmap_sift_gpu PRIVATE colmap_sift_gpu_cuda)
-endif()
