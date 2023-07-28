@@ -10,14 +10,12 @@ jobs:
     DOCKER_BUILDKIT: 1
   steps:
   - bash: |
-      git_commit_id=$(git rev-parse HEAD~1)
-      echo "Extracted commit hash: $git_commit_id"
-      echo "##vso[task.setvariable variable=git_commit_id]$git_commit_id"
-    displayName: "Extract git commit hash"
+      echo "Building git commit: $(Build.SourceVersion)"
+    displayName: "Log git commit"
 
   - task: Docker@2
     displayName: Build
     inputs:
       command: build
-      arguments: --build-arg COLMAP_VERSION=$(git_commit_id) --build-arg CUDA_ARCHITECTURES=50
+      arguments: --build-arg COLMAP_GIT_COMMIT=$(Build.SourceVersion) --build-arg CUDA_ARCHITECTURES=50
       Dockerfile: docker/Dockerfile
