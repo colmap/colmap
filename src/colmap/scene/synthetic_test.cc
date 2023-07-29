@@ -121,4 +121,30 @@ TEST(SynthesizeDataset, MultiReconstruction) {
             2 * num_image_pairs * options.num_points3D);
 }
 
+TEST(SynthesizeDataset, ExhaustiveMatches) {
+  Database database(Database::kInMemoryDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.match_config = SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE;
+  SynthesizeDataset(options, &reconstruction, &database);
+
+  const int num_image_pairs = options.num_images * (options.num_images - 1) / 2;
+  EXPECT_EQ(database.NumVerifiedImagePairs(), num_image_pairs);
+  EXPECT_EQ(database.NumInlierMatches(),
+            num_image_pairs * options.num_points3D);
+}
+
+TEST(SynthesizeDataset, ChainedMatches) {
+  Database database(Database::kInMemoryDatabasePath);
+  Reconstruction reconstruction;
+  SyntheticDatasetOptions options;
+  options.match_config = SyntheticDatasetOptions::MatchConfig::CHAINED;
+  SynthesizeDataset(options, &reconstruction, &database);
+
+  const int num_image_pairs = options.num_images * (options.num_images - 1) / 2;
+  EXPECT_EQ(database.NumVerifiedImagePairs(), num_image_pairs);
+  EXPECT_EQ(database.NumInlierMatches(),
+            (options.num_images - 1) * options.num_points3D);
+}
+
 }  // namespace colmap
