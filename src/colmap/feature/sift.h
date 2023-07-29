@@ -186,9 +186,6 @@ struct SiftMatchingOptions {
 std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
     const SiftExtractionOptions& options);
 
-bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
-                            SiftGPU* sift_gpu);
-
 // Extract SIFT features for the given image on the GPU.
 // SiftGPU must already be initialized using `CreateSiftGPU`.
 bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
