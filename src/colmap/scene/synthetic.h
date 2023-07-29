@@ -50,6 +50,14 @@ struct SyntheticDatasetOptions {
 
   int num_points2D_without_point3D = 10;
   double point2D_stddev = 0.0;
+
+  enum class MatchConfig {
+    // Exhaustive matches between all pairs of observations of a 3D point.
+    EXHAUSTIVE = 1,
+    // Chain of matches with random start/end observations.
+    CHAINED = 2,
+  };
+  MatchConfig match_config = MatchConfig::EXHAUSTIVE;
 };
 
 void SynthesizeDataset(const SyntheticDatasetOptions& options,

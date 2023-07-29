@@ -39,6 +39,87 @@
 #include <Eigen/Geometry>
 
 namespace colmap {
+namespace {
+
+void SynthesizeExhaustiveMatches(Reconstruction* reconstruction,
+                                 Database* database) {
+  const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
+  for (size_t image_idx1 = 0; image_idx1 < reg_image_ids.size(); ++image_idx1) {
+    const auto& image1 = reconstruction->Image(reg_image_ids[image_idx1]);
+    const auto num_points2D1 = image1.NumPoints2D();
+    for (size_t image_idx2 = 0; image_idx2 < image_idx1; ++image_idx2) {
+      const auto& image2 = reconstruction->Image(reg_image_ids[image_idx2]);
+      const auto num_points2D2 = image2.NumPoints2D();
+
+      TwoViewGeometry two_view_geometry;
+      two_view_geometry.config = TwoViewGeometry::CALIBRATED;
+      const Rigid3d cam2_from_cam1 =
+          image2.CamFromWorld() * Inverse(image1.CamFromWorld());
+      two_view_geometry.E = EssentialMatrixFromPose(cam2_from_cam1);
+
+      for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;
+           ++point2D_idx1) {
+        const auto& point2D1 = image1.Point2D(point2D_idx1);
+        if (!point2D1.HasPoint3D()) {
+          continue;
+        }
+        for (point2D_t point2D_idx2 = 0; point2D_idx2 < num_points2D2;
+             ++point2D_idx2) {
+          const auto& point2D2 = image2.Point2D(point2D_idx2);
+          if (point2D1.point3D_id == point2D2.point3D_id) {
+            two_view_geometry.inlier_matches.emplace_back(point2D_idx1,
+                                                          point2D_idx2);
+            break;
+          }
+        }
+      }
+
+      database->WriteTwoViewGeometry(
+          image1.ImageId(), image2.ImageId(), two_view_geometry);
+    }
+  }
+}
+
+void SynthesizeChainedMatches(Reconstruction* reconstruction,
+                              Database* database) {
+  std::unordered_map<image_pair_t, TwoViewGeometry> two_view_geometries;
+  for (const auto& point3D : reconstruction->Points3D()) {
+    std::vector<TrackElement> track_elements =
+        point3D.second.Track().Elements();
+    std::shuffle(track_elements.begin(), track_elements.end(), *PRNG);
+    for (size_t i = 1; i < track_elements.size(); ++i) {
+      const auto& prev_track_el = track_elements[i - 1];
+      const auto& curr_track_el = track_elements[i];
+      const image_pair_t pair_id = Database::ImagePairToPairId(
+          prev_track_el.image_id, curr_track_el.image_id);
+      if (Database::SwapImagePair(prev_track_el.image_id,
+                                  curr_track_el.image_id)) {
+        two_view_geometries[pair_id].inlier_matches.emplace_back(
+            curr_track_el.point2D_idx, prev_track_el.point2D_idx);
+      } else {
+        two_view_geometries[pair_id].inlier_matches.emplace_back(
+            prev_track_el.point2D_idx, curr_track_el.point2D_idx);
+      }
+    }
+  }
+
+  for (auto& two_view_geometry : two_view_geometries) {
+    image_t image_id1;
+    image_t image_id2;
+    Database::PairIdToImagePair(
+        two_view_geometry.first, &image_id1, &image_id2);
+    const auto& image1 = reconstruction->Image(image_id1);
+    const auto& image2 = reconstruction->Image(image_id2);
+    two_view_geometry.second.config = TwoViewGeometry::CALIBRATED;
+    const Rigid3d cam2_from_cam1 =
+        image2.CamFromWorld() * Inverse(image1.CamFromWorld());
+    two_view_geometry.second.E = EssentialMatrixFromPose(cam2_from_cam1);
+    database->WriteTwoViewGeometry(
+        image1.ImageId(), image2.ImageId(), two_view_geometry.second);
+  }
+}
+
+}  // namespace
 
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
                        Reconstruction* reconstruction,
@@ -147,40 +228,15 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     reconstruction->RegisterImage(image_id);
   }
 
-  const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
-  for (size_t image_idx1 = 0; image_idx1 < reg_image_ids.size(); ++image_idx1) {
-    const auto& image1 = reconstruction->Image(reg_image_ids[image_idx1]);
-    const auto num_points2D1 = image1.NumPoints2D();
-    for (size_t image_idx2 = 0; image_idx2 < image_idx1; ++image_idx2) {
-      const auto& image2 = reconstruction->Image(reg_image_ids[image_idx2]);
-      const auto num_points2D2 = image2.NumPoints2D();
-
-      TwoViewGeometry two_view_geometry;
-      two_view_geometry.config = TwoViewGeometry::CALIBRATED;
-      const Rigid3d cam2_from_cam1 =
-          image2.CamFromWorld() * Inverse(image1.CamFromWorld());
-      two_view_geometry.E = EssentialMatrixFromPose(cam2_from_cam1);
-
-      for (point2D_t point2D_idx1 = 0; point2D_idx1 < num_points2D1;
-           ++point2D_idx1) {
-        const auto& point2D1 = image1.Point2D(point2D_idx1);
-        if (!point2D1.HasPoint3D()) {
-          continue;
-        }
-        for (point2D_t point2D_idx2 = 0; point2D_idx2 < num_points2D2;
-             ++point2D_idx2) {
-          const auto& point2D2 = image2.Point2D(point2D_idx2);
-          if (point2D1.point3D_id == point2D2.point3D_id) {
-            two_view_geometry.inlier_matches.emplace_back(point2D_idx1,
-                                                          point2D_idx2);
-            break;
-          }
-        }
-      }
-
-      database->WriteTwoViewGeometry(
-          image1.ImageId(), image2.ImageId(), two_view_geometry);
-    }
+  switch (options.match_config) {
+    case SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE:
+      SynthesizeExhaustiveMatches(reconstruction, database);
+      break;
+    case SyntheticDatasetOptions::MatchConfig::CHAINED:
+      SynthesizeChainedMatches(reconstruction, database);
+      break;
+    default:
+      LOG(FATAL) << "Invalid MatchConfig specified";
   }
 
   reconstruction->UpdatePoint3DErrors();
