@@ -20,11 +20,14 @@ def download_file(url, file_path, max_retries=3):
 
 
 def check_small_errors_or_exit(
+    dataset_name,
     max_rotation_error,
     max_proj_center_error,
     expected_num_images,
     errors_csv_path,
 ):
+    print(f"Evaluating errors for {dataset_name}")
+
     error = False
     with open(errors_csv_path, "r") as fid:
         num_images = 0
@@ -140,6 +143,7 @@ def process_dataset(args, dataset_name):
 
     # Ensure discrepancy between reconstructed model and GT is small.
     check_small_errors_or_exit(
+        dataset_name,
         args.max_rotation_error,
         args.max_proj_center_error,
         expected_num_images,
