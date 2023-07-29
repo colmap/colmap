@@ -424,7 +424,7 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
  public:
   using VlSiftType = std::unique_ptr<VlSiftFilt, void (*)(VlSiftFilt*)>;
 
-  SiftCPUFeatureExtractor(const SiftExtractionOptions& options)
+  explicit SiftCPUFeatureExtractor(const SiftExtractionOptions& options)
       : options_(options), sift_(nullptr, &vl_sift_delete) {
     CHECK(options_.Check());
     CHECK(!options_.estimate_affine_shape);
@@ -615,7 +615,8 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
 
 class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
  public:
-  CovariantSiftCPUFeatureExtractor(const SiftExtractionOptions& options)
+  explicit CovariantSiftCPUFeatureExtractor(
+      const SiftExtractionOptions& options)
       : options_(options) {
     CHECK(options_.Check());
     if (options_.darkness_adaptivity) {
@@ -812,7 +813,7 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
 
 class SiftGPUFeatureExtractor : public FeatureExtractor {
  public:
-  SiftGPUFeatureExtractor(const SiftExtractionOptions& options)
+  explicit SiftGPUFeatureExtractor(const SiftExtractionOptions& options)
       : options_(options) {
     CHECK(options_.Check());
     CHECK(!options_.estimate_affine_shape);
@@ -959,21 +960,22 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
 
     const size_t num_features = static_cast<size_t>(sift_gpu_.GetFeatureNum());
 
-    std::vector<SiftKeypoint> keypoints_data(num_features);
+    keypoints_buffer_.resize(num_features);
 
     // Eigen's default is ColMajor, but SiftGPU stores result as RowMajor.
     Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
         descriptors_float(num_features, 128);
 
     // Download the extracted keypoints and descriptors.
-    sift_gpu_.GetFeatureVector(keypoints_data.data(), descriptors_float.data());
+    sift_gpu_.GetFeatureVector(keypoints_buffer_.data(),
+                               descriptors_float.data());
 
     keypoints->resize(num_features);
     for (size_t i = 0; i < num_features; ++i) {
-      (*keypoints)[i] = FeatureKeypoint(keypoints_data[i].x,
-                                        keypoints_data[i].y,
-                                        keypoints_data[i].s,
-                                        keypoints_data[i].o);
+      (*keypoints)[i] = FeatureKeypoint(keypoints_buffer_[i].x,
+                                        keypoints_buffer_[i].y,
+                                        keypoints_buffer_[i].s,
+                                        keypoints_buffer_[i].o);
     }
 
     // Save and normalize the descriptors.
@@ -994,6 +996,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
  private:
   const SiftExtractionOptions options_;
   SiftGPU sift_gpu_;
+  std::vector<SiftKeypoint> keypoints_buffer_;
 };
 
 }  // namespace
