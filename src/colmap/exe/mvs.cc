@@ -46,7 +46,7 @@ int RunDelaunayMesher(int argc, char** argv) {
                "available on your system."
             << std::endl;
   return EXIT_FAILURE;
-#else   // CGAL_ENABLED
+#else   // COLMAP_CGAL_ENABLED
   std::string input_path;
   std::string input_type = "dense";
   std::string output_path;
@@ -76,7 +76,7 @@ int RunDelaunayMesher(int argc, char** argv) {
   }
 
   return EXIT_SUCCESS;
-#endif  // CGAL_ENABLED
+#endif  // COLMAP_CGAL_ENABLED
 }
 
 int RunPatchMatchStereo(int argc, char** argv) {
@@ -85,7 +85,7 @@ int RunPatchMatchStereo(int argc, char** argv) {
                "available on your system."
             << std::endl;
   return EXIT_FAILURE;
-#else   // CUDA_ENABLED
+#else   // COLMAP_CUDA_ENABLED
   std::string workspace_path;
   std::string workspace_format = "COLMAP";
   std::string pmvs_option_name = "option-all";
@@ -121,7 +121,7 @@ int RunPatchMatchStereo(int argc, char** argv) {
   controller.Wait();
 
   return EXIT_SUCCESS;
-#endif  // CUDA_ENABLED
+#endif  // COLMAP_CUDA_ENABLED
 }
 
 int RunPoissonMesher(int argc, char** argv) {

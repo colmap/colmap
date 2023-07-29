@@ -139,7 +139,7 @@ SiftFeatureExtractor::SiftFeatureExtractor(
       gpu_indices.resize(num_cuda_devices);
       std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
     }
-#endif  // CUDA_ENABLED
+#endif  // COLMAP_CUDA_ENABLED
 
     auto sift_gpu_options = sift_options_;
     for (const auto& gpu_index : gpu_indices) {
@@ -372,19 +372,19 @@ SiftFeatureExtractorThread::SiftFeatureExtractorThread(
 }
 
 void SiftFeatureExtractorThread::Run() {
-  std::unique_ptr<SiftGPU> sift_gpu;
   if (sift_options_.use_gpu) {
 #if !defined(COLMAP_CUDA_ENABLED)
     CHECK(opengl_context_);
     CHECK(opengl_context_->MakeCurrent());
 #endif
+  }
 
-    sift_gpu = std::make_unique<SiftGPU>();
-    if (!CreateSiftGPUExtractor(sift_options_, sift_gpu.get())) {
-      std::cerr << "ERROR: SiftGPU not fully supported." << std::endl;
-      SignalInvalidSetup();
-      return;
-    }
+  std::unique_ptr<FeatureExtractor> extractor =
+      CreateSiftFeatureExtractor(sift_options_);
+  if (extractor == nullptr) {
+    std::cerr << "ERROR: Failed to create feature extractor." << std::endl;
+    SignalInvalidSetup();
+    return;
   }
 
   SignalValidSetup();
@@ -399,26 +399,9 @@ void SiftFeatureExtractorThread::Run() {
       auto& image_data = input_job.Data();
 
       if (image_data.status == ImageReader::Status::SUCCESS) {
-        bool success = false;
-        if (sift_options_.estimate_affine_shape ||
-            sift_options_.domain_size_pooling) {
-          success = ExtractCovariantSiftFeaturesCPU(sift_options_,
-                                                    image_data.bitmap,
-                                                    &image_data.keypoints,
-                                                    &image_data.descriptors);
-        } else if (sift_options_.use_gpu) {
-          success = ExtractSiftFeaturesGPU(sift_options_,
-                                           image_data.bitmap,
-                                           sift_gpu.get(),
-                                           &image_data.keypoints,
-                                           &image_data.descriptors);
-        } else {
-          success = ExtractSiftFeaturesCPU(sift_options_,
-                                           image_data.bitmap,
-                                           &image_data.keypoints,
-                                           &image_data.descriptors);
-        }
-        if (success) {
+        if (extractor->Extract(image_data.bitmap,
+                               &image_data.keypoints,
+                               &image_data.descriptors)) {
           ScaleKeypoints(
               image_data.bitmap, image_data.camera, &image_data.keypoints);
           if (camera_mask_) {

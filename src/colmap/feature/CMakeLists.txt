@@ -34,6 +34,7 @@ set(FOLDER_NAME "feature")
 COLMAP_ADD_LIBRARY(
     NAME colmap_feature
     SRCS
+        extractor.h
         sift.h sift.cc
         types.h types.cc
         utils.h utils.cc
