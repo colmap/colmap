@@ -164,10 +164,17 @@ jobs:
         python ./scripts/python/benchmark_eth3d.py \
             --workspace_path ./eth3d_benchmark \
             --colmap_path ./build/src/colmap/exe/colmap \
-            --dataset_names boulders,terrace,door \
+            --dataset_names boulders,door \
             --use_gpu false \
             --max_rotation_error 1.0 \
             --max_proj_center_error 0.05
+        python ./scripts/python/benchmark_eth3d.py \
+            --workspace_path ./eth3d_benchmark \
+            --colmap_path ./build/src/colmap/exe/colmap \
+            --dataset_names courtyard \
+            --use_gpu false \
+            --max_rotation_error 1.0 \
+            --max_proj_center_error 0.25
       displayName: Run E2E tests
 
   - script: |
