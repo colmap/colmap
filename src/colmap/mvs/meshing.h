@@ -125,7 +125,7 @@ void DenseDelaunayMeshing(const DelaunayMeshingOptions& options,
                           const std::string& input_path,
                           const std::string& output_path);
 
-#endif  // CGAL_ENABLED
+#endif  // COLMAP_CGAL_ENABLED
 
 }  // namespace mvs
 }  // namespace colmap

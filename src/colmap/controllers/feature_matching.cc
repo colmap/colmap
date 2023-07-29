@@ -709,7 +709,7 @@ SiftFeatureMatcher::SiftFeatureMatcher(const SiftMatchingOptions& options,
     gpu_indices.resize(num_cuda_devices);
     std::iota(gpu_indices.begin(), gpu_indices.end(), 0);
   }
-#endif  // CUDA_ENABLED
+#endif  // COLMAP_CUDA_ENABLED
 
   if (options_.use_gpu) {
     auto gpu_options = options_;

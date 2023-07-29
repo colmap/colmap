@@ -293,13 +293,13 @@ void AutomaticReconstructionController::RunDenseMapper() {
       patch_match_controller.Wait();
       active_thread_ = nullptr;
     }
-#else   // CUDA_ENABLED
+#else   // COLMAP_CUDA_ENABLED
     std::cout
         << std::endl
         << "WARNING: Skipping patch match stereo because CUDA is not available."
         << std::endl;
     return;
-#endif  // CUDA_ENABLED
+#endif  // COLMAP_CUDA_ENABLED
 
     if (IsStopped()) {
       return;
@@ -344,14 +344,14 @@ void AutomaticReconstructionController::RunDenseMapper() {
 #if defined(COLMAP_CGAL_ENABLED)
         mvs::DenseDelaunayMeshing(
             *option_manager_.delaunay_meshing, dense_path, meshing_path);
-#else  // CGAL_ENABLED
+#else  // COLMAP_CGAL_ENABLED
         std::cout << std::endl
                   << "WARNING: Skipping Delaunay meshing because CGAL is "
                      "not available."
                   << std::endl;
         return;
 
-#endif  // CGAL_ENABLED
+#endif  // COLMAP_CGAL_ENABLED
       }
     }
   }

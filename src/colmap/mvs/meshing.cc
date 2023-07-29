@@ -38,7 +38,7 @@
 #if defined(COLMAP_CGAL_ENABLED)
 #include <CGAL/Delaunay_triangulation_3.h>
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
-#endif  // CGAL_ENABLED
+#endif  // COLMAP_CGAL_ENABLED
 
 #include "colmap/math/graph_cut.h"
 #include "colmap/math/random.h"
@@ -90,7 +90,7 @@ struct hash<const Delaunay::Cell_handle> {
 
 }  // namespace std
 
-#endif  // CGAL_ENABLED
+#endif  // COLMAP_CGAL_ENABLED
 
 namespace colmap {
 namespace mvs {
@@ -1051,7 +1051,7 @@ void DenseDelaunayMeshing(const DelaunayMeshingOptions& options,
   timer.PrintSeconds();
 }
 
-#endif  // CGAL_ENABLED
+#endif  // COLMAP_CGAL_ENABLED
 
 }  // namespace mvs
 }  // namespace colmap
