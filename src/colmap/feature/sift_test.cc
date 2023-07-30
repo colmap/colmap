@@ -267,14 +267,14 @@ TEST(ExtractSiftFeaturesGPU, Nominal) {
 
 FeatureDescriptors CreateRandomFeatureDescriptors(const size_t num_features) {
   SetPRNGSeed(0);
-  Eigen::MatrixXf descriptors(num_features, 128);
+  FeatureDescriptorsFloat descriptors(num_features, 128);
   for (size_t i = 0; i < num_features; ++i) {
     for (size_t j = 0; j < 128; ++j) {
       descriptors(i, j) = std::pow(RandomUniformReal(0.0f, 1.0f), 2);
     }
   }
-  return FeatureDescriptorsToUnsignedByte(
-      L2NormalizeFeatureDescriptors(descriptors));
+  L2NormalizeFeatureDescriptors(&descriptors);
+  return FeatureDescriptorsToUnsignedByte(descriptors);
 }
 
 void CheckEqualMatches(const FeatureMatches& matches1,
@@ -416,10 +416,10 @@ TEST(MatchSiftFeaturesCPUFLANNvsBruteForce, Nominal) {
     descriptors2.row(49) = descriptors2.row(0);
     descriptors2(0, 0) += 50.0f;
     descriptors2.row(0) = FeatureDescriptorsToUnsignedByte(
-        L2NormalizeFeatureDescriptors(descriptors2.row(0).cast<float>()));
+        descriptors2.row(0).cast<float>().normalized());
     descriptors2(49, 0) += 100.0f;
     descriptors2.row(49) = FeatureDescriptorsToUnsignedByte(
-        L2NormalizeFeatureDescriptors(descriptors2.row(49).cast<float>()));
+        descriptors2.row(49).cast<float>().normalized());
 
     match_options.max_ratio = 0.4;
     const size_t num_matches2 = TestFLANNvsBruteForce(
@@ -702,10 +702,10 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
         descriptors2.row(49) = descriptors2.row(0);
         descriptors2(0, 0) += 50.0f;
         descriptors2.row(0) = FeatureDescriptorsToUnsignedByte(
-            L2NormalizeFeatureDescriptors(descriptors2.row(0).cast<float>()));
+            descriptors2.row(0).cast<float>().normalized());
         descriptors2(49, 0) += 100.0f;
         descriptors2.row(49) = FeatureDescriptorsToUnsignedByte(
-            L2NormalizeFeatureDescriptors(descriptors2.row(49).cast<float>()));
+            descriptors2.row(49).cast<float>().normalized());
 
         match_options.max_ratio = 0.4;
         const size_t num_matches2 =
