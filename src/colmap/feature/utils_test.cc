@@ -46,22 +46,20 @@ TEST(FeatureKeypointsToPointsVector, Nominal) {
 }
 
 TEST(L2NormalizeFeatureDescriptors, Nominal) {
-  Eigen::MatrixXf descriptors = Eigen::MatrixXf::Random(100, 128);
+  FeatureDescriptorsFloat descriptors = Eigen::MatrixXf::Random(100, 128);
   descriptors.array() += 1.0f;
-  const Eigen::MatrixXf descriptors_normalized =
-      L2NormalizeFeatureDescriptors(descriptors);
+  L2NormalizeFeatureDescriptors(&descriptors);
   for (Eigen::MatrixXf::Index r = 0; r < descriptors.rows(); ++r) {
-    EXPECT_TRUE(std::abs(descriptors_normalized.row(r).norm() - 1.0f) < 1e-6);
+    EXPECT_NEAR(descriptors.row(r).norm(), 1, 1e-6);
   }
 }
 
 TEST(L1RootNormalizeFeatureDescriptors, Nominal) {
-  Eigen::MatrixXf descriptors = Eigen::MatrixXf::Random(100, 128);
+  FeatureDescriptorsFloat descriptors = Eigen::MatrixXf::Random(100, 128);
   descriptors.array() += 1.0f;
-  const Eigen::MatrixXf descriptors_normalized =
-      L1RootNormalizeFeatureDescriptors(descriptors);
+  L1RootNormalizeFeatureDescriptors(&descriptors);
   for (Eigen::MatrixXf::Index r = 0; r < descriptors.rows(); ++r) {
-    EXPECT_TRUE(std::abs(descriptors_normalized.row(r).norm() - 1.0f) < 1e-6);
+    EXPECT_NEAR(descriptors.row(r).norm(), 1, 1e-6);
   }
 }
 

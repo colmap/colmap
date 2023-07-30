@@ -94,6 +94,8 @@ struct FeatureMatch {
 typedef std::vector<FeatureKeypoint> FeatureKeypoints;
 typedef Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
     FeatureDescriptors;
+typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+    FeatureDescriptorsFloat;
 typedef std::vector<FeatureMatch> FeatureMatches;
 
 }  // namespace colmap

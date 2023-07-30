@@ -491,6 +491,7 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
       // Extract features with different orientations per DOG level.
       size_t level_idx = 0;
       int prev_level = -1;
+      FeatureDescriptorsFloat desc(1, 128);
       for (int i = 0; i < num_keypoints; ++i) {
         if (vl_keypoints[i].is != prev_level) {
           if (i > 0) {
@@ -539,15 +540,14 @@ class SiftCPUFeatureExtractor : public FeatureExtractor {
                               vl_keypoints[i].sigma,
                               angles[o]);
           if (descriptors != nullptr) {
-            Eigen::MatrixXf desc(1, 128);
             vl_sift_calc_keypoint_descriptor(
                 sift_.get(), desc.data(), &vl_keypoints[i], angles[o]);
             if (options_.normalization ==
                 SiftExtractionOptions::Normalization::L2) {
-              desc = L2NormalizeFeatureDescriptors(desc);
+              L2NormalizeFeatureDescriptors(&desc);
             } else if (options_.normalization ==
                        SiftExtractionOptions::Normalization::L1_ROOT) {
-              desc = L1RootNormalizeFeatureDescriptors(desc);
+              L1RootNormalizeFeatureDescriptors(&desc);
             } else {
               LOG(FATAL) << "Normalization type not supported";
             }
@@ -733,8 +733,8 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
         dsp_num_scales = options_.dsp_num_scales;
       }
 
-      Eigen::Matrix<float, Eigen::Dynamic, 128, Eigen::RowMajor>
-          scaled_descriptors(dsp_num_scales, 128);
+      FeatureDescriptorsFloat descriptor(1, 128);
+      FeatureDescriptorsFloat scaled_descriptors(dsp_num_scales, 128);
 
       std::unique_ptr<VlSiftFilt, void (*)(VlSiftFilt*)> sift(
           vl_sift_new(16, 16, 1, 3, 0), &vl_sift_delete);
@@ -781,19 +781,20 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
                                       0);
         }
 
-        Eigen::Matrix<float, 1, 128> descriptor;
         if (options_.domain_size_pooling) {
           descriptor = scaled_descriptors.colwise().mean();
         } else {
           descriptor = scaled_descriptors;
         }
 
+        CHECK_EQ(descriptor.cols(), 128);
+
         if (options_.normalization ==
             SiftExtractionOptions::Normalization::L2) {
-          descriptor = L2NormalizeFeatureDescriptors(descriptor);
+          L2NormalizeFeatureDescriptors(&descriptor);
         } else if (options_.normalization ==
                    SiftExtractionOptions::Normalization::L1_ROOT) {
-          descriptor = L1RootNormalizeFeatureDescriptors(descriptor);
+          L1RootNormalizeFeatureDescriptors(&descriptor);
         } else {
           LOG(FATAL) << "Normalization type not supported";
         }
@@ -962,9 +963,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
 
     keypoints_buffer_.resize(num_features);
 
-    // Eigen's default is ColMajor, but SiftGPU stores result as RowMajor.
-    Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-        descriptors_float(num_features, 128);
+    FeatureDescriptorsFloat descriptors_float(num_features, 128);
 
     // Download the extracted keypoints and descriptors.
     sift_gpu_.GetFeatureVector(keypoints_buffer_.data(),
@@ -980,10 +979,10 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
 
     // Save and normalize the descriptors.
     if (options_.normalization == SiftExtractionOptions::Normalization::L2) {
-      descriptors_float = L2NormalizeFeatureDescriptors(descriptors_float);
+      L2NormalizeFeatureDescriptors(&descriptors_float);
     } else if (options_.normalization ==
                SiftExtractionOptions::Normalization::L1_ROOT) {
-      descriptors_float = L1RootNormalizeFeatureDescriptors(descriptors_float);
+      L1RootNormalizeFeatureDescriptors(&descriptors_float);
     } else {
       LOG(FATAL) << "Normalization type not supported";
     }
