@@ -307,7 +307,7 @@ Eigen::Vector4d ComputeEigenValue(const Eigen::Matrix3d& xxF,
   const double p = -alpha_pw2 / 12.0 - gamma;
   const double q = -alpha_pw3 / 108.0 + alpha * gamma / 3.0 - beta * beta / 8.0;
   const double helper1 = -p * p * p / 27.0;
-  const double theta2 = pow(helper1, (1.0 / 3.0));
+  const double theta2 = std::pow(helper1, (1.0 / 3.0));
   const double theta1 =
       std::sqrt(theta2) *
       std::cos((1.0 / 3.0) * std::acos((-q / 2.0) / std::sqrt(helper1)));
