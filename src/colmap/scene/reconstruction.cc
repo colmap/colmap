@@ -481,14 +481,14 @@ const class Image* Reconstruction::FindImageWithName(
   return nullptr;
 }
 
-std::vector<image_t> Reconstruction::FindCommonRegImageIds(
-    const Reconstruction& reconstruction) const {
-  std::vector<image_t> common_reg_image_ids;
+std::vector<std::pair<image_t, image_t>> Reconstruction::FindCommonRegImageIds(
+    const Reconstruction& other) const {
+  std::vector<std::pair<image_t, image_t>> common_reg_image_ids;
   for (const auto image_id : reg_image_ids_) {
-    if (reconstruction.ExistsImage(image_id) &&
-        reconstruction.IsImageRegistered(image_id)) {
-      CHECK_EQ(Image(image_id).Name(), reconstruction.Image(image_id).Name());
-      common_reg_image_ids.push_back(image_id);
+    const auto& image = Image(image_id);
+    const auto* other_image = other.FindImageWithName(image.Name());
+    if (other_image != nullptr && other_image->IsRegistered()) {
+      common_reg_image_ids.emplace_back(image_id, other_image->ImageId());
     }
   }
   return common_reg_image_ids;

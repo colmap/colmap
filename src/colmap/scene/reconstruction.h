@@ -200,8 +200,9 @@ class Reconstruction {
   const class Image* FindImageWithName(const std::string& name) const;
 
   // Find images that are both present in this and the given reconstruction.
-  std::vector<image_t> FindCommonRegImageIds(
-      const Reconstruction& reconstruction) const;
+  // Matching of images is performed based on common image names.
+  std::vector<std::pair<image_t, image_t>> FindCommonRegImageIds(
+      const Reconstruction& other) const;
 
   // Update the image identifiers to match the ones in the database by matching
   // the names of the images.

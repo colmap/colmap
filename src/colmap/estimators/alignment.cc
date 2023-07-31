@@ -259,7 +259,7 @@ bool AlignReconstructions(const Reconstruction& src_reconstruction,
   ransac.local_estimator.SetReconstructions(&src_reconstruction,
                                             &tgt_reconstruction);
 
-  const auto& common_image_ids =
+  const std::vector<std::pair<image_t, image_t>> common_image_ids =
       src_reconstruction.FindCommonRegImageIds(tgt_reconstruction);
 
   if (common_image_ids.size() < 3) {
@@ -269,8 +269,8 @@ bool AlignReconstructions(const Reconstruction& src_reconstruction,
   std::vector<const Image*> src_images(common_image_ids.size());
   std::vector<const Image*> tgt_images(common_image_ids.size());
   for (size_t i = 0; i < common_image_ids.size(); ++i) {
-    src_images[i] = &src_reconstruction.Image(common_image_ids[i]);
-    tgt_images[i] = &tgt_reconstruction.Image(common_image_ids[i]);
+    src_images[i] = &src_reconstruction.Image(common_image_ids[i].first);
+    tgt_images[i] = &tgt_reconstruction.Image(common_image_ids[i].second);
   }
 
   const auto report = ransac.Estimate(src_images, tgt_images);
@@ -312,19 +312,20 @@ std::vector<ImageAlignmentError> ComputeImageAlignmentError(
     const Reconstruction& src_reconstruction,
     const Reconstruction& tgt_reconstruction,
     const Sim3d& tgt_from_src) {
-  const std::vector<image_t> common_image_ids =
+  const std::vector<std::pair<image_t, image_t>> common_image_ids =
       src_reconstruction.FindCommonRegImageIds(tgt_reconstruction);
   const int num_common_images = common_image_ids.size();
   std::vector<ImageAlignmentError> errors;
   errors.reserve(num_common_images);
-  for (const image_t image_id : common_image_ids) {
-    const Rigid3d tgt_world_from_src_cam = Inverse(TransformCameraWorld(
-        tgt_from_src, src_reconstruction.Image(image_id).CamFromWorld()));
+  for (const auto& image_ids : common_image_ids) {
+    const auto& src_image = src_reconstruction.Image(image_ids.first);
+    const Rigid3d tgt_world_from_src_cam =
+        Inverse(TransformCameraWorld(tgt_from_src, src_image.CamFromWorld()));
     const Rigid3d tgt_world_from_tgt_cam =
-        Inverse(tgt_reconstruction.Image(image_id).CamFromWorld());
+        Inverse(tgt_reconstruction.Image(image_ids.second).CamFromWorld());
 
     ImageAlignmentError error;
-    error.image_id = image_id;
+    error.image_name = src_image.Name();
     error.rotation_error_deg =
         RadToDeg(tgt_world_from_src_cam.rotation.angularDistance(
             tgt_world_from_tgt_cam.rotation));

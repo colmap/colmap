@@ -67,7 +67,7 @@ bool AlignReconstructions(const Reconstruction& src_reconstruction,
 
 // Compute image alignment errors in the target coordinate frame.
 struct ImageAlignmentError {
-  image_t image_id = kInvalidImageId;
+  std::string image_name;
   double rotation_error_deg = -1;
   double proj_center_error = -1;
 };
