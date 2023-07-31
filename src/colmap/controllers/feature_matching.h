@@ -31,6 +31,7 @@
 
 #pragma once
 
+#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/sift.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/cache.h"
@@ -174,9 +175,6 @@ struct FeatureMatcherData {
 
 }  // namespace internal
 
-using FeatureKeypointsPtr = std::shared_ptr<FeatureKeypoints>;
-using FeatureDescriptorsPtr = std::shared_ptr<FeatureDescriptors>;
-
 // Cache for feature matching to minimize database access during matching.
 class FeatureMatcherCache {
  public:
@@ -186,8 +184,8 @@ class FeatureMatcherCache {
 
   const Camera& GetCamera(camera_t camera_id) const;
   const Image& GetImage(image_t image_id) const;
-  FeatureKeypointsPtr GetKeypoints(image_t image_id);
-  FeatureDescriptorsPtr GetDescriptors(image_t image_id);
+  std::shared_ptr<FeatureKeypoints> GetKeypoints(image_t image_id);
+  std::shared_ptr<FeatureDescriptors> GetDescriptors(image_t image_id);
   FeatureMatches GetMatches(image_t image_id1, image_t image_id2);
   std::vector<image_t> GetImageIds() const;
 
@@ -213,112 +211,45 @@ class FeatureMatcherCache {
   std::mutex database_mutex_;
   std::unordered_map<camera_t, Camera> cameras_cache_;
   std::unordered_map<image_t, Image> images_cache_;
-  std::unique_ptr<LRUCache<image_t, FeatureKeypointsPtr>> keypoints_cache_;
-  std::unique_ptr<LRUCache<image_t, FeatureDescriptorsPtr>> descriptors_cache_;
+  std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureKeypoints>>>
+      keypoints_cache_;
+  std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureDescriptors>>>
+      descriptors_cache_;
   std::unique_ptr<LRUCache<image_t, bool>> keypoints_exists_cache_;
   std::unique_ptr<LRUCache<image_t, bool>> descriptors_exists_cache_;
 };
 
-class FeatureMatcherThread : public Thread {
+class SiftFeatureMatcherKernel : public Thread {
  public:
-  FeatureMatcherThread(const SiftMatchingOptions& options,
-                       FeatureMatcherCache* cache);
+  typedef internal::FeatureMatcherData Input;
+  typedef internal::FeatureMatcherData Output;
+
+  SiftFeatureMatcherKernel(const SiftMatchingOptions& options,
+                           FeatureMatcherCache* cache,
+                           JobQueue<Input>* input_queue,
+                           JobQueue<Output>* output_queue);
 
   void SetMaxNumMatches(int max_num_matches);
 
- protected:
+ private:
+  void Run() override;
+
+  std::shared_ptr<FeatureKeypoints> GetKeypointsPtr(int index,
+                                                    image_t image_id);
+  std::shared_ptr<FeatureDescriptors> GetDescriptorsPtr(int index,
+                                                        image_t image_id);
+
   SiftMatchingOptions options_;
   FeatureMatcherCache* cache_;
-};
-
-class SiftCPUFeatureMatcher : public FeatureMatcherThread {
- public:
-  typedef internal::FeatureMatcherData Input;
-  typedef internal::FeatureMatcherData Output;
-
-  SiftCPUFeatureMatcher(const SiftMatchingOptions& options,
-                        FeatureMatcherCache* cache,
-                        JobQueue<Input>* input_queue,
-                        JobQueue<Output>* output_queue);
-
- protected:
-  void Run() override;
-
-  JobQueue<Input>* input_queue_;
-  JobQueue<Output>* output_queue_;
-};
-
-class SiftGPUFeatureMatcher : public FeatureMatcherThread {
- public:
-  typedef internal::FeatureMatcherData Input;
-  typedef internal::FeatureMatcherData Output;
-
-  SiftGPUFeatureMatcher(const SiftMatchingOptions& options,
-                        FeatureMatcherCache* cache,
-                        JobQueue<Input>* input_queue,
-                        JobQueue<Output>* output_queue);
-
- protected:
-  void Run() override;
-
-  void GetDescriptorData(int index,
-                         image_t image_id,
-                         const FeatureDescriptors** descriptors_ptr);
-
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
 
   std::unique_ptr<OpenGLContextManager> opengl_context_;
 
-  // The previously uploaded images to the GPU.
-  std::array<image_t, 2> prev_uploaded_image_ids_;
-  std::array<FeatureDescriptorsPtr, 2> prev_uploaded_descriptors_;
-};
-
-class GuidedSiftCPUFeatureMatcher : public FeatureMatcherThread {
- public:
-  typedef internal::FeatureMatcherData Input;
-  typedef internal::FeatureMatcherData Output;
-
-  GuidedSiftCPUFeatureMatcher(const SiftMatchingOptions& options,
-                              FeatureMatcherCache* cache,
-                              JobQueue<Input>* input_queue,
-                              JobQueue<Output>* output_queue);
-
- private:
-  void Run() override;
-
-  JobQueue<Input>* input_queue_;
-  JobQueue<Output>* output_queue_;
-};
-
-class GuidedSiftGPUFeatureMatcher : public FeatureMatcherThread {
- public:
-  typedef internal::FeatureMatcherData Input;
-  typedef internal::FeatureMatcherData Output;
-
-  GuidedSiftGPUFeatureMatcher(const SiftMatchingOptions& options,
-                              FeatureMatcherCache* cache,
-                              JobQueue<Input>* input_queue,
-                              JobQueue<Output>* output_queue);
-
- private:
-  void Run() override;
-
-  void GetFeatureData(int index,
-                      image_t image_id,
-                      const FeatureKeypoints** keypoints_ptr,
-                      const FeatureDescriptors** descriptors_ptr);
-
-  JobQueue<Input>* input_queue_;
-  JobQueue<Output>* output_queue_;
-
-  std::unique_ptr<OpenGLContextManager> opengl_context_;
-
-  // The previously uploaded images to the GPU.
-  std::array<image_t, 2> prev_uploaded_image_ids_;
-  std::array<FeatureKeypointsPtr, 2> prev_uploaded_keypoints_;
-  std::array<FeatureDescriptorsPtr, 2> prev_uploaded_descriptors_;
+  std::array<image_t, 2> prev_keypoints_image_ids_;
+  std::array<std::shared_ptr<FeatureKeypoints>, 2> prev_keypoints_;
+  std::array<image_t, 2> prev_descriptors_image_ids_;
+  std::array<std::shared_ptr<FeatureDescriptors>, 2> prev_descriptors_;
 };
 
 class TwoViewGeometryVerifier : public Thread {
@@ -367,8 +298,8 @@ class SiftFeatureMatcher {
 
   bool is_setup_;
 
-  std::vector<std::unique_ptr<FeatureMatcherThread>> matchers_;
-  std::vector<std::unique_ptr<FeatureMatcherThread>> guided_matchers_;
+  std::vector<std::unique_ptr<SiftFeatureMatcherKernel>> matchers_;
+  std::vector<std::unique_ptr<SiftFeatureMatcherKernel>> guided_matchers_;
   std::vector<std::unique_ptr<Thread>> verifiers_;
   std::unique_ptr<ThreadPool> thread_pool_;
 
