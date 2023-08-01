@@ -156,7 +156,7 @@ def parse_args():
     parser.add_argument("--dataset_names", required=True)
     parser.add_argument("--workspace_path", required=True)
     parser.add_argument("--colmap_path", required=True)
-    parser.add_argument("--use_gpu", action="store_true")
+    parser.add_argument("--use_gpu", default=True, action="store_true")
     parser.add_argument("--use_cpu", dest="use_gpu", action="store_false")
     parser.add_argument("--num_threads", type=int, default=-1)
     parser.add_argument("--quality", default="medium")
