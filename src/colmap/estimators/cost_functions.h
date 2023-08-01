@@ -134,6 +134,62 @@ class ReprojErrorConstantPoseCostFunction {
   const double observed_y_;
 };
 
+// Bundle adjustment cost function for variable
+// camera pose and calibration parameters, and fixed point.
+template <typename CameraModel>
+class ReprojErrorConstantPoint3DCostFunction {
+ public:
+  explicit ReprojErrorConstantPoint3DCostFunction(
+      const Eigen::Vector2d& point2D, const Eigen::Vector3d& point3D)
+      : observed_x_(point2D(0)),
+        observed_y_(point2D(1)),
+        point_x_(point3D(0)),
+        point_y_(point3D(1)),
+        point_z_(point3D(2)) {}
+
+  static ceres::CostFunction* Create(const Eigen::Vector2d& point2D,
+                                     const Eigen::Vector3d& point3D) {
+    return (new ceres::AutoDiffCostFunction<
+            ReprojErrorConstantPoint3DCostFunction<CameraModel>,
+            2,
+            4,
+            3,
+            CameraModel::kNumParams>(
+        new ReprojErrorConstantPoint3DCostFunction(point2D, point3D)));
+  }
+
+  template <typename T>
+  bool operator()(const T* const cam_from_world_rotation,
+                  const T* const cam_from_world_translation,
+                  const T* const camera_params,
+                  T* residuals) const {
+    Eigen::Matrix<T, 3, 1> point3d;
+    point3d[0] = T(point_x_);
+    point3d[1] = T(point_y_);
+    point3d[2] = T(point_z_);
+
+    Eigen::Matrix<T, 3, 1> point3D_in_cam =
+        EigenQuaternionMap<T>(cam_from_world_rotation) * point3d +
+        EigenVector3Map<T>(cam_from_world_translation);
+    CameraModel::ImgFromCam(camera_params,
+                            point3D_in_cam[0],
+                            point3D_in_cam[1],
+                            point3D_in_cam[2],
+                            &residuals[0],
+                            &residuals[1]);
+    residuals[0] -= T(observed_x_);
+    residuals[1] -= T(observed_y_);
+    return true;
+  }
+
+ private:
+  const double observed_x_;
+  const double observed_y_;
+  const double point_x_;
+  const double point_y_;
+  const double point_z_;
+};
+
 // Rig bundle adjustment cost function for variable camera pose and calibration
 // and point parameters. Different from the standard bundle adjustment function,
 // this cost function is suitable for camera rigs with consistent relative poses

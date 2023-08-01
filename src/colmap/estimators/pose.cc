@@ -240,9 +240,11 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     ceres::CostFunction* cost_function = nullptr;
 
     switch (camera->ModelId()) {
-#define CAMERA_MODEL_CASE(CameraModel)                                         \
-  case CameraModel::kModelId:                                                  \
-    cost_function = ReprojErrorCostFunction<CameraModel>::Create(points2D[i]); \
+#define CAMERA_MODEL_CASE(CameraModel)                               \
+  case CameraModel::kModelId:                                        \
+    cost_function =                                                  \
+        ReprojErrorConstantPoint3DCostFunction<CameraModel>::Create( \
+            points2D[i], points3D[i]);                               \
     break;
 
       CAMERA_MODEL_SWITCH_CASES
@@ -254,9 +256,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                              loss_function.get(),
                              rig_from_world_rotation,
                              rig_from_world_translation,
-                             points3D_copy[i].data(),
                              camera_params);
-    problem.SetParameterBlockConstant(points3D_copy[i].data());
   }
 
   if (problem.NumResiduals() > 0) {
@@ -325,8 +325,10 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   }
 
   if (problem.NumResiduals() > 0 && cam_from_world_cov != nullptr) {
-    ceres::Covariance::Options options;
-    ceres::Covariance covariance(options);
+    ceres::Covariance::Options cov_options;
+    cov_options.algorithm_type = ceres::DENSE_SVD;
+
+    ceres::Covariance covariance(cov_options);
     std::vector<const double*> parameter_blocks = {rig_from_world_rotation,
                                                    rig_from_world_translation};
     if (!covariance.Compute(parameter_blocks, &problem)) {
