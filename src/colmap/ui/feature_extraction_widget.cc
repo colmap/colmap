@@ -125,8 +125,8 @@ void SIFTExtractionWidget::Run() {
   reader_options.database_path = *options_->database_path;
   reader_options.image_path = *options_->image_path;
 
-  auto extractor = std::make_unique<SiftFeatureExtractor>(
-      reader_options, *options_->sift_extraction);
+  auto extractor = CreateFeatureExtractorController(reader_options,
+                                                    *options_->sift_extraction);
   thread_control_widget_->StartThread(
       "Extracting...", true, std::move(extractor));
 }
@@ -149,8 +149,7 @@ void ImportFeaturesWidget::Run() {
   reader_options.database_path = *options_->database_path;
   reader_options.image_path = *options_->image_path;
 
-  auto importer =
-      std::make_unique<FeatureImporter>(reader_options, import_path_);
+  auto importer = CreateFeatureImporterController(reader_options, import_path_);
   thread_control_widget_->StartThread(
       "Importing...", true, std::move(importer));
 }

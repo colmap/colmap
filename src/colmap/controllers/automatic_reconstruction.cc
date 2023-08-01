@@ -106,7 +106,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   option_manager_.sift_matching->gpu_index = options_.gpu_index;
   option_manager_.patch_match_stereo->gpu_index = options_.gpu_index;
 
-  feature_extractor_ = std::make_unique<SiftFeatureExtractor>(
+  feature_extractor_ = CreateFeatureExtractorController(
       reader_options, *option_manager_.sift_extraction);
 
   exhaustive_matcher_ =
