@@ -523,7 +523,7 @@ int RunModelComparer(int argc, char** argv) {
             << std::endl;
 
   PrintHeading1("Comparing reconstructed image poses");
-  const auto common_image_ids =
+  const std::vector<std::pair<image_t, image_t>> common_image_ids =
       reconstruction1.FindCommonRegImageIds(reconstruction2);
   std::cout << StringPrintf("Common images: %d", common_image_ids.size())
             << std::endl;
