@@ -42,12 +42,13 @@ class FeatureMatcher {
  public:
   virtual ~FeatureMatcher() = default;
 
-  // If the same matcher is used for matching multiple sets of descriptor pairs,
-  // then the caller may pass a nullptr to one of the descriptor arguments to
-  // inform the implementation that the descriptors are identical to the
-  // previous call. This allows the implementation to skip e.g. uploading data
-  // to GPU memory or pre-computing search data structures for one of the
-  // descriptors.
+  // If the same matcher is used for matching multiple pairs of feature sets,
+  // then the caller may pass a nullptr to one of the keypoint/descriptor
+  // arguments to inform the implementation that the keypoints/descriptors are
+  // identical to the previous call. This allows the implementation to skip e.g.
+  // uploading data to GPU memory or pre-computing search data structures for
+  // one of the descriptors.
+
   virtual void Match(
       const std::shared_ptr<const FeatureDescriptors>& descriptors1,
       const std::shared_ptr<const FeatureDescriptors>& descriptors2,
