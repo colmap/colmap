@@ -166,10 +166,10 @@ EssentialMatrixEightPointEstimator::Estimate(const std::vector<X_t>& points1,
   // Center and normalize image points for better numerical stability.
   std::vector<X_t> normed_points1;
   std::vector<Y_t> normed_points2;
-  Eigen::Matrix3d points1_norm_matrix;
-  Eigen::Matrix3d points2_norm_matrix;
-  CenterAndNormalizeImagePoints(points1, &normed_points1, &points1_norm_matrix);
-  CenterAndNormalizeImagePoints(points2, &normed_points2, &points2_norm_matrix);
+  Eigen::Matrix3d normed_from_orig1;
+  Eigen::Matrix3d normed_from_orig2;
+  CenterAndNormalizeImagePoints(points1, &normed_points1, &normed_from_orig1);
+  CenterAndNormalizeImagePoints(points2, &normed_points2, &normed_from_orig2);
 
   // Setup homogeneous linear equation as x2' * F * x1 = 0.
   Eigen::Matrix<double, Eigen::Dynamic, 9> cmatrix(points1.size(), 9);
@@ -188,8 +188,8 @@ EssentialMatrixEightPointEstimator::Estimate(const std::vector<X_t>& points1,
   const Eigen::Map<const Eigen::Matrix3d> ematrix_t(ematrix_nullspace.data());
 
   // De-normalize to image points.
-  const Eigen::Matrix3d E_raw = points2_norm_matrix.transpose() *
-                                ematrix_t.transpose() * points1_norm_matrix;
+  const Eigen::Matrix3d E_raw = normed_from_orig2.transpose() *
+                                ematrix_t.transpose() * normed_from_orig1;
 
   // Enforcing the internal constraint that two singular values must be equal
   // and one must be zero.

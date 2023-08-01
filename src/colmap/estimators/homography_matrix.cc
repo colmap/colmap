@@ -50,10 +50,10 @@ std::vector<HomographyMatrixEstimator::M_t> HomographyMatrixEstimator::Estimate(
   // Center and normalize image points for better numerical stability.
   std::vector<X_t> normed_points1;
   std::vector<Y_t> normed_points2;
-  Eigen::Matrix3d points1_norm_matrix;
-  Eigen::Matrix3d points2_norm_matrix;
-  CenterAndNormalizeImagePoints(points1, &normed_points1, &points1_norm_matrix);
-  CenterAndNormalizeImagePoints(points2, &normed_points2, &points2_norm_matrix);
+  Eigen::Matrix3d normed_from_orig1;
+  Eigen::Matrix3d normed_from_orig2;
+  CenterAndNormalizeImagePoints(points1, &normed_points1, &normed_from_orig1);
+  CenterAndNormalizeImagePoints(points2, &normed_points2, &normed_from_orig2);
 
   // Setup constraint matrix.
   Eigen::Matrix<double, Eigen::Dynamic, 9> A = Eigen::MatrixXd::Zero(2 * N, 9);
@@ -86,8 +86,7 @@ std::vector<HomographyMatrixEstimator::M_t> HomographyMatrixEstimator::Estimate(
   const Eigen::VectorXd nullspace = svd.matrixV().col(8);
   Eigen::Map<const Eigen::Matrix3d> H_t(nullspace.data());
 
-  return {points2_norm_matrix.inverse() * H_t.transpose() *
-          points1_norm_matrix};
+  return {normed_from_orig2.inverse() * H_t.transpose() * normed_from_orig1};
 }
 
 void HomographyMatrixEstimator::Residuals(const std::vector<X_t>& points1,

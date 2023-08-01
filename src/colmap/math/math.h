@@ -272,9 +272,9 @@ T ScaleSigmoid(T x, const T alpha, const T x0) {
 
 template <typename T1, typename T2>
 T2 TruncateCast(const T1 value) {
-  return std::min(
+  return static_cast<T2>(std::min(
       static_cast<T1>(std::numeric_limits<T2>::max()),
-      std::max(static_cast<T1>(std::numeric_limits<T2>::min()), value));
+      std::max(static_cast<T1>(std::numeric_limits<T2>::min()), value)));
 }
 
 }  // namespace colmap
