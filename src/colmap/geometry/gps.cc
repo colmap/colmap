@@ -65,13 +65,13 @@ std::vector<Eigen::Vector3d> GPSTransform::EllToXYZ(
     const double lon = DegToRad(ell[i](1));
     const double alt = ell[i](2);
 
-    const double sin_lat = sin(lat);
-    const double sin_lon = sin(lon);
-    const double cos_lat = cos(lat);
-    const double cos_lon = cos(lon);
+    const double sin_lat = std::sin(lat);
+    const double sin_lon = std::sin(lon);
+    const double cos_lat = std::cos(lat);
+    const double cos_lon = std::cos(lon);
 
     // Normalized radius
-    const double N = a_ / sqrt(1 - e2_ * sin_lat * sin_lat);
+    const double N = a_ / std::sqrt(1 - e2_ * sin_lat * sin_lat);
 
     xyz[i](0) = (N + alt) * cos_lat * cos_lon;
     xyz[i](1) = (N + alt) * cos_lat * sin_lon;
@@ -94,14 +94,14 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
     const double kEps = 1e-12;
 
     // Latitude
-    double lat = atan2(z, radius_xy);
+    double lat = std::atan2(z, radius_xy);
     double alt = 0.0;
 
     for (size_t j = 0; j < 100; ++j) {
-      const double sin_lat0 = sin(lat);
-      const double N = a_ / sqrt(1 - e2_ * sin_lat0 * sin_lat0);
+      const double sin_lat0 = std::sin(lat);
+      const double N = a_ / std::sqrt(1 - e2_ * sin_lat0 * sin_lat0);
       const double prev_alt = alt;
-      alt = radius_xy / cos(lat) - N;
+      alt = radius_xy / std::cos(lat) - N;
       const double prev_lat = lat;
       lat = std::atan((z / radius_xy) * 1 / (1 - e2_ * N / (N + alt)));
 
@@ -113,7 +113,7 @@ std::vector<Eigen::Vector3d> GPSTransform::XYZToEll(
     ell[i](0) = RadToDeg(lat);
 
     // Longitude
-    ell[i](1) = RadToDeg(atan2(y, x));
+    ell[i](1) = RadToDeg(std::atan2(y, x));
     // Alt
     ell[i](2) = alt;
   }

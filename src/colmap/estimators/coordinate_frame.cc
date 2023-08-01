@@ -347,10 +347,10 @@ void AlignToENUPlane(Reconstruction* reconstruction,
   const Eigen::Vector3d ell_centroid = gps_tform.XYZToEll({centroid}).at(0);
 
   // Create rotation matrix from ECEF to ENU coordinates
-  const double sin_lat = sin(DegToRad(ell_centroid(0)));
-  const double sin_lon = sin(DegToRad(ell_centroid(1)));
-  const double cos_lat = cos(DegToRad(ell_centroid(0)));
-  const double cos_lon = cos(DegToRad(ell_centroid(1)));
+  const double sin_lat = std::sin(DegToRad(ell_centroid(0)));
+  const double sin_lon = std::sin(DegToRad(ell_centroid(1)));
+  const double cos_lat = std::cos(DegToRad(ell_centroid(0)));
+  const double cos_lon = std::cos(DegToRad(ell_centroid(1)));
 
   // Create ECEF to ENU rotation matrix
   Eigen::Matrix3d rot_mat;
