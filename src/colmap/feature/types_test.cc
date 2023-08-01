@@ -33,8 +33,6 @@
 
 #include "colmap/math/math.h"
 
-#include <unordered_set>
-
 #include <gtest/gtest.h>
 
 namespace colmap {
@@ -64,11 +62,11 @@ TEST(FeatureKeypoints, Nominal) {
   EXPECT_EQ(keypoint.a12, 0.0f);
   EXPECT_EQ(keypoint.a21, 0.0f);
   EXPECT_EQ(keypoint.a22, 1.0f);
-  EXPECT_LT(std::abs(keypoint.ComputeScale() - 1.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleX() - 1.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleY() - 1.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeOrientation() - 0.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeShear() - 0.0f), 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScale(), 1.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleX(), 1.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleY(), 1.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeOrientation(), 0.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeShear(), 0.0f, 1e-6);
 
   keypoint = FeatureKeypoint(1, 2, 0, 0);
   EXPECT_EQ(keypoint.x, 1.0f);
@@ -85,131 +83,133 @@ TEST(FeatureKeypoints, Nominal) {
   EXPECT_EQ(keypoint.a12, 0.0f);
   EXPECT_EQ(keypoint.a21, 0.0f);
   EXPECT_EQ(keypoint.a22, 1.0f);
-  EXPECT_LT(std::abs(keypoint.ComputeScale() - 1.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleX() - 1.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleY() - 1.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeOrientation() - 0.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeShear() - 0.0f), 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScale(), 1.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleX(), 1.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleY(), 1.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeOrientation(), 0.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeShear(), 0.0f, 1e-6);
 
   keypoint = FeatureKeypoint(1, 2, 1, M_PI / 2);
   EXPECT_EQ(keypoint.x, 1.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
-  EXPECT_LT(std::abs(keypoint.a11 - 0.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a12 - -1.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a21 - 1.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a22 - 0.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScale() - 1.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleX() - 1.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleY() - 1.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeOrientation() - M_PI / 2), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeShear() - 0.0f), 1e-6);
+  EXPECT_NEAR(keypoint.a11, 0.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a12, -1.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a21, 1.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a22, 0.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScale(), 1.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleX(), 1.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleY(), 1.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeOrientation(), M_PI / 2, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeShear(), 0.0f, 1e-6);
 
   keypoint = FeatureKeypoint(1, 2, 2, M_PI / 2);
   EXPECT_EQ(keypoint.x, 1.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
-  EXPECT_LT(std::abs(keypoint.a11 - 0.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a12 - -2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a21 - 2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a22 - 0.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScale() - 2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleX() - 2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleY() - 2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeOrientation() - M_PI / 2), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeShear() - 0.0f), 1e-6);
+  EXPECT_NEAR(keypoint.a11, 0.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a12, -2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a21, 2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a22, 0.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScale(), 2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleX(), 2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleY(), 2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeOrientation(), M_PI / 2, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeShear(), 0.0f, 1e-6);
 
   keypoint = FeatureKeypoint(1, 2, 2, M_PI);
   EXPECT_EQ(keypoint.x, 1.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
-  EXPECT_LT(std::abs(keypoint.a11 - -2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a12 - 0.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a21 - 0.0), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a22 - -2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScale() - 2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleX() - 2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleY() - 2.0f), 1e-6);
+  EXPECT_NEAR(keypoint.a11, -2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a12, 0.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a21, 0.0, 1e-6);
+  EXPECT_NEAR(keypoint.a22, -2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScale(), 2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleX(), 2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleY(), 2.0f, 1e-6);
   EXPECT_TRUE(std::abs(keypoint.ComputeOrientation() - M_PI) < 1e-6 ||
               std::abs(keypoint.ComputeOrientation() + M_PI) < 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeShear() - 0.0f), 1e-6);
+  EXPECT_NEAR(keypoint.ComputeShear(), 0.0f, 1e-6);
 
-  keypoint = FeatureKeypoint::FromParameters(1, 2, 2, 2, M_PI, 0);
+  keypoint = FeatureKeypoint::FromShapeParameters(1, 2, 2, 2, M_PI, 0);
   EXPECT_EQ(keypoint.x, 1.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
-  EXPECT_LT(std::abs(keypoint.a11 - -2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a12 - 0.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a21 - 0.0), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a22 - -2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScale() - 2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleX() - 2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleY() - 2.0f), 1e-6);
+  EXPECT_NEAR(keypoint.a11, -2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a12, 0.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a21, 0.0, 1e-6);
+  EXPECT_NEAR(keypoint.a22, -2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScale(), 2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleX(), 2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleY(), 2.0f, 1e-6);
   EXPECT_TRUE(std::abs(keypoint.ComputeOrientation() - M_PI) < 1e-6 ||
               std::abs(keypoint.ComputeOrientation() + M_PI) < 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeShear() - 0.0f), 1e-6);
+  EXPECT_NEAR(keypoint.ComputeShear(), 0.0f, 1e-6);
 
-  keypoint = FeatureKeypoint::FromParameters(1, 2, 2, 3, M_PI, 0);
+  keypoint = FeatureKeypoint::FromShapeParameters(1, 2, 2, 3, M_PI, 0);
   EXPECT_EQ(keypoint.x, 1.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
-  EXPECT_LT(std::abs(keypoint.a11 - -2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a12 - 0.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a21 - 0.0), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a22 - -3.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScale() - 2.5f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleX() - 2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleY() - 3.0f), 1e-6);
+  EXPECT_NEAR(keypoint.a11, -2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a12, 0.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a21, 0.0, 1e-6);
+  EXPECT_NEAR(keypoint.a22, -3.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScale(), 2.5f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleX(), 2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleY(), 3.0f, 1e-6);
   EXPECT_TRUE(std::abs(keypoint.ComputeOrientation() - M_PI) < 1e-6 ||
               std::abs(keypoint.ComputeOrientation() + M_PI) < 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeShear() - 0.0f), 1e-6);
+  EXPECT_NEAR(keypoint.ComputeShear(), 0.0f, 1e-6);
 
-  keypoint = FeatureKeypoint::FromParameters(1, 2, 2, 3, -M_PI / 2, M_PI / 4);
+  keypoint =
+      FeatureKeypoint::FromShapeParameters(1, 2, 2, 3, -M_PI / 2, M_PI / 4);
   EXPECT_EQ(keypoint.x, 1.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
-  EXPECT_LT(std::abs(keypoint.a11 - 0.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a12 - 2.12132025f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a21 - -2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a22 - 2.12132025f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScale() - 2.5f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleX() - 2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleY() - 3.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeOrientation() - -M_PI / 2), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeShear() - M_PI / 4), 1e-6);
+  EXPECT_NEAR(keypoint.a11, 0.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a12, 2.12132025f, 1e-6);
+  EXPECT_NEAR(keypoint.a21, -2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a22, 2.12132025f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScale(), 2.5f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleX(), 2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleY(), 3.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeOrientation(), -M_PI / 2, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeShear(), M_PI / 4, 1e-6);
 
-  keypoint = FeatureKeypoint::FromParameters(1, 2, 2, 3, M_PI / 2, M_PI / 4);
+  keypoint =
+      FeatureKeypoint::FromShapeParameters(1, 2, 2, 3, M_PI / 2, M_PI / 4);
   EXPECT_EQ(keypoint.x, 1.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
-  EXPECT_LT(std::abs(keypoint.a11 - 0.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a12 - -2.12132025f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a21 - 2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a22 - -2.12132025f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScale() - 2.5f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleX() - 2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleY() - 3.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeOrientation() - M_PI / 2), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeShear() - M_PI / 4), 1e-6);
+  EXPECT_NEAR(keypoint.a11, 0.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a12, -2.12132025f, 1e-6);
+  EXPECT_NEAR(keypoint.a21, 2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a22, -2.12132025f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScale(), 2.5f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleX(), 2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleY(), 3.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeOrientation(), M_PI / 2, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeShear(), M_PI / 4, 1e-6);
 
   keypoint.Rescale(2, 2);
   EXPECT_EQ(keypoint.x, 2.0f);
   EXPECT_EQ(keypoint.y, 4.0f);
-  EXPECT_LT(std::abs(keypoint.a11 - 2 * 0.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a12 - 2 * -2.12132025f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a21 - 2 * 2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a22 - 2 * -2.12132025f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScale() - 2 * 2.5f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleX() - 2 * 2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleY() - 2 * 3.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeOrientation() - M_PI / 2), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeShear() - M_PI / 4), 1e-6);
+  EXPECT_NEAR(keypoint.a11, 2 * 0.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a12, 2 * -2.12132025f, 1e-6);
+  EXPECT_NEAR(keypoint.a21, 2 * 2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a22, 2 * -2.12132025f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScale(), 2 * 2.5f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleX(), 2 * 2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleY(), 2 * 3.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeOrientation(), M_PI / 2, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeShear(), M_PI / 4, 1e-6);
 
   keypoint.Rescale(1, 0.5);
   EXPECT_EQ(keypoint.x, 2.0f);
   EXPECT_EQ(keypoint.y, 2.0f);
-  EXPECT_LT(std::abs(keypoint.a11 - 2 * 0.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a12 - -2.12132025f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a21 - 2 * 2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.a22 - -2.12132025f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScale() - 3.5f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleX() - 2 * 2.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeScaleY() - 3.0f), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeOrientation() - M_PI / 2), 1e-6);
-  EXPECT_LT(std::abs(keypoint.ComputeShear() - M_PI / 4), 1e-6);
+  EXPECT_NEAR(keypoint.a11, 0.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a12, -2.12132025f, 1e-6);
+  EXPECT_NEAR(keypoint.a21, 4.0f, 1e-6);
+  EXPECT_NEAR(keypoint.a22, -2.12132025f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScale(), 3.5f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleX() - 2, 2.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeScaleY(), 3.0f, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeOrientation(), M_PI / 2, 1e-6);
+  EXPECT_NEAR(keypoint.ComputeShear(), M_PI / 4, 1e-6);
 }
 
 TEST(FeatureDescriptors, Nominal) {
@@ -232,22 +232,6 @@ TEST(FeatureMatches, Nominal) {
   EXPECT_EQ(matches.size(), 1);
   EXPECT_EQ(matches[0].point2D_idx1, kInvalidPoint2DIdx);
   EXPECT_EQ(matches[0].point2D_idx2, kInvalidPoint2DIdx);
-}
-
-TEST(FeatureMatchHashing, Nominal) {
-  std::unordered_set<std::pair<point2D_t, point2D_t>> set;
-  set.emplace(1, 2);
-  EXPECT_EQ(set.size(), 1);
-  set.emplace(1, 2);
-  EXPECT_EQ(set.size(), 1);
-  EXPECT_EQ(set.count(std::make_pair(0, 0)), 0);
-  EXPECT_EQ(set.count(std::make_pair(1, 2)), 1);
-  EXPECT_EQ(set.count(std::make_pair(2, 1)), 0);
-  set.emplace(2, 1);
-  EXPECT_EQ(set.size(), 2);
-  EXPECT_EQ(set.count(std::make_pair(0, 0)), 0);
-  EXPECT_EQ(set.count(std::make_pair(1, 2)), 1);
-  EXPECT_EQ(set.count(std::make_pair(2, 1)), 1);
 }
 
 }  // namespace colmap
