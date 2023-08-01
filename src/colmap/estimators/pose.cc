@@ -225,8 +225,6 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   double* rig_from_world_rotation = cam_from_world->rotation.coeffs().data();
   double* rig_from_world_translation = cam_from_world->translation.data();
 
-  std::vector<Eigen::Vector3d> points3D_copy = points3D;
-
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
   ceres::Problem problem(problem_options);
