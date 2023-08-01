@@ -45,18 +45,18 @@ struct FeatureKeypoint {
   FeatureKeypoint(float x, float y, float scale, float orientation);
   FeatureKeypoint(float x, float y, float a11, float a12, float a21, float a22);
 
-  static FeatureKeypoint FromParameters(float x,
-                                        float y,
-                                        float scale_x,
-                                        float scale_y,
-                                        float orientation,
-                                        float shear);
+  static FeatureKeypoint FromShapeParameters(float x,
+                                             float y,
+                                             float scale_x,
+                                             float scale_y,
+                                             float orientation,
+                                             float shear);
 
   // Rescale the feature location and shape size by the given scale factor.
   void Rescale(float scale);
   void Rescale(float scale_x, float scale_y);
 
-  // Compute similarity shape parameters from affine shape.
+  // Compute shape parameters from affine shape.
   float ComputeScale() const;
   float ComputeScaleX() const;
   float ComputeScaleY() const;
