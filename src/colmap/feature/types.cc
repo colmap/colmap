@@ -62,12 +62,14 @@ FeatureKeypoint::FeatureKeypoint(const float x_,
                                  const float a22_)
     : x(x_), y(y_), a11(a11_), a12(a12_), a21(a21_), a22(a22_) {}
 
-FeatureKeypoint FeatureKeypoint::FromParameters(const float x,
-                                                const float y,
-                                                const float scale_x,
-                                                const float scale_y,
-                                                const float orientation,
-                                                const float shear) {
+FeatureKeypoint FeatureKeypoint::FromShapeParameters(const float x,
+                                                     const float y,
+                                                     const float scale_x,
+                                                     const float scale_y,
+                                                     const float orientation,
+                                                     const float shear) {
+  CHECK_GE(scale_x, 0.0);
+  CHECK_GE(scale_y, 0.0);
   return FeatureKeypoint(x,
                          y,
                          scale_x * std::cos(orientation),
