@@ -109,10 +109,10 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   feature_extractor_ = std::make_unique<SiftFeatureExtractor>(
       reader_options, *option_manager_.sift_extraction);
 
-  exhaustive_matcher_ = std::make_unique<ExhaustiveFeatureMatcher>(
-      *option_manager_.exhaustive_matching,
-      *option_manager_.sift_matching,
-      *option_manager_.database_path);
+  exhaustive_matcher_ =
+      CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_matching,
+                                     *option_manager_.sift_matching,
+                                     *option_manager_.database_path);
 
   if (!options_.vocab_tree_path.empty()) {
     option_manager_.sequential_matching->loop_detection = true;
@@ -120,18 +120,18 @@ AutomaticReconstructionController::AutomaticReconstructionController(
         options_.vocab_tree_path;
   }
 
-  sequential_matcher_ = std::make_unique<SequentialFeatureMatcher>(
-      *option_manager_.sequential_matching,
-      *option_manager_.sift_matching,
-      *option_manager_.database_path);
+  sequential_matcher_ =
+      CreateSequentialFeatureMatcher(*option_manager_.sequential_matching,
+                                     *option_manager_.sift_matching,
+                                     *option_manager_.database_path);
 
   if (!options_.vocab_tree_path.empty()) {
     option_manager_.vocab_tree_matching->vocab_tree_path =
         options_.vocab_tree_path;
-    vocab_tree_matcher_ = std::make_unique<VocabTreeFeatureMatcher>(
-        *option_manager_.vocab_tree_matching,
-        *option_manager_.sift_matching,
-        *option_manager_.database_path);
+    vocab_tree_matcher_ =
+        CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_matching,
+                                      *option_manager_.sift_matching,
+                                      *option_manager_.database_path);
   }
 }
 
