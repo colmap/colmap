@@ -69,7 +69,7 @@ class ReprojErrorCostFunction {
                   const T* const point3D,
                   const T* const camera_params,
                   T* residuals) const {
-    Eigen::Matrix<T, 3, 1> point3D_in_cam =
+    const Eigen::Matrix<T, 3, 1> point3D_in_cam =
         EigenQuaternionMap<T>(cam_from_world_rotation) *
             EigenVector3Map<T>(point3D) +
         EigenVector3Map<T>(cam_from_world_translation);
@@ -114,7 +114,7 @@ class ReprojErrorConstantPoseCostFunction {
   bool operator()(const T* const point3D,
                   const T* const camera_params,
                   T* residuals) const {
-    Eigen::Matrix<T, 3, 1> point3D_in_cam =
+    const Eigen::Matrix<T, 3, 1> point3D_in_cam =
         cam_from_world_.rotation.cast<T>() * EigenVector3Map<T>(point3D) +
         cam_from_world_.translation.cast<T>();
     CameraModel::ImgFromCam(camera_params,
@@ -163,13 +163,13 @@ class ReprojErrorConstantPoint3DCostFunction {
                   const T* const cam_from_world_translation,
                   const T* const camera_params,
                   T* residuals) const {
-    Eigen::Matrix<T, 3, 1> point3d;
-    point3d[0] = T(point_x_);
-    point3d[1] = T(point_y_);
-    point3d[2] = T(point_z_);
+    Eigen::Matrix<T, 3, 1> point3D;
+    point3D[0] = T(point_x_);
+    point3D[1] = T(point_y_);
+    point3D[2] = T(point_z_);
 
-    Eigen::Matrix<T, 3, 1> point3D_in_cam =
-        EigenQuaternionMap<T>(cam_from_world_rotation) * point3d +
+    const Eigen::Matrix<T, 3, 1> point3D_in_cam =
+        EigenQuaternionMap<T>(cam_from_world_rotation) * point3D +
         EigenVector3Map<T>(cam_from_world_translation);
     CameraModel::ImgFromCam(camera_params,
                             point3D_in_cam[0],
@@ -223,7 +223,7 @@ class RigReprojErrorCostFunction {
                   const T* const point3D,
                   const T* const camera_params,
                   T* residuals) const {
-    Eigen::Matrix<T, 3, 1> point3D_in_cam =
+    const Eigen::Matrix<T, 3, 1> point3D_in_cam =
         EigenQuaternionMap<T>(cam_from_rig_rotation) *
             (EigenQuaternionMap<T>(rig_from_world_rotation) *
                  EigenVector3Map<T>(point3D) +
