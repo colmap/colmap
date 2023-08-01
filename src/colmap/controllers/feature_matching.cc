@@ -274,19 +274,19 @@ const Image& FeatureMatcherCache::GetImage(const image_t image_id) const {
 
 std::shared_ptr<FeatureKeypoints> FeatureMatcherCache::GetKeypoints(
     const image_t image_id) {
-  std::unique_lock<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(database_mutex_);
   return keypoints_cache_->Get(image_id);
 }
 
 std::shared_ptr<FeatureDescriptors> FeatureMatcherCache::GetDescriptors(
     const image_t image_id) {
-  std::unique_lock<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(database_mutex_);
   return descriptors_cache_->Get(image_id);
 }
 
 FeatureMatches FeatureMatcherCache::GetMatches(const image_t image_id1,
                                                const image_t image_id2) {
-  std::unique_lock<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(database_mutex_);
   return database_->ReadMatches(image_id1, image_id2);
 }
 
@@ -300,31 +300,31 @@ std::vector<image_t> FeatureMatcherCache::GetImageIds() const {
 }
 
 bool FeatureMatcherCache::ExistsKeypoints(const image_t image_id) {
-  std::unique_lock<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(database_mutex_);
   return keypoints_exists_cache_->Get(image_id);
 }
 
 bool FeatureMatcherCache::ExistsDescriptors(const image_t image_id) {
-  std::unique_lock<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(database_mutex_);
   return descriptors_exists_cache_->Get(image_id);
 }
 
 bool FeatureMatcherCache::ExistsMatches(const image_t image_id1,
                                         const image_t image_id2) {
-  std::unique_lock<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(database_mutex_);
   return database_->ExistsMatches(image_id1, image_id2);
 }
 
 bool FeatureMatcherCache::ExistsInlierMatches(const image_t image_id1,
                                               const image_t image_id2) {
-  std::unique_lock<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(database_mutex_);
   return database_->ExistsInlierMatches(image_id1, image_id2);
 }
 
 void FeatureMatcherCache::WriteMatches(const image_t image_id1,
                                        const image_t image_id2,
                                        const FeatureMatches& matches) {
-  std::unique_lock<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(database_mutex_);
   database_->WriteMatches(image_id1, image_id2, matches);
 }
 
@@ -332,19 +332,19 @@ void FeatureMatcherCache::WriteTwoViewGeometry(
     const image_t image_id1,
     const image_t image_id2,
     const TwoViewGeometry& two_view_geometry) {
-  std::unique_lock<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(database_mutex_);
   database_->WriteTwoViewGeometry(image_id1, image_id2, two_view_geometry);
 }
 
 void FeatureMatcherCache::DeleteMatches(const image_t image_id1,
                                         const image_t image_id2) {
-  std::unique_lock<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(database_mutex_);
   database_->DeleteMatches(image_id1, image_id2);
 }
 
 void FeatureMatcherCache::DeleteInlierMatches(const image_t image_id1,
                                               const image_t image_id2) {
-  std::unique_lock<std::mutex> lock(database_mutex_);
+  std::lock_guard<std::mutex> lock(database_mutex_);
   database_->DeleteInlierMatches(image_id1, image_id2);
 }
 
