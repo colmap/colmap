@@ -29,22 +29,28 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#pragma once
+#include "colmap/util/types.h"
 
-#include "colmap/controllers/image_reader.h"
-#include "colmap/feature/sift.h"
-#include "colmap/util/threading.h"
+#include <unordered_set>
+
+#include <gtest/gtest.h>
 
 namespace colmap {
 
-// Reads images from a folder, extracts features, and writes them to database.
-std::unique_ptr<Thread> CreateFeatureExtractorController(
-    const ImageReaderOptions& reader_options,
-    const SiftExtractionOptions& sift_options);
-
-// Import features from text files. Each image must have a corresponding text
-// file with the same name and an additional ".txt" suffix.
-std::unique_ptr<Thread> CreateFeatureImporterController(
-    const ImageReaderOptions& reader_options, const std::string& import_path);
+TEST(FeatureMatchHashing, Nominal) {
+  std::unordered_set<std::pair<point2D_t, point2D_t>> set;
+  set.emplace(1, 2);
+  EXPECT_EQ(set.size(), 1);
+  set.emplace(1, 2);
+  EXPECT_EQ(set.size(), 1);
+  EXPECT_EQ(set.count(std::make_pair(0, 0)), 0);
+  EXPECT_EQ(set.count(std::make_pair(1, 2)), 1);
+  EXPECT_EQ(set.count(std::make_pair(2, 1)), 0);
+  set.emplace(2, 1);
+  EXPECT_EQ(set.size(), 2);
+  EXPECT_EQ(set.count(std::make_pair(0, 0)), 0);
+  EXPECT_EQ(set.count(std::make_pair(1, 2)), 1);
+  EXPECT_EQ(set.count(std::make_pair(2, 1)), 1);
+}
 
 }  // namespace colmap

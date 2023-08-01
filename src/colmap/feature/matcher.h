@@ -31,20 +31,35 @@
 
 #pragma once
 
-#include "colmap/controllers/image_reader.h"
-#include "colmap/feature/sift.h"
-#include "colmap/util/threading.h"
+#include "colmap/feature/types.h"
+#include "colmap/scene/two_view_geometry.h"
+
+#include <memory>
 
 namespace colmap {
 
-// Reads images from a folder, extracts features, and writes them to database.
-std::unique_ptr<Thread> CreateFeatureExtractorController(
-    const ImageReaderOptions& reader_options,
-    const SiftExtractionOptions& sift_options);
+class FeatureMatcher {
+ public:
+  virtual ~FeatureMatcher() = default;
 
-// Import features from text files. Each image must have a corresponding text
-// file with the same name and an additional ".txt" suffix.
-std::unique_ptr<Thread> CreateFeatureImporterController(
-    const ImageReaderOptions& reader_options, const std::string& import_path);
+  // If the same matcher is used for matching multiple pairs of feature sets,
+  // then the caller may pass a nullptr to one of the keypoint/descriptor
+  // arguments to inform the implementation that the keypoints/descriptors are
+  // identical to the previous call. This allows the implementation to skip e.g.
+  // uploading data to GPU memory or pre-computing search data structures for
+  // one of the descriptors.
+
+  virtual void Match(
+      const std::shared_ptr<const FeatureDescriptors>& descriptors1,
+      const std::shared_ptr<const FeatureDescriptors>& descriptors2,
+      FeatureMatches* matches) = 0;
+
+  virtual void MatchGuided(
+      const std::shared_ptr<const FeatureKeypoints>& keypoints1,
+      const std::shared_ptr<const FeatureKeypoints>& keypoints2,
+      const std::shared_ptr<const FeatureDescriptors>& descriptors1,
+      const std::shared_ptr<const FeatureDescriptors>& descriptors2,
+      TwoViewGeometry* two_view_geometry) = 0;
+};
 
 }  // namespace colmap

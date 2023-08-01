@@ -45,18 +45,18 @@ struct FeatureKeypoint {
   FeatureKeypoint(float x, float y, float scale, float orientation);
   FeatureKeypoint(float x, float y, float a11, float a12, float a21, float a22);
 
-  static FeatureKeypoint FromParameters(float x,
-                                        float y,
-                                        float scale_x,
-                                        float scale_y,
-                                        float orientation,
-                                        float shear);
+  static FeatureKeypoint FromShapeParameters(float x,
+                                             float y,
+                                             float scale_x,
+                                             float scale_y,
+                                             float orientation,
+                                             float shear);
 
   // Rescale the feature location and shape size by the given scale factor.
   void Rescale(float scale);
   void Rescale(float scale_x, float scale_y);
 
-  // Compute similarity shape parameters from affine shape.
+  // Compute shape parameters from affine shape.
   float ComputeScale() const;
   float ComputeScaleX() const;
   float ComputeScaleY() const;
@@ -77,6 +77,11 @@ struct FeatureKeypoint {
 
 typedef Eigen::Matrix<uint8_t, 1, Eigen::Dynamic, Eigen::RowMajor>
     FeatureDescriptor;
+typedef std::vector<FeatureKeypoint> FeatureKeypoints;
+typedef Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+    FeatureDescriptors;
+typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+    FeatureDescriptorsFloat;
 
 struct FeatureMatch {
   FeatureMatch()
@@ -91,11 +96,6 @@ struct FeatureMatch {
   point2D_t point2D_idx2 = kInvalidPoint2DIdx;
 };
 
-typedef std::vector<FeatureKeypoint> FeatureKeypoints;
-typedef Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-    FeatureDescriptors;
-typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-    FeatureDescriptorsFloat;
 typedef std::vector<FeatureMatch> FeatureMatches;
 
 }  // namespace colmap

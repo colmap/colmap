@@ -383,6 +383,24 @@ TEST(Reconstruction, FindImageWithName) {
   EXPECT_TRUE(reconstruction.FindImageWithName("image3") == nullptr);
 }
 
+TEST(Reconstruction, FindCommonRegImageIds) {
+  Reconstruction reconstruction1;
+  GenerateReconstruction(5, &reconstruction1);
+  Reconstruction reconstruction2;
+  GenerateReconstruction(5, &reconstruction2);
+  reconstruction1.DeRegisterImage(1);
+  reconstruction1.Image(2).SetName("foo");
+  reconstruction2.DeRegisterImage(3);
+  reconstruction2.Image(4).SetName("bar");
+  const auto common_image_ids =
+      reconstruction1.FindCommonRegImageIds(reconstruction2);
+  ASSERT_EQ(common_image_ids.size(), 1);
+  EXPECT_EQ(common_image_ids[0].first, 5);
+  EXPECT_EQ(common_image_ids[0].second, 5);
+  EXPECT_EQ(common_image_ids,
+            reconstruction2.FindCommonRegImageIds(reconstruction1));
+}
+
 TEST(Reconstruction, FilterPoints3D) {
   Reconstruction reconstruction;
   GenerateReconstruction(2, &reconstruction);
