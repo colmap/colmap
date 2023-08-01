@@ -163,14 +163,14 @@ int RunFeatureExtractor(int argc, char** argv) {
     app.reset(new QApplication(argc, argv));
   }
 
-  SiftFeatureExtractor feature_extractor(reader_options,
-                                         *options.sift_extraction);
+  auto feature_extractor = CreateFeatureExtractorController(
+      reader_options, *options.sift_extraction);
 
   if (options.sift_extraction->use_gpu && kUseOpenGL) {
-    RunThreadWithOpenGLContext(&feature_extractor);
+    RunThreadWithOpenGLContext(feature_extractor.get());
   } else {
-    feature_extractor.Start();
-    feature_extractor.Wait();
+    feature_extractor->Start();
+    feature_extractor->Wait();
   }
 
   return EXIT_SUCCESS;
@@ -211,9 +211,10 @@ int RunFeatureImporter(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  FeatureImporter feature_importer(reader_options, import_path);
-  feature_importer.Start();
-  feature_importer.Wait();
+  auto feature_importer =
+      CreateFeatureImporterController(reader_options, import_path);
+  feature_importer->Start();
+  feature_importer->Wait();
 
   return EXIT_SUCCESS;
 }
