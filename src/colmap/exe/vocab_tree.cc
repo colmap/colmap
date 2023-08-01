@@ -35,6 +35,7 @@
 #include "colmap/controllers/option_manager.h"
 #include "colmap/feature/sift.h"
 #include "colmap/feature/utils.h"
+#include "colmap/optim/random_sampler.h"
 #include "colmap/retrieval/visual_index.h"
 #include "colmap/scene/database.h"
 #include "colmap/util/misc.h"

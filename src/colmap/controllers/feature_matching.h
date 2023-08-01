@@ -31,17 +31,11 @@
 
 #pragma once
 
-#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/sift.h"
-#include "colmap/scene/database.h"
-#include "colmap/util/cache.h"
-#include "colmap/util/opengl_utils.h"
 #include "colmap/util/threading.h"
-#include "colmap/util/timer.h"
 
-#include <array>
+#include <memory>
 #include <string>
-#include <vector>
 
 namespace colmap {
 
@@ -51,6 +45,34 @@ struct ExhaustiveMatchingOptions {
 
   bool Check() const;
 };
+
+// Exhaustively match images by processing each block in the exhaustive match
+// matrix in one batch:
+//
+// +----+----+-----------------> images[i]
+// |#000|0000|
+// |1#00|1000| <- Above the main diagonal, the block diagonal is not matched
+// |11#0|1100|                                                             ^
+// |111#|1110|                                                             |
+// +----+----+                                                             |
+// |1000|#000|\                                                            |
+// |1100|1#00| \ One block                                                 |
+// |1110|11#0| / of image pairs                                            |
+// |1111|111#|/                                                            |
+// +----+----+                                                             |
+// |  ^                                                                    |
+// |  |                                                                    |
+// | Below the main diagonal, the block diagonal is matched <--------------+
+// |
+// v
+// images[i]
+//
+// Pairs will only be matched if 1, to avoid duplicate pairs. Pairs with #
+// are on the main diagonal and denote pairs of the same image.
+std::unique_ptr<Thread> CreateExhaustiveFeatureMatcher(
+    const ExhaustiveMatchingOptions& options,
+    const SiftMatchingOptions& match_options,
+    const std::string& database_path);
 
 struct SequentialMatchingOptions {
   // Number of overlapping image pairs.
@@ -89,6 +111,29 @@ struct SequentialMatchingOptions {
   bool Check() const;
 };
 
+// Sequentially match images within neighborhood:
+//
+// +-------------------------------+-----------------------> images[i]
+//                      ^          |           ^
+//                      |   Current image[i]   |
+//                      |          |           |
+//                      +----------+-----------+
+//                                 |
+//                        Match image_i against
+//
+//                    image_[i - o, i + o]        with o = [1 .. overlap]
+//                    image_[i - 2^o, i + 2^o]    (for quadratic overlap)
+//
+// Sequential order is determined based on the image names in ascending order.
+//
+// Invoke loop detection if `(i mod loop_detection_period) == 0`, retrieve
+// most similar `loop_detection_num_images` images from vocabulary tree,
+// and perform matching and verification.
+std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
+    const SequentialMatchingOptions& options,
+    const SiftMatchingOptions& match_options,
+    const std::string& database_path);
+
 struct VocabTreeMatchingOptions {
   // Number of images to retrieve for each query image.
   int num_images = 100;
@@ -116,6 +161,12 @@ struct VocabTreeMatchingOptions {
   bool Check() const;
 };
 
+// Match each image against its nearest neighbors using a vocabulary tree.
+std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
+    const VocabTreeMatchingOptions& options,
+    const SiftMatchingOptions& match_options,
+    const std::string& database_path);
+
 struct SpatialMatchingOptions {
   // Whether the location priors in the database are GPS coordinates in
   // the form of longitude and latitude coordinates in degrees.
@@ -134,6 +185,13 @@ struct SpatialMatchingOptions {
   bool Check() const;
 };
 
+// Match images against spatial nearest neighbors using prior location
+// information, e.g. provided manually or extracted from EXIF.
+std::unique_ptr<Thread> CreateSpatialFeatureMatcher(
+    const SpatialMatchingOptions& options,
+    const SiftMatchingOptions& match_options,
+    const std::string& database_path);
+
 struct TransitiveMatchingOptions {
   // The maximum number of image pairs to process in one batch.
   int batch_size = 1000;
@@ -143,6 +201,15 @@ struct TransitiveMatchingOptions {
 
   bool Check() const;
 };
+
+// Match transitive image pairs in a database with existing feature matches.
+// This matcher transitively closes loops. For example, if image pairs A-B and
+// B-C match but A-C has not been matched, then this matcher attempts to match
+// A-C. This procedure is performed for multiple iterations.
+std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
+    const TransitiveMatchingOptions& options,
+    const SiftMatchingOptions& match_options,
+    const std::string& database_path);
 
 struct ImagePairsMatchingOptions {
   // Number of image pairs to match in one batch.
@@ -154,293 +221,6 @@ struct ImagePairsMatchingOptions {
   bool Check() const;
 };
 
-struct FeaturePairsMatchingOptions {
-  // Whether to geometrically verify the given matches.
-  bool verify_matches = true;
-
-  // Path to the file with the matches.
-  std::string match_list_path = "";
-
-  bool Check() const;
-};
-
-namespace internal {
-
-struct FeatureMatcherData {
-  image_t image_id1 = kInvalidImageId;
-  image_t image_id2 = kInvalidImageId;
-  FeatureMatches matches;
-  TwoViewGeometry two_view_geometry;
-};
-
-}  // namespace internal
-
-// Cache for feature matching to minimize database access during matching.
-class FeatureMatcherCache {
- public:
-  FeatureMatcherCache(size_t cache_size, const Database* database);
-
-  void Setup();
-
-  const Camera& GetCamera(camera_t camera_id) const;
-  const Image& GetImage(image_t image_id) const;
-  std::shared_ptr<FeatureKeypoints> GetKeypoints(image_t image_id);
-  std::shared_ptr<FeatureDescriptors> GetDescriptors(image_t image_id);
-  FeatureMatches GetMatches(image_t image_id1, image_t image_id2);
-  std::vector<image_t> GetImageIds() const;
-
-  bool ExistsKeypoints(image_t image_id);
-  bool ExistsDescriptors(image_t image_id);
-
-  bool ExistsMatches(image_t image_id1, image_t image_id2);
-  bool ExistsInlierMatches(image_t image_id1, image_t image_id2);
-
-  void WriteMatches(image_t image_id1,
-                    image_t image_id2,
-                    const FeatureMatches& matches);
-  void WriteTwoViewGeometry(image_t image_id1,
-                            image_t image_id2,
-                            const TwoViewGeometry& two_view_geometry);
-
-  void DeleteMatches(image_t image_id1, image_t image_id2);
-  void DeleteInlierMatches(image_t image_id1, image_t image_id2);
-
- private:
-  const size_t cache_size_;
-  const Database* database_;
-  std::mutex database_mutex_;
-  std::unordered_map<camera_t, Camera> cameras_cache_;
-  std::unordered_map<image_t, Image> images_cache_;
-  std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureKeypoints>>>
-      keypoints_cache_;
-  std::unique_ptr<LRUCache<image_t, std::shared_ptr<FeatureDescriptors>>>
-      descriptors_cache_;
-  std::unique_ptr<LRUCache<image_t, bool>> keypoints_exists_cache_;
-  std::unique_ptr<LRUCache<image_t, bool>> descriptors_exists_cache_;
-};
-
-class SiftFeatureMatcherKernel : public Thread {
- public:
-  typedef internal::FeatureMatcherData Input;
-  typedef internal::FeatureMatcherData Output;
-
-  SiftFeatureMatcherKernel(const SiftMatchingOptions& options,
-                           FeatureMatcherCache* cache,
-                           JobQueue<Input>* input_queue,
-                           JobQueue<Output>* output_queue);
-
-  void SetMaxNumMatches(int max_num_matches);
-
- private:
-  void Run() override;
-
-  std::shared_ptr<FeatureKeypoints> GetKeypointsPtr(int index,
-                                                    image_t image_id);
-  std::shared_ptr<FeatureDescriptors> GetDescriptorsPtr(int index,
-                                                        image_t image_id);
-
-  SiftMatchingOptions options_;
-  FeatureMatcherCache* cache_;
-  JobQueue<Input>* input_queue_;
-  JobQueue<Output>* output_queue_;
-
-  std::unique_ptr<OpenGLContextManager> opengl_context_;
-
-  std::array<image_t, 2> prev_keypoints_image_ids_;
-  std::array<std::shared_ptr<FeatureKeypoints>, 2> prev_keypoints_;
-  std::array<image_t, 2> prev_descriptors_image_ids_;
-  std::array<std::shared_ptr<FeatureDescriptors>, 2> prev_descriptors_;
-};
-
-class TwoViewGeometryVerifier : public Thread {
- public:
-  typedef internal::FeatureMatcherData Input;
-  typedef internal::FeatureMatcherData Output;
-
-  TwoViewGeometryVerifier(const SiftMatchingOptions& options,
-                          FeatureMatcherCache* cache,
-                          JobQueue<Input>* input_queue,
-                          JobQueue<Output>* output_queue);
-
- protected:
-  void Run() override;
-
-  const SiftMatchingOptions options_;
-  TwoViewGeometryOptions two_view_geometry_options_;
-  FeatureMatcherCache* cache_;
-  JobQueue<Input>* input_queue_;
-  JobQueue<Output>* output_queue_;
-};
-
-// Multi-threaded and multi-GPU SIFT feature matcher, which writes the computed
-// results to the database and skips already matched image pairs. To improve
-// performance of the matching by taking advantage of caching and database
-// transactions, pass multiple images to the `Match` function. Note that the
-// database should be in an active transaction while calling `Match`.
-class SiftFeatureMatcher {
- public:
-  SiftFeatureMatcher(const SiftMatchingOptions& options,
-                     Database* database,
-                     FeatureMatcherCache* cache);
-
-  ~SiftFeatureMatcher();
-
-  // Setup the matchers and return if successful.
-  bool Setup();
-
-  // Match one batch of multiple image pairs.
-  void Match(const std::vector<std::pair<image_t, image_t>>& image_pairs);
-
- private:
-  SiftMatchingOptions options_;
-  Database* database_;
-  FeatureMatcherCache* cache_;
-
-  bool is_setup_;
-
-  std::vector<std::unique_ptr<SiftFeatureMatcherKernel>> matchers_;
-  std::vector<std::unique_ptr<SiftFeatureMatcherKernel>> guided_matchers_;
-  std::vector<std::unique_ptr<Thread>> verifiers_;
-  std::unique_ptr<ThreadPool> thread_pool_;
-
-  JobQueue<internal::FeatureMatcherData> matcher_queue_;
-  JobQueue<internal::FeatureMatcherData> verifier_queue_;
-  JobQueue<internal::FeatureMatcherData> guided_matcher_queue_;
-  JobQueue<internal::FeatureMatcherData> output_queue_;
-};
-
-// Exhaustively match images by processing each block in the exhaustive match
-// matrix in one batch:
-//
-// +----+----+-----------------> images[i]
-// |#000|0000|
-// |1#00|1000| <- Above the main diagonal, the block diagonal is not matched
-// |11#0|1100|                                                             ^
-// |111#|1110|                                                             |
-// +----+----+                                                             |
-// |1000|#000|\                                                            |
-// |1100|1#00| \ One block                                                 |
-// |1110|11#0| / of image pairs                                            |
-// |1111|111#|/                                                            |
-// +----+----+                                                             |
-// |  ^                                                                    |
-// |  |                                                                    |
-// | Below the main diagonal, the block diagonal is matched <--------------+
-// |
-// v
-// images[i]
-//
-// Pairs will only be matched if 1, to avoid duplicate pairs. Pairs with #
-// are on the main diagonal and denote pairs of the same image.
-class ExhaustiveFeatureMatcher : public Thread {
- public:
-  ExhaustiveFeatureMatcher(const ExhaustiveMatchingOptions& options,
-                           const SiftMatchingOptions& match_options,
-                           const std::string& database_path);
-
- private:
-  void Run() override;
-
-  const ExhaustiveMatchingOptions options_;
-  const SiftMatchingOptions match_options_;
-  Database database_;
-  FeatureMatcherCache cache_;
-  SiftFeatureMatcher matcher_;
-};
-
-// Sequentially match images within neighborhood:
-//
-// +-------------------------------+-----------------------> images[i]
-//                      ^          |           ^
-//                      |   Current image[i]   |
-//                      |          |           |
-//                      +----------+-----------+
-//                                 |
-//                        Match image_i against
-//
-//                    image_[i - o, i + o]        with o = [1 .. overlap]
-//                    image_[i - 2^o, i + 2^o]    (for quadratic overlap)
-//
-// Sequential order is determined based on the image names in ascending order.
-//
-// Invoke loop detection if `(i mod loop_detection_period) == 0`, retrieve
-// most similar `loop_detection_num_images` images from vocabulary tree,
-// and perform matching and verification.
-class SequentialFeatureMatcher : public Thread {
- public:
-  SequentialFeatureMatcher(const SequentialMatchingOptions& options,
-                           const SiftMatchingOptions& match_options,
-                           const std::string& database_path);
-
- private:
-  void Run() override;
-
-  std::vector<image_t> GetOrderedImageIds() const;
-  void RunSequentialMatching(const std::vector<image_t>& image_ids);
-  void RunLoopDetection(const std::vector<image_t>& image_ids);
-
-  const SequentialMatchingOptions options_;
-  const SiftMatchingOptions match_options_;
-  Database database_;
-  FeatureMatcherCache cache_;
-  SiftFeatureMatcher matcher_;
-};
-
-// Match each image against its nearest neighbors using a vocabulary tree.
-class VocabTreeFeatureMatcher : public Thread {
- public:
-  VocabTreeFeatureMatcher(const VocabTreeMatchingOptions& options,
-                          const SiftMatchingOptions& match_options,
-                          const std::string& database_path);
-
- private:
-  void Run() override;
-
-  const VocabTreeMatchingOptions options_;
-  const SiftMatchingOptions match_options_;
-  Database database_;
-  FeatureMatcherCache cache_;
-  SiftFeatureMatcher matcher_;
-};
-
-// Match images against spatial nearest neighbors using prior location
-// information, e.g. provided manually or extracted from EXIF.
-class SpatialFeatureMatcher : public Thread {
- public:
-  SpatialFeatureMatcher(const SpatialMatchingOptions& options,
-                        const SiftMatchingOptions& match_options,
-                        const std::string& database_path);
-
- private:
-  void Run() override;
-
-  const SpatialMatchingOptions options_;
-  const SiftMatchingOptions match_options_;
-  Database database_;
-  FeatureMatcherCache cache_;
-  SiftFeatureMatcher matcher_;
-};
-
-// Match transitive image pairs in a database with existing feature matches.
-// This matcher transitively closes loops. For example, if image pairs A-B and
-// B-C match but A-C has not been matched, then this matcher attempts to match
-// A-C. This procedure is performed for multiple iterations.
-class TransitiveFeatureMatcher : public Thread {
- public:
-  TransitiveFeatureMatcher(const TransitiveMatchingOptions& options,
-                           const SiftMatchingOptions& match_options,
-                           const std::string& database_path);
-
- private:
-  void Run() override;
-
-  const TransitiveMatchingOptions options_;
-  const SiftMatchingOptions match_options_;
-  Database database_;
-  FeatureMatcherCache cache_;
-  SiftFeatureMatcher matcher_;
-};
-
 // Match images manually specified in a list of image pairs.
 //
 // Read matches file with the following format:
@@ -450,20 +230,19 @@ class TransitiveFeatureMatcher : public Thread {
 //    image_name2 image_name3
 //    ...
 //
-class ImagePairsFeatureMatcher : public Thread {
- public:
-  ImagePairsFeatureMatcher(const ImagePairsMatchingOptions& options,
-                           const SiftMatchingOptions& match_options,
-                           const std::string& database_path);
+std::unique_ptr<Thread> CreateImagePairsFeatureMatcher(
+    const ImagePairsMatchingOptions& options,
+    const SiftMatchingOptions& match_options,
+    const std::string& database_path);
 
- private:
-  void Run() override;
+struct FeaturePairsMatchingOptions {
+  // Whether to geometrically verify the given matches.
+  bool verify_matches = true;
 
-  const ImagePairsMatchingOptions options_;
-  const SiftMatchingOptions match_options_;
-  Database database_;
-  FeatureMatcherCache cache_;
-  SiftFeatureMatcher matcher_;
+  // Path to the file with the matches.
+  std::string match_list_path = "";
+
+  bool Check() const;
 };
 
 // Import feature matches from a text file.
@@ -481,21 +260,9 @@ class ImagePairsFeatureMatcher : public Thread {
 //      2 3
 //      ...
 //
-class FeaturePairsFeatureMatcher : public Thread {
- public:
-  FeaturePairsFeatureMatcher(const FeaturePairsMatchingOptions& options,
-                             const SiftMatchingOptions& match_options,
-                             const std::string& database_path);
-
- private:
-  const static size_t kCacheSize = 100;
-
-  void Run() override;
-
-  const FeaturePairsMatchingOptions options_;
-  const SiftMatchingOptions match_options_;
-  Database database_;
-  FeatureMatcherCache cache_;
-};
+std::unique_ptr<Thread> CreateFeaturePairsFeatureMatcher(
+    const FeaturePairsMatchingOptions& options,
+    const SiftMatchingOptions& match_options,
+    const std::string& database_path);
 
 }  // namespace colmap

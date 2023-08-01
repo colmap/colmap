@@ -39,6 +39,7 @@ COLMAP_ADD_LIBRARY(
         hierarchical_mapper.h hierarchical_mapper.cc
         feature_extraction.h feature_extraction.cc
         feature_matching.h feature_matching.cc
+        feature_matching_utils.h feature_matching_utils.cc
         image_reader.h image_reader.cc
         incremental_mapper.h incremental_mapper.cc
         option_manager.h option_manager.cc
