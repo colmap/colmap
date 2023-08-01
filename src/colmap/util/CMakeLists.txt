@@ -98,6 +98,11 @@ COLMAP_ADD_TEST(
     SRCS timer_test.cc
     LINK_LIBS colmap_util
 )
+COLMAP_ADD_TEST(
+    NAME types_test
+    SRCS types_test.cc
+    LINK_LIBS colmap_util
+)
 if(GUI_ENABLED)
     COLMAP_ADD_TEST(
         NAME opengl_utils_test
