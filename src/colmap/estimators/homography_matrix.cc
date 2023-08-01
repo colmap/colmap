@@ -31,8 +31,8 @@
 
 #include "colmap/estimators/homography_matrix.h"
 
-#include "colmap/base/projection.h"
 #include "colmap/estimators/utils.h"
+#include "colmap/scene/projection.h"
 #include "colmap/util/logging.h"
 
 #include <Eigen/Geometry>

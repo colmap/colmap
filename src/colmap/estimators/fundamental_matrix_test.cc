@@ -29,14 +29,13 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "estimators/fundamental_matrix"
 #include "colmap/estimators/fundamental_matrix.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
-using namespace colmap;
+namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestSevenPoint) {
+TEST(FundamentalMatrix, SevenPoint) {
   const double points1_raw[] = {0.4964,
                                 1.0577,
                                 0.3650,
@@ -80,18 +79,18 @@ BOOST_AUTO_TEST_CASE(TestSevenPoint) {
   const auto F = estimator.Estimate(points1, points2)[0];
 
   // Reference values obtained from Matlab.
-  BOOST_CHECK_CLOSE(F(0, 0), 4.81441976, 1e-6);
-  BOOST_CHECK_CLOSE(F(0, 1), -8.16978909, 1e-6);
-  BOOST_CHECK_CLOSE(F(0, 2), 6.73133404, 1e-6);
-  BOOST_CHECK_CLOSE(F(1, 0), 5.16247992, 1e-6);
-  BOOST_CHECK_CLOSE(F(1, 1), 0.19325606, 1e-6);
-  BOOST_CHECK_CLOSE(F(1, 2), -2.87239381, 1e-6);
-  BOOST_CHECK_CLOSE(F(2, 0), -9.92570126, 1e-6);
-  BOOST_CHECK_CLOSE(F(2, 1), 3.64159554, 1e-6);
-  BOOST_CHECK_CLOSE(F(2, 2), 1., 1e-6);
+  EXPECT_NEAR(F(0, 0), 4.81441976, 1e-6);
+  EXPECT_NEAR(F(0, 1), -8.16978909, 1e-6);
+  EXPECT_NEAR(F(0, 2), 6.73133404, 1e-6);
+  EXPECT_NEAR(F(1, 0), 5.16247992, 1e-6);
+  EXPECT_NEAR(F(1, 1), 0.19325606, 1e-6);
+  EXPECT_NEAR(F(1, 2), -2.87239381, 1e-6);
+  EXPECT_NEAR(F(2, 0), -9.92570126, 1e-6);
+  EXPECT_NEAR(F(2, 1), 3.64159554, 1e-6);
+  EXPECT_NEAR(F(2, 2), 1., 1e-6);
 }
 
-BOOST_AUTO_TEST_CASE(TestEightPoint) {
+TEST(FundamentalMatrix, EightPoint) {
   const double points1_raw[] = {1.839035,
                                 1.924743,
                                 0.543582,
@@ -140,13 +139,15 @@ BOOST_AUTO_TEST_CASE(TestEightPoint) {
   const auto F = estimator.Estimate(points1, points2)[0];
 
   // Reference values obtained from Matlab.
-  BOOST_CHECK(std::abs(F(0, 0) - -0.217859) < 1e-5);
-  BOOST_CHECK(std::abs(F(0, 1) - 0.419282) < 1e-5);
-  BOOST_CHECK(std::abs(F(0, 2) - -0.0343075) < 1e-5);
-  BOOST_CHECK(std::abs(F(1, 0) - -0.0717941) < 1e-5);
-  BOOST_CHECK(std::abs(F(1, 1) - 0.0451643) < 1e-5);
-  BOOST_CHECK(std::abs(F(1, 2) - 0.0216073) < 1e-5);
-  BOOST_CHECK(std::abs(F(2, 0) - 0.248062) < 1e-5);
-  BOOST_CHECK(std::abs(F(2, 1) - -0.429478) < 1e-5);
-  BOOST_CHECK(std::abs(F(2, 2) - 0.0221019) < 1e-5);
+  EXPECT_TRUE(std::abs(F(0, 0) - -0.217859) < 1e-5);
+  EXPECT_TRUE(std::abs(F(0, 1) - 0.419282) < 1e-5);
+  EXPECT_TRUE(std::abs(F(0, 2) - -0.0343075) < 1e-5);
+  EXPECT_TRUE(std::abs(F(1, 0) - -0.0717941) < 1e-5);
+  EXPECT_TRUE(std::abs(F(1, 1) - 0.0451643) < 1e-5);
+  EXPECT_TRUE(std::abs(F(1, 2) - 0.0216073) < 1e-5);
+  EXPECT_TRUE(std::abs(F(2, 0) - 0.248062) < 1e-5);
+  EXPECT_TRUE(std::abs(F(2, 1) - -0.429478) < 1e-5);
+  EXPECT_TRUE(std::abs(F(2, 2) - 0.0221019) < 1e-5);
 }
+
+}  // namespace colmap

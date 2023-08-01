@@ -29,12 +29,11 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_ESTIMATORS_TRIANGULATION_H_
-#define COLMAP_SRC_ESTIMATORS_TRIANGULATION_H_
+#pragma once
 
-#include "colmap/base/camera.h"
+#include "colmap/math/math.h"
 #include "colmap/optim/ransac.h"
-#include "colmap/util/math.h"
+#include "colmap/scene/camera.h"
 #include "colmap/util/types.h"
 
 #include <vector>
@@ -86,8 +85,8 @@ class TriangulationEstimator {
   typedef Eigen::Vector3d M_t;
 
   // Specify settings for triangulation estimator.
-  void SetMinTriAngle(const double min_tri_angle);
-  void SetResidualType(const ResidualType residual_type);
+  void SetMinTriAngle(double min_tri_angle);
+  void SetResidualType(ResidualType residual_type);
 
   // The minimum number of samples needed to estimate a model.
   static const int kMinNumSamples = 2;
@@ -146,5 +145,3 @@ bool EstimateTriangulation(
     Eigen::Vector3d* xyz);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_ESTIMATORS_TRIANGULATION_H_

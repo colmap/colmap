@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_THREADING_
-#define COLMAP_SRC_UTIL_THREADING_
+#pragma once
 
 #include "colmap/util/timer.h"
 
@@ -132,7 +131,7 @@ class Thread {
   bool CheckValidSetup();
 
   // Set callbacks that can be triggered within the main run function.
-  void AddCallback(const int id, const std::function<void()>& func);
+  void AddCallback(int id, const std::function<void()>& func);
 
   // Get timing information of the thread, properly accounting for pause times.
   const Timer& GetTimer() const;
@@ -147,10 +146,10 @@ class Thread {
   // Register a new callback. Note that only registered callbacks can be
   // set/reset and called from within the thread. Hence, this method should be
   // called from the derived thread constructor.
-  void RegisterCallback(const int id);
+  void RegisterCallback(int id);
 
   // Call back to the function with the specified name, if it exists.
-  void Callback(const int id) const;
+  void Callback(int id) const;
 
   // Get the unique identifier of the current thread.
   std::thread::id GetThreadId() const;
@@ -196,7 +195,7 @@ class ThreadPool {
  public:
   static const int kMaxNumThreads = -1;
 
-  explicit ThreadPool(const int num_threads = kMaxNumThreads);
+  explicit ThreadPool(int num_threads = kMaxNumThreads);
   ~ThreadPool();
 
   inline size_t NumThreads() const;
@@ -221,7 +220,7 @@ class ThreadPool {
   int GetThreadIndex();
 
  private:
-  void WorkerFunc(const int index);
+  void WorkerFunc(int index);
 
   std::vector<std::thread> workers_;
   std::queue<std::function<void()>> tasks_;
@@ -278,7 +277,7 @@ class JobQueue {
   };
 
   JobQueue();
-  explicit JobQueue(const size_t max_num_jobs);
+  explicit JobQueue(size_t max_num_jobs);
   ~JobQueue();
 
   // The number of pushed and not popped jobs in the queue.
@@ -311,7 +310,7 @@ class JobQueue {
 
 // Return the number of logical CPU cores if num_threads <= 0,
 // otherwise return the input value of num_threads.
-int GetEffectiveNumThreads(const int num_threads);
+int GetEffectiveNumThreads(int num_threads);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -417,5 +416,3 @@ void JobQueue<T>::Clear() {
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UTIL_THREADING_

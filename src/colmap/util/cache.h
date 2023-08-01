@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_CACHE_H_
-#define COLMAP_SRC_UTIL_CACHE_H_
+#pragma once
 
 #include "colmap/util/logging.h"
 
@@ -47,7 +46,7 @@ namespace colmap {
 template <typename key_t, typename value_t>
 class LRUCache {
  public:
-  LRUCache(const size_t max_num_elems,
+  LRUCache(size_t max_num_elems,
            const std::function<value_t(const key_t&)>& getter_func);
   virtual ~LRUCache() = default;
 
@@ -62,9 +61,8 @@ class LRUCache {
   const value_t& Get(const key_t& key);
   value_t& GetMutable(const key_t& key);
 
-  // Manually set the value of an element. Note that the ownership of the value
-  // is moved to the cache, which invalidates the object on the caller side.
-  virtual void Set(const key_t& key, value_t&& value);
+  // Manually set the value of an element.
+  virtual void Set(const key_t& key, value_t value);
 
   // Pop least recently used element from cache.
   virtual void Pop();
@@ -97,14 +95,14 @@ template <typename key_t, typename value_t>
 class MemoryConstrainedLRUCache : public LRUCache<key_t, value_t> {
  public:
   MemoryConstrainedLRUCache(
-      const size_t max_num_bytes,
+      size_t max_num_bytes,
       const std::function<value_t(const key_t&)>& getter_func);
 
   size_t NumBytes() const;
   size_t MaxNumBytes() const;
   void UpdateNumBytes(const key_t& key);
 
-  void Set(const key_t& key, value_t&& value) override;
+  void Set(const key_t& key, value_t value) override;
   void Pop() override;
   void Clear() override;
 
@@ -167,9 +165,9 @@ value_t& LRUCache<key_t, value_t>::GetMutable(const key_t& key) {
 }
 
 template <typename key_t, typename value_t>
-void LRUCache<key_t, value_t>::Set(const key_t& key, value_t&& value) {
+void LRUCache<key_t, value_t>::Set(const key_t& key, value_t value) {
   auto it = elems_map_.find(key);
-  elems_list_.push_front(key_value_pair_t(key, std::move(value)));
+  elems_list_.emplace_front(key, std::move(value));
   if (it != elems_map_.end()) {
     elems_list_.erase(it->second);
     elems_map_.erase(it);
@@ -218,16 +216,16 @@ size_t MemoryConstrainedLRUCache<key_t, value_t>::MaxNumBytes() const {
 
 template <typename key_t, typename value_t>
 void MemoryConstrainedLRUCache<key_t, value_t>::Set(const key_t& key,
-                                                    value_t&& value) {
+                                                    value_t value) {
+  const size_t num_bytes = value.NumBytes();
   auto it = elems_map_.find(key);
-  elems_list_.push_front(key_value_pair_t(key, std::move(value)));
+  elems_list_.emplace_front(key, std::move(value));
   if (it != elems_map_.end()) {
     elems_list_.erase(it->second);
     elems_map_.erase(it);
   }
   elems_map_[key] = elems_list_.begin();
 
-  const size_t num_bytes = value.NumBytes();
   num_bytes_ += num_bytes;
   elems_num_bytes_.emplace(key, num_bytes);
 
@@ -271,5 +269,3 @@ void MemoryConstrainedLRUCache<key_t, value_t>::Clear() {
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UTIL_CACHE_H_

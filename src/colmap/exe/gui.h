@@ -31,7 +31,7 @@
 
 #include <iostream>
 
-#ifdef GUI_ENABLED
+#if defined(COLMAP_GUI_ENABLED)
 #include "colmap/ui/main_window.h"
 
 #include <QApplication>
@@ -45,7 +45,7 @@ class QApplication {
 
 namespace colmap {
 
-#if defined(CUDA_ENABLED) || !defined(OPENGL_ENABLED)
+#if defined(COLMAP_CUDA_ENABLED) || !defined(COLMAP_OPENGL_ENABLED)
 const bool kUseOpenGL = false;
 #else
 const bool kUseOpenGL = true;

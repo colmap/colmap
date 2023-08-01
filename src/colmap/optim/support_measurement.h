@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_OPTIM_SUPPORT_MEASUREMENT_H_
-#define COLMAP_SRC_OPTIM_SUPPORT_MEASUREMENT_H_
+#pragma once
 
 #include <cstddef>
 #include <limits>
@@ -51,8 +50,7 @@ struct InlierSupportMeasurer {
   };
 
   // Compute the support of the residuals.
-  Support Evaluate(const std::vector<double>& residuals,
-                   const double max_residual);
+  Support Evaluate(const std::vector<double>& residuals, double max_residual);
 
   // Compare the two supports and return the better support.
   bool Compare(const Support& support1, const Support& support2);
@@ -70,13 +68,10 @@ struct MEstimatorSupportMeasurer {
   };
 
   // Compute the support of the residuals.
-  Support Evaluate(const std::vector<double>& residuals,
-                   const double max_residual);
+  Support Evaluate(const std::vector<double>& residuals, double max_residual);
 
   // Compare the two supports and return the better support.
   bool Compare(const Support& support1, const Support& support2);
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_OPTIM_SUPPORT_MEASUREMENT_H_

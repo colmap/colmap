@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_ESTIMATORS_FUNDAMENTAL_MATRIX_H_
-#define COLMAP_SRC_ESTIMATORS_FUNDAMENTAL_MATRIX_H_
+#pragma once
 
 #include "colmap/estimators/homography_matrix.h"
 #include "colmap/util/types.h"
@@ -126,5 +125,3 @@ class FundamentalMatrixEightPointEstimator {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_ESTIMATORS_FUNDAMENTAL_MATRIX_H_

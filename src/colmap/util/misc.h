@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_MISC_H_
-#define COLMAP_SRC_UTIL_MISC_H_
+#pragma once
 
 #include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
@@ -114,7 +113,7 @@ void PrintHeading2(const std::string& heading);
 
 // Check if vector contains elements.
 template <typename T>
-bool VectorContainsValue(const std::vector<T>& vector, const T value);
+bool VectorContainsValue(const std::vector<T>& vector, T value);
 
 template <typename T>
 bool VectorContainsDuplicateValues(const std::vector<T>& vector);
@@ -197,5 +196,3 @@ void WriteBinaryBlob(const std::string& path, const std::vector<T>& data) {
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UTIL_MISC_H_

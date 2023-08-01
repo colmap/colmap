@@ -35,26 +35,25 @@
 #include <unordered_map>
 #include <vector>
 
-#ifdef CGAL_ENABLED
+#if defined(COLMAP_CGAL_ENABLED)
 #include <CGAL/Delaunay_triangulation_3.h>
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
-#endif  // CGAL_ENABLED
+#endif  // COLMAP_CGAL_ENABLED
 
-#include "colmap/base/graph_cut.h"
-#include "colmap/base/reconstruction.h"
+#include "colmap/math/graph_cut.h"
+#include "colmap/math/random.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/misc.h"
-#include "colmap/util/option_manager.h"
 #include "colmap/util/ply.h"
-#include "colmap/util/random.h"
 #include "colmap/util/threading.h"
 #include "colmap/util/timer.h"
 
-#include "lib/PoissonRecon/PoissonRecon.h"
-#include "lib/PoissonRecon/SurfaceTrimmer.h"
+#include "thirdparty/PoissonRecon/PoissonRecon.h"
+#include "thirdparty/PoissonRecon/SurfaceTrimmer.h"
 
-#ifdef CGAL_ENABLED
+#if defined(COLMAP_CGAL_ENABLED)
 
 typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
 typedef CGAL::Delaunay_triangulation_3<K, CGAL::Fast_location> Delaunay;
@@ -91,7 +90,7 @@ struct hash<const Delaunay::Cell_handle> {
 
 }  // namespace std
 
-#endif  // CGAL_ENABLED
+#endif  // COLMAP_CGAL_ENABLED
 
 namespace colmap {
 namespace mvs {
@@ -147,7 +146,7 @@ bool PoissonMeshing(const PoissonMeshingOptions& options,
     args.push_back(std::to_string(options.color));
   }
 
-#ifdef OPENMP_ENABLED
+#if defined(COLMAP_OPENMP_ENABLED)
   if (options.num_threads > 0) {
     args.push_back("--threads");
     args.push_back(std::to_string(options.num_threads));
@@ -196,7 +195,7 @@ bool PoissonMeshing(const PoissonMeshingOptions& options,
                         const_cast<char**>(args_cstr.data())) == EXIT_SUCCESS;
 }
 
-#ifdef CGAL_ENABLED
+#if defined(COLMAP_CGAL_ENABLED)
 
 K::Point_3 EigenToCGAL(const Eigen::Vector3f& point) {
   return K::Point_3(point.x(), point.y(), point.z());
@@ -250,13 +249,13 @@ class DelaunayMeshingInput {
       const auto& image = reconstruction.Image(image_id);
       DelaunayMeshingInput::Image input_image;
       input_image.camera_id = image.CameraId();
-      input_image.proj_matrix = image.ProjectionMatrix().cast<float>();
+      input_image.proj_matrix = image.CamFromWorld().ToMatrix().cast<float>();
       input_image.proj_center = image.ProjectionCenter().cast<float>();
       input_image.point_idxs.reserve(image.NumPoints3D());
       for (const auto& point2D : image.Points2D()) {
         if (point2D.HasPoint3D()) {
           input_image.point_idxs.push_back(
-              point_id_to_idx.at(point2D.Point3DId()));
+              point_id_to_idx.at(point2D.point3D_id));
         }
       }
       images.push_back(input_image);
@@ -275,7 +274,7 @@ class DelaunayMeshingInput {
         const auto& image = reconstruction.Image(image_id);
         DelaunayMeshingInput::Image input_image;
         input_image.camera_id = image.CameraId();
-        input_image.proj_matrix = image.ProjectionMatrix().cast<float>();
+        input_image.proj_matrix = image.CamFromWorld().ToMatrix().cast<float>();
         input_image.proj_center = image.ProjectionCenter().cast<float>();
         images.push_back(input_image);
       }
@@ -394,10 +393,10 @@ class DelaunayMeshingInput {
 
           // Check reprojection error between the two points.
           const Eigen::Vector2f point_proj =
-              camera.WorldToImage(point_local.hnormalized().cast<double>())
+              camera.ImgFromCam(point_local.hnormalized().cast<double>())
                   .cast<float>();
           const Eigen::Vector2f cell_point_proj =
-              camera.WorldToImage(cell_point_local.hnormalized().cast<double>())
+              camera.ImgFromCam(cell_point_local.hnormalized().cast<double>())
                   .cast<float>();
           const float squared_proj_dist =
               (point_proj - cell_point_proj).squaredNorm();
@@ -490,7 +489,7 @@ struct DelaunayTriangulationRayCaster {
     double target_distance_squared = 0.0;
   };
 
-  DelaunayTriangulationRayCaster(const Delaunay& triangulation)
+  explicit DelaunayTriangulationRayCaster(const Delaunay& triangulation)
       : triangulation_(triangulation) {
     FindHullFacets();
   }
@@ -690,7 +689,7 @@ void WriteDelaunayTriangulationPly(const std::string& path,
 
 struct DelaunayCellData {
   DelaunayCellData() : DelaunayCellData(-1) {}
-  DelaunayCellData(const int index)
+  explicit DelaunayCellData(const int index)
       : index(index),
         source_weight(0),
         sink_weight(0),
@@ -1052,7 +1051,7 @@ void DenseDelaunayMeshing(const DelaunayMeshingOptions& options,
   timer.PrintSeconds();
 }
 
-#endif  // CGAL_ENABLED
+#endif  // COLMAP_CGAL_ENABLED
 
 }  // namespace mvs
 }  // namespace colmap

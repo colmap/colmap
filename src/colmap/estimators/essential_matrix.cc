@@ -31,10 +31,10 @@
 
 #include "colmap/estimators/essential_matrix.h"
 
-#include "colmap/base/polynomial.h"
 #include "colmap/estimators/utils.h"
+#include "colmap/math/math.h"
+#include "colmap/math/polynomial.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/math.h"
 
 #include <complex>
 

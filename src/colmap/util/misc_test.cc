@@ -29,195 +29,196 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "util/misc"
 #include "colmap/util/misc.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
-using namespace colmap;
+namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestEnsureTrailingSlash) {
-  BOOST_CHECK_EQUAL(EnsureTrailingSlash(""), "/");
-  BOOST_CHECK_EQUAL(EnsureTrailingSlash("/"), "/");
-  BOOST_CHECK_EQUAL(EnsureTrailingSlash("////"), "////");
-  BOOST_CHECK_EQUAL(EnsureTrailingSlash("test"), "test/");
-  BOOST_CHECK_EQUAL(EnsureTrailingSlash("/test"), "/test/");
+TEST(EnsureTrailingSlash, Nominal) {
+  EXPECT_EQ(EnsureTrailingSlash(""), "/");
+  EXPECT_EQ(EnsureTrailingSlash("/"), "/");
+  EXPECT_EQ(EnsureTrailingSlash("////"), "////");
+  EXPECT_EQ(EnsureTrailingSlash("test"), "test/");
+  EXPECT_EQ(EnsureTrailingSlash("/test"), "/test/");
 }
 
-BOOST_AUTO_TEST_CASE(TestHasFileExtension) {
-  BOOST_CHECK_EQUAL(HasFileExtension("", ".jpg"), false);
-  BOOST_CHECK_EQUAL(HasFileExtension("testjpg", ".jpg"), false);
-  BOOST_CHECK_EQUAL(HasFileExtension("test.jpg", ".jpg"), true);
-  BOOST_CHECK_EQUAL(HasFileExtension("test.jpg", ".Jpg"), true);
-  BOOST_CHECK_EQUAL(HasFileExtension("test.jpg", ".JPG"), true);
-  BOOST_CHECK_EQUAL(HasFileExtension("test.", "."), true);
+TEST(HasFileExtension, Nominal) {
+  EXPECT_FALSE(HasFileExtension("", ".jpg"));
+  EXPECT_FALSE(HasFileExtension("testjpg", ".jpg"));
+  EXPECT_TRUE(HasFileExtension("test.jpg", ".jpg"));
+  EXPECT_TRUE(HasFileExtension("test.jpg", ".Jpg"));
+  EXPECT_TRUE(HasFileExtension("test.jpg", ".JPG"));
+  EXPECT_TRUE(HasFileExtension("test.", "."));
 }
 
-BOOST_AUTO_TEST_CASE(TestSplitFileExtension) {
+TEST(SplitFileExtension, Nominal) {
   std::string root;
   std::string ext;
   SplitFileExtension("", &root, &ext);
-  BOOST_CHECK_EQUAL(root, "");
-  BOOST_CHECK_EQUAL(ext, "");
+  EXPECT_EQ(root, "");
+  EXPECT_EQ(ext, "");
   SplitFileExtension(".", &root, &ext);
-  BOOST_CHECK_EQUAL(root, "");
-  BOOST_CHECK_EQUAL(ext, "");
+  EXPECT_EQ(root, "");
+  EXPECT_EQ(ext, "");
   SplitFileExtension("file", &root, &ext);
-  BOOST_CHECK_EQUAL(root, "file");
-  BOOST_CHECK_EQUAL(ext, "");
+  EXPECT_EQ(root, "file");
+  EXPECT_EQ(ext, "");
   SplitFileExtension("file.", &root, &ext);
-  BOOST_CHECK_EQUAL(root, "file");
-  BOOST_CHECK_EQUAL(ext, "");
+  EXPECT_EQ(root, "file");
+  EXPECT_EQ(ext, "");
   SplitFileExtension("file.jpg", &root, &ext);
-  BOOST_CHECK_EQUAL(root, "file");
-  BOOST_CHECK_EQUAL(ext, ".jpg");
+  EXPECT_EQ(root, "file");
+  EXPECT_EQ(ext, ".jpg");
   SplitFileExtension("dir/file.jpg", &root, &ext);
-  BOOST_CHECK_EQUAL(root, "dir/file");
-  BOOST_CHECK_EQUAL(ext, ".jpg");
+  EXPECT_EQ(root, "dir/file");
+  EXPECT_EQ(ext, ".jpg");
   SplitFileExtension("/dir/file.jpg", &root, &ext);
-  BOOST_CHECK_EQUAL(root, "/dir/file");
-  BOOST_CHECK_EQUAL(ext, ".jpg");
+  EXPECT_EQ(root, "/dir/file");
+  EXPECT_EQ(ext, ".jpg");
   SplitFileExtension("dir/file.suffix.jpg", &root, &ext);
-  BOOST_CHECK_EQUAL(root, "dir/file.suffix");
-  BOOST_CHECK_EQUAL(ext, ".jpg");
+  EXPECT_EQ(root, "dir/file.suffix");
+  EXPECT_EQ(ext, ".jpg");
   SplitFileExtension("dir.suffix/file.suffix.jpg", &root, &ext);
-  BOOST_CHECK_EQUAL(root, "dir.suffix/file.suffix");
-  BOOST_CHECK_EQUAL(ext, ".jpg");
+  EXPECT_EQ(root, "dir.suffix/file.suffix");
+  EXPECT_EQ(ext, ".jpg");
   SplitFileExtension("dir.suffix/file.", &root, &ext);
-  BOOST_CHECK_EQUAL(root, "dir.suffix/file");
-  BOOST_CHECK_EQUAL(ext, "");
+  EXPECT_EQ(root, "dir.suffix/file");
+  EXPECT_EQ(ext, "");
   SplitFileExtension("./dir.suffix/file.", &root, &ext);
-  BOOST_CHECK_EQUAL(root, "./dir.suffix/file");
-  BOOST_CHECK_EQUAL(ext, "");
+  EXPECT_EQ(root, "./dir.suffix/file");
+  EXPECT_EQ(ext, "");
 }
 
-BOOST_AUTO_TEST_CASE(TestGetPathBaseName) {
-  BOOST_CHECK_EQUAL(GetPathBaseName(""), "");
-  BOOST_CHECK_EQUAL(GetPathBaseName("test"), "test");
-  BOOST_CHECK_EQUAL(GetPathBaseName("/test"), "test");
-  BOOST_CHECK_EQUAL(GetPathBaseName("test/"), "test");
-  BOOST_CHECK_EQUAL(GetPathBaseName("/test/"), "test");
-  BOOST_CHECK_EQUAL(GetPathBaseName("test1/test2"), "test2");
-  BOOST_CHECK_EQUAL(GetPathBaseName("/test1/test2"), "test2");
-  BOOST_CHECK_EQUAL(GetPathBaseName("/test1/test2/"), "test2");
-  BOOST_CHECK_EQUAL(GetPathBaseName("/test1/test2/"), "test2");
-  BOOST_CHECK_EQUAL(GetPathBaseName("\\test1/test2/"), "test2");
-  BOOST_CHECK_EQUAL(GetPathBaseName("\\test1\\test2\\"), "test2");
-  BOOST_CHECK_EQUAL(GetPathBaseName("/test1/test2/test3.ext"), "test3.ext");
+TEST(GetPathBaseName, Nominal) {
+  EXPECT_EQ(GetPathBaseName(""), "");
+  EXPECT_EQ(GetPathBaseName("test"), "test");
+  EXPECT_EQ(GetPathBaseName("/test"), "test");
+  EXPECT_EQ(GetPathBaseName("test/"), "test");
+  EXPECT_EQ(GetPathBaseName("/test/"), "test");
+  EXPECT_EQ(GetPathBaseName("test1/test2"), "test2");
+  EXPECT_EQ(GetPathBaseName("/test1/test2"), "test2");
+  EXPECT_EQ(GetPathBaseName("/test1/test2/"), "test2");
+  EXPECT_EQ(GetPathBaseName("/test1/test2/"), "test2");
+  EXPECT_EQ(GetPathBaseName("\\test1/test2/"), "test2");
+  EXPECT_EQ(GetPathBaseName("\\test1\\test2\\"), "test2");
+  EXPECT_EQ(GetPathBaseName("/test1/test2/test3.ext"), "test3.ext");
 }
 
-BOOST_AUTO_TEST_CASE(TestGetParentDir) {
-  BOOST_CHECK_EQUAL(GetParentDir(""), "");
-  BOOST_CHECK_EQUAL(GetParentDir("test"), "");
-  BOOST_CHECK_EQUAL(GetParentDir("/test"), "/");
-  BOOST_CHECK_EQUAL(GetParentDir("/"), "");
-  BOOST_CHECK_EQUAL(GetParentDir("test/test"), "test");
+TEST(GetParentDir, Nominal) {
+  EXPECT_EQ(GetParentDir(""), "");
+  EXPECT_EQ(GetParentDir("test"), "");
+  EXPECT_EQ(GetParentDir("/test"), "/");
+  EXPECT_EQ(GetParentDir("/"), "");
+  EXPECT_EQ(GetParentDir("test/test"), "test");
 }
 
-BOOST_AUTO_TEST_CASE(TestJoinPaths) {
-  BOOST_CHECK_EQUAL(JoinPaths(""), "");
-  BOOST_CHECK_EQUAL(JoinPaths("test"), "test");
-  BOOST_CHECK_EQUAL(JoinPaths("/test"), "/test");
-  BOOST_CHECK_EQUAL(JoinPaths("test/"), "test/");
-  BOOST_CHECK_EQUAL(JoinPaths("/test/"), "/test/");
-  BOOST_CHECK_EQUAL(JoinPaths("test1/test2"), "test1/test2");
-  BOOST_CHECK_EQUAL(JoinPaths("/test1/test2"), "/test1/test2");
-  BOOST_CHECK_EQUAL(JoinPaths("/test1/test2/"), "/test1/test2/");
-  BOOST_CHECK_EQUAL(JoinPaths("/test1/test2/"), "/test1/test2/");
-  BOOST_CHECK_EQUAL(JoinPaths("\\test1/test2/"), "\\test1/test2/");
-  BOOST_CHECK_EQUAL(JoinPaths("\\test1\\test2\\"), "\\test1\\test2\\");
+TEST(JoinPaths, Nominal) {
+  EXPECT_EQ(JoinPaths(""), "");
+  EXPECT_EQ(JoinPaths("test"), "test");
+  EXPECT_EQ(JoinPaths("/test"), "/test");
+  EXPECT_EQ(JoinPaths("test/"), "test/");
+  EXPECT_EQ(JoinPaths("/test/"), "/test/");
+  EXPECT_EQ(JoinPaths("test1/test2"), "test1/test2");
+  EXPECT_EQ(JoinPaths("/test1/test2"), "/test1/test2");
+  EXPECT_EQ(JoinPaths("/test1/test2/"), "/test1/test2/");
+  EXPECT_EQ(JoinPaths("/test1/test2/"), "/test1/test2/");
+  EXPECT_EQ(JoinPaths("\\test1/test2/"), "\\test1/test2/");
+  EXPECT_EQ(JoinPaths("\\test1\\test2\\"), "\\test1\\test2\\");
 #ifdef _MSC_VER
-  BOOST_CHECK_EQUAL(JoinPaths("test1", "test2"), "test1\\test2");
-  BOOST_CHECK_EQUAL(JoinPaths("/test1", "test2"), "/test1\\test2");
+  EXPECT_EQ(JoinPaths("test1", "test2"), "test1\\test2");
+  EXPECT_EQ(JoinPaths("/test1", "test2"), "/test1\\test2");
 #else
-  BOOST_CHECK_EQUAL(JoinPaths("test1", "test2"), "test1/test2");
-  BOOST_CHECK_EQUAL(JoinPaths("/test1", "test2"), "/test1/test2");
+  EXPECT_EQ(JoinPaths("test1", "test2"), "test1/test2");
+  EXPECT_EQ(JoinPaths("/test1", "test2"), "/test1/test2");
 #endif
-  BOOST_CHECK_EQUAL(JoinPaths("/test1", "/test2"), "/test1/test2");
-  BOOST_CHECK_EQUAL(JoinPaths("/test1", "/test2/"), "/test1/test2/");
-  BOOST_CHECK_EQUAL(JoinPaths("/test1", "/test2/", "test3.ext"),
-                    "/test1/test2/test3.ext");
+  EXPECT_EQ(JoinPaths("/test1", "/test2"), "/test1/test2");
+  EXPECT_EQ(JoinPaths("/test1", "/test2/"), "/test1/test2/");
+  EXPECT_EQ(JoinPaths("/test1", "/test2/", "test3.ext"),
+            "/test1/test2/test3.ext");
 }
 
-BOOST_AUTO_TEST_CASE(TestVectorContainsValue) {
-  BOOST_CHECK(VectorContainsValue<int>({1, 2, 3}, 1));
-  BOOST_CHECK(!VectorContainsValue<int>({2, 3}, 1));
+TEST(VectorContainsValue, Nominal) {
+  EXPECT_TRUE(VectorContainsValue<int>({1, 2, 3}, 1));
+  EXPECT_FALSE(VectorContainsValue<int>({2, 3}, 1));
 }
 
-BOOST_AUTO_TEST_CASE(TestVectorContainsDuplicateValues) {
-  BOOST_CHECK(!VectorContainsDuplicateValues<int>({}));
-  BOOST_CHECK(!VectorContainsDuplicateValues<int>({1}));
-  BOOST_CHECK(!VectorContainsDuplicateValues<int>({1, 2}));
-  BOOST_CHECK(!VectorContainsDuplicateValues<int>({1, 2, 3}));
-  BOOST_CHECK(VectorContainsDuplicateValues<int>({1, 1, 2, 3}));
-  BOOST_CHECK(VectorContainsDuplicateValues<int>({1, 1, 2, 2, 3}));
-  BOOST_CHECK(VectorContainsDuplicateValues<int>({1, 2, 3, 3}));
-  BOOST_CHECK(!VectorContainsDuplicateValues<std::string>({"a"}));
-  BOOST_CHECK(!VectorContainsDuplicateValues<std::string>({"a", "b"}));
-  BOOST_CHECK(VectorContainsDuplicateValues<std::string>({"a", "a"}));
+TEST(VectorContainsDuplicateValues, Nominal) {
+  EXPECT_FALSE(VectorContainsDuplicateValues<int>({}));
+  EXPECT_FALSE(VectorContainsDuplicateValues<int>({1}));
+  EXPECT_FALSE(VectorContainsDuplicateValues<int>({1, 2}));
+  EXPECT_FALSE(VectorContainsDuplicateValues<int>({1, 2, 3}));
+  EXPECT_TRUE(VectorContainsDuplicateValues<int>({1, 1, 2, 3}));
+  EXPECT_TRUE(VectorContainsDuplicateValues<int>({1, 1, 2, 2, 3}));
+  EXPECT_TRUE(VectorContainsDuplicateValues<int>({1, 2, 3, 3}));
+  EXPECT_FALSE(VectorContainsDuplicateValues<std::string>({"a"}));
+  EXPECT_FALSE(VectorContainsDuplicateValues<std::string>({"a", "b"}));
+  EXPECT_TRUE(VectorContainsDuplicateValues<std::string>({"a", "a"}));
 }
 
-BOOST_AUTO_TEST_CASE(TestCSVToVector) {
+TEST(CSVToVector, Nominal) {
   const std::vector<int> list1 = CSVToVector<int>("1, 2, 3 , 4,5,6 ");
-  BOOST_CHECK_EQUAL(list1.size(), 6);
-  BOOST_CHECK_EQUAL(list1[0], 1);
-  BOOST_CHECK_EQUAL(list1[1], 2);
-  BOOST_CHECK_EQUAL(list1[2], 3);
-  BOOST_CHECK_EQUAL(list1[3], 4);
-  BOOST_CHECK_EQUAL(list1[4], 5);
-  BOOST_CHECK_EQUAL(list1[5], 6);
+  EXPECT_EQ(list1.size(), 6);
+  EXPECT_EQ(list1[0], 1);
+  EXPECT_EQ(list1[1], 2);
+  EXPECT_EQ(list1[2], 3);
+  EXPECT_EQ(list1[3], 4);
+  EXPECT_EQ(list1[4], 5);
+  EXPECT_EQ(list1[5], 6);
   const std::vector<int> list2 = CSVToVector<int>("1; 2; 3 ; 4;5;6 ");
-  BOOST_CHECK_EQUAL(list2.size(), 6);
-  BOOST_CHECK_EQUAL(list2[0], 1);
-  BOOST_CHECK_EQUAL(list2[1], 2);
-  BOOST_CHECK_EQUAL(list2[2], 3);
-  BOOST_CHECK_EQUAL(list2[3], 4);
-  BOOST_CHECK_EQUAL(list2[4], 5);
-  BOOST_CHECK_EQUAL(list2[5], 6);
+  EXPECT_EQ(list2.size(), 6);
+  EXPECT_EQ(list2[0], 1);
+  EXPECT_EQ(list2[1], 2);
+  EXPECT_EQ(list2[2], 3);
+  EXPECT_EQ(list2[3], 4);
+  EXPECT_EQ(list2[4], 5);
+  EXPECT_EQ(list2[5], 6);
   const std::vector<int> list3 = CSVToVector<int>("1;, 2;; 3 ; 4;5;6 ");
-  BOOST_CHECK_EQUAL(list3.size(), 6);
-  BOOST_CHECK_EQUAL(list3[0], 1);
-  BOOST_CHECK_EQUAL(list3[1], 2);
-  BOOST_CHECK_EQUAL(list3[2], 3);
-  BOOST_CHECK_EQUAL(list3[3], 4);
-  BOOST_CHECK_EQUAL(list3[4], 5);
-  BOOST_CHECK_EQUAL(list3[5], 6);
+  EXPECT_EQ(list3.size(), 6);
+  EXPECT_EQ(list3[0], 1);
+  EXPECT_EQ(list3[1], 2);
+  EXPECT_EQ(list3[2], 3);
+  EXPECT_EQ(list3[3], 4);
+  EXPECT_EQ(list3[4], 5);
+  EXPECT_EQ(list3[5], 6);
 }
 
-BOOST_AUTO_TEST_CASE(TestVectorToCSV) {
-  BOOST_CHECK_EQUAL(VectorToCSV<int>({}), "");
-  BOOST_CHECK_EQUAL(VectorToCSV<int>({1}), "1");
-  BOOST_CHECK_EQUAL(VectorToCSV<int>({1, 2, 3}), "1, 2, 3");
+TEST(VectorToCSV, Nominal) {
+  EXPECT_EQ(VectorToCSV<int>({}), "");
+  EXPECT_EQ(VectorToCSV<int>({1}), "1");
+  EXPECT_EQ(VectorToCSV<int>({1, 2, 3}), "1, 2, 3");
 }
 
-BOOST_AUTO_TEST_CASE(TestRemoveCommandLineArgument) {
+TEST(RemoveCommandLineArgument, Nominal) {
   int argc = 3;
   std::unique_ptr<char[]> arg1(new char[4]);
-  memcpy(arg1.get(), "abc", 4 * sizeof(char));
+  std::memcpy(arg1.get(), "abc", 4 * sizeof(char));
   std::unique_ptr<char[]> arg2(new char[4]);
-  memcpy(arg2.get(), "def", 4 * sizeof(char));
+  std::memcpy(arg2.get(), "def", 4 * sizeof(char));
   std::unique_ptr<char[]> arg3(new char[4]);
-  memcpy(arg3.get(), "ghi", 4 * sizeof(char));
+  std::memcpy(arg3.get(), "ghi", 4 * sizeof(char));
   std::vector<char*> argv = {arg1.get(), arg2.get(), arg3.get()};
 
   RemoveCommandLineArgument("abcd", &argc, argv.data());
-  BOOST_CHECK_EQUAL(argc, 3);
-  BOOST_CHECK_EQUAL(argv[0], "abc");
-  BOOST_CHECK_EQUAL(argv[1], "def");
-  BOOST_CHECK_EQUAL(argv[2], "ghi");
+  EXPECT_EQ(argc, 3);
+  EXPECT_EQ(std::string(argv[0]), "abc");
+  EXPECT_EQ(std::string(argv[1]), "def");
+  EXPECT_EQ(std::string(argv[2]), "ghi");
 
   RemoveCommandLineArgument("def", &argc, argv.data());
-  BOOST_CHECK_EQUAL(argc, 2);
-  BOOST_CHECK_EQUAL(argv[0], "abc");
-  BOOST_CHECK_EQUAL(argv[1], "ghi");
+  EXPECT_EQ(argc, 2);
+  EXPECT_EQ(std::string(argv[0]), "abc");
+  EXPECT_EQ(std::string(argv[1]), "ghi");
 
   RemoveCommandLineArgument("ghi", &argc, argv.data());
-  BOOST_CHECK_EQUAL(argc, 1);
-  BOOST_CHECK_EQUAL(argv[0], "abc");
+  EXPECT_EQ(argc, 1);
+  EXPECT_EQ(std::string(argv[0]), "abc");
 
   RemoveCommandLineArgument("abc", &argc, argv.data());
-  BOOST_CHECK_EQUAL(argc, 0);
+  EXPECT_EQ(argc, 0);
 
   RemoveCommandLineArgument("abc", &argc, argv.data());
-  BOOST_CHECK_EQUAL(argc, 0);
+  EXPECT_EQ(argc, 0);
 }
+
+}  // namespace colmap

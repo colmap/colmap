@@ -29,68 +29,70 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "mvs/depth_map_test"
 #include "colmap/mvs/depth_map.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
-using namespace colmap;
-using namespace colmap::mvs;
+namespace colmap {
+namespace mvs {
 
-BOOST_AUTO_TEST_CASE(TestEmpty) {
+TEST(DepthMap, Empty) {
   DepthMap depth_map;
-  BOOST_CHECK_EQUAL(depth_map.GetWidth(), 0);
-  BOOST_CHECK_EQUAL(depth_map.GetHeight(), 0);
-  BOOST_CHECK_EQUAL(depth_map.GetDepth(), 1);
-  BOOST_CHECK_EQUAL(depth_map.GetDepthMin(), -1);
-  BOOST_CHECK_EQUAL(depth_map.GetDepthMax(), -1);
+  EXPECT_EQ(depth_map.GetWidth(), 0);
+  EXPECT_EQ(depth_map.GetHeight(), 0);
+  EXPECT_EQ(depth_map.GetDepth(), 1);
+  EXPECT_EQ(depth_map.GetDepthMin(), -1);
+  EXPECT_EQ(depth_map.GetDepthMax(), -1);
 }
 
-BOOST_AUTO_TEST_CASE(TestNonEmpty) {
+TEST(DepthMap, NonEmpty) {
   DepthMap depth_map(1, 2, 0, 1);
-  BOOST_CHECK_EQUAL(depth_map.GetWidth(), 1);
-  BOOST_CHECK_EQUAL(depth_map.GetHeight(), 2);
-  BOOST_CHECK_EQUAL(depth_map.GetDepth(), 1);
-  BOOST_CHECK_EQUAL(depth_map.GetDepthMin(), 0);
-  BOOST_CHECK_EQUAL(depth_map.GetDepthMax(), 1);
+  EXPECT_EQ(depth_map.GetWidth(), 1);
+  EXPECT_EQ(depth_map.GetHeight(), 2);
+  EXPECT_EQ(depth_map.GetDepth(), 1);
+  EXPECT_EQ(depth_map.GetDepthMin(), 0);
+  EXPECT_EQ(depth_map.GetDepthMax(), 1);
 }
 
-BOOST_AUTO_TEST_CASE(TestRescale) {
+TEST(DepthMap, Rescale) {
   DepthMap depth_map(6, 7, 0, 1);
   depth_map.Rescale(0.5);
-  BOOST_CHECK_EQUAL(depth_map.GetWidth(), 3);
-  BOOST_CHECK_EQUAL(depth_map.GetHeight(), 4);
-  BOOST_CHECK_EQUAL(depth_map.GetDepth(), 1);
-  BOOST_CHECK_EQUAL(depth_map.GetDepthMin(), 0);
-  BOOST_CHECK_EQUAL(depth_map.GetDepthMax(), 1);
+  EXPECT_EQ(depth_map.GetWidth(), 3);
+  EXPECT_EQ(depth_map.GetHeight(), 4);
+  EXPECT_EQ(depth_map.GetDepth(), 1);
+  EXPECT_EQ(depth_map.GetDepthMin(), 0);
+  EXPECT_EQ(depth_map.GetDepthMax(), 1);
 }
 
-BOOST_AUTO_TEST_CASE(TestDownsize) {
+TEST(DepthMap, Downsize) {
   DepthMap depth_map(6, 7, 0, 1);
   depth_map.Downsize(2, 4);
-  BOOST_CHECK_EQUAL(depth_map.GetWidth(), 2);
-  BOOST_CHECK_EQUAL(depth_map.GetHeight(), 2);
-  BOOST_CHECK_EQUAL(depth_map.GetDepth(), 1);
-  BOOST_CHECK_EQUAL(depth_map.GetDepthMin(), 0);
-  BOOST_CHECK_EQUAL(depth_map.GetDepthMax(), 1);
+  EXPECT_EQ(depth_map.GetWidth(), 2);
+  EXPECT_EQ(depth_map.GetHeight(), 2);
+  EXPECT_EQ(depth_map.GetDepth(), 1);
+  EXPECT_EQ(depth_map.GetDepthMin(), 0);
+  EXPECT_EQ(depth_map.GetDepthMax(), 1);
 }
 
-BOOST_AUTO_TEST_CASE(TestToBitmap) {
+TEST(DepthMap, ToBitmap) {
   DepthMap depth_map(2, 2, 0.1, 0.9);
   depth_map.Fill(0.9);
   depth_map.Set(0, 0, 0, 0.1);
   depth_map.Set(0, 1, 0, 0.5);
   const Bitmap bitmap = depth_map.ToBitmap(0, 100);
-  BOOST_CHECK_EQUAL(bitmap.Width(), depth_map.GetWidth());
-  BOOST_CHECK_EQUAL(bitmap.Height(), depth_map.GetHeight());
-  BOOST_CHECK_EQUAL(bitmap.IsRGB(), true);
+  EXPECT_EQ(bitmap.Width(), depth_map.GetWidth());
+  EXPECT_EQ(bitmap.Height(), depth_map.GetHeight());
+  EXPECT_TRUE(bitmap.IsRGB());
   BitmapColor<uint8_t> color;
-  BOOST_CHECK(bitmap.GetPixel(0, 0, &color));
-  BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(0, 0, 128));
-  BOOST_CHECK(bitmap.GetPixel(0, 1, &color));
-  BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(128, 0, 0));
-  BOOST_CHECK(bitmap.GetPixel(1, 0, &color));
-  BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(128, 255, 127));
-  BOOST_CHECK(bitmap.GetPixel(1, 1, &color));
-  BOOST_CHECK_EQUAL(color, BitmapColor<uint8_t>(128, 0, 0));
+  EXPECT_TRUE(bitmap.GetPixel(0, 0, &color));
+  EXPECT_EQ(color, BitmapColor<uint8_t>(0, 0, 128));
+  EXPECT_TRUE(bitmap.GetPixel(0, 1, &color));
+  EXPECT_EQ(color, BitmapColor<uint8_t>(128, 0, 0));
+  EXPECT_TRUE(bitmap.GetPixel(1, 0, &color));
+  EXPECT_EQ(color, BitmapColor<uint8_t>(128, 255, 127));
+  EXPECT_TRUE(bitmap.GetPixel(1, 1, &color));
+  EXPECT_EQ(color, BitmapColor<uint8_t>(128, 0, 0));
 }
+
+}  // namespace mvs
+}  // namespace colmap

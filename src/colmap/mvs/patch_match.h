@@ -29,20 +29,19 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_MVS_PATCH_MATCH_H_
-#define COLMAP_SRC_MVS_PATCH_MATCH_H_
+#pragma once
 
 #include "colmap/mvs/depth_map.h"
 #include "colmap/mvs/image.h"
 #include "colmap/mvs/model.h"
 #include "colmap/mvs/normal_map.h"
+#ifndef __CUDACC__
+#include "colmap/util/threading.h"
+#endif
 
 #include <iostream>
 #include <memory>
 #include <vector>
-#ifndef __CUDACC__
-#include "colmap/util/threading.h"
-#endif
 
 namespace colmap {
 namespace mvs {
@@ -261,8 +260,7 @@ class PatchMatchController : public Thread {
   void ReadWorkspace();
   void ReadProblems();
   void ReadGpuIndices();
-  void ProcessProblem(const PatchMatchOptions& options,
-                      const size_t problem_idx);
+  void ProcessProblem(const PatchMatchOptions& options, size_t problem_idx);
 
   const PatchMatchOptions options_;
   const std::string workspace_path_;
@@ -282,5 +280,3 @@ class PatchMatchController : public Thread {
 
 }  // namespace mvs
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_MVS_PATCH_MATCH_H_

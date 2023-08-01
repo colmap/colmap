@@ -31,8 +31,8 @@
 
 #include "colmap/sfm/incremental_triangulator.h"
 
-#include "colmap/base/projection.h"
 #include "colmap/estimators/triangulation.h"
+#include "colmap/scene/projection.h"
 #include "colmap/util/misc.h"
 
 namespace colmap {
@@ -53,10 +53,10 @@ bool IncrementalTriangulator::Options::Check() const {
 }
 
 IncrementalTriangulator::IncrementalTriangulator(
-    const CorrespondenceGraph* correspondence_graph,
-    Reconstruction* reconstruction)
-    : correspondence_graph_(correspondence_graph),
-      reconstruction_(reconstruction) {}
+    std::shared_ptr<const CorrespondenceGraph> correspondence_graph,
+    std::shared_ptr<Reconstruction> reconstruction)
+    : correspondence_graph_(std::move(correspondence_graph)),
+      reconstruction_(std::move(reconstruction)) {}
 
 size_t IncrementalTriangulator::TriangulateImage(const Options& options,
                                                  const image_t image_id) {
@@ -163,7 +163,7 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
     const Point2D& point2D = image.Point2D(point2D_idx);
     if (point2D.HasPoint3D()) {
       // Complete existing track.
-      num_tris += Complete(options, point2D.Point3DId());
+      num_tris += Complete(options, point2D.point3D_id);
       continue;
     }
 
@@ -193,10 +193,10 @@ size_t IncrementalTriangulator::CompleteImage(const Options& options,
     pose_data.resize(corrs_data.size());
     for (size_t i = 0; i < corrs_data.size(); ++i) {
       const CorrData& corr_data = corrs_data[i];
-      point_data[i].point = corr_data.point2D->XY();
+      point_data[i].point = corr_data.point2D->xy;
       point_data[i].point_normalized =
-          corr_data.camera->ImageToWorld(point_data[i].point);
-      pose_data[i].proj_matrix = corr_data.image->ProjectionMatrix();
+          corr_data.camera->CamFromImg(point_data[i].point);
+      pose_data[i].proj_matrix = corr_data.image->CamFromWorld().ToMatrix();
       pose_data[i].proj_center = corr_data.image->ProjectionCenter();
       pose_data[i].camera = corr_data.camera;
     }
@@ -429,23 +429,15 @@ size_t IncrementalTriangulator::Find(const Options& options,
                                      const point2D_t point2D_idx,
                                      const size_t transitivity,
                                      std::vector<CorrData>* corrs_data) {
-  const std::vector<CorrespondenceGraph::Correspondence>* found_corrs_ptr =
-      nullptr;
-  if (transitivity == 1) {
-    found_corrs_ptr =
-        &correspondence_graph_->FindCorrespondences(image_id, point2D_idx);
-  } else {
-    correspondence_graph_->FindTransitiveCorrespondences(
-        image_id, point2D_idx, transitivity, &found_corrs_);
-    found_corrs_ptr = &found_corrs_;
-  }
+  correspondence_graph_->ExtractTransitiveCorrespondences(
+      image_id, point2D_idx, transitivity, &found_corrs_);
 
   corrs_data->clear();
-  corrs_data->reserve(found_corrs_ptr->size());
+  corrs_data->reserve(found_corrs_.size());
 
   size_t num_triangulated = 0;
 
-  for (const auto& corr : *found_corrs_ptr) {
+  for (const auto& corr : found_corrs_) {
     const Image& corr_image = reconstruction_->Image(corr.image_id);
     if (!corr_image.IsRegistered()) {
       continue;
@@ -502,10 +494,10 @@ size_t IncrementalTriangulator::Create(
   pose_data.resize(create_corrs_data.size());
   for (size_t i = 0; i < create_corrs_data.size(); ++i) {
     const CorrData& corr_data = create_corrs_data[i];
-    point_data[i].point = corr_data.point2D->XY();
+    point_data[i].point = corr_data.point2D->xy;
     point_data[i].point_normalized =
-        corr_data.camera->ImageToWorld(point_data[i].point);
-    pose_data[i].proj_matrix = corr_data.image->ProjectionMatrix();
+        corr_data.camera->CamFromImg(point_data[i].point);
+    pose_data[i].proj_matrix = corr_data.image->CamFromWorld().ToMatrix();
     pose_data[i].proj_center = corr_data.image->ProjectionCenter();
     pose_data[i].camera = corr_data.camera;
   }
@@ -578,13 +570,12 @@ size_t IncrementalTriangulator::Continue(
     }
 
     const Point3D& point3D =
-        reconstruction_->Point3D(corr_data.point2D->Point3DId());
+        reconstruction_->Point3D(corr_data.point2D->point3D_id);
 
     const double angle_error =
-        CalculateAngularError(ref_corr_data.point2D->XY(),
+        CalculateAngularError(ref_corr_data.point2D->xy,
                               point3D.XYZ(),
-                              ref_corr_data.image->Qvec(),
-                              ref_corr_data.image->Tvec(),
+                              ref_corr_data.image->CamFromWorld(),
                               *ref_corr_data.camera);
     if (angle_error < best_angle_error) {
       best_angle_error = angle_error;
@@ -598,8 +589,8 @@ size_t IncrementalTriangulator::Continue(
     const CorrData& corr_data = corrs_data[best_idx];
     const TrackElement track_el(ref_corr_data.image_id,
                                 ref_corr_data.point2D_idx);
-    reconstruction_->AddObservation(corr_data.point2D->Point3DId(), track_el);
-    modified_point3D_ids_.insert(corr_data.point2D->Point3DId());
+    reconstruction_->AddObservation(corr_data.point2D->point3D_id, track_el);
+    modified_point3D_ids_.insert(corr_data.point2D->point3D_id);
     return 1;
   }
 
@@ -618,30 +609,27 @@ size_t IncrementalTriangulator::Merge(const Options& options,
   const auto& point3D = reconstruction_->Point3D(point3D_id);
 
   for (const auto& track_el : point3D.Track().Elements()) {
-    const std::vector<CorrespondenceGraph::Correspondence>& corrs =
-        correspondence_graph_->FindCorrespondences(track_el.image_id,
-                                                   track_el.point2D_idx);
-
-    for (const auto corr : corrs) {
-      const auto& image = reconstruction_->Image(corr.image_id);
+    const auto corr_range = correspondence_graph_->FindCorrespondences(
+        track_el.image_id, track_el.point2D_idx);
+    for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+      const auto& image = reconstruction_->Image(corr->image_id);
       if (!image.IsRegistered()) {
         continue;
       }
 
-      const Point2D& corr_point2D = image.Point2D(corr.point2D_idx);
-      if (!corr_point2D.HasPoint3D() ||
-          corr_point2D.Point3DId() == point3D_id ||
-          merge_trials_[point3D_id].count(corr_point2D.Point3DId()) > 0) {
+      const Point2D& corr_point2D = image.Point2D(corr->point2D_idx);
+      if (!corr_point2D.HasPoint3D() || corr_point2D.point3D_id == point3D_id ||
+          merge_trials_[point3D_id].count(corr_point2D.point3D_id) > 0) {
         continue;
       }
 
       // Try to merge the two 3D points.
 
       const Point3D& corr_point3D =
-          reconstruction_->Point3D(corr_point2D.Point3DId());
+          reconstruction_->Point3D(corr_point2D.point3D_id);
 
-      merge_trials_[point3D_id].insert(corr_point2D.Point3DId());
-      merge_trials_[corr_point2D.Point3DId()].insert(point3D_id);
+      merge_trials_[point3D_id].insert(corr_point2D.point3D_id);
+      merge_trials_[corr_point2D.point3D_id].insert(point3D_id);
 
       // Weighted average of point locations, depending on track length.
       const Eigen::Vector3d merged_xyz =
@@ -659,10 +647,9 @@ size_t IncrementalTriangulator::Merge(const Options& options,
               reconstruction_->Camera(test_image.CameraId());
           const Point2D& test_point2D =
               test_image.Point2D(test_track_el.point2D_idx);
-          if (CalculateSquaredReprojectionError(test_point2D.XY(),
+          if (CalculateSquaredReprojectionError(test_point2D.xy,
                                                 merged_xyz,
-                                                test_image.Qvec(),
-                                                test_image.Tvec(),
+                                                test_image.CamFromWorld(),
                                                 test_camera) >
               max_squared_reproj_error) {
             merge_success = false;
@@ -679,14 +666,15 @@ size_t IncrementalTriangulator::Merge(const Options& options,
         const size_t num_merged =
             point3D.Track().Length() + corr_point3D.Track().Length();
 
-        const point3D_t merged_point3D_id = reconstruction_->MergePoints3D(
-            point3D_id, corr_point2D.Point3DId());
+        const point3D_t merged_point3D_id =
+            reconstruction_->MergePoints3D(point3D_id, corr_point2D.point3D_id);
 
         modified_point3D_ids_.erase(point3D_id);
-        modified_point3D_ids_.erase(corr_point2D.Point3DId());
+        modified_point3D_ids_.erase(corr_point2D.point3D_id);
         modified_point3D_ids_.insert(merged_point3D_id);
 
-        // Merge merged 3D point and return, as the original points are deleted.
+        // Merge merged 3D point and return, as the original points are
+        // deleted.
         const size_t num_merged_recursive = Merge(options, merged_point3D_id);
         if (num_merged_recursive > 0) {
           return num_merged_recursive;
@@ -721,21 +709,19 @@ size_t IncrementalTriangulator::Complete(const Options& options,
       break;
     }
 
-    const auto prev_queue = queue;
+    const std::vector<TrackElement> prev_queue = queue;
     queue.clear();
 
-    for (const TrackElement queue_elem : prev_queue) {
-      const std::vector<CorrespondenceGraph::Correspondence>& corrs =
-          correspondence_graph_->FindCorrespondences(queue_elem.image_id,
-                                                     queue_elem.point2D_idx);
-
-      for (const auto corr : corrs) {
-        const Image& image = reconstruction_->Image(corr.image_id);
+    for (const TrackElement& queue_elem : prev_queue) {
+      const auto corr_range = correspondence_graph_->FindCorrespondences(
+          queue_elem.image_id, queue_elem.point2D_idx);
+      for (const auto* corr = corr_range.beg; corr < corr_range.end; ++corr) {
+        const Image& image = reconstruction_->Image(corr->image_id);
         if (!image.IsRegistered()) {
           continue;
         }
 
-        const Point2D& point2D = image.Point2D(corr.point2D_idx);
+        const Point2D& point2D = image.Point2D(corr->point2D_idx);
         if (point2D.HasPoint3D()) {
           continue;
         }
@@ -745,23 +731,20 @@ size_t IncrementalTriangulator::Complete(const Options& options,
           continue;
         }
 
-        if (CalculateSquaredReprojectionError(point2D.XY(),
-                                              point3D.XYZ(),
-                                              image.Qvec(),
-                                              image.Tvec(),
-                                              camera) >
+        if (CalculateSquaredReprojectionError(
+                point2D.xy, point3D.XYZ(), image.CamFromWorld(), camera) >
             max_squared_reproj_error) {
           continue;
         }
 
         // Success, add observation to point track.
-        const TrackElement track_el(corr.image_id, corr.point2D_idx);
+        const TrackElement track_el(corr->image_id, corr->point2D_idx);
         reconstruction_->AddObservation(point3D_id, track_el);
         modified_point3D_ids_.insert(point3D_id);
 
         // Recursively complete track for this new correspondence.
         if (transitivity < max_transitivity - 1) {
-          queue.emplace_back(corr.image_id, corr.point2D_idx);
+          queue.emplace_back(corr->image_id, corr->point2D_idx);
         }
 
         num_completed += 1;

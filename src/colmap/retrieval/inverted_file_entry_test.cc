@@ -29,25 +29,25 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "retrieval/inverted_file_entry"
 #include "colmap/retrieval/inverted_file_entry.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
-using namespace colmap::retrieval;
+namespace colmap {
+namespace retrieval {
 
-BOOST_AUTO_TEST_CASE(TestEmpty) {
+TEST(InvertedFileEntry, Empty) {
   InvertedFileEntry<10> entry;
-  BOOST_CHECK_EQUAL(entry.image_id, -1);
-  BOOST_CHECK_EQUAL(entry.feature_idx, -1);
-  BOOST_CHECK_EQUAL(entry.geometry.x, 0);
-  BOOST_CHECK_EQUAL(entry.geometry.y, 0);
-  BOOST_CHECK_EQUAL(entry.geometry.scale, 0);
-  BOOST_CHECK_EQUAL(entry.geometry.orientation, 0);
-  BOOST_CHECK_EQUAL(entry.descriptor.size(), 10);
+  EXPECT_EQ(entry.image_id, -1);
+  EXPECT_EQ(entry.feature_idx, -1);
+  EXPECT_EQ(entry.geometry.x, 0);
+  EXPECT_EQ(entry.geometry.y, 0);
+  EXPECT_EQ(entry.geometry.scale, 0);
+  EXPECT_EQ(entry.geometry.orientation, 0);
+  EXPECT_EQ(entry.descriptor.size(), 10);
 }
 
-BOOST_AUTO_TEST_CASE(TestReadWrite) {
+TEST(InvertedFileEntry, ReadWrite) {
   InvertedFileEntry<10> entry;
   entry.image_id = 99;
   entry.feature_idx = 100;
@@ -63,14 +63,16 @@ BOOST_AUTO_TEST_CASE(TestReadWrite) {
 
   InvertedFileEntry<10> read_entry;
   read_entry.Read(&file);
-  BOOST_CHECK_EQUAL(entry.image_id, read_entry.image_id);
-  BOOST_CHECK_EQUAL(entry.feature_idx, read_entry.feature_idx);
-  BOOST_CHECK_EQUAL(entry.geometry.x, read_entry.geometry.x);
-  BOOST_CHECK_EQUAL(entry.geometry.y, read_entry.geometry.y);
-  BOOST_CHECK_EQUAL(entry.geometry.scale, read_entry.geometry.scale);
-  BOOST_CHECK_EQUAL(entry.geometry.orientation,
-                    read_entry.geometry.orientation);
+  EXPECT_EQ(entry.image_id, read_entry.image_id);
+  EXPECT_EQ(entry.feature_idx, read_entry.feature_idx);
+  EXPECT_EQ(entry.geometry.x, read_entry.geometry.x);
+  EXPECT_EQ(entry.geometry.y, read_entry.geometry.y);
+  EXPECT_EQ(entry.geometry.scale, read_entry.geometry.scale);
+  EXPECT_EQ(entry.geometry.orientation, read_entry.geometry.orientation);
   for (size_t i = 0; i < entry.descriptor.size(); ++i) {
-    BOOST_CHECK_EQUAL(entry.descriptor[i], read_entry.descriptor[i]);
+    EXPECT_EQ(entry.descriptor[i], read_entry.descriptor[i]);
   }
 }
+
+}  // namespace retrieval
+}  // namespace colmap

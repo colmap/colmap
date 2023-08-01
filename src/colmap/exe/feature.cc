@@ -31,14 +31,14 @@
 
 #include "colmap/exe/feature.h"
 
-#include "colmap/base/camera_models.h"
-#include "colmap/base/image_reader.h"
+#include "colmap/controllers/feature_extraction.h"
+#include "colmap/controllers/feature_matching.h"
+#include "colmap/controllers/image_reader.h"
+#include "colmap/controllers/option_manager.h"
 #include "colmap/exe/gui.h"
-#include "colmap/feature/extraction.h"
-#include "colmap/feature/matching.h"
+#include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
-#include "colmap/util/option_manager.h"
 
 namespace colmap {
 namespace {
@@ -62,7 +62,7 @@ bool VerifyCameraParams(const std::string& camera_model,
 }
 
 bool VerifySiftGPUParams(const bool use_gpu) {
-#if !defined(CUDA_ENABLED) && !defined(OPENGL_ENABLED)
+#if !defined(COLMAP_CUDA_ENABLED) && !defined(COLMAP_OPENGL_ENABLED)
   if (use_gpu) {
     std::cerr << "ERROR: Cannot use Sift GPU without CUDA or OpenGL support; "
                  "set SiftExtraction.use_gpu or SiftMatching.use_gpu to false."

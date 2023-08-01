@@ -29,13 +29,13 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "util/threading"
 #include "colmap/util/threading.h"
 
 #include "colmap/util/logging.h"
-#include "colmap/util/testing.h"
 
-using namespace colmap;
+#include <gtest/gtest.h>
+
+namespace colmap {
 
 namespace {
 
@@ -72,10 +72,10 @@ class Barrier {
 
 }  // namespace
 
-// IMPORTANT: BOOST_CHECK_* macros are not thread-safe,
+// IMPORTANT: EXPECT_TRUE_* macros are not thread-safe,
 //            so we use glog's CHECK macros inside threads.
 
-BOOST_AUTO_TEST_CASE(TestThreadWait) {
+TEST(Thread, Wait) {
   class TestThread : public Thread {
    public:
     Barrier startBarrier;
@@ -88,31 +88,31 @@ BOOST_AUTO_TEST_CASE(TestThreadWait) {
   };
 
   TestThread thread;
-  BOOST_CHECK(!thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(!thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.Start();
 
   thread.startBarrier.Wait();
-  BOOST_CHECK(thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
+  EXPECT_TRUE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_TRUE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.endBarrier.Wait();
   thread.Wait();
-  BOOST_CHECK(thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(!thread.IsRunning());
-  BOOST_CHECK(thread.IsFinished());
+  EXPECT_TRUE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_TRUE(thread.IsFinished());
 }
 
-BOOST_AUTO_TEST_CASE(TestThreadPause) {
+TEST(Thread, Pause) {
   class TestThread : public Thread {
    public:
     Barrier startBarrier;
@@ -132,20 +132,20 @@ BOOST_AUTO_TEST_CASE(TestThreadPause) {
   };
 
   TestThread thread;
-  BOOST_CHECK(!thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(!thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.Start();
 
   thread.startBarrier.Wait();
-  BOOST_CHECK(thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
+  EXPECT_TRUE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_TRUE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.pauseBarrier.Wait();
   thread.Pause();
@@ -153,30 +153,30 @@ BOOST_AUTO_TEST_CASE(TestThreadPause) {
   while (!thread.IsPaused() || thread.IsRunning()) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
-  BOOST_CHECK(thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(thread.IsPaused());
-  BOOST_CHECK(!thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
+  EXPECT_TRUE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_TRUE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.Resume();
   thread.resumedBarrier.Wait();
-  BOOST_CHECK(thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
+  EXPECT_TRUE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_TRUE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.endBarrier.Wait();
   thread.Wait();
-  BOOST_CHECK(thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(!thread.IsRunning());
-  BOOST_CHECK(thread.IsFinished());
+  EXPECT_TRUE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_TRUE(thread.IsFinished());
 }
 
-BOOST_AUTO_TEST_CASE(TestThreadPauseStop) {
+TEST(Thread, PauseStop) {
   class TestThread : public Thread {
    public:
     Barrier startBarrier;
@@ -206,20 +206,20 @@ BOOST_AUTO_TEST_CASE(TestThreadPauseStop) {
   };
 
   TestThread thread;
-  BOOST_CHECK(!thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(!thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.Start();
 
   thread.startBarrier.Wait();
-  BOOST_CHECK(thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
+  EXPECT_TRUE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_TRUE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.pauseBarrier.Wait();
   thread.Pause();
@@ -227,40 +227,40 @@ BOOST_AUTO_TEST_CASE(TestThreadPauseStop) {
   while (!thread.IsPaused() || thread.IsRunning()) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
-  BOOST_CHECK(thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(thread.IsPaused());
-  BOOST_CHECK(!thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
+  EXPECT_TRUE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_TRUE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.Resume();
   thread.resumedBarrier.Wait();
-  BOOST_CHECK(thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
+  EXPECT_TRUE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_TRUE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.stopBarrier.Wait();
   thread.Stop();
   thread.stoppingBarrier.Wait();
   thread.stoppedBarrier.Wait();
-  BOOST_CHECK(thread.IsStarted());
-  BOOST_CHECK(thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
+  EXPECT_TRUE(thread.IsStarted());
+  EXPECT_TRUE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_TRUE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.endBarrier.Wait();
   thread.Wait();
-  BOOST_CHECK(thread.IsStarted());
-  BOOST_CHECK(thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(!thread.IsRunning());
-  BOOST_CHECK(thread.IsFinished());
+  EXPECT_TRUE(thread.IsStarted());
+  EXPECT_TRUE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_TRUE(thread.IsFinished());
 }
 
-BOOST_AUTO_TEST_CASE(TestThreadRestart) {
+TEST(Thread, Restart) {
   class TestThread : public Thread {
    public:
     Barrier startBarrier;
@@ -273,33 +273,33 @@ BOOST_AUTO_TEST_CASE(TestThreadRestart) {
   };
 
   TestThread thread;
-  BOOST_CHECK(!thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(!thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   for (size_t i = 0; i < 2; ++i) {
     thread.Start();
 
     thread.startBarrier.Wait();
-    BOOST_CHECK(thread.IsStarted());
-    BOOST_CHECK(!thread.IsStopped());
-    BOOST_CHECK(!thread.IsPaused());
-    BOOST_CHECK(thread.IsRunning());
-    BOOST_CHECK(!thread.IsFinished());
+    EXPECT_TRUE(thread.IsStarted());
+    EXPECT_FALSE(thread.IsStopped());
+    EXPECT_FALSE(thread.IsPaused());
+    EXPECT_TRUE(thread.IsRunning());
+    EXPECT_FALSE(thread.IsFinished());
 
     thread.endBarrier.Wait();
     thread.Wait();
-    BOOST_CHECK(thread.IsStarted());
-    BOOST_CHECK(!thread.IsStopped());
-    BOOST_CHECK(!thread.IsPaused());
-    BOOST_CHECK(!thread.IsRunning());
-    BOOST_CHECK(thread.IsFinished());
+    EXPECT_TRUE(thread.IsStarted());
+    EXPECT_FALSE(thread.IsStopped());
+    EXPECT_FALSE(thread.IsPaused());
+    EXPECT_FALSE(thread.IsRunning());
+    EXPECT_TRUE(thread.IsFinished());
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestThreadValidSetup) {
+TEST(Thread, ValidSetup) {
   class TestThread : public Thread {
    public:
     Barrier startBarrier;
@@ -315,34 +315,34 @@ BOOST_AUTO_TEST_CASE(TestThreadValidSetup) {
   };
 
   TestThread thread;
-  BOOST_CHECK(!thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(!thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.Start();
 
   thread.startBarrier.Wait();
-  BOOST_CHECK(thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
+  EXPECT_TRUE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_TRUE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.signalBarrier.Wait();
-  BOOST_CHECK(thread.CheckValidSetup());
+  EXPECT_TRUE(thread.CheckValidSetup());
 
   thread.endBarrier.Wait();
   thread.Wait();
-  BOOST_CHECK(thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(!thread.IsRunning());
-  BOOST_CHECK(thread.IsFinished());
+  EXPECT_TRUE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_TRUE(thread.IsFinished());
 }
 
-BOOST_AUTO_TEST_CASE(TestThreadInvalidSetup) {
+TEST(Thread, InvalidSetup) {
   class TestThread : public Thread {
    public:
     Barrier startBarrier;
@@ -358,34 +358,34 @@ BOOST_AUTO_TEST_CASE(TestThreadInvalidSetup) {
   };
 
   TestThread thread;
-  BOOST_CHECK(!thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(!thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
+  EXPECT_FALSE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.Start();
 
   thread.startBarrier.Wait();
-  BOOST_CHECK(thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(thread.IsRunning());
-  BOOST_CHECK(!thread.IsFinished());
+  EXPECT_TRUE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_TRUE(thread.IsRunning());
+  EXPECT_FALSE(thread.IsFinished());
 
   thread.signalBarrier.Wait();
-  BOOST_CHECK(!thread.CheckValidSetup());
+  EXPECT_FALSE(thread.CheckValidSetup());
 
   thread.endBarrier.Wait();
   thread.Wait();
-  BOOST_CHECK(thread.IsStarted());
-  BOOST_CHECK(!thread.IsStopped());
-  BOOST_CHECK(!thread.IsPaused());
-  BOOST_CHECK(!thread.IsRunning());
-  BOOST_CHECK(thread.IsFinished());
+  EXPECT_TRUE(thread.IsStarted());
+  EXPECT_FALSE(thread.IsStopped());
+  EXPECT_FALSE(thread.IsPaused());
+  EXPECT_FALSE(thread.IsRunning());
+  EXPECT_TRUE(thread.IsFinished());
 }
 
-BOOST_AUTO_TEST_CASE(TestCallback) {
+TEST(Thread, Callback) {
   class TestThread : public Thread {
    public:
     enum Callbacks {
@@ -424,18 +424,18 @@ BOOST_AUTO_TEST_CASE(TestCallback) {
   thread.AddCallback(TestThread::CALLBACK1, CallbackFunc1);
   thread.Start();
   thread.Wait();
-  BOOST_CHECK(called_back1);
-  BOOST_CHECK(!called_back2);
-  BOOST_CHECK(!called_back3);
+  EXPECT_TRUE(called_back1);
+  EXPECT_FALSE(called_back2);
+  EXPECT_FALSE(called_back3);
 
   called_back1 = false;
   called_back2 = false;
   thread.AddCallback(TestThread::CALLBACK2, CallbackFunc2);
   thread.Start();
   thread.Wait();
-  BOOST_CHECK(called_back1);
-  BOOST_CHECK(called_back2);
-  BOOST_CHECK(!called_back3);
+  EXPECT_TRUE(called_back1);
+  EXPECT_TRUE(called_back2);
+  EXPECT_FALSE(called_back3);
 
   called_back1 = false;
   called_back2 = false;
@@ -443,12 +443,12 @@ BOOST_AUTO_TEST_CASE(TestCallback) {
   thread.AddCallback(TestThread::CALLBACK1, CallbackFunc3);
   thread.Start();
   thread.Wait();
-  BOOST_CHECK(called_back1);
-  BOOST_CHECK(called_back2);
-  BOOST_CHECK(called_back3);
+  EXPECT_TRUE(called_back1);
+  EXPECT_TRUE(called_back2);
+  EXPECT_TRUE(called_back3);
 }
 
-BOOST_AUTO_TEST_CASE(TestDefaultCallback) {
+TEST(Thread, DefaultCallback) {
   class TestThread : public Thread {
    public:
     Barrier startBarrier;
@@ -476,15 +476,15 @@ BOOST_AUTO_TEST_CASE(TestDefaultCallback) {
   thread.AddCallback(TestThread::FINISHED_CALLBACK, CallbackFunc2);
   thread.Start();
   thread.startBarrier.Wait();
-  BOOST_CHECK(called_back1);
-  BOOST_CHECK(!called_back2);
+  EXPECT_TRUE(called_back1);
+  EXPECT_FALSE(called_back2);
   thread.endBarrier.Wait();
   thread.Wait();
-  BOOST_CHECK(called_back1);
-  BOOST_CHECK(called_back2);
+  EXPECT_TRUE(called_back1);
+  EXPECT_TRUE(called_back2);
 }
 
-BOOST_AUTO_TEST_CASE(TestThreadPoolNoArgNoReturn) {
+TEST(ThreadPool, NoArgNoReturn) {
   std::function<void(void)> Func = []() {
     std::this_thread::sleep_for(std::chrono::microseconds(1));
   };
@@ -501,7 +501,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolNoArgNoReturn) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestThreadPoolArgNoReturn) {
+TEST(ThreadPool, ArgNoReturn) {
   std::function<void(int)> Func = [](int num) {
     for (int i = 0; i < 100; ++i) {
       num += i;
@@ -520,7 +520,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolArgNoReturn) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestThreadPoolNoArgReturn) {
+TEST(ThreadPool, NoArgReturn) {
   std::function<int(void)> Func = []() { return 0; };
 
   ThreadPool pool(4);
@@ -535,7 +535,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolNoArgReturn) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestThreadPoolArgReturn) {
+TEST(ThreadPool, ArgReturn) {
   std::function<int(int)> Func = [](int num) {
     for (int i = 0; i < 100; ++i) {
       num += i;
@@ -555,7 +555,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolArgReturn) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestThreadPoolStop) {
+TEST(ThreadPool, Stop) {
   std::function<int(int)> Func = [](int num) {
     for (int i = 0; i < 100; ++i) {
       num += i;
@@ -572,12 +572,12 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolStop) {
 
   pool.Stop();
 
-  BOOST_CHECK_THROW(pool.AddTask(Func, 100), std::runtime_error);
+  EXPECT_THROW(pool.AddTask(Func, 100), std::runtime_error);
 
   pool.Stop();
 }
 
-BOOST_AUTO_TEST_CASE(TestThreadPoolWait) {
+TEST(ThreadPool, Wait) {
   std::vector<uint8_t> results(100, 0);
   std::function<void(int)> Func = [&results](const int num) {
     results[num] = 1;
@@ -593,11 +593,11 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolWait) {
   pool.Wait();
 
   for (const auto result : results) {
-    BOOST_CHECK_EQUAL(result, 1);
+    EXPECT_EQ(result, 1);
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestThreadPoolWaitEverytime) {
+TEST(ThreadPool, WaitEverytime) {
   std::vector<uint8_t> results(4, 0);
   std::function<void(int)> Func = [&results](const int num) {
     results[num] = 1;
@@ -611,9 +611,9 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolWaitEverytime) {
 
     for (size_t j = 0; j < results.size(); ++j) {
       if (j <= i) {
-        BOOST_CHECK_EQUAL(results[j], 1);
+        EXPECT_EQ(results[j], 1);
       } else {
-        BOOST_CHECK_EQUAL(results[j], 0);
+        EXPECT_EQ(results[j], 0);
       }
     }
   }
@@ -621,7 +621,7 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolWaitEverytime) {
   pool.Wait();
 }
 
-BOOST_AUTO_TEST_CASE(TestThreadPoolGetThreadIndex) {
+TEST(ThreadPool, GetThreadIndex) {
   ThreadPool pool(4);
 
   std::vector<int> results(100, -1);
@@ -636,15 +636,15 @@ BOOST_AUTO_TEST_CASE(TestThreadPoolGetThreadIndex) {
   pool.Wait();
 
   for (const auto result : results) {
-    BOOST_CHECK_GE(result, 0);
-    BOOST_CHECK_LE(result, 3);
+    EXPECT_GE(result, 0);
+    EXPECT_LE(result, 3);
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerSingleConsumer) {
+TEST(JobQueue, SingleProducerSingleConsumer) {
   JobQueue<int> job_queue;
 
-  // IMPORTANT: BOOST_CHECK_* macros are not thread-safe,
+  // IMPORTANT: EXPECT_TRUE_* macros are not thread-safe,
   //            so we use glog's CHECK macros inside threads.
 
   std::thread producer_thread([&job_queue]() {
@@ -666,10 +666,10 @@ BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerSingleConsumer) {
   consumer_thread.join();
 }
 
-BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerSingleConsumerMaxNumJobs) {
+TEST(JobQueue, SingleProducerSingleConsumerMaxNumJobs) {
   JobQueue<int> job_queue(2);
 
-  // IMPORTANT: BOOST_CHECK_* macros are not thread-safe,
+  // IMPORTANT: EXPECT_TRUE_* macros are not thread-safe,
   //            so we use glog's CHECK macros inside threads.
 
   std::thread producer_thread([&job_queue]() {
@@ -691,10 +691,10 @@ BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerSingleConsumerMaxNumJobs) {
   consumer_thread.join();
 }
 
-BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerSingleConsumer) {
+TEST(JobQueue, MultipleProducerSingleConsumer) {
   JobQueue<int> job_queue(1);
 
-  // IMPORTANT: BOOST_CHECK_* macros are not thread-safe,
+  // IMPORTANT: EXPECT_TRUE_* macros are not thread-safe,
   //            so we use glog's CHECK macros inside threads.
 
   std::thread producer_thread1([&job_queue]() {
@@ -723,10 +723,10 @@ BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerSingleConsumer) {
   consumer_thread.join();
 }
 
-BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerMultipleConsumer) {
+TEST(JobQueue, SingleProducerMultipleConsumer) {
   JobQueue<int> job_queue(1);
 
-  // IMPORTANT: BOOST_CHECK_* macros are not thread-safe,
+  // IMPORTANT: EXPECT_TRUE_* macros are not thread-safe,
   //            so we use glog's CHECK macros inside threads.
 
   std::thread producer_thread([&job_queue]() {
@@ -758,10 +758,10 @@ BOOST_AUTO_TEST_CASE(TestJobQueueSingleProducerMultipleConsumer) {
   consumer_thread2.join();
 }
 
-BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerMultipleConsumer) {
+TEST(JobQueue, MultipleProducerMultipleConsumer) {
   JobQueue<int> job_queue(1);
 
-  // IMPORTANT: BOOST_CHECK_* macros are not thread-safe,
+  // IMPORTANT: EXPECT_TRUE_* macros are not thread-safe,
   //            so we use glog's CHECK macros inside threads.
 
   std::thread producer_thread1([&job_queue]() {
@@ -800,10 +800,10 @@ BOOST_AUTO_TEST_CASE(TestJobQueueMultipleProducerMultipleConsumer) {
   consumer_thread2.join();
 }
 
-BOOST_AUTO_TEST_CASE(TestJobQueueWait) {
+TEST(JobQueue, Wait) {
   JobQueue<int> job_queue;
 
-  // IMPORTANT: BOOST_CHECK_* macros are not thread-safe,
+  // IMPORTANT: EXPECT_TRUE_* macros are not thread-safe,
   //            so we use glog's CHECK macros inside threads.
 
   for (int i = 0; i < 10; ++i) {
@@ -821,17 +821,17 @@ BOOST_AUTO_TEST_CASE(TestJobQueueWait) {
 
   job_queue.Wait();
 
-  BOOST_CHECK_EQUAL(job_queue.Size(), 0);
-  BOOST_CHECK(job_queue.Push(0));
-  BOOST_CHECK(job_queue.Pop().IsValid());
+  EXPECT_EQ(job_queue.Size(), 0);
+  EXPECT_TRUE(job_queue.Push(0));
+  EXPECT_TRUE(job_queue.Pop().IsValid());
 
   consumer_thread.join();
 }
 
-BOOST_AUTO_TEST_CASE(TestJobQueueStopProducer) {
+TEST(JobQueue, StopProducer) {
   JobQueue<int> job_queue(1);
 
-  // IMPORTANT: BOOST_CHECK_* macros are not thread-safe,
+  // IMPORTANT: EXPECT_TRUE_* macros are not thread-safe,
   //            so we use glog's CHECK macros inside threads.
 
   Barrier stopBarrier;
@@ -842,22 +842,22 @@ BOOST_AUTO_TEST_CASE(TestJobQueueStopProducer) {
   });
 
   stopBarrier.Wait();
-  BOOST_CHECK_EQUAL(job_queue.Size(), 1);
+  EXPECT_EQ(job_queue.Size(), 1);
 
   job_queue.Stop();
   producer_thread.join();
 
-  BOOST_CHECK(!job_queue.Push(0));
-  BOOST_CHECK(!job_queue.Pop().IsValid());
+  EXPECT_FALSE(job_queue.Push(0));
+  EXPECT_FALSE(job_queue.Pop().IsValid());
 }
 
-BOOST_AUTO_TEST_CASE(TestJobQueueStopConsumer) {
+TEST(JobQueue, StopConsumer) {
   JobQueue<int> job_queue(1);
 
-  // IMPORTANT: BOOST_CHECK_* macros are not thread-safe,
+  // IMPORTANT: EXPECT_TRUE_* macros are not thread-safe,
   //            so we use glog's CHECK macros inside threads.
 
-  BOOST_CHECK(job_queue.Push(0));
+  EXPECT_TRUE(job_queue.Push(0));
 
   Barrier popBarrier;
   std::thread consumer_thread([&job_queue, &popBarrier]() {
@@ -869,30 +869,32 @@ BOOST_AUTO_TEST_CASE(TestJobQueueStopConsumer) {
   });
 
   popBarrier.Wait();
-  BOOST_CHECK_EQUAL(job_queue.Size(), 0);
+  EXPECT_EQ(job_queue.Size(), 0);
 
   job_queue.Stop();
   consumer_thread.join();
 
-  BOOST_CHECK(!job_queue.Push(0));
-  BOOST_CHECK(!job_queue.Pop().IsValid());
+  EXPECT_FALSE(job_queue.Push(0));
+  EXPECT_FALSE(job_queue.Pop().IsValid());
 }
 
-BOOST_AUTO_TEST_CASE(TestJobQueueClear) {
+TEST(JobQueue, Clear) {
   JobQueue<int> job_queue(1);
 
-  BOOST_CHECK(job_queue.Push(0));
-  BOOST_CHECK_EQUAL(job_queue.Size(), 1);
+  EXPECT_TRUE(job_queue.Push(0));
+  EXPECT_EQ(job_queue.Size(), 1);
 
   job_queue.Clear();
-  BOOST_CHECK_EQUAL(job_queue.Size(), 0);
+  EXPECT_EQ(job_queue.Size(), 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestGetEffectiveNumThreads) {
-  BOOST_CHECK_GT(GetEffectiveNumThreads(-2), 0);
-  BOOST_CHECK_GT(GetEffectiveNumThreads(-1), 0);
-  BOOST_CHECK_GT(GetEffectiveNumThreads(0), 0);
-  BOOST_CHECK_EQUAL(GetEffectiveNumThreads(1), 1);
-  BOOST_CHECK_EQUAL(GetEffectiveNumThreads(2), 2);
-  BOOST_CHECK_EQUAL(GetEffectiveNumThreads(3), 3);
+TEST(GetEffectiveNumThreads, Nominal) {
+  EXPECT_GT(GetEffectiveNumThreads(-2), 0);
+  EXPECT_GT(GetEffectiveNumThreads(-1), 0);
+  EXPECT_GT(GetEffectiveNumThreads(0), 0);
+  EXPECT_EQ(GetEffectiveNumThreads(1), 1);
+  EXPECT_EQ(GetEffectiveNumThreads(2), 2);
+  EXPECT_EQ(GetEffectiveNumThreads(3), 3);
 }
+
+}  // namespace colmap

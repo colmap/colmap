@@ -16,9 +16,15 @@ jobs:
     CCACHE_BASEDIR: $(Build.SourcesDirectory)
     CCACHE_VERSION: 1
     ${{ if eq(parameters.asanEnabled, false) }}:
-      ctestExclusions: "(mvs/gpu_mat_test)"
+      ctestExclusions: "(mvs/colmap_mvs_gpu_mat_test)"
     ${{ if eq(parameters.asanEnabled, true) }}:
-      ctestExclusions: "(feature/sift_test)|(util/opengl_utils_test)|(mvs/gpu_mat_test)"
+      ctestExclusions: "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
+    ${{ if eq(parameters.cmakeBuildType, 'ClangTidy') }}:
+      # Do not abort compilation in ClangTidy mode, so we see issues
+      # for all targets logged out to the console.
+      numAllowedNinjaErrors: 1000
+    ${{ if ne(parameters.cmakeBuildType, 'ClangTidy') }}:
+      numAllowedNinjaErrors: 1
   steps:
   - script: |
       sudo apt-get update && sudo apt-get install -y \
@@ -28,14 +34,13 @@ jobs:
         libboost-filesystem-dev \
         libboost-graph-dev \
         libboost-system-dev \
-        libboost-test-dev \
         libeigen3-dev \
         libceres-dev \
         libflann-dev \
         libfreeimage-dev \
         libmetis-dev \
         libgoogle-glog-dev \
-        libgflags-dev \
+        libgtest-dev \
         libsqlite3-dev \
         libglew-dev \
         qtbase5-dev \
@@ -69,22 +74,24 @@ jobs:
 
   - ${{ if eq(parameters.asanEnabled, true) }}:
     - script: |
-        sudo apt-get install -y clang-15
+        sudo apt-get install -y clang-15 libomp-15-dev
         echo '##vso[task.setvariable variable=CC]/usr/bin/clang-15'
         echo '##vso[task.setvariable variable=CXX]/usr/bin/clang++-15'
       displayName: Install Clang
 
   - ${{ if eq(parameters.cmakeBuildType, 'ClangTidy') }}:
     - script: |
-        sudo apt-get install -y clang-15 clang-tidy-15
+        sudo apt-get install -y clang-15 clang-tidy-15 libomp-15-dev
         echo '##vso[task.setvariable variable=CC]/usr/bin/clang-15'
         echo '##vso[task.setvariable variable=CXX]/usr/bin/clang++-15'
       displayName: Install Clang
 
   - task: Cache@2
     inputs:
-      key: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
+      key: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}" | "$(Build.BuildNumber)"
+      restoreKeys: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
       path: $(CCACHE_DIR)
+      cacheHitVar: CCACHE_RESTORED
     displayName: Restore CCache
 
   - script: |
@@ -99,17 +106,34 @@ jobs:
     condition: ne(variables.CCACHE_RESTORED, 'true')
 
   - script: |
+      set -x
       cmake --version
       mkdir build
       cd build
       cmake .. \
         -GNinja \
         -DCMAKE_BUILD_TYPE=${{ parameters.cmakeBuildType }} \
+        -DCMAKE_INSTALL_PREFIX=./install \
         -DTESTS_ENABLED=ON \
         -DCMAKE_CUDA_ARCHITECTURES=50 \
         -DASAN_ENABLED=${{ parameters.asanEnabled }}
-      ninja
-    displayName: Configure and build
+      ninja -k $(numAllowedNinjaErrors)
+    displayName: Configure and build colmap
+
+  - ${{ if and(eq(parameters.cmakeBuildType, 'Release'), eq(parameters.asanEnabled, false)) }}:
+    - script: |
+        set -x
+        cd build
+        ninja install
+        cd ../doc/sample-project
+        mkdir build
+        cd build
+        colmap_DIR=$(Build.SourcesDirectory)/build/install/share/colmap cmake .. \
+          -GNinja \
+          -DCMAKE_CUDA_ARCHITECTURES=50
+        ninja
+        ./hello_world --message "world"
+      displayName: Install colmap and build sample
 
   - ${{ if ne(parameters.cmakeBuildType, 'ClangTidy') }}:
     - script: |
@@ -140,11 +164,17 @@ jobs:
         python ./scripts/python/benchmark_eth3d.py \
             --workspace_path ./eth3d_benchmark \
             --colmap_path ./build/src/colmap/exe/colmap \
-            --dataset_names boulders,terrace,door \
+            --dataset_names boulders,door \
             --use_gpu false \
-            --max_translation_error 0.05 \
-            --max_proj_center_error 0.05 \
-            --max_rotation_error 1.0
+            --max_rotation_error 1.0 \
+            --max_proj_center_error 0.05
+        python ./scripts/python/benchmark_eth3d.py \
+            --workspace_path ./eth3d_benchmark \
+            --colmap_path ./build/src/colmap/exe/colmap \
+            --dataset_names courtyard \
+            --use_gpu false \
+            --max_rotation_error 1.0 \
+            --max_proj_center_error 0.25
       displayName: Run E2E tests
 
   - script: |

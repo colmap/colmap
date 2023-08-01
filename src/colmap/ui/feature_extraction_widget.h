@@ -29,11 +29,10 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_FEATURE_EXTRACTION_WIDGET_H_
-#define COLMAP_SRC_UI_FEATURE_EXTRACTION_WIDGET_H_
+#pragma once
 
+#include "colmap/controllers/option_manager.h"
 #include "colmap/util/misc.h"
-#include "colmap/util/option_manager.h"
 
 #include <QtCore>
 #include <QtWidgets>
@@ -53,7 +52,7 @@ class FeatureExtractionWidget : public QWidget {
 
   QGroupBox* CreateCameraModelBox();
 
-  void SelectCameraModel(const int code);
+  void SelectCameraModel(int code);
   void Extract();
 
   QWidget* parent_;
@@ -74,5 +73,3 @@ class FeatureExtractionWidget : public QWidget {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_FEATURE_EXTRACTION_WIDGET_H_

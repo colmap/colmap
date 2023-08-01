@@ -29,110 +29,109 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "util/string"
 #include "colmap/util/string.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
-using namespace colmap;
+namespace colmap {
 
 #define TEST_STRING_INPLACE(Func, str, ref_str) \
   {                                             \
     std::string str_inplace = str;              \
     Func(&str_inplace);                         \
-    BOOST_CHECK_EQUAL(str_inplace, ref_str);    \
+    EXPECT_EQ(str_inplace, ref_str);            \
   }
 
-BOOST_AUTO_TEST_CASE(TestStringPrintf) {
-  BOOST_CHECK_EQUAL(StringPrintf("%s", "test"), "test");
-  BOOST_CHECK_EQUAL(StringPrintf("%d", 1), "1");
-  BOOST_CHECK_EQUAL(StringPrintf("%.3f", 1.234), "1.234");
-  BOOST_CHECK_EQUAL(StringPrintf("test%s", "test"), "testtest");
-  BOOST_CHECK_EQUAL(StringPrintf("test%d", 1), "test1");
-  BOOST_CHECK_EQUAL(StringPrintf("test%.3f", 1.234), "test1.234");
-  BOOST_CHECK_EQUAL(StringPrintf("%s%s", "test", "test"), "testtest");
-  BOOST_CHECK_EQUAL(StringPrintf("%d%s", 1, "test"), "1test");
-  BOOST_CHECK_EQUAL(StringPrintf("%.3f%s", 1.234, "test"), "1.234test");
+TEST(StringPrintf, Nominal) {
+  EXPECT_EQ(StringPrintf("%s", "test"), "test");
+  EXPECT_EQ(StringPrintf("%d", 1), "1");
+  EXPECT_EQ(StringPrintf("%.3f", 1.234), "1.234");
+  EXPECT_EQ(StringPrintf("test%s", "test"), "testtest");
+  EXPECT_EQ(StringPrintf("test%d", 1), "test1");
+  EXPECT_EQ(StringPrintf("test%.3f", 1.234), "test1.234");
+  EXPECT_EQ(StringPrintf("%s%s", "test", "test"), "testtest");
+  EXPECT_EQ(StringPrintf("%d%s", 1, "test"), "1test");
+  EXPECT_EQ(StringPrintf("%.3f%s", 1.234, "test"), "1.234test");
 }
 
-BOOST_AUTO_TEST_CASE(TestStringReplace) {
-  BOOST_CHECK_EQUAL(StringReplace("test", "-", ""), "test");
-  BOOST_CHECK_EQUAL(StringReplace("test", "t", "a"), "aesa");
-  BOOST_CHECK_EQUAL(StringReplace("test", "t", "---"), "---es---");
-  BOOST_CHECK_EQUAL(StringReplace("test", "", "a"), "test");
-  BOOST_CHECK_EQUAL(StringReplace("test", "", ""), "test");
-  BOOST_CHECK_EQUAL(StringReplace("ttt", "ttt", "+++"), "+++");
+TEST(StringReplace, Nominal) {
+  EXPECT_EQ(StringReplace("test", "-", ""), "test");
+  EXPECT_EQ(StringReplace("test", "t", "a"), "aesa");
+  EXPECT_EQ(StringReplace("test", "t", "---"), "---es---");
+  EXPECT_EQ(StringReplace("test", "", "a"), "test");
+  EXPECT_EQ(StringReplace("test", "", ""), "test");
+  EXPECT_EQ(StringReplace("ttt", "ttt", "+++"), "+++");
 }
 
-BOOST_AUTO_TEST_CASE(TestStringGetAfter) {
-  BOOST_CHECK_EQUAL(StringGetAfter("test", ""), "test");
-  BOOST_CHECK_EQUAL(StringGetAfter("test", "notinit"), "");
-  BOOST_CHECK_EQUAL(StringGetAfter("test", "e"), "st");
-  BOOST_CHECK_EQUAL(StringGetAfter("test, multiple tests", "test"), "s");
-  BOOST_CHECK_EQUAL(StringGetAfter("", ""), "");
-  BOOST_CHECK_EQUAL(StringGetAfter("path/to/dataset/sub1/image.png", "sub1/"),
-                    "image.png");
+TEST(StringGetAfter, Nominal) {
+  EXPECT_EQ(StringGetAfter("test", ""), "test");
+  EXPECT_EQ(StringGetAfter("test", "notinit"), "");
+  EXPECT_EQ(StringGetAfter("test", "e"), "st");
+  EXPECT_EQ(StringGetAfter("test, multiple tests", "test"), "s");
+  EXPECT_EQ(StringGetAfter("", ""), "");
+  EXPECT_EQ(StringGetAfter("path/to/dataset/sub1/image.png", "sub1/"),
+            "image.png");
 }
 
-BOOST_AUTO_TEST_CASE(TestStringSplit) {
+TEST(StringSplit, Nominal) {
   const std::vector<std::string> list1 = StringSplit("1,2,3,4,5 , 6", ",");
-  BOOST_CHECK_EQUAL(list1.size(), 6);
-  BOOST_CHECK_EQUAL(list1[0], "1");
-  BOOST_CHECK_EQUAL(list1[1], "2");
-  BOOST_CHECK_EQUAL(list1[2], "3");
-  BOOST_CHECK_EQUAL(list1[3], "4");
-  BOOST_CHECK_EQUAL(list1[4], "5 ");
-  BOOST_CHECK_EQUAL(list1[5], " 6");
+  EXPECT_EQ(list1.size(), 6);
+  EXPECT_EQ(list1[0], "1");
+  EXPECT_EQ(list1[1], "2");
+  EXPECT_EQ(list1[2], "3");
+  EXPECT_EQ(list1[3], "4");
+  EXPECT_EQ(list1[4], "5 ");
+  EXPECT_EQ(list1[5], " 6");
   const std::vector<std::string> list2 = StringSplit("1,2,3,4,5 , 6", "");
-  BOOST_CHECK_EQUAL(list2.size(), 1);
-  BOOST_CHECK_EQUAL(list2[0], "1,2,3,4,5 , 6");
+  EXPECT_EQ(list2.size(), 1);
+  EXPECT_EQ(list2[0], "1,2,3,4,5 , 6");
   const std::vector<std::string> list3 = StringSplit("1,,2,,3,4,5 , 6", ",");
-  BOOST_CHECK_EQUAL(list3.size(), 6);
-  BOOST_CHECK_EQUAL(list3[0], "1");
-  BOOST_CHECK_EQUAL(list3[1], "2");
-  BOOST_CHECK_EQUAL(list3[2], "3");
-  BOOST_CHECK_EQUAL(list3[3], "4");
-  BOOST_CHECK_EQUAL(list3[4], "5 ");
-  BOOST_CHECK_EQUAL(list3[5], " 6");
+  EXPECT_EQ(list3.size(), 6);
+  EXPECT_EQ(list3[0], "1");
+  EXPECT_EQ(list3[1], "2");
+  EXPECT_EQ(list3[2], "3");
+  EXPECT_EQ(list3[3], "4");
+  EXPECT_EQ(list3[4], "5 ");
+  EXPECT_EQ(list3[5], " 6");
   const std::vector<std::string> list4 = StringSplit("1,,2,,3,4,5 , 6", ",,");
-  BOOST_CHECK_EQUAL(list4.size(), 6);
-  BOOST_CHECK_EQUAL(list4[0], "1");
-  BOOST_CHECK_EQUAL(list4[1], "2");
-  BOOST_CHECK_EQUAL(list4[2], "3");
-  BOOST_CHECK_EQUAL(list4[3], "4");
-  BOOST_CHECK_EQUAL(list4[4], "5 ");
-  BOOST_CHECK_EQUAL(list4[5], " 6");
+  EXPECT_EQ(list4.size(), 6);
+  EXPECT_EQ(list4[0], "1");
+  EXPECT_EQ(list4[1], "2");
+  EXPECT_EQ(list4[2], "3");
+  EXPECT_EQ(list4[3], "4");
+  EXPECT_EQ(list4[4], "5 ");
+  EXPECT_EQ(list4[5], " 6");
   const std::vector<std::string> list5 = StringSplit("1,,2,,3,4,5 , 6", ", ");
-  BOOST_CHECK_EQUAL(list5.size(), 6);
-  BOOST_CHECK_EQUAL(list5[0], "1");
-  BOOST_CHECK_EQUAL(list5[1], "2");
-  BOOST_CHECK_EQUAL(list5[2], "3");
-  BOOST_CHECK_EQUAL(list5[3], "4");
-  BOOST_CHECK_EQUAL(list5[4], "5");
-  BOOST_CHECK_EQUAL(list5[5], "6");
+  EXPECT_EQ(list5.size(), 6);
+  EXPECT_EQ(list5[0], "1");
+  EXPECT_EQ(list5[1], "2");
+  EXPECT_EQ(list5[2], "3");
+  EXPECT_EQ(list5[3], "4");
+  EXPECT_EQ(list5[4], "5");
+  EXPECT_EQ(list5[5], "6");
   const std::vector<std::string> list6 = StringSplit(",1,,2,,3,4,5 , 6 ", ", ");
-  BOOST_CHECK_EQUAL(list6.size(), 8);
-  BOOST_CHECK_EQUAL(list6[0], "");
-  BOOST_CHECK_EQUAL(list6[1], "1");
-  BOOST_CHECK_EQUAL(list6[2], "2");
-  BOOST_CHECK_EQUAL(list6[3], "3");
-  BOOST_CHECK_EQUAL(list6[4], "4");
-  BOOST_CHECK_EQUAL(list6[5], "5");
-  BOOST_CHECK_EQUAL(list6[6], "6");
-  BOOST_CHECK_EQUAL(list6[7], "");
+  EXPECT_EQ(list6.size(), 8);
+  EXPECT_EQ(list6[0], "");
+  EXPECT_EQ(list6[1], "1");
+  EXPECT_EQ(list6[2], "2");
+  EXPECT_EQ(list6[3], "3");
+  EXPECT_EQ(list6[4], "4");
+  EXPECT_EQ(list6[5], "5");
+  EXPECT_EQ(list6[6], "6");
+  EXPECT_EQ(list6[7], "");
 }
 
-BOOST_AUTO_TEST_CASE(TestStringStartsWith) {
-  BOOST_CHECK(!StringStartsWith("", ""));
-  BOOST_CHECK(!StringStartsWith("a", ""));
-  BOOST_CHECK(!StringStartsWith("", "a"));
-  BOOST_CHECK(StringStartsWith("a", "a"));
-  BOOST_CHECK(StringStartsWith("aa", "a"));
-  BOOST_CHECK(StringStartsWith("aa", "aa"));
-  BOOST_CHECK(StringStartsWith("aaaaaaaaa", "aa"));
+TEST(StringStartsWith, Nominal) {
+  EXPECT_FALSE(StringStartsWith("", ""));
+  EXPECT_FALSE(StringStartsWith("a", ""));
+  EXPECT_FALSE(StringStartsWith("", "a"));
+  EXPECT_TRUE(StringStartsWith("a", "a"));
+  EXPECT_TRUE(StringStartsWith("aa", "a"));
+  EXPECT_TRUE(StringStartsWith("aa", "aa"));
+  EXPECT_TRUE(StringStartsWith("aaaaaaaaa", "aa"));
 }
 
-BOOST_AUTO_TEST_CASE(TestStringStrim) {
+TEST(StringStrim, Nominal) {
   TEST_STRING_INPLACE(StringTrim, "", "");
   TEST_STRING_INPLACE(StringTrim, " ", "");
   TEST_STRING_INPLACE(StringTrim, "a", "a");
@@ -146,7 +145,7 @@ BOOST_AUTO_TEST_CASE(TestStringStrim) {
   TEST_STRING_INPLACE(StringTrim, "\n\r\t", "");
 }
 
-BOOST_AUTO_TEST_CASE(TestStringLeftString) {
+TEST(StringLeftString, Nominal) {
   TEST_STRING_INPLACE(StringLeftTrim, "", "");
   TEST_STRING_INPLACE(StringLeftTrim, " ", "");
   TEST_STRING_INPLACE(StringLeftTrim, "a", "a");
@@ -161,7 +160,7 @@ BOOST_AUTO_TEST_CASE(TestStringLeftString) {
   TEST_STRING_INPLACE(StringTrim, "\n\r\ta", "a");
 }
 
-BOOST_AUTO_TEST_CASE(TestStringStrimRight) {
+TEST(StringStrimRight, Nominal) {
   TEST_STRING_INPLACE(StringRightTrim, "", "");
   TEST_STRING_INPLACE(StringRightTrim, " ", "");
   TEST_STRING_INPLACE(StringRightTrim, "a", "a");
@@ -175,7 +174,7 @@ BOOST_AUTO_TEST_CASE(TestStringStrimRight) {
   TEST_STRING_INPLACE(StringTrim, "a\n\r\t", "a");
 }
 
-BOOST_AUTO_TEST_CASE(TestStringToLower) {
+TEST(StringToLower, Nominal) {
   TEST_STRING_INPLACE(StringToLower, "", "");
   TEST_STRING_INPLACE(StringToLower, " ", " ");
   TEST_STRING_INPLACE(StringToLower, "a", "a");
@@ -196,7 +195,7 @@ BOOST_AUTO_TEST_CASE(TestStringToLower) {
                       "0123456789 abcdefghijklmnopqrstuvwxyz");
 }
 
-BOOST_AUTO_TEST_CASE(TestStringToUpper) {
+TEST(StringToUpper, Nominal) {
   TEST_STRING_INPLACE(StringToUpper, "", "");
   TEST_STRING_INPLACE(StringToUpper, " ", " ");
   TEST_STRING_INPLACE(StringToUpper, "A", "A");
@@ -217,12 +216,14 @@ BOOST_AUTO_TEST_CASE(TestStringToUpper) {
                       "0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ");
 }
 
-BOOST_AUTO_TEST_CASE(TestStringContains) {
-  BOOST_CHECK(StringContains("", ""));
-  BOOST_CHECK(StringContains("a", ""));
-  BOOST_CHECK(StringContains("a", "a"));
-  BOOST_CHECK(StringContains("ab", "a"));
-  BOOST_CHECK(StringContains("ab", "ab"));
-  BOOST_CHECK(!StringContains("", "a"));
-  BOOST_CHECK(!StringContains("ab", "c"));
+TEST(StringContains, Nominal) {
+  EXPECT_TRUE(StringContains("", ""));
+  EXPECT_TRUE(StringContains("a", ""));
+  EXPECT_TRUE(StringContains("a", "a"));
+  EXPECT_TRUE(StringContains("ab", "a"));
+  EXPECT_TRUE(StringContains("ab", "ab"));
+  EXPECT_FALSE(StringContains("", "a"));
+  EXPECT_FALSE(StringContains("ab", "c"));
 }
+
+}  // namespace colmap

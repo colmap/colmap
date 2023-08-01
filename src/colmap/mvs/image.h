@@ -29,10 +29,9 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_MVS_IMAGE_H_
-#define COLMAP_SRC_MVS_IMAGE_H_
+#pragma once
 
-#include "colmap/util/bitmap.h"
+#include "colmap/sensor/bitmap.h"
 
 #include <cstdint>
 #include <fstream>
@@ -48,8 +47,8 @@ class Image {
  public:
   Image();
   Image(const std::string& path,
-        const size_t width,
-        const size_t height,
+        size_t width,
+        size_t height,
         const float* K,
         const float* R,
         const float* T);
@@ -68,9 +67,9 @@ class Image {
   inline const float* GetInvP() const;
   inline const float* GetViewingDirection() const;
 
-  void Rescale(const float factor);
-  void Rescale(const float factor_x, const float factor_y);
-  void Downsize(const size_t max_width, const size_t max_height);
+  void Rescale(float factor);
+  void Rescale(float factor_x, float factor_y);
+  void Downsize(size_t max_width, size_t max_height);
 
  private:
   std::string path_;
@@ -131,5 +130,3 @@ const float* Image::GetViewingDirection() const { return &R_[6]; }
 
 }  // namespace mvs
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_MVS_IMAGE_H_

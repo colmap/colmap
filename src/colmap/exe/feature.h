@@ -29,10 +29,9 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_EXE_FEATURE_H_
-#define COLMAP_SRC_EXE_FEATURE_H_
+#pragma once
 
-#include "colmap/base/image_reader.h"
+#include "colmap/controllers/image_reader.h"
 
 namespace colmap {
 
@@ -82,5 +81,3 @@ int RunTransitiveMatcher(int argc, char** argv);
 int RunVocabTreeMatcher(int argc, char** argv);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_EXE_FEATURE_H_

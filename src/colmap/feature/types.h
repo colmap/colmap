@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_FEATURE_TYPES_H_
-#define COLMAP_SRC_FEATURE_TYPES_H_
+#pragma once
 
 #include "colmap/util/types.h"
 
@@ -42,28 +41,20 @@ namespace colmap {
 
 struct FeatureKeypoint {
   FeatureKeypoint();
-  FeatureKeypoint(const float x, const float y);
-  FeatureKeypoint(const float x,
-                  const float y,
-                  const float scale,
-                  const float orientation);
-  FeatureKeypoint(const float x,
-                  const float y,
-                  const float a11,
-                  const float a12,
-                  const float a21,
-                  const float a22);
+  FeatureKeypoint(float x, float y);
+  FeatureKeypoint(float x, float y, float scale, float orientation);
+  FeatureKeypoint(float x, float y, float a11, float a12, float a21, float a22);
 
-  static FeatureKeypoint FromParameters(const float x,
-                                        const float y,
-                                        const float scale_x,
-                                        const float scale_y,
-                                        const float orientation,
-                                        const float shear);
+  static FeatureKeypoint FromParameters(float x,
+                                        float y,
+                                        float scale_x,
+                                        float scale_y,
+                                        float orientation,
+                                        float shear);
 
   // Rescale the feature location and shape size by the given scale factor.
-  void Rescale(const float scale);
-  void Rescale(const float scale_x, const float scale_y);
+  void Rescale(float scale);
+  void Rescale(float scale_x, float scale_y);
 
   // Compute similarity shape parameters from affine shape.
   float ComputeScale() const;
@@ -103,8 +94,8 @@ struct FeatureMatch {
 typedef std::vector<FeatureKeypoint> FeatureKeypoints;
 typedef Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
     FeatureDescriptors;
+typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+    FeatureDescriptorsFloat;
 typedef std::vector<FeatureMatch> FeatureMatches;
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_FEATURE_TYPES_H_

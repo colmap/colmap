@@ -179,13 +179,13 @@ void AutomaticReconstructionWidget::Run() {
       break;
   }
 
-  main_window_->reconstruction_manager_.Clear();
+  main_window_->reconstruction_manager_->Clear();
   main_window_->reconstruction_manager_widget_->Update();
   main_window_->RenderClear();
   main_window_->RenderNow();
 
   auto controller = std::make_unique<AutomaticReconstructionController>(
-      options_, &main_window_->reconstruction_manager_);
+      options_, main_window_->reconstruction_manager_);
   controller->AddCallback(Thread::FINISHED_CALLBACK,
                           [this]() { render_result_->trigger(); });
   thread_control_widget_->StartThread(
@@ -193,7 +193,7 @@ void AutomaticReconstructionWidget::Run() {
 }
 
 void AutomaticReconstructionWidget::RenderResult() {
-  if (main_window_->reconstruction_manager_.Size() > 0) {
+  if (main_window_->reconstruction_manager_->Size() > 0) {
     main_window_->reconstruction_manager_widget_->Update();
     main_window_->RenderClear();
     main_window_->RenderNow();

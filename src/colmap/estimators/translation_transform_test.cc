@@ -29,27 +29,27 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "estimators/translation_transform"
 #include "colmap/estimators/translation_transform.h"
 
+#include "colmap/math/random.h"
 #include "colmap/optim/ransac.h"
-#include "colmap/util/random.h"
-#include "colmap/util/testing.h"
 
 #include <Eigen/Core>
+#include <gtest/gtest.h>
 
-using namespace colmap;
+namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestEstimate) {
+TEST(TranslationTransform, Estimate) {
   SetPRNGSeed(0);
 
   std::vector<Eigen::Vector2d> src;
   for (size_t i = 0; i < 100; ++i) {
-    src.emplace_back(RandomReal(-1000.0, 1000.0), RandomReal(-1000.0, 1000.0));
+    src.emplace_back(RandomUniformReal(-1000.0, 1000.0),
+                     RandomUniformReal(-1000.0, 1000.0));
   }
 
-  Eigen::Vector2d translation(RandomReal(-1000.0, 1000.0),
-                              RandomReal(-1000.0, 1000.0));
+  Eigen::Vector2d translation(RandomUniformReal(-1000.0, 1000.0),
+                              RandomUniformReal(-1000.0, 1000.0));
 
   std::vector<Eigen::Vector2d> dst;
   for (size_t i = 0; i < src.size(); ++i) {
@@ -59,14 +59,16 @@ BOOST_AUTO_TEST_CASE(TestEstimate) {
   const auto estimated_translation =
       TranslationTransformEstimator<2>::Estimate(src, dst)[0];
 
-  BOOST_CHECK_CLOSE(translation(0), estimated_translation(0), 1e-6);
-  BOOST_CHECK_CLOSE(translation(1), estimated_translation(1), 1e-6);
+  EXPECT_NEAR(translation(0), estimated_translation(0), 1e-6);
+  EXPECT_NEAR(translation(1), estimated_translation(1), 1e-6);
 
   std::vector<double> residuals;
   TranslationTransformEstimator<2>::Residuals(
       src, dst, estimated_translation, &residuals);
 
   for (size_t i = 0; i < residuals.size(); ++i) {
-    BOOST_CHECK(residuals[i] < 1e-6);
+    EXPECT_TRUE(residuals[i] < 1e-6);
   }
 }
+
+}  // namespace colmap

@@ -29,11 +29,11 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_MAIN_WINDOW_H_
-#define COLMAP_SRC_UI_MAIN_WINDOW_H_
+#pragma once
 
-#include "colmap/base/reconstruction.h"
 #include "colmap/controllers/incremental_mapper.h"
+#include "colmap/scene/reconstruction.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/ui/automatic_reconstruction_widget.h"
 #include "colmap/ui/bundle_adjustment_widget.h"
 #include "colmap/ui/database_management_widget.h"
@@ -50,11 +50,11 @@
 #include "colmap/ui/reconstruction_stats_widget.h"
 #include "colmap/ui/render_options_widget.h"
 #include "colmap/ui/undistortion_widget.h"
-#include "colmap/util/bitmap.h"
 
 #include <QtCore>
 #include <QtGui>
 #include <QtWidgets>
+#include <memory>
 
 namespace colmap {
 
@@ -116,7 +116,7 @@ class MainWindow : public QMainWindow {
   void RenderSelectedReconstruction();
   void RenderClear();
 
-  void SelectReconstructionIdx(const size_t);
+  void SelectReconstructionIdx(size_t);
   size_t SelectedReconstructionIdx();
   bool HasSelectedReconstruction();
   bool IsSelectedReconstructionValid();
@@ -146,7 +146,7 @@ class MainWindow : public QMainWindow {
 
   OptionManager options_;
 
-  ReconstructionManager reconstruction_manager_;
+  std::shared_ptr<ReconstructionManager> reconstruction_manager_;
   std::unique_ptr<IncrementalMapperController> mapper_controller_;
 
   Timer timer_;
@@ -238,5 +238,3 @@ class MainWindow : public QMainWindow {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_MAIN_WINDOW_H_

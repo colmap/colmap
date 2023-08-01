@@ -29,246 +29,246 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "util/cache"
 #include "colmap/util/cache.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
-using namespace colmap;
+namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestLRUCacheEmpty) {
+TEST(LRUCache, Empty) {
   LRUCache<int, int> cache(5, [](const int key) { return key; });
-  BOOST_CHECK_EQUAL(cache.NumElems(), 0);
-  BOOST_CHECK_EQUAL(cache.MaxNumElems(), 5);
+  EXPECT_EQ(cache.NumElems(), 0);
+  EXPECT_EQ(cache.MaxNumElems(), 5);
 }
 
-BOOST_AUTO_TEST_CASE(TestLRUCacheGet) {
+TEST(LRUCache, Get) {
   LRUCache<int, int> cache(5, [](const int key) { return key; });
-  BOOST_CHECK_EQUAL(cache.NumElems(), 0);
+  EXPECT_EQ(cache.NumElems(), 0);
   for (int i = 0; i < 5; ++i) {
-    BOOST_CHECK_EQUAL(cache.Get(i), i);
-    BOOST_CHECK_EQUAL(cache.NumElems(), i + 1);
-    BOOST_CHECK(cache.Exists(i));
+    EXPECT_EQ(cache.Get(i), i);
+    EXPECT_EQ(cache.NumElems(), i + 1);
+    EXPECT_TRUE(cache.Exists(i));
   }
 
-  BOOST_CHECK_EQUAL(cache.Get(5), 5);
-  BOOST_CHECK_EQUAL(cache.NumElems(), 5);
-  BOOST_CHECK(!cache.Exists(0));
-  BOOST_CHECK(cache.Exists(5));
+  EXPECT_EQ(cache.Get(5), 5);
+  EXPECT_EQ(cache.NumElems(), 5);
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_TRUE(cache.Exists(5));
 
-  BOOST_CHECK_EQUAL(cache.Get(5), 5);
-  BOOST_CHECK_EQUAL(cache.NumElems(), 5);
-  BOOST_CHECK(!cache.Exists(0));
-  BOOST_CHECK(cache.Exists(5));
+  EXPECT_EQ(cache.Get(5), 5);
+  EXPECT_EQ(cache.NumElems(), 5);
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_TRUE(cache.Exists(5));
 
-  BOOST_CHECK_EQUAL(cache.Get(6), 6);
-  BOOST_CHECK_EQUAL(cache.NumElems(), 5);
-  BOOST_CHECK(!cache.Exists(0));
-  BOOST_CHECK(!cache.Exists(1));
-  BOOST_CHECK(cache.Exists(6));
+  EXPECT_EQ(cache.Get(6), 6);
+  EXPECT_EQ(cache.NumElems(), 5);
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(1));
+  EXPECT_TRUE(cache.Exists(6));
 }
 
-BOOST_AUTO_TEST_CASE(TestLRUCacheGetMutable) {
+TEST(LRUCache, GetMutable) {
   LRUCache<int, int> cache(5, [](const int key) { return key; });
-  BOOST_CHECK_EQUAL(cache.NumElems(), 0);
+  EXPECT_EQ(cache.NumElems(), 0);
   for (int i = 0; i < 5; ++i) {
-    BOOST_CHECK_EQUAL(cache.GetMutable(i), i);
-    BOOST_CHECK_EQUAL(cache.NumElems(), i + 1);
-    BOOST_CHECK(cache.Exists(i));
+    EXPECT_EQ(cache.GetMutable(i), i);
+    EXPECT_EQ(cache.NumElems(), i + 1);
+    EXPECT_TRUE(cache.Exists(i));
   }
 
-  BOOST_CHECK_EQUAL(cache.GetMutable(5), 5);
-  BOOST_CHECK_EQUAL(cache.NumElems(), 5);
-  BOOST_CHECK(!cache.Exists(0));
-  BOOST_CHECK(cache.Exists(5));
+  EXPECT_EQ(cache.GetMutable(5), 5);
+  EXPECT_EQ(cache.NumElems(), 5);
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_TRUE(cache.Exists(5));
 
-  BOOST_CHECK_EQUAL(cache.GetMutable(5), 5);
-  BOOST_CHECK_EQUAL(cache.NumElems(), 5);
-  BOOST_CHECK(!cache.Exists(0));
-  BOOST_CHECK(cache.Exists(5));
+  EXPECT_EQ(cache.GetMutable(5), 5);
+  EXPECT_EQ(cache.NumElems(), 5);
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_TRUE(cache.Exists(5));
 
-  BOOST_CHECK_EQUAL(cache.GetMutable(6), 6);
-  BOOST_CHECK_EQUAL(cache.NumElems(), 5);
-  BOOST_CHECK(!cache.Exists(0));
-  BOOST_CHECK(!cache.Exists(1));
-  BOOST_CHECK(cache.Exists(6));
+  EXPECT_EQ(cache.GetMutable(6), 6);
+  EXPECT_EQ(cache.NumElems(), 5);
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(1));
+  EXPECT_TRUE(cache.Exists(6));
 
   cache.GetMutable(6) = 66;
-  BOOST_CHECK_EQUAL(cache.GetMutable(6), 66);
-  BOOST_CHECK_EQUAL(cache.NumElems(), 5);
-  BOOST_CHECK(!cache.Exists(0));
-  BOOST_CHECK(!cache.Exists(1));
-  BOOST_CHECK(cache.Exists(6));
+  EXPECT_EQ(cache.GetMutable(6), 66);
+  EXPECT_EQ(cache.NumElems(), 5);
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(1));
+  EXPECT_TRUE(cache.Exists(6));
 }
 
-BOOST_AUTO_TEST_CASE(TestLRUCacheSet) {
+TEST(LRUCache, Set) {
   LRUCache<int, int> cache(5, [](const int key) { return -1; });
-  BOOST_CHECK_EQUAL(cache.NumElems(), 0);
+  EXPECT_EQ(cache.NumElems(), 0);
   for (int i = 0; i < 5; ++i) {
-    // NOLINTNEXTLINE(performance-move-const-arg)
-    cache.Set(i, std::move(i));
-    BOOST_CHECK_EQUAL(cache.NumElems(), i + 1);
-    BOOST_CHECK(cache.Exists(i));
+    cache.Set(i, i);
+    EXPECT_EQ(cache.NumElems(), i + 1);
+    EXPECT_TRUE(cache.Exists(i));
   }
 
-  BOOST_CHECK_EQUAL(cache.Get(5), -1);
-  BOOST_CHECK_EQUAL(cache.NumElems(), 5);
-  BOOST_CHECK(!cache.Exists(0));
-  BOOST_CHECK(cache.Exists(5));
+  EXPECT_EQ(cache.Get(5), -1);
+  EXPECT_EQ(cache.NumElems(), 5);
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_TRUE(cache.Exists(5));
 
-  BOOST_CHECK_EQUAL(cache.Get(6), -1);
-  BOOST_CHECK_EQUAL(cache.NumElems(), 5);
-  BOOST_CHECK(!cache.Exists(0));
-  BOOST_CHECK(!cache.Exists(1));
-  BOOST_CHECK(cache.Exists(6));
+  EXPECT_EQ(cache.Get(6), -1);
+  EXPECT_EQ(cache.NumElems(), 5);
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(1));
+  EXPECT_TRUE(cache.Exists(6));
 }
 
-BOOST_AUTO_TEST_CASE(TestLRUCachePop) {
+TEST(LRUCache, Pop) {
   LRUCache<int, int> cache(5, [](const int key) { return key; });
-  BOOST_CHECK_EQUAL(cache.NumElems(), 0);
+  EXPECT_EQ(cache.NumElems(), 0);
   for (int i = 0; i < 5; ++i) {
-    BOOST_CHECK_EQUAL(cache.Get(i), i);
-    BOOST_CHECK_EQUAL(cache.NumElems(), i + 1);
-    BOOST_CHECK(cache.Exists(i));
+    EXPECT_EQ(cache.Get(i), i);
+    EXPECT_EQ(cache.NumElems(), i + 1);
+    EXPECT_TRUE(cache.Exists(i));
   }
 
-  BOOST_CHECK_EQUAL(cache.Get(5), 5);
-  BOOST_CHECK_EQUAL(cache.NumElems(), 5);
-  BOOST_CHECK(!cache.Exists(0));
-  BOOST_CHECK(cache.Exists(5));
+  EXPECT_EQ(cache.Get(5), 5);
+  EXPECT_EQ(cache.NumElems(), 5);
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_TRUE(cache.Exists(5));
 
   cache.Pop();
-  BOOST_CHECK_EQUAL(cache.NumElems(), 4);
+  EXPECT_EQ(cache.NumElems(), 4);
   cache.Pop();
-  BOOST_CHECK_EQUAL(cache.NumElems(), 3);
+  EXPECT_EQ(cache.NumElems(), 3);
   cache.Pop();
-  BOOST_CHECK_EQUAL(cache.NumElems(), 2);
+  EXPECT_EQ(cache.NumElems(), 2);
   cache.Pop();
-  BOOST_CHECK_EQUAL(cache.NumElems(), 1);
+  EXPECT_EQ(cache.NumElems(), 1);
   cache.Pop();
-  BOOST_CHECK_EQUAL(cache.NumElems(), 0);
+  EXPECT_EQ(cache.NumElems(), 0);
   cache.Pop();
-  BOOST_CHECK_EQUAL(cache.NumElems(), 0);
+  EXPECT_EQ(cache.NumElems(), 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestLRUCacheClear) {
+TEST(LRUCache, Clear) {
   LRUCache<int, int> cache(5, [](const int key) { return key; });
-  BOOST_CHECK_EQUAL(cache.NumElems(), 0);
+  EXPECT_EQ(cache.NumElems(), 0);
   for (int i = 0; i < 5; ++i) {
-    BOOST_CHECK_EQUAL(cache.Get(i), i);
-    BOOST_CHECK_EQUAL(cache.NumElems(), i + 1);
-    BOOST_CHECK(cache.Exists(i));
+    EXPECT_EQ(cache.Get(i), i);
+    EXPECT_EQ(cache.NumElems(), i + 1);
+    EXPECT_TRUE(cache.Exists(i));
   }
 
   cache.Clear();
-  BOOST_CHECK_EQUAL(cache.NumElems(), 0);
+  EXPECT_EQ(cache.NumElems(), 0);
 
-  BOOST_CHECK_EQUAL(cache.Get(0), 0);
-  BOOST_CHECK_EQUAL(cache.NumElems(), 1);
-  BOOST_CHECK(cache.Exists(0));
+  EXPECT_EQ(cache.Get(0), 0);
+  EXPECT_EQ(cache.NumElems(), 1);
+  EXPECT_TRUE(cache.Exists(0));
 }
 
 struct SizedElem {
-  SizedElem(const size_t num_bytes_) : num_bytes(num_bytes_) {}
+  explicit SizedElem(const size_t num_bytes_) : num_bytes(num_bytes_) {}
   size_t NumBytes() const { return num_bytes; }
   size_t num_bytes;
 };
 
-BOOST_AUTO_TEST_CASE(TestMemoryConstrainedLRUCacheEmpty) {
+TEST(MemoryConstrainedLRUCache, Empty) {
   MemoryConstrainedLRUCache<int, SizedElem> cache(
       5, [](const int key) { return SizedElem(key); });
-  BOOST_CHECK_EQUAL(cache.NumElems(), 0);
-  BOOST_CHECK_EQUAL(cache.MaxNumElems(), std::numeric_limits<size_t>::max());
-  BOOST_CHECK_EQUAL(cache.NumBytes(), 0);
-  BOOST_CHECK_EQUAL(cache.MaxNumBytes(), 5);
+  EXPECT_EQ(cache.NumElems(), 0);
+  EXPECT_EQ(cache.MaxNumElems(), std::numeric_limits<size_t>::max());
+  EXPECT_EQ(cache.NumBytes(), 0);
+  EXPECT_EQ(cache.MaxNumBytes(), 5);
 }
 
-BOOST_AUTO_TEST_CASE(TestMemoryConstrainedLRUCacheGet) {
+TEST(MemoryConstrainedLRUCache, Get) {
   MemoryConstrainedLRUCache<int, SizedElem> cache(
       10, [](const int key) { return SizedElem(key); });
-  BOOST_CHECK_EQUAL(cache.NumElems(), 0);
+  EXPECT_EQ(cache.NumElems(), 0);
   for (int i = 0; i < 5; ++i) {
-    BOOST_CHECK_EQUAL(cache.Get(i).NumBytes(), i);
-    BOOST_CHECK_EQUAL(cache.NumElems(), i + 1);
-    BOOST_CHECK(cache.Exists(i));
+    EXPECT_EQ(cache.Get(i).NumBytes(), i);
+    EXPECT_EQ(cache.NumElems(), i + 1);
+    EXPECT_TRUE(cache.Exists(i));
   }
 
-  BOOST_CHECK_EQUAL(cache.Get(5).NumBytes(), 5);
-  BOOST_CHECK_EQUAL(cache.NumElems(), 2);
-  BOOST_CHECK_EQUAL(cache.NumBytes(), 9);
-  BOOST_CHECK(!cache.Exists(0));
-  BOOST_CHECK(cache.Exists(5));
+  EXPECT_EQ(cache.Get(5).NumBytes(), 5);
+  EXPECT_EQ(cache.NumElems(), 2);
+  EXPECT_EQ(cache.NumBytes(), 9);
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_TRUE(cache.Exists(5));
 
-  BOOST_CHECK_EQUAL(cache.Get(5).NumBytes(), 5);
-  BOOST_CHECK_EQUAL(cache.NumElems(), 2);
-  BOOST_CHECK_EQUAL(cache.NumBytes(), 9);
-  BOOST_CHECK(!cache.Exists(0));
-  BOOST_CHECK(cache.Exists(5));
+  EXPECT_EQ(cache.Get(5).NumBytes(), 5);
+  EXPECT_EQ(cache.NumElems(), 2);
+  EXPECT_EQ(cache.NumBytes(), 9);
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_TRUE(cache.Exists(5));
 
-  BOOST_CHECK_EQUAL(cache.Get(6).NumBytes(), 6);
-  BOOST_CHECK_EQUAL(cache.NumElems(), 1);
-  BOOST_CHECK_EQUAL(cache.NumBytes(), 6);
-  BOOST_CHECK(!cache.Exists(0));
-  BOOST_CHECK(!cache.Exists(1));
-  BOOST_CHECK(cache.Exists(6));
+  EXPECT_EQ(cache.Get(6).NumBytes(), 6);
+  EXPECT_EQ(cache.NumElems(), 1);
+  EXPECT_EQ(cache.NumBytes(), 6);
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_FALSE(cache.Exists(1));
+  EXPECT_TRUE(cache.Exists(6));
 
-  BOOST_CHECK_EQUAL(cache.Get(1).NumBytes(), 1);
-  BOOST_CHECK_EQUAL(cache.NumElems(), 2);
-  BOOST_CHECK_EQUAL(cache.NumBytes(), 7);
-  BOOST_CHECK(!cache.Exists(0));
-  BOOST_CHECK(cache.Exists(1));
-  BOOST_CHECK(cache.Exists(6));
+  EXPECT_EQ(cache.Get(1).NumBytes(), 1);
+  EXPECT_EQ(cache.NumElems(), 2);
+  EXPECT_EQ(cache.NumBytes(), 7);
+  EXPECT_FALSE(cache.Exists(0));
+  EXPECT_TRUE(cache.Exists(1));
+  EXPECT_TRUE(cache.Exists(6));
 }
 
-BOOST_AUTO_TEST_CASE(TestMemoryConstrainedLRUCacheClear) {
+TEST(MemoryConstrainedLRUCache, Clear) {
   MemoryConstrainedLRUCache<int, SizedElem> cache(
       10, [](const int key) { return SizedElem(key); });
-  BOOST_CHECK_EQUAL(cache.NumElems(), 0);
+  EXPECT_EQ(cache.NumElems(), 0);
   for (int i = 0; i < 5; ++i) {
-    BOOST_CHECK_EQUAL(cache.Get(i).NumBytes(), i);
-    BOOST_CHECK_EQUAL(cache.NumElems(), i + 1);
-    BOOST_CHECK(cache.Exists(i));
+    EXPECT_EQ(cache.Get(i).NumBytes(), i);
+    EXPECT_EQ(cache.NumElems(), i + 1);
+    EXPECT_TRUE(cache.Exists(i));
   }
 
   cache.Clear();
-  BOOST_CHECK_EQUAL(cache.NumElems(), 0);
-  BOOST_CHECK_EQUAL(cache.NumBytes(), 0);
+  EXPECT_EQ(cache.NumElems(), 0);
+  EXPECT_EQ(cache.NumBytes(), 0);
 
-  BOOST_CHECK_EQUAL(cache.Get(1).NumBytes(), 1);
-  BOOST_CHECK_EQUAL(cache.NumBytes(), 1);
-  BOOST_CHECK_EQUAL(cache.NumElems(), 1);
-  BOOST_CHECK(cache.Exists(1));
+  EXPECT_EQ(cache.Get(1).NumBytes(), 1);
+  EXPECT_EQ(cache.NumBytes(), 1);
+  EXPECT_EQ(cache.NumElems(), 1);
+  EXPECT_TRUE(cache.Exists(1));
 }
 
-BOOST_AUTO_TEST_CASE(TestMemoryConstrainedLRUCacheUpdateNumBytes) {
+TEST(MemoryConstrainedLRUCache, UpdateNumBytes) {
   MemoryConstrainedLRUCache<int, SizedElem> cache(
       50, [](const int key) { return SizedElem(key); });
-  BOOST_CHECK_EQUAL(cache.NumElems(), 0);
+  EXPECT_EQ(cache.NumElems(), 0);
   for (int i = 0; i < 5; ++i) {
-    BOOST_CHECK_EQUAL(cache.Get(i).NumBytes(), i);
-    BOOST_CHECK_EQUAL(cache.NumElems(), i + 1);
-    BOOST_CHECK(cache.Exists(i));
+    EXPECT_EQ(cache.Get(i).NumBytes(), i);
+    EXPECT_EQ(cache.NumElems(), i + 1);
+    EXPECT_TRUE(cache.Exists(i));
   }
 
-  BOOST_CHECK_EQUAL(cache.NumBytes(), 10);
+  EXPECT_EQ(cache.NumBytes(), 10);
 
   cache.GetMutable(4).num_bytes = 3;
-  BOOST_CHECK_EQUAL(cache.NumBytes(), 10);
+  EXPECT_EQ(cache.NumBytes(), 10);
   cache.UpdateNumBytes(4);
-  BOOST_CHECK_EQUAL(cache.NumBytes(), 9);
+  EXPECT_EQ(cache.NumBytes(), 9);
 
   cache.GetMutable(2).num_bytes = 3;
-  BOOST_CHECK_EQUAL(cache.NumBytes(), 9);
+  EXPECT_EQ(cache.NumBytes(), 9);
   cache.UpdateNumBytes(2);
-  BOOST_CHECK_EQUAL(cache.NumBytes(), 10);
+  EXPECT_EQ(cache.NumBytes(), 10);
 
   cache.GetMutable(0).num_bytes = 40;
-  BOOST_CHECK_EQUAL(cache.NumBytes(), 10);
+  EXPECT_EQ(cache.NumBytes(), 10);
   cache.UpdateNumBytes(0);
-  BOOST_CHECK_EQUAL(cache.NumBytes(), 50);
+  EXPECT_EQ(cache.NumBytes(), 50);
 
   cache.Clear();
-  BOOST_CHECK_EQUAL(cache.NumBytes(), 0);
-  BOOST_CHECK_EQUAL(cache.Get(2).NumBytes(), 2);
-  BOOST_CHECK_EQUAL(cache.NumBytes(), 2);
+  EXPECT_EQ(cache.NumBytes(), 0);
+  EXPECT_EQ(cache.Get(2).NumBytes(), 2);
+  EXPECT_EQ(cache.NumBytes(), 2);
 }
+
+}  // namespace colmap

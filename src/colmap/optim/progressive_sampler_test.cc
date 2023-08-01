@@ -29,44 +29,41 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "optim/progressive_sampler"
 #include "colmap/optim/progressive_sampler.h"
-
-#include "colmap/util/testing.h"
 
 #include <unordered_set>
 
-using namespace colmap;
+#include <gtest/gtest.h>
 
-BOOST_AUTO_TEST_CASE(TestLessSamples) {
+namespace colmap {
+
+TEST(ProgressiveSampler, LessSamples) {
   ProgressiveSampler sampler(2);
   sampler.Initialize(5);
-  BOOST_CHECK_EQUAL(sampler.MaxNumSamples(),
-                    std::numeric_limits<size_t>::max());
+  EXPECT_EQ(sampler.MaxNumSamples(), std::numeric_limits<size_t>::max());
   for (size_t i = 0; i < 100; ++i) {
     std::vector<size_t> samples;
     sampler.Sample(&samples);
-    BOOST_CHECK_EQUAL(samples.size(), 2);
-    BOOST_CHECK_EQUAL(
-        std::unordered_set<size_t>(samples.begin(), samples.end()).size(), 2);
+    EXPECT_EQ(samples.size(), 2);
+    EXPECT_EQ(std::unordered_set<size_t>(samples.begin(), samples.end()).size(),
+              2);
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestEqualSamples) {
+TEST(ProgressiveSampler, EqualSamples) {
   ProgressiveSampler sampler(5);
   sampler.Initialize(5);
-  BOOST_CHECK_EQUAL(sampler.MaxNumSamples(),
-                    std::numeric_limits<size_t>::max());
+  EXPECT_EQ(sampler.MaxNumSamples(), std::numeric_limits<size_t>::max());
   for (size_t i = 0; i < 100; ++i) {
     std::vector<size_t> samples;
     sampler.Sample(&samples);
-    BOOST_CHECK_EQUAL(samples.size(), 5);
-    BOOST_CHECK_EQUAL(
-        std::unordered_set<size_t>(samples.begin(), samples.end()).size(), 5);
+    EXPECT_EQ(samples.size(), 5);
+    EXPECT_EQ(std::unordered_set<size_t>(samples.begin(), samples.end()).size(),
+              5);
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestProgressive) {
+TEST(ProgressiveSampler, Progressive) {
   const size_t kNumSamples = 5;
   ProgressiveSampler sampler(kNumSamples);
   sampler.Initialize(50);
@@ -75,9 +72,11 @@ BOOST_AUTO_TEST_CASE(TestProgressive) {
     std::vector<size_t> samples;
     sampler.Sample(&samples);
     for (size_t i = 0; i < samples.size() - 1; ++i) {
-      BOOST_CHECK_LT(samples[i], samples.back());
-      BOOST_CHECK_GE(samples.back(), prev_last_sample);
+      EXPECT_LT(samples[i], samples.back());
+      EXPECT_GE(samples.back(), prev_last_sample);
       prev_last_sample = samples.back();
     }
   }
 }
+
+}  // namespace colmap

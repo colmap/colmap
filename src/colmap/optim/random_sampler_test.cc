@@ -29,39 +29,38 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "optim/random_sampler"
 #include "colmap/optim/random_sampler.h"
-
-#include "colmap/util/testing.h"
 
 #include <unordered_set>
 
-using namespace colmap;
+#include <gtest/gtest.h>
 
-BOOST_AUTO_TEST_CASE(TestLessSamples) {
+namespace colmap {
+
+TEST(RandomSampler, LessSamples) {
   RandomSampler sampler(2);
   sampler.Initialize(5);
-  BOOST_CHECK_EQUAL(sampler.MaxNumSamples(),
-                    std::numeric_limits<size_t>::max());
+  EXPECT_EQ(sampler.MaxNumSamples(), std::numeric_limits<size_t>::max());
   for (size_t i = 0; i < 100; ++i) {
     std::vector<size_t> samples;
     sampler.Sample(&samples);
-    BOOST_CHECK_EQUAL(samples.size(), 2);
-    BOOST_CHECK_EQUAL(
-        std::unordered_set<size_t>(samples.begin(), samples.end()).size(), 2);
+    EXPECT_EQ(samples.size(), 2);
+    EXPECT_EQ(std::unordered_set<size_t>(samples.begin(), samples.end()).size(),
+              2);
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestEqualSamples) {
+TEST(RandomSampler, EqualSamples) {
   RandomSampler sampler(5);
   sampler.Initialize(5);
-  BOOST_CHECK_EQUAL(sampler.MaxNumSamples(),
-                    std::numeric_limits<size_t>::max());
+  EXPECT_EQ(sampler.MaxNumSamples(), std::numeric_limits<size_t>::max());
   for (size_t i = 0; i < 100; ++i) {
     std::vector<size_t> samples;
     sampler.Sample(&samples);
-    BOOST_CHECK_EQUAL(samples.size(), 5);
-    BOOST_CHECK_EQUAL(
-        std::unordered_set<size_t>(samples.begin(), samples.end()).size(), 5);
+    EXPECT_EQ(samples.size(), 5);
+    EXPECT_EQ(std::unordered_set<size_t>(samples.begin(), samples.end()).size(),
+              5);
   }
 }
+
+}  // namespace colmap

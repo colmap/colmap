@@ -36,11 +36,12 @@
 #include <iostream>
 
 #include <Eigen/Dense>
-#include <boost/test/unit_test.hpp>
+#include <gtest/gtest.h>
 
-using namespace colmap::retrieval;
+namespace colmap {
+namespace retrieval {
 
-BOOST_AUTO_TEST_CASE(TestIdentity) {
+TEST(FeatureGeometry, Identity) {
   for (int x = 0; x < 3; ++x) {
     for (int y = 0; y < 3; ++y) {
       for (int scale = 1; scale < 5; ++scale) {
@@ -57,21 +58,21 @@ BOOST_AUTO_TEST_CASE(TestIdentity) {
           feature2.orientation = orientation;
           const auto tform_matrix =
               FeatureGeometry::TransformMatrixFromMatch(feature1, feature2);
-          BOOST_CHECK(
+          EXPECT_TRUE(
               tform_matrix.isApprox(Eigen::Matrix<float, 2, 3>::Identity()));
           const auto tform =
               FeatureGeometry::TransformFromMatch(feature1, feature2);
-          BOOST_CHECK_CLOSE(tform.scale, 1, 1e-6);
-          BOOST_CHECK_CLOSE(tform.angle, 0, 1e-6);
-          BOOST_CHECK_CLOSE(tform.tx, 0, 1e-6);
-          BOOST_CHECK_CLOSE(tform.ty, 0, 1e-6);
+          EXPECT_NEAR(tform.scale, 1, 1e-6);
+          EXPECT_NEAR(tform.angle, 0, 1e-6);
+          EXPECT_NEAR(tform.tx, 0, 1e-6);
+          EXPECT_NEAR(tform.ty, 0, 1e-6);
         }
       }
     }
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestTranslation) {
+TEST(FeatureGeometry, Translation) {
   for (int x = 0; x < 3; ++x) {
     for (int y = 0; y < 3; ++y) {
       FeatureGeometry feature1;
@@ -83,20 +84,20 @@ BOOST_AUTO_TEST_CASE(TestTranslation) {
       feature2.orientation = 0;
       const auto tform_matrix =
           FeatureGeometry::TransformMatrixFromMatch(feature1, feature2);
-      BOOST_CHECK(
+      EXPECT_TRUE(
           tform_matrix.leftCols<2>().isApprox(Eigen::Matrix2f::Identity()));
-      BOOST_CHECK(tform_matrix.rightCols<1>().isApprox(Eigen::Vector2f(x, y)));
+      EXPECT_TRUE(tform_matrix.rightCols<1>().isApprox(Eigen::Vector2f(x, y)));
       const auto tform =
           FeatureGeometry::TransformFromMatch(feature1, feature2);
-      BOOST_CHECK_CLOSE(tform.scale, 1, 1e-6);
-      BOOST_CHECK_CLOSE(tform.angle, 0, 1e-6);
-      BOOST_CHECK_CLOSE(tform.tx, x, 1e-6);
-      BOOST_CHECK_CLOSE(tform.ty, y, 1e-6);
+      EXPECT_NEAR(tform.scale, 1, 1e-6);
+      EXPECT_NEAR(tform.angle, 0, 1e-6);
+      EXPECT_NEAR(tform.tx, x, 1e-6);
+      EXPECT_NEAR(tform.ty, y, 1e-6);
     }
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestScale) {
+TEST(FeatureGeometry, Scale) {
   for (int scale = 1; scale < 5; ++scale) {
     FeatureGeometry feature1;
     feature1.scale = 1;
@@ -105,18 +106,18 @@ BOOST_AUTO_TEST_CASE(TestScale) {
     feature2.orientation = 0;
     const auto tform_matrix =
         FeatureGeometry::TransformMatrixFromMatch(feature1, feature2);
-    BOOST_CHECK(tform_matrix.leftCols<2>().isApprox(
+    EXPECT_TRUE(tform_matrix.leftCols<2>().isApprox(
         scale * Eigen::Matrix2f::Identity()));
-    BOOST_CHECK(tform_matrix.rightCols<1>().isApprox(Eigen::Vector2f(0, 0)));
+    EXPECT_TRUE(tform_matrix.rightCols<1>().isApprox(Eigen::Vector2f(0, 0)));
     const auto tform = FeatureGeometry::TransformFromMatch(feature1, feature2);
-    BOOST_CHECK_CLOSE(tform.scale, scale, 1e-6);
-    BOOST_CHECK_CLOSE(tform.angle, 0, 1e-6);
-    BOOST_CHECK_CLOSE(tform.tx, 0, 1e-6);
-    BOOST_CHECK_CLOSE(tform.ty, 0, 1e-6);
+    EXPECT_NEAR(tform.scale, scale, 1e-6);
+    EXPECT_NEAR(tform.angle, 0, 1e-6);
+    EXPECT_NEAR(tform.tx, 0, 1e-6);
+    EXPECT_NEAR(tform.ty, 0, 1e-6);
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestOrientation) {
+TEST(FeatureGeometry, Orientation) {
   for (int orientation = 0; orientation < 3; ++orientation) {
     FeatureGeometry feature1;
     feature1.scale = 1;
@@ -126,12 +127,15 @@ BOOST_AUTO_TEST_CASE(TestOrientation) {
     feature2.orientation = orientation;
     const auto tform_matrix =
         FeatureGeometry::TransformMatrixFromMatch(feature1, feature2);
-    BOOST_CHECK_CLOSE(tform_matrix.leftCols<2>().determinant(), 1, 1e-5);
-    BOOST_CHECK(tform_matrix.rightCols<1>().isApprox(Eigen::Vector2f(0, 0)));
+    EXPECT_NEAR(tform_matrix.leftCols<2>().determinant(), 1, 1e-5);
+    EXPECT_TRUE(tform_matrix.rightCols<1>().isApprox(Eigen::Vector2f(0, 0)));
     const auto tform = FeatureGeometry::TransformFromMatch(feature1, feature2);
-    BOOST_CHECK_CLOSE(tform.scale, 1, 1e-6);
-    BOOST_CHECK_CLOSE(tform.angle, orientation, 1e-6);
-    BOOST_CHECK_CLOSE(tform.tx, 0, 1e-6);
-    BOOST_CHECK_CLOSE(tform.ty, 0, 1e-6);
+    EXPECT_NEAR(tform.scale, 1, 1e-6);
+    EXPECT_NEAR(tform.angle, orientation, 1e-6);
+    EXPECT_NEAR(tform.tx, 0, 1e-6);
+    EXPECT_NEAR(tform.ty, 0, 1e-6);
   }
 }
+
+}  // namespace retrieval
+}  // namespace colmap

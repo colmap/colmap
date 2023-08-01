@@ -29,10 +29,9 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_CONTROLLERS_INCREMENTAL_MAPPER_H_
-#define COLMAP_SRC_CONTROLLERS_INCREMENTAL_MAPPER_H_
+#pragma once
 
-#include "colmap/base/reconstruction_manager.h"
+#include "colmap/scene/reconstruction_manager.h"
 #include "colmap/sfm/incremental_mapper.h"
 #include "colmap/util/threading.h"
 
@@ -58,7 +57,8 @@ struct IncrementalMapperOptions {
   int max_model_overlap = 20;
 
   // The minimum number of registered images of a sub-model, otherwise the
-  // sub-model is discarded.
+  // sub-model is discarded. Note that the first sub-model is always kept
+  // independent of size.
   int min_model_size = 10;
 
   // The image identifiers used to initialize the reconstruction. Note that
@@ -160,21 +160,22 @@ class IncrementalMapperController : public Thread {
     LAST_IMAGE_REG_CALLBACK,
   };
 
-  IncrementalMapperController(const IncrementalMapperOptions* options,
-                              const std::string& image_path,
-                              const std::string& database_path,
-                              ReconstructionManager* reconstruction_manager);
+  IncrementalMapperController(
+      std::shared_ptr<const IncrementalMapperOptions> options,
+      const std::string& image_path,
+      const std::string& database_path,
+      std::shared_ptr<ReconstructionManager> reconstruction_manager);
 
  private:
   void Run();
   bool LoadDatabase();
   void Reconstruct(const IncrementalMapper::Options& init_mapper_options);
 
-  const IncrementalMapperOptions* options_;
+  const std::shared_ptr<const IncrementalMapperOptions> options_;
   const std::string image_path_;
   const std::string database_path_;
-  ReconstructionManager* reconstruction_manager_;
-  DatabaseCache database_cache_;
+  std::shared_ptr<ReconstructionManager> reconstruction_manager_;
+  std::shared_ptr<DatabaseCache> database_cache_;
 };
 
 // Globally filter points and images in mapper.
@@ -188,5 +189,3 @@ size_t CompleteAndMergeTracks(const IncrementalMapperOptions& options,
                               IncrementalMapper* mapper);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_CONTROLLERS_INCREMENTAL_MAPPER_H_

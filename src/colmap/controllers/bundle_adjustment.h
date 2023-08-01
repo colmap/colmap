@@ -29,11 +29,10 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_CONTROLLERS_BUNDLE_ADJUSTMENT_H_
-#define COLMAP_SRC_CONTROLLERS_BUNDLE_ADJUSTMENT_H_
+#pragma once
 
-#include "colmap/base/reconstruction.h"
-#include "colmap/util/option_manager.h"
+#include "colmap/controllers/option_manager.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/util/threading.h"
 
 namespace colmap {
@@ -42,15 +41,13 @@ namespace colmap {
 class BundleAdjustmentController : public Thread {
  public:
   BundleAdjustmentController(const OptionManager& options,
-                             Reconstruction* reconstruction);
+                             std::shared_ptr<Reconstruction> reconstruction);
 
  private:
   void Run();
 
   const OptionManager options_;
-  Reconstruction* reconstruction_;
+  std::shared_ptr<Reconstruction> reconstruction_;
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_CONTROLLERS_BUNDLE_ADJUSTMENT_H_

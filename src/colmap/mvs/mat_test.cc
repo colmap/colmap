@@ -29,33 +29,33 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "mvs/mat_test"
 #include "colmap/mvs/mat.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
-using namespace colmap::mvs;
+namespace colmap {
+namespace mvs {
 
-BOOST_AUTO_TEST_CASE(TestEmpty) {
+TEST(Mat, Empty) {
   Mat<int> mat;
-  BOOST_CHECK_EQUAL(mat.GetWidth(), 0);
-  BOOST_CHECK_EQUAL(mat.GetHeight(), 0);
-  BOOST_CHECK_EQUAL(mat.GetDepth(), 0);
-  BOOST_CHECK_EQUAL(mat.GetNumBytes(), 0);
+  EXPECT_EQ(mat.GetWidth(), 0);
+  EXPECT_EQ(mat.GetHeight(), 0);
+  EXPECT_EQ(mat.GetDepth(), 0);
+  EXPECT_EQ(mat.GetNumBytes(), 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestNonEmpty) {
+TEST(Mat, NonEmpty) {
   Mat<int> mat(1, 2, 3);
-  BOOST_CHECK_EQUAL(mat.GetWidth(), 1);
-  BOOST_CHECK_EQUAL(mat.GetHeight(), 2);
-  BOOST_CHECK_EQUAL(mat.GetDepth(), 3);
-  BOOST_CHECK_EQUAL(mat.GetNumBytes(), 24);
+  EXPECT_EQ(mat.GetWidth(), 1);
+  EXPECT_EQ(mat.GetHeight(), 2);
+  EXPECT_EQ(mat.GetDepth(), 3);
+  EXPECT_EQ(mat.GetNumBytes(), 24);
 }
 
-BOOST_AUTO_TEST_CASE(TestGetSet) {
+TEST(Mat, GetSet) {
   Mat<int> mat(1, 2, 3);
 
-  BOOST_CHECK_EQUAL(mat.GetNumBytes(), 24);
+  EXPECT_EQ(mat.GetNumBytes(), 24);
 
   mat.Set(0, 0, 0, 1);
   mat.Set(0, 0, 1, 2);
@@ -64,28 +64,28 @@ BOOST_AUTO_TEST_CASE(TestGetSet) {
   mat.Set(1, 0, 1, 5);
   mat.Set(1, 0, 2, 6);
 
-  BOOST_CHECK_EQUAL(mat.Get(0, 0, 0), 1);
-  BOOST_CHECK_EQUAL(mat.Get(0, 0, 1), 2);
-  BOOST_CHECK_EQUAL(mat.Get(0, 0, 2), 3);
-  BOOST_CHECK_EQUAL(mat.Get(1, 0, 0), 4);
-  BOOST_CHECK_EQUAL(mat.Get(1, 0, 1), 5);
-  BOOST_CHECK_EQUAL(mat.Get(1, 0, 2), 6);
+  EXPECT_EQ(mat.Get(0, 0, 0), 1);
+  EXPECT_EQ(mat.Get(0, 0, 1), 2);
+  EXPECT_EQ(mat.Get(0, 0, 2), 3);
+  EXPECT_EQ(mat.Get(1, 0, 0), 4);
+  EXPECT_EQ(mat.Get(1, 0, 1), 5);
+  EXPECT_EQ(mat.Get(1, 0, 2), 6);
 
   int slice[3];
   mat.GetSlice(0, 0, slice);
-  BOOST_CHECK_EQUAL(slice[0], 1);
-  BOOST_CHECK_EQUAL(slice[1], 2);
-  BOOST_CHECK_EQUAL(slice[2], 3);
+  EXPECT_EQ(slice[0], 1);
+  EXPECT_EQ(slice[1], 2);
+  EXPECT_EQ(slice[2], 3);
   mat.GetSlice(1, 0, slice);
-  BOOST_CHECK_EQUAL(slice[0], 4);
-  BOOST_CHECK_EQUAL(slice[1], 5);
-  BOOST_CHECK_EQUAL(slice[2], 6);
+  EXPECT_EQ(slice[0], 4);
+  EXPECT_EQ(slice[1], 5);
+  EXPECT_EQ(slice[2], 6);
 }
 
-BOOST_AUTO_TEST_CASE(TestFill) {
+TEST(Mat, Fill) {
   Mat<int> mat(1, 2, 3);
 
-  BOOST_CHECK_EQUAL(mat.GetNumBytes(), 24);
+  EXPECT_EQ(mat.GetNumBytes(), 24);
 
   mat.Fill(10);
   mat.Set(0, 0, 0, 10);
@@ -95,3 +95,6 @@ BOOST_AUTO_TEST_CASE(TestFill) {
   mat.Set(1, 0, 1, 10);
   mat.Set(1, 0, 2, 10);
 }
+
+}  // namespace mvs
+}  // namespace colmap

@@ -31,7 +31,7 @@
 
 #include "colmap/ui/feature_matching_widget.h"
 
-#include "colmap/feature/matching.h"
+#include "colmap/controllers/feature_matching.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/thread_control_widget.h"
 

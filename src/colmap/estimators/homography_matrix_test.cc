@@ -29,17 +29,15 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "estimators/homography_matrix"
 #include "colmap/estimators/homography_matrix.h"
-
-#include "colmap/util/testing.h"
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <gtest/gtest.h>
 
-using namespace colmap;
+namespace colmap {
 
-BOOST_AUTO_TEST_CASE(TestEstimate) {
+TEST(HomographyMatrix, Estimate) {
   for (int x = 0; x < 10; ++x) {
     Eigen::Matrix3d H0;
     H0 << x, 0.2, 0.3, 30, 0.2, 0.1, 0.3, 20, 1;
@@ -64,7 +62,9 @@ BOOST_AUTO_TEST_CASE(TestEstimate) {
     est_tform.Residuals(src, dst, models[0], &residuals);
 
     for (size_t i = 0; i < 4; ++i) {
-      BOOST_CHECK(residuals[i] < 1e-6);
+      EXPECT_TRUE(residuals[i] < 1e-6);
     }
   }
 }
+
+}  // namespace colmap

@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_OPTIM_SPRT_H_
-#define COLMAP_SRC_OPTIM_SPRT_H_
+#pragma once
 
 #include <cmath>
 #include <cstddef>
@@ -67,7 +66,7 @@ class SPRT {
   void Update(const Options& options);
 
   bool Evaluate(const std::vector<double>& residuals,
-                const double max_residual,
+                double max_residual,
                 size_t* num_inliers,
                 size_t* num_eval_samples);
 
@@ -81,5 +80,3 @@ class SPRT {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_OPTIM_SPRT_H_

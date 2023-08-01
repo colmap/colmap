@@ -29,12 +29,12 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_FEATURE_SIFT_H_
-#define COLMAP_SRC_FEATURE_SIFT_H_
+#pragma once
 
 #include "colmap/estimators/two_view_geometry.h"
+#include "colmap/feature/extractor.h"
 #include "colmap/feature/types.h"
-#include "colmap/util/bitmap.h"
+#include "colmap/sensor/bitmap.h"
 
 class SiftGPU;
 class SiftMatchGPU;
@@ -98,6 +98,12 @@ struct SiftExtractionOptions {
   double dsp_min_scale = 1.0 / 6.0;
   double dsp_max_scale = 3.0;
   int dsp_num_scales = 10;
+
+  // Whether to force usage of the covariant VLFeat implementation.
+  // Otherwise, the covariant implementation is only used when
+  // estimate_affine_shape or domain_size_pooling are enabled, since the normal
+  // Sift implementation is faster.
+  bool force_covariant_extractor = false;
 
   enum class Normalization {
     // L1-normalizes each descriptor followed by element-wise square rooting.
@@ -171,24 +177,14 @@ struct SiftMatchingOptions {
   bool Check() const;
 };
 
-// Extract SIFT features for the given image on the CPU. Only extract
-// descriptors if the given input is not NULL.
-bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
-                            const Bitmap& bitmap,
-                            FeatureKeypoints* keypoints,
-                            FeatureDescriptors* descriptors);
-bool ExtractCovariantSiftFeaturesCPU(const SiftExtractionOptions& options,
-                                     const Bitmap& bitmap,
-                                     FeatureKeypoints* keypoints,
-                                     FeatureDescriptors* descriptors);
-
-// Create a SiftGPU feature extractor. The same SiftGPU instance can be used to
-// extract features for multiple images. Note a OpenGL context must be made
-// current in the thread of the caller. If the gpu_index is not -1, the CUDA
-// version of SiftGPU is used, which produces slightly different results
-// than the OpenGL implementation.
-bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
-                            SiftGPU* sift_gpu);
+// Create a Sift feature extractor based on the provided options. The same
+// feature extractor instance can be used to extract features for multiple
+// images in the same thread. Note that, for GPU based extraction, a OpenGL
+// context must be made current in the thread of the caller. If the gpu_index is
+// not -1, the CUDA version of SiftGPU is used, which produces slightly
+// different results than the OpenGL implementation.
+std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
+    const SiftExtractionOptions& options);
 
 // Extract SIFT features for the given image on the GPU.
 // SiftGPU must already be initialized using `CreateSiftGPU`.
@@ -263,5 +259,3 @@ void MatchGuidedSiftFeaturesGPU(const SiftMatchingOptions& match_options,
                                 TwoViewGeometry* two_view_geometry);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_FEATURE_SIFT_H_

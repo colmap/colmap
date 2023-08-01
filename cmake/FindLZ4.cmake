@@ -92,3 +92,9 @@ else()
         message(FATAL_ERROR "Could not find LZ4")
     endif()
 endif()
+
+add_library(lz4 INTERFACE IMPORTED)
+target_include_directories(
+    lz4 INTERFACE ${LZ4_INCLUDE_DIRS})
+target_link_libraries(
+    lz4 INTERFACE ${LZ4_LIBRARIES})

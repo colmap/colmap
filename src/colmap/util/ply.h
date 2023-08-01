@@ -29,13 +29,12 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_PLY_H_
-#define COLMAP_SRC_UTIL_PLY_H_
+#pragma once
+
+#include "colmap/util/types.h"
 
 #include <string>
 #include <vector>
-
-#include "types.h"
 
 namespace colmap {
 
@@ -86,17 +85,15 @@ std::vector<PlyPoint> ReadPly(const std::string& path);
 // Write PLY point cloud to text or binary file.
 void WriteTextPlyPoints(const std::string& path,
                         const std::vector<PlyPoint>& points,
-                        const bool write_normal = true,
-                        const bool write_rgb = true);
+                        bool write_normal = true,
+                        bool write_rgb = true);
 void WriteBinaryPlyPoints(const std::string& path,
                           const std::vector<PlyPoint>& points,
-                          const bool write_normal = true,
-                          const bool write_rgb = true);
+                          bool write_normal = true,
+                          bool write_rgb = true);
 
 // Write PLY mesh to text or binary file.
 void WriteTextPlyMesh(const std::string& path, const PlyMesh& mesh);
 void WriteBinaryPlyMesh(const std::string& path, const PlyMesh& mesh);
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UTIL_PLY_H_

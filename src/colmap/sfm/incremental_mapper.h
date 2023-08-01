@@ -29,13 +29,12 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_SFM_INCREMENTAL_MAPPER_H_
-#define COLMAP_SRC_SFM_INCREMENTAL_MAPPER_H_
+#pragma once
 
-#include "colmap/base/database.h"
-#include "colmap/base/database_cache.h"
-#include "colmap/base/reconstruction.h"
-#include "colmap/optim/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/scene/database.h"
+#include "colmap/scene/database_cache.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/sfm/incremental_triangulator.h"
 
 namespace colmap {
@@ -142,17 +141,19 @@ class IncrementalMapper {
 
   // Create incremental mapper. The database cache must live for the entire
   // life-time of the incremental mapper.
-  explicit IncrementalMapper(const DatabaseCache* database_cache);
+  explicit IncrementalMapper(
+      std::shared_ptr<const DatabaseCache> database_cache);
 
   // Prepare the mapper for a new reconstruction, which might have existing
   // registered images (in which case `RegisterNextImage` must be called) or
   // which is empty (in which case `RegisterInitialImagePair` must be called).
-  void BeginReconstruction(Reconstruction* reconstruction);
+  void BeginReconstruction(
+      const std::shared_ptr<Reconstruction>& reconstruction);
 
   // Cleanup the mapper after the current reconstruction is done. If the
   // model is discarded, the number of total and shared registered images will
   // be updated accordingly.
-  void EndReconstruction(const bool discard);
+  void EndReconstruction(bool discard);
 
   // Find initial image pair to seed the incremental reconstruction. The image
   // pairs should be passed to `RegisterInitialImagePair`. This function
@@ -168,16 +169,16 @@ class IncrementalMapper {
 
   // Attempt to seed the reconstruction from an image pair.
   bool RegisterInitialImagePair(const Options& options,
-                                const image_t image_id1,
-                                const image_t image_id2);
+                                image_t image_id1,
+                                image_t image_id2);
 
   // Attempt to register image to the existing model. This requires that
   // a previous call to `RegisterInitialImagePair` was successful.
-  bool RegisterNextImage(const Options& options, const image_t image_id);
+  bool RegisterNextImage(const Options& options, image_t image_id);
 
   // Triangulate observations of image.
   size_t TriangulateImage(const IncrementalTriangulator::Options& tri_options,
-                          const image_t image_id);
+                          image_t image_id);
 
   // Retriangulate image pairs that should have common observations according to
   // the scene graph but don't due to drift, etc. To handle drift, the employed
@@ -206,7 +207,7 @@ class IncrementalMapper {
       const Options& options,
       const BundleAdjustmentOptions& ba_options,
       const IncrementalTriangulator::Options& tri_options,
-      const image_t image_id,
+      image_t image_id,
       const std::unordered_set<point3D_t>& point3D_ids);
 
   // Global bundle adjustment using Ceres Solver.
@@ -243,28 +244,28 @@ class IncrementalMapper {
   // to the first image and have camera calibration priors. The returned list is
   // ordered such that most suitable images are in the front.
   std::vector<image_t> FindSecondInitialImage(const Options& options,
-                                              const image_t image_id1) const;
+                                              image_t image_id1) const;
 
   // Find local bundle for given image in the reconstruction. The local bundle
   // is defined as the images that are most connected, i.e. maximum number of
   // shared 3D points, to the given image.
   std::vector<image_t> FindLocalBundle(const Options& options,
-                                       const image_t image_id) const;
+                                       image_t image_id) const;
 
   // Register / De-register image in current reconstruction and update
   // the number of shared images between all reconstructions.
-  void RegisterImageEvent(const image_t image_id);
-  void DeRegisterImageEvent(const image_t image_id);
+  void RegisterImageEvent(image_t image_id);
+  void DeRegisterImageEvent(image_t image_id);
 
   bool EstimateInitialTwoViewGeometry(const Options& options,
-                                      const image_t image_id1,
-                                      const image_t image_id2);
+                                      image_t image_id1,
+                                      image_t image_id2);
 
   // Class that holds all necessary data from database in memory.
-  const DatabaseCache* database_cache_;
+  const std::shared_ptr<const DatabaseCache> database_cache_;
 
   // Class that holds data of the reconstruction.
-  Reconstruction* reconstruction_;
+  std::shared_ptr<Reconstruction> reconstruction_;
 
   // Class that is responsible for incremental triangulation.
   std::unique_ptr<IncrementalTriangulator> triangulator_;
@@ -309,5 +310,3 @@ class IncrementalMapper {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_SFM_INCREMENTAL_MAPPER_H_

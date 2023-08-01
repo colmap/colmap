@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_MVS_MAT_H_
-#define COLMAP_SRC_MVS_MAT_H_
+#pragma once
 
 #include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
@@ -46,7 +45,7 @@ template <typename T>
 class Mat {
  public:
   Mat();
-  Mat(const size_t width, const size_t height, const size_t depth);
+  Mat(size_t width, size_t height, size_t depth);
 
   size_t GetWidth() const;
   size_t GetHeight() const;
@@ -54,20 +53,17 @@ class Mat {
 
   size_t GetNumBytes() const;
 
-  T Get(const size_t row, const size_t col, const size_t slice = 0) const;
-  void GetSlice(const size_t row, const size_t col, T* values) const;
+  T Get(size_t row, size_t col, size_t slice = 0) const;
+  void GetSlice(size_t row, size_t col, T* values) const;
   T* GetPtr();
   const T* GetPtr() const;
 
   const std::vector<T>& GetData() const;
 
-  void Set(const size_t row, const size_t col, const T value);
-  void Set(const size_t row,
-           const size_t col,
-           const size_t slice,
-           const T value);
+  void Set(size_t row, size_t col, T value);
+  void Set(size_t row, size_t col, size_t slice, T value);
 
-  void Fill(const T value);
+  void Fill(T value);
 
   void Read(const std::string& path);
   void Write(const std::string& path) const;
@@ -185,5 +181,3 @@ void Mat<T>::Write(const std::string& path) const {
 
 }  // namespace mvs
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_MVS_MAT_H_

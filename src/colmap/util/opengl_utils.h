@@ -29,10 +29,9 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_OPENGL_UTILS_H_
-#define COLMAP_SRC_OPENGL_UTILS_H_
+#pragma once
 
-#ifdef GUI_ENABLED
+#if defined(COLMAP_GUI_ENABLED)
 #include <QAction>
 #include <QApplication>
 #include <QOffscreenSurface>
@@ -51,15 +50,15 @@ namespace colmap {
 #define glDebugLog()
 #endif
 
-#ifdef GUI_ENABLED
+#if defined(COLMAP_GUI_ENABLED)
 
 // This class manages a thread-safe OpenGL context. Note that this class must be
 // instantiated in the main Qt thread, since an OpenGL context must be created
 // in it. The context can then be made current in any other thread.
 class OpenGLContextManager : public QObject {
  public:
-  OpenGLContextManager(int opengl_major_version = 2,
-                       int opengl_minor_version = 1);
+  explicit OpenGLContextManager(int opengl_major_version = 2,
+                                int opengl_minor_version = 1);
 
   // Make the OpenGL context available by moving it from the thread where it was
   // created to the current thread and making it current.
@@ -87,15 +86,15 @@ class OpenGLContextManager : public QObject {
 void RunThreadWithOpenGLContext(Thread* thread);
 
 // Get the OpenGL errors and print them to stderr.
-void GLError(const char* file, const int line);
+void GLError(const char* file, int line);
 
 #else
 
 // Dummy implementation when GUI support is disabled
 class OpenGLContextManager {
  public:
-  OpenGLContextManager(int opengl_major_version = 2,
-                       int opengl_minor_version = 1) {}
+  explicit OpenGLContextManager(int opengl_major_version = 2,
+                                int opengl_minor_version = 1) {}
   inline bool MakeCurrent() { return false; }
 };
 
@@ -106,5 +105,3 @@ inline void GLError(const char* file, const int line) {}
 #endif
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_OPENGL_UTILS_H_

@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_RETRIEVAL_GEOMETRY_H_
-#define COLMAP_SRC_RETRIEVAL_GEOMETRY_H_
+#pragma once
 
 #include <vector>
 
@@ -69,10 +68,8 @@ struct FeatureGeometry {
 // 1-to-M feature geometry match.
 struct FeatureGeometryMatch {
   FeatureGeometry geometry1;
-  std::vector<FeatureGeometry> geometries2;
+  FeatureGeometry geometry2;
 };
 
 }  // namespace retrieval
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_RETRIEVAL_GEOMETRY_H_

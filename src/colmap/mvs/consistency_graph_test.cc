@@ -29,15 +29,14 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "mvs/consistency_graph_test"
 #include "colmap/mvs/consistency_graph.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
-using namespace colmap;
-using namespace colmap::mvs;
+namespace colmap {
+namespace mvs {
 
-BOOST_AUTO_TEST_CASE(TestEmpty) {
+TEST(ConsistencyGraph, Empty) {
   const std::vector<int> data;
   ConsistencyGraph consistency_graph(2, 2, data);
   for (size_t i = 0; i < 2; ++i) {
@@ -45,55 +44,58 @@ BOOST_AUTO_TEST_CASE(TestEmpty) {
       int num_images;
       const int* image_idxs;
       consistency_graph.GetImageIdxs(0, 0, &num_images, &image_idxs);
-      BOOST_CHECK_EQUAL(num_images, 0);
-      BOOST_CHECK(image_idxs == nullptr);
+      EXPECT_EQ(num_images, 0);
+      EXPECT_TRUE(image_idxs == nullptr);
     }
   }
-  BOOST_CHECK_EQUAL(consistency_graph.GetNumBytes(), 16);
+  EXPECT_EQ(consistency_graph.GetNumBytes(), 16);
 }
 
-BOOST_AUTO_TEST_CASE(TestPartial) {
+TEST(ConsistencyGraph, Partial) {
   const std::vector<int> data = {0, 0, 3, 5, 7, 33};
   ConsistencyGraph consistency_graph(2, 1, data);
   int num_images;
   const int* image_idxs;
   consistency_graph.GetImageIdxs(0, 0, &num_images, &image_idxs);
-  BOOST_CHECK_EQUAL(num_images, 3);
-  BOOST_CHECK_EQUAL(image_idxs[0], 5);
-  BOOST_CHECK_EQUAL(image_idxs[1], 7);
-  BOOST_CHECK_EQUAL(image_idxs[2], 33);
+  EXPECT_EQ(num_images, 3);
+  EXPECT_EQ(image_idxs[0], 5);
+  EXPECT_EQ(image_idxs[1], 7);
+  EXPECT_EQ(image_idxs[2], 33);
   consistency_graph.GetImageIdxs(0, 1, &num_images, &image_idxs);
-  BOOST_CHECK_EQUAL(num_images, 0);
-  BOOST_CHECK(image_idxs == nullptr);
-  BOOST_CHECK_EQUAL(consistency_graph.GetNumBytes(), 32);
+  EXPECT_EQ(num_images, 0);
+  EXPECT_TRUE(image_idxs == nullptr);
+  EXPECT_EQ(consistency_graph.GetNumBytes(), 32);
 }
 
-BOOST_AUTO_TEST_CASE(TestZero) {
+TEST(ConsistencyGraph, Zero) {
   const std::vector<int> data = {0, 0, 0};
   ConsistencyGraph consistency_graph(2, 1, data);
   int num_images;
   const int* image_idxs;
   consistency_graph.GetImageIdxs(0, 0, &num_images, &image_idxs);
-  BOOST_CHECK_EQUAL(num_images, 0);
-  BOOST_CHECK(image_idxs == nullptr);
+  EXPECT_EQ(num_images, 0);
+  EXPECT_TRUE(image_idxs == nullptr);
   consistency_graph.GetImageIdxs(0, 1, &num_images, &image_idxs);
-  BOOST_CHECK_EQUAL(num_images, 0);
-  BOOST_CHECK(image_idxs == nullptr);
-  BOOST_CHECK_EQUAL(consistency_graph.GetNumBytes(), 20);
+  EXPECT_EQ(num_images, 0);
+  EXPECT_TRUE(image_idxs == nullptr);
+  EXPECT_EQ(consistency_graph.GetNumBytes(), 20);
 }
 
-BOOST_AUTO_TEST_CASE(TestFull) {
+TEST(ConsistencyGraph, Full) {
   const std::vector<int> data = {0, 0, 3, 5, 7, 33, 0, 1, 1, 100};
   ConsistencyGraph consistency_graph(1, 2, data);
   int num_images;
   const int* image_idxs;
   consistency_graph.GetImageIdxs(0, 0, &num_images, &image_idxs);
-  BOOST_CHECK_EQUAL(num_images, 3);
-  BOOST_CHECK_EQUAL(image_idxs[0], 5);
-  BOOST_CHECK_EQUAL(image_idxs[1], 7);
-  BOOST_CHECK_EQUAL(image_idxs[2], 33);
+  EXPECT_EQ(num_images, 3);
+  EXPECT_EQ(image_idxs[0], 5);
+  EXPECT_EQ(image_idxs[1], 7);
+  EXPECT_EQ(image_idxs[2], 33);
   consistency_graph.GetImageIdxs(1, 0, &num_images, &image_idxs);
-  BOOST_CHECK_EQUAL(num_images, 1);
-  BOOST_CHECK_EQUAL(image_idxs[0], 100);
-  BOOST_CHECK_EQUAL(consistency_graph.GetNumBytes(), 48);
+  EXPECT_EQ(num_images, 1);
+  EXPECT_EQ(image_idxs[0], 100);
+  EXPECT_EQ(consistency_graph.GetNumBytes(), 48);
 }
+
+}  // namespace mvs
+}  // namespace colmap

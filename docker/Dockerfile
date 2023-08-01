@@ -1,6 +1,6 @@
 FROM nvidia/cuda:12.2.0-devel-ubuntu22.04
 
-ARG COLMAP_VERSION=dev
+ARG COLMAP_GIT_COMMIT=dev
 ARG CUDA_ARCHITECTURES=native
 ENV QT_XCB_GL_INTEGRATION=xcb_egl
 
@@ -17,13 +17,12 @@ RUN apt-get update && apt-get install -y \
     libboost-filesystem-dev \
     libboost-graph-dev \
     libboost-system-dev \
-    libboost-test-dev \
     libeigen3-dev \
     libflann-dev \
     libfreeimage-dev \
     libmetis-dev \
     libgoogle-glog-dev \
-    libgflags-dev \
+    libgtest-dev \
     libsqlite3-dev \
     libglew-dev \
     qtbase5-dev \
@@ -34,7 +33,8 @@ RUN apt-get update && apt-get install -y \
 # Build and install COLMAP.
 RUN git clone https://github.com/colmap/colmap.git
 RUN cd colmap && \
-    git reset --hard ${COLMAP_VERSION} && \
+    git fetch https://github.com/colmap/colmap.git ${COLMAP_GIT_COMMIT} && \
+    git checkout FETCH_HEAD && \
     mkdir build && \
     cd build && \
     cmake .. -GNinja -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES} && \

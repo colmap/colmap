@@ -29,13 +29,12 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "retrieval/visual_index"
 #include "colmap/retrieval/visual_index.h"
 
-#include "colmap/util/testing.h"
+#include <gtest/gtest.h>
 
-using namespace colmap;
-using namespace colmap::retrieval;
+namespace colmap {
+namespace retrieval {
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void TestVocabTreeType() {
@@ -45,31 +44,31 @@ void TestVocabTreeType() {
 
   {
     VisualIndexType visual_index;
-    BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 0);
+    EXPECT_EQ(visual_index.NumVisualWords(), 0);
   }
 
   {
     typename VisualIndexType::DescType descriptors =
         VisualIndexType::DescType::Random(50, kDescDim);
     VisualIndexType visual_index;
-    BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 0);
+    EXPECT_EQ(visual_index.NumVisualWords(), 0);
     typename VisualIndexType::BuildOptions build_options;
     build_options.num_visual_words = 5;
     build_options.branching = 5;
     visual_index.Build(build_options, descriptors);
-    BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 5);
+    EXPECT_EQ(visual_index.NumVisualWords(), 5);
   }
 
   {
     typename VisualIndexType::DescType descriptors =
         VisualIndexType::DescType::Random(1000, kDescDim);
     VisualIndexType visual_index;
-    BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 0);
+    EXPECT_EQ(visual_index.NumVisualWords(), 0);
     typename VisualIndexType::BuildOptions build_options;
     build_options.num_visual_words = 100;
     build_options.branching = 10;
     visual_index.Build(build_options, descriptors);
-    BOOST_CHECK_EQUAL(visual_index.NumVisualWords(), 100);
+    EXPECT_EQ(visual_index.NumVisualWords(), 100);
 
     typename VisualIndexType::IndexOptions index_options;
     typename VisualIndexType::GeomType keypoints1(50);
@@ -85,51 +84,54 @@ void TestVocabTreeType() {
     typename VisualIndexType::QueryOptions query_options;
     std::vector<ImageScore> image_scores;
     visual_index.Query(query_options, descriptors1, &image_scores);
-    BOOST_CHECK_EQUAL(image_scores.size(), 2);
-    BOOST_CHECK_EQUAL(image_scores[0].image_id, 1);
-    BOOST_CHECK_EQUAL(image_scores[1].image_id, 2);
-    BOOST_CHECK_GT(image_scores[0].score, image_scores[1].score);
+    EXPECT_EQ(image_scores.size(), 2);
+    EXPECT_EQ(image_scores[0].image_id, 1);
+    EXPECT_EQ(image_scores[1].image_id, 2);
+    EXPECT_GT(image_scores[0].score, image_scores[1].score);
 
     query_options.max_num_images = 1;
     visual_index.Query(query_options, descriptors1, &image_scores);
-    BOOST_CHECK_EQUAL(image_scores.size(), 1);
-    BOOST_CHECK_EQUAL(image_scores[0].image_id, 1);
+    EXPECT_EQ(image_scores.size(), 1);
+    EXPECT_EQ(image_scores[0].image_id, 1);
 
     query_options.max_num_images = 3;
     visual_index.Query(query_options, descriptors1, &image_scores);
-    BOOST_CHECK_EQUAL(image_scores.size(), 2);
-    BOOST_CHECK_EQUAL(image_scores[0].image_id, 1);
-    BOOST_CHECK_EQUAL(image_scores[1].image_id, 2);
-    BOOST_CHECK_GT(image_scores[0].score, image_scores[1].score);
+    EXPECT_EQ(image_scores.size(), 2);
+    EXPECT_EQ(image_scores[0].image_id, 1);
+    EXPECT_EQ(image_scores[1].image_id, 2);
+    EXPECT_GT(image_scores[0].score, image_scores[1].score);
   }
 }
 
-BOOST_AUTO_TEST_CASE(TestVocabTree_uint8_t_128_64) {
+TEST(VisualIndex, uint8_t_128_64) {
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   TestVocabTreeType<uint8_t, 128, 64>();
 }
 
-BOOST_AUTO_TEST_CASE(TestVocabTree_uint8_t_64_64) {
+TEST(VisualIndex, uint8_t_64_64) {
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   TestVocabTreeType<uint8_t, 64, 64>();
 }
 
-BOOST_AUTO_TEST_CASE(TestVocabTree_uint8_t_32_16) {
+TEST(VisualIndex, uint8_t_32_16) {
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   TestVocabTreeType<uint8_t, 32, 16>();
 }
 
-BOOST_AUTO_TEST_CASE(TestVocabTree_int_32_16) {
+TEST(VisualIndex, int_32_16) {
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   TestVocabTreeType<int, 32, 16>();
 }
 
-BOOST_AUTO_TEST_CASE(TestVocabTree_float_32_16) {
+TEST(VisualIndex, float_32_16) {
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   TestVocabTreeType<float, 32, 16>();
 }
 
-BOOST_AUTO_TEST_CASE(TestVocabTree_double_32_16) {
+TEST(VisualIndex, double_32_16) {
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   TestVocabTreeType<double, 32, 16>();
 }
+
+}  // namespace retrieval
+}  // namespace colmap

@@ -29,10 +29,9 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_RECONSTRUCTION_MANAGER_WIDGET_H_
-#define COLMAP_SRC_UI_RECONSTRUCTION_MANAGER_WIDGET_H_
+#pragma once
 
-#include "colmap/base/reconstruction_manager.h"
+#include "colmap/scene/reconstruction_manager.h"
 
 #include <QtWidgets>
 
@@ -43,17 +42,16 @@ class ReconstructionManagerWidget : public QComboBox {
   const static size_t kNewestReconstructionIdx;
 
   ReconstructionManagerWidget(
-      QWidget* parent, const ReconstructionManager* reconstruction_manager);
+      QWidget* parent,
+      std::shared_ptr<const ReconstructionManager> reconstruction_manager);
 
   void Update();
 
   size_t SelectedReconstructionIdx() const;
-  void SelectReconstruction(const size_t idx);
+  void SelectReconstruction(size_t idx);
 
  private:
-  const ReconstructionManager* reconstruction_manager_;
+  const std::shared_ptr<const ReconstructionManager> reconstruction_manager_;
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_RECONSTRUCTION_MANAGER_WIDGET_H_

@@ -29,9 +29,9 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_MVS_FUSION_H_
-#define COLMAP_SRC_MVS_FUSION_H_
+#pragma once
 
+#include "colmap/math/math.h"
 #include "colmap/mvs/depth_map.h"
 #include "colmap/mvs/image.h"
 #include "colmap/mvs/mat.h"
@@ -39,7 +39,6 @@
 #include "colmap/mvs/normal_map.h"
 #include "colmap/mvs/workspace.h"
 #include "colmap/util/cache.h"
-#include "colmap/util/math.h"
 #include "colmap/util/ply.h"
 #include "colmap/util/threading.h"
 
@@ -118,10 +117,7 @@ class StereoFusion : public Thread {
  private:
   void Run();
   void InitFusedPixelMask(int image_idx, size_t width, size_t height);
-  void Fuse(const int thread_id,
-            const int image_idx,
-            const int row,
-            const int col);
+  void Fuse(int thread_id, int image_idx, int row, int col);
 
   const StereoFusionOptions options_;
   const std::string workspace_path_;
@@ -185,5 +181,3 @@ void WritePointsVisibility(
 
 }  // namespace mvs
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_MVS_FUSION_H_
