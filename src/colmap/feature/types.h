@@ -77,6 +77,11 @@ struct FeatureKeypoint {
 
 typedef Eigen::Matrix<uint8_t, 1, Eigen::Dynamic, Eigen::RowMajor>
     FeatureDescriptor;
+typedef std::vector<FeatureKeypoint> FeatureKeypoints;
+typedef Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+    FeatureDescriptors;
+typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
+    FeatureDescriptorsFloat;
 
 struct FeatureMatch {
   FeatureMatch()
@@ -91,11 +96,6 @@ struct FeatureMatch {
   point2D_t point2D_idx2 = kInvalidPoint2DIdx;
 };
 
-typedef std::vector<FeatureKeypoint> FeatureKeypoints;
-typedef Eigen::Matrix<uint8_t, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-    FeatureDescriptors;
-typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>
-    FeatureDescriptorsFloat;
 typedef std::vector<FeatureMatch> FeatureMatches;
 
 }  // namespace colmap

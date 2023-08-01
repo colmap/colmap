@@ -296,10 +296,10 @@ TEST(CreateSiftGPUMatcherOpenGL, Nominal) {
    private:
     void Run() {
       opengl_context_.MakeCurrent();
-      SiftMatchGPU sift_match_gpu;
-      SiftMatchingOptions create_options;
-      create_options.max_num_matches = 1000;
-      EXPECT_TRUE(CreateSiftGPUMatcher(create_options, &sift_match_gpu));
+      SiftMatchingOptions options;
+      options.use_gpu = true;
+      options.max_num_matches = 1000;
+      EXPECT_NE(CreateSiftFeatureMatcher(options), nullptr);
     }
     OpenGLContextManager opengl_context_;
   };
@@ -310,78 +310,103 @@ TEST(CreateSiftGPUMatcherOpenGL, Nominal) {
 
 TEST(CreateSiftGPUMatcherCUDA, Nominal) {
 #if defined(COLMAP_CUDA_ENABLED)
-  SiftMatchGPU sift_match_gpu;
-  SiftMatchingOptions create_options;
-  create_options.gpu_index = "0";
-  create_options.max_num_matches = 1000;
-  EXPECT_TRUE(CreateSiftGPUMatcher(create_options, &sift_match_gpu));
+  SiftMatchingOptions options;
+  options.use_gpu = true;
+  options.gpu_index = "0";
+  options.max_num_matches = 1000;
+  EXPECT_NE(CreateSiftFeatureMatcher(options), nullptr);
 #endif
 }
 
-TEST(MatchSiftFeaturesCPU, Nominal) {
-  const FeatureDescriptors empty_descriptors =
-      CreateRandomFeatureDescriptors(0);
-  const FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(2);
-  const FeatureDescriptors descriptors2 = descriptors1.colwise().reverse();
+TEST(SiftCPUFeatureMatcher, Nominal) {
+  const auto empty_descriptors = std::make_shared<FeatureDescriptors>(0, 128);
+  const auto descriptors1 =
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2));
+  const auto descriptors2 =
+      std::make_shared<FeatureDescriptors>(descriptors1->colwise().reverse());
 
   FeatureMatches matches;
 
-  MatchSiftFeaturesCPU(
-      SiftMatchingOptions(), descriptors1, descriptors2, &matches);
+  SiftMatchingOptions options;
+  options.use_gpu = false;
+  auto matcher = CreateSiftFeatureMatcher(options);
+
+  matcher->Match(descriptors1, descriptors2, &matches);
   EXPECT_EQ(matches.size(), 2);
   EXPECT_EQ(matches[0].point2D_idx1, 0);
   EXPECT_EQ(matches[0].point2D_idx2, 1);
   EXPECT_EQ(matches[1].point2D_idx1, 1);
   EXPECT_EQ(matches[1].point2D_idx2, 0);
 
-  MatchSiftFeaturesCPU(
-      SiftMatchingOptions(), empty_descriptors, descriptors2, &matches);
+  matcher->Match(descriptors1, nullptr, &matches);
+  EXPECT_EQ(matches.size(), 2);
+  EXPECT_EQ(matches[0].point2D_idx1, 0);
+  EXPECT_EQ(matches[0].point2D_idx2, 1);
+  EXPECT_EQ(matches[1].point2D_idx1, 1);
+  EXPECT_EQ(matches[1].point2D_idx2, 0);
+
+  matcher->Match(nullptr, descriptors2, &matches);
+  EXPECT_EQ(matches.size(), 2);
+  EXPECT_EQ(matches[0].point2D_idx1, 0);
+  EXPECT_EQ(matches[0].point2D_idx2, 1);
+  EXPECT_EQ(matches[1].point2D_idx1, 1);
+  EXPECT_EQ(matches[1].point2D_idx2, 0);
+
+  matcher->Match(nullptr, nullptr, &matches);
+  EXPECT_EQ(matches.size(), 2);
+  EXPECT_EQ(matches[0].point2D_idx1, 0);
+  EXPECT_EQ(matches[0].point2D_idx2, 1);
+  EXPECT_EQ(matches[1].point2D_idx1, 1);
+  EXPECT_EQ(matches[1].point2D_idx2, 0);
+
+  matcher->Match(empty_descriptors, descriptors2, &matches);
   EXPECT_EQ(matches.size(), 0);
-  MatchSiftFeaturesCPU(
-      SiftMatchingOptions(), descriptors1, empty_descriptors, &matches);
+  matcher->Match(descriptors1, empty_descriptors, &matches);
   EXPECT_EQ(matches.size(), 0);
-  MatchSiftFeaturesCPU(
-      SiftMatchingOptions(), empty_descriptors, empty_descriptors, &matches);
+  matcher->Match(empty_descriptors, empty_descriptors, &matches);
   EXPECT_EQ(matches.size(), 0);
 }
 
-TEST(MatchSiftFeaturesCPUFLANNvsBruteForce, Nominal) {
+TEST(SiftCPUFeatureMatcherFlannVsBruteForce, Nominal) {
   SiftMatchingOptions match_options;
   match_options.max_num_matches = 1000;
 
-  auto TestFLANNvsBruteForce = [](const SiftMatchingOptions& options,
+  auto TestFlannVsBruteForce = [](const SiftMatchingOptions& options,
                                   const FeatureDescriptors& descriptors1,
                                   const FeatureDescriptors& descriptors2) {
+    const auto descriptors1_ptr =
+        std::make_shared<FeatureDescriptors>(descriptors1);
+    const auto descriptors2_ptr =
+        std::make_shared<FeatureDescriptors>(descriptors2);
+
     FeatureMatches matches_bf;
     FeatureMatches matches_flann;
 
-    MatchSiftFeaturesCPUBruteForce(
-        options, descriptors1, descriptors2, &matches_bf);
-    MatchSiftFeaturesCPUFLANN(
-        options, descriptors1, descriptors2, &matches_flann);
+    SiftMatchingOptions custom_options = options;
+    custom_options.use_gpu = false;
+    custom_options.brute_force_cpu_matcher = true;
+    auto bf_matcher = CreateSiftFeatureMatcher(custom_options);
+    custom_options.brute_force_cpu_matcher = false;
+    auto flann_matcher = CreateSiftFeatureMatcher(custom_options);
+
+    bf_matcher->Match(descriptors1_ptr, descriptors2_ptr, &matches_bf);
+    flann_matcher->Match(descriptors1_ptr, descriptors2_ptr, &matches_flann);
     CheckEqualMatches(matches_bf, matches_flann);
 
     const size_t num_matches = matches_bf.size();
 
-    const FeatureDescriptors empty_descriptors =
-        CreateRandomFeatureDescriptors(0);
+    const auto empty_descriptors = std::make_shared<FeatureDescriptors>(0, 128);
 
-    MatchSiftFeaturesCPUBruteForce(
-        options, empty_descriptors, descriptors2, &matches_bf);
-    MatchSiftFeaturesCPUFLANN(
-        options, empty_descriptors, descriptors2, &matches_flann);
+    bf_matcher->Match(empty_descriptors, descriptors2_ptr, &matches_bf);
+    flann_matcher->Match(empty_descriptors, descriptors2_ptr, &matches_flann);
     CheckEqualMatches(matches_bf, matches_flann);
 
-    MatchSiftFeaturesCPUBruteForce(
-        options, descriptors1, empty_descriptors, &matches_bf);
-    MatchSiftFeaturesCPUFLANN(
-        options, descriptors1, empty_descriptors, &matches_flann);
+    bf_matcher->Match(descriptors1_ptr, empty_descriptors, &matches_bf);
+    flann_matcher->Match(descriptors1_ptr, empty_descriptors, &matches_flann);
     CheckEqualMatches(matches_bf, matches_flann);
 
-    MatchSiftFeaturesCPUBruteForce(
-        options, empty_descriptors, empty_descriptors, &matches_bf);
-    MatchSiftFeaturesCPUFLANN(
-        options, empty_descriptors, empty_descriptors, &matches_flann);
+    bf_matcher->Match(empty_descriptors, empty_descriptors, &matches_bf);
+    flann_matcher->Match(empty_descriptors, empty_descriptors, &matches_flann);
     CheckEqualMatches(matches_bf, matches_flann);
 
     return num_matches;
@@ -391,7 +416,7 @@ TEST(MatchSiftFeaturesCPUFLANNvsBruteForce, Nominal) {
     const FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(50);
     const FeatureDescriptors descriptors2 = CreateRandomFeatureDescriptors(50);
     SiftMatchingOptions match_options;
-    TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
+    TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
   }
 
   {
@@ -399,7 +424,7 @@ TEST(MatchSiftFeaturesCPUFLANNvsBruteForce, Nominal) {
     const FeatureDescriptors descriptors2 = descriptors1.colwise().reverse();
     SiftMatchingOptions match_options;
     const size_t num_matches =
-        TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
+        TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches, 50);
   }
 
@@ -410,7 +435,7 @@ TEST(MatchSiftFeaturesCPUFLANNvsBruteForce, Nominal) {
 
     SiftMatchingOptions match_options;
     const size_t num_matches1 =
-        TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
+        TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches1, 50);
 
     descriptors2.row(49) = descriptors2.row(0);
@@ -422,13 +447,13 @@ TEST(MatchSiftFeaturesCPUFLANNvsBruteForce, Nominal) {
         descriptors2.row(49).cast<float>().normalized());
 
     match_options.max_ratio = 0.4;
-    const size_t num_matches2 = TestFLANNvsBruteForce(
+    const size_t num_matches2 = TestFlannVsBruteForce(
         match_options, descriptors1.topRows(49), descriptors2);
     EXPECT_EQ(num_matches2, 48);
 
     match_options.max_ratio = 0.5;
     const size_t num_matches3 =
-        TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
+        TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches3, 49);
   }
 
@@ -442,76 +467,70 @@ TEST(MatchSiftFeaturesCPUFLANNvsBruteForce, Nominal) {
 
     match_options.cross_check = false;
     const size_t num_matches1 =
-        TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
+        TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches1, 50);
 
     match_options.cross_check = true;
     const size_t num_matches2 =
-        TestFLANNvsBruteForce(match_options, descriptors1, descriptors2);
+        TestFlannVsBruteForce(match_options, descriptors1, descriptors2);
     EXPECT_EQ(num_matches2, 48);
   }
 }
 
 TEST(MatchGuidedSiftFeaturesCPU, Nominal) {
-  FeatureKeypoints empty_keypoints(0);
-  FeatureKeypoints keypoints1(2);
-  keypoints1[0].x = 1;
-  keypoints1[1].x = 2;
-  FeatureKeypoints keypoints2(2);
-  keypoints2[0].x = 2;
-  keypoints2[1].x = 1;
-  const FeatureDescriptors empty_descriptors =
-      CreateRandomFeatureDescriptors(0);
-  const FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(2);
-  const FeatureDescriptors descriptors2 = descriptors1.colwise().reverse();
+  auto empty_keypoints = std::make_shared<FeatureKeypoints>(0);
+  auto keypoints1 = std::make_shared<FeatureKeypoints>(2);
+  (*keypoints1)[0].x = 1;
+  (*keypoints1)[1].x = 2;
+  auto keypoints2 = std::make_shared<FeatureKeypoints>(2);
+  (*keypoints2)[0].x = 2;
+  (*keypoints2)[1].x = 1;
+  const auto empty_descriptors = std::make_shared<FeatureDescriptors>(0, 128);
+  const auto descriptors1 =
+      std::make_shared<FeatureDescriptors>(CreateRandomFeatureDescriptors(2));
+  const auto descriptors2 =
+      std::make_shared<FeatureDescriptors>(descriptors1->colwise().reverse());
 
   TwoViewGeometry two_view_geometry;
   two_view_geometry.config = TwoViewGeometry::PLANAR_OR_PANORAMIC;
   two_view_geometry.H = Eigen::Matrix3d::Identity();
 
-  MatchGuidedSiftFeaturesCPU(SiftMatchingOptions(),
-                             keypoints1,
-                             keypoints2,
-                             descriptors1,
-                             descriptors2,
-                             &two_view_geometry);
+  SiftMatchingOptions options;
+  options.use_gpu = false;
+  auto matcher = CreateSiftFeatureMatcher(options);
+
+  matcher->MatchGuided(
+      keypoints1, keypoints2, descriptors1, descriptors2, &two_view_geometry);
   EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
   EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
   EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
 
-  keypoints1[0].x = 100;
-  MatchGuidedSiftFeaturesCPU(SiftMatchingOptions(),
-                             keypoints1,
-                             keypoints2,
-                             descriptors1,
-                             descriptors2,
-                             &two_view_geometry);
+  (*keypoints1)[0].x = 100;
+  matcher->MatchGuided(
+      keypoints1, keypoints2, descriptors1, descriptors2, &two_view_geometry);
   EXPECT_EQ(two_view_geometry.inlier_matches.size(), 1);
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 1);
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 0);
 
-  MatchGuidedSiftFeaturesCPU(SiftMatchingOptions(),
-                             empty_keypoints,
-                             keypoints2,
-                             empty_descriptors,
-                             descriptors2,
-                             &two_view_geometry);
+  matcher->MatchGuided(empty_keypoints,
+                       keypoints2,
+                       empty_descriptors,
+                       descriptors2,
+                       &two_view_geometry);
   EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
-  MatchGuidedSiftFeaturesCPU(SiftMatchingOptions(),
-                             keypoints1,
-                             empty_keypoints,
-                             descriptors1,
-                             empty_descriptors,
-                             &two_view_geometry);
+  matcher->MatchGuided(keypoints1,
+                       empty_keypoints,
+                       descriptors1,
+                       empty_descriptors,
+                       &two_view_geometry);
   EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
-  MatchGuidedSiftFeaturesCPU(SiftMatchingOptions(),
-                             empty_keypoints,
-                             empty_keypoints,
-                             empty_descriptors,
-                             empty_descriptors,
-                             &two_view_geometry);
+  matcher->MatchGuided(empty_keypoints,
+                       empty_keypoints,
+                       empty_descriptors,
+                       empty_descriptors,
+                       &two_view_geometry);
   EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
 }
 
@@ -525,76 +544,53 @@ TEST(MatchSiftFeaturesGPU, Nominal) {
    private:
     void Run() {
       opengl_context_.MakeCurrent();
-      SiftMatchGPU sift_match_gpu;
-      SiftMatchingOptions create_options;
-      create_options.max_num_matches = 1000;
-      EXPECT_TRUE(CreateSiftGPUMatcher(create_options, &sift_match_gpu));
+      SiftMatchingOptions options;
+      options.use_gpu = true;
+      options.max_num_matches = 1000;
+      auto matcher = CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
 
-      const FeatureDescriptors empty_descriptors =
-          CreateRandomFeatureDescriptors(0);
-      const FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(2);
-      const FeatureDescriptors descriptors2 = descriptors1.colwise().reverse();
+      const auto empty_descriptors =
+          std::make_shared<FeatureDescriptors>(0, 128);
+      const auto descriptors1 = std::make_shared<FeatureDescriptors>(
+          CreateRandomFeatureDescriptors(2));
+      const auto descriptors2 = std::make_shared<FeatureDescriptors>(
+          descriptors1->colwise().reverse());
 
       FeatureMatches matches;
 
-      MatchSiftFeaturesGPU(SiftMatchingOptions(),
-                           &descriptors1,
-                           &descriptors2,
-                           &sift_match_gpu,
-                           &matches);
+      matcher->Match(descriptors1, descriptors2, &matches);
       EXPECT_EQ(matches.size(), 2);
       EXPECT_EQ(matches[0].point2D_idx1, 0);
       EXPECT_EQ(matches[0].point2D_idx2, 1);
       EXPECT_EQ(matches[1].point2D_idx1, 1);
       EXPECT_EQ(matches[1].point2D_idx2, 0);
 
-      MatchSiftFeaturesGPU(
-          SiftMatchingOptions(), nullptr, nullptr, &sift_match_gpu, &matches);
+      matcher->Match(nullptr, nullptr, &matches);
       EXPECT_EQ(matches.size(), 2);
       EXPECT_EQ(matches[0].point2D_idx1, 0);
       EXPECT_EQ(matches[0].point2D_idx2, 1);
       EXPECT_EQ(matches[1].point2D_idx1, 1);
       EXPECT_EQ(matches[1].point2D_idx2, 0);
 
-      MatchSiftFeaturesGPU(SiftMatchingOptions(),
-                           &descriptors1,
-                           nullptr,
-                           &sift_match_gpu,
-                           &matches);
+      matcher->Match(descriptors1, nullptr, &matches);
       EXPECT_EQ(matches.size(), 2);
       EXPECT_EQ(matches[0].point2D_idx1, 0);
       EXPECT_EQ(matches[0].point2D_idx2, 1);
       EXPECT_EQ(matches[1].point2D_idx1, 1);
       EXPECT_EQ(matches[1].point2D_idx2, 0);
 
-      MatchSiftFeaturesGPU(SiftMatchingOptions(),
-                           nullptr,
-                           &descriptors2,
-                           &sift_match_gpu,
-                           &matches);
+      matcher->Match(nullptr, descriptors2, &matches);
       EXPECT_EQ(matches.size(), 2);
       EXPECT_EQ(matches[0].point2D_idx1, 0);
       EXPECT_EQ(matches[0].point2D_idx2, 1);
       EXPECT_EQ(matches[1].point2D_idx1, 1);
       EXPECT_EQ(matches[1].point2D_idx2, 0);
 
-      MatchSiftFeaturesGPU(SiftMatchingOptions(),
-                           &empty_descriptors,
-                           &descriptors2,
-                           &sift_match_gpu,
-                           &matches);
+      matcher->Match(empty_descriptors, descriptors2, &matches);
       EXPECT_EQ(matches.size(), 0);
-      MatchSiftFeaturesGPU(SiftMatchingOptions(),
-                           &descriptors1,
-                           &empty_descriptors,
-                           &sift_match_gpu,
-                           &matches);
+      matcher->Match(descriptors1, empty_descriptors, &matches);
       EXPECT_EQ(matches.size(), 0);
-      MatchSiftFeaturesGPU(SiftMatchingOptions(),
-                           &empty_descriptors,
-                           &empty_descriptors,
-                           &sift_match_gpu,
-                           &matches);
+      matcher->Match(empty_descriptors, empty_descriptors, &matches);
       EXPECT_EQ(matches.size(), 0);
     }
     OpenGLContextManager opengl_context_;
@@ -614,56 +610,45 @@ TEST(MatchSiftFeaturesCPUvsGPU, Nominal) {
    private:
     void Run() {
       opengl_context_.MakeCurrent();
-      SiftMatchGPU sift_match_gpu;
-      SiftMatchingOptions create_options;
-      create_options.max_num_matches = 1000;
-      EXPECT_TRUE(CreateSiftGPUMatcher(create_options, &sift_match_gpu));
 
-      auto TestCPUvsGPU = [&sift_match_gpu](
-                              const SiftMatchingOptions& options,
-                              const FeatureDescriptors& descriptors1,
-                              const FeatureDescriptors& descriptors2) {
+      auto TestCPUvsGPU = [](const SiftMatchingOptions& options,
+                             const FeatureDescriptors& descriptors1,
+                             const FeatureDescriptors& descriptors2) {
+        SiftMatchingOptions custom_options = options;
+        custom_options.use_gpu = true;
+        custom_options.max_num_matches = 1000;
+        auto gpu_matcher =
+            CHECK_NOTNULL(CreateSiftFeatureMatcher(custom_options));
+        custom_options.use_gpu = false;
+        auto cpu_matcher = CreateSiftFeatureMatcher(custom_options);
+
+        const auto descriptors1_ptr =
+            std::make_shared<FeatureDescriptors>(descriptors1);
+        const auto descriptors2_ptr =
+            std::make_shared<FeatureDescriptors>(descriptors2);
+
         FeatureMatches matches_cpu;
         FeatureMatches matches_gpu;
 
-        MatchSiftFeaturesCPU(options, descriptors1, descriptors2, &matches_cpu);
-        MatchSiftFeaturesGPU(options,
-                             &descriptors1,
-                             &descriptors2,
-                             &sift_match_gpu,
-                             &matches_gpu);
+        cpu_matcher->Match(descriptors1_ptr, descriptors2_ptr, &matches_cpu);
+        gpu_matcher->Match(descriptors1_ptr, descriptors2_ptr, &matches_gpu);
         CheckEqualMatches(matches_cpu, matches_gpu);
 
         const size_t num_matches = matches_cpu.size();
 
-        const FeatureDescriptors empty_descriptors =
-            CreateRandomFeatureDescriptors(0);
+        const auto empty_descriptors =
+            std::make_shared<FeatureDescriptors>(0, 128);
 
-        MatchSiftFeaturesCPU(
-            options, empty_descriptors, descriptors2, &matches_cpu);
-        MatchSiftFeaturesGPU(options,
-                             &empty_descriptors,
-                             &descriptors2,
-                             &sift_match_gpu,
-                             &matches_gpu);
+        cpu_matcher->Match(empty_descriptors, descriptors2_ptr, &matches_cpu);
+        gpu_matcher->Match(empty_descriptors, descriptors2_ptr, &matches_gpu);
         CheckEqualMatches(matches_cpu, matches_gpu);
 
-        MatchSiftFeaturesCPU(
-            options, descriptors1, empty_descriptors, &matches_cpu);
-        MatchSiftFeaturesGPU(options,
-                             &descriptors1,
-                             &empty_descriptors,
-                             &sift_match_gpu,
-                             &matches_gpu);
+        cpu_matcher->Match(descriptors1_ptr, empty_descriptors, &matches_cpu);
+        gpu_matcher->Match(descriptors1_ptr, empty_descriptors, &matches_gpu);
         CheckEqualMatches(matches_cpu, matches_gpu);
 
-        MatchSiftFeaturesCPU(
-            options, empty_descriptors, empty_descriptors, &matches_cpu);
-        MatchSiftFeaturesGPU(options,
-                             &empty_descriptors,
-                             &empty_descriptors,
-                             &sift_match_gpu,
-                             &matches_gpu);
+        cpu_matcher->Match(empty_descriptors, empty_descriptors, &matches_cpu);
+        gpu_matcher->Match(empty_descriptors, empty_descriptors, &matches_gpu);
         CheckEqualMatches(matches_cpu, matches_gpu);
 
         return num_matches;
@@ -754,114 +739,91 @@ TEST(MatchGuidedSiftFeaturesGPU, Nominal) {
    private:
     void Run() {
       opengl_context_.MakeCurrent();
-      SiftMatchGPU sift_match_gpu;
-      SiftMatchingOptions create_options;
-      create_options.max_num_matches = 1000;
-      EXPECT_TRUE(CreateSiftGPUMatcher(create_options, &sift_match_gpu));
+      SiftMatchingOptions options;
+      options.use_gpu = true;
+      options.max_num_matches = 1000;
+      auto matcher = CHECK_NOTNULL(CreateSiftFeatureMatcher(options));
 
-      FeatureKeypoints empty_keypoints(0);
-      FeatureKeypoints keypoints1(2);
-      keypoints1[0].x = 1;
-      keypoints1[1].x = 2;
-      FeatureKeypoints keypoints2(2);
-      keypoints2[0].x = 2;
-      keypoints2[1].x = 1;
-      const FeatureDescriptors empty_descriptors =
-          CreateRandomFeatureDescriptors(0);
-      const FeatureDescriptors descriptors1 = CreateRandomFeatureDescriptors(2);
-      const FeatureDescriptors descriptors2 = descriptors1.colwise().reverse();
+      auto empty_keypoints = std::make_shared<FeatureKeypoints>(0);
+      auto keypoints1 = std::make_shared<FeatureKeypoints>(2);
+      (*keypoints1)[0].x = 1;
+      (*keypoints1)[1].x = 2;
+      auto keypoints2 = std::make_shared<FeatureKeypoints>(2);
+      (*keypoints2)[0].x = 2;
+      (*keypoints2)[1].x = 1;
+      const auto empty_descriptors =
+          std::make_shared<FeatureDescriptors>(0, 128);
+      const auto descriptors1 = std::make_shared<FeatureDescriptors>(
+          CreateRandomFeatureDescriptors(2));
+      const auto descriptors2 = std::make_shared<FeatureDescriptors>(
+          descriptors1->colwise().reverse());
 
       TwoViewGeometry two_view_geometry;
       two_view_geometry.config = TwoViewGeometry::PLANAR_OR_PANORAMIC;
       two_view_geometry.H = Eigen::Matrix3d::Identity();
 
-      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(),
-                                 &keypoints1,
-                                 &keypoints2,
-                                 &descriptors1,
-                                 &descriptors2,
-                                 &sift_match_gpu,
-                                 &two_view_geometry);
+      matcher->MatchGuided(keypoints1,
+                           keypoints2,
+                           descriptors1,
+                           descriptors2,
+                           &two_view_geometry);
       EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
       EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
       EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
       EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
       EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
 
-      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(),
-                                 nullptr,
-                                 nullptr,
-                                 nullptr,
-                                 nullptr,
-                                 &sift_match_gpu,
-                                 &two_view_geometry);
+      matcher->MatchGuided(
+          nullptr, nullptr, nullptr, nullptr, &two_view_geometry);
       EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
       EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
       EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
       EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
       EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
 
-      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(),
-                                 &keypoints1,
-                                 nullptr,
-                                 &descriptors1,
-                                 nullptr,
-                                 &sift_match_gpu,
-                                 &two_view_geometry);
+      matcher->MatchGuided(
+          keypoints1, nullptr, descriptors1, nullptr, &two_view_geometry);
       EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
       EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
       EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
       EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
       EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
 
-      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(),
-                                 nullptr,
-                                 &keypoints2,
-                                 nullptr,
-                                 &descriptors2,
-                                 &sift_match_gpu,
-                                 &two_view_geometry);
+      matcher->MatchGuided(
+          nullptr, keypoints2, nullptr, descriptors2, &two_view_geometry);
       EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
       EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
       EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
       EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
       EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
 
-      keypoints1[0].x = 100;
-      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(),
-                                 &keypoints1,
-                                 &keypoints2,
-                                 &descriptors1,
-                                 &descriptors2,
-                                 &sift_match_gpu,
-                                 &two_view_geometry);
+      (*keypoints1)[0].x = 100;
+      matcher->MatchGuided(keypoints1,
+                           keypoints2,
+                           descriptors1,
+                           descriptors2,
+                           &two_view_geometry);
       EXPECT_EQ(two_view_geometry.inlier_matches.size(), 1);
       EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 1);
       EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 0);
 
-      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(),
-                                 &empty_keypoints,
-                                 &keypoints2,
-                                 &empty_descriptors,
-                                 &descriptors2,
-                                 &sift_match_gpu,
-                                 &two_view_geometry);
+      matcher->MatchGuided(empty_keypoints,
+                           keypoints2,
+                           empty_descriptors,
+                           descriptors2,
+                           &two_view_geometry);
       EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
-      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(),
-                                 &keypoints1,
-                                 &empty_keypoints,
-                                 &descriptors1,
-                                 &empty_descriptors,
-                                 &sift_match_gpu,
-                                 &two_view_geometry);
+      matcher->MatchGuided(keypoints1,
+                           empty_keypoints,
+                           descriptors1,
+                           empty_descriptors,
+                           &two_view_geometry);
       EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
-      MatchGuidedSiftFeaturesGPU(SiftMatchingOptions(),
-                                 &empty_keypoints,
-                                 &empty_keypoints,
-                                 &empty_descriptors,
-                                 &empty_descriptors,
-                                 &sift_match_gpu,
-                                 &two_view_geometry);
+      matcher->MatchGuided(empty_keypoints,
+                           empty_keypoints,
+                           empty_descriptors,
+                           empty_descriptors,
+                           &two_view_geometry);
       EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
     }
     OpenGLContextManager opengl_context_;
