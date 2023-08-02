@@ -39,10 +39,6 @@ jobs:
       cmakeBuildType: ClangTidy
   - template: build-mac.yaml
     parameters:
-      displayName: 'Mac 11'
-      macVersion: 11
-  - template: build-mac.yaml
-    parameters:
       displayName: 'Mac 12'
       macVersion: 12
   - template: build-docker.yaml
