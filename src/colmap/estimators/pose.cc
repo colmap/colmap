@@ -323,10 +323,8 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   }
 
   if (problem.NumResiduals() > 0 && cam_from_world_cov != nullptr) {
-    ceres::Covariance::Options cov_options;
-    cov_options.algorithm_type = ceres::DENSE_SVD;
-
-    ceres::Covariance covariance(cov_options);
+    ceres::Covariance::Options options;
+    ceres::Covariance covariance(options);
     std::vector<const double*> parameter_blocks = {rig_from_world_rotation,
                                                    rig_from_world_translation};
     if (!covariance.Compute(parameter_blocks, &problem)) {
