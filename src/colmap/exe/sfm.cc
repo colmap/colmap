@@ -218,6 +218,21 @@ int RunMapper(int argc, char** argv) {
     reconstruction_manager->Read(input_path);
   }
 
+  // If fix_existing_images is enabled, we store the initial positions of
+  // existiing images in order to map back the reconstruction to them when done
+  // as they will experience some scaling and origin shifting during the Bundle
+  // Adjustment steps for numerical stability reason
+  std::unordered_map<image_t, Eigen::Vector3d> map_img_ini_pos;
+  if (options.mapper->fix_existing_images) {
+    const auto reconstruction = reconstruction_manager->Get(0);
+    for (const auto& image_id : reconstruction->RegImageIds()) {
+      const Image& image = reconstruction->Image(image_id);
+      if (image.CamFromWorld().translation.array().isFinite().all()) {
+        map_img_ini_pos.emplace(image_id, image.ProjectionCenter());
+      }
+    }
+  }
+
   IncrementalMapperController mapper(options.mapper,
                                      *options.image_path,
                                      *options.database_path,
@@ -255,7 +270,25 @@ int RunMapper(int argc, char** argv) {
   // In case the reconstruction is continued from an existing reconstruction, do
   // not create sub-folders but directly write the results.
   if (input_path != "" && reconstruction_manager->Size() > 0) {
-    reconstruction_manager->Get(0)->Write(output_path);
+    const auto reconstruction = reconstruction_manager->Get(0);
+
+    // Map back to initial scaling and origin of the already existing images
+    // if fix_existing_images was enabled
+    if (options.mapper->fix_existing_images) {
+      std::vector<Eigen::Vector3d> src, dst;
+      src.reserve(map_img_ini_pos.size());
+      dst.reserve(map_img_ini_pos.size());
+      for (const auto& img_ini_pos_el : map_img_ini_pos) {
+        src.push_back(
+            reconstruction->Image(img_ini_pos_el.first).ProjectionCenter());
+        dst.push_back(img_ini_pos_el.second);
+      }
+      Sim3d tform;
+      tform.Estimate(src, dst);
+      reconstruction->Transform(tform);
+    }
+
+    reconstruction->Write(output_path);
   }
 
   return EXIT_SUCCESS;
