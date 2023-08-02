@@ -139,13 +139,13 @@ class ReprojErrorConstantPoseCostFunction {
 template <typename CameraModel>
 class ReprojErrorConstantPoint3DCostFunction {
  public:
-  explicit ReprojErrorConstantPoint3DCostFunction(
-      const Eigen::Vector2d& point2D, const Eigen::Vector3d& point3D)
+  ReprojErrorConstantPoint3DCostFunction(const Eigen::Vector2d& point2D,
+                                         const Eigen::Vector3d& point3D)
       : observed_x_(point2D(0)),
         observed_y_(point2D(1)),
-        point_x_(point3D(0)),
-        point_y_(point3D(1)),
-        point_z_(point3D(2)) {}
+        point3D_x_(point3D(0)),
+        point3D_y_(point3D(1)),
+        point3D_z_(point3D(2)) {}
 
   static ceres::CostFunction* Create(const Eigen::Vector2d& point2D,
                                      const Eigen::Vector3d& point3D) {
@@ -164,9 +164,9 @@ class ReprojErrorConstantPoint3DCostFunction {
                   const T* const camera_params,
                   T* residuals) const {
     Eigen::Matrix<T, 3, 1> point3D;
-    point3D[0] = T(point_x_);
-    point3D[1] = T(point_y_);
-    point3D[2] = T(point_z_);
+    point3D[0] = T(point3D_x_);
+    point3D[1] = T(point3D_y_);
+    point3D[2] = T(point3D_z_);
 
     const Eigen::Matrix<T, 3, 1> point3D_in_cam =
         EigenQuaternionMap<T>(cam_from_world_rotation) * point3D +
@@ -185,9 +185,9 @@ class ReprojErrorConstantPoint3DCostFunction {
  private:
   const double observed_x_;
   const double observed_y_;
-  const double point_x_;
-  const double point_y_;
-  const double point_z_;
+  const double point3D_x_;
+  const double point3D_y_;
+  const double point3D_z_;
 };
 
 // Rig bundle adjustment cost function for variable camera pose and calibration
