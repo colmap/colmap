@@ -225,8 +225,6 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   double* rig_from_world_rotation = cam_from_world->rotation.coeffs().data();
   double* rig_from_world_translation = cam_from_world->translation.data();
 
-  std::vector<Eigen::Vector3d> points3D_copy = points3D;
-
   ceres::Problem::Options problem_options;
   problem_options.loss_function_ownership = ceres::DO_NOT_TAKE_OWNERSHIP;
   ceres::Problem problem(problem_options);
@@ -240,9 +238,11 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     ceres::CostFunction* cost_function = nullptr;
 
     switch (camera->ModelId()) {
-#define CAMERA_MODEL_CASE(CameraModel)                                         \
-  case CameraModel::kModelId:                                                  \
-    cost_function = ReprojErrorCostFunction<CameraModel>::Create(points2D[i]); \
+#define CAMERA_MODEL_CASE(CameraModel)                               \
+  case CameraModel::kModelId:                                        \
+    cost_function =                                                  \
+        ReprojErrorConstantPoint3DCostFunction<CameraModel>::Create( \
+            points2D[i], points3D[i]);                               \
     break;
 
       CAMERA_MODEL_SWITCH_CASES
@@ -254,9 +254,7 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                              loss_function.get(),
                              rig_from_world_rotation,
                              rig_from_world_translation,
-                             points3D_copy[i].data(),
                              camera_params);
-    problem.SetParameterBlockConstant(points3D_copy[i].data());
   }
 
   if (problem.NumResiduals() > 0) {

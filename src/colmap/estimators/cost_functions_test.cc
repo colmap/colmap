@@ -71,7 +71,7 @@ TEST(BundleAdjustment, AbsolutePose) {
   EXPECT_EQ(residuals[1], 2);
 }
 
-TEST(BundleAdjustment, ConstantAbsolutePose) {
+TEST(BundleAdjustment, ConstantPoseAbsolutePose) {
   Rigid3d cam_from_world;
   std::unique_ptr<ceres::CostFunction> cost_function(
       ReprojErrorConstantPoseCostFunction<SimplePinholeCameraModel>::Create(
@@ -98,6 +98,58 @@ TEST(BundleAdjustment, ConstantAbsolutePose) {
   EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
   EXPECT_EQ(residuals[0], -2);
   EXPECT_EQ(residuals[1], 2);
+}
+
+TEST(BundleAdjustment, ConstantPoint3DAbsolutePose) {
+  Eigen::Vector2d point2D = Eigen::Vector2d::Zero();
+  Eigen::Vector3d point3D;
+  point3D << 0, 0, 1;
+
+  double cam_from_world_rotation[4] = {0, 0, 0, 1};
+  double cam_from_world_translation[3] = {0, 0, 0};
+  double camera_params[3] = {1, 0, 0};
+  double residuals[2];
+  const double* parameters[3] = {
+      cam_from_world_rotation, cam_from_world_translation, camera_params};
+
+  {
+    std::unique_ptr<ceres::CostFunction> cost_function(
+        ReprojErrorConstantPoint3DCostFunction<
+            SimplePinholeCameraModel>::Create(point2D, point3D));
+    EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+    EXPECT_EQ(residuals[0], 0);
+    EXPECT_EQ(residuals[1], 0);
+  }
+
+  {
+    point3D[1] = 1;
+    std::unique_ptr<ceres::CostFunction> cost_function(
+        ReprojErrorConstantPoint3DCostFunction<
+            SimplePinholeCameraModel>::Create(point2D, point3D));
+    EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+    EXPECT_EQ(residuals[0], 0);
+    EXPECT_EQ(residuals[1], 1);
+  }
+
+  {
+    camera_params[0] = 2;
+    std::unique_ptr<ceres::CostFunction> cost_function(
+        ReprojErrorConstantPoint3DCostFunction<
+            SimplePinholeCameraModel>::Create(point2D, point3D));
+    EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+    EXPECT_EQ(residuals[0], 0);
+    EXPECT_EQ(residuals[1], 2);
+  }
+
+  {
+    point3D[0] = -1;
+    std::unique_ptr<ceres::CostFunction> cost_function(
+        ReprojErrorConstantPoint3DCostFunction<
+            SimplePinholeCameraModel>::Create(point2D, point3D));
+    EXPECT_TRUE(cost_function->Evaluate(parameters, residuals, nullptr));
+    EXPECT_EQ(residuals[0], -2);
+    EXPECT_EQ(residuals[1], 2);
+  }
 }
 
 TEST(BundleAdjustment, Rig) {
