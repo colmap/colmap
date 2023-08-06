@@ -37,6 +37,8 @@
 
 #include <iomanip>
 
+#include <Eigen/Geometry>
+
 namespace colmap {
 
 Camera::Camera()
