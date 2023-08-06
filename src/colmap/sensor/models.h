@@ -36,7 +36,7 @@
 #include <vector>
 
 #include <Eigen/Core>
-#include <Eigen/Dense>
+#include <Eigen/LU>
 #include <ceres/jet.h>
 
 namespace colmap {
@@ -571,7 +571,7 @@ void BaseCameraModel<CameraModel>::IterativeUndistortion(const T* params,
     J(0, 1) = (dx_1f(0) - dx_1b(0)) / (2 * step1);
     J(1, 0) = (dx_0f(1) - dx_0b(1)) / (2 * step0);
     J(1, 1) = 1 + (dx_1f(1) - dx_1b(1)) / (2 * step1);
-    const Eigen::Vector2d step_x = J.inverse() * (x + dx - x0);
+    const Eigen::Vector2d step_x = J.partialPivLu().solve(x + dx - x0);
     x -= step_x;
     if (step_x.squaredNorm() < kMaxStepNorm) {
       break;
