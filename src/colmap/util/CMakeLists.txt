@@ -41,7 +41,6 @@ COLMAP_ADD_LIBRARY(
         ply.h ply.cc
         sqlite3_utils.h
         string.h string.cc
-        testing.h testing.cc
         threading.h threading.cc
         timer.h timer.cc
         types.h
@@ -55,6 +54,13 @@ COLMAP_ADD_LIBRARY(
         Qt5::OpenGL
         SQLite::SQLite3
 )
+if(TESTS_ENABLED)
+    target_sources(
+        colmap_util
+        PRIVATE
+            testing.h testing.cc
+    )
+endif()
 
 if(CUDA_ENABLED)
     COLMAP_ADD_LIBRARY(
