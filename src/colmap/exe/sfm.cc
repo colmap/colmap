@@ -222,13 +222,13 @@ int RunMapper(int argc, char** argv) {
   // existiing images in order to map back the reconstruction to them when done
   // as they will experience some scaling and origin shifting during the Bundle
   // Adjustment steps for numerical stability reason
-  std::unordered_map<image_t, Eigen::Vector3d> map_img_ini_pos;
+  std::unordered_map<image_t, Eigen::Vector3d> img_id_to_ini_img_pos;
   if (options.mapper->fix_existing_images) {
     const auto reconstruction = reconstruction_manager->Get(0);
     for (const auto& image_id : reconstruction->RegImageIds()) {
       const Image& image = reconstruction->Image(image_id);
       if (image.CamFromWorld().translation.array().isFinite().all()) {
-        map_img_ini_pos.emplace(image_id, image.ProjectionCenter());
+        img_id_to_ini_img_pos.emplace(image_id, image.ProjectionCenter());
       }
     }
   }
@@ -276,9 +276,9 @@ int RunMapper(int argc, char** argv) {
     // if fix_existing_images was enabled
     if (options.mapper->fix_existing_images) {
       std::vector<Eigen::Vector3d> src, dst;
-      src.reserve(map_img_ini_pos.size());
-      dst.reserve(map_img_ini_pos.size());
-      for (const auto& img_ini_pos_el : map_img_ini_pos) {
+      src.reserve(img_id_to_ini_img_pos.size());
+      dst.reserve(img_id_to_ini_img_pos.size());
+      for (const auto& img_ini_pos_el : img_id_to_ini_img_pos) {
         src.push_back(
             reconstruction->Image(img_ini_pos_el.first).ProjectionCenter());
         dst.push_back(img_ini_pos_el.second);
