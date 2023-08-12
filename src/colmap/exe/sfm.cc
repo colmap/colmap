@@ -227,7 +227,7 @@ int RunMapper(int argc, char** argv) {
   if (options.mapper->fix_existing_images) {
     const auto& reconstruction = reconstruction_manager->Get(0);
     fixed_image_ids = reconstruction->RegImageIds();
-    new_fixed_image_positions.reserve(fixed_image_ids.size());
+    orig_fixed_image_positions.reserve(fixed_image_ids.size());
     for (const image_t image_id : fixed_image_ids) {
       orig_fixed_image_positions.push_back(
           reconstruction->Image(image_id).ProjectionCenter());
