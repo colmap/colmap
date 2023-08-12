@@ -219,17 +219,18 @@ int RunMapper(int argc, char** argv) {
   }
 
   // If fix_existing_images is enabled, we store the initial positions of
-  // existiing images in order to map back the reconstruction to them when done
-  // as they will experience some scaling and origin shifting during the Bundle
-  // Adjustment steps for numerical stability reason
-  std::unordered_map<image_t, Eigen::Vector3d> img_id_to_ini_img_pos;
+  // existing images in order to transform them back to the original coordinate
+  // frame, as the reconstruction is normalized multiple times for numerical
+  // stability.
+  std::vector<Eigen::Vector3d> orig_fixed_image_positions;
+  std::vector<image_t> fixed_image_ids;
   if (options.mapper->fix_existing_images) {
-    const auto reconstruction = reconstruction_manager->Get(0);
-    for (const auto& image_id : reconstruction->RegImageIds()) {
-      const Image& image = reconstruction->Image(image_id);
-      if (image.CamFromWorld().translation.array().isFinite().all()) {
-        img_id_to_ini_img_pos.emplace(image_id, image.ProjectionCenter());
-      }
+    const auto& reconstruction = reconstruction_manager->Get(0);
+    fixed_image_ids = reconstruction->RegImageIds();
+    new_fixed_image_positions.reserve(fixed_image_ids.size());
+    for (const image_t image_id : fixed_image_ids) {
+      orig_fixed_image_positions.push_back(
+          reconstruction->Image(image_id).ProjectionCenter());
     }
   }
 
@@ -272,20 +273,18 @@ int RunMapper(int argc, char** argv) {
   if (input_path != "" && reconstruction_manager->Size() > 0) {
     const auto reconstruction = reconstruction_manager->Get(0);
 
-    // Map back to initial scaling and origin of the already existing images
-    // if fix_existing_images was enabled
+    // Map the coordinate back to the original coordinate frame.
     if (options.mapper->fix_existing_images) {
-      std::vector<Eigen::Vector3d> src, dst;
-      src.reserve(img_id_to_ini_img_pos.size());
-      dst.reserve(img_id_to_ini_img_pos.size());
-      for (const auto& img_ini_pos_el : img_id_to_ini_img_pos) {
-        src.push_back(
-            reconstruction->Image(img_ini_pos_el.first).ProjectionCenter());
-        dst.push_back(img_ini_pos_el.second);
+      std::vector<Eigen::Vector3d> new_fixed_image_positions;
+      new_fixed_image_positions.reserve(fixed_image_ids.size());
+      for (const image_t image_id : fixed_image_ids) {
+        new_fixed_image_positions.push_back(
+            reconstruction->Image(image_id).ProjectionCenter());
       }
-      Sim3d tform;
-      tform.Estimate(src, dst);
-      reconstruction->Transform(tform);
+      Sim3d orig_from_new;
+      orig_from_new.Estimate(new_fixed_image_positions,
+                             orig_fixed_image_positions);
+      reconstruction->Transform(orig_from_new);
     }
 
     reconstruction->Write(output_path);
