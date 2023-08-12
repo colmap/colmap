@@ -218,6 +218,22 @@ int RunMapper(int argc, char** argv) {
     reconstruction_manager->Read(input_path);
   }
 
+  // If fix_existing_images is enabled, we store the initial positions of
+  // existing images in order to transform them back to the original coordinate
+  // frame, as the reconstruction is normalized multiple times for numerical
+  // stability.
+  std::vector<Eigen::Vector3d> orig_fixed_image_positions;
+  std::vector<image_t> fixed_image_ids;
+  if (options.mapper->fix_existing_images) {
+    const auto& reconstruction = reconstruction_manager->Get(0);
+    fixed_image_ids = reconstruction->RegImageIds();
+    orig_fixed_image_positions.reserve(fixed_image_ids.size());
+    for (const image_t image_id : fixed_image_ids) {
+      orig_fixed_image_positions.push_back(
+          reconstruction->Image(image_id).ProjectionCenter());
+    }
+  }
+
   IncrementalMapperController mapper(options.mapper,
                                      *options.image_path,
                                      *options.database_path,
@@ -255,7 +271,23 @@ int RunMapper(int argc, char** argv) {
   // In case the reconstruction is continued from an existing reconstruction, do
   // not create sub-folders but directly write the results.
   if (input_path != "" && reconstruction_manager->Size() > 0) {
-    reconstruction_manager->Get(0)->Write(output_path);
+    const auto& reconstruction = reconstruction_manager->Get(0);
+
+    // Map the coordinate back to the original coordinate frame.
+    if (options.mapper->fix_existing_images) {
+      std::vector<Eigen::Vector3d> new_fixed_image_positions;
+      new_fixed_image_positions.reserve(fixed_image_ids.size());
+      for (const image_t image_id : fixed_image_ids) {
+        new_fixed_image_positions.push_back(
+            reconstruction->Image(image_id).ProjectionCenter());
+      }
+      Sim3d orig_from_new;
+      orig_from_new.Estimate(new_fixed_image_positions,
+                             orig_fixed_image_positions);
+      reconstruction->Transform(orig_from_new);
+    }
+
+    reconstruction->Write(output_path);
   }
 
   return EXIT_SUCCESS;
