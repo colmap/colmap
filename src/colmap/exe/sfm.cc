@@ -271,7 +271,7 @@ int RunMapper(int argc, char** argv) {
   // In case the reconstruction is continued from an existing reconstruction, do
   // not create sub-folders but directly write the results.
   if (input_path != "" && reconstruction_manager->Size() > 0) {
-    const auto reconstruction = reconstruction_manager->Get(0);
+    const auto& reconstruction = reconstruction_manager->Get(0);
 
     // Map the coordinate back to the original coordinate frame.
     if (options.mapper->fix_existing_images) {
