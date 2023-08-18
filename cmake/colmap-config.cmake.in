@@ -80,5 +80,5 @@ set(GUI_ENABLED @GUI_ENABLED@)
 set(CGAL_ENABLED @CGAL_ENABLED@)
 
 include(${PACKAGE_PREFIX_DIR}/share/colmap/colmap-targets.cmake)
-include(${PACKAGE_PREFIX_DIR}/share/colmap/cmake/FindCOLMAPDependencies.cmake)
+include(${PACKAGE_PREFIX_DIR}/share/colmap/cmake/FindDependencies.cmake)
 check_required_components(colmap)

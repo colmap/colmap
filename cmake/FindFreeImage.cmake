@@ -34,8 +34,7 @@
 # The following variables are set by this module:
 #
 #   FREEIMAGE_FOUND: TRUE if FreeImage is found.
-#   FREEIMAGE_INCLUDE_DIRS: Include directories for FreeImage.
-#   FREEIMAGE_LIBRARIES: Libraries required to link FreeImage.
+#   freeimage::FreeImage: Imported target to link against.
 #
 # The following variables control the behavior of this module:
 #
@@ -48,52 +47,59 @@ set(FREEIMAGE_INCLUDE_DIR_HINTS "" CACHE PATH "FreeImage include directory")
 set(FREEIMAGE_LIBRARY_DIR_HINTS "" CACHE PATH "FreeImage library directory")
 
 unset(FREEIMAGE_FOUND)
-unset(FREEIMAGE_INCLUDE_DIRS)
-unset(FREEIMAGE_LIBRARIES)
 
-list(APPEND FREEIMAGE_CHECK_INCLUDE_DIRS
-    ${FREEIMAGE_INCLUDE_DIR_HINTS}
-    /usr/include
-    /usr/local/include
-    /opt/include
-    /opt/local/include
-)
-
-list(APPEND FREEIMAGE_CHECK_LIBRARY_DIRS
-    ${FREEIMAGE_LIBRARY_DIR_HINTS}
-    /usr/lib
-    /usr/local/lib
-    /opt/lib
-    /opt/local/lib
-)
-
-find_path(FREEIMAGE_INCLUDE_DIRS
-    NAMES
-    FreeImage.h
-    PATHS
-    ${FREEIMAGE_CHECK_INCLUDE_DIRS})
-find_library(FREEIMAGE_LIBRARIES
-    NAMES
-    freeimage
-    PATHS
-    ${FREEIMAGE_CHECK_LIBRARY_DIRS})
-
-if(FREEIMAGE_INCLUDE_DIRS AND FREEIMAGE_LIBRARIES)
-    set(FREEIMAGE_FOUND TRUE)
-endif()
-
-if(FREEIMAGE_FOUND)
-    message(STATUS "Found FreeImage")
-    message(STATUS "  Includes : ${FREEIMAGE_INCLUDE_DIRS}")
-    message(STATUS "  Libraries : ${FREEIMAGE_LIBRARIES}")
-else()
-    if(FreeImage_FIND_REQUIRED)
-        message(FATAL_ERROR "Could not find FreeImage")
+find_package(FreeImage CONFIG QUIET)
+if(FreeImage_FOUND)
+    if(TARGET freeimage::FreeImage)
+        set(FREEIMAGE_FOUND TRUE)
+        message(STATUS "Found FreeImage")
+        message(STATUS "  Target : freeimage::FreeImage")
     endif()
+else()
+    list(APPEND FREEIMAGE_CHECK_INCLUDE_DIRS
+        ${FREEIMAGE_INCLUDE_DIR_HINTS}
+        /usr/include
+        /usr/local/include
+        /opt/include
+        /opt/local/include
+    )
+
+    list(APPEND FREEIMAGE_CHECK_LIBRARY_DIRS
+        ${FREEIMAGE_LIBRARY_DIR_HINTS}
+        /usr/lib
+        /usr/local/lib
+        /opt/lib
+        /opt/local/lib
+    )
+
+    find_path(FREEIMAGE_INCLUDE_DIRS
+        NAMES
+        FreeImage.h
+        PATHS
+        ${FREEIMAGE_CHECK_INCLUDE_DIRS})
+    find_library(FREEIMAGE_LIBRARIES
+        NAMES
+        freeimage
+        PATHS
+        ${FREEIMAGE_CHECK_LIBRARY_DIRS})
+
+    if(FREEIMAGE_INCLUDE_DIRS AND FREEIMAGE_LIBRARIES)
+        set(FREEIMAGE_FOUND TRUE)
+    endif()
+
+    if(FREEIMAGE_FOUND)
+        message(STATUS "Found FreeImage")
+        message(STATUS "  Includes : ${FREEIMAGE_INCLUDE_DIRS}")
+        message(STATUS "  Libraries : ${FREEIMAGE_LIBRARIES}")
+    endif()
+
+    add_library(freeimage::FreeImage INTERFACE IMPORTED)
+    target_include_directories(
+        freeimage::FreeImage INTERFACE ${FREEIMAGE_INCLUDE_DIRS})
+    target_link_libraries(
+        freeimage::FreeImage INTERFACE ${FREEIMAGE_LIBRARIES})
 endif()
 
-add_library(freeimage INTERFACE IMPORTED)
-target_include_directories(
-    freeimage INTERFACE ${FREEIMAGE_INCLUDE_DIRS})
-target_link_libraries(
-    freeimage INTERFACE ${FREEIMAGE_LIBRARIES})
+if(NOT FREEIMAGE_FOUND AND FREEIMAGE_FIND_REQUIRED)
+    message(FATAL_ERROR "Could not find FreeImage")
+endif()

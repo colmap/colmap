@@ -27,15 +27,6 @@ set(OpenGL_GL_PREFERENCE GLVND)
 find_package(OpenGL ${COLMAP_FIND_TYPE})
 
 find_package(Glew ${COLMAP_FIND_TYPE})
-if(NOT TARGET GLEW::GLEW)
-    # vcpkg's glew CMake config defines an imported interface target.
-    # Only define it here, if it doesn't already exist.
-    add_library(GLEW::GLEW INTERFACE IMPORTED)
-    target_include_directories(
-        GLEW::GLEW INTERFACE ${GLEW_INCLUDE_DIRS})
-    target_link_libraries(
-        GLEW::GLEW INTERFACE ${GLEW_LIBRARIES})
-endif()
 
 find_package(Git)
 

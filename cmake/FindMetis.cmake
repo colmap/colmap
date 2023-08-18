@@ -34,8 +34,7 @@
 # The following variables are set by this module:
 #
 #   METIS_FOUND: TRUE if Metis is found.
-#   METIS_INCLUDE_DIRS: Include directories for Metis.
-#   METIS_LIBRARIES: Libraries required to link Metis.
+#   metis: Imported target to link against.
 #
 # The following variables control the behavior of this module:
 #
@@ -48,17 +47,12 @@ set(METIS_INCLUDE_DIR_HINTS "" CACHE PATH "Metis include directory")
 set(METIS_LIBRARY_DIR_HINTS "" CACHE PATH "Metis library directory")
 
 unset(METIS_FOUND)
-unset(METIS_INCLUDE_DIRS)
-unset(METIS_LIBRARIES)
 
 find_package(metis CONFIG QUIET)
 if(TARGET metis)
     set(METIS_FOUND TRUE)
-    set(METIS_LIBRARIES metis)
-    if(METIS_FOUND)
-        message(STATUS "Found Metis")
-        message(STATUS "  Target : ${METIS_LIBRARIES}")
-    endif()
+    message(STATUS "Found Metis")
+    message(STATUS "  Target : metis")
 else()
     list(APPEND METIS_CHECK_INCLUDE_DIRS
         ${METIS_INCLUDE_DIR_HINTS}
@@ -92,23 +86,20 @@ else()
         PATHS
         ${METIS_CHECK_LIBRARY_DIRS})
 
-    if(METIS_FOUND)
+    if(METIS_INCLUDE_DIRS AND METIS_LIBRARIES)
+        set(METIS_FOUND TRUE)
         message(STATUS "Found Metis")
         message(STATUS "  Includes : ${METIS_INCLUDE_DIRS}")
         message(STATUS "  Libraries : ${METIS_LIBRARIES}")
     endif()
-endif()
 
-if(NOT METIS_FOUND AND METIS_FIND_REQUIRED)
-    message(FATAL_ERROR "Could not find Metis")
-endif()
-
-if(NOT TARGET metis)
-    # vcpkg's metis CMake config defines an imported interface target.
-    # Only define it here, if it doesn't already exist.
     add_library(metis INTERFACE IMPORTED)
     target_include_directories(
         metis INTERFACE ${METIS_INCLUDE_DIRS})
     target_link_libraries(
         metis INTERFACE ${METIS_LIBRARIES})
+endif()
+
+if(NOT METIS_FOUND AND METIS_FIND_REQUIRED)
+    message(FATAL_ERROR "Could not find Metis")
 endif()

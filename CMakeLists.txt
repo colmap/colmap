@@ -84,7 +84,7 @@ endif()
 ################################################################################
 
 set(COLMAP_FIND_QUIETLY FALSE)
-include(cmake/FindCOLMAPDependencies.cmake)
+include(cmake/FindDependencies.cmake)
 
 ################################################################################
 # Compiler specific configuration
