@@ -34,7 +34,7 @@
 # The following variables are set by this module:
 #
 #   GLOG_FOUND: TRUE if Glog is found.
-#   glog::glog: Imported target to ling against.
+#   glog::glog: Imported target to link against.
 #
 # The following variables control the behavior of this module:
 #
@@ -47,12 +47,12 @@ set(GLOG_INCLUDE_DIR_HINTS "" CACHE PATH "Glog include directory")
 set(GLOG_LIBRARY_DIR_HINTS "" CACHE PATH "Glog library directory")
 
 unset(GLOG_FOUND)
-unset(GLOG_INCLUDE_DIRS)
-unset(GLOG_LIBRARIES)
 
 find_package(glog CONFIG QUIET)
-if(glog_FOUND)
-    set(GLOG_FOUND)
+if(TARGET glog::glog)
+    set(GLOG_FOUND TRUE)
+    message(STATUS "Found Glog")
+    message(STATUS "  Target : glog::glog")
 else()
     # Older versions of glog don't come with a find_package config.
     # Fall back to custom logic to find the library and remap to imported target.
@@ -102,18 +102,18 @@ else()
         PATH_SUFFIXES
         ${GLOG_CHECK_LIBRARY_SUFFIXES})
 
-    if (GLOG_INCLUDE_DIRS AND GLOG_LIBRARIES)
+    if(GLOG_INCLUDE_DIRS AND GLOG_LIBRARIES)
         set(GLOG_FOUND TRUE)
         message(STATUS "Found Glog")
         message(STATUS "  Includes : ${GLOG_INCLUDE_DIRS}")
         message(STATUS "  Libraries : ${GLOG_LIBRARIES}")
-    else()
-        if(Glog_FIND_REQUIRED)
-            message(FATAL_ERROR "Could not find Glog")
-        endif()
     endif()
 
     add_library(glog::glog INTERFACE IMPORTED)
     target_include_directories(glog::glog INTERFACE ${GLOG_INCLUDE_DIRS})
     target_link_libraries(glog::glog INTERFACE ${GLOG_LIBRARIES})
+endif()
+
+if(NOT GLOG_FOUND AND GLOG_FIND_REQUIRED)
+    message(FATAL_ERROR "Could not find Glog")
 endif()

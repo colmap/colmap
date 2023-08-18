@@ -84,7 +84,7 @@ endif()
 ################################################################################
 
 set(COLMAP_FIND_QUIETLY FALSE)
-include(cmake/FindCOLMAPDependencies.cmake)
+include(cmake/FindDependencies.cmake)
 
 ################################################################################
 # Compiler specific configuration
@@ -116,6 +116,10 @@ if(IS_MSVC)
     # Enable object level parallel builds in Visual Studio.
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /MP")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+    if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug" OR "${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /bigobj")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
+    endif()
 endif()
 
 if(IS_GNU)

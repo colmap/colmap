@@ -34,8 +34,7 @@
 # The following variables are set by this module:
 #
 #   FLANN_FOUND: TRUE if FLANN is found.
-#   FLANN_INCLUDE_DIRS: Include directories for FLANN.
-#   FLANN_LIBRARIES: Libraries required to link FLANN.
+#   flann: Imported target to link against.
 #
 # The following variables control the behavior of this module:
 #
