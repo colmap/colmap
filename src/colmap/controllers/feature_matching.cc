@@ -180,15 +180,17 @@ void MatchNearestNeighborsInVisualIndex(const int num_threads,
 class ExhaustiveFeatureMatcher : public Thread {
  public:
   ExhaustiveFeatureMatcher(const ExhaustiveMatchingOptions& options,
-                           const SiftMatchingOptions& match_options,
+                           const SiftMatchingOptions& matching_options,
+                           const TwoViewGeometryOptions& geometry_options,
                            const std::string& database_path)
       : options_(options),
-        match_options_(match_options),
+        matching_options_(matching_options),
         database_(database_path),
         cache_(5 * options_.block_size, &database_),
-        matcher_(match_options, &database_, &cache_) {
-    CHECK(options_.Check());
-    CHECK(match_options_.Check());
+        matcher_(matching_options, geometry_options, &database_, &cache_) {
+    CHECK(options.Check());
+    CHECK(matching_options.Check());
+    CHECK(geometry_options.Check());
   }
 
  private:
@@ -259,7 +261,7 @@ class ExhaustiveFeatureMatcher : public Thread {
   }
 
   const ExhaustiveMatchingOptions options_;
-  const SiftMatchingOptions match_options_;
+  const SiftMatchingOptions matching_options_;
   Database database_;
   FeatureMatcherCache cache_;
   FeatureMatcherController matcher_;
@@ -274,10 +276,11 @@ bool ExhaustiveMatchingOptions::Check() const {
 
 std::unique_ptr<Thread> CreateExhaustiveFeatureMatcher(
     const ExhaustiveMatchingOptions& options,
-    const SiftMatchingOptions& match_options,
+    const SiftMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   return std::make_unique<ExhaustiveFeatureMatcher>(
-      options, match_options, database_path);
+      options, matching_options, geometry_options, database_path);
 }
 
 namespace {
@@ -285,17 +288,19 @@ namespace {
 class SequentialFeatureMatcher : public Thread {
  public:
   SequentialFeatureMatcher(const SequentialMatchingOptions& options,
-                           const SiftMatchingOptions& match_options,
+                           const SiftMatchingOptions& matching_options,
+                           const TwoViewGeometryOptions& geometry_options,
                            const std::string& database_path)
       : options_(options),
-        match_options_(match_options),
+        matching_options_(matching_options),
         database_(database_path),
         cache_(std::max(5 * options_.loop_detection_num_images,
                         5 * options_.overlap),
                &database_),
-        matcher_(match_options, &database_, &cache_) {
-    CHECK(options_.Check());
-    CHECK(match_options_.Check());
+        matcher_(matching_options, geometry_options, &database_, &cache_) {
+    CHECK(options.Check());
+    CHECK(matching_options.Check());
+    CHECK(geometry_options.Check());
   }
 
  private:
@@ -391,7 +396,7 @@ class SequentialFeatureMatcher : public Thread {
     visual_index.Read(options_.vocab_tree_path);
 
     // Index all images in the visual index.
-    IndexImagesInVisualIndex(match_options_.num_threads,
+    IndexImagesInVisualIndex(matching_options_.num_threads,
                              options_.loop_detection_num_checks,
                              options_.loop_detection_max_num_features,
                              image_ids,
@@ -411,7 +416,7 @@ class SequentialFeatureMatcher : public Thread {
     }
 
     MatchNearestNeighborsInVisualIndex(
-        match_options_.num_threads,
+        matching_options_.num_threads,
         options_.loop_detection_num_images,
         options_.loop_detection_num_nearest_neighbors,
         options_.loop_detection_num_checks,
@@ -425,7 +430,7 @@ class SequentialFeatureMatcher : public Thread {
   }
 
   const SequentialMatchingOptions options_;
-  const SiftMatchingOptions match_options_;
+  const SiftMatchingOptions matching_options_;
   Database database_;
   FeatureMatcherCache cache_;
   FeatureMatcherController matcher_;
@@ -444,10 +449,11 @@ bool SequentialMatchingOptions::Check() const {
 
 std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
     const SequentialMatchingOptions& options,
-    const SiftMatchingOptions& match_options,
+    const SiftMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   return std::make_unique<SequentialFeatureMatcher>(
-      options, match_options, database_path);
+      options, matching_options, geometry_options, database_path);
 }
 
 namespace {
@@ -455,15 +461,17 @@ namespace {
 class VocabTreeFeatureMatcher : public Thread {
  public:
   VocabTreeFeatureMatcher(const VocabTreeMatchingOptions& options,
-                          const SiftMatchingOptions& match_options,
+                          const SiftMatchingOptions& matching_options,
+                          const TwoViewGeometryOptions& geometry_options,
                           const std::string& database_path)
       : options_(options),
-        match_options_(match_options),
+        matching_options_(matching_options),
         database_(database_path),
         cache_(5 * options_.num_images, &database_),
-        matcher_(match_options, &database_, &cache_) {
-    CHECK(options_.Check());
-    CHECK(match_options_.Check());
+        matcher_(matching_options, geometry_options, &database_, &cache_) {
+    CHECK(options.Check());
+    CHECK(matching_options.Check());
+    CHECK(geometry_options.Check());
   }
 
  private:
@@ -514,7 +522,7 @@ class VocabTreeFeatureMatcher : public Thread {
     }
 
     // Index all images in the visual index.
-    IndexImagesInVisualIndex(match_options_.num_threads,
+    IndexImagesInVisualIndex(matching_options_.num_threads,
                              options_.num_checks,
                              options_.max_num_features,
                              all_image_ids,
@@ -528,7 +536,7 @@ class VocabTreeFeatureMatcher : public Thread {
     }
 
     // Match all images in the visual index.
-    MatchNearestNeighborsInVisualIndex(match_options_.num_threads,
+    MatchNearestNeighborsInVisualIndex(matching_options_.num_threads,
                                        options_.num_images,
                                        options_.num_nearest_neighbors,
                                        options_.num_checks,
@@ -544,7 +552,7 @@ class VocabTreeFeatureMatcher : public Thread {
   }
 
   const VocabTreeMatchingOptions options_;
-  const SiftMatchingOptions match_options_;
+  const SiftMatchingOptions matching_options_;
   Database database_;
   FeatureMatcherCache cache_;
   FeatureMatcherController matcher_;
@@ -561,10 +569,11 @@ bool VocabTreeMatchingOptions::Check() const {
 
 std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
     const VocabTreeMatchingOptions& options,
-    const SiftMatchingOptions& match_options,
+    const SiftMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   return std::make_unique<VocabTreeFeatureMatcher>(
-      options, match_options, database_path);
+      options, matching_options, geometry_options, database_path);
 }
 
 namespace {
@@ -572,15 +581,17 @@ namespace {
 class SpatialFeatureMatcher : public Thread {
  public:
   SpatialFeatureMatcher(const SpatialMatchingOptions& options,
-                        const SiftMatchingOptions& match_options,
+                        const SiftMatchingOptions& matching_options,
+                        const TwoViewGeometryOptions& geometry_options,
                         const std::string& database_path)
       : options_(options),
-        match_options_(match_options),
+        matching_options_(matching_options),
         database_(database_path),
         cache_(5 * options_.max_num_neighbors, &database_),
-        matcher_(match_options, &database_, &cache_) {
-    CHECK(options_.Check());
-    CHECK(match_options_.Check());
+        matcher_(matching_options, geometry_options, &database_, &cache_) {
+    CHECK(options.Check());
+    CHECK(matching_options.Check());
+    CHECK(geometry_options.Check());
   }
 
  private:
@@ -696,10 +707,10 @@ class SpatialFeatureMatcher : public Thread {
     flann::Matrix<float> distances(distance_matrix.data(), num_locations, knn);
 
     flann::SearchParams search_params(flann::FLANN_CHECKS_AUTOTUNED);
-    if (match_options_.num_threads == ThreadPool::kMaxNumThreads) {
+    if (matching_options_.num_threads == ThreadPool::kMaxNumThreads) {
       search_params.cores = std::thread::hardware_concurrency();
     } else {
-      search_params.cores = match_options_.num_threads;
+      search_params.cores = matching_options_.num_threads;
     }
     if (search_params.cores <= 0) {
       search_params.cores = 1;
@@ -760,7 +771,7 @@ class SpatialFeatureMatcher : public Thread {
   }
 
   const SpatialMatchingOptions options_;
-  const SiftMatchingOptions match_options_;
+  const SiftMatchingOptions matching_options_;
   Database database_;
   FeatureMatcherCache cache_;
   FeatureMatcherController matcher_;
@@ -776,10 +787,11 @@ bool SpatialMatchingOptions::Check() const {
 
 std::unique_ptr<Thread> CreateSpatialFeatureMatcher(
     const SpatialMatchingOptions& options,
-    const SiftMatchingOptions& match_options,
+    const SiftMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   return std::make_unique<SpatialFeatureMatcher>(
-      options, match_options, database_path);
+      options, matching_options, geometry_options, database_path);
 }
 
 namespace {
@@ -787,15 +799,17 @@ namespace {
 class TransitiveFeatureMatcher : public Thread {
  public:
   TransitiveFeatureMatcher(const TransitiveMatchingOptions& options,
-                           const SiftMatchingOptions& match_options,
+                           const SiftMatchingOptions& matching_options,
+                           const TwoViewGeometryOptions& geometry_options,
                            const std::string& database_path)
       : options_(options),
-        match_options_(match_options),
+        matching_options_(matching_options),
         database_(database_path),
         cache_(options_.batch_size, &database_),
-        matcher_(match_options, &database_, &cache_) {
-    CHECK(options_.Check());
-    CHECK(match_options_.Check());
+        matcher_(matching_options, geometry_options, &database_, &cache_) {
+    CHECK(options.Check());
+    CHECK(matching_options.Check());
+    CHECK(geometry_options.Check());
   }
 
  private:
@@ -887,7 +901,7 @@ class TransitiveFeatureMatcher : public Thread {
   }
 
   const TransitiveMatchingOptions options_;
-  const SiftMatchingOptions match_options_;
+  const SiftMatchingOptions matching_options_;
   Database database_;
   FeatureMatcherCache cache_;
   FeatureMatcherController matcher_;
@@ -903,10 +917,11 @@ bool TransitiveMatchingOptions::Check() const {
 
 std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
     const TransitiveMatchingOptions& options,
-    const SiftMatchingOptions& match_options,
+    const SiftMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   return std::make_unique<TransitiveFeatureMatcher>(
-      options, match_options, database_path);
+      options, matching_options, geometry_options, database_path);
 }
 
 namespace {
@@ -914,15 +929,17 @@ namespace {
 class ImagePairsFeatureMatcher : public Thread {
  public:
   ImagePairsFeatureMatcher(const ImagePairsMatchingOptions& options,
-                           const SiftMatchingOptions& match_options,
+                           const SiftMatchingOptions& matching_options,
+                           const TwoViewGeometryOptions& geometry_options,
                            const std::string& database_path)
       : options_(options),
-        match_options_(match_options),
+        matching_options_(matching_options),
         database_(database_path),
         cache_(options.block_size, &database_),
-        matcher_(match_options, &database_, &cache_) {
-    CHECK(options_.Check());
-    CHECK(match_options_.Check());
+        matcher_(matching_options, geometry_options, &database_, &cache_) {
+    CHECK(options.Check());
+    CHECK(matching_options.Check());
+    CHECK(geometry_options.Check());
   }
 
  private:
@@ -1032,7 +1049,7 @@ class ImagePairsFeatureMatcher : public Thread {
   }
 
   const ImagePairsMatchingOptions options_;
-  const SiftMatchingOptions match_options_;
+  const SiftMatchingOptions matching_options_;
   Database database_;
   FeatureMatcherCache cache_;
   FeatureMatcherController matcher_;
@@ -1047,10 +1064,11 @@ bool ImagePairsMatchingOptions::Check() const {
 
 std::unique_ptr<Thread> CreateImagePairsFeatureMatcher(
     const ImagePairsMatchingOptions& options,
-    const SiftMatchingOptions& match_options,
+    const SiftMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   return std::make_unique<ImagePairsFeatureMatcher>(
-      options, match_options, database_path);
+      options, matching_options, geometry_options, database_path);
 }
 
 namespace {
@@ -1058,14 +1076,17 @@ namespace {
 class FeaturePairsFeatureMatcher : public Thread {
  public:
   FeaturePairsFeatureMatcher(const FeaturePairsMatchingOptions& options,
-                             const SiftMatchingOptions& match_options,
+                             const SiftMatchingOptions& matching_options,
+                             const TwoViewGeometryOptions& geometry_options,
                              const std::string& database_path)
       : options_(options),
-        match_options_(match_options),
+        matching_options_(matching_options),
+        geometry_options_(geometry_options),
         database_(database_path),
         cache_(kCacheSize, &database_) {
-    CHECK(options_.Check());
-    CHECK(match_options_.Check());
+    CHECK(options.Check());
+    CHECK(matching_options.Check());
+    CHECK(geometry_options.Check());
   }
 
  private:
@@ -1169,27 +1190,13 @@ class FeaturePairsFeatureMatcher : public Thread {
         const auto keypoints1 = cache_.GetKeypoints(image1.ImageId());
         const auto keypoints2 = cache_.GetKeypoints(image2.ImageId());
 
-        TwoViewGeometryOptions two_view_geometry_options;
-        two_view_geometry_options.min_num_inliers =
-            static_cast<size_t>(match_options_.min_num_inliers);
-        two_view_geometry_options.ransac_options.max_error =
-            match_options_.max_error;
-        two_view_geometry_options.ransac_options.confidence =
-            match_options_.confidence;
-        two_view_geometry_options.ransac_options.min_num_trials =
-            static_cast<size_t>(match_options_.min_num_trials);
-        two_view_geometry_options.ransac_options.max_num_trials =
-            static_cast<size_t>(match_options_.max_num_trials);
-        two_view_geometry_options.ransac_options.min_inlier_ratio =
-            match_options_.min_inlier_ratio;
-
         TwoViewGeometry two_view_geometry =
             EstimateTwoViewGeometry(camera1,
                                     FeatureKeypointsToPointsVector(*keypoints1),
                                     camera2,
                                     FeatureKeypointsToPointsVector(*keypoints2),
                                     matches,
-                                    two_view_geometry_options);
+                                    geometry_options_);
 
         database_.WriteTwoViewGeometry(
             image1.ImageId(), image2.ImageId(), two_view_geometry);
@@ -1213,7 +1220,8 @@ class FeaturePairsFeatureMatcher : public Thread {
   }
 
   const FeaturePairsMatchingOptions options_;
-  const SiftMatchingOptions match_options_;
+  const SiftMatchingOptions matching_options_;
+  const TwoViewGeometryOptions geometry_options_;
   Database database_;
   FeatureMatcherCache cache_;
 };
@@ -1224,10 +1232,11 @@ bool FeaturePairsMatchingOptions::Check() const { return true; }
 
 std::unique_ptr<Thread> CreateFeaturePairsFeatureMatcher(
     const FeaturePairsMatchingOptions& options,
-    const SiftMatchingOptions& match_options,
+    const SiftMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path) {
   return std::make_unique<FeaturePairsFeatureMatcher>(
-      options, match_options, database_path);
+      options, matching_options, geometry_options, database_path);
 }
 
 }  // namespace colmap

@@ -36,6 +36,7 @@
 #include "colmap/controllers/image_reader.h"
 #include "colmap/controllers/incremental_mapper.h"
 #include "colmap/estimators/bundle_adjustment.h"
+#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/sift.h"
 #include "colmap/math/random.h"
 #include "colmap/mvs/fusion.h"
@@ -60,6 +61,7 @@ OptionManager::OptionManager(bool add_project_options) {
   image_reader = std::make_shared<ImageReaderOptions>();
   sift_extraction = std::make_shared<SiftExtractionOptions>();
   sift_matching = std::make_shared<SiftMatchingOptions>();
+  two_view_geometry = std::make_shared<TwoViewGeometryOptions>();
   exhaustive_matching = std::make_shared<ExhaustiveMatchingOptions>();
   sequential_matching = std::make_shared<SequentialMatchingOptions>();
   vocab_tree_matching = std::make_shared<VocabTreeMatchingOptions>();
@@ -307,26 +309,26 @@ void OptionManager::AddMatchingOptions() {
                               &sift_matching->max_distance);
   AddAndRegisterDefaultOption("SiftMatching.cross_check",
                               &sift_matching->cross_check);
-  AddAndRegisterDefaultOption("SiftMatching.max_error",
-                              &sift_matching->max_error);
-  AddAndRegisterDefaultOption("SiftMatching.max_num_matches",
-                              &sift_matching->max_num_matches);
-  AddAndRegisterDefaultOption("SiftMatching.confidence",
-                              &sift_matching->confidence);
-  AddAndRegisterDefaultOption("SiftMatching.max_num_trials",
-                              &sift_matching->max_num_trials);
-  AddAndRegisterDefaultOption("SiftMatching.min_inlier_ratio",
-                              &sift_matching->min_inlier_ratio);
-  AddAndRegisterDefaultOption("SiftMatching.min_num_inliers",
-                              &sift_matching->min_num_inliers);
-  AddAndRegisterDefaultOption("SiftMatching.multiple_models",
-                              &sift_matching->multiple_models);
   AddAndRegisterDefaultOption("SiftMatching.guided_matching",
                               &sift_matching->guided_matching);
-  AddAndRegisterDefaultOption("SiftMatching.planar_scene",
-                              &sift_matching->planar_scene);
-  AddAndRegisterDefaultOption("SiftMatching.compute_relative_pose",
-                              &sift_matching->compute_relative_pose);
+  AddAndRegisterDefaultOption("SiftMatching.max_num_matches",
+                              &sift_matching->max_num_matches);
+  AddAndRegisterDefaultOption("TwoViewGeometry.min_num_inliers",
+                              &two_view_geometry->min_num_inliers);
+  AddAndRegisterDefaultOption("TwoViewGeometry.multiple_models",
+                              &two_view_geometry->multiple_models);
+  AddAndRegisterDefaultOption("TwoViewGeometry.compute_relative_pose",
+                              &two_view_geometry->compute_relative_pose);
+  AddAndRegisterDefaultOption("TwoViewGeometry.max_error",
+                              &two_view_geometry->ransac_options.max_error);
+  AddAndRegisterDefaultOption("TwoViewGeometry.confidence",
+                              &two_view_geometry->ransac_options.confidence);
+  AddAndRegisterDefaultOption(
+      "TwoViewGeometry.max_num_trials",
+      &two_view_geometry->ransac_options.max_num_trials);
+  AddAndRegisterDefaultOption(
+      "TwoViewGeometry.min_inlier_ratio",
+      &two_view_geometry->ransac_options.min_inlier_ratio);
 }
 
 void OptionManager::AddExhaustiveMatchingOptions() {
@@ -817,6 +819,7 @@ bool OptionManager::Check() {
   if (sift_extraction) success = success && sift_extraction->Check();
 
   if (sift_matching) success = success && sift_matching->Check();
+  if (two_view_geometry) success = success && two_view_geometry->Check();
   if (exhaustive_matching) success = success && exhaustive_matching->Check();
   if (sequential_matching) success = success && sequential_matching->Check();
   if (vocab_tree_matching) success = success && vocab_tree_matching->Check();

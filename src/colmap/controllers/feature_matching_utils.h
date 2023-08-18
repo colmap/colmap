@@ -31,9 +31,9 @@
 
 #pragma once
 
+#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/sift.h"
 #include "colmap/scene/database.h"
-#include "colmap/scene/two_view_geometry.h"
 #include "colmap/util/cache.h"
 #include "colmap/util/opengl_utils.h"
 #include "colmap/util/threading.h"
@@ -101,7 +101,8 @@ class FeatureMatcherWorker : public Thread {
   typedef FeatureMatcherData Input;
   typedef FeatureMatcherData Output;
 
-  FeatureMatcherWorker(const SiftMatchingOptions& options,
+  FeatureMatcherWorker(const SiftMatchingOptions& matching_options,
+                       const TwoViewGeometryOptions& geometry_options,
                        FeatureMatcherCache* cache,
                        JobQueue<Input>* input_queue,
                        JobQueue<Output>* output_queue);
@@ -116,7 +117,8 @@ class FeatureMatcherWorker : public Thread {
   std::shared_ptr<FeatureDescriptors> GetDescriptorsPtr(int index,
                                                         image_t image_id);
 
-  SiftMatchingOptions options_;
+  SiftMatchingOptions matching_options_;
+  TwoViewGeometryOptions geometry_options_;
   FeatureMatcherCache* cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
@@ -136,9 +138,11 @@ class FeatureMatcherWorker : public Thread {
 // database should be in an active transaction while calling `Match`.
 class FeatureMatcherController {
  public:
-  FeatureMatcherController(const SiftMatchingOptions& options,
-                           Database* database,
-                           FeatureMatcherCache* cache);
+  FeatureMatcherController(
+      const SiftMatchingOptions& matching_options,
+      const TwoViewGeometryOptions& two_view_geometry_options,
+      Database* database,
+      FeatureMatcherCache* cache);
 
   ~FeatureMatcherController();
 
@@ -149,7 +153,8 @@ class FeatureMatcherController {
   void Match(const std::vector<std::pair<image_t, image_t>>& image_pairs);
 
  private:
-  SiftMatchingOptions options_;
+  SiftMatchingOptions matching_options_;
+  TwoViewGeometryOptions geometry_options_;
   Database* database_;
   FeatureMatcherCache* cache_;
 

@@ -60,8 +60,8 @@ struct RANSACOptions {
   double dyn_num_trials_multiplier = 3.0;
 
   // Number of random trials to estimate model from random subset.
-  size_t min_num_trials = 0;
-  size_t max_num_trials = std::numeric_limits<size_t>::max();
+  int min_num_trials = 0;
+  int max_num_trials = std::numeric_limits<int>::max();
 
   void Check() const {
     CHECK_GT(max_error, 0);
@@ -211,9 +211,10 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
 
   sampler.Initialize(num_samples);
 
-  size_t max_num_trials = options_.max_num_trials;
-  max_num_trials = std::min<size_t>(max_num_trials, sampler.MaxNumSamples());
+  size_t max_num_trials =
+      std::min<size_t>(options_.max_num_trials, sampler.MaxNumSamples());
   size_t dyn_max_num_trials = max_num_trials;
+  const size_t min_num_trials = options_.min_num_trials;
 
   for (report.num_trials = 0; report.num_trials < max_num_trials;
        ++report.num_trials) {
@@ -248,7 +249,7 @@ RANSAC<Estimator, SupportMeasurer, Sampler>::Estimate(
       }
 
       if (report.num_trials >= dyn_max_num_trials &&
-          report.num_trials >= options_.min_num_trials) {
+          report.num_trials >= min_num_trials) {
         abort = true;
         break;
       }

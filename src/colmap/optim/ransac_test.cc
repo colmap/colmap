@@ -48,7 +48,7 @@ TEST(RANSAC, Options) {
   EXPECT_EQ(options.min_inlier_ratio, 0.1);
   EXPECT_EQ(options.confidence, 0.99);
   EXPECT_EQ(options.min_num_trials, 0);
-  EXPECT_EQ(options.max_num_trials, std::numeric_limits<size_t>::max());
+  EXPECT_EQ(options.max_num_trials, std::numeric_limits<int>::max());
 }
 
 TEST(RANSAC, Report) {

@@ -31,8 +31,8 @@
 
 #pragma once
 
+#include "colmap/estimators/two_view_geometry.h"
 #include "colmap/feature/types.h"
-#include "colmap/scene/two_view_geometry.h"
 
 #include <memory>
 
@@ -55,6 +55,7 @@ class FeatureMatcher {
       FeatureMatches* matches) = 0;
 
   virtual void MatchGuided(
+      const TwoViewGeometryOptions& options,
       const std::shared_ptr<const FeatureKeypoints>& keypoints1,
       const std::shared_ptr<const FeatureKeypoints>& keypoints2,
       const std::shared_ptr<const FeatureDescriptors>& descriptors1,

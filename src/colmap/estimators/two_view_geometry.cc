@@ -103,11 +103,10 @@ TwoViewGeometry EstimateCalibratedHomography(
     const std::vector<Eigen::Vector2d>& points2,
     const FeatureMatches& matches,
     const TwoViewGeometryOptions& options) {
-  options.Check();
-
   TwoViewGeometry geometry;
 
-  if (matches.size() < options.min_num_inliers) {
+  const size_t min_num_inliers = static_cast<size_t>(options.min_num_inliers);
+  if (matches.size() < min_num_inliers) {
     geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
     return geometry;
   }
@@ -127,8 +126,7 @@ TwoViewGeometry EstimateCalibratedHomography(
   const auto H_report = H_ransac.Estimate(matched_points1, matched_points2);
   geometry.H = H_report.model;
 
-  if (!H_report.success ||
-      H_report.support.num_inliers < options.min_num_inliers) {
+  if (!H_report.success || H_report.support.num_inliers < min_num_inliers) {
     geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
     return geometry;
   } else {
@@ -161,11 +159,10 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
     const std::vector<Eigen::Vector2d>& points2,
     const FeatureMatches& matches,
     const TwoViewGeometryOptions& options) {
-  options.Check();
-
   TwoViewGeometry geometry;
 
-  if (matches.size() < options.min_num_inliers) {
+  const size_t min_num_inliers = static_cast<size_t>(options.min_num_inliers);
+  if (matches.size() < static_cast<size_t>(min_num_inliers)) {
     geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
     return geometry;
   }
@@ -194,8 +191,8 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
   geometry.H = H_report.model;
 
   if ((!F_report.success && !H_report.success) ||
-      (F_report.support.num_inliers < options.min_num_inliers &&
-       H_report.support.num_inliers < options.min_num_inliers)) {
+      (F_report.support.num_inliers < min_num_inliers &&
+       H_report.support.num_inliers < min_num_inliers)) {
     geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
     return geometry;
   }
@@ -207,8 +204,7 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
       F_report.support.num_inliers;
 
   const std::vector<char>* best_inlier_mask = &F_report.inlier_mask;
-  size_t num_inliers = F_report.support.num_inliers;
-
+  int num_inliers = F_report.support.num_inliers;
   if (H_F_inlier_ratio > options.max_H_inlier_ratio) {
     geometry.config = TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
     if (H_report.support.num_inliers >= F_report.support.num_inliers) {
@@ -239,27 +235,6 @@ TwoViewGeometry EstimateUncalibratedTwoViewGeometry(
   return geometry;
 }
 
-}  // namespace
-
-TwoViewGeometry EstimateTwoViewGeometry(
-    const Camera& camera1,
-    const std::vector<Eigen::Vector2d>& points1,
-    const Camera& camera2,
-    const std::vector<Eigen::Vector2d>& points2,
-    const FeatureMatches& matches,
-    const TwoViewGeometryOptions& options) {
-  if (options.force_H_use) {
-    return EstimateCalibratedHomography(
-        camera1, points1, camera2, points2, matches, options);
-  } else if (camera1.HasPriorFocalLength() && camera2.HasPriorFocalLength()) {
-    return EstimateCalibratedTwoViewGeometry(
-        camera1, points1, camera2, points2, matches, options);
-  } else {
-    return EstimateUncalibratedTwoViewGeometry(
-        camera1, points1, camera2, points2, matches, options);
-  }
-}
-
 TwoViewGeometry EstimateMultipleTwoViewGeometries(
     const Camera& camera1,
     const std::vector<Eigen::Vector2d>& points1,
@@ -270,9 +245,12 @@ TwoViewGeometry EstimateMultipleTwoViewGeometries(
   FeatureMatches remaining_matches = matches;
   TwoViewGeometry multi_geometry;
   std::vector<TwoViewGeometry> geometries;
+  TwoViewGeometryOptions options_copy = options;
+  // Set to false to prevent recursive calls to this function.
+  options_copy.multiple_models = false;
   while (true) {
     TwoViewGeometry geometry = EstimateTwoViewGeometry(
-        camera1, points1, camera2, points2, remaining_matches, options);
+        camera1, points1, camera2, points2, remaining_matches, options_copy);
     if (geometry.config == TwoViewGeometry::ConfigurationType::DEGENERATE) {
       break;
     }
@@ -303,6 +281,49 @@ TwoViewGeometry EstimateMultipleTwoViewGeometries(
   }
 
   return multi_geometry;
+}
+
+}  // namespace
+
+bool TwoViewGeometryOptions::Check() const {
+  CHECK_OPTION_GE(min_num_inliers, 0);
+  CHECK_OPTION_GE(min_E_F_inlier_ratio, 0);
+  CHECK_OPTION_LE(min_E_F_inlier_ratio, 1);
+  CHECK_OPTION_GE(max_H_inlier_ratio, 0);
+  CHECK_OPTION_LE(max_H_inlier_ratio, 1);
+  CHECK_OPTION_GE(watermark_min_inlier_ratio, 0);
+  CHECK_OPTION_LE(watermark_min_inlier_ratio, 1);
+  CHECK_OPTION_GE(watermark_border_size, 0);
+  CHECK_OPTION_LE(watermark_border_size, 1);
+  CHECK_OPTION_GT(ransac_options.max_error, 0);
+  CHECK_OPTION_GE(ransac_options.min_inlier_ratio, 0);
+  CHECK_OPTION_LE(ransac_options.min_inlier_ratio, 1);
+  CHECK_OPTION_GE(ransac_options.confidence, 0);
+  CHECK_OPTION_LE(ransac_options.confidence, 1);
+  CHECK_OPTION_LE(ransac_options.min_num_trials, ransac_options.max_num_trials);
+  return true;
+}
+
+TwoViewGeometry EstimateTwoViewGeometry(
+    const Camera& camera1,
+    const std::vector<Eigen::Vector2d>& points1,
+    const Camera& camera2,
+    const std::vector<Eigen::Vector2d>& points2,
+    const FeatureMatches& matches,
+    const TwoViewGeometryOptions& options) {
+  if (options.multiple_models) {
+    return EstimateMultipleTwoViewGeometries(
+        camera1, points1, camera2, points2, matches, options);
+  } else if (options.force_H_use) {
+    return EstimateCalibratedHomography(
+        camera1, points1, camera2, points2, matches, options);
+  } else if (camera1.HasPriorFocalLength() && camera2.HasPriorFocalLength()) {
+    return EstimateCalibratedTwoViewGeometry(
+        camera1, points1, camera2, points2, matches, options);
+  } else {
+    return EstimateUncalibratedTwoViewGeometry(
+        camera1, points1, camera2, points2, matches, options);
+  }
 }
 
 bool EstimateTwoViewGeometryPose(const Camera& camera1,
@@ -399,11 +420,12 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
     const std::vector<Eigen::Vector2d>& points2,
     const FeatureMatches& matches,
     const TwoViewGeometryOptions& options) {
-  options.Check();
+  CHECK(options.Check());
 
   TwoViewGeometry geometry;
 
-  if (matches.size() < options.min_num_inliers) {
+  const size_t min_num_inliers = static_cast<size_t>(options.min_num_inliers);
+  if (matches.size() < min_num_inliers) {
     geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
     return geometry;
   }
@@ -450,9 +472,9 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   geometry.H = H_report.model;
 
   if ((!E_report.success && !F_report.success && !H_report.success) ||
-      (E_report.support.num_inliers < options.min_num_inliers &&
-       F_report.support.num_inliers < options.min_num_inliers &&
-       H_report.support.num_inliers < options.min_num_inliers)) {
+      (E_report.support.num_inliers < min_num_inliers &&
+       F_report.support.num_inliers < min_num_inliers &&
+       H_report.support.num_inliers < min_num_inliers)) {
     geometry.config = TwoViewGeometry::ConfigurationType::DEGENERATE;
     return geometry;
   }
@@ -473,7 +495,7 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
   size_t num_inliers = 0;
 
   if (E_report.success && E_F_inlier_ratio > options.min_E_F_inlier_ratio &&
-      E_report.support.num_inliers >= options.min_num_inliers) {
+      E_report.support.num_inliers >= min_num_inliers) {
     // Calibrated configuration.
 
     // Always use the model with maximum matches.
@@ -495,7 +517,7 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
       geometry.config = TwoViewGeometry::ConfigurationType::CALIBRATED;
     }
   } else if (F_report.success &&
-             F_report.support.num_inliers >= options.min_num_inliers) {
+             F_report.support.num_inliers >= min_num_inliers) {
     // Uncalibrated configuration.
 
     num_inliers = F_report.support.num_inliers;
@@ -511,7 +533,7 @@ TwoViewGeometry EstimateCalibratedTwoViewGeometry(
       geometry.config = TwoViewGeometry::ConfigurationType::UNCALIBRATED;
     }
   } else if (H_report.success &&
-             H_report.support.num_inliers >= options.min_num_inliers) {
+             H_report.support.num_inliers >= min_num_inliers) {
     num_inliers = H_report.support.num_inliers;
     best_inlier_mask = &H_report.inlier_mask;
     geometry.config = TwoViewGeometry::ConfigurationType::PLANAR_OR_PANORAMIC;
@@ -550,7 +572,7 @@ bool DetectWatermark(const Camera& camera1,
                      const size_t num_inliers,
                      const std::vector<char>& inlier_mask,
                      const TwoViewGeometryOptions& options) {
-  options.Check();
+  CHECK(options.Check());
 
   // Check if inlier points in border region and extract inlier matches.
 
