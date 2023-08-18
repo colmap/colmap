@@ -43,7 +43,7 @@ namespace colmap {
 // Estimation options.
 struct TwoViewGeometryOptions {
   // Minimum number of inliers for non-degenerate two-view geometry.
-  size_t min_num_inliers = 15;
+  int min_num_inliers = 15;
 
   // In case both cameras are calibrated, the calibration is verified by
   // estimating an essential and fundamental matrix and comparing their
@@ -85,21 +85,29 @@ struct TwoViewGeometryOptions {
   // Whether to compute the relative pose between the two views.
   bool compute_relative_pose = false;
 
+  // Recursively estimate multiple configurations by removing the previous set
+  // of inliers from the matches until not enough inliers are found. Inlier
+  // matches are concatenated and the configuration type is `MULTIPLE` if
+  // multiple models could be estimated. This is useful to estimate the two-view
+  // geometry for images with large distortion or multiple rigidly moving
+  // objects in the scene.
+  //
+  // Note that in case the model type is `MULTIPLE`, only the `inlier_matches`
+  // field will be initialized.
+  bool multiple_models = false;
+
   // TwoViewGeometryOptions used to robustly estimate the geometry.
   RANSACOptions ransac_options;
 
-  void Check() const {
-    CHECK_GE(min_num_inliers, 0);
-    CHECK_GE(min_E_F_inlier_ratio, 0);
-    CHECK_LE(min_E_F_inlier_ratio, 1);
-    CHECK_GE(max_H_inlier_ratio, 0);
-    CHECK_LE(max_H_inlier_ratio, 1);
-    CHECK_GE(watermark_min_inlier_ratio, 0);
-    CHECK_LE(watermark_min_inlier_ratio, 1);
-    CHECK_GE(watermark_border_size, 0);
-    CHECK_LE(watermark_border_size, 1);
-    ransac_options.Check();
+  TwoViewGeometryOptions() {
+    ransac_options.max_error = 4.0;
+    ransac_options.confidence = 0.999;
+    ransac_options.min_num_trials = 100;
+    ransac_options.max_num_trials = 10000;
+    ransac_options.min_inlier_ratio = 0.25;
   }
+
+  bool Check() const;
 };
 
 // Estimate two-view geometry from calibrated or uncalibrated image pair,
@@ -112,30 +120,6 @@ struct TwoViewGeometryOptions {
 // @param matches         Feature matches between first and second image.
 // @param options         Two-view geometry estimation options.
 TwoViewGeometry EstimateTwoViewGeometry(
-    const Camera& camera1,
-    const std::vector<Eigen::Vector2d>& points1,
-    const Camera& camera2,
-    const std::vector<Eigen::Vector2d>& points2,
-    const FeatureMatches& matches,
-    const TwoViewGeometryOptions& options);
-
-// Recursively estimate multiple configurations by removing the previous set
-// of inliers from the matches until not enough inliers are found. Inlier
-// matches are concatenated and the configuration type is `MULTIPLE` if
-// multiple models could be estimated. This is useful to estimate the two-view
-// geometry for images with large distortion or multiple rigidly moving
-// objects in the scene.
-//
-// Note that in case the model type is `MULTIPLE`, only the `inlier_matches`
-// field will be initialized.
-//
-// @param camera1         Camera of first image.
-// @param points1         Feature points in first image.
-// @param camera2         Camera of second image.
-// @param points2         Feature points in second image.
-// @param matches         Feature matches between first and second image.
-// @param options         Two-view geometry estimation options.
-TwoViewGeometry EstimateMultipleTwoViewGeometries(
     const Camera& camera1,
     const std::vector<Eigen::Vector2d>& points1,
     const Camera& camera2,

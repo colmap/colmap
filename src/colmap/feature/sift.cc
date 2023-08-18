@@ -79,13 +79,7 @@ bool SiftMatchingOptions::Check() const {
   }
   CHECK_OPTION_GT(max_ratio, 0.0);
   CHECK_OPTION_GT(max_distance, 0.0);
-  CHECK_OPTION_GT(max_error, 0.0);
-  CHECK_OPTION_GE(min_num_trials, 0);
-  CHECK_OPTION_GT(max_num_trials, 0);
-  CHECK_OPTION_LE(min_num_trials, max_num_trials);
-  CHECK_OPTION_GE(min_inlier_ratio, 0);
-  CHECK_OPTION_LE(min_inlier_ratio, 1);
-  CHECK_OPTION_GE(min_num_inliers, 0);
+  CHECK_OPTION_GT(max_num_matches, 0);
   return true;
 }
 
@@ -1080,6 +1074,7 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
   }
 
   void MatchGuided(
+      const TwoViewGeometryOptions& options,
       const std::shared_ptr<const FeatureKeypoints>& keypoints1,
       const std::shared_ptr<const FeatureKeypoints>& keypoints2,
       const std::shared_ptr<const FeatureDescriptors>& descriptors1,
@@ -1106,7 +1101,8 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
       flann_index2_ = BuildFlannIndex(*descriptors2_);
     }
 
-    const float max_residual = options_.max_error * options_.max_error;
+    const float max_residual =
+        options.ransac_options.max_error * options.ransac_options.max_error;
 
     const Eigen::Matrix3f F = two_view_geometry->F.cast<float>();
     const Eigen::Matrix3f H = two_view_geometry->H.cast<float>();
@@ -1327,6 +1323,7 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
   }
 
   void MatchGuided(
+      const TwoViewGeometryOptions& options,
       const std::shared_ptr<const FeatureKeypoints>& keypoints1,
       const std::shared_ptr<const FeatureKeypoints>& keypoints2,
       const std::shared_ptr<const FeatureDescriptors>& descriptors1,
@@ -1398,6 +1395,9 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
     two_view_geometry->inlier_matches.resize(
         static_cast<size_t>(options_.max_num_matches));
 
+    const float max_residual = static_cast<float>(
+        options.ransac_options.max_error * options.ransac_options.max_error);
+
     const int num_matches = sift_match_gpu_.GetGuidedSiftMatch(
         options_.max_num_matches,
         reinterpret_cast<uint32_t(*)[2]>(
@@ -1406,8 +1406,8 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
         F_ptr,
         static_cast<float>(options_.max_distance),
         static_cast<float>(options_.max_ratio),
-        static_cast<float>(options_.max_error * options_.max_error),
-        static_cast<float>(options_.max_error * options_.max_error),
+        max_residual,
+        max_residual,
         options_.cross_check);
 
     if (num_matches < 0) {

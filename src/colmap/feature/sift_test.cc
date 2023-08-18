@@ -499,8 +499,12 @@ TEST(MatchGuidedSiftFeaturesCPU, Nominal) {
   options.use_gpu = false;
   auto matcher = CreateSiftFeatureMatcher(options);
 
-  matcher->MatchGuided(
-      keypoints1, keypoints2, descriptors1, descriptors2, &two_view_geometry);
+  matcher->MatchGuided(TwoViewGeometryOptions(),
+                       keypoints1,
+                       keypoints2,
+                       descriptors1,
+                       descriptors2,
+                       &two_view_geometry);
   EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
@@ -508,25 +512,32 @@ TEST(MatchGuidedSiftFeaturesCPU, Nominal) {
   EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
 
   (*keypoints1)[0].x = 100;
-  matcher->MatchGuided(
-      keypoints1, keypoints2, descriptors1, descriptors2, &two_view_geometry);
+  matcher->MatchGuided(TwoViewGeometryOptions(),
+                       keypoints1,
+                       keypoints2,
+                       descriptors1,
+                       descriptors2,
+                       &two_view_geometry);
   EXPECT_EQ(two_view_geometry.inlier_matches.size(), 1);
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 1);
   EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 0);
 
-  matcher->MatchGuided(empty_keypoints,
+  matcher->MatchGuided(TwoViewGeometryOptions(),
+                       empty_keypoints,
                        keypoints2,
                        empty_descriptors,
                        descriptors2,
                        &two_view_geometry);
   EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
-  matcher->MatchGuided(keypoints1,
+  matcher->MatchGuided(TwoViewGeometryOptions(),
+                       keypoints1,
                        empty_keypoints,
                        descriptors1,
                        empty_descriptors,
                        &two_view_geometry);
   EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
-  matcher->MatchGuided(empty_keypoints,
+  matcher->MatchGuided(TwoViewGeometryOptions(),
+                       empty_keypoints,
                        empty_keypoints,
                        empty_descriptors,
                        empty_descriptors,
@@ -762,7 +773,8 @@ TEST(MatchGuidedSiftFeaturesGPU, Nominal) {
       two_view_geometry.config = TwoViewGeometry::PLANAR_OR_PANORAMIC;
       two_view_geometry.H = Eigen::Matrix3d::Identity();
 
-      matcher->MatchGuided(keypoints1,
+      matcher->MatchGuided(TwoViewGeometryOptions(),
+                           keypoints1,
                            keypoints2,
                            descriptors1,
                            descriptors2,
@@ -773,24 +785,36 @@ TEST(MatchGuidedSiftFeaturesGPU, Nominal) {
       EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
       EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
 
-      matcher->MatchGuided(
-          nullptr, nullptr, nullptr, nullptr, &two_view_geometry);
+      matcher->MatchGuided(TwoViewGeometryOptions(),
+                           nullptr,
+                           nullptr,
+                           nullptr,
+                           nullptr,
+                           &two_view_geometry);
       EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
       EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
       EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
       EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
       EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
 
-      matcher->MatchGuided(
-          keypoints1, nullptr, descriptors1, nullptr, &two_view_geometry);
+      matcher->MatchGuided(TwoViewGeometryOptions(),
+                           keypoints1,
+                           nullptr,
+                           descriptors1,
+                           nullptr,
+                           &two_view_geometry);
       EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
       EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
       EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
       EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx1, 1);
       EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
 
-      matcher->MatchGuided(
-          nullptr, keypoints2, nullptr, descriptors2, &two_view_geometry);
+      matcher->MatchGuided(TwoViewGeometryOptions(),
+                           nullptr,
+                           keypoints2,
+                           nullptr,
+                           descriptors2,
+                           &two_view_geometry);
       EXPECT_EQ(two_view_geometry.inlier_matches.size(), 2);
       EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 0);
       EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 1);
@@ -798,7 +822,8 @@ TEST(MatchGuidedSiftFeaturesGPU, Nominal) {
       EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 0);
 
       (*keypoints1)[0].x = 100;
-      matcher->MatchGuided(keypoints1,
+      matcher->MatchGuided(TwoViewGeometryOptions(),
+                           keypoints1,
                            keypoints2,
                            descriptors1,
                            descriptors2,
@@ -807,19 +832,22 @@ TEST(MatchGuidedSiftFeaturesGPU, Nominal) {
       EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx1, 1);
       EXPECT_EQ(two_view_geometry.inlier_matches[0].point2D_idx2, 0);
 
-      matcher->MatchGuided(empty_keypoints,
+      matcher->MatchGuided(TwoViewGeometryOptions(),
+                           empty_keypoints,
                            keypoints2,
                            empty_descriptors,
                            descriptors2,
                            &two_view_geometry);
       EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
-      matcher->MatchGuided(keypoints1,
+      matcher->MatchGuided(TwoViewGeometryOptions(),
+                           keypoints1,
                            empty_keypoints,
                            descriptors1,
                            empty_descriptors,
                            &two_view_geometry);
       EXPECT_EQ(two_view_geometry.inlier_matches.size(), 0);
-      matcher->MatchGuided(empty_keypoints,
+      matcher->MatchGuided(TwoViewGeometryOptions(),
+                           empty_keypoints,
                            empty_keypoints,
                            empty_descriptors,
                            empty_descriptors,

@@ -42,6 +42,7 @@ namespace colmap {
 struct ImageReaderOptions;
 struct SiftExtractionOptions;
 struct SiftMatchingOptions;
+struct TwoViewGeometryOptions;
 struct ExhaustiveMatchingOptions;
 struct SequentialMatchingOptions;
 struct VocabTreeMatchingOptions;
@@ -126,6 +127,7 @@ class OptionManager {
   std::shared_ptr<SiftExtractionOptions> sift_extraction;
 
   std::shared_ptr<SiftMatchingOptions> sift_matching;
+  std::shared_ptr<TwoViewGeometryOptions> two_view_geometry;
   std::shared_ptr<ExhaustiveMatchingOptions> exhaustive_matching;
   std::shared_ptr<SequentialMatchingOptions> sequential_matching;
   std::shared_ptr<VocabTreeMatchingOptions> vocab_tree_matching;

@@ -71,7 +71,8 @@ struct ExhaustiveMatchingOptions {
 // are on the main diagonal and denote pairs of the same image.
 std::unique_ptr<Thread> CreateExhaustiveFeatureMatcher(
     const ExhaustiveMatchingOptions& options,
-    const SiftMatchingOptions& match_options,
+    const SiftMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path);
 
 struct SequentialMatchingOptions {
@@ -131,7 +132,8 @@ struct SequentialMatchingOptions {
 // and perform matching and verification.
 std::unique_ptr<Thread> CreateSequentialFeatureMatcher(
     const SequentialMatchingOptions& options,
-    const SiftMatchingOptions& match_options,
+    const SiftMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path);
 
 struct VocabTreeMatchingOptions {
@@ -164,7 +166,8 @@ struct VocabTreeMatchingOptions {
 // Match each image against its nearest neighbors using a vocabulary tree.
 std::unique_ptr<Thread> CreateVocabTreeFeatureMatcher(
     const VocabTreeMatchingOptions& options,
-    const SiftMatchingOptions& match_options,
+    const SiftMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path);
 
 struct SpatialMatchingOptions {
@@ -189,7 +192,8 @@ struct SpatialMatchingOptions {
 // information, e.g. provided manually or extracted from EXIF.
 std::unique_ptr<Thread> CreateSpatialFeatureMatcher(
     const SpatialMatchingOptions& options,
-    const SiftMatchingOptions& match_options,
+    const SiftMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path);
 
 struct TransitiveMatchingOptions {
@@ -208,7 +212,8 @@ struct TransitiveMatchingOptions {
 // A-C. This procedure is performed for multiple iterations.
 std::unique_ptr<Thread> CreateTransitiveFeatureMatcher(
     const TransitiveMatchingOptions& options,
-    const SiftMatchingOptions& match_options,
+    const SiftMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path);
 
 struct ImagePairsMatchingOptions {
@@ -232,7 +237,8 @@ struct ImagePairsMatchingOptions {
 //
 std::unique_ptr<Thread> CreateImagePairsFeatureMatcher(
     const ImagePairsMatchingOptions& options,
-    const SiftMatchingOptions& match_options,
+    const SiftMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path);
 
 struct FeaturePairsMatchingOptions {
@@ -262,7 +268,8 @@ struct FeaturePairsMatchingOptions {
 //
 std::unique_ptr<Thread> CreateFeaturePairsFeatureMatcher(
     const FeaturePairsMatchingOptions& options,
-    const SiftMatchingOptions& match_options,
+    const SiftMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
     const std::string& database_path);
 
 }  // namespace colmap

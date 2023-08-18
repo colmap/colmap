@@ -188,8 +188,8 @@ EssentialMatrixEightPointEstimator::Estimate(const std::vector<X_t>& points1,
   const Eigen::Map<const Eigen::Matrix3d> ematrix_t(ematrix_nullspace.data());
 
   // De-normalize to image points.
-  const Eigen::Matrix3d E_raw = normed_from_orig2.transpose() *
-                                ematrix_t.transpose() * normed_from_orig1;
+  const Eigen::Matrix3d E_raw =
+      normed_from_orig2.transpose() * ematrix_t.transpose() * normed_from_orig1;
 
   // Enforcing the internal constraint that two singular values must be equal
   // and one must be zero.

@@ -170,22 +170,25 @@ void FeatureMatcherCache::DeleteInlierMatches(const image_t image_id1,
   database_->DeleteInlierMatches(image_id1, image_id2);
 }
 
-FeatureMatcherWorker::FeatureMatcherWorker(const SiftMatchingOptions& options,
-                                           FeatureMatcherCache* cache,
-                                           JobQueue<Input>* input_queue,
-                                           JobQueue<Output>* output_queue)
-    : options_(options),
+FeatureMatcherWorker::FeatureMatcherWorker(
+    const SiftMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
+    FeatureMatcherCache* cache,
+    JobQueue<Input>* input_queue,
+    JobQueue<Output>* output_queue)
+    : matching_options_(matching_options),
+      geometry_options_(geometry_options),
       cache_(cache),
       input_queue_(input_queue),
       output_queue_(output_queue) {
-  CHECK(options_.Check());
+  CHECK(matching_options_.Check());
 
   prev_keypoints_image_ids_[0] = kInvalidImageId;
   prev_keypoints_image_ids_[1] = kInvalidImageId;
   prev_descriptors_image_ids_[0] = kInvalidImageId;
   prev_descriptors_image_ids_[1] = kInvalidImageId;
 
-  if (options_.use_gpu) {
+  if (matching_options_.use_gpu) {
 #if !defined(COLMAP_CUDA_ENABLED)
     opengl_context_ = std::make_unique<OpenGLContextManager>();
 #endif
@@ -193,18 +196,19 @@ FeatureMatcherWorker::FeatureMatcherWorker(const SiftMatchingOptions& options,
 }
 
 void FeatureMatcherWorker::SetMaxNumMatches(int max_num_matches) {
-  options_.max_num_matches = max_num_matches;
+  matching_options_.max_num_matches = max_num_matches;
 }
 
 void FeatureMatcherWorker::Run() {
-  if (options_.use_gpu) {
+  if (matching_options_.use_gpu) {
 #if !defined(COLMAP_CUDA_ENABLED)
     CHECK(opengl_context_);
     CHECK(opengl_context_->MakeCurrent());
 #endif
   }
 
-  std::unique_ptr<FeatureMatcher> matcher = CreateSiftFeatureMatcher(options_);
+  std::unique_ptr<FeatureMatcher> matcher =
+      CreateSiftFeatureMatcher(matching_options_);
   if (matcher == nullptr) {
     std::cerr << "ERROR: Failed to create feature matcher." << std::endl;
     SignalInvalidSetup();
@@ -228,8 +232,9 @@ void FeatureMatcherWorker::Run() {
         continue;
       }
 
-      if (options_.guided_matching) {
-        matcher->MatchGuided(GetKeypointsPtr(0, data.image_id1),
+      if (matching_options_.guided_matching) {
+        matcher->MatchGuided(geometry_options_,
+                             GetKeypointsPtr(0, data.image_id1),
                              GetKeypointsPtr(1, data.image_id2),
                              GetDescriptorsPtr(0, data.image_id1),
                              GetDescriptorsPtr(1, data.image_id2),
@@ -278,7 +283,7 @@ class VerifierWorker : public Thread {
   typedef FeatureMatcherData Input;
   typedef FeatureMatcherData Output;
 
-  VerifierWorker(const SiftMatchingOptions& options,
+  VerifierWorker(const TwoViewGeometryOptions& options,
                  FeatureMatcherCache* cache,
                  JobQueue<Input>* input_queue,
                  JobQueue<Output>* output_queue)
@@ -287,20 +292,6 @@ class VerifierWorker : public Thread {
         input_queue_(input_queue),
         output_queue_(output_queue) {
     CHECK(options_.Check());
-
-    two_view_geometry_options_.min_num_inliers =
-        static_cast<size_t>(options_.min_num_inliers);
-    two_view_geometry_options_.ransac_options.max_error = options_.max_error;
-    two_view_geometry_options_.ransac_options.confidence = options_.confidence;
-    two_view_geometry_options_.ransac_options.min_num_trials =
-        static_cast<size_t>(options_.min_num_trials);
-    two_view_geometry_options_.ransac_options.max_num_trials =
-        static_cast<size_t>(options_.max_num_trials);
-    two_view_geometry_options_.ransac_options.min_inlier_ratio =
-        options_.min_inlier_ratio;
-    two_view_geometry_options_.force_H_use = options_.planar_scene;
-    two_view_geometry_options_.compute_relative_pose =
-        options_.compute_relative_pose;
   }
 
  protected:
@@ -331,23 +322,8 @@ class VerifierWorker : public Thread {
         const std::vector<Eigen::Vector2d> points2 =
             FeatureKeypointsToPointsVector(*keypoints2);
 
-        if (options_.multiple_models) {
-          data.two_view_geometry =
-              EstimateMultipleTwoViewGeometries(camera1,
-                                                points1,
-                                                camera2,
-                                                points2,
-                                                data.matches,
-                                                two_view_geometry_options_);
-        } else {
-          data.two_view_geometry =
-              EstimateTwoViewGeometry(camera1,
-                                      points1,
-                                      camera2,
-                                      points2,
-                                      data.matches,
-                                      two_view_geometry_options_);
-        }
+        data.two_view_geometry = EstimateTwoViewGeometry(
+            camera1, points1, camera2, points2, data.matches, options_);
 
         CHECK(output_queue_->Push(std::move(data)));
       }
@@ -355,8 +331,7 @@ class VerifierWorker : public Thread {
   }
 
  private:
-  const SiftMatchingOptions options_;
-  TwoViewGeometryOptions two_view_geometry_options_;
+  const TwoViewGeometryOptions options_;
   FeatureMatcherCache* cache_;
   JobQueue<Input>* input_queue_;
   JobQueue<Output>* output_queue_;
@@ -365,20 +340,27 @@ class VerifierWorker : public Thread {
 }  // namespace
 
 FeatureMatcherController::FeatureMatcherController(
-    const SiftMatchingOptions& options,
+    const SiftMatchingOptions& matching_options,
+    const TwoViewGeometryOptions& geometry_options,
     Database* database,
     FeatureMatcherCache* cache)
-    : options_(options), database_(database), cache_(cache), is_setup_(false) {
-  CHECK(options_.Check());
+    : matching_options_(matching_options),
+      geometry_options_(geometry_options),
+      database_(database),
+      cache_(cache),
+      is_setup_(false) {
+  CHECK(matching_options_.Check());
+  CHECK(geometry_options_.Check());
 
-  const int num_threads = GetEffectiveNumThreads(options_.num_threads);
+  const int num_threads = GetEffectiveNumThreads(matching_options_.num_threads);
   CHECK_GT(num_threads, 0);
 
-  std::vector<int> gpu_indices = CSVToVector<int>(options_.gpu_index);
+  std::vector<int> gpu_indices = CSVToVector<int>(matching_options_.gpu_index);
   CHECK_GT(gpu_indices.size(), 0);
 
 #if defined(COLMAP_CUDA_ENABLED)
-  if (options_.use_gpu && gpu_indices.size() == 1 && gpu_indices[0] == -1) {
+  if (matching_options_.use_gpu && gpu_indices.size() == 1 &&
+      gpu_indices[0] == -1) {
     const int num_cuda_devices = GetNumCudaDevices();
     CHECK_GT(num_cuda_devices, 0);
     gpu_indices.resize(num_cuda_devices);
@@ -386,54 +368,70 @@ FeatureMatcherController::FeatureMatcherController(
   }
 #endif  // COLMAP_CUDA_ENABLED
 
-  if (options_.use_gpu) {
-    auto custom_options = options_;
+  if (matching_options_.use_gpu) {
+    auto matching_options_copy = matching_options_;
     // The first matching is always without guided matching.
-    custom_options.guided_matching = false;
+    matching_options_copy.guided_matching = false;
     matchers_.reserve(gpu_indices.size());
     for (const auto& gpu_index : gpu_indices) {
-      custom_options.gpu_index = std::to_string(gpu_index);
-      matchers_.emplace_back(std::make_unique<FeatureMatcherWorker>(
-          custom_options, cache, &matcher_queue_, &verifier_queue_));
+      matching_options_copy.gpu_index = std::to_string(gpu_index);
+      matchers_.emplace_back(
+          std::make_unique<FeatureMatcherWorker>(matching_options_copy,
+                                                 geometry_options_,
+                                                 cache,
+                                                 &matcher_queue_,
+                                                 &verifier_queue_));
     }
   } else {
-    auto custom_options = options_;
+    auto matching_options_copy = matching_options_;
     // The first matching is always without guided matching.
-    custom_options.guided_matching = false;
+    matching_options_copy.guided_matching = false;
     matchers_.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
-      matchers_.emplace_back(std::make_unique<FeatureMatcherWorker>(
-          custom_options, cache, &matcher_queue_, &verifier_queue_));
+      matchers_.emplace_back(
+          std::make_unique<FeatureMatcherWorker>(matching_options_copy,
+                                                 geometry_options_,
+                                                 cache,
+                                                 &matcher_queue_,
+                                                 &verifier_queue_));
     }
   }
 
   verifiers_.reserve(num_threads);
-  if (options_.guided_matching) {
+  if (matching_options_.guided_matching) {
     // Redirect the verification output to final round of guided matching.
     for (int i = 0; i < num_threads; ++i) {
       verifiers_.emplace_back(std::make_unique<VerifierWorker>(
-          options_, cache, &verifier_queue_, &guided_matcher_queue_));
+          geometry_options_, cache, &verifier_queue_, &guided_matcher_queue_));
     }
 
-    if (options_.use_gpu) {
-      auto custom_options = options_;
+    if (matching_options_.use_gpu) {
+      auto matching_options_copy = matching_options_;
       guided_matchers_.reserve(gpu_indices.size());
       for (const auto& gpu_index : gpu_indices) {
-        custom_options.gpu_index = std::to_string(gpu_index);
-        guided_matchers_.emplace_back(std::make_unique<FeatureMatcherWorker>(
-            custom_options, cache, &guided_matcher_queue_, &output_queue_));
+        matching_options_copy.gpu_index = std::to_string(gpu_index);
+        guided_matchers_.emplace_back(
+            std::make_unique<FeatureMatcherWorker>(matching_options_copy,
+                                                   geometry_options_,
+                                                   cache,
+                                                   &guided_matcher_queue_,
+                                                   &output_queue_));
       }
     } else {
       guided_matchers_.reserve(num_threads);
       for (int i = 0; i < num_threads; ++i) {
-        guided_matchers_.emplace_back(std::make_unique<FeatureMatcherWorker>(
-            options_, cache, &guided_matcher_queue_, &output_queue_));
+        guided_matchers_.emplace_back(
+            std::make_unique<FeatureMatcherWorker>(matching_options_,
+                                                   geometry_options_,
+                                                   cache,
+                                                   &guided_matcher_queue_,
+                                                   &output_queue_));
       }
     }
   } else {
     for (int i = 0; i < num_threads; ++i) {
       verifiers_.emplace_back(std::make_unique<VerifierWorker>(
-          options_, cache, &verifier_queue_, &output_queue_));
+          geometry_options_, cache, &verifier_queue_, &output_queue_));
     }
   }
 }
@@ -478,11 +476,11 @@ bool FeatureMatcherController::Setup() {
   // Minimize the amount of allocated GPU memory by computing the maximum number
   // of descriptors for any image over the whole database.
   const int max_num_features = CHECK_NOTNULL(database_)->MaxNumDescriptors();
-  options_.max_num_matches =
-      std::min(options_.max_num_matches, max_num_features);
+  matching_options_.max_num_matches =
+      std::min(matching_options_.max_num_matches, max_num_features);
 
   for (auto& matcher : matchers_) {
-    matcher->SetMaxNumMatches(options_.max_num_matches);
+    matcher->SetMaxNumMatches(matching_options_.max_num_matches);
     matcher->Start();
   }
 
@@ -491,7 +489,7 @@ bool FeatureMatcherController::Setup() {
   }
 
   for (auto& guided_matcher : guided_matchers_) {
-    guided_matcher->SetMaxNumMatches(options_.max_num_matches);
+    guided_matcher->SetMaxNumMatches(matching_options_.max_num_matches);
     guided_matcher->Start();
   }
 
@@ -587,12 +585,13 @@ void FeatureMatcherController::Match(
     CHECK(output_job.IsValid());
     auto& output = output_job.Data();
 
-    if (output.matches.size() < static_cast<size_t>(options_.min_num_inliers)) {
+    if (output.matches.size() <
+        static_cast<size_t>(geometry_options_.min_num_inliers)) {
       output.matches = {};
     }
 
     if (output.two_view_geometry.inlier_matches.size() <
-        static_cast<size_t>(options_.min_num_inliers)) {
+        static_cast<size_t>(geometry_options_.min_num_inliers)) {
       output.two_view_geometry = TwoViewGeometry();
     }
 

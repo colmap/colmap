@@ -236,6 +236,7 @@ int RunExhaustiveMatcher(int argc, char** argv) {
 
   auto matcher = CreateExhaustiveFeatureMatcher(*options.exhaustive_matching,
                                                 *options.sift_matching,
+                                                *options.two_view_geometry,
                                                 *options.database_path);
 
   if (options.sift_matching->use_gpu && kUseOpenGL) {
@@ -273,14 +274,18 @@ int RunMatchesImporter(int argc, char** argv) {
   if (match_type == "pairs") {
     ImagePairsMatchingOptions matcher_options;
     matcher_options.match_list_path = match_list_path;
-    matcher = CreateImagePairsFeatureMatcher(
-        matcher_options, *options.sift_matching, *options.database_path);
+    matcher = CreateImagePairsFeatureMatcher(matcher_options,
+                                             *options.sift_matching,
+                                             *options.two_view_geometry,
+                                             *options.database_path);
   } else if (match_type == "raw" || match_type == "inliers") {
     FeaturePairsMatchingOptions matcher_options;
     matcher_options.match_list_path = match_list_path;
     matcher_options.verify_matches = match_type == "raw";
-    matcher = CreateFeaturePairsFeatureMatcher(
-        matcher_options, *options.sift_matching, *options.database_path);
+    matcher = CreateFeaturePairsFeatureMatcher(matcher_options,
+                                               *options.sift_matching,
+                                               *options.two_view_geometry,
+                                               *options.database_path);
   } else {
     std::cerr << "ERROR: Invalid `match_type`";
     return EXIT_FAILURE;
@@ -313,6 +318,7 @@ int RunSequentialMatcher(int argc, char** argv) {
 
   auto matcher = CreateSequentialFeatureMatcher(*options.sequential_matching,
                                                 *options.sift_matching,
+                                                *options.two_view_geometry,
                                                 *options.database_path);
 
   if (options.sift_matching->use_gpu && kUseOpenGL) {
@@ -342,6 +348,7 @@ int RunSpatialMatcher(int argc, char** argv) {
 
   auto matcher = CreateSpatialFeatureMatcher(*options.spatial_matching,
                                              *options.sift_matching,
+                                             *options.two_view_geometry,
                                              *options.database_path);
 
   if (options.sift_matching->use_gpu && kUseOpenGL) {
@@ -371,6 +378,7 @@ int RunTransitiveMatcher(int argc, char** argv) {
 
   auto matcher = CreateTransitiveFeatureMatcher(*options.transitive_matching,
                                                 *options.sift_matching,
+                                                *options.two_view_geometry,
                                                 *options.database_path);
 
   if (options.sift_matching->use_gpu && kUseOpenGL) {
@@ -400,6 +408,7 @@ int RunVocabTreeMatcher(int argc, char** argv) {
 
   auto matcher = CreateVocabTreeFeatureMatcher(*options.vocab_tree_matching,
                                                *options.sift_matching,
+                                               *options.two_view_geometry,
                                                *options.database_path);
 
   if (options.sift_matching->use_gpu && kUseOpenGL) {

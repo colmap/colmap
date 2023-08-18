@@ -112,6 +112,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   exhaustive_matcher_ =
       CreateExhaustiveFeatureMatcher(*option_manager_.exhaustive_matching,
                                      *option_manager_.sift_matching,
+                                     *option_manager_.two_view_geometry,
                                      *option_manager_.database_path);
 
   if (!options_.vocab_tree_path.empty()) {
@@ -123,6 +124,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
   sequential_matcher_ =
       CreateSequentialFeatureMatcher(*option_manager_.sequential_matching,
                                      *option_manager_.sift_matching,
+                                     *option_manager_.two_view_geometry,
                                      *option_manager_.database_path);
 
   if (!options_.vocab_tree_path.empty()) {
@@ -131,6 +133,7 @@ AutomaticReconstructionController::AutomaticReconstructionController(
     vocab_tree_matcher_ =
         CreateVocabTreeFeatureMatcher(*option_manager_.vocab_tree_matching,
                                       *option_manager_.sift_matching,
+                                      *option_manager_.two_view_geometry,
                                       *option_manager_.database_path);
   }
 }

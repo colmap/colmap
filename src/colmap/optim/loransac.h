@@ -126,9 +126,10 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
 
   sampler.Initialize(num_samples);
 
-  size_t max_num_trials = options_.max_num_trials;
-  max_num_trials = std::min<size_t>(max_num_trials, sampler.MaxNumSamples());
+  size_t max_num_trials =
+      std::min<size_t>(options_.max_num_trials, sampler.MaxNumSamples());
   size_t dyn_max_num_trials = max_num_trials;
+  const size_t min_num_trials = options_.min_num_trials;
 
   for (report.num_trials = 0; report.num_trials < max_num_trials;
        ++report.num_trials) {
@@ -217,7 +218,7 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
       }
 
       if (report.num_trials >= dyn_max_num_trials &&
-          report.num_trials >= options_.min_num_trials) {
+          report.num_trials >= min_num_trials) {
         abort = true;
         break;
       }
