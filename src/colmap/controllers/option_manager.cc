@@ -61,6 +61,7 @@ OptionManager::OptionManager(bool add_project_options) {
   image_reader = std::make_shared<ImageReaderOptions>();
   sift_extraction = std::make_shared<SiftExtractionOptions>();
   sift_matching = std::make_shared<SiftMatchingOptions>();
+  two_view_geometry = std::make_shared<TwoViewGeometryOptions>();
   exhaustive_matching = std::make_shared<ExhaustiveMatchingOptions>();
   sequential_matching = std::make_shared<SequentialMatchingOptions>();
   vocab_tree_matching = std::make_shared<VocabTreeMatchingOptions>();
@@ -818,6 +819,7 @@ bool OptionManager::Check() {
   if (sift_extraction) success = success && sift_extraction->Check();
 
   if (sift_matching) success = success && sift_matching->Check();
+  if (two_view_geometry) success = success && two_view_geometry->Check();
   if (exhaustive_matching) success = success && exhaustive_matching->Check();
   if (sequential_matching) success = success && sequential_matching->Check();
   if (vocab_tree_matching) success = success && vocab_tree_matching->Check();
