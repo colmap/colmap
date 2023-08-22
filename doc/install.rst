@@ -92,7 +92,6 @@ Configure and compile COLMAP::
 
     git clone https://github.com/colmap/colmap.git
     cd colmap
-    git checkout dev
     mkdir build
     cd build
     cmake .. -GNinja
