@@ -84,6 +84,7 @@ endif()
 ################################################################################
 
 set(COLMAP_FIND_QUIETLY FALSE)
+set(CMAKE_CUDA_ARCHITECTURES "native")  # Set the desired CUDA architecture(s)
 include(cmake/FindDependencies.cmake)
 
 ################################################################################
