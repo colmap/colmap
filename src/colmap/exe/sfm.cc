@@ -230,19 +230,18 @@ int RunIncrementalModelRefiner(int argc, char** argv) {
 
   PrintHeading1("Loading database");
 
-  DatabaseCache database_cache;
+  std::shared_ptr<DatabaseCache> database_cache;
 
   {
     Timer timer;
     timer.Start();
-
-    Database database(*options.database_path);
-
+    const Database database(database_path);
     const size_t min_num_matches =
         static_cast<size_t>(mapper_options.min_num_matches);
-    database_cache.Load(database, min_num_matches,
-                        mapper_options.ignore_watermarks,
-                        mapper_options.image_names);
+    database_cache = DatabaseCache::Create(database,
+                                           min_num_matches,
+                                           mapper_options.ignore_watermarks,
+                                           mapper_options.image_names);
 
     std::cout << std::endl;
     timer.PrintMinutes();
@@ -250,7 +249,7 @@ int RunIncrementalModelRefiner(int argc, char** argv) {
 
   std::cout << std::endl;
 
-  IncrementalMapper mapper(&database_cache);
+  IncrementalMapper mapper(database_cache);
   mapper.BeginReconstruction(&reconstruction);
 
   CHECK_GE(reconstruction.NumRegImages(), 2)
