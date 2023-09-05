@@ -116,6 +116,8 @@ int main(int argc, char** argv) {
   commands.emplace_back("image_undistorter", &colmap::RunImageUndistorter);
   commands.emplace_back("image_undistorter_standalone",
                         &colmap::RunImageUndistorterStandalone);
+  commands.emplace_back("iterative_model_refiner",
+                        &colmap::RunIterativeModelRefiner);
   commands.emplace_back("mapper", &colmap::RunMapper);
   commands.emplace_back("matches_importer", &colmap::RunMatchesImporter);
   commands.emplace_back("model_aligner", &colmap::RunModelAligner);
