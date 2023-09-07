@@ -63,6 +63,7 @@ if(CGAL_ENABLED)
 endif()
 
 if(CGAL_FOUND)
+    add_definitions("-DCOLMAP_CGAL_ENABLED")
     list(APPEND CGAL_LIBRARY ${CGAL_LIBRARIES})
     message(STATUS "Found CGAL")
     message(STATUS "  Includes : ${CGAL_INCLUDE_DIRS}")
