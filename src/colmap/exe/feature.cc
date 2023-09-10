@@ -62,7 +62,7 @@ bool VerifyCameraParams(const std::string& camera_model,
 }
 
 bool VerifySiftGPUParams(const bool use_gpu) {
-#if !defined(COLMAP_CUDA_ENABLED) && !defined(COLMAP_OPENGL_ENABLED)
+#if defined(COLMAP_GPU_ENABLED)
   if (use_gpu) {
     std::cerr << "ERROR: Cannot use Sift GPU without CUDA or OpenGL support; "
                  "set SiftExtraction.use_gpu or SiftMatching.use_gpu to false."
