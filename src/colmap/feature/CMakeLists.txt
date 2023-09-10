@@ -45,11 +45,13 @@ COLMAP_ADD_LIBRARY(
         colmap_util
         colmap_math
         colmap_sensor
-        colmap_sift_gpu
         colmap_vlfeat
         flann
         lz4
 )
+if(GPU_ENABLED)
+    target_link_libraries(colmap_feature PRIVATE colmap_sift_gpu GLEW::GLEW)
+endif()
 
 COLMAP_ADD_TEST(
     NAME feature_utils_test

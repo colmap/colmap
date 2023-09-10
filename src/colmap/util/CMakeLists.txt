@@ -49,9 +49,6 @@ COLMAP_ADD_LIBRARY(
         Boost::filesystem
         Eigen3::Eigen
         glog::glog
-        OpenGL::GL
-        Qt5::Core
-        Qt5::OpenGL
         SQLite::SQLite3
 )
 if(TESTS_ENABLED)
@@ -60,6 +57,10 @@ if(TESTS_ENABLED)
         PRIVATE
             testing.h testing.cc
     )
+endif()
+
+if(GUI_ENABLED)
+    target_link_libraries(colmap_util PUBLIC Qt5::Core Qt5::OpenGL OpenGL::GL)
 endif()
 
 if(CUDA_ENABLED)
