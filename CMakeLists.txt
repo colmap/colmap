@@ -291,18 +291,26 @@ set(COLMAP_EXPORT_LIBS
     colmap_scene
     colmap_sensor
     colmap_sfm
-    colmap_ui
     colmap_util
     # Third-party.
     colmap_lsd
     colmap_poisson_recon
     colmap_vlfeat
-    colmap_sift_gpu
 )
+if(GUI_ENABLED)
+    list(APPEND COLMAP_EXPORT_LIBS
+         colmap_ui
+    )
+endif()
 if(CUDA_ENABLED)
     list(APPEND COLMAP_EXPORT_LIBS
          colmap_util_cuda
          colmap_mvs_cuda
+    )
+endif()
+if(GPU_ENABLED)
+    list(APPEND COLMAP_EXPORT_LIBS
+         colmap_sift_gpu
     )
 endif()
 
