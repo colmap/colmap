@@ -42,7 +42,7 @@ int RunPointTriangulatorImpl(
     const std::string& image_path,
     const std::string& output_path,
     const IncrementalMapperOptions& mapper_options,
-    bool clear_points);
+    bool clear_points, bool refine_intrinsics);
 
 int RunAutomaticReconstructor(int argc, char** argv);
 int RunBundleAdjuster(int argc, char** argv);
