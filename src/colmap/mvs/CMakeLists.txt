@@ -50,8 +50,10 @@ COLMAP_ADD_LIBRARY(
         colmap_image
         colmap_poisson_recon
         Eigen3::Eigen
-        CGAL
 )
+if(CGAL_ENABLED)
+    target_link_libraries(colmap_mvs PRIVATE CGAL)
+endif()
 
 COLMAP_ADD_TEST(
     NAME consistency_graph_test
