@@ -1457,7 +1457,7 @@ std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
     return SiftGPUFeatureMatcher::Create(options);
 #else
     return nullptr;
-#endif // COLMAP_GPU_ENABLED
+#endif  // COLMAP_GPU_ENABLED
   } else {
     return SiftCPUFeatureMatcher::Create(options);
   }
