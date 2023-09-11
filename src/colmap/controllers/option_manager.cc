@@ -474,6 +474,8 @@ void OptionManager::AddBundleAdjustmentOptions() {
                               &bundle_adjustment->refine_extra_params);
   AddAndRegisterDefaultOption("BundleAdjustment.refine_extrinsics",
                               &bundle_adjustment->refine_extrinsics);
+  AddAndRegisterDefaultOption("BundleAdjustment.use_cuda",
+                              &bundle_adjustment->use_cuda);
 }
 
 void OptionManager::AddMapperOptions() {
@@ -544,7 +546,8 @@ void OptionManager::AddMapperOptions() {
                               &mapper->snapshot_images_freq);
   AddAndRegisterDefaultOption("Mapper.fix_existing_images",
                               &mapper->fix_existing_images);
-
+  AddAndRegisterDefaultOption("Mapper.ba_use_cuda",
+                              &mapper->ba_use_cuda);
   // IncrementalMapper.
   AddAndRegisterDefaultOption("Mapper.init_min_num_inliers",
                               &mapper->mapper.init_min_num_inliers);

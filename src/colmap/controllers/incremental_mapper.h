@@ -117,6 +117,10 @@ struct IncrementalMapperOptions {
   int ba_global_max_refinements = 5;
   double ba_global_max_refinement_change = 0.0005;
 
+  // Whether to use cuda to accelerate bundle adjustment
+  // Only work with ceres >= 2.1
+  bool ba_use_cuda = false;
+
   // Path to a folder with reconstruction snapshots during incremental
   // reconstruction. Snapshots will be saved according to the specified
   // frequency of registered images.

@@ -281,13 +281,23 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   const size_t kMaxNumImagesDirectDenseSolver = 50;
   const size_t kMaxNumImagesDirectSparseSolver = 1000;
   const size_t num_images = config_.NumImages();
-  if (num_images <= kMaxNumImagesDirectDenseSolver) {
+  if (options_.use_cuda) {
+    CHECK_GE(CERES_VERSION_MAJOR, 2);
+    CHECK_GE(CERES_VERSION_MINOR, 1);
     solver_options.linear_solver_type = ceres::DENSE_SCHUR;
-  } else if (num_images <= kMaxNumImagesDirectSparseSolver && has_sparse) {
-    solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-  } else {  // Indirect sparse (preconditioned CG) solver.
-    solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
-    solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
+#if (CERES_VERSION_MAJOR >= 2) && (CERES_VERSION_MINOR >= 1)
+    solver_options.dense_linear_algebra_library_type = ceres::CUDA;
+#endif
+  }
+  else {
+    if (num_images <= kMaxNumImagesDirectDenseSolver) {
+      solver_options.linear_solver_type = ceres::DENSE_SCHUR;
+    } else if (num_images <= kMaxNumImagesDirectSparseSolver && has_sparse) {
+      solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
+    } else {  // Indirect sparse (preconditioned CG) solver.
+      solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+      solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
+    }
   }
 
   if (problem_->NumResiduals() <
@@ -600,13 +610,23 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
   const size_t kMaxNumImagesDirectDenseSolver = 50;
   const size_t kMaxNumImagesDirectSparseSolver = 1000;
   const size_t num_images = config_.NumImages();
-  if (num_images <= kMaxNumImagesDirectDenseSolver) {
+  if (options_.use_cuda) {
+    CHECK_GE(CERES_VERSION_MAJOR, 2);
+    CHECK_GE(CERES_VERSION_MINOR, 1);
     solver_options.linear_solver_type = ceres::DENSE_SCHUR;
-  } else if (num_images <= kMaxNumImagesDirectSparseSolver && has_sparse) {
-    solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
-  } else {  // Indirect sparse (preconditioned CG) solver.
-    solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
-    solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
+#if (CERES_VERSION_MAJOR >= 2) && (CERES_VERSION_MINOR >= 1)
+    solver_options.dense_linear_algebra_library_type = ceres::CUDA;
+#endif
+  }
+  else {
+    if (num_images <= kMaxNumImagesDirectDenseSolver) {
+      solver_options.linear_solver_type = ceres::DENSE_SCHUR;
+    } else if (num_images <= kMaxNumImagesDirectSparseSolver && has_sparse) {
+      solver_options.linear_solver_type = ceres::SPARSE_SCHUR;
+    } else {  // Indirect sparse (preconditioned CG) solver.
+      solver_options.linear_solver_type = ceres::ITERATIVE_SCHUR;
+      solver_options.preconditioner_type = ceres::SCHUR_JACOBI;
+    }
   }
 
   solver_options.num_threads =

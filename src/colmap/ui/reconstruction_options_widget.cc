@@ -118,6 +118,11 @@ MapperBundleAdjustmentOptionsWidget::MapperBundleAdjustmentOptionsWidget(
 
   AddSpacer();
 
+  AddSection("Ba use cuda");
+  AddOptionBool(&options->mapper->ba_use_cuda, "ba_use_cuda");
+
+  AddSpacer();
+
   AddSection("Local Bundle Adjustment");
   AddOptionInt(&options->mapper->ba_local_num_images, "num_images");
   AddOptionInt(&options->mapper->ba_local_max_num_iterations,

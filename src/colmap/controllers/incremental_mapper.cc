@@ -224,6 +224,7 @@ BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
 #if CERES_VERSION_MAJOR < 2
   options.solver_options.num_linear_solver_threads = num_threads;
 #endif  // CERES_VERSION_MAJOR
+  options.use_cuda = ba_use_cuda;
   options.print_summary = true;
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;
@@ -249,6 +250,7 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
 #if CERES_VERSION_MAJOR < 2
   options.solver_options.num_linear_solver_threads = num_threads;
 #endif  // CERES_VERSION_MAJOR
+  options.use_cuda = ba_use_cuda;
   options.print_summary = true;
   options.refine_focal_length = ba_refine_focal_length;
   options.refine_principal_point = ba_refine_principal_point;

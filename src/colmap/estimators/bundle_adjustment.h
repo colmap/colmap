@@ -70,6 +70,10 @@ struct BundleAdjustmentOptions {
   // due to the overhead of threading.
   int min_num_residuals_for_multi_threading = 50000;
 
+  // Whether to use cuda to accelerate bundle adjustment
+  // Only work with ceres >= 2.1
+  bool use_cuda = false;
+
   // Ceres-Solver options.
   ceres::Solver::Options solver_options;
 
