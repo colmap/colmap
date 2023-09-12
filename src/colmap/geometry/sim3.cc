@@ -47,7 +47,7 @@ bool Sim3d::Estimate(const std::vector<Eigen::Vector3d>& src,
     return false;
   }
   CHECK_EQ(results.size(), 1);
-  FromMatrix(results[0]);
+  *this = Sim3d::FromMatrix(results[0]);
   return true;
 }
 

@@ -231,7 +231,7 @@ bool AlignReconstructionToLocations(
   }
 
   if (tgt_from_src != nullptr) {
-    tgt_from_src->FromMatrix(report.model);
+    *tgt_from_src = Sim3d::FromMatrix(report.model);
   }
 
   return true;
