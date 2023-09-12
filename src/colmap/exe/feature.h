@@ -71,7 +71,7 @@ enum class CameraMode { AUTO = 0, SINGLE = 1, PER_FOLDER = 2, PER_IMAGE = 3 };
 void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
                                             CameraMode mode);
 
-bool VerifySiftGPUParams(const bool use_gpu);
+bool VerifySiftGPUParams(bool use_gpu);
 
 bool VerifyCameraParams(const std::string& camera_model,
                         const std::string& params);
