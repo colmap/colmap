@@ -65,13 +65,22 @@ TEST(Sim3d, Inverse) {
   }
 }
 
-TEST(Sim3d, Matrix) {
+TEST(Sim3d, ToMatrix) {
   const Sim3d b_from_a = TestSim3d();
   const Eigen::Matrix3x4d b_from_a_mat = b_from_a.ToMatrix();
   for (int i = 0; i < 100; ++i) {
     const Eigen::Vector3d x_in_a = Eigen::Vector3d::Random();
     EXPECT_LT((b_from_a * x_in_a - b_from_a_mat * x_in_a.homogeneous()).norm(),
               1e-6);
+  }
+}
+
+TEST(Sim3d, FromMatrix) {
+  const Sim3d b1_from_a = TestSim3d();
+  const Sim3d b2_from_a = Sim3d::FromMatrix(b1_from_a.ToMatrix());
+  for (int i = 0; i < 100; ++i) {
+    const Eigen::Vector3d x_in_a = Eigen::Vector3d::Random();
+    EXPECT_LT((b1_from_a * x_in_a - b2_from_a * x_in_a).norm(), 1e-6);
   }
 }
 
