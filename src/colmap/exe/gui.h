@@ -45,7 +45,7 @@ class QApplication {
 
 namespace colmap {
 
-#if defined(COLMAP_CUDA_ENABLED) || !defined(COLMAP_OPENGL_ENABLED)
+#if defined(COLMAP_CUDA_ENABLED) || !defined(COLMAP_GUI_ENABLED)
 const bool kUseOpenGL = false;
 #else
 const bool kUseOpenGL = true;

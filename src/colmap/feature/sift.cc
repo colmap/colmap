@@ -31,9 +31,9 @@
 
 #include "colmap/feature/sift.h"
 
-#if !defined(COLMAP_GUI_ENABLED) && !defined(COLMAP_CUDA_ENABLED)
+#if defined(COLMAP_GPU_ENABLED)
 #include <GL/glew.h>
-#endif
+#endif  // COLMAP_GPU_ENABLED
 
 #include "colmap/feature/utils.h"
 #include "colmap/math/math.h"
@@ -42,7 +42,9 @@
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
 
+#if defined(COLMAP_GPU_ENABLED)
 #include "thirdparty/SiftGPU/SiftGPU.h"
+#endif  // COLMAP_GPU_ENABLED
 #include "thirdparty/VLFeat/covdet.h"
 #include "thirdparty/VLFeat/sift.h"
 
@@ -512,6 +514,7 @@ class CovariantSiftCPUFeatureExtractor : public FeatureExtractor {
   const SiftExtractionOptions options_;
 };
 
+#if defined(COLMAP_GPU_ENABLED)
 // Mutexes that ensure that only one thread extracts/matches on the same GPU
 // at the same time, since SiftGPU internally uses static variables.
 static std::map<int, std::unique_ptr<std::mutex>> sift_gpu_mutexes_;
@@ -699,6 +702,7 @@ class SiftGPUFeatureExtractor : public FeatureExtractor {
   SiftGPU sift_gpu_;
   std::vector<SiftKeypoint> keypoints_buffer_;
 };
+#endif  // COLMAP_GPU_ENABLED
 
 }  // namespace
 
@@ -708,7 +712,11 @@ std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
       options.force_covariant_extractor) {
     return CovariantSiftCPUFeatureExtractor::Create(options);
   } else if (options.use_gpu) {
+#if defined(COLMAP_GPU_ENABLED)
     return SiftGPUFeatureExtractor::Create(options);
+#else
+    return nullptr;
+#endif  // COLMAP_GPU_ENABLED
   } else {
     return SiftCPUFeatureExtractor::Create(options);
   }
@@ -1200,6 +1208,7 @@ class SiftCPUFeatureMatcher : public FeatureMatcher {
   std::unique_ptr<FlannIndexType> flann_index2_;
 };
 
+#if defined(COLMAP_GPU_ENABLED)
 // Mutexes that ensure that only one thread extracts/matches on the same GPU
 // at the same time, since SiftGPU internally uses static variables.
 static std::map<int, std::unique_ptr<std::mutex>> sift_match_gpu_mutexes_;
@@ -1437,13 +1446,18 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
   const SiftMatchingOptions options_;
   SiftMatchGPU sift_match_gpu_;
 };
+#endif  // COLMAP_GPU_ENABLED
 
 }  // namespace
 
 std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
     const SiftMatchingOptions& options) {
   if (options.use_gpu) {
+#if defined(COLMAP_GPU_ENABLED)
     return SiftGPUFeatureMatcher::Create(options);
+#else
+    return nullptr;
+#endif // COLMAP_GPU_ENABLED
   } else {
     return SiftCPUFeatureMatcher::Create(options);
   }
