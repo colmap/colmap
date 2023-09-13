@@ -70,7 +70,7 @@ bool AlignReconstructions(const Reconstruction& src_reconstruction,
 // corresponding 3D points.
 bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
                                    const Reconstruction& tgt_reconstruction,
-                                   size_t min_overlap,
+                                   size_t min_common_observations,
                                    double max_error,
                                    double min_inlier_ratio,
                                    Sim3d* tgt_from_src);

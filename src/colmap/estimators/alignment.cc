@@ -339,10 +339,15 @@ std::vector<ImageAlignmentError> ComputeImageAlignmentError(
 
 bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
                                    const Reconstruction& tgt_reconstruction,
-                                   const size_t min_overlap,
+                                   const size_t min_common_observations,
                                    const double max_error,
                                    const double min_inlier_ratio,
                                    Sim3d* tgt_from_src) {
+  CHECK_GT(min_common_observations, 0);
+  CHECK_GT(max_error, 0.0);
+  CHECK_GE(min_inlier_ratio, 0.0);
+  CHECK_LE(min_inlier_ratio, 1.0);
+
   std::vector<Eigen::Vector3d> xyz_src;
   std::vector<Eigen::Vector3d> xyz_tgt;
   // Associate 3D points using point2D_idx
@@ -375,7 +380,7 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
                             const std::pair<point3D_t, size_t>& p2) {
                            return p1.second < p2.second;
                          });
-    if (best_p3D->second >= min_overlap) {
+    if (best_p3D->second >= min_common_observations) {
       xyz_src.push_back(p3D_p.second.XYZ());
       xyz_tgt.push_back(tgt_reconstruction.Point3D(best_p3D->first).XYZ());
     }
