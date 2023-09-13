@@ -32,6 +32,7 @@
 #pragma once
 
 #include "colmap/util/types.h"
+#include "colmap/optim/ransac.h"
 
 #include <vector>
 
@@ -69,9 +70,15 @@ struct Sim3d {
     return t;
   }
 
-  // Estimate tgtFromSrc transform. Return true if successful.
+  // Estimate tgt_from_src transform. Return true if successful.
   bool Estimate(const std::vector<Eigen::Vector3d>& src,
                 const std::vector<Eigen::Vector3d>& tgt);
+
+  // Estimate tgt_from_src transform from correspondences contaminated by
+  // outliers. Return true if successful.
+  bool EstimateRobust(const std::vector<Eigen::Vector3d>& src,
+                      const std::vector<Eigen::Vector3d>& tgt,
+                      const RANSACOptions& ransac_options);
 
   // Read from or write to text file without loss of precision.
   void ToFile(const std::string& path) const;
