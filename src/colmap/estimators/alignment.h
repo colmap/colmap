@@ -54,7 +54,7 @@ bool AlignReconstructions(const Reconstruction& src_reconstruction,
                           const Reconstruction& tgt_reconstruction,
                           double min_inlier_observations,
                           double max_reproj_error,
-                          Sim3d* tgtFromSrc);
+                          Sim3d* tgt_from_src);
 
 // Robustly compute alignment between reconstructions by finding images that
 // are registered in both reconstructions. The alignment is then estimated
@@ -63,7 +63,17 @@ bool AlignReconstructions(const Reconstruction& src_reconstruction,
 bool AlignReconstructions(const Reconstruction& src_reconstruction,
                           const Reconstruction& tgt_reconstruction,
                           double max_proj_center_error,
-                          Sim3d* tgtFromSrc);
+                          Sim3d* tgt_from_src);
+
+// Robustly compute the alignment between reconstructions that share the
+// same 2D points. It is estimated by minimizing the 3D distance between
+// corresponding 3D points.
+bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
+                                   const Reconstruction& tgt_reconstruction,
+                                   size_t min_overlap,
+                                   double max_error,
+                                   double min_inlier_ratio,
+                                   Sim3d* tgt_from_src);
 
 // Compute image alignment errors in the target coordinate frame.
 struct ImageAlignmentError {

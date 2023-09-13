@@ -36,6 +36,8 @@
 #include "colmap/optim/loransac.h"
 #include "colmap/scene/projection.h"
 
+#include <unordered_map>
+
 namespace colmap {
 namespace {
 
@@ -333,6 +335,60 @@ std::vector<ImageAlignmentError> ComputeImageAlignmentError(
     errors.push_back(error);
   }
   return errors;
+}
+
+bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
+                                   const Reconstruction& tgt_reconstruction,
+                                   const size_t min_overlap,
+                                   const double max_error,
+                                   const double min_inlier_ratio,
+                                   Sim3d* tgt_from_src) {
+  std::vector<Eigen::Vector3d> xyz_src;
+  std::vector<Eigen::Vector3d> xyz_tgt;
+  // Associate 3D points using point2D_idx
+  for (auto& p3D_p : src_reconstruction.Points3D()) {
+    // Count how often a 3D point in tgt is associated to this 3D point
+    std::unordered_map<point3D_t, size_t> counts;
+    const Track& track = p3D_p.second.Track();
+    for (auto& track_el : track.Elements()) {
+      if (!tgt_reconstruction.IsImageRegistered(track_el.image_id)) {
+        continue;
+      }
+      const Point2D& p2D_tgt = tgt_reconstruction.Image(track_el.image_id)
+                                   .Point2D(track_el.point2D_idx);
+      if (p2D_tgt.HasPoint3D()) {
+        if (counts.find(p2D_tgt.point3D_id) != counts.end()) {
+          counts[p2D_tgt.point3D_id]++;
+        } else {
+          counts[p2D_tgt.point3D_id] = 0;
+        }
+      }
+    }
+    if (counts.size() == 0) {
+      continue;
+    }
+    // The 3D point in tgt who is associated the most is selected
+    auto best_p3D =
+        std::max_element(counts.begin(),
+                         counts.end(),
+                         [](const std::pair<point3D_t, size_t>& p1,
+                            const std::pair<point3D_t, size_t>& p2) {
+                           return p1.second < p2.second;
+                         });
+    if (best_p3D->second >= min_overlap) {
+      xyz_src.push_back(p3D_p.second.XYZ());
+      xyz_tgt.push_back(tgt_reconstruction.Point3D(best_p3D->first).XYZ());
+    }
+  }
+  CHECK_EQ(xyz_src.size(), xyz_tgt.size());
+  std::cout << "Found " << xyz_src.size() << " / "
+            << src_reconstruction.NumPoints3D() << " valid correspondences."
+            << std::endl;
+
+  RANSACOptions ransac_options;
+  ransac_options.max_error = max_error;
+  ransac_options.min_inlier_ratio = min_inlier_ratio;
+  return tgt_from_src->EstimateRobust(xyz_src, xyz_tgt, ransac_options);
 }
 
 bool MergeReconstructions(const double max_reproj_error,
