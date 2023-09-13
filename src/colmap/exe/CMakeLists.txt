@@ -53,9 +53,14 @@ COLMAP_ADD_LIBRARY(
     SRCS
         feature.h feature.cc
         sfm.h sfm.cc
+        model.h model.cc
     PUBLIC_LINK_LIBS
         colmap_controllers
+        colmap_estimators
+        colmap_geometry
+        colmap_optim
         colmap_scene
+        colmap_util
 )
 
 COLMAP_ADD_EXECUTABLE(
