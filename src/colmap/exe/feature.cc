@@ -41,7 +41,6 @@
 #include "colmap/util/opengl_utils.h"
 
 namespace colmap {
-namespace {
 
 bool VerifyCameraParams(const std::string& camera_model,
                         const std::string& params) {
@@ -72,8 +71,6 @@ bool VerifySiftGPUParams(const bool use_gpu) {
 #endif
   return true;
 }
-
-}  // namespace
 
 void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
                                             CameraMode mode) {
