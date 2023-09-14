@@ -255,12 +255,12 @@ int RunImageRegistrator(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (!ExistsDir(input_path)) {
-    std::cerr << "ERROR: `input_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`input_path` is not a directory" << std::endl;
     return EXIT_FAILURE;
   }
 
   if (!ExistsDir(output_path)) {
-    std::cerr << "ERROR: `output_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`output_path` is not a directory" << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -378,7 +378,7 @@ int RunImageUndistorter(int argc, char** argv) {
   } else if (copy_policy == "hard-link") {
     copy_type = CopyType::HARD_LINK;
   } else {
-    std::cerr << "ERROR: Invalid `copy_policy` - supported values are "
+    LOG(ERROR) << "Invalid `copy_policy` - supported values are "
                  "{'copy', 'soft-link', 'hard-link'}."
               << std::endl;
     return EXIT_FAILURE;
@@ -405,7 +405,7 @@ int RunImageUndistorter(int argc, char** argv) {
                                                       *options.image_path,
                                                       output_path);
   } else {
-    std::cerr << "ERROR: Invalid `output_type` - supported values are "
+    LOG(ERROR) << "Invalid `output_type` - supported values are "
                  "{'COLMAP', 'PMVS', 'CMP-MVS'}."
               << std::endl;
     return EXIT_FAILURE;
@@ -471,7 +471,7 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
 
       std::getline(line_stream, item, ' ');
       if (!ExistsCameraModelWithName(item)) {
-        std::cerr << "ERROR: Camera model " << item << " does not exist"
+        LOG(ERROR) << "Camera model " << item << " does not exist"
                   << std::endl;
         return EXIT_FAILURE;
       }

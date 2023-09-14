@@ -875,19 +875,19 @@ void OptionManager::Parse(const int argc, char** argv) {
       vmap.notify();
     }
   } catch (std::exception& exc) {
-    std::cerr << "ERROR: Failed to parse options - " << exc.what() << "."
+    LOG(ERROR) << "Failed to parse options - " << exc.what() << "."
               << std::endl;
     // NOLINTNEXTLINE(concurrency-mt-unsafe)
     exit(EXIT_FAILURE);
   } catch (...) {
-    std::cerr << "ERROR: Failed to parse options for unknown reason."
+    LOG(ERROR) << "Failed to parse options for unknown reason."
               << std::endl;
     // NOLINTNEXTLINE(concurrency-mt-unsafe)
     exit(EXIT_FAILURE);
   }
 
   if (!Check()) {
-    std::cerr << "ERROR: Invalid options provided." << std::endl;
+    LOG(ERROR) << "Invalid options provided." << std::endl;
     // NOLINTNEXTLINE(concurrency-mt-unsafe)
     exit(EXIT_FAILURE);
   }

@@ -210,7 +210,7 @@ void FeatureMatcherWorker::Run() {
   std::unique_ptr<FeatureMatcher> matcher =
       CreateSiftFeatureMatcher(matching_options_);
   if (matcher == nullptr) {
-    std::cerr << "ERROR: Failed to create feature matcher." << std::endl;
+    LOG(ERROR) << "Failed to create feature matcher." << std::endl;
     SignalInvalidSetup();
     return;
   }

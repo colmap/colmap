@@ -1291,7 +1291,7 @@ void PatchMatchCuda::Run() {
       CASE_WINDOW_RADIUS(19, window_step)                            \
       CASE_WINDOW_RADIUS(20, window_step)                            \
       default: {                                                     \
-        std::cerr << "Error: Window size " << options_.window_radius \
+        LOG(ERROR) << "Error: Window size " << options_.window_radius \
                   << " not supported" << std::endl;                  \
         break;                                                       \
       }                                                              \
@@ -1302,7 +1302,7 @@ void PatchMatchCuda::Run() {
     CASE_WINDOW_STEP(1)
     CASE_WINDOW_STEP(2)
     default: {
-      std::cerr << "Error: Window step " << options_.window_step
+      LOG(ERROR) << "Error: Window step " << options_.window_step
                 << " not supported" << std::endl;
       break;
     }

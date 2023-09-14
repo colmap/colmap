@@ -145,12 +145,12 @@ int RunBundleAdjuster(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (!ExistsDir(input_path)) {
-    std::cerr << "ERROR: `input_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`input_path` is not a directory" << std::endl;
     return EXIT_FAILURE;
   }
 
   if (!ExistsDir(output_path)) {
-    std::cerr << "ERROR: `output_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`output_path` is not a directory" << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -199,7 +199,7 @@ int RunMapper(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (!ExistsDir(output_path)) {
-    std::cerr << "ERROR: `output_path` is not a directory." << std::endl;
+    LOG(ERROR) << "`output_path` is not a directory." << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -212,7 +212,7 @@ int RunMapper(int argc, char** argv) {
   auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   if (input_path != "") {
     if (!ExistsDir(input_path)) {
-      std::cerr << "ERROR: `input_path` is not a directory." << std::endl;
+      LOG(ERROR) << "`input_path` is not a directory." << std::endl;
       return EXIT_FAILURE;
     }
     reconstruction_manager->Read(input_path);
@@ -264,7 +264,7 @@ int RunMapper(int argc, char** argv) {
   mapper.Wait();
 
   if (reconstruction_manager->Size() == 0) {
-    std::cerr << "ERROR: failed to create sparse model" << std::endl;
+    LOG(ERROR) << "failed to create sparse model" << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -311,7 +311,7 @@ int RunHierarchicalMapper(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (!ExistsDir(output_path)) {
-    std::cerr << "ERROR: `output_path` is not a directory." << std::endl;
+    LOG(ERROR) << "`output_path` is not a directory." << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -323,7 +323,7 @@ int RunHierarchicalMapper(int argc, char** argv) {
   hierarchical_mapper.Wait();
 
   if (reconstruction_manager->Size() == 0) {
-    std::cerr << "ERROR: failed to create sparse model" << std::endl;
+    LOG(ERROR) << "failed to create sparse model" << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -392,12 +392,12 @@ int RunPointTriangulator(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (!ExistsDir(input_path)) {
-    std::cerr << "ERROR: `input_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`input_path` is not a directory" << std::endl;
     return EXIT_FAILURE;
   }
 
   if (!ExistsDir(output_path)) {
-    std::cerr << "ERROR: `output_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`output_path` is not a directory" << std::endl;
     return EXIT_FAILURE;
   }
 

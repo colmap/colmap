@@ -175,7 +175,7 @@ class SiftFeatureExtractorThread : public Thread {
     std::unique_ptr<FeatureExtractor> extractor =
         CreateSiftFeatureExtractor(sift_options_);
     if (extractor == nullptr) {
-      std::cerr << "ERROR: Failed to create feature extractor." << std::endl;
+      LOG(ERROR) << "Failed to create feature extractor." << std::endl;
       SignalInvalidSetup();
       return;
     }
@@ -360,7 +360,7 @@ class FeatureExtractorController : public Thread {
       camera_mask = std::make_shared<Bitmap>();
       if (!camera_mask->Read(reader_options_.camera_mask_path,
                              /*as_rgb*/ false)) {
-        std::cerr << "  ERROR: Cannot read camera mask file: "
+        LOG(ERROR) << "Cannot read camera mask file: "
                   << reader_options_.camera_mask_path
                   << ". No mask is going to be used." << std::endl;
         camera_mask.reset();
@@ -534,7 +534,7 @@ class FeatureImporterController : public Thread {
     PrintHeading1("Feature import");
 
     if (!ExistsDir(import_path_)) {
-      std::cerr << "  ERROR: Import directory does not exist." << std::endl;
+      LOG(ERROR) << "Import directory does not exist." << std::endl;
       return;
     }
 

@@ -42,7 +42,7 @@ namespace colmap {
 
 int RunDelaunayMesher(int argc, char** argv) {
 #if !defined(COLMAP_CGAL_ENABLED)
-  std::cerr << "ERROR: Delaunay meshing requires CGAL, which is not "
+  LOG(ERROR) << "Delaunay meshing requires CGAL, which is not "
                "available on your system."
             << std::endl;
   return EXIT_FAILURE;
@@ -81,7 +81,7 @@ int RunDelaunayMesher(int argc, char** argv) {
 
 int RunPatchMatchStereo(int argc, char** argv) {
 #if !defined(COLMAP_CUDA_ENABLED)
-  std::cerr << "ERROR: Dense stereo reconstruction requires CUDA, which is not "
+  LOG(ERROR) << "Dense stereo reconstruction requires CUDA, which is not "
                "available on your system."
             << std::endl;
   return EXIT_FAILURE;
@@ -222,7 +222,7 @@ int RunStereoFuser(int argc, char** argv) {
     mvs::WritePointsVisibility(output_path + ".vis",
                                fuser.GetFusedPointsVisibility());
   } else {
-    std::cerr << "ERROR: Invalid `output_type`" << std::endl;
+    LOG(ERROR) << "Invalid `output_type`" << std::endl;
     return EXIT_FAILURE;
   }
 

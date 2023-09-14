@@ -262,7 +262,7 @@ bool COLMAPUndistorter::Undistort(const image_t image_id) const {
   }
 
   if (!distorted_bitmap.Read(input_image_path)) {
-    std::cerr << "ERROR: Cannot read image at path " << input_image_path
+    LOG(ERROR) << "Cannot read image at path " << input_image_path
               << std::endl;
     return false;
   }
@@ -595,7 +595,7 @@ bool CMPMVSUndistorter::Undistort(const size_t reg_image_idx) const {
   Bitmap distorted_bitmap;
   const std::string input_image_path = JoinPaths(image_path_, image.Name());
   if (!distorted_bitmap.Read(input_image_path)) {
-    std::cerr << "ERROR: Cannot read image at path " << input_image_path
+    LOG(ERROR) << "Cannot read image at path " << input_image_path
               << std::endl;
     return false;
   }
@@ -660,7 +660,7 @@ bool PureImageUndistorter::Undistort(const size_t image_idx) const {
   Bitmap distorted_bitmap;
   const std::string input_image_path = JoinPaths(image_path_, image_name);
   if (!distorted_bitmap.Read(input_image_path)) {
-    std::cerr << "ERROR: Cannot read image at path " << input_image_path
+    LOG(ERROR) << "Cannot read image at path " << input_image_path
               << std::endl;
     return false;
   }
@@ -739,7 +739,7 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
   Bitmap distorted_bitmap1;
   const std::string input_image1_path = JoinPaths(image_path_, image1.Name());
   if (!distorted_bitmap1.Read(input_image1_path)) {
-    std::cerr << "ERROR: Cannot read image at path " << input_image1_path
+    LOG(ERROR) << "Cannot read image at path " << input_image1_path
               << std::endl;
     return;
   }
@@ -747,7 +747,7 @@ void StereoImageRectifier::Rectify(const image_t image_id1,
   Bitmap distorted_bitmap2;
   const std::string input_image2_path = JoinPaths(image_path_, image2.Name());
   if (!distorted_bitmap2.Read(input_image2_path)) {
-    std::cerr << "ERROR: Cannot read image at path " << input_image2_path
+    LOG(ERROR) << "Cannot read image at path " << input_image2_path
               << std::endl;
     return;
   }

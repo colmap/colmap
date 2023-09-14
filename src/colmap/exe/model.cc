@@ -294,7 +294,7 @@ int RunModelAligner(int argc, char** argv) {
   const std::unordered_set<std::string> alignment_options{
       "plane", "ecef", "enu", "enu-plane", "enu-plane-unscaled", "custom"};
   if (alignment_options.count(alignment_type) == 0) {
-    std::cerr << "ERROR: Invalid `alignment_type` - supported values are "
+    LOG(ERROR) << "Invalid `alignment_type` - supported values are "
                  "{'plane', 'ecef', 'enu', 'enu-plane', 'enu-plane-unscaled', "
                  "'custom'}"
               << std::endl;
@@ -309,7 +309,7 @@ int RunModelAligner(int argc, char** argv) {
 
   if (alignment_type != "plane" && database_path.empty() &&
       ref_images_path.empty()) {
-    std::cerr << "ERROR: Location alignment requires either database or "
+    LOG(ERROR) << "Location alignment requires either database or "
                  "location file path."
               << std::endl;
     return EXIT_FAILURE;
@@ -330,7 +330,7 @@ int RunModelAligner(int argc, char** argv) {
                                 &ref_image_names,
                                 &ref_locations);
   } else if (alignment_type != "plane") {
-    std::cerr << "ERROR: Use location file or database, not both" << std::endl;
+    LOG(ERROR) << "Use location file or database, not both" << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -501,7 +501,7 @@ int RunModelComparer(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (!output_path.empty() && !ExistsDir(output_path)) {
-    std::cerr << "ERROR: Provided output path is not a valid directory"
+    LOG(ERROR) << "Provided output path is not a valid directory"
               << std::endl;
     return EXIT_FAILURE;
   }
@@ -639,7 +639,7 @@ int RunModelConverter(int argc, char** argv) {
                               1,
                               Eigen::Vector3d(1, 0, 0));
   } else {
-    std::cerr << "ERROR: Invalid `output_type`" << std::endl;
+    LOG(ERROR) << "Invalid `output_type`" << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -664,18 +664,18 @@ int RunModelCropper(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (!ExistsDir(input_path)) {
-    std::cerr << "ERROR: `input_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`input_path` is not a directory" << std::endl;
     return EXIT_FAILURE;
   }
 
   if (!ExistsDir(output_path)) {
-    std::cerr << "ERROR: `output_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`output_path` is not a directory" << std::endl;
     return EXIT_FAILURE;
   }
 
   std::vector<double> boundary_elements = CSVToVector<double>(boundary);
   if (boundary_elements.size() != 2 && boundary_elements.size() != 6) {
-    std::cerr << "ERROR: Invalid `boundary` - supported values are "
+    LOG(ERROR) << "Invalid `boundary` - supported values are "
                  "'x1,y1,z1,x2,y2,z2' or 'p1,p2'."
               << std::endl;
     return EXIT_FAILURE;
@@ -869,12 +869,12 @@ int RunModelSplitter(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (!ExistsDir(input_path)) {
-    std::cerr << "ERROR: `input_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`input_path` is not a directory" << std::endl;
     return EXIT_FAILURE;
   }
 
   if (!ExistsDir(output_path)) {
-    std::cerr << "ERROR: `output_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`output_path` is not a directory" << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -948,7 +948,7 @@ int RunModelSplitter(int argc, char** argv) {
     for (size_t i = 0; i < parts.size(); ++i) {
       split(i) = parts[i];
       if (split(i) < 1) {
-        std::cerr << "ERROR: Cannot split in less than 1 parts for dim " << i
+        LOG(ERROR) << "Cannot split in less than 1 parts for dim " << i
                   << std::endl;
         return EXIT_FAILURE;
       }
@@ -1048,7 +1048,7 @@ int RunModelTransformer(int argc, char** argv) {
   } else if (ExistsDir(input_path)) {
     recon.Read(input_path);
   } else {
-    std::cerr << "Invalid model input; not a PLY file or sparse reconstruction "
+    LOG(ERROR) << "Invalid model input; not a PLY file or sparse reconstruction "
                  "directory."
               << std::endl;
     return EXIT_FAILURE;

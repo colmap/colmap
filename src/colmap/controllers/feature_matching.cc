@@ -513,7 +513,7 @@ class VocabTreeFeatureMatcher : public Thread {
         }
 
         if (image_name_to_image_id.count(line) == 0) {
-          std::cerr << "ERROR: Image " << line << " does not exist."
+          LOG(ERROR) << "Image " << line << " does not exist."
                     << std::endl;
         } else {
           image_ids.push_back(image_name_to_image_id.at(line));
@@ -987,12 +987,12 @@ class ImagePairsFeatureMatcher : public Thread {
       StringTrim(&image_name2);
 
       if (image_name_to_image_id.count(image_name1) == 0) {
-        std::cerr << "ERROR: Image " << image_name1 << " does not exist."
+        LOG(ERROR) << "Image " << image_name1 << " does not exist."
                   << std::endl;
         continue;
       }
       if (image_name_to_image_id.count(image_name2) == 0) {
-        std::cerr << "ERROR: Image " << image_name2 << " does not exist."
+        LOG(ERROR) << "Image " << image_name2 << " does not exist."
                   << std::endl;
         continue;
       }
@@ -1125,7 +1125,7 @@ class FeaturePairsFeatureMatcher : public Thread {
       try {
         line_stream >> image_name1 >> image_name2;
       } catch (...) {
-        std::cerr << "ERROR: Could not read image pair." << std::endl;
+        LOG(ERROR) << "Could not read image pair." << std::endl;
         break;
       }
 
@@ -1170,7 +1170,7 @@ class FeaturePairsFeatureMatcher : public Thread {
         try {
           line_stream >> match.point2D_idx1 >> match.point2D_idx2;
         } catch (...) {
-          std::cerr << "ERROR: Cannot read feature matches." << std::endl;
+          LOG(ERROR) << "Cannot read feature matches." << std::endl;
           break;
         }
 
