@@ -535,14 +535,14 @@ int RunModelComparer(int argc, char** argv) {
   return EXIT_SUCCESS;
 }
 
-int CompareModels(const Reconstruction& reconstruction1,
-                  const Reconstruction& reconstruction2,
-                  const std::string& alignment_error,
-                  const double min_inlier_observations,
-                  const double max_reproj_error,
-                  const double max_proj_center_error,
-                  std::vector<ImageAlignmentError>& errors,
-                  Sim3d& rec2_from_rec1) {
+bool CompareModels(const Reconstruction& reconstruction1,
+                   const Reconstruction& reconstruction2,
+                   const std::string& alignment_error,
+                   const double min_inlier_observations,
+                   const double max_reproj_error,
+                   const double max_proj_center_error,
+                   std::vector<ImageAlignmentError>& errors,
+                   Sim3d& rec2_from_rec1) {
   PrintHeading1("Reconstruction 1");
   std::cout << StringPrintf("Images: %d", reconstruction1.NumRegImages())
             << std::endl;
