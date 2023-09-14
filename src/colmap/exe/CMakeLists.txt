@@ -48,11 +48,26 @@ if(GUI_ENABLED)
     )
 endif()
 
-COLMAP_ADD_EXECUTABLE(
+COLMAP_ADD_LIBRARY(
     NAME colmap_exe
     SRCS
         feature.h feature.cc
         sfm.h sfm.cc
+        model.h model.cc
+    PUBLIC_LINK_LIBS
+        colmap_controllers
+        colmap_estimators
+        colmap_geometry
+        colmap_optim
+        colmap_scene
+        colmap_util
+)
+
+COLMAP_ADD_EXECUTABLE(
+    NAME colmap_main
+    SRCS
+        feature.cc
+        sfm.cc
         colmap.cc
         database.cc
         feature.cc
@@ -69,4 +84,4 @@ COLMAP_ADD_EXECUTABLE(
         colmap_util
         ${OPTIONAL_LIBS}
 )
-set_target_properties(colmap_exe PROPERTIES OUTPUT_NAME colmap)
+set_target_properties(colmap_main PROPERTIES OUTPUT_NAME colmap)

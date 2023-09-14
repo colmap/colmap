@@ -508,14 +508,47 @@ int RunModelComparer(int argc, char** argv) {
 
   Reconstruction reconstruction1;
   reconstruction1.Read(input_path1);
+  Reconstruction reconstruction2;
+  reconstruction2.Read(input_path2);
+  std::vector<ImageAlignmentError> errors;
+  Sim3d rec2_from_rec1;
+  bool success = CompareModels(reconstruction1,
+                               reconstruction2,
+                               alignment_error,
+                               min_inlier_observations,
+                               max_reproj_error,
+                               max_proj_center_error,
+                               errors,
+                               rec2_from_rec1);
+  if (!success) {
+    return EXIT_FAILURE;
+  }
+  if (!output_path.empty()) {
+    const std::string errors_path = JoinPaths(output_path, "errors.csv");
+    WriteComparisonErrorsCSV(errors_path, errors);
+    const std::string summary_path =
+        JoinPaths(output_path, "errors_summary.txt");
+    std::ofstream file(summary_path, std::ios::trunc);
+    CHECK(file.is_open()) << summary_path;
+    PrintComparisonSummary(file, errors);
+  }
+  return EXIT_SUCCESS;
+}
+
+bool CompareModels(const Reconstruction& reconstruction1,
+                   const Reconstruction& reconstruction2,
+                   const std::string& alignment_error,
+                   const double min_inlier_observations,
+                   const double max_reproj_error,
+                   const double max_proj_center_error,
+                   std::vector<ImageAlignmentError>& errors,
+                   Sim3d& rec2_from_rec1) {
   PrintHeading1("Reconstruction 1");
   std::cout << StringPrintf("Images: %d", reconstruction1.NumRegImages())
             << std::endl;
   std::cout << StringPrintf("Points: %d", reconstruction1.NumPoints3D())
             << std::endl;
 
-  Reconstruction reconstruction2;
-  reconstruction2.Read(input_path2);
   PrintHeading1("Reconstruction 2");
   std::cout << StringPrintf("Images: %d", reconstruction2.NumRegImages())
             << std::endl;
@@ -528,7 +561,6 @@ int RunModelComparer(int argc, char** argv) {
   std::cout << StringPrintf("Common images: %d", common_image_ids.size())
             << std::endl;
 
-  Sim3d new_from_old_world;
   bool success = false;
   if (alignment_error == "reprojection") {
     success = AlignReconstructions(
@@ -536,42 +568,33 @@ int RunModelComparer(int argc, char** argv) {
         reconstruction2,
         /*min_inlier_observations=*/min_inlier_observations,
         /*max_reproj_error=*/max_reproj_error,
-        &new_from_old_world);
+        &rec2_from_rec1);
   } else if (alignment_error == "proj_center") {
     success =
         AlignReconstructions(reconstruction1,
                              reconstruction2,
                              /*max_proj_center_error=*/max_proj_center_error,
-                             &new_from_old_world);
+                             &rec2_from_rec1);
   } else {
     std::cout << "ERROR: Invalid alignment_error specified." << std::endl;
-    return EXIT_FAILURE;
+    return false;
   }
 
   if (!success) {
     std::cout << "=> Reconstruction alignment failed" << std::endl;
-    return EXIT_FAILURE;
+    return false;
   }
 
   std::cout << "Computed alignment transform:" << std::endl
-            << new_from_old_world.ToMatrix() << std::endl;
+            << rec2_from_rec1.ToMatrix() << std::endl;
 
-  const std::vector<ImageAlignmentError> errors = ComputeImageAlignmentError(
-      reconstruction1, reconstruction2, new_from_old_world);
+  errors = ComputeImageAlignmentError(
+      reconstruction1, reconstruction2, rec2_from_rec1);
 
   PrintHeading2("Image alignment error summary");
   PrintComparisonSummary(std::cout, errors);
-  if (!output_path.empty()) {
-    const std::string errors_path = JoinPaths(output_path, "errors.csv");
-    WriteComparisonErrorsCSV(errors_path, errors);
-    const std::string summary_path =
-        JoinPaths(output_path, "errors_summary.txt");
-    std::ofstream file(summary_path, std::ios::trunc);
-    CHECK(file.is_open()) << summary_path;
-    PrintComparisonSummary(file, errors);
-  }
 
-  return EXIT_SUCCESS;
+  return true;
 }
 
 int RunModelConverter(int argc, char** argv) {
