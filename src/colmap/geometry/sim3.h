@@ -60,6 +60,15 @@ struct Sim3d {
     return matrix;
   }
 
+  static inline Sim3d FromMatrix(const Eigen::Matrix3x4d& matrix) {
+    Sim3d t;
+    t.scale = matrix.col(0).norm();
+    t.rotation =
+        Eigen::Quaterniond(matrix.leftCols<3>() / t.scale).normalized();
+    t.translation = matrix.rightCols<1>();
+    return t;
+  }
+
   // Estimate tgtFromSrc transform. Return true if successful.
   bool Estimate(const std::vector<Eigen::Vector3d>& src,
                 const std::vector<Eigen::Vector3d>& tgt);

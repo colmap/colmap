@@ -47,9 +47,7 @@ bool Sim3d::Estimate(const std::vector<Eigen::Vector3d>& src,
     return false;
   }
   CHECK_EQ(results.size(), 1);
-  scale = results[0].col(0).norm();
-  rotation = Eigen::Quaterniond(results[0].leftCols<3>() / scale).normalized();
-  translation = results[0].rightCols<1>();
+  *this = Sim3d::FromMatrix(results[0]);
   return true;
 }
 

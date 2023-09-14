@@ -231,9 +231,7 @@ bool AlignReconstructionToLocations(
   }
 
   if (tgt_from_src != nullptr) {
-    tgt_from_src->scale = report.model.col(0).norm();
-    tgt_from_src->rotation = report.model.leftCols<3>() / tgt_from_src->scale;
-    tgt_from_src->translation = report.model.col(3);
+    *tgt_from_src = Sim3d::FromMatrix(report.model);
   }
 
   return true;
