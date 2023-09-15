@@ -155,7 +155,8 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
 
   // Synthesize images.
 
-  const int existing_num_images = (database == nullptr) ? 0 : database->NumImages();
+  const int existing_num_images =
+      (database == nullptr) ? 0 : database->NumImages();
   for (int image_idx = 0; image_idx < options.num_images; ++image_idx) {
     Image image;
     image.SetName("image" + std::to_string(existing_num_images + image_idx));
