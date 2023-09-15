@@ -37,6 +37,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 // Note that the test case values are obtained from OpenCV.
 TEST(DecomposeHomographyMatrix, Nominal) {
@@ -173,4 +174,5 @@ TEST(HomographyMatrixFromPose, PlanarScene) {
   EXPECT_EQ(H, H_ref);
 }
 
+}  // namespace
 }  // namespace colmap

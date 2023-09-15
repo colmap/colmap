@@ -38,6 +38,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(SceneClustering, Empty) {
   const std::vector<std::pair<image_t, image_t>> image_pairs;
@@ -159,4 +160,5 @@ TEST(SceneClustering, ThreeFlatClustersTwoOverlap) {
   EXPECT_TRUE(image_ids2.count(5));
 }
 
+}  // namespace
 }  // namespace colmap

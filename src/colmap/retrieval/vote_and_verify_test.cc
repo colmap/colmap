@@ -35,6 +35,7 @@
 
 namespace colmap {
 namespace retrieval {
+namespace {
 
 struct SyntheticData {
   FeatureGeometryTransform img2_from_img1;
@@ -108,5 +109,6 @@ TEST(VoteAndVerify, EffectiveInliers) {
   EXPECT_GT(num_inliers, 0.8 * kNumInliers);
 }
 
+}  // namespace
 }  // namespace retrieval
 }  // namespace colmap

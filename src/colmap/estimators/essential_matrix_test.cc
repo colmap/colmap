@@ -41,6 +41,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(EssentialMatrix, FivePoint) {
   const double points1_raw[] = {
@@ -153,4 +154,5 @@ TEST(EssentialMatrix, EightPoint) {
   EXPECT_TRUE(std::abs(s(2)) < 1e-5);
 }
 
+}  // namespace
 }  // namespace colmap

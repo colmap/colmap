@@ -37,6 +37,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(BundleAdjustment, AbsolutePose) {
   std::unique_ptr<ceres::CostFunction> cost_function(
@@ -212,4 +213,5 @@ TEST(BundleAdjustment, RelativePose) {
   EXPECT_EQ(residuals[0], 0.5);
 }
 
+}  // namespace
 }  // namespace colmap
