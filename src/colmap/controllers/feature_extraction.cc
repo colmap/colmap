@@ -288,11 +288,10 @@ class FeatureWriterThread : public Thread {
         LOG(INFO) << StringPrintf("  Camera:          #%d - %s",
                                   image_data.camera.CameraId(),
                                   image_data.camera.ModelName().c_str());
-        LOG(INFO) << StringPrintf("  Focal Length:    %.2fpx",
-                                  image_data.camera.MeanFocalLength());
-        if (image_data.camera.HasPriorFocalLength()) {
-          LOG(INFO) << " (Prior)";
-        }
+        LOG(INFO) << StringPrintf(
+            "  Focal Length:    %.2fpx%s",
+            image_data.camera.MeanFocalLength(),
+            image_data.camera.HasPriorFocalLength() ? " (Prior)" : "");
         const Eigen::Vector3d& translation_prior =
             image_data.image.CamFromWorldPrior().translation;
         if (translation_prior.array().isFinite().any()) {
