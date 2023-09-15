@@ -34,8 +34,6 @@
 #include "colmap/geometry/sim3.h"
 #include "colmap/math/random.h"
 
-#include <fstream>
-
 #include <Eigen/Core>
 #include <gtest/gtest.h>
 
