@@ -849,18 +849,12 @@ void OptionManager::Parse(const int argc, char** argv) {
     config::store(config::parse_command_line(argc, argv, *desc_), vmap);
 
     if (vmap.count("help")) {
-      std::cout << StringPrintf("%s (%s)",
-                                GetVersionInfo().c_str(),
-                                GetBuildInfo().c_str())
-                << std::endl
-                << std::endl;
-      std::cout
-          << "Options can either be specified via command-line or by defining"
-          << std::endl
-          << "them in a .ini project file passed to `--project_path`."
-          << std::endl
-          << std::endl;
-      std::cout << *desc_ << std::endl;
+      LOG(INFO) << StringPrintf(
+          "%s (%s)", GetVersionInfo().c_str(), GetBuildInfo().c_str());
+      LOG(INFO)
+          << "Options can either be specified via command-line or by defining "
+             "them in a .ini project file passed to `--project_path`.";
+      std::cout << *desc_;
       // NOLINTNEXTLINE(concurrency-mt-unsafe)
       exit(EXIT_SUCCESS);
     }
@@ -875,19 +869,17 @@ void OptionManager::Parse(const int argc, char** argv) {
       vmap.notify();
     }
   } catch (std::exception& exc) {
-    LOG(ERROR) << "Failed to parse options - " << exc.what() << "."
-              << std::endl;
+    LOG(ERROR) << "Failed to parse options - " << exc.what() << ".";
     // NOLINTNEXTLINE(concurrency-mt-unsafe)
     exit(EXIT_FAILURE);
   } catch (...) {
-    LOG(ERROR) << "Failed to parse options for unknown reason."
-              << std::endl;
+    LOG(ERROR) << "Failed to parse options for unknown reason.";
     // NOLINTNEXTLINE(concurrency-mt-unsafe)
     exit(EXIT_FAILURE);
   }
 
   if (!Check()) {
-    LOG(ERROR) << "Invalid options provided." << std::endl;
+    LOG(ERROR) << "Invalid options provided.";
     // NOLINTNEXTLINE(concurrency-mt-unsafe)
     exit(EXIT_FAILURE);
   }
@@ -897,7 +889,7 @@ bool OptionManager::Read(const std::string& path) {
   config::variables_map vmap;
 
   if (!ExistsFile(path)) {
-    std::cout << "ERROR: Configuration file does not exist." << std::endl;
+    LOG(ERROR) << "Configuration file does not exist.";
     return false;
   }
 
@@ -907,12 +899,10 @@ bool OptionManager::Read(const std::string& path) {
     config::store(config::parse_config_file(file, *desc_), vmap);
     vmap.notify();
   } catch (std::exception& e) {
-    std::cout << "ERROR: Failed to parse options " << e.what() << "."
-              << std::endl;
+    LOG(ERROR) << "Failed to parse options " << e.what() << ".";
     return false;
   } catch (...) {
-    std::cout << "ERROR: Failed to parse options for unknown reason."
-              << std::endl;
+    LOG(ERROR) << "Failed to parse options for unknown reason.";
     return false;
   }
 

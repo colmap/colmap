@@ -171,12 +171,12 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
                                i + 1,
                                reconstruction.NumRegImages()));
 
-    std::cout << "Reading image..." << std::endl;
+    LOG(INFO) << "Reading image...";
 
     colmap::Bitmap bitmap;
     CHECK(bitmap.Read(colmap::JoinPaths(image_path, image.Name())));
 
-    std::cout << "Undistorting image..." << std::endl;
+    LOG(INFO) << "Undistorting image...";
 
     UndistortCameraOptions undistortion_options;
     undistortion_options.max_image_size = options.max_image_size;
@@ -189,7 +189,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
                    &undistorted_bitmap,
                    &undistorted_camera);
 
-    std::cout << "Detecting lines...";
+    LOG(INFO) << "Detecting lines...";
 
     const std::vector<LineSegment> line_segments =
         DetectLineSegments(undistorted_bitmap, options.min_line_length);
@@ -197,7 +197,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
         ClassifyLineSegmentOrientations(line_segments,
                                         options.line_orientation_tolerance);
 
-    std::cout << StringPrintf(" %d", line_segments.size());
+    LOG(INFO) << StringPrintf(" %d", line_segments.size());
 
     std::vector<LineSegment> horizontal_line_segments;
     std::vector<LineSegment> vertical_line_segments;
@@ -218,12 +218,11 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
       }
     }
 
-    std::cout << StringPrintf(" (%d horizontal, %d vertical)",
+    LOG(INFO) << StringPrintf(" (%d horizontal, %d vertical)",
                               horizontal_lines.size(),
-                              vertical_lines.size())
-              << std::endl;
+                              vertical_lines.size());
 
-    std::cout << "Estimating vanishing points...";
+    LOG(INFO) << "Estimating vanishing points...";
 
     RANSACOptions ransac_options;
     ransac_options.max_error = options.max_line_vp_distance;
@@ -233,12 +232,11 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
     const auto vertical_report =
         ransac.Estimate(vertical_line_segments, vertical_lines);
 
-    std::cout << StringPrintf(" (%d horizontal inliers, %d vertical inliers)",
+    LOG(INFO) << StringPrintf(" (%d horizontal inliers, %d vertical inliers)",
                               horizontal_report.support.num_inliers,
-                              vertical_report.support.num_inliers)
-              << std::endl;
+                              vertical_report.support.num_inliers);
 
-    std::cout << "Composing coordinate axes..." << std::endl;
+    LOG(INFO) << "Composing coordinate axes...";
 
     const Eigen::Matrix3d inv_calib_matrix =
         undistorted_camera.CalibrationMatrix().inverse();
@@ -255,8 +253,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
         horizontal_axis_in_world = -horizontal_axis_in_world;
       }
       rightward_axes.push_back(horizontal_axis_in_world);
-      std::cout << "  Horizontal: " << horizontal_axis_in_world.transpose()
-                << std::endl;
+      LOG(INFO) << "Horizontal: " << horizontal_axis_in_world.transpose();
     }
 
     if (vertical_report.success) {
@@ -270,8 +267,7 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
         vertical_axis_in_world = -vertical_axis_in_world;
       }
       downward_axes.push_back(vertical_axis_in_world);
-      std::cout << "  Vertical: " << vertical_axis_in_world.transpose()
-                << std::endl;
+      LOG(INFO) << "Vertical: " << vertical_axis_in_world.transpose();
     }
   }
 
@@ -284,15 +280,14 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
         FindBestConsensusAxis(rightward_axes, options.max_axis_distance);
   }
 
-  std::cout << "Found rightward axis: " << frame.col(0).transpose()
-            << std::endl;
+  LOG(INFO) << "Found rightward axis: " << frame.col(0).transpose();
 
   if (downward_axes.size() > 0) {
     frame.col(1) =
         FindBestConsensusAxis(downward_axes, options.max_axis_distance);
   }
 
-  std::cout << "Found downward axis: " << frame.col(1).transpose() << std::endl;
+  LOG(INFO) << "Found downward axis: " << frame.col(1).transpose();
 
   if (rightward_axes.size() > 0 && downward_axes.size() > 0) {
     frame.col(2) = frame.col(0).cross(frame.col(1));
@@ -303,8 +298,8 @@ Eigen::Matrix3d EstimateManhattanWorldFrame(
     frame = orthonormal_frame;
   }
 
-  std::cout << "Found orthonormal frame: " << std::endl;
-  std::cout << frame << std::endl;
+  LOG(INFO) << "Found orthonormal frame: ";
+  LOG(INFO) << frame;
 
   return frame;
 }

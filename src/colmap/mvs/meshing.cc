@@ -416,10 +416,9 @@ class DelaunayMeshingInput {
       }
     }
 
-    std::cout << StringPrintf("Triangulation has %d using %d points.",
+    LOG(INFO) << StringPrintf("Triangulation has %d using %d points.",
                               triangulation.number_of_vertices(),
-                              points.size())
-              << std::endl;
+                              points.size());
 
     return triangulation;
   }
@@ -639,20 +638,18 @@ void WriteDelaunayTriangulationPly(const std::string& path,
   std::fstream file(path, std::ios::out);
   CHECK(file.is_open());
 
-  file << "ply" << std::endl;
-  file << "format ascii 1.0" << std::endl;
-  file << "element vertex " << triangulation.number_of_vertices() << std::endl;
-  file << "property float x" << std::endl;
-  file << "property float y" << std::endl;
-  file << "property float z" << std::endl;
-  file << "element edge " << triangulation.number_of_finite_edges()
-       << std::endl;
-  file << "property int vertex1" << std::endl;
-  file << "property int vertex2" << std::endl;
-  file << "element face " << triangulation.number_of_finite_facets()
-       << std::endl;
-  file << "property list uchar int vertex_index" << std::endl;
-  file << "end_header" << std::endl;
+  file << "ply";
+  file << "format ascii 1.0";
+  file << "element vertex " << triangulation.number_of_vertices();
+  file << "property float x";
+  file << "property float y";
+  file << "property float z";
+  file << "element edge " << triangulation.number_of_finite_edges();
+  file << "property int vertex1";
+  file << "property int vertex2";
+  file << "element face " << triangulation.number_of_finite_facets();
+  file << "property list uchar int vertex_index";
+  file << "end_header";
 
   std::unordered_map<const Delaunay::Vertex_handle, size_t> vertex_indices;
   vertex_indices.reserve(triangulation.number_of_vertices());
@@ -660,15 +657,14 @@ void WriteDelaunayTriangulationPly(const std::string& path,
        it != triangulation.finite_vertices_end();
        ++it) {
     vertex_indices.emplace(it, vertex_indices.size());
-    file << it->point().x() << " " << it->point().y() << " " << it->point().z()
-         << std::endl;
+    file << it->point().x() << " " << it->point().y() << " " << it->point().z();
   }
 
   for (auto it = triangulation.finite_edges_begin();
        it != triangulation.finite_edges_end();
        ++it) {
     file << vertex_indices.at(it->first->vertex(it->second)) << " "
-         << vertex_indices.at(it->first->vertex(it->third)) << std::endl;
+         << vertex_indices.at(it->first->vertex(it->third));
   }
 
   for (auto it = triangulation.finite_facets_begin();
@@ -682,8 +678,7 @@ void WriteDelaunayTriangulationPly(const std::string& path,
                 triangulation.vertex_triple_index(it->second, 1)))
          << " "
          << vertex_indices.at(it->first->vertex(
-                triangulation.vertex_triple_index(it->second, 2)))
-         << std::endl;
+                triangulation.vertex_triple_index(it->second, 2)));
   }
 }
 
@@ -705,12 +700,12 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
   CHECK(options.Check());
 
   // Create a delaunay triangulation of all input points.
-  std::cout << "Triangulating points..." << std::endl;
+  LOG(INFO) << "Triangulating points...";
   const auto triangulation = input_data.CreateSubSampledDelaunayTriangulation(
       options.max_proj_dist, options.max_depth_dist);
 
   // Helper class to efficiently trace rays through the triangulation.
-  std::cout << "Initializing ray tracer..." << std::endl;
+  LOG(INFO) << "Initializing ray tracer...";
   const DelaunayTriangulationRayCaster ray_caster(triangulation);
 
   // Helper class to efficiently compute edge weights in the s-t graph.
@@ -719,7 +714,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
   // Initialize the s-t graph with cells as nodes and oriented facets as edges.
 
-  std::cout << "Initializing graph optimization..." << std::endl;
+  LOG(INFO) << "Initializing graph optimization...";
 
   typedef std::unordered_map<const Delaunay::Cell_handle, DelaunayCellData>
       CellGraphData;
@@ -845,7 +840,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
     Timer timer;
     timer.Start();
 
-    std::cout << StringPrintf("Integrating image [%d/%d]",
+    LOG(INFO) << StringPrintf("Integrating image [%d/%d]",
                               i + 1,
                               input_data.images.size())
               << std::flush;
@@ -871,12 +866,12 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
       }
     }
 
-    std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
+    LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
   }
 
   // Setup the min-cut (max-flow) graph optimization.
 
-  std::cout << "Setting up optimization..." << std::endl;
+  LOG(INFO) << "Setting up optimization...";
 
   // Each oriented facet in the Delaunay triangulation corresponds to a directed
   // edge and each cell corresponds to a node in the graph.
@@ -926,10 +921,10 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
 
   // Extract the surface facets as the oriented min-cut of the graph.
 
-  std::cout << "Running graph-cut optimization..." << std::endl;
+  LOG(INFO) << "Running graph-cut optimization...";
   graph_cut.Compute();
 
-  std::cout << "Extracting surface as min-cut..." << std::endl;
+  LOG(INFO) << "Extracting surface as min-cut...";
 
   std::unordered_set<Delaunay::Vertex_handle> surface_vertices;
   std::vector<Delaunay::Facet> surface_facets;
@@ -976,7 +971,7 @@ PlyMesh DelaunayMeshing(const DelaunayMeshingOptions& options,
     }
   }
 
-  std::cout << "Creating surface mesh model..." << std::endl;
+  LOG(INFO) << "Creating surface mesh model...";
 
   PlyMesh mesh;
 
@@ -1028,7 +1023,7 @@ void SparseDelaunayMeshing(const DelaunayMeshingOptions& options,
 
   const auto mesh = DelaunayMeshing(options, input_data);
 
-  std::cout << "Writing surface mesh..." << std::endl;
+  LOG(INFO) << "Writing surface mesh...";
   WriteBinaryPlyMesh(output_path, mesh);
 
   timer.PrintSeconds();
@@ -1045,7 +1040,7 @@ void DenseDelaunayMeshing(const DelaunayMeshingOptions& options,
 
   const auto mesh = DelaunayMeshing(options, input_data);
 
-  std::cout << "Writing surface mesh..." << std::endl;
+  LOG(INFO) << "Writing surface mesh...";
   WriteBinaryPlyMesh(output_path, mesh);
 
   timer.PrintSeconds();

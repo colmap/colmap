@@ -107,19 +107,16 @@ int RunImageDeleter(int argc, char** argv) {
       const image_t image_id = std::stoi(image_id_str);
       if (reconstruction.ExistsImage(image_id)) {
         const auto& image = reconstruction.Image(image_id);
-        std::cout
-            << StringPrintf(
-                   "Deleting image_id=%d, image_name=%s from reconstruction",
-                   image.ImageId(),
-                   image.Name().c_str())
-            << std::endl;
+        LOG(INFO) << StringPrintf(
+            "Deleting image_id=%d, image_name=%s from reconstruction",
+            image.ImageId(),
+            image.Name().c_str());
         reconstruction.DeRegisterImage(image_id);
       } else {
-        std::cout << StringPrintf(
-                         "WARNING: Skipping image_id=%s, because it does not "
-                         "exist in the reconstruction",
-                         image_id_str.c_str())
-                  << std::endl;
+        LOG(INFO) << StringPrintf(
+            "WARNING: Skipping image_id=%s, because it does not "
+            "exist in the reconstruction",
+            image_id_str.c_str());
       }
     }
   }
@@ -134,19 +131,16 @@ int RunImageDeleter(int argc, char** argv) {
 
       const Image* image = reconstruction.FindImageWithName(image_name);
       if (image != nullptr) {
-        std::cout
-            << StringPrintf(
-                   "Deleting image_id=%d, image_name=%s from reconstruction",
-                   image->ImageId(),
-                   image->Name().c_str())
-            << std::endl;
+        LOG(INFO) << StringPrintf(
+            "Deleting image_id=%d, image_name=%s from reconstruction",
+            image->ImageId(),
+            image->Name().c_str());
         reconstruction.DeRegisterImage(image->ImageId());
       } else {
-        std::cout << StringPrintf(
-                         "WARNING: Skipping image_name=%s, because it does not "
-                         "exist in the reconstruction",
-                         image_name.c_str())
-                  << std::endl;
+        LOG(INFO) << StringPrintf(
+            "WARNING: Skipping image_name=%s, because it does not "
+            "exist in the reconstruction",
+            image_name.c_str());
       }
     }
   }
@@ -196,10 +190,9 @@ int RunImageFilterer(int argc, char** argv) {
   const size_t num_filtered_images =
       num_reg_images - reconstruction.NumRegImages();
 
-  std::cout << StringPrintf("Filtered %d images from a total of %d images",
+  LOG(INFO) << StringPrintf("Filtered %d images from a total of %d images",
                             num_filtered_images,
-                            num_reg_images)
-            << std::endl;
+                            num_reg_images);
 
   reconstruction.Write(output_path);
 
@@ -255,12 +248,12 @@ int RunImageRegistrator(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (!ExistsDir(input_path)) {
-    LOG(ERROR) << "`input_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`input_path` is not a directory";
     return EXIT_FAILURE;
   }
 
   if (!ExistsDir(output_path)) {
-    LOG(ERROR) << "`output_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`output_path` is not a directory";
     return EXIT_FAILURE;
   }
 
@@ -277,11 +270,8 @@ int RunImageRegistrator(int argc, char** argv) {
                                            min_num_matches,
                                            options.mapper->ignore_watermarks,
                                            options.mapper->image_names);
-    std::cout << std::endl;
     timer.PrintMinutes();
   }
-
-  std::cout << std::endl;
 
   auto reconstruction = std::make_shared<Reconstruction>();
   reconstruction->Read(input_path);
@@ -299,9 +289,8 @@ int RunImageRegistrator(int argc, char** argv) {
     PrintHeading1("Registering image #" + std::to_string(image.first) + " (" +
                   std::to_string(reconstruction->NumRegImages() + 1) + ")");
 
-    std::cout << "  => Image sees " << image.second.NumVisiblePoints3D()
-              << " / " << image.second.NumObservations() << " points"
-              << std::endl;
+    LOG(INFO) << "=> Image sees " << image.second.NumVisiblePoints3D() << " / "
+              << image.second.NumObservations() << " points";
 
     mapper.RegisterNextImage(mapper_options, image.first);
   }
@@ -352,10 +341,9 @@ int RunImageUndistorter(int argc, char** argv) {
   PrintHeading1("Reading reconstruction");
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
-  std::cout << StringPrintf(" => Reconstruction with %d images and %d points",
+  LOG(INFO) << StringPrintf(" => Reconstruction with %d images and %d points",
                             reconstruction.NumImages(),
-                            reconstruction.NumPoints3D())
-            << std::endl;
+                            reconstruction.NumPoints3D());
 
   std::vector<image_t> image_ids;
   if (!image_list_path.empty()) {
@@ -365,7 +353,7 @@ int RunImageUndistorter(int argc, char** argv) {
       if (image != nullptr) {
         image_ids.push_back(image->ImageId());
       } else {
-        std::cout << "WARN: Cannot find image " << image_name << std::endl;
+        LOG(INFO) << "WARN: Cannot find image " << image_name;
       }
     }
   }
@@ -379,8 +367,7 @@ int RunImageUndistorter(int argc, char** argv) {
     copy_type = CopyType::HARD_LINK;
   } else {
     LOG(ERROR) << "Invalid `copy_policy` - supported values are "
-                 "{'copy', 'soft-link', 'hard-link'}."
-              << std::endl;
+                  "{'copy', 'soft-link', 'hard-link'}.";
     return EXIT_FAILURE;
   }
 
@@ -406,8 +393,7 @@ int RunImageUndistorter(int argc, char** argv) {
                                                       output_path);
   } else {
     LOG(ERROR) << "Invalid `output_type` - supported values are "
-                 "{'COLMAP', 'PMVS', 'CMP-MVS'}."
-              << std::endl;
+                  "{'COLMAP', 'PMVS', 'CMP-MVS'}.";
     return EXIT_FAILURE;
   }
 
@@ -471,8 +457,7 @@ int RunImageUndistorterStandalone(int argc, char** argv) {
 
       std::getline(line_stream, item, ' ');
       if (!ExistsCameraModelWithName(item)) {
-        LOG(ERROR) << "Camera model " << item << " does not exist"
-                  << std::endl;
+        LOG(ERROR) << "Camera model " << item << " does not exist";
         return EXIT_FAILURE;
       }
       camera.SetModelIdFromName(item);

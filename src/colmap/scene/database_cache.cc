@@ -53,7 +53,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   Timer timer;
 
   timer.Start();
-  std::cout << "Loading cameras..." << std::flush;
+  LOG(INFO) << "Loading cameras..." << std::flush;
 
   {
     std::vector<class Camera> cameras = database.ReadAllCameras();
@@ -64,26 +64,22 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
     }
   }
 
-  std::cout << StringPrintf(" %d in %.3fs",
-                            cache->cameras_.size(),
-                            timer.ElapsedSeconds())
-            << std::endl;
+  LOG(INFO) << StringPrintf(
+      " %d in %.3fs", cache->cameras_.size(), timer.ElapsedSeconds());
 
   //////////////////////////////////////////////////////////////////////////////
   // Load matches
   //////////////////////////////////////////////////////////////////////////////
 
   timer.Restart();
-  std::cout << "Loading matches..." << std::flush;
+  LOG(INFO) << "Loading matches..." << std::flush;
 
   std::vector<image_pair_t> image_pair_ids;
   std::vector<TwoViewGeometry> two_view_geometries;
   database.ReadTwoViewGeometries(&image_pair_ids, &two_view_geometries);
 
-  std::cout << StringPrintf(" %d in %.3fs",
-                            image_pair_ids.size(),
-                            timer.ElapsedSeconds())
-            << std::endl;
+  LOG(INFO) << StringPrintf(
+      " %d in %.3fs", image_pair_ids.size(), timer.ElapsedSeconds());
 
   auto UseInlierMatchesCheck = [min_num_matches, ignore_watermarks](
                                    const TwoViewGeometry& two_view_geometry) {
@@ -98,7 +94,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   //////////////////////////////////////////////////////////////////////////////
 
   timer.Restart();
-  std::cout << "Loading images..." << std::flush;
+  LOG(INFO) << "Loading images..." << std::flush;
 
   std::unordered_set<image_t> image_ids;
 
@@ -147,11 +143,10 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
       }
     }
 
-    std::cout << StringPrintf(" %d in %.3fs (connected %d)",
+    LOG(INFO) << StringPrintf(" %d in %.3fs (connected %d)",
                               num_images,
                               timer.ElapsedSeconds(),
-                              connected_image_ids.size())
-              << std::endl;
+                              connected_image_ids.size());
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -159,7 +154,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   //////////////////////////////////////////////////////////////////////////////
 
   timer.Restart();
-  std::cout << "Building correspondence graph..." << std::flush;
+  LOG(INFO) << "Building correspondence graph..." << std::flush;
 
   cache->correspondence_graph_ = std::make_shared<class CorrespondenceGraph>();
 
@@ -195,10 +190,9 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
         cache->correspondence_graph_->NumCorrespondencesForImage(image.first));
   }
 
-  std::cout << StringPrintf(" in %.3fs (ignored %d)",
+  LOG(INFO) << StringPrintf(" in %.3fs (ignored %d)",
                             timer.ElapsedSeconds(),
-                            num_ignored_image_pairs)
-            << std::endl;
+                            num_ignored_image_pairs);
 
   return cache;
 }

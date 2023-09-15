@@ -50,7 +50,7 @@ void CudaTimer::Print(const std::string& message) {
   CUDA_SAFE_CALL(cudaEventRecord(stop_, 0));
   CUDA_SAFE_CALL(cudaEventSynchronize(stop_));
   CUDA_SAFE_CALL(cudaEventElapsedTime(&elapsed_time_, start_, stop_));
-  std::cout << StringPrintf(
+  LOG(INFO) << StringPrintf(
       "%s: %.4fs", message.c_str(), elapsed_time_ / 1000.0f);
 }
 

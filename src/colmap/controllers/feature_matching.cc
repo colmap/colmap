@@ -45,7 +45,7 @@ namespace colmap {
 namespace {
 
 void PrintElapsedTime(const Timer& timer) {
-  std::cout << StringPrintf(" in %.3fs", timer.ElapsedSeconds()) << std::endl;
+  LOG(INFO) << StringPrintf(" in %.3fs", timer.ElapsedSeconds());
 }
 
 void IndexImagesInVisualIndex(const int num_threads,
@@ -67,7 +67,7 @@ void IndexImagesInVisualIndex(const int num_threads,
     Timer timer;
     timer.Start();
 
-    std::cout << StringPrintf("Indexing image [%d/%d]", i + 1, image_ids.size())
+    LOG(INFO) << StringPrintf("Indexing image [%d/%d]", i + 1, image_ids.size())
               << std::flush;
 
     auto keypoints = *cache->GetKeypoints(image_ids[i]);
@@ -148,7 +148,7 @@ void MatchNearestNeighborsInVisualIndex(const int num_threads,
     Timer timer;
     timer.Start();
 
-    std::cout << StringPrintf("Matching image [%d/%d]", i + 1, image_ids.size())
+    LOG(INFO) << StringPrintf("Matching image [%d/%d]", i + 1, image_ids.size())
               << std::flush;
 
     // Push the next image to the retrieval queue.
@@ -230,7 +230,7 @@ class ExhaustiveFeatureMatcher : public Thread {
         Timer timer;
         timer.Start();
 
-        std::cout << StringPrintf("Matching block [%d/%d, %d/%d]",
+        LOG(INFO) << StringPrintf("Matching block [%d/%d, %d/%d]",
                                   start_idx1 / block_size + 1,
                                   num_blocks,
                                   start_idx2 / block_size + 1,
@@ -361,7 +361,7 @@ class SequentialFeatureMatcher : public Thread {
       Timer timer;
       timer.Start();
 
-      std::cout << StringPrintf("Matching image [%d/%d]",
+      LOG(INFO) << StringPrintf("Matching image [%d/%d]",
                                 image_idx1 + 1,
                                 image_ids.size())
                 << std::flush;
@@ -513,8 +513,7 @@ class VocabTreeFeatureMatcher : public Thread {
         }
 
         if (image_name_to_image_id.count(line) == 0) {
-          LOG(ERROR) << "Image " << line << " does not exist."
-                    << std::endl;
+          LOG(ERROR) << "Image " << line << " does not exist.";
         } else {
           image_ids.push_back(image_name_to_image_id.at(line));
         }
@@ -613,7 +612,7 @@ class SpatialFeatureMatcher : public Thread {
     Timer timer;
     timer.Start();
 
-    std::cout << "Indexing images..." << std::flush;
+    LOG(INFO) << "Indexing images..." << std::flush;
 
     GPSTransform gps_transform;
 
@@ -666,7 +665,7 @@ class SpatialFeatureMatcher : public Thread {
     PrintElapsedTime(timer);
 
     if (num_locations == 0) {
-      std::cout << " => No images with location data." << std::endl;
+      LOG(INFO) << " => No images with location data.";
       GetTimer().PrintMinutes();
       return;
     }
@@ -677,7 +676,7 @@ class SpatialFeatureMatcher : public Thread {
 
     timer.Restart();
 
-    std::cout << "Building search index..." << std::flush;
+    LOG(INFO) << "Building search index..." << std::flush;
 
     flann::Matrix<float> locations(
         location_matrix.data(), num_locations, location_matrix.cols());
@@ -694,7 +693,7 @@ class SpatialFeatureMatcher : public Thread {
 
     timer.Restart();
 
-    std::cout << "Searching for nearest neighbors..." << std::flush;
+    LOG(INFO) << "Searching for nearest neighbors..." << std::flush;
 
     const int knn = std::min<int>(options_.max_num_neighbors, num_locations);
 
@@ -738,7 +737,7 @@ class SpatialFeatureMatcher : public Thread {
 
       timer.Restart();
 
-      std::cout << StringPrintf("Matching image [%d/%d]", i + 1, num_locations)
+      LOG(INFO) << StringPrintf("Matching image [%d/%d]", i + 1, num_locations)
                 << std::flush;
 
       image_pairs.clear();
@@ -836,10 +835,8 @@ class TransitiveFeatureMatcher : public Thread {
       Timer timer;
       timer.Start();
 
-      std::cout << StringPrintf("Iteration [%d/%d]",
-                                iteration + 1,
-                                options_.num_iterations)
-                << std::endl;
+      LOG(INFO) << StringPrintf(
+          "Iteration [%d/%d]", iteration + 1, options_.num_iterations);
 
       std::vector<std::pair<image_t, image_t>> existing_image_pairs;
       std::vector<int> existing_num_inliers;
@@ -871,8 +868,8 @@ class TransitiveFeatureMatcher : public Thread {
                 image_pair_ids.insert(image_pair_id);
                 if (image_pairs.size() >= batch_size) {
                   num_batches += 1;
-                  std::cout << StringPrintf("  Batch %d", num_batches)
-                            << std::flush;
+                  LOG(INFO)
+                      << StringPrintf("  Batch %d", num_batches) << std::flush;
                   DatabaseTransaction database_transaction(&database_);
                   matcher_.Match(image_pairs);
                   image_pairs.clear();
@@ -891,7 +888,7 @@ class TransitiveFeatureMatcher : public Thread {
       }
 
       num_batches += 1;
-      std::cout << StringPrintf("  Batch %d", num_batches) << std::flush;
+      LOG(INFO) << StringPrintf("  Batch %d", num_batches) << std::flush;
       DatabaseTransaction database_transaction(&database_);
       matcher_.Match(image_pairs);
       PrintElapsedTime(timer);
@@ -987,13 +984,11 @@ class ImagePairsFeatureMatcher : public Thread {
       StringTrim(&image_name2);
 
       if (image_name_to_image_id.count(image_name1) == 0) {
-        LOG(ERROR) << "Image " << image_name1 << " does not exist."
-                  << std::endl;
+        LOG(ERROR) << "Image " << image_name1 << " does not exist.";
         continue;
       }
       if (image_name_to_image_id.count(image_name2) == 0) {
-        LOG(ERROR) << "Image " << image_name2 << " does not exist."
-                  << std::endl;
+        LOG(ERROR) << "Image " << image_name2 << " does not exist.";
         continue;
       }
 
@@ -1025,7 +1020,7 @@ class ImagePairsFeatureMatcher : public Thread {
       Timer timer;
       timer.Start();
 
-      std::cout << StringPrintf("Matching block [%d/%d]",
+      LOG(INFO) << StringPrintf("Matching block [%d/%d]",
                                 i / options_.block_size + 1,
                                 num_match_blocks)
                 << std::flush;
@@ -1125,24 +1120,21 @@ class FeaturePairsFeatureMatcher : public Thread {
       try {
         line_stream >> image_name1 >> image_name2;
       } catch (...) {
-        LOG(ERROR) << "Could not read image pair." << std::endl;
+        LOG(ERROR) << "Could not read image pair.";
         break;
       }
 
-      std::cout << StringPrintf(
-                       "%s - %s", image_name1.c_str(), image_name2.c_str())
-                << std::endl;
+      LOG(INFO) << StringPrintf(
+          "%s - %s", image_name1.c_str(), image_name2.c_str());
 
       if (image_name_to_image.count(image_name1) == 0) {
-        std::cout << StringPrintf("SKIP: Image %s not found in database.",
-                                  image_name1.c_str())
-                  << std::endl;
+        LOG(INFO) << StringPrintf("SKIP: Image %s not found in database.",
+                                  image_name1.c_str());
         break;
       }
       if (image_name_to_image.count(image_name2) == 0) {
-        std::cout << StringPrintf("SKIP: Image %s not found in database.",
-                                  image_name2.c_str())
-                  << std::endl;
+        LOG(INFO) << StringPrintf("SKIP: Image %s not found in database.",
+                                  image_name2.c_str());
         break;
       }
 
@@ -1151,8 +1143,7 @@ class FeaturePairsFeatureMatcher : public Thread {
 
       bool skip_pair = false;
       if (database_.ExistsInlierMatches(image1.ImageId(), image2.ImageId())) {
-        std::cout << "SKIP: Matches for image pair already exist in database."
-                  << std::endl;
+        LOG(INFO) << "SKIP: Matches for image pair already exist in database.";
         skip_pair = true;
       }
 
@@ -1170,7 +1161,7 @@ class FeaturePairsFeatureMatcher : public Thread {
         try {
           line_stream >> match.point2D_idx1 >> match.point2D_idx2;
         } catch (...) {
-          LOG(ERROR) << "Cannot read feature matches." << std::endl;
+          LOG(ERROR) << "Cannot read feature matches.";
           break;
         }
 

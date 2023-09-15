@@ -314,7 +314,6 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
   ceres::Solve(solver_options, &problem, &summary);
 
   if (solver_options.minimizer_progress_to_stdout) {
-    std::cout << std::endl;
   }
 
   if (options.print_summary) {
@@ -512,7 +511,6 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
   ceres::Solve(solver_options, &problem, &summary);
 
   if (solver_options.minimizer_progress_to_stdout) {
-    std::cout << std::endl;
   }
 
   if (options.print_summary) {

@@ -450,7 +450,7 @@ void CameraTab::SetModel() {
   table_widget_->blockSignals(true);
 
   for (QModelIndex& index : select->selectedRows()) {
-    std::cout << index.row() << std::endl;
+    LOG(INFO) << index.row();
     auto& camera = cameras_.at(index.row());
     camera.InitializeWithName(camera_model.toUtf8().constData(),
                               camera.MeanFocalLength(),

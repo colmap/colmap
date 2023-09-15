@@ -56,9 +56,9 @@ bool __CheckOptionImpl(const char* file,
     return true;
   } else {
     LOG(ERROR) << StringPrintf("[%s:%d] Check failed: %s",
-                              __GetConstFileBaseName(file),
-                              line,
-                              expr_str);
+                               __GetConstFileBaseName(file),
+                               line,
+                               expr_str);
     return false;
   }
 }

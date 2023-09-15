@@ -45,7 +45,7 @@ namespace colmap {
 bool VerifyCameraParams(const std::string& camera_model,
                         const std::string& params) {
   if (!ExistsCameraModelWithName(camera_model)) {
-    LOG(ERROR) << "Camera model does not exist" << std::endl;
+    LOG(ERROR) << "Camera model does not exist";
     return false;
   }
 
@@ -54,7 +54,7 @@ bool VerifyCameraParams(const std::string& camera_model,
 
   if (camera_params.size() > 0 &&
       !CameraModelVerifyParams(camera_model_id, camera_params)) {
-    LOG(ERROR) << "Invalid camera parameters" << std::endl;
+    LOG(ERROR) << "Invalid camera parameters";
     return false;
   }
   return true;
@@ -63,9 +63,9 @@ bool VerifyCameraParams(const std::string& camera_model,
 bool VerifySiftGPUParams(const bool use_gpu) {
 #if !defined(COLMAP_GPU_ENABLED)
   if (use_gpu) {
-    LOG(ERROR) << "Cannot use Sift GPU without CUDA or OpenGL support; "
-                 "set SiftExtraction.use_gpu or SiftMatching.use_gpu to false."
-              << std::endl;
+    LOG(ERROR)
+        << "Cannot use Sift GPU without CUDA or OpenGL support; "
+           "set SiftExtraction.use_gpu or SiftMatching.use_gpu to false.";
     return false;
   }
 #endif
@@ -131,7 +131,7 @@ int RunFeatureExtractor(int argc, char** argv) {
     options.sift_extraction->normalization =
         SiftExtractionOptions::Normalization::L2;
   } else {
-    LOG(ERROR) << "Invalid `descriptor_normalization`" << std::endl;
+    LOG(ERROR) << "Invalid `descriptor_normalization`";
     return EXIT_FAILURE;
   }
 
@@ -143,7 +143,7 @@ int RunFeatureExtractor(int argc, char** argv) {
   }
 
   if (!ExistsCameraModelWithName(reader_options.camera_model)) {
-    LOG(ERROR) << "Camera model does not exist" << std::endl;
+    LOG(ERROR) << "Camera model does not exist";
   }
 
   if (!VerifyCameraParams(reader_options.camera_model,

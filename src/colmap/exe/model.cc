@@ -95,8 +95,8 @@ void WriteBoundingBox(const std::string& reconstruction_path,
 
     // Ensure that we don't loose any precision by storing in text.
     file.precision(17);
-    file << bounds.first.transpose() << std::endl;
-    file << bounds.second.transpose() << std::endl;
+    file << bounds.first.transpose();
+    file << bounds.second.transpose();
   }
   // write oriented bounding box
   {
@@ -108,9 +108,9 @@ void WriteBoundingBox(const std::string& reconstruction_path,
     // Ensure that we don't loose any precision by storing in text.
     file.precision(17);
     const Eigen::Vector3d center = (bounds.first + bounds.second) * 0.5;
-    file << center.transpose() << std::endl << std::endl;
-    file << "1 0 0\n0 1 0\n0 0 1" << std::endl << std::endl;
-    file << extent.transpose() << std::endl;
+    file << center.transpose() << std::endl;
+    file << "1 0 0\n0 1 0\n0 0 1" << std::endl;
+    file << extent.transpose();
   }
 }
 
@@ -121,17 +121,17 @@ std::vector<Eigen::Vector3d> ConvertCameraLocations(
   if (ref_is_gps) {
     const GPSTransform gps_transform(GPSTransform::WGS84);
     if (alignment_type != "enu") {
-      std::cout << "\nConverting Alignment Coordinates from GPS (lat/lon/alt) "
+      LOG(INFO) << "\nConverting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to ECEF.\n";
       return gps_transform.EllToXYZ(ref_locations);
     } else {
-      std::cout << "\nConverting Alignment Coordinates from GPS (lat/lon/alt) "
+      LOG(INFO) << "\nConverting Alignment Coordinates from GPS (lat/lon/alt) "
                    "to ENU.\n";
       return gps_transform.EllToENU(
           ref_locations, ref_locations[0](0), ref_locations[0](1));
     }
   } else {
-    std::cout << "\nCartesian Alignment Coordinates extracted (MUST NOT BE "
+    LOG(INFO) << "\nCartesian Alignment Coordinates extracted (MUST NOT BE "
                  "GPS coords!).\n";
     return ref_locations;
   }
@@ -179,28 +179,26 @@ void WriteComparisonErrorsCSV(const std::string& path,
   CHECK(file.is_open()) << path;
 
   file.precision(17);
-  file << "# Model comparison pose errors: one entry per common image"
-       << std::endl;
-  file << "# <rotation error (deg)>, <proj center error>" << std::endl;
+  file << "# Model comparison pose errors: one entry per common image";
+  file << "# <rotation error (deg)>, <proj center error>";
   for (size_t i = 0; i < errors.size(); ++i) {
-    file << errors[i].rotation_error_deg << ", " << errors[i].proj_center_error
-         << std::endl;
+    file << errors[i].rotation_error_deg << ", " << errors[i].proj_center_error;
   }
 }
 
 void PrintErrorStats(std::ostream& out, std::vector<double>& vals) {
   const size_t len = vals.size();
   if (len == 0) {
-    out << "Cannot extract error statistics from empty input" << std::endl;
+    out << "Cannot extract error statistics from empty input";
     return;
   }
   std::sort(vals.begin(), vals.end());
-  out << "Min:    " << vals.front() << std::endl;
-  out << "Max:    " << vals.back() << std::endl;
-  out << "Mean:   " << Mean(vals) << std::endl;
-  out << "Median: " << Median(vals) << std::endl;
-  out << "P90:    " << vals[size_t(0.9 * len)] << std::endl;
-  out << "P99:    " << vals[size_t(0.99 * len)] << std::endl;
+  out << "Min:    " << vals.front();
+  out << "Max:    " << vals.back();
+  out << "Mean:   " << Mean(vals);
+  out << "Median: " << Median(vals);
+  out << "P90:    " << vals[size_t(0.9 * len)];
+  out << "P99:    " << vals[size_t(0.99 * len)];
 }
 
 void PrintComparisonSummary(std::ostream& out,
@@ -213,9 +211,9 @@ void PrintComparisonSummary(std::ostream& out,
     rotation_errors_deg.push_back(error.rotation_error_deg);
     proj_center_errors.push_back(error.proj_center_error);
   }
-  out << std::endl << "Rotation errors (degrees)" << std::endl;
+  out << std::endl << "Rotation errors (degrees)";
   PrintErrorStats(out, rotation_errors_deg);
-  out << std::endl << "Projection center errors" << std::endl;
+  out << std::endl << "Projection center errors";
   PrintErrorStats(out, proj_center_errors);
 }
 
@@ -295,23 +293,20 @@ int RunModelAligner(int argc, char** argv) {
       "plane", "ecef", "enu", "enu-plane", "enu-plane-unscaled", "custom"};
   if (alignment_options.count(alignment_type) == 0) {
     LOG(ERROR) << "Invalid `alignment_type` - supported values are "
-                 "{'plane', 'ecef', 'enu', 'enu-plane', 'enu-plane-unscaled', "
-                 "'custom'}"
-              << std::endl;
+                  "{'plane', 'ecef', 'enu', 'enu-plane', 'enu-plane-unscaled', "
+                  "'custom'}";
     return EXIT_FAILURE;
   }
 
   if (ransac_options.max_error <= 0) {
-    std::cout << "ERROR: You must provide a maximum alignment error > 0"
-              << std::endl;
+    LOG(ERROR) << "You must provide a maximum alignment error > 0";
     return EXIT_FAILURE;
   }
 
   if (alignment_type != "plane" && database_path.empty() &&
       ref_images_path.empty()) {
     LOG(ERROR) << "Location alignment requires either database or "
-                 "location file path."
-              << std::endl;
+                  "location file path.";
     return EXIT_FAILURE;
   }
 
@@ -330,14 +325,13 @@ int RunModelAligner(int argc, char** argv) {
                                 &ref_image_names,
                                 &ref_locations);
   } else if (alignment_type != "plane") {
-    LOG(ERROR) << "Use location file or database, not both" << std::endl;
+    LOG(ERROR) << "Use location file or database, not both";
     return EXIT_FAILURE;
   }
 
   if (alignment_type != "plane" &&
       static_cast<int>(ref_locations.size()) < min_common_images) {
-    std::cout << "ERROR: Cannot align with insufficient reference locations."
-              << std::endl;
+    LOG(ERROR) << "Cannot align with insufficient reference locations.";
     return EXIT_FAILURE;
   }
 
@@ -351,9 +345,8 @@ int RunModelAligner(int argc, char** argv) {
     AlignToPrincipalPlane(&reconstruction, &tform);
   } else {
     PrintHeading2("Aligning reconstruction to " + alignment_type);
-    std::cout << StringPrintf(" => Using %d reference images",
-                              ref_image_names.size())
-              << std::endl;
+    LOG(INFO) << StringPrintf(" => Using %d reference images",
+                              ref_image_names.size());
 
     const bool alignment_success =
         AlignReconstructionToLocations(reconstruction,
@@ -372,10 +365,9 @@ int RunModelAligner(int argc, char** argv) {
         errors.push_back((image->ProjectionCenter() - ref_locations[i]).norm());
       }
     }
-    std::cout << StringPrintf("=> Alignment error: %f (mean), %f (median)",
+    LOG(INFO) << StringPrintf("=> Alignment error: %f (mean), %f (median)",
                               Mean(errors),
-                              Median(errors))
-              << std::endl;
+                              Median(errors));
 
     if (alignment_success && StringStartsWith(alignment_type, "enu-plane")) {
       PrintHeading2("Aligning ECEF aligned reconstruction to ENU plane");
@@ -396,7 +388,7 @@ int RunModelAligner(int argc, char** argv) {
         const Sim3d origin_align(
             1.0, Eigen::Quaterniond::Identity(), trans_align);
 
-        std::cout << "\n Aligning reconstruction's origin with ref origin: "
+        LOG(INFO) << "\n Aligning reconstruction's origin with ref origin: "
                   << first_img_position.transpose() << "\n";
 
         reconstruction.Transform(origin_align);
@@ -411,14 +403,14 @@ int RunModelAligner(int argc, char** argv) {
   }
 
   if (alignment_success) {
-    std::cout << "=> Alignment succeeded" << std::endl;
+    LOG(INFO) << "=> Alignment succeeded";
     reconstruction.Write(output_path);
     if (!transform_path.empty()) {
       tform.ToFile(transform_path);
     }
     return EXIT_SUCCESS;
   } else {
-    std::cout << "=> Alignment failed" << std::endl;
+    LOG(INFO) << "=> Alignment failed";
     return EXIT_FAILURE;
   }
 }
@@ -435,45 +427,36 @@ int RunModelAnalyzer(int argc, char** argv) {
   Reconstruction reconstruction;
   reconstruction.Read(path);
 
-  std::cout << StringPrintf("Cameras: %d", reconstruction.NumCameras())
-            << std::endl;
-  std::cout << StringPrintf("Images: %d", reconstruction.NumImages())
-            << std::endl;
-  std::cout << StringPrintf("Registered images: %d",
-                            reconstruction.NumRegImages())
-            << std::endl;
-  std::cout << StringPrintf("Points: %d", reconstruction.NumPoints3D())
-            << std::endl;
-  std::cout << StringPrintf("Observations: %d",
-                            reconstruction.ComputeNumObservations())
-            << std::endl;
-  std::cout << StringPrintf("Mean track length: %f",
-                            reconstruction.ComputeMeanTrackLength())
-            << std::endl;
-  std::cout << StringPrintf("Mean observations per image: %f",
-                            reconstruction.ComputeMeanObservationsPerRegImage())
-            << std::endl;
-  std::cout << StringPrintf("Mean reprojection error: %fpx",
-                            reconstruction.ComputeMeanReprojectionError())
-            << std::endl;
+  LOG(INFO) << StringPrintf("Cameras: %d", reconstruction.NumCameras());
+  LOG(INFO) << StringPrintf("Images: %d", reconstruction.NumImages());
+  LOG(INFO) << StringPrintf("Registered images: %d",
+                            reconstruction.NumRegImages());
+  LOG(INFO) << StringPrintf("Points: %d", reconstruction.NumPoints3D());
+  LOG(INFO) << StringPrintf("Observations: %d",
+                            reconstruction.ComputeNumObservations());
+  LOG(INFO) << StringPrintf("Mean track length: %f",
+                            reconstruction.ComputeMeanTrackLength());
+  LOG(INFO) << StringPrintf(
+      "Mean observations per image: %f",
+      reconstruction.ComputeMeanObservationsPerRegImage());
+  LOG(INFO) << StringPrintf("Mean reprojection error: %fpx",
+                            reconstruction.ComputeMeanReprojectionError());
 
   // verbose information
   if (verbose) {
     PrintHeading2("Cameras");
     for (const auto& camera : reconstruction.Cameras()) {
-      std::cout << StringPrintf(" - Camera Id: %d, Model Name: %s, Params: %s",
+      LOG(INFO) << StringPrintf(" - Camera Id: %d, Model Name: %s, Params: %s",
                                 camera.first,
                                 camera.second.ModelName().c_str(),
-                                camera.second.ParamsToString().c_str())
-                << std::endl;
+                                camera.second.ParamsToString().c_str());
     }
 
     PrintHeading2("Images");
     for (const auto& image_id : reconstruction.RegImageIds()) {
-      std::cout << StringPrintf(" - Registered Image Id: %d, Name: %s",
+      LOG(INFO) << StringPrintf(" - Registered Image Id: %d, Name: %s",
                                 image_id,
-                                reconstruction.Image(image_id).Name().c_str())
-                << std::endl;
+                                reconstruction.Image(image_id).Name().c_str());
     }
   }
 
@@ -501,8 +484,7 @@ int RunModelComparer(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (!output_path.empty() && !ExistsDir(output_path)) {
-    LOG(ERROR) << "Provided output path is not a valid directory"
-              << std::endl;
+    LOG(ERROR) << "Provided output path is not a valid directory";
     return EXIT_FAILURE;
   }
 
@@ -544,22 +526,17 @@ bool CompareModels(const Reconstruction& reconstruction1,
                    std::vector<ImageAlignmentError>& errors,
                    Sim3d& rec2_from_rec1) {
   PrintHeading1("Reconstruction 1");
-  std::cout << StringPrintf("Images: %d", reconstruction1.NumRegImages())
-            << std::endl;
-  std::cout << StringPrintf("Points: %d", reconstruction1.NumPoints3D())
-            << std::endl;
+  LOG(INFO) << StringPrintf("Images: %d", reconstruction1.NumRegImages());
+  LOG(INFO) << StringPrintf("Points: %d", reconstruction1.NumPoints3D());
 
   PrintHeading1("Reconstruction 2");
-  std::cout << StringPrintf("Images: %d", reconstruction2.NumRegImages())
-            << std::endl;
-  std::cout << StringPrintf("Points: %d", reconstruction2.NumPoints3D())
-            << std::endl;
+  LOG(INFO) << StringPrintf("Images: %d", reconstruction2.NumRegImages());
+  LOG(INFO) << StringPrintf("Points: %d", reconstruction2.NumPoints3D());
 
   PrintHeading1("Comparing reconstructed image poses");
   const std::vector<std::pair<image_t, image_t>> common_image_ids =
       reconstruction1.FindCommonRegImageIds(reconstruction2);
-  std::cout << StringPrintf("Common images: %d", common_image_ids.size())
-            << std::endl;
+  LOG(INFO) << StringPrintf("Common images: %d", common_image_ids.size());
 
   bool success = false;
   if (alignment_error == "reprojection") {
@@ -576,17 +553,17 @@ bool CompareModels(const Reconstruction& reconstruction1,
                              /*max_proj_center_error=*/max_proj_center_error,
                              &rec2_from_rec1);
   } else {
-    std::cout << "ERROR: Invalid alignment_error specified." << std::endl;
+    LOG(ERROR) << "Invalid alignment_error specified.";
     return false;
   }
 
   if (!success) {
-    std::cout << "=> Reconstruction alignment failed" << std::endl;
+    LOG(INFO) << "=> Reconstruction alignment failed";
     return false;
   }
 
-  std::cout << "Computed alignment transform:" << std::endl
-            << rec2_from_rec1.ToMatrix() << std::endl;
+  LOG(INFO) << "Computed alignment transform:" << std::endl
+            << rec2_from_rec1.ToMatrix();
 
   errors = ComputeImageAlignmentError(
       reconstruction1, reconstruction2, rec2_from_rec1);
@@ -639,7 +616,7 @@ int RunModelConverter(int argc, char** argv) {
                               1,
                               Eigen::Vector3d(1, 0, 0));
   } else {
-    LOG(ERROR) << "Invalid `output_type`" << std::endl;
+    LOG(ERROR) << "Invalid `output_type`";
     return EXIT_FAILURE;
   }
 
@@ -664,20 +641,19 @@ int RunModelCropper(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (!ExistsDir(input_path)) {
-    LOG(ERROR) << "`input_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`input_path` is not a directory";
     return EXIT_FAILURE;
   }
 
   if (!ExistsDir(output_path)) {
-    LOG(ERROR) << "`output_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`output_path` is not a directory";
     return EXIT_FAILURE;
   }
 
   std::vector<double> boundary_elements = CSVToVector<double>(boundary);
   if (boundary_elements.size() != 2 && boundary_elements.size() != 6) {
     LOG(ERROR) << "Invalid `boundary` - supported values are "
-                 "'x1,y1,z1,x2,y2,z2' or 'p1,p2'."
-              << std::endl;
+                  "'x1,y1,z1,x2,y2,z2' or 'p1,p2'.";
     return EXIT_FAILURE;
   }
 
@@ -718,7 +694,7 @@ int RunModelCropper(int argc, char** argv) {
   reconstruction.Crop(bounding_box).Write(output_path);
   WriteBoundingBox(output_path, bounding_box);
 
-  std::cout << "=> Cropping succeeded" << std::endl;
+  LOG(INFO) << "=> Cropping succeeded";
   timer.PrintMinutes();
   return EXIT_SUCCESS;
 }
@@ -739,30 +715,24 @@ int RunModelMerger(int argc, char** argv) {
   Reconstruction reconstruction1;
   reconstruction1.Read(input_path1);
   PrintHeading2("Reconstruction 1");
-  std::cout << StringPrintf("Images: %d", reconstruction1.NumRegImages())
-            << std::endl;
-  std::cout << StringPrintf("Points: %d", reconstruction1.NumPoints3D())
-            << std::endl;
+  LOG(INFO) << StringPrintf("Images: %d", reconstruction1.NumRegImages());
+  LOG(INFO) << StringPrintf("Points: %d", reconstruction1.NumPoints3D());
 
   Reconstruction reconstruction2;
   reconstruction2.Read(input_path2);
   PrintHeading2("Reconstruction 2");
-  std::cout << StringPrintf("Images: %d", reconstruction2.NumRegImages())
-            << std::endl;
-  std::cout << StringPrintf("Points: %d", reconstruction2.NumPoints3D())
-            << std::endl;
+  LOG(INFO) << StringPrintf("Images: %d", reconstruction2.NumRegImages());
+  LOG(INFO) << StringPrintf("Points: %d", reconstruction2.NumPoints3D());
 
   PrintHeading2("Merging reconstructions");
   if (MergeReconstructions(
           max_reproj_error, reconstruction1, &reconstruction2)) {
-    std::cout << "=> Merge succeeded" << std::endl;
+    LOG(INFO) << "=> Merge succeeded";
     PrintHeading2("Merged reconstruction");
-    std::cout << StringPrintf("Images: %d", reconstruction2.NumRegImages())
-              << std::endl;
-    std::cout << StringPrintf("Points: %d", reconstruction2.NumPoints3D())
-              << std::endl;
+    LOG(INFO) << StringPrintf("Images: %d", reconstruction2.NumRegImages());
+    LOG(INFO) << StringPrintf("Points: %d", reconstruction2.NumPoints3D());
   } else {
-    std::cout << "=> Merge failed" << std::endl;
+    LOG(INFO) << "=> Merge failed";
   }
 
   reconstruction2.Write(output_path);
@@ -789,9 +759,8 @@ int RunModelOrientationAligner(int argc, char** argv) {
 
   StringToLower(&method);
   if (method != "manhattan-world" && method != "image-orientation") {
-    std::cout << "ERROR: Invalid `method` - supported values are "
-                 "'MANHATTAN-WORLD' or 'IMAGE-ORIENTATION'."
-              << std::endl;
+    LOG(ERROR) << "Invalid `method` - supported values are "
+                  "'MANHATTAN-WORLD' or 'IMAGE-ORIENTATION'.";
     return EXIT_FAILURE;
   }
 
@@ -807,16 +776,16 @@ int RunModelOrientationAligner(int argc, char** argv) {
         frame_estimation_options, reconstruction, *options.image_path);
 
     if (frame.col(0).lpNorm<1>() == 0) {
-      std::cout << "Only aligning vertical axis" << std::endl;
+      LOG(INFO) << "Only aligning vertical axis";
       new_from_old_world.rotation = Eigen::Quaterniond::FromTwoVectors(
           frame.col(1), Eigen::Vector3d(0, 1, 0));
     } else if (frame.col(1).lpNorm<1>() == 0) {
       new_from_old_world.rotation = Eigen::Quaterniond::FromTwoVectors(
           frame.col(0), Eigen::Vector3d(1, 0, 0));
-      std::cout << "Only aligning horizontal axis" << std::endl;
+      LOG(INFO) << "Only aligning horizontal axis";
     } else {
       new_from_old_world.rotation = Eigen::Quaterniond(frame.transpose());
-      std::cout << "Aligning horizontal and vertical axes" << std::endl;
+      LOG(INFO) << "Aligning horizontal and vertical axes";
     }
   } else if (method == "image-orientation") {
     const Eigen::Vector3d gravity_axis =
@@ -827,12 +796,12 @@ int RunModelOrientationAligner(int argc, char** argv) {
     LOG(FATAL) << "Alignment method not supported";
   }
 
-  std::cout << "Using the rotation matrix:" << std::endl;
-  std::cout << new_from_old_world.rotation.toRotationMatrix() << std::endl;
+  LOG(INFO) << "Using the rotation matrix:";
+  LOG(INFO) << new_from_old_world.rotation.toRotationMatrix();
 
   reconstruction.Transform(new_from_old_world);
 
-  std::cout << "Writing aligned reconstruction..." << std::endl;
+  LOG(INFO) << "Writing aligned reconstruction...";
   reconstruction.Write(output_path);
 
   return EXIT_SUCCESS;
@@ -869,23 +838,22 @@ int RunModelSplitter(int argc, char** argv) {
   options.Parse(argc, argv);
 
   if (!ExistsDir(input_path)) {
-    LOG(ERROR) << "`input_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`input_path` is not a directory";
     return EXIT_FAILURE;
   }
 
   if (!ExistsDir(output_path)) {
-    LOG(ERROR) << "`output_path` is not a directory" << std::endl;
+    LOG(ERROR) << "`output_path` is not a directory";
     return EXIT_FAILURE;
   }
 
   if (overlap_ratio < 0) {
-    std::cout << "WARN: Invalid `overlap_ratio`; resetting to 0" << std::endl;
+    LOG(INFO) << "WARN: Invalid `overlap_ratio`; resetting to 0";
     overlap_ratio = 0.0;
   }
 
   PrintHeading1("Splitting sparse model");
-  std::cout << StringPrintf(" => Using \"%s\" split type", split_type.c_str())
-            << std::endl;
+  LOG(INFO) << StringPrintf(" => Using \"%s\" split type", split_type.c_str());
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
@@ -948,14 +916,13 @@ int RunModelSplitter(int argc, char** argv) {
     for (size_t i = 0; i < parts.size(); ++i) {
       split(i) = parts[i];
       if (split(i) < 1) {
-        LOG(ERROR) << "Cannot split in less than 1 parts for dim " << i
-                  << std::endl;
+        LOG(ERROR) << "Cannot split in less than 1 parts for dim " << i;
         return EXIT_FAILURE;
       }
     }
     exact_bounds = ComputeEqualPartsBounds(reconstruction, split);
   } else {
-    std::cout << "ERROR: Invalid split type: " << split_type << std::endl;
+    LOG(ERROR) << "Invalid split type: " << split_type;
     return EXIT_FAILURE;
   }
 
@@ -968,8 +935,7 @@ int RunModelSplitter(int argc, char** argv) {
 
   PrintHeading2("Applying split and writing reconstructions");
   const size_t num_parts = bounds.size();
-  std::cout << StringPrintf(" => Splitting to %d parts", num_parts)
-            << std::endl;
+  LOG(INFO) << StringPrintf(" => Splitting to %d parts", num_parts);
 
   const bool use_tile_keys = split_type == "tiles";
 
@@ -990,14 +956,13 @@ int RunModelSplitter(int argc, char** argv) {
         tile_recon.NumRegImages() >= static_cast<size_t>(min_reg_images);
 
     if (include_tile) {
-      std::cout << StringPrintf(
-                       "Writing reconstruction %s with %d images, %d points, "
-                       "and %.2f%% area coverage",
-                       name.c_str(),
-                       tile_recon.NumRegImages(),
-                       tile_num_points,
-                       100.0 * area_ratio)
-                << std::endl;
+      LOG(INFO) << StringPrintf(
+          "Writing reconstruction %s with %d images, %d points, "
+          "and %.2f%% area coverage",
+          name.c_str(),
+          tile_recon.NumRegImages(),
+          tile_num_points,
+          100.0 * area_ratio);
       const std::string reconstruction_path = JoinPaths(output_path, name);
       CreateDirIfNotExists(reconstruction_path);
       tile_recon.Write(reconstruction_path);
@@ -1005,14 +970,13 @@ int RunModelSplitter(int argc, char** argv) {
       WriteBoundingBox(reconstruction_path, exact_bounds[idx], "_exact");
 
     } else {
-      std::cout << StringPrintf(
-                       "Skipping reconstruction %s with %d images, %d points, "
-                       "and %.2f%% area coverage",
-                       name.c_str(),
-                       tile_recon.NumRegImages(),
-                       tile_num_points,
-                       100.0 * area_ratio)
-                << std::endl;
+      LOG(INFO) << StringPrintf(
+          "Skipping reconstruction %s with %d images, %d points, "
+          "and %.2f%% area coverage",
+          name.c_str(),
+          tile_recon.NumRegImages(),
+          tile_num_points,
+          100.0 * area_ratio);
     }
   };
 
@@ -1039,7 +1003,7 @@ int RunModelTransformer(int argc, char** argv) {
   options.AddDefaultOption("is_inverse", &is_inverse);
   options.Parse(argc, argv);
 
-  std::cout << "Reading points input: " << input_path << std::endl;
+  LOG(INFO) << "Reading points input: " << input_path;
   Reconstruction recon;
   bool is_dense = false;
   if (HasFileExtension(input_path, ".ply")) {
@@ -1048,23 +1012,23 @@ int RunModelTransformer(int argc, char** argv) {
   } else if (ExistsDir(input_path)) {
     recon.Read(input_path);
   } else {
-    LOG(ERROR) << "Invalid model input; not a PLY file or sparse reconstruction "
-                 "directory."
-              << std::endl;
+    LOG(ERROR)
+        << "Invalid model input; not a PLY file or sparse reconstruction "
+           "directory.";
     return EXIT_FAILURE;
   }
 
-  std::cout << "Reading transform input: " << transform_path << std::endl;
+  LOG(INFO) << "Reading transform input: " << transform_path;
   Sim3d tform = Sim3d::FromFile(transform_path);
   if (is_inverse) {
     tform = Inverse(tform);
   }
 
-  std::cout << "Applying transform to recon with " << recon.NumPoints3D()
-            << " points" << std::endl;
+  LOG(INFO) << "Applying transform to recon with " << recon.NumPoints3D()
+            << " points";
   recon.Transform(tform);
 
-  std::cout << "Writing output: " << output_path << std::endl;
+  LOG(INFO) << "Writing output: " << output_path;
   if (is_dense) {
     recon.ExportPLY(output_path);
   } else {

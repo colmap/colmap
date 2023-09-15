@@ -75,7 +75,7 @@ void BundleAdjustmentController::Run() {
   const std::vector<image_t>& reg_image_ids = reconstruction_->RegImageIds();
 
   if (reg_image_ids.size() < 2) {
-    std::cout << "ERROR: Need at least two views." << std::endl;
+    LOG(ERROR) << "Need at least two views.";
     return;
   }
 

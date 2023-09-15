@@ -311,7 +311,6 @@ bool BundleAdjuster::Solve(Reconstruction* reconstruction) {
   ceres::Solve(solver_options, problem_.get(), &summary_);
 
   if (solver_options.minimizer_progress_to_stdout) {
-    std::cout << std::endl;
   }
 
   if (options_.print_summary) {
@@ -622,7 +621,6 @@ bool RigBundleAdjuster::Solve(Reconstruction* reconstruction,
   ceres::Solve(solver_options, problem_.get(), &summary_);
 
   if (solver_options.minimizer_progress_to_stdout) {
-    std::cout << std::endl;
   }
 
   if (options_.print_summary) {
@@ -900,33 +898,30 @@ void RigBundleAdjuster::ParameterizeCameraRigs(Reconstruction* reconstruction) {
 }
 
 void PrintSolverSummary(const ceres::Solver::Summary& summary) {
-  std::cout << std::right << std::setw(16) << "Residuals : ";
-  std::cout << std::left << summary.num_residuals_reduced << std::endl;
+  LOG(INFO) << std::right << std::setw(16) << "Residuals : ";
+  LOG(INFO) << std::left << summary.num_residuals_reduced;
 
-  std::cout << std::right << std::setw(16) << "Parameters : ";
-  std::cout << std::left << summary.num_effective_parameters_reduced
-            << std::endl;
+  LOG(INFO) << std::right << std::setw(16) << "Parameters : ";
+  LOG(INFO) << std::left << summary.num_effective_parameters_reduced;
 
-  std::cout << std::right << std::setw(16) << "Iterations : ";
-  std::cout << std::left
-            << summary.num_successful_steps + summary.num_unsuccessful_steps
-            << std::endl;
+  LOG(INFO) << std::right << std::setw(16) << "Iterations : ";
+  LOG(INFO) << std::left
+            << summary.num_successful_steps + summary.num_unsuccessful_steps;
 
-  std::cout << std::right << std::setw(16) << "Time : ";
-  std::cout << std::left << summary.total_time_in_seconds << " [s]"
-            << std::endl;
+  LOG(INFO) << std::right << std::setw(16) << "Time : ";
+  LOG(INFO) << std::left << summary.total_time_in_seconds << " [s]";
 
-  std::cout << std::right << std::setw(16) << "Initial cost : ";
-  std::cout << std::right << std::setprecision(6)
+  LOG(INFO) << std::right << std::setw(16) << "Initial cost : ";
+  LOG(INFO) << std::right << std::setprecision(6)
             << std::sqrt(summary.initial_cost / summary.num_residuals_reduced)
-            << " [px]" << std::endl;
+            << " [px]";
 
-  std::cout << std::right << std::setw(16) << "Final cost : ";
-  std::cout << std::right << std::setprecision(6)
+  LOG(INFO) << std::right << std::setw(16) << "Final cost : ";
+  LOG(INFO) << std::right << std::setprecision(6)
             << std::sqrt(summary.final_cost / summary.num_residuals_reduced)
-            << " [px]" << std::endl;
+            << " [px]";
 
-  std::cout << std::right << std::setw(16) << "Termination : ";
+  LOG(INFO) << std::right << std::setw(16) << "Termination : ";
 
   std::string termination = "";
 
@@ -951,8 +946,7 @@ void PrintSolverSummary(const ceres::Solver::Summary& summary) {
       break;
   }
 
-  std::cout << std::right << termination << std::endl;
-  std::cout << std::endl;
+  LOG(INFO) << std::right << termination;
 }
 
 }  // namespace colmap
