@@ -84,7 +84,7 @@ struct ImageAlignmentError {
 std::vector<ImageAlignmentError> ComputeImageAlignmentError(
     const Reconstruction& src_reconstruction,
     const Reconstruction& tgt_reconstruction,
-    const Sim3d& tgtFromSrc);
+    const Sim3d& tgt_from_src);
 
 // Aligns the source to the target reconstruction and merges cameras, images,
 // points3D into the target using the alignment. Returns false on failure.

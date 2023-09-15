@@ -76,6 +76,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
+    NAME alignment_test
+    SRCS alignment_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
     NAME bundle_adjustment_test
     SRCS bundle_adjustment_test.cc
     LINK_LIBS colmap_estimators
