@@ -61,6 +61,7 @@ COLMAP_ADD_LIBRARY(
         colmap_sensor
         colmap_image
         colmap_scene
+        colmap_optim
         Eigen3::Eigen
         Ceres::ceres
 )
@@ -123,6 +124,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME pose_test
     SRCS pose_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME similarity_transform_test
+    SRCS similarity_transform_test.cc
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(

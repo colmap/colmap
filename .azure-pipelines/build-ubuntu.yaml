@@ -4,6 +4,7 @@ parameters:
   cudaEnabled: false
   asanEnabled: false
   e2eTestsEnabled: false
+  checkCodeFormat: false
   cmakeBuildType: Release
 
 jobs:
@@ -26,6 +27,15 @@ jobs:
     ${{ if ne(parameters.cmakeBuildType, 'ClangTidy') }}:
       numAllowedNinjaErrors: 1
   steps:
+  - ${{ if eq(parameters.checkCodeFormat, true) }}:
+    - script: |
+        set +x -euo pipefail
+        sudo apt-get install -y clang-format-14
+        ./scripts/shell/clang_format.sh
+        git diff --name-only | xargs -r printf "##vso[task.LogIssue type=error;sourcepath=%s;linenumber=1;columnnumber=1;]Invalid code format, run scripts/shell/clang_format.sh\n"
+        git diff --exit-code || echo "##vso[task.complete result=Failed;]"
+      displayName: Check code format
+
   - script: |
       sudo apt-get update && sudo apt-get install -y \
         build-essential \

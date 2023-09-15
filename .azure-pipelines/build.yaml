@@ -22,6 +22,7 @@ jobs:
       displayName: 'Ubuntu 22.04'
       ubuntuVersion: 22.04
       e2eTestsEnabled: true
+      checkCodeFormat: true
   - template: build-ubuntu.yaml
     parameters:
       displayName: 'Ubuntu 22.04 (CUDA)'
