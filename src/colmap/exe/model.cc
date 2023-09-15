@@ -211,9 +211,9 @@ void PrintComparisonSummary(std::ostream& out,
     rotation_errors_deg.push_back(error.rotation_error_deg);
     proj_center_errors.push_back(error.proj_center_error);
   }
-  out << std::endl << "Rotation errors (degrees)";
+  out << "\nRotation errors (degrees)\n";
   PrintErrorStats(out, rotation_errors_deg);
-  out << std::endl << "Projection center errors";
+  out << "\nProjection center errors\n";
   PrintErrorStats(out, proj_center_errors);
 }
 
