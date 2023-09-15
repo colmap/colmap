@@ -43,7 +43,6 @@
 #include "colmap/optim/loransac.h"
 #include "colmap/optim/ransac.h"
 #include "colmap/scene/camera.h"
-#include "colmap/scene/projection.h"
 
 #include <unordered_set>
 
