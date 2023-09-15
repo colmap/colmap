@@ -41,6 +41,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(AbsolutePose, P3P) {
   const std::vector<Eigen::Vector3d> points3D = {
@@ -214,4 +215,5 @@ TEST(AbsolutePose, EPNP_BrokenSolveSignCase) {
   EXPECT_TRUE(reproj < 0.2);
 }
 
+}  // namespace
 }  // namespace colmap

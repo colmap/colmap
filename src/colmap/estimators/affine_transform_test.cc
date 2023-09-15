@@ -35,6 +35,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(AffineTransform, Nominal) {
   for (int x = 0; x < 10; ++x) {
@@ -67,4 +68,5 @@ TEST(AffineTransform, Nominal) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

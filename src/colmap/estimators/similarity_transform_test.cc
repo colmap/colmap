@@ -38,6 +38,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 void TestEstimateSim3dWithNumCoords(const size_t num_coords) {
   const Sim3d gt_tgt_from_src(RandomUniformReal<double>(0.1, 10),
@@ -70,4 +71,5 @@ TEST(Sim3d, EstimateDegenerate) {
   EXPECT_FALSE(EstimateSim3d(invalid_src_dst, invalid_src_dst, tgt_from_src));
 }
 
+}  // namespace
 }  // namespace colmap

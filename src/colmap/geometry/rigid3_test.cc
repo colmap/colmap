@@ -36,6 +36,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 Rigid3d TestRigid3d() {
   return Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
@@ -116,4 +117,5 @@ TEST(Rigid3d, Compose) {
   EXPECT_LT((d_from_a * x_in_a - x_in_d).norm(), 1e-6);
 }
 
+}  // namespace
 }  // namespace colmap

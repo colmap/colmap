@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(FeatureKeypointsToPointsVector, Nominal) {
   FeatureKeypoints keypoints(2);
@@ -111,4 +112,5 @@ TEST(ExtractTopScaleFeatures, Nominal) {
   EXPECT_EQ(top_descriptors6, descriptors);
 }
 
+}  // namespace
 }  // namespace colmap

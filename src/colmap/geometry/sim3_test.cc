@@ -40,6 +40,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 Sim3d TestSim3d() {
   return Sim3d(RandomUniformReal<double>(0.1, 10),
@@ -152,4 +153,5 @@ TEST(Sim3d, ToFromFile) {
   EXPECT_EQ(written.translation, read.translation);
 }
 
+}  // namespace
 }  // namespace colmap
