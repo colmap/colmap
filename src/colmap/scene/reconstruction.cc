@@ -764,8 +764,8 @@ bool Reconstruction::ExportNVM(const std::string& path,
   file.precision(17);
 
   // White space added for compatibility with Meshlab.
-  file << "NVM_V3 " << std::endl << " ";
-  file << reg_image_ids_.size() << "  ";
+  file << "NVM_V3 " << std::endl << " " << std::endl;
+  file << reg_image_ids_.size() << "  " << std::endl;
 
   std::unordered_map<image_t, size_t> image_id_to_idx_;
   size_t image_idx = 0;
@@ -783,7 +783,8 @@ bool Reconstruction::ExportNVM(const std::string& path,
       k = -1 * camera.Params(SimpleRadialCameraModel::extra_params_idxs[0]);
     } else {
       LOG(WARNING) << "NVM only supports `SIMPLE_RADIAL` "
-                      "and pinhole camera models.";
+                      "and pinhole camera models."
+                   << std::endl;
       return false;
     }
 
@@ -799,13 +800,13 @@ bool Reconstruction::ExportNVM(const std::string& path,
     file << proj_center.y() << " ";
     file << proj_center.z() << " ";
     file << k << " ";
-    file << 0;
+    file << 0 << std::endl;
 
     image_id_to_idx_[image_id] = image_idx;
     image_idx += 1;
   }
 
-  file << std::endl << points3D_.size();
+  file << std::endl << points3D_.size() << std::endl;
 
   for (const auto& point3D : points3D_) {
     file << point3D.second.XYZ()(0) << " ";
@@ -836,7 +837,7 @@ bool Reconstruction::ExportNVM(const std::string& path,
     line_string = line_string.substr(0, line_string.size() - 1);
 
     file << image_ids.size() << " ";
-    file << line_string;
+    file << line_string << std::endl;
   }
 
   return true;
@@ -873,7 +874,8 @@ bool Reconstruction::ExportCam(const std::string& path,
       k2 = camera.Params(RadialCameraModel::extra_params_idxs[1]);
     } else {
       LOG(WARNING) << "CAM only supports `SIMPLE_RADIAL`, `RADIAL`, "
-                      "and pinhole camera models.";
+                      "and pinhole camera models."
+                   << std::endl;
       return false;
     }
 
@@ -905,10 +907,11 @@ bool Reconstruction::ExportCam(const std::string& path,
          << image.CamFromWorld().translation.y() << " "
          << image.CamFromWorld().translation.z() << " " << R(0, 0) << " "
          << R(0, 1) << " " << R(0, 2) << " " << R(1, 0) << " " << R(1, 1) << " "
-         << R(1, 2) << " " << R(2, 0) << " " << R(2, 1) << " " << R(2, 2);
+         << R(1, 2) << " " << R(2, 0) << " " << R(2, 1) << " " << R(2, 2)
+         << std::endl;
     file << focal_length << " " << k1 << " " << k2 << " " << fy / fx << " "
          << camera.PrincipalPointX() / camera.Width() << " "
-         << camera.PrincipalPointY() / camera.Height();
+         << camera.PrincipalPointY() / camera.Height() << std::endl;
   }
 
   return true;
@@ -935,8 +938,8 @@ bool Reconstruction::ExportRecon3D(const std::string& path,
   synth_file.precision(17);
 
   // Write header info
-  synth_file << "colmap 1.0";
-  synth_file << reg_image_ids_.size() << " " << points3D_.size();
+  synth_file << "colmap 1.0" << std::endl;
+  synth_file << reg_image_ids_.size() << " " << points3D_.size() << std::endl;
 
   std::unordered_map<image_t, size_t> image_id_to_idx_;
   size_t image_idx = 0;
@@ -966,14 +969,15 @@ bool Reconstruction::ExportRecon3D(const std::string& path,
 
     const double scale =
         1.0 / (double)std::max(camera.Width(), camera.Height());
-    synth_file << scale * camera.MeanFocalLength() << " " << k1 << " " << k2;
-    synth_file << image.CamFromWorld().rotation.toRotationMatrix();
-    synth_file << image.CamFromWorld().translation.transpose();
+    synth_file << scale * camera.MeanFocalLength() << " " << k1 << " " << k2
+               << std::endl;
+    synth_file << image.CamFromWorld().rotation.toRotationMatrix() << std::endl;
+    synth_file << image.CamFromWorld().translation.transpose() << std::endl;
 
     image_id_to_idx_[image_id] = image_idx;
     image_list_file << image.Name() << std::endl
-                    << camera.Width() << " " << camera.Height();
-    image_map_file << image_idx;
+                    << camera.Width() << " " << camera.Height() << std::endl;
+    image_map_file << image_idx << std::endl;
 
     image_idx += 1;
   }
@@ -983,9 +987,11 @@ bool Reconstruction::ExportRecon3D(const std::string& path,
   // Write point info
   for (const auto& point3D : points3D_) {
     auto& p = point3D.second;
-    synth_file << p.XYZ()(0) << " " << p.XYZ()(1) << " " << p.XYZ()(2);
-    synth_file << (int)p.Color(0) << " " << (int)p.Color(1) << " "
-               << (int)p.Color(2);
+    synth_file << p.XYZ()(0) << " " << p.XYZ()(1) << " " << p.XYZ()(2)
+               << std::endl;
+    synth_file << static_cast<int>(p.Color(0)) << " "
+               << static_cast<int>(p.Color(1)) << " "
+               << static_cast<int>(p.Color(2)) << std::endl;
 
     std::ostringstream line;
 
@@ -1015,7 +1021,7 @@ bool Reconstruction::ExportRecon3D(const std::string& path,
     line_string = line_string.substr(0, line_string.size() - 1);
 
     synth_file << image_ids.size() << " ";
-    synth_file << line_string;
+    synth_file << line_string << std::endl;
   }
   synth_file.close();
 
@@ -1034,9 +1040,9 @@ bool Reconstruction::ExportBundler(const std::string& path,
   // Ensure that we don't lose any precision by storing in text.
   file.precision(17);
 
-  file << "# Bundle file v0.3";
+  file << "# Bundle file v0.3" << std::endl;
 
-  file << reg_image_ids_.size() << " " << points3D_.size();
+  file << reg_image_ids_.size() << " " << points3D_.size() << std::endl;
 
   std::unordered_map<image_t, size_t> image_id_to_idx_;
   size_t image_idx = 0;
@@ -1059,22 +1065,23 @@ bool Reconstruction::ExportBundler(const std::string& path,
       k2 = camera.Params(RadialCameraModel::extra_params_idxs[1]);
     } else {
       LOG(WARNING) << "Bundler only supports `SIMPLE_RADIAL`, "
-                      "`RADIAL`, and pinhole camera models.";
+                      "`RADIAL`, and pinhole camera models."
+                   << std::endl;
       return false;
     }
 
-    file << camera.MeanFocalLength() << " " << k1 << " " << k2;
+    file << camera.MeanFocalLength() << " " << k1 << " " << k2 << std::endl;
 
     const Eigen::Matrix3d R = image.CamFromWorld().rotation.toRotationMatrix();
-    file << R(0, 0) << " " << R(0, 1) << " " << R(0, 2);
-    file << -R(1, 0) << " " << -R(1, 1) << " " << -R(1, 2);
-    file << -R(2, 0) << " " << -R(2, 1) << " " << -R(2, 2);
+    file << R(0, 0) << " " << R(0, 1) << " " << R(0, 2) << std::endl;
+    file << -R(1, 0) << " " << -R(1, 1) << " " << -R(1, 2) << std::endl;
+    file << -R(2, 0) << " " << -R(2, 1) << " " << -R(2, 2) << std::endl;
 
     file << image.CamFromWorld().translation.x() << " ";
     file << -image.CamFromWorld().translation.y() << " ";
-    file << -image.CamFromWorld().translation.z();
+    file << -image.CamFromWorld().translation.z() << std::endl;
 
-    list_file << image.Name();
+    list_file << image.Name() << std::endl;
 
     image_id_to_idx_[image_id] = image_idx;
     image_idx += 1;
@@ -1083,11 +1090,11 @@ bool Reconstruction::ExportBundler(const std::string& path,
   for (const auto& point3D : points3D_) {
     file << point3D.second.XYZ()(0) << " ";
     file << point3D.second.XYZ()(1) << " ";
-    file << point3D.second.XYZ()(2);
+    file << point3D.second.XYZ()(2) << std::endl;
 
     file << static_cast<int>(point3D.second.Color(0)) << " ";
     file << static_cast<int>(point3D.second.Color(1)) << " ";
-    file << static_cast<int>(point3D.second.Color(2));
+    file << static_cast<int>(point3D.second.Color(2)) << std::endl;
 
     std::ostringstream line;
 
@@ -1114,7 +1121,7 @@ bool Reconstruction::ExportBundler(const std::string& path,
     std::string line_string = line.str();
     line_string = line_string.substr(0, line_string.size() - 1);
 
-    file << line_string;
+    file << line_string << std::endl;
   }
 
   return true;
@@ -1227,7 +1234,7 @@ void Reconstruction::ExportVRML(const std::string& images_path,
   for (const auto& point3D : points3D_) {
     points3D_file << point3D.second.XYZ()(0) << ", ";
     points3D_file << point3D.second.XYZ()(1) << ", ";
-    points3D_file << point3D.second.XYZ()(2);
+    points3D_file << point3D.second.XYZ()(2) << std::endl;
   }
 
   points3D_file << " ] }\n";
@@ -1236,7 +1243,7 @@ void Reconstruction::ExportVRML(const std::string& images_path,
   for (const auto& point3D : points3D_) {
     points3D_file << point3D.second.Color(0) / 255.0 << ", ";
     points3D_file << point3D.second.Color(1) / 255.0 << ", ";
-    points3D_file << point3D.second.Color(2) / 255.0;
+    points3D_file << point3D.second.Color(2) / 255.0 << std::endl;
   }
 
   points3D_file << " ] } } }\n";
@@ -1281,9 +1288,10 @@ void Reconstruction::ExtractColorsForAllImages(const std::string& path) {
 
     Bitmap bitmap;
     if (!bitmap.Read(image_path)) {
-      LOG(INFO) << StringPrintf("Could not read image %s at path %s.",
-                                image.Name().c_str(),
-                                image_path.c_str());
+      LOG(WARNING) << StringPrintf("Could not read image %s at path %s.",
+                                   image.Name().c_str(),
+                                   image_path.c_str())
+                   << std::endl;
       continue;
     }
 
@@ -1803,9 +1811,9 @@ void Reconstruction::WriteCamerasText(const std::string& path) const {
   // Ensure that we don't loose any precision by storing in text.
   file.precision(17);
 
-  file << "# Camera list with one line of data per camera:";
-  file << "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]";
-  file << "# Number of cameras: " << cameras_.size();
+  file << "# Camera list with one line of data per camera:" << std::endl;
+  file << "#   CAMERA_ID, MODEL, WIDTH, HEIGHT, PARAMS[]" << std::endl;
+  file << "# Number of cameras: " << cameras_.size() << std::endl;
 
   for (const auto& camera : cameras_) {
     std::ostringstream line;
@@ -1823,7 +1831,7 @@ void Reconstruction::WriteCamerasText(const std::string& path) const {
     std::string line_string = line.str();
     line_string = line_string.substr(0, line_string.size() - 1);
 
-    file << line_string;
+    file << line_string << std::endl;
   }
 }
 
@@ -1834,13 +1842,14 @@ void Reconstruction::WriteImagesText(const std::string& path) const {
   // Ensure that we don't loose any precision by storing in text.
   file.precision(17);
 
-  file << "# Image list with two lines of data per image:";
+  file << "# Image list with two lines of data per image:" << std::endl;
   file << "#   IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, "
-          "NAME";
-  file << "#   POINTS2D[] as (X, Y, POINT3D_ID)";
+          "NAME"
+       << std::endl;
+  file << "#   POINTS2D[] as (X, Y, POINT3D_ID)" << std::endl;
   file << "# Number of images: " << reg_image_ids_.size()
        << ", mean observations per image: "
-       << ComputeMeanObservationsPerRegImage();
+       << ComputeMeanObservationsPerRegImage() << std::endl;
 
   for (const auto& image : images_) {
     if (!image.second.IsRegistered()) {
@@ -1867,7 +1876,7 @@ void Reconstruction::WriteImagesText(const std::string& path) const {
 
     line << image.second.Name();
 
-    file << line.str();
+    file << line.str() << std::endl;
 
     line.str("");
     line.clear();
@@ -1883,7 +1892,7 @@ void Reconstruction::WriteImagesText(const std::string& path) const {
     }
     line_string = line.str();
     line_string = line_string.substr(0, line_string.size() - 1);
-    file << line_string;
+    file << line_string << std::endl;
   }
 }
 
@@ -1894,11 +1903,12 @@ void Reconstruction::WritePoints3DText(const std::string& path) const {
   // Ensure that we don't loose any precision by storing in text.
   file.precision(17);
 
-  file << "# 3D point list with one line of data per point:";
+  file << "# 3D point list with one line of data per point:" << std::endl;
   file << "#   POINT3D_ID, X, Y, Z, R, G, B, ERROR, "
-          "TRACK[] as (IMAGE_ID, POINT2D_IDX)";
+          "TRACK[] as (IMAGE_ID, POINT2D_IDX)"
+       << std::endl;
   file << "# Number of points: " << points3D_.size()
-       << ", mean track length: " << ComputeMeanTrackLength();
+       << ", mean track length: " << ComputeMeanTrackLength() << std::endl;
 
   for (const auto& point3D : points3D_) {
     file << point3D.first << " ";
@@ -1921,7 +1931,7 @@ void Reconstruction::WritePoints3DText(const std::string& path) const {
     std::string line_string = line.str();
     line_string = line_string.substr(0, line_string.size() - 1);
 
-    file << line_string;
+    file << line_string << std::endl;
   }
 }
 

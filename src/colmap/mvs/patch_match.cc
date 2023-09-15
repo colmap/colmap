@@ -382,8 +382,8 @@ void PatchMatchController::ReadProblems() {
     }
 
     if (problem.src_image_idxs.empty()) {
-      LOG(INFO) << StringPrintf(
-          "WARNING: Ignoring reference image %s, because it has no "
+      LOG(WARNING) << StringPrintf(
+          "Ignoring reference image %s, because it has no "
           "source images.",
           problem_config.ref_image_name.c_str());
     } else {
@@ -504,8 +504,8 @@ void PatchMatchController::ProcessProblem(const PatchMatchOptions& options,
               model.GetImageName(image_idx).c_str());
           continue;
         } else {
-          LOG(INFO) << StringPrintf(
-              "ERROR: Missing image or map dependency for image %d: %s",
+          LOG(ERROR) << StringPrintf(
+              "Missing image or map dependency for image %d: %s",
               image_idx,
               model.GetImageName(image_idx).c_str());
         }

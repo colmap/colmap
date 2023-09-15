@@ -638,18 +638,20 @@ void WriteDelaunayTriangulationPly(const std::string& path,
   std::fstream file(path, std::ios::out);
   CHECK(file.is_open());
 
-  file << "ply";
-  file << "format ascii 1.0";
-  file << "element vertex " << triangulation.number_of_vertices();
-  file << "property float x";
-  file << "property float y";
-  file << "property float z";
-  file << "element edge " << triangulation.number_of_finite_edges();
-  file << "property int vertex1";
-  file << "property int vertex2";
-  file << "element face " << triangulation.number_of_finite_facets();
-  file << "property list uchar int vertex_index";
-  file << "end_header";
+  file << "ply" << std::endl;
+  file << "format ascii 1.0" << std::endl;
+  file << "element vertex " << triangulation.number_of_vertices() << std::endl;
+  file << "property float x" << std::endl;
+  file << "property float y" << std::endl;
+  file << "property float z" << std::endl;
+  file << "element edge " << triangulation.number_of_finite_edges()
+       << std::endl;
+  file << "property int vertex1" << std::endl;
+  file << "property int vertex2" << std::endl;
+  file << "element face " << triangulation.number_of_finite_facets()
+       << std::endl;
+  file << "property list uchar int vertex_index" << std::endl;
+  file << "end_header" << std::endl;
 
   std::unordered_map<const Delaunay::Vertex_handle, size_t> vertex_indices;
   vertex_indices.reserve(triangulation.number_of_vertices());
@@ -657,14 +659,15 @@ void WriteDelaunayTriangulationPly(const std::string& path,
        it != triangulation.finite_vertices_end();
        ++it) {
     vertex_indices.emplace(it, vertex_indices.size());
-    file << it->point().x() << " " << it->point().y() << " " << it->point().z();
+    file << it->point().x() << " " << it->point().y() << " " << it->point().z()
+         << std::endl;
   }
 
   for (auto it = triangulation.finite_edges_begin();
        it != triangulation.finite_edges_end();
        ++it) {
     file << vertex_indices.at(it->first->vertex(it->second)) << " "
-         << vertex_indices.at(it->first->vertex(it->third));
+         << vertex_indices.at(it->first->vertex(it->third)) << std::endl;
   }
 
   for (auto it = triangulation.finite_facets_begin();
@@ -678,7 +681,8 @@ void WriteDelaunayTriangulationPly(const std::string& path,
                 triangulation.vertex_triple_index(it->second, 1)))
          << " "
          << vertex_indices.at(it->first->vertex(
-                triangulation.vertex_triple_index(it->second, 2)));
+                triangulation.vertex_triple_index(it->second, 2)))
+         << std::endl;
   }
 }
 

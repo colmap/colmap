@@ -131,9 +131,9 @@ void ExtractColors(const std::string& image_path,
                    const image_t image_id,
                    Reconstruction* reconstruction) {
   if (!reconstruction->ExtractColorsForImage(image_id, image_path)) {
-    LOG(INFO) << StringPrintf("WARNING: Could not read image %s at path %s.",
-                              reconstruction->Image(image_id).Name().c_str(),
-                              image_path.c_str());
+    LOG(WARNING) << StringPrintf("Could not read image %s at path %s.",
+                                 reconstruction->Image(image_id).Name().c_str(),
+                                 image_path.c_str());
   }
 }
 

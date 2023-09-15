@@ -211,8 +211,8 @@ void StereoFusion::Run() {
     if (!workspace_->HasBitmap(image_idx) ||
         !workspace_->HasDepthMap(image_idx) ||
         !workspace_->HasNormalMap(image_idx)) {
-      LOG(INFO) << StringPrintf(
-          "WARNING: Ignoring image %s, because input does not exist.",
+      LOG(WARNING) << StringPrintf(
+          "Ignoring image %s, because input does not exist.",
           image_name.c_str());
       continue;
     }

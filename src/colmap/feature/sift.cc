@@ -1253,8 +1253,8 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
     if (!matcher->sift_match_gpu_.Allocate(options.max_num_matches,
                                            options.cross_check)) {
-      LOG(INFO) << StringPrintf(
-          "ERROR: Not enough GPU memory to match %d features. "
+      LOG(ERROR) << StringPrintf(
+          "Not enough GPU memory to match %d features. "
           "Reduce the maximum number of matches.",
           options.max_num_matches);
       return nullptr;
@@ -1262,8 +1262,8 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
 
 #if !defined(COLMAP_CUDA_ENABLED)
     if (matcher->sift_match_gpu_.GetMaxSift() < options.max_num_matches) {
-      LOG(INFO) << StringPrintf(
-          "WARNING: OpenGL version of SiftGPU only supports a "
+      LOG(WARNING) << StringPrintf(
+          "OpenGL version of SiftGPU only supports a "
           "maximum of %d matches - consider changing to CUDA-based "
           "feature matching to avoid this limitation.",
           matcher->sift_match_gpu_.GetMaxSift());
@@ -1424,8 +1424,8 @@ class SiftGPUFeatureMatcher : public FeatureMatcher {
  private:
   void WarnIfMaxNumMatchesReachedGPU(const FeatureDescriptors& descriptors) {
     if (sift_match_gpu_.GetMaxSift() < descriptors.rows()) {
-      LOG(INFO) << StringPrintf(
-          "WARNING: Clamping features from %d to %d - consider "
+      LOG(WARNING) << StringPrintf(
+          "Clamping features from %d to %d - consider "
           "increasing the maximum number of matches.",
           descriptors.rows(),
           sift_match_gpu_.GetMaxSift());

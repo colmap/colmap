@@ -103,8 +103,8 @@ void Workspace::Load(const std::vector<std::string>& image_names) {
     if (HasBitmap(image_idx) && HasDepthMap(image_idx)) {
       thread_pool.AddTask(LoadWorkspaceData, image_idx);
     } else {
-      LOG(INFO) << StringPrintf(
-          "WARNING: Ignoring image %s, because input does not exist.",
+      LOG(WARNING) << StringPrintf(
+          "Ignoring image %s, because input does not exist.",
           image_names[i].c_str());
     }
   }
@@ -277,17 +277,17 @@ void ImportPMVSWorkspace(const Workspace& workspace,
     CHECK(fusion_file.is_open()) << fusion_path;
     for (size_t i = 0; i < image_names.size(); ++i) {
       const auto& ref_image_name = image_names[i];
-      patch_match_file << ref_image_name;
+      patch_match_file << ref_image_name << "\n";
       if (overlapping_images.empty()) {
-        patch_match_file << "__auto__, 20";
+        patch_match_file << "__auto__, 20\n";
       } else {
         for (const int image_idx : overlapping_images[i]) {
           patch_match_file << workspace.GetModel().GetImageName(image_idx)
                            << ", ";
         }
-        patch_match_file;
+        patch_match_file << "\n";
       }
-      fusion_file << ref_image_name;
+      fusion_file << ref_image_name << "\n";
     }
   }
 }

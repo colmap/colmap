@@ -113,8 +113,8 @@ int RunImageDeleter(int argc, char** argv) {
             image.Name().c_str());
         reconstruction.DeRegisterImage(image_id);
       } else {
-        LOG(INFO) << StringPrintf(
-            "WARNING: Skipping image_id=%s, because it does not "
+        LOG(WARNING) << StringPrintf(
+            "Skipping image_id=%s, because it does not "
             "exist in the reconstruction",
             image_id_str.c_str());
       }
@@ -137,8 +137,8 @@ int RunImageDeleter(int argc, char** argv) {
             image->Name().c_str());
         reconstruction.DeRegisterImage(image->ImageId());
       } else {
-        LOG(INFO) << StringPrintf(
-            "WARNING: Skipping image_name=%s, because it does not "
+        LOG(WARNING) << StringPrintf(
+            "Skipping image_name=%s, because it does not "
             "exist in the reconstruction",
             image_name.c_str());
       }

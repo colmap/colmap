@@ -278,8 +278,8 @@ void COLMAPUndistorter::WritePatchMatchConfig() const {
   std::ofstream file(path, std::ios::trunc);
   CHECK(file.is_open()) << path;
   for (const auto& image_name : image_names_) {
-    file << image_name;
-    file << "__auto__, " << num_patch_match_src_images_;
+    file << image_name << std::endl;
+    file << "__auto__, " << num_patch_match_src_images_ << std::endl;
   }
 }
 
@@ -288,7 +288,7 @@ void COLMAPUndistorter::WriteFusionConfig() const {
   std::ofstream file(path, std::ios::trunc);
   CHECK(file.is_open()) << path;
   for (const auto& image_name : image_names_) {
-    file << image_name;
+    file << image_name << std::endl;
   }
 }
 
@@ -332,7 +332,7 @@ void PMVSUndistorter::Run() {
   for (size_t i = 0; i < futures.size(); ++i) {
     if (IsStopped()) {
       thread_pool.Stop();
-      LOG(WARNING) << "Stopped the undistortion process. Image point "
+      LOG(WARNING) << "WARNING: Stopped the undistortion process. Image point "
                    "locations and camera parameters for not yet processed "
                       "images in the Bundler output file is probably wrong.";
       break;
@@ -381,7 +381,7 @@ bool PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
   Bitmap distorted_bitmap;
   const std::string input_image_path = JoinPaths(image_path_, image.Name());
   if (!distorted_bitmap.Read(input_image_path)) {
-    LOG(ERROR) << "Cannot read image at path " << input_image_path.c_str();
+    LOG(ERROR) << "Cannot read image at path " << input_image_path;
     return false;
   }
 

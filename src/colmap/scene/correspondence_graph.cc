@@ -155,8 +155,8 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
         image1.num_correspondences -= 1;
         image2.num_correspondences -= 1;
         image_pair.num_correspondences -= 1;
-        LOG(INFO) << StringPrintf(
-            "WARNING: Duplicate correspondence between "
+        LOG(WARNING) << StringPrintf(
+            "Duplicate correspondence between "
             "point2D_idx=%d in image_id=%d and point2D_idx=%d in "
             "image_id=%d",
             match.point2D_idx1,
@@ -172,14 +172,14 @@ void CorrespondenceGraph::AddCorrespondences(const image_t image_id1,
       image2.num_correspondences -= 1;
       image_pair.num_correspondences -= 1;
       if (!valid_idx1) {
-        LOG(INFO) << StringPrintf(
-            "WARNING: point2D_idx=%d in image_id=%d does not exist",
+        LOG(WARNING) << StringPrintf(
+            "point2D_idx=%d in image_id=%d does not exist",
             match.point2D_idx1,
             image_id1);
       }
       if (!valid_idx2) {
-        LOG(INFO) << StringPrintf(
-            "WARNING: point2D_idx=%d in image_id=%d does not exist",
+        LOG(WARNING) << StringPrintf(
+            "point2D_idx=%d in image_id=%d does not exist",
             match.point2D_idx2,
             image_id2);
       }
