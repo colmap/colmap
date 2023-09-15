@@ -61,6 +61,7 @@ COLMAP_ADD_LIBRARY(
         colmap_sensor
         colmap_image
         colmap_scene
+        colmap_optim
         Eigen3::Eigen
         Ceres::ceres
 )
