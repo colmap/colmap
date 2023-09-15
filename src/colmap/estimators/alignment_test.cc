@@ -65,7 +65,7 @@ Reconstruction GenerateReconstructionForAlignment() {
   synthetic_dataset_options.num_images = 20;
   synthetic_dataset_options.num_points3D = 50;
   synthetic_dataset_options.point2D_stddev = 0;
-  SynthesizeDataset(synthetic_dataset_options, &reconstruction, nullptr);
+  SynthesizeDataset(synthetic_dataset_options, &reconstruction);
   return reconstruction;
 }
 
