@@ -289,8 +289,8 @@ int RunImageRegistrator(int argc, char** argv) {
     PrintHeading1("Registering image #" + std::to_string(image.first) + " (" +
                   std::to_string(reconstruction->NumRegImages() + 1) + ")");
 
-    LOG(INFO) << "=> Image sees " << image.second.NumVisiblePoints3D() << " / "
-              << image.second.NumObservations() << " points";
+    LOG(INFO) << "\n=> Image sees " << image.second.NumVisiblePoints3D()
+              << " / " << image.second.NumObservations() << " points";
 
     mapper.RegisterNextImage(mapper_options, image.first);
   }
@@ -341,7 +341,7 @@ int RunImageUndistorter(int argc, char** argv) {
   PrintHeading1("Reading reconstruction");
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
-  LOG(INFO) << StringPrintf(" => Reconstruction with %d images and %d points",
+  LOG(INFO) << StringPrintf("=> Reconstruction with %d images and %d points",
                             reconstruction.NumImages(),
                             reconstruction.NumPoints3D());
 

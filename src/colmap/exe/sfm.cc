@@ -517,7 +517,7 @@ int RunPointTriangulatorImpl(
     num_changed_observations += FilterPoints(mapper_options, &mapper);
     const double changed =
         static_cast<double>(num_changed_observations) / num_observations;
-    LOG(INFO) << StringPrintf("  => Changed observations: %.6f", changed);
+    LOG(INFO) << StringPrintf("=> Changed observations: %.6f", changed);
     if (changed < mapper_options.ba_global_max_refinement_change) {
       break;
     }
@@ -750,7 +750,6 @@ int RunRigBundleAdjuster(int argc, char** argv) {
   PrintHeading1("Rig bundle adjustment");
 
   BundleAdjustmentOptions ba_options = *options.bundle_adjustment;
-  ba_options.solver_options.minimizer_progress_to_stdout = true;
   RigBundleAdjuster bundle_adjuster(ba_options, rig_ba_options, config);
   CHECK(bundle_adjuster.Solve(&reconstruction, &camera_rigs));
 

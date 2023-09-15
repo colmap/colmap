@@ -345,7 +345,7 @@ int RunModelAligner(int argc, char** argv) {
     AlignToPrincipalPlane(&reconstruction, &tform);
   } else {
     PrintHeading2("Aligning reconstruction to " + alignment_type);
-    LOG(INFO) << StringPrintf(" => Using %d reference images",
+    LOG(INFO) << StringPrintf("=> Using %d reference images",
                               ref_image_names.size());
 
     const bool alignment_success =
@@ -853,7 +853,7 @@ int RunModelSplitter(int argc, char** argv) {
   }
 
   PrintHeading1("Splitting sparse model");
-  LOG(INFO) << StringPrintf(" => Using \"%s\" split type", split_type.c_str());
+  LOG(INFO) << StringPrintf("=> Using \"%s\" split type", split_type.c_str());
 
   Reconstruction reconstruction;
   reconstruction.Read(input_path);
@@ -935,7 +935,7 @@ int RunModelSplitter(int argc, char** argv) {
 
   PrintHeading2("Applying split and writing reconstructions");
   const size_t num_parts = bounds.size();
-  LOG(INFO) << StringPrintf(" => Splitting to %d parts", num_parts);
+  LOG(INFO) << StringPrintf("=> Splitting to %d parts", num_parts);
 
   const bool use_tile_keys = split_type == "tiles";
 

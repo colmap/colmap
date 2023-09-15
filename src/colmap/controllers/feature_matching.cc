@@ -665,7 +665,7 @@ class SpatialFeatureMatcher : public Thread {
     PrintElapsedTime(timer);
 
     if (num_locations == 0) {
-      LOG(INFO) << " => No images with location data.";
+      LOG(INFO) << "=> No images with location data.";
       GetTimer().PrintMinutes();
       return;
     }

@@ -744,8 +744,7 @@ void OptionManager::AddRenderOptions() {
 }
 
 void OptionManager::Reset() {
-  FLAGS_logtostderr = false;
-  FLAGS_v = 2;
+  FLAGS_logtostderr = true;
 
   const bool kResetPaths = true;
   ResetOptions(kResetPaths);

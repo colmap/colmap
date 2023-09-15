@@ -53,7 +53,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   Timer timer;
 
   timer.Start();
-  LOG(INFO) << "Loading cameras..." << std::flush;
+  LOG(INFO) << "Loading cameras...";
 
   {
     std::vector<class Camera> cameras = database.ReadAllCameras();
@@ -72,7 +72,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   //////////////////////////////////////////////////////////////////////////////
 
   timer.Restart();
-  LOG(INFO) << "Loading matches..." << std::flush;
+  LOG(INFO) << "Loading matches...";
 
   std::vector<image_pair_t> image_pair_ids;
   std::vector<TwoViewGeometry> two_view_geometries;
@@ -94,7 +94,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   //////////////////////////////////////////////////////////////////////////////
 
   timer.Restart();
-  LOG(INFO) << "Loading images..." << std::flush;
+  LOG(INFO) << "Loading images...";
 
   std::unordered_set<image_t> image_ids;
 
@@ -154,7 +154,7 @@ std::shared_ptr<DatabaseCache> DatabaseCache::Create(
   //////////////////////////////////////////////////////////////////////////////
 
   timer.Restart();
-  LOG(INFO) << "Building correspondence graph..." << std::flush;
+  LOG(INFO) << "Building correspondence graph...";
 
   cache->correspondence_graph_ = std::make_shared<class CorrespondenceGraph>();
 

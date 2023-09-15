@@ -144,7 +144,7 @@ int RunVocabTreeBuilder(int argc, char** argv) {
   LOG(INFO) << "Building index for visual words...";
   // NOLINTNEXTLINE(clang-analyzer-optin.cplusplus.VirtualCall)
   visual_index.Build(build_options, descriptors);
-  LOG(INFO) << " => Quantized descriptor space using "
+  LOG(INFO) << "=> Quantized descriptor space using "
             << visual_index.NumVisualWords() << " visual words";
 
   LOG(INFO) << "Saving index to file...";

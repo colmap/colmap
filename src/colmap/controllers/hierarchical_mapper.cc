@@ -67,7 +67,7 @@ void MergeClusters(const SceneClustering::Cluster& cluster,
                                  *reconstructions[j],
                                  reconstructions[i].get())) {
           LOG(INFO) << StringPrintf(
-              " => Merged clusters with %d and %d images into %d images",
+              "=> Merged clusters with %d and %d images into %d images",
               num_reg_images_i,
               num_reg_images_j,
               reconstructions[i]->NumRegImages());

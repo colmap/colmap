@@ -89,7 +89,7 @@ void IterativeLocalRefinement(const IncrementalMapperOptions& options,
                report.num_completed_observations +
                report.num_filtered_observations) /
                   static_cast<double>(report.num_adjusted_observations);
-    LOG(INFO) << StringPrintf("  => Changed observations: %.6f", changed);
+    LOG(INFO) << StringPrintf("=> Changed observations: %.6f", changed);
     if (changed < options.ba_local_max_refinement_change) {
       break;
     }
@@ -118,7 +118,7 @@ void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
         num_observations == 0
             ? 0
             : static_cast<double>(num_changed_observations) / num_observations;
-    LOG(INFO) << StringPrintf("  => Changed observations: %.6f", changed);
+    LOG(INFO) << StringPrintf("=> Changed observations: %.6f", changed);
     if (changed < options.ba_global_max_refinement_change) {
       break;
     }
@@ -211,7 +211,7 @@ BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
   options.solver_options.parameter_tolerance = 0.0;
   options.solver_options.max_num_iterations = ba_local_max_num_iterations;
   options.solver_options.max_linear_solver_iterations = 100;
-  options.solver_options.minimizer_progress_to_stdout = false;
+  options.solver_options.logging_type = ceres::LoggingType::SILENT;
   options.solver_options.num_threads = num_threads;
 #if CERES_VERSION_MAJOR < 2
   options.solver_options.num_linear_solver_threads = num_threads;
@@ -236,7 +236,8 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
   options.solver_options.parameter_tolerance = 0.0;
   options.solver_options.max_num_iterations = ba_global_max_num_iterations;
   options.solver_options.max_linear_solver_iterations = 100;
-  options.solver_options.minimizer_progress_to_stdout = true;
+  options.solver_options.logging_type =
+      ceres::LoggingType::PER_MINIMIZER_ITERATION;
   options.solver_options.num_threads = num_threads;
 #if CERES_VERSION_MAJOR < 2
   options.solver_options.num_linear_solver_threads = num_threads;
@@ -410,7 +411,7 @@ void IncrementalMapperController::Reconstruct(
         if (!reconstruction->ExistsImage(image_id1) ||
             !reconstruction->ExistsImage(image_id2)) {
           LOG(INFO) << StringPrintf(
-              "  => Initial image pair #%d and #%d do not exist.",
+              "=> Initial image pair #%d and #%d do not exist.",
               image_id1,
               image_id2);
           mapper.EndReconstruction(/*discard=*/true);
@@ -492,7 +493,7 @@ void IncrementalMapperController::Reconstruct(
                                    next_image_id,
                                    reconstruction->NumRegImages() + 1));
 
-        LOG(INFO) << StringPrintf("  => Image sees %d / %d points",
+        LOG(INFO) << StringPrintf("=> Image sees %d / %d points",
                                   next_image.NumVisiblePoints3D(),
                                   next_image.NumObservations());
 
