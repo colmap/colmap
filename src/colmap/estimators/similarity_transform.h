@@ -31,7 +31,7 @@
 
 #pragma once
 
-#include "colmap/scene/projection.h"
+#include "colmap/geometry/sim3.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
@@ -90,6 +90,19 @@ class SimilarityTransformEstimator {
                         const M_t& matrix,
                         std::vector<double>* residuals);
 };
+
+inline bool EstimateSim3d(const std::vector<Eigen::Vector3d>& src,
+                          const std::vector<Eigen::Vector3d>& tgt,
+                          Sim3d& tgt_from_src) {
+  const auto results =
+      SimilarityTransformEstimator<3, true>().Estimate(src, tgt);
+  if (results.empty()) {
+    return false;
+  }
+  CHECK_EQ(results.size(), 1);
+  tgt_from_src = Sim3d::FromMatrix(results[0]);
+  return true;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation

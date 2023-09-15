@@ -35,6 +35,7 @@
 #include "colmap/controllers/bundle_adjustment.h"
 #include "colmap/controllers/hierarchical_mapper.h"
 #include "colmap/controllers/option_manager.h"
+#include "colmap/estimators/similarity_transform.h"
 #include "colmap/exe/gui.h"
 #include "colmap/scene/reconstruction.h"
 #include "colmap/util/misc.h"
@@ -282,8 +283,8 @@ int RunMapper(int argc, char** argv) {
             reconstruction->Image(image_id).ProjectionCenter());
       }
       Sim3d orig_from_new;
-      orig_from_new.Estimate(new_fixed_image_positions,
-                             orig_fixed_image_positions);
+      EstimateSim3d(
+          new_fixed_image_positions, orig_fixed_image_positions, orig_from_new);
       reconstruction->Transform(orig_from_new);
     }
 
