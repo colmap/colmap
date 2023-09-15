@@ -239,11 +239,12 @@ bool AlignReconstructionToLocations(
   return true;
 }
 
-bool AlignReconstructions(const Reconstruction& src_reconstruction,
-                          const Reconstruction& tgt_reconstruction,
-                          const double min_inlier_observations,
-                          const double max_reproj_error,
-                          Sim3d* tgt_from_src) {
+bool AlignReconstructionsViaReprojections(
+    const Reconstruction& src_reconstruction,
+    const Reconstruction& tgt_reconstruction,
+    const double min_inlier_observations,
+    const double max_reproj_error,
+    Sim3d* tgt_from_src) {
   CHECK_GE(min_inlier_observations, 0.0);
   CHECK_LE(min_inlier_observations, 1.0);
 
@@ -282,10 +283,11 @@ bool AlignReconstructions(const Reconstruction& src_reconstruction,
   return report.success;
 }
 
-bool AlignReconstructions(const Reconstruction& src_reconstruction,
-                          const Reconstruction& tgt_reconstruction,
-                          const double max_proj_center_error,
-                          Sim3d* tgt_from_src) {
+bool AlignReconstructionsViaProjCenters(
+    const Reconstruction& src_reconstruction,
+    const Reconstruction& tgt_reconstruction,
+    const double max_proj_center_error,
+    Sim3d* tgt_from_src) {
   CHECK_GT(max_proj_center_error, 0);
 
   std::vector<std::string> ref_image_names;
@@ -407,11 +409,11 @@ bool MergeReconstructions(const double max_reproj_error,
                           const Reconstruction& src_reconstruction,
                           Reconstruction* tgt_reconstruction) {
   Sim3d tgt_from_src;
-  if (!AlignReconstructions(src_reconstruction,
-                            *tgt_reconstruction,
-                            /*min_inlier_observations=*/0.3,
-                            max_reproj_error,
-                            &tgt_from_src)) {
+  if (!AlignReconstructionsViaReprojections(src_reconstruction,
+                                            *tgt_reconstruction,
+                                            /*min_inlier_observations=*/0.3,
+                                            max_reproj_error,
+                                            &tgt_from_src)) {
     return false;
   }
 

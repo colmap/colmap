@@ -50,20 +50,22 @@ bool AlignReconstructionToLocations(
 // is verified by reprojecting common 3D point observations.
 // The min_inlier_observations threshold determines how many observations
 // in a common image must reproject within the given threshold.
-bool AlignReconstructions(const Reconstruction& src_reconstruction,
-                          const Reconstruction& tgt_reconstruction,
-                          double min_inlier_observations,
-                          double max_reproj_error,
-                          Sim3d* tgt_from_src);
+bool AlignReconstructionsViaReprojections(
+    const Reconstruction& src_reconstruction,
+    const Reconstruction& tgt_reconstruction,
+    double min_inlier_observations,
+    double max_reproj_error,
+    Sim3d* tgt_from_src);
 
 // Robustly compute alignment between reconstructions by finding images that
 // are registered in both reconstructions. The alignment is then estimated
 // robustly inside RANSAC from corresponding projection centers and by
 // minimizing the Euclidean distance between them in world space.
-bool AlignReconstructions(const Reconstruction& src_reconstruction,
-                          const Reconstruction& tgt_reconstruction,
-                          double max_proj_center_error,
-                          Sim3d* tgt_from_src);
+bool AlignReconstructionsViaProjCenters(
+    const Reconstruction& src_reconstruction,
+    const Reconstruction& tgt_reconstruction,
+    double max_proj_center_error,
+    Sim3d* tgt_from_src);
 
 // Robustly compute the alignment between reconstructions that share the
 // same 2D points. It is estimated by minimizing the 3D distance between

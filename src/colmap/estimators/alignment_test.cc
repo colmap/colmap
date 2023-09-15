@@ -69,7 +69,7 @@ Reconstruction GenerateReconstructionForAlignment() {
   return reconstruction;
 }
 
-TEST(Alignment, AlignReconstructionsReprojectPoints) {
+TEST(Alignment, AlignReconstructionsViaReprojections) {
   Reconstruction src_reconstruction = GenerateReconstructionForAlignment();
   Reconstruction tgt_reconstruction = src_reconstruction;
 
@@ -77,15 +77,15 @@ TEST(Alignment, AlignReconstructionsReprojectPoints) {
   tgt_reconstruction.Transform(gt_tgt_from_src);
 
   Sim3d tgt_from_src;
-  CHECK(AlignReconstructions(src_reconstruction,
-                             tgt_reconstruction,
-                             /*min_inlier_observations=*/0.9,
-                             /*max_reproj_error=*/2,
-                             &tgt_from_src));
+  CHECK(AlignReconstructionsViaReprojections(src_reconstruction,
+                                             tgt_reconstruction,
+                                             /*min_inlier_observations=*/0.9,
+                                             /*max_reproj_error=*/2,
+                                             &tgt_from_src));
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
 }
 
-TEST(Alignment, AlignReconstructionsProjCenters) {
+TEST(Alignment, AlignReconstructionsViaProjCenters) {
   Reconstruction src_reconstruction = GenerateReconstructionForAlignment();
   Reconstruction tgt_reconstruction = src_reconstruction;
 
@@ -93,10 +93,10 @@ TEST(Alignment, AlignReconstructionsProjCenters) {
   tgt_reconstruction.Transform(gt_tgt_from_src);
 
   Sim3d tgt_from_src;
-  CHECK(AlignReconstructions(src_reconstruction,
-                             tgt_reconstruction,
-                             /*max_proj_center_error=*/0.1,
-                             &tgt_from_src));
+  CHECK(AlignReconstructionsViaProjCenters(src_reconstruction,
+                                           tgt_reconstruction,
+                                           /*max_proj_center_error=*/0.1,
+                                           &tgt_from_src));
   ExpectEqualSim3d(gt_tgt_from_src, tgt_from_src);
 }
 
