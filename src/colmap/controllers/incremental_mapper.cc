@@ -238,6 +238,7 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
   options.solver_options.max_linear_solver_iterations = 100;
   options.solver_options.logging_type =
       ceres::LoggingType::PER_MINIMIZER_ITERATION;
+  options.solver_options.minimizer_progress_to_stdout = true;
   options.solver_options.num_threads = num_threads;
 #if CERES_VERSION_MAJOR < 2
   options.solver_options.num_linear_solver_threads = num_threads;

@@ -260,7 +260,7 @@ class FeatureWriterThread : public Thread {
                                   image_data.image.Name().c_str());
 
         if (image_data.status == ImageReader::Status::IMAGE_EXISTS) {
-          LOG(INFO) << "SKIP: Features for image already extracted.";
+          LOG(INFO) << "  SKIP: Features for image already extracted.";
         } else if (image_data.status == ImageReader::Status::BITMAP_ERROR) {
           LOG(ERROR) << "Failed to read image file format.";
         } else if (image_data.status ==
