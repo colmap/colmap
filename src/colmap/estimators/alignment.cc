@@ -393,7 +393,14 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
   RANSACOptions ransac_options;
   ransac_options.max_error = max_error;
   ransac_options.min_inlier_ratio = min_inlier_ratio;
-  return tgt_from_src->EstimateRobust(xyz_src, xyz_tgt, ransac_options);
+  LORANSAC<SimilarityTransformEstimator<3, true>,
+           SimilarityTransformEstimator<3, true>>
+      ransac(ransac_options);
+  const auto report = ransac.Estimate(xyz_src, xyz_tgt);
+  if (report.success) {
+    *tgt_from_src = Sim3d::FromMatrix(report.model);
+  }
+  return report.success;
 }
 
 bool MergeReconstructions(const double max_reproj_error,

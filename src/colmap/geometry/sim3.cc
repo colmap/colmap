@@ -33,7 +33,6 @@
 
 #include "colmap/estimators/similarity_transform.h"
 #include "colmap/geometry/pose.h"
-#include "colmap/optim/loransac.h"
 #include "colmap/scene/projection.h"
 
 #include <fstream>
@@ -50,19 +49,6 @@ bool Sim3d::Estimate(const std::vector<Eigen::Vector3d>& src,
   CHECK_EQ(results.size(), 1);
   *this = Sim3d::FromMatrix(results[0]);
   return true;
-}
-
-bool Sim3d::EstimateRobust(const std::vector<Eigen::Vector3d>& src,
-                           const std::vector<Eigen::Vector3d>& tgt,
-                           const RANSACOptions& ransac_options) {
-  LORANSAC<SimilarityTransformEstimator<3, true>,
-           SimilarityTransformEstimator<3, true>>
-      ransac(ransac_options);
-  const auto report = ransac.Estimate(src, tgt);
-  if (report.success) {
-    *this = Sim3d::FromMatrix(report.model);
-  }
-  return report.success;
 }
 
 void Sim3d::ToFile(const std::string& path) const {
