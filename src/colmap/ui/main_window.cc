@@ -1355,7 +1355,7 @@ void MainWindow::Documentation() {
 
 void MainWindow::Support() {
   QDesktopServices::openUrl(
-      QUrl("https://groups.google.com/forum/#!forum/colmap"));
+      QUrl("https://github.com/colmap/colmap/discussions"));
 }
 
 void MainWindow::RenderToggle() {
