@@ -116,8 +116,8 @@ std::vector<PlyPoint> ReadPly(const std::string& path) {
         num_vertices = std::stoll(line_elems[2]);
         in_vertex_section = true;
       } else if (std::stoll(line_elems[2]) > 0) {
-        LOG(WARINING) << "Only vertex elements supported; ignoring "
-                      << line_elems[1];
+        LOG(WARNING) << "Only vertex elements supported; ignoring "
+                     << line_elems[1];
       }
     }
 
