@@ -386,9 +386,10 @@ int RunPointTriangulator(int argc, char** argv) {
       "clear_points",
       &clear_points,
       "Whether to clear all existing points and observations");
-  options.AddDefaultOption(
-      "refine_intrinsics", &refine_intrinsics,
-      "Whether to refine the intrinsics of the cameras (fixing the principal point)");
+  options.AddDefaultOption("refine_intrinsics",
+                           &refine_intrinsics,
+                           "Whether to refine the intrinsics of the cameras "
+                           "(fixing the principal point)");
   options.AddMapperOptions();
   options.Parse(argc, argv);
 
