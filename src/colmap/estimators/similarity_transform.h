@@ -31,7 +31,6 @@
 
 #pragma once
 
-#include "colmap/scene/projection.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
