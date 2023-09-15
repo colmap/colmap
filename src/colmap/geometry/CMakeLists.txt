@@ -45,8 +45,6 @@ COLMAP_ADD_LIBRARY(
         colmap_util
         colmap_math
         Eigen3::Eigen
-    PRIVATE_LINK_LIBS
-        colmap_estimators
 )
 
 COLMAP_ADD_TEST(

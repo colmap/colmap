@@ -127,6 +127,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
+    NAME similarity_transform_test
+    SRCS similarity_transform_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
     NAME translation_transform_test
     SRCS translation_transform_test.cc
     LINK_LIBS colmap_estimators
