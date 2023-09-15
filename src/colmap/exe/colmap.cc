@@ -158,11 +158,10 @@ int main(int argc, char** argv) {
       }
     }
     if (matched_command_func == nullptr) {
-      std::cerr << colmap::StringPrintf(
-                       "ERROR: Command `%s` not recognized. To list the "
+      LOG(ERROR) << colmap::StringPrintf(
+                       "Command `%s` not recognized. To list the "
                        "available commands, run `colmap help`.",
-                       command.c_str())
-                << std::endl;
+                       command.c_str());
       return EXIT_FAILURE;
     } else {
       int command_argc = argc - 1;

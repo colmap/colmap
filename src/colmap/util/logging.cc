@@ -55,11 +55,10 @@ bool __CheckOptionImpl(const char* file,
   if (result) {
     return true;
   } else {
-    std::cerr << StringPrintf("[%s:%d] Check failed: %s",
+    LOG(ERROR) << StringPrintf("[%s:%d] Check failed: %s",
                               __GetConstFileBaseName(file),
                               line,
-                              expr_str)
-              << std::endl;
+                              expr_str);
     return false;
   }
 }

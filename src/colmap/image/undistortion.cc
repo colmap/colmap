@@ -385,9 +385,7 @@ bool PMVSUndistorter::Undistort(const size_t reg_image_idx) const {
   Bitmap distorted_bitmap;
   const std::string input_image_path = JoinPaths(image_path_, image.Name());
   if (!distorted_bitmap.Read(input_image_path)) {
-    std::cerr << StringPrintf("ERROR: Cannot read image at path %s",
-                              input_image_path.c_str())
-              << std::endl;
+    LOG(ERROR) << "Cannot read image at path " << input_image_path.c_str();
     return false;
   }
 
