@@ -41,6 +41,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(GeneralizedAbsolutePose, Estimate) {
   std::vector<Eigen::Vector3d> points3D;
@@ -118,4 +119,5 @@ TEST(GeneralizedAbsolutePose, Estimate) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

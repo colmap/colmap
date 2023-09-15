@@ -36,6 +36,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(TwoViewGeometry, Default) {
   TwoViewGeometry two_view_geometry;
@@ -90,4 +91,5 @@ TEST(TwoViewGeometry, Invert) {
   EXPECT_EQ(two_view_geometry.inlier_matches[1].point2D_idx2, 3);
 }
 
+}  // namespace
 }  // namespace colmap

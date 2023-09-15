@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 #define CHECK_EQUAL_RESULT(find_func1, coeffs1, find_func2, coeffs2) \
   {                                                                  \
@@ -200,4 +201,5 @@ TEST(FindPolynomialRootsCompanionMatrixZeroSolution, Nominal) {
   EXPECT_TRUE(imag.isApprox(ref_imag, 1e-6));
 }
 
+}  // namespace
 }  // namespace colmap

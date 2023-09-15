@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(DecomposeMatrixRQ, Nominal) {
   for (int i = 0; i < 10; ++i) {
@@ -49,4 +50,5 @@ TEST(DecomposeMatrixRQ, Nominal) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

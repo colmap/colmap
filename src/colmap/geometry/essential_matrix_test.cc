@@ -37,6 +37,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(DecomposeEssentialMatrix, Nominal) {
   const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
@@ -148,4 +149,5 @@ TEST(InvertEssentialMatrix, Nominal) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

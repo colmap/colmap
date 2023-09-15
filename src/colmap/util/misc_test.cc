@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(EnsureTrailingSlash, Nominal) {
   EXPECT_EQ(EnsureTrailingSlash(""), "/");
@@ -221,4 +222,5 @@ TEST(RemoveCommandLineArgument, Nominal) {
   EXPECT_EQ(argc, 0);
 }
 
+}  // namespace
 }  // namespace colmap

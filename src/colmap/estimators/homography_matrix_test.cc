@@ -36,6 +36,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(HomographyMatrix, Estimate) {
   for (int x = 0; x < 10; ++x) {
@@ -67,4 +68,5 @@ TEST(HomographyMatrix, Estimate) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

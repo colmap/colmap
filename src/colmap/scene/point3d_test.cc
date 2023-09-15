@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(Point3D, Default) {
   Point3D point3D;
@@ -112,4 +113,5 @@ TEST(Point3D, Track) {
   EXPECT_EQ(point3D.Track().Length(), 2);
 }
 
+}  // namespace
 }  // namespace colmap

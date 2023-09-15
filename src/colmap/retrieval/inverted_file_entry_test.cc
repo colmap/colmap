@@ -35,6 +35,7 @@
 
 namespace colmap {
 namespace retrieval {
+namespace {
 
 TEST(InvertedFileEntry, Empty) {
   InvertedFileEntry<10> entry;
@@ -74,5 +75,6 @@ TEST(InvertedFileEntry, ReadWrite) {
   }
 }
 
+}  // namespace
 }  // namespace retrieval
 }  // namespace colmap

@@ -37,6 +37,7 @@
 
 namespace colmap {
 namespace {
+namespace {
 
 void GenerateRandomBitmap(const int width,
                           const int height,
@@ -274,4 +275,5 @@ TEST(Warp, DownsampleImage) {
   EXPECT_NEAR(downsampled[3], 12.2318935, 1e-3);
 }
 
+}  // namespace
 }  // namespace colmap

@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(Timer, Default) {
   Timer timer;
@@ -69,4 +70,5 @@ TEST(Timer, Pause) {
   EXPECT_EQ(timer.ElapsedMicroSeconds(), 0);
 }
 
+}  // namespace
 }  // namespace colmap

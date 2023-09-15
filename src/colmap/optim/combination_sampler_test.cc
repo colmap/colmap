@@ -38,6 +38,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(CombinationSampler, LessSamples) {
   CombinationSampler sampler(2);
@@ -74,4 +75,5 @@ TEST(CombinationSampler, EqualSamples) {
   }
 }
 
+}  // namespace
 }  // namespace colmap
