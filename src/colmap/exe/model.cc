@@ -193,12 +193,12 @@ void PrintErrorStats(std::ostream& out, std::vector<double>& vals) {
     return;
   }
   std::sort(vals.begin(), vals.end());
-  out << "Min:    " << vals.front();
-  out << "Max:    " << vals.back();
-  out << "Mean:   " << Mean(vals);
-  out << "Median: " << Median(vals);
-  out << "P90:    " << vals[size_t(0.9 * len)];
-  out << "P99:    " << vals[size_t(0.99 * len)];
+  out << "Min:    " << vals.front() << "\n";
+  out << "Max:    " << vals.back() << "\n";
+  out << "Mean:   " << Mean(vals) << "\n";
+  out << "Median: " << Median(vals) << "\n";
+  out << "P90:    " << vals[size_t(0.9 * len)] << "\n";
+  out << "P99:    " << vals[size_t(0.99 * len)] << "\n";
 }
 
 void PrintComparisonSummary(std::ostream& out,
