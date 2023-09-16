@@ -64,7 +64,7 @@ jobs:
 
   - script: |
       set -x
-      ccache --show-stats
+      ccache --show-stats --verbose
       ccache --evict-older-than 1d
-      ccache --show-stats
+      ccache --show-stats --verbose
     displayName: Cleanup compiler cache
