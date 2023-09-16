@@ -38,6 +38,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 void ExpectEqualReconstructions(const Reconstruction& gt,
                                 const Reconstruction& computed,
@@ -140,4 +141,5 @@ TEST(HierarchicalMapperController, MultiReconstruction) {
                              /*num_obs_tolerance=*/0);
 }
 
+}  // namespace
 }  // namespace colmap

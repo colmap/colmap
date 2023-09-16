@@ -38,6 +38,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(TranslationTransform, Estimate) {
   SetPRNGSeed(0);
@@ -71,4 +72,5 @@ TEST(TranslationTransform, Estimate) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

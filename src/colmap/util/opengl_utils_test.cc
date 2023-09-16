@@ -37,6 +37,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(OpenGLContextManager, Nominal) {
   char app_name[] = "Test";
@@ -72,4 +73,5 @@ TEST(RunThreadWithOpenGLContext, Nominal) {
   RunThreadWithOpenGLContext(&thread);
 }
 
+}  // namespace
 }  // namespace colmap

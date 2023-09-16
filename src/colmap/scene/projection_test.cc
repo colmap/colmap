@@ -39,6 +39,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(CalculateSquaredReprojectionError, Nominal) {
   const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
@@ -171,4 +172,5 @@ TEST(HasPointPositiveDepth, Nominal) {
   EXPECT_FALSE(check4);
 }
 
+}  // namespace
 }  // namespace colmap

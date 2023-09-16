@@ -35,6 +35,7 @@
 
 namespace colmap {
 namespace mvs {
+namespace {
 
 TEST(DepthMap, Empty) {
   DepthMap depth_map;
@@ -94,5 +95,6 @@ TEST(DepthMap, ToBitmap) {
   EXPECT_EQ(color, BitmapColor<uint8_t>(128, 0, 0));
 }
 
+}  // namespace
 }  // namespace mvs
 }  // namespace colmap

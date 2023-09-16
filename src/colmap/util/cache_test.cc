@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(LRUCache, Empty) {
   LRUCache<int, int> cache(5, [](const int key) { return key; });
@@ -271,4 +272,5 @@ TEST(MemoryConstrainedLRUCache, UpdateNumBytes) {
   EXPECT_EQ(cache.NumBytes(), 2);
 }
 
+}  // namespace
 }  // namespace colmap

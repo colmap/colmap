@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(GraphCut, ComputeMinGraphCutStoerWagner) {
   const std::vector<std::pair<int, int>> edges = {{3, 4},
@@ -276,4 +277,5 @@ TEST(GraphCut, MinSTGraphCut3) {
   EXPECT_TRUE(graph.IsConnectedToSink(2));
 }
 
+}  // namespace
 }  // namespace colmap

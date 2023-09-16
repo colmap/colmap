@@ -37,6 +37,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(SynthesizeDataset, Nominal) {
   Database database(Database::kInMemoryDatabasePath);
@@ -154,4 +155,5 @@ TEST(SynthesizeDataset, NoDatabase) {
   SynthesizeDataset(options, &reconstruction);
 }
 
+}  // namespace
 }  // namespace colmap

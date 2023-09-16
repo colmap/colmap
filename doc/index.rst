@@ -74,10 +74,9 @@ Getting Started
 Support
 -------
 
-Please, use the `Google Group <https://groups.google.com/forum/#!forum/colmap>`_
-(colmap@googlegroups.com) for questions and the `GitHub issue tracker
-<https://github.com/colmap/colmap>`_ for bug reports, feature
-requests/additions, etc.
+Please, use `GitHub Discussions <https://github.com/colmap/colmap/discussions>`_
+for questions and the `GitHub issue tracker <https://github.com/colmap/colmap>`_
+for bug reports, feature requests/additions, etc.
 
 
 Acknowledgments

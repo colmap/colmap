@@ -40,6 +40,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(GeneralizedRelativePose, Estimate) {
   const size_t kNumPoints = 100;
@@ -112,4 +113,5 @@ TEST(GeneralizedRelativePose, Estimate) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

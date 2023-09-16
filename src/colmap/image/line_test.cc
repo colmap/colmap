@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(DetectLineSegments, Nominal) {
   Bitmap bitmap;
@@ -79,4 +80,5 @@ TEST(ClassifyLineSegmentOrientations, Nominal) {
   EXPECT_TRUE(orientations[5] == LineSegmentOrientation::UNDEFINED);
 }
 
+}  // namespace
 }  // namespace colmap

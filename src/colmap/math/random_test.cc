@@ -39,6 +39,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(PRNGSeed, Nominal) {
   EXPECT_TRUE(PRNG == nullptr);
@@ -137,4 +138,5 @@ TEST(ShuffleAll, Nominal) {
   EXPECT_GT(num_shuffled, 0);
 }
 
+}  // namespace
 }  // namespace colmap

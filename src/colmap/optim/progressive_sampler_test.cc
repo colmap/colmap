@@ -36,6 +36,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(ProgressiveSampler, LessSamples) {
   ProgressiveSampler sampler(2);
@@ -79,4 +80,5 @@ TEST(ProgressiveSampler, Progressive) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

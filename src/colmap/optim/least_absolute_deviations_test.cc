@@ -37,6 +37,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(SolveLeastAbsoluteDeviations, OverDetermined) {
   Eigen::SparseMatrix<double> A(4, 3);
@@ -101,4 +102,5 @@ TEST(SolveLeastAbsoluteDeviations, UnderDetermined) {
   EXPECT_FALSE(SolveLeastAbsoluteDeviations(options, A, b, &x));
 }
 
+}  // namespace
 }  // namespace colmap
