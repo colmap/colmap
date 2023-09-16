@@ -51,6 +51,9 @@ COLMAP_ADD_LIBRARY(
 )
 if(GPU_ENABLED)
     target_link_libraries(colmap_feature PRIVATE colmap_sift_gpu)
+    if(NOT GUI_ENABLED)
+        target_link_libraries(colmap_feature PRIVATE GLEW::GLEW)
+    endif()
 endif()
 
 COLMAP_ADD_TEST(
