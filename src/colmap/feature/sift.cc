@@ -40,6 +40,10 @@
 
 #if defined(COLMAP_GPU_ENABLED)
 #include "thirdparty/SiftGPU/SiftGPU.h"
+#if !defined(COLMAP_GUI_ENABLED)
+// GLEW symbols are already defined by Qt.
+#include <GL/glew.h>
+#endif  // COLMAP_GUI_ENABLED
 #endif  // COLMAP_GPU_ENABLED
 #include "thirdparty/VLFeat/covdet.h"
 #include "thirdparty/VLFeat/sift.h"
