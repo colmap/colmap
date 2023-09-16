@@ -118,6 +118,11 @@ COLMAP_ADD_TEST(
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
+    NAME generalized_pose_test
+    SRCS generalized_pose_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
     NAME generalized_relative_pose_test
     SRCS generalized_relative_pose_test.cc
     LINK_LIBS colmap_estimators
