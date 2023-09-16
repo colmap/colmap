@@ -17,7 +17,7 @@ jobs:
     CCACHE_DIR: $(Pipeline.Workspace)/ccache
     CCACHE_BASEDIR: $(Build.SourcesDirectory)
     CCACHE_VERSION: 1
-    ${{ if eq(parameters.asanEnabled, false) }}:
+    ${{ if and(eq(parameters.asanEnabled, false), eq(parameters.guiEnabled, true)) }}:
       ctestExclusions: "(mvs/colmap_mvs_gpu_mat_test)"
     ${{ if or(eq(parameters.asanEnabled, true), eq(parameters.guiEnabled, false)) }}:
       ctestExclusions: "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
