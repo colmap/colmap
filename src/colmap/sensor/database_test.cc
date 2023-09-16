@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(CameraDatabase, Initialization) {
   CameraDatabase database;
@@ -57,4 +58,5 @@ TEST(CameraDatabase, AmbiguousMatch) {
   EXPECT_EQ(sensor_width, 6.1600f);
 }
 
+}  // namespace
 }  // namespace colmap

@@ -35,6 +35,7 @@
 
 namespace colmap {
 namespace mvs {
+namespace {
 
 TEST(ConsistencyGraph, Empty) {
   const std::vector<int> data;
@@ -97,5 +98,6 @@ TEST(ConsistencyGraph, Full) {
   EXPECT_EQ(consistency_graph.GetNumBytes(), 48);
 }
 
+}  // namespace
 }  // namespace mvs
 }  // namespace colmap

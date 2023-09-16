@@ -37,6 +37,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(ComputeClosestRotationMatrix, Nominal) {
   const Eigen::Matrix3d A = Eigen::Matrix3d::Identity();
@@ -217,4 +218,5 @@ TEST(CheckCheirality, Nominal) {
   EXPECT_EQ(points3D.size(), 0);
 }
 
+}  // namespace
 }  // namespace colmap

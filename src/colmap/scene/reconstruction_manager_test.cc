@@ -35,6 +35,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(ReconstructionManager, Empty) {
   ReconstructionManager reconstruction_manager;
@@ -80,4 +81,5 @@ TEST(ReconstructionManager, Clear) {
   EXPECT_EQ(reconstruction_manager.Size(), 0);
 }
 
+}  // namespace
 }  // namespace colmap

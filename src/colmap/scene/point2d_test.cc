@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(Point2D, Default) {
   Point2D point2D;
@@ -54,4 +55,5 @@ TEST(Point2D, Point3DId) {
   EXPECT_FALSE(point2D.HasPoint3D());
 }
 
+}  // namespace
 }  // namespace colmap

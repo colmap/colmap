@@ -36,6 +36,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(CoordinateFrame, EstimateGravityVectorFromImageOrientation) {
   Reconstruction reconstruction;
@@ -156,4 +157,5 @@ TEST(CoordinateFrame, AlignToENUPlane) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

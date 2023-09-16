@@ -41,6 +41,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(RANSAC, Options) {
   RANSACOptions options;
@@ -134,4 +135,5 @@ TEST(RANSAC, SimilarityTransform) {
   EXPECT_LT(matrix_diff, 1e-6);
 }
 
+}  // namespace
 }  // namespace colmap

@@ -112,6 +112,7 @@
   { EXPECT_EQ((point).XYZ(), (orig_point).XYZ()); }
 
 namespace colmap {
+namespace {
 
 void GeneratePointCloud(const size_t num_points,
                         const Eigen::Vector3d& min,
@@ -848,4 +849,5 @@ TEST(BundleAdjustment, RigFourViewPartial) {
   }
 }
 
+}  // namespace
 }  // namespace colmap
