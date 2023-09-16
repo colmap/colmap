@@ -203,10 +203,10 @@ bool RefineGeneralizedAbsolutePose(const AbsolutePoseRefinementOptions& options,
     problem.AddResidualBlock(
         cost_function,
         loss_function.get(),
-        rig_from_world_rotation,
-        rig_from_world_translation,
         cams_from_rig_copy[camera_idx].rotation.coeffs().data(),
         cams_from_rig_copy[camera_idx].translation.data(),
+        rig_from_world_rotation,
+        rig_from_world_translation,
         points3D_copy[i].data(),
         cameras_params_data[camera_idx]);
     problem.SetParameterBlockConstant(points3D_copy[i].data());
