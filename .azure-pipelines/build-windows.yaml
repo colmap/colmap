@@ -50,7 +50,7 @@ jobs:
 
   - pwsh: |
       echo "##vso[task.prependpath]$(COMPILER_CACHE_DIR)/bin"
-      mkdir -p "$(CCACHE_DIR)"
+      New-Item -ItemType Directory -Force -Path "$(CCACHE_DIR)"
     displayName: Setup compiler cache
 
   - pwsh: |
