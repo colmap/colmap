@@ -117,16 +117,14 @@ bool EstimateGeneralizedAbsolutePose(
                     return v1.isApprox(v2, 1e-5);
                   }),
       unique_points3D.end());
-  std::vector<double> distances(unique_points3D.size());
-  std::vector<size_t> unique_point3D_ids;
-  unique_point3D_ids.reserve(points3D.size());
-  for (const auto& point3D : points3D) {
-    for (size_t i = 0; i < unique_points3D.size(); i++) {
-      distances[i] = (point3D - unique_points3D[i]).norm();
-    }
-    unique_point3D_ids.push_back(
-        std::min_element(distances.begin(), distances.end())
-            - distances.begin());
+  Eigen::Map<Eigen::Matrix3Xd> mat_unique_points3D(
+      unique_points3D[0].data(), 3, unique_points3D.size());
+  std::vector<size_t> unique_point3D_ids(points3D.size());
+  for (size_t i = 0; i < points3D.size(); i++) {
+    (mat_unique_points3D.colwise() - points3D[i])
+        .colwise()
+        .norm()
+        .minCoeff(&unique_point3D_ids[i]);
   }
 
   RANSACOptions options_copy(options);
