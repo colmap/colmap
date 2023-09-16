@@ -107,7 +107,8 @@ TEST(EstimateGeneralizedAbsolutePose, Nominal) {
 
   RANSACOptions ransac_options;
   ransac_options.max_error = 2;
-  ransac_options.min_inlier_ratio = gt_inlier_ratio - 0.1;
+  ransac_options.min_inlier_ratio = gt_inlier_ratio / 2;
+  ransac_options.confidence = 0.99999;
 
   Rigid3d rig_from_world;
   size_t num_inliers;
