@@ -67,7 +67,7 @@ COLMAP_ADD_TEST(
     LINK_LIBS
         colmap_feature
 )
-if(GUI_ENABLED)
+if(TESTS_ENABLED AND GUI_ENABLED)
     target_link_libraries(colmap_feature_sift_test Qt5::Widgets)
 endif()
 COLMAP_ADD_TEST(
