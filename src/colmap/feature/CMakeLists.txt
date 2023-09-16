@@ -68,7 +68,7 @@ COLMAP_ADD_TEST(
         colmap_feature
 )
 if(GUI_ENABLED)
-    target_link_libraries(colmap_feature_sift_test PRIVATE Qt5::Widgets)
+    target_link_libraries(colmap_feature_sift_test Qt5::Widgets)
 endif()
 COLMAP_ADD_TEST(
     NAME types_test
