@@ -66,8 +66,10 @@ COLMAP_ADD_TEST(
     SRCS sift_test.cc
     LINK_LIBS
         colmap_feature
-        Qt5::Widgets
 )
+if(GUI_ENABLED)
+    target_link_libraries(sift_test PRIVATE Qt5::Widgets)
+endif()
 COLMAP_ADD_TEST(
     NAME types_test
     SRCS types_test.cc
