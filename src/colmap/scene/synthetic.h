@@ -62,6 +62,6 @@ struct SyntheticDatasetOptions {
 
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
                        Reconstruction* reconstruction,
-                       Database* database);
+                       Database* database = nullptr);
 
 }  // namespace colmap

@@ -52,10 +52,10 @@ void ExpectEqualReconstructions(const Reconstruction& gt,
             (1 - num_obs_tolerance) * gt.ComputeNumObservations());
 
   Sim3d gtFromComputed;
-  AlignReconstructions(computed,
-                       gt,
-                       /*max_proj_center_error=*/0.1,
-                       &gtFromComputed);
+  AlignReconstructionsViaProjCenters(computed,
+                                     gt,
+                                     /*max_proj_center_error=*/0.1,
+                                     &gtFromComputed);
 
   const std::vector<ImageAlignmentError> errors =
       ComputeImageAlignmentError(computed, gt, gtFromComputed);
