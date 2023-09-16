@@ -13,9 +13,11 @@ jobs:
   pool:
     vmImage: 'ubuntu-${{ parameters.ubuntuVersion }}'
   variables:
-    CCACHE_DIR: $(Pipeline.Workspace)/ccache
+    COMPILER_CACHE_DIR: $(Pipeline.Workspace)/compiler-cache
+    COMPILER_CACHE_VERSION: 2
+    CCACHE_DIR: $(COMPILER_CACHE_DIR)/ccache
     CCACHE_BASEDIR: $(Build.SourcesDirectory)
-    CCACHE_VERSION: 1
+    CTCACHE_DIR: $(COMPILER_CACHE_DIR)/ctcache
     ${{ if eq(parameters.asanEnabled, false) }}:
       ctestExclusions: "(mvs/colmap_mvs_gpu_mat_test)"
     ${{ if eq(parameters.asanEnabled, true) }}:
@@ -98,25 +100,35 @@ jobs:
 
   - task: Cache@2
     inputs:
-      key: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}" | "$(Build.BuildNumber)"
-      restoreKeys: ccache | "$(CCACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
-      path: $(CCACHE_DIR)
+      key: ccache | "$(COMPILER_CACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}" | "$(Build.BuildNumber)"
+      restoreKeys: ccache | "$(COMPILER_CACHE_VERSION)" | "$(Agent.OS)" | "${{ parameters.displayName }}"
+      path: $(COMPILER_CACHE_DIR)
       cacheHitVar: CCACHE_RESTORED
-    displayName: Restore CCache
+    displayName: Restore compiler cache
 
   - script: |
       set -x
       wget https://github.com/ccache/ccache/releases/download/v4.8.2/ccache-4.8.2-linux-x86_64.tar.xz
       echo "0b33f39766fe9db67f40418aed6a5b3d7b2f4f7fab025a8213264b77a2d0e1b1  ccache-4.8.2-linux-x86_64.tar.xz" | sha256sum --check
       tar xfv ccache-4.8.2-linux-x86_64.tar.xz
-      mkdir -p "$(CCACHE_DIR)/bin"
-      mv ./ccache-4.8.2-linux-x86_64/ccache "$(CCACHE_DIR)/bin"
-      echo "##vso[task.prependpath]$(CCACHE_DIR)/bin"
-    displayName: Install CCache
+      mkdir -p "$(COMPILER_CACHE_DIR)/bin"
+      mv ./ccache-4.8.2-linux-x86_64/ccache "$(COMPILER_CACHE_DIR)/bin"
+      ctcache_commit_id="66c3614175fc650591488519333c411b2eac15a3"
+      wget https://github.com/matus-chochlik/ctcache/archive/${ctcache_commit_id}.zip
+      echo "108b087f156a9fe7da0c796de1ef73f5855d2a33a27983769ea39061359a40fc  ${ctcache_commit_id}.zip" | sha256sum --check
+      unzip "${ctcache_commit_id}.zip"
+      mv ctcache-${ctcache_commit_id}/clang-tidy* "$(COMPILER_CACHE_DIR)/bin"
+    displayName: Install compiler cache
     condition: ne(variables.CCACHE_RESTORED, 'true')
+  
+  - script: |
+      echo "##vso[task.prependpath]$(COMPILER_CACHE_DIR)/bin"
+      mkdir -p "$(CCACHE_DIR)" "$(CTCACHE_DIR)"
+    displayName: Setup compiler cache
 
   - script: |
       set -x
+      echo "##vso[task.prependpath]$(COMPILER_CACHE_DIR)/bin"
       cmake --version
       mkdir build
       cd build
@@ -184,4 +196,11 @@ jobs:
       ccache --show-stats
       ccache --evict-older-than 1d
       ccache --show-stats
-    displayName: Cleanup ccache
+
+      echo "Size of ctcache before: $(du -sh $(CTCACHE_DIR))"
+      echo "Number of ctcache files before: $(find $(CTCACHE_DIR) | wc -l)"
+      # Delete cache older than 10 days.
+      find "$(CTCACHE_DIR)"/*/ -mtime +10 -print0 | xargs -0 rm -rf
+      echo "Size of ctcache after:  $(du -sh $(CTCACHE_DIR))"
+      echo "Number of ctcache files after: $(find $(CTCACHE_DIR) | wc -l)"
+    displayName: Cleanup compiler cache
