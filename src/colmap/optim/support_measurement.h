@@ -74,8 +74,8 @@ struct UniqueInlierSupportMeasurer {
     double residual_sum = std::numeric_limits<double>::max();
   };
 
-  void SetSampleIds(const std::vector<size_t>& sample_ids) {
-    sample_ids_ = sample_ids;
+  void SetUniqueSampleIds(const std::vector<size_t>& sample_ids) {
+    unique_sample_ids_ = sample_ids;
   }
 
   // Compute the support of the residuals.
@@ -85,7 +85,7 @@ struct UniqueInlierSupportMeasurer {
   bool Compare(const Support& support1, const Support& support2);
 
  private:
-  std::vector<size_t> sample_ids_;
+  std::vector<size_t> unique_sample_ids_;
 };
 
 // Measure the support of a model by its fitness to the data as used in MSAC.

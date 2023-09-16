@@ -76,7 +76,7 @@ TEST(UniqueInlierSupportMeasurer, Nominal) {
 
   UniqueInlierSupportMeasurer measurer;
   const std::vector<size_t> sample_ids = {1, 2, 2, 3};
-  measurer.SetSampleIds(sample_ids);
+  measurer.SetUniqueSampleIds(sample_ids);
   const std::vector<double> residuals = {-1.0, 0.0, 1.0, 2.0};
   support1 = measurer.Evaluate(residuals, 1.0);
   EXPECT_EQ(support1.num_inliers, 3);

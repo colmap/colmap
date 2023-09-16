@@ -117,20 +117,20 @@ bool EstimateGeneralizedAbsolutePose(
                     return v1.isApprox(v2, 1e-5);
                   }),
       unique_points3D.end());
-  std::vector<size_t> point3D_ids;
-  point3D_ids.reserve(points3D.size());
-  for (const auto& p3D : points3D) {
-    point3D_ids.push_back(std::lower_bound(unique_points3D.begin(),
-                                           unique_points3D.end(),
-                                           p3D,
-                                           LowerVector3d) -
-                          unique_points3D.begin());
+  std::vector<size_t> unique_point3D_ids;
+  unique_point3D_ids.reserve(points3D.size());
+  for (const auto& point3D : points3D) {
+    unique_point3D_ids.push_back(std::lower_bound(unique_points3D.begin(),
+                                                  unique_points3D.end(),
+                                                  point3D,
+                                                  LowerVector3d) -
+                                 unique_points3D.begin());
   }
 
   RANSACOptions options_copy(options);
   options_copy.max_error = error_threshold_camera;
   RANSAC<GP3PEstimator, UniqueInlierSupportMeasurer> ransac(options_copy);
-  ransac.support_measurer.SetSampleIds(point3D_ids);
+  ransac.support_measurer.SetUniqueSampleIds(unique_point3D_ids);
   ransac.estimator.residual_type =
       GP3PEstimator::ResidualType::ReprojectionError;
   const auto report = ransac.Estimate(rig_points2D, points3D);

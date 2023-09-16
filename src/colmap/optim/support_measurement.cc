@@ -65,7 +65,7 @@ bool InlierSupportMeasurer::Compare(const Support& support1,
 
 UniqueInlierSupportMeasurer::Support UniqueInlierSupportMeasurer::Evaluate(
     const std::vector<double>& residuals, const double max_residual) {
-  CHECK_EQ(residuals.size(), sample_ids_.size());
+  CHECK_EQ(residuals.size(), unique_sample_ids_.size());
   Support support;
   support.num_inliers = 0;
   support.num_unique_inliers = 0;
@@ -75,7 +75,7 @@ UniqueInlierSupportMeasurer::Support UniqueInlierSupportMeasurer::Evaluate(
   for (size_t idx = 0; idx < residuals.size(); ++idx) {
     if (residuals[idx] <= max_residual) {
       support.num_inliers += 1;
-      inlier_point_ids.insert(sample_ids_[idx]);
+      inlier_point_ids.insert(unique_sample_ids_[idx]);
       support.residual_sum += residuals[idx];
     }
   }
