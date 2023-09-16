@@ -38,6 +38,7 @@
 #include "colmap/geometry/rigid3.h"
 #include "colmap/math/matrix.h"
 #include "colmap/optim/ransac.h"
+#include "colmap/optim/support_measurement.h"
 #include "colmap/scene/camera.h"
 #include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"
@@ -63,72 +64,6 @@ bool LowerVector3d(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2) {
     return false;
   }
 }
-
-// Measure the support of a model by counting the number of unique inliers
-// (e.g., visible 3D points), number of inliers, and summing all inlier
-// residuals. Each sample should have an associated id. Samples with the same id
-// are only counted once in num_unique_inliers. The support is better if it has
-// more unique inliers, more inliers, and a smaller residual sum.
-struct UniqueInlierSupportMeasurer {
-  struct Support {
-    // The number of inliers.
-    // This is still needed for determining the dynamic number of iterations.
-    size_t num_inliers = 0;
-
-    // The number of unique inliers;
-    size_t num_unique_inliers = 0;
-
-    // The sum of all inlier residuals.
-    double residual_sum = std::numeric_limits<double>::max();
-  };
-
-  void SetSampleIds(const std::vector<size_t>& sample_ids) {
-    sample_ids_ = sample_ids;
-  }
-
-  // Compute the support of the residuals.
-  Support Evaluate(const std::vector<double>& residuals,
-                   const double max_residual) {
-    CHECK_EQ(residuals.size(), sample_ids_.size());
-    Support support;
-    support.num_inliers = 0;
-    support.num_unique_inliers = 0;
-    support.residual_sum = 0;
-
-    std::unordered_set<size_t> inlier_point_ids;
-
-    for (size_t idx = 0; idx < residuals.size(); ++idx) {
-      if (residuals[idx] <= max_residual) {
-        support.num_inliers += 1;
-        inlier_point_ids.insert(sample_ids_[idx]);
-        support.residual_sum += residuals[idx];
-      }
-    }
-
-    support.num_unique_inliers = inlier_point_ids.size();
-
-    return support;
-  }
-
-  // Compare the two supports and return the better support.
-  bool Compare(const Support& support1, const Support& support2) {
-    if (support1.num_unique_inliers > support2.num_unique_inliers) {
-      return true;
-    } else if (support1.num_unique_inliers == support2.num_unique_inliers) {
-      if (support1.num_inliers > support2.num_inliers) {
-        return true;
-      } else {
-        return support1.num_inliers == support2.num_inliers &&
-               support1.residual_sum < support2.residual_sum;
-      }
-    } else {
-      return false;
-    }
-  }
-
- private:
-  std::vector<size_t> sample_ids_;
-};
 
 }  // namespace
 
