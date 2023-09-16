@@ -121,6 +121,7 @@ bool EstimateGeneralizedAbsolutePose(
                     return v1.isApprox(v2, 1e-5);
                   }),
       unique_points3D.end());
+  CHECK(!unique_points3D.empty());
   Eigen::Map<Eigen::Matrix3Xd> mat_unique_points3D(
       unique_points3D[0].data(), 3, unique_points3D.size());
   std::vector<size_t> unique_point3D_ids(points3D.size());
