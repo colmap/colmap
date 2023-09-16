@@ -31,7 +31,6 @@
 
 #include "colmap/geometry/sim3.h"
 
-#include "colmap/geometry/pose.h"
 #include "colmap/math/random.h"
 #include "colmap/util/testing.h"
 
@@ -41,6 +40,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 Sim3d TestSim3d() {
   return Sim3d(RandomUniformReal<double>(0.1, 10),
@@ -143,34 +143,6 @@ TEST(Sim3d, Compose) {
   EXPECT_LT((d_from_a * x_in_a - x_in_d).norm(), 1e-6);
 }
 
-void TestEstimationWithNumCoords(const size_t num_coords) {
-  const Sim3d gt_tgt_from_src = TestSim3d();
-
-  std::vector<Eigen::Vector3d> src;
-  std::vector<Eigen::Vector3d> dst;
-  for (size_t i = 0; i < num_coords; ++i) {
-    src.emplace_back(i, i + 2, i * i);
-    dst.push_back(gt_tgt_from_src * src.back());
-  }
-
-  Sim3d tgt_from_src;
-  EXPECT_TRUE(tgt_from_src.Estimate(src, dst));
-  EXPECT_NEAR(gt_tgt_from_src.scale, tgt_from_src.scale, 1e-6);
-  EXPECT_LT(gt_tgt_from_src.rotation.angularDistance(tgt_from_src.rotation),
-            1e-6);
-  EXPECT_LT((gt_tgt_from_src.translation - tgt_from_src.translation).norm(),
-            1e-6);
-}
-
-TEST(Sim3d, EstimateMinimal) { TestEstimationWithNumCoords(3); }
-
-TEST(Sim3d, EstimateOverDetermined) { TestEstimationWithNumCoords(100); }
-
-TEST(Sim3d, EstimateDegenerate) {
-  std::vector<Eigen::Vector3d> invalid_src_dst(3, Eigen::Vector3d::Zero());
-  EXPECT_FALSE(Sim3d().Estimate(invalid_src_dst, invalid_src_dst));
-}
-
 TEST(Sim3d, ToFromFile) {
   const std::string path = CreateTestDir() + "/file.txt";
   const Sim3d written = TestSim3d();
@@ -181,4 +153,5 @@ TEST(Sim3d, ToFromFile) {
   EXPECT_EQ(written.translation, read.translation);
 }
 
+}  // namespace
 }  // namespace colmap

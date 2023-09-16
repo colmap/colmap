@@ -38,6 +38,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(InlierSupportMeasurer, Nominal) {
   InlierSupportMeasurer::Support support1;
@@ -91,4 +92,5 @@ TEST(MEstimatorSupportMeasurer, Nominal) {
   EXPECT_TRUE(measurer.Compare(support2, support1));
 }
 
+}  // namespace
 }  // namespace colmap

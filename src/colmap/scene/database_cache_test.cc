@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(DatabaseCache, Empty) {
   DatabaseCache cache;
@@ -91,4 +92,5 @@ TEST(DatabaseCache, Nominal) {
             1);
 }
 
+}  // namespace
 }  // namespace colmap

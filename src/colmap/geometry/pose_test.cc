@@ -32,12 +32,12 @@
 #include "colmap/geometry/pose.h"
 
 #include "colmap/math/math.h"
-#include "colmap/scene/projection.h"
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(ComputeClosestRotationMatrix, Nominal) {
   const Eigen::Matrix3d A = Eigen::Matrix3d::Identity();
@@ -218,4 +218,5 @@ TEST(CheckCheirality, Nominal) {
   EXPECT_EQ(points3D.size(), 0);
 }
 
+}  // namespace
 }  // namespace colmap

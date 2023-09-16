@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(Image, Default) {
   Image image;
@@ -268,4 +269,5 @@ TEST(Image, ViewingDirection) {
   EXPECT_EQ(image.ViewingDirection(), Eigen::Vector3d(0, 0, 1));
 }
 
+}  // namespace
 }  // namespace colmap

@@ -35,6 +35,7 @@
 
 namespace colmap {
 namespace retrieval {
+namespace {
 
 template <typename kDescType, int kDescDim, int kEmbeddingDim>
 void TestVocabTreeType() {
@@ -133,5 +134,6 @@ TEST(VisualIndex, double_32_16) {
   TestVocabTreeType<double, 32, 16>();
 }
 
+}  // namespace
 }  // namespace retrieval
 }  // namespace colmap

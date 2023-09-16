@@ -32,11 +32,11 @@
 #include "colmap/estimators/coordinate_frame.h"
 
 #include "colmap/geometry/gps.h"
-#include "colmap/scene/projection.h"
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(CoordinateFrame, EstimateGravityVectorFromImageOrientation) {
   Reconstruction reconstruction;
@@ -157,4 +157,5 @@ TEST(CoordinateFrame, AlignToENUPlane) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

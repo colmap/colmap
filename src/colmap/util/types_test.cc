@@ -36,6 +36,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(FeatureMatchHashing, Nominal) {
   std::unordered_set<std::pair<point2D_t, point2D_t>> set;
@@ -53,4 +54,5 @@ TEST(FeatureMatchHashing, Nominal) {
   EXPECT_EQ(set.count(std::make_pair(2, 1)), 1);
 }
 
+}  // namespace
 }  // namespace colmap

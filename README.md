@@ -66,10 +66,9 @@ The documentation is available at https://colmap.github.io/.
 Support
 -------
 
-Please, use the COLMAP Google Group at
-https://groups.google.com/forum/#!forum/colmap (colmap@googlegroups.com) for
-questions and the GitHub issue tracker at https://github.com/colmap/colmap for
-bug reports, feature requests/additions, etc.
+Please, use GitHub Discussions at https://github.com/colmap/colmap/discussions
+for questions and the GitHub issue tracker at https://github.com/colmap/colmap
+for bug reports, feature requests/additions, etc.
 
 
 Acknowledgments

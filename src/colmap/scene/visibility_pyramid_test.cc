@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(VisibilityPyramid, Default) {
   VisibilityPyramid pyramid;
@@ -88,4 +89,5 @@ TEST(VisibilityPyramid, Score) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

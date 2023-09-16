@@ -34,13 +34,13 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/loransac.h"
-#include "colmap/scene/projection.h"
 
 #include <array>
 
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(GeneralizedRelativePose, Estimate) {
   const size_t kNumPoints = 100;
@@ -113,4 +113,5 @@ TEST(GeneralizedRelativePose, Estimate) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

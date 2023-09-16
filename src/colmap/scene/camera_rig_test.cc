@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(CameraRig, Empty) {
   CameraRig camera_rig;
@@ -325,4 +326,5 @@ TEST(CameraRig, ComputeRigFromWorld) {
   EXPECT_EQ(rig_from_world.translation, Eigen::Vector3d(0, -1, -2));
 }
 
+}  // namespace
 }  // namespace colmap

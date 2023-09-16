@@ -50,7 +50,7 @@ COLMAP_ADD_LIBRARY(
         lz4
 )
 if(GPU_ENABLED)
-    target_link_libraries(colmap_feature PRIVATE colmap_sift_gpu GLEW::GLEW)
+    target_link_libraries(colmap_feature PRIVATE colmap_sift_gpu)
 endif()
 
 COLMAP_ADD_TEST(

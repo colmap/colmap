@@ -32,12 +32,12 @@
 #include "colmap/geometry/essential_matrix.h"
 
 #include "colmap/geometry/pose.h"
-#include "colmap/scene/projection.h"
 
 #include <Eigen/Geometry>
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(DecomposeEssentialMatrix, Nominal) {
   const Rigid3d cam2_from_cam1(Eigen::Quaterniond::UnitRandom(),
@@ -149,4 +149,5 @@ TEST(InvertEssentialMatrix, Nominal) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

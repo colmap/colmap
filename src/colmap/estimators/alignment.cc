@@ -74,7 +74,7 @@ struct ReconstructionAlignmentEstimator {
     }
 
     Sim3d tgt_from_src;
-    if (tgt_from_src.Estimate(proj_centers1, proj_centers2)) {
+    if (EstimateSim3d(proj_centers1, proj_centers2, tgt_from_src)) {
       return {tgt_from_src};
     }
 

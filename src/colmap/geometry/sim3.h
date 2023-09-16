@@ -69,10 +69,6 @@ struct Sim3d {
     return t;
   }
 
-  // Estimate tgtFromSrc transform. Return true if successful.
-  bool Estimate(const std::vector<Eigen::Vector3d>& src,
-                const std::vector<Eigen::Vector3d>& tgt);
-
   // Read from or write to text file without loss of precision.
   void ToFile(const std::string& path) const;
   static Sim3d FromFile(const std::string& path);

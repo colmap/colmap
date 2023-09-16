@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(SignOfNumber, Nominal) {
   EXPECT_EQ(SignOfNumber(0), 0);
@@ -191,4 +192,5 @@ TEST(TruncateCast, Nominal) {
   EXPECT_EQ((TruncateCast<int, uint16_t>(65536)), 65535);
 }
 
+}  // namespace
 }  // namespace colmap

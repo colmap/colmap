@@ -37,6 +37,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(TriangulatePoint, Nominal) {
   const std::vector<Eigen::Vector3d> points3D = {
@@ -90,4 +91,5 @@ TEST(CalculateTriangulationAngle, Nominal) {
               1e-8);
 }
 
+}  // namespace
 }  // namespace colmap

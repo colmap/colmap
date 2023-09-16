@@ -39,6 +39,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 void GenerateReconstruction(const image_t num_images,
                             Reconstruction* reconstruction) {
@@ -630,4 +631,5 @@ TEST(Reconstruction, UpdatePoint3DErrors) {
   EXPECT_EQ(reconstruction.Point3D(point3D_id).Error(), 1);
 }
 
+}  // namespace
 }  // namespace colmap

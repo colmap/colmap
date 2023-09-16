@@ -34,7 +34,6 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/geometry/rigid3.h"
 #include "colmap/optim/ransac.h"
-#include "colmap/scene/projection.h"
 
 #include <array>
 
@@ -42,6 +41,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(GeneralizedAbsolutePose, Estimate) {
   std::vector<Eigen::Vector3d> points3D;
@@ -119,4 +119,5 @@ TEST(GeneralizedAbsolutePose, Estimate) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

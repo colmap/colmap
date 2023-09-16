@@ -36,6 +36,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(CenterAndNormalizeImagePoints, Nominal) {
   std::vector<Eigen::Vector2d> points;
@@ -105,4 +106,5 @@ TEST(ComputeSquaredReprojectionError, Nominal) {
   EXPECT_EQ(residuals[2], 13);
 }
 
+}  // namespace
 }  // namespace colmap

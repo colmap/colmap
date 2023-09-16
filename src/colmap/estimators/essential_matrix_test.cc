@@ -35,13 +35,13 @@
 #include "colmap/geometry/pose.h"
 #include "colmap/math/random.h"
 #include "colmap/optim/ransac.h"
-#include "colmap/scene/projection.h"
 #include "colmap/sensor/models.h"
 
 #include <Eigen/Core>
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(EssentialMatrix, FivePoint) {
   const double points1_raw[] = {
@@ -154,4 +154,5 @@ TEST(EssentialMatrix, EightPoint) {
   EXPECT_TRUE(std::abs(s(2)) < 1e-5);
 }
 
+}  // namespace
 }  // namespace colmap

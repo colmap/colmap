@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(TrackElement, Empty) {
   TrackElement track_el;
@@ -133,4 +134,5 @@ TEST(Track, Compress) {
   EXPECT_EQ(track.Elements().capacity(), 2);
 }
 
+}  // namespace
 }  // namespace colmap

@@ -31,10 +31,6 @@
 
 #include "colmap/feature/sift.h"
 
-#if defined(COLMAP_GPU_ENABLED)
-#include <GL/glew.h>
-#endif  // COLMAP_GPU_ENABLED
-
 #include "colmap/feature/utils.h"
 #include "colmap/math/math.h"
 #include "colmap/util/cuda.h"
@@ -1457,7 +1453,7 @@ std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
     return SiftGPUFeatureMatcher::Create(options);
 #else
     return nullptr;
-#endif // COLMAP_GPU_ENABLED
+#endif  // COLMAP_GPU_ENABLED
   } else {
     return SiftCPUFeatureMatcher::Create(options);
   }
