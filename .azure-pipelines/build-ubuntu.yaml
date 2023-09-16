@@ -6,6 +6,7 @@ parameters:
   e2eTestsEnabled: false
   checkCodeFormat: false
   cmakeBuildType: Release
+  guiEnabled: true
 
 jobs:
 - job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}_asan_${{ parameters.asanEnabled }}_${{ parameters.cmakeBuildType }}_e2e_${{ parameters.e2eTestsEnabled }}
@@ -126,7 +127,8 @@ jobs:
         -DCMAKE_INSTALL_PREFIX=./install \
         -DTESTS_ENABLED=ON \
         -DCMAKE_CUDA_ARCHITECTURES=50 \
-        -DASAN_ENABLED=${{ parameters.asanEnabled }}
+        -DASAN_ENABLED=${{ parameters.asanEnabled }} \
+        -DGUI_ENABLED=${{ parameters.guiEnabled }}
       ninja -k $(numAllowedNinjaErrors)
     displayName: Configure and build colmap
 
