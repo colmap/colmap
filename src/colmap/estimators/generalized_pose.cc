@@ -48,7 +48,7 @@
 namespace colmap {
 namespace {
 
-const bool lowerVector3d(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2) {
+bool LowerVector3d(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2) {
   if (v1.x() < v2.x()) {
     return true;
   } else if (v1.x() == v2.x()) {
@@ -62,10 +62,6 @@ const bool lowerVector3d(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2) {
   } else {
     return false;
   }
-}
-
-const bool equalVector3d(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2) {
-  return ((v1 - v2).norm() < 1e-5);
 }
 
 // Measure the support of a model by counting the number of unique inliers
@@ -178,10 +174,13 @@ bool EstimateGeneralizedAbsolutePose(
   // Needed for UniqueInlierSupportMeasurer to avoid counting the same
   // 3D point multiple times due to FoV overlap in rig.
   std::vector<Eigen::Vector3d> unique_points3D = points3D;
-  std::sort(unique_points3D.begin(), unique_points3D.end(), lowerVector3d);
+  std::sort(unique_points3D.begin(), unique_points3D.end(), LowerVector3d);
   unique_points3D.erase(
-      std::unique(
-          unique_points3D.begin(), unique_points3D.end(), equalVector3d),
+      std::unique(unique_points3D.begin(),
+                  unique_points3D.end(),
+                  [](const Eigen::Vector3d& v1, const Eigen::Vector3d& v2) {
+                    return v1.isApprox(v2, 1e-5);
+                  }),
       unique_points3D.end());
   std::vector<size_t> p3D_ids;
   p3D_ids.reserve(points3D.size());
@@ -189,7 +188,7 @@ bool EstimateGeneralizedAbsolutePose(
     p3D_ids.push_back(std::lower_bound(unique_points3D.begin(),
                                        unique_points3D.end(),
                                        p3D,
-                                       lowerVector3d) -
+                                       LowerVector3d) -
                       unique_points3D.begin());
   }
 
