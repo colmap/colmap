@@ -46,12 +46,16 @@
 namespace colmap {
 namespace {
 
-void BuildGeneralizedCameraProblem(Rigid3d& gt_rig_from_world,
-                                   std::vector<Eigen::Vector2d>& points2D,
-                                   std::vector<Eigen::Vector3d>& points3D,
-                                   std::vector<size_t>& camera_idxs,
-                                   std::vector<Rigid3d>& cams_from_rig,
-                                   std::vector<Camera>& cameras) {
+struct GeneralizedCameraProblem {
+  Rigid3d gt_rig_from_world;
+  std::vector<Eigen::Vector2d> points2D;
+  std::vector<Eigen::Vector3d> points3D;
+  std::vector<size_t> camera_idxs;
+  std::vector<Rigid3d> cams_from_rig;
+  std::vector<Camera> cameras;
+};
+
+GeneralizedCameraProblem BuildGeneralizedCameraProblem() {
   Reconstruction reconstruction;
   SyntheticDatasetOptions synthetic_dataset_options;
   synthetic_dataset_options.num_cameras = 3;
@@ -60,47 +64,41 @@ void BuildGeneralizedCameraProblem(Rigid3d& gt_rig_from_world,
   synthetic_dataset_options.point2D_stddev = 0;
   SynthesizeDataset(synthetic_dataset_options, &reconstruction);
 
-  gt_rig_from_world =
+  GeneralizedCameraProblem problem;
+  problem.gt_rig_from_world =
       Rigid3d(Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d::Random());
   for (const image_t image_id : reconstruction.RegImageIds()) {
     const auto& image = reconstruction.Image(image_id);
     for (const auto& point2D : image.Points2D()) {
       if (point2D.HasPoint3D()) {
-        points2D.push_back(point2D.xy);
-        points3D.push_back(reconstruction.Point3D(point2D.point3D_id).XYZ());
-        camera_idxs.push_back(cameras.size());
+        problem.points2D.push_back(point2D.xy);
+        problem.points3D.push_back(
+            reconstruction.Point3D(point2D.point3D_id).XYZ());
+        problem.camera_idxs.push_back(problem.cameras.size());
       }
     }
-    cameras.push_back(reconstruction.Camera(image.CameraId()));
-    cams_from_rig.push_back(image.CamFromWorld() * Inverse(gt_rig_from_world));
+    problem.cameras.push_back(reconstruction.Camera(image.CameraId()));
+    problem.cams_from_rig.push_back(image.CamFromWorld() *
+                                    Inverse(problem.gt_rig_from_world));
   }
+  return problem;
 }
 
 TEST(EstimateGeneralizedAbsolutePose, Nominal) {
-  Rigid3d gt_rig_from_world;
-  std::vector<Eigen::Vector2d> points2D;
-  std::vector<Eigen::Vector3d> points3D;
-  std::vector<size_t> camera_idxs;
-  std::vector<Rigid3d> cams_from_rig;
-  std::vector<Camera> cameras;
-  BuildGeneralizedCameraProblem(gt_rig_from_world,
-                                points2D,
-                                points3D,
-                                camera_idxs,
-                                cams_from_rig,
-                                cameras);
+  GeneralizedCameraProblem problem = BuildGeneralizedCameraProblem();
+  const size_t num_points = problem.points2D.size();
 
   const double gt_inlier_ratio = 0.8;
   const double outlier_distance = 50;
   const size_t gt_num_outliers =
-      std::max(static_cast<size_t>((1.0 - gt_inlier_ratio) * points2D.size()),
+      std::max(static_cast<size_t>((1.0 - gt_inlier_ratio) * num_points),
                static_cast<size_t>(GP3PEstimator::kMinNumSamples));
-  std::vector<char> gt_inlier_mask(points2D.size(), true);
-  std::vector<size_t> outlier_indices(points2D.size());
+  std::vector<char> gt_inlier_mask(num_points, true);
+  std::vector<size_t> outlier_indices(num_points);
   std::iota(outlier_indices.begin(), outlier_indices.end(), 0);
   std::shuffle(outlier_indices.begin(), outlier_indices.end(), *PRNG);
   for (size_t i = 0; i < gt_num_outliers; ++i) {
-    points2D[outlier_indices[i]] +=
+    problem.points2D[outlier_indices[i]] +=
         Eigen::Vector2d::Random().normalized() * outlier_distance;
     gt_inlier_mask[outlier_indices[i]] = false;
   }
@@ -114,36 +112,27 @@ TEST(EstimateGeneralizedAbsolutePose, Nominal) {
   size_t num_inliers;
   std::vector<char> inlier_mask;
   EXPECT_TRUE(EstimateGeneralizedAbsolutePose(ransac_options,
-                                              points2D,
-                                              points3D,
-                                              camera_idxs,
-                                              cams_from_rig,
-                                              cameras,
+                                              problem.points2D,
+                                              problem.points3D,
+                                              problem.camera_idxs,
+                                              problem.cams_from_rig,
+                                              problem.cameras,
                                               &rig_from_world,
                                               &num_inliers,
                                               &inlier_mask));
-  EXPECT_EQ(num_inliers, points2D.size() - gt_num_outliers);
+  EXPECT_EQ(num_inliers, num_points - gt_num_outliers);
   EXPECT_EQ(inlier_mask, gt_inlier_mask);
-  EXPECT_LT(gt_rig_from_world.rotation.angularDistance(rig_from_world.rotation),
+  EXPECT_LT(problem.gt_rig_from_world.rotation.angularDistance(
+                rig_from_world.rotation),
             1e-6);
-  EXPECT_LT((gt_rig_from_world.translation - rig_from_world.translation).norm(),
+  EXPECT_LT((problem.gt_rig_from_world.translation - rig_from_world.translation)
+                .norm(),
             1e-6);
 }
 
 TEST(RefineGeneralizedAbsolutePose, Nominal) {
-  Rigid3d gt_rig_from_world;
-  std::vector<Eigen::Vector2d> points2D;
-  std::vector<Eigen::Vector3d> points3D;
-  std::vector<size_t> camera_idxs;
-  std::vector<Rigid3d> cams_from_rig;
-  std::vector<Camera> cameras;
-  BuildGeneralizedCameraProblem(gt_rig_from_world,
-                                points2D,
-                                points3D,
-                                camera_idxs,
-                                cams_from_rig,
-                                cameras);
-  const std::vector<char> gt_inlier_mask(points2D.size(), true);
+  GeneralizedCameraProblem problem = BuildGeneralizedCameraProblem();
+  const std::vector<char> gt_inlier_mask(problem.points2D.size(), true);
 
   const double rotation_noise_degree = 1;
   const double translation_noise = 0.1;
@@ -151,22 +140,24 @@ TEST(RefineGeneralizedAbsolutePose, Nominal) {
                                     DegToRad(rotation_noise_degree),
                                     Eigen::Vector3d::Random().normalized())),
                                 Eigen::Vector3d::Random() * translation_noise);
-  Rigid3d rig_from_world = rig_from_gt_rig * gt_rig_from_world;
+  Rigid3d rig_from_world = rig_from_gt_rig * problem.gt_rig_from_world;
 
   AbsolutePoseRefinementOptions options;
   options.refine_focal_length = false;
   options.refine_extra_params = false;
   EXPECT_TRUE(RefineGeneralizedAbsolutePose(options,
                                             gt_inlier_mask,
-                                            points2D,
-                                            points3D,
-                                            camera_idxs,
-                                            cams_from_rig,
+                                            problem.points2D,
+                                            problem.points3D,
+                                            problem.camera_idxs,
+                                            problem.cams_from_rig,
                                             &rig_from_world,
-                                            &cameras));
-  EXPECT_LT(gt_rig_from_world.rotation.angularDistance(rig_from_world.rotation),
+                                            &problem.cameras));
+  EXPECT_LT(problem.gt_rig_from_world.rotation.angularDistance(
+                rig_from_world.rotation),
             1e-6);
-  EXPECT_LT((gt_rig_from_world.translation - rig_from_world.translation).norm(),
+  EXPECT_LT((problem.gt_rig_from_world.translation - rig_from_world.translation)
+                .norm(),
             1e-6);
 }
 
