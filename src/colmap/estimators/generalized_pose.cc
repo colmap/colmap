@@ -65,6 +65,19 @@ bool LowerVector3d(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2) {
   }
 }
 
+// Average of the errors over the cameras, weighted by the number of
+// correspondences
+double ComputeMaxErrorInCamera(const std::vector<size_t>& camera_idxs,
+                               const std::vector<Camera>& cameras,
+                               const double max_error_px) {
+  CHECK_GT(max_error_px, 0.0);
+  double max_error_cam = 0.;
+  for (const auto& camera_idx : camera_idxs) {
+    max_error_cam += cameras[camera_idx].CamFromImgThreshold(max_error_px);
+  }
+  return max_error_cam / camera_idxs.size();
+}
+
 }  // namespace
 
 bool EstimateGeneralizedAbsolutePose(
@@ -88,22 +101,13 @@ bool EstimateGeneralizedAbsolutePose(
     return false;
   }
 
-  const double max_error_px = options.max_error;
-  CHECK_GT(max_error_px, 0.0);
-
   std::vector<GP3PEstimator::X_t> rig_points2D(points2D.size());
-  double error_threshold_camera = 0.;
   for (size_t i = 0; i < points2D.size(); i++) {
     const size_t camera_idx = camera_idxs[i];
     rig_points2D[i].ray_in_cam =
         cameras[camera_idx].CamFromImg(points2D[i]).homogeneous().normalized();
     rig_points2D[i].cam_from_rig = cams_from_rig[camera_idx];
-    error_threshold_camera +=
-        cameras[camera_idx].CamFromImgThreshold(max_error_px);
   }
-  // Average of the errors over the cameras, weighted by the number of
-  // correspondences
-  error_threshold_camera /= points2D.size();
 
   // Associate unique ids to each 3D point.
   // Needed for UniqueInlierSupportMeasurer to avoid counting the same
@@ -128,7 +132,8 @@ bool EstimateGeneralizedAbsolutePose(
   }
 
   RANSACOptions options_copy(options);
-  options_copy.max_error = error_threshold_camera;
+  options_copy.max_error =
+      ComputeMaxErrorInCamera(camera_idxs, cameras, options.max_error);
   RANSAC<GP3PEstimator, UniqueInlierSupportMeasurer> ransac(options_copy);
   ransac.support_measurer.SetUniqueSampleIds(unique_point3D_ids);
   ransac.estimator.residual_type =
