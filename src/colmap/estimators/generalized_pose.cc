@@ -91,13 +91,13 @@ bool EstimateGeneralizedAbsolutePose(
   const double max_error_px = options.max_error;
   CHECK_GT(max_error_px, 0.0);
 
-  std::vector<GP3PEstimator::X_t> points2D_rig(points2D.size());
+  std::vector<GP3PEstimator::X_t> rig_points2D(points2D.size());
   double error_threshold_camera = 0.;
   for (size_t i = 0; i < points2D.size(); i++) {
     const size_t camera_idx = camera_idxs[i];
-    points2D_rig[i].ray_in_cam =
+    rig_points2D[i].ray_in_cam =
         cameras[camera_idx].CamFromImg(points2D[i]).homogeneous().normalized();
-    points2D_rig[i].cam_from_rig = cams_from_rig[camera_idx];
+    rig_points2D[i].cam_from_rig = cams_from_rig[camera_idx];
     error_threshold_camera +=
         cameras[camera_idx].CamFromImgThreshold(max_error_px);
   }
@@ -117,23 +117,23 @@ bool EstimateGeneralizedAbsolutePose(
                     return v1.isApprox(v2, 1e-5);
                   }),
       unique_points3D.end());
-  std::vector<size_t> p3D_ids;
-  p3D_ids.reserve(points3D.size());
+  std::vector<size_t> point3D_ids;
+  point3D_ids.reserve(points3D.size());
   for (const auto& p3D : points3D) {
-    p3D_ids.push_back(std::lower_bound(unique_points3D.begin(),
-                                       unique_points3D.end(),
-                                       p3D,
-                                       LowerVector3d) -
-                      unique_points3D.begin());
+    point3D_ids.push_back(std::lower_bound(unique_points3D.begin(),
+                                           unique_points3D.end(),
+                                           p3D,
+                                           LowerVector3d) -
+                          unique_points3D.begin());
   }
 
   RANSACOptions options_copy(options);
   options_copy.max_error = error_threshold_camera;
   RANSAC<GP3PEstimator, UniqueInlierSupportMeasurer> ransac(options_copy);
-  ransac.support_measurer.SetSampleIds(p3D_ids);
+  ransac.support_measurer.SetSampleIds(point3D_ids);
   ransac.estimator.residual_type =
       GP3PEstimator::ResidualType::ReprojectionError;
-  const auto report = ransac.Estimate(points2D_rig, points3D);
+  const auto report = ransac.Estimate(rig_points2D, points3D);
   if (!report.success) {
     return false;
   }
