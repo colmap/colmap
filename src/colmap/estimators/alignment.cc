@@ -38,6 +38,8 @@
 
 #include <unordered_map>
 
+#include <glog/logging.h>
+
 namespace colmap {
 namespace {
 
@@ -350,28 +352,29 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
   CHECK_GE(min_inlier_ratio, 0.0);
   CHECK_LE(min_inlier_ratio, 1.0);
 
-  std::vector<Eigen::Vector3d> xyz_src;
-  std::vector<Eigen::Vector3d> xyz_tgt;
+  std::vector<Eigen::Vector3d> src_xyz;
+  std::vector<Eigen::Vector3d> tgt_xyz;
+  std::unordered_map<point3D_t, size_t> counts;
   // Associate 3D points using point2D_idx
-  for (auto& p3D_p : src_reconstruction.Points3D()) {
+  for (const auto& src_point3D : src_reconstruction.Points3D()) {
+    counts.clear();
     // Count how often a 3D point in tgt is associated to this 3D point
-    std::unordered_map<point3D_t, size_t> counts;
-    const Track& track = p3D_p.second.Track();
-    for (auto& track_el : track.Elements()) {
+    const Track& track = src_point3D.second.Track();
+    for (const auto& track_el : track.Elements()) {
       if (!tgt_reconstruction.IsImageRegistered(track_el.image_id)) {
         continue;
       }
-      const Point2D& p2D_tgt = tgt_reconstruction.Image(track_el.image_id)
-                                   .Point2D(track_el.point2D_idx);
-      if (p2D_tgt.HasPoint3D()) {
-        if (counts.find(p2D_tgt.point3D_id) != counts.end()) {
-          counts[p2D_tgt.point3D_id]++;
+      const Point2D& tgt_point2D = tgt_reconstruction.Image(track_el.image_id)
+                                       .Point2D(track_el.point2D_idx);
+      if (tgt_point2D.HasPoint3D()) {
+        if (counts.find(tgt_point2D.point3D_id) != counts.end()) {
+          counts[tgt_point2D.point3D_id]++;
         } else {
-          counts[p2D_tgt.point3D_id] = 0;
+          counts[tgt_point2D.point3D_id] = 0;
         }
       }
     }
-    if (counts.size() == 0) {
+    if (counts.empty()) {
       continue;
     }
     // The 3D point in tgt who is associated the most is selected
@@ -383,14 +386,13 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
                            return p1.second < p2.second;
                          });
     if (best_p3D->second >= min_common_observations) {
-      xyz_src.push_back(p3D_p.second.XYZ());
-      xyz_tgt.push_back(tgt_reconstruction.Point3D(best_p3D->first).XYZ());
+      src_xyz.push_back(src_point3D.second.XYZ());
+      tgt_xyz.push_back(tgt_reconstruction.Point3D(best_p3D->first).XYZ());
     }
   }
-  CHECK_EQ(xyz_src.size(), xyz_tgt.size());
-  std::cout << "Found " << xyz_src.size() << " / "
-            << src_reconstruction.NumPoints3D() << " valid correspondences."
-            << std::endl;
+  CHECK_EQ(src_xyz.size(), tgt_xyz.size());
+  LOG(INFO) << "Found " << src_xyz.size() << " / "
+            << src_reconstruction.NumPoints3D() << " valid correspondences.";
 
   RANSACOptions ransac_options;
   ransac_options.max_error = max_error;
@@ -398,7 +400,7 @@ bool AlignReconstructionsViaPoints(const Reconstruction& src_reconstruction,
   LORANSAC<SimilarityTransformEstimator<3, true>,
            SimilarityTransformEstimator<3, true>>
       ransac(ransac_options);
-  const auto report = ransac.Estimate(xyz_src, xyz_tgt);
+  const auto report = ransac.Estimate(src_xyz, tgt_xyz);
   if (report.success) {
     *tgt_from_src = Sim3d::FromMatrix(report.model);
   }
