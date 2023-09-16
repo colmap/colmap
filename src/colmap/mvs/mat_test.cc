@@ -35,6 +35,7 @@
 
 namespace colmap {
 namespace mvs {
+namespace {
 
 TEST(Mat, Empty) {
   Mat<int> mat;
@@ -96,5 +97,6 @@ TEST(Mat, Fill) {
   mat.Set(1, 0, 2, 10);
 }
 
+}  // namespace
 }  // namespace mvs
 }  // namespace colmap

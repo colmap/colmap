@@ -36,6 +36,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(UndistortCamera, Nominal) {
   UndistortCameraOptions options;
@@ -254,4 +255,5 @@ TEST(RectifyStereoCameras, Nominal) {
   EXPECT_TRUE(Q.isApprox(Q_ref, 1e-5));
 }
 
+}  // namespace
 }  // namespace colmap

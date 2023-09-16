@@ -36,6 +36,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(FeatureKeypoints, Nominal) {
   FeatureKeypoint keypoint;
@@ -234,4 +235,5 @@ TEST(FeatureMatches, Nominal) {
   EXPECT_EQ(matches[0].point2D_idx2, kInvalidPoint2DIdx);
 }
 
+}  // namespace
 }  // namespace colmap

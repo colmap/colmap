@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 int CountNumTransitiveCorrespondences(const CorrespondenceGraph& graph,
                                       const image_t image_id,
@@ -279,4 +280,5 @@ TEST(CorrespondenceGraph, Duplicate) {
             3);
 }
 
+}  // namespace
 }  // namespace colmap

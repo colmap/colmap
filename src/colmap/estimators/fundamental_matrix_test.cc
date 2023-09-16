@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(FundamentalMatrix, SevenPoint) {
   const double points1_raw[] = {0.4964,
@@ -150,4 +151,5 @@ TEST(FundamentalMatrix, EightPoint) {
   EXPECT_TRUE(std::abs(F(2, 2) - 0.0221019) < 1e-5);
 }
 
+}  // namespace
 }  // namespace colmap

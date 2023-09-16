@@ -36,6 +36,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(RandomSampler, LessSamples) {
   RandomSampler sampler(2);
@@ -63,4 +64,5 @@ TEST(RandomSampler, EqualSamples) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

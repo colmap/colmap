@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(GPS, EllToXYZGRS80) {
   std::vector<Eigen::Vector3d> ell;
@@ -291,4 +292,5 @@ TEST(GPS, ENUToXYZ) {
   }
 }
 
+}  // namespace
 }  // namespace colmap

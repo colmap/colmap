@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 #define TEST_STRING_INPLACE(Func, str, ref_str) \
   {                                             \
@@ -226,4 +227,5 @@ TEST(StringContains, Nominal) {
   EXPECT_FALSE(StringContains("ab", "c"));
 }
 
+}  // namespace
 }  // namespace colmap

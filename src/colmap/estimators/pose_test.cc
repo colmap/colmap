@@ -37,6 +37,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(RefineEssentialMatrix, Nominal) {
   const Rigid3d cam1_from_world;
@@ -76,4 +77,5 @@ TEST(RefineEssentialMatrix, Nominal) {
   EXPECT_LE((E - E_refined).norm(), (E - E_pertubated).norm());
 }
 
+}  // namespace
 }  // namespace colmap

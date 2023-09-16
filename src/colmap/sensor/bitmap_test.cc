@@ -34,6 +34,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 TEST(Bitmap, BitmapColorEmpty) {
   BitmapColor<uint8_t> color;
@@ -385,4 +386,5 @@ TEST(Bitmap, CloneAsGrey) {
   EXPECT_NE(bitmap.Data(), cloned_bitmap.Data());
 }
 
+}  // namespace
 }  // namespace colmap

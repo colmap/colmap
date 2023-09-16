@@ -36,6 +36,7 @@
 #include <gtest/gtest.h>
 
 namespace colmap {
+namespace {
 
 namespace {
 
@@ -897,4 +898,5 @@ TEST(GetEffectiveNumThreads, Nominal) {
   EXPECT_EQ(GetEffectiveNumThreads(3), 3);
 }
 
+}  // namespace
 }  // namespace colmap

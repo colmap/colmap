@@ -35,6 +35,7 @@
 
 namespace colmap {
 namespace mvs {
+namespace {
 
 TEST(NormalMap, Empty) {
   NormalMap normal_map;
@@ -95,5 +96,6 @@ TEST(NormalMap, ToBitmap) {
   EXPECT_EQ(color, BitmapColor<uint8_t>(37, 37, 0));
 }
 
+}  // namespace
 }  // namespace mvs
 }  // namespace colmap
