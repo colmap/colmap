@@ -124,7 +124,6 @@ void SynthesizeChainedMatches(Reconstruction* reconstruction,
 void SynthesizeDataset(const SyntheticDatasetOptions& options,
                        Reconstruction* reconstruction,
                        Database* database) {
-  CHECK_NOTNULL(database);
   CHECK_GT(options.num_cameras, 0);
   CHECK_GT(options.num_images, 0);
   CHECK_LE(options.num_cameras, options.num_images);
@@ -141,8 +140,10 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     camera.SetModelId(options.camera_model_id);
     camera.SetParams(options.camera_params);
     CHECK(camera.VerifyParams());
-    camera_ids[camera_idx] = database->WriteCamera(camera);
-    camera.SetCameraId(camera_ids[camera_idx]);
+    const camera_t camera_id =
+        (database == nullptr) ? camera_idx + 1 : database->WriteCamera(camera);
+    camera_ids[camera_idx] = camera_id;
+    camera.SetCameraId(camera_id);
     reconstruction->AddCamera(std::move(camera));
   }
 
@@ -153,7 +154,9 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
   }
 
   // Synthesize images.
-  const int existing_num_images = database->NumImages();
+
+  const int existing_num_images =
+      (database == nullptr) ? 0 : database->NumImages();
   for (int image_idx = 0; image_idx < options.num_images; ++image_idx) {
     Image image;
     image.SetName("image" + std::to_string(existing_num_images + image_idx));
@@ -203,15 +206,17 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     // Shuffle 2D points, so each image has another order of observed 3D points.
     std::shuffle(points2D.begin(), points2D.end(), *PRNG);
 
-    // Create keypoints to add to database.
-    FeatureKeypoints keypoints;
-    keypoints.reserve(points2D.size());
-    for (const auto& point2D : points2D) {
-      keypoints.emplace_back(point2D.xy(0), point2D.xy(1));
+    const image_t image_id =
+        (database == nullptr) ? image_idx + 1 : database->WriteImage(image);
+    if (database != nullptr) {
+      // Create keypoints to add to database.
+      FeatureKeypoints keypoints;
+      keypoints.reserve(points2D.size());
+      for (const auto& point2D : points2D) {
+        keypoints.emplace_back(point2D.xy(0), point2D.xy(1));
+      }
+      database->WriteKeypoints(image_id, keypoints);
     }
-
-    const image_t image_id = database->WriteImage(image);
-    database->WriteKeypoints(image_id, keypoints);
 
     for (point2D_t point2D_idx = 0; point2D_idx < points2D.size();
          ++point2D_idx) {
@@ -228,15 +233,17 @@ void SynthesizeDataset(const SyntheticDatasetOptions& options,
     reconstruction->RegisterImage(image_id);
   }
 
-  switch (options.match_config) {
-    case SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE:
-      SynthesizeExhaustiveMatches(reconstruction, database);
-      break;
-    case SyntheticDatasetOptions::MatchConfig::CHAINED:
-      SynthesizeChainedMatches(reconstruction, database);
-      break;
-    default:
-      LOG(FATAL) << "Invalid MatchConfig specified";
+  if (database != nullptr) {
+    switch (options.match_config) {
+      case SyntheticDatasetOptions::MatchConfig::EXHAUSTIVE:
+        SynthesizeExhaustiveMatches(reconstruction, database);
+        break;
+      case SyntheticDatasetOptions::MatchConfig::CHAINED:
+        SynthesizeChainedMatches(reconstruction, database);
+        break;
+      default:
+        LOG(FATAL) << "Invalid MatchConfig specified";
+    }
   }
 
   reconstruction->UpdatePoint3DErrors();

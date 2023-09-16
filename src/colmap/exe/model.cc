@@ -563,18 +563,18 @@ bool CompareModels(const Reconstruction& reconstruction1,
 
   bool success = false;
   if (alignment_error == "reprojection") {
-    success = AlignReconstructions(
+    success = AlignReconstructionsViaReprojections(
         reconstruction1,
         reconstruction2,
         /*min_inlier_observations=*/min_inlier_observations,
         /*max_reproj_error=*/max_reproj_error,
         &rec2_from_rec1);
   } else if (alignment_error == "proj_center") {
-    success =
-        AlignReconstructions(reconstruction1,
-                             reconstruction2,
-                             /*max_proj_center_error=*/max_proj_center_error,
-                             &rec2_from_rec1);
+    success = AlignReconstructionsViaProjCenters(
+        reconstruction1,
+        reconstruction2,
+        /*max_proj_center_error=*/max_proj_center_error,
+        &rec2_from_rec1);
   } else {
     std::cout << "ERROR: Invalid alignment_error specified." << std::endl;
     return false;

@@ -148,5 +148,12 @@ TEST(SynthesizeDataset, ChainedMatches) {
             (options.num_images - 1) * options.num_points3D);
 }
 
+TEST(SynthesizeDataset, NoDatabase) {
+  Database database(Database::kInMemoryDatabasePath);
+  SyntheticDatasetOptions options;
+  Reconstruction reconstruction;
+  SynthesizeDataset(options, &reconstruction);
+}
+
 }  // namespace
 }  // namespace colmap
