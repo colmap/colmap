@@ -144,7 +144,7 @@ bool EstimateGeneralizedAbsolutePose(
     return false;
   }
   *rig_from_world = report.model;
-  *num_inliers = report.support.num_inliers;
+  *num_inliers = report.support.num_unique_inliers;
   *inlier_mask = report.inlier_mask;
   return true;
 }
