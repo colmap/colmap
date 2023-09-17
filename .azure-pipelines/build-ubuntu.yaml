@@ -195,9 +195,9 @@ jobs:
 
   - script: |
       set -x
-      ccache --show-stats
+      ccache --show-stats --verbose
       ccache --evict-older-than 1d
-      ccache --show-stats
+      ccache --show-stats --verbose
 
       echo "Size of ctcache before: $(du -sh $(CTCACHE_DIR))"
       echo "Number of ctcache files before: $(find $(CTCACHE_DIR) | wc -l)"
