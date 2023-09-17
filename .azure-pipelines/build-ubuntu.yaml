@@ -6,6 +6,7 @@ parameters:
   e2eTestsEnabled: false
   checkCodeFormat: false
   cmakeBuildType: Release
+  guiEnabled: true
 
 jobs:
 - job: ubuntu_build_${{ replace(parameters.ubuntuVersion, '.', '') }}_cuda_${{ parameters.cudaEnabled }}_asan_${{ parameters.asanEnabled }}_${{ parameters.cmakeBuildType }}_e2e_${{ parameters.e2eTestsEnabled }}
@@ -18,9 +19,9 @@ jobs:
     CCACHE_DIR: $(COMPILER_CACHE_DIR)/ccache
     CCACHE_BASEDIR: $(Build.SourcesDirectory)
     CTCACHE_DIR: $(COMPILER_CACHE_DIR)/ctcache
-    ${{ if eq(parameters.asanEnabled, false) }}:
+    ${{ if and(eq(parameters.asanEnabled, false), eq(parameters.guiEnabled, true)) }}:
       ctestExclusions: "(mvs/colmap_mvs_gpu_mat_test)"
-    ${{ if eq(parameters.asanEnabled, true) }}:
+    ${{ if or(eq(parameters.asanEnabled, true), eq(parameters.guiEnabled, false)) }}:
       ctestExclusions: "(feature/colmap_feature_sift_test)|(util/colmap_util_opengl_utils_test)|(mvs/colmap_mvs_gpu_mat_test)"
     ${{ if eq(parameters.cmakeBuildType, 'ClangTidy') }}:
       # Do not abort compilation in ClangTidy mode, so we see issues
@@ -138,7 +139,8 @@ jobs:
         -DCMAKE_INSTALL_PREFIX=./install \
         -DTESTS_ENABLED=ON \
         -DCMAKE_CUDA_ARCHITECTURES=50 \
-        -DASAN_ENABLED=${{ parameters.asanEnabled }}
+        -DASAN_ENABLED=${{ parameters.asanEnabled }} \
+        -DGUI_ENABLED=${{ parameters.guiEnabled }}
       ninja -k $(numAllowedNinjaErrors)
     displayName: Configure and build colmap
 
