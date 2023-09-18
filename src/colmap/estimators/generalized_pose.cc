@@ -49,6 +49,17 @@
 namespace colmap {
 namespace {
 
+double ComputeMaxErrorInCamera(const std::vector<size_t>& camera_idxs,
+                               const std::vector<Camera>& cameras,
+                               const double max_error_px) {
+  CHECK_GT(max_error_px, 0.0);
+  double max_error_cam = 0.;
+  for (const auto& camera_idx : camera_idxs) {
+    max_error_cam += cameras[camera_idx].CamFromImgThreshold(max_error_px);
+  }
+  return max_error_cam / camera_idxs.size();
+}
+
 bool LowerVector3d(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2) {
   if (v1.x() < v2.x()) {
     return true;
@@ -63,19 +74,6 @@ bool LowerVector3d(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2) {
   } else {
     return false;
   }
-}
-
-// Average of the errors over the cameras, weighted by the number of
-// correspondences
-double ComputeMaxErrorInCamera(const std::vector<size_t>& camera_idxs,
-                               const std::vector<Camera>& cameras,
-                               const double max_error_px) {
-  CHECK_GT(max_error_px, 0.0);
-  double max_error_cam = 0.;
-  for (const auto& camera_idx : camera_idxs) {
-    max_error_cam += cameras[camera_idx].CamFromImgThreshold(max_error_px);
-  }
-  return max_error_cam / camera_idxs.size();
 }
 
 std::vector<size_t> ComputeUniquePointIds(
@@ -134,11 +132,15 @@ bool EstimateGeneralizedAbsolutePose(
   // Needed for UniqueInlierSupportMeasurer to avoid counting the same
   // 3D point multiple times due to FoV overlap in rig.
   // TODO(sarlinpe): Allow passing unique_point3D_ids as argument.
-  std::vector<size_t> unique_point3D_ids = ComputeUniquePointIds(points3D);
+  const std::vector<size_t> unique_point3D_ids =
+      ComputeUniquePointIds(points3D);
 
+  // Average of the errors over the cameras, weighted by the number of
+  // correspondences
   RANSACOptions options_copy(options);
   options_copy.max_error =
       ComputeMaxErrorInCamera(camera_idxs, cameras, options.max_error);
+
   RANSAC<GP3PEstimator, UniqueInlierSupportMeasurer> ransac(options_copy);
   ransac.support_measurer.SetUniqueSampleIds(unique_point3D_ids);
   ransac.estimator.residual_type =
