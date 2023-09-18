@@ -48,6 +48,7 @@ COLMAP_ADD_LIBRARY(
         generalized_relative_pose.h generalized_relative_pose.cc
         homography_matrix.h homography_matrix.cc
         pose.h pose.cc
+        generalized_pose.h generalized_pose.cc
         similarity_transform.h
         translation_transform.h
         triangulation.h triangulation.cc
@@ -114,6 +115,11 @@ COLMAP_ADD_TEST(
 COLMAP_ADD_TEST(
     NAME generalized_absolute_pose_test
     SRCS generalized_absolute_pose_test.cc
+    LINK_LIBS colmap_estimators
+)
+COLMAP_ADD_TEST(
+    NAME generalized_pose_test
+    SRCS generalized_pose_test.cc
     LINK_LIBS colmap_estimators
 )
 COLMAP_ADD_TEST(
