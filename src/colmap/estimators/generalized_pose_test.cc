@@ -50,6 +50,7 @@ struct GeneralizedCameraProblem {
   Rigid3d gt_rig_from_world;
   std::vector<Eigen::Vector2d> points2D;
   std::vector<Eigen::Vector3d> points3D;
+  std::vector<size_t> point3D_ids;
   std::vector<size_t> camera_idxs;
   std::vector<Rigid3d> cams_from_rig;
   std::vector<Camera> cameras;
@@ -74,6 +75,7 @@ GeneralizedCameraProblem BuildGeneralizedCameraProblem() {
         problem.points2D.push_back(point2D.xy);
         problem.points3D.push_back(
             reconstruction.Point3D(point2D.point3D_id).XYZ());
+        problem.point3D_ids.push_back(point2D.point3D_id);
         problem.camera_idxs.push_back(problem.cameras.size());
       }
     }
@@ -90,17 +92,24 @@ TEST(EstimateGeneralizedAbsolutePose, Nominal) {
 
   const double gt_inlier_ratio = 0.8;
   const double outlier_distance = 50;
-  const size_t gt_num_outliers =
-      std::max(static_cast<size_t>((1.0 - gt_inlier_ratio) * num_points),
+  const size_t gt_num_inliers =
+      std::max(static_cast<size_t>(gt_inlier_ratio * num_points),
                static_cast<size_t>(GP3PEstimator::kMinNumSamples));
+  std::vector<size_t> shuffled_idxs(num_points);
+  std::iota(shuffled_idxs.begin(), shuffled_idxs.end(), 0);
+  std::shuffle(shuffled_idxs.begin(), shuffled_idxs.end(), *PRNG);
+
+  std::unordered_set<size_t> unique_inlier_ids;
+  unique_inlier_ids.reserve(gt_num_inliers);
+  for (size_t i = 0; i < gt_num_inliers; ++i) {
+    unique_inlier_ids.insert(problem.point3D_ids[shuffled_idxs[i]]);
+  }
+
   std::vector<char> gt_inlier_mask(num_points, true);
-  std::vector<size_t> outlier_indices(num_points);
-  std::iota(outlier_indices.begin(), outlier_indices.end(), 0);
-  std::shuffle(outlier_indices.begin(), outlier_indices.end(), *PRNG);
-  for (size_t i = 0; i < gt_num_outliers; ++i) {
-    problem.points2D[outlier_indices[i]] +=
+  for (size_t i = gt_num_inliers; i < num_points; ++i) {
+    problem.points2D[shuffled_idxs[i]] +=
         Eigen::Vector2d::Random().normalized() * outlier_distance;
-    gt_inlier_mask[outlier_indices[i]] = false;
+    gt_inlier_mask[shuffled_idxs[i]] = false;
   }
 
   RANSACOptions ransac_options;
@@ -120,7 +129,7 @@ TEST(EstimateGeneralizedAbsolutePose, Nominal) {
                                               &rig_from_world,
                                               &num_inliers,
                                               &inlier_mask));
-  EXPECT_EQ(num_inliers, num_points - gt_num_outliers);
+  EXPECT_EQ(num_inliers, unique_inlier_ids.size());
   EXPECT_EQ(inlier_mask, gt_inlier_mask);
   EXPECT_LT(problem.gt_rig_from_world.rotation.angularDistance(
                 rig_from_world.rotation),
