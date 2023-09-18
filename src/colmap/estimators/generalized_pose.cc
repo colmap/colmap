@@ -78,6 +78,27 @@ double ComputeMaxErrorInCamera(const std::vector<size_t>& camera_idxs,
   return max_error_cam / camera_idxs.size();
 }
 
+std::vector<size_t> ComputeUniquePointIds(
+    const std::vector<Eigen::Vector3d>& points3D) {
+  std::vector<size_t> point3D_ids(points3D.size());
+  std::iota(point3D_ids.begin(), point3D_ids.end(), 0);
+  std::sort(point3D_ids.begin(), point3D_ids.end(), [&](size_t i, size_t j) {
+    return LowerVector3d(points3D[i], points3D[j]);
+  });
+
+  std::vector<size_t>::iterator unique_it = point3D_ids.begin();
+  std::vector<size_t>::iterator current_it = point3D_ids.begin();
+  std::vector<size_t> unique_point3D_ids(points3D.size());
+  while (current_it != point3D_ids.end()) {
+    if (!points3D[*unique_it].isApprox(points3D[*current_it], 1e-5)) {
+      unique_it = current_it;
+    }
+    unique_point3D_ids[*current_it] = unique_it - point3D_ids.begin();
+    current_it++;
+  }
+  return unique_point3D_ids;
+}
+
 }  // namespace
 
 bool EstimateGeneralizedAbsolutePose(
@@ -112,25 +133,8 @@ bool EstimateGeneralizedAbsolutePose(
   // Associate unique ids to each 3D point.
   // Needed for UniqueInlierSupportMeasurer to avoid counting the same
   // 3D point multiple times due to FoV overlap in rig.
-  std::vector<Eigen::Vector3d> unique_points3D = points3D;
-  std::sort(unique_points3D.begin(), unique_points3D.end(), LowerVector3d);
-  unique_points3D.erase(
-      std::unique(unique_points3D.begin(),
-                  unique_points3D.end(),
-                  [](const Eigen::Vector3d& v1, const Eigen::Vector3d& v2) {
-                    return v1.isApprox(v2, 1e-5);
-                  }),
-      unique_points3D.end());
-  CHECK(!unique_points3D.empty());
-  Eigen::Map<Eigen::Matrix3Xd> mat_unique_points3D(
-      unique_points3D[0].data(), 3, unique_points3D.size());
-  std::vector<size_t> unique_point3D_ids(points3D.size());
-  for (size_t i = 0; i < points3D.size(); i++) {
-    (mat_unique_points3D.colwise() - points3D[i])
-        .colwise()
-        .norm()
-        .minCoeff(&unique_point3D_ids[i]);
-  }
+  // TODO(sarlinpe): Allow passing unique_point3D_ids as argument.
+  std::vector<size_t> unique_point3D_ids = ComputeUniquePointIds(points3D);
 
   RANSACOptions options_copy(options);
   options_copy.max_error =
