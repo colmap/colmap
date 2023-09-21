@@ -81,7 +81,11 @@ void ReconstructionManagerWidget::Update() {
   if (reconstruction_manager_->Size() == 0) {
     setCurrentIndex(0);
   } else {
-    setCurrentIndex(prev_idx);
+    if (prev_idx <= reconstruction_manager_->Size()) {
+      setCurrentIndex(prev_idx);
+    } else {
+      setCurrentIndex(static_cast<int>(reconstruction_manager_->Size()));
+    }
   }
 
   blockSignals(false);
