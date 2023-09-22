@@ -77,8 +77,6 @@ class HierarchicalMapperController : public Thread {
   void Run() override;
 
   const Options options_;
-  const SceneClustering::Options clustering_options_;
-  const std::shared_ptr<const IncrementalMapperOptions> mapper_options_;
   std::shared_ptr<ReconstructionManager> reconstruction_manager_;
 };
 
