@@ -529,6 +529,20 @@ void BundleAdjuster::ParameterizeCameras(Reconstruction* reconstruction) {
 }
 
 void BundleAdjuster::ParameterizePoints(Reconstruction* reconstruction) {
+  if (!options_.refine_point3Ds) {
+    for (const image_t image_id : config_.Images()) {
+      for (const Point2D& point2D :
+           reconstruction->Image(image_id).Points2D()) {
+        if (!point2D.HasPoint3D()) {
+          continue;
+        }
+        Point3D& point3D = reconstruction->Point3D(point2D.point3D_id);
+        problem_->SetParameterBlockConstant(point3D.XYZ().data());
+      }
+    }
+    return;
+  }
+
   for (const auto elem : point3D_num_observations_) {
     Point3D& point3D = reconstruction->Point3D(elem.first);
     if (point3D.Track().Length() > elem.second) {

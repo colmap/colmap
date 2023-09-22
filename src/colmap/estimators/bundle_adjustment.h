@@ -60,6 +60,9 @@ struct BundleAdjustmentOptions {
   // Whether to refine the extrinsic parameter group.
   bool refine_extrinsics = true;
 
+  // Whether to refine the point 3d group.
+  bool refine_point3Ds = true;
+
   // Whether to print a final summary.
   bool print_summary = true;
 
