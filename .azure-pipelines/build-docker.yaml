@@ -32,6 +32,7 @@ jobs:
       command: build
       arguments: --build-arg COLMAP_GIT_COMMIT=$(Build.SourceVersion) --build-arg CUDA_ARCHITECTURES=50
       Dockerfile: docker/Dockerfile
+      repository: colmap/colmap
       tags: |
         latest
         $(Build.BuildId)
@@ -41,3 +42,6 @@ jobs:
     inputs:
       command: push
       repository: colmap/colmap
+      tags: |
+        latest
+        $(Build.BuildId)
