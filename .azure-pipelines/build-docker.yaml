@@ -27,12 +27,17 @@ jobs:
       containerRegistry: dockerhub-colmap
 
   - task: Docker@2
-    displayName: Build and Push to Docker Hub
+    displayName: Build
     inputs:
-      command: buildAndPush
-      arguments: --build-arg COLMAP_GIT_COMMIT=$(Build.SourceVersion) --build-arg CUDA_ARCHITECTURES=Common
+      command: build
+      arguments: --build-arg COLMAP_GIT_COMMIT=$(Build.SourceVersion) --build-arg CUDA_ARCHITECTURES=50
       Dockerfile: docker/Dockerfile
-      repository: colmap/colmap
       tags: |
         latest
         $(Build.BuildId)
+
+  - task: Docker@2
+    displayName: Push to Docker Hub
+    inputs:
+      command: push
+      repository: colmap/colmap
