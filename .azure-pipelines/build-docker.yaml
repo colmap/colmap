@@ -8,9 +8,9 @@ jobs:
     vmImage: 'ubuntu-latest'
   variables:
     DOCKER_BUILDKIT: 1
-    ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
-      CudaArchs: 50
     ${{ if ne(variables['Build.Reason'], 'PullRequest') }}:
+      CudaArchs: 50
+    ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
       # TODO: With CMake 3.23, we can set "all-major" instead.
       CudaArchs: 50;60;70;75;90
   steps:
