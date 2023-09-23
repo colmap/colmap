@@ -11,7 +11,7 @@ jobs:
     ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
       CudaArchs: 50
     ${{ if ne(variables['Build.Reason'], 'PullRequest') }}:
-      CudaArchs: Common
+      CudaArchs: all-major
   steps:
   - bash: |
       echo "Building git commit: $(Build.SourceVersion)"
