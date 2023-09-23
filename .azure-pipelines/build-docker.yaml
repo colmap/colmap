@@ -9,9 +9,9 @@ jobs:
   variables:
     DOCKER_BUILDKIT: 1
     ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
-      CudaArchs=50
+      CudaArchs: 50
     ${{ if ne(variables['Build.Reason'], 'PullRequest') }}:
-      CudaArchs=Common
+      CudaArchs: Common
   steps:
   - bash: |
       echo "Building git commit: $(Build.SourceVersion)"
