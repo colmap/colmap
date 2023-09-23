@@ -11,7 +11,8 @@ jobs:
     ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
       CudaArchs: 50
     ${{ if ne(variables['Build.Reason'], 'PullRequest') }}:
-      CudaArchs: all-major
+      # TODO: With CMake 3.23, we can set "all-major" instead.
+      CudaArchs: 50;60;70;75;90
   steps:
   - bash: |
       echo "Building git commit: $(Build.SourceVersion)"
