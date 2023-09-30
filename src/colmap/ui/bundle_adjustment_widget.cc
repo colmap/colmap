@@ -89,8 +89,9 @@ BundleAdjustmentWidget::BundleAdjustmentWidget(MainWindow* main_window,
           Qt::QueuedConnection);
 }
 
-void BundleAdjustmentWidget::Show(Reconstruction* reconstruction) {
-  reconstruction_ = reconstruction;
+void BundleAdjustmentWidget::Show(
+    std::shared_ptr<Reconstruction> reconstruction) {
+  reconstruction_ = std::move(reconstruction);
   show();
   raise();
 }

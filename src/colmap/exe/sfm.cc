@@ -31,14 +31,15 @@
 
 #include "colmap/exe/sfm.h"
 
-#include "colmap/base/reconstruction.h"
 #include "colmap/controllers/automatic_reconstruction.h"
 #include "colmap/controllers/bundle_adjustment.h"
 #include "colmap/controllers/hierarchical_mapper.h"
+#include "colmap/controllers/option_manager.h"
+#include "colmap/estimators/similarity_transform.h"
 #include "colmap/exe/gui.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
-#include "colmap/util/option_manager.h"
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -65,6 +66,8 @@ int RunAutomaticReconstructor(int argc, char** argv) {
                            &reconstruction_options.camera_model);
   options.AddDefaultOption("single_camera",
                            &reconstruction_options.single_camera);
+  options.AddDefaultOption("camera_params",
+                           &reconstruction_options.camera_params);
   options.AddDefaultOption("sparse", &reconstruction_options.sparse);
   options.AddDefaultOption("dense", &reconstruction_options.dense);
   options.AddDefaultOption("mesher", &mesher, "{poisson, delaunay}");
@@ -115,16 +118,16 @@ int RunAutomaticReconstructor(int argc, char** argv) {
     LOG(FATAL) << "Invalid mesher provided";
   }
 
-  ReconstructionManager reconstruction_manager;
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
 
   if (reconstruction_options.use_gpu && kUseOpenGL) {
     QApplication app(argc, argv);
     AutomaticReconstructionController controller(reconstruction_options,
-                                                 &reconstruction_manager);
+                                                 reconstruction_manager);
     RunThreadWithOpenGLContext(&controller);
   } else {
     AutomaticReconstructionController controller(reconstruction_options,
-                                                 &reconstruction_manager);
+                                                 reconstruction_manager);
     controller.Start();
     controller.Wait();
   }
@@ -152,14 +155,14 @@ int RunBundleAdjuster(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  Reconstruction reconstruction;
-  reconstruction.Read(input_path);
+  auto reconstruction = std::make_shared<Reconstruction>();
+  reconstruction->Read(input_path);
 
-  BundleAdjustmentController ba_controller(options, &reconstruction);
+  BundleAdjustmentController ba_controller(options, reconstruction);
   ba_controller.Start();
   ba_controller.Wait();
 
-  reconstruction.Write(output_path);
+  reconstruction->Write(output_path);
 
   return EXIT_SUCCESS;
 }
@@ -207,19 +210,35 @@ int RunMapper(int argc, char** argv) {
         std::unordered_set<std::string>(image_names.begin(), image_names.end());
   }
 
-  ReconstructionManager reconstruction_manager;
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
   if (input_path != "") {
     if (!ExistsDir(input_path)) {
       std::cerr << "ERROR: `input_path` is not a directory." << std::endl;
       return EXIT_FAILURE;
     }
-    reconstruction_manager.Read(input_path);
+    reconstruction_manager->Read(input_path);
   }
 
-  IncrementalMapperController mapper(options.mapper.get(),
+  // If fix_existing_images is enabled, we store the initial positions of
+  // existing images in order to transform them back to the original coordinate
+  // frame, as the reconstruction is normalized multiple times for numerical
+  // stability.
+  std::vector<Eigen::Vector3d> orig_fixed_image_positions;
+  std::vector<image_t> fixed_image_ids;
+  if (options.mapper->fix_existing_images) {
+    const auto& reconstruction = reconstruction_manager->Get(0);
+    fixed_image_ids = reconstruction->RegImageIds();
+    orig_fixed_image_positions.reserve(fixed_image_ids.size());
+    for (const image_t image_id : fixed_image_ids) {
+      orig_fixed_image_positions.push_back(
+          reconstruction->Image(image_id).ProjectionCenter());
+    }
+  }
+
+  IncrementalMapperController mapper(options.mapper,
                                      *options.image_path,
                                      *options.database_path,
-                                     &reconstruction_manager);
+                                     reconstruction_manager);
 
   // In case a new reconstruction is started, write results of individual sub-
   // models to as their reconstruction finishes instead of writing all results
@@ -230,15 +249,14 @@ int RunMapper(int argc, char** argv) {
         IncrementalMapperController::LAST_IMAGE_REG_CALLBACK, [&]() {
           // If the number of reconstructions has not changed, the last model
           // was discarded for some reason.
-          if (reconstruction_manager.Size() > prev_num_reconstructions) {
+          if (reconstruction_manager->Size() > prev_num_reconstructions) {
             const std::string reconstruction_path = JoinPaths(
                 output_path, std::to_string(prev_num_reconstructions));
-            const auto& reconstruction =
-                reconstruction_manager.Get(prev_num_reconstructions);
             CreateDirIfNotExists(reconstruction_path);
-            reconstruction.Write(reconstruction_path);
+            reconstruction_manager->Get(prev_num_reconstructions)
+                ->Write(reconstruction_path);
             options.Write(JoinPaths(reconstruction_path, "project.ini"));
-            prev_num_reconstructions = reconstruction_manager.Size();
+            prev_num_reconstructions = reconstruction_manager->Size();
           }
         });
   }
@@ -246,34 +264,50 @@ int RunMapper(int argc, char** argv) {
   mapper.Start();
   mapper.Wait();
 
-  if (reconstruction_manager.Size() == 0) {
+  if (reconstruction_manager->Size() == 0) {
     std::cerr << "ERROR: failed to create sparse model" << std::endl;
     return EXIT_FAILURE;
   }
 
   // In case the reconstruction is continued from an existing reconstruction, do
   // not create sub-folders but directly write the results.
-  if (input_path != "" && reconstruction_manager.Size() > 0) {
-    reconstruction_manager.Get(0).Write(output_path);
+  if (input_path != "" && reconstruction_manager->Size() > 0) {
+    const auto& reconstruction = reconstruction_manager->Get(0);
+
+    // Map the coordinate back to the original coordinate frame.
+    if (options.mapper->fix_existing_images) {
+      std::vector<Eigen::Vector3d> new_fixed_image_positions;
+      new_fixed_image_positions.reserve(fixed_image_ids.size());
+      for (const image_t image_id : fixed_image_ids) {
+        new_fixed_image_positions.push_back(
+            reconstruction->Image(image_id).ProjectionCenter());
+      }
+      Sim3d orig_from_new;
+      EstimateSim3d(
+          new_fixed_image_positions, orig_fixed_image_positions, orig_from_new);
+      reconstruction->Transform(orig_from_new);
+    }
+
+    reconstruction->Write(output_path);
   }
 
   return EXIT_SUCCESS;
 }
 
 int RunHierarchicalMapper(int argc, char** argv) {
-  HierarchicalMapperController::Options hierarchical_options;
-  SceneClustering::Options clustering_options;
+  HierarchicalMapperController::Options mapper_options;
   std::string output_path;
 
   OptionManager options;
-  options.AddRequiredOption("database_path",
-                            &hierarchical_options.database_path);
-  options.AddRequiredOption("image_path", &hierarchical_options.image_path);
+  options.AddRequiredOption("database_path", &mapper_options.database_path);
+  options.AddRequiredOption("image_path", &mapper_options.image_path);
   options.AddRequiredOption("output_path", &output_path);
-  options.AddDefaultOption("num_workers", &hierarchical_options.num_workers);
-  options.AddDefaultOption("image_overlap", &clustering_options.image_overlap);
-  options.AddDefaultOption("leaf_max_num_images",
-                           &clustering_options.leaf_max_num_images);
+  options.AddDefaultOption("num_workers", &mapper_options.num_workers);
+  options.AddDefaultOption("image_overlap",
+                           &mapper_options.clustering_options.image_overlap);
+  options.AddDefaultOption(
+      "leaf_max_num_images",
+      &mapper_options.clustering_options.leaf_max_num_images);
   options.AddMapperOptions();
   options.Parse(argc, argv);
 
@@ -282,21 +316,20 @@ int RunHierarchicalMapper(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  ReconstructionManager reconstruction_manager;
-
-  HierarchicalMapperController hierarchical_mapper(hierarchical_options,
-                                                   clustering_options,
-                                                   *options.mapper,
-                                                   &reconstruction_manager);
+  mapper_options.incremental_options = *options.mapper;
+  auto reconstruction_manager = std::make_shared<ReconstructionManager>();
+  HierarchicalMapperController hierarchical_mapper(mapper_options,
+                                                   reconstruction_manager);
   hierarchical_mapper.Start();
   hierarchical_mapper.Wait();
 
-  if (reconstruction_manager.Size() == 0) {
+  if (reconstruction_manager->Size() == 0) {
     std::cerr << "ERROR: failed to create sparse model" << std::endl;
     return EXIT_FAILURE;
   }
 
-  reconstruction_manager.Write(output_path, &options);
+  reconstruction_manager->Write(output_path);
+  options.Write(JoinPaths(output_path, "project.ini"));
 
   return EXIT_SUCCESS;
 }
@@ -342,6 +375,7 @@ int RunPointTriangulator(int argc, char** argv) {
   std::string input_path;
   std::string output_path;
   bool clear_points = false;
+  bool refine_intrinsics = false;
 
   OptionManager options;
   options.AddDatabaseOptions();
@@ -352,6 +386,10 @@ int RunPointTriangulator(int argc, char** argv) {
       "clear_points",
       &clear_points,
       "Whether to clear all existing points and observations");
+  options.AddDefaultOption("refine_intrinsics",
+                           &refine_intrinsics,
+                           "Whether to refine the intrinsics of the cameras "
+                           "(fixing the principal point)");
   options.AddMapperOptions();
   options.Parse(argc, argv);
 
@@ -367,43 +405,44 @@ int RunPointTriangulator(int argc, char** argv) {
 
   PrintHeading1("Loading model");
 
-  Reconstruction reconstruction;
-  reconstruction.Read(input_path);
+  auto reconstruction = std::make_shared<Reconstruction>();
+  reconstruction->Read(input_path);
 
   return RunPointTriangulatorImpl(reconstruction,
                                   *options.database_path,
                                   *options.image_path,
                                   output_path,
                                   *options.mapper,
-                                  clear_points);
+                                  clear_points,
+                                  refine_intrinsics);
 }
 
-int RunPointTriangulatorImpl(Reconstruction& reconstruction,
-                             const std::string& database_path,
-                             const std::string& image_path,
-                             const std::string& output_path,
-                             const IncrementalMapperOptions& mapper_options,
-                             const bool clear_points) {
+int RunPointTriangulatorImpl(
+    const std::shared_ptr<Reconstruction>& reconstruction,
+    const std::string& database_path,
+    const std::string& image_path,
+    const std::string& output_path,
+    const IncrementalMapperOptions& mapper_options,
+    const bool clear_points,
+    const bool refine_intrinsics) {
   PrintHeading1("Loading database");
 
-  DatabaseCache database_cache;
+  std::shared_ptr<DatabaseCache> database_cache;
 
   {
     Timer timer;
     timer.Start();
-
-    Database database(database_path);
-
+    const Database database(database_path);
     const size_t min_num_matches =
         static_cast<size_t>(mapper_options.min_num_matches);
-    database_cache.Load(database,
-                        min_num_matches,
-                        mapper_options.ignore_watermarks,
-                        mapper_options.image_names);
+    database_cache = DatabaseCache::Create(database,
+                                           min_num_matches,
+                                           mapper_options.ignore_watermarks,
+                                           mapper_options.image_names);
 
     if (clear_points) {
-      reconstruction.DeleteAllPoints2DAndPoints3D();
-      reconstruction.TranscribeImageIdsToDatabase(database);
+      reconstruction->DeleteAllPoints2DAndPoints3D();
+      reconstruction->TranscribeImageIdsToDatabase(database);
     }
 
     std::cout << std::endl;
@@ -412,11 +451,11 @@ int RunPointTriangulatorImpl(Reconstruction& reconstruction,
 
   std::cout << std::endl;
 
-  CHECK_GE(reconstruction.NumRegImages(), 2)
+  CHECK_GE(reconstruction->NumRegImages(), 2)
       << "Need at least two images for triangulation";
 
-  IncrementalMapper mapper(&database_cache);
-  mapper.BeginReconstruction(&reconstruction);
+  IncrementalMapper mapper(database_cache);
+  mapper.BeginReconstruction(reconstruction);
 
   //////////////////////////////////////////////////////////////////////////////
   // Triangulation
@@ -424,12 +463,11 @@ int RunPointTriangulatorImpl(Reconstruction& reconstruction,
 
   const auto tri_options = mapper_options.Triangulation();
 
-  const auto& reg_image_ids = reconstruction.RegImageIds();
+  const std::vector<image_t>& reg_image_ids = reconstruction->RegImageIds();
 
   for (size_t i = 0; i < reg_image_ids.size(); ++i) {
     const image_t image_id = reg_image_ids[i];
-
-    const auto& image = reconstruction.Image(image_id);
+    const auto& image = reconstruction->Image(image_id);
 
     PrintHeading1(StringPrintf("Triangulating image #%d (%d)", image_id, i));
 
@@ -458,26 +496,26 @@ int RunPointTriangulatorImpl(Reconstruction& reconstruction,
   //////////////////////////////////////////////////////////////////////////////
 
   auto ba_options = mapper_options.GlobalBundleAdjustment();
-  ba_options.refine_focal_length = false;
+  ba_options.refine_focal_length = refine_intrinsics;
   ba_options.refine_principal_point = false;
-  ba_options.refine_extra_params = false;
+  ba_options.refine_extra_params = refine_intrinsics;
   ba_options.refine_extrinsics = false;
 
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
-  for (const image_t image_id : reconstruction.RegImageIds()) {
+  for (const image_t image_id : reg_image_ids) {
     ba_config.AddImage(image_id);
   }
 
   for (int i = 0; i < mapper_options.ba_global_max_refinements; ++i) {
     // Avoid degeneracies in bundle adjustment.
-    reconstruction.FilterObservationsWithNegativeDepth();
+    reconstruction->FilterObservationsWithNegativeDepth();
 
-    const size_t num_observations = reconstruction.ComputeNumObservations();
+    const size_t num_observations = reconstruction->ComputeNumObservations();
 
     PrintHeading1("Bundle adjustment");
     BundleAdjuster bundle_adjuster(ba_options, ba_config);
-    CHECK(bundle_adjuster.Solve(&reconstruction));
+    CHECK(bundle_adjuster.Solve(reconstruction.get()));
 
     size_t num_changed_observations = 0;
     num_changed_observations += CompleteAndMergeTracks(mapper_options, &mapper);
@@ -492,12 +530,11 @@ int RunPointTriangulatorImpl(Reconstruction& reconstruction,
   }
 
   PrintHeading1("Extracting colors");
-  reconstruction.ExtractColorsForAllImages(image_path);
+  reconstruction->ExtractColorsForAllImages(image_path);
 
-  const bool kDiscardReconstruction = false;
-  mapper.EndReconstruction(kDiscardReconstruction);
+  mapper.EndReconstruction(/*discard=*/false);
 
-  reconstruction.Write(output_path);
+  reconstruction->Write(output_path);
 
   return EXIT_SUCCESS;
 }
@@ -517,37 +554,36 @@ namespace {
 //       {
 //           "camera_id": 1,
 //           "image_prefix": "left1_image"
-//           "rel_tvec": [0, 0, 0],
-//           "rel_qvec": [1, 0, 0, 0]
+//           "cam_from_rig_rotation": [1, 0, 0, 0],
+//           "cam_from_rig_translation": [0, 0, 0]
 //       },
 //       {
 //           "camera_id": 2,
 //           "image_prefix": "left2_image"
-//           "rel_tvec": [0, 0, 0],
-//           "rel_qvec": [0, 1, 0, 0]
+//           "cam_from_rig_rotation": [1, 0, 0, 0],
+//           "cam_from_rig_translation": [0, 0, 1]
 //       },
 //       {
 //           "camera_id": 3,
 //           "image_prefix": "right1_image"
-//           "rel_tvec": [0, 0, 0],
-//           "rel_qvec": [0, 0, 1, 0]
+//           "cam_from_rig_rotation": [1, 0, 0, 0],
+//           "cam_from_rig_translation": [0, 0, 2]
 //       },
 //       {
 //           "camera_id": 4,
 //           "image_prefix": "right2_image"
-//           "rel_tvec": [0, 0, 0],
-//           "rel_qvec": [0, 0, 0, 1]
+//           "cam_from_rig_rotation": [1, 0, 0, 0],
+//           "cam_from_rig_translation": [0, 0, 3]
 //       }
 //     ]
 //   }
 // ]
 //
 // The "camera_id" and "image_prefix" fields are required, whereas the
-// "rel_tvec" and "rel_qvec" fields optionally specify the relative
-// extrinsics of the camera rig in the form of a translation vector and a
-// rotation quaternion. The relative extrinsics rel_qvec and rel_tvec transform
-// coordinates from rig to camera coordinate space. If the relative extrinsics
-// are not provided then they are automatically inferred from the
+// "cam_from_rig_rotation" and "cam_from_rig_translation" fields optionally
+// specify the relative extrinsics of the camera rig in the form of a
+// translation vector and a rotation quaternion (w, x, y, z). If the relative
+// extrinsics are not provided then they are automatically inferred from the
 // reconstruction.
 //
 // This file specifies the configuration for a single camera rig and that you
@@ -597,28 +633,37 @@ std::vector<CameraRig> ReadCameraRigConfig(const std::string& rig_config_path,
     for (const auto& camera : rig_config.second.get_child("cameras")) {
       const int camera_id = camera.second.get<int>("camera_id");
       image_prefixes.push_back(camera.second.get<std::string>("image_prefix"));
-      Eigen::Vector3d rel_tvec;
-      Eigen::Vector4d rel_qvec;
-      int index = 0;
-      auto rel_tvec_node = camera.second.get_child_optional("rel_tvec");
-      if (rel_tvec_node) {
-        for (const auto& node : rel_tvec_node.get()) {
-          rel_tvec[index++] = node.second.get_value<double>();
+
+      Rigid3d cam_from_rig;
+
+      auto cam_from_rig_rotation_node =
+          camera.second.get_child_optional("cam_from_rig_rotation");
+      if (cam_from_rig_rotation_node) {
+        int index = 0;
+        Eigen::Vector4d cam_from_rig_wxyz;
+        for (const auto& node : cam_from_rig_rotation_node.get()) {
+          cam_from_rig_wxyz[index++] = node.second.get_value<double>();
         }
+        cam_from_rig.rotation = Eigen::Quaterniond(cam_from_rig_wxyz(0),
+                                                   cam_from_rig_wxyz(1),
+                                                   cam_from_rig_wxyz(2),
+                                                   cam_from_rig_wxyz(3));
       } else {
         estimate_rig_relative_poses = true;
       }
-      index = 0;
-      auto rel_qvec_node = camera.second.get_child_optional("rel_qvec");
-      if (rel_qvec_node) {
-        for (const auto& node : rel_qvec_node.get()) {
-          rel_qvec[index++] = node.second.get_value<double>();
+
+      auto cam_from_rig_translation_node =
+          camera.second.get_child_optional("cam_from_rig_translation");
+      if (cam_from_rig_translation_node) {
+        int index = 0;
+        for (const auto& node : cam_from_rig_translation_node.get()) {
+          cam_from_rig.translation(index++) = node.second.get_value<double>();
         }
       } else {
         estimate_rig_relative_poses = true;
       }
 
-      camera_rig.AddCamera(camera_id, rel_qvec, rel_tvec);
+      camera_rig.AddCamera(camera_id, cam_from_rig);
     }
 
     camera_rig.SetRefCameraId(rig_config.second.get<int>("ref_camera_id"));
@@ -641,6 +686,7 @@ std::vector<CameraRig> ReadCameraRigConfig(const std::string& rig_config_path,
         const auto& image = reconstruction.Image(image_id);
         if (image.CameraId() == camera_rig.RefCameraId()) {
           has_ref_camera = true;
+          break;
         }
       }
 
@@ -652,7 +698,7 @@ std::vector<CameraRig> ReadCameraRigConfig(const std::string& rig_config_path,
     camera_rig.Check(reconstruction);
     if (estimate_rig_relative_poses) {
       PrintHeading2("Estimating relative rig poses");
-      if (!camera_rig.ComputeRelativePoses(reconstruction)) {
+      if (!camera_rig.ComputeCamsFromRigs(reconstruction)) {
         std::cout << "WARN: Failed to estimate rig poses from reconstruction; "
                      "cannot use rig BA"
                   << std::endl;

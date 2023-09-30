@@ -29,10 +29,9 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_ESTIMATORS_SIMILARITY_TRANSFORM_H_
-#define COLMAP_SRC_ESTIMATORS_SIMILARITY_TRANSFORM_H_
+#pragma once
 
-#include "colmap/base/projection.h"
+#include "colmap/geometry/sim3.h"
 #include "colmap/util/logging.h"
 #include "colmap/util/types.h"
 
@@ -92,6 +91,19 @@ class SimilarityTransformEstimator {
                         std::vector<double>* residuals);
 };
 
+inline bool EstimateSim3d(const std::vector<Eigen::Vector3d>& src,
+                          const std::vector<Eigen::Vector3d>& tgt,
+                          Sim3d& tgt_from_src) {
+  const auto results =
+      SimilarityTransformEstimator<3, true>().Estimate(src, tgt);
+  if (results.empty()) {
+    return false;
+  }
+  CHECK_EQ(results.size(), 1);
+  tgt_from_src = Sim3d::FromMatrix(results[0]);
+  return true;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
@@ -110,7 +122,7 @@ SimilarityTransformEstimator<kDim, kEstimateScale>::Estimate(
   }
 
   const M_t model = Eigen::umeyama(src_mat, dst_mat, kEstimateScale)
-                        .topLeftCorner(kDim, kDim + 1);
+                        .template topLeftCorner<kDim, kDim + 1>();
 
   if (model.array().isNaN().any()) {
     return std::vector<M_t>{};
@@ -136,5 +148,3 @@ void SimilarityTransformEstimator<kDim, kEstimateScale>::Residuals(
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_ESTIMATORS_SIMILARITY_TRANSFORM_H_

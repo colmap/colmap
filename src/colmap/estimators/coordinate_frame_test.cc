@@ -29,90 +29,91 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "estimators/coordinate_frame"
 #include "colmap/estimators/coordinate_frame.h"
 
-#include "colmap/base/gps.h"
-#include "colmap/util/testing.h"
+#include "colmap/geometry/gps.h"
 
-using namespace colmap;
+#include <gtest/gtest.h>
 
-BOOST_AUTO_TEST_CASE(TestEstimateGravityVectorFromImageOrientation) {
+namespace colmap {
+namespace {
+
+TEST(CoordinateFrame, EstimateGravityVectorFromImageOrientation) {
   Reconstruction reconstruction;
-  BOOST_CHECK_EQUAL(EstimateGravityVectorFromImageOrientation(reconstruction),
-                    Eigen::Vector3d::Zero());
+  EXPECT_EQ(EstimateGravityVectorFromImageOrientation(reconstruction),
+            Eigen::Vector3d::Zero());
 }
 
-BOOST_AUTO_TEST_CASE(TestEstimateManhattanWorldFrame) {
+TEST(CoordinateFrame, EstimateManhattanWorldFrame) {
   Reconstruction reconstruction;
   std::string image_path;
-  BOOST_CHECK_EQUAL(
+  EXPECT_EQ(
       EstimateManhattanWorldFrame(
           ManhattanWorldFrameEstimationOptions(), reconstruction, image_path),
       Eigen::Matrix3d::Zero());
 }
 
-BOOST_AUTO_TEST_CASE(TestAlignToPrincipalPlane) {
+TEST(CoordinateFrame, AlignToPrincipalPlane) {
   // Start with reconstruction containing points on the Y-Z plane and cameras
   // "above" the plane on the positive X axis. After alignment the points should
   // be on the X-Y plane and the cameras "above" the plane on the positive Z
   // axis.
-  SimilarityTransform3 tform;
+  Sim3d tform;
   Reconstruction reconstruction;
   // Setup image with projection center at (1, 0, 0)
   Image image;
   image.SetImageId(1);
-  image.Qvec() = Eigen::Vector4d(1.0, 0.0, 0.0, 0.0);
-  image.Tvec() = Eigen::Vector3d(-1.0, 0.0, 0.0);
+  image.SetRegistered(true);
+  image.CamFromWorld() =
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(-1, 0, 0));
   reconstruction.AddImage(image);
   // Setup 4 points on the Y-Z plane
-  point3D_t p1 =
-      reconstruction.AddPoint3D(Eigen::Vector3d(0.0, -1.0, 0.0), Track());
-  point3D_t p2 =
-      reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 1.0, 0.0), Track());
-  point3D_t p3 =
-      reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 0.0, -1.0), Track());
-  point3D_t p4 =
-      reconstruction.AddPoint3D(Eigen::Vector3d(0.0, 0.0, 1.0), Track());
+  const point3D_t p1 =
+      reconstruction.AddPoint3D(Eigen::Vector3d(0, -1, 0), Track());
+  const point3D_t p2 =
+      reconstruction.AddPoint3D(Eigen::Vector3d(0, 1, 0), Track());
+  const point3D_t p3 =
+      reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, -1), Track());
+  const point3D_t p4 =
+      reconstruction.AddPoint3D(Eigen::Vector3d(0, 0, 1), Track());
   AlignToPrincipalPlane(&reconstruction, &tform);
   // Note that the final X and Y axes may be inverted after alignment, so we
   // need to account for both cases when checking for correctness
-  const bool inverted = tform.Rotation()(2) < 0;
+  const bool inverted = tform.rotation.y() < 0;
 
   // Verify that points lie on the correct locations of the X-Y plane
-  BOOST_CHECK_LE((reconstruction.Point3D(p1).XYZ() -
-                  Eigen::Vector3d(inverted ? 1.0 : -1.0, 0.0, 0.0))
-                     .norm(),
-                 1e-6);
-  BOOST_CHECK_LE((reconstruction.Point3D(p2).XYZ() -
-                  Eigen::Vector3d(inverted ? -1.0 : 1.0, 0.0, 0.0))
-                     .norm(),
-                 1e-6);
-  BOOST_CHECK_LE((reconstruction.Point3D(p3).XYZ() -
-                  Eigen::Vector3d(0.0, inverted ? 1.0 : -1.0, 0.0))
-                     .norm(),
-                 1e-6);
-  BOOST_CHECK_LE((reconstruction.Point3D(p4).XYZ() -
-                  Eigen::Vector3d(0.0, inverted ? -1.0 : 1.0, 0.0))
-                     .norm(),
-                 1e-6);
+  EXPECT_LE((reconstruction.Point3D(p1).XYZ() -
+             Eigen::Vector3d(inverted ? 1 : -1, 0, 0))
+                .norm(),
+            1e-6);
+  EXPECT_LE((reconstruction.Point3D(p2).XYZ() -
+             Eigen::Vector3d(inverted ? -1 : 1, 0, 0))
+                .norm(),
+            1e-6);
+  EXPECT_LE((reconstruction.Point3D(p3).XYZ() -
+             Eigen::Vector3d(0, inverted ? 1 : -1, 0))
+                .norm(),
+            1e-6);
+  EXPECT_LE((reconstruction.Point3D(p4).XYZ() -
+             Eigen::Vector3d(0, inverted ? -1 : 1, 0))
+                .norm(),
+            1e-6);
   // Verify that projection center is at (0, 0, 1)
-  BOOST_CHECK_LE((reconstruction.Image(1).ProjectionCenter() -
-                  Eigen::Vector3d(0.0, 0.0, 1.0))
-                     .norm(),
-                 1e-6);
+  EXPECT_LE(
+      (reconstruction.Image(1).ProjectionCenter() - Eigen::Vector3d(0, 0, 1))
+          .norm(),
+      1e-6);
   // Verify that transform matrix does shuffling of axes
-  Eigen::Matrix4d mat;
+  Eigen::Matrix3x4d expected;
   if (inverted) {
-    mat << 0, -1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0, 0, 0, 1;
+    expected << 0, -1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0;
   } else {
-    mat << 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1;
+    expected << 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0;
   }
-  std::cout << tform.Matrix() << std::endl;
-  BOOST_CHECK_LE((tform.Matrix() - mat).norm(), 1e-6);
+  EXPECT_LT((tform.ToMatrix() - expected).norm(), 1e-6);
 }
 
-BOOST_AUTO_TEST_CASE(TestAlignToENUPlane) {
+TEST(CoordinateFrame, AlignToENUPlane) {
   // Create reconstruction with 4 points with known LLA coordinates. After the
   // ENU transform all 4 points should land approximately on the X-Y plane.
   GPSTransform gps;
@@ -120,7 +121,7 @@ BOOST_AUTO_TEST_CASE(TestAlignToENUPlane) {
                               Eigen::Vector3d(50.1, 10, 100),
                               Eigen::Vector3d(50.1, 10.1, 100),
                               Eigen::Vector3d(50, 10, 100)});
-  SimilarityTransform3 tform;
+  Sim3d tform;
   Reconstruction reconstruction;
   std::vector<point3D_t> point_ids;
   for (size_t i = 0; i < points.size(); ++i) {
@@ -129,22 +130,22 @@ BOOST_AUTO_TEST_CASE(TestAlignToENUPlane) {
   }
   AlignToENUPlane(&reconstruction, &tform, false);
   // Verify final locations of points
-  BOOST_CHECK_LE((reconstruction.Point3D(point_ids[0]).XYZ() -
-                  Eigen::Vector3d(3584.8565215, -5561.5336506, 0.0742643))
-                     .norm(),
-                 1e-6);
-  BOOST_CHECK_LE((reconstruction.Point3D(point_ids[1]).XYZ() -
-                  Eigen::Vector3d(-3577.3888622, 5561.6397107, 0.0783761))
-                     .norm(),
-                 1e-6);
-  BOOST_CHECK_LE((reconstruction.Point3D(point_ids[2]).XYZ() -
-                  Eigen::Vector3d(3577.4152111, 5561.6397283, 0.0783613))
-                     .norm(),
-                 1e-6);
-  BOOST_CHECK_LE((reconstruction.Point3D(point_ids[3]).XYZ() -
-                  Eigen::Vector3d(-3584.8301178, -5561.5336683, 0.0742791))
-                     .norm(),
-                 1e-6);
+  EXPECT_LE((reconstruction.Point3D(point_ids[0]).XYZ() -
+             Eigen::Vector3d(3584.8565215, -5561.5336506, 0.0742643))
+                .norm(),
+            1e-6);
+  EXPECT_LE((reconstruction.Point3D(point_ids[1]).XYZ() -
+             Eigen::Vector3d(-3577.3888622, 5561.6397107, 0.0783761))
+                .norm(),
+            1e-6);
+  EXPECT_LE((reconstruction.Point3D(point_ids[2]).XYZ() -
+             Eigen::Vector3d(3577.4152111, 5561.6397283, 0.0783613))
+                .norm(),
+            1e-6);
+  EXPECT_LE((reconstruction.Point3D(point_ids[3]).XYZ() -
+             Eigen::Vector3d(-3584.8301178, -5561.5336683, 0.0742791))
+                .norm(),
+            1e-6);
 
   // Verify that straight line distance between points is preserved
   for (size_t i = 1; i < points.size(); ++i) {
@@ -152,6 +153,9 @@ BOOST_AUTO_TEST_CASE(TestAlignToENUPlane) {
     const double dist_tform = (reconstruction.Point3D(point_ids[i]).XYZ() -
                                reconstruction.Point3D(point_ids[i - 1]).XYZ())
                                   .norm();
-    BOOST_CHECK_LE(std::abs(dist_orig - dist_tform), 1e-6);
+    EXPECT_LE(std::abs(dist_orig - dist_tform), 1e-6);
   }
 }
+
+}  // namespace
+}  // namespace colmap

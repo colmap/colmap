@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_OPTIM_RANDOM_SAMPLER_H_
-#define COLMAP_SRC_OPTIM_RANDOM_SAMPLER_H_
+#pragma once
 
 #include "colmap/optim/sampler.h"
 
@@ -41,9 +40,9 @@ namespace colmap {
 // Note that a separate sampler should be instantiated per thread.
 class RandomSampler : public Sampler {
  public:
-  explicit RandomSampler(const size_t num_samples);
+  explicit RandomSampler(size_t num_samples);
 
-  void Initialize(const size_t total_num_samples) override;
+  void Initialize(size_t total_num_samples) override;
 
   size_t MaxNumSamples() override;
 
@@ -55,5 +54,3 @@ class RandomSampler : public Sampler {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_OPTIM_RANDOM_SAMPLER_H_

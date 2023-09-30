@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_LINE_PAINTER_H_
-#define COLMAP_SRC_UI_LINE_PAINTER_H_
+#pragma once
 
 #include "colmap/ui/point_painter.h"
 
@@ -56,9 +55,9 @@ class LinePainter {
   void Setup();
   void Upload(const std::vector<LinePainter::Data>& data);
   void Render(const QMatrix4x4& pmv_matrix,
-              const int width,
-              const int height,
-              const float line_width);
+              int width,
+              int height,
+              float line_width);
 
  private:
   QOpenGLShaderProgram shader_program_;
@@ -69,5 +68,3 @@ class LinePainter {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_LINE_PAINTER_H_

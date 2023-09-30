@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_MVS_GPU_MAT_H_
-#define COLMAP_SRC_MVS_GPU_MAT_H_
+#pragma once
 
 #include "colmap/mvs/cuda_flip.h"
 #include "colmap/mvs/cuda_rotate.h"
@@ -456,5 +455,3 @@ void GpuMat<T>::ComputeCudaConfig() {
 
 }  // namespace mvs
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_MVS_GPU_MAT_H_

@@ -31,8 +31,8 @@
 
 #include "colmap/ui/feature_extraction_widget.h"
 
-#include "colmap/base/camera_models.h"
-#include "colmap/feature/extraction.h"
+#include "colmap/controllers/feature_extraction.h"
+#include "colmap/sensor/models.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/qt_utils.h"
 #include "colmap/ui/thread_control_widget.h"
@@ -125,8 +125,8 @@ void SIFTExtractionWidget::Run() {
   reader_options.database_path = *options_->database_path;
   reader_options.image_path = *options_->image_path;
 
-  auto extractor = std::make_unique<SiftFeatureExtractor>(
-      reader_options, *options_->sift_extraction);
+  auto extractor = CreateFeatureExtractorController(reader_options,
+                                                    *options_->sift_extraction);
   thread_control_widget_->StartThread(
       "Extracting...", true, std::move(extractor));
 }
@@ -149,8 +149,7 @@ void ImportFeaturesWidget::Run() {
   reader_options.database_path = *options_->database_path;
   reader_options.image_path = *options_->image_path;
 
-  auto importer =
-      std::make_unique<FeatureImporter>(reader_options, import_path_);
+  auto importer = CreateFeatureImporterController(reader_options, import_path_);
   thread_control_widget_->StartThread(
       "Importing...", true, std::move(importer));
 }

@@ -172,7 +172,7 @@ single, self-contained SQLite database file (see :doc:`database`).
 
 The first step is to start the graphical user interface of COLMAP by running the
 pre-built binaries (Windows: `COLMAP.bat`, Mac: `COLMAP.app`) or by executing
-``./src/exe/colmap gui`` from the CMake build folder. Next, create a new project
+``./src/colmap/exe/colmap gui`` from the CMake build folder. Next, create a new project
 by choosing ``File > New project``. In this dialog, you must select where to
 store the database and the folder that contains the input images. For
 convenience, you can save the entire project settings to a configuration file by

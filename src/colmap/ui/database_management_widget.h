@@ -29,13 +29,12 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_DATABASE_MANAGEMENT_WIDGET_H_
-#define COLMAP_SRC_UI_DATABASE_MANAGEMENT_WIDGET_H_
+#pragma once
 
-#include "colmap/base/database.h"
+#include "colmap/controllers/option_manager.h"
+#include "colmap/scene/database.h"
 #include "colmap/ui/image_viewer_widget.h"
 #include "colmap/util/misc.h"
-#include "colmap/util/option_manager.h"
 
 #include <QtCore>
 #include <QtWidgets>
@@ -76,7 +75,7 @@ class MatchesTab : public TwoViewInfoTab {
  public:
   MatchesTab(QWidget* parent, OptionManager* options, Database* database);
 
-  void Reload(const std::vector<Image>& images, const image_t image_id);
+  void Reload(const std::vector<Image>& images, image_t image_id);
 };
 
 class TwoViewGeometriesTab : public TwoViewInfoTab {
@@ -85,7 +84,7 @@ class TwoViewGeometriesTab : public TwoViewInfoTab {
                        OptionManager* options,
                        Database* database);
 
-  void Reload(const std::vector<Image>& images, const image_t image_id);
+  void Reload(const std::vector<Image>& images, image_t image_id);
 };
 
 class OverlappingImagesWidget : public QWidget {
@@ -94,7 +93,7 @@ class OverlappingImagesWidget : public QWidget {
                           OptionManager* options,
                           Database* database);
 
-  void ShowMatches(const std::vector<Image>& images, const image_t image_id);
+  void ShowMatches(const std::vector<Image>& images, image_t image_id);
 
  private:
   void closeEvent(QCloseEvent* event);
@@ -187,5 +186,3 @@ class DatabaseManagementWidget : public QWidget {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_DATABASE_MANAGEMENT_WIDGET_H_

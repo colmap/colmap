@@ -34,8 +34,7 @@
 # The following variables are set by this module:
 #
 #   FLANN_FOUND: TRUE if FLANN is found.
-#   FLANN_INCLUDE_DIRS: Include directories for FLANN.
-#   FLANN_LIBRARIES: Libraries required to link FLANN.
+#   flann: Imported target to link against.
 #
 # The following variables control the behavior of this module:
 #
@@ -91,3 +90,9 @@ else()
         message(FATAL_ERROR "Could not find FLANN")
     endif()
 endif()
+
+add_library(flann INTERFACE IMPORTED)
+target_include_directories(
+    flann INTERFACE ${FLANN_INCLUDE_DIRS})
+target_link_libraries(
+    flann INTERFACE ${FLANN_LIBRARIES})

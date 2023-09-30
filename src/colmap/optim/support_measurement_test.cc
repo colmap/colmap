@@ -29,64 +29,116 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "optim/support_measurement"
 #include "colmap/optim/support_measurement.h"
 
-#include "colmap/util/math.h"
-#include "colmap/util/testing.h"
+#include "colmap/math/math.h"
 
 #include <unordered_set>
 
-using namespace colmap;
+#include <gtest/gtest.h>
 
-BOOST_AUTO_TEST_CASE(TestInlierSupportMeasuremer) {
+namespace colmap {
+namespace {
+
+TEST(InlierSupportMeasurer, Nominal) {
   InlierSupportMeasurer::Support support1;
-  BOOST_CHECK_EQUAL(support1.num_inliers, 0);
-  BOOST_CHECK_EQUAL(support1.residual_sum, std::numeric_limits<double>::max());
+  EXPECT_EQ(support1.num_inliers, 0);
+  EXPECT_EQ(support1.residual_sum, std::numeric_limits<double>::max());
   InlierSupportMeasurer measurer;
   std::vector<double> residuals = {-1.0, 0.0, 1.0, 2.0};
   support1 = measurer.Evaluate(residuals, 1.0);
-  BOOST_CHECK_EQUAL(support1.num_inliers, 3);
-  BOOST_CHECK_EQUAL(support1.residual_sum, 0.0);
+  EXPECT_EQ(support1.num_inliers, 3);
+  EXPECT_EQ(support1.residual_sum, 0.0);
   InlierSupportMeasurer::Support support2;
   support2.num_inliers = 2;
-  BOOST_CHECK(measurer.Compare(support1, support2));
-  BOOST_CHECK(!measurer.Compare(support2, support1));
+  EXPECT_TRUE(measurer.Compare(support1, support2));
+  EXPECT_FALSE(measurer.Compare(support2, support1));
   support2.residual_sum = support1.residual_sum;
-  BOOST_CHECK(measurer.Compare(support1, support2));
-  BOOST_CHECK(!measurer.Compare(support2, support1));
+  EXPECT_TRUE(measurer.Compare(support1, support2));
+  EXPECT_FALSE(measurer.Compare(support2, support1));
   support2.num_inliers = support1.num_inliers;
   support2.residual_sum += 0.01;
-  BOOST_CHECK(measurer.Compare(support1, support2));
-  BOOST_CHECK(!measurer.Compare(support2, support1));
+  EXPECT_TRUE(measurer.Compare(support1, support2));
+  EXPECT_FALSE(measurer.Compare(support2, support1));
   support2.residual_sum -= 0.01;
-  BOOST_CHECK(!measurer.Compare(support1, support2));
-  BOOST_CHECK(!measurer.Compare(support2, support1));
+  EXPECT_FALSE(measurer.Compare(support1, support2));
+  EXPECT_FALSE(measurer.Compare(support2, support1));
   support2.residual_sum -= 0.01;
-  BOOST_CHECK(!measurer.Compare(support1, support2));
-  BOOST_CHECK(measurer.Compare(support2, support1));
+  EXPECT_FALSE(measurer.Compare(support1, support2));
+  EXPECT_TRUE(measurer.Compare(support2, support1));
 }
 
-BOOST_AUTO_TEST_CASE(TestMEstimatorSupportMeasurer) {
+TEST(UniqueInlierSupportMeasurer, Nominal) {
+  UniqueInlierSupportMeasurer::Support support1;
+  EXPECT_EQ(support1.num_inliers, 0);
+  EXPECT_EQ(support1.num_unique_inliers, 0);
+  EXPECT_EQ(support1.residual_sum, std::numeric_limits<double>::max());
+
+  UniqueInlierSupportMeasurer measurer;
+  const std::vector<size_t> sample_ids = {1, 2, 2, 3};
+  measurer.SetUniqueSampleIds(sample_ids);
+  const std::vector<double> residuals = {-1.0, 0.0, 1.0, 2.0};
+  support1 = measurer.Evaluate(residuals, 1.0);
+  EXPECT_EQ(support1.num_inliers, 3);
+  EXPECT_EQ(support1.num_unique_inliers, 2);
+  EXPECT_EQ(support1.residual_sum, 0.0);
+
+  UniqueInlierSupportMeasurer::Support support2;
+  support2.num_unique_inliers = support1.num_unique_inliers - 1;
+  EXPECT_TRUE(measurer.Compare(support1, support2));
+  EXPECT_FALSE(measurer.Compare(support2, support1));
+  support2.num_inliers = support1.num_inliers + 1;
+  EXPECT_TRUE(measurer.Compare(support1, support2));
+  EXPECT_FALSE(measurer.Compare(support2, support1));
+  support2.num_inliers = support1.num_inliers;
+  EXPECT_TRUE(measurer.Compare(support1, support2));
+  EXPECT_FALSE(measurer.Compare(support2, support1));
+  support2.residual_sum = support1.residual_sum - 0.01;
+  EXPECT_TRUE(measurer.Compare(support1, support2));
+  EXPECT_FALSE(measurer.Compare(support2, support1));
+  support2.residual_sum = support1.residual_sum;
+  EXPECT_TRUE(measurer.Compare(support1, support2));
+  EXPECT_FALSE(measurer.Compare(support2, support1));
+  support2.num_unique_inliers = support1.num_unique_inliers;
+  EXPECT_FALSE(measurer.Compare(support1, support2));
+  EXPECT_FALSE(measurer.Compare(support2, support1));
+  support2.residual_sum = support1.residual_sum - 0.01;
+  EXPECT_FALSE(measurer.Compare(support1, support2));
+  EXPECT_TRUE(measurer.Compare(support2, support1));
+  support2.num_inliers = support1.num_inliers + 1;
+  support2.residual_sum = support1.residual_sum + 0.01;
+  EXPECT_FALSE(measurer.Compare(support1, support2));
+  EXPECT_TRUE(measurer.Compare(support2, support1));
+  support2.num_unique_inliers = support1.num_unique_inliers + 1;
+  support2.num_inliers = support1.num_inliers - 1;
+  support2.residual_sum = support1.residual_sum + 0.01;
+  EXPECT_FALSE(measurer.Compare(support1, support2));
+  EXPECT_TRUE(measurer.Compare(support2, support1));
+}
+
+TEST(MEstimatorSupportMeasurer, Nominal) {
   MEstimatorSupportMeasurer::Support support1;
-  BOOST_CHECK_EQUAL(support1.num_inliers, 0);
-  BOOST_CHECK_EQUAL(support1.score, std::numeric_limits<double>::max());
+  EXPECT_EQ(support1.num_inliers, 0);
+  EXPECT_EQ(support1.score, std::numeric_limits<double>::max());
   MEstimatorSupportMeasurer measurer;
   std::vector<double> residuals = {-1.0, 0.0, 1.0, 2.0};
   support1 = measurer.Evaluate(residuals, 1.0);
-  BOOST_CHECK_EQUAL(support1.num_inliers, 3);
-  BOOST_CHECK_EQUAL(support1.score, 1.0);
+  EXPECT_EQ(support1.num_inliers, 3);
+  EXPECT_EQ(support1.score, 1.0);
   MEstimatorSupportMeasurer::Support support2 = support1;
-  BOOST_CHECK(!measurer.Compare(support1, support2));
-  BOOST_CHECK(!measurer.Compare(support2, support1));
+  EXPECT_FALSE(measurer.Compare(support1, support2));
+  EXPECT_FALSE(measurer.Compare(support2, support1));
   support2.num_inliers -= 1;
   support2.score += 0.01;
-  BOOST_CHECK(measurer.Compare(support1, support2));
-  BOOST_CHECK(!measurer.Compare(support2, support1));
+  EXPECT_TRUE(measurer.Compare(support1, support2));
+  EXPECT_FALSE(measurer.Compare(support2, support1));
   support2.score -= 0.01;
-  BOOST_CHECK(!measurer.Compare(support1, support2));
-  BOOST_CHECK(!measurer.Compare(support2, support1));
+  EXPECT_FALSE(measurer.Compare(support1, support2));
+  EXPECT_FALSE(measurer.Compare(support2, support1));
   support2.score -= 0.01;
-  BOOST_CHECK(!measurer.Compare(support1, support2));
-  BOOST_CHECK(measurer.Compare(support2, support1));
+  EXPECT_FALSE(measurer.Compare(support1, support2));
+  EXPECT_TRUE(measurer.Compare(support2, support1));
 }
+
+}  // namespace
+}  // namespace colmap

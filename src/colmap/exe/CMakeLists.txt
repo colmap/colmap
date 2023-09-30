@@ -35,20 +35,54 @@ if(IS_MSVC)
     add_compile_options("/bigobj")
 endif()
 
-COLMAP_ADD_EXECUTABLE(colmap_exe
-    colmap.cc
-    database.cc
-    feature.cc
-    gui.cc
-    image.cc
-    model.cc
-    mvs.cc
-    sfm.cc
-    vocab_tree.cc)
-set_target_properties(colmap_exe PROPERTIES OUTPUT_NAME colmap)
-target_link_libraries(colmap_exe torch_feature)
+set(OPTIONAL_LIBS)
+if(CUDA_ENABLED)
+    list(APPEND OPTIONAL_LIBS
+        colmap_util_cuda
+        colmap_mvs_cuda
+    )
+endif()
+if(GUI_ENABLED)
+    list(APPEND OPTIONAL_LIBS
+        colmap_ui
+    )
+endif()
 
-COLMAP_ADD_SOURCES(
-    feature.h feature.cc
-    sfm.h sfm.cc
+COLMAP_ADD_LIBRARY(
+    NAME colmap_exe
+    SRCS
+        feature.h feature.cc
+        sfm.h sfm.cc
+        model.h model.cc
+    PUBLIC_LINK_LIBS
+        colmap_controllers
+        colmap_estimators
+        colmap_geometry
+        colmap_optim
+        colmap_scene
+        colmap_util
 )
+
+COLMAP_ADD_EXECUTABLE(
+    NAME colmap_main
+    SRCS
+        feature.cc
+        sfm.cc
+        colmap.cc
+        database.cc
+        feature.cc
+        gui.cc
+        image.cc
+        model.cc
+        mvs.cc
+        sfm.cc
+        vocab_tree.cc
+    LINK_LIBS
+        colmap_controllers
+        colmap_retrieval
+        colmap_scene
+        colmap_sfm
+        colmap_util
+        ${OPTIONAL_LIBS}
+)
+set_target_properties(colmap_main PROPERTIES OUTPUT_NAME colmap)

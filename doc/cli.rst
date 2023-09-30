@@ -7,7 +7,7 @@ The command-line interface provides access to all of COLMAP's functionality for
 automated scripting. Each core functionality is implemented as a command to the
 ``colmap`` executable. Run ``colmap -h`` to list the available commands (or
 ``COLMAP.bat -h`` under Windows). Note that if you run COLMAP from the CMake
-build folder, the executable is located at ``./src/exe/colmap``. To start the
+build folder, the executable is located at ``./src/colmap/exe/colmap``. To start the
 graphical user interface, run ``colmap gui``.
 
 Example

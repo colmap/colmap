@@ -29,20 +29,19 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_RETRIEVAL_VISUAL_INDEX_H_
-#define COLMAP_SRC_RETRIEVAL_VISUAL_INDEX_H_
+#pragma once
 
 #include "colmap/feature/types.h"
+#include "colmap/math/math.h"
 #include "colmap/retrieval/inverted_file.h"
 #include "colmap/retrieval/inverted_index.h"
 #include "colmap/retrieval/vote_and_verify.h"
 #include "colmap/util/endian.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/math.h"
 
-#include "flann/flann.hpp"
 #include <Eigen/Core>
 #include <boost/heap/fibonacci_heap.hpp>
+#include <flann/flann.hpp>
 
 namespace colmap {
 namespace retrieval {
@@ -124,12 +123,12 @@ class VisualIndex {
 
   // Add image to the visual index.
   void Add(const IndexOptions& options,
-           const int image_id,
+           int image_id,
            const GeomType& geometries,
            const DescType& descriptors);
 
   // Check if an image has been indexed.
-  bool ImageIndexed(const int image_id) const;
+  bool ImageIndexed(int image_id) const;
 
   // Query for most similar images in the visual index.
   void Query(const QueryOptions& options,
@@ -167,9 +166,9 @@ class VisualIndex {
 
   // Find the nearest neighbor visual words for the given descriptors.
   Eigen::MatrixXi FindWordIds(const DescType& descriptors,
-                              const int num_neighbors,
-                              const int num_checks,
-                              const int num_threads) const;
+                              int num_neighbors,
+                              int num_checks,
+                              int num_threads) const;
 
   // The search structure on the quantized descriptor space.
   flann::AutotunedIndex<flann::L2<kDescType>> visual_word_index_;
@@ -463,7 +462,7 @@ void VisualIndex<kDescType, kDescDim, kEmbeddingDim>::Query(
               match_found = true;
               FeatureGeometryMatch match;
               match.geometry1 = entry2.second.first->geometry;
-              match.geometries2.push_back(entry2.second.second->geometry);
+              match.geometry2 = entry2.second.second->geometry;
               matches.push_back(match);
 
               handles2.erase(idx2);
@@ -773,5 +772,3 @@ Eigen::MatrixXi VisualIndex<kDescType, kDescDim, kEmbeddingDim>::FindWordIds(
 
 }  // namespace retrieval
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_RETRIEVAL_VISUAL_INDEX_H_

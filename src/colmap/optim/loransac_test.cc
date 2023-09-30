@@ -29,55 +29,53 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "optim/ransac"
 #include "colmap/optim/loransac.h"
 
-#include "colmap/base/pose.h"
-#include "colmap/base/similarity_transform.h"
 #include "colmap/estimators/similarity_transform.h"
-#include "colmap/util/random.h"
-#include "colmap/util/testing.h"
+#include "colmap/geometry/pose.h"
+#include "colmap/geometry/sim3.h"
+#include "colmap/math/random.h"
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+#include <gtest/gtest.h>
 
-using namespace colmap;
+namespace colmap {
+namespace {
 
-BOOST_AUTO_TEST_CASE(TestReport) {
+TEST(LORANSAC, Report) {
   LORANSAC<SimilarityTransformEstimator<3>,
            SimilarityTransformEstimator<3>>::Report report;
-  BOOST_CHECK_EQUAL(report.success, false);
-  BOOST_CHECK_EQUAL(report.num_trials, 0);
-  BOOST_CHECK_EQUAL(report.support.num_inliers, 0);
-  BOOST_CHECK_EQUAL(report.support.residual_sum,
-                    std::numeric_limits<double>::max());
-  BOOST_CHECK_EQUAL(report.inlier_mask.size(), 0);
+  EXPECT_FALSE(report.success);
+  EXPECT_EQ(report.num_trials, 0);
+  EXPECT_EQ(report.support.num_inliers, 0);
+  EXPECT_EQ(report.support.residual_sum, std::numeric_limits<double>::max());
+  EXPECT_EQ(report.inlier_mask.size(), 0);
 }
 
-BOOST_AUTO_TEST_CASE(TestSimilarityTransform) {
+TEST(LORANSAC, SimilarityTransform) {
   SetPRNGSeed(0);
 
   const size_t num_samples = 1000;
   const size_t num_outliers = 400;
 
   // Create some arbitrary transformation.
-  const SimilarityTransform3 orig_tform(
-      2, ComposeIdentityQuaternion(), Eigen::Vector3d(100, 10, 10));
+  const Sim3d expectedTgtFromSrc(
+      2, Eigen::Quaterniond::UnitRandom(), Eigen::Vector3d(100, 10, 10));
 
   // Generate exact data
   std::vector<Eigen::Vector3d> src;
-  std::vector<Eigen::Vector3d> dst;
+  std::vector<Eigen::Vector3d> tgt;
   for (size_t i = 0; i < num_samples; ++i) {
     src.emplace_back(i, std::sqrt(i) + 2, std::sqrt(2 * i + 2));
-    dst.push_back(src.back());
-    orig_tform.TransformPoint(&dst.back());
+    tgt.push_back(expectedTgtFromSrc * src.back());
   }
 
   // Add some faulty data.
   for (size_t i = 0; i < num_outliers; ++i) {
-    dst[i] = Eigen::Vector3d(RandomReal(-3000.0, -2000.0),
-                             RandomReal(-4000.0, -3000.0),
-                             RandomReal(-5000.0, -4000.0));
+    tgt[i] = Eigen::Vector3d(RandomUniformReal(-3000.0, -2000.0),
+                             RandomUniformReal(-4000.0, -3000.0),
+                             RandomUniformReal(-5000.0, -4000.0));
   }
 
   // Robustly estimate transformation using RANSAC.
@@ -85,23 +83,26 @@ BOOST_AUTO_TEST_CASE(TestSimilarityTransform) {
   options.max_error = 10;
   LORANSAC<SimilarityTransformEstimator<3>, SimilarityTransformEstimator<3>>
       ransac(options);
-  const auto report = ransac.Estimate(src, dst);
+  const auto report = ransac.Estimate(src, tgt);
 
-  BOOST_CHECK_EQUAL(report.success, true);
-  BOOST_CHECK_GT(report.num_trials, 0);
+  EXPECT_TRUE(report.success);
+  EXPECT_GT(report.num_trials, 0);
 
   // Make sure outliers were detected correctly.
-  BOOST_CHECK_EQUAL(report.support.num_inliers, num_samples - num_outliers);
+  EXPECT_EQ(report.support.num_inliers, num_samples - num_outliers);
   for (size_t i = 0; i < num_samples; ++i) {
     if (i < num_outliers) {
-      BOOST_CHECK(!report.inlier_mask[i]);
+      EXPECT_FALSE(report.inlier_mask[i]);
     } else {
-      BOOST_CHECK(report.inlier_mask[i]);
+      EXPECT_TRUE(report.inlier_mask[i]);
     }
   }
 
   // Make sure original transformation is estimated correctly.
   const double matrix_diff =
-      (orig_tform.Matrix().topLeftCorner<3, 4>() - report.model).norm();
-  BOOST_CHECK(std::abs(matrix_diff) < 1e-6);
+      (expectedTgtFromSrc.ToMatrix() - report.model).norm();
+  EXPECT_LT(matrix_diff, 1e-6);
 }
+
+}  // namespace
+}  // namespace colmap

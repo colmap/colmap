@@ -31,7 +31,7 @@
 
 #include "colmap/controllers/bundle_adjustment.h"
 
-#include "colmap/optim/bundle_adjustment.h"
+#include "colmap/estimators/bundle_adjustment.h"
 #include "colmap/util/misc.h"
 
 #include <ceres/ceres.h>
@@ -63,8 +63,9 @@ class BundleAdjustmentIterationCallback : public ceres::IterationCallback {
 }  // namespace
 
 BundleAdjustmentController::BundleAdjustmentController(
-    const OptionManager& options, Reconstruction* reconstruction)
-    : options_(options), reconstruction_(reconstruction) {}
+    const OptionManager& options,
+    std::shared_ptr<Reconstruction> reconstruction)
+    : options_(options), reconstruction_(std::move(reconstruction)) {}
 
 void BundleAdjustmentController::Run() {
   CHECK_NOTNULL(reconstruction_);
@@ -92,12 +93,12 @@ void BundleAdjustmentController::Run() {
   for (const image_t image_id : reg_image_ids) {
     ba_config.AddImage(image_id);
   }
-  ba_config.SetConstantPose(reg_image_ids[0]);
-  ba_config.SetConstantTvec(reg_image_ids[1], {0});
+  ba_config.SetConstantCamPose(reg_image_ids[0]);
+  ba_config.SetConstantCamPositions(reg_image_ids[1], {0});
 
   // Run bundle adjustment.
   BundleAdjuster bundle_adjuster(ba_options, ba_config);
-  bundle_adjuster.Solve(reconstruction_);
+  bundle_adjuster.Solve(reconstruction_.get());
 
   GetTimer().PrintMinutes();
 }

@@ -29,10 +29,9 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_LOG_WIDGET_H_
-#define COLMAP_SRC_UI_LOG_WIDGET_H_
+#pragma once
 
-#include "colmap/util/option_manager.h"
+#include "colmap/controllers/option_manager.h"
 
 #include <QtGui>
 #include <QtWidgets>
@@ -75,7 +74,7 @@ class StandardOutputRedirector : public std::basic_streambuf<Elem, Tr> {
 
 class LogWidget : public QWidget {
  public:
-  LogWidget(QWidget* parent, const int max_num_blocks = 100000);
+  explicit LogWidget(QWidget* parent, int max_num_blocks = 100000);
   ~LogWidget();
 
   void Append(const std::string& text);
@@ -99,5 +98,3 @@ class LogWidget : public QWidget {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_LOG_WIDGET_H_

@@ -29,15 +29,10 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_FEATURE_SIFT_H_
-#define COLMAP_SRC_FEATURE_SIFT_H_
+#pragma once
 
-#include "colmap/estimators/two_view_geometry.h"
-#include "colmap/feature/types.h"
-#include "colmap/util/bitmap.h"
-
-class SiftGPU;
-class SiftMatchGPU;
+#include "colmap/feature/extractor.h"
+#include "colmap/feature/matcher.h"
 
 namespace colmap {
 
@@ -99,6 +94,12 @@ struct SiftExtractionOptions {
   double dsp_max_scale = 3.0;
   int dsp_num_scales = 10;
 
+  // Whether to force usage of the covariant VLFeat implementation.
+  // Otherwise, the covariant implementation is only used when
+  // estimate_affine_shape or domain_size_pooling are enabled, since the normal
+  // Sift implementation is faster.
+  bool force_covariant_extractor = false;
+
   enum class Normalization {
     // L1-normalizes each descriptor followed by element-wise square rooting.
     // This normalization is usually better than standard L2-normalization.
@@ -112,6 +113,15 @@ struct SiftExtractionOptions {
 
   bool Check() const;
 };
+
+// Create a Sift feature extractor based on the provided options. The same
+// feature extractor instance can be used to extract features for multiple
+// images in the same thread. Note that, for GPU based extraction, a OpenGL
+// context must be made current in the thread of the caller. If the gpu_index is
+// not -1, the CUDA version of SiftGPU is used, which produces slightly
+// different results than the OpenGL implementation.
+std::unique_ptr<FeatureExtractor> CreateSiftFeatureExtractor(
+    const SiftExtractionOptions& options);
 
 struct SiftMatchingOptions {
   // Number of threads for feature matching and geometric verification.
@@ -136,67 +146,17 @@ struct SiftMatchingOptions {
   // Maximum number of matches.
   int max_num_matches = 32768;
 
-  // Maximum epipolar error in pixels for geometric verification.
-  double max_error = 4.0;
-
-  // Confidence threshold for geometric verification.
-  double confidence = 0.999;
-
-  // Minimum/maximum number of RANSAC iterations. Note that this option
-  // overrules the min_inlier_ratio option.
-  int min_num_trials = 100;
-  int max_num_trials = 10000;
-
-  // A priori assumed minimum inlier ratio, which determines the maximum
-  // number of iterations.
-  double min_inlier_ratio = 0.25;
-
-  // Minimum number of inliers for an image pair to be considered as
-  // geometrically verified.
-  int min_num_inliers = 15;
-
-  // Whether to attempt to estimate multiple geometric models per image pair.
-  bool multiple_models = false;
-
   // Whether to perform guided matching, if geometric verification succeeds.
   bool guided_matching = false;
 
-  // Force Homography use for Two-view Geometry (can help for planar scenes)
-  bool planar_scene = false;
-
-  // Whether to estimate the relative pose between the two images and save them
-  // to the DB.
-  bool compute_relative_pose = false;
+  // Whether to use brute-force instead of FLANN based CPU matching.
+  bool brute_force_cpu_matcher = false;
 
   bool Check() const;
 };
 
-// Extract SIFT features for the given image on the CPU. Only extract
-// descriptors if the given input is not NULL.
-bool ExtractSiftFeaturesCPU(const SiftExtractionOptions& options,
-                            const Bitmap& bitmap,
-                            FeatureKeypoints* keypoints,
-                            FeatureDescriptors* descriptors);
-bool ExtractCovariantSiftFeaturesCPU(const SiftExtractionOptions& options,
-                                     const Bitmap& bitmap,
-                                     FeatureKeypoints* keypoints,
-                                     FeatureDescriptors* descriptors);
-
-// Create a SiftGPU feature extractor. The same SiftGPU instance can be used to
-// extract features for multiple images. Note a OpenGL context must be made
-// current in the thread of the caller. If the gpu_index is not -1, the CUDA
-// version of SiftGPU is used, which produces slightly different results
-// than the OpenGL implementation.
-bool CreateSiftGPUExtractor(const SiftExtractionOptions& options,
-                            SiftGPU* sift_gpu);
-
-// Extract SIFT features for the given image on the GPU.
-// SiftGPU must already be initialized using `CreateSiftGPU`.
-bool ExtractSiftFeaturesGPU(const SiftExtractionOptions& options,
-                            const Bitmap& bitmap,
-                            SiftGPU* sift_gpu,
-                            FeatureKeypoints* keypoints,
-                            FeatureDescriptors* descriptors);
+std::unique_ptr<FeatureMatcher> CreateSiftFeatureMatcher(
+    const SiftMatchingOptions& options);
 
 // Load keypoints and descriptors from text file in the following format:
 //
@@ -219,49 +179,4 @@ void LoadSiftFeaturesFromTextFile(const std::string& path,
                                   FeatureKeypoints* keypoints,
                                   FeatureDescriptors* descriptors);
 
-// Match the given SIFT features on the CPU.
-void MatchSiftFeaturesCPUBruteForce(const SiftMatchingOptions& match_options,
-                                    const FeatureDescriptors& descriptors1,
-                                    const FeatureDescriptors& descriptors2,
-                                    FeatureMatches* matches);
-void MatchSiftFeaturesCPUFLANN(const SiftMatchingOptions& match_options,
-                               const FeatureDescriptors& descriptors1,
-                               const FeatureDescriptors& descriptors2,
-                               FeatureMatches* matches);
-void MatchSiftFeaturesCPU(const SiftMatchingOptions& match_options,
-                          const FeatureDescriptors& descriptors1,
-                          const FeatureDescriptors& descriptors2,
-                          FeatureMatches* matches);
-void MatchGuidedSiftFeaturesCPU(const SiftMatchingOptions& match_options,
-                                const FeatureKeypoints& keypoints1,
-                                const FeatureKeypoints& keypoints2,
-                                const FeatureDescriptors& descriptors1,
-                                const FeatureDescriptors& descriptors2,
-                                TwoViewGeometry* two_view_geometry);
-
-// Create a SiftGPU feature matcher. Note that if CUDA is not available or the
-// gpu_index is -1, the OpenGLContextManager must be created in the main thread
-// of the Qt application before calling this function. The same SiftMatchGPU
-// instance can be used to match features between multiple image pairs.
-bool CreateSiftGPUMatcher(const SiftMatchingOptions& match_options,
-                          SiftMatchGPU* sift_match_gpu);
-
-// Match the given SIFT features on the GPU. If either of the descriptors is
-// NULL, the keypoints/descriptors will not be uploaded and the previously
-// uploaded descriptors will be reused for the matching.
-void MatchSiftFeaturesGPU(const SiftMatchingOptions& match_options,
-                          const FeatureDescriptors* descriptors1,
-                          const FeatureDescriptors* descriptors2,
-                          SiftMatchGPU* sift_match_gpu,
-                          FeatureMatches* matches);
-void MatchGuidedSiftFeaturesGPU(const SiftMatchingOptions& match_options,
-                                const FeatureKeypoints* keypoints1,
-                                const FeatureKeypoints* keypoints2,
-                                const FeatureDescriptors* descriptors1,
-                                const FeatureDescriptors* descriptors2,
-                                SiftMatchGPU* sift_match_gpu,
-                                TwoViewGeometry* two_view_geometry);
-
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_FEATURE_SIFT_H_

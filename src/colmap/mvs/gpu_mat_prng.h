@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_MVS_GPU_MAT_PRNG_H_
-#define COLMAP_SRC_MVS_GPU_MAT_PRNG_H_
+#pragma once
 
 #include "colmap/mvs/gpu_mat.h"
 
@@ -47,5 +46,3 @@ class GpuMatPRNG : public GpuMat<curandState> {
 
 }  // namespace mvs
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_MVS_GPU_MAT_PRNG_H_

@@ -31,7 +31,7 @@
 
 #include "colmap/ui/feature_matching_widget.h"
 
-#include "colmap/feature/matching.h"
+#include "colmap/controllers/feature_matching.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/thread_control_widget.h"
 
@@ -118,26 +118,31 @@ void FeatureMatchingTab::CreateGeneralOptions() {
                                  "cross_check");
   options_widget_->AddOptionInt(&options_->sift_matching->max_num_matches,
                                 "max_num_matches");
-  options_widget_->AddOptionDouble(&options_->sift_matching->max_error,
-                                   "max_error");
-  options_widget_->AddOptionDouble(
-      &options_->sift_matching->confidence, "confidence", 0, 1, 0.00001, 5);
-  options_widget_->AddOptionInt(&options_->sift_matching->max_num_trials,
-                                "max_num_trials");
-  options_widget_->AddOptionDouble(&options_->sift_matching->min_inlier_ratio,
-                                   "min_inlier_ratio",
-                                   0,
-                                   1,
-                                   0.001,
-                                   3);
-  options_widget_->AddOptionInt(&options_->sift_matching->min_num_inliers,
-                                "min_num_inliers");
-  options_widget_->AddOptionBool(&options_->sift_matching->multiple_models,
-                                 "multiple_models");
   options_widget_->AddOptionBool(&options_->sift_matching->guided_matching,
                                  "guided_matching");
-  options_widget_->AddOptionBool(&options_->sift_matching->planar_scene,
-                                 "planar_scene");
+  options_widget_->AddOptionDouble(
+      &options_->two_view_geometry->ransac_options.max_error, "max_error");
+  options_widget_->AddOptionDouble(
+      &options_->two_view_geometry->ransac_options.confidence,
+      "confidence",
+      0,
+      1,
+      0.00001,
+      5);
+  options_widget_->AddOptionInt(
+      &options_->two_view_geometry->ransac_options.max_num_trials,
+      "max_num_trials");
+  options_widget_->AddOptionDouble(
+      &options_->two_view_geometry->ransac_options.min_inlier_ratio,
+      "min_inlier_ratio",
+      0,
+      1,
+      0.001,
+      3);
+  options_widget_->AddOptionInt(&options_->two_view_geometry->min_num_inliers,
+                                "min_num_inliers");
+  options_widget_->AddOptionBool(&options_->two_view_geometry->multiple_models,
+                                 "multiple_models");
   options_widget_->AddSpacer();
 
   QScrollArea* options_scroll_area = new QScrollArea(this);
@@ -162,10 +167,10 @@ ExhaustiveMatchingTab::ExhaustiveMatchingTab(QWidget* parent,
 void ExhaustiveMatchingTab::Run() {
   options_widget_->WriteOptions();
 
-  auto matcher =
-      std::make_unique<ExhaustiveFeatureMatcher>(*options_->exhaustive_matching,
-                                                 *options_->sift_matching,
-                                                 *options_->database_path);
+  auto matcher = CreateExhaustiveFeatureMatcher(*options_->exhaustive_matching,
+                                                *options_->sift_matching,
+                                                *options_->two_view_geometry,
+                                                *options_->database_path);
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 
@@ -215,10 +220,10 @@ void SequentialMatchingTab::Run() {
     return;
   }
 
-  auto matcher =
-      std::make_unique<SequentialFeatureMatcher>(*options_->sequential_matching,
-                                                 *options_->sift_matching,
-                                                 *options_->database_path);
+  auto matcher = CreateSequentialFeatureMatcher(*options_->sequential_matching,
+                                                *options_->sift_matching,
+                                                *options_->two_view_geometry,
+                                                *options_->database_path);
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 
@@ -252,10 +257,10 @@ void VocabTreeMatchingTab::Run() {
     return;
   }
 
-  auto matcher =
-      std::make_unique<VocabTreeFeatureMatcher>(*options_->vocab_tree_matching,
-                                                *options_->sift_matching,
-                                                *options_->database_path);
+  auto matcher = CreateVocabTreeFeatureMatcher(*options_->vocab_tree_matching,
+                                               *options_->sift_matching,
+                                               *options_->two_view_geometry,
+                                               *options_->database_path);
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 
@@ -275,10 +280,10 @@ SpatialMatchingTab::SpatialMatchingTab(QWidget* parent, OptionManager* options)
 void SpatialMatchingTab::Run() {
   options_widget_->WriteOptions();
 
-  auto matcher =
-      std::make_unique<SpatialFeatureMatcher>(*options_->spatial_matching,
-                                              *options_->sift_matching,
-                                              *options_->database_path);
+  auto matcher = CreateSpatialFeatureMatcher(*options_->spatial_matching,
+                                             *options_->sift_matching,
+                                             *options_->two_view_geometry,
+                                             *options_->database_path);
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 
@@ -296,10 +301,10 @@ TransitiveMatchingTab::TransitiveMatchingTab(QWidget* parent,
 void TransitiveMatchingTab::Run() {
   options_widget_->WriteOptions();
 
-  auto matcher =
-      std::make_unique<TransitiveFeatureMatcher>(*options_->transitive_matching,
-                                                 *options_->sift_matching,
-                                                 *options_->database_path);
+  auto matcher = CreateTransitiveFeatureMatcher(*options_->transitive_matching,
+                                                *options_->sift_matching,
+                                                *options_->two_view_geometry,
+                                                *options_->database_path);
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));
 }
 
@@ -330,8 +335,10 @@ void CustomMatchingTab::Run() {
   if (match_type_cb_->currentIndex() == 0) {
     ImagePairsMatchingOptions matcher_options;
     matcher_options.match_list_path = match_list_path_;
-    matcher = std::make_unique<ImagePairsFeatureMatcher>(
-        matcher_options, *options_->sift_matching, *options_->database_path);
+    matcher = CreateImagePairsFeatureMatcher(matcher_options,
+                                             *options_->sift_matching,
+                                             *options_->two_view_geometry,
+                                             *options_->database_path);
   } else {
     FeaturePairsMatchingOptions matcher_options;
     matcher_options.match_list_path = match_list_path_;
@@ -341,8 +348,10 @@ void CustomMatchingTab::Run() {
       matcher_options.verify_matches = false;
     }
 
-    matcher = std::make_unique<FeaturePairsFeatureMatcher>(
-        matcher_options, *options_->sift_matching, *options_->database_path);
+    matcher = CreateFeaturePairsFeatureMatcher(matcher_options,
+                                               *options_->sift_matching,
+                                               *options_->two_view_geometry,
+                                               *options_->database_path);
   }
 
   thread_control_widget_->StartThread("Matching...", true, std::move(matcher));

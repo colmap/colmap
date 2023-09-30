@@ -31,22 +31,22 @@
 
 #include "colmap/exe/mvs.h"
 
-#include "colmap/base/reconstruction.h"
+#include "colmap/controllers/option_manager.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/mvs/meshing.h"
 #include "colmap/mvs/patch_match.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/util/misc.h"
-#include "colmap/util/option_manager.h"
 
 namespace colmap {
 
 int RunDelaunayMesher(int argc, char** argv) {
-#ifndef CGAL_ENABLED
+#if !defined(COLMAP_CGAL_ENABLED)
   std::cerr << "ERROR: Delaunay meshing requires CGAL, which is not "
                "available on your system."
             << std::endl;
   return EXIT_FAILURE;
-#else   // CGAL_ENABLED
+#else   // COLMAP_CGAL_ENABLED
   std::string input_path;
   std::string input_type = "dense";
   std::string output_path;
@@ -76,16 +76,16 @@ int RunDelaunayMesher(int argc, char** argv) {
   }
 
   return EXIT_SUCCESS;
-#endif  // CGAL_ENABLED
+#endif  // COLMAP_CGAL_ENABLED
 }
 
 int RunPatchMatchStereo(int argc, char** argv) {
-#ifndef CUDA_ENABLED
+#if !defined(COLMAP_CUDA_ENABLED)
   std::cerr << "ERROR: Dense stereo reconstruction requires CUDA, which is not "
                "available on your system."
             << std::endl;
   return EXIT_FAILURE;
-#else   // CUDA_ENABLED
+#else   // COLMAP_CUDA_ENABLED
   std::string workspace_path;
   std::string workspace_format = "COLMAP";
   std::string pmvs_option_name = "option-all";
@@ -121,7 +121,7 @@ int RunPatchMatchStereo(int argc, char** argv) {
   controller.Wait();
 
   return EXIT_SUCCESS;
-#endif  // CUDA_ENABLED
+#endif  // COLMAP_CUDA_ENABLED
 }
 
 int RunPoissonMesher(int argc, char** argv) {

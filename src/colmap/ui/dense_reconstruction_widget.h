@@ -29,14 +29,13 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_DENSE_RECONSTRUCTION_WIDGET_H_
-#define COLMAP_SRC_UI_DENSE_RECONSTRUCTION_WIDGET_H_
+#pragma once
 
+#include "colmap/controllers/option_manager.h"
 #include "colmap/mvs/fusion.h"
 #include "colmap/ui/image_viewer_widget.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/thread_control_widget.h"
-#include "colmap/util/option_manager.h"
 
 #include <QtCore>
 #include <QtWidgets>
@@ -54,7 +53,7 @@ class DenseReconstructionWidget : public QWidget {
  public:
   DenseReconstructionWidget(MainWindow* main_window, OptionManager* options);
 
-  void Show(Reconstruction* reconstruction);
+  void Show(std::shared_ptr<const Reconstruction> reconstruction);
 
  private:
   void showEvent(QShowEvent* event);
@@ -77,7 +76,7 @@ class DenseReconstructionWidget : public QWidget {
 
   MainWindow* main_window_;
   OptionManager* options_;
-  Reconstruction* reconstruction_;
+  std::shared_ptr<const Reconstruction> reconstruction_;
   ThreadControlWidget* thread_control_widget_;
   DenseReconstructionOptionsWidget* options_widget_;
   ImageViewerWidget* image_viewer_widget_;
@@ -104,5 +103,3 @@ class DenseReconstructionWidget : public QWidget {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_DENSE_RECONSTRUCTION_WIDGET_H_

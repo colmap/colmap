@@ -29,14 +29,13 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_MVS_WORKSPACE_H_
-#define COLMAP_SRC_MVS_WORKSPACE_H_
+#pragma once
 
 #include "colmap/mvs/consistency_graph.h"
 #include "colmap/mvs/depth_map.h"
 #include "colmap/mvs/model.h"
 #include "colmap/mvs/normal_map.h"
-#include "colmap/util/bitmap.h"
+#include "colmap/sensor/bitmap.h"
 #include "colmap/util/cache.h"
 #include "colmap/util/misc.h"
 
@@ -65,7 +64,7 @@ class Workspace {
     std::string stereo_folder = "stereo";
   };
 
-  Workspace(const Options& options);
+  explicit Workspace(const Options& options);
   virtual ~Workspace() = default;
 
   // Do nothing when we use a cache. Data is loaded as needed.
@@ -75,22 +74,22 @@ class Workspace {
 
   inline const Model& GetModel() const { return model_; }
 
-  virtual const Bitmap& GetBitmap(const int image_idx);
-  virtual const DepthMap& GetDepthMap(const int image_idx);
-  virtual const NormalMap& GetNormalMap(const int image_idx);
+  virtual const Bitmap& GetBitmap(int image_idx);
+  virtual const DepthMap& GetDepthMap(int image_idx);
+  virtual const NormalMap& GetNormalMap(int image_idx);
 
   // Get paths to bitmap, depth map, normal map and consistency graph.
-  std::string GetBitmapPath(const int image_idx) const;
-  std::string GetDepthMapPath(const int image_idx) const;
-  std::string GetNormalMapPath(const int image_idx) const;
+  std::string GetBitmapPath(int image_idx) const;
+  std::string GetDepthMapPath(int image_idx) const;
+  std::string GetNormalMapPath(int image_idx) const;
 
   // Return whether bitmap, depth map, normal map, and consistency graph exist.
-  bool HasBitmap(const int image_idx) const;
-  bool HasDepthMap(const int image_idx) const;
-  bool HasNormalMap(const int image_idx) const;
+  bool HasBitmap(int image_idx) const;
+  bool HasDepthMap(int image_idx) const;
+  bool HasNormalMap(int image_idx) const;
 
  protected:
-  std::string GetFileName(const int image_idx) const;
+  std::string GetFileName(int image_idx) const;
 
   Options options_;
   Model model_;
@@ -105,15 +104,15 @@ class Workspace {
 
 class CachedWorkspace : public Workspace {
  public:
-  CachedWorkspace(const Options& options);
+  explicit CachedWorkspace(const Options& options);
 
   void Load(const std::vector<std::string>& image_names) override {}
 
   inline void ClearCache() { cache_.Clear(); }
 
-  const Bitmap& GetBitmap(const int image_idx) override;
-  const DepthMap& GetDepthMap(const int image_idx) override;
-  const NormalMap& GetNormalMap(const int image_idx) override;
+  const Bitmap& GetBitmap(int image_idx) override;
+  const DepthMap& GetDepthMap(int image_idx) override;
+  const NormalMap& GetNormalMap(int image_idx) override;
 
  private:
   class CachedImage {
@@ -141,5 +140,3 @@ void ImportPMVSWorkspace(const Workspace& workspace,
 
 }  // namespace mvs
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_MVS_WORKSPACE_H_

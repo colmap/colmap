@@ -29,11 +29,10 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_MVS_NORMAL_MAP_H_
-#define COLMAP_SRC_MVS_NORMAL_MAP_H_
+#pragma once
 
 #include "colmap/mvs/mat.h"
-#include "colmap/util/bitmap.h"
+#include "colmap/sensor/bitmap.h"
 
 #include <string>
 #include <vector>
@@ -45,16 +44,14 @@ namespace mvs {
 class NormalMap : public Mat<float> {
  public:
   NormalMap();
-  NormalMap(const size_t width, const size_t height);
+  NormalMap(size_t width, size_t height);
   explicit NormalMap(const Mat<float>& mat);
 
-  void Rescale(const float factor);
-  void Downsize(const size_t max_width, const size_t max_height);
+  void Rescale(float factor);
+  void Downsize(size_t max_width, size_t max_height);
 
   Bitmap ToBitmap() const;
 };
 
 }  // namespace mvs
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_MVS_NORMAL_MAP_H_

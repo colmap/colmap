@@ -29,15 +29,14 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_UNDISTORTION_WIDGET_H_
-#define COLMAP_SRC_UI_UNDISTORTION_WIDGET_H_
+#pragma once
 
-#include "colmap/base/reconstruction.h"
-#include "colmap/base/undistortion.h"
+#include "colmap/controllers/option_manager.h"
+#include "colmap/image/undistortion.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/thread_control_widget.h"
 #include "colmap/util/misc.h"
-#include "colmap/util/option_manager.h"
 
 #include <QtCore>
 #include <QtWidgets>
@@ -48,14 +47,14 @@ class UndistortionWidget : public OptionsWidget {
  public:
   UndistortionWidget(QWidget* parent, const OptionManager* options);
 
-  void Show(const Reconstruction& reconstruction);
+  void Show(std::shared_ptr<const Reconstruction> reconstruction);
   bool IsValid() const;
 
  private:
   void Undistort();
 
   const OptionManager* options_;
-  const Reconstruction* reconstruction_;
+  std::shared_ptr<const Reconstruction> reconstruction_;
 
   ThreadControlWidget* thread_control_widget_;
 
@@ -65,5 +64,3 @@ class UndistortionWidget : public OptionsWidget {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_UNDISTORTION_WIDGET_H_

@@ -100,7 +100,7 @@ def write_next_bytes(fid, data, format_char_sequence, endian_character="<"):
 
 def read_cameras_text(path):
     """
-    see: src/base/reconstruction.cc
+    see: src/colmap/scene/reconstruction.cc
         void Reconstruction::WriteCamerasText(const std::string& path)
         void Reconstruction::ReadCamerasText(const std::string& path)
     """
@@ -126,7 +126,7 @@ def read_cameras_text(path):
 
 def read_cameras_binary(path_to_model_file):
     """
-    see: src/base/reconstruction.cc
+    see: src/colmap/scene/reconstruction.cc
         void Reconstruction::WriteCamerasBinary(const std::string& path)
         void Reconstruction::ReadCamerasBinary(const std::string& path)
     """
@@ -155,7 +155,7 @@ def read_cameras_binary(path_to_model_file):
 
 def write_cameras_text(cameras, path):
     """
-    see: src/base/reconstruction.cc
+    see: src/colmap/scene/reconstruction.cc
         void Reconstruction::WriteCamerasText(const std::string& path)
         void Reconstruction::ReadCamerasText(const std::string& path)
     """
@@ -172,7 +172,7 @@ def write_cameras_text(cameras, path):
 
 def write_cameras_binary(cameras, path_to_model_file):
     """
-    see: src/base/reconstruction.cc
+    see: src/colmap/scene/reconstruction.cc
         void Reconstruction::WriteCamerasBinary(const std::string& path)
         void Reconstruction::ReadCamerasBinary(const std::string& path)
     """
@@ -192,7 +192,7 @@ def write_cameras_binary(cameras, path_to_model_file):
 
 def read_images_text(path):
     """
-    see: src/base/reconstruction.cc
+    see: src/colmap/scene/reconstruction.cc
         void Reconstruction::ReadImagesText(const std::string& path)
         void Reconstruction::WriteImagesText(const std::string& path)
     """
@@ -223,7 +223,7 @@ def read_images_text(path):
 
 def read_images_binary(path_to_model_file):
     """
-    see: src/base/reconstruction.cc
+    see: src/colmap/scene/reconstruction.cc
         void Reconstruction::ReadImagesBinary(const std::string& path)
         void Reconstruction::WriteImagesBinary(const std::string& path)
     """
@@ -258,7 +258,7 @@ def read_images_binary(path_to_model_file):
 
 def write_images_text(images, path):
     """
-    see: src/base/reconstruction.cc
+    see: src/colmap/scene/reconstruction.cc
         void Reconstruction::ReadImagesText(const std::string& path)
         void Reconstruction::WriteImagesText(const std::string& path)
     """
@@ -286,7 +286,7 @@ def write_images_text(images, path):
 
 def write_images_binary(images, path_to_model_file):
     """
-    see: src/base/reconstruction.cc
+    see: src/colmap/scene/reconstruction.cc
         void Reconstruction::ReadImagesBinary(const std::string& path)
         void Reconstruction::WriteImagesBinary(const std::string& path)
     """
@@ -307,7 +307,7 @@ def write_images_binary(images, path_to_model_file):
 
 def read_points3D_text(path):
     """
-    see: src/base/reconstruction.cc
+    see: src/colmap/scene/reconstruction.cc
         void Reconstruction::ReadPoints3DText(const std::string& path)
         void Reconstruction::WritePoints3DText(const std::string& path)
     """
@@ -334,7 +334,7 @@ def read_points3D_text(path):
 
 def read_points3D_binary(path_to_model_file):
     """
-    see: src/base/reconstruction.cc
+    see: src/colmap/scene/reconstruction.cc
         void Reconstruction::ReadPoints3DBinary(const std::string& path)
         void Reconstruction::WritePoints3DBinary(const std::string& path)
     """
@@ -364,7 +364,7 @@ def read_points3D_binary(path_to_model_file):
 
 def write_points3D_text(points3D, path):
     """
-    see: src/base/reconstruction.cc
+    see: src/colmap/scene/reconstruction.cc
         void Reconstruction::ReadPoints3DText(const std::string& path)
         void Reconstruction::WritePoints3DText(const std::string& path)
     """
@@ -389,7 +389,7 @@ def write_points3D_text(points3D, path):
 
 def write_points3D_binary(points3D, path_to_model_file):
     """
-    see: src/base/reconstruction.cc
+    see: src/colmap/scene/reconstruction.cc
         void Reconstruction::ReadPoints3DBinary(const std::string& path)
         void Reconstruction::WritePoints3DBinary(const std::string& path)
     """

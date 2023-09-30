@@ -29,15 +29,16 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#define TEST_NAME "estimators/utils"
 #include "colmap/estimators/utils.h"
 
-#include "colmap/base/essential_matrix.h"
-#include "colmap/util/testing.h"
+#include "colmap/geometry/essential_matrix.h"
 
-using namespace colmap;
+#include <gtest/gtest.h>
 
-BOOST_AUTO_TEST_CASE(TestCenterAndNormalizeImagePoints) {
+namespace colmap {
+namespace {
+
+TEST(CenterAndNormalizeImagePoints, Nominal) {
   std::vector<Eigen::Vector2d> points;
   for (size_t i = 0; i < 11; ++i) {
     points.emplace_back(i, i);
@@ -47,20 +48,20 @@ BOOST_AUTO_TEST_CASE(TestCenterAndNormalizeImagePoints) {
   Eigen::Matrix3d matrix;
   CenterAndNormalizeImagePoints(points, &normed_points, &matrix);
 
-  BOOST_CHECK_EQUAL(matrix(0, 0), 0.31622776601683794);
-  BOOST_CHECK_EQUAL(matrix(1, 1), 0.31622776601683794);
-  BOOST_CHECK_EQUAL(matrix(0, 2), -1.5811388300841898);
-  BOOST_CHECK_EQUAL(matrix(1, 2), -1.5811388300841898);
+  EXPECT_EQ(matrix(0, 0), 0.31622776601683794);
+  EXPECT_EQ(matrix(1, 1), 0.31622776601683794);
+  EXPECT_EQ(matrix(0, 2), -1.5811388300841898);
+  EXPECT_EQ(matrix(1, 2), -1.5811388300841898);
 
   Eigen::Vector2d mean_point(0, 0);
   for (const auto& point : normed_points) {
     mean_point += point;
   }
-  BOOST_CHECK_LT(std::abs(mean_point[0]), 1e-6);
-  BOOST_CHECK_LT(std::abs(mean_point[1]), 1e-6);
+  EXPECT_LT(std::abs(mean_point[0]), 1e-6);
+  EXPECT_LT(std::abs(mean_point[1]), 1e-6);
 }
 
-BOOST_AUTO_TEST_CASE(TestComputeSquaredSampsonError) {
+TEST(ComputeSquaredSampsonError, Nominal) {
   std::vector<Eigen::Vector2d> points1;
   points1.emplace_back(0, 0);
   points1.emplace_back(0, 0);
@@ -70,14 +71,40 @@ BOOST_AUTO_TEST_CASE(TestComputeSquaredSampsonError) {
   points2.emplace_back(2, 1);
   points2.emplace_back(2, 2);
 
-  const Eigen::Matrix3d E = EssentialMatrixFromPose(Eigen::Matrix3d::Identity(),
-                                                    Eigen::Vector3d(1, 0, 0));
+  const Eigen::Matrix3d E = EssentialMatrixFromPose(
+      Rigid3d(Eigen::Quaterniond::Identity(), Eigen::Vector3d(1, 0, 0)));
 
   std::vector<double> residuals;
   ComputeSquaredSampsonError(points1, points2, E, &residuals);
 
-  BOOST_CHECK_EQUAL(residuals.size(), 3);
-  BOOST_CHECK_EQUAL(residuals[0], 0);
-  BOOST_CHECK_EQUAL(residuals[1], 0.5);
-  BOOST_CHECK_EQUAL(residuals[2], 2);
+  EXPECT_EQ(residuals.size(), 3);
+  EXPECT_EQ(residuals[0], 0);
+  EXPECT_EQ(residuals[1], 0.5);
+  EXPECT_EQ(residuals[2], 2);
 }
+
+TEST(ComputeSquaredReprojectionError, Nominal) {
+  std::vector<Eigen::Vector2d> points2D;
+  points2D.emplace_back(0, 0);
+  points2D.emplace_back(0, 0);
+  points2D.emplace_back(0, 0);
+  std::vector<Eigen::Vector3d> points3D;
+  points3D.emplace_back(2, 0, 1);
+  points3D.emplace_back(2, 1, 1);
+  points3D.emplace_back(2, 2, 1);
+
+  const Rigid3d cam_from_world(Eigen::Quaterniond::Identity(),
+                               Eigen::Vector3d(1, 0, 0));
+
+  std::vector<double> residuals;
+  ComputeSquaredReprojectionError(
+      points2D, points3D, cam_from_world.ToMatrix(), &residuals);
+
+  EXPECT_EQ(residuals.size(), 3);
+  EXPECT_EQ(residuals[0], 9);
+  EXPECT_EQ(residuals[1], 10);
+  EXPECT_EQ(residuals[2], 13);
+}
+
+}  // namespace
+}  // namespace colmap

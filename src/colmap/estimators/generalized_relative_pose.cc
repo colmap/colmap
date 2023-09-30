@@ -29,55 +29,27 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-// Note that part of this code is licensed under the following conditions.
-//    Author:   Laurent Kneip
-//    Contact:  kneip.laurent@gmail.com
-//    License:  Copyright (c) 2013 Laurent Kneip, ANU. All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-// * Redistributions of source code must retain the above copyright
-//   notice, this list of conditions and the following disclaimer.
-// * Redistributions in binary form must reproduce the above copyright
-//   notice, this list of conditions and the following disclaimer in the
-//   documentation and/or other materials provided with the distribution.
-// * Neither the name of ANU nor the names of its contributors may be
-//   used to endorse or promote products derived from this software without
-//   specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL ANU OR THE CONTRIBUTORS BE LIABLE FOR ANY
-// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-// (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-// LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-// ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 #include "colmap/estimators/generalized_relative_pose.h"
 
-#include "colmap/base/essential_matrix.h"
-#include "colmap/base/pose.h"
-#include "colmap/base/projection.h"
-#include "colmap/base/triangulation.h"
+#include "colmap/geometry/essential_matrix.h"
+#include "colmap/geometry/pose.h"
+#include "colmap/geometry/triangulation.h"
+#include "colmap/math/random.h"
 #include "colmap/util/logging.h"
-#include "colmap/util/random.h"
+
+#include <Eigen/Dense>
 
 namespace colmap {
 namespace {
 
-void ComposePlueckerData(const Eigen::Matrix3x4d& rel_tform,
-                         const Eigen::Vector2d& point2D,
+void ComposePlueckerData(const Rigid3d& rig_from_cam,
+                         const Eigen::Vector3d& ray_in_cam,
                          Eigen::Vector3d* proj_center,
                          Eigen::Vector6d* pluecker) {
-  const Eigen::Matrix3x4d inv_proj_matrix = InvertProjectionMatrix(rel_tform);
-  const Eigen::Vector3d bearing =
-      inv_proj_matrix.leftCols<3>() * point2D.homogeneous();
-  const Eigen::Vector3d bearing_normalized = bearing.normalized();
-  *proj_center = inv_proj_matrix.rightCols<1>();
-  *pluecker << bearing_normalized, proj_center->cross(bearing_normalized);
+  const Eigen::Vector3d ray_in_rig =
+      (rig_from_cam.rotation * ray_in_cam).normalized();
+  *proj_center = rig_from_cam.translation;
+  *pluecker << ray_in_rig, rig_from_cam.translation.cross(ray_in_rig);
 }
 
 Eigen::Matrix3d CayleyToRotationMatrix(const Eigen::Vector3d& cayley) {
@@ -334,7 +306,7 @@ Eigen::Vector4d ComputeEigenValue(const Eigen::Matrix3d& xxF,
   const double p = -alpha_pw2 / 12.0 - gamma;
   const double q = -alpha_pw3 / 108.0 + alpha * gamma / 3.0 - beta * beta / 8.0;
   const double helper1 = -p * p * p / 27.0;
-  const double theta2 = pow(helper1, (1.0 / 3.0));
+  const double theta2 = std::pow(helper1, (1.0 / 3.0));
   const double theta1 =
       std::sqrt(theta2) *
       std::cos((1.0 / 3.0) * std::acos((-q / 2.0) / std::sqrt(helper1)));
@@ -457,10 +429,14 @@ std::vector<GR6PEstimator::M_t> GR6PEstimator::Estimate(
   std::vector<Eigen::Vector6d> plueckers1(points1.size());
   std::vector<Eigen::Vector6d> plueckers2(points1.size());
   for (size_t i = 0; i < points1.size(); ++i) {
-    ComposePlueckerData(
-        points1[i].rel_tform, points1[i].xy, &proj_centers1[i], &plueckers1[i]);
-    ComposePlueckerData(
-        points2[i].rel_tform, points2[i].xy, &proj_centers2[i], &plueckers2[i]);
+    ComposePlueckerData(Inverse(points1[i].cam_from_rig),
+                        points1[i].ray_in_cam,
+                        &proj_centers1[i],
+                        &plueckers1[i]);
+    ComposePlueckerData(Inverse(points2[i].cam_from_rig),
+                        points2[i].ray_in_cam,
+                        &proj_centers2[i],
+                        &plueckers2[i]);
   }
 
   Eigen::Matrix3d xxF = Eigen::Matrix3d::Zero();
@@ -552,9 +528,12 @@ std::vector<GR6PEstimator::M_t> GR6PEstimator::Estimate(
       rotation = initial_rotation;
     } else {
       const Eigen::Vector3d perturbation(
-          RandomReal<double>(-perturbation_amplitude, perturbation_amplitude),
-          RandomReal<double>(-perturbation_amplitude, perturbation_amplitude),
-          RandomReal<double>(-perturbation_amplitude, perturbation_amplitude));
+          RandomUniformReal<double>(-perturbation_amplitude,
+                                    perturbation_amplitude),
+          RandomUniformReal<double>(-perturbation_amplitude,
+                                    perturbation_amplitude),
+          RandomUniformReal<double>(-perturbation_amplitude,
+                                    perturbation_amplitude));
       rotation = initial_rotation + perturbation;
     }
 
@@ -730,8 +709,8 @@ std::vector<GR6PEstimator::M_t> GR6PEstimator::Estimate(
 
   std::vector<M_t> models(4);
   for (int i = 0; i < 4; ++i) {
-    models[i].leftCols<3>() = R;
-    models[i].rightCols<1>() = -R * VV.col(i);
+    models[i].rotation = Eigen::Quaterniond(R);
+    models[i].translation = -R * VV.col(i);
   }
 
   return models;
@@ -739,28 +718,20 @@ std::vector<GR6PEstimator::M_t> GR6PEstimator::Estimate(
 
 void GR6PEstimator::Residuals(const std::vector<X_t>& points1,
                               const std::vector<Y_t>& points2,
-                              const M_t& proj_matrix,
+                              const M_t& rig2_from_rig1,
                               std::vector<double>* residuals) {
   CHECK_EQ(points1.size(), points2.size());
-
   residuals->resize(points1.size(), 0);
-
-  Eigen::Matrix4d proj_matrix_homogeneous;
-  proj_matrix_homogeneous.topRows<3>() = proj_matrix;
-  proj_matrix_homogeneous.bottomRows<1>() = Eigen::Vector4d(0, 0, 0, 1);
-
   for (size_t i = 0; i < points1.size(); ++i) {
-    const Eigen::Matrix3x4d& proj_matrix1 = points1[i].rel_tform;
-    const Eigen::Matrix3x4d& proj_matrix2 =
-        points2[i].rel_tform * proj_matrix_homogeneous;
-    const Eigen::Matrix3d R12 =
-        proj_matrix2.leftCols<3>() * proj_matrix1.leftCols<3>().transpose();
-    const Eigen::Vector3d t12 =
-        proj_matrix2.rightCols<1>() - R12 * proj_matrix1.rightCols<1>();
-    const Eigen::Matrix3d E = EssentialMatrixFromPose(R12, t12);
-    const Eigen::Vector3d Ex1 = E * points1[i].xy.homogeneous();
-    const Eigen::Vector3d Etx2 = E.transpose() * points2[i].xy.homogeneous();
-    const double x2tEx1 = points2[i].xy.homogeneous().transpose() * Ex1;
+    const Rigid3d cam2_from_cam1 = points2[i].cam_from_rig * rig2_from_rig1 *
+                                   Inverse(points1[i].cam_from_rig);
+    const Eigen::Matrix3d E = EssentialMatrixFromPose(cam2_from_cam1);
+    const Eigen::Vector3d Ex1 =
+        E * points1[i].ray_in_cam.hnormalized().homogeneous();
+    const Eigen::Vector3d x2 =
+        points2[i].ray_in_cam.hnormalized().homogeneous();
+    const Eigen::Vector3d Etx2 = E.transpose() * x2;
+    const double x2tEx1 = x2.transpose() * Ex1;
     (*residuals)[i] = x2tEx1 * x2tEx1 /
                       (Ex1(0) * Ex1(0) + Ex1(1) * Ex1(1) + Etx2(0) * Etx2(0) +
                        Etx2(1) * Etx2(1));

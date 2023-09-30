@@ -29,11 +29,10 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_POINT_VIEWER_WIDGET_H_
-#define COLMAP_SRC_UI_POINT_VIEWER_WIDGET_H_
+#pragma once
 
-#include "colmap/base/reconstruction.h"
-#include "colmap/util/option_manager.h"
+#include "colmap/controllers/option_manager.h"
+#include "colmap/scene/reconstruction.h"
 
 #include <QtCore>
 #include <QtWidgets>
@@ -48,7 +47,7 @@ class PointViewerWidget : public QWidget {
                     ModelViewerWidget* model_viewer_widget,
                     OptionManager* option);
 
-  void Show(const point3D_t point3D_id);
+  void Show(point3D_t point3D_id);
 
  private:
   void closeEvent(QCloseEvent* event);
@@ -87,5 +86,3 @@ class PointViewerWidget : public QWidget {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_POINT_VIEWER_WIDGET_H_

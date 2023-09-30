@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_TRIANGLE_PAINTER_H_
-#define COLMAP_SRC_UI_TRIANGLE_PAINTER_H_
+#pragma once
 
 #include "colmap/ui/point_painter.h"
 
@@ -69,5 +68,3 @@ class TrianglePainter {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_TRIANGLE_PAINTER_H_

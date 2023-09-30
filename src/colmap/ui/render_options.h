@@ -29,8 +29,9 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_RENDER_OPTIONS_H_
-#define COLMAP_SRC_UI_RENDER_OPTIONS_H_
+#pragma once
+
+#include "colmap/util/logging.h"
 
 #include <iostream>
 
@@ -61,9 +62,14 @@ struct RenderOptions {
   // The projection type of the renderer.
   int projection_type = ProjectionType::PERSPECTIVE;
 
-  bool Check() const;
+  inline bool Check() const {
+    CHECK_OPTION_GE(min_track_len, 0);
+    CHECK_OPTION_GE(max_error, 0);
+    CHECK_OPTION_GT(refresh_rate, 0);
+    CHECK_OPTION(projection_type == ProjectionType::PERSPECTIVE ||
+                 projection_type == ProjectionType::ORTHOGRAPHIC);
+    return true;
+  }
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_RENDER_OPTIONS_H_

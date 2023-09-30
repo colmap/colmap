@@ -52,9 +52,6 @@ First, checkout the latest source code::
 
     git clone https://github.com/colmap/colmap
 
-The latest stable version lives in the ``master`` branch and the latest
-development version lives in the ``dev`` branch.
-
 On Linux and Mac it is generally recommended to follow the installation
 instructions below, which use the system package managers to install the
 required dependencies. Alternatively, there is a Python build script that builds
@@ -78,13 +75,12 @@ Dependencies from the default Ubuntu repositories::
         libboost-filesystem-dev \
         libboost-graph-dev \
         libboost-system-dev \
-        libboost-test-dev \
         libeigen3-dev \
         libflann-dev \
         libfreeimage-dev \
         libmetis-dev \
         libgoogle-glog-dev \
-        libgflags-dev \
+        libgtest-dev \
         libsqlite3-dev \
         libglew-dev \
         qtbase5-dev \
@@ -96,7 +92,6 @@ Configure and compile COLMAP::
 
     git clone https://github.com/colmap/colmap.git
     cd colmap
-    git checkout dev
     mkdir build
     cd build
     cmake .. -GNinja
@@ -146,7 +141,7 @@ Dependencies from `Homebrew <http://brew.sh/>`_::
         freeimage \
         flann \
         glog \
-        gflags \
+        googletest \
         metis \
         suite-sparse \
         ceres-solver \
@@ -232,7 +227,7 @@ vcpkg, first run `./vcpkg integrate install` and then configure COLMAP as::
     mkdir build
     cd build
     cmake .. -DCMAKE_TOOLCHAIN_FILE=path/to/vcpkg/scripts/buildsystems/vcpkg.cmake
-    cmake --build . --config release --target colmap_exe --parallel 24
+    cmake --build . --config release --target colmap_main --parallel 24
 
 Alternatively, you can also use the Python build script. Please follow the
 instructions in the next section, but VCPKG is now the recommended approach.
@@ -282,50 +277,43 @@ To see the full list of command-line options, pass the ``--help`` argument.
 Library
 -------
 
-If you want to include and link COLMAP against your own library, the easiest
-way is to use CMake as a build configuration tool. COLMAP automatically installs
-all headers to ``${CMAKE_INSTALL_PREFIX}/include/colmap``, all libraries to
+If you want to include and link COLMAP against your own library, the easiest way
+is to use CMake as a build configuration tool. After configuring the COLMAP
+build and running `ninja/make install`, COLMAP automatically installs all
+headers to ``${CMAKE_INSTALL_PREFIX}/include/colmap``, all libraries to
 ``${CMAKE_INSTALL_PREFIX}/lib/colmap``, and the CMake configuration to
 ``${CMAKE_INSTALL_PREFIX}/share/colmap``.
 
 For example, compiling your own source code against COLMAP is as simple as
 using the following ``CMakeLists.txt``::
 
-    cmake_minimum_required(VERSION 2.8.11)
+    cmake_minimum_required(VERSION 3.10)
 
-    project(TestProject)
+    project(SampleProject)
 
-    find_package(COLMAP REQUIRED)
-    # or to require a specific version: find_package(COLMAP 3.4 REQUIRED)
-
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-
-    include_directories(${COLMAP_INCLUDE_DIRS})
-    link_directories(${COLMAP_LINK_DIRS})
+    find_package(colmap REQUIRED)
+    # or to require a specific version: find_package(colmap 3.4 REQUIRED)
 
     add_executable(hello_world hello_world.cc)
-    target_link_libraries(hello_world ${COLMAP_LIBRARIES})
+    target_link_libraries(hello_world colmap::colmap)
 
 with the source code ``hello_world.cc``::
 
     #include <cstdlib>
     #include <iostream>
 
-    #include <colmap/util/option_manager.h>
+    #include <colmap/controllers/option_manager.h>
     #include <colmap/util/string.h>
 
     int main(int argc, char** argv) {
         colmap::InitializeGlog(argv);
 
-        std::string input_path;
-        std::string output_path;
-
+        std::string message;
         colmap::OptionManager options;
-        options.AddRequiredOption("input_path", &input_path);
-        options.AddRequiredOption("output_path", &output_path);
+        options.AddRequiredOption("message", &message);
         options.Parse(argc, argv);
 
-        std::cout << colmap::StringPrintf("Hello %s!", "COLMAP") << std::endl;
+        std::cout << colmap::StringPrintf("Hello %s!", message.c_str()) << std::endl;
 
         return EXIT_SUCCESS;
     }
@@ -334,9 +322,12 @@ Then compile and run your code as::
     
     mkdir build
     cd build
-    COLMAP_DIR=${CMAKE_INSTALL_PREFIX}/share/colmap cmake ..
-    make
-    ./hello_world
+    export colmap_DIR=${CMAKE_INSTALL_PREFIX}/share/colmap
+    cmake .. -GNinja
+    ninja
+    ./hello_world --message "world"
+
+The sources of this example are stored under ``doc/sample-project``.
 
 ----------------
 AddressSanitizer

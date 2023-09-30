@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_ENDIAN_H_
-#define COLMAP_SRC_UTIL_ENDIAN_H_
+#pragma once
 
 #include <algorithm>
 #include <iostream>
@@ -50,13 +49,13 @@ bool IsBigEndian();
 // and double types, these functions are only valid if the format is IEEE-754.
 // This is the case for pretty much most processors.
 template <typename T>
-T LittleEndianToNative(const T x);
+T LittleEndianToNative(T x);
 template <typename T>
-T BigEndianToNative(const T x);
+T BigEndianToNative(T x);
 template <typename T>
-T NativeToLittleEndian(const T x);
+T NativeToLittleEndian(T x);
 template <typename T>
-T NativeToBigEndian(const T x);
+T NativeToBigEndian(T x);
 
 // Read data in little endian format for cross-platform support.
 template <typename T>
@@ -162,5 +161,3 @@ void WriteBinaryLittleEndian(std::ostream* stream, const std::vector<T>& data) {
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UTIL_ENDIAN_H_

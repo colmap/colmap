@@ -29,19 +29,12 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_TESTING_H_
-#define COLMAP_SRC_UTIL_TESTING_H_
+#pragma once
 
-#include <iostream>
+#include <string>
 
-#define BOOST_TEST_MAIN
+namespace colmap {
 
-#ifndef TEST_NAME
-#error "TEST_NAME not defined"
-#endif
+std::string CreateTestDir();
 
-#define BOOST_TEST_MODULE TEST_NAME
-
-#include <boost/test/unit_test.hpp>
-
-#endif  // COLMAP_SRC_UTIL_TESTING_H_
+}  // namespace colmap

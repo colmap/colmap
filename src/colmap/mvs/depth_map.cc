@@ -31,8 +31,8 @@
 
 #include "colmap/mvs/depth_map.h"
 
-#include "colmap/base/warp.h"
-#include "colmap/util/math.h"
+#include "colmap/image/warp.h"
+#include "colmap/math/math.h"
 
 namespace colmap {
 namespace mvs {

@@ -31,17 +31,16 @@
 
 #include "colmap/exe/feature.h"
 
-#include "colmap/base/camera_models.h"
-#include "colmap/base/image_reader.h"
+#include "colmap/controllers/feature_extraction.h"
+#include "colmap/controllers/feature_matching.h"
+#include "colmap/controllers/image_reader.h"
+#include "colmap/controllers/option_manager.h"
 #include "colmap/exe/gui.h"
-#include "colmap/feature/extraction.h"
-#include "colmap/feature/matching.h"
+#include "colmap/sensor/models.h"
 #include "colmap/util/misc.h"
 #include "colmap/util/opengl_utils.h"
-#include "colmap/util/option_manager.h"
 
 namespace colmap {
-namespace {
 
 bool VerifyCameraParams(const std::string& camera_model,
                         const std::string& params) {
@@ -62,7 +61,7 @@ bool VerifyCameraParams(const std::string& camera_model,
 }
 
 bool VerifySiftGPUParams(const bool use_gpu) {
-#if !defined(CUDA_ENABLED) && !defined(OPENGL_ENABLED)
+#if !defined(COLMAP_GPU_ENABLED)
   if (use_gpu) {
     std::cerr << "ERROR: Cannot use Sift GPU without CUDA or OpenGL support; "
                  "set SiftExtraction.use_gpu or SiftMatching.use_gpu to false."
@@ -72,8 +71,6 @@ bool VerifySiftGPUParams(const bool use_gpu) {
 #endif
   return true;
 }
-
-}  // namespace
 
 void UpdateImageReaderOptionsFromCameraMode(ImageReaderOptions& options,
                                             CameraMode mode) {
@@ -163,14 +160,14 @@ int RunFeatureExtractor(int argc, char** argv) {
     app.reset(new QApplication(argc, argv));
   }
 
-  SiftFeatureExtractor feature_extractor(reader_options,
-                                         *options.sift_extraction);
+  auto feature_extractor = CreateFeatureExtractorController(
+      reader_options, *options.sift_extraction);
 
   if (options.sift_extraction->use_gpu && kUseOpenGL) {
-    RunThreadWithOpenGLContext(&feature_extractor);
+    RunThreadWithOpenGLContext(feature_extractor.get());
   } else {
-    feature_extractor.Start();
-    feature_extractor.Wait();
+    feature_extractor->Start();
+    feature_extractor->Wait();
   }
 
   return EXIT_SUCCESS;
@@ -211,9 +208,10 @@ int RunFeatureImporter(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 
-  FeatureImporter feature_importer(reader_options, import_path);
-  feature_importer.Start();
-  feature_importer.Wait();
+  auto feature_importer =
+      CreateFeatureImporterController(reader_options, import_path);
+  feature_importer->Start();
+  feature_importer->Wait();
 
   return EXIT_SUCCESS;
 }
@@ -233,15 +231,16 @@ int RunExhaustiveMatcher(int argc, char** argv) {
     app.reset(new QApplication(argc, argv));
   }
 
-  ExhaustiveFeatureMatcher feature_matcher(*options.exhaustive_matching,
-                                           *options.sift_matching,
-                                           *options.database_path);
+  auto matcher = CreateExhaustiveFeatureMatcher(*options.exhaustive_matching,
+                                                *options.sift_matching,
+                                                *options.two_view_geometry,
+                                                *options.database_path);
 
   if (options.sift_matching->use_gpu && kUseOpenGL) {
-    RunThreadWithOpenGLContext(&feature_matcher);
+    RunThreadWithOpenGLContext(matcher.get());
   } else {
-    feature_matcher.Start();
-    feature_matcher.Wait();
+    matcher->Start();
+    matcher->Wait();
   }
 
   return EXIT_SUCCESS;
@@ -268,28 +267,32 @@ int RunMatchesImporter(int argc, char** argv) {
     app.reset(new QApplication(argc, argv));
   }
 
-  std::unique_ptr<Thread> feature_matcher;
+  std::unique_ptr<Thread> matcher;
   if (match_type == "pairs") {
     ImagePairsMatchingOptions matcher_options;
     matcher_options.match_list_path = match_list_path;
-    feature_matcher.reset(new ImagePairsFeatureMatcher(
-        matcher_options, *options.sift_matching, *options.database_path));
+    matcher = CreateImagePairsFeatureMatcher(matcher_options,
+                                             *options.sift_matching,
+                                             *options.two_view_geometry,
+                                             *options.database_path);
   } else if (match_type == "raw" || match_type == "inliers") {
     FeaturePairsMatchingOptions matcher_options;
     matcher_options.match_list_path = match_list_path;
     matcher_options.verify_matches = match_type == "raw";
-    feature_matcher.reset(new FeaturePairsFeatureMatcher(
-        matcher_options, *options.sift_matching, *options.database_path));
+    matcher = CreateFeaturePairsFeatureMatcher(matcher_options,
+                                               *options.sift_matching,
+                                               *options.two_view_geometry,
+                                               *options.database_path);
   } else {
     std::cerr << "ERROR: Invalid `match_type`";
     return EXIT_FAILURE;
   }
 
   if (options.sift_matching->use_gpu && kUseOpenGL) {
-    RunThreadWithOpenGLContext(feature_matcher.get());
+    RunThreadWithOpenGLContext(matcher.get());
   } else {
-    feature_matcher->Start();
-    feature_matcher->Wait();
+    matcher->Start();
+    matcher->Wait();
   }
 
   return EXIT_SUCCESS;
@@ -310,15 +313,16 @@ int RunSequentialMatcher(int argc, char** argv) {
     app.reset(new QApplication(argc, argv));
   }
 
-  SequentialFeatureMatcher feature_matcher(*options.sequential_matching,
-                                           *options.sift_matching,
-                                           *options.database_path);
+  auto matcher = CreateSequentialFeatureMatcher(*options.sequential_matching,
+                                                *options.sift_matching,
+                                                *options.two_view_geometry,
+                                                *options.database_path);
 
   if (options.sift_matching->use_gpu && kUseOpenGL) {
-    RunThreadWithOpenGLContext(&feature_matcher);
+    RunThreadWithOpenGLContext(matcher.get());
   } else {
-    feature_matcher.Start();
-    feature_matcher.Wait();
+    matcher->Start();
+    matcher->Wait();
   }
 
   return EXIT_SUCCESS;
@@ -339,15 +343,16 @@ int RunSpatialMatcher(int argc, char** argv) {
     app.reset(new QApplication(argc, argv));
   }
 
-  SpatialFeatureMatcher feature_matcher(*options.spatial_matching,
-                                        *options.sift_matching,
-                                        *options.database_path);
+  auto matcher = CreateSpatialFeatureMatcher(*options.spatial_matching,
+                                             *options.sift_matching,
+                                             *options.two_view_geometry,
+                                             *options.database_path);
 
   if (options.sift_matching->use_gpu && kUseOpenGL) {
-    RunThreadWithOpenGLContext(&feature_matcher);
+    RunThreadWithOpenGLContext(matcher.get());
   } else {
-    feature_matcher.Start();
-    feature_matcher.Wait();
+    matcher->Start();
+    matcher->Wait();
   }
 
   return EXIT_SUCCESS;
@@ -368,15 +373,16 @@ int RunTransitiveMatcher(int argc, char** argv) {
     app.reset(new QApplication(argc, argv));
   }
 
-  TransitiveFeatureMatcher feature_matcher(*options.transitive_matching,
-                                           *options.sift_matching,
-                                           *options.database_path);
+  auto matcher = CreateTransitiveFeatureMatcher(*options.transitive_matching,
+                                                *options.sift_matching,
+                                                *options.two_view_geometry,
+                                                *options.database_path);
 
   if (options.sift_matching->use_gpu && kUseOpenGL) {
-    RunThreadWithOpenGLContext(&feature_matcher);
+    RunThreadWithOpenGLContext(matcher.get());
   } else {
-    feature_matcher.Start();
-    feature_matcher.Wait();
+    matcher->Start();
+    matcher->Wait();
   }
 
   return EXIT_SUCCESS;
@@ -397,15 +403,16 @@ int RunVocabTreeMatcher(int argc, char** argv) {
     app.reset(new QApplication(argc, argv));
   }
 
-  VocabTreeFeatureMatcher feature_matcher(*options.vocab_tree_matching,
-                                          *options.sift_matching,
-                                          *options.database_path);
+  auto matcher = CreateVocabTreeFeatureMatcher(*options.vocab_tree_matching,
+                                               *options.sift_matching,
+                                               *options.two_view_geometry,
+                                               *options.database_path);
 
   if (options.sift_matching->use_gpu && kUseOpenGL) {
-    RunThreadWithOpenGLContext(&feature_matcher);
+    RunThreadWithOpenGLContext(matcher.get());
   } else {
-    feature_matcher.Start();
-    feature_matcher.Wait();
+    matcher->Start();
+    matcher->Wait();
   }
 
   return EXIT_SUCCESS;

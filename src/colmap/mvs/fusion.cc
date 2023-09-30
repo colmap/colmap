@@ -83,7 +83,7 @@ int FindNextImage(const std::vector<std::vector<int>>& overlapping_images,
 }  // namespace internal
 
 void StereoFusionOptions::Print() const {
-#define PrintOption(option) std::cout << #option ": " << option << std::endl
+#define PrintOption(option) std::cout << #option ": " << (option) << std::endl
   PrintHeading2("StereoFusion::Options");
   PrintOption(mask_path);
   PrintOption(max_image_size);

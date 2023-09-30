@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_OPTIM_SAMPLER_H_
-#define COLMAP_SRC_OPTIM_SAMPLER_H_
+#pragma once
 
 #include "colmap/util/logging.h"
 
@@ -43,10 +42,11 @@ namespace colmap {
 class Sampler {
  public:
   Sampler() = default;
-  explicit Sampler(const size_t num_samples);
+  explicit Sampler(size_t num_samples);
+  virtual ~Sampler() = default;
 
   // Initialize the sampler, before calling the `Sample` method.
-  virtual void Initialize(const size_t total_num_samples) = 0;
+  virtual void Initialize(size_t total_num_samples) = 0;
 
   // Maximum number of unique samples that can be generated.
   virtual size_t MaxNumSamples() = 0;
@@ -95,5 +95,3 @@ void Sampler::SampleXY(const X_t& X, const Y_t& Y, X_t* X_rand, Y_t* Y_rand) {
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_OPTIM_SAMPLER_H_

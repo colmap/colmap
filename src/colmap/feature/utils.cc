@@ -31,7 +31,7 @@
 
 #include "colmap/feature/utils.h"
 
-#include "colmap/util/math.h"
+#include "colmap/math/math.h"
 
 namespace colmap {
 
@@ -44,26 +44,19 @@ std::vector<Eigen::Vector2d> FeatureKeypointsToPointsVector(
   return points;
 }
 
-Eigen::MatrixXf L2NormalizeFeatureDescriptors(
-    const Eigen::MatrixXf& descriptors) {
-  return descriptors.rowwise().normalized();
+void L2NormalizeFeatureDescriptors(FeatureDescriptorsFloat* descriptors) {
+  descriptors->rowwise().normalize();
 }
 
-Eigen::MatrixXf L1RootNormalizeFeatureDescriptors(
-    const Eigen::MatrixXf& descriptors) {
-  Eigen::MatrixXf descriptors_normalized(descriptors.rows(),
-                                         descriptors.cols());
-  for (Eigen::MatrixXf::Index r = 0; r < descriptors.rows(); ++r) {
-    const float norm = descriptors.row(r).lpNorm<1>();
-    descriptors_normalized.row(r) = descriptors.row(r) / norm;
-    descriptors_normalized.row(r) =
-        descriptors_normalized.row(r).array().sqrt();
+void L1RootNormalizeFeatureDescriptors(FeatureDescriptorsFloat* descriptors) {
+  for (Eigen::MatrixXf::Index r = 0; r < descriptors->rows(); ++r) {
+    descriptors->row(r) *= 1 / descriptors->row(r).lpNorm<1>();
+    descriptors->row(r) = descriptors->row(r).array().sqrt();
   }
-  return descriptors_normalized;
 }
 
 FeatureDescriptors FeatureDescriptorsToUnsignedByte(
-    const Eigen::MatrixXf& descriptors) {
+    const Eigen::Ref<const FeatureDescriptorsFloat>& descriptors) {
   FeatureDescriptors descriptors_unsigned_byte(descriptors.rows(),
                                                descriptors.cols());
   for (Eigen::MatrixXf::Index r = 0; r < descriptors.rows(); ++r) {
@@ -86,11 +79,8 @@ void ExtractTopScaleFeatures(FeatureKeypoints* keypoints,
     return;
   }
 
-  FeatureKeypoints top_scale_keypoints;
-  FeatureDescriptors top_scale_descriptors;
-
   std::vector<std::pair<size_t, float>> scales;
-  scales.reserve(static_cast<size_t>(keypoints->size()));
+  scales.reserve(keypoints->size());
   for (size_t i = 0; i < keypoints->size(); ++i) {
     scales.emplace_back(i, (*keypoints)[i].ComputeScale());
   }
@@ -98,20 +88,20 @@ void ExtractTopScaleFeatures(FeatureKeypoints* keypoints,
   std::partial_sort(scales.begin(),
                     scales.begin() + num_features,
                     scales.end(),
-                    [](const std::pair<size_t, float> scale1,
-                       const std::pair<size_t, float> scale2) {
+                    [](const std::pair<size_t, float>& scale1,
+                       const std::pair<size_t, float>& scale2) {
                       return scale1.second > scale2.second;
                     });
 
-  top_scale_keypoints.resize(num_features);
-  top_scale_descriptors.resize(num_features, descriptors->cols());
+  FeatureKeypoints top_scale_keypoints(num_features);
+  FeatureDescriptors top_scale_descriptors(num_features, descriptors->cols());
   for (size_t i = 0; i < num_features; ++i) {
     top_scale_keypoints[i] = (*keypoints)[scales[i].first];
     top_scale_descriptors.row(i) = descriptors->row(scales[i].first);
   }
 
-  *keypoints = top_scale_keypoints;
-  *descriptors = top_scale_descriptors;
+  *keypoints = std::move(top_scale_keypoints);
+  *descriptors = std::move(top_scale_descriptors);
 }
 
 }  // namespace colmap

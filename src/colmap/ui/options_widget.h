@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_OPTIONS_WIDGET_H_
-#define COLMAP_SRC_UI_OPTIONS_WIDGET_H_
+#pragma once
 
 #include <QtCore>
 #include <QtWidgets>
@@ -50,20 +49,20 @@ class OptionsWidget : public QWidget {
 
   QSpinBox* AddOptionInt(int* option,
                          const std::string& label_text,
-                         const int min = 0,
-                         const int max = static_cast<int>(1e7));
+                         int min = 0,
+                         int max = static_cast<int>(1e7));
   QDoubleSpinBox* AddOptionDouble(double* option,
                                   const std::string& label_text,
-                                  const double min = 0,
-                                  const double max = 1e7,
-                                  const double step = 0.01,
-                                  const int decimals = 2);
+                                  double min = 0,
+                                  double max = 1e7,
+                                  double step = 0.01,
+                                  int decimals = 2);
   QDoubleSpinBox* AddOptionDoubleLog(double* option,
                                      const std::string& label_text,
-                                     const double min = 0,
-                                     const double max = 1e7,
-                                     const double step = 0.01,
-                                     const int decimals = 2);
+                                     double min = 0,
+                                     double max = 1e7,
+                                     double step = 0.01,
+                                     int decimals = 2);
   QCheckBox* AddOptionBool(bool* option, const std::string& label_text);
   QLineEdit* AddOptionText(std::string* option, const std::string& label_text);
   QLineEdit* AddOptionFilePath(std::string* option,
@@ -106,5 +105,3 @@ class OptionsWidget : public QWidget {
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_OPTIONS_WIDGET_H_

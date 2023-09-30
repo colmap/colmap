@@ -29,13 +29,12 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UI_BUNDLE_ADJUSTMENT_WIDGET_H_
-#define COLMAP_SRC_UI_BUNDLE_ADJUSTMENT_WIDGET_H_
+#pragma once
 
-#include "colmap/base/reconstruction.h"
+#include "colmap/controllers/option_manager.h"
+#include "colmap/scene/reconstruction.h"
 #include "colmap/ui/options_widget.h"
 #include "colmap/ui/thread_control_widget.h"
-#include "colmap/util/option_manager.h"
 
 #include <QtCore>
 #include <QtWidgets>
@@ -48,7 +47,7 @@ class BundleAdjustmentWidget : public OptionsWidget {
  public:
   BundleAdjustmentWidget(MainWindow* main_window, OptionManager* options);
 
-  void Show(Reconstruction* reconstruction);
+  void Show(std::shared_ptr<Reconstruction> reconstruction);
 
  private:
   void Run();
@@ -56,11 +55,9 @@ class BundleAdjustmentWidget : public OptionsWidget {
 
   MainWindow* main_window_;
   OptionManager* options_;
-  Reconstruction* reconstruction_;
+  std::shared_ptr<Reconstruction> reconstruction_;
   ThreadControlWidget* thread_control_widget_;
   QAction* render_action_;
 };
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UI_BUNDLE_ADJUSTMENT_WIDGET_H_

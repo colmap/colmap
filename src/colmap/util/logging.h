@@ -29,8 +29,7 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
-#ifndef COLMAP_SRC_UTIL_LOGGING_H_
-#define COLMAP_SRC_UTIL_LOGGING_H_
+#pragma once
 
 #include "colmap/util/string.h"
 
@@ -76,8 +75,8 @@ void InitializeGlog(char** argv);
 const char* __GetConstFileBaseName(const char* file);
 
 bool __CheckOptionImpl(const char* file,
-                       const int line,
-                       const bool result,
+                       int line,
+                       bool result,
                        const char* expr_str);
 
 template <typename T1, typename T2>
@@ -106,5 +105,3 @@ bool __CheckOptionOpImpl(const char* file,
 }
 
 }  // namespace colmap
-
-#endif  // COLMAP_SRC_UTIL_LOGGING_H_
