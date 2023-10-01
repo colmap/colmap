@@ -27,7 +27,6 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-
 #include "colmap/estimators/generalized_pose.h"
 
 #include "colmap/estimators/bundle_adjustment.h"
