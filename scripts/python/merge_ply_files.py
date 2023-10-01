@@ -60,11 +60,11 @@ def main():
 
     print("Merging files")
     merged_file = np.concatenate(files, -1)
-    merged_el = plyfile.PlyElement.describe(merged_file, 'vertex')
+    merged_el = plyfile.PlyElement.describe(merged_file, "vertex")
 
     print("Writing merged file")
     plyfile.PlyData([merged_el]).write(args.merged_path)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

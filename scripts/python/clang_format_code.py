@@ -53,9 +53,10 @@ def main():
             name, ext = os.path.splitext(f)
             if ext.lower() in exts:
                 file_path = os.path.join(root, f)
-                proc = subprocess.Popen(["clang-format", "--style",
-                                         args.style, file_path],
-                                        stdout=subprocess.PIPE)
+                proc = subprocess.Popen(
+                    ["clang-format", "--style", args.style, file_path],
+                    stdout=subprocess.PIPE,
+                )
 
                 text = "".join(proc.stdout)
 

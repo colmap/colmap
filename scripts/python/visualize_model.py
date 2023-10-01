@@ -61,8 +61,9 @@ class Model:
 
         # remove obvious outliers
         if remove_statistical_outlier:
-            [pcd, _] = pcd.remove_statistical_outlier(nb_neighbors=20,
-                                                      std_ratio=2.0)
+            [pcd, _] = pcd.remove_statistical_outlier(
+                nb_neighbors=20, std_ratio=2.0
+            )
 
         # open3d.visualization.draw_geometries([pcd])
         self.__vis.add_geometry(pcd)
@@ -89,7 +90,12 @@ class Model:
                 fx = fy = cam.params[0]
                 cx = cam.params[1]
                 cy = cam.params[2]
-            elif cam.model in ("PINHOLE", "OPENCV", "OPENCV_FISHEYE", "FULL_OPENCV"):
+            elif cam.model in (
+                "PINHOLE",
+                "OPENCV",
+                "OPENCV_FISHEYE",
+                "FULL_OPENCV",
+            ):
                 fx = cam.params[0]
                 fy = cam.params[1]
                 cx = cam.params[2]
@@ -123,8 +129,7 @@ class Model:
         self.__vis.destroy_window()
 
 
-def draw_camera(K, R, t, w, h,
-                scale=1, color=[0.8, 0.2, 0.8]):
+def draw_camera(K, R, t, w, h, scale=1, color=[0.8, 0.2, 0.8]):
     """Create axis, plane and pyramed geometries in Open3D format.
     :param K: calibration matrix (camera intrinsics)
     :param R: rotation matrix
@@ -145,7 +150,9 @@ def draw_camera(K, R, t, w, h,
     T = np.vstack((T, (0, 0, 0, 1)))
 
     # axis
-    axis = open3d.geometry.TriangleMesh.create_coordinate_frame(size=0.5 * scale)
+    axis = open3d.geometry.TriangleMesh.create_coordinate_frame(
+        size=0.5 * scale
+    )
     axis.transform(T)
 
     # points in pixel
@@ -179,7 +186,8 @@ def draw_camera(K, R, t, w, h,
     colors = [color for i in range(len(lines))]
     line_set = open3d.geometry.LineSet(
         points=open3d.utility.Vector3dVector(points_in_world),
-        lines=open3d.utility.Vector2iVector(lines))
+        lines=open3d.utility.Vector2iVector(lines),
+    )
     line_set.colors = open3d.utility.Vector3dVector(colors)
 
     # return as list in Open3D format
@@ -187,10 +195,18 @@ def draw_camera(K, R, t, w, h,
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Visualize COLMAP binary and text models")
-    parser.add_argument("--input_model", required=True, help="path to input model folder")
-    parser.add_argument("--input_format", choices=[".bin", ".txt"],
-                        help="input model format", default="")
+    parser = argparse.ArgumentParser(
+        description="Visualize COLMAP binary and text models"
+    )
+    parser.add_argument(
+        "--input_model", required=True, help="path to input model folder"
+    )
+    parser.add_argument(
+        "--input_format",
+        choices=[".bin", ".txt"],
+        help="input model format",
+        default="",
+    )
     args = parser.parse_args()
     return args
 
