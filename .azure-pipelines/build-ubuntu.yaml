@@ -33,9 +33,10 @@ jobs:
   - ${{ if eq(parameters.checkCodeFormat, true) }}:
     - script: |
         set +x -euo pipefail
-        sudo apt-get install -y clang-format-14
-        ./scripts/shell/clang_format.sh
-        git diff --name-only | xargs -r printf "##vso[task.LogIssue type=error;sourcepath=%s;linenumber=1;columnnumber=1;]Invalid code format, run scripts/shell/clang_format.sh\n"
+        sudo apt-get install -y clang-format-14 black
+        ./scripts/format/clang_format.sh
+        ./scripts/format/black.sh
+        git diff --name-only | xargs -r printf "##vso[task.LogIssue type=error;sourcepath=%s;linenumber=1;columnnumber=1;]Invalid code format, run scripts/format/*.sh\n"
         git diff --exit-code || echo "##vso[task.complete result=Failed;]"
       displayName: Check code format
 

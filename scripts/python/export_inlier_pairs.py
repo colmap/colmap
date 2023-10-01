@@ -58,15 +58,15 @@ def main():
 
     # Get a mapping between image ids and image names
     image_id_to_name = dict()
-    cursor.execute('SELECT image_id, name FROM images;')
+    cursor.execute("SELECT image_id, name FROM images;")
     for row in cursor:
         image_id = row[0]
         name = row[1]
         image_id_to_name[image_id] = name
 
     # Iterate over entries in the two_view_geometries table
-    output = open(args.match_list_path, 'w')
-    cursor.execute('SELECT pair_id, rows FROM two_view_geometries;')
+    output = open(args.match_list_path, "w")
+    cursor.execute("SELECT pair_id, rows FROM two_view_geometries;")
     for row in cursor:
         pair_id = row[0]
         rows = row[1]
